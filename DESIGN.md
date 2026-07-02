@@ -98,4 +98,4 @@ Der Akzent (`--color-accent*`) und optional Logo/Name werden pro Mandant übersc
 
 ## Bezug zum MVP
 
-UI ist **nicht** der kritische Pfad — die Engine ist es. Design-Tokens einmal sauber anlegen, dann UI-Feintuning zurückstellen, bis die Rechenlogik gegen Martins echten Referenzfall validiert ist. Reihenfolge bleibt: Engine + Tests → öffentlicher Rechner → Report → Portal.
+Der **engine-unabhängige UI-Teil** (Designsystem, Marketing, 4-Schritt-Gerüst, Formulare, Worker-Harness gegen den gemockten Contract) läuft **parallel zur Engine** (Pflichtenheft §9) — Design-Tokens von Anfang an sauber angelegt, nicht zurückgestellt. Was gated ist: der **Report mit echten Zahlen** wird erst nach dem getesteten Engine-Kern verdrahtet (M1-Gate, §3.11) — nicht erst nach Martins Validierung. Diese blockiert nur belastbare ROI-Aussagen gegenüber echten Kunden, nicht den Bau der UI.

@@ -24,8 +24,19 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # Pflicht — brechen den PR, bevor er gemergt wird:
+      - name: Lint (root-weit, alle Packages)
+        run: pnpm lint
+
+      - name: Typecheck (tsc --noEmit je Paket)
+        run: pnpm typecheck
+
       - name: Test engine
         run: pnpm --filter engine test
 
       - name: Test shared
         run: pnpm --filter shared test
+
+      # UI-Gate: ein PR, der website/portal bricht, wird hier rot — nicht erst auf Vercel.
+      - name: Build apps (website + portal)
+        run: pnpm --filter website build && pnpm --filter portal build
