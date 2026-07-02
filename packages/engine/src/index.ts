@@ -1,3 +1,3 @@
-// Platzhalter — die Rechen-Engine (Herzstück, §3) wird ab Prompt 1 implementiert.
-// Bewusst leer: im Scaffold keine Fachlogik. Erst Typen (§3.1), dann Logik + Tests (§3.11), dann UI.
-export {}
+// Rechen-Engine (§3). Erster Baustein: Parser + Lastgang-Aufbereitung (§3.2/§3.3).
+// TariffStrategy (3a), SoC-Simulation (3b) und ROI folgen in späteren Prompts.
+export * from './parser'
