@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   batteryCandidateSchema,
+  financialParamsSchema,
   loadProfileSchema,
   simulationConfigSchema,
   tariffParamsSchema,
@@ -100,6 +101,31 @@ describe('tariffParamsSchema', () => {
   it('lehnt ein fehlendes Pflichtfeld (leistungspreisEurPerKwYear) ab', () => {
     const { leistungspreisEurPerKwYear: _omit, ...rest } = valid
     expect(tariffParamsSchema.safeParse(rest).success).toBe(false)
+  })
+})
+
+describe('financialParamsSchema', () => {
+  // Konvention: Prozent 0–100, NICHT Anteil 0–1. Der Upper-Bound fängt den
+  // Faktor-100-Fehler (0,3 → 30 statt 300) an der Boundary ab.
+  it('akzeptiert einen Prozentwert wie 30', () => {
+    expect(financialParamsSchema.parse({ subsidyPercent: 30 })).toEqual({ subsidyPercent: 30 })
+  })
+
+  it('akzeptiert die Ränder 0 und 100', () => {
+    expect(financialParamsSchema.safeParse({ subsidyPercent: 0 }).success).toBe(true)
+    expect(financialParamsSchema.safeParse({ subsidyPercent: 100 }).success).toBe(true)
+  })
+
+  it('lehnt einen Faktor-100-Fehler (300) ab', () => {
+    expect(financialParamsSchema.safeParse({ subsidyPercent: 300 }).success).toBe(false)
+  })
+
+  it('erzwingt die 0–100-Grenze auf allen *Percent-Feldern', () => {
+    expect(financialParamsSchema.safeParse({ taxRatePercent: 300 }).success).toBe(false)
+    expect(financialParamsSchema.safeParse({ investitionsfreibetragPercent: 300 }).success).toBe(
+      false,
+    )
+    expect(financialParamsSchema.safeParse({ taxRatePercent: 30 }).success).toBe(true)
   })
 })
 

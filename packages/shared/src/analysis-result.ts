@@ -34,18 +34,27 @@ export type DispatchTrace = {
     caught: boolean
   }>
   /**
-   * Chart 3 (Tages-Energiefluss): ein oder mehrere repräsentative Tage in voller
-   * 15-min-Auflösung. Batterieleistung + SoC sind Simulations-Interna und NUR hier
-   * verfügbar; die übrigen Charts kommen ohne Rohreihe aus.
+   * Chart 3 (Tages-Energiefluss): repräsentative Tage in voller 15-min-Auflösung.
+   * Batterieleistung + SoC sind Simulations-Interna und NUR hier verfügbar; die
+   * übrigen Charts kommen ohne Rohreihe aus.
+   *
+   * Deterministische Auswahl (PROVISORISCH markiert, aber NICHT ermessensoffen —
+   * die Auswahl ist eine fachliche Aussage, keine UI-Kosmetik; U2 trifft sie nicht still):
+   * - `label: 'worst_caught_peak'` — PFLICHT: der Tag der teuersten ABGEFANGENEN Spitze.
+   *   Zeigt den Peak-Shaving-Kernfall (die Batterie fängt die teuerste Spitze ab).
+   * - `label: 'pv_strong'` — OPTIONAL: ein PV-starker Tag für den Eigenverbrauchs-Fall.
+   * Reihenfolge/Vorhandensein: der Pflicht-Tag ist immer enthalten; der PV-Tag nur,
+   * wenn ein PvProfile bzw. Einspeisung vorliegt.
    */
   representativeDays: Array<{
     date: string // ISO-Datum des Tages
-    label: string // z.B. 'worst_peak' | 'typical'
+    label: 'worst_caught_peak' | 'pv_strong'
     intervals: Array<{
       ts: string
       gridPowerKw: number // nach Batterie
       pvGenerationKw: number
-      batteryPowerKw: number // Vorzeichen-Konvention (+laden/−entladen) PROVISORISCH
+      /** Vorzeichen-Konvention: **+ = laden, − = entladen** (verhindert spiegelverkehrten Fluss in U2). */
+      batteryPowerKw: number
       socKwh: number
     }>
   }>
