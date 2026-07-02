@@ -1,5 +1,6 @@
 import js from '@eslint/js'
 import nextPlugin from '@next/eslint-plugin-next'
+import reactHooks from 'eslint-plugin-react-hooks'
 import globals from 'globals'
 import tseslint from 'typescript-eslint'
 import prettier from 'eslint-config-prettier'
@@ -32,14 +33,17 @@ export default tseslint.config(
     },
   },
   {
-    // Next.js-Regeln nur für die Apps.
+    // Next.js- + React-Hooks-Regeln nur für die Apps.
     files: ['apps/**/*.{ts,tsx}'],
-    plugins: { '@next/next': nextPlugin },
+    plugins: { '@next/next': nextPlugin, 'react-hooks': reactHooks },
     rules: {
       ...nextPlugin.configs.recommended.rules,
       ...nextPlugin.configs['core-web-vitals'].rules,
       // App Router (kein pages/-Verzeichnis) — Regel ist gegenstandslos.
       '@next/next/no-html-link-for-pages': 'off',
+      // Hooks-Korrektheit hart erzwingen (Rules of Hooks + vollständige Dependencies).
+      'react-hooks/rules-of-hooks': 'error',
+      'react-hooks/exhaustive-deps': 'error',
     },
   },
   prettier,
