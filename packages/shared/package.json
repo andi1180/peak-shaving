@@ -18,6 +18,9 @@
     "test:watch": "vitest",
     "lint": "eslint ."
   },
+  "dependencies": {
+    "zod": "^3.24.1"
+  },
   "devDependencies": {
     "typescript": "^5.7.3",
     "vitest": "^3.0.2"

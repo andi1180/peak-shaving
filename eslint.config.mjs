@@ -23,6 +23,13 @@ export default tseslint.config(
     languageOptions: {
       globals: { ...globals.node, ...globals.browser },
     },
+    rules: {
+      // Underscore-Prefix als bewusstes „ungenutzt", Rest-Siblings zum Auslassen von Feldern.
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_', ignoreRestSiblings: true },
+      ],
+    },
   },
   {
     // Next.js-Regeln nur für die Apps.
