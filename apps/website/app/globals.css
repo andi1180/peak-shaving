@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 /*
- * Design-Tokens — 1:1 aus DESIGN.md.
+ * Design-Tokens — 1:1 aus DESIGN.md. DIESE Variablen sind die Wahrheit.
  * Akzent (--color-accent*) ist White-Label-überschreibbar; semantische Farben
  * (positive/negative/warning) bleiben mandantenübergreifend konstant.
  * Fonts (--font-sans / --font-mono) setzt next/font in app/layout.tsx.
@@ -28,10 +28,48 @@
   --color-positive: #15803d; /* Grün – Ersparnis */
   --color-negative: #b91c1c; /* Rot – Kosten */
   --color-warning: #b45309; /* Bernstein – Warnhinweise */
+
+  /* Kontrast-Paarung (kein Branding, reine Lesbarkeit auf Akzent/Signalflächen) */
+  --color-on-accent: #ffffff;
+
+  /*
+   * shadcn/ui-Bridge — mappt die shadcn-Konvention (bg-primary, text-muted-foreground …)
+   * auf die DESIGN.md-Tokens oben. KEIN eigenes Theme: nur Aliasse, damit die Primitives
+   * unverändert unsere Wahrheit rendern und `shadcn add` später weiter funktioniert.
+   * Bewusst volle Farbwerte (kein hsl()-Wrapping) — die Tailwind-Farben zeigen direkt hierauf.
+   */
+  --background: var(--color-surface);
+  --foreground: var(--color-text);
+  --card: var(--color-surface);
+  --card-foreground: var(--color-text);
+  --popover: var(--color-surface);
+  --popover-foreground: var(--color-text);
+  --primary: var(--color-accent);
+  --primary-foreground: var(--color-on-accent);
+  --secondary: var(--color-surface-alt);
+  --secondary-foreground: var(--color-ink);
+  --muted: var(--color-surface-alt);
+  --muted-foreground: var(--color-text-muted);
+  --accent-ui: var(
+    --color-accent-subtle
+  ); /* shadcn „accent" = dezente Hover-Fläche, NICHT die Marke */
+  --accent-ui-foreground: var(--color-ink);
+  --destructive: var(--color-negative);
+  --destructive-foreground: var(--color-on-accent);
+  --border-ui: var(--color-border);
+  --input: var(--color-border);
+  --ring: var(--color-accent);
+
+  --radius: 0.5rem; /* 8px — DESIGN.md rounded-lg / 4-8-12-16 Raster */
 }
 
-body {
-  background: var(--color-surface);
-  color: var(--color-text);
-  font-family: var(--font-sans), system-ui, sans-serif;
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+  body {
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans), system-ui, sans-serif;
+  }
 }
