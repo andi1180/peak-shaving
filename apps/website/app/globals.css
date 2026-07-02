@@ -1,0 +1,37 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Design-Tokens — 1:1 aus DESIGN.md.
+ * Akzent (--color-accent*) ist White-Label-überschreibbar; semantische Farben
+ * (positive/negative/warning) bleiben mandantenübergreifend konstant.
+ * Fonts (--font-sans / --font-mono) setzt next/font in app/layout.tsx.
+ */
+:root {
+  /* Akzent (White-Label-überschreibbar) */
+  --color-accent: #0f766e; /* Teal 700 – energie-assoziiert, seriös */
+  --color-accent-hover: #0e6b64;
+  --color-accent-subtle: #f0fdfa; /* Teal 50 – Flächen/Callouts */
+
+  /* Ink / Text */
+  --color-ink: #0f172a; /* Slate 900 – Überschriften, primärer Text */
+  --color-text: #1e293b; /* Slate 800 – Fließtext */
+  --color-text-muted: #475569; /* Slate 600 – Sekundärtext */
+
+  /* Flächen / Struktur */
+  --color-surface: #ffffff;
+  --color-surface-alt: #f8fafc; /* Slate 50 – Karten-/Zeilen-Hintergrund */
+  --color-border: #e2e8f0; /* Slate 200 */
+
+  /* Semantisch – NUR für Zahlen mit Bedeutung (Information, kein Dekor) */
+  --color-positive: #15803d; /* Grün – Ersparnis */
+  --color-negative: #b91c1c; /* Rot – Kosten */
+  --color-warning: #b45309; /* Bernstein – Warnhinweise */
+}
+
+body {
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-family: var(--font-sans), system-ui, sans-serif;
+}
