@@ -8,6 +8,7 @@ import {
   drawSeries,
   intervalHours,
   periodIndexByInterval,
+  periodSlotCount,
   startSoc,
   toPhysics,
 } from './helpers'
@@ -41,8 +42,17 @@ export type BatterySimulationResult = {
  *   4. Neuer abgerechneter kW-Wert = TariffStrategy (§3.5) auf dem gekappten Profil (`gridAfterKw`).
  *
  * PV wird hier NICHT über ein separates `PvProfile` verdrahtet — es zählt allein der (ggf. bereits
- * PV-behaftete) signierte `LoadProfile.gridPowerKw`. Kein `controlType`-Branching: §3.6/§3.6.1 sind
- * controlType-unabhängige Physik; die static/dynamic-Zuschreibung ist §3.7.
+ * PV-behaftete) signierte `LoadProfile.gridPowerKw`.
+ *
+ * `controlType` (Martins bestätigte Semantik, OP#5) ist eine Frage der STEUERUNGS-Konfiguration,
+ * nicht der Batteriezelle, und wählt hier — im Orchestrator — die Kappungs-Konfiguration:
+ *   • `dynamic` → Spitzenkappung (reaktiv/prädiktiv): Kapp-Suche (§3.6.1) + Spitzen-Reserve (§3.6).
+ *   • `static`  → NUR Eigenverbrauch/Lastverschiebung, KEINE Spitzenkappung → keine Kapp-Schwelle
+ *     (`cap = ∞` je Slot) und damit reserve-frei (`socFloor ≡ 0`): die volle Kapazität steht dem
+ *     Eigenverbrauch zur Verfügung (nicht durch eine Spitzen-Reserve gebunden).
+ * Die Kern-Physik-Primitiven (`searchCaps`/`computeSocFloor`/`runCombinedDispatch`) bleiben
+ * controlType-agnostisch — sie bekommen Caps/Reserve als Eingabe; NUR dieser Orchestrator entscheidet,
+ * welche er ihnen für `static` vs. `dynamic` reicht. Die Ersparnis-Zuschreibung folgt in §3.7.
  */
 export function simulateBattery(
   loadProfile: LoadProfile,
@@ -53,13 +63,20 @@ export function simulateBattery(
   const deltaH = intervalHours(loadProfile)
   const draws = drawSeries(loadProfile)
   const periodOfInterval = periodIndexByInterval(loadProfile, tariffParams.billingModel)
+  const isStatic = battery.controlType === 'static'
 
-  // 1. Kapp-Suche (§3.6.1).
-  const { capKwByPeriod } = searchCaps(loadProfile, physics, tariffParams.billingModel)
+  // 1. Kapp-Suche (§3.6.1). `static` kappt keine Spitzen → `cap = ∞` je Contract-Slot (nie eine Spitze
+  //    gekappt); `dynamic` sucht die niedrigste machbare Schwelle je Periode.
+  const capKwByPeriod = isStatic
+    ? new Array<number>(periodSlotCount(tariffParams.billingModel)).fill(Infinity)
+    : searchCaps(loadProfile, physics, tariffParams.billingModel).capKwByPeriod
   const capForInterval = capForIntervalSeries(capKwByPeriod, periodOfInterval)
 
-  // 2. Spitzen-Reserve (§3.6-Kasten).
-  const socFloorKwh = computeSocFloor(draws, capForInterval, physics, deltaH)
+  // 2. Spitzen-Reserve (§3.6-Kasten). Bei `cap = ∞` ergäbe `computeSocFloor` ohnehin überall 0; für
+  //    `static` setzen wir die reserve-freie Trajektorie direkt (kein Rückwärts-Pass nötig).
+  const socFloorKwh = isStatic
+    ? new Array<number>(draws.length).fill(0)
+    : computeSocFloor(draws, capForInterval, physics, deltaH)
 
   // 3. Kombinierter Dispatch (§3.6). Günstige Tarif-Fenster (§3.7 Schritt 5a) steuern das
   //    tarifbewusste Laden; ohne Fenster ist `isCheapWindow` überall false → reiner Spitzenschutz.

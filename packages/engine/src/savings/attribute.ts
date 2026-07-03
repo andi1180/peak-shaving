@@ -131,10 +131,14 @@ export function computeBatterySavings(
   const selfConsumptionSavingPerYear = (pvSelfConsumedKwh * pvSelfConsumptionCtPerKwh) / 100
   const loadShiftSavingPerYear = loadShiftCtKwh / 100
 
-  // ── controlType-Default (§3.6/§3.7, fixiert) ────────────────────────────────────────────────────
-  // 'dynamic' → volle Kreditierung der Spitzenkappung. 'static' → nicht kreditiert: eine statische
-  // Residential-Batterie garantiert keine vorausschauende Kappung, daher wird der neue billedKw NICHT
-  // als Ersparnis ausgewiesen (newBilledKw = alter Wert, leistungspreisSaving = 0) + Warnung.
+  // ── controlType-Zuschreibung (§3.6/§3.7; Martins Semantik, OP#5) ─────────────────────────────────
+  // controlType ist eine Frage der STEUERUNGS-Konfiguration, nicht der Batteriezelle.
+  //  • 'dynamic' → Spitzenkappung: voller Leistungspreis-Anteil kreditiert (newBilledKw = gekappt).
+  //  • 'static'  → NUR Eigenverbrauch/Lastverschiebung, KEINE Spitzenkappung: `leistungspreisSaving = 0`
+  //    und newBilledKw = alter (ungekappter) Wert. Der zugrunde liegende Fahrplan ist bereits
+  //    reserve-frei simuliert (`simulateBattery`, cap = ∞ / socFloor ≡ 0 für static) → Eigenverbrauch
+  //    nutzt die volle Kapazität. Die drei Ersparnis-Töpfe oben stammen aus GENAU diesem Fahrplan, die
+  //    Nicht-Doppelzählung (Summe = total) gilt für static unverändert.
   const warnings: string[] = []
   let newBilledKw: number
   let leistungspreisSavingPerYear: number
@@ -142,10 +146,10 @@ export function computeBatterySavings(
     newBilledKw = oldBilledKw
     leistungspreisSavingPerYear = 0
     warnings.push(
-      'Statische Steuerung: Spitzenkappung nicht kreditiert (keine vorausschauende Regelung) — ' +
-        'nur Eigenverbrauch/Lastverschiebung ausgewiesen. Diese Werte sind unter derselben ' +
-        'Spitzen-Reserve (socFloor) simuliert wie bei dynamischer Steuerung und können daher ' +
-        'unterschätzt sein, falls eine echte statische Batterie diese Reserve nicht benötigt.',
+      'Statische Steuerung: nur Eigenverbrauch/Lastverschiebung, keine Spitzenkappung — der ' +
+        'Leistungspreis-Anteil wird nicht kreditiert. Mit zusätzlicher Steuerungshardware ' +
+        '(z. B. Smartfox/iHome Manager) auf Peak-Shaving aufrüstbar; die Kostenmodellierung dieser ' +
+        'Aufrüstung ist offen bis zum realen Katalog (OP#2).',
     )
   } else {
     newBilledKw = sim.newBilledKw

@@ -92,12 +92,17 @@ describe('§3.8 recommendBattery — Demo-Bäckerei × Dummy-Katalog', () => {
     expect(perBattery.some((p) => !p.warnings.some((w) => /Wechselrichter/i.test(w)))).toBe(true)
   })
 
-  it('static-Batterien im Katalog tragen weiterhin die (jetzt verlängerte) §3.7-Warnung', () => {
+  it('static-Batterien tragen die Martin-konforme §3.7-Warnung (reserve-frei, keine Spitzenkappung) und KEINE Leistungs-Warnung', () => {
     const staticEntries = perBattery.filter((p) => p.battery.controlType === 'static')
     expect(staticEntries.length).toBeGreaterThan(0)
     for (const p of staticEntries) {
+      // Kein Leistungspreis-Anteil (static kappt keine Spitzen).
       expect(p.leistungspreisSavingPerYear).toBe(0)
-      expect(p.warnings.some((w) => /statisch/i.test(w) && /socFloor|Reserve/i.test(w))).toBe(true)
+      // Neuer Warntext (OP#5): „statisch" + „keine Spitzenkappung"; KEIN socFloor/Reserve-Hinweis mehr.
+      expect(p.warnings.some((w) => /statisch/i.test(w) && /keine Spitzenkappung/i.test(w))).toBe(true)
+      expect(p.warnings.some((w) => /socFloor|Reserve/i.test(w))).toBe(false)
+      // Die „Leistung reicht nicht"-Warnung betrifft nur die Spitzenkappung → für static nie gesetzt.
+      expect(p.warnings.some((w) => /Leistung.*reicht nicht/i.test(w))).toBe(false)
     }
   })
 })

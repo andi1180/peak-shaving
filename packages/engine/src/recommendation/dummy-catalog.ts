@@ -6,12 +6,15 @@ import type { BatteryCandidate } from 'shared'
  * `recommendBattery` gegen eine plausible Mischung an Kandidaten. NICHT als reales Produktangebot
  * verwenden, NICHT in Worker/UI verdrahten.
  *
- * Mischung: 'residential' (klein, `static`) vs. 'commercial' (groß, `dynamic`) — passend zur
+ * Mischung: 'residential' (klein, meist `static`) vs. 'commercial' (groß, `dynamic`) — passend zur
  * Konvention in `packages/shared/battery.ts` („residential oft static, commercial dynamic").
- * `dummy-res-m10-lowpower` hat bewusst ein extrem niedriges `maxPowerKw` (1,5 kW) gegenüber dem
- * ~50-kW-Jahres-Peak des Demo-Bäckerei-Lastgangs, um die "Leistung reicht nicht"-Warnung (§3.8) zu
- * testen. `dummy-com-s40`/`dummy-com-l100` haben `requiresFoundation`; `dummy-res-m10-lowpower`/
- * `dummy-com-l100` haben `inverterIncluded: false`.
+ * `dummy-res-m10-lowpower` ist ein residential-Gerät MIT dynamischem Steuerungs-Add-on
+ * (`controlType: 'dynamic'` — per Martins Semantik, OP#5, via z. B. Smartfox/iHome Manager) und
+ * bewusst extrem niedrigem `maxPowerKw` (1,5 kW) gegenüber dem ~50-kW-Jahres-Peak des
+ * Demo-Bäckerei-Lastgangs, um die "Leistung reicht nicht"-Warnung (§3.8) zu testen — diese Warnung
+ * betrifft nur die Spitzenkappung, also ausschließlich `dynamic`-Kandidaten. `dummy-com-s40`/
+ * `dummy-com-l100` haben `requiresFoundation`; `dummy-res-m10-lowpower`/`dummy-com-l100` haben
+ * `inverterIncluded: false`.
  */
 export const DUMMY_BATTERY_CATALOG: BatteryCandidate[] = [
   {
@@ -39,7 +42,7 @@ export const DUMMY_BATTERY_CATALOG: BatteryCandidate[] = [
     inverterIncluded: false,
     extraInverterCost: 1800,
     requiresFoundation: false,
-    controlType: 'static',
+    controlType: 'dynamic', // residential + Steuerungs-Add-on → Spitzenkappung, aber leistungslimitiert
   },
   {
     id: 'dummy-res-l15',

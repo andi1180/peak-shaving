@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { BatteryCandidate, LoadProfile, TariffParams } from 'shared'
 
+import { simulateBattery } from '../simulation/simulate'
 import { computeBatterySavings } from './attribute'
 
 const STEP_MS = 15 * 60 * 1000
@@ -94,8 +95,8 @@ describe('§3.7 Attribution ohne Doppelzählung', () => {
   })
 })
 
-describe('§3.7 controlType-Default', () => {
-  it('static vs dynamic am identischen Profil: static kappt Leistungspreis auf 0 + Warnung, Rest unverändert', () => {
+describe('§3.7 controlType (Martins Semantik, OP#5)', () => {
+  it('static vs dynamic am identischen Profil: static kappt Leistungspreis auf 0 + reserve-freie Warnung', () => {
     const dyn = computeBatterySavings(lp, battery('dynamic'), withNightWindow)
     const stat = computeBatterySavings(lp, battery('static'), withNightWindow)
 
@@ -103,18 +104,66 @@ describe('§3.7 controlType-Default', () => {
     expect(dyn.leistungspreisSavingPerYear).toBeGreaterThan(0)
     expect(stat.leistungspreisSavingPerYear).toBe(0)
     expect(dyn.newBilledKw).toBeLessThan(stat.newBilledKw) // static: newBilledKw = alter (unkreditiert)
-    expect(stat.warnings.some((w) => /statisch/i.test(w))).toBe(true)
+
+    // Neuer Warntext (OP#5): keine Spitzenkappung; KEIN socFloor/Reserve-Hinweis mehr.
+    expect(stat.warnings.some((w) => /statisch/i.test(w) && /keine Spitzenkappung/i.test(w))).toBe(true)
+    expect(stat.warnings.some((w) => /socFloor|Reserve/i.test(w))).toBe(false)
     expect(dyn.warnings).toHaveLength(0)
 
-    // Eigenverbrauch & Lastverschiebung stammen aus DEMSELBEN (controlType-unabhängigen) Fahrplan → identisch.
-    expect(stat.selfConsumptionSavingPerYear).toBeCloseTo(dyn.selfConsumptionSavingPerYear, 10)
-    expect(stat.loadShiftSavingPerYear).toBeCloseTo(dyn.loadShiftSavingPerYear, 10)
-
-    // total(static) = total(dynamic) − Leistungspreis-Anteil.
+    // Eigenverbrauch/Lastverschiebung: static ist reserve-frei simuliert (volle Kapazität) → NICHT unter
+    // die dynamische (durch die Spitzen-Reserve gebundene) Zuschreibung. total(static) = Σ der drei Töpfe.
+    expect(stat.selfConsumptionSavingPerYear).toBeGreaterThanOrEqual(dyn.selfConsumptionSavingPerYear - 1e-9)
     expect(stat.totalSavingPerYear).toBeCloseTo(
-      dyn.totalSavingPerYear - dyn.leistungspreisSavingPerYear,
+      stat.selfConsumptionSavingPerYear + stat.loadShiftSavingPerYear,
       10,
     )
+  })
+
+  it('static reserve-frei (OP#5): Eigenverbrauch/Lastverschiebung ≥ alte reservierte Zuschreibung + Summe = total exakt', () => {
+    // NEU: static läuft reserve-frei (simulateBattery mit cap = ∞ / socFloor ≡ 0).
+    const free = computeBatterySavings(lp, battery('static'), withNightWindow)
+
+    // ALT (zum Vergleich reproduziert): dieselbe static-Batterie, aber gegen einen MIT Spitzen-Reserve
+    // gerechneten Fahrplan gebucht — das war das frühere Verhalten (static lief durch die volle,
+    // reservierte Simulation, danach nur Leistungspreis auf 0). Wir erzeugen den reservierten Fahrplan
+    // über die dynamische Physik und buchen ihn für die static-Batterie.
+    const reservedSim = simulateBattery(lp, { ...battery('static'), controlType: 'dynamic' }, withNightWindow)
+    const reserved = computeBatterySavings(lp, battery('static'), withNightWindow, reservedSim)
+
+    const freeEvLs = free.selfConsumptionSavingPerYear + free.loadShiftSavingPerYear
+    const reservedEvLs = reserved.selfConsumptionSavingPerYear + reserved.loadShiftSavingPerYear
+
+    console.log(
+      `[§3.7/OP#5 static reserve-frei] Eigenverbrauch+Lastverschiebung ` +
+        `NEU(reserve-frei)=€${freeEvLs.toFixed(2)} ` +
+        `(EV €${free.selfConsumptionSavingPerYear.toFixed(2)} + LS €${free.loadShiftSavingPerYear.toFixed(2)}) ` +
+        `vs. ALT(mit Reserve)=€${reservedEvLs.toFixed(2)} ` +
+        `(EV €${reserved.selfConsumptionSavingPerYear.toFixed(2)} + LS €${reserved.loadShiftSavingPerYear.toFixed(2)}) ` +
+        `→ Delta €${(freeEvLs - reservedEvLs).toFixed(2)}`,
+    )
+
+    // Reserve-frei gibt dem Eigenverbrauch die volle Kapazität → nie schlechter als mit Reserve.
+    expect(freeEvLs).toBeGreaterThanOrEqual(reservedEvLs - 1e-9)
+    // Für dieses Profil (90-kW-Spitze bindet Reserve vor der Spitze) ist es echt mehr, kein Grenzfall.
+    expect(freeEvLs).toBeGreaterThan(reservedEvLs + 1)
+
+    // Nicht-Doppelzählung bleibt für static exakt (leistungspreis = 0).
+    expect(free.leistungspreisSavingPerYear).toBe(0)
+    expect(free.totalSavingPerYear).toBeCloseTo(
+      free.leistungspreisSavingPerYear + free.selfConsumptionSavingPerYear + free.loadShiftSavingPerYear,
+      10,
+    )
+  })
+
+  it('dynamic-Pfad unberührt (OP#5): bit-identische Zahlen wie vor der static-Änderung', () => {
+    // Baseline vor der Änderung erfasst (dynamic, withNightWindow, Batterie 100 kWh/50 kW/η0,9).
+    // Der static-Fix fasst den dynamic-Zweig NICHT an → diese Zahlen müssen exakt erhalten bleiben.
+    const dyn = computeBatterySavings(lp, battery('dynamic'), withNightWindow)
+    expect(dyn.newBilledKw).toBeCloseTo(40.00001907348633, 8)
+    expect(dyn.leistungspreisSavingPerYear).toBeCloseTo(4999.998092651367, 6)
+    expect(dyn.selfConsumptionSavingPerYear).toBeCloseTo(104.04, 8)
+    expect(dyn.loadShiftSavingPerYear).toBeCloseTo(110.50000495910645, 8)
+    expect(dyn.totalSavingPerYear).toBeCloseTo(5214.538097610473, 6)
   })
 })
 

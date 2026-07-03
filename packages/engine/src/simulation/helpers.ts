@@ -11,9 +11,11 @@ export const clamp = (x: number, lo: number, hi: number): number => Math.min(Mat
 
 /**
  * Die physikalischen Batteriegrößen, auf denen §3.6 rechnet — Leistung (kW) UND Energie (kWh)
- * plus Wirkungsgrad. Bewusst eine Teilmenge von `BatteryCandidate`: der Rechenkern braucht weder
- * Preis noch Klasse noch `controlType` (§3.6/§3.6.1 sind controlType-unabhängige Physik — die
- * Zuschreibung von Ersparnis-Anteilen zu static/dynamic ist §3.7, nicht dieser Baustein).
+ * plus Wirkungsgrad. Bewusst eine Teilmenge von `BatteryCandidate`: die Physik-Primitiven brauchen
+ * weder Preis noch Klasse noch `controlType`. Sie rechnen controlType-agnostisch auf Caps/Reserve als
+ * Eingabe; NUR der Orchestrator `simulateBattery` liest `controlType` (aus dem vollen `BatteryCandidate`)
+ * und wählt daraus die Kappungs-Konfiguration — `static` reserve-frei (`cap=∞`/`socFloor≡0`), s. OP#5.
+ * Die Zuschreibung der Ersparnis-Anteile zu static/dynamic ist §3.7, nicht dieser Baustein.
  */
 export type BatteryPhysics = Pick<
   BatteryCandidate,

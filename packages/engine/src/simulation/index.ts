@@ -1,7 +1,9 @@
 // SoC-Simulation, Kapp-Schwellen-Suche & Spitzen-Reserve (§3.6/§3.6.1). Reine, deterministische
-// Physik — controlType-unabhängig (static/dynamic-Zuschreibung ist §3.7), kein I/O, keine PvProfile-
-// Verdrahtung. Der kombinierte Dispatch zu benannten Ersparnis-Feldern (§3.7), die Empfehlung (§3.8)
-// und die Worker-/UI-Verdrahtung sind eigene, hier NICHT enthaltene Bausteine.
+// Physik, kein I/O, keine PvProfile-Verdrahtung. Die Primitiven (searchCaps/computeSocFloor/
+// runCombinedDispatch) sind controlType-agnostisch; der `simulateBattery`-Orchestrator wählt die
+// Kappungs-Konfiguration je controlType (`static` = reserve-frei, keine Spitzenkappung — OP#5). Die
+// Ersparnis-Zuschreibung (§3.7), die Empfehlung (§3.8) und die Worker-/UI-Verdrahtung sind eigene,
+// hier NICHT enthaltene Bausteine.
 export { simulateBattery } from './simulate'
 export type { BatterySimulationResult } from './simulate'
 export { searchCaps, searchCapForPeriod } from './cap-search'
