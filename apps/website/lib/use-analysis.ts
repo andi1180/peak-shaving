@@ -9,7 +9,8 @@ export type AnalysisStatus = 'idle' | 'running' | 'done' | 'error'
 
 /**
  * Hook, der den Analyse-Worker verwaltet (spawn, Progress, Ergebnis, Cleanup).
- * Die Off-Main-Thread-Architektur ist real; im Worker sitzt vorerst der Mock (U1).
+ * Die Off-Main-Thread-Architektur ist real; im Worker sind `current`/`peaks` seit
+ * Prompt 4 echt berechnet, `perBattery`/`recommendation` sitzen weiter im Mock (§3.6-3.8).
  */
 export function useAnalysis() {
   const workerRef = useRef<Worker | null>(null)

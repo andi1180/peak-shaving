@@ -3,9 +3,13 @@ import type { AnalysisResult, BatteryCandidate, DispatchTrace } from 'shared'
 /*
  * ============================================================================
  *  MOCK — statisches AnalysisResult, das den Contract aus /packages/shared erfüllt.
- *  NUR für die UI-Hülle (U1). KEINE echte Rechnung. Zahlen sind erfunden und dürfen
- *  NICHT als belastbar dargestellt werden (siehe CLAUDE.md „Rechnung ist die Wahrheit").
- *  Prompt 4 ersetzt diesen Mock durch den echten Engine-Aufruf im Worker.
+ *  KEINE echte Rechnung. Zahlen sind erfunden und dürfen NICHT als belastbar dargestellt
+ *  werden (siehe CLAUDE.md „Rechnung ist die Wahrheit").
+ *  Seit Prompt 4 überschreibt `analysis.worker.ts` `current`/`peaks` (und Teile von
+ *  `assumptions`) mit dem echten Engine-Ergebnis — die hier definierten Werte für diese
+ *  Felder sind nur noch ein (ungenutzter) Fallback für die Typvollständigkeit dieses
+ *  Objekts. `perBattery`/`recommendation` kommen weiterhin unverändert aus diesem Mock,
+ *  bis §3.6-3.8 stehen.
  * ============================================================================
  */
 

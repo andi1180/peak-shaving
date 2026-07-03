@@ -1,3 +1,4 @@
+import { analyzeCurrentPeaks } from 'engine'
 import type { AnalysisResult } from 'shared'
 
 import { mockAnalysisResult } from './mock-analysis'
@@ -6,14 +7,16 @@ import type { AnalysisRequest, WorkerOutbound } from './analysis-protocol'
 /*
  * Analyse-Worker — läuft OFF-MAIN-THREAD (kein Tab-Freeze, §2.2/§5).
  *
- * ┌─ HARNESS-HINWEIS (Prompt 4 dockt HIER an) ────────────────────────────────┐
- * │ Aktuell sitzt hier eine MOCK-Funktion: bis auf dataQuality (echt vom       │
- * │ Parser) ignoriert sie den Payload und gibt nach kurzer künstlicher         │
- * │ Verzögerung das statische Mock-AnalysisResult zurück. Prompt 4 ersetzt     │
- * │ NUR den Rechen-Block unten durch den echten Engine-Aufruf                  │
- * │ (analyze(payload)) — die Nachrichten-/Progress-Verdrahtung bleibt          │
- * │ unverändert.                                                                │
- * └────────────────────────────────────────────────────────────────────────────┘
+ * ┌─ STAND (Prompt 4, TEILWEISE) ──────────────────────────────────────────────┐
+ * │ `current` + `peaks` (§3.4/§3.5) sind ECHT: `analyzeCurrentPeaks()` läuft   │
+ * │ gegen den echten geparsten Lastgang + die echten Tarifparameter aus dem    │
+ * │ Formular. `perBattery` + `recommendation` sind WEITER MOCK — die hängen an │
+ * │ der SoC-Simulation (§3.6), dem kombinierten Dispatch (§3.7) und dem        │
+ * │ Empfehlungs-Ranking (§3.8), die noch nicht gebaut sind (blockiert auf      │
+ * │ Martins Static-Control-Antwort). `dataQuality` ist bereits seit Prompt 2   │
+ * │ echt; `assumptions` übernimmt zusätzlich die realen Tarifwerte, wo das     │
+ * │ ohne SimulationConfig (horizonYears/roundTripEfficiency) möglich ist.      │
+ * └──────────────────────────────────────────────────────────────────────────┘
  */
 
 // `self` im Worker-Scope; als Worker getypt, um unter der DOM-lib ohne
@@ -28,11 +31,20 @@ ctx.onmessage = (event: MessageEvent<AnalysisRequest>) => {
   const msg = event.data
   if (!msg || msg.type !== 'run') return
 
-  // --- MOCK-Rechnung (Prompt 4: durch echten Engine-Aufruf ersetzen) ---
-  // Einzige Ausnahme: dataQuality kommt bereits jetzt echt vom Parser (Prompt 2) statt
-  // vom Mock — kostet hier nichts extra und macht Lücken/Warnungen beim Testen sichtbar.
+  // --- current/peaks: ECHTER Engine-Aufruf (§3.4/§3.5) ---
+  const { current, peaks } = analyzeCurrentPeaks(msg.payload.load.profile, msg.payload.tariff)
+
+  // --- perBattery/recommendation: weiter MOCK, bis §3.6-3.8 stehen ---
   const result: AnalysisResult = {
     ...mockAnalysisResult,
+    current,
+    peaks,
+    assumptions: {
+      ...mockAnalysisResult.assumptions,
+      billingModel: msg.payload.tariff.billingModel,
+      energyPriceCtPerKwh: msg.payload.tariff.energyPriceCtPerKwh,
+      einspeiseverguetungCtPerKwh: msg.payload.tariff.einspeiseverguetungCtPerKwh,
+    },
     dataQuality: msg.payload.load.dataQuality,
   }
 

@@ -15,8 +15,8 @@ export type ParsedLoad = {
   dataQuality: DataQuality
 }
 
-// Was der Worker/Engine bekommt. Die Berechnung selbst ist vorerst weiter gemockt
-// (Prompt 4 dockt in analysis.worker.ts an) — der Lastgang ist jetzt aber echt geparst.
+// Was der Worker/Engine bekommt. Seit Prompt 4 berechnet der Worker `current`/`peaks`
+// (§3.4/§3.5) echt daraus; `perBattery`/`recommendation` bleiben gemockt (§3.6-3.8).
 export type CalculatorPayload = TariffResult & {
   load: ParsedLoad
 }
