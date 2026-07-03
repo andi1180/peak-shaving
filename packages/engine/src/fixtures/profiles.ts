@@ -1,4 +1,4 @@
-import type { BatteryCandidate, LoadProfile, TariffParams } from 'shared'
+import type { BatteryCandidate, LoadProfile, PvProfile, TariffParams } from 'shared'
 
 /**
  * §3.11-Fixture-Generatoren — das M1-Gate braucht MINDESTENS drei synthetische Lastprofile
@@ -12,12 +12,13 @@ import type { BatteryCandidate, LoadProfile, TariffParams } from 'shared'
  * jeweils zu testende Zutat hinzu (PV bzw. HT/NT-Fenster), damit die drei Fälle direkt vergleichbar
  * bleiben (§3.11: "Basis + PV-Profil", "Basis + HT/NT-Tarif-Fenster").
  *
- * PV läuft — wie im gesamten MVP (§3.1, `simulation/simulate.ts`) — NICHT über ein separates
- * `PvProfile`, sondern als negativer (einspeisender) Anteil direkt im signierten `gridPowerKw`:
- * ein separates `PvProfile` ist im Contract optional und wird von keinem Baustein der Kette
- * (`simulateBattery`/`computeBatterySavings`/`recommendBattery`) konsumiert (nur `parsePvProfile`
- * produziert es, ungenutzt) — der Netz-Lastgang enthält die Einspeisung bereits (§3.1-Kommentar
- * im Pflichtenheft: "Der Netz-Lastgang enthält die Einspeisung bereits als kappbaren Überschuss").
+ * PV läuft in diesen §3.11-LASTGANG-Fixtures als negativer (einspeisender) Anteil direkt im signierten
+ * `gridPowerKw` — der Netz-Lastgang enthält die Einspeisung bereits (§3.1: "Der Netz-Lastgang enthält
+ * die Einspeisung bereits als kappbaren Überschuss"). SEIT der PvProfile-Kette wird ein separates
+ * `PvProfile` zusätzlich konsumiert (`simulateBattery`/`recommendBattery`/`buildDispatchTrace`), ändert
+ * aber NUR den Trace (echte Brutto-PV) + die Konsistenzprüfung, NICHT den Dispatch/die Ersparnis (der
+ * speicherbare Überschuss = Einspeisung steckt schon im Lastgang). Passende Brutto-PV-Fixtures dazu:
+ * `consistentPvProfile`/`inconsistentPvProfile` (unten).
  */
 
 const STEP_MS = 15 * 60 * 1000
@@ -69,6 +70,39 @@ export const basisLoadProfile = (): LoadProfile => buildProfile(false)
 
 /** Profil 2 (§3.11): Basis + PV — testet den Eigenverbrauchs-Pfad inkl. Spitzen-Reserve (Schritt 3–4). */
 export const basisWithPvLoadProfile = (): LoadProfile => buildProfile(true)
+
+/**
+ * Separate BRUTTO-PV-Profile für den PvProfile-Pfad (§3.1) — ausgerichtet auf `basisWithPvLoadProfile`.
+ * Dort exportiert der Lastgang `-PV_EXPORT_KW` (= 16 kW Einspeisung) an den Slots 56–63 (14–16 h),
+ * feed-in 0 sonst. Zeitzone UTC, 96 Slots/Tag, keine DST → `i % SLOTS_PER_DAY` = Slot-des-Tages.
+ */
+function buildPvProfile(grossKwAtPvSlots: number): PvProfile {
+  const lp = basisWithPvLoadProfile()
+  return {
+    readings: lp.readings.map((r, i) => {
+      const slotOfDay = i % SLOTS_PER_DAY
+      const gross = slotOfDay >= 56 && slotOfDay < 64 ? grossKwAtPvSlots : 0
+      return { ts: r.ts, pvGenerationKw: gross }
+    }),
+  }
+}
+
+/**
+ * KONSISTENTES Brutto-PV-Profil zu `basisWithPvLoadProfile`: 20 kW Brutto an den PV-Slots
+ * (≥ Einspeisung 16 kW) → PV-Eigenverbrauch 4 kW, abgeleiteter Verbrauch dort = −16 + 20 = 4 kW ≥ 0.
+ * Löst die §3.1-Konsistenz-Warnung NIE aus (`inconsistentSlots = 0`).
+ */
+export const consistentPvProfile = (): PvProfile => buildPvProfile(20)
+
+/**
+ * INKONSISTENTES Brutto-PV-Profil: nur 10 kW Brutto an den PV-Slots — UNTER der gemessenen
+ * Einspeisung 16 kW (physikalisch unmöglich). `alignPvGrossToLoad` klemmt auf 16 kW und zählt jeden
+ * betroffenen Slot: 8 PV-Slots/Tag × `N_DAYS` = 144 inkonsistente Slots.
+ */
+export const inconsistentPvProfile = (): PvProfile => buildPvProfile(10)
+
+/** Erwartete Anzahl inkonsistenter Slots im `inconsistentPvProfile` (8 PV-Slots/Tag × N_DAYS). */
+export const INCONSISTENT_PV_SLOTS = 8 * N_DAYS
 
 /**
  * Profil 3 (§3.11): Basis + HT/NT-Tarif-Fenster. Testet tarifbewusstes Laden (Schritt 5,

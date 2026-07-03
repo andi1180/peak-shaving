@@ -1,17 +1,25 @@
 import type { DataQuality } from 'engine'
-import type { FinancialParams, LoadProfile, TariffParams } from 'shared'
+import type { FinancialParams, LoadProfile, PvProfile, TariffParams } from 'shared'
 
-// Vom Tarif-Schritt nach oben gereichtes Ergebnis.
+// Vom Tarif-Schritt nach oben gereichtes Ergebnis. `pv` ist optional (§3.1/§5 Schritt 2) — liegt es
+// vor, trägt es die Brutto-PV in Engine/Trace (echter 4. Strom + Konsistenzprüfung).
 export type TariffResult = {
   tariff: TariffParams
   financial?: FinancialParams
-  pvFileName: string | null
+  pv: ParsedPv | null
 }
 
 // Ergebnis von Schritt 1 (parseLoadProfile, §3.2/§3.3) — die echte, getypte Nutzlast.
 export type ParsedLoad = {
   fileName: string
   profile: LoadProfile
+  dataQuality: DataQuality
+}
+
+// Ergebnis der optionalen PV-Datei (parsePvProfile, §3.1) — Brutto-PV-Erzeugung.
+export type ParsedPv = {
+  fileName: string
+  profile: PvProfile
   dataQuality: DataQuality
 }
 

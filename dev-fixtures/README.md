@@ -43,10 +43,29 @@ Verifiziert gegen den echten `parseLoadProfile`: `ok: true`, 35.040 Werte im auf
 `LoadProfile` (Rohdatei hat etwas weniger Zeilen — die absichtlichen Lücken werden ja erst
 beim Parsen wieder aufgefüllt).
 
+## `demo-baeckerei-mit-pv-netzlastgang-2023.csv` + `demo-baeckerei-pv-erzeugung-2023.csv` (PV-Paar)
+
+Ein **konsistentes Paar** für den PvProfile-Pfad (Upload → Engine → Trace, §3.1):
+
+- **…-mit-pv-netzlastgang-2023.csv** — der **signierte** Netz-Lastgang (`+` Bezug, `−` Einspeisung),
+  d. h. `Verbrauch − BruttoPV`. Enthält Negativwerte (Mittags-Einspeisung) → `parseLoadProfile`
+  erkennt ihn als `net_signed`. Selbe Bäckerei-Verbrauchsform wie oben, plus ein 30-kWp-Dach.
+- **…-pv-erzeugung-2023.csv** — die **Brutto-PV-Erzeugung** des Wechselrichters (immer ≥ 0,
+  Tagesbogen + saisonale Skalierung). Wird als optionales PvProfile über `parsePvProfile` geladen.
+
+**Konsistenz per Konstruktion (Prinzip 1, §3.1):** Der Netz-Lastgang ist aus `Verbrauch − BruttoPV`
+abgeleitet. Damit gilt `Einspeisung(t) = max(0, −netz(t)) = max(0, BruttoPV − Verbrauch) ≤ BruttoPV`
+in JEDEM Slot — die Konsistenz-Warnung aus `alignPvGrossToLoad` feuert bei diesem Paar **nie**
+(`inconsistentSlots = 0`). Mit dem Paar zeigt der Report den echten **4. Strom** (abgeleiteter
+Verbrauch) und den PV-Eigenverbrauch. Die absichtlichen Lücken (Interpolations-/Datenqualitäts-Demo)
+liegen nur im Netz-Lastgang; die PV-Datei ist lückenlos (Abdeckungslücken sind ohnehin kein
+Konsistenz-Widerspruch).
+
 ## Neu erzeugen
 
 ```
-node dev-fixtures/generate-demo-load-profile.mjs
+node dev-fixtures/generate-demo-load-profile.mjs   # no-PV-Bäcker (import_only)
+node dev-fixtures/generate-demo-pv-profile.mjs      # konsistentes PV-Paar (net_signed + Brutto-PV)
 ```
 
-Deterministisch (fixer Seed) — erzeugt bei jedem Lauf byte-identische Ausgabe.
+Beide deterministisch (fixer Seed) — erzeugen bei jedem Lauf byte-identische Ausgabe.

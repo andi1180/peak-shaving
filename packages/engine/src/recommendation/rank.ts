@@ -1,4 +1,11 @@
-import type { AnalysisResult, BatteryCandidate, FinancialParams, LoadProfile, TariffParams } from 'shared'
+import type {
+  AnalysisResult,
+  BatteryCandidate,
+  FinancialParams,
+  LoadProfile,
+  PvProfile,
+  TariffParams,
+} from 'shared'
 
 import { topPeaksKw } from '../peaks/metrics'
 import { calculateRoi } from '../roi/roi'
@@ -76,8 +83,11 @@ function buildPerBatteryEntry(
   horizonYears: number,
   financialParams: FinancialParams | undefined,
   topPeaks: Array<{ ts: string; kw: number }>,
+  pvProfile: PvProfile | undefined,
 ): AnalysisResult['perBattery'][number] {
-  const sim = simulateBattery(loadProfile, battery, tariffParams)
+  // PvProfile ändert Dispatch/Ersparnis NICHT (s. `simulateBattery`) — es reichert nur den Trace um die
+  // echte Brutto-PV an. `computeBatterySavings` nutzt denselben `sim` (dessen Dispatch pv-unabhängig ist).
+  const sim = simulateBattery(loadProfile, battery, tariffParams, pvProfile)
   const savings = computeBatterySavings(loadProfile, battery, tariffParams, sim)
   const roi = calculateRoi(battery, savings.totalSavingPerYear, horizonYears, financialParams)
   const powerLimited = isPowerLimited(loadProfile, battery, tariffParams, sim.capKwByPeriod)
@@ -132,12 +142,13 @@ export function recommendBattery(
   catalog: BatteryCandidate[],
   horizonYears: number,
   financialParams?: FinancialParams,
+  pvProfile?: PvProfile,
 ): RecommendationResult {
   // Top-Peaks (§3.4) sind profil-, nicht batterieabhängig — einmal für den ganzen Katalog rechnen und
   // je Kandidat in `buildDispatchTrace` injizieren (dieselbe Menge, die `AnalysisResult.peaks.top` zeigt).
   const topPeaks = topPeaksKw(loadProfile)
   const perBattery = catalog.map((battery) =>
-    buildPerBatteryEntry(loadProfile, battery, tariffParams, horizonYears, financialParams, topPeaks),
+    buildPerBatteryEntry(loadProfile, battery, tariffParams, horizonYears, financialParams, topPeaks, pvProfile),
   )
 
   perBattery.sort((a, b) =>

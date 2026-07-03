@@ -1,4 +1,4 @@
-import { analyzeCurrentPeaks, recommendBattery } from 'engine'
+import { alignPvGrossToLoad, analyzeCurrentPeaks, pvConsistencyWarning, recommendBattery } from 'engine'
 import { DEMO_BATTERY_CATALOG, type AnalysisResult } from 'shared'
 
 import type { AnalysisRequest, WorkerOutbound } from './analysis-protocol'
@@ -36,18 +36,31 @@ ctx.onmessage = (event: MessageEvent<AnalysisRequest>) => {
   const msg = event.data
   if (!msg || msg.type !== 'run') return
 
+  const loadProfile = msg.payload.load.profile
+  const pvProfile = msg.payload.pv?.profile
+
   // --- current/peaks: ECHTER Engine-Aufruf (§3.4/§3.5) ---
-  const { current, peaks } = analyzeCurrentPeaks(msg.payload.load.profile, msg.payload.tariff)
+  const { current, peaks } = analyzeCurrentPeaks(loadProfile, msg.payload.tariff)
+
+  // --- PV-Konsistenz (§3.1): Brutto-PV gegen den Netz-Lastgang prüfen (Prinzip 1: Netz gewinnt) ---
+  // Einmal profil-weit (nicht je Batterie) — die geklemmten Slots hängen nur an Lastgang×PV, nicht an
+  // der Batterie. Warnung wandert in dataQuality (analog zur import_only-Pflichtwarnung §3.1).
+  const pvWarning =
+    pvProfile != null
+      ? pvConsistencyWarning(alignPvGrossToLoad(loadProfile, pvProfile).inconsistentSlots)
+      : null
 
   // --- perBattery/recommendation: ECHTER Engine-Aufruf (§3.6–§3.8) ---
   // `financial` ist bereits vollständig optional gebaut (§3.9) — fehlt es (Formular sammelt es
   // noch nicht immer), reicht `undefined` einfach durch: `taxEffectsIncluded=false`, `taxBenefit=0`.
+  // `pvProfile` (optional) reichert nur den Trace um die echte Brutto-PV an (Dispatch/Ersparnis unverändert).
   const { perBattery, recommendation } = recommendBattery(
-    msg.payload.load.profile,
+    loadProfile,
     msg.payload.tariff,
     DEMO_BATTERY_CATALOG,
     DEFAULT_HORIZON_YEARS,
     msg.payload.financial,
+    pvProfile,
   )
 
   const result: AnalysisResult = {
@@ -66,7 +79,12 @@ ctx.onmessage = (event: MessageEvent<AnalysisRequest>) => {
       energyPriceCtPerKwh: msg.payload.tariff.energyPriceCtPerKwh,
       einspeiseverguetungCtPerKwh: msg.payload.tariff.einspeiseverguetungCtPerKwh,
     },
-    dataQuality: msg.payload.load.dataQuality,
+    dataQuality: pvWarning
+      ? {
+          ...msg.payload.load.dataQuality,
+          warnings: [...msg.payload.load.dataQuality.warnings, pvWarning],
+        }
+      : msg.payload.load.dataQuality,
   }
 
   const progressSteps = [12, 34, 58, 81, 100]

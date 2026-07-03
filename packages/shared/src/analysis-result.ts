@@ -56,6 +56,11 @@ export type DispatchTrace = {
     intervals: Array<{
       ts: string
       gridPowerKw: number // nach Batterie
+      /**
+       * Brutto-PV-Erzeugung (kW, ≥ 0) bei vorhandenem PvProfile; ohne PvProfile die am Zähler
+       * sichtbare Einspeisung `max(0,−grid)` (MVP-Fallback). Mit Brutto-PV ist der abgeleitete
+       * Verbrauch = `gridPowerKw − batteryPowerKw + pvGenerationKw` (der 4. Strom fürs Chart).
+       */
       pvGenerationKw: number
       /** Vorzeichen-Konvention: **+ = laden, − = entladen** (verhindert spiegelverkehrten Fluss in U2). */
       batteryPowerKw: number

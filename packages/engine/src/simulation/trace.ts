@@ -20,6 +20,11 @@ import type { BatterySimulationResult } from './simulate'
  *    (`amortizationYears` bei nicht amortisierender Batterie).
  *  • `caughtPeaks`    — die Top-Peaks (`peaks.top`, §3.4), die die Kappung tatsächlich gesenkt hat.
  *  • `representativeDays` — bis zu zwei Tage in voller 15-min-Auflösung (s. `buildRepresentativeDays`).
+ *
+ * `pvGenerationKw` (§3.1): liegt ein `PvProfile` vor (`sim.grossPvKw` gesetzt), trägt der Trace die
+ * ECHTE Brutto-PV-Erzeugung → das Chart bekommt den 4. Strom (abgeleiteter Verbrauch, s. `collectDay`).
+ * Ohne PvProfile Fallback auf die am Zähler sichtbare Einspeisung `max(0, −draw)` (MVP-Vereinfachung,
+ * bit-identisch zum Verhalten vor der PvProfile-Kette — Regressionstest).
  */
 
 const EPS = 1e-9
@@ -86,6 +91,7 @@ export function buildDispatchTrace(
     gridAfterKw,
     batteryPowerKw,
     caught,
+    grossPvKw: sim.grossPvKw,
   })
 
   return { capKwByPeriod: sim.capKwByPeriod, caughtPeaks, representativeDays }
@@ -100,6 +106,13 @@ type DayContext = {
   gridAfterKw: number[]
   batteryPowerKw: number[]
   caught: CaughtPeak[]
+  /** Brutto-PV je Intervall (nur bei vorhandenem PvProfile); sonst Fallback auf `max(0,−draw)`. */
+  grossPvKw?: number[]
+}
+
+/** Brutto-PV je Slot: echte Erzeugung bei vorhandenem PvProfile, sonst am Zähler sichtbare Einspeisung. */
+function pvKwAt(ctx: DayContext, i: number): number {
+  return ctx.grossPvKw ? (ctx.grossPvKw[i] ?? 0) : Math.max(0, -(ctx.draws[i] ?? 0))
 }
 
 /**
@@ -108,9 +121,10 @@ type DayContext = {
  *   • `worst_caught_peak` (PFLICHT, sofern überhaupt gekappt wurde) — der Tag der teuersten
  *     ABGEFANGENEN Spitze (höchster `originalKw` unter `caught`, Tie-Break: früherer Zeitstempel).
  *     Fehlt sauber, wenn nichts abgefangen wurde (`static` oder zu schwache Batterie) — kein Fake-Tag.
- *   • `pv_strong` (OPTIONAL) — nur wenn Einspeisung auftritt. Im MVP gibt es kein separat konsumiertes
- *     `PvProfile` (s. simulate.ts/§3.1); „Einspeisung" ⇔ negatives `gridPowerKw`. Gewählt wird der Tag
- *     mit der höchsten eingespeisten PV-Energie (Σ max(0,−draw)·Δ), Tie-Break: früheres Datum.
+ *   • `pv_strong` (OPTIONAL) — nur wenn PV vorliegt. Bei vorhandenem `PvProfile` (`grossPvKw` gesetzt)
+ *     der Tag mit der höchsten BRUTTO-PV-Energie (Σ grossPv·Δ); ohne PvProfile Fallback auf die höchste
+ *     eingespeiste Energie (Σ max(0,−draw)·Δ, „Einspeisung" ⇔ negatives `gridPowerKw`). Tie-Break:
+ *     früheres Datum.
  * Fällt `pv_strong` auf denselben Tag wie `worst_caught_peak`, wird er NICHT doppelt ausgeliefert
  * (identischer 96-Vektor) — die Aussage steckt ohnehin im Label.
  */
@@ -135,20 +149,21 @@ function buildRepresentativeDays(ctx: DayContext): DispatchTrace['representative
     usedDates.add(date)
   }
 
-  // (2) pv_strong — Tag mit der höchsten eingespeisten PV-Energie, sofern Einspeisung auftritt.
-  const feedInByDate = new Map<string, number>()
+  // (2) pv_strong — Tag mit der höchsten PV-Energie (Brutto bei vorhandenem PvProfile, sonst
+  //     eingespeiste Energie), sofern überhaupt PV auftritt.
+  const pvEnergyByDate = new Map<string, number>()
   for (let i = 0; i < draws.length; i++) {
-    const exportKw = Math.max(0, -(draws[i] ?? 0))
-    if (exportKw <= EPS) continue
+    const pvKw = pvKwAt(ctx, i)
+    if (pvKw <= EPS) continue
     const key = dateKeyOfInterval[i]!
-    feedInByDate.set(key, (feedInByDate.get(key) ?? 0) + exportKw * deltaH)
+    pvEnergyByDate.set(key, (pvEnergyByDate.get(key) ?? 0) + pvKw * deltaH)
   }
-  if (feedInByDate.size > 0) {
+  if (pvEnergyByDate.size > 0) {
     // Nur bei strikt größerer Energie ersetzen ⇒ bei Gleichstand bleibt der zuerst eingefügte (=früheste,
     // da `draws` chronologisch durchlaufen wird) Tag — deterministischer Tie-Break ohne Extra-Sort.
     let pvDate: string | null = null
     let bestEnergy = -Infinity
-    for (const [date, energy] of feedInByDate) {
+    for (const [date, energy] of pvEnergyByDate) {
       if (energy > bestEnergy + EPS) {
         bestEnergy = energy
         pvDate = date
@@ -164,10 +179,19 @@ function buildRepresentativeDays(ctx: DayContext): DispatchTrace['representative
 
 /**
  * Extrahiert die 15-min-Intervalle EINES lokalen Kalendertages in voller Auflösung (typ. 96; an
- * Profil-Rändern oder DST-Tagen entsprechend weniger/mehr). Energiebilanz je Slot ist per
- * Konstruktion konsistent: der Dispatch garantiert `gridAfter = draw + batteryPower`, d.h. die
- * ursprüngliche Last `draw = gridPowerKw − batteryPowerKw` (Vorzeichen: + laden, − entladen) — genau
- * die Invariante, an der ein Tages-Energiefluss-Chart Unsinn zeigen würde, wenn sie bräche.
+ * Profil-Rändern oder DST-Tagen entsprechend weniger/mehr).
+ *
+ * Energiebilanz je Slot ist per Konstruktion konsistent: der Dispatch garantiert
+ * `gridAfter = draw + batteryPower`, d.h. `draw = gridPowerKw − batteryPowerKw` (Vorzeichen: + laden,
+ * − entladen). Mit BRUTTO-PV lässt sich daraus der abgeleitete VERBRAUCH (der 4. Strom) rekonstruieren:
+ *   `Verbrauch = draw + BruttoPV = gridPowerKw − batteryPowerKw + pvGenerationKw`  (≥ 0 bei konsistenten
+ *   Daten, s. `alignPvGrossToLoad`), gleichwertig `Verbrauch = Netzbezug + Entladung + PV-Eigenverbrauch`
+ *   mit `PV-Eigenverbrauch = BruttoPV − Einspeisung`. Genau die Invariante, an der ein Tages-
+ *   Energiefluss-Chart Unsinn zeigen würde, wenn sie bräche.
+ *
+ * `pvGenerationKw` = echte Brutto-PV bei vorhandenem PvProfile (`grossPvKw`), sonst die am Zähler
+ * sichtbare Einspeisung `max(0,−draw)` (MVP-Fallback; dann ist die PV-Bande KEIN unabhängiger Term der
+ * Bilanz, sondern deckt sich mit dem Export). S. `pvKwAt`.
  */
 function collectDay(
   date: string,
@@ -182,11 +206,7 @@ function collectDay(
     intervals.push({
       ts: readings[i]!.ts,
       gridPowerKw: gridAfterKw[i] ?? draw, // Netzbezug NACH Batterie
-      // [MVP] Kein separat konsumiertes PvProfile: die einzige PV-Größe ist die am Zähler sichtbare
-      // Einspeisung (Überschuss) = max(0,−draw). Bruttoerzeugung (auch der direkt vor Ort verbrauchte
-      // Teil) ist erst mit einem echten PvProfile verfügbar (OP-abhängig). Ⓘ Deshalb KEIN unabhängiger
-      // Term der geprüften Bilanz `draw = grid − battery` — nur die PV-Bande fürs Chart.
-      pvGenerationKw: Math.max(0, -draw),
+      pvGenerationKw: pvKwAt(ctx, i),
       batteryPowerKw: batteryPowerKw[i] ?? 0,
       socKwh: socKwh[i] ?? 0,
     })

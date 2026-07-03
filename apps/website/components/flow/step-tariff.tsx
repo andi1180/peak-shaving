@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, type ReactNode } from 'react'
-import { ArrowLeft, ArrowRight } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, ArrowRight, CheckCircle2 } from 'lucide-react'
+import { parsePvProfile } from 'engine'
 import {
   financialParamsSchema,
   tariffParamsSchema,
@@ -15,6 +16,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -28,7 +30,15 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { FileDrop } from './file-drop'
-import type { TariffResult } from './types'
+import type { ParsedPv, TariffResult } from './types'
+
+async function readForParsing(
+  file: File,
+): Promise<{ content: string | ArrayBuffer; fileName: string; format: 'csv' | 'xlsx' }> {
+  const isXlsx = /\.(xlsx|xls)$/i.test(file.name)
+  const content = isXlsx ? await file.arrayBuffer() : await file.text()
+  return { content, fileName: file.name, format: isXlsx ? 'xlsx' : 'csv' }
+}
 
 // Deutsche Dezimaltrennung tolerieren; leer → NaN (zod lehnt NaN für z.number() ab).
 function parseNum(s: string): number {
@@ -122,10 +132,31 @@ export function StepTariff({
 }) {
   const [f, setF] = useState<FormState>(initial)
   const [useNight, setUseNight] = useState(false)
-  const [pvFile, setPvFile] = useState<File | null>(null)
+  const [pvName, setPvName] = useState<string | null>(null)
+  const [pv, setPv] = useState<ParsedPv | null>(null)
+  const [pvIssue, setPvIssue] = useState<string | null>(null)
   const [errors, setErrors] = useState<Record<string, string>>({})
 
   const set = (k: keyof FormState) => (v: string) => setF((s) => ({ ...s, [k]: v }))
+
+  // PV-Profil ist optional (§3.1): Datei client-side parsen (Prinzip 4 — verlässt den Browser nicht).
+  // Bei Fehler/uneindeutigem Format eine Warnung zeigen, aber NICHT blockieren — der Rechner läuft dann
+  // ohne Brutto-PV weiter (der Netz-Lastgang allein genügt, §3.1).
+  async function handlePvFile(file: File) {
+    setPvName(file.name)
+    setPv(null)
+    setPvIssue(null)
+    const outcome = parsePvProfile(await readForParsing(file))
+    if (outcome.ok) {
+      setPv({ fileName: file.name, profile: outcome.profile, dataQuality: outcome.dataQuality })
+      return
+    }
+    setPvIssue(
+      outcome.kind === 'needs_mapping'
+        ? outcome.issues.map((i) => i.message).join(' ')
+        : outcome.error.message,
+    )
+  }
 
   function handleSubmit() {
     const errs: Record<string, string> = {}
@@ -182,7 +213,7 @@ export function StepTariff({
     setErrors(errs)
     if (Object.keys(errs).length > 0 || !tRes.success) return
 
-    onComplete({ tariff: tRes.data as TariffParams, financial, pvFileName: pvFile?.name ?? null })
+    onComplete({ tariff: tRes.data as TariffParams, financial, pv })
   }
 
   return (
@@ -297,12 +328,30 @@ export function StepTariff({
         <Section title="PV-Erzeugung (optional)">
           <FileDrop
             accept=".csv,.xlsx,.xls"
-            fileName={pvFile?.name ?? null}
-            onFile={setPvFile}
+            fileName={pvName}
+            onFile={(file) => {
+              void handlePvFile(file)
+            }}
             title="PV-Erzeugungsprofil hierher ziehen oder klicken"
             hint="Wechselrichter-Export (Fronius, SMA, Sungrow …) — verbessert die Eigenverbrauchs-Aussage"
             compact
           />
+          {pv && (
+            <p className="flex items-center gap-1.5 text-xs text-positive">
+              <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+              Brutto-PV-Profil erkannt ({pv.dataQuality.coveredDays} Tage) — der Report zeigt den
+              PV-Eigenverbrauch als eigenen Strom.
+            </p>
+          )}
+          {pvIssue && (
+            <Alert variant="warning">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertTitle>PV-Profil konnte nicht gelesen werden</AlertTitle>
+              <AlertDescription>
+                {pvIssue} Die Analyse läuft ohne Brutto-PV weiter (der Netz-Lastgang genügt).
+              </AlertDescription>
+            </Alert>
+          )}
         </Section>
 
         <Accordion type="single" collapsible className="rounded-lg border border-border px-4">

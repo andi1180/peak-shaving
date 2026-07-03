@@ -1,4 +1,4 @@
-import type { BatteryCandidate, LoadProfile, TariffParams } from 'shared'
+import type { BatteryCandidate, LoadProfile, PvProfile, TariffParams } from 'shared'
 
 import { getTariffStrategy } from '../tariff/strategy'
 import { searchCaps } from './cap-search'
@@ -12,6 +12,7 @@ import {
   startSoc,
   toPhysics,
 } from './helpers'
+import { alignPvGrossToLoad } from './pv'
 import { computeSocFloor } from './reserve'
 import { intervalTariffRates } from './tou'
 
@@ -31,6 +32,15 @@ export type BatterySimulationResult = {
   dispatch: DispatchResult
   /** Start-SoC am 1.1. (§3.6.1 [ANNAHME] = 50 % nutzbare Kapazität) — für Transparenz mitgeführt. */
   startSocKwh: number
+  /**
+   * Brutto-PV-Erzeugung je Intervall (kW, ≥ 0) — NUR gesetzt, wenn ein `PvProfile` übergeben wurde
+   * (auf die Einspeisung hochgeklemmt, §3.1-Konsistenz, s. `alignPvGrossToLoad`). Speist den echten
+   * PV-Strom (`pvGenerationKw`) + den abgeleiteten Verbrauch der §6.2-Charts (`buildDispatchTrace`).
+   * Ohne PvProfile `undefined` → der Trace fällt auf die am Zähler sichtbare Einspeisung zurück.
+   * Ändert NICHT den Dispatch/die Ersparnis (der speicherbare Überschuss = Einspeisung ist bereits im
+   * signierten `gridPowerKw` enthalten, s. Kopf-Kommentar `simulateBattery`).
+   */
+  grossPvKw?: number[]
 }
 
 /**
@@ -41,8 +51,15 @@ export type BatterySimulationResult = {
  *   3. Kombinierter Dispatch (die 6 Schritte, §3.6), der die Reserve respektiert.
  *   4. Neuer abgerechneter kW-Wert = TariffStrategy (§3.5) auf dem gekappten Profil (`gridAfterKw`).
  *
- * PV wird hier NICHT über ein separates `PvProfile` verdrahtet — es zählt allein der (ggf. bereits
- * PV-behaftete) signierte `LoadProfile.gridPowerKw`.
+ * PvProfile (OPTIONAL, §3.1): liefert die BRUTTO-PV-Erzeugung. WICHTIG — es ändert den DISPATCH und
+ * damit die Ersparnis NICHT: der für die Batterie speicherbare Überschuss ist die am Zähler sichtbare
+ * Einspeisung `max(0, −gridPowerKw)`, und die steckt bereits im signierten Netz-Lastgang (§3.1: der
+ * Netz-Lastgang „enthält den PV-Effekt bereits"). Brutto-PV, die vor Ort direkt verbraucht wird, ist
+ * schon in der Last aufgegangen und kann nicht ein zweites Mal gespeichert werden — sie erhöht den
+ * Eigenverbrauchs-Anteil NICHT (sonst Energie aus dem Nichts / Bilanzbruch). Die Brutto-PV wird daher
+ * nur AUSGERICHTET/konsistenzgeprüft (`alignPvGrossToLoad`, §3.1) und als `grossPvKw` mitgeführt — sie
+ * speist den echten 4. Strom (abgeleiteter Verbrauch) der §6.2-Charts, nicht die Physik. Ohne PvProfile:
+ * unveränderter Pfad, `grossPvKw` bleibt `undefined` (bit-identisch — Regressionstest).
  *
  * `controlType` (Martins bestätigte Semantik, OP#5) ist eine Frage der STEUERUNGS-Konfiguration,
  * nicht der Batteriezelle, und wählt hier — im Orchestrator — die Kappungs-Konfiguration:
@@ -58,6 +75,7 @@ export function simulateBattery(
   loadProfile: LoadProfile,
   battery: BatteryCandidate,
   tariffParams: TariffParams,
+  pvProfile?: PvProfile,
 ): BatterySimulationResult {
   const physics = toPhysics(battery)
   const deltaH = intervalHours(loadProfile)
@@ -102,5 +120,8 @@ export function simulateBattery(
   }
   const newBilledKw = getTariffStrategy(tariffParams.billingModel).billedKw(cappedProfile, tariffParams)
 
-  return { capKwByPeriod, newBilledKw, socFloorKwh, dispatch, startSocKwh: socStart }
+  // Brutto-PV (optional): NUR ausgerichtet + konsistenzgeprüft, kein Physik-Eingriff (s. Kopf-Kommentar).
+  const grossPvKw = pvProfile ? alignPvGrossToLoad(loadProfile, pvProfile).grossPvKw : undefined
+
+  return { capKwByPeriod, newBilledKw, socFloorKwh, dispatch, startSocKwh: socStart, grossPvKw }
 }
