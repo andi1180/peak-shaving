@@ -1,4 +1,5 @@
-import type { FinancialParams, TariffParams } from 'shared'
+import type { DataQuality } from 'engine'
+import type { FinancialParams, LoadProfile, TariffParams } from 'shared'
 
 // Vom Tarif-Schritt nach oben gereichtes Ergebnis.
 export type TariffResult = {
@@ -7,8 +8,15 @@ export type TariffResult = {
   pvFileName: string | null
 }
 
-// Was der Worker/Engine später bekommt. Der Lastgang selbst (fileName) wird in
-// Prompt 2 zum geparsten LoadProfile — hier vorerst nur der Dateiname.
+// Ergebnis von Schritt 1 (parseLoadProfile, §3.2/§3.3) — die echte, getypte Nutzlast.
+export type ParsedLoad = {
+  fileName: string
+  profile: LoadProfile
+  dataQuality: DataQuality
+}
+
+// Was der Worker/Engine bekommt. Die Berechnung selbst ist vorerst weiter gemockt
+// (Prompt 4 dockt in analysis.worker.ts an) — der Lastgang ist jetzt aber echt geparst.
 export type CalculatorPayload = TariffResult & {
-  fileName: string | null
+  load: ParsedLoad
 }

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { AnalysisResult } from 'shared'
+import type { CalculatorPayload } from '@/components/flow/types'
 import type { AnalysisRequest, WorkerOutbound } from './analysis-protocol'
 
 export type AnalysisStatus = 'idle' | 'running' | 'done' | 'error'
@@ -24,7 +25,7 @@ export function useAnalysis() {
     }
   }, [])
 
-  const start = useCallback((payload: unknown) => {
+  const start = useCallback((payload: CalculatorPayload) => {
     workerRef.current?.terminate()
     setStatus('running')
     setProgress(0)

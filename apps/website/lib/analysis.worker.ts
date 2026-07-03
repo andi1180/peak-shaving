@@ -1,3 +1,5 @@
+import type { AnalysisResult } from 'shared'
+
 import { mockAnalysisResult } from './mock-analysis'
 import type { AnalysisRequest, WorkerOutbound } from './analysis-protocol'
 
@@ -5,11 +7,12 @@ import type { AnalysisRequest, WorkerOutbound } from './analysis-protocol'
  * Analyse-Worker — läuft OFF-MAIN-THREAD (kein Tab-Freeze, §2.2/§5).
  *
  * ┌─ HARNESS-HINWEIS (Prompt 4 dockt HIER an) ────────────────────────────────┐
- * │ Aktuell sitzt hier eine MOCK-Funktion: sie ignoriert den Payload und gibt  │
- * │ nach kurzer künstlicher Verzögerung das statische Mock-AnalysisResult      │
- * │ zurück. Prompt 4 ersetzt NUR den Rechen-Block unten durch den echten       │
- * │ Engine-Aufruf (analyze(payload)) — die Nachrichten-/Progress-Verdrahtung   │
- * │ bleibt unverändert.                                                         │
+ * │ Aktuell sitzt hier eine MOCK-Funktion: bis auf dataQuality (echt vom       │
+ * │ Parser) ignoriert sie den Payload und gibt nach kurzer künstlicher         │
+ * │ Verzögerung das statische Mock-AnalysisResult zurück. Prompt 4 ersetzt     │
+ * │ NUR den Rechen-Block unten durch den echten Engine-Aufruf                  │
+ * │ (analyze(payload)) — die Nachrichten-/Progress-Verdrahtung bleibt          │
+ * │ unverändert.                                                                │
  * └────────────────────────────────────────────────────────────────────────────┘
  */
 
@@ -26,6 +29,13 @@ ctx.onmessage = (event: MessageEvent<AnalysisRequest>) => {
   if (!msg || msg.type !== 'run') return
 
   // --- MOCK-Rechnung (Prompt 4: durch echten Engine-Aufruf ersetzen) ---
+  // Einzige Ausnahme: dataQuality kommt bereits jetzt echt vom Parser (Prompt 2) statt
+  // vom Mock — kostet hier nichts extra und macht Lücken/Warnungen beim Testen sichtbar.
+  const result: AnalysisResult = {
+    ...mockAnalysisResult,
+    dataQuality: msg.payload.load.dataQuality,
+  }
+
   const progressSteps = [12, 34, 58, 81, 100]
   let step = 0
 
@@ -36,7 +46,7 @@ ctx.onmessage = (event: MessageEvent<AnalysisRequest>) => {
     if (step < progressSteps.length) {
       setTimeout(tick, 320)
     } else {
-      post({ type: 'result', result: mockAnalysisResult })
+      post({ type: 'result', result })
     }
   }
 

@@ -8,14 +8,14 @@ import { StepAnalyzing } from './step-analyzing'
 import { StepResult } from './step-result'
 import { StepTariff } from './step-tariff'
 import { StepUpload } from './step-upload'
-import type { CalculatorPayload, TariffResult } from './types'
+import type { CalculatorPayload, ParsedLoad, TariffResult } from './types'
 
 type Step = 1 | 2 | 3 | 4
 
 // Orchestriert den 4-Schritt-Flow (§5). Hält Schritt-State + gesammelte Daten im Client.
 export function Calculator() {
   const [step, setStep] = useState<Step>(1)
-  const [file, setFile] = useState<File | null>(null)
+  const [load, setLoad] = useState<ParsedLoad | null>(null)
   const analysis = useAnalysis()
 
   // Analyse fertig → automatisch zum Ergebnis.
@@ -23,20 +23,21 @@ export function Calculator() {
     if (step === 3 && analysis.status === 'done') setStep(4)
   }, [step, analysis.status])
 
-  function handleUpload(f: File) {
-    setFile(f)
+  function handleUpload(l: ParsedLoad) {
+    setLoad(l)
     setStep(2)
   }
 
   function handleTariff(result: TariffResult) {
-    const payload: CalculatorPayload = { ...result, fileName: file?.name ?? null }
+    if (!load) return
+    const payload: CalculatorPayload = { ...result, load }
     setStep(3)
     analysis.start(payload) // Off-Main-Thread; im Worker sitzt vorerst der Mock (U1).
   }
 
   function handleRestart() {
     analysis.reset()
-    setFile(null)
+    setLoad(null)
     setStep(1)
   }
 
@@ -51,7 +52,7 @@ export function Calculator() {
 
       {narrow ? (
         <div className="mx-auto w-full max-w-2xl px-4 sm:px-6">
-          {step === 1 && <StepUpload initialFile={file} onComplete={handleUpload} />}
+          {step === 1 && <StepUpload initialLoad={load} onComplete={handleUpload} />}
           {step === 2 && <StepTariff onBack={() => setStep(1)} onComplete={handleTariff} />}
           {step === 3 && <StepAnalyzing progress={analysis.progress} status={analysis.status} />}
         </div>
