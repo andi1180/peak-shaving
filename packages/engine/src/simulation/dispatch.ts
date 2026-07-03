@@ -26,15 +26,23 @@ export type DispatchResult = {
  *     begrenzt durch `maxPowerKw` und freien Platz, Wirkungsgrad `eta` auf die Ladung.
  *  4. Entladen (Eigenverbrauch, Restkapazität): `0 ≤ draw ≤ cap` und `soc` über der Reserve →
  *     Bezug substituieren, aber `soc` NIE unter `socFloor` senken (Spitzen-Reserve, §3.6-Kasten).
- *  5. Laden aus Netz (Spitzenbereitschaft): reicht `soc` die Reserve nicht → so weit unter `cap`
- *     nachladen, dass kein neuer Peak über `cap` entsteht. (Tarif-BEVORZUGUNG in günstigen Fenstern
- *     = Lastverschiebung/`loadShiftSaving` ist §3.7 und hier bewusst NICHT verdrahtet; ohne
- *     PV/Tarif-Fenster lädt Schritt 5 nur bis zur Reserve → im Basisfall reiner Spitzenschutz,
- *     kein sinnloses Netz-lade-dann-entlade-Zyklieren, Eigenverbrauchsersparnis bleibt 0.)
+ *  5. Laden aus Netz. Zwei Fälle, gesteuert über `preferChargeInterval` (§3.7 Schritt-5-Ausbau):
+ *     (a) GÜNSTIGES Tarif-Fenster (`preferChargeInterval[i] === true`): tarifbewusst laden —
+ *         GREEDY so weit unter `cap` laden, wie Kapazität/`maxPowerKw` zulassen, um billige Energie
+ *         für die teuren Fenster zu speichern (Lastverschiebung → `loadShiftSaving`). In günstigen
+ *         Fenstern wird BEWUSST NICHT entladen (Netzbezug ist gerade billig; Eigenverbrauch lohnt
+ *         nicht — Schritt 4 wird übersprungen).
+ *     (b) Sonst (kein/teures Fenster): nur bis zur Spitzenbereitschafts-Reserve nachladen, so weit
+ *         unter `cap`, dass kein neuer Peak entsteht. Ohne PV/Tarif-Fenster lädt Schritt 5 nur bis
+ *         zur Reserve → im Basisfall reiner Spitzenschutz, kein sinnloses Zyklieren.
  *  6. `soc` fortschreiben (in [0, usableCapacityKwh] geklammert).
  *
  * `socFloorKwh[i]` = Reserve, die am START von Intervall `i` vorhanden sein muss. Schritt 4 senkt
  * `soc` daher höchstens bis `socFloorKwh[i+1]` (die Reserve, mit der das nächste Intervall beginnen muss).
+ *
+ * `preferChargeInterval` (optional; default: alle `false`) markiert die günstigen Tarif-Fenster
+ * (aus `intervalTariffRates`, §3.7). Ist es überall `false`, verhält sich der Dispatch exakt wie
+ * §3.6 vor dem Schritt-5-Ausbau (reiner Spitzenschutz + PV-Eigenverbrauch).
  *
  * Constraints (hart, in mehreren Tests abgesichert): Lade-/Entladeleistung ≤ `maxPowerKw`; Energie
  * ≤ `soc` bzw. freier Platz; `soc` stets in [0, usableCapacityKwh]; Wirkungsgradverluste beim Laden.
@@ -46,6 +54,7 @@ export function runCombinedDispatch(
   physics: BatteryPhysics,
   startSocKwh: number,
   deltaH: number,
+  preferChargeInterval?: boolean[],
 ): DispatchResult {
   const { usableCapacityKwh, maxPowerKw, roundTripEfficiency: eta } = physics
   const n = draws.length
@@ -58,6 +67,7 @@ export function runCombinedDispatch(
   for (let i = 0; i < n; i++) {
     const draw = draws[i] ?? 0
     const cap = capForInterval[i] ?? Infinity
+    const preferCharge = preferChargeInterval?.[i] ?? false
     // Reserve, mit der das NÄCHSTE Intervall beginnen muss (am Jahresende 0).
     const floorNext = i + 1 < n ? (socFloorKwh[i + 1] ?? 0) : 0
 
@@ -72,6 +82,15 @@ export function runCombinedDispatch(
       // Schritt 3 — PV-Überschuss laden (Eigenverbrauch). Wirkungsgrad auf die Ladung.
       const freeKwh = usableCapacityKwh - soc
       const chargeKw = Math.min(-draw, maxPowerKw, freeKwh / (deltaH * eta))
+      soc += chargeKw * deltaH * eta
+      batteryKw = chargeKw
+    } else if (preferCharge) {
+      // Schritt 5(a) — GÜNSTIGES Fenster: tarifbewusst greedy laden (Lastverschiebung, §3.7).
+      // So weit unter `cap`, dass kein neuer Peak entsteht; begrenzt durch Leistung und freien Platz.
+      // BEWUSST kein Entladen hier (billiges Netz zieht man direkt, statt teure/PV-Energie zu vergeuden).
+      const headroomKw = Math.max(0, cap - Math.max(0, draw))
+      const freeKwh = usableCapacityKwh - soc
+      const chargeKw = Math.min(maxPowerKw, headroomKw, freeKwh / (deltaH * eta))
       soc += chargeKw * deltaH * eta
       batteryKw = chargeKw
     } else if (soc > floorNext + EPS) {

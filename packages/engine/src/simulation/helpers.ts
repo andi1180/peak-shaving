@@ -70,6 +70,12 @@ export function periodIndexByInterval(
 export const periodSlotCount = (billingModel: BillingModel): number =>
   billingModel === 'annual_max' ? 1 : 12
 
+/** Per-Intervall-Kappschwelle aus den Perioden-Caps (annual: 1 Slot, monthly: 12 Slots nach Monat). */
+export const capForIntervalSeries = (
+  capKwByPeriod: number[],
+  periodOfInterval: number[],
+): number[] => periodOfInterval.map((p) => capKwByPeriod[p] ?? Infinity)
+
 /**
  * Intervall-Indizes je Periode, in chronologischer Reihenfolge (Reihenfolge des Auftretens).
  * Für ein sortiertes Einjahresprofil erscheinen Monate aufsteigend (mit Lücken für fehlende

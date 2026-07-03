@@ -3,8 +3,16 @@ import type { BatteryCandidate, LoadProfile, TariffParams } from 'shared'
 import { getTariffStrategy } from '../tariff/strategy'
 import { searchCaps } from './cap-search'
 import { runCombinedDispatch, type DispatchResult } from './dispatch'
-import { drawSeries, intervalHours, periodIndexByInterval, startSoc, toPhysics } from './helpers'
+import {
+  capForIntervalSeries,
+  drawSeries,
+  intervalHours,
+  periodIndexByInterval,
+  startSoc,
+  toPhysics,
+} from './helpers'
 import { computeSocFloor } from './reserve'
+import { intervalTariffRates } from './tou'
 
 /**
  * Gesamt-Ergebnis der Batterie-Simulation für EINEN Kandidaten (§3.6/§3.6.1). Trägt die
@@ -22,11 +30,6 @@ export type BatterySimulationResult = {
   dispatch: DispatchResult
   /** Start-SoC am 1.1. (§3.6.1 [ANNAHME] = 50 % nutzbare Kapazität) — für Transparenz mitgeführt. */
   startSocKwh: number
-}
-
-/** Per-Intervall-Kappschwelle aus den Perioden-Caps (annual: 1 Slot, monthly: 12 Slots nach Monat). */
-function capForIntervalSeries(capKwByPeriod: number[], periodOfInterval: number[]): number[] {
-  return periodOfInterval.map((p) => capKwByPeriod[p] ?? Infinity)
 }
 
 /**
@@ -58,9 +61,19 @@ export function simulateBattery(
   // 2. Spitzen-Reserve (§3.6-Kasten).
   const socFloorKwh = computeSocFloor(draws, capForInterval, physics, deltaH)
 
-  // 3. Kombinierter Dispatch (§3.6).
+  // 3. Kombinierter Dispatch (§3.6). Günstige Tarif-Fenster (§3.7 Schritt 5a) steuern das
+  //    tarifbewusste Laden; ohne Fenster ist `isCheapWindow` überall false → reiner Spitzenschutz.
+  const { isCheapWindow } = intervalTariffRates(loadProfile, tariffParams)
   const socStart = startSoc(physics)
-  const dispatch = runCombinedDispatch(draws, capForInterval, socFloorKwh, physics, socStart, deltaH)
+  const dispatch = runCombinedDispatch(
+    draws,
+    capForInterval,
+    socFloorKwh,
+    physics,
+    socStart,
+    deltaH,
+    isCheapWindow,
+  )
 
   // 4. Neuer abgerechneter kW-Wert via die bereits gebaute TariffStrategy (§3.5) auf dem gekappten Profil.
   const cappedProfile: LoadProfile = {
