@@ -143,7 +143,9 @@ export function computeBatterySavings(
     leistungspreisSavingPerYear = 0
     warnings.push(
       'Statische Steuerung: Spitzenkappung nicht kreditiert (keine vorausschauende Regelung) — ' +
-        'nur Eigenverbrauch/Lastverschiebung ausgewiesen.',
+        'nur Eigenverbrauch/Lastverschiebung ausgewiesen. Diese Werte sind unter derselben ' +
+        'Spitzen-Reserve (socFloor) simuliert wie bei dynamischer Steuerung und können daher ' +
+        'unterschätzt sein, falls eine echte statische Batterie diese Reserve nicht benötigt.',
     )
   } else {
     newBilledKw = sim.newBilledKw
