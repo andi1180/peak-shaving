@@ -55,8 +55,8 @@ export function detectDateFormat(samples: RawCell[]): DateFormat | null {
   return best && bestCount / total >= 0.6 ? best : null
 }
 
-/** Offset (tz-Wanduhr minus UTC) in ms für den gegebenen UTC-Instant. */
-function tzOffsetMs(utcInstant: number, timeZone: string): number {
+/** Lokale Kalenderfelder (Wanduhr) für einen UTC-Instant, via Intl (DST-bewusst). */
+function localParts(utcInstant: number, timeZone: string) {
   const dtf = new Intl.DateTimeFormat('en-US', {
     timeZone,
     hourCycle: 'h23',
@@ -72,14 +72,35 @@ function tzOffsetMs(utcInstant: number, timeZone: string): number {
   for (const p of parts) {
     if (p.type !== 'literal') map[p.type] = Number(p.value)
   }
-  const year = map.year ?? 1970
-  const month = map.month ?? 1
-  const day = map.day ?? 1
-  const hour = (map.hour ?? 0) === 24 ? 0 : (map.hour ?? 0)
-  const minute = map.minute ?? 0
-  const second = map.second ?? 0
+  return {
+    year: map.year ?? 1970,
+    month: map.month ?? 1,
+    day: map.day ?? 1,
+    hour: (map.hour ?? 0) === 24 ? 0 : (map.hour ?? 0),
+    minute: map.minute ?? 0,
+    second: map.second ?? 0,
+  }
+}
+
+/** Offset (tz-Wanduhr minus UTC) in ms für den gegebenen UTC-Instant. */
+function tzOffsetMs(utcInstant: number, timeZone: string): number {
+  const { year, month, day, hour, minute, second } = localParts(utcInstant, timeZone)
   const asUtc = Date.UTC(year, month - 1, day, hour, minute, second)
   return asUtc - utcInstant
+}
+
+/**
+ * Lokale Kalenderfelder für einen UTC-Instant — Basis für §3.4-Gruppierung
+ * (Monat/Wochentag/Stunde von Bezugsspitzen) außerhalb des Parsers selbst.
+ * Wochentag: 0=Montag..6=Sonntag (ISO-nah, nicht JS-`getDay()`-Konvention).
+ */
+export function utcMsToLocalFields(
+  utcMs: number,
+  timeZone: string,
+): { year: number; month: number; day: number; hour: number; minute: number; weekday: number } {
+  const { year, month, day, hour, minute } = localParts(utcMs, timeZone)
+  const weekday = (new Date(Date.UTC(year, month - 1, day)).getUTCDay() + 6) % 7
+  return { year, month, day, hour, minute, weekday }
 }
 
 /** Naive Wanduhrzeit in `timeZone` → UTC-Millisekunden (DST-bewusst, Best-effort an Übergängen). */

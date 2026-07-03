@@ -2,15 +2,19 @@ import type { BatteryCandidate } from './battery'
 import type { BillingModel } from './tariff'
 
 /**
- * PROVISORISCH (§3.4) — Verteilung der Bezugsspitzen für die Report-Aufschlüsselung
- * nach Wochentag/Uhrzeit/Monat. Die Bucket-Semantik (Anzahl der Spitzen je Bucket
- * vs. aggregierte oder maximale kW) ist im Pflichtenheft nicht festgelegt und wird
- * mit der §3.4-Implementierung fixiert.
+ * [ANNAHME, fixiert mit §3.4-Implementierung] Verteilung der Bezugsspitzen für die
+ * Report-Aufschlüsselung nach Wochentag/Uhrzeit/Monat. Bucket-Semantik: der
+ * MAXIMALE Bezug (kW) innerhalb des Buckets über den gesamten abgedeckten Zeitraum —
+ * bewusst nicht Anzahl der Intervalle und nicht aufsummierte Energie. Begründung:
+ * für Peak Shaving ist relevant, WANN hoch belastete Zeitfenster liegen (z.B.
+ * Morgenspitze einer Bäckerei), nicht wie oft irgendein Bezugswert > 0 vorkommt.
+ * Wochentag-Index 0=Montag..6=Sonntag, Monat-Index 0=Jänner — beide nach lokaler
+ * Zeit (`LoadProfile.timezoneMeta`), nicht UTC.
  */
 export type PeakDistribution = {
-  byWeekday: number[] // 7 (Mo..So)
-  byHour: number[] // 24
-  byMonth: number[] // 12
+  byWeekday: number[] // 7 (Mo..So), Max-kW je Wochentag
+  byHour: number[] // 24, Max-kW je Stunde
+  byMonth: number[] // 12, Max-kW je Monat
 }
 
 /**
