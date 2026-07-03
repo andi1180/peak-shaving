@@ -15,8 +15,9 @@ export type ParsedLoad = {
   dataQuality: DataQuality
 }
 
-// Was der Worker/Engine bekommt. Seit Prompt 4 berechnet der Worker `current`/`peaks`
-// (§3.4/§3.5) echt daraus; `perBattery`/`recommendation` bleiben gemockt (§3.6-3.8).
+// Was der Worker/Engine bekommt. Seit Prompt 4 (abgeschlossen) berechnet der Worker das
+// komplette `AnalysisResult` echt daraus — `current`/`peaks` (§3.4/§3.5) und
+// `perBattery`/`recommendation` (§3.6-3.8, gegen den `DEMO_BATTERY_CATALOG`).
 export type CalculatorPayload = TariffResult & {
   load: ParsedLoad
 }

@@ -36,7 +36,10 @@ export function Report({ result }: { result: AnalysisResult }) {
   const recommended =
     result.perBattery.find((p) => p.battery.id === result.recommendation.batteryId) ??
     result.perBattery[0]
-  const alternatives = result.perBattery.filter((p) => p !== recommended)
+  // 2–3 Alternativen (Pflichtenheft §3.8/§6.2), nicht der komplette Katalog-Rest — `perBattery`
+  // ist bereits vollständig nach `netSavingOverHorizon` sortiert (§3.8), also sind das die
+  // nächstbesten Kandidaten direkt hinter der Empfehlung.
+  const alternatives = result.perBattery.filter((p) => p !== recommended).slice(0, 3)
   const a = result.assumptions
 
   return (

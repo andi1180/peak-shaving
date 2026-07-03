@@ -32,7 +32,7 @@ export function Calculator() {
     if (!load) return
     const payload: CalculatorPayload = { ...result, load }
     setStep(3)
-    analysis.start(payload) // Off-Main-Thread; current/peaks echt, perBattery/recommendation Mock (§3.6-3.8).
+    analysis.start(payload) // Off-Main-Thread; komplettes AnalysisResult echt (§3.4-3.8, Prompt 4 abgeschlossen).
   }
 
   function handleRestart() {
