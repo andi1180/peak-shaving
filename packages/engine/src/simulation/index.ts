@@ -12,6 +12,7 @@ export { computeSocFloor } from './reserve'
 export { runCombinedDispatch } from './dispatch'
 export type { DispatchResult } from './dispatch'
 export { runPeakProtection } from './peak-protection'
+export { buildDispatchTrace } from './trace'
 export {
   START_SOC_FRACTION,
   startSoc,

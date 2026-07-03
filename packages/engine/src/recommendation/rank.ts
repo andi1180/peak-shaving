@@ -1,9 +1,11 @@
 import type { AnalysisResult, BatteryCandidate, FinancialParams, LoadProfile, TariffParams } from 'shared'
 
+import { topPeaksKw } from '../peaks/metrics'
 import { calculateRoi } from '../roi/roi'
 import { computeBatterySavings } from '../savings/attribute'
 import { drawSeries, intervalIndicesByPeriod, maxPositiveDraw, periodIndexByInterval } from '../simulation/helpers'
 import { simulateBattery } from '../simulation/simulate'
+import { buildDispatchTrace } from '../simulation/trace'
 
 /**
  * Empfehlung & Ranking über den Katalog (§3.8). Reine Engine-Logik, keine Worker-/UI-
@@ -73,6 +75,7 @@ function buildPerBatteryEntry(
   tariffParams: TariffParams,
   horizonYears: number,
   financialParams: FinancialParams | undefined,
+  topPeaks: Array<{ ts: string; kw: number }>,
 ): AnalysisResult['perBattery'][number] {
   const sim = simulateBattery(loadProfile, battery, tariffParams)
   const savings = computeBatterySavings(loadProfile, battery, tariffParams, sim)
@@ -88,6 +91,9 @@ function buildPerBatteryEntry(
     totalSavingPerYear: savings.totalSavingPerYear,
     ...roi,
     warnings: buildWarnings(battery, savings.warnings, powerLimited),
+    // §6.2-Charts: aus demselben `sim`-Lauf extrahiert (keine Zweitsimulation). `topPeaks` ist
+    // profil- (nicht batterie-)abhängig → in `recommendBattery` einmal gerechnet, hier injiziert.
+    dispatchTrace: buildDispatchTrace(loadProfile, tariffParams, sim, topPeaks),
   }
 }
 
@@ -127,8 +133,11 @@ export function recommendBattery(
   horizonYears: number,
   financialParams?: FinancialParams,
 ): RecommendationResult {
+  // Top-Peaks (§3.4) sind profil-, nicht batterieabhängig — einmal für den ganzen Katalog rechnen und
+  // je Kandidat in `buildDispatchTrace` injizieren (dieselbe Menge, die `AnalysisResult.peaks.top` zeigt).
+  const topPeaks = topPeaksKw(loadProfile)
   const perBattery = catalog.map((battery) =>
-    buildPerBatteryEntry(loadProfile, battery, tariffParams, horizonYears, financialParams),
+    buildPerBatteryEntry(loadProfile, battery, tariffParams, horizonYears, financialParams, topPeaks),
   )
 
   perBattery.sort((a, b) =>

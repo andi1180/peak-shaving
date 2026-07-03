@@ -12,9 +12,10 @@ import type { AnalysisRequest, WorkerOutbound } from './analysis-protocol'
  * │ laufen gegen den echten geparsten Lastgang, die echten Tarifparameter aus  │
  * │ dem Formular und den `DEMO_BATTERY_CATALOG` (packages/shared) — ein        │
  * │ Platzhalter bis Martins echter Katalog vorliegt (§8 OP#2). `dataQuality`   │
- * │ ist seit Prompt 2 echt. `dispatchTrace` bleibt BEWUSST unbefüllt (§3.10)   │
- * │ — die Report-Charts sind weiterhin Platzhalter (U2, `ChartPlaceholder`),   │
- * │ es gibt noch keinen Consumer für die 15-Min-Zerlegung.                     │
+ * │ ist seit Prompt 2 echt. `dispatchTrace` ist seit der §6.2-Befüllung        │
+ * │ (`recommendBattery` → `buildDispatchTrace`) je perBattery-Eintrag ECHT und │
+ * │ wird hier unverändert mitgereicht (perBattery-Spread unten) — Consumer     │
+ * │ sind die U2-Report-Charts (noch `ChartPlaceholder`, Verdrahtung offen).    │
  * └──────────────────────────────────────────────────────────────────────────┘
  */
 
