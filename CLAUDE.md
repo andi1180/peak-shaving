@@ -10,26 +10,6 @@
 
 Ein Kalkulator, der aus dem Viertelstunden-Lastgang eines Gewerbebetriebs die Bezugsspitzen erkennt, eine Batterie **physikalisch (SoC-basiert)** simuliert und eine belastbare Wirtschaftlichkeitsrechnung samt Speicherempfehlung erzeugt. Vertrieb über Installateure/Elektriker sowie Direktakquise. Erster Bauabschnitt: die Rechen-Engine (`/packages/engine`).
 
----
-
-## Rollen & Zusammenarbeit (wichtig)
-
-
-**Anweisungen an Claude Code immer:**
-- Du kennst die Codebase und entscheidest, **wie** etwas in dieser Codebase am besten umgesetzt wird — Struktur, Muster, Bibliotheken, Dateiaufteilung, idiomatischer Code.
-- Vorgegeben (nicht selbst umdeuten): **was** gerechnet wird und **warum** — Algorithmus-Logik, Datenverträge (Input/Output-Typen), fachliche Invarianten, Randfälle, Akzeptanzkriterien.
-- Deine Freiheit: **wie** du es implementierst. Wähle den in dieser Codebase effizientesten, saubersten Weg. Erfinde keine fachlichen Regeln dazu.
-- Wenn eine Aufgabe eine **fachliche/energietechnische** Entscheidung erzwingt, die nicht im Pflichtenheft steht (z. B. wie die Mindestleistung greift, ob monatlich/jährlich iteriert wird, wie ein Randfall zu werten ist): **nicht selbst festlegen — kurz zurückfragen.** Das ist eine Konzeptlücke, keine Coding-Entscheidung.
-
----
-
-## Arbeitsweise (Advisor-Modus, auch für dich)
-
-- Du bist Advisor, nicht Ausführungsgehilfe. Wenn ein Auftrag suboptimal ist, sag es direkt — mit Begründung, Alternative und dem konkreten Risiko. Kein Ja-Sagen aus Höflichkeit.
-- Kennzeichne Unsicherheit: **[Certain]** (harte Evidenz) · **[Likely]** (starke Schlussfolgerung) · **[Guessing]** (Lücke gefüllt).
-- **Kein Frage-Ritual.** Frag nur, wenn die Antwort etwas Wesentliches klärt — keine feste Anzahl. Ist die Sache klar, leg los. Ist etwas mehrdeutig, kläre zuerst das, was den größten Unterschied macht.
-- Dieses Hinterfragen gilt für **Architektur- und Richtungsentscheidungen**, nicht für triviale Umsetzungsschritte. Bei klarem Auftrag: umsetzen, nicht nachfragen.
-- Führe nicht mit Zustimmung, wenn Zustimmung nicht verdient ist. Wenn ich falsch liege, sag: „Ich widerspreche, weil … / stattdessen … / das Risiko deines Ansatzes ist …".
 
 ---
 
@@ -57,6 +37,7 @@ Ein Kalkulator, der aus dem Viertelstunden-Lastgang eines Gewerbebetriebs die Be
 
 - **Sprache/Engine:** TypeScript, framework-freies Paket `/packages/engine`.
 - **Frontend:** Next.js (App Router), Tailwind CSS.
+- **Deployment:** vercel
 - **Backend/DB:** Supabase (PostgreSQL, RLS, Storage, Auth), Vercel.
 - **Parser/Charts:** PapaParse (CSV), SheetJS/xlsx, Recharts.
 - **UI/Design:** zwei Oberflächen mit **gegensätzlichem Charakter** — öffentlicher Rechner mobile-first & lebendig (darf animieren), Report/Portal desktop-first & ruhig (Tablet Pflicht). shadcn/ui, Inter, `tabular-nums` für Zahlen, **Akzent als CSS-Variable** (White-Label). Bindende Prinzipien: Pflichtenheft §6.1 · konkrete Tokens: `./DESIGN.md`. **Der Engine-unabhängige UI-Teil (Designsystem, Marketing, 4-Schritt-Gerüst, Formulare, Worker-Harness gegen gemockten Contract) läuft parallel zur Engine (§9).** Der Report mit echten Zahlen wird erst nach getestetem Engine-Kern (M1-Gate, §3.11) verdrahtet — nicht erst nach Martins Validierung.
