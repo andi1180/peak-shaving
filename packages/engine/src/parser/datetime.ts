@@ -55,19 +55,37 @@ export function detectDateFormat(samples: RawCell[]): DateFormat | null {
   return best && bestCount / total >= 0.6 ? best : null
 }
 
+/**
+ * Ein `Intl.DateTimeFormat` je Zeitzone, memoisiert. Der KONSTRUKTOR ist teuer (lädt Locale-/
+ * Zeitzonendaten), ein einmal gebautes Format aber über beliebig viele Instants wiederverwendbar
+ * (die Optionen unten sind fix). Ohne diese Memoisierung baute `localParts` pro Aufruf ein neues
+ * Format — bei 35.040 Viertelstunden × mehreren Pipeline-Pässen (Kapp-Suche, Reserve, Zuschreibung,
+ * Trace) × Katalog-Kandidaten sind das über 1 Mio. Konstruktionen und der dominante Kostenfaktor
+ * des `recommendBattery`-Laufs (§3.6/§3.8). Prozessweit gültig: die Zeitzonenregeln sind konstant.
+ */
+const formatterByTimeZone = new Map<string, Intl.DateTimeFormat>()
+
+function getFormatter(timeZone: string): Intl.DateTimeFormat {
+  let dtf = formatterByTimeZone.get(timeZone)
+  if (!dtf) {
+    dtf = new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      hourCycle: 'h23',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    })
+    formatterByTimeZone.set(timeZone, dtf)
+  }
+  return dtf
+}
+
 /** Lokale Kalenderfelder (Wanduhr) für einen UTC-Instant, via Intl (DST-bewusst). */
 function localParts(utcInstant: number, timeZone: string) {
-  const dtf = new Intl.DateTimeFormat('en-US', {
-    timeZone,
-    hourCycle: 'h23',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  })
-  const parts = dtf.formatToParts(new Date(utcInstant))
+  const parts = getFormatter(timeZone).formatToParts(new Date(utcInstant))
   const map: Record<string, number> = {}
   for (const p of parts) {
     if (p.type !== 'literal') map[p.type] = Number(p.value)
@@ -89,18 +107,51 @@ function tzOffsetMs(utcInstant: number, timeZone: string): number {
   return asUtc - utcInstant
 }
 
+export type LocalFields = {
+  year: number
+  month: number
+  day: number
+  hour: number
+  minute: number
+  weekday: number
+}
+
+/**
+ * Reine Memoisierung von (Zeitzone, utcMs) → lokale Felder. `utcMsToLocalFields` ist eine totale,
+ * referenziell transparente Funktion (die IANA-Zeitzonenregeln sind im Prozess fix) — das Cachen
+ * ändert KEIN Ergebnis, nur die Laufzeit. Nötig, weil die Analyse-Pipeline dieselben ~35.040
+ * Zeitstempel über Kapp-Suche, Reserve, Zuschreibung und Trace UND je Katalog-Kandidat wiederholt
+ * konvertiert (inkl. des intern gekappten Lastgangs, der dieselben Zeitstempel trägt) — so
+ * kollabieren >1 Mio. Konversionen auf die distinkten Zeitstempel eines Profils.
+ *
+ * Gedeckelt, damit der Cache im Server-/Portal-Kontext (viele Profile nacheinander) nicht
+ * unbegrenzt wächst. Ein einzelnes Jahresprofil (~35.040 distinkte Stempel) liegt weit unter der
+ * Grenze, daher wird innerhalb eines Laufs nie geleert (kein Thrashing). Bei Überlauf: schlicht
+ * leeren (amortisiert O(1)) — kein LRU nötig, da das Arbeitsset praktisch immer ein Profil ist.
+ */
+const localFieldsCache = new Map<string, LocalFields>()
+const LOCAL_FIELDS_CACHE_MAX = 500_000
+
 /**
  * Lokale Kalenderfelder für einen UTC-Instant — Basis für §3.4-Gruppierung
  * (Monat/Wochentag/Stunde von Bezugsspitzen) außerhalb des Parsers selbst.
  * Wochentag: 0=Montag..6=Sonntag (ISO-nah, nicht JS-`getDay()`-Konvention).
+ *
+ * Das zurückgegebene Objekt ist gecacht und wird geteilt — Aufrufer lesen ausschließlich (alle
+ * destrukturieren), nie mutieren; das ist Voraussetzung der Memoisierung.
  */
-export function utcMsToLocalFields(
-  utcMs: number,
-  timeZone: string,
-): { year: number; month: number; day: number; hour: number; minute: number; weekday: number } {
+export function utcMsToLocalFields(utcMs: number, timeZone: string): LocalFields {
+  const key = `${timeZone}|${utcMs}`
+  const cached = localFieldsCache.get(key)
+  if (cached) return cached
+
   const { year, month, day, hour, minute } = localParts(utcMs, timeZone)
   const weekday = (new Date(Date.UTC(year, month - 1, day)).getUTCDay() + 6) % 7
-  return { year, month, day, hour, minute, weekday }
+  const fields: LocalFields = { year, month, day, hour, minute, weekday }
+
+  if (localFieldsCache.size >= LOCAL_FIELDS_CACHE_MAX) localFieldsCache.clear()
+  localFieldsCache.set(key, fields)
+  return fields
 }
 
 /** Naive Wanduhrzeit in `timeZone` → UTC-Millisekunden (DST-bewusst, Best-effort an Übergängen). */

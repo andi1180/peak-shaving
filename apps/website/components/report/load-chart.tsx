@@ -106,17 +106,29 @@ function ChartTooltip({
   )
 }
 
+/**
+ * Wie viele Perioden-Höchstwerte in den abgerechneten kW-Wert eingehen — bestimmt, welchen Anteil
+ * am jährlichen Leistungsentgelt EIN Perioden-Höchstwert trägt: `monthly_max_average` mittelt über
+ * 12 Monate (eine Monats-Spitze trägt 1/12 ihres kW-Werts bei), `monthly_max_sum` summiert und
+ * `annual_max` kennt nur den einen Jahres-Höchstwert (jeweils voller Beitrag → Divisor 1).
+ */
+const BILLED_PERIOD_DIVISOR: Record<BillingModel, number> = {
+  annual_max: 1,
+  monthly_max_sum: 1,
+  monthly_max_average: 12,
+}
+
 export function LoadChart({
   loadProfile,
   dispatchTrace,
   billingModel,
-  estimatedLeistungspreisRatePerKwYear,
+  leistungspreisRatePerKwYear,
 }: {
   loadProfile: LoadProfile
   dispatchTrace: DispatchTrace | undefined
   billingModel: BillingModel
-  /** [ABGELEITET] Nur zur Anzeige eines ca.-Kostenbeitrags je Spitze — keine Contract-Zahl. */
-  estimatedLeistungspreisRatePerKwYear: number | null
+  /** [ABGELEITET] Roher Leistungspreis-Satz (€/kW·a) — Basis der kontrafaktischen Spitzen-Kostengröße. */
+  leistungspreisRatePerKwYear: number | null
 }) {
   const [selectedPeak, setSelectedPeak] = useState<PeakPoint | null>(null)
   const tz = loadProfile.timezoneMeta
@@ -172,9 +184,16 @@ export function LoadChart({
 
   const capAtSelected = selectedPeak ? capAtMs(capSegments, selectedPeak.x) : null
   const shavedKw = selectedPeak ? selectedPeak.originalKw - selectedPeak.residualKw : 0
-  const estimatedContribution =
-    selectedPeak && estimatedLeistungspreisRatePerKwYear != null
-      ? shavedKw * estimatedLeistungspreisRatePerKwYear
+  // KONTRAFAKTISCH und unabhängig von allen anderen Spitzen (§6.2): was diese Spitze ALLEIN an
+  // jährlichem Leistungsentgelt trüge, wäre sie der abgerechnete Höchstwert ihrer Abrechnungsperiode
+  // — Ursprungsbezug × Leistungspreis-Satz, geteilt durch die Zahl der in den abgerechneten Wert
+  // eingehenden Perioden-Höchstwerte (monthly_max_average → ÷12). BEWUSST nicht `shavedKw × Satz`:
+  // in den monthly_*-Modellen bestimmt je Abrechnungsperiode NUR die höchste Spitze den abgerechneten
+  // Wert, die übrigen gekappten Spitzen derselben Periode tragen real €0 bei — eine als „Ersparnis je
+  // Spitze" gelesene Zahl wäre dort irreführend. Dies ist eine Kosten-Exposition, keine Ersparnis.
+  const counterfactualPeakCostPerYear =
+    selectedPeak && leistungspreisRatePerKwYear != null
+      ? (selectedPeak.originalKw * leistungspreisRatePerKwYear) / BILLED_PERIOD_DIVISOR[billingModel]
       : null
 
   return (
@@ -299,11 +318,15 @@ export function LoadChart({
               </Num>
             </div>
           </div>
-          {estimatedContribution != null && (
+          {counterfactualPeakCostPerYear != null && (
             <p className="text-xs text-text-muted">
-              Geschätzter Kostenbeitrag ≈{' '}
-              <Num className="font-medium text-ink">{formatEur(estimatedContribution)}</Num> / Jahr
-              (grob aus der Gesamtersparnis der empfohlenen Batterie abgeleitet, keine Einzelbuchung).
+              Diese Spitze allein entspräche{' '}
+              <Num className="font-medium text-ink">
+                {formatEur(counterfactualPeakCostPerYear)}
+              </Num>{' '}
+              / Jahr Leistungsentgelt, wäre sie der abgerechnete Höchstwert ihrer Abrechnungsperiode
+              (Bezugshöhe zum Leistungspreis der Periode). Kontrafaktische Kostengröße — nicht die
+              Ersparnis, die je Abrechnungsperiode nur die höchste Spitze bestimmt.
             </p>
           )}
         </div>

@@ -46,15 +46,17 @@ export function Report({ result, loadProfile }: { result: AnalysisResult; loadPr
   const alternatives = result.perBattery.filter((p) => p !== recommended).slice(0, 3)
   const a = result.assumptions
 
-  // [ABGELEITET, keine Contract-Zahl] €/kW·a-Rate der empfohlenen Batterie, rückgerechnet aus der
-  // bereits ausgewiesenen Ersparnis — nur für den "ca."-Kostenbeitrag je angeklickter Spitze
-  // (§6.2). Gültig, weil `current.billedKw`/`newBilledKw` durch dieselbe TariffStrategy laufen
-  // (§3.5) wie die Ersparnisrechnung, unabhängig vom Abrechnungsmodell. `null`, wenn nichts
-  // gekappt wurde (Division vermeiden) — dann bleibt der Kostenbeitrag in der UI schlicht aus.
-  const capReductionKw = recommended ? result.current.billedKw - recommended.newBilledKw : 0
-  const estimatedLeistungspreisRatePerKwYear =
-    recommended && capReductionKw > 0 && recommended.leistungspreisSavingPerYear > 0
-      ? recommended.leistungspreisSavingPerYear / capReductionKw
+  // [ABGELEITET, keine Contract-Zahl] Roher Leistungspreis-Satz (€/kW·a) direkt aus den Ist-Kosten:
+  // `leistungspreisCostPerYear / billedKw` (analyzeCurrentPeaks setzt Ersteres = Satz × billedKw,
+  // §3.4) → exakt der €/kW·a-Satz, unabhängig vom Abrechnungsmodell und von der Batterie. Basis für
+  // die KONTRAFAKTISCHE Kostengröße je angeklickter Spitze in Chart 1 (was diese Spitze allein an
+  // Leistungsentgelt trüge, wäre sie der abgerechnete Höchstwert ihrer Periode) — bewusst NICHT die
+  // Ersparnis (die richtet sich je Periode nur nach der höchsten Spitze; s. LoadChart-Popover). Die
+  // perioden-spezifische Umrechnung (monthly_max_average → ÷12) macht das Chart selbst am
+  // `billingModel`. `null` bei billedKw = 0 (leeres/rein einspeisendes Profil) — dann keine Spitzen.
+  const leistungspreisRatePerKwYear =
+    result.current.billedKw > 0
+      ? result.current.leistungspreisCostPerYear / result.current.billedKw
       : null
 
   return (
@@ -76,7 +78,7 @@ export function Report({ result, loadProfile }: { result: AnalysisResult; loadPr
               loadProfile={loadProfile}
               dispatchTrace={recommended?.dispatchTrace}
               billingModel={a.billingModel}
-              estimatedLeistungspreisRatePerKwYear={estimatedLeistungspreisRatePerKwYear}
+              leistungspreisRatePerKwYear={leistungspreisRatePerKwYear}
             />
           </div>
           <div className="grid gap-6 sm:grid-cols-2">
