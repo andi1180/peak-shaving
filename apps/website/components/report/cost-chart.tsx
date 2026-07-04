@@ -7,6 +7,7 @@ import {
   BarChart,
   CartesianGrid,
   ComposedChart,
+  LabelList,
   Line,
   ReferenceLine,
   ResponsiveContainer,
@@ -82,11 +83,71 @@ function CostTooltip({
   )
 }
 
+// Ein einziger Akzentton, drei monotone Helligkeitsstufen (DESIGN.md: kein erfundenes
+// drittes Kategorie-Farbschema, Grün/Rot/Bernstein bleiben für Ersparnis/Kosten/Warnung
+// reserviert). `color-mix()` leitet die Stufen live von `--color-accent` ab, damit ein
+// White-Label-Wechsel des Akzenttons automatisch beide Stufen mitzieht (kein Hex im Code).
+// Reihenfolge/Helligkeit gegen den Skill-Validator geprüft (OKLCH-Lightness-Band, ΔL≥0,06
+// je Nachbarpaar, Hellstufe ≥2:1 Kontrast auf `--color-surface`) — nicht frei gegriffen.
 const BREAKDOWN = [
-  { key: 'leistungspreisSavingPerYear', label: 'Spitzenkappung (Leistungspreis)', color: 'var(--color-accent)' },
-  { key: 'selfConsumptionSavingPerYear', label: 'Eigenverbrauch', color: 'var(--color-accent-hover)' },
-  { key: 'loadShiftSavingPerYear', label: 'Tarifbewusstes Laden', color: 'var(--color-text-muted)' },
+  {
+    key: 'leistungspreisSavingPerYear',
+    label: 'Spitzenkappung (Leistungspreis)',
+    color: 'var(--color-accent)',
+    textColor: 'var(--color-on-accent)',
+  },
+  {
+    key: 'selfConsumptionSavingPerYear',
+    label: 'Eigenverbrauch',
+    color: 'color-mix(in srgb, var(--color-accent) 85%, var(--color-surface))',
+    textColor: 'var(--color-ink)',
+  },
+  {
+    key: 'loadShiftSavingPerYear',
+    label: 'Tarifbewusstes Laden',
+    color: 'color-mix(in srgb, var(--color-accent) 65%, var(--color-surface))',
+    textColor: 'var(--color-ink)',
+  },
 ] as const
+
+type SegmentLabelProps = {
+  x?: unknown
+  y?: unknown
+  width?: unknown
+  height?: unknown
+  value?: unknown
+  textColor: string
+}
+
+// Direkte Segment-Beschriftung (Ziel: ohne Hover lesbar, nicht nur Tooltip/Legende).
+// Schmale Segmente (z. B. ein kleiner Anteil neben einer dominanten Spitzenkappung) können
+// den Text nicht aufnehmen — dann bewusst NICHT reinquetschen/clippen (marks-and-anatomy:
+// "never overflow or clip"), der Betrag bleibt über die Legende darunter sichtbar.
+function SegmentLabel({ x, y, width, height, value, textColor }: SegmentLabelProps) {
+  const numX = Number(x)
+  const numY = Number(y)
+  const numWidth = Number(width)
+  const numHeight = Number(height)
+  const numValue = Number(value)
+  if (!numValue || numValue <= 0 || [numX, numY, numWidth, numHeight].some(Number.isNaN)) return null
+  const text = formatEur(numValue)
+  const estimatedTextWidth = text.length * 6.5 + 8
+  if (numWidth < estimatedTextWidth) return null
+  return (
+    <text
+      x={numX + numWidth / 2}
+      y={numY + numHeight / 2}
+      textAnchor="middle"
+      dominantBaseline="central"
+      fontSize={11}
+      fontWeight={600}
+      fill={textColor}
+      className="tabular-nums"
+    >
+      {text}
+    </text>
+  )
+}
 
 // Kompaktes, separates stacked-Bar (§6.2 "getrennt sichtbar") — zeigt die Zusammensetzung der
 // JÄHRLICHEN Ersparnis. Anteile sind über den Horizont konstant (lineares Modell, keine sich
@@ -113,7 +174,9 @@ function SavingsBreakdownBar({ entry }: { entry: Entry }) {
               ]}
             />
             {BREAKDOWN.map((b) => (
-              <Bar key={b.key} dataKey={b.key} stackId="s" fill={b.color} isAnimationActive={false} />
+              <Bar key={b.key} dataKey={b.key} stackId="s" fill={b.color} isAnimationActive={false}>
+                <LabelList dataKey={b.key} content={(props) => <SegmentLabel {...props} textColor={b.textColor} />} />
+              </Bar>
             ))}
           </BarChart>
         </ResponsiveContainer>
