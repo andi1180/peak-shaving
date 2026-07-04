@@ -73,3 +73,19 @@
     font-family: var(--font-sans), system-ui, sans-serif;
   }
 }
+
+/*
+ * PDF-Export (§6.2 Teil D) — `window.print()` gegen dieses Stylesheet, keine serverseitige
+ * Generierung. Farbe trägt hier Bedeutung (Ersparnis/Kosten/Warnung, DESIGN.md „Farbe ist
+ * Information, kein Dekor") — die meisten Browser unterdrücken Hintergrundfarben im Druck
+ * standardmäßig (Tinte sparen), das würde genau diese Bedeutung im PDF verlieren.
+ */
+@media print {
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  @page {
+    margin: 14mm 12mm;
+  }
+}

@@ -24,6 +24,7 @@ import { KeyMetric } from './key-metric'
 import { LeadDialog } from './lead-dialog'
 import { LoadChart } from './load-chart'
 import { Num } from './num'
+import { PrintAssumptionsSnapshot } from './print-assumptions-snapshot'
 import { RecommendationCard } from './recommendation-card'
 
 // Report — ruhig, datendicht, desktop-first, Tablet Pflicht (§6.2). Bewusst ANDERER
@@ -92,7 +93,7 @@ export function Report({
           {recommended && <RecommendationCard entry={recommended} primary />}
         </div>
         <div className="flex flex-col gap-6 lg:col-span-2">
-          <div className="rounded-lg border border-border bg-surface p-6">
+          <div className="rounded-lg border border-border bg-surface p-6 print:break-inside-avoid">
             <p className="mb-1 text-sm font-medium text-ink">Lastgang mit Kapp-Linie</p>
             <p className="mb-3 text-xs text-text-muted">
               Jahresverlauf, teuerste abgefangene Spitzen markiert (anklickbar) — Kapp-Schwelle der
@@ -106,7 +107,7 @@ export function Report({
             />
           </div>
           <div className="grid gap-6 sm:grid-cols-2">
-            <div className="rounded-lg border border-border bg-surface p-6">
+            <div className="rounded-lg border border-border bg-surface p-6 print:break-inside-avoid">
               <p className="mb-1 text-sm font-medium text-ink">Kostenvergleich mit/ohne Batterie</p>
               <p className="mb-3 text-xs text-text-muted">
                 Kumulierte Kosten über {a.horizonYears} Jahre, Ersparnis nach Kategorie
@@ -129,7 +130,9 @@ export function Report({
               <div className="flex flex-col justify-center gap-3 rounded-lg border border-border bg-surface p-6">
                 <p className="text-sm font-medium text-ink">Nächster Schritt</p>
                 <p className="text-sm text-text-muted">{result.recommendation.rationale}</p>
-                <LeadDialog />
+                <div className="print:hidden">
+                  <LeadDialog />
+                </div>
               </div>
             </div>
           </div>
@@ -140,7 +143,7 @@ export function Report({
         <Accordion
           type="single"
           collapsible
-          className="rounded-lg border border-border bg-surface px-4"
+          className="rounded-lg border border-border bg-surface px-4 print:hidden"
         >
           <AccordionItem value="alternatives" className="border-b-0">
             <AccordionTrigger>{alternatives.length} Alternativen ansehen</AccordionTrigger>
@@ -158,7 +161,7 @@ export function Report({
       <Accordion
         type="single"
         collapsible
-        className="rounded-lg border border-border bg-surface px-4"
+        className="rounded-lg border border-border bg-surface px-4 print:hidden"
       >
         <AccordionItem value="assumptions" className="border-b-0">
           <AccordionTrigger>Annahmen &amp; Rechenweise</AccordionTrigger>
@@ -184,6 +187,9 @@ export function Report({
           </AccordionContent>
         </AccordionItem>
       </Accordion>
+
+      {/* Druck-Pendant zur Accordion oben — Snapshot statt Eingabefelder (§6.2 Teil D). */}
+      <PrintAssumptionsSnapshot assumptions={a} recommended={recommended} />
 
       {result.dataQuality.warnings.length > 0 && (
         <Alert>

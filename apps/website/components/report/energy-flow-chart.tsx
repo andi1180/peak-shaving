@@ -154,28 +154,37 @@ export function EnergyFlowChart({
   }, [points])
 
   return (
-    <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-6">
+    <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-6 print:break-inside-avoid">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <p className="text-sm font-medium text-ink">Tages-Energiefluss</p>
-          <p className="text-xs text-text-muted">Netz / PV / Batterie / Verbrauch über 24 h</p>
+          <p className="text-xs text-text-muted">
+            Netz / PV / Batterie / Verbrauch über 24 h
+            {/* Druck-Ersatz für den unten ausgeblendeten Batterie-Select (§6.2 Teil D: kein
+                interaktives Chrome im Druck) — sonst geht im PDF verloren, welche Batterie hier
+                gezeigt wird. */}
+            <span className="hidden print:inline"> — {entry.battery.name}</span>
+          </p>
         </div>
-        <Select value={selectedBatteryId} onValueChange={onSelectBattery}>
-          <SelectTrigger className="w-56" aria-label="Batterie für Energiefluss-Chart">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {perBattery.map((p) => (
-              <SelectItem key={p.battery.id} value={p.battery.id}>
-                {p.battery.name} ({p.battery.controlType === 'static' ? 'statisch' : 'dynamisch'})
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {/* Interaktive Batterie-Auswahl: im Druck ohne Wirkung, deshalb ausgeblendet. */}
+        <div className="print:hidden">
+          <Select value={selectedBatteryId} onValueChange={onSelectBattery}>
+            <SelectTrigger className="w-56" aria-label="Batterie für Energiefluss-Chart">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {perBattery.map((p) => (
+                <SelectItem key={p.battery.id} value={p.battery.id}>
+                  {p.battery.name} ({p.battery.controlType === 'static' ? 'statisch' : 'dynamisch'})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {activeDay && worstDay && pvDay && (
-        <div className="flex gap-1.5 text-xs">
+        <div className="flex gap-1.5 text-xs print:hidden">
           {(['worst_caught_peak', 'pv_strong'] as const).map((label) => (
             <button
               key={label}
@@ -195,7 +204,10 @@ export function EnergyFlowChart({
 
       {activeDay ? (
         <>
-          <p className="text-xs text-text-muted">{formatDayLabel(minMs, timeZone)}</p>
+          <p className="text-xs text-text-muted">
+            {formatDayLabel(minMs, timeZone)}
+            {activeLabel && <span className="hidden print:inline"> ({dayTabLabel[activeLabel]})</span>}
+          </p>
           <div key={activeDay.date} className="h-64 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <ComposedChart data={points} margin={{ top: 8, right: 12, bottom: 0, left: 0 }}>
