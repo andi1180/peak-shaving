@@ -1,7 +1,14 @@
-import { alignPvGrossToLoad, analyzeCurrentPeaks, pvConsistencyWarning, recommendBattery } from 'engine'
-import { DEMO_BATTERY_CATALOG, type AnalysisResult } from 'shared'
+import {
+  alignPvGrossToLoad,
+  analyzeCurrentPeaks,
+  pvConsistencyWarning,
+  recommendBattery,
+} from 'engine'
+import { DEMO_BATTERY_CATALOG, type AnalysisResult, type BatteryCandidate } from 'shared'
 
-import type { AnalysisRequest, WorkerOutbound } from './analysis-protocol'
+import type { AnalysisRequest, BatteryOverride, WorkerOutbound } from './analysis-protocol'
+import { DEFAULT_HORIZON_YEARS } from './constants'
+import type { CalculatorPayload } from '@/components/flow/types'
 
 /*
  * Analyse-Worker — läuft OFF-MAIN-THREAD (kein Tab-Freeze, §2.2/§5).
@@ -13,9 +20,16 @@ import type { AnalysisRequest, WorkerOutbound } from './analysis-protocol'
  * │ dem Formular und den `DEMO_BATTERY_CATALOG` (packages/shared) — ein        │
  * │ Platzhalter bis Martins echter Katalog vorliegt (§8 OP#2). `dataQuality`   │
  * │ ist seit Prompt 2 echt. `dispatchTrace` ist seit der §6.2-Befüllung        │
- * │ (`recommendBattery` → `buildDispatchTrace`) je perBattery-Eintrag ECHT und │
- * │ wird hier unverändert mitgereicht (perBattery-Spread unten) — Consumer     │
- * │ sind die U2-Report-Charts (noch `ChartPlaceholder`, Verdrahtung offen).    │
+ * │ (`recommendBattery` → `buildDispatchTrace`) je perBattery-Eintrag ECHT.    │
+ * │                                                                            │
+ * │ U2 Prompt C: `computeAnalysis()` bündelt die komplette Berechnung, damit   │
+ * │ sowohl `run` (Erstlauf, mit künstlicher Fortschrittsanimation) als auch    │
+ * │ `recompute` (Annahmen-Panel, §6.2, ohne Verzögerung — Performance-Fix      │
+ * │ macht `recommendBattery` ~650ms für den vollen Katalog) dieselbe, EINE     │
+ * │ Rechenkette durchlaufen (Prinzip 2: keine zweite, abweichende Rechnung).   │
+ * │ Derselbe Worker bleibt über die gesamte Report-Sitzung am Leben (kein      │
+ * │ Neu-Spawn je Annahmen-Änderung) — `ctx.onmessage` verarbeitet beliebig     │
+ * │ viele Nachrichten nacheinander.                                           │
  * └──────────────────────────────────────────────────────────────────────────┘
  */
 
@@ -27,20 +41,37 @@ function post(message: WorkerOutbound): void {
   ctx.postMessage(message)
 }
 
-// [ANNAHME §3.1] `step-tariff.tsx` sammelt `horizonYears` noch nicht im Formular — UI-seitiger
-// Default, bewusst nicht im Rechenkern (s. `SimulationConfig`-Kommentar in packages/shared).
-// Nicht blockierend: sobald das Formular den Wert sammelt, ersetzt er hier direkt die Konstante.
-const DEFAULT_HORIZON_YEARS = 10
+/** `catalog` mit genau einem modifizierten Eintrag (Architektur-Vorgabe §6.2: unveränderte Kopie,
+ * nicht der ganze Katalog) — restliche Kandidaten bleiben unangetastet, damit die Neu-Einordnung
+ * (Ranking) ehrlich gegen die unveränderten Alternativen läuft. */
+function applyBatteryOverride(
+  catalog: BatteryCandidate[],
+  override: BatteryOverride | undefined,
+): BatteryCandidate[] {
+  if (!override) return catalog
+  return catalog.map((b) =>
+    b.id === override.batteryId
+      ? {
+          ...b,
+          ...(override.roundTripEfficiency != null
+            ? { roundTripEfficiency: override.roundTripEfficiency }
+            : {}),
+          ...(override.pricePerKwh != null ? { pricePerKwh: override.pricePerKwh } : {}),
+        }
+      : b,
+  )
+}
 
-ctx.onmessage = (event: MessageEvent<AnalysisRequest>) => {
-  const msg = event.data
-  if (!msg || msg.type !== 'run') return
-
-  const loadProfile = msg.payload.load.profile
-  const pvProfile = msg.payload.pv?.profile
+function computeAnalysis(
+  payload: CalculatorPayload,
+  horizonYears: number,
+  catalog: BatteryCandidate[],
+): AnalysisResult {
+  const loadProfile = payload.load.profile
+  const pvProfile = payload.pv?.profile
 
   // --- current/peaks: ECHTER Engine-Aufruf (§3.4/§3.5) ---
-  const { current, peaks } = analyzeCurrentPeaks(loadProfile, msg.payload.tariff)
+  const { current, peaks } = analyzeCurrentPeaks(loadProfile, payload.tariff)
 
   // --- PV-Konsistenz (§3.1): Brutto-PV gegen den Netz-Lastgang prüfen (Prinzip 1: Netz gewinnt) ---
   // Einmal profil-weit (nicht je Batterie) — die geklemmten Slots hängen nur an Lastgang×PV, nicht an
@@ -56,14 +87,14 @@ ctx.onmessage = (event: MessageEvent<AnalysisRequest>) => {
   // `pvProfile` (optional) reichert nur den Trace um die echte Brutto-PV an (Dispatch/Ersparnis unverändert).
   const { perBattery, recommendation } = recommendBattery(
     loadProfile,
-    msg.payload.tariff,
-    DEMO_BATTERY_CATALOG,
-    DEFAULT_HORIZON_YEARS,
-    msg.payload.financial,
+    payload.tariff,
+    catalog,
+    horizonYears,
+    payload.financial,
     pvProfile,
   )
 
-  const result: AnalysisResult = {
+  return {
     current,
     peaks,
     perBattery,
@@ -74,32 +105,56 @@ ctx.onmessage = (event: MessageEvent<AnalysisRequest>) => {
       // Anzeigewert, kein Rechenkern-Input. `perBattery` ist über den nicht-leeren
       // `DEMO_BATTERY_CATALOG` nie leer.
       roundTripEfficiency: perBattery[0]!.battery.roundTripEfficiency,
-      horizonYears: DEFAULT_HORIZON_YEARS,
-      billingModel: msg.payload.tariff.billingModel,
-      energyPriceCtPerKwh: msg.payload.tariff.energyPriceCtPerKwh,
-      einspeiseverguetungCtPerKwh: msg.payload.tariff.einspeiseverguetungCtPerKwh,
+      horizonYears,
+      billingModel: payload.tariff.billingModel,
+      energyPriceCtPerKwh: payload.tariff.energyPriceCtPerKwh,
+      einspeiseverguetungCtPerKwh: payload.tariff.einspeiseverguetungCtPerKwh,
     },
     dataQuality: pvWarning
       ? {
-          ...msg.payload.load.dataQuality,
-          warnings: [...msg.payload.load.dataQuality.warnings, pvWarning],
+          ...payload.load.dataQuality,
+          warnings: [...payload.load.dataQuality.warnings, pvWarning],
         }
-      : msg.payload.load.dataQuality,
+      : payload.load.dataQuality,
+  }
+}
+
+ctx.onmessage = (event: MessageEvent<AnalysisRequest>) => {
+  const msg = event.data
+  if (!msg) return
+
+  if (msg.type === 'run') {
+    const result = computeAnalysis(msg.payload, DEFAULT_HORIZON_YEARS, DEMO_BATTERY_CATALOG)
+
+    // Künstliche Fortschrittsanimation NUR beim Erstlauf (§5 Schritt 3, StepAnalyzing) — kein
+    // fachlicher Wert, reine Wahrnehmungs-Geste. `recompute` (unten) überspringt sie bewusst,
+    // damit sich die Live-Neuberechnung im Annahmen-Panel tatsächlich live anfühlt.
+    const progressSteps = [12, 34, 58, 81, 100]
+    let step = 0
+    const tick = () => {
+      const value = progressSteps[step] ?? 100
+      post({ type: 'progress', value })
+      step += 1
+      if (step < progressSteps.length) {
+        setTimeout(tick, 320)
+      } else {
+        post({ type: 'result', result })
+      }
+    }
+    setTimeout(tick, 250)
+    return
   }
 
-  const progressSteps = [12, 34, 58, 81, 100]
-  let step = 0
-
-  const tick = () => {
-    const value = progressSteps[step] ?? 100
-    post({ type: 'progress', value })
-    step += 1
-    if (step < progressSteps.length) {
-      setTimeout(tick, 320)
-    } else {
-      post({ type: 'result', result })
+  if (msg.type === 'recompute') {
+    try {
+      const catalog = applyBatteryOverride(DEMO_BATTERY_CATALOG, msg.batteryOverride)
+      const result = computeAnalysis(msg.payload, msg.horizonYears, catalog)
+      post({ type: 'recomputed', result })
+    } catch (err) {
+      post({
+        type: 'error',
+        message: err instanceof Error ? err.message : 'Neuberechnung fehlgeschlagen',
+      })
     }
   }
-
-  setTimeout(tick, 250)
 }

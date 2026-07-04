@@ -5,15 +5,27 @@ import type { AnalysisResult } from 'shared'
 
 import { Report } from '@/components/report/report'
 import { Button } from '@/components/ui/button'
-import type { ParsedLoad } from './types'
+import type { CalculatorPayload, ParsedLoad, RecomputeInput } from './types'
 
 export function StepResult({
   result,
   load,
+  payload,
+  recomputing,
+  recomputeError,
+  isLive,
+  onRecompute,
+  onResetAssumptions,
   onRestart,
 }: {
   result: AnalysisResult
   load: ParsedLoad
+  payload: CalculatorPayload
+  recomputing: boolean
+  recomputeError: string | null
+  isLive: boolean
+  onRecompute: (input: RecomputeInput) => void
+  onResetAssumptions: () => void
   onRestart: () => void
 }) {
   return (
@@ -25,7 +37,17 @@ export function StepResult({
           Neue Analyse
         </Button>
       </div>
-      <Report result={result} loadProfile={load.profile} />
+      <Report
+        result={result}
+        loadProfile={load.profile}
+        originalTariff={payload.tariff}
+        originalFinancial={payload.financial}
+        recomputing={recomputing}
+        recomputeError={recomputeError}
+        isLive={isLive}
+        onRecompute={onRecompute}
+        onResetAssumptions={onResetAssumptions}
+      />
     </div>
   )
 }

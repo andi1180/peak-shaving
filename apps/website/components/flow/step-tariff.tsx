@@ -29,6 +29,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { NumberField } from '@/components/ui/number-field'
+import { parseNum, percentHint } from '@/lib/form-utils'
 import { FileDrop } from './file-drop'
 import type { ParsedPv, TariffResult } from './types'
 
@@ -38,19 +40,6 @@ async function readForParsing(
   const isXlsx = /\.(xlsx|xls)$/i.test(file.name)
   const content = isXlsx ? await file.arrayBuffer() : await file.text()
   return { content, fileName: file.name, format: isXlsx ? 'xlsx' : 'csv' }
-}
-
-// Deutsche Dezimaltrennung tolerieren; leer → NaN (zod lehnt NaN für z.number() ab).
-function parseNum(s: string): number {
-  return s.trim() === '' ? NaN : Number(s.replace(',', '.'))
-}
-
-// Faktor-100-Schutz (§3.9-Kontext): Wert < 1 in einem %-Feld → sanfter Hinweis, KEINE Sperre.
-function percentHint(s: string): string | null {
-  const v = parseNum(s)
-  return Number.isFinite(v) && v > 0 && v < 1
-    ? `Meinten Sie ${new Intl.NumberFormat('de-AT').format(v * 100)} %?`
-    : null
 }
 
 const initial = {
@@ -70,49 +59,6 @@ const initial = {
   taxRatePercent: '',
 }
 type FormState = typeof initial
-
-function NumberField({
-  id,
-  label,
-  unit,
-  value,
-  onChange,
-  error,
-  hint,
-  step = 'any',
-}: {
-  id: string
-  label: string
-  unit: string
-  value: string
-  onChange: (v: string) => void
-  error?: string
-  hint?: string | null
-  step?: string
-}) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <Label htmlFor={id}>{label}</Label>
-      <div className="relative">
-        <Input
-          id={id}
-          type="number"
-          inputMode="decimal"
-          step={step}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          className="pr-16"
-          aria-invalid={error ? true : undefined}
-        />
-        <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-text-muted">
-          {unit}
-        </span>
-      </div>
-      {error && <span className="text-xs text-negative">{error}</span>}
-      {!error && hint && <span className="text-xs text-warning">{hint}</span>}
-    </div>
-  )
-}
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (

@@ -30,6 +30,18 @@ export function formatDayLabel(utcMs: number, timeZone: string): string {
   return fmt.format(utcMs)
 }
 
+const timeLabelCache = new Map<string, Intl.DateTimeFormat>()
+
+/** Uhrzeit ohne Datum für Achsen-Ticks eines Tages-Charts (§6.2 Energiefluss), z. B. "14:30". */
+export function formatTimeLabel(utcMs: number, timeZone: string): string {
+  let fmt = timeLabelCache.get(timeZone)
+  if (!fmt) {
+    fmt = new Intl.DateTimeFormat('de-AT', { timeZone, hour: '2-digit', minute: '2-digit' })
+    timeLabelCache.set(timeZone, fmt)
+  }
+  return fmt.format(utcMs)
+}
+
 const dateTimeCache = new Map<string, Intl.DateTimeFormat>()
 
 /** Volles lokales Datum + Uhrzeit für die Spitzen-Detailansicht, z. B. "Di, 10. Feb 2024, 05:00". */

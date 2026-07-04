@@ -1,5 +1,6 @@
 import type { DataQuality } from 'engine'
 import type { FinancialParams, LoadProfile, PvProfile, TariffParams } from 'shared'
+import type { BatteryOverride } from '@/lib/analysis-protocol'
 
 // Vom Tarif-Schritt nach oben gereichtes Ergebnis. `pv` ist optional (§3.1/§5 Schritt 2) — liegt es
 // vor, trägt es die Brutto-PV in Engine/Trace (echter 4. Strom + Konsistenzprüfung).
@@ -28,4 +29,15 @@ export type ParsedPv = {
 // `perBattery`/`recommendation` (§3.6-3.8, gegen den `DEMO_BATTERY_CATALOG`).
 export type CalculatorPayload = TariffResult & {
   load: ParsedLoad
+}
+
+// Vom editierbaren Annahmen-Panel (§6.2) nach oben gereichte, vollständige Eingabe für eine
+// Live-Neuberechnung — `tariff`/`financial` sind bereits mit den editierten Feldern gemergte
+// Kopien der Originalwerte (nur `billingModel` bzw. Förderung/Steuer/Abschreibung editierbar,
+// s. CLAUDE.md „NICHT: Entladetiefe"-Vermerk zur bewussten Auslassung).
+export type RecomputeInput = {
+  tariff: TariffParams
+  financial?: FinancialParams
+  horizonYears: number
+  batteryOverride?: BatteryOverride
 }

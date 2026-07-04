@@ -1,5 +1,12 @@
+import { useState } from 'react'
 import { AlertCircle } from 'lucide-react'
-import type { AnalysisResult, BillingModel, LoadProfile } from 'shared'
+import {
+  DEMO_BATTERY_CATALOG,
+  type AnalysisResult,
+  type FinancialParams,
+  type LoadProfile,
+  type TariffParams,
+} from 'shared'
 
 import {
   Accordion,
@@ -8,35 +15,52 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
-import { formatEur, formatPercent } from '@/lib/format'
-import { ChartPlaceholder } from './chart-placeholder'
+import { DEFAULT_HORIZON_YEARS } from '@/lib/constants'
+import type { RecomputeInput } from '@/components/flow/types'
+import { AssumptionsPanel } from './assumptions-panel'
 import { CostChart } from './cost-chart'
+import { EnergyFlowChart } from './energy-flow-chart'
 import { KeyMetric } from './key-metric'
 import { LeadDialog } from './lead-dialog'
 import { LoadChart } from './load-chart'
 import { Num } from './num'
 import { RecommendationCard } from './recommendation-card'
 
-const billingModelLabel: Record<BillingModel, string> = {
-  annual_max: 'Jahreshöchstwert',
-  monthly_max_average: 'Mittel der 12 Monatshöchstwerte',
-  monthly_max_sum: 'Summe der 12 Monatshöchstwerte',
-}
-
-function AssumptionRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between py-2 text-sm">
-      <span className="text-text-muted">{label}</span>
-      <Num className="font-medium text-ink">{value}</Num>
-    </div>
-  )
-}
-
 // Report — ruhig, datendicht, desktop-first, Tablet Pflicht (§6.2). Bewusst ANDERER
 // Charakter als die Marketing-Seite. `loadProfile` ist der rohe, client-seitig geparste Lastgang
 // (Prinzip 4 — verlässt den Browser nie): die U2-Charts brauchen ihn für die Jahresübersicht, da
 // `AnalysisResult.dispatchTrace` bewusst keine Rohreihe trägt (s. `DispatchTrace`-Kommentar).
-export function Report({ result, loadProfile }: { result: AnalysisResult; loadProfile: LoadProfile }) {
+//
+// `result` ist seit U2 Prompt C der aktuell ANGEZEIGTE Stand (`analysis.displayResult` =
+// `liveResult ?? result` im Hook) — nach einer Annahmen-Änderung also das live neu berechnete
+// Ergebnis. `originalTariff`/`originalFinancial` bleiben die vom Tarif-Schritt (§5) unveränderten
+// Werte (für die Formular-Defaults + den Reset-Vergleich im Annahmen-Panel).
+export function Report({
+  result,
+  loadProfile,
+  originalTariff,
+  originalFinancial,
+  recomputing,
+  recomputeError,
+  isLive,
+  onRecompute,
+  onResetAssumptions,
+}: {
+  result: AnalysisResult
+  loadProfile: LoadProfile
+  originalTariff: TariffParams
+  originalFinancial?: FinancialParams
+  recomputing: boolean
+  recomputeError: string | null
+  isLive: boolean
+  onRecompute: (input: RecomputeInput) => void
+  onResetAssumptions: () => void
+}) {
+  // Batterie, deren Energiefluss-Chart + Annahmen-Panel-Felder (Wirkungsgrad/Preis) gerade
+  // angezeigt werden (§6.2 „aktuell angezeigte Batterie") — unabhängig von der Empfehlung, per
+  // Dropdown im Chart wählbar (auch eine `static`-Alternative, um den Fallback zu sehen).
+  const [selectedBatteryId, setSelectedBatteryId] = useState(result.recommendation.batteryId)
+
   const recommended =
     result.perBattery.find((p) => p.battery.id === result.recommendation.batteryId) ??
     result.perBattery[0]
@@ -96,9 +120,11 @@ export function Report({ result, loadProfile }: { result: AnalysisResult; loadPr
               )}
             </div>
             <div className="flex flex-col gap-6">
-              <ChartPlaceholder
-                title="Tages-Energiefluss"
-                hint="Netz / PV / Batterie / Verbrauch über 24 h"
+              <EnergyFlowChart
+                perBattery={result.perBattery}
+                selectedBatteryId={selectedBatteryId}
+                onSelectBattery={setSelectedBatteryId}
+                timeZone={loadProfile.timezoneMeta}
               />
               <div className="flex flex-col justify-center gap-3 rounded-lg border border-border bg-surface p-6">
                 <p className="text-sm font-medium text-ink">Nächster Schritt</p>
@@ -137,25 +163,24 @@ export function Report({ result, loadProfile }: { result: AnalysisResult; loadPr
         <AccordionItem value="assumptions" className="border-b-0">
           <AccordionTrigger>Annahmen &amp; Rechenweise</AccordionTrigger>
           <AccordionContent>
-            <div className="divide-y divide-border">
-              <AssumptionRow label="Abrechnungsmodell" value={billingModelLabel[a.billingModel]} />
-              <AssumptionRow label="Betrachtungshorizont" value={`${a.horizonYears} Jahre`} />
-              <AssumptionRow
-                label="Wirkungsgrad"
-                value={formatPercent(a.roundTripEfficiency * 100)}
-              />
-              <AssumptionRow
-                label="Arbeitspreis"
-                value={`${formatEur(a.energyPriceCtPerKwh / 100)} / kWh`}
-              />
-              <AssumptionRow
-                label="Einspeisevergütung"
-                value={`${formatEur(a.einspeiseverguetungCtPerKwh / 100)} / kWh`}
-              />
-            </div>
-            <p className="mt-3 text-xs text-text-muted">
-              Editierbares Annahmen-Panel mit Live-Neuberechnung folgt in U2 (§6.2).
-            </p>
+            <AssumptionsPanel
+              originalTariff={originalTariff}
+              originalFinancial={originalFinancial}
+              originalHorizonYears={DEFAULT_HORIZON_YEARS}
+              originalBattery={
+                DEMO_BATTERY_CATALOG.find((b) => b.id === selectedBatteryId) ??
+                DEMO_BATTERY_CATALOG[0]!
+              }
+              selectedBatteryName={
+                result.perBattery.find((p) => p.battery.id === selectedBatteryId)?.battery.name ??
+                selectedBatteryId
+              }
+              isEdited={isLive}
+              recomputing={recomputing}
+              recomputeError={recomputeError}
+              onRecompute={onRecompute}
+              onReset={onResetAssumptions}
+            />
           </AccordionContent>
         </AccordionItem>
       </Accordion>

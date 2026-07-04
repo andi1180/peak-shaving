@@ -16,6 +16,9 @@ type Step = 1 | 2 | 3 | 4
 export function Calculator() {
   const [step, setStep] = useState<Step>(1)
   const [load, setLoad] = useState<ParsedLoad | null>(null)
+  // Original-Payload (Tarif/Finanzen/PV) — für das Annahmen-Panel (§6.2): `recompute()` braucht
+  // die unveränderten `load`/`pv`, um sie mit editierten `tariff`/`financial` neu zu verschicken.
+  const [payload, setPayload] = useState<CalculatorPayload | null>(null)
   const analysis = useAnalysis()
 
   // Analyse fertig → automatisch zum Ergebnis.
@@ -30,14 +33,16 @@ export function Calculator() {
 
   function handleTariff(result: TariffResult) {
     if (!load) return
-    const payload: CalculatorPayload = { ...result, load }
+    const p: CalculatorPayload = { ...result, load }
+    setPayload(p)
     setStep(3)
-    analysis.start(payload) // Off-Main-Thread; komplettes AnalysisResult echt (§3.4-3.8, Prompt 4 abgeschlossen).
+    analysis.start(p) // Off-Main-Thread; komplettes AnalysisResult echt (§3.4-3.8, Prompt 4 abgeschlossen).
   }
 
   function handleRestart() {
     analysis.reset()
     setLoad(null)
+    setPayload(null)
     setStep(1)
   }
 
@@ -57,8 +62,27 @@ export function Calculator() {
           {step === 3 && <StepAnalyzing progress={analysis.progress} status={analysis.status} />}
         </div>
       ) : (
-        analysis.result &&
-        load && <StepResult result={analysis.result} load={load} onRestart={handleRestart} />
+        analysis.displayResult &&
+        load &&
+        payload && (
+          <StepResult
+            result={analysis.displayResult}
+            load={load}
+            payload={payload}
+            recomputing={analysis.recomputing}
+            recomputeError={analysis.recomputeError}
+            isLive={analysis.isLive}
+            onRecompute={(input) =>
+              analysis.recompute(
+                { ...payload, tariff: input.tariff, financial: input.financial },
+                input.horizonYears,
+                input.batteryOverride,
+              )
+            }
+            onResetAssumptions={analysis.resetLive}
+            onRestart={handleRestart}
+          />
+        )
       )}
     </div>
   )
