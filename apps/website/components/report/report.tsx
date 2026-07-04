@@ -1,5 +1,5 @@
 import { AlertCircle } from 'lucide-react'
-import type { AnalysisResult, BillingModel } from 'shared'
+import type { AnalysisResult, BillingModel, LoadProfile } from 'shared'
 
 import {
   Accordion,
@@ -10,8 +10,10 @@ import {
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { formatEur, formatPercent } from '@/lib/format'
 import { ChartPlaceholder } from './chart-placeholder'
+import { CostChart } from './cost-chart'
 import { KeyMetric } from './key-metric'
 import { LeadDialog } from './lead-dialog'
+import { LoadChart } from './load-chart'
 import { Num } from './num'
 import { RecommendationCard } from './recommendation-card'
 
@@ -31,8 +33,10 @@ function AssumptionRow({ label, value }: { label: string; value: string }) {
 }
 
 // Report — ruhig, datendicht, desktop-first, Tablet Pflicht (§6.2). Bewusst ANDERER
-// Charakter als die Marketing-Seite. Charts sind hier noch Platzhalter (U2).
-export function Report({ result }: { result: AnalysisResult }) {
+// Charakter als die Marketing-Seite. `loadProfile` ist der rohe, client-seitig geparste Lastgang
+// (Prinzip 4 — verlässt den Browser nie): die U2-Charts brauchen ihn für die Jahresübersicht, da
+// `AnalysisResult.dispatchTrace` bewusst keine Rohreihe trägt (s. `DispatchTrace`-Kommentar).
+export function Report({ result, loadProfile }: { result: AnalysisResult; loadProfile: LoadProfile }) {
   const recommended =
     result.perBattery.find((p) => p.battery.id === result.recommendation.batteryId) ??
     result.perBattery[0]
@@ -42,6 +46,17 @@ export function Report({ result }: { result: AnalysisResult }) {
   const alternatives = result.perBattery.filter((p) => p !== recommended).slice(0, 3)
   const a = result.assumptions
 
+  // [ABGELEITET, keine Contract-Zahl] €/kW·a-Rate der empfohlenen Batterie, rückgerechnet aus der
+  // bereits ausgewiesenen Ersparnis — nur für den "ca."-Kostenbeitrag je angeklickter Spitze
+  // (§6.2). Gültig, weil `current.billedKw`/`newBilledKw` durch dieselbe TariffStrategy laufen
+  // (§3.5) wie die Ersparnisrechnung, unabhängig vom Abrechnungsmodell. `null`, wenn nichts
+  // gekappt wurde (Division vermeiden) — dann bleibt der Kostenbeitrag in der UI schlicht aus.
+  const capReductionKw = recommended ? result.current.billedKw - recommended.newBilledKw : 0
+  const estimatedLeistungspreisRatePerKwYear =
+    recommended && capReductionKw > 0 && recommended.leistungspreisSavingPerYear > 0
+      ? recommended.leistungspreisSavingPerYear / capReductionKw
+      : null
+
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-8 sm:px-6">
       <KeyMetric current={result.current} />
@@ -50,23 +65,45 @@ export function Report({ result }: { result: AnalysisResult }) {
         <div className="lg:col-span-1">
           {recommended && <RecommendationCard entry={recommended} primary />}
         </div>
-        <div className="grid gap-6 sm:grid-cols-2 lg:col-span-2">
-          <ChartPlaceholder
-            title="Lastgang mit Kapp-Linie"
-            hint="Jahresverlauf, teuerste Spitzen markiert, Kapp-Schwelle eingezeichnet (anklickbar)"
-          />
-          <ChartPlaceholder
-            title="Kostenvergleich mit/ohne Batterie"
-            hint="Leistungspreis- und Eigenverbrauchsanteil über den Horizont"
-          />
-          <ChartPlaceholder
-            title="Tages-Energiefluss"
-            hint="Netz / PV / Batterie / Verbrauch über 24 h"
-          />
-          <div className="flex flex-col justify-center gap-3 rounded-lg border border-border bg-surface p-6">
-            <p className="text-sm font-medium text-ink">Nächster Schritt</p>
-            <p className="text-sm text-text-muted">{result.recommendation.rationale}</p>
-            <LeadDialog />
+        <div className="flex flex-col gap-6 lg:col-span-2">
+          <div className="rounded-lg border border-border bg-surface p-6">
+            <p className="mb-1 text-sm font-medium text-ink">Lastgang mit Kapp-Linie</p>
+            <p className="mb-3 text-xs text-text-muted">
+              Jahresverlauf, teuerste abgefangene Spitzen markiert (anklickbar) — Kapp-Schwelle der
+              empfohlenen Batterie eingezeichnet
+            </p>
+            <LoadChart
+              loadProfile={loadProfile}
+              dispatchTrace={recommended?.dispatchTrace}
+              billingModel={a.billingModel}
+              estimatedLeistungspreisRatePerKwYear={estimatedLeistungspreisRatePerKwYear}
+            />
+          </div>
+          <div className="grid gap-6 sm:grid-cols-2">
+            <div className="rounded-lg border border-border bg-surface p-6">
+              <p className="mb-1 text-sm font-medium text-ink">Kostenvergleich mit/ohne Batterie</p>
+              <p className="mb-3 text-xs text-text-muted">
+                Kumulierte Kosten über {a.horizonYears} Jahre, Ersparnis nach Kategorie
+              </p>
+              {recommended && (
+                <CostChart
+                  entry={recommended}
+                  currentLeistungspreisCostPerYear={result.current.leistungspreisCostPerYear}
+                  horizonYears={a.horizonYears}
+                />
+              )}
+            </div>
+            <div className="flex flex-col gap-6">
+              <ChartPlaceholder
+                title="Tages-Energiefluss"
+                hint="Netz / PV / Batterie / Verbrauch über 24 h"
+              />
+              <div className="flex flex-col justify-center gap-3 rounded-lg border border-border bg-surface p-6">
+                <p className="text-sm font-medium text-ink">Nächster Schritt</p>
+                <p className="text-sm text-text-muted">{result.recommendation.rationale}</p>
+                <LeadDialog />
+              </div>
+            </div>
           </div>
         </div>
       </div>

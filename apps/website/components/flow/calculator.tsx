@@ -57,7 +57,8 @@ export function Calculator() {
           {step === 3 && <StepAnalyzing progress={analysis.progress} status={analysis.status} />}
         </div>
       ) : (
-        analysis.result && <StepResult result={analysis.result} onRestart={handleRestart} />
+        analysis.result &&
+        load && <StepResult result={analysis.result} load={load} onRestart={handleRestart} />
       )}
     </div>
   )

@@ -5,12 +5,15 @@ import type { AnalysisResult } from 'shared'
 
 import { Report } from '@/components/report/report'
 import { Button } from '@/components/ui/button'
+import type { ParsedLoad } from './types'
 
 export function StepResult({
   result,
+  load,
   onRestart,
 }: {
   result: AnalysisResult
+  load: ParsedLoad
   onRestart: () => void
 }) {
   return (
@@ -22,7 +25,7 @@ export function StepResult({
           Neue Analyse
         </Button>
       </div>
-      <Report result={result} />
+      <Report result={result} loadProfile={load.profile} />
     </div>
   )
 }
