@@ -67,7 +67,18 @@
   * {
     border-color: var(--color-border);
   }
+  /*
+   * Globale Overflow-Bremse (mobile-first, §6.1/DESIGN.md): verhindert, dass IRGENDEIN Element
+   * (fehlende Wrap-Regel, feste Breite, überlanger Inhalt) die Seite je breiter als den Viewport
+   * macht und dadurch unerwünschtes horizontales Scrollen auf Touch-Geräten auslöst. Wirkt nur auf
+   * die x-Achse — vertikales Scrollen/`position: sticky` (SiteHeader) bleiben unberührt.
+   */
+  html {
+    overflow-x: hidden;
+  }
   body {
+    max-width: 100vw;
+    overflow-x: hidden;
     background: var(--background);
     color: var(--foreground);
     font-family: var(--font-sans), system-ui, sans-serif;

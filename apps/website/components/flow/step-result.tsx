@@ -36,9 +36,9 @@ export function StepResult({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 sm:px-6">
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-3 px-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
         <h1 className="text-2xl font-semibold text-ink">Ihr Ergebnis</h1>
-        <div className="flex items-center gap-2 print:hidden">
+        <div className="flex flex-wrap items-center gap-2 print:hidden">
           <Button variant="outline" size="sm" onClick={handleExportCsv}>
             <Download className="h-4 w-4" />
             Als CSV exportieren
