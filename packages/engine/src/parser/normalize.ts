@@ -1,6 +1,6 @@
 import type { LoadSource } from 'shared'
 
-import { parseTimestamp, type DateFormat } from './datetime'
+import { parseSplitTimestamp, parseTimestamp, type DateFormat } from './datetime'
 import { parseNumber, type DecimalSeparator } from './number'
 import type { ColumnMapping, RawCell, SignConvention, Unit } from './types'
 
@@ -31,6 +31,34 @@ function toKw(value: number, unit: Unit): number {
   return unit === 'kWh' ? value * 4 : value
 }
 
+/** Zeitstempel einer Zeile — kombiniert (eine Spalte) oder Split (Datum + Zeitspalte, OP#4). */
+function rowTimestamp(
+  row: RawCell[],
+  columns: ColumnMapping,
+  dateFormat: DateFormat,
+  timezone: string,
+): number {
+  const dateCell = row[columns.timestamp] ?? null
+  if (columns.timeColumn != null) {
+    return parseSplitTimestamp(dateCell, row[columns.timeColumn] ?? null, dateFormat, timezone)
+  }
+  return parseTimestamp(dateCell, dateFormat, timezone)
+}
+
+/** Summe der endlichen Werte über mehrere Spalten; null, wenn KEINE Spalte einen endlichen Wert trägt. */
+function sumCols(row: RawCell[], cols: number[], decimal: DecimalSeparator): number | null {
+  let sum = 0
+  let any = false
+  for (const col of cols) {
+    const n = cellNumber(row[col] ?? null, decimal)
+    if (Number.isFinite(n)) {
+      sum += n
+      any = true
+    }
+  }
+  return any ? sum : null
+}
+
 /** Normalisiert Rohzeilen auf signiertes gridPowerKw (+ = Bezug, − = Einspeisung), §3.1/§3.2. */
 export function normalizeLoad(
   dataRows: RawCell[][],
@@ -40,16 +68,26 @@ export function normalizeLoad(
   const readings: RawReading[] = []
   let skipped = 0
 
+  const isSummation = columns.consumptionCols != null || columns.feedInCols != null
+
   for (const row of dataRows) {
-    const tsCell = row[columns.timestamp] ?? null
-    const ms = parseTimestamp(tsCell, dateFormat, timezone)
+    const ms = rowTimestamp(row, columns, dateFormat, timezone)
     if (!Number.isFinite(ms)) {
       skipped++
       continue
     }
 
     let kw: number
-    if (source === 'import_export_split') {
+    if (isSummation) {
+      // Mehrspalten-Mapping (OP#4): gridPowerKw = (Σ Verbrauch − Σ Einspeisung).
+      const cons = sumCols(row, columns.consumptionCols ?? [], decimal)
+      const feed = sumCols(row, columns.feedInCols ?? [], decimal)
+      if (cons == null && feed == null) {
+        skipped++
+        continue
+      }
+      kw = toKw((cons ?? 0) - (feed ?? 0), unit)
+    } else if (source === 'import_export_split') {
       const imp = cellNumber(row[columns.import ?? -1] ?? null, decimal)
       const exp = cellNumber(row[columns.export ?? -1] ?? null, decimal)
       if (!Number.isFinite(imp) && !Number.isFinite(exp)) {
@@ -84,7 +122,7 @@ export function normalizeSingleValue(
   let skipped = 0
 
   for (const row of dataRows) {
-    const ms = parseTimestamp(row[columns.timestamp] ?? null, dateFormat, timezone)
+    const ms = rowTimestamp(row, columns, dateFormat, timezone)
     const v = cellNumber(row[columns.value ?? -1] ?? null, decimal)
     if (!Number.isFinite(ms) || !Number.isFinite(v)) {
       skipped++

@@ -3,11 +3,49 @@ import type { RawCell } from './types'
 // Zeitstempel → UTC (§3.3). Deterministisch & isomorph: nutzt nur Date-Arithmetik + Intl
 // (in Browser und Node vorhanden), keine tz-Bibliothek.
 
-export type DateFormat = 'iso_offset' | 'iso_naive' | 'de_dot' | 'excel_serial'
+export type DateFormat =
+  | 'iso_offset'
+  | 'iso_naive'
+  | 'de_dot'
+  | 'excel_serial'
+  | 'de_month_name' // "17/März/2026 00:00" — kombiniert, ausgeschriebener dt. Monatsname (OP#4, Format B)
+  | 'de_dot_date' // "16.06.2026" — NUR Datum (Split-Timestamp: eigene Zeitspalte, OP#4, Format A)
+  | 'iso_date' // "2026-06-16" — NUR Datum (Split-Timestamp)
 
 const RE_ISO_OFFSET = /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(:\d{2})?(\.\d+)?(Z|[+-]\d{2}:?\d{2})$/
 const RE_ISO_NAIVE = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2}))?$/
 const RE_DE_DOT = /^(\d{1,2})\.(\d{1,2})\.(\d{4})[ T](\d{1,2}):(\d{2})(?::(\d{2}))?$/
+
+// Split-Timestamp (OP#4): getrennte Datums- und Zeitspalten. Datums-Only + Zeit-Only.
+const RE_DE_DOT_DATE = /^(\d{1,2})\.(\d{1,2})\.(\d{4})$/
+const RE_ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})$/
+const RE_TIME = /^(\d{1,2}):(\d{2})(?::(\d{2}))?$/
+
+// Kombinierter Zeitstempel mit ausgeschriebenem deutschem Monatsnamen: "17/März/2026 00:00"
+// (Format B). Trenner tolerant (/ . - Leerzeichen); Datum↔Zeit per Leerzeichen oder T.
+const RE_DE_MONTH =
+  /^(\d{1,2})[./ -]([A-Za-zäöüÄÖÜ]+)[./ -](\d{4})[ T](\d{1,2}):(\d{2})(?::(\d{2}))?$/
+
+// [ANNAHME: unbestätigt bis Martins Muster (OP#4)] Ausgeschriebene dt. Monatsnamen inkl.
+// österreichischer Varianten (Jänner/Feber) + gängiger 3-Buchstaben-Kürzel (ohne Punkt).
+const DE_MONTHS: Record<string, number> = {
+  januar: 1, jänner: 1, jaenner: 1, jan: 1, jän: 1,
+  februar: 2, feber: 2, feb: 2,
+  märz: 3, maerz: 3, mär: 3, mrz: 3,
+  april: 4, apr: 4,
+  mai: 5,
+  juni: 6, jun: 6,
+  juli: 7, jul: 7,
+  august: 8, aug: 8,
+  september: 9, sept: 9, sep: 9,
+  oktober: 10, okt: 10,
+  november: 11, nov: 11,
+  dezember: 12, dez: 12,
+}
+
+function monthNameToNum(name: string): number | null {
+  return DE_MONTHS[name.toLowerCase()] ?? null
+}
 
 // Plausibler Excel-Serial-Bereich (~1990..2100).
 const EXCEL_MIN = 32000
@@ -21,13 +59,19 @@ function toStr(cell: RawCell): string {
   return cell == null ? '' : String(cell).trim()
 }
 
-/** Erkennt das Datumsformat aus Stichproben; null, wenn nichts überwiegend passt. */
+/**
+ * Erkennt ein KOMBINIERTES Datum+Zeit-Format aus Stichproben; null, wenn nichts überwiegend passt.
+ * Datums-Only-Formate (Split-Timestamp) matchen hier bewusst NICHT — die erkennt `detectDateOnlyFormat`.
+ */
 export function detectDateFormat(samples: RawCell[]): DateFormat | null {
   const counts: Record<DateFormat, number> = {
     iso_offset: 0,
     iso_naive: 0,
     de_dot: 0,
     excel_serial: 0,
+    de_month_name: 0,
+    de_dot_date: 0, // date-only Formate zählen hier nie (nur zur Vollständigkeit des Record)
+    iso_date: 0,
   }
   let total = 0
   for (const cell of samples) {
@@ -41,6 +85,10 @@ export function detectDateFormat(samples: RawCell[]): DateFormat | null {
     if (RE_ISO_OFFSET.test(s)) counts.iso_offset++
     else if (RE_ISO_NAIVE.test(s)) counts.iso_naive++
     else if (RE_DE_DOT.test(s)) counts.de_dot++
+    else {
+      const m = RE_DE_MONTH.exec(s)
+      if (m && monthNameToNum(m[2]!) != null) counts.de_month_name++
+    }
   }
   if (total === 0) return null
   let best: DateFormat | null = null
@@ -53,6 +101,36 @@ export function detectDateFormat(samples: RawCell[]): DateFormat | null {
   }
   // Mindestens 60 % der Stichproben müssen passen, sonst „unbekannt".
   return best && bestCount / total >= 0.6 ? best : null
+}
+
+/** Erkennt ein reines DATUMS-Format (ohne Uhrzeit) — Basis der Split-Timestamp-Erkennung (OP#4). */
+export function detectDateOnlyFormat(samples: RawCell[]): DateFormat | null {
+  let de = 0
+  let iso = 0
+  let total = 0
+  for (const cell of samples) {
+    if (cell == null || cell === '') continue
+    total++
+    const s = toStr(cell)
+    if (RE_DE_DOT_DATE.test(s)) de++
+    else if (RE_ISO_DATE.test(s)) iso++
+  }
+  if (total === 0) return null
+  if (de >= iso && de / total >= 0.6) return 'de_dot_date'
+  if (iso / total >= 0.6) return 'iso_date'
+  return null
+}
+
+/** True, wenn die Stichprobe überwiegend reine Uhrzeiten (HH:MM[:SS]) trägt — Split-Timestamp-Zeitspalte. */
+export function looksLikeTimeColumn(samples: RawCell[]): boolean {
+  let ok = 0
+  let total = 0
+  for (const cell of samples) {
+    if (cell == null || cell === '') continue
+    total++
+    if (RE_TIME.test(toStr(cell))) ok++
+  }
+  return total > 0 && ok / total >= 0.6
 }
 
 /**
@@ -185,6 +263,43 @@ function excelSerialToFields(serial: number): [number, number, number, number, n
   ]
 }
 
+/** Parst reine Datumsfelder (ohne Uhrzeit) → [Jahr, Monat, Tag]; null bei Fehlschlag. */
+function parseDateOnlyFields(cell: RawCell, format: DateFormat): [number, number, number] | null {
+  const s = toStr(cell)
+  if (format === 'de_dot_date') {
+    const m = RE_DE_DOT_DATE.exec(s)
+    return m ? [Number(m[3]), Number(m[2]), Number(m[1])] : null
+  }
+  if (format === 'iso_date') {
+    const m = RE_ISO_DATE.exec(s)
+    return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null
+  }
+  return null
+}
+
+/** Parst eine reine Uhrzeit HH:MM[:SS] → [Stunde, Minute, Sekunde]; null bei Fehlschlag. */
+function parseTimeOfDay(cell: RawCell): [number, number, number] | null {
+  const m = RE_TIME.exec(toStr(cell))
+  return m ? [Number(m[1]), Number(m[2]), Number(m[3] ?? '0')] : null
+}
+
+/**
+ * Kombiniert eine getrennte Datums- und Zeitspalte zu UTC-Millisekunden (Split-Timestamp, OP#4).
+ * `dateFormat` ist ein reines Datumsformat; die Uhrzeit kommt aus `timeCell` (Intervall-START).
+ * Fehlt/ungültig die Uhrzeit, wird 00:00 angenommen. Ungültiges Datum → NaN.
+ */
+export function parseSplitTimestamp(
+  dateCell: RawCell,
+  timeCell: RawCell,
+  dateFormat: DateFormat,
+  timeZone: string,
+): number {
+  const date = parseDateOnlyFields(dateCell, dateFormat)
+  if (!date) return NaN
+  const [h, mi, s] = parseTimeOfDay(timeCell) ?? [0, 0, 0]
+  return zonedWallToUtcMs(date[0], date[1], date[2], h, mi, s, timeZone)
+}
+
 /** Parst eine Zeitstempel-Zelle im erkannten Format nach UTC-Millisekunden. Ungültig → NaN. */
 export function parseTimestamp(cell: RawCell, format: DateFormat, timeZone: string): number {
   if (format === 'excel_serial') {
@@ -192,6 +307,11 @@ export function parseTimestamp(cell: RawCell, format: DateFormat, timeZone: stri
     const [y, mo, d, h, mi, s] = excelSerialToFields(cell)
     // [ANNAHME: unbestätigt bis Martins Muster (OP#4)] XLSX-Datumszellen sind naive lokale Wanduhrzeit.
     return zonedWallToUtcMs(y, mo, d, h, mi, s, timeZone)
+  }
+  // Reine Datumsformate (Split-Timestamp ohne separate Zeitspalte) → Uhrzeit 00:00.
+  if (format === 'de_dot_date' || format === 'iso_date') {
+    const date = parseDateOnlyFields(cell, format)
+    return date ? zonedWallToUtcMs(date[0], date[1], date[2], 0, 0, 0, timeZone) : NaN
   }
   const s = toStr(cell)
   if (format === 'iso_offset') {
@@ -206,6 +326,21 @@ export function parseTimestamp(cell: RawCell, format: DateFormat, timeZone: stri
       Number(m[1]),
       Number(m[2]),
       Number(m[3]),
+      Number(m[4]),
+      Number(m[5]),
+      Number(m[6] ?? '0'),
+      timeZone,
+    )
+  }
+  if (format === 'de_month_name') {
+    const m = RE_DE_MONTH.exec(s)
+    if (!m) return NaN
+    const mo = monthNameToNum(m[2]!)
+    if (mo == null) return NaN
+    return zonedWallToUtcMs(
+      Number(m[3]),
+      mo,
+      Number(m[1]),
       Number(m[4]),
       Number(m[5]),
       Number(m[6] ?? '0'),

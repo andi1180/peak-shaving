@@ -1,8 +1,13 @@
 import type { LoadSource } from 'shared'
 
-import { detectDateFormat, type DateFormat } from './datetime'
+import {
+  detectDateFormat,
+  detectDateOnlyFormat,
+  looksLikeTimeColumn,
+  type DateFormat,
+} from './datetime'
 import { detectDecimalSeparator, looksNumeric, parseNumber, type DecimalSeparator } from './number'
-import type { RawCell, Unit } from './types'
+import type { ColumnRole, RawCell, Unit, ValueColumnInfo } from './types'
 
 const SAMPLE_ROWS = 60
 
@@ -10,15 +15,28 @@ const SAMPLE_ROWS = 60
 // [ANNAHME: unbestätigt bis Martins Muster (OP#4)] — inkl. der OBIS-artigen Kürzel 1.8.0/2.8.0.
 const IMPORT_KEYS = ['bezug', 'import', 'verbrauch', 'netzbezug', 'wirkbezug', 'einkauf', '1.8.0']
 const EXPORT_KEYS = ['einspeis', 'export', 'lieferung', 'erzeug', 'rückspeis', 'ruckspeis', '2.8.0']
+// EEG-/Energiegemeinschafts-Verrechnungsartefakte — KEIN Netz-Lastgang, Default `ignore` (OP#4).
+// "überschuss" als Teilstring deckt auch "restüberschuss" ab.
+const EEG_KEYS = ['überschuss', 'uberschuss']
+// Split-Timestamp: Zeitspalten-Kopfzeilen, die Beginn vs. Ende eines Intervalls markieren.
+const TIME_START_KEYS = ['von', 'beginn', 'start', 'from']
+const TIME_END_KEYS = ['bis', 'ende']
 
 export type DetectionDraft = {
   headerRow: number | null
+  /** Kleingeschriebene Header (Erkennung). */
   headers: string[]
+  /** Original-Header (Anzeige/Zählpunkt-ID). */
+  rawHeaders: string[]
   dataRows: RawCell[][]
   timestampCol: number | null
+  /** Split-Timestamp: Zeitspalte (Intervall-START), wenn `timestampCol` nur das Datum trägt. */
+  timeColumn: number | null
   dateFormat: DateFormat | null
   decimal: DecimalSeparator
   valueCols: number[]
+  /** Klassifizierte Wert-Spalten (Rollen-Vorschläge) — Basis des Mehrspalten-Mappings. */
+  valueColumnInfos: ValueColumnInfo[]
   importCol: number | null
   exportCol: number | null
   unit: Unit | 'unknown'
@@ -102,6 +120,52 @@ function detectUnitFromHeaders(headers: string[], valueCols: number[]): Unit | '
   return 'unknown'
 }
 
+/** Einheit aus einem EINZELNEN Header (Mehrspalten-Mapping: je Spalte). */
+function unitFromHeader(header: string): Unit | 'unknown' {
+  const t = header.toLowerCase()
+  if (/kwh|kw h|kw·h/.test(t)) return 'kWh'
+  if (/\bkw\b|k w/.test(t)) return 'kW'
+  return 'unknown'
+}
+
+function isEeg(header: string): boolean {
+  return matchKeys(header, EEG_KEYS)
+}
+
+/** Rollen-Vorschlag je Wert-Spalte. EEG zuerst (Default `ignore`), sonst Einspeisung/Verbrauch per Keyword. */
+function classifyRole(header: string): ColumnRole {
+  if (isEeg(header)) return 'ignore'
+  if (matchKeys(header, EXPORT_KEYS)) return 'feed_in'
+  if (matchKeys(header, IMPORT_KEYS)) return 'consumption'
+  return 'ignore' // unklassifiziert → sicherer Default, nicht still als Verbrauch werten
+}
+
+/** Zählpunkt-ID (österr. Zählpunktbezeichnung „AT…") aus dem Header, falls vorhanden. */
+function extractMeteringPointId(header: string): string | null {
+  const m = /\bAT\d{8,}\b/i.exec(header)
+  return m ? m[0].toUpperCase() : null
+}
+
+/**
+ * Erkennt einen Wechselrichter-/ESS-Export (OP#4, Format B): reines Speicher-/PV-Log OHNE Netzbezug
+ * (Ein-/Ausgangsleistung, Batterielade-/-entladeleistung). Solche Dateien sind KEIN Netz-Lastgang
+ * und werden fachlich abgelehnt, statt einen Lastgang daraus zu konstruieren.
+ */
+export function isInverterExport(headers: string[]): boolean {
+  const text = headers.join(' ').toLowerCase()
+  if (text.includes('energy storage system')) return true
+  if (text.includes('batterieladeleistung') || text.includes('batterieentladeleistung')) return true
+  return text.includes('eingangsleistung') && text.includes('ausgangsleistung')
+}
+
+/** Wählt aus mehreren Zeit-Only-Spalten den Intervall-START (Von-Spalte), sonst die erste. */
+function pickStartTimeCol(timeCols: number[], headers: string[]): number {
+  const start = timeCols.find((c) => matchKeys(headers[c] ?? '', TIME_START_KEYS))
+  if (start != null) return start
+  const nonEnd = timeCols.filter((c) => !matchKeys(headers[c] ?? '', TIME_END_KEYS))
+  return nonEnd[0] ?? timeCols[0]!
+}
+
 /** Generische Struktur-Erkennung (§3.2). Adapter-Hints/Optionen werden im Orchestrator daraufgelegt. */
 export function detectStructure(
   matrix: RawCell[][],
@@ -117,14 +181,15 @@ export function detectStructure(
   const decimalGuess = detectDecimalSeparator(stringCells, decimalFallback)
 
   const headerRow = detectHeaderRow(matrix, decimalGuess)
-  const headers = (headerRow === null ? [] : (matrix[headerRow] ?? [])).map((c) =>
-    toStr(c).toLowerCase(),
-  )
+  const headerCells = headerRow === null ? [] : (matrix[headerRow] ?? [])
+  const rawHeaders = headerCells.map((c) => toStr(c))
+  const headers = rawHeaders.map((h) => h.toLowerCase())
   const dataRows = matrix.slice(headerRow === null ? 0 : headerRow + 1)
   const width = rowWidth(matrix)
 
-  // Zeitstempel-Spalte: erste Spalte, deren Stichprobe ein Datumsformat ergibt.
+  // (1) Kombinierter Zeitstempel: erste Spalte, deren Stichprobe ein Datum+Zeit-Format ergibt.
   let timestampCol: number | null = null
+  let timeColumn: number | null = null
   let dateFormat: DateFormat | null = null
   for (let col = 0; col < width; col++) {
     const fmt = detectDateFormat(columnSamples(dataRows, col))
@@ -135,10 +200,36 @@ export function detectStructure(
     }
   }
 
-  // Dezimaltrenner aus den Wert-Spalten verfeinern.
+  // (2) Split-Timestamp (OP#4): keine kombinierte Spalte gefunden → getrennte Datums- + Zeitspalte.
+  if (timestampCol == null) {
+    let dateCol: number | null = null
+    let dateOnlyFmt: DateFormat | null = null
+    for (let col = 0; col < width; col++) {
+      const fmt = detectDateOnlyFormat(columnSamples(dataRows, col))
+      if (fmt) {
+        dateCol = col
+        dateOnlyFmt = fmt
+        break
+      }
+    }
+    if (dateCol != null) {
+      const timeCols: number[] = []
+      for (let col = 0; col < width; col++) {
+        if (col === dateCol) continue
+        if (looksLikeTimeColumn(columnSamples(dataRows, col))) timeCols.push(col)
+      }
+      if (timeCols.length >= 1) {
+        timestampCol = dateCol
+        dateFormat = dateOnlyFmt
+        timeColumn = pickStartTimeCol(timeCols, headers)
+      }
+    }
+  }
+
+  // Dezimaltrenner aus den Wert-Spalten verfeinern (Zeitstempel- und Zeitspalte ausgenommen).
   const valueCandidates: number[] = []
   for (let col = 0; col < width; col++) {
-    if (col === timestampCol) continue
+    if (col === timestampCol || col === timeColumn) continue
     if (numericFraction(columnSamples(dataRows, col), decimalGuess) >= 0.6)
       valueCandidates.push(col)
   }
@@ -188,14 +279,30 @@ export function detectStructure(
     source = 'import_only'
   }
 
+  // Klassifizierte Wert-Spalten für das Mehrspalten-Mapping (§3.2/OP#4).
+  const valueColumnInfos: ValueColumnInfo[] = valueCandidates.map((col) => {
+    const raw = rawHeaders[col] ?? ''
+    return {
+      index: col,
+      header: raw || `Spalte ${col + 1}`,
+      meteringPointId: extractMeteringPointId(raw),
+      unit: unitFromHeader(raw),
+      suggestedRole: classifyRole(headers[col] ?? ''),
+      eegAccounting: isEeg(headers[col] ?? ''),
+    }
+  })
+
   return {
     headerRow,
     headers,
+    rawHeaders,
     dataRows,
     timestampCol,
+    timeColumn,
     dateFormat,
     decimal,
     valueCols,
+    valueColumnInfos,
     importCol,
     exportCol,
     unit,

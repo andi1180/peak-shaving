@@ -21,12 +21,45 @@ export type ParseLimits = {
   maxRows: number
 }
 
-/** Spalten-Zuordnung. Genau `value` ODER (`import` [+ `export`]) ist gesetzt. */
+/**
+ * Spalten-Zuordnung. Zeitstempel: entweder EINE kombinierte Spalte (`timestamp`) oder — bei
+ * Split-Timestamp (OP#4) — `timestamp` = Datumsspalte + `timeColumn` = Zeitspalte (Intervall-START).
+ * Wert: genau EINE der Varianten:
+ *  - `value` (einzelne signierte Spalte, net_signed/import_only),
+ *  - `import` [+ `export`] (klassisches Import/Export-Paar),
+ *  - `consumptionCols` [+ `feedInCols`] (Mehrspalten-Mapping mit Summierung, §3.2/OP#4):
+ *    gridPowerKw = (Σ Verbrauchsspalten − Σ Einspeisespalten). Mehrere Zähler DESSELBEN Standorts
+ *    werden addiert; das UI bestätigt die Zuordnung (Mehrspalten-needs_mapping).
+ */
 export type ColumnMapping = {
   timestamp: number
+  timeColumn?: number
   value?: number
   import?: number
   export?: number
+  consumptionCols?: number[]
+  feedInCols?: number[]
+}
+
+/** Rolle einer Wert-Spalte im Mehrspalten-Mapping (§3.2/OP#4). */
+export type ColumnRole = 'consumption' | 'feed_in' | 'ignore'
+
+/**
+ * Eine erkannte Wert-Spalte mit Rollen-Vorschlag — Grundlage des Mehrspalten-Bestätigungsdialogs
+ * (UI = Folge-Prompt). EEG-Verrechnungsspalten (Überschuss/Restüberschuss) werden per Default auf
+ * `ignore` vorbelegt, bleiben aber sichtbar und überschreibbar. Der Parser entscheidet die Rolle
+ * NICHT still — bei mehreren plausiblen Wert-Spalten liefert er needs_mapping mit dieser Liste.
+ */
+export type ValueColumnInfo = {
+  index: number
+  /** Original-Bezeichnung (Header, ungekürzt/nicht kleingeschrieben). */
+  header: string
+  /** Zählpunkt-ID (AT…), falls aus dem Header erkennbar; sonst null. */
+  meteringPointId: string | null
+  unit: Unit | 'unknown'
+  suggestedRole: ColumnRole
+  /** true = EEG-Verrechnungsartefakt (Überschuss/Restüberschuss) → Default `ignore`. */
+  eegAccounting: boolean
 }
 
 export type SignConvention = 'import_positive' | 'export_positive'
@@ -79,7 +112,7 @@ export type TablePreview = {
 }
 
 export type MappingIssueField =
-  'unit' | 'source' | 'timestampColumn' | 'valueColumn' | 'delimiter' | 'decimal'
+  'unit' | 'source' | 'timestampColumn' | 'valueColumn' | 'valueColumns' | 'delimiter' | 'decimal'
 
 export type MappingIssue = {
   field: MappingIssueField
@@ -97,6 +130,7 @@ export type ParseErrorCode =
   | 'unparsable_timestamps'
   | 'wrong_interval'
   | 'insufficient_rows'
+  | 'not_a_load_profile' // z. B. Wechselrichter-/ESS-Log ohne Netzbezug (OP#4, Format B)
 
 export type ParseError = {
   code: ParseErrorCode
@@ -118,6 +152,12 @@ export type ParseOutcome =
       detection: Detection
       issues: MappingIssue[]
       preview: TablePreview
+      /**
+       * Bei mehreren plausiblen Wert-Spalten gesetzt (§3.2/OP#4): die strukturierte Spaltenliste
+       * mit Rollen-Vorschlägen. Das UI lässt Rollen bestätigen/korrigieren und SUMMIERT gleichrollige
+       * Spalten (Bestätigung via `options.columns.consumptionCols`/`feedInCols`).
+       */
+      valueColumns?: ValueColumnInfo[]
     }
   | { ok: false; kind: 'error'; error: ParseError }
 
@@ -129,5 +169,6 @@ export type PvParseOutcome =
       detection: Detection
       issues: MappingIssue[]
       preview: TablePreview
+      valueColumns?: ValueColumnInfo[]
     }
   | { ok: false; kind: 'error'; error: ParseError }

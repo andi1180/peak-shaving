@@ -18,15 +18,11 @@ Zeitstempel;Leistung (kW)
 ...
 ```
 
-**Abweichung von der ursprünglich angedachten Spaltenaufteilung:** Der generische Parser
-(`packages/engine/src/parser/detect.ts`) erkennt genau **eine** Zeitstempel-Spalte pro Zeile
-(kombiniertes Datum+Uhrzeit, z. B. `de_dot`-Format `TT.MM.JJJJ HH:MM`) — ein separates
-Spaltenpaar „Datum" + „Uhrzeit" wird von der generischen Erkennung aktuell nicht
-zusammengeführt. Damit die Datei tatsächlich über `parseLoadProfile` läuft (statt in
-`needs_mapping`/`error` zu enden), verwendet die Demo-Datei einen kombinierten
-`Zeitstempel`. Getrenntes Datum/Uhrzeit ist ein plausibles reales Format (siehe OP#4) und
-könnte bei Bedarf als generische Erweiterung oder Format-Adapter nachgezogen werden — nicht
-Teil dieses Prompts.
+**Hinweis zur Spaltenaufteilung:** Diese Demo-Datei nutzt einen **kombinierten** Zeitstempel
+(`TT.MM.JJJJ HH:MM`, `de_dot`). Getrennte Datums-/Zeitspalten („Datum" + „Zeit von"/„Uhrzeit")
+werden **seit OP#4 unterstützt** (Split-Timestamp, `packages/engine/src/parser/detect.ts` →
+`detectDateOnlyFormat` + `looksLikeTimeColumn`) — siehe die neuen `netzbetreiber-eda-*`-Fixtures
+unten. Diese Datei bleibt bewusst kombiniert (unveränderte Regressions-Grundlage).
 
 Erzeugt **absichtlich** ein paar kleine Lücken (fehlende Viertelstunden-Werte: 10. März
 13:00–13:15, 15. Juni 09:30) sowie eine größere Lücke (18. September 14:00–15:45, 2 h), damit
@@ -61,11 +57,51 @@ Verbrauch) und den PV-Eigenverbrauch. Die absichtlichen Lücken (Interpolations-
 liegen nur im Netz-Lastgang; die PV-Datei ist lückenlos (Abdeckungslücken sind ohnehin kein
 Konsistenz-Widerspruch).
 
+## Reale Formate (OP#4) — ANONYMISIERT
+
+Erste echte Netzbetreiber-/Wechselrichter-Formate (Pflichtenheft §8 OP#4), als **anonymisierte**
+Fixtures nachgebaut. Die realen Dateien enthielten echte Zählpunkt-IDs (`AT…`) und
+Energiegemeinschafts-Namen (personenbezogen) — sie sind **NICHT** im Repo. Struktur/Format sind exakt
+nachgebildet, alle IDs/Namen/Werte frei erfunden. Test-Grundlage: `packages/engine/src/parser/real-formats.test.ts`.
+
+### Format A — Netzbetreiber/EDA-CSV: `netzbetreiber-eda-{juni,maerz}-2026.csv`
+
+BOM, `;`-getrennt, Dezimalkomma, **Split-Timestamp** (getrennte Spalten `Datum` + `Zeit von` + `Zeit bis`;
+Zeitstempel = Datum + „Zeit von" = Intervall-START), **672 Zeilen = 7 Tage × 96**. Vier Zählpunkte × vier
+Größen: 2× `Verbrauch` (zwei Zähler DESSELBEN Standorts → müssen **summiert** werden), 2× `Einspeiser`,
+2× `Überschuss`, 2× `Restüberschuss` (die letzten vier = reine EEG-Verrechnungsartefakte, **kein**
+Netz-Lastgang). Nach jeder Datenspalte eine leere Trennspalte (`;;`).
+
+Der Parser liefert dafür **`needs_mapping`** mit der klassifizierten Spaltenliste (Zählpunkt-ID,
+Bezeichnung, Einheit, Rollen-Vorschlag) — er entscheidet die Zuordnung NICHT still (bei Mehrzähler-Daten
+die gefährlichste Variante). Nach Mapping mit Summierung beider Verbrauchszähler:
+
+| Datei | Σ Verbrauch (7 Tage) | Spitze | Einheit |
+|---|---|---|---|
+| `…-juni-2026.csv` | **46,109 kWh** | **2,36 kW** | kWh (×4 → kW) |
+| `…-maerz-2026.csv` | **69,211 kWh** | **3,28 kW** | kWh (×4 → kW) |
+
+Diese Zahlen reproduzieren die Aggregate des realen Exports (Juni ~46,1 kWh / 2,36 kW · März
+~69,2 kWh / 3,28 kW) — die ersten echten Zahlen, an denen der Parser messbar ist. Ein „wähle genau eine
+Spalte"-Mapping würde ~44 % des Verbrauchs verlieren (im Test abgesichert).
+
+### Format B — Wechselrichter/ESS-XLSX: `wechselrichter-ess-sys{1,2}-{maerz,juni}-2026.xlsx`
+
+XLSX, Zeitzelle als **String** mit ausgeschriebenem dt. Monatsnamen (`17/März/2026 00:00`), Wertzellen
+ebenfalls **String mit Dezimalkomma**. Spalten: Ein-/Ausgangsleistung, Batterielade-/-entladeleistung.
+In allen vier Dateien: Batterie lädt/entlädt nie (0), Eingang == Ausgang (reiner PV-Durchlauf). Das ist
+**KEIN Netz-Lastgang** — der Parser lehnt es fachlich ab (`error` / `not_a_load_profile`,
+„Kein Netz-Lastgang…"), statt einen Lastgang daraus zu konstruieren. Zwei Wechselrichter × zwei
+Jahreszeiten = vier Fixtures (robuste Ablehnung über Varianten).
+
 ## Neu erzeugen
 
 ```
-node dev-fixtures/generate-demo-load-profile.mjs   # no-PV-Bäcker (import_only)
-node dev-fixtures/generate-demo-pv-profile.mjs      # konsistentes PV-Paar (net_signed + Brutto-PV)
+node dev-fixtures/generate-demo-load-profile.mjs           # no-PV-Bäcker (import_only)
+node dev-fixtures/generate-demo-pv-profile.mjs             # konsistentes PV-Paar (net_signed + Brutto-PV)
+node dev-fixtures/generate-eda-netzbetreiber-fixtures.mjs  # Format A (Split-Timestamp + Mehrspalten)
+node dev-fixtures/generate-wechselrichter-ess-fixtures.mjs # Format B (ESS-XLSX, wird abgelehnt)
 ```
 
-Beide deterministisch (fixer Seed) — erzeugen bei jedem Lauf byte-identische Ausgabe.
+Alle deterministisch (fixer Seed) — erzeugen bei jedem Lauf byte-identische Ausgabe (auch der
+SheetJS-XLSX-Write ist byte-stabil).

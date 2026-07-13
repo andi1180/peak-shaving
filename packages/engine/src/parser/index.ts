@@ -9,6 +9,8 @@ export type {
   ParseOptions,
   ParseLimits,
   ColumnMapping,
+  ColumnRole,
+  ValueColumnInfo,
   SignConvention,
   Detection,
   DataQuality,
