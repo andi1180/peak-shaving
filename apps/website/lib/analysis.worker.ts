@@ -2,6 +2,7 @@ import {
   alignPvGrossToLoad,
   analyzeCurrentPeaks,
   pvConsistencyWarning,
+  pvCoverageWarning,
   recommendBattery,
 } from 'engine'
 import { DEMO_BATTERY_CATALOG, type AnalysisResult, type BatteryCandidate } from 'shared'
@@ -73,13 +74,27 @@ function computeAnalysis(
   // --- current/peaks: ECHTER Engine-Aufruf (§3.4/§3.5) ---
   const { current, peaks } = analyzeCurrentPeaks(loadProfile, payload.tariff)
 
-  // --- PV-Konsistenz (§3.1): Brutto-PV gegen den Netz-Lastgang prüfen (Prinzip 1: Netz gewinnt) ---
-  // Einmal profil-weit (nicht je Batterie) — die geklemmten Slots hängen nur an Lastgang×PV, nicht an
-  // der Batterie. Warnung wandert in dataQuality (analog zur import_only-Pflichtwarnung §3.1).
-  const pvWarning =
-    pvProfile != null
-      ? pvConsistencyWarning(alignPvGrossToLoad(loadProfile, pvProfile).inconsistentSlots)
-      : null
+  // --- PV-Konsistenz + -Abdeckung (§3.1): Brutto-PV gegen den Netz-Lastgang prüfen (Prinzip 1: Netz
+  // gewinnt) UND einen still verpuffenden PV-Upload sichtbar machen. Einmal profil-weit (nicht je
+  // Batterie) — die geklemmten/getroffenen Slots hängen nur an Lastgang×PV, nicht an der Batterie.
+  // Ein stiller Verlust ist schlimmer als ein sichtbarer Fehler:
+  //   • pvProfile vorhanden, überlappt aber nicht/kaum → pvCoverageWarning („ins Leere gelaufen").
+  //   • pvProfile vorhanden & überlappt → pvConsistencyWarning bei geklemmten Slots (z. B. unvollständiges
+  //     Profil: nur ein von mehreren Wechselrichtern < Summe der Einspeise-Zählpunkte).
+  //   • pvError gesetzt (Datei hochgeladen, aber nicht lesbar → pvProfile null) → Ablehnung im Report.
+  const pvWarnings: string[] = []
+  if (pvProfile != null) {
+    const alignment = alignPvGrossToLoad(loadProfile, pvProfile)
+    const coverage = pvCoverageWarning(alignment.matchedSlots, loadProfile.readings.length)
+    if (coverage) pvWarnings.push(coverage)
+    const consistency = pvConsistencyWarning(alignment.inconsistentSlots)
+    if (consistency) pvWarnings.push(consistency)
+  } else if (payload.pvError) {
+    pvWarnings.push(
+      `Ein PV-Profil wurde hochgeladen, konnte aber nicht gelesen werden (${payload.pvError}) — die ` +
+        'Analyse läuft ohne Brutto-PV; der PV-Eigenverbrauch kann dadurch unterschätzt sein.',
+    )
+  }
 
   // --- perBattery/recommendation: ECHTER Engine-Aufruf (§3.6–§3.8) ---
   // `financial` ist bereits vollständig optional gebaut (§3.9) — fehlt es (Formular sammelt es
@@ -110,10 +125,10 @@ function computeAnalysis(
       energyPriceCtPerKwh: payload.tariff.energyPriceCtPerKwh,
       einspeiseverguetungCtPerKwh: payload.tariff.einspeiseverguetungCtPerKwh,
     },
-    dataQuality: pvWarning
+    dataQuality: pvWarnings.length
       ? {
           ...payload.load.dataQuality,
-          warnings: [...payload.load.dataQuality.warnings, pvWarning],
+          warnings: [...payload.load.dataQuality.warnings, ...pvWarnings],
         }
       : payload.load.dataQuality,
   }

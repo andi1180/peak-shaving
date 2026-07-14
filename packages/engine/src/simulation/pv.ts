@@ -35,6 +35,12 @@ export type PvAlignment = {
   grossPvKw: number[]
   /** Anzahl Slots, in denen ein vorhandener Brutto-PV-Messwert UNTER der Einspeisung lag (geklemmt). */
   inconsistentSlots: number
+  /**
+   * Anzahl Lastgang-Slots, für die das PV-Profil ÜBERHAUPT einen Messwert trägt (Zeitstempel-Treffer).
+   * `0` ⇒ das Profil überlappt den Lastgang zeitlich nicht (anderer Zeitraum/Zeitzone) und lief „ins
+   * Leere" — sonst still, s. `pvCoverageWarning`. Basis für die Abdeckungs-/Void-Warnung (§3.1).
+   */
+  matchedSlots: number
 }
 
 const EPS = 1e-9
@@ -48,6 +54,7 @@ export function alignPvGrossToLoad(loadProfile: LoadProfile, pvProfile: PvProfil
 
   const grossPvKw = new Array<number>(draws.length).fill(0)
   let inconsistentSlots = 0
+  let matchedSlots = 0
 
   for (let i = 0; i < draws.length; i++) {
     const feedIn = Math.max(0, -(draws[i] ?? 0)) // Einspeisung = am Zähler sichtbarer Überschuss
@@ -58,6 +65,7 @@ export function alignPvGrossToLoad(loadProfile: LoadProfile, pvProfile: PvProfil
       grossPvKw[i] = feedIn
       continue
     }
+    matchedSlots++ // ein echter Zeitstempel-Treffer (nur DIESE zählen als Abdeckung).
 
     const nonNeg = Math.max(0, raw) // Brutto-PV ist definitionsgemäß ≥ 0
     if (nonNeg < feedIn - EPS) {
@@ -69,19 +77,54 @@ export function alignPvGrossToLoad(loadProfile: LoadProfile, pvProfile: PvProfil
     }
   }
 
-  return { grossPvKw, inconsistentSlots }
+  return { grossPvKw, inconsistentSlots, matchedSlots }
 }
 
 /**
  * Report-fertige `dataQuality`-Warnung zur PV-Konsistenz (§3.1) — oder `null`, wenn alle Brutto-PV-
  * Werte plausibel ≥ Einspeisung waren. Der Worker hängt sie an `dataQuality.warnings` an.
+ *
+ * Häufigste reale Ursache (an Martins Wiener-Netze-/Sungrow-Daten belegt): ein UNVOLLSTÄNDIGES
+ * PV-Profil — nur EIN von mehreren Wechselrichtern hochgeladen, dessen Brutto-Erzeugung strukturell
+ * unter der SUMME aller Einspeise-Zählpunkte liegt. Der Hinweis darauf steht bewusst im Warntext (statt
+ * nur „Zeitzone prüfen"), damit der Nutzer die eigentliche Datenlücke erkennt statt einen Defekt zu vermuten.
  */
 export function pvConsistencyWarning(inconsistentSlots: number): string | null {
   if (inconsistentSlots <= 0) return null
   return (
     `${inconsistentSlots} Viertelstunde(n) mit Brutto-PV unter der am Zähler gemessenen Einspeisung ` +
     '— physikalisch unmöglich (mehr eingespeist als erzeugt). Für die Rechnung wurde die Brutto-PV ' +
-    'auf die Einspeisung angehoben (der Netz-Lastgang gilt als Wahrheit); die Eigenverbrauchs-Aussage ' +
-    'kann in diesen Slots ungenau sein. Bitte PV- und Lastgang-Zeitstempel/Zeitzone prüfen.'
+    'auf die Einspeisung angehoben (der Netz-Lastgang gilt als Wahrheit); der PV-Eigenverbrauch kann ' +
+    'in diesen Slots untertrieben sein. Häufigste Ursache: ein unvollständiges PV-Profil (z. B. nur ' +
+    'ein von mehreren Wechselrichtern) oder ein Zeit-/Zeitzonen-Versatz — bitte prüfen, ob alle ' +
+    'Wechselrichter enthalten sind.'
   )
+}
+
+/**
+ * Report-fertige `dataQuality`-Warnung zur PV-ABDECKUNG (§3.1) — der „ins Leere laufende" Fall: ein
+ * hochgeladenes PV-Profil, dessen Zeitstempel den Lastgang gar nicht (oder kaum) treffen. Ohne diese
+ * Warnung verschwände der PV-Upload still (kein Konsistenz-Widerspruch, da fehlende Abdeckung ≠
+ * Widerspruch — s. Kopf-Kommentar) und der Report zeigte stillschweigend die Einspeise-Näherung.
+ * `null`, wenn die Abdeckung ausreichend ist (dann greift ggf. `pvConsistencyWarning`).
+ */
+const MIN_PV_COVERAGE_FRACTION = 0.2
+
+export function pvCoverageWarning(matchedSlots: number, totalSlots: number): string | null {
+  if (totalSlots <= 0) return null
+  if (matchedSlots === 0) {
+    return (
+      'Das hochgeladene PV-Profil überlappt den Lastgang zeitlich NICHT (keine gemeinsame ' +
+      'Viertelstunde) — vermutlich ein anderer Zeitraum oder eine andere Zeitzone. Die Brutto-PV ' +
+      'floss NICHT in die Analyse ein; der Report zeigt die am Zähler sichtbare Einspeisung als Näherung.'
+    )
+  }
+  if (matchedSlots / totalSlots < MIN_PV_COVERAGE_FRACTION) {
+    return (
+      `Das PV-Profil deckt nur ${matchedSlots} von ${totalSlots} Viertelstunden des Lastgangs ab — ` +
+      'der weitaus größte Teil bleibt ohne Brutto-PV (Einspeise-Näherung). Bitte Zeitraum/Zeitzone ' +
+      'des PV-Profils gegen den Lastgang prüfen.'
+    )
+  }
+  return null
 }

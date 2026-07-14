@@ -8,6 +8,10 @@ export type TariffResult = {
   tariff: TariffParams
   financial?: FinancialParams
   pv: ParsedPv | null
+  // Eine PV-Datei wurde hochgeladen, konnte aber NICHT gelesen werden (parsePvProfile → error/
+  // needs_mapping) → `pv` bleibt null. Die Meldung wandert in den Report (dataQuality), damit der
+  // Upload nicht still verpufft (§3.1). Nur gesetzt, wenn tatsächlich eine Datei abgelehnt wurde.
+  pvError?: string
 }
 
 // Ergebnis von Schritt 1 (parseLoadProfile, §3.2/§3.3) — die echte, getypte Nutzlast.

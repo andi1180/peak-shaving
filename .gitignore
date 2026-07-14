@@ -23,3 +23,9 @@ coverage/
 .vscode/*
 !.vscode/extensions.json
 *.log
+
+# Reale, nicht-anonymisierte Kundendaten (Netzbetreiber-/Wechselrichter-Exporte) — NIE committen
+# (CLAUDE.md OP#4, Datenschutz). Anonymisierte Rekonstruktionen leben in dev-fixtures/.
+/Viertelstundenwerte-*.csv
+/081_*.xlsx
+/193_*.xlsx

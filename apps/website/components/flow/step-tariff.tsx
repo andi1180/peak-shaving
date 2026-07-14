@@ -159,7 +159,12 @@ export function StepTariff({
     setErrors(errs)
     if (Object.keys(errs).length > 0 || !tRes.success) return
 
-    onComplete({ tariff: tRes.data as TariffParams, financial, pv })
+    // Wurde eine PV-Datei hochgeladen, aber nicht gelesen (pv === null && pvIssue gesetzt), die
+    // Ablehnung mitgeben — sonst verschwände der Upload still (nur die Schritt-2-Warnung, nichts im
+    // Report). `handlePvFile` löscht `pvIssue` bei jedem neuen Versuch, ein späterer Erfolg (pv gesetzt)
+    // hebt sie also auf.
+    const pvError = pv == null && pvIssue != null ? pvIssue : undefined
+    onComplete({ tariff: tRes.data as TariffParams, financial, pv, pvError })
   }
 
   return (

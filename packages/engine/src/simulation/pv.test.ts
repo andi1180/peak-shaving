@@ -9,7 +9,7 @@ import {
   PV_EXPORT_KW,
 } from '../fixtures/profiles'
 import { drawSeries } from './helpers'
-import { alignPvGrossToLoad, pvConsistencyWarning } from './pv'
+import { alignPvGrossToLoad, pvConsistencyWarning, pvCoverageWarning } from './pv'
 
 /**
  * §3.1 — Brutto-PV-Ausrichtung + Konsistenz gegen den Netz-Lastgang (Prinzip 1: Netz gewinnt).
@@ -76,5 +76,43 @@ describe('§3.1 alignPvGrossToLoad — Konsistenz (Netz-Lastgang gewinnt)', () =
     for (let i = 0; i < grossPvKw.length; i++) {
       if (feedIn[i]! > EPS) expect(grossPvKw[i]!).toBeCloseTo(feedIn[i]!, 9)
     }
+  })
+})
+
+describe('§3.1 PV-Abdeckung — matchedSlots + pvCoverageWarning (still verpuffender Upload)', () => {
+  it('volle Überlappung → matchedSlots == Lastgang-Länge, keine Abdeckungs-Warnung', () => {
+    const lp = basisWithPvLoadProfile()
+    const { matchedSlots } = alignPvGrossToLoad(lp, consistentPvProfile())
+
+    expect(matchedSlots).toBe(lp.readings.length)
+    expect(pvCoverageWarning(matchedSlots, lp.readings.length)).toBeNull()
+  })
+
+  it('disjunkte Zeitstempel (anderer Zeitraum) → matchedSlots == 0, „ins Leere gelaufen"-Warnung', () => {
+    const lp = basisWithPvLoadProfile()
+    // Dasselbe PV-Profil, aber alle Zeitstempel um ~100 Jahre verschoben → kein einziger ts-Treffer.
+    const shifted: PvProfile = {
+      readings: consistentPvProfile().readings.map((r) => ({
+        ts: r.ts.replace(/^\d{4}/, (y) => String(Number(y) + 100)),
+        pvGenerationKw: r.pvGenerationKw,
+      })),
+    }
+    const { matchedSlots, inconsistentSlots, grossPvKw } = alignPvGrossToLoad(lp, shifted)
+
+    expect(matchedSlots).toBe(0)
+    expect(inconsistentSlots).toBe(0) // fehlende Abdeckung ≠ Widerspruch → Konsistenz-Warnung schwiege still
+    // Fallback: jeder Slot auf die Einspeisung gesetzt (= No-PvProfile-Verhalten).
+    const feedIn = feedInOf(drawSeries(lp))
+    for (let i = 0; i < grossPvKw.length; i++) expect(grossPvKw[i]!).toBeCloseTo(feedIn[i]!, 9)
+
+    const warning = pvCoverageWarning(matchedSlots, lp.readings.length)
+    expect(warning).not.toBeNull()
+    expect(warning).toContain('NICHT')
+  })
+
+  it('sehr geringe Abdeckung (< 20 %) → Abdeckungs-Warnung mit Slot-Verhältnis', () => {
+    expect(pvCoverageWarning(10, 100)).toContain('10 von 100')
+    expect(pvCoverageWarning(50, 100)).toBeNull() // ausreichend → keine Warnung
+    expect(pvCoverageWarning(0, 0)).toBeNull() // leerer Lastgang → nichts zu melden
   })
 })

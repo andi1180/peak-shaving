@@ -15,7 +15,7 @@ export { runCombinedDispatch } from './dispatch'
 export type { DispatchResult } from './dispatch'
 export { runPeakProtection } from './peak-protection'
 export { buildDispatchTrace } from './trace'
-export { alignPvGrossToLoad, pvConsistencyWarning } from './pv'
+export { alignPvGrossToLoad, pvConsistencyWarning, pvCoverageWarning } from './pv'
 export type { PvAlignment } from './pv'
 export {
   START_SOC_FRACTION,
