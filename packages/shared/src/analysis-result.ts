@@ -120,6 +120,9 @@ export type AnalysisResult = {
   }
   dataQuality: {
     coveredDays: number
+    /** Anzahl der 12 Kalendermonate (lokal) mit ≥ 1 Messwert. < 12 = Teiljahres-Datensatz (§3.5) —
+     * verzerrt `monthly_*`-Abrechnung; der Report zieht daraus die prominente Teiljahres-Warnung. */
+    coveredMonths: number
     gapsInterpolated: number
     warnings: string[]
   }

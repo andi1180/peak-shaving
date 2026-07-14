@@ -1,6 +1,6 @@
 import type { BillingModel, LoadProfile, TariffParams } from 'shared'
 
-import { positiveAnnualPeakKw, positiveMonthlyPeaksKw } from '../peaks/metrics'
+import { coveredMonthlyPeaksKw, positiveAnnualPeakKw } from '../peaks/metrics'
 
 /**
  * Tarif-Strategy-Interface (§3.5, Kern von Prinzip 1). Liefert den ABGERECHNETEN
@@ -33,20 +33,29 @@ export const annualMaxStrategy: TariffStrategy = {
 }
 
 /**
- * `monthly_max_average`: je Monat den Höchstwert bilden, dann die 12 mitteln.
- * [ANNAHME] AT-Default (Wiener-Netze-Definition) — vor Auslieferung an echten
- * Rechnungen zu validieren (§3.5, OP#1/#3).
+ * `monthly_max_average`: je Monat den Höchstwert bilden, dann über die BELEGTEN Monate mitteln.
+ * Nur Monate MIT Daten gehen in die Mittelung ein (`coveredMonthlyPeaksKw`) — ein Monat ohne
+ * einen einzigen Messwert ist „keine Angabe", nicht „Spitze = 0". Sonst verdünnt ein
+ * Teiljahres-Datensatz (z. B. 7 Tage) den realen Peak durch die leeren Monate auf ~1/12 (§3.5-Fix).
+ * [ANNAHME] AT-Default (Wiener-Netze-Definition) — vor Auslieferung an echten Rechnungen zu
+ * validieren (§3.5, OP#1/#3).
  */
 export const monthlyMaxAverageStrategy: TariffStrategy = {
   billedKw(loadProfile, params) {
-    return withMinimum(average(positiveMonthlyPeaksKw(loadProfile)), params.minBillableKw)
+    return withMinimum(average(coveredMonthlyPeaksKw(loadProfile)), params.minBillableKw)
   },
 }
 
-/** `monthly_max_sum`: je Monat den Höchstwert bilden, dann summieren. */
+/**
+ * `monthly_max_sum`: je Monat den Höchstwert bilden, dann über die BELEGTEN Monate summieren.
+ * Leere Monate (= 0) tragen zur Summe ohnehin nichts bei, der Wert ändert sich also gegenüber
+ * „alle 12" nicht — die Semantik bleibt aber konsistent „nur belegte Monate zählen". Eine Summe
+ * über 1 von 12 Monaten ist bei Teildaten fachlich fragwürdig; das flankiert die Teiljahres-Warnung
+ * (§3.5), NICHT eine erfundene Hochrechnung auf ein Jahr.
+ */
 export const monthlyMaxSumStrategy: TariffStrategy = {
   billedKw(loadProfile, params) {
-    return withMinimum(sum(positiveMonthlyPeaksKw(loadProfile)), params.minBillableKw)
+    return withMinimum(sum(coveredMonthlyPeaksKw(loadProfile)), params.minBillableKw)
   },
 }
 

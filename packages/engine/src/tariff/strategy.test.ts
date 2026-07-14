@@ -104,3 +104,50 @@ describe('Regressionstest (§3.5/§3.11) — Kern der Tarif-Korrektheits-These',
     expect(annualMaxKw).toBeGreaterThan(monthlyAvgKw * 5)
   })
 })
+
+describe('Teiljahres-Abdeckung (§3.5-Fix): leere Monate verdünnen billedKw NICHT', () => {
+  // Reproduziert den an echten Wiener-Netze-Kundendaten gefundenen Fehler: 7 Tage (16.–22.06.)
+  // in EINEM Kalendermonat, realer Peak 2,848 kW. Vor dem Fix teilte `monthly_max_average` durch
+  // 12 (die 11 leeren Monate gingen als Spitze 0 in die Mittelung ein) → 2,848/12 = 0,237 ≈ 0,2 kW.
+  function sevenDaysInJune(): LoadProfile {
+    const readings: Array<{ ts: string; gridPowerKw: number }> = []
+    for (let day = 16; day <= 22; day++) {
+      for (let slot = 0; slot < 96; slot++) {
+        const hour = Math.floor(slot / 4)
+        const minute = (slot % 4) * 15
+        readings.push({ ts: isoUtc(2026, 6, day, hour, minute), gridPowerKw: 1.2 })
+      }
+    }
+    // Realer Abendpeak am 17.06. um 21:00.
+    readings.push({ ts: isoUtc(2026, 6, 17, 21, 0), gridPowerKw: 2.848 })
+    return loadProfile(readings)
+  }
+
+  it('monthly_max_average = Monats-Peak (2,848 kW), NICHT Peak/12 (0,237 kW)', () => {
+    const lp = sevenDaysInJune()
+    const monthly = monthlyMaxAverageStrategy.billedKw(lp, tariffParams())
+    // NACH dem Fix: nur der belegte Monat (Juni) zählt → Mittel über 1 Monat = 2,848.
+    expect(monthly).toBeCloseTo(2.848, 3)
+    // Schlägt vor dem Fix hart fehl (dort 0,237): der reale Peak darf nicht auf ~1/12 kollabieren.
+    expect(monthly).toBeGreaterThan(2)
+  })
+
+  it('bei Teildaten in EINEM Monat fallen annual_max und monthly_max_average zusammen', () => {
+    const lp = sevenDaysInJune()
+    const annual = annualMaxStrategy.billedKw(lp, tariffParams())
+    const monthly = monthlyMaxAverageStrategy.billedKw(lp, tariffParams())
+    expect(annual).toBeCloseTo(2.848, 3)
+    expect(monthly).toBeCloseTo(annual, 6) // ein einziger belegter Monat → Mittelwert = Jahres-Peak
+  })
+
+  it('monthly_max_sum summiert nur belegte Monate (2,848 kW) — leere Monate = 0 tragen nichts bei', () => {
+    const lp = sevenDaysInJune()
+    expect(monthlyMaxSumStrategy.billedKw(lp, tariffParams())).toBeCloseTo(2.848, 3)
+  })
+
+  it('Mindestleistung greift weiter zuletzt (§3.5): Teildaten unter Sockel → Sockel', () => {
+    const lp = sevenDaysInJune()
+    const withFloor = monthlyMaxAverageStrategy.billedKw(lp, tariffParams({ minBillableKw: 10 }))
+    expect(withFloor).toBe(10)
+  })
+})

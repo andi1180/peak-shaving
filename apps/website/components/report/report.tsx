@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { AlertCircle } from 'lucide-react'
+import { AlertCircle, AlertTriangle } from 'lucide-react'
 import {
   DEMO_BATTERY_CATALOG,
   type AnalysisResult,
@@ -15,6 +15,7 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
 import { DEFAULT_HORIZON_YEARS } from '@/lib/constants'
 import type { RecomputeInput } from '@/components/flow/types'
 import { AssumptionsPanel } from './assumptions-panel'
@@ -71,6 +72,29 @@ export function Report({
   const alternatives = result.perBattery.filter((p) => p !== recommended).slice(0, 3)
   const a = result.assumptions
 
+  // Teiljahres-Verzerrung der KERN-Kennzahl (§3.5): ein `monthly_*`-Modell mittelt/summiert über die
+  // 12 Monate — bei < 12 belegten Monaten ist der abgerechnete Leistungswert oben nicht aussagekräftig
+  // (leere Monate flossen früher als 0 in die Mittelung, verdünnten den realen Peak auf ~1/12; die
+  // Engine nimmt sie jetzt aus der Mittelung, doch eine Mittelung über 1 von 12 Monaten bleibt fachlich
+  // schwach). Wird PROMINENT oben neben der Kennzahl gezeigt (nicht nur in der Datenqualitäts-Box, die
+  // beim Live-Test überscrollt wurde). Rein abgeleitet aus dem Contract (`coveredMonths` + `billingModel`)
+  // — kein zweiter Zustand: verschwindet automatisch, sobald `billingModel` (via Shortcut ODER
+  // Annahmen-Panel) auf `annual_max` wechselt.
+  const showPartialYearWarning =
+    a.billingModel.startsWith('monthly') && result.dataQuality.coveredMonths < 12
+
+  // Shortcut „Mit Jahreshöchstwert rechnen": GENAU derselbe Recompute-Pfad wie das Annahmen-Panel
+  // (§6.2, Prompt C) — `onRecompute` → Worker `recompute`. KEIN zweiter Umschalt-Mechanismus: der
+  // neue `billingModel` fließt über das Ergebnis zurück und das Panel spiegelt ihn (liveBillingModel).
+  // Horizont bleibt der aktuell angezeigte; der Rest = Original-Annahmen (Fresh-Report-Fall).
+  function handleSwitchToAnnualMax() {
+    onRecompute({
+      tariff: { ...originalTariff, billingModel: 'annual_max' },
+      financial: originalFinancial,
+      horizonYears: a.horizonYears,
+    })
+  }
+
   // [ABGELEITET, keine Contract-Zahl] Roher Leistungspreis-Satz (€/kW·a) direkt aus den Ist-Kosten:
   // `leistungspreisCostPerYear / billedKw` (analyzeCurrentPeaks setzt Ersteres = Satz × billedKw,
   // §3.4) → exakt der €/kW·a-Satz, unabhängig vom Abrechnungsmodell und von der Batterie. Basis für
@@ -87,6 +111,27 @@ export function Report({
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8 sm:px-6">
       <KeyMetric current={result.current} />
+
+      {showPartialYearWarning && (
+        <Alert variant="warning">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>
+            Nur <Num>{result.dataQuality.coveredMonths}</Num> von 12 Monaten mit Daten
+          </AlertTitle>
+          <AlertDescription>
+            <p className="mb-3 text-text">
+              Der abgerechnete Leistungswert oben unter dem Modell „Mittelwert der Monatsspitzen" ist
+              damit nicht aussagekräftig — die{' '}
+              <Num>{12 - result.dataQuality.coveredMonths}</Num> Monate ohne Daten kann das Modell
+              nicht mitteln. „Jahreshöchstwert" als Abrechnungsmodell liefert für diesen Datensatz
+              eine belastbarere Zahl.
+            </p>
+            <Button size="sm" onClick={handleSwitchToAnnualMax} disabled={recomputing}>
+              {recomputing ? 'Rechnet neu …' : 'Mit Jahreshöchstwert rechnen'}
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-1">
@@ -170,6 +215,7 @@ export function Report({
               originalTariff={originalTariff}
               originalFinancial={originalFinancial}
               originalHorizonYears={DEFAULT_HORIZON_YEARS}
+              liveBillingModel={a.billingModel}
               originalBattery={
                 DEMO_BATTERY_CATALOG.find((b) => b.id === selectedBatteryId) ??
                 DEMO_BATTERY_CATALOG[0]!

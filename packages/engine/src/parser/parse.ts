@@ -1,7 +1,7 @@
 import type { LoadProfile, PvProfile } from 'shared'
 
 import { matchAdapter } from './adapters'
-import { toIsoUtc, type DateFormat } from './datetime'
+import { countCoveredMonths, toIsoUtc, type DateFormat } from './datetime'
 import { detectStructure, isInverterExport, type DetectionDraft } from './detect'
 import { byteSize, resolveLimits } from './limits'
 import { normalizeLoad, normalizeSingleValue } from './normalize'
@@ -280,6 +280,10 @@ export function parseLoadProfile(
     profile,
     dataQuality: {
       coveredDays: prepared.coveredDays,
+      coveredMonths: countCoveredMonths(
+        prepared.slots.map((s) => s.ms),
+        tz,
+      ),
       gapsInterpolated: prepared.gapsInterpolated,
       warnings,
     },
@@ -377,6 +381,10 @@ export function parsePvProfile(
     profile,
     dataQuality: {
       coveredDays: prepared.coveredDays,
+      coveredMonths: countCoveredMonths(
+        prepared.slots.map((s) => s.ms),
+        timezone,
+      ),
       gapsInterpolated: prepared.gapsInterpolated,
       warnings,
     },

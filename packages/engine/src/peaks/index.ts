@@ -4,6 +4,7 @@ export type { CurrentPeakAnalysis } from './analyze'
 export {
   positiveAnnualPeakKw,
   positiveMonthlyPeaksKw,
+  coveredMonthlyPeaksKw,
   topPeaksKw,
   peakDistribution,
   TOP_PEAKS_N,

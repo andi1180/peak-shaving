@@ -88,6 +88,8 @@ export type ParseOptions = {
 /** Deckt sich mit `AnalysisResult['dataQuality']` (§3.10) — der Parser liefert den Datenqualitäts-Teil. */
 export type DataQuality = {
   coveredDays: number
+  /** Anzahl der 12 Kalendermonate (lokal) mit ≥ 1 Messwert. < 12 = Teiljahres-Datensatz (§3.5). */
+  coveredMonths: number
   gapsInterpolated: number
   warnings: string[]
 }

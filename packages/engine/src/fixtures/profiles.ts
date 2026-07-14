@@ -112,12 +112,12 @@ export const INCONSISTENT_PV_SLOTS = 8 * N_DAYS
 export const basisForTouLoadProfile = (): LoadProfile => buildProfile(false)
 
 /**
- * Flacher Tarif (kein HT/NT-Fenster). `billingModel` bewusst NICHT diluted vor-eingestellt: alle
- * `N_DAYS` liegen im selben Kalendermonat (Februar) → unter `monthly_max_average` sind 11 der 12
- * Monats-Höchstwerte 0 (`positiveMonthlyPeaksKw`, `packages/engine/src/peaks/metrics.ts:28`), der
- * Durchschnitt verdünnt den einzigen abgedeckten Monat also faktisch auf 1/12 — GENAU die §3.5-These
- * (TEIL 2 der M1-Gate-Suite), nicht künstlich nachgestellt, sondern eine direkte Konsequenz eines
- * einzelnen abgedeckten Abrechnungsmonats.
+ * Flacher Tarif (kein HT/NT-Fenster). Alle `N_DAYS` liegen im selben Kalendermonat (Februar) — ein
+ * TEILJAHRES-Datensatz. SEIT dem §3.5-Fix (`coveredMonthlyPeaksKw`) verdünnen die 11 Monate OHNE
+ * Daten `monthly_max_average` NICHT mehr: nur der belegte Monat zählt, also liefert das Mittelwert-
+ * Modell hier (nahezu) dasselbe wie `annual_max` (TEIL 2 der M1-Gate-Suite prüft genau das als
+ * Voll-Ketten-Regression). Die ECHTE §3.5-Verdünnungs-These (reale Monate ohne Spitze senken den
+ * Mittelwert) prüfen `strategy.test.ts`/`analyze.test.ts` mit voller 12-Monats-Abdeckung.
  */
 export function flatTariff(
   billingModel: TariffParams['billingModel'],

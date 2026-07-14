@@ -72,6 +72,7 @@ describe('Format A (Netzbetreiber/EDA-CSV) — Split-Timestamp + Mehrspalten-Map
     if (!out.ok) return
     expect(out.profile.readings).toHaveLength(672) // 7 Tage × 96 Viertelstunden
     expect(out.dataQuality.coveredDays).toBe(7)
+    expect(out.dataQuality.coveredMonths).toBe(1) // Teiljahres-Datensatz (nur Juni) — §3.5-Warnung
 
     const total = totalKwh(out.profile.readings)
     const peak = peakKw(out.profile.readings)

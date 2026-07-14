@@ -37,6 +37,35 @@ export function positiveMonthlyPeaksKw(loadProfile: LoadProfile): number[] {
   return peaks
 }
 
+/**
+ * Monats-Höchstwerte des Bezugs NUR für BELEGTE Monate (§3.5), in Kalenderreihenfolge.
+ * Ein Monat gilt als belegt, sobald er mindestens EINEN Messwert trägt — auch wenn seine
+ * Bezugsspitze 0 ist (ein reiner Einspeise-Monat ist ein echter 0-kW-Bezugsmonat, keine
+ * „keine Angabe"). Monate GANZ OHNE Messwert erscheinen NICHT (kein 0-Eintrag).
+ *
+ * Bewusst getrennt von `positiveMonthlyPeaksKw` (das 12 Elemente indexiert nach Monat liefern
+ * MUSS — Contract `current.monthlyPeaksKw`/§3.4-Verteilung): die Tarif-Strategien `monthly_max_*`
+ * (§3.5) mitteln/summieren über GENAU die belegten Monate. Bei Teiljahres-Daten (z. B. 7 Tage in
+ * EINEM Monat) sonst der Kernfehler: ein realer Peak wird unter `monthly_max_average` durch elf
+ * strukturelle Nullen der leeren Monate auf ~1/12 verdünnt (2,8 kW → 0,2 kW). Für `monthly_max_sum`
+ * ändert der Ausschluss den Wert nicht (leere Monate = 0 tragen zur Summe ohnehin nichts bei),
+ * hält die Semantik aber konsistent „nur belegte Monate zählen".
+ */
+export function coveredMonthlyPeaksKw(loadProfile: LoadProfile): number[] {
+  const peaks = new Array(12).fill(0) as number[]
+  const covered = new Array(12).fill(false) as boolean[]
+  for (const r of loadProfile.readings) {
+    const { month } = utcMsToLocalFields(Date.parse(r.ts), loadProfile.timezoneMeta)
+    const idx = month - 1
+    covered[idx] = true
+    const d = drawKw(r.gridPowerKw)
+    if (d > (peaks[idx] ?? 0)) peaks[idx] = d
+  }
+  const result: number[] = []
+  for (let i = 0; i < 12; i++) if (covered[i]) result.push(peaks[i] ?? 0)
+  return result
+}
+
 /** [ANNAHME] N=10 — im Pflichtenheft §3.4 nicht beziffert, folgt CLAUDE_PEAKSHAVING.md. */
 export const TOP_PEAKS_N = 10
 

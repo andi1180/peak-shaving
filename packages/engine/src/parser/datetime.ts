@@ -232,6 +232,18 @@ export function utcMsToLocalFields(utcMs: number, timeZone: string): LocalFields
   return fields
 }
 
+/**
+ * Anzahl der Kalendermonate (LOKALE Zeit), die mindestens einen der UTC-Zeitstempel tragen —
+ * Teiljahres-Erkennung für die Datenqualität (§3.5). Basis derselben lokalen Monatsgruppierung
+ * wie `coveredMonthlyPeaksKw` (peaks/metrics.ts), damit `dataQuality.coveredMonths` und der
+ * abgerechnete `billedKw` unter `monthly_*` denselben Monatsbegriff verwenden.
+ */
+export function countCoveredMonths(msValues: Iterable<number>, timeZone: string): number {
+  const seen = new Array(12).fill(false) as boolean[]
+  for (const ms of msValues) seen[utcMsToLocalFields(ms, timeZone).month - 1] = true
+  return seen.reduce((n, present) => (present ? n + 1 : n), 0)
+}
+
 /** Naive Wanduhrzeit in `timeZone` → UTC-Millisekunden (DST-bewusst, Best-effort an Übergängen). */
 export function zonedWallToUtcMs(
   y: number,

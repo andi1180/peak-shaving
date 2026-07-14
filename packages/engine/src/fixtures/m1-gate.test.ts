@@ -116,9 +116,9 @@ describe('§3.11 M1-Gate — 3×2-Matrix (3 Profile × annual_max/monthly_max_av
     })
   })
 
-  describe('TEIL 2 — Tarif-Regressionsmatrix (§3.5-These im Code fixiert)', () => {
+  describe('TEIL 2 — Teiljahres-Regressionsmatrix (§3.5-Fix: Einzelmonat wird NICHT mehr verdünnt)', () => {
     for (const profile of PROFILES) {
-      it(`${profile.label}: Ersparnis unter monthly_max_average spürbar < annual_max (Verdünnung ~1/12)`, () => {
+      it(`${profile.label}: Fixtures liegen in EINEM Monat → monthly_max_average ≈ annual_max (keine 1/12-Verdünnung)`, () => {
         const annual = MATRIX.find((r) => r.profileLabel === profile.label && r.billingModel === 'annual_max')!
           .dynamic
         const monthly = MATRIX.find(
@@ -131,10 +131,22 @@ describe('§3.11 M1-Gate — 3×2-Matrix (3 Profile × annual_max/monthly_max_av
             `monthly_max_average leistungspreis=€${monthly.leistungspreisSavingPerYear.toFixed(0)}`,
         )
 
-        // Pflicht-Erwartung (§3.11/§3.5): monthly_max_average dilutes einen einzelnen Peak auf ~1/12 —
-        // "spürbar" harte Schwelle: höchstens die Hälfte des annual_max-Werts, i.d.R. viel weniger.
+        // Die drei §3.11-Fixtures decken BEWUSST einen einzigen Kalendermonat (Februar) ab. VOR dem
+        // §3.5-Fix teilte `monthly_max_average` durch 12 (die 11 leeren Monate gingen als Spitze 0 in
+        // die Mittelung ein) und die Ersparnis kollabierte auf ~1/12 des annual_max-Werts — GENAU der
+        // an echten Wiener-Netze-Kundendaten gefundene Fehler (billedKw 2,8 → 0,2 kW). NACH dem Fix
+        // zählt nur der belegte Monat: der Mittelwert über 1 Monat = dessen Peak = Jahres-Peak, also
+        // liefern monthly_max_average und annual_max (nahezu) dieselbe Ersparnis. Der Test ist damit
+        // ein Voll-Ketten-Regressionswächter (recommendBattery) für genau diesen Bug.
+        // (Die ECHTE 1/12-Verdünnung durch reale Monate ohne Spitze prüfen strategy.test.ts /
+        // analyze.test.ts mit voller 12-Monats-Abdeckung.)
         expect(annual.leistungspreisSavingPerYear).toBeGreaterThan(0)
-        expect(monthly.leistungspreisSavingPerYear).toBeLessThan(annual.leistungspreisSavingPerYear * 0.5)
+        expect(monthly.leistungspreisSavingPerYear).toBeGreaterThan(
+          annual.leistungspreisSavingPerYear * 0.9,
+        )
+        expect(monthly.leistungspreisSavingPerYear).toBeLessThanOrEqual(
+          annual.leistungspreisSavingPerYear + EPS,
+        )
       })
     }
   })

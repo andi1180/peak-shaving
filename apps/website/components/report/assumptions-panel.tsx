@@ -55,6 +55,7 @@ export function AssumptionsPanel({
   originalFinancial,
   originalHorizonYears,
   originalBattery,
+  liveBillingModel,
   selectedBatteryName,
   isEdited,
   recomputing,
@@ -66,6 +67,10 @@ export function AssumptionsPanel({
   originalFinancial?: FinancialParams
   originalHorizonYears: number
   originalBattery: BatteryCandidate
+  /** `billingModel` des aktuell angezeigten (ggf. live neu berechneten) Ergebnisses — die EINE
+   * Wahrheit. Das Panel spiegelt ihn (s. Sync unten), damit der Teiljahres-Shortcut oben (report.tsx)
+   * und dieses Dropdown NIE auseinanderlaufen (kein zweiter Umschalt-Zustand). */
+  liveBillingModel: BillingModel
   selectedBatteryName: string
   isEdited: boolean
   recomputing: boolean
@@ -73,7 +78,10 @@ export function AssumptionsPanel({
   onRecompute: (input: RecomputeInput) => void
   onReset: () => void
 }) {
-  const [billingModel, setBillingModel] = useState<BillingModel>(originalTariff.billingModel)
+  // Init aus dem ANGEZEIGTEN Ergebnis (nicht dem Original): klappt der Nutzer das Panel ERST nach
+  // einem Umschalten (Teiljahres-Shortcut oben) auf, mountet es frisch und muss den aktuellen
+  // `billingModel` zeigen — nicht den ursprünglichen. Der Sync unten deckt den bereits gemounteten Fall.
+  const [billingModel, setBillingModel] = useState<BillingModel>(liveBillingModel)
   const [horizonYears, setHorizonYears] = useState(String(originalHorizonYears))
   const [subsidyPercent, setSubsidyPercent] = useState(
     String(originalFinancial?.subsidyPercent ?? ''),
@@ -102,6 +110,17 @@ export function AssumptionsPanel({
     lastBatteryIdRef.current = originalBattery.id
     setEfficiencyPercent(String(originalBattery.roundTripEfficiency * 100))
     setPricePerKwh(String(originalBattery.pricePerKwh))
+  }
+
+  // Spiegelt den `billingModel` des Ergebnisses in das lokale Dropdown — dieselbe Render-Phasen-
+  // Technik wie der Batterie-Sync oben. Feuert NUR, wenn sich der ERGEBNIS-Wert ändert (Shortcut oben
+  // ODER Reset), nicht bei laufender Dropdown-Auswahl (dort führt das lokale setState). Verhindert den
+  // Divergenz-Bug: ohne Sync würde ein Feld-Edit NACH dem Shortcut den `billingModel` aus dem stale
+  // lokalen State zurück auf `monthly` kippen (computeAndSend führt `billingModel` bei JEDEM Recompute mit).
+  const lastLiveBillingModelRef = useRef(liveBillingModel)
+  if (lastLiveBillingModelRef.current !== liveBillingModel) {
+    lastLiveBillingModelRef.current = liveBillingModel
+    setBillingModel(liveBillingModel)
   }
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)

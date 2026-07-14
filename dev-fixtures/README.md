@@ -94,6 +94,20 @@ In allen vier Dateien: Batterie lädt/entlädt nie (0), Eingang == Ausgang (rein
 „Kein Netz-Lastgang…"), statt einen Lastgang daraus zu konstruieren. Zwei Wechselrichter × zwei
 Jahreszeiten = vier Fixtures (robuste Ablehnung über Varianten).
 
+## `teiljahr-lastgang-juni-2026.csv` (Teiljahres-Datensatz, §3.5-Regression)
+
+Ein **7-Tage-Lastgang** (16.–22.06.2026, **672 Zeilen = 7 × 96**), also ein einziger Kalendermonat —
+anonymisierte Rekonstruktion eines echten Wiener-Netze-Teilexports (Werte erfunden). Kombinierter
+Zeitstempel `TT.MM.JJJJ HH:MM`, Dezimalkomma → `parseLoadProfile` liefert direkt `ok` (kein Mapping),
+`source: 'import_only'`. Realer Abendpeak **2,848 kW** am 17.06. 21:00 (eindeutiger Höchstwert).
+
+Zweck: reproduziert den an echten Kundendaten gefundenen **Teiljahres-Fehler (§3.5)**. Vor dem Fix
+teilte `monthly_max_average` durch 12 (die 11 leeren Monate gingen als Spitze 0 in die Mittelung ein),
+`billedKw` kollabierte auf 2,848 / 12 ≈ **0,2 kW**. Seit `coveredMonthlyPeaksKw` zählt nur der belegte
+Monat → `billedKw = 2,848 kW`. `dataQuality.coveredMonths = 1` löst im Report die prominente
+Teiljahres-Warnung mit dem „Mit Jahreshöchstwert rechnen"-Shortcut aus. Test-Grundlage:
+`packages/engine/src/tariff/strategy.test.ts` (Teiljahres-Block) + `real-formats.test.ts` (`coveredMonths`).
+
 ## Neu erzeugen
 
 ```
@@ -101,6 +115,7 @@ node dev-fixtures/generate-demo-load-profile.mjs           # no-PV-Bäcker (impo
 node dev-fixtures/generate-demo-pv-profile.mjs             # konsistentes PV-Paar (net_signed + Brutto-PV)
 node dev-fixtures/generate-eda-netzbetreiber-fixtures.mjs  # Format A (Split-Timestamp + Mehrspalten)
 node dev-fixtures/generate-wechselrichter-ess-fixtures.mjs # Format B (ESS-XLSX, wird abgelehnt)
+node dev-fixtures/generate-teiljahr-lastgang.mjs           # Teiljahres-Lastgang (7 Tage, §3.5-Regression)
 ```
 
 Alle deterministisch (fixer Seed) — erzeugen bei jedem Lauf byte-identische Ausgabe (auch der
