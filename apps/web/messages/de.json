@@ -71,7 +71,7 @@
     "cta": "Zum Kalkulator"
   },
   "Home": {
-    "metaDescription": "COOLiN ENERGY senkt Energiekosten und CO₂ für Unternehmen in Österreich: Peak Shaving, PV & Speicher, Energiemanagement, PPA, Förderungen. Einsparpotenzial kostenlos testen.",
+    "metaDescription": "COOLiN ENERGY senkt Energiekosten und CO₂ für Unternehmen in Österreich: Peak Shaving, PV & Speicher, Energiemanagement, PPA, Förderungen. Einsparpotenzial in 2 Minuten schätzen.",
     "Hero": {
       "eyebrow": "Wirtschaftlich dekarbonisieren — ohne Greenwashing",
       "title": "Wir senken Energiekosten und CO₂ — mit messbarem Erfolg",
@@ -90,7 +90,6 @@
       "point2Text": "Leistung und Kapazität werden am realen Lastgang statt an pauschalen Annahmen ausgerichtet.",
       "point3Title": "Mehrfachnutzen kombinieren",
       "point3Text": "Peak Shaving, PV-Eigenverbrauch und flexible Beschaffung werden gemeinsam bewertet.",
-      "ctaPrimary": "Peak-Shaving Kalkulator",
       "ctaSecondary": "Was ist Peak Shaving"
     },
     "Portfolio": {
@@ -153,6 +152,144 @@
       "doc3": "Standort- und Anlagendaten",
       "doc4": "PV-Erzeugungsdaten und geplante Erweiterungen",
       "doc5": "Investitions- und ESG-Ziele"
+    }
+  },
+  "PeakShaving": {
+    "metaDescription": "Peak Shaving für Gewerbe in Österreich: Wie der Leistungspreis entsteht, warum einzelne Viertelstunden die Netzkosten bestimmen und wie Lastspitzen gekappt werden.",
+    "Hero": {
+      "eyebrow": "Peak Shaving",
+      "title": "Was ist Peak Shaving?",
+      "lead": "Peak Shaving — deutsch Lastspitzenkappung — begrenzt die kurzen Verbrauchsspitzen eines Betriebs gezielt. Nicht, um weniger Strom zu verbrauchen, sondern um weniger für Leistung zu zahlen.",
+      "intro": "Über ein Jahr fallen in einem Gewerbebetrieb zehntausende Viertelstundenwerte an. Für den Leistungspreis zählen davon sehr wenige — je nach Abrechnungsmodell im Extremfall ein einziger. Läuft der Ofen an, während Kälte und Klima ohnehin ziehen, kann diese eine Viertelstunde die Netzkosten für den gesamten Abrechnungszeitraum festlegen. Genau dort setzt Peak Shaving an: Die Spitze wird abgefangen, der Betrieb läuft unverändert weiter."
+    },
+    "Preis": {
+      "eyebrow": "Grundlagen",
+      "title": "Leistungspreis und Arbeitspreis — der entscheidende Unterschied",
+      "lead": "Auf einer gewerblichen Stromrechnung stehen zwei Größen, die völlig unterschiedlich entstehen. Wer sie verwechselt, spart an der falschen Stelle.",
+      "arbeitTitle": "Arbeitspreis",
+      "arbeitUnit": "ct/kWh",
+      "arbeitText": "Bezahlt wird die Energiemenge: jede bezogene Kilowattstunde, aufsummiert über den Abrechnungszeitraum. Wer weniger verbraucht, zahlt weniger — linear und nachvollziehbar.",
+      "arbeitHint": "Hebel: Effizienz, Eigenverbrauch, Beschaffung.",
+      "leistungTitle": "Leistungspreis",
+      "leistungUnit": "€/kW·a",
+      "leistungText": "Bezahlt wird die höchste bezogene Leistung — nicht, wie lange sie anlag. Eine einzelne Viertelstunde auf 250 kW schlägt im Leistungspreis genauso zu Buche wie ein ganzes Jahr auf 250 kW. Die Energiemenge dahinter ist winzig, die Kostenwirkung nicht.",
+      "leistungHint": "Hebel: Lastspitzen kappen, entzerren, speichern.",
+      "note": "Deshalb kann ein Betrieb spürbar Strom sparen und trotzdem gleich hohe Netzkosten zahlen: Der Arbeitspreis sinkt, der Leistungspreis bleibt an der einen Spitze hängen, die niemand bemerkt hat."
+    },
+    "Rlm": {
+      "eyebrow": "RLM-Messung",
+      "title": "Ab 100.000 kWh zählt jede Viertelstunde einzeln",
+      "text1": "Überschreitet ein Betrieb 100.000 kWh Jahresverbrauch, wechselt er in die registrierende Leistungsmessung (RLM). Der Zähler erfasst dann nicht mehr nur einen Jahreszählerstand, sondern den Lastgang: den mittleren Leistungsbezug jeder einzelnen Viertelstunde, rund um die Uhr.",
+      "text2": "Aus diesen Werten wird der Leistungspreis abgeleitet — je nach Netzbetreiber und Abrechnungsmodell etwa aus dem höchsten Viertelstundenwert des Jahres oder aus den monatlichen Höchstwerten. Welches Modell für Ihren Standort gilt, steht auf Ihrer Netzrechnung. Das ist keine allgemeine Regel, sondern eine Vertragsgröße — und der Grund, warum eine seriöse Rechnung immer bei Ihrer Rechnung beginnt.",
+      "text3": "Die gute Nachricht: Dieser Lastgang ist eine Datei, die Sie von Ihrem Netzbetreiber bekommen. Damit lässt sich Ihr Einsparpotenzial nicht schätzen, sondern rechnen."
+    },
+    "Chart": {
+      "eyebrow": "Beispielhafte Darstellung",
+      "title": "Lastgang vor und nach der Kappung",
+      "lead": "Ein Tagesverlauf, wie er in vielen Betrieben entsteht: Die Grundlast läuft durch, am frühen Morgen erzeugt der Anlauf eine kurze, hohe Spitze. Der Speicher deckt genau diese Differenz — der Netzbezug bleibt unter der Schwelle. Die zweite, kleinere Erhebung am Nachmittag bleibt ohnehin darunter und kostet nichts extra.",
+      "disclaimer": "Beispielhafte Darstellung mit synthetischen Werten, die allein das Prinzip veranschaulichen. Keine Kundenmessung und kein Rechenergebnis. Ihr tatsächliches Profil ermittelt der Peak-Shaving Kalkulator aus Ihren eigenen Lastgangdaten.",
+      "seriesBefore": "Netzbezug ohne Speicher",
+      "seriesAfter": "Netzbezug mit Speicher",
+      "capLabel": "Kappungsschwelle",
+      "axisPower": "kW",
+      "tooltipTime": "{time} Uhr"
+    },
+    "Kappung": {
+      "eyebrow": "Zwei Arten der Kappung",
+      "title": "Physikalisch kappen oder den Messwert kappen",
+      "lead": "„Die Spitze kappen“ kann zweierlei bedeuten. Der Unterschied entscheidet, worauf die Anlage ausgelegt wird.",
+      "physTitle": "Physikalische Kappung",
+      "physText": "Der Bezug am Netzanschluss wird real begrenzt: Der Speicher deckt die Differenz, Lasten werden verschoben oder abgeworfen. Der Anschluss sieht die Spitze nie. Das zählt dort, wo eine harte Grenze gilt — etwa eine begrenzte Anschlussleistung oder eine teure Netzanschluss-Erweiterung, die man vermeiden will.",
+      "rlmTitle": "Kappung des Messwerts",
+      "rlmText": "Abgerechnet wird der Mittelwert einer Viertelstunde, nicht der Momentanwert. Für die Rechnung zählt deshalb, den Viertelstunden-Mittelwert unter der Schwelle zu halten. Ein kurzer Anlaufstrom, der im Mittel dieser 15 Minuten untergeht, ist kostenseitig unsichtbar.",
+      "note": "Für den Leistungspreis zählt der Messwert. Wer zusätzlich die Anschlussleistung selbst entlasten will, braucht die physikalische Kappung. Beide Ziele lassen sich mit derselben Anlage verfolgen — sie führen nur zu unterschiedlicher Auslegung."
+    },
+    "Zusammenspiel": {
+      "eyebrow": "Umsetzung",
+      "title": "Kein Hardware-Thema — ein Zusammenspiel",
+      "lead": "Ein Speicher allein kappt keine Spitze. Erst Speicher, Steuerung und Betriebsstrategie ergeben ein System, das im Betrieb hält, was das Datenblatt verspricht.",
+      "p1Title": "Speicher",
+      "p1Text": "Leistung (kW) und Kapazität (kWh) sind zwei getrennte Größen. Eine Batterie mit genug Leistung, die nach zehn Minuten leer ist, hält die Spitze nicht durch. Beides wird am realen Lastgang ausgelegt, nicht an einer Faustformel.",
+      "p2Title": "Steuerung",
+      "p2Text": "Die Steuerung entscheidet im laufenden Betrieb, wann entladen wird — und muss die Spitze erkennen, während sie entsteht. Nicht jeder Speicher bringt diese Fähigkeit mit; oft ist sie eine eigene Komponente.",
+      "p3Title": "Betriebsstrategie",
+      "p3Text": "Spitzenkappung, PV-Eigenverbrauch und tarifbewusstes Laden konkurrieren um dieselbe Kapazität. Wer die drei Nutzen einzeln rechnet und addiert, überschätzt das Ergebnis. Die Strategie legt fest, was Vorrang hat.",
+      "note": "Deshalb ist die belastbare Auslegung eine Rechenaufgabe über den ganzen Lastgang — keine Frage des Datenblatts."
+    },
+    "Related": {
+      "title": "Peak Shaving steht nicht allein",
+      "lead": "Derselbe Speicher, der Ihre Spitze kappt, hebt in aller Regel auch Ihren PV-Eigenverbrauch. Und ohne Lastganganalyse wissen Sie nicht, wo Ihre Spitzen überhaupt entstehen.",
+      "pvTitle": "PV, Speicher & Eigenverbrauch",
+      "pvText": "Auslegung und Wirtschaftlichkeit — dieselbe Batterie, mehrere Nutzen.",
+      "emTitle": "Energiemanagement & Effizienz",
+      "emText": "Lastganganalyse und Monitoring — die Datengrundlage jeder Kappung."
+    },
+    "Cta": {
+      "eyebrow": "Ihr Potenzial",
+      "title": "Einsparpotenzial in zwei Minuten schätzen",
+      "lead": "Der Schnellrechner gibt eine erste Orientierung. Belastbar wird die Zahl mit Ihren echten 15-Minuten-Lastgangdaten — dafür gibt es den Peak-Shaving Kalkulator.",
+      "cta": "Zum Peak-Shaving Kalkulator"
+    }
+  },
+  "PeakShavingCalculator": {
+    "metaDescription": "Der Peak-Shaving Kalkulator: echte Lastgang-Analyse, physikalisch korrekte Batteriesimulation, Speicherempfehlung und ROI für Gewerbebetriebe in Österreich.",
+    "Hero": {
+      "eyebrow": "Peak-Shaving Kalkulator",
+      "title": "Vom Lastgang zur belastbaren Speicherempfehlung",
+      "lead": "Sie laden Ihre 15-Minuten-Lastgangdaten hoch und erhalten keine Faustformel, sondern eine durchgerechnete Entscheidungsgrundlage: welcher Speicher, welche Ersparnis, welche Amortisation — und wie die Zahl zustande kommt.",
+      "badge": "Derzeit frei zugänglich",
+      "cta": "Kalkulator starten",
+      "ctaHint": "Öffnet in einem neuen Tab"
+    },
+    "Leistet": {
+      "eyebrow": "Was der Kalkulator leistet",
+      "title": "Drei Schritte zu einer ehrlichen Zahl",
+      "f1Title": "Echte Lastgang-Analyse",
+      "f1Text": "Ihre Viertelstundenwerte werden vollständig eingelesen — CSV oder Excel, Netzbetreiber-Export oder Wechselrichter-Datei. Der Kalkulator erkennt Ihre Spitzen, ordnet sie zeitlich ein und rechnet Ihre heutigen Leistungskosten nach dem Abrechnungsmodell Ihrer Netzrechnung, nicht nach einer Pauschale.",
+      "f2Title": "Physikalisch korrekte Simulation",
+      "f2Text": "Simuliert wird der Ladezustand über jede einzelne Viertelstunde des Jahres, mit Leistung, Kapazität und Wirkungsgrad. Kein Zählen von Spitzen: Eine Batterie, die zur nächsten Spitze leer ist, kappt sie auch in der Simulation nicht.",
+      "f3Title": "Speicherempfehlung und ROI",
+      "f3Text": "Jeder Speicher-Kandidat wird einzeln durchgerechnet und gereiht — mit Investition, Förderung, Amortisation und Ersparnis über den Betrachtungszeitraum. Die Anteile aus Spitzenkappung, Eigenverbrauch und Lastverschiebung weist der Report getrennt aus, statt sie zu addieren."
+    },
+    "Vergleich": {
+      "eyebrow": "Schnellrechner oder Kalkulator",
+      "title": "Der Unterschied zum Schnellrechner",
+      "lead": "Beide beantworten dieselbe Frage — mit sehr unterschiedlicher Verbindlichkeit.",
+      "teaserTitle": "Schnellrechner",
+      "teaserSub": "Die Orientierung",
+      "teaser1": "Drei Eingaben, direkt auf der Seite",
+      "teaser2": "Rechnet Zielreduktion × Leistungspreis",
+      "teaser3": "Die Zielreduktion geben Sie selbst vor",
+      "teaser4": "Ergebnis: eine grobe Größenordnung",
+      "teaserLink": "Zum Schnellrechner",
+      "proTitle": "Peak-Shaving Kalkulator",
+      "proSub": "Die Entscheidungsgrundlage",
+      "pro1": "Ihre echten 15-Minuten-Lastgangdaten",
+      "pro2": "Simuliert den Ladezustand über das ganze Jahr",
+      "pro3": "Errechnet, welche Reduktion überhaupt erreichbar ist",
+      "pro4": "Ergebnis: Speicherempfehlung, ROI und Report",
+      "note": "Der Schnellrechner nimmt an, dass die gewünschte Reduktion erreichbar ist. Ob sie das ist, hängt an Leistung, Kapazität und am zeitlichen Verlauf Ihrer Spitzen — genau das rechnet der Kalkulator aus."
+    },
+    "Screens": {
+      "eyebrow": "Einblick",
+      "title": "So sieht die Anwendung aus",
+      "lead": "Screenshots der Oberfläche und eines vollständigen Ergebnis-Reports folgen an dieser Stelle.",
+      "placeholder": "Screenshot folgt",
+      "shot1Label": "Kalkulator-Oberfläche",
+      "shot1Caption": "Upload des Lastgangs, Tarifangaben, Analyse — in vier Schritten.",
+      "shot2Label": "Ergebnis-Report",
+      "shot2Caption": "Lastgang mit Kappungslinie, Kostenvergleich, Speicherempfehlung und Annahmen."
+    },
+    "Privacy": {
+      "title": "Ihre Verbrauchsdaten bleiben bei Ihnen",
+      "text": "Der Kalkulator rechnet im Browser. Ihre Lastgangdatei wird lokal eingelesen und nicht auf einen Server hochgeladen. Übermittelt wird erst etwas, wenn Sie sich bewusst dafür entscheiden."
+    },
+    "Cta": {
+      "title": "Rechnen Sie mit Ihren eigenen Daten",
+      "lead": "Sie brauchen Ihren Lastgang im 15-Minuten-Raster und Ihre Netzrechnung — mehr nicht.",
+      "cta": "Kalkulator starten",
+      "hint": "Öffnet in einem neuen Tab",
+      "external": "Der Kalkulator läuft derzeit als eigenständige Anwendung unter einer eigenen Adresse. Er wird künftig direkt in coolin.at integriert."
     }
   },
   "Pages": {

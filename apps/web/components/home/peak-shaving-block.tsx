@@ -4,7 +4,6 @@ import { Link } from '@/i18n/navigation'
 import { Button } from '@/components/ui/button'
 import { Container, Eyebrow } from '@/components/ui/layout'
 import { QuickCalculator } from '@/components/quick-calculator'
-import { CTA_HREF } from '@/lib/nav'
 
 /**
  * Peak-Shaving-Block (§4.4 Nr. 2, §4.2 „best of both worlds").
@@ -59,10 +58,19 @@ export function PeakShavingBlock() {
               ))}
             </ul>
 
-            <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-center">
-              <Button asChild variant="primary" size="md">
-                <Link href={CTA_HREF}>{t('ctaPrimary')}</Link>
-              </Button>
+            {/*
+             * NUR EIN Sektions-CTA, und der ist bewusst sekundär.
+             *
+             * Vorher standen hier zwei Teal-Buttons auf DASSELBE Ziel: links
+             * „Peak-Shaving Kalkulator", rechts in der Karte „Zum Kalkulator" —
+             * auf Desktop gleichzeitig sichtbar. Zwei Primary nebeneinander
+             * heben sich gegenseitig auf und widersprechen „Akzent sparsam"
+             * (DESIGN.md). Die Karte trägt den Kalkulator-CTA am besseren Ort:
+             * direkt unter der gerechneten Zahl. Der einzige Primary der
+             * Sektion sitzt also dort, hier bleibt der ERKLÄR-Weg
+             * (→ /peak-shaving) als sekundäre Alternative.
+             */}
+            <div className="mt-9">
               <Button asChild variant="secondary" size="md">
                 <Link href="/peak-shaving">{t('ctaSecondary')}</Link>
               </Button>
