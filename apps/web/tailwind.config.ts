@@ -37,6 +37,7 @@ export default {
         line: {
           DEFAULT: 'var(--color-border)',
           strong: 'var(--color-border-strong)',
+          input: 'var(--color-border-input)',
         },
         // Semantik: Textfarbe + eigene getönte Fläche. KEIN /alpha auf diesen
         // Tokens — Tailwind verwirft das bei var()-Hex-Farben still (s. globals.css).
@@ -91,11 +92,8 @@ export default {
       },
       fontFamily: {
         // Werte kommen von next/font (app/layout.tsx).
+        // Inter-only (Entscheidung Andreas) — es gibt bewusst keine zweite Schrift.
         sans: ['var(--font-sans)', 'system-ui', 'sans-serif'],
-        // Optionale Display-Alternative für Überschriften — Entscheidung offen
-        // (DESIGN.md „Offene Auswahlpunkte"). Nur über `font-display` nutzbar,
-        // NICHT global gesetzt: Inter-only bleibt der Default.
-        display: ['var(--font-display)', 'Georgia', 'serif'],
       },
       fontSize: {
         // Typo-Skala aus DESIGN.md: [Größe, { line-height, letter-spacing, weight }]

@@ -14,7 +14,7 @@ import { cn } from '@/lib/utils'
  * Fokus in das Feld hinein.
  */
 const fieldBase = cn(
-  'w-full rounded-md border border-line-strong bg-surface px-3 text-body text-text',
+  'w-full rounded-md border border-line-input bg-surface px-3 text-body text-text',
   'placeholder:text-text-muted',
   'outline-none focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-ring',
   'focus-visible:ring-offset-1 focus-visible:ring-offset-surface',

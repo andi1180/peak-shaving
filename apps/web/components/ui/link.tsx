@@ -1,6 +1,6 @@
 import * as React from 'react'
-import NextLink from 'next/link'
 import { cva, type VariantProps } from 'class-variance-authority'
+import { Link as NextLink } from '@/i18n/navigation'
 import { cn } from '@/lib/utils'
 
 /*

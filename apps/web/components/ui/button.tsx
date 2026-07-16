@@ -1,4 +1,5 @@
 import * as React from 'react'
+import { Slot } from '@radix-ui/react-slot'
 import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '@/lib/utils'
 
@@ -37,17 +38,29 @@ const buttonVariants = cva(
 
 export interface ButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement>,
-    VariantProps<typeof buttonVariants> {}
+    VariantProps<typeof buttonVariants> {
+  /**
+   * Rendert die Styles auf das Kind statt auf ein <button> — für Links, die
+   * wie ein Button aussehen. Wichtig: ein Link, der navigiert, MUSS ein <a>
+   * bleiben (Tastatur/Screenreader/„in neuem Tab öffnen"), auch wenn er wie
+   * ein Button aussieht. Deshalb Slot statt eines <button onClick=navigate>.
+   */
+  asChild?: boolean
+}
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, type = 'button', ...props }, ref) => (
-    <button
-      ref={ref}
-      type={type}
-      className={cn(buttonVariants({ variant, size }), className)}
-      {...props}
-    />
-  ),
+  ({ className, variant, size, type = 'button', asChild = false, ...props }, ref) => {
+    const Comp = asChild ? Slot : 'button'
+    return (
+      <Comp
+        ref={ref}
+        // `type` gilt nur für ein echtes <button>; auf einem <a> wäre es ungültiges HTML.
+        {...(asChild ? {} : { type })}
+        className={cn(buttonVariants({ variant, size }), className)}
+        {...props}
+      />
+    )
+  },
 )
 Button.displayName = 'Button'
 

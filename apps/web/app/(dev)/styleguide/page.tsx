@@ -27,7 +27,7 @@ const CORE_COLORS = [
     varName: '--color-navy',
     hex: '#18336f',
     role: 'Marke, Wortmarke, Emblem, tragende Flächen',
-    contrast: '11,52:1 auf Off-White — AAA',
+    contrast: '11,55:1 auf Off-White — AAA',
   },
   {
     name: 'Teal 700 (Akzent)',
@@ -39,30 +39,30 @@ const CORE_COLORS = [
   {
     name: 'Ink',
     varName: '--color-ink',
-    hex: '#0f172a',
+    hex: '#171717',
     role: 'Überschriften',
-    contrast: '17,06:1 auf Off-White — AAA',
+    contrast: '17,18:1 auf Off-White — AAA',
   },
   {
     name: 'Text',
     varName: '--color-text',
-    hex: '#1e293b',
+    hex: '#262626',
     role: 'Fließtext',
-    contrast: '13,98:1 auf Off-White — AAA',
+    contrast: '14,50:1 auf Off-White — AAA',
   },
   {
     name: 'Text muted',
     varName: '--color-text-muted',
-    hex: '#475569',
+    hex: '#525252',
     role: 'Sekundärtext, Captions',
-    contrast: '7,24:1 auf Off-White — AAA',
+    contrast: '7,49:1 auf Off-White — AAA',
   },
   {
     name: 'Off-White (Grund)',
     varName: '--color-surface-alt',
-    hex: '#f8fafc',
+    hex: '#fafafa',
     role: 'Seitengrund, abgesetzte Sektionen',
-    contrast: 'Grundfläche — trägt die Werte oben',
+    contrast: 'Neutral (Hue-Cast 0) — trägt die Werte oben',
   },
 ]
 
@@ -71,11 +71,17 @@ const SUPPORT_COLORS = [
   {
     name: 'Surface sunken',
     varName: '--color-surface-sunken',
-    hex: '#f1f5f9',
+    hex: '#f5f5f5',
     role: 'Zeilen, Hover',
   },
-  { name: 'Border', varName: '--color-border', hex: '#e2e8f0', role: 'Dünne Ränder' },
-  { name: 'Border strong', varName: '--color-border-strong', hex: '#cbd5e1', role: 'Feldränder' },
+  { name: 'Border', varName: '--color-border', hex: '#e5e5e5', role: 'Dünne Ränder' },
+  { name: 'Border strong', varName: '--color-border-strong', hex: '#d4d4d4', role: 'Ruhige Trenner' },
+  {
+    name: 'Border input',
+    varName: '--color-border-input',
+    hex: '#8f8f8f',
+    role: 'Rand von Eingabefeldern — 3,23:1 (WCAG 1.4.11)',
+  },
   {
     name: 'Accent subtle',
     varName: '--color-accent-subtle',
@@ -91,21 +97,21 @@ const SEMANTIC_COLORS = [
     varName: '--color-positive',
     hex: '#15803d',
     role: 'Ersparnis',
-    contrast: '5,02:1 auf Weiß — AA',
+    contrast: '5,02:1 auf Weiß · 4,81:1 auf Off-White — AA',
   },
   {
     name: 'Negative',
     varName: '--color-negative',
     hex: '#b91c1c',
     role: 'Kosten',
-    contrast: '6,47:1 auf Weiß — AA',
+    contrast: '6,47:1 auf Weiß · 6,20:1 auf Off-White — AA',
   },
   {
     name: 'Warning',
     varName: '--color-warning',
     hex: '#b45309',
     role: 'Warnhinweis',
-    contrast: '5,02:1 auf Weiß — AA',
+    contrast: '5,02:1 auf Weiß · 4,81:1 auf Off-White — AA',
   },
   {
     name: 'Positive subtle',
@@ -206,19 +212,17 @@ export default function StyleguidePage() {
           <Eyebrow>Intern · nicht Teil der Website</Eyebrow>
           <h1 className="mt-2 text-h1 text-ink">Design-System</h1>
           <p className="mt-3 max-w-prose text-lead text-text-muted">
-            Tokens, Typografie, Bausteine und Wortmarke von COOLiN ENERGY. Kern-Palette bewusst
-            deckungsgleich mit dem Peak-Shaving-Kalkulator, damit der Übergang Marketing →
-            Pro-Kalkulator wie ein Produkt wirkt. Zwei Punkte auf dieser Seite sind offen und von
-            dir zu entscheiden.
+            Tokens, Typografie, Bausteine und Wortmarke von COOLiN ENERGY. Markenfarben (Akzent +
+            Semantik) deckungsgleich mit dem Peak-Shaving-Kalkulator, damit der Übergang Marketing →
+            Pro-Kalkulator wie ein Produkt wirkt. Die Grau-Rampe ist bewusst neutral.
           </p>
           <div className="mt-6 grid gap-3 sm:grid-cols-2">
-            <DecisionCallout n={1} title="Display-Schrift: ja oder nein?">
-              Inter-only vs. Inter + Source Serif 4 für Überschriften. Vergleich unten im Abschnitt
-              „Typografie".
+            <DecisionCallout n={1} title="Inter-only — entschieden">
+              Eine Schrift für alles. Source Serif 4 ist vollständig aus dem Projekt entfernt.
             </DecisionCallout>
-            <DecisionCallout n={2} title="Signature-Motiv: ja oder nein?">
-              Netzlinien + Knoten als wiederkehrendes Element. Vorschau unten im Abschnitt
-              „Signature-Motiv".
+            <DecisionCallout n={2} title="Signature-Motiv — entschieden: bleibt">
+              Wird sparsam eingesetzt (aktuell: Footer). Regel: wenige bewusste Auftritte, nie als
+              wiederholte Deko auf jeder Karte.
             </DecisionCallout>
           </div>
         </header>
@@ -226,7 +230,7 @@ export default function StyleguidePage() {
         {/* — Palette — */}
         <Block
           title="Palette"
-          hint="Ein Anker (Navy) + ein Akzent (Teal 700) + Off-White + Slate-Grau. Alle Werte sind CSS-Variablen; die Neutralen sind bewusst Slate (blaustichig), kein neutrales Grau. Kontraste unten sind gerechnet, nicht geschätzt."
+          hint="Ein Anker (Navy) + ein Akzent (Teal 700) + neutrales Off-White + neutrale Graustufen. Alle Werte sind CSS-Variablen. Die Grau-Rampe ist bewusst hueless (Hue-Cast 0) — die einzigen Farben im System sind Navy und Teal. Kontraste unten sind gerechnet, nicht geschätzt."
         >
           <h3 className="text-h4 text-ink">Kern</h3>
           <div className="mt-4 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
@@ -257,9 +261,16 @@ export default function StyleguidePage() {
             <p className="text-small font-semibold text-ink">Kontrast-Regel</p>
             <p className="mt-1 max-w-prose text-small text-text-muted">
               Teal 700 erreicht auf Weiß <Num>5,47:1</Num> — AA für Fließtext ist damit formal
-              erfüllt, AAA (<Num>7:1</Num>) nicht. Fließtext läuft trotzdem in Navy/Slate: der
+              erfüllt, AAA (<Num>7:1</Num>) nicht. Fließtext läuft trotzdem in Ink/Neutral: der
               Akzent bleibt so das seltene Signal und nicht die Grundfarbe. Teal für CTA, Links,
               aktive Zustände und große Elemente.
+            </p>
+            <p className="mt-3 max-w-prose text-small text-text-muted">
+              <strong className="text-ink">Feldränder sind dunkler als andere Ränder.</strong> WCAG
+              1.4.11 verlangt <Num>3:1</Num> für die Begrenzung eines Bedienelements — ein leeres
+              Eingabefeld ist nur an seinem Rand als Feld erkennbar. Daher{' '}
+              <code>--color-border-input</code> (<Num>3,23:1</Num>) statt des ruhigen{' '}
+              <code>--color-border-strong</code> (<Num>1,48:1</Num>, reicht nur für Deko-Linien).
             </p>
             <p className="mt-3 max-w-prose text-small text-text-muted">
               <strong className="text-ink">Kein /alpha auf Token-Farben.</strong> Tailwind kann den
@@ -274,73 +285,33 @@ export default function StyleguidePage() {
         {/* — Typografie — */}
         <Block
           title="Typografie"
-          hint="Inter für alles (Konsistenz mit dem Kalkulator, exzellente Zahlen-Lesbarkeit). Optional eine Display-Schrift NUR für Überschriften. Beides hier direkt nebeneinander."
+          hint="Inter für alles — Text, UI und Zahlen (Entscheidung: Inter-only). Eine Schrift, kein Font-Mixing, kein zweiter Download. Konsistent mit dem Kalkulator."
         >
-          <div className="grid gap-6 lg:grid-cols-2">
-            {/* Option 1 */}
-            <Card>
-              <CardHeader>
-                <Badge variant="accent" className="w-fit">
-                  Option 1 · Default
-                </Badge>
-                <CardTitle>Inter-only</CardTitle>
-                <CardDescription>
-                  Eine Schrift für alles. Ruhig, technisch, identisch zum Kalkulator. Kein zweiter
-                  Font-Download.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {TYPE_SCALE.map((t) => (
-                  <div key={t.token}>
-                    <p className="text-caption tabular-nums text-text-muted">
-                      {t.token} · {t.px}
-                    </p>
-                    <p className={`${t.token} text-ink`}>{t.sample}</p>
-                  </div>
-                ))}
-                <div>
-                  <p className="text-caption text-text-muted">text-body · 16 px</p>
-                  <p className="max-w-prose text-body text-text">
-                    Ab 2027 verschiebt die SNE-GV-Reform das Gewicht vom Arbeits- zum
-                    Leistungspreis. Für Betriebe mit kurzen Lastspitzen ändert das die Rechnung
-                    grundlegend.
+          <Card>
+            <CardHeader>
+              <CardTitle>Skala</CardTitle>
+              <CardDescription>
+                Negatives Tracking wächst mit der Größe — große Inter-Grade laufen sonst zu locker.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {TYPE_SCALE.map((t) => (
+                <div key={t.token}>
+                  <p className="text-caption tabular-nums text-text-muted">
+                    {t.token} · {t.px}
                   </p>
+                  <p className={`${t.token} text-ink`}>{t.sample}</p>
                 </div>
-              </CardContent>
-            </Card>
-
-            {/* Option 2 */}
-            <Card>
-              <CardHeader>
-                <Badge variant="neutral" className="w-fit">
-                  Option 2 · zu entscheiden
-                </Badge>
-                <CardTitle>Inter + Source Serif 4</CardTitle>
-                <CardDescription>
-                  Überschriften in Source Serif 4, Text und alle Zahlen weiter in Inter. Wirkt
-                  redaktioneller — trägt die Fachartikel (Leistungstarif 2027).
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {TYPE_SCALE.map((t) => (
-                  <div key={t.token}>
-                    <p className="text-caption tabular-nums text-text-muted">
-                      {t.token} · font-display
-                    </p>
-                    <p className={`${t.token} font-display text-ink`}>{t.sample}</p>
-                  </div>
-                ))}
-                <div>
-                  <p className="text-caption text-text-muted">text-body · 16 px · Inter</p>
-                  <p className="max-w-prose text-body text-text">
-                    Ab 2027 verschiebt die SNE-GV-Reform das Gewicht vom Arbeits- zum
-                    Leistungspreis. Für Betriebe mit kurzen Lastspitzen ändert das die Rechnung
-                    grundlegend.
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+              ))}
+              <div>
+                <p className="text-caption text-text-muted">text-body · 16 px</p>
+                <p className="max-w-prose text-body text-text">
+                  Ab 2027 verschiebt die SNE-GV-Reform das Gewicht vom Arbeits- zum Leistungspreis.
+                  Für Betriebe mit kurzen Lastspitzen ändert das die Rechnung grundlegend.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Kleinere Stufen + Zahlen */}
           <div className="mt-6 grid gap-6 lg:grid-cols-2">

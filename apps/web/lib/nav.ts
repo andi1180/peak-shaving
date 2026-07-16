@@ -1,0 +1,118 @@
+/**
+ * Die Informationsarchitektur an EINER Stelle (Pflichtenheft §4.1/§4.3).
+ * Header, Mobile-Menü und Footer lesen alle von hier — eine neue Seite wird
+ * einmal eingetragen und erscheint überall konsistent.
+ *
+ * Hier stehen nur Struktur + Slugs. Die sichtbaren Texte kommen über `labelKey`
+ * aus `messages/de.json` (§8.7: keine Strings hart im JSX).
+ */
+
+export type NavLeaf = {
+  /** Schlüssel in der `Nav`-Namespace der Message-Datei. */
+  labelKey: string
+  href: string
+}
+
+export type NavGroup = {
+  /** Gruppen-Überschrift im Mega-Menü. */
+  labelKey: string
+  items: NavLeaf[]
+}
+
+export type NavItem = {
+  labelKey: string
+  href: string
+  /** Gruppiertes Mega-Menü (Leistungen) … */
+  groups?: NavGroup[]
+  /** … oder eine flache Liste (Peak Shaving, Branchen). */
+  items?: NavLeaf[]
+  /** „Alle …"-Eintrag, der auf die Übersichtsseite führt. */
+  overviewKey?: string
+}
+
+/** Die 5 Top-Level-Punkte. Mehr verträgt keine saubere Mobile-Nav (§4.1). */
+export const MAIN_NAV: NavItem[] = [
+  {
+    labelKey: 'leistungen',
+    href: '/leistungen',
+    overviewKey: 'leistungenAll',
+    groups: [
+      {
+        labelKey: 'leistungenGroupErzeugen',
+        items: [
+          { labelKey: 'pvSpeicher', href: '/leistungen/pv-speicher' },
+          { labelKey: 'energiemanagement', href: '/leistungen/energiemanagement' },
+          { labelKey: 'smartHeating', href: '/leistungen/smart-heating' },
+        ],
+      },
+      {
+        labelKey: 'leistungenGroupBeschaffen',
+        items: [
+          { labelKey: 'ppa', href: '/leistungen/ppa' },
+          { labelKey: 'finanzierung', href: '/leistungen/finanzierung-foerderung' },
+        ],
+      },
+      {
+        labelKey: 'leistungenGroupNachweisen',
+        items: [{ labelKey: 'esg', href: '/leistungen/esg' }],
+      },
+    ],
+  },
+  {
+    // Flaggschiff — bewusst NICHT unter „Leistungen" (§4.2).
+    labelKey: 'peakShaving',
+    href: '/peak-shaving',
+    items: [
+      { labelKey: 'peakShavingWhat', href: '/peak-shaving' },
+      { labelKey: 'peakShavingCalculator', href: '/peak-shaving/kalkulator' },
+    ],
+  },
+  {
+    labelKey: 'branchen',
+    href: '/branchen',
+    overviewKey: 'branchenAll',
+    items: [
+      { labelKey: 'hotellerie', href: '/branchen/hotellerie' },
+      { labelKey: 'gastronomie', href: '/branchen/gastronomie' },
+      { labelKey: 'baeckerei', href: '/branchen/baeckerei' },
+      { labelKey: 'handel', href: '/branchen/handel' },
+    ],
+  },
+  { labelKey: 'wissen', href: '/wissen' },
+  { labelKey: 'ueberUns', href: '/ueber-uns' },
+]
+
+/** Rechte Aktionen, Reihenfolge = Hierarchie leise → laut (§4.1). */
+export const LOGIN_HREF = '/login'
+export const KONTAKT_HREF = '/kontakt'
+export const CTA_HREF = '/peak-shaving/kalkulator'
+
+/**
+ * Flache Listen für den Footer. Bewusst über `labelKey` gesucht statt über einen
+ * Index (`MAIN_NAV[0]`): eine Umsortierung der Hauptnavigation darf den Footer
+ * nicht still auf die falsche Liste zeigen lassen.
+ */
+function findNav(labelKey: string): NavItem {
+  const item = MAIN_NAV.find((i) => i.labelKey === labelKey)
+  if (!item) throw new Error(`Nav-Eintrag "${labelKey}" fehlt in MAIN_NAV`)
+  return item
+}
+
+export const LEISTUNGEN_FLAT: NavLeaf[] = (findNav('leistungen').groups ?? []).flatMap(
+  (g) => g.items,
+)
+export const PEAK_SHAVING_FLAT: NavLeaf[] = findNav('peakShaving').items ?? []
+export const BRANCHEN_FLAT: NavLeaf[] = findNav('branchen').items ?? []
+
+/**
+ * Firmendaten — VERBATIM aus `reference/coolin-legacy.html` (Kontakt-Block:
+ * „COOLiN ENERGY · energy@coolin.at · Karl-Popper-Straße 22 · 1100 Wien,
+ * Österreich"). Nicht erfunden, nicht geraten. Deckt sich mit der Adresse in
+ * Pflichtenheft §6.4 (LocalBusiness-JSON-LD).
+ */
+export const COMPANY = {
+  name: 'COOLiN ENERGY',
+  street: 'Karl-Popper-Straße 22',
+  city: '1100 Wien, Österreich',
+  email: 'energy@coolin.at',
+} as const

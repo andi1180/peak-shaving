@@ -18,15 +18,24 @@ strukturiert (Pflichtenheft §7.1). Die Marketing-Seite darf ausdrucksstärker s
 Kalkulator — aber **nicht mit einer anderen Kern-Palette**.
 
 **Der zentrale Konsistenz-Auftrag:** Der Nutzer geht Marketing → Pro-Kalkulator. Wenn dabei die
-Farben wechseln, wirkt es wie zwei Firmen. Deshalb sind Akzent, Ink-, Surface- und Semantik-Werte
-**deckungsgleich mit der Kalkulator-`DESIGN.md`** übernommen. Web-spezifisch ergänzt ist nur:
+Marke wechselt, wirkt es wie zwei Firmen. Deshalb sind **Akzent (Teal 700) und die semantischen
+Signalfarben deckungsgleich** mit der Kalkulator-`DESIGN.md` übernommen.
 
-| Ergänzung | Warum |
+**Bewusste Abweichung vom Kalkulator — die Grau-Rampe.** `[Entscheidung Andreas]` Die Neutralen sind
+hier **hueless** (Hue-Cast 0), der Kalkulator nutzt noch Slate (blaustichig). Begründung: das
+„ein Produkt"-Gefühl trägt der Akzent + die Semantik, nicht der Grauton — und eine blaustichige
+Grau-Rampe neben einem Navy-Anker verwässert, welches Blau Absicht ist. Wenn `apps/website` in das
+Monorepo absorbiert wird (Pflichtenheft §8.1), übernimmt es diese Neutralen; bis dahin ist die
+Abweichung bekannt und gewollt. `apps/website` wurde NICHT angefasst.
+
+| Web-spezifisch | Warum |
 |---|---|
 | `--color-navy` (Anker) | Marke/Struktur. Der Kalkulator ist ein Werkzeug und braucht keinen Markenanker; eine Marketing-Seite schon. Bestandston aus `reference/favicon.png`. |
 | `--color-node` | Der hellere Teal-Knoten des Emblems. Nur Grafik, kein UI-Ton. |
 | `--color-*-subtle` | Getönte Flächen der Signalfarben (technisch nötig, s. „Kein /alpha"). |
 | `--color-accent-border` | Rand einer Akzent-Fläche. |
+| `--color-border-input` | Feldrand mit ≥ 3:1 (WCAG 1.4.11), s. „Geprüfte Kontraste". |
+| neutrale Grau-Rampe | s. oben. |
 
 ---
 
@@ -47,17 +56,18 @@ Navy trägt Marke und Struktur, Teal ist das seltene Signal. Alle Werte sind CSS
 --color-accent-border:   #99f6e4;  /* Teal 200 — Rand einer Akzent-Fläche */
 --color-node:            #14b8a6;  /* Teal 500 — NUR Emblem/Signature */
 
-/* — Ink / Text — */
---color-ink:             #0f172a;  /* Slate 900 — Überschriften */
---color-text:            #1e293b;  /* Slate 800 — Fließtext */
---color-text-muted:      #475569;  /* Slate 600 — Sekundärtext */
+/* — Ink / Text — NEUTRAL (Hue-Cast 0), kein Slate — */
+--color-ink:             #171717;  /* Neutral 900 — Überschriften */
+--color-text:            #262626;  /* Neutral 800 — Fließtext */
+--color-text-muted:      #525252;  /* Neutral 600 — Sekundärtext */
 
-/* — Flächen / Struktur — */
+/* — Flächen / Struktur — ebenfalls neutral — */
 --color-surface:         #ffffff;
---color-surface-alt:     #f8fafc;  /* Slate 50  — Off-White-Grund */
---color-surface-sunken:  #f1f5f9;  /* Slate 100 — Zeilen/Felder */
---color-border:          #e2e8f0;  /* Slate 200 — dünne Ränder */
---color-border-strong:   #cbd5e1;  /* Slate 300 — Feldränder */
+--color-surface-alt:     #fafafa;  /* Neutral 50  — Off-White-Grund */
+--color-surface-sunken:  #f5f5f5;  /* Neutral 100 — Zeilen/Felder */
+--color-border:          #e5e5e5;  /* Neutral 200 — dünne Ränder */
+--color-border-strong:   #d4d4d4;  /* Neutral 300 — ruhige Trenner/Konturen */
+--color-border-input:    #8f8f8f;  /* Feldrand — MUSS 3:1 erreichen (1.4.11) */
 
 /* — Semantisch: NUR Zahlen mit Bedeutung — */
 --color-positive:        #15803d;  --color-positive-subtle: #f0fdf4;
@@ -75,8 +85,11 @@ Navy trägt Marke und Struktur, Teal ist das seltene Signal. Alle Werte sind CSS
   als ein generisches Dunkelgrau, und er trägt große Flächen, ohne mit dem Teal zu kämpfen.
 - **Teal 700 `#0f766e` statt des alten `#15b8b0`:** das helle Teal liest sich Consumer/techy.
   Entsättigt wirkt es seriös — und ist deckungsgleich mit dem Kalkulator (§7.2).
-- **Neutrale = Slate, nicht neutrales Grau:** Slate ist blaustichig und damit auf Navy/Teal
-  abgestimmt. Ein reines Mittelgrau wirkt daneben unbestimmt.
+- **Neutrale = hueless, NICHT Slate** `[Entscheidung Andreas]`**:** Off-White `#fafafa` und die
+  ganze Grau-Rampe tragen keinen Farbstich (gemessen: max(R,G,B) − min(R,G,B) = 0; Slate lag bei
+  4–34). Weder blau noch cremefarben. Dadurch sind Navy und Teal die **einzigen** Farben im System —
+  sie lesen als Absicht, nicht als Zufall. Die Rampe wurde geschlossen neutralisiert (Flächen,
+  Ränder UND Text): eine halb-neutrale Rampe mit blaustichigem Text wäre in sich widersprüchlich.
 - **Pastell vermieden:** die `*-subtle`-Töne sind Flächen für Text, keine Farbträger. Die
   Signalwirkung liegt immer auf dem gesättigten 700er-Ton.
 - **Keine Gradienten** (§7.2): weder Tokens noch Utilities. Flache Flächen, dünne Linien.
@@ -87,26 +100,39 @@ WCAG 2.1 AA verlangt **4,5:1** für Fließtext, **3:1** für große Schrift/UI-E
 
 | Paarung | Ratio | Urteil |
 |---|---:|---|
-| Ink `#0f172a` auf Off-White `#f8fafc` | 17,06:1 | AAA |
-| Text `#1e293b` auf Off-White | 13,98:1 | AAA |
+| Ink `#171717` auf Off-White `#fafafa` | 17,18:1 | AAA |
+| Text `#262626` auf Off-White | 14,50:1 | AAA |
 | Weiß auf Navy `#18336f` | 12,06:1 | AAA |
-| Navy `#18336f` auf Off-White | 11,52:1 | AAA |
-| Text muted `#475569` auf Off-White | 7,24:1 | AAA |
-| Text muted `#475569` auf Sunken `#f1f5f9` | 6,92:1 | AA |
-| Weiß auf Accent-Hover `#0e6b64` | 6,35:1 | AA |
+| Navy `#18336f` auf Off-White | 11,55:1 | AAA |
+| Text muted `#525252` auf Off-White | 7,49:1 | AAA |
+| Text muted `#525252` auf Sunken `#f5f5f5` | 7,17:1 | AAA |
 | Negative `#b91c1c` auf Weiß | 6,47:1 | AA |
+| Weiß auf Accent-Hover `#0e6b64` | 6,35:1 | AA |
+| Negative `#b91c1c` auf Off-White | 6,20:1 | AA |
+| Negative auf Negative-subtle | 5,91:1 | AA |
 | **Teal 700 `#0f766e` auf Weiß** | **5,47:1** | **AA (nicht AAA)** |
 | Weiß auf Teal 700 (Primär-Button) | 5,47:1 | AA |
-| Negative auf Negative-subtle | 5,91:1 | AA |
 | Accent auf Accent-subtle | 5,25:1 | AA |
-| Positive `#15803d` auf Weiß | 5,02:1 | AA |
-| Warning `#b45309` auf Weiß | 5,02:1 | AA |
-| Warning auf Warning-subtle | 4,84:1 | AA |
-| Positive auf Positive-subtle | 4,79:1 | AA |
+| Teal 700 auf Off-White | 5,24:1 | AA |
+| Positive `#15803d` / Warning `#b45309` auf Weiß | je 5,02:1 | AA |
 | Node `#14b8a6` auf Navy (Emblem) | 4,84:1 | AA (Grafik) |
+| Warning auf Warning-subtle | 4,84:1 | AA |
+| Positive / Warning auf Off-White | je 4,81:1 | AA |
+| Positive auf Positive-subtle | 4,79:1 | AA |
+| **Feldrand `#8f8f8f` auf Weiß** (1.4.11) | **3,23:1** | **AA (Nicht-Text)** |
+
+Durch die Neutralisierung ist **keine** Paarung schlechter geworden; Text muted stieg von 7,24:1 auf
+7,49:1. Alle Werte gegen den neuen Grund `#fafafa` nachgerechnet.
+
+**Regel — Feldränder sind dunkler als Deko-Ränder.** WCAG 2.1 AA (1.4.11 Non-text Contrast) verlangt
+≥ 3:1 für die Begrenzung eines Bedienelements: ein **leeres** Eingabefeld ist nur an seinem Rand als
+Feld erkennbar. Deshalb `--color-border-input` (3,23:1) für Input/Textarea/Select — nicht der ruhige
+`--color-border-strong` (1,48:1), der nur Deko-Linien trägt. *Beim Neu-Messen aufgefallen: der
+vorherige Feldrand (slate-300) verfehlte das Kriterium bereits — der Fehler ist älter als die
+Neutralisierung, nicht ihre Folge.* Buttons brauchen das nicht: sie tragen ein Label.
 
 **Regel — Teal ist kein Textton.** Teal 700 erfüllt auf Weiß mit 5,47:1 formal AA für Fließtext,
-verfehlt AAA (7:1) aber deutlich. Fließtext läuft in Navy/Slate; Teal bleibt CTA, Links, aktiven
+verfehlt AAA (7:1) aber deutlich. Fließtext läuft in Ink/Neutral; Teal bleibt CTA, Links, aktiven
 Zuständen und großen Elementen vorbehalten. Das ist keine reine Kontrast-Frage, sondern der
 Sparsamkeits-Grundsatz: ein Akzent, der überall steht, ist kein Akzent mehr.
 
@@ -125,14 +151,27 @@ als fertige Farbe.
 eigener Palette erlaubt (`bg-white/10`, `border-white/30` — die funktionieren).
 *Dieser Fehler war beim Bau real vorhanden und wurde erst durch Nachmessen im Browser sichtbar.*
 
+### Regel: eigene Schriftgrößen müssen tailwind-merge bekannt sein
+
+`lib/utils.ts` erweitert tailwind-merge um unsere `fontSize`-Namen (`text-body`, `text-h4` …).
+**Ohne diese Erweiterung hält tailwind-merge ein unbekanntes `text-body` für eine Textfarbe** und
+wirft innerhalb von `cn()` die echte Farbe als vermeintliches Duplikat weg — still, ohne Fehler.
+Real aufgetreten: `<Button size="lg" variant="primary">` verlor `text-accent-foreground` und rendrte
+dunklen Text auf Teal, während `size="sm"` korrekt weiß blieb. **Wer die `fontSize`-Skala in
+`tailwind.config.ts` erweitert, muss den Namen auch in `lib/utils.ts` nachtragen.**
+
 ---
 
 ## Typografie
 
 ```css
---font-sans:    Inter (next/font, selbst gehostet)
---font-display: Source Serif 4 (next/font, selbst gehostet) — OPTIONAL, s. offene Punkte
+--font-sans: Inter (next/font, selbst gehostet)   /* die EINZIGE Schrift */
 ```
+
+**`[Entscheidung Andreas]` Inter-only.** Es gibt bewusst keine Display-Schrift und kein
+Font-Mixing. Source Serif 4 wurde vollständig aus dem Projekt entfernt (Layout, Tailwind-Config,
+Styleguide). Eine Schrift für Text, UI und Zahlen — ruhig, technisch, konsistent zum Kalkulator,
+und ein Font-Download weniger.
 
 - **Inter** für Text, UI und **alle Zahlen** (§7.4). Konsistent zum Kalkulator, exzellente
   Zahlen-Lesbarkeit. Über `next/font` selbst gehostet: die Dateien werden zur **Build-Zeit**
@@ -201,9 +240,21 @@ in einem Dokument.
 
 `components/brand/signature.tsx` — aus dem Emblem abgeleitete Netzlinien mit Knoten
 (`SignatureRule` = Trenner, `SignatureField` = Fläche). Linien in `currentColor` mit niedriger
-Deckkraft, nur die Knoten tragen den Akzent. Gedacht als **seltenes** Wiedererkennungs-Element,
-nicht als Muster über die Seite. **Aktuell nirgends verdrahtet** — Einsatz ist eine offene
-Entscheidung (s. u.).
+Deckkraft, nur die Knoten tragen den Akzent.
+
+**`[Entscheidung Andreas]` Das Motiv bleibt — und gilt unter Disziplin-Regel:**
+
+> **Boldness an einer Stelle.** Das Signature-Motiv erscheint an **wenigen, bewusst gewählten**
+> Stellen — z. B. einmal im Footer, an einer Navy-Sektion oder als Trenner zwischen zwei großen
+> Abschnitten. Es ist **NIE** wiederholte Deko auf jeder Karte, in jeder Kachel oder neben jeder
+> Überschrift.
+
+Begründung: Ein Wiedererkennungs-Element wirkt durch Seltenheit. Sobald es überall auftaucht, ist es
+Tapete — es kostet Aufmerksamkeit und liefert keine mehr. Dieselbe Logik wie beim Akzent: an einer
+Stelle laut, drumherum ruhig.
+
+**Faustregel für Folge-Prompts:** höchstens **ein** Auftritt pro Seitenansicht. Wer einen zweiten
+setzen will, muss den ersten entfernen. Aktueller Einsatz: **Footer** (Markenspalte), einmal.
 
 ---
 
@@ -230,8 +281,11 @@ Entscheidung (s. u.).
 | `card.tsx` | `Card` + Header/Title/Description/Content/Footer |
 | `badge.tsx` | `neutral`/`accent`/`navy` + semantische `positive`/`negative`/`warning` |
 | `input.tsx` | `Input`, `Textarea`, `Select`, `Label`, `FieldHint` |
-| `link.tsx` | `inline` (unterstrichen), `standalone`, `quiet` |
+| `link.tsx` | `inline` (unterstrichen), `standalone`, `quiet` — nutzt den locale-bewussten Link |
 | `layout.tsx` | `Container`, `Section`, `Eyebrow`, `Num` |
+| `navigation-menu.tsx` | Radix-Mega-Menü (Desktop-Nav) |
+| `sheet.tsx` | Radix-Dialog als Schublade (Mobile-Menü) |
+| `accordion.tsx` | Radix-Accordion (Untermenüs mobil) |
 
 **Konventionen:**
 
@@ -242,6 +296,12 @@ Entscheidung (s. u.).
   den bisher kein Formular braucht; nativ ist barrierefrei ab Werk und auf Mobile das bessere
   Muster. Sobald ein Formular Suche/Mehrfachauswahl braucht, kann Radix nachgezogen werden — die
   Tokens bleiben.
+- **Radix dort, wo Handarbeit fehleranfällig wäre:** Mega-Menü, Mobile-Drawer und Accordion laufen
+  über Radix (Fokus-Falle, Escape, `aria-expanded`, Fokus-Rückgabe, Hintergrund inert). Das ist die
+  Abwägung aus §7.6 — nicht jede Dependency ist Ballast, aber jede braucht einen Grund.
+- **`Button asChild`** rendert die Button-Optik auf ein `<a>`. Ein Link, der navigiert, MUSS ein
+  `<a>` bleiben (Tastatur, „in neuem Tab öffnen", Screenreader) — auch wenn er wie ein Button
+  aussieht.
 - **Eingabefelder 16 px.** Kleiner zoomt iOS beim Fokus in das Feld hinein.
 - **Fokus ist Pflicht und sichtbar** (§9.4, WCAG 2.1 AA): globale `:focus-visible`-Basis in
   `globals.css`, Buttons/Links verfeinern sie zu einem Ring. Nie entfernen.
@@ -252,29 +312,44 @@ Entscheidung (s. u.).
 
 ---
 
-## Offene Auswahlpunkte — von Andreas auf `/styleguide` zu entscheiden
+## Getroffene Entscheidungen (vormals offen)
 
-1. **Display-Schrift: Inter-only oder Inter + Source Serif 4?**
-   `text-h1..h4` stehen im Styleguide direkt nebeneinander.
-   - *Inter-only* (Default): eine Schrift für alles, ruhig/technisch, identisch zum Kalkulator,
-     kein zweiter Font-Download.
-   - *Inter + Source Serif 4*: Überschriften redaktioneller, trägt die Fachartikel
-     (Leistungstarif 2027, §6.5). Zahlen und Text bleiben in jedem Fall Inter.
-   - **Fällt die Wahl auf Inter-only,** wird der `Source_Serif_4`-Block in `app/layout.tsx` und
-     `fontFamily.display` in `tailwind.config.ts` ersatzlos entfernt.
+Beide auf `/styleguide` beurteilt und entschieden:
 
-2. **Signature-Motiv: einsetzen oder weglassen?**
-   Netzlinien + Knoten als seltenes Wiedererkennungs-Element. Aktuell gebaut, aber **nirgends
-   verdrahtet** — bei „nein" wird `components/brand/signature.tsx` gelöscht, ohne dass etwas anderes
-   davon abhängt.
+1. **Display-Schrift → NEIN, Inter-only.** Source Serif 4 ist restlos entfernt; es gibt keine
+   zweite Schrift im Projekt (s. „Typografie").
+2. **Signature-Motiv → JA, bleibt** — unter der Disziplin-Regel „Boldness an einer Stelle"
+   (s. „Signature-Motiv"). Erster und derzeit einziger Einsatz: Footer.
 
-Beides ist bewusst als Option gebaut und nicht vorentschieden: die Wahl prägt den Charakter jeder
-späteren Seite und gehört nicht in einen Implementierungs-Prompt.
+Zusätzlich entschieden: **neutrale Grau-Rampe** statt Slate (s. „Design-Philosophie" und „Farben").
+
+---
+
+## i18n & Navigation
+
+- **Routing:** `next-intl`, `localePrefix: 'as-needed'`, Default `de` → die deutschen URLs bleiben
+  **ohne** Präfix (`/leistungen`). Eine zweite Sprache = ein Eintrag in `i18n/routing.ts` + eine
+  Datei `messages/<locale>.json`. Kein Strukturumbau (Pflichtenheft §8.7).
+- **Keine Strings im JSX.** Alle nutzergerichteten Texte stehen in `messages/de.json`.
+- **Immer der Link aus `@/i18n/navigation`**, nie `next/link` — nur der setzt das Locale-Präfix
+  automatisch. `components/ui/link.tsx` baut bereits darauf auf.
+- **Zwei Root-Layouts über Route-Groups:** `(site)/[locale]` trägt Header/Footer und setzt
+  `<html lang>` aus der Locale; `(dev)` trägt `/styleguide` außerhalb der Sprach-Struktur. Die
+  Gruppen tauchen in keiner URL auf. Ohne diese Trennung müsste `<html lang>` global hart auf „de"
+  stehen — genau der Umbau, den §8.7 vermeiden will.
+- **IA an einer Stelle:** `lib/nav.ts` (Struktur + Slugs). Header, Mobile-Menü und Footer lesen von
+  dort; Labels über `labelKey` aus der Message-Datei.
+- **Firmendaten:** `COMPANY` in `lib/nav.ts`, verbatim aus `reference/coolin-legacy.html`.
+  Nicht erfinden — Adressen sind rechtlich relevant (§9.1).
 
 ---
 
 ## Bezug zum Bauplan
 
-Dieser Schritt liefert **nur** das visuelle Fundament (Tokens, Primitives, Marke, `/styleguide`).
-Navigation, Header/Footer und echte Seiten kommen in späteren Prompts (Pflichtenheft §11) und bauen
-ausschließlich auf diesen Tokens auf.
+Gebaut sind das visuelle Fundament (Tokens, Primitives, Marke, `/styleguide`) und das strukturelle
+Gerüst (Header mit Mega-Menü, Mobile-Drawer, Footer, i18n-Routing, Platzhalter-Routen).
+
+**Noch nicht gebaut:** echter Seiten-Content, Hero/Sektionen, Teaser-Rechner, Grafiken, Formulare,
+JSON-LD/sitemap, Supabase/Resend/Turnstile/Analytics. Die Platzhalter-Seiten tragen bewusst nur
+Titel + „in Aufbau" — Inhalte kommen in eigenen Prompts (Pflichtenheft §11) und bauen ausschließlich
+auf diesen Tokens und `lib/nav.ts` auf.
