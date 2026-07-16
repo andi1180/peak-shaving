@@ -27,7 +27,10 @@ export function SiteFooter() {
   const tBrand = useTranslations('Brand')
 
   return (
-    <footer className="mt-auto border-t border-line bg-surface-alt">
+    // bg-surface-subtle: derselbe Chrome-Grund wie der Header — Rahmen oben und
+    // unten lesen als EIN Element, der Inhalt dazwischen bleibt neutral.
+    // Fallback (DESIGN.md „Grünton"): zurück auf `bg-surface-alt`.
+    <footer className="mt-auto border-t border-line bg-surface-subtle">
       <Container className="py-12">
         <div className="grid gap-10 md:grid-cols-2 lg:grid-cols-5">
           {/* Marken-Spalte */}

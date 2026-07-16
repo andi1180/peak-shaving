@@ -33,6 +33,9 @@ export default {
           DEFAULT: 'var(--color-surface)',
           alt: 'var(--color-surface-alt)',
           sunken: 'var(--color-surface-sunken)',
+          // Chrome-Grund (Header/Footer) — die einzige Fläche mit Hue-Cast.
+          // Begründung + Fallback: globals.css / DESIGN.md „Grünton".
+          subtle: 'var(--color-surface-subtle)',
         },
         line: {
           DEFAULT: 'var(--color-border)',

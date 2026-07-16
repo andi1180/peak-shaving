@@ -1,14 +1,17 @@
 import type { Metadata } from 'next'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { useTranslations } from 'next-intl'
-import { ExternalLink } from 'lucide-react'
+import { ArrowRight } from 'lucide-react'
+import { Link } from '@/i18n/navigation'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Container, Eyebrow, Section } from '@/components/ui/layout'
 import { Link as TextLink } from '@/components/ui/link'
 import { ScreenshotPlaceholder } from '@/components/peak-shaving/screenshot-placeholder'
-import { EXTERNAL_CALCULATOR_URL } from '@/lib/config'
+import { HowItWorks } from '@/components/peak-shaving/how-it-works'
+import { EnergyFlow } from '@/components/peak-shaving/energy-flow'
+import { CALCULATOR_RUN_HREF } from '@/lib/nav'
 
 export async function generateMetadata({
   params,
@@ -50,40 +53,43 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
       <LeistetSection />
       <VergleichSection />
       <ScreensSection />
+      {/* Die zwei nativ nachgebauten Grafik-Sektionen (Prompt 7) — bewusst direkt
+          VOR dem CTA: erst zeigen, wie es geht und was gerechnet wird, dann der
+          Absprung. Beide Sektionen tragen ihren eigenen `Section`-Grund; die
+          Abfolge alt/default/alt/navy bleibt dadurch im Wechsel. */}
+      <HowItWorks />
+      <EnergyFlow />
       <CtaSection />
     </>
   )
 }
 
 /**
- * Der externe Absprung, an EINER Stelle.
+ * Der Absprung zum Rechner, an EINER Stelle.
  *
- * `target="_blank"` + `rel="noopener noreferrer"`: Der Kalkulator ist eine
- * fremde Origin; `noopener` nimmt der geöffneten Seite den `window.opener`-Zugriff.
+ * WAR EXTERN, IST JETZT INTERN: Bis Prompt 6 sprang dieser Button per
+ * `target="_blank"` auf `apps/website` — der Nutzer verließ coolin.at, und der
+ * Button trug ein „öffnet in neuem Tab"-Icon. Seit Prompt 7 führt er auf
+ * `/peak-shaving/kalkulator/rechner`; dort läuft derselbe Rechner im iframe
+ * innerhalb der coolin.at-Hülle. Damit entfallen `target`/`rel`/das
+ * ExternalLink-Icon und der `sr-only`-Zusatz „öffnet in neuem Tab" — sie wären
+ * jetzt schlicht falsch.
  *
- * BEWUSST ein plain `<a>`, NICHT der Link aus `@/i18n/navigation`: Letzterer
- * setzt das Locale-Präfix — auf einer externen URL wäre das falsch.
+ * Die externe URL ist NICHT weg, sie ist nur umgezogen: sie ist ab jetzt die
+ * iframe-Quelle (`EMBEDDED_CALCULATOR_SRC` in `lib/config.ts`) und taucht auf
+ * dieser Seite nicht mehr auf.
  *
- * „Öffnet in neuem Tab" ist doppelt signalisiert: sichtbar über das Line-Icon
- * (Konvention) und für Screenreader über den `sr-only`-Zusatz IM Linktext. Ein
- * `aria-label` allein hätte den sichtbaren Text ersetzt statt ihn zu ergänzen.
+ * `Link` aus `@/i18n/navigation` (nicht `next/link`): nur der setzt das
+ * Locale-Präfix — bei der externen URL wäre genau das falsch gewesen, bei einer
+ * internen Route ist es Pflicht.
  */
-function ExternalCalculatorButton({
-  label,
-  hint,
-  size = 'md',
-}: {
-  label: string
-  hint: string
-  size?: 'md' | 'lg'
-}) {
+function CalculatorButton({ label, size = 'md' }: { label: string; size?: 'md' | 'lg' }) {
   return (
     <Button asChild variant="primary" size={size}>
-      <a href={EXTERNAL_CALCULATOR_URL} target="_blank" rel="noopener noreferrer">
+      <Link href={CALCULATOR_RUN_HREF}>
         {label}
-        <ExternalLink className="h-4 w-4 shrink-0" strokeWidth={2} aria-hidden="true" />
-        <span className="sr-only">({hint})</span>
-      </a>
+        <ArrowRight className="h-4 w-4 shrink-0" strokeWidth={2} aria-hidden="true" />
+      </Link>
     </Button>
   )
 }
@@ -93,21 +99,14 @@ function CalculatorHero() {
   return (
     <Container className="py-16 sm:py-24">
       <Eyebrow>{t('eyebrow')}</Eyebrow>
-      {/*
-       * `hyphens-auto break-words`: „Speicherempfehlung" ist bei text-h1 (40 px,
-       * feste Stufe) breiter als die 343 px Textspalte eines 375-px-Geräts und
-       * lief ohne das hier sichtbar aus dem Bild. Die globale `overflow-x`-Bremse
-       * in globals.css verhindert dabei nur die Scrollleiste — sie SCHNEIDET das
-       * Wort ab, statt es zu retten. Deutsche Komposita sind auf einer AT-Seite
-       * der Normalfall, nicht der Sonderfall: `hyphens-auto` trennt sie sauber
-       * (greift, weil <html lang="de"> gesetzt ist), `break-words` ist das Netz
-       * für Wörter ohne Trennstelle.
-       */}
-      <h1 className="mt-3 max-w-prose hyphens-auto break-words text-h1 text-ink">{t('title')}</h1>
+      {/* Silbentrennung („Speicherempfehlung" sprengt bei 375px die Spalte) kommt
+          seit Prompt 7 GLOBAL aus globals.css für h1/h2 — hier bewusst keine
+          Wiederholung als Utility-Klasse. */}
+      <h1 className="mt-3 max-w-prose text-h1 text-ink">{t('title')}</h1>
       <p className="mt-5 max-w-prose text-lead text-text">{t('lead')}</p>
 
       <div className="mt-8 flex flex-wrap items-center gap-4">
-        <ExternalCalculatorButton label={t('cta')} hint={t('ctaHint')} size="lg" />
+        <CalculatorButton label={t('cta')} size="lg" />
         {/* Preis-Aussage als Badge NEBEN dem Button, nie im CTA-Text (§3.3) —
             der CTA-Text muss den Übergang frei→bezahlt überleben. */}
         <Badge variant="neutral">{t('badge')}</Badge>
@@ -267,14 +266,15 @@ function CtaSection() {
           <p className="mt-5 text-body text-white/80">{t('lead')}</p>
 
           <div className="mt-8">
-            <ExternalCalculatorButton label={t('cta')} hint={t('hint')} size="lg" />
+            <CalculatorButton label={t('cta')} size="lg" />
           </div>
 
           {/*
-           * Der Hinweis auf den externen Absprung gehört sichtbar auf die Seite,
-           * nicht nur in einen Code-Kommentar: Wer hier klickt, landet auf einer
-           * anderen Adresse als coolin.at — das darf keine Überraschung sein.
-           * Fällt in Phase 2 mit der Konsolidierung weg (§8.1, lib/config.ts).
+           * Stand Prompt 6 warnte hier ein Hinweis, dass der Klick auf eine
+           * FREMDE Adresse führt. Das stimmt nicht mehr — der Rechner läuft jetzt
+           * in dieser Hülle. Statt den Satz ersatzlos zu streichen, steht hier
+           * die Zusage, die an dieser Stelle wirklich zählt und die der Rechner
+           * einlöst (Kalkulator-Prinzip 4: die Daten verlassen den Browser nicht).
            */}
           <p className="mt-8 border-t border-white/20 pt-6 text-caption text-white/70">
             {t('external')}

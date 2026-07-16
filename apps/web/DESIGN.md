@@ -65,6 +65,7 @@ Navy trägt Marke und Struktur, Teal ist das seltene Signal. Alle Werte sind CSS
 --color-surface:         #ffffff;
 --color-surface-alt:     #fafafa;  /* Neutral 50  — Off-White-Grund */
 --color-surface-sunken:  #f5f5f5;  /* Neutral 100 — Zeilen/Felder */
+--color-surface-subtle:  #f5fcfa;  /* Chrome-Grund Header+Footer — s. „Grünton" */
 --color-border:          #e5e5e5;  /* Neutral 200 — dünne Ränder */
 --color-border-strong:   #d4d4d4;  /* Neutral 300 — ruhige Trenner/Konturen */
 --color-border-input:    #8f8f8f;  /* Feldrand — MUSS 3:1 erreichen (1.4.11) */
@@ -100,7 +101,12 @@ WCAG 2.1 AA verlangt **4,5:1** für Fließtext, **3:1** für große Schrift/UI-E
 
 | Paarung | Ratio | Urteil |
 |---|---:|---|
+| Ink `#171717` auf Chrome-Grün `#f5fcfa` | 17,23:1 | AAA |
 | Ink `#171717` auf Off-White `#fafafa` | 17,18:1 | AAA |
+| Text `#262626` auf Chrome-Grün | 14,55:1 | AAA |
+| Navy `#18336f` auf Chrome-Grün (Wortmarke) | 11,59:1 | AAA |
+| Text muted `#525252` auf Chrome-Grün (Nav-/Footer-Links) | 7,51:1 | AAA |
+| Teal 700 `#0f766e` auf Chrome-Grün (Link-Hover) | 5,26:1 | AA |
 | Text `#262626` auf Off-White | 14,50:1 | AAA |
 | Weiß auf Navy `#18336f` | 12,06:1 | AAA |
 | Navy `#18336f` auf Off-White | 11,55:1 | AAA |
@@ -138,6 +144,52 @@ Sparsamkeits-Grundsatz: ein Akzent, der überall steht, ist kein Akzent mehr.
 
 **Regel — Grün/Rot/Bernstein sind reserviert** für Ersparnis / Kosten / Warnung. Nie als Dekor,
 sonst verlieren sie ihre Signalwirkung (identisch zur Kalkulator-`DESIGN.md`).
+
+### Grünton auf Header & Footer `[Andreas entscheidet am Bild]`
+
+`--color-surface-subtle: #f5fcfa` ist der Grund von **Header und Footer** — die einzige Fläche im
+System mit einem Hue-Cast. Sie ist damit eine **bewusste, eng begrenzte Ausnahme** von
+„Neutrale = hueless" (s. „Design-Philosophie"): dort gilt die Regel für die Grau-Rampe (Text,
+Flächen, Ränder), hier steht ein einzelner getönter Chrome-Ton daneben.
+
+**Herkunft (kein geratener Hex):** kanalweiser Mittelwert aus `--color-accent-subtle` (#f0fdfa,
+Teal 50) und `--color-surface-alt` (#fafafa) → „ein halber Hauch Teal 50". Hue-Cast **7**
+(Teal 50 liegt bei 13, der Rest der Rampe bei 0).
+
+**Gemessen, nicht geschätzt** (Chromium, `/peak-shaving/kalkulator`):
+
+| Was | Auf Grünton #f5fcfa | Vorher (Header #ffffff) | Urteil |
+|---|---:|---:|---|
+| Nav-Text / Menü-Trigger (ink) | 17,23:1 | 17,93:1 | AAA |
+| Fließtext (text #262626) | 14,55:1 | 15,13:1 | AAA |
+| Wortmarke/Emblem (navy) | 11,59:1 | 12,06:1 | AAA |
+| Login-Link, Footer-Links (muted) | 7,51:1 | 7,81:1 | AAA |
+| Akzent-Hover auf Links (Teal 700) | 5,26:1 | 5,47:1 | AA |
+| Weiß auf Teal-Button („Kalkulator") | 5,47:1 | 5,47:1 | AA (grundunabhängig) |
+| Teal-Button **gegen** den Grund (Signalstärke) | 5,26:1 | 5,47:1 | −4 %, nicht wahrnehmbar |
+
+**Kein Wert wechselt sein AA/AAA-Band.** Gegenüber dem bisherigen *Footer*-Grund (#fafafa) sind
+die Werte sogar minimal **besser** (7,51 vs. 7,49), weil #f5fcfa eine Spur heller ist
+(relative Luminanz 0,9594 vs. 0,9560 — Verhältnis 1,00:1).
+
+**Befund aus dem Bildvergleich, der die Erwartung korrigiert:** Der sichtbare Effekt im Header ist
+zu ~90 % *„nicht mehr reinweiß"*, nicht *„grün"*. Im **Footer** (vorher schon #fafafa) ist die
+Änderung praktisch **unsichtbar** — dieselbe Helligkeit, nur Hue-Cast 7. Das Grün leistet also
+weniger, als der Aufwand vermuten lässt.
+
+**Drei Optionen, damit die Entscheidung am Bild fällt:**
+
+1. **Grünton (gebaut):** Header + Footer `#f5fcfa`. Rahmen oben/unten lesen als ein Element,
+   Marken-Anklang, Kontraste unverändert. Preis: der dokumentierte Hueless-Bruch.
+2. **Fallback „wie bisher":** Header `bg-surface` (#ffffff), Footer `bg-surface-alt` (#fafafa).
+   **Zwei Klassennamen zurückdrehen** (`site-header.tsx`, `site-footer.tsx`), Token ersatzlos raus.
+3. **Mittelweg:** beide `bg-surface-alt` (#fafafa). Behält den einzigen wirklich sichtbaren Gewinn
+   (Header nicht mehr reinweiß, Rahmen vereinheitlicht) **ohne** neuen Token und **ohne**
+   Hueless-Ausnahme.
+
+**Nebenbefund:** Auf dem getönten Header liest sich der `secondary`-Button („Kontakt", `bg-surface`
+= Weiß) erstmals als eigene Fläche; auf reinweißem Header war er weiß-auf-weiß und nur am Rand
+erkennbar. Das spricht *für* einen nicht-weißen Header — aber Option 3 liefert das genauso.
 
 ### Regel: kein `/alpha` auf Token-Farben
 
@@ -195,6 +247,22 @@ und ein Font-Download weniger.
 
 Negatives Tracking wächst mit der Schriftgröße: große Inter-Grade laufen sonst zu locker.
 Fließtext bei ~65–75 Zeichen halten (`max-w-prose` = 68ch).
+
+### Regel: `h1`/`h2` trennen global — keine Utility-Klasse pro Überschrift
+
+`globals.css` setzt `hyphens: auto` + `overflow-wrap: break-word` **global auf `h1, h2`**. Deutsche
+Komposita („Speicherempfehlung", „Viertelstunden-Lastgang") sind auf einer AT-Seite der Normalfall:
+bei den festen Stufen `text-h1` (40 px) / `text-h2` (30 px) ist so ein Wort auf einem 375-px-Gerät
+breiter als die Textspalte und läuft aus dem Bild. Die `overflow-x`-Bremse verhindert dabei nur die
+Scrollleiste — sie **schneidet das Wort ab, statt es zu retten**.
+
+`hyphens: auto` greift, weil beide Root-Layouts `<html lang>` setzen; `-webkit-hyphens` ergänzt
+autoprefixer. `h3` und kleiner bleiben bewusst außen vor: ab 22 px passen die Komposita in die Spalte.
+
+**Die Regel gehört an die Stufe, nicht an den Zufall eines langen Titels.** Deshalb steht sie in
+`globals.css` und **nicht** als `hyphens-auto break-words` an einzelnen Überschriften — die zwei
+H1, die das noch einzeln trugen, wurden entschlackt. Gemessen: alle `h1`/`h2` auf `/`,
+`/peak-shaving` und `/peak-shaving/kalkulator` tragen bei 375 px `hyphens=auto`, keine läuft über.
 
 ---
 
@@ -297,7 +365,33 @@ Fläche über dem Motiv ist der Fehler, nicht seine Deckkraft.
 - **Karten:** dünner Rand (`--color-border`), **kein Schlagschatten** (§7.5). Tiefe entsteht über
   die Fläche (`surface` vs. `surface-alt` vs. `surface-sunken`).
 - **Responsive:** Mobile/Tablet/Desktop gleichwertig (§7.5). `html`/`body` haben eine globale
-  `overflow-x`-Bremse.
+  `overflow-x`-Bremse — als **`clip`**, nicht `hidden`, s. nächste Regel.
+- **Header-Höhe ist ein Token:** `--header-h: 4rem`. Sie steuert drei Dinge, die sonst
+  auseinanderdriften: die Header-Höhe selbst, `scroll-padding-top` für Anker-Sprünge und die
+  iframe-Höhe des eingebetteten Kalkulators (`calc(100dvh - var(--header-h))`).
+
+### Regel: die Overflow-Bremse ist `clip`, niemals `hidden`
+
+**`overflow-x: hidden` auf `<body>` setzt `position: sticky` still außer Kraft.** Das ist kein
+Aberglaube, sondern gemessen: Der Header trug `sticky top-0 z-40`, `getComputedStyle` meldete
+`position: sticky` — und er scrollte trotzdem mit der Seite weg (nach 1200 px Scroll lag seine
+Oberkante bei −1200 px statt bei 0).
+
+**Ursache:** Die CSS-Spec zwingt bei `overflow-x: hidden` den Nachbarwert `overflow-y: visible` auf
+den *benutzten* Wert `auto`. Damit wird `<body>` zum **Scroll-Container**. Ein sticky Element klebt
+immer an seinem nächsten Scroll-Container — hier also an `<body>`. Gescrollt wird aber der Viewport
+(gemessen: `document.scrollTop = 1200`, `body.scrollTop = 0`). Der Header klebte an einer Box, die
+nie scrollt.
+
+**Fix:** `overflow-x: clip`. `clip` erzeugt keinen Scroll-Container, `overflow-y` bleibt `visible`,
+der Header klebt am Viewport — die Bremse wirkt unverändert. `hidden` steht in `globals.css`
+als Fallback davor (Browser ohne `clip`, Safari < 16, behalten wenigstens die Bremse).
+
+**Für Folge-Prompts:** Wer `clip` auf `html`/`body` je wieder zu `hidden` macht, bricht den Header —
+ohne Fehlermeldung, ohne dass die Klasse am Header verdächtig aussieht. Dieselbe Falle steckt
+unverändert in `apps/website/app/globals.css`; der dortige Kommentar behauptet ausdrücklich das
+Gegenteil („vertikales Scrollen/`position: sticky` bleiben unberührt") und ist damit **falsch** —
+nicht als Vorlage nehmen.
 
 ---
 
@@ -386,7 +480,20 @@ auch die hier gemessenen Kontraste (Feldrand und Teal-Button sind gegen **Weiß*
 gegen Navy). Er rechnet mit einer trivialen lokalen Formel, **nicht** über `packages/engine`: die
 Engine gehört dem Pro-Kalkulator (§5.4 „nicht beide Kalkulator").
 
-**Noch nicht gebaut:** echter Seiten-Content der Unterseiten, Grafiken, Formulare,
+Dazu die **Peak-Shaving-Flaggschiff-Seiten** (§5.2) und der **eingebettete Kalkulator**
+(`/peak-shaving/kalkulator/rechner`): Der echte Rechner läuft weiter in `apps/website` und wird
+per iframe in die coolin.at-Hülle geholt — `apps/web` importiert dafür bewusst weder
+`packages/engine` noch Kalkulator-UI (§5.4/§8.1). Quelle + Embed-Parameter stehen in
+`lib/config.ts`, die interne Route in `lib/nav.ts`. Die zwei Grafik-Sektionen der Produktseite
+(4 Schritte, Energiefluss) sind **nativ nachgebaut**, nicht eingebettet — sie sollen mit der Seite
+altern, nicht mit der App.
+
+**Regel für die Energiefluss-Leiste:** genau **ein** Knoten trägt den Akzent (die Batterie), weil
+sie das Einzige ist, was der Kalkulator dimensioniert — Farbe ist auch hier Information, nicht
+Dekor. Die Vorlage in `apps/website` färbt alle vier Knoten teal und legt einen Glow darunter;
+beides ist hier bewusst nicht übernommen (Glow ist der Sache nach ein Verlauf, §7.2).
+
+**Noch nicht gebaut:** echter Seiten-Content der übrigen Unterseiten, Formulare,
 JSON-LD/sitemap, Supabase/Resend/Turnstile/Analytics. Die Platzhalter-Seiten tragen bewusst nur
 Titel + „in Aufbau" — Inhalte kommen in eigenen Prompts (Pflichtenheft §11) und bauen ausschließlich
 auf diesen Tokens und `lib/nav.ts` auf.

@@ -88,6 +88,19 @@ export const KONTAKT_HREF = '/kontakt'
 export const CTA_HREF = '/peak-shaving/kalkulator'
 
 /**
+ * Der laufende Kalkulator INNERHALB der coolin.at-Hülle (Rechner im iframe).
+ *
+ * Bewusst KEIN Eintrag in MAIN_NAV/dem Mega-Menü: Das ist kein Navigationsziel
+ * zum Stöbern, sondern der Absprung AUS der Produktseite — er gehört an den CTA,
+ * nicht in die Menüstruktur. Die Produktseite (`CTA_HREF`) bleibt der Weg dorthin.
+ *
+ * Steht trotzdem hier und nicht im JSX: Routen dieser App gehören in die IA-Datei,
+ * damit ein Slug-Wechsel einen Fundort hat (dieselbe Regel wie oben). Die EXTERNE
+ * iframe-Quelle ist davon getrennt und steht in `lib/config.ts`.
+ */
+export const CALCULATOR_RUN_HREF = '/peak-shaving/kalkulator/rechner'
+
+/**
  * Flache Listen für den Footer. Bewusst über `labelKey` gesucht statt über einen
  * Index (`MAIN_NAV[0]`): eine Umsortierung der Hauptnavigation darf den Footer
  * nicht still auf die falsche Liste zeigen lassen.

@@ -239,7 +239,7 @@
       "lead": "Sie laden Ihre 15-Minuten-Lastgangdaten hoch und erhalten keine Faustformel, sondern eine durchgerechnete Entscheidungsgrundlage: welcher Speicher, welche Ersparnis, welche Amortisation — und wie die Zahl zustande kommt.",
       "badge": "Derzeit frei zugänglich",
       "cta": "Kalkulator starten",
-      "ctaHint": "Öffnet in einem neuen Tab"
+      "ctaHint": "Läuft direkt hier auf coolin.at"
     },
     "Leistet": {
       "eyebrow": "Was der Kalkulator leistet",
@@ -288,9 +288,38 @@
       "title": "Rechnen Sie mit Ihren eigenen Daten",
       "lead": "Sie brauchen Ihren Lastgang im 15-Minuten-Raster und Ihre Netzrechnung — mehr nicht.",
       "cta": "Kalkulator starten",
-      "hint": "Öffnet in einem neuen Tab",
-      "external": "Der Kalkulator läuft derzeit als eigenständige Anwendung unter einer eigenen Adresse. Er wird künftig direkt in coolin.at integriert."
+      "hint": "Läuft direkt hier auf coolin.at",
+      "external": "Ihre Lastgangdaten werden im Browser verarbeitet und nicht an uns übertragen."
+    },
+    "HowItWorks": {
+      "eyebrow": "In vier Schritten",
+      "title": "So funktioniert's",
+      "lead": "Von Ihrem Lastgang zur belastbaren Speicherempfehlung — ohne Tabellenkalkulation und ohne Faustformel.",
+      "s1Title": "Lastgang hochladen",
+      "s1Text": "CSV oder Excel vom Netzbetreiber. Die Datei bleibt in Ihrem Browser — sie wird nicht an uns übertragen.",
+      "s2Title": "Tarif & Ziel",
+      "s2Text": "Leistungspreis und Abrechnungsmodell aus Ihrer Netzrechnung. Sinnvoll vorbelegt, jeder Wert bleibt editierbar.",
+      "s3Title": "Analyse läuft",
+      "s3Text": "Die Batterie wird über jede Viertelstunde des Jahres physikalisch simuliert — mit Leistung, Kapazität und Ladezustand.",
+      "s4Title": "Ergebnis",
+      "s4Text": "Ersparnis, Speicherempfehlung und Amortisation — nachvollziehbar bis zur Rechenweise."
+    },
+    "EnergyFlow": {
+      "eyebrow": "Was simuliert wird",
+      "title": "Alle vier Energieströme, ein Fahrplan",
+      "lead": "Erzeugung, Speicher, Verbrauch und Netz hängen voneinander ab. Der Kalkulator simuliert sie in einem einzigen Fahrplan, statt drei Effekte getrennt zu rechnen und zu addieren.",
+      "ariaLabel": "Energiefluss: von der Sonne über die Batterie zum Verbraucher und zum Netz",
+      "nodeSun": "Sonne",
+      "nodeBattery": "Batterie",
+      "nodeLoad": "Verbraucher",
+      "nodeGrid": "Netz",
+      "note": "Die Batterie ist die einzige Stellschraube — und ihre Kapazität lässt sich nur einmal vergeben. Genau deshalb weist der Report die Anteile aus Spitzenkappung, Eigenverbrauch und Lastverschiebung getrennt aus."
     }
+  },
+  "CalculatorFrame": {
+    "title": "Peak-Shaving Kalkulator",
+    "metaDescription": "Der Peak-Shaving Kalkulator von COOLiN ENERGY: Lastgang hochladen, Batterie simulieren, Ersparnis und Amortisation berechnen.",
+    "iframeTitle": "Peak-Shaving Kalkulator — Lastgang hochladen, Batterie simulieren, Ersparnis berechnen"
   },
   "Pages": {
     "home": "Startseite",
@@ -315,6 +344,7 @@
     "referenzen": "Referenzen",
     "impressum": "Impressum",
     "datenschutz": "Datenschutz",
-    "login": "Login"
+    "login": "Login",
+    "peakShavingCalculatorRun": "Kalkulator starten"
   }
 }

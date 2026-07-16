@@ -61,10 +61,9 @@ function PeakHero() {
   return (
     <Container className="py-16 sm:py-24">
       <Eyebrow>{t('eyebrow')}</Eyebrow>
-      {/* Silbentrennung wie auf der Kalkulator-Seite: „Was ist Peak Shaving?"
-          passt zwar, aber die Regel gehört an die Stufe, nicht an den Zufall
-          eines kurzen Titels — siehe Begründung dort. */}
-      <h1 className="mt-3 max-w-prose hyphens-auto break-words text-h1 text-ink">{t('title')}</h1>
+      {/* „die Regel gehört an die Stufe, nicht an den Zufall eines kurzen Titels" —
+          seit Prompt 7 eingelöst: h1/h2 trennen global (globals.css). */}
+      <h1 className="mt-3 max-w-prose text-h1 text-ink">{t('title')}</h1>
       <p className="mt-5 max-w-prose text-lead text-text">{t('lead')}</p>
       <p className="mt-5 max-w-prose text-body text-text-muted">{t('intro')}</p>
     </Container>

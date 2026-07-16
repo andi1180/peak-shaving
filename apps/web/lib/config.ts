@@ -7,15 +7,34 @@
  * Monorepo, deployed als eigenständige Vercel-App. Er läuft parallel weiter und
  * ist keine Baustelle (Pflichtenheft §8.1).
  *
- * WARUM EXTERN (und damit `target="_blank"`): `apps/web` importiert bewusst
- * weder `packages/engine` noch die Kalkulator-UI — die Engine gehört dem
- * Pro-Kalkulator, ihr Import würde die Grenze Teaser/Pro (§5.4) verwischen und
- * den Rechenkern ins Marketing-Bundle ziehen.
+ * WARUM EXTERN: `apps/web` importiert bewusst weder `packages/engine` noch die
+ * Kalkulator-UI — die Engine gehört dem Pro-Kalkulator, ihr Import würde die
+ * Grenze Teaser/Pro (§5.4) verwischen und den Rechenkern ins Marketing-Bundle
+ * ziehen. Deshalb läuft der Rechner im iframe statt als Route-Import.
  *
  * PHASE 2 (§8.1): Sobald der Pro-Kalkulator im Portal hinter Login läuft, wird
- * `apps/website` abgelöst. Dann wird diese Konstante durch die konsolidierte
- * INTERNE Route ersetzt — und mit ihr fallen `target="_blank"`, das
- * „öffnet in neuem Tab"-Signal und der externe Hinweis auf der Produktseite weg.
- * Deshalb steht die URL hier: ein Fundort, ein Umbau.
+ * `apps/website` abgelöst. Dann fällt das iframe weg und die eingebettete Route
+ * rendert den Rechner direkt. Deshalb steht die URL hier: ein Fundort, ein Umbau.
  */
 export const EXTERNAL_CALCULATOR_URL = 'https://peak-shaving-website-ten.vercel.app/'
+
+/**
+ * Die iframe-Quelle für `/peak-shaving/kalkulator/rechner`.
+ *
+ * Zeigt EXAKT auf den Rechner-Flow (`/rechner`), NICHT auf die App-Startseite —
+ * wer den CTA klickt, will rechnen, nicht noch eine Marketing-Seite lesen.
+ *
+ * `?embed=1` schaltet in `apps/website` das App-eigene Chrome (dortiger Header
+ * mit „Peak Shaving Kalkulator") ab: im Rahmen tragen coolin.at-Header und
+ * -Footer die Marke, eine zweite Headline daneben wäre eine konkurrierende.
+ * Der Modus ist dort in `app/rechner/page.tsx` dokumentiert.
+ *
+ * `new URL(relativ, basis)` statt String-Verkettung: `EXTERNAL_CALCULATOR_URL`
+ * endet auf „/", ein `+ '/rechner'` ergäbe die kaputte Doppel-Slash-URL
+ * `…vercel.app//rechner`. Die URL-Klasse löst das korrekt auf und normalisiert
+ * sie — der Trailing-Slash der Konstante darf sich ändern, ohne dass es bricht.
+ */
+export const EMBEDDED_CALCULATOR_SRC = new URL(
+  'rechner?embed=1',
+  EXTERNAL_CALCULATOR_URL,
+).toString()
