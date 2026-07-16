@@ -381,7 +381,7 @@ nicht als Vorlage nehmen.
 | `button.tsx` | `primary` (Teal-Akzent), `secondary` (Navy-Kontur), `ghost`; `sm`/`md`/`lg` |
 | `card.tsx` | `Card` + Header/Title/Description/Content/Footer |
 | `badge.tsx` | `neutral`/`accent`/`navy` + semantische `positive`/`negative`/`warning` |
-| `input.tsx` | `Input`, `Textarea`, `Select`, `Label`, `FieldHint` |
+| `input.tsx` | `Input`, `Textarea`, `Select`, `Checkbox`, `Label`, `FieldHint` |
 | `link.tsx` | `inline` (unterstrichen), `standalone`, `quiet` — nutzt den locale-bewussten Link |
 | `layout.tsx` | `Container`, `Section`, `Eyebrow`, `Num` |
 | `navigation-menu.tsx` | Radix-Mega-Menü (Desktop-Nav) |
@@ -393,10 +393,14 @@ nicht als Vorlage nehmen.
 - **shadcn/ui-Bridge:** `globals.css` mappt die shadcn-Namen (`--primary`, `--muted-foreground` …)
   auf unsere Tokens. Kein eigenes Theme — nur Aliasse, damit `shadcn add` weiter funktioniert und
   zugekaufte Primitives unsere Wahrheit rendern. Gleiche Technik wie im Kalkulator.
-- **Select ist bewusst nativ.** Radix-Select wäre eine zusätzliche Abhängigkeit für einen Baustein,
-  den bisher kein Formular braucht; nativ ist barrierefrei ab Werk und auf Mobile das bessere
-  Muster. Sobald ein Formular Suche/Mehrfachauswahl braucht, kann Radix nachgezogen werden — die
-  Tokens bleiben.
+- **Select und Checkbox sind bewusst nativ.** Radix-Select wäre eine zusätzliche Abhängigkeit für
+  einen Baustein, den bisher kein Formular braucht; nativ ist barrierefrei ab Werk und auf Mobile
+  das bessere Muster. Sobald ein Formular Suche/Mehrfachauswahl braucht, kann Radix nachgezogen
+  werden — die Tokens bleiben. Bei der **Checkbox** (Kontaktformular, §5.5) trägt `accent-color`
+  (Utility `accent-accent`) den Teal-Haken: Der einzige historische Grund, eine Checkbox
+  nachzubauen, war ihre Unstylebarkeit — `accent-color` löst genau das und behält Tastatur,
+  Screenreader und `<label>`-Kopplung ab Werk. Ein nachgebautes Control wäre hier mehr Code für
+  weniger Barrierefreiheit.
 - **Radix dort, wo Handarbeit fehleranfällig wäre:** Mega-Menü, Mobile-Drawer und Accordion laufen
   über Radix (Fokus-Falle, Escape, `aria-expanded`, Fokus-Rückgabe, Hintergrund inert). Das ist die
   Abwägung aus §7.6 — nicht jede Dependency ist Ballast, aber jede braucht einen Grund.
@@ -486,7 +490,16 @@ im Code, aber ohne einen Ton, den niemand entschieden hat. Wer `prose` nachrüst
 könnte kein Chart je ausbrechen — deshalb trägt jedes Textelement der MDX-Map seine eigene
 `max-w-prose`.
 
-**Noch nicht gebaut:** echter Seiten-Content der übrigen Unterseiten, Formulare,
-JSON-LD/sitemap, Supabase/Resend/Turnstile/Analytics. Die Platzhalter-Seiten tragen bewusst nur
+Dazu das **Kontaktformular** (`/kontakt`, `components/kontakt/`) — der erste echte Formular-Fall
+und damit der erste Einsatz von `Input`/`Textarea`/`Select`/`Checkbox`/`Label`/`FieldHint` im
+Verbund. Regeln, die dort entstanden und für jedes weitere Formular gelten: **`noValidate` am
+`<form>`** (die native Browser-Blase spricht in der Browser-Sprache, nicht in der Sprache dieser
+Seite, und zeigt immer nur einen Fehler) — die `required`-Attribute bleiben trotzdem stehen, sie
+tragen die Semantik für Screenreader. **Fehlertexte sind Keys, keine Sätze** (`messages/de.json`
+ist die Wortwahl, das zod-Schema die Regel). **Jedes Feld trägt `aria-invalid` + `aria-describedby`
+auf seine Meldung**; der Fokus springt ins erste fehlerhafte Feld, nicht in die Sammelmeldung.
+
+**Noch nicht gebaut:** echter Seiten-Content der übrigen Unterseiten,
+JSON-LD/sitemap, Supabase/Analytics. Die Platzhalter-Seiten tragen bewusst nur
 Titel + „in Aufbau" — Inhalte kommen in eigenen Prompts (Pflichtenheft §11) und bauen ausschließlich
 auf diesen Tokens und `lib/nav.ts` auf.

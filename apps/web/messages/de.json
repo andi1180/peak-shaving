@@ -921,13 +921,7 @@
     "Kontakt": {
       "title": "In 30 Minuten klären wir, wo Ihr größter Hebel liegt.",
       "lead": "Unverbindliches Erstgespräch inklusive Mini-Screening zu Verbrauch, Lastspitzen, Standorten und Zielbild.",
-      "cta": "Termin anfragen",
-      "docsTitle": "Hilfreiche Unterlagen",
-      "doc1": "Lastgangdaten im 15-Minuten-Raster",
-      "doc2": "Stromrechnungen und Leistungspreise",
-      "doc3": "Standort- und Anlagendaten",
-      "doc4": "PV-Erzeugungsdaten und geplante Erweiterungen",
-      "doc5": "Investitions- und ESG-Ziele"
+      "cta": "Termin anfragen"
     }
   },
   "PeakShaving": {
@@ -1114,6 +1108,73 @@
     "title": "Peak-Shaving Kalkulator",
     "metaDescription": "Der Peak-Shaving Kalkulator von COOLiN ENERGY: Lastgang hochladen, Batterie simulieren, Ersparnis und Amortisation berechnen.",
     "iframeTitle": "Peak-Shaving Kalkulator — Lastgang hochladen, Batterie simulieren, Ersparnis berechnen"
+  },
+  "Kontakt": {
+    "metaTitle": "Kontakt",
+    "metaDescription": "COOLiN ENERGY in Wien kontaktieren: Peak Shaving, PV und Speicher, Energiemanagement, PPA, Förderungen oder ESG. Anfrage über das Formular oder direkt an energy@coolin.at.",
+    "eyebrow": "Kontakt",
+    "title": "Lassen Sie uns Ihr Energiepotenzial prüfen",
+    "lead": "Schreiben Sie uns kurz, worum es geht. Wir melden uns mit konkreten nächsten Schritten und einem klaren Vorschlag — unverbindlich.",
+    "optional": "(optional)",
+    "requiredHint": "Felder mit * sind Pflichtfelder.",
+    "submit": "Nachricht senden",
+    "submitting": "Wird gesendet …",
+    "retry": "Erneut senden",
+    "honeypot": "Dieses Feld bitte leer lassen.",
+    "fields": {
+      "name": "Name *",
+      "email": "E-Mail *",
+      "unternehmen": "Unternehmen",
+      "telefon": "Telefon",
+      "thema": "Thema *",
+      "themaPlaceholder": "Bitte wählen",
+      "nachricht": "Ihr Anliegen *",
+      "datenschutz": "Ich habe die <link>Datenschutzerklärung</link> gelesen und bin damit einverstanden, dass meine Angaben zur Bearbeitung meiner Anfrage verarbeitet werden. *"
+    },
+    "themen": {
+      "peakShaving": "Peak Shaving / Kalkulator",
+      "sonstiges": "Sonstiges"
+    },
+    "errors": {
+      "nameRequired": "Bitte geben Sie Ihren Namen an.",
+      "nameTooLong": "Der Name ist zu lang (maximal 100 Zeichen).",
+      "emailRequired": "Bitte geben Sie Ihre E-Mail-Adresse an.",
+      "emailInvalid": "Diese E-Mail-Adresse sieht nicht gültig aus. Bitte prüfen Sie die Schreibweise.",
+      "emailTooLong": "Die E-Mail-Adresse ist zu lang.",
+      "unternehmenTooLong": "Der Firmenname ist zu lang (maximal 120 Zeichen).",
+      "telefonTooLong": "Die Telefonnummer ist zu lang (maximal 60 Zeichen).",
+      "themaInvalid": "Bitte wählen Sie ein Thema.",
+      "nachrichtTooShort": "Bitte beschreiben Sie Ihr Anliegen in mindestens 10 Zeichen.",
+      "nachrichtTooLong": "Ihre Nachricht ist zu lang (maximal 5.000 Zeichen). Bitte kürzen Sie sie oder schreiben Sie uns direkt.",
+      "datenschutzRequired": "Bitte bestätigen Sie die Datenschutzerklärung, damit wir Ihre Anfrage bearbeiten dürfen."
+    },
+    "formError": {
+      "validation": "Bitte prüfen Sie die markierten Felder.",
+      "spam": "Ihre Anfrage konnte nicht gesendet werden, weil sie als automatisiert eingestuft wurde.",
+      "turnstile": "Die Sicherheitsprüfung ist fehlgeschlagen. Bitte laden Sie die Seite neu und versuchen Sie es erneut.",
+      "not_configured": "Der E-Mail-Versand ist auf dieser Seite gerade nicht eingerichtet. Ihre Anfrage wurde nicht zugestellt.",
+      "send_failed": "Ihre Anfrage konnte gerade nicht zugestellt werden.",
+      "bad_request": "Ihre Anfrage konnte nicht gelesen werden. Bitte versuchen Sie es erneut.",
+      "network": "Wir konnten den Server nicht erreichen. Bitte prüfen Sie Ihre Verbindung und versuchen Sie es erneut.",
+      "fallback": "Damit Ihre Anfrage nicht verloren geht: Schreiben Sie uns bitte direkt an <mail></mail>."
+    },
+    "success": {
+      "title": "Danke — Ihre Nachricht ist angekommen.",
+      "text": "Wir haben Ihre Anfrage erhalten und melden uns bei Ihnen. Eine Kopie wurde nicht automatisch an Sie versendet — notieren Sie sich bei Bedarf, worum es ging."
+    },
+    "direct": {
+      "title": "Direkt erreichbar",
+      "note": "Sie erreichen uns auch ohne Formular — schreiben Sie einfach an die Adresse oben."
+    },
+    "docs": {
+      "title": "Hilfreiche Unterlagen",
+      "lead": "Falls schon vorhanden — nichts davon ist Voraussetzung für ein erstes Gespräch.",
+      "doc1": "Lastgangdaten im 15-Minuten-Raster",
+      "doc2": "Stromrechnungen und Leistungspreise",
+      "doc3": "Standort- und Anlagendaten",
+      "doc4": "PV-Erzeugungsdaten und geplante Erweiterungen",
+      "doc5": "Investitions- und ESG-Ziele"
+    }
   },
   "Pages": {
     "home": "Startseite",

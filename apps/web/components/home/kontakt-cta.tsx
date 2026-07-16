@@ -7,18 +7,32 @@ import { KONTAKT_HREF } from '@/lib/nav'
 /**
  * Kontakt-CTA (§4.4 Nr. 7) — Abschluss der Seite.
  *
- * Nur der Verweis auf `/kontakt`; das Formular selbst (Themen-Dropdown,
- * DSGVO-Checkbox, Turnstile, Supabase/Resend) ist §5.5 und ein eigener Prompt.
+ * Nur der Verweis auf `/kontakt`; das Formular selbst steht dort (§5.5,
+ * `components/kontakt/`). Die Startseite kennt kein Thema, das sie vorwählen
+ * könnte — deshalb der nackte `KONTAKT_HREF` ohne `?thema=`. Ein geratenes Thema
+ * wäre schlechter als keins: Der Nutzer müsste es korrigieren, statt es zu wählen.
  *
  * Texte aus `reference/coolin-legacy.html` (Vorgehen-Abschluss + Kontakt-Block:
  * „In 30 Minuten klären wir…", „Unverbindliches Erstgespräch…", „Hilfreiche
  * Unterlagen"). Die 30 Minuten sind keine Erfolgs-Kennzahl, sondern die Dauer
  * des angebotenen Gesprächs.
+ *
+ * DIE UNTERLAGEN-LISTE STEHT IM `Kontakt`-NAMESPACE, nicht in `Home.Kontakt`:
+ * `/kontakt` zeigt dieselbe Liste. Zwei Kopien wären zwei Listen, die beim ersten
+ * „ach ja, und die Zählpunktnummer" auseinanderlaufen — sichtbar erst für den,
+ * der beide Seiten nacheinander liest.
  */
 export function KontaktCta() {
   const t = useTranslations('Home.Kontakt')
+  const tKontakt = useTranslations('Kontakt')
 
-  const docs = [t('doc1'), t('doc2'), t('doc3'), t('doc4'), t('doc5')]
+  const docs = [
+    tKontakt('docs.doc1'),
+    tKontakt('docs.doc2'),
+    tKontakt('docs.doc3'),
+    tKontakt('docs.doc4'),
+    tKontakt('docs.doc5'),
+  ]
 
   return (
     <Section tone="alt" className="border-t border-line">
@@ -35,7 +49,7 @@ export function KontaktCta() {
           </div>
 
           <div className="rounded-lg border border-line bg-surface p-6">
-            <p className="text-label uppercase text-ink">{t('docsTitle')}</p>
+            <p className="text-label uppercase text-ink">{tKontakt('docs.title')}</p>
             <ul className="mt-4 space-y-2">
               {docs.map((doc) => (
                 <li key={doc} className="flex gap-3 text-small text-text-muted">

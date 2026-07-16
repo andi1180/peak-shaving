@@ -44,6 +44,37 @@ const Select = React.forwardRef<HTMLSelectElement, React.SelectHTMLAttributes<HT
 )
 Select.displayName = 'Select'
 
+/**
+ * Checkbox — bewusst das NATIVE <input type="checkbox">, kein nachgebautes
+ * Control (gleiche Abwägung wie beim Select oben).
+ *
+ * `accent-accent` färbt den Haken über die CSS-Eigenschaft `accent-color` in
+ * unseren Teal-Token. Das ist der Grund, warum hier kein Radix nötig ist: Der
+ * einzige Grund, eine Checkbox nachzubauen, war früher ihre Unstylebarkeit —
+ * `accent-color` löst genau das, und behält Tastatur, Screenreader und das
+ * Zusammenspiel mit <label> ab Werk.
+ *
+ * `h-4 w-4` + `mt-0.5`: Die Box sitzt auf der ersten Textzeile ihres Labels, nicht
+ * mittig zu einem mehrzeiligen Satz.
+ */
+const Checkbox = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(
+  ({ className, ...props }, ref) => (
+    <input
+      ref={ref}
+      type="checkbox"
+      className={cn(
+        'mt-0.5 h-4 w-4 shrink-0 cursor-pointer accent-accent',
+        'outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+        'focus-visible:ring-offset-surface',
+        'disabled:cursor-not-allowed disabled:opacity-50',
+        className,
+      )}
+      {...props}
+    />
+  ),
+)
+Checkbox.displayName = 'Checkbox'
+
 const Label = React.forwardRef<HTMLLabelElement, React.LabelHTMLAttributes<HTMLLabelElement>>(
   ({ className, ...props }, ref) => (
     <label ref={ref} className={cn('text-small font-medium text-ink', className)} {...props} />
@@ -74,4 +105,4 @@ function FieldHint({
   )
 }
 
-export { Input, Textarea, Select, Label, FieldHint }
+export { Input, Textarea, Select, Checkbox, Label, FieldHint }

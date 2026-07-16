@@ -6,8 +6,8 @@ import { Link } from '@/i18n/navigation'
 import { Button } from '@/components/ui/button'
 import { Container, Eyebrow, Section } from '@/components/ui/layout'
 import { Link as TextLink } from '@/components/ui/link'
+import { kontaktHrefFor } from '@/lib/kontakt/themen'
 import { findLeistung, type Leistung } from '@/lib/leistungen'
-import { KONTAKT_HREF } from '@/lib/nav'
 
 /**
  * DAS Template aller 6 Leistungsseiten (Pflichtenheft §5.1).
@@ -235,6 +235,17 @@ function CrossLinkSection({ leistung }: { leistung: Leistung }) {
  * liegt bei 12,06:1 und IST hier der Primary. Dieselbe Wahl wie im Navy-CTA von
  * `/peak-shaving`.
  */
+/*
+ * DEEP-LINK MIT THEMA: `leistung.key` IST ein Thema-Key des Kontaktformulars
+ * (`lib/kontakt/themen.ts` leitet die Themen aus genau diesen Leistungen ab) —
+ * die Vorauswahl ist hier also geschenkt, nicht geraten. Wer von „ESG / CSRD"
+ * aus auf „Gespräch vereinbaren" klickt, findet das Dropdown auf ESG stehen.
+ *
+ * BEWUSST NUR HIER: Die Branchenseiten und die Startseite haben kein Thema zur
+ * Hand (eine Branche ist keine Leistung), und der Flaggschiff-CTA führt zum
+ * Kalkulator, nicht zum Formular. Ein dort erfundener Kontext wäre eine
+ * Vorauswahl, die der Nutzer erst wegklicken muss.
+ */
 function KontaktCta({ leistung }: { leistung: Leistung }) {
   const t = usePage(leistung)
   const tCommon = useTranslations('Leistungen')
@@ -250,7 +261,7 @@ function KontaktCta({ leistung }: { leistung: Leistung }) {
           <p className="mt-5 text-body text-white/80">{t('cta.lead')}</p>
 
           <Button asChild variant="secondary" size="lg" className="mt-8">
-            <Link href={KONTAKT_HREF}>{tCommon('Cta.button')}</Link>
+            <Link href={kontaktHrefFor(leistung.key)}>{tCommon('Cta.button')}</Link>
           </Button>
         </div>
       </Container>
