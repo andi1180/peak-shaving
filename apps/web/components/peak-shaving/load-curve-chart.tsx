@@ -13,6 +13,7 @@ import {
   YAxis,
 } from 'recharts'
 import { Num } from '@/components/ui/layout'
+import { CAP_KW, EXAMPLE_LOAD_DATA, SLOTS_PER_DAY, slotToTime } from '@/lib/example-load-curve'
 
 /*
  * DIAGRAMM „Lastgang vor/nach Kappung" (Pflichtenheft §5.2a, §7.5).
@@ -35,67 +36,14 @@ import { Num } from '@/components/ui/layout'
  * für vorher/nachher: Rot/Grün sind für Kosten/Ersparnis reserviert und wären hier
  * Dekor. Stattdessen der Anker (Navy = Ist-Zustand) gegen den Akzent (Teal = die
  * Wirkung) und ein ruhiger neutraler Strich für die Schwelle.
- */
-
-/** Kappungsschwelle des Beispiels (kW). */
-const CAP_KW = 140
-
-/** Viertelstunden-Raster: 96 Slots = ein Tag — dasselbe Raster wie ein echter Lastgang. */
-const SLOTS_PER_DAY = 96
-
-/**
- * Synthetischer Tagesverlauf (kW) je Viertelstunden-Slot.
  *
- * Bewusst deterministisch (keine Zufallszahlen): Server- und Client-Render
- * müssen identisch sein, sonst wirft React einen Hydration-Mismatch. Die
- * Welligkeit kommt daher aus zwei Sinus-Termen — echte Lastgänge sind nie glatt,
- * und eine lineal-gerade Linie würde eine Präzision suggerieren, die es nicht gibt.
+ * DATENQUELLE: `lib/example-load-curve.ts` (Prompt 14 herausgezogen) — dieselbe
+ * Kurve trägt jetzt auch die kompakte Hero-Variante auf der Startseite
+ * (`components/home/hero-load-chart.tsx`). Eine Quelle, zwei Ansichten: die
+ * Zahlen können nicht auseinanderlaufen.
  */
-function exampleLoadKw(slot: number): number {
-  const hour = slot / 4
-
-  // Grundlast (Kälte, Lüftung, Server) — läuft rund um die Uhr durch.
-  let kw = 40
-  // Geschäftsbetrieb.
-  if (hour >= 5.5 && hour < 19.5) kw += 52
-  // Mittagszusatzlast.
-  if (hour >= 11 && hour < 14) kw += 22
-  // Der Anlauf am frühen Morgen: kurz, hoch, kostenbestimmend. Bewusst als
-  // Rampe (Sinus-Bogen) statt als flaches Rechteck — Geräte laufen an und
-  // klingen ab; ein Kasten sähe konstruiert aus und würde eine Gleichförmigkeit
-  // suggerieren, die kein realer Lastgang hat.
-  if (hour >= 5.75 && hour < 7.25) {
-    kw += 168 * Math.sin(Math.PI * ((hour - 5.75) / 1.5)) ** 1.6
-  }
-  // Zweite Erhebung am Nachmittag — bleibt UNTER der Schwelle und kostet nichts
-  // extra. Sie steht hier, damit sichtbar wird: nicht jede Erhebung ist eine Spitze.
-  if (hour >= 16 && hour < 18) {
-    kw += 34 * Math.sin(Math.PI * ((hour - 16) / 2))
-  }
-
-  kw += 6 * Math.sin(slot * 1.7) + 3 * Math.sin(slot * 0.53)
-  return Math.round(kw * 10) / 10
-}
-
-type Point = { slot: number; before: number; after: number }
-
-/**
- * Modulweit einmal gerechnet, nicht je Render: Die Daten sind konstant, und ein
- * `useMemo` je Instanz wäre nur Zeremonie um eine reine Funktion.
- */
-const DATA: Point[] = Array.from({ length: SLOTS_PER_DAY }, (_, slot) => {
-  const before = exampleLoadKw(slot)
-  return { slot, before, after: Math.min(before, CAP_KW) }
-})
 
 const Y_MAX = 280
-
-/** Slot → „06:15". */
-function slotToTime(slot: number): string {
-  const h = Math.floor(slot / 4)
-  const m = (slot % 4) * 15
-  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
-}
 
 /** Ticks alle 4 Stunden (Slot = 4 × Stunde) — mehr wird auf 375 px unleserlich. */
 const X_TICKS = [0, 16, 32, 48, 64, 80]
@@ -182,7 +130,7 @@ export function LoadCurveChart() {
        */}
       <div aria-hidden="true" className="h-[260px] w-full sm:h-[340px]">
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={DATA} margin={{ top: 8, right: 8, bottom: 0, left: -8 }}>
+          <LineChart data={EXAMPLE_LOAD_DATA} margin={{ top: 8, right: 8, bottom: 0, left: -8 }}>
             <CartesianGrid stroke="var(--color-border)" vertical={false} />
             <XAxis
               dataKey="slot"

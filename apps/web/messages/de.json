@@ -876,6 +876,12 @@
       "ctaPrimary": "Kalkulator",
       "ctaSecondary": "Beratung anfragen"
     },
+    "HeroChart": {
+      "seriesBefore": "Netzbezug ohne Speicher",
+      "seriesAfter": "Netzbezug mit Speicher",
+      "capLabel": "Kappungsschwelle",
+      "caption": "Illustratives Schema, keine Messdaten. Ihr tatsächliches Profil ermittelt der Peak-Shaving Kalkulator aus Ihren eigenen Lastgangdaten."
+    },
     "Peak": {
       "eyebrow": "Peak Shaving",
       "title": "Lastspitzen reduzieren. Leistungskosten kontrollieren.",
@@ -886,7 +892,10 @@
       "point2Text": "Leistung und Kapazität werden am realen Lastgang statt an pauschalen Annahmen ausgerichtet.",
       "point3Title": "Mehrfachnutzen kombinieren",
       "point3Text": "Peak Shaving, PV-Eigenverbrauch und flexible Beschaffung werden gemeinsam bewertet.",
-      "ctaSecondary": "Was ist Peak Shaving"
+      "ctaSecondary": "Was ist Peak Shaving",
+      "netzebenenEyebrow": "Ab 2027",
+      "netzebenenTitle": "Der Leistungspreis kommt auch auf Netzebene 7",
+      "netzebenenLink": "Mehr dazu im Artikel"
     },
     "Portfolio": {
       "eyebrow": "Leistungsportfolio",
@@ -916,7 +925,17 @@
       "s3Text": "Wir unterstützen bei Ausschreibung, Partnerauswahl, Verhandlung und Projektsteuerung.",
       "s4Title": "Tracking & Reporting",
       "s4Text": "Sie erhalten KPIs, Baselines und nachvollziehbare Dokumentation für Steuerung und ESG.",
-      "duration": "Von der Potenzialanalyse bis zur umsetzbaren Roadmap: typischerweise 6–10 Wochen."
+      "duration": "Von der Potenzialanalyse bis zur umsetzbaren Roadmap: typischerweise 6–10 Wochen.",
+      "kalkulatorEyebrow": "Der Kalkulator",
+      "kalkulatorTitle": "So funktioniert der Peak-Shaving Kalkulator",
+      "k1Title": "Lastgang hochladen",
+      "k1Text": "CSV oder Excel vom Netzbetreiber — die Datei bleibt in Ihrem Browser.",
+      "k2Title": "Analyse",
+      "k2Text": "Jede Viertelstunde des Jahres wird physikalisch simuliert.",
+      "k3Title": "Speicherempfehlung",
+      "k3Text": "Der passende Speicher aus dem Katalog, an Ihrem Lastgang bemessen.",
+      "k4Title": "Ersparnis",
+      "k4Text": "Aufgeschlüsselt bis zur Amortisation — nachvollziehbar, nicht pauschal."
     },
     "Kontakt": {
       "title": "In 30 Minuten klären wir, wo Ihr größter Hebel liegt.",

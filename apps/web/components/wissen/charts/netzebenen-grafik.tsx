@@ -22,6 +22,12 @@ import { cn } from '@/lib/utils'
  *
  * DER AKZENT ERSCHEINT GENAU EINMAL: auf NE 7. Das ist die Ebene, um die es im
  * ganzen Artikel geht — „an einer Stelle laut, drumherum ruhig" (DESIGN.md).
+ *
+ * `compact` (Prompt 14): kleinere Zeilenhöhe/Schrift für den Startseiten-Teaser
+ * im Peak-Shaving-Block — WIEDERVERWENDUNG derselben sieben Zeilen, nur
+ * verkleinert (kein Neubau, keine reduzierte Ebenen-Auswahl). Die Startseite
+ * trägt bewusst KEINEN eigenen Erläuterungstext dazu — der lebt im Artikel
+ * (`ChartFigure`-Caption dort); hier steht nur ein Link zurück.
  */
 
 /**
@@ -43,16 +49,17 @@ const LEVELS: { level: number; highlight?: boolean }[] = [
   { level: 7, highlight: true },
 ]
 
-export function NetzebenenGrafik() {
+export function NetzebenenGrafik({ compact = false }: { compact?: boolean }) {
   const t = useTranslations('Wissen.Charts.Netzebenen')
 
   return (
-    <ol className="space-y-1.5">
+    <ol className={cn(compact ? 'space-y-1' : 'space-y-1.5')}>
       {LEVELS.map(({ level, highlight }) => (
         <li
           key={level}
           className={cn(
-            'flex flex-wrap items-baseline gap-x-3 gap-y-1 rounded-md border px-4 py-3',
+            'flex flex-wrap items-baseline gap-x-3 gap-y-1 rounded-md border',
+            compact ? 'px-3 py-2' : 'px-4 py-3',
             highlight ? 'border-accent-border bg-accent-subtle' : 'border-line bg-surface-sunken',
           )}
         >
@@ -63,13 +70,16 @@ export function NetzebenenGrafik() {
            */}
           <span
             className={cn(
-              'w-16 shrink-0 text-small font-semibold tabular-nums',
+              'shrink-0 font-semibold tabular-nums',
+              compact ? 'w-14 text-caption' : 'w-16 text-small',
               highlight ? 'text-accent' : 'text-text-muted',
             )}
           >
             {t('levelShort', { level })}
           </span>
-          <span className={cn('text-small', highlight ? 'text-ink' : 'text-text-muted')}>
+          <span
+            className={cn(compact ? 'text-caption' : 'text-small', highlight ? 'text-ink' : 'text-text-muted')}
+          >
             {t(`level${level}`)}
           </span>
           {/*
