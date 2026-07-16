@@ -7,18 +7,26 @@ import { BRANCHEN_FLAT } from '@/lib/nav'
 /**
  * Branchen-Teaser (§4.4 Nr. 4) — 4 Karten, problem-orientiert.
  *
- * Bewusst nur Teaser: der Detailtext je Branche (typisches Verbrauchsprofil,
- * Hebel, Benchmarks mit Quellen) gehört auf die Branchenseiten (§5.3, eigene
- * Phase). Hier steht je Branche EIN Satz zum Schmerz.
+ * Bewusst nur Teaser: der Detailtext je Branche (typisches Lastprofil, Hebel,
+ * Kostentreiber) steht auf den Branchenseiten (§5.3) — hier steht je Branche EIN
+ * Satz zum Schmerz.
  *
  * Der Schmerz je Branche folgt Pflichtenheft §5.3 („Hotel: gleichzeitige Last
  * aus Küche + HLK + Wäscherei; Bäckerei: Ofen-Spitzen früh; Gastro: Stoßzeiten;
  * Handel: Kälte/Beleuchtung/Klima"). Keine Zahlen — die brauchen Quellen (§9.5).
  *
  * Liste + Links kommen aus `lib/nav.ts` (BRANCHEN_FLAT), nicht aus einer Kopie.
+ *
+ * DIE EINZEILER STEHEN IN `Branchen.teaser.*`, nicht mehr in `Home.Branchen.*`:
+ * Die Übersicht `/branchen` zeigt exakt dieselben Karten und liest exakt dieselben
+ * Keys — ein zweiter Text für dieselbe Kachel wäre nur eine weitere Stelle, an der
+ * die Seite von sich selbst abweichen kann. Gleiche Mechanik wie `Leistungen.teaser.*`,
+ * das sich Startseiten-Portfolio und `/leistungen` teilen. Überschrift und Lead
+ * DIESER Sektion bleiben in `Home.Branchen` — die gehören der Startseite.
  */
 export function BranchenTeaser() {
   const t = useTranslations('Home.Branchen')
+  const tBranchen = useTranslations('Branchen')
   const tNav = useTranslations('Nav')
 
   return (
@@ -37,7 +45,9 @@ export function BranchenTeaser() {
                 className="group flex h-full flex-col rounded-lg border border-line bg-surface p-5 transition-colors hover:border-line-strong hover:bg-surface-sunken focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               >
                 <h3 className="text-h4 text-ink">{tNav(leaf.labelKey)}</h3>
-                <p className="mt-2 text-small text-text-muted">{t(leaf.labelKey)}</p>
+                <p className="mt-2 text-small text-text-muted">
+                  {tBranchen(`teaser.${leaf.labelKey}`)}
+                </p>
                 <div className="mt-auto pt-5">
                   <ArrowRight
                     className="h-4 w-4 text-text-muted transition-colors group-hover:text-accent"

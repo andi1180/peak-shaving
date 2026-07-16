@@ -1,20 +1,24 @@
 import type { Metadata } from 'next'
-import { getTranslations, setRequestLocale } from 'next-intl/server'
-import { PagePlaceholder } from '@/components/layout/page-placeholder'
+import { setRequestLocale } from 'next-intl/server'
+import { BranchePage, brancheMetadata } from '@/components/branche/branche-page'
 
-/** Platzhalter-Route (/branchen/baeckerei) — Gerüst, Inhalt folgt in einem späteren Schritt. */
+/**
+ * /branchen/baeckerei — gerendert vom GEMEINSAMEN Branchen-Template
+ * (`components/branche/branche-page.tsx`). Diese Datei trägt bewusst nur den
+ * Schlüssel: Layout kommt aus dem Template, Struktur aus `lib/branchen.ts`,
+ * Texte aus `messages/de.json` (`Branchen.Pages.baeckerei`).
+ */
 export async function generateMetadata({
   params,
 }: {
   params: Promise<{ locale: string }>
 }): Promise<Metadata> {
   const { locale } = await params
-  const t = await getTranslations({ locale, namespace: 'Pages' })
-  return { title: `${t('baeckerei')} — COOLiN ENERGY` }
+  return brancheMetadata(locale, 'baeckerei')
 }
 
 export default async function Page({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params
   setRequestLocale(locale)
-  return <PagePlaceholder titleKey="baeckerei" />
+  return <BranchePage brancheKey="baeckerei" />
 }

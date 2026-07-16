@@ -464,7 +464,7 @@ Aktivierung weiterer (europäischer) Sprachen über die in Phase 1 gelegte i18n-
 | 4 | WCAG-Scope final rechtlich prüfen | rechtlich | — (Bau läuft mit AA-Ziel) | offen |
 | 5 | Portal-URL-Topologie (Subdomain vs. Pfad) | Andreas | Phase 2 | später |
 | 6 | Keyword-Tool-Validierung Top ~20 Begriffe | Andreas/Claude | Vor Live-Gang | **Merker, nicht vergessen** |
-| 7 | Logo-Assets in hoher Auflösung | Andreas | Wortmarke/Header final | offen |
+| 7 | Logo-Assets in hoher Auflösung | Andreas | Wortmarke/Header final | Kalkulator-Screenshots geliefert (Prompt 9); Logo weiterhin offen |
 | 8 | Über uns: reale Bios/Fotos | Andreas/Martin | Über-uns final | Platzhalter ok |
 | 9 | Erster echter Referenzkunde | Martin | Referenzen belastbar | koppelt an Kalkulator-OP#1 |
 | 10 | Repo-Umbenennung peak-shaving → coolin | Andreas | Sauberkeit | empfohlen |

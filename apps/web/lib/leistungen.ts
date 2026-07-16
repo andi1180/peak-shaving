@@ -44,6 +44,12 @@ export const LEISTUNG_ICONS: Record<string, LucideIcon> = {
  * ERKLÄRTEXT je Link steht dagegen pro Quellseite in den Messages
  * (`Leistungen.Pages.<seite>.related.<key>`): warum ausgerechnet DIESE Seite auf
  * jenes Ziel verweist, ist je Kontext eine andere Aussage.
+ *
+ * AUCH DIE BRANCHENSEITEN VERLINKEN HIERHIN (`lib/branchen.ts`): Ihre „passenden
+ * Hebel" sind genau diese Ziele — Leistungen und das Flaggschiff. Deshalb ist
+ * `resolveCrossLink` exportiert und die Tabelle steht nur einmal; eine zweite
+ * Kopie in `lib/branchen.ts` wäre eine zweite Stelle, an der ein Slug-Wechsel
+ * vergessen werden kann.
  */
 type CrossTarget = { href: string; navKey: string }
 
@@ -54,7 +60,10 @@ const LEISTUNG_HREF: Record<string, string> = Object.fromEntries(
 const CROSS_TARGETS: Record<string, CrossTarget> = {
   // Die 5 möglichen Geschwister-Leistungen — Slugs aus lib/nav.ts, nicht getippt.
   ...Object.fromEntries(
-    LEISTUNGEN_FLAT.map((leaf: NavLeaf) => [leaf.labelKey, { href: leaf.href, navKey: leaf.labelKey }]),
+    LEISTUNGEN_FLAT.map((leaf: NavLeaf) => [
+      leaf.labelKey,
+      { href: leaf.href, navKey: leaf.labelKey },
+    ]),
   ),
   // Das Flaggschiff: Erklärseite (Methode) und Produktseite (Kalkulator) sind
   // zwei Intents und zwei Ziele (§6.2) — hier bewusst einzeln adressierbar.
@@ -62,7 +71,8 @@ const CROSS_TARGETS: Record<string, CrossTarget> = {
   kalkulator: { href: '/peak-shaving/kalkulator', navKey: 'peakShavingCalculator' },
 }
 
-export type LeistungCrossLink = { key: string } & CrossTarget
+/** Ein aufgelöster Cross-Link: Ziel (href) + Nav-Label-Key + der Key der Quellseite. */
+export type CrossLink = { key: string } & CrossTarget
 
 export type Leistung = {
   /** Schlüssel in `Nav`, `Pages` und `Leistungen.Pages` der Message-Datei. */
@@ -71,7 +81,7 @@ export type Leistung = {
   /** Gruppen-Überschrift im Mega-Menü — dieselbe Gruppierung trägt die Übersicht. */
   groupKey: string
   icon: LucideIcon
-  crossLinks: LeistungCrossLink[]
+  crossLinks: CrossLink[]
 }
 
 /**
@@ -93,7 +103,8 @@ const CROSS_LINKS: Record<string, string[]> = {
   esg: ['energiemanagement', 'ppa'],
 }
 
-function resolve(key: string): LeistungCrossLink {
+/** Key → Ziel. Wirft laut, statt einen toten Link zu rendern. */
+export function resolveCrossLink(key: string): CrossLink {
   const target = CROSS_TARGETS[key]
   if (!target) throw new Error(`Cross-Link-Ziel "${key}" ist in CROSS_TARGETS nicht bekannt`)
   return { key, ...target }
@@ -115,7 +126,7 @@ export const LEISTUNGEN: Leistung[] = (
       href: leaf.href,
       groupKey: group.labelKey,
       icon,
-      crossLinks: (CROSS_LINKS[leaf.labelKey] ?? []).map(resolve),
+      crossLinks: (CROSS_LINKS[leaf.labelKey] ?? []).map(resolveCrossLink),
     }
   }),
 )
