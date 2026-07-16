@@ -40,8 +40,14 @@ export function HowItWorks() {
     { title: t('s4Title'), text: t('s4Text'), icon: FileBarChart },
   ]
 
+  /*
+   * tone="alt": hält den Grund-Wechsel der Produktseite. Seit die
+   * Report-Galerie ans Seitenende gezogen ist (Prompt 9), liegt diese Sektion
+   * direkt hinter dem Schnellrechner-Vergleich (default) — ohne `alt`
+   * verschmölzen beide zu einer Fläche.
+   */
   return (
-    <Section>
+    <Section tone="alt">
       <Container>
         <Eyebrow>{t('eyebrow')}</Eyebrow>
         <h2 className="mt-3 text-h2 text-ink">{t('title')}</h2>

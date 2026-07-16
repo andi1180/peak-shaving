@@ -69,8 +69,13 @@ function Wire() {
 export function EnergyFlow() {
   const t = useTranslations('PeakShavingCalculator.EnergyFlow')
 
+  /*
+   * tone default (weiß): Gegenstück zum `alt` von HowItWorks davor und der
+   * Report-Galerie danach — der Grund-Wechsel der Produktseite bleibt so
+   * erhalten, nachdem die Galerie ans Seitenende gezogen ist (Prompt 9).
+   */
   return (
-    <Section tone="alt">
+    <Section>
       <Container>
         <Eyebrow>{t('eyebrow')}</Eyebrow>
         <h2 className="mt-3 text-h2 text-ink">{t('title')}</h2>

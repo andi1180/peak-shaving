@@ -693,13 +693,31 @@
     },
     "Screens": {
       "eyebrow": "Einblick",
-      "title": "So sieht die Anwendung aus",
-      "lead": "Screenshots der Oberfläche und eines vollständigen Ergebnis-Reports folgen an dieser Stelle.",
-      "placeholder": "Screenshot folgt",
-      "shot1Label": "Kalkulator-Oberfläche",
-      "shot1Caption": "Upload des Lastgangs, Tarifangaben, Analyse — in vier Schritten.",
-      "shot2Label": "Ergebnis-Report",
-      "shot2Caption": "Lastgang mit Kappungslinie, Kostenvergleich, Speicherempfehlung und Annahmen."
+      "title": "So sieht Ihre Analyse aus",
+      "lead": "Vier Ansichten aus einem vollständigen Ergebnis-Report — von der Empfehlung bis zum einzelnen Tag. Jede Zahl darin ist bis zur Rechenweise nachvollziehbar.",
+      "disclaimer": "Beispielhafter Report, gerechnet mit einem synthetischen Demo-Lastgang — kein realer Kundenfall. Die Zahlen zeigen, was der Report ausweist, nicht was Sie sparen werden: Ihr Ergebnis hängt an Ihrem Lastgang und Ihrer Netzrechnung.",
+      "shots": {
+        "empfehlung": {
+          "label": "Die Empfehlung.",
+          "caption": "Empfohlener Speicher, Ersparnis pro Jahr und Amortisation — darunter die Ersparnis getrennt nach Spitzenkappung, Eigenverbrauch und tarifbewusstem Laden sowie die einzelnen Investitionspositionen.",
+          "alt": "Empfehlungskarte des Reports: ein Gewerbespeicher mit jährlicher Ersparnis und Amortisationsdauer, darunter eine Tabelle mit den Ersparnis-Anteilen aus Spitzenkappung, Eigenverbrauch und tarifbewusstem Laden sowie den Investitionspositionen Speicher, Betonsockel und Wechselrichter."
+        },
+        "kostenvergleich": {
+          "label": "Kosten über zehn Jahre.",
+          "caption": "Kumulierte Kosten mit und ohne Batterie, der Break-even als Schnittpunkt beider Linien — plus die Aufschlüsselung der Ersparnis nach Kategorie.",
+          "alt": "Liniendiagramm der kumulierten Kosten über zehn Jahre: eine Linie ohne Batterie, eine mit Batterie, der Schnittpunkt ist als Break-even markiert. Darunter die Ersparnis nach Kategorie als Balken und als Liste."
+        },
+        "lastgang": {
+          "label": "Der Jahres-Lastgang.",
+          "caption": "Der komplette Jahresverlauf mit der Kapp-Schwelle der empfohlenen Batterie als Linie; die markierten Punkte sind die teuersten abgefangenen Spitzen und anklickbar.",
+          "alt": "Lastgang eines Betriebs über ein ganzes Jahr als dichte Kurve mit ausgeprägten Spitzen; eine waagrechte gestrichelte Linie zeigt die Kapp-Schwelle der empfohlenen Batterie, einzelne Punkte markieren die teuersten abgefangenen Lastspitzen."
+        },
+        "energiefluss": {
+          "label": "Ein Tag im Detail.",
+          "caption": "Verbrauch, Netzbezug, PV-Erzeugung und Batterieleistung über 24 Stunden — umschaltbar zwischen dem Tag der teuersten Spitze und einem Tag mit starker PV-Einspeisung.",
+          "alt": "Tages-Energiefluss über 24 Stunden mit vier Kurven für Verbrauch, Netzbezug, PV-Erzeugung und Batterieleistung; über dem Diagramm ein Auswahlfeld für die Batterie und zwei Schalter für den Tag der teuersten Spitze oder starke PV-Einspeisung."
+        }
+      }
     },
     "Privacy": {
       "title": "Ihre Verbrauchsdaten bleiben bei Ihnen",

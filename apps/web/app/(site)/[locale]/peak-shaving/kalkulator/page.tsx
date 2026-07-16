@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Container, Eyebrow, Section } from '@/components/ui/layout'
 import { Link as TextLink } from '@/components/ui/link'
-import { ScreenshotPlaceholder } from '@/components/peak-shaving/screenshot-placeholder'
+import { ReportGallery } from '@/components/peak-shaving/report-gallery'
 import { HowItWorks } from '@/components/peak-shaving/how-it-works'
 import { EnergyFlow } from '@/components/peak-shaving/energy-flow'
 import { CALCULATOR_RUN_HREF } from '@/lib/nav'
@@ -52,13 +52,25 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
       <CalculatorHero />
       <LeistetSection />
       <VergleichSection />
-      <ScreensSection />
-      {/* Die zwei nativ nachgebauten Grafik-Sektionen (Prompt 7) — bewusst direkt
-          VOR dem CTA: erst zeigen, wie es geht und was gerechnet wird, dann der
-          Absprung. Beide Sektionen tragen ihren eigenen `Section`-Grund; die
-          Abfolge alt/default/alt/navy bleibt dadurch im Wechsel. */}
+      {/* Die zwei nativ nachgebauten Grafik-Sektionen (Prompt 7): erst erklären,
+          wie es geht und was gerechnet wird … */}
       <HowItWorks />
       <EnergyFlow />
+      {/*
+       * … dann das ERGEBNIS zeigen, direkt vor dem Absprung (Prompt 9).
+       *
+       * Die Galerie stand bis Prompt 9 weiter oben (gleich nach dem
+       * Schnellrechner-Vergleich) und trug nur Platzhalter-Rahmen. Mit echten
+       * Report-Bildern gehört sie ans Ende: Der Beweis, dass das Werkzeug
+       * liefert, wirkt unmittelbar vor der Handlungsaufforderung — nicht drei
+       * Sektionen davor. Erklärung → Ergebnis → Start.
+       *
+       * Grund-Wechsel: Der Rhythmus alt/default/alt/…/navy bleibt erhalten,
+       * weil HowItWorks und EnergyFlow ihre Töne getauscht haben (alt/default
+       * statt default/alt). Ohne den Tausch stünden nach dem Umzug zwei
+       * gleichfarbige Sektionen aneinander und die Kante zwischen ihnen wäre weg.
+       */}
+      <ReportGallery />
       <CtaSection />
     </>
   )
@@ -218,38 +230,6 @@ function VergleichSection() {
         <p className="mt-4 text-small">
           <TextLink href="/peak-shaving">{t('teaserLink')}</TextLink>
         </p>
-      </Container>
-    </Section>
-  )
-}
-
-/**
- * Screenshots — bis OP#7 (Owner: Andreas) sind das PLATZHALTER, sichtbar als
- * solche. Begründung, warum hier bewusst kein Fake-UI steht:
- * `components/peak-shaving/screenshot-placeholder.tsx`.
- */
-function ScreensSection() {
-  const t = useTranslations('PeakShavingCalculator.Screens')
-  const tPrivacy = useTranslations('PeakShavingCalculator.Privacy')
-
-  return (
-    <Section tone="alt">
-      <Container>
-        <Eyebrow>{t('eyebrow')}</Eyebrow>
-        <h2 className="mt-3 max-w-prose text-h2 text-ink">{t('title')}</h2>
-        <p className="mt-4 max-w-prose text-lead text-text-muted">{t('lead')}</p>
-
-        <div className="mt-10 grid gap-8 md:grid-cols-2">
-          <ScreenshotPlaceholder label={t('shot1Label')} caption={t('shot1Caption')} />
-          <ScreenshotPlaceholder label={t('shot2Label')} caption={t('shot2Caption')} />
-        </div>
-
-        {/* Getönte Akzent-Fläche über das `*-subtle`-Token — KEIN /alpha auf
-            var()-Hex-Tokens: Tailwind verwirft das still (DESIGN.md). */}
-        <div className="mt-10 rounded-lg border border-accent-border bg-accent-subtle p-5 sm:p-6">
-          <h3 className="text-h4 text-ink">{tPrivacy('title')}</h3>
-          <p className="mt-2 max-w-prose text-small text-text">{tPrivacy('text')}</p>
-        </div>
       </Container>
     </Section>
   )
