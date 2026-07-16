@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { BranchenOverview } from '@/components/branche/branchen-overview'
+import { pageAlternates } from '@/lib/seo'
 
 /**
  * /branchen — Übersicht der 4 Start-Branchen, der interne Link-Hub.
@@ -17,6 +18,7 @@ export async function generateMetadata({
   return {
     title: `${t('title')} — COOLiN ENERGY`,
     description: t('metaDescription'),
+    alternates: pageAlternates(locale, '/branchen'),
   }
 }
 

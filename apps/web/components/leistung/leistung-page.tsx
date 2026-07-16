@@ -8,6 +8,7 @@ import { Container, Eyebrow, Section } from '@/components/ui/layout'
 import { Link as TextLink } from '@/components/ui/link'
 import { kontaktHrefFor } from '@/lib/kontakt/themen'
 import { findLeistung, type Leistung } from '@/lib/leistungen'
+import { pageAlternates } from '@/lib/seo'
 
 /**
  * DAS Template aller 6 Leistungsseiten (Pflichtenheft §5.1).
@@ -37,6 +38,13 @@ export async function leistungMetadata(locale: string, key: string): Promise<Met
   return {
     title: `${t('title')} — COOLiN ENERGY`,
     description: t('metaDescription'),
+    /*
+     * Der Canonical kommt aus `findLeistung(key).href` — also aus `lib/nav.ts`,
+     * derselben Quelle, aus der auch die Route und jeder Link auf sie stammen.
+     * Ein hier getippter Pfad wäre eine zweite Stelle, an der ein Slug-Wechsel
+     * vergessen werden kann (§4.1).
+     */
+    alternates: pageAlternates(locale, findLeistung(key).href),
   }
 }
 

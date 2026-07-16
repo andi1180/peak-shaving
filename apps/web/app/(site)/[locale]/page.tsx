@@ -7,6 +7,7 @@ import { BranchenTeaser } from '@/components/home/branchen-teaser'
 import { WissenTeaser } from '@/components/home/wissen-teaser'
 import { Vorgehen } from '@/components/home/vorgehen'
 import { KontaktCta } from '@/components/home/kontakt-cta'
+import { pageAlternates } from '@/lib/seo'
 
 export async function generateMetadata({
   params,
@@ -19,6 +20,7 @@ export async function generateMetadata({
   return {
     title: `${tHero('title')} — COOLiN ENERGY`,
     description: t('metaDescription'),
+    alternates: pageAlternates(locale, '/'),
   }
 }
 

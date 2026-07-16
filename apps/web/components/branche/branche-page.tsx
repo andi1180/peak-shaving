@@ -12,6 +12,7 @@ import { FaqSection, type FaqItem } from '@/components/faq-section'
 import { TagesverlaufChart } from '@/components/branche/tagesverlauf-chart'
 import { findBranche, FLAGSHIP_LINKS, type Branche } from '@/lib/branchen'
 import { KONTAKT_HREF } from '@/lib/nav'
+import { pageAlternates } from '@/lib/seo'
 
 /**
  * DAS Template aller 4 Branchenseiten (Pflichtenheft §5.3).
@@ -44,6 +45,9 @@ export async function brancheMetadata(locale: string, key: string): Promise<Meta
   return {
     title: `${t('title')} — COOLiN ENERGY`,
     description: t('metaDescription'),
+    // Pfad aus `lib/nav.ts` über `findBranche` — gleiche Begründung wie im
+    // Leistungs-Template: der Canonical darf keinen zweiten Fundort haben (§4.1).
+    alternates: pageAlternates(locale, findBranche(key).href),
   }
 }
 

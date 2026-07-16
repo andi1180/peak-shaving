@@ -22,6 +22,14 @@ export async function generateMetadata({
      * `follow`, damit die Verlinkung weiter zählt.
      */
     robots: { index: false, follow: true },
+    /*
+     * KEIN `alternates` — als EINZIGE Seite (Prompt 13a), und das ist Absicht,
+     * kein Vergessen: Canonical und hreflang sind Aussagen über eine Seite, die
+     * in den Index soll („dies ist die maßgebliche Adresse", „das ist die
+     * Fassung für diese Sprache"). Auf einer `noindex`-Seite widersprechen sie
+     * der Zeile darüber. Google behandelt die Kombination ausdrücklich als
+     * widersprüchliches Signal — die Seite bleibt deshalb nackt.
+     */
   }
 }
 

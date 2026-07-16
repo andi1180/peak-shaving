@@ -10,6 +10,7 @@ import { Link as TextLink } from '@/components/ui/link'
 import { QuickCalculator } from '@/components/quick-calculator'
 import { LoadCurveChart } from '@/components/peak-shaving/load-curve-chart'
 import { CTA_HREF } from '@/lib/nav'
+import { pageAlternates } from '@/lib/seo'
 
 export async function generateMetadata({
   params,
@@ -22,6 +23,7 @@ export async function generateMetadata({
   return {
     title: `${tHero('title')} — COOLiN ENERGY`,
     description: t('metaDescription'),
+    alternates: pageAlternates(locale, '/peak-shaving'),
   }
 }
 

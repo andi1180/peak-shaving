@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { KontaktPage } from '@/components/kontakt/kontakt-page'
+import { pageAlternates } from '@/lib/seo'
 
 /**
  * /kontakt — Kontaktseite mit Formular (Pflichtenheft §5.5).
@@ -23,6 +24,13 @@ export async function generateMetadata({
   return {
     title: `${t('metaTitle')} — COOLiN ENERGY`,
     description: t('metaDescription'),
+    /*
+     * Ohne Query: Der Deep-Link `?thema=<key>` zeigt dieselbe Seite mit einem
+     * vorbelegten Dropdown — der Canonical führt ihn korrekt auf die eine
+     * Kontaktseite zurück, statt jede Themen-Variante als eigene Seite
+     * erscheinen zu lassen.
+     */
+    alternates: pageAlternates(locale, '/kontakt'),
   }
 }
 

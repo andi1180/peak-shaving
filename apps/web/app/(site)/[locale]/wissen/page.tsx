@@ -1,6 +1,8 @@
 import type { Metadata } from 'next'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { WissenOverview } from '@/components/wissen/wissen-overview'
+import { WISSEN_HREF } from '@/lib/wissen'
+import { pageAlternates } from '@/lib/seo'
 
 /**
  * /wissen — die Übersicht des Wissen-Bereichs (§6.2 Info-Intent).
@@ -19,6 +21,9 @@ export async function generateMetadata({
   return {
     title: `${t('title')} — COOLiN ENERGY`,
     description: t('metaDescription'),
+    // `WISSEN_HREF` statt „/wissen": Der Bereichspfad hat in `lib/wissen.ts`
+    // bereits einen Fundort — `articleHref` baut jede Artikel-URL daraus.
+    alternates: pageAlternates(locale, WISSEN_HREF),
   }
 }
 

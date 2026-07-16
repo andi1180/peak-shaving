@@ -7,8 +7,9 @@ import { Button } from '@/components/ui/button'
 import { Container, Eyebrow, Section } from '@/components/ui/layout'
 import { FaqSection } from '@/components/faq-section'
 import { mdxComponents } from '@/components/wissen/mdx-components'
-import { WISSEN_HREF, type Article } from '@/lib/wissen'
+import { articleHref, WISSEN_HREF, type Article } from '@/lib/wissen'
 import { KONTAKT_HREF } from '@/lib/nav'
+import { pageAlternates } from '@/lib/seo'
 
 /**
  * DAS Template aller Wissen-Artikel (§6.5, §10.1).
@@ -43,6 +44,14 @@ export function articleMetadata(article: Article): Metadata {
   return {
     title: `${article.title} — COOLiN ENERGY`,
     description: article.description,
+    /*
+     * Locale und Pfad kommen BEIDE aus dem Artikel selbst: `article.locale`
+     * stammt aus dem Dateinamen (`<slug>.<locale>.mdx`), `articleHref` ist die
+     * Funktion, die auch Übersicht und Startseiten-Teaser verlinken. Der
+     * Canonical eines Artikels kann damit nicht auf eine andere Adresse zeigen
+     * als die, unter der er verlinkt ist.
+     */
+    alternates: pageAlternates(article.locale, articleHref(article.slug)),
   }
 }
 

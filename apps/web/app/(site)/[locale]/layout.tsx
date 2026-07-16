@@ -5,6 +5,7 @@ import { Inter } from 'next/font/google'
 import { NextIntlClientProvider, hasLocale } from 'next-intl'
 import { setRequestLocale } from 'next-intl/server'
 import { routing } from '@/i18n/routing'
+import { SITE_URL } from '@/lib/site'
 import { SiteHeader } from '@/components/layout/site-header'
 import { SiteFooter } from '@/components/layout/site-footer'
 import '../../globals.css'
@@ -21,8 +22,45 @@ const inter = Inter({
 })
 
 export const metadata: Metadata = {
+  /*
+   * Löst ALLE relativen URLs der Metadaten gegen die echte Basis-URL auf
+   * (Pflichtenheft §6.4) — allen voran das `og:image` aus `opengraph-image.tsx`
+   * nebenan: Ohne `metadataBase` bliebe dessen URL relativ, und relative
+   * Bild-URLs ignorieren Facebook/LinkedIn/WhatsApp schlicht. Die Basis kommt
+   * aus `lib/site.ts`, damit es KEINE zweite Stelle mit einer Domain gibt.
+   */
+  metadataBase: new URL(SITE_URL),
   title: 'COOLiN ENERGY',
   description: 'Website in Aufbau.',
+  /*
+   * DIE GEMEINSAME OG-BASIS ALLER SEITEN. Sie steht hier und nicht pro Seite,
+   * weil sie pro Seite gleich ist: Nur `og:title`/`og:description` unterscheiden
+   * sich — und die füllt Next aus dem `title`/`description` der jeweiligen Seite
+   * auf, sobald ein `openGraph`-Objekt existiert. Genau das ist der Zweck dieses
+   * Blocks: Jede bestehende `generateMetadata` bleibt unverändert und bekommt
+   * ihre OG-Tags trotzdem.
+   *
+   * KEIN `images`-Eintrag: Das Bild kommt aus `opengraph-image.tsx` im SELBEN
+   * Segment (§6.3), Next mischt es hier hinein. Dass die Datei genau daneben
+   * liegen MUSS und nicht in `app/`, ist kein Zufall — die Begründung steht in
+   * ihrem Kopf. Ein `images`-Eintrag hier würde sie überstimmen.
+   */
+  openGraph: {
+    type: 'website',
+    siteName: 'COOLiN ENERGY',
+    // Sprache_REGION: die Fassung ist deutsch und zielt auf Österreich (§6.1).
+    // Nicht zu verwechseln mit hreflang (`lib/seo.ts`) — das beantwortet die
+    // andere Frage („für wen ist diese URL die richtige?") und ist deshalb „de".
+    locale: 'de_AT',
+  },
+  /*
+   * `summary_large_image`: die große Karte statt des kleinen Vorschau-Quadrats —
+   * das 1200x630-Bild ist genau dafür gebaut. Titel/Beschreibung/Bild übernimmt
+   * X von den OG-Tags, sie werden hier bewusst kein zweites Mal gepflegt.
+   */
+  twitter: {
+    card: 'summary_large_image',
+  },
 }
 
 /** Alle Locales vorab bauen — statisch, ohne Request. */

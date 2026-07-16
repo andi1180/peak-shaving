@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { LeistungenOverview } from '@/components/leistung/leistungen-overview'
+import { pageAlternates } from '@/lib/seo'
 
 /**
  * /leistungen — Übersicht der 6 Leistungen, gruppiert wie das Mega-Menü.
@@ -17,6 +18,7 @@ export async function generateMetadata({
   return {
     title: `${t('title')} — COOLiN ENERGY`,
     description: t('metaDescription'),
+    alternates: pageAlternates(locale, '/leistungen'),
   }
 }
 

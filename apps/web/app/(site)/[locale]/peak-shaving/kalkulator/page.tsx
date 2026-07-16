@@ -12,6 +12,7 @@ import { ReportGallery } from '@/components/peak-shaving/report-gallery'
 import { HowItWorks } from '@/components/peak-shaving/how-it-works'
 import { EnergyFlow } from '@/components/peak-shaving/energy-flow'
 import { CALCULATOR_RUN_HREF } from '@/lib/nav'
+import { pageAlternates } from '@/lib/seo'
 
 export async function generateMetadata({
   params,
@@ -24,6 +25,13 @@ export async function generateMetadata({
   return {
     title: `${tPages('peakShavingCalculator')} — COOLiN ENERGY`,
     description: t('metaDescription'),
+    /*
+     * BEWUSST DER LITERALE PFAD und NICHT `CTA_HREF` (das denselben Wert hat):
+     * `CTA_HREF` bedeutet „wohin der CTA im Header zeigt" — eine Aussage über
+     * die Navigation, nicht über diese Route. Zeigte der CTA später woanders
+     * hin, würde der Canonical dieser Seite still mitwandern.
+     */
+    alternates: pageAlternates(locale, '/peak-shaving/kalkulator'),
   }
 }
 
