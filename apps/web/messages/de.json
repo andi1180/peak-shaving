@@ -1003,6 +1003,7 @@
   },
   "PeakShavingCalculator": {
     "metaDescription": "Der Peak-Shaving Kalkulator: echte Lastgang-Analyse, physikalisch korrekte Batteriesimulation, Speicherempfehlung und ROI für Gewerbebetriebe in Österreich.",
+    "appName": "Peak-Shaving Kalkulator",
     "Hero": {
       "eyebrow": "Peak-Shaving Kalkulator",
       "title": "Vom Lastgang zur belastbaren Speicherempfehlung",

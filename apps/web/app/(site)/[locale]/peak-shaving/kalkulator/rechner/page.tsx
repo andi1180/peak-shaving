@@ -1,6 +1,8 @@
 import type { Metadata } from 'next'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { EMBEDDED_CALCULATOR_SRC } from '@/lib/config'
+import { CALCULATOR_RUN_HREF } from '@/lib/nav'
+import { robotsFor } from '@/lib/routes'
 
 export async function generateMetadata({
   params,
@@ -20,8 +22,14 @@ export async function generateMetadata({
      * /peak-shaving/kalkulator, die den Content wirklich trägt (§6.2:
      * „Intent-getrennte Seiten kannibalisieren sich nicht").
      * `follow`, damit die Verlinkung weiter zählt.
+     *
+     * DIE ENTSCHEIDUNG STEHT SEIT 13b IN `lib/routes.ts` (`indexable: false`) und
+     * wird hier nur noch abgeholt — sie hatte vorher zwei Fundorte: hier und,
+     * implizit, in der sitemap. Genau daraus entsteht der Widerspruch, den §6.4
+     * verbietet: eine Seite, die sich selbst auf `noindex` stellt, während die
+     * sitemap sie zum Indexieren anbietet. Jetzt speist EINE Aussage beide.
      */
-    robots: { index: false, follow: true },
+    robots: robotsFor(CALCULATOR_RUN_HREF),
     /*
      * KEIN `alternates` — als EINZIGE Seite (Prompt 13a), und das ist Absicht,
      * kein Vergessen: Canonical und hreflang sind Aussagen über eine Seite, die

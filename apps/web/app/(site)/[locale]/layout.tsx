@@ -6,6 +6,8 @@ import { NextIntlClientProvider, hasLocale } from 'next-intl'
 import { setRequestLocale } from 'next-intl/server'
 import { routing } from '@/i18n/routing'
 import { SITE_URL } from '@/lib/site'
+import { organizationLd } from '@/lib/json-ld'
+import { JsonLd } from '@/components/json-ld'
 import { SiteHeader } from '@/components/layout/site-header'
 import { SiteFooter } from '@/components/layout/site-footer'
 import '../../globals.css'
@@ -85,6 +87,18 @@ export default async function LocaleLayout({
     <html lang={locale} className={inter.variable}>
       {/* flex-col + mt-auto am Footer: der Footer sitzt auch auf kurzen Seiten unten. */}
       <body className="flex min-h-screen flex-col">
+        {/*
+         * DER FIRMEN-KNOTEN, EINMAL PRO SEITE (Pflichtenheft §6.4).
+         *
+         * Er steht im Layout und nicht auf der Startseite, obwohl er die Firma
+         * beschreibt: Artikel verweisen als `publisher`, der Kalkulator als
+         * `provider` auf seine `@id`. Ein Verweis, dessen Ziel auf DIESER Seite
+         * fehlt, zwingt Google, das Ding woanders zu suchen — hier liegt es
+         * überall gleich mit. Genau einmal, weil das Layout genau einmal läuft;
+         * die anderen Blöcke beschreiben die Firma nie neu, sie zeigen nur auf
+         * diese ID (`organizationRef`).
+         */}
+        <JsonLd schema={organizationLd()} />
         <NextIntlClientProvider>
           <SiteHeader />
           <main className="flex-1">{children}</main>

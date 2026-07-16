@@ -6,10 +6,12 @@ import { Link } from '@/i18n/navigation'
 import { Button } from '@/components/ui/button'
 import { Container, Eyebrow, Section } from '@/components/ui/layout'
 import { FaqSection } from '@/components/faq-section'
+import { JsonLd } from '@/components/json-ld'
 import { mdxComponents } from '@/components/wissen/mdx-components'
 import { articleHref, WISSEN_HREF, type Article } from '@/lib/wissen'
 import { KONTAKT_HREF } from '@/lib/nav'
-import { pageAlternates } from '@/lib/seo'
+import { articleLd } from '@/lib/json-ld'
+import { canonicalUrl, pageAlternates } from '@/lib/seo'
 
 /**
  * DAS Template aller Wissen-Artikel (§6.5, §10.1).
@@ -159,7 +161,21 @@ export async function ArticlePage({ article, locale }: { article: Article; local
        * nicht hier — sonst könnte kein Chart je breiter stehen (§7.5).
        */}
       <Container className="pb-16 sm:pb-24">
-        <article>{content}</article>
+        <article>
+          {/*
+           * Der `Article`-Knoten (§6.4) — INNERHALB des `<article>`, das er
+           * beschreibt. Er steht hier und nicht in `generateMetadata`, weil
+           * JSON-LD Markup ist und kein Meta-Tag; Next hat dafür kein
+           * Metadata-Feld. Gespeist ausschließlich aus dem Frontmatter, das
+           * Prompt 11 genau dafür vorbereitet hat — kein einziges Feld musste
+           * neu erfasst werden.
+           *
+           * Die URL kommt aus `canonicalUrl` — derselbe String wie der Canonical
+           * im `<head>` (s. `articleMetadata` unten).
+           */}
+          <JsonLd schema={articleLd(article, canonicalUrl(locale, articleHref(article.slug)))} />
+          {content}
+        </article>
       </Container>
 
       <FaqSection title={t('faqTitle')} items={article.faq} tone="alt" />

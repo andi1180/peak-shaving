@@ -118,14 +118,51 @@ export const PEAK_SHAVING_FLAT: NavLeaf[] = findNav('peakShaving').items ?? []
 export const BRANCHEN_FLAT: NavLeaf[] = findNav('branchen').items ?? []
 
 /**
+ * Die Adresse in ihren EINZELTEILEN.
+ *
+ * Sie stand bis zum JSON-LD (§6.4) nur als fertige Zeile „1100 Wien, Österreich"
+ * hier — das genügte, solange sie ausschließlich gelesen wurde. Ein
+ * `PostalAddress` braucht die Teile aber getrennt (`postalCode`,
+ * `addressLocality`, `addressCountry`), und Google liest genau diese Felder für
+ * den lokalen Bezug.
+ *
+ * Die ANZEIGEZEILE wird deshalb jetzt aus den Teilen ZUSAMMENGESETZT statt
+ * danebengeschrieben (s. `COMPANY.city`): Der Ausweg wäre gewesen, die fertige
+ * Zeile für die Anzeige zu behalten und die Teile fürs Markup danebenzulegen —
+ * dann stünde dieselbe Adresse zweimal im Repo und könnte auseinanderlaufen.
+ * Ein Markup, das eine andere Adresse behauptet als die sichtbare, ist genau der
+ * Fehler, den §6.4 nicht machen darf.
+ */
+const ADDRESS = {
+  street: 'Karl-Popper-Straße 22',
+  postalCode: '1100',
+  locality: 'Wien',
+  /** ISO 3166-1 alpha-2 — die Form, die `PostalAddress.addressCountry` erwartet. */
+  countryCode: 'AT',
+  countryName: 'Österreich',
+} as const
+
+/**
  * Firmendaten — VERBATIM aus `reference/coolin-legacy.html` (Kontakt-Block:
  * „COOLiN ENERGY · energy@coolin.at · Karl-Popper-Straße 22 · 1100 Wien,
- * Österreich"). Nicht erfunden, nicht geraten. Deckt sich mit der Adresse in
- * Pflichtenheft §6.4 (LocalBusiness-JSON-LD).
+ * Österreich"), bestätigt durch `coolin-legacy-impressum.md` (Live-Abruf).
+ * Nicht erfunden, nicht geraten. Deckt sich mit der Adresse in Pflichtenheft
+ * §6.4 (LocalBusiness-JSON-LD).
+ *
+ * WAS HIER FEHLT, FEHLT MIT ABSICHT: Rechtsform, Inhaber/Geschäftsführung,
+ * Firmenbuchnummer, UID, Gewerbebehörde und Kammer stehen im Bestands-Impressum
+ * selbst nur als „[ergänzen]" (OP#13, Pflichtenheft §9.1) — sie sind UNBEKANNT,
+ * nicht bloß unerfasst. Eine Telefonnummer und Social-Profile trägt der Bestand
+ * ebenfalls nicht (geprüft). Solange das so ist, dürfen sie weder auf der Seite
+ * noch im JSON-LD auftauchen: Ein geratenes `legalName` oder eine erfundene
+ * `vatID` wären eine Falschangabe an Google — schlimmer als eine fehlende.
  */
 export const COMPANY = {
   name: 'COOLiN ENERGY',
-  street: 'Karl-Popper-Straße 22',
-  city: '1100 Wien, Österreich',
+  street: ADDRESS.street,
+  /** Die sichtbare zweite Adresszeile („1100 Wien, Österreich") — abgeleitet, s. `ADDRESS`. */
+  city: `${ADDRESS.postalCode} ${ADDRESS.locality}, ${ADDRESS.countryName}`,
   email: 'energy@coolin.at',
+  /** Die Einzelteile fürs `PostalAddress`-JSON-LD (`lib/json-ld.ts`). */
+  address: ADDRESS,
 } as const

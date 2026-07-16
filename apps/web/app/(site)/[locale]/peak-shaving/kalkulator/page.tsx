@@ -11,8 +11,21 @@ import { Link as TextLink } from '@/components/ui/link'
 import { ReportGallery } from '@/components/peak-shaving/report-gallery'
 import { HowItWorks } from '@/components/peak-shaving/how-it-works'
 import { EnergyFlow } from '@/components/peak-shaving/energy-flow'
+import { JsonLd } from '@/components/json-ld'
 import { CALCULATOR_RUN_HREF } from '@/lib/nav'
-import { pageAlternates } from '@/lib/seo'
+import { calculatorLd } from '@/lib/json-ld'
+import { canonicalUrl, pageAlternates } from '@/lib/seo'
+
+/*
+ * Der Pfad DIESER Route — bewusst literal und NICHT `CTA_HREF` (das denselben
+ * Wert hat): `CTA_HREF` bedeutet „wohin der CTA im Header zeigt" — eine Aussage
+ * über die Navigation, nicht über diese Route. Zeigte der CTA später woanders
+ * hin, würde der Canonical dieser Seite still mitwandern.
+ *
+ * Steht als Konstante da, seit ihn zwei Stellen brauchen: der Canonical und die
+ * `url` des `SoftwareApplication`-JSON-LD. Beide müssen dieselbe Adresse nennen.
+ */
+const KALKULATOR_HREF = '/peak-shaving/kalkulator'
 
 export async function generateMetadata({
   params,
@@ -25,13 +38,7 @@ export async function generateMetadata({
   return {
     title: `${tPages('peakShavingCalculator')} — COOLiN ENERGY`,
     description: t('metaDescription'),
-    /*
-     * BEWUSST DER LITERALE PFAD und NICHT `CTA_HREF` (das denselben Wert hat):
-     * `CTA_HREF` bedeutet „wohin der CTA im Header zeigt" — eine Aussage über
-     * die Navigation, nicht über diese Route. Zeigte der CTA später woanders
-     * hin, würde der Canonical dieser Seite still mitwandern.
-     */
-    alternates: pageAlternates(locale, '/peak-shaving/kalkulator'),
+    alternates: pageAlternates(locale, KALKULATOR_HREF),
   }
 }
 
@@ -54,9 +61,32 @@ export async function generateMetadata({
 export default async function Page({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params
   setRequestLocale(locale)
+  const t = await getTranslations({ locale, namespace: 'PeakShavingCalculator' })
 
   return (
     <>
+      {/*
+       * Der Kalkulator als `SoftwareApplication` (§6.4) — OHNE Preis.
+       *
+       * Warum nicht `Product`, und warum kein `offers`: s. `calculatorLd`. Kurz:
+       * OP#1 (frei vs. bezahlt) ist offen; §3.3 verbietet dieser Seite schon in
+       * der sichtbaren Copy jede endgültige Preis-Aussage — im Markup gilt
+       * dasselbe. Der Badge daneben sagt „Derzeit frei zugänglich", und genau so
+       * viel weiß auch das Markup: nämlich nichts über einen Preis.
+       *
+       * `name` ist ein eigener Message-Key und nicht der Nav-Label „Der
+       * Kalkulator" oder der Hero-Eyebrow: Ein Produktname ist eine eigene Rolle
+       * — die anderen beiden sind Menü- bzw. Layout-Text und dürfen sich ändern,
+       * ohne dass die Anwendung anders heißt.
+       */}
+      <JsonLd
+        schema={calculatorLd({
+          name: t('appName'),
+          description: t('metaDescription'),
+          url: canonicalUrl(locale, KALKULATOR_HREF),
+          locale,
+        })}
+      />
       <CalculatorHero />
       <LeistetSection />
       <VergleichSection />

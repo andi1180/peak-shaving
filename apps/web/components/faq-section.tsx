@@ -1,4 +1,6 @@
 import { Container, Section } from '@/components/ui/layout'
+import { JsonLd } from '@/components/json-ld'
+import { faqPageLd } from '@/lib/json-ld'
 
 /**
  * Die FAQ-Sektion — EINE Struktur für Branchenseiten UND Wissen-Artikel.
@@ -20,6 +22,19 @@ import { Container, Section } from '@/components/ui/layout'
  * Die Datenstruktur (`{ q, a }`) ist bei beiden Aufrufern identisch: Die
  * Branchen liefern sie aus `messages/de.json`, die Artikel aus ihrem Frontmatter
  * (`lib/wissen.ts`). Beide Wege enden in derselben Liste.
+ *
+ * DAS `FAQPage`-JSON-LD (§6.4) IST JETZT HIER — genau dafür wurde die Komponente
+ * herausgezogen. Es liest `items`, also DENSELBEN String im DERSELBEN Render wie
+ * die sichtbare Liste darunter. Damit ist Googles Bedingung („markup must match
+ * the visible content") nicht eingehalten, sondern strukturell unverletzbar: Es
+ * gibt keine zweite Stelle, an der eine Frage anders lauten könnte. Ein
+ * `FAQPage`, dessen Antworten von der Seite abweichen, ist ein
+ * Richtlinienverstoß — kein Schönheitsfehler.
+ *
+ * EINMAL PRO SEITE: Beide Aufrufer rendern genau eine FAQ-Sektion. Stünden zwei
+ * auf einer Seite, entstünden zwei `FAQPage`-Knoten für ein Dokument — dann
+ * gehört das Markup nach oben in die jeweilige Seite gezogen, nicht hier
+ * dupliziert.
  */
 export type FaqItem = { q: string; a: string }
 
@@ -38,6 +53,8 @@ export function FaqSection({
   return (
     <Section tone={tone}>
       <Container>
+        {/* Aus derselben `items`-Liste wie die sichtbaren Q&A unten — s. Kopf. */}
+        <JsonLd schema={faqPageLd(items)} />
         <h2 className="max-w-prose text-h2 text-ink">{title}</h2>
 
         <ul className="mt-8 max-w-prose space-y-8">

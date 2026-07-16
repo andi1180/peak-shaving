@@ -73,6 +73,45 @@ function resolveSiteUrl(): string {
 export const SITE_URL = resolveSiteUrl()
 
 /**
+ * Die Produktivdomain — das ZIEL des Cutovers (§12), nicht eine zweite Quelle
+ * der Basis-URL.
+ *
+ * DER UNTERSCHIED IST WICHTIG, weil der Kopf dieser Datei eine hart eingetragene
+ * Produktivdomain ausdrücklich ablehnt: Diese Konstante wird NIE gerendert. Kein
+ * Canonical, kein hreflang, keine Bild-URL entsteht aus ihr — dafür bleibt
+ * `SITE_URL` die einzige Quelle. Sie beantwortet eine andere Frage: „läuft dieser
+ * Build unter der echten Domain?" Und die lässt sich nicht beantworten, ohne
+ * irgendwo zu sagen, welche Domain die echte ist. Sie steht hier und nicht in
+ * `app/robots.ts`, damit alles, was eine Domain kennt, in DIESER Datei bleibt.
+ */
+export const PRODUCTION_ORIGIN = 'https://coolin.at'
+
+/**
+ * Läuft dieser Build unter der Produktivdomain? Steuert `app/robots.ts`: Nur auf
+ * coolin.at ist Indexierung erlaubt, überall sonst gilt `Disallow: /`.
+ *
+ * WARUM NICHT `VERCEL_ENV === 'production'`, was näher läge: Das Vercel-Projekt
+ * `peak-shaving-web` hat JETZT SCHON ein Production-Deployment — es liegt nur
+ * noch auf `peak-shaving-web.vercel.app`, weil die Domain noch nicht umgezogen
+ * ist (§12). `VERCEL_ENV` stünde dort auf „production" und gäbe die Preview zur
+ * Indexierung frei, wo sie der späteren coolin.at Konkurrenz machen würde. Die
+ * Frage ist nicht „ist das ein Production-Deployment?", sondern „liegt es unter
+ * der richtigen Adresse?".
+ *
+ * FAIL-CLOSED: Ein unbekannter Origin (Preview, Staging, localhost, ein
+ * Tippfehler) ist NICHT die Produktivdomain und wird damit nicht indexiert. Der
+ * teure Fehler ist eine indexierte Zweit-Domain, nicht eine nicht-indexierte
+ * Preview — die zweite merkt man beim Testen, die erste erst am Ranking.
+ *
+ * DER CUTOVER BLEIBT EIN EINZIGER HANDGRIFF: `NEXT_PUBLIC_SITE_URL` auf
+ * `https://coolin.at` setzen schaltet Canonicals, hreflang, OG-Bild UND robots
+ * gemeinsam um. Ein zweiter Schalter (etwa `NEXT_PUBLIC_ALLOW_INDEXING`) könnte
+ * halb umgelegt werden — robots gäbe die Seite frei, während die Canonicals noch
+ * auf die vercel.app zeigen. Genau diese Hälfte darf es nicht geben.
+ */
+export const IS_PRODUCTION_SITE = SITE_URL === PRODUCTION_ORIGIN
+
+/**
  * Macht aus einem seiten-internen Pfad eine absolute URL.
  *
  * `new URL(pfad, basis)` statt String-Verkettung — aus demselben Grund wie in

@@ -23,6 +23,19 @@ import { routing } from '@/i18n/routing'
 import { absoluteUrl } from './site'
 
 /**
+ * Die kanonische, absolute URL einer Seite.
+ *
+ * HERAUSGEZOGEN AUS `pageAlternates`, weil das JSON-LD (§6.4) dieselbe URL
+ * braucht: Ein `Article` trägt sie als `url` und als `mainEntityOfPage` — die
+ * Aussage „dieser Artikel wohnt hier". Stünde dort eine anders gebaute Adresse
+ * als im Canonical, behauptete dieselbe Seite zwei Heimatadressen. Über diese
+ * Funktion ist es derselbe String, nicht bloß derselbe Wert.
+ */
+export function canonicalUrl(locale: string, href: string): string {
+  return absoluteUrl(getPathname({ href, locale }))
+}
+
+/**
  * Canonical (selbstreferenzierend) + hreflang-Alternates einer Seite.
  *
  * `href` ist der seiten-interne Pfad OHNE Locale-Präfix — dasselbe, was auch an
@@ -53,7 +66,7 @@ export function pageAlternates(locale: string, href: string): Metadata['alternat
   languages['x-default'] = absoluteUrl(getPathname({ href, locale: routing.defaultLocale }))
 
   return {
-    canonical: absoluteUrl(getPathname({ href, locale })),
+    canonical: canonicalUrl(locale, href),
     languages,
   }
 }
