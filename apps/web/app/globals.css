@@ -1,0 +1,13 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Scaffold-Stufe: BEWUSST minimal — keine Design-Tokens, kein Theme, keine Farben.
+ * Das Design-System (Farben/Tokens, gespiegelt am Kalkulator-Projekt) kommt in
+ * einem späteren Schritt (Pflichtenheft §7, eigene DESIGN.md). Hier nur der
+ * Basis-Font (Inter via next/font über --font-sans in app/layout.tsx).
+ */
+body {
+  font-family: var(--font-sans), system-ui, sans-serif;
+}

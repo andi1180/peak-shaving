@@ -35,6 +35,7 @@ jobs:
       - name: Test shared
         run: pnpm --filter shared test
 
-      # UI-Gate: ein PR, der website/portal bricht, wird hier rot — nicht erst auf Vercel.
-      - name: Build apps (website + portal)
-        run: pnpm --filter website build && pnpm --filter portal build
+      # UI-Gate: ein PR, der website/portal/web bricht, wird hier rot — nicht erst auf Vercel.
+      # (Lint + Typecheck oben laufen bereits root-weit über alle Packages inkl. apps/web.)
+      - name: Build apps (website + portal + web)
+        run: pnpm --filter website build && pnpm --filter portal build && pnpm --filter web build
