@@ -370,9 +370,23 @@ Next.js (App Router), TypeScript, Tailwind CSS, pnpm-Workspaces (Monorepo), shad
 
 ## 9. Datenschutz, Consent, Barrierefreiheit & Recht
 
-### 9.1 Rechtstexte (verbatim)
+### 9.1 Rechtstexte
 
-`[Entscheidung]` **Impressum und Datenschutzerklärung unverändert aus der Bestandsseite übernehmen — keine Kreativfreiheit.**
+`[Korrektur, ersetzt vorherige Annahme]` **„Verbatim übernehmen" ist beim Impressum nicht möglich — die aktuelle Live-Version ist selbst ein unvollständiger Platzhalter.** Live-Abruf am 16.07.2026 von `coolin.at/impressum` zeigt wörtlich: *„Vor dem endgültigen Einsatz: Rechtsform, Inhaber bzw. vertretungsberechtigte Person, UID, Firmenbuchdaten, Gewerbebehörde und Kammerzugehörigkeit ergänzen"* — mit `[ergänzen]`-Platzhaltern genau an diesen Stellen. Das ist eine **bestehende Rechtslücke, unabhängig vom Relaunch**: nach §5 ECG sind diese Angaben für ein Impressum verpflichtend, und sie fehlen auf der aktuell live geschalteten Seite bereits heute. Kopieren würde die Lücke nur fortschreiben.
+
+**`[OP#13 — Owner: Andreas/Martin, DRINGEND, unabhängig vom Website-Projekt]`** Folgende Angaben müssen real zugeliefert werden, bevor die Impressum-Seite gebaut wird (Quelle: Firmenbuch-Auszug, Gewerbeschein, WKO-Mitgliedschaft):
+- Rechtsform (GmbH? Einzelunternehmen?) und exakter eingetragener Firmenwortlaut
+- Geschäftsführung / vertretungsberechtigte Person(en)
+- Firmenbuchnummer + Firmenbuchgericht (falls im Firmenbuch)
+- UID-Nummer (falls umsatzsteuerpflichtig)
+- Zuständige Gewerbebehörde
+- Kammerzugehörigkeit (aktuell nur „Wirtschaftskammer Wien [prüfen/ergänzen]" vermerkt)
+
+*Anmerkung, niedrige Konfidenz `[Guessing]`:* Eine ältere Google-Indexierung von coolin.at zeigte einmal den Namen „**COOLiN Consulting and Innovation GmbH**" — falls das der eingetragene Rechtsträger ist, spart das Nachschlagen. Bitte gegenprüfen, nicht ungeprüft übernehmen.
+
+Datenschutzerklärung: Der Live-Text ist inhaltlich vollständig (DSGVO-Pflichtangaben vorhanden), aber **explizit als Vorlage für die jetzige statische Netlify-Seite markiert** (Zitat: *„Diese Vorlage deckt die aktuelle statische Netlify-Website mit Kontaktformular ab. Bei späterem Einsatz von Analytics, [...] muss sie ergänzt werden"*) — bestätigt §9.2 als Faktum, nicht nur als Annahme. **Kann als Ausgangstext übernommen werden** (referenziert in `reference/coolin-legacy-datenschutz.md`), muss aber vor Live-Gang von Supabase/Analytics/Login gemäß §9.2 erweitert werden.
+
+**Bis OP#13 gelöst ist:** Die Impressum-Seite bleibt Platzhalter/„in Aufbau" — keine unvollständigen Rechtsangaben live schalten, auch nicht als Zwischenstand.
 
 ### 9.2 Datenschutz-Update-Trigger
 
@@ -456,6 +470,7 @@ Aktivierung weiterer (europäischer) Sprachen über die in Phase 1 gelegte i18n-
 | 10 | Repo-Umbenennung peak-shaving → coolin | Andreas | Sauberkeit | empfohlen |
 | 11 | Reseller-Selbstregistrierung + tenant-scoped Katalog | Andreas | Phase 3 | Datenmodell nicht verbauen |
 | 12 | Newsletter rund um 2027-Thema | Andreas | Phase 2 | Option |
+| 13 | Impressum-Pflichtangaben (Rechtsform, UID, Firmenbuchnr., Gewerbebehörde, Kammer) — live heute schon unvollständig | Andreas/Martin | Bau der Impressum-Seite; **dringend, unabhängig vom Projekt** | offen, siehe §9.1 |
 
 ---
 

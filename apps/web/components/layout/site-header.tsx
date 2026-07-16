@@ -1,3 +1,4 @@
+import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { Link } from '@/i18n/navigation'
 import { Container } from '@/components/ui/layout'
@@ -92,24 +93,72 @@ export function SiteHeader() {
                       /* Breit genug, dass kein Eintrag umbricht — sonst wächst das
                          Panel unnötig in die Höhe und die Spalten laufen unruhig. */
                       <div className="w-[46rem] p-4">
-                        <div className="grid grid-cols-3 gap-x-6 gap-y-2">
-                          {item.groups.map((group) => (
-                            <div key={group.labelKey}>
-                              <p className="px-3 pb-1 text-label uppercase text-text-muted">
-                                {t(group.labelKey)}
-                              </p>
-                              <ul className="space-y-0.5">
-                                {group.items.map((leaf) => (
-                                  <li key={leaf.href}>
-                                    <MenuLink href={leaf.href} label={t(leaf.labelKey)} />
-                                  </li>
-                                ))}
-                              </ul>
+                        {/*
+                         * EIN Raster für ALLE Spalten.
+                         *
+                         * Problem an der Wurzel: Die Gruppen tragen unterschiedlich
+                         * viele Einträge (3/2/1), die Überschrift „Beschaffen &
+                         * Finanzieren" läuft zweizeilig und Labels wie „PV, Speicher &
+                         * Eigenverbrauch" brechen um. Richtet sich jede Spalte an ihrem
+                         * EIGENEN Inhalt aus, schiebt jeder dieser Umbrüche alles
+                         * Folgende in seiner Spalte nach unten — die Einträge stehen
+                         * dann sichtbar auf verschiedenen Höhen.
+                         *
+                         * Fix: Zeile 1 = alle Überschriften, Zeile 2..n+1 = Eintrag 1..n
+                         * jeder Spalte. Die Listen machen KEIN eigenes Raster auf,
+                         * sondern hängen sich per `subgrid` in genau diese Zeilen ein.
+                         * Jede Zeile ist so hoch wie ihre höchste Zelle → Eintrag i
+                         * beginnt in jeder Spalte auf derselben Baseline, egal wie
+                         * viele Zeilen ein Label oder eine Überschrift braucht.
+                         *
+                         * `<ul>`/`<li>` bleiben erhalten: die Zuordnung Überschrift →
+                         * Liste ist auch für Screenreader eine echte Gruppierung, nicht
+                         * nur Optik.
+                         */}
+                        {(() => {
+                          // Datengetrieben, nicht geraten: die längste Gruppe gibt die
+                          // Zeilenzahl vor. Ein neuer Eintrag in lib/nav.ts wirkt hier
+                          // automatisch.
+                          const rows = Math.max(...item.groups.map((g) => g.items.length))
+                          return (
+                            <div
+                              className="grid grid-cols-3 gap-x-6"
+                              style={{ gridTemplateRows: `auto repeat(${rows}, auto)` }}
+                            >
+                              {item.groups.map((group, col) => (
+                                <React.Fragment key={group.labelKey}>
+                                  {/*
+                                   * Hierarchie Überschrift vs. Eintrag entsteht aus
+                                   * Gewicht (600 vs. 400), Größe (12 vs. 14 px),
+                                   * Versalien + Sperrung (+0,08em) und dem Abstand
+                                   * darunter (pb-3) — NICHT aus mehr Farbe. Ink statt
+                                   * Muted ist derselbe neutrale Ton wie in den
+                                   * Footer-Spaltenköpfen; der Teal-Akzent bleibt
+                                   * sparsam (DESIGN.md).
+                                   */}
+                                  <p
+                                    className="px-3 pb-3 text-label uppercase text-ink"
+                                    style={{ gridColumn: col + 1, gridRow: 1 }}
+                                  >
+                                    {t(group.labelKey)}
+                                  </p>
+                                  <ul
+                                    className="grid grid-rows-subgrid"
+                                    style={{ gridColumn: col + 1, gridRow: `2 / span ${rows}` }}
+                                  >
+                                    {group.items.map((leaf) => (
+                                      <li key={leaf.href}>
+                                        <MenuLink href={leaf.href} label={t(leaf.labelKey)} />
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </React.Fragment>
+                              ))}
                             </div>
-                          ))}
-                        </div>
+                          )
+                        })()}
                         {item.overviewKey ? (
-                          <div className="mt-3 border-t border-line pt-3">
+                          <div className="mt-4 border-t border-line pt-3">
                             <MenuLink href={item.href} label={t(item.overviewKey)} />
                           </div>
                         ) : null}

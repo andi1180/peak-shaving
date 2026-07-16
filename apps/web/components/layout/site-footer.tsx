@@ -3,7 +3,6 @@ import { Link } from '@/i18n/navigation'
 import { Container } from '@/components/ui/layout'
 import { Emblem } from '@/components/brand/emblem'
 import { WordmarkA } from '@/components/brand/wordmark'
-import { SignatureRule } from '@/components/brand/signature'
 import { LEISTUNGEN_FLAT, BRANCHEN_FLAT, PEAK_SHAVING_FLAT, COMPANY } from '@/lib/nav'
 import { cn } from '@/lib/utils'
 
@@ -44,11 +43,16 @@ export function SiteFooter() {
             <p className="mt-4 max-w-xs text-small text-text-muted">{tBrand('claim')}</p>
 
             {/*
-             * Signature-Motiv — EINER von wenigen bewussten Auftritten
-             * (DESIGN.md „Disziplin"): hier als ruhiger Abschluss der
-             * Markenspalte, nicht als Deko auf jeder Karte.
+             * KEIN Signature-Motiv mehr an dieser Stelle.
+             *
+             * DESIGN.md „Boldness an einer Stelle": höchstens EIN Auftritt pro
+             * Seitenansicht — „wer einen zweiten setzen will, muss den ersten
+             * entfernen". Der Footer läuft auf JEDER Seite; der Auftritt ist
+             * jetzt der Peak-Shaving-Block der Startseite
+             * (components/home/peak-shaving-block.tsx), wo das Motiv die
+             * Flaggschiff-Sektion trägt, statt hier leise auszuklingen. Stünde
+             * es an beiden Stellen, hätte die Startseite es doppelt.
              */}
-            <SignatureRule className="mt-6 h-5 w-48 text-line-strong" />
 
             {/*
              * Adresse VERBATIM aus reference/coolin-legacy.html (Kontakt-Block).

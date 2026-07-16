@@ -54,6 +54,94 @@
     "inProgress": "in Aufbau",
     "note": "Diese Seite ist Teil des Gerüsts. Inhalte folgen in einem späteren Schritt."
   },
+  "Home": {
+    "metaDescription": "COOLiN ENERGY senkt Energiekosten und CO₂ für Unternehmen in Österreich: Peak Shaving, PV & Speicher, Energiemanagement, PPA, Förderungen. Einsparpotenzial kostenlos testen.",
+    "Hero": {
+      "eyebrow": "Wirtschaftlich dekarbonisieren — ohne Greenwashing",
+      "title": "Wir senken Energiekosten und CO₂ — mit messbarem Erfolg",
+      "lead": "COOLiN ENERGY berät Unternehmen bei der Nutzung nachhaltiger Energie: PV & Speicher, Peak Shaving, PPAs, Energiemanagement, Abwärme, Finanzierung und Förderungen.",
+      "focus": "Fokus: schnelle Umsetzbarkeit, belastbare Business Cases, Compliance-ready (CSRD/ESG).",
+      "ctaPrimary": "Kostenlos testen",
+      "ctaSecondary": "Beratung anfragen"
+    },
+    "Peak": {
+      "eyebrow": "Peak Shaving",
+      "title": "Lastspitzen reduzieren. Leistungskosten kontrollieren.",
+      "lead": "In vielen Unternehmen entstehen hohe Kosten nicht nur durch den Energieverbrauch, sondern durch wenige kurze Lastspitzen. Ein abgestimmtes Zusammenspiel aus Speicher, Steuerung und Betriebsstrategie macht diese Kosten planbar.",
+      "point1Title": "Leistungspreise senken",
+      "point1Text": "Lastspitzen werden gezielt begrenzt, bevor sie kostenwirksam werden.",
+      "point2Title": "Gewerbespeicher wirtschaftlich dimensionieren",
+      "point2Text": "Leistung und Kapazität werden am realen Lastgang statt an pauschalen Annahmen ausgerichtet.",
+      "point3Title": "Mehrfachnutzen kombinieren",
+      "point3Text": "Peak Shaving, PV-Eigenverbrauch und flexible Beschaffung werden gemeinsam bewertet.",
+      "teaserTitle": "Schnellrechner",
+      "teaserSoon": "folgt",
+      "teaserNote": "Eine erste Orientierung auf Basis Ihrer Leistungsspitzen, des Leistungspreises und des angestrebten Reduktionsziels — an dieser Stelle, in Kürze.",
+      "ctaPrimary": "Peak-Shaving Kalkulator",
+      "ctaSecondary": "Was ist Peak Shaving"
+    },
+    "Portfolio": {
+      "eyebrow": "Leistungsportfolio",
+      "title": "Von der Analyse bis zur Umsetzung",
+      "lead": "Wir verbinden technische Machbarkeit, wirtschaftliche Wirkung und belastbare Finanzierung zu klaren Entscheidungen.",
+      "pvSpeicher": "Standort-Check, Auslegung, Wirtschaftlichkeit, Ausschreibung und Partnersteuerung — mit Fokus auf Eigenverbrauch, Flexibilität und Resilienz.",
+      "energiemanagement": "Lastganganalyse, Monitoring, Maßnahmenkatalog, ISO-50001-Readiness sowie Optimierung von Druckluft, Wärme, Kälte und Prozessen.",
+      "smartHeating": "Intelligente Nachtspeicheröfen als steuerbare Wärmelast — nutzbar wie ein Speicher für die Lastverschiebung.",
+      "ppa": "Beschaffungsstrategie, Preis- und Risikomodell, Vertragsstruktur, Herkunftsnachweise und standortübergreifende Portfolio-Optimierung.",
+      "finanzierung": "Fördermittel-Screening, Antragslogik, CAPEX-/OPEX-Modelle, Contracting-Varianten und belastbare Entscheidungsvorlagen.",
+      "esg": "Datenmodell, Emissionsberechnung, Audit-Ready-Dokumentation und Integration in bestehende Reporting- und Steuerungsprozesse."
+    },
+    "Branchen": {
+      "eyebrow": "Branchen",
+      "title": "Wo Ihre Lastspitzen entstehen",
+      "lead": "Dieselben Hebel, im Kontext Ihres Betriebs — vom Ofen am frühen Morgen bis zur Kälteanlage im Dauerlauf.",
+      "hotellerie": "Küche, Haustechnik und Wäscherei laufen gleichzeitig — die gemeinsame Spitze bestimmt den Leistungspreis.",
+      "gastronomie": "Stoßzeiten zu Mittag und am Abend erzeugen kurze Lastspitzen, die das ganze Jahr kostenwirksam bleiben.",
+      "baeckerei": "Der Ofen-Anlauf in den frühen Morgenstunden setzt die Spitze für den gesamten Abrechnungszeitraum.",
+      "handel": "Kälte, Beleuchtung und Klimatisierung addieren sich zu einer hohen, gleichzeitigen Last."
+    },
+    "Wissen": {
+      "eyebrow": "Wissen",
+      "title": "Was Sie wissen müssen",
+      "lead": "Fachbeiträge zu Netzentgelten, Lastspitzen und Wirtschaftlichkeit — sachlich, mit Quellen.",
+      "soon": "in Vorbereitung",
+      "a1Tag": "Netzentgelte",
+      "a1Title": "Leistungstarif 2027: Was der neue Netztarif für Ihren Betrieb bedeutet",
+      "a1Text": "Österreich stellt die Netzentgelt-Systematik zum 1. Jänner 2027 um (SNE-GV auf Basis des ElWG). Für Betriebe auf Netzebene 7, bisher pauschal abgerechnet, wird der monatliche Leistungspeak zum entscheidenden Kostenfaktor.",
+      "a2Tag": "Grundlagen",
+      "a2Title": "Arbeitspreis und Leistungspreis — der entscheidende Unterschied",
+      "a2Text": "Warum eine einzelne Viertelstunde die Netzkosten eines ganzen Jahres bestimmen kann.",
+      "a3Tag": "Grundlagen",
+      "a3Title": "RLM-Messung: ab wann Ihr Lastgang viertelstündlich erfasst wird",
+      "a3Text": "Die Schwelle von 100.000 kWh Jahresverbrauch — und was sich ab da an Ihrer Abrechnung ändert.",
+      "more": "Zum Wissen-Bereich"
+    },
+    "Vorgehen": {
+      "eyebrow": "Vorgehen",
+      "title": "Strukturiert, schnell und umsetzungsorientiert",
+      "lead": "Sie erhalten keine theoretische Studie, sondern eine belastbare Entscheidungsgrundlage mit priorisierten Maßnahmen.",
+      "s1Title": "Potenzialanalyse",
+      "s1Text": "Wir analysieren Verbräuche, Lastgänge, Standorte, Verträge und technische Rahmenbedingungen.",
+      "s2Title": "Business Cases & Priorisierung",
+      "s2Text": "Wir bewerten Investition, Betriebskosten, Risiko, Förderungen, Amortisation und Finanzierung.",
+      "s3Title": "Partner & Umsetzung",
+      "s3Text": "Wir unterstützen bei Ausschreibung, Partnerauswahl, Verhandlung und Projektsteuerung.",
+      "s4Title": "Tracking & Reporting",
+      "s4Text": "Sie erhalten KPIs, Baselines und nachvollziehbare Dokumentation für Steuerung und ESG.",
+      "duration": "Von der Potenzialanalyse bis zur umsetzbaren Roadmap: typischerweise 6–10 Wochen."
+    },
+    "Kontakt": {
+      "title": "In 30 Minuten klären wir, wo Ihr größter Hebel liegt.",
+      "lead": "Unverbindliches Erstgespräch inklusive Mini-Screening zu Verbrauch, Lastspitzen, Standorten und Zielbild.",
+      "cta": "Termin anfragen",
+      "docsTitle": "Hilfreiche Unterlagen",
+      "doc1": "Lastgangdaten im 15-Minuten-Raster",
+      "doc2": "Stromrechnungen und Leistungspreise",
+      "doc3": "Standort- und Anlagendaten",
+      "doc4": "PV-Erzeugungsdaten und geplante Erweiterungen",
+      "doc5": "Investitions- und ESG-Ziele"
+    }
+  },
   "Pages": {
     "home": "Startseite",
     "leistungen": "Leistungen",

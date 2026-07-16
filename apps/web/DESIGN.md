@@ -254,7 +254,21 @@ Tapete — es kostet Aufmerksamkeit und liefert keine mehr. Dieselbe Logik wie b
 Stelle laut, drumherum ruhig.
 
 **Faustregel für Folge-Prompts:** höchstens **ein** Auftritt pro Seitenansicht. Wer einen zweiten
-setzen will, muss den ersten entfernen. Aktueller Einsatz: **Footer** (Markenspalte), einmal.
+setzen will, muss den ersten entfernen. Aktueller Einsatz: **Startseite, Peak-Shaving-Sektion**
+(`components/home/peak-shaving-block.tsx`, `SignatureField` hinter der Navy-Fläche), einmal.
+
+**Verschoben vom Footer hierher (mit dem Startseiten-Bau).** Der Footer läuft auf *jeder* Seite —
+sein `SignatureRule` wäre auf der Startseite der zweite Auftritt gewesen. Nach der Regel oben („wer
+einen zweiten setzen will, muss den ersten entfernen") ist er dort entfernt. Gewählt wurde die
+Peak-Shaving-Sektion, weil das Motiv dort die Flaggschiff-Fläche trägt statt im Footer leise
+auszuklingen. Folge: Seiten ohne eigenen Auftritt zeigen das Motiv gar nicht — das ist die Regel
+(*höchstens* einmal), kein Verlust.
+
+**Regel aus dem Bau: das Motiv gehört HINTER deckende Flächen, nie unter durchscheinende.** Erster
+Versuch war eine Karte mit `bg-white/5` über dem `SignatureField` — die Netzlinien liefen sichtbar
+quer durch Überschrift und Fließtext der Karte. Genau das „konkurriert mit dem Inhalt", das dieses
+Motiv nie tun darf. Deckende Fläche (hier `bg-navy-hover` als dunklerer Panel-Ton) löst es an der
+Wurzel.
 
 ---
 
