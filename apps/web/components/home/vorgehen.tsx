@@ -1,6 +1,5 @@
 import { useTranslations } from 'next-intl'
 import { Container, Eyebrow, Num, Section } from '@/components/ui/layout'
-import { KalkulatorProzess } from '@/components/home/kalkulator-prozess'
 
 /**
  * Vorgehen / Vertrauen (§4.4 Nr. 6) — „So arbeiten wir".
@@ -59,10 +58,6 @@ export function Vorgehen() {
         </ol>
 
         <p className="mt-10 text-small text-text-muted">{t('duration')}</p>
-
-        {/* Grafik 2 (Prompt 14): der konkrete Kalkulator-Ablauf, ergänzt diesen
-            Textblock — s. Begründung in `kalkulator-prozess.tsx`. */}
-        <KalkulatorProzess />
       </Container>
     </Section>
   )
