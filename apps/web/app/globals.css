@@ -3,11 +3,138 @@
 @tailwind utilities;
 
 /*
- * Scaffold-Stufe: BEWUSST minimal — keine Design-Tokens, kein Theme, keine Farben.
- * Das Design-System (Farben/Tokens, gespiegelt am Kalkulator-Projekt) kommt in
- * einem späteren Schritt (Pflichtenheft §7, eigene DESIGN.md). Hier nur der
- * Basis-Font (Inter via next/font über --font-sans in app/layout.tsx).
+ * Design-Tokens — 1:1 aus ./DESIGN.md. DIESE Variablen sind die Wahrheit.
+ *
+ * Kern-Palette bewusst DECKUNGSGLEICH mit dem Kalkulator (../../DESIGN.md):
+ * derselbe Akzent, dieselben Ink-/Surface-/Semantik-Werte. Der Übergang
+ * Marketing -> Pro-Kalkulator soll wie EIN Produkt wirken (Pflichtenheft §7.2).
+ * Web-spezifisch ergänzt ist NUR der Navy-Anker (Marke/Struktur, Bestandston)
+ * und der hellere Teal-Knoten des Emblems.
+ *
+ * Fonts (--font-sans / --font-display) setzt next/font in app/layout.tsx.
  */
-body {
-  font-family: var(--font-sans), system-ui, sans-serif;
+:root {
+  /* — Anker: Marke & Struktur (Pflichtenheft §7.2, Bestandston aus favicon.png) — */
+  --color-navy: #18336f; /* Wortmarke, Emblem-Grund, tragende Flächen */
+  --color-navy-hover: #142a5c;
+
+  /* — Akzent: EINZIG, sparsam (CTA / positive Signale) — */
+  --color-accent: #0f766e; /* Teal 700 – identisch zum Kalkulator */
+  --color-accent-hover: #0e6b64;
+  --color-accent-subtle: #f0fdfa; /* Teal 50 – Flächen/Callouts */
+  --color-accent-border: #99f6e4; /* Teal 200 – Rand einer Akzent-Fläche */
+  --color-node: #14b8a6; /* Teal 500 – NUR Emblem/Signature auf Navy, kein UI-Ton */
+
+  /* — Ink / Text (Slate: bewusst blaustichige Neutralen, kein neutrales Grau) — */
+  --color-ink: #0f172a; /* Slate 900 – Überschriften */
+  --color-text: #1e293b; /* Slate 800 – Fließtext */
+  --color-text-muted: #475569; /* Slate 600 – Sekundärtext */
+
+  /* — Flächen / Struktur — */
+  --color-surface: #ffffff;
+  --color-surface-alt: #f8fafc; /* Slate 50 – Off-White-Grund */
+  --color-surface-sunken: #f1f5f9; /* Slate 100 – abgesetzte Zeilen/Felder */
+  --color-border: #e2e8f0; /* Slate 200 – dünne Ränder STATT Schlagschatten */
+  --color-border-strong: #cbd5e1; /* Slate 300 – Eingabefelder/Trenner */
+
+  /* — Semantisch – NUR für Zahlen mit Bedeutung (Information, kein Dekor) — */
+  --color-positive: #15803d; /* Grün – Ersparnis */
+  --color-negative: #b91c1c; /* Rot – Kosten */
+  --color-warning: #b45309; /* Bernstein – Warnhinweise */
+  /*
+   * Getönte Flächen der Signalfarben als EIGENE Tokens — nicht als `/10`-Alpha.
+   * Grund (wichtig für alle Folge-Prompts): Tailwind v3 kann den Alpha-Modifier
+   * nur auf Farben anwenden, die es selbst zerlegen kann. Unsere Tokens sind
+   * `var(--x)` mit Hex-Wert -> `bg-positive/10` wird STILL verworfen (die Fläche
+   * bleibt transparent, ohne Fehler). Auf Kanal-Tripel umzustellen ist keine
+   * Option: die SVGs (Emblem/Wortmarke) brauchen `fill="var(--color-node)"` als
+   * fertige Farbe. Deshalb: explizite *-subtle-Tokens, kein /alpha auf Tokens.
+   * Werte = 50er-Stufe der jeweiligen Familie, Textfarbe darauf bleibt AA.
+   */
+  --color-positive-subtle: #f0fdf4; /* Grün 50  – Text darauf 4,79:1 */
+  --color-negative-subtle: #fef2f2; /* Rot 50   – Text darauf 5,91:1 */
+  --color-warning-subtle: #fffbeb; /* Amber 50 – Text darauf 4,84:1 */
+
+  /* Kontrast-Paarung (kein Branding, reine Lesbarkeit auf Akzent-/Signalflächen) */
+  --color-on-accent: #ffffff;
+  --color-on-navy: #ffffff;
+
+  /*
+   * shadcn/ui-Bridge — mappt die shadcn-Konvention (bg-primary, text-muted-foreground …)
+   * auf die Tokens oben. KEIN eigenes Theme: nur Aliasse, damit `shadcn add` weiter
+   * funktioniert und zugekaufte Primitives unsere Wahrheit rendern.
+   * Gleiche Technik wie im Kalkulator (apps/website/app/globals.css).
+   */
+  --background: var(--color-surface);
+  --foreground: var(--color-text);
+  --card: var(--color-surface);
+  --card-foreground: var(--color-text);
+  --popover: var(--color-surface);
+  --popover-foreground: var(--color-text);
+  --primary: var(--color-accent);
+  --primary-foreground: var(--color-on-accent);
+  --secondary: var(--color-surface-alt);
+  --secondary-foreground: var(--color-ink);
+  --muted: var(--color-surface-alt);
+  --muted-foreground: var(--color-text-muted);
+  --accent-ui: var(--color-accent-subtle); /* shadcn „accent" = Hover-Fläche, NICHT die Marke */
+  --accent-ui-foreground: var(--color-ink);
+  --destructive: var(--color-negative);
+  --destructive-foreground: var(--color-on-accent);
+  --border-ui: var(--color-border);
+  --input: var(--color-border-strong);
+  --ring: var(--color-accent);
+
+  --radius: 0.5rem; /* 8px – 4/8/12/16-Raster */
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+  html {
+    overflow-x: hidden;
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    max-width: 100vw;
+    overflow-x: hidden;
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans), system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  /* Überschriften brechen umbruch-bewusst statt „hängender" Einzelwörter. */
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+  /*
+   * Sichtbarer Keyboard-Fokus als GLOBALE Basis (Pflichtenheft §9.4, WCAG 2.1 AA):
+   * :focus-visible trifft nur echte Tastatur-Navigation, nicht den Maus-Klick.
+   * Einzelne Primitives dürfen den Ring verfeinern, aber nie entfernen.
+   */
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+}
+
+/*
+ * Bewegung ist zweckgebunden und optional (§7.1, WCAG 2.3.3). Wer im System
+ * „weniger Bewegung" gewählt hat, bekommt keine — inkl. Smooth-Scrolling.
+ */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
