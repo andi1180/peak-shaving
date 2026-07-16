@@ -65,7 +65,6 @@ Navy trägt Marke und Struktur, Teal ist das seltene Signal. Alle Werte sind CSS
 --color-surface:         #ffffff;
 --color-surface-alt:     #fafafa;  /* Neutral 50  — Off-White-Grund */
 --color-surface-sunken:  #f5f5f5;  /* Neutral 100 — Zeilen/Felder */
---color-surface-subtle:  #f5fcfa;  /* Chrome-Grund Header+Footer — s. „Grünton" */
 --color-border:          #e5e5e5;  /* Neutral 200 — dünne Ränder */
 --color-border-strong:   #d4d4d4;  /* Neutral 300 — ruhige Trenner/Konturen */
 --color-border-input:    #8f8f8f;  /* Feldrand — MUSS 3:1 erreichen (1.4.11) */
@@ -101,16 +100,15 @@ WCAG 2.1 AA verlangt **4,5:1** für Fließtext, **3:1** für große Schrift/UI-E
 
 | Paarung | Ratio | Urteil |
 |---|---:|---|
-| Ink `#171717` auf Chrome-Grün `#f5fcfa` | 17,23:1 | AAA |
+| Ink `#171717` auf Weiß `#ffffff` (Header) | 17,93:1 | AAA |
 | Ink `#171717` auf Off-White `#fafafa` | 17,18:1 | AAA |
-| Text `#262626` auf Chrome-Grün | 14,55:1 | AAA |
-| Navy `#18336f` auf Chrome-Grün (Wortmarke) | 11,59:1 | AAA |
-| Text muted `#525252` auf Chrome-Grün (Nav-/Footer-Links) | 7,51:1 | AAA |
-| Teal 700 `#0f766e` auf Chrome-Grün (Link-Hover) | 5,26:1 | AA |
+| Text `#262626` auf Weiß | 15,13:1 | AAA |
 | Text `#262626` auf Off-White | 14,50:1 | AAA |
+| Navy `#18336f` auf Weiß (Wortmarke im Header) | 12,06:1 | AAA |
+| Text muted `#525252` auf Weiß (Nav-/Login-Links) | 7,81:1 | AAA |
 | Weiß auf Navy `#18336f` | 12,06:1 | AAA |
 | Navy `#18336f` auf Off-White | 11,55:1 | AAA |
-| Text muted `#525252` auf Off-White | 7,49:1 | AAA |
+| Text muted `#525252` auf Off-White (Footer-Links) | 7,49:1 | AAA |
 | Text muted `#525252` auf Sunken `#f5f5f5` | 7,17:1 | AAA |
 | Negative `#b91c1c` auf Weiß | 6,47:1 | AA |
 | Weiß auf Accent-Hover `#0e6b64` | 6,35:1 | AA |
@@ -145,51 +143,30 @@ Sparsamkeits-Grundsatz: ein Akzent, der überall steht, ist kein Akzent mehr.
 **Regel — Grün/Rot/Bernstein sind reserviert** für Ersparnis / Kosten / Warnung. Nie als Dekor,
 sonst verlieren sie ihre Signalwirkung (identisch zur Kalkulator-`DESIGN.md`).
 
-### Grünton auf Header & Footer `[Andreas entscheidet am Bild]`
+### Chrome-Grund (Header & Footer): neutral, kein Grünton `[Entscheidung Andreas]`
 
-`--color-surface-subtle: #f5fcfa` ist der Grund von **Header und Footer** — die einzige Fläche im
-System mit einem Hue-Cast. Sie ist damit eine **bewusste, eng begrenzte Ausnahme** von
-„Neutrale = hueless" (s. „Design-Philosophie"): dort gilt die Regel für die Grau-Rampe (Text,
-Flächen, Ränder), hier steht ein einzelner getönter Chrome-Ton daneben.
+**Header `bg-surface` (#ffffff), Footer `bg-surface-alt` (#fafafa) — beide neutral, kein Hue-Cast.**
 
-**Herkunft (kein geratener Hex):** kanalweiser Mittelwert aus `--color-accent-subtle` (#f0fdfa,
-Teal 50) und `--color-surface-alt` (#fafafa) → „ein halber Hauch Teal 50". Hue-Cast **7**
-(Teal 50 liegt bei 13, der Rest der Rampe bei 0).
+Der in Prompt 7 gebaute getönte Chrome-Grund (`--color-surface-subtle: #f5fcfa`, ein halber Hauch
+Teal 50, Hue-Cast 7) ist **am Bild verworfen und zurückgenommen**; der Token ist ersatzlos entfernt
+(`globals.css`, `tailwind.config.ts`, beide Klassennamen). Damit gilt „Neutrale = hueless"
+(s. „Design-Philosophie") **ausnahmslos** — es steht keine getönte Fläche mehr neben der
+Grau-Rampe, und Navy und Teal bleiben die einzigen Farben im System.
 
-**Gemessen, nicht geschätzt** (Chromium, `/peak-shaving/kalkulator`):
+**Warum der Versuch verworfen wurde** (bleibt dokumentiert, damit der Ton nicht erneut
+vorgeschlagen wird): Der sichtbare Effekt im Header war zu ~90 % *„nicht mehr reinweiß"*, nicht
+*„grün"*; im Footer (vorher schon #fafafa) war die Änderung praktisch unsichtbar. Der Ton leistete
+weniger, als der Aufwand vermuten ließ — und kostete dafür die Hueless-Regel.
 
-| Was | Auf Grünton #f5fcfa | Vorher (Header #ffffff) | Urteil |
-|---|---:|---:|---|
-| Nav-Text / Menü-Trigger (ink) | 17,23:1 | 17,93:1 | AAA |
-| Fließtext (text #262626) | 14,55:1 | 15,13:1 | AAA |
-| Wortmarke/Emblem (navy) | 11,59:1 | 12,06:1 | AAA |
-| Login-Link, Footer-Links (muted) | 7,51:1 | 7,81:1 | AAA |
-| Akzent-Hover auf Links (Teal 700) | 5,26:1 | 5,47:1 | AA |
-| Weiß auf Teal-Button („Kalkulator") | 5,47:1 | 5,47:1 | AA (grundunabhängig) |
-| Teal-Button **gegen** den Grund (Signalstärke) | 5,26:1 | 5,47:1 | −4 %, nicht wahrnehmbar |
+**Der Kontrast ist von der Rücknahme unberührt:** der neutrale Grund war bereits AAA und ist es
+weiterhin (Nav-Text 17,93:1 · muted 7,81:1 · Wortmarke 12,06:1 — s. Kontrast-Tabelle oben). Kein
+Wert wechselt sein AA/AAA-Band; die Grünton-Werte (17,23 / 7,51 / 11,59) lagen durchweg minimal
+darunter.
 
-**Kein Wert wechselt sein AA/AAA-Band.** Gegenüber dem bisherigen *Footer*-Grund (#fafafa) sind
-die Werte sogar minimal **besser** (7,51 vs. 7,49), weil #f5fcfa eine Spur heller ist
-(relative Luminanz 0,9594 vs. 0,9560 — Verhältnis 1,00:1).
-
-**Befund aus dem Bildvergleich, der die Erwartung korrigiert:** Der sichtbare Effekt im Header ist
-zu ~90 % *„nicht mehr reinweiß"*, nicht *„grün"*. Im **Footer** (vorher schon #fafafa) ist die
-Änderung praktisch **unsichtbar** — dieselbe Helligkeit, nur Hue-Cast 7. Das Grün leistet also
-weniger, als der Aufwand vermuten lässt.
-
-**Drei Optionen, damit die Entscheidung am Bild fällt:**
-
-1. **Grünton (gebaut):** Header + Footer `#f5fcfa`. Rahmen oben/unten lesen als ein Element,
-   Marken-Anklang, Kontraste unverändert. Preis: der dokumentierte Hueless-Bruch.
-2. **Fallback „wie bisher":** Header `bg-surface` (#ffffff), Footer `bg-surface-alt` (#fafafa).
-   **Zwei Klassennamen zurückdrehen** (`site-header.tsx`, `site-footer.tsx`), Token ersatzlos raus.
-3. **Mittelweg:** beide `bg-surface-alt` (#fafafa). Behält den einzigen wirklich sichtbaren Gewinn
-   (Header nicht mehr reinweiß, Rahmen vereinheitlicht) **ohne** neuen Token und **ohne**
-   Hueless-Ausnahme.
-
-**Nebenbefund:** Auf dem getönten Header liest sich der `secondary`-Button („Kontakt", `bg-surface`
-= Weiß) erstmals als eigene Fläche; auf reinweißem Header war er weiß-auf-weiß und nur am Rand
-erkennbar. Das spricht *für* einen nicht-weißen Header — aber Option 3 liefert das genauso.
+**Nebenbefund aus dem Versuch, weiterhin offen (kein Blocker):** Auf reinweißem Header liest sich
+der `secondary`-Button („Kontakt", `bg-surface` = Weiß) weiß-auf-weiß und ist nur an seinem Rand
+erkennbar. Das ist ein **Button-Thema**, kein Argument für einen getönten Header — falls es stört,
+gehört die Lösung an die `secondary`-Variante, nicht an die Fläche dahinter.
 
 ### Regel: kein `/alpha` auf Token-Farben
 

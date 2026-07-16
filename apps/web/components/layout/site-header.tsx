@@ -63,7 +63,7 @@ export function SiteHeader() {
      * z-40: über dem Inhalt, aber UNTER Mobile-Drawer/Overlay (z-50, ui/sheet.tsx).
      * Deckende Fläche ist Pflicht — der Inhalt läuft darunter durch.
      */
-    <header className="sticky top-0 z-40 border-b border-line bg-surface-subtle">
+    <header className="sticky top-0 z-40 border-b border-line bg-surface">
       <Container className="flex h-[var(--header-h)] items-center justify-between gap-4">
         {/* Lockup → Startseite */}
         <Link

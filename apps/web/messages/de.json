@@ -54,6 +54,433 @@
     "inProgress": "in Aufbau",
     "note": "Diese Seite ist Teil des Gerüsts. Inhalte folgen in einem späteren Schritt."
   },
+  "Leistungen": {
+    "eyebrow": "Leistung",
+    "teaser": {
+      "pvSpeicher": "Standort-Check, Auslegung, Wirtschaftlichkeit, Ausschreibung und Partnersteuerung — mit Fokus auf Eigenverbrauch, Flexibilität und Resilienz.",
+      "energiemanagement": "Lastganganalyse, Monitoring, Maßnahmenkatalog, ISO-50001-Readiness sowie Optimierung von Druckluft, Wärme, Kälte und Prozessen.",
+      "smartHeating": "Intelligente Nachtspeicheröfen als steuerbare Wärmelast — nutzbar wie ein Speicher für die Lastverschiebung.",
+      "ppa": "Beschaffungsstrategie, Preis- und Risikomodell, Vertragsstruktur, Herkunftsnachweise und standortübergreifende Portfolio-Optimierung.",
+      "finanzierung": "Fördermittel-Screening, Antragslogik, CAPEX-/OPEX-Modelle, Contracting-Varianten und belastbare Entscheidungsvorlagen.",
+      "esg": "Datenmodell, Emissionsberechnung, Audit-Ready-Dokumentation und Integration in bestehende Reporting- und Steuerungsprozesse."
+    },
+    "Cta": {
+      "eyebrow": "Kontakt",
+      "button": "Beratung anfragen"
+    },
+    "Overview": {
+      "eyebrow": "Leistungen",
+      "metaDescription": "Leistungen von COOLiN ENERGY für Betriebe in Österreich: PV und Speicher, Energiemanagement, Smart Heating, PPA, Förderungen und ESG. Jetzt Beratung anfragen.",
+      "title": "Von der Analyse bis zur Abnahme",
+      "lead": "Sechs Leistungen, die aufeinander aufbauen: Wir analysieren, rechnen und begleiten die Umsetzung — technisch, wirtschaftlich und förderseitig aus einer Hand.",
+      "intro": "Was davon für Sie zählt, hängt an Ihrem Betrieb. Der Einstieg ist trotzdem fast immer derselbe: ein Blick auf Ihren Lastgang und Ihre Netzrechnung.",
+      "groups": {
+        "leistungenGroupErzeugen": "Eigene Erzeugung, Speicher und der laufende Betrieb — alles, was an Ihrem Standort passiert.",
+        "leistungenGroupBeschaffen": "Der Strom, den Sie zukaufen, und das Geld, mit dem Sie investieren.",
+        "leistungenGroupNachweisen": "Was Sie am Ende belegen können müssen — gegenüber Prüfern, Banken und Kunden."
+      },
+      "flagship": {
+        "title": "Peak Shaving steht nicht in dieser Liste",
+        "text": "Lastspitzenkappung ist bei uns kein einzelner Baustein: Sie zieht sich durch Speicher, Steuerung und Betriebsstrategie — und wir haben das Werkzeug dafür selbst gebaut. Deshalb hat sie eine eigene Seite statt einer Kachel zwischen den anderen."
+      },
+      "cta": {
+        "title": "Der Einstieg ist ein Gespräch, keine Ausschreibung.",
+        "lead": "In einem Erstgespräch klären wir, wo Ihr größter Hebel liegt und welche dieser Leistungen dafür überhaupt in Frage kommen. Unverbindlich."
+      }
+    },
+    "Pages": {
+      "pvSpeicher": {
+        "metaDescription": "Photovoltaik und Gewerbespeicher für Betriebe in Österreich: Auslegung am realen Lastgang, Eigenverbrauch erhöhen, Wirtschaftlichkeit belegen. Jetzt Beratung anfragen.",
+        "title": "PV, Speicher & Eigenverbrauch",
+        "promise": "Wir legen Photovoltaik und Gewerbespeicher an Ihrem realen Lastgang aus — und sagen Ihnen vorher, was die Anlage wirtschaftlich bringt.",
+        "problem": {
+          "title": "Ein Angebot ist schnell da. Die passende Größe nicht.",
+          "text": [
+            "Wer nach einer PV-Anlage oder einem Batteriespeicher fragt, bekommt zügig ein Angebot — und selten eine Begründung, warum ausgerechnet diese Größe zu seinem Betrieb passt.",
+            "Dachfläche, Netzanschluss, Eigenverbrauchsquote, Einspeisevergütung und Speicherkosten hängen aneinander. Wer nur eine dieser Größen optimiert, zahlt an anderer Stelle drauf. Und ein Speicher, der auf den Abendverbrauch eines Haushalts gedacht ist, lässt in einem Gewerbebetrieb den größten Teil seines möglichen Nutzens liegen.",
+            "Die Frage, die am Ende zählt, steht in kaum einem Angebot: Was ändert sich dadurch an Ihrer Stromrechnung — und wann hat sich das gerechnet?"
+          ]
+        },
+        "vorgehen": {
+          "title": "Was wir tun",
+          "lead": "Von der ersten Machbarkeitsfrage bis zur Abnahme — in der Reihenfolge, in der die Entscheidungen tatsächlich anstehen.",
+          "items": [
+            {
+              "title": "Standort-Check",
+              "text": "Dachflächen und Statik, Netzanschluss und Anschlussleistung, Zählpunkte, bestehende Anlagen. Was ist technisch möglich, was ist genehmigungsseitig realistisch — bevor irgendjemand über Module spricht."
+            },
+            {
+              "title": "Auslegung am Lastgang",
+              "text": "Wir legen Erzeugung und Speicher gegen Ihr tatsächliches Verbrauchsprofil aus, nicht gegen einen Jahresverbrauch. Kapazität (kWh) und Leistung (kW) sind dabei zwei getrennte Entscheidungen — ein Speicher kann groß genug und trotzdem zu langsam sein."
+            },
+            {
+              "title": "Wirtschaftlichkeit",
+              "text": "Eigenverbrauch, Einspeisung, Netzkosten und Förderung in einer Rechnung statt in vier Einzelbetrachtungen. Sie bekommen die Annahmen mitgeliefert, nicht nur das Ergebnis."
+            },
+            {
+              "title": "Ausschreibung & Partnersteuerung",
+              "text": "Wir formulieren das Leistungsverzeichnis, holen vergleichbare Angebote ein und begleiten Vergabe, Umsetzung und Abnahme."
+            },
+            {
+              "title": "Flexibilität & Resilienz",
+              "text": "Wo es sinnvoll ist, planen wir den Speicher so, dass er mehrere Aufgaben trägt: Eigenverbrauch, Lastspitzen und die Absicherung kritischer Verbraucher."
+            }
+          ]
+        },
+        "nutzen": {
+          "title": "Was Sie davon haben",
+          "items": [
+            {
+              "title": "Eine Größe, die Sie begründen können",
+              "text": "Vor Geschäftsführung, Bank und Förderstelle steht eine nachvollziehbare Rechnung — kein Herstellerprospekt."
+            },
+            {
+              "title": "Mehr Nutzen aus derselben Batterie",
+              "text": "Dieselbe Kapazität kann den Eigenverbrauch erhöhen und Lastspitzen abfangen. Aber nur, wenn sie von Anfang an für beides ausgelegt ist."
+            },
+            {
+              "title": "Angebote, die vergleichbar sind",
+              "text": "Ein einheitliches Leistungsverzeichnis macht aus fünf unterschiedlich geschnittenen Offerten eine echte Entscheidung."
+            }
+          ]
+        },
+        "related": {
+          "title": "Passt dazu",
+          "peakShaving": "Derselbe Speicher kann Lastspitzen kappen — meist der größere Hebel, wenn Ihr Netztarif einen Leistungspreis enthält.",
+          "energiemanagement": "Der Lastgang, den die Auslegung braucht, kommt aus der Analyse Ihres Verbrauchs.",
+          "finanzierung": "Förderung, Investitionsfreibetrag und Contracting entscheiden mit, wie die Anlage am Ende dasteht."
+        },
+        "cta": {
+          "title": "Reden wir über Ihr Dach und Ihren Lastgang.",
+          "lead": "Ein erstes Gespräch klärt, ob sich der Aufwand lohnt — und was wir dafür von Ihnen brauchen. Unverbindlich."
+        }
+      },
+      "energiemanagement": {
+        "metaDescription": "Energiemanagement für Unternehmen in Österreich: Lastganganalyse, Monitoring, ISO-50001-Readiness und Optimierung von Druckluft, Wärme und Kälte. Jetzt Beratung anfragen.",
+        "title": "Energiemanagement & Effizienz",
+        "promise": "Wir machen sichtbar, wohin Ihre Energie tatsächlich geht — und übersetzen das in eine Liste von Maßnahmen, die nach Wirkung sortiert ist.",
+        "problem": {
+          "title": "Die Stromrechnung sagt, was Sie zahlen. Nicht, wofür.",
+          "text": [
+            "In den meisten Betrieben teilen sich Druckluft, Kälte, Wärme, Lüftung und die Produktion einen einzigen Zählpunkt. Was am Monatsende ankommt, ist eine Summe — keine Erklärung.",
+            "Ohne Aufschlüsselung bleibt jede Effizienzdiskussion eine Meinungsfrage. Ein Druckluftleck läuft weiter, weil es niemand hört. Eine Anlage zieht nachts durch, weil niemand nachgesehen hat. Beides steht in keiner Rechnung — und in keinem Angebot.",
+            "Und wer später eine Zertifizierung oder einen ESG-Bericht braucht, merkt: Die Daten dafür hätte man von Anfang an anders erfassen müssen."
+          ]
+        },
+        "vorgehen": {
+          "title": "Was wir tun",
+          "lead": "Erst messen, dann bewerten, dann handeln. In dieser Reihenfolge.",
+          "items": [
+            {
+              "title": "Lastganganalyse",
+              "text": "Wir lesen Ihre Viertelstundenwerte aus und zerlegen sie: Grundlast, Betriebszeiten, Spitzen, Nacht- und Wochenendverbrauch. Das Ergebnis überrascht die meisten Betriebe an mindestens einer Stelle."
+            },
+            {
+              "title": "Aufnahme vor Ort",
+              "text": "Druckluft, Kälte, Wärme, Lüftung und die großen Prozesse — mit der einfachen Leitfrage: Was läuft, wenn niemand da ist, und warum?"
+            },
+            {
+              "title": "Maßnahmenkatalog & Priorisierung",
+              "text": "Jede Maßnahme mit Aufwand, erwarteter Wirkung und Abhängigkeiten. Sortiert nach Hebel statt nach Aufzählungsreihenfolge — und ehrlich dort, wo sich eine Maßnahme nicht rechnet."
+            },
+            {
+              "title": "Monitoring",
+              "text": "Damit die Wirkung messbar bleibt: Baseline, Kennzahlen und laufende Auswertung statt einer Studie, die im Ordner altert."
+            },
+            {
+              "title": "ISO-50001-Readiness",
+              "text": "Wir strukturieren Daten und Dokumentation so, dass eine spätere Zertifizierung kein Neuanfang ist, sondern ein Haken."
+            }
+          ]
+        },
+        "nutzen": {
+          "title": "Was Sie davon haben",
+          "items": [
+            {
+              "title": "Klarheit über die Grundlast",
+              "text": "Der Verbrauch, der immer läuft, ist der teuerste — und der am leichtesten übersehene."
+            },
+            {
+              "title": "Maßnahmen in der richtigen Reihenfolge",
+              "text": "Nicht die Liste ist wertvoll, sondern ihre Sortierung. Sie sehen, womit anzufangen ist und was warten kann."
+            },
+            {
+              "title": "Eine Datengrundlage, die mehrfach trägt",
+              "text": "Derselbe Lastgang trägt Effizienz, Speicher-Auslegung, Peak Shaving und den ESG-Bericht. Er wird einmal erhoben, nicht viermal."
+            }
+          ]
+        },
+        "related": {
+          "title": "Passt dazu",
+          "peakShaving": "Sobald der Lastgang auf dem Tisch liegt, ist die teuerste Viertelstunde sichtbar — und damit oft der schnellste Hebel.",
+          "pvSpeicher": "Was Sie über Ihr Verbrauchsprofil wissen, entscheidet über die richtige Anlagen- und Speichergröße.",
+          "esg": "Verbrauchsdaten, die sauber erhoben sind, sind die Grundlage jeder Emissionsberechnung."
+        },
+        "cta": {
+          "title": "Zeigen Sie uns Ihren Lastgang.",
+          "lead": "Ein Erstgespräch mit einem Blick auf Ihre Verbrauchsdaten klärt schnell, wo der größte Hebel liegt. Unverbindlich."
+        }
+      },
+      "smartHeating": {
+        "metaDescription": "Smart Heating für Betriebe in Österreich: Nachtspeicheröfen intelligent steuern, günstig laden und als steuerbare Last für die Lastspitzenkappung nutzen. Jetzt Beratung anfragen.",
+        "title": "Smart Heating: Nachtspeicheröfen intelligent steuern",
+        "promise": "Wärme dann erzeugen, wenn Strom günstig ist — und dieselben Öfen als steuerbare Last nutzen, statt sie gegen Ihre Lastspitze laufen zu lassen.",
+        "problem": {
+          "title": "Nachtspeicheröfen gelten als Auslaufmodell. Das gilt für die Steuerung — nicht für das Gerät.",
+          "text": [
+            "Ein Nachtspeicherofen ist im Kern ein Wärmespeicher, den Sie laden können, wann Sie wollen. Genau das macht ihn heute wieder interessant: Er ist steuerbar.",
+            "Nur nutzt das kaum jemand. Die meisten Anlagen hängen weiterhin an einem starren Nachtfenster — sie laden, weil es 22 Uhr ist, nicht weil es gerade sinnvoll ist. Ob die eigene PV-Anlage einspeist, ob der Betrieb gerade seine teuerste Viertelstunde fährt oder ob der Strom günstig ist, spielt dabei keine Rolle.",
+            "Der Speicher steht also längst im Haus. Er wird nur nicht wie einer behandelt."
+          ]
+        },
+        "vorgehen": {
+          "title": "Was wir tun",
+          "lead": "Die Geräte bleiben. Was sich ändert, ist der Zeitpunkt, zu dem sie laden.",
+          "items": [
+            {
+              "title": "Bestandsaufnahme",
+              "text": "Welche Geräte stehen wo, welche Anschlussleistung hängt daran, wie werden sie heute geschaltet — und welchen Anteil haben sie an Ihrem Lastgang?"
+            },
+            {
+              "title": "Steuerung nachrüsten",
+              "text": "Statt eines fixen Nachtfensters eine Ladung, die sich an Strompreis, Eigenerzeugung und der aktuellen Netzlast Ihres Betriebs orientiert."
+            },
+            {
+              "title": "Einbindung in den Lastgang",
+              "text": "Die Öfen werden Teil der Betriebsstrategie: Sie laden, wenn unter Ihrer Lastspitze Platz ist — und pausieren, wenn eine Spitze droht."
+            },
+            {
+              "title": "Komfort bleibt die Vorgabe",
+              "text": "Die Wärme muss da sein, wenn sie gebraucht wird. Die Steuerung optimiert innerhalb dieser Grenze, nicht gegen sie."
+            }
+          ],
+          "note": "Zur Einordnung: Ein Nachtspeicherofen gibt keinen Strom ins Netz zurück — er ist ein Wärmespeicher, kein Batteriespeicher. Für die Lastspitze zählt trotzdem dasselbe: Eine Last, die sich verschieben lässt, wirkt dort wie ein Speicher, der im richtigen Moment einspringt."
+        },
+        "nutzen": {
+          "title": "Was Sie davon haben",
+          "items": [
+            {
+              "title": "Ein Speicher, der schon da ist",
+              "text": "Die thermische Kapazität steht bereits im Haus. Sie muss nicht gekauft werden, sondern gesteuert."
+            },
+            {
+              "title": "Zwei Wirkungen aus einer Nachrüstung",
+              "text": "Günstigere Wärme über den Ladezeitpunkt — und eine Last, die Ihre Spitze nicht länger mit hochtreibt."
+            },
+            {
+              "title": "Ein überschaubarer Eingriff",
+              "text": "Das ist ein Steuerungsthema, kein Heizungstausch. Die Anlage bleibt, die Logik davor ändert sich."
+            }
+          ]
+        },
+        "related": {
+          "title": "Passt dazu",
+          "peakShaving": "Eine verschiebbare Last ist derselbe Hebel wie ein Speicher: Sie senkt die teuerste Viertelstunde.",
+          "energiemanagement": "Wie groß der Hebel ist, zeigt erst der Lastgang — er sagt, wann die Öfen heute laden und was das kostet."
+        },
+        "cta": {
+          "title": "Haben Sie noch Nachtspeicheröfen im Bestand?",
+          "lead": "Dann klären wir im Erstgespräch, welche Anschlussleistung daran hängt und ob sich eine Steuerung dafür lohnt. Unverbindlich."
+        }
+      },
+      "ppa": {
+        "metaDescription": "PPA und Grünstrombeschaffung für Unternehmen in Österreich: Beschaffungsstrategie, Preis- und Risikomodell, Vertragsstruktur und Herkunftsnachweise. Jetzt Beratung anfragen.",
+        "title": "PPA & Grünstrom",
+        "promise": "Strom langfristig beschaffen, ohne das Preisrisiko blind zu tauschen — Strategie, Modell und Vertragsstruktur aus einer Hand.",
+        "problem": {
+          "title": "Ein PPA ist kein Stromtarif.",
+          "text": [
+            "Es ist ein langfristiger Vertrag mit einem Kraftwerk dahinter — mit Laufzeiten, die die meisten anderen Entscheidungen in Ihrem Betrieb überdauern.",
+            "Die Klauseln entscheiden, wer welches Risiko trägt: Profilabweichung, Mengenkorridore, Herkunftsnachweise, Sicherheiten, was bei Stillstand passiert. Wer zwei Angebote nur am Preis je Megawattstunde vergleicht, hat die Verträge nicht verglichen.",
+            "Und die Menge, die Sie langfristig binden, ist selbst eine Entscheidung. Sonst entsteht sie einfach — meist zum falschen Zeitpunkt."
+          ]
+        },
+        "vorgehen": {
+          "title": "Was wir tun",
+          "lead": "Erst das eigene Profil kennen, dann verhandeln. Nicht umgekehrt.",
+          "items": [
+            {
+              "title": "Bedarfs- und Profilanalyse",
+              "text": "Wie sieht Ihr Verbrauch über Tag, Woche und Jahr aus? Ein Vertrag, der zu Ihrem Profil passt, ist mehr wert als ein niedriger Durchschnittspreis."
+            },
+            {
+              "title": "Beschaffungsstrategie",
+              "text": "Wie viel Menge langfristig binden, wie viel am Markt lassen? Wir legen die Quote bewusst fest, statt sie entstehen zu lassen."
+            },
+            {
+              "title": "Preis- und Risikomodell",
+              "text": "Fix, indexiert oder als Korridor — durchgerechnet in Szenarien statt in einer Punktprognose. Sie sehen, was passiert, wenn der Markt sich anders entwickelt als erwartet."
+            },
+            {
+              "title": "Vertragsstruktur & Herkunftsnachweise",
+              "text": "Physisch oder finanziell, Profilrisiko, Mengenkorridore, Sicherheiten — und die saubere Zuordnung der Herkunftsnachweise."
+            },
+            {
+              "title": "Portfolio über Standorte",
+              "text": "Mehrere Standorte gemeinsam betrachten, statt jeden Zählpunkt einzeln zu verhandeln."
+            }
+          ],
+          "note": "Für größere Betriebe kommt die andere Richtung dazu: Steuerbare Lasten und Speicher lassen sich vermarkten. Ob das für Sie relevant ist, bewerten wir am Anfang — versprochen wird es nicht vorher."
+        },
+        "nutzen": {
+          "title": "Was Sie davon haben",
+          "items": [
+            {
+              "title": "Planbare Energiekosten",
+              "text": "Eine abgestimmte Beschaffungs- und Flexibilitätsstrategie macht aus einem Marktrisiko eine Position, die Sie kennen."
+            },
+            {
+              "title": "Grünstrom, der im Bericht hält",
+              "text": "Herkunftsnachweise sauber zugeordnet — sonst trägt die Aussage im ESG-Bericht nicht."
+            },
+            {
+              "title": "Eine bessere Verhandlungsposition",
+              "text": "Wer sein Profil, seine Flexibilität und seine Alternativen kennt, verhandelt anders."
+            }
+          ]
+        },
+        "related": {
+          "title": "Passt dazu",
+          "pvSpeicher": "Eigenerzeugung senkt die Menge, die Sie überhaupt beschaffen müssen — das gehört in dieselbe Rechnung.",
+          "energiemanagement": "Das Verbrauchsprofil, auf dem jede Beschaffung aufsetzt, kommt aus der Lastganganalyse.",
+          "esg": "Herkunftsnachweise und Emissionsfaktoren treffen sich im Bericht — dort zeigt sich, ob die Beschaffung sauber dokumentiert ist."
+        },
+        "cta": {
+          "title": "Steht bei Ihnen eine Beschaffungsentscheidung an?",
+          "lead": "Wir sehen uns Ihr Profil und Ihre Vertragslage an und sagen Ihnen, ob ein PPA für Sie überhaupt das richtige Instrument ist. Unverbindlich."
+        }
+      },
+      "finanzierung": {
+        "metaDescription": "Förderung für Batteriespeicher und Energieprojekte in Österreich: Fördermittel-Screening, Investitionsfreibetrag, CAPEX/OPEX und Contracting im Vergleich. Jetzt Beratung anfragen.",
+        "title": "Finanzierung & Förderungen",
+        "promise": "Fördermittel, CAPEX/OPEX und Contracting bewertet, bevor die Investition entschieden ist — nicht danach.",
+        "problem": {
+          "title": "Die meisten Förderungen scheitern nicht am Antrag, sondern am Zeitpunkt.",
+          "text": [
+            "Wer bestellt, bevor die Einreichung steht, verliert in vielen Programmen die Förderfähigkeit — und erfährt das oft erst, wenn die Anlage schon steht.",
+            "Die zweite Falle ist die Form der Beschaffung. Ob eine Anlage gekauft, geleast oder über Contracting bezogen wird, verändert Bilanz, Liquidität und Steuerwirkung — nicht nur die monatliche Rate. Verglichen wird aber meist nur die Rate.",
+            "Und Fördersatz, Investitionsfreibetrag und Abschreibung gehören in dieselbe Rechnung. Getrennt betrachtet sehen sie alle gut aus."
+          ]
+        },
+        "vorgehen": {
+          "title": "Was wir tun",
+          "lead": "Reihenfolge vor Formular. Was wann passieren muss, entscheidet mehr als der Antragstext.",
+          "items": [
+            {
+              "title": "Fördermittel-Screening",
+              "text": "Welche Bundes-, Landes- und Programmförderungen kommen für Ihr Vorhaben in Frage — und welche schließen einander aus?"
+            },
+            {
+              "title": "Antragslogik & Fristen",
+              "text": "Was muss vor der Bestellung passieren, welche Nachweise braucht die Einreichung, welche Fristen laufen bereits?"
+            },
+            {
+              "title": "CAPEX- und OPEX-Modelle",
+              "text": "Kauf, Leasing, Miete und Contracting gegenübergestellt — mit den bilanziellen und steuerlichen Folgen, nicht nur mit der Rate."
+            },
+            {
+              "title": "Steuerliche Effekte",
+              "text": "Investitionsfreibetrag und Abschreibung gehören in dieselbe Rechnung wie der Fördersatz. Erst zusammen ergeben sie die Zahl, die zählt."
+            },
+            {
+              "title": "Entscheidungsvorlage",
+              "text": "Eine Unterlage, die ein Geschäftsführungs- oder Bankgespräch trägt: Annahmen offen, Szenarien daneben, Empfehlung begründet."
+            }
+          ],
+          "note": "Wir rechnen die Effekte durch und bereiten die Einreichung vor. Die steuerrechtliche Beurteilung Ihres Einzelfalls bleibt bei Ihrer Steuerberatung — wir arbeiten ihr zu, wir ersetzen sie nicht."
+        },
+        "nutzen": {
+          "title": "Was Sie davon haben",
+          "items": [
+            {
+              "title": "Förderfähigkeit bleibt erhalten",
+              "text": "Weil die Reihenfolge stimmt: erst einreichen, dann bestellen."
+            },
+            {
+              "title": "Modelle, die vergleichbar sind",
+              "text": "Kauf, Leasing und Contracting auf derselben Grundlage — statt drei Angebote in drei Logiken."
+            },
+            {
+              "title": "Eine Rechnung, die standhält",
+              "text": "Bank, Förderstelle und Geschäftsführung stellen unterschiedliche Fragen. Die Annahmen liegen für alle drei offen."
+            }
+          ]
+        },
+        "related": {
+          "title": "Passt dazu",
+          "pvSpeicher": "Die Investition, um die es meistens geht: Anlage und Speicher — Auslegung und Finanzierung gehören zusammen gedacht.",
+          "kalkulator": "Wie Förderung und Investitionsfreibetrag auf die Amortisation eines Speichers wirken, rechnet der Kalkulator direkt mit.",
+          "esg": "Geförderte Maßnahmen und ihre Wirkung tauchen später im Bericht wieder auf — einmal sauber dokumentiert reicht."
+        },
+        "cta": {
+          "title": "Bevor Sie bestellen: einmal drüberschauen lassen.",
+          "lead": "Ein frühes Gespräch kostet eine halbe Stunde und entscheidet mit, ob eine Förderung überhaupt noch möglich ist. Unverbindlich."
+        }
+      },
+      "esg": {
+        "metaDescription": "ESG-Reporting und CSRD für Unternehmen in Österreich: Datenmodell, Emissionsberechnung und Audit-Ready-Dokumentation der CO₂-Bilanz. Jetzt Beratung anfragen.",
+        "title": "ESG / CSRD — Daten & Nachweis",
+        "promise": "Ein Datenmodell, das die Emissionsberechnung trägt — und eine Dokumentation, die einer Prüfung standhält.",
+        "problem": {
+          "title": "ESG-Berichte scheitern selten an der Formel. Sie scheitern an der Datenherkunft.",
+          "text": [
+            "Verbräuche liegen in Rechnungen, Zählerständen, Tabellen und Köpfen. Zusammengetragen wird das einmal im Jahr, unter Zeitdruck, von jemandem, der es im Jahr darauf wieder von vorn macht.",
+            "Im Audit kommt dann die Frage, woher eine Zahl stammt. Die Antwort darf an dieser Stelle nicht rekonstruiert werden müssen — sie muss dokumentiert sein: Quelle, Methode, Stand.",
+            "Wer das Datenmodell einmal sauber aufsetzt, hat den Aufwand im ersten Jahr. Wer es lässt, hat ihn jedes Jahr."
+          ]
+        },
+        "vorgehen": {
+          "title": "Was wir tun",
+          "lead": "Zuerst die Datenwege, dann die Rechnung. Umgekehrt wird jeder Bericht zur Rekonstruktion.",
+          "items": [
+            {
+              "title": "Datenmodell",
+              "text": "Welche Quellen, welche Zählpunkte, welche Systemgrenzen? Einmal definiert und dokumentiert, statt jedes Jahr neu ausgehandelt."
+            },
+            {
+              "title": "Emissionsberechnung",
+              "text": "Scope 1, Scope 2 und die für Sie relevanten Scope-3-Kategorien — mit dokumentierten Faktoren und nachvollziehbarer Zuordnung."
+            },
+            {
+              "title": "Audit-Ready-Dokumentation",
+              "text": "Jede Zahl mit Quelle, Methode und Stand. Prüfbar, ohne dass sich jemand erinnern muss."
+            },
+            {
+              "title": "Integration in bestehende Prozesse",
+              "text": "Der Bericht hängt an den Systemen, die Sie ohnehin betreiben — kein zweiter Datenhaushalt neben dem echten."
+            }
+          ],
+          "note": "Ob und ab wann Ihr Unternehmen berichtspflichtig ist, hängt an Größe, Rechtsform und dem jeweils aktuellen Stand der Umsetzung — und der bewegt sich. Diese Frage klären wir am Anfang, nicht am Ende."
+        },
+        "nutzen": {
+          "title": "Was Sie davon haben",
+          "items": [
+            {
+              "title": "Zahlen, die halten",
+              "text": "Geprüft wird nicht die Berechnung, sondern ihre Grundlage. Genau die liegt dann vor."
+            },
+            {
+              "title": "Weniger Aufwand im zweiten Jahr",
+              "text": "Ein Datenmodell, das steht, macht aus dem Jahresbericht eine Fortschreibung statt einer Neuauflage."
+            },
+            {
+              "title": "Dieselben Daten steuern auch",
+              "text": "Was Sie für den Bericht ohnehin erfassen, trägt genauso Effizienz und Beschaffung. Der Bericht wird zum Nebenprodukt, nicht zum Selbstzweck."
+            }
+          ]
+        },
+        "related": {
+          "title": "Passt dazu",
+          "energiemanagement": "Die Verbrauchsdaten, aus denen der Bericht entsteht, kommen aus dem Monitoring — nicht aus der Rechnung.",
+          "ppa": "Grünstrom und Herkunftsnachweise wirken direkt auf Scope 2. Beschaffung und Bericht gehören zusammen."
+        },
+        "cta": {
+          "title": "Steht der erste Bericht an — oder der nächste?",
+          "lead": "Wir sehen uns an, welche Daten Sie schon haben und welche fehlen. Daraus wird ein Plan statt einer Nachtschicht. Unverbindlich."
+        }
+      }
+    }
+  },
   "QuickCalculator": {
     "title": "Schnellrechner",
     "intro": "Drei Angaben, eine Zahl. Die Werte sind ein Beispiel — überschreiben Sie sie mit Ihren eigenen.",
@@ -95,13 +522,7 @@
     "Portfolio": {
       "eyebrow": "Leistungsportfolio",
       "title": "Von der Analyse bis zur Umsetzung",
-      "lead": "Wir verbinden technische Machbarkeit, wirtschaftliche Wirkung und belastbare Finanzierung zu klaren Entscheidungen.",
-      "pvSpeicher": "Standort-Check, Auslegung, Wirtschaftlichkeit, Ausschreibung und Partnersteuerung — mit Fokus auf Eigenverbrauch, Flexibilität und Resilienz.",
-      "energiemanagement": "Lastganganalyse, Monitoring, Maßnahmenkatalog, ISO-50001-Readiness sowie Optimierung von Druckluft, Wärme, Kälte und Prozessen.",
-      "smartHeating": "Intelligente Nachtspeicheröfen als steuerbare Wärmelast — nutzbar wie ein Speicher für die Lastverschiebung.",
-      "ppa": "Beschaffungsstrategie, Preis- und Risikomodell, Vertragsstruktur, Herkunftsnachweise und standortübergreifende Portfolio-Optimierung.",
-      "finanzierung": "Fördermittel-Screening, Antragslogik, CAPEX-/OPEX-Modelle, Contracting-Varianten und belastbare Entscheidungsvorlagen.",
-      "esg": "Datenmodell, Emissionsberechnung, Audit-Ready-Dokumentation und Integration in bestehende Reporting- und Steuerungsprozesse."
+      "lead": "Wir verbinden technische Machbarkeit, wirtschaftliche Wirkung und belastbare Finanzierung zu klaren Entscheidungen."
     },
     "Branchen": {
       "eyebrow": "Branchen",

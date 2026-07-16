@@ -45,22 +45,12 @@
   --color-surface-alt: #fafafa; /* Neutral 50 – Off-White-Grund */
   --color-surface-sunken: #f5f5f5; /* Neutral 100 – abgesetzte Zeilen/Felder */
   /*
-   * CHROME-GRUND (Header + Footer) — die EINZIGE Fläche mit Hue-Cast.
-   *
-   * Bewusste, dokumentierte AUSNAHME von „Neutrale = hueless" (s. oben): ein
-   * „Hauch Grün" auf der Rahmen-Fläche, angelehnt an den Teal-Akzent.
-   * HERKUNFT, damit der Wert nicht geraten wirkt: exakter Mittelwert aus
-   * --color-accent-subtle (#f0fdfa, Teal 50) und --color-surface-alt (#fafafa)
-   * je Kanal -> „ein halber Hauch Teal 50". Hue-Cast 7 (Rest der Rampe: 0).
-   *
-   * EIGENER Token, KEIN `bg-accent/3`: Tailwind verwirft /alpha auf var()-Hex
-   * still (s. Regel unten) — die Fläche bliebe transparent, ohne Fehler.
-   *
-   * FALLBACK (falls der Ton den Ernst stört, s. DESIGN.md „Grünton"): NUR die
-   * zwei Klassen zurückdrehen — Header auf `bg-surface`, Footer auf
-   * `bg-surface-alt`. Der Token darf dann ersatzlos weg.
+   * ENTSCHIEDEN (Andreas, am Bild): KEIN Grünton auf Header/Footer. Der in
+   * Prompt 7 eingeführte Token --color-surface-subtle (#f5fcfa, Hue-Cast 7) ist
+   * ersatzlos entfernt — Header läuft wieder auf `bg-surface` (#ffffff), Footer
+   * auf `bg-surface-alt` (#fafafa). Damit gilt „Neutrale = hueless" (s. oben)
+   * AUSNAHMSLOS; die einzigen Farben im System sind Navy und Teal.
    */
-  --color-surface-subtle: #f5fcfa;
   --color-border: #e5e5e5; /* Neutral 200 – dünne Ränder STATT Schlagschatten */
   --color-border-strong: #d4d4d4; /* Neutral 300 – ruhige Trenner/Konturen */
   /*
