@@ -1,4 +1,4 @@
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { getTranslations } from 'next-intl/server'
 import type { Metadata } from 'next'
 import { ArrowRight } from 'lucide-react'
@@ -9,6 +9,17 @@ import { Link as TextLink } from '@/components/ui/link'
 import { kontaktHrefFor } from '@/lib/kontakt/themen'
 import { findLeistung, type Leistung } from '@/lib/leistungen'
 import { pageAlternates } from '@/lib/seo'
+import { articleHref, findArticle } from '@/lib/wissen'
+
+/**
+ * Der Slug des einen „Weiterlesen"-Verweises (13c/§6.4-Nacharbeit) —
+ * literal, KEIN generisches Artikel-Vokabular für n Artikel. Steht auf ALLEN
+ * 6 Leistungsseiten, anders als `CROSS_LINKS` (`lib/leistungen.ts`), das
+ * inhaltlich je Leistung gewählt bleibt: Der Leistungstarif 2027 ist der
+ * Kostenkontext für JEDE Leistung, nicht nur für einzelne — ESG bekommt
+ * deshalb hier einen Verweis, obwohl `CROSS_LINKS.esg` bewusst leer bleibt.
+ */
+const RELATED_ARTICLE_SLUG = 'leistungstarif-2027'
 
 /**
  * DAS Template aller 6 Leistungsseiten (Pflichtenheft §5.1).
@@ -134,10 +145,7 @@ function VorgehenSection({ leistung }: { leistung: Leistung }) {
             <li key={item.title} className="grid gap-x-5 gap-y-2 sm:grid-cols-[3rem_1fr]">
               {/* tabular-nums über <Num> braucht es nicht: die Ziffern stehen
                   untereinander in eigener Spalte, es wird nichts verglichen. */}
-              <span
-                aria-hidden="true"
-                className="text-h4 tabular-nums text-text-muted"
-              >
+              <span aria-hidden="true" className="text-h4 tabular-nums text-text-muted">
                 {String(i + 1).padStart(2, '0')}
               </span>
               <div className="max-w-prose border-t border-line-strong pt-3 sm:border-t-0 sm:pt-0">
@@ -194,12 +202,26 @@ function NutzenSection({ leistung }: { leistung: Leistung }) {
  * Cross-Links (§4.2/§6.4). Ziele kommen aus `lib/leistungen.ts`, der Titel aus
  * dem Nav-Label des Ziels (ein zweiter Name für dieselbe Seite wäre eine Falle),
  * der Erklärtext aus dieser Seite — warum SIE dorthin verweist.
+ *
+ * TRÄGT SEIT 13c AUSSERDEM DIE „WEITERLESEN"-KARTE zum 2027-Artikel, auf ALLEN
+ * 6 Seiten — dieselbe Kartenoptik wie die übrigen Cross-Links (kein neues
+ * Muster), aber ein eigener, universeller Verweis statt eines Eintrags in
+ * `CROSS_LINKS`: Die Umstellung 2027 ist Kostenkontext für jede Leistung, nicht
+ * eine inhaltliche Passung wie zwischen zwei Leistungen. `CROSS_LINKS.esg`
+ * bleibt deshalb bewusst leer (kein Zwangs-Cross-Link), während `esg` diese
+ * Karte trotzdem zeigt.
  */
 function CrossLinkSection({ leistung }: { leistung: Leistung }) {
   const t = usePage(leistung)
   const tNav = useTranslations('Nav')
+  const locale = useLocale()
 
-  if (leistung.crossLinks.length === 0) return null
+  const article = findArticle(locale, RELATED_ARTICLE_SLUG)
+  if (!article) {
+    throw new Error(
+      `Leistungsseite "${leistung.key}": Artikel-Slug "${RELATED_ARTICLE_SLUG}" existiert für Locale "${locale}" nicht (lib/wissen.ts)`,
+    )
+  }
 
   return (
     <Section>
@@ -223,6 +245,22 @@ function CrossLinkSection({ leistung }: { leistung: Leistung }) {
               </TextLink>
             </li>
           ))}
+
+          {/* „Weiterlesen": Titel/Teaser 1:1 aus dem Artikel-Frontmatter — dieselben
+              Felder wie auf der Wissen-Übersicht, damit die Karte nie vom echten
+              Artikeltext abweicht. */}
+          <li>
+            <TextLink variant="standalone" href={articleHref(article.slug)} className="group block">
+              <span className="flex items-center gap-2 text-h4">
+                {article.title}
+                <ArrowRight
+                  className="h-4 w-4 shrink-0 transition-transform group-hover:translate-x-0.5"
+                  aria-hidden="true"
+                />
+              </span>
+              <span className="mt-1 block text-small text-text-muted">{article.teaser}</span>
+            </TextLink>
+          </li>
         </ul>
       </Container>
     </Section>

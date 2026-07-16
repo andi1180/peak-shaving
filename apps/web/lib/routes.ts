@@ -67,6 +67,20 @@ function navHrefs(): string[] {
 }
 
 /**
+ * Seiten OHNE echten Inhalt — reiner `PagePlaceholder` („Inhalt folgt"), noch
+ * nicht gebaut (SEO-Nacharbeit, Prompt 13c/§6.4). Sie standen bis hierhin in der
+ * sitemap, obwohl sie nichts zum Finden anbieten: eine dünne Seite aktiv zum
+ * Indexieren vorzuschlagen, ist nicht gratis — sie kann echten Content derselben
+ * Seite im Ranking verdünnen, ohne selbst je Sucher zu bedienen.
+ *
+ * ZURÜCKSTELLEN, SOBALD ECHTER INHALT DA IST: Diese Zeile hier löschen. Mehr
+ * nicht — `SITE_ROUTES` fällt dann auf den Default `indexable: true` zurück,
+ * die sitemap nimmt die Seite automatisch wieder auf, und ihr `robots`-Tag
+ * (kommt aus `robotsFor`, s. u.) verschwindet mit. Kein zweiter Ort zum Ändern.
+ */
+const PLACEHOLDER_HREFS = ['/produkte', '/referenzen', '/ueber-uns', '/impressum', LOGIN_HREF]
+
+/**
  * Die statischen Routen der Seite. `/wissen/<slug>` fehlt hier bewusst: Artikel
  * sind eine Collection und kommen aus `lib/wissen.ts` — sie stehen in keiner
  * Liste, sonst wäre jeder neue Artikel wieder eine Code-Änderung (§10.1).
@@ -76,16 +90,20 @@ export const SITE_ROUTES: SiteRoute[] = Array.from(
 ).map((href) => ({
   href,
   /*
-   * Die EINZIGE nicht-indexierbare Route unter `(site)`. Begründung (13a): Ihr
-   * crawlbarer Inhalt ist eine leere Hülle — der Rechner steckt im iframe und
-   * zählt für Google nicht als Inhalt DIESER Seite. Indexiert konkurrierte sie
-   * mit der Produktseite, die den Content wirklich trägt (§6.2).
+   * Zwei UNABHÄNGIGE Gründe für `noindex` unter `(site)`:
+   *
+   *   – Die rechner-Hülle (13a): Ihr crawlbarer Inhalt ist eine leere Hülle —
+   *     der Rechner steckt im iframe und zählt für Google nicht als Inhalt
+   *     DIESER Seite. Indexiert konkurrierte sie mit der Produktseite, die den
+   *     Content wirklich trägt (§6.2).
+   *   – Die Platzhalter-Seiten (13c, `PLACEHOLDER_HREFS` oben): Sie haben noch
+   *     gar keinen Inhalt, den man indexieren könnte.
    *
    * `/styleguide` ist ebenfalls `noindex`, steht aber nicht in dieser Liste: Es
    * liegt in der Route-Group `(dev)` mit eigenem Root-Layout, also außerhalb der
    * Struktur, die hier geprüft wird — und damit von sich aus außerhalb der sitemap.
    */
-  indexable: href !== CALCULATOR_RUN_HREF,
+  indexable: href !== CALCULATOR_RUN_HREF && !PLACEHOLDER_HREFS.includes(href),
 }))
 
 /**

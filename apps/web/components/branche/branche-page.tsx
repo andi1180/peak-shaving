@@ -1,7 +1,7 @@
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { getTranslations } from 'next-intl/server'
 import type { Metadata } from 'next'
-import { ArrowRight } from 'lucide-react'
+import { ArrowRight, BookOpen } from 'lucide-react'
 import { Link } from '@/i18n/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -13,6 +13,7 @@ import { TagesverlaufChart } from '@/components/branche/tagesverlauf-chart'
 import { findBranche, FLAGSHIP_LINKS, type Branche } from '@/lib/branchen'
 import { KONTAKT_HREF } from '@/lib/nav'
 import { pageAlternates } from '@/lib/seo'
+import { articleHref, findArticle } from '@/lib/wissen'
 
 /**
  * DAS Template aller 4 Branchenseiten (Pflichtenheft §5.3).
@@ -148,6 +149,22 @@ function LastgangSection({ branche }: { branche: Branche }) {
 function HebelSection({ branche }: { branche: Branche }) {
   const t = usePage(branche)
   const tNav = useTranslations('Nav')
+  const locale = useLocale()
+
+  /*
+   * Konkreter Verweis auf den 2027-Artikel (13c) — NUR wenn `relatedArticleSlug`
+   * gesetzt ist (Bäckerei/Gastronomie, s. lib/branchen.ts). Wirft laut, falls der
+   * Slug je vom echten Artikel abweicht — ein toter Link wäre schlimmer als ein
+   * gebrochener Build.
+   */
+  const relatedArticle = branche.relatedArticleSlug
+    ? findArticle(locale, branche.relatedArticleSlug)
+    : undefined
+  if (branche.relatedArticleSlug && !relatedArticle) {
+    throw new Error(
+      `Branche "${branche.key}" verweist auf Artikel-Slug "${branche.relatedArticleSlug}", der für Locale "${locale}" nicht existiert (lib/wissen.ts)`,
+    )
+  }
 
   return (
     <Section>
@@ -184,6 +201,38 @@ function HebelSection({ branche }: { branche: Branche }) {
               </li>
             )
           })}
+
+          {/*
+           * DIE ARTIKEL-KARTE — dieselbe Kartenoptik wie die Hebel oben (kein
+           * neues Muster), nur mit `BookOpen` statt eines Leistungs-Icons: Das
+           * hier ist kein Hebel (keine Leistung, kein `LEISTUNG_ICONS`-Eintrag),
+           * sondern Lesestoff. Titel/Teaser kommen 1:1 aus dem Artikel-Frontmatter
+           * (`lib/wissen.ts`) — dieselben Felder, die `WissenTeaser` auf der
+           * Startseite zeigt, damit die Karte nie vom echten Artikeltext abweicht.
+           */}
+          {relatedArticle ? (
+            <li>
+              <Link
+                href={articleHref(relatedArticle.slug)}
+                className="group flex h-full flex-col rounded-lg border border-line bg-surface p-5 transition-colors hover:border-line-strong hover:bg-surface-sunken focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              >
+                <BookOpen
+                  className="h-5 w-5 shrink-0 text-text-muted"
+                  strokeWidth={1.75}
+                  aria-hidden="true"
+                />
+                <h3 className="mt-4 text-h4 text-ink">{relatedArticle.title}</h3>
+                <p className="mt-2 text-small text-text-muted">{relatedArticle.teaser}</p>
+                <div className="mt-auto pt-5">
+                  <ArrowRight
+                    className="h-4 w-4 text-text-muted transition-colors group-hover:text-accent"
+                    strokeWidth={1.75}
+                    aria-hidden="true"
+                  />
+                </div>
+              </Link>
+            </li>
+          ) : null}
         </ul>
 
         {/* Der prominente Verweis aufs Flaggschiff. Akzent-Fläche statt eines

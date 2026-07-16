@@ -179,6 +179,28 @@ export const FLAGSHIP_LINKS: CrossLink[] = ['peakShaving', 'kalkulator'].map(res
  */
 export type BrancheHebel = CrossLink & { icon: LucideIcon }
 
+/**
+ * Zwei Branchen mit einem KONKRETEN Verweis auf den Flaggschiff-Artikel
+ * „Leistungstarif 2027" (SEO-Nacharbeit, Prompt 13c/§6.4).
+ *
+ * NUR Bäckerei und Gastronomie: Ihre Tageskurve (s. `HOURLY` oben) ist eine
+ * kurze, unmittelbare Anlauf-/Stoßzeiten-Spitze über einer niedrigen
+ * Grundlast — exakt der Mechanismus, den der Artikel durchrechnet („drei
+ * Geräte, die gleichzeitig anlaufen"). Hotellerie (breite doppelte
+ * Gleichzeitigkeit) und Handel (Plateau, bewusst ohne `capHint`) sind nicht
+ * dieser Kernfall — ein erzwungener Verweis dort wäre Vollständigkeit ohne
+ * inhaltlichen Bezug (dieselbe Zurückhaltung wie bei `CAP_HINT`/`HEBEL` oben).
+ *
+ * BEWUSST EIN LITERALER SLUG, KEIN GENERISCHES ARTIKEL-VOKABULAR: Es gibt
+ * genau einen Artikel. Ein `relatedArticles: string[]` mit eigener Auflösung
+ * wäre Infrastruktur für n Artikel, gebaut für n=1 — Over-Engineering, das
+ * erst beim zweiten Artikel gerechtfertigt wäre. Der Titel/Teaser der Karte
+ * kommt zur Laufzeit aus `lib/wissen.ts` (`findArticle`) — nicht hier
+ * zweitgetippt, sonst könnte die Karte vom echten Artikeltitel abweichen.
+ */
+const RELATED_ARTICLE_SLUG = 'leistungstarif-2027'
+const ARTICLE_LINK_BRANCHEN = ['baeckerei', 'gastronomie']
+
 export type Branche = {
   /** Schlüssel in `Nav`, `Pages` und `Branchen.Pages` der Message-Datei. */
   key: string
@@ -187,6 +209,8 @@ export type Branche = {
   profile: BrancheProfile
   /** Die passenden Leistungen. Das Flaggschiff steht separat (FLAGSHIP_LINKS). */
   hebel: BrancheHebel[]
+  /** Slug des zugehörigen Wissen-Artikels, s. `ARTICLE_LINK_BRANCHEN` oben. */
+  relatedArticleSlug?: string
 }
 
 /**
@@ -248,6 +272,9 @@ export const BRANCHEN: Branche[] = BRANCHEN_FLAT.map((leaf: NavLeaf) => {
       }
       return { ...resolveCrossLink(key), icon }
     }),
+    relatedArticleSlug: ARTICLE_LINK_BRANCHEN.includes(leaf.labelKey)
+      ? RELATED_ARTICLE_SLUG
+      : undefined,
   }
 })
 

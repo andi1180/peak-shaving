@@ -2,8 +2,12 @@ import type { Metadata } from 'next'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { PagePlaceholder } from '@/components/layout/page-placeholder'
 import { pageAlternates } from '@/lib/seo'
+import { robotsFor } from '@/lib/routes'
 
-/** Platzhalter-Route (/referenzen) — Gerüst, Inhalt folgt in einem späteren Schritt. */
+/**
+ * Platzhalter-Route (/referenzen) — Gerüst, Inhalt folgt in einem späteren Schritt.
+ * NOINDEX seit 13c — Begründung/Zurückstellen: `apps/web/app/(site)/[locale]/produkte/page.tsx`.
+ */
 export async function generateMetadata({
   params,
 }: {
@@ -14,6 +18,7 @@ export async function generateMetadata({
   return {
     title: `${t('referenzen')} — COOLiN ENERGY`,
     alternates: pageAlternates(locale, '/referenzen'),
+    robots: robotsFor('/referenzen'),
   }
 }
 
