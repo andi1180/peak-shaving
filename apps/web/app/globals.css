@@ -80,6 +80,18 @@
   --color-positive-subtle: #f0fdf4; /* Grün 50  – Text darauf 4,79:1 */
   --color-negative-subtle: #fef2f2; /* Rot 50   – Text darauf 5,91:1 */
   --color-warning-subtle: #fffbeb; /* Amber 50 – Text darauf 4,84:1 */
+  /*
+   * Rand einer Warnung-Fläche — das Gegenstück zu --color-accent-border und aus
+   * demselben Grund nötig: eine getönte Fläche braucht eine Kontur, und `/alpha`
+   * scheidet auf var()-Hex-Tokens aus (s. Regel oben). Amber 200 verhält sich zu
+   * Amber 50 wie Teal 200 (--color-accent-border) zu Teal 50 — der Kasten wird
+   * dadurch genauso laut wie ein Akzent-Callout, nicht lauter. Der gesättigte
+   * --color-warning (#b45309) als Rand hätte den Kasten alarmistisch gemacht;
+   * die Signalwirkung trägt die Überschrift im Kasten, nicht seine Kontur.
+   * Reine Deko-Kontur um eine Fläche mit Text -> 1.4.11 greift nicht (die
+   * Information steht im Text, nicht im Rand).
+   */
+  --color-warning-border: #fde68a; /* Amber 200 – Rand einer Warnung-Fläche */
 
   /* Kontrast-Paarung (kein Branding, reine Lesbarkeit auf Akzent-/Signalflächen) */
   --color-on-accent: #ffffff;

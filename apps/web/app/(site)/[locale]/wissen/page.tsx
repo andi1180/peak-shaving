@@ -1,20 +1,29 @@
 import type { Metadata } from 'next'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
-import { PagePlaceholder } from '@/components/layout/page-placeholder'
+import { WissenOverview } from '@/components/wissen/wissen-overview'
 
-/** Platzhalter-Route (/wissen) — Gerüst, Inhalt folgt in einem späteren Schritt. */
+/**
+ * /wissen — die Übersicht des Wissen-Bereichs (§6.2 Info-Intent).
+ *
+ * Ersetzt den `PagePlaceholder` („in Aufbau"), der hier bis zu diesem Schritt
+ * stand. Layout kommt aus `components/wissen/wissen-overview.tsx`, die Artikel
+ * aus `lib/wissen.ts` (Verzeichnis `content/wissen/`).
+ */
 export async function generateMetadata({
   params,
 }: {
   params: Promise<{ locale: string }>
 }): Promise<Metadata> {
   const { locale } = await params
-  const t = await getTranslations({ locale, namespace: 'Pages' })
-  return { title: `${t('wissen')} — COOLiN ENERGY` }
+  const t = await getTranslations({ locale, namespace: 'Wissen.Overview' })
+  return {
+    title: `${t('title')} — COOLiN ENERGY`,
+    description: t('metaDescription'),
+  }
 }
 
 export default async function Page({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params
   setRequestLocale(locale)
-  return <PagePlaceholder titleKey="wissen" />
+  return <WissenOverview locale={locale} />
 }

@@ -40,7 +40,10 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
       <PeakShavingBlock />
       <Portfolio />
       <BranchenTeaser />
-      <WissenTeaser />
+      {/* `locale` explizit: Der Wissen-Teaser liest die Artikel aus
+          `content/wissen/` (Dateiname trägt die Locale) — er ist die einzige
+          Startseiten-Sektion, deren Inhalt nicht aus den Messages kommt. */}
+      <WissenTeaser locale={locale} />
       <Vorgehen />
       <KontaktCta />
     </>

@@ -8,6 +8,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Container, Eyebrow, Section } from '@/components/ui/layout'
 import { Link as TextLink } from '@/components/ui/link'
 import { QuickCalculator } from '@/components/quick-calculator'
+import { FaqSection, type FaqItem } from '@/components/faq-section'
 import { TagesverlaufChart } from '@/components/branche/tagesverlauf-chart'
 import { findBranche, FLAGSHIP_LINKS, type Branche } from '@/lib/branchen'
 import { KONTAKT_HREF } from '@/lib/nav'
@@ -55,7 +56,7 @@ export function BranchePage({ brancheKey }: { brancheKey: string }) {
       <LastgangSection branche={branche} />
       <HebelSection branche={branche} />
       <KostentreiberSection branche={branche} />
-      <FaqSection branche={branche} />
+      <BrancheFaq branche={branche} />
       <RechnerSection branche={branche} />
       <TunSection branche={branche} />
       <KontaktCta branche={branche} />
@@ -249,36 +250,20 @@ function KostentreiberSection({ branche }: { branche: Branche }) {
 /**
  * Kurze FAQ — die Fragen, die vor dem Erstgespräch kommen.
  *
- * BEWUSST KEIN ACCORDION, obwohl `components/ui/accordion.tsx` bereitliegt:
- * Radix hängt geschlossene Inhalte aus dem DOM aus. Die Antworten stünden dann
- * nicht im ausgelieferten HTML — für Seiten, deren Zweck Problem-Intent-Ranking
- * ist (§5.3), wäre das genau der falsche Preis für eine Animation. Drei Fragen
- * sind zudem kurz genug, um offen zu stehen.
+ * Markup und Begründung (kein Accordion, Antworten im DOM) stehen jetzt in der
+ * GETEILTEN `components/faq-section.tsx`: Der Wissen-Bereich trägt dieselbe FAQ,
+ * nur aus einer anderen Quelle (Frontmatter statt Messages). Zwei Kopien
+ * derselben Struktur wären zwei Gelegenheiten, dass ein späterer
+ * FAQPage-JSON-LD (§6.4) und das sichtbare HTML auseinanderlaufen.
  *
- * Die Struktur (`items: [{ q, a }]`) ist so gehalten, dass ein späterer
- * FAQPage-JSON-LD sie direkt lesen kann — das JSON-LD-Fundament ist ein eigener
- * Prompt (§6) und wird hier NICHT vorweggenommen.
+ * Was hier bleibt, ist die Datenherkunft: `Branchen.Pages.<key>.faq` — die
+ * Struktur (`items: [{ q, a }]`) ist unverändert.
  */
-function FaqSection({ branche }: { branche: Branche }) {
+function BrancheFaq({ branche }: { branche: Branche }) {
   const t = usePage(branche)
-  const items = t.raw('faq.items') as { q: string; a: string }[]
+  const items = t.raw('faq.items') as FaqItem[]
 
-  return (
-    <Section>
-      <Container>
-        <h2 className="max-w-prose text-h2 text-ink">{t('faq.title')}</h2>
-
-        <ul className="mt-8 max-w-prose space-y-8">
-          {items.map((item) => (
-            <li key={item.q} className="border-t border-line pt-4">
-              <h3 className="text-h4 text-ink">{item.q}</h3>
-              <p className="mt-2 text-body text-text-muted">{item.a}</p>
-            </li>
-          ))}
-        </ul>
-      </Container>
-    </Section>
-  )
+  return <FaqSection title={t('faq.title')} items={items} />
 }
 
 /**

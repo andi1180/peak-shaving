@@ -19,10 +19,13 @@
     "lucide-react": "^0.469.0",
     "next": "^15.1.4",
     "next-intl": "^4.13.2",
+    "next-mdx-remote": "^6.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "recharts": "^3.9.2",
-    "tailwind-merge": "^2.6.0"
+    "tailwind-merge": "^2.6.0",
+    "vfile": "^6.0.3",
+    "vfile-matter": "^5.0.1"
   },
   "devDependencies": {
     "@types/node": "^22.10.7",

@@ -1,35 +1,96 @@
-import { useTranslations } from 'next-intl'
+import { getTranslations } from 'next-intl/server'
 import { ArrowRight } from 'lucide-react'
 import { Link } from '@/i18n/navigation'
 import { Link as TextLink } from '@/components/ui/link'
 import { Container, Eyebrow, Section } from '@/components/ui/layout'
+import { articleHref, articlesFor, WISSEN_HREF, type Article } from '@/lib/wissen'
 
 /**
- * Wissen-Teaser (§4.4 Nr. 5) — 2–3 Artikel, prominent „Leistungstarif 2027".
+ * Wissen-Teaser (§4.4 Nr. 5) — der Anriss auf der Startseite.
  *
- * Der 2027-Artikel ist der strategische Hebel (§6.1) und bekommt deshalb die
- * breite Karte; die beiden anderen sind schmale Anreißer. Nur Aufhänger, kein
- * Volltext — die Artikel selbst sind eine eigene Phase.
+ * WAR: drei hartkodierte Karten mit „in Vorbereitung"-Marke, alle drei auf
+ * `/wissen` zeigend, weil es noch keinen Artikel gab.
+ * IST: datengetrieben aus `lib/wissen.ts` — dieselbe Quelle wie die Übersicht.
  *
- * LINKZIEL: alle drei zeigen auf `/wissen`. `/wissen/leistungstarif-2027`
- * existiert noch nicht (dieser Schritt legt keine Seite an) — dorthin zu
- * verlinken hieße, wissentlich in einen 404 zu führen. Sobald der Artikel
- * gebaut ist, wird hier das Ziel gesetzt.
+ * ROOT CAUSE DER STUBS, statt sie zu kaschieren: Die drei Karten waren
+ * Platzhalter für Artikel, die es nicht gab; der Kommentar in der alten Fassung
+ * sagte das auch offen („dorthin zu verlinken hieße, wissentlich in einen 404 zu
+ * führen"). Mit diesem Schritt gibt es den Flaggschiff-Artikel — die Karte zeigt
+ * jetzt auf ihn.
  *
- * Inhaltliche Substanz der Anreißer: Pflichtenheft §6.1/§6.5 (SNE-GV/ElWG,
- * 1.1.2027, monatlicher Leistungspeak auf Netzebene 7) und §6.2
- * (Terminologie: RLM, Schwelle 100.000 kWh). Nichts erfunden, keine
- * Kennzahl behauptet.
+ * DIE ZWEI ANDEREN STUBS SIND ERSATZLOS ENTFERNT, und das ist eine inhaltliche
+ * Entscheidung, keine Aufräumaktion: Sie hießen „Arbeitspreis und Leistungspreis
+ * — der entscheidende Unterschied" und „RLM-Messung: ab wann Ihr Lastgang
+ * viertelstündlich erfasst wird". Beides sind inzwischen H2-ABSCHNITTE INNERHALB
+ * des 2027-Artikels (§6.5). Sie als eigene Artikel anzukündigen hieße, denselben
+ * Info-Intent ein zweites Mal zu bedienen — genau die Keyword-Dopplung, die §6.2
+ * verbietet. Zwei Karten, die einen Artikel versprechen, der als Kapitel bereits
+ * existiert, sind kein Teaser, sondern eine Ankündigung ins Leere.
+ *
+ * Die Sektion trägt damit, was da ist. Kommt ein zweiter Artikel dazu, erscheint
+ * er ohne Code-Änderung als schmale Karte daneben.
  */
-const WISSEN_HREF = '/wissen'
 
-export function WissenTeaser() {
-  const t = useTranslations('Home.Wissen')
+/** Wie viele Anreißer neben dem Flaggschiff Platz haben (§4.4: „2–3 Artikel"). */
+const MAX_SECONDARY = 2
 
-  const secondary = [
-    { tag: t('a2Tag'), title: t('a2Title'), text: t('a2Text') },
-    { tag: t('a3Tag'), title: t('a3Title'), text: t('a3Text') },
-  ]
+function FeaturedCard({ article, wide }: { article: Article; wide: boolean }) {
+  return (
+    <Link
+      href={articleHref(article.slug)}
+      className={`group flex flex-col rounded-lg border border-accent-border bg-accent-subtle p-6 transition-colors hover:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
+        wide ? 'lg:col-span-2' : 'lg:col-span-3'
+      }`}
+    >
+      <span className="text-label uppercase text-accent">{article.tag}</span>
+      <h3 className="mt-3 max-w-prose text-h3 text-ink">{article.title}</h3>
+      {/* Der `teaser` aus dem Frontmatter — derselbe Text wie auf der
+          Übersichtskarte. Ein zweiter, abweichender Anreißer für denselben
+          Artikel wäre nur eine weitere Stelle, an der die Seite von sich selbst
+          abweichen kann (gleiche Logik wie bei den Branchen-Kacheln). */}
+      <p className="mt-3 max-w-prose text-body text-text">{article.teaser}</p>
+      <div className="mt-auto pt-6">
+        <ArrowRight
+          className="h-4 w-4 text-accent transition-transform group-hover:translate-x-0.5"
+          strokeWidth={1.75}
+          aria-hidden="true"
+        />
+      </div>
+    </Link>
+  )
+}
+
+function SecondaryCard({ article }: { article: Article }) {
+  return (
+    <Link
+      href={articleHref(article.slug)}
+      className="group flex h-full flex-col rounded-lg border border-line bg-surface p-5 transition-colors hover:border-line-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+    >
+      <span className="text-label uppercase text-text-muted">{article.tag}</span>
+      <h3 className="mt-2 text-h4 text-ink">{article.title}</h3>
+      <p className="mt-2 text-small text-text-muted">{article.teaser}</p>
+    </Link>
+  )
+}
+
+export async function WissenTeaser({ locale }: { locale: string }) {
+  const t = await getTranslations({ locale, namespace: 'Home.Wissen' })
+  const articles = articlesFor(locale)
+
+  // Ohne Artikel keine Sektion. Eine Überschrift „Was Sie wissen müssen" über
+  // einer leeren Fläche wäre schlechter als gar nichts.
+  if (articles.length === 0) return null
+
+  /*
+   * Der hervorgehobene Artikel (§6.1) ist der mit `featured: true` — steht
+   * keiner so markiert da, tritt der neueste an seine Stelle. Kein Slug im Code:
+   * `featuredArticle()` würde `undefined` liefern, wenn jemand die Markierung
+   * entfernt, und die Sektion hätte still kein Flaggschiff mehr.
+   */
+  const featured = articles.find((article) => article.featured) ?? (articles[0] as Article)
+  const secondary = articles
+    .filter((article) => article.slug !== featured.slug)
+    .slice(0, MAX_SECONDARY)
 
   return (
     <Section tone="alt">
@@ -46,47 +107,21 @@ export function WissenTeaser() {
         </div>
 
         <div className="mt-10 grid gap-4 lg:grid-cols-3">
-          {/* Flaggschiff-Artikel — zwei von drei Spalten (§6.1). */}
-          <Link
-            href={WISSEN_HREF}
-            className="group flex flex-col rounded-lg border border-accent-border bg-accent-subtle p-6 transition-colors hover:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 lg:col-span-2"
-          >
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-label uppercase text-accent">{t('a1Tag')}</span>
-              <span className="rounded-sm border border-accent-border px-1.5 py-0.5 text-caption text-text-muted">
-                {t('soon')}
-              </span>
-            </div>
-            <h3 className="mt-3 text-h3 text-ink">{t('a1Title')}</h3>
-            <p className="mt-3 max-w-prose text-body text-text">{t('a1Text')}</p>
-            <div className="mt-auto pt-6">
-              <ArrowRight
-                className="h-4 w-4 text-accent transition-transform group-hover:translate-x-0.5"
-                strokeWidth={1.75}
-                aria-hidden="true"
-              />
-            </div>
-          </Link>
+          {/*
+           * `wide` nur, wenn es Anreißer gibt: Die Flaggschiff-Karte belegte
+           * fest zwei von drei Spalten. Ohne Nachbarn stünde daneben ein Drittel
+           * leere Fläche — die Karte nimmt dann die volle Breite. Phase 1 hat
+           * genau einen Artikel; das ist der reale Fall, nicht der Randfall.
+           */}
+          <FeaturedCard article={featured} wide={secondary.length > 0} />
 
-          {/* Anreißer — gleich hoch, gestapelt. */}
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
-            {secondary.map((article) => (
-              <Link
-                key={article.title}
-                href={WISSEN_HREF}
-                className="group flex h-full flex-col rounded-lg border border-line bg-surface p-5 transition-colors hover:border-line-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              >
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-label uppercase text-text-muted">{article.tag}</span>
-                  <span className="rounded-sm border border-line px-1.5 py-0.5 text-caption text-text-muted">
-                    {t('soon')}
-                  </span>
-                </div>
-                <h3 className="mt-2 text-h4 text-ink">{article.title}</h3>
-                <p className="mt-2 text-small text-text-muted">{article.text}</p>
-              </Link>
-            ))}
-          </div>
+          {secondary.length > 0 ? (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
+              {secondary.map((article) => (
+                <SecondaryCard key={article.slug} article={article} />
+              ))}
+            </div>
+          ) : null}
         </div>
       </Container>
     </Section>

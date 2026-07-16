@@ -52,6 +52,7 @@ export default {
         warning: {
           DEFAULT: 'var(--color-warning)',
           subtle: 'var(--color-warning-subtle)',
+          border: 'var(--color-warning-border)',
         },
 
         // — shadcn/ui-Bridge (mappt auf dieselben DESIGN-Tokens) —

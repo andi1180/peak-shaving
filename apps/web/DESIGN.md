@@ -34,6 +34,7 @@ Abweichung bekannt und gewollt. `apps/website` wurde NICHT angefasst.
 | `--color-node` | Der hellere Teal-Knoten des Emblems. Nur Grafik, kein UI-Ton. |
 | `--color-*-subtle` | Getönte Flächen der Signalfarben (technisch nötig, s. „Kein /alpha"). |
 | `--color-accent-border` | Rand einer Akzent-Fläche. |
+| `--color-warning-border` | Rand einer Warnung-Fläche (Warnung-Callout im Wissen-Bereich). Gegenstück zu `--color-accent-border` und aus demselben Grund nötig: `/alpha` scheidet auf `var()`-Hex-Tokens aus. Amber 200 verhält sich zu Amber 50 wie Teal 200 zu Teal 50 — der Kasten wird damit genauso laut wie ein Akzent-Callout, nicht lauter. Der gesättigte `--color-warning` als Kontur hätte ihn alarmistisch gemacht; die Signalwirkung trägt die Überschrift im Kasten. |
 | `--color-border-input` | Feldrand mit ≥ 3:1 (WCAG 1.4.11), s. „Geprüfte Kontraste". |
 | neutrale Grau-Rampe | s. oben. |
 
@@ -73,6 +74,7 @@ Navy trägt Marke und Struktur, Teal ist das seltene Signal. Alle Werte sind CSS
 --color-positive:        #15803d;  --color-positive-subtle: #f0fdf4;
 --color-negative:        #b91c1c;  --color-negative-subtle: #fef2f2;
 --color-warning:         #b45309;  --color-warning-subtle:  #fffbeb;
+--color-warning-border:  #fde68a;  /* Amber 200 — Rand einer Warnung-Fläche */
 
 /* — Kontrast-Paarungen (reine Lesbarkeit, kein Branding) — */
 --color-on-accent:       #ffffff;
@@ -469,6 +471,20 @@ altern, nicht mit der App.
 sie das Einzige ist, was der Kalkulator dimensioniert — Farbe ist auch hier Information, nicht
 Dekor. Die Vorlage in `apps/website` färbt alle vier Knoten teal und legt einen Glow darunter;
 beides ist hier bewusst nicht übernommen (Glow ist der Sache nach ein Verlauf, §7.2).
+
+Dazu der **Wissen-Bereich** (`/wissen` + `/wissen/[slug]`) mit der **Rich-MDX-Bibliothek**
+(`components/wissen/`): `Callout` (info/accent/warning), `Figure`/`ChartFigure` und die
+Typografie-Map (`mdx-components.tsx`), die Markdown auf die Tokens dieser Datei abbildet.
+
+**Regel: kein `@tailwindcss/typography` (`prose`).** Das Plugin bringt eine EIGENE Typo-Skala und
+eigene Farben mit — sie müssten Zeile für Zeile auf diese Datei zurückgebogen werden und wären
+danach eine zweite Wahrheit neben `tailwind.config.ts`. Die MDX-Map ist stattdessen explizit: länger
+im Code, aber ohne einen Ton, den niemand entschieden hat. Wer `prose` nachrüstet, bricht das.
+
+**Regel: die Textbreite hängt an den Elementen, nicht am Container.** Fließtext läuft auf
+`max-w-prose`, Grafiken dürfen breiter stehen (Pflichtenheft §7.5). Läge die Begrenzung am Wrapper,
+könnte kein Chart je ausbrechen — deshalb trägt jedes Textelement der MDX-Map seine eigene
+`max-w-prose`.
 
 **Noch nicht gebaut:** echter Seiten-Content der übrigen Unterseiten, Formulare,
 JSON-LD/sitemap, Supabase/Resend/Turnstile/Analytics. Die Platzhalter-Seiten tragen bewusst nur

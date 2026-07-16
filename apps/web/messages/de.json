@@ -902,16 +902,6 @@
       "eyebrow": "Wissen",
       "title": "Was Sie wissen müssen",
       "lead": "Fachbeiträge zu Netzentgelten, Lastspitzen und Wirtschaftlichkeit — sachlich, mit Quellen.",
-      "soon": "in Vorbereitung",
-      "a1Tag": "Netzentgelte",
-      "a1Title": "Leistungstarif 2027: Was der neue Netztarif für Ihren Betrieb bedeutet",
-      "a1Text": "Österreich stellt die Netzentgelt-Systematik zum 1. Jänner 2027 um (SNE-GV auf Basis des ElWG). Für Betriebe auf Netzebene 7, bisher pauschal abgerechnet, wird der monatliche Leistungspeak zum entscheidenden Kostenfaktor.",
-      "a2Tag": "Grundlagen",
-      "a2Title": "Arbeitspreis und Leistungspreis — der entscheidende Unterschied",
-      "a2Text": "Warum eine einzelne Viertelstunde die Netzkosten eines ganzen Jahres bestimmen kann.",
-      "a3Tag": "Grundlagen",
-      "a3Title": "RLM-Messung: ab wann Ihr Lastgang viertelstündlich erfasst wird",
-      "a3Text": "Die Schwelle von 100.000 kWh Jahresverbrauch — und was sich ab da an Ihrer Abrechnung ändert.",
       "more": "Zum Wissen-Bereich"
     },
     "Vorgehen": {
@@ -1150,5 +1140,69 @@
     "datenschutz": "Datenschutz",
     "login": "Login",
     "peakShavingCalculatorRun": "Kalkulator starten"
+  },
+  "Wissen": {
+    "Overview": {
+      "eyebrow": "Wissen",
+      "metaDescription": "Fachbeiträge zu Netzentgelten, Lastspitzen und Wirtschaftlichkeit in Österreich: Leistungstarif 2027, Viertelstundenleistung, Peak Shaving — sachlich und mit Quellen.",
+      "title": "Was Sie wissen müssen",
+      "lead": "Fachbeiträge zu Netzentgelten, Lastspitzen und Wirtschaftlichkeit — sachlich, mit Quellen.",
+      "intro": "Wir schreiben über das, was wir rechnen. Wo sich eine Rechtslage gerade bewegt, steht dabei, was beschlossen ist und was noch Entwurf — und woher die Zahl kommt.",
+      "flagship": {
+        "title": "Von der Regel zur eigenen Zahl",
+        "text": "Die Artikel erklären die Systematik. Ob sich daraus für Ihren Betrieb ein Hebel ergibt, hängt an der Form Ihres Lastgangs — und die steht auf keiner Website, sondern in Ihren Daten."
+      },
+      "cta": {
+        "eyebrow": "Kontakt",
+        "title": "Eine Frage, die hier nicht steht?",
+        "lead": "Der Einstieg ist immer derselbe: ein Blick auf Ihren Lastgang und Ihre Netzrechnung. Unverbindlich.",
+        "button": "Beratung anfragen"
+      }
+    },
+    "Article": {
+      "backToOverview": "Alle Beiträge",
+      "publishedLabel": "Veröffentlicht",
+      "updatedLabel": "Aktualisiert",
+      "authorLabel": "Von",
+      "readingLabel": "Lesezeit",
+      "readingMinutes": "{minutes} Min. Lesezeit",
+      "faqTitle": "Häufige Fragen",
+      "sourcesTitle": "Quellen",
+      "sourcesNote": "Offizielle Quellen zuerst. Wo sich ein Verordnungsverfahren noch bewegt, prüfen Sie bitte den aktuellen Stand — der Redaktionsstand dieses Beitrags steht oben.",
+      "cta": {
+        "eyebrow": "Kontakt",
+        "title": "Was heißt das für Ihren Betrieb?",
+        "lead": "Ein Artikel erklärt die Regel. Ihre Zahl steht in Ihrem Lastgang — wir sehen ihn uns gemeinsam an. Unverbindlich.",
+        "button": "Beratung anfragen"
+      }
+    },
+    "Charts": {
+      "ArbeitLeistung": {
+        "workTitle": "Arbeitspreis",
+        "workHint": "zählt die ganze Fläche — jede Kilowattstunde des Monats.",
+        "powerTitle": "Leistungspreis",
+        "powerHint": "zählt einen einzigen Punkt — die höchste Viertelstunde."
+      },
+      "Netzebenen": {
+        "levelShort": "NE {level}",
+        "level1": "Übertragungsnetz (Höchstspannung)",
+        "level2": "Umspannung Höchst- auf Hochspannung",
+        "level3": "Hochspannungsnetz",
+        "level4": "Umspannung Hoch- auf Mittelspannung",
+        "level5": "Mittelspannungsnetz",
+        "level6": "Umspannung Mittel- auf Niederspannung",
+        "level7": "Niederspannungsnetz — Gewerbe, Werkstatt, Bäckerei, Gastronomie, Haushalt",
+        "highlightLabel": "Neu ab 2027"
+      },
+      "Entzerrung": {
+        "seriesTogether": "Drei Geräte laufen gleichzeitig an",
+        "seriesStaggered": "Dieselben Geräte, versetzt gestartet",
+        "peakTogetherLabel": "Spitze gleichzeitig",
+        "peakStaggeredLabel": "Spitze versetzt",
+        "energyLabel": "Verbrauchte Energie",
+        "energyValue": "in beiden Fällen gleich",
+        "kw": "{value} kW"
+      }
+    }
   }
 }
