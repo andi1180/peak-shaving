@@ -34,7 +34,7 @@
     "login": "Login",
     "loginSoon": "bald",
     "kontakt": "Kontakt",
-    "cta": "Kostenlos testen"
+    "cta": "Kalkulator"
   },
   "Footer": {
     "navLabel": "Fußzeile",
@@ -54,6 +54,22 @@
     "inProgress": "in Aufbau",
     "note": "Diese Seite ist Teil des Gerüsts. Inhalte folgen in einem späteren Schritt."
   },
+  "QuickCalculator": {
+    "title": "Schnellrechner",
+    "intro": "Drei Angaben, eine Zahl. Die Werte sind ein Beispiel — überschreiben Sie sie mit Ihren eigenen.",
+    "peakLabel": "Aktuelle Leistungsspitze (kW)",
+    "reductionLabel": "Zielreduktion (kW)",
+    "priceLabel": "Leistungspreis (€/kW·a)",
+    "resultLabel": "Geschätzte jährliche Einsparung",
+    "formula": "{reduction} kW × {price} €/kW·a",
+    "resultIncomplete": "Bitte alle drei Werte als Zahl eingeben.",
+    "resultTooLarge": "Die eingegebenen Werte sind zu groß für eine sinnvolle Schätzung.",
+    "hintNumber": "Bitte eine Zahl eingeben.",
+    "hintNegative": "Negative Werte werden als 0 gerechnet.",
+    "hintCapped": "Mehr als die aktuelle Spitze lässt sich nicht reduzieren — gerechnet wird mit {value} kW.",
+    "disclaimer": "Orientierungswert. Die belastbare Auslegung liefert der Peak-Shaving Kalkulator anhand Ihrer 15-Minuten-Lastgangdaten.",
+    "cta": "Zum Kalkulator"
+  },
   "Home": {
     "metaDescription": "COOLiN ENERGY senkt Energiekosten und CO₂ für Unternehmen in Österreich: Peak Shaving, PV & Speicher, Energiemanagement, PPA, Förderungen. Einsparpotenzial kostenlos testen.",
     "Hero": {
@@ -61,7 +77,7 @@
       "title": "Wir senken Energiekosten und CO₂ — mit messbarem Erfolg",
       "lead": "COOLiN ENERGY berät Unternehmen bei der Nutzung nachhaltiger Energie: PV & Speicher, Peak Shaving, PPAs, Energiemanagement, Abwärme, Finanzierung und Förderungen.",
       "focus": "Fokus: schnelle Umsetzbarkeit, belastbare Business Cases, Compliance-ready (CSRD/ESG).",
-      "ctaPrimary": "Kostenlos testen",
+      "ctaPrimary": "Kalkulator",
       "ctaSecondary": "Beratung anfragen"
     },
     "Peak": {
@@ -74,9 +90,6 @@
       "point2Text": "Leistung und Kapazität werden am realen Lastgang statt an pauschalen Annahmen ausgerichtet.",
       "point3Title": "Mehrfachnutzen kombinieren",
       "point3Text": "Peak Shaving, PV-Eigenverbrauch und flexible Beschaffung werden gemeinsam bewertet.",
-      "teaserTitle": "Schnellrechner",
-      "teaserSoon": "folgt",
-      "teaserNote": "Eine erste Orientierung auf Basis Ihrer Leistungsspitzen, des Leistungspreises und des angestrebten Reduktionsziels — an dieser Stelle, in Kürze.",
       "ctaPrimary": "Peak-Shaving Kalkulator",
       "ctaSecondary": "Was ist Peak Shaving"
     },

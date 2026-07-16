@@ -254,21 +254,35 @@ Tapete — es kostet Aufmerksamkeit und liefert keine mehr. Dieselbe Logik wie b
 Stelle laut, drumherum ruhig.
 
 **Faustregel für Folge-Prompts:** höchstens **ein** Auftritt pro Seitenansicht. Wer einen zweiten
-setzen will, muss den ersten entfernen. Aktueller Einsatz: **Startseite, Peak-Shaving-Sektion**
-(`components/home/peak-shaving-block.tsx`, `SignatureField` hinter der Navy-Fläche), einmal.
+setzen will, muss den ersten entfernen.
 
-**Verschoben vom Footer hierher (mit dem Startseiten-Bau).** Der Footer läuft auf *jeder* Seite —
-sein `SignatureRule` wäre auf der Startseite der zweite Auftritt gewesen. Nach der Regel oben („wer
-einen zweiten setzen will, muss den ersten entfernen") ist er dort entfernt. Gewählt wurde die
-Peak-Shaving-Sektion, weil das Motiv dort die Flaggschiff-Fläche trägt statt im Footer leise
-auszuklingen. Folge: Seiten ohne eigenen Auftritt zeigen das Motiv gar nicht — das ist die Regel
-(*höchstens* einmal), kein Verlust.
+### Kanonischer Ort: der Footer `[Entscheidung Andreas]`
 
-**Regel aus dem Bau: das Motiv gehört HINTER deckende Flächen, nie unter durchscheinende.** Erster
-Versuch war eine Karte mit `bg-white/5` über dem `SignatureField` — die Netzlinien liefen sichtbar
-quer durch Überschrift und Fließtext der Karte. Genau das „konkurriert mit dem Inhalt", das dieses
-Motiv nie tun darf. Deckende Fläche (hier `bg-navy-hover` als dunklerer Panel-Ton) löst es an der
-Wurzel.
+**Der Auftritt ist der Footer — `components/layout/site-footer.tsx`, `SignatureRule` als Abschluss
+der Markenspalte. Und sonst nirgends.**
+
+Begründung: Der Footer läuft auf *jeder* Seite. Dadurch trägt **jede Seite das Motiv genau einmal**,
+und es wird zu dem, was es sein soll — eine **wiederkehrende Signatur**. Ein Einzelauftritt auf einer
+einzigen Seite kann keine Wiedererkennung stiften; er ist dort nur Dekor. Die Regel „max. 1× pro
+Seitenansicht" ist so **systemisch** erfüllt und muss nicht pro Seite neu verhandelt werden.
+
+**Damit ist die Regel für Folge-Prompts einfach:** Das Motiv **nicht** in Sektionen, Karten, Heroes
+oder Trenner setzen. Der Footer hat es schon — ein zusätzlicher Auftritt wäre auf jeder Seite der
+zweite und damit ein Regelbruch. Wer trotzdem einen setzen will, muss ihn im Footer entfernen (und
+opfert dafür das Motiv auf allen anderen Seiten).
+
+*Historie: Mit dem Startseiten-Bau stand das Motiv kurzzeitig als `SignatureField` hinter der
+Peak-Shaving-Sektion und war dafür aus dem Footer entfernt. Zurückgedreht — die Flaggschiff-Fläche
+trug es zwar sichtbarer, aber nur auf einer Seite; als Signatur wirkt es erst über die Seiten hinweg.
+Die Navy-Sektion bleibt bestehen, nur ohne Motiv.*
+
+**Regel aus dem Bau: das Motiv läuft NIE hinter oder durch Text.** Im Footer ist das durch die
+Platzierung erledigt — es steht in einer eigenen Zeile der Markenspalte, nicht als Hintergrund.
+Bleibt als Warnung für den Fall, dass jemand `SignatureField` doch je als Flächen-Hintergrund
+einsetzt (dann gilt: nur hinter **deckenden** Flächen): Beim Startseiten-Bau lag eine Karte mit
+`bg-white/5` über dem `SignatureField` — die Netzlinien liefen sichtbar quer durch Überschrift und
+Fließtext. Genau das „konkurriert mit dem Inhalt", das dieses Motiv nie tun darf. Eine durchscheinende
+Fläche über dem Motiv ist der Fehler, nicht seine Deckkraft.
 
 ---
 
@@ -333,7 +347,8 @@ Beide auf `/styleguide` beurteilt und entschieden:
 1. **Display-Schrift → NEIN, Inter-only.** Source Serif 4 ist restlos entfernt; es gibt keine
    zweite Schrift im Projekt (s. „Typografie").
 2. **Signature-Motiv → JA, bleibt** — unter der Disziplin-Regel „Boldness an einer Stelle"
-   (s. „Signature-Motiv"). Erster und derzeit einziger Einsatz: Footer.
+   (s. „Signature-Motiv"). Einziger Einsatz: **Footer** (`SignatureRule`), und damit auf jeder
+   Seite genau 1×.
 
 Zusätzlich entschieden: **neutrale Grau-Rampe** statt Slate (s. „Design-Philosophie" und „Farben").
 
@@ -363,7 +378,15 @@ Zusätzlich entschieden: **neutrale Grau-Rampe** statt Slate (s. „Design-Philo
 Gebaut sind das visuelle Fundament (Tokens, Primitives, Marke, `/styleguide`) und das strukturelle
 Gerüst (Header mit Mega-Menü, Mobile-Drawer, Footer, i18n-Routing, Platzhalter-Routen).
 
-**Noch nicht gebaut:** echter Seiten-Content, Hero/Sektionen, Teaser-Rechner, Grafiken, Formulare,
+Dazu die Startseite und der **Schnellrechner** (`components/quick-calculator.tsx`) — der freie Teaser
+aus Pflichtenheft §5.4. Er liegt bewusst top-level unter `components/`, nicht unter `components/home/`:
+Peak-Shaving-Seite und Branchenseiten binden dieselbe Komponente ein. Er bringt seinen eigenen hellen
+Kartengrund (`Card`) mit und ist dadurch von der Sektion unabhängig, in der er steht — nur so gelten
+auch die hier gemessenen Kontraste (Feldrand und Teal-Button sind gegen **Weiß** vermessen, nicht
+gegen Navy). Er rechnet mit einer trivialen lokalen Formel, **nicht** über `packages/engine`: die
+Engine gehört dem Pro-Kalkulator (§5.4 „nicht beide Kalkulator").
+
+**Noch nicht gebaut:** echter Seiten-Content der Unterseiten, Grafiken, Formulare,
 JSON-LD/sitemap, Supabase/Resend/Turnstile/Analytics. Die Platzhalter-Seiten tragen bewusst nur
 Titel + „in Aufbau" — Inhalte kommen in eigenen Prompts (Pflichtenheft §11) und bauen ausschließlich
 auf diesen Tokens und `lib/nav.ts` auf.

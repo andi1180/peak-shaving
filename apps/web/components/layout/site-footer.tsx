@@ -3,6 +3,7 @@ import { Link } from '@/i18n/navigation'
 import { Container } from '@/components/ui/layout'
 import { Emblem } from '@/components/brand/emblem'
 import { WordmarkA } from '@/components/brand/wordmark'
+import { SignatureRule } from '@/components/brand/signature'
 import { LEISTUNGEN_FLAT, BRANCHEN_FLAT, PEAK_SHAVING_FLAT, COMPANY } from '@/lib/nav'
 import { cn } from '@/lib/utils'
 
@@ -43,16 +44,21 @@ export function SiteFooter() {
             <p className="mt-4 max-w-xs text-small text-text-muted">{tBrand('claim')}</p>
 
             {/*
-             * KEIN Signature-Motiv mehr an dieser Stelle.
+             * SIGNATURE-MOTIV — der KANONISCHE Ort (DESIGN.md „Signature-Motiv").
              *
-             * DESIGN.md „Boldness an einer Stelle": höchstens EIN Auftritt pro
-             * Seitenansicht — „wer einen zweiten setzen will, muss den ersten
-             * entfernen". Der Footer läuft auf JEDER Seite; der Auftritt ist
-             * jetzt der Peak-Shaving-Block der Startseite
-             * (components/home/peak-shaving-block.tsx), wo das Motiv die
-             * Flaggschiff-Sektion trägt, statt hier leise auszuklingen. Stünde
-             * es an beiden Stellen, hätte die Startseite es doppelt.
+             * Genau hier, weil der Footer auf JEDER Seite läuft: dadurch trägt
+             * jede Seite das Motiv genau 1× und es wird zur wiederkehrenden
+             * Signatur — statt eines Einzelauftritts auf der Startseite, den
+             * niemand als Wiedererkennung lesen kann. Die Regel „max. 1× pro
+             * Seitenansicht" ist damit systemisch erfüllt, nicht pro Seite neu
+             * verhandelt: wer anderswo einen Auftritt setzen will, muss diesen
+             * hier entfernen.
+             *
+             * Ruhiger Abschluss der Markenspalte, in einer eigenen Zeile — es
+             * läuft NIE hinter oder durch Text (DESIGN.md, Regel aus dem Bau).
+             * `aria-hidden` steckt in der Komponente: reines Dekor.
              */}
+            <SignatureRule className="mt-6 h-5 w-48 text-line-strong" />
 
             {/*
              * Adresse VERBATIM aus reference/coolin-legacy.html (Kontakt-Block).

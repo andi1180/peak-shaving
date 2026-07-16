@@ -80,7 +80,7 @@ coolin.at ist die **Hauptplattform** von COOLiN Energy: klassische Marketing-Sei
 - **Phase 2:** Login + Registrierung + Stripe; Pro-Kalkulator hinter Bezahlschranke. Preismodell (Abo vs. Einmalkauf) `[OP#2 — Owner: Andreas/Martin]`.
 - **Phase 3:** Reseller-Mandantenfähigkeit.
 
-**[Entscheidung]** CTA-Wording ist phasenfest: „**Kostenlos testen**", nie „für immer kostenlos" — damit die Copy beim Übergang frei→bezahlt nicht umgeschrieben werden muss.
+**[Entscheidung]** CTA-Wording ist phasenfest: „**Kalkulator**" (nennt nur das Ziel, macht keine Preis-Aussage — muss beim Übergang frei→bezahlt nicht umgeschrieben werden). Zusatz „kostenlos" ggf. als Subtext/Badge neben dem Button, nicht im CTA-Text selbst.
 
 ### 3.4 Reseller/Partner (Zukunft, nicht verbauen)
 
@@ -116,7 +116,7 @@ Logo (Emblem + Wortmarke COOLiN ENERGY)
 └─ [rechts]  Kontakt (sekundär)   ·   Login (Phase 1: „bald", Platzhalter)
 ```
 
-**Prominenter CTA-Button** (eigenständig gestylt, nicht Teil der Nav-Links): „**Kostenlos testen**" → Peak-Shaving-Flaggschiff bzw. Teaser/Kalkulator.
+**Prominenter CTA-Button** (eigenständig gestylt, nicht Teil der Nav-Links): „**Kalkulator**" → Peak-Shaving-Flaggschiff bzw. Teaser/Kalkulator.
 
 **Nicht in der Hauptnav, aber als Seiten:** `/referenzen`, `/datenschutz`, `/impressum`, `/produkte` (bzw. `/preise` — Produkt-Übersicht, siehe §5.7).
 
@@ -135,7 +135,7 @@ Deutsch, sprechend, keyword-orientiert (final gegen §6-Keywords gegenprüfen). 
 
 ### 4.4 Startseiten-Aufbau (Reihenfolge = Hierarchie)
 
-1. **Hero:** Problem/Lösung in einem Satz („Wir senken Ihre Leistungskosten — mit belastbaren Zahlen"), klarer Primär-CTA („Kostenlos testen") + Sekundär-CTA („Beratung anfragen"). Ruhig, seriös, kein Gradient.
+1. **Hero:** Problem/Lösung in einem Satz („Wir senken Ihre Leistungskosten — mit belastbaren Zahlen"), klarer Primär-CTA („Kalkulator") + Sekundär-CTA („Beratung anfragen"). Ruhig, seriös, kein Gradient.
 2. **Peak-Shaving-Block (extra):** eigener prominenter Abschnitt mit **Teaser-Rechner** (Schnellrechner, §5.4) — sichtbar, aber nicht überdimensioniert. Führt zum Flaggschiff/Kalkulator.
 3. **Leistungsportfolio:** die 6 Leistungen als Kacheln, kurz zusammengefasst, professionell — **keine verspielten Emoji-Icons** (siehe §7.3). Klick → jeweilige Leistungs-Unterseite.
 4. **Branchen-Teaser:** 2–4 Branchen-Karten → Branchenseiten.
@@ -168,7 +168,7 @@ Zwei Unterseiten:
 
 **(a) „Was ist Peak Shaving" (Erklärseite).** Eigener, ausführlicher Erklär-Content: Leistungspreis vs. Arbeitspreis, wie eine einzelne Viertelstunden-Spitze das ganze Jahr verteuert, RLM-Messung ab 100.000 kWh, physikalische vs. RLM-Kappung, Rolle von Speicher/Steuerung/Betriebsstrategie. Inhaltliche Referenzen zur Ausarbeitung (nicht kopieren — eigener Text): die im Kalkulator-Projekt gebaute Peak-Shaving-Website (`peak-shaving-website-ten.vercel.app`, wird hier absorbiert) sowie externe Fachguides (power-sonic.com, elum-energy.com) als Struktur-/Themen-Anregung. Diagramm „Lastgang vor/nach Kappung" vorsehen (Claude kann generieren). Führt am Ende zum Kalkulator.
 
-**(b) „Der Kalkulator" (Produkt-/Preisseite).** Beschreibt das Produkt, zeigt **Screenshots des Pro-Kalkulators und der Ergebnis-Reports** (Andreas liefert; bis dahin Platzhalter). Erklärt den Unterschied Teaser vs. Pro (§5.4). Phase 1: CTA „Kostenlos testen" → freier Kalkulator. Phase 2: Preis-/Abo-Darstellung + „Jetzt starten" hinter Login. Diese Seite ist zugleich Teil der Produkt-Übersicht (§5.7).
+**(b) „Der Kalkulator" (Produkt-/Preisseite).** Beschreibt das Produkt, zeigt **Screenshots des Pro-Kalkulators und der Ergebnis-Reports** (Andreas liefert; bis dahin Platzhalter). Erklärt den Unterschied Teaser vs. Pro (§5.4). Phase 1: CTA „Kalkulator" → freier Kalkulator. Phase 2: Preis-/Abo-Darstellung + „Jetzt starten" hinter Login. Diese Seite ist zugleich Teil der Produkt-Übersicht (§5.7).
 
 ### 5.3 Branchenseiten (Template + Start-Branchen)
 

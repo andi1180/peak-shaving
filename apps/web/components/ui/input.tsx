@@ -51,16 +51,24 @@ const Label = React.forwardRef<HTMLLabelElement, React.LabelHTMLAttributes<HTMLL
 )
 Label.displayName = 'Label'
 
-/** Feld-Hilfstext bzw. Fehlermeldung unter einem Eingabefeld. */
+/**
+ * Feld-Hilfstext bzw. Fehlermeldung unter einem Eingabefeld.
+ *
+ * `id` ist das Gegenstück zu `aria-describedby` am Feld — ohne die Verknüpfung
+ * liest ein Screenreader den Hinweis nie im Zusammenhang mit dem Feld vor, und
+ * der Hinweis wäre nur für Sehende da.
+ */
 function FieldHint({
   children,
+  id,
   tone = 'muted',
 }: {
   children: React.ReactNode
+  id?: string
   tone?: 'muted' | 'error'
 }) {
   return (
-    <p className={cn('text-caption', tone === 'error' ? 'text-negative' : 'text-text-muted')}>
+    <p id={id} className={cn('text-caption', tone === 'error' ? 'text-negative' : 'text-text-muted')}>
       {children}
     </p>
   )
