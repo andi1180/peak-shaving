@@ -4,7 +4,7 @@
 > **Maßgebliches Detaildokument: `./Pflichtenheft_Kalkulator_MVP.md`** — bei Widerspruch gilt das Pflichtenheft.
 > Diese Datei enthält die Regeln und Leitplanken; das Pflichtenheft enthält die Details.
 >
-> Hinweis: Das Repo enthält zusätzlich `apps/web` (Website coolin.at) mit eigener `apps/web/CLAUDE_Website.md` und `apps/web/Pflichtenheft_Website_Coolin.md` — für Website-Arbeit gelten diese, nicht diese Datei.
+> Hinweis: Das Repo enthält zusätzlich `apps/web` (Website coolin.at) mit eigener `apps/web/CLAUDE.md` und `apps/web/Pflichtenheft_Website_Coolin.md` — für Website-Arbeit gelten diese, nicht diese Datei.
 
 ---
 
