@@ -383,6 +383,15 @@
         "metaDescription": "Förderung für Batteriespeicher und Energieprojekte in Österreich: Fördermittel-Screening, Investitionsfreibetrag, CAPEX/OPEX und Contracting im Vergleich. Jetzt Beratung anfragen.",
         "title": "Finanzierung & Förderungen",
         "promise": "Fördermittel, CAPEX/OPEX und Contracting bewertet, bevor die Investition entschieden ist — nicht danach.",
+        "chart": {
+          "sourceLabel": ["Ihre Investition"],
+          "targets": {
+            "investitionsfreibetrag": ["Investitionsfreibetrag"],
+            "oekologischeFoerderung": ["Ökologische", "Investitionsförderung"],
+            "contracting": ["Contracting"]
+          },
+          "caption": "Schematische Darstellung: Eine Investition kann über mehrere Wege gefördert oder finanziert werden. Welcher Weg im Einzelfall passt und was er bringt, klärt das Fördermittel-Screening."
+        },
         "problem": {
           "title": "Die meisten Förderungen scheitern nicht am Antrag, sondern am Zeitpunkt.",
           "text": [
@@ -450,6 +459,15 @@
         "metaDescription": "ESG-Reporting und CSRD für Unternehmen in Österreich: Datenmodell, Emissionsberechnung und Audit-Ready-Dokumentation der CO₂-Bilanz. Jetzt Beratung anfragen.",
         "title": "ESG / CSRD — Daten & Nachweis",
         "promise": "Ein Datenmodell, das die Emissionsberechnung trägt — und eine Dokumentation, die einer Prüfung standhält.",
+        "chart": {
+          "sources": {
+            "scope1": ["Scope 1 —", "direkte Emissionen"],
+            "scope2": ["Scope 2 —", "Energiebezug"],
+            "scope3": ["Scope 3 —", "Wertschöpfungskette"]
+          },
+          "targetLabel": ["CO₂-Bilanz"],
+          "caption": "Schematische Darstellung nach dem GHG-Protocol: Die drei Emissions-Kategorien fließen in eine gemeinsame CO₂-Bilanz. Wie groß der jeweilige Anteil ist, ergibt erst die Emissionsberechnung."
+        },
         "problem": {
           "title": "ESG-Berichte scheitern selten an der Formel. Sie scheitern an der Datenherkunft.",
           "text": [

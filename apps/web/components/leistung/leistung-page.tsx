@@ -71,11 +71,13 @@ export function LeistungPage({
    * Grafik 1 auf der Startseite. Ursprünglich (Prompt 16) an der Hero-Headline
    * selbst verankert — dort saß er falsch (die Hero-Sektion ist auf allen 6
    * Seiten bewusst einspaltig, Eyebrow/H1/Intro ungestört) und wurde in
-   * Prompt 18 hierher verschoben. Bewusst optional und standardmäßig LEER: das
-   * gemeinsame Template aller 6 Leistungsseiten bleibt unangetastet, nur
-   * `pv-speicher/page.tsx`, `energiemanagement/page.tsx` und (seit Prompt 19)
-   * `smart-heating/page.tsx` befüllen ihn aktuell — ohne `firstSectionGraphic`
-   * bleibt die Sektion bit-identisch zum bisherigen einspaltigen Layout.
+   * Prompt 18 hierher verschoben. Bewusst optional: das gemeinsame Template
+   * aller 6 Leistungsseiten bleibt unangetastet. Seit Prompt 22 befüllen ALLE
+   * 6 `page.tsx`-Dateien diesen Slot (`pv-speicher`, `energiemanagement`,
+   * `smart-heating`, `ppa`, `finanzierung-foerderung`, `esg`) — ohne
+   * `firstSectionGraphic` bliebe die Sektion bit-identisch zum bisherigen
+   * einspaltigen Layout, dieser Fall tritt aktuell auf keiner der 6 Seiten
+   * mehr ein, der Prop bleibt aber optional (kein Zwang für künftige Seiten).
    */
   firstSectionGraphic?: ReactNode
 }) {
