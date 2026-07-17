@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { setRequestLocale } from 'next-intl/server'
 import { LeistungPage, leistungMetadata } from '@/components/leistung/leistung-page'
-import { PvVerbrauchHeroGraphic } from '@/components/leistung/pv-verbrauch-hero-graphic'
+import { PvVerbrauchGraphic } from '@/components/leistung/pv-verbrauch-graphic'
 
 /**
  * /leistungen/pv-speicher — gerendert vom GEMEINSAMEN Leistungs-Template
@@ -9,9 +9,10 @@ import { PvVerbrauchHeroGraphic } from '@/components/leistung/pv-verbrauch-hero-
  * Schlüssel: Layout kommt aus dem Template, Struktur aus `lib/leistungen.ts`,
  * Texte aus `messages/de.json` (`Leistungen.Pages.pvSpeicher`).
  *
- * EINZIGE der 6 Leistungsseiten, die den optionalen `heroGraphic`-Slot des
- * Templates befüllt (Prompt 16) — die anderen 5 `page.tsx` bleiben
- * unverändert ohne diesen Prop.
+ * Eine von zwei Leistungsseiten, die den optionalen `firstSectionGraphic`-Slot
+ * des Templates befüllen (Prompt 16, Platzierung korrigiert in Prompt 18 —
+ * s. `leistung-page.tsx`) — die anderen 4 `page.tsx` bleiben unverändert ohne
+ * diesen Prop.
  */
 export async function generateMetadata({
   params,
@@ -25,5 +26,5 @@ export async function generateMetadata({
 export default async function Page({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params
   setRequestLocale(locale)
-  return <LeistungPage leistungKey="pvSpeicher" heroGraphic={<PvVerbrauchHeroGraphic />} />
+  return <LeistungPage leistungKey="pvSpeicher" firstSectionGraphic={<PvVerbrauchGraphic />} />
 }

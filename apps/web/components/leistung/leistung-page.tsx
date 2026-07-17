@@ -62,24 +62,29 @@ export async function leistungMetadata(locale: string, key: string): Promise<Met
 
 export function LeistungPage({
   leistungKey,
-  heroGraphic,
+  firstSectionGraphic,
 }: {
   leistungKey: string
   /**
-   * Optionaler Grafik-Slot neben der Hero-Headline (Prompt 16), analog zu
-   * Grafik 1 auf der Startseite. Bewusst optional und standardmäßig LEER:
-   * das gemeinsame Template aller 6 Leistungsseiten bleibt unangetastet, nur
-   * `pv-speicher/page.tsx` befüllt ihn aktuell — ohne `heroGraphic` bleibt
-   * die Hero-Sektion bit-identisch zum bisherigen einspaltigen Layout.
+   * Optionaler Grafik-Slot neben dem ERSTEN Inhaltsblock nach der Hero-Sektion
+   * (`AusgangslageSection` — eigene Zwischenüberschrift + Fließtext), analog zu
+   * Grafik 1 auf der Startseite. Ursprünglich (Prompt 16) an der Hero-Headline
+   * selbst verankert — dort saß er falsch (die Hero-Sektion ist auf allen 6
+   * Seiten bewusst einspaltig, Eyebrow/H1/Intro ungestört) und wurde in
+   * Prompt 18 hierher verschoben. Bewusst optional und standardmäßig LEER: das
+   * gemeinsame Template aller 6 Leistungsseiten bleibt unangetastet, nur
+   * `pv-speicher/page.tsx` und `energiemanagement/page.tsx` befüllen ihn
+   * aktuell — ohne `firstSectionGraphic` bleibt die Sektion bit-identisch zum
+   * bisherigen einspaltigen Layout.
    */
-  heroGraphic?: ReactNode
+  firstSectionGraphic?: ReactNode
 }) {
   const leistung = findLeistung(leistungKey)
 
   return (
     <>
-      <LeistungHero leistung={leistung} graphic={heroGraphic} />
-      <AusgangslageSection leistung={leistung} />
+      <LeistungHero leistung={leistung} />
+      <AusgangslageSection leistung={leistung} graphic={firstSectionGraphic} />
       <VorgehenSection leistung={leistung} />
       <NutzenSection leistung={leistung} />
       <CrossLinkSection leistung={leistung} />
@@ -93,16 +98,20 @@ function usePage(leistung: Leistung) {
   return useTranslations(`Leistungen.Pages.${leistung.key}`)
 }
 
-function LeistungHero({ leistung, graphic }: { leistung: Leistung; graphic?: ReactNode }) {
+/**
+ * Hero: Eyebrow + H1 + Intro-Satz, auf ALLEN 6 Leistungsseiten einspaltig
+ * (§5.1). Trägt seit Prompt 18 keinen Grafik-Slot mehr — der sitzt jetzt in
+ * `AusgangslageSection`, dem ersten Inhaltsblock darunter.
+ */
+function LeistungHero({ leistung }: { leistung: Leistung }) {
   const t = usePage(leistung)
   const tCommon = useTranslations('Leistungen')
   const Icon = leistung.icon
 
-  /* Das Icon ist hier das EINZIGE Grafik-Element der Seite (fünf der sechs
-     Seiten haben keinen `graphic`-Slot) — klein, einfarbig, neben dem Eyebrow
-     statt als Kachel-Deko. */
-  const heading = (
-    <>
+  /* Das Icon ist hier das EINZIGE Grafik-Element der Hero-Sektion — klein,
+     einfarbig, neben dem Eyebrow statt als Kachel-Deko. */
+  return (
+    <Container className="py-16 sm:py-24">
       <div className="flex items-center gap-2.5">
         <Icon className="h-5 w-5 shrink-0 text-accent" strokeWidth={1.75} aria-hidden="true" />
         <Eyebrow>{tCommon('eyebrow')}</Eyebrow>
@@ -110,45 +119,53 @@ function LeistungHero({ leistung, graphic }: { leistung: Leistung; graphic?: Rea
       <h1 className="mt-3 max-w-prose text-h1 text-ink">{t('title')}</h1>
       {/* Ein Satz Nutzenversprechen, Service-Intent (§6.2). */}
       <p className="mt-5 max-w-prose text-lead text-text">{t('promise')}</p>
-    </>
-  )
-
-  if (!graphic) {
-    return <Container className="py-16 sm:py-24">{heading}</Container>
-  }
-
-  /*
-   * Zweispaltig ab `lg`, gestapelt auf Mobile — dieselbe Grid-Form wie Grafik 1
-   * auf der Startseite (`components/home/hero.tsx`). Nur hier gebraucht: die
-   * übrigen 5 Seiten nehmen den `!graphic`-Zweig oben und bleiben unverändert.
-   */
-  return (
-    <Container className="py-16 sm:py-24">
-      <div className="grid gap-10 lg:grid-cols-[1fr_22rem] lg:items-center lg:gap-14">
-        <div className="max-w-3xl">{heading}</div>
-        <div>{graphic}</div>
-      </div>
     </Container>
   )
 }
 
-/** Problem/Ausgangslage — kurz, in der Sprache des Kunden, kein Fachjargon. */
-function AusgangslageSection({ leistung }: { leistung: Leistung }) {
+/**
+ * Problem/Ausgangslage — kurz, in der Sprache des Kunden, kein Fachjargon.
+ *
+ * Der ERSTE Inhaltsblock nach der Hero-Sektion — und damit (seit Prompt 18)
+ * der Ort für den optionalen `graphic`-Slot: zweispaltig ab `lg` (Text links,
+ * Grafik rechts), gestapelt auf Mobile, dieselbe Grid-Form wie Grafik 1 auf
+ * der Startseite (`components/home/hero.tsx`). Ohne `graphic` bleibt die
+ * Sektion bit-identisch zum bisherigen einspaltigen Layout — betrifft nur
+ * `pv-speicher` und `energiemanagement`, die übrigen 4 Seiten unverändert.
+ */
+function AusgangslageSection({ leistung, graphic }: { leistung: Leistung; graphic?: ReactNode }) {
   const t = usePage(leistung)
   const paragraphs = t.raw('problem.text') as string[]
+
+  const content = (
+    <>
+      <h2 className="max-w-prose text-h2 text-ink">{t('problem.title')}</h2>
+      <div className="mt-5 max-w-prose space-y-4 text-body text-text-muted">
+        {paragraphs.map((p, i) => (
+          // Der erste Absatz ist die Zuspitzung und trägt den dunkleren Ton —
+          // Hierarchie über Ton, nicht über eine zweite Farbe.
+          <p key={p} className={i === 0 ? 'text-lead text-text' : undefined}>
+            {p}
+          </p>
+        ))}
+      </div>
+    </>
+  )
+
+  if (!graphic) {
+    return (
+      <Section tone="alt">
+        <Container>{content}</Container>
+      </Section>
+    )
+  }
 
   return (
     <Section tone="alt">
       <Container>
-        <h2 className="max-w-prose text-h2 text-ink">{t('problem.title')}</h2>
-        <div className="mt-5 max-w-prose space-y-4 text-body text-text-muted">
-          {paragraphs.map((p, i) => (
-            // Der erste Absatz ist die Zuspitzung und trägt den dunkleren Ton —
-            // Hierarchie über Ton, nicht über eine zweite Farbe.
-            <p key={p} className={i === 0 ? 'text-lead text-text' : undefined}>
-              {p}
-            </p>
-          ))}
+        <div className="grid gap-10 lg:grid-cols-[1fr_22rem] lg:items-center lg:gap-14">
+          <div>{content}</div>
+          <div>{graphic}</div>
         </div>
       </Container>
     </Section>

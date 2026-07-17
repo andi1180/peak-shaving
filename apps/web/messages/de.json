@@ -165,6 +165,18 @@
         "metaDescription": "Energiemanagement für Unternehmen in Österreich: Lastganganalyse, Monitoring, ISO-50001-Readiness und Optimierung von Druckluft, Wärme und Kälte. Jetzt Beratung anfragen.",
         "title": "Energiemanagement & Effizienz",
         "promise": "Wir machen sichtbar, wohin Ihre Energie tatsächlich geht — und übersetzen das in eine Liste von Maßnahmen, die nach Wirkung sortiert ist.",
+        "chart": {
+          "sources": {
+            "druckluft": "Druckluft",
+            "kaelte": "Kälte",
+            "waerme": "Wärme",
+            "lueftung": "Lüftung",
+            "produktion": "Produktion"
+          },
+          "meterLabel": "Zählpunkt",
+          "invoiceLabel": "Ihre Rechnung",
+          "captionAggregation": "Schematische Darstellung: Alle Bereiche laufen unaufgeschlüsselt über denselben Zählpunkt in eine gemeinsame Rechnung. Wie viel welcher Bereich tatsächlich beiträgt, zeigt erst die Lastganganalyse."
+        },
         "problem": {
           "title": "Die Stromrechnung sagt, was Sie zahlen. Nicht, wofür.",
           "text": [
