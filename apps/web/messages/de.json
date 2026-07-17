@@ -371,6 +371,12 @@
         "cta": {
           "title": "Steht bei Ihnen eine Beschaffungsentscheidung an?",
           "lead": "Wir sehen uns Ihr Profil und Ihre Vertragslage an und sagen Ihnen, ob ein PPA für Sie überhaupt das richtige Instrument ist. Unverbindlich."
+        },
+        "chart": {
+          "spotLabel": "Spotmarktpreis",
+          "ppaLabel": "PPA-Preis",
+          "yearTick": "Jahr {n}",
+          "caption": "Illustratives Schema über eine beispielhafte Vertragslaufzeit — keine realen Preisdaten, kein historischer Kursverlauf. Ob sich ein fester Vertragspreis gegen den volatilen Spotmarkt lohnt, hängt von Ihrem Profil, der Laufzeit und der Marktlage ab — genau das rechnen wir in der Beschaffungsstrategie durch."
         }
       },
       "finanzierung": {
@@ -1204,6 +1210,58 @@
       "doc3": "Standort- und Anlagendaten",
       "doc4": "PV-Erzeugungsdaten und geplante Erweiterungen",
       "doc5": "Investitions- und ESG-Ziele"
+    }
+  },
+  "UeberUns": {
+    "metaDescription": "COOLiN ENERGY ist ein Wiener Energietechnik-Unternehmen für PV, Speicher und Peak Shaving. Das Team, unsere Mission und worauf sich Gewerbebetriebe verlassen können.",
+    "eyebrow": "ÜBER UNS",
+    "title": "Über COOLiN ENERGY",
+    "intro": "Ein Wiener Energietechnik-Unternehmen mit einem klaren Ziel: Gewerbebetriebe senken ihre Energiekosten mit Zahlen, die stimmen — nicht mit Schätzungen.",
+    "mission": {
+      "title": "Fünf Jahre Elektrotechnik, ein Ziel: belastbare Zahlen.",
+      "text": [
+        "COOLiN ENERGY gibt es seit 2021. In dieser Zeit haben wir uns auf die Themen spezialisiert, die heute über die Energiekosten von Gewerbebetrieben entscheiden: Photovoltaik und Eigenverbrauch, Batteriespeicher, Peak Shaving und die Elektrotechnik, die das am Ende zuverlässig zum Laufen bringt.",
+        "Was uns von klassischer Energieberatung unterscheidet: Wir rechnen, bevor wir verkaufen. Jede Empfehlung — Speichergröße, Amortisationszeit, Fördermöglichkeit — basiert auf echten Lastgangdaten und einer physikalisch korrekten Simulation, nicht auf Pauschalwerten aus einer Tabelle."
+      ]
+    },
+    "team": {
+      "title": "Das Team",
+      "martin": {
+        "name": "Martin Neubauer",
+        "role": "CEO",
+        "bio": "Martin verantwortet die technische und wirtschaftliche Auslegung jedes Projekts. Als Elektrotechniker mit langjähriger Erfahrung in Photovoltaik, Batteriespeichern und Förderlandschaft kennt er die physikalischen wie die finanziellen Stellschrauben einer Anlage — und weiß, worauf es bei der Umsetzung wirklich ankommt."
+      },
+      "andreas": {
+        "name": "Andreas Dax",
+        "role": "CTO",
+        "bio": "Vor COOLiN ENERGY war Andreas bei IBM tätig. Er bringt tiefes technisches Know-how in Cloud, SaaS und KI-gestützten Systemen mit sowie internationale Vertriebserfahrung — und verantwortet bei COOLiN ENERGY die technische Architektur der Plattform, vom Kalkulator bis zur Auswertung."
+      },
+      "martina": {
+        "name": "Martina Neubauer",
+        "role": "CMO",
+        "bio": "Martina verantwortet Marketing und Kommunikation bei COOLiN ENERGY — von der Markenführung bis zur Ansprache neuer Kunden. Mit ihrem Hintergrund in Marketing und Personalwesen sorgt sie zugleich dafür, dass COOLiN ENERGY als Team wächst, das zur Mission passt."
+      }
+    },
+    "prinzipien": {
+      "title": "Worauf Sie sich verlassen können",
+      "items": [
+        {
+          "title": "Echte Zahlen statt Schätzungen",
+          "text": "Ihre Lastgangdaten bleiben in Ihrem Browser; unsere Empfehlungen basieren auf einer physikalisch korrekten Simulation, nicht auf Pauschalwerten."
+        },
+        {
+          "title": "Technik, die zur Branche passt",
+          "text": "Ob Bäckerei, Hotel oder Handel: wir wählen die Lösung nach Ihrem tatsächlichen Lastprofil, nicht nach Schema F."
+        },
+        {
+          "title": "Transparenz vor Verkaufsdruck",
+          "text": "Wenn sich ein Speicher nicht rechnet, sagen wir das auch."
+        }
+      ]
+    },
+    "sitz": {
+      "title": "Firmensitz",
+      "mapsLabel": "In Google Maps öffnen"
     }
   },
   "Pages": {

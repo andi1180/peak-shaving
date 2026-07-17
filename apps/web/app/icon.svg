@@ -1,0 +1,29 @@
+<svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="COOLiN ENERGY">
+  <!--
+    FAVICON: vereinfachtes COOLiN-Emblem, abgeleitet vom Header-Emblem
+    (components/brand/emblem.tsx), NICHT von der Legacy-PNG (reference/favicon.png)
+    und nicht neu erfunden. Dieselbe Marke: Navy-Squircle, aktive Route ueber die
+    Knoten (weisser Messpunkt und zwei Teal-Knoten).
+
+    Gegenueber dem Header-Emblem fallen die vier feinen Hintergrund-Netzlinien
+    weg: bei 16x16 / 32x32 werden sie zu Matsch; Route und Knoten tragen die
+    Wiedererkennung allein und bleiben auch klein lesbar (Prompt-20-Auftrag
+    "vereinfacht, klar genug fuer 16x16 / 32x32").
+
+    Farben als Hex-Literale: eine statische SVG-Datei kennt keine CSS-Variablen.
+    Werte 1:1 aus app/globals.css (Navy #18336f, Node-Teal #14b8a6); weicht dort
+    ein Ton ab, hier nachziehen (gleiche Regel wie opengraph-image.tsx).
+  -->
+  <rect x="0" y="0" width="64" height="64" rx="15" fill="#18336f" />
+  <path
+    d="M24 20 L45 16 L41 40"
+    fill="none"
+    stroke="#ffffff"
+    stroke-width="3"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+  <circle cx="24" cy="20" r="5" fill="#ffffff" />
+  <circle cx="45" cy="16" r="7" fill="#14b8a6" />
+  <circle cx="41" cy="40" r="6.5" fill="#14b8a6" />
+</svg>

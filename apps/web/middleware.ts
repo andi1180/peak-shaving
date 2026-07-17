@@ -20,6 +20,13 @@ export const config = {
    * muss; er darf das Bild direkt und mit 200 bekommen. Der Ausschluss steht
    * bewusst als `.*opengraph-image` (nicht am Anfang verankert wie die anderen):
    * die Route liegt IM Locale-Segment, der Pfad beginnt also mit „/de/".
+   *
+   * `apple-icon` (Prompt 20, Favicon): dasselbe Muster — die von `app/apple-icon.tsx`
+   * erzeugte PNG-Route trägt KEINE Dateiendung und würde sonst per 307 in die
+   * Locale-Struktur umgeleitet (gemessen: `/apple-icon` → 404). Anders als das
+   * OG-Bild liegt sie am Wurzelsegment (`/apple-icon`, nicht `/de/…`), steht
+   * also am Anfang verankert. `icon.svg` braucht keinen Eintrag — es trägt eine
+   * Endung und fällt bereits unter `.*\..*`.
    */
-  matcher: ['/((?!api|_next|_vercel|styleguide|.*opengraph-image|.*\\..*).*)'],
+  matcher: ['/((?!api|_next|_vercel|styleguide|apple-icon|.*opengraph-image|.*\\..*).*)'],
 }

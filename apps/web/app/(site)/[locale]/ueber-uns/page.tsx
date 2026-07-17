@@ -1,12 +1,14 @@
 import type { Metadata } from 'next'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
-import { PagePlaceholder } from '@/components/layout/page-placeholder'
+import { UeberUnsPage } from '@/components/ueber-uns/ueber-uns-page'
 import { pageAlternates } from '@/lib/seo'
 import { robotsFor } from '@/lib/routes'
 
 /**
- * Platzhalter-Route (/ueber-uns) — Gerüst, Inhalt folgt in einem späteren Schritt.
- * NOINDEX seit 13c — Begründung/Zurückstellen: `apps/web/app/(site)/[locale]/produkte/page.tsx`.
+ * /ueber-uns (Prompt 20) — echte Inhaltsseite, ersetzt den bisherigen
+ * `PagePlaceholder`. Mit dem Inhalt fällt der Href aus `PLACEHOLDER_HREFS`
+ * (`lib/routes.ts`), die Seite wird damit wieder indexierbar (`robotsFor` gibt
+ * `undefined` zurück) und erscheint in der sitemap.
  */
 export async function generateMetadata({
   params,
@@ -14,9 +16,13 @@ export async function generateMetadata({
   params: Promise<{ locale: string }>
 }): Promise<Metadata> {
   const { locale } = await params
-  const t = await getTranslations({ locale, namespace: 'Pages' })
+  const tPages = await getTranslations({ locale, namespace: 'Pages' })
+  const t = await getTranslations({ locale, namespace: 'UeberUns' })
   return {
-    title: `${t('ueberUns')} — COOLiN ENERGY`,
+    // Tab-Titel bewusst „Über uns — …" (Pages-Label), nicht „Über COOLiN ENERGY
+    // — COOLiN ENERGY" (H1) — sonst stünde die Marke doppelt im Titel.
+    title: `${tPages('ueberUns')} — COOLiN ENERGY`,
+    description: t('metaDescription'),
     alternates: pageAlternates(locale, '/ueber-uns'),
     robots: robotsFor('/ueber-uns'),
   }
@@ -25,5 +31,5 @@ export async function generateMetadata({
 export default async function Page({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params
   setRequestLocale(locale)
-  return <PagePlaceholder titleKey="ueberUns" />
+  return <UeberUnsPage />
 }

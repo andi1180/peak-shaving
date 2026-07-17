@@ -78,7 +78,7 @@ function navHrefs(): string[] {
  * die sitemap nimmt die Seite automatisch wieder auf, und ihr `robots`-Tag
  * (kommt aus `robotsFor`, s. u.) verschwindet mit. Kein zweiter Ort zum Ändern.
  */
-const PLACEHOLDER_HREFS = ['/produkte', '/referenzen', '/ueber-uns', '/impressum', LOGIN_HREF]
+const PLACEHOLDER_HREFS = ['/produkte', '/referenzen', '/impressum', LOGIN_HREF]
 
 /**
  * Die statischen Routen der Seite. `/wissen/<slug>` fehlt hier bewusst: Artikel
