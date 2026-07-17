@@ -1248,7 +1248,7 @@
     "iframeTitle": "Peak-Shaving Kalkulator — Lastgang hochladen, Batterie simulieren, Ersparnis berechnen",
     "gate": {
       "title": "Zugang zum Kalkulator",
-      "lead": "Der Peak-Shaving Kalkulator ist derzeit einem geschlossenen Kreis vorbehalten. Mit Ihrem Zugangscode geht es direkt weiter — die Eingabe merken wir uns in diesem Browser.",
+      "lead": "Der Peak-Shaving Kalkulator ist derzeit einem geschlossenen Kreis vorbehalten. Mit Ihrem Zugangscode geht es direkt weiter — er wird bei jedem Besuch neu abgefragt.",
       "label": "Zugangscode",
       "submit": "Kalkulator öffnen",
       "error": "Dieser Zugangscode stimmt nicht. Bitte prüfen Sie die Schreibweise.",

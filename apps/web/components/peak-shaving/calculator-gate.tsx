@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
 import { Input, Label } from '@/components/ui/input'
 import { CALCULATOR_FRAME_STYLE } from '@/lib/config'
-import { KALKULATOR_ACCESS_STORAGE_KEY, isValidAccessCode } from '@/lib/kalkulator-access'
+import { KALKULATOR_ACCESS_LEGACY_STORAGE_KEY, isValidAccessCode } from '@/lib/kalkulator-access'
 import { KONTAKT_HREF } from '@/lib/nav'
 
 /**
@@ -20,15 +20,18 @@ import { KONTAKT_HREF } from '@/lib/nav'
  * werden. Hier gibt es einen Fundort.
  *
  * WAS ES NICHT IST — s. `lib/kalkulator-access.ts`: keine Sicherheit, kein Auth.
- * Diese Datei ändert an dieser Logik nichts — nur die Präsentation (Vollseite →
- * Modal).
  *
- * DER ERSTE RENDER ZEIGT WEDER MODAL NOCH RECHNER (`unlocked === null`):
- * localStorage gibt es auf dem Server nicht, und die Seite ist statisch
- * vorgerendert. Würde das Modal als Startzustand geöffnet gerendert, blitzte es
- * bei jedem freigeschalteten Nutzer für einen Frame auf, bevor der Effekt den
- * gespeicherten Zustand liest. Der dritte Zustand „weiß ich noch nicht" kostet
- * eine Zeile und vermeidet genau das.
+ * JEDER SEITENAUFRUF BEGINNT GESPERRT (Prompt 28). `unlocked` startet auf
+ * `false` und lebt nur im React-State — es wird nichts gespeichert und nichts
+ * gelesen. Ein Reload wirft den State weg, das Modal ist wieder da; wer auf der
+ * Seite bleibt, bleibt entsperrt.
+ *
+ * Der dreiwertige State aus Prompt 25 (`null` = „localStorage noch nicht
+ * gelesen") ist damit ersatzlos entfallen: Er existierte allein, damit das
+ * Modal bei einem freigeschalteten Nutzer nicht für einen Frame aufblitzt,
+ * bevor der Effekt den gespeicherten Zustand nachreicht. Ohne gespeicherten
+ * Zustand gibt es nichts nachzureichen — „gesperrt" ist auf dem Server und im
+ * Browser dieselbe Wahrheit, das Modal ist ab dem ersten Render richtig.
  *
  * FLÄCHE HINTER DEM MODAL: bleibt eine leere, neutrale Fläche in EXAKT der
  * Höhe, die der iframe später einnimmt (`CALCULATOR_FRAME_STYLE`, geteilt mit
@@ -40,21 +43,26 @@ import { KONTAKT_HREF } from '@/lib/nav'
  */
 export function CalculatorGate({ children }: { children: React.ReactNode }) {
   const t = useTranslations('CalculatorFrame.gate')
-  const [unlocked, setUnlocked] = React.useState<boolean | null>(null)
+  const [unlocked, setUnlocked] = React.useState(false)
   const [code, setCode] = React.useState('')
   const [error, setError] = React.useState(false)
 
   React.useEffect(() => {
     /*
+     * Altlast wegräumen: Wer den Code vor Prompt 28 eingegeben hat, trägt das
+     * damals gespeicherte „entsperrt"-Flag noch im Browser. Es wird zwar nicht
+     * mehr gelesen, aber liegenzulassen hieße, einen toten Zustand zu dulden,
+     * den ein späteres Feature versehentlich wieder ernst nimmt.
+     *
      * `try`: localStorage wirft in Safaris privatem Modus und bei blockierten
-     * Drittanbieter-Daten. Ein Rechner, der wegen eines Speicher-Zugriffs gar
-     * nicht mehr erscheint, wäre ein schlimmerer Fehler als ein Nutzer, der den
-     * Code einmal pro Sitzung tippt.
+     * Drittanbieter-Daten. Ein Rechner, der wegen eines Aufräum-Zugriffs gar
+     * nicht mehr erscheint, wäre der schlimmere Fehler — und ohne Speicher gibt
+     * es ohnehin nichts aufzuräumen.
      */
     try {
-      setUnlocked(window.localStorage.getItem(KALKULATOR_ACCESS_STORAGE_KEY) === 'true')
+      window.localStorage.removeItem(KALKULATOR_ACCESS_LEGACY_STORAGE_KEY)
     } catch {
-      setUnlocked(false)
+      // Kein Speicherzugriff, kein Altbestand, den er uns verheimlichen könnte.
     }
   }, [])
 
@@ -64,17 +72,11 @@ export function CalculatorGate({ children }: { children: React.ReactNode }) {
       setError(true)
       return
     }
-    try {
-      window.localStorage.setItem(KALKULATOR_ACCESS_STORAGE_KEY, 'true')
-    } catch {
-      // Nicht persistierbar (privater Modus) — der Zugang gilt trotzdem für
-      // diese Sitzung. Kein Grund, den Nutzer auszusperren.
-    }
+    // Bewusst ohne Persistenz: Der Zugang gilt für diesen Seitenaufruf, nicht
+    // für dieses Gerät (s. `lib/kalkulator-access.ts`).
     setError(false)
     setUnlocked(true)
   }
-
-  if (unlocked === null) return null
 
   return (
     <>

@@ -20,18 +20,35 @@
  * Das Gate sitzt zentral auf der ZIELROUTE, nicht an den Links dorthin: Ein pro
  * Button versteckter Link wäre per Direkt-URL umgehbar, und die Links (Nav-CTA,
  * Hero, Cross-Links) bleiben deshalb unverändert.
+ *
+ * DER CODE WIRD BEI JEDEM SEITENAUFRUF NEU VERLANGT (Prompt 28): Es gibt keinen
+ * gespeicherten „entsperrt"-Zustand mehr. Jeder Reload, jeder neue Besuch —
+ * auch im selben Browser, der den Code eben noch richtig eingegeben hat —
+ * startet wieder gesperrt. Das ist Absicht und keine Verschärfung der
+ * Sicherheit (die gibt es hier weiterhin nicht, s. o.): Solange der Rechner in
+ * Demos gezeigt wird, soll sichtbar bleiben, dass er hinter einem Code liegt,
+ * und ein einmal auf einem fremden Gerät eingegebener Code soll dieses Gerät
+ * nicht dauerhaft freischalten. Der Zugang gilt genau so lange, wie der Nutzer
+ * auf der Seite bleibt.
  */
 
 /** Der Code. EINE Stelle — hier ändern, nicht suchen. */
 export const KALKULATOR_ACCESS_CODE = 'coolin2026'
 
 /**
- * localStorage-Schlüssel für „Code wurde schon eingegeben".
+ * ALTLAST aus Prompt 25/26, wird nur noch GELÖSCHT, nie gelesen oder gesetzt.
  *
- * Bewusst mit Namensraum-Präfix: Der Schlüssel teilt sich den Origin mit allem,
- * was später unter coolin.at im Browser ablegt.
+ * Damals persistierte das Gate hier ein „entsperrt"-Flag. Nur nicht mehr
+ * hinzusehen würde nicht reichen: In den Browsern aller, die den Code vor
+ * Prompt 28 schon einmal eingegeben haben, liegt der Eintrag weiterhin — er
+ * gehört aktiv weggeräumt, damit er nicht als toter Zustand überdauert und ein
+ * späteres Feature ihn versehentlich wieder für bare Münze nimmt.
+ *
+ * Der Wert muss exakt der alte bleiben, sonst läuft die Bereinigung ins Leere.
+ * Entfernbar, sobald die Alt-Einträge realistisch aus dem Feld verschwunden
+ * sind (spätestens mit der echten Auth in Phase 2, §8.1).
  */
-export const KALKULATOR_ACCESS_STORAGE_KEY = 'coolin.kalkulator.access'
+export const KALKULATOR_ACCESS_LEGACY_STORAGE_KEY = 'coolin.kalkulator.access'
 
 /** Vergleich ohne Groß-/Kleinschreibung und ohne Rand-Leerzeichen — ein
  *  kopierter Code mit anhängendem Leerzeichen ist kein falscher Code. */
