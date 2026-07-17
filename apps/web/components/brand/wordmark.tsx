@@ -79,70 +79,54 @@ export function WordmarkA({ className, monochrome, title = 'COOLiN ENERGY' }: Wo
   const iW = 11
   const iX = M.cool700 + 8
   const nX = iX + iW + 9
-  const coolNWidth = nX + M.n700 // Breite von "COOLiN" bei Basis-Schriftgröße 100
+  const coolNWidth = nX + M.n700 // Breite von "COOLiN" allein — Zielbreite für ENERGY
 
-  /*
-   * Prompt 24: Größenhierarchie — COOLiN dominant, ENERGY kleiner + gestreckt.
-   * Die komplette COOLiN-Zeile (COOL-Text, i-Stamm, Knoten, N) wird als EINE
-   * Gruppe um COOL_SCALE vergrößert, statt eine zweite Metrik zu vermessen —
-   * die an fontSize=100 gemessenen Koordinaten (M, iX, nX, NODE_CY, IStem)
-   * bleiben dadurch zueinander exakt proportional, nur der Maßstab ändert sich.
-   * COOL_SCALE=1,2 + energySize=76 ergeben ein Cap-Height-Verhältnis
-   * COOLiN:ENERGY von rund 1,58x (Zielkorridor 1,4–1,6x), optisch gegengeprüft.
-   */
-  const COOL_SCALE = 1.2
-  const coolNWidthScaled = coolNWidth * COOL_SCALE // Zielbreite für ENERGY (textLength)
-
-  const lineGap = 14 // Abstand: Grundlinie COOLiN (skaliert) -> Versalhöhe ENERGY
-  const energySize = 76
-  const coolBaselineY = BASE * COOL_SCALE
-  const energyCapTop = coolBaselineY + lineGap
+  const lineGap = 16 // Abstand: Grundlinie COOLiN -> Versalhöhe ENERGY
+  const energySize = 90
+  const energyCapTop = BASE + lineGap
   const energyBase = energyCapTop + energySize * 0.727 // Versalhöhe-Anteil, s. CAP_TOP
-  const nodeTopScaled = COOL_SCALE * (NODE_CY - 9) // Knoten-Oberkante, skaliert
-  const topMargin = Math.max(nodeTopScaled - 12, 0) // etwas über dem Knoten
+  const topMargin = 10 // etwas über dem Knoten (Knoten-Oberkante = NODE_CY - 9 = 23)
   const bottomMargin = 8
   const h = energyBase + bottomMargin - topMargin
 
   return (
     <svg
-      viewBox={`0 ${topMargin} ${coolNWidthScaled} ${h}`}
+      viewBox={`0 ${topMargin} ${coolNWidth} ${h}`}
       role="img"
       aria-label={title}
       className={cn('h-11 w-auto', className)}
       xmlns="http://www.w3.org/2000/svg"
     >
-      <g transform={`scale(${COOL_SCALE})`}>
-        <text
-          x="0"
-          y={BASE}
-          fontFamily={FONT}
-          fontSize={SIZE}
-          fontWeight="700"
-          letterSpacing="-2"
-          fill="currentColor"
-        >
-          COOL
-        </text>
-        <IStem x={iX} width={iW} />
-        <circle cx={iX + iW / 2} cy={NODE_CY} r={9} fill={node} />
-        <text
-          x={nX}
-          y={BASE}
-          fontFamily={FONT}
-          fontSize={SIZE}
-          fontWeight="700"
-          letterSpacing="-2"
-          fill="currentColor"
-        >
-          N
-        </text>
-      </g>
-      {/* ENERGY, zweite Zeile: textLength erzwingt exakt coolNWidthScaled, egal
-          wie die natürliche Zeichenbreite bei der kleineren energySize ausfällt. */}
+      <text
+        x="0"
+        y={BASE}
+        fontFamily={FONT}
+        fontSize={SIZE}
+        fontWeight="700"
+        letterSpacing="-2"
+        fill="currentColor"
+      >
+        COOL
+      </text>
+      <IStem x={iX} width={iW} />
+      <circle cx={iX + iW / 2} cy={NODE_CY} r={9} fill={node} />
+      <text
+        x={nX}
+        y={BASE}
+        fontFamily={FONT}
+        fontSize={SIZE}
+        fontWeight="700"
+        letterSpacing="-2"
+        fill="currentColor"
+      >
+        N
+      </text>
+      {/* ENERGY, zweite Zeile: textLength erzwingt exakt coolNWidth, egal wie
+          die natürliche Zeichenbreite ausfällt. */}
       <text
         x="0"
         y={energyBase}
-        textLength={coolNWidthScaled}
+        textLength={coolNWidth}
         lengthAdjust="spacingAndGlyphs"
         fontFamily={FONT}
         fontSize={energySize}

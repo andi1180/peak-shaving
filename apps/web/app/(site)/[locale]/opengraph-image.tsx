@@ -79,41 +79,29 @@ const GAP_I_N = 0.09
 const COOL_TRACK = -0.02
 
 /*
- * Prompt 24: Größenhierarchie — COOLiN dominant, ENERGY kleiner + gestreckt
- * (dieselbe Korrektur wie in `wordmark.tsx`, hier für Satori nachgebaut).
- * COOLiN wird als GANZE Zeile (Text + i-Stamm + Knoten + N) um COOL_SCALE
- * vergrößert (`transform: scale()` auf den Zeile-1-Container) — alle an
- * fontSize=100 gemessenen Em-Anteile bleiben dadurch zueinander proportional,
- * ohne eine zweite Metrik zu erfinden. COOL_SCALE=1,2 entspricht exakt dem
- * COOL_SCALE aus wordmark.tsx.
- *
  * ZEILE 2 „ENERGY" — Satori kennt weder SVG-`<text textLength>` noch eine
  * Mess-API für gerendertes Textmaß (anders als der Browser bei wordmark.tsx).
  * Statt zu messen, wird deshalb GESTRECKT: `transform: scaleX()` auf einen
  * Container mit `transformOrigin: 'left'` — dieselbe Technik, die der Prompt
  * für Nicht-SVG-Kontexte vorschlägt.
  *
- * coolNWidthEm = Breite von "COOLiN" (COOL + i-Stamm-Lücken + N) BEI
- * Basis-Schriftgröße (COOL_SCALE=1), aus denselben gemessenen Advance-Breiten
- * wie wordmark.tsx (M.cool700/M.n700, dort durch 100 geteilt):
- * 2,7661 + 0,08 + 0,11 + 0,09 + 0,7422 = 3,7883 em. Die tatsächliche Zeilenbreite
- * nach der COOL_SCALE-Vergrößerung ist COOL_N_WIDTH_EM * COOL_SCALE — das ist
- * die neue Zielbreite für ENERGY.
- * ENERGY_SIZE=0,58 (reduziert von vorher 0,9, analog zu wordmark.tsx energySize
- * 76 vs. vorher 90) ist so gewählt, dass der nötige Stretch sichtbar, aber nicht
- * glyphenverzerrend bleibt. ENERGY_NATURAL_WIDTH_EM ist NICHT geschätzt, sondern
- * am tatsächlich gerenderten OG-Bild vermessen (Pixel-Breite von "ENERGY" ohne
- * Transform bei ENERGY_SIZE, gegen COOL_N_WIDTH_EM*COOL_SCALE skaliert) —
- * ENERGY_STRETCH ergibt sich daraus, kein Korrekturfaktor auf Verdacht.
+ * coolNWidthEm = Breite von "COOLiN" (COOL + i-Stamm-Lücken + N), aus denselben
+ * gemessenen Advance-Breiten wie wordmark.tsx (M.cool700/M.n700, dort durch 100
+ * geteilt): 2,7661 + 0,08 + 0,11 + 0,09 + 0,7422 = 3,7883 em.
+ * ENERGY_SIZE=0,9 (statt vorher 0,44) ist so gewählt, dass die NATÜRLICHE
+ * (ungestreckte) Breite von „ENERGY" bei dieser Schriftgröße bereits nahe an
+ * COOL_N_WIDTH_EM liegt — der nötige Stretch bleibt dadurch klein, keine
+ * sichtbar verzerrten Glyphen. ENERGY_NATURAL_WIDTH_EM ist NICHT geschätzt,
+ * sondern am tatsächlich gerenderten OG-Bild vermessen (Pixel-Breite von
+ * "ENERGY" ohne Transform, gegen COOL_N_WIDTH_EM skaliert) — ENERGY_STRETCH
+ * ergibt sich daraus, kein Korrekturfaktor auf Verdacht.
  */
-const COOL_SCALE = 1.2
 const COOL_N_WIDTH_EM = 3.7883
-const COOL_N_WIDTH_EM_SCALED = COOL_N_WIDTH_EM * COOL_SCALE
-const ENERGY_SIZE = 0.58
-const ENERGY_NATURAL_WIDTH_EM = 2.776
-const ENERGY_STRETCH = COOL_N_WIDTH_EM_SCALED / ENERGY_NATURAL_WIDTH_EM
+const ENERGY_SIZE = 0.9
+const ENERGY_NATURAL_WIDTH_EM = 3.573
+const ENERGY_STRETCH = COOL_N_WIDTH_EM / ENERGY_NATURAL_WIDTH_EM
 const ENERGY_OPACITY = 0.75
-const LINE_GAP = 0.14 // Grundlinie COOLiN (skaliert) -> Versalhöhe ENERGY, in em
+const LINE_GAP = 0.16 // Grundlinie COOLiN -> Versalhöhe ENERGY, in em
 
 /*
  * Bei `lineHeight: 1` sitzt Inters Grundlinie 0,1362 em über der Unterkante der
@@ -130,27 +118,16 @@ const LINE_GAP = 0.14 // Grundlinie COOLiN (skaliert) -> Versalhöhe ENERGY, in 
 const BASELINE_FROM_BOTTOM = 0.1362
 
 function Wordmark({ fontSize: s }: { fontSize: number }) {
-  /*
-   * Prompt 24: Zeile 1 ("COOLiN") wird komplett mit sCool = s * COOL_SCALE
-   * dimensioniert statt mit `s` — bewusst KEIN CSS-`transform: scale()` auf den
-   * Zeile-1-Container: Satoris Flex-Layout reserviert für eine transformierte Box
-   * weiter nur ihre UNSKALIERTE Größe, Zeile 2 würde also nicht nach unten
-   * mitwandern, sondern von der vergrößerten Zeile 1 überlappt. Jede Em-Angabe
-   * aus Zeile 1 (Schriftgröße, Lücken, i-Stamm, Knoten) mit sCool statt s zu
-   * multiplizieren skaliert dagegen echte Layoutgrößen — Flex reflowt korrekt.
-   */
-  const sCool = s * COOL_SCALE
   const capText = {
-    fontSize: sCool,
+    fontSize: s,
     fontWeight: 700,
-    letterSpacing: COOL_TRACK * sCool,
+    letterSpacing: COOL_TRACK * s,
     lineHeight: 1,
     color: WHITE,
   }
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-      {/* Zeile 1 — „COOLiN", textlich/Gewicht/Knotenfarbe unverändert, nur um
-          COOL_SCALE vergrößert (Prompt 24). */}
+      {/* Zeile 1 — „COOLiN", unverändert ggü. der vorigen (einzeiligen) Fassung. */}
       <div style={{ display: 'flex', alignItems: 'flex-end' }}>
         <div style={capText}>COOL</div>
 
@@ -160,19 +137,19 @@ function Wordmark({ fontSize: s }: { fontSize: number }) {
           style={{
             display: 'flex',
             position: 'relative',
-            width: STEM_W * sCool,
-            height: sCool,
-            marginLeft: GAP_COOL_I * sCool,
-            marginRight: GAP_I_N * sCool,
+            width: STEM_W * s,
+            height: s,
+            marginLeft: GAP_COOL_I * s,
+            marginRight: GAP_I_N * s,
           }}
         >
           <div
             style={{
               position: 'absolute',
-              bottom: BASELINE_FROM_BOTTOM * sCool,
-              width: STEM_W * sCool,
-              height: STEM_H * sCool,
-              borderRadius: (STEM_W * sCool) / 2,
+              bottom: BASELINE_FROM_BOTTOM * s,
+              width: STEM_W * s,
+              height: STEM_H * s,
+              borderRadius: (STEM_W * s) / 2,
               background: WHITE,
             }}
           />
@@ -181,11 +158,11 @@ function Wordmark({ fontSize: s }: { fontSize: number }) {
           <div
             style={{
               position: 'absolute',
-              bottom: (BASELINE_FROM_BOTTOM + NODE_CY - NODE_R) * sCool,
-              left: STEM_W * sCool * 0.5 - NODE_R * sCool,
-              width: NODE_R * 2 * sCool,
-              height: NODE_R * 2 * sCool,
-              borderRadius: NODE_R * sCool,
+              bottom: (BASELINE_FROM_BOTTOM + NODE_CY - NODE_R) * s,
+              left: STEM_W * s * 0.5 - NODE_R * s,
+              width: NODE_R * 2 * s,
+              height: NODE_R * 2 * s,
+              borderRadius: NODE_R * s,
               background: NODE,
             }}
           />
@@ -194,20 +171,19 @@ function Wordmark({ fontSize: s }: { fontSize: number }) {
         <div style={capText}>N</div>
       </div>
 
-      {/* Zeile 2 — „ENERGY", kleiner und gestreckt auf die Breite von Zeile 1
-          (COOL_N_WIDTH_EM_SCALED). `transformOrigin: 'left'` hält die Streckung
-          linksbündig zu Zeile 1. */}
+      {/* Zeile 2 — „ENERGY", gestreckt auf die Breite von Zeile 1 (COOL_N_WIDTH_EM).
+          `transformOrigin: 'left'` hält die Streckung linksbündig zu Zeile 1. */}
       <div
         style={{
           display: 'flex',
-          marginTop: LINE_GAP * sCool,
+          marginTop: LINE_GAP * s,
           transform: `scaleX(${ENERGY_STRETCH})`,
           transformOrigin: 'left',
         }}
       >
         <div
           style={{
-            fontSize: ENERGY_SIZE * sCool,
+            fontSize: ENERGY_SIZE * s,
             fontWeight: 400,
             lineHeight: 1,
             color: WHITE,
