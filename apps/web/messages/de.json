@@ -299,6 +299,11 @@
         "cta": {
           "title": "Haben Sie noch Nachtspeicheröfen im Bestand?",
           "lead": "Dann klären wir im Erstgespräch, welche Anschlussleistung daran hängt und ob sich eine Steuerung dafür lohnt. Unverbindlich."
+        },
+        "chart": {
+          "conventionalLabel": "Konventionell",
+          "smartHeatingLabel": "Smart Heating",
+          "caption": "Illustratives Schema, keine Messdaten. Wie stark sich Ihre Spitze durch die Verschiebung tatsächlich senken lässt, hängt von der Anschlussleistung Ihrer Öfen und Ihrem übrigen Lastgang ab — genau das ermitteln wir in der Bestandsaufnahme."
         }
       },
       "ppa": {

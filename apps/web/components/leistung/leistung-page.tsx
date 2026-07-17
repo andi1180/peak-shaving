@@ -73,9 +73,9 @@ export function LeistungPage({
    * Seiten bewusst einspaltig, Eyebrow/H1/Intro ungestört) und wurde in
    * Prompt 18 hierher verschoben. Bewusst optional und standardmäßig LEER: das
    * gemeinsame Template aller 6 Leistungsseiten bleibt unangetastet, nur
-   * `pv-speicher/page.tsx` und `energiemanagement/page.tsx` befüllen ihn
-   * aktuell — ohne `firstSectionGraphic` bleibt die Sektion bit-identisch zum
-   * bisherigen einspaltigen Layout.
+   * `pv-speicher/page.tsx`, `energiemanagement/page.tsx` und (seit Prompt 19)
+   * `smart-heating/page.tsx` befüllen ihn aktuell — ohne `firstSectionGraphic`
+   * bleibt die Sektion bit-identisch zum bisherigen einspaltigen Layout.
    */
   firstSectionGraphic?: ReactNode
 }) {
@@ -131,7 +131,8 @@ function LeistungHero({ leistung }: { leistung: Leistung }) {
  * Grafik rechts), gestapelt auf Mobile, dieselbe Grid-Form wie Grafik 1 auf
  * der Startseite (`components/home/hero.tsx`). Ohne `graphic` bleibt die
  * Sektion bit-identisch zum bisherigen einspaltigen Layout — betrifft nur
- * `pv-speicher` und `energiemanagement`, die übrigen 4 Seiten unverändert.
+ * `pv-speicher`, `energiemanagement` und `smart-heating`, die übrigen 3
+ * Seiten unverändert.
  */
 function AusgangslageSection({ leistung, graphic }: { leistung: Leistung; graphic?: ReactNode }) {
   const t = usePage(leistung)
