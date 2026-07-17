@@ -9,6 +9,101 @@ export type Json =
 export type Database = {
   monitor: {
     Tables: {
+      scrape_runs: {
+        Row: {
+          error_message: string | null
+          finished_at: string | null
+          id: string
+          started_at: string
+          status: string
+          target_id: string
+          tariffs_found: number
+          triggered_alert: boolean
+        }
+        Insert: {
+          error_message?: string | null
+          finished_at?: string | null
+          id?: string
+          started_at?: string
+          status?: string
+          target_id: string
+          tariffs_found?: number
+          triggered_alert?: boolean
+        }
+        Update: {
+          error_message?: string | null
+          finished_at?: string | null
+          id?: string
+          started_at?: string
+          status?: string
+          target_id?: string
+          tariffs_found?: number
+          triggered_alert?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scrape_runs_target_id_fkey"
+            columns: ["target_id"]
+            isOneToOne: false
+            referencedRelation: "scrape_targets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      scrape_targets: {
+        Row: {
+          created_at: string
+          extraction_config: Json | null
+          id: string
+          is_active: boolean
+          last_scrape_at: string | null
+          last_scrape_error: string | null
+          last_scrape_status: string | null
+          logo_url: string | null
+          network_area: string | null
+          notes: string | null
+          provider_name: string
+          provider_slug: string
+          sort_priority: number
+          tariff_page_url: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          extraction_config?: Json | null
+          id?: string
+          is_active?: boolean
+          last_scrape_at?: string | null
+          last_scrape_error?: string | null
+          last_scrape_status?: string | null
+          logo_url?: string | null
+          network_area?: string | null
+          notes?: string | null
+          provider_name: string
+          provider_slug: string
+          sort_priority?: number
+          tariff_page_url: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          extraction_config?: Json | null
+          id?: string
+          is_active?: boolean
+          last_scrape_at?: string | null
+          last_scrape_error?: string | null
+          last_scrape_status?: string | null
+          logo_url?: string | null
+          network_area?: string | null
+          notes?: string | null
+          provider_name?: string
+          provider_slug?: string
+          sort_priority?: number
+          tariff_page_url?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       tariff_snapshots: {
         Row: {
           base_fee_eur_per_year: number
