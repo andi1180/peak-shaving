@@ -15,7 +15,7 @@ import { cn } from '@/lib/utils'
  */
 export function Emblem({
   className,
-  title = 'COOLiN Energy Emblem',
+  title = 'COOLiN ENERGY Emblem',
   inverse = false,
 }: {
   className?: string

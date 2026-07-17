@@ -13,7 +13,7 @@
 
 ## Was wir bauen
 
-Der professionelle Neubau von **coolin.at** — der Marketing-Plattform von COOLiN Energy. Klassische Marketing-Seite mit echter Menüstruktur/Unterseiten (kein 1:1-Rebuild der alten Scroll-Seite), plus Fundament für einen späteren Login-/Subscription-Bereich. Die Website „dreht sich" um den bestehenden **Peak-Shaving-Kalkulator** (Schwesterprojekt), der als bezahltes Produkt hinter Login integriert wird. **Erster Bauabschnitt: die Marketing-Website (`apps/web`).**
+Der professionelle Neubau von **coolin.at** — der Marketing-Plattform von COOLiN ENERGY. Klassische Marketing-Seite mit echter Menüstruktur/Unterseiten (kein 1:1-Rebuild der alten Scroll-Seite), plus Fundament für einen späteren Login-/Subscription-Bereich. Die Website „dreht sich" um den bestehenden **Peak-Shaving-Kalkulator** (Schwesterprojekt), der als bezahltes Produkt hinter Login integriert wird. **Erster Bauabschnitt: die Marketing-Website (`apps/web`).**
 
 ## Nicht verhandelbare Prinzipien
 

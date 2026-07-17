@@ -72,7 +72,7 @@
 
 ### 3.2 Rolle von coolin.at
 
-coolin.at ist die **Hauptplattform** von COOLiN Energy: klassische Marketing-Seite **plus** Login-Bereich für bezahlte Features. `[Entscheidung]` Das ersetzt bewusst das frühere Modell aus dem Kalkulator-Pflichtenheft (installateur-neutrale Produktmarke getrennt von einer COOLiN-Vitrinenseite). COOLiN ist jetzt die Dachmarke; White-Label/Reseller kommt später als eigener Layer (§3.4), nicht als getrennte Marke.
+coolin.at ist die **Hauptplattform** von COOLiN ENERGY: klassische Marketing-Seite **plus** Login-Bereich für bezahlte Features. `[Entscheidung]` Das ersetzt bewusst das frühere Modell aus dem Kalkulator-Pflichtenheft (installateur-neutrale Produktmarke getrennt von einer COOLiN-Vitrinenseite). COOLiN ist jetzt die Dachmarke; White-Label/Reseller kommt später als eigener Layer (§3.4), nicht als getrennte Marke.
 
 ### 3.3 Monetarisierungs-Fahrplan
 
