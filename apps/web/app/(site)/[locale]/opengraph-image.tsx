@@ -59,8 +59,9 @@ const NODE = '#14b8a6' // --color-node — Teal 500, laut globals.css NUR für E
 const WHITE = '#ffffff' // --color-on-navy
 
 /*
- * WORTMARKE — Variante A („Kompakt"), dieselbe, die Header und Footer zeigen
- * (`components/layout/site-header.tsx` → `WordmarkA`).
+ * WORTMARKE — Variante A („Gestapelt"), dieselbe, die Header und Footer zeigen
+ * (`components/layout/site-header.tsx` → `WordmarkA`). Seit Prompt 23 zweizeilig:
+ * „COOLiN" oben (unverändert), „ENERGY" darunter, auf dieselbe Breite gestreckt.
  *
  * Die Zahlen sind die aus `components/brand/wordmark.tsx`, dort an Inters echten
  * Glyphen vermessen — hier nur von der 100er-Basis auf Em-Anteile umgerechnet,
@@ -73,13 +74,34 @@ const STEM_H = 0.546 // i-Stamm: x-Höhe
 const STEM_W = 0.11
 const NODE_R = 0.09 // Knotenradius
 const NODE_CY = 0.68 // Knotenmitte über der Grundlinie
-const GAP_COOL_I = 0.08 // Abstände wie in wordmark.tsx (iX/nX/energyX)
+const GAP_COOL_I = 0.08 // Abstände wie in wordmark.tsx (iX/nX)
 const GAP_I_N = 0.09
-const GAP_N_ENERGY = 0.28
-const ENERGY_SIZE = 0.44 // „ENERGY" leichter und gesperrt …
-const ENERGY_TRACK = 0.09
-const ENERGY_OPACITY = 0.75 // … und etwas zurückgenommen — die Marke ist „COOLiN"
 const COOL_TRACK = -0.02
+
+/*
+ * ZEILE 2 „ENERGY" — Satori kennt weder SVG-`<text textLength>` noch eine
+ * Mess-API für gerendertes Textmaß (anders als der Browser bei wordmark.tsx).
+ * Statt zu messen, wird deshalb GESTRECKT: `transform: scaleX()` auf einen
+ * Container mit `transformOrigin: 'left'` — dieselbe Technik, die der Prompt
+ * für Nicht-SVG-Kontexte vorschlägt.
+ *
+ * coolNWidthEm = Breite von "COOLiN" (COOL + i-Stamm-Lücken + N), aus denselben
+ * gemessenen Advance-Breiten wie wordmark.tsx (M.cool700/M.n700, dort durch 100
+ * geteilt): 2,7661 + 0,08 + 0,11 + 0,09 + 0,7422 = 3,7883 em.
+ * ENERGY_SIZE=0,9 (statt vorher 0,44) ist so gewählt, dass die NATÜRLICHE
+ * (ungestreckte) Breite von „ENERGY" bei dieser Schriftgröße bereits nahe an
+ * COOL_N_WIDTH_EM liegt — der nötige Stretch bleibt dadurch klein, keine
+ * sichtbar verzerrten Glyphen. ENERGY_NATURAL_WIDTH_EM ist NICHT geschätzt,
+ * sondern am tatsächlich gerenderten OG-Bild vermessen (Pixel-Breite von
+ * "ENERGY" ohne Transform, gegen COOL_N_WIDTH_EM skaliert) — ENERGY_STRETCH
+ * ergibt sich daraus, kein Korrekturfaktor auf Verdacht.
+ */
+const COOL_N_WIDTH_EM = 3.7883
+const ENERGY_SIZE = 0.9
+const ENERGY_NATURAL_WIDTH_EM = 3.573
+const ENERGY_STRETCH = COOL_N_WIDTH_EM / ENERGY_NATURAL_WIDTH_EM
+const ENERGY_OPACITY = 0.75
+const LINE_GAP = 0.16 // Grundlinie COOLiN -> Versalhöhe ENERGY, in em
 
 /*
  * Bei `lineHeight: 1` sitzt Inters Grundlinie 0,1362 em über der Unterkante der
@@ -104,62 +126,72 @@ function Wordmark({ fontSize: s }: { fontSize: number }) {
     color: WHITE,
   }
   return (
-    <div style={{ display: 'flex', alignItems: 'flex-end' }}>
-      <div style={capText}>COOL</div>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+      {/* Zeile 1 — „COOLiN", unverändert ggü. der vorigen (einzeiligen) Fassung. */}
+      <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+        <div style={capText}>COOL</div>
 
-      {/* Das „i" ist gezeichnet, kein Buchstabe (Regel aus wordmark.tsx): nur so
-          sitzt der Knoten exakt und skaliert mit der Marke mit. */}
+        {/* Das „i" ist gezeichnet, kein Buchstabe (Regel aus wordmark.tsx): nur so
+            sitzt der Knoten exakt und skaliert mit der Marke mit. */}
+        <div
+          style={{
+            display: 'flex',
+            position: 'relative',
+            width: STEM_W * s,
+            height: s,
+            marginLeft: GAP_COOL_I * s,
+            marginRight: GAP_I_N * s,
+          }}
+        >
+          <div
+            style={{
+              position: 'absolute',
+              bottom: BASELINE_FROM_BOTTOM * s,
+              width: STEM_W * s,
+              height: STEM_H * s,
+              borderRadius: (STEM_W * s) / 2,
+              background: WHITE,
+            }}
+          />
+          {/* Der i-Punkt IST ein Teal-Knoten aus dem Netz-Motiv — der Anker zum
+              Emblem und der einzige Farbakzent der Karte. */}
+          <div
+            style={{
+              position: 'absolute',
+              bottom: (BASELINE_FROM_BOTTOM + NODE_CY - NODE_R) * s,
+              left: STEM_W * s * 0.5 - NODE_R * s,
+              width: NODE_R * 2 * s,
+              height: NODE_R * 2 * s,
+              borderRadius: NODE_R * s,
+              background: NODE,
+            }}
+          />
+        </div>
+
+        <div style={capText}>N</div>
+      </div>
+
+      {/* Zeile 2 — „ENERGY", gestreckt auf die Breite von Zeile 1 (COOL_N_WIDTH_EM).
+          `transformOrigin: 'left'` hält die Streckung linksbündig zu Zeile 1. */}
       <div
         style={{
           display: 'flex',
-          position: 'relative',
-          width: STEM_W * s,
-          height: s,
-          marginLeft: GAP_COOL_I * s,
-          marginRight: GAP_I_N * s,
+          marginTop: LINE_GAP * s,
+          transform: `scaleX(${ENERGY_STRETCH})`,
+          transformOrigin: 'left',
         }}
       >
         <div
           style={{
-            position: 'absolute',
-            bottom: BASELINE_FROM_BOTTOM * s,
-            width: STEM_W * s,
-            height: STEM_H * s,
-            borderRadius: (STEM_W * s) / 2,
-            background: WHITE,
+            fontSize: ENERGY_SIZE * s,
+            fontWeight: 400,
+            lineHeight: 1,
+            color: WHITE,
+            opacity: ENERGY_OPACITY,
           }}
-        />
-        {/* Der i-Punkt IST ein Teal-Knoten aus dem Netz-Motiv — der Anker zum
-            Emblem und der einzige Farbakzent der Karte. */}
-        <div
-          style={{
-            position: 'absolute',
-            bottom: (BASELINE_FROM_BOTTOM + NODE_CY - NODE_R) * s,
-            left: STEM_W * s * 0.5 - NODE_R * s,
-            width: NODE_R * 2 * s,
-            height: NODE_R * 2 * s,
-            borderRadius: NODE_R * s,
-            background: NODE,
-          }}
-        />
-      </div>
-
-      <div style={capText}>N</div>
-
-      <div
-        style={{
-          fontSize: ENERGY_SIZE * s,
-          fontWeight: 400,
-          letterSpacing: ENERGY_TRACK * s,
-          lineHeight: 1,
-          color: WHITE,
-          opacity: ENERGY_OPACITY,
-          marginLeft: GAP_N_ENERGY * s,
-          // Auf die Grundlinie der Versalien heben (s. BASELINE_FROM_BOTTOM).
-          marginBottom: BASELINE_FROM_BOTTOM * s * (1 - ENERGY_SIZE),
-        }}
-      >
-        ENERGY
+        >
+          ENERGY
+        </div>
       </div>
     </div>
   )

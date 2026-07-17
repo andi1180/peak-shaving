@@ -3,7 +3,7 @@ import { useTranslations } from 'next-intl'
 import { Link } from '@/i18n/navigation'
 import { Container } from '@/components/ui/layout'
 import { Button } from '@/components/ui/button'
-import { Emblem } from '@/components/brand/emblem'
+import { EmblemImage } from '@/components/brand/emblem-image'
 import { WordmarkA } from '@/components/brand/wordmark'
 import { MAIN_NAV, CTA_HREF, KONTAKT_HREF, LOGIN_HREF } from '@/lib/nav'
 import { cn } from '@/lib/utils'
@@ -71,8 +71,8 @@ export function SiteHeader() {
           aria-label={t('home')}
           className="flex shrink-0 items-center gap-2.5 rounded-md text-navy outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         >
-          <Emblem className="h-8 w-8" />
-          <HeaderWordmark className="h-[22px] w-auto" />
+          <EmblemImage size={44} className="h-11 w-11" priority />
+          <HeaderWordmark className="h-11 w-auto" />
         </Link>
 
         {/* Desktop-Navigation */}

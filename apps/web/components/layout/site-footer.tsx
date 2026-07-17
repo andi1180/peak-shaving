@@ -1,7 +1,7 @@
 import { useTranslations } from 'next-intl'
 import { Link } from '@/i18n/navigation'
 import { Container } from '@/components/ui/layout'
-import { Emblem } from '@/components/brand/emblem'
+import { EmblemImage } from '@/components/brand/emblem-image'
 import { WordmarkA } from '@/components/brand/wordmark'
 import { SignatureRule } from '@/components/brand/signature'
 import { LEISTUNGEN_FLAT, BRANCHEN_FLAT, PEAK_SHAVING_FLAT, COMPANY } from '@/lib/nav'
@@ -39,8 +39,8 @@ export function SiteFooter() {
               aria-label={tNav('home')}
               className="inline-flex items-center gap-2.5 rounded-md text-navy outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             >
-              <Emblem className="h-7 w-7" />
-              <WordmarkA className="h-5 w-auto" />
+              <EmblemImage size={40} className="h-10 w-10" />
+              <WordmarkA className="h-10 w-auto" />
             </Link>
 
             <p className="mt-4 max-w-xs text-small text-text-muted">{tBrand('claim')}</p>

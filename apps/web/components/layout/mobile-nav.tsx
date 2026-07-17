@@ -12,7 +12,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion'
-import { Emblem } from '@/components/brand/emblem'
+import { EmblemImage } from '@/components/brand/emblem-image'
 import { MAIN_NAV, CTA_HREF, KONTAKT_HREF, LOGIN_HREF, type NavLeaf } from '@/lib/nav'
 import { cn } from '@/lib/utils'
 
@@ -79,7 +79,7 @@ export function MobileNav() {
           {/* Kopf des Drawers */}
           <div className="flex h-16 shrink-0 items-center justify-between border-b border-line px-4">
             <SheetTitle className="flex items-center gap-2 text-h4 text-ink">
-              <Emblem className="h-7 w-7" />
+              <EmblemImage size={28} className="h-7 w-7" />
               {t('menuTitle')}
             </SheetTitle>
             <SheetClose

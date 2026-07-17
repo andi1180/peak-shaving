@@ -61,24 +61,40 @@ function IStem({ x, width }: { x: number; width: number }) {
 }
 
 /* ------------------------------------------------------------------ *
- * Variante A — „Kompakt"
- * Eine Zeile, COOLiN Bold, ENERGY leicht und gesperrt. Der Knoten ist ein
- * satter Punkt und bricht die Versalhöhe nur minimal. Sachlichste Lesart.
+ * Variante A — „Gestapelt" (Prompt 23: vorher nebeneinander, jetzt zweizeilig)
+ *
+ * „COOLiN" bleibt textlich UND breitenmäßig unverändert (exakt dieselben
+ * Koordinaten/Metriken wie zuvor, inkl. i-Punkt-Knoten) und rückt an den
+ * oberen Rand. „ENERGY" steht darunter und wird per `textLength` +
+ * `lengthAdjust="spacingAndGlyphs"` auf EXAKT dieselbe Breite gestreckt wie
+ * „COOLiN" darüber (coolNWidth) — der zuverlässige Weg, Breitengleichheit zu
+ * erzwingen, ohne Kerning von Hand zu raten (SVG-Spec macht das deterministisch,
+ * unabhängig von Zeichenzahl/Font-Metrik). `energySize` ist bewusst groß genug
+ * gewählt, dass die natürliche (ungestreckte) Breite von „ENERGY" schon nahe an
+ * coolNWidth liegt — der Stretch bleibt dadurch minimal, keine sichtbare
+ * Verzerrung der Glyphen.
  * ------------------------------------------------------------------ */
 export function WordmarkA({ className, monochrome, title = 'COOLiN ENERGY' }: WordmarkProps) {
   const node = monochrome ? 'currentColor' : 'var(--color-node)'
   const iW = 11
   const iX = M.cool700 + 8
   const nX = iX + iW + 9
-  const energyX = nX + M.n700 + 28
-  const w = energyX + M.energyA
+  const coolNWidth = nX + M.n700 // Breite von "COOLiN" allein — Zielbreite für ENERGY
+
+  const lineGap = 16 // Abstand: Grundlinie COOLiN -> Versalhöhe ENERGY
+  const energySize = 90
+  const energyCapTop = BASE + lineGap
+  const energyBase = energyCapTop + energySize * 0.727 // Versalhöhe-Anteil, s. CAP_TOP
+  const topMargin = 10 // etwas über dem Knoten (Knoten-Oberkante = NODE_CY - 9 = 23)
+  const bottomMargin = 8
+  const h = energyBase + bottomMargin - topMargin
 
   return (
     <svg
-      viewBox={`0 18 ${w} 86`}
+      viewBox={`0 ${topMargin} ${coolNWidth} ${h}`}
       role="img"
       aria-label={title}
-      className={cn('h-8 w-auto', className)}
+      className={cn('h-11 w-auto', className)}
       xmlns="http://www.w3.org/2000/svg"
     >
       <text
@@ -105,13 +121,16 @@ export function WordmarkA({ className, monochrome, title = 'COOLiN ENERGY' }: Wo
       >
         N
       </text>
+      {/* ENERGY, zweite Zeile: textLength erzwingt exakt coolNWidth, egal wie
+          die natürliche Zeichenbreite ausfällt. */}
       <text
-        x={energyX}
-        y={BASE}
+        x="0"
+        y={energyBase}
+        textLength={coolNWidth}
+        lengthAdjust="spacingAndGlyphs"
         fontFamily={FONT}
-        fontSize={SIZE * 0.44}
+        fontSize={energySize}
         fontWeight="400"
-        letterSpacing="9"
         fill="currentColor"
         opacity="0.75"
       >
@@ -276,7 +295,9 @@ export function Lockup({
   inverse?: boolean
 }) {
   const Word = variant === 'A' ? WordmarkA : variant === 'B' ? WordmarkB : WordmarkC
-  const stacked = variant === 'C'
+  // A ist seit Prompt 23 ebenfalls zweizeilig (COOLiN/ENERGY gestapelt) — braucht
+  // dieselbe großzügigere Höhe wie C, nur B bleibt die einzeilige Kompaktform.
+  const stacked = variant === 'A' || variant === 'C'
   return (
     <div
       className={cn(

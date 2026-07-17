@@ -21,12 +21,13 @@ export const config = {
    * bewusst als `.*opengraph-image` (nicht am Anfang verankert wie die anderen):
    * die Route liegt IM Locale-Segment, der Pfad beginnt also mit „/de/".
    *
-   * `apple-icon` (Prompt 20, Favicon): dasselbe Muster — die von `app/apple-icon.tsx`
-   * erzeugte PNG-Route trägt KEINE Dateiendung und würde sonst per 307 in die
-   * Locale-Struktur umgeleitet (gemessen: `/apple-icon` → 404). Anders als das
-   * OG-Bild liegt sie am Wurzelsegment (`/apple-icon`, nicht `/de/…`), steht
-   * also am Anfang verankert. `icon.svg` braucht keinen Eintrag — es trägt eine
-   * Endung und fällt bereits unter `.*\..*`.
+   * `apple-icon` (Prompt 20) ist mit Prompt 23 KEINE erzeugte Route mehr:
+   * `app/apple-icon.tsx` (Satori) ist durch die statische `app/apple-icon.png`
+   * ersetzt (direkt aus der PNG-Vorlage generiert, exakte Navy-Farbe #18336f
+   * statt einer Nachzeichnung). Eine statische Datei trägt eine Endung und
+   * fällt bereits unter `.*\..*` — der eigene Matcher-Eintrag ist damit
+   * überflüssig geworden und entfernt. `icon.svg` ist aus demselben Grund seit
+   * je keinen Eintrag wert; sein Nachfolger `app/icon.png` ebenso wenig.
    */
-  matcher: ['/((?!api|_next|_vercel|styleguide|apple-icon|.*opengraph-image|.*\\..*).*)'],
+  matcher: ['/((?!api|_next|_vercel|styleguide|.*opengraph-image|.*\\..*).*)'],
 }

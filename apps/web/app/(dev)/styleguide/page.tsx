@@ -422,8 +422,10 @@ export default function StyleguidePage() {
           <h3 className="mt-10 text-h4 text-ink">Lockup — Emblem + Wortmarke</h3>
           <p className="mt-1 max-w-prose text-small text-text-muted">
             Clear-Space = 0,5 × Emblemhöhe auf allen Seiten (gestrichelt angedeutet). Innerhalb
-            dieser Zone steht nichts. Das Emblem ist eine <strong>Nachzeichnung</strong> der
-            favicon.png — Platzhalter bis zum hochauflösenden Original (OP#7).
+            dieser Zone steht nichts. Diese Fassung ist eine gegen Andreas' Original pixelgenau
+            vermessene <strong>Vektor-Nachzeichnung</strong> — nur für Stellen mit <code>inverse</code>
+            -Bedarf oder Satori-Zwang (OG-Bild); Header/Footer/Mobile-Drawer nutzen die echte
+            PNG-Vorlage direkt (<code>components/brand/emblem-image.tsx</code>).
           </p>
           <div className="mt-4 grid gap-4 sm:grid-cols-3">
             {(['A', 'B', 'C'] as const).map((v) => (

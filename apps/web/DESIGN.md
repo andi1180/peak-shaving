@@ -247,20 +247,35 @@ H1, die das noch einzeln trugen, wurden entschlackt. Gemessen: alle `h1`/`h2` au
 
 ## Marke
 
-### Emblem — **Platzhalter**
+### Emblem — **Original eingetroffen (OP#7 gelöst, Prompt 23)**
 
-`components/brand/emblem.tsx` ist eine **Nachzeichnung** von `reference/favicon.png` (Navy-Squircle,
-dünne Netzlinien, ein heller Messpunkt, zwei Teal-Knoten) — **kein offizielles Asset**. Das
-hochauflösende Original liefert Andreas (Pflichtenheft §7.4, **OP#7**). Danach wird **nur diese
-Datei** ersetzt; Wortmarke und Lockup bleiben unberührt.
-`inverse` liefert die Fassung für dunkle Gründe (heller Grund, Navy-Linien) — ohne sie verschwindet
-der Navy-Squircle auf einer Navy-Fläche.
+Andreas' hochauflösendes Original liegt unter `reference/logo-coolin-emblem-master.png` (128×128,
+transparenter Grund) — die alte `reference/favicon.png` war eine ungenaue Vorabkopie und ist nicht
+mehr Quelle.
+
+- **`components/brand/emblem-image.tsx`** bindet die PNG-Vorlage direkt ein (`next/image`,
+  `public/brand/coolin-emblem.png`) — für jede Stelle, die ein `<img>` verträgt (Header, Footer,
+  Mobile-Drawer). Kein Nachzeichnungsrisiko mehr.
+- **`components/brand/emblem.tsx`** bleibt als SVG-Vektorfassung bestehen, aber nur noch für
+  Stellen, die zwingend Vektor/Satori brauchen (`opengraph-image.tsx`) oder eine `inverse`-Fassung
+  zeigen müssen (Styleguide) — pixelgenau gegen die PNG-Vorlage vermessen (Node-Zentren/-Radien via
+  Distanztransformation, Linien via Hough-Transformation + linearer Regression je Segment): Netzlinien
+  enden an den Knotenpunkten (bzw. laufen an der Bild-Kante offen aus) statt darunter hindurchzulaufen.
+  `inverse` liefert die Fassung für dunkle Gründe (heller Grund, Navy-Linien) — ohne sie verschwindet
+  der Navy-Squircle auf einer Navy-Fläche.
+- Favicon/Apple-Touch-Icon (`app/icon.png`/`app/apple-icon.png`) sind direkt aus derselben
+  PNG-Vorlage generiert (Navy-Pixel auf exakt `#18336f` umgefärbt, s. „Farben" oben) — kein
+  drittes Nachzeichnungsrisiko.
 
 ### Wortmarke
 
 Drei Varianten (`components/brand/wordmark.tsx`), gemeinsame Regeln:
 
-- „COOLiN" kräftig, „ENERGY" leichter und gesperrt (§7.4).
+- „COOLiN" kräftig, „ENERGY" leichter und gesperrt (§7.4). **Variante A ist seit Prompt 23
+  zweizeilig** (Header/Footer/OG-Bild): „COOLiN" oben unverändert, „ENERGY" darunter auf exakt
+  dieselbe Breite gestreckt (`textLength`/`lengthAdjust="spacingAndGlyphs"`; im OG-Bild, das kein
+  SVG-`<text>` kennt, per `transform: scaleX()`). B/C bleiben einzeilige Entwurfsvarianten für den
+  Styleguide-Vergleich, nicht live verdrahtet.
 - **Das Klein-„i" ist die Klammer zum Emblem:** sein Punkt IST ein Teal-Knoten. Deshalb wird das
   „i" nicht als Buchstabe gesetzt, sondern als Geometrie gezeichnet (Stamm + Knoten) — nur so sitzt
   der Knoten exakt und skaliert mit.
