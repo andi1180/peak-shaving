@@ -1,8 +1,8 @@
 /**
- * Die 4 Start-Branchen als DATENQUELLE (Pflichtenheft §5.3).
+ * Die 5 Branchen als DATENQUELLE (Pflichtenheft §5.3).
  *
  * Exakt nach dem Muster von `lib/leistungen.ts` gebaut: Genau EIN Template
- * rendert alle 4 Unterseiten und die Übersicht (`components/branche/`). Hier
+ * rendert alle 5 Unterseiten und die Übersicht (`components/branche/`). Hier
  * steht nur, was die Seiten voneinander unterscheidet und NICHT aus einem Text
  * besteht: Slug, Icon, die schematische Tageskurve und die Cross-Link-Ziele.
  * Alle sichtbaren Texte kommen über `messages/de.json` (§8.7 — keine Strings
@@ -18,7 +18,7 @@
  * es auch zu tun.
  */
 
-import { Hotel, Store, UtensilsCrossed, Wheat } from 'lucide-react'
+import { Factory, HardHat, Tractor, UtensilsCrossed, Wrench } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { BRANCHEN_FLAT, type NavLeaf } from './nav'
 import { LEISTUNG_ICONS, resolveCrossLink, type CrossLink } from './leistungen'
@@ -27,16 +27,17 @@ import { LEISTUNG_ICONS, resolveCrossLink, type CrossLink } from './leistungen'
  * ICONS je Branche — schlichte, einfarbige lucide-Line-Icons, KEINE Emoji
  * (§7.3), gleiche Rolle und Platzierung wie `LEISTUNG_ICONS`.
  *
- * Bewusst die sachlichen Motive: `Wheat` (Ähre) statt `Croissant`, `Store`
- * statt `ShoppingCart`. Die Leistungs-Icons sind funktional (Gauge, Coins,
- * ClipboardCheck) — ein Croissant neben einem Manometer wäre genau der
- * verspielte Ton, den §7.3 abstellt.
+ * Bewusst die sachlichen Motive: `Wrench` (Werkzeug) statt `Hammer`, `Tractor`
+ * statt `Sprout`. Die Leistungs-Icons sind funktional (Gauge, Coins,
+ * ClipboardCheck) — ein verspieltes Motiv daneben wäre genau der Ton, den §7.3
+ * abstellt.
  */
 export const BRANCHE_ICONS: Record<string, LucideIcon> = {
-  hotellerie: Hotel,
-  gastronomie: UtensilsCrossed,
-  baeckerei: Wheat,
-  handel: Store,
+  bau: HardHat,
+  hotellerieGastronomie: UtensilsCrossed,
+  handwerk: Wrench,
+  industrie: Factory,
+  landForstwirtschaft: Tractor,
 }
 
 /**
@@ -51,10 +52,16 @@ export const BRANCHE_ICONS: Record<string, LucideIcon> = {
  * sichtbar am Diagramm (Titel „(schematisch)" + Caption „Illustratives Schema,
  * keine Messdaten."), nicht nur hier im Code.
  *
- * Die FORM je Branche folgt Pflichtenheft §5.3 („Hotel: gleichzeitige Last aus
- * Küche + HLK + Wäscherei; Bäckerei: Ofen-Spitzen früh; Gastro: Stoßzeiten;
- * Handel: Kälte/Beleuchtung/Klima") und ist qualitativ — nicht aus Messdaten
- * abgeleitet und nicht als Benchmark verwendbar.
+ * Die FORM je Branche folgt dem Mechanismus, der die Spitze erzeugt (Hotel:
+ * gleichzeitige Last aus Küche + HLK + Wäscherei; Gastro: Stoßzeiten; Handwerk:
+ * gleichzeitiger Maschinenanlauf; Industrie: Schichtwechsel/Chargenprozesse;
+ * Bau: unregelmäßige Großgeräte; Land/Forst: saisonal) und ist qualitativ —
+ * nicht aus Messdaten abgeleitet und nicht als Benchmark verwendbar.
+ *
+ * Pflichtenheft §5.3 nennt als Beispiele noch Bäckerei und Handel. Beide sind
+ * seit Prompt 25 keine eigenen Branchenseiten mehr (Bäckerei ist im Handwerk
+ * aufgegangen, der Handel ersatzlos entfallen) — der dort beschriebene
+ * MECHANISMUS gilt unverändert, nur nicht mehr unter diesen Überschriften.
  *
  * BEWUSST NICHT über `packages/engine` gerechnet — gleiche Begründung wie bei
  * `components/peak-shaving/load-curve-chart.tsx`: Das ist eine Zeichnung, kein
@@ -73,10 +80,10 @@ export type BrancheProfile = {
    * Höhe einer angedeuteten Kappungsschwelle (relativ, wie `relativeLoad`).
    *
    * OPTIONAL, und das ist der fachliche Kern (§5.3 „Kühlhaus mit Vorsicht"):
-   * Ein Profil ohne ausgeprägte Spitze hat nichts, was sich sinnvoll kappen
-   * ließe. Wo `capHint` fehlt, zeichnet das Diagramm KEINE Schwelle — der
-   * Handel bekommt so auch grafisch kein Peak-Shaving-Versprechen, das sein
-   * Lastprofil nicht hergibt.
+   * Ein Profil ohne verlässlich wiederkehrende Spitze hat nichts, was sich
+   * sinnvoll kappen ließe. Wo `capHint` fehlt, zeichnet das Diagramm KEINE
+   * Schwelle — die Land- und Forstwirtschaft bekommt so auch grafisch kein
+   * Peak-Shaving-Versprechen, das ihr Lastprofil nicht hergibt.
    */
   capHint?: number
 }
@@ -90,47 +97,71 @@ export type BrancheProfile = {
  * er die Aussage, hier ist er der Kontext.
  */
 const HOURLY: Record<string, number[]> = {
-  // Gleichzeitigkeit: Morgenspitze (Frühstücksküche + Duschen + erste
-  // Wäschecharge + HLK), zweite Erhebung am Abend (Küche + Wellness + belegte
-  // Zimmer). Dazwischen fällt der Betrieb deutlich ab.
-  hotellerie: [
-    34, 32, 31, 31, 33, 42, 74, 92, 100, 78, 58, 56, 64, 62, 52, 48, 50, 62, 80, 86, 78, 62, 48, 38,
+  // Ausrüstungsgetrieben und UNREGELMÄSSIG: Was gerade gebraucht wird, läuft —
+  // Kompressor, Schweißgerät, Betonpumpe, Kran. Die Zacken sind kein Zufall der
+  // Zeichnung, sondern die Aussage: Es gibt kein wiederkehrendes Tagesmuster,
+  // nur mehrere Momente, in denen Großgeräte zusammenfallen. Bezogen auf einen
+  // FESTEN Standort (Bauhof/Betriebsstandort), nicht auf eine Baustelle — s.
+  // `CAP_HINT` und den Seitentext.
+  bau: [
+    20, 19, 19, 18, 18, 24, 56, 84, 100, 70, 88, 58, 44, 72, 94, 64, 56, 40, 30, 26, 24, 22, 21, 20,
   ],
-  // Zwei Stoßzeiten, Abend stärker als Mittag. Die Kälte läuft als Grundlast
-  // durch und kommt nie auf null.
-  gastronomie: [
-    28, 26, 25, 25, 25, 26, 28, 32, 40, 50, 62, 80, 88, 76, 52, 42, 46, 60, 84, 100, 94, 70, 46, 34,
+  // Der Merge trägt BEIDE Geschichten in einer Kurve: die Gleichzeitigkeit des
+  // Hotels (Frühstücksküche + HLK + erste Wäschecharge, morgens) UND die
+  // Stoßzeiten der Gastronomie (Mittag, Abend). Deshalb DREI Erhebungen statt
+  // einer — genau das unterscheidet dieses Profil von den anderen vier.
+  hotellerieGastronomie: [
+    34, 32, 30, 30, 32, 42, 72, 90, 84, 64, 56, 62, 86, 74, 52, 48, 52, 66, 88, 100, 92, 72, 50, 38,
   ],
-  // Das klassische Einzel-Peak-Profil: eine einzige, sehr frühe Ofen-Anfahrspitze
-  // über einer durchlaufenden Kälte-/Froster-Grundlast. Der stärkste
-  // Peak-Shaving-Fit der vier — und der Grund, warum die Kurve hier so
-  // eindeutig aussieht.
-  baeckerei: [
-    30, 32, 72, 100, 88, 66, 58, 54, 50, 46, 42, 42, 44, 42, 38, 36, 36, 34, 32, 31, 30, 30, 29, 29,
+  // Das klassische Einzel-Peak-Profil: ein einziger, kurzer, sehr hoher
+  // Ausschlag beim gleichzeitigen Anlaufen mehrerer Maschinen über einem
+  // NIEDRIGEN Sockel. Der stärkste Peak-Shaving-Fit der fünf — und der Grund,
+  // warum die Kurve hier so eindeutig aussieht.
+  handwerk: [
+    22, 21, 21, 20, 20, 22, 30, 48, 100, 62, 54, 52, 50, 52, 56, 50, 42, 30, 25, 23, 22, 22, 22, 22,
   ],
-  // Quasi-Dauerlast: hohe Kälte-Grundlast rund um die Uhr, breites Plateau
-  // während der Öffnungszeit (Beleuchtung + Klima), kein einzelner teurer
-  // Moment. Deshalb steht dieses Profil OHNE `capHint` (s. u.).
-  handel: [
-    54, 52, 51, 50, 50, 52, 60, 78, 90, 94, 95, 96, 97, 98, 100, 99, 96, 95, 94, 90, 76, 62, 57, 55,
+  // Höhere Grundlast (Produktionslinien laufen auch nachts an) mit einem
+  // breiten Tagesplateau, aus dem einzelne prozessgetriebene Spitzen
+  // herausragen: Anlauf am Morgen, Schichtwechsel am Nachmittag. Gleicher
+  // Mechanismus wie beim Handwerk, nur auf höherem Niveau und ohne den
+  // niedrigen Sockel darunter.
+  industrie: [
+    48, 47, 46, 46, 47, 62, 92, 78, 76, 80, 78, 74, 86, 72, 74, 76, 100, 78, 72, 60, 52, 50, 49, 48,
+  ],
+  // WETTER- UND SAISONABHÄNGIG: Bewässerung, Trocknung, Erntekühlung laufen,
+  // wenn die Saison es verlangt — nicht nach Uhrzeit. Die Kurve ist deshalb
+  // bewusst sprunghaft und ohne wiedererkennbare Ordnung; sie zeigt EINEN Tag,
+  // und der nächste sieht anders aus. Genau deshalb steht dieses Profil OHNE
+  // `capHint` (s. u.) — aber aus einem anderen Grund als früher der Handel.
+  landForstwirtschaft: [
+    30, 28, 28, 27, 46, 68, 74, 52, 48, 86, 100, 78, 62, 58, 70, 92, 66, 44, 58, 40, 32, 30, 29, 29,
   ],
 }
 
 /**
  * Angedeutete Kappungsschwelle je Branche — bewusst NICHT für alle.
  *
- * Hotellerie/Gastronomie/Bäckerei haben ausgeprägte Spitzen über einem
- * niedrigeren Tagesniveau; dort ist die Schwelle die halbe Erklärung.
- * DER HANDEL FEHLT HIER ABSICHTLICH: Sein Profil ist ein breites Plateau —
- * eine eingezeichnete Schwelle würde suggerieren, es gäbe eine Spitze zum
- * Abschneiden, und genau diese Zusage gibt der Handel nicht her (§5.3, gleiche
- * Vorsicht wie beim Kühlhaus). Der Hebel steht dort auf Energiemanagement, PV
- * und Eigenverbrauch — das sagt der Text, und das sagt jetzt auch das Bild.
+ * Bau, Hotellerie & Gastronomie, Handwerk und Industrie haben ausgeprägte
+ * Spitzen über einem niedrigeren Tagesniveau; dort ist die Schwelle die halbe
+ * Erklärung. Die Höhe der Schwelle folgt der Deutlichkeit des Fits: Beim
+ * Handwerk liegt sie am tiefsten (der Sockel ist niedrig, es gibt viel
+ * abzuschneiden), beim Bau höher (die Zacken sind unregelmäßig, ein Teil davon
+ * bleibt).
+ *
+ * LAND- UND FORSTWIRTSCHAFT FEHLT HIER ABSICHTLICH — und aus einem ANDEREN
+ * Grund als früher der Handel: Nicht weil das Profil flach wäre (es ist im
+ * Gegenteil sehr bewegt), sondern weil es SAISONAL und wetterabhängig ist. Eine
+ * Schwelle, die an einem Tag im Juli passt, ist im Februar bedeutungslos. Eine
+ * eingezeichnete Linie würde eine Wiederholbarkeit behaupten, die es nicht gibt
+ * (§5.3, gleiche Vorsicht wie beim Kühlhaus, andere Begründung). Der Hebel steht
+ * dort auf Energiemanagement, PV und Eigenverbrauch — das sagt der Text, und das
+ * sagt auch das Bild.
  */
 const CAP_HINT: Record<string, number> = {
-  hotellerie: 84,
-  gastronomie: 82,
-  baeckerei: 62,
+  bau: 72,
+  hotellerieGastronomie: 84,
+  handwerk: 64,
+  industrie: 82,
 }
 
 /**
@@ -142,10 +173,12 @@ const CAP_HINT: Record<string, number> = {
  * Energiemanagement und PV/Speicher stehen überall, weil sie überall zuerst
  * greifen (der Lastgang ist die Datengrundlage, der Speicher der Hebel). Der
  * dritte Eintrag ist je Branche der, der wirklich unterscheidet:
- *   Hotellerie  → ESG: Firmenkunden und Buchungsplattformen fragen danach.
- *   Gastronomie → Finanzierung: kleinere Betriebe, die Förderung entscheidet mit.
- *   Bäckerei    → Smart Heating: eine steuerbare Wärmelast neben der Ofenspitze.
- *   Handel      → PPA: Filialketten beschaffen standortübergreifend.
+ *   Bau         → Finanzierung: investitionsintensiv, Förderung entscheidet mit.
+ *   Hotel/Gastro→ ESG: Firmenkunden und Buchungsplattformen fragen danach.
+ *   Handwerk    → Smart Heating: die Hallenheizung ist eine steuerbare Wärmelast
+ *                 neben der Maschinenspitze.
+ *   Industrie   → PPA: größere Mengen, standortübergreifende Beschaffung.
+ *   Land/Forst  → Finanzierung: Agrarförderung ist hier ein eigener Hebel.
  *
  * Das FLAGGSCHIFF ist hier bewusst NICHT gelistet — es steht auf jeder
  * Branchenseite in einem eigenen, hervorgehobenen Block (s. `FLAGSHIP_LINKS`),
@@ -153,10 +186,11 @@ const CAP_HINT: Record<string, number> = {
  * der Leistungs-Übersicht (§4.2).
  */
 const HEBEL: Record<string, string[]> = {
-  hotellerie: ['energiemanagement', 'pvSpeicher', 'esg'],
-  gastronomie: ['energiemanagement', 'pvSpeicher', 'finanzierung'],
-  baeckerei: ['energiemanagement', 'smartHeating', 'pvSpeicher'],
-  handel: ['energiemanagement', 'pvSpeicher', 'ppa'],
+  bau: ['energiemanagement', 'pvSpeicher', 'finanzierung'],
+  hotellerieGastronomie: ['energiemanagement', 'pvSpeicher', 'esg'],
+  handwerk: ['energiemanagement', 'smartHeating', 'pvSpeicher'],
+  industrie: ['energiemanagement', 'pvSpeicher', 'ppa'],
+  landForstwirtschaft: ['energiemanagement', 'pvSpeicher', 'finanzierung'],
 }
 
 /**
@@ -166,8 +200,8 @@ const HEBEL: Record<string, string[]> = {
  *
  * Die Ziele kommen aus `lib/leistungen.ts` (CROSS_TARGETS) — nicht getippt.
  * Was sich je Branche unterscheidet, ist der ERKLÄRTEXT in den Messages
- * (`Branchen.Pages.<key>.hebel.flagshipText`): Im Handel steht dort bewusst,
- * dass Peak Shaving hier selten der erste Hebel ist.
+ * (`Branchen.Pages.<key>.hebel.flagshipText`): In der Land- und Forstwirtschaft
+ * steht dort bewusst, dass Peak Shaving hier selten der erste Hebel ist.
  */
 export const FLAGSHIP_LINKS: CrossLink[] = ['peakShaving', 'kalkulator'].map(resolveCrossLink)
 
@@ -183,13 +217,19 @@ export type BrancheHebel = CrossLink & { icon: LucideIcon }
  * Zwei Branchen mit einem KONKRETEN Verweis auf den Flaggschiff-Artikel
  * „Leistungstarif 2027" (SEO-Nacharbeit, Prompt 13c/§6.4).
  *
- * NUR Bäckerei und Gastronomie: Ihre Tageskurve (s. `HOURLY` oben) ist eine
- * kurze, unmittelbare Anlauf-/Stoßzeiten-Spitze über einer niedrigen
+ * NUR Handwerk und Hotellerie & Gastronomie: Ihre Tageskurve (s. `HOURLY` oben)
+ * ist eine kurze, unmittelbare Anlauf-/Stoßzeiten-Spitze über einer niedrigen
  * Grundlast — exakt der Mechanismus, den der Artikel durchrechnet („drei
- * Geräte, die gleichzeitig anlaufen"). Hotellerie (breite doppelte
- * Gleichzeitigkeit) und Handel (Plateau, bewusst ohne `capHint`) sind nicht
- * dieser Kernfall — ein erzwungener Verweis dort wäre Vollständigkeit ohne
- * inhaltlichen Bezug (dieselbe Zurückhaltung wie bei `CAP_HINT`/`HEBEL` oben).
+ * Geräte, die gleichzeitig anlaufen"). Das Handwerk IST dieser Fall in
+ * Reinform; die Gastronomie-Hälfte des Merges trägt ihn über die Stoßzeiten.
+ *
+ * NICHT dabei, jeweils mit Grund: Die Industrie kennt den Leistungspreis
+ * bereits (der Artikel richtet sich ausdrücklich an die bisher NICHT gemessenen
+ * KMU); der Bau hat kein wiederkehrendes Anlaufmuster, sondern unregelmäßige
+ * Gerätespitzen; Land- und Forstwirtschaft steht bewusst ohne `capHint` und
+ * damit außerhalb des Kernfalls. Ein erzwungener Verweis dort wäre
+ * Vollständigkeit ohne inhaltlichen Bezug (dieselbe Zurückhaltung wie bei
+ * `CAP_HINT`/`HEBEL` oben).
  *
  * BEWUSST EIN LITERALER SLUG, KEIN GENERISCHES ARTIKEL-VOKABULAR: Es gibt
  * genau einen Artikel. Ein `relatedArticles: string[]` mit eigener Auflösung
@@ -199,7 +239,7 @@ export type BrancheHebel = CrossLink & { icon: LucideIcon }
  * zweitgetippt, sonst könnte die Karte vom echten Artikeltitel abweichen.
  */
 const RELATED_ARTICLE_SLUG = 'leistungstarif-2027'
-const ARTICLE_LINK_BRANCHEN = ['baeckerei', 'gastronomie']
+const ARTICLE_LINK_BRANCHEN = ['handwerk', 'hotellerieGastronomie']
 
 export type Branche = {
   /** Schlüssel in `Nav`, `Pages` und `Branchen.Pages` der Message-Datei. */
@@ -247,7 +287,7 @@ function toProfile(key: string): BrancheProfile {
 }
 
 /**
- * Die 4 Branchen in Menü-Reihenfolge. Aus `BRANCHEN_FLAT` abgeleitet: Reihenfolge
+ * Die 5 Branchen in Menü-Reihenfolge. Aus `BRANCHEN_FLAT` abgeleitet: Reihenfolge
  * und Slugs der Übersicht folgen so automatisch dem Menü — eine zweite,
  * handgepflegte Liste würde davon abdriften (gleiche Mechanik wie `LEISTUNGEN`).
  */

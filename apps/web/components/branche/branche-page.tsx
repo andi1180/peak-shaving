@@ -137,14 +137,14 @@ function LastgangSection({ branche }: { branche: Branche }) {
  * Die Kachel-Optik ist die der Leistungs-Übersicht (gleiche Karte, gleiches
  * Icon, gleicher Pfeil): Wer von `/leistungen` kommt, erkennt dieselbe Sache
  * wieder. Der Titel des Links IST das Nav-Label (`tNav`), der Erklärtext kommt
- * von DIESER Seite — warum ausgerechnet die Bäckerei auf Smart Heating zeigt,
+ * von DIESER Seite — warum ausgerechnet das Handwerk auf Smart Heating zeigt,
  * ist eine andere Aussage als beim Hotel.
  *
  * DAS FLAGGSCHIFF IST KEINE VIERTE KACHEL (§4.2), sondern ein eigener,
  * abgesetzter Block — exakt wie in `leistungen-overview.tsx`. Sein Text ist
- * branchenspezifisch, und im Handel sagt er ausdrücklich, dass Peak Shaving
- * dort selten der erste Hebel ist (§9.5: keine Zusage, die das Lastprofil nicht
- * hergibt).
+ * branchenspezifisch, und in der Land- und Forstwirtschaft sagt er ausdrücklich,
+ * dass Peak Shaving dort selten der erste Hebel ist (§9.5: keine Zusage, die das
+ * Lastprofil nicht hergibt).
  */
 function HebelSection({ branche }: { branche: Branche }) {
   const t = usePage(branche)
@@ -153,7 +153,7 @@ function HebelSection({ branche }: { branche: Branche }) {
 
   /*
    * Konkreter Verweis auf den 2027-Artikel (13c) — NUR wenn `relatedArticleSlug`
-   * gesetzt ist (Bäckerei/Gastronomie, s. lib/branchen.ts). Wirft laut, falls der
+   * gesetzt ist (Handwerk / Hotellerie & Gastronomie, s. lib/branchen.ts). Wirft laut, falls der
    * Slug je vom echten Artikel abweicht — ein toter Link wäre schlimmer als ein
    * gebrochener Build.
    */
@@ -324,8 +324,8 @@ function BrancheFaq({ branche }: { branche: Branche }) {
  *
  * UNVERÄNDERT wiederverwendet — dieselbe Komponente wie auf der Startseite und
  * auf /peak-shaving, inklusive ihrer Default-Werte. Bewusst OHNE
- * branchenspezifische Vorbelegung: Eine Zahl, die auf `/branchen/baeckerei`
- * schon im Feld steht, liest sich als „so viel hat eine Bäckerei" — also als
+ * branchenspezifische Vorbelegung: Eine Zahl, die auf `/branchen/handwerk`
+ * schon im Feld steht, liest sich als „so viel hat eine Werkstatt" — also als
  * Benchmark, den wir nicht belegen können (§9.5). Die Vorbelegung bleibt das
  * neutrale Rechenbeispiel, das die Komponente selbst als solches ausweist.
  *

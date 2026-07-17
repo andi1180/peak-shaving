@@ -225,7 +225,7 @@ export const mdxComponents: MdxComponentMap = {
   /**
    * Der SCHNELLRECHNER (§5.4/§6.5). UNVERÄNDERT dieselbe Komponente wie auf der
    * Startseite, /peak-shaving und den Branchenseiten — nicht geforkt, und
-   * bewusst OHNE Prefill-Props: Eine Zahl, die in einem Artikel über Bäckereien
+   * bewusst OHNE Prefill-Props: Eine Zahl, die in einem Artikel über Werkstätten
    * schon im Feld steht, liest sich als Benchmark, den §9.5 nicht deckt. Sie
    * bringt ihren eigenen CTA („Zum Kalkulator") mit; ein zweiter Button daneben
    * wäre der Doppel-CTA-Fehler, der an anderer Stelle schon behoben wurde.

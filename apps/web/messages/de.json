@@ -25,16 +25,17 @@
     "peakShavingCalculator": "Der Kalkulator",
     "branchen": "Branchen",
     "branchenAll": "Alle Branchen",
-    "hotellerie": "Hotellerie",
-    "gastronomie": "Gastronomie",
-    "baeckerei": "Bäckerei",
-    "handel": "Handel",
     "wissen": "Wissen",
     "ueberUns": "Über uns",
     "login": "Login",
     "loginSoon": "bald",
     "kontakt": "Kontakt",
-    "cta": "Kalkulator"
+    "cta": "Kalkulator",
+    "bau": "Bau & Baunebengewerbe",
+    "hotellerieGastronomie": "Hotellerie & Gastronomie",
+    "handwerk": "Handwerk",
+    "industrie": "Industrie & Verarbeitendes Gewerbe",
+    "landForstwirtschaft": "Land- und Forstwirtschaft"
   },
   "Footer": {
     "navLabel": "Fußzeile",
@@ -59,7 +60,7 @@
     "teaser": {
       "pvSpeicher": "Standort-Check, Auslegung, Wirtschaftlichkeit, Ausschreibung und Partnersteuerung — mit Fokus auf Eigenverbrauch, Flexibilität und Resilienz.",
       "energiemanagement": "Lastganganalyse, Monitoring, Maßnahmenkatalog, ISO-50001-Readiness sowie Optimierung von Druckluft, Wärme, Kälte und Prozessen.",
-      "smartHeating": "Intelligente Nachtspeicheröfen als steuerbare Wärmelast — nutzbar wie ein Speicher für die Lastverschiebung.",
+      "smartHeating": "Intelligente Speicheröfen als steuerbare Wärmelast — nutzbar wie ein Speicher für die Lastverschiebung.",
       "ppa": "Beschaffungsstrategie, Preis- und Risikomodell, Vertragsstruktur, Herkunftsnachweise und standortübergreifende Portfolio-Optimierung.",
       "finanzierung": "Fördermittel-Screening, Antragslogik, CAPEX-/OPEX-Modelle, Contracting-Varianten und belastbare Entscheidungsvorlagen.",
       "esg": "Datenmodell, Emissionsberechnung, Audit-Ready-Dokumentation und Integration in bestehende Reporting- und Steuerungsprozesse."
@@ -240,13 +241,13 @@
         }
       },
       "smartHeating": {
-        "metaDescription": "Smart Heating für Betriebe in Österreich: Nachtspeicheröfen intelligent steuern, günstig laden und als steuerbare Last für die Lastspitzenkappung nutzen. Jetzt Beratung anfragen.",
-        "title": "Smart Heating: Nachtspeicheröfen intelligent steuern",
+        "metaDescription": "Smart Heating für Betriebe in Österreich: Speicheröfen intelligent steuern, günstig laden und als steuerbare Last für die Lastspitzenkappung nutzen. Jetzt Beratung anfragen.",
+        "title": "Smart Heating: Speicheröfen intelligent steuern",
         "promise": "Wärme dann erzeugen, wenn Strom günstig ist — und dieselben Öfen als steuerbare Last nutzen, statt sie gegen Ihre Lastspitze laufen zu lassen.",
         "problem": {
-          "title": "Nachtspeicheröfen gelten als Auslaufmodell. Das gilt für die Steuerung — nicht für das Gerät.",
+          "title": "Speicheröfen gelten als Auslaufmodell. Das gilt für die Steuerung — nicht für das Gerät.",
           "text": [
-            "Ein Nachtspeicherofen ist im Kern ein Wärmespeicher, den Sie laden können, wann Sie wollen. Genau das macht ihn heute wieder interessant: Er ist steuerbar.",
+            "Ein Speicherofen ist im Kern ein Wärmespeicher, den Sie laden können, wann Sie wollen. Genau das macht ihn heute wieder interessant: Er ist steuerbar.",
             "Nur nutzt das kaum jemand. Die meisten Anlagen hängen weiterhin an einem starren Nachtfenster — sie laden, weil es 22 Uhr ist, nicht weil es gerade sinnvoll ist. Ob die eigene PV-Anlage einspeist, ob der Betrieb gerade seine teuerste Viertelstunde fährt oder ob der Strom günstig ist, spielt dabei keine Rolle.",
             "Der Speicher steht also längst im Haus. Er wird nur nicht wie einer behandelt."
           ]
@@ -272,7 +273,7 @@
               "text": "Die Wärme muss da sein, wenn sie gebraucht wird. Die Steuerung optimiert innerhalb dieser Grenze, nicht gegen sie."
             }
           ],
-          "note": "Zur Einordnung: Ein Nachtspeicherofen gibt keinen Strom ins Netz zurück — er ist ein Wärmespeicher, kein Batteriespeicher. Für die Lastspitze zählt trotzdem dasselbe: Eine Last, die sich verschieben lässt, wirkt dort wie ein Speicher, der im richtigen Moment einspringt."
+          "note": "Zur Einordnung: Ein Speicherofen gibt keinen Strom ins Netz zurück — er ist ein Wärmespeicher, kein Batteriespeicher. Für die Lastspitze zählt trotzdem dasselbe: Eine Last, die sich verschieben lässt, wirkt dort wie ein Speicher, der im richtigen Moment einspringt."
         },
         "nutzen": {
           "title": "Was Sie davon haben",
@@ -297,7 +298,7 @@
           "energiemanagement": "Wie groß der Hebel ist, zeigt erst der Lastgang — er sagt, wann die Öfen heute laden und was das kostet."
         },
         "cta": {
-          "title": "Haben Sie noch Nachtspeicheröfen im Bestand?",
+          "title": "Haben Sie noch Speicheröfen im Bestand?",
           "lead": "Dann klären wir im Erstgespräch, welche Anschlussleistung daran hängt und ob sich eine Steuerung dafür lohnt. Unverbindlich."
         },
         "chart": {
@@ -531,10 +532,11 @@
   "Branchen": {
     "eyebrow": "Branche",
     "teaser": {
-      "hotellerie": "Küche, Haustechnik und Wäscherei laufen gleichzeitig — die gemeinsame Spitze bestimmt den Leistungspreis.",
-      "gastronomie": "Stoßzeiten zu Mittag und am Abend erzeugen kurze Lastspitzen, die das ganze Jahr kostenwirksam bleiben.",
-      "baeckerei": "Der Ofen-Anlauf in den frühen Morgenstunden setzt die Spitze für den gesamten Abrechnungszeitraum.",
-      "handel": "Kälte, Beleuchtung und Klimatisierung addieren sich zu einer hohen, gleichzeitigen Last."
+      "bau": "Kran, Betonpumpe, Kompressor: Fahren die Großgeräte gemeinsam hoch, entsteht eine Spitze, die keinem Tagesrhythmus folgt.",
+      "hotellerieGastronomie": "Küche, Haustechnik und Wäscherei laufen gleichzeitig — dazu die Stoßzeiten zu Mittag und am Abend.",
+      "handwerk": "Wenn morgens mehrere Maschinen zugleich anlaufen, setzt eine einzige Viertelstunde den Leistungspreis.",
+      "industrie": "Prozessgetriebene Spitzen bei Anlauf und Schichtwechsel — über einer Grundlast, die ohnehin schon hoch liegt.",
+      "landForstwirtschaft": "Bewässerung, Trocknung, Erntekühlung: Die Last folgt der Saison und dem Wetter, nicht der Uhrzeit."
     },
     "Cta": {
       "eyebrow": "Kontakt",
@@ -549,73 +551,156 @@
     },
     "Overview": {
       "eyebrow": "Branchen",
-      "metaDescription": "Energiekosten senken in Hotellerie, Gastronomie, Bäckerei und Handel: typische Lastprofile, die passenden Hebel und der Peak-Shaving Kalkulator. COOLiN ENERGY, Wien.",
+      "metaDescription": "Energiekosten senken in Bau, Hotellerie & Gastronomie, Handwerk, Industrie und Land- & Forstwirtschaft: typische Lastprofile, die passenden Hebel und der Peak-Shaving Kalkulator. COOLiN ENERGY, Wien.",
       "title": "Ihr Lastgang sieht aus wie Ihr Tagesablauf",
-      "lead": "Ein Hotel, eine Bäckerei und ein Supermarkt zahlen denselben Leistungspreis — aber ihre teuerste Viertelstunde entsteht zu völlig verschiedenen Zeiten und aus völlig verschiedenen Gründen.",
-      "intro": "Die Leistungen dahinter sind dieselben. Was sich unterscheidet, ist die Reihenfolge: Wo bei der Bäckerei der Speicher zuerst wirkt, ist es im Handel die Kälteanlage.",
+      "lead": "Eine Werkstatt, ein Hotel und ein Landwirtschaftsbetrieb zahlen denselben Leistungspreis — aber ihre teuerste Viertelstunde entsteht zu völlig verschiedenen Zeiten und aus völlig verschiedenen Gründen.",
+      "intro": "Die Leistungen dahinter sind dieselben. Was sich unterscheidet, ist die Reihenfolge: Wo im Handwerk der Speicher zuerst wirkt, ist es in der Land- und Forstwirtschaft der Eigenverbrauch.",
       "flagship": {
         "title": "Der Hebel, der überall zuerst geprüft wird",
         "text": "Ob sich Lastspitzenkappung für Ihren Betrieb rechnet, hängt nicht an der Branche, sondern an der Form Ihres Lastgangs. Die Branche sagt nur, wo man zuerst hinschaut — und in welchen Fällen die Antwort erfahrungsgemäß Nein lautet."
       },
       "cta": {
         "title": "Ihre Branche ist nicht dabei?",
-        "lead": "Diese vier Seiten sind ein Anfang, keine Liste dessen, was wir können. Der Einstieg ist ohnehin überall derselbe: ein Blick auf Ihren Lastgang und Ihre Netzrechnung. Unverbindlich."
+        "lead": "Diese fünf Seiten sind ein Anfang, keine Liste dessen, was wir können. Der Einstieg ist ohnehin überall derselbe: ein Blick auf Ihren Lastgang und Ihre Netzrechnung. Unverbindlich."
       }
     },
     "Pages": {
-      "hotellerie": {
-        "metaDescription": "Energiekosten senken im Hotel: Küche, Klima, Wäscherei und Wellness laufen gleichzeitig — und bestimmen gemeinsam den Leistungspreis. Jetzt Beratung anfragen.",
-        "title": "Energiekosten senken im Hotel: wenn alles gleichzeitig läuft",
-        "promise": "Frühstücksküche, Wäscherei, Wellness und Klimatechnik teilen sich einen Netzanschluss. Ihre Netzrechnung entsteht in den Viertelstunden, in denen sie zusammenfallen.",
-        "intro": "Ein Hotel hat selten ein Verbrauchsproblem. Es hat ein Gleichzeitigkeitsproblem: Jedes Gerät für sich ist unauffällig, die Summe im selben Moment ist es nicht. Und weil die Belegung schwankt, ändert sich die Höhe dieser Momente — ihr Zeitpunkt bleibt.",
+      "bau": {
+        "metaDescription": "Energiekosten senken im Bau und Baunebengewerbe: Kräne, Betonpumpen und Kompressoren erzeugen unregelmäßige Lastspitzen. Analyse, Speicher, Förderung. Jetzt Beratung anfragen.",
+        "title": "Energiekosten senken im Bau: Spitzen, die keinem Fahrplan folgen",
+        "promise": "Wenn Kran, Betonpumpe, Kompressor und Schweißanlage gemeinsam hochfahren, entsteht eine Lastspitze — nur eben nicht jeden Tag zur selben Zeit.",
+        "intro": "Der Bau ist unter den fünf Branchen hier der unregelmäßigste Fall. Die Last hängt daran, welches Gerät gerade gebraucht wird, und die teuerste Viertelstunde entsteht dann, wenn mehrere davon zufällig zusammenfallen. Das macht die Spitze nicht kleiner — nur schwerer vorherzusagen.",
         "chart": {
-          "lead": "Zwei Erhebungen prägen den Tag: der Morgen, wenn Frühstücksküche, Duschen und die erste Wäschecharge zusammenfallen, und der Abend, wenn Küche, Wellness und belegte Zimmer gleichzeitig laufen. Dazwischen liegt der Betrieb deutlich darunter — und genau dieser Abstand ist der Hebel."
+          "lead": "Kein wiederkehrendes Tagesmuster, sondern mehrere Ausschläge über einem niedrigen Sockel: Jeder davon ist ein Moment, in dem Großgeräte gleichzeitig gelaufen sind. Der nächste Tag sieht anders aus — die Form bleibt, die Uhrzeiten wandern. Genau das unterscheidet den Bau von einem Betrieb, der jeden Morgen dasselbe tut."
         },
         "hebel": {
-          "title": "Was im Hotel zuerst wirkt",
-          "lead": "Die Reihenfolge ist fast immer dieselbe: erst sehen, wann die Spitze entsteht, dann entscheiden, womit man sie abfängt.",
-          "energiemanagement": "Der Lastgang sagt, welcher Bereich in der teuersten Viertelstunde tatsächlich gelaufen ist — Küche, Wäscherei oder Klimatechnik. Ohne diese Zuordnung ist jede Maßnahme geraten.",
-          "pvSpeicher": "Das Dach ist meist da, und ein Speicher fängt die Morgen- und Abendspitze ab, ohne dass im laufenden Betrieb jemand etwas umstellen muss.",
-          "esg": "Firmenkunden, Reiseveranstalter und Buchungsplattformen fragen zunehmend nach belegbaren Kennzahlen. Dieselben Verbrauchsdaten, die Ihre Spitze erklären, tragen auch diesen Nachweis.",
-          "flagshipTitle": "Peak Shaving in der Hotellerie",
-          "flagshipText": "Wenige kurze Viertelstunden deutlich über dem übrigen Tag — das ist die Ausgangslage, in der Lastspitzenkappung am meisten bringt, und durch die Gleichzeitigkeit ist sie in der Hotellerie häufig gegeben. Ob es für Ihr Haus aufgeht, entscheidet trotzdem Ihr Lastgang."
+          "title": "Was im Bau zuerst wirkt",
+          "lead": "Die erste Frage ist nicht, welcher Speicher — sondern welcher Zählpunkt. Ein Betriebsstandort und eine wechselnde Baustelle sind zwei verschiedene Themen.",
+          "energiemanagement": "Der Lastgang des festen Standorts zeigt, wie hoch die Spitzen wirklich sind und ob sie aus Gleichzeitigkeit entstehen oder aus einem einzelnen großen Verbraucher. Ohne diese Unterscheidung ist jede Auslegung geraten.",
+          "pvSpeicher": "Bauhof- und Hallendächer sind meist groß, frei und unverbaut. Was tagsüber erzeugt wird, wird direkt verbraucht; ein Speicher fängt zusätzlich die Momente ab, in denen mehrere Geräte zusammenfallen.",
+          "finanzierung": "Bau ist eine investitionsintensive Branche, und die Entscheidung über eine Anlage konkurriert mit der über Gerät und Fuhrpark. Welche Förderung greift und ob Kauf oder Contracting besser passt, gehört deshalb vor die Entscheidung — nicht danach.",
+          "flagshipTitle": "Peak Shaving im Bau",
+          "flagshipText": "Der Hebel sitzt an Ihrem festen Standort — Bauhof, Halle, Werkstatt, Betriebsgebäude. Dort gibt es einen dauerhaften Zählpunkt, einen Lastgang und damit etwas, das sich rechnen lässt. Für eine wechselnde Baustelle mit Baustrom-Anschluss gilt das ausdrücklich nicht: Ein Speicher, der alle paar Monate umzieht, ist ein anderes Thema, und wir versprechen dafür nichts, bevor wir Ihren Fall gesehen haben. Was Ihr Standort hergibt, zeigt der Kalkulator aus seinem Lastgang."
         },
         "kostentreiber": {
-          "title": "Wo die Kosten im Hotel entstehen",
-          "lead": "Vier Zusammenhänge, die ohne Messung gelten. Was sie für Ihr Haus bedeuten, sagt erst Ihr Lastgang.",
+          "title": "Wo die Kosten im Bau entstehen",
+          "lead": "Vier Zusammenhänge, die ohne Messung gelten. Was sie für Ihren Betrieb bedeuten, sagt erst Ihr Lastgang.",
           "items": [
             {
-              "title": "Gleichzeitigkeit statt Dauerlast",
-              "text": "Küche, Lüftung, Aufzüge und Wäscherei laufen selten lange, aber oft gemeinsam. Für den Leistungspreis zählt genau dieses Zusammenfallen — nicht, wie viele Stunden ein Gerät insgesamt läuft."
+              "title": "Anlaufströme sind ein Vielfaches des Betriebs",
+              "text": "Kräne, Pumpen und Kompressoren ziehen beim Anfahren deutlich mehr als im Lauf. Wer nur die Typenschilder addiert, unterschätzt die Spitze — und wer die Anläufe entzerrt, senkt sie, ohne weniger zu arbeiten."
             },
             {
-              "title": "Die Belegung bestimmt die Höhe, nicht den Takt",
-              "text": "Ein volles Haus verschiebt die Spitze nicht, es erhöht sie. Der Tagesrhythmus bleibt derselbe — deshalb lohnt der Blick auf die Wochen mit hoher Belegung und nicht auf den Durchschnitt."
+              "title": "Gleichzeitigkeit ist der eigentliche Treiber",
+              "text": "Kein einzelnes Gerät macht die Spitze. Sie entsteht, wenn mehrere zur selben Viertelstunde laufen — und das ist eine Frage des Arbeitsablaufs, nicht der Anschlussleistung."
             },
             {
-              "title": "Wäscherei und Wellness haben zeitlichen Spielraum",
-              "text": "Beides sind große Lasten, die selten an eine feste Uhrzeit gebunden sind. Wann sie laufen, ist meist eine Frage der Gewohnheit — und damit einer der wenigen Hebel, die ohne Investition wirken."
+              "title": "Wechselnde Anschlüsse, wechselnde Regeln",
+              "text": "Ein Baustrom-Anschluss wird anders abgerechnet als ein dauerhafter Betriebsanschluss. Was auf welcher Rechnung landet, ist die erste Frage — sonst optimiert man am falschen Zählpunkt."
             },
             {
-              "title": "Die Klimatisierung legt sich auf die Nachmittagslast",
-              "text": "An heißen Tagen kommt die Kühllast zu einem Zeitpunkt dazu, an dem der Betrieb ohnehin läuft. Die höchste Last des Jahres entsteht deshalb nicht zwingend am vollsten Tag, sondern dort, wo Belegung und Wetter zusammenfallen."
+              "title": "Der feste Standort läuft weiter",
+              "text": "Halle, Werkstatt, Lager und Ladeinfrastruktur verbrauchen unabhängig davon, wo gerade gebaut wird. Dieser Teil ist planbar — und deshalb der Teil, an dem sich rechnen lässt."
             }
           ]
         },
         "faq": {
-          "title": "Häufige Fragen aus der Hotellerie",
+          "title": "Häufige Fragen aus dem Bau",
           "items": [
             {
-              "q": "Lohnt sich Peak Shaving für ein Hotel?",
-              "a": "Das entscheidet der Lastgang, nicht die Betriebsart. Günstig ist die Ausgangslage, wenn wenige kurze Viertelstunden deutlich über dem übrigen Tag liegen — durch das Zusammenfallen von Küche, Wäscherei und Haustechnik ist das in der Hotellerie häufig der Fall. Belastbar wird die Aussage erst mit Ihren Viertelstundenwerten."
+              "q": "Bringt ein Speicher auf der Baustelle etwas?",
+              "a": "Das hängt am Anschluss, und wir sagen es lieber vorher: Bei einem Baustrom-Anschluss, der nach ein paar Monaten wieder abgebaut wird, ist die Wirtschaftlichkeit eine ganz andere Rechnung als an einem dauerhaften Zählpunkt. Der klare Fall ist Ihr fester Standort — Bauhof, Halle, Werkstatt. Dort gibt es einen Lastgang, und den können wir durchrechnen."
+            },
+            {
+              "q": "Unsere Spitzen kommen nie zur selben Zeit. Ist das ein Problem?",
+              "a": "Für die Vorhersage ja, für die Kappung nein. Ein Speicher reagiert auf die Last, nicht auf die Uhr — er muss nicht wissen, wann die Spitze kommt, sondern genug Leistung und Energie haben, wenn sie kommt. Unregelmäßigkeit macht die Auslegung anspruchsvoller, nicht unmöglich."
             },
             {
               "q": "Woher bekomme ich meinen Lastgang?",
-              "a": "Bei einem Zähler mit registrierender Leistungsmessung (RLM) stellt ihn Ihr Netzbetreiber bereit, in der Regel als Viertelstundenwerte über das Kundenportal. Ohne RLM-Zähler gibt es keine Viertelstundenwerte — dann zahlen Sie allerdings auch keinen Leistungspreis."
+              "a": "Aus den Viertelstundenwerten Ihres Zählers, die Ihr Netzbetreiber bereitstellt. Auf der Rechnung steht nur die abgerechnete Spitze — nicht, wann sie entstanden ist und welches Gerät daran beteiligt war."
+            }
+          ]
+        },
+        "rechner": {
+          "title": "Was wäre eine niedrigere Spitze wert?",
+          "lead": "Die Größenordnung lässt sich in drei Angaben abschätzen. Ihre aktuelle Leistungsspitze und Ihr Leistungspreis stehen auf der Netzrechnung Ihres festen Standorts, die Zielreduktion setzen Sie selbst. Das ist eine Schätzung, keine Auslegung — sie sagt, ob sich das Thema lohnt, nicht welcher Speicher es wird."
+        },
+        "tun": {
+          "title": "Was wir für Bau- und Baunebengewerbe tun",
+          "lead": "Zuerst die Zählpunkte sortieren, dann rechnen. In dieser Reihenfolge, weil sonst der falsche Anschluss optimiert wird.",
+          "items": [
+            {
+              "title": "Zählpunkte trennen",
+              "text": "Fester Standort, Baustrom, Ladeinfrastruktur: Wir schauen zuerst, was auf welcher Rechnung steht und wo überhaupt ein Leistungspreis anfällt."
             },
             {
-              "q": "Muss der Betrieb dafür umgestellt werden?",
-              "a": "Nein. Ein Speicher springt in der teuersten Viertelstunde ein, ohne dass Küche oder Wäscherei etwas davon merken. Wo sich Abläufe ohnehin verschieben lassen — etwa die Wäscherei —, ist das ein zusätzlicher Hebel, keine Voraussetzung."
+              "title": "Gleichzeitigkeit prüfen",
+              "text": "Aus dem Lastgang lesen wir, ob die Spitzen aus zusammenfallenden Anläufen entstehen. Wenn ja, ist die Ablaufplanung der Hebel ohne Investition — und der gehört zuerst geprüft."
+            },
+            {
+              "title": "Auslegen und begleiten",
+              "text": "Speichergröße, Wirtschaftlichkeit, Förderung und Umsetzung bis zur Abnahme — mit Zahlen, die aus Ihrem Lastgang kommen und nicht aus einer Faustformel."
+            }
+          ]
+        },
+        "cta": {
+          "title": "Wie hoch fährt Ihr Standort an?",
+          "lead": "Im Erstgespräch sortieren wir Ihre Zählpunkte und schauen uns den Lastgang Ihres festen Standorts an. Unverbindlich."
+        }
+      },
+      "hotellerieGastronomie": {
+        "metaDescription": "Energiekosten senken in Hotellerie und Gastronomie: Küche, Klima, Wäscherei und Stoßzeiten treffen zusammen. Analyse, Speicher, ESG. Jetzt Beratung anfragen.",
+        "title": "Energiekosten senken in Hotellerie & Gastronomie: alles zur selben Zeit",
+        "promise": "Küche, Klimatisierung, Wäscherei und Wellness laufen nicht nacheinander, sondern gemeinsam — und die Gäste bestimmen, wann.",
+        "intro": "Hotel und Gastronomie stehen hier zusammen, weil ihr Problem dasselbe ist: Die Last folgt der Belegung und den Stoßzeiten, nicht einem Produktionsplan. Der Unterschied ist nur der Umfang — im Hotel kommen Haustechnik, Wäscherei und Wellness zur Küche dazu. Der teuerste Moment entsteht in beiden Fällen aus Gleichzeitigkeit.",
+        "chart": {
+          "lead": "Drei Erhebungen statt einer: morgens die Frühstücksküche zusammen mit Haustechnik und der ersten Wäschecharge, mittags und abends die Küche im Stoßbetrieb. Dazwischen fällt die Last spürbar ab, aber nie auf null. Ein reiner Gastronomiebetrieb kennt die zwei Stoßzeiten ohne die Morgenerhebung — der Mechanismus dahinter ist derselbe."
+        },
+        "hebel": {
+          "title": "Was in Hotellerie & Gastronomie zuerst wirkt",
+          "lead": "Der Gast bestimmt den Zeitpunkt, nicht der Betrieb. Verschieben lässt sich deshalb nur, was der Gast nicht merkt.",
+          "energiemanagement": "Der Lastgang zeigt, welche Verbraucher in der teuersten Viertelstunde tatsächlich zusammenfallen. Oft ist es nicht die Küche allein, sondern die Küche plus etwas, das auch eine Stunde später laufen könnte — Wäscherei, Spülgang, Warmwasserladung.",
+          "pvSpeicher": "Der Mittagsbetrieb fällt mit dem höchsten Sonnenstand zusammen — dieser Teil des Verbrauchs lässt sich direkt decken. Der Speicher wird tagsüber geladen und fängt die Abendspitze ab, wenn längst keine Sonne mehr scheint.",
+          "esg": "Firmenkunden, Reiseveranstalter und Buchungsplattformen fragen zunehmend nach belastbaren Nachhaltigkeitsdaten. Was Sie ohnehin messen, um Kosten zu senken, ist die Grundlage dafür — zwei Zwecke, eine Datenbasis.",
+          "flagshipTitle": "Peak Shaving in Hotellerie & Gastronomie",
+          "flagshipText": "Mehrere kräftige Verbraucher, die gäste- und belegungsgetrieben zur selben Viertelstunde laufen: Das ist ein guter Ausgangspunkt für Lastspitzenkappung. Wie viel es konkret bringt, hängt an der Höhe der Spitzen und an Ihrem Leistungspreis — und das rechnet der Kalkulator aus Ihrem Lastgang."
+        },
+        "kostentreiber": {
+          "title": "Wo die Kosten in Hotellerie & Gastronomie entstehen",
+          "lead": "Vier Zusammenhänge, die ohne Messung gelten. Welcher davon bei Ihnen der größte ist, sagt der Lastgang.",
+          "items": [
+            {
+              "title": "Der Gast setzt den Takt",
+              "text": "Ausgelastete Küche, volle Zimmer, laufende Klimatisierung: Der Betrieb entscheidet nicht, wann das zusammenfällt. Verschieben lässt sich nur, was der Gast nicht bemerkt — und genau das ist der Teil, den man suchen muss."
+            },
+            {
+              "title": "Küche und Klima arbeiten gegeneinander",
+              "text": "Die Küche gibt Wärme ab, die Klimaanlage nimmt sie wieder weg. Beide laufen in der Stoßzeit am stärksten — die Spitze steigt doppelt, aus derselben Ursache."
+            },
+            {
+              "title": "Wäscherei und Warmwasser sind der bewegliche Teil",
+              "text": "Anders als die Küche haben sie einen zeitlichen Spielraum. Sie laufen aber oft dann, wenn ohnehin schon alles läuft — der klassische Fall, in dem eine Steuerung ohne Investition wirkt."
+            },
+            {
+              "title": "Saisonalität trifft die Leistung, nicht nur die Arbeit",
+              "text": "In der Hochsaison ist alles gleichzeitig belegt. Wird der Leistungspreis über den Jahreshöchstwert abgerechnet, setzt eine einzige volle Woche den Preis für zwölf Monate — auch für die leeren."
+            }
+          ]
+        },
+        "faq": {
+          "title": "Häufige Fragen aus Hotellerie & Gastronomie",
+          "items": [
+            {
+              "q": "Wir können unsere Küche nicht verschieben. Bleibt dann überhaupt etwas?",
+              "a": "Ja — nur nicht bei der Küche. Die Frage ist, was in derselben Viertelstunde SONST noch läuft: Wäscherei, Spülgang, Warmwasserladung, Poolheizung. Was der Gast nicht merkt, lässt sich verschieben. Und was sich nicht verschieben lässt, kann ein Speicher abfangen. Welcher Anteil auf welchen Weg entfällt, zeigt der Lastgang."
+            },
+            {
+              "q": "Lohnt sich PV, wenn unsere Spitze am Abend liegt?",
+              "a": "Für den Arbeitspreis auf jeden Fall — der Mittagsbetrieb fällt mit dem höchsten Sonnenstand zusammen. Für die Abendspitze braucht es den Speicher: Er wird tagsüber geladen, auch aus PV-Überschuss, und gibt die Leistung ab, wenn sie gebraucht wird. Vereinfacht gesagt senkt die PV den Arbeitspreis und der Speicher den Leistungspreis."
+            },
+            {
+              "q": "Wir haben nur ein Restaurant, kein Hotel. Passt das hier?",
+              "a": "Ja. Die Stoßzeiten zu Mittag und am Abend sind derselbe Mechanismus, nur ohne Haustechnik und Wäscherei darüber. Ihr Lastprofil ist dadurch klarer, nicht anders — und für die Lastspitzenkappung tendenziell sogar der günstigere Fall."
             }
           ]
         },
@@ -624,164 +709,81 @@
           "lead": "Die Größenordnung lässt sich in drei Angaben abschätzen. Ihre aktuelle Leistungsspitze und Ihr Leistungspreis stehen auf der Netzrechnung, die Zielreduktion setzen Sie selbst. Das ist eine Schätzung, keine Auslegung — sie sagt, ob sich das Thema lohnt, nicht welcher Speicher es wird."
         },
         "tun": {
-          "title": "Was wir für Hotels tun",
-          "lead": "Was wir mitbringen, ist die Analyse und die Auslegung — keine Lösung von der Stange, die zufällig auch in ein Hotel passt.",
+          "title": "Was wir für Hotellerie & Gastronomie tun",
+          "lead": "Das Ziel ist nicht, den Betrieb umzustellen. Es ist, die Gleichzeitigkeit dort aufzulösen, wo sie niemandem auffällt.",
           "items": [
             {
-              "title": "Lastgang lesen",
-              "text": "Wir holen Ihre Viertelstundenwerte, finden die kostenbestimmenden Momente und ordnen sie den Bereichen zu, die sie verursacht haben."
+              "title": "Die teuerste Viertelstunde aufschlüsseln",
+              "text": "Aus dem Lastgang lesen wir, was in diesem Moment tatsächlich zusammenlief — und wie viel davon auch eine Stunde später hätte laufen können."
             },
             {
-              "title": "Hebel bewerten",
-              "text": "Speicher, Steuerung, verschobene Abläufe, PV: Wir rechnen durch, was in Ihrem Profil wirklich wirkt — und was nur auf dem Papier."
+              "title": "Erst Steuerung, dann Speicher",
+              "text": "Was sich durch Zeitplanung erledigen lässt, muss kein Speicher abfangen. Wir prüfen den kostenlosen Hebel, bevor wir über Investitionen reden."
             },
             {
-              "title": "Umsetzung begleiten",
-              "text": "Auslegung, Ausschreibung, Förderung und Partnersteuerung bis zur Abnahme. Sie führen ein Hotel, keine Energieprojekte."
+              "title": "Auslegen und begleiten",
+              "text": "Speichergröße, Wirtschaftlichkeit, Förderung und Umsetzung bis zur Abnahme — mit Zahlen, die aus Ihrem Lastgang kommen und nicht aus einer Faustformel."
             }
           ]
         },
         "cta": {
-          "title": "Wie sieht der Tag in Ihrem Haus aus?",
-          "lead": "Im Erstgespräch klären wir, wann Ihre Spitze entsteht, welcher Bereich sie verursacht und ob sich etwas dagegen tun lässt. Unverbindlich."
+          "title": "Was läuft bei Ihnen gleichzeitig?",
+          "lead": "Im Erstgespräch schauen wir uns Ihre teuerste Viertelstunde im Lastgang an und klären, ob Steuerung, Speicher oder beides der richtige Weg ist. Unverbindlich."
         }
       },
-      "gastronomie": {
-        "metaDescription": "Energiekosten senken in der Gastronomie: Kochspitzen zu Mittag und am Abend, Kälte als Grundlast. Lastganganalyse, Speicher und Förderung. Jetzt Beratung anfragen.",
-        "title": "Energiekosten senken in der Gastronomie: zwei Stoßzeiten bestimmen die Rechnung",
-        "promise": "Kombidämpfer, Induktion, Spülmaschine und Abluft laufen genau dann gemeinsam, wenn der Laden voll ist. Zwei Stunden am Tag entscheiden über einen Preis, den Sie das ganze Jahr zahlen.",
-        "intro": "Der Küchenbetrieb ist getaktet, nicht gleichmäßig: Zu Mittag und am Abend geht alles gleichzeitig an, dazwischen fällt die Last deutlich ab. Darunter läuft die Kälte durch — sie macht den Sockel, nicht die Spitze.",
+      "handwerk": {
+        "metaDescription": "Energiekosten senken im Handwerk: Wenn Kompressor, Säge und Schweißgerät gleichzeitig anlaufen, setzt eine Viertelstunde den Leistungspreis. Analyse, Speicher, Steuerung. Jetzt Beratung anfragen.",
+        "title": "Energiekosten senken im Handwerk: eine Viertelstunde am Morgen",
+        "promise": "Wenn die Werkstatt aufsperrt und Kompressor, Absaugung und die ersten Maschinen gemeinsam anlaufen, entsteht in wenigen Minuten die höchste Last des Tages — und damit der Leistungspreis für den gesamten Abrechnungszeitraum.",
+        "intro": "Unter den fünf Branchen hier hat das Handwerk das klarste Profil: ein einziger, kurzer, sehr hoher Ausschlag beim Hochfahren über einem niedrigen Sockel. Für die Lastspitzenkappung ist das der günstigste denkbare Ausgangspunkt — und für die Umstellung des Netzentgelts ab 2027 der Fall, um den es dort eigentlich geht.",
         "chart": {
-          "lead": "Zwei Stoßzeiten prägen den Tag, der Abend meist stärker als der Mittag. Zwischen den Services fällt die Last spürbar ab, und nachts bleibt der Sockel der Kälte übrig. Was die Rechnung bestimmt, sind die kurzen Kochspitzen — nicht die Stunden dazwischen."
+          "lead": "Ein einziger Ausschlag, kurz und hoch — der Moment, in dem mehrere Maschinen gemeinsam anlaufen. Danach läuft der Betrieb auf deutlich niedrigerem Niveau weiter, und nachts fällt er fast auf null. Ein Profil mit genau einer teuren Stelle ist der Fall, für den Peak Shaving gebaut ist."
         },
         "hebel": {
-          "title": "Was in der Gastronomie zuerst wirkt",
-          "lead": "Der Küchenablauf steht nicht zur Debatte. Was sich ändern lässt, ist, was in dem Moment passiert, in dem alles gleichzeitig läuft.",
-          "energiemanagement": "Der Lastgang zeigt, ob die Spitze wirklich aus der Küche kommt oder aus etwas, das zufällig zur selben Zeit läuft — Abluft, Spülmaschine oder die Kälte im Abtauzyklus.",
-          "pvSpeicher": "Kurze, hohe Spitzen sind der Fall, für den ein Speicher gebaut ist: Er springt für Minuten ein und lädt in den ruhigen Stunden dazwischen wieder nach.",
-          "finanzierung": "Für einen einzelnen Betrieb ist ein Speicher eine spürbare Investition. Was an Förderung möglich ist und wie sich das rechnet, gehört deshalb vor die Entscheidung, nicht danach.",
-          "flagshipTitle": "Peak Shaving in der Gastronomie",
-          "flagshipText": "Kurz, hoch, planbar wiederkehrend — die Kochspitze ist ein Lastprofil, bei dem Kappung technisch gut funktioniert. Ob sie sich auch rechnet, hängt an Ihrem Leistungspreis und daran, wie weit die Spitze über dem Rest des Tages liegt."
-        },
-        "kostentreiber": {
-          "title": "Wo die Kosten in der Gastronomie entstehen",
-          "lead": "Vier Zusammenhänge, die ohne Messung gelten. Was sie für Ihren Betrieb bedeuten, sagt erst Ihr Lastgang.",
-          "items": [
-            {
-              "title": "Zwei Stunden bestimmen zwölf Monate",
-              "text": "Der Leistungspreis hängt an der höchsten Viertelstunde des Abrechnungszeitraums. Ein einziger voller Abend kann den Preis setzen, den Sie danach durchgehend zahlen."
-            },
-            {
-              "title": "Die Kälte ist Grundlast, nicht Spitze",
-              "text": "Kühlung und Froster laufen rund um die Uhr und machen einen großen Teil der verbrauchten Arbeit aus. Für den Leistungspreis sind sie trotzdem selten der Auslöser — sie heben den Sockel, nicht die Spitze."
-            },
-            {
-              "title": "Alles hängt am selben Moment",
-              "text": "Kombidämpfer, Induktion, Spülmaschine und Abluft sind einzeln unauffällig. Der Service bringt sie zwangsläufig zusammen — deshalb steht die Spitze so hoch."
-            },
-            {
-              "title": "Nicht jede Erhebung ist eine Spitze",
-              "text": "Der Mittag liegt oft deutlich unter dem Abend. Eine Maßnahme, die nur den Mittag verbessert, senkt den Leistungspreis dann gar nicht — es zählt allein der höchste Punkt."
-            }
-          ]
-        },
-        "faq": {
-          "title": "Häufige Fragen aus der Gastronomie",
-          "items": [
-            {
-              "q": "Zahlt ein Restaurant überhaupt einen Leistungspreis?",
-              "a": "Nur mit einem Zähler mit registrierender Leistungsmessung (RLM). Kleinere Betriebe hängen oft an einem Standardlastprofil und zahlen ausschließlich Arbeitspreis — dann ist Lastspitzenkappung kein Thema, Effizienz und Eigenverbrauch aber sehr wohl. Der erste Blick gilt deshalb Ihrer Netzrechnung."
-            },
-            {
-              "q": "Bringt ein Speicher etwas, wenn die Spitze nur Minuten dauert?",
-              "a": "Gerade dann. Für die Kappung zählt, wie viel Energie in der teuersten Viertelstunde fehlt — eine kurze Spitze braucht viel Leistung und wenig Kapazität. Wie viel von beidem, rechnet der Kalkulator aus Ihrem Lastgang."
-            },
-            {
-              "q": "Muss ich den Küchenablauf ändern?",
-              "a": "Nein. Der Service gibt den Takt vor, nicht die Technik. Wo sich etwas ohne Reibung verschieben lässt — die Spülmaschine nach dem Service statt mittendrin —, ist das ein zusätzlicher Hebel, keine Bedingung."
-            }
-          ]
-        },
-        "rechner": {
-          "title": "Was wären ruhigere Stoßzeiten wert?",
-          "lead": "Die Größenordnung lässt sich in drei Angaben abschätzen. Ihre aktuelle Leistungsspitze und Ihr Leistungspreis stehen auf der Netzrechnung, die Zielreduktion setzen Sie selbst. Das ist eine Schätzung, keine Auslegung — sie sagt, ob sich das Thema lohnt, nicht welcher Speicher es wird."
-        },
-        "tun": {
-          "title": "Was wir für Gastronomiebetriebe tun",
-          "lead": "Der Betrieb läuft weiter, während wir rechnen. Was wir liefern, ist die Entscheidung — nicht ein weiteres Projekt auf Ihrem Tisch.",
-          "items": [
-            {
-              "title": "Netzrechnung prüfen",
-              "text": "Zuerst die Frage, ob Sie überhaupt einen Leistungspreis zahlen. Ohne RLM-Zähler ist das Thema erledigt, bevor es anfängt — und wir sagen das dann auch."
-            },
-            {
-              "title": "Spitze zuordnen",
-              "text": "Der Lastgang zeigt, welche Geräte die teuerste Viertelstunde machen und ob Mittag oder Abend der bestimmende Service ist."
-            },
-            {
-              "title": "Rechnen und begleiten",
-              "text": "Auslegung, Wirtschaftlichkeit, Förderung und Umsetzung bis zur Abnahme — mit einer Entscheidungsvorlage, die auch die Bank versteht."
-            }
-          ]
-        },
-        "cta": {
-          "title": "Wann ist bei Ihnen der teuerste Moment?",
-          "lead": "Im Erstgespräch schauen wir auf Ihre Netzrechnung und klären, ob Ihr Zähler das Thema überhaupt hergibt. Unverbindlich."
-        }
-      },
-      "baeckerei": {
-        "metaDescription": "Energiekosten senken in der Bäckerei: Der Ofen-Anlauf am frühen Morgen setzt die Lastspitze für den ganzen Abrechnungszeitraum. Analyse, Speicher, Steuerung. Jetzt Beratung anfragen.",
-        "title": "Energiekosten senken in der Bäckerei: der Morgen bestimmt die Rechnung",
-        "promise": "Wenn früh am Morgen die Öfen anfahren, entsteht in wenigen Minuten die höchste Last des Tages — und damit der Leistungspreis für den gesamten Abrechnungszeitraum.",
-        "intro": "Unter den vier Branchen hier hat die Bäckerei das klarste Profil: ein einziger, sehr hoher Ausschlag am frühen Morgen über einer durchlaufenden Kälte- und Froster-Grundlast. Für die Lastspitzenkappung ist das der günstigste denkbare Ausgangspunkt.",
-        "chart": {
-          "lead": "Ein einziger Ausschlag, sehr früh, sehr hoch — der Anlauf der Öfen. Danach läuft der Backbetrieb auf deutlich niedrigerem Niveau weiter, und unter allem liegt die Kälte für Teig und Froster. Ein Profil mit genau einer teuren Stelle ist der Fall, für den Peak Shaving gebaut ist."
-        },
-        "hebel": {
-          "title": "Was in der Bäckerei zuerst wirkt",
-          "lead": "Die Öfen müssen früh anlaufen — daran ändert niemand etwas. Die Frage ist nicht ob, sondern woher der Strom in diesen Minuten kommt.",
-          "energiemanagement": "Der Lastgang zeigt, wie hoch der Anlauf wirklich ist und wie lange er dauert. Beides entscheidet, welche Leistung und welche Kapazität ein Speicher überhaupt braucht.",
-          "smartHeating": "Dieselbe Logik wie bei den Nachtspeicheröfen: Wärme dann erzeugen, wenn unter der Spitze Platz ist. Wo sich eine Wärmelast zeitlich verschieben lässt, wirkt sie auf die Lastspitze wie ein Speicher — ohne einer zu sein.",
-          "pvSpeicher": "Der Speicher fängt den Anlauf ab. Dass er dafür nachts einspringen muss, ist kein Widerspruch zur PV: Geladen wird er tagsüber, wenn ohnehin Überschuss anfällt.",
-          "flagshipTitle": "Peak Shaving in der Bäckerei",
+          "title": "Was im Handwerk zuerst wirkt",
+          "lead": "Die Maschinen müssen laufen — daran ändert niemand etwas. Die Frage ist nicht ob, sondern ob sie zur selben Minute anlaufen müssen.",
+          "energiemanagement": "Der Lastgang zeigt, wie hoch der Anlauf wirklich ist und wie lange er dauert. Beides entscheidet, welche Leistung und welche Kapazität ein Speicher überhaupt braucht — und ob es einen braucht.",
+          "smartHeating": "Wird die Halle elektrisch beheizt, ist die Heizung eine steuerbare Wärmelast: Wärme dann erzeugen, wenn unter der Spitze Platz ist. Läuft sie stattdessen zufällig zur Anlaufzeit mit, hebt sie die Spitze, ohne dass jemand es merkt.",
+          "pvSpeicher": "Das Werkstattdach ist meist frei und unverschattet. Der Speicher fängt den Anlauf ab; geladen wird er tagsüber, wenn ohnehin Überschuss anfällt.",
+          "flagshipTitle": "Peak Shaving im Handwerk",
           "flagshipText": "Ein einzelner, kurzer, jeden Tag wiederkehrender Ausschlag über einem niedrigen Sockel: Das ist das Lehrbuchprofil für Lastspitzenkappung. Wie viel es konkret bringt, hängt an der Höhe des Anlaufs und an Ihrem Leistungspreis — und das rechnet der Kalkulator aus Ihrem Lastgang."
         },
         "kostentreiber": {
-          "title": "Wo die Kosten in der Bäckerei entstehen",
+          "title": "Wo die Kosten im Handwerk entstehen",
           "lead": "Vier Zusammenhänge, die ohne Messung gelten. Was sie für Ihren Betrieb bedeuten, sagt erst Ihr Lastgang.",
           "items": [
             {
               "title": "Wenige Minuten setzen den Preis",
-              "text": "Der Leistungspreis richtet sich nach der höchsten Viertelstunde. Beim Ofen-Anlauf entsteht sie täglich — und weil sie täglich entsteht, ist sie im Abrechnungszeitraum garantiert enthalten."
+              "text": "Der Leistungspreis richtet sich nach der höchsten Viertelstunde. Beim gemeinsamen Anlauf entsteht sie täglich — und weil sie täglich entsteht, ist sie im Abrechnungszeitraum garantiert enthalten."
             },
             {
               "title": "Der Anlauf ist teurer als der Betrieb",
-              "text": "Ein aufgeheizter Ofen hält seine Temperatur mit einem Bruchteil der Leistung. Die Spitze entsteht beim Hochfahren aus dem kalten Zustand, nicht beim Backen."
+              "text": "Ein Kompressor zieht beim Anfahren ein Vielfaches dessen, was er im Lauf braucht. Dasselbe gilt für Absaugung, Säge und Schweißgerät. Die Spitze entsteht beim Hochfahren, nicht beim Arbeiten."
             },
             {
-              "title": "Die Kälte läuft, wenn sonst nichts läuft",
-              "text": "Teigkühlung und Froster arbeiten rund um die Uhr. Sie machen den Sockel, auf dem der Anlauf aufsitzt — je höher der Sockel, desto höher landet die Spitze."
+              "title": "Gleichzeitigkeit ist eine Entscheidung",
+              "text": "Ob alle Maschinen zur selben Minute anlaufen oder versetzt, ist eine Frage der Gewohnheit und der Steuerung — und der einzige Hebel in dieser Liste, der keine Investition braucht."
             },
             {
-              "title": "Mehrere Öfen zur selben Minute sind eine Entscheidung",
-              "text": "Ob alle Öfen gleichzeitig oder versetzt anfahren, ist eine Frage der Steuerung — und der einzige Hebel in dieser Liste, der keine Investition braucht. Ob der Backplan den Spielraum hergibt, ist die eigentliche Frage."
+              "title": "Ab 2027 sehen es auch die Kleinen",
+              "text": "Wer heute unter der Messschwelle liegt, zahlt keinen Leistungspreis und kennt seine Spitze nicht. Die geplante Umstellung der Netzentgelte setzt auf dem Smart Meter auf — dann steht sie auf der Rechnung."
             }
           ]
         },
         "faq": {
-          "title": "Häufige Fragen aus der Bäckerei",
+          "title": "Häufige Fragen aus dem Handwerk",
           "items": [
             {
-              "q": "Was bringt PV, wenn der Ofen mitten in der Nacht anläuft?",
-              "a": "Direkt nichts — nachts scheint keine Sonne. Der Speicher schon: Er wird tagsüber geladen, auch aus PV-Überschuss, und gibt die Leistung dann ab, wenn die Öfen sie brauchen. Vereinfacht gesagt senkt die PV den Arbeitspreis und der Speicher den Leistungspreis."
+              "q": "Reicht es, die Maschinen versetzt anzufahren?",
+              "a": "Manchmal ja — das ist der Hebel ohne Investition, und er gehört zuerst geprüft. Ob er reicht, hängt daran, wie viel Spielraum der Arbeitsablauf lässt und wie hoch die Spitze danach noch liegt. Der Lastgang zeigt beides."
             },
             {
-              "q": "Reicht es, die Öfen versetzt anzufahren?",
-              "a": "Manchmal ja — das ist der Hebel ohne Investition, und er gehört zuerst geprüft. Ob er reicht, hängt daran, wie viel Spielraum der Backplan lässt und wie hoch die Spitze danach noch liegt. Der Lastgang zeigt beides."
+              "q": "Wir zahlen gar keinen Leistungspreis. Ist das Thema für uns relevant?",
+              "a": "Heute vielleicht nicht, ab 2027 voraussichtlich schon. Der Leistungspreis hängt derzeit an einer Messschwelle, unter der die meisten Klein- und Mittelbetriebe liegen. Die geplante Neuordnung der Netzentgelte setzt stattdessen auf dem Smart Meter auf — die Spitze wird dann auch dort abgerechnet, wo sie bisher niemand gesehen hat. Was das konkret bedeutet, steht im Artikel zum Leistungstarif 2027."
             },
             {
               "q": "Woher weiß ich, wie hoch mein Anlauf wirklich ist?",
-              "a": "Aus den Viertelstundenwerten Ihres RLM-Zählers, die Ihr Netzbetreiber bereitstellt. Auf der Rechnung steht nur die abgerechnete Spitze — nicht, wann und wodurch sie entstanden ist."
+              "a": "Aus den Viertelstundenwerten Ihres Zählers, die Ihr Netzbetreiber bereitstellt. Auf der Rechnung steht — wenn überhaupt — nur die abgerechnete Spitze, nicht wann und wodurch sie entstanden ist."
             }
           ]
         },
@@ -790,12 +792,12 @@
           "lead": "Die Größenordnung lässt sich in drei Angaben abschätzen. Ihre aktuelle Leistungsspitze und Ihr Leistungspreis stehen auf der Netzrechnung, die Zielreduktion setzen Sie selbst. Das ist eine Schätzung, keine Auslegung — sie sagt, ob sich das Thema lohnt, nicht welcher Speicher es wird."
         },
         "tun": {
-          "title": "Was wir für Bäckereien tun",
+          "title": "Was wir für Handwerksbetriebe tun",
           "lead": "Das Profil ist klar, die Auslegung ist es nicht: Wie viel Leistung ein Speicher braucht, entscheidet sich an Minuten, nicht an Jahreswerten.",
           "items": [
             {
               "title": "Anlauf vermessen",
-              "text": "Aus den Viertelstundenwerten lesen wir Höhe und Dauer des Anlaufs heraus — und wie viel davon Ofen ist und wie viel Sockel."
+              "text": "Aus den Viertelstundenwerten lesen wir Höhe und Dauer des Anlaufs heraus — und wie viel davon aus Gleichzeitigkeit entsteht und wie viel aus einem einzelnen großen Verbraucher."
             },
             {
               "title": "Erst Steuerung, dann Speicher",
@@ -808,91 +810,174 @@
           ]
         },
         "cta": {
-          "title": "Wie hoch fährt Ihr Ofen an?",
+          "title": "Wie hoch fährt Ihre Werkstatt an?",
           "lead": "Im Erstgespräch schauen wir uns Ihren Anlauf im Lastgang an und klären, ob Steuerung, Speicher oder beides der richtige Weg ist. Unverbindlich."
         }
       },
-      "handel": {
-        "metaDescription": "Energiekosten senken im Handel: Kälte, Beleuchtung und Klima erzeugen eine hohe Dauerlast statt kurzer Spitzen. Effizienz, PV und Eigenverbrauch. Jetzt Beratung anfragen.",
-        "title": "Energiekosten senken im Handel: eine Last, die nie ganz abfällt",
-        "promise": "Kälte, Beleuchtung und Klimatisierung laufen über den ganzen Tag — und nachts läuft die Kälte weiter. Das ist ein anderes Problem als eine Lastspitze, und es braucht andere Hebel.",
-        "intro": "Im Handel gibt es selten den einen teuren Moment. Das Profil ist ein breites Plateau während der Öffnungszeit über einer hohen Kälte-Grundlast, die auch nachts nicht verschwindet. Wer hier nur auf die Spitze schaut, schaut am größten Posten vorbei.",
+      "industrie": {
+        "metaDescription": "Energiekosten senken in Industrie und verarbeitendem Gewerbe: prozessgetriebene Lastspitzen bei Anlauf, Chargenbetrieb und Schichtwechsel. Analyse, Speicher, PPA. Jetzt Beratung anfragen.",
+        "title": "Energiekosten senken in der Industrie: der Prozess bestimmt die Spitze",
+        "promise": "Maschinenanläufe, Chargenprozesse und Schichtwechsel erzeugen Spitzen über einer Grundlast, die ohnehin schon hoch liegt — beide Teile der Rechnung sind groß, und sie brauchen verschiedene Hebel.",
+        "intro": "In der Industrie ist der Leistungspreis nichts Neues — er steht seit jeher auf der Rechnung. Neu ist meist nur, wie genau man hinschaut. Der Mechanismus ist derselbe wie im Handwerk, nur ohne den niedrigen Sockel darunter: Die Grundlast der Produktion läuft durch, und aus ihr ragen einzelne prozessgetriebene Spitzen heraus.",
         "chart": {
-          "lead": "Ein breites Plateau statt eines Ausschlags: Mit dem Öffnen kommen Beleuchtung und Klima dazu, und über den ganzen Tag bleibt die Last hoch. Nachts fällt sie zurück auf die Kälte — aber eben nicht auf null. Diese Form ist der Grund, warum die Antwort im Handel anders aussieht als in einer Bäckerei."
+          "lead": "Ein breites Tagesplateau statt eines ruhigen Sockels: Die Produktionslinien laufen, und die Last fällt auch nachts nicht weit ab. Darüber liegen einzelne deutliche Ausschläge — der Anlauf am Morgen, der Schichtwechsel am Nachmittag. Genau diese Ausschläge bemisst der Leistungspreis, nicht das Plateau."
         },
         "hebel": {
-          "title": "Was im Handel zuerst wirkt",
-          "lead": "Bei einer Dauerlast zählt jede Stunde, nicht die teuerste Viertelstunde. Deshalb steht hier die Arbeit vorn — nicht die Leistung.",
-          "energiemanagement": "Im Lebensmittelhandel ist die Kälte meist der größte Einzelposten, und sie läuft durchgehend. Abtauzyklen, Verbunddruck, Nachtabdeckungen und Türen wirken deshalb rund um die Uhr — dort liegt der Hebel, nicht in einer Spitze.",
-          "pvSpeicher": "Das Lastprofil des Handels passt zur PV wie kaum ein anderes: Der Verbrauch ist genau dann am höchsten, wenn die Sonne am höchsten steht. Was erzeugt wird, wird direkt verbraucht — dafür braucht es nicht einmal einen Speicher.",
-          "ppa": "Wer mehrere Standorte betreibt, kauft Strom nicht je Filiale ein. Beschaffungsstrategie, Preis- und Risikomodell und Herkunftsnachweise wirken dann über das ganze Portfolio.",
-          "flagshipTitle": "Und Peak Shaving?",
-          "flagshipText": "Im Handel ist es selten der erste Hebel. Eine Dauerlast hat keine ausgeprägte Spitze, die sich abschneiden ließe — und ein Speicher, der ein Plateau stützen soll, wird schnell groß und teuer. Das sagen wir lieber vorher als hinterher. Ausschließen lässt es sich ohne Blick auf den Lastgang trotzdem nicht: Es gibt Standorte mit einer sauberen Morgenspitze beim Hochfahren. Der Kalkulator zeigt, ob Ihrer dazugehört."
+          "title": "Was in der Industrie zuerst wirkt",
+          "lead": "Bei hoher Grundlast UND ausgeprägten Spitzen zählen beide Seiten der Rechnung. Welche zuerst, entscheidet das Verhältnis — und das steht im Lastgang.",
+          "energiemanagement": "Die Rechnung sagt nicht, welcher Prozess die Spitze gemacht hat. Erst die Aufschlüsselung nach Druckluft, Kälte, Wärme, Lüftung und Produktion zeigt, ob der Hebel an einem Anlauf hängt oder an einer Dauerlast — und ob ISO 50001 dabei ohnehin gefordert ist.",
+          "pvSpeicher": "Hallendächer sind groß, und die Produktion verbraucht tagsüber. Der Eigenverbrauchsanteil ist dadurch hoch, auch ohne Speicher. Der Speicher kommt dazu, wenn die Spitzen es rechtfertigen — nicht automatisch.",
+          "ppa": "Ab einer gewissen Abnahmemenge ist Strom kein Tarif mehr, sondern eine Beschaffungsentscheidung. Preis- und Risikomodell, Vertragsstruktur und Herkunftsnachweise wirken dann über das ganze Portfolio, nicht je Standort.",
+          "flagshipTitle": "Peak Shaving in der Industrie",
+          "flagshipText": "Der Mechanismus ist derselbe wie beim kleinen Betrieb, die Größenordnung eine andere — und damit auch die Auslegung: Ein Speicher, der eine Produktionsspitze abfangen soll, braucht Leistung, nicht nur Kapazität. Ob sich das rechnet, hängt daran, wie hoch die Ausschläge über dem Plateau liegen und wie oft sie kommen. Der Kalkulator rechnet es aus Ihrem Lastgang durch."
         },
         "kostentreiber": {
-          "title": "Wo die Kosten im Handel entstehen",
+          "title": "Wo die Kosten in der Industrie entstehen",
           "lead": "Vier Zusammenhänge, die ohne Messung gelten. Welcher davon bei Ihnen der größte ist, sagt der Lastgang.",
           "items": [
             {
-              "title": "Die Kälte macht keine Pause",
-              "text": "Kühlmöbel und Kühlräume laufen auch dann, wenn niemand im Laden ist. Deshalb liegt die Nachtlast im Handel hoch — und deshalb wirkt jede Verbesserung an der Kälte durchgehend, nicht nur zu Stoßzeiten."
+              "title": "Die Grundlast läuft durch",
+              "text": "Produktionslinien, Druckluft und Kälte kommen nie ganz auf null. Dieser Teil der Rechnung entsteht aus Kilowattstunden, nicht aus einer Viertelstunde — er verlangt Effizienz und Beschaffung, nicht Speicher."
             },
             {
-              "title": "Bei Dauerlast zählt der Arbeitspreis",
-              "text": "Wo die Last über den Tag flach bleibt, entsteht der größere Teil der Rechnung aus verbrauchten Kilowattstunden und nicht aus einer einzelnen Viertelstunde. Das dreht die Rangfolge der Maßnahmen um."
+              "title": "Der Schichtwechsel ist ein Anlauf",
+              "text": "Wenn eine Schicht hochfährt, während die vorige noch nicht heruntergefahren ist, überlagern sich beide. Das ist Gleichzeitigkeit wie beim Morgenanlauf, nur mitten am Tag — und meist die am wenigsten beachtete Spitze."
             },
             {
-              "title": "Kälte und Wärme arbeiten gegeneinander",
-              "text": "Offene Kühlmöbel kühlen den Verkaufsraum mit; im Winter heizt die Haustechnik dagegen an. Gleichzeitig geht die Abwärme der Kälteanlage meist ungenutzt aufs Dach — während nebenan Wärme erzeugt wird."
+              "title": "Chargenprozesse sind planbar, aber selten geplant",
+              "text": "Härteöfen, Trockner, Mischer: Was in Chargen läuft, hat einen zeitlichen Spielraum. Genutzt wird er selten, weil die Reihenfolge sich am Auftrag orientiert und nicht am Lastgang."
             },
             {
-              "title": "Die Beleuchtung läuft mit der Öffnungszeit",
-              "text": "Sie ist der Posten mit dem klarsten Zusammenhang zwischen Betriebsstunden und Kosten — und der, bei dem sich eine Umstellung am direktesten in der Jahresarbeit niederschlägt."
+              "title": "Druckluft ist der stille Posten",
+              "text": "Kompressoren laufen unauffällig durch und takten gegen Leckagen an. Sie erscheinen weder als Spitze noch als Maßnahme — und sind trotzdem in vielen Betrieben einer der größten Einzelverbraucher."
             }
           ]
         },
         "faq": {
-          "title": "Häufige Fragen aus dem Handel",
+          "title": "Häufige Fragen aus der Industrie",
           "items": [
             {
-              "q": "Bringt Peak Shaving im Handel etwas?",
-              "a": "Meistens weniger als in Betrieben mit ausgeprägten Spitzen. Ein flaches Lastprofil hat keine Spitze, die sich mit vertretbarem Aufwand abschneiden ließe. Ausnahmen gibt es — etwa eine deutliche Morgenspitze beim Hochfahren. Ob Ihr Standort dazugehört, zeigt der Lastgang; versprechen lässt es sich vorab nicht."
+              "q": "Wir kennen unseren Leistungspreis längst. Was ist dann der Hebel?",
+              "a": "Nicht die Kenntnis, sondern die Zuordnung. Die Rechnung sagt Ihnen die Höhe der Spitze, aber nicht, welcher Prozess sie gemacht hat. Genau dort liegt der Unterschied zwischen „wir wissen, dass es teuer ist\" und „wir wissen, was wir dagegen tun\"."
             },
             {
-              "q": "Warum passt PV so gut in den Handel?",
-              "a": "Weil Verbrauch und Erzeugung zeitlich zusammenfallen: Der Laden verbraucht am meisten, wenn die Sonne am höchsten steht. Der Eigenverbrauchsanteil ist dadurch hoch — und ein Speicher ist keine Voraussetzung dafür, dass sich die Anlage rechnet."
+              "q": "Rechnet sich ein Speicher bei unseren Größenordnungen überhaupt?",
+              "a": "Das hängt an der Form, nicht an der Größe. Ragen deutliche Spitzen aus dem Plateau, gibt es etwas abzuschneiden — und der Leistungspreis, den Sie ohnehin zahlen, macht jede eingesparte Kilowatt sofort wirksam. Ist das Plateau dagegen flach, wird ein Speicher schnell groß und teuer, ohne viel zu bewegen. Das sagen wir lieber vorher als hinterher; der Lastgang entscheidet es."
             },
             {
-              "q": "Wo fängt man an, wenn es keine Spitze gibt?",
-              "a": "Bei der Kälte und bei der Beleuchtung — den zwei Posten, die durchlaufen. Und bei der Frage, ob die Abwärme der Kälteanlage irgendwo hingeht oder ungenutzt bleibt. Das sind Effizienz- und Eigenverbrauchsthemen, keine Lastspitzenthemen."
+              "q": "Wo fängt man an, wenn beide Seiten der Rechnung groß sind?",
+              "a": "Bei der Aufschlüsselung. Erst wenn klar ist, wie sich die Rechnung auf Arbeit und Leistung verteilt und welche Anlagen dahinterstehen, lässt sich die Reihenfolge der Maßnahmen begründen. Alles andere wäre geraten — nur eben mit größeren Zahlen."
+            }
+          ]
+        },
+        "rechner": {
+          "title": "Was wäre eine niedrigere Spitze wert?",
+          "lead": "Die Größenordnung lässt sich in drei Angaben abschätzen. Ihre aktuelle Leistungsspitze und Ihr Leistungspreis stehen auf der Netzrechnung, die Zielreduktion setzen Sie selbst. Das ist eine Schätzung, keine Auslegung — sie sagt, ob sich das Thema lohnt, nicht welcher Speicher es wird."
+        },
+        "tun": {
+          "title": "Was wir für Industrie & verarbeitendes Gewerbe tun",
+          "lead": "Zuerst die Rechnung aufschlüsseln, dann die Maßnahmen nach Wirkung sortieren — nicht nach Sichtbarkeit.",
+          "items": [
+            {
+              "title": "Verbräuche zuordnen",
+              "text": "Druckluft, Kälte, Wärme, Lüftung, Produktion: Was die Netzrechnung als eine Zahl führt, trennen wir auf. Erst danach lässt sich sagen, wo der Hebel sitzt."
+            },
+            {
+              "title": "Prozesse entzerren",
+              "text": "Chargen, Schichtübergänge und Anläufe haben oft mehr zeitlichen Spielraum, als der Betrieb nutzt. Was sich verschieben lässt, muss kein Speicher abfangen."
+            },
+            {
+              "title": "Auslegen und beschaffen",
+              "text": "Speicher und PV, wo die Spitzen es rechtfertigen — und eine Beschaffungsstrategie für den Teil der Rechnung, den kein Speicher senkt."
+            }
+          ]
+        },
+        "cta": {
+          "title": "Welcher Prozess macht Ihre Spitze?",
+          "lead": "Im Erstgespräch schauen wir auf Ihre Netzrechnung und Ihren Lastgang und sagen Ihnen, wo der größte Hebel liegt. Unverbindlich."
+        }
+      },
+      "landForstwirtschaft": {
+        "metaDescription": "Energiekosten senken in Land- und Forstwirtschaft: saisonale Lasten aus Bewässerung, Kühlung und Trocknung. Eigenverbrauch, PV, Energiemanagement, Förderung. Jetzt Beratung anfragen.",
+        "title": "Energiekosten senken in der Land- und Forstwirtschaft: die Saison bestimmt die Last",
+        "promise": "Bewässerung, Erntekühlung und Trocknung laufen dann, wenn die Saison und das Wetter es verlangen — nicht nach einem Tagesplan, den man optimieren könnte.",
+        "intro": "Die Land- und Forstwirtschaft ist hier der Sonderfall, und wir sagen das offen: Es gibt kein täglich wiederkehrendes Muster, an dem sich eine Kappungsschwelle festmachen ließe. Ein Tag in der Ernte sieht anders aus als ein Tag im Februar. Der Hebel liegt deshalb zuerst bei Eigenverbrauch und Effizienz — Lastspitzenkappung ist ein möglicher Zusatznutzen, kein Ausgangspunkt.",
+        "chart": {
+          "lead": "Sprunghaft und ohne erkennbare Ordnung: Was läuft, läuft, weil die Saison es verlangt — die Pumpe, weil es trocken ist, die Trocknung, weil geerntet wurde. Dieser Tag hat Ausschläge, aber der nächste hat sie woanders. Deshalb steht in diesem Diagramm als einzigem KEINE Kappungsschwelle: Eine Linie würde eine Wiederholbarkeit behaupten, die es hier nicht gibt."
+        },
+        "hebel": {
+          "title": "Was in der Land- und Forstwirtschaft zuerst wirkt",
+          "lead": "Wo die Last der Saison folgt, zählt zuerst die Arbeit und nicht die teuerste Viertelstunde. Deshalb steht hier der Eigenverbrauch vorn.",
+          "energiemanagement": "Bevor irgendetwas ausgelegt wird, gehört geklärt, wie sich Ihr Verbrauch über das Jahr verteilt und welche Anlagen dahinterstehen. Bei saisonalen Lasten sagt ein einzelner Monat wenig — und ein Jahreswert allein auch nicht.",
+          "pvSpeicher": "Hier passt die Erzeugung oft zur Nutzung: Bewässerung und Kühlung brauchen dann am meisten Strom, wenn die Sonne am stärksten scheint. Dach- und Freiflächen sind meist vorhanden. Was erzeugt wird, wird direkt verbraucht — dafür braucht es nicht einmal einen Speicher.",
+          "finanzierung": "Für land- und forstwirtschaftliche Betriebe gibt es eigene Förderschienen, die neben den allgemeinen Energieförderungen stehen. Welche greift und wie sie sich mit einer Investitionsentscheidung verträgt, gehört vor die Anschaffung.",
+          "flagshipTitle": "Und Peak Shaving?",
+          "flagshipText": "Hier ist es selten der erste Hebel, und das sagen wir lieber vorher als hinterher: Ein Lastprofil, das der Saison folgt, hat keine verlässlich wiederkehrende Spitze, auf die sich ein Speicher auslegen ließe. Ausschließen lässt es sich ohne Blick auf den Lastgang trotzdem nicht — bei fester Infrastruktur mit gleichmäßigem Betrieb, etwa einem Kühlhaus oder den Hofgebäuden, kann eine saubere Spitze durchaus da sein. Der Kalkulator zeigt, ob Ihre dazugehört."
+        },
+        "kostentreiber": {
+          "title": "Wo die Kosten in der Land- und Forstwirtschaft entstehen",
+          "lead": "Vier Zusammenhänge, die ohne Messung gelten. Welcher davon bei Ihnen der größte ist, sagt der Lastgang.",
+          "items": [
+            {
+              "title": "Die Saison macht die Rechnung",
+              "text": "Bewässerung im Sommer, Trocknung nach der Ernte, Kühlung so lange gelagert wird: Der Verbrauch ballt sich in wenigen Wochen. Ein Jahresmittelwert beschreibt diesen Betrieb nicht — und eine Maßnahme, die im Mittel wirkt, wirkt womöglich nie."
+            },
+            {
+              "title": "Das Wetter entscheidet mit",
+              "text": "Ob die Pumpe läuft, hängt am Regen. Das ist der Unterschied zu einem Produktionsbetrieb: Die Last ist nicht nur unregelmäßig, sie ist auch nicht planbar — und lässt sich deshalb nur begrenzt verschieben."
+            },
+            {
+              "title": "Die Kühlung läuft, wenn sonst nichts läuft",
+              "text": "Kühlhaus und Milchkühlung arbeiten rund um die Uhr und über die Saison hinaus. Das ist der planbare Teil des Verbrauchs — und deshalb der, an dem sich am ehesten rechnen lässt."
+            },
+            {
+              "title": "Erzeugung und Verbrauch passen zeitlich zusammen",
+              "text": "Anders als bei vielen Gewerbebetrieben fällt der höchste Bedarf oft mit dem höchsten Sonnenstand zusammen. Das macht den Eigenverbrauch zum naheliegendsten Hebel — vor allem, was mit Speicher."
+            }
+          ]
+        },
+        "faq": {
+          "title": "Häufige Fragen aus der Land- und Forstwirtschaft",
+          "items": [
+            {
+              "q": "Bringt Peak Shaving auf einem Hof etwas?",
+              "a": "Meistens weniger als in Betrieben mit einem verlässlichen Tagesrhythmus — und wir versprechen es hier bewusst nicht. Eine saisonale Last hat keine Spitze, die sich Monat für Monat wiederholt; ein Speicher, der auf einen Erntetag ausgelegt ist, steht den Rest des Jahres. Ausnahmen gibt es bei fester Infrastruktur mit gleichmäßigem Betrieb, etwa einem Kühlhaus. Ob Ihr Betrieb dazugehört, zeigt der Lastgang."
+            },
+            {
+              "q": "Warum passt PV hier so gut?",
+              "a": "Weil Verbrauch und Erzeugung zeitlich oft zusammenfallen: Bewässerung und Kühlung brauchen am meisten, wenn die Sonne am höchsten steht. Der Eigenverbrauchsanteil ist dadurch hoch — und ein Speicher ist keine Voraussetzung dafür, dass sich die Anlage rechnet."
+            },
+            {
+              "q": "Wo fängt man an, wenn die Last so schwankt?",
+              "a": "Bei dem Teil, der nicht schwankt: Kühlung, Hofgebäude, Ladeinfrastruktur. Der läuft das ganze Jahr, ist messbar und planbar. Und beim Eigenverbrauch, der von der Saisonalität kaum betroffen ist. Erst danach lohnt die Frage nach der Spitze."
             }
           ]
         },
         "rechner": {
           "title": "Und wenn doch eine Spitze da ist?",
-          "lead": "Der Schnellrechner schätzt, was eine niedrigere Leistungsspitze im Jahr wert wäre. Im Handel ist die ehrliche Antwort oft: weniger, als die Effizienzmaßnahmen bringen. Rechnen Sie es mit den Werten Ihrer Netzrechnung durch — wenn wenig herauskommt, ist das ein Ergebnis und kein Fehler."
+          "lead": "Der Schnellrechner schätzt, was eine niedrigere Leistungsspitze im Jahr wert wäre. In der Land- und Forstwirtschaft ist die ehrliche Antwort oft: weniger, als PV und Eigenverbrauch bringen. Rechnen Sie es mit den Werten Ihrer Netzrechnung durch — wenn wenig herauskommt, ist das ein Ergebnis und kein Fehler."
         },
         "tun": {
-          "title": "Was wir für den Handel tun",
-          "lead": "Im Handel ist die Arbeit selten spektakulär und fast immer wirksam: viele Stunden, viele kleine Posten, ein durchgerechneter Plan.",
+          "title": "Was wir für Land- und Forstwirtschaft tun",
+          "lead": "Zuerst trennen, was saisonal ist, von dem, was durchläuft. Danach richtet sich alles Weitere.",
           "items": [
             {
-              "title": "Lastgang und Rechnung lesen",
-              "text": "Zuerst die Frage, ob Sie überhaupt einen nennenswerten Leistungspreis zahlen und wie flach Ihr Profil wirklich ist. Danach richtet sich alles Weitere."
+              "title": "Saison und Grundlast trennen",
+              "text": "Aus dem Jahresverlauf lesen wir, welcher Teil Ihres Verbrauchs an der Saison hängt und welcher unabhängig davon durchläuft. Nur der zweite Teil lässt sich verlässlich auslegen."
             },
             {
-              "title": "Die Dauerposten angehen",
-              "text": "Kälte, Beleuchtung, Klima und Abwärme: Was durchläuft, wirkt über das ganze Jahr. Wir bewerten die Maßnahmen nach Wirkung, nicht nach Sichtbarkeit."
+              "title": "Eigenverbrauch zuerst",
+              "text": "PV auf Dach- und Freiflächen, die ohnehin da sind — und die Frage, wie viel davon direkt im Betrieb bleibt. Das ist hier meist der größte Hebel, nicht die Spitze."
             },
             {
-              "title": "Eigenverbrauch und Beschaffung",
-              "text": "PV auf das Dach, das ohnehin da ist — und über mehrere Standorte hinweg eine Beschaffung, die nicht je Filiale neu verhandelt wird."
+              "title": "Fördern und begleiten",
+              "text": "Agrarförderung und Energieförderung sind zwei Schienen. Wir prüfen beide, bevor die Investition entschieden ist, und begleiten die Umsetzung bis zur Abnahme."
             }
           ]
         },
         "cta": {
-          "title": "Wie flach ist Ihr Lastprofil wirklich?",
-          "lead": "Im Erstgespräch schauen wir auf Ihre Netzrechnung und Ihren Lastgang und sagen Ihnen, wo der größte Hebel liegt — auch wenn es nicht der ist, den wir am liebsten verkaufen würden. Unverbindlich."
+          "title": "Was läuft bei Ihnen das ganze Jahr?",
+          "lead": "Im Erstgespräch trennen wir den saisonalen Teil Ihres Verbrauchs vom dauerhaften und sagen Ihnen, wo der größte Hebel liegt — auch wenn es nicht der ist, den wir am liebsten verkaufen würden. Unverbindlich."
         }
       }
     }
@@ -918,7 +1003,7 @@
     "Hero": {
       "eyebrow": "Wirtschaftlich dekarbonisieren — ohne Greenwashing",
       "title": "Wir senken Energiekosten und CO₂ — mit messbarem Erfolg",
-      "lead": "COOLiN ENERGY berät Unternehmen bei der Nutzung nachhaltiger Energie: PV & Speicher, Peak Shaving, PPAs, Energiemanagement, Abwärme, Finanzierung und Förderungen.",
+      "lead": "COOLiN ENERGY berät Unternehmen bei der nachhaltigen Nutzung von Energie: PV & Speicher, Peak Shaving, Energiemanagement, PPAs, Finanzierung, Förderungen und mehr.",
       "focus": "Fokus: schnelle Umsetzbarkeit, belastbare Business Cases, Compliance-ready (CSRD/ESG).",
       "ctaPrimary": "Kalkulator",
       "ctaSecondary": "Beratung anfragen"
@@ -949,7 +1034,7 @@
     "Branchen": {
       "eyebrow": "Branchen",
       "title": "Wo Ihre Lastspitzen entstehen",
-      "lead": "Dieselben Hebel, im Kontext Ihres Betriebs — vom Ofen am frühen Morgen bis zur Kälteanlage im Dauerlauf."
+      "lead": "Dieselben Hebel, im Kontext Ihres Betriebs — vom gleichzeitigen Maschinenanlauf am Morgen bis zur Kühlung im Dauerlauf."
     },
     "Wissen": {
       "eyebrow": "Wissen",
@@ -1161,7 +1246,16 @@
   "CalculatorFrame": {
     "title": "Peak-Shaving Kalkulator",
     "metaDescription": "Der Peak-Shaving Kalkulator von COOLiN ENERGY: Lastgang hochladen, Batterie simulieren, Ersparnis und Amortisation berechnen.",
-    "iframeTitle": "Peak-Shaving Kalkulator — Lastgang hochladen, Batterie simulieren, Ersparnis berechnen"
+    "iframeTitle": "Peak-Shaving Kalkulator — Lastgang hochladen, Batterie simulieren, Ersparnis berechnen",
+    "gate": {
+      "title": "Zugang zum Kalkulator",
+      "lead": "Der Peak-Shaving Kalkulator ist derzeit einem geschlossenen Kreis vorbehalten. Mit Ihrem Zugangscode geht es direkt weiter — die Eingabe merken wir uns in diesem Browser.",
+      "label": "Zugangscode",
+      "submit": "Kalkulator öffnen",
+      "error": "Dieser Zugangscode stimmt nicht. Bitte prüfen Sie die Schreibweise.",
+      "noCode": "Noch keinen Zugangscode?",
+      "noCodeLink": "Zugang auf Anfrage"
+    }
   },
   "Kontakt": {
     "metaTitle": "Kontakt",
@@ -1269,7 +1363,7 @@
         },
         {
           "title": "Technik, die zur Branche passt",
-          "text": "Ob Bäckerei, Hotel oder Handel: wir wählen die Lösung nach Ihrem tatsächlichen Lastprofil, nicht nach Schema F."
+          "text": "Ob Werkstatt, Hotel oder Produktionsbetrieb: wir wählen die Lösung nach Ihrem tatsächlichen Lastprofil, nicht nach Schema F."
         },
         {
           "title": "Transparenz vor Verkaufsdruck",
@@ -1294,10 +1388,6 @@
     "peakShaving": "Was ist Peak Shaving",
     "peakShavingCalculator": "Der Kalkulator",
     "branchen": "Branchen",
-    "hotellerie": "Hotellerie",
-    "gastronomie": "Gastronomie",
-    "baeckerei": "Bäckerei",
-    "handel": "Handel",
     "wissen": "Wissen",
     "ueberUns": "Über uns",
     "kontakt": "Kontakt",
@@ -1306,7 +1396,12 @@
     "impressum": "Impressum",
     "datenschutz": "Datenschutz",
     "login": "Login",
-    "peakShavingCalculatorRun": "Kalkulator starten"
+    "peakShavingCalculatorRun": "Kalkulator starten",
+    "bau": "Bau & Baunebengewerbe",
+    "hotellerieGastronomie": "Hotellerie & Gastronomie",
+    "handwerk": "Handwerk",
+    "industrie": "Industrie & Verarbeitendes Gewerbe",
+    "landForstwirtschaft": "Land- und Forstwirtschaft"
   },
   "Wissen": {
     "Overview": {
@@ -1358,7 +1453,7 @@
         "level4": "Umspannung Hoch- auf Mittelspannung",
         "level5": "Mittelspannungsnetz",
         "level6": "Umspannung Mittel- auf Niederspannung",
-        "level7": "Niederspannungsnetz — Gewerbe, Werkstatt, Bäckerei, Gastronomie, Haushalt",
+        "level7": "Niederspannungsnetz — Gewerbe, Werkstatt, Handwerk, Gastronomie, Haushalt",
         "highlightLabel": "Neu ab 2027"
       },
       "Entzerrung": {

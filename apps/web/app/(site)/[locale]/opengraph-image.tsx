@@ -60,8 +60,9 @@ const WHITE = '#ffffff' // --color-on-navy
 
 /*
  * WORTMARKE — Variante A („Gestapelt"), dieselbe, die Header und Footer zeigen
- * (`components/layout/site-header.tsx` → `WordmarkA`). Seit Prompt 23 zweizeilig:
- * „COOLiN" oben (unverändert), „ENERGY" darunter, auf dieselbe Breite gestreckt.
+ * (`components/layout/site-header.tsx` → `WordmarkA`). Zweizeilig: „COOLiN"
+ * oben (unverändert), „ENERGY" linksbündig darunter — kleiner und in seiner
+ * natürlichen Breite (Prompt 25).
  *
  * Die Zahlen sind die aus `components/brand/wordmark.tsx`, dort an Inters echten
  * Glyphen vermessen — hier nur von der 100er-Basis auf Em-Anteile umgerechnet,
@@ -79,29 +80,22 @@ const GAP_I_N = 0.09
 const COOL_TRACK = -0.02
 
 /*
- * ZEILE 2 „ENERGY" — Satori kennt weder SVG-`<text textLength>` noch eine
- * Mess-API für gerendertes Textmaß (anders als der Browser bei wordmark.tsx).
- * Statt zu messen, wird deshalb GESTRECKT: `transform: scaleX()` auf einen
- * Container mit `transformOrigin: 'left'` — dieselbe Technik, die der Prompt
- * für Nicht-SVG-Kontexte vorschlägt.
+ * ZEILE 2 „ENERGY" — KEIN Stretch (Prompt 25).
  *
- * coolNWidthEm = Breite von "COOLiN" (COOL + i-Stamm-Lücken + N), aus denselben
- * gemessenen Advance-Breiten wie wordmark.tsx (M.cool700/M.n700, dort durch 100
- * geteilt): 2,7661 + 0,08 + 0,11 + 0,09 + 0,7422 = 3,7883 em.
- * ENERGY_SIZE=0,9 (statt vorher 0,44) ist so gewählt, dass die NATÜRLICHE
- * (ungestreckte) Breite von „ENERGY" bei dieser Schriftgröße bereits nahe an
- * COOL_N_WIDTH_EM liegt — der nötige Stretch bleibt dadurch klein, keine
- * sichtbar verzerrten Glyphen. ENERGY_NATURAL_WIDTH_EM ist NICHT geschätzt,
- * sondern am tatsächlich gerenderten OG-Bild vermessen (Pixel-Breite von
- * "ENERGY" ohne Transform, gegen COOL_N_WIDTH_EM skaliert) — ENERGY_STRETCH
- * ergibt sich daraus, kein Korrekturfaktor auf Verdacht.
+ * Frühere Fassungen zogen „ENERGY" per `transform: scaleX()` auf die Breite von
+ * „COOLiN". Das ist ersatzlos entfallen, aus demselben Grund wie in
+ * `components/brand/wordmark.tsx`: Die Marke lebt von der Größenhierarchie, und
+ * zwei gleich breite Blöcke wirken gleichrangig — genau das, was ENERGY nicht
+ * sein soll. „ENERGY" steht jetzt linksbündig in seiner natürlichen Breite und
+ * endet vor dem rechten Rand von „COOLiN".
+ *
+ * Werte 1:1 aus `wordmark.tsx` auf Em-Anteile umgerechnet (dort auf der
+ * 100er-Basis: energySize=62, letterSpacing=5, lineGap=14).
  */
-const COOL_N_WIDTH_EM = 3.7883
-const ENERGY_SIZE = 0.9
-const ENERGY_NATURAL_WIDTH_EM = 3.573
-const ENERGY_STRETCH = COOL_N_WIDTH_EM / ENERGY_NATURAL_WIDTH_EM
+const ENERGY_SIZE = 0.62
+const ENERGY_TRACK = 0.05
 const ENERGY_OPACITY = 0.75
-const LINE_GAP = 0.16 // Grundlinie COOLiN -> Versalhöhe ENERGY, in em
+const LINE_GAP = 0.14 // Grundlinie COOLiN -> Versalhöhe ENERGY, in em
 
 /*
  * Bei `lineHeight: 1` sitzt Inters Grundlinie 0,1362 em über der Unterkante der
@@ -171,20 +165,13 @@ function Wordmark({ fontSize: s }: { fontSize: number }) {
         <div style={capText}>N</div>
       </div>
 
-      {/* Zeile 2 — „ENERGY", gestreckt auf die Breite von Zeile 1 (COOL_N_WIDTH_EM).
-          `transformOrigin: 'left'` hält die Streckung linksbündig zu Zeile 1. */}
-      <div
-        style={{
-          display: 'flex',
-          marginTop: LINE_GAP * s,
-          transform: `scaleX(${ENERGY_STRETCH})`,
-          transformOrigin: 'left',
-        }}
-      >
+      {/* Zeile 2 — „ENERGY", linksbündig unter Zeile 1, natürliche Breite. */}
+      <div style={{ display: 'flex', marginTop: LINE_GAP * s }}>
         <div
           style={{
             fontSize: ENERGY_SIZE * s,
             fontWeight: 400,
+            letterSpacing: ENERGY_TRACK * s,
             lineHeight: 1,
             color: WHITE,
             opacity: ENERGY_OPACITY,

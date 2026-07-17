@@ -61,33 +61,47 @@ function IStem({ x, width }: { x: number; width: number }) {
 }
 
 /* ------------------------------------------------------------------ *
- * Variante A — „Gestapelt" (Prompt 23: vorher nebeneinander, jetzt zweizeilig)
+ * Variante A — „Gestapelt" (Prompt 23: zweizeilig; Prompt 25: Größenhierarchie)
  *
  * „COOLiN" bleibt textlich UND breitenmäßig unverändert (exakt dieselben
- * Koordinaten/Metriken wie zuvor, inkl. i-Punkt-Knoten) und rückt an den
- * oberen Rand. „ENERGY" steht darunter und wird per `textLength` +
- * `lengthAdjust="spacingAndGlyphs"` auf EXAKT dieselbe Breite gestreckt wie
- * „COOLiN" darüber (coolNWidth) — der zuverlässige Weg, Breitengleichheit zu
- * erzwingen, ohne Kerning von Hand zu raten (SVG-Spec macht das deterministisch,
- * unabhängig von Zeichenzahl/Font-Metrik). `energySize` ist bewusst groß genug
- * gewählt, dass die natürliche (ungestreckte) Breite von „ENERGY" schon nahe an
- * coolNWidth liegt — der Stretch bleibt dadurch minimal, keine sichtbare
- * Verzerrung der Glyphen.
+ * Koordinaten/Metriken wie seit je, inkl. i-Punkt-Knoten) und rückt an den
+ * oberen Rand. „ENERGY" steht LINKSBÜNDIG darunter, in seiner NATÜRLICHEN,
+ * kleineren Breite.
+ *
+ * KEIN `textLength`/`lengthAdjust` mehr (Prompt 23/24 hatten ENERGY auf
+ * COOLiNs Breite gestreckt): Die Marke lebt von der Größenhierarchie —
+ * COOLiN dominant, ENERGY untergeordnet. Ein auf die volle Breite gezogenes
+ * ENERGY nimmt genau diese Unterordnung wieder zurück, weil zwei gleich breite
+ * Blöcke optisch gleichrangig wirken, egal wie unterschiedlich hoch sie sind.
+ * Die freie Fläche rechts unter „COOLiN" ist damit kein Rest, sondern die
+ * Aussage.
+ *
+ * `energySize` ist an der VERSALHÖHE bemessen, nicht an der font-size: Beide
+ * Zeilen sind Versalsatz, also ist das Verhältnis der Cap-Heights das, was das
+ * Auge als Größenverhältnis liest. Cap(COOLiN) = 72,7, Cap(ENERGY) = 62 × 0,727
+ * = 45,1 -> Faktor rund 1,6.
  * ------------------------------------------------------------------ */
 export function WordmarkA({ className, monochrome, title = 'COOLiN ENERGY' }: WordmarkProps) {
   const node = monochrome ? 'currentColor' : 'var(--color-node)'
   const iW = 11
   const iX = M.cool700 + 8
   const nX = iX + iW + 9
-  const coolNWidth = nX + M.n700 // Breite von "COOLiN" allein — Zielbreite für ENERGY
+  const coolNWidth = nX + M.n700 // Breite von "COOLiN" — bestimmt die Breite der Marke
 
-  const lineGap = 16 // Abstand: Grundlinie COOLiN -> Versalhöhe ENERGY
-  const energySize = 90
+  const lineGap = 14 // Abstand: Grundlinie COOLiN -> Versalhöhe ENERGY
+  const energySize = 62
   const energyCapTop = BASE + lineGap
   const energyBase = energyCapTop + energySize * 0.727 // Versalhöhe-Anteil, s. CAP_TOP
-  const topMargin = 10 // etwas über dem Knoten (Knoten-Oberkante = NODE_CY - 9 = 23)
-  const bottomMargin = 8
-  const h = energyBase + bottomMargin - topMargin
+  /*
+   * Der viewBox schließt oben und unten mit demselben Abstand ab (`pad`) —
+   * nicht kosmetisch, sondern Voraussetzung für Teil 2 dieser Änderung: Das
+   * Lockup zentriert die Wortmarke per `items-center` über ihre SVG-BOX. Ist die
+   * Box oben/unten ungleich bepolstert, sitzt der sichtbare Block trotz
+   * korrekter Zentrierung der Box optisch außermittig zum Emblem.
+   */
+  const pad = 8
+  const topMargin = NODE_CY - 9 - pad // Knoten-Oberkante (r=9) minus Polster
+  const h = energyBase + pad - topMargin
 
   return (
     <svg
@@ -121,16 +135,15 @@ export function WordmarkA({ className, monochrome, title = 'COOLiN ENERGY' }: Wo
       >
         N
       </text>
-      {/* ENERGY, zweite Zeile: textLength erzwingt exakt coolNWidth, egal wie
-          die natürliche Zeichenbreite ausfällt. */}
+      {/* ENERGY, zweite Zeile: linksbündig (x=0, wie COOLiN), natürliche Breite —
+          endet bewusst vor dem rechten Rand von COOLiN. */}
       <text
         x="0"
         y={energyBase}
-        textLength={coolNWidth}
-        lengthAdjust="spacingAndGlyphs"
         fontFamily={FONT}
         fontSize={energySize}
         fontWeight="400"
+        letterSpacing="5"
         fill="currentColor"
         opacity="0.75"
       >

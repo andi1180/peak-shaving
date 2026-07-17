@@ -11,7 +11,7 @@ import { KONTAKT_HREF } from '@/lib/nav'
  *
  * Spiegelt `components/leistung/leistungen-overview.tsx`: gleiche Kachel, gleicher
  * Aufbau (Hero → Kacheln → Flaggschiff-Block → Kontakt-CTA). Der eine Unterschied
- * ist, dass die Branchen KEINE Gruppen haben — es sind vier gleichrangige
+ * ist, dass die Branchen KEINE Gruppen haben — es sind fünf gleichrangige
  * Einstiege, kein Portfolio mit Achsen. Deshalb ein Raster statt der gruppierten
  * Abschnitte.
  *
@@ -44,8 +44,12 @@ export function BranchenOverview() {
            * stehen auf einer Baseline, auch wenn die Zeilen unterschiedlich lang
            * sind. Der Pfeil sitzt über `mt-auto` am unteren Rand — dieselbe
            * Mechanik wie in `portfolio.tsx` und `leistungen-overview.tsx`.
+           *
+           * DREI SPALTEN, NICHT FÜNF: Begründung s. `components/home/
+           * branchen-teaser.tsx` — die beiden Raster zeigen dieselben Kacheln und
+           * dürfen nicht unterschiedlich brechen.
            */}
-          <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {BRANCHEN.map((branche) => {
               const Icon = branche.icon
               return (

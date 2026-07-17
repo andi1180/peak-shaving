@@ -5,15 +5,15 @@ import { Container, Eyebrow, Section } from '@/components/ui/layout'
 import { BRANCHEN_FLAT } from '@/lib/nav'
 
 /**
- * Branchen-Teaser (§4.4 Nr. 4) — 4 Karten, problem-orientiert.
+ * Branchen-Teaser (§4.4 Nr. 4) — 5 Karten, problem-orientiert.
  *
  * Bewusst nur Teaser: der Detailtext je Branche (typisches Lastprofil, Hebel,
  * Kostentreiber) steht auf den Branchenseiten (§5.3) — hier steht je Branche EIN
  * Satz zum Schmerz.
  *
- * Der Schmerz je Branche folgt Pflichtenheft §5.3 („Hotel: gleichzeitige Last
- * aus Küche + HLK + Wäscherei; Bäckerei: Ofen-Spitzen früh; Gastro: Stoßzeiten;
- * Handel: Kälte/Beleuchtung/Klima"). Keine Zahlen — die brauchen Quellen (§9.5).
+ * Der Schmerz je Branche benennt den Mechanismus, der die Spitze erzeugt
+ * (Gleichzeitigkeit, Anlauf, Schichtwechsel, Saison). Keine Zahlen — die
+ * brauchen Quellen (§9.5).
  *
  * Liste + Links kommen aus `lib/nav.ts` (BRANCHEN_FLAT), nicht aus einer Kopie.
  *
@@ -36,8 +36,17 @@ export function BranchenTeaser() {
         <h2 className="mt-3 text-h2 text-ink">{t('title')}</h2>
         <p className="mt-4 max-w-prose text-lead text-text-muted">{t('lead')}</p>
 
-        {/* Gleich hohe Karten auf einer Baseline: h-full + mt-auto (wie im Portfolio). */}
-        <ul className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {/*
+         * Gleich hohe Karten auf einer Baseline: h-full + mt-auto (wie im Portfolio).
+         *
+         * DREI SPALTEN, NICHT FÜNF (seit Prompt 25 sind es 5 Branchen): Bei
+         * `max-w-container` (72rem) blieben je Karte rund 200 px — zu wenig für
+         * Überschriften wie „Industrie & Verarbeitendes Gewerbe" plus einen Satz;
+         * sie brächen auf drei bis vier Zeilen um. 3+2 lässt in der zweiten Zeile
+         * eine Lücke, aber die Karten bleiben lesbar. Dieselbe Aufteilung wie in
+         * `branchen-overview.tsx` — die zwei Raster zeigen dieselben Kacheln.
+         */}
+        <ul className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {BRANCHEN_FLAT.map((leaf) => (
             <li key={leaf.href}>
               <Link

@@ -60,6 +60,42 @@ const nextConfig = {
        * Redirect auf „/" würde den Besucher mit seinem Anliegen allein lassen.
        */
       { source: '/danke.html', destination: '/kontakt', statusCode: 301 },
+
+      /*
+       * BRANCHEN-NEUORDNUNG (Prompt 25). Dieselbe Konvention wie oben:
+       * `statusCode: 301`, nicht `permanent: true` (das ergäbe ein 308).
+       *
+       * Anders als die `.html`-Pfade oben sind das URLs, die WIR selbst
+       * ausgeliefert und intern verlinkt haben — sie stehen im Index, in
+       * Lesezeichen und in der bereits eingereichten sitemap. Ohne Redirect
+       * wären es 404er auf Seiten, die es gab.
+       *
+       * ZWEI ZIELE, zwei Fälle — die Unterscheidung ist inhaltlich, nicht
+       * kosmetisch:
+       *
+       *   – Hotellerie/Gastronomie sind zu EINER Seite verschmolzen. Ihr Inhalt
+       *     lebt dort weiter, also zeigt der Redirect auf die Nachfolgeseite:
+       *     Ranking und Backlinks gehen an die Seite, die dasselbe Thema trägt.
+       *
+       *   – Bäckerei und Handel haben KEINEN Nachfolger. Sie auf eine der neuen
+       *     Branchen zu leiten wäre ein Fehler, den Google „soft 404" nennt: Ein
+       *     Redirect behauptet „das hier ist jetzt die Adresse dafür" — ein
+       *     Bäckerei-Sucher auf /branchen/handwerk zu schicken behauptet etwas
+       *     Falsches. Die Übersicht ist die ehrliche Antwort: Sie zeigt, was es
+       *     stattdessen gibt, und der Besucher entscheidet.
+       */
+      {
+        source: '/branchen/hotellerie',
+        destination: '/branchen/hotellerie-gastronomie',
+        statusCode: 301,
+      },
+      {
+        source: '/branchen/gastronomie',
+        destination: '/branchen/hotellerie-gastronomie',
+        statusCode: 301,
+      },
+      { source: '/branchen/baeckerei', destination: '/branchen', statusCode: 301 },
+      { source: '/branchen/handel', destination: '/branchen', statusCode: 301 },
     ]
   },
 }
