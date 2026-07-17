@@ -13,7 +13,7 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion'
 import { EmblemImage } from '@/components/brand/emblem-image'
-import { MAIN_NAV, CTA_HREF, KONTAKT_HREF, LOGIN_HREF, type NavLeaf } from '@/lib/nav'
+import { MAIN_NAV, CTA_HREF, KONTAKT_HREF, type NavLeaf } from '@/lib/nav'
 import { cn } from '@/lib/utils'
 
 /*
@@ -170,9 +170,8 @@ export function MobileNav() {
                 <Link href={KONTAKT_HREF}>{t('kontakt')}</Link>
               </Button>
             </SheetClose>
-            <DrawerLink href={LOGIN_HREF} className="text-center text-small text-text-muted">
-              {t('login')} · {t('loginSoon')}
-            </DrawerLink>
+            {/* „Login" (Prompt 26): reiner Text, keine Funktion — s. site-header.tsx. */}
+            <span className="block text-center text-small text-text-muted">{t('login')}</span>
           </div>
         </SheetContent>
       </Sheet>

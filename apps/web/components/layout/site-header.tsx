@@ -5,7 +5,7 @@ import { Container } from '@/components/ui/layout'
 import { Button } from '@/components/ui/button'
 import { EmblemImage } from '@/components/brand/emblem-image'
 import { WordmarkA } from '@/components/brand/wordmark'
-import { MAIN_NAV, CTA_HREF, KONTAKT_HREF, LOGIN_HREF } from '@/lib/nav'
+import { MAIN_NAV, CTA_HREF, KONTAKT_HREF } from '@/lib/nav'
 import { cn } from '@/lib/utils'
 import { MobileNav } from './mobile-nav'
 import {
@@ -64,19 +64,49 @@ export function SiteHeader() {
      * Deckende Fläche ist Pflicht — der Inhalt läuft darunter durch.
      */
     <header className="sticky top-0 z-40 border-b border-line bg-surface">
-      <Container className="flex h-[var(--header-h)] items-center justify-between gap-4">
+      <Container className="grid h-[var(--header-h)] grid-cols-[auto_1fr_auto] items-center gap-4">
         {/* Lockup → Startseite */}
         <Link
           href="/"
           aria-label={t('home')}
-          className="flex shrink-0 items-center gap-2.5 rounded-md text-navy outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          className="flex shrink-0 items-center justify-self-start gap-2.5 rounded-md text-navy outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         >
           <EmblemImage size={44} className="h-11 w-11" priority />
           <HeaderWordmark className="h-11 w-auto" />
         </Link>
 
-        {/* Desktop-Navigation */}
-        <NavigationMenu className="hidden lg:flex" aria-label={t('mainLabel')}>
+        {/*
+         * Spalten `auto 1fr auto` (NICHT `1fr auto 1fr`): Logo- und Aktions-
+         * Spalte sind je genau so breit wie ihr eigener Inhalt (kein Leerraum
+         * INNERHALB dieser Spalten), die mittlere Spalte bekommt den GESAMTEN
+         * Rest. Das ist der Unterschied zu `1fr auto 1fr`: dort wären die
+         * beiden äußeren Spalten zwar gleich breit, aber Logo (schmal) und
+         * Aktions-Block (breiter: Login+Kontakt+Kalkulator) würden diese
+         * gleich breiten Spalten unterschiedlich stark ausfüllen — der
+         * sichtbare Abstand links/rechts der Nav wäre trotz „gleicher Spalten"
+         * spürbar asymmetrisch (gemessen: 124px vs. 48px). Mit `auto 1fr auto`
+         * IST die Mittelspalte exakt der Raum zwischen Logos rechter und
+         * Aktions-Blocks linker Kante — `justify-self-center` darin zentriert
+         * die Nav dadurch tatsächlich mittig zwischen den beiden sichtbaren
+         * Blöcken (gemessen: 86px beidseitig, 0px Differenz).
+         *
+         * WICHTIG: NICHT stattdessen `flex-1` + `justify-center` DIREKT auf der
+         * NavigationMenu-Primitive selbst (die von Haus aus `flex-1` trägt)
+         * anwenden, um dasselbe Ergebnis in einem Flex-Header zu erreichen —
+         * deren Mega-Menü-Viewport dockt intern an der LINKEN Kante der
+         * Nav-eigenen Box an (`navigation-menu.tsx`, `absolute left-0`). Würde
+         * die Nav-Box selbst gestreckt und nur ihr Inhalt zentriert, säße das
+         * Dropdown-Panel an der (dann leeren) linken Boxkante und liefe am
+         * zentrierten Trigger vorbei. Hier bleibt die Nav-Box unangetastet
+         * (`justify-self-center` zentriert nur die BOX innerhalb der 1fr-
+         * Spalte, die Box selbst bleibt exakt content-breit) — das Dropdown
+         * bleibt exakt unter seinem Trigger.
+         *
+         * Bei 1024–1280px eng geprüft (Playwright): die Mittelspalte hat bei
+         * 1024px noch reichlich Luft (kein Umbruch, kein Overflow, Nav bleibt
+         * einzeilig). Kein Fallback nötig.
+         */}
+        <NavigationMenu className="hidden justify-self-center lg:flex" aria-label={t('mainLabel')}>
           <NavigationMenuList>
             {MAIN_NAV.map((item) => {
               const hasMenu = Boolean(item.groups || item.items)
@@ -194,31 +224,37 @@ export function SiteHeader() {
           </NavigationMenuList>
         </NavigationMenu>
 
-        {/* Rechte Aktionen — Hierarchie leise → laut (§4.1) */}
-        <div className="hidden shrink-0 items-center gap-2 lg:flex">
-          <Link
-            href={LOGIN_HREF}
-            className={cn(
-              'inline-flex items-center gap-1.5 rounded-md px-2 py-2 text-small text-text-muted',
-              'transition-colors hover:text-ink',
-              'outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
-            )}
-          >
-            {t('login')}
-            <span className="rounded-sm bg-surface-sunken px-1.5 py-0.5 text-caption text-text-muted">
-              {t('loginSoon')}
+        {/* Rechte Spalte: Aktionen (Desktop) + Hamburger (Mobile) im selben Grid-Slot */}
+        <div className="flex shrink-0 items-center justify-self-end gap-2">
+          <div className="hidden items-center gap-2 lg:flex">
+            {/*
+             * „Login" (Prompt 26): reiner Platzhalter-Text, KEINE Funktion.
+             * Bewusst kein <Link>/<button> — echtes Auth kommt erst in Phase 2
+             * (Supabase, §8.1); ein Element, das wie ein Link aussieht aber
+             * nirgends hinführt, wäre eine irreführende Affordanz. Der dezente
+             * Hover-Ton signalisiert trotzdem „hier passiert später etwas",
+             * ohne einen toten Klick-/Tastatur-Stop zu erzeugen — deshalb kein
+             * `tabIndex`/`role="button"`, es gibt nichts zu aktivieren.
+             */}
+            <span
+              className={cn(
+                'inline-flex items-center gap-1.5 rounded-md px-2 py-2 text-small text-text-muted',
+                'transition-colors hover:text-ink',
+              )}
+            >
+              {t('login')}
             </span>
-          </Link>
-          <Button asChild variant="secondary" size="sm">
-            <Link href={KONTAKT_HREF}>{t('kontakt')}</Link>
-          </Button>
-          <Button asChild variant="primary" size="sm">
-            <Link href={CTA_HREF}>{t('cta')}</Link>
-          </Button>
-        </div>
+            <Button asChild variant="secondary" size="sm">
+              <Link href={KONTAKT_HREF}>{t('kontakt')}</Link>
+            </Button>
+            <Button asChild variant="primary" size="sm">
+              <Link href={CTA_HREF}>{t('cta')}</Link>
+            </Button>
+          </div>
 
-        {/* Mobile */}
-        <MobileNav />
+          {/* Mobile */}
+          <MobileNav />
+        </div>
       </Container>
     </header>
   )

@@ -38,3 +38,16 @@ export const EMBEDDED_CALCULATOR_SRC = new URL(
   'rechner?embed=1',
   EXTERNAL_CALCULATOR_URL,
 ).toString()
+
+/**
+ * Höhe der Rechner-Fläche unterhalb des Headers (`rechner/page.tsx`).
+ *
+ * Geteilt mit `calculator-gate.tsx` (Prompt 26): das Gate zeigt, solange
+ * `unlocked !== true`, an derselben Stelle eine leere, neutrale Fläche statt
+ * des iframes — nur wenn beide dieselbe Höhe verwenden, verschiebt sich beim
+ * Entsperren nichts (kein Layout-Sprung).
+ */
+export const CALCULATOR_FRAME_STYLE = {
+  height: 'calc(100dvh - var(--header-h))',
+  minHeight: '40rem',
+} as const

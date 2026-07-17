@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { CalculatorGate } from '@/components/peak-shaving/calculator-gate'
-import { EMBEDDED_CALCULATOR_SRC } from '@/lib/config'
+import { CALCULATOR_FRAME_STYLE, EMBEDDED_CALCULATOR_SRC } from '@/lib/config'
 import { CALCULATOR_RUN_HREF } from '@/lib/nav'
 import { robotsFor } from '@/lib/routes'
 
@@ -69,13 +69,15 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
       <h1 className="sr-only">{t('title')}</h1>
 
       {/*
-       * SOFT-GATE (Prompt 25): Der iframe erscheint erst nach Eingabe des
-       * Zugangscodes. Das Gate sitzt HIER — auf der Zielroute — und nicht an den
-       * Links hierher: sonst wäre es per Direkt-URL umgehbar und müsste an jeder
-       * neuen Verlinkung mitgedacht werden. Der Rechner selbst (`apps/website`)
-       * ist unangetastet, die Produktseite /peak-shaving/kalkulator und der
-       * öffentliche Schnellrechner bleiben ungated (§5.4).
-       * Keine echte Sicherheit — s. `lib/kalkulator-access.ts`.
+       * SOFT-GATE (Prompt 25, Popup-Präsentation seit Prompt 26): Solange kein
+       * gültiger Zugangscode vorliegt, zeigt `CalculatorGate` ein nicht
+       * schließbares Modal über einer leeren Fläche statt des iframes. Das Gate
+       * sitzt HIER — auf der Zielroute — und nicht an den Links hierher: sonst
+       * wäre es per Direkt-URL umgehbar und müsste an jeder neuen Verlinkung
+       * mitgedacht werden. Der Rechner selbst (`apps/website`) ist unangetastet,
+       * die Produktseite /peak-shaving/kalkulator und der öffentliche
+       * Schnellrechner bleiben ungated (§5.4). Keine echte Sicherheit —
+       * s. `lib/kalkulator-access.ts`.
        */}
       <CalculatorGate>
         {/*
@@ -83,6 +85,9 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
          * Browserleiste; `vh` rechnet mit der GRÖSSTEN Fläche und schöbe den
          * Rechner unter die Leiste. `- var(--header-h)`: der Header ist fixiert
          * und liegt über allem, seine Höhe ist also kein nutzbarer Platz.
+         * `CALCULATOR_FRAME_STYLE` (`lib/config.ts`): dieselbe Höhe, die das
+         * Gate für seine leere Fläche im gesperrten Zustand verwendet — sonst
+         * verschiebt sich beim Entsperren das Layout.
          *
          * `min-h`: auf einem quergedrehten Handy bliebe sonst ein ~300px hoher
          * Schlitz übrig, in dem der Flow nicht bedienbar ist. Dann lieber die
@@ -102,7 +107,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
           src={EMBEDDED_CALCULATOR_SRC}
           title={t('iframeTitle')}
           className="block w-full border-0"
-          style={{ height: 'calc(100dvh - var(--header-h))', minHeight: '40rem' }}
+          style={CALCULATOR_FRAME_STYLE}
         />
       </CalculatorGate>
     </>
