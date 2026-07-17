@@ -1,6 +1,7 @@
 import { useLocale, useTranslations } from 'next-intl'
 import { getTranslations } from 'next-intl/server'
 import type { Metadata } from 'next'
+import type { ReactNode } from 'react'
 import { ArrowRight } from 'lucide-react'
 import { Link } from '@/i18n/navigation'
 import { Button } from '@/components/ui/button'
@@ -59,12 +60,25 @@ export async function leistungMetadata(locale: string, key: string): Promise<Met
   }
 }
 
-export function LeistungPage({ leistungKey }: { leistungKey: string }) {
+export function LeistungPage({
+  leistungKey,
+  heroGraphic,
+}: {
+  leistungKey: string
+  /**
+   * Optionaler Grafik-Slot neben der Hero-Headline (Prompt 16), analog zu
+   * Grafik 1 auf der Startseite. Bewusst optional und standardmäßig LEER:
+   * das gemeinsame Template aller 6 Leistungsseiten bleibt unangetastet, nur
+   * `pv-speicher/page.tsx` befüllt ihn aktuell — ohne `heroGraphic` bleibt
+   * die Hero-Sektion bit-identisch zum bisherigen einspaltigen Layout.
+   */
+  heroGraphic?: ReactNode
+}) {
   const leistung = findLeistung(leistungKey)
 
   return (
     <>
-      <LeistungHero leistung={leistung} />
+      <LeistungHero leistung={leistung} graphic={heroGraphic} />
       <AusgangslageSection leistung={leistung} />
       <VorgehenSection leistung={leistung} />
       <NutzenSection leistung={leistung} />
@@ -79,15 +93,16 @@ function usePage(leistung: Leistung) {
   return useTranslations(`Leistungen.Pages.${leistung.key}`)
 }
 
-function LeistungHero({ leistung }: { leistung: Leistung }) {
+function LeistungHero({ leistung, graphic }: { leistung: Leistung; graphic?: ReactNode }) {
   const t = usePage(leistung)
   const tCommon = useTranslations('Leistungen')
   const Icon = leistung.icon
 
-  return (
-    <Container className="py-16 sm:py-24">
-      {/* Das Icon ist hier das EINZIGE Grafik-Element der Seite — klein, einfarbig,
-          neben dem Eyebrow statt als Kachel-Deko. */}
+  /* Das Icon ist hier das EINZIGE Grafik-Element der Seite (fünf der sechs
+     Seiten haben keinen `graphic`-Slot) — klein, einfarbig, neben dem Eyebrow
+     statt als Kachel-Deko. */
+  const heading = (
+    <>
       <div className="flex items-center gap-2.5">
         <Icon className="h-5 w-5 shrink-0 text-accent" strokeWidth={1.75} aria-hidden="true" />
         <Eyebrow>{tCommon('eyebrow')}</Eyebrow>
@@ -95,6 +110,24 @@ function LeistungHero({ leistung }: { leistung: Leistung }) {
       <h1 className="mt-3 max-w-prose text-h1 text-ink">{t('title')}</h1>
       {/* Ein Satz Nutzenversprechen, Service-Intent (§6.2). */}
       <p className="mt-5 max-w-prose text-lead text-text">{t('promise')}</p>
+    </>
+  )
+
+  if (!graphic) {
+    return <Container className="py-16 sm:py-24">{heading}</Container>
+  }
+
+  /*
+   * Zweispaltig ab `lg`, gestapelt auf Mobile — dieselbe Grid-Form wie Grafik 1
+   * auf der Startseite (`components/home/hero.tsx`). Nur hier gebraucht: die
+   * übrigen 5 Seiten nehmen den `!graphic`-Zweig oben und bleiben unverändert.
+   */
+  return (
+    <Container className="py-16 sm:py-24">
+      <div className="grid gap-10 lg:grid-cols-[1fr_22rem] lg:items-center lg:gap-14">
+        <div className="max-w-3xl">{heading}</div>
+        <div>{graphic}</div>
+      </div>
     </Container>
   )
 }

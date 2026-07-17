@@ -93,6 +93,12 @@
         "metaDescription": "Photovoltaik und Gewerbespeicher für Betriebe in Österreich: Auslegung am realen Lastgang, Eigenverbrauch erhöhen, Wirtschaftlichkeit belegen. Jetzt Beratung anfragen.",
         "title": "PV, Speicher & Eigenverbrauch",
         "promise": "Wir legen Photovoltaik und Gewerbespeicher an Ihrem realen Lastgang aus — und sagen Ihnen vorher, was die Anlage wirtschaftlich bringt.",
+        "chart": {
+          "erzeugungLabel": "Erzeugung",
+          "verbrauchLabel": "Verbrauch",
+          "eigenverbrauchLabel": "Eigenverbrauch",
+          "caption": "Illustratives Schema, keine Messdaten. Wie viel Erzeugung Sie tatsächlich selbst verbrauchen, hängt von Lastprofil, Anlagen- und Speichergröße ab — genau das ermitteln wir in der Auslegung."
+        },
         "problem": {
           "title": "Ein Angebot ist schnell da. Die passende Größe nicht.",
           "text": [
