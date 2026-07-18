@@ -15,14 +15,16 @@
  * Konfiguration: `NEXT_PUBLIC_SITE_URL` — dokumentiert in `.env.example`.
  */
 
+import { publicEnv } from './env.public'
+
 /*
- * Beide Variablen werden LITERAL gelesen (kein `process.env[name]`): Next ersetzt
- * `process.env.NEXT_PUBLIC_*` zur Build-Zeit durch den Wert — ein dynamischer
- * Zugriff würde nicht ersetzt und wäre im Browser-Bundle schlicht `undefined`.
+ * Beide Werte kommen aus der zentralen, validierten `env.public.ts` (T4-2, Aufgabe 1) — dort
+ * stehen die literalen `process.env.NEXT_PUBLIC_*`-Referenzen, die Next zur Build-Zeit textuell
+ * ersetzt. Hier keine rohen process.env-Zugriffe mehr; die Origin-Prüfung unten bleibt unverändert.
  */
-const CONFIGURED_URL = process.env.NEXT_PUBLIC_SITE_URL
+const CONFIGURED_URL = publicEnv.NEXT_PUBLIC_SITE_URL
 /** Von Vercel automatisch gesetzt (die URL DIESES Deployments). */
-const VERCEL_URL = process.env.NEXT_PUBLIC_VERCEL_URL
+const VERCEL_URL = publicEnv.NEXT_PUBLIC_VERCEL_URL
 
 /** Letzter Ausweg: `next dev`/`next start` ohne jede Konfiguration. */
 const LOCAL_FALLBACK = 'http://localhost:3000'

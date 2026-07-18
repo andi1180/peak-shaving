@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { publicEnv } from '@/lib/env.public'
 
 /**
  * Cloudflare-Turnstile-Widget — rendert NUR, wenn ein Site-Key gesetzt ist.
@@ -22,11 +23,12 @@ import * as React from 'react'
  */
 
 /**
- * Statische Referenz auf `process.env.NEXT_PUBLIC_*` — nur so ersetzt Next den
- * Ausdruck zur Build-Zeit durch den Wert. Eine dynamische Variante
- * (`process.env[name]`) bliebe im Browser `undefined`.
+ * Aus der zentralen, client-exponierten `env.public.ts` (T4-2, Aufgabe 1) — dort steht die
+ * literale `process.env.NEXT_PUBLIC_*`-Referenz, die Next zur Build-Zeit textuell ersetzt. Eine
+ * dynamische Variante bliebe im Browser `undefined`; die Indirektion ändert daran nichts, weil
+ * der literale Zugriff in env.public.ts erfolgt.
  */
-const SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY
+const SITE_KEY = publicEnv.NEXT_PUBLIC_TURNSTILE_SITE_KEY
 
 const SCRIPT_SRC = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit'
 const SCRIPT_ID = 'cf-turnstile-script'

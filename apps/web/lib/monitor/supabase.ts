@@ -13,6 +13,7 @@
 import 'server-only'
 import { createClient } from '@supabase/supabase-js'
 import type { Database } from '@/db-types'
+import { requireSupabaseUrl, requireSupabaseAnonKey } from '@/lib/env.server'
 
 /**
  * §7: die Tarif-Tabelle ändert sich nur 1×/Tag (zentraler täglicher Scraper) —
@@ -21,27 +22,20 @@ import type { Database } from '@/db-types'
  */
 const REVALIDATE_SECONDS = 60 * 60 * 24
 
-function requireEnv(name: 'SUPABASE_URL' | 'SUPABASE_ANON_KEY'): string {
-  const value = process.env[name]
-  if (!value) {
-    throw new Error(
-      `${name} fehlt — apps/web/.env.local aus apps/web/.env.example anlegen ` +
-        `(lokal: Werte aus \`supabase status\` nach \`supabase start\`).`,
-    )
-  }
-  return value
-}
-
 /**
  * Ein frischer Client pro Aufruf (kein Modul-Singleton): in einer
  * Server-Component/Route-Handler-Umgebung teilen sich sonst mehrere Requests
  * denselben Client-Zustand — für einen reinen, unauthentifizierten Lesezugriff
  * unnötig, und vermeidet die Frage, ob `createClient` je Request-Kontext neu
  * evaluiert wird.
+ *
+ * SUPABASE_URL/SUPABASE_ANON_KEY werden require-on-use über die zentrale Env-Validierung
+ * (`lib/env.server.ts`) gelesen — dasselbe „klarer Fehler bei Absenz"-Verhalten wie zuvor,
+ * nur ohne die frühere file-lokale `requireEnv`-Kopie.
  */
 function getMonitorClient() {
-  const url = requireEnv('SUPABASE_URL')
-  const anonKey = requireEnv('SUPABASE_ANON_KEY')
+  const url = requireSupabaseUrl()
+  const anonKey = requireSupabaseAnonKey()
 
   return createClient<Database, 'monitor'>(url, anonKey, {
     // `monitor` ist ein eigenes Postgres-Schema (T2, `supabase/config.toml`
