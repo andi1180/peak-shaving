@@ -162,7 +162,7 @@ Es gibt **genau ein** Formular. Manuell = leer starten. Scan = vorausgefüllt st
 Fängt den häufigsten und gefährlichsten Fehler ab (Energiepreis ≠ Gesamtpreis, §1 Prinzip 4):
 
 1. **Range-Check:** Energiepreis außerhalb ~5–40 ct/kWh → Warnung. `[MARTIN]` Grenzwerte marktrealistisch bestätigen.
-2. **Gesamtpreis-Verdacht:** Eingegebener Preis liegt im typischen Brutto-Gesamt-Band (~25–35 ct), obwohl Energiepreis gefragt war → gezielte Warnung: „Das sieht nach dem Gesamtpreis inkl. Netz und Steuern aus — wir brauchen nur den Energiepreis deines Lieferanten."
+2. **Gesamtpreis-Verdacht:** Eingegebener Preis liegt im typischen Brutto-Gesamt-Band (~25–35 ct), obwohl Energiepreis gefragt war → gezielte Warnung: „Das sieht nach dem Gesamtpreis inkl. Netz und Steuern aus — wir brauchen nur den Energiepreis Ihres Lieferanten."
 3. **Abgleich gegen Scraping-Tabelle:** Nutzer gibt Anbieter + Tarifname an, wir kennen den Tarif → Vergleich eingegebener Preis vs. hinterlegter Preis. Abweichung → Flag. Stärkster Check, prüft gegen echte Daten.
 4. **Rechnungs-Rückrechnung (nur Scan):** Die KI extrahiert **zusätzlich den Gesamt-Rechnungsbetrag** — nicht zur Anzeige, sondern zur **Selbstvalidierung**: passt `Energiepreis × Verbrauch + Grundgebühr + geschätzte Netzkosten + Steuern` ≈ ausgewiesener Gesamtbetrag? Wenn nicht, hat die KI falsch extrahiert → Feld als unsicher markieren.
 

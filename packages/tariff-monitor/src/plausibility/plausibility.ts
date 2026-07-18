@@ -77,7 +77,7 @@ function checkTotalPriceSuspicion(userInput: UserTariffInput): PlausibilityWarni
     field: 'energyPriceCtPerKwh',
     message:
       `${price} ct/kWh sieht nach dem Gesamtpreis inkl. Netz und Steuern aus — wir brauchen nur ` +
-      'den Energiepreis deines Lieferanten (ohne Netzkosten und Abgaben).',
+      'den Energiepreis Ihres Lieferanten (ohne Netzkosten und Abgaben).',
   }
 }
 
