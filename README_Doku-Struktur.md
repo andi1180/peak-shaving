@@ -29,6 +29,16 @@
 
 Grund: Claude Code lädt im Repo automatisch die `CLAUDE.md` des jeweiligen Arbeitsordners — dort ist der einheitliche Name funktional nötig und durch den Ordner eindeutig. Hier im flachen Projektordner hat der Dateiname keine technische Funktion; der Suffix ist die einzige Unterscheidung zwischen den drei Bauabschnitten.
 
+## Weitere Repo-Dokumente (nur im Repo, kein Projektordner-Zwilling)
+
+Neben den Arbeitsregeln/Pflichtenheften gibt es rein operative Dokumente, die nur im Repo leben (sie beschreiben keinen Bauabschnitt, sondern Einrichtung/Betrieb):
+
+| Im Repo | Zweck |
+|---|---|
+| `DESIGN.md` (Root) | Design-Tokens Kalkulator |
+| `apps/web/DESIGN.md` | Design-Tokens/Prinzipien Website + Monitor-UI |
+| `DEPLOYMENT.md` (Root) | Cloud-Setup Supabase + Vercel: welche Env-Variable wohin, welche Dashboard-Einstellung wo (Namen/Fundorte, **keine Werte**). Angelegt bei der Cloud-Anbindung. |
+
 ## Pflegehinweis
 
 Der Repo-Ort der Monitor-Engine ist entschieden: `packages/tariff-monitor/` (bare `CLAUDE.md` dort, Suffix-Kopie `CLAUDE_Monitor.md` hier). Bei Änderungen an geteilter Infrastruktur (Supabase-Auth/Entitlements/Stripe) Monitor- und Kalkulator-Doku synchron halten (§15).
