@@ -35,6 +35,9 @@ jobs:
       - name: Test shared
         run: pnpm --filter shared test
 
+      - name: Test tariff-monitor
+        run: pnpm --filter tariff-monitor test
+
       # UI-Gate: ein PR, der website/portal/web bricht, wird hier rot — nicht erst auf Vercel.
       # (Lint + Typecheck oben laufen bereits root-weit über alle Packages inkl. apps/web.)
       - name: Build apps (website + portal + web)

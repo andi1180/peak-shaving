@@ -4,6 +4,10 @@ const withNextIntl = createNextIntlPlugin('./i18n/request.ts')
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Workspace-Paket `tariff-monitor` (T1, Haushalts-Energiemonitor-Engine) wird
+  // aus dem TS-Source transpiliert — Muster wie `apps/website`s `shared`/`engine`.
+  // Es ist rein & isomorph (kein I/O), läuft daher unverändert im Browser (T3).
+  transpilePackages: ['tariff-monitor'],
   /**
    * 301-Redirects der alten `.html`-Pfade (Pflichtenheft §6.4).
    *

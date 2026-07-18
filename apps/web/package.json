@@ -14,6 +14,7 @@
     "@radix-ui/react-dialog": "^1.1.18",
     "@radix-ui/react-navigation-menu": "^1.2.18",
     "@radix-ui/react-slot": "^1.3.0",
+    "@supabase/supabase-js": "^2.48.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^0.469.0",
@@ -26,6 +27,7 @@
     "resend": "^6.17.2",
     "server-only": "^0.0.1",
     "tailwind-merge": "^2.6.0",
+    "tariff-monitor": "workspace:*",
     "vfile": "^6.0.3",
     "vfile-matter": "^5.0.1",
     "zod": "^3.25.76"

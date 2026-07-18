@@ -31,6 +31,7 @@ Abweichung bekannt und gewollt. `apps/website` wurde NICHT angefasst.
 | Web-spezifisch | Warum |
 |---|---|
 | `--color-navy` (Anker) | Marke/Struktur. Der Kalkulator ist ein Werkzeug und braucht keinen Markenanker; eine Marketing-Seite schon. Bestandston aus `reference/favicon.png`. |
+| `--color-navy-subtle` | Getönte Fläche für Navy (Blue 50, gleiche Methodik wie die übrigen `*-subtle`-Tokens — 50er-Stufe der nächstliegenden Tailwind-Familie). Für eigenständig abgesetzte Karten (z. B. Monitor-Abo-Teaser, `gratis-check-result.tsx`), die sich vom umgebenden `surface`/`surface-alt` abheben sollen, ohne eine Navy-Vollfläche/Hero zu sein (dafür bleibt `--color-navy` reserviert) und ohne mit dem semantischen `--color-positive`-Grün zu konkurrieren. |
 | `--color-node` | Der hellere Teal-Knoten des Emblems. Nur Grafik, kein UI-Ton. |
 | `--color-*-subtle` | Getönte Flächen der Signalfarben (technisch nötig, s. „Kein /alpha"). |
 | `--color-accent-border` | Rand einer Akzent-Fläche. |
@@ -49,6 +50,7 @@ Navy trägt Marke und Struktur, Teal ist das seltene Signal. Alle Werte sind CSS
 /* — Anker: Marke & Struktur — */
 --color-navy:            #18336f;  /* Wortmarke, Emblem, tragende Flächen */
 --color-navy-hover:      #142a5c;
+--color-navy-subtle:     #eff6ff;  /* Blue 50   — abgesetzte Flächen (z. B. Abo-Karte), kein Hero */
 
 /* — Akzent: EINZIG, sparsam (CTA / positive Signale) — */
 --color-accent:          #0f766e;  /* Teal 700 — identisch zum Kalkulator */

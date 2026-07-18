@@ -8,7 +8,14 @@
     "incremental": true,
     "plugins": [{ "name": "next" }],
     "paths": {
-      "@/*": ["./*"]
+      "@/*": ["./*"],
+      /*
+       * `supabase/database.types.ts` liegt am Repo-Root (Monorepo-weite generierte
+       * DB-Typen, `supabase gen types typescript`, kein eigenes Workspace-Paket) —
+       * ein Alias statt einer tiefen Relativpfad-Kette (`../../../../supabase/…`)
+       * an jeder Importstelle.
+       */
+      "@/db-types": ["../../supabase/database.types"]
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],

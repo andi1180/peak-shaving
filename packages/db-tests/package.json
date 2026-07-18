@@ -1,0 +1,20 @@
+{
+  "name": "db-tests",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Ausführbares DB-Gate: Integrationstests der Supabase-Schemas (RLS, Grants, Trigger) gegen den laufenden lokalen Stack. Bewusst KEIN 'test'-Script — so zieht `pnpm -r test` es nicht in Umgebungen ohne Docker.",
+  "scripts": {
+    "test:db": "vitest run",
+    "test:db:watch": "vitest",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "lint": "eslint ."
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/pg": "^8.11.10",
+    "pg": "^8.13.1",
+    "typescript": "^5.7.3",
+    "vitest": "^3.0.2"
+  }
+}

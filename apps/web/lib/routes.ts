@@ -81,16 +81,31 @@ function navHrefs(): string[] {
 const PLACEHOLDER_HREFS = ['/produkte', '/referenzen', '/impressum', LOGIN_HREF]
 
 /**
+ * Monitor-Gratis-Check (T3, `Pflichtenheft_Monitor_MVP.md` §6) — WIP-Datenpipe-
+ * Beweis (Server-Fetch → Client-Engine → Ergebnis). Noch keine Produktseite,
+ * keine Nav-Verlinkung (kommt in der Website-Session, §4.2) — bis dahin
+ * `noindex`, aus demselben Grund wie `CALCULATOR_RUN_HREF` unten: eine
+ * dünne/experimentelle Seite ohne kuratierten Content soll nicht indexiert
+ * werden, bevor sie eine ist.
+ */
+export const MONITOR_GRATIS_CHECK_HREF = '/strom-check'
+
+/**
  * Die statischen Routen der Seite. `/wissen/<slug>` fehlt hier bewusst: Artikel
  * sind eine Collection und kommen aus `lib/wissen.ts` — sie stehen in keiner
  * Liste, sonst wäre jeder neue Artikel wieder eine Code-Änderung (§10.1).
  */
 export const SITE_ROUTES: SiteRoute[] = Array.from(
-  new Set<string>([...UNLISTED_HREFS, ...navHrefs(), CALCULATOR_RUN_HREF]),
+  new Set<string>([
+    ...UNLISTED_HREFS,
+    ...navHrefs(),
+    CALCULATOR_RUN_HREF,
+    MONITOR_GRATIS_CHECK_HREF,
+  ]),
 ).map((href) => ({
   href,
   /*
-   * Zwei UNABHÄNGIGE Gründe für `noindex` unter `(site)`:
+   * Drei UNABHÄNGIGE Gründe für `noindex` unter `(site)`:
    *
    *   – Die rechner-Hülle (13a): Ihr crawlbarer Inhalt ist eine leere Hülle —
    *     der Rechner steckt im iframe und zählt für Google nicht als Inhalt
@@ -98,12 +113,17 @@ export const SITE_ROUTES: SiteRoute[] = Array.from(
    *     Content wirklich trägt (§6.2).
    *   – Die Platzhalter-Seiten (13c, `PLACEHOLDER_HREFS` oben): Sie haben noch
    *     gar keinen Inhalt, den man indexieren könnte.
+   *   – Der Monitor-Gratis-Check (T3, `MONITOR_GRATIS_CHECK_HREF` oben): WIP-
+   *     Datenpipe-Beweis ohne kuratierten Content/Produktseite drumherum.
    *
    * `/styleguide` ist ebenfalls `noindex`, steht aber nicht in dieser Liste: Es
    * liegt in der Route-Group `(dev)` mit eigenem Root-Layout, also außerhalb der
    * Struktur, die hier geprüft wird — und damit von sich aus außerhalb der sitemap.
    */
-  indexable: href !== CALCULATOR_RUN_HREF && !PLACEHOLDER_HREFS.includes(href),
+  indexable:
+    href !== CALCULATOR_RUN_HREF &&
+    href !== MONITOR_GRATIS_CHECK_HREF &&
+    !PLACEHOLDER_HREFS.includes(href),
 }))
 
 /**
