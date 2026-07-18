@@ -9,8 +9,9 @@
  */
 import * as React from 'react'
 import { Loader2 } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
-import { FieldHint, Input, Label } from '@/components/ui/input'
+import { FieldHint, Input, Label, PasswordInput } from '@/components/ui/input'
 
 /**
  * Ein Feld mit Label + genau EINEM Hinweis-Slot: der Fehler ERSETZT den Hilfetext (nie zwei
@@ -39,22 +40,37 @@ export function AuthField({
   /** Hilfetext, wenn kein Fehler. */
   hint?: React.ReactNode
 }) {
+  const t = useTranslations('Konto.shared')
   const hintId = `${id}-hint`
   const showHint = Boolean(error) || Boolean(hint)
   return (
     <div>
       <Label htmlFor={id}>{label}</Label>
       <div className="mt-1.5">
-        <Input
-          id={id}
-          name={name}
-          type={type}
-          autoComplete={autoComplete}
-          defaultValue={defaultValue}
-          autoFocus={autoFocus}
-          aria-invalid={error ? true : undefined}
-          aria-describedby={showHint ? hintId : undefined}
-        />
+        {type === 'password' ? (
+          <PasswordInput
+            id={id}
+            name={name}
+            autoComplete={autoComplete}
+            defaultValue={defaultValue}
+            autoFocus={autoFocus}
+            aria-invalid={error ? true : undefined}
+            aria-describedby={showHint ? hintId : undefined}
+            showLabel={t('showPassword')}
+            hideLabel={t('hidePassword')}
+          />
+        ) : (
+          <Input
+            id={id}
+            name={name}
+            type={type}
+            autoComplete={autoComplete}
+            defaultValue={defaultValue}
+            autoFocus={autoFocus}
+            aria-invalid={error ? true : undefined}
+            aria-describedby={showHint ? hintId : undefined}
+          />
+        )}
       </div>
       {showHint && (
         <FieldHint id={hintId} tone={error ? 'error' : 'muted'}>

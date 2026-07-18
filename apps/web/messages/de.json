@@ -1469,35 +1469,35 @@
   "Monitor": {
     "GratisCheck": {
       "title": "Gratis-Check (WIP, T3)",
-      "intro": "Diese Seite ist noch nicht offiziell verlinkt — die Rechnung ist bereits echt: Deine Angaben werden direkt in deinem Browser mit der Tarif-Engine verglichen und verlassen dein Gerät nicht.",
+      "intro": "Diese Seite ist noch nicht offiziell verlinkt — die Rechnung ist bereits echt: Ihre Angaben werden direkt in Ihrem Browser mit der Tarif-Engine verglichen und verlassen Ihr Gerät nicht.",
       "coverageDisclaimer": "Wir vergleichen die größten Anbieter Österreichs, nicht den kompletten Markt.",
       "loadedCount": "{count} Tarife aus der Datenbank geladen.",
       "unavailable": {
         "title": "Vergleich derzeit nicht verfügbar",
-        "text": "Wir konnten die Tarif-Tabelle gerade nicht laden. Das liegt an uns, nicht an deiner Eingabe — bitte versuch es in ein paar Minuten noch einmal."
+        "text": "Wir konnten die Tarif-Tabelle gerade nicht laden. Das liegt an uns, nicht an Ihrer Eingabe — bitte versuchen Sie es in ein paar Minuten noch einmal."
       },
-      "welcomeBack": "Willkommen zurück — deine letzte Eingabe ist noch da.",
+      "welcomeBack": "Willkommen zurück — Ihre letzte Eingabe ist noch da.",
       "resetLabel": "Neu eingeben",
-      "noResultYet": "Trag deine Daten ein und vergleiche — dein Ergebnis erscheint hier.",
+      "noResultYet": "Tragen Sie Ihre Daten ein und vergleichen Sie — Ihr Ergebnis erscheint hier.",
       "fields": {
         "consumptionLabel": "Jahresverbrauch (kWh)",
-        "consumptionHint": "Steht auf deiner letzten Jahresabrechnung. Ein durchschnittlicher Haushalt verbraucht ca. 3.500 kWh im Jahr.",
+        "consumptionHint": "Steht auf Ihrer letzten Jahresabrechnung. Ein durchschnittlicher Haushalt verbraucht ca. 3.500 kWh im Jahr.",
         "priceLabel": "Energiepreis / Arbeitspreis (ct/kWh)",
-        "priceHint": "Nur der <strong>Energiepreis deines Lieferanten</strong> — auf deiner Rechnung als „Energiepreis“ oder „Arbeitspreis“ bezeichnet, meist ca. 8–25 ct/kWh. <strong>Nicht der Gesamtpreis</strong> inkl. Netzkosten und Steuern (der liegt meist bei 25–35 ct/kWh).",
+        "priceHint": "Nur der <strong>Energiepreis Ihres Lieferanten</strong> — auf Ihrer Rechnung als „Energiepreis“ oder „Arbeitspreis“ bezeichnet, meist ca. 8–25 ct/kWh. <strong>Nicht der Gesamtpreis</strong> inkl. Netzkosten und Steuern (der liegt meist bei 25–35 ct/kWh).",
         "baseFeeLabel": "Grundgebühr",
-        "baseFeeHint": "Der feste Grundpreis deines Lieferanten, unabhängig vom Verbrauch — als Betrag pro Monat oder pro Jahr, wie auf deiner Rechnung angegeben.",
+        "baseFeeHint": "Der feste Grundpreis Ihres Lieferanten, unabhängig vom Verbrauch — als Betrag pro Monat oder pro Jahr, wie auf Ihrer Rechnung angegeben.",
         "baseFeeUnitLabel": "Abrechnungszeitraum der Grundgebühr",
         "baseFeeUnitMonthly": "€ / Monat",
         "baseFeeUnitAnnual": "€ / Jahr",
         "postalCodeLabel": "Postleitzahl",
-        "postalCodeHint": "4-stellige PLZ deines Wohn- oder Betriebssitzes."
+        "postalCodeHint": "4-stellige PLZ Ihres Wohn- oder Betriebssitzes."
       },
       "errors": {
-        "verbrauchInvalid": "Bitte gib eine Zahl größer 0 ein (z. B. 3500).",
-        "energiepreisInvalid": "Bitte gib eine Zahl größer 0 ein (z. B. 24,9).",
-        "grundgebuehrInvalid": "Bitte gib eine Zahl größer 0 ein (z. B. 8,50).",
-        "plzRequired": "Bitte gib deine Postleitzahl an.",
-        "plzInvalid": "Bitte gib eine 4-stellige österreichische Postleitzahl ein (z. B. 1100)."
+        "verbrauchInvalid": "Bitte geben Sie eine Zahl größer 0 ein (z. B. 3500).",
+        "energiepreisInvalid": "Bitte geben Sie eine Zahl größer 0 ein (z. B. 24,9).",
+        "grundgebuehrInvalid": "Bitte geben Sie eine Zahl größer 0 ein (z. B. 8,50).",
+        "plzRequired": "Bitte geben Sie Ihre Postleitzahl an.",
+        "plzInvalid": "Bitte geben Sie eine 4-stellige österreichische Postleitzahl ein (z. B. 1100)."
       },
       "submit": "Jetzt vergleichen",
       "requiredHint": "Alle Felder sind erforderlich.",
@@ -1506,8 +1506,8 @@
       "warningsTitle": "Hinweise zur Eingabe",
       "result": {
         "headlineFor": "Ersparnis/Jahr beim Wechsel zu {target}",
-        "alreadyCompetitiveTitle": "Du zahlst bereits konkurrenzfähig",
-        "alreadyCompetitiveText": "Bei den größten Anbietern Österreichs findet sich aktuell nichts spürbar Günstigeres für deinen Tarif.",
+        "alreadyCompetitiveTitle": "Sie zahlen bereits konkurrenzfähig",
+        "alreadyCompetitiveText": "Bei den größten Anbietern Österreichs findet sich aktuell nichts spürbar Günstigeres für Ihren Tarif.",
         "bonusLabel": "Zusätzlich: einmaliger Wechselbonus",
         "bonusText": "{amount} im ersten Vertragsjahr",
         "roughNote": "Das ist eine grobe Dauerpreis-Schätzung ohne exakte Bonus- und Folgejahr-Rechnung.",
@@ -1522,13 +1522,13 @@
         "title": "Nie wieder selbst nachschauen müssen",
         "lead": "Das Abo übernimmt, was der Gratis-Check nur einmalig zeigt — bequem und laufend.",
         "scanTitle": "KI-Rechnungsscan",
-        "scanText": "Foto der Rechnung hochladen, Felder werden automatisch vorausgefüllt — du bestätigst nur noch.",
+        "scanText": "Foto der Rechnung hochladen, Felder werden automatisch vorausgefüllt — Sie bestätigen nur noch.",
         "preciseTitle": "Präziser Vergleich",
         "preciseText": "Auf Jahreskosten normalisiert, inklusive Wechselbonus und Folgejahr — keine grobe Schätzung mehr.",
         "monitorTitle": "Laufende Überwachung",
         "monitorText": "Wir behalten den Markt im Blick und melden uns, sobald sich ein Wechsel wirklich lohnt.",
         "cta": "Abo bald verfügbar",
-        "ctaNote": "Wir informieren dich, sobald die Registrierung startet."
+        "ctaNote": "Wir informieren Sie, sobald die Registrierung startet."
       }
     }
   },
@@ -1537,7 +1537,9 @@
       "emailLabel": "E-Mail-Adresse",
       "passwordLabel": "Passwort",
       "passwordHint": "Mindestens 8 Zeichen.",
-      "submitting": "Bitte warten …"
+      "submitting": "Bitte warten …",
+      "showPassword": "Passwort anzeigen",
+      "hidePassword": "Passwort verbergen"
     },
     "errors": {
       "invalidCredentials": "E-Mail-Adresse oder Passwort ist nicht korrekt.",

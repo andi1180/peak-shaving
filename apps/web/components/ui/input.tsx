@@ -1,4 +1,5 @@
 import * as React from 'react'
+import { Eye, EyeOff } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 /*
@@ -28,6 +29,52 @@ const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLI
   ),
 )
 Input.displayName = 'Input'
+
+/**
+ * Passwort-Eingabe mit „anzeigen/verbergen"-Toggle (Auge-Icon, lucide-react —
+ * Muster wie `how-it-works.tsx`: schlicht, einfarbig, `strokeWidth=1.75`).
+ *
+ * Erweitert das `Input`-Primitive, statt eine Wrapper-Komponente je Formular
+ * zu bauen: Registrierung/Anmeldung/Passwort-neu teilen bereits `AuthField`
+ * (`components/auth/form-parts.tsx`) als einzigen Feld-Renderer — die
+ * Toggle-Logik gehört daher genau einmal hierher, nicht dreifach dorthin, wo
+ * sie gebraucht wird. Ein eigener Button (kein `<span onClick>`): nur so
+ * bleibt er per Tastatur fokussierbar und für Screenreader ein Kontrollelement.
+ * `showLabel`/`hideLabel` kommen als Props (übersetzter Text) statt hart im
+ * Primitive zu stehen — `components/ui` selbst bleibt sprachneutral.
+ */
+const PasswordInput = React.forwardRef<
+  HTMLInputElement,
+  Omit<React.InputHTMLAttributes<HTMLInputElement>, 'type'> & {
+    showLabel: string
+    hideLabel: string
+  }
+>(({ className, showLabel, hideLabel, ...props }, ref) => {
+  const [visible, setVisible] = React.useState(false)
+  return (
+    <div className="relative">
+      <Input ref={ref} type={visible ? 'text' : 'password'} className={cn('pr-10', className)} {...props} />
+      <button
+        type="button"
+        onClick={() => setVisible((v) => !v)}
+        aria-label={visible ? hideLabel : showLabel}
+        className={cn(
+          'absolute inset-y-0 right-0 flex w-10 items-center justify-center text-text-muted',
+          'outline-none hover:text-ink',
+          'focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-surface',
+          'rounded-md',
+        )}
+      >
+        {visible ? (
+          <EyeOff className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+        ) : (
+          <Eye className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+        )}
+      </button>
+    </div>
+  )
+})
+PasswordInput.displayName = 'PasswordInput'
 
 const Textarea = React.forwardRef<
   HTMLTextAreaElement,
@@ -105,4 +152,4 @@ function FieldHint({
   )
 }
 
-export { Input, Textarea, Select, Checkbox, Label, FieldHint }
+export { Input, PasswordInput, Textarea, Select, Checkbox, Label, FieldHint }
