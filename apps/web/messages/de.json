@@ -1472,7 +1472,10 @@
       "intro": "Diese Seite ist noch nicht offiziell verlinkt — die Rechnung ist bereits echt: Deine Angaben werden direkt in deinem Browser mit der Tarif-Engine verglichen und verlassen dein Gerät nicht.",
       "coverageDisclaimer": "Wir vergleichen die größten Anbieter Österreichs, nicht den kompletten Markt.",
       "loadedCount": "{count} Tarife aus der Datenbank geladen.",
-      "noTariffs": "Keine Tarife geladen — die Tarif-Tabelle ist leer oder nicht erreichbar.",
+      "unavailable": {
+        "title": "Vergleich derzeit nicht verfügbar",
+        "text": "Wir konnten die Tarif-Tabelle gerade nicht laden. Das liegt an uns, nicht an deiner Eingabe — bitte versuch es in ein paar Minuten noch einmal."
+      },
       "welcomeBack": "Willkommen zurück — deine letzte Eingabe ist noch da.",
       "resetLabel": "Neu eingeben",
       "noResultYet": "Trag deine Daten ein und vergleiche — dein Ergebnis erscheint hier.",

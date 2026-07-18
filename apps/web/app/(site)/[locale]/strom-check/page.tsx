@@ -51,7 +51,23 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
   setRequestLocale(locale)
   const t = await getTranslations({ locale, namespace: 'Monitor.GratisCheck' })
 
-  const rows = await fetchCurrentTariffRows()
+  /*
+   * T3-4 (§7 Randfall 1): `fetchCurrentTariffRows` wirft absichtlich bei einem
+   * DB-/Netzwerkfehler (s. Kommentar dort — ein leeres Array wäre sonst nicht
+   * von „0 echten Treffern" unterscheidbar). Ohne dieses try/catch würde ein
+   * nicht erreichbares Supabase die ganze Server-Component werfen lassen →
+   * Next.js' generische Fehlerseite, kein „ruhige Meldung"-Zustand. Fängt hier
+   * ab: serverseitig geloggt (Team-Sichtbarkeit, §7 „Robustheits-Alert"), dem
+   * Client geht ein leeres Array zu — GENAU derselbe, bereits ruhig gestaltete
+   * Zustand wie „DB erreichbar, aber 0 Zeilen" (Scrape-Lauf lieferte nichts).
+   * Beide Ursachen sind für den Nutzer ohnehin nicht zu unterscheiden.
+   */
+  let rows: Awaited<ReturnType<typeof fetchCurrentTariffRows>> = []
+  try {
+    rows = await fetchCurrentTariffRows()
+  } catch (error) {
+    console.error('[strom-check] Tarif-Tabelle nicht erreichbar:', error)
+  }
   const tariffs = mapTariffRows(rows)
 
   return (

@@ -79,7 +79,16 @@ export function GratisCheckClient({ tariffs }: { tariffs: TariffCostObject[] }) 
     setResult(compareTariffs(userInput, tariffs))
     setPlausibilityWarnings(checkPlausibility(userInput))
     saveGratisCheckValues(values)
-    setShowWelcomeBack(false)
+    /*
+     * T3-4 (§7 Randfall 4): `showWelcomeBack` bewusst NICHT hier auf `false`
+     * setzen. Der Banner sitzt VOR dem Formular — ihn genau beim Absenden
+     * verschwinden zu lassen, während gleichzeitig darunter das komplette
+     * Ergebnis erscheint, ließ den Absende-Button (auf dem der Zeiger/Fokus
+     * gerade sitzt) sichtbar nach oben springen. Die Aussage bleibt auch nach
+     * dem Absenden wahr (`saveGratisCheckValues` speichert exakt diese Werte),
+     * verschwindet also erst bei „Neu eingeben" — dort ist ein Sprung erwartet
+     * (das Formular wird ohnehin geleert).
+     */
   }
 
   function handleReset() {
@@ -91,18 +100,41 @@ export function GratisCheckClient({ tariffs }: { tariffs: TariffCostObject[] }) 
     setFormKey((key) => key + 1)
   }
 
+  /*
+   * §7 Randfall 1: 0 Tarife ist produktiv real möglich (Scrape-Lauf lieferte
+   * nichts, oder die DB war beim Server-Fetch nicht erreichbar — s.
+   * `app/(site)/[locale]/strom-check/page.tsx`, beide Ursachen laufen hier
+   * zusammen). RUHIGE Meldung statt eines Fehlertons: neutrale, abgesetzte
+   * Fläche (dasselbe `info`-Callout-Muster wie `components/wissen/callout.tsx`
+   * — `border-line`/`bg-surface-sunken`, KEIN `text-negative`/Warnfarbe, das
+   * ist kein Fehler des Nutzers). Kein Formular, kein „0 Tarife geladen".
+   */
   if (tariffs.length === 0) {
-    return <p className="mt-6 text-body text-negative">{t('noTariffs')}</p>
+    return (
+      <div className="mt-8 rounded-lg border border-line bg-surface-sunken p-5 sm:p-6">
+        <p className="text-h4 text-ink">{t('unavailable.title')}</p>
+        <p className="mt-3 max-w-prose text-body text-text">{t('unavailable.text')}</p>
+      </div>
+    )
   }
 
   return (
     <div className="mt-8 space-y-6">
       <p className="text-caption text-text-muted">{t('loadedCount', { count: tariffs.length })}</p>
 
+      {/*
+        §6 Rückkehrer-UX: dieselbe Kasten-Geometrie wie `PlausibilityWarnings`
+        unten und der `accent`-Callout (`components/wissen/callout.tsx`,
+        `rounded-lg p-5 sm:p-6`, `border-accent-border`/`bg-accent-subtle`) —
+        vorher `rounded-md px-4 py-3`, eine zweite, kleinere Kasten-Geometrie
+        auf derselben Seite. `secondary` (Navy-Kontur) statt `ghost` für den
+        Reset: der klare, immer sichtbare Weg zurück zu einer frischen
+        Eingabe darf nicht so leicht zu übersehen sein wie ein reiner Textlink.
+      */}
       {showWelcomeBack && (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-accent-border bg-accent-subtle px-4 py-3">
-          <p className="text-small text-text">{t('welcomeBack')}</p>
-          <Button type="button" variant="ghost" size="sm" onClick={handleReset}>
+        <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-accent-border bg-accent-subtle p-5 sm:p-6">
+          <p className="text-body text-text">{t('welcomeBack')}</p>
+          <Button type="button" variant="secondary" size="sm" onClick={handleReset}>
             {t('resetLabel')}
           </Button>
         </div>

@@ -99,7 +99,15 @@ function AlternativeRow({
         recommended && 'border-accent-border bg-accent-subtle',
       )}
     >
-      <div>
+      {/*
+        §7 Randfall 5: `min-w-0` ist hier Pflicht, nicht Kosmetik — ohne es
+        weigert sich ein Flex-Kind, unter seine Inhaltsbreite zu schrumpfen,
+        und ein sehr langer Anbieter-/Tarifname sprengt die Zeile nach rechts
+        statt umzubrechen. `break-words` fängt zusätzlich den Fall ab, dass ein
+        einzelnes Wort/eine Zahl selbst breiter als die Zeile ist (kein
+        natürlicher Umbruchpunkt).
+      */}
+      <div className="min-w-0 flex-1 break-words">
         <div className="flex flex-wrap items-center gap-2">
           <p className="text-body font-medium text-ink">
             {tariff.providerName} · {tariff.tariffName}
@@ -111,7 +119,10 @@ function AlternativeRow({
           <Num>{EUR.format(cost.ongoingYearlyCostEur)}</Num>/Jahr
         </p>
       </div>
-      <Badge variant={positive ? 'positive' : negative ? 'negative' : 'neutral'} className="shrink-0">
+      <Badge
+        variant={positive ? 'positive' : negative ? 'negative' : 'neutral'}
+        className="shrink-0 break-words"
+      >
         <Num>
           {positive
             ? t('result.altSaving', { amount: EUR.format(savingOngoingEurPerYear) })
@@ -208,20 +219,26 @@ export function GratisCheckResult({
       <PlausibilityWarnings warnings={plausibilityWarnings} />
 
       <Card>
-        <CardContent className="pt-5">
+        <CardContent className="pt-5 break-words">
           <p className="text-small text-text-muted">
             {t('currentLabel')}: <Num>{EUR.format(result.current.ongoingYearlyCostEur)}</Num>/Jahr
           </p>
 
           {recommendedEntry && result.recommendation ? (
             <div className="mt-3">
-              <p className="text-small text-text-muted">
+              <p className="break-words text-small text-text-muted">
                 {t('result.headlineFor', {
                   target: `${result.recommendation.tariff.providerName} ${result.recommendation.tariff.tariffName}`,
                 })}
               </p>
-              {/* DOMINANTE Zahl der Sektion, semantisch grün (DESIGN.md: Grün nur für Ersparnis). */}
-              <p className="mt-1 text-h1 text-positive">
+              {/*
+                DOMINANTE Zahl der Sektion, semantisch grün (DESIGN.md: Grün
+                nur für Ersparnis). `break-words` (§7 Randfall 5): das
+                Formular deckelt Verbrauch/Preis nicht nach oben (nur „> 0",
+                s. `lib/monitor/schema.ts`) — eine extreme Eingabe darf die
+                große Zahl umbrechen lassen statt die Karte zu sprengen.
+              */}
+              <p className="mt-1 break-words text-h1 text-positive">
                 <Num>{EUR.format(recommendedEntry.savingOngoingEurPerYear)}</Num>
                 <span className="text-body text-text-muted"> /Jahr</span>
               </p>
