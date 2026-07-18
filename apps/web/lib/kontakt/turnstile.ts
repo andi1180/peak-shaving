@@ -25,6 +25,7 @@
  */
 
 import 'server-only'
+import { serverEnv } from '@/lib/env.server'
 
 const VERIFY_URL = 'https://challenges.cloudflare.com/turnstile/v0/siteverify'
 
@@ -45,7 +46,7 @@ export async function verifyTurnstile(
   token: string | undefined,
   remoteIp?: string,
 ): Promise<TurnstileOutcome> {
-  const secret = process.env.TURNSTILE_SECRET_KEY
+  const secret = serverEnv.TURNSTILE_SECRET_KEY
   if (!secret) return { ok: true, skipped: true }
 
   if (!token) {

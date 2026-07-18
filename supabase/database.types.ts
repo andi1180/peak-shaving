@@ -373,7 +373,18 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_my_entitlement: {
+        Args: { p_product: Database["platform"]["Enums"]["product_key"] }
+        Returns: boolean
+      }
+      get_my_profile: {
+        Args: never
+        Returns: {
+          created_at: string
+          display_name: string
+          user_id: string
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never

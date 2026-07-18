@@ -35,6 +35,7 @@
 
 import 'server-only'
 import { COMPANY } from '@/lib/nav'
+import { serverEnv } from '@/lib/env.server'
 import type { KontaktInput } from './schema'
 
 /**
@@ -160,9 +161,9 @@ export async function deliverKontakt(
   input: KontaktInput,
   themaLabel: string,
 ): Promise<DeliveryOutcome> {
-  const apiKey = process.env.RESEND_API_KEY
-  const from = process.env.RESEND_FROM
-  const to = process.env.RESEND_TO ?? DEFAULT_TO
+  const apiKey = serverEnv.RESEND_API_KEY
+  const from = serverEnv.RESEND_FROM
+  const to = serverEnv.RESEND_TO ?? DEFAULT_TO
 
   /*
    * Ohne Key ODER ohne Absender ist eine Sendung physisch unmöglich (Resend

@@ -1,30 +1,14 @@
-import type { Metadata } from 'next'
-import { getTranslations, setRequestLocale } from 'next-intl/server'
-import { PagePlaceholder } from '@/components/layout/page-placeholder'
-import { pageAlternates } from '@/lib/seo'
-import { robotsFor } from '@/lib/routes'
-import { LOGIN_HREF } from '@/lib/nav'
+import { redirectToLocalized } from '@/lib/auth/server-helpers'
+import { ANMELDEN_HREF } from '@/lib/auth/config'
 
 /**
- * Platzhalter-Route (/login) — Gerüst, Inhalt folgt in einem späteren Schritt.
- * NOINDEX seit 13c — Begründung/Zurückstellen: `apps/web/app/(site)/[locale]/produkte/page.tsx`.
+ * `/login` war bis T4-2 ein reiner `PagePlaceholder` (englischer Slug, noindex, seit Prompt 26
+ * NICHT mehr im Header verlinkt). Mit T4-2 gibt es die echten DEUTSCHEN Auth-Routen — statt einen
+ * zweiten Login-Einstieg zu doppeln, leitet `/login` dauerhaft auf `/anmelden` um. So bleibt
+ * `LOGIN_HREF` (lib/nav.ts) gültig und ein evtl. noch kursierender `/login`-Link landet am echten
+ * Login. (Bewusst NICHT gelöscht — gemeldet im Report unter (a).)
  */
-export async function generateMetadata({
-  params,
-}: {
-  params: Promise<{ locale: string }>
-}): Promise<Metadata> {
-  const { locale } = await params
-  const t = await getTranslations({ locale, namespace: 'Pages' })
-  return {
-    title: `${t('login')} — COOLiN ENERGY`,
-    alternates: pageAlternates(locale, LOGIN_HREF),
-    robots: robotsFor(LOGIN_HREF),
-  }
-}
-
 export default async function Page({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params
-  setRequestLocale(locale)
-  return <PagePlaceholder titleKey="login" />
+  redirectToLocalized(ANMELDEN_HREF, locale)
 }

@@ -105,6 +105,10 @@ Die **Website-Hülle** (Nav, Shop-Kacheln, Checkout-Einstieg, Produktseite) wird
 
 - **Supabase Auth** (passt zum geparkten Portal-Plan) + **Stripe** (Checkout + Subscription-Verwaltung).
 - Entitlement (`hasActiveMonitor`) wird aus dem Stripe-Subscription-Status abgeleitet und in Supabase gespiegelt (Webhook-getrieben, damit der Cron-Job ohne Stripe-Live-Call entscheiden kann).
+- **Auth-Entscheidungen (in T4-2 real gebaut):**
+  - **Server Actions statt Client-SDK.** Sämtliche Auth-Vorgänge (Registrierung/Login/Logout/Reset) laufen als Server Actions bzw. Route Handler; **kein `createBrowserClient`**, kein Supabase-Artefakt im Client-Bundle. Die in T3 erreichte Eigenschaft „`.next/static` = 0 Supabase-Treffer" bleibt mit dem Login erhalten. Formulare sind echte `<form>`-Elemente mit Server Action.
+  - **E-Mail-Bestätigung verpflichtend.** `enable_confirmations = true`: ein Konto mit unbestätigter Adresse kann sich nicht einloggen — das Produkt verkauft E-Mail-Benachrichtigungen (§8), eine unbestätigte Adresse wäre Post an Fremde + DSGVO-Problem. (Lokal Mailpit; Cloud: produktionstauglicher SMTP/Resend im Dashboard.)
+  - **RPC-Wrapper statt Schema-Exposition.** `platform` bleibt aus der öffentlichen REST-API (`[api].schemas`) draußen; Server-Reads laufen ausschließlich über SECURITY-DEFINER-Wrapper im `public`-Schema (`get_my_entitlement`/`get_my_profile`), einzeln an `authenticated` gegrantet, nie an `anon`. Die Entitlement-Anzeige kennt kein Stripe und keine `subscriptions`-Tabelle — nur den Wrapper (§3, genau zwei kommerzielle Flags).
 
 ### 4.4 Supabase-Struktur (gesetzt, in T2 real gebaut)
 
@@ -302,7 +306,7 @@ Wir bauen auf die **finale Lösung** hin (Entscheidung Andreas), nicht auf einen
 3. **T3 — Gratis-Check-UI** (client-side, kein Login, localStorage-Merken, §6). Nutzt T1 gegen T2-Tabelle. **ABGESCHLOSSEN** (Route `/strom-check` in `apps/web`, `noindex`; Server liest `current_tariffs` mit 1-Tag-ISR, Vergleich läuft vollständig client-seitig, Eingabe verlässt das Gerät nie — §10, gemessen: 0 Netzwerk-Requests beim Absenden; Plausi-Warnungen, Dauerpreis-Headline mit Bonus strikt getrennt, Abo-Teaser mittlerer Prominenz ohne Festpreis; produktive Randfälle wie leere/nicht erreichbare Tarif-Tabelle und Rückkehrer-UX gehärtet).
 4. **T4 — Auth + Stripe + Entitlements** (§4.3): erstes echtes Portal-Fundament (geteilt mit künftigem Kalkulator-Portal). `hasActiveMonitor` aus Stripe-Webhook. In **vier Teile** geschnitten:
    - **T4-1 Schema — ABGESCHLOSSEN:** Postgres-Schema `platform` (profiles/customers/subscriptions/entitlements/stripe_events/user_roles), RLS/Grants/Trigger (Entitlement-Ableitung + Out-of-order-/Append-only-/Idempotenz-Schutz), Funktionen `is_admin`/`has_entitlement` — plus ein ausführbares **DB-Gate** (`packages/db-tests`, Invarianten I1–I10 gegen den lokalen Stack) und ein separater CI-Workflow (`db-gate.yml`). REIN Datenbank.
-   - **T4-2 Auth:** Supabase-Auth-Wiring (Registrierung/Login/Session/Middleware), profiles-Reads.
+   - **T4-2 Auth — ABGESCHLOSSEN:** Supabase-Auth in `apps/web` (Registrierung + E-Mail-Bestätigung, Login, Logout, Passwort-Reset self-service, server-geschützte Kontoseite) über **Server Actions** (kein Client-SDK, kein Supabase im Client-Bundle), `@supabase/ssr`-Server-Clients, Middleware komponiert next-intl + Session-Refresh. Zugriff auf `platform` nur über public-RPC-Wrapper (`get_my_entitlement`/`get_my_profile`, authenticated-only). Zentrale zod-Env-Validierung (server/client getrennt). Plus 0a-Fail-open-Constraint auf `entitlements`. 12/12 E2E-Flows + 21/21 DB-Gate grün.
    - **T4-3 Stripe:** Checkout + Webhook-Handler (schreibt `platform.subscriptions`/`stripe_events`; die Entitlement-Zeile leitet der DB-Trigger ab, nicht der Handler).
    - **T4-4 Admin-UI:** Scraper-Targets (§7) + Nutzer-/Rollenverwaltung, braucht denselben Auth-Container.
 

@@ -28,6 +28,7 @@ import path from 'node:path'
 import type { Metadata } from 'next'
 import { MAIN_NAV, KONTAKT_HREF, LOGIN_HREF, CALCULATOR_RUN_HREF } from './nav'
 import { WISSEN_HREF } from './wissen'
+import { AUTH_HREFS } from './auth/config'
 
 export type SiteRoute = {
   /** Der Pfad OHNE Locale-Präfix — dasselbe, was `Link`/`pageAlternates` bekommen. */
@@ -95,12 +96,20 @@ export const MONITOR_GRATIS_CHECK_HREF = '/strom-check'
  * sind eine Collection und kommen aus `lib/wissen.ts` — sie stehen in keiner
  * Liste, sonst wäre jeder neue Artikel wieder eine Code-Änderung (§10.1).
  */
+/**
+ * Konto-/Auth-Routen (T4-2, J7): Registrierung, Login, Passwort-Reset, Kontoseite. Alle `noindex`
+ * — Suchmaschinen haben auf einem Login-Formular oder einer Kontoseite nichts zu suchen. `/login`
+ * (englischer Alt-Slug, leitet auf `/anmelden` um) bleibt separat über PLACEHOLDER_HREFS noindex.
+ */
+const AUTH_HREF_SET: ReadonlySet<string> = new Set(AUTH_HREFS)
+
 export const SITE_ROUTES: SiteRoute[] = Array.from(
   new Set<string>([
     ...UNLISTED_HREFS,
     ...navHrefs(),
     CALCULATOR_RUN_HREF,
     MONITOR_GRATIS_CHECK_HREF,
+    ...AUTH_HREFS,
   ]),
 ).map((href) => ({
   href,
@@ -123,6 +132,7 @@ export const SITE_ROUTES: SiteRoute[] = Array.from(
   indexable:
     href !== CALCULATOR_RUN_HREF &&
     href !== MONITOR_GRATIS_CHECK_HREF &&
+    !AUTH_HREF_SET.has(href) &&
     !PLACEHOLDER_HREFS.includes(href),
 }))
 
