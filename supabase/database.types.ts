@@ -187,6 +187,184 @@ export type Database = {
       [_ in never]: never
     }
   }
+  platform: {
+    Tables: {
+      customers: {
+        Row: {
+          created_at: string
+          id: string
+          stripe_customer_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          stripe_customer_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          stripe_customer_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      entitlements: {
+        Row: {
+          is_active: boolean
+          note: string | null
+          product: Database["platform"]["Enums"]["product_key"]
+          source: Database["platform"]["Enums"]["entitlement_source"]
+          updated_at: string
+          user_id: string
+          valid_until: string | null
+        }
+        Insert: {
+          is_active: boolean
+          note?: string | null
+          product: Database["platform"]["Enums"]["product_key"]
+          source: Database["platform"]["Enums"]["entitlement_source"]
+          updated_at?: string
+          user_id: string
+          valid_until?: string | null
+        }
+        Update: {
+          is_active?: boolean
+          note?: string | null
+          product?: Database["platform"]["Enums"]["product_key"]
+          source?: Database["platform"]["Enums"]["entitlement_source"]
+          updated_at?: string
+          user_id?: string
+          valid_until?: string | null
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          display_name: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          display_name?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      stripe_events: {
+        Row: {
+          payload: Json | null
+          received_at: string
+          stripe_event_id: string
+          type: string | null
+        }
+        Insert: {
+          payload?: Json | null
+          received_at?: string
+          stripe_event_id: string
+          type?: string | null
+        }
+        Update: {
+          payload?: Json | null
+          received_at?: string
+          stripe_event_id?: string
+          type?: string | null
+        }
+        Relationships: []
+      }
+      subscriptions: {
+        Row: {
+          cancel_at_period_end: boolean
+          created_at: string
+          current_period_end: string | null
+          price_id: string | null
+          product: Database["platform"]["Enums"]["product_key"]
+          status: string
+          stripe_event_created_at: string
+          stripe_subscription_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cancel_at_period_end?: boolean
+          created_at?: string
+          current_period_end?: string | null
+          price_id?: string | null
+          product: Database["platform"]["Enums"]["product_key"]
+          status: string
+          stripe_event_created_at: string
+          stripe_subscription_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cancel_at_period_end?: boolean
+          created_at?: string
+          current_period_end?: string | null
+          price_id?: string | null
+          product?: Database["platform"]["Enums"]["product_key"]
+          status?: string
+          stripe_event_created_at?: string
+          stripe_subscription_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          role: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      has_entitlement: {
+        Args: {
+          p_product: Database["platform"]["Enums"]["product_key"]
+          p_user_id: string
+        }
+        Returns: boolean
+      }
+      is_admin: { Args: never; Returns: boolean }
+      status_grants_access: { Args: { p_status: string }; Returns: boolean }
+    }
+    Enums: {
+      entitlement_source: "stripe" | "manual"
+      product_key: "monitor" | "calculator_pro"
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       [_ in never]: never
@@ -326,6 +504,12 @@ export type CompositeTypes<
 export const Constants = {
   monitor: {
     Enums: {},
+  },
+  platform: {
+    Enums: {
+      entitlement_source: ["stripe", "manual"],
+      product_key: ["monitor", "calculator_pro"],
+    },
   },
   public: {
     Enums: {},

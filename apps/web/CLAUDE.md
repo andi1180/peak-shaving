@@ -15,6 +15,16 @@
 
 Der professionelle Neubau von **coolin.at** — der Marketing-Plattform von COOLiN ENERGY. Klassische Marketing-Seite mit echter Menüstruktur/Unterseiten (kein 1:1-Rebuild der alten Scroll-Seite), plus Fundament für einen späteren Login-/Subscription-Bereich. Die Website „dreht sich" um den bestehenden **Peak-Shaving-Kalkulator** (Schwesterprojekt), der als bezahltes Produkt hinter Login integriert wird. **Erster Bauabschnitt: die Marketing-Website (`apps/web`).**
 
+## Zweites Produkt in diesem Ordner: Monitor-Gratis-Check
+
+Seit T3 beherbergt `apps/web` zusätzlich zur Website eine zweite Produkt-Oberfläche: den **Gratis-Strom-Check** des Haushalts-Energiemonitors (Route `/strom-check`, `noindex` — noch nicht offiziell verlinkt). Das ist **kein Website-Feature**, sondern ein eigenes Produkt mit eigener Spec, das sich nur den App-Ordner + das Designsystem teilt.
+
+- **Maßgeblich für Monitor-Arbeit:** `../../Pflichtenheft_Monitor_MVP.md` + `../../packages/tariff-monitor/CLAUDE.md` (Arbeitsregeln, „Stand & offene Entscheidungen"). Für Monitor-Arbeit in `apps/web` gelten **BEIDE**: das apps/web-Designsystem (diese Datei/`DESIGN.md`) UND die Monitor-Spec — bei Widerspruch zwischen Website-Pflichtenheft und Monitor-Pflichtenheft gilt für Monitor-Code die Monitor-Spec.
+- **Reinheitsgrenze:** Die Rechenlogik (Normalisierung, Vergleich, Plausibilität) liegt in `packages/tariff-monitor` (rein, isomorph) und läuft **im Browser**. `apps/web` hält nur den Leserand (`lib/monitor/`: server-only Supabase-Zugriff + snake_case→camelCase-Mapping) und die UI-Komponenten (`components/monitor/`) — keine Rechenlogik hier nachbauen.
+- **Dataless-Prinzip (Monitor-Variante):** Verbrauchseingaben verlassen das Gerät im Gratis-Check nicht (localStorage, Client-Rechnung) — anders als das spätere Abo (Server-Persistenz, eigenes Kapitel im Monitor-Pflichtenheft). Supabase-Zugriff für die Tarif-Tabelle läuft ausschließlich server-seitig, Env nicht-präfixt (`SUPABASE_URL`/`SUPABASE_ANON_KEY`, nicht `NEXT_PUBLIC_*`).
+- **Design-Token:** `--color-navy-subtle` stammt aus der Monitor-Arbeit (Abo-Teaser-Karte), bereits in `DESIGN.md` dokumentiert — gehört zum geteilten apps/web-Tokensystem, nicht nur dem Monitor.
+- **Bewusst NICHT gebaut:** die Marketing-Einbindung des Monitors (Nav/„Produkte", Landingpage, Verlinkung von `/strom-check`) — das gehört in die Website-Session, nicht in die Monitor-Bau-Session.
+
 ## Nicht verhandelbare Prinzipien
 
 1. **Zwei Achsen, nicht vermischen.** *Leistungen* (Beratung/Umsetzung, Lead-Gen) vs. *Produkte* (Software/Daten-Abos, bezahlt). IA, CTAs und Ton trennen beide sauber.

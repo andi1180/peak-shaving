@@ -1,0 +1,63 @@
+name: DB Gate
+
+# Separater Workflow für das DB-Integrations-Gate (packages/db-tests): braucht Docker + einen
+# laufenden Supabase-Stack und ist dadurch deutlich langsamer als der schnelle `test.yml`. Bewusst
+# NICHT dort hineingemischt — der Standard-PR-Check bleibt schnell, dieses Gate läuft nur, wenn sich
+# Schema oder DB-Tests ändern (plus manuell auslösbar).
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/**'
+      - 'packages/db-tests/**'
+      - '.github/workflows/db-gate.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'supabase/**'
+      - 'packages/db-tests/**'
+      - '.github/workflows/db-gate.yml'
+  workflow_dispatch:
+
+jobs:
+  db-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: 2.95.4
+
+      - name: Start Supabase stack (pullt Images, wendet Migrationen an)
+        run: supabase start
+
+      - name: Reset DB (Migrationen + Seed deterministisch anwenden)
+        run: supabase db reset
+
+      - name: Export Supabase-Verbindungsdaten für die Tests
+        run: |
+          eval "$(supabase status -o env | grep -E '^(DB_URL|API_URL|SERVICE_ROLE_KEY)=')"
+          {
+            echo "SUPABASE_DB_URL=$DB_URL"
+            echo "SUPABASE_API_URL=$API_URL"
+            echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY"
+          } >> "$GITHUB_ENV"
+
+      - name: DB-Gate — RLS/Grants/Trigger-Invarianten (platform-Schema)
+        run: pnpm --filter db-tests test:db
+
+      - name: Stop Supabase stack
+        if: always()
+        run: supabase stop
