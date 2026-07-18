@@ -14,6 +14,7 @@ export default {
         navy: {
           DEFAULT: 'var(--color-navy)',
           hover: 'var(--color-navy-hover)',
+          subtle: 'var(--color-navy-subtle)',
           foreground: 'var(--color-on-navy)',
         },
         accent: {

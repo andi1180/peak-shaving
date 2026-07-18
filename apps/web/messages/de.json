@@ -1465,5 +1465,68 @@
         "kw": "{value} kW"
       }
     }
+  },
+  "Monitor": {
+    "GratisCheck": {
+      "title": "Gratis-Check (WIP, T3)",
+      "intro": "Diese Seite ist noch nicht offiziell verlinkt — die Rechnung ist bereits echt: Deine Angaben werden direkt in deinem Browser mit der Tarif-Engine verglichen und verlassen dein Gerät nicht.",
+      "coverageDisclaimer": "Wir vergleichen die größten Anbieter Österreichs, nicht den kompletten Markt.",
+      "loadedCount": "{count} Tarife aus der Datenbank geladen.",
+      "noTariffs": "Keine Tarife geladen — die Tarif-Tabelle ist leer oder nicht erreichbar.",
+      "welcomeBack": "Willkommen zurück — deine letzte Eingabe ist noch da.",
+      "resetLabel": "Neu eingeben",
+      "noResultYet": "Trag deine Daten ein und vergleiche — dein Ergebnis erscheint hier.",
+      "fields": {
+        "consumptionLabel": "Jahresverbrauch (kWh)",
+        "consumptionHint": "Steht auf deiner letzten Jahresabrechnung. Ein durchschnittlicher Haushalt verbraucht ca. 3.500 kWh im Jahr.",
+        "priceLabel": "Energiepreis / Arbeitspreis (ct/kWh)",
+        "priceHint": "Nur der <strong>Energiepreis deines Lieferanten</strong> — auf deiner Rechnung als „Energiepreis“ oder „Arbeitspreis“ bezeichnet, meist ca. 8–25 ct/kWh. <strong>Nicht der Gesamtpreis</strong> inkl. Netzkosten und Steuern (der liegt meist bei 25–35 ct/kWh).",
+        "baseFeeLabel": "Grundgebühr",
+        "baseFeeHint": "Der feste Grundpreis deines Lieferanten, unabhängig vom Verbrauch — als Betrag pro Monat oder pro Jahr, wie auf deiner Rechnung angegeben.",
+        "baseFeeUnitLabel": "Abrechnungszeitraum der Grundgebühr",
+        "baseFeeUnitMonthly": "€ / Monat",
+        "baseFeeUnitAnnual": "€ / Jahr",
+        "postalCodeLabel": "Postleitzahl",
+        "postalCodeHint": "4-stellige PLZ deines Wohn- oder Betriebssitzes."
+      },
+      "errors": {
+        "verbrauchInvalid": "Bitte gib eine Zahl größer 0 ein (z. B. 3500).",
+        "energiepreisInvalid": "Bitte gib eine Zahl größer 0 ein (z. B. 24,9).",
+        "grundgebuehrInvalid": "Bitte gib eine Zahl größer 0 ein (z. B. 8,50).",
+        "plzRequired": "Bitte gib deine Postleitzahl an.",
+        "plzInvalid": "Bitte gib eine 4-stellige österreichische Postleitzahl ein (z. B. 1100)."
+      },
+      "submit": "Jetzt vergleichen",
+      "requiredHint": "Alle Felder sind erforderlich.",
+      "currentLabel": "Aktuelle Jahreskosten (Dauerpreis)",
+      "alternativesTitle": "Alternativen",
+      "warningsTitle": "Hinweise zur Eingabe",
+      "result": {
+        "headlineFor": "Ersparnis/Jahr beim Wechsel zu {target}",
+        "alreadyCompetitiveTitle": "Du zahlst bereits konkurrenzfähig",
+        "alreadyCompetitiveText": "Bei den größten Anbietern Österreichs findet sich aktuell nichts spürbar Günstigeres für deinen Tarif.",
+        "bonusLabel": "Zusätzlich: einmaliger Wechselbonus",
+        "bonusText": "{amount} im ersten Vertragsjahr",
+        "roughNote": "Das ist eine grobe Dauerpreis-Schätzung ohne exakte Bonus- und Folgejahr-Rechnung.",
+        "roughBridge": "Für die genaue Berechnung inkl. Wechselbonus und Folgejahr — sowie laufende Überwachung ohne selbst nachzuschauen:",
+        "recommendedBadge": "Empfehlung",
+        "altSaving": "{amount}/Jahr sparen",
+        "altMoreExpensive": "{amount}/Jahr mehr",
+        "altNoDifference": "kein Unterschied"
+      },
+      "subscription": {
+        "eyebrow": "Automatische Überwachung",
+        "title": "Nie wieder selbst nachschauen müssen",
+        "lead": "Das Abo übernimmt, was der Gratis-Check nur einmalig zeigt — bequem und laufend.",
+        "scanTitle": "KI-Rechnungsscan",
+        "scanText": "Foto der Rechnung hochladen, Felder werden automatisch vorausgefüllt — du bestätigst nur noch.",
+        "preciseTitle": "Präziser Vergleich",
+        "preciseText": "Auf Jahreskosten normalisiert, inklusive Wechselbonus und Folgejahr — keine grobe Schätzung mehr.",
+        "monitorTitle": "Laufende Überwachung",
+        "monitorText": "Wir behalten den Markt im Blick und melden uns, sobald sich ein Wechsel wirklich lohnt.",
+        "cta": "Abo bald verfügbar",
+        "ctaNote": "Wir informieren dich, sobald die Registrierung startet."
+      }
+    }
   }
 }

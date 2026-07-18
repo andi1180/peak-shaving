@@ -21,6 +21,14 @@
   /* — Anker: Marke & Struktur (Pflichtenheft §7.2, Bestandston aus favicon.png) — */
   --color-navy: #18336f; /* Wortmarke, Emblem-Grund, tragende Flächen */
   --color-navy-hover: #142a5c;
+  /*
+   * Getönte Fläche für Navy — Blue 50, dieselbe Methodik wie die übrigen
+   * *-subtle-Tokens (50er-Stufe der Familie, die der Anker-Hue am nächsten
+   * kommt; --color-navy liegt bei ca. Hue 221°, also näher an Tailwinds
+   * "blue" als an "indigo"). NUR für abgesetzte Flächen (z. B. Abo-Karte),
+   * keine Vollfläche/kein Hero — dafür bleibt --color-navy selbst reserviert.
+   */
+  --color-navy-subtle: #eff6ff;
 
   /* — Akzent: EINZIG, sparsam (CTA / positive Signale) — */
   --color-accent: #0f766e; /* Teal 700 – identisch zum Kalkulator */
