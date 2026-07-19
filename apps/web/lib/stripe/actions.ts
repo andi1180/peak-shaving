@@ -21,6 +21,27 @@ import { redirectBaseUrl, redirectToLocalized } from '@/lib/auth/server-helpers'
 import { CHECKOUT_CANCEL, CHECKOUT_ERROR, CHECKOUT_PARAM, CHECKOUT_SUCCESS } from './config'
 
 /**
+ * Diagnose-Felder eines Fehlers für das Server-Log — OHNE Secret. Der Zweck: der neutrale Nutzer-Text
+ * (`?checkout=error`) bleibt unverändert, aber im Vercel-Function-Log steht die EINDEUTIGE Ursache,
+ * ohne Rätselraten. Bei Stripe-Fehlern tragen `type`/`code`/`param` die maschinenlesbare Wahrheit:
+ *   - ungültiger STRIPE_SECRET_KEY → `type: 'StripeAuthenticationError'` (statusCode 401)
+ *   - falsche/fremde/Live-vs-Test STRIPE_MONITOR_PRICE_ID → `type: 'StripeInvalidRequestError',
+ *     code: 'resource_missing', param: 'line_items[0][price]'`
+ * Bei einem require-on-use-Wurf (`env.server.ts`) benennt `message` die fehlende Variable direkt
+ * (z. B. „SUPABASE_SERVICE_ROLE_KEY fehlt — …"). Kein Secret wird geloggt: Stripe maskiert den Key in
+ * `message` selbst (nur die letzten Stellen), und `process.env` wird hier nirgends ausgegeben.
+ */
+function describeError(err: unknown): Record<string, unknown> {
+  if (!(err instanceof Error)) return { value: String(err) }
+  const e = err as Error & { type?: unknown; code?: unknown; param?: unknown; statusCode?: unknown }
+  const out: Record<string, unknown> = { name: e.name, message: e.message }
+  for (const key of ['type', 'code', 'param', 'statusCode'] as const) {
+    if (e[key] !== undefined) out[key] = e[key]
+  }
+  return out
+}
+
+/**
  * Absolute, locale-korrekte Kontoseiten-URL mit optionalem checkout-Rückkehr-Parameter.
  * Basis über die zentrale `redirectBaseUrl` (dieselbe Quelle wie die Auth-Callback-URL) — nicht
  * über den Request-Host: success_url/cancel_url/return_url müssen den kanonischen Origin tragen.
@@ -87,7 +108,7 @@ export async function startCheckoutAction(): Promise<void> {
     if (!session.url) throw new Error('Checkout-Session ohne URL')
     checkoutUrl = session.url
   } catch (err) {
-    console.error('[stripe/checkout] Start fehlgeschlagen:', err instanceof Error ? err.message : err)
+    console.error('[stripe/checkout] Start fehlgeschlagen:', describeError(err))
     // Neutraler Fehlerzustand auf der Kontoseite (kein Crash, kein Fehlerton).
     redirect(await kontoUrl(locale, CHECKOUT_ERROR))
   }
@@ -126,7 +147,7 @@ export async function openBillingPortalAction(): Promise<void> {
     })
     portalUrl = session.url
   } catch (err) {
-    console.error('[stripe/portal] Start fehlgeschlagen:', err instanceof Error ? err.message : err)
+    console.error('[stripe/portal] Start fehlgeschlagen:', describeError(err))
     redirect(await kontoUrl(locale, CHECKOUT_ERROR))
   }
   redirect(portalUrl)
