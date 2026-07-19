@@ -28,6 +28,8 @@
     "wissen": "Wissen",
     "ueberUns": "Über uns",
     "login": "Login",
+    "konto": "Mein Konto",
+    "stromCheck": "Strom-Check",
     "kontakt": "Kontakt",
     "cta": "Kalkulator",
     "bau": "Bau & Baunebengewerbe",
@@ -44,6 +46,7 @@
     "colUnternehmen": "Unternehmen",
     "referenzen": "Referenzen",
     "produkte": "Produkte",
+    "stromCheck": "Strom-Check",
     "impressum": "Impressum",
     "datenschutz": "Datenschutz",
     "copyright": "© {year} COOLiN ENERGY",
@@ -1469,7 +1472,9 @@
   "Monitor": {
     "GratisCheck": {
       "title": "Gratis-Check (WIP, T3)",
-      "intro": "Diese Seite ist noch nicht offiziell verlinkt — die Rechnung ist bereits echt: Ihre Angaben werden direkt in Ihrem Browser mit der Tarif-Engine verglichen und verlassen Ihr Gerät nicht.",
+      "intro": "Die Rechnung ist bereits echt: Ihre Angaben werden direkt in Ihrem Browser mit der Tarif-Engine verglichen und verlassen Ihr Gerät nicht.",
+      "directAccountPrompt": "Lieber gleich ein Konto anlegen?",
+      "directAccountCta": "Zur Anmeldung",
       "coverageDisclaimer": "Wir vergleichen die größten Anbieter Österreichs, nicht den kompletten Markt.",
       "loadedCount": "{count} Tarife aus der Datenbank geladen.",
       "unavailable": {

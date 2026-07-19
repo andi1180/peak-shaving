@@ -13,7 +13,8 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion'
 import { EmblemImage } from '@/components/brand/emblem-image'
-import { MAIN_NAV, CTA_HREF, KONTAKT_HREF, type NavLeaf } from '@/lib/nav'
+import { MAIN_NAV, CTA_HREF, KONTAKT_HREF, MONITOR_GRATIS_CHECK_HREF, type NavLeaf } from '@/lib/nav'
+import { ANMELDEN_HREF, KONTO_HREF } from '@/lib/auth/config'
 import { cn } from '@/lib/utils'
 
 /*
@@ -54,9 +55,11 @@ function DrawerLink({
   )
 }
 
-export function MobileNav() {
+export function MobileNav({ isLoggedIn }: { isLoggedIn: boolean }) {
   const t = useTranslations('Nav')
   const [open, setOpen] = useState(false)
+  const accountHref = isLoggedIn ? KONTO_HREF : ANMELDEN_HREF
+  const accountLabel = isLoggedIn ? t('konto') : t('login')
 
   return (
     <div className="lg:hidden">
@@ -170,8 +173,39 @@ export function MobileNav() {
                 <Link href={KONTAKT_HREF}>{t('kontakt')}</Link>
               </Button>
             </SheetClose>
-            {/* „Login" (Prompt 26): reiner Text, keine Funktion — s. site-header.tsx. */}
-            <span className="block text-center text-small text-text-muted">{t('login')}</span>
+            {/*
+             * Konto- + Monitor-Einstieg (T4 Nav-Verlinkung): eingeloggt „Mein
+             * Konto" (→ /konto), sonst „Login" (→ /anmelden) — Zustand aus der
+             * Server-Session (site-header.tsx, als Prop hereingereicht). Daneben
+             * der Gratis-Strom-Check. SheetClose schließt den Drawer beim Klick.
+             */}
+            <div className="flex items-center justify-center gap-4 pt-1 text-small">
+              <SheetClose asChild>
+                <Link
+                  href={accountHref}
+                  className={cn(
+                    'text-text-muted transition-colors hover:text-accent',
+                    'rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+                  )}
+                >
+                  {accountLabel}
+                </Link>
+              </SheetClose>
+              <span aria-hidden="true" className="text-line-strong">
+                ·
+              </span>
+              <SheetClose asChild>
+                <Link
+                  href={MONITOR_GRATIS_CHECK_HREF}
+                  className={cn(
+                    'text-text-muted transition-colors hover:text-accent',
+                    'rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+                  )}
+                >
+                  {t('stromCheck')}
+                </Link>
+              </SheetClose>
+            </div>
           </div>
         </SheetContent>
       </Sheet>
