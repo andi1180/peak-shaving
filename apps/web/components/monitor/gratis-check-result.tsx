@@ -22,8 +22,9 @@
  *      `'rough'`; die Bedingung bleibt trotzdem geschrieben, nicht
  *      angenommen, falls das Formular später Stufe-2-Felder bekommt.
  *   5. Die Abo-Karte (§2/§12#1) beschreibt Wert, behauptet aber KEINEN
- *      Festpreis (kommerziell offen) und hat einen ehrlichen „bald
- *      verfügbar"-Zustand statt eines toten Links (T4 verdrahtet ihn real).
+ *      Festpreis (kommerziell offen, K9) und führt seit T4-3 in den ECHTEN
+ *      Flow: eingeloggt → Stripe-Checkout (Server Action), nicht eingeloggt →
+ *      Registrierung mit anschließender Rückkehr über /konto.
  */
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
@@ -33,6 +34,9 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Num } from '@/components/ui/layout'
+import { Link } from '@/i18n/navigation'
+import { REGISTRIEREN_HREF } from '@/lib/auth/config'
+import { startCheckoutAction } from '@/lib/stripe/actions'
 import { cn } from '@/lib/utils'
 
 const EUR = new Intl.NumberFormat('de-AT', {
@@ -150,7 +154,7 @@ type SubscriptionBullet = { icon: LucideIcon; title: string; text: string }
  * Ergebnis/der Empfehlung, VOR der Alternativen-Liste — dort ist der Funnel-
  * Moment am stärksten; nur EINMAL platziert (nicht zusätzlich am Listenende).
  */
-function SubscriptionTeaser() {
+function SubscriptionTeaser({ isLoggedIn }: { isLoggedIn: boolean }) {
   const t = useTranslations('Monitor.GratisCheck.subscription')
 
   const bullets: SubscriptionBullet[] = [
@@ -181,14 +185,21 @@ function SubscriptionTeaser() {
         </ul>
 
         <div className="mt-6 flex flex-wrap items-center gap-3 border-t border-line pt-5">
-          {/*
-            Kein `href`, kein `onClick` — `disabled` macht den „bald
-            verfügbar"-Zustand für Tastatur/Screenreader unmissverständlich
-            (kein anklickbares Element, das nichts tut).
-          */}
-          <Button type="button" variant="primary" size="lg" disabled>
-            {t('cta')}
-          </Button>
+          {isLoggedIn ? (
+            // Eingeloggt → direkt in den Stripe-Checkout (Server Action → gehostete Stripe-Seite, K8).
+            // Ein echtes <form>, kein onClick — der Seiteneffekt gehört in eine Action, kein toter Link.
+            <form action={startCheckoutAction}>
+              <Button type="submit" variant="primary" size="lg">
+                {t('cta')}
+              </Button>
+            </form>
+          ) : (
+            // Nicht eingeloggt → Registrierung. Nach der E-Mail-Bestätigung landet der Nutzer auf
+            // /konto und startet das Abo dort (K3: erst ein Konto, dann die Nutzer↔Customer-Zuordnung).
+            <Button asChild variant="primary" size="lg">
+              <Link href={REGISTRIEREN_HREF}>{t('ctaLoggedOut')}</Link>
+            </Button>
+          )}
           <p className="text-caption text-text-muted">{t('ctaNote')}</p>
         </div>
       </CardContent>
@@ -199,9 +210,11 @@ function SubscriptionTeaser() {
 export function GratisCheckResult({
   result,
   plausibilityWarnings,
+  isLoggedIn,
 }: {
   result: TariffComparisonResult
   plausibilityWarnings: PlausibilityWarning[]
+  isLoggedIn: boolean
 }) {
   const t = useTranslations('Monitor.GratisCheck')
 
@@ -275,7 +288,7 @@ export function GratisCheckResult({
         als Überleitung zur Karte, nicht als Fußnote der Liste darunter.
       */}
       {isRough ? <p className="max-w-prose text-small text-text-muted">{t('result.roughBridge')}</p> : null}
-      <SubscriptionTeaser />
+      <SubscriptionTeaser isLoggedIn={isLoggedIn} />
 
       {/* Mehrheitsabdeckungs-Disclaimer (§7): sichtbar, dezent, dauerhaft. */}
       <p className="text-caption text-text-muted">{t('coverageDisclaimer')}</p>

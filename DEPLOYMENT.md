@@ -70,11 +70,21 @@ das an der betroffenen Stelle sichtbar).
 | `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | optional | dash.cloudflare.com → Turnstile → Site | optional (sonst Honeypot) |
 | `TURNSTILE_SECRET_KEY` | optional | dash.cloudflare.com → Turnstile → Site (Secret) | optional |
 
-### 1d. Diese Variablen dieser Runde bewusst NICHT setzen
+### 1d. Stripe + service_role (T4-3, server-only, Pflicht für Checkout/Webhook)
 
-- **`SUPABASE_SERVICE_ROLE_KEY`** — wird erst mit dem Stripe-Webhook (**T4-3**) gebraucht (server-only,
-  umgeht RLS). Keine Env auf Vorrat (S3). Das Schema in `env.server.ts` trägt sie später ohne Umbau.
-- **`STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`** — ebenfalls erst T4-3.
+Alle server-only, NIEMALS `NEXT_PUBLIC_`-präfixen. Der Build läuft ohne sie durch (require-on-use);
+ohne sie sind Checkout/Portal/Webhook nicht funktionsfähig.
+
+| Variable | Scope | Wert-Herkunft |
+|---|---|---|
+| `SUPABASE_SERVICE_ROLE_KEY` | Production (Preview optional) | Project Settings → API Keys → **`service_role` `secret`** (umgeht RLS — nur im Stripe-Pfad genutzt) |
+| `STRIPE_SECRET_KEY` | Production (Preview optional) | Stripe Dashboard → Developers → API keys → **Secret key** (`sk_live_…`; für Preview/Test ein `sk_test_…`) |
+| `STRIPE_WEBHOOK_SECRET` | Production | das **Signing secret des im Dashboard angelegten Webhook-Endpoints** (`whsec_…`, s. §2d) — NICHT der `stripe listen`-Wert (der gilt nur lokal) |
+| `STRIPE_MONITOR_PRICE_ID` | Production (Preview optional) | Stripe → Product „COOLiN Strom-Monitor" → Preis → **Price-ID** (`price_…`). Der PREIS steht NUR hier, nie im Code (§12 #1). |
+
+- **Live- vs. Test-Keys:** In Production der Live-Account (`sk_live_…` + Live-Price-ID + Live-Webhook-Secret).
+  Aktuell ist der Bau gegen einen **fremden Test-Account** verifiziert (§12 #11) — vor dem Livegang durch
+  CoolIns eigenen Stripe-Account ersetzen (neue Keys, neues Produkt/Preis, neuer Endpoint).
 
 ---
 
@@ -126,6 +136,49 @@ Project Settings → **Authentication → „SMTP Settings" → Custom SMTP akti
 - **Was du bei Resend selbst noch tun musst:** die Absender-**Domain verifizieren** (SPF- + DKIM-DNS-
   Einträge bei deinem DNS-Provider setzen). Ohne verifizierte Domain lehnt Resend die Sendung ab.
 - Der API-Key für SMTP kann derselbe wie für das Kontaktformular sein oder ein separater — beides ok.
+
+---
+
+## 2-Stripe. Stripe-Dashboard-Einstellungen (T4-3)
+
+Analog zu §2 (Supabase): Konfiguration im **Stripe-Dashboard**, die kein Code und keine Migration
+abdeckt. Alles im **Test-Modus** für Preview, im **Live-Modus** für Production — die Schalter sind
+getrennt (getrennte Keys, Endpoints, Preise, Portal-Configs).
+
+### 2-Stripe-a. Produkt + Preis (falls per API nicht schon angelegt)
+
+Produkt **„COOLiN Strom-Monitor"**, wiederkehrender Preis **monatlich, EUR, 4,90 €** (Platzhalter,
+§12 #12). Reproduzierbar per API anlegbar (`stripe.products.create` / `stripe.prices.create`) oder im
+Dashboard. Die **Price-ID** (`price_…`) nach Vercel als `STRIPE_MONITOR_PRICE_ID` (§1d).
+
+### 2-Stripe-b. Webhook-Endpoint anlegen  ⚠️ SONST kommen in Produktion keine Events an
+
+Developers → **Webhooks** → „Add endpoint":
+- **Endpoint-URL:** `https://coolin.at/api/stripe/webhook` (bzw. die aktuelle Production-Domain).
+- **Zu abonnierende Events (mindestens):** `checkout.session.completed`,
+  `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`.
+  (Der Handler ignoriert alles andere mit 200 — mehr zu abonnieren schadet nicht, ist aber unnötig.)
+- Nach dem Anlegen das **Signing secret** (`whsec_…`) kopieren → Vercel `STRIPE_WEBHOOK_SECRET` (§1d).
+  Das ist ein ANDERER Wert als das lokale `stripe listen`-Secret.
+- **`stripe listen` ist nur für die lokale Entwicklung** (leitet an `localhost` weiter, eigenes,
+  temporäres Signing-Secret). In Produktion zählt ausschließlich der Dashboard-Endpoint.
+
+### 2-Stripe-c. API-Version des Endpoints auf die gepinnte Version setzen
+
+Der Stripe-Client im Code pinnt **`2026-06-24.dahlia`** (`current_period_end` liegt dort auf dem
+SubscriptionItem). Den Webhook-Endpoint auf **dieselbe** API-Version stellen, damit die
+`data.object`-Payloads dieselbe Feld-Lage haben. Der Handler liest zwar item-first **mit
+top-level-Fallback** (robust gegen eine alte Konto-Default-Version), aber ein passend versionierter
+Endpoint ist die saubere Konfiguration. (Der genutzte Test-Account hat eine sehr alte Default-Version
+`2016-07-06` — deshalb existiert der Fallback; ein frisch angelegter Endpoint sollte die neue Version tragen.)
+
+### 2-Stripe-d. Customer Portal konfigurieren
+
+Settings → Billing → **Customer portal**: einmalig eine Konfiguration aktivieren (Kündigung,
+Zahlungsmittel, Rechnungen). Ohne eine (Default-)Portal-Konfiguration schlägt
+`billingPortal.sessions.create` fehl → der Portal-Button auf `/konto` läuft in den neutralen
+Fehlerzustand. Reproduzierbar auch per API (`stripe.billingPortal.configurations.create`, im Bau so
+angelegt). Getrennt je Live-/Test-Modus.
 
 ---
 

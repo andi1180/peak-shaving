@@ -1527,8 +1527,9 @@
         "preciseText": "Auf Jahreskosten normalisiert, inklusive Wechselbonus und Folgejahr — keine grobe Schätzung mehr.",
         "monitorTitle": "Laufende Überwachung",
         "monitorText": "Wir behalten den Markt im Blick und melden uns, sobald sich ein Wechsel wirklich lohnt.",
-        "cta": "Abo bald verfügbar",
-        "ctaNote": "Wir informieren Sie, sobald die Registrierung startet."
+        "cta": "Jetzt Abo starten",
+        "ctaLoggedOut": "Konto erstellen & Abo starten",
+        "ctaNote": "Sichere Zahlung über Stripe, jederzeit kündbar."
       }
     }
   },
@@ -1605,7 +1606,16 @@
       "monitorProductLabel": "Strom-Monitor",
       "subscriptionActive": "Aktives Abo",
       "noSubscription": "Kein aktives Abo",
-      "subscriptionHint": "Die kostenpflichtige Überwachung ist noch nicht buchbar. Wir informieren Sie, sobald die Registrierung startet.",
+      "validUntil": "Verlängert sich automatisch · gültig bis {date}.",
+      "cancelAtPeriodEnd": "Gekündigt — Ihr Zugang bleibt bis {date} bestehen.",
+      "manageSubscription": "Zahlung & Rechnungen verwalten",
+      "checkoutIntro": "Aktivieren Sie die laufende Überwachung Ihres Stromtarifs.",
+      "checkoutStart": "Monitor-Abo starten",
+      "processingTitle": "Zahlung wird verarbeitet",
+      "processingBody": "Ihre Zahlung ist eingegangen und wird gerade bestätigt. Das dauert meist nur wenige Sekunden.",
+      "processingRefresh": "Status aktualisieren",
+      "checkoutCancelled": "Der Vorgang wurde abgebrochen — Sie können das Abo jederzeit erneut starten.",
+      "checkoutError": "Da ist leider etwas schiefgelaufen. Bitte versuchen Sie es erneut.",
       "logout": "Abmelden"
     }
   }

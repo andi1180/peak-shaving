@@ -44,7 +44,15 @@ import {
   saveGratisCheckValues,
 } from '@/lib/monitor/storage'
 
-export function GratisCheckClient({ tariffs }: { tariffs: TariffCostObject[] }) {
+export function GratisCheckClient({
+  tariffs,
+  isLoggedIn,
+}: {
+  tariffs: TariffCostObject[]
+  /** NUR ob eine Session existiert (aus der Server-Component) — routet den Abo-Teaser-CTA (Aufgabe 5c).
+   *  Der Gratis-Check bleibt loginlos/dataless: keine Verbrauchsdaten verlassen den Browser. */
+  isLoggedIn: boolean
+}) {
   const t = useTranslations('Monitor.GratisCheck')
 
   const [values, setValues] = React.useState<GratisCheckRawValues>(EMPTY_GRATIS_CHECK_VALUES)
@@ -148,7 +156,11 @@ export function GratisCheckClient({ tariffs }: { tariffs: TariffCostObject[] }) 
       />
 
       {result ? (
-        <GratisCheckResult result={result} plausibilityWarnings={plausibilityWarnings} />
+        <GratisCheckResult
+          result={result}
+          plausibilityWarnings={plausibilityWarnings}
+          isLoggedIn={isLoggedIn}
+        />
       ) : (
         <p className="text-body text-text-muted">{t('noResultYet')}</p>
       )}
