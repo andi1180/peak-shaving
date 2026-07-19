@@ -75,6 +75,16 @@ function resolveSiteUrl(): string {
 export const SITE_URL = resolveSiteUrl()
 
 /**
+ * Wurde die kanonische Basis-URL EXPLIZIT konfiguriert (`NEXT_PUBLIC_SITE_URL`, in Produktion
+ * gesetzt) — im Gegensatz zum Preview-/localhost-Fallback (`VERCEL_URL`/localhost)?
+ *
+ * Genutzt von den serverseitigen Redirect-Zielen (Auth-Mails, Stripe-Rückkehr, `lib/auth/
+ * server-helpers.ts`): NUR wenn hier ein kanonischer Host feststeht, ist `SITE_URL` die
+ * verlässliche, allowlistbare Basis. Sonst (lokal/Preview) bleibt der echte Request-Origin richtig.
+ */
+export const HAS_CONFIGURED_SITE_URL = Boolean(CONFIGURED_URL)
+
+/**
  * Die Produktivdomain — das ZIEL des Cutovers (§12), nicht eine zweite Quelle
  * der Basis-URL.
  *

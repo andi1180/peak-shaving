@@ -4,13 +4,7 @@ import { Container } from '@/components/ui/layout'
 import { EmblemImage } from '@/components/brand/emblem-image'
 import { WordmarkA } from '@/components/brand/wordmark'
 import { SignatureRule } from '@/components/brand/signature'
-import {
-  LEISTUNGEN_FLAT,
-  BRANCHEN_FLAT,
-  PEAK_SHAVING_FLAT,
-  MONITOR_GRATIS_CHECK_HREF,
-  COMPANY,
-} from '@/lib/nav'
+import { LEISTUNGEN_FLAT, BRANCHEN_FLAT, PEAK_SHAVING_FLAT, COMPANY } from '@/lib/nav'
 import { cn } from '@/lib/utils'
 
 const footerLink = cn(
@@ -144,18 +138,6 @@ export function SiteFooter() {
             <li>
               <Link href="/produkte" className={footerLink}>
                 {t('produkte')}
-              </Link>
-            </li>
-            {/*
-             * Monitor-Gratis-Check (T4 Nav-Verlinkung): der auf jeder Seite und
-             * jedem Breakpoint sichtbare, überlauf-freie Einstieg zu /strom-check.
-             * Bewusst in der Fußzeile statt in der Kopf-Aktionsleiste: dort würde
-             * ein vierter Punkt die bei 1024px eng austarierte Zentrierung
-             * (Prompt 26) sprengen. Prominentere Platzierung → §4.2 (Produktseite).
-             */}
-            <li>
-              <Link href={MONITOR_GRATIS_CHECK_HREF} className={footerLink}>
-                {t('stromCheck')}
               </Link>
             </li>
             <li>

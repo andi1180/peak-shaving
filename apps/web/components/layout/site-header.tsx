@@ -216,9 +216,18 @@ export async function SiteHeader() {
                             </div>
                           )
                         })()}
-                        {item.overviewKey ? (
+                        {item.overviewKey || item.trailingLeaf ? (
                           <div className="mt-4 border-t border-line pt-3">
-                            <MenuLink href={item.href} label={t(item.overviewKey)} />
+                            {item.overviewKey ? (
+                              <MenuLink href={item.href} label={t(item.overviewKey)} />
+                            ) : null}
+                            {/* Produkt-Quereinstieg als letzter Punkt (z. B. Strom-Monitor). */}
+                            {item.trailingLeaf ? (
+                              <MenuLink
+                                href={item.trailingLeaf.href}
+                                label={t(item.trailingLeaf.labelKey)}
+                              />
+                            ) : null}
                           </div>
                         ) : null}
                       </div>

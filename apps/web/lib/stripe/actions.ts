@@ -17,14 +17,18 @@ import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { stripe } from '@/lib/stripe/server'
 import { requireStripeMonitorPriceId } from '@/lib/env.server'
 import { ACCOUNT_PRODUCT, ANMELDEN_HREF, KONTO_HREF } from '@/lib/auth/config'
-import { getOrigin, redirectToLocalized } from '@/lib/auth/server-helpers'
+import { redirectBaseUrl, redirectToLocalized } from '@/lib/auth/server-helpers'
 import { CHECKOUT_CANCEL, CHECKOUT_ERROR, CHECKOUT_PARAM, CHECKOUT_SUCCESS } from './config'
 
-/** Absolute, locale-korrekte Kontoseiten-URL mit optionalem checkout-Rückkehr-Parameter. */
+/**
+ * Absolute, locale-korrekte Kontoseiten-URL mit optionalem checkout-Rückkehr-Parameter.
+ * Basis über die zentrale `redirectBaseUrl` (dieselbe Quelle wie die Auth-Callback-URL) — nicht
+ * über den Request-Host: success_url/cancel_url/return_url müssen den kanonischen Origin tragen.
+ */
 async function kontoUrl(locale: string, ret?: string): Promise<string> {
-  const origin = await getOrigin()
+  const base = await redirectBaseUrl()
   const path = getPathname({ href: KONTO_HREF, locale })
-  return ret ? `${origin}${path}?${CHECKOUT_PARAM}=${ret}` : `${origin}${path}`
+  return ret ? `${base}${path}?${CHECKOUT_PARAM}=${ret}` : `${base}${path}`
 }
 
 /**

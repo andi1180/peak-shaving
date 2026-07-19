@@ -28,7 +28,22 @@ export type NavItem = {
   items?: NavLeaf[]
   /** „Alle …"-Eintrag, der auf die Übersichtsseite führt. */
   overviewKey?: string
+  /**
+   * Ein einzelner Abschluss-Eintrag, der als LETZTER Punkt des Menüs erscheint (Header-Mega-Menü +
+   * Mobile-Accordion), aber bewusst NICHT in die Gruppen/`*_FLAT`-Listen (und damit nicht in den
+   * Footer) fließt. Für den Produkt-Quereinstieg „Strom-Monitor" unter Leistungen.
+   */
+  trailingLeaf?: NavLeaf
 }
+
+/**
+ * Monitor-Gratis-Check (Route `/strom-check`, T3). Steht hier in der IA-Datei, damit alle
+ * Konsumenten denselben Slug lesen: MAIN_NAV (als Abschluss-Eintrag `trailingLeaf` des
+ * Leistungen-Menüs → Header + Mobile-Nav) UND `lib/routes.ts` (noindex-/sitemap-Entscheidung,
+ * importiert diesen Wert von hier) — ohne `lib/routes.ts` (`fs`/`path`) in ein Client-Bundle zu
+ * ziehen. Genau EIN Fundort für den Pfad. (Muss VOR MAIN_NAV stehen, da dort referenziert.)
+ */
+export const MONITOR_GRATIS_CHECK_HREF = '/strom-check'
 
 /** Die 5 Top-Level-Punkte. Mehr verträgt keine saubere Mobile-Nav (§4.1). */
 export const MAIN_NAV: NavItem[] = [
@@ -36,6 +51,9 @@ export const MAIN_NAV: NavItem[] = [
     labelKey: 'leistungen',
     href: '/leistungen',
     overviewKey: 'leistungenAll',
+    // Produkt-Quereinstieg „Strom-Monitor" als LETZTER Punkt des Leistungen-Menüs (Header +
+    // Mobile). trailingLeaf fließt NICHT in LEISTUNGEN_FLAT → erscheint bewusst NICHT im Footer.
+    trailingLeaf: { labelKey: 'stromCheck', href: MONITOR_GRATIS_CHECK_HREF },
     groups: [
       {
         labelKey: 'leistungenGroupErzeugen',
@@ -100,15 +118,6 @@ export const CTA_HREF = '/peak-shaving/kalkulator'
  * iframe-Quelle ist davon getrennt und steht in `lib/config.ts`.
  */
 export const CALCULATOR_RUN_HREF = '/peak-shaving/kalkulator/rechner'
-
-/**
- * Monitor-Gratis-Check (Route `/strom-check`, T3). Steht hier in der IA-Datei,
- * damit Header, Mobile-Nav (Client) UND Footer denselben Slug lesen, ohne
- * `lib/routes.ts` (zieht `fs`/`path`) in ein Client-Bundle zu holen. Die
- * `noindex`-/sitemap-Entscheidung dazu bleibt in `lib/routes.ts` (importiert
- * diesen Wert von hier), es gibt weiterhin genau EINEN Fundort für den Pfad.
- */
-export const MONITOR_GRATIS_CHECK_HREF = '/strom-check'
 
 /**
  * Flache Listen für den Footer. Bewusst über `labelKey` gesucht statt über einen

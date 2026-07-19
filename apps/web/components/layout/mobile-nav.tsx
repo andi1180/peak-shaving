@@ -13,7 +13,7 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion'
 import { EmblemImage } from '@/components/brand/emblem-image'
-import { MAIN_NAV, CTA_HREF, KONTAKT_HREF, MONITOR_GRATIS_CHECK_HREF, type NavLeaf } from '@/lib/nav'
+import { MAIN_NAV, CTA_HREF, KONTAKT_HREF, type NavLeaf } from '@/lib/nav'
 import { ANMELDEN_HREF, KONTO_HREF } from '@/lib/auth/config'
 import { cn } from '@/lib/utils'
 
@@ -150,6 +150,12 @@ export function MobileNav({ isLoggedIn }: { isLoggedIn: boolean }) {
                           {t(item.overviewKey)}
                         </DrawerLink>
                       ) : null}
+                      {/* Produkt-Quereinstieg als letzter Punkt (z. B. Strom-Monitor). */}
+                      {item.trailingLeaf ? (
+                        <DrawerLink href={item.trailingLeaf.href} className="mt-1">
+                          {t(item.trailingLeaf.labelKey)}
+                        </DrawerLink>
+                      ) : null}
                     </AccordionContent>
                   </AccordionItem>
                 )
@@ -174,12 +180,14 @@ export function MobileNav({ isLoggedIn }: { isLoggedIn: boolean }) {
               </Button>
             </SheetClose>
             {/*
-             * Konto- + Monitor-Einstieg (T4 Nav-Verlinkung): eingeloggt „Mein
-             * Konto" (→ /konto), sonst „Login" (→ /anmelden) — Zustand aus der
-             * Server-Session (site-header.tsx, als Prop hereingereicht). Daneben
-             * der Gratis-Strom-Check. SheetClose schließt den Drawer beim Klick.
+             * Konto-Einstieg (T4 Nav-Verlinkung): eingeloggt „Mein Konto"
+             * (→ /konto), sonst „Login" (→ /anmelden) — Zustand aus der
+             * Server-Session (site-header.tsx, als Prop hereingereicht).
+             * SheetClose schließt den Drawer beim Klick. Der Monitor-Einstieg
+             * lebt jetzt im Leistungen-Accordion (trailingLeaf), nicht mehr hier —
+             * kein doppelter Eintrag im selben Drawer.
              */}
-            <div className="flex items-center justify-center gap-4 pt-1 text-small">
+            <div className="flex items-center justify-center pt-1 text-small">
               <SheetClose asChild>
                 <Link
                   href={accountHref}
@@ -189,20 +197,6 @@ export function MobileNav({ isLoggedIn }: { isLoggedIn: boolean }) {
                   )}
                 >
                   {accountLabel}
-                </Link>
-              </SheetClose>
-              <span aria-hidden="true" className="text-line-strong">
-                ·
-              </span>
-              <SheetClose asChild>
-                <Link
-                  href={MONITOR_GRATIS_CHECK_HREF}
-                  className={cn(
-                    'text-text-muted transition-colors hover:text-accent',
-                    'rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
-                  )}
-                >
-                  {t('stromCheck')}
                 </Link>
               </SheetClose>
             </div>
