@@ -27,6 +27,7 @@
     "recharts": "^3.9.2",
     "resend": "^6.17.2",
     "server-only": "^0.0.1",
+    "stripe": "^22.3.2",
     "tailwind-merge": "^2.6.0",
     "tariff-monitor": "workspace:*",
     "vfile": "^6.0.3",

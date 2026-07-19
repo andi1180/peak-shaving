@@ -46,5 +46,33 @@ export default tseslint.config(
       'react-hooks/exhaustive-deps': 'error',
     },
   },
+  {
+    // T4-3 (Aufgabe 3): der service_role-Supabase-Client (umgeht RLS) darf NUR im Stripe-Pfad
+    // importiert werden. Ein versehentlicher Import in eine Server-Component/Page/Nutzer-Read soll
+    // `pnpm lint` rot machen — `import 'server-only'` allein fängt das nicht (eine Server-Component
+    // ist ebenfalls server-seitig). Die Allowlist steht im Folge-Block (dort Regel = off).
+    files: ['apps/web/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: '@/lib/supabase/service-role',
+              message:
+                'Der service_role-Client (umgeht RLS) ist ausschließlich für den Stripe-Pfad ' +
+                '(app/api/stripe/webhook + lib/stripe/actions.ts). Für Nutzer-Reads den ' +
+                'RLS-gebundenen lib/supabase/server.ts verwenden.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    // Allowlist: genau die zwei Stripe-Pfade dürfen den service_role-Client importieren.
+    files: ['apps/web/app/api/stripe/**/*.ts', 'apps/web/lib/stripe/actions.ts'],
+    rules: { 'no-restricted-imports': 'off' },
+  },
   prettier,
 )

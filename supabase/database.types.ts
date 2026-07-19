@@ -385,6 +385,35 @@ export type Database = {
           user_id: string
         }[]
       }
+      get_my_subscription: {
+        Args: { p_product: Database["platform"]["Enums"]["product_key"] }
+        Returns: {
+          cancel_at_period_end: boolean
+          current_period_end: string
+          status: string
+        }[]
+      }
+      get_stripe_customer_id: { Args: { p_user_id: string }; Returns: string }
+      process_stripe_subscription_event: {
+        Args: {
+          p_cancel_at_period_end?: boolean
+          p_current_period_end?: string
+          p_event_created_at: string
+          p_event_id: string
+          p_event_type: string
+          p_price_id?: string
+          p_product: Database["platform"]["Enums"]["product_key"]
+          p_status: string
+          p_stripe_customer_id?: string
+          p_stripe_subscription_id: string
+          p_user_id: string
+        }
+        Returns: string
+      }
+      upsert_stripe_customer: {
+        Args: { p_stripe_customer_id: string; p_user_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never

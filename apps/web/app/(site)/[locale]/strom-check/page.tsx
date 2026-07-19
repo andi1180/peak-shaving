@@ -2,16 +2,23 @@ import type { Metadata } from 'next'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { fetchCurrentTariffRows } from '@/lib/monitor/supabase'
 import { mapTariffRows } from '@/lib/monitor/mapping'
+import { createClient } from '@/lib/supabase/server'
 import { GratisCheckClient } from '@/components/monitor/gratis-check-client'
 import { Container } from '@/components/ui/layout'
 import { MONITOR_GRATIS_CHECK_HREF, robotsFor } from '@/lib/routes'
 
 /**
- * §7: die Tarif-Tabelle (T2) ändert sich nur 1×/Tag (zentraler täglicher
- * Scraper) — Route-Segment-Cache-Default für jeden `fetch` in diesem Segment,
- * inkl. des über `lib/monitor/supabase.ts` injizierten `next.revalidate`.
+ * §7: die Tarif-Tabelle (T2) ändert sich nur 1×/Tag (zentraler täglicher Scraper) — der
+ * `next.revalidate` in `lib/monitor/supabase.ts` cached den Tarif-Fetch weiterhin einen Tag lang
+ * auf DATEN-Ebene.
+ *
+ * T4-3 (Aufgabe 5c): die Seite liest zusätzlich, OB eine Session existiert (getUser → cookies), um
+ * den Abo-Teaser-CTA zu routen (eingeloggt → Checkout, sonst → Registrierung). Das macht das
+ * RENDERING dynamisch (vorher ISR/SSG) — der Tarif-Fetch bleibt daten-gecacht, es entsteht also kein
+ * DB-Read je Request. Der Gratis-Check selbst bleibt loginlos/dataless: keine Verbrauchsdaten
+ * verlassen den Browser, kein Login-Zwang, kein Redirect.
  */
-export const revalidate = 86400
+export const dynamic = 'force-dynamic'
 
 export function generateMetadata(): Metadata {
   return {
@@ -70,11 +77,18 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
   }
   const tariffs = mapTariffRows(rows)
 
+  // Aufgabe 5c: NUR ob eine Session existiert — routet den Abo-Teaser-CTA. Kein Redirect, kein Gate;
+  // der Gratis-Check läuft ohne Login unverändert weiter (dataless bleibt dataless).
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
   return (
     <Container className="py-16 sm:py-24">
       <h1 className="text-h1 text-ink">{t('title')}</h1>
       <p className="mt-4 max-w-prose text-lead text-text-muted">{t('intro')}</p>
-      <GratisCheckClient tariffs={tariffs} />
+      <GratisCheckClient tariffs={tariffs} isLoggedIn={user !== null} />
     </Container>
   )
 }
