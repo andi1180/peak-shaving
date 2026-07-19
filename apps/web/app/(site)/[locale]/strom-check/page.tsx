@@ -5,6 +5,8 @@ import { mapTariffRows } from '@/lib/monitor/mapping'
 import { createClient } from '@/lib/supabase/server'
 import { GratisCheckClient } from '@/components/monitor/gratis-check-client'
 import { Container } from '@/components/ui/layout'
+import { Link } from '@/i18n/navigation'
+import { ANMELDEN_HREF } from '@/lib/auth/config'
 import { MONITOR_GRATIS_CHECK_HREF, robotsFor } from '@/lib/routes'
 
 /**
@@ -88,6 +90,21 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
     <Container className="py-16 sm:py-24">
       <h1 className="text-h1 text-ink">{t('title')}</h1>
       <p className="mt-4 max-w-prose text-lead text-text-muted">{t('intro')}</p>
+      {/*
+       * T4 Nav-Verlinkung (Aufgabe 4): ein sichtbarer Rückweg zur Anmeldung für
+       * Nutzer, die direkt ein Konto anlegen wollen, statt erst den Gratis-Check
+       * auszufüllen. Der Teaser-Button im Ergebnis (gratis-check-result.tsx)
+       * erscheint erst NACH dem Ausfüllen — dieser Link ist vorgelagert.
+       */}
+      <p className="mt-3 text-small text-text-muted">
+        {t('directAccountPrompt')}{' '}
+        <Link
+          href={ANMELDEN_HREF}
+          className="rounded-sm font-medium text-accent underline underline-offset-4 outline-none hover:text-accent-hover focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+        >
+          {t('directAccountCta')}
+        </Link>
+      </p>
       <GratisCheckClient tariffs={tariffs} isLoggedIn={user !== null} />
     </Container>
   )

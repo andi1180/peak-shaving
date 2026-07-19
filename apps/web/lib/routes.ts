@@ -26,7 +26,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import type { Metadata } from 'next'
-import { MAIN_NAV, KONTAKT_HREF, LOGIN_HREF, CALCULATOR_RUN_HREF } from './nav'
+import { MAIN_NAV, KONTAKT_HREF, LOGIN_HREF, CALCULATOR_RUN_HREF, MONITOR_GRATIS_CHECK_HREF } from './nav'
 import { WISSEN_HREF } from './wissen'
 import { AUTH_HREFS } from './auth/config'
 
@@ -88,8 +88,11 @@ const PLACEHOLDER_HREFS = ['/produkte', '/referenzen', '/impressum', LOGIN_HREF]
  * `noindex`, aus demselben Grund wie `CALCULATOR_RUN_HREF` unten: eine
  * dünne/experimentelle Seite ohne kuratierten Content soll nicht indexiert
  * werden, bevor sie eine ist.
+ *
+ * Der Pfad selbst lebt in `lib/nav.ts` (IA, client-safe, oben importiert) — hier
+ * nur re-exportiert, damit bestehende `from '@/lib/routes'`-Importe unverändert bleiben.
  */
-export const MONITOR_GRATIS_CHECK_HREF = '/strom-check'
+export { MONITOR_GRATIS_CHECK_HREF }
 
 /**
  * Die statischen Routen der Seite. `/wissen/<slug>` fehlt hier bewusst: Artikel

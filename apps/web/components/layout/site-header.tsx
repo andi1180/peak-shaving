@@ -1,11 +1,13 @@
 import * as React from 'react'
-import { useTranslations } from 'next-intl'
+import { getTranslations } from 'next-intl/server'
 import { Link } from '@/i18n/navigation'
 import { Container } from '@/components/ui/layout'
 import { Button } from '@/components/ui/button'
 import { EmblemImage } from '@/components/brand/emblem-image'
 import { WordmarkA } from '@/components/brand/wordmark'
 import { MAIN_NAV, CTA_HREF, KONTAKT_HREF } from '@/lib/nav'
+import { ANMELDEN_HREF, KONTO_HREF } from '@/lib/auth/config'
+import { createClient } from '@/lib/supabase/server'
 import { cn } from '@/lib/utils'
 import { MobileNav } from './mobile-nav'
 import {
@@ -49,8 +51,26 @@ function MenuLink({ href, label }: { href: string; label: string }) {
   )
 }
 
-export function SiteHeader() {
-  const t = useTranslations('Nav')
+export async function SiteHeader() {
+  const t = await getTranslations('Nav')
+
+  /*
+   * Session serverseitig lesen (T4 Nav-Verlinkung): der Login-Platz zeigt
+   * eingeloggt „Mein Konto" (→ /konto), sonst „Login" (→ /anmelden). Server-
+   * seitig ermittelt = flackerfrei, kein Client-Roundtrip.
+   *
+   * PREIS: `getUser()` liest die Auth-Cookies → die (site)-Seiten werden dadurch
+   * dynamisch statt statisch gerendert (bewusst, s. PR-Bericht). Der eigentliche
+   * Token-Refresh läuft ohnehin schon je Request in der Middleware
+   * (lib/supabase/middleware) — diese RSC liest nur.
+   */
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  const isLoggedIn = user !== null
+  const accountHref = isLoggedIn ? KONTO_HREF : ANMELDEN_HREF
+  const accountLabel = isLoggedIn ? t('konto') : t('login')
 
   return (
     /*
@@ -228,22 +248,21 @@ export function SiteHeader() {
         <div className="flex shrink-0 items-center justify-self-end gap-2">
           <div className="hidden items-center gap-2 lg:flex">
             {/*
-             * „Login" (Prompt 26): reiner Platzhalter-Text, KEINE Funktion.
-             * Bewusst kein <Link>/<button> — echtes Auth kommt erst in Phase 2
-             * (Supabase, §8.1); ein Element, das wie ein Link aussieht aber
-             * nirgends hinführt, wäre eine irreführende Affordanz. Der dezente
-             * Hover-Ton signalisiert trotzdem „hier passiert später etwas",
-             * ohne einen toten Klick-/Tastatur-Stop zu erzeugen — deshalb kein
-             * `tabIndex`/`role="button"`, es gibt nichts zu aktivieren.
+             * Login-/Konto-Platz (T4 Nav-Verlinkung): echtes Auth steht seit
+             * T4-2 (Supabase). Ersetzt den funktionslosen Platzhalter-`<span>`
+             * aus Prompt 26. Eingeloggt „Mein Konto" (→ /konto), sonst „Login"
+             * (→ /anmelden); der Zustand kommt serverseitig aus getUser() oben.
              */}
-            <span
+            <Link
+              href={accountHref}
               className={cn(
                 'inline-flex items-center gap-1.5 rounded-md px-2 py-2 text-small text-text-muted',
                 'transition-colors hover:text-ink',
+                'outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
               )}
             >
-              {t('login')}
-            </span>
+              {accountLabel}
+            </Link>
             <Button asChild variant="secondary" size="sm">
               <Link href={KONTAKT_HREF}>{t('kontakt')}</Link>
             </Button>
@@ -253,7 +272,7 @@ export function SiteHeader() {
           </div>
 
           {/* Mobile */}
-          <MobileNav />
+          <MobileNav isLoggedIn={isLoggedIn} />
         </div>
       </Container>
     </header>

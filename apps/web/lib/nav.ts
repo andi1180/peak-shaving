@@ -102,6 +102,15 @@ export const CTA_HREF = '/peak-shaving/kalkulator'
 export const CALCULATOR_RUN_HREF = '/peak-shaving/kalkulator/rechner'
 
 /**
+ * Monitor-Gratis-Check (Route `/strom-check`, T3). Steht hier in der IA-Datei,
+ * damit Header, Mobile-Nav (Client) UND Footer denselben Slug lesen, ohne
+ * `lib/routes.ts` (zieht `fs`/`path`) in ein Client-Bundle zu holen. Die
+ * `noindex`-/sitemap-Entscheidung dazu bleibt in `lib/routes.ts` (importiert
+ * diesen Wert von hier), es gibt weiterhin genau EINEN Fundort für den Pfad.
+ */
+export const MONITOR_GRATIS_CHECK_HREF = '/strom-check'
+
+/**
  * Flache Listen für den Footer. Bewusst über `labelKey` gesucht statt über einen
  * Index (`MAIN_NAV[0]`): eine Umsortierung der Hauptnavigation darf den Footer
  * nicht still auf die falsche Liste zeigen lassen.
