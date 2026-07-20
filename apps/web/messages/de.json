@@ -1621,6 +1621,27 @@
       "checkoutCancelled": "Der Vorgang wurde abgebrochen — Sie können das Abo jederzeit erneut starten.",
       "checkoutError": "Da ist leider etwas schiefgelaufen. Bitte versuchen Sie es erneut.",
       "logout": "Abmelden"
+    },
+    "redeem": {
+      "title": "Gutscheincode einlösen",
+      "intro": "Sie haben einen Zugangscode? Lösen Sie ihn hier ein — der Monitor wird sofort freigeschaltet.",
+      "label": "Gutscheincode",
+      "hint": "Groß- und Kleinschreibung spielt keine Rolle.",
+      "submit": "Code einlösen",
+      "submitting": "Wird eingelöst …",
+      "status": {
+        "redeemed": "Ihr Code wurde eingelöst — der Strom-Monitor ist jetzt freigeschaltet.",
+        "invalid_code": "Diesen Gutscheincode kennen wir nicht. Bitte prüfen Sie Ihre Eingabe.",
+        "expired": "Dieser Gutscheincode ist abgelaufen.",
+        "exhausted": "Dieser Gutscheincode wurde bereits vollständig eingelöst.",
+        "already_redeemed": "Diesen Gutscheincode haben Sie bereits eingelöst.",
+        "already_active": "Sie haben bereits ein aktives Abo — ein Code ist dafür nicht mehr nötig."
+      },
+      "errors": {
+        "codeRequired": "Bitte geben Sie Ihren Gutscheincode ein.",
+        "notSignedIn": "Ihre Sitzung ist abgelaufen. Bitte melden Sie sich erneut an.",
+        "generic": "Das hat leider nicht geklappt. Bitte versuchen Sie es erneut."
+      }
     }
   }
 }

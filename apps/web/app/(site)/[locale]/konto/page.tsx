@@ -6,8 +6,15 @@ import { Button } from '@/components/ui/button'
 import { Link } from '@/i18n/navigation'
 import { ACCOUNT_PRODUCT, ANMELDEN_HREF, KONTO_HREF } from '@/lib/auth/config'
 import { signOutAction } from '@/lib/auth/actions'
+import { RedeemCodeForm } from '@/components/konto/redeem-code-form'
 import { openBillingPortalAction, startCheckoutAction } from '@/lib/stripe/actions'
-import { CHECKOUT_CANCEL, CHECKOUT_ERROR, CHECKOUT_PARAM, CHECKOUT_SUCCESS, readCheckoutReturn } from '@/lib/stripe/config'
+import {
+  CHECKOUT_CANCEL,
+  CHECKOUT_ERROR,
+  CHECKOUT_PARAM,
+  CHECKOUT_SUCCESS,
+  readCheckoutReturn,
+} from '@/lib/stripe/config'
 import { redirectToLocalized } from '@/lib/auth/server-helpers'
 import { createClient } from '@/lib/supabase/server'
 
@@ -25,9 +32,10 @@ export async function generateMetadata({
 }
 
 function formatDate(iso: string): string {
-  return new Intl.DateTimeFormat('de-AT', { dateStyle: 'medium', timeZone: 'Europe/Vienna' }).format(
-    new Date(iso),
-  )
+  return new Intl.DateTimeFormat('de-AT', {
+    dateStyle: 'medium',
+    timeZone: 'Europe/Vienna',
+  }).format(new Date(iso))
 }
 
 export default async function Page({
@@ -107,14 +115,18 @@ export default async function Page({
             {hasEntitlement ? (
               // Aufgabe 5b: aktives Abo — Status, Gültigkeit, Portal-Schaltfläche.
               <div className="mt-4">
-                <p className="text-body font-semibold text-positive">{t('account.subscriptionActive')}</p>
+                <p className="text-body font-semibold text-positive">
+                  {t('account.subscriptionActive')}
+                </p>
                 {subscription?.current_period_end ? (
                   <p className="mt-1 text-small text-text-muted">
                     {subscription.cancel_at_period_end
                       ? t('account.cancelAtPeriodEnd', {
                           date: formatDate(subscription.current_period_end),
                         })
-                      : t('account.validUntil', { date: formatDate(subscription.current_period_end) })}
+                      : t('account.validUntil', {
+                          date: formatDate(subscription.current_period_end),
+                        })}
                   </p>
                 ) : null}
                 {subscription ? (
@@ -143,7 +155,9 @@ export default async function Page({
               // Aufgabe 5a: kein aktives Abo → Checkout-Einstieg. KEIN Preis im eigenen Text (K9).
               <div className="mt-4">
                 {checkoutReturn === CHECKOUT_CANCEL ? (
-                  <p className="mb-3 text-small text-text-muted">{t('account.checkoutCancelled')}</p>
+                  <p className="mb-3 text-small text-text-muted">
+                    {t('account.checkoutCancelled')}
+                  </p>
                 ) : checkoutReturn === CHECKOUT_ERROR ? (
                   <p className="mb-3 text-small text-warning">{t('account.checkoutError')}</p>
                 ) : null}
@@ -154,6 +168,14 @@ export default async function Page({
                     {t('account.checkoutStart')}
                   </Button>
                 </form>
+
+                {/* Zweiter, kostenloser Freischaltweg. Endet in derselben entitlements-Zeile wie der
+                    Checkout — nach dem Einlösen zeigt die Seite denselben „aktives Abo"-Zustand. */}
+                <div className="mt-6 border-t border-line pt-6">
+                  <h3 className="text-body font-semibold text-ink">{t('redeem.title')}</h3>
+                  <p className="mt-1 text-small text-text-muted">{t('redeem.intro')}</p>
+                  <RedeemCodeForm />
+                </div>
               </div>
             )}
           </section>
