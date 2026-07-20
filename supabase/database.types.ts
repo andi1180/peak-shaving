@@ -1,10 +1,4 @@
-export type Json =
-  | string
-  | number
-  | boolean
-  | null
-  | { [key: string]: Json | undefined }
-  | Json[]
+export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[]
 
 export type Database = {
   monitor: {
@@ -42,11 +36,11 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "scrape_runs_target_id_fkey"
-            columns: ["target_id"]
+            foreignKeyName: 'scrape_runs_target_id_fkey'
+            columns: ['target_id']
             isOneToOne: false
-            referencedRelation: "scrape_targets"
-            referencedColumns: ["id"]
+            referencedRelation: 'scrape_targets'
+            referencedColumns: ['id']
           },
         ]
       }
@@ -189,6 +183,35 @@ export type Database = {
   }
   platform: {
     Tables: {
+      code_redemptions: {
+        Row: {
+          code_id: string
+          id: string
+          redeemed_at: string
+          user_id: string
+        }
+        Insert: {
+          code_id: string
+          id?: string
+          redeemed_at?: string
+          user_id: string
+        }
+        Update: {
+          code_id?: string
+          id?: string
+          redeemed_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'code_redemptions_code_id_fkey'
+            columns: ['code_id']
+            isOneToOne: false
+            referencedRelation: 'redemption_codes'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       customers: {
         Row: {
           created_at: string
@@ -217,8 +240,8 @@ export type Database = {
         Row: {
           is_active: boolean
           note: string | null
-          product: Database["platform"]["Enums"]["product_key"]
-          source: Database["platform"]["Enums"]["entitlement_source"]
+          product: Database['platform']['Enums']['product_key']
+          source: Database['platform']['Enums']['entitlement_source']
           updated_at: string
           user_id: string
           valid_until: string | null
@@ -226,8 +249,8 @@ export type Database = {
         Insert: {
           is_active: boolean
           note?: string | null
-          product: Database["platform"]["Enums"]["product_key"]
-          source: Database["platform"]["Enums"]["entitlement_source"]
+          product: Database['platform']['Enums']['product_key']
+          source: Database['platform']['Enums']['entitlement_source']
           updated_at?: string
           user_id: string
           valid_until?: string | null
@@ -235,8 +258,8 @@ export type Database = {
         Update: {
           is_active?: boolean
           note?: string | null
-          product?: Database["platform"]["Enums"]["product_key"]
-          source?: Database["platform"]["Enums"]["entitlement_source"]
+          product?: Database['platform']['Enums']['product_key']
+          source?: Database['platform']['Enums']['entitlement_source']
           updated_at?: string
           user_id?: string
           valid_until?: string | null
@@ -261,6 +284,42 @@ export type Database = {
           display_name?: string | null
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      redemption_codes: {
+        Row: {
+          code: string
+          created_at: string
+          expires_at: string | null
+          id: string
+          is_active: boolean
+          max_redemptions: number | null
+          note: string | null
+          product_key: Database['platform']['Enums']['product_key']
+          redemption_count: number
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          max_redemptions?: number | null
+          note?: string | null
+          product_key: Database['platform']['Enums']['product_key']
+          redemption_count?: number
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          max_redemptions?: number | null
+          note?: string | null
+          product_key?: Database['platform']['Enums']['product_key']
+          redemption_count?: number
         }
         Relationships: []
       }
@@ -291,7 +350,7 @@ export type Database = {
           created_at: string
           current_period_end: string | null
           price_id: string | null
-          product: Database["platform"]["Enums"]["product_key"]
+          product: Database['platform']['Enums']['product_key']
           status: string
           stripe_event_created_at: string
           stripe_subscription_id: string
@@ -303,7 +362,7 @@ export type Database = {
           created_at?: string
           current_period_end?: string | null
           price_id?: string | null
-          product: Database["platform"]["Enums"]["product_key"]
+          product: Database['platform']['Enums']['product_key']
           status: string
           stripe_event_created_at: string
           stripe_subscription_id: string
@@ -315,7 +374,7 @@ export type Database = {
           created_at?: string
           current_period_end?: string | null
           price_id?: string | null
-          product?: Database["platform"]["Enums"]["product_key"]
+          product?: Database['platform']['Enums']['product_key']
           status?: string
           stripe_event_created_at?: string
           stripe_subscription_id?: string
@@ -349,7 +408,7 @@ export type Database = {
     Functions: {
       has_entitlement: {
         Args: {
-          p_product: Database["platform"]["Enums"]["product_key"]
+          p_product: Database['platform']['Enums']['product_key']
           p_user_id: string
         }
         Returns: boolean
@@ -358,8 +417,8 @@ export type Database = {
       status_grants_access: { Args: { p_status: string }; Returns: boolean }
     }
     Enums: {
-      entitlement_source: "stripe" | "manual"
-      product_key: "monitor" | "calculator_pro"
+      entitlement_source: 'stripe' | 'manual'
+      product_key: 'monitor' | 'calculator_pro'
     }
     CompositeTypes: {
       [_ in never]: never
@@ -374,7 +433,7 @@ export type Database = {
     }
     Functions: {
       get_my_entitlement: {
-        Args: { p_product: Database["platform"]["Enums"]["product_key"] }
+        Args: { p_product: Database['platform']['Enums']['product_key'] }
         Returns: boolean
       }
       get_my_profile: {
@@ -386,7 +445,7 @@ export type Database = {
         }[]
       }
       get_my_subscription: {
-        Args: { p_product: Database["platform"]["Enums"]["product_key"] }
+        Args: { p_product: Database['platform']['Enums']['product_key'] }
         Returns: {
           cancel_at_period_end: boolean
           current_period_end: string
@@ -402,7 +461,7 @@ export type Database = {
           p_event_id: string
           p_event_type: string
           p_price_id?: string
-          p_product: Database["platform"]["Enums"]["product_key"]
+          p_product: Database['platform']['Enums']['product_key']
           p_status: string
           p_stripe_customer_id?: string
           p_stripe_subscription_id: string
@@ -410,6 +469,7 @@ export type Database = {
         }
         Returns: string
       }
+      redeem_code: { Args: { p_code: string }; Returns: string }
       upsert_stripe_customer: {
         Args: { p_stripe_customer_id: string; p_user_id: string }
         Returns: undefined
@@ -424,33 +484,31 @@ export type Database = {
   }
 }
 
-type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
+type DatabaseWithoutInternals = Omit<Database, '__InternalSupabase'>
 
-type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, 'public'>]
 
 export type Tables<
   DefaultSchemaTableNameOrOptions extends
-    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+    | keyof (DefaultSchema['Tables'] & DefaultSchema['Views'])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables'] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Views'])
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
-  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables'] &
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Views'])[TableName] extends {
       Row: infer R
     }
     ? R
     : never
-  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
-        DefaultSchema["Views"])
-    ? (DefaultSchema["Tables"] &
-        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema['Tables'] & DefaultSchema['Views'])
+    ? (DefaultSchema['Tables'] & DefaultSchema['Views'])[DefaultSchemaTableNameOrOptions] extends {
         Row: infer R
       }
       ? R
@@ -459,23 +517,22 @@ export type Tables<
 
 export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema["Tables"]
-    | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+    keyof DefaultSchema['Tables'] | { schema: keyof DatabaseWithoutInternals },
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables']
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
-  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables'][TableName] extends {
       Insert: infer I
     }
     ? I
     : never
-  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema['Tables']
+    ? DefaultSchema['Tables'][DefaultSchemaTableNameOrOptions] extends {
         Insert: infer I
       }
       ? I
@@ -484,23 +541,22 @@ export type TablesInsert<
 
 export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema["Tables"]
-    | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+    keyof DefaultSchema['Tables'] | { schema: keyof DatabaseWithoutInternals },
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables']
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
-  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables'][TableName] extends {
       Update: infer U
     }
     ? U
     : never
-  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema['Tables']
+    ? DefaultSchema['Tables'][DefaultSchemaTableNameOrOptions] extends {
         Update: infer U
       }
       ? U
@@ -509,36 +565,34 @@ export type TablesUpdate<
 
 export type Enums<
   DefaultSchemaEnumNameOrOptions extends
-    | keyof DefaultSchema["Enums"]
-    | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+    keyof DefaultSchema['Enums'] | { schema: keyof DatabaseWithoutInternals },
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions['schema']]['Enums']
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
-  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
-  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
-    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions['schema']]['Enums'][EnumName]
+  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema['Enums']
+    ? DefaultSchema['Enums'][DefaultSchemaEnumNameOrOptions]
     : never
 
 export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
-    | keyof DefaultSchema["CompositeTypes"]
-    | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+    keyof DefaultSchema['CompositeTypes'] | { schema: keyof DatabaseWithoutInternals },
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions['schema']]['CompositeTypes']
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
-  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
-  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
-    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions['schema']]['CompositeTypes'][CompositeTypeName]
+  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema['CompositeTypes']
+    ? DefaultSchema['CompositeTypes'][PublicCompositeTypeNameOrOptions]
     : never
 
 export const Constants = {
@@ -547,12 +601,11 @@ export const Constants = {
   },
   platform: {
     Enums: {
-      entitlement_source: ["stripe", "manual"],
-      product_key: ["monitor", "calculator_pro"],
+      entitlement_source: ['stripe', 'manual'],
+      product_key: ['monitor', 'calculator_pro'],
     },
   },
   public: {
     Enums: {},
   },
 } as const
-
