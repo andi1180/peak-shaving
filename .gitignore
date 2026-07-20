@@ -29,3 +29,4 @@ coverage/
 /Viertelstundenwerte-*.csv
 /081_*.xlsx
 /193_*.xlsx
+.vercel

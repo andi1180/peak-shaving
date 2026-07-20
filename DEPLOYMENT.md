@@ -188,6 +188,13 @@ angelegt). Getrennt je Live-/Test-Modus.
   `supabase db push`. **Niemand** ändert das Schema im **SQL-Editor** oder über Studio direkt in der
   Cloud — sonst laufen Repo und Cloud auseinander, und der nächste `db push` bzw. das DB-Gate schlägt
   fehl oder überschreibt still. Neue Migration → committen → `supabase db push`.
+- **VERBINDLICHER STANDARD-SCHRITT (analog Vercel-Live-Check):** Jeder Bauabschnitt, der eine neue
+  Migration enthält, pusht sie **am Abschluss automatisch** auf die Cloud — nicht erst bei expliziter
+  Aufforderung. Abschluss-Block: (1) `supabase db push --linked`, (2) **gegen die Cloud** verifizieren
+  (`supabase db query --linked` + `has_function_privilege`-Introspektion, **kein** Funktionsaufruf —
+  Segfault-Vermeidung), (3) bei auth-/zahlungsrelevanten Änderungen den Betreiber zum Live-Test
+  auffordern. Hintergrund: die T4-3-RPC-Wrapper-Migration blieb versehentlich lokal-only, wodurch der
+  Live-Checkout scheiterte — genau dieser Schritt verhindert das künftig.
 - **Seed** ist einmalig eingespielt (Platzhalter-Tarife). Er ist **nicht** Teil von `db push`.
 - **Offener Punkt (Prinzip 1 · §12 #6):** Die aktuell in der Cloud liegenden Tarife sind **Platzhalter**
   mit erfundenen Anbieternamen („Blitz Energie" …), **keine echten österreichischen Tarife.**
