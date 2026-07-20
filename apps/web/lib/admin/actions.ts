@@ -26,6 +26,7 @@ import { createClient } from '@/lib/supabase/server'
 import { ADMIN_HREF, PRODUCT_LABELS } from './config'
 import {
   codeSchema,
+  roleByEmailSchema,
   roleSchema,
   scrapeTargetSchema,
   toFieldErrors,
@@ -187,33 +188,74 @@ export async function setScrapeTargetActiveAction(
 
 // ── Teil 2: Rollen ───────────────────────────────────────────────────────────────────────────────
 
-export async function grantRoleAction(_prev: AdminState, formData: FormData): Promise<AdminState> {
-  const parsed = roleSchema.safeParse({
-    userId: String(formData.get('userId') ?? ''),
-    role: String(formData.get('role') ?? ''),
-  })
-  if (!parsed.success) return { formError: GENERIC }
+/*
+ * Es gibt hier KEINE `grantRoleAction` (Vergabe über eine ausgewählte user_id) mehr — bewusst
+ * entfernt, nicht vergessen. Sie hing an der abgelösten Gesamtliste aller Konten: nur dort gab es
+ * eine Zeile mit „Admin geben". In der neuen Rollen-Liste stehen ausschließlich Konten, die schon
+ * eine Rolle haben — ein Vergabe-Knopf wäre dort sinnlos. Die Vergabe läuft über
+ * `grantRoleByEmailAction`. Der SQL-Wrapper `admin_grant_role(uuid, text)` bleibt in der Datenbank
+ * (er ist die Grundlage, auf die `admin_grant_role_by_email` aufsetzt), hat aber keinen Aufrufer
+ * mehr in dieser Anwendung.
+ */
+
+/**
+ * Rollenvergabe über die E-MAIL statt über eine ausgewählte Zeile.
+ *
+ * Nötig, seit die Rollen-Liste (`admin_list_admins`) nur noch Rollenträger zeigt: der Kollege, der
+ * gerade Admin werden SOLL, steht darin per Definition noch nicht. Die E-Mail ist das, was man von
+ * ihm ohnehin hat.
+ *
+ * Als einzige Rollen-Action trägt sie `values` zurück ins Formular: hier hat der Nutzer wirklich
+ * etwas getippt, das bei einer Ablehnung („diese Adresse kennen wir nicht") nicht verloren gehen
+ * darf. Die beiden Knopf-Actions daneben haben nichts, was man neu tippen müsste.
+ */
+export async function grantRoleByEmailAction(
+  _prev: AdminState,
+  formData: FormData,
+): Promise<AdminState> {
+  const raw = { email: String(formData.get('email') ?? '') }
+  const parsed = roleByEmailSchema.safeParse({ ...raw, role: String(formData.get('role') ?? '') })
+  if (!parsed.success) {
+    return { fieldErrors: toFieldErrors(parsed.error.issues), values: raw }
+  }
 
   const supabase = await sessionClient()
-  if (!supabase) return { formError: FORBIDDEN }
+  if (!supabase) return { formError: FORBIDDEN, values: raw }
 
-  const { data, error } = await supabase.rpc('admin_grant_role', {
-    p_target_user_id: parsed.data.userId,
+  const { data, error } = await supabase.rpc('admin_grant_role_by_email', {
+    p_email: parsed.data.email,
     p_role: parsed.data.role,
   })
 
-  switch (interpret('admin_grant_role', data, error)) {
+  switch (interpret('admin_grant_role_by_email', data, error)) {
     case 'ok':
       refresh()
-      return { success: 'Rolle vergeben.' }
-    case 'unknown_user':
-      return { formError: 'Dieses Konto gibt es nicht mehr.' }
+      return { success: `Administrator-Rolle an ${parsed.data.email} vergeben.` }
+    case 'user_not_found':
+      // Die häufigste echte Ursache ist ein Tippfehler ODER ein Konto, das es noch gar nicht gibt —
+      // der Text nennt beides, damit niemand vergeblich die Schreibweise sucht.
+      return {
+        fieldErrors: {
+          email:
+            'Zu dieser Adresse gibt es kein Konto. Die Person muss sich zuerst selbst registrieren.',
+        },
+        values: raw,
+      }
+    case 'ambiguous_email':
+      return {
+        formError:
+          'Zu dieser Adresse gibt es mehrere Konten. Bitte melden — die Rolle wird hier bewusst ' +
+          'nicht auf gut Glück vergeben.',
+        values: raw,
+      }
+    case 'missing_fields':
+      return { fieldErrors: { email: 'Bitte eine E-Mail-Adresse angeben.' }, values: raw }
     case 'invalid_role':
-      return { formError: 'Unbekannte Rolle.' }
+      return { formError: 'Unbekannte Rolle.', values: raw }
     case 'forbidden':
-      return { formError: FORBIDDEN }
+      return { formError: FORBIDDEN, values: raw }
     default:
-      return { formError: GENERIC }
+      return { formError: GENERIC, values: raw }
   }
 }
 
@@ -287,8 +329,15 @@ export async function createCodeAction(_prev: AdminState, formData: FormData): P
       refresh()
       return { success: `Code „${v.code}“ für ${PRODUCT_LABELS[v.productKey]} angelegt.` }
     case 'duplicate_code':
+      // Der Unique-Index liegt auf `lower(code)` OHNE product_key — Codes sind also GLOBAL
+      // eindeutig, nicht je Produkt. Das muss dastehen: sonst liest sich die Ablehnung eines
+      // Codes, den es „nur beim anderen Produkt" gibt, wie ein Fehler statt wie die Regel.
       return {
-        fieldErrors: { code: 'Diesen Code gibt es schon (Groß-/Kleinschreibung zählt nicht).' },
+        fieldErrors: {
+          code:
+            'Diesen Code gibt es schon. Codes sind über ALLE Produkte hinweg eindeutig — ' +
+            'Groß-/Kleinschreibung zählt dabei nicht.',
+        },
         values: raw,
       }
     case 'invalid_code':

@@ -11,7 +11,7 @@
  * hat keinen Übersetzungskontext. Ein Key-Umweg ohne Wörterbuch wäre eine Indirektion ohne Nutzen.
  */
 import { z } from 'zod'
-import { PRODUCT_KEYS, ROLES } from './config'
+import { CODE_PRODUCT_KEYS, ROLES } from './config'
 
 /**
  * Rückgabe aller Admin-Server-Actions. Ein gemeinsamer Zustand für alle sechs, weil sie strukturell
@@ -72,8 +72,24 @@ export const scrapeTargetSchema = z.object({
 })
 
 // ── Rollenvergabe ────────────────────────────────────────────────────────────────────────────────
+// Zwei Schemata, weil es zwei verschiedene Vorgänge sind:
+//   roleSchema        — Entzug (und alles, was ein Ziel AUS DER LISTE meint): die user_id ist da.
+//   roleByEmailSchema — Vergabe an jemanden, der NOCH KEINE Rolle hat und damit per Definition
+//                       nicht in der Admin-Liste steht. Es gibt keine user_id zum Auswählen.
 export const roleSchema = z.object({
   userId: z.string().uuid('Bitte eine Nutzer-ID auswählen.'),
+  role: z.enum(ROLES, { errorMap: () => ({ message: 'Unbekannte Rolle.' }) }),
+})
+
+export const roleByEmailSchema = z.object({
+  // Nur Grundform-Prüfung: ob es das Konto WIRKLICH gibt, weiß allein die Datenbank
+  // (`user_not_found`). Ein strengeres Muster hier täuschte eine Prüfung vor, die es nicht gibt.
+  email: z
+    .string()
+    .trim()
+    .min(1, 'Bitte die E-Mail-Adresse des Kontos angeben.')
+    .max(320, 'Zu lang.')
+    .email('Bitte eine gültige E-Mail-Adresse angeben.'),
   role: z.enum(ROLES, { errorMap: () => ({ message: 'Unbekannte Rolle.' }) }),
 })
 
@@ -85,7 +101,12 @@ export const codeSchema = z.object({
     .min(3, 'Mindestens 3 Zeichen.')
     .max(64, 'Höchstens 64 Zeichen.')
     .regex(/^\S+$/, 'Der Code darf keine Leerzeichen enthalten.'),
-  productKey: z.enum(PRODUCT_KEYS, { errorMap: () => ({ message: 'Unbekanntes Produkt.' }) }),
+  /**
+   * NUR die heute code-fähigen Produkte (`CODE_PRODUCT_KEYS`), nicht alle Enum-Werte: ein Code für
+   * ein Produkt, das den Zugang gar nicht über Entitlements prüft, wäre ein stiller Blindgänger.
+   * Begründung am Fundort der Liste (`lib/admin/config.ts`).
+   */
+  productKey: z.enum(CODE_PRODUCT_KEYS, { errorMap: () => ({ message: 'Unbekanntes Produkt.' }) }),
   /**
    * Leer = unbegrenzt (Marketing-/Partner-Code, in der DB NULL). Bewusst `''` → undefined statt
    * `0`: ein leeres Feld ist „keine Obergrenze", nicht „null Einlösungen".

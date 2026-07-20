@@ -145,6 +145,7 @@ export function AdminField({
   hint,
   required,
   inputMode,
+  readOnly,
 }: {
   id: string
   name: string
@@ -156,6 +157,12 @@ export function AdminField({
   hint?: React.ReactNode
   required?: boolean
   inputMode?: 'text' | 'numeric'
+  /**
+   * Sichtbar, aber nicht änderbar — und WEITERHIN MITGESCHICKT. Bewusst `readOnly` statt `disabled`:
+   * ein deaktiviertes Feld sendet seinen Wert nicht, und genau dieser Wert (der Kurz-Key eines
+   * Ziels) ist es, der den Datensatz identifiziert.
+   */
+  readOnly?: boolean
 }) {
   const hintId = `${id}-hint`
   const showHint = Boolean(error) || Boolean(hint)
@@ -171,6 +178,8 @@ export function AdminField({
           placeholder={placeholder}
           required={required}
           inputMode={inputMode}
+          readOnly={readOnly}
+          className={readOnly ? 'bg-surface-sunken text-text-muted' : undefined}
           aria-invalid={error ? true : undefined}
           aria-describedby={showHint ? hintId : undefined}
         />

@@ -452,9 +452,14 @@ export type Database = {
         Args: { p_role: string; p_target_user_id: string }
         Returns: Json
       }
+      admin_grant_role_by_email: {
+        Args: { p_email: string; p_role: string }
+        Returns: Json
+      }
+      admin_list_admins: { Args: never; Returns: Json }
       admin_list_codes: { Args: never; Returns: Json }
+      admin_list_customers: { Args: never; Returns: Json }
       admin_list_scrape_targets: { Args: never; Returns: Json }
-      admin_list_users: { Args: never; Returns: Json }
       admin_revoke_role: {
         Args: { p_role: string; p_target_user_id: string }
         Returns: Json
