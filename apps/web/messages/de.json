@@ -1533,7 +1533,8 @@
         "monitorText": "Wir behalten den Markt im Blick und melden uns, sobald sich ein Wechsel wirklich lohnt.",
         "cta": "Jetzt Abo starten",
         "ctaLoggedOut": "Konto erstellen & Abo starten",
-        "ctaNote": "Sichere Zahlung über Stripe, jederzeit kündbar."
+        "ctaNote": "Sichere Zahlung über Stripe, jederzeit kündbar.",
+        "unavailableNote": "Aktuell ist kein Abo verfügbar."
       }
     }
   },
@@ -1610,6 +1611,7 @@
       "monitorProductLabel": "Strom-Monitor",
       "subscriptionActive": "Aktives Abo",
       "noSubscription": "Kein aktives Abo",
+      "noSubscriptionHint": "Aktuell ist kein Abo verfügbar.",
       "validUntil": "Verlängert sich automatisch · gültig bis {date}.",
       "cancelAtPeriodEnd": "Gekündigt — Ihr Zugang bleibt bis {date} bestehen.",
       "manageSubscription": "Zahlung & Rechnungen verwalten",
