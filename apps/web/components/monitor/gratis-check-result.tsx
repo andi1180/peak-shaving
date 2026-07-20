@@ -22,9 +22,11 @@
  *      `'rough'`; die Bedingung bleibt trotzdem geschrieben, nicht
  *      angenommen, falls das Formular später Stufe-2-Felder bekommt.
  *   5. Die Abo-Karte (§2/§12#1) beschreibt Wert, behauptet aber KEINEN
- *      Festpreis (kommerziell offen, K9) und führt seit T4-3 in den ECHTEN
- *      Flow: eingeloggt → Stripe-Checkout (Server Action), nicht eingeloggt →
- *      Registrierung mit anschließender Rückkehr über /konto.
+ *      Festpreis (kommerziell offen, K9). Das Monitor-Abo (product_key='monitor')
+ *      ist seit Fahrplan 2026 eingestellt — der eingeloggte Kauf-Einstieg ist
+ *      gekappt (nur noch ein neutraler Hinweis, kein Checkout). Der Registrierungs-
+ *      weg für ausgeloggte Nutzer bleibt unverändert. Die T4-Infrastruktur
+ *      (startCheckoutAction, Stripe-Preis-Config) bleibt für B9 erhalten.
  */
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
@@ -36,7 +38,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Num } from '@/components/ui/layout'
 import { Link } from '@/i18n/navigation'
 import { REGISTRIEREN_HREF } from '@/lib/auth/config'
-import { startCheckoutAction } from '@/lib/stripe/actions'
 import { cn } from '@/lib/utils'
 
 const EUR = new Intl.NumberFormat('de-AT', {
@@ -148,9 +149,9 @@ type SubscriptionBullet = { icon: LucideIcon; title: string; text: string }
  * Navy-Vollfläche/Hero zu sein (das wäre drängend, §1.2 verbietet künstliche
  * Dringlichkeit) und ohne mit dem grünen Ersparnis-Wert oben zu konkurrieren
  * (Grün bleibt reserviert für die Kernzahl). Beschreibt Wert (a/b/c aus §2),
- * KEIN hartkodierter Preis. CTA ist bewusst ein deaktivierter Button +
- * erklärender Text — kein toter Link, keine Sackgasse: T4 ersetzt `disabled`
- * durch den echten Registrierung/Stripe-Flow. Platzierung: direkt nach dem
+ * KEIN hartkodierter Preis. Der eingeloggte Kauf-CTA ist seit der Monitor-
+ * Einstellung (Fahrplan 2026) gekappt — eingeloggt: neutraler Hinweis ohne CTA;
+ * ausgeloggt: unveränderter Registrierungs-Link. Platzierung: direkt nach dem
  * Ergebnis/der Empfehlung, VOR der Alternativen-Liste — dort ist der Funnel-
  * Moment am stärksten; nur EINMAL platziert (nicht zusätzlich am Listenende).
  */
@@ -186,21 +187,22 @@ function SubscriptionTeaser({ isLoggedIn }: { isLoggedIn: boolean }) {
 
         <div className="mt-6 flex flex-wrap items-center gap-3 border-t border-line pt-5">
           {isLoggedIn ? (
-            // Eingeloggt → direkt in den Stripe-Checkout (Server Action → gehostete Stripe-Seite, K8).
-            // Ein echtes <form>, kein onClick — der Seiteneffekt gehört in eine Action, kein toter Link.
-            <form action={startCheckoutAction}>
-              <Button type="submit" variant="primary" size="lg">
-                {t('cta')}
-              </Button>
-            </form>
+            // Das Monitor-Abo (product_key='monitor') ist eingestellt (Fahrplan 2026) → für
+            // eingeloggte Nutzer KEIN Checkout-Einstieg mehr, nur ein neutraler Hinweis ohne CTA.
+            // Die T4-Infrastruktur (startCheckoutAction, Stripe-Preis-Config) bleibt für B9; hier
+            // ist NUR die UI-Aufrufstelle gekappt. Der Registrierungsweg für ausgeloggte Nutzer
+            // (rechts) bleibt unverändert bestehen.
+            <p className="text-caption text-text-muted">{t('unavailableNote')}</p>
           ) : (
             // Nicht eingeloggt → Registrierung. Nach der E-Mail-Bestätigung landet der Nutzer auf
-            // /konto und startet das Abo dort (K3: erst ein Konto, dann die Nutzer↔Customer-Zuordnung).
-            <Button asChild variant="primary" size="lg">
-              <Link href={REGISTRIEREN_HREF}>{t('ctaLoggedOut')}</Link>
-            </Button>
+            // /konto (K3: erst ein Konto, dann die Nutzer↔Customer-Zuordnung). Unverändert.
+            <>
+              <Button asChild variant="primary" size="lg">
+                <Link href={REGISTRIEREN_HREF}>{t('ctaLoggedOut')}</Link>
+              </Button>
+              <p className="text-caption text-text-muted">{t('ctaNote')}</p>
+            </>
           )}
-          <p className="text-caption text-text-muted">{t('ctaNote')}</p>
         </div>
       </CardContent>
     </Card>

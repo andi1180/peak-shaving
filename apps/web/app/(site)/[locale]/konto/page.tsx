@@ -7,7 +7,7 @@ import { Link } from '@/i18n/navigation'
 import { ACCOUNT_PRODUCT, ANMELDEN_HREF, KONTO_HREF } from '@/lib/auth/config'
 import { signOutAction } from '@/lib/auth/actions'
 import { RedeemCodeForm } from '@/components/konto/redeem-code-form'
-import { openBillingPortalAction, startCheckoutAction } from '@/lib/stripe/actions'
+import { openBillingPortalAction } from '@/lib/stripe/actions'
 import {
   CHECKOUT_CANCEL,
   CHECKOUT_ERROR,
@@ -152,7 +152,11 @@ export default async function Page({
                 </Link>
               </div>
             ) : (
-              // Aufgabe 5a: kein aktives Abo → Checkout-Einstieg. KEIN Preis im eigenen Text (K9).
+              // Kein aktives Abo. Das Monitor-Produkt (product_key='monitor') ist eingestellt
+              // (Fahrplan 2026) → KEIN Kauf-Einstieg mehr, nur ein neutraler Hinweis ohne CTA.
+              // Die T4-Infrastruktur (startCheckoutAction, Stripe-Preis-Config) bleibt für B9
+              // unangetastet — hier ist NUR die UI-Aufrufstelle gekappt. Der Zugangscode-Einlöseweg
+              // (RedeemCodeForm) bleibt als separater Freischaltweg bestehen.
               <div className="mt-4">
                 {checkoutReturn === CHECKOUT_CANCEL ? (
                   <p className="mb-3 text-small text-text-muted">
@@ -162,15 +166,10 @@ export default async function Page({
                   <p className="mb-3 text-small text-warning">{t('account.checkoutError')}</p>
                 ) : null}
                 <p className="text-body font-semibold text-ink">{t('account.noSubscription')}</p>
-                <p className="mt-1 text-small text-text-muted">{t('account.checkoutIntro')}</p>
-                <form action={startCheckoutAction} className="mt-4">
-                  <Button type="submit" variant="primary" size="md">
-                    {t('account.checkoutStart')}
-                  </Button>
-                </form>
+                <p className="mt-1 text-small text-text-muted">{t('account.noSubscriptionHint')}</p>
 
                 {/* Zweiter, kostenloser Freischaltweg. Endet in derselben entitlements-Zeile wie der
-                    Checkout — nach dem Einlösen zeigt die Seite denselben „aktives Abo"-Zustand. */}
+                    frühere Checkout — nach dem Einlösen zeigt die Seite denselben „aktives Abo"-Zustand. */}
                 <div className="mt-6 border-t border-line pt-6">
                   <h3 className="text-body font-semibold text-ink">{t('redeem.title')}</h3>
                   <p className="mt-1 text-small text-text-muted">{t('redeem.intro')}</p>
