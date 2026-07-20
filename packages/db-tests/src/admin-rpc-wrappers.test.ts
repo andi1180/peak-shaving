@@ -1,7 +1,9 @@
 // DB-Gate für die Admin-RPC-Wrapper aus T4-4
-// (Migration 20260720140000_create_admin_rpc_wrappers.sql).
+// (Migration 20260720140000_create_admin_rpc_wrappers.sql) samt der Nacharbeit
+// (Migration 20260720160000_admin_split_admins_customers.sql: admin_list_users() ist weg, dafür
+// admin_list_admins() + admin_list_customers() + admin_grant_role_by_email()).
 //
-// Beweist auf DB-Ebene: (1) jeder der neun Wrapper lehnt einen eingeloggten NICHT-Admin mit dem
+// Beweist auf DB-Ebene: (1) jeder der elf Wrapper lehnt einen eingeloggten NICHT-Admin mit dem
 // Status 'forbidden' ab — keine Exception, kein Datenleck; (2) ein ECHTER Admin (per direktem
 // user_roles-Insert hergestellt, nicht über die neue UI — die kann sich nicht selbst verifizieren)
 // kann alle drei Bereiche wirklich bedienen; (3) der letzte verbleibende Admin kann sich die Rolle
@@ -35,13 +37,15 @@ import {
   type TestUser,
 } from './client'
 
-/** Die neun Wrapper, die INTERN auf platform.is_admin() prüfen (is_admin selbst ist kein Wrapper). */
+/** Die elf Wrapper, die INTERN auf platform.is_admin() prüfen (is_admin selbst ist kein Wrapper). */
 const ADMIN_WRAPPERS = [
   'admin_list_scrape_targets',
   'admin_upsert_scrape_target',
   'admin_set_scrape_target_active',
-  'admin_list_users',
+  'admin_list_admins',
+  'admin_list_customers',
   'admin_grant_role',
+  'admin_grant_role_by_email',
   'admin_revoke_role',
   'admin_list_codes',
   'admin_create_code',
@@ -127,7 +131,7 @@ afterAll(async () => {
 })
 
 describe('Zugangsschranke — jeder Wrapper lehnt Nicht-Admins selbst ab', () => {
-  it('alle neun Wrapper liefern einem eingeloggten Nicht-Admin "forbidden" (kein Fehler, keine Daten)', async () => {
+  it('alle elf Wrapper liefern einem eingeloggten Nicht-Admin "forbidden" (kein Fehler, keine Daten)', async () => {
     const user = await newUser()
     // Gegenprobe zuerst: dieser Nutzer ist wirklich kein Admin.
     expect(await callAs<boolean>(user, 'select public.is_admin() as r')).toBe(false)
@@ -146,8 +150,17 @@ describe('Zugangsschranke — jeder Wrapper lehnt Nicht-Admins selbst ab', () =>
         'select public.admin_set_scrape_target_active($1, true) as r',
         [randomUUID()],
       ],
-      ['admin_list_users', 'select public.admin_list_users() as r', []],
+      ['admin_list_admins', 'select public.admin_list_admins() as r', []],
+      ['admin_list_customers', 'select public.admin_list_customers() as r', []],
       ['admin_grant_role', 'select public.admin_grant_role($1, $2) as r', [user.id, 'admin']],
+      // Mit der EIGENEN, existierenden E-Mail und einer gültigen Rolle: der Aufruf würde ohne die
+      // is_admin-Schranke tatsächlich durchlaufen — die Ablehnung darf nicht an schlechten
+      // Argumenten hängen, sondern muss vor der E-Mail-Suche greifen.
+      [
+        'admin_grant_role_by_email',
+        'select public.admin_grant_role_by_email($1, $2) as r',
+        [user.email, 'admin'],
+      ],
       ['admin_revoke_role', 'select public.admin_revoke_role($1, $2) as r', [user.id, 'admin']],
       ['admin_list_codes', 'select public.admin_list_codes() as r', []],
       [
@@ -171,17 +184,24 @@ describe('Zugangsschranke — jeder Wrapper lehnt Nicht-Admins selbst ab', () =>
     )
     expect(targets[0]?.n).toBe(0)
     expect(await adminCount()).toBe(0)
+    // Auch der abgelehnte E-Mail-Grant hat keine Rollenzeile hinterlassen — sonst hätte sich der
+    // Nutzer über den neuen Weg selbst zum Admin gemacht.
+    const eigeneRollen = await sql<{ n: number }>(
+      `select count(*)::int as n from platform.user_roles where user_id = $1`,
+      [user.id],
+    )
+    expect(eigeneRollen[0]?.n).toBe(0)
   })
 
   it('der Grant-Entzug ist NICHT der Schutz: ein Nicht-Admin DARF aufrufen, bekommt aber nichts', async () => {
     // Genau die Architekturentscheidung aus der Migration — die Ablehnung liegt in der Funktion,
     // nicht im Grant. Wäre es umgekehrt, wäre der Aufruf oben an "permission denied" gescheitert.
-    expect(await canExecute('authenticated', 'admin_list_users')).toBe(true)
+    expect(await canExecute('authenticated', 'admin_list_admins')).toBe(true)
   })
 })
 
 describe('Rechte — Grant-Fläche ist exakt authenticated', () => {
-  it('alle neun Wrapper + is_admin: nur authenticated, nicht anon/service_role/PUBLIC', async () => {
+  it('alle elf Wrapper + is_admin: nur authenticated, nicht anon/service_role/PUBLIC', async () => {
     for (const fn of [...ADMIN_WRAPPERS, 'is_admin']) {
       expect(await canExecute('authenticated', fn), `${fn}: authenticated`).toBe(true)
       expect(await canExecute('anon', fn), `${fn}: anon`).toBe(false)
@@ -371,47 +391,124 @@ describe('Teil 1 — Scraper-Ziele', () => {
   })
 })
 
+/** Legt ein echtes Stripe-Entitlement auf dem echten Weg an (subscriptions + Sync-Trigger, I2). */
+async function giveStripeEntitlement(userId: string, product = 'monitor'): Promise<void> {
+  await sql(
+    `insert into platform.subscriptions
+       (stripe_subscription_id, user_id, product, status, current_period_end, stripe_event_created_at)
+     values ($1, $2, $3, 'active', now() + interval '30 days', now())`,
+    [`sub_${randomUUID()}`, userId, product],
+  )
+}
+
 describe('Teil 2 — Nutzer- und Rollenverwaltung', () => {
-  it('die Liste zeigt E-Mail, Rollen und die HERKUNFT jedes Entitlements', async () => {
+  it('admin_list_admins zeigt NUR Rollenträger — ein Konto ohne Rolle steht nicht darin', async () => {
+    // Das ist der ganze Zweck der Aufteilung: die Liste beantwortet „wer darf verwalten?" und
+    // nicht mehr „welche Konten gibt es?". Die Abwesenheit ist deshalb die eigentliche Zusage.
+    const admin = await newUser()
+    await makeAdmin(admin.id)
+    const ohneRolle = await newUser()
+
+    const res = await callAs<{ status: string; admins: Array<Record<string, unknown>> }>(
+      admin,
+      'select public.admin_list_admins() as r',
+    )
+
+    expect(res.status).toBe('ok')
+    const adminRow = res.admins.find((a) => a.user_id === admin.id)
+    expect(adminRow?.email).toBe(admin.email) // E-Mail kommt aus auth.users
+    expect(adminRow?.roles).toContain('admin')
+    expect(res.admins.find((a) => a.user_id === ohneRolle.id)).toBeUndefined()
+  })
+
+  it('admin_list_customers zeigt Entitlement-Träger samt HERKUNFT — ein Konto ohne Entitlement nicht', async () => {
     const admin = await newUser()
     await makeAdmin(admin.id)
     const kunde = await newUser()
+    const ohneZugang = await newUser()
 
-    // Ein echtes Stripe-Entitlement über den echten Weg (subscriptions + Sync-Trigger, I2).
-    await sql(
-      `insert into platform.subscriptions
-         (stripe_subscription_id, user_id, product, status, current_period_end, stripe_event_created_at)
-       values ($1, $2, 'monitor', 'active', now() + interval '30 days', now())`,
-      [`sub_${randomUUID()}`, kunde.id],
-    )
+    await giveStripeEntitlement(kunde.id)
 
     const res = await callAs<{
       status: string
       total: number
       truncated: boolean
-      users: Array<Record<string, unknown>>
-    }>(admin, 'select public.admin_list_users() as r')
+      customers: Array<Record<string, unknown>>
+    }>(admin, 'select public.admin_list_customers() as r')
 
     expect(res.status).toBe('ok')
-    expect(res.total).toBeGreaterThanOrEqual(2)
+    expect(res.total).toBeGreaterThanOrEqual(1)
     expect(res.truncated).toBe(false)
 
-    const kundeRow = res.users.find((u) => u.user_id === kunde.id)
-    expect(kundeRow?.email).toBe(kunde.email) // E-Mail kommt aus auth.users
-    expect(kundeRow?.roles).toEqual([])
+    const kundeRow = res.customers.find((c) => c.user_id === kunde.id)
+    expect(kundeRow?.email).toBe(kunde.email)
     const ents = kundeRow?.entitlements as Array<Record<string, unknown>>
     expect(ents).toHaveLength(1)
     expect(ents[0]?.product).toBe('monitor')
     expect(ents[0]?.source).toBe('stripe')
     expect(ents[0]?.currently_active).toBe(true)
 
-    const adminRow = res.users.find((u) => u.user_id === admin.id)
-    expect(adminRow?.roles).toEqual(['admin'])
+    expect(res.customers.find((c) => c.user_id === ohneZugang.id)).toBeUndefined()
+  })
+
+  it('ein gekündigtes Abo verschwindet NICHT aus der Kundenliste — es steht darin als inaktiv', async () => {
+    // Die ausdrückliche Zusage der Migration („aktiv ODER historisch"). Wer nur die Aktiven zeigte,
+    // könnte die häufigste Support-Frage („der hatte doch mal Zugang?") nicht beantworten.
+    const admin = await newUser()
+    await makeAdmin(admin.id)
+    const kunde = await newUser()
+    await giveStripeEntitlement(kunde.id)
+
+    // Die Kündigung läuft über die subscriptions-Zeile, NICHT über ein direktes UPDATE auf
+    // entitlements: der I2-Hartschutz (guard_entitlement_stripe_source) lehnt jeden Fremdzugriff
+    // auf eine source=stripe-Zeile ab. Der Sync-Trigger leitet is_active=false selbst ab — genau
+    // so, wie es der Stripe-Webhook in echt auslöst.
+    await sql(`update platform.subscriptions set status = 'canceled' where user_id = $1`, [
+      kunde.id,
+    ])
+    const roh = await sql<{ is_active: boolean }>(
+      'select is_active from platform.entitlements where user_id = $1',
+      [kunde.id],
+    )
+    expect(roh[0]?.is_active, 'Vorbedingung: der Trigger hat die Zeile inaktiv gesetzt').toBe(false)
+
+    const res = await callAs<{ customers: Array<Record<string, unknown>> }>(
+      admin,
+      'select public.admin_list_customers() as r',
+    )
+    const kundeRow = res.customers.find((c) => c.user_id === kunde.id)
+    expect(kundeRow, 'das historische Konto muss weiterhin gelistet sein').toBeDefined()
+    const ents = kundeRow?.entitlements as Array<Record<string, unknown>>
+    expect(ents).toHaveLength(1)
+    expect(ents[0]?.is_active).toBe(false)
+    expect(ents[0]?.currently_active).toBe(false)
+  })
+
+  it('die beiden Listen sind wirklich disjunkte Abfragen: Admin ohne Abo fehlt bei den Kunden, Kunde ohne Rolle bei den Admins', async () => {
+    const admin = await newUser()
+    await makeAdmin(admin.id)
+    const kunde = await newUser()
+    await giveStripeEntitlement(kunde.id)
+
+    const kunden = await callAs<{ customers: Array<Record<string, unknown>> }>(
+      admin,
+      'select public.admin_list_customers() as r',
+    )
+    // Der Admin hat kein Entitlement → er ist kein Kunde, obwohl er die Abfrage stellt.
+    expect(kunden.customers.find((c) => c.user_id === admin.id)).toBeUndefined()
+    expect(kunden.customers.find((c) => c.user_id === kunde.id)).toBeDefined()
+
+    const admins = await callAs<{ admins: Array<Record<string, unknown>> }>(
+      admin,
+      'select public.admin_list_admins() as r',
+    )
+    expect(admins.admins.find((a) => a.user_id === kunde.id)).toBeUndefined()
+    expect(admins.admins.find((a) => a.user_id === admin.id)).toBeDefined()
   })
 
   it('macht den Randfall sichtbar, für den die Herkunft überhaupt angezeigt wird: Code überschreibt abgelaufenes Stripe-Abo', async () => {
     // Genau der in der redemption-codes-Migration beschriebene Fall. Ohne die source-Spalte in der
-    // Admin-Liste wäre danach unsichtbar, dass die Zeile dauerhaft aus dem Stripe-Sync gelöst ist.
+    // Kundenliste wäre danach unsichtbar, dass die Zeile dauerhaft aus dem Stripe-Sync gelöst ist.
     const admin = await newUser()
     await makeAdmin(admin.id)
     const kunde = await newUser()
@@ -435,11 +532,11 @@ describe('Teil 2 — Nutzer- und Rollenverwaltung', () => {
       'redeemed',
     )
 
-    const res = await callAs<{ users: Array<Record<string, unknown>> }>(
+    const res = await callAs<{ customers: Array<Record<string, unknown>> }>(
       admin,
-      'select public.admin_list_users() as r',
+      'select public.admin_list_customers() as r',
     )
-    const ents = res.users.find((u) => u.user_id === kunde.id)?.entitlements as Array<
+    const ents = res.customers.find((c) => c.user_id === kunde.id)?.entitlements as Array<
       Record<string, unknown>
     >
     expect(ents).toHaveLength(1)
@@ -447,6 +544,107 @@ describe('Teil 2 — Nutzer- und Rollenverwaltung', () => {
     expect(ents[0]?.source).toBe('manual')
     expect(ents[0]?.valid_until).toBeNull()
     expect(ents[0]?.currently_active).toBe(true)
+  })
+
+  it('Rolle über die E-MAIL vergeben trifft das richtige Konto und schreibt wirklich eine Zeile', async () => {
+    // Der Weg existiert, weil ein künftiger Admin per Definition NICHT in admin_list_admins() steht
+    // — es gibt also keine Zeile, aus der die UI eine user_id nehmen könnte.
+    const admin = await newUser()
+    await makeAdmin(admin.id)
+    const ziel = await newUser()
+
+    const res = await callAs<Record<string, unknown>>(
+      admin,
+      'select public.admin_grant_role_by_email($1, $2) as r',
+      [ziel.email, 'admin'],
+    )
+    expect(res.status).toBe('ok')
+    // Die zurückgegebene user_id ist der Beleg, WEN es getroffen hat.
+    expect(res.user_id).toBe(ziel.id)
+    expect(res.role).toBe('admin')
+
+    const rows = await sql<{ n: number }>(
+      `select count(*)::int as n from platform.user_roles where user_id = $1 and role = 'admin'`,
+      [ziel.id],
+    )
+    expect(rows[0]?.n).toBe(1)
+    // Gegenprobe über die Wirkung, nicht nur über die Tabelle.
+    expect(await callAs<boolean>(ziel, 'select public.is_admin() as r')).toBe(true)
+  })
+
+  it('die E-Mail-Suche ist case-insensitiv — niemand kennt die Schreibweise seines eigenen Kontos', async () => {
+    const admin = await newUser()
+    await makeAdmin(admin.id)
+    const ziel = await newUser()
+
+    const res = await callAs<Record<string, unknown>>(
+      admin,
+      'select public.admin_grant_role_by_email($1, $2) as r',
+      [ziel.email.toUpperCase(), 'admin'],
+    )
+    expect(res.status).toBe('ok')
+    expect(res.user_id).toBe(ziel.id)
+  })
+
+  it('der E-Mail-Grant ist idempotent: zweimal klicken bleibt "ok" und erzeugt keine zweite Zeile', async () => {
+    const admin = await newUser()
+    await makeAdmin(admin.id)
+    const ziel = await newUser()
+
+    for (const versuch of [1, 2]) {
+      const res = await callAs<Record<string, unknown>>(
+        admin,
+        'select public.admin_grant_role_by_email($1, $2) as r',
+        [ziel.email, 'admin'],
+      )
+      expect(res.status, `Versuch ${versuch}`).toBe('ok')
+    }
+    const rows = await sql<{ n: number }>(
+      `select count(*)::int as n from platform.user_roles where user_id = $1`,
+      [ziel.id],
+    )
+    expect(rows[0]?.n).toBe(1)
+  })
+
+  it('unbekannte E-Mail, unsinnige Rolle und leere Eingabe werden als Status abgelehnt, nicht als Exception', async () => {
+    const admin = await newUser()
+    await makeAdmin(admin.id)
+    const ziel = await newUser()
+    const vorher = await adminCount()
+
+    // Ein Tippfehler in der Adresse darf keine Rolle irgendwo hin vergeben.
+    expect(
+      (await callAs<Record<string, unknown>>(
+        admin,
+        'select public.admin_grant_role_by_email($1, $2) as r',
+        [`gibtsnicht-${randomUUID()}@example.test`, 'admin'],
+      )).status,
+    ).toBe('user_not_found')
+    expect(await adminCount()).toBe(vorher)
+
+    // Die Rollen-Prüfliste ist dieselbe wie bei admin_grant_role — und greift VOR der E-Mail-Suche.
+    expect(
+      (await callAs<Record<string, unknown>>(
+        admin,
+        'select public.admin_grant_role_by_email($1, $2) as r',
+        [ziel.email, 'superuser'],
+      )).status,
+    ).toBe('invalid_role')
+
+    // Reine Leerzeichen sind eine leere Eingabe, kein Suchbegriff.
+    expect(
+      (await callAs<Record<string, unknown>>(
+        admin,
+        'select public.admin_grant_role_by_email($1, $2) as r',
+        ['   ', 'admin'],
+      )).status,
+    ).toBe('missing_fields')
+
+    const rows = await sql<{ n: number }>(
+      `select count(*)::int as n from platform.user_roles where user_id = $1`,
+      [ziel.id],
+    )
+    expect(rows[0]?.n).toBe(0)
   })
 
   it('Rolle vergeben ist idempotent, unbekannte Rolle/Nutzer werden als Status abgelehnt', async () => {

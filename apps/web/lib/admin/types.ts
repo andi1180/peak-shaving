@@ -1,5 +1,5 @@
 /**
- * Zeilen-Typen der drei `admin_list_*`-Wrapper (T4-4).
+ * Zeilen-Typen der vier `admin_list_*`-Wrapper (T4-4 + Nacharbeit).
  *
  * Die Wrapper geben `jsonb` zurück; der Supabase-Typgenerator kennt davon nur `Json`. Diese Typen
  * beschreiben die tatsächliche Form — sie sind eine BEHAUPTUNG über die Migration, kein Beweis.
@@ -38,12 +38,28 @@ export type EntitlementRow = {
   currently_active: boolean
 }
 
-export type UserRow = {
+/**
+ * Ein Konto mit MINDESTENS EINER Rolle (`admin_list_admins`). Trägt bewusst KEINE Entitlements:
+ * ob dieser Mensch auch zahlender Kunde ist, ist eine andere Frage — und steht in `CustomerRow`.
+ */
+export type AdminRow = {
   user_id: string
   email: string | null
   created_at: string
   display_name: string | null
   roles: string[]
+}
+
+/**
+ * Ein Konto mit MINDESTENS EINEM Entitlement (`admin_list_customers`) — aktiv oder historisch.
+ * Trägt bewusst KEINE Rollen: der Kundenabschnitt ist rein lesend und hat mit Berechtigungen
+ * nichts zu tun.
+ */
+export type CustomerRow = {
+  user_id: string
+  email: string | null
+  created_at: string
+  display_name: string | null
   entitlements: EntitlementRow[]
 }
 
