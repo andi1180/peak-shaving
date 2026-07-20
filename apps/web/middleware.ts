@@ -1,7 +1,8 @@
 import createMiddleware from 'next-intl/middleware'
-import type { NextRequest } from 'next/server'
+import { NextResponse, type NextRequest } from 'next/server'
 import { routing } from './i18n/routing'
 import { updateSession } from './lib/supabase/middleware'
+import { ADMIN_HREF } from './lib/admin/config'
 
 const handleI18nRouting = createMiddleware(routing)
 
@@ -21,6 +22,22 @@ const handleI18nRouting = createMiddleware(routing)
  * Nutzer flöge scheinbar zufällig aus der Session. Genau das vermeidet die Komposition hier.
  */
 export async function middleware(request: NextRequest): Promise<Response> {
+  /*
+   * `/admin` (T4-4) steht bewusst AUSSERHALB der Sprach-Struktur — ein interner Verwaltungsbereich
+   * ist kein Seiteninhalt (dieselbe Begründung wie beim Styleguide, s. `app/(dev)/layout.tsx`).
+   * Ohne diesen Zweig schriebe next-intl ihn in die Locale-Struktur um und `/admin` bekäme ein
+   * Locale-Präfix.
+   *
+   * ABER: anders als `/auth` (unten im matcher ausgeschlossen) läuft der Session-Refresh hier
+   * WEITER. Der Callback-Handler ist ausgenommen, weil er seine Cookies selbst setzt — dieser Grund
+   * gilt für `/admin` nicht. Ein Admin-Bereich ohne Refresh flöge mitten in der Arbeit aus der
+   * Session, sobald das Access-Token abläuft, ohne dass eine andere Seite zwischendurch aufgerufen
+   * wurde. Deshalb: next-intl übersprungen, `updateSession` nicht.
+   */
+  if (request.nextUrl.pathname.startsWith(ADMIN_HREF)) {
+    return await updateSession(request, NextResponse.next({ request }))
+  }
+
   const response = handleI18nRouting(request)
   return await updateSession(request, response)
 }
