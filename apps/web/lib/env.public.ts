@@ -22,6 +22,12 @@ const publicSchema = z.object({
   NEXT_PUBLIC_VERCEL_URL: optionalEnv,
   // Cloudflare-Turnstile-Widget-Key (im Browser sichtbar — bei Turnstile Absicht).
   NEXT_PUBLIC_TURNSTILE_SITE_KEY: optionalEnv,
+  // PostHog-Projekt-Key (`phc_…`). Im Browser sichtbar — bei PostHog by design:
+  // er darf nur Events SCHREIBEN, nichts lesen. Fehlt er, lädt Analytics gar nicht.
+  NEXT_PUBLIC_POSTHOG_KEY: optionalEnv,
+  // PostHog-Ingest-Host. Fehlt er, greift der EU-Default aus `components/analytics/posthog.tsx`
+  // — NICHT der US-Default der Bibliothek (die Begründung steht dort).
+  NEXT_PUBLIC_POSTHOG_HOST: optionalEnv,
 })
 
 export const publicEnv = parseEnv(
@@ -30,6 +36,8 @@ export const publicEnv = parseEnv(
     NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL,
     NEXT_PUBLIC_VERCEL_URL: process.env.NEXT_PUBLIC_VERCEL_URL,
     NEXT_PUBLIC_TURNSTILE_SITE_KEY: process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY,
+    NEXT_PUBLIC_POSTHOG_KEY: process.env.NEXT_PUBLIC_POSTHOG_KEY,
+    NEXT_PUBLIC_POSTHOG_HOST: process.env.NEXT_PUBLIC_POSTHOG_HOST,
   },
   'öffentliche (NEXT_PUBLIC_*)',
 )

@@ -86,6 +86,33 @@ ohne sie sind Checkout/Portal/Webhook nicht funktionsfähig.
   Aktuell ist der Bau gegen einen **fremden Test-Account** verifiziert (§12 #11) — vor dem Livegang durch
   CoolIns eigenen Stripe-Account ersetzen (neue Keys, neues Produkt/Preis, neuer Endpoint).
 
+### 1e. Analytics: PostHog, cookielos (optional; ohne sie läuft die Seite unverändert, nur ohne Messung)
+
+Code: `apps/web/components/analytics/posthog.tsx` · Vorlage: `apps/web/.env.example`
+
+| Variable | Scope | Wert-Herkunft | Pflicht |
+|---|---|---|---|
+| `NEXT_PUBLIC_POSTHOG_KEY` | **nur Production** | PostHog → Project Settings → Project API Key (beginnt mit `phc_`) | optional; ohne sie lädt Analytics gar nicht |
+| `NEXT_PUBLIC_POSTHOG_HOST` | nur Production | `https://eu.i.posthog.com` (EU-Cloud Frankfurt) | optional — der Code fällt selbst auf den EU-Host zurück |
+
+- **Preview/Development: beide weglassen.** Ohne Key wird der `posthog-js`-Chunk nie angefordert
+  (kein Script, kein Request, kein Fehler) — eine Preview soll die Produktions-Statistik nicht verfälschen.
+- **`NEXT_PUBLIC_POSTHOG_HOST` weglassen ist sicher, aber nicht beliebig:** Der Code defaultet auf die
+  **EU**-Cloud, NICHT auf den US-Default der Bibliothek. Nur setzen, wenn eine andere Region gilt —
+  ein falscher Wert hier ist ein stiller Drittlandtransfer.
+- **Kein Cookie-Banner nötig, und das ist der Grund:** Der Code läuft mit `cookieless_mode: 'always'` —
+  PostHog legt **nie** ein Cookie und **nie** einen localStorage-Eintrag an. `identify()` wird nirgends
+  aufgerufen (PostHog sperrt es in diesem Modus ohnehin); es gibt keine personenbezogene Wiedererkennung
+  und keine Verknüpfung mit der Supabase-Session. Session Replay ist **im Code** abgeschaltet, nicht nur
+  im Dashboard.
+- **⚠ DASHBOARD-VORAUSSETZUNG, sonst kommt nichts an:** In PostHog unter
+  **Project Settings → Web analytics** die Option **„Cookieless server hash mode" aktivieren.**
+  Ohne sie verwirft PostHog die cookielos gesendeten Events serverseitig — der Code ist dann korrekt,
+  die Statistik bleibt aber leer. Nebenwirkung dieses Modus (erwartet, kein Defekt): GeoIP-Anreicherung
+  und Bot-Erkennung entfallen, die Weltkarte in Web Analytics bleibt leer.
+- **`/admin` sendet nichts** — der Verwaltungsbereich hat ein eigenes Root-Layout und durchläuft die
+  Analytics-Einhängestelle strukturell nicht. Nichts zu konfigurieren, nur zu wissen.
+
 ---
 
 ## 2. Supabase-Dashboard-Einstellungen (nicht über Migrationen abgedeckt)
