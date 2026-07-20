@@ -7,6 +7,8 @@
 >
 > **Dateiname-Hinweis:** Diese Datei heißt `CLAUDE.md` (damit Claude Code sie in `apps/web/` automatisch lädt). Es darf KEINE Parallel-Datei `CLAUDE_Website.md` o. Ä. im Repo liegen — sonst driftet der Stand. Immer nur diese eine Datei pflegen.
 >
+> **Übergeordnet: `../../Fahrplan_2026.md`** — kanonische Quelle für Reihenfolge/Umfang aller Bauabschnitte seit 20.07.2026. Für `apps/web` relevant: **B1–B3** (Lead-/Einwilligungsfundament, Segmentierung, Lead-Erfassungskomponente), **B4** (Vertragsablauf-Erinnerung), **B5** (Förder-Check), **B6** (E-Control-Widget). Der Haushalts-Tarifmonitor (`/strom-check`, T3) ist seit 20.07.2026 **RUHEND** — bleibt bestehen, bleibt `noindex`, bleibt unverlinkt, wird nicht weitergebaut; s. Banner in `../../Pflichtenheft_Monitor_MVP.md` und `../../packages/tariff-monitor/CLAUDE.md`.
+>
 > **Naming-Hinweis (nur claude.ai-Projektordner, nicht Repo):** Im flachen claude.ai-Projektordner liegt diese Datei bewusst unter dem Namen **`CLAUDE_Website.md`**, weil dort bereits eine `CLAUDE.md` für das Kalkulator-Schwesterprojekt existiert und zwei gleichnamige Dateien im selben flachen Ordner nicht unterscheidbar wären. **Im Repo** heißt sie korrekt `CLAUDE.md` (in `apps/web/`) — dort eindeutig, weil eigener Ordner. Beim Hochladen hier im Projektordner also immer `CLAUDE_Website.md` verwenden, nie `CLAUDE.md`.
 
 ---

@@ -1,5 +1,11 @@
 # Doku-Struktur — Fakten & aktueller Stand
 
+## Oberste Quelle: `Fahrplan_2026.md`
+
+Seit 20.07.2026 ist **`Fahrplan_2026.md`** (Repo-Root) die kanonische Quelle für Reihenfolge, Umfang und Begründung aller Bauabschnitte — bei Widerspruch zu einem Pflichtenheft gilt diese Datei. Der Haushalts-Tarifmonitor (Dokumente unten mit „RUHEND" markiert) ist eingestellt; Details und die neue Bauabschnitts-Nummerierung (B0–B15) stehen dort.
+
+**Session-Einstieg, in dieser Reihenfolge:** `Fahrplan_2026.md` → diese Datei (Landkarte) → die `CLAUDE.md` der betroffenen App → `DEPLOYMENT.md`.
+
 ## Aktuelle Dateien in diesem claude.ai-Projektordner
 
 - `CLAUDE_Website.md` — Arbeitsregeln Website
@@ -7,8 +13,8 @@
 - `CLAUDE_PEAKSHAVING.md` — Arbeitsregeln Kalkulator
 - `Pflichtenheft_Kalkulator_MVP.md` — Detaildokument Kalkulator
 - `DESIGN.md` — Design-Tokens Kalkulator
-- `CLAUDE_Monitor.md` — Arbeitsregeln Monitor (angelegt sobald Monitor-Session startet)
-- `Pflichtenheft_Monitor_MVP.md` — Detaildokument Monitor (angelegt sobald Monitor-Session startet)
+- `CLAUDE_Monitor.md` — Arbeitsregeln Monitor **(RUHEND seit 20.07.2026, s. `Fahrplan_2026.md`)**
+- `Pflichtenheft_Monitor_MVP.md` — Detaildokument Monitor **(RUHEND seit 20.07.2026, s. `Fahrplan_2026.md`)**
 
 ## Entsprechung im Repo (github.com/andi1180/peak-shaving)
 
@@ -18,8 +24,8 @@
 | `Pflichtenheft_Website_Coolin.md` | `apps/web/Pflichtenheft_Website_Coolin.md` |
 | `CLAUDE_PEAKSHAVING.md` | `CLAUDE.md` (Repo-Root) |
 | `Pflichtenheft_Kalkulator_MVP.md` | `Pflichtenheft_Kalkulator_MVP.md` (Repo-Root) |
-| `CLAUDE_Monitor.md` | `packages/tariff-monitor/CLAUDE.md` |
-| `Pflichtenheft_Monitor_MVP.md` | `Pflichtenheft_Monitor_MVP.md` (Repo-Root) |
+| `CLAUDE_Monitor.md` | `packages/tariff-monitor/CLAUDE.md` **(RUHEND)** |
+| `Pflichtenheft_Monitor_MVP.md` | `Pflichtenheft_Monitor_MVP.md` (Repo-Root) **(RUHEND)** |
 
 ## Regel
 

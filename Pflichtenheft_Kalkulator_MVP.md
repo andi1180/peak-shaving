@@ -510,6 +510,18 @@ Ausgelöst durch Martins Review. **Pflichtfelder** bei Lead-Abgabe: Name, E-Mail
 
 ---
 
+## 7a. Anstehende Bauabschnitte aus `Fahrplan_2026.md`
+
+Seit 20.07.2026 ist `Fahrplan_2026.md` (Repo-Root) kanonisch für Reihenfolge/Umfang aller Bauabschnitte. Drei davon betreffen den Kalkulator direkt:
+
+- **B10 — Kalkulator ans Entitlement-System.** Löst den separaten, DB-losen Zugangscode (`lib/kalkulator-access.ts`) ab und hängt den Kalkulator an dieselbe `platform.entitlements`-Infrastruktur, die der Monitor-Bauabschnitt T4-1 gebaut hat. Vorbedingung für jede Fachbetriebs-Lizenz.
+- **B11 — Kalkulator auf Verordnungssätze umstellbar machen.** Tarifsätze als konfigurierbare Datenschicht statt hartkodierter Annahmen, damit eine Sätze-Änderung (z. B. Nov/Dez 2026) eine Konfigurationsänderung ist, kein Umbau unter Zeitdruck.
+- **B14 — Analyse-Persistenz (HOCH PRIORISIERT, muss vor der ersten Pilotanalyse stehen).** Auslegung und Prognose-Baseline serverseitig speichern. Der Kalkulator speichert heute nichts serverseitig (localStorage; §4-Supabase-Schema ist spezifiziert, aber noch nicht ans Portal angebunden). Jede Pilot- oder 990-€-Analyse ohne B14 erzeugt eine Baseline, die verloren geht — relevant für den späteren Wirkungsnachweis (2027), dessen Alleinstellungsmerkmal genau diese Baseline ist.
+
+Die fachliche Tiefe zu B10/B11/B14 wird hier ergänzt, sobald der jeweilige Abschnitt ansteht — nicht auf Vorrat.
+
+---
+
 ## 8. Offene Punkte & Martin-Abhängigkeiten
 
 | # | Punkt | Owner | Blockiert |
