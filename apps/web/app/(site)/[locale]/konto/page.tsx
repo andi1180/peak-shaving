@@ -17,8 +17,6 @@ import {
 } from '@/lib/stripe/config'
 import { redirectToLocalized } from '@/lib/auth/server-helpers'
 import { createClient } from '@/lib/supabase/server'
-import { isCurrentUserAdmin } from '@/lib/admin/guard'
-import { ADMIN_HREF } from '@/lib/admin/config'
 
 // J6: serverseitig geschützt, VOR dem Rendern. getUser() + searchParams → dynamisch. noindex (J7).
 export const dynamic = 'force-dynamic'
@@ -60,13 +58,6 @@ export default async function Page({
   if (!user) redirectToLocalized(ANMELDEN_HREF, locale)
 
   const t = await getTranslations({ locale, namespace: 'Konto' })
-
-  /*
-   * Erst NACH dem Session-Guard oben: `isCurrentUserAdmin` leitet ohne Session selbst auf
-   * /anmelden um — hier ist die Session bereits sicher, der Aufruf beantwortet also wirklich nur
-   * die Rollenfrage. `cache()` in der Funktion hält es bei einem RPC je Anfrage.
-   */
-  const isAdmin = await isCurrentUserAdmin()
 
   // Der Ende-zu-Ende-Beweis: Session → Cookie → RPC-Wrapper → RLS. Die Zugangs-WAHRHEIT kommt aus
   // get_my_entitlement (K1, kennt kein Stripe); get_my_subscription liefert nur die Anzeige-DETAILS
@@ -190,35 +181,15 @@ export default async function Page({
           </section>
 
           {/*
-            * Der einzige Einstieg in den Verwaltungsbereich — vorher war /admin nur erreichbar,
-            * indem man die Adresse tippte.
+            * HIER STEHT BEWUSST KEIN LINK AUF /admin — und das ist eine Entscheidung, kein
+            * Versehen. Ein solcher Link existierte kurzzeitig (isAdmin-geschützt) und wurde
+            * absichtlich zurückgenommen: der Verwaltungsbereich soll vollständig unauffindbar
+            * bleiben, auch für eingeloggte Admins. Sie merken sich die Adresse selbst.
             *
-            * NUR FÜR ADMINS SICHTBAR, und zwar über dieselbe Funktion, die den Bereich selbst
-            * schützt (`isCurrentUserAdmin`): es gibt weiterhin genau EINE Definition von „ist
-            * Admin". Der Zweck ist hier aber ein anderer als dort — nicht Autorisierung (die liegt
-            * in der Datenbank), sondern Verschwiegenheit: wer keinen Zugang hat, soll aus dieser
-            * Seite nicht erfahren, dass es einen Verwaltungsbereich GIBT. Deshalb wird der Block
-            * bei `false` GAR NICHT ERZEUGT statt nur ausgeblendet — ein `hidden`-Element stünde im
-            * HTML und im RSC-Payload und verriete genau das, was es verbergen soll.
-            *
-            * Kein `Link` aus `@/i18n/navigation`: /admin liegt bewusst außerhalb der
-            * Locale-Struktur (`lib/admin/config.ts`), ein locale-bewusster Link setzte ihm ein
-            * Präfix vor, das die Route nicht kennt.
+            * Konsequenz für künftige Arbeit: /konto darf `isCurrentUserAdmin()` gar nicht erst
+            * aufrufen. Schon die Rollenabfrage wäre hier zwecklos — es gibt nichts, das von ihrer
+            * Antwort abhängen dürfte.
             */}
-          {isAdmin && (
-            <div className="rounded-lg border border-line bg-surface p-6">
-              <h2 className="text-h4 text-ink">Verwaltung</h2>
-              <p className="mt-1 text-small text-text-muted">
-                Interner Bereich: Scraper-Ziele, Rollen, Kunden und Gutscheincodes.
-              </p>
-              <div className="mt-4">
-                <Button asChild variant="secondary" size="md">
-                  <a href={ADMIN_HREF}>Zur Verwaltung</a>
-                </Button>
-              </div>
-            </div>
-          )}
-
           <form action={signOutAction}>
             <Button type="submit" variant="secondary" size="md">
               {t('account.logout')}
