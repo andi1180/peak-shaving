@@ -1,3 +1,14 @@
+> **RUHEND GESTELLT seit 20.07.2026.**
+> Dieses Dokument beschreibt den eingestellten Haushalts-Tarifmonitor.
+> Es wird NICHT weitergebaut. Gebauter Code (T1 Engine, T3 Gratis-Check)
+> bleibt bestehen und in CI, wird aber nicht weiterentwickelt.
+> Nicht gelöscht, weil reaktivierbar (z. B. anderer Markt).
+> **Kanonisch für alle aktuellen Bauentscheidungen ist `Fahrplan_2026.md`.**
+> Grund der Einstellung: E-Control bietet dieselbe Funktion kostenlos bei
+> gesetzlich erzwungener Datenvollständigkeit, für Haushalte und Gewerbe.
+
+---
+
 # Pflichtenheft — Haushalts-Energiemonitor MVP
 
 > **Plattform-Kontext:** COOLiN ENERGY (COOLiN GmbH, Wien). Drittes Produkt neben Pro-Kalkulator (B2B, live) und Firmen-Monitoring (B2B, geplant). Läuft unter der Dachmarke COOLiN Energy (`coolin.at`).
@@ -307,6 +318,8 @@ Anders als der dataless Pro-Kalkulator speichert der Monitor **personenbezogene,
 ---
 
 ## 13. Baureihenfolge
+
+> **[RUHEND seit 20.07.2026]** Diese Baureihenfolge wird nicht mehr fortgesetzt (s. Banner am Dateianfang). T1–T4 sind wie unten beschrieben gebaut und bleiben bestehen. **T5 (Dashboard) entfällt ersatzlos, T6 (KI-Rechnungsscan Haushalt) wandert umgelenkt auf Gewerbe nach `Fahrplan_2026.md` B8, T7 (Cron/Benachrichtigung) lebt als Infrastrukturgedanke in `Fahrplan_2026.md` B4 weiter.** Der Rest dieses Abschnitts beschreibt den Stand zum Zeitpunkt der Einstellung, nicht mehr das Bauziel.
 
 Wir bauen auf die **finale Lösung** hin (Entscheidung Andreas), nicht auf einen MVP; der Demo-/MVP-Schnitt wird separat entschieden. Engine zuerst und getestet (Muster aus dem Kalkulator: Logik + Fixtures vor UI-Verdrahtung), UI als paralleler Track gegen einen stabilen Output-Contract.
 

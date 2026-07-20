@@ -6,6 +6,8 @@
 > **Schwesterprojekt:** Der Peak-Shaving-Kalkulator (`Pflichtenheft_Kalkulator_MVP.md`, Repo-Regeln `CLAUDE.md`). Die Website „dreht sich" um diesen Kalkulator; die Rechen-Engine wird wiederverwendet, nicht neu gebaut.
 >
 > **Stand:** Konzeption abgeschlossen, Bauphase noch nicht begonnen. Version 1.0.
+>
+> **Nachtrag 20.07.2026:** Übergeordnet gilt jetzt `../../Fahrplan_2026.md` — kanonische Quelle für Reihenfolge/Umfang aller Bauabschnitte. Die hier unter §10.2/§13 OP#11 skizzierte „Lead-Verwaltung" und der `/admin`-Bereich werden dort als **B1** (Lead- und Einwilligungsfundament) und **B2** (Segmentierung & Aussendung) geführt, deutlich konkreter gefasst als hier (versionierte Einwilligungen, Herkunftskontext als Pflichtfeld, Double-Opt-in). Die fachliche Tiefe zu B1–B3 wird hier ergänzt, sobald diese Abschnitte gebaut werden. Außerdem inzwischen überholt: **§8.6 nennt „Plausible oder Umami" als Analytics-Wahl — real umgesetzt ist PostHog** (cookielos, `cookieless_mode: 'always'`, kein Cookie-Banner, EU-Hosting Frankfurt), s. `apps/web/CLAUDE.md` und `DEPLOYMENT.md` §1e.
 
 ---
 

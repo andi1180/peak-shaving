@@ -8,6 +8,11 @@
 > Stand: Cloud-Projekt „coolin_energy" (Org „CoolIn", Region **EU / Frankfurt / eu-central-1**)
 > ist mit dem Repo verknüpft, alle Migrationen sind gepusht, Seed ist eingespielt. Was noch fehlt,
 > damit ein Deploy tatsächlich läuft, steht unten.
+>
+> **Nachtrag 20.07.2026:** Der Haushalts-Tarifmonitor ist ruhend gestellt (`./Fahrplan_2026.md`). Die
+> unten dokumentierten monitor-bezogenen Punkte (u. a. §2a „Exposed schemas → `monitor`") sind damit
+> **ruhend, nicht entfernt** — sie bleiben gültig für den bestehenden, weiterhin deployten Code
+> (`monitor`-Schema, `/strom-check`) und werden bei einer Reaktivierung wieder gebraucht.
 
 ---
 

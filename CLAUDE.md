@@ -5,6 +5,8 @@
 > Diese Datei enthält die Regeln und Leitplanken; das Pflichtenheft enthält die Details.
 >
 > Hinweis: Das Repo enthält zusätzlich `apps/web` (Website coolin.at) mit eigener `apps/web/CLAUDE.md` und `apps/web/Pflichtenheft_Website_Coolin.md` — für Website-Arbeit gelten diese, nicht diese Datei.
+>
+> **Übergeordnet: `./Fahrplan_2026.md`** — kanonische Quelle für Reihenfolge/Umfang aller Bauabschnitte seit 20.07.2026. Für den Kalkulator relevant: **B10** (Anbindung ans Entitlement-System, löst den DB-losen Zugangscode ab), **B11** (Tarifsätze auf konfigurierbare Verordnungssätze umstellbar machen) und **B14** (Analyse-Persistenz — hoch priorisiert, muss vor der ersten Pilotanalyse stehen). Details dazu folgen im Pflichtenheft, sobald der jeweilige Abschnitt ansteht.
 
 ---
 

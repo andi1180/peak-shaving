@@ -1,3 +1,14 @@
+> **RUHEND GESTELLT seit 20.07.2026.**
+> Dieses Dokument beschreibt den eingestellten Haushalts-Tarifmonitor.
+> Es wird NICHT weitergebaut. Gebauter Code (T1 Engine, T3 Gratis-Check)
+> bleibt bestehen und in CI, wird aber nicht weiterentwickelt.
+> Nicht gelöscht, weil reaktivierbar (z. B. anderer Markt).
+> **Kanonisch für alle aktuellen Bauentscheidungen ist `../../Fahrplan_2026.md`.**
+> Grund der Einstellung: E-Control bietet dieselbe Funktion kostenlos bei
+> gesetzlich erzwungener Datenvollständigkeit, für Haushalte und Gewerbe.
+
+---
+
 # CLAUDE.md — Haushalts-Energiemonitor
 
 > Wird im Ordner `packages/tariff-monitor` automatisch geladen. Bewusst kurz.
@@ -178,3 +189,5 @@ T1 Tarif-Engine (jetzt) → T2 Scraper + historisierende Tabelle → T3 Gratis-C
 - **[DEPLOY: T4-3-Migration auf Cloud nachgeholt — Cloud-DB war HINTER dem Repo, jetzt synchron]** Bei der Cloud-Anbindung/Segfault-Probe (s. Eintrag oben) waren nur die damaligen **5** Migrationen gepusht — die T4-3-RPC-Wrapper-Migration (`20260719101500_create_stripe_rpc_wrappers.sql`) kam ERST danach dazu und wurde **nie auf die Cloud gepusht** (`supabase migration list --linked` zeigte sie lokal-only, remote fehlend). Der `valid_until`-CHECK-Nachtrag (`20260718104300`) war bereits remote. Jetzt per `supabase db push --linked` nachgeholt (Verknüpfung bestand noch, Ref `amdeupwgytuvgpacsywh`, kein PW-Prompt) → `migration list` lückenlos synchron.
   - **[CLOUD-VERIFIKATION der Grants — gegen die Cloud, per `has_function_privilege`-Introspektion, KEIN Aufruf (Segfault-Vermeidung wie T4-2b)]** via `supabase db query --linked`: `get_stripe_customer_id(uuid)` → **service_role=true, authenticated=false, anon=false**; `get_my_subscription(platform.product_key)` → **authenticated=true, service_role=false, anon=false**; `upsert_stripe_customer`/`process_stripe_subscription_event` → **service_role-only**. Alle vier Wrapper mit exakt den erwarteten Grants, `anon` auf keinem. Danach Andreas zum erneuten Live-Checkout-Test aufgefordert.
   - **[LEHRE — ab sofort verbindlicher Standard-Schritt, analog Vercel-Live-Check] Jeder Bauabschnitt, der eine neue Migration enthält, pusht diese am Abschluss AUTOMATISCH auf die Cloud** (`supabase db push --linked`) — NICHT erst bei expliziter Aufforderung. Ohne diesen Schritt laufen Repo und Cloud-DB auseinander (hier: der Checkout scheiterte live, weil die RPC-Wrapper in der Cloud fehlten). **Fester Bestandteil des Abschluss-Blocks jeder T4-Aufgabe und aller künftigen Aufgaben mit Migration:** (1) `supabase db push --linked`, (2) **gegen die Cloud** verifizieren (Introspektion, kein Aufruf), (3) bei auth-/zahlungsrelevanten Änderungen Andreas zum Live-Test auffordern. Siehe auch `DEPLOYMENT.md` §5.
+
+- **[ENTSCHIEDEN: 20.07.2026] Monitor ruhend gestellt — Ersatz durch `../../Fahrplan_2026.md`.** Nach Analyse des Marktumfelds: E-Control betreibt mit dem Tarifkalkulator samt Watchdog dieselbe Funktion kostenlos, bei gesetzlich erzwungener Vollständigkeit aller Anbieterdaten, für Haushalte UND Gewerbe — ein Eigenbau ist weder inhaltlich noch preislich zu gewinnen. Der Tarifvergleich wird künftig kostenlos über ein eingebettetes E-Control-Widget angeboten (`Fahrplan_2026.md` B6). T1 (Tarif-Engine) und T3 (`/strom-check`) bleiben unverändert bestehen und in CI (Code + Tests grün), werden aber nicht weitergebaut. T2 (Scraper) entfällt — wurde nie gebaut. T4 (Auth/Stripe/Entitlements) bleibt UNVERÄNDERT AKTIV und trägt jetzt alle künftigen Produkte aus `Fahrplan_2026.md`. T5 entfällt ersatzlos, T6 wandert umgelenkt auf Gewerbe (`Fahrplan_2026.md` B8), T7 lebt als Infrastrukturgedanke weiter (`Fahrplan_2026.md` B4). Reaktivierbar, falls sich ein Bedarf jenseits des E-Control-Angebots zeigt. Diese Datei wird ab hier nicht mehr fortgeschrieben; künftige Handover-Einträge zu B0–B15 gehören in die jeweils zuständige `CLAUDE.md` (`apps/web/CLAUDE.md` bzw. Root-`CLAUDE.md`).
