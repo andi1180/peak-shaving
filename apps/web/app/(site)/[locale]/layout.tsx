@@ -10,6 +10,7 @@ import { organizationLd } from '@/lib/json-ld'
 import { JsonLd } from '@/components/json-ld'
 import { SiteHeader } from '@/components/layout/site-header'
 import { SiteFooter } from '@/components/layout/site-footer'
+import { PostHogAnalytics } from '@/components/analytics/posthog'
 import '../../globals.css'
 
 // Inter selbst gehostet via next/font (Pflichtenheft §7.4: Performance + DSGVO).
@@ -99,6 +100,21 @@ export default async function LocaleLayout({
          * diese ID (`organizationRef`).
          */}
         <JsonLd schema={organizationLd()} />
+        {/*
+         * COOKIELOSES ANALYTICS FÜR DIE GANZE ÖFFENTLICHE SEITE (inkl. der
+         * Monitor-Route /strom-check, die unter diesem Layout liegt).
+         *
+         * DASS ES HIER UND NUR HIER STEHT, IST DIE /admin-AUSNAHME. `app/admin`
+         * hat ein EIGENES Root-Layout (T4-4, außerhalb der Sprach-Struktur) und
+         * durchläuft dieses hier nie — der Verwaltungsbereich lädt PostHog damit
+         * STRUKTURELL nicht, nicht per Pfad-Abfrage, die jemand später falsch
+         * anpassen könnte. Das ist dort nicht nur eine Datenschutz-, sondern eine
+         * Sichtbarkeitsfrage: ein Tracking-Request aus /admin wäre ein weiterer
+         * Kanal, über den die bloße Existenz des Bereichs nach außen sichtbar wird
+         * (dieselbe Sorge, die dort schon den Seitentitel neutral hält).
+         * Ebenso ausgenommen: /styleguide (eigenes (dev)-Root-Layout).
+         */}
+        <PostHogAnalytics />
         <NextIntlClientProvider>
           <SiteHeader />
           <main className="flex-1">{children}</main>
