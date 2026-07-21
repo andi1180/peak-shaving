@@ -15,3 +15,9 @@ export * from './archive'
 // bewusst neben `archive.ts`: beide Seiten importieren dieselbe Definition, es gibt keine zweite
 // Beschreibung desselben Formats.
 export * from './analysis-bundle'
+// B11: die Tarifsatz-Datenschicht (Vorgabewerte je Netzbetreiber/Netzebene). Liegt hier und nicht
+// in `engine`, weil der Rechenkern sie NICHT lesen darf — Konfiguration an den Rändern,
+// Determinismus im Kern. Dieselbe Aufteilung wie beim `DEMO_BATTERY_CATALOG`: ein Katalog, den die
+// App der Engine als Parameter hineinreicht. Abgesichert durch
+// `packages/engine/src/tariff/no-catalog-dependency.test.ts`.
+export * from './tariff-catalog'

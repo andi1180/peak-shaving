@@ -407,6 +407,69 @@ Signing Secret, Prüfschritt).
 
 ---
 
+## 3a. Tarifsätze nachtragen (B11) — Kalkulator, KEINE Datenbank, KEINE Migration
+
+> **Diese Anleitung wird im November/Dezember 2026 unter Zeitdruck gelesen, wenn die
+> Tarifverordnung (SNE-T-V) erscheint. Deshalb knapp und schrittweise.**
+
+Die Tarifsätze des Kalkulators (Leistungspreis, Abrechnungsmodell, Mindestbemessung je
+Netzbetreiber und Netzebene) liegen als getypte Datenschicht **im Code**, nicht in der Datenbank:
+**genau eine Datei**, `packages/shared/src/tariff-catalog.ts`. Es gibt dafür kein Schema, keine
+Migration, keine Admin-Bearbeitung und keinen Laufzeitabruf. Begründung ausführlich im Kopf der
+Datei; kurz: Versionierung, Freigabe durch eine zweite Person und Unveränderlichkeit nach der
+Auslieferung leistet die Versionsverwaltung bereits, und eine Datenbanklösung machte den
+öffentlichen Rechner von einem Netzaufruf abhängig oder gäbe `anon` Zugriff auf `platform`.
+
+### Einen bestehenden Satz nachtragen (der Regelfall: eine Ebene fehlt noch)
+
+1. `packages/shared/src/tariff-catalog.ts` öffnen, in `TARIFF_SET_AT_2026.profiles` das Profil der
+   Kombination suchen (z. B. `netzbetreiber: 'netz_noe', netzebene: 5`).
+2. Das Profil **ersetzen** — `availability: 'pending_regulation'` samt `reason`/`note` fällt weg,
+   `availability: 'available'` mit **allen drei** Preisfeldern tritt an seine Stelle:
+   ```ts
+   {
+     netzbetreiber: 'netz_noe',
+     netzebene: 5,
+     availability: 'available',
+     billingModel: 'monthly_max_average',   // was die Netzrechnung als Abrechnungszeitraum nennt
+     leistungspreisEurPerKwYear: 00.00,     // aus dem Preisblatt, nicht geschätzt
+     minBillableKw: 0,                      // 0 = kein Sockel angesetzt
+   },
+   ```
+   Der Typ lässt kein halbes Profil zu: ein Preisfeld an einem `pending_regulation`-Profil bricht
+   den Typecheck, ein fehlendes an einem `available`-Profil bricht den Test.
+3. `sourceNote` des Satzes um die neue Fundstelle ergänzen (Preisblatt, Version, Abrufdatum).
+4. `pnpm --filter shared test` — die Datei-Prüfung (`validateTariffSets`) meldet fehlende
+   Preisfelder, doppelte Kombinationen und überschneidende Gültigkeiten im Klartext.
+5. `pnpm typecheck && pnpm lint`, committen, PR. **Eine Datei, ein PR, kein Deployment-Sonderweg.**
+
+**Kein Wert zur Hand? Dann NICHTS eintragen.** Das Profil bleibt `pending_regulation`, und der
+Rechner sagt dem Nutzer, dass für diese Kombination nicht gerechnet wird. Ein erfundener
+Vorgabewert ist schlimmer als ein fehlender — er sieht aus wie eine Aussage.
+
+### Einen ganz neuen Stand anlegen (der Fall SNE-T-V zum Tarifjahr 2027)
+
+1. Am bestehenden Satz `validUntil: '2026-12-31'` setzen. **Nicht überschreiben** — eine 2026
+   archivierte Analyse muss auch 2028 noch sagen können, welcher Stand ihr zugrunde lag.
+2. Einen neuen `TariffSet` anlegen (`id: 'at-2027'`, `validFrom: '2027-01-01'`, eigene
+   `sourceNote`) und in `TARIFF_SETS` **hinter** den alten stellen.
+3. Netzebene 7 von `pending_regulation` auf `available` umstellen — das ist der eigentliche Zweck
+   von B11. Damit hört der Rechner auf, die Berechnung zu verweigern, und der Warteliste-Verweis
+   verschwindet von selbst (er hängt an `availability`, nicht an einem Schalter).
+4. Schritte 4–5 von oben. Die Datei-Prüfung schlägt an, falls das `validUntil` vergessen wurde:
+   zwei gleichzeitig geltende Stände für dieselbe Kombination sind ein Fehler, kein Vorrang.
+
+### Was dabei NICHT zu tun ist
+
+- **Keine Migration.** Entstünde in dieser Aufgabe eine, wäre die Grundentscheidung missverstanden.
+- **Nicht die Engine anfassen.** `packages/engine` kennt die Datenschicht nicht und darf es nie —
+  `packages/engine/src/tariff/no-catalog-dependency.test.ts` prüft das über die tatsächlichen
+  Importe und wird rot, sobald jemand es doch tut.
+- **Keine Werte in archivierten Analysen nachziehen.** Die Preise stehen dort denormalisiert und
+  bleiben, wie sie waren (B14-1, Regel (b)); ein neuer Stand ändert nur künftige Rechnungen.
+
+---
+
 ## 4. Anhang — DB-Verbindung für Tooling (DB-Gate gegen die Cloud, einmalig)
 
 Rein operativ, für den seltenen Fall, dass das DB-Gate (`packages/db-tests`) noch einmal gegen die Cloud

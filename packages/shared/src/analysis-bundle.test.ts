@@ -173,6 +173,95 @@ describe('B14-2 — Bündel-Export im Rechner', () => {
   })
 })
 
+describe('B11 — Tarif-Herkunft im Bündel (Fassung 2)', () => {
+  const WITH_SOURCE: AnalysisBundleInputs = {
+    ...INPUTS,
+    tariffSetId: 'at-2026',
+    tariffSetLabel: 'Netznutzung Österreich, Stand 2026',
+    tariffSetValidFrom: '2026-01-01',
+    tariffProfileKey: 'wiener_netze:NE3',
+    tariffOverriddenFields: ['billingModel'],
+  }
+
+  // ── Pflicht-Test 7 ────────────────────────────────────────────────────────────────────────────
+  it('trägt Fassung 2, die neuen Felder — und die Preiswerte weiterhin DENORMALISIERT', async () => {
+    const bundle = await buildAnalysisBundle({
+      engineVersion: ENGINE_VERSION,
+      engineCommitSha: REAL_COMMIT,
+      computedAt: '2026-07-21T10:00:00.000Z',
+      inputs: WITH_SOURCE,
+      result: makeResult(),
+      sourceFileName: 'lastgang-2023.csv',
+      sourceFile: SOURCE,
+    })
+
+    expect(bundle.bundleVersion).toBe(2)
+    expect(bundle.inputs.tariffSetId).toBe('at-2026')
+    expect(bundle.inputs.tariffSetValidFrom).toBe('2026-01-01')
+    expect(bundle.inputs.tariffProfileKey).toBe('wiener_netze:NE3')
+    expect(bundle.inputs.tariffOverriddenFields).toEqual(['billingModel'])
+
+    /*
+     * DER EIGENTLICHE PUNKT: die Kennung tritt NEBEN die Werte, nicht an ihre Stelle. Stünde hier
+     * nur noch `tariffSetId`, änderte ein gepflegter Tarifsatz-Stand die eingefrorene Baseline
+     * still mit — genau das verbietet B14-1, Regel (b), und zwar ausdrücklich schon mit Blick auf
+     * diesen Bauabschnitt.
+     */
+    expect(bundle.inputs.tariff.leistungspreisEurPerKwYear).toBe(100)
+    expect(bundle.inputs.tariff.billingModel).toBe('annual_max')
+    expect(bundle.inputs.tariff.minBillableKw).toBe(0)
+
+    expect(parseAnalysisBundle(JSON.parse(serializeAnalysisBundle(bundle))).ok).toBe(true)
+  })
+
+  it('lässt die Felder weg, wenn kein Netzbetreiber gewählt wurde', async () => {
+    const bundle = await makeBundle()
+    // Fehlend, nicht leer: „kam direkt aus der Netzrechnung" ist eine eigene Aussage.
+    expect(bundle.inputs.tariffSetId).toBeUndefined()
+    expect(bundle.inputs.tariffOverriddenFields).toBeUndefined()
+    expect(bundle.bundleVersion).toBe(2)
+  })
+
+  it('unterscheidet „unverändert übernommen" von „keine Auswahl"', async () => {
+    const bundle = await buildAnalysisBundle({
+      engineVersion: ENGINE_VERSION,
+      engineCommitSha: REAL_COMMIT,
+      computedAt: '2026-07-21T10:00:00.000Z',
+      inputs: { ...WITH_SOURCE, tariffOverriddenFields: [] },
+      result: makeResult(),
+      sourceFileName: 'lastgang-2023.csv',
+      sourceFile: SOURCE,
+    })
+    // Leeres Array = Vorgabewerte unverändert übernommen. Fehlendes Feld = gar keine Auswahl.
+    expect(bundle.inputs.tariffOverriddenFields).toEqual([])
+    expect(bundle.inputs.tariffSetId).toBe('at-2026')
+  })
+
+  // ── Pflicht-Test 8 ────────────────────────────────────────────────────────────────────────────
+  it('nimmt ein Bündel der Fassung 1 unverändert an', async () => {
+    const v2 = await makeBundle()
+    // Ein Bündel, wie es der Rechner VOR B11 erzeugt hat: Fassung 1, ohne die neuen Felder.
+    const v1 = { ...v2, bundleVersion: 1 }
+
+    const parsed = parseAnalysisBundle(JSON.parse(JSON.stringify(v1)))
+    expect(parsed.ok).toBe(true)
+    if (!parsed.ok) return
+    expect(parsed.bundle.bundleVersion).toBe(1)
+    expect(parsed.bundle.inputs.tariffSetId).toBeUndefined()
+    // Unverändert heisst unverändert: die Rückgabe ist das rohe Objekt, nicht eine „migrierte" Kopie.
+    expect(parsed.bundle.inputs.tariff).toEqual(v2.inputs.tariff)
+    expect(parsed.bundle.sourceFileSha256).toBe(v2.sourceFileSha256)
+  })
+
+  it('lehnt eine unbekannte Fassung weiterhin ab, statt zu raten', () => {
+    const parsed = parseAnalysisBundle({ bundleVersion: 3 })
+    expect(parsed.ok).toBe(false)
+    if (parsed.ok) return
+    expect(parsed.message).toContain('Unbekannte Bündel-Fassung 3')
+    expect(parsed.message).toContain('1, 2')
+  })
+})
+
 describe('B14-2 — die fünf typisierten Auszüge', () => {
   it('leitet sie aus dem Ergebnis ab, nicht aus einer Eingabe', () => {
     const extracts = deriveBaselineExtracts(makeResult())

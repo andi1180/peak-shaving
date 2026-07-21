@@ -7,6 +7,19 @@ import { coveredMonthlyPeaksKw, positiveAnnualPeakKw } from '../peaks/metrics'
  * kW-Wert aus einem (ggf. batterie-modifizierten) Lastgang. Austauschbar — kein
  * hartkodierter Jahreshöchstwert im Rechenkern.
  *
+ * ── KONFIGURATION AN DEN RÄNDERN, DETERMINISMUS IM KERN (B11) ──────────────────
+ * Die Tarifsätze kommen als PARAMETER herein (`TariffParams`) und werden hier
+ * niemals nachgeschlagen. Seit B11 gibt es eine Tarifsatz-Datenschicht
+ * (`packages/shared/src/tariff-catalog.ts`) — sie belegt die Oberfläche vor, und
+ * die Engine kennt sie nicht. Das ist das Gegenstück zur Regel „KI an den
+ * Rändern": eine Engine, die ihre eigenen Sätze holt, ist nicht mehr allein aus
+ * ihren Eingaben nachvollziehbar, und genau diese Nachvollziehbarkeit ist die
+ * Voraussetzung dafür, dass eine eingefrorene Baseline (B14) 2027 noch etwas
+ * belegt: dieselben Eingaben müssen dasselbe Ergebnis liefern, ohne dass jemand
+ * den Stand einer Konfiguration von damals rekonstruieren muss.
+ * Abgesichert durch `./no-catalog-dependency.test.ts` (prüft die Importe, nicht
+ * die Absicht).
+ *
  * `benutzungsdauerModel` (§3.1/§3.5) ist hier bewusst NICHT verdrahtet: die exakte
  * Umschaltlogik (Schwelle → andere Preisspalte) ist fachlich offen und wartet auf
  * Martins Tarif-Systematik (OP#3). Alle drei Strategien nehmen einen konstanten

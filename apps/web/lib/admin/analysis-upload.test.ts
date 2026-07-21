@@ -145,12 +145,14 @@ describe('B14-2 — Prüfkette des Analyse-Uploads', () => {
   // ── Pflicht-Test 1 ────────────────────────────────────────────────────────────────────────────
   it('weist eine unbekannte bundleVersion ab und erzeugt keine Argumente', async () => {
     const bundle = await bundleFor()
-    const text = JSON.stringify({ ...bundle, bundleVersion: 2 })
+    // Seit B11 sind 1 UND 2 gültig; unbekannt ist die nächsthöhere. Der Fall bleibt derselbe:
+    // ein Bündel aus einer neueren Rechner-Fassung wird nicht halb verstanden übernommen.
+    const text = JSON.stringify({ ...bundle, bundleVersion: 3 })
 
     const result = await prepare(text)
     expect(result.ok).toBe(false)
     if (result.ok) throw new Error('unerreichbar')
-    expect(result.message).toMatch(/Unbekannte Bündel-Fassung 2/)
+    expect(result.message).toMatch(/Unbekannte Bündel-Fassung 3/)
     expect(result.message).toMatch(/es wird nichts angelegt/i)
     // Es gibt keine Argumente — also gibt es auch nichts, was an die Datenbank gehen könnte.
     expect('prepared' in result).toBe(false)
@@ -290,5 +292,54 @@ describe('B14-2 — Prüfkette des Analyse-Uploads', () => {
     // Ein unbrauchbarer Wert wird weggelassen statt durchgereicht: die Datenbank sähe sonst einen
     // Typfehler, und der Mensch bekäme eine Meldung, die nichts mit seiner Eingabe zu tun hat.
     expect('p_supersedes_id' in good.prepared.args).toBe(false)
+  })
+})
+
+describe('B11 — der Upload nimmt Fassung 1 UND 2 an', () => {
+  // ── TEIL 7 (8) ────────────────────────────────────────────────────────────────────────────────
+  it('nimmt ein Bündel der Fassung 1 unverändert an', async () => {
+    const bundle = await bundleFor()
+    // Wie der Rechner es VOR B11 erzeugt hat: alte Fassung, keine Tarif-Herkunft. Ein solches
+    // Bündel kann exportiert und noch nicht hochgeladen worden sein — es unbrauchbar zu machen
+    // wäre der schlechtere Handel.
+    const v1 = { ...bundle, bundleVersion: 1 }
+
+    const result = await prepare(JSON.stringify(v1))
+    if (!result.ok) throw new Error(result.message)
+
+    // UNVERÄNDERT: `p_inputs` ist wortgleich das, was im Bündel stand — nicht eine „migrierte"
+    // Fassung mit leeren neuen Feldern. Aus dem Einfrieren würde sonst ein Umschreiben.
+    expect(result.prepared.args.p_inputs).toEqual(bundle.inputs)
+    expect((result.prepared.args.p_inputs as Record<string, unknown>).tariffSetId).toBeUndefined()
+    expect(result.prepared.args.p_source_file_sha256).toBe(bundle.sourceFileSha256)
+  })
+
+  it('nimmt ein Bündel der Fassung 2 samt Tarif-Herkunft an und reicht sie wortgleich durch', async () => {
+    const bundle = await buildAnalysisBundle({
+      engineVersion: ENGINE_VERSION,
+      engineCommitSha: REAL_COMMIT,
+      computedAt: '2026-07-21T10:00:00.000Z',
+      inputs: {
+        ...INPUTS,
+        tariffSetId: 'at-2026',
+        tariffSetLabel: 'Netznutzung Österreich, Stand 2026',
+        tariffSetValidFrom: '2026-01-01',
+        tariffProfileKey: 'wiener_netze:NE3',
+        tariffOverriddenFields: ['leistungspreisEurPerKwYear'],
+      },
+      result: RESULT,
+      sourceFileName: 'lastgang-2023.csv',
+      sourceFile: SOURCE,
+    })
+
+    const result = await prepare(serializeAnalysisBundle(bundle))
+    if (!result.ok) throw new Error(result.message)
+
+    const inputs = result.prepared.args.p_inputs as Record<string, unknown>
+    expect(inputs.tariffSetId).toBe('at-2026')
+    expect(inputs.tariffProfileKey).toBe('wiener_netze:NE3')
+    expect(inputs.tariffOverriddenFields).toEqual(['leistungspreisEurPerKwYear'])
+    // Und die Preise stehen weiter als WERTE daneben (B14-1, Regel (b)).
+    expect((inputs.tariff as Record<string, unknown>).leistungspreisEurPerKwYear).toBe(100)
   })
 })

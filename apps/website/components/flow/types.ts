@@ -1,5 +1,11 @@
 import type { DataQuality } from 'engine'
-import type { FinancialParams, LoadProfile, PvProfile, TariffParams } from 'shared'
+import type {
+  FinancialParams,
+  LoadProfile,
+  PvProfile,
+  TariffParams,
+  TariffSelection,
+} from 'shared'
 import type { BatteryOverride } from '@/lib/analysis-protocol'
 
 // Vom Tarif-Schritt nach oben gereichtes Ergebnis. `pv` ist optional (§3.1/§5 Schritt 2) — liegt es
@@ -8,6 +14,15 @@ export type TariffResult = {
   tariff: TariffParams
   financial?: FinancialParams
   pv: ParsedPv | null
+  /**
+   * B11: welcher Tarifsatz-Stand die Werte vorbelegt hat, samt der Vorgabewerte von damals.
+   * `undefined`, wenn kein Netzbetreiber gewählt wurde — dann kommen die Werte direkt aus der
+   * Netzrechnung, und genau das soll später unterscheidbar bleiben.
+   *
+   * Reist NICHT in die Engine (sie kennt die Datenschicht nicht, TEIL 2), sondern in den Report und
+   * in das Analyse-Bündel.
+   */
+  tariffSelection?: TariffSelection
   // Eine PV-Datei wurde hochgeladen, konnte aber NICHT gelesen werden (parsePvProfile → error/
   // needs_mapping) → `pv` bleibt null. Die Meldung wandert in den Report (dataQuality), damit der
   // Upload nicht still verpufft (§3.1). Nur gesetzt, wenn tatsächlich eine Datei abgelehnt wurde.
