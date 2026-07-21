@@ -7,7 +7,7 @@
 >
 > **Stand:** Konzeption abgeschlossen, Bauphase noch nicht begonnen. Version 1.0.
 >
-> **Nachtrag 20.07.2026:** Übergeordnet gilt jetzt `../../Fahrplan_2026.md` — kanonische Quelle für Reihenfolge/Umfang aller Bauabschnitte. Die hier unter §10.2/§13 OP#11 skizzierte „Lead-Verwaltung" und der `/admin`-Bereich werden dort als **B1** (Lead- und Einwilligungsfundament) und **B2** (Segmentierung & Aussendung) geführt, deutlich konkreter gefasst als hier (versionierte Einwilligungen, Herkunftskontext als Pflichtfeld, Double-Opt-in). Die fachliche Tiefe zu B1–B3 wird hier ergänzt, sobald diese Abschnitte gebaut werden. Außerdem inzwischen überholt: **§8.6 nennt „Plausible oder Umami" als Analytics-Wahl — real umgesetzt ist PostHog** (cookielos, `cookieless_mode: 'always'`, kein Cookie-Banner, EU-Hosting Frankfurt), s. `apps/web/CLAUDE.md` und `DEPLOYMENT.md` §1e.
+> **Nachtrag 20.07.2026:** Übergeordnet gilt jetzt `../../Fahrplan_2026.md` — kanonische Quelle für Reihenfolge/Umfang aller Bauabschnitte. Die hier unter §10.2/§13 OP#11 skizzierte „Lead-Verwaltung" und der `/admin`-Bereich werden dort als **B1** (Lead- und Einwilligungsfundament) und **B2** (Segmentierung & Aussendung) geführt, deutlich konkreter gefasst als hier (versionierte Einwilligungen, Herkunftskontext als Pflichtfeld, Double-Opt-in). Die fachliche Tiefe zu B1–B3 wird hier ergänzt, sobald diese Abschnitte gebaut werden — **B1 ist gebaut und in §15 nachgezogen (21.07.2026)**; B2/B3 folgen, wenn sie an der Reihe sind (Baureihenfolge: B3 **vor** B2, s. Fahrplan). Außerdem inzwischen überholt: **§8.6 nennt „Plausible oder Umami" als Analytics-Wahl — real umgesetzt ist PostHog** (cookielos, `cookieless_mode: 'always'`, kein Cookie-Banner, EU-Hosting Frankfurt), s. `apps/web/CLAUDE.md` und `DEPLOYMENT.md` §1e.
 
 ---
 
@@ -394,6 +394,8 @@ Datenschutzerklärung: Der Live-Text ist inhaltlich vollständig (DSGVO-Pflichta
 
 `[OP#3 — Owner: Martin/rechtlich]` **Sobald Supabase Kontaktdaten speichert** (schon Phase 1) bzw. Login/Analytics/Stripe dazukommen, ist die aktuelle Datenschutzerklärung (verfasst für die statische Netlify-Seite) **unzureichend und muss rechtlich aktualisiert werden** (Versionierung; Formular-Speicherung, Turnstile, Analytics, später Auth/Zahlung/Verlauf sauber beschreiben). **Vor Live-Gang der Formular-Speicherung.**
 
+**`[Nachtrag 21.07.2026]` Dieser Auslöser ist inzwischen eingetreten:** Das Kontaktformular schreibt seit B1-2 real in den Lead-Bestand. Welche Verarbeitungen konkret zu beschreiben sind (Lead- und Einwilligungsdaten, die beiden Aufbewahrungsfristen, Anonymisierung als Löschverfahren, Sperrliste, IP/Browser-Kennung als Einwilligungsnachweis), steht in **§15.9 Punkt 2**.
+
 ### 9.3 Consent / Cookies
 
 `[Entscheidung]` Durch **Plausible/Umami + Turnstile kein Cookie-Consent-Banner nötig.** Falls später doch cookie-setzende Dienste (z. B. GA4) dazukommen, wird ein Consent-Mechanismus erforderlich — dann bewusst entscheiden.
@@ -419,6 +421,8 @@ Datenschutzerklärung: Der Live-Text ist inhaltlich vollständig (DSGVO-Pflichta
 ### 10.2 Geschäfts-Admin
 
 `[Phase 2]` Eigener, **rollen-geschützter `/admin`-Bereich** (Supabase-backed) — **kein CMS**, echte mandantenspezifische Logik: **Partner-Freigaben**, Lead-Verwaltung, später Produkt-/Mandanten-Pflege.
+
+**`[Nachtrag 21.07.2026]`** Der `/admin`-Bereich existiert (Rollen, Kunden, Gutscheincodes, Scraper-Ziele) und trägt seit B1-3 den Abschnitt **Leads**. Was dort möglich ist — und was bewusst **nicht** möglich ist — steht in **§15.7**. Partner-Freigaben bleiben offen.
 
 ### 10.3 Partner-Selbstregistrierung
 
@@ -487,6 +491,189 @@ Aktivierung weiterer (europäischer) Sprachen über die in Phase 1 gelegte i18n-
 **Gates.** Jeder Schritt wird von Andreas live getestet (Vercel-URL), bevor der nächste Prompt geschrieben wird. Bei Bugs: **Root Cause durch CC, nicht Symptom-Fix.**
 
 **Design.** frontend-design-Skill konsultieren. Mehr gestalterische Freiheit als das Kalkulator-Projekt (Marketing-Seite) — **aber Rechtstexte (Impressum/Datenschutz) unverändert übernehmen, keine Kreativfreiheit dort.**
+
+---
+
+## 15. Lead- und Einwilligungsverwaltung (Bauabschnitt B1)
+
+> **Nachgezogen am 21.07.2026, nach Abschluss von B1.** Dieses Kapitel beschreibt, **was gebaut wurde** — nicht, was geplant war. Es ist so geschrieben, dass sich der Einwilligungs- und Löschprozess **ohne Repo-Zugang** beurteilen lässt.
+>
+> **Die Wahrheit über das Datenmodell liegt im Repo**, nicht hier: `supabase/migrations/` (drei Migrationen, Präfix `20260721*`) und die zugehörigen Integrationstests in `packages/db-tests/`. Dieses Kapitel nennt Tabellen- und Spaltennamen nur dort, wo sie zur Nachvollziehbarkeit nötig sind — eine zweite Schema-Kopie im Dokument würde vom Code auseinanderdriften und wäre schlimmer als keine.
+
+### 15.1 Zweck und Abgrenzung
+
+**Ein Bestand, nicht getrennte Listen.** Jede Person, deren Kontaktdaten das System erreicht, wird als **ein** Eintrag geführt — mit einem Statuskennzeichen für ihren Stand in der Geschäftsbeziehung. Getrennte Listen je Kanal („Newsletter", „Kontaktanfragen", „Messe") wären beim ersten Massenversand die Fehlerquelle: dieselbe Person stünde in zwei Listen, in einer davon abgemeldet, und bekäme die Mail trotzdem. Ein Bestand macht diesen Fehler unmöglich.
+
+**Was B1 leistet:**
+- Erfassung von Kontakten mit **verpflichtender Angabe des Einstiegspunkts** (über welchen Artikel, welches Formular, welche Aktion der Kontakt entstanden ist).
+- **Mehrere zweckgebundene Einwilligungen je Person über die Zeit**, jede mit eigenem Nachweis.
+- **Double-Opt-in** für alle Zwecke, deren Erfüllung eine künftige E-Mail ist.
+- **Abmeldung** auf zwei Ebenen (einzelner Zweck vs. dauerhafte Sperre der Adresse).
+- **Aufbewahrungsfristen** als abgeleitete Größe und **Anonymisierung** als endgültigen Vorgang.
+- Einen **Admin-Bereich**, in dem sich all das einsehen und ausüben lässt.
+
+**Was ausdrücklich NICHT zu B1 gehört:**
+
+| Fehlt noch | Kommt mit |
+|---|---|
+| Segmentierte Sicht, Export, Massenversand, Zustellprotokoll | **B2** |
+| Erfassungsstellen jenseits des Kontaktformulars; die Segmentierungsmerkmale selbst (Branche, Netzebene, PLZ, Verbrauch) | **B3** |
+| Automatische Durchsetzung der Löschfristen (zeitgesteuerter Job) | **B4** |
+| Mandantenfähigkeit (getrennte Bestände je Partnerbetrieb) | **B13** |
+
+Die Segmentierungsmerkmale wurden in B1 **bewusst** ausgelassen: sie werden erst mit B3 fachlich definiert. Vorratsspalten oder ein Freitext-Sammelbecken anzulegen wäre später teurer zu räumen, als sie dann sauber zu ergänzen.
+
+**Die automatische Löschung fehlt noch — das ist eine Betriebspflicht, keine Fußnote.** Bis B4 wird die Frist durchgesetzt, indem eine Person den Admin-Bereich ansieht und fällige Einträge von Hand anonymisiert. Der Admin-Bereich weist genau darauf hin, an sichtbarer Stelle über der Liste.
+
+### 15.2 Datenmodell in fachlicher Sprache
+
+Drei Arten von Datensätzen, plus eine bewusst freistehende vierte.
+
+**1. Der Bestandseintrag („Lead").** Trägt die Identitätsmerkmale (E-Mail-Adresse, optional Firma, Ansprechperson, Telefon), den Einstiegspunkt der **Ersterfassung**, ein Statuskennzeichen (`neu` → `kontaktiert` → `Kunde`, bzw. `anonymisiert`), die Rechtsgrundlage der Aufbewahrung, den Zeitpunkt der letzten Interaktion und die daraus abgeleitete Löschfrist. Die E-Mail-Adresse ist eindeutig — Groß-/Kleinschreibung und Leerzeichen zählen dabei nicht, damit dieselbe Person nicht zweimal im Bestand steht.
+
+Der Einstiegspunkt der Ersterfassung ist ein **Pflichtfeld und nach dem Anlegen unveränderlich**. Eine nachträglich umgeschriebene Herkunft wäre keine Herkunft mehr.
+
+**Das Statuskennzeichen ist reiner Lebenszyklus — eine Abmeldung steht bewusst NICHT darin.** Das ist keine Kosmetik: Man kann vom Marketing abgemeldet **und zugleich** zahlender Kunde sein. Ein einziges Statusfeld für beides würde genau diesen Normalfall unmodellierbar machen. Die Abmeldung ist ein Einwilligungszustand (§15.5).
+
+**2. Die Einwilligung.** **Mehrere je Person über die Zeit sind der Normalfall**, nicht die Ausnahme: erteilen, widerrufen, Jahre später erneut erteilen. Jede dieser Zeilen ist ein **eigenständiger Nachweis** — mit eigenem Zeitpunkt, eigenem Einstiegspunkt, eigener Textfassung und eigenem Zustand. Es gibt bewusst keine Beschränkung auf „eine Einwilligung je Zweck": die **Historie** ist der Nachweis. Die Frage „darf ich dieser Person jetzt schreiben?" wird nie durch einen Blick auf eine einzelne Zeile beantwortet, sondern durch eine dafür vorgesehene Prüfung über den gesamten Bestand an Einwilligungen (§15.5).
+
+**3. Der Einwilligungstext.** Versionierte, **unveränderliche** Datensätze. Jede Einwilligung zeigt auf **genau die Textfassung, die der Person angezeigt wurde** — nicht auf die heute gültige. Änderung und Löschung eines Textes sind auf Datenbankebene gesperrt; eine neue Fassung ist immer ein neuer Datensatz mit höherer Fassungsnummer. Begründung: **Ein Einwilligungsnachweis, dessen Wortlaut sich nachträglich ändern lässt, ist kein Nachweis.**
+
+Zur Fassung gehört auch die **Sprachfassung**. Ein englisch angezeigter Text muss englisch archiviert werden — man kann keine Zustimmung zu einem Wortlaut belegen, den die Person nie gesehen hat.
+
+**4. Die Sperrliste.** Steht bewusst frei und hat keine Verbindung zu den Bestandseinträgen — Begründung in §15.5.
+
+**Warum die Vertragsablauf-Erinnerung keine Marketing-Einwilligung ist.** Wer sich daran erinnern lassen möchte, dass sein Stromvertrag ausläuft, hat **nicht** zugestimmt, Angebote und Neuigkeiten zu erhalten — und umgekehrt. Es sind zwei verschiedene Verarbeitungszwecke mit zwei verschiedenen Erwartungen der betroffenen Person. Sie werden deshalb als getrennte Einwilligungen geführt, getrennt bestätigt und getrennt widerrufen. Ein Widerruf der Werbeeinwilligung lässt die Erinnerung ausdrücklich bestehen, und andersherum genauso.
+
+### 15.3 Einwilligungsarchitektur
+
+**Die drei Zwecke:**
+
+| Zweck | Was er erlaubt | Bestätigung nötig? |
+|---|---|---|
+| **Informationen & Angebote** (`marketing_email`) | Künftige Aussendungen rund um Netzentgelte, Lastspitzen und Energiekosten | **ja** |
+| **Vertragsablauf-Erinnerung** (`contract_expiry_reminder`) | Eine E-Mail vor Ende der Strom-Vertragslaufzeit — in Monaten oder Jahren | **ja** |
+| **Ergebnis-Zusendung** (`result_delivery`) | Die einmalige Zusendung eines gerade angeforderten Rechenergebnisses | nein |
+
+**Die Regel, wann bestätigt werden muss: sobald die Erfüllung eine KÜNFTIGE E-Mail ist — nicht erst bei Werbung.** Deshalb ist die Vertragsablauf-Erinnerung bestätigungspflichtig, obwohl sie kein Marketing ist: Wer eine fremde Adresse einträgt, erzeugt dort einen **dauerhaften Eintrag im Verteiler**, der irgendwann eine unerwartete Mail auslöst. Die einmalige Ergebniszusendung ist es nicht: Sie **ist** die unmittelbar angeforderte Leistung. Wer seine Adresse falsch eintippt, bekommt sein Ergebnis nicht, und ein Dritter bekommt eine einzelne, von ihm nicht angeforderte Mail — keinen Verteilereintrag.
+
+Diese Zuordnung steht an **genau einer Stelle** im System und wird von der Datenbank hart erzwungen: Eine bestätigungspflichtige Einwilligung kann den Zustand „bestätigt" **niemals ohne Bestätigungszeitstempel** erreichen — auch nicht über die Serverseite, auch nicht durch einen Administrator und auch nicht durch einen künftigen Programmierfehler.
+
+**Der Bestätigungslink.** Beim Erfassen entsteht ein Zufallswert von 32 Byte. In der Datenbank steht **ausschließlich sein Hashwert**; der Klartext existiert nur in der E-Mail an die betroffene Person. Ein Datenbankleck enthält damit keine einlösbaren Bestätigungslinks. Der Link ist **7 Tage gültig**.
+
+Solange eine Bestätigung offen und nicht abgelaufen ist, erzeugt ein erneutes Absenden desselben Formulars **keine zweite** Bestätigungsmail. Das ist kein Komfort: Ohne diese Sperre könnte jemand eine fremde Adresse eintippen und durch wiederholtes Absenden beliebig viele Mails dorthin auslösen — das Formular wäre ein Mail-Verstärker.
+
+**Weder Bestätigung noch Abmeldung wirken durch bloßes Öffnen eines Links.** Beide verlangen eine ausdrückliche Handlung auf der geöffneten Seite. Grund: **Mailscanner in Unternehmen rufen Links in eingehenden Mails vorab automatisch ab.** Eine Einwilligung, die dadurch entstünde, hätte niemand erteilt — sie wäre wertlos und würde im Ernstfall den gesamten Nachweis in Zweifel ziehen. Umgekehrt wäre eine so ausgelöste Abmeldung eine Abmeldung, die niemand veranlasst hat. Der Aufruf der Bestätigungsseite ist deshalb nachweislich **rein lesend**: Er zeigt nur an, worum es geht, und verändert am Datenbestand nichts. Ein Integrationstest hält genau das fest (vollständiger Vergleich des Datensatzes vor und nach zwei Aufrufen).
+
+*Einzige Ausnahme, bewusst:* der technische Ein-Klick-Abmeldeweg nach **RFC 8058**, den Gmail und Yahoo für Massenversender verlangen. Er läuft ebenfalls nicht über einen einfachen Seitenaufruf, sondern über eine schreibende Anfrage des Mailprogramms — dort ist der Absender das Mailprogramm der Person selbst, nicht ein Scanner.
+
+**Was je Einwilligung erfasst wird:**
+- **Zeitpunkt der Erteilung** und, getrennt davon, **Zeitpunkt der Bestätigung** sowie **Zeitpunkt eines Widerrufs**.
+- Die **Textfassung** (Fassungsnummer und Sprachfassung), auf die die Einwilligung zeigt — samt vollem Wortlaut abrufbar.
+- Der **Einstiegspunkt**, über den genau diese Einwilligung entstanden ist. Er kann von der Ersterfassung des Bestandseintrags abweichen: erfasst über den Schnellrechner, Jahre später Werbeeinwilligung über einen Fachvortrag.
+- Die **technische Herkunft**: IP-Adresse und Browser-Kennung zum Zeitpunkt der Erteilung.
+
+**Zur technischen Herkunft, weil das Projekt sonst kein IP-Tracking betreibt:** Diese beiden Angaben dienen **ausschließlich** dem Einwilligungsnachweis. Es gibt darüber keine Auswertung, keine Zusammenführung und keinen Suchindex. Verboten ist im Projekt die Verhaltensprofilbildung — nicht der Nachweis, dass und wann jemand zugestimmt hat. Bei einer Anonymisierung werden beide Angaben entfernt (§15.6), während der Nachweis selbst bestehen bleibt.
+
+**Der angezeigte und der archivierte Wortlaut sind dieselbe Quelle.** Das Formular liest den Text aus der Datenbank und zeigt ihn an; dieselbe Auswahlregel bestimmt anschließend, welche Fassung archiviert wird. Eine zweite Kopie des Textes in den Oberflächen-Übersetzungen wäre exakt der Zustand, gegen den die Unveränderlichkeit gebaut ist: Der Nachweis behauptete dann einen Wortlaut, den die Person so nicht gesehen haben muss.
+
+### 15.4 Die drei Einwilligungstexte im Wortlaut
+
+> **⚠ ARBEITSSTAND — juristisch ungeprüft.** Diese drei Texte sind der aktuell im System hinterlegte Stand (jeweils **Fassung 1, deutsch**). Die rechtliche Prüfung steht aus (Owner: Martin, siehe §15.9). Eine geprüfte Fassung wird als **Fassung 2** neu angelegt; **die bestehende Fassung 1 wird niemals bearbeitet** — bereits erteilte Einwilligungen müssen weiter auf den Text zeigen, der ihnen tatsächlich angezeigt wurde. Anzeige und Archivierung ziehen automatisch auf die jeweils jüngste Fassung nach.
+
+**Informationen & Angebote — Fassung 1:**
+
+> Ich möchte von der COOLiN ENERGY GmbH Informationen und Angebote rund um Netzentgelte, Lastspitzen und Energiekosten per E-Mail erhalten. Diese Einwilligung kann ich jederzeit über den Abmeldelink in jeder E-Mail oder per Nachricht an energy@coolin.at widerrufen.
+
+**Vertragsablauf-Erinnerung — Fassung 1:**
+
+> Ich möchte per E-Mail an das Ende meiner Strom-Vertragslaufzeit erinnert werden. Dafür speichert die COOLiN ENERGY GmbH meinen Versorger und mein Vertragsende. Diese Einwilligung kann ich jederzeit widerrufen.
+
+**Ergebnis-Zusendung — Fassung 1:**
+
+> Ich möchte mein Rechenergebnis per E-Mail zugeschickt bekommen. Die E-Mail-Adresse wird ausschließlich für diese Zusendung verwendet.
+
+### 15.5 Abmeldung und Sperre — zwei Ebenen
+
+Jede Aussendung stellt künftig **zwei** Fragen, nicht eine. Beide müssen mit „ja" beantwortet sein.
+
+**Ebene 1 — Widerruf eines einzelnen Zwecks.** Der Abmeldelink in jeder E-Mail bezieht sich auf **den Zweck, aus dem diese E-Mail stammt**. Wer den Newsletter nicht mehr will, will nicht zwangsläufig auch auf die Erinnerung an sein Vertragsende verzichten. Ein Widerruf trifft **alle offenen und bestätigten Einträge dieses Zwecks**, nicht nur den jüngsten — eine übersehene ältere Bestätigung würde sonst weiterhin zum Versand berechtigen.
+
+**Ebene 2 — dauerhafte Sperre der Adresse.** Deutlich abgesetzt daneben steht „keine E-Mails mehr". Das widerruft **alle** Zwecke und trägt die Adresse zusätzlich in die Sperrliste ein. Sie erfasst außerdem dauerhafte Unzustellbarkeit, Spam-Beschwerden und händische Sperren.
+
+**Die Sperrliste enthält nur Hashwerte, hat keine Verbindung zum Bestandseintrag und überlebt dessen Löschung — beides mit Absicht:**
+
+- **Sie überlebt die Löschung**, weil eine Abmeldung, die mit dem Datensatz verschwindet, keine Abmeldung ist. Ohne diese Trennung stünde die Person nach der Löschung ihres Eintrags und dem nächsten Import wieder im Verteiler — und bekäme genau die E-Mail, die sie abbestellt hat. Ein technischer Verweis auf den Bestandseintrag würde den Sperreintrag mitreißen und damit die Zusage brechen.
+- **Sie enthält keinen Klartext**, weil eine Liste von Menschen, die „schreiben Sie mir nicht mehr" gesagt haben, sonst die wertvollste und gefährlichste Adressliste im ganzen System wäre. Gespeichert wird nur ein Prüfwert der Adresse. Damit lässt sich fragen „ist **diese** Adresse gesperrt?" — der Fragende hat sie ohnehin, er will ihr schreiben —, aber die Liste selbst gibt keine einzige Adresse her.
+
+Der bekannte Preis dieser Konstruktion ist benannt und angenommen: Wer eine Adresse **rät**, kann sie verifizieren. Das schützt nicht gegen gezielte Nachfrage, verhindert aber, dass die Sperrliste als Verteilerliste taugt — und genau das ist ihr Zweck. Aus demselben Grund ist auch die Einzelabfrage ausschließlich Administratoren zugänglich.
+
+**Für Menschen gibt es deshalb keine Sperrlisten-Ansicht, sondern nur zwei Aussagen:** wie viele Sperren es gibt, und ob eine konkrete Adresse dabei ist. Das ist eine Folge des Entwurfs, kein Mangel der Oberfläche.
+
+**Der Abmeldelink funktioniert dauerhaft**, auch in einer zwei Jahre alten E-Mail. Er trägt seine Gültigkeit als Signatur in sich und braucht keinen zugehörigen Datenbankeintrag — ein solcher würde mit der Löschung des Bestandseintrags verschwinden und den Link entwerten. Ein manipulierter oder erfundener Link führt zu einer **neutralen Seite**: Sie zeigt nirgends eine Adresse an und verrät nicht, ob es den Eintrag gibt.
+
+### 15.6 Aufbewahrung, Löschung, Anonymisierung
+
+**Zwei Fristen, an genau einer Stelle im System hinterlegt:**
+
+| Rechtsgrundlage | Frist | Ab wann |
+|---|---|---|
+| werblich (Marketing-Lead) | **24 Monate** | ab der **letzten Interaktion**, nicht ab Ersterfassung |
+| kaufmännisch (Kunde) | **7 Jahre** (84 Monate) | ab der letzten Interaktion |
+
+**Die Löschfrist wird niemals von Hand gesetzt, sondern immer abgeleitet.** Sie ergibt sich bei jedem Schreibvorgang neu aus letzter Interaktion und Rechtsgrundlage; ein vom Anwendungscode mitgegebener Wert wird kommentarlos überschrieben. Begründung: Eine Frist, die der Anwendungscode setzen kann, ist keine Frist — ein vergessenes Nachziehen wäre unsichtbar und fiele erst beim Löschen auf, dann aber in die falsche Richtung. Jede neue oder geänderte Einwilligung — **auch ein Widerruf** — gilt als Interaktion und schiebt die Frist entsprechend nach; auch ein Widerruf ist ein Vorgang, dessen Nachweis aufzubewahren ist.
+
+**Der Wechsel auf „Kunde" schaltet die Frist automatisch um und ist nicht rückwärts begehbar.** Sobald der Status auf „Kunde" gesetzt wird, wechselt die Rechtsgrundlage auf kaufmännisch und die Frist auf 7 Jahre — ohne Zutun der Oberfläche. Der umgekehrte Weg wird von der Datenbank **abgelehnt**, auch dann, wenn der Status später wieder zurückgesetzt wird: **Eine einmal entstandene kaufmännische Aufbewahrungspflicht endet nicht dadurch, dass ein Kunde abspringt.** Wer Kunde war, hat Belege erzeugt, die aufzubewahren sind; eine Rückstufung würde diese Unterlagen vorzeitig zur Löschung freigeben. Die Verlängerung ist möglich, die Verkürzung nicht.
+
+**Was die Anonymisierung entfernt:**
+- die E-Mail-Adresse — ersetzt durch einen garantiert unzustellbaren, je Eintrag eindeutigen Platzhalter,
+- Firma, Ansprechperson und Telefonnummer,
+- IP-Adresse und Browser-Kennung **aller** zugehörigen Einwilligungen.
+
+**Was bewusst bestehen bleibt:**
+- **die Einwilligungen selbst** — Zweck, Textfassung samt Wortlaut, Zeitpunkt der Erteilung, der Bestätigung und eines Widerrufs. Nach dem Entfernen der Identitätsmerkmale ist das **kein Personenbezug mehr**, aber weiterhin der Beleg, dass ordnungsgemäß gearbeitet wurde: wie viele Einwilligungen erteilt, wie viele bestätigt, zu welchem Wortlaut. Ein Bestand ohne diese Spur könnte im Streitfall nichts zeigen.
+- **der Sperrlisten-Eintrag**, unangetastet (§15.5).
+- Einstiegspunkt und Anlagedatum — Herkunfts- und Mengenstatistik ohne Personenbezug.
+
+**Anonymisierung ist endgültig, auch für privilegierte Zugriffe.** Nach dem Vorgang lehnt die Datenbank jede Änderung an Adresse, Firma, Name, Telefon, Status, Aufbewahrungsgrundlage und am Anonymisierungszeitpunkt ab — für den Administrator, für die Serverseite **und für die höchstprivilegierte Datenbankrolle**. Das ist keine Zusage der Oberfläche, sondern eine Eigenschaft des Datenbestands; Integrationstests prüfen es unter genau diesen Rollen. Festgehalten werden zusätzlich **Zeitpunkt und handelnde Person**.
+
+Ein erneuter Aufruf auf einen bereits anonymisierten Eintrag meldet Erfolg **ohne zweite Wirkung**; der ursprüngliche Zeitpunkt bleibt stehen. Ein nachgeschriebenes Datum wäre eine Fälschung.
+
+**Durchsetzung derzeit manuell.** Es gibt vor **B4** bewusst keinen zeitgesteuerten Job im System. Fällige Einträge werden im Admin-Bereich über einen eigenen Filter sichtbar gemacht, deutlich hervorgehoben und von Hand anonymisiert. Der Hinweis darauf steht sichtbar über der Liste, nicht im Kleingedruckten. Mit **B4** übernimmt das ein automatischer Lauf.
+
+### 15.7 Was der Admin kann — und was bewusst nicht
+
+**Kann:** den Bestand einsehen und filtern (Status, Herkunft, Einwilligungszustand je Zweck, Freitextsuche, fällige Löschfristen) · zu jeder Einwilligung Zweck, Zustand, Zeitpunkte, Fassung **und vollständigen Wortlaut** einsehen · eine einzelne Einwilligung **widerrufen** · eine Adresse **dauerhaft sperren** · einen Eintrag **anonymisieren** · den Lebenszyklus-Status pflegen · abfragen, ob eine Adresse gesperrt ist.
+
+**Kann bewusst nicht: eine Einwilligung anlegen oder bestätigen.** Es gibt dafür keine Schaltfläche und keine Schnittstelle dahinter — die Möglichkeit existiert im System schlicht nicht.
+
+**Begründung, weil sie der Kern des ganzen Entwurfs ist:** Eine Oberfläche, in der sich „bestätigt" setzen lässt, entwertet den Nachweis **rückwirkend für alle Einwilligungen — auch für die echten**. Sobald **eine einzige** Bestätigung per Knopfdruck entstehen konnte, ist von außen keine Bestätigung mehr von einer gesetzten unterscheidbar. Der Bestand könnte dann nicht mehr belegen, dass irgendeine der darin geführten Einwilligungen tatsächlich von der betroffenen Person stammt. Diese Lücke in der Oberfläche ist das Merkmal, nicht der Mangel.
+
+Der einzige Weg zu „bestätigt" bleibt deshalb der Klick der betroffenen Person auf den Link in ihrer eigenen Mailbox. Aus demselben Grund gibt es auch keine Möglichkeit, einen Bestandseintrag **von Hand anzulegen**: Ein so entstandener Eintrag hätte weder Herkunft noch Nachweis.
+
+Der Admin-Bereich ist angemeldeten Administratoren vorbehalten. Die Berechtigung wird bei **jedem** Zugriff serverseitig geprüft, und zwar nicht nur von der Oberfläche, sondern zusätzlich von jeder einzelnen Datenbankoperation dahinter — ein Fehler in der Oberfläche kann niemandem Zugriff verschaffen. Eine fehlende Berechtigung führt zu einem **Fehler**, nicht zu einer leeren Liste: „kein Zugriff" darf sich nie als „keine Daten vorhanden" lesen lassen.
+
+Es gibt **keinen Export und keine Sammelaktionen** — beides gehört zu B2 und setzt die dortigen Prüfungen vor jedem Versand voraus.
+
+### 15.8 Erfassungsstellen
+
+**Derzeit ausschließlich das Kontaktformular auf `/kontakt`.** Weitere Einstiegspunkte (eingebettet in Wissensartikel, Branchen- und Leistungsseiten, unter Rechnerergebnissen, als Landingpage für den QR-Code der Postaktion) kommen mit **B3** und bauen auf demselben Erfassungsweg auf. Die möglichen Einstiegspunkte sind im System als pflegbare Liste geführt, nicht als fester Programmcode — ein neuer Einstiegspunkt erzwingt keine Codeänderung.
+
+**Der Formulareingang selbst erzeugt keine Einwilligung.** Jede Absendung legt einen Bestandseintrag an bzw. aktualisiert einen bestehenden; **Rechtsgrundlage dafür ist die Vertragsanbahnung**, nicht eine Einwilligung. Wer eine Anfrage stellt, erwartet eine Antwort darauf — und nur darauf.
+
+**Eine Werbeeinwilligung entsteht ausschließlich über die zusätzliche, nicht vorausgewählte Ankreuzmöglichkeit.** Sie ist im Formular optisch und inhaltlich vom Anliegen getrennt, trägt den vollen Wortlaut aus der Datenbank und ist im Auslieferungszustand **leer**. Nur wenn sie aktiv gesetzt wird, entsteht eine unbestätigte Einwilligung und geht eine Bestätigungsmail hinaus.
+
+**Der Nachrichtentext wird nicht gespeichert.** Er geht ausschließlich per E-Mail an COOLiN; der Bestand führt nur die Identitätsmerkmale, und es gibt dafür auch kein Feld. Der Schreibvorgang läuft zudem **nach** dem erfolgreichen Versand der Anfrage und kann ihn nie verhindern: Eine verlorene Kundenanfrage wiegt schwerer als ein verlorener Bestandseintrag.
+
+**Die Rückmeldung an die absendende Person ist in allen Fällen identisch.** Sie verrät nicht, ob die Adresse bereits bekannt ist, ob sie gesperrt ist oder ob bereits eine Bestätigung offen steht. Eine gesperrte Adresse führt zur gleichen Bestätigungsseite wie jede andere — es entsteht nur keine Einwilligung und keine Mail. Eine Sperre bedeutet „schreiben Sie mir keine Werbung", nicht „ich existiere nicht"; die Anfrage selbst ist davon nicht betroffen.
+
+### 15.9 Offene rechtliche Punkte
+
+| # | Punkt | Owner | Status |
+|---|---|---|---|
+| 1 | **Wortlaut der drei Einwilligungstexte** (§15.4) juristisch prüfen. Vor breiter Aussendung erforderlich. Die geprüfte Fassung kommt als Fassung 2 neu hinzu; Fassung 1 bleibt unverändert bestehen. | Martin / rechtlich | **offen** |
+| 2 | **Datenschutzerklärung erweitern** um: Verarbeitung von Lead- und Einwilligungsdaten, die beiden Aufbewahrungsfristen (24 Monate / 7 Jahre) und ihre Auslöser, die Anonymisierung als Löschverfahren, die Sperrliste als eigene Verarbeitung mit eigener Begründung sowie die Speicherung von IP und Browser-Kennung als Einwilligungsnachweis. Ergänzt §9.2 / OP#3 um die jetzt real gebauten Verarbeitungen. | Martin / rechtlich | **offen** |
+| 3 | **Branchen-Benchmark aus Rechnungsdaten ist ein EIGENER Zweck** und durch keine der drei Einwilligungen aus §15.3 abgedeckt. Er ist hier ausdrücklich **nicht** geregelt und muss ab der ersten verarbeiteten Rechnung eigenständig in AGB bzw. Auftragsverarbeitungsvereinbarung abgebildet werden (siehe `Fahrplan_2026.md`, offene Entscheidung 6). | Martin / rechtlich | **offen, außerhalb B1** |
 
 ---
 

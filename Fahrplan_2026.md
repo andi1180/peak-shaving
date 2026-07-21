@@ -20,7 +20,7 @@ Richtungsänderung vom 20.07.2026: Der Haushalts-Tarifmonitor als Eigenbau wird 
 - **`DEPLOYMENT.md`** — Env-/Dashboard-Stand, niemals echte Werte.
 - **`README_Doku-Struktur.md`** — Landkarte über alles.
 
-Ein Pflichtenheft für den Rechnungs-Wächter (B7–B9) existiert bewusst NOCH NICHT. Es wird unmittelbar vor B7 geschrieben, wenn Martins Prüfregelwerk vorliegt — vorher wäre es Fiktion. Die fachliche Tiefe zu B1–B3 erweitert das Website-Pflichtenheft, zu B10/B11/B14 das Kalkulator-Pflichtenheft.
+Ein Pflichtenheft für den Rechnungs-Wächter (B7–B9) existiert bewusst NOCH NICHT. Es wird unmittelbar vor B7 geschrieben, wenn Martins Prüfregelwerk vorliegt — vorher wäre es Fiktion. Die fachliche Tiefe zu B1–B3 erweitert das Website-Pflichtenheft, zu B10/B11/B14 das Kalkulator-Pflichtenheft. **B1 ist dort nachgezogen: `apps/web/Pflichtenheft_Website_Coolin.md` §15** (Lead- und Einwilligungsverwaltung — Einwilligungsarchitektur, Wortlaute, Abmeldung/Sperre, Aufbewahrung und Anonymisierung, Grenzen des Admin-Bereichs).
 
 ---
 
@@ -44,8 +44,10 @@ Reaktivierbar, falls sich ein Bedarf jenseits des E-Control-Angebots zeigt (z. B
 
 - **B0** Doku-Umstellung (diese Aufgabe)
 - **B1** Lead- und Einwilligungsfundament — `platform.leads`, EIN Bestand mit Statuskennzeichen; MEHRERE zweckgebundene Einwilligungen je Lead über die Zeit (Vertragsablauf-Erinnerung ist NICHT Marketing-Einwilligung — anderer Zweck); versionierte Einwilligungstexte als eigene unveränderliche Datensätze, auf die der Einwilligungseintrag zeigt; Zeitpunkt + technische Herkunft; Herkunftskontext als PFLICHTFELD (welcher Artikel/welche Branche/welche Anleitung/welches Rechenergebnis/QR-Quelle); Double-Opt-in; Abmeldemechanismus; Admin-Abschnitt „Leads"; Kontaktformular schreibt mit. Additiv mandantenfähig VORBEREITET (kein `tenant_id` jetzt, aber ein Modell, das es ohne Umbau verträgt — die Fachbetriebs-Lizenz enthält „Lead-Verwaltung" für den Partner).
-- **B2** Segmentierung & Aussendung — gefilterte Sicht, Export/Versand, Suppression-Liste, Zustellprotokoll. Das ist die 48-Stunden-Aktivierung des Gesamtbestands zum Erscheinen der Tarifverordnung. Muss stehen, BEVOR der Bestand groß ist.
 - **B3** Lead-Erfassungskomponente + erste Einsatzorte — EIN Backend, VIELE kontextspezifische Einstiegspunkte; kein überall gleiches Formular. Einbettbar in MDX-Artikel, Branchen-/Leistungsseiten, unter Rechnerergebnisse, als eigene Landingpage für den Postbrief-QR-Code. Wertleiter: anonym rechnen → E-Mail für Ergebnisdokument/Anleitung/Warteliste → Versorger+Ablaufdatum für echte Erinnerung → zahlen. Betroffenheits-Check (PLZ + Verbrauch + Branche → Betroffenheit ab 2027 + Lastspitzen-Größenordnung, deterministisch über Vollbenutzungsstunden; Segmentierung leistungsgemessen vs. Netzebene 7) ist der ERSTE Konsument dieser Komponente, nicht ihr Zweck. Der bestehende Schnellrechner (`components/quick-calculator.tsx`) ist die Ausgangsbasis.
+- **B2** Segmentierung & Aussendung — gefilterte Sicht, Export/Versand, Suppression-Liste, Zustellprotokoll. Das ist die 48-Stunden-Aktivierung des Gesamtbestands zum Erscheinen der Tarifverordnung. Muss stehen, BEVOR der Bestand groß ist.
+
+  **`[Reihenfolge korrigiert 21.07.2026]` B3 wird VOR B2 gebaut.** B2 baut die gefilterte Sicht — aber die Filterdimensionen (Branche, Netzebene, PLZ) entstehen erst mit B3 und wurden in B1 ausdrücklich ausgeklammert. B2 vor B3 hieße, gegen nicht existierende Dimensionen und einen leeren Bestand zu bauen. Der ursprüngliche Grund für ein frühes B2 — es muss stehen, BEVOR der Bestand groß ist — bleibt unverändert gültig; er richtet sich gegen ein SPÄTES B2, nicht für ein sofortiges. B3 füllt den Bestand und definiert die Dimensionen, B2 wertet beides aus. **Die Nummern B2/B3 bleiben an ihren Inhalten** (sie sind in Migrationen, Code-Kommentaren und Handover-Logs als Bezeichner in Gebrauch); geändert ist allein die Baureihenfolge.
 - **B4** Vertragsablauf-Erinnerung — Versorger + Ablaufdatum erfassen, Erinnerung 2–3 Monate vorher. Erster zeitgesteuerter Job im System.
 - **B5** Förder-Check — IFB + EAG-Speicherförderung, rein deterministisch. Inhaltlich blockiert auf steuerliche Absicherung.
 - **B6** E-Control-Widget + Netzbetreiber-Anleitungen (Wiener Netze, Netz NÖ, Netz Burgenland). Widget ERST nach technischer Prüfung des Cookie-Verhaltens (s. offene Entscheidungen).
@@ -80,8 +82,8 @@ Lastspitzen-Analyse und Projekt sind KEINE Bauabschnitte — sie sind Datenarbei
 
 ## Offene Entscheidungen (blockieren die genannten Bausteine)
 
-1. Aufbewahrungsfrist und Löschkonzept für Leads → blockiert B1. War der ausdrückliche Grund, warum die `contacts`-Tabelle in Website-Phase 1 NICHT gebaut wurde (s. Kommentar in `apps/web/lib/kontakt/deliver.ts`).
-2. Double-Opt-in ja/nein → blockiert B1.
+1. ~~Aufbewahrungsfrist und Löschkonzept für Leads → blockiert B1.~~ **ERLEDIGT mit B1 (21.07.2026):** 24 Monate ab letzter Interaktion für werbliche Leads, 7 Jahre ab Vertragsschluss als getrennte Rechtsgrundlage; die Frist wird nie von Hand gesetzt, sondern abgeleitet; Löschung erfolgt als Anonymisierung, die den Einwilligungsnachweis und die Sperrliste bewusst überleben lässt; Durchsetzung manuell bis B4. Ausformuliert in `apps/web/Pflichtenheft_Website_Coolin.md` §15.6.
+2. ~~Double-Opt-in ja/nein → blockiert B1.~~ **ERLEDIGT mit B1 (21.07.2026): ja** — für jeden Zweck, dessen Erfüllung eine KÜNFTIGE E-Mail ist (Werbung und Vertragsablauf-Erinnerung), nicht für die einmalige Ergebniszusendung. Ausformuliert in §15.3 des Website-Pflichtenhefts.
 3. Rechnungseingang: Weiterleitung an dedizierte Adresse (hält das Versprechen „keine Mitwirkung über das Weiterleiten hinaus", braucht Inbound-Mail-Infrastruktur — Resend kann nur SENDEN) vs. Upload im Kundenportal (deutlich billiger, Auth existiert, mehr Mitwirkung) → blockiert B8.
 4. Einmalzahlung Netzentgelt-Check: Stripe-Einmalzahlung (heute NICHT gebaut, Stripe-Integration ist abo-only) vs. manuelle Rechnung. Empfehlung: manuell für 2026.
 5. E-Control-Widget: Cookie-Verhalten technisch prüfen → blockiert B6 UND potenziell die gesamte bannerlose Analytics-Architektur. Setzt das Widget Cookies, ist ein Cookie-Banner für die ganze Domain fällig; dann eher verlinken statt einbetten.
@@ -102,7 +104,9 @@ Lastspitzen-Analyse und Projekt sind KEINE Bauabschnitte — sie sind Datenarbei
 
 ## Neue Infrastruktur, die es heute nicht gibt
 
-Zeitsteuerung (B4) · Dateiablage (B8) · eingehende E-Mail (B8, falls Weiterleitung) · erste LLM-Anbindung im Produkt (B8) · Massenversand mit Abmeldung/Suppression (B2) · Zeitreihen-Speicher (B12).
+Zeitsteuerung (B4) · Dateiablage (B8) · eingehende E-Mail (B8, falls Weiterleitung) · erste LLM-Anbindung im Produkt (B8) · **Massenversand** (B2) · Zeitreihen-Speicher (B12).
+
+`[Nachtrag 21.07.2026]` **Abmeldemechanismus und Suppression-Liste sind mit B1 bereits gebaut** und standen ursprünglich in dieser Zeile — offen ist nur noch der Massenversand selbst.
 
 ---
 
