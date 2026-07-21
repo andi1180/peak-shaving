@@ -31,6 +31,7 @@ import {
   readContractReminderHealth,
   readJobRuns,
   readLeadList,
+  readLeadSourceStats,
   readStatus,
   sourceLabel,
   statusLabel,
@@ -39,6 +40,7 @@ import {
   type LeadConsentSummary,
   type LeadListRow,
   type LeadSource,
+  type LeadSourceStat,
 } from '@/lib/admin/leads'
 
 /*
@@ -294,6 +296,83 @@ function StaleContractReminders({ health }: { health: ContractReminderHealth | n
   )
 }
 
+/**
+ * Rücklauf je Herkunftsquelle (B3-4) — die kleinste Auswertung, die die Frage beantwortet, ob die
+ * Postaktion etwas gebracht hat.
+ *
+ * ── WARUM SIE ÜBERHAUPT HIER STEHT ───────────────────────────────────────────────────────────────
+ * B3-4 teilt die Warteliste in ZWEI Routen: `/warteliste` (organisch) und `/warteliste/wko` (der
+ * gedruckte QR-Code). Ohne eine Stelle, an der beide Herkünfte nebeneinander sichtbar sind, wäre
+ * diese Teilung folgenlos — die Leads lägen unterscheidbar im Bestand, und niemand könnte die eine
+ * Frage beantworten, für die sie getrennt erfasst werden.
+ *
+ * ── ABGRENZUNG ZU B2, ausdrücklich ───────────────────────────────────────────────────────────────
+ * Das ist KEINE gefilterte Sicht und KEIN Export. Es gibt nichts anzuklicken, nichts einzugrenzen
+ * und keine einzige Adresse: nur Zahlen je Quelle. Segmentierung (Branche, Netzebene, PLZ), Export
+ * und Massenaussendung bleiben B2 — sie hängen an einer Zustell- und Prüfschicht, die es noch nicht
+ * gibt. Eine Zahl kann man ansehen; eine Adressliste kann man versenden.
+ *
+ * ── DIE BEIDEN SPALTEN ZÄHLEN VERSCHIEDENE DINGE ─────────────────────────────────────────────────
+ * Leads über `first_source_key` (wo der Lead ins System kam, seit B1-1 unveränderlich), bestätigte
+ * Einwilligungen über den `source_key` der EINWILLIGUNG (wo genau diese erteilt wurde). Sonst würde
+ * die Reaktion auf eine Kampagne dem älteren Kanal gutgeschrieben, über den dieselbe Person Monate
+ * zuvor hereinkam — und der Brief systematisch zu niedrig bewertet. Die zweite Zahl ist deshalb
+ * KEIN „davon", und die Fußzeile sagt das.
+ */
+function SourceStats({ stats }: { stats: LeadSourceStat[] | null }) {
+  if (stats === null) {
+    return (
+      <AdminPanel className="mt-6">
+        <AdminError>Die Herkunftszählung konnte nicht geladen werden.</AdminError>
+      </AdminPanel>
+    )
+  }
+
+  return (
+    <AdminPanel className="mt-6 p-0 sm:p-0">
+      <div className="px-4 py-4 sm:px-6">
+        <h2 className="text-h4 text-ink">Rücklauf je Herkunft</h2>
+        <div className="mt-3">
+          <AdminTable>
+            <thead>
+              <tr>
+                <Th>Herkunft</Th>
+                <Th>Leads</Th>
+                <Th>bestätigte Marketing-Einwilligungen</Th>
+              </tr>
+            </thead>
+            <tbody>
+              {stats.length === 0 && <EmptyRow colSpan={3}>Keine Herkunftsquellen.</EmptyRow>}
+              {stats.map((row) => (
+                <tr key={row.key}>
+                  <Td>
+                    {row.label}
+                    {/* Der Schlüssel steht daneben, weil er im Code, in der URL und in dieser
+                        Tabelle derselbe sein muss — die Bezeichnung ist frei änderbar, er nicht. */}
+                    <span className="ml-2 text-caption text-text-muted">{row.key}</span>
+                  </Td>
+                  <Td className="whitespace-nowrap">
+                    <Num>{row.lead_count}</Num>
+                  </Td>
+                  <Td className="whitespace-nowrap">
+                    <Num>{row.confirmed_marketing_count}</Num>
+                  </Td>
+                </tr>
+              ))}
+            </tbody>
+          </AdminTable>
+        </div>
+      </div>
+      <p className="border-t border-line px-4 py-3 text-caption text-text-muted sm:px-6">
+        Leads zählen nach der Herkunft, über die sie ins System kamen; Einwilligungen nach der
+        Herkunft, an der sie erteilt wurden — die zweite Zahl ist deshalb kein „davon". Anonymisierte
+        Leads bleiben enthalten: sie waren echter Rücklauf. Kein Export, keine gefilterte Sicht —
+        beides kommt mit B2.
+      </p>
+    </AdminPanel>
+  )
+}
+
 function LeadRow({ lead, sources }: { lead: LeadListRow; sources: LeadSource[] }) {
   return (
     <tr>
@@ -379,7 +458,7 @@ export default async function AdminLeadsPage({ searchParams }: { searchParams: P
   // Je Job ein eigener Aufruf statt eines gemeinsamen mit `p_job_key => null`: sonst müsste die
   // Seite die Läufe hier auseinandersortieren, und `last_success` käme gemischt zurück — der
   // Fristenlauf würde die Erinnerung als „läuft" ausweisen (oder umgekehrt).
-  const [retentionRes, reminderRes, healthRes] = await Promise.all([
+  const [retentionRes, reminderRes, healthRes, sourceStatsRes] = await Promise.all([
     supabase.rpc('admin_list_job_runs', {
       p_job_key: LEAD_RETENTION_JOB_KEY,
       // 5 statt 1: der LETZTE Lauf (evtl. verweigert) und der letzte ERFOLGREICHE können
@@ -389,14 +468,22 @@ export default async function AdminLeadsPage({ searchParams }: { searchParams: P
     }),
     supabase.rpc('admin_list_job_runs', { p_job_key: CONTRACT_REMINDER_JOB_KEY, p_limit: 5 }),
     supabase.rpc('admin_contract_reminder_health'),
+    // B3-4: die Herkunftszählung. Ebenfalls ein eigener Aufruf — sie zählt den GESAMTEN Bestand und
+    // hat mit den Filtern der Liste nichts zu tun; in `admin_list_leads` hineingezogen müsste sie
+    // bei jedem Seitenwechsel mitgerechnet werden und wäre gleichzeitig versucht, sich am Filter zu
+    // orientieren (dann zählte sie etwas anderes, als die Überschrift verspricht).
+    supabase.rpc('admin_lead_source_stats'),
   ])
   if (retentionRes.error) console.error('[admin/leads] admin_list_job_runs:', retentionRes.error)
   if (reminderRes.error) console.error('[admin/leads] admin_list_job_runs:', reminderRes.error)
   if (healthRes.error)
     console.error('[admin/leads] admin_contract_reminder_health:', healthRes.error)
+  if (sourceStatsRes.error)
+    console.error('[admin/leads] admin_lead_source_stats:', sourceStatsRes.error)
   const retentionRuns = readJobRuns(retentionRes.data)
   const reminderRuns = readJobRuns(reminderRes.data)
   const reminderHealth = readContractReminderHealth(healthRes.data)
+  const sourceStats = readLeadSourceStats(sourceStatsRes.data)
 
   const result = readLeadList(res.data)
   // Ein abgelehnter Filterwert ist etwas anderes als ein Ladefehler: die Datenbank hat geantwortet,
@@ -457,6 +544,8 @@ export default async function AdminLeadsPage({ searchParams }: { searchParams: P
         />
         <StaleContractReminders health={reminderHealth} />
       </div>
+
+      <SourceStats stats={sourceStats} />
 
       {/* ── Filter ────────────────────────────────────────────────────────────────────────────── */}
       <AdminPanel className="mt-6">

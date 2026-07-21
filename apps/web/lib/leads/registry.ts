@@ -63,6 +63,7 @@ export const LEAD_SOURCE_KEYS = [
   'artikel-inline',
   'branchenseite',
   'vertragsablauf-landing',
+  'warteliste',
 ] as const
 
 export type LeadSourceKey = (typeof LEAD_SOURCE_KEYS)[number]
@@ -177,6 +178,31 @@ export type LeadCaptureEntry = {
 const EMAIL_ONLY: readonly LeadCaptureField[] = [{ key: 'email', required: true }]
 
 /**
+ * Die Felder der Warteliste (B3-4) — von BEIDEN Wartelisten-Routen geteilt, damit sie denselben
+ * Bestand füllen und nicht zwei unterschiedlich vollständige.
+ *
+ * ── BRANCHE IST PFLICHT: eine bewusste Abweichung von der Wertleiter ────────────────────────────
+ * Die Wertleiter des Fahrplans („anonym rechnen → E-Mail → Versorger + Ablaufdatum → zahlen") sagt:
+ * je Stufe nur erheben, was diese Stufe rechtfertigt. Eine Warteliste rechtfertigt für sich genommen
+ * die Adresse — mehr nicht.
+ *
+ * Was hier hinzukommt, ist der ZWECK der Liste: Der Fahrplan sieht vor, die Wartenden zum Erscheinen
+ * der Tarifverordnung mit bereits bekannter Betriebsgrösse anzusprechen. Ohne Branche wäre das eine
+ * Rundmail an alle — und dann hätte die Liste ihren Zweck verfehlt, nicht bloss weniger Daten.
+ *
+ * Der Preis ist an der EINGABEART bemessen, nicht am Interesse: Die Branche ist ein Auswahlfeld;
+ * wer sie beantwortet, klickt einmal und muss nichts nachsehen. Der Jahresverbrauch verlangt, eine
+ * Rechnung herauszusuchen — das ist eine Unterbrechung mit ungewissem Ausgang und bleibt deshalb
+ * optional, ebenso die Postleitzahl.
+ */
+const WARTELISTE_FIELDS: readonly LeadCaptureField[] = [
+  { key: 'email', required: true },
+  { key: 'industry', required: true },
+  { key: 'postalCode', required: false },
+  { key: 'annualConsumptionKwh', required: false },
+]
+
+/**
  * DIE ZEHN EINSTIEGSPUNKTE.
  *
  * Die Wertleiter des Fahrplans steckt in den `fields`: „anonym rechnen → E-Mail für
@@ -221,18 +247,25 @@ export const LEAD_CAPTURE_REGISTRY: Readonly<Record<LeadSourceKey, LeadCaptureEn
     placed: false,
   },
 
-  /* Postbrief mit QR-Code → eigene Landingpage. Firma mit dabei, weil die Aktion Betriebe adressiert
-     und der Absender dort ohnehin bekannt ist. Platzierung später. */
+  /*
+   * PLATZIERT SEIT B3-4: `/warteliste/wko` — die Adresse, die auf dem Postbrief gedruckt steht.
+   *
+   * Fachlich IDENTISCH zu `warteliste` weiter unten (gleicher Zweck, gleiche Felder, gleicher
+   * Einwilligungswortlaut); der Unterschied liegt allein in der ANSPRACHE der Seite („Sie haben von
+   * uns Post erhalten") und darin, dass diese Route `noindex` trägt. Zwei nahezu gleiche
+   * indexierbare Seiten wären ein Duplikat — erreichbar bleibt sie selbstverständlich.
+   *
+   * Die frühere Fassung erhob zusätzlich die Firma und keine Branche. Geändert, weil beide Routen
+   * denselben Bestand füllen: unterschiedliche Felder je Route ergäben eine Warteliste, deren
+   * Segmentierbarkeit davon abhinge, über welchen Weg jemand hereingekommen ist.
+   */
   'wko-postaktion-qr': {
     key: 'wko-postaktion-qr',
     purpose: 'marketing_email',
     offersMarketingConsent: false,
-    fields: [
-      { key: 'email', required: true },
-      { key: 'company', required: false },
-    ],
+    fields: WARTELISTE_FIELDS,
     carriesCalculatorResult: false,
-    placed: false,
+    placed: true,
   },
 
   /* Erfassung im Anschluss an einen Vortrag — dort ist der Name der übliche Einstieg.
@@ -350,6 +383,26 @@ export const LEAD_CAPTURE_REGISTRY: Readonly<Record<LeadSourceKey, LeadCaptureEn
       { key: 'supplier', required: true },
       { key: 'contractEndDate', required: true },
     ],
+    carriesCalculatorResult: false,
+    placed: true,
+  },
+
+  /*
+   * PLATZIERT SEIT B3-4: die öffentliche, indexierbare Landingpage `/warteliste`.
+   *
+   * Der organische Zwilling von `wko-postaktion-qr` (s. dort): gleicher Zweck, gleiche Felder,
+   * gleicher Einwilligungswortlaut — die beiden Einträge unterscheiden sich AUSSCHLIESSLICH in
+   * ihren Texten, weil der eine ein Anschreiben voraussetzen darf und der andere nicht.
+   *
+   * KEINE eigene Einwilligungsart: die Warteliste ist fachlich `marketing_email` und wird über den
+   * `source_key` der Einwilligung unterschieden (B1-1 hält den Herkunftskontext je Einwilligung
+   * genau dafür vor). Ausführlich begründet im Kopf der B3-4-Migration.
+   */
+  warteliste: {
+    key: 'warteliste',
+    purpose: 'marketing_email',
+    offersMarketingConsent: false,
+    fields: WARTELISTE_FIELDS,
     carriesCalculatorResult: false,
     placed: true,
   },

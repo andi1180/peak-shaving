@@ -330,3 +330,32 @@ Code-Änderung nötig:
 > Die **CI** (`.github/workflows/db-gate.yml`) bleibt bewusst auf einem frisch gestarteten **lokalen**
 > Stack — sie wird **nicht** auf die Cloud umgebogen (eine CI gegen die Produktions-DB legt Testnutzer in
 > der Produktion an).
+
+---
+
+## 5. Gedruckte Pfade — dauerhafte Zusagen ⚠️ NICHT UMBENENNEN
+
+Ein Pfad, der auf Papier steht, ist keine interne Adresse mehr. Ein Brief, der in einem Betrieb im
+Ordner liegt, wird auch in einem Jahr noch aus der Hand gescannt — zurückrufen lässt er sich nicht.
+Für die hier aufgeführten Pfade gilt deshalb dauerhaft und ohne Ablaufdatum:
+
+**`/warteliste/wko` (B3-4) — als QR-Code auf dem Postbrief der WKO-Aktion gedruckt.**
+
+- Der Pfad darf **nie umbenannt**, **nie entfernt** und **nie auf eine andere Quelle umgehängt**
+  werden — auch nicht im Zuge einer späteren Umstrukturierung der Seitenstruktur, und auch nicht
+  „nur der Ordnung halber".
+- Wird die Seite je inhaltlich ersetzt, **muss der Pfad bestehen bleiben und weiterleiten**
+  (301 auf das Nachfolgeziel, Muster wie die `.html`-Redirects in `next.config.mjs`). Ein 404 an
+  dieser Stelle ist ein toter Brief, kein Schönheitsfehler.
+- Auch die **Zuordnung** ist Teil der Zusage: Das Segment `wko` zeigt auf den Einstiegspunkt
+  `wko-postaktion-qr` (`apps/web/lib/leads/warteliste.ts`). Ein umgehängter Schlüssel schriebe die
+  Rückläufe des Briefs still unter einer fremden Herkunft in den Bestand — die Seite funktionierte,
+  die Leads kämen an, und die Auswertung auf `/admin/leads` wäre falsch, ohne dass es auffiele.
+- Die Seite trägt bewusst **`noindex`** und steht **nicht in der sitemap** (sie ist inhaltlich fast
+  identisch mit `/warteliste`; zwei indexierbare Fassungen desselben Textes wären ein Duplikat).
+  Erreichbar bleibt sie selbstverständlich — `noindex` ist keine Sperre. Sie wird zudem **nirgends
+  intern verlinkt**: Sie existiert für den gedruckten Zugang.
+
+Dieselbe Zusage steht im Code an zwei Stellen: an der Erlaubnisliste
+(`apps/web/lib/leads/warteliste.ts`) und an der Route selbst
+(`apps/web/app/(site)/[locale]/warteliste/[quelle]/page.tsx`).

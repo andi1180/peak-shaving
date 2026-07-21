@@ -1,8 +1,10 @@
 import type { Metadata } from 'next'
-import { setRequestLocale } from 'next-intl/server'
+import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { BranchePage, brancheMetadata } from '@/components/branche/branche-page'
 import { LeadCaptureForm } from '@/components/leads/lead-capture-form'
+import { Link as TextLink } from '@/components/ui/link'
 import { loadLeadCaptureTexts } from '@/lib/leads/capture-texts'
+import { WARTELISTE_HREF } from '@/lib/nav'
 
 /**
  * /branchen/handwerk — gerendert vom GEMEINSAMEN Branchen-Template
@@ -46,11 +48,29 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
   setRequestLocale(locale)
 
   const consentTexts = await loadLeadCaptureTexts('branchenseite', locale)
+  const t = await getTranslations({ locale, namespace: 'Warteliste' })
 
   return (
     <BranchePage
       brancheKey="handwerk"
-      leadCapture={<LeadCaptureForm sourceKey="branchenseite" consentTexts={consentTexts} />}
+      leadCapture={
+        <>
+          <LeadCaptureForm sourceKey="branchenseite" consentTexts={consentTexts} />
+          {/*
+           * B3-4: der Verweis auf die Warteliste — bewusst NUR hier und nicht im gemeinsamen
+           * Branchen-Template. Er steht auf der einzigen Branchenseite, die die Erfassung trägt,
+           * und wäre auf den übrigen vier eine Aufforderung ohne den Zusammenhang, der sie trägt.
+           *
+           * Er tritt NICHT in Konkurrenz zum Formular darüber: dieses erhebt nur die Adresse, die
+           * Warteliste zusätzlich die Branche — für wen das zu viel ist, bleibt das Formular; wer
+           * gezielt auf die Sätze wartet, ist auf der Warteliste besser aufgehoben. Beide schreiben
+           * unter EIGENER Herkunft in den Bestand, die Auswertung bleibt also unterscheidbar.
+           */}
+          <p className="mt-4 max-w-prose text-small text-text-muted">
+            {t('crossLinkIntro')} <TextLink href={WARTELISTE_HREF}>{t('crossLinkLabel')}</TextLink>
+          </p>
+        </>
+      }
     />
   )
 }

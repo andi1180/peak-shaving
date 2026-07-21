@@ -801,6 +801,7 @@ export type Database = {
         Returns: Json
       }
       admin_is_email_suppressed: { Args: { p_email: string }; Returns: Json }
+      admin_lead_source_stats: { Args: never; Returns: Json }
       admin_list_admins: { Args: never; Returns: Json }
       admin_list_codes: { Args: never; Returns: Json }
       admin_list_customers: { Args: never; Returns: Json }
