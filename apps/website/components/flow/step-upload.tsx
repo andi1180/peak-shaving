@@ -12,7 +12,17 @@ import { FileDrop } from './file-drop'
 import { MappingPanel } from './mapping-panel'
 import type { ParsedLoad } from './types'
 
-type ParseInput = { content: string | ArrayBuffer; fileName: string; format: 'csv' | 'xlsx' }
+type ParseInput = {
+  content: string | ArrayBuffer
+  fileName: string
+  format: 'csv' | 'xlsx'
+  /**
+   * B14-2: die rohen Bytes derselben Datei. Sie werden mitgeführt, damit die Prüfsumme des
+   * Analyse-Bündels über die TATSÄCHLICH verarbeitete Ursprungsdatei entsteht — auch im
+   * Mapping-Fall, in dem dieselbe Datei ein zweites Mal geparst wird.
+   */
+  bytes: Uint8Array
+}
 type Notice = { kind: 'warning' | 'error'; message: string }
 // Aktiver Mehrspalten-Mapping-Fall (§3.2): der Nutzer bestätigt die Rollen, dann wird `input` mit den
 // gewählten Spalten erneut geparst. `input` bleibt erhalten, um genau diese Datei neu parsen zu können.
@@ -25,8 +35,17 @@ type MappingState = {
 
 async function readForParsing(file: File): Promise<ParseInput> {
   const isXlsx = /\.(xlsx|xls)$/i.test(file.name)
-  const content = isXlsx ? await file.arrayBuffer() : await file.text()
-  return { content, fileName: file.name, format: isXlsx ? 'xlsx' : 'csv' }
+  /*
+   * EINMAL lesen, zweimal verwenden: der Puffer geht als `bytes` in die Prüfsumme und — bei CSV —
+   * als daraus dekodierter Text in den Parser. `new TextDecoder()` liefert dasselbe wie
+   * `file.text()` (beides ist UTF-8-Dekodierung samt BOM-Entfernung, so die Datei-API-Spezifikation);
+   * zweimal zu lesen hiesse dagegen, dass Prüfsumme und geparster Inhalt aus zwei Lesevorgängen
+   * stammen — bei einer Datei, die sich zwischendurch ändert, wären sie verschiedene Dateien.
+   */
+  const buffer = await file.arrayBuffer()
+  const bytes = new Uint8Array(buffer)
+  const content = isXlsx ? buffer : new TextDecoder().decode(bytes)
+  return { content, fileName: file.name, format: isXlsx ? 'xlsx' : 'csv', bytes }
 }
 
 export function StepUpload({
@@ -53,7 +72,12 @@ export function StepUpload({
     const outcome = parseLoadProfile(input)
 
     if (outcome.ok) {
-      setLoad({ fileName: file.name, profile: outcome.profile, dataQuality: outcome.dataQuality })
+      setLoad({
+        fileName: file.name,
+        profile: outcome.profile,
+        dataQuality: outcome.dataQuality,
+        sourceBytes: input.bytes,
+      })
       return
     }
     if (outcome.kind === 'needs_mapping') {
@@ -84,6 +108,7 @@ export function StepUpload({
         fileName: mapping.fileName,
         profile: outcome.profile,
         dataQuality: outcome.dataQuality,
+        sourceBytes: mapping.input.bytes,
       })
       return
     }

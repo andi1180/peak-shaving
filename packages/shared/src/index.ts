@@ -11,3 +11,7 @@ export * from './demo-battery-catalog'
 // B14-1: Archivierung der Quelldatei (gzip + SHA-256). Kein Contract-Typ, aber isomorph und von
 // Schreibweg (B14-2) wie DB-Gate gebraucht — deshalb hier und nicht in `engine` (Rechenkern).
 export * from './archive'
+// B14-2: das Analyse-Bündel — EIN Austauschformat für Rechner (Export) und Admin (Upload). Steht
+// bewusst neben `archive.ts`: beide Seiten importieren dieselbe Definition, es gibt keine zweite
+// Beschreibung desselben Formats.
+export * from './analysis-bundle'

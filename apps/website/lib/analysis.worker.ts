@@ -7,7 +7,10 @@ import {
 } from 'engine'
 import { DEMO_BATTERY_CATALOG, type AnalysisResult, type BatteryCandidate } from 'shared'
 
-import type { AnalysisRequest, BatteryOverride, WorkerOutbound } from './analysis-protocol'
+import type { AnalysisRequest, WorkerOutbound } from './analysis-protocol'
+// B14-2: dieselbe Katalog-Änderung, die auch der Bündel-Export mitschreibt — eine Definition,
+// zwei Aufrufer (s. `lib/battery-override.ts`).
+import { applyBatteryOverride } from './battery-override'
 import { DEFAULT_HORIZON_YEARS } from './constants'
 import type { CalculatorPayload } from '@/components/flow/types'
 
@@ -40,27 +43,6 @@ const ctx = self as unknown as Worker
 
 function post(message: WorkerOutbound): void {
   ctx.postMessage(message)
-}
-
-/** `catalog` mit genau einem modifizierten Eintrag (Architektur-Vorgabe §6.2: unveränderte Kopie,
- * nicht der ganze Katalog) — restliche Kandidaten bleiben unangetastet, damit die Neu-Einordnung
- * (Ranking) ehrlich gegen die unveränderten Alternativen läuft. */
-function applyBatteryOverride(
-  catalog: BatteryCandidate[],
-  override: BatteryOverride | undefined,
-): BatteryCandidate[] {
-  if (!override) return catalog
-  return catalog.map((b) =>
-    b.id === override.batteryId
-      ? {
-          ...b,
-          ...(override.roundTripEfficiency != null
-            ? { roundTripEfficiency: override.roundTripEfficiency }
-            : {}),
-          ...(override.pricePerKwh != null ? { pricePerKwh: override.pricePerKwh } : {}),
-        }
-      : b,
-  )
 }
 
 function computeAnalysis(

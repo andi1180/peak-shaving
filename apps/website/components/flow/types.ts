@@ -19,6 +19,16 @@ export type ParsedLoad = {
   fileName: string
   profile: LoadProfile
   dataQuality: DataQuality
+  /**
+   * B14-2: die ROHEN Bytes der hochgeladenen Datei — genau die, die geparst wurden, nicht eine
+   * daraus abgeleitete Fassung. Sie werden nirgends verschickt (Prinzip 4) und dienen allein der
+   * Prüfsumme des Analyse-Bündels: sie ist das Einzige, was Bündel und Ursprungsdatei beim
+   * Archivieren aneinanderbindet.
+   *
+   * Optional, damit der Fall „liegt nicht mehr vor" ein echter Zustand ist und nicht ein
+   * unmöglicher: ohne Bytes wird KEIN Bündel erzeugt (`buildAnalysisBundle` wirft).
+   */
+  sourceBytes?: Uint8Array
 }
 
 // Ergebnis der optionalen PV-Datei (parsePvProfile, §3.1) — Brutto-PV-Erzeugung.

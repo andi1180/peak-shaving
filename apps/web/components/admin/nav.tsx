@@ -24,10 +24,15 @@ import Link from 'next/link'
 import { cn } from '@/lib/utils'
 import { ADMIN_HREF } from '@/lib/admin/config'
 import { LEADS_HREF } from '@/lib/admin/leads'
+import { ANALYSES_HREF } from '@/lib/admin/analyses'
 
 const ITEMS = [
   { href: ADMIN_HREF, label: 'Übersicht' },
   { href: LEADS_HREF, label: 'Leads' },
+  // B14-2: das Archiv der eingefrorenen Auslegungen. Eigener Punkt und nicht ein Abschnitt unter
+  // „Leads": eine Analyse überlebt den Lead bewusst (B14-1, ON DELETE SET NULL statt CASCADE) und
+  // kann von vornherein ohne einen entstehen.
+  { href: ANALYSES_HREF, label: 'Analysen' },
 ] as const
 
 export function AdminNav() {

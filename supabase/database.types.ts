@@ -213,6 +213,93 @@ export type Database = {
         }
         Relationships: []
       }
+      analyses: {
+        Row: {
+          analysis_kind: string
+          baseline_annual_saving_eur: number
+          baseline_billed_kw_after: number
+          baseline_billed_kw_before: number
+          computed_at: string
+          created_at: string
+          created_by: string | null
+          customer_label: string
+          engine_commit_sha: string
+          engine_version: string
+          id: string
+          inputs: Json
+          lead_id: string | null
+          recommended_battery_label: string | null
+          recommended_capacity_kwh: number | null
+          result: Json
+          site_label: string | null
+          source_file_gzip: string
+          source_file_name: string
+          source_file_sha256: string
+          supersedes_id: string | null
+        }
+        Insert: {
+          analysis_kind: string
+          baseline_annual_saving_eur: number
+          baseline_billed_kw_after: number
+          baseline_billed_kw_before: number
+          computed_at: string
+          created_at?: string
+          created_by?: string | null
+          customer_label: string
+          engine_commit_sha: string
+          engine_version: string
+          id?: string
+          inputs: Json
+          lead_id?: string | null
+          recommended_battery_label?: string | null
+          recommended_capacity_kwh?: number | null
+          result: Json
+          site_label?: string | null
+          source_file_gzip: string
+          source_file_name: string
+          source_file_sha256: string
+          supersedes_id?: string | null
+        }
+        Update: {
+          analysis_kind?: string
+          baseline_annual_saving_eur?: number
+          baseline_billed_kw_after?: number
+          baseline_billed_kw_before?: number
+          computed_at?: string
+          created_at?: string
+          created_by?: string | null
+          customer_label?: string
+          engine_commit_sha?: string
+          engine_version?: string
+          id?: string
+          inputs?: Json
+          lead_id?: string | null
+          recommended_battery_label?: string | null
+          recommended_capacity_kwh?: number | null
+          result?: Json
+          site_label?: string | null
+          source_file_gzip?: string
+          source_file_name?: string
+          source_file_sha256?: string
+          supersedes_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "analyses_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "analyses_supersedes_id_fkey"
+            columns: ["supersedes_id"]
+            isOneToOne: false
+            referencedRelation: "analyses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       code_redemptions: {
         Row: {
           code_id: string
@@ -927,6 +1014,30 @@ export type Database = {
     Functions: {
       admin_anonymize_lead: { Args: { p_lead_id: string }; Returns: Json }
       admin_contract_reminder_health: { Args: never; Returns: Json }
+      admin_create_analysis: {
+        Args: {
+          p_analysis_kind: string
+          p_baseline_annual_saving_eur: number
+          p_baseline_billed_kw_after: number
+          p_baseline_billed_kw_before: number
+          p_computed_at: string
+          p_customer_label: string
+          p_engine_commit_sha: string
+          p_engine_version: string
+          p_inputs: Json
+          p_lead_id?: string
+          p_recommended_battery_label?: string
+          p_recommended_capacity_kwh?: number
+          p_result: Json
+          p_site_label?: string
+          p_source_file: string
+          p_source_file_gzip: string
+          p_source_file_name: string
+          p_source_file_sha256: string
+          p_supersedes_id?: string
+        }
+        Returns: Json
+      }
       admin_create_code: {
         Args: {
           p_code: string
@@ -956,6 +1067,8 @@ export type Database = {
         }
         Returns: Json
       }
+      admin_get_analysis: { Args: { p_id: string }; Returns: Json }
+      admin_get_analysis_source: { Args: { p_id: string }; Returns: Json }
       admin_get_lead: { Args: { p_lead_id: string }; Returns: Json }
       admin_grant_role: {
         Args: { p_role: string; p_target_user_id: string }
@@ -968,6 +1081,15 @@ export type Database = {
       admin_is_email_suppressed: { Args: { p_email: string }; Returns: Json }
       admin_lead_source_stats: { Args: never; Returns: Json }
       admin_list_admins: { Args: never; Returns: Json }
+      admin_list_analyses: {
+        Args: {
+          p_kind?: string
+          p_lead_id?: string
+          p_limit?: number
+          p_offset?: number
+        }
+        Returns: Json
+      }
       admin_list_codes: { Args: never; Returns: Json }
       admin_list_customers: { Args: never; Returns: Json }
       admin_list_email_events: {
