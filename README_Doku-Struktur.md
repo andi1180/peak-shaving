@@ -9,7 +9,7 @@ Seit 20.07.2026 ist **`Fahrplan_2026.md`** (Repo-Root) die kanonische Quelle fü
 ## Aktuelle Dateien in diesem claude.ai-Projektordner
 
 - `CLAUDE_Website.md` — Arbeitsregeln Website
-- `Pflichtenheft_Website_Coolin.md` — Detaildokument Website
+- `Pflichtenheft_Website_Coolin.md` — Detaildokument Website. **Neu seit 21.07.2026: §15 „Lead- und Einwilligungsverwaltung (Bauabschnitt B1)"** — Datenmodell in fachlicher Sprache, die drei Einwilligungszwecke und die Double-Opt-in-Regel, die drei Einwilligungstexte im Wortlaut (Arbeitsstand, juristisch ungeprüft), Abmeldung und Sperrliste, Aufbewahrungsfristen und Anonymisierung, Grenzen des Admin-Bereichs, offene rechtliche Punkte. **Bewusst ohne Schema-Details** — geschrieben für die Beurteilung durch Fachfremde ohne Repo-Zugang; die Wahrheit über das Schema liegt in `supabase/migrations/` und `packages/db-tests/`.
 - `CLAUDE_PEAKSHAVING.md` — Arbeitsregeln Kalkulator
 - `Pflichtenheft_Kalkulator_MVP.md` — Detaildokument Kalkulator
 - `DESIGN.md` — Design-Tokens Kalkulator
