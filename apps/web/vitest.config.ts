@@ -1,3 +1,4 @@
+import path from 'node:path'
 import { defineConfig } from 'vitest/config'
 
 /**
@@ -14,6 +15,15 @@ import { defineConfig } from 'vitest/config'
  * still mitlaufen und dann an fehlendem jsdom scheitern.
  */
 export default defineConfig({
+  /*
+   * Der `@/`-Alias aus `tsconfig.json` — seit B3-2 nötig, weil der Erfassungsablauf
+   * (`lib/leads/capture-flow.ts`) die Schnellrechner-Formel darüber zieht. Bewusst von Hand statt
+   * über ein tsconfig-Paths-Plugin: EIN Alias, dieselbe Auflösung wie in `tsconfig.json`, keine
+   * zusätzliche Abhängigkeit.
+   */
+  resolve: {
+    alias: { '@': path.resolve(import.meta.dirname, '.') },
+  },
   test: {
     include: ['lib/**/*.test.ts'],
   },

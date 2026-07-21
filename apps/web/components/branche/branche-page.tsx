@@ -1,3 +1,4 @@
+import type * as React from 'react'
 import { useLocale, useTranslations } from 'next-intl'
 import { getTranslations } from 'next-intl/server'
 import type { Metadata } from 'next'
@@ -52,7 +53,22 @@ export async function brancheMetadata(locale: string, key: string): Promise<Meta
   }
 }
 
-export function BranchePage({ brancheKey }: { brancheKey: string }) {
+export function BranchePage({
+  brancheKey,
+  leadCapture = null,
+}: {
+  brancheKey: string
+  /**
+   * OPTIONALE Erfassung (B3-2, Einstiegspunkt 'branchenseite'). Kommt als fertiger Knoten von der
+   * Route herein, weil die Einwilligungstexte serverseitig aus `platform.consent_texts` geladen
+   * werden müssen und dieses Template synchron ist.
+   *
+   * OPTIONAL, nicht für alle fünf Seiten: die Platzierung ist eine getrennte Entscheidung, und B3-2
+   * platziert bewusst genau EINEN Einstiegspunkt dieser Art. Die anderen vier Branchenseiten
+   * bleiben dadurch bit-identisch zu vorher.
+   */
+  leadCapture?: React.ReactNode
+}) {
   const branche = findBranche(brancheKey)
 
   return (
@@ -64,6 +80,20 @@ export function BranchePage({ brancheKey }: { brancheKey: string }) {
       <BrancheFaq branche={branche} />
       <RechnerSection branche={branche} />
       <TunSection branche={branche} />
+      {/*
+        POSITION MIT GRUND: nach „Was wir für … tun" und VOR dem Kontakt-CTA. Der Sektionswechsel
+        bleibt dadurch intakt (Rechner alt → Tun weiß → hier alt → CTA navy), und inhaltlich steht
+        das leise Angebot vor dem lauten: wer noch nicht sprechen will, kann trotzdem etwas
+        mitnehmen. Kein Doppel-CTA — die beiden führen an verschiedene Orte (E-Mail-Strecke gegen
+        Erstgespräch), anders als zwei Teal-Buttons auf dasselbe Ziel.
+      */}
+      {leadCapture && (
+        <Section tone="alt">
+          <Container>
+            <div className="max-w-2xl">{leadCapture}</div>
+          </Container>
+        </Section>
+      )}
       <KontaktCta branche={branche} />
     </>
   )

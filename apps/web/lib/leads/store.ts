@@ -22,14 +22,17 @@
  */
 import 'server-only'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
-import type { ConsentPurpose } from './config'
+import type { CaptureOutcome, CaptureResult, ConsentPurpose } from './config'
+import type { LeadIndustry } from './registry'
 
 /* ─── Rückgabe-Formen der Wrapper (jsonb) ─────────────────────────────────────────────────────── */
 
-export type CaptureOutcome =
-  'lead_only' | 'consent_created' | 'consent_already_pending' | 'suppressed'
-
-export type CaptureResult = { outcome: CaptureOutcome; leadId: string; consentId: string | null }
+/*
+ * `CaptureOutcome`/`CaptureResult` liegen seit B3-2 in `config.ts` (rein) — der datenbankfreie
+ * Ablauf verzweigt daran und darf dieses Modul nicht anfassen. Hier nur noch re-exportiert, damit
+ * bestehende Importe unverändert bleiben.
+ */
+export type { CaptureOutcome, CaptureResult }
 
 export type ConsentTextResult = {
   purpose: ConsentPurpose
@@ -82,6 +85,19 @@ export type CaptureLeadInput = {
   sourceIp?: string | null
   userAgent?: string | null
   locale?: string
+  /*
+   * Die sechs Segmentierungsfelder (B3-1). Alle optional: die Einstiegspunkte sind
+   * kontextspezifisch und erheben unterschiedliche Felder. Ein NICHT übergebener Wert lässt einen
+   * bestehenden UNBERÜHRT (COALESCE-Zusammenführung in `capture_lead`) — deshalb wird `undefined`
+   * durchgereicht und nicht in `null` übersetzt.
+   */
+  industry?: LeadIndustry | null
+  postalCode?: string | null
+  annualConsumptionKwh?: number | null
+  meteringType?: 'leistungsgemessen' | 'netzebene_7' | 'unknown' | null
+  supplier?: string | null
+  /** ISO-Datum (`YYYY-MM-DD`) — die Spalte ist `date`, kein Zeitstempel. */
+  contractEndDate?: string | null
 }
 
 /** EIN atomarer Aufruf: Lead + optionale Einwilligung in einer Transaktion. */
@@ -99,6 +115,12 @@ export async function captureLead(input: CaptureLeadInput): Promise<CaptureResul
     p_source_ip: input.sourceIp ?? undefined,
     p_user_agent: input.userAgent ?? undefined,
     p_locale: input.locale ?? undefined,
+    p_industry: input.industry ?? undefined,
+    p_postal_code: input.postalCode ?? undefined,
+    p_annual_consumption_kwh: input.annualConsumptionKwh ?? undefined,
+    p_metering_type: input.meteringType ?? undefined,
+    p_supplier: input.supplier ?? undefined,
+    p_contract_end_date: input.contractEndDate ?? undefined,
   })
   if (error) throw new Error(`capture_lead: ${error.message}`)
 

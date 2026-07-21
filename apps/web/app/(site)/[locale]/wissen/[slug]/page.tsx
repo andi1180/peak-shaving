@@ -38,6 +38,16 @@ export function generateStaticParams() {
  */
 export const dynamicParams = false
 
+/**
+ * ISR statt „einmal statisch für immer" (B3-2).
+ *
+ * Der Artikel selbst ändert sich nur mit einem Deploy — der Einwilligungswortlaut der eingebetteten
+ * Erfassung (`<LeadCapture />`) aber nicht: er kommt aus `platform.consent_texts` und ist
+ * append-only. Eine juristisch geprüfte Fassung (`version 2`) soll ohne Deploy durchschlagen, weil
+ * genau dieser Satz archiviert wird. Dasselbe Muster und dieselbe Stunde wie `/kontakt` (B1-2).
+ */
+export const revalidate = 3600
+
 export async function generateMetadata({
   params,
 }: {

@@ -21,8 +21,13 @@
 // ── ZUSTANDS-HYGIENE ─────────────────────────────────────────────────────────────────────────────
 // platform.user_roles ist GLOBALER Zustand: der Lockout-Guard zählt ALLE admin-Zeilen der Tabelle,
 // nicht die eines Testnutzers. Die Tests laufen sequenziell (vitest fileParallelism:false) und jeder
-// räumt seine Nutzer in afterEach ab (auth.users-Cascade nimmt user_roles mit). Der Lockout-Test
-// prüft die Alleinstellung seines Admins zusätzlich explizit, statt sie vorauszusetzen.
+// räumt seine Nutzer in afterEach ab (auth.users-Cascade nimmt user_roles mit).
+//
+// TROTZDEM darf keine Assertion an einer BESTANDSWEITEN Zahl hängen: ein Admin, den eine
+// UI-Verifikation angelegt hat, gehört keinem Test und wird von keinem abgeräumt — er machte den
+// Gate rot, ohne dass sich am Verhalten etwas geändert hätte. Alle Prüfungen beziehen sich deshalb
+// auf die EIGENEN Fixtures (hasAdminRole), und die zwei Lockout-Tests, deren erwartetes Verhalten
+// selbst an der Alleinstellung hängt, laufen in einer isolierten Transaktion (inIsolatedAdminWorld).
 
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { randomUUID } from 'node:crypto'
@@ -96,6 +101,77 @@ async function adminCount(): Promise<number> {
     `select count(*)::int as n from platform.user_roles where role = 'admin'`,
   )
   return rows[0]?.n ?? 0
+}
+
+/** Trägt GENAU DIESER Testnutzer die Adminrolle? Fixture-bezogen, nicht bestandsweit. */
+async function hasAdminRole(userId: string): Promise<boolean> {
+  const rows = await sql<{ n: number }>(
+    `select count(*)::int as n from platform.user_roles where role = 'admin' and user_id = $1`,
+    [userId],
+  )
+  return (rows[0]?.n ?? 0) > 0
+}
+
+/**
+ * Führt ein Lockout-Szenario in EINER Transaktion aus, in der ausser den übergebenen Fixture-Nutzern
+ * KEINE weitere admin-Zeile existiert — und macht das am Ende per rollback vollständig rückgängig.
+ *
+ * WARUM ES DAS BRAUCHT: Der Lockout-Guard in `public.admin_revoke_role` zählt die GANZE Tabelle.
+ * Existiert irgendwo sonst ein Admin (nach jeder UI-Verifikation der Fall — die legt einen an und
+ * räumt ihn nicht ab), liefert der Wrapper 'ok' statt 'last_admin', und der Test scheitert an
+ * fremdem Zustand statt an einem Defekt. Eine blosse Umstellung der ZÄHL-Assertions genügt dafür
+ * nicht: das erwartete VERHALTEN selbst hängt an der Alleinstellung.
+ *
+ * Die Löschung wirkt ausschliesslich INNERHALB dieser Transaktion; der Bestand bleibt unangetastet.
+ * Deshalb müssen auch die Wrapper-Aufrufe über dieselbe Verbindung laufen — `callAs` (eigene
+ * Verbindung, commit) sähe die Löschung nicht.
+ */
+async function inIsolatedAdminWorld<T>(
+  ownIds: string[],
+  fn: (helpers: {
+    call: <R>(actor: TestUser, text: string, params?: unknown[]) => Promise<R>
+    adminIds: () => Promise<string[]>
+  }) => Promise<T>,
+): Promise<T> {
+  const client = await pool.connect()
+  try {
+    await client.query('begin')
+    await client.query(
+      `delete from platform.user_roles where role = 'admin' and not (user_id = any($1::uuid[]))`,
+      [ownIds],
+    )
+
+    const call = async <R,>(
+      actor: TestUser,
+      text: string,
+      params: unknown[] = [],
+    ): Promise<R> => {
+      // Claims exakt wie PostgREST/GoTrue sie setzen (auth.uid() liest claims->>'sub').
+      await client.query("select set_config('request.jwt.claims', $1, true)", [
+        JSON.stringify({ sub: actor.id, role: 'authenticated', aud: 'authenticated' }),
+      ])
+      await client.query('set local role authenticated')
+      try {
+        const { rows } = await client.query<{ r: R }>(text, params)
+        return rows[0]!.r
+      } finally {
+        // Zurück auf die Sitzungsrolle, damit die nächste Inspektion wieder alles sieht.
+        await client.query('reset role')
+      }
+    }
+
+    const adminIds = async (): Promise<string[]> => {
+      const { rows } = await client.query<{ user_id: string }>(
+        `select user_id::text as user_id from platform.user_roles where role = 'admin' order by 1`,
+      )
+      return rows.map((row) => row.user_id)
+    }
+
+    return await fn({ call, adminIds })
+  } finally {
+    await client.query('rollback').catch(() => undefined)
+    client.release()
+  }
 }
 
 /** Ein Scrape-Ziel über den Wrapper anlegen und für die Aufräumung vormerken. */
@@ -183,7 +259,10 @@ describe('Zugangsschranke — jeder Wrapper lehnt Nicht-Admins selbst ab', () =>
       `select count(*)::int as n from monitor.scrape_targets where provider_slug = 'eindringling'`,
     )
     expect(targets[0]?.n).toBe(0)
-    expect(await adminCount()).toBe(0)
+    // Fixture-bezogen statt bestandsweit: geprüft wird, dass DIESER Nutzer keine Adminrolle
+    // bekommen hat. Eine Gesamtzahl liesse den Test an einem fremden Admin scheitern, der mit dem
+    // geprüften Verhalten nichts zu tun hat.
+    expect(await hasAdminRole(user.id)).toBe(false)
     // Auch der abgelehnte E-Mail-Grant hat keine Rollenzeile hinterlassen — sonst hätte sich der
     // Nutzer über den neuen Weg selbst zum Admin gemacht.
     const eigeneRollen = await sql<{ n: number }>(
@@ -688,18 +767,21 @@ describe('Teil 2 — Nutzer- und Rollenverwaltung', () => {
   it('LOCKOUT-SCHUTZ: der letzte verbleibende Admin kann sich die Rolle nicht selbst entziehen', async () => {
     const admin = await newUser()
     await makeAdmin(admin.id)
-    // Alleinstellung beweisen, nicht voraussetzen — der Guard zählt die ganze Tabelle.
-    expect(await adminCount()).toBe(1)
 
-    const res = await callAs<Record<string, unknown>>(
-      admin,
-      'select public.admin_revoke_role($1, $2) as r',
-      [admin.id, 'admin'],
-    )
-    expect(res.status).toBe('last_admin')
-    // Die Rolle ist wirklich noch da — der Bereich bleibt erreichbar.
-    expect(await adminCount()).toBe(1)
-    expect(await callAs<boolean>(admin, 'select public.is_admin() as r')).toBe(true)
+    await inIsolatedAdminWorld([admin.id], async ({ call, adminIds }) => {
+      // Alleinstellung beweisen, nicht voraussetzen — der Guard zählt die ganze Tabelle.
+      expect(await adminIds()).toEqual([admin.id])
+
+      const res = await call<Record<string, unknown>>(
+        admin,
+        'select public.admin_revoke_role($1, $2) as r',
+        [admin.id, 'admin'],
+      )
+      expect(res.status).toBe('last_admin')
+      // Die Rolle ist wirklich noch da — der Bereich bleibt erreichbar.
+      expect(await adminIds()).toEqual([admin.id])
+      expect(await call<boolean>(admin, 'select public.is_admin() as r')).toBe(true)
+    })
   })
 
   it('mit zwei Admins ist der Entzug erlaubt — danach greift der Guard für den verbleibenden', async () => {
@@ -707,28 +789,31 @@ describe('Teil 2 — Nutzer- und Rollenverwaltung', () => {
     const zweiterAdmin = await newUser()
     await makeAdmin(ersterAdmin.id)
     await makeAdmin(zweiterAdmin.id)
-    expect(await adminCount()).toBe(2)
 
-    // Entzug des zweiten durch den ersten: erlaubt.
-    expect(
-      (await callAs<Record<string, unknown>>(
-        ersterAdmin,
-        'select public.admin_revoke_role($1, $2) as r',
-        [zweiterAdmin.id, 'admin'],
-      )).status,
-    ).toBe('ok')
-    expect(await adminCount()).toBe(1)
-    expect(await callAs<boolean>(zweiterAdmin, 'select public.is_admin() as r')).toBe(false)
+    await inIsolatedAdminWorld([ersterAdmin.id, zweiterAdmin.id], async ({ call, adminIds }) => {
+      expect(new Set(await adminIds())).toEqual(new Set([ersterAdmin.id, zweiterAdmin.id]))
 
-    // Jetzt ist der erste der letzte → der Guard greift, auch beim Selbst-Entzug.
-    expect(
-      (await callAs<Record<string, unknown>>(
-        ersterAdmin,
-        'select public.admin_revoke_role($1, $2) as r',
-        [ersterAdmin.id, 'admin'],
-      )).status,
-    ).toBe('last_admin')
-    expect(await adminCount()).toBe(1)
+      // Entzug des zweiten durch den ersten: erlaubt.
+      expect(
+        (await call<Record<string, unknown>>(
+          ersterAdmin,
+          'select public.admin_revoke_role($1, $2) as r',
+          [zweiterAdmin.id, 'admin'],
+        )).status,
+      ).toBe('ok')
+      expect(await adminIds()).toEqual([ersterAdmin.id])
+      expect(await call<boolean>(zweiterAdmin, 'select public.is_admin() as r')).toBe(false)
+
+      // Jetzt ist der erste der letzte → der Guard greift, auch beim Selbst-Entzug.
+      expect(
+        (await call<Record<string, unknown>>(
+          ersterAdmin,
+          'select public.admin_revoke_role($1, $2) as r',
+          [ersterAdmin.id, 'admin'],
+        )).status,
+      ).toBe('last_admin')
+      expect(await adminIds()).toEqual([ersterAdmin.id])
+    })
   })
 
   it('eine nicht vergebene Rolle zu entziehen ist kein Fehler, aber auch kein "ok"', async () => {

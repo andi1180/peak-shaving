@@ -7,9 +7,46 @@
  */
 
 import type { Database } from '@/db-types'
+import type { LeadConsentPurpose } from './registry'
 
 /** Zweck einer Einwilligung — 1:1 das DB-Enum `platform.consent_purpose` (B1-1). */
 export type ConsentPurpose = Database['platform']['Enums']['consent_purpose']
+
+/**
+ * BEWEIS BEIM TYPECHECK, dass die Literal-Union der Registry und das generierte DB-Enum dieselbe
+ * Menge sind (B3-2). `lib/leads/registry.ts` darf die generierten Typen nicht importieren (sie ist
+ * bewusst abhängigkeitsfrei, damit das DB-Gate sie relativ importieren kann) — ohne diese Zeile
+ * könnte dort ein Zweck stehen, den die Datenbank nicht kennt, und es fiele erst beim Aufruf auf.
+ * Ein zusätzlicher Enum-Wert auf einer der beiden Seiten macht daraus einen Typfehler.
+ */
+type _PurposeUnionsMatch = [LeadConsentPurpose] extends [ConsentPurpose]
+  ? [ConsentPurpose] extends [LeadConsentPurpose]
+    ? true
+    : never
+  : never
+const _purposeUnionsMatch: _PurposeUnionsMatch = true
+void _purposeUnionsMatch
+
+/**
+ * Die Ausgänge von `public.capture_lead` (B1-2, um `consent_confirmed` erweitert in B3-2).
+ *
+ * Steht HIER und nicht in `store.ts`, weil auch der reine, datenbankfreie Ablauf
+ * (`capture-flow.ts`) daran verzweigt — und der darf `store.ts` (`server-only` + service_role)
+ * nicht anfassen.
+ *
+ * 'consent_created'   → bestätigungspflichtiger Zweck: Bestätigungsmail versenden.
+ * 'consent_confirmed' → nicht bestätigungspflichtiger Zweck: die Einwilligung wirkt bereits,
+ *                       die angeforderte Leistung geht sofort raus.
+ * Alles andere        → KEIN Versand.
+ */
+export type CaptureOutcome =
+  | 'lead_only'
+  | 'consent_created'
+  | 'consent_confirmed'
+  | 'consent_already_pending'
+  | 'suppressed'
+
+export type CaptureResult = { outcome: CaptureOutcome; leadId: string; consentId: string | null }
 
 /** Bestätigungsseite des Double-Opt-in. Der Klartext-Token steht in `?token=…`. */
 export const EINWILLIGUNG_BESTAETIGEN_HREF = '/einwilligung-bestaetigen'
