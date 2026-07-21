@@ -223,7 +223,16 @@ export default async function AdminLeadDetailPage({
           <p className="max-w-prose text-small text-ink">
             <strong className="font-semibold">Dieser Lead ist anonymisiert.</strong> Anonymisiert am{' '}
             <Num>{formatDateTime(lead.anonymized_at)}</Num>
-            {lead.anonymized_by_email ? (
+            {/*
+              * B4-1: der Systemlauf wird ZUERST geprüft. Vorher schloss diese Kette aus einem leeren
+              * `anonymized_by` auf ein gelöschtes Konto — was richtig war, solange nur Menschen
+              * anonymisieren konnten. Seit der Fristenlauf existiert, wäre genau das eine
+              * Behauptung über ein Konto, das es nie gab. Die Antwort steht jetzt in der Zeile
+              * (`anonymized_by_system`), sie wird nicht mehr erraten.
+              */}
+            {lead.anonymized_by_system ? (
+              <> automatisch (Fristablauf)</>
+            ) : lead.anonymized_by_email ? (
               <> durch {lead.anonymized_by_email}</>
             ) : lead.anonymized_by ? (
               <> durch ein inzwischen gelöschtes Konto</>

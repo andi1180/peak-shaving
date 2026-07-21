@@ -19,15 +19,20 @@ import {
 import {
   CONSENT_PURPOSES,
   CONSENT_STATUS_LABELS,
+  JOB_STALE_AFTER_HOURS,
   LEADS_HREF,
+  LEAD_RETENTION_JOB_KEY,
   LEAD_STATUSES,
   SUPPRESSIONS_HREF,
   consentStatusLabel,
+  hoursSince,
   purposeLabel,
+  readJobRuns,
   readLeadList,
   readStatus,
   sourceLabel,
   statusLabel,
+  type JobRunsResult,
   type LeadConsentSummary,
   type LeadListRow,
   type LeadSource,
@@ -123,6 +128,102 @@ function ConsentCell({ consents }: { consents: LeadConsentSummary[] }) {
   )
 }
 
+/**
+ * Der Stand des Fristenlaufs (B4-1) — die eine Zeile, die den zeitgesteuerten Job sichtbar macht.
+ *
+ * ── WARUM DIESE ZEILE ÜBERHAUPT EXISTIERT ────────────────────────────────────────────────────────
+ * Der wahrscheinlichste Fehler eines Cron-Jobs ist nicht, dass er scheitert, sondern dass er NICHT
+ * LÄUFT — und ein ausgebliebener Lauf sieht von hier aus exakt aus wie ein Lauf ohne Arbeit. Genau
+ * das ist der planmässige Zustand dieses Jobs bis 2028 („null Fälle"). Ohne diese Zeile fiele ein
+ * seit Monaten stilles `CRON_SECRET` erstmals daran auf, dass Löschfristen verstrichen sind.
+ * Deshalb ist die Hervorhebung nach 48 Stunden der eigentliche Zweck des Bauteils: es soll
+ * auffallen, ohne dass jemand danach sucht.
+ *
+ * ── KEIN AUSLÖSEKNOPF ────────────────────────────────────────────────────────────────────────────
+ * Der Job läuft täglich von selbst. Eine Schaltfläche „jetzt ausführen" gäbe einem Menschen die
+ * Möglichkeit, versehentlich einen unumkehrbaren Massenvorgang zu starten — ein Risiko ohne
+ * Gegenwert. Wer den Lauf wirklich vorziehen muss, hat den Weg über den Endpunkt und das Geheimnis.
+ */
+function RetentionJobStatus({ result }: { result: JobRunsResult | null }) {
+  if (result === null) {
+    return (
+      <div className="mt-6">
+        <AdminError>
+          Der Stand des Fristenlaufs konnte nicht geladen werden. Damit ist unbekannt, ob die
+          Löschfristen zurzeit durchgesetzt werden.
+        </AdminError>
+      </div>
+    )
+  }
+
+  const lastRun = result.runs[0] ?? null
+  const lastSuccess = result.lastSuccess
+  const hours = hoursSince(lastSuccess?.started_at)
+  // Kein erfolgreicher Lauf bekannt ist der SCHÄRFERE Fall, nicht der harmlosere: er heisst
+  // entweder „noch nie gelaufen" (Geheimnis fehlt, Cron nicht registriert) oder „schon so lange
+  // nicht mehr, dass es aus dem Fenster gefallen ist".
+  const stale = hours === null || hours > JOB_STALE_AFTER_HOURS
+
+  return (
+    <div
+      className={
+        stale
+          ? 'mt-6 rounded-md border border-negative bg-negative-subtle p-4'
+          : 'mt-6 rounded-md border border-line bg-surface-sunken p-4'
+      }
+      role={stale ? 'alert' : undefined}
+    >
+      <p className={stale ? 'text-small text-negative' : 'text-small text-text-muted'}>
+        <strong className="font-semibold">Fristenlauf:</strong>{' '}
+        {lastSuccess ? (
+          <>
+            zuletzt erfolgreich am <Num>{formatDateTime(lastSuccess.started_at)}</Num> —{' '}
+            <Num>{lastSuccess.items_considered ?? 0}</Num> fällige Leads gesehen,{' '}
+            <Num>{lastSuccess.items_processed ?? 0}</Num> anonymisiert.
+          </>
+        ) : (
+          <>bisher kein erfolgreicher Lauf verzeichnet.</>
+        )}{' '}
+        {stale ? (
+          <>
+            Seit über <Num>{JOB_STALE_AFTER_HOURS}</Num> Stunden lief er nicht erfolgreich —{' '}
+            <strong className="font-semibold">
+              die Löschfristen werden derzeit nicht durchgesetzt.
+            </strong>{' '}
+            Eingeplant ist er täglich um 03:15 UTC. Zu prüfen: ist <code>CRON_SECRET</code> in
+            Vercel gesetzt und der Cron-Eintrag im aktuellen Production-Deployment registriert?
+          </>
+        ) : (
+          <>Er läuft automatisch, täglich um 03:15 UTC.</>
+        )}
+      </p>
+
+      {/*
+        * Eine Verweigerung ist kein Fehler, sondern die eingebaute Bremse: oberhalb der Obergrenze
+        * anonymisiert der Lauf NICHTS. Sie muss im Klartext hier stehen — sonst sieht der Bereich
+        * aus wie „läuft" und niemand erfährt, dass seit Tagen nichts passiert.
+        */}
+      {lastRun?.outcome === 'refused' && (
+        <p className="mt-2 max-w-prose text-small text-negative">
+          <strong className="font-semibold">
+            Der letzte Lauf am <Num>{formatDateTime(lastRun.started_at)}</Num> hat verweigert.
+          </strong>{' '}
+          {lastRun.detail}
+        </p>
+      )}
+
+      {lastRun?.outcome === 'error' && (
+        <p className="mt-2 max-w-prose text-small text-negative">
+          <strong className="font-semibold">
+            Der letzte Lauf am <Num>{formatDateTime(lastRun.started_at)}</Num> ist abgebrochen.
+          </strong>{' '}
+          {lastRun.detail}
+        </p>
+      )}
+    </div>
+  )
+}
+
 function LeadRow({ lead, sources }: { lead: LeadListRow; sources: LeadSource[] }) {
   return (
     <tr>
@@ -199,6 +300,19 @@ export default async function AdminLeadsPage({ searchParams }: { searchParams: P
   })
   if (res.error) console.error('[admin/leads] admin_list_leads:', res.error)
 
+  // Zweiter, unabhängiger Aufruf: der Stand des Fristenlaufs (B4-1). Bewusst NICHT in
+  // `admin_list_leads` hineingezogen — die Lead-Liste ist gefiltert und seitenweise, der Job-Stand
+  // ist keines von beidem; ein gemeinsamer Wrapper müsste bei jedem Seitenwechsel dasselbe
+  // mitliefern. Ein Fehler hier darf die Liste nicht mitreissen (und umgekehrt).
+  const jobsRes = await supabase.rpc('admin_list_job_runs', {
+    p_job_key: LEAD_RETENTION_JOB_KEY,
+    // 5 statt 1: der LETZTE Lauf (evtl. verweigert) und der letzte ERFOLGREICHE können verschiedene
+    // sein — beide müssen in einer Antwort Platz haben, ohne dass die Seite nachfragen muss.
+    p_limit: 5,
+  })
+  if (jobsRes.error) console.error('[admin/leads] admin_list_job_runs:', jobsRes.error)
+  const jobRuns = readJobRuns(jobsRes.data)
+
   const result = readLeadList(res.data)
   // Ein abgelehnter Filterwert ist etwas anderes als ein Ladefehler: die Datenbank hat geantwortet,
   // nur eben ablehnend. Sie ignoriert einen unbekannten Wert bewusst NICHT still — sonst hielte man
@@ -229,19 +343,15 @@ export default async function AdminLeadsPage({ searchParams }: { searchParams: P
       </header>
 
       {/*
-        * Der Hinweis steht bewusst OBEN und nicht im Kleingedruckten: er beschreibt keine
-        * Einschränkung der Oberfläche, sondern eine Betriebspflicht. Vor B4 gibt es im System
-        * KEINEN zeitgesteuerten Job — die Löschfrist wird durchgesetzt, indem jemand diese Liste
-        * ansieht.
+        * Steht bewusst OBEN und nicht im Kleingedruckten: die Zeile beschreibt keine Einschränkung
+        * der Oberfläche, sondern den Betriebszustand einer Rechtspflicht.
+        *
+        * ERSETZT den B1-3-Hinweis „Löschfristen werden derzeit manuell durchgesetzt" — der ist mit
+        * B4-1 sachlich falsch geworden. Der Filter „nur zur Anonymisierung fällige" bleibt
+        * bestehen: er zeigt jetzt, WAS der nächste Lauf anfassen wird, statt einer Arbeitsliste
+        * für Handarbeit.
         */}
-      <div className="mt-6 rounded-md border border-warning-border bg-warning-subtle p-4">
-        <p className="text-small text-ink">
-          <strong className="font-semibold">Löschfristen werden derzeit manuell durchgesetzt.</strong>{' '}
-          Das System hat vor Bauabschnitt B4 bewusst keinen zeitgesteuerten Job. Fällige Leads
-          erscheinen über den Filter „nur zur Anonymisierung fällige“ und müssen hier von Hand
-          anonymisiert werden. Die automatische Ausführung kommt mit B4.
-        </p>
-      </div>
+      <RetentionJobStatus result={jobRuns} />
 
       {/* ── Filter ────────────────────────────────────────────────────────────────────────────── */}
       <AdminPanel className="mt-6">

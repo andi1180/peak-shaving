@@ -62,9 +62,9 @@ export default tseslint.config(
               name: '@/lib/supabase/service-role',
               message:
                 'Der service_role-Client (umgeht RLS) ist ausschließlich für den Stripe-Pfad ' +
-                '(app/api/stripe/webhook + lib/stripe/actions.ts) und den Lead-/Einwilligungspfad ' +
-                '(lib/leads/**, B1-2). Für Nutzer-Reads den RLS-gebundenen lib/supabase/server.ts ' +
-                'verwenden.',
+                '(app/api/stripe/webhook + lib/stripe/actions.ts), den Lead-/Einwilligungspfad ' +
+                '(lib/leads/**, B1-2) und die Cron-Endpunkte (app/api/cron/**, B4-1). Für ' +
+                'Nutzer-Reads den RLS-gebundenen lib/supabase/server.ts verwenden.',
             },
           ],
         },
@@ -81,9 +81,17 @@ export default tseslint.config(
      * Regel bleibt damit das, was sie ist: die Bremse gegen versehentlichen Gebrauch in
      * Server-Components und Nutzer-Reads. Innerhalb von `lib/leads` importiert nur `store.ts` den
      * Client — die Seiten/Actions gehen über dieses Modul.
+     *
+     * B4-1 ERWEITERT die Liste ein zweites Mal, um die Cron-Endpunkte: `app/api/cron/**` ist
+     * strukturell derselbe Fall wie der Stripe-Webhook — ein maschinell ausgelöster Endpunkt, der
+     * sich mit einem geteilten Geheimnis ausweist und einen service_role-only-Wrapper aufruft
+     * (`public.run_lead_retention_job`). Kein zweiter Client, keine deaktivierte Regel: es bleibt
+     * bei EINEM `lib/supabase/service-role.ts`, und ein Import in einer Server-Component/Page ist
+     * weiterhin ein Lint-Fehler.
      */
     files: [
       'apps/web/app/api/stripe/**/*.ts',
+      'apps/web/app/api/cron/**/*.ts',
       'apps/web/lib/stripe/actions.ts',
       'apps/web/lib/leads/**/*.ts',
     ],

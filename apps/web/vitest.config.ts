@@ -13,6 +13,13 @@ import { defineConfig } from 'vitest/config'
  *
  * Deshalb ist `include` eng gefasst: ein versehentlich hier abgelegter Komponententest soll nicht
  * still mitlaufen und dann an fehlendem jsdom scheitern.
+ *
+ * B4-1 nimmt `app/api/**` dazu — und zwar ohne diese Regel aufzuweichen: ein Route-Handler ist eine
+ * gewöhnliche Funktion `Request → Response`, ohne Renderer und ohne Datenbank. Getestet wird genau
+ * die Eigenschaft, die sich NUR hier prüfen lässt und nicht im DB-Gate: dass der Cron-Endpunkt bei
+ * fehlender oder falscher Berechtigung 401 antwortet, OHNE den service_role-Client auch nur
+ * anzufassen (der ist im Test ersetzt und zählt mit, ob er aufgerufen wurde). Das Verhalten der
+ * Datenbank dahinter bleibt Sache des DB-Gates.
  */
 export default defineConfig({
   /*
@@ -25,6 +32,6 @@ export default defineConfig({
     alias: { '@': path.resolve(import.meta.dirname, '.') },
   },
   test: {
-    include: ['lib/**/*.test.ts'],
+    include: ['lib/**/*.test.ts', 'app/api/**/*.test.ts'],
   },
 })

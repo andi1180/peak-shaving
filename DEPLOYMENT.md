@@ -148,6 +148,41 @@ Code: `apps/web/lib/leads/**` · Vorlage: `apps/web/.env.example`
 - **Nichts im Supabase-Dashboard zu tun:** Der Lead-Pfad läuft über `public`-RPC-Wrapper (§2a bleibt
   unverändert — `platform` ist weiterhin **nicht** exponiert und soll es nicht werden).
 
+### 1g. Zeitgesteuerte Jobs / Cron (B4-1, server-only)
+
+Code: `apps/web/app/api/cron/**` · Zeitplan: `apps/web/vercel.json` · Vorlage: `apps/web/.env.example`
+
+| Variable | Scope | Wert-Herkunft | Pflicht |
+|---|---|---|---|
+| `CRON_SECRET` | Production (Preview nicht nötig — Crons laufen nur in Production) | selbst erzeugt: `openssl rand -base64 32` | ohne sie antwortet der Endpunkt **401** und der Fristenlauf findet nicht statt |
+| `SUPABASE_SERVICE_ROLE_KEY` | s. §1d | derselbe Wert wie im Stripe-/Lead-Pfad | ohne ihn kann der Job den RPC-Wrapper nicht aufrufen |
+
+- **Registrierter Job:** `/api/cron/lead-retention`, täglich **03:15 UTC** — Durchsetzung der
+  Löschfristen des Lead-Bestands (anonymisiert fällige Leads). **Versendet keine E-Mail;** der
+  Versand kommt mit B4-2. Nicht zur vollen Stunde, weil dort plattformweit die meisten Jobs anlaufen.
+- **Plan-Voraussetzung geprüft (21.07.2026):** Das Team liegt auf dem **Pro**-Plan. Pro erlaubt 100
+  Cron-Jobs je Projekt, Mindestintervall eine Minute und **minutengenaue** Auslösung — `15 3 * * *`
+  läuft also tatsächlich um 03:15 und nicht irgendwann in der Stunde. (Auf **Hobby** wären nur
+  tägliche Jobs mit ±59 min Genauigkeit möglich; das trüge diesen Job zwar auch, aber nicht die
+  Erinnerungs-Zeitfenster aus B4-2.)
+- **Crons laufen ausschließlich im Production-Deployment** und immer gegen die jeweils **aktuelle**
+  Production-URL — ein Preview-Deployment löst nichts aus.
+- **Die Registrierung hängt am Deployment, nicht an der Datei:** Vercel liest `vercel.json` beim
+  Build und registriert die Jobs des Production-Deployments. Eine geänderte Datei ohne
+  Production-Deployment ändert **nichts**. Prüfen (nicht annehmen):
+  `GET https://api.vercel.com/v1/projects/<projectId>/crons` → der Eintrag muss dort stehen.
+- **✔ `CRON_SECRET` ist gefahrlos rotierbar** — im ausdrücklichen Gegensatz zu `LEAD_TOKEN_SECRET`
+  (§1f). Der Wert ist zustandsbehaftet nur zwischen Vercel und dem Endpunkt; es hängen **keine
+  bereits versendeten Links** daran, die er entwerten könnte. Neu setzen, neu deployen, fertig.
+- **Fail-closed:** Fehlende Kopfzeile, falsches Geheimnis **und fehlendes `CRON_SECRET`** ergeben
+  allesamt 401 — ohne Datenbankzugriff und ohne Laufdatensatz. Insbesondere der dritte Fall ist
+  Absicht: ein ungeschützter Auslöser wäre ein fremdgesteuerter Massen-Anonymisierungslauf (ab B4-2
+  ein fremdgesteuerter Massenversand).
+- **Kontrolle im Betrieb:** `/admin/leads` zeigt den letzten Lauf samt Kennzahlen und hebt einen seit
+  **über 48 Stunden** ausbleibenden erfolgreichen Lauf hervor. Das ist der vorgesehene Weg, ein
+  vergessenes `CRON_SECRET` zu bemerken — ein nicht gelaufener Job meldet sich sonst nie.
+- **Nichts im Supabase-Dashboard zu tun:** wie §1f läuft alles über `public`-RPC-Wrapper.
+
 ---
 
 ## 2. Supabase-Dashboard-Einstellungen (nicht über Migrationen abgedeckt)

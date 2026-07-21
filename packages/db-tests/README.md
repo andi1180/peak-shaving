@@ -18,7 +18,16 @@ Trefferzahlen) sowie die **Segmentierungsspalten** darauf (B3-1: die CHECKs auf 
 und Messart greifen in der Datenbank statt in der Oberfläche; ein zweiter `capture_lead`-Aufruf mit
 null-Werten löscht **nichts** — der wahrscheinlichste stille Datenverlust des Erfassungspfads; der
 Widerruf der Vertragsablauf-Erinnerung nullt Versorger und Vertragsende, ein bloß abgelaufener Token
-dagegen nicht).
+dagegen nicht) sowie die **Scheduling-Infrastruktur und die automatische Fristdurchsetzung** (B4-1:
+„fällig" trennt Vergangenheit, Zukunft und bereits Anonymisiertes; oberhalb der Mengenobergrenze wird
+**gar nichts** anonymisiert statt der ersten Teilmenge; ein Systemlauf ist als solcher erkennbar und
+nachträglich nicht umschreibbar; jeder Lauf hinterlässt genau eine Zeile im Protokoll, auch der
+verweigerte — ein ausgebliebener Job ist sonst von „nichts zu tun" nicht zu unterscheiden).
+
+> **Isolation, wo ein Test bestandsweit wirkt:** `job-runs-lead-retention.test.ts` läuft je Test in
+> EINER Transaktion mit `rollback`, in der fremde fällige Leads entfernt sind. `run_lead_retention`
+> kennt bewusst keinen Parameter, mit dem sich ein Lauf auf eigene Fixtures einschränken liesse —
+> ohne diese Isolation würde er die Leads anderer Tests **unumkehrbar** mit anonymisieren.
 
 Warum ein Gate statt Prosa: ein RLS-/Grant-Fehler auf Zugangsrechten oder Zahlungsstatus ist ein
 Datenleck über Nutzergrenzen hinweg und beim Klicken unsichtbar (Pflichtenheft §10). Jeder Test
