@@ -462,10 +462,14 @@ comment on function public.admin_create_analysis(
 
 -- ── admin_list_analyses ──────────────────────────────────────────────────────────────────────────
 -- Kopfdaten und die fünf typisierten Auszüge — AUSDRÜCKLICH OHNE `inputs`, `result` und
--- `source_file_gzip`. Die Liste rührt die Blob-Spalte nicht einmal für ihre Länge an: ein
--- `octet_length` über die ganze Seite müsste jede Zeile aus dem TOAST-Speicher holen, und genau
--- diese Kosten soll die Trennung vermeiden (die Grösse steht in admin_get_analysis, wo sie eine
--- Zeile betrifft, die jemand ausdrücklich geöffnet hat).
+-- `source_file_gzip`. Die Blob-Spalte kommt in KEINER Auswahlliste dieser Funktion vor, auch nicht
+-- in der inneren: `base` wird zweimal referenziert (Gesamtzahl und Seite) und deshalb materialisiert
+-- — ein `select a.*` zöge die Spalte durch den Zwischenspeicher, ohne dass es je jemand sähe.
+--
+-- Die GRÖSSE des Archivs steht bewusst nur in admin_get_analysis, nicht hier: die Liste ist eine
+-- Liste von Analysen, keine Dateiübersicht, und die Grösse ist erst dort eine Auskunft, wo auch der
+-- Download angeboten wird. (Sie wäre nicht teuer — `octet_length(bytea)` liest die Länge aus dem
+-- TOAST-Kopf und packt nichts aus. Der Grund ist der Zuschnitt, nicht der Aufwand.)
 create function public.admin_list_analyses(
   p_limit integer default 50,
   p_offset integer default 0,
@@ -499,31 +503,33 @@ begin
   end if;
 
   with base as (
-    select a.*
+    select a.id,
+           a.lead_id,
+           a.customer_label,
+           a.site_label,
+           a.analysis_kind,
+           a.supersedes_id,
+           a.engine_version,
+           a.engine_commit_sha,
+           a.computed_at,
+           a.created_at,
+           a.created_by,
+           a.baseline_billed_kw_before,
+           a.baseline_billed_kw_after,
+           a.baseline_annual_saving_eur,
+           a.recommended_battery_label,
+           a.recommended_capacity_kwh,
+           a.source_file_name,
+           a.source_file_sha256
     from platform.analyses a
     where (p_lead_id is null or a.lead_id = p_lead_id)
       and (v_kind is null or a.analysis_kind = v_kind)
   ),
   page as (
-    select b.id,
-           b.lead_id,
-           b.customer_label,
-           b.site_label,
-           b.analysis_kind,
-           b.supersedes_id,
-           b.engine_version,
-           b.engine_commit_sha,
-           b.computed_at,
-           b.created_at,
-           b.created_by,
-           (select au.email from auth.users au where au.id = b.created_by) as created_by_email,
-           b.baseline_billed_kw_before,
-           b.baseline_billed_kw_after,
-           b.baseline_annual_saving_eur,
-           b.recommended_battery_label,
-           b.recommended_capacity_kwh,
-           b.source_file_name,
-           b.source_file_sha256
+    select b.*,
+           -- Nur für die Seite aufgelöst, nicht für die Gesamtzahl: `base` wird materialisiert, und
+           -- ein Join über alle Treffer kostete für Zeilen, die niemand sieht.
+           (select au.email from auth.users au where au.id = b.created_by) as created_by_email
     from base b
     order by b.created_at desc
     limit v_limit offset v_offset
