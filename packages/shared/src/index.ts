@@ -8,3 +8,6 @@ export * from './financial'
 export * from './simulation'
 export * from './analysis-result'
 export * from './demo-battery-catalog'
+// B14-1: Archivierung der Quelldatei (gzip + SHA-256). Kein Contract-Typ, aber isomorph und von
+// Schreibweg (B14-2) wie DB-Gate gebraucht — deshalb hier und nicht in `engine` (Rechenkern).
+export * from './archive'

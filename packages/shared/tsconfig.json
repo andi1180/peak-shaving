@@ -5,6 +5,12 @@
     "rootDir": "src",
     "declaration": true,
     "verbatimModuleSyntax": true,
+    // B14-1: `archive.ts` benutzt Web-Standard-APIs (CompressionStream, Blob, crypto.subtle), die
+    // in Node ≥ 18 UND in jedem Zielbrowser vorhanden sind — TypeScript liefert ihre Deklarationen
+    // aber nur über eine dieser lib-Dateien. Bewusst `WebWorker` und NICHT `DOM`: `DOM` brächte
+    // `document`/`window` mit und lüde damit ein, in diesem Paket etwas browser-gebundenes zu
+    // schreiben. Genau das darf `shared` nicht — es wird serverseitig wie client-seitig geladen.
+    "lib": ["ES2022", "WebWorker"],
     "types": []
   },
   "include": ["src"],

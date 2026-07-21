@@ -453,3 +453,36 @@ Für die hier aufgeführten Pfade gilt deshalb dauerhaft und ohne Ablaufdatum:
 Dieselbe Zusage steht im Code an zwei Stellen: an der Erlaubnisliste
 (`apps/web/lib/leads/warteliste.ts`) und an der Route selbst
 (`apps/web/app/(site)/[locale]/warteliste/[quelle]/page.tsx`).
+
+---
+
+## 6. Archivierte Lastgänge — Zweckbindung ⚠️ RECHTLICHER VERMERK (B14)
+
+Seit **B14-1** (`supabase/migrations/20260724150000_create_analysis_persistence.sql`) speichert
+`platform.analyses` zu jeder Auslegung die **Quelldatei des Kunden** (gzip-komprimiert, mit
+SHA-256-Prüfsumme über die unkomprimierte Fassung). Das ist keine Nebensache der Ablage, sondern eine
+eigene datenschutzrechtliche Lage:
+
+- Der archivierte Lastgang ist **Vertragsdurchführungsdatum eines Geschäftskunden**. Er wurde
+  überlassen, damit **genau diese eine Auslegung** entsteht — und für nichts anderes.
+- Eine Verwendung für einen **Branchen-Benchmark** ist nach `Fahrplan_2026.md`
+  (**offene Entscheidung 6**) ein **EIGENER ZWECK**, nicht dieselbe Verarbeitung. Er muss **ab dem
+  ersten Fall** in **AGB** und **Auftragsverarbeitungsvereinbarung** abgedeckt sein — vorher gar
+  nicht, auch nicht „nur intern, nur aggregiert, nur zum Ausprobieren".
+- **B14 baut dafür bewusst KEIN Kennzeichen und KEINE Auswertung.** Eine vorhandene Schaltfläche
+  lädt dazu ein, sie zu benutzen, bevor die Grundlage steht; und ein Kennzeichen, das niemand
+  gesetzt hat, sieht später aus wie eine Einwilligung, die niemand erteilt hat. Wer die Grundlage
+  schafft, baut die Spalte **dann** — nicht vorsorglich.
+
+**Aufbewahrung, bewusst abweichend vom Lead:** Die Analyse hängt **nicht** am Kaskadenlöschen des
+Leads und wird von `platform.anonymize_lead` **nicht** angetastet. Eine bezahlte Analyse ist eine
+kaufmännische Leistung mit **eigener Aufbewahrungspflicht** (7 Jahre ab Vertragsschluss, laut
+B1-Entscheidung eine getrennte Rechtsgrundlage) und überlebt die werbliche Frist des Leads
+(24 Monate ab letzter Interaktion, automatisch durchgesetzt seit B4-1). Deshalb steht
+`customer_label` **denormalisiert** auf der Analyse: nach der Anonymisierung trägt der Lead keinen
+Kundennamen mehr, die Geschäftsunterlage muss ihren behalten.
+
+**Was das für den Betrieb heißt:** Der Blob wird ausschließlich über `public.admin_get_analysis_source`
+herausgegeben (angemeldeter Admin, ein Aufruf pro Datei). Es gibt **keinen** Weg, Lastgänge gebündelt
+zu exportieren, und es soll auch keiner entstehen, solange die Zweckbindung oben nicht erweitert ist.
+Dieselbe Begründung steht im Kopf der Migration — sie gilt dort dem Datenmodell, hier dem Betrieb.
