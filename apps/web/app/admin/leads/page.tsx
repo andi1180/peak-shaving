@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import type { ReactNode } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { isCurrentUserAdmin } from '@/lib/admin/guard'
@@ -15,18 +16,26 @@ import {
   Th,
   formatDate,
   formatDateTime,
+  formatKwh,
 } from '@/components/admin/ui'
 import {
   CONSENT_PURPOSES,
   CONSENT_STATUS_LABELS,
   CONTRACT_REMINDER_JOB_KEY,
+  EXPORTS_HREF,
+  INDUSTRIES,
+  INDUSTRY_LABELS,
   JOB_STALE_AFTER_HOURS,
+  LEADS_EXPORT_HREF,
   LEADS_HREF,
   LEAD_RETENTION_JOB_KEY,
   LEAD_STATUSES,
+  METERING_TYPE_LABELS,
   SUPPRESSIONS_HREF,
   consentStatusLabel,
   hoursSince,
+  industryLabel,
+  meteringTypeLabel,
   purposeLabel,
   readContractReminderHealth,
   readJobRuns,
@@ -42,6 +51,14 @@ import {
   type LeadSource,
   type LeadSourceStat,
 } from '@/lib/admin/leads'
+import {
+  filterRpcArgs,
+  filterSearchParams,
+  hasAnyFilter,
+  readFilters,
+  type LeadFilters,
+  type RawQuery,
+} from '@/lib/admin/lead-filters'
 
 /*
  * `/admin/leads` — die Lead-Liste (B1-3).
@@ -80,25 +97,24 @@ export const metadata: Metadata = {
 
 const PAGE_SIZE = 50
 
-/** Die Filter, wie sie in der URL stehen. Deutsche Schlüssel — die Routen sind es auch. */
-type Query = { [key: string]: string | string[] | undefined }
-
-function param(query: Query, name: string): string {
-  const value = query[name]
-  return typeof value === 'string' ? value.trim() : ''
-}
-
-/** Baut eine URL mit denselben Filtern und einer geänderten Seite. */
-function pageHref(query: Query, page: number): string {
-  const sp = new URLSearchParams()
-  for (const key of ['status', 'quelle', 'zweck', 'einwilligung', 'suche'] as const) {
-    const value = param(query, key)
-    if (value) sp.set(key, value)
-  }
-  if (param(query, 'faellig') === '1') sp.set('faellig', '1')
+/**
+ * Baut eine URL mit denselben Filtern und einer geänderten Seite.
+ *
+ * Die Filter-Parameter kommen aus `lib/admin/lead-filters.ts` und nicht aus einer Liste hier: die
+ * Export-Route liest dieselben Namen. Eine zweite Aufzählung wäre die Stelle, an der ein neuer
+ * Filter beim Seitenwechsel ODER beim Export verlorengeht — beides still.
+ */
+function pageHref(filters: LeadFilters, page: number): string {
+  const sp = filterSearchParams(filters)
   if (page > 1) sp.set('seite', String(page))
   const qs = sp.toString()
   return qs ? `${LEADS_HREF}?${qs}` : LEADS_HREF
+}
+
+/** Die Ausfuhr übernimmt GENAU den Filter, den die Sicht gerade zeigt — ohne Seitenangabe. */
+function exportHref(filters: LeadFilters): string {
+  const qs = filterSearchParams(filters).toString()
+  return qs ? `${LEADS_EXPORT_HREF}?${qs}` : LEADS_EXPORT_HREF
 }
 
 /**
@@ -373,6 +389,43 @@ function SourceStats({ stats }: { stats: LeadSourceStat[] | null }) {
   )
 }
 
+/**
+ * Die Segmentierungsmerkmale einer Zeile, kompakt (B2-1).
+ *
+ * Zeigt NUR, was gesetzt ist: leere Felder sind bei kontextspezifischen Einstiegspunkten der
+ * Normalfall (B3-1), und sechs Gedankenstriche je Zeile machten die Tabelle unlesbar, ohne etwas
+ * auszusagen. Steht gar nichts da, sagt die Zelle das in einem Wort.
+ */
+function SegmentCell({ lead }: { lead: LeadListRow }) {
+  const parts: ReactNode[] = []
+  if (lead.industry) parts.push(industryLabel(lead.industry))
+  if (lead.postal_code) parts.push(<Num key="plz">{lead.postal_code}</Num>)
+  if (lead.annual_consumption_kwh !== null) {
+    parts.push(<Num key="kwh">{formatKwh(lead.annual_consumption_kwh)}</Num>)
+  }
+  if (lead.metering_type) parts.push(meteringTypeLabel(lead.metering_type))
+  if (lead.contract_end_date) {
+    parts.push(
+      <span key="vertrag">
+        Vertragsende <Num>{formatDate(lead.contract_end_date)}</Num>
+      </span>,
+    )
+  }
+
+  if (parts.length === 0) return <span className="text-text-muted">—</span>
+
+  return (
+    <span className="text-caption text-text-muted">
+      {parts.map((part, i) => (
+        <span key={i}>
+          {i > 0 && ' · '}
+          {part}
+        </span>
+      ))}
+    </span>
+  )
+}
+
 function LeadRow({ lead, sources }: { lead: LeadListRow; sources: LeadSource[] }) {
   return (
     <tr>
@@ -397,6 +450,15 @@ function LeadRow({ lead, sources }: { lead: LeadListRow; sources: LeadSource[] }
       </Td>
       <Td>{sourceLabel(lead.first_source_key, sources)}</Td>
       <Td>
+        {/*
+          * B2-1: die Segmentierungsmerkmale in der Liste. Ohne sie liesse sich ein gesetzter Filter
+          * nicht am Ergebnis nachvollziehen — man sähe nur, dass die Menge kleiner wurde, nicht
+          * warum. Kompakt in EINER Zelle statt in sechs Spalten: die Tabelle soll überfliegbar
+          * bleiben, die vollständige Sicht steht auf der Detailseite.
+          */}
+        <SegmentCell lead={lead} />
+      </Td>
+      <Td>
         <ConsentCell consents={lead.consents} />
       </Td>
       <Td className="whitespace-nowrap">
@@ -418,34 +480,28 @@ function LeadRow({ lead, sources }: { lead: LeadListRow; sources: LeadSource[] }
   )
 }
 
-export default async function AdminLeadsPage({ searchParams }: { searchParams: Promise<Query> }) {
+export default async function AdminLeadsPage({
+  searchParams,
+}: {
+  searchParams: Promise<RawQuery>
+}) {
   // Kein Zugang → gar keinen Inhalt erzeugen. Was der Nutzer stattdessen SIEHT, entscheidet das
   // Layout (neutrale Seite); hier geht es darum, dass nichts entsteht, das mitgeschickt werden kann.
   if (!(await isCurrentUserAdmin())) return null
 
   const query = await searchParams
-  const filterStatus = param(query, 'status')
-  const filterSource = param(query, 'quelle')
-  const filterPurpose = param(query, 'zweck')
-  const filterConsent = param(query, 'einwilligung')
-  const filterSearch = param(query, 'suche')
-  const filterDue = param(query, 'faellig') === '1'
-  const page = Math.max(1, Number.parseInt(param(query, 'seite') || '1', 10) || 1)
+  const filters = readFilters(query)
+  const rawPage = query.seite
+  const page = Math.max(
+    1,
+    Number.parseInt((typeof rawPage === 'string' ? rawPage : '') || '1', 10) || 1,
+  )
 
   const supabase = await createClient()
   const res = await supabase.rpc('admin_list_leads', {
     p_limit: PAGE_SIZE,
     p_offset: (page - 1) * PAGE_SIZE,
-    p_status: filterStatus || undefined,
-    p_source_key: filterSource || undefined,
-    p_consent_purpose: (filterPurpose || undefined) as
-      | 'marketing_email'
-      | 'contract_expiry_reminder'
-      | 'result_delivery'
-      | undefined,
-    p_consent_status: filterConsent || undefined,
-    p_search: filterSearch || undefined,
-    p_due_only: filterDue,
+    ...filterRpcArgs(filters),
   })
   if (res.error) console.error('[admin/leads] admin_list_leads:', res.error)
 
@@ -492,6 +548,7 @@ export default async function AdminLeadsPage({ searchParams }: { searchParams: P
   const invalidFilter = readStatus(res.data) === 'invalid_filter'
 
   const total = result?.total ?? 0
+  const exportTotal = result?.exportTotal ?? 0
   const sources = result?.sources ?? []
   const lastPage = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
@@ -510,7 +567,14 @@ export default async function AdminLeadsPage({ searchParams }: { searchParams: P
           >
             Sperrliste
           </Link>{' '}
-          — nachsehen, ob eine Adresse dauerhaft gesperrt ist.
+          — nachsehen, ob eine Adresse dauerhaft gesperrt ist.{' '}
+          <Link
+            href={EXPORTS_HREF}
+            className="rounded-sm font-medium text-accent underline decoration-accent underline-offset-[3px] outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            Ausfuhren
+          </Link>{' '}
+          — wer wann eine Kopie des Bestands mitgenommen hat.
         </p>
       </header>
 
@@ -558,7 +622,7 @@ export default async function AdminLeadsPage({ searchParams }: { searchParams: P
                   id="filter-suche"
                   name="suche"
                   type="search"
-                  defaultValue={filterSearch}
+                  defaultValue={filters.search}
                   placeholder="teil einer Adresse oder Firma"
                 />
               </div>
@@ -567,7 +631,7 @@ export default async function AdminLeadsPage({ searchParams }: { searchParams: P
             <div>
               <Label htmlFor="filter-status">Status</Label>
               <div className="mt-1.5">
-                <Select id="filter-status" name="status" defaultValue={filterStatus}>
+                <Select id="filter-status" name="status" defaultValue={filters.status}>
                   <option value="">alle</option>
                   {LEAD_STATUSES.map((s) => (
                     <option key={s} value={s}>
@@ -581,7 +645,7 @@ export default async function AdminLeadsPage({ searchParams }: { searchParams: P
             <div>
               <Label htmlFor="filter-quelle">Herkunft</Label>
               <div className="mt-1.5">
-                <Select id="filter-quelle" name="quelle" defaultValue={filterSource}>
+                <Select id="filter-quelle" name="quelle" defaultValue={filters.sourceKey}>
                   <option value="">alle</option>
                   {/*
                     * Die Einstiegspunkte kommen aus der DATENBANK (`lead_sources` ist eine Tabelle,
@@ -600,7 +664,7 @@ export default async function AdminLeadsPage({ searchParams }: { searchParams: P
             <div>
               <Label htmlFor="filter-zweck">Einwilligung — Zweck</Label>
               <div className="mt-1.5">
-                <Select id="filter-zweck" name="zweck" defaultValue={filterPurpose}>
+                <Select id="filter-zweck" name="zweck" defaultValue={filters.consentPurpose}>
                   <option value="">alle</option>
                   {CONSENT_PURPOSES.map((p) => (
                     <option key={p} value={p}>
@@ -614,7 +678,7 @@ export default async function AdminLeadsPage({ searchParams }: { searchParams: P
             <div>
               <Label htmlFor="filter-einwilligung">Einwilligung — Zustand</Label>
               <div className="mt-1.5">
-                <Select id="filter-einwilligung" name="einwilligung" defaultValue={filterConsent}>
+                <Select id="filter-einwilligung" name="einwilligung" defaultValue={filters.consentStatus}>
                   <option value="">alle</option>
                   {Object.entries(CONSENT_STATUS_LABELS).map(([value, label]) => (
                     <option key={value} value={value}>
@@ -628,13 +692,129 @@ export default async function AdminLeadsPage({ searchParams }: { searchParams: P
 
             <div className="flex items-end">
               <div className="flex items-start gap-2 pb-2">
-                <Checkbox id="filter-faellig" name="faellig" value="1" defaultChecked={filterDue} />
+                <Checkbox id="filter-faellig" name="faellig" value="1" defaultChecked={filters.dueOnly} />
                 <Label htmlFor="filter-faellig" className="font-normal">
                   nur zur Anonymisierung fällige
                 </Label>
               </div>
             </div>
           </div>
+
+          {/*
+            * ── B2-1: die Segmentierungsdimensionen aus B3-1 ─────────────────────────────────────
+            * Optisch abgesetzt, weil sie eine andere Frage beantworten als die Filter darüber: die
+            * oberen betreffen den Zustand eines Leads im System (Status, Herkunft, Einwilligung),
+            * diese hier den BETRIEB dahinter. Das ist die Trennung, entlang derer die Aussendung
+            * im November zusammengestellt wird.
+            */}
+          <fieldset className="border-t border-line pt-4">
+            <legend className="sr-only">Betriebsmerkmale</legend>
+            <p className="text-caption font-semibold uppercase tracking-wide text-text-muted">
+              Betrieb
+            </p>
+            <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <div>
+                <Label htmlFor="filter-branche">Branche</Label>
+                <div className="mt-1.5">
+                  <Select id="filter-branche" name="branche" defaultValue={filters.industry}>
+                    <option value="">alle</option>
+                    {INDUSTRIES.map((key) => (
+                      <option key={key} value={key}>
+                        {INDUSTRY_LABELS[key]}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="filter-messart">Messart</Label>
+                <div className="mt-1.5">
+                  <Select id="filter-messart" name="messart" defaultValue={filters.meteringType}>
+                    <option value="">alle</option>
+                    {Object.entries(METERING_TYPE_LABELS).map(([value, label]) => (
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="filter-plz">PLZ beginnt mit</Label>
+                <div className="mt-1.5">
+                  <Input
+                    id="filter-plz"
+                    name="plz"
+                    inputMode="numeric"
+                    maxLength={4}
+                    defaultValue={filters.postalPrefix}
+                    placeholder="z. B. 11"
+                    aria-describedby="filter-plz-hint"
+                  />
+                </div>
+                {/*
+                  * Führende Ziffern statt vollständiger PLZ: „11" trifft die Wiener Innenbezirke.
+                  * Ein Gleichheitsfilter zwänge dazu, ein Netzgebiet als Aufzählung einzelner
+                  * Postleitzahlen zu treffen — und eine vergessene wäre nicht sichtbar, sondern nur
+                  * eine etwas kleinere Menge.
+                  */}
+                <p id="filter-plz-hint" className="mt-1.5 text-caption text-text-muted">
+                  Führende Ziffern — „11“ trifft alle Wiener Innenbezirke.
+                </p>
+              </div>
+
+              <div>
+                <Label htmlFor="filter-verbrauch-ab">Jahresverbrauch ab (kWh)</Label>
+                <div className="mt-1.5">
+                  <Input
+                    id="filter-verbrauch-ab"
+                    name="verbrauch-ab"
+                    inputMode="numeric"
+                    defaultValue={filters.consumptionMin}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="filter-verbrauch-bis">Jahresverbrauch bis (kWh)</Label>
+                <div className="mt-1.5">
+                  <Input
+                    id="filter-verbrauch-bis"
+                    name="verbrauch-bis"
+                    inputMode="numeric"
+                    defaultValue={filters.consumptionMax}
+                  />
+                </div>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <Label htmlFor="filter-vertragsende-ab">Vertragsende ab</Label>
+                  <div className="mt-1.5">
+                    <Input
+                      id="filter-vertragsende-ab"
+                      name="vertragsende-ab"
+                      type="date"
+                      defaultValue={filters.contractEndFrom}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <Label htmlFor="filter-vertragsende-bis">Vertragsende bis</Label>
+                  <div className="mt-1.5">
+                    <Input
+                      id="filter-vertragsende-bis"
+                      name="vertragsende-bis"
+                      type="date"
+                      defaultValue={filters.contractEndTo}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </fieldset>
 
           <div className="flex flex-wrap items-center gap-3">
             <Button type="submit" variant="primary" size="md">
@@ -676,6 +856,7 @@ export default async function AdminLeadsPage({ searchParams }: { searchParams: P
                       <Th>Firma</Th>
                       <Th>Status</Th>
                       <Th>Herkunft</Th>
+                      <Th>Betrieb</Th>
                       <Th>Einwilligungen</Th>
                       <Th>Letzte Interaktion</Th>
                       <Th>Löschfrist</Th>
@@ -683,7 +864,7 @@ export default async function AdminLeadsPage({ searchParams }: { searchParams: P
                   </thead>
                   <tbody>
                     {result.leads.length === 0 && (
-                      <EmptyRow colSpan={7}>
+                      <EmptyRow colSpan={8}>
                         Kein Lead passt zu diesen Filtern.
                       </EmptyRow>
                     )}
@@ -702,12 +883,12 @@ export default async function AdminLeadsPage({ searchParams }: { searchParams: P
                   <div className="flex items-center gap-2">
                     {page > 1 && (
                       <Button asChild variant="secondary" size="sm">
-                        <Link href={pageHref(query, page - 1)}>Zurück</Link>
+                        <Link href={pageHref(filters, page - 1)}>Zurück</Link>
                       </Button>
                     )}
                     {page < lastPage && (
                       <Button asChild variant="secondary" size="sm">
-                        <Link href={pageHref(query, page + 1)}>Weiter</Link>
+                        <Link href={pageHref(filters, page + 1)}>Weiter</Link>
                       </Button>
                     )}
                   </div>
@@ -715,13 +896,56 @@ export default async function AdminLeadsPage({ searchParams }: { searchParams: P
               )}
 
               {/*
-                * Bewusst OHNE Export und OHNE Sammelaktionen: beides ist B2 (Segmentierung und
-                * Aussendung). Ein Export vor der Suppression-/Zustellprotokoll-Schicht wäre eine
-                * Adressliste ohne die Prüfungen, die vor jedem Versand zu laufen haben.
+                * B2-1: die Ausfuhr. Sie übernimmt GENAU den Filter, den diese Sicht gerade zeigt —
+                * einen Weg, ungefiltert zu exportieren, gibt es nicht; ohne Filter ist der Filter
+                * „alles" und wird als solcher protokolliert.
+                *
+                * Die angezeigte Zahl ist `export_total` und NICHT die Trefferzahl darüber: der
+                * Export schliesst gesperrte und anonymisierte Zeilen strukturell aus. Beide Zahlen
+                * wären plausibel — deshalb steht hier die, die wirklich in der Datei landet, und
+                * daneben, warum sie kleiner sein kann.
+                *
+                * Ein einfacher Link und kein Formular: der Download ist ein GET, und eine gefilterte
+                * Ausfuhr soll sich als Adresse weitergeben lassen wie die Sicht selbst.
                 */}
-              <p className="border-t border-line px-4 py-3 text-caption text-text-muted sm:px-6">
-                Kein Export, keine Sammelaktionen — Segmentierung und Aussendung kommen mit B2.
-              </p>
+              <div className="border-t border-line px-4 py-4 sm:px-6">
+                <div className="flex flex-wrap items-center gap-3">
+                  <Button asChild variant="secondary" size="sm">
+                    <a href={exportHref(filters)} download>
+                      <Num>{exportTotal}</Num>
+                      {exportTotal === 1 ? ' Zeile ausführen' : ' Zeilen ausführen'} (CSV)
+                    </a>
+                  </Button>
+                  <span className="text-caption text-text-muted">
+                    {hasAnyFilter(filters)
+                      ? 'mit dem gerade angewandten Filter'
+                      : 'ohne Filter — also der gesamte anschreibbare Bestand'}
+                  </span>
+                </div>
+                <p className="mt-2 max-w-prose text-caption text-text-muted">
+                  Gesperrte und anonymisierte Zeilen sind <strong>nicht</strong> enthalten — der
+                  Ausschluss steht in der Abfrage, nicht in einer Einstellung: eine ausgeführte Datei
+                  kann in ein fremdes Werkzeug wandern, das die Sperrliste nicht kennt.{' '}
+                  {exportTotal !== total && (
+                    <>
+                      Von den <Num>{total}</Num> Treffern fallen dadurch{' '}
+                      <Num>{total - exportTotal}</Num> heraus.{' '}
+                    </>
+                  )}
+                  Je Zeile steht der Einwilligungsstand zu „Informationen &amp; Angebote“ in einer
+                  eigenen Spalte. Jede Ausfuhr wird protokolliert (
+                  <Link
+                    href={EXPORTS_HREF}
+                    className="rounded-sm font-medium text-accent underline decoration-accent underline-offset-[3px] outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    Ausfuhren
+                  </Link>
+                  ).
+                </p>
+                <p className="mt-2 max-w-prose text-caption text-text-muted">
+                  Keine Sammelaktionen und kein Versand — die Aussendung kommt mit B2-2.
+                </p>
+              </div>
             </AdminPanel>
           </>
         )}

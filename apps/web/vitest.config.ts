@@ -32,6 +32,14 @@ export default defineConfig({
     alias: { '@': path.resolve(import.meta.dirname, '.') },
   },
   test: {
-    include: ['lib/**/*.test.ts', 'app/api/**/*.test.ts'],
+    /*
+     * B2-1 nimmt `app/admin/**` dazu — aus demselben Grund wie B4-1 `app/api/**`, und ohne die
+     * Regel aufzuweichen: die Export-Ausfuhr ist ein Route Handler, also eine gewöhnliche Funktion
+     * `Request → Response` ohne Renderer. Geprüft wird genau die Eigenschaft, die sich nur hier
+     * prüfen lässt und nicht im DB-Gate: dass die Route ohne Sitzung KEINE Daten liefert und die
+     * Datenbank dabei nicht einmal befragt. Die Admin-SEITEN (`page.tsx`) bleiben ausgeschlossen —
+     * für sie gibt es weiterhin kein Renderer-Setup, und es soll auch keins beiläufig entstehen.
+     */
+    include: ['lib/**/*.test.ts', 'app/api/**/*.test.ts', 'app/admin/**/*.test.ts'],
   },
 })
