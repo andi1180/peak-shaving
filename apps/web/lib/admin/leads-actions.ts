@@ -122,6 +122,127 @@ export async function setLeadStatusAction(
   }
 }
 
+// ── Stammdaten korrigieren (B2-1) ────────────────────────────────────────────────────────────────
+
+/**
+ * Der Korrekturweg für die NEUN bearbeitbaren Felder.
+ *
+ * ── LEER HEISST LÖSCHEN, UND ZWAR ABSICHTLICH ────────────────────────────────────────────────────
+ * Ein leeres Feld wird als `null` übergeben und setzt die Spalte auf null. Anders als beim
+ * Erfassungspfad (`capture_lead`, B3-1: „null lässt unberührt") ist das hier richtig — ein
+ * Bearbeitungsformular schickt immer alle neun Felder, und ein geleertes Feld ist eine Aussage:
+ * „diese Angabe war falsch, sie soll weg". Mit COALESCE-Semantik liesse sich kein einziges Feld je
+ * löschen, und genau das muss ein Korrekturweg können.
+ *
+ * ── DIE ZWECKBINDUNG WIRD ALS SATZ ÜBERSETZT, NICHT ALS DATENBANKFEHLER GEZEIGT ──────────────────
+ * Der Wrapper WIRFT (22023), wenn Versorger oder Vertragsende ohne Einwilligung zur
+ * Vertragsablauf-Erinnerung gesetzt werden sollen. Ein roher Datenbanktext erreicht den Bildschirm
+ * nie; hier steht der Satz, der sagt, was zu tun ist.
+ */
+export async function updateLeadAction(
+  _prev: AdminState,
+  formData: FormData,
+): Promise<AdminState> {
+  const leadId = leadIdOf(formData)
+  if (!leadId) return { formError: GENERIC }
+
+  const supabase = await sessionClient()
+  if (!supabase) return { formError: FORBIDDEN }
+
+  const text = (name: string): string | undefined => {
+    const value = String(formData.get(name) ?? '').trim()
+    return value === '' ? undefined : value
+  }
+
+  /*
+   * Der Jahresverbrauch wird HIER geprüft und nicht der Datenbank überlassen: der Spalten-CHECK
+   * verlangt > 0 und lehnt sonst hart ab — als Datenbankfehler, den niemand am Feld sieht. Die
+   * Meldung gehört ans Feld (Muster wie `lib/admin/schema.ts`), die DB bleibt trotzdem die harte
+   * Grenze.
+   */
+  const rawConsumption = String(formData.get('annualConsumptionKwh') ?? '').trim()
+  let consumption: number | undefined
+  if (rawConsumption !== '') {
+    const parsed = Number.parseInt(rawConsumption.replace(/[.\s]/g, ''), 10)
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      return {
+        fieldErrors: {
+          annualConsumptionKwh:
+            'Bitte eine Zahl grösser als 0 angeben — für „nicht bekannt" das Feld leer lassen.',
+        },
+      }
+    }
+    consumption = parsed
+  }
+
+  const postalCode = text('postalCode')
+  if (postalCode !== undefined && !/^[0-9]{4}$/.test(postalCode)) {
+    return {
+      fieldErrors: { postalCode: 'Eine österreichische Postleitzahl hat genau vier Ziffern.' },
+    }
+  }
+
+  const contractEnd = text('contractEndDate')
+  if (contractEnd !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(contractEnd)) {
+    return { fieldErrors: { contractEndDate: 'Bitte ein Datum auswählen.' } }
+  }
+
+  const { data, error } = await supabase.rpc('admin_update_lead', {
+    p_lead_id: leadId,
+    p_company: text('company'),
+    p_contact_name: text('contactName'),
+    p_phone: text('phone'),
+    // Ein unbekannter Wert scheitert am Postgres-Enum — die Datenbank bleibt die harte Grenze; das
+    // Auswahlfeld bietet ohnehin nur die zehn Branchen an.
+    p_industry: text('industry') as
+      | 'baeckerei'
+      | 'gastronomie'
+      | 'handel'
+      | 'hotellerie'
+      | 'tischlerei'
+      | 'landwirtschaft'
+      | 'kuehlhaus'
+      | 'metallverarbeitung'
+      | 'buero_dienstleistung'
+      | 'sonstige'
+      | undefined,
+    p_postal_code: postalCode,
+    p_annual_consumption_kwh: consumption,
+    p_metering_type: text('meteringType'),
+    p_supplier: text('supplier'),
+    p_contract_end_date: contractEnd,
+  })
+
+  /*
+   * 22023 = invalid_parameter_value: die Zweckbindung hat abgelehnt. Vor `interpret`, weil dort
+   * jeder Fehler ausser 42501 als Betriebsproblem geloggt und generisch beantwortet würde — das
+   * hier ist aber ein fachlicher, vom Admin auflösbarer Zustand.
+   */
+  if ((error as { code?: string } | null)?.code === '22023') {
+    return {
+      formError:
+        'Versorger und Vertragsende werden ausschliesslich für die Vertragsablauf-Erinnerung ' +
+        'erhoben. Für diesen Lead besteht dafür keine Einwilligung — weder offen noch bestätigt. ' +
+        'Ohne diesen Zweck gibt es für die beiden Angaben keine Grundlage; sie lassen sich deshalb ' +
+        'nur leeren, nicht setzen. Die übrigen Änderungen wurden NICHT gespeichert.',
+    }
+  }
+
+  switch (interpret('admin_update_lead', data, error)) {
+    case 'ok':
+      refresh(leadId)
+      return { success: 'Änderungen gespeichert.' }
+    case 'not_found':
+      return { formError: GONE }
+    case 'anonymized':
+      return { formError: ANONYMIZED }
+    case 'forbidden':
+      return { formError: FORBIDDEN }
+    default:
+      return { formError: GENERIC }
+  }
+}
+
 // ── Einwilligung widerrufen ──────────────────────────────────────────────────────────────────────
 
 export async function withdrawConsentAction(

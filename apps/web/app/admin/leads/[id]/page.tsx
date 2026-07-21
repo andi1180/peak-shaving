@@ -11,7 +11,6 @@ import {
   Pill,
   formatDate,
   formatDateTime,
-  formatKwh,
 } from '@/components/admin/ui'
 import {
   AnonymizeLead,
@@ -19,11 +18,10 @@ import {
   SuppressLeadButton,
   WithdrawConsentButton,
 } from '@/components/admin/lead-actions'
+import { LeadEditForm } from '@/components/admin/lead-edit-form'
 import {
   LEADS_HREF,
   consentStatusLabel,
-  industryLabel,
-  meteringTypeLabel,
   purposeLabel,
   readLeadDetail,
   readStatus,
@@ -272,9 +270,6 @@ export default async function AdminLeadDetailPage({
       <AdminSection id="stammdaten" title="Stammdaten">
         <AdminPanel>
           <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <Field label="Firma">{lead.company ?? '—'}</Field>
-            <Field label="Ansprechperson">{lead.contact_name ?? '—'}</Field>
-            <Field label="Telefon">{lead.phone ?? '—'}</Field>
             <Field label="Ersterfassung über">
               {lead.first_source_label ?? lead.first_source_key}
             </Field>
@@ -302,7 +297,36 @@ export default async function AdminLeadDetailPage({
                   ? 'gesperrt'
                   : 'nicht gesperrt'}
             </Field>
+            {/*
+              * B2-1: `last_edited_by = null` ist ZWEIDEUTIG (nie von Hand bearbeitet ODER Konto
+              * gelöscht) — die Zeile enthält die Antwort nicht, und die Oberfläche rät hier nicht,
+              * anders als es B1-3 bei anonymized_by tat, bevor B4-1 die Urheberschaft ins
+              * Datenmodell holte. Unterschieden wird nur, was die Daten hergeben: steht eine UUID
+              * ohne E-Mail da, ist das Konto weg.
+              */}
+            <Field label="Zuletzt bearbeitet von">
+              {lead.last_edited_by_email ??
+                (lead.last_edited_by ? 'ein inzwischen gelöschtes Konto' : 'nicht von Hand bearbeitet')}
+            </Field>
           </dl>
+        </AdminPanel>
+
+        {/*
+          * B2-1: der Korrekturweg. Die neun Felder stehen GENAU in dieser Komponente — bei einem
+          * anonymisierten Lead rendert sie dieselben neun als reine Anzeige. Eine zweite,
+          * schreibgeschützte Liste daneben hätte bedeutet, dass jede Änderung an der Feldmenge an
+          * zwei Stellen nachzuziehen ist.
+          */}
+        <AdminPanel className="mt-4">
+          <h3 className="text-h4 text-ink">Stammdaten korrigieren</h3>
+          <p className="mt-1 max-w-prose text-small text-text-muted">
+            Für Tippfehler und Nachträge. Ein geleertes Feld LÖSCHT die Angabe — anders als bei der
+            Erfassung, wo eine fehlende Angabe den Bestand unberührt lässt: dort heisst „leer" „weiss
+            ich nicht", hier „das war falsch".
+          </p>
+          <div className="mt-4">
+            <LeadEditForm lead={lead} disabled={isAnonymized} />
+          </div>
         </AdminPanel>
 
         <AdminPanel className="mt-4">
@@ -322,63 +346,18 @@ export default async function AdminLeadDetailPage({
         </AdminPanel>
       </AdminSection>
 
-      {/* ── Betriebsdaten ─────────────────────────────────────────────────────────────────────── */}
+      {/* ── Vertragsablauf-Erinnerung ─────────────────────────────────────────────────────────── */}
       {/*
-        * B3-1: die Dimensionen, auf denen B2 später segmentiert. BEWUSST NUR ANZEIGE — keine
-        * Filter (das ist B2), keine Bearbeitbarkeit. Ein editierbares Feld bräuchte einen eigenen
-        * Schreibwrapper samt Begründung, warum ein Admin eine Angabe überschreiben darf, die die
-        * Person selbst gemacht hat. Hier steht es, damit sich am ERSTEN echten Lead prüfen lässt,
-        * ob die Felder überhaupt ankommen.
+        * Die Betriebsdaten selbst (B3-1) sind seit B2-1 Teil des Korrekturformulars oben — sie
+        * standen vorher als eigene Anzeige-Sektion hier. Was bleibt, ist der Erinnerungsstand: er
+        * ist keine Stammdatenangabe, sondern das Ergebnis eines Versands.
         */}
       <AdminSection
-        id="betriebsdaten"
-        title="Betriebsdaten"
-        description="Wird je Einstiegspunkt erhoben — kein Formular fragt alles ab, leere Felder sind daher der Normalfall und kein Fehler. Auf diesen Merkmalen segmentiert die spätere Aussendung."
+        id="erinnerung"
+        title="Vertragsablauf-Erinnerung"
+        description="Versorger und Vertragsende werden ausschließlich für diesen Zweck erhoben. Wird die Einwilligung widerrufen, löscht die Datenbank beide Felder automatisch — und seit B4-2 auch die Zeilen im Versandprotokoll. Fällt der Zweck weg, fällt die Grundlage für die Daten weg, und zwar für jede Kopie."
       >
         <AdminPanel>
-          <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <Field label="Branche">
-              {lead.industry ? industryLabel(lead.industry) : '—'}
-            </Field>
-            <Field label="Postleitzahl">
-              {/*
-                * Bei einem anonymisierten Lead ist die PLZ genullt — sie lokalisiert in Kombination
-                * mit Branche und Versorger einen Betrieb. Branche, Verbrauch und Messart bleiben
-                * dagegen stehen: grob einordnend, nicht wiedererkennend.
-                */}
-              <Num>{lead.postal_code ?? '—'}</Num>
-            </Field>
-            <Field label="Jahresverbrauch">
-              <Num>{formatKwh(lead.annual_consumption_kwh)}</Num>
-            </Field>
-            <Field label="Messart">
-              {lead.metering_type ? meteringTypeLabel(lead.metering_type) : 'noch nicht geprüft'}
-            </Field>
-            <Field label="Versorger">{lead.supplier ?? '—'}</Field>
-            <Field label="Vertragsende">
-              <Num>{formatDate(lead.contract_end_date)}</Num>
-            </Field>
-          </dl>
-          {/*
-            * Der Hinweis steht hier und nicht nur in der Migration: wer die zwei leeren Felder
-            * sieht, soll den Widerruf als Ursache erkennen und nicht auf einen Erfassungsfehler
-            * schliessen.
-            */}
-          <p className="mt-4 max-w-prose text-caption text-text-muted">
-            Versorger und Vertragsende werden ausschließlich für die Vertragsablauf-Erinnerung
-            erhoben. Wird diese Einwilligung widerrufen, löscht die Datenbank beide Felder
-            automatisch — und seit B4-2 auch die Zeilen im Versandprotokoll darunter. Fällt der
-            Zweck weg, fällt die Grundlage für die Daten weg, und zwar für jede Kopie.
-          </p>
-        </AdminPanel>
-
-        {/*
-          * B4-2: der Erinnerungsstand. Steht direkt unter den Betriebsdaten, weil er nur zusammen
-          * mit dem dort angezeigten Vertragsende zu lesen ist.
-          */}
-        <AdminPanel className="mt-4">
-          <h3 className="text-h4 text-ink">Vertragsablauf-Erinnerung</h3>
-
           {lead.contract_end_date === null ? (
             <p className="mt-2 max-w-prose text-small text-text-muted">
               Kein Vertragsende hinterlegt — für diesen Lead ist keine Erinnerung fällig.

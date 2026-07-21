@@ -189,6 +189,30 @@ export type Database = {
   }
   platform: {
     Tables: {
+      admin_exports: {
+        Row: {
+          exported_at: string
+          exported_by: string | null
+          filter_summary: string
+          id: string
+          row_count: number
+        }
+        Insert: {
+          exported_at?: string
+          exported_by?: string | null
+          filter_summary: string
+          id?: string
+          row_count: number
+        }
+        Update: {
+          exported_at?: string
+          exported_by?: string | null
+          filter_summary?: string
+          id?: string
+          row_count?: number
+        }
+        Relationships: []
+      }
       code_redemptions: {
         Row: {
           code_id: string
@@ -488,6 +512,7 @@ export type Database = {
           first_source_key: string
           id: string
           industry: Database["platform"]["Enums"]["industry"] | null
+          last_edited_by: string | null
           last_interaction_at: string
           metering_type: string | null
           phone: string | null
@@ -511,6 +536,7 @@ export type Database = {
           first_source_key: string
           id?: string
           industry?: Database["platform"]["Enums"]["industry"] | null
+          last_edited_by?: string | null
           last_interaction_at?: string
           metering_type?: string | null
           phone?: string | null
@@ -534,6 +560,7 @@ export type Database = {
           first_source_key?: string
           id?: string
           industry?: Database["platform"]["Enums"]["industry"] | null
+          last_edited_by?: string | null
           last_interaction_at?: string
           metering_type?: string | null
           phone?: string | null
@@ -719,6 +746,24 @@ export type Database = {
       }
       is_admin: { Args: never; Returns: boolean }
       is_suppressed: { Args: { p_email: string }; Returns: boolean }
+      lead_filter_summary: {
+        Args: {
+          p_consent_purpose?: Database["platform"]["Enums"]["consent_purpose"]
+          p_consent_status?: string
+          p_consumption_max?: number
+          p_consumption_min?: number
+          p_contract_end_from?: string
+          p_contract_end_to?: string
+          p_due_only?: boolean
+          p_industry?: Database["platform"]["Enums"]["industry"]
+          p_metering_type?: string
+          p_postal_prefix?: string
+          p_search?: string
+          p_source_key?: string
+          p_status?: string
+        }
+        Returns: string
+      }
       leads_due_for_anonymization: {
         Args: { p_limit: number }
         Returns: {
@@ -736,6 +781,54 @@ export type Database = {
           supplier: string
         }[]
       }
+      leads_matching: {
+        Args: {
+          p_consent_purpose?: Database["platform"]["Enums"]["consent_purpose"]
+          p_consent_status?: string
+          p_consumption_max?: number
+          p_consumption_min?: number
+          p_contract_end_from?: string
+          p_contract_end_to?: string
+          p_due_only?: boolean
+          p_industry?: Database["platform"]["Enums"]["industry"]
+          p_metering_type?: string
+          p_postal_prefix?: string
+          p_search?: string
+          p_source_key?: string
+          p_status?: string
+        }
+        Returns: {
+          annual_consumption_kwh: number | null
+          anonymized_at: string | null
+          anonymized_by: string | null
+          anonymized_by_system: boolean
+          company: string | null
+          contact_name: string | null
+          contract_end_date: string | null
+          created_at: string
+          deletion_due_at: string
+          email: string
+          first_source_key: string
+          id: string
+          industry: Database["platform"]["Enums"]["industry"] | null
+          last_edited_by: string | null
+          last_interaction_at: string
+          metering_type: string | null
+          phone: string | null
+          postal_code: string | null
+          retention_basis: string
+          status: string
+          supplier: string | null
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "leads"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      marketing_consent_state: { Args: { p_lead_id: string }; Returns: string }
       normalize_email: { Args: { p_email: string }; Returns: string }
       purpose_requires_double_opt_in: {
         Args: { p_purpose: Database["platform"]["Enums"]["consent_purpose"] }
@@ -791,6 +884,24 @@ export type Database = {
         }
         Returns: Json
       }
+      admin_export_leads: {
+        Args: {
+          p_consent_purpose?: Database["platform"]["Enums"]["consent_purpose"]
+          p_consent_status?: string
+          p_consumption_max?: number
+          p_consumption_min?: number
+          p_contract_end_from?: string
+          p_contract_end_to?: string
+          p_due_only?: boolean
+          p_industry?: Database["platform"]["Enums"]["industry"]
+          p_metering_type?: string
+          p_postal_prefix?: string
+          p_search?: string
+          p_source_key?: string
+          p_status?: string
+        }
+        Returns: Json
+      }
       admin_get_lead: { Args: { p_lead_id: string }; Returns: Json }
       admin_grant_role: {
         Args: { p_role: string; p_target_user_id: string }
@@ -805,6 +916,7 @@ export type Database = {
       admin_list_admins: { Args: never; Returns: Json }
       admin_list_codes: { Args: never; Returns: Json }
       admin_list_customers: { Args: never; Returns: Json }
+      admin_list_exports: { Args: { p_limit?: number }; Returns: Json }
       admin_list_job_runs: {
         Args: { p_job_key?: string; p_limit?: number }
         Returns: Json
@@ -813,9 +925,16 @@ export type Database = {
         Args: {
           p_consent_purpose?: Database["platform"]["Enums"]["consent_purpose"]
           p_consent_status?: string
+          p_consumption_max?: number
+          p_consumption_min?: number
+          p_contract_end_from?: string
+          p_contract_end_to?: string
           p_due_only?: boolean
+          p_industry?: Database["platform"]["Enums"]["industry"]
           p_limit?: number
+          p_metering_type?: string
           p_offset?: number
+          p_postal_prefix?: string
           p_search?: string
           p_source_key?: string
           p_status?: string
@@ -841,6 +960,21 @@ export type Database = {
       }
       admin_suppress_lead: { Args: { p_lead_id: string }; Returns: Json }
       admin_suppression_count: { Args: never; Returns: Json }
+      admin_update_lead: {
+        Args: {
+          p_annual_consumption_kwh?: number
+          p_company?: string
+          p_contact_name?: string
+          p_contract_end_date?: string
+          p_industry?: Database["platform"]["Enums"]["industry"]
+          p_lead_id: string
+          p_metering_type?: string
+          p_phone?: string
+          p_postal_code?: string
+          p_supplier?: string
+        }
+        Returns: Json
+      }
       admin_upsert_scrape_target: {
         Args: {
           p_extraction_config?: Json

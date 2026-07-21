@@ -255,44 +255,9 @@ export function AdminSuccess({ children }: { children: React.ReactNode }) {
 }
 
 // ── Formatierung ─────────────────────────────────────────────────────────────────────────────────
-// Feste Locale/Zeitzone: der Bereich ist intern und österreichisch. Ohne explizite Zeitzone
-// formatierte der Server in UTC und der Browser in Ortszeit — dieselbe Zeile zeigte je nach
-// Renderort eine andere Uhrzeit (Hydration-Abweichung inklusive).
-
-const DATE_TIME = new Intl.DateTimeFormat('de-AT', {
-  dateStyle: 'short',
-  timeStyle: 'short',
-  timeZone: 'Europe/Vienna',
-})
-
-export function formatDateTime(iso: string | null | undefined): string {
-  if (!iso) return '—'
-  const d = new Date(iso)
-  return Number.isNaN(d.getTime()) ? '—' : DATE_TIME.format(d)
-}
-
-/**
- * Nur das Datum — für Fristen (B1-3). Eine Löschfrist auf die Minute genau anzuzeigen behauptet eine
- * Genauigkeit, die sie nicht hat: sie ist eine abgeleitete Monatsrechnung, und entschieden wird
- * anhand des Tages.
- */
-const DATE_ONLY = new Intl.DateTimeFormat('de-AT', {
-  dateStyle: 'medium',
-  timeZone: 'Europe/Vienna',
-})
-
-export function formatDate(iso: string | null | undefined): string {
-  if (!iso) return '—'
-  const d = new Date(iso)
-  return Number.isNaN(d.getTime()) ? '—' : DATE_ONLY.format(d)
-}
-
-/**
- * Jahresverbrauch (B3-1). Mit Tausendertrennung, weil „180000" und „18000" beim Überfliegen
- * nicht unterscheidbar sind — und genau diese Grössenordnung entscheidet über die Zielgruppe.
- */
-const INTEGER = new Intl.NumberFormat('de-AT', { maximumFractionDigits: 0 })
-
-export function formatKwh(value: number | null | undefined): string {
-  return typeof value === 'number' ? `${INTEGER.format(value)} kWh` : '—'
-}
+// Die Formate selbst stehen seit B2-1 in `lib/admin/format.ts` — REIN, ohne React. Die Export-Route
+// braucht dieselben Funktionen für die CSV, und ein Route Handler soll dafür weder React mitziehen
+// noch eine zweite Kopie halten (die ausgeführte Datei trüge sonst ein anderes Datumsformat als die
+// Sicht, aus der sie entstand). Hier stehen sie weiterhin zur Verfügung, damit kein bestehender
+// Import angefasst werden musste.
+export { formatDate, formatDateTime, formatKwh } from '@/lib/admin/format'

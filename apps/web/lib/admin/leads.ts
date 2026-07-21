@@ -14,6 +14,10 @@
 /** Basispfad des Lead-Abschnitts — ohne Locale-Präfix, wie der ganze Admin-Bereich. */
 export const LEADS_HREF = '/admin/leads'
 export const SUPPRESSIONS_HREF = '/admin/leads/sperrliste'
+/** Das Protokoll der Ausfuhren (B2-1). */
+export const EXPORTS_HREF = '/admin/leads/exporte'
+/** Die Ausfuhr selbst — ein Route Handler, kein Seitenpfad; die Filter hängen als Query an. */
+export const LEADS_EXPORT_HREF = '/admin/leads/export'
 
 // ── Lebenszyklus ─────────────────────────────────────────────────────────────────────────────────
 // Spiegel des CHECK auf `platform.leads.status`. Als Konstante zulässig (anders als die
@@ -123,7 +127,22 @@ export type LeadConsentSummary = {
   withdrawn_at: string | null
 }
 
-export type LeadListRow = {
+/**
+ * Die sechs Segmentierungsmerkmale (B3-1). Stehen seit B2-1 in der LISTE und nicht mehr nur in der
+ * Detailsicht: ohne sie liesse sich ein gesetzter Filter nicht am Ergebnis nachvollziehen — man
+ * sähe nur, dass die Menge kleiner wurde, nicht warum.
+ */
+export type LeadSegments = {
+  industry: Industry | null
+  postal_code: string | null
+  annual_consumption_kwh: number | null
+  metering_type: string | null
+  supplier: string | null
+  /** Reines Datum („YYYY-MM-DD"), keine Zeitangabe. */
+  contract_end_date: string | null
+}
+
+export type LeadListRow = LeadSegments & {
   id: string
   email: string
   company: string | null
@@ -146,7 +165,15 @@ export type LeadSource = { key: string; label: string }
 
 export type LeadListResult = {
   leads: LeadListRow[]
+  /** Treffer des Filters — NICHT die Zahl der Zeilen, die eine Ausfuhr enthielte. */
   total: number
+  /**
+   * Wie viele Zeilen eine Ausfuhr mit DEMSELBEN Filter enthielte: ohne gesperrte und anonymisierte
+   * (B2-1, die zwei strukturellen Ausschlüsse stehen in der Abfrage). Getrennt geführt, weil eine
+   * Oberfläche, die `total` als Export-Zeilenzahl anzeigt, eine Datei verspricht, die es so nicht
+   * gibt — und die Differenz fiele niemandem auf, weil beide Zahlen plausibel sind.
+   */
+  exportTotal: number
   limit: number
   offset: number
   sources: LeadSource[]
@@ -179,17 +206,14 @@ export type LeadDetailRow = LeadListRow & {
    */
   anonymized_by_system: boolean
   /*
-   * Segmentierungsmerkmale (B3-1). Bewusst NUR an der Detailsicht: `admin_list_leads` liefert sie
-   * nicht, weil die gefilterte Sicht darauf B2 ist. Alle nullable — die Einstiegspunkte sind
-   * kontextspezifisch und erheben unterschiedliche Felder.
+   * B2-1: WER zuletzt eine Stammdatenkorrektur vorgenommen hat. `last_edited_by = null` heisst
+   * entweder „nie von Hand bearbeitet" ODER „handelndes Konto gelöscht" (ON DELETE SET NULL) — die
+   * Zeile enthält die Antwort nicht, und die Oberfläche behauptet sie deshalb auch nicht. Ist die
+   * UUID gesetzt, aber die E-Mail null, ist das Konto gelöscht (dieselbe Lesart wie bei
+   * anonymized_by, B1-3).
    */
-  industry: Industry | null
-  postal_code: string | null
-  annual_consumption_kwh: number | null
-  metering_type: string | null
-  supplier: string | null
-  /** Reines Datum („YYYY-MM-DD"), keine Zeitangabe. */
-  contract_end_date: string | null
+  last_edited_by: string | null
+  last_edited_by_email: string | null
 }
 
 // ── Versandprotokoll der Vertragsablauf-Erinnerung (B4-2) ───────────────────────────────────────
@@ -246,6 +270,24 @@ export type LeadSourceStat = {
   is_active: boolean
   lead_count: number
   confirmed_marketing_count: number
+}
+
+// ── Exportprotokoll (B2-1) ───────────────────────────────────────────────────────────────────────
+
+/**
+ * Eine Zeile aus `public.admin_list_exports`.
+ *
+ * `exported_by_email = null` bei gesetzter `exported_by` heisst „Konto inzwischen gelöscht"
+ * (ON DELETE SET NULL) — der Vorgang bleibt belegt, nur die Zuschreibung entfällt. Dieselbe Lesart
+ * wie bei `anonymized_by` (B1-3).
+ */
+export type AdminExportRow = {
+  id: string
+  exported_at: string
+  row_count: number
+  filter_summary: string
+  exported_by: string | null
+  exported_by_email: string | null
 }
 
 // ── Laufprotokoll der zeitgesteuerten Jobs (B4-1) ────────────────────────────────────────────────
@@ -317,6 +359,7 @@ export function readLeadList(data: unknown): LeadListResult | null {
   return {
     leads: Array.isArray(obj.leads) ? (obj.leads as LeadListRow[]) : [],
     total: typeof obj.total === 'number' ? obj.total : 0,
+    exportTotal: typeof obj.export_total === 'number' ? obj.export_total : 0,
     limit: typeof obj.limit === 'number' ? obj.limit : 50,
     offset: typeof obj.offset === 'number' ? obj.offset : 0,
     sources: Array.isArray(obj.sources) ? (obj.sources as LeadSource[]) : [],
@@ -353,6 +396,13 @@ export function readLeadSourceStats(data: unknown): LeadSourceStat[] | null {
   const obj = asObject(data)
   if (!obj || obj.status !== 'ok') return null
   return Array.isArray(obj.sources) ? (obj.sources as LeadSourceStat[]) : []
+}
+
+/** `null` = der Wrapper hat NICHT `ok` gemeldet (nicht: „es gab keine Ausfuhren"). */
+export function readExports(data: unknown): AdminExportRow[] | null {
+  const obj = asObject(data)
+  if (!obj || obj.status !== 'ok') return null
+  return Array.isArray(obj.exports) ? (obj.exports as AdminExportRow[]) : []
 }
 
 /** `null` = der Wrapper hat NICHT `ok` gemeldet (nicht: „es gab keine Läufe"). */
