@@ -3,9 +3,12 @@
 Ausführbares Integrations-Gate, das die Sicherheits-Invarianten der Supabase-Schemas gegen den
 **laufenden lokalen Stack** prüft: RLS, Grants, Trigger, Cascades. Aktuell abgedeckt: das
 `platform`-Schema (T4-1, Auth/Rollen/Entitlements/Stripe-Spiegel), Invarianten **I1–I10**, die
-public-RPC-Wrapper (T4-2/T4-3/T4-4, Gutscheincodes) sowie das **Lead- und Einwilligungsfundament**
+public-RPC-Wrapper (T4-2/T4-3/T4-4, Gutscheincodes), das **Lead- und Einwilligungsfundament**
 (B1-1: Zugriffsgrenzen, Unveränderlichkeit der Einwilligungstexte, Double-Opt-in-Sperre,
-Aufbewahrungsfristen, Überleben der Sperrliste).
+Aufbewahrungsfristen, Überleben der Sperrliste) sowie den **Erfassungs-, Bestätigungs- und
+Abmeldepfad** darauf (B1-2: `capture_lead` & Co. — keine zweite offene Bestätigung je Lead und
+Zweck, gesperrte Adressen erzeugen keine Einwilligung, abgelaufene Tokens bestätigen nicht,
+Bestätigen ist idempotent, und der Lesepfad des Bestätigungs-GET verändert nachweislich nichts).
 
 Warum ein Gate statt Prosa: ein RLS-/Grant-Fehler auf Zugangsrechten oder Zahlungsstatus ist ein
 Datenleck über Nutzergrenzen hinweg und beim Klicken unsichtbar (Pflichtenheft §10). Jeder Test

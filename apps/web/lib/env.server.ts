@@ -43,6 +43,10 @@ const serverSchema = z.object({
   // Cloudflare-Turnstile-Secret. Fehlt es, wird die serverseitige Prüfung übersprungen (Honeypot
   // bleibt der Schutz) — deshalb optional.
   TURNSTILE_SECRET_KEY: optionalEnv,
+  // Signaturgeheimnis der Abmeldelinks (B1-2, lib/leads/tokens.ts). Optional/require-on-use wie
+  // oben: die Marketing-Seite braucht es nicht, der Lead-Pfad erzwingt es beim ersten Zugriff.
+  // ⚠ NICHT ROTIEREN — s. requireLeadTokenSecret unten.
+  LEAD_TOKEN_SECRET: optionalEnv,
 })
 
 export const serverEnv = parseEnv(
@@ -58,6 +62,7 @@ export const serverEnv = parseEnv(
     RESEND_FROM: process.env.RESEND_FROM,
     RESEND_TO: process.env.RESEND_TO,
     TURNSTILE_SECRET_KEY: process.env.TURNSTILE_SECRET_KEY,
+    LEAD_TOKEN_SECRET: process.env.LEAD_TOKEN_SECRET,
   },
   'Server',
 )
@@ -90,4 +95,20 @@ export function requireStripeWebhookSecret(): string {
 }
 export function requireStripeMonitorPriceId(): string {
   return requireValue(serverEnv.STRIPE_MONITOR_PRICE_ID, 'STRIPE_MONITOR_PRICE_ID')
+}
+
+/**
+ * Signaturgeheimnis der Abmeldelinks (B1-2). Require-on-use im Lead-Pfad.
+ *
+ * ⚠ DIESER WERT DARF NICHT ROUTINEMÄSSIG ROTIERT WERDEN. Die Abmeldelinks sind ZUSTANDSLOS: die
+ * Signatur ist der einzige Beweis, dass ein Link echt ist — es gibt keine Tabelle, gegen die man ihn
+ * sonst prüfen könnte (Absicht: ein Abmeldelink muss auch in einer zwei Jahre alten Mail noch
+ * funktionieren, eine Token-Tabelle verschwände mit der Lead-Löschung). Ein neues Geheimnis entwertet
+ * damit JEDEN je versendeten Abmeldelink auf einen Schlag; Empfänger sähen die neutrale
+ * „Link ungültig"-Seite und meldeten sich stattdessen als Spam. Rotation nur bei nachgewiesenem
+ * Leck, und dann als bewusster Vorgang mit erneutem Versand — nicht als Hygiene-Routine.
+ * (Dieselbe Warnung steht in DEPLOYMENT.md §1f und in `.env.example`.)
+ */
+export function requireLeadTokenSecret(): string {
+  return requireValue(serverEnv.LEAD_TOKEN_SECRET, 'LEAD_TOKEN_SECRET')
 }

@@ -218,6 +218,103 @@ export type Database = {
           },
         ]
       }
+      consent_texts: {
+        Row: {
+          body: string
+          created_at: string
+          id: string
+          locale: string
+          purpose: Database["platform"]["Enums"]["consent_purpose"]
+          valid_from: string
+          version: number
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          id?: string
+          locale?: string
+          purpose: Database["platform"]["Enums"]["consent_purpose"]
+          valid_from?: string
+          version: number
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          id?: string
+          locale?: string
+          purpose?: Database["platform"]["Enums"]["consent_purpose"]
+          valid_from?: string
+          version?: number
+        }
+        Relationships: []
+      }
+      consents: {
+        Row: {
+          confirmed_at: string | null
+          consent_text_id: string
+          granted_at: string
+          id: string
+          lead_id: string
+          source_ip: unknown
+          source_key: string
+          status: string
+          token_expires_at: string | null
+          token_hash: string | null
+          user_agent: string | null
+          withdrawn_at: string | null
+        }
+        Insert: {
+          confirmed_at?: string | null
+          consent_text_id: string
+          granted_at?: string
+          id?: string
+          lead_id: string
+          source_ip?: unknown
+          source_key: string
+          status?: string
+          token_expires_at?: string | null
+          token_hash?: string | null
+          user_agent?: string | null
+          withdrawn_at?: string | null
+        }
+        Update: {
+          confirmed_at?: string | null
+          consent_text_id?: string
+          granted_at?: string
+          id?: string
+          lead_id?: string
+          source_ip?: unknown
+          source_key?: string
+          status?: string
+          token_expires_at?: string | null
+          token_hash?: string | null
+          user_agent?: string | null
+          withdrawn_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "consents_consent_text_id_fkey"
+            columns: ["consent_text_id"]
+            isOneToOne: false
+            referencedRelation: "consent_texts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "consents_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "consents_source_key_fkey"
+            columns: ["source_key"]
+            isOneToOne: false
+            referencedRelation: "lead_sources"
+            referencedColumns: ["key"]
+          },
+        ]
+      }
       customers: {
         Row: {
           created_at: string
@@ -239,6 +336,24 @@ export type Database = {
           stripe_customer_id?: string
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      email_suppressions: {
+        Row: {
+          created_at: string
+          email_hash: string
+          reason: string
+        }
+        Insert: {
+          created_at?: string
+          email_hash: string
+          reason: string
+        }
+        Update: {
+          created_at?: string
+          email_hash?: string
+          reason?: string
         }
         Relationships: []
       }
@@ -271,6 +386,83 @@ export type Database = {
           valid_until?: string | null
         }
         Relationships: []
+      }
+      lead_sources: {
+        Row: {
+          created_at: string
+          is_active: boolean
+          key: string
+          label: string
+        }
+        Insert: {
+          created_at?: string
+          is_active?: boolean
+          key: string
+          label: string
+        }
+        Update: {
+          created_at?: string
+          is_active?: boolean
+          key?: string
+          label?: string
+        }
+        Relationships: []
+      }
+      leads: {
+        Row: {
+          anonymized_at: string | null
+          company: string | null
+          contact_name: string | null
+          created_at: string
+          deletion_due_at: string
+          email: string
+          first_source_key: string
+          id: string
+          last_interaction_at: string
+          phone: string | null
+          retention_basis: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          anonymized_at?: string | null
+          company?: string | null
+          contact_name?: string | null
+          created_at?: string
+          deletion_due_at: string
+          email: string
+          first_source_key: string
+          id?: string
+          last_interaction_at?: string
+          phone?: string | null
+          retention_basis?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          anonymized_at?: string | null
+          company?: string | null
+          contact_name?: string | null
+          created_at?: string
+          deletion_due_at?: string
+          email?: string
+          first_source_key?: string
+          id?: string
+          last_interaction_at?: string
+          phone?: string | null
+          retention_basis?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leads_first_source_key_fkey"
+            columns: ["first_source_key"]
+            isOneToOne: false
+            referencedRelation: "lead_sources"
+            referencedColumns: ["key"]
+          },
+        ]
       }
       profiles: {
         Row: {
@@ -412,6 +604,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      email_hash: { Args: { p_email: string }; Returns: string }
+      has_confirmed_consent: {
+        Args: {
+          p_lead_id: string
+          p_purpose: Database["platform"]["Enums"]["consent_purpose"]
+        }
+        Returns: boolean
+      }
       has_entitlement: {
         Args: {
           p_product: Database["platform"]["Enums"]["product_key"]
@@ -420,9 +620,20 @@ export type Database = {
         Returns: boolean
       }
       is_admin: { Args: never; Returns: boolean }
+      is_suppressed: { Args: { p_email: string }; Returns: boolean }
+      normalize_email: { Args: { p_email: string }; Returns: string }
+      purpose_requires_double_opt_in: {
+        Args: { p_purpose: Database["platform"]["Enums"]["consent_purpose"] }
+        Returns: boolean
+      }
+      retention_months: { Args: { p_retention_basis: string }; Returns: number }
       status_grants_access: { Args: { p_status: string }; Returns: boolean }
     }
     Enums: {
+      consent_purpose:
+        | "marketing_email"
+        | "contract_expiry_reminder"
+        | "result_delivery"
       entitlement_source: "stripe" | "manual"
       product_key: "monitor" | "calculator_pro"
     }
@@ -448,6 +659,7 @@ export type Database = {
         }
         Returns: Json
       }
+      admin_get_lead: { Args: { p_lead_id: string }; Returns: Json }
       admin_grant_role: {
         Args: { p_role: string; p_target_user_id: string }
         Returns: Json
@@ -459,6 +671,10 @@ export type Database = {
       admin_list_admins: { Args: never; Returns: Json }
       admin_list_codes: { Args: never; Returns: Json }
       admin_list_customers: { Args: never; Returns: Json }
+      admin_list_leads: {
+        Args: { p_limit?: number; p_offset?: number }
+        Returns: Json
+      }
       admin_list_scrape_targets: { Args: never; Returns: Json }
       admin_revoke_role: {
         Args: { p_role: string; p_target_user_id: string }
@@ -485,6 +701,30 @@ export type Database = {
         }
         Returns: Json
       }
+      capture_lead: {
+        Args: {
+          p_company?: string
+          p_contact_name?: string
+          p_email: string
+          p_locale?: string
+          p_phone?: string
+          p_purpose?: Database["platform"]["Enums"]["consent_purpose"]
+          p_source_ip?: unknown
+          p_source_key: string
+          p_token_expires_at?: string
+          p_token_hash?: string
+          p_user_agent?: string
+        }
+        Returns: Json
+      }
+      confirm_consent: { Args: { p_token_hash: string }; Returns: Json }
+      get_active_consent_text: {
+        Args: {
+          p_locale?: string
+          p_purpose: Database["platform"]["Enums"]["consent_purpose"]
+        }
+        Returns: Json
+      }
       get_my_entitlement: {
         Args: { p_product: Database["platform"]["Enums"]["product_key"] }
         Returns: boolean
@@ -505,6 +745,10 @@ export type Database = {
           status: string
         }[]
       }
+      get_pending_consent_by_token: {
+        Args: { p_token_hash: string }
+        Returns: Json
+      }
       get_stripe_customer_id: { Args: { p_user_id: string }; Returns: string }
       is_admin: { Args: never; Returns: boolean }
       process_stripe_subscription_event: {
@@ -524,9 +768,20 @@ export type Database = {
         Returns: string
       }
       redeem_code: { Args: { p_code: string }; Returns: string }
+      suppress_email_and_withdraw_all: {
+        Args: { p_lead_id: string }
+        Returns: Json
+      }
       upsert_stripe_customer: {
         Args: { p_stripe_customer_id: string; p_user_id: string }
         Returns: undefined
+      }
+      withdraw_consent: {
+        Args: {
+          p_lead_id: string
+          p_purpose: Database["platform"]["Enums"]["consent_purpose"]
+        }
+        Returns: Json
       }
     }
     Enums: {
@@ -661,6 +916,11 @@ export const Constants = {
   },
   platform: {
     Enums: {
+      consent_purpose: [
+        "marketing_email",
+        "contract_expiry_reminder",
+        "result_delivery",
+      ],
       entitlement_source: ["stripe", "manual"],
       product_key: ["monitor", "calculator_pro"],
     },

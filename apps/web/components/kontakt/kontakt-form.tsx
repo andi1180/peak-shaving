@@ -49,6 +49,8 @@ type Values = {
   thema: string
   nachricht: string
   datenschutz: boolean
+  /** Zusätzliche Marketing-Einwilligung (B1-2) — optional, NIE vorausgewählt. */
+  marketing: boolean
   /** Honeypot — s. u. Gehört in den State, damit React das Feld kontrolliert. */
   website: string
 }
@@ -61,6 +63,13 @@ const EMPTY_VALUES: Values = {
   thema: '',
   nachricht: '',
   datenschutz: false,
+  /*
+   * `false`, und es gibt keinen Pfad, der das vorbelegt — dieselbe harte Regel wie bei
+   * `datenschutz`: eine vorangehakte Einwilligung ist nach DSGVO keine Einwilligung. Anders als dort
+   * ist das Feld hier aber freiwillig; ein leer gelassenes Kästchen ist die erwartete Normalantwort
+   * und darf den Versand nicht behindern.
+   */
+  marketing: false,
   website: '',
 }
 
@@ -79,7 +88,21 @@ const FIELD_ORDER: KontaktFieldName[] = [
   'datenschutz',
 ]
 
-export function KontaktForm() {
+/**
+ * @param marketingConsentText Der WORTLAUT der Marketing-Einwilligung, serverseitig aus
+ *   `platform.consent_texts` gelesen (B1-2, s. `app/(site)/[locale]/kontakt/page.tsx`). Er steht
+ *   bewusst NICHT in `messages/de.json`: angezeigter und archivierter Wortlaut müssen dieselbe
+ *   Quelle haben, sonst behauptet der Nachweis später einen Satz, den die Person nie gesehen hat
+ *   (B1-1, append-only `consent_texts`).
+ *
+ *   Fehlt er (`null`), wird die Ankreuzmöglichkeit NICHT gerendert. Ohne Wortlaut darf keine
+ *   Einwilligung eingesammelt werden — und der Rest des Formulars funktioniert unverändert weiter.
+ */
+export function KontaktForm({
+  marketingConsentText = null,
+}: {
+  marketingConsentText?: string | null
+}) {
   const t = useTranslations('Kontakt')
   const tNav = useTranslations('Nav')
   const locale = useLocale()
@@ -393,6 +416,35 @@ export function KontaktForm() {
             </FieldHint>
           )}
         </div>
+
+        {/*
+          MARKETING-EINWILLIGUNG (B1-2) — freiwillig, nicht vorausgewählt, kein Pflichtfeld und
+          deshalb ohne `required` und ohne Fehlerpfad. Sie steht bewusst UNTER der
+          Datenschutz-Zustimmung und optisch abgesetzt: die eine ist Voraussetzung der Bearbeitung,
+          die andere eine zusätzliche Erlaubnis für später. Sie zu vermischen (etwa als eine
+          gemeinsame Checkbox) wäre eine Kopplung, die die Einwilligung unwirksam machte.
+
+          Der Text ist der Wortlaut aus `platform.consent_texts` — nicht aus `messages/de.json`
+          (s. Prop-Kommentar oben). Ohne Wortlaut kein Kästchen.
+        */}
+        {marketingConsentText && (
+          <div className="rounded-md border border-line bg-surface-alt p-4">
+            <div className="flex items-start gap-3">
+              <Checkbox
+                id={fieldId('marketing')}
+                name="marketing"
+                checked={values.marketing}
+                onChange={(e) => set('marketing', e.target.checked)}
+              />
+              <Label htmlFor={fieldId('marketing')} className="font-normal text-text">
+                {marketingConsentText}
+              </Label>
+            </div>
+            {/* Was nach dem Ankreuzen passiert, gehört an die Stelle des Ankreuzens — sonst ist die
+                Bestätigungsmail für den Absender eine Überraschung. */}
+            <p className="mt-2 pl-7 text-caption text-text-muted">{t('marketing.hint')}</p>
+          </div>
+        )}
 
         {/*
           HONEYPOT — immer aktiv, unabhängig von Turnstile (§ Bot-Schutz).

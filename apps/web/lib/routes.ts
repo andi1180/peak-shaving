@@ -29,6 +29,7 @@ import type { Metadata } from 'next'
 import { MAIN_NAV, KONTAKT_HREF, LOGIN_HREF, CALCULATOR_RUN_HREF, MONITOR_GRATIS_CHECK_HREF } from './nav'
 import { WISSEN_HREF } from './wissen'
 import { AUTH_HREFS } from './auth/config'
+import { LEAD_HREFS } from './leads/config'
 
 export type SiteRoute = {
   /** Der Pfad OHNE Locale-Präfix — dasselbe, was `Link`/`pageAlternates` bekommen. */
@@ -106,6 +107,14 @@ export { MONITOR_GRATIS_CHECK_HREF }
  */
 const AUTH_HREF_SET: ReadonlySet<string> = new Set(AUTH_HREFS)
 
+/**
+ * Lead-Routen (B1-2, J7): Bestätigungsseite des Double-Opt-in und Abmeldeseite. Beide `noindex` aus
+ * demselben Grund wie die Auth-Routen, nur schärfer: ihre URL trägt einen persönlichen Token bzw.
+ * eine signierte Lead-ID. Eine indexierte Bestätigungsseite hiesse, genau diese Adressen in einen
+ * öffentlichen Index zu geben.
+ */
+const LEAD_HREF_SET: ReadonlySet<string> = new Set(LEAD_HREFS)
+
 export const SITE_ROUTES: SiteRoute[] = Array.from(
   new Set<string>([
     ...UNLISTED_HREFS,
@@ -113,6 +122,7 @@ export const SITE_ROUTES: SiteRoute[] = Array.from(
     CALCULATOR_RUN_HREF,
     MONITOR_GRATIS_CHECK_HREF,
     ...AUTH_HREFS,
+    ...LEAD_HREFS,
   ]),
 ).map((href) => ({
   href,
@@ -127,6 +137,8 @@ export const SITE_ROUTES: SiteRoute[] = Array.from(
    *     gar keinen Inhalt, den man indexieren könnte.
    *   – Der Monitor-Gratis-Check (T3, `MONITOR_GRATIS_CHECK_HREF` oben): WIP-
    *     Datenpipe-Beweis ohne kuratierten Content/Produktseite drumherum.
+   *   – Die Lead-Routen (B1-2, `LEAD_HREF_SET` oben): persönliche Einmal-Adressen
+   *     aus einer E-Mail, deren Query einen Token bzw. eine signierte Lead-ID trägt.
    *
    * `/styleguide` ist ebenfalls `noindex`, steht aber nicht in dieser Liste: Es
    * liegt in der Route-Group `(dev)` mit eigenem Root-Layout, also außerhalb der
@@ -136,6 +148,7 @@ export const SITE_ROUTES: SiteRoute[] = Array.from(
     href !== CALCULATOR_RUN_HREF &&
     href !== MONITOR_GRATIS_CHECK_HREF &&
     !AUTH_HREF_SET.has(href) &&
+    !LEAD_HREF_SET.has(href) &&
     !PLACEHOLDER_HREFS.includes(href),
 }))
 

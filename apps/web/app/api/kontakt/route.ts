@@ -22,6 +22,7 @@ import { hasLocale } from 'next-intl'
 import { getTranslations } from 'next-intl/server'
 import { routing } from '@/i18n/routing'
 import { deliverKontakt } from '@/lib/kontakt/deliver'
+import { captureKontaktLead } from '@/lib/leads/capture'
 import {
   kontaktSchema,
   toFieldErrors,
@@ -111,6 +112,37 @@ export async function POST(request: Request) {
      */
     return fail(outcome.reason, outcome.reason === 'not_configured' ? 503 : 502)
   }
+
+  /*
+   * ─────────────────────────────────────────────────────────────────────────
+   * LEAD-ERFASSUNG (B1-2) — NACH erfolgreicher Zustellung, NIE davor.
+   *
+   * Reihenfolge und Nicht-Blockieren sind die eigentliche Regel: Die Anfrage IST
+   * beim Menschen angekommen; ein Datenbankfehler danach darf daraus keinen
+   * Fehlerzustand machen, sonst schickt der Absender dieselbe Anfrage ein zweites
+   * Mal. `captureKontaktLead` wirft deshalb NIE — Fehler landen laut im
+   * Server-Log, der Nutzer sieht Erfolg.
+   *
+   * `await` (kein „fire and forget"): auf Vercel endet die Function mit der
+   * Antwort, ein nicht abgewarteter Promise würde mitten im Insert abgeschnitten.
+   *
+   * DIE RÜCKMELDUNG IST IN ALLEN FÄLLEN IDENTISCH — auch bei gesperrter oder
+   * bereits bekannter Adresse. Sie darf nie verraten, ob eine Adresse im Bestand
+   * steht; sonst wäre das Formular ein Auskunftsdienst über fremde Kontakte.
+   * ─────────────────────────────────────────────────────────────────────────
+   */
+  await captureKontaktLead({
+    email: data.email,
+    contactName: data.name,
+    company: data.unternehmen,
+    phone: data.telefon,
+    // Nur wenn ausdrücklich angekreuzt — der Default ist `undefined`, nicht `true`.
+    wantsMarketingEmail: data.marketing === true,
+    // Nachweisfelder der Einwilligung (B1-1: ausschliesslich Nachweis, keine Profilbildung).
+    // Dieselbe `x-forwarded-for`-Kette wie oben für Turnstile; der erste Eintrag ist der Client.
+    sourceIp: remoteIp ?? null,
+    userAgent: request.headers.get('user-agent'),
+  })
 
   return NextResponse.json<KontaktResponse>({ ok: true })
 }
