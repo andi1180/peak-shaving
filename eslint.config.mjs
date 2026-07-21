@@ -63,8 +63,9 @@ export default tseslint.config(
               message:
                 'Der service_role-Client (umgeht RLS) ist ausschließlich für den Stripe-Pfad ' +
                 '(app/api/stripe/webhook + lib/stripe/actions.ts), den Lead-/Einwilligungspfad ' +
-                '(lib/leads/**, B1-2) und die Cron-Endpunkte (app/api/cron/**, B4-1). Für ' +
-                'Nutzer-Reads den RLS-gebundenen lib/supabase/server.ts verwenden.',
+                '(lib/leads/**, B1-2), die Cron-Endpunkte (app/api/cron/**, B4-1) und den ' +
+                'Resend-Webhook (app/api/resend/**, B2-2). Für Nutzer-Reads den RLS-gebundenen ' +
+                'lib/supabase/server.ts verwenden.',
             },
           ],
         },
@@ -88,10 +89,17 @@ export default tseslint.config(
      * (`public.run_lead_retention_job`). Kein zweiter Client, keine deaktivierte Regel: es bleibt
      * bei EINEM `lib/supabase/service-role.ts`, und ein Import in einer Server-Component/Page ist
      * weiterhin ein Lint-Fehler.
+     *
+     * B2-2 ERWEITERT sie ein drittes Mal um den Resend-Webhook (`app/api/resend/**`) — derselbe
+     * Fall wie der Stripe-Webhook, bis in die Einzelheit: ein maschineller Aufrufer ohne Sitzung,
+     * der sich mit einer SIGNATUR über den rohen Rumpf ausweist und genau einen service_role-only
+     * Wrapper aufruft (`public.record_email_event`). Ein RLS-gebundener Client hätte hier gar keine
+     * Identität, an der RLS ansetzen könnte.
      */
     files: [
       'apps/web/app/api/stripe/**/*.ts',
       'apps/web/app/api/cron/**/*.ts',
+      'apps/web/app/api/resend/**/*.ts',
       'apps/web/lib/stripe/actions.ts',
       'apps/web/lib/leads/**/*.ts',
     ],

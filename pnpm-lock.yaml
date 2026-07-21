@@ -126,6 +126,9 @@ importers:
       server-only:
         specifier: ^0.0.1
         version: 0.0.1
+      standardwebhooks:
+        specifier: 1.0.0
+        version: 1.0.0
       stripe:
         specifier: ^22.3.2
         version: 22.3.2(@types/node@22.20.0)

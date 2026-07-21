@@ -22,6 +22,7 @@ import {
   CONSENT_PURPOSES,
   CONSENT_STATUS_LABELS,
   CONTRACT_REMINDER_JOB_KEY,
+  EMAIL_EVENT_STATS_DAYS,
   EXPORTS_HREF,
   INDUSTRIES,
   INDUSTRY_LABELS,
@@ -33,11 +34,13 @@ import {
   METERING_TYPE_LABELS,
   SUPPRESSIONS_HREF,
   consentStatusLabel,
+  emailEventLabel,
   hoursSince,
   industryLabel,
   meteringTypeLabel,
   purposeLabel,
   readContractReminderHealth,
+  readEmailEventStats,
   readJobRuns,
   readLeadList,
   readLeadSourceStats,
@@ -45,6 +48,7 @@ import {
   sourceLabel,
   statusLabel,
   type ContractReminderHealth,
+  type EmailEventStats,
   type JobRunsResult,
   type LeadConsentSummary,
   type LeadListRow,
@@ -130,7 +134,10 @@ function ConsentCell({ consents }: { consents: LeadConsentSummary[] }) {
   return (
     <ul className="flex flex-col gap-1">
       {consents.map((c, i) => (
-        <li key={`${c.purpose}-${c.granted_at}-${i}`} className="flex flex-wrap items-center gap-1.5">
+        <li
+          key={`${c.purpose}-${c.granted_at}-${i}`}
+          className="flex flex-wrap items-center gap-1.5"
+        >
           <span>{purposeLabel(c.purpose)}</span>
           <Pill
             tone={
@@ -241,11 +248,11 @@ function JobStatus({
       </p>
 
       {/*
-        * Eine Verweigerung ist kein Fehler, sondern die eingebaute Bremse: oberhalb der Obergrenze
-        * anonymisiert der Fristenlauf NICHTS bzw. versendet die Erinnerung KEINE einzige Mail. Sie
-        * muss im Klartext hier stehen — sonst sieht der Bereich aus wie „läuft" und niemand
-        * erfährt, dass seit Tagen nichts passiert.
-        */}
+       * Eine Verweigerung ist kein Fehler, sondern die eingebaute Bremse: oberhalb der Obergrenze
+       * anonymisiert der Fristenlauf NICHTS bzw. versendet die Erinnerung KEINE einzige Mail. Sie
+       * muss im Klartext hier stehen — sonst sieht der Bereich aus wie „läuft" und niemand
+       * erfährt, dass seit Tagen nichts passiert.
+       */}
       {lastRun?.outcome === 'refused' && (
         <p className="mt-2 max-w-prose text-small text-negative">
           <strong className="font-semibold">
@@ -265,10 +272,10 @@ function JobStatus({
       )}
 
       {/*
-        * Auch ein ERFOLGREICHER Lauf kann einzelne Fehlversände enthalten (B4-2: ein Fehlversand
-        * bricht den Lauf nicht ab). Das Detailfeld nennt sie — ohne diese Zeile stünde „erfolgreich"
-        * da und die Fehlschläge wären nur in der Datenbank sichtbar.
-        */}
+       * Auch ein ERFOLGREICHER Lauf kann einzelne Fehlversände enthalten (B4-2: ein Fehlversand
+       * bricht den Lauf nicht ab). Das Detailfeld nennt sie — ohne diese Zeile stünde „erfolgreich"
+       * da und die Fehlschläge wären nur in der Datenbank sichtbar.
+       */}
       {lastRun?.outcome === 'success' && lastRun.detail && (
         <p className="mt-2 max-w-prose text-small text-text-muted">{lastRun.detail}</p>
       )}
@@ -335,6 +342,82 @@ function StaleContractReminders({ health }: { health: ContractReminderHealth | n
  * zuvor hereinkam — und der Brief systematisch zu niedrig bewertet. Die zweite Zahl ist deshalb
  * KEIN „davon", und die Fußzeile sagt das.
  */
+/**
+ * Rückläufer und Beschwerden der letzten 30 Tage (B2-2).
+ *
+ * ── WARUM DAS AUF DER ÜBERSICHTSSEITE STEHT UND NICHT IN EINER EIGENEN AUSWERTUNG ────────────────
+ * Eine steigende Beschwerdequote ist die EINZIGE Frühwarnung vor einem Reputationsschaden, und
+ * niemand sucht von sich aus danach. Eine Auswertung, die man erst aufrufen muss, wird genau dann
+ * nicht aufgerufen, wenn sie nötig wäre — nämlich bevor jemand merkt, dass etwas nicht stimmt. Die
+ * Zahl steht deshalb dort, wo ohnehin jeder hinsieht, und wird HERVORGEHOBEN, sobald überhaupt eine
+ * Beschwerde auftritt: die erste ist der Zeitpunkt zu handeln, nicht die zehnte.
+ *
+ * `permanentBounces` ist bewusst nicht die Zahl der `email.bounced`-Zeilen: darunter fallen auch
+ * vorübergehende Rückläufer, die keine Sperre auslösen. Beide Zahlen kommen deshalb aus der
+ * Datenbank und werden hier NICHT nachgerechnet — es gibt genau eine Definition von „dauerhaft".
+ */
+function EmailEventStatsPanel({ stats }: { stats: EmailEventStats | null }) {
+  if (stats === null) {
+    return (
+      <AdminPanel className="mt-6">
+        <AdminError>
+          Die Zustellstatistik konnte nicht geladen werden. Damit ist unbekannt, ob zurzeit
+          Beschwerden eingehen.
+        </AdminError>
+      </AdminPanel>
+    )
+  }
+
+  const hasComplaints = stats.complaints > 0
+
+  return (
+    <AdminPanel className={`mt-6 ${hasComplaints ? 'border-negative bg-negative-subtle' : ''}`}>
+      <h2 className="text-h4 text-ink">
+        Rückläufer und Beschwerden — letzte <Num>{stats.days}</Num> Tage
+      </h2>
+      <div className="mt-3 flex flex-wrap gap-x-8 gap-y-3">
+        <div>
+          <p className="text-caption font-semibold uppercase tracking-wide text-text-muted">
+            Dauerhafte Rückläufer
+          </p>
+          <p className="mt-0.5 text-h3 text-ink">
+            <Num>{stats.permanentBounces}</Num>
+          </p>
+        </div>
+        <div>
+          <p className="text-caption font-semibold uppercase tracking-wide text-text-muted">
+            Beschwerden
+          </p>
+          <p
+            className={`mt-0.5 text-h3 ${hasComplaints ? 'font-semibold text-negative' : 'text-ink'}`}
+          >
+            <Num>{stats.complaints}</Num>
+          </p>
+        </div>
+      </div>
+
+      {hasComplaints && (
+        <p className="mt-3 max-w-prose text-small text-negative">
+          <strong className="font-semibold">
+            Jede Beschwerde hat die Adresse gesperrt und alle Einwilligungen widerrufen.
+          </strong>{' '}
+          Eine steigende Beschwerdequote ist die einzige Frühwarnung vor einem Reputationsschaden
+          der Absenderdomain — und der trifft dann jede Aussendung, nicht nur die auslösende.
+        </p>
+      )}
+
+      {stats.counts.length > 0 && (
+        <p className="mt-3 max-w-prose text-caption text-text-muted">
+          Alle Ereignisse im Zeitraum:{' '}
+          {stats.counts.map((c) => `${emailEventLabel(c.event_type)} ${c.event_count}`).join(' · ')}
+          . „Rückläufer" enthält auch vorübergehende (volles Postfach, kurzzeitige Störung) — die
+          sperren bewusst nicht und zählen deshalb oben nicht mit.
+        </p>
+      )}
+    </AdminPanel>
+  )
+}
+
 function SourceStats({ stats }: { stats: LeadSourceStat[] | null }) {
   if (stats === null) {
     return (
@@ -381,9 +464,9 @@ function SourceStats({ stats }: { stats: LeadSourceStat[] | null }) {
       </div>
       <p className="border-t border-line px-4 py-3 text-caption text-text-muted sm:px-6">
         Leads zählen nach der Herkunft, über die sie ins System kamen; Einwilligungen nach der
-        Herkunft, an der sie erteilt wurden — die zweite Zahl ist deshalb kein „davon". Anonymisierte
-        Leads bleiben enthalten: sie waren echter Rücklauf. Kein Export, keine gefilterte Sicht —
-        beides kommt mit B2.
+        Herkunft, an der sie erteilt wurden — die zweite Zahl ist deshalb kein „davon".
+        Anonymisierte Leads bleiben enthalten: sie waren echter Rücklauf. Kein Export, keine
+        gefilterte Sicht — beides kommt mit B2.
       </p>
     </AdminPanel>
   )
@@ -451,11 +534,11 @@ function LeadRow({ lead, sources }: { lead: LeadListRow; sources: LeadSource[] }
       <Td>{sourceLabel(lead.first_source_key, sources)}</Td>
       <Td>
         {/*
-          * B2-1: die Segmentierungsmerkmale in der Liste. Ohne sie liesse sich ein gesetzter Filter
-          * nicht am Ergebnis nachvollziehen — man sähe nur, dass die Menge kleiner wurde, nicht
-          * warum. Kompakt in EINER Zelle statt in sechs Spalten: die Tabelle soll überfliegbar
-          * bleiben, die vollständige Sicht steht auf der Detailseite.
-          */}
+         * B2-1: die Segmentierungsmerkmale in der Liste. Ohne sie liesse sich ein gesetzter Filter
+         * nicht am Ergebnis nachvollziehen — man sähe nur, dass die Menge kleiner wurde, nicht
+         * warum. Kompakt in EINER Zelle statt in sechs Spalten: die Tabelle soll überfliegbar
+         * bleiben, die vollständige Sicht steht auf der Detailseite.
+         */}
         <SegmentCell lead={lead} />
       </Td>
       <Td>
@@ -514,7 +597,7 @@ export default async function AdminLeadsPage({
   // Je Job ein eigener Aufruf statt eines gemeinsamen mit `p_job_key => null`: sonst müsste die
   // Seite die Läufe hier auseinandersortieren, und `last_success` käme gemischt zurück — der
   // Fristenlauf würde die Erinnerung als „läuft" ausweisen (oder umgekehrt).
-  const [retentionRes, reminderRes, healthRes, sourceStatsRes] = await Promise.all([
+  const [retentionRes, reminderRes, healthRes, sourceStatsRes, emailStatsRes] = await Promise.all([
     supabase.rpc('admin_list_job_runs', {
       p_job_key: LEAD_RETENTION_JOB_KEY,
       // 5 statt 1: der LETZTE Lauf (evtl. verweigert) und der letzte ERFOLGREICHE können
@@ -529,6 +612,9 @@ export default async function AdminLeadsPage({
     // bei jedem Seitenwechsel mitgerechnet werden und wäre gleichzeitig versucht, sich am Filter zu
     // orientieren (dann zählte sie etwas anderes, als die Überschrift verspricht).
     supabase.rpc('admin_lead_source_stats'),
+    // B2-2: die Frühwarnung. Ebenfalls ein eigener Aufruf und ebenfalls filterunabhängig — die
+    // Beschwerdequote ist eine Eigenschaft der AUSSENDUNG, nicht der gerade angesehenen Teilmenge.
+    supabase.rpc('admin_email_event_stats', { p_days: EMAIL_EVENT_STATS_DAYS }),
   ])
   if (retentionRes.error) console.error('[admin/leads] admin_list_job_runs:', retentionRes.error)
   if (reminderRes.error) console.error('[admin/leads] admin_list_job_runs:', reminderRes.error)
@@ -536,10 +622,13 @@ export default async function AdminLeadsPage({
     console.error('[admin/leads] admin_contract_reminder_health:', healthRes.error)
   if (sourceStatsRes.error)
     console.error('[admin/leads] admin_lead_source_stats:', sourceStatsRes.error)
+  if (emailStatsRes.error)
+    console.error('[admin/leads] admin_email_event_stats:', emailStatsRes.error)
   const retentionRuns = readJobRuns(retentionRes.data)
   const reminderRuns = readJobRuns(reminderRes.data)
   const reminderHealth = readContractReminderHealth(healthRes.data)
   const sourceStats = readLeadSourceStats(sourceStatsRes.data)
+  const emailStats = readEmailEventStats(emailStatsRes.data)
 
   const result = readLeadList(res.data)
   // Ein abgelehnter Filterwert ist etwas anderes als ein Ladefehler: die Datenbank hat geantwortet,
@@ -579,14 +668,14 @@ export default async function AdminLeadsPage({
       </header>
 
       {/*
-        * Steht bewusst OBEN und nicht im Kleingedruckten: die Zeile beschreibt keine Einschränkung
-        * der Oberfläche, sondern den Betriebszustand einer Rechtspflicht.
-        *
-        * ERSETZT den B1-3-Hinweis „Löschfristen werden derzeit manuell durchgesetzt" — der ist mit
-        * B4-1 sachlich falsch geworden. Der Filter „nur zur Anonymisierung fällige" bleibt
-        * bestehen: er zeigt jetzt, WAS der nächste Lauf anfassen wird, statt einer Arbeitsliste
-        * für Handarbeit.
-        */}
+       * Steht bewusst OBEN und nicht im Kleingedruckten: die Zeile beschreibt keine Einschränkung
+       * der Oberfläche, sondern den Betriebszustand einer Rechtspflicht.
+       *
+       * ERSETZT den B1-3-Hinweis „Löschfristen werden derzeit manuell durchgesetzt" — der ist mit
+       * B4-1 sachlich falsch geworden. Der Filter „nur zur Anonymisierung fällige" bleibt
+       * bestehen: er zeigt jetzt, WAS der nächste Lauf anfassen wird, statt einer Arbeitsliste
+       * für Handarbeit.
+       */}
       <div className="mt-6">
         <JobStatus
           result={retentionRuns}
@@ -608,6 +697,8 @@ export default async function AdminLeadsPage({
         />
         <StaleContractReminders health={reminderHealth} />
       </div>
+
+      <EmailEventStatsPanel stats={emailStats} />
 
       <SourceStats stats={sourceStats} />
 
@@ -648,10 +739,10 @@ export default async function AdminLeadsPage({
                 <Select id="filter-quelle" name="quelle" defaultValue={filters.sourceKey}>
                   <option value="">alle</option>
                   {/*
-                    * Die Einstiegspunkte kommen aus der DATENBANK (`lead_sources` ist eine Tabelle,
-                    * kein Enum — laufend kommen neue dazu, B3). Eine Konstante hier ließe jede neue
-                    * Quelle im Filter fehlen, ohne dass es auffiele.
-                    */}
+                   * Die Einstiegspunkte kommen aus der DATENBANK (`lead_sources` ist eine Tabelle,
+                   * kein Enum — laufend kommen neue dazu, B3). Eine Konstante hier ließe jede neue
+                   * Quelle im Filter fehlen, ohne dass es auffiele.
+                   */}
                   {sources.map((s) => (
                     <option key={s.key} value={s.key}>
                       {s.label}
@@ -678,7 +769,11 @@ export default async function AdminLeadsPage({
             <div>
               <Label htmlFor="filter-einwilligung">Einwilligung — Zustand</Label>
               <div className="mt-1.5">
-                <Select id="filter-einwilligung" name="einwilligung" defaultValue={filters.consentStatus}>
+                <Select
+                  id="filter-einwilligung"
+                  name="einwilligung"
+                  defaultValue={filters.consentStatus}
+                >
                   <option value="">alle</option>
                   {Object.entries(CONSENT_STATUS_LABELS).map(([value, label]) => (
                     <option key={value} value={value}>
@@ -692,7 +787,12 @@ export default async function AdminLeadsPage({
 
             <div className="flex items-end">
               <div className="flex items-start gap-2 pb-2">
-                <Checkbox id="filter-faellig" name="faellig" value="1" defaultChecked={filters.dueOnly} />
+                <Checkbox
+                  id="filter-faellig"
+                  name="faellig"
+                  value="1"
+                  defaultChecked={filters.dueOnly}
+                />
                 <Label htmlFor="filter-faellig" className="font-normal">
                   nur zur Anonymisierung fällige
                 </Label>
@@ -701,12 +801,12 @@ export default async function AdminLeadsPage({
           </div>
 
           {/*
-            * ── B2-1: die Segmentierungsdimensionen aus B3-1 ─────────────────────────────────────
-            * Optisch abgesetzt, weil sie eine andere Frage beantworten als die Filter darüber: die
-            * oberen betreffen den Zustand eines Leads im System (Status, Herkunft, Einwilligung),
-            * diese hier den BETRIEB dahinter. Das ist die Trennung, entlang derer die Aussendung
-            * im November zusammengestellt wird.
-            */}
+           * ── B2-1: die Segmentierungsdimensionen aus B3-1 ─────────────────────────────────────
+           * Optisch abgesetzt, weil sie eine andere Frage beantworten als die Filter darüber: die
+           * oberen betreffen den Zustand eines Leads im System (Status, Herkunft, Einwilligung),
+           * diese hier den BETRIEB dahinter. Das ist die Trennung, entlang derer die Aussendung
+           * im November zusammengestellt wird.
+           */}
           <fieldset className="border-t border-line pt-4">
             <legend className="sr-only">Betriebsmerkmale</legend>
             <p className="text-caption font-semibold uppercase tracking-wide text-text-muted">
@@ -755,11 +855,11 @@ export default async function AdminLeadsPage({
                   />
                 </div>
                 {/*
-                  * Führende Ziffern statt vollständiger PLZ: „11" trifft die Wiener Innenbezirke.
-                  * Ein Gleichheitsfilter zwänge dazu, ein Netzgebiet als Aufzählung einzelner
-                  * Postleitzahlen zu treffen — und eine vergessene wäre nicht sichtbar, sondern nur
-                  * eine etwas kleinere Menge.
-                  */}
+                 * Führende Ziffern statt vollständiger PLZ: „11" trifft die Wiener Innenbezirke.
+                 * Ein Gleichheitsfilter zwänge dazu, ein Netzgebiet als Aufzählung einzelner
+                 * Postleitzahlen zu treffen — und eine vergessene wäre nicht sichtbar, sondern nur
+                 * eine etwas kleinere Menge.
+                 */}
                 <p id="filter-plz-hint" className="mt-1.5 text-caption text-text-muted">
                   Führende Ziffern — „11“ trifft alle Wiener Innenbezirke.
                 </p>
@@ -830,7 +930,13 @@ export default async function AdminLeadsPage({
       {/* ── Ergebnis ──────────────────────────────────────────────────────────────────────────── */}
       <section aria-labelledby="treffer" className="mt-8">
         <h2 id="treffer" className="text-h4 text-ink">
-          {invalidFilter ? 'Treffer' : <><Num>{total}</Num> Treffer</>}
+          {invalidFilter ? (
+            'Treffer'
+          ) : (
+            <>
+              <Num>{total}</Num> Treffer
+            </>
+          )}
         </h2>
 
         {invalidFilter ? (
@@ -864,9 +970,7 @@ export default async function AdminLeadsPage({
                   </thead>
                   <tbody>
                     {result.leads.length === 0 && (
-                      <EmptyRow colSpan={8}>
-                        Kein Lead passt zu diesen Filtern.
-                      </EmptyRow>
+                      <EmptyRow colSpan={8}>Kein Lead passt zu diesen Filtern.</EmptyRow>
                     )}
                     {result.leads.map((lead) => (
                       <LeadRow key={lead.id} lead={lead} sources={result.sources} />
@@ -896,18 +1000,18 @@ export default async function AdminLeadsPage({
               )}
 
               {/*
-                * B2-1: die Ausfuhr. Sie übernimmt GENAU den Filter, den diese Sicht gerade zeigt —
-                * einen Weg, ungefiltert zu exportieren, gibt es nicht; ohne Filter ist der Filter
-                * „alles" und wird als solcher protokolliert.
-                *
-                * Die angezeigte Zahl ist `export_total` und NICHT die Trefferzahl darüber: der
-                * Export schliesst gesperrte und anonymisierte Zeilen strukturell aus. Beide Zahlen
-                * wären plausibel — deshalb steht hier die, die wirklich in der Datei landet, und
-                * daneben, warum sie kleiner sein kann.
-                *
-                * Ein einfacher Link und kein Formular: der Download ist ein GET, und eine gefilterte
-                * Ausfuhr soll sich als Adresse weitergeben lassen wie die Sicht selbst.
-                */}
+               * B2-1: die Ausfuhr. Sie übernimmt GENAU den Filter, den diese Sicht gerade zeigt —
+               * einen Weg, ungefiltert zu exportieren, gibt es nicht; ohne Filter ist der Filter
+               * „alles" und wird als solcher protokolliert.
+               *
+               * Die angezeigte Zahl ist `export_total` und NICHT die Trefferzahl darüber: der
+               * Export schliesst gesperrte und anonymisierte Zeilen strukturell aus. Beide Zahlen
+               * wären plausibel — deshalb steht hier die, die wirklich in der Datei landet, und
+               * daneben, warum sie kleiner sein kann.
+               *
+               * Ein einfacher Link und kein Formular: der Download ist ein GET, und eine gefilterte
+               * Ausfuhr soll sich als Adresse weitergeben lassen wie die Sicht selbst.
+               */}
               <div className="border-t border-line px-4 py-4 sm:px-6">
                 <div className="flex flex-wrap items-center gap-3">
                   <Button asChild variant="secondary" size="sm">
@@ -924,8 +1028,8 @@ export default async function AdminLeadsPage({
                 </div>
                 <p className="mt-2 max-w-prose text-caption text-text-muted">
                   Gesperrte und anonymisierte Zeilen sind <strong>nicht</strong> enthalten — der
-                  Ausschluss steht in der Abfrage, nicht in einer Einstellung: eine ausgeführte Datei
-                  kann in ein fremdes Werkzeug wandern, das die Sperrliste nicht kennt.{' '}
+                  Ausschluss steht in der Abfrage, nicht in einer Einstellung: eine ausgeführte
+                  Datei kann in ein fremdes Werkzeug wandern, das die Sperrliste nicht kennt.{' '}
                   {exportTotal !== total && (
                     <>
                       Von den <Num>{total}</Num> Treffern fallen dadurch{' '}

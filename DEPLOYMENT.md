@@ -195,6 +195,51 @@ Code: `apps/web/app/api/cron/**` · Zeitplan: `apps/web/vercel.json` · Vorlage:
   vergessenes `CRON_SECRET` zu bemerken — ein nicht gelaufener Job meldet sich sonst nie.
 - **Nichts im Supabase-Dashboard zu tun:** wie §1f läuft alles über `public`-RPC-Wrapper.
 
+### 1h. Resend-Webhook — Rückläufer und Beschwerden (B2-2, server-only)
+
+Code: `apps/web/app/api/resend/webhook` · Vorlage: `apps/web/.env.example`
+
+| Variable | Scope | Wert-Herkunft | Pflicht |
+|---|---|---|---|
+| `RESEND_WEBHOOK_SECRET` | Production (Preview optional) | Resend-Dashboard → **Webhooks** → Endpunkt → *Signing Secret* (beginnt mit `whsec_`) | ohne sie antwortet der Endpunkt **400** und **kein** Ereignis wird verarbeitet |
+| `SUPABASE_SERVICE_ROLE_KEY` | s. §1d | derselbe Wert wie im Stripe-/Lead-/Cron-Pfad | ohne ihn kann der Webhook den RPC-Wrapper nicht aufrufen |
+
+**Der Endpunkt ist gebaut, aber in Produktion noch NICHT scharf geschaltet.** Zum Aktivieren:
+
+1. **Resend-Dashboard → Webhooks → Add Webhook.**
+   - Endpoint URL: `https://coolin.at/api/resend/webhook`
+   - Events (genau diese fünf — mehr abonnieren erzeugt nur ignorierte Zustellungen):
+     `email.sent` · `email.delivered` · `email.delivery_delayed` · `email.bounced` ·
+     `email.complained`
+   - **`email.opened` und `email.clicked` NICHT abonnieren** (s. §2-Resend-a).
+2. Das nach dem Anlegen angezeigte **Signing Secret** (`whsec_…`) als `RESEND_WEBHOOK_SECRET` in
+   Vercel eintragen (Scope Production), **danach Redeploy** — Umgebungsvariablen greifen erst im
+   nächsten Deployment.
+3. Prüfen: ein anonymer `POST` auf `/api/resend/webhook` ohne gültige Signatur muss **400** liefern
+   (nicht 404 — das hiesse, die Route existiert nicht, und nicht 200 — das hiesse, es wird ohne
+   Prüfung angenommen).
+
+- **Was der Webhook tut:** Beschwerde → Adresse dauerhaft sperren **und** alle Einwilligungen
+  widerrufen. Dauerhafter Rückläufer → sperren, Einwilligungen **unberührt** (ein technisches
+  Zustellversagen ist keine Willenserklärung der Person). Vorübergehender Rückläufer, Zustellung,
+  Versand → nur protokollieren. **Er legt niemals einen Lead an.**
+- **Eine Sperre lässt sich über die Oberfläche NICHT aufheben** — es gibt dafür bewusst keinen
+  Wrapper (Entsperren wäre der Sache nach Erteilen, und die Regel lautet: der Admin kann widerrufen,
+  nie erteilen). Ein begründeter Einzelfall bleibt ein bewusster Eingriff in der Datenbank.
+- **✔ `RESEND_WEBHOOK_SECRET` ist gefahrlos rotierbar** — wie `CRON_SECRET` (§1g) und im
+  ausdrücklichen Gegensatz zu `LEAD_TOKEN_SECRET` (§1f). Der Wert ist zustandsbehaftet nur zwischen
+  Resend und diesem Endpunkt; es hängen keine bereits versendeten Links daran. Im Resend-Dashboard
+  neu erzeugen, in Vercel setzen, neu deployen — Ereignisse, die dazwischen ankommen, werden mit 400
+  abgelehnt und von Resend automatisch wiederholt.
+- **Fail-closed:** fehlende Kopfzeile, ungültige Signatur **und fehlendes `RESEND_WEBHOOK_SECRET`**
+  ergeben allesamt 400 ohne jeden Datenbankzugriff. Der dritte Fall ist der wichtige: ein
+  ungeprüfter Endpunkt wäre ein offener Weg, beliebige Adressen dauerhaft zu sperren und
+  Einwilligungen zu widerrufen.
+- **Kontrolle im Betrieb:** `/admin/leads` zeigt dauerhafte Rückläufer und Beschwerden der letzten 30
+  Tage und hebt sie hervor, sobald **eine** Beschwerde auftritt; `/admin/leads/<id>` zeigt die
+  Ereignisse des einzelnen Leads samt Sperrgrund.
+- **Nichts im Supabase-Dashboard zu tun:** wie §1f/§1g läuft alles über `public`-RPC-Wrapper.
+
 ---
 
 ## 2. Supabase-Dashboard-Einstellungen (nicht über Migrationen abgedeckt)
@@ -288,6 +333,55 @@ Zahlungsmittel, Rechnungen). Ohne eine (Default-)Portal-Konfiguration schlägt
 `billingPortal.sessions.create` fehl → der Portal-Button auf `/konto` läuft in den neutralen
 Fehlerzustand. Reproduzierbar auch per API (`stripe.billingPortal.configurations.create`, im Bau so
 angelegt). Getrennt je Live-/Test-Modus.
+
+---
+
+## 2-Resend. Resend-Dashboard-Einstellungen (B2-2)
+
+### 2-Resend-a. Öffnungs- und Klick-Verfolgung MUSS aus sein  ⚠️ DAUERHAFTE ZUSAGE
+
+**Warum — der Unterschied, um den es geht.** Zustellstatus-Ereignisse (zugestellt, Rückläufer,
+Beschwerde) meldet der **empfangende Mailserver**; sie entstehen ohne Zutun des Empfängers und sagen
+nichts über sein Verhalten. Ein **Zählpixel** (Öffnungs-Verfolgung) und **umgeschriebene Links**
+(Klick-Verfolgung) sind etwas anderes: sie erfassen, ob und wann eine bestimmte Person eine Mail
+geöffnet und worauf sie geklickt hat, samt IP-Adresse — also Verhaltensbeobachtung. Das widerspricht
+dem Grundsatz „kein IP-Tracking zur Profilbildung", auf dem die gesamte Analytics-Entscheidung
+beruht (cookielos, kein Cookie-Banner, §1e), und es widerspricht der Datenschutzerklärung. Der
+Betrieb braucht die Daten auch nicht: die einzige Kennzahl, die für die Zustellbarkeit zählt, ist die
+Beschwerde- und Rückläuferquote — und die kommt aus den Zustellereignissen.
+
+**Wo es steht (Resend-Dashboard):** Domains → die Domain (`coolin.at`) → Reiter **Configuration** →
+*Enable tracking metrics* → **Open tracking** und **Click tracking** müssen **beide aus** sein.
+Beides ist bei Resend **standardmässig deaktiviert** und muss aktiv eingeschaltet werden — der
+erwartete Zustand ist also „aus", nicht „muss abgeschaltet werden".
+
+**Prüfen statt annehmen** (liefert `open_tracking` / `click_tracking` je Domain):
+
+```bash
+curl -s -H "Authorization: Bearer $RESEND_API_KEY" https://api.resend.com/domains
+```
+
+**Abschalten, falls doch aktiv** (`:id` ist die Domain-ID aus der Antwort oben):
+
+```bash
+curl -s -X PATCH -H "Authorization: Bearer $RESEND_API_KEY" -H "Content-Type: application/json" \
+  -d '{"open_tracking": false, "click_tracking": false}' \
+  https://api.resend.com/domains/:id
+```
+
+**Bei einem Wechsel des Resend-Kontos oder einer neuen Absender-Domain erneut prüfen** — die
+Einstellung hängt an der Domain, nicht am Konto, und eine neu angelegte Domain erbt sie nicht.
+
+**Zweite Verteidigungslinie im Code:** Der Webhook-Endpunkt (`app/api/resend/webhook`) verwirft
+`email.opened` und `email.clicked` unabhängig davon, ob sie abonniert oder aktiviert sind — sie
+landen also auch dann nicht in der Datenbank, wenn diese Einstellung einmal falsch steht. Die
+Einstellung bleibt trotzdem nötig: das Zählpixel wird beim Empfänger geladen und der Link über einen
+fremden Server umgeleitet, ganz gleich, ob wir das Ereignis speichern.
+
+### 2-Resend-b. Webhook-Endpunkt
+
+Siehe **§1h** — dort steht die vollständige Anleitung (URL, die fünf zu abonnierenden Ereignisarten,
+Signing Secret, Prüfschritt).
 
 ---
 

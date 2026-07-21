@@ -395,6 +395,50 @@ export type Database = {
         }
         Relationships: []
       }
+      email_events: {
+        Row: {
+          bounce_subtype: string | null
+          bounce_type: string | null
+          email_hash: string
+          event_type: string
+          id: string
+          lead_id: string | null
+          occurred_at: string | null
+          reason: string | null
+          received_at: string
+        }
+        Insert: {
+          bounce_subtype?: string | null
+          bounce_type?: string | null
+          email_hash: string
+          event_type: string
+          id: string
+          lead_id?: string | null
+          occurred_at?: string | null
+          reason?: string | null
+          received_at?: string
+        }
+        Update: {
+          bounce_subtype?: string | null
+          bounce_type?: string | null
+          email_hash?: string
+          event_type?: string
+          id?: string
+          lead_id?: string | null
+          occurred_at?: string | null
+          reason?: string | null
+          received_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_events_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       email_suppressions: {
         Row: {
           created_at: string
@@ -745,6 +789,10 @@ export type Database = {
         Returns: boolean
       }
       is_admin: { Args: never; Returns: boolean }
+      is_permanent_bounce: {
+        Args: { p_bounce_type: string; p_event_type: string }
+        Returns: boolean
+      }
       is_suppressed: { Args: { p_email: string }; Returns: boolean }
       lead_filter_summary: {
         Args: {
@@ -840,6 +888,7 @@ export type Database = {
         Returns: Json
       }
       status_grants_access: { Args: { p_status: string }; Returns: boolean }
+      strip_emails: { Args: { p_text: string }; Returns: string }
     }
     Enums: {
       consent_purpose:
@@ -884,6 +933,7 @@ export type Database = {
         }
         Returns: Json
       }
+      admin_email_event_stats: { Args: { p_days?: number }; Returns: Json }
       admin_export_leads: {
         Args: {
           p_consent_purpose?: Database["platform"]["Enums"]["consent_purpose"]
@@ -916,6 +966,10 @@ export type Database = {
       admin_list_admins: { Args: never; Returns: Json }
       admin_list_codes: { Args: never; Returns: Json }
       admin_list_customers: { Args: never; Returns: Json }
+      admin_list_email_events: {
+        Args: { p_lead_id?: string; p_limit?: number }
+        Returns: Json
+      }
       admin_list_exports: { Args: { p_limit?: number }; Returns: Json }
       admin_list_job_runs: {
         Args: { p_job_key?: string; p_limit?: number }
@@ -1085,6 +1139,18 @@ export type Database = {
           p_contract_end_date: string
           p_error?: string
           p_lead_id: string
+        }
+        Returns: Json
+      }
+      record_email_event: {
+        Args: {
+          p_bounce_subtype?: string
+          p_bounce_type?: string
+          p_email: string
+          p_event_id: string
+          p_event_type: string
+          p_occurred_at?: string
+          p_reason?: string
         }
         Returns: Json
       }
