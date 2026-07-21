@@ -286,3 +286,13 @@ export function formatDate(iso: string | null | undefined): string {
   const d = new Date(iso)
   return Number.isNaN(d.getTime()) ? '—' : DATE_ONLY.format(d)
 }
+
+/**
+ * Jahresverbrauch (B3-1). Mit Tausendertrennung, weil „180000" und „18000" beim Überfliegen
+ * nicht unterscheidbar sind — und genau diese Grössenordnung entscheidet über die Zielgruppe.
+ */
+const INTEGER = new Intl.NumberFormat('de-AT', { maximumFractionDigits: 0 })
+
+export function formatKwh(value: number | null | undefined): string {
+  return typeof value === 'number' ? `${INTEGER.format(value)} kWh` : '—'
+}

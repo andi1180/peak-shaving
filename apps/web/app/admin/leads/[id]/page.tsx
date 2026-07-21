@@ -11,6 +11,7 @@ import {
   Pill,
   formatDate,
   formatDateTime,
+  formatKwh,
 } from '@/components/admin/ui'
 import {
   AnonymizeLead,
@@ -21,6 +22,8 @@ import {
 import {
   LEADS_HREF,
   consentStatusLabel,
+  industryLabel,
+  meteringTypeLabel,
   purposeLabel,
   readLeadDetail,
   readStatus,
@@ -297,6 +300,56 @@ export default async function AdminLeadDetailPage({
               disabled={isAnonymized}
             />
           </div>
+        </AdminPanel>
+      </AdminSection>
+
+      {/* ── Betriebsdaten ─────────────────────────────────────────────────────────────────────── */}
+      {/*
+        * B3-1: die Dimensionen, auf denen B2 später segmentiert. BEWUSST NUR ANZEIGE — keine
+        * Filter (das ist B2), keine Bearbeitbarkeit. Ein editierbares Feld bräuchte einen eigenen
+        * Schreibwrapper samt Begründung, warum ein Admin eine Angabe überschreiben darf, die die
+        * Person selbst gemacht hat. Hier steht es, damit sich am ERSTEN echten Lead prüfen lässt,
+        * ob die Felder überhaupt ankommen.
+        */}
+      <AdminSection
+        id="betriebsdaten"
+        title="Betriebsdaten"
+        description="Wird je Einstiegspunkt erhoben — kein Formular fragt alles ab, leere Felder sind daher der Normalfall und kein Fehler. Auf diesen Merkmalen segmentiert die spätere Aussendung."
+      >
+        <AdminPanel>
+          <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <Field label="Branche">
+              {lead.industry ? industryLabel(lead.industry) : '—'}
+            </Field>
+            <Field label="Postleitzahl">
+              {/*
+                * Bei einem anonymisierten Lead ist die PLZ genullt — sie lokalisiert in Kombination
+                * mit Branche und Versorger einen Betrieb. Branche, Verbrauch und Messart bleiben
+                * dagegen stehen: grob einordnend, nicht wiedererkennend.
+                */}
+              <Num>{lead.postal_code ?? '—'}</Num>
+            </Field>
+            <Field label="Jahresverbrauch">
+              <Num>{formatKwh(lead.annual_consumption_kwh)}</Num>
+            </Field>
+            <Field label="Messart">
+              {lead.metering_type ? meteringTypeLabel(lead.metering_type) : 'noch nicht geprüft'}
+            </Field>
+            <Field label="Versorger">{lead.supplier ?? '—'}</Field>
+            <Field label="Vertragsende">
+              <Num>{formatDate(lead.contract_end_date)}</Num>
+            </Field>
+          </dl>
+          {/*
+            * Der Hinweis steht hier und nicht nur in der Migration: wer die zwei leeren Felder
+            * sieht, soll den Widerruf als Ursache erkennen und nicht auf einen Erfassungsfehler
+            * schliessen.
+            */}
+          <p className="mt-4 max-w-prose text-caption text-text-muted">
+            Versorger und Vertragsende werden ausschließlich für die Vertragsablauf-Erinnerung
+            erhoben. Wird diese Einwilligung widerrufen, löscht die Datenbank beide Felder
+            automatisch — fällt der Zweck weg, fällt die Grundlage für die Daten weg.
+          </p>
         </AdminPanel>
       </AdminSection>
 
