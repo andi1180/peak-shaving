@@ -94,7 +94,8 @@ function row(overrides: Partial<LeadExportRow> = {}): LeadExportRow {
     id: '11111111-1111-4111-8111-111111111111',
     email: 'max@example.at',
     company: 'Muster GmbH',
-    contact_name: 'Max Muster',
+    first_name: 'Max',
+    last_name: 'Muster',
     phone: '+43 1 1234567',
     status: 'new',
     first_source_key: 'warteliste',
@@ -139,7 +140,8 @@ describe('CSV: Rücklesen', () => {
   it('Felder mit Semikolon, Anführungszeichen und Zeilenumbruch kommen unverändert zurück', () => {
     const hart = row({
       company: 'Muster; Söhne & Co\nZweigstelle "Nord"',
-      contact_name: 'Anna "Anni" Muster',
+      first_name: 'Anna "Anni"',
+      last_name: 'Muster',
       phone: '+43 1 111;222',
     })
 
@@ -152,7 +154,10 @@ describe('CSV: Rücklesen', () => {
     // die Zeile verlängert und alle folgenden Spalten verschoben.
     expect(data).toHaveLength(CSV_HEADERS.length)
     expect(data[header.indexOf('Firma')]).toBe('Muster; Söhne & Co\nZweigstelle "Nord"')
-    expect(data[header.indexOf('Ansprechperson')]).toBe('Anna "Anni" Muster')
+    // Zwei getrennte Spalten, nicht eine zusammengesetzte — der Grund für die Auftrennung gilt für
+    // die ausgeführte Datei genauso wie für die Anzeige (s. `csv.ts`).
+    expect(data[header.indexOf('Vorname')]).toBe('Anna "Anni"')
+    expect(data[header.indexOf('Nachname')]).toBe('Muster')
     expect(data[header.indexOf('Telefon')]).toBe('+43 1 111;222')
     expect(data[header.indexOf('E-Mail')]).toBe('max@example.at')
   })

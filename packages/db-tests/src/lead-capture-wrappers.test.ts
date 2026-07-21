@@ -71,7 +71,11 @@ async function capture(
     `select public.capture_lead(
        $1, $2, $3::platform.consent_purpose, $4,
        case when $5::text is null then null else now() + $5::interval end,
-       'DB-Gate GmbH', 'Test Person', '+43 1 0000', '203.0.113.9'::inet, 'db-gate/1.0'
+       -- Vor- und Nachname stehen an der Stelle, an der frueher EIN p_contact_name stand. Der
+       -- Aufruf ist bewusst POSITIONAL: er ist damit der Test, dass die Parameterreihenfolge nach
+       -- der Auftrennung genau so ist, wie sie sein soll — ein verrutschter Parameter schriebe
+       -- sonst die Telefonnummer in den Nachnamen, und zwar ohne Fehler.
+       'DB-Gate GmbH', 'Test', 'Person', '+43 1 0000', '203.0.113.9'::inet, 'db-gate/1.0'
      ) as r`,
     [
       email,

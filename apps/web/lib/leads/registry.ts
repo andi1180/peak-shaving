@@ -72,12 +72,18 @@ export type LeadSourceKey = (typeof LEAD_SOURCE_KEYS)[number]
 
 /**
  * Die erhebbaren Felder. Jeder Name entspricht einem Parameter von `public.capture_lead` —
- * `contactName` → `p_contact_name`, `postalCode` → `p_postal_code` und so fort. Es gibt bewusst
+ * `firstName` → `p_first_name`, `postalCode` → `p_postal_code` und so fort. Es gibt bewusst
  * kein Feld, das die Datenbank nicht kennt: was erhoben wird, muss auch ankommen können.
+ *
+ * `firstName`/`lastName` haben ein früheres `contactName` abgelöst. Zwei Felder statt einem, weil
+ * eine korrekte Anrede in Korrespondenz den Nachnamen als eigenen Wert braucht und die
+ * nachträgliche Zerlegung eines Freitextnamens bei Doppelnamen und Titeln unzuverlässig ist —
+ * ausführlich begründet in der Migration.
  */
 export type LeadFieldKey =
   | 'email'
-  | 'contactName'
+  | 'firstName'
+  | 'lastName'
   | 'company'
   | 'phone'
   | 'industry'
@@ -102,7 +108,10 @@ export type LeadFieldDescriptor = {
 export const LEAD_FIELDS: Readonly<Record<LeadFieldKey, LeadFieldDescriptor>> = {
   // 254 = RFC 5321, die längste zustellbare Adresse (identisch zum Kontaktformular-Schema).
   email: { kind: 'email', autoComplete: 'email', maxLength: 254 },
-  contactName: { kind: 'text', autoComplete: 'name', maxLength: 100 },
+  // `given-name`/`family-name` statt eines gemeinsamen `name`: der Browser füllt beide Felder nur
+  // dann richtig vor, wenn er weiss, welcher Teil wohin gehört.
+  firstName: { kind: 'text', autoComplete: 'given-name', maxLength: 100 },
+  lastName: { kind: 'text', autoComplete: 'family-name', maxLength: 100 },
   company: { kind: 'text', autoComplete: 'organization', maxLength: 120 },
   phone: { kind: 'tel', autoComplete: 'tel', maxLength: 60 },
   // Kein `autocomplete`: das Enum ist eine fachliche Einordnung, keine Adressangabe.
@@ -223,8 +232,15 @@ export const LEAD_CAPTURE_REGISTRY: Readonly<Record<LeadSourceKey, LeadCaptureEn
     purpose: null,
     offersMarketingConsent: true,
     fields: [
+      /*
+       * Vor- UND Nachname sind hier PFLICHT — als einziger Einstiegspunkt. Das Kontaktformular ist
+       * der Kanal mit dem höchsten Anspruch an persönliche Ansprache: aus einer Kontaktanfrage
+       * entsteht eine Antwort per E-Mail, und die beginnt mit einer Anrede. Ein fehlender Nachname
+       * hiesse dort „Guten Tag," ohne Namen, obwohl die Person gerade um Kontakt gebeten hat.
+       */
       { key: 'email', required: true },
-      { key: 'contactName', required: true },
+      { key: 'firstName', required: true },
+      { key: 'lastName', required: true },
       { key: 'company', required: false },
       { key: 'phone', required: false },
     ],
@@ -276,7 +292,8 @@ export const LEAD_CAPTURE_REGISTRY: Readonly<Record<LeadSourceKey, LeadCaptureEn
     offersMarketingConsent: false,
     fields: [
       { key: 'email', required: true },
-      { key: 'contactName', required: false },
+      { key: 'firstName', required: false },
+      { key: 'lastName', required: false },
       { key: 'company', required: false },
     ],
     carriesCalculatorResult: false,
@@ -291,7 +308,8 @@ export const LEAD_CAPTURE_REGISTRY: Readonly<Record<LeadSourceKey, LeadCaptureEn
     offersMarketingConsent: true,
     fields: [
       { key: 'email', required: true },
-      { key: 'contactName', required: false },
+      { key: 'firstName', required: false },
+      { key: 'lastName', required: false },
       { key: 'company', required: false },
       { key: 'phone', required: false },
     ],

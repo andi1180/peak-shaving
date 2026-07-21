@@ -241,7 +241,7 @@ export function AnonymizeLead({
               <li>
                 die E-Mail-Adresse <span className="break-all">{email}</span>
               </li>
-              <li>Firma, Ansprechperson und Telefonnummer</li>
+              <li>Firma, Vor- und Nachname und Telefonnummer</li>
               <li>
                 IP-Adresse und Browser-Kennung {consentCount === 1 ? 'der' : 'aller'}{' '}
                 {consentCount === 1 ? 'Einwilligung' : `${consentCount} Einwilligungen`}

@@ -79,7 +79,14 @@ export type CaptureLeadInput = {
   tokenHash?: string | null
   tokenExpiresAt?: Date | null
   company?: string | null
-  contactName?: string | null
+  /**
+   * Vor- und Nachname getrennt (ehemals ein `contactName`). Der Grund ist die Anrede in späterer
+   * Korrespondenz: sie braucht den Nachnamen als eigenen Wert, und ein zusammengesetzter Name
+   * lässt sich nachträglich nicht zuverlässig zerlegen. Beide werden in `capture_lead` EINZELN
+   * zusammengeführt (Bestand gewinnt, wie `company`/`phone`).
+   */
+  firstName?: string | null
+  lastName?: string | null
   phone?: string | null
   /** Nachweisfelder der Einwilligung (B1-1: ausschliesslich Nachweis, nie Profilbildung). */
   sourceIp?: string | null
@@ -110,7 +117,8 @@ export async function captureLead(input: CaptureLeadInput): Promise<CaptureResul
     p_token_hash: input.tokenHash ?? undefined,
     p_token_expires_at: input.tokenExpiresAt?.toISOString() ?? undefined,
     p_company: input.company ?? undefined,
-    p_contact_name: input.contactName ?? undefined,
+    p_first_name: input.firstName ?? undefined,
+    p_last_name: input.lastName ?? undefined,
     p_phone: input.phone ?? undefined,
     p_source_ip: input.sourceIp ?? undefined,
     p_user_agent: input.userAgent ?? undefined,

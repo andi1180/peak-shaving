@@ -65,7 +65,8 @@ export type CaptureLeadCall = {
   tokenHash: string | null
   tokenExpiresAt: Date | null
   company?: string | null
-  contactName?: string | null
+  firstName?: string | null
+  lastName?: string | null
   phone?: string | null
   industry?: LeadIndustry | null
   postalCode?: string | null
@@ -108,7 +109,8 @@ export type LeadCaptureContext = {
 function fieldsToCall(values: LeadCaptureValues): Partial<CaptureLeadCall> {
   return {
     company: values.company,
-    contactName: values.contactName,
+    firstName: values.firstName,
+    lastName: values.lastName,
     phone: values.phone,
     industry: values.industry as LeadIndustry | undefined,
     postalCode: values.postalCode,

@@ -1,10 +1,10 @@
 'use client'
 
 /**
- * Der Korrekturweg der Lead-Detailseite (B2-1): die NEUN bearbeitbaren Stammdatenfelder.
+ * Der Korrekturweg der Lead-Detailseite (B2-1): die ZEHN bearbeitbaren Stammdatenfelder.
  *
- * ── DIE NEUN FELDER STEHEN GENAU HIER, EINMAL ────────────────────────────────────────────────────
- * Bei einem anonymisierten Lead rendert dieselbe Komponente dieselben neun Felder als reine Anzeige
+ * ── DIE ZEHN FELDER STEHEN GENAU HIER, EINMAL ────────────────────────────────────────────────────
+ * Bei einem anonymisierten Lead rendert dieselbe Komponente dieselben zehn Felder als reine Anzeige
  * statt als Eingabe. Zwei getrennte Darstellungen (eine Anzeige-Liste und daneben ein Formular)
  * hätten bedeutet, dass jede künftige Änderung an der Feldmenge an zwei Stellen nachzuziehen ist —
  * und die vergessene Stelle wäre ausgerechnet die, die ein anonymisierter Lead zeigt.
@@ -19,7 +19,7 @@
  * ── LEER HEISST LÖSCHEN ──────────────────────────────────────────────────────────────────────────
  * Ein geleertes Feld setzt die Angabe auf „nicht bekannt". Das ist der Unterschied zum
  * Erfassungspfad (dort lässt ein fehlender Wert den Bestand unberührt, B3-1) und der Grund, warum
- * dieses Formular immer ALLE neun Felder schickt.
+ * dieses Formular immer ALLE zehn Felder schickt.
  */
 import * as React from 'react'
 import { useActionState } from 'react'
@@ -52,7 +52,8 @@ function ReadOnlyView({ lead }: { lead: LeadDetailRow }) {
   return (
     <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       <ReadOnlyField label="Firma">{lead.company ?? '—'}</ReadOnlyField>
-      <ReadOnlyField label="Ansprechperson">{lead.contact_name ?? '—'}</ReadOnlyField>
+      <ReadOnlyField label="Vorname">{lead.first_name ?? '—'}</ReadOnlyField>
+      <ReadOnlyField label="Nachname">{lead.last_name ?? '—'}</ReadOnlyField>
       <ReadOnlyField label="Telefon">{lead.phone ?? '—'}</ReadOnlyField>
       <ReadOnlyField label="Branche">
         {lead.industry ? industryLabel(lead.industry) : '—'}
@@ -108,12 +109,26 @@ export function LeadEditForm({ lead, disabled }: { lead: LeadDetailRow; disabled
           defaultValue={lead.company ?? ''}
           error={fieldError('company')}
         />
+        {/*
+          * ZWEI Felder statt einem: die Anrede in Korrespondenz braucht den Nachnamen als eigenen
+          * Wert. Beide sind hier — anders als im Kontaktformular — OPTIONAL: der Bestand enthält
+          * Leads aus Einstiegspunkten, die gar keinen Namen erheben, und ein Pflichtfeld machte
+          * jede andere Korrektur an so einem Lead unmöglich. Leer heisst auch hier LÖSCHEN, und
+          * zwar je Feld einzeln.
+          */}
         <AdminField
-          id="lead-contact-name"
-          name="contactName"
-          label="Ansprechperson"
-          defaultValue={lead.contact_name ?? ''}
-          error={fieldError('contactName')}
+          id="lead-first-name"
+          name="firstName"
+          label="Vorname"
+          defaultValue={lead.first_name ?? ''}
+          error={fieldError('firstName')}
+        />
+        <AdminField
+          id="lead-last-name"
+          name="lastName"
+          label="Nachname"
+          defaultValue={lead.last_name ?? ''}
+          error={fieldError('lastName')}
         />
         <AdminField
           id="lead-phone"

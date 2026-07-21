@@ -548,16 +548,17 @@ export type Database = {
           anonymized_by: string | null
           anonymized_by_system: boolean
           company: string | null
-          contact_name: string | null
           contract_end_date: string | null
           created_at: string
           deletion_due_at: string
           email: string
+          first_name: string | null
           first_source_key: string
           id: string
           industry: Database["platform"]["Enums"]["industry"] | null
           last_edited_by: string | null
           last_interaction_at: string
+          last_name: string | null
           metering_type: string | null
           phone: string | null
           postal_code: string | null
@@ -572,16 +573,17 @@ export type Database = {
           anonymized_by?: string | null
           anonymized_by_system?: boolean
           company?: string | null
-          contact_name?: string | null
           contract_end_date?: string | null
           created_at?: string
           deletion_due_at: string
           email: string
+          first_name?: string | null
           first_source_key: string
           id?: string
           industry?: Database["platform"]["Enums"]["industry"] | null
           last_edited_by?: string | null
           last_interaction_at?: string
+          last_name?: string | null
           metering_type?: string | null
           phone?: string | null
           postal_code?: string | null
@@ -596,16 +598,17 @@ export type Database = {
           anonymized_by?: string | null
           anonymized_by_system?: boolean
           company?: string | null
-          contact_name?: string | null
           contract_end_date?: string | null
           created_at?: string
           deletion_due_at?: string
           email?: string
+          first_name?: string | null
           first_source_key?: string
           id?: string
           industry?: Database["platform"]["Enums"]["industry"] | null
           last_edited_by?: string | null
           last_interaction_at?: string
+          last_name?: string | null
           metering_type?: string | null
           phone?: string | null
           postal_code?: string | null
@@ -851,16 +854,17 @@ export type Database = {
           anonymized_by: string | null
           anonymized_by_system: boolean
           company: string | null
-          contact_name: string | null
           contract_end_date: string | null
           created_at: string
           deletion_due_at: string
           email: string
+          first_name: string | null
           first_source_key: string
           id: string
           industry: Database["platform"]["Enums"]["industry"] | null
           last_edited_by: string | null
           last_interaction_at: string
+          last_name: string | null
           metering_type: string | null
           phone: string | null
           postal_code: string | null
@@ -1018,9 +1022,10 @@ export type Database = {
         Args: {
           p_annual_consumption_kwh?: number
           p_company?: string
-          p_contact_name?: string
           p_contract_end_date?: string
+          p_first_name?: string
           p_industry?: Database["platform"]["Enums"]["industry"]
+          p_last_name?: string
           p_lead_id: string
           p_metering_type?: string
           p_phone?: string
@@ -1053,10 +1058,11 @@ export type Database = {
         Args: {
           p_annual_consumption_kwh?: number
           p_company?: string
-          p_contact_name?: string
           p_contract_end_date?: string
           p_email: string
+          p_first_name?: string
           p_industry?: Database["platform"]["Enums"]["industry"]
+          p_last_name?: string
           p_locale?: string
           p_metering_type?: string
           p_phone?: string

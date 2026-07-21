@@ -146,7 +146,9 @@ export type LeadListRow = LeadSegments & {
   id: string
   email: string
   company: string | null
-  contact_name: string | null
+  /** Getrennt geführt (ehemals ein `contact_name`) — die Anrede braucht den Nachnamen einzeln. */
+  first_name: string | null
+  last_name: string | null
   phone: string | null
   status: string
   first_source_key: string

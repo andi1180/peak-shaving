@@ -194,7 +194,8 @@ async function leadRow(id: string) {
   const rows = await sql<{
     email: string
     company: string | null
-    contact_name: string | null
+    first_name: string | null
+    last_name: string | null
     phone: string | null
     industry: string | null
     postal_code: string | null
@@ -205,7 +206,8 @@ async function leadRow(id: string) {
     last_edited_by: string | null
     status: string
   }>(
-    `select email, company, contact_name, phone, industry, postal_code, annual_consumption_kwh,
+    `select email, company, first_name, last_name, phone, industry, postal_code,
+            annual_consumption_kwh,
             metering_type, supplier, contract_end_date::text as contract_end_date,
             last_edited_by, status
        from platform.leads where id = $1`,
@@ -249,10 +251,14 @@ type ExportResult = {
   export_id: string
 }
 
-/** Die neun bearbeitbaren Felder in EINEM Aufruf — dieselbe Form wie die Server Action. */
-const NINE_FIELDS = {
+/**
+ * Die ZEHN bearbeitbaren Felder in EINEM Aufruf — dieselbe Form wie die Server Action.
+ * (Neun waren es bis zur Auftrennung des Kontaktnamens in Vor- und Nachname.)
+ */
+const TEN_FIELDS = {
   p_company: 'Korrigiert GmbH',
-  p_contact_name: 'Erika Muster',
+  p_first_name: 'Erika',
+  p_last_name: 'Muster',
   p_phone: '+43 1 9999999',
   p_industry: 'tischlerei',
   p_postal_code: '4020',
@@ -376,7 +382,7 @@ describe('(2) admin_update_lead ändert die neun erlaubten Felder', () => {
 
     const res = await callNamed<{ status: string }>(admin, 'public.admin_update_lead', {
       p_lead_id: lead.id,
-      ...NINE_FIELDS,
+      ...TEN_FIELDS,
       p_supplier: 'Wien Energie',
       p_contract_end_date: '2027-03-31',
     })
@@ -384,7 +390,8 @@ describe('(2) admin_update_lead ändert die neun erlaubten Felder', () => {
 
     const row = await leadRow(lead.id)
     expect(row.company).toBe('Korrigiert GmbH')
-    expect(row.contact_name).toBe('Erika Muster')
+    expect(row.first_name).toBe('Erika')
+    expect(row.last_name).toBe('Muster')
     expect(row.phone).toBe('+43 1 9999999')
     expect(row.industry).toBe('tischlerei')
     expect(row.postal_code).toBe('4020')
@@ -423,14 +430,19 @@ describe('(3) die E-Mail ist über den Korrekturweg nicht erreichbar', () => {
     expect(args).not.toContain('p_email')
     // Gegenprobe, damit der Test nicht durch einen Tippfehler im Namen grün wird:
     expect(args).toContain('p_company')
-    expect(args).toHaveLength(10)
+    // Zehn statt neun bearbeitbarer Felder plus p_lead_id, seit der Kontaktname in Vor- und
+    // Nachname aufgetrennt ist.
+    expect(args).toContain('p_first_name')
+    expect(args).toContain('p_last_name')
+    expect(args).not.toContain('p_contact_name')
+    expect(args).toHaveLength(11)
   })
 
   it('nach einem vollständigen Aufruf ist die Adresse unverändert', async () => {
     const admin = await newAdmin()
     const lead = await newLead()
 
-    await callNamed(admin, 'public.admin_update_lead', { p_lead_id: lead.id, ...NINE_FIELDS })
+    await callNamed(admin, 'public.admin_update_lead', { p_lead_id: lead.id, ...TEN_FIELDS })
 
     const row = await leadRow(lead.id)
     expect(row.email).toBe(lead.email)

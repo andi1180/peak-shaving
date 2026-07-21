@@ -28,7 +28,8 @@ import { THEMA_KEYS } from './themen'
  * große Bodies an und reicht sie an Resend weiter.
  */
 const MAX = {
-  name: 100,
+  vorname: 100,
+  nachname: 100,
   email: 254, // RFC 5321: die längste zustellbare Adresse
   unternehmen: 120,
   telefon: 60,
@@ -41,7 +42,23 @@ function optionalText(max: number, tooLongKey: string) {
 }
 
 export const kontaktSchema = z.object({
-  name: z.string().trim().min(2, 'nameRequired').max(MAX.name, 'nameTooLong'),
+  /*
+   * ZWEI FELDER STATT EINEM, und BEIDE Pflicht — anders als die meisten übrigen Lead-Felder im
+   * System (dort ist ein Name optional). Das Kontaktformular ist der Kanal mit dem höchsten
+   * Anspruch an persönliche Ansprache: auf eine Kontaktanfrage folgt eine Antwort per E-Mail, und
+   * die beginnt mit einer Anrede.
+   *
+   * Getrennt erhoben und NICHT nachträglich zerlegt: jede Zerlegung eines Freitextnamens ist eine
+   * Heuristik und scheitert bei Doppelnamen, Namenszusätzen und Titeln — der Fehler landet dann in
+   * der Anrede einer echten Mail. Ausführlich begründet in der Migration, die `contact_name`
+   * ablöst.
+   *
+   * `min(1)` statt `min(2)` wie beim früheren gemeinsamen Namensfeld: es gibt einbuchstabige
+   * Vornamen („E"), und ein abgelehnter echter Name kostet mehr als ein zu kurz getippter.
+   */
+  vorname: z.string().trim().min(1, 'vornameRequired').max(MAX.vorname, 'vornameTooLong'),
+
+  nachname: z.string().trim().min(1, 'nachnameRequired').max(MAX.nachname, 'nachnameTooLong'),
 
   /*
    * `.email()` ist eine Format-, keine Existenzprüfung — sie fängt den Tippfehler,
@@ -122,7 +139,14 @@ export type KontaktInput = z.infer<typeof kontaktSchema>
  * denen je eine Meldung erscheinen darf.
  */
 export type KontaktFieldName =
-  'name' | 'email' | 'unternehmen' | 'telefon' | 'thema' | 'nachricht' | 'datenschutz'
+  | 'vorname'
+  | 'nachname'
+  | 'email'
+  | 'unternehmen'
+  | 'telefon'
+  | 'thema'
+  | 'nachricht'
+  | 'datenschutz'
 
 /**
  * zod-Issues → `{ feld: fehlerKey }`. Der ERSTE Fehler je Feld gewinnt: ein Feld
