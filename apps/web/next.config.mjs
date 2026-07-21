@@ -7,7 +7,27 @@ const nextConfig = {
   // Workspace-Paket `tariff-monitor` (T1, Haushalts-Energiemonitor-Engine) wird
   // aus dem TS-Source transpiliert — Muster wie `apps/website`s `shared`/`engine`.
   // Es ist rein & isomorph (kein I/O), läuft daher unverändert im Browser (T3).
-  transpilePackages: ['tariff-monitor'],
+  //
+  // `shared` kommt mit B14-2 dazu: der Admin-Bereich liest dort die EINE Definition des
+  // Analyse-Bündels und die Archiv-Funktionen (gzip/SHA-256) — dieselben, die der Rechner beim
+  // Export benutzt. Eine eigene Kopie hier wäre die zweite Beschreibung desselben Formats, und die
+  // Abweichung fiele erst beim Hochladen auf, also nachdem die Analyse gerechnet ist.
+  transpilePackages: ['tariff-monitor', 'shared'],
+
+  experimental: {
+    /*
+     * B14-2: der Analyse-Upload schickt ZWEI Dateien durch eine Server Action — das Bündel und die
+     * unkomprimierte Ursprungsdatei. Next begrenzt den Rumpf einer Server Action standardmässig auf
+     * 1 MB; ein Jahres-Lastgang liegt darüber, und die Ablehnung käme als undurchsichtiger Fehler
+     * statt als Satz.
+     *
+     * Der Wert liegt bewusst ETWAS ÜBER der fachlichen Obergrenze von 20 MB
+     * (`MAX_SOURCE_FILE_BYTES`): so entscheidet die Anwendung über zu grosse Dateien und antwortet
+     * mit einer verständlichen Meldung, statt dass die Plattform die Anfrage vorher abschneidet.
+     * Die fachliche Grenze bleibt die in `lib/admin/analysis-upload.ts`.
+     */
+    serverActions: { bodySizeLimit: '24mb' },
+  },
   /**
    * 301-Redirects der alten `.html`-Pfade (Pflichtenheft §6.4).
    *

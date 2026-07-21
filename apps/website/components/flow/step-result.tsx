@@ -1,15 +1,19 @@
 'use client'
 
-import { Download, Printer, RotateCcw } from 'lucide-react'
+import { useState } from 'react'
+import { Download, FileJson, Printer, RotateCcw } from 'lucide-react'
 import type { AnalysisResult } from 'shared'
 
 import { Report } from '@/components/report/report'
 import { Button } from '@/components/ui/button'
+import { buildBundle, bundleFileName, serializeBundle } from '@/lib/bundle-export'
 import { buildPerBatteryCsv, downloadTextFile } from '@/lib/csv-export'
+import type { AnalysisRunInputs } from '@/lib/use-analysis'
 import type { CalculatorPayload, ParsedLoad, RecomputeInput } from './types'
 
 export function StepResult({
   result,
+  inputs,
   load,
   payload,
   recomputing,
@@ -20,6 +24,11 @@ export function StepResult({
   onRestart,
 }: {
   result: AnalysisResult
+  /**
+   * B14-2: die Eingangsgrössen GENAU dieses Ergebnisses (§6.2-Neuberechnung eingeschlossen).
+   * `null`, solange sie noch nicht feststehen — dann ist kein Bündel möglich.
+   */
+  inputs: AnalysisRunInputs | null
   load: ParsedLoad
   payload: CalculatorPayload
   recomputing: boolean
@@ -29,10 +38,43 @@ export function StepResult({
   onResetAssumptions: () => void
   onRestart: () => void
 }) {
+  const [bundleError, setBundleError] = useState<string | null>(null)
+
   function handleExportCsv() {
     const csv = buildPerBatteryCsv(result.perBattery, result.assumptions.horizonYears)
     downloadTextFile('peak-shaving-ergebnis.csv', csv, 'text/csv;charset=utf-8')
   }
+
+  /*
+   * B14-2 — das Analyse-Bündel (§6.2). Rein im Browser erzeugt, kein Netzwerkaufruf; die
+   * Verbrauchsdaten verlassen den Browser weiterhin nicht (Prinzip 4).
+   *
+   * Die Prüfsumme entsteht über die TATSÄCHLICH verarbeitete Ursprungsdatei. Liegt sie nicht mehr
+   * vor, wird KEIN Bündel erzeugt und die Oberfläche sagt das: ein Bündel mit einer Prüfsumme, die
+   * nichts bindet, liesse sich archivieren und hinge dann an irgendeiner Datei.
+   */
+  async function handleExportBundle() {
+    setBundleError(null)
+    if (!inputs) {
+      setBundleError(
+        'Die Eingangsgrössen dieses Ergebnisses stehen noch nicht fest. Bitte warten Sie, bis die ' +
+          'Neuberechnung abgeschlossen ist.',
+      )
+      return
+    }
+    try {
+      const bundle = await buildBundle({ result, inputs, load, pv: payload.pv })
+      downloadTextFile(
+        bundleFileName(bundle),
+        serializeBundle(bundle),
+        'application/json;charset=utf-8',
+      )
+    } catch (err) {
+      setBundleError(err instanceof Error ? err.message : 'Das Bündel konnte nicht erzeugt werden.')
+    }
+  }
+
+  const bundleBlocked = !load.sourceBytes
 
   return (
     <div className="flex flex-col gap-4">
@@ -47,12 +89,43 @@ export function StepResult({
             <Printer className="h-4 w-4" />
             Als PDF speichern
           </Button>
+          {/*
+           * Bewusst unauffällig (ghost) und als letzter der drei Ausgabewege: PDF und CSV sind für
+           * den Kunden, das Bündel ist für das Archiv. Es steht trotzdem hier und nicht hinter einer
+           * Zugangshürde — es entsteht eine lokale Datei, kein Datenabfluss.
+           */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => void handleExportBundle()}
+            disabled={bundleBlocked || recomputing}
+            title={
+              bundleBlocked
+                ? 'Die Ursprungsdatei liegt nicht mehr vor — ohne sie bindet die Prüfsumme nichts.'
+                : undefined
+            }
+          >
+            <FileJson className="h-4 w-4" />
+            Analyse-Bündel (JSON)
+          </Button>
           <Button variant="outline" size="sm" onClick={onRestart}>
             <RotateCcw className="h-4 w-4" />
             Neue Analyse
           </Button>
         </div>
       </div>
+
+      {(bundleError || bundleBlocked) && (
+        <div className="mx-auto w-full max-w-6xl px-4 sm:px-6 print:hidden">
+          <p role="alert" className="text-sm text-negative">
+            {bundleError ??
+              'Ein Analyse-Bündel ist für diesen Lauf nicht möglich: die Ursprungsdatei liegt nicht ' +
+                'mehr vor. Ohne sie liesse sich keine Prüfsumme rechnen — und ein Bündel ohne ' +
+                'Prüfsumme bindet die Analyse an keine Datei. Bitte laden Sie den Lastgang erneut hoch.'}
+          </p>
+        </div>
+      )}
+
       <Report
         result={result}
         loadProfile={load.profile}

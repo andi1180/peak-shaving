@@ -67,6 +67,9 @@ export function Calculator() {
         payload && (
           <StepResult
             result={analysis.displayResult}
+            // B14-2: die Eingaben GENAU zu `displayResult` — der Hook führt beide paarweise, damit
+            // ein Bündel keine Eingaben zu einem anderen Ergebnis mitschreiben kann.
+            inputs={analysis.displayInputs}
             load={load}
             payload={payload}
             recomputing={analysis.recomputing}

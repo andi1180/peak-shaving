@@ -126,6 +126,9 @@ importers:
       server-only:
         specifier: ^0.0.1
         version: 0.0.1
+      shared:
+        specifier: workspace:*
+        version: link:../../packages/shared
       standardwebhooks:
         specifier: 1.0.0
         version: 1.0.0
