@@ -270,3 +270,19 @@ export function formatDateTime(iso: string | null | undefined): string {
   const d = new Date(iso)
   return Number.isNaN(d.getTime()) ? '—' : DATE_TIME.format(d)
 }
+
+/**
+ * Nur das Datum — für Fristen (B1-3). Eine Löschfrist auf die Minute genau anzuzeigen behauptet eine
+ * Genauigkeit, die sie nicht hat: sie ist eine abgeleitete Monatsrechnung, und entschieden wird
+ * anhand des Tages.
+ */
+const DATE_ONLY = new Intl.DateTimeFormat('de-AT', {
+  dateStyle: 'medium',
+  timeZone: 'Europe/Vienna',
+})
+
+export function formatDate(iso: string | null | undefined): string {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  return Number.isNaN(d.getTime()) ? '—' : DATE_ONLY.format(d)
+}

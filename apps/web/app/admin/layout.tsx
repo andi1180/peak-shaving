@@ -6,6 +6,7 @@ import { setRequestLocale } from 'next-intl/server'
 import { routing } from '@/i18n/routing'
 import { isCurrentUserAdmin } from '@/lib/admin/guard'
 import { Container } from '@/components/ui/layout'
+import { AdminNav } from '@/components/admin/nav'
 import '../globals.css'
 
 /*
@@ -93,5 +94,15 @@ export default async function AdminLayout({ children }: { children: ReactNode })
     )
   }
 
-  return <Shell>{children}</Shell>
+  /*
+   * Die Navigation steht NUR im Zugangs-Zweig. Im Ablehnungs-Zweig oben gibt es sie bewusst nicht:
+   * eine Leiste mit „Übersicht · Leads" verriete, was es hier zu holen gäbe — derselbe Grund, aus
+   * dem der Seitentitel neutral bleibt.
+   */
+  return (
+    <Shell>
+      <AdminNav />
+      {children}
+    </Shell>
+  )
 }
