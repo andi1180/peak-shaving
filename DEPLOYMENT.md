@@ -157,9 +157,21 @@ Code: `apps/web/app/api/cron/**` · Zeitplan: `apps/web/vercel.json` · Vorlage:
 | `CRON_SECRET` | Production (Preview nicht nötig — Crons laufen nur in Production) | selbst erzeugt: `openssl rand -base64 32` | ohne sie antwortet der Endpunkt **401** und der Fristenlauf findet nicht statt |
 | `SUPABASE_SERVICE_ROLE_KEY` | s. §1d | derselbe Wert wie im Stripe-/Lead-Pfad | ohne ihn kann der Job den RPC-Wrapper nicht aufrufen |
 
-- **Registrierter Job:** `/api/cron/lead-retention`, täglich **03:15 UTC** — Durchsetzung der
-  Löschfristen des Lead-Bestands (anonymisiert fällige Leads). **Versendet keine E-Mail;** der
-  Versand kommt mit B4-2. Nicht zur vollen Stunde, weil dort plattformweit die meisten Jobs anlaufen.
+- **Registrierter Job 1:** `/api/cron/lead-retention`, täglich **03:15 UTC** — Durchsetzung der
+  Löschfristen des Lead-Bestands (anonymisiert fällige Leads). **Versendet keine E-Mail.** Nicht zur
+  vollen Stunde, weil dort plattformweit die meisten Jobs anlaufen.
+- **Registrierter Job 2 (B4-2):** `/api/cron/contract-reminders`, täglich **06:40 UTC** — die
+  Vertragsablauf-Erinnerung, acht Wochen vor dem Vertragsende. **Der erste automatisierte
+  E-Mail-Versand an reale Personen.** Morgens statt nachts, weil eine Erinnerung mit Zeitstempel
+  04:15 maschinell wirkt und eher weggeklickt wird; der Fristenlauf hat kein Zustellinteresse und
+  bleibt, wo er ist. **Zusätzlich nötig:** `RESEND_API_KEY` + `RESEND_FROM` (§1c) — ohne sie wird
+  jeder fällige Fall als Fehlschlag protokolliert und **nicht** automatisch wiederholt (automatische
+  Wiederholung von E-Mail-Versand erzeugt Schleifen). Der Befund steht auf `/admin/leads`.
+- **Mengenobergrenze der Erinnerung liegt im ENDPUNKT** (200 je Lauf, Verweigerung über 500) und
+  nicht in der Datenbank — anders als beim Fristenlauf, wo sie in `platform.run_lead_retention`
+  sitzt. Grund: der wirksame Schritt (der Versand) liegt ausserhalb der Datenbank, eine reine
+  DB-Funktion könnte ihn gar nicht bremsen. Oberhalb der Grenze wird **keine einzige** Mail
+  versendet, nicht die erste Teilmenge.
 - **Plan-Voraussetzung geprüft (21.07.2026):** Das Team liegt auf dem **Pro**-Plan. Pro erlaubt 100
   Cron-Jobs je Projekt, Mindestintervall eine Minute und **minutengenaue** Auslösung — `15 3 * * *`
   läuft also tatsächlich um 03:15 und nicht irgendwann in der Stunde. (Auf **Hobby** wären nur

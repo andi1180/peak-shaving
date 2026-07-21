@@ -216,18 +216,16 @@ export async function SiteHeader() {
                             </div>
                           )
                         })()}
-                        {item.overviewKey || item.trailingLeaf ? (
+                        {item.overviewKey || item.trailingLeaves?.length ? (
                           <div className="mt-4 border-t border-line pt-3">
                             {item.overviewKey ? (
                               <MenuLink href={item.href} label={t(item.overviewKey)} />
                             ) : null}
-                            {/* Produkt-Quereinstieg als letzter Punkt (z. B. Strom-Monitor). */}
-                            {item.trailingLeaf ? (
-                              <MenuLink
-                                href={item.trailingLeaf.href}
-                                label={t(item.trailingLeaf.labelKey)}
-                              />
-                            ) : null}
+                            {/* Kostenlose Quereinstiege als letzte Punkte (Strom-Monitor,
+                                Vertragsende-Erinnerung) — keine Leistungen, s. lib/nav.ts. */}
+                            {(item.trailingLeaves ?? []).map((leaf) => (
+                              <MenuLink key={leaf.href} href={leaf.href} label={t(leaf.labelKey)} />
+                            ))}
                           </div>
                         ) : null}
                       </div>

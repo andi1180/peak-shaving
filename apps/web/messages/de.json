@@ -19,6 +19,7 @@
     "smartHeating": "Smart Heating",
     "ppa": "PPA & Grünstrom",
     "finanzierung": "Finanzierung & Förderungen",
+    "vertragsendeErinnerung": "Vertragsende-Erinnerung",
     "esg": "ESG / CSRD",
     "peakShaving": "Peak Shaving",
     "peakShavingWhat": "Was ist Peak Shaving",
@@ -1707,6 +1708,42 @@
       }
     }
   },
+  "Vertragsende": {
+    "metaTitle": "Vertragsende-Erinnerung",
+    "metaDescription": "Kostenlose Erinnerung an Ihr Stromvertrags-Ende: Wir melden uns acht Wochen vorher, damit Sie in Ruhe vergleichen können. Ohne Werbung, jederzeit abbestellbar.",
+    "eyebrow": "Kostenlos",
+    "title": "Wir erinnern Sie, bevor Ihr Stromvertrag ausläuft",
+    "lead": "Verträge laufen leise aus. Wer die Frist verpasst, rutscht in die Verlängerung — oft zu einem Preis, den er nie verglichen hat. Sagen Sie uns Ihr Vertragsende, und wir melden uns rechtzeitig.",
+    "how": {
+      "title": "Was passiert",
+      "step1Title": "Sie tragen Versorger und Vertragsende ein",
+      "step1Body": "Zwei Angaben, mehr brauchen wir nicht. Danach bestätigen Sie einmal kurz die E-Mail, die wir Ihnen schicken — erst dann ist die Erinnerung eingerichtet.",
+      "step2Title": "Acht Wochen vor dem Vertragsende schreiben wir Ihnen",
+      "step2Body": "Eine einzige E-Mail mit Ihrem Versorger, Ihrem Vertragsende und dem Hinweis auf den kostenlosen Tarifkalkulator der E-Control. Acht Wochen reichen für Kündigungsfrist und Wechsel.",
+      "step3Title": "Danach ist es vorbei",
+      "step3Body": "Keine Nachfassmail, kein Angebot, kein Vertreterbesuch. Ändert sich Ihr Vertragsende, tragen Sie es einfach neu ein — dann erinnern wir Sie erneut."
+    },
+    "privacy": {
+      "title": "Was mit Ihren Angaben passiert",
+      "purposeTitle": "Nur für diesen Zweck",
+      "purposeBody": "Versorger und Vertragsende verwenden wir ausschließlich für diese Erinnerung. Sie fließen in keine Werbeaussendung und werden nicht weitergegeben.",
+      "withdrawTitle": "Widerruf löscht die Angaben",
+      "withdrawBody": "Jede Erinnerungsmail trägt einen Abmeldelink. Ein Klick genügt: Mit dem Widerruf löscht unsere Datenbank Versorger und Vertragsende automatisch — das ist keine Zusage, sondern eine Regel, die im System durchgesetzt wird und die auch wir nicht umgehen können.",
+      "noAdTitle": "Kein Werbebrief",
+      "noAdBody": "Die Erinnerung enthält kein Angebot von uns — auch dann nicht, wenn Sie zusätzlich zugestimmt haben, Informationen zu erhalten. Sie haben um eine Erinnerung gebeten, und genau die bekommen Sie."
+    },
+    "faq": {
+      "title": "Häufige Fragen",
+      "q1": "Was kostet die Erinnerung?",
+      "a1": "Nichts. Sie ist ein kostenloses Service — wie der Tarifvergleich selbst, den die E-Control unabhängig und vollständig betreibt.",
+      "q2": "Woher weiß ich mein Vertragsende?",
+      "a2": "Es steht in Ihrer Jahresabrechnung oder im Vertrag, meist als „Bindungsfrist“ oder „Mindestvertragsdauer“. Wenn Sie unsicher sind, tragen Sie das Datum ein, das Sie im Vertrag finden — Sie können es später korrigieren, indem Sie das Formular erneut ausfüllen.",
+      "q3": "Warum acht Wochen vorher?",
+      "a3": "Weil eine Kündigungsfrist Zeit braucht und ein Anbieterwechsel ebenfalls. Acht Wochen sind früh genug, um in Ruhe zu vergleichen, und spät genug, dass Sie die Mail nicht längst vergessen haben, wenn es so weit ist.",
+      "q4": "Was, wenn mein Vertragsende schon näher ist?",
+      "a4": "Dann bekommen Sie die Erinnerung sofort statt gar nicht. Wir prüfen, ob das Vertragsende innerhalb der nächsten acht Wochen liegt — nicht, ob heute genau der Stichtag ist."
+    }
+  },
   "LeadMail": {
     "confirm": {
       "subject": "Bitte bestätigen Sie Ihre Einwilligung",
@@ -1721,6 +1758,17 @@
       "greeting": "Guten Tag,",
       "intro": "hier ist Ihr Ergebnis aus dem Schnellrechner auf coolin.at — mit den Werten, die Sie eingegeben haben.",
       "cta": "Belastbare Auslegung mit Ihrem Lastgang: zum Peak-Shaving Kalkulator"
+    },
+    "contractReminder": {
+      "subject": "Erinnerung: Ihr Stromvertrag läuft am {date} aus",
+      "greeting": "Guten Tag,",
+      "intro": "Sie haben auf coolin.at um eine Erinnerung an Ihr Vertragsende gebeten. Hier ist sie.",
+      "supplierLabel": "Ihr Versorger",
+      "endLabel": "Vertragsende",
+      "compareIntro": "Ob sich ein Wechsel lohnt, sehen Sie am schnellsten im Tarifkalkulator der E-Control. Er ist kostenlos, unabhängig und führt alle Anbieter — für Haushalte und Betriebe.",
+      "compareCta": "Zum Tarifkalkulator der E-Control",
+      "note": "Mehr schicken wir Ihnen zu diesem Vertragsende nicht. Ändert sich Ihr Vertragsende, sagen Sie uns Bescheid — dann erinnern wir Sie erneut.",
+      "unsubscribe": "Erinnerung abbestellen"
     }
   },
   "LeadCapture": {
