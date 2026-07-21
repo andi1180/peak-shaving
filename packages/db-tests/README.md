@@ -8,7 +8,13 @@ public-RPC-Wrapper (T4-2/T4-3/T4-4, Gutscheincodes), das **Lead- und Einwilligun
 Aufbewahrungsfristen, Überleben der Sperrliste) sowie den **Erfassungs-, Bestätigungs- und
 Abmeldepfad** darauf (B1-2: `capture_lead` & Co. — keine zweite offene Bestätigung je Lead und
 Zweck, gesperrte Adressen erzeugen keine Einwilligung, abgelaufene Tokens bestätigen nicht,
-Bestätigen ist idempotent, und der Lesepfad des Bestätigungs-GET verändert nachweislich nichts).
+Bestätigen ist idempotent, und der Lesepfad des Bestätigungs-GET verändert nachweislich nichts)
+sowie den **Admin-Pfad** darauf (B1-3: die sechs neuen Wrapper sind `authenticated`-only und lehnen
+einen Nicht-Admin mit SQLSTATE 42501 ab statt mit einer leeren Antwort; „Kunde" hebt die
+Aufbewahrung auf 84 Monate und der Rückweg wird abgelehnt; die Anonymisierung entfernt die
+Identitätsmerkmale, lässt Einwilligungsnachweis und Sperrliste stehen, ist idempotent und für
+`service_role` **wie für `postgres`** unumkehrbar; die Filter der Lead-Liste liefern konsistente
+Trefferzahlen).
 
 Warum ein Gate statt Prosa: ein RLS-/Grant-Fehler auf Zugangsrechten oder Zahlungsstatus ist ein
 Datenleck über Nutzergrenzen hinweg und beim Klicken unsichtbar (Pflichtenheft §10). Jeder Test

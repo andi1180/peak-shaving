@@ -411,6 +411,7 @@ export type Database = {
       leads: {
         Row: {
           anonymized_at: string | null
+          anonymized_by: string | null
           company: string | null
           contact_name: string | null
           created_at: string
@@ -426,6 +427,7 @@ export type Database = {
         }
         Insert: {
           anonymized_at?: string | null
+          anonymized_by?: string | null
           company?: string | null
           contact_name?: string | null
           created_at?: string
@@ -441,6 +443,7 @@ export type Database = {
         }
         Update: {
           anonymized_at?: string | null
+          anonymized_by?: string | null
           company?: string | null
           contact_name?: string | null
           created_at?: string
@@ -604,6 +607,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      anonymize_lead: {
+        Args: { p_actor: string; p_lead_id: string }
+        Returns: Json
+      }
+      consent_effective_status: {
+        Args: { p_status: string; p_token_expires_at: string }
+        Returns: string
+      }
       email_hash: { Args: { p_email: string }; Returns: string }
       has_confirmed_consent: {
         Args: {
@@ -649,6 +660,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_anonymize_lead: { Args: { p_lead_id: string }; Returns: Json }
       admin_create_code: {
         Args: {
           p_code: string
@@ -668,11 +680,21 @@ export type Database = {
         Args: { p_email: string; p_role: string }
         Returns: Json
       }
+      admin_is_email_suppressed: { Args: { p_email: string }; Returns: Json }
       admin_list_admins: { Args: never; Returns: Json }
       admin_list_codes: { Args: never; Returns: Json }
       admin_list_customers: { Args: never; Returns: Json }
       admin_list_leads: {
-        Args: { p_limit?: number; p_offset?: number }
+        Args: {
+          p_consent_purpose?: Database["platform"]["Enums"]["consent_purpose"]
+          p_consent_status?: string
+          p_due_only?: boolean
+          p_limit?: number
+          p_offset?: number
+          p_search?: string
+          p_source_key?: string
+          p_status?: string
+        }
         Returns: Json
       }
       admin_list_scrape_targets: { Args: never; Returns: Json }
@@ -684,10 +706,16 @@ export type Database = {
         Args: { p_code_id: string; p_is_active: boolean }
         Returns: Json
       }
+      admin_set_lead_status: {
+        Args: { p_lead_id: string; p_status: string }
+        Returns: Json
+      }
       admin_set_scrape_target_active: {
         Args: { p_is_active: boolean; p_target_id: string }
         Returns: Json
       }
+      admin_suppress_lead: { Args: { p_lead_id: string }; Returns: Json }
+      admin_suppression_count: { Args: never; Returns: Json }
       admin_upsert_scrape_target: {
         Args: {
           p_extraction_config?: Json
@@ -698,6 +726,13 @@ export type Database = {
           p_provider_slug: string
           p_sort_priority?: number
           p_tariff_page_url: string
+        }
+        Returns: Json
+      }
+      admin_withdraw_consent: {
+        Args: {
+          p_lead_id: string
+          p_purpose: Database["platform"]["Enums"]["consent_purpose"]
         }
         Returns: Json
       }
