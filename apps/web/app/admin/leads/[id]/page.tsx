@@ -198,8 +198,18 @@ export default async function AdminLeadDetailPage({
     )
   }
 
-  const { lead, consents } = detail
+  const { lead, consents, contractReminders } = detail
   const isAnonymized = lead.anonymized_at !== null
+
+  /*
+   * B4-2: die Erinnerung zum AKTUELL eingetragenen Vertragsende — das ist die Frage, die im
+   * Zweifel gestellt wird („die Person sagt, sie habe nichts bekommen"). Zeilen zu einem ANDEREN
+   * Datum bleiben sichtbar (s. unten): sie sind die Spur einer Korrektur und beantworten die
+   * Anschlussfrage „warum bekam sie zwei".
+   */
+  const currentReminder =
+    contractReminders.find((r) => r.contract_end_date === lead.contract_end_date) ?? null
+  const otherReminders = contractReminders.filter((r) => r !== currentReminder)
 
   return (
     <Container className="py-10 sm:py-14">
@@ -357,8 +367,81 @@ export default async function AdminLeadDetailPage({
           <p className="mt-4 max-w-prose text-caption text-text-muted">
             Versorger und Vertragsende werden ausschließlich für die Vertragsablauf-Erinnerung
             erhoben. Wird diese Einwilligung widerrufen, löscht die Datenbank beide Felder
-            automatisch — fällt der Zweck weg, fällt die Grundlage für die Daten weg.
+            automatisch — und seit B4-2 auch die Zeilen im Versandprotokoll darunter. Fällt der
+            Zweck weg, fällt die Grundlage für die Daten weg, und zwar für jede Kopie.
           </p>
+        </AdminPanel>
+
+        {/*
+          * B4-2: der Erinnerungsstand. Steht direkt unter den Betriebsdaten, weil er nur zusammen
+          * mit dem dort angezeigten Vertragsende zu lesen ist.
+          */}
+        <AdminPanel className="mt-4">
+          <h3 className="text-h4 text-ink">Vertragsablauf-Erinnerung</h3>
+
+          {lead.contract_end_date === null ? (
+            <p className="mt-2 max-w-prose text-small text-text-muted">
+              Kein Vertragsende hinterlegt — für diesen Lead ist keine Erinnerung fällig.
+            </p>
+          ) : currentReminder === null ? (
+            <p className="mt-2 max-w-prose text-small text-text-muted">
+              Für das eingetragene Vertragsende (<Num>{formatDate(lead.contract_end_date)}</Num>)
+              wurde noch nicht erinnert. Der Lauf erfasst es acht Wochen vorher — vorausgesetzt, die
+              Einwilligung ist bestätigt und die Adresse nicht gesperrt.
+            </p>
+          ) : currentReminder.delivered_at ? (
+            <p className="mt-2 max-w-prose text-small text-text-muted">
+              Erinnert am <Num>{formatDateTime(currentReminder.delivered_at)}</Num> für das
+              Vertragsende <Num>{formatDate(currentReminder.contract_end_date)}</Num>. Zu diesem
+              Vertragsende wird nicht erneut erinnert.
+            </p>
+          ) : currentReminder.error ? (
+            <p className="mt-2 max-w-prose text-small text-negative">
+              <strong className="font-semibold">Der Versand ist fehlgeschlagen</strong> — Versuch am{' '}
+              <Num>{formatDateTime(currentReminder.attempted_at)}</Num>: {currentReminder.error} Der
+              Versand wird NICHT automatisch wiederholt (das wäre eine Schleife). Um es erneut zu
+              versuchen, muss die Ursache behoben und die Zeile entfernt werden.
+            </p>
+          ) : (
+            <p className="mt-2 max-w-prose text-small text-negative">
+              <strong className="font-semibold">Beansprucht, aber ohne Rückmeldung</strong> — Versuch
+              am <Num>{formatDateTime(currentReminder.attempted_at)}</Num>. Der Lauf ist zwischen
+              Beanspruchung und Versand abgebrochen. Ob die Mail rausging, ist von hier aus nicht
+              feststellbar; genau deshalb wird nicht automatisch wiederholt.
+            </p>
+          )}
+
+          {otherReminders.length > 0 && (
+            <div className="mt-4 border-t border-line pt-4">
+              <p className="text-caption font-semibold uppercase tracking-wide text-text-muted">
+                Frühere Vertragsenden
+              </p>
+              <ul className="mt-2 space-y-1">
+                {otherReminders.map((reminder) => (
+                  <li key={reminder.contract_end_date} className="text-small text-text-muted">
+                    <Num>{formatDate(reminder.contract_end_date)}</Num> —{' '}
+                    {reminder.delivered_at ? (
+                      <>
+                        erinnert am <Num>{formatDateTime(reminder.delivered_at)}</Num>
+                      </>
+                    ) : reminder.error ? (
+                      <>fehlgeschlagen: {reminder.error}</>
+                    ) : (
+                      <>
+                        beansprucht am <Num>{formatDateTime(reminder.attempted_at)}</Num>, ohne
+                        Rückmeldung
+                      </>
+                    )}
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-2 max-w-prose text-caption text-text-muted">
+                Ein anderes Datum heißt: das Vertragsende wurde korrigiert. Zu jedem Vertragsende
+                wird genau einmal erinnert — eine Korrektur erzeugt deshalb zu Recht eine neue
+                Erinnerung, kein Duplikat.
+              </p>
+            </div>
+          )}
         </AdminPanel>
       </AdminSection>
 

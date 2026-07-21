@@ -19,6 +19,7 @@ import {
 import {
   CONSENT_PURPOSES,
   CONSENT_STATUS_LABELS,
+  CONTRACT_REMINDER_JOB_KEY,
   JOB_STALE_AFTER_HOURS,
   LEADS_HREF,
   LEAD_RETENTION_JOB_KEY,
@@ -27,11 +28,13 @@ import {
   consentStatusLabel,
   hoursSince,
   purposeLabel,
+  readContractReminderHealth,
   readJobRuns,
   readLeadList,
   readStatus,
   sourceLabel,
   statusLabel,
+  type ContractReminderHealth,
   type JobRunsResult,
   type LeadConsentSummary,
   type LeadListRow,
@@ -129,29 +132,52 @@ function ConsentCell({ consents }: { consents: LeadConsentSummary[] }) {
 }
 
 /**
- * Der Stand des Fristenlaufs (B4-1) — die eine Zeile, die den zeitgesteuerten Job sichtbar macht.
+ * Der Stand EINES zeitgesteuerten Jobs — seit B4-2 gibt es zwei davon.
  *
  * ── WARUM DIESE ZEILE ÜBERHAUPT EXISTIERT ────────────────────────────────────────────────────────
  * Der wahrscheinlichste Fehler eines Cron-Jobs ist nicht, dass er scheitert, sondern dass er NICHT
  * LÄUFT — und ein ausgebliebener Lauf sieht von hier aus exakt aus wie ein Lauf ohne Arbeit. Genau
- * das ist der planmässige Zustand dieses Jobs bis 2028 („null Fälle"). Ohne diese Zeile fiele ein
- * seit Monaten stilles `CRON_SECRET` erstmals daran auf, dass Löschfristen verstrichen sind.
- * Deshalb ist die Hervorhebung nach 48 Stunden der eigentliche Zweck des Bauteils: es soll
+ * das ist der planmässige Zustand des Fristenlaufs bis 2028 („null Fälle") und, solange kein Lead
+ * ein Vertragsende trägt, auch der der Erinnerung. Ohne diese Zeile fiele ein seit Monaten stilles
+ * `CRON_SECRET` erstmals an verstrichenen Löschfristen bzw. an einer ausgebliebenen Erinnerung auf.
+ * Die Hervorhebung nach 48 Stunden ist deshalb der eigentliche Zweck des Bauteils: es soll
  * auffallen, ohne dass jemand danach sucht.
  *
+ * ── ZWEI ZEILEN, NICHT EINE ──────────────────────────────────────────────────────────────────────
+ * B4-2 zeigt beide Läufe mit EIGENEM Stand. Ein gemeinsamer „die Crons laufen"-Indikator verschwiege
+ * genau den Fall, in dem der eine läuft und der andere nicht — und die Folgen sind verschieden:
+ * nicht durchgesetzte Löschfristen sind eine Rechtspflicht, ausgebliebene Erinnerungen ein
+ * gebrochenes Versprechen gegenüber Menschen, die dafür ihr Vertragsende hergegeben haben.
+ *
  * ── KEIN AUSLÖSEKNOPF ────────────────────────────────────────────────────────────────────────────
- * Der Job läuft täglich von selbst. Eine Schaltfläche „jetzt ausführen" gäbe einem Menschen die
- * Möglichkeit, versehentlich einen unumkehrbaren Massenvorgang zu starten — ein Risiko ohne
- * Gegenwert. Wer den Lauf wirklich vorziehen muss, hat den Weg über den Endpunkt und das Geheimnis.
+ * Beide Jobs laufen täglich von selbst. Eine Schaltfläche „jetzt ausführen" gäbe einem Menschen die
+ * Möglichkeit, versehentlich einen unumkehrbaren Massenvorgang zu starten — beim Fristenlauf eine
+ * Massen-Anonymisierung, bei der Erinnerung einen Massenversand. Ein Risiko ohne Gegenwert; wer
+ * einen Lauf wirklich vorziehen muss, hat den Weg über den Endpunkt und das Geheimnis.
  */
-function RetentionJobStatus({ result }: { result: JobRunsResult | null }) {
+function JobStatus({
+  result,
+  label,
+  schedule,
+  /** Was der Lauf gesehen bzw. getan hat — je Job ein anderer Satz. */
+  itemsSeen,
+  itemsDone,
+  /** Was es bedeutet, wenn er ausbleibt. Keine Floskel: das ist die Handlungsaufforderung. */
+  consequence,
+  loadError,
+}: {
+  result: JobRunsResult | null
+  label: string
+  schedule: string
+  itemsSeen: string
+  itemsDone: string
+  consequence: string
+  loadError: string
+}) {
   if (result === null) {
     return (
-      <div className="mt-6">
-        <AdminError>
-          Der Stand des Fristenlaufs konnte nicht geladen werden. Damit ist unbekannt, ob die
-          Löschfristen zurzeit durchgesetzt werden.
-        </AdminError>
+      <div className="mt-4">
+        <AdminError>{loadError}</AdminError>
       </div>
     )
   }
@@ -168,18 +194,18 @@ function RetentionJobStatus({ result }: { result: JobRunsResult | null }) {
     <div
       className={
         stale
-          ? 'mt-6 rounded-md border border-negative bg-negative-subtle p-4'
-          : 'mt-6 rounded-md border border-line bg-surface-sunken p-4'
+          ? 'mt-4 rounded-md border border-negative bg-negative-subtle p-4'
+          : 'mt-4 rounded-md border border-line bg-surface-sunken p-4'
       }
       role={stale ? 'alert' : undefined}
     >
       <p className={stale ? 'text-small text-negative' : 'text-small text-text-muted'}>
-        <strong className="font-semibold">Fristenlauf:</strong>{' '}
+        <strong className="font-semibold">{label}:</strong>{' '}
         {lastSuccess ? (
           <>
             zuletzt erfolgreich am <Num>{formatDateTime(lastSuccess.started_at)}</Num> —{' '}
-            <Num>{lastSuccess.items_considered ?? 0}</Num> fällige Leads gesehen,{' '}
-            <Num>{lastSuccess.items_processed ?? 0}</Num> anonymisiert.
+            <Num>{lastSuccess.items_considered ?? 0}</Num> {itemsSeen},{' '}
+            <Num>{lastSuccess.items_processed ?? 0}</Num> {itemsDone}.
           </>
         ) : (
           <>bisher kein erfolgreicher Lauf verzeichnet.</>
@@ -187,21 +213,20 @@ function RetentionJobStatus({ result }: { result: JobRunsResult | null }) {
         {stale ? (
           <>
             Seit über <Num>{JOB_STALE_AFTER_HOURS}</Num> Stunden lief er nicht erfolgreich —{' '}
-            <strong className="font-semibold">
-              die Löschfristen werden derzeit nicht durchgesetzt.
-            </strong>{' '}
-            Eingeplant ist er täglich um 03:15 UTC. Zu prüfen: ist <code>CRON_SECRET</code> in
-            Vercel gesetzt und der Cron-Eintrag im aktuellen Production-Deployment registriert?
+            <strong className="font-semibold">{consequence}</strong> Eingeplant ist er täglich um{' '}
+            {schedule}. Zu prüfen: ist <code>CRON_SECRET</code> in Vercel gesetzt und der
+            Cron-Eintrag im aktuellen Production-Deployment registriert?
           </>
         ) : (
-          <>Er läuft automatisch, täglich um 03:15 UTC.</>
+          <>Er läuft automatisch, täglich um {schedule}.</>
         )}
       </p>
 
       {/*
         * Eine Verweigerung ist kein Fehler, sondern die eingebaute Bremse: oberhalb der Obergrenze
-        * anonymisiert der Lauf NICHTS. Sie muss im Klartext hier stehen — sonst sieht der Bereich
-        * aus wie „läuft" und niemand erfährt, dass seit Tagen nichts passiert.
+        * anonymisiert der Fristenlauf NICHTS bzw. versendet die Erinnerung KEINE einzige Mail. Sie
+        * muss im Klartext hier stehen — sonst sieht der Bereich aus wie „läuft" und niemand
+        * erfährt, dass seit Tagen nichts passiert.
         */}
       {lastRun?.outcome === 'refused' && (
         <p className="mt-2 max-w-prose text-small text-negative">
@@ -220,6 +245,51 @@ function RetentionJobStatus({ result }: { result: JobRunsResult | null }) {
           {lastRun.detail}
         </p>
       )}
+
+      {/*
+        * Auch ein ERFOLGREICHER Lauf kann einzelne Fehlversände enthalten (B4-2: ein Fehlversand
+        * bricht den Lauf nicht ab). Das Detailfeld nennt sie — ohne diese Zeile stünde „erfolgreich"
+        * da und die Fehlschläge wären nur in der Datenbank sichtbar.
+        */}
+      {lastRun?.outcome === 'success' && lastRun.detail && (
+        <p className="mt-2 max-w-prose text-small text-text-muted">{lastRun.detail}</p>
+      )}
+    </div>
+  )
+}
+
+/**
+ * Beansprucht, aber nie bestätigt versendet (B4-2) — der Befund, der sonst niemandem auffällt.
+ *
+ * Die Person wartet auf ihre Erinnerung, der Lauf meldet Erfolg (er hat den Fall ja abgearbeitet),
+ * und die Zeile steht still in der Tabelle. Genau deshalb steht sie hier oben und nicht in einer
+ * Detailansicht. Solche Zeilen werden bewusst NICHT automatisch wiederholt: automatische
+ * Wiederholung von E-Mail-Versand erzeugt Schleifen — im schlechteren Fall kommen die Mails durch
+ * und nur die Rückmeldung nicht, und dann wiederholt sich der Versand täglich.
+ *
+ * Die Schwelle kommt aus der DATENBANK mit (`stale_after_hours`), nicht aus einer Konstante hier:
+ * die Oberfläche soll die Zahl zeigen, mit der tatsächlich gezählt wurde.
+ */
+function StaleContractReminders({ health }: { health: ContractReminderHealth | null }) {
+  if (health === null || health.staleCount === 0) return null
+
+  return (
+    <div className="mt-4 rounded-md border border-negative bg-negative-subtle p-4" role="alert">
+      <p className="max-w-prose text-small text-negative">
+        <strong className="font-semibold">
+          <Num>{health.staleCount}</Num> Erinnerung(en) wurden beansprucht, aber nie zugestellt.
+        </strong>{' '}
+        Sie sind älter als <Num>{health.staleAfterHours}</Num> Stunden
+        {health.oldestAttemptedAt ? (
+          <>
+            {' '}
+            (älteste vom <Num>{formatDateTime(health.oldestAttemptedAt)}</Num>)
+          </>
+        ) : null}
+        . Der Versand wird NICHT automatisch wiederholt — das wäre eine Schleife. Zu prüfen: sind{' '}
+        <code>RESEND_API_KEY</code> und <code>RESEND_FROM</code> gesetzt, und hat Resend die Mails
+        abgelehnt? Der Grund steht je Fall auf der Detailseite des Leads.
+      </p>
     </div>
   )
 }
@@ -300,18 +370,33 @@ export default async function AdminLeadsPage({ searchParams }: { searchParams: P
   })
   if (res.error) console.error('[admin/leads] admin_list_leads:', res.error)
 
-  // Zweiter, unabhängiger Aufruf: der Stand des Fristenlaufs (B4-1). Bewusst NICHT in
-  // `admin_list_leads` hineingezogen — die Lead-Liste ist gefiltert und seitenweise, der Job-Stand
-  // ist keines von beidem; ein gemeinsamer Wrapper müsste bei jedem Seitenwechsel dasselbe
-  // mitliefern. Ein Fehler hier darf die Liste nicht mitreissen (und umgekehrt).
-  const jobsRes = await supabase.rpc('admin_list_job_runs', {
-    p_job_key: LEAD_RETENTION_JOB_KEY,
-    // 5 statt 1: der LETZTE Lauf (evtl. verweigert) und der letzte ERFOLGREICHE können verschiedene
-    // sein — beide müssen in einer Antwort Platz haben, ohne dass die Seite nachfragen muss.
-    p_limit: 5,
-  })
-  if (jobsRes.error) console.error('[admin/leads] admin_list_job_runs:', jobsRes.error)
-  const jobRuns = readJobRuns(jobsRes.data)
+  // Weitere, voneinander unabhängige Aufrufe: der Stand der zeitgesteuerten Jobs (B4-1/B4-2) und
+  // der Befund offener Erinnerungen. Bewusst NICHT in `admin_list_leads` hineingezogen — die
+  // Lead-Liste ist gefiltert und seitenweise, der Job-Stand ist keines von beidem; ein gemeinsamer
+  // Wrapper müsste bei jedem Seitenwechsel dasselbe mitliefern. Ein Fehler in einem Aufruf darf die
+  // übrigen nicht mitreissen.
+  //
+  // Je Job ein eigener Aufruf statt eines gemeinsamen mit `p_job_key => null`: sonst müsste die
+  // Seite die Läufe hier auseinandersortieren, und `last_success` käme gemischt zurück — der
+  // Fristenlauf würde die Erinnerung als „läuft" ausweisen (oder umgekehrt).
+  const [retentionRes, reminderRes, healthRes] = await Promise.all([
+    supabase.rpc('admin_list_job_runs', {
+      p_job_key: LEAD_RETENTION_JOB_KEY,
+      // 5 statt 1: der LETZTE Lauf (evtl. verweigert) und der letzte ERFOLGREICHE können
+      // verschiedene sein — beide müssen in einer Antwort Platz haben, ohne dass die Seite
+      // nachfragen muss.
+      p_limit: 5,
+    }),
+    supabase.rpc('admin_list_job_runs', { p_job_key: CONTRACT_REMINDER_JOB_KEY, p_limit: 5 }),
+    supabase.rpc('admin_contract_reminder_health'),
+  ])
+  if (retentionRes.error) console.error('[admin/leads] admin_list_job_runs:', retentionRes.error)
+  if (reminderRes.error) console.error('[admin/leads] admin_list_job_runs:', reminderRes.error)
+  if (healthRes.error)
+    console.error('[admin/leads] admin_contract_reminder_health:', healthRes.error)
+  const retentionRuns = readJobRuns(retentionRes.data)
+  const reminderRuns = readJobRuns(reminderRes.data)
+  const reminderHealth = readContractReminderHealth(healthRes.data)
 
   const result = readLeadList(res.data)
   // Ein abgelehnter Filterwert ist etwas anderes als ein Ladefehler: die Datenbank hat geantwortet,
@@ -351,7 +436,27 @@ export default async function AdminLeadsPage({ searchParams }: { searchParams: P
         * bestehen: er zeigt jetzt, WAS der nächste Lauf anfassen wird, statt einer Arbeitsliste
         * für Handarbeit.
         */}
-      <RetentionJobStatus result={jobRuns} />
+      <div className="mt-6">
+        <JobStatus
+          result={retentionRuns}
+          label="Fristenlauf"
+          schedule="03:15 UTC"
+          itemsSeen="fällige Leads gesehen"
+          itemsDone="anonymisiert"
+          consequence="die Löschfristen werden derzeit nicht durchgesetzt."
+          loadError="Der Stand des Fristenlaufs konnte nicht geladen werden. Damit ist unbekannt, ob die Löschfristen zurzeit durchgesetzt werden."
+        />
+        <JobStatus
+          result={reminderRuns}
+          label="Vertragsablauf-Erinnerung"
+          schedule="06:40 UTC"
+          itemsSeen="fällige Erinnerungen gesehen"
+          itemsDone="versendet"
+          consequence="Erinnerungen werden derzeit nicht versendet — wer sein Vertragsende hinterlegt hat, bekommt sie nicht."
+          loadError="Der Stand der Vertragsablauf-Erinnerung konnte nicht geladen werden. Damit ist unbekannt, ob Erinnerungen zurzeit versendet werden."
+        />
+        <StaleContractReminders health={reminderHealth} />
+      </div>
 
       {/* ── Filter ────────────────────────────────────────────────────────────────────────────── */}
       <AdminPanel className="mt-6">

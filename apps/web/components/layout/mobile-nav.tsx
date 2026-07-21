@@ -150,12 +150,13 @@ export function MobileNav({ isLoggedIn }: { isLoggedIn: boolean }) {
                           {t(item.overviewKey)}
                         </DrawerLink>
                       ) : null}
-                      {/* Produkt-Quereinstieg als letzter Punkt (z. B. Strom-Monitor). */}
-                      {item.trailingLeaf ? (
-                        <DrawerLink href={item.trailingLeaf.href} className="mt-1">
-                          {t(item.trailingLeaf.labelKey)}
+                      {/* Kostenlose Quereinstiege als letzte Punkte (Strom-Monitor,
+                          Vertragsende-Erinnerung) — keine Leistungen, s. lib/nav.ts. */}
+                      {(item.trailingLeaves ?? []).map((leaf) => (
+                        <DrawerLink key={leaf.href} href={leaf.href} className="mt-1">
+                          {t(leaf.labelKey)}
                         </DrawerLink>
-                      ) : null}
+                      ))}
                     </AccordionContent>
                   </AccordionItem>
                 )

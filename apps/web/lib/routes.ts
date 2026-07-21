@@ -26,7 +26,14 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import type { Metadata } from 'next'
-import { MAIN_NAV, KONTAKT_HREF, LOGIN_HREF, CALCULATOR_RUN_HREF, MONITOR_GRATIS_CHECK_HREF } from './nav'
+import {
+  MAIN_NAV,
+  KONTAKT_HREF,
+  LOGIN_HREF,
+  CALCULATOR_RUN_HREF,
+  MONITOR_GRATIS_CHECK_HREF,
+  VERTRAGSENDE_ERINNERUNG_HREF,
+} from './nav'
 import { WISSEN_HREF } from './wissen'
 import { AUTH_HREFS } from './auth/config'
 import { LEAD_HREFS } from './leads/config'
@@ -121,6 +128,13 @@ export const SITE_ROUTES: SiteRoute[] = Array.from(
     ...navHrefs(),
     CALCULATOR_RUN_HREF,
     MONITOR_GRATIS_CHECK_HREF,
+    /*
+     * B4-2: die Vertragsablauf-Erinnerung. Steht hier einzeln, weil `navHrefs()` die
+     * Abschluss-Einträge des Mega-Menüs (`trailingLeaves`) bewusst NICHT einsammelt — dieselbe
+     * Lage wie beim Strom-Monitor darüber. Sie bleibt INDEXIERBAR: anders als der Monitor ist das
+     * eine öffentliche Leistungsbeschreibung mit Formular, keine WIP-Seite (s. `indexable` unten).
+     */
+    VERTRAGSENDE_ERINNERUNG_HREF,
     ...AUTH_HREFS,
     ...LEAD_HREFS,
   ]),

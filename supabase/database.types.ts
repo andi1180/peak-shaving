@@ -315,6 +315,38 @@ export type Database = {
           },
         ]
       }
+      contract_reminders: {
+        Row: {
+          attempted_at: string
+          contract_end_date: string
+          delivered_at: string | null
+          error: string | null
+          lead_id: string
+        }
+        Insert: {
+          attempted_at?: string
+          contract_end_date: string
+          delivered_at?: string | null
+          error?: string | null
+          lead_id: string
+        }
+        Update: {
+          attempted_at?: string
+          contract_end_date?: string
+          delivered_at?: string | null
+          error?: string | null
+          lead_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contract_reminders_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customers: {
         Row: {
           created_at: string
@@ -669,6 +701,7 @@ export type Database = {
         Args: { p_status: string; p_token_expires_at: string }
         Returns: string
       }
+      contract_reminder_lead_days: { Args: never; Returns: number }
       email_hash: { Args: { p_email: string }; Returns: string }
       has_confirmed_consent: {
         Args: {
@@ -692,6 +725,15 @@ export type Database = {
           deletion_due_at: string
           lead_id: string
           retention_basis: string
+        }[]
+      }
+      leads_due_for_contract_reminder: {
+        Args: { p_limit: number }
+        Returns: {
+          contract_end_date: string
+          email: string
+          lead_id: string
+          supplier: string
         }[]
       }
       normalize_email: { Args: { p_email: string }; Returns: string }
@@ -738,6 +780,7 @@ export type Database = {
     }
     Functions: {
       admin_anonymize_lead: { Args: { p_lead_id: string }; Returns: Json }
+      admin_contract_reminder_health: { Args: never; Returns: Json }
       admin_create_code: {
         Args: {
           p_code: string
@@ -839,7 +882,20 @@ export type Database = {
         }
         Returns: Json
       }
+      claim_contract_reminder: {
+        Args: { p_contract_end_date: string; p_lead_id: string }
+        Returns: Json
+      }
       confirm_consent: { Args: { p_token_hash: string }; Returns: Json }
+      finish_contract_reminder_run: {
+        Args: {
+          p_detail?: string
+          p_items_processed?: number
+          p_outcome: string
+          p_run_id: string
+        }
+        Returns: Json
+      }
       get_active_consent_text: {
         Args: {
           p_locale?: string
@@ -889,9 +945,21 @@ export type Database = {
         }
         Returns: string
       }
+      record_contract_reminder_result: {
+        Args: {
+          p_contract_end_date: string
+          p_error?: string
+          p_lead_id: string
+        }
+        Returns: Json
+      }
       redeem_code: { Args: { p_code: string }; Returns: string }
       run_lead_retention_job: {
         Args: { p_max_batch?: number; p_refuse_above?: number }
+        Returns: Json
+      }
+      start_contract_reminder_run: {
+        Args: { p_max_batch?: number }
         Returns: Json
       }
       suppress_email_and_withdraw_all: {

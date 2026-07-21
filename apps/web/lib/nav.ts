@@ -29,11 +29,21 @@ export type NavItem = {
   /** „Alle …"-Eintrag, der auf die Übersichtsseite führt. */
   overviewKey?: string
   /**
-   * Ein einzelner Abschluss-Eintrag, der als LETZTER Punkt des Menüs erscheint (Header-Mega-Menü +
+   * Abschluss-Einträge, die als LETZTE Punkte des Menüs erscheinen (Header-Mega-Menü +
    * Mobile-Accordion), aber bewusst NICHT in die Gruppen/`*_FLAT`-Listen (und damit nicht in den
-   * Footer) fließt. Für den Produkt-Quereinstieg „Strom-Monitor" unter Leistungen.
+   * Footer) fließen.
+   *
+   * WARUM NICHT IN EINE GRUPPE: Alles, was in `LEISTUNGEN_FLAT` landet, wird von
+   * `lib/leistungen.ts` zu einer LEISTUNG erklärt — mit Icon, Übersichtskachel, Cross-Link-Tabelle
+   * und einem eigenen `Leistungen.Pages.<key>`-Textblock. Der Strom-Monitor (B4-1-Vorgeschichte)
+   * und die Vertragsablauf-Erinnerung (B4-2) sind aber keine Beratungsleistungen, sondern
+   * kostenlose Quereinstiege; als Gruppen-Eintrag würden sie beim Bauen hart brechen
+   * („hat kein Icon"). Der Abschluss-Slot ist genau dafür da.
+   *
+   * B4-2 macht daraus eine LISTE (vorher genau ein Eintrag) — die Vertragsablauf-Erinnerung ist
+   * der zweite Fall derselben Art, und zwei Sonderfelder für dieselbe Rolle wären eine Kopie.
    */
-  trailingLeaf?: NavLeaf
+  trailingLeaves?: NavLeaf[]
 }
 
 /**
@@ -45,15 +55,31 @@ export type NavItem = {
  */
 export const MONITOR_GRATIS_CHECK_HREF = '/strom-check'
 
+/**
+ * Vertragsablauf-Erinnerung (Route `/vertragsende-erinnerung`, B4-2). Steht aus demselben Grund
+ * hier wie `MONITOR_GRATIS_CHECK_HREF`: `MAIN_NAV` (Abschluss-Eintrag des Leistungen-Menüs) UND
+ * `lib/routes.ts` (sitemap) lesen denselben Slug, ohne dass eine der beiden Dateien die andere
+ * ziehen muss.
+ *
+ * ANDERS ALS DER STROM-MONITOR IST DIESE SEITE INDEXIERBAR — sie ist eine öffentliche
+ * Leistungsbeschreibung mit Formular, kein WIP-Datenpipe-Beweis. `lib/routes.ts` nimmt sie deshalb
+ * NICHT in die noindex-Ausnahmen auf.
+ */
+export const VERTRAGSENDE_ERINNERUNG_HREF = '/vertragsende-erinnerung'
+
 /** Die 5 Top-Level-Punkte. Mehr verträgt keine saubere Mobile-Nav (§4.1). */
 export const MAIN_NAV: NavItem[] = [
   {
     labelKey: 'leistungen',
     href: '/leistungen',
     overviewKey: 'leistungenAll',
-    // Produkt-Quereinstieg „Strom-Monitor" als LETZTER Punkt des Leistungen-Menüs (Header +
-    // Mobile). trailingLeaf fließt NICHT in LEISTUNGEN_FLAT → erscheint bewusst NICHT im Footer.
-    trailingLeaf: { labelKey: 'stromCheck', href: MONITOR_GRATIS_CHECK_HREF },
+    // Die zwei kostenlosen Quereinstiege als LETZTE Punkte des Leistungen-Menüs (Header + Mobile).
+    // Fließen NICHT in LEISTUNGEN_FLAT → erscheinen bewusst NICHT im Footer und sind keine
+    // „Leistung" im Sinne von lib/leistungen.ts.
+    trailingLeaves: [
+      { labelKey: 'stromCheck', href: MONITOR_GRATIS_CHECK_HREF },
+      { labelKey: 'vertragsendeErinnerung', href: VERTRAGSENDE_ERINNERUNG_HREF },
+    ],
     groups: [
       {
         labelKey: 'leistungenGroupErzeugen',

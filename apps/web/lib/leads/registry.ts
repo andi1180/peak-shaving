@@ -329,14 +329,17 @@ export const LEAD_CAPTURE_REGISTRY: Readonly<Record<LeadSourceKey, LeadCaptureEn
   },
 
   /*
-   * NICHT PLATZIERT — und zwar so lange, bis die Erinnerung selbst existiert (B4).
+   * PLATZIERT SEIT B4-2: die eigene Landingpage `/vertragsende-erinnerung`.
    *
-   * Wer hier Versorger und Vertragsende einträgt, tut das für genau eine Gegenleistung: rechtzeitig
-   * erinnert zu werden. Diese Erinnerung ist ein zeitgesteuerter Vorgang, und den gibt es vor B4
-   * bewusst nicht (B1-3-Hinweis auf `/admin/leads`: Fristen werden derzeit manuell durchgesetzt).
-   * Ein Vertragsende zu erfassen und die versprochene Erinnerung nicht senden zu können, ist ein
-   * gebrochenes Versprechen an eine reale Person — kein Terminproblem. Der Eintrag steht hier,
-   * damit B4 die Seite bauen kann, ohne die Erfassung neu zu erfinden.
+   * B3-2 hatte diesen Eintrag ausdrücklich NICHT platziert, und zwar aus einem fachlichen Grund:
+   * wer hier Versorger und Vertragsende einträgt, tut das für genau eine Gegenleistung —
+   * rechtzeitig erinnert zu werden. Diese Erinnerung ist ein zeitgesteuerter Vorgang, und den gab
+   * es vor B4 nicht. Ein Vertragsende zu erfassen und die versprochene Erinnerung nicht senden zu
+   * können, wäre ein gebrochenes Versprechen an eine reale Person gewesen.
+   *
+   * Mit B4-2 steht der Versand (`app/api/cron/contract-reminders`, täglich 06:40 UTC, acht Wochen
+   * Vorlauf). Damit fällt der Grund weg — und nur er, nicht der Eintrag: Zweck, Felder und Texte
+   * sind unverändert die aus B3-2.
    */
   'vertragsablauf-landing': {
     key: 'vertragsablauf-landing',
@@ -348,7 +351,7 @@ export const LEAD_CAPTURE_REGISTRY: Readonly<Record<LeadSourceKey, LeadCaptureEn
       { key: 'contractEndDate', required: true },
     ],
     carriesCalculatorResult: false,
-    placed: false,
+    placed: true,
   },
 }
 

@@ -192,7 +192,41 @@ export type LeadDetailRow = LeadListRow & {
   contract_end_date: string | null
 }
 
-export type LeadDetailResult = { lead: LeadDetailRow; consents: LeadConsentDetail[] }
+// ── Versandprotokoll der Vertragsablauf-Erinnerung (B4-2) ───────────────────────────────────────
+
+/**
+ * Eine Zeile aus `platform.contract_reminders`.
+ *
+ * `delivered_at = null` UND `error = null` ist KEIN Widerspruch, sondern der Abbruchfall: die Zeile
+ * wurde beansprucht, und der Lauf ist vor der Rückmeldung gestorben. Die Oberfläche muss die drei
+ * Zustände (zugestellt · fehlgeschlagen · offen) auseinanderhalten — „nicht zugestellt" allein wäre
+ * die falsche Zusammenfassung.
+ */
+export type ContractReminderRow = {
+  /** Reines Datum („YYYY-MM-DD") — Teil des Primärschlüssels, nicht der aktuelle Wert am Lead. */
+  contract_end_date: string
+  attempted_at: string
+  delivered_at: string | null
+  error: string | null
+}
+
+export type LeadDetailResult = {
+  lead: LeadDetailRow
+  consents: LeadConsentDetail[]
+  /** Alle Erinnerungszeilen des Leads, jüngstes Vertragsende zuerst (B4-2). */
+  contractReminders: ContractReminderRow[]
+}
+
+/**
+ * Der Befund aus `public.admin_contract_reminder_health` (B4-2): beansprucht, aber nie bestätigt
+ * versendet — und älter als die Schwelle, die die DATENBANK verwendet hat. `stale_after_hours`
+ * fährt deshalb mit: die Oberfläche zeigt die benutzte Zahl und behauptet keine eigene.
+ */
+export type ContractReminderHealth = {
+  staleCount: number
+  oldestAttemptedAt: string | null
+  staleAfterHours: number
+}
 
 // ── Laufprotokoll der zeitgesteuerten Jobs (B4-1) ────────────────────────────────────────────────
 
@@ -202,6 +236,15 @@ export type LeadDetailResult = { lead: LeadDetailRow; consents: LeadConsentDetai
  * Anwendungscode eigene Bedeutung (dieser hier bestimmt, welchen Job `/admin/leads` anzeigt).
  */
 export const LEAD_RETENTION_JOB_KEY = 'lead_retention'
+
+/**
+ * Schlüssel der Vertragsablauf-Erinnerung (B4-2) — der zweite Wert des CHECK auf
+ * `platform.job_runs.job_key`. Beide Läufe stehen auf `/admin/leads` mit EIGENEM Stand
+ * nebeneinander: ein gemeinsamer „Cron läuft"-Indikator verschwiege genau den Fall, in dem der eine
+ * läuft und der andere nicht — und die Ausfallfolgen sind verschieden (nicht durchgesetzte
+ * Löschfristen gegen nicht versendete Erinnerungen).
+ */
+export const CONTRACT_REMINDER_JOB_KEY = 'contract_reminder'
 
 /**
  * Ab wann ein ausbleibender Lauf hervorgehoben wird. 48 Stunden und nicht 24: der Job läuft täglich,
@@ -268,6 +311,20 @@ export function readLeadDetail(data: unknown): LeadDetailResult | null {
   return {
     lead: lead as unknown as LeadDetailRow,
     consents: Array.isArray(obj.consents) ? (obj.consents as LeadConsentDetail[]) : [],
+    contractReminders: Array.isArray(obj.contract_reminders)
+      ? (obj.contract_reminders as ContractReminderRow[])
+      : [],
+  }
+}
+
+/** `null` = der Wrapper hat NICHT `ok` gemeldet (nicht: „es gibt keine offenen Zeilen"). */
+export function readContractReminderHealth(data: unknown): ContractReminderHealth | null {
+  const obj = asObject(data)
+  if (!obj || obj.status !== 'ok') return null
+  return {
+    staleCount: typeof obj.stale_count === 'number' ? obj.stale_count : 0,
+    oldestAttemptedAt: typeof obj.oldest_attempted_at === 'string' ? obj.oldest_attempted_at : null,
+    staleAfterHours: typeof obj.stale_after_hours === 'number' ? obj.stale_after_hours : 24,
   }
 }
 
