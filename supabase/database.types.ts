@@ -410,51 +410,69 @@ export type Database = {
       }
       leads: {
         Row: {
+          annual_consumption_kwh: number | null
           anonymized_at: string | null
           anonymized_by: string | null
           company: string | null
           contact_name: string | null
+          contract_end_date: string | null
           created_at: string
           deletion_due_at: string
           email: string
           first_source_key: string
           id: string
+          industry: Database["platform"]["Enums"]["industry"] | null
           last_interaction_at: string
+          metering_type: string | null
           phone: string | null
+          postal_code: string | null
           retention_basis: string
           status: string
+          supplier: string | null
           updated_at: string
         }
         Insert: {
+          annual_consumption_kwh?: number | null
           anonymized_at?: string | null
           anonymized_by?: string | null
           company?: string | null
           contact_name?: string | null
+          contract_end_date?: string | null
           created_at?: string
           deletion_due_at: string
           email: string
           first_source_key: string
           id?: string
+          industry?: Database["platform"]["Enums"]["industry"] | null
           last_interaction_at?: string
+          metering_type?: string | null
           phone?: string | null
+          postal_code?: string | null
           retention_basis?: string
           status?: string
+          supplier?: string | null
           updated_at?: string
         }
         Update: {
+          annual_consumption_kwh?: number | null
           anonymized_at?: string | null
           anonymized_by?: string | null
           company?: string | null
           contact_name?: string | null
+          contract_end_date?: string | null
           created_at?: string
           deletion_due_at?: string
           email?: string
           first_source_key?: string
           id?: string
+          industry?: Database["platform"]["Enums"]["industry"] | null
           last_interaction_at?: string
+          metering_type?: string | null
           phone?: string | null
+          postal_code?: string | null
           retention_basis?: string
           status?: string
+          supplier?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -646,6 +664,17 @@ export type Database = {
         | "contract_expiry_reminder"
         | "result_delivery"
       entitlement_source: "stripe" | "manual"
+      industry:
+        | "baeckerei"
+        | "gastronomie"
+        | "handel"
+        | "hotellerie"
+        | "tischlerei"
+        | "landwirtschaft"
+        | "kuehlhaus"
+        | "metallverarbeitung"
+        | "buero_dienstleistung"
+        | "sonstige"
       product_key: "monitor" | "calculator_pro"
     }
     CompositeTypes: {
@@ -738,14 +767,20 @@ export type Database = {
       }
       capture_lead: {
         Args: {
+          p_annual_consumption_kwh?: number
           p_company?: string
           p_contact_name?: string
+          p_contract_end_date?: string
           p_email: string
+          p_industry?: Database["platform"]["Enums"]["industry"]
           p_locale?: string
+          p_metering_type?: string
           p_phone?: string
+          p_postal_code?: string
           p_purpose?: Database["platform"]["Enums"]["consent_purpose"]
           p_source_ip?: unknown
           p_source_key: string
+          p_supplier?: string
           p_token_expires_at?: string
           p_token_hash?: string
           p_user_agent?: string
@@ -957,6 +992,18 @@ export const Constants = {
         "result_delivery",
       ],
       entitlement_source: ["stripe", "manual"],
+      industry: [
+        "baeckerei",
+        "gastronomie",
+        "handel",
+        "hotellerie",
+        "tischlerei",
+        "landwirtschaft",
+        "kuehlhaus",
+        "metallverarbeitung",
+        "buero_dienstleistung",
+        "sonstige",
+      ],
       product_key: ["monitor", "calculator_pro"],
     },
   },

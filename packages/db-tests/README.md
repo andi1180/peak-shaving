@@ -14,7 +14,11 @@ einen Nicht-Admin mit SQLSTATE 42501 ab statt mit einer leeren Antwort; „Kunde
 Aufbewahrung auf 84 Monate und der Rückweg wird abgelehnt; die Anonymisierung entfernt die
 Identitätsmerkmale, lässt Einwilligungsnachweis und Sperrliste stehen, ist idempotent und für
 `service_role` **wie für `postgres`** unumkehrbar; die Filter der Lead-Liste liefern konsistente
-Trefferzahlen).
+Trefferzahlen) sowie die **Segmentierungsspalten** darauf (B3-1: die CHECKs auf PLZ, Jahresverbrauch
+und Messart greifen in der Datenbank statt in der Oberfläche; ein zweiter `capture_lead`-Aufruf mit
+null-Werten löscht **nichts** — der wahrscheinlichste stille Datenverlust des Erfassungspfads; der
+Widerruf der Vertragsablauf-Erinnerung nullt Versorger und Vertragsende, ein bloß abgelaufener Token
+dagegen nicht).
 
 Warum ein Gate statt Prosa: ein RLS-/Grant-Fehler auf Zugangsrechten oder Zahlungsstatus ist ein
 Datenleck über Nutzergrenzen hinweg und beim Klicken unsichtbar (Pflichtenheft §10). Jeder Test

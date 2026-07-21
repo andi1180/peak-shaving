@@ -100,6 +100,44 @@ async function newLead(
   return { id, email }
 }
 
+/**
+ * Setzt die sechs Segmentierungsmerkmale aus B3-1 auf einem bestehenden Lead (service_role,
+ * committed). Getrennt von `newLead`, damit die vorhandenen B1-3-Tests unverändert bleiben.
+ */
+async function setSegments(leadId: string): Promise<void> {
+  await runAs({ role: 'service_role', commit: true }, (c) =>
+    c.query(
+      `update platform.leads
+          set industry = 'kuehlhaus',
+              postal_code = '1100',
+              annual_consumption_kwh = 180000,
+              metering_type = 'netzebene_7',
+              supplier = 'Wien Energie',
+              contract_end_date = date '2027-03-31'
+        where id = $1`,
+      [leadId],
+    ),
+  )
+}
+
+/** Der Segmentierungs-Ausschnitt einer Lead-Zeile (B3-1). `date` als TEXT, s. leadRow. */
+async function segmentRow(id: string) {
+  const rows = await sql<{
+    industry: string | null
+    postal_code: string | null
+    annual_consumption_kwh: number | null
+    metering_type: string | null
+    supplier: string | null
+    contract_end_date: string | null
+  }>(
+    `select industry, postal_code, annual_consumption_kwh, metering_type, supplier,
+            contract_end_date::text as contract_end_date
+       from platform.leads where id = $1`,
+    [id],
+  )
+  return rows[0]!
+}
+
 async function consentTextId(purpose: string): Promise<string> {
   const rows = await sql<{ id: string }>(
     `select id from platform.consent_texts where purpose = $1 and version = 1 and locale = 'de'`,
@@ -456,6 +494,27 @@ describe('Anonymisierung', () => {
     expect(suppression[0]!.n).toBe(1)
   })
 
+  it('nullt die LOKALISIERENDEN Segmentierungsmerkmale und erhält die grob einordnenden', async () => {
+    // B3-1. Die Trennlinie verläuft entlang „lokalisierend" gegen „grob einordnend", nicht entlang
+    // „geschäftlich nützlich": PLZ + Branche + Versorger zusammen erkennen einen Betrieb wieder (in
+    // einem 4-Ziffern-Gebiet gibt es selten zwei Kühlhäuser mit 180 MWh), Branche + Verbrauchsgrösse
+    // + Messart allein nicht — die bleiben als statistische Merkmale nutzbar.
+    const admin = await newAdmin()
+    const lead = await newLead()
+    await setSegments(lead.id)
+
+    await callAs(admin, 'select public.admin_anonymize_lead($1) as r', [lead.id])
+
+    expect(await segmentRow(lead.id)).toEqual({
+      industry: 'kuehlhaus',
+      annual_consumption_kwh: 180_000,
+      metering_type: 'netzebene_7',
+      postal_code: null,
+      supplier: null,
+      contract_end_date: null,
+    })
+  })
+
   it('ist idempotent: der zweite Aufruf meldet Erfolg ohne zweite Wirkung', async () => {
     const admin = await newAdmin()
     const lead = await newLead()
@@ -479,6 +538,9 @@ describe('Anonymisierung', () => {
   it('ein anonymisierter Lead lässt sich nicht mehr ändern — auch nicht über service_role', async () => {
     const admin = await newAdmin()
     const lead = await newLead()
+    // B3-1: mit gesetzten Segmentierungsmerkmalen, damit der Guard unten BEIDE Fälle abdeckt —
+    // die drei genullten Spalten wieder füllen UND die drei überlebenden verändern.
+    await setSegments(lead.id)
     await callAs(admin, 'select public.admin_anonymize_lead($1) as r', [lead.id])
 
     const forbidden: [string, string][] = [
@@ -490,6 +552,21 @@ describe('Anonymisierung', () => {
       ['retention_basis', `update platform.leads set retention_basis = 'commercial' where id = $1`],
       // Ohne diesen Schutz liesse sich der Guard mit seiner eigenen Bedingung abschalten.
       ['anonymized_at', `update platform.leads set anonymized_at = null where id = $1`],
+      // B3-1: die sechs Segmentierungsspalten. Ohne sie liefe der Guard an seiner eigenen
+      // Erweiterung vorbei — ausgerechnet PLZ und Versorger, deren Entfernung die Anonymisierung
+      // ausmacht, liessen sich nachträglich wieder füllen.
+      ['industry', `update platform.leads set industry = 'tischlerei' where id = $1`],
+      ['postal_code', `update platform.leads set postal_code = '4020' where id = $1`],
+      [
+        'annual_consumption_kwh',
+        `update platform.leads set annual_consumption_kwh = 42000 where id = $1`,
+      ],
+      ['metering_type', `update platform.leads set metering_type = 'unknown' where id = $1`],
+      ['supplier', `update platform.leads set supplier = 'EVN' where id = $1`],
+      [
+        'contract_end_date',
+        `update platform.leads set contract_end_date = date '2028-01-31' where id = $1`,
+      ],
     ]
 
     for (const [field, text] of forbidden) {

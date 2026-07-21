@@ -54,6 +54,50 @@ export const CONSENT_PURPOSE_LABELS: Record<ConsentPurpose, string> = {
   result_delivery: 'Ergebnis-Zusendung',
 }
 
+// ── Segmentierungsmerkmale (B3-1) ────────────────────────────────────────────────────────────────
+// Spiegel des Postgres-Enums `platform.industry`. Als Konstante zulässig — und zwar aus DEMSELBEN
+// Grund, aus dem die Migration ein Enum und keine Referenztabelle anlegt: der Anwendungscode MUSS
+// jede Branche kennen, weil er je Branche eine Vollbenutzungsstunden-Kennzahl braucht (B3-3). Eine
+// neue Branche ist deshalb zwangsläufig ein gemeinsames Code- und Migrationsereignis. `lead_sources`
+// bleibt das Gegenbeispiel: Einstiegspunkte kommen laufend dazu und werden NIE gespiegelt.
+export const INDUSTRIES = [
+  'baeckerei',
+  'gastronomie',
+  'handel',
+  'hotellerie',
+  'tischlerei',
+  'landwirtschaft',
+  'kuehlhaus',
+  'metallverarbeitung',
+  'buero_dienstleistung',
+  'sonstige',
+] as const
+export type Industry = (typeof INDUSTRIES)[number]
+
+export const INDUSTRY_LABELS: Record<Industry, string> = {
+  baeckerei: 'Bäckerei',
+  gastronomie: 'Gastronomie',
+  handel: 'Handel',
+  hotellerie: 'Hotellerie',
+  tischlerei: 'Tischlerei',
+  landwirtschaft: 'Landwirtschaft',
+  kuehlhaus: 'Kühlhaus',
+  metallverarbeitung: 'Metallverarbeitung',
+  buero_dienstleistung: 'Büro & Dienstleistung',
+  sonstige: 'Sonstige',
+}
+
+/**
+ * Messart. `unknown` ist ein GEPRÜFTES Ergebnis („nicht bestimmbar"), `null` heisst „nie geprüft" —
+ * die Oberfläche muss die beiden auseinanderhalten, sonst liest sich ein noch nicht durchgeführter
+ * Betroffenheits-Check wie ein ergebnisloser.
+ */
+export const METERING_TYPE_LABELS: Record<string, string> = {
+  leistungsgemessen: 'leistungsgemessen',
+  netzebene_7: 'Netzebene 7',
+  unknown: 'geprüft, nicht bestimmbar',
+}
+
 /**
  * Zustände einer Einwilligung. `expired` erreicht die Oberfläche über den ABGELEITETEN Zustand
  * (`platform.consent_effective_status`): B1-2 setzt ihn lazy, gespeichert steht eine verfallene
@@ -127,6 +171,18 @@ export type LeadDetailRow = LeadListRow & {
   first_source_label: string | null
   /** null, wenn das handelnde Konto inzwischen gelöscht wurde (ON DELETE SET NULL). */
   anonymized_by_email: string | null
+  /*
+   * Segmentierungsmerkmale (B3-1). Bewusst NUR an der Detailsicht: `admin_list_leads` liefert sie
+   * nicht, weil die gefilterte Sicht darauf B2 ist. Alle nullable — die Einstiegspunkte sind
+   * kontextspezifisch und erheben unterschiedliche Felder.
+   */
+  industry: Industry | null
+  postal_code: string | null
+  annual_consumption_kwh: number | null
+  metering_type: string | null
+  supplier: string | null
+  /** Reines Datum („YYYY-MM-DD"), keine Zeitangabe. */
+  contract_end_date: string | null
 }
 
 export type LeadDetailResult = { lead: LeadDetailRow; consents: LeadConsentDetail[] }
@@ -179,6 +235,14 @@ export function purposeLabel(purpose: string): string {
 
 export function consentStatusLabel(effectiveStatus: string): string {
   return CONSENT_STATUS_LABELS[effectiveStatus] ?? effectiveStatus
+}
+
+export function industryLabel(industry: string): string {
+  return INDUSTRY_LABELS[industry as Industry] ?? industry
+}
+
+export function meteringTypeLabel(meteringType: string): string {
+  return METERING_TYPE_LABELS[meteringType] ?? meteringType
 }
 
 /** Herkunftsbezeichnung aus der mitgelieferten `sources`-Liste — Schlüssel als Rückfallebene. */
