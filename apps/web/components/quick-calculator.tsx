@@ -7,7 +7,10 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { FieldHint, Input, Label } from '@/components/ui/input'
 import { Num } from '@/components/ui/layout'
+import { LeadCaptureForm } from '@/components/leads/lead-capture-form'
+import type { LeadCaptureConsentTexts } from '@/lib/leads/capture-texts'
 import { CTA_HREF } from '@/lib/nav'
+import { QUICK_DECIMAL, QUICK_EUR, computeQuickSaving } from '@/lib/schnellrechner'
 
 /*
  * SCHNELLRECHNER — der freie Teaser (Pflichtenheft §5.4), NICHT der Pro-Kalkulator.
@@ -31,29 +34,12 @@ import { CTA_HREF } from '@/lib/nav'
  */
 
 /*
- * ZWEI Locales, mit Grund — nachgemessen, nicht geraten:
- * de-AT gruppiert WÄHRUNG mit Punkt („€ 9.576.000"), blanke ZAHLEN aber mit
- * einem geschützten Leerzeichen („48 000"). Beides nebeneinander in einer Karte
- * wären zwei verschiedene Tausendertrenner im Abstand von 20 px — und der
- * Tausenderpunkt ist gefordert. Deshalb:
- *   Währung  -> de-AT: „€ 12.000". Punkt-Gruppierung UND identisch zur
- *               Report-Formatierung des Pro-Kalkulators (apps/website/lib/format.ts).
- *               Der Übergang Marketing -> Kalkulator soll wie EIN Produkt lesen.
- *   Zahlen   -> de-DE: „48.000" / „82,92". Punkt-Gruppierung, Komma-Dezimaltrenner
- *               — genau das deutsche Zahlenformat, das de-AT hier NICHT liefert.
+ * Zahlformate und Rechnung liegen seit B3-2 in `lib/schnellrechner.ts` — die Zusendung des
+ * Ergebnisses per E-Mail (B3-2, 'rechnerergebnis') muss dieselben Beträge zeigen wie dieser
+ * Bildschirm, und der Server rechnet dafür selbst nach. Die Begründung der zwei Locales steht dort.
  */
-const EUR = new Intl.NumberFormat('de-AT', {
-  style: 'currency',
-  currency: 'EUR',
-  maximumFractionDigits: 0,
-})
-/*
- * 2 Nachkommastellen, nicht 1: die Formel unter dem Ergebnis muss dieses Ergebnis
- * REPRODUZIEREN. Bei 1 Stelle würde ein realer Leistungspreis wie 82,92 €/kW·a als
- * „82,9" angezeigt, gerechnet aber mit 82,92 — eine Formel, die ihre eigene Zahl
- * nicht ergibt, wäre schlimmer als gar keine.
- */
-const DECIMAL = new Intl.NumberFormat('de-DE', { maximumFractionDigits: 2 })
+const EUR = QUICK_EUR
+const DECIMAL = QUICK_DECIMAL
 /** Vorbelegung: bewusst OHNE Tausenderpunkt — sonst liefe sie in die Ambiguität unten. */
 const PREFILL = new Intl.NumberFormat('de-DE', { maximumFractionDigits: 2, useGrouping: false })
 
@@ -112,17 +98,34 @@ function compute(peakRaw: string, reductionRaw: string, priceRaw: string): Compu
     return { ...base, effectiveReductionKw: null, savingEur: null }
   }
 
-  // Mehr als die aktuelle Spitze lässt sich nicht wegnehmen. Ohne diese Grenze
-  // wäre die Spitzen-Eingabe ein Feld ohne jede Wirkung — und das Ergebnis
-  // beliebig groß.
-  const capped = reduction.value > peak.value
-  const effectiveReductionKw = capped ? peak.value : reduction.value
+  /*
+   * Die eigentliche Rechnung (inkl. Klemmung auf die Spitze) liegt seit B3-2 in
+   * `lib/schnellrechner.ts`, weil der Server sie für die Zusendung des Ergebnisses nachrechnet.
+   * Hier bleibt nur die Übersetzung der EINGABE-Zustände in Anzeigezustände.
+   */
+  const computed = computeQuickSaving({
+    peakKw: peak.value,
+    reductionKw: reduction.value,
+    pricePerKwYear: price.value,
+  })
 
-  const savingEur = effectiveReductionKw * price.value
-  if (!Number.isFinite(savingEur)) {
-    return { ...base, capped, effectiveReductionKw, savingEur: null, overflow: true }
+  if (!computed) {
+    const capped = reduction.value > peak.value
+    return {
+      ...base,
+      capped,
+      effectiveReductionKw: capped ? peak.value : reduction.value,
+      savingEur: null,
+      overflow: true,
+    }
   }
-  return { ...base, capped, effectiveReductionKw, savingEur }
+
+  return {
+    ...base,
+    capped: computed.capped,
+    effectiveReductionKw: computed.effectiveReductionKw,
+    savingEur: computed.savingEur,
+  }
 }
 
 function NumberField({
@@ -182,6 +185,19 @@ export interface QuickCalculatorProps {
   defaultReductionKw?: number
   /** Vorbelegung des Leistungspreises (€/kW·a). */
   defaultPricePerKwYear?: number
+  /**
+   * Erfassung unter dem Ergebnis (B3-2, Einstiegspunkt 'rechnerergebnis').
+   *
+   * BEWUSST EIN SERIALISIERBARES OBJEKT UND KEIN `ReactNode`/Render-Prop: das Formular braucht die
+   * LIVE gerechneten Werte, die es nur hier gibt — eine von aussen fertig gerenderte Karte könnte
+   * sie nicht sehen, und eine Funktion liesse sich aus einer Server-Komponente nicht hereinreichen.
+   * Die Einwilligungstexte lädt die Seite serverseitig (`lib/leads/capture-texts.ts`) und reicht sie
+   * durch — die Komponente selbst holt keine Texte.
+   *
+   * Fehlt der Wert, verhält sich der Schnellrechner exakt wie bisher (Startseite, Branchenseiten,
+   * Artikel). Die Platzierung ist eine getrennte Entscheidung.
+   */
+  capture?: { consentTexts: LeadCaptureConsentTexts } | null
   className?: string
 }
 
@@ -189,6 +205,7 @@ export function QuickCalculator({
   defaultPeakKw = 500,
   defaultReductionKw = 100,
   defaultPricePerKwYear = 120,
+  capture = null,
   className,
 }: QuickCalculatorProps) {
   const t = useTranslations('QuickCalculator')
@@ -303,6 +320,30 @@ export function QuickCalculator({
         <Button asChild variant="primary" size="md" className="mt-4 w-full sm:w-auto">
           <Link href={CTA_HREF}>{t('cta')}</Link>
         </Button>
+
+        {/*
+          ERFASSUNG UNTER DEM ERGEBNIS (B3-2). Sie steht NACH dem Kalkulator-CTA und optisch
+          abgesetzt: der Weg zum belastbaren Ergebnis bleibt der Hauptweg, die Zusendung ist das
+          Angebot für alle, die die Zahl erst einmal mitnehmen wollen.
+
+          Die übergebenen Werte sind die ROHEN Eingaben, nicht die angezeigte Ersparnis — der Server
+          rechnet selbst nach (`lib/schnellrechner.ts`), damit die Zahl in unserer eigenen E-Mail
+          nicht vom Absender wählbar ist.
+        */}
+        {capture && peak.state === 'ok' && reduction.state === 'ok' && price.state === 'ok' && (
+          <div className="mt-6 border-t border-line pt-6">
+            <LeadCaptureForm
+              sourceKey="rechnerergebnis"
+              consentTexts={capture.consentTexts}
+              calculator={{
+                peakKw: peak.value,
+                reductionKw: reduction.value,
+                pricePerKwYear: price.value,
+              }}
+              className="border-0 bg-transparent p-0"
+            />
+          </div>
+        )}
       </CardContent>
     </Card>
   )

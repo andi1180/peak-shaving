@@ -1715,6 +1715,119 @@
       "cta": "Bitte bestätigen Sie hier:",
       "button": "Einwilligung bestätigen",
       "noAction": "Ohne Ihre Bestätigung passiert nichts — wir senden Ihnen dann keine E-Mails. Falls Sie diese Nachricht nicht erwartet haben, ignorieren Sie sie einfach; der Link verfällt nach sieben Tagen von selbst."
+    },
+    "result": {
+      "subject": "Ihr Ergebnis aus dem Schnellrechner",
+      "greeting": "Guten Tag,",
+      "intro": "hier ist Ihr Ergebnis aus dem Schnellrechner auf coolin.at — mit den Werten, die Sie eingegeben haben.",
+      "cta": "Belastbare Auslegung mit Ihrem Lastgang: zum Peak-Shaving Kalkulator"
+    }
+  },
+  "LeadCapture": {
+    "optional": "(optional)",
+    "submitting": "Wird gesendet …",
+    "honeypot": "Dieses Feld bitte frei lassen",
+    "marketingHint": "Wir senden Ihnen zuerst eine E-Mail zur Bestätigung. Erst danach erhalten Sie Informationen von uns — abbestellen können Sie sie jederzeit mit einem Klick.",
+    "industryPlaceholder": "Bitte wählen",
+    "fields": {
+      "email": "E-Mail-Adresse",
+      "contactName": "Name",
+      "company": "Unternehmen",
+      "phone": "Telefon",
+      "industry": "Branche",
+      "postalCode": "Postleitzahl",
+      "annualConsumptionKwh": "Jahresverbrauch (kWh)",
+      "supplier": "Stromlieferant",
+      "contractEndDate": "Vertragsende"
+    },
+    "industries": {
+      "baeckerei": "Bäckerei",
+      "gastronomie": "Gastronomie",
+      "handel": "Handel",
+      "hotellerie": "Hotellerie",
+      "tischlerei": "Tischlerei / Holzverarbeitung",
+      "landwirtschaft": "Land- und Forstwirtschaft",
+      "kuehlhaus": "Kühlhaus / Kältetechnik",
+      "metallverarbeitung": "Metallverarbeitung",
+      "buero_dienstleistung": "Büro / Dienstleistung",
+      "sonstige": "Sonstige"
+    },
+    "errors": {
+      "fieldRequired": "Bitte ausfüllen.",
+      "emailInvalid": "Bitte eine gültige E-Mail-Adresse eingeben.",
+      "postalCodeInvalid": "Bitte eine vierstellige Postleitzahl eingeben, zum Beispiel 1100.",
+      "consumptionInvalid": "Bitte den Jahresverbrauch als ganze Zahl in kWh eingeben.",
+      "dateInvalid": "Bitte ein gültiges Datum wählen.",
+      "industryInvalid": "Bitte eine Branche wählen.",
+      "tooLong": "Diese Eingabe ist zu lang."
+    },
+    "formError": {
+      "unavailable": "Das hat gerade nicht funktioniert. Bitte versuchen Sie es später noch einmal oder schreiben Sie uns an energy@coolin.at.",
+      "spam": "Ihre Eingabe wurde als automatisiert eingestuft. Bitte versuchen Sie es noch einmal oder schreiben Sie uns an energy@coolin.at.",
+      "turnstile": "Die Sicherheitsprüfung ist fehlgeschlagen. Bitte laden Sie die Seite neu und versuchen Sie es noch einmal.",
+      "network": "Wir konnten Sie gerade nicht erreichen. Bitte prüfen Sie Ihre Verbindung und versuchen Sie es noch einmal."
+    },
+    "entries": {
+      "kontaktformular": {
+        "heading": "Kontakt aufnehmen",
+        "body": "Schreiben Sie uns, und wir melden uns bei Ihnen.",
+        "submit": "Absenden",
+        "success": "Danke — wir haben Ihre Anfrage erhalten und melden uns."
+      },
+      "schnellrechner": {
+        "heading": "Auf dem Laufenden bleiben",
+        "body": "Wir schicken Ihnen, was sich bei Netzentgelten und Lastspitzen tut — nur wenn es etwas zu sagen gibt.",
+        "submit": "Eintragen",
+        "success": "Danke — Ihre Adresse ist notiert."
+      },
+      "wko-postaktion-qr": {
+        "heading": "Unterlagen zum Leistungstarif 2027 anfordern",
+        "body": "Sie haben unseren Brief erhalten. Tragen Sie hier Ihre Adresse ein, dann schicken wir Ihnen die Unterlagen und halten Sie zur Umstellung auf dem Laufenden.",
+        "submit": "Unterlagen anfordern",
+        "success": "Danke — bitte bestätigen Sie noch kurz die E-Mail, die wir Ihnen gerade geschickt haben."
+      },
+      "fachvortrag": {
+        "heading": "Unterlagen zum Vortrag erhalten",
+        "body": "Tragen Sie Ihre Adresse ein, dann schicken wir Ihnen die Folien und melden uns, wenn es Neues zur Umstellung 2027 gibt.",
+        "submit": "Unterlagen anfordern",
+        "success": "Danke — bitte bestätigen Sie noch kurz die E-Mail, die wir Ihnen gerade geschickt haben."
+      },
+      "direktkontakt": {
+        "heading": "Kontaktdaten hinterlegen",
+        "body": "Damit wir uns bei Ihnen melden können.",
+        "submit": "Speichern",
+        "success": "Danke — Ihre Daten sind bei uns."
+      },
+      "betroffenheits-check": {
+        "heading": "Ergebnis des Betroffenheits-Checks erhalten",
+        "body": "Wir schicken Ihnen die Einordnung für Ihren Betrieb per E-Mail — mit der Größenordnung Ihrer Lastspitze und dem, was die Umstellung 2027 für Sie bedeutet.",
+        "submit": "Ergebnis zusenden",
+        "success": "Danke — Ihr Ergebnis ist unterwegs. Bitte sehen Sie auch im Spam-Ordner nach."
+      },
+      "rechnerergebnis": {
+        "heading": "Ergebnis per E-Mail erhalten",
+        "body": "Wir schicken Ihnen Ihre Rechnung mit allen eingegebenen Werten zu — damit Sie sie in Ruhe ansehen oder weitergeben können.",
+        "submit": "Ergebnis zusenden",
+        "success": "Danke — Ihr Ergebnis ist unterwegs. Bitte sehen Sie auch im Spam-Ordner nach."
+      },
+      "artikel-inline": {
+        "heading": "Wenn es Neues zum Leistungstarif 2027 gibt",
+        "body": "Die Verordnung ist Entwurf, die Tarife stehen noch aus. Wir schreiben Ihnen, sobald sich daran etwas ändert — sachlich, selten und ohne Werbebrief.",
+        "submit": "Auf dem Laufenden bleiben",
+        "success": "Danke — bitte bestätigen Sie noch kurz die E-Mail, die wir Ihnen gerade geschickt haben. Vorher senden wir Ihnen nichts."
+      },
+      "branchenseite": {
+        "heading": "Was sich für Ihre Branche ändert",
+        "body": "Wir schicken Ihnen, was zur Umstellung 2027 für Betriebe wie Ihren wichtig wird — und was Sie ohne Investition selbst tun können.",
+        "submit": "Auf dem Laufenden bleiben",
+        "success": "Danke — bitte bestätigen Sie noch kurz die E-Mail, die wir Ihnen gerade geschickt haben. Vorher senden wir Ihnen nichts."
+      },
+      "vertragsablauf-landing": {
+        "heading": "An Ihr Vertragsende erinnern lassen",
+        "body": "Sagen Sie uns, bei wem Sie sind und wann Ihr Vertrag ausläuft. Wir erinnern Sie rechtzeitig vorher — einmal, und nur dafür.",
+        "submit": "Erinnerung einrichten",
+        "success": "Danke — bitte bestätigen Sie noch kurz die E-Mail, die wir Ihnen gerade geschickt haben. Erst danach ist die Erinnerung eingerichtet."
+      }
     }
   }
 }

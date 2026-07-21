@@ -8,6 +8,8 @@ import { Container, Eyebrow, Section } from '@/components/ui/layout'
 import { FaqSection } from '@/components/faq-section'
 import { JsonLd } from '@/components/json-ld'
 import { mdxComponents } from '@/components/wissen/mdx-components'
+import { LeadCaptureForm } from '@/components/leads/lead-capture-form'
+import { loadLeadCaptureTexts } from '@/lib/leads/capture-texts'
 import { articleHref, WISSEN_HREF, type Article } from '@/lib/wissen'
 import { KONTAKT_HREF } from '@/lib/nav'
 import { articleLd } from '@/lib/json-ld'
@@ -84,9 +86,28 @@ export async function ArticlePage({ article, locale }: { article: Article; local
    * abgetrennt (`lib/wissen.ts` liefert `body` ohne den Block). Es hier ein
    * zweites Mal zu parsen wäre eine zweite Auslegung derselben Datei.
    */
+  /*
+   * B3-2: `<LeadCapture />` steht als Baustein im MDX zur Verfügung (Einstiegspunkt
+   * 'artikel-inline'). Es wird HIER in die Komponenten-Map gehängt und nicht in
+   * `mdx-components.tsx` abgelegt, weil es die Einwilligungstexte braucht: die kommen
+   * serverseitig aus `platform.consent_texts` und lassen sich in einer statischen Map nicht
+   * beschaffen. Die Map bleibt damit das, was sie ist — reine Typografie und Bausteine ohne
+   * Datenherkunft.
+   *
+   * Der Wortlaut wird EINMAL je Artikel geladen, nicht je Vorkommen im Text.
+   */
+  const leadCaptureTexts = await loadLeadCaptureTexts('artikel-inline', locale)
+
   const { content } = await compileMDX({
     source: article.body,
-    components: mdxComponents,
+    components: {
+      ...mdxComponents,
+      LeadCapture: () => (
+        <div className="mt-10 max-w-prose">
+          <LeadCaptureForm sourceKey="artikel-inline" consentTexts={leadCaptureTexts} />
+        </div>
+      ),
+    },
     options: { parseFrontmatter: false },
   })
 

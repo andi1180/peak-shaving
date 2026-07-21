@@ -9,8 +9,16 @@ import { Container, Eyebrow, Section } from '@/components/ui/layout'
 import { Link as TextLink } from '@/components/ui/link'
 import { QuickCalculator } from '@/components/quick-calculator'
 import { LoadCurveChart } from '@/components/peak-shaving/load-curve-chart'
+import { loadLeadCaptureTexts, type LeadCaptureConsentTexts } from '@/lib/leads/capture-texts'
 import { CTA_HREF } from '@/lib/nav'
 import { pageAlternates } from '@/lib/seo'
+
+/**
+ * ISR statt „einmal statisch für immer" (B3-2) — dieselbe Begründung wie auf `/kontakt` und
+ * `/branchen/handwerk`: der Einwilligungswortlaut der Erfassung unter dem Schnellrechner kommt aus
+ * `platform.consent_texts` (append-only) und soll ohne Deploy nachziehen können.
+ */
+export const revalidate = 3600
 
 export async function generateMetadata({
   params,
@@ -44,6 +52,17 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
   const { locale } = await params
   setRequestLocale(locale)
 
+  /*
+   * B3-2: DER PLATZIERTE SCHNELLRECHNER. Von den vier Einbettungen des Schnellrechners (Startseite,
+   * Branchenseiten, Artikel, hier) trägt genau diese die Zusendung des Ergebnisses — sie ist die
+   * einzige, bei der der Rechner der Zweck des Abschnitts ist und nicht Beiwerk. Die anderen drei
+   * bleiben unverändert.
+   *
+   * Die Texte werden HIER geladen und durchgereicht, weil `QuickCalculator` eine Client-Komponente
+   * ist und keine Datenbank sehen darf.
+   */
+  const leadCaptureTexts = await loadLeadCaptureTexts('rechnerergebnis', locale)
+
   return (
     <>
       <PeakHero />
@@ -53,7 +72,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
       <KappungSection />
       <ZusammenspielSection />
       <RelatedSection />
-      <CtaSection />
+      <CtaSection leadCaptureTexts={leadCaptureTexts} />
     </>
   )
 }
@@ -296,7 +315,7 @@ function RelatedSection() {
  * wo er am meisten wiegt: direkt unter der gerechneten Zahl. Dieser hier ist
  * der Weg für alle, die gar nicht erst schätzen wollen.
  */
-function CtaSection() {
+function CtaSection({ leadCaptureTexts }: { leadCaptureTexts: LeadCaptureConsentTexts }) {
   const t = useTranslations('PeakShaving.Cta')
 
   return (
@@ -317,7 +336,7 @@ function CtaSection() {
           </div>
 
           <div>
-            <QuickCalculator />
+            <QuickCalculator capture={{ consentTexts: leadCaptureTexts }} />
           </div>
         </div>
       </Container>
