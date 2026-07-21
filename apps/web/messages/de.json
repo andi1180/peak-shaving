@@ -1280,6 +1280,9 @@
       "nachricht": "Ihr Anliegen *",
       "datenschutz": "Ich habe die <link>Datenschutzerklärung</link> gelesen und bin damit einverstanden, dass meine Angaben zur Bearbeitung meiner Anfrage verarbeitet werden. *"
     },
+    "marketing": {
+      "hint": "Freiwillig. Sie erhalten zuerst eine E-Mail mit einem Bestätigungslink — ohne Bestätigung passiert nichts. Abmelden können Sie sich jederzeit mit einem Klick."
+    },
     "themen": {
       "peakShaving": "Peak Shaving / Kalkulator",
       "sonstiges": "Sonstiges"
@@ -1644,6 +1647,74 @@
         "notSignedIn": "Ihre Sitzung ist abgelaufen. Bitte melden Sie sich erneut an.",
         "generic": "Das hat leider nicht geklappt. Bitte versuchen Sie es erneut."
       }
+    }
+  },
+  "Leads": {
+    "confirm": {
+      "metaTitle": "Einwilligung bestätigen",
+      "valid": {
+        "title": "Bitte bestätigen Sie Ihre Einwilligung",
+        "lead": "Sie haben angegeben, dass Sie von uns E-Mails erhalten möchten. Mit einem Klick auf die Schaltfläche ist das bestätigt — vorher senden wir Ihnen nichts.",
+        "submit": "Einwilligung bestätigen"
+      },
+      "already_confirmed": {
+        "title": "Ihre Einwilligung ist bestätigt",
+        "lead": "Danke — wir haben Ihre Bestätigung bereits erhalten.",
+        "note": "Sie müssen nichts weiter tun. In jeder E-Mail von uns finden Sie einen Abmeldelink, mit dem Sie die Einwilligung jederzeit widerrufen können."
+      },
+      "expired": {
+        "title": "Dieser Bestätigungslink ist abgelaufen",
+        "lead": "Aus Sicherheitsgründen ist ein Bestätigungslink nur sieben Tage gültig.",
+        "note": "Ihre Einwilligung wurde deshalb nicht erteilt, und wir senden Ihnen keine E-Mails. Wenn Sie das ändern möchten, kreuzen Sie die Einwilligung bitte erneut in unserem Kontaktformular an — dann erhalten Sie einen neuen Link."
+      },
+      "not_found": {
+        "title": "Dieser Link ist uns nicht bekannt",
+        "lead": "Der Bestätigungslink ist unvollständig, wurde bereits zurückgezogen oder gehört zu keiner offenen Anfrage.",
+        "note": "Bitte prüfen Sie, ob der Link aus Ihrer E-Mail vollständig übernommen wurde — manche Programme brechen lange Links um. Es wurde in keinem Fall eine Einwilligung erteilt."
+      },
+      "error": {
+        "title": "Das konnten wir gerade nicht prüfen",
+        "lead": "Es gab ein technisches Problem beim Abrufen Ihrer Anfrage.",
+        "note": "Ihre Einwilligung wurde weder erteilt noch verworfen. Bitte versuchen Sie es in ein paar Minuten noch einmal — der Link bleibt gültig."
+      }
+    },
+    "unsubscribe": {
+      "metaTitle": "Abmelden",
+      "title": "Keine E-Mails mehr erhalten",
+      "lead": "Sie können sich hier von diesen E-Mails abmelden oder E-Mails von uns vollständig abbestellen. Beides wirkt sofort.",
+      "purpose": {
+        "submit": "Von diesen E-Mails abmelden",
+        "note": "Betrifft nur die Art von E-Mails, aus der Sie hierher gekommen sind. Andere Nachrichten, die Sie ausdrücklich angefordert haben, bleiben davon unberührt."
+      },
+      "all": {
+        "submit": "Keine E-Mails mehr von COOLiN",
+        "note": "Wir widerrufen alle Ihre Einwilligungen und sperren Ihre Adresse dauerhaft für den Versand. Die Sperre bleibt auch dann bestehen, wenn Ihre Daten später gelöscht werden — damit Sie nicht versehentlich erneut angeschrieben werden."
+      },
+      "donePurpose": {
+        "title": "Sie sind abgemeldet",
+        "lead": "Diese E-Mails erhalten Sie ab sofort nicht mehr.",
+        "note": "Falls noch eine bereits versandte Nachricht bei Ihnen eintrifft, war sie vor Ihrer Abmeldung unterwegs."
+      },
+      "doneAll": {
+        "title": "Ihre Adresse ist gesperrt",
+        "lead": "Wir haben alle Einwilligungen widerrufen und senden Ihnen keine E-Mails mehr.",
+        "note": "Die Sperre gilt dauerhaft. Antworten auf eine Anfrage, die Sie uns selbst schicken, bleiben davon selbstverständlich möglich."
+      },
+      "invalid": {
+        "title": "Dieser Abmeldelink ist ungültig",
+        "lead": "Der Link ist unvollständig oder wurde verändert.",
+        "note": "Bitte übernehmen Sie ihn vollständig aus Ihrer E-Mail — manche Programme brechen lange Links um. Alternativ genügt eine kurze Nachricht an energy@coolin.at, und wir melden Sie ab."
+      }
+    }
+  },
+  "LeadMail": {
+    "confirm": {
+      "subject": "Bitte bestätigen Sie Ihre Einwilligung",
+      "greeting": "Guten Tag,",
+      "intro": "Sie haben uns Ihre E-Mail-Adresse gegeben und dabei angekreuzt, dass Sie von uns Informationen erhalten möchten. Damit wir sicher sein können, dass diese Adresse Ihnen gehört, bitten wir Sie um eine kurze Bestätigung. Sie haben Folgendem zugestimmt:",
+      "cta": "Bitte bestätigen Sie hier:",
+      "button": "Einwilligung bestätigen",
+      "noAction": "Ohne Ihre Bestätigung passiert nichts — wir senden Ihnen dann keine E-Mails. Falls Sie diese Nachricht nicht erwartet haben, ignorieren Sie sie einfach; der Link verfällt nach sieben Tagen von selbst."
     }
   }
 }

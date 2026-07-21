@@ -47,10 +47,11 @@ export default tseslint.config(
     },
   },
   {
-    // T4-3 (Aufgabe 3): der service_role-Supabase-Client (umgeht RLS) darf NUR im Stripe-Pfad
-    // importiert werden. Ein versehentlicher Import in eine Server-Component/Page/Nutzer-Read soll
-    // `pnpm lint` rot machen — `import 'server-only'` allein fängt das nicht (eine Server-Component
-    // ist ebenfalls server-seitig). Die Allowlist steht im Folge-Block (dort Regel = off).
+    // T4-3 (Aufgabe 3): der service_role-Supabase-Client (umgeht RLS) darf NUR in eng begrenzten
+    // Pfaden importiert werden. Ein versehentlicher Import in eine Server-Component/Page/Nutzer-Read
+    // soll `pnpm lint` rot machen — `import 'server-only'` allein fängt das nicht (eine
+    // Server-Component ist ebenfalls server-seitig). Die Allowlist steht im Folge-Block (dort
+    // Regel = off).
     files: ['apps/web/**/*.{ts,tsx}'],
     rules: {
       'no-restricted-imports': [
@@ -61,8 +62,9 @@ export default tseslint.config(
               name: '@/lib/supabase/service-role',
               message:
                 'Der service_role-Client (umgeht RLS) ist ausschließlich für den Stripe-Pfad ' +
-                '(app/api/stripe/webhook + lib/stripe/actions.ts). Für Nutzer-Reads den ' +
-                'RLS-gebundenen lib/supabase/server.ts verwenden.',
+                '(app/api/stripe/webhook + lib/stripe/actions.ts) und den Lead-/Einwilligungspfad ' +
+                '(lib/leads/**, B1-2). Für Nutzer-Reads den RLS-gebundenen lib/supabase/server.ts ' +
+                'verwenden.',
             },
           ],
         },
@@ -70,8 +72,21 @@ export default tseslint.config(
     },
   },
   {
-    // Allowlist: genau die zwei Stripe-Pfade dürfen den service_role-Client importieren.
-    files: ['apps/web/app/api/stripe/**/*.ts', 'apps/web/lib/stripe/actions.ts'],
+    /*
+     * Allowlist: die zwei Stripe-Pfade und das Lead-Modul dürfen den service_role-Client importieren.
+     *
+     * B1-2 ERWEITERT diese Liste bewusst, statt sie zu umgehen oder einen zweiten Client anzulegen:
+     * `platform.leads`/`consents` haben für `anon` und `authenticated` gar kein Grant (ein Lead ist
+     * Betriebs-, kein Nutzerdatum — B1-1), die sechs Erfassungs-Wrapper sind service_role-only. Die
+     * Regel bleibt damit das, was sie ist: die Bremse gegen versehentlichen Gebrauch in
+     * Server-Components und Nutzer-Reads. Innerhalb von `lib/leads` importiert nur `store.ts` den
+     * Client — die Seiten/Actions gehen über dieses Modul.
+     */
+    files: [
+      'apps/web/app/api/stripe/**/*.ts',
+      'apps/web/lib/stripe/actions.ts',
+      'apps/web/lib/leads/**/*.ts',
+    ],
     rules: { 'no-restricted-imports': 'off' },
   },
   prettier,

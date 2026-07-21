@@ -20,7 +20,12 @@ import { COMPANY } from '@/lib/nav'
  * Kontaktblock ist die Alternative für den, der lieber selbst schreibt oder eine
  * Adresse sucht — nicht das, was zuerst gelesen werden soll.
  */
-export function KontaktPage() {
+export function KontaktPage({
+  /** Wortlaut der Marketing-Einwilligung aus `platform.consent_texts` (B1-2) — s. `KontaktForm`. */
+  marketingConsentText = null,
+}: {
+  marketingConsentText?: string | null
+}) {
   const t = useTranslations('Kontakt')
 
   const docs = [t('docs.doc1'), t('docs.doc2'), t('docs.doc3'), t('docs.doc4'), t('docs.doc5')]
@@ -42,7 +47,7 @@ export function KontaktPage() {
            */}
           <div className="grid gap-8 lg:grid-cols-5 lg:gap-12">
             <div className="lg:col-span-3">
-              <KontaktForm />
+              <KontaktForm marketingConsentText={marketingConsentText} />
             </div>
 
             <div className="space-y-6 lg:col-span-2">

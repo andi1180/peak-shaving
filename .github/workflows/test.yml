@@ -38,6 +38,11 @@ jobs:
       - name: Test tariff-monitor
         run: pnpm --filter tariff-monitor test
 
+      # apps/web hat seit B1-2 eigene Unit-Tests (reine Module ohne Renderer/DB — konkret die
+      # Token-Kryptografie des Lead-Pfads). Alles Schema-Nahe läuft im separaten db-gate.yml.
+      - name: Test web
+        run: pnpm --filter web test
+
       # UI-Gate: ein PR, der website/portal/web bricht, wird hier rot — nicht erst auf Vercel.
       # (Lint + Typecheck oben laufen bereits root-weit über alle Packages inkl. apps/web.)
       - name: Build apps (website + portal + web)

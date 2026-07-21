@@ -80,6 +80,19 @@ export const kontaktSchema = z.object({
   datenschutz: z.literal(true, { errorMap: () => ({ message: 'datenschutzRequired' }) }),
 
   /*
+   * MARKETING-EINWILLIGUNG (B1-2) — ausdrücklich `boolean().optional()` und NICHT `literal(true)`
+   * wie `datenschutz` darüber. Der Unterschied ist der ganze Punkt: die Datenschutz-Zustimmung ist
+   * Voraussetzung dafür, die Anfrage überhaupt bearbeiten zu dürfen; diese hier ist eine ZUSÄTZLICHE
+   * Einwilligung in künftige Werbung. Sie ist nie vorausgewählt, nie erforderlich, und ihr Fehlen
+   * ist kein Eingabefehler — es ist die häufigste und völlig gültige Antwort.
+   *
+   * Erzeugt sie `true`, entsteht serverseitig eine UNBESTÄTIGTE Einwilligung plus Bestätigungsmail
+   * (Double-Opt-in). Erst die Bestätigung berechtigt zum Versand (B1-1:
+   * `platform.has_confirmed_consent` ist bei `pending` ausdrücklich false).
+   */
+  marketing: z.boolean().optional(),
+
+  /*
    * HONEYPOT — siehe `components/kontakt/kontakt-form.tsx`. Hier nur deklariert,
    * damit der Wert `z.object()`s Strip überlebt und die Route ihn sehen kann.
    * BEWUSST NICHT hier validiert: „Feld gefüllt" ist kein Eingabefehler des

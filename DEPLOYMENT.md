@@ -75,6 +75,11 @@ das an der betroffenen Stelle sichtbar).
 | `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | optional | dash.cloudflare.com → Turnstile → Site | optional (sonst Honeypot) |
 | `TURNSTILE_SECRET_KEY` | optional | dash.cloudflare.com → Turnstile → Site (Secret) | optional |
 
+- **Seit B1-2 versendet derselbe Resend-Zugang zusätzlich die Double-Opt-in-Bestätigungsmail**
+  (`apps/web/lib/leads/mail.ts`). Fehlt der Key, bleibt eine erteilte Einwilligung auf `pending` —
+  rechtlich wirkungslos, aber ohne sichtbaren Fehler für den Absender. Der Fehlschlag steht als
+  `[leads] Bestätigungsmail NICHT versendet …` im Vercel-Function-Log. S. §1f.
+
 ### 1d. Stripe + service_role (T4-3, server-only, Pflicht für Checkout/Webhook)
 
 Alle server-only, NIEMALS `NEXT_PUBLIC_`-präfixen. Der Build läuft ohne sie durch (require-on-use);
@@ -117,6 +122,31 @@ Code: `apps/web/components/analytics/posthog.tsx` · Vorlage: `apps/web/.env.exa
   und Bot-Erkennung entfallen, die Weltkarte in Web Analytics bleibt leer.
 - **`/admin` sendet nichts** — der Verwaltungsbereich hat ein eigenes Root-Layout und durchläuft die
   Analytics-Einhängestelle strukturell nicht. Nichts zu konfigurieren, nur zu wissen.
+
+### 1f. Lead-/Einwilligungspfad (B1-2, server-only)
+
+Code: `apps/web/lib/leads/**` · Vorlage: `apps/web/.env.example`
+
+| Variable | Scope | Wert-Herkunft | Pflicht |
+|---|---|---|---|
+| `LEAD_TOKEN_SECRET` | Production (Preview optional) | selbst erzeugt: `openssl rand -base64 32` | ohne sie sind Abmeldelinks nicht erzeugbar/prüfbar |
+| `SUPABASE_SERVICE_ROLE_KEY` | s. §1d | derselbe Wert wie im Stripe-Pfad | ohne ihn wird **kein Lead geschrieben** und die Einwilligungs-Checkbox erscheint nicht |
+| `RESEND_API_KEY` / `RESEND_FROM` | s. §1c | dieselben Werte wie beim Kontaktformular | ohne sie geht **keine Bestätigungsmail** raus (die Einwilligung bleibt `pending` = wirkungslos) |
+
+- **⚠ `LEAD_TOKEN_SECRET` NICHT ROUTINEMÄSSIG ROTIEREN.** Die Abmeldelinks sind **zustandslos**: die
+  HMAC-Signatur ist der einzige Beweis, dass ein Link echt ist — es gibt bewusst keine Token-Tabelle
+  dahinter (ein Abmeldelink muss auch in einer zwei Jahre alten E-Mail noch funktionieren, und eine
+  Token-Tabelle verschwände mit der Lead-Löschung). Ein **neues Geheimnis entwertet damit JEDEN je
+  versendeten Abmeldelink auf einen Schlag**; die Empfänger sähen die neutrale „Link ungültig"-Seite
+  und griffen stattdessen zur Spam-Schaltfläche — dauerhafter Zustellbarkeitsschaden für **alle**
+  Empfänger. Rotation nur bei nachgewiesenem Leck, und dann als bewusster Vorgang.
+- **Fehlt eine der Variablen, bricht nichts sichtbar:** Die Kontaktanfrage wird weiterhin zugestellt
+  (der Schreibvorgang läuft NACH dem Versand und blockiert ihn nie), der Fehlschlag steht laut im
+  Vercel-Function-Log (`[leads] …`). Das ist gewollt — aber es heisst auch, dass ein fehlender Key
+  **still** dazu führt, dass keine Leads entstehen. Nach dem Setzen: Redeploy und prüfen, dass
+  `https://coolin.at/kontakt` im Markup `name="marketing"` enthält.
+- **Nichts im Supabase-Dashboard zu tun:** Der Lead-Pfad läuft über `public`-RPC-Wrapper (§2a bleibt
+  unverändert — `platform` ist weiterhin **nicht** exponiert und soll es nicht werden).
 
 ---
 

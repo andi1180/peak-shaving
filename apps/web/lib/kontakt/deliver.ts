@@ -8,9 +8,14 @@
  * Route ist ohnehin serverseitig — aber „ohnehin" ist keine Garantie, die man in
  * einem Refactoring behält.
  *
- * ISOLIERT, weil der Kanal sich ändern wird: Heute Resend, in Phase 2 zusätzlich
- * ein Supabase-`contacts`-Insert (s. Einhängestelle unten). Die Route soll davon
- * nichts wissen müssen — sie kennt nur „zugestellt" / „nicht zugestellt".
+ * ISOLIERT, weil der Kanal sich ändern kann. Die Route kennt nur „zugestellt" /
+ * „nicht zugestellt".
+ *
+ * Die frühere „Phase 2"-Notiz (zusätzlicher Supabase-`contacts`-Insert an dieser
+ * Stelle) ist mit B1-2 ERLEDIGT und aufgelöst: die Persistenz läuft über
+ * `platform.leads`/`platform.consents` und wird in `app/api/kontakt/route.ts`
+ * NACH der Zustellung angestossen — nicht hier. Ausführlich unten am Ende von
+ * `deliverKontakt`.
  *
  * ─── AKTIVIERUNG (Vercel → Settings → Environment Variables) ──────────────────
  *
@@ -218,23 +223,26 @@ export async function deliverKontakt(
 
     /*
      * ─────────────────────────────────────────────────────────────────────────
-     * EINHÄNGESTELLE PHASE 2 — Supabase `contacts` (Pflichtenheft §5.5/§8.6).
+     * ERLEDIGT (B1-2): Die hier bis dahin geplante `contacts`-Tabelle wird es
+     * NICHT geben. Die Persistenz läuft seit B1-1/B1-2 über `platform.leads` und
+     * `platform.consents` (Fahrplan_2026.md, Abschnitt B1) — EIN produktweiter
+     * Lead-Bestand statt einer formularspezifischen Tabelle, mit versionierten
+     * Einwilligungen, Herkunftskontext als Pflichtfeld und einer Löschfrist, die
+     * die Datenbank selbst ableitet. Genau die Entscheidung über
+     * Aufbewahrungsfrist und Löschkonzept, deren Fehlen die `contacts`-Tabelle
+     * damals blockiert hat, steckt jetzt dort (`platform.retention_months`).
      *
-     * Hier (NACH erfolgreichem Mailversand, VOR dem return) kommt der Insert in
-     * die `contacts`-Tabelle dazu:
+     * AUFGERUFEN WIRD SIE NICHT HIER, sondern in `app/api/kontakt/route.ts`
+     * NACH dieser Zustellung (`captureKontaktLead`, `lib/leads/capture.ts`).
+     * Dieses Modul bleibt damit das, was sein Kopfkommentar verspricht: der eine
+     * Ort, der weiss, WOHIN eine Anfrage geht — es kennt keine Datenbank.
      *
-     *     await insertContact({ ...input, themaLabel, emailId: data?.id })
+     * Die damalige Warnung gilt unverändert und ist dort umgesetzt: der
+     * Schreibvorgang darf die Zustellung NICHT umwerfen. Ein Fehler danach ist
+     * kein `send_failed` — die Anfrage IST beim Menschen angekommen.
      *
-     * BEWUSST JETZT NICHT GEBAUT: kein Supabase-Client, keine Dependency, kein
-     * Env, keine Tabelle. Die Mail ist der echte Kanal — die DB ist Auswertung
-     * und Verlaufs-Historie, und beides braucht erst eine Entscheidung über
-     * Aufbewahrungsfrist und Löschkonzept (DSGVO, §9.1), die es noch nicht gibt.
-     *
-     * WENN es kommt, gilt: Der Insert darf die Zustellung NICHT umwerfen. Ein
-     * DB-Fehler nach erfolgreichem Mailversand ist KEIN `send_failed` — die
-     * Anfrage IST beim Menschen angekommen; dem Nutzer eine Fehlermeldung zu
-     * zeigen würde ihn zu einer zweiten, identischen Anfrage bewegen. Also:
-     * try/catch um den Insert, Fehler loggen, `ok: true` behalten.
+     * NICHT GESPEICHERT WIRD DER NACHRICHTENTEXT. Er steht in dieser Mail und
+     * sonst nirgends; `platform.leads` trägt nur Identitätsfelder.
      * ─────────────────────────────────────────────────────────────────────────
      */
 
