@@ -125,14 +125,16 @@ export async function setLeadStatusAction(
 // ── Stammdaten korrigieren (B2-1) ────────────────────────────────────────────────────────────────
 
 /**
- * Der Korrekturweg für die NEUN bearbeitbaren Felder.
+ * Der Korrekturweg für die ZEHN bearbeitbaren Felder (neun, seit der Kontaktname in Vor- und
+ * Nachname aufgetrennt ist zehn).
  *
  * ── LEER HEISST LÖSCHEN, UND ZWAR ABSICHTLICH ────────────────────────────────────────────────────
  * Ein leeres Feld wird als `null` übergeben und setzt die Spalte auf null. Anders als beim
  * Erfassungspfad (`capture_lead`, B3-1: „null lässt unberührt") ist das hier richtig — ein
- * Bearbeitungsformular schickt immer alle neun Felder, und ein geleertes Feld ist eine Aussage:
+ * Bearbeitungsformular schickt immer alle Felder, und ein geleertes Feld ist eine Aussage:
  * „diese Angabe war falsch, sie soll weg". Mit COALESCE-Semantik liesse sich kein einziges Feld je
- * löschen, und genau das muss ein Korrekturweg können.
+ * löschen, und genau das muss ein Korrekturweg können. Gilt auch für Vor- und Nachname einzeln:
+ * ein falsch eingetragener Vorname lässt sich leeren, ohne den Nachnamen mitzunehmen.
  *
  * ── DIE ZWECKBINDUNG WIRD ALS SATZ ÜBERSETZT, NICHT ALS DATENBANKFEHLER GEZEIGT ──────────────────
  * Der Wrapper WIRFT (22023), wenn Versorger oder Vertragsende ohne Einwilligung zur
@@ -190,7 +192,8 @@ export async function updateLeadAction(
   const { data, error } = await supabase.rpc('admin_update_lead', {
     p_lead_id: leadId,
     p_company: text('company'),
-    p_contact_name: text('contactName'),
+    p_first_name: text('firstName'),
+    p_last_name: text('lastName'),
     p_phone: text('phone'),
     // Ein unbekannter Wert scheitert am Postgres-Enum — die Datenbank bleibt die harte Grenze; das
     // Auswahlfeld bietet ohnehin nur die zehn Branchen an.

@@ -42,7 +42,8 @@ type Status = 'idle' | 'submitting' | 'success' | 'error'
 type FormErrorCode = KontaktErrorCode | 'network'
 
 type Values = {
-  name: string
+  vorname: string
+  nachname: string
   email: string
   unternehmen: string
   telefon: string
@@ -56,7 +57,8 @@ type Values = {
 }
 
 const EMPTY_VALUES: Values = {
-  name: '',
+  vorname: '',
+  nachname: '',
   email: '',
   unternehmen: '',
   telefon: '',
@@ -79,7 +81,8 @@ const EMPTY_VALUES: Values = {
  * zuletzt geprüfte, was den Nutzer im Formular nach unten springen ließe.
  */
 const FIELD_ORDER: KontaktFieldName[] = [
-  'name',
+  'vorname',
+  'nachname',
   'email',
   'unternehmen',
   'telefon',
@@ -248,10 +251,15 @@ export function KontaktForm({
     >
       <div className="space-y-5">
         <div className="grid gap-5 sm:grid-cols-2">
+          {/*
+            * ZWEI FELDER, BEIDE PFLICHT. `given-name`/`family-name` statt eines gemeinsamen
+            * `name`: der Browser füllt die beiden Felder nur dann richtig vor, wenn er weiss,
+            * welcher Teil wohin gehört. Begründung für die Auftrennung: `lib/kontakt/schema.ts`.
+            */}
           <Field
-            name="name"
-            label={t('fields.name')}
-            error={fieldErrors.name}
+            name="vorname"
+            label={t('fields.vorname')}
+            error={fieldErrors.vorname}
             fieldId={fieldId}
             errorId={errorId}
             t={t}
@@ -259,10 +267,29 @@ export function KontaktForm({
             {(props) => (
               <Input
                 {...props}
-                autoComplete="name"
+                autoComplete="given-name"
                 required
-                value={values.name}
-                onChange={(e) => set('name', e.target.value)}
+                value={values.vorname}
+                onChange={(e) => set('vorname', e.target.value)}
+              />
+            )}
+          </Field>
+
+          <Field
+            name="nachname"
+            label={t('fields.nachname')}
+            error={fieldErrors.nachname}
+            fieldId={fieldId}
+            errorId={errorId}
+            t={t}
+          >
+            {(props) => (
+              <Input
+                {...props}
+                autoComplete="family-name"
+                required
+                value={values.nachname}
+                onChange={(e) => set('nachname', e.target.value)}
               />
             )}
           </Field>

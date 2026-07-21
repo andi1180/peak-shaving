@@ -133,7 +133,13 @@ export async function POST(request: Request) {
    */
   await captureKontaktLead({
     email: data.email,
-    contactName: data.name,
+    /*
+     * GETRENNT übergeben, obwohl die interne Mail oben beide in einer Zeile zeigt: die
+     * Zusammenführung dort ist Darstellung für einen menschlichen Leser (s. `deliver.ts`), hier
+     * geht es um den Bestand — und dort sind zwei Werte der ganze Zweck der Auftrennung.
+     */
+    firstName: data.vorname,
+    lastName: data.nachname,
     company: data.unternehmen,
     phone: data.telefon,
     // Nur wenn ausdrücklich angekreuzt — der Default ist `undefined`, nicht `true`.

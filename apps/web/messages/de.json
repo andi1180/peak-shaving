@@ -1273,7 +1273,8 @@
     "retry": "Erneut senden",
     "honeypot": "Dieses Feld bitte leer lassen.",
     "fields": {
-      "name": "Name *",
+      "vorname": "Vorname *",
+      "nachname": "Nachname *",
       "email": "E-Mail *",
       "unternehmen": "Unternehmen",
       "telefon": "Telefon",
@@ -1290,8 +1291,10 @@
       "sonstiges": "Sonstiges"
     },
     "errors": {
-      "nameRequired": "Bitte geben Sie Ihren Namen an.",
-      "nameTooLong": "Der Name ist zu lang (maximal 100 Zeichen).",
+      "vornameRequired": "Bitte geben Sie Ihren Vornamen an.",
+      "vornameTooLong": "Der Vorname ist zu lang (maximal 100 Zeichen).",
+      "nachnameRequired": "Bitte geben Sie Ihren Nachnamen an.",
+      "nachnameTooLong": "Der Nachname ist zu lang (maximal 100 Zeichen).",
       "emailRequired": "Bitte geben Sie Ihre E-Mail-Adresse an.",
       "emailInvalid": "Diese E-Mail-Adresse sieht nicht gültig aus. Bitte prüfen Sie die Schreibweise.",
       "emailTooLong": "Die E-Mail-Adresse ist zu lang.",
@@ -1809,7 +1812,8 @@
     "industryPlaceholder": "Bitte wählen",
     "fields": {
       "email": "E-Mail-Adresse",
-      "contactName": "Name",
+      "firstName": "Vorname",
+   "lastName": "Nachname",
       "company": "Unternehmen",
       "phone": "Telefon",
       "industry": "Branche",

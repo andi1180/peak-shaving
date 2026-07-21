@@ -38,7 +38,8 @@ export type LeadExportRow = {
   id: string
   email: string
   company: string | null
-  contact_name: string | null
+  first_name: string | null
+  last_name: string | null
   phone: string | null
   status: string
   first_source_key: string
@@ -84,12 +85,20 @@ export function readExportResult(data: unknown): LeadExportResult | null {
  * darf. Die Spalte „Herkunft (Schlüssel)" fährt zusätzlich zur Bezeichnung mit, weil die
  * Bezeichnung frei änderbar ist und der Schlüssel nicht — eine Auswertung, die auf den Klartext
  * zeigt, bricht beim ersten Umbenennen still.
+ *
+ * ── VORNAME UND NACHNAME BLEIBEN ZWEI SPALTEN ───────────────────────────────────────────────────
+ * Aus der früheren Spalte „Ansprechperson" sind zwei geworden, und sie werden hier ausdrücklich
+ * NICHT wieder zu einer zusammengefügt. Der Grund für die Auftrennung — eine korrekte Anrede und
+ * die Wiederverwendbarkeit in einem Serienbrief — gilt für die ausgeführte Datei genauso wie für
+ * die Anzeige; sie beim Ausführen zu verkleben, gäbe den Zweck genau dort auf, wo er am ehesten
+ * gebraucht wird.
  */
 export const CSV_HEADERS = [
   'Lead-ID',
   'E-Mail',
   'Firma',
-  'Ansprechperson',
+  'Vorname',
+  'Nachname',
   'Telefon',
   'Status',
   'Herkunft',
@@ -115,7 +124,8 @@ export function csvFields(row: LeadExportRow): string[] {
     row.id,
     row.email,
     orEmpty(row.company),
-    orEmpty(row.contact_name),
+    orEmpty(row.first_name),
+    orEmpty(row.last_name),
     orEmpty(row.phone),
     statusLabel(row.status),
     orEmpty(row.first_source_label ?? row.first_source_key),

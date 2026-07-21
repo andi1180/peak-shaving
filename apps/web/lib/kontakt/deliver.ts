@@ -93,9 +93,22 @@ function orEmpty(value: string | undefined): string {
 
 type MailFields = { label: string; value: string }[]
 
+/**
+ * Vor- und Nachname ZUSAMMENGEFÜHRT — nur hier, nur für die Darstellung.
+ *
+ * Die Datenbank führt beide seit der Auftrennung von `contact_name` getrennt, und die Erfassung
+ * übergibt sie auch getrennt (`captureKontaktLead`, s. `app/api/kontakt/route.ts`). Diese Mail wird
+ * aber von einem MENSCHEN gelesen: zwei Zeilen „Vorname" und „Nachname" untereinander sind für den
+ * Empfänger keine Information, sondern ein Umweg. Die Zusammenführung ist deshalb reine
+ * Darstellung und ändert nichts an den gespeicherten Werten.
+ */
+export function fullName(input: Pick<KontaktInput, 'vorname' | 'nachname'>): string {
+  return `${input.vorname} ${input.nachname}`.trim()
+}
+
 function buildFields(input: KontaktInput, themaLabel: string): MailFields {
   return [
-    { label: 'Name', value: input.name },
+    { label: 'Name', value: fullName(input) },
     { label: 'E-Mail', value: input.email },
     { label: 'Unternehmen', value: orEmpty(input.unternehmen) },
     { label: 'Telefon', value: orEmpty(input.telefon) },
@@ -208,7 +221,7 @@ export async function deliverKontakt(
        * Domain bleiben (SPF/DKIM) — deshalb die fremde Adresse hier und nicht dort.
        */
       replyTo: input.email,
-      subject: `Kontaktanfrage: ${themaLabel} — ${input.name}`,
+      subject: `Kontaktanfrage: ${themaLabel} — ${fullName(input)}`,
       text: buildText(fields, input.nachricht, zeitstempel),
       html: buildHtml(fields, input.nachricht, zeitstempel),
     })

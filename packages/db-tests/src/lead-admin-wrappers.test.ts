@@ -89,8 +89,8 @@ async function newLead(
   const id = await runAs({ role: 'service_role', commit: true }, async (c) => {
     const { rows } = await c.query<{ id: string }>(
       `insert into platform.leads
-         (email, first_source_key, company, contact_name, phone, last_interaction_at)
-       values ($1, $2, $3, 'Max Muster', '+43 1 0000', now() - make_interval(days => $4::int))
+         (email, first_source_key, company, first_name, last_name, phone, last_interaction_at)
+       values ($1, $2, $3, 'Max', 'Muster', '+43 1 0000', now() - make_interval(days => $4::int))
        returning id`,
       [email, opts.sourceKey ?? 'kontaktformular', opts.company ?? 'DB-Gate GmbH', opts.dueDaysAgo ?? 0],
     )
@@ -204,7 +204,8 @@ async function leadRow(id: string) {
   const rows = await sql<{
     email: string
     company: string | null
-    contact_name: string | null
+    first_name: string | null
+    last_name: string | null
     phone: string | null
     status: string
     retention_basis: string
@@ -216,7 +217,7 @@ async function leadRow(id: string) {
     // anonymized_at als TEXT: der pg-Treiber liefert timestamptz sonst als Date-Objekt, und zwei
     // Date-Instanzen desselben Zeitpunkts sind nicht identisch — der Idempotenz-Vergleich wäre
     // dann ein Objektvergleich statt eines Zeitpunktvergleichs.
-    `select email, company, contact_name, phone, status, retention_basis,
+    `select email, company, first_name, last_name, phone, status, retention_basis,
             anonymized_at::text as anonymized_at,
             anonymized_by,
             deletion_due_at = last_interaction_at + interval '24 months' as matches_24_months,
@@ -460,7 +461,8 @@ describe('Anonymisierung', () => {
     const row = await leadRow(lead.id)
     expect(row.email).toBe(`anonymized+${lead.id}@invalid`)
     expect(row.company).toBeNull()
-    expect(row.contact_name).toBeNull()
+    expect(row.first_name).toBeNull()
+    expect(row.last_name).toBeNull()
     expect(row.phone).toBeNull()
     expect(row.status).toBe('anonymized')
     expect(row.anonymized_at).not.toBeNull()
@@ -546,7 +548,11 @@ describe('Anonymisierung', () => {
     const forbidden: [string, string][] = [
       ['email', `update platform.leads set email = 'zurueck@test.local' where id = $1`],
       ['company', `update platform.leads set company = 'Wieder Da GmbH' where id = $1`],
-      ['contact_name', `update platform.leads set contact_name = 'Max' where id = $1`],
+      // Der aufgetrennte Kontaktname: BEIDE Spalten einzeln geprüft. Ein Guard, der nur den
+      // Nachnamen schützte, liesse den Vornamen frei änderbar — und ein Vorname ist genauso ein
+      // Identitätsmerkmal wie der Rest.
+      ['first_name', `update platform.leads set first_name = 'Max' where id = $1`],
+      ['last_name', `update platform.leads set last_name = 'Muster' where id = $1`],
       ['phone', `update platform.leads set phone = '+43 1 1' where id = $1`],
       ['status', `update platform.leads set status = 'contacted' where id = $1`],
       ['retention_basis', `update platform.leads set retention_basis = 'commercial' where id = $1`],

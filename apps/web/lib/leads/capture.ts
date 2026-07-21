@@ -35,7 +35,9 @@ import { createConfirmationToken } from './tokens'
 
 export type KontaktLeadInput = {
   email: string
-  contactName?: string
+  /** Getrennt erfasst — das Kontaktformular verlangt beide (§5.5). */
+  firstName?: string
+  lastName?: string
   company?: string
   phone?: string
   /** Hat die Person die (nicht vorausgewählte) Marketing-Einwilligung angekreuzt? */
@@ -70,7 +72,8 @@ export async function captureKontaktLead(input: KontaktLeadInput): Promise<void>
       tokenHash: confirmation?.tokenHash ?? null,
       tokenExpiresAt: confirmation?.expiresAt ?? null,
       company: input.company ?? null,
-      contactName: input.contactName ?? null,
+      firstName: input.firstName ?? null,
+      lastName: input.lastName ?? null,
       phone: input.phone ?? null,
       sourceIp: input.sourceIp ?? null,
       userAgent: input.userAgent ?? null,
