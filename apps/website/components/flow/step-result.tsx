@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { Download, FileJson, Printer, RotateCcw } from 'lucide-react'
-import type { AnalysisResult } from 'shared'
+import { buildTariffSourceRef, type AnalysisResult, type TariffSourceRef } from 'shared'
 
 import { Report } from '@/components/report/report'
 import { Button } from '@/components/ui/button'
@@ -40,6 +40,26 @@ export function StepResult({
 }) {
   const [bundleError, setBundleError] = useState<string | null>(null)
 
+  /*
+   * B11 — die Herkunft der Tarifsätze zum ANGEZEIGTEN Lauf. EINE Ableitung, zwei Abnehmer: der
+   * Report zeigt sie, das Bündel speichert sie. Zwei getrennte Ableitungen liefen auseinander,
+   * sobald das Annahmen-Panel (§6.2) das Abrechnungsmodell ändert — dann stünde im Report „unverändert
+   * übernommen" und im Archiv etwas anderes.
+   *
+   * Massgeblich sind die Werte des angezeigten Laufs (`inputs.tariff`), nicht die aus Schritt 2: eine
+   * Live-Neuberechnung kann `billingModel` nachträglich vom Vorgabewert wegbewegen. `inputs` ist nur
+   * theoretisch `null` (der Hook füllt es im selben Schritt, in dem das Ergebnis entsteht) — dann
+   * bleibt der Formularstand von Schritt 2 die beste verfügbare Aussage.
+   */
+  const activeTariff = inputs?.tariff ?? payload.tariff
+  const tariffSource: TariffSourceRef | null = payload.tariffSelection
+    ? buildTariffSourceRef(payload.tariffSelection, {
+        leistungspreisEurPerKwYear: activeTariff.leistungspreisEurPerKwYear,
+        billingModel: activeTariff.billingModel,
+        minBillableKw: activeTariff.minBillableKw,
+      })
+    : null
+
   function handleExportCsv() {
     const csv = buildPerBatteryCsv(result.perBattery, result.assumptions.horizonYears)
     downloadTextFile('peak-shaving-ergebnis.csv', csv, 'text/csv;charset=utf-8')
@@ -63,7 +83,7 @@ export function StepResult({
       return
     }
     try {
-      const bundle = await buildBundle({ result, inputs, load, pv: payload.pv })
+      const bundle = await buildBundle({ result, inputs, load, pv: payload.pv, tariffSource })
       downloadTextFile(
         bundleFileName(bundle),
         serializeBundle(bundle),
@@ -129,6 +149,7 @@ export function StepResult({
       <Report
         result={result}
         loadProfile={load.profile}
+        tariffSource={tariffSource}
         originalTariff={payload.tariff}
         originalFinancial={payload.financial}
         recomputing={recomputing}

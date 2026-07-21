@@ -35,17 +35,34 @@ import type { AnalysisResult } from './analysis-result'
 import type { BatteryCandidate } from './battery'
 import type { FinancialParams } from './financial'
 import type { TariffParams } from './tariff'
+import type { TariffOverridableField } from './tariff-catalog'
 
 /**
- * Fassung des Bündelformats. Beginnt bei 1 und wird erhöht, sobald sich die BEDEUTUNG eines Feldes
- * ändert — nicht bei einer additiven Ergänzung.
+ * Fassung des Bündelformats — die des NEU erzeugten Bündels.
  *
  * Der Upload lehnt eine UNBEKANNTE Fassung ab, statt zu raten. Ein Bündel aus einer neueren
  * Rechner-Fassung enthielte Felder, die dieser Admin-Stand nicht kennt; still zu übernehmen, was er
  * versteht, erzeugte eine eingefrorene Baseline, der genau die Angaben fehlen, wegen derer die
  * Fassung erhöht wurde.
+ *
+ * ── FASSUNG 2 (B11) ────────────────────────────────────────────────────────────────────────────
+ * `inputs` trägt zusätzlich die Herkunft der Tarifsätze (`tariffSetId`, `tariffSetValidFrom`,
+ * `tariffProfileKey`, `tariffOverriddenFields`). Die Ergänzung ist rein additiv; die Fassung steigt
+ * trotzdem, weil sie beantwortet, WELCHE Angaben ein Leser erwarten darf: fehlt die Herkunft in
+ * einem Bündel der Fassung 2, hat der Nutzer keinen Netzbetreiber gewählt — fehlt sie in Fassung 1,
+ * konnte es sie gar nicht geben. Ohne die Fassungsnummer wären diese beiden Fälle 2027 nicht mehr
+ * zu unterscheiden.
  */
-export const ANALYSIS_BUNDLE_VERSION = 1
+export const ANALYSIS_BUNDLE_VERSION = 2
+
+/**
+ * Fassungen, die der Upload annimmt.
+ *
+ * Fassung 1 bleibt gültig: es kann bereits ein Bündel exportiert und noch nicht hochgeladen worden
+ * sein, und ein Bündel unbrauchbar zu machen, das ein Mensch in der Hand hält, wäre der schlechtere
+ * Handel. Bei Fassung 1 bleiben die neuen Felder schlicht leer.
+ */
+export const SUPPORTED_ANALYSIS_BUNDLE_VERSIONS: readonly number[] = [1, 2]
 
 /**
  * Fassung der Rechen-Engine, VON HAND gepflegt.
@@ -115,6 +132,33 @@ export type AnalysisBundleInputs = {
   }
   /** Name der optionalen Brutto-PV-Datei (§3.1); `null`, wenn keine hochgeladen wurde. */
   pvFileName: string | null
+
+  // ── B11: Herkunft der Tarifsätze (Fassung 2) ─────────────────────────────────────────────────
+  //
+  // ES IST EINE HERKUNFTSANGABE, KEIN ERSATZ FÜR DIE WERTE. Leistungspreis, Abrechnungsmodell und
+  // Mindestbemessung stehen unverändert als WERTE in `inputs.tariff` — die B14-1-Regel (b) gilt
+  // wörtlich weiter und war schon dort ausdrücklich auf B11 gemünzt: „das gilt ausdrücklich auch
+  // für B11, wenn die Tarifschicht konfigurierbar wird (ein Verweis änderte die eingefrorene
+  // Baseline still mit)". Wer 2027 `tariffSetId` nachschlägt und den heutigen Stand der Datei
+  // liest, sieht womöglich andere Zahlen; massgeblich ist und bleibt, was in `inputs.tariff` steht.
+  //
+  // Alle vier Felder fehlen, wenn kein Netzbetreiber gewählt wurde (die Werte kamen dann direkt aus
+  // der Netzrechnung) — und in jedem Bündel der Fassung 1.
+  /** Kennung des Tarifsatz-Stands, z. B. `at-2026`. */
+  tariffSetId?: string
+  /** Menschenlesbare Bezeichnung — damit das Bündel 2027 ohne den Code einzuordnen ist. */
+  tariffSetLabel?: string
+  /** Beginn der Gültigkeit des Stands, ISO-Datum. */
+  tariffSetValidFrom?: string
+  /** Stabiler Schlüssel der Kombination, z. B. `wiener_netze:NE3`. */
+  tariffProfileKey?: string
+  /**
+   * Welche Preisfelder der Nutzer gegenüber dem Vorgabewert geändert hat. Leeres Array heisst
+   * „unverändert übernommen" — und das ist eine ANDERE Aussage als ein fehlendes Feld (kein
+   * Netzbetreiber gewählt). Ohne diese Unterscheidung wäre 2027 nicht mehr zu sagen, ob eine
+   * Baseline auf unserer Tabelle oder auf der echten Netzrechnung des Kunden beruht.
+   */
+  tariffOverriddenFields?: TariffOverridableField[]
 }
 
 /**
@@ -293,11 +337,15 @@ export function parseAnalysisBundle(raw: unknown): AnalysisBundleParseResult {
         'Der Datei fehlt die Angabe „bundleVersion" — sie stammt nicht aus dem Analyse-Export des Rechners.',
     }
   }
-  if (raw.bundleVersion !== ANALYSIS_BUNDLE_VERSION) {
+  // B11: angenommen werden Fassung 1 UND 2. Ein bereits exportiertes Bündel der Fassung 1 darf
+  // nicht unbrauchbar werden — es kann in der Hand eines Menschen liegen, der es noch nicht
+  // hochgeladen hat. Bei Fassung 1 fehlt die Tarif-Herkunft schlicht.
+  if (!SUPPORTED_ANALYSIS_BUNDLE_VERSIONS.includes(raw.bundleVersion)) {
     return {
       ok: false,
       message:
-        `Unbekannte Bündel-Fassung ${raw.bundleVersion} (erwartet ${ANALYSIS_BUNDLE_VERSION}). ` +
+        `Unbekannte Bündel-Fassung ${raw.bundleVersion} (unterstützt: ` +
+        `${SUPPORTED_ANALYSIS_BUNDLE_VERSIONS.join(', ')}). ` +
         'Das Bündel stammt aus einem anderen Stand des Rechners; es wird nichts angelegt.',
     }
   }

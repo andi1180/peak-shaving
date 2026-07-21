@@ -6,6 +6,7 @@ import {
   type FinancialParams,
   type LoadProfile,
   type TariffParams,
+  type TariffSourceRef,
 } from 'shared'
 
 import {
@@ -27,6 +28,7 @@ import { LoadChart } from './load-chart'
 import { Num } from './num'
 import { PrintAssumptionsSnapshot } from './print-assumptions-snapshot'
 import { RecommendationCard } from './recommendation-card'
+import { TariffSourceNote } from './tariff-source-note'
 
 // Report — ruhig, datendicht, desktop-first, Tablet Pflicht (§6.2). Bewusst ANDERER
 // Charakter als die Marketing-Seite. `loadProfile` ist der rohe, client-seitig geparste Lastgang
@@ -40,6 +42,7 @@ import { RecommendationCard } from './recommendation-card'
 export function Report({
   result,
   loadProfile,
+  tariffSource,
   originalTariff,
   originalFinancial,
   recomputing,
@@ -50,6 +53,8 @@ export function Report({
 }: {
   result: AnalysisResult
   loadProfile: LoadProfile
+  /** B11: Herkunft der Tarifsätze zum ANGEZEIGTEN Lauf; `null` ohne Netzbetreiber-Auswahl. */
+  tariffSource: TariffSourceRef | null
   originalTariff: TariffParams
   originalFinancial?: FinancialParams
   recomputing: boolean
@@ -254,6 +259,10 @@ export function Report({
           </AlertDescription>
         </Alert>
       )}
+
+      {/* B11: dauerhaft sichtbar, auch im Druck — ohne diese Angabe ist die Baseline später nicht
+          einzuordnen (s. Kommentar in der Komponente). */}
+      <TariffSourceNote source={tariffSource} />
 
       <p className="text-xs text-text-muted">
         {/* Nicht verhandelbar (CLAUDE.md): keine ROI-Zahl als „echt", bevor gegen echten Lastgang validiert. */}

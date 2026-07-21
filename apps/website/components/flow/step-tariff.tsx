@@ -4,10 +4,20 @@ import { useState, type ReactNode } from 'react'
 import { AlertTriangle, ArrowLeft, ArrowRight, CheckCircle2 } from 'lucide-react'
 import { parsePvProfile } from 'engine'
 import {
+  NETZBETREIBER_IDS,
+  NETZBETREIBER_LABELS,
+  NETZEBENEN,
   financialParamsSchema,
+  lookupTariffProfile,
+  pendingAcrossAllBetreiber,
   tariffParamsSchema,
+  tariffSelectionFrom,
   type FinancialParams,
+  type Netzebene,
+  type NetzbetreiberId,
+  type PendingReason,
   type TariffParams,
+  type TariffSelection,
 } from 'shared'
 
 import {
@@ -30,8 +40,10 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { NumberField } from '@/components/ui/number-field'
+import { Num } from '@/components/report/num'
 import { parseNum, percentHint } from '@/lib/form-utils'
 import { FileDrop } from './file-drop'
+import { TarifNichtVerfuegbar } from './tarif-nicht-verfuegbar'
 import type { ParsedPv, TariffResult } from './types'
 
 async function readForParsing(
@@ -46,7 +58,6 @@ const initial = {
   leistungspreisEurPerKwYear: '90',
   minBillableKw: '0',
   billingModel: 'monthly_max_average',
-  netzebene: '',
   energyPriceCtPerKwh: '25',
   einspeiseverguetungCtPerKwh: '8',
   energyPriceNightCtPerKwh: '18',
@@ -69,6 +80,23 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   )
 }
 
+/**
+ * Sentinel für „nicht angegeben". Radix' `SelectItem` verträgt keinen leeren `value` — und ein
+ * eigener Wert ist hier ohnehin ehrlicher als ein leerer: „Nicht angeben" ist eine bewusste
+ * Antwort, kein fehlender Zustand.
+ */
+const NOT_SET = 'none'
+
+type PendingState = {
+  reason: PendingReason
+  netzbetreiber: NetzbetreiberId | null
+  netzebene: Netzebene
+  note?: string
+}
+
+/** Ab welcher relativen Abweichung vom Vorgabewert ein neutraler Hinweis erscheint. */
+const DEVIATION_THRESHOLD = 0.1
+
 export function StepTariff({
   onBack,
   onComplete,
@@ -83,7 +111,97 @@ export function StepTariff({
   const [pvIssue, setPvIssue] = useState<string | null>(null)
   const [errors, setErrors] = useState<Record<string, string>>({})
 
+  // ── B11: Netzbetreiber & Netzebene ────────────────────────────────────────────────────────────
+  const [netzbetreiber, setNetzbetreiber] = useState<NetzbetreiberId | typeof NOT_SET>(NOT_SET)
+  const [netzebene, setNetzebene] = useState<string>(NOT_SET)
+  /** Gesetzt, sobald eine Kombination MIT Sätzen vorbelegt hat — trägt die Vorgabewerte von damals. */
+  const [selection, setSelection] = useState<TariffSelection | null>(null)
+  /*
+   * Der Stichtag EINMAL bestimmt und danach festgehalten: `lookupTariffProfile` ist rein und
+   * bekommt das Datum übergeben (dieselbe Regel wie im Rechenkern). Würde es bei jedem Render neu
+   * gelesen, könnte eine Sitzung über Mitternacht hinweg still auf einen anderen Tarifsatz-Stand
+   * wechseln — mitten in einer bereits vorbelegten Eingabe.
+   */
+  const [stichtag] = useState(() => new Date().toISOString().slice(0, 10))
+
   const set = (k: keyof FormState) => (v: string) => setF((s) => ({ ...s, [k]: v }))
+
+  /**
+   * Auswahl übernehmen: bei einer Kombination MIT Sätzen die drei Felder vorbelegen, sonst die
+   * Vorbelegung wieder aufgeben.
+   *
+   * Vorbelegen heisst ÜBERSCHREIBEN — wer den Netzbetreiber wechselt, will die Werte des neuen
+   * sehen, nicht die des alten. Was der Nutzer danach eintippt, bleibt stehen; die Auswahl wird
+   * nicht erneut ausgewertet, und keine Neuberechnung im Report (§6.2) fasst diese Felder je wieder
+   * an. Genau das macht den Vorgabewert zu einer Vorbelegung und nicht zu einer Vorschrift.
+   */
+  function applySelection(nextBetreiber: string, nextEbene: string) {
+    setNetzbetreiber(nextBetreiber as NetzbetreiberId | typeof NOT_SET)
+    setNetzebene(nextEbene)
+
+    if (nextBetreiber === NOT_SET || nextEbene === NOT_SET) {
+      setSelection(null)
+      return
+    }
+
+    const result = lookupTariffProfile({
+      netzbetreiber: nextBetreiber as NetzbetreiberId,
+      netzebene: Number(nextEbene) as Netzebene,
+      on: stichtag,
+    })
+
+    if (result.status !== 'available') {
+      setSelection(null)
+      return
+    }
+
+    setF((s) => ({
+      ...s,
+      leistungspreisEurPerKwYear: String(result.profile.leistungspreisEurPerKwYear),
+      minBillableKw: String(result.profile.minBillableKw),
+      billingModel: result.profile.billingModel,
+    }))
+    setSelection(tariffSelectionFrom(result.set, result.profile))
+  }
+
+  /*
+   * Liegt zur Auswahl kein Satz vor? Ohne Netzbetreiber wird die Frage über ALLE geführten
+   * Netzbetreiber beantwortet — Netzebene 7 steht überall aus, und diese Aussage erst nach einer
+   * zusätzlichen Auswahl zu machen wäre eine Hürde ohne Ertrag.
+   */
+  const pending: PendingState | null = (() => {
+    if (netzebene === NOT_SET) return null
+    const ebene = Number(netzebene) as Netzebene
+
+    if (netzbetreiber === NOT_SET) {
+      const reason = pendingAcrossAllBetreiber(ebene, stichtag)
+      return reason ? { reason, netzbetreiber: null, netzebene: ebene } : null
+    }
+
+    const result = lookupTariffProfile({ netzbetreiber, netzebene: ebene, on: stichtag })
+    return result.status === 'pending_regulation'
+      ? {
+          reason: result.profile.reason,
+          netzbetreiber,
+          netzebene: ebene,
+          note: result.profile.note,
+        }
+      : null
+  })()
+
+  /*
+   * Weicht der eingetragene Leistungspreis deutlich vom Vorgabewert ab, ein NEUTRALER Hinweis —
+   * kein Fehler, keine Sperre. Der Kunde hat womöglich einen Sondervertrag, und die Rechnung
+   * schlägt jede Tabelle (Prinzip 1). Der Hinweis sagt nur, dass beide Zahlen bekannt sind.
+   */
+  const enteredLeistungspreis = parseNum(f.leistungspreisEurPerKwYear)
+  const defaultLeistungspreis = selection?.defaults.leistungspreisEurPerKwYear
+  const deviates =
+    defaultLeistungspreis != null &&
+    defaultLeistungspreis > 0 &&
+    Number.isFinite(enteredLeistungspreis) &&
+    Math.abs(enteredLeistungspreis - defaultLeistungspreis) / defaultLeistungspreis >
+      DEVIATION_THRESHOLD
 
   // PV-Profil ist optional (§3.1): Datei client-side parsen (Prinzip 4 — verlässt den Browser nicht).
   // Bei Fehler/uneindeutigem Format eine Warnung zeigen, aber NICHT blockieren — der Rechner läuft dann
@@ -105,6 +223,12 @@ export function StepTariff({
   }
 
   function handleSubmit() {
+    /*
+     * B11, TEIL 4: Zu einer Kombination ohne Leistungspreis wird NICHT gerechnet. Die Sperre sitzt
+     * hier UND am Knopf — der Knopf ist die sichtbare Hälfte, diese Zeile die wirksame.
+     */
+    if (pending) return
+
     const errs: Record<string, string> = {}
 
     const tariffInput: Record<string, unknown> = {
@@ -114,7 +238,7 @@ export function StepTariff({
       energyPriceCtPerKwh: parseNum(f.energyPriceCtPerKwh),
       einspeiseverguetungCtPerKwh: parseNum(f.einspeiseverguetungCtPerKwh),
     }
-    if (f.netzebene.trim()) tariffInput.netzebene = f.netzebene.trim()
+    if (netzebene !== NOT_SET) tariffInput.netzebene = `NE ${netzebene}`
     if (useNight) {
       tariffInput.energyPriceNightCtPerKwh = parseNum(f.energyPriceNightCtPerKwh)
       tariffInput.timeOfUseWindows = [
@@ -164,7 +288,16 @@ export function StepTariff({
     // Report). `handlePvFile` löscht `pvIssue` bei jedem neuen Versuch, ein späterer Erfolg (pv gesetzt)
     // hebt sie also auf.
     const pvError = pv == null && pvIssue != null ? pvIssue : undefined
-    onComplete({ tariff: tRes.data as TariffParams, financial, pv, pvError })
+    onComplete({
+      tariff: tRes.data as TariffParams,
+      financial,
+      pv,
+      pvError,
+      // B11: die Herkunft der Vorgabewerte reist mit — sie steht dauerhaft im Report und im
+      // Analyse-Bündel (Fassung 2). `undefined`, wenn kein Netzbetreiber gewählt wurde: dann
+      // stammen die Werte direkt aus der Netzrechnung, und das ist eine eigene Aussage.
+      tariffSelection: selection ?? undefined,
+    })
   }
 
   return (
@@ -176,6 +309,73 @@ export function StepTariff({
         </p>
       </CardHeader>
       <CardContent className="flex flex-col gap-8">
+        {/*
+         * B11 — Netzbetreiber und Netzebene belegen Leistungspreis, Abrechnungsmodell und
+         * Mindestbemessung vor. Steht VOR dem Leistungspreis, weil die Auswahl ihn setzt; darunter
+         * wäre die Reihenfolge im Formular umgekehrt zur Wirkung.
+         */}
+        <Section title="Netzbetreiber & Netzebene">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="netzbetreiber">Netzbetreiber</Label>
+              <Select
+                value={netzbetreiber}
+                onValueChange={(v) => applySelection(v, netzebene)}
+              >
+                <SelectTrigger id="netzbetreiber">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NOT_SET}>Nicht angeben — Werte aus meiner Netzrechnung</SelectItem>
+                  {NETZBETREIBER_IDS.map((id) => (
+                    <SelectItem key={id} value={id}>
+                      {NETZBETREIBER_LABELS[id]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="netzebene">Netzebene</Label>
+              <Select value={netzebene} onValueChange={(v) => applySelection(netzbetreiber, v)}>
+                <SelectTrigger id="netzebene">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NOT_SET}>Nicht angeben</SelectItem>
+                  {NETZEBENEN.map((ebene) => (
+                    <SelectItem key={ebene} value={String(ebene)}>
+                      Netzebene {ebene}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/*
+           * Die Herkunft steht sichtbar, aber unaufdringlich — und sie sagt in demselben Satz, dass
+           * die eigene Rechnung massgeblich ist (Prinzip 1). Ein Vorgabewert ohne diesen Hinweis
+           * liest sich wie eine Feststellung.
+           */}
+          {selection && !pending && (
+            <p className="text-xs text-text-muted" data-testid="tarif-herkunft">
+              Vorbelegt aus „{selection.tariffSetLabel}“ (gültig ab{' '}
+              <Num>{selection.tariffSetValidFrom}</Num>). Ihre Netzrechnung schlägt diese Tabelle —
+              alle Felder unten bleiben editierbar.
+            </p>
+          )}
+
+          {pending && (
+            <TarifNichtVerfuegbar
+              reason={pending.reason}
+              netzbetreiber={pending.netzbetreiber}
+              netzebene={pending.netzebene}
+              note={pending.note}
+            />
+          )}
+        </Section>
+
         <Section title="Leistungspreis">
           <div className="grid gap-4 sm:grid-cols-2">
             <NumberField
@@ -209,16 +409,14 @@ export function StepTariff({
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="netzebene">Netzebene (optional)</Label>
-              <Input
-                id="netzebene"
-                value={f.netzebene}
-                onChange={(e) => set('netzebene')(e.target.value)}
-                placeholder="z. B. NE 6"
-              />
-            </div>
           </div>
+          {deviates && defaultLeistungspreis != null && (
+            <p className="text-xs text-text-muted" data-testid="tarif-abweichung">
+              Ihr Leistungspreis weicht deutlich vom Vorgabewert ab (<Num>{defaultLeistungspreis}</Num>{' '}
+              €/kW·a laut hinterlegtem Stand). Das ist kein Fehler — ein Sondervertrag oder eine
+              andere Netzebene erklärt das. Gerechnet wird mit Ihrem Wert.
+            </p>
+          )}
         </Section>
 
         <Section title="Energiepreise">
@@ -366,7 +564,12 @@ export function StepTariff({
             <ArrowLeft className="h-4 w-4" />
             Zurück
           </Button>
-          <Button onClick={handleSubmit}>
+          {/*
+           * B11, TEIL 4: gesperrt, solange zur Auswahl kein Leistungspreis vorliegt. Die Begründung
+           * steht oben im Klartext — ein Knopf, der stumm nicht reagiert, wäre eine Panne; einer,
+           * der neben der Begründung deaktiviert ist, ist die Aussage selbst.
+           */}
+          <Button onClick={handleSubmit} disabled={pending != null}>
             Analyse starten
             <ArrowRight className="h-4 w-4" />
           </Button>

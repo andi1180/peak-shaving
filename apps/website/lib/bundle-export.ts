@@ -6,6 +6,7 @@ import {
   serializeAnalysisBundle,
   type AnalysisBundle,
   type AnalysisResult,
+  type TariffSourceRef,
 } from 'shared'
 
 import { applyBatteryOverride } from './battery-override'
@@ -41,6 +42,8 @@ export type BundleExportArgs = {
   inputs: AnalysisRunInputs
   load: ParsedLoad
   pv: ParsedPv | null
+  /** B11: Herkunft der Tarifsätze; `null`, wenn kein Netzbetreiber gewählt wurde. */
+  tariffSource: TariffSourceRef | null
 }
 
 /**
@@ -67,6 +70,25 @@ export async function buildBundle(args: BundleExportArgs): Promise<AnalysisBundl
       batteryCatalog: applyBatteryOverride(DEMO_BATTERY_CATALOG, args.inputs.batteryOverride),
       batteryOverride: args.inputs.batteryOverride,
       pvFileName: args.pv?.fileName ?? null,
+      /*
+       * B11 (Bündel-Fassung 2) — die HERKUNFT der Tarifsätze, nicht die Sätze selbst. Leistungspreis,
+       * Abrechnungsmodell und Mindestbemessung stehen unverändert als WERTE in `inputs.tariff`
+       * (oben): die B14-1-Regel „kein Fremdschlüssel auf veränderliche Konfiguration" war
+       * ausdrücklich schon auf diesen Bauabschnitt gemünzt. Wer 2027 `tariffSetId` nachschlägt,
+       * findet womöglich einen fortgeschriebenen Stand — massgeblich bleibt, was hier als Wert steht.
+       *
+       * Alle vier Felder fehlen, wenn kein Netzbetreiber gewählt wurde. Das ist eine eigene Aussage
+       * („kam direkt aus der Netzrechnung") und darf nicht als leerer Wert getarnt werden.
+       */
+      ...(args.tariffSource
+        ? {
+            tariffSetId: args.tariffSource.tariffSetId,
+            tariffSetLabel: args.tariffSource.tariffSetLabel,
+            tariffSetValidFrom: args.tariffSource.tariffSetValidFrom,
+            tariffProfileKey: args.tariffSource.tariffProfileKey,
+            tariffOverriddenFields: args.tariffSource.overriddenFields,
+          }
+        : {}),
     },
     result: args.result,
     sourceFileName: args.load.fileName,
