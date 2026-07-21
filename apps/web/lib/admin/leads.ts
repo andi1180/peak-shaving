@@ -228,6 +228,26 @@ export type ContractReminderHealth = {
   staleAfterHours: number
 }
 
+// ── Herkunftszählung (B3-4) ──────────────────────────────────────────────────────────────────────
+
+/**
+ * Eine Zeile aus `public.admin_lead_source_stats`.
+ *
+ * DIE BEIDEN ZAHLEN HABEN VERSCHIEDENE BEZUGSGRÖSSEN, und das ist Absicht (ausführlich in der
+ * B3-4-Migration): `leadCount` zählt über `leads.first_source_key` — wo der Lead ins System kam;
+ * `confirmedMarketingCount` über `consents.source_key` — wo GENAU DIESE Einwilligung erteilt wurde.
+ * Sonst würde die Reaktion auf eine Kampagne dem älteren Kanal gutgeschrieben, über den dieselbe
+ * Person Monate zuvor hereinkam. Folge: die Spalten verhalten sich NICHT wie „davon", und die
+ * Oberfläche sagt das auch.
+ */
+export type LeadSourceStat = {
+  key: string
+  label: string
+  is_active: boolean
+  lead_count: number
+  confirmed_marketing_count: number
+}
+
 // ── Laufprotokoll der zeitgesteuerten Jobs (B4-1) ────────────────────────────────────────────────
 
 /**
@@ -326,6 +346,13 @@ export function readContractReminderHealth(data: unknown): ContractReminderHealt
     oldestAttemptedAt: typeof obj.oldest_attempted_at === 'string' ? obj.oldest_attempted_at : null,
     staleAfterHours: typeof obj.stale_after_hours === 'number' ? obj.stale_after_hours : 24,
   }
+}
+
+/** `null` = der Wrapper hat NICHT `ok` gemeldet (nicht: „es gibt keine Quellen"). */
+export function readLeadSourceStats(data: unknown): LeadSourceStat[] | null {
+  const obj = asObject(data)
+  if (!obj || obj.status !== 'ok') return null
+  return Array.isArray(obj.sources) ? (obj.sources as LeadSourceStat[]) : []
 }
 
 /** `null` = der Wrapper hat NICHT `ok` gemeldet (nicht: „es gab keine Läufe"). */

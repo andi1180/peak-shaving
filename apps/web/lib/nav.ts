@@ -67,18 +67,30 @@ export const MONITOR_GRATIS_CHECK_HREF = '/strom-check'
  */
 export const VERTRAGSENDE_ERINNERUNG_HREF = '/vertragsende-erinnerung'
 
+/**
+ * Warteliste zum Leistungstarif 2027 (Route `/warteliste`, B3-4). Steht aus demselben Grund hier
+ * wie die beiden Konstanten darüber: `MAIN_NAV` und `lib/routes.ts` lesen denselben Slug.
+ *
+ * INDEXIERBAR wie die Vertragsablauf-Erinnerung — eine öffentliche Seite, die gefunden werden soll.
+ * Die Zwillingsroute `/warteliste/wko` (der gedruckte QR-Code) steht bewusst NICHT hier: sie ist
+ * `noindex`, wird nirgends intern verlinkt, und ihr Segment kommt aus der Erlaubnisliste in
+ * `lib/leads/warteliste.ts`.
+ */
+export const WARTELISTE_HREF = '/warteliste'
+
 /** Die 5 Top-Level-Punkte. Mehr verträgt keine saubere Mobile-Nav (§4.1). */
 export const MAIN_NAV: NavItem[] = [
   {
     labelKey: 'leistungen',
     href: '/leistungen',
     overviewKey: 'leistungenAll',
-    // Die zwei kostenlosen Quereinstiege als LETZTE Punkte des Leistungen-Menüs (Header + Mobile).
+    // Die kostenlosen Quereinstiege als LETZTE Punkte des Leistungen-Menüs (Header + Mobile).
     // Fließen NICHT in LEISTUNGEN_FLAT → erscheinen bewusst NICHT im Footer und sind keine
     // „Leistung" im Sinne von lib/leistungen.ts.
     trailingLeaves: [
       { labelKey: 'stromCheck', href: MONITOR_GRATIS_CHECK_HREF },
       { labelKey: 'vertragsendeErinnerung', href: VERTRAGSENDE_ERINNERUNG_HREF },
+      { labelKey: 'warteliste', href: WARTELISTE_HREF },
     ],
     groups: [
       {

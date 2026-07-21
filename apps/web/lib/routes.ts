@@ -33,6 +33,7 @@ import {
   CALCULATOR_RUN_HREF,
   MONITOR_GRATIS_CHECK_HREF,
   VERTRAGSENDE_ERINNERUNG_HREF,
+  WARTELISTE_HREF,
 } from './nav'
 import { WISSEN_HREF } from './wissen'
 import { AUTH_HREFS } from './auth/config'
@@ -135,6 +136,17 @@ export const SITE_ROUTES: SiteRoute[] = Array.from(
      * eine öffentliche Leistungsbeschreibung mit Formular, keine WIP-Seite (s. `indexable` unten).
      */
     VERTRAGSENDE_ERINNERUNG_HREF,
+    /*
+     * B3-4: die Warteliste zum Leistungstarif 2027. Steht aus demselben Grund einzeln hier wie die
+     * Zeile darüber (`trailingLeaves` werden von `navHrefs()` nicht eingesammelt) und bleibt aus
+     * demselben Grund INDEXIERBAR: eine öffentliche Seite, die gefunden werden soll.
+     *
+     * Ihr Zwilling `/warteliste/wko` fehlt hier bewusst — er ist ein dynamisches Segment und steht
+     * deshalb unten in `DYNAMIC_TEMPLATES`. Seine `noindex`-Entscheidung trifft die Route selbst,
+     * und das ist hier KEIN zweiter Fundort: Nur was in dieser Liste steht, kann in die sitemap
+     * geraten, und ein dynamisches Segment kommt dort per Konstruktion nicht hinein.
+     */
+    WARTELISTE_HREF,
     ...AUTH_HREFS,
     ...LEAD_HREFS,
   ]),
@@ -194,7 +206,15 @@ const PAGES_DIR = path.join(process.cwd(), 'app', '(site)', '[locale]')
  * Route" meldet — und damit ein neues dynamisches Segment eine bewusste
  * Entscheidung bleibt und nicht still durchrutscht.
  */
-const DYNAMIC_TEMPLATES = [`${WISSEN_HREF}/[slug]`]
+const DYNAMIC_TEMPLATES = [
+  `${WISSEN_HREF}/[slug]`,
+  /*
+   * B3-4: `/warteliste/[quelle]` — die Warteliste unter einer anderen Herkunft. Ihre konkreten
+   * URLs kommen aus der Erlaubnisliste in `lib/leads/warteliste.ts`, nicht aus `SITE_ROUTES`.
+   * Sie sind ausnahmslos `noindex` und stehen deshalb ohnehin in keiner sitemap.
+   */
+  `${WARTELISTE_HREF}/[quelle]`,
+]
 
 /** Alle `page.tsx` unter `dir` als Routen-Pfade („/", „/wissen/[slug]", …). */
 function walkPages(dir: string, prefix = ''): string[] {

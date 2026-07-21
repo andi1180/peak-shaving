@@ -20,6 +20,7 @@
     "ppa": "PPA & Grünstrom",
     "finanzierung": "Finanzierung & Förderungen",
     "vertragsendeErinnerung": "Vertragsende-Erinnerung",
+    "warteliste": "Warteliste Leistungstarif 2027",
     "esg": "ESG / CSRD",
     "peakShaving": "Peak Shaving",
     "peakShavingWhat": "Was ist Peak Shaving",
@@ -1744,6 +1745,35 @@
       "a4": "Dann bekommen Sie die Erinnerung sofort statt gar nicht. Wir prüfen, ob das Vertragsende innerhalb der nächsten acht Wochen liegt — nicht, ob heute genau der Stichtag ist."
     }
   },
+  "Warteliste": {
+    "metaTitle": "Warteliste: Leistungstarif 2027",
+    "metaDescription": "Zum 1. Jänner 2027 erreicht der Leistungstarif die Netzebene 7. Die Beträge stehen noch nicht fest — tragen Sie sich ein, und wir schreiben Ihnen, sobald die Tarifverordnung veröffentlicht ist. Kostenlos und jederzeit abbestellbar.",
+    "eyebrow": "Kostenlos",
+    "title": "Wir sagen Ihnen Bescheid, sobald die Sätze feststehen",
+    "lead": "Zum 1. Jänner 2027 ändert sich, wofür Netzkosten verrechnet werden — auch für Betriebe, die bisher keine Leistungsmessung haben. Was das für Ihren Betrieb bedeutet, lässt sich erst rechnen, wenn die Tarifverordnung veröffentlicht ist. Tragen Sie sich ein, dann melden wir uns, sobald es so weit ist.",
+    "wkoEyebrow": "Sie haben Post von uns",
+    "wkoLead": "Sie haben von uns Post erhalten — über den QR-Code darin sind Sie hier gelandet. Zum 1. Jänner 2027 ändert sich, wofür Netzkosten verrechnet werden, auch für Betriebe ohne bisherige Leistungsmessung. Was das für Ihren Betrieb bedeutet, lässt sich erst rechnen, wenn die Tarifverordnung veröffentlicht ist. Tragen Sie sich ein, dann melden wir uns, sobald es so weit ist.",
+    "change": {
+      "title": "Was sich zum 1. Jänner 2027 ändert",
+      "body1": "Die Systemnutzungsentgelte werden neu geordnet. Der Leistungstarif — der Teil der Netzkosten, der sich nicht am Verbrauch bemisst, sondern an der höchsten bezogenen Leistung — erreicht dabei die Netzebene 7. Das ist die Ebene, an der die meisten Gewerbebetriebe hängen, die heute keine Leistungsmessung haben.",
+      "body2": "Wie hoch die Beträge ausfallen, steht noch nicht fest: Die Verordnung, die die Grundsätze regelt, liegt im Entwurf vor, und die Tarifverordnung mit den Sätzen ist noch nicht veröffentlicht. Solange das so ist, wäre jede Zahl an dieser Stelle erfunden — deshalb steht hier keine."
+    },
+    "effect": {
+      "title": "Was die Eintragung bewirkt",
+      "body": "Eine Nachricht, sobald die Tarifverordnung veröffentlicht ist und sich die Betroffenheit Ihres Betriebs konkret rechnen lässt. Bis dahin hören Sie nichts von uns."
+    },
+    "crossLinkIntro": "Sie wollen nur wissen, wann die Sätze feststehen?",
+    "crossLinkLabel": "Auf die Warteliste zum Leistungstarif 2027 eintragen",
+    "promise": {
+      "title": "Was die Eintragung nicht bedeutet",
+      "noCostTitle": "Keine Kosten, keine Verpflichtung",
+      "noCostBody": "Die Eintragung kostet nichts und verpflichtet Sie zu nichts. Es entsteht kein Vertrag und kein Angebot, das Sie ablehnen müssten.",
+      "unsubscribeTitle": "Abmeldung in jeder Nachricht",
+      "unsubscribeBody": "Jede E-Mail von uns trägt einen Abmeldelink. Ein Klick genügt, und Sie hören nichts mehr — ohne Rückfrage und ohne Begründung.",
+      "confirmTitle": "Erst nach Ihrer Bestätigung",
+      "confirmBody": "Nach dem Absenden bekommen Sie eine E-Mail mit einem Bestätigungslink. Erst wenn Sie ihn anklicken, stehen Sie auf der Liste. Bleibt der Klick aus, passiert nichts."
+    }
+  },
   "LeadMail": {
     "confirm": {
       "subject": "Bitte bestätigen Sie Ihre Einwilligung",
@@ -1829,10 +1859,10 @@
         "success": "Danke — Ihre Adresse ist notiert."
       },
       "wko-postaktion-qr": {
-        "heading": "Unterlagen zum Leistungstarif 2027 anfordern",
-        "body": "Sie haben unseren Brief erhalten. Tragen Sie hier Ihre Adresse ein, dann schicken wir Ihnen die Unterlagen und halten Sie zur Umstellung auf dem Laufenden.",
-        "submit": "Unterlagen anfordern",
-        "success": "Danke — bitte bestätigen Sie noch kurz die E-Mail, die wir Ihnen gerade geschickt haben."
+        "heading": "Auf die Warteliste eintragen",
+        "body": "Sie haben von uns Post erhalten. Tragen Sie sich hier ein, dann schreiben wir Ihnen, sobald die Tarifverordnung veröffentlicht ist. Die Branche brauchen wir, damit die Nachricht zu Ihrem Betrieb passt — Postleitzahl und Jahresverbrauch nur, wenn Sie sie zur Hand haben.",
+        "submit": "Eintragen",
+        "success": "Danke — bitte bestätigen Sie noch kurz die E-Mail, die wir Ihnen gerade geschickt haben. Erst danach stehen Sie auf der Liste."
       },
       "fachvortrag": {
         "heading": "Unterlagen zum Vortrag erhalten",
@@ -1875,6 +1905,12 @@
         "body": "Sagen Sie uns, bei wem Sie sind und wann Ihr Vertrag ausläuft. Wir erinnern Sie rechtzeitig vorher — einmal, und nur dafür.",
         "submit": "Erinnerung einrichten",
         "success": "Danke — bitte bestätigen Sie noch kurz die E-Mail, die wir Ihnen gerade geschickt haben. Erst danach ist die Erinnerung eingerichtet."
+      },
+      "warteliste": {
+        "heading": "Auf die Warteliste eintragen",
+        "body": "Wir schreiben Ihnen, sobald die Tarifverordnung veröffentlicht ist. Die Branche brauchen wir, damit die Nachricht zu Ihrem Betrieb passt — Postleitzahl und Jahresverbrauch nur, wenn Sie sie zur Hand haben.",
+        "submit": "Eintragen",
+        "success": "Danke — bitte bestätigen Sie noch kurz die E-Mail, die wir Ihnen gerade geschickt haben. Erst danach stehen Sie auf der Liste."
       }
     }
   }
