@@ -40,6 +40,11 @@ const serverSchema = z.object({
   RESEND_API_KEY: optionalEnv,
   RESEND_FROM: optionalEnv,
   RESEND_TO: optionalEnv,
+  // Signaturgeheimnis des Resend-Webhooks (B2-2, app/api/resend/webhook). Beginnt mit `whsec_`,
+  // stammt aus der Endpunkt-Seite im Resend-Dashboard. Optional im Schema wie alles hier — aber
+  // FAIL-CLOSED an der Verwendungsstelle: fehlt der Wert, antwortet der Endpunkt 400 statt zu
+  // laufen (s. resendWebhookSecretOrNull unten). ✔ Gefahrlos rotierbar.
+  RESEND_WEBHOOK_SECRET: optionalEnv,
   // Cloudflare-Turnstile-Secret. Fehlt es, wird die serverseitige Prüfung übersprungen (Honeypot
   // bleibt der Schutz) — deshalb optional.
   TURNSTILE_SECRET_KEY: optionalEnv,
@@ -66,6 +71,7 @@ export const serverEnv = parseEnv(
     RESEND_API_KEY: process.env.RESEND_API_KEY,
     RESEND_FROM: process.env.RESEND_FROM,
     RESEND_TO: process.env.RESEND_TO,
+    RESEND_WEBHOOK_SECRET: process.env.RESEND_WEBHOOK_SECRET,
     TURNSTILE_SECRET_KEY: process.env.TURNSTILE_SECRET_KEY,
     LEAD_TOKEN_SECRET: process.env.LEAD_TOKEN_SECRET,
     CRON_SECRET: process.env.CRON_SECRET,
@@ -135,4 +141,27 @@ export function requireLeadTokenSecret(): string {
  */
 export function cronSecretOrNull(): string | null {
   return serverEnv.CRON_SECRET ?? null
+}
+
+/**
+ * Signaturgeheimnis des Resend-Webhooks (B2-2, `app/api/resend/webhook`).
+ *
+ * BEWUSST KEIN `requireValue`, aus demselben Grund wie bei `CRON_SECRET`: das geforderte Verhalten
+ * bei fehlendem Wert ist eine glatte HTTP-Antwort (400), kein geworfener Fehler — der käme beim
+ * Anbieter als 500 an und löste einen Wiederholungssturm für etwas aus, das keine Wiederholung
+ * behebt. Die Prüfung bleibt trotzdem an der Verwendungsstelle (require-on-use): das Schema hält den
+ * Wert optional, damit ein Build ohne ihn durchläuft, und der Endpunkt erzwingt ihn beim ersten
+ * Zugriff.
+ *
+ * FAIL-CLOSED IST DER GANZE PUNKT: „es ist keins konfiguriert, also nehme ich jede Nutzlast an"
+ * hiesse, dass jeder im Internet Adressen dauerhaft sperren und Einwilligungen widerrufen könnte —
+ * eine Wirkung, für die es über die Oberfläche bewusst keinen Rückweg gibt.
+ *
+ * ⚠ IM GEGENSATZ ZU `LEAD_TOKEN_SECRET` IST DIESER WERT GEFAHRLOS ROTIERBAR. Er ist zustandsbehaftet
+ * nur zwischen Resend und diesem Endpunkt; es hängen keine bereits versendeten Links daran, die er
+ * entwerten könnte. Im Resend-Dashboard neu erzeugen, in Vercel setzen, neu deployen — Ereignisse,
+ * die dazwischen ankommen, werden mit 400 abgelehnt und von Resend wiederholt.
+ */
+export function resendWebhookSecretOrNull(): string | null {
+  return serverEnv.RESEND_WEBHOOK_SECRET ?? null
 }

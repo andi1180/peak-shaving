@@ -22,11 +22,15 @@ import { LeadEditForm } from '@/components/admin/lead-edit-form'
 import {
   LEADS_HREF,
   consentStatusLabel,
+  emailEventLabel,
   purposeLabel,
+  readEmailEvents,
   readLeadDetail,
   readStatus,
   retentionLabel,
   statusLabel,
+  suppressionReasonLabel,
+  type EmailEventRow,
   type LeadConsentDetail,
 } from '@/lib/admin/leads'
 
@@ -61,7 +65,9 @@ export const metadata: Metadata = {
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <dt className="text-caption font-semibold uppercase tracking-wide text-text-muted">{label}</dt>
+      <dt className="text-caption font-semibold uppercase tracking-wide text-text-muted">
+        {label}
+      </dt>
       <dd className="mt-0.5 text-small text-ink">{children}</dd>
     </div>
   )
@@ -77,7 +83,8 @@ function ConsentCard({
   actionsDisabled: boolean
 }) {
   const drifted = consent.effective_status !== consent.status
-  const canWithdraw = consent.effective_status === 'pending' || consent.effective_status === 'confirmed'
+  const canWithdraw =
+    consent.effective_status === 'pending' || consent.effective_status === 'confirmed'
 
   return (
     <AdminPanel>
@@ -104,10 +111,10 @@ function ConsentCard({
           </Pill>
           {drifted && (
             /*
-              * Der gespeicherte Wert weicht ab, weil B1-2 bewusst keinen Aufräumjob hat. Das
-              * gehört sichtbar hierher: sonst behauptet die Oberfläche einen Datenbankzustand,
-              * den ein Blick in die Tabelle widerlegt.
-              */
+             * Der gespeicherte Wert weicht ab, weil B1-2 bewusst keinen Aufräumjob hat. Das
+             * gehört sichtbar hierher: sonst behauptet die Oberfläche einen Datenbankzustand,
+             * den ein Blick in die Tabelle widerlegt.
+             */
             <span className="text-caption text-text-muted">
               gespeichert: {consentStatusLabel(consent.status)} (wird beim nächsten
               Bestätigungsversuch nachgezogen)
@@ -145,13 +152,13 @@ function ConsentCard({
       </dl>
 
       {/*
-        * Der Knopf bleibt STEHEN, wenn es nichts mehr zu widerrufen gibt — deaktiviert, nicht
-        * entfernt. Grund ist nicht Kosmetik: nach einem erfolgreichen Widerruf rendert
-        * `revalidatePath` diese Seite neu. Verschwände der Knopf dabei, verschwände die Komponente,
-        * die seine Rückmeldung hält — die Meldung „widerrufen (2 Einträge)" wäre nie zu sehen, weil
-        * genau der Erfolg sie entfernt. Sichtbar bleibt sie nur, wenn das Formular die
-        * Neu-Darstellung überlebt.
-        */}
+       * Der Knopf bleibt STEHEN, wenn es nichts mehr zu widerrufen gibt — deaktiviert, nicht
+       * entfernt. Grund ist nicht Kosmetik: nach einem erfolgreichen Widerruf rendert
+       * `revalidatePath` diese Seite neu. Verschwände der Knopf dabei, verschwände die Komponente,
+       * die seine Rückmeldung hält — die Meldung „widerrufen (2 Einträge)" wäre nie zu sehen, weil
+       * genau der Erfolg sie entfernt. Sichtbar bleibt sie nur, wenn das Formular die
+       * Neu-Darstellung überlebt.
+       */}
       <div className="mt-4 border-t border-line pt-4">
         <WithdrawConsentButton
           leadId={leadId}
@@ -168,18 +175,85 @@ function ConsentCard({
   )
 }
 
-export default async function AdminLeadDetailPage({
-  params,
-}: {
-  params: Promise<{ id: string }>
-}) {
+/**
+ * Eine Zeile des Zustellprotokolls (B2-2).
+ *
+ * Der Ton unterscheidet die drei Fälle bewusst: eine Beschwerde ist die schärfste Rückmeldung, die
+ * eine Person geben kann, und darf nicht neben einer Zustellung verschwinden. Ein VORÜBERGEHENDER
+ * Rückläufer wird ausdrücklich als solcher benannt — sonst läse sich jede „Rückläufer"-Zeile wie
+ * eine Sperre, und die Hälfte davon war keine.
+ */
+function EmailEventRowItem({ event }: { event: EmailEventRow }) {
+  const isComplaint = event.event_type === 'email.complained'
+  /*
+   * Beide Formen des vorübergehenden Rückläufers tragen den Hinweis: `email.delivery_delayed` (bei
+   * Resend der REGELFALL für einen weichen Rückläufer — die Nutzlast trägt dort gar kein
+   * bounce-Objekt) und ein `email.bounced` mit ausdrücklich nicht-dauerhafter Einstufung. Ohne den
+   * Hinweis stünde bei der häufigeren Form nur „verzögert", und die Frage, die man sich beim Lesen
+   * stellt — hat das jetzt gesperrt? — bliebe unbeantwortet.
+   */
+  const isTransient =
+    event.event_type === 'email.delivery_delayed' ||
+    (event.event_type === 'email.bounced' && !event.is_permanent_bounce)
+
+  return (
+    <li className="border-t border-line py-3 first:border-t-0 first:pt-0">
+      <div className="flex flex-wrap items-center gap-2">
+        <Pill
+          tone={
+            isComplaint || event.is_permanent_bounce
+              ? 'negative'
+              : isTransient
+                ? 'warning'
+                : 'neutral'
+          }
+        >
+          {emailEventLabel(event.event_type)}
+        </Pill>
+        <Num className="text-caption text-text-muted">
+          {formatDateTime(event.occurred_at ?? event.received_at)}
+        </Num>
+        {event.is_permanent_bounce && (
+          <span className="text-caption text-text-muted">dauerhaft — hat die Adresse gesperrt</span>
+        )}
+        {isTransient && (
+          <span className="text-caption text-text-muted">vorübergehend — sperrt bewusst nicht</span>
+        )}
+        {isComplaint && (
+          <span className="text-caption text-text-muted">
+            hat gesperrt und alle Einwilligungen widerrufen
+          </span>
+        )}
+      </div>
+      {(event.bounce_type || event.bounce_subtype) && (
+        <p className="mt-1 text-caption text-text-muted">
+          Einstufung des Anbieters:{' '}
+          {[event.bounce_type, event.bounce_subtype].filter(Boolean).join(' / ')}
+        </p>
+      )}
+      {event.reason && (
+        <p className="mt-1 max-w-prose break-words text-caption text-text-muted">{event.reason}</p>
+      )}
+    </li>
+  )
+}
+
+export default async function AdminLeadDetailPage({ params }: { params: Promise<{ id: string }> }) {
   if (!(await isCurrentUserAdmin())) return null
 
   const { id } = await params
 
   const supabase = await createClient()
-  const res = await supabase.rpc('admin_get_lead', { p_lead_id: id })
+  // Zwei unabhängige Aufrufe: das Zustellprotokoll gehört nicht in `admin_get_lead`, weil es
+  // seitenweise begrenzt ist und der Lead selbst nicht — und ein Fehler beim Laden der Ereignisse
+  // darf nicht die ganze Detailseite umwerfen (dieselbe Aufteilung wie auf `/admin/leads`).
+  const [res, eventsRes] = await Promise.all([
+    supabase.rpc('admin_get_lead', { p_lead_id: id }),
+    supabase.rpc('admin_list_email_events', { p_lead_id: id, p_limit: 50 }),
+  ])
   if (res.error) console.error('[admin/leads] admin_get_lead:', res.error)
+  if (eventsRes.error) console.error('[admin/leads] admin_list_email_events:', eventsRes.error)
+  const emailEvents = readEmailEvents(eventsRes.data)
 
   // 'not_found' ist ein fachlicher Zustand (veralteter Link) → 404. Ein LADEFEHLER ist etwas
   // anderes und darf sich nicht als „gibt es nicht" ausgeben.
@@ -232,12 +306,12 @@ export default async function AdminLeadDetailPage({
             <strong className="font-semibold">Dieser Lead ist anonymisiert.</strong> Anonymisiert am{' '}
             <Num>{formatDateTime(lead.anonymized_at)}</Num>
             {/*
-              * B4-1: der Systemlauf wird ZUERST geprüft. Vorher schloss diese Kette aus einem leeren
-              * `anonymized_by` auf ein gelöschtes Konto — was richtig war, solange nur Menschen
-              * anonymisieren konnten. Seit der Fristenlauf existiert, wäre genau das eine
-              * Behauptung über ein Konto, das es nie gab. Die Antwort steht jetzt in der Zeile
-              * (`anonymized_by_system`), sie wird nicht mehr erraten.
-              */}
+             * B4-1: der Systemlauf wird ZUERST geprüft. Vorher schloss diese Kette aus einem leeren
+             * `anonymized_by` auf ein gelöschtes Konto — was richtig war, solange nur Menschen
+             * anonymisieren konnten. Seit der Fristenlauf existiert, wäre genau das eine
+             * Behauptung über ein Konto, das es nie gab. Die Antwort steht jetzt in der Zeile
+             * (`anonymized_by_system`), sie wird nicht mehr erraten.
+             */}
             {lead.anonymized_by_system ? (
               <> automatisch (Fristablauf)</>
             ) : lead.anonymized_by_email ? (
@@ -252,11 +326,11 @@ export default async function AdminLeadDetailPage({
             Personenbezug mehr, belegen aber weiterhin, dass korrekt gearbeitet wurde.
           </p>
           {/*
-            * Ohne diesen Satz liest sich „Sperrliste: nicht mehr ermittelbar" unten wie „die Sperre
-            * wurde mitgelöscht" — das Gegenteil des B1-1-Entwurfs. Ein bestehender Sperreintrag
-            * hängt an der ECHTEN Adresse, und die gibt es hier nicht mehr; er ist deshalb weiterhin
-            * wirksam, nur diesem Lead nicht mehr zuzuordnen.
-            */}
+           * Ohne diesen Satz liest sich „Sperrliste: nicht mehr ermittelbar" unten wie „die Sperre
+           * wurde mitgelöscht" — das Gegenteil des B1-1-Entwurfs. Ein bestehender Sperreintrag
+           * hängt an der ECHTEN Adresse, und die gibt es hier nicht mehr; er ist deshalb weiterhin
+           * wirksam, nur diesem Lead nicht mehr zuzuordnen.
+           */}
           <p className="mt-2 max-w-prose text-small text-text-muted">
             Ein etwaiger Sperrlisten-Eintrag besteht weiter — er hängt an der ursprünglichen Adresse
             und wirkt bei jeder künftigen Aussendung. Er lässt sich diesem Lead nur nicht mehr
@@ -287,42 +361,49 @@ export default async function AdminLeadDetailPage({
             </Field>
             <Field label="Sperrliste">
               {/*
-                * Bei einem anonymisierten Lead wird `is_suppressed` über die PLATZHALTER-Adresse
-                * berechnet und sagt deshalb nichts über die echte aus. „nicht gesperrt" wäre hier
-                * eine falsche Auskunft.
-                */}
+               * Bei einem anonymisierten Lead wird `is_suppressed` über die PLATZHALTER-Adresse
+               * berechnet und sagt deshalb nichts über die echte aus. „nicht gesperrt" wäre hier
+               * eine falsche Auskunft.
+               *
+               * B2-2: Ist gesperrt, wird der GRUND benannt. Mit dem Rückläufer-/Beschwerdepfad gibt
+               * es drei Wege auf die Liste, und sie bedeuten Verschiedenes: eine Abmeldung ist ein
+               * normaler Vorgang, eine Beschwerde der Anlass, die eigene Aussendung zu prüfen.
+               * Ohne den Grund sähen beide gleich aus.
+               */}
               {isAnonymized
                 ? 'nicht mehr ermittelbar'
                 : lead.is_suppressed
-                  ? 'gesperrt'
+                  ? `gesperrt (${lead.suppression_reason ? suppressionReasonLabel(lead.suppression_reason) : 'Grund nicht hinterlegt'})`
                   : 'nicht gesperrt'}
             </Field>
             {/*
-              * B2-1: `last_edited_by = null` ist ZWEIDEUTIG (nie von Hand bearbeitet ODER Konto
-              * gelöscht) — die Zeile enthält die Antwort nicht, und die Oberfläche rät hier nicht,
-              * anders als es B1-3 bei anonymized_by tat, bevor B4-1 die Urheberschaft ins
-              * Datenmodell holte. Unterschieden wird nur, was die Daten hergeben: steht eine UUID
-              * ohne E-Mail da, ist das Konto weg.
-              */}
+             * B2-1: `last_edited_by = null` ist ZWEIDEUTIG (nie von Hand bearbeitet ODER Konto
+             * gelöscht) — die Zeile enthält die Antwort nicht, und die Oberfläche rät hier nicht,
+             * anders als es B1-3 bei anonymized_by tat, bevor B4-1 die Urheberschaft ins
+             * Datenmodell holte. Unterschieden wird nur, was die Daten hergeben: steht eine UUID
+             * ohne E-Mail da, ist das Konto weg.
+             */}
             <Field label="Zuletzt bearbeitet von">
               {lead.last_edited_by_email ??
-                (lead.last_edited_by ? 'ein inzwischen gelöschtes Konto' : 'nicht von Hand bearbeitet')}
+                (lead.last_edited_by
+                  ? 'ein inzwischen gelöschtes Konto'
+                  : 'nicht von Hand bearbeitet')}
             </Field>
           </dl>
         </AdminPanel>
 
         {/*
-          * B2-1: der Korrekturweg. Die neun Felder stehen GENAU in dieser Komponente — bei einem
-          * anonymisierten Lead rendert sie dieselben neun als reine Anzeige. Eine zweite,
-          * schreibgeschützte Liste daneben hätte bedeutet, dass jede Änderung an der Feldmenge an
-          * zwei Stellen nachzuziehen ist.
-          */}
+         * B2-1: der Korrekturweg. Die neun Felder stehen GENAU in dieser Komponente — bei einem
+         * anonymisierten Lead rendert sie dieselben neun als reine Anzeige. Eine zweite,
+         * schreibgeschützte Liste daneben hätte bedeutet, dass jede Änderung an der Feldmenge an
+         * zwei Stellen nachzuziehen ist.
+         */}
         <AdminPanel className="mt-4">
           <h3 className="text-h4 text-ink">Stammdaten korrigieren</h3>
           <p className="mt-1 max-w-prose text-small text-text-muted">
             Für Tippfehler und Nachträge. Ein geleertes Feld LÖSCHT die Angabe — anders als bei der
-            Erfassung, wo eine fehlende Angabe den Bestand unberührt lässt: dort heisst „leer" „weiss
-            ich nicht", hier „das war falsch".
+            Erfassung, wo eine fehlende Angabe den Bestand unberührt lässt: dort heisst „leer"
+            „weiss ich nicht", hier „das war falsch".
           </p>
           <div className="mt-4">
             <LeadEditForm lead={lead} disabled={isAnonymized} />
@@ -348,10 +429,10 @@ export default async function AdminLeadDetailPage({
 
       {/* ── Vertragsablauf-Erinnerung ─────────────────────────────────────────────────────────── */}
       {/*
-        * Die Betriebsdaten selbst (B3-1) sind seit B2-1 Teil des Korrekturformulars oben — sie
-        * standen vorher als eigene Anzeige-Sektion hier. Was bleibt, ist der Erinnerungsstand: er
-        * ist keine Stammdatenangabe, sondern das Ergebnis eines Versands.
-        */}
+       * Die Betriebsdaten selbst (B3-1) sind seit B2-1 Teil des Korrekturformulars oben — sie
+       * standen vorher als eigene Anzeige-Sektion hier. Was bleibt, ist der Erinnerungsstand: er
+       * ist keine Stammdatenangabe, sondern das Ergebnis eines Versands.
+       */}
       <AdminSection
         id="erinnerung"
         title="Vertragsablauf-Erinnerung"
@@ -383,10 +464,10 @@ export default async function AdminLeadDetailPage({
             </p>
           ) : (
             <p className="mt-2 max-w-prose text-small text-negative">
-              <strong className="font-semibold">Beansprucht, aber ohne Rückmeldung</strong> — Versuch
-              am <Num>{formatDateTime(currentReminder.attempted_at)}</Num>. Der Lauf ist zwischen
-              Beanspruchung und Versand abgebrochen. Ob die Mail rausging, ist von hier aus nicht
-              feststellbar; genau deshalb wird nicht automatisch wiederholt.
+              <strong className="font-semibold">Beansprucht, aber ohne Rückmeldung</strong> —
+              Versuch am <Num>{formatDateTime(currentReminder.attempted_at)}</Num>. Der Lauf ist
+              zwischen Beanspruchung und Versand abgebrochen. Ob die Mail rausging, ist von hier aus
+              nicht feststellbar; genau deshalb wird nicht automatisch wiederholt.
             </p>
           )}
 
@@ -424,6 +505,44 @@ export default async function AdminLeadDetailPage({
         </AdminPanel>
       </AdminSection>
 
+      {/* ── Zustellereignisse ─────────────────────────────────────────────────────────────────── */}
+      <AdminSection
+        id="zustellung"
+        title="Zustellung"
+        description="Was Resend über bereits versendete Mails zurückgemeldet hat. Ein dauerhafter Rückläufer sperrt die Adresse, eine Beschwerde sperrt UND widerruft alle Einwilligungen; ein vorübergehender Rückläufer (volles Postfach, kurzzeitige Störung) tut bewusst keines von beidem. Öffnungen und Klicks stehen hier nicht — sie werden nicht erhoben."
+      >
+        <AdminPanel>
+          {emailEvents === null ? (
+            <AdminError>
+              Die Zustellereignisse konnten nicht geladen werden. Damit ist unbekannt, ob zu dieser
+              Adresse etwas zurückgekommen ist.
+            </AdminError>
+          ) : emailEvents.length === 0 ? (
+            <p className="max-w-prose text-small text-text-muted">
+              Zu dieser Adresse ist nichts zurückgekommen. Das ist der Normalfall — auch für einen
+              Lead, an den noch nie etwas versendet wurde.
+            </p>
+          ) : (
+            <ul className="flex flex-col">
+              {emailEvents.map((e) => (
+                <EmailEventRowItem key={e.id} event={e} />
+              ))}
+            </ul>
+          )}
+          {/*
+           * ES GIBT HIER BEWUSST KEINE MÖGLICHKEIT, EINE SPERRE AUFZUHEBEN — und es gibt dafür
+           * auch keinen Wrapper. Entsperren ist der Sache nach Erteilen, und die Regel aus B1-3
+           * lautet: der Admin kann widerrufen, nie erteilen. Eine Schaltfläche „doch wieder
+           * zustellen" wäre der Weg, auf dem eine Beschwerde mit einem Klick verschwindet.
+           */}
+          <p className="mt-4 max-w-prose text-caption text-text-muted">
+            Eine Sperre lässt sich hier nicht aufheben. Entsperren wäre der Sache nach Erteilen, und
+            der Admin kann widerrufen, nie erteilen. Ein begründeter Einzelfall bleibt ein bewusster
+            Eingriff in der Datenbank.
+          </p>
+        </AdminPanel>
+      </AdminSection>
+
       {/* ── Einwilligungen ────────────────────────────────────────────────────────────────────── */}
       <AdminSection
         id="einwilligungen"
@@ -440,26 +559,21 @@ export default async function AdminLeadDetailPage({
         ) : (
           <div className="flex flex-col gap-4">
             {consents.map((c) => (
-              <ConsentCard
-                key={c.id}
-                consent={c}
-                leadId={lead.id}
-                actionsDisabled={isAnonymized}
-              />
+              <ConsentCard key={c.id} consent={c} leadId={lead.id} actionsDisabled={isAnonymized} />
             ))}
           </div>
         )}
 
         {/*
-          * ES GIBT HIER BEWUSST KEINE MÖGLICHKEIT, EINE EINWILLIGUNG ANZULEGEN ODER ZU BESTÄTIGEN.
-          * Eine Oberfläche, in der sich „bestätigt" ankreuzen lässt, entwertet den gesamten Nachweis
-          * rückwirkend — auch die echten Einwilligungen. Es gibt dafür auch keinen Wrapper.
-          */}
+         * ES GIBT HIER BEWUSST KEINE MÖGLICHKEIT, EINE EINWILLIGUNG ANZULEGEN ODER ZU BESTÄTIGEN.
+         * Eine Oberfläche, in der sich „bestätigt" ankreuzen lässt, entwertet den gesamten Nachweis
+         * rückwirkend — auch die echten Einwilligungen. Es gibt dafür auch keinen Wrapper.
+         */}
         <p className="mt-4 max-w-prose text-caption text-text-muted">
-          Eine Einwilligung lässt sich hier nur widerrufen, nie erteilen oder bestätigen. Der einzige
-          Weg zu „bestätigt“ ist der Klick der betroffenen Person auf den Link in ihrer eigenen
-          Mailbox — eine Schaltfläche dafür würde jeden Nachweis rückwirkend entwerten, auch die
-          echten.
+          Eine Einwilligung lässt sich hier nur widerrufen, nie erteilen oder bestätigen. Der
+          einzige Weg zu „bestätigt“ ist der Klick der betroffenen Person auf den Link in ihrer
+          eigenen Mailbox — eine Schaltfläche dafür würde jeden Nachweis rückwirkend entwerten, auch
+          die echten.
         </p>
       </AdminSection>
 
@@ -473,8 +587,8 @@ export default async function AdminLeadDetailPage({
           <h3 className="text-h4 text-ink">Adresse dauerhaft sperren</h3>
           <p className="mt-1 max-w-prose text-small text-text-muted">
             Widerruft alle Zwecke und trägt die Adresse als SHA-256-Wert in die Sperrliste ein. Der
-            Eintrag hat keine Verbindung zum Lead und bleibt auch nach dessen Anonymisierung bestehen
-            — sonst stünde die Person nach dem nächsten Import wieder im Verteiler.
+            Eintrag hat keine Verbindung zum Lead und bleibt auch nach dessen Anonymisierung
+            bestehen — sonst stünde die Person nach dem nächsten Import wieder im Verteiler.
           </p>
           <div className="mt-4">
             <SuppressLeadButton leadId={lead.id} disabled={isAnonymized || lead.is_suppressed} />

@@ -214,7 +214,104 @@ export type LeadDetailRow = LeadListRow & {
    */
   last_edited_by: string | null
   last_edited_by_email: string | null
+  /*
+   * B2-2: WARUM die Adresse gesperrt ist. `null` heisst „nicht gesperrt" ODER — bei einem
+   * anonymisierten Lead — „nicht mehr ermittelbar": dort wird die Sperre über die PLATZHALTER-
+   * Adresse gesucht, und die steht auf keiner Liste. `is_suppressed` trägt dieselbe Einschränkung,
+   * die Oberfläche hält beide Fälle seit B1-3 auseinander.
+   */
+  suppression_reason: SuppressionReason | null
 }
+
+// ── Sperrliste: der Grund (B2-2) ─────────────────────────────────────────────────────────────────
+
+/**
+ * Spiegel des CHECK auf `platform.email_suppressions.reason`. Als Konstante zulässig aus demselben
+ * Grund wie `LEAD_STATUSES`: kurze feste Liste, und jeder Wert hat im Anwendungscode eigene
+ * Bedeutung — er entscheidet, ob eine Sperre ein normaler Vorgang ist oder ein Anlass, die eigene
+ * Aussendung zu überprüfen.
+ *
+ * DIE SPERRWIRKUNG IST IN ALLEN VIER FÄLLEN DIESELBE (B1-1: „jede Sperre sperrt"). Der Grund ist
+ * Betriebswissen, keine Abstufung.
+ */
+export const SUPPRESSION_REASONS = ['unsubscribed', 'bounced', 'complaint', 'manual'] as const
+export type SuppressionReason = (typeof SUPPRESSION_REASONS)[number]
+
+export const SUPPRESSION_REASON_LABELS: Record<SuppressionReason, string> = {
+  unsubscribed: 'abgemeldet',
+  bounced: 'Rückläufer',
+  complaint: 'Beschwerde',
+  manual: 'manuell gesperrt',
+}
+
+export function suppressionReasonLabel(reason: string): string {
+  return SUPPRESSION_REASON_LABELS[reason as SuppressionReason] ?? reason
+}
+
+// ── Zustellereignisse (B2-2) ─────────────────────────────────────────────────────────────────────
+
+/**
+ * Eine Zeile aus `public.admin_list_email_events`.
+ *
+ * KEINE Adresse: der Ledger führt nur den Hashwert (die Rohnutzlast wird bewusst nicht gespeichert,
+ * s. Kopf der B2-2-Migration). Die Zuordnung zu einer Person läuft über `lead_id`; ist die null, war
+ * die Adresse zum Zeitpunkt des Ereignisses unbekannt — der Webhook legt niemals einen Lead an.
+ *
+ * `is_permanent_bounce` kommt aus der DATENBANK und wird hier NICHT aus `event_type`/`bounce_type`
+ * nachgerechnet: es gibt genau eine Definition von „dauerhaft" (`platform.is_permanent_bounce`), und
+ * sie ist dieselbe, die über die Sperre entschieden hat. Eine zweite Auslegung in der Oberfläche
+ * könnte davon abweichen — und ausgerechnet an der Stelle, an der jemand nachvollziehen will, warum
+ * gesperrt wurde.
+ */
+export type EmailEventRow = {
+  id: string
+  event_type: string
+  lead_id: string | null
+  bounce_type: string | null
+  bounce_subtype: string | null
+  /** Freitext des Anbieters, beim Schreiben von Adressen bereinigt. */
+  reason: string | null
+  /** Zeitstempel des Anbieters; null, wenn die Nutzlast keinen trug. */
+  occurred_at: string | null
+  received_at: string
+  is_permanent_bounce: boolean
+}
+
+/**
+ * Beschriftungen der Ereignisarten. Bewusst KEIN vollständiger Spiegel des Anbieter-Vokabulars:
+ * die Datenbank hat aus demselben Grund keinen CHECK auf `event_type` — das Vokabular gehört Resend.
+ * Eine unbekannte Art wird deshalb roh angezeigt statt verschwiegen.
+ */
+export const EMAIL_EVENT_LABELS: Record<string, string> = {
+  'email.sent': 'versendet',
+  'email.delivered': 'zugestellt',
+  'email.delivery_delayed': 'verzögert',
+  'email.bounced': 'Rückläufer',
+  'email.complained': 'Beschwerde (als Spam gemeldet)',
+}
+
+export function emailEventLabel(eventType: string): string {
+  return EMAIL_EVENT_LABELS[eventType] ?? eventType
+}
+
+/**
+ * Der Befund aus `public.admin_email_event_stats`.
+ *
+ * `permanentBounces` ist NICHT die Zahl der `email.bounced`-Zeilen: darunter fallen auch
+ * vorübergehende Rückläufer, die bewusst nicht sperren. Beide Zahlen stehen deshalb nebeneinander in
+ * `counts` bzw. hier — und `days` fährt mit, damit die Oberfläche keinen anderen Zeitraum behaupten
+ * kann als den gezählten (dieselbe Regel wie `staleAfterHours`, B4-2).
+ */
+export type EmailEventStats = {
+  days: number
+  since: string
+  counts: Array<{ event_type: string; event_count: number }>
+  permanentBounces: number
+  complaints: number
+}
+
+/** Zeitraum der Frühwarnung auf `/admin/leads`. */
+export const EMAIL_EVENT_STATS_DAYS = 30
 
 // ── Versandprotokoll der Vertragsablauf-Erinnerung (B4-2) ───────────────────────────────────────
 
@@ -339,7 +436,6 @@ export type JobRunsResult = {
   lastSuccess: JobRun | null
 }
 
-
 // ── Leser ────────────────────────────────────────────────────────────────────────────────────────
 
 function asObject(data: unknown): Record<string, unknown> | null {
@@ -403,6 +499,28 @@ export function readExports(data: unknown): AdminExportRow[] | null {
   const obj = asObject(data)
   if (!obj || obj.status !== 'ok') return null
   return Array.isArray(obj.exports) ? (obj.exports as AdminExportRow[]) : []
+}
+
+/** `null` = der Wrapper hat NICHT `ok` gemeldet (nicht: „es gibt keine Ereignisse"). */
+export function readEmailEvents(data: unknown): EmailEventRow[] | null {
+  const obj = asObject(data)
+  if (!obj || obj.status !== 'ok') return null
+  return Array.isArray(obj.events) ? (obj.events as EmailEventRow[]) : []
+}
+
+/** `null` = der Wrapper hat NICHT `ok` gemeldet (nicht: „es kam nichts zurück"). */
+export function readEmailEventStats(data: unknown): EmailEventStats | null {
+  const obj = asObject(data)
+  if (!obj || obj.status !== 'ok') return null
+  return {
+    days: typeof obj.days === 'number' ? obj.days : EMAIL_EVENT_STATS_DAYS,
+    since: typeof obj.since === 'string' ? obj.since : '',
+    counts: Array.isArray(obj.counts)
+      ? (obj.counts as Array<{ event_type: string; event_count: number }>)
+      : [],
+    permanentBounces: typeof obj.permanent_bounces === 'number' ? obj.permanent_bounces : 0,
+    complaints: typeof obj.complaints === 'number' ? obj.complaints : 0,
+  }
 }
 
 /** `null` = der Wrapper hat NICHT `ok` gemeldet (nicht: „es gab keine Läufe"). */
