@@ -1,4 +1,10 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "ignoreCommand": "if [ \"$VERCEL_ENV\" != \"preview\" ]; then exit 1; else git diff --quiet HEAD^ HEAD .; fi"
+  "ignoreCommand": "if [ \"$VERCEL_ENV\" != \"preview\" ]; then exit 1; else git diff --quiet HEAD^ HEAD .; fi",
+  "crons": [
+    {
+      "path": "/api/cron/lead-retention",
+      "schedule": "15 3 * * *"
+    }
+  ]
 }

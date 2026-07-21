@@ -172,6 +172,13 @@ export type LeadDetailRow = LeadListRow & {
   /** null, wenn das handelnde Konto inzwischen gelöscht wurde (ON DELETE SET NULL). */
   anonymized_by_email: string | null
   /*
+   * B4-1: true = der Fristenlauf war der Urheber, nicht ein Mensch. Ohne dieses Feld läse die
+   * Detailseite ein leeres `anonymized_by` weiterhin als „inzwischen gelöschtes Konto" — bei einem
+   * Systemlauf die Behauptung eines Kontos, das es nie gab. Die Datenbank erzwingt per CHECK, dass
+   * nie beides zugleich gesetzt ist.
+   */
+  anonymized_by_system: boolean
+  /*
    * Segmentierungsmerkmale (B3-1). Bewusst NUR an der Detailsicht: `admin_list_leads` liefert sie
    * nicht, weil die gefilterte Sicht darauf B2 ist. Alle nullable — die Einstiegspunkte sind
    * kontextspezifisch und erheben unterschiedliche Felder.
@@ -186,6 +193,47 @@ export type LeadDetailRow = LeadListRow & {
 }
 
 export type LeadDetailResult = { lead: LeadDetailRow; consents: LeadConsentDetail[] }
+
+// ── Laufprotokoll der zeitgesteuerten Jobs (B4-1) ────────────────────────────────────────────────
+
+/**
+ * Schlüssel des Fristenlaufs — Spiegel des CHECK auf `platform.job_runs.job_key`. Als Konstante
+ * zulässig aus demselben Grund wie `LEAD_STATUSES`: kurze feste Liste, jeder Wert hat im
+ * Anwendungscode eigene Bedeutung (dieser hier bestimmt, welchen Job `/admin/leads` anzeigt).
+ */
+export const LEAD_RETENTION_JOB_KEY = 'lead_retention'
+
+/**
+ * Ab wann ein ausbleibender Lauf hervorgehoben wird. 48 Stunden und nicht 24: der Job läuft täglich,
+ * ein einzelner verpasster Lauf (Deployment, Plattformstörung) ist folgenlos — die Fristen bewegen
+ * sich in Monaten. Zwei ausgefallene Läufe hintereinander sind dagegen kein Zufall mehr.
+ */
+export const JOB_STALE_AFTER_HOURS = 48
+
+export type JobRunOutcome = 'success' | 'refused' | 'error'
+
+export type JobRun = {
+  id: string
+  job_key: string
+  started_at: string
+  /** null = der Lauf ist nie zu Ende gekommen (Abbruch/Timeout). */
+  finished_at: string | null
+  outcome: JobRunOutcome | null
+  items_considered: number | null
+  items_processed: number | null
+  detail: string | null
+}
+
+export type JobRunsResult = {
+  runs: JobRun[]
+  /**
+   * Der zuletzt ERFOLGREICHE Lauf — von der Datenbank getrennt ermittelt, nicht aus `runs`
+   * herausgesucht: sonst hinge „zuletzt erfolgreich am …" an der Fenstergrösse und behauptete nach
+   * genug misslungenen Läufen „noch nie erfolgreich".
+   */
+  lastSuccess: JobRun | null
+}
+
 
 // ── Leser ────────────────────────────────────────────────────────────────────────────────────────
 
@@ -221,6 +269,25 @@ export function readLeadDetail(data: unknown): LeadDetailResult | null {
     lead: lead as unknown as LeadDetailRow,
     consents: Array.isArray(obj.consents) ? (obj.consents as LeadConsentDetail[]) : [],
   }
+}
+
+/** `null` = der Wrapper hat NICHT `ok` gemeldet (nicht: „es gab keine Läufe"). */
+export function readJobRuns(data: unknown): JobRunsResult | null {
+  const obj = asObject(data)
+  if (!obj || obj.status !== 'ok') return null
+  const lastSuccess = asObject(obj.last_success)
+  return {
+    runs: Array.isArray(obj.runs) ? (obj.runs as JobRun[]) : [],
+    lastSuccess: lastSuccess ? (lastSuccess as unknown as JobRun) : null,
+  }
+}
+
+/** Stunden seit einem ISO-Zeitpunkt; `null` bei fehlendem oder unlesbarem Wert. */
+export function hoursSince(iso: string | null | undefined, now: Date = new Date()): number | null {
+  if (!iso) return null
+  const then = Date.parse(iso)
+  if (Number.isNaN(then)) return null
+  return (now.getTime() - then) / 3_600_000
 }
 
 // ── Beschriftungen ohne eigene Quelle ────────────────────────────────────────────────────────────

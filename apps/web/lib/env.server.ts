@@ -47,6 +47,11 @@ const serverSchema = z.object({
   // oben: die Marketing-Seite braucht es nicht, der Lead-Pfad erzwingt es beim ersten Zugriff.
   // ⚠ NICHT ROTIEREN — s. requireLeadTokenSecret unten.
   LEAD_TOKEN_SECRET: optionalEnv,
+  // Auslöse-Geheimnis des Cron-Endpunkts (B4-1, app/api/cron/**). Vercel schickt es als
+  // `Authorization: Bearer …`, sobald die Variable im Projekt gesetzt ist. Optional im Schema wie
+  // alles andere hier — aber FAIL-CLOSED an der Verwendungsstelle: fehlt der Wert, antwortet der
+  // Endpunkt 401 statt zu laufen (s. requireCronSecret unten).
+  CRON_SECRET: optionalEnv,
 })
 
 export const serverEnv = parseEnv(
@@ -63,6 +68,7 @@ export const serverEnv = parseEnv(
     RESEND_TO: process.env.RESEND_TO,
     TURNSTILE_SECRET_KEY: process.env.TURNSTILE_SECRET_KEY,
     LEAD_TOKEN_SECRET: process.env.LEAD_TOKEN_SECRET,
+    CRON_SECRET: process.env.CRON_SECRET,
   },
   'Server',
 )
@@ -111,4 +117,22 @@ export function requireStripeMonitorPriceId(): string {
  */
 export function requireLeadTokenSecret(): string {
   return requireValue(serverEnv.LEAD_TOKEN_SECRET, 'LEAD_TOKEN_SECRET')
+}
+
+/**
+ * Auslöse-Geheimnis der Cron-Endpunkte (B4-1). BEWUSST KEIN `requireValue`: ein fehlender Wert darf
+ * hier nicht werfen, sondern muss zu einer glatten 401 führen — deshalb `string | null`.
+ *
+ * FAIL-CLOSED IST DER GANZE PUNKT: wäre der Endpunkt ohne gesetztes Geheimnis offen ("es ist ja
+ * keins konfiguriert"), könnte ihn jeder Aufrufer im Internet auslösen. Heute wäre das ein
+ * fremdgesteuerter Massen-Anonymisierungslauf, ab B4-2 ein fremdgesteuerter Massenversand. Eine
+ * vergessene Umgebungsvariable ist ein plausibler Zustand — ein offener Auslöser darf nicht seine
+ * Folge sein.
+ *
+ * ⚠ IM GEGENSATZ ZU `LEAD_TOKEN_SECRET` IST DIESER WERT GEFAHRLOS ROTIERBAR. Er ist zustandsbehaftet
+ * nur zwischen Vercel und diesem Endpunkt; es hängen keine bereits versendeten Links daran, die er
+ * entwerten könnte. Neu setzen, neu deployen, fertig.
+ */
+export function cronSecretOrNull(): string | null {
+  return serverEnv.CRON_SECRET ?? null
 }

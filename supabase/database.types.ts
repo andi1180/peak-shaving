@@ -387,6 +387,39 @@ export type Database = {
         }
         Relationships: []
       }
+      job_runs: {
+        Row: {
+          detail: string | null
+          finished_at: string | null
+          id: string
+          items_considered: number | null
+          items_processed: number | null
+          job_key: string
+          outcome: string | null
+          started_at: string
+        }
+        Insert: {
+          detail?: string | null
+          finished_at?: string | null
+          id?: string
+          items_considered?: number | null
+          items_processed?: number | null
+          job_key: string
+          outcome?: string | null
+          started_at?: string
+        }
+        Update: {
+          detail?: string | null
+          finished_at?: string | null
+          id?: string
+          items_considered?: number | null
+          items_processed?: number | null
+          job_key?: string
+          outcome?: string | null
+          started_at?: string
+        }
+        Relationships: []
+      }
       lead_sources: {
         Row: {
           created_at: string
@@ -413,6 +446,7 @@ export type Database = {
           annual_consumption_kwh: number | null
           anonymized_at: string | null
           anonymized_by: string | null
+          anonymized_by_system: boolean
           company: string | null
           contact_name: string | null
           contract_end_date: string | null
@@ -435,6 +469,7 @@ export type Database = {
           annual_consumption_kwh?: number | null
           anonymized_at?: string | null
           anonymized_by?: string | null
+          anonymized_by_system?: boolean
           company?: string | null
           contact_name?: string | null
           contract_end_date?: string | null
@@ -457,6 +492,7 @@ export type Database = {
           annual_consumption_kwh?: number | null
           anonymized_at?: string | null
           anonymized_by?: string | null
+          anonymized_by_system?: boolean
           company?: string | null
           contact_name?: string | null
           contract_end_date?: string | null
@@ -626,7 +662,7 @@ export type Database = {
     }
     Functions: {
       anonymize_lead: {
-        Args: { p_actor: string; p_lead_id: string }
+        Args: { p_actor: string; p_by_system?: boolean; p_lead_id: string }
         Returns: Json
       }
       consent_effective_status: {
@@ -650,12 +686,24 @@ export type Database = {
       }
       is_admin: { Args: never; Returns: boolean }
       is_suppressed: { Args: { p_email: string }; Returns: boolean }
+      leads_due_for_anonymization: {
+        Args: { p_limit: number }
+        Returns: {
+          deletion_due_at: string
+          lead_id: string
+          retention_basis: string
+        }[]
+      }
       normalize_email: { Args: { p_email: string }; Returns: string }
       purpose_requires_double_opt_in: {
         Args: { p_purpose: Database["platform"]["Enums"]["consent_purpose"] }
         Returns: boolean
       }
       retention_months: { Args: { p_retention_basis: string }; Returns: number }
+      run_lead_retention: {
+        Args: { p_max_batch?: number; p_refuse_above?: number }
+        Returns: Json
+      }
       status_grants_access: { Args: { p_status: string }; Returns: boolean }
     }
     Enums: {
@@ -713,6 +761,10 @@ export type Database = {
       admin_list_admins: { Args: never; Returns: Json }
       admin_list_codes: { Args: never; Returns: Json }
       admin_list_customers: { Args: never; Returns: Json }
+      admin_list_job_runs: {
+        Args: { p_job_key?: string; p_limit?: number }
+        Returns: Json
+      }
       admin_list_leads: {
         Args: {
           p_consent_purpose?: Database["platform"]["Enums"]["consent_purpose"]
@@ -838,6 +890,10 @@ export type Database = {
         Returns: string
       }
       redeem_code: { Args: { p_code: string }; Returns: string }
+      run_lead_retention_job: {
+        Args: { p_max_batch?: number; p_refuse_above?: number }
+        Returns: Json
+      }
       suppress_email_and_withdraw_all: {
         Args: { p_lead_id: string }
         Returns: Json
