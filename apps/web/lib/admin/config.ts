@@ -27,21 +27,27 @@ export const PRODUCT_LABELS: Record<ProductKey, string> = {
 }
 
 /**
- * Die Produkte, für die HEUTE ein Gutscheincode ausgestellt werden darf — eine ECHTE Teilmenge von
- * `PRODUCT_KEYS`, und zwar aus einem fachlichen Grund, nicht aus Bequemlichkeit.
+ * Die Produkte, für die ein Gutscheincode ausgestellt werden darf.
  *
- * Der Pro-Kalkulator prüft `platform.entitlements` an KEINER Stelle: sein Zugang hängt weiterhin am
- * separaten, DB-losen Zugangscode in `lib/kalkulator-access.ts`. Ein für `calculator_pro`
- * eingelöster Gutscheincode schriebe also brav eine Entitlement-Zeile, die im echten Kalkulator
- * nichts bewirkt — der Kunde hätte bezahlt und stünde trotzdem vor dem Code-Dialog. Das ist der
- * unangenehmste aller Fehler: er sieht bis zum Einlösen wie ein Erfolg aus.
+ * ── SEIT B10-2 WIEDER DECKUNGSGLEICH MIT `PRODUCT_KEYS` — die Geschichte gehört dazu ────────────
+ * `calculator_pro` war hier bewusst AUSGESCHLOSSEN, solange der Pro-Kalkulator `platform.entitlements`
+ * an keiner Stelle las: sein Zugang hing an einem separaten, DB-losen Zugangscode. Ein für
+ * `calculator_pro` eingelöster Gutscheincode hätte damals brav eine Entitlement-Zeile geschrieben,
+ * die im Kalkulator nichts bewirkt — der Kunde hätte bezahlt und stünde trotzdem vor dem
+ * Code-Dialog. Der unangenehmste aller Fehler: er sieht bis zum Einlösen wie ein Erfolg aus.
  *
- * Deshalb steht `calculator_pro` NICHT zur Auswahl. Der Enum-Wert bleibt in der Datenbank (und in
- * `PRODUCT_KEYS`, damit bestehende Zeilen weiter korrekt beschriftet werden) — er wird nur nicht
- * mehr angeboten. Sobald Phase 2 den Kalkulator an das Entitlement-System anbindet, ist die
- * Rücknahme dieser Einschränkung ein Einzeiler hier.
+ * B10-2 hat genau diese Bedingung aufgelöst. Die Route prüft jetzt `get_my_entitlement` für
+ * `calculator_pro` (`lib/kalkulator/access.ts`), den Code-Dialog gibt es nicht mehr. Ein
+ * eingelöster Gutscheincode wirkt damit tatsächlich — er ist derzeit sogar der EINZIGE
+ * Selfservice-Weg zum Kalkulator (ein Stripe-Preis existiert nicht, OP#1 ist offen; ein erfundener
+ * Platzhalterpreis wäre hier derselbe Fehler wie eine erfundene Tarifzahl in B11).
+ *
+ * Die Liste bleibt trotzdem eine EIGENE neben `PRODUCT_KEYS` und wird nicht durch sie ersetzt:
+ * „welche Produkte gibt es" und „welche darf ein Admin per Code verschenken" sind zwei Fragen, die
+ * heute zufällig dieselbe Antwort haben. Ein künftiges Produkt, das ausschliesslich über Stripe
+ * läuft, gehört in die erste Liste und nicht in diese.
  */
-export const CODE_PRODUCT_KEYS = ['monitor'] as const
+export const CODE_PRODUCT_KEYS = ['monitor', 'calculator_pro'] as const
 export type CodeProductKey = (typeof CODE_PRODUCT_KEYS)[number]
 
 /**

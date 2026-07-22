@@ -22,7 +22,7 @@
  *
  * localStorage (§6 Schritt 3, §10): Vorbelegung passiert ERST NACH DEM MOUNT
  * (`useEffect`) — `window.localStorage` existiert während SSR/erstem Paint
- * nicht (Muster wie `components/peak-shaving/calculator-gate.tsx`). Nichts
+ * nicht. Nichts
  * verlässt den Browser: kein Fetch, kein Supabase-Import in dieser Datei.
  */
 import * as React from 'react'

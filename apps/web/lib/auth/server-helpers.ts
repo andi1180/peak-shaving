@@ -16,8 +16,20 @@ import { SITE_URL, HAS_CONFIGURED_SITE_URL } from '@/lib/site'
  * next-intl: der ist als `void` typisiert und verhinderte sowohl die Nicht-null-Verengung nach
  * `if (!user) …` als auch das Beenden einer Action, die ihren AuthState-Rückgabetyp erfüllen muss.
  */
-export function redirectToLocalized(href: string, locale: string): never {
-  nextRedirect(getPathname({ href, locale }))
+export function redirectToLocalized(
+  href: string,
+  locale: string,
+  query?: Record<string, string>,
+): never {
+  /*
+   * `query` (B10-2): Die geschützte Kalkulator-Route schickt einen nicht angemeldeten Besucher mit
+   * `?next=<Zielroute>` zum Login. Der Query-Teil wird bewusst NICHT an `href` gehängt
+   * („/anmelden?next=…"), sondern `getPathname` übergeben: `href` ist ein PFAD-Schlüssel, den
+   * next-intl bei einer zweiten Sprache übersetzt und präfixt — ein angehängter Query-String liefe
+   * in genau diese Auflösung mit hinein. Getrennt übergeben wird er erst NACH der Lokalisierung
+   * angefügt und korrekt kodiert.
+   */
+  nextRedirect(query ? getPathname({ href: { pathname: href, query }, locale }) : getPathname({ href, locale }))
 }
 
 /**

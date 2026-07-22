@@ -6,13 +6,13 @@ import { useTranslations } from 'next-intl'
 import { Link } from '@/i18n/navigation'
 import { Button } from '@/components/ui/button'
 import { resendConfirmationAction, signInAction } from '@/lib/auth/actions'
-import { PASSWORT_VERGESSEN_HREF, REGISTRIEREN_HREF } from '@/lib/auth/config'
+import { NEXT_PARAM, PASSWORT_VERGESSEN_HREF, REGISTRIEREN_HREF } from '@/lib/auth/config'
 import { AUTH_INITIAL_STATE } from '@/lib/auth/schema'
 import { AuthField, AuthFormError, AuthNotice, AuthSubmit, useFocusFirstError } from './form-parts'
 
 const FIELD_ORDER = ['email', 'password'] as const
 
-export function LoginForm() {
+export function LoginForm({ next }: { next?: string }) {
   const t = useTranslations('Konto')
   const [state, formAction, isPending] = useActionState(signInAction, AUTH_INITIAL_STATE)
   const prefix = `login-${React.useId()}`
@@ -22,6 +22,15 @@ export function LoginForm() {
   return (
     <div className="flex flex-col gap-5">
       <form action={formAction} noValidate className="flex flex-col gap-4">
+        {/*
+          * Rücksprungziel (B10-2): Wer über eine geschützte Route hierher geleitet wurde, soll
+          * nach dem Anmelden DORT landen und nicht auf `/konto`. Als verstecktes Feld statt über
+          * die URL, weil die Server Action per POST läuft und den Query-String der Seite nicht
+          * sieht. Die Seite hat den Wert bereits durch `sanitizeNext` geschickt; die Action prüft
+          * ihn NOCH EINMAL — dieses Feld ist im Browser frei änderbar, und die Prüfung, die zählt,
+          * ist die auf dem Server.
+          */}
+        {next && <input type="hidden" name={NEXT_PARAM} value={next} />}
         {state.formError && <AuthFormError>{t(`errors.${state.formError}`)}</AuthFormError>}
         <AuthField
           id={`${prefix}-email`}
