@@ -13,12 +13,6 @@ import { Container } from '@/components/ui/layout'
  * Was NICHT erreichbar ist, steht auch nicht drin: Es gibt derzeit keinen
  * aufrufbaren Kaufweg, deshalb keinen Abschnitt zur Zahlungsabwicklung — ein
  * Hinweis auf eine nicht nutzbare Funktion klärt nicht auf, er verwirrt.
- *
- * DER PRÜFUNGSHINWEIS STEHT SICHTBAR AUF DER SEITE, nicht als Kommentar im
- * Quelltext. Ein Kommentar erreicht genau die Leser nicht, die es angeht: Wer
- * eine Rechtsseite liest, soll erkennen können, welchen Reifegrad sie hat. Er
- * steht am Ende und nicht oben — die Angaben selbst sind belastbar, der
- * Vorbehalt betrifft ihre juristische Fassung, nicht ihren Wahrheitsgehalt.
  */
 export function DatenschutzPage() {
   const t = useTranslations('Datenschutz')
@@ -45,10 +39,6 @@ export function DatenschutzPage() {
           </section>
         ))}
       </div>
-
-      <p className="mt-12 max-w-prose rounded-lg border border-line bg-surface-alt p-5 text-small text-text-muted">
-        {t('reviewNote')}
-      </p>
     </Container>
   )
 }
