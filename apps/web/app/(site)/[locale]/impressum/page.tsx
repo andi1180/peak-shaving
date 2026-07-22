@@ -1,13 +1,16 @@
 import type { Metadata } from 'next'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
-import { PagePlaceholder } from '@/components/layout/page-placeholder'
+import { ImpressumPage } from '@/components/legal/impressum-page'
 import { pageAlternates } from '@/lib/seo'
 import { robotsFor } from '@/lib/routes'
 
 /**
- * Platzhalter-Route (/impressum) — Gerüst, Inhalt folgt in einem späteren Schritt
- * (OP#13: Rechtstexte selbst unverändert, hier geht es nur um die Route-Hülle).
- * NOINDEX seit 13c — Begründung/Zurückstellen: `apps/web/app/(site)/[locale]/produkte/page.tsx`.
+ * /impressum (Pflichtenheft §9.1) — echte Inhaltsseite, ersetzt den bisherigen
+ * `PagePlaceholder`. Löst OP#13 auf: die ECG-§5-Pflichtangaben sind zugeliefert.
+ *
+ * Mit dem Inhalt fällt der Href aus `PLACEHOLDER_HREFS` (`lib/routes.ts`): die
+ * Seite wird wieder indexierbar (`robotsFor` gibt `undefined` zurück) und
+ * erscheint in der sitemap — derselbe Weg wie bei /ueber-uns.
  */
 export async function generateMetadata({
   params,
@@ -26,5 +29,5 @@ export async function generateMetadata({
 export default async function Page({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params
   setRequestLocale(locale)
-  return <PagePlaceholder titleKey="impressum" />
+  return <ImpressumPage />
 }

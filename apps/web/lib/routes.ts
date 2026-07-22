@@ -88,7 +88,7 @@ function navHrefs(): string[] {
  * die sitemap nimmt die Seite automatisch wieder auf, und ihr `robots`-Tag
  * (kommt aus `robotsFor`, s. u.) verschwindet mit. Kein zweiter Ort zum Ändern.
  */
-const PLACEHOLDER_HREFS = ['/produkte', '/referenzen', '/impressum', LOGIN_HREF]
+const PLACEHOLDER_HREFS = ['/produkte', '/referenzen', LOGIN_HREF]
 
 /**
  * Monitor-Gratis-Check (T3, `Pflichtenheft_Monitor_MVP.md` §6) — WIP-Datenpipe-
