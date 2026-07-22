@@ -20,19 +20,34 @@
  *    die Marktnachfrage gemessen wird (Ziel 500 Kontakte), und zwar unbemerkt, weil die Zeile
  *    plausibel aussieht.
  *
- * 2. DIE RÜCKMELDUNG IST IN ALLEN FÄLLEN IDENTISCH. Bestehendes Konto, frische Adresse, zweite
- *    Bewerbung derselben Firma, gescheiterte Kontoanlage, gescheiterter Mailversand, gefüllter
- *    Honeypot: immer `ACCEPTED`. Unterschieden wird ausschliesslich, was der Absender selbst sieht
- *    und ändern kann — seine eigenen Feldeingaben.
+ * 2. DIE RÜCKMELDUNG KENNT GENAU ZWEI AUSGÄNGE, UND KEINER VON BEIDEN NENNT EINEN GRUND.
+ *    Bestehendes Konto, frische Adresse, zweite Bewerbung derselben Firma, gescheiterter
+ *    Mailversand, gefüllter Honeypot: immer `ACCEPTED`. Entsteht KEIN Antrag (Datenbank nicht
+ *    erreichbar oder kein Konto auflösbar, s. Regel 3), immer dieselbe neutrale
+ *    Wiederholungsmeldung — ohne Nennung von Ratenlimit, Konto, Adresse oder technischem Grund.
+ *    Unterschieden wird darüber hinaus ausschliesslich, was der Absender selbst sieht und ändern
+ *    kann: seine eigenen Feldeingaben.
  *
- * 3. DIE KONTOANLAGE DARF DIE BEWERBUNG NIE UMWERFEN. Jeder Fehler von `createAccount` wird
- *    verschluckt und geloggt; der Antrag entsteht trotzdem. GEMESSEN gegen den lokalen Stack (nicht
- *    aus der Doku abgeleitet): GoTrue antwortet auf einen `signUp` mit einer bereits registrierten,
- *    bestätigten Adresse mit **HTTP 422 `user_already_exists`** und auf einen zweiten Versuch
- *    innerhalb der Sperrfrist mit **HTTP 429 `over_email_send_rate_limit`**. Beide Antworten
- *    VERRATEN die Existenz — sie werden deshalb nicht ausgewertet, sondern verworfen. Das
- *    Passwort des bestehenden Kontos bleibt dabei unangetastet (ebenfalls gemessen: die Anmeldung
- *    mit dem alten Passwort funktioniert danach unverändert, die mit dem neu eingegebenen nicht).
+ * 3. ⚠ EINE BEWERBUNG ENTSTEHT NIE OHNE AUFGELÖSTES KONTO (Nachbesserung, 26.07.2026). Jeder
+ *    Fehler von `createAccount` wird weiterhin verschluckt und geloggt — dieser Ablauf wertet ihn
+ *    NICHT aus. GEMESSEN gegen den lokalen Stack (nicht aus der Doku abgeleitet): GoTrue antwortet
+ *    auf einen `signUp` mit einer bereits registrierten, bestätigten Adresse mit **HTTP 422
+ *    `user_already_exists`** und auf einen Versuch innerhalb der Sperrfrist des Mailversands mit
+ *    **HTTP 429 `over_email_send_rate_limit`**. Beide Antworten VERRATEN die Existenz; hier sind
+ *    sie zudem gar nicht auseinanderzuhalten — in beiden Fällen meldet `createAccount` schlicht
+ *    `false`.
+ *
+ *    Die Unterscheidung, auf die es ankommt, trifft deshalb die DATENBANK: `storeApplication` löst
+ *    die Adresse auf und meldet `no_account`, wenn dabei kein Konto herauskommt. Genau dann
+ *    entsteht KEIN Antrag. Vorher entstand er unverknüpft — und war damit ein Antrag, der zu keinem
+ *    Login führt, in B16-4a nicht genehmigbar ist und dem Bewerber trotzdem „Danke, wir melden
+ *    uns" gemeldet hat (in Produktion real aufgetreten, Ursache das Rate-Limit oben).
+ *
+ *    AUSDRÜCKLICH UNVERÄNDERT: Hat die Adresse BEREITS ein Konto, wird es aufgelöst, der Antrag
+ *    entsteht und hängt daran; das Passwort des bestehenden Kontos bleibt unangetastet (ebenfalls
+ *    gemessen: die Anmeldung mit dem alten Passwort funktioniert danach unverändert, die mit dem
+ *    neu eingegebenen nicht). Das ist kein Fehlerfall und darf nicht mit dem Abbruch vermischt
+ *    werden.
  *
  * 4. EIN GESCHEITERTER MAILVERSAND KOSTET KEINE BEWERBUNG. Erst speichern, dann senden. Eine
  *    verlorene Benachrichtigung ist ärgerlich; eine verlorene Bewerbung ist ein Betrieb, der nie
@@ -62,6 +77,17 @@ export type PartnerApplicationResponse =
  */
 const ACCEPTED: PartnerApplicationResponse = { ok: true }
 
+/**
+ * DIE EINE ABBRUCH-ANTWORT — aus demselben Grund eine Konstante.
+ *
+ * Sie steht für ZWEI Ursachen, die der Absender beide nicht zu verantworten hat und beide nicht
+ * unterscheiden können soll: die Datenbank war nicht erreichbar, ODER es liess sich kein Konto zu
+ * seiner Adresse auflösen (weil die Kontoanlage scheiterte). Zwei Antworten wären zwei Signale —
+ * und das zweite wäre eine Auskunft darüber, ob es zu einer Adresse ein Konto gibt. Der Unterschied
+ * gehört ins Server-Log, nicht in die Rückgabe.
+ */
+const UNAVAILABLE: PartnerApplicationResponse = { ok: false, error: 'unavailable' }
+
 /* ─── Effekte ─────────────────────────────────────────────────────────────────────────────────── */
 
 export type PartnerApplicationSubmission = {
@@ -86,7 +112,17 @@ export type PartnerApplicationSession = {
   email: string
 }
 
-export type StoredApplication = { applicationId: string }
+export type StoredApplication =
+  | { stored: true; applicationId: string }
+  /**
+   * Es liess sich kein Konto zur Adresse auflösen — es ist KEIN Antrag entstanden.
+   *
+   * Die Unterscheidung trifft die Datenbank und nicht dieser Ablauf: `createAccount` meldet bei
+   * „Adresse hat schon ein Konto" und bei „Kontoanlage fehlgeschlagen" denselben Wert (`false`),
+   * und genau das soll so bleiben (Regel 3). Was die beiden Fälle trennt, ist allein, ob am Ende
+   * ein Konto DA ist — und das weiss nur, wer die Adresse nachschlägt.
+   */
+  | { stored: false; reason: 'no_account' }
 
 export type PartnerApplicationEffects = {
   /**
@@ -201,13 +237,12 @@ export async function runPartnerApplication(
       accountCreated = await effects.createAccount({ email: data.email, password: data.password })
     } catch (cause) {
       /*
-       * Regel 3: Die Kontoanlage darf die Bewerbung nie umwerfen. Die Adresse steht bewusst NICHT
-       * im Log-Text — ein Fehlerlog ist kein zulässiger zweiter Speicherort für Personenbezug.
+       * Der Fehler wird weiterhin NICHT ausgewertet — er verriete, ob es die Adresse schon gibt
+       * (Regel 3). Ob die Bewerbung entstehen kann, entscheidet gleich die Datenbank daran, ob am
+       * Ende ein Konto DA ist; nicht daran, warum die Anlage schiefging. Die Adresse steht bewusst
+       * NICHT im Log-Text — ein Fehlerlog ist kein zulässiger zweiter Speicherort für Personenbezug.
        */
-      console.error(
-        '[partner-application] Kontoanlage fehlgeschlagen — Antrag entsteht trotzdem:',
-        cause,
-      )
+      console.error('[partner-application] Kontoanlage fehlgeschlagen:', cause)
     }
   }
 
@@ -230,13 +265,37 @@ export async function runPartnerApplication(
     })
   } catch (cause) {
     /*
-     * DER EINZIGE FALL, IN DEM DIE SEITE KEINEN ERFOLG MELDET. Er ist kein Enumerationssignal: Er
-     * hängt an der Erreichbarkeit der Datenbank, nicht an der Adresse — dieselbe Eingabe liefe
-     * eine Minute später durch. Und die Alternative wäre die schlimmere: ein „Danke, wir melden
-     * uns" für eine Bewerbung, die nirgends steht.
+     * Der erste der beiden Abbruchgründe: die Datenbank war nicht erreichbar. Kein
+     * Enumerationssignal — er hängt an der Erreichbarkeit, nicht an der Adresse, dieselbe Eingabe
+     * liefe eine Minute später durch. Und die Alternative wäre die schlimmere: ein „Danke, wir
+     * melden uns" für eine Bewerbung, die nirgends steht.
      */
     console.error('[partner-application] Antrag konnte nicht gespeichert werden:', cause)
-    return { ok: false, error: 'unavailable' }
+    return UNAVAILABLE
+  }
+
+  if (!stored.stored) {
+    /*
+     * ⚠ DER ZWEITE ABBRUCHGRUND, UND DER EIGENTLICHE ANLASS DIESER NACHBESSERUNG: Es liess sich
+     * kein Konto zur Adresse auflösen, also ist die Kontoanlage gescheitert (bei einer bereits
+     * bestehenden Adresse hätte die Datenbank das vorhandene Konto gefunden — dieser Fall läuft
+     * unverändert durch). Es ist KEIN Antrag entstanden, und es geht auch keine Mail raus: eine
+     * Eingangsbestätigung für eine Bewerbung, die nirgends steht, wäre genau die falsche Zusage.
+     *
+     * Der Bewerber sieht dieselbe neutrale Wiederholungsmeldung wie beim Datenbankausfall. Der
+     * UNTERSCHIED steht hier im Log, weil er für den Betrieb wesentlich ist: Häufen sich diese
+     * Zeilen, hängt der Mailversand am Rate-Limit (Auth-SMTP), und das ist eine Konfiguration, die
+     * jemand ändern muss — nichts, was ein Wiederholungsversuch im Code beheben könnte.
+     *
+     * Die Adresse steht bewusst NICHT im Log (kein zweiter Speicherort für Personenbezug); die
+     * Firma des Betriebs auch nicht — sie identifiziert ihn genauso.
+     */
+    console.error(
+      '[partner-application] KEIN Antrag entstanden: kein Konto zur Adresse auflösbar. Die ' +
+        'Kontoanlage ist gescheitert — häufigste Ursache ist das Rate-Limit des Auth-Mailversands ' +
+        '(429 over_email_send_rate_limit). Der Bewerber wurde auf einen erneuten Versuch verwiesen.',
+    )
+    return UNAVAILABLE
   }
 
   /*

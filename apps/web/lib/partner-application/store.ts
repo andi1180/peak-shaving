@@ -33,18 +33,30 @@ export type SubmitPartnerApplicationInput = {
 }
 
 /**
- * Schreibt den Antrag und liefert seine ID.
+ * Schreibt den Antrag und liefert seine ID — oder meldet, dass kein Konto aufgelöst werden konnte.
  *
  * ── DIE RÜCKGABE SAGT NICHTS ÜBER DAS KONTO, UND DAS IST ABSICHT ────────────────────────────────
  * `public.submit_partner_application` verknüpft den Antrag selbst mit dem Auth-Konto — der laufenden
- * Sitzung, sonst dem genau einen Konto zur Adresse. WELCHER Fall eingetreten ist, erfährt dieser
- * Code nicht: Der Wrapper gibt ausschliesslich `status` und `application_id` zurück. Wer es nicht
- * erfährt, kann es auch nicht weitergeben — genau das ist der Enumerationsschutz, und er steht
- * deshalb in der Datenbank und nicht in der Disziplin dieser Datei.
+ * Sitzung, sonst dem genau einen Konto zur Adresse. WELCHES Konto das ist und ob es neu entstand,
+ * erfährt dieser Code nicht: Der Wrapper gibt ausschliesslich `status` und `application_id` zurück.
+ * Wer es nicht erfährt, kann es auch nicht weitergeben — genau das ist der Enumerationsschutz, und
+ * er steht deshalb in der Datenbank und nicht in der Disziplin dieser Datei.
+ *
+ * ── `no_account` IST KEIN FEHLER, SONDERN EIN ZUSTAND (B16-3-Nachbesserung) ─────────────────────
+ * Lässt sich kein Konto auflösen, schreibt der Wrapper NICHTS und antwortet `no_account`. Das wird
+ * bewusst NICHT geworfen: Ein Wurf sähe hier aus wie „die Datenbank war nicht erreichbar", und der
+ * Aufrufer könnte die beiden Fälle nicht mehr auseinanderhalten — im Log unterscheiden sie sich
+ * aber grundlegend (Fehlkonfiguration des Mailversands gegen Infrastrukturausfall). Nach AUSSEN
+ * führen beide zur selben Meldung; im Server-Log nicht.
  */
+export type SubmitPartnerApplicationResult =
+  | { stored: true; applicationId: string }
+  /** Kein Konto zur Adresse auflösbar — es ist KEIN Antrag entstanden. */
+  | { stored: false; reason: 'no_account' }
+
 export async function submitPartnerApplication(
   input: SubmitPartnerApplicationInput,
-): Promise<{ applicationId: string }> {
+): Promise<SubmitPartnerApplicationResult> {
   const service = createServiceRoleClient()
   const { data, error } = await service.rpc('submit_partner_application', {
     p_company: input.company,
@@ -62,6 +74,9 @@ export async function submitPartnerApplication(
   if (!row || typeof row !== 'object') {
     throw new Error('submit_partner_application: unerwartete Rückgabe (kein jsonb-Objekt)')
   }
+
+  if (row.status === 'no_account') return { stored: false, reason: 'no_account' }
+
   if (row.status !== 'created' || typeof row.application_id !== 'string') {
     /*
      * `missing_fields` kann hier nur eintreten, wenn Schema und Wrapper auseinandergelaufen sind —
@@ -71,5 +86,5 @@ export async function submitPartnerApplication(
     throw new Error(`submit_partner_application: unerwarteter Status ${String(row.status)}`)
   }
 
-  return { applicationId: row.application_id }
+  return { stored: true, applicationId: row.application_id }
 }

@@ -78,7 +78,9 @@ export async function submitPartnerApplicationAction(
        *
        * Ein Fehler wird NICHT ausgewertet, sondern nur als „kein Konto entstanden" gemeldet — die
        * Antwort von GoTrue verrät, ob die Adresse bereits ein Konto hat (gemessen, s. Kopf von
-       * `lib/auth/sign-up.ts`), und genau das darf diese Seite nicht weitergeben.
+       * `lib/auth/sign-up.ts`), und genau das darf diese Seite nicht weitergeben. Ob die Bewerbung
+       * daraufhin entstehen darf, entscheidet die DATENBANK daran, ob am Ende ein Konto DA ist
+       * (`no_account`, s. Regel 3 in `flow.ts`) — nicht dieser Rückgabewert.
        */
       createAccount: async ({ email, password }) => {
         const outcome = await createAccountWithConfirmation({ email, password, next: KONTO_HREF })
