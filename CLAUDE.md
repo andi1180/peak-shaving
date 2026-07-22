@@ -6,7 +6,7 @@
 >
 > Hinweis: Das Repo enthält zusätzlich `apps/web` (Website coolin.at) mit eigener `apps/web/CLAUDE.md` und `apps/web/Pflichtenheft_Website_Coolin.md` — für Website-Arbeit gelten diese, nicht diese Datei.
 >
-> **Übergeordnet: `./Fahrplan_2026.md`** — kanonische Quelle für Reihenfolge/Umfang aller Bauabschnitte seit 20.07.2026. Für den Kalkulator relevant: **B10** (Anbindung ans Entitlement-System, löst den DB-losen Zugangscode ab), **B11** (Tarifsätze auf konfigurierbare Verordnungssätze umstellbar machen — **gebaut, 21.07.2026**: getypte Datenschicht `packages/shared/src/tariff-catalog.ts` statt Datenbank, Netzebene 7 wird bis zur Tarifverordnung verweigert statt geschätzt; fachliche Tiefe in `Pflichtenheft_Kalkulator_MVP.md` §7a.2, Anleitung zum Nachtragen in `DEPLOYMENT.md` §3a) und **B14** (Analyse-Persistenz — **gebaut, 24.07.2026**: B14-1 Ablage, B14-2 Export/Upload/Ansicht; fachliche Tiefe in `Pflichtenheft_Kalkulator_MVP.md` §7a.1). Details zu B10 folgen im Pflichtenheft, sobald der Abschnitt ansteht.
+> **Übergeordnet: `./Fahrplan_2026.md`** — kanonische Quelle für Reihenfolge/Umfang aller Bauabschnitte seit 20.07.2026. Für den Kalkulator relevant: **B10** (Anbindung ans Entitlement-System — **gebaut, 22.07.2026**: Zugang zur Rechner-Route über Sitzung + `calculator_pro`-Entitlement, der DB-lose Zugangscode ist gelöscht statt umgangen, Vergabe über den bestehenden Gutscheincode-Mechanismus ohne Stripe-Preis; fachliche Tiefe in `Pflichtenheft_Kalkulator_MVP.md` §7a.3), **B11** (Tarifsätze auf konfigurierbare Verordnungssätze umstellbar machen — **gebaut, 21.07.2026**: getypte Datenschicht `packages/shared/src/tariff-catalog.ts` statt Datenbank, Netzebene 7 wird bis zur Tarifverordnung verweigert statt geschätzt; fachliche Tiefe in `Pflichtenheft_Kalkulator_MVP.md` §7a.2, Anleitung zum Nachtragen in `DEPLOYMENT.md` §3a) und **B14** (Analyse-Persistenz — **gebaut, 24.07.2026**: B14-1 Ablage, B14-2 Export/Upload/Ansicht; fachliche Tiefe in `Pflichtenheft_Kalkulator_MVP.md` §7a.1).
 
 ---
 
@@ -51,10 +51,11 @@ Ein Kalkulator, der aus dem Viertelstunden-Lastgang eines Gewerbebetriebs die Be
   /packages/engine   ← reine Rechen-Bibliothek (zuerst)
   /packages/shared   ← Typen, Konstanten, Schemata
   /apps/website      ← öffentliche Seite + öffentlicher Rechner (client-side Engine)
-  /apps/portal       ← eingeloggte Multi-Tenant-App (RLS)
+  /apps/web          ← coolin.at: Marketing, Konto/Auth, Admin — UND der eingeloggte Portalteil
   /supabase          ← Schema, Migrations, RLS-Policies
   ./*.md             ← Pflichtenheft, DESIGN.md, Konzeptdokumente (im Root, kein /docs)
   ```
+  **`/apps/portal` ist mit B10-3 (22.07.2026) GELÖSCHT** — ersatzlos, nicht verschoben. Der Ordner war seit dem ersten Prompt ein leeres Next-Gerüst („Grundgerüst — Auth & RLS folgen."), ohne Abhängigkeit auf `shared` oder `engine` und ohne Vercel-Projekt. Der eingeloggte Teil ist faktisch in **`apps/web`** entstanden: Auth (T4-2), Konto, Entitlements, Gutscheineinlösung und der Zugangsschutz des Kalkulators (B10) liegen dort bereits. Eine zweite App für denselben Zweck wäre eine zweite Auth-Domain und ein zweites Deployment für nichts.
 - Paketspezifische Regeln können später als eigene `CLAUDE.md` je `/packages/*` bzw. `/apps/*` ergänzt werden (nächstgelegene Datei gilt).
 
 ---

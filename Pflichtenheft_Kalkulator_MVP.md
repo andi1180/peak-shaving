@@ -80,9 +80,11 @@ Deployment:  Vercel
 /packages/engine        ← reine Rechen-Bibliothek (Herzstück, zuerst gebaut)
 /packages/shared        ← Typen, Konstanten, Batterie-/Tarif-Schemata (von beiden UIs genutzt)
 /apps/website           ← öffentliche Seite + öffentlicher Rechner (client-side Engine)
-/apps/portal            ← eingeloggte App (Engine server- oder client-side)
+/apps/web               ← coolin.at: Marketing, Konto/Auth, Admin — UND der eingeloggte Portalteil
 /supabase               ← Schema, Migrations, RLS-Policies
 ```
+
+> **`/apps/portal` existiert nicht mehr** (gelöscht mit B10-3, 22.07.2026). Der Ordner blieb bis zuletzt ein leeres Gerüst; der eingeloggte Teil ist in `apps/web` entstanden (Auth, Konto, Entitlements, Zugangsschutz des Kalkulators). Wo dieses Dokument weiter unten „Portal" sagt, ist damit der eingeloggte Bereich von `apps/web` gemeint, nicht eine eigene App — s. §7a.3.
 
 ---
 
@@ -514,11 +516,31 @@ Ausgelöst durch Martins Review. **Pflichtfelder** bei Lead-Abgabe: Name, E-Mail
 
 Seit 20.07.2026 ist `Fahrplan_2026.md` (Repo-Root) kanonisch für Reihenfolge/Umfang aller Bauabschnitte. Drei davon betreffen den Kalkulator direkt:
 
-- **B10 — Kalkulator ans Entitlement-System.** Löst den separaten, DB-losen Zugangscode (`lib/kalkulator-access.ts`) ab und hängt den Kalkulator an dieselbe `platform.entitlements`-Infrastruktur, die der Monitor-Bauabschnitt T4-1 gebaut hat. Vorbedingung für jede Fachbetriebs-Lizenz.
+- **B10 — Kalkulator ans Entitlement-System. ✅ GEBAUT (22.07.2026), B10-1 + B10-2.** Der separate, DB-lose Zugangscode ist abgelöst; der Kalkulator hängt an derselben `platform.entitlements`-Infrastruktur wie der Monitor. Fachliche Tiefe unten.
 - **B11 — Kalkulator auf Verordnungssätze umstellbar machen. ✅ GEBAUT (21.07.2026).** Tarifsätze als getypte, versionierte Datenschicht statt hartkodierter Annahmen, damit eine Sätze-Änderung (Nov/Dez 2026) eine Konfigurationsänderung ist, kein Umbau unter Zeitdruck. Fachliche Tiefe unten.
 - **B14 — Analyse-Persistenz. ✅ GEBAUT (24.07.2026), B14-1 + B14-2.** Auslegung und Prognose-Baseline werden serverseitig eingefroren. Fachliche Tiefe unten.
 
-Die fachliche Tiefe zu B10 wird hier ergänzt, sobald der Abschnitt ansteht — nicht auf Vorrat.
+### §7a.3 B10 — Zugang über das Entitlement-System (gebaut)
+
+**Fundorte:** `apps/web/lib/kalkulator/access.ts` (+ `access.test.ts`, die Zugangsentscheidung) · `apps/web/app/(site)/[locale]/peak-shaving/kalkulator/rechner/page.tsx` (der Routenschutz) · `apps/web/components/peak-shaving/calculator-access-request.tsx` (der Anfrage-Zustand) · `apps/web/lib/auth/{config,actions,server-helpers}.ts` + `components/auth/login-form.tsx` + `app/(site)/[locale]/anmelden/page.tsx` (das Rücksprungziel) · `apps/web/lib/admin/config.ts` (`CODE_PRODUCT_KEYS`) · `apps/web/app/(site)/[locale]/konto/page.tsx` (Produktanzeige + Einlöseweg) · `packages/db-tests/src/calculator-pro-entitlement.test.ts` (Produkt-Isolation). **GELÖSCHT:** `apps/web/lib/kalkulator-access.ts` und `apps/web/components/peak-shaving/calculator-gate.tsx`. **Keine Migration, kein Schema** — `apps/website` (der Rechner selbst) ist unangetastet.
+
+**(a) Der Produktschlüssel wurde nicht angelegt, sondern erstmals benutzt.** `platform.product_key` führt `calculator_pro` seit T4-1: `platform` wurde von Anfang an für beide Produkte gebaut. Ein `ALTER TYPE … ADD VALUE` wäre deshalb entweder ein Fehler oder ein Nichts gewesen — und stünde 2027 als Beleg für eine Änderung da, die nie stattgefunden hat. Was tatsächlich fehlte, war der **Aufruf**: bis dahin war jede Entitlement-Invariante ausschliesslich mit `monitor` geprüft. „Der Parameter trägt den zweiten Wert schon mit" ist eine Behauptung über eine Funktion, die nie mit ihm aufgerufen wurde.
+
+**(b) Die neue Gefahr ab dem zweiten Produkt ist die Produkt-Isolation.** Solange nur `monitor` existierte, konnte eine vergessene `product`-Bedingung nirgends auffallen — jede Zeile gehörte demselben Produkt. Ab zwei Produkten ist dieselbe Lücke ein **stilles Verschenken**: ein Monitor-Abonnent bekäme den Kalkulator gratis, und niemand bemerkte es, weil beide Zugänge „funktionieren". Deshalb ist die Isolation in beide Richtungen als **Verhalten** abgesichert und nicht als Schema-Eigenschaft, und der Wächter wurde gemessen — die Bedingung testweise entfernt, genau vier Tests rot, danach wortgleich wiederhergestellt.
+
+**(c) Der Zugang verlangt Sitzung UND Entitlement, gelesen über EINEN Wrapper.** `public.get_my_entitlement(p_product)` — derselbe, den die Kontoseite für den Monitor benutzt; das Produkt ist ein Parameter. Es gibt bewusst keinen zweiten Lesepfad und keine zweite Definition von „hat Zugang" (Invariante I1). Die Entscheidung fällt **server-seitig vor dem Rendern**; kein Browser-Client, keine `NEXT_PUBLIC_*`-Supabase-Env (Invariante J1).
+
+**(d) Drei Zustände, und der dritte ist der eigentliche Entwurf.** *Nicht angemeldet* → Umleitung auf `/anmelden?next=<Zielroute>`. *Angemeldet ohne Freischaltung* → **eine eigene Seite, keine Umleitung**: wer angemeldet ist und trotzdem weggeschickt würde, liefe im Kreis; ein Fehler wäre es auch nicht, denn der Zustand ist normal. Sie erklärt, dass der Zugang auf Anfrage vergeben wird, führt auf `/kontakt?thema=peakShaving` und nennt die angemeldete Adresse — ein Grant hängt an genau einem Konto, und wer mit dem falschen von zweien angemeldet ist, sucht den Fehler sonst beim Zugang statt bei der Anmeldung. *Freigeschaltet* → der Rechner. **Im Anfrage-Zustand wird der iframe nicht gerendert** — er steht nicht hinter etwas, es gibt ihn im Markup nicht. Genau darin unterscheidet sich der Schutz vom abgelösten Gate, dessen Dialog eine Präsentationsschicht über einem ohnehin ausgelieferten Rechner war.
+
+**(e) Fail closed.** Kann das Entitlement nicht gelesen werden, gilt „kein Zugang" — ein Lesefehler ist keine Zusage. Die Abwägung ist asymmetrisch: ein zu Unrecht Ausgesperrter sieht einen Kontaktweg und meldet sich, ein zu Unrecht Freigeschalteter meldet sich nie. Aus demselben Grund wird auf `=== true` verglichen und nicht auf „wahrheitswertig".
+
+**(f) Der alte Code ist entfernt, nicht umgangen.** Die Datei mit dem Vergleich, der Dialog und die Textschlüssel sind gelöscht; es gibt keine Stelle mehr, an der ein Code eingegeben werden könnte. **Beim Nachprüfen zu wissen:** dieselbe Zeichenfolge existiert seit T4-3 zusätzlich als **Gutscheincode für `monitor`** in `platform.redemption_codes`. Der wirkt weiter — aber woanders: eingelöst auf `/konto`, schaltet er den Monitor frei und den Kalkulator nachweislich nicht. Ein zweiter Code gleichen Namens für `calculator_pro` ist nicht anlegbar (Codes sind produktübergreifend eindeutig).
+
+**(g) Der Vergabeweg ist der bestehende Gutscheincode-Mechanismus.** `CODE_PRODUCT_KEYS` führt beide Produkte; `public.redeem_code` liest das Produkt aus der Code-Zeile, die entstehende Entitlement-Zeile trägt `source='manual'` und `valid_until=null`. Kein neuer Mechanismus, kein zweiter Einlösepfad. Als Folge steht der Einlöseweg auf `/konto` jetzt als eigener Abschnitt: im vorherigen „kein Monitor-Abo"-Zweig wäre er ausgerechnet für Monitor-Kunden unerreichbar gewesen — der Zustand des einen Produkts darf nicht darüber entscheiden, ob ein anderes freigeschaltet werden kann.
+
+**(h) NICHT gebaut — und warum nicht.** **Kein Preis, kein Stripe-Checkout, kein Rabatt-/Promotionscode für `calculator_pro`:** ob der Kalkulator kostenlos bleibt oder verkauft wird, ist unverändert offen (§8, OP#1). Ein Platzhalterpreis wäre hier derselbe Fehler wie ein geschätzter Tarifsatz in §7a.2 — lieber fehlend als erfunden. **Kein Mandanten- oder Gruppenzugriff:** ein Grant hängt an genau einem Konto; `tenant_id` ist B13 und additiv, bewusst zurückgestellt. **Keine neue Registrierungs-UI:** die bestehende wird verlinkt. Offen bleibt dort ein Detail ohne Bruch — der Bestätigungsmail-Flow trägt kein Rücksprungziel, ein neu registrierter Nutzer landet auf `/konto` und geht von dort weiter; für den Normalfall (bestehendes Konto, abgelaufene Sitzung) führt `?next=` bereits zurück auf die Zielroute.
+
+**(i) `apps/portal` wurde nicht reaktiviert, sondern gelöscht.** Der Ordner war seit dem ersten Prompt ein leeres Next-Gerüst ohne Abhängigkeit auf `shared` oder `engine` und ohne Vercel-Projekt. Der eingeloggte Teil ist faktisch in `apps/web` entstanden — Auth, Konto, Entitlements, Gutscheineinlösung und der Zugangsschutz liegen dort bereits. Eine zweite App für denselben Zweck wäre eine zweite Auth-Domain und ein zweites Deployment für nichts. Wo dieses Dokument „Portal" sagt, ist der eingeloggte Bereich von `apps/web` gemeint (s. §2 und §8, M4).
 
 ### §7a.2 B11 — Tarifsätze als Datenschicht (gebaut)
 
@@ -582,7 +604,7 @@ Die fachliche Tiefe zu B10 wird hier ergänzt, sobald der Abschnitt ansteht — 
 1. **M1 — Engine-Kern** (`/packages/engine`): Typen, Parser (Grundfälle), Aufbereitung, `TariffStrategy`, SoC-Simulation + Kapp-Suche + Spitzen-Reserve, ROI. Rein & getestet gegen die synthetischen Fixtures aus §3.11 (nicht nur ein Profil).
 2. **M2 — Öffentlicher Rechner** (`/apps/website`) inkl. Report (§6.2): **läuft parallel zu M1**, volles UI nach DESIGN.md/§6.1, gegen den spezifizierten Engine-Contract (§3.10). Wächst inhaltlich mit der Engine mit (erst Spitzenerkennung, dann Eigenverbrauch, dann ROI), bleibt dabei UI-seitig vollständig.
 3. **M3 — Lead-Pfad**: `leads`-Tabelle, Consent, CTA → Installateur.
-4. **M4 — Portal-Grundgerüst** (`/apps/portal`): Supabase Auth, RLS-Schema, gespeicherte Analysen, Batteriekatalog aus DB.
+4. **M4 — Portal-Grundgerüst** (~~`/apps/portal`~~ → **`/apps/web`**, s. §7a.3(i)): Supabase Auth, RLS-Schema, gespeicherte Analysen, Batteriekatalog aus DB. **Grossteils erledigt, verteilt über andere Bauabschnitte:** Auth und RLS-Schema mit T4-1/T4-2, gespeicherte Analysen mit B14, der Zugang mit B10. Offen bleibt der Batteriekatalog aus der Datenbank (hängt an OP#2, Martins echtem Katalog).
 
 Reihenfolge innerhalb der Engine (M1): Logik zuerst, testbar (§3.11), dann UI-Verdrahtung. M1–M4 sonst parallele Tracks, kein Nacheinander.
 
