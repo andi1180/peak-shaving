@@ -40,7 +40,7 @@ Reaktivierbar, falls sich ein Bedarf jenseits des E-Control-Angebots zeigt (z. B
 
 ---
 
-## Bauabschnitte (neue Nummerierung B0–B15)
+## Bauabschnitte (neue Nummerierung B0–B16)
 
 ### Stand je Bauabschnitt
 
@@ -64,6 +64,7 @@ Mit inzwischen zwölf gebauten Teilabschnitten ist aus der Beschreibung unten so
 | **B13** Mandantenfähigkeit | **zurückgestellt** | bewusst additiv später; bekommt mit der Fachbetriebs-Lizenz den ersten realen Anwendungsfall |
 | **B14** Analyse-Persistenz Kalkulator | **gebaut** | B14-1 Ablage · B14-2 Export/Upload/Ansicht |
 | **B15** Echtzeit-Datenpfad | **offen** | ab Q2 2027 |
+| **B16** Partner-Attribution | **teilweise gebaut** | B16-1 Datenbank gebaut · **B16-2 Landingpage/Link und B16-3 Admin-Oberfläche offen** |
 
 ### Die B-Nummern sind Namen, keine Positionen
 
@@ -113,6 +114,15 @@ Grund: Die Bezeichner sind außerhalb dieses Dokuments in Gebrauch — in bereit
 - **B13** Mandantenfähigkeit — `tenant_id` additiv in `platform.entitlements` und `platform.leads`. In T4-1 bewusst vorbereitet und zurückgestellt; bekommt mit der Fachbetriebs-Lizenz den ersten realen Anwendungsfall.
 - **B14** Analyse-Persistenz Kalkulator — Auslegung und Prognose-Baseline serverseitig speichern. HOCH PRIORISIERT, MUSS VOR DER ERSTEN PILOTANALYSE STEHEN. Begründung: Das Alleinstellungsmerkmal des Wirkungsnachweises (29 €/Mon., ab Q1 2027) ist, dass nur COOLiN die Prognose-Baseline aus der Auslegung besitzt. Der Kalkulator speichert heute NICHTS serverseitig (localStorage; Supabase dort bewusst zurückgestellt). Jede Pilot- und 990-€-Analyse ohne B14 erzeugt eine Baseline, die verloren geht — ausgerechnet für die ersten Referenzkunden wäre der Wirkungsnachweis 2027 dann nicht lieferbar.
 - **B15** Echtzeit-Datenpfad (Peak-Wächter Echtzeit, ab Q2 2027) — anderer Datenpfad als B12: Wechselrichter- bzw. Zähler-Kundenschnittstelle statt Netzbetreiber-API, plus Hardware.
+- **B16** Partner-Attribution — **Modell A:** Fachbetriebe verweisen ihre Bestandskunden per personalisiertem Link an COOLiN; COOLiN führt Analyse und Kundenbeziehung, der Partner bekommt das erste Zugriffsrecht auf die Montage. Ausdrücklich NICHT die Fachbetriebs-Lizenz (der Partner bekommt keinen eigenen Zugang und keine eigene Sicht auf Leads — das ist **B13**, unverändert zurückgestellt).
+
+  **ERLEDIGT: B16-1 (24.07.2026, NUR DATENBANK).** Migration `supabase/migrations/20260724190000_create_partner_attribution.sql`: `platform.partners` (Slug als Primärschlüssel mit demselben Format-CHECK wie `lead_sources.key`, unveränderlich per Trigger, kein `delete`-Grant für irgendwen — Stilllegung über `is_active`), zwei neue Spalten auf `platform.leads`, vier Partner-Wrapper, und `capture_lead`/`admin_list_leads`/`admin_export_leads`/`admin_update_lead`/`admin_get_lead` nachgezogen. 38 neue Tests im DB-Gate (328 → **366**). **Keine Route, keine Landingpage, kein UI** — das sind B16-2 und B16-3.
+
+  **Die Entscheidung, die den Abschnitt trägt: ZWEI Spalten, nicht eine.** `partner_slug` ist die BESTÄTIGTE Zuordnung, `referred_by_text` der Freitext, den der Interessent selbst eingegeben hat („Empfohlen durch"). Dieselbe Trennlinie wie in B7 zwischen Extraktion und Interpretation: die Kundenangabe ist Beobachtung, die Zuordnung ist Urteil. Der Freitext trifft in der Praxis oft keinen Slug („Fa. Raymann Elektro", „mein Elektriker aus Wiener Neustadt") und ist trotzdem der Beleg, auf den sich eine spätere Zuordnung stützt; in einem Feld vermischt liesse sich nicht mehr feststellen, ob ein Wert dort steht, weil der Kunde ihn schrieb oder weil jemand ihn zuordnete. Folgerichtig ist nur die Zuordnung über den Admin korrigierbar — der Freitext hat bewusst gar keinen Parameter.
+
+  **Die zweite Entscheidung: die Anonymisierung behandelt die beiden Spalten unterschiedlich.** `referred_by_text` wird genullt und ist danach unveränderlich (Freitext einer Person, kann Namen Dritter enthalten). `partner_slug` ÜBERLEBT und steht bewusst nicht im Guard: ohne E-Mail, Name und PLZ ist „kam über Partner X" keine personenbezogene Angabe mehr, und die Partner-Statistik muss die werbliche Aufbewahrungsfrist von 24 Monaten überdauern — sonst verlöre ein Fachbetrieb rückwirkend den Nachweis über die von ihm gebrachten Kontakte.
+
+  **Kein Cookie, kein localStorage, kein sessionStorage.** Die Attribution läuft ausschliesslich über den URL-Pfad und ein Formularfeld. Eine Speicherung auf dem Endgerät wäre nach §165 TKG einwilligungspflichtig und brächte einen Cookie-Banner für die gesamte Domain — das beendete die bestehende, cookielose Analytics-Architektur (offene Entscheidung 5). Diese Festlegung gilt auch für B16-2/B16-3.
 
 ---
 

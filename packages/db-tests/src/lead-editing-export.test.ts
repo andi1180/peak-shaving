@@ -435,7 +435,17 @@ describe('(3) die E-Mail ist über den Korrekturweg nicht erreichbar', () => {
     expect(args).toContain('p_first_name')
     expect(args).toContain('p_last_name')
     expect(args).not.toContain('p_contact_name')
-    expect(args).toHaveLength(11)
+    /*
+     * Seit B16-1 elf bearbeitbare Felder plus p_lead_id: `p_partner_slug` ist dazugekommen — über
+     * ihn ordnet ein Admin einen Empfehlungs-Freitext einer echten Partnerzeile zu. Die Zahl wird
+     * hier BEWUSST nachgezogen und nicht aufgeweicht: sie ist die Absicherung dagegen, dass ein
+     * Feld unbemerkt bearbeitbar wird. Die Gegenprobe dazu steht direkt darunter —
+     * `p_referred_by_text` darf gerade NICHT dazukommen (die Angabe des Kunden ist der Beleg, auf
+     * den sich die Zuordnung stützt, kein Feld, das jemand nachbessert).
+     */
+    expect(args).toContain('p_partner_slug')
+    expect(args).not.toContain('p_referred_by_text')
+    expect(args).toHaveLength(12)
   })
 
   it('nach einem vollständigen Aufruf ist die Adresse unverändert', async () => {

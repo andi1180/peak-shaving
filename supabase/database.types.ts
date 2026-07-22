@@ -647,8 +647,10 @@ export type Database = {
           last_interaction_at: string
           last_name: string | null
           metering_type: string | null
+          partner_slug: string | null
           phone: string | null
           postal_code: string | null
+          referred_by_text: string | null
           retention_basis: string
           status: string
           supplier: string | null
@@ -672,8 +674,10 @@ export type Database = {
           last_interaction_at?: string
           last_name?: string | null
           metering_type?: string | null
+          partner_slug?: string | null
           phone?: string | null
           postal_code?: string | null
+          referred_by_text?: string | null
           retention_basis?: string
           status?: string
           supplier?: string | null
@@ -697,8 +701,10 @@ export type Database = {
           last_interaction_at?: string
           last_name?: string | null
           metering_type?: string | null
+          partner_slug?: string | null
           phone?: string | null
           postal_code?: string | null
+          referred_by_text?: string | null
           retention_basis?: string
           status?: string
           supplier?: string | null
@@ -712,7 +718,44 @@ export type Database = {
             referencedRelation: "lead_sources"
             referencedColumns: ["key"]
           },
+          {
+            foreignKeyName: "leads_partner_slug_fkey"
+            columns: ["partner_slug"]
+            isOneToOne: false
+            referencedRelation: "partners"
+            referencedColumns: ["slug"]
+          },
         ]
+      }
+      partners: {
+        Row: {
+          contact_first_name: string | null
+          contact_last_name: string | null
+          created_at: string
+          display_name: string
+          is_active: boolean
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          contact_first_name?: string | null
+          contact_last_name?: string | null
+          created_at?: string
+          display_name: string
+          is_active?: boolean
+          slug: string
+          updated_at?: string
+        }
+        Update: {
+          contact_first_name?: string | null
+          contact_last_name?: string | null
+          created_at?: string
+          display_name?: string
+          is_active?: boolean
+          slug?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       profiles: {
         Row: {
@@ -895,6 +938,7 @@ export type Database = {
           p_due_only?: boolean
           p_industry?: Database["platform"]["Enums"]["industry"]
           p_metering_type?: string
+          p_partner_slug?: string
           p_postal_prefix?: string
           p_search?: string
           p_source_key?: string
@@ -930,6 +974,7 @@ export type Database = {
           p_due_only?: boolean
           p_industry?: Database["platform"]["Enums"]["industry"]
           p_metering_type?: string
+          p_partner_slug?: string
           p_postal_prefix?: string
           p_search?: string
           p_source_key?: string
@@ -953,8 +998,10 @@ export type Database = {
           last_interaction_at: string
           last_name: string | null
           metering_type: string | null
+          partner_slug: string | null
           phone: string | null
           postal_code: string | null
+          referred_by_text: string | null
           retention_basis: string
           status: string
           supplier: string | null
@@ -1048,6 +1095,15 @@ export type Database = {
         }
         Returns: Json
       }
+      admin_create_partner: {
+        Args: {
+          p_contact_first_name?: string
+          p_contact_last_name?: string
+          p_display_name: string
+          p_slug: string
+        }
+        Returns: Json
+      }
       admin_email_event_stats: { Args: { p_days?: number }; Returns: Json }
       admin_export_leads: {
         Args: {
@@ -1060,6 +1116,7 @@ export type Database = {
           p_due_only?: boolean
           p_industry?: Database["platform"]["Enums"]["industry"]
           p_metering_type?: string
+          p_partner_slug?: string
           p_postal_prefix?: string
           p_search?: string
           p_source_key?: string
@@ -1114,6 +1171,7 @@ export type Database = {
           p_limit?: number
           p_metering_type?: string
           p_offset?: number
+          p_partner_slug?: string
           p_postal_prefix?: string
           p_search?: string
           p_source_key?: string
@@ -1121,6 +1179,7 @@ export type Database = {
         }
         Returns: Json
       }
+      admin_list_partners: { Args: never; Returns: Json }
       admin_list_scrape_targets: { Args: never; Returns: Json }
       admin_revoke_role: {
         Args: { p_role: string; p_target_user_id: string }
@@ -1132,6 +1191,10 @@ export type Database = {
       }
       admin_set_lead_status: {
         Args: { p_lead_id: string; p_status: string }
+        Returns: Json
+      }
+      admin_set_partner_active: {
+        Args: { p_is_active: boolean; p_slug: string }
         Returns: Json
       }
       admin_set_scrape_target_active: {
@@ -1150,9 +1213,19 @@ export type Database = {
           p_last_name?: string
           p_lead_id: string
           p_metering_type?: string
+          p_partner_slug?: string
           p_phone?: string
           p_postal_code?: string
           p_supplier?: string
+        }
+        Returns: Json
+      }
+      admin_update_partner: {
+        Args: {
+          p_contact_first_name?: string
+          p_contact_last_name?: string
+          p_display_name: string
+          p_slug: string
         }
         Returns: Json
       }
@@ -1187,9 +1260,11 @@ export type Database = {
           p_last_name?: string
           p_locale?: string
           p_metering_type?: string
+          p_partner_slug?: string
           p_phone?: string
           p_postal_code?: string
           p_purpose?: Database["platform"]["Enums"]["consent_purpose"]
+          p_referred_by_text?: string
           p_source_ip?: unknown
           p_source_key: string
           p_supplier?: string
