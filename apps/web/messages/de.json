@@ -1252,10 +1252,12 @@
     "iframeTitle": "Peak-Shaving Kalkulator — Lastgang hochladen, Batterie simulieren, Ersparnis berechnen",
     "access": {
       "title": "Zugang zum Kalkulator",
-      "lead": "Ihr Konto hat für den Peak-Shaving Kalkulator noch keine Freischaltung. Wir vergeben den Zugang auf Anfrage — schreiben Sie uns kurz, wofür Sie ihn brauchen, dann melden wir uns.",
+      "lead": "Ihr Konto hat für den Peak-Shaving Kalkulator noch keine Freischaltung.",
+      "redeemTitle": "Gutscheincode einlösen",
+      "redeemLead": "Sie haben einen Zugangscode von uns bekommen? Lösen Sie ihn hier ein — Sie landen anschließend direkt im Rechner.",
+      "contactTitle": "Noch keinen Code?",
+      "contactLead": "Wir vergeben den Zugang auf Anfrage — schreiben Sie uns kurz, wofür Sie ihn brauchen, dann melden wir uns.",
       "cta": "Zugang anfragen",
-      "redeemHint": "Sie haben bereits einen Gutscheincode?",
-      "redeemLink": "Im Konto einlösen",
       "signedInAs": "Angemeldet als {email}."
     }
   },
