@@ -1350,7 +1350,7 @@
       "martin": {
         "name": "Martin Neubauer",
         "role": "CEO",
-        "bio": "Martin verantwortet die technische und wirtschaftliche Auslegung jedes Projekts. Als Elektrotechniker mit langjähriger Erfahrung in Photovoltaik, Batteriespeichern und Förderlandschaft kennt er die physikalischen wie die finanziellen Stellschrauben einer Anlage — und weiß, worauf es bei der Umsetzung wirklich ankommt."
+        "bio": "Martin verantwortet die technische und wirtschaftliche Auslegung jedes Projekts. Als Unternehmensberater und Elektrotechniker mit langjähriger Erfahrung in Photovoltaik, Batteriespeichern und Förderlandschaft kennt er die physikalischen wie die finanziellen Stellschrauben einer Anlage — und weiß, worauf es bei der Umsetzung wirklich ankommt."
       },
       "andreas": {
         "name": "Andreas Dax",
@@ -1813,7 +1813,7 @@
     "fields": {
       "email": "E-Mail-Adresse",
       "firstName": "Vorname",
-   "lastName": "Nachname",
+      "lastName": "Nachname",
       "company": "Unternehmen",
       "phone": "Telefon",
       "industry": "Branche",
@@ -1917,5 +1917,115 @@
         "success": "Danke — bitte bestätigen Sie noch kurz die E-Mail, die wir Ihnen gerade geschickt haben. Erst danach stehen Sie auf der Liste."
       }
     }
+  },
+  "Impressum": {
+    "eyebrow": "Rechtliches",
+    "title": "Impressum",
+    "intro": "Angaben gemäß § 5 E-Commerce-Gesetz (ECG) und § 14 Unternehmensgesetzbuch (UGB).",
+    "labels": {
+      "legalName": "Firmenwortlaut",
+      "legalForm": "Rechtsform",
+      "businessPurpose": "Unternehmensgegenstand",
+      "vatId": "UID-Nummer",
+      "companyRegisterNumber": "Firmenbuchnummer",
+      "companyRegisterCourt": "Firmenbuchgericht",
+      "seat": "Sitz",
+      "phone": "Telefon",
+      "email": "E-Mail",
+      "memberships": "Mitgliedschaften",
+      "applicableLaw": "Anwendbare Rechtsvorschriften",
+      "supervisoryAuthority": "Aufsichtsbehörde / Gewerbebehörde"
+    }
+  },
+  "Datenschutz": {
+    "eyebrow": "Rechtliches",
+    "title": "Datenschutzerklärung",
+    "intro": "Diese Erklärung beschreibt, welche personenbezogenen Daten beim Besuch dieser Website und bei der Nutzung ihrer Formulare verarbeitet werden — und welche Dienste daran tatsächlich beteiligt sind.",
+    "sections": [
+      {
+        "title": "1. Verantwortlicher",
+        "paragraphs": [
+          "COOLiN CONSULTING AND INNOVATION GmbH, Karl-Popper-Straße 22, 1100 Wien, Österreich.",
+          "E-Mail: energy@coolin.at. Die vollständigen Unternehmensangaben stehen im Impressum."
+        ]
+      },
+      {
+        "title": "2. Hosting und technische Zugriffsdaten",
+        "paragraphs": [
+          "Diese Website wird über Vercel bereitgestellt. Beim Aufruf können technische Daten wie IP-Adresse, Datum und Uhrzeit, angeforderte Datei, Referrer, Browser und Betriebssystem verarbeitet werden. Die Verarbeitung erfolgt zur sicheren und stabilen Bereitstellung der Website auf Grundlage unseres berechtigten Interesses gemäß Art. 6 Abs. 1 lit. f DSGVO."
+        ]
+      },
+      {
+        "title": "3. Datenbank und Login (Supabase)",
+        "paragraphs": [
+          "Unsere Datenbank und die Benutzerverwaltung laufen über Supabase in der EU-Region (Frankfurt).",
+          "Bei einer Anfrage über das Kontaktformular verarbeiten wir die von Ihnen eingegebenen Angaben — insbesondere Name, E-Mail-Adresse, Unternehmen, Telefonnummer, Thema und Nachricht —, um Ihre Anfrage zu bearbeiten. Rechtsgrundlage ist Art. 6 Abs. 1 lit. b DSGVO (vorvertragliche Maßnahmen), andernfalls Art. 6 Abs. 1 lit. f DSGVO.",
+          "Daneben gibt es Formulare, die eine bestimmte Leistung anbieten: die Warteliste zum Leistungstarif 2027, die Erinnerung an das Ende Ihrer Vertragslaufzeit, die Zusendung eines Rechnerergebnisses sowie Anmeldungen zu Informationen auf Branchen- und Wissensseiten. Je nach Formular erheben wir dabei zusätzlich Angaben wie Branche, Postleitzahl, Jahresverbrauch, Energieversorger oder Vertragsende. Diese Verarbeitung beruht auf Ihrer Einwilligung gemäß Art. 6 Abs. 1 lit. a DSGVO.",
+          "Einwilligungen zu werblichen Zwecken erteilen Sie im Double-Opt-in-Verfahren: Sie erhalten zunächst eine E-Mail mit einem Bestätigungslink; erst mit dessen Aufruf wird die Einwilligung wirksam. Als Nachweis der Einwilligung speichern wir den Zeitpunkt, den angezeigten Einwilligungstext, Ihre IP-Adresse und die Browser-Kennung. Sie können jede Einwilligung jederzeit mit Wirkung für die Zukunft widerrufen — über den Abmeldelink in jeder E-Mail oder formlos per Nachricht an uns.",
+          "Wenn Sie ein Benutzerkonto anlegen, verarbeiten wir Ihre E-Mail-Adresse und Ihr Passwort (ausschließlich als kryptografischer Hash) zur Bereitstellung des Zugangs, Art. 6 Abs. 1 lit. b DSGVO."
+        ]
+      },
+      {
+        "title": "4. E-Mail-Versand (Resend)",
+        "paragraphs": [
+          "Für den Versand unserer E-Mails setzen wir Resend ein — für Bestätigungsmails des Double-Opt-in, für die Beantwortung von Kontaktanfragen, für Nachrichten rund um Ihr Benutzerkonto und, sofern Sie sie angefordert haben, für die Erinnerung an Ihr Vertragsende.",
+          "Der Versanddienst meldet uns technisch zurück, was mit einer Nachricht geschehen ist: versendet, zugestellt, unzustellbar oder als Spam gemeldet. Diese Rückmeldungen brauchen wir, um unzustellbare Adressen und Beschwerden zuverlässig zu berücksichtigen.",
+          "Ein Öffnungs- oder Klick-Tracking findet ausdrücklich NICHT statt. Wir erheben weder, ob eine E-Mail geöffnet wurde, noch, ob ein Link darin angeklickt wurde. Diese Funktionen sind beim Versanddienstleister abgeschaltet und nicht abonniert — sie werden nicht bloß nicht ausgewertet."
+        ]
+      },
+      {
+        "title": "5. Reichweitenmessung (PostHog)",
+        "paragraphs": [
+          "Zur Messung der Reichweite dieser Website setzen wir PostHog in der EU-Region (Frankfurt) ein. Die Messung läuft cookielos: Es werden weder Cookies noch Einträge im Speicher Ihres Browsers angelegt, es findet keine Wiedererkennung über Sitzungen hinweg statt, und es wird kein Personenbezug hergestellt. Aufgezeichnet werden ausschließlich Seitenaufrufe — kein automatisches Mitschneiden von Klicks oder Formulareingaben und keine Sitzungsaufzeichnung.",
+          "Weil kein Zugriff auf Ihr Endgerät gespeichert wird, ist dafür keine Einwilligung erforderlich; diese Website braucht deshalb kein Cookie-Banner. Rechtsgrundlage ist unser berechtigtes Interesse an einer datensparsamen Reichweitenmessung, Art. 6 Abs. 1 lit. f DSGVO."
+        ]
+      },
+      {
+        "title": "6. Schutz vor automatisierten Eingaben",
+        "paragraphs": [
+          "Unsere Formulare enthalten ein für Sie unsichtbares Zusatzfeld (Honeypot), das nur automatisierte Programme ausfüllen. Ist es ausgefüllt, verwerfen wir die Übermittlung. Dabei werden keine Daten an Dritte übermittelt und keine Cookies gesetzt.",
+          "Ein zusätzlicher Dienst zur Bot-Erkennung (Cloudflare Turnstile) ist in der Anwendung vorgesehen, derzeit aber nicht aktiviert. Ein Dienst, der Cookies setzt oder ein Nutzerprofil bildet, kommt für den Bot-Schutz bewusst nicht zum Einsatz — deshalb braucht diese Website kein Cookie-Banner."
+        ]
+      },
+      {
+        "title": "7. Aufbewahrungsdauer",
+        "paragraphs": [
+          "Kontakte, die wir auf Grundlage einer Einwilligung zu werblichen Zwecken führen, bewahren wir 24 Monate ab der letzten Interaktion auf. Als Interaktion zählt eine tatsächliche Handlung von Ihnen — ein abgesendetes Formular, eine bestätigte Einwilligung, ein Widerruf. Ausdrücklich NICHT dazu zählt das Öffnen oder Anklicken einer E-Mail, weil wir das gar nicht erfassen.",
+          "Nach Ablauf der Frist werden die Daten anonymisiert statt gelöscht: Alle Identitätsmerkmale — Name, E-Mail-Adresse, Unternehmen, Telefonnummer — werden entfernt und sind nicht wiederherstellbar. Zurück bleibt ein anonymer Nachweis darüber, dass eine Einwilligung erteilt und wie sie behandelt wurde. Diesen Nachweis müssen wir führen können, ohne dafür Ihre Person weiter zu speichern.",
+          "Bestehen geschäftliche Beziehungen, bewahren wir die zugehörigen Daten aus kaufmännischen und steuerlichen Gründen 7 Jahre ab Vertragsschluss auf (Art. 6 Abs. 1 lit. c DSGVO in Verbindung mit den Aufbewahrungspflichten der BAO/UGB).",
+          "Adressen, für die uns ein dauerhafter Zustellfehler oder eine Beschwerde gemeldet wurde, führen wir in einer gesonderten Sperrliste, damit an sie keine weiteren E-Mails ausgehen. Diese Liste besteht getrennt vom übrigen Bestand und dient ausschließlich diesem Schutzzweck."
+        ]
+      },
+      {
+        "title": "8. Empfänger und Auftragsverarbeiter",
+        "paragraphs": [
+          "Vercel Inc. — Hosting und Auslieferung der Website.",
+          "Supabase — Datenbank, Benutzerverwaltung und Kontaktbestand; EU-Region (Frankfurt).",
+          "Resend — Versand unserer E-Mails.",
+          "PostHog — cookielose Reichweitenmessung; EU-Region (Frankfurt).",
+          "Eine Weitergabe Ihrer Daten an Energieversorger oder Netzbetreiber findet nicht statt. Darüber hinaus geben wir Daten nur weiter, soweit wir gesetzlich dazu verpflichtet sind."
+        ]
+      },
+      {
+        "title": "9. Ihre Rechte",
+        "paragraphs": [
+          "Sie haben das Recht auf Auskunft über die verarbeiteten Daten, auf Berichtigung unrichtiger Daten, auf Löschung oder Einschränkung der Verarbeitung, auf Datenübertragbarkeit, soweit anwendbar, sowie auf Widerspruch gegen Verarbeitungen auf Grundlage berechtigter Interessen. Eine erteilte Einwilligung können Sie jederzeit mit Wirkung für die Zukunft widerrufen.",
+          "Wenden Sie sich dafür formlos an energy@coolin.at."
+        ]
+      },
+      {
+        "title": "10. Beschwerderecht",
+        "paragraphs": ["Sie können sich bei der österreichischen Datenschutzbehörde beschweren."]
+      },
+      {
+        "title": "11. Änderungen",
+        "paragraphs": [
+          "Diese Datenschutzerklärung wird angepasst, wenn sich eingesetzte Dienste oder rechtliche Anforderungen ändern."
+        ]
+      }
+    ],
+    "reviewNote": "Hinweis: Diese Fassung beschreibt den technischen Stand dieser Website nach bestem Wissen. Eine anwaltliche Prüfung steht noch aus und ist vor einer breiten öffentlichen Bewerbung vorgesehen.",
+    "lastUpdatedLabel": "Stand",
+    "lastUpdated": "22. Juli 2026"
   }
 }

@@ -1,9 +1,13 @@
 import type { Metadata } from 'next'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
-import { PagePlaceholder } from '@/components/layout/page-placeholder'
+import { DatenschutzPage } from '@/components/legal/datenschutz-page'
 import { pageAlternates } from '@/lib/seo'
 
-/** Platzhalter-Route (/datenschutz) — Gerüst, Inhalt folgt in einem späteren Schritt. */
+/**
+ * /datenschutz (Pflichtenheft §9.2, OP#3) — echte Inhaltsseite, ersetzt den
+ * bisherigen `PagePlaceholder`. Die Seite war nie `noindex`; hier ändert sich
+ * nur der Inhalt.
+ */
 export async function generateMetadata({
   params,
 }: {
@@ -20,5 +24,5 @@ export async function generateMetadata({
 export default async function Page({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params
   setRequestLocale(locale)
-  return <PagePlaceholder titleKey="datenschutz" />
+  return <DatenschutzPage />
 }

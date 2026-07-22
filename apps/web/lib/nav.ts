@@ -206,13 +206,14 @@ const ADDRESS = {
  * Nicht erfunden, nicht geraten. Deckt sich mit der Adresse in Pflichtenheft
  * §6.4 (LocalBusiness-JSON-LD).
  *
- * WAS HIER FEHLT, FEHLT MIT ABSICHT: Rechtsform, Inhaber/Geschäftsführung,
- * Firmenbuchnummer, UID, Gewerbebehörde und Kammer stehen im Bestands-Impressum
- * selbst nur als „[ergänzen]" (OP#13, Pflichtenheft §9.1) — sie sind UNBEKANNT,
- * nicht bloß unerfasst. Eine Telefonnummer und Social-Profile trägt der Bestand
- * ebenfalls nicht (geprüft). Solange das so ist, dürfen sie weder auf der Seite
- * noch im JSON-LD auftauchen: Ein geratenes `legalName` oder eine erfundene
- * `vatID` wären eine Falschangabe an Google — schlimmer als eine fehlende.
+ * WAS HIER FEHLT, STEHT SEIT DER OP#13-ZULIEFERUNG IN `COMPANY_LEGAL` (unten):
+ * Rechtsform, Firmenbuchdaten, UID, Kammer und Gewerbebehörde waren im
+ * Bestands-Impressum nur „[ergänzen]" und damit UNBEKANNT — sie sind jetzt
+ * zugeliefert. Sie bleiben aber ein EIGENES Objekt: `COMPANY` ist die
+ * Marken-/Kontaktidentität, die überall auf der Seite (Footer, /ueber-uns,
+ * JSON-LD) erscheint; `COMPANY_LEGAL` sind die ECG-Pflichtangaben des
+ * Rechtsträgers, die nur ins Impressum gehören. Social-Profile trägt der
+ * Bestand weiterhin nicht (geprüft) und dürfen deshalb nirgends auftauchen.
  */
 export const COMPANY = {
   name: 'COOLiN ENERGY',
@@ -222,4 +223,42 @@ export const COMPANY = {
   email: 'energy@coolin.at',
   /** Die Einzelteile fürs `PostalAddress`-JSON-LD (`lib/json-ld.ts`). */
   address: ADDRESS,
+} as const
+
+/**
+ * Die ECG-§5-Pflichtangaben des Rechtsträgers — die Auflösung von OP#13
+ * (Pflichtenheft §9.1). Zugeliefert aus Firmenbuch/Gewerbeschein/WKO, nicht
+ * hergeleitet und nicht geraten.
+ *
+ * ZWEI DINGE, DIE HIER BEWUSST SO STEHEN:
+ *
+ * 1. Der FIRMENWORTLAUT weicht von `COMPANY.name` ab. „COOLiN ENERGY" ist die
+ *    Marke, unter der die Seite auftritt; „COOLiN CONSULTING AND INNOVATION
+ *    GmbH" ist der eingetragene Rechtsträger. Das Impressum muss den
+ *    Rechtsträger nennen — dort einfach die Marke einzusetzen wäre genau die
+ *    Angabe, wegen der es das Impressum gibt. Deshalb zwei Felder und nicht eins.
+ *
+ * 2. Das FIRMENBUCHGERICHT ist „Handelsgericht Wien", nicht bloß „Wien". Für
+ *    Firmenbuchsachen in Wien ist das Handelsgericht Wien zuständig; „Wien"
+ *    allein benennt kein Gericht.
+ *
+ * Adresse und E-Mail stehen hier NICHT noch einmal — sie kommen aus `COMPANY`
+ * oben. Eine zweite Adresse im Repo könnte von der sichtbaren abweichen, und
+ * ausgerechnet im Impressum wäre das der teuerste Ort dafür.
+ */
+export const COMPANY_LEGAL = {
+  legalName: 'COOLiN CONSULTING AND INNOVATION GmbH',
+  legalForm: 'Gesellschaft mit beschränkter Haftung',
+  businessPurpose: 'Unternehmensberatung einschließlich der Unternehmensorganisation',
+  vatId: 'ATU 77360623',
+  companyRegisterNumber: 'FN 565512 k',
+  companyRegisterCourt: 'Handelsgericht Wien',
+  phone: '+43 676 76 30456',
+  /** Für `href="tel:"` — ohne Leerzeichen, wie es ein Telefon wählen kann. */
+  phoneHref: '+436767630456',
+  memberships:
+    'Mitglied der Wirtschaftskammer Österreich (WKÖ), Wirtschaftskammer Wien (WKW), Fachverband Unternehmensberatung, Buchhaltung und Informationstechnologie (UBIT)',
+  applicableLaw: 'Gewerbeordnung, einsehbar unter www.ris.bka.gv.at',
+  applicableLawHref: 'https://www.ris.bka.gv.at',
+  supervisoryAuthority: 'Magistrat der Stadt Wien',
 } as const
