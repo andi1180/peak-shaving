@@ -20,7 +20,7 @@ Richtungsänderung vom 20.07.2026: Der Haushalts-Tarifmonitor als Eigenbau wird 
 - **`DEPLOYMENT.md`** — Env-/Dashboard-Stand, niemals echte Werte.
 - **`README_Doku-Struktur.md`** — Landkarte über alles.
 
-Ein Pflichtenheft für den Rechnungs-Wächter (B7–B9) existiert bewusst NOCH NICHT. Es wird unmittelbar vor B7 geschrieben, wenn Martins Prüfregelwerk vorliegt — vorher wäre es Fiktion. Die fachliche Tiefe zu B1–B3 erweitert das Website-Pflichtenheft, zu B10/B11/B14 das Kalkulator-Pflichtenheft. **B1 ist dort nachgezogen: `apps/web/Pflichtenheft_Website_Coolin.md` §15** (Lead- und Einwilligungsverwaltung — Einwilligungsarchitektur, Wortlaute, Abmeldung/Sperre, Aufbewahrung und Anonymisierung, Grenzen des Admin-Bereichs).
+Ein Pflichtenheft für den Rechnungs-Wächter (B7–B9) existiert bewusst NOCH NICHT. Es wird unmittelbar vor B7 geschrieben, wenn Martins Prüfregelwerk vorliegt — vorher wäre es Fiktion. Die fachliche Tiefe zu B1–B3 erweitert das Website-Pflichtenheft, zu B10/B11/B14 das Kalkulator-Pflichtenheft. **Nachgezogen in `apps/web/Pflichtenheft_Website_Coolin.md`: §15** (B1 — Einwilligungsarchitektur, Wortlaute, Abmeldung/Sperre, Aufbewahrung und Anonymisierung, Grenzen des Admin-Bereichs), **§16** (B3 — Erfassungsstellen, Segmentierung, Zusammenführungsregeln), **§17** (B4 — die beiden zeitgesteuerten Läufe, Protokollpflicht, Mengenbegrenzung), **§18** (B2-1 — Bestandspflege und Ausfuhr), **§19** (B2-2 — Rückläufer und Beschwerden, kein Öffnungs-/Klick-Tracking).
 
 ---
 
@@ -41,6 +41,35 @@ Reaktivierbar, falls sich ein Bedarf jenseits des E-Control-Angebots zeigt (z. B
 ---
 
 ## Bauabschnitte (neue Nummerierung B0–B15)
+
+### Stand je Bauabschnitt
+
+Mit inzwischen zwölf gebauten Teilabschnitten ist aus der Beschreibung unten sonst nicht mehr erkennbar, was existiert und was Vorhaben ist. Diese Tabelle nennt **nur den Zustand** — kein Datum, keine Fortschrittsangabe. Die Begründungen und der Umfang stehen unverändert in den Absätzen darunter.
+
+| # | Stand | Anmerkung |
+|---|---|---|
+| **B0** Doku-Umstellung | **gebaut** | |
+| **B1** Lead- und Einwilligungsfundament | **gebaut** | B1-1 bis B1-3 |
+| **B2** Segmentierung & Aussendung | **teilweise gebaut** | B2-1 Bestandspflege und Ausfuhr gebaut · B2-2 Rückläuferverarbeitung gebaut · **B2-3 Kampagnenversand offen** |
+| **B3** Lead-Erfassungskomponente + Einsatzorte | **teilweise gebaut** | B3-1 Segmentierung, B3-2 Registry und erste Einsatzorte, B3-4 Warteliste + Postaktions-QR gebaut · **B3-3 Betroffenheits-Check blockiert** auf die Branchenkennzahlen (Vollbenutzungsstunden je Branche, Owner Martin) |
+| **B4** Vertragsablauf-Erinnerung | **gebaut** | B4-1 Scheduling + Fristdurchsetzung · B4-2 Erinnerung + Landingpage |
+| **B5** Förder-Check | **blockiert** | auf die steuerliche Absicherung (IFB / EAG-Speicherförderung) |
+| **B6** E-Control-Widget + Netzbetreiber-Anleitungen | **blockiert** | auf die technische Prüfung des Cookie-Verhaltens (offene Entscheidung 5) |
+| **B7** Rechnungs-Prüfregelwerk | **blockiert** | auf Martins Prüfregelwerk als Fachdokument |
+| **B8** Rechnungseingang + Extraktion | **offen** | zusätzlich abhängig von offener Entscheidung 3 (Eingangsweg) |
+| **B9** Rechnungs-Wächter als Abo | **offen** | setzt B7/B8 voraus |
+| **B10** Kalkulator ans Entitlement-System | **offen** | |
+| **B11** Kalkulator auf Verordnungssätze umstellbar | **gebaut** | als Codemodul, s. unten |
+| **B12** Datenanbindung Vortageswerte | **offen** | |
+| **B13** Mandantenfähigkeit | **zurückgestellt** | bewusst additiv später; bekommt mit der Fachbetriebs-Lizenz den ersten realen Anwendungsfall |
+| **B14** Analyse-Persistenz Kalkulator | **gebaut** | B14-1 Ablage · B14-2 Export/Upload/Ansicht |
+| **B15** Echtzeit-Datenpfad | **offen** | ab Q2 2027 |
+
+### Die B-Nummern sind Namen, keine Positionen
+
+Eine B-Nummer klebt an ihrem **Inhalt** und wird nie gegen eine andere getauscht — auch dann nicht, wenn sich die Baureihenfolge ändert (wie bei B3 vor B2 geschehen). **Die Reihenfolge ist eine getrennte Angabe**, kein Ordnungsmerkmal der Nummer.
+
+Grund: Die Bezeichner sind außerhalb dieses Dokuments in Gebrauch — in bereits **angewandten** Datenbank-Migrationen, in Code-Kommentaren, in den Handover-Logs und in den Pflichtenheft-Kapiteln. Ein Nummerntausch machte alle diese Stellen stillschweigend falsch, ohne dass irgendein Test rot würde: Der Code liefe unverändert, und nur die Erklärung, warum er so ist, zeigte auf den falschen Abschnitt.
 
 - **B0** Doku-Umstellung (diese Aufgabe)
 - **B1** Lead- und Einwilligungsfundament — `platform.leads`, EIN Bestand mit Statuskennzeichen; MEHRERE zweckgebundene Einwilligungen je Lead über die Zeit (Vertragsablauf-Erinnerung ist NICHT Marketing-Einwilligung — anderer Zweck); versionierte Einwilligungstexte als eigene unveränderliche Datensätze, auf die der Einwilligungseintrag zeigt; Zeitpunkt + technische Herkunft; Herkunftskontext als PFLICHTFELD (welcher Artikel/welche Branche/welche Anleitung/welches Rechenergebnis/QR-Quelle); Double-Opt-in; Abmeldemechanismus; Admin-Abschnitt „Leads"; Kontaktformular schreibt mit. Additiv mandantenfähig VORBEREITET (kein `tenant_id` jetzt, aber ein Modell, das es ohne Umbau verträgt — die Fachbetriebs-Lizenz enthält „Lead-Verwaltung" für den Partner).
@@ -67,7 +96,9 @@ Reaktivierbar, falls sich ein Bedarf jenseits des E-Control-Angebots zeigt (z. B
 - **B10** Kalkulator ans Entitlement-System — Ablösung des separaten, DB-losen Zugangscodes (`lib/kalkulator-access.ts`). Vorbedingung für jede Fachbetriebs-Lizenz.
 - **B11** Kalkulator auf Verordnungssätze umstellbar machen — Tarifsätze als konfigurierbare Datenschicht, damit Nov/Dez 2026 eine Konfigurationsänderung genügt statt eines Umbaus unter Zeitdruck.
 
-  **ERLEDIGT (21.07.2026).** Die „konfigurierbare Datenschicht" ist als getyptes Codemodul umgesetzt (`packages/shared/src/tariff-catalog.ts`), nicht als Datenbanktabelle: was eine DB-Lösung hier leisten müsste — Versionierung, Freigabe durch eine zweite Person, Unveränderlichkeit nach der Auslieferung, Nachvollziehbarkeit der Quelle — leistet die Versionsverwaltung bereits, während ein Laufzeitabruf den vollständig im Browser rechnenden Rechner von einem Netzaufruf abhängig machte oder `anon` erstmals Zugriff auf `platform` gäbe. Eine Satzänderung ist damit ein PR mit einer Datei (Anleitung: `DEPLOYMENT.md` §3a). Netzebene 7 wird bis zur Tarifverordnung ausdrücklich **verweigert statt geschätzt**, mit Verweis auf `/warteliste`. Fachliche Tiefe in `Pflichtenheft_Kalkulator_MVP.md` §7a.2.
+  **ERLEDIGT (21.07.2026).** Die „konfigurierbare Datenschicht" ist als getyptes Codemodul umgesetzt (`packages/shared/src/tariff-catalog.ts`), nicht als Datenbanktabelle: was eine DB-Lösung hier leisten müsste — Versionierung, Freigabe durch eine zweite Person, Unveränderlichkeit nach der Auslieferung, Nachvollziehbarkeit der Quelle — leistet die Versionsverwaltung bereits, während ein Laufzeitabruf den vollständig im Browser rechnenden Rechner von einem Netzaufruf abhängig machte oder `anon` erstmals Zugriff auf `platform` gäbe. Eine Satzänderung ist damit ein PR mit einer Datei (Anleitung: `DEPLOYMENT.md` §3a).
+
+  **`[Nachtrag 24.07.2026]` Dieselbe Begründung gilt für die Branchenkennzahlen aus B3-3** (Vollbenutzungsstunden je Branche). Auch sie sind Werte, die **bestimmen, was eine Rechnung bedeutet** — sie entscheiden über die Aussage „Sie sind ab 2027 betroffen". Solche Werte gehören in den Code und damit in die Versionsverwaltung: Jede Änderung ist datiert, begründet, einer Person zurechenbar und durch eine zweite prüfbar, bevor sie wirkt. Eine im laufenden Betrieb über eine Oberfläche änderbare Kennzahl ließe rückwirkend nicht mehr feststellen, mit welchem Wert eine bereits erteilte Auskunft gerechnet wurde. **Im Admin-Bereich werden sie später ausschließlich LESEND angezeigt** — sichtbar, damit niemand sie im Code suchen muss; nicht bearbeitbar, damit die Nachvollziehbarkeit bestehen bleibt. Netzebene 7 wird bis zur Tarifverordnung ausdrücklich **verweigert statt geschätzt**, mit Verweis auf `/warteliste`. Fachliche Tiefe in `Pflichtenheft_Kalkulator_MVP.md` §7a.2.
 - **B12** Datenanbindung Vortageswerte — Netzbetreiber-Schnittstelle, Zeitreihen-Speicher. Fundament für Peak-Wächter (Vortag), Wirkungsnachweis und Anomalie-Erkennung. Größter Einzelbaustein für 2027.
 - **B13** Mandantenfähigkeit — `tenant_id` additiv in `platform.entitlements` und `platform.leads`. In T4-1 bewusst vorbereitet und zurückgestellt; bekommt mit der Fachbetriebs-Lizenz den ersten realen Anwendungsfall.
 - **B14** Analyse-Persistenz Kalkulator — Auslegung und Prognose-Baseline serverseitig speichern. HOCH PRIORISIERT, MUSS VOR DER ERSTEN PILOTANALYSE STEHEN. Begründung: Das Alleinstellungsmerkmal des Wirkungsnachweises (29 €/Mon., ab Q1 2027) ist, dass nur COOLiN die Prognose-Baseline aus der Auslegung besitzt. Der Kalkulator speichert heute NICHTS serverseitig (localStorage; Supabase dort bewusst zurückgestellt). Jede Pilot- und 990-€-Analyse ohne B14 erzeugt eine Baseline, die verloren geht — ausgerechnet für die ersten Referenzkunden wäre der Wirkungsnachweis 2027 dann nicht lieferbar.
@@ -88,18 +119,20 @@ Lastspitzen-Analyse und Projekt sind KEINE Bauabschnitte — sie sind Datenarbei
 
 ## Offene Entscheidungen (blockieren die genannten Bausteine)
 
-1. ~~Aufbewahrungsfrist und Löschkonzept für Leads → blockiert B1.~~ **ERLEDIGT mit B1 (21.07.2026):** 24 Monate ab letzter Interaktion für werbliche Leads, 7 Jahre ab Vertragsschluss als getrennte Rechtsgrundlage; die Frist wird nie von Hand gesetzt, sondern abgeleitet; Löschung erfolgt als Anonymisierung, die den Einwilligungsnachweis und die Sperrliste bewusst überleben lässt; ~~Durchsetzung manuell bis B4~~ **Durchsetzung seit B4-1 (22.07.2026) automatisch** (täglicher Cron 03:15 UTC → `platform.run_lead_retention`, mit Mengenobergrenze, die oberhalb des Schwellwerts VOLLSTÄNDIG verweigert). Ausformuliert in `apps/web/Pflichtenheft_Website_Coolin.md` §15.6.
+1. ~~Aufbewahrungsfrist und Löschkonzept für Leads → blockiert B1.~~ **ERLEDIGT mit B1 (21.07.2026):** 24 Monate ab letzter Interaktion für werbliche Leads — **„letzte Interaktion" heißt: eine tatsächliche Handlung der Person (abgesendetes Formular, bestätigte Einwilligung, Widerruf), ausdrücklich NICHT das Öffnen einer E-Mail oder ein Klick darin**; beides wird seit B2-2 dauerhaft nicht erhoben (s. Punkt „kein Öffnungs-/Klick-Tracking", `apps/web/Pflichtenheft_Website_Coolin.md` §19.2), und der Code hat es nie anders gemacht —, 7 Jahre ab Vertragsschluss als getrennte Rechtsgrundlage; die Frist wird nie von Hand gesetzt, sondern abgeleitet; Löschung erfolgt als Anonymisierung, die den Einwilligungsnachweis und die Sperrliste bewusst überleben lässt; ~~Durchsetzung manuell bis B4~~ **Durchsetzung seit B4-1 (22.07.2026) automatisch** (täglicher Cron 03:15 UTC → `platform.run_lead_retention`, mit Mengenobergrenze, die oberhalb des Schwellwerts VOLLSTÄNDIG verweigert). Ausformuliert in `apps/web/Pflichtenheft_Website_Coolin.md` §15.6.
 2. ~~Double-Opt-in ja/nein → blockiert B1.~~ **ERLEDIGT mit B1 (21.07.2026): ja** — für jeden Zweck, dessen Erfüllung eine KÜNFTIGE E-Mail ist (Werbung und Vertragsablauf-Erinnerung), nicht für die einmalige Ergebniszusendung. Ausformuliert in §15.3 des Website-Pflichtenhefts.
 3. Rechnungseingang: Weiterleitung an dedizierte Adresse (hält das Versprechen „keine Mitwirkung über das Weiterleiten hinaus", braucht Inbound-Mail-Infrastruktur — Resend kann nur SENDEN) vs. Upload im Kundenportal (deutlich billiger, Auth existiert, mehr Mitwirkung) → blockiert B8.
 4. Einmalzahlung Netzentgelt-Check: Stripe-Einmalzahlung (heute NICHT gebaut, Stripe-Integration ist abo-only) vs. manuelle Rechnung. Empfehlung: manuell für 2026.
-5. E-Control-Widget: Cookie-Verhalten technisch prüfen → blockiert B6 UND potenziell die gesamte bannerlose Analytics-Architektur. Setzt das Widget Cookies, ist ein Cookie-Banner für die ganze Domain fällig; dann eher verlinken statt einbetten.
-6. Branchen-Benchmark aus Rechnungsdaten ist datenschutzrechtlich ein EIGENER ZWECK, nicht dieselbe Verarbeitung wie „ich prüfe Ihre Rechnung" — muss ab der ERSTEN Rechnung in AGB/AV-Vereinbarung abgedeckt sein.
+5. **UNVERÄNDERT OFFEN — blockiert B6.** E-Control-Widget: Cookie-Verhalten technisch prüfen → blockiert B6 UND potenziell die gesamte bannerlose Analytics-Architektur. Setzt das Widget Cookies, ist ein Cookie-Banner für die ganze Domain fällig; dann eher verlinken statt einbetten. (Die Analytics-Architektur ist inzwischen real cookielos umgesetzt — PostHog, `cookieless_mode`, kein Banner; das erhöht den Einsatz, es entscheidet ihn nicht.)
+6. **UNVERÄNDERT OFFEN, seit B14-1 mit erweitertem Gegenstand.** Branchen-Benchmark aus Rechnungsdaten ist datenschutzrechtlich ein EIGENER ZWECK, nicht dieselbe Verarbeitung wie „ich prüfe Ihre Rechnung" — muss ab der ERSTEN Rechnung in AGB/AV-Vereinbarung abgedeckt sein. **Seit B14-1 betrifft derselbe Punkt zusätzlich den archivierten Lastgang:** Das Analyse-Archiv hält die Ursprungsdatei einer Kundenanalyse sieben Jahre vor. Sie zur Bildung von Branchenkennzahlen heranzuziehen, ist gegenüber „ich lege Ihre Batterie aus" ebenfalls ein eigener Zweck und von der Beauftragung nicht gedeckt — der Zweckbindungsvermerk dazu steht in `DEPLOYMENT.md` §6.
+7. **NEU, aus B3-3.** Die **Branchenkennzahlen** (Vollbenutzungsstunden je Branche), ohne die der Betroffenheits-Check keine belastbare Auskunft geben kann, liegen nicht vor → blockiert B3-3. Owner: Martin. Bis dahin bleibt die Erfassungsstelle gebaut, aber nicht platziert (`apps/web/Pflichtenheft_Website_Coolin.md` §16.2).
 
 ---
 
 ## Fachliche Abhängigkeiten (Owner: Martin)
 
 - Prüfregelwerk B7 als Fachdokument — HÄRTESTE Abhängigkeit des gesamten Plans. Was eine korrekte Netzentgelt-Abrechnung ausmacht, welche Blindarbeits-Positionen auffällig sind, wann eine vereinbarte Anschlussleistung unangemessen ist: das ist Fachwissen, nicht Code. Die Software drumherum ist vergleichsweise einfach.
+- **Branchenkennzahlen (Vollbenutzungsstunden je Branche)** — blockiert B3-3; ohne sie bleibt der Betroffenheits-Check gebaut, aber unplatziert
 - Batteriekatalog mit belastbaren Preisen
 - Validierter Referenzfall mit echter Netzrechnung
 - Rechtssicherer Einwilligungstext
@@ -110,7 +143,9 @@ Lastspitzen-Analyse und Projekt sind KEINE Bauabschnitte — sie sind Datenarbei
 
 ## Neue Infrastruktur, die es heute nicht gibt
 
-Zeitsteuerung (B4) · Dateiablage (B8) · eingehende E-Mail (B8, falls Weiterleitung) · erste LLM-Anbindung im Produkt (B8) · **Massenversand** (B2) · Zeitreihen-Speicher (B12).
+~~Zeitsteuerung (B4)~~ · Dateiablage (B8) · eingehende E-Mail (B8, falls Weiterleitung) · erste LLM-Anbindung im Produkt (B8) · **Massenversand** (B2-3) · Zeitreihen-Speicher (B12).
+
+`[Nachtrag 24.07.2026]` **Die Zeitsteuerung existiert seit B4-1** (zwei tägliche Läufe, Laufprotokoll, 48-Stunden-Frühwarnung im Admin-Bereich) und ist damit keine neue Infrastruktur mehr. **Ein Dateiweg existiert seit B14-2 ebenfalls** — allerdings als Upload im Admin-Bereich in die Datenbank, nicht als Dateiablage im Sinne von B8.
 
 `[Nachtrag 21.07.2026]` **Abmeldemechanismus und Suppression-Liste sind mit B1 bereits gebaut** und standen ursprünglich in dieser Zeile — offen ist nur noch der Massenversand selbst.
 

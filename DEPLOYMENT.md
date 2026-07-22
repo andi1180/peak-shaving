@@ -193,6 +193,9 @@ Code: `apps/web/app/api/cron/**` · Zeitplan: `apps/web/vercel.json` · Vorlage:
 - **Kontrolle im Betrieb:** `/admin/leads` zeigt den letzten Lauf samt Kennzahlen und hebt einen seit
   **über 48 Stunden** ausbleibenden erfolgreichen Lauf hervor. Das ist der vorgesehene Weg, ein
   vergessenes `CRON_SECRET` zu bemerken — ein nicht gelaufener Job meldet sich sonst nie.
+- **⚠️ Zweite, nicht offensichtliche Voraussetzung: Deployment Protection (§1i).** Ohne
+  Bypass-Secret verwirft Vercel die eigenen Cron-Aufrufe, bevor der Endpunkt sie sieht — kein Log,
+  kein 401, keine Laufzeile. Bei „registriert, aber nichts passiert" **zuerst dort** nachsehen.
 - **Nichts im Supabase-Dashboard zu tun:** wie §1f läuft alles über `public`-RPC-Wrapper.
 
 ### 1h. Resend-Webhook — Rückläufer und Beschwerden (B2-2, server-only)
@@ -239,6 +242,40 @@ Code: `apps/web/app/api/resend/webhook` · Vorlage: `apps/web/.env.example`
   Tage und hebt sie hervor, sobald **eine** Beschwerde auftritt; `/admin/leads/<id>` zeigt die
   Ereignisse des einzelnen Leads samt Sperrgrund.
 - **Nichts im Supabase-Dashboard zu tun:** wie §1f/§1g läuft alles über `public`-RPC-Wrapper.
+
+---
+
+### 1i. Deployment Protection — ⚠️ SONST LAUFEN DIE EIGENEN CRON-JOBS NICHT
+
+Fundort: **Vercel → Project `peak-shaving-web` → Settings → Deployment Protection.**
+
+**Ist-Zustand:** „Vercel Authentication / Require Log In" steht auf **Standard Protection**. Das schirmt
+Preview- und generierte Deployment-URLs ab — gewollt, wird nicht abgeschaltet.
+
+**Die Folge, die nicht offensichtlich ist:** Ohne ein Secret unter **„Protection Bypass for
+Automation"** verwirft Vercel **die eigenen Cron-Aufrufe**, *bevor* sie den Endpunkt erreichen. Es
+entsteht dabei
+
+- **kein Log** (der Handler läuft nie),
+- **kein 401** aus der Anwendung (die Prüfung von `CRON_SECRET` kommt gar nicht zum Zug),
+- **kein Eintrag im Laufprotokoll** (`platform.job_runs` — die Zeile entsteht erst im Handler).
+
+**Symptom, an dem es aufgefallen ist:** Beide Cron-Jobs korrekt registriert (per
+`GET /v1/projects/<projectId>/crons` bestätigt), „View Logs" **leer**, und auf `/admin/leads` seit
+Tagen die 48-Stunden-Warnung für beide Läufe.
+
+**Warum die Ursache schwer zu finden ist:** Aufrufe über die **eigene Domain** (`coolin.at`) sind von
+Deployment Protection **nicht** betroffen. Ein manueller Test mit `curl` gegen die Produktivdomain
+liefert also sauber 401 bzw. 200 — der Endpunkt sieht in jeder Prüfung von Hand funktionsfähig aus,
+während der plattformeigene Auslöser stumm verworfen wird.
+
+**Behebung:** Unter **Deployment Protection → Protection Bypass for Automation** ein Secret anlegen
+und **neu deployen** (Vercel setzt es dann bei den eigenen Cron-Aufrufen selbst). Danach erscheinen
+Läufe wieder im Protokoll, und die 48-Stunden-Warnung auf `/admin/leads` verschwindet. **Genau diese
+Warnung ist die vorgesehene Kontrolle** (§1g) — sie hat hier funktioniert.
+
+**Merksatz:** Registrierter Cron + leere Logs + keine Laufzeile = zuerst Deployment Protection prüfen,
+nicht `CRON_SECRET`.
 
 ---
 

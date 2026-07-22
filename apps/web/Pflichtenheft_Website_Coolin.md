@@ -7,7 +7,7 @@
 >
 > **Stand:** Konzeption abgeschlossen, Bauphase noch nicht begonnen. Version 1.0.
 >
-> **Nachtrag 20.07.2026:** Übergeordnet gilt jetzt `../../Fahrplan_2026.md` — kanonische Quelle für Reihenfolge/Umfang aller Bauabschnitte. Die hier unter §10.2/§13 OP#11 skizzierte „Lead-Verwaltung" und der `/admin`-Bereich werden dort als **B1** (Lead- und Einwilligungsfundament) und **B2** (Segmentierung & Aussendung) geführt, deutlich konkreter gefasst als hier (versionierte Einwilligungen, Herkunftskontext als Pflichtfeld, Double-Opt-in). Die fachliche Tiefe zu B1–B3 wird hier ergänzt, sobald diese Abschnitte gebaut werden — **B1 ist gebaut und in §15 nachgezogen (21.07.2026)**; B2/B3 folgen, wenn sie an der Reihe sind (Baureihenfolge: B3 **vor** B2, s. Fahrplan). Außerdem inzwischen überholt: **§8.6 nennt „Plausible oder Umami" als Analytics-Wahl — real umgesetzt ist PostHog** (cookielos, `cookieless_mode: 'always'`, kein Cookie-Banner, EU-Hosting Frankfurt), s. `apps/web/CLAUDE.md` und `DEPLOYMENT.md` §1e.
+> **Nachtrag 20.07.2026:** Übergeordnet gilt jetzt `../../Fahrplan_2026.md` — kanonische Quelle für Reihenfolge/Umfang aller Bauabschnitte. Die hier unter §10.2/§13 OP#11 skizzierte „Lead-Verwaltung" und der `/admin`-Bereich werden dort als **B1** (Lead- und Einwilligungsfundament) und **B2** (Segmentierung & Aussendung) geführt, deutlich konkreter gefasst als hier (versionierte Einwilligungen, Herkunftskontext als Pflichtfeld, Double-Opt-in). Die fachliche Tiefe zu B1–B4 wird hier ergänzt, sobald diese Abschnitte gebaut werden — **B1 ist gebaut und in §15 nachgezogen (21.07.2026)**; **B3 in §16, B4 in §17, B2-1 in §18 und B2-2 in §19 (24.07.2026)**. Offen bleibt aus diesem Bereich allein der Kampagnenversand (B2-3). Baureihenfolge: B3 **vor** B2, s. Fahrplan. Außerdem inzwischen überholt: **§8.6 nennt „Plausible oder Umami" als Analytics-Wahl — real umgesetzt ist PostHog** (cookielos, `cookieless_mode: 'always'`, kein Cookie-Banner, EU-Hosting Frankfurt), s. `apps/web/CLAUDE.md` und `DEPLOYMENT.md` §1e.
 
 ---
 
@@ -498,6 +498,8 @@ Aktivierung weiterer (europäischer) Sprachen über die in Phase 1 gelegte i18n-
 
 > **Nachgezogen am 21.07.2026, nach Abschluss von B1.** Dieses Kapitel beschreibt, **was gebaut wurde** — nicht, was geplant war. Es ist so geschrieben, dass sich der Einwilligungs- und Löschprozess **ohne Repo-Zugang** beurteilen lässt.
 >
+> **Seither fortgeschrieben (24.07.2026).** Die Bauabschnitte B3 (Erfassungsstellen und Segmentierung), B4 (zeitgesteuerte Vorgänge), B2-1 (Bestandspflege und Ausfuhr) und B2-2 (Rückläufer und Beschwerden) sind gebaut; sie stehen in den **Kapiteln 16 bis 19**. Dieses Kapitel 15 beschreibt weiterhin das Fundament; Stellen, die durch die späteren Abschnitte überholt wurden, sind hier bereits nachgezogen und tragen einen Verweis.
+>
 > **Die Wahrheit über das Datenmodell liegt im Repo**, nicht hier: `supabase/migrations/` (drei Migrationen, Präfix `20260721*`) und die zugehörigen Integrationstests in `packages/db-tests/`. Dieses Kapitel nennt Tabellen- und Spaltennamen nur dort, wo sie zur Nachvollziehbarkeit nötig sind — eine zweite Schema-Kopie im Dokument würde vom Code auseinanderdriften und wäre schlimmer als keine.
 
 ### 15.1 Zweck und Abgrenzung
@@ -514,16 +516,17 @@ Aktivierung weiterer (europäischer) Sprachen über die in Phase 1 gelegte i18n-
 
 **Was ausdrücklich NICHT zu B1 gehört:**
 
-| Fehlt noch | Kommt mit |
-|---|---|
-| Segmentierte Sicht, Export, Massenversand, Zustellprotokoll | **B2** |
-| Erfassungsstellen jenseits des Kontaktformulars; die Segmentierungsmerkmale selbst (Branche, Netzebene, PLZ, Verbrauch) | **B3** |
-| Automatische Durchsetzung der Löschfristen (zeitgesteuerter Job) | **B4** |
-| Mandantenfähigkeit (getrennte Bestände je Partnerbetrieb) | **B13** |
+| Fehlt in B1 noch | Kommt mit | Stand heute |
+|---|---|---|
+| Segmentierte Sicht, Export, Zustellprotokoll | **B2** | **gebaut** (Kapitel 18 und 19) |
+| Massenversand an eine Empfängerliste (Kampagne) | **B2-3** | **offen** |
+| Erfassungsstellen jenseits des Kontaktformulars; die Segmentierungsmerkmale selbst (Branche, Netzebene, PLZ, Verbrauch) | **B3** | **gebaut** (Kapitel 16) |
+| Automatische Durchsetzung der Löschfristen (zeitgesteuerter Job) | **B4** | **gebaut** (Kapitel 17) |
+| Mandantenfähigkeit (getrennte Bestände je Partnerbetrieb) | **B13** | offen |
 
 Die Segmentierungsmerkmale wurden in B1 **bewusst** ausgelassen: sie werden erst mit B3 fachlich definiert. Vorratsspalten oder ein Freitext-Sammelbecken anzulegen wäre später teurer zu räumen, als sie dann sauber zu ergänzen.
 
-**Die automatische Löschung fehlt noch — das ist eine Betriebspflicht, keine Fußnote.** Bis B4 wird die Frist durchgesetzt, indem eine Person den Admin-Bereich ansieht und fällige Einträge von Hand anonymisiert. Der Admin-Bereich weist genau darauf hin, an sichtbarer Stelle über der Liste.
+**`[überholt seit B4-1, 22.07.2026]`** Die Aussage dieses Absatzes lautete ursprünglich, die Löschfrist werde von Hand durchgesetzt, weil es keinen zeitgesteuerten Vorgang gibt. **Das gilt nicht mehr:** ein täglicher Lauf setzt die Frist automatisch durch (Kapitel 17). Der Admin-Bereich zeigt an derselben Stelle, an der früher der Hinweis auf die Handarbeit stand, jetzt den **Stand des Laufs** — und hebt hervor, wenn seit mehr als 48 Stunden kein erfolgreicher Lauf stattgefunden hat.
 
 ### 15.2 Datenmodell in fachlicher Sprache
 
@@ -639,7 +642,9 @@ Der bekannte Preis dieser Konstruktion ist benannt und angenommen: Wer eine Adre
 
 Ein erneuter Aufruf auf einen bereits anonymisierten Eintrag meldet Erfolg **ohne zweite Wirkung**; der ursprüngliche Zeitpunkt bleibt stehen. Ein nachgeschriebenes Datum wäre eine Fälschung.
 
-**Durchsetzung derzeit manuell.** Es gibt vor **B4** bewusst keinen zeitgesteuerten Job im System. Fällige Einträge werden im Admin-Bereich über einen eigenen Filter sichtbar gemacht, deutlich hervorgehoben und von Hand anonymisiert. Der Hinweis darauf steht sichtbar über der Liste, nicht im Kleingedruckten. Mit **B4** übernimmt das ein automatischer Lauf.
+**Durchsetzung automatisch, seit B4-1 (22.07.2026).** Ein täglicher Lauf ermittelt die fälligen Einträge und anonymisiert sie ohne menschliches Zutun; er ist in **Kapitel 17** beschrieben, samt der Mengenbegrenzung, die einen fehlerhaft ausgelösten Massenlauf vollständig verweigert statt ihn portionsweise auszuführen. Der frühere Zustand — sichtbarer Filter im Admin-Bereich, Anonymisierung von Hand — bleibt als Weg bestehen; er ist nur nicht mehr der einzige. **Die erste reale Fälligkeit tritt frühestens 2028 ein** (24 Monate ab letzter Interaktion, der Bestand beginnt 2026); bis dahin läuft der Vorgang planmäßig mit null Fällen, und genau deshalb wird jeder Lauf protokolliert (Kapitel 17).
+
+**Was als „letzte Interaktion" gilt.** Ausschließlich tatsächliche Handlungen der betroffenen Person: ein abgesendetes Formular, eine bestätigte Einwilligung, ein Widerruf. **Nicht** das Öffnen einer E-Mail und **nicht** der Klick auf einen Link darin — beides wird nicht erhoben und dauerhaft nicht erhoben (Kapitel 19). Eine Frist, die sich durch Beobachtung des Leseverhaltens verlängerte, wäre eine Verarbeitung, die es hier bewusst nicht gibt.
 
 ### 15.7 Was der Admin kann — und was bewusst nicht
 
@@ -653,11 +658,13 @@ Der einzige Weg zu „bestätigt" bleibt deshalb der Klick der betroffenen Perso
 
 Der Admin-Bereich ist angemeldeten Administratoren vorbehalten. Die Berechtigung wird bei **jedem** Zugriff serverseitig geprüft, und zwar nicht nur von der Oberfläche, sondern zusätzlich von jeder einzelnen Datenbankoperation dahinter — ein Fehler in der Oberfläche kann niemandem Zugriff verschaffen. Eine fehlende Berechtigung führt zu einem **Fehler**, nicht zu einer leeren Liste: „kein Zugriff" darf sich nie als „keine Daten vorhanden" lesen lassen.
 
-Es gibt **keinen Export und keine Sammelaktionen** — beides gehört zu B2 und setzt die dortigen Prüfungen vor jedem Versand voraus.
+**`[teilweise überholt seit B2-1, 23.07.2026]`** In B1 gab es weder Export noch Korrekturweg. **Beides existiert inzwischen** und ist in **Kapitel 18** beschrieben — mitsamt den Grenzen, die dabei gelten (neun korrigierbare Felder, die E-Mail-Adresse ausdrücklich nicht darunter; der Export schließt gesperrte und anonymisierte Zeilen strukturell aus und wird protokolliert). Weiterhin gibt es **keine Sammelaktionen und keinen Versand aus dem Admin-Bereich** — das ist B2-3.
 
 ### 15.8 Erfassungsstellen
 
-**Derzeit ausschließlich das Kontaktformular auf `/kontakt`.** Weitere Einstiegspunkte (eingebettet in Wissensartikel, Branchen- und Leistungsseiten, unter Rechnerergebnissen, als Landingpage für den QR-Code der Postaktion) kommen mit **B3** und bauen auf demselben Erfassungsweg auf. Die möglichen Einstiegspunkte sind im System als pflegbare Liste geführt, nicht als fester Programmcode — ein neuer Einstiegspunkt erzwingt keine Codeänderung.
+**`[überholt seit B3, 22.07.2026 — vollständig in Kapitel 16]`** Zum Zeitpunkt von B1 war das Kontaktformular auf `/kontakt` der einzige Einstiegspunkt. **Das gilt nicht mehr:** mit B3 sind mehrere kontextspezifische Erfassungsstellen platziert (Wissensartikel, Branchenseite, unter dem Rechnerergebnis, Warteliste-Landingpage samt gedrucktem QR-Zugang, Vertragsablauf-Landingpage). Die möglichen Einstiegspunkte sind im System als pflegbare Liste geführt, nicht als fester Programmcode — ein neuer Einstiegspunkt erzwingt keine Änderung am Datenmodell. Die folgenden Absätze beschreiben weiterhin das Kontaktformular, weil es der Einstiegspunkt mit den meisten Sonderregeln ist.
+
+**Der Kontaktname wird als Vorname und Nachname getrennt erhoben** (seit 24.07.2026); im Kontaktformular sind beide Pflichtfelder. Grund und Ausnahmen: Kapitel 16.
 
 **Der Formulareingang selbst erzeugt keine Einwilligung.** Jede Absendung legt einen Bestandseintrag an bzw. aktualisiert einen bestehenden; **Rechtsgrundlage dafür ist die Vertragsanbahnung**, nicht eine Einwilligung. Wer eine Anfrage stellt, erwartet eine Antwort darauf — und nur darauf.
 
@@ -674,6 +681,226 @@ Es gibt **keinen Export und keine Sammelaktionen** — beides gehört zu B2 und 
 | 1 | **Wortlaut der drei Einwilligungstexte** (§15.4) juristisch prüfen. Vor breiter Aussendung erforderlich. Die geprüfte Fassung kommt als Fassung 2 neu hinzu; Fassung 1 bleibt unverändert bestehen. | Martin / rechtlich | **offen** |
 | 2 | **Datenschutzerklärung erweitern** um: Verarbeitung von Lead- und Einwilligungsdaten, die beiden Aufbewahrungsfristen (24 Monate / 7 Jahre) und ihre Auslöser, die Anonymisierung als Löschverfahren, die Sperrliste als eigene Verarbeitung mit eigener Begründung sowie die Speicherung von IP und Browser-Kennung als Einwilligungsnachweis. Ergänzt §9.2 / OP#3 um die jetzt real gebauten Verarbeitungen. | Martin / rechtlich | **offen** |
 | 3 | **Branchen-Benchmark aus Rechnungsdaten ist ein EIGENER Zweck** und durch keine der drei Einwilligungen aus §15.3 abgedeckt. Er ist hier ausdrücklich **nicht** geregelt und muss ab der ersten verarbeiteten Rechnung eigenständig in AGB bzw. Auftragsverarbeitungsvereinbarung abgebildet werden (siehe `Fahrplan_2026.md`, offene Entscheidung 6). | Martin / rechtlich | **offen, außerhalb B1** |
+
+---
+
+## 16. Erfassungsstellen und Segmentierung (Bauabschnitte B3-1, B3-2, B3-4)
+
+> **Nachgezogen am 24.07.2026.** Beschreibt, **was gebaut wurde**. Wie Kapitel 15 ohne Schema-Details geschrieben, damit sich der Erfassungsweg ohne Repo-Zugang beurteilen lässt.
+
+### 16.1 Ein Backend, viele Einstiegspunkte
+
+Es gibt **nicht** ein überall gleiches Formular. Es gibt **einen** Erfassungsweg und viele kontextspezifische Einstiegspunkte, die sich in dem unterscheiden, was sie erheben und was sie versprechen: unter einem Rechenergebnis genügt die E-Mail-Adresse, auf der Warteliste-Seite ist zusätzlich die Branche nötig, auf der Vertragsablauf-Seite Versorger und Vertragsende.
+
+**Der Zweck einer Einwilligung kommt ausschließlich aus einer getypten Liste im System („Registry"), nie von der absendenden Seite.** Das ist die zentrale Schutzregel dieses Abschnitts: Die abgesendeten Daten enthalten **gar keine Angabe des Zwecks**. Er wird allein aus dem Einstiegspunkt abgeleitet. Andernfalls könnte ein manipulierter Aufruf eine Werbeeinwilligung von einem Einstiegspunkt erzeugen, der den Werbetext nie angezeigt hat — und ein solcher Nachweis wäre nicht nur selbst wertlos, sondern zöge rückwirkend alle echten in Zweifel. Aus demselben Grund wirkt ein angekreuztes Werbe-Häkchen **nur dort, wo der Einstiegspunkt es überhaupt anbietet**; sonst wird es verworfen.
+
+Dieselbe Liste bestimmt zugleich, welche Felder das Formular anzeigt und welche Felder die Serverseite annimmt. Zwei getrennte Definitionen liefen auseinander — das Formular zeigte ein Feld, das der Server verwirft, oder umgekehrt.
+
+**Die Rückmeldung an die absendende Person ist in allen Fällen identisch** — gesperrte Adresse, bereits laufende Bestätigung, technischer Ausfall, glatter Erfolg. Unterschieden wird ausschließlich, was die Person selbst sieht und ändern kann: ihre eigenen Feldeingaben. Sonst wäre jedes eingebettete Formular ein Auskunftsdienst über fremde Kontakte.
+
+### 16.2 Welche Einstiegspunkte platziert sind — und welche bewusst nicht
+
+**Platziert und öffentlich erreichbar:**
+
+| Einstiegspunkt | Ort | Zweck der Einwilligung |
+|---|---|---|
+| Kontaktformular | `/kontakt` | Anfrage (keine Einwilligung) + optional Werbung |
+| Artikel-Einbettung | Flaggschiff-Artikel im Wissen-Bereich | Werbung |
+| Branchenseite | `/branchen/handwerk` | Werbung |
+| Unter dem Rechnerergebnis | `/peak-shaving` | einmalige Ergebniszusendung, optional zusätzlich Werbung |
+| Warteliste | `/warteliste` | Werbung (Herkunft „Warteliste") |
+| Warteliste, gedruckter Zugang | `/warteliste/wko` | Werbung (Herkunft „Postaktion") |
+| Vertragsablauf-Landingpage | `/vertragsende-erinnerung` | Vertragsablauf-Erinnerung, optional zusätzlich Werbung |
+
+**Bewusst nicht platziert — der Betroffenheits-Check.** Die Erfassungsstelle für den Betroffenheits-Check ist gebaut, aber **nicht in Betrieb**, weil die fachliche Grundlage fehlt: Die Branchenkennzahlen (Vollbenutzungsstunden je Branche), aus denen sich die Betroffenheit ab 2027 ableiten ließe, liegen nicht vor. **Ein Formular, das Branche, Postleitzahl und Verbrauch erhebt, aber keine belastbare Auskunft zurückgeben kann, sammelt personenbezogene Daten für eine Leistung, die es nicht gibt.** Die Platzierung ist deshalb an die Kennzahlen gebunden, nicht an einen Termin.
+
+**Inzwischen platziert — die Vertragsablauf-Landingpage.** Sie war aus demselben Grundsatz zunächst zurückgehalten: Ein Vertragsende zu erfassen und die zugesagte Erinnerung nicht senden zu können, wäre ein gebrochenes Versprechen an eine reale Person gewesen. Mit dem Versandvorgang aus B4-2 (Kapitel 17) ist der Grund weggefallen, und die Seite ist seither in Betrieb.
+
+### 16.3 Die Warteliste und der gedruckte Zugang — zwei Wege, zwei Herkünfte
+
+Die Warteliste zum Leistungstarif 2027 ist über zwei Adressen erreichbar: die **organische** Seite (`/warteliste`, in der Navigation und in der Sitemap) und den **gedruckten** Zugang (`/warteliste/wko`, Ziel des QR-Codes einer Postaussendung, nicht indexierbar und nirgends intern verlinkt). Beide zeigen dasselbe Formular und erheben dieselben Felder; sie unterscheiden sich in der Ansprache und darin, **unter welcher Herkunft die Eintragung im Bestand landet**. Zwei nahezu gleiche indexierbare Seiten wären in der Suchmaschine ein Duplikat.
+
+**Es entsteht dabei keine neue Einwilligungsart.** Die Warteliste ist fachlich dieselbe Werbeeinwilligung wie überall sonst — gleiche Bestätigungspflicht, gleiche Sperrprüfung, gleicher Widerrufsweg. Unterschieden wird allein die Herkunft. Eine eigene Art zerlegte den Bestand in getrennte Listen, deren Vereinigung jede spätere Aussendung selbst wieder herstellen müsste.
+
+**Ein unbekanntes Wegsegment liefert 404 — es gibt bewusst keinen Rückfall auf eine Ersatzherkunft.** Zulässig ist genau ein Segment; alles andere ist ein Fehler. Der Grund ist nicht Strenge, sondern Sichtbarkeit: Ein Rückfallwert stempelte eine **falsche Herkunft** auf eine echte Einwilligung. Die Herkunft ist Pflichtangabe, nach dem Anlegen unveränderlich und die Grundlage jeder späteren Segmentierung. Ein Tippfehler in der **gedruckten** Adresse fiele damit nie auf: Die Seite funktionierte, die Eintragungen kämen an, und die Auswertung des Rücklaufs wäre still falsch. **Eine tote Adresse ist ein sichtbarer Fehler, eine falsch zugeordnete Einwilligung ein unsichtbarer.**
+
+Weil die Adresse auf Papier steht, ist sie eine **dauerhafte Zusage**: Sie wird nicht umbenannt, nicht entfernt und nicht auf eine andere Herkunft umgehängt. Wird der Inhalt der Seite ersetzt, bleibt der Weg bestehen.
+
+**Auf der Warteliste ist die Branche ein Pflichtfeld** — eine bewusste Abweichung vom sonstigen Grundsatz, so wenig wie möglich zu verlangen. Die Liste hat einen benannten Zweck: die Wartenden zum Erscheinen der Tarifverordnung mit bereits bekannter Betriebsgröße anzusprechen. Ohne Branche wäre das eine Rundmail. Der Preis ist am Aufwand bemessen: Die Branche ist ein Auswahlfeld, der Jahresverbrauch verlangt, eine Rechnung herauszusuchen — er bleibt optional, ebenso die Postleitzahl.
+
+**Die Seite nennt keine einzige Zahl.** Kein Betrag, kein Prozentsatz, keine Ersparnisangabe. Sie sagt, was sich zum 1.1.2027 ändert, dass die Beträge noch nicht feststehen, weil die Tarifverordnung nicht veröffentlicht ist, was die Eintragung bewirkt — und ausdrücklich, was sie **nicht** bedeutet (keine Kosten, keine Verpflichtung, Abmeldung in jeder Nachricht, Wirkung erst nach Bestätigung).
+
+### 16.4 Die erhobenen Segmentierungsmerkmale
+
+Sechs Merkmale, alle optional, alle getypt und einzeln geprüft (kein Freitext-Sammelbecken): **Branche** (feste Auswahl), **Postleitzahl** (genau vier Ziffern), **Jahresverbrauch** (größer null), **Messart** (leistungsgemessen · Netzebene 7 · geprüft, aber nicht bestimmbar), **Versorger**, **Vertragsende**.
+
+Die Messart wird abgeleitet **und gespeichert**, nicht bei jedem Lesen neu berechnet: Sie ist die zentrale Zielgruppentrennung des Marktstarts 2027, und eine Ableitung zur Lesezeit änderte die Zuordnung eines Bestandseintrags rückwirkend, sobald die Regel justiert wird — der Bestand bewegte sich unter einer laufenden Aussendung weg. „Geprüft, aber nicht bestimmbar" ist ein **echtes Ergebnis** und deshalb ein eigener Wert; „nie geprüft" ist etwas anderes, und die Oberfläche hält beides auseinander.
+
+**Versorger und Vertragsende unterliegen einer durchgesetzten Zweckbindung.** Sie werden ausschließlich für die Vertragsablauf-Erinnerung erhoben — der Einwilligungstext sagt das wörtlich. Wird diese Einwilligung **widerrufen**, entfernt die Datenbank beide Angaben von selbst, samt bereits vorgemerkter Erinnerungen. Fällt der Zweck weg, fällt die Grundlage für die Daten weg, nicht nur die Erlaubnis, sie zu benutzen. Ein **abgelaufener** Bestätigungslink löst das ausdrücklich **nicht** aus: Er ist ein technischer Zustand, kein Widerruf — die Person hat nichts zurückgenommen und kann die Bestätigung erneut anfordern; dann wären die Angaben weg, die sie gerade gemacht hat.
+
+**Was die Anonymisierung von diesen Merkmalen entfernt — und was nicht.** Entfernt werden **Postleitzahl, Versorger und Vertragsende**. Erhalten bleiben **Branche, Verbrauchsgröße und Messart**.
+
+Die Trennlinie verläuft entlang **„lokalisierend" gegen „grob einordnend"**, nicht entlang „geschäftlich nützlich". Postleitzahl, Branche und Versorger zusammen erkennen einen konkreten Betrieb wieder — in einem Vierziffern-Gebiet gibt es selten zwei Kühlhäuser mit 180 MWh Jahresverbrauch. Branche, Verbrauchsgröße und Messart allein tun das nicht; sie bleiben als statistische Merkmale ohne Personenbezug nutzbar, so wie Herkunft und Anlagedatum (§15.6).
+
+### 16.5 Die Zusammenführungsregel bei wiederholter Erfassung
+
+Dieselbe Person wird über mehrere Einstiegspunkte erfasst, und die erheben unterschiedliche Felder. Es gibt deshalb **zwei** Vorrangregeln, und der Unterschied ist beabsichtigt:
+
+| Feldart | Regel | Beispiel |
+|---|---|---|
+| **Identitätsmerkmale** (Vorname, Nachname, Firma, Telefon) | der **zuerst** erfasste Wert bleibt stehen | eine zweite, flüchtigere Eingabe überschreibt den sorgfältig eingetragenen Firmennamen nicht |
+| **Segmentierungsmerkmale** (Branche, PLZ, Verbrauch, Messart, Versorger, Vertragsende) | der **zuletzt** erfasste Wert gewinnt | ein neues Vertragsende ersetzt das alte |
+
+**Beide Regeln schützen gegen dasselbe: den stillen Verlust einer Angabe durch eine knappere zweite Absendung.** Eine leer gelassene Angabe bedeutet in beiden Fällen „keine Angabe" und löscht **nichts**. Sie unterscheiden sich allein darin, welcher Wert überlebt, wenn **zwei** Angaben vorliegen. Bei Identität ist die frühere die verlässlichere (ein Name, eine Firmierung ändert sich selten, und beim zweiten Mal wird weniger sorgfältig getippt); bei Segmentierung ist die jüngere die richtige — sie ist genau das, was sich ändert, und eine Erinnerung an ein längst ersetztes Vertragsende wäre wertlos.
+
+Ohne diese Regeln löschte jede zweite Erfassung still, was die erste erbracht hat: kein Fehler, keine Meldung, sichtbar erst beim ersten Segmentierungslauf an einer unerklärlich kleinen Menge.
+
+**Im Korrekturformular des Admin-Bereichs gilt die umgekehrte Lesart** — dort heißt ein geleertes Feld „das war falsch, soll weg" (Kapitel 18). Der Unterschied ist gewollt: Ein Erfassungsformular schickt, was es erhebt; ein Bearbeitungsformular schickt immer alle Felder.
+
+### 16.6 Vorname und Nachname statt eines Namensfeldes
+
+Der Kontaktname wird seit 24.07.2026 **an der Quelle getrennt** erhoben, nicht später zerlegt. Jede nachträgliche Zerlegung eines Freitextnamens ist eine Heuristik und scheitert genau dort, wo es auffällt: bei Doppelnamen, Namenszusätzen, Titeln, umgekehrter Schreibweise. Ein falsch geratener Nachname landet anschließend in der **Anrede** einer echten E-Mail — der eine Ort, an dem der Fehler garantiert bemerkt wird, und zwar von der betroffenen Person.
+
+**Im Kontaktformular sind beide Felder Pflicht**, als einzigem Einstiegspunkt: Auf eine Kontaktanfrage folgt eine Antwort per E-Mail, und die beginnt mit einer Anrede. Überall sonst bleiben beide optional — der Bestand enthält Einträge aus Einstiegspunkten, die gar keinen Namen erheben, und ein Pflichtfeld machte dort jede andere Korrektur unmöglich.
+
+Die beiden Werte reisen **getrennt** bis in den Bestand und werden auch getrennt zusammengeführt; zusammengesetzt werden sie erst dort, wo ein Mensch sie liest (Anrede, Betreffzeile). In der Ausfuhr stehen sie als **zwei** Spalten — sie beim Ausführen wieder zu verkleben, gäbe den Zweck genau dort auf, wo er am ehesten gebraucht wird.
+
+---
+
+## 17. Zeitgesteuerte Vorgänge (Bauabschnitte B4-1, B4-2)
+
+> **Nachgezogen am 24.07.2026.** Das System führt seit 22.07.2026 zwei täglich laufende Vorgänge aus. Einer davon versendet E-Mails an reale Personen.
+
+### 17.1 Die beiden Läufe
+
+| Lauf | Zeit (täglich) | Was er tut | Versendet E-Mail? |
+|---|---|---|---|
+| **Fristendurchsetzung** | 03:15 UTC | ermittelt Bestandseinträge, deren Aufbewahrungsfrist abgelaufen ist, und anonymisiert sie (§15.6) | **nein** |
+| **Vertragsablauf-Erinnerung** | 06:40 UTC | schreibt Personen an, deren Stromvertrag in acht Wochen oder weniger endet | **ja** |
+
+Der Fristenlauf war bewusst der erste: Eine Aufgabe, die nachweislich keinen realen Menschen erreichen kann, und die bis 2028 planmäßig null Fälle findet. Er beweist die Kette von der Zeitsteuerung bis in die Datenbank, ohne etwas zu verändern.
+
+Die Erinnerung läuft morgens statt nachts, weil eine Erinnerung mit Zeitstempel 04:15 maschinell wirkt und eher ungelesen weggeklickt wird. Der Fristenlauf hat kein Zustellinteresse und bleibt, wo er ist.
+
+### 17.2 Jeder Lauf wird protokolliert — auch der leere und der verweigerte
+
+**Der wahrscheinlichste Fehler eines zeitgesteuerten Vorgangs ist nicht, dass er scheitert, sondern dass er gar nicht läuft.** Und ein ausgebliebener Lauf ist von „es war nichts zu tun" nicht unterscheidbar — beim Fristenlauf ist „nichts zu tun" bis 2028 sogar der planmäßige Zustand. Ein Vorgang, der nur im Fehlerfall etwas hinterlässt, meldet sich in genau dem Fall nie, der zählt.
+
+Deshalb entsteht der Protokolleintrag **beim Start**, nicht am Ende, und wird danach genau einmal vervollständigt. Ein abgestürzter Lauf hinterlässt einen erkennbar unvollständigen Eintrag; ein leerer Lauf hinterlässt einen vollständigen Eintrag mit der Zahl null; ein verweigerter Lauf hinterlässt einen Eintrag, der die Verweigerung im Klartext benennt.
+
+Der Admin-Bereich zeigt **beide Läufe mit eigenem Stand** und hebt jeden hervor, der seit mehr als 48 Stunden nicht mehr erfolgreich war. Ein gemeinsamer „die Läufe laufen"-Indikator verschwiege den Fall, in dem der eine läuft und der andere nicht — und die Folgen sind verschieden: eine versäumte Rechtspflicht auf der einen Seite, ein gebrochenes Versprechen an eine reale Person auf der anderen.
+
+**Es gibt bewusst keinen Knopf, mit dem sich ein Lauf von Hand auslösen ließe.** Ein Mensch, der versehentlich einen unumkehrbaren Massenvorgang startet, ist ein Risiko ohne Gegenwert.
+
+### 17.3 Mengenbegrenzung: Verweigerung statt Abschneiden
+
+**Beide Läufe haben eine Obergrenze, und oberhalb davon passiert gar nichts — nicht die erste Teilmenge.** Das ist der jeweils wichtigste Sicherungsmechanismus, und die Begründung ist in beiden Fällen dieselbe Struktur: Die Wirkung ist nicht zurücknehmbar, also ist ein zu **später** Lauf reparabel und ein zu **großer** nicht.
+
+- **Fristendurchsetzung.** Die Anonymisierung ist endgültig, auch für privilegierte Zugriffe (§15.6). Ein Fehler in der Fristableitung — ein falsch gesetzter Interaktionszeitpunkt, eine geänderte Fristenlänge, ein Import mit altem Datum — machte schlagartig den **gesamten** Bestand fällig. Ein ungebremster Lauf zerstörte ihn in einer einzigen Nacht. Eine Teilmenge zu anonymisieren wäre die schlechteste Möglichkeit: derselbe unumkehrbare Vorgang, nur portionsweise, und am nächsten Tag liefe es weiter.
+- **Vertragsablauf-Erinnerung.** **Eine versendete E-Mail ist nicht zurückholbar.** Ein Fehler in der Datumslogik schriebe sonst den gesamten Bestand in einem Lauf an. Daran hinge nicht nur die Peinlichkeit des Einzelfalls, sondern die **Zustellreputation der Absenderdomain** — und an der wiederum die Aussendung, die zum Erscheinen der Tarifverordnung binnen 48 Stunden hinausgehen soll.
+
+Die Schwellwerte sind fest hinterlegt und lassen sich **nicht von außen über den Aufruf beeinflussen**. Beim Fristenlauf liegt die gesamte Entscheidung in der Datenbank: Ein von außen erreichbarer Endpunkt, der die Größe eines unumkehrbaren Vorgangs bestimmen kann, wäre selbst das Risiko.
+
+### 17.4 Die Vertragsablauf-Erinnerung im Einzelnen
+
+**Vorlauf: acht Wochen.** Maßgeblich ist „acht Wochen oder weniger", nicht ein Stichtag. Wer ein Vertragsende einträgt, das nur noch drei Wochen entfernt ist, bekäme mit einer Stichtagsprüfung **nie** eine Erinnerung — der Tag, an dem es acht Wochen entfernt war, liegt in der Vergangenheit. So bekommt er sie sofort.
+
+**Doppelversand-Sperre je Vertragsende.** Vermerkt wird die Kombination aus Person **und** Vertragsende, nicht die Person allein. Korrigiert jemand sein Vertragsende, ist eine erneute Erinnerung richtig und kein Duplikat; wäre die Person allein der Schlüssel, liefe jede Korrektur still ins Leere. Die Sperre ist eine Eigenschaft des Datenbestands und keine Prüfung im Programmablauf — eine solche hätte zwischen „nachsehen" und „eintragen" ein Zeitfenster, und genau darin entstünde der Doppelversand, den sie verhindern soll.
+
+**Vermerkt wird vor dem Versand, das Ergebnis danach.** Bricht der Vorgang dazwischen ab, bleibt ein Vermerk ohne Zustellnachweis zurück: sichtbar, prüfbar, und **keine zweite Mail**. Die umgekehrte Reihenfolge erzeugte im selben Fall einen stillen, sich täglich wiederholenden Doppelversand. Solche Fälle werden **nicht automatisch wiederholt** — automatische Wiederholung von E-Mail-Versand erzeugt Schleifen; sie sind ein Befund für den Admin-Bereich (Schwelle 24 Stunden).
+
+**Die beiden Versandvoraussetzungen stehen in der Auswahl, nicht im Programmablauf.** Angeschrieben wird nur, wer eine **bestätigte** Einwilligung zu diesem Zweck hat und **nicht gesperrt** ist. Eine Prüfung im Programmablauf kann übersprungen werden — beim Umbau, durch einen zweiten Aufrufer, durch ein vergessenes „wenn". Was die Auswahl nicht liefert, kann nicht angeschrieben werden.
+
+**Die Mail enthält kein Angebot — auch dann nicht, wenn die Person zusätzlich eine Werbeeinwilligung erteilt hat.** Drei Gründe:
+
+1. Die Einwilligung lautet auf eine **Erinnerung**, nicht auf Werbung. Genau dafür sind die Zwecke seit B1 getrennt (§15.2).
+2. Hinge der **Inhalt** der Mail vom Vorliegen einer zweiten Einwilligung ab, hinge ihr rechtlicher Charakter an einem Zustand — und wäre im Nachhinein nicht mehr feststellbar. Man könnte einer versendeten Mail nicht mehr ansehen, ob sie eine Erinnerung oder eine Werbesendung war.
+3. Die Zurückhaltung ist an dieser Stelle das eigentliche Vertrauensargument: Wer eine unaufgeforderte Verkaufsansprache erwartet und stattdessen nur die zugesagte Erinnerung bekommt, erlebt die Zusage als eingehalten.
+
+Der einzige Link in der Mail führt auf den **kostenlosen, unabhängigen Tarifkalkulator der E-Control**. Die Mail trägt außerdem den technischen Ein-Klick-Abmeldeweg (§15.3) und einen Abmeldelink im Fuß. Die Bestätigungsmail bekommt beides ausdrücklich **nicht**: Abgemeldet werden kann nur, was besteht.
+
+---
+
+## 18. Bestandspflege und Ausfuhr (Bauabschnitt B2-1)
+
+> **Nachgezogen am 24.07.2026.** Der erste Weg, auf dem personenbezogene Daten dieses Systems seinen Wirkungsbereich **dauerhaft** verlassen — und der erste, auf dem ein Mensch die Angaben einer anderen Person von Hand überschreibt. **Dieser Abschnitt versendet nichts.**
+
+### 18.1 Was korrigierbar ist
+
+Korrigierbar sind **neun** Angaben: Firma · Ansprechperson (seit 24.07.2026 als Vorname und Nachname, also zehn Parameter) · Telefon · Branche · Postleitzahl · Jahresverbrauch · Messart · Versorger · Vertragsende.
+
+**Die E-Mail-Adresse ist ausdrücklich nicht darunter** — es gibt dafür nicht einmal eine Eingabemöglichkeit. Sie ist die Adresse, **von der** die Einwilligung erteilt und **an die** die Bestätigung gesendet wurde. Eine Änderung übertrüge eine bestätigte Einwilligung auf eine Adresse, die nie zugestimmt hat — also genau die Regel „der Admin kann widerrufen, nie erteilen" (§15.7) durch die Hintertür.
+
+Der Verzicht kostet nichts: Eine falsch eingegebene Adresse bestätigt nie, die Einwilligung bleibt offen und fällt aus jeder Aussendung heraus. **Ein unerreichbarer Eintrag wird gekennzeichnet, nicht repariert.**
+
+Ebenfalls nicht über das Korrekturformular änderbar: der **Lebenszyklus-Status** und die **Aufbewahrungsgrundlage** (dafür gibt es den eigenen, einbahnstraßenartigen Weg aus §15.6), die **Herkunft der Ersterfassung** (seit B1 unveränderlich) und die **Löschfrist** (immer abgeleitet, nie eingegeben).
+
+**Ein geleertes Feld löscht die Angabe** — anders als beim Erfassungsweg, wo eine fehlende Angabe „weiß ich nicht" heißt (§16.5). Ein Bearbeitungsformular schickt immer alle Felder; ein bewusst geleertes ist eine Aussage. Mit der Erfassungslogik ließe sich kein einziges Feld je bereinigen — und genau das muss ein Korrekturweg können.
+
+**Jede Korrektur wird der handelnden Person zugeschrieben**, und die Detailansicht zeigt sie. Steht dort niemand, sagt die Oberfläche „nicht von Hand bearbeitet" statt zu raten — der Wert ist zweideutig, weil ein gelöschtes Administratorkonto ihn ebenfalls leert.
+
+**Die Zweckbindung wird auch hier durchgesetzt.** Versorger und Vertragsende lassen sich **nicht** von Hand eintragen, wenn zu diesem Zweck keine Einwilligung (offen oder bestätigt) besteht — der Vorgang wird abgelehnt, mit einem verständlichen deutschen Satz. Andernfalls ließe sich der automatische Widerrufs-Aufräumvorgang aus §16.4 unsichtbar umgehen: Die Angaben sähen anschließend aus wie erhoben. **Auf leer setzen ist immer erlaubt** — das ist die Richtung, die Daten entfernt.
+
+Wird das Vertragsende geändert, weist die Oberfläche **vor dem Speichern** darauf hin, dass daraus eine neue Fälligkeit und damit eine weitere Erinnerung entsteht (§17.4) — beabsichtigt, aber nicht überraschend.
+
+### 18.2 Die Ausfuhr
+
+Die Ausfuhr erzeugt eine Tabellendatei aus dem gefilterten Bestand. Sie ist **filtergebunden**: Es gibt keine ungefilterte Ausfuhr, sondern nur den Filter „alles" — und der wird als solcher protokolliert.
+
+**Gesperrte und anonymisierte Einträge fallen strukturell heraus, nicht über eine Einstellung.** Der Ausschluss liegt in der Abfrage selbst. Grund: Eine ausgeführte Datei kann in ein beliebiges fremdes Werkzeug eingespielt werden, das die Sperrliste nicht kennt — und sie mangels Klartext (§15.5) auch nicht nachträglich anwenden könnte. Eine Einstellung, die jemand versehentlich weglässt, wäre an dieser Stelle keine Sicherung.
+
+Weil die Sicht mehr Treffer zeigt als die Datei Zeilen enthält, nennt die Oberfläche **beide Zahlen** und sagt, wie viele Treffer herausfallen. Eine Oberfläche, die die Trefferzahl als Zeilenzahl anbietet, verspricht eine Datei, die es so nicht gibt — und die Differenz fiele niemandem auf, weil beide Zahlen plausibel sind.
+
+**Je Zeile steht der Einwilligungsstand** (bestätigt · offen · widerrufen · keine). Eine Adressdatei ohne diese Angabe wäre die gefährlichste Datei des Systems: Sie sähe aus wie eine Empfängerliste. Ein **abgelaufener** Bestätigungslink zählt dabei als „keine", nicht als „offen" — bestätigt werden kann er nicht mehr, und „offen" behauptete, da käme noch etwas.
+
+**Jede Ausfuhr wird protokolliert**, im selben Vorgang, in dem die Zeilen entstehen: Zeitpunkt, handelndes Konto, Zeilenzahl und der **von der Datenbank tatsächlich angewandte** Filtertext. Ein getrennter Protokollschritt könnte ausbleiben, und dann gäbe es eine Kopie ohne Spur. Das Protokoll ist im Admin-Bereich einsehbar; Einträge lassen sich dort nicht entfernen, und es gibt dafür auch keinen Weg.
+
+**Die Ausfuhr ist ausdrücklich nicht der Versandweg.** Sie erzeugt eine Datei für die Arbeit an den Daten — Auswertung, Vorbereitung, Abgleich. Der Kampagnenversand ist ein eigener Bauabschnitt (B2-3) mit eigenen Prüfungen vor jeder einzelnen Zustellung; eine ausgeführte Datei in ein fremdes Versandwerkzeug zu laden, würde genau diese Prüfungen umgehen, weil dort weder die Sperrliste noch der Einwilligungsstand fortgeschrieben wird.
+
+---
+
+## 19. Rückläufer und Beschwerden (Bauabschnitt B2-2)
+
+> **Nachgezogen am 24.07.2026.** Der Zustellrand des Systems: Was der versendende Dienstleister über bereits verschickte E-Mails zurückmeldet, wirkt auf den Bestand. **Dieser Abschnitt versendet nichts.**
+
+### 19.1 Die Unterscheidung — sie ist die fachliche Achse des Abschnitts
+
+| Rückmeldung | Sperrt die Adresse? | Widerruft Einwilligungen? |
+|---|---|---|
+| **Beschwerde** („als Spam markiert") | **ja** | **ja, alle** |
+| **dauerhafter Rückläufer** (Adresse existiert nicht mehr) | **ja** | **nein** |
+| **vorübergehender Rückläufer** (Postfach voll, verzögert) | **nein** | nein |
+| Zustellung, Versand | nein | nein |
+
+**Eine Beschwerde ist eine Willenserklärung, ein Rückläufer ein technisches Ereignis.** Wer „Spam" drückt, hat die Erlaubnis zurückgenommen — es wäre gekünstelt, dieselbe Person weiter als einwilligend zu führen, nur weil sie den vorgesehenen Abmeldeweg nicht benutzt hat. Wessen Postfach dagegen gelöscht wurde, hat **gar nichts erklärt**; dessen Einwilligung als widerrufen zu führen, wäre eine erfundene Handlung — dieselbe Fälschung, die das System in der Gegenrichtung (eine per Knopfdruck gesetzte Bestätigung, §15.7) hart verhindert.
+
+Die praktische Folge zeigt sich, wenn die Adresse später wieder erreichbar wird: Es ist der Unterschied zwischen „muss neu einwilligen" und „war nie weg".
+
+**Ein vorübergehender Rückläufer sperrt bewusst nicht.** Die Abwägung ist unsymmetrisch: Eine zu Unrecht gesperrte Adresse ist ohne Weg zurück verloren; eine zu spät gesperrte erzeugt beim nächsten dauerhaften Rückläufer ohnehin die richtige Sperre.
+
+**Es entsteht dabei niemals ein neuer Bestandseintrag.** Ist die Adresse unbekannt, wird nur das Ereignis vermerkt und die Sperre gesetzt. Ein Bestandseintrag ist ein Kontakt, den jemand hinterlassen hat; aus einem Zustellfehler einen zu erzeugen hieße, einen Bestand aus Adressen aufzubauen, die uns nie jemand gegeben hat. Die Sperrliste ist genau dafür seit B1 ohne Verbindung zum Bestand gebaut (§15.5).
+
+Was zurückgemeldet wird, wird **protokolliert, auch wenn es nichts bewirkt** — ein vorübergehender Rückläufer ebenso wie eine Zustellung. Der Freitext des Anbieters wird dabei **beim Schreiben** von allen adressförmigen Angaben bereinigt, nicht erst beim Anzeigen: Was nie gespeichert wird, muss später nicht eigens vergessen werden. Bereinigt wird bewusst breiter als „die bekannte Adresse" — eine Rückläufer-Meldung kann eine abweichende Schreibweise, einen Alias oder eine Postmaster-Adresse enthalten.
+
+### 19.2 Kein Öffnungs- und kein Klick-Tracking — dauerhaft
+
+**Das System erhebt nicht, ob eine E-Mail geöffnet wurde, und nicht, ob ein Link darin angeklickt wurde. Es ist nicht vorgesehen, das je zu tun.**
+
+Die Abgrenzung ist keine Geschmacksfrage, sondern hat eine klare Linie: **Eine Zustellstatus-Meldung kommt vom empfangenden Server** und sagt aus, ob die Übermittlung technisch gelungen ist. Das ist keine Beobachtung des Verhaltens der Person. **Ein Zählpixel und umgeschriebene Links wären es** — sie melden, wann jemand eine Nachricht gelesen hat, wie oft, und was ihn daran interessiert hat. Das ist Verhaltensprofilbildung, und die findet in diesem Projekt nicht statt (dieselbe Linie wie beim Einwilligungsnachweis, §15.3: Der Nachweis, *dass* jemand zugestimmt hat, ist zulässig; ein Profil, *wie* er sich verhält, nicht).
+
+Die Verfolgung ist beim versendenden Dienstleister **nachweislich abgeschaltet** und wird dort auch nicht abonniert; kämen solche Meldungen dennoch an, würden sie verworfen und gelangten nicht in den Datenbestand. Der Prüf- und der Abschaltweg sind im Betriebshandbuch (`DEPLOYMENT.md`, Abschnitt 2-Resend-a) als **dauerhafte Zusage** festgehalten, damit sie bei einem Wechsel des Dienstleisters nicht verlorengeht.
+
+**Folge für die Aufbewahrung:** Die Frist bemisst sich an tatsächlichen Handlungen der Person — abgesendetes Formular, bestätigte Einwilligung, Widerruf —, nicht an einem beobachteten Leseverhalten (§15.6).
+
+### 19.3 Eine Sperre lässt sich über keine Oberfläche aufheben
+
+Es gibt keine Schaltfläche „doch wieder zustellen", und es gibt auch dahinter keinen Weg. **Entsperren wäre der Sache nach Erteilen** — und die Regel des gesamten Entwurfs lautet: Der Admin kann widerrufen, nie erteilen (§15.7). Eine solche Schaltfläche wäre der Weg, auf dem eine Beschwerde — die schärfste Rückmeldung, die eine Person geben kann — mit einem Klick verschwindet.
+
+Ein begründeter Einzelfall bleibt damit ein bewusster, protokollierbarer Eingriff im Datenbestand und kein Betriebsvorgang. Der Satz steht auch in der Oberfläche, nicht nur hier.
+
+### 19.4 Frühwarnung
+
+Der Admin-Bereich zeigt dauerhafte Rückläufer und Beschwerden der letzten 30 Tage an der Stelle, an der ohnehin jeder hinsieht — und hebt hervor, **sobald überhaupt eine Beschwerde auftritt**. Die erste ist der Zeitpunkt zu handeln, nicht die zehnte. Eine steigende Beschwerdequote ist die einzige Frühwarnung vor einem Reputationsschaden der Absenderdomain, und niemand sucht von sich aus danach. Bei einem gesperrten Eintrag benennt die Detailansicht den **Grund** — abgemeldet · Rückläufer · Beschwerde · manuell gesperrt: Es gibt drei Wege auf die Liste, und sie bedeuten Verschiedenes.
 
 ---
 

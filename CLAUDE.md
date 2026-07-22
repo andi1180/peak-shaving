@@ -59,6 +59,19 @@ Ein Kalkulator, der aus dem Viertelstunden-Lastgang eines Gewerbebetriebs die Be
 
 ---
 
+## Arbeitsregeln — aus Fehlern entstanden, verbindlich
+
+> Jede dieser Regeln steht hier, weil ihr Fehlen mindestens einmal einen Fehler erzeugt hat, den **kein Test und kein Build gefangen hat**. Sie gelten für jede Arbeit an `platform`, an den Wrappern und an den Deployments — Kalkulator wie Website.
+
+1. **Vor jedem `DROP` oder `RENAME` einer Spalte im `platform`-Schema werden ALLE Funktionsrümpfe per `pg_get_functiondef` nach dem Spaltennamen durchsucht.** plpgsql prüft Funktionsrümpfe **nicht** beim Anlegen: Die Migration läuft sauber durch, und die Funktion bricht erst beim **ersten Aufruf** — also im Betrieb, nicht im CI. **Zweimal aufgetreten** (B3-4: ein fehlender Join in `admin_lead_source_stats`; Namens-Split: `admin_list_leads`/`admin_export_leads`/`admin_get_lead` lasen `ld.contact_name` und standen gar nicht in der Aufgabenstellung).
+2. **Jeder neue oder geänderte `public`-Wrapper wird im DB-Gate mindestens einmal tatsächlich AUFGERUFEN.** Introspektion (`proargnames`, Grants, Existenz) beweist ausschließlich, dass eine Funktion da ist — nicht, dass sie läuft. Der Aufruf ist die einzige Prüfung, die Regel 1 überhaupt greifen lässt.
+3. **Die Vorher-Baseline für einen Live-Nachweis wird VOR dem Merge gemessen.** Nach dem Merge steht das Production-Deployment binnen Minuten, und ältere Deployment-URLs sind durch Deployment Protection abgeschirmt — die Vorher-Zahl ist dann nicht mehr erhebbar, und der Nachweis reduziert sich auf „sieht richtig aus".
+4. **Wird eine Änderung in `apps/website` (Kalkulator) wirksam, müssen ZWEI Vercel-Projekte für den Merge-Commit deployt haben:** `peak-shaving-web` **und** `peak-shaving-website`. Der Commit-Hash ist **je Projekt einzeln** abzugleichen — ein Projekt kann den Build überspringen (unveränderter Pfad, `ignoreCommand`), und ein grünes Deployment des einen sagt nichts über das andere.
+
+**Dazu eine wiederkehrende Schema-Eigenschaft, die dreimal zugeschlagen hat:** `ON DELETE SET NULL` **ist selbst ein UPDATE**. Jeder Append-only- oder Unveränderlichkeits-Trigger auf einer Tabelle mit einem solchen Fremdschlüssel braucht deshalb die **asymmetrische Ausnahme**: Das **Nullen** genau dieser Spalte ist erlaubt, sofern die Zeile sonst **bit-identisch** bleibt; **Setzen und Umhängen bleiben gesperrt**. Ohne die Ausnahme wird der referenzierte Datensatz (ein Konto, ein Lead) **unlöschbar** — ausgerechnet gegen ein Löschverlangen. Aufgetreten bei `leads.last_edited_by` (B2-1), `email_events.lead_id` (B2-2) und `analyses.lead_id`/`created_by` (B14-1).
+
+---
+
 ## Offene Abhängigkeiten (blockieren Validierung, nicht den Bau)
 
 Solange nicht von Martin geliefert: mit **synthetischen** Daten + **Dummy**-Batteriekatalog arbeiten. **Keine ROI-Zahl als „echt" ausgeben**, bevor gegen einen echten Lastgang + echte Netzrechnung validiert wurde.
