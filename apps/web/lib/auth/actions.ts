@@ -22,6 +22,7 @@ import {
   type AuthState,
 } from './schema'
 import { callbackUrl, redirectToLocalized } from './server-helpers'
+import { createAccountWithConfirmation } from './sign-up'
 
 async function redirectLocalized(href: string): Promise<never> {
   const locale = await getLocale()
@@ -62,22 +63,21 @@ export async function signUpAction(_prev: AuthState, formData: FormData): Promis
   const rawNext = formData.get(NEXT_PARAM)?.toString()
   const next = rawNext ? sanitizeNext(rawNext, '') : ''
 
-  const supabase = await createClient()
-  const { error } = await supabase.auth.signUp({
+  /*
+   * Die Kontoanlage selbst steht seit B16-3 in `lib/auth/sign-up.ts` — geteilt mit der
+   * Partner-Bewerbung, die ein Konto braucht, aber ausdrücklich KEINEN Lead schreiben darf (s. u.).
+   * Verhaltensgleich; das Ziel reist unverändert durch den Mail-Flow mit: der Bestätigungslink
+   * landet im Callback, der die Sitzung setzt und anschliessend GENAU DORTHIN weiterleitet, wohin
+   * die Person ursprünglich wollte (B10-5). Ohne Ziel bleibt es bei `/konto`.
+   */
+  const signUp = await createAccountWithConfirmation({
     email: parsed.data.email,
     password: parsed.data.password,
-    /*
-     * Das Ziel reist durch den Mail-Flow mit: der Bestätigungslink landet im Callback, der die
-     * Sitzung setzt und anschliessend GENAU DORTHIN weiterleitet, wohin die Person ursprünglich
-     * wollte. Ohne `next` endete jede Registrierung auf `/konto` — auch die, die mit einem Klick
-     * auf den Kalkulator begonnen hat (der bis B10-4 offene Punkt „kein Rücksprungziel durch den
-     * Mail-Flow"). Ohne Ziel bleibt es beim bisherigen Verhalten.
-     */
-    options: { emailRedirectTo: await callbackUrl(next || KONTO_HREF) },
+    next: next || KONTO_HREF,
   })
-  if (error) {
+  if (!signUp.created) {
     return {
-      formError: mapAuthError(error),
+      formError: mapAuthError(signUp.error),
       email: parsed.data.email,
       company: parsed.data.company,
       firstName: parsed.data.firstName,
@@ -109,9 +109,24 @@ export async function signUpAction(_prev: AuthState, formData: FormData): Promis
     next,
   })
 
-  // Kein data.user/identities-Branch: bei bereits registrierter Adresse zeigt Supabase (mit
-  // enable_confirmations) KEINEN Fehler — der „Bitte bestätige"-Zustand ist in ALLEN Fällen
-  // identisch (Enumeration-Schutz).
+  /*
+   * ⚠ KORRIGIERT MIT B16-3 — hier stand bis dahin, bei bereits registrierter Adresse zeige Supabase
+   * (mit `enable_confirmations`) KEINEN Fehler, der „Bitte bestätige"-Zustand sei in allen Fällen
+   * identisch und die Registrierung damit enumerationssicher.
+   *
+   * DAS IST IN DER GOTRUE-FASSUNG DIESES PROJEKTS FALSCH, gemessen gegen den lokalen Stack: ein
+   * `signUp` auf eine Adresse mit BESTÄTIGTEM Konto antwortet mit HTTP 422 `user_already_exists`,
+   * und `mapAuthError` macht daraus den Sammel-Text `generic` — der Zustand oben (`formError`)
+   * unterscheidet sich also sichtbar vom Erfolgszustand. Belege und Messwerte stehen im Kopf von
+   * `lib/auth/sign-up.ts`.
+   *
+   * VERHALTEN UNVERÄNDERT GELASSEN, und zwar bewusst: Auf einem Registrierungsformular ist die
+   * Rückmeldung „dieses Konto gibt es schon" die für den Nutzer richtige — sie erspart ihm das
+   * Warten auf eine Mail, die nie kommt. Ob dieser Nutzen den Enumerationspreis wert ist, ist eine
+   * Produktentscheidung und gehört zu Andreas; sie steht im B16-3-Handover. Die PARTNER-BEWERBUNG
+   * trifft sie ausdrücklich anders (`lib/partner-application/flow.ts`): dort wird derselbe Fehler
+   * verschluckt, weil die Seite sonst zum Auskunftsdienst über fremde Konten würde.
+   */
   return { emailSent: true, email: parsed.data.email }
 }
 

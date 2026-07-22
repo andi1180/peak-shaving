@@ -52,7 +52,8 @@
     "datenschutz": "Datenschutz",
     "copyright": "© {year} COOLiN ENERGY",
     "addressLabel": "Adresse",
-    "emailLabel": "E-Mail"
+    "emailLabel": "E-Mail",
+    "partnerWerden": "Partner werden"
   },
   "Placeholder": {
     "inProgress": "in Aufbau",
@@ -388,11 +389,20 @@
         "title": "Finanzierung & Förderungen",
         "promise": "Fördermittel, CAPEX/OPEX und Contracting bewertet, bevor die Investition entschieden ist — nicht danach.",
         "chart": {
-          "sourceLabel": ["Ihre Investition"],
+          "sourceLabel": [
+            "Ihre Investition"
+          ],
           "targets": {
-            "investitionsfreibetrag": ["Investitionsfreibetrag"],
-            "oekologischeFoerderung": ["Ökologische", "Investitionsförderung"],
-            "contracting": ["Contracting"]
+            "investitionsfreibetrag": [
+              "Investitionsfreibetrag"
+            ],
+            "oekologischeFoerderung": [
+              "Ökologische",
+              "Investitionsförderung"
+            ],
+            "contracting": [
+              "Contracting"
+            ]
           },
           "caption": "Schematische Darstellung: Eine Investition kann über mehrere Wege gefördert oder finanziert werden. Welcher Weg im Einzelfall passt und was er bringt, klärt das Fördermittel-Screening."
         },
@@ -465,11 +475,22 @@
         "promise": "Ein Datenmodell, das die Emissionsberechnung trägt — und eine Dokumentation, die einer Prüfung standhält.",
         "chart": {
           "sources": {
-            "scope1": ["Scope 1 —", "direkte Emissionen"],
-            "scope2": ["Scope 2 —", "Energiebezug"],
-            "scope3": ["Scope 3 —", "Wertschöpfungskette"]
+            "scope1": [
+              "Scope 1 —",
+              "direkte Emissionen"
+            ],
+            "scope2": [
+              "Scope 2 —",
+              "Energiebezug"
+            ],
+            "scope3": [
+              "Scope 3 —",
+              "Wertschöpfungskette"
+            ]
           },
-          "targetLabel": ["CO₂-Bilanz"],
+          "targetLabel": [
+            "CO₂-Bilanz"
+          ],
           "caption": "Schematische Darstellung nach dem GHG-Protocol: Die drei Emissions-Kategorien fließen in eine gemeinsame CO₂-Bilanz. Wie groß der jeweilige Anteil ist, ergibt erst die Emissionsberechnung."
         },
         "problem": {
@@ -1813,6 +1834,97 @@
     },
     "note": "Ihre Anfrage ist unverbindlich. Wir geben Ihre Angaben nicht an Dritte weiter."
   },
+  "PartnerBewerbung": {
+    "//": "ARBEITSSTAND (B16-3). Gerüst und Platzhaltertexte stammen aus dem Bau — die endgültigen Formulierungen kommen von Andreas/Martina. Sie enthalten AUSDRÜCKLICH KEIN Provisions- oder Umsatzversprechen (das Modell ist das erste Zugriffsrecht auf die Montage, keine Provision) und KEINE Zusage über die Bearbeitungsdauer — eine Frist, die niemand zugesagt hat, wird trotzdem gemessen. Vor der ersten echten Bewerbung ersetzen. Diese Seite richtet sich an FACHBETRIEBE, die Partner werden wollen — nicht zu verwechseln mit Partner.* (B16-2), das die Landingpage für die KUNDEN eines bereits aufgenommenen Betriebs beschreibt.",
+    "metaTitle": "Partner werden — für Elektro- und Installationsbetriebe",
+    "metaDescription": "Sie betreuen Gewerbebetriebe und wollen ihnen eine unabhängige Prüfung ihres Stromverbrauchs anbieten? Bewerben Sie sich als Fachpartner von COOLiN ENERGY.",
+    "eyebrow": "Für Fachbetriebe",
+    "title": "Partner von COOLiN ENERGY werden",
+    "lead": "Sie betreuen Gewerbebetriebe elektrotechnisch und sehen dort täglich, wo Stromkosten entstehen. Wir rechnen für diese Betriebe aus, welcher Anteil davon vermeidbar ist und ob sich ein Batteriespeicher dafür trägt. Kommt eine Umsetzung in Frage, bekommt der Betrieb, der den Kontakt gebracht hat, das erste Zugriffsrecht auf die Montage.",
+    "how": {
+      "title": "Wie die Zusammenarbeit läuft",
+      "intro": "Sie verweisen Ihre Bestandskunden über einen personalisierten Link an uns. Wir führen die Analyse und die Kundenbeziehung; Sie bleiben der Betrieb vor Ort.",
+      "step1Title": "Sie empfehlen",
+      "step1Body": "Sie bekommen einen Link mit Ihrem Namen darauf. Wer ihn benutzt, wird Ihrem Betrieb zugeordnet — ohne Cookies, ohne Nachverfolgung über andere Seiten.",
+      "step2Title": "Wir rechnen",
+      "step2Body": "Wir werten den Lastgang aus und legen offen, wie die Zahlen entstehen. Wir verkaufen keine Anlage — wir rechnen.",
+      "step3Title": "Sie montieren",
+      "step3Body": "Führt die Analyse zu einer Umsetzung, fragen wir zuerst Sie. Die Entscheidung darüber trifft am Ende der Kunde."
+    },
+    "fit": {
+      "title": "Für wen das passt",
+      "item1": "Elektro-, Installations- und Energietechnikbetriebe mit gewerblichen Bestandskunden.",
+      "item2": "Betriebe, die Speicher und Ladeinfrastruktur selbst montieren — oder es vorhaben.",
+      "item3": "Betriebe, die ihren Kunden zum Leistungstarif ab 2027 eine belastbare Auskunft geben wollen, statt zu schätzen."
+    },
+    "account": {
+      "title": "Was mit Ihrer Bewerbung passiert",
+      "body": "Mit der Bewerbung entsteht ein Konto für Sie. Wir sehen uns an, was Sie geschrieben haben, und melden uns. Wird daraus eine Zusammenarbeit, schalten wir Ihr Konto frei und Sie bekommen Ihren Empfehlungslink."
+    },
+    "note": "Ihre Bewerbung ist unverbindlich. Wir geben Ihre Angaben nicht an Dritte weiter und sagen weder eine Provision noch eine Bearbeitungsdauer zu.",
+    "formTitle": "Ihre Bewerbung",
+    "formIntro": "Alle Felder mit * sind Pflicht. Der Freitext am Ende ist der wichtigste Teil — er ist die Grundlage unserer Prüfung.",
+    "signedIn": "Sie sind angemeldet als <email></email>. Ihre Bewerbung wird mit diesem Konto verknüpft — ein zweites Konto entsteht nicht.",
+    "optional": "(optional)",
+    "requiredHint": "Felder mit * sind Pflichtfelder.",
+    "submit": "Bewerbung absenden",
+    "submitting": "Wird gesendet …",
+    "retry": "Erneut senden",
+    "honeypot": "Dieses Feld bitte leer lassen.",
+    "fields": {
+      "company": "Firma *",
+      "firstName": "Vorname *",
+      "lastName": "Nachname *",
+      "email": "E-Mail-Adresse *",
+      "password": "Passwort *",
+      "passwordHint": "Mindestens 8 Zeichen. Damit melden Sie sich später an.",
+      "phone": "Telefon",
+      "website": "Website",
+      "websitePlaceholder": "z. B. elektro-muster.at",
+      "message": "Was macht Ihr Betrieb, warum möchten Sie Partner werden? *",
+      "messageHint": "Ein paar Sätze genügen: Tätigkeitsschwerpunkt, typische Kunden, Region — und was Sie sich von der Zusammenarbeit erwarten.",
+      "datenschutz": "Ich habe die <link>Datenschutzerklärung</link> gelesen und bin damit einverstanden, dass meine Angaben zur Bearbeitung meiner Bewerbung verarbeitet werden. *"
+    },
+    "errors": {
+      "companyRequired": "Bitte geben Sie den Namen Ihres Betriebs an.",
+      "companyTooLong": "Das ist zu lang.",
+      "firstNameRequired": "Bitte geben Sie Ihren Vornamen an.",
+      "firstNameTooLong": "Das ist zu lang.",
+      "lastNameRequired": "Bitte geben Sie Ihren Nachnamen an.",
+      "lastNameTooLong": "Das ist zu lang.",
+      "emailRequired": "Bitte geben Sie Ihre E-Mail-Adresse an.",
+      "emailInvalid": "Diese E-Mail-Adresse sieht nicht vollständig aus.",
+      "emailTooLong": "Diese Adresse ist zu lang.",
+      "passwordTooShort": "Bitte mindestens 8 Zeichen.",
+      "phoneTooLong": "Diese Telefonnummer ist zu lang.",
+      "websiteTooLong": "Diese Adresse ist zu lang.",
+      "messageTooShort": "Bitte schreiben Sie uns ein paar Sätze — das ist die Grundlage unserer Prüfung.",
+      "messageTooLong": "Das ist zu lang. Bitte fassen Sie sich etwas kürzer.",
+      "datenschutzRequired": "Ohne diese Zustimmung können wir Ihre Bewerbung nicht bearbeiten."
+    },
+    "formError": {
+      "validation": "Bitte prüfen Sie die markierten Felder.",
+      "turnstile": "Die Sicherheitsprüfung ist fehlgeschlagen. Bitte laden Sie die Seite neu und versuchen Sie es erneut.",
+      "unavailable": "Ihre Bewerbung konnte gerade nicht gespeichert werden. Bitte versuchen Sie es erneut.",
+      "network": "Wir konnten den Server nicht erreichen. Bitte prüfen Sie Ihre Verbindung und versuchen Sie es erneut.",
+      "fallback": "Damit Ihre Bewerbung nicht verloren geht: Schreiben Sie uns bitte direkt an <mail></mail>."
+    },
+    "success": {
+      "title": "Danke — Ihre Bewerbung ist angekommen.",
+      "body": "Wir haben Ihre Angaben erhalten und sehen sie uns an. Eine Eingangsbestätigung ist an Ihre E-Mail-Adresse unterwegs.",
+      "fallback": "Sollte binnen weniger Minuten keine Bestätigung eintreffen, schreiben Sie uns bitte an <mail></mail> — dann ist unterwegs etwas schiefgegangen."
+    }
+  },
+  "PartnerApplicationMail": {
+    "//": "ARBEITSSTAND (B16-3): die Eingangsbestätigung an den Bewerber. Endgültige Formulierungen von Andreas/Martina. Transaktional, kein Double-Opt-in (die Zustellung ist die Antwort auf die gerade vorgenommene Handlung, nicht eine künftige Aussendung). KEINE Zusage über die Bearbeitungsdauer. Die interne Benachrichtigung an COOLiN trägt ihre Sätze im Code (lib/partner-application/mail.ts) — dasselbe Muster wie lib/kontakt/deliver.ts: sie ist eine Nachricht ans eigene Postfach, kein nutzergerichteter Text.",
+    "subject": "Ihre Partner-Bewerbung bei COOLiN ENERGY",
+    "greeting": "Guten Tag {name},",
+    "intro": "vielen Dank für Ihre Bewerbung als Fachpartner. Wir haben Ihre Angaben erhalten und sehen sie uns an.",
+    "accountCreated": "Für Sie wurde ein Konto angelegt. Bitte bestätigen Sie es über den Link in der separaten Bestätigungsmail — erst danach können Sie sich anmelden.",
+    "accountExisting": "Für Ihre E-Mail-Adresse besteht bereits ein Konto bei uns. Es wurde kein zweites angelegt und Ihr bisheriges Passwort ist unverändert — melden Sie sich bitte wie gewohnt damit an.",
+    "next": "Wir melden uns bei Ihnen. Falls wir Rückfragen zu Ihrem Betrieb haben, antworten wir einfach auf diese Adresse.",
+    "fallback": "Sie erreichen uns jederzeit unter {email}."
+  },
   "LeadMail": {
     "confirm": {
       "subject": "Bitte bestätigen Sie Ihre Einwilligung",
@@ -2051,7 +2163,9 @@
       },
       {
         "title": "10. Beschwerderecht",
-        "paragraphs": ["Sie können sich bei der österreichischen Datenschutzbehörde beschweren."]
+        "paragraphs": [
+          "Sie können sich bei der österreichischen Datenschutzbehörde beschweren."
+        ]
       },
       {
         "title": "11. Änderungen",
