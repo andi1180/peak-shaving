@@ -1295,6 +1295,7 @@ export type Database = {
         }
         Returns: Json
       }
+      get_active_partner: { Args: { p_slug: string }; Returns: Json }
       get_my_entitlement: {
         Args: { p_product: Database["platform"]["Enums"]["product_key"] }
         Returns: boolean

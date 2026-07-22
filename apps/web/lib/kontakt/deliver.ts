@@ -106,14 +106,51 @@ export function fullName(input: Pick<KontaktInput, 'vorname' | 'nachname'>): str
   return `${input.vorname} ${input.nachname}`.trim()
 }
 
-function buildFields(input: KontaktInput, themaLabel: string): MailFields {
-  return [
+/**
+ * Woher die Anfrage kam, soweit die Zuordnung bereits feststeht (B16-2).
+ *
+ * `partnerDisplayName`/`partnerSlug` sind gesetzt, wenn die Anfrage über einen Partnerlink
+ * hereinkam (Landingpage `/partner/<slug>` oder `?partner=` auf `/kontakt`) UND der Slug zu einem
+ * aktiven Fachbetrieb gehört. `referredByText` ist die Freitextangabe des Absenders.
+ */
+export type KontaktAttribution = {
+  partnerDisplayName?: string | null
+  partnerSlug?: string | null
+  referredByText?: string | null
+}
+
+function buildFields(
+  input: KontaktInput,
+  themaLabel: string,
+  attribution: KontaktAttribution,
+): MailFields {
+  const fields: MailFields = [
     { label: 'Name', value: fullName(input) },
     { label: 'E-Mail', value: input.email },
     { label: 'Unternehmen', value: orEmpty(input.unternehmen) },
     { label: 'Telefon', value: orEmpty(input.telefon) },
     { label: 'Thema', value: themaLabel },
   ]
+
+  /*
+   * B16-2: Die zwei Angaben stehen NUR in der Mail, wenn es sie gibt — eine Zeile „Partner: —" bei
+   * jeder gewöhnlichen Kontaktanfrage wäre Rauschen in der häufigsten Nachricht des Postfachs.
+   *
+   * Sie sind BEWUSST GETRENNT beschriftet und werden nicht zu einer Zeile verschmolzen: „Partner"
+   * ist die bestätigte Zuordnung aus dem Link, „Empfohlen durch" die Angabe des Absenders. Genau
+   * diese Trennung ist der Entwurf von B16-1 (Urteil gegen Beobachtung) — und wer die Mail liest,
+   * muss sehen, welche der beiden Angaben er vor sich hat, bevor er ein Montageprojekt zusagt.
+   */
+  const partner = attribution.partnerDisplayName?.trim()
+  if (partner) {
+    const slug = attribution.partnerSlug?.trim()
+    fields.push({ label: 'Über Partnerlink', value: slug ? `${partner} (${slug})` : partner })
+  }
+
+  const referredBy = attribution.referredByText?.trim()
+  if (referredBy) fields.push({ label: 'Empfohlen durch (Angabe)', value: referredBy })
+
+  return fields
 }
 
 function buildText(fields: MailFields, nachricht: string, zeitstempel: string): string {
@@ -178,6 +215,7 @@ function buildHtml(fields: MailFields, nachricht: string, zeitstempel: string): 
 export async function deliverKontakt(
   input: KontaktInput,
   themaLabel: string,
+  attribution: KontaktAttribution = {},
 ): Promise<DeliveryOutcome> {
   const apiKey = serverEnv.RESEND_API_KEY
   const from = serverEnv.RESEND_FROM
@@ -199,7 +237,7 @@ export async function deliverKontakt(
   }
 
   const zeitstempel = TIMESTAMP.format(new Date())
-  const fields = buildFields(input, themaLabel)
+  const fields = buildFields(input, themaLabel, attribution)
 
   try {
     /*

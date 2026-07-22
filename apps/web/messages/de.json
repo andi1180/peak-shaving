@@ -1282,6 +1282,8 @@
       "thema": "Thema *",
       "themaPlaceholder": "Bitte wählen",
       "nachricht": "Ihr Anliegen *",
+      "empfehlung": "Von welchem Betrieb wurden Sie empfohlen?",
+      "empfehlungPlaceholder": "z. B. Elektro Muster GmbH",
       "datenschutz": "Ich habe die <link>Datenschutzerklärung</link> gelesen und bin damit einverstanden, dass meine Angaben zur Bearbeitung meiner Anfrage verarbeitet werden. *"
     },
     "marketing": {
@@ -1304,6 +1306,7 @@
       "themaInvalid": "Bitte wählen Sie ein Thema.",
       "nachrichtTooShort": "Bitte beschreiben Sie Ihr Anliegen in mindestens 10 Zeichen.",
       "nachrichtTooLong": "Ihre Nachricht ist zu lang (maximal 5.000 Zeichen). Bitte kürzen Sie sie oder schreiben Sie uns direkt.",
+      "empfehlungTooLong": "Diese Angabe ist zu lang (maximal 200 Zeichen).",
       "datenschutzRequired": "Bitte bestätigen Sie die Datenschutzerklärung, damit wir Ihre Anfrage bearbeiten dürfen."
     },
     "formError": {
@@ -1793,6 +1796,22 @@
       "confirmTitle": "Erst nach Ihrer Bestätigung",
       "confirmBody": "Nach dem Absenden bekommen Sie eine E-Mail mit einem Bestätigungslink. Erst wenn Sie ihn anklicken, stehen Sie auf der Liste. Bleibt der Klick aus, passiert nichts."
     }
+  },
+  "Partner": {
+    "//": "ARBEITSSTAND (B16-2). Gerüst und Platzhaltertexte stammen aus dem Bau — die endgültigen Formulierungen kommen von Andreas/Martina. Sie sind bewusst nüchtern gehalten und enthalten KEIN Preisversprechen und KEINE Ergebniszusage: Die Seite führt zur Kontaktanfrage, nicht zu einem Sofortergebnis. Vor der ersten echten Partner-Aussendung ersetzen. Der Schlüssel {partner} ist der Anzeigename des Fachbetriebs aus platform.partners — das EINZIGE Partner-Datum, das diese Seite kennt.",
+    "metaTitle": "Empfehlung: unabhängige Prüfung Ihres Stromverbrauchs",
+    "metaDescription": "Ihr Fachbetrieb hat Sie an COOLiN ENERGY verwiesen. Schildern Sie uns kurz Ihre Ausgangslage — wir melden uns mit den nächsten Schritten.",
+    "eyebrow": "Empfehlung Ihres Fachbetriebs",
+    "title": "{partner} empfiehlt Ihnen eine unabhängige Prüfung durch COOLiN",
+    "lead": "COOLiN ENERGY prüft für Gewerbebetriebe, wo im Stromverbrauch Kosten entstehen, die sich vermeiden lassen — und ob sich ein Batteriespeicher dafür rechnet. Wir sind dabei unabhängig: Wir verkaufen keine Anlage, wir rechnen. Schildern Sie uns kurz Ihre Ausgangslage, dann melden wir uns.",
+    "formTitle": "Ihre Anfrage",
+    "next": {
+      "title": "Wie es weitergeht",
+      "step1": "Sie schildern uns kurz, worum es geht. Alles Weitere klären wir im Gespräch.",
+      "step2": "Wir melden uns bei Ihnen und sagen Ihnen, welche Unterlagen wir für eine belastbare Rechnung brauchen.",
+      "step3": "Kommt eine Umsetzung in Frage, kann {partner} sie übernehmen — die Entscheidung darüber treffen Sie."
+    },
+    "note": "Ihre Anfrage ist unverbindlich. Wir geben Ihre Angaben nicht an Dritte weiter."
   },
   "LeadMail": {
     "confirm": {
