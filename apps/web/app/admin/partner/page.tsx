@@ -6,6 +6,7 @@ import { AdminError, AdminPanel, AdminSection, Pill, formatDate } from '@/compon
 import { ActionButton } from '@/components/admin/action-button'
 import {
   CreatePartnerForm,
+  LinkAccountForm,
   PartnerEditForm,
   ReferralLink,
 } from '@/components/admin/partner-forms'
@@ -17,11 +18,18 @@ import { absoluteUrl } from '@/lib/site'
 /*
  * `/admin/partner` — die Stammdaten der Fachbetriebe (B16-2, Modell A).
  *
- * ── GENAU VIER FÄHIGKEITEN ───────────────────────────────────────────────────────────────────────
- * Auflisten, anlegen, Anzeigename/Ansprechperson korrigieren, aktiv/inaktiv schalten. Mehr kann die
- * Datenbank nicht (B16-1 legt genau vier Wrapper an), und mehr soll diese Seite nicht: Kein
- * Einladungsversand, kein E-Mail-Template, keine Genehmigungsstrecke (das ist B16-3/B16-4), kein
- * Partner-Login und keine Partner-eigene Sicht auf Leads (B16-5/B16-6, hängt an B13).
+ * ── FÜNF FÄHIGKEITEN ─────────────────────────────────────────────────────────────────────────────
+ * Auflisten, anlegen, Anzeigename/Ansprechperson korrigieren, aktiv/inaktiv schalten — und seit
+ * B16-4a: ein bestehendes Konto verknüpfen. Mehr kann die Datenbank nicht, und mehr soll diese
+ * Seite nicht: Kein Einladungsversand, kein E-Mail-Template, kein Partner-Login und keine
+ * Partner-eigene Sicht auf Leads (B16-4b/B16-5, hängt an B13). Genehmigt wird unter
+ * „Partner-Anträge", nicht hier — dort steht der Antrag, um den es geht.
+ *
+ * ── WARUM ES DIE KONTOVERKNÜPFUNG GIBT ──────────────────────────────────────────────────────────
+ * Ein von Hand angelegter Betrieb (Raymann, der erste reale Partner) hat kein Konto, und der
+ * einzige andere Weg zu einem führt über einen genehmigten Antrag, den es für ihn nicht gibt und
+ * nicht mehr geben kann — sein Kurz-Key ist vergeben, eine zweite Zeile wäre ein zweiter Partner.
+ * Ohne diesen Weg könnte er das Partner-Portal aus B16-4b nie benutzen.
  *
  * ── ES GIBT KEIN LÖSCHEN, UND ZWAR NICHT AUS VERSEHEN ───────────────────────────────────────────
  * `platform.partners` hat für NIEMANDEN ein `delete`-Grant. An einem Fachbetrieb hängen die bereits
@@ -130,6 +138,16 @@ export default async function AdminPartnersPage() {
                         <dd className="text-text">{contact ?? '—'}</dd>
                       </div>
                       <div>
+                        <dt className="text-caption text-text-muted">Konto</dt>
+                        {/*
+                          Die ADRESSE, nicht die Konto-Kennung: eine UUID sagt niemandem, WELCHES
+                          Konto verknüpft ist. „Keins" ist ein echter Zustand — bei von Hand
+                          angelegten Betrieben und nachdem jemand sein Konto gelöscht hat (der
+                          Partner bleibt dabei bestehen, `on delete set null`).
+                        */}
+                        <dd className="text-text">{partner.account_email ?? '—'}</dd>
+                      </div>
+                      <div>
                         <dt className="text-caption text-text-muted">Leads</dt>
                         <dd className="text-text">
                           <Num>{partner.lead_count}</Num>
@@ -190,6 +208,21 @@ export default async function AdminPartnersPage() {
                       </summary>
                       <PartnerEditForm partner={partner} />
                     </details>
+
+                    {/*
+                      Das Verknüpfungsformular erscheint NUR, solange kein Konto hängt. Eine
+                      bestehende Zuordnung lässt sich weder überschreiben noch lösen (B16-4a) — ein
+                      Formular, das in beiden Fällen dasteht, versprächte eine Fähigkeit, die es
+                      nicht gibt, und der Klick käme als Ablehnung zurück.
+                    */}
+                    {partner.account_email === null && (
+                      <details className="mt-2">
+                        <summary className="cursor-pointer text-small text-accent underline decoration-accent underline-offset-[3px] outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                          Konto verknüpfen
+                        </summary>
+                        <LinkAccountForm slug={partner.slug} />
+                      </details>
+                    )}
                   </AdminPanel>
                 </li>
               )

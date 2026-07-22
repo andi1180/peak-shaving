@@ -29,7 +29,12 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { PARTNERS_HREF } from './partners'
-import { partnerSlugSchema, toFieldErrors, type AdminState } from './schema'
+import {
+  partnerAccountLinkSchema,
+  partnerSlugSchema,
+  toFieldErrors,
+  type AdminState,
+} from './schema'
 
 const FORBIDDEN = 'Keine Berechtigung. Bitte laden Sie die Seite neu.'
 const GENERIC = 'Das hat nicht geklappt. Bitte versuchen Sie es erneut.'
@@ -229,5 +234,102 @@ export async function setPartnerActiveAction(
       return { formError: FORBIDDEN }
     default:
       return { formError: GENERIC }
+  }
+}
+
+// ── Konto verknüpfen (B16-4a) ────────────────────────────────────────────────────────────────────
+
+/**
+ * Hängt ein BESTEHENDES Auth-Konto über seine E-Mail-Adresse an einen von Hand angelegten
+ * Fachbetrieb (`public.admin_link_partner_account`, B16-4a).
+ *
+ * ── WOFÜR ES DAS BRAUCHT ────────────────────────────────────────────────────────────────────────
+ * Raymann — der erste reale Partner — ist von Hand angelegt worden, bevor es einen Bewerbungsweg
+ * gab. Ohne diesen Weg käme genau dieser Betrieb nie in das Portal aus B16-4b: seine Zeile hat kein
+ * Konto, und der einzige andere Weg dorthin führt über einen genehmigten Antrag, den es für ihn
+ * nicht gibt und nicht mehr geben kann (der Kurz-Key ist vergeben, eine zweite Zeile wäre ein
+ * zweiter Partner).
+ *
+ * ── ES WIRD NICHTS ÜBERSCHRIEBEN, UND ES GIBT KEIN LÖSEN ────────────────────────────────────────
+ * Eine bestehende Zuordnung wird abgewiesen (`already_linked`), nicht ersetzt: ein Upsert nähme dem
+ * bisherigen Konto stillschweigend den Zugang zu seinem eigenen Betrieb, und niemand wüsste danach,
+ * welches es war. Ein Gegenstück zum LÖSEN gibt es bewusst weder hier noch in der Datenbank — der
+ * einzige vorgesehene Weg dorthin ist die Löschung des Kontos durch die Person selbst
+ * (`on delete set null`). Dieselbe Haltung wie beim fehlenden Entsperr-Wrapper in B2-2.
+ */
+export async function linkPartnerAccountAction(
+  _prev: AdminState,
+  formData: FormData,
+): Promise<AdminState> {
+  const slug = String(formData.get('slug') ?? '').trim()
+  if (!slug) return { formError: GONE }
+
+  const values = { email: String(formData.get('email') ?? '') }
+
+  const parsed = partnerAccountLinkSchema.safeParse(values)
+  if (!parsed.success) {
+    return { fieldErrors: toFieldErrors(parsed.error.issues), values }
+  }
+
+  const supabase = await sessionClient()
+  if (!supabase) return { formError: FORBIDDEN, values }
+
+  const { data, error } = await supabase.rpc('admin_link_partner_account', {
+    p_slug: slug,
+    p_email: parsed.data.email,
+  })
+
+  const result = (data ?? {}) as { current_email?: unknown; partner_slug?: unknown }
+  switch (interpret('admin_link_partner_account', data, error)) {
+    case 'ok':
+      revalidatePath(PARTNERS_HREF)
+      return {
+        success:
+          `Konto „${parsed.data.email}" verknüpft. Der Betrieb erreicht damit später sein ` +
+          'Partner-Portal (B16-4b). Eine Nachricht darüber geht NICHT automatisch raus.',
+      }
+    case 'already_linked':
+      return {
+        formError:
+          `Dieser Fachbetrieb hängt bereits am Konto „${String(result.current_email)}". Eine ` +
+          'bestehende Zuordnung wird nicht überschrieben — sonst verlöre dieses Konto den Zugang ' +
+          'zu seinem eigenen Betrieb, ohne dass es irgendwo auffiele.',
+        values,
+      }
+    case 'account_taken':
+      return {
+        formError:
+          `Dieses Konto gehört bereits zum Fachbetrieb „${String(result.partner_slug)}". Ein Konto ` +
+          'kann derzeit nur an einem Betrieb hängen.',
+        values,
+      }
+    case 'user_not_found':
+      return {
+        fieldErrors: {
+          email:
+            'Zu dieser Adresse gibt es kein Konto. Der Betrieb muss sich zuerst registrieren — ' +
+            'danach lässt sich das Konto hier verknüpfen.',
+        },
+        values,
+      }
+    case 'ambiguous_email':
+      return {
+        fieldErrors: {
+          email:
+            'Zu dieser Adresse gibt es mehrere Konten. Welches gemeint ist, lässt sich hier nicht ' +
+            'entscheiden — ein zufällig gewähltes fremdes Konto bekäme Zugriff auf diesen Betrieb.',
+        },
+        values,
+      }
+    case 'missing_fields':
+      // Praktisch unerreichbar (beide Werte sind oben geprüft) — aber ein stiller `default` wäre
+      // hier die falsche Auskunft, wenn sich die Wrapper-Bedingungen einmal ändern.
+      return { formError: 'Bitte Fachbetrieb und E-Mail-Adresse angeben.', values }
+    case 'not_found':
+      return { formError: GONE, values }
+    case 'forbidden':
+      return { formError: FORBIDDEN, values }
+    default:
+      return { formError: GENERIC, values }
   }
 }

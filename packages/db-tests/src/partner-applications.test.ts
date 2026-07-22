@@ -215,16 +215,24 @@ describe('(1) Anti-Enumeration: was die Bewerbung NICHT verrät', () => {
   })
 })
 
-// ── (2) Es gibt keinen Weg zu 'approved' ─────────────────────────────────────────────────────────
-describe('(2) Genehmigen ist in B16-3 unerreichbar', () => {
-  it('DER WICHTIGSTE TEST DIESER DATEI: es gibt KEINEN Wrapper, der einen Antrag genehmigt', async () => {
+// ── (2) Der Weg zu 'approved' ────────────────────────────────────────────────────────────────────
+describe('(2) Genehmigen führt nur über den Partner (seit B16-4a)', () => {
+  it('DER WICHTIGSTE TEST DIESER DATEI: es gibt genau EINEN Genehmigungsweg, und er verlangt einen SLUG', async () => {
     /*
-     * B16-4 erzeugt beim Genehmigen einen Partner, einen Slug und eine Freischaltung. Ein Wrapper,
-     * der jetzt nur den Status setzte, hinterliesse einen genehmigten Antrag OHNE Partner — ein
-     * stiller Zustand, der wie Erfolg aussieht und den niemand mehr von einem echten unterscheiden
-     * kann. Geprüft wird die vollständige Wrapper-Menge, nicht die Abwesenheit eines geratenen
+     * ⚠ NACHGEZOGEN IN B16-4a, NICHT AUFGEWEICHT. Bis B16-3 lautete die Zusicherung „es gibt
+     * KEINEN Wrapper, der einen Antrag genehmigt" — genau diese Zeile wurde von der B16-4a-Migration
+     * rot gemacht, und genau so war sie gemeint (in B16-3 als Wächter-Probe gemessen). Die
+     * Zusicherung dahinter bleibt dieselbe und ist nur schärfer geworden:
+     *
+     *   Ein Antrag kann NICHT allein durch das Setzen eines Status genehmigt werden.
+     *
+     * Der Beleg dafür steht in der SIGNATUR: `admin_approve_partner_application` verlangt einen
+     * Slug. Es gibt damit keinen Aufruf, der 'approved' erreicht, ohne dass ein Fachbetrieb
+     * entsteht — dass beides in derselben Transaktion passiert, prüft partner-approval.test.ts (3).
+     *
+     * Geprüft wird weiterhin die VOLLSTÄNDIGE Wrapper-Menge, nicht die Abwesenheit eines geratenen
      * Namens: ein `admin_decide_partner_application` mit Status-Parameter wäre derselbe Fehler unter
-     * anderem Namen.
+     * anderem Namen und fiele hier auf.
      */
     const rows = await sql<{ proname: string; args: string }>(
       `select p.proname, pg_get_function_identity_arguments(p.oid) as args
@@ -235,19 +243,25 @@ describe('(2) Genehmigen ist in B16-3 unerreichbar', () => {
     )
 
     expect(rows.map((r) => r.proname)).toEqual([
+      'admin_approve_partner_application',
       'admin_get_partner_application',
       'admin_list_partner_applications',
       'admin_reject_partner_application',
       'submit_partner_application',
     ])
 
-    // Und der eine schreibende Admin-Wrapper nimmt KEINEN Status entgegen — der Zielwert ist ein
-    // Literal im Rumpf. Ein Statusparameter wäre der Weg zu 'approved' über dieselbe Funktion.
+    // Genehmigen verlangt den Slug — ein Aufruf ohne ihn erreicht 'approved' nicht.
+    const approve = rows.find((r) => r.proname === 'admin_approve_partner_application')!
+    expect(approve.args).toBe('p_id uuid, p_slug text')
+
+    // Und der ablehnende Wrapper nimmt weiterhin KEINEN Status entgegen — der Zielwert ist ein
+    // Literal im Rumpf. Ein Statusparameter wäre der Weg zu 'approved' über dieselbe Funktion,
+    // vorbei am Partner.
     const reject = rows.find((r) => r.proname === 'admin_reject_partner_application')!
     expect(reject.args).toBe('p_id uuid')
   })
 
-  it('der Enum kennt approved — erreichbar ist der Wert nur über eine künftige Migration', async () => {
+  it('der Enum kennt approved — erreichbar seit B16-4a, aber nur zusammen mit einem Fachbetrieb', async () => {
     // `::text[]` ist nötig, nicht kosmetisch: `array_agg(enumlabel)` liefert `name[]`, wofür
     // node-postgres keinen Parser hat — die Zusicherung stünde sonst gegen eine Zeichenkette.
     const rows = await sql<{ labels: string[] }>(
@@ -515,8 +529,13 @@ describe('(5) Die drei Admin-Wrapper', () => {
 
     expect(res.status).toBe('ok')
     const app = res.application as Record<string, unknown>
+    // `account_partner_slug` und `partner_slug` sind in B16-4a dazugekommen (der Fachbetrieb, an dem
+    // das Konto schon hängt, bzw. der aus diesem Antrag entstandene). Die Liste wird NACHGEZOGEN,
+    // nicht durch eine Teilmengen-Prüfung ersetzt: sie ist die Absicherung dagegen, dass ein Feld
+    // unbemerkt in eine Ansicht über fremde Personen wandert.
     expect(Object.keys(app).sort()).toEqual([
       'account_email',
+      'account_partner_slug',
       'company',
       'created_at',
       'email',
@@ -524,6 +543,7 @@ describe('(5) Die drei Admin-Wrapper', () => {
       'id',
       'last_name',
       'message',
+      'partner_slug',
       'phone',
       'reviewed_at',
       'reviewed_by_email',
@@ -531,6 +551,8 @@ describe('(5) Die drei Admin-Wrapper', () => {
       'user_id',
       'website',
     ])
+    expect(app.partner_slug).toBeNull()
+    expect(app.account_partner_slug).toBeNull()
     expect(app.account_email).toBe(user.email)
     expect(app.message).toContain('Speicher')
     expect(app.reviewed_by_email).toBeNull()

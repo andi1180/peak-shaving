@@ -27,11 +27,11 @@ import {
  * der Zustand, vor dem der Kommentar dort warnt. Fachlich sind es ohnehin zwei Dinge: „Partner" sind
  * die aufgenommenen Betriebe, hier stehen die, über die noch nicht entschieden ist.
  *
- * ── ES GIBT KEINEN GENEHMIGEN-KNOPF, UND DAS STEHT AUCH AUF DER SEITE ───────────────────────────
- * Genehmigen erzeugt in B16-4 einen Partner, einen Slug und eine Freischaltung. Ein Knopf, der jetzt
- * nur den Status setzte, hinterliesse einen genehmigten Antrag ohne Partner — ein stiller Zustand,
- * der wie Erfolg aussieht. Die Grenze steht in der Datenbank (kein Wrapper, kein Tabellenrecht) und
- * wird hier nur sichtbar gemacht, damit niemand sie für ein Versehen hält.
+ * ── ENTSCHIEDEN WIRD AUF DER DETAILSEITE, NICHT IN DER LISTE ────────────────────────────────────
+ * Genehmigen (seit B16-4a) legt einen Fachbetrieb an, vergibt einen unveränderlichen Kurz-Key und
+ * setzt den Antrag endgültig — das verlangt den Freitext, die Kontoangaben und einen
+ * Bestätigungsschritt und gehört deshalb dorthin, wo alles davon steht. Eine Sammelaktion in der
+ * Liste gibt es aus demselben Grund nicht.
  *
  * ── DER FILTER IST EIN ECHTES GET-FORMULAR ──────────────────────────────────────────────────────
  * Kein Client-Zustand, keine Server Action: der Filter IST die URL. Damit funktioniert die Ansicht
@@ -115,14 +115,15 @@ export default async function AdminPartnerApplicationsPage({
           jedem Antrag gehört ein Konto — angelegt bei der Bewerbung oder schon vorhanden.
         </p>
         {/*
-          Der fehlende Genehmigen-Weg steht im Klartext auf der Seite. Eine stille Lücke sähe aus wie
-          ein vergessener Knopf; so ist sie eine Ansage über den Bauzustand.
+          Wo entschieden wird, steht im Klartext — sonst sucht man die Knöpfe in der Liste. Und der
+          Hinweis, ohne den ein genehmigter Antrag für abgeschlossen gehalten wird: es geht keine
+          Nachricht an den Betrieb raus.
         */}
         <p className="mt-3 max-w-prose text-small text-text-muted">
-          Genehmigen ist hier noch nicht möglich: Dabei entstehen ein Partnereintrag, ein Kurz-Key
-          und eine Freischaltung des Kontos — das kommt im nächsten Bauabschnitt. Ein Antrag, der
-          jetzt nur den Status „genehmigt" trüge, hätte nichts davon und sähe trotzdem wie erledigt
-          aus. <span className="text-text">Ablehnen</span> geht auf der Detailseite.
+          Genehmigt und abgelehnt wird auf der Detailseite eines Antrags. Beim Genehmigen entsteht
+          ein Fachbetrieb mit einem Kurz-Key, der danach{' '}
+          <span className="text-text">unveränderlich</span> ist. Eine Nachricht an den Betrieb geht
+          dabei <span className="text-text">nicht</span> automatisch raus.
         </p>
       </header>
 
