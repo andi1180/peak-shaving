@@ -24,6 +24,13 @@
 //     nachgezogenen Wrapper ebenfalls (ein DROP hätte ihre Grants entfernt, in B3-1 real passiert).
 // (7) JEDER WRAPPER WIRD TATSÄCHLICH AUFGERUFEN (Arbeitsregel 2): Introspektion beweist Existenz,
 //     nicht Lauffähigkeit — plpgsql prüft Funktionsrümpfe nicht beim Anlegen.
+//
+// ⚠ EINE GRENZE DAZU, HIER REAL GELERNT (26.07.2026, s. Arbeitsregel 5 in der Root-`CLAUDE.md`):
+//     Ein Aufruf ist nur sicher, wenn die aufrufende Rolle ein EXECUTE-Grant HAT und die Ablehnung
+//     im FUNKTIONSRUMPF erfolgt (`raise … 42501`). Ein Aufruf als Rolle OHNE Grant — also der
+//     Versuch, fehlenden Zugriff durch die Ablehnung zu beweisen — beendet den Postgres-Prozess
+//     (Signal 11); im CI-Lauf dieses Bauabschnitts ist genau das passiert. Für diesen Fall wird
+//     `has_function_privilege` geprüft, nicht aufgerufen.
 
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { randomUUID } from 'node:crypto'
@@ -718,15 +725,48 @@ describe('(6) Rechte der neuen und der nachgezogenen Wrapper', () => {
     expect((await readPartner(handSlug))!.user_id).toBeNull()
   })
 
-  it('anon kann beide Wrapper nicht einmal aufrufen', async () => {
+  it('anon hat auf KEINEM public.admin_*-Wrapper ein EXECUTE — introspektiv, ohne Aufruf', async () => {
+    /*
+     * ⚠ HIER STAND EIN DIREKTER AUFRUF ALS `anon`, UND ER HAT DEN DATENBANKPROZESS ABGESCHOSSEN.
+     *
+     * Ein `select public.admin_approve_partner_application(...)` unter der Rolle `anon` — also der
+     * Versuch, fehlenden Zugriff durch die erwartete Ablehnung zu BEWEISEN — beendet den
+     * Postgres-Backend-Prozess (Signal 11) statt sauber mit 42501 abzulehnen. Lokal lief der Test
+     * zweimal grün, im CI-Image ist er am 26.07.2026 reproduzierbar aufgeschlagen: der Server nahm
+     * mitten im Lauf keine Verbindungen mehr an („Connection terminated unexpectedly"), und die
+     * nachfolgende Testdatei scheiterte schon an der Erreichbarkeitsprüfung.
+     *
+     * Für Prüfungen gegen die Cloud-DB galt „kein Funktionsaufruf" längst als Konvention
+     * (Segfault-Vermeidung, seit B10-1 in den Handover-Logs). Sie gilt ab jetzt AUCH lokal und im
+     * CI — als Arbeitsregel in der Root-`CLAUDE.md` festgehalten.
+     *
+     * DIE ABGRENZUNG, auf die es ankommt: Ein echter Aufruf ist NUR dann sicher, wenn die
+     * aufrufende Rolle ein EXECUTE-Grant besitzt und die Ablehnung IM FUNKTIONSRUMPF erfolgt
+     * (`raise … using errcode = '42501'`). Genau das prüft der Test „EIN EINGELOGGTER NICHT-ADMIN
+     * SCHEITERT MIT 42501" oben — er ruft real auf, als `authenticated` mit Grant, und ist
+     * unverändert geblieben. Nicht sicher ist die Ablehnung auf GRANT-Ebene, also der Fall, den
+     * dieser Test hier abdeckt.
+     *
+     * Gemessen wird deshalb der Katalog — und zwar BREITER als der abgelöste Aufruf: nicht die zwei
+     * neuen Wrapper (die decken die beiden Tests darüber ab), sondern die GESAMTE
+     * `public.admin_*`-Fläche. `anon` hat in `platform` seit T4-1 nirgends ein Recht; ein
+     * versehentlich vergebenes Grant auf irgendeinem Admin-Wrapper fiele sonst erst dort auf, wo
+     * jemand zufällig hinsieht.
+     */
+    const rows = await sql<{ proname: string; can: boolean }>(
+      `select p.proname, has_function_privilege('anon', p.oid, 'EXECUTE') as can
+         from pg_proc p
+        where p.pronamespace = 'public'::regnamespace
+          and p.prokind = 'f'
+          and p.proname like 'admin\\_%'
+        order by p.proname`,
+    )
 
-    for (const call of [
-      `select public.admin_approve_partner_application('${randomUUID()}', 'x') as r`,
-      `select public.admin_link_partner_account('x', 'y@test.local') as r`,
-    ]) {
-      await expect(
-        runAs({ role: 'anon', commit: false }, (c) => c.query(call)),
-      ).rejects.toMatchObject({ code: '42501' })
-    }
+    // Die beiden neuen Wrapper sind nachweislich Teil der geprüften Menge — sonst prüfte der Test
+    // im Zweifel eine leere Liste und wäre still wertlos.
+    expect(rows.map((r) => r.proname)).toEqual(
+      expect.arrayContaining(['admin_approve_partner_application', 'admin_link_partner_account']),
+    )
+    expect(rows.filter((r) => r.can).map((r) => r.proname)).toEqual([])
   })
 })
