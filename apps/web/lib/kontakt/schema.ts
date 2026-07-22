@@ -34,6 +34,8 @@ const MAX = {
   unternehmen: 120,
   telefon: 60,
   nachricht: 5000,
+  /** „Empfohlen durch" (B16-2) — Freitext, keine Kennung. `platform.leads.referred_by_text`. */
+  empfehlung: 200,
 } as const
 
 /** Optionales Textfeld: leerer String ist erlaubt und bedeutet „nicht angegeben". */
@@ -110,6 +112,43 @@ export const kontaktSchema = z.object({
   marketing: z.boolean().optional(),
 
   /*
+   * „EMPFOHLEN DURCH" (B16-2) — Freitext, AUSDRÜCKLICH OPTIONAL.
+   *
+   * Zweck: Der Kunde kommt Tage nach der Partner-Mail direkt über die Startseite; der Pfad
+   * `/partner/<slug>` ist dann verloren, die Zuordnung soll trotzdem möglich bleiben. Was hier
+   * ankommt, ist eine BEOBACHTUNG („Fa. Raymann Elektro", „mein Elektriker aus Wiener Neustadt") und
+   * landet in `platform.leads.referred_by_text` — NICHT in `partner_slug`. Die beiden Spalten sind
+   * seit B16-1 getrennt, weil an der Zuordnung später hängt, wer ein Montageprojekt bekommt: In
+   * einem Feld vermischt liesse sich nicht mehr feststellen, ob „raymann" dort steht, weil der Kunde
+   * es geschrieben hat oder weil jemand es zugeordnet hat.
+   *
+   * KEIN Pflichtfeld und keine Auswahlliste aller Partner: Wer von niemandem empfohlen wurde, darf
+   * nicht zum Leerklicken gezwungen werden — und eine Auswahlliste wäre ein öffentliches Verzeichnis
+   * aller Fachbetriebe, mit denen wir zusammenarbeiten.
+   */
+  empfehlung: optionalText(MAX.empfehlung, 'empfehlungTooLong'),
+
+  /*
+   * DER PARTNER-SLUG AUS `?partner=` (B16-2) — und die Erklärung, warum er hier so lax steht.
+   *
+   * Er ist KEINE Nutzereingabe, sondern ein Query-Parameter, den das Formular nach der Hydration aus
+   * der Adresszeile liest (`components/kontakt/kontakt-form.tsx`, dieselbe Mechanik wie `?thema=`).
+   * Geprüft wird er SERVERSEITIG gegen die aktiven Fachbetriebe; ein unbekannter, stillgelegter oder
+   * formatverletzender Wert wird STILLSCHWEIGEND VERWORFEN und der Lead entsteht trotzdem.
+   *
+   * Deshalb steht hier bewusst keine Formatregel: Sie würde die GESAMTE Absendung mit einer
+   * Feldmeldung abweisen — zu einem Feld, das der Absender nie gesehen hat, wegen eines Tippfehlers
+   * in einem Link, den er nicht geschrieben hat. Ein Link mit Tippfehler darf keinen Lead kosten
+   * (dieselbe Abwägung, die B16-1 in `public.capture_lead` getroffen hat). Die Längengrenze bleibt,
+   * damit der Endpunkt keine beliebig lange Zeichenkette entgegennimmt; sie ist grosszügiger als die
+   * echte Slug-Grenze (64), damit sie nie der Grund einer Ablehnung ist.
+   *
+   * Auf der Landingpage `/partner/<slug>` wird dieses Feld ausdrücklich IGNORIERT — dort gilt der
+   * Pfad (s. `lib/kontakt/submit.ts`).
+   */
+  partner: z.string().trim().max(200).optional(),
+
+  /*
    * HONEYPOT — siehe `components/kontakt/kontakt-form.tsx`. Hier nur deklariert,
    * damit der Wert `z.object()`s Strip überlebt und die Route ihn sehen kann.
    * BEWUSST NICHT hier validiert: „Feld gefüllt" ist kein Eingabefehler des
@@ -146,6 +185,8 @@ export type KontaktFieldName =
   | 'telefon'
   | 'thema'
   | 'nachricht'
+  /** B16-2 — nur auf `/kontakt` sichtbar, auf der Partner-Landingpage bewusst nicht. */
+  | 'empfehlung'
   | 'datenschutz'
 
 /**

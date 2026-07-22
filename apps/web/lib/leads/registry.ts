@@ -78,8 +78,26 @@ export const LEAD_CAPTURE_FORM_KEYS = [
  *
  * Was dadurch NICHT aufgeweicht wird: der Abgleich mit `platform.lead_sources` läuft unverändert
  * über `LEAD_SOURCE_KEYS` (unten) und bleibt in BEIDE Richtungen erschöpfend.
+ *
+ * ── 'partner-empfehlung' (B16-2) STEHT AUS EINEM ZWEITEN, SCHÄRFEREN GRUND HIER ──────────────────
+ * Die Partner-Landingpage `/partner/<slug>` HAT ein Formular — aber nicht eines dieser Registry:
+ * sie trägt dasselbe Modul wie `/kontakt` (`components/kontakt/kontakt-form.tsx`), mit dessen
+ * Feldern, dessen Texten und dessen Endpunkt. Vier Registry-Texte und eine Feldliste, die niemand
+ * rendert, wären auch hier eine Requisite.
+ *
+ * Entscheidend ist aber die Wirkung von `findLeadCaptureEntry` (unten): Stünde der Schlüssel in
+ * `LEAD_CAPTURE_FORM_KEYS`, liesse sich über den GENERISCHEN Erfassungs-Endpunkt ein Lead unter der
+ * Herkunft 'partner-empfehlung' anlegen — und zwar OHNE Partner, weil die Zuordnung dort gar nicht
+ * vorkommt: sie stammt ausschliesslich aus dem Pfad der Landingpage. Der Bestand enthielte dann
+ * Zeilen, die eine Partner-Aussendung behaupten, zu der kein Partner gehört. Genau dieselbe
+ * Überlegung wie bei 'registrierung' oben, nur mit einer Zahl daran, über die später ein
+ * Montageprojekt zugeteilt wird.
  */
-export const LEAD_SOURCE_KEYS_WITHOUT_FORM = ['registrierung', 'kalkulator-registrierung'] as const
+export const LEAD_SOURCE_KEYS_WITHOUT_FORM = [
+  'registrierung',
+  'kalkulator-registrierung',
+  'partner-empfehlung',
+] as const
 
 /**
  * ALLE Herkunftsschlüssel aus `platform.lead_sources` — erschöpfend, mit und ohne Formular.

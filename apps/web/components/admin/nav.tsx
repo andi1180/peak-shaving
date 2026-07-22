@@ -25,6 +25,7 @@ import { cn } from '@/lib/utils'
 import { ADMIN_HREF } from '@/lib/admin/config'
 import { LEADS_HREF } from '@/lib/admin/leads'
 import { ANALYSES_HREF } from '@/lib/admin/analyses'
+import { PARTNERS_HREF } from '@/lib/admin/partners'
 
 const ITEMS = [
   { href: ADMIN_HREF, label: 'Übersicht' },
@@ -33,6 +34,10 @@ const ITEMS = [
   // „Leads": eine Analyse überlebt den Lead bewusst (B14-1, ON DELETE SET NULL statt CASCADE) und
   // kann von vornherein ohne einen entstehen.
   { href: ANALYSES_HREF, label: 'Analysen' },
+  // B16-2: die Stammdaten der Fachbetriebe. Eigener Punkt und kein Abschnitt unter „Leads": ein
+  // Partner ist eine Vereinbarung mit eigener Lebensdauer — er entsteht vor dem ersten Lead und
+  // überlebt dessen Anonymisierung (B16-1 hält `partner_slug` bewusst aus dem Guard heraus).
+  { href: PARTNERS_HREF, label: 'Partner' },
 ] as const
 
 export function AdminNav() {

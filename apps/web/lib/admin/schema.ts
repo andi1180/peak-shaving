@@ -123,6 +123,39 @@ export const codeSchema = z.object({
   note: z.string().trim().max(500, 'Zu lang.').optional(),
 })
 
+// ── Fachbetrieb anlegen (B16-2) ──────────────────────────────────────────────────────────────────
+/**
+ * Der Slug wird hier auf GENAU dieselbe Form geprüft wie der CHECK auf `platform.partners.slug`
+ * (`^[a-z0-9-]+$`, B16-1 — wörtlich derselbe wie bei `platform.lead_sources.key` seit B1-1). Doppelt,
+ * aber nicht redundant, und hier mit einem eigenen Gewicht: Der Slug ist NACH DEM ANLEGEN
+ * UNVERÄNDERLICH (Trigger `guard_partner_slug`), weil er in Mails steht, die ein Fachbetrieb an
+ * hunderte Bestandskunden verschickt. Eine Meldung am Feld, BEVOR jemand ihn vergibt, ist deshalb
+ * mehr wert als bei jedem anderen Formular dieses Bereichs — der Wrapper würde ihn zwar ebenfalls
+ * ablehnen (`invalid_slug` statt 23514), aber erst nach einem Roundtrip und ohne Feldbezug.
+ *
+ * `toLowerCase()` statt einer Ablehnung: Der Wrapper schreibt den Slug ohnehin kleingeschrieben
+ * (B16-1), und „Raymann-Elektro" abzuweisen, statt daraus „raymann-elektro" zu machen, wäre eine
+ * Hürde ohne Ertrag — die Bedeutung ist eindeutig, es gibt keine zweite Lesart. Die
+ * Formatprüfung läuft NACH dem Kleinschreiben, sonst wäre jeder Grossbuchstabe ein Fehler.
+ */
+export const partnerSlugSchema = z.object({
+  slug: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .min(2, 'Mindestens 2 Zeichen.')
+    .max(64, 'Höchstens 64 Zeichen.')
+    .regex(
+      /^[a-z0-9-]+$/,
+      'Nur Kleinbuchstaben, Ziffern und Bindestriche — keine Unterstriche, keine Umlaute.',
+    ),
+  displayName: z
+    .string()
+    .trim()
+    .min(1, 'Bitte den Firmennamen des Fachbetriebs angeben.')
+    .max(200, 'Zu lang.'),
+})
+
 /** Nur die ID + der Zielzustand — für die Schnell-Toggles (Ziel aktiv/inaktiv, Code aktiv/inaktiv). */
 export const toggleSchema = z.object({
   id: z.string().uuid('Unbekannter Eintrag.'),

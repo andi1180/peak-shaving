@@ -16,13 +16,21 @@ import {
   type KontaktResponse,
 } from '@/lib/kontakt/schema'
 import { THEMA_PARAM, THEMEN, isThemaKey, type Thema } from '@/lib/kontakt/themen'
+import { PARTNER_QUERY_PARAM } from '@/lib/leads/partner'
 
 /**
  * Das Kontaktformular (Pflichtenheft §5.5).
  *
  * WIEDERVERWENDBAR: Die Komponente bringt kein Layout mit (kein `Section`, kein
- * `Container`) — nur die Karte. `/kontakt` ist heute der einzige Ort; sollte das
- * Formular je zusätzlich in einem Dialog stehen, ist das ein Prop, kein Umbau.
+ * `Container`) — nur die Karte.
+ *
+ * ── SEIT B16-2 STEHT ES AN ZWEI ORTEN ───────────────────────────────────────
+ * `/kontakt` und die Partner-Landingpage `/partner/<slug>`. Die beiden
+ * unterscheiden sich in GENAU ZWEI Props (`endpoint`, `showReferredBy`) — der
+ * Rest ist bewusst dieselbe Datei und nicht eine Kopie: Honeypot, Turnstile,
+ * Prüfung, Fokusführung und Fehlerbehandlung sind der Teil, der leise
+ * kaputtgeht, und eine zweite Fassung davon würde beim ersten Fix auseinander-
+ * laufen (dasselbe Argument wie bei `redeem-code-form` in B10-4).
  *
  * PRÜFUNG LÄUFT ZWEIMAL, MIT EINER REGEL: `kontaktSchema` (aus
  * `lib/kontakt/schema.ts`) hier für die sofortige Rückmeldung, dieselbe Datei in
@@ -49,6 +57,8 @@ type Values = {
   telefon: string
   thema: string
   nachricht: string
+  /** „Empfohlen durch" (B16-2) — optional, nur wenn `showReferredBy`. */
+  empfehlung: string
   datenschutz: boolean
   /** Zusätzliche Marketing-Einwilligung (B1-2) — optional, NIE vorausgewählt. */
   marketing: boolean
@@ -64,6 +74,7 @@ const EMPTY_VALUES: Values = {
   telefon: '',
   thema: '',
   nachricht: '',
+  empfehlung: '',
   datenschutz: false,
   /*
    * `false`, und es gibt keinen Pfad, der das vorbelegt — dieselbe harte Regel wie bei
@@ -88,6 +99,7 @@ const FIELD_ORDER: KontaktFieldName[] = [
   'telefon',
   'thema',
   'nachricht',
+  'empfehlung',
   'datenschutz',
 ]
 
@@ -103,8 +115,27 @@ const FIELD_ORDER: KontaktFieldName[] = [
  */
 export function KontaktForm({
   marketingConsentText = null,
+  endpoint = '/api/kontakt',
+  showReferredBy = true,
 }: {
   marketingConsentText?: string | null
+  /**
+   * Wohin abgesendet wird. Vorgabe ist `/api/kontakt`; die Partner-Landingpage reicht
+   * `/api/partner/<slug>/kontakt` herein (B16-2).
+   *
+   * DER PARTNER STECKT IM PFAD DES ENDPUNKTS, NICHT IM RUMPF — und das ist der ganze Punkt: An der
+   * Zuordnung hängt später die Zuteilung eines Montageprojekts; ein verstecktes Formularfeld wäre im
+   * Browser in fünf Sekunden geändert. Die Route liest den Slug aus ihren eigenen `params` und
+   * IGNORIERT ein etwaiges `partner` im Rumpf (s. `lib/kontakt/submit.ts`).
+   */
+  endpoint?: string
+  /**
+   * Zeigt das Freitextfeld „Empfohlen durch". Auf der Partner-Landingpage `false`: Der Fachbetrieb
+   * ist dort bereits über den Pfad bekannt, und ein zweites Feld für dieselbe Frage stiftet nur
+   * Verwirrung — im ungünstigen Fall trüge es einen ANDEREN Namen als der Link, über den die Person
+   * gekommen ist.
+   */
+  showReferredBy?: boolean
 }) {
   const t = useTranslations('Kontakt')
   const tNav = useTranslations('Nav')
@@ -117,6 +148,13 @@ export function KontaktForm({
     {},
   )
   const [turnstileToken, setTurnstileToken] = React.useState<string | null>(null)
+  /**
+   * Der Slug aus `?partner=` (B16-2). BEWUSST NICHT Teil von `Values`: Es ist kein Feld, das jemand
+   * ausfüllt, sondern ein Stück der Adresse — es wird nie angezeigt, nie geprüft und nie fokussiert.
+   * Die Prüfung gegen die aktiven Fachbetriebe passiert serverseitig; ein unbrauchbarer Wert wird
+   * dort stillschweigend verworfen und der Lead entsteht trotzdem.
+   */
+  const [partnerFromQuery, setPartnerFromQuery] = React.useState<string | null>(null)
 
   /* Eindeutige IDs — `useId`, damit ein zweites Formular auf derselben Seite die
      label/aria-Verknüpfungen des ersten nicht kapert. */
@@ -140,8 +178,19 @@ export function KontaktForm({
    * passieren, der Rest nicht.
    */
   React.useEffect(() => {
-    const param = new URLSearchParams(window.location.search).get(THEMA_PARAM)
+    const query = new URLSearchParams(window.location.search)
+
+    const param = query.get(THEMA_PARAM)
     if (isThemaKey(param)) setValues((prev) => ({ ...prev, thema: param as string }))
+
+    /*
+     * B16-2: `?partner=<slug>` — für Links, die direkt auf die Kontaktseite zeigen. Hier wird NICHTS
+     * geprüft: der Server entscheidet, ob der Slug zu einem aktiven Fachbetrieb gehört. Eine
+     * clientseitige Vorprüfung wäre eine zweite Auslegung derselben Frage und könnte einen gültigen
+     * Wert wegwerfen, ohne dass es jemandem auffiele.
+     */
+    const partner = query.get(PARTNER_QUERY_PARAM)
+    if (partner) setPartnerFromQuery(partner)
   }, [])
 
   React.useEffect(() => {
@@ -174,7 +223,12 @@ export function KontaktForm({
     event.preventDefault()
     if (status === 'submitting') return
 
-    const payload = { ...values, turnstileToken: turnstileToken ?? undefined, locale }
+    const payload = {
+      ...values,
+      turnstileToken: turnstileToken ?? undefined,
+      locale,
+      partner: partnerFromQuery ?? undefined,
+    }
     const parsed = kontaktSchema.safeParse(payload)
 
     if (!parsed.success) {
@@ -191,7 +245,7 @@ export function KontaktForm({
     setStatus('submitting')
 
     try {
-      const response = await fetch('/api/kontakt', {
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(parsed.data),
@@ -401,6 +455,38 @@ export function KontaktForm({
             />
           )}
         </Field>
+
+        {/*
+          „EMPFOHLEN DURCH" (B16-2) — optional, Freitext, und auf der Partner-Landingpage
+          ausgeblendet (dort ist der Fachbetrieb über den Pfad bekannt).
+
+          Er steht NACH dem Anliegen und VOR den Einwilligungen: Es ist eine Zusatzangabe, keine
+          Voraussetzung — und ein Feld, das den Absender fragt, wer ihn geschickt hat, darf nicht
+          vor seinem eigentlichen Anliegen stehen. Die Angabe landet als BEOBACHTUNG in
+          `referred_by_text`; ob daraus eine Zuordnung wird, entscheidet später ein Mensch im
+          Admin-Bereich (B16-1: Beobachtung und Urteil sind zwei Spalten).
+        */}
+        {showReferredBy && (
+          <Field
+            name="empfehlung"
+            label={t('fields.empfehlung')}
+            optionalLabel={t('optional')}
+            error={fieldErrors.empfehlung}
+            fieldId={fieldId}
+            errorId={errorId}
+            t={t}
+          >
+            {(props) => (
+              <Input
+                {...props}
+                autoComplete="off"
+                value={values.empfehlung}
+                onChange={(e) => set('empfehlung', e.target.value)}
+                placeholder={t('fields.empfehlungPlaceholder')}
+              />
+            )}
+          </Field>
+        )}
 
         {/* DSGVO-Pflichtfeld (§5.5): NICHT vorausgewählt — `EMPTY_VALUES.datenschutz`
             ist `false`, und es gibt keinen Pfad, der das vorbelegt. Eine

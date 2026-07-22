@@ -427,6 +427,52 @@ export default async function AdminLeadDetailPage({ params }: { params: Promise<
         </AdminPanel>
       </AdminSection>
 
+      {/* ── Partner-Attribution ───────────────────────────────────────────────────────────────── */}
+      {/*
+       * B16-2 zeigt an, was B16-1 bereits speichert. Nur ANZEIGE: `public.admin_update_lead` könnte
+       * `partner_slug` setzen (elftes bearbeitbares Feld), das Korrekturformular oben bietet es
+       * bewusst noch nicht an — die Zuordnung eines Leads zu einem Fachbetrieb ist ein eigener
+       * Vorgang mit eigenen Folgen und gehört zum Weitergabe-Schritt (B16-3), nicht in ein
+       * Stammdatenformular. Dass es heute nur über die Datenbank geht, steht deshalb unten im
+       * Klartext, statt als Lücke dazustehen.
+       */}
+      <AdminSection
+        id="partner"
+        title="Partner-Attribution"
+        description="Zwei verschiedene Angaben: die bestätigte Zuordnung (aus dem Empfehlungslink eines Fachbetriebs) und der Freitext, den der Interessent selbst eingegeben hat. Die erste ist ein Urteil, die zweite eine Beobachtung — sie werden getrennt geführt, weil an der Zuordnung später die Vergabe eines Montageprojekts hängt."
+      >
+        <AdminPanel>
+          <dl className="grid gap-x-8 gap-y-4 sm:grid-cols-2">
+            <Field label="Zugeordneter Fachbetrieb">
+              {lead.partner_slug ? (
+                <>
+                  {lead.partner_display_name ?? lead.partner_slug}{' '}
+                  <span className="text-text-muted">({lead.partner_slug})</span>
+                  {lead.partner_is_active === false && (
+                    <span className="ml-2">
+                      <Pill tone="neutral">Betrieb stillgelegt</Pill>
+                    </span>
+                  )}
+                </>
+              ) : (
+                'keine Zuordnung'
+              )}
+            </Field>
+            <Field label="Empfohlen durch (Angabe des Interessenten)">
+              {lead.referred_by_text ?? '—'}
+            </Field>
+          </dl>
+          <p className="mt-4 max-w-prose text-caption text-text-muted">
+            Die Zuordnung entsteht automatisch, wenn die Anfrage über einen Empfehlungslink kam. Sie
+            lässt sich hier bewusst noch nicht von Hand setzen — das gehört zur Weitergabe eines
+            Projekts an einen Fachbetrieb und kommt mit dem nächsten Bauabschnitt. Bei einem
+            anonymisierten Lead bleibt die Zuordnung erhalten (sie ist ohne Adresse, Name und PLZ
+            kein Personenbezug mehr und trägt die Partner-Statistik über die Löschfrist hinaus); der
+            Freitext wird dabei gelöscht, weil er Namen Dritter enthalten kann.
+          </p>
+        </AdminPanel>
+      </AdminSection>
+
       {/* ── Vertragsablauf-Erinnerung ─────────────────────────────────────────────────────────── */}
       {/*
        * Die Betriebsdaten selbst (B3-1) sind seit B2-1 Teil des Korrekturformulars oben — sie

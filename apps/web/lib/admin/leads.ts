@@ -223,6 +223,21 @@ export type LeadDetailRow = LeadListRow & {
    * die Oberfläche hält beide Fälle seit B1-3 auseinander.
    */
   suppression_reason: SuppressionReason | null
+  /*
+   * B16-1 (angezeigt seit B16-2): die Partner-Attribution. ZWEI Angaben, und sie sind bewusst
+   * verschiedene Dinge — `partner_slug` ist die bestätigte Zuordnung (ein URTEIL, entstanden aus dem
+   * Pfad einer Landingpage oder gesetzt von einem Menschen), `referred_by_text` die Angabe des
+   * Interessenten selbst (eine BEOBACHTUNG, oft ohne Treffer: „mein Elektriker aus Wiener
+   * Neustadt"). In einem Feld vermischt liesse sich später nicht mehr feststellen, welche von
+   * beiden man vor sich hat — und an der Zuordnung hängt, wer ein Montageprojekt bekommt.
+   *
+   * `partner_is_active = false` heisst „zugeordnet zu einem stillgelegten Fachbetrieb": ein
+   * sichtbarer Zustand, kein Ausbleiben. Der Wrapper liefert ihn eigens dafür mit.
+   */
+  partner_slug: string | null
+  partner_display_name: string | null
+  partner_is_active: boolean | null
+  referred_by_text: string | null
 }
 
 // ── Sperrliste: der Grund (B2-2) ─────────────────────────────────────────────────────────────────

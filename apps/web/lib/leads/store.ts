@@ -23,6 +23,7 @@
 import 'server-only'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import type { CaptureOutcome, CaptureResult, ConsentPurpose } from './config'
+import type { PublicPartner } from './partner'
 import type { LeadIndustry } from './registry'
 
 /* ─── Rückgabe-Formen der Wrapper (jsonb) ─────────────────────────────────────────────────────── */
@@ -105,6 +106,19 @@ export type CaptureLeadInput = {
   supplier?: string | null
   /** ISO-Datum (`YYYY-MM-DD`) — die Spalte ist `date`, kein Zeitstempel. */
   contractEndDate?: string | null
+  /*
+   * Die Partner-Attribution (B16-1, verdrahtet in B16-2). BEIDE folgen der umgekehrten
+   * Vorrangregel: `coalesce(Bestand, neu)` — die ERSTE Nennung eines Partners gilt, wie
+   * `first_source_key`. Kommt derselbe Kontakt später über den Link eines ANDEREN Fachbetriebs,
+   * bleibt die erste Zuordnung stehen; sonst entschiede die zufällige Reihenfolge zweier
+   * Formularabsendungen darüber, wer das Montageprojekt bekommt.
+   *
+   * Ein unbekannter oder INAKTIVER Slug wird von `capture_lead` VERWORFEN, der Lead entsteht
+   * trotzdem — ein Link mit Tippfehler darf keinen Lead kosten.
+   */
+  partnerSlug?: string | null
+  /** Der Freitext „Empfohlen durch" — die BEOBACHTUNG, nicht das Urteil (B16-1). */
+  referredByText?: string | null
 }
 
 /** EIN atomarer Aufruf: Lead + optionale Einwilligung in einer Transaktion. */
@@ -129,6 +143,8 @@ export async function captureLead(input: CaptureLeadInput): Promise<CaptureResul
     p_metering_type: input.meteringType ?? undefined,
     p_supplier: input.supplier ?? undefined,
     p_contract_end_date: input.contractEndDate ?? undefined,
+    p_partner_slug: input.partnerSlug ?? undefined,
+    p_referred_by_text: input.referredByText ?? undefined,
   })
   if (error) throw new Error(`capture_lead: ${error.message}`)
 
@@ -175,6 +191,44 @@ export async function getActiveConsentText(
     locale: stringOrNull(row.locale) ?? locale,
     body,
   }
+}
+
+/* ─── Partner-Attribution (B16-2) ─────────────────────────────────────────────────────────────── */
+
+/**
+ * Ein AKTIVER Fachbetrieb — oder `null` (unbekannt, formatverletzend ODER stillgelegt).
+ *
+ * DIE DREI FÄLLE SIND ABSICHTLICH NICHT UNTERSCHEIDBAR. Eine Stilllegung ist genau die Ansage, dass
+ * die Links dieses Fachbetriebs nicht mehr wirken sollen; die einzige ehrliche Antwort darauf ist
+ * dieselbe wie bei einem erfundenen Slug (so verfährt seit B16-1 auch `public.capture_lead`). Ein
+ * dritter Zustand in der Oberfläche — „gibt es, ist aber inaktiv" — verriete zudem die Existenz
+ * einer Geschäftsbeziehung an jeden, der Slugs durchprobiert.
+ *
+ * DIE RÜCKGABE TRÄGT AUSSCHLIESSLICH SLUG UND ANZEIGENAME. Die Beschränkung liegt im Wrapper
+ * (`public.get_active_partner`, B16-2), nicht erst hier: Was eine Server Component liest, kann im
+ * ausgelieferten HTML landen, auch wenn niemand es rendert — die Ansprechperson des Fachbetriebs
+ * darf die Landingpage deshalb gar nicht erst erreichen können.
+ *
+ * WIRFT bei einem Infrastrukturfehler (Fehlerpolitik dieses Moduls). Die Landingpage lässt das
+ * durchlaufen — „wir konnten nicht nachsehen" darf sich nicht als „diesen Partner gibt es nicht"
+ * lesen; der Erfassungspfad fängt es und verwirft die Zuordnung, weil dort ein Lead auf dem Spiel
+ * steht.
+ */
+export async function getActivePartner(slug: string): Promise<PublicPartner | null> {
+  const service = createServiceRoleClient()
+  const { data, error } = await service.rpc('get_active_partner', { p_slug: slug })
+  if (error) throw new Error(`get_active_partner: ${error.message}`)
+
+  const row = asRecord(data, 'get_active_partner')
+  if (row.status !== 'ok') return null
+
+  const resolvedSlug = stringOrNull(row.slug)
+  const displayName = stringOrNull(row.display_name)
+  if (!resolvedSlug || !displayName) {
+    throw new Error('get_active_partner: slug/display_name fehlen in der Rückgabe')
+  }
+
+  return { slug: resolvedSlug, displayName }
 }
 
 /* ─── Double-Opt-in ───────────────────────────────────────────────────────────────────────────── */

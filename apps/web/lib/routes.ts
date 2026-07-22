@@ -38,6 +38,7 @@ import {
 import { WISSEN_HREF } from './wissen'
 import { AUTH_HREFS } from './auth/config'
 import { LEAD_HREFS } from './leads/config'
+import { PARTNER_ROUTE_TEMPLATE } from './leads/partner'
 
 export type SiteRoute = {
   /** Der Pfad OHNE Locale-Präfix — dasselbe, was `Link`/`pageAlternates` bekommen. */
@@ -214,6 +215,19 @@ const DYNAMIC_TEMPLATES = [
    * Sie sind ausnahmslos `noindex` und stehen deshalb ohnehin in keiner sitemap.
    */
   `${WARTELISTE_HREF}/[quelle]`,
+  /*
+   * B16-2: `/partner/[slug]` — die Landingpage eines Fachbetriebs. Ihre konkreten URLs kommen aus
+   * `platform.partners` und entstehen im laufenden Betrieb (Admin-Bereich), nicht aus einer Liste
+   * im Code.
+   *
+   * Sie gehören AUSDRÜCKLICH NICHT in die sitemap, und zwar unabhängig davon, dass ein dynamisches
+   * Segment ohnehin nicht hineingerät: viele fast identische Seiten, die sich nur im Firmennamen
+   * unterscheiden, sind aus Suchmaschinensicht Doorway Pages und beschädigen die organische
+   * Sichtbarkeit der echten Inhaltsseiten. Die Route trägt deshalb `noindex, nofollow` (in ihrer
+   * eigenen `generateMetadata`, wie `/warteliste/[quelle]`) — sie ist für den Direktlink aus der
+   * Partner-Mail gedacht, nicht für die Suche.
+   */
+  PARTNER_ROUTE_TEMPLATE,
 ]
 
 /** Alle `page.tsx` unter `dir` als Routen-Pfade („/", „/wissen/[slug]", …). */

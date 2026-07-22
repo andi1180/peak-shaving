@@ -31,6 +31,7 @@ export function ActionButton({
   pendingLabel,
   variant = 'secondary',
   confirm,
+  showSuccess = false,
 }: {
   action: AdminAction
   /** Verborgene Formularwerte (z. B. `{ id, isActive: 'false' }`). */
@@ -43,6 +44,15 @@ export function ActionButton({
    * nimmt (Rollen-Entzug) — nicht bei An/Aus-Schaltern, die man einfach zurückschaltet.
    */
   confirm?: string
+  /**
+   * Zeigt zusätzlich die Erfolgsmeldung der Action (B16-2, additiv — die vier bestehenden
+   * Verwendungen bleiben unverändert).
+   *
+   * Gebraucht dort, wo der Erfolg eine FOLGE hat, die man am Zeilenzustand nicht sieht: Beim
+   * Stilllegen eines Fachbetriebs wechselt zwar sichtbar die Markierung, aber nicht, dass seine
+   * Landingpage ab sofort 404 antwortet und ein bereits verschickter Link damit ins Leere führt.
+   */
+  showSuccess?: boolean
 }) {
   const [state, formAction, isPending] = useActionState(action, ADMIN_INITIAL_STATE)
 
@@ -63,6 +73,11 @@ export function ActionButton({
       {state.formError && (
         <p role="alert" className="mt-1.5 max-w-xs text-caption text-negative">
           {state.formError}
+        </p>
+      )}
+      {showSuccess && state.success && (
+        <p role="status" className="mt-1.5 max-w-xs text-caption text-text-muted">
+          {state.success}
         </p>
       )}
     </form>
