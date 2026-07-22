@@ -79,6 +79,19 @@ export type PartnerApplicationDetail = Omit<PartnerApplicationRow, 'has_account'
   /** Die Adresse des VERKNÜPFTEN KONTOS — nicht zwingend die Adresse im Antrag (s. u.). */
   account_email: string | null
   reviewed_by_email: string | null
+  /**
+   * Der Fachbetrieb, der AUS DIESEM ANTRAG entstanden ist (B16-4a) — `null`, solange er nicht
+   * genehmigt ist. Ohne dieses Feld endete ein genehmigter Antrag in einer Sackgasse: die
+   * Gegenrichtung des Fremdschlüssels wird sonst nirgends gelesen.
+   */
+  partner_slug: string | null
+  /**
+   * Der Fachbetrieb, an dem das KONTO dieses Antrags bereits hängt (B16-4a). Steht VOR der
+   * Genehmigung als Warnung zur Verfügung — sonst erführe man erst durch die Ablehnung
+   * `account_taken`, dass das Konto vergeben ist, nachdem man bereits einen Kurz-Key bestätigt hat.
+   * Nach der Genehmigung ist er identisch mit `partner_slug`.
+   */
+  account_partner_slug: string | null
 }
 
 export type PartnerApplicationList = {

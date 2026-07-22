@@ -34,6 +34,18 @@ export type PartnerRow = {
   updated_at: string
   lead_count: number
   customer_count: number
+  /**
+   * Das verknüpfte Auth-Konto (B16-4a) — `null` bei von Hand angelegten Betrieben und nach dem
+   * Löschen des Kontos (`on delete set null`; der Partner bleibt bestehen).
+   */
+  user_id: string | null
+  /**
+   * Die Adresse dieses Kontos. Sie steht NEBEN der Kennung, weil eine UUID einem Menschen nicht
+   * sagt, WELCHES Konto verknüpft ist.
+   */
+  account_email: string | null
+  /** Der Antrag, aus dem dieser Betrieb entstanden ist — `null` bei von Hand angelegten. */
+  application_id: string | null
 }
 
 function asObject(data: unknown): Record<string, unknown> | null {

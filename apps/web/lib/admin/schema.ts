@@ -138,22 +138,55 @@ export const codeSchema = z.object({
  * Hürde ohne Ertrag — die Bedeutung ist eindeutig, es gibt keine zweite Lesart. Die
  * Formatprüfung läuft NACH dem Kleinschreiben, sonst wäre jeder Grossbuchstabe ein Fehler.
  */
+const partnerSlugField = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .min(2, 'Mindestens 2 Zeichen.')
+  .max(64, 'Höchstens 64 Zeichen.')
+  .regex(
+    /^[a-z0-9-]+$/,
+    'Nur Kleinbuchstaben, Ziffern und Bindestriche — keine Unterstriche, keine Umlaute.',
+  )
+
 export const partnerSlugSchema = z.object({
-  slug: z
-    .string()
-    .trim()
-    .toLowerCase()
-    .min(2, 'Mindestens 2 Zeichen.')
-    .max(64, 'Höchstens 64 Zeichen.')
-    .regex(
-      /^[a-z0-9-]+$/,
-      'Nur Kleinbuchstaben, Ziffern und Bindestriche — keine Unterstriche, keine Umlaute.',
-    ),
+  slug: partnerSlugField,
   displayName: z
     .string()
     .trim()
     .min(1, 'Bitte den Firmennamen des Fachbetriebs angeben.')
     .max(200, 'Zu lang.'),
+})
+
+// ── Bewerbung genehmigen (B16-4a) ────────────────────────────────────────────────────────────────
+/**
+ * Beim Genehmigen ist der Slug das EINZIGE Feld — Firma und Ansprechperson kommen aus dem Antrag
+ * (`public.admin_approve_partner_application`). Er wird gegen dasselbe Feld geprüft wie beim
+ * Anlegen von Hand: eine zweite, abweichende Auslegung derselben Form wäre genau die Drift, die die
+ * geteilte Definition verhindert.
+ *
+ * Die Prüfung wiegt hier schwerer als irgendwo sonst im Admin-Bereich: Die Genehmigung ist nicht
+ * zurücknehmbar (es gibt für niemanden ein `delete`-Grant), und der Slug ist danach unveränderlich
+ * (Trigger `platform.guard_partner_slug`). Eine Meldung AM FELD, bevor jemand bestätigt, ist damit
+ * mehr wert als der Status, den der Wrapper danach zurückgäbe.
+ */
+export const partnerApprovalSchema = z.object({
+  slug: partnerSlugField,
+})
+
+/** Ein Konto per Adresse an einen bestehenden Fachbetrieb hängen (B16-4a). */
+export const partnerAccountLinkSchema = z.object({
+  /*
+   * Nur Grundform-Prüfung, wie in `roleByEmailSchema`: ob es das Konto WIRKLICH gibt, weiss allein
+   * die Datenbank (`user_not_found`/`ambiguous_email`). Ein strengeres Muster hier täuschte eine
+   * Prüfung vor, die es nicht gibt.
+   */
+  email: z
+    .string()
+    .trim()
+    .min(1, 'Bitte die E-Mail-Adresse des Kontos angeben.')
+    .max(320, 'Zu lang.')
+    .email('Bitte eine gültige E-Mail-Adresse angeben.'),
 })
 
 /** Nur die ID + der Zielzustand — für die Schnell-Toggles (Ziel aktiv/inaktiv, Code aktiv/inaktiv). */

@@ -617,9 +617,42 @@ offen gelassene Lücke, kein Versehen:
 Tabelle unbefristet — sie enthält Geschäftskontakte, keine Verbrauchsdaten, und es gibt für
 **keine** Rolle ein `delete`-Grant.
 
-**Ebenfalls offen und hier vermerkt, weil es den Betrieb betrifft:** Es gibt **keinen
-Genehmigen-Weg**. Ein Antrag lässt sich im Admin-Bereich nur **ablehnen**; Genehmigen erzeugt in
-B16-4 zusätzlich einen Partnereintrag, einen Kurz-Key und die Freischaltung des Kontos. Bis dahin
-wird ein aufgenommener Fachbetrieb **von Hand** unter `/admin/partner` angelegt, und sein Antrag
-bleibt auf „Offen" stehen. Weder in der Datenbank noch in der Oberfläche existiert ein Weg zum
-Status `approved`.
+**Ergänzt mit B16-4a (26.07.2026) — es GIBT jetzt einen Genehmigen-Weg, und er ist unumkehrbar.**
+Ein Antrag lässt sich auf seiner Detailseite genehmigen; dabei entsteht in EINER Transaktion ein
+Fachbetrieb mit den Angaben aus dem Antrag, sein Kurz-Key wird vergeben und das Konto verknüpft
+(`public.admin_approve_partner_application`). Für den Betrieb bedeutet das dreierlei:
+
+- **Der Kurz-Key ist danach unveränderlich** (Trigger `platform.guard_partner_slug`) und wandert in
+  Links, die der Fachbetrieb an seine Bestandskunden verschickt. Es gibt keinen Weg zurück — weder
+  eine Umbenennung noch eine Löschung (für `platform.partners` hat **keine** Rolle ein
+  `delete`-Grant). Die Oberfläche verlangt dafür ein ausdrückliches Häkchen.
+- **Der genehmigte Betrieb wird NICHT benachrichtigt.** Es geht keine automatische Nachricht raus;
+  Partner-Portal und Mail sind B16-4b. Bis dahin muss der Kontakt von Hand aufgenommen und der
+  Empfehlungslink weitergegeben werden. Der Hinweis steht nach jeder Genehmigung auf der Seite.
+- **Ein Antrag ohne verknüpftes Konto ist nicht genehmigbar** (`no_account`). Der Fall entsteht
+  real, wenn die Kontoanlage bei der Bewerbung scheitert (gemessen: `429
+  over_email_send_rate_limit`) — der Antrag entsteht dann trotzdem, ein daraus genehmigter Partner
+  hätte aber nie ein Login. Ausweg: erneut bewerben lassen, oder den Betrieb von Hand anlegen und
+  sein Konto unter `/admin/partner` verknüpfen (`public.admin_link_partner_account` — der Weg, über
+  den auch der erste, von Hand aufgenommene Partner sein Konto bekommt).
+
+---
+
+## 8. Kontoexistenz auf `/registrieren` — bewusst offengelegt (B16-4a)
+
+**Entschieden, nicht offen.** Der Registrierungsweg `/registrieren` verrät durch HTTP 422
+`user_already_exists` und durch 429 bei Wiederholung, ob eine E-Mail-Adresse ein Konto hat (gemessen
+gegen GoTrue in der Fassung dieses Projekts, B16-3). Das bleibt bewusst so:
+
+- Die Auskunft ist für den Nutzer **nützlich** — sie erspart ihm das Warten auf eine
+  Bestätigungsmail, die nie kommt.
+- Der verratene Umstand hat **geringe Aussagekraft**: Kalkulator-, Monitor- und Partnerkonten teilen
+  denselben Bestand, „hat irgendein Konto" sagt also nichts darüber, was jemand nutzt.
+- Der **Bewerbungsweg `/partner-werden` verschluckt den Fehler bewusst**, weil dort
+  Wettbewerbsinformation entstünde („dieser Betrieb bewirbt sich als Partner").
+- Die saubere Lösung — immer neutrale Antwort, stattdessen eine Hinweismail an das bestehende Konto
+  — kostet eine **privilegierte Existenzabfrage auf einem öffentlichen Pfad** und ist bei der
+  aktuellen Nutzerzahl unverhältnismäßig.
+
+**Erneut zu bewerten**, wenn Enumeration beobachtet wird (auffällige Serien von 422/429 auf
+`/registrieren`) oder wenn die Kontozugehörigkeit selbst schützenswert wird.

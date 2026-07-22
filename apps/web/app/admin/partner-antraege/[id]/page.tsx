@@ -12,26 +12,32 @@ import {
   readPartnerApplicationDetail,
 } from '@/lib/admin/partner-applications'
 import { rejectPartnerApplicationAction } from '@/lib/admin/partner-applications-actions'
-import { PARTNERS_HREF } from '@/lib/admin/partners'
+import { PARTNERS_HREF, readPartnerList } from '@/lib/admin/partners'
+import { PartnerApprovalForm } from '@/components/admin/partner-approval-form'
 
 /*
- * `/admin/partner-antraege/[id]` — ein einzelner Antrag (B16-3).
+ * `/admin/partner-antraege/[id]` — ein einzelner Antrag (B16-3, Genehmigung seit B16-4a).
  *
  * ── ALLE FELDER, INKLUSIVE FREITEXT ─────────────────────────────────────────────────────────────
- * Beim Genehmigen in B16-4 wird nichts davon erneut eingetippt: Firma, Ansprechperson, Adresse,
- * Telefon, Website und die Begründung stehen hier vollständig. Der Freitext ist der Grund, warum es
- * diese Seite gibt.
+ * Beim Genehmigen wird nichts davon erneut eingetippt: Firma, Ansprechperson, Adresse, Telefon,
+ * Website und die Begründung stehen hier vollständig — und der Wrapper übernimmt Firma und Namen
+ * direkt aus dem Antrag. Der Freitext ist der Grund, warum es diese Seite gibt.
  *
  * ── ZWEI ADRESSEN, GETRENNT AUSGEWIESEN ─────────────────────────────────────────────────────────
  * Die Adresse IM ANTRAG und die Adresse des VERKNÜPFTEN KONTOS können auseinandergehen: Wer
  * angemeldet einen Antrag stellt, kann eine abweichende Kontaktadresse eintragen. Sie werden
- * deshalb nicht verschmolzen — wer in B16-4 ein Konto freischaltet, muss sehen, WELCHES.
+ * deshalb nicht verschmolzen — wer ein Konto freischaltet, muss sehen, WELCHES.
  *
- * ── ES GIBT NUR EINE HANDLUNG: ABLEHNEN ─────────────────────────────────────────────────────────
- * Kein Genehmigen-Knopf, und das steht als Satz auf der Seite statt als stille Lücke. Genehmigen
- * erzeugt in B16-4 einen Partner, einen Slug und eine Freischaltung; ein Knopf, der jetzt nur den
- * Status setzte, hinterliesse einen genehmigten Antrag ohne Partner. Die Grenze liegt tiefer als
- * hier: in der Datenbank gibt es keinen Wrapper dafür (B16-3-Migration).
+ * ── DER GENEHMIGUNGSSCHRITT IST DER EINZIGE UNUMKEHRBARE VORGANG DIESES BEREICHS ────────────────
+ * Er legt einen Fachbetrieb an (für den es für niemanden ein `delete`-Grant gibt), vergibt einen
+ * Kurz-Key, der danach unveränderlich ist, und setzt den Antrag endgültig auf „genehmigt" — alles
+ * in EINER Transaktion (`public.admin_approve_partner_application`, B16-4a). Deshalb: Vorschlag
+ * statt Zwang, Verfügbarkeitsprüfung beim Tippen und ein ausdrückliches Häkchen davor.
+ *
+ * ── DREI ZUSTÄNDE, DIE DIE GENEHMIGUNG VERHINDERN, WERDEN VORHER GEZEIGT ────────────────────────
+ * Kein Konto am Antrag · das Konto hängt schon an einem anderen Betrieb · der Antrag ist bereits
+ * geprüft. Alle drei weist der Wrapper auch ab; sie hier erst NACH dem Bestätigen zu zeigen, wäre
+ * bei einem nicht zurücknehmbaren Vorgang die falsche Reihenfolge.
  *
  * ── ABLEHNEN IST EINMALIG UND MIT RÜCKFRAGE ─────────────────────────────────────────────────────
  * `admin_reject_partner_application` weist einen bereits geprüften Antrag ab, statt den Zeitpunkt
@@ -92,6 +98,23 @@ export default async function AdminPartnerApplicationPage({
 
   const name = applicantName(application)
   const offen = application.status === 'pending'
+
+  /*
+   * Die bereits vergebenen Kurz-Keys für die Verfügbarkeitsprüfung im Formular. Sie werden aus der
+   * bestehenden Partnerliste gelesen und NICHT über einen eigenen Prüf-Wrapper: der wäre eine
+   * zweite Definition von „vergeben" und könnte trotzdem nicht garantieren, dass der Key im Moment
+   * des Bestätigens noch frei ist. Die harte Grenze bleibt `duplicate_slug` im Wrapper.
+   *
+   * Nur geladen, wenn überhaupt genehmigt werden kann — ein zweiter Datenbankaufruf auf einer Seite,
+   * die nur anzeigt, wäre Aufwand ohne Ertrag.
+   */
+  const kannGenehmigtWerden = offen && application.user_id !== null && !application.account_partner_slug
+  let takenSlugs: string[] = []
+  if (kannGenehmigtWerden) {
+    const partnerRes = await supabase.rpc('admin_list_partners')
+    if (partnerRes.error) console.error('[admin/partner-applications] admin_list_partners:', partnerRes.error)
+    takenSlugs = (readPartnerList(partnerRes.data) ?? []).map((p) => p.slug)
+  }
 
   const felder: Array<[string, string]> = [
     ['Firma', application.company],
@@ -194,22 +217,48 @@ export default async function AdminPartnerApplicationPage({
         <AdminPanel>
           {offen ? (
             <>
-              {/*
-                Der fehlende Genehmigen-Weg steht im Klartext, damit niemand ihn für einen
-                vergessenen Knopf hält.
-              */}
-              <p className="max-w-prose text-small text-text-muted">
-                Genehmigen ist hier noch nicht möglich. Dabei entstehen ein Partnereintrag, ein
-                Kurz-Key und die Freischaltung des Kontos — das kommt im nächsten Bauabschnitt. Bis
-                dahin lässt sich ein Fachbetrieb bei Bedarf von Hand unter{' '}
-                <Link
-                  href={PARTNERS_HREF}
-                  className="text-accent underline decoration-accent underline-offset-[3px]"
-                >
-                  Partner
-                </Link>{' '}
-                anlegen; der Antrag bleibt dann offen stehen.
-              </p>
+              {kannGenehmigtWerden ? (
+                <PartnerApprovalForm
+                  applicationId={application.id}
+                  company={application.company}
+                  takenSlugs={takenSlugs}
+                />
+              ) : application.user_id === null ? (
+                /*
+                 * ⚠ Real aufgetreten: `submit_partner_application` legt den Antrag auch dann an,
+                 * wenn die Kontoanlage scheitert (gemessen am Rate-Limit des Mailversands) —
+                 * bewusst, denn eine verlorene Bewerbung wiegt schwerer als eine fehlende
+                 * Verknüpfung. Genehmigt entstünde daraus ein Fachbetrieb ohne Login, und der
+                 * Kurz-Key wäre unwiderruflich verbraucht. Der Wrapper weist das ab (`no_account`);
+                 * hier steht der Grund, BEVOR jemand einen Kurz-Key aussucht.
+                 */
+                <div className="rounded-md border border-warning-border bg-warning-subtle p-3">
+                  <p className="max-w-prose text-small text-ink">
+                    Genehmigen ist nicht möglich, solange kein Konto mit diesem Antrag verknüpft ist.
+                    Es entstünde ein Fachbetrieb, in dessen Zugang sich niemand einloggen könnte —
+                    und der Kurz-Key wäre verbraucht. Zwei Auswege: den Betrieb sich unter{' '}
+                    <span className="text-text">/partner-werden</span> erneut bewerben lassen (dabei
+                    entsteht das Konto), oder ihn unter{' '}
+                    <Link
+                      href={PARTNERS_HREF}
+                      className="text-accent underline decoration-accent underline-offset-[3px]"
+                    >
+                      Partner
+                    </Link>{' '}
+                    von Hand anlegen und dort sein bestehendes Konto verknüpfen.
+                  </p>
+                </div>
+              ) : (
+                <div className="rounded-md border border-warning-border bg-warning-subtle p-3">
+                  <p className="max-w-prose text-small text-ink">
+                    Das Konto dieses Antrags gehört bereits zum Fachbetrieb{' '}
+                    <span className="font-medium">{application.account_partner_slug}</span>. Ein
+                    Konto kann derzeit nur an einem Betrieb hängen — genehmigen lässt sich der
+                    Antrag deshalb nicht. Bitte prüfen, ob es sich um dieselbe Firma handelt; dann
+                    ist hier nichts zu tun.
+                  </p>
+                </div>
+              )}
 
               <div className="mt-5 border-t border-line pt-4">
                 <ActionButton
@@ -247,6 +296,37 @@ export default async function AdminPartnerApplicationPage({
                 )}
                 .
               </p>
+              {/*
+                Der ANGELEGTE Fachbetrieb steht hier, nicht nur der Status: sonst endete ein
+                genehmigter Antrag in einer Sackgasse — man wüsste, dass entschieden wurde, aber
+                nicht, welcher Kurz-Key dabei entstanden ist.
+
+                Und der Satz, ohne den ein Admin den Vorgang für abgeschlossen hält: Der Betrieb ist
+                NICHT benachrichtigt. Er wartet sonst auf eine Mail, die es noch nicht gibt.
+              */}
+              {application.status === 'approved' && application.partner_slug && (
+                <div className="mt-4 rounded-md border border-line bg-surface-sunken p-3">
+                  <p className="max-w-prose text-small text-text">
+                    Angelegt als Fachbetrieb{' '}
+                    <span className="font-medium">{application.partner_slug}</span> —{' '}
+                    <Link
+                      href={PARTNERS_HREF}
+                      className="text-accent underline decoration-accent underline-offset-[3px]"
+                    >
+                      in der Partnerliste
+                    </Link>{' '}
+                    samt Empfehlungslink.
+                  </p>
+                  <p className="mt-2 max-w-prose text-caption text-text-muted">
+                    <span className="font-medium text-text">
+                      Der Betrieb wurde NICHT benachrichtigt.
+                    </span>{' '}
+                    Es geht keine automatische Nachricht raus — das Partner-Portal und die Mail dazu
+                    kommen im nächsten Bauabschnitt. Bis dahin bitte selbst Kontakt aufnehmen und
+                    den Empfehlungslink weitergeben.
+                  </p>
+                </div>
+              )}
               <p className="mt-2 text-caption text-text-muted">
                 Eine erneute Entscheidung ist hier nicht möglich — der Zeitpunkt der ersten bleibt
                 stehen.

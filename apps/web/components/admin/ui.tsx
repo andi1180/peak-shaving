@@ -146,6 +146,8 @@ export function AdminField({
   required,
   inputMode,
   readOnly,
+  value,
+  onValueChange,
 }: {
   id: string
   name: string
@@ -157,6 +159,17 @@ export function AdminField({
   hint?: React.ReactNode
   required?: boolean
   inputMode?: 'text' | 'numeric'
+  /**
+   * Kontrollierter Wert — optional und additiv (B16-4a; die bestehenden Verwendungen bleiben
+   * unkontrolliert und unverändert).
+   *
+   * Gebraucht dort, wo die EINGABE selbst schon eine Rückmeldung erzeugen muss, bevor abgeschickt
+   * wird: Beim Genehmigen einer Bewerbung prüft die Oberfläche den Kurz-Key WÄHREND DES TIPPENS auf
+   * Verfügbarkeit — nach dem Bestätigen wäre die Auskunft wertlos, weil der Vorgang nicht
+   * zurücknehmbar ist.
+   */
+  value?: string
+  onValueChange?: (value: string) => void
   /**
    * Sichtbar, aber nicht änderbar — und WEITERHIN MITGESCHICKT. Bewusst `readOnly` statt `disabled`:
    * ein deaktiviertes Feld sendet seinen Wert nicht, und genau dieser Wert (der Kurz-Key eines
@@ -174,7 +187,9 @@ export function AdminField({
           id={id}
           name={name}
           type={type}
-          defaultValue={defaultValue}
+          {...(value === undefined
+            ? { defaultValue }
+            : { value, onChange: (e) => onValueChange?.(e.currentTarget.value) })}
           placeholder={placeholder}
           required={required}
           inputMode={inputMode}

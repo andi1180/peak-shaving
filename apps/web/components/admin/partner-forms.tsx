@@ -12,7 +12,11 @@ import * as React from 'react'
 import { useActionState } from 'react'
 import { Check, Copy, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { createPartnerAction, updatePartnerAction } from '@/lib/admin/partners-actions'
+import {
+  createPartnerAction,
+  linkPartnerAccountAction,
+  updatePartnerAction,
+} from '@/lib/admin/partners-actions'
 import { ADMIN_INITIAL_STATE } from '@/lib/admin/schema'
 import type { PartnerRow } from '@/lib/admin/partners'
 import { AdminError, AdminField, AdminSuccess } from './ui'
@@ -194,6 +198,60 @@ export function PartnerEditForm({ partner }: { partner: PartnerRow }) {
           label="Änderungen speichern"
           pendingLabel="Wird gespeichert …"
         />
+      </div>
+    </form>
+  )
+}
+
+// ── Konto verknüpfen (B16-4a) ────────────────────────────────────────────────────────────────────
+
+/**
+ * Hängt ein bestehendes Konto per E-Mail-Adresse an diesen Fachbetrieb.
+ *
+ * ── WOFÜR ES DIESES FORMULAR GIBT ───────────────────────────────────────────────────────────────
+ * Ein von Hand angelegter Betrieb (Raymann) hat kein Konto — und der einzige andere Weg zu einem
+ * führt über einen genehmigten Antrag, den es für ihn nicht gibt und nicht mehr geben kann (sein
+ * Kurz-Key ist vergeben). Ohne dieses Formular könnte er das Partner-Portal aus B16-4b nie benutzen.
+ *
+ * ── ÜBER DIE ADRESSE, NICHT ÜBER EINE AUSWAHLLISTE ──────────────────────────────────────────────
+ * Ein Admin hat die Adresse; eine Konto-Kennung hat er nicht. Eine Auswahlliste aller Konten
+ * anzubieten wäre ein Verzeichnisdienst über alle Nutzer für eine Handlung, die zweimal im Jahr
+ * vorkommt — dieselbe Überlegung wie bei der Rollenvergabe per E-Mail (T4-4).
+ *
+ * Es gibt bewusst KEIN Gegenstück zum Lösen: Der einzige vorgesehene Weg dorthin ist die Löschung
+ * des Kontos durch die Person selbst. Der Satz steht sichtbar unter dem Feld, nicht nur hier.
+ */
+export function LinkAccountForm({ slug }: { slug: string }) {
+  const [state, formAction, isPending] = useActionState(
+    linkPartnerAccountAction,
+    ADMIN_INITIAL_STATE,
+  )
+  const prefix = `partner-link-${slug}`
+  useFocusFirstError(state.fieldErrors, ['email'] as const, prefix)
+
+  return (
+    <form action={formAction} noValidate className="mt-4 flex flex-col gap-4">
+      {state.formError && <AdminError>{state.formError}</AdminError>}
+      {state.success && <AdminSuccess>{state.success}</AdminSuccess>}
+
+      <input type="hidden" name="slug" value={slug} />
+
+      <div className="max-w-md">
+        <AdminField
+          id={`${prefix}-email`}
+          name="email"
+          label="E-Mail-Adresse des Kontos"
+          type="email"
+          defaultValue={state.values?.email}
+          placeholder="chef@fachbetrieb.at"
+          error={state.fieldErrors?.email}
+          hint="Das Konto muss bereits bestehen — dieses Formular legt keines an. Eine bestehende Zuordnung wird nicht überschrieben, und es gibt keinen Weg, sie hier wieder zu lösen."
+          required
+        />
+      </div>
+
+      <div>
+        <Submit isPending={isPending} label="Konto verknüpfen" pendingLabel="Wird verknüpft …" />
       </div>
     </form>
   )

@@ -1109,6 +1109,10 @@ export type Database = {
     }
     Functions: {
       admin_anonymize_lead: { Args: { p_lead_id: string }; Returns: Json }
+      admin_approve_partner_application: {
+        Args: { p_id: string; p_slug: string }
+        Returns: Json
+      }
       admin_contract_reminder_health: { Args: never; Returns: Json }
       admin_create_analysis: {
         Args: {
@@ -1187,6 +1191,10 @@ export type Database = {
       }
       admin_is_email_suppressed: { Args: { p_email: string }; Returns: Json }
       admin_lead_source_stats: { Args: never; Returns: Json }
+      admin_link_partner_account: {
+        Args: { p_email: string; p_slug: string }
+        Returns: Json
+      }
       admin_list_admins: { Args: never; Returns: Json }
       admin_list_analyses: {
         Args: {
