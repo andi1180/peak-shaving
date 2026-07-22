@@ -9,6 +9,7 @@
  * hier bewusst als letzte Anweisung.
  */
 import { getLocale } from 'next-intl/server'
+import { captureRegistrationLead } from '@/lib/leads/capture-registration'
 import { createClient } from '@/lib/supabase/server'
 import { KONTO_HREF, NEXT_PARAM, PASSWORT_NEU_HREF, sanitizeNext } from './config'
 import { mapAuthError } from './errors'
@@ -27,21 +28,86 @@ async function redirectLocalized(href: string): Promise<never> {
   return redirectToLocalized(href, locale)
 }
 
-/** Registrierung: E-Mail + Passwort → Bestätigungsmail (enable_confirmations=true, J4). */
+/** Registrierung: E-Mail + Passwort + Betrieb/Ansprechperson → Bestätigungsmail (J4). */
 export async function signUpAction(_prev: AuthState, formData: FormData): Promise<AuthState> {
   const parsed = registerSchema.safeParse({
     email: formData.get('email'),
     password: formData.get('password'),
+    company: formData.get('company'),
+    firstName: formData.get('firstName'),
+    lastName: formData.get('lastName'),
   })
-  if (!parsed.success) return { fieldErrors: toFieldErrors(parsed.error.issues) }
+  if (!parsed.success) {
+    /*
+     * Die drei Pflichtangaben zurückgeben, damit ein Tippfehler in der Adresse nicht das ganze
+     * Formular leert. Das Passwort bleibt bewusst draussen (s. `AuthState`).
+     */
+    return {
+      fieldErrors: toFieldErrors(parsed.error.issues),
+      email: formData.get('email')?.toString(),
+      company: formData.get('company')?.toString(),
+      firstName: formData.get('firstName')?.toString(),
+      lastName: formData.get('lastName')?.toString(),
+    }
+  }
+
+  /*
+   * Rücksprungziel (B10-5). Dieselbe Prüfung wie beim Login und bei der Gutscheineinlösung
+   * (`sanitizeNext`) — der Wert kommt aus einem versteckten Formularfeld und ist im Browser frei
+   * änderbar. LEERER Rückfallwert statt `/konto`: „kein oder kein zulässiges Ziel" heisst hier
+   * ausdrücklich „kein Ziel" und nicht „ersatzweise irgendwohin". Daran hängen zwei Dinge — wohin
+   * der Bestätigungslink führt UND unter welcher Herkunft der Lead entsteht; ein Ersatzwert
+   * verfälschte die zweite Aussage, ohne die erste zu verbessern.
+   */
+  const rawNext = formData.get(NEXT_PARAM)?.toString()
+  const next = rawNext ? sanitizeNext(rawNext, '') : ''
 
   const supabase = await createClient()
   const { error } = await supabase.auth.signUp({
     email: parsed.data.email,
     password: parsed.data.password,
-    options: { emailRedirectTo: await callbackUrl(KONTO_HREF) },
+    /*
+     * Das Ziel reist durch den Mail-Flow mit: der Bestätigungslink landet im Callback, der die
+     * Sitzung setzt und anschliessend GENAU DORTHIN weiterleitet, wohin die Person ursprünglich
+     * wollte. Ohne `next` endete jede Registrierung auf `/konto` — auch die, die mit einem Klick
+     * auf den Kalkulator begonnen hat (der bis B10-4 offene Punkt „kein Rücksprungziel durch den
+     * Mail-Flow"). Ohne Ziel bleibt es beim bisherigen Verhalten.
+     */
+    options: { emailRedirectTo: await callbackUrl(next || KONTO_HREF) },
   })
-  if (error) return { formError: mapAuthError(error), email: parsed.data.email }
+  if (error) {
+    return {
+      formError: mapAuthError(error),
+      email: parsed.data.email,
+      company: parsed.data.company,
+      firstName: parsed.data.firstName,
+      lastName: parsed.data.lastName,
+    }
+  }
+
+  /*
+   * ─────────────────────────────────────────────────────────────────────────────────────────────
+   * LEAD-ERFASSUNG (B10-5) — NACH erfolgreichem `signUp` und VOR der Mail-Bestätigung.
+   *
+   * Die Reihenfolge IST die Aufgabe: Wer sich registriert und die Bestätigungsmail nie öffnet,
+   * hinterliess bisher nichts als eine Adresse. Genau dieser Abbrecher soll erfasst sein.
+   *
+   * `captureRegistrationLead` wirft NIE — ein Datenbankfehler darf aus einer angelegten
+   * Registrierung keinen Fehlerzustand machen, sonst versuchte die Person es ein zweites Mal und
+   * bekäme „Adresse bereits vergeben". `await` (kein „fire and forget"): auf Vercel endet die
+   * Function mit der Antwort, ein nicht abgewarteter Promise würde mitten im Insert abgeschnitten.
+   *
+   * Die Rückmeldung ist in ALLEN Fällen identisch — auch bei bereits bekannter Adresse. Sie darf
+   * nie verraten, ob eine Adresse im Bestand steht (derselbe Enumeration-Schutz wie unten).
+   * ─────────────────────────────────────────────────────────────────────────────────────────────
+   */
+  await captureRegistrationLead({
+    email: parsed.data.email,
+    company: parsed.data.company,
+    firstName: parsed.data.firstName,
+    lastName: parsed.data.lastName,
+    next,
+  })
 
   // Kein data.user/identities-Branch: bei bereits registrierter Adresse zeigt Supabase (mit
   // enable_confirmations) KEINEN Fehler — der „Bitte bestätige"-Zustand ist in ALLEN Fällen

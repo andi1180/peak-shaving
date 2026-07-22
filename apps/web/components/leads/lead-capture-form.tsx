@@ -16,7 +16,7 @@ import {
   LEAD_CAPTURE_REGISTRY,
   type LeadCaptureField,
   type LeadFieldKey,
-  type LeadSourceKey,
+  type LeadCaptureFormKey,
 } from '@/lib/leads/registry'
 import type { QuickCalculatorInputs } from '@/lib/schnellrechner'
 
@@ -50,7 +50,7 @@ type Status = 'idle' | 'submitting' | 'success' | 'error'
 type FormErrorCode = 'validation' | 'unavailable' | 'spam' | 'turnstile' | 'network'
 
 export type LeadCaptureFormProps = {
-  sourceKey: LeadSourceKey
+  sourceKey: LeadCaptureFormKey
   /** Serverseitig geladen (`lib/leads/capture-texts.ts`) — nie im Client zusammengesetzt. */
   consentTexts: LeadCaptureConsentTexts
   /**

@@ -41,18 +41,13 @@
 export type LeadConsentPurpose = 'marketing_email' | 'contract_expiry_reminder' | 'result_delivery'
 
 /**
- * Alle Schlüssel aus `platform.lead_sources` — erschöpfend.
+ * Die Einstiegspunkte MIT eigenem Erfassungsformular — die Schlüssel, die `LEAD_CAPTURE_REGISTRY`
+ * unten beschreibt.
  *
  * Die Reihenfolge folgt der Entstehung (B1-1 zuerst, dann B3-1), nicht der Wichtigkeit; sie ist
  * für nichts ausser der Lesbarkeit dieser Datei relevant.
- *
- * DER ABGLEICH MIT DER DATENBANK IST EIN TEST, KEINE DISZIPLIN: `lead-source-registry.test.ts`
- * prüft in BEIDE Richtungen, dass diese Liste genau den AKTIVEN Zeilen in `platform.lead_sources`
- * entspricht. Ohne diesen Test driften Code und Datenbank auseinander, und die Fehlpaarung fällt
- * erst auf, wenn ein Einstiegspunkt unter falscher Herkunft in den Bestand schreibt — der Lead ist
- * dann da, aber die Auswertung, welcher Kanal ihn gebracht hat, ist still falsch.
  */
-export const LEAD_SOURCE_KEYS = [
+export const LEAD_CAPTURE_FORM_KEYS = [
   'kontaktformular',
   'schnellrechner',
   'wko-postaktion-qr',
@@ -66,7 +61,50 @@ export const LEAD_SOURCE_KEYS = [
   'warteliste',
 ] as const
 
-export type LeadSourceKey = (typeof LEAD_SOURCE_KEYS)[number]
+/**
+ * Einstiegspunkte OHNE Erfassungsformular (B10-5).
+ *
+ * ── WARUM ES DIESE ZWEITE LISTE GIBT ─────────────────────────────────────────────────────────────
+ * Bis B10-5 war jeder Einstiegspunkt zugleich ein FORMULAR: ein Kasten mit Feldern, Texten und
+ * einem Absendeknopf, gerendert von `components/leads/lead-capture-form.tsx`. Die Registrierung ist
+ * das nicht. Sie erzeugt einen Lead als NEBENWIRKUNG eines anderen Vorgangs (der Kontoanlage), hat
+ * keine Überschrift, keinen Erfolgstext und keine Feldliste, die diese Registry beschreiben könnte
+ * — ihre Felder stehen im Auth-Schema (`lib/auth/schema.ts`), und ihre Texte im `Konto`-Namensraum.
+ *
+ * Sie trotzdem als Formular-Eintrag zu führen, hätte vier Texte verlangt, die nie gerendert werden,
+ * und eine Feldliste, die nichts steuert — eine Requisite, die beim nächsten Lesen wie eine
+ * platzierbare Erfassungsstrecke aussähe. Die Trennung sagt stattdessen genau, was wahr ist: die
+ * Datenbank kennt beide als HERKUNFT, die Formular-Registry kennt nur die einen als FORMULAR.
+ *
+ * Was dadurch NICHT aufgeweicht wird: der Abgleich mit `platform.lead_sources` läuft unverändert
+ * über `LEAD_SOURCE_KEYS` (unten) und bleibt in BEIDE Richtungen erschöpfend.
+ */
+export const LEAD_SOURCE_KEYS_WITHOUT_FORM = ['registrierung', 'kalkulator-registrierung'] as const
+
+/**
+ * ALLE Herkunftsschlüssel aus `platform.lead_sources` — erschöpfend, mit und ohne Formular.
+ *
+ * DER ABGLEICH MIT DER DATENBANK IST EIN TEST, KEINE DISZIPLIN: `lead-source-registry.test.ts`
+ * prüft in BEIDE Richtungen, dass diese Liste genau den AKTIVEN Zeilen in `platform.lead_sources`
+ * entspricht. Ohne diesen Test driften Code und Datenbank auseinander, und die Fehlpaarung fällt
+ * erst auf, wenn ein Einstiegspunkt unter falscher Herkunft in den Bestand schreibt — der Lead ist
+ * dann da, aber die Auswertung, welcher Kanal ihn gebracht hat, ist still falsch.
+ *
+ * Die Schreibweise der Schlüssel ist nicht frei: `platform.lead_sources.key` erzwingt per CHECK
+ * `^[a-z0-9-]+$` (B1-1) — Bindestriche, keine Unterstriche.
+ */
+export const LEAD_SOURCE_KEYS = [
+  ...LEAD_CAPTURE_FORM_KEYS,
+  ...LEAD_SOURCE_KEYS_WITHOUT_FORM,
+] as const
+
+/** Ein Einstiegspunkt MIT Erfassungsformular — der Schlüsseltyp, den die Registry indiziert. */
+export type LeadCaptureFormKey = (typeof LEAD_CAPTURE_FORM_KEYS)[number]
+
+/** Ein Einstiegspunkt OHNE eigenes Formular (die Registrierung, B10-5). */
+export type LeadSourceWithoutFormKey = (typeof LEAD_SOURCE_KEYS_WITHOUT_FORM)[number]
+
+export type LeadSourceKey = LeadCaptureFormKey | LeadSourceWithoutFormKey
 
 /* ─── Felder ──────────────────────────────────────────────────────────────────────────────────── */
 
@@ -159,7 +197,7 @@ export type LeadIndustry = (typeof LEAD_INDUSTRY_VALUES)[number]
 /* ─── Einträge ────────────────────────────────────────────────────────────────────────────────── */
 
 export type LeadCaptureEntry = {
-  key: LeadSourceKey
+  key: LeadCaptureFormKey
   /**
    * Der Zweck, den DIESER Einstiegspunkt erhebt — oder `null` für reine Erfassung ohne
    * Einwilligung (Rechtsgrundlage Vertragsanbahnung, wie das Kontaktformular in B1-2).
@@ -212,14 +250,17 @@ const WARTELISTE_FIELDS: readonly LeadCaptureField[] = [
 ]
 
 /**
- * DIE ZEHN EINSTIEGSPUNKTE.
+ * DIE EINSTIEGSPUNKTE MIT ERFASSUNGSFORMULAR.
+ *
+ * Nicht alle Herkünfte stehen hier: die Registrierung (B10-5) schreibt einen Lead, ohne ein
+ * Formular dieser Art zu sein — s. `LEAD_SOURCE_KEYS_WITHOUT_FORM` oben.
  *
  * Die Wertleiter des Fahrplans steckt in den `fields`: „anonym rechnen → E-Mail für
  * Ergebnisdokument/Anleitung → Versorger + Ablaufdatum für echte Erinnerung → zahlen". Je Stufe
  * wird nur erhoben, was diese Stufe rechtfertigt — ein Pflichtfeld „Telefonnummer" unter einem
  * Artikel wäre eine Hürde vor einem PDF.
  */
-export const LEAD_CAPTURE_REGISTRY: Readonly<Record<LeadSourceKey, LeadCaptureEntry>> = {
+export const LEAD_CAPTURE_REGISTRY: Readonly<Record<LeadCaptureFormKey, LeadCaptureEntry>> = {
   /*
    * BESTEHENDES VERHALTEN AUS B1-2, unverändert abgebildet und NICHT geändert: jede Absendung
    * schreibt einen Lead auf Grundlage Vertragsanbahnung (deshalb `purpose: null`), und nur die
@@ -432,6 +473,19 @@ export function isLeadSourceKey(value: unknown): value is LeadSourceKey {
 }
 
 /**
+ * Ist der Wert ein Einstiegspunkt MIT Erfassungsformular?
+ *
+ * Enger als `isLeadSourceKey` — und genau das ist der Zweck (B10-5): Der Schlüssel, den
+ * `findLeadCaptureEntry` prüft, kommt aus einer abgesendeten Erfassungsstrecke und ist damit vom
+ * Absender frei wählbar. Mit der weiteren Prüfung liesse sich über den Formular-Endpunkt ein Lead
+ * unter der Herkunft 'registrierung' anlegen — eine Herkunft, die eine Kontoanlage behauptet, die
+ * nie stattgefunden hat. Die Auswertung wäre still falsch, und der Lead sähe echt aus.
+ */
+export function isLeadCaptureFormKey(value: unknown): value is LeadCaptureFormKey {
+  return typeof value === 'string' && (LEAD_CAPTURE_FORM_KEYS as readonly string[]).includes(value)
+}
+
+/**
  * Der Eintrag zu einem Schlüssel — oder `null`.
  *
  * BEWUSST KEIN FALLBACK auf einen „Standard-Einstiegspunkt": ein unbekannter Schlüssel ist ein
@@ -439,5 +493,5 @@ export function isLeadSourceKey(value: unknown): value is LeadSourceKey {
  * einer Herkunft in den Bestand, die ihn nicht gebracht hat.
  */
 export function findLeadCaptureEntry(key: unknown): LeadCaptureEntry | null {
-  return isLeadSourceKey(key) ? LEAD_CAPTURE_REGISTRY[key] : null
+  return isLeadCaptureFormKey(key) ? LEAD_CAPTURE_REGISTRY[key] : null
 }
