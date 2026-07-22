@@ -9,10 +9,14 @@
  *   - Es entsteht KEIN Lead (`PartnerApplicationEffects` hat gar kein Feld dafür — hier wird
  *     zusätzlich gemessen, dass auch der Kontoanlage-Effekt nicht als Umweg dorthin dient).
  *   - Ein gefüllter Honeypot erzeugt NICHTS und meldet trotzdem Erfolg.
- *   - Eine gescheiterte Kontoanlage kostet die Bewerbung nicht.
  *   - Ein gescheiterter Mailversand kostet die Bewerbung nicht.
  *   - Angemeldet entsteht kein zweites Konto.
- *   - Die Rückmeldung ist in all diesen Fällen dieselbe.
+ *   - ⚠ Lässt sich KEIN Konto auflösen, entsteht KEIN Antrag — und es geht auch keine Mail raus
+ *     (B16-3-Nachbesserung). Die beiden Abbruchgründe (Datenbank weg, kein Konto) sind nach aussen
+ *     nicht unterscheidbar.
+ *   - Ein BESTEHENDES Konto ist davon ausdrücklich NICHT betroffen: der Antrag entsteht.
+ *   - Die Rückmeldung ist in all diesen Fällen entweder die eine Erfolgs- oder die eine
+ *     Abbruchantwort, nie etwas dazwischen.
  *
  * Keiner dieser Fälle ist über die Datenbank sichtbar: Dort steht am Ende entweder eine Zeile oder
  * keine, aber nicht, WELCHE Effekte dafür angefasst wurden.
@@ -49,7 +53,7 @@ function makeEffects(overrides: Partial<PartnerApplicationEffects> = {}): {
     },
     storeApplication: async (input) => {
       calls.storeApplication.push(input)
-      return { applicationId: 'app-1' }
+      return { stored: true, applicationId: 'app-1' }
     },
     notifyTeam: async (input) => {
       calls.notifyTeam.push(input)
@@ -96,7 +100,12 @@ describe('Anti-Enumeration: die Rückmeldung', () => {
      * GEMESSEN gegen den lokalen Stack: GoTrue antwortet auf einen `signUp` mit einer bereits
      * registrierten, bestätigten Adresse mit HTTP 422 `user_already_exists` — die Antwort VERRÄT die
      * Existenz. Hier wird gemessen, dass der Ablauf sie nicht nach aussen trägt: `createAccount`
-     * meldet `false`, und die Bewerbung läuft unverändert durch.
+     * meldet `false`, die Datenbank findet das bestehende Konto, und die Bewerbung läuft
+     * unverändert durch.
+     *
+     * ⚠ DIESER FALL IST VON DER NACHBESSERUNG AUSDRÜCKLICH AUSGENOMMEN und darf nie mit dem
+     * Abbruchfall vermischt werden: `createAccount` meldet in BEIDEN `false`, unterschieden wird
+     * allein daran, ob am Ende ein Konto DA ist.
      */
     const { effects, calls } = makeEffects({ createAccount: async () => false })
 
@@ -107,7 +116,12 @@ describe('Anti-Enumeration: die Rückmeldung', () => {
     expect(calls.acknowledgeApplicant[0]!.accountCreated).toBe(false)
   })
 
-  it('eine geworfene Kontoanlage kostet die Bewerbung ebenfalls nicht', async () => {
+  it('eine GEWORFENE Kontoanlage wirft die Bewerbung nicht selbst um — die Datenbank entscheidet', async () => {
+    /*
+     * Der Wurf wird weiterhin verschluckt: Er verriete, ob es die Adresse schon gibt. Ob die
+     * Bewerbung entstehen darf, hängt NICHT an ihm, sondern daran, ob anschliessend ein Konto
+     * aufgelöst werden kann — hier per Attrappe: ja. Der Gegenfall steht in „Kein Konto".
+     */
     const { effects, calls } = makeEffects({
       createAccount: async () => {
         throw new Error('GoTrue nicht erreichbar')
@@ -150,6 +164,88 @@ describe('Anti-Enumeration: die Rückmeldung', () => {
       ACCEPTED,
     )
     expect(calls.storeApplication).toHaveLength(1)
+  })
+})
+
+describe('⚠ Kein Konto aufgelöst → keine Bewerbung (B16-3-Nachbesserung)', () => {
+  /**
+   * Was die Datenbank meldet, wenn sie zur Adresse kein Konto findet: sie schreibt NICHTS.
+   *
+   * Der Aufruf wird trotzdem mitgezählt — sonst liesse sich nicht unterscheiden, ob der Ablauf es
+   * gar nicht erst versucht hat (das wäre ein anderer Defekt) oder ob die Datenbank abgelehnt hat.
+   */
+  const noAccount = () => {
+    const made = makeEffects()
+    made.effects.storeApplication = async (input) => {
+      made.calls.storeApplication.push(input)
+      return { stored: false, reason: 'no_account' }
+    }
+    return made
+  }
+
+  it('DER KERNFALL: es entsteht kein Antrag, und der Bewerber sieht einen echten Fehler', async () => {
+    /*
+     * In Produktion real aufgetreten: die Kontoanlage scheiterte am Rate-Limit des Mailversands
+     * (429 over_email_send_rate_limit), es entstand kein Konto — und der Antrag wurde trotzdem
+     * geschrieben. Er führte zu keinem Login, war in B16-4a nicht genehmigbar, und der Bewerber
+     * bekam „Danke, wir melden uns" zu sehen. Genau das darf nicht mehr passieren.
+     */
+    const { effects, calls } = noAccount()
+
+    expect(await runPartnerApplication(VALID, effects, null)).toEqual({
+      ok: false,
+      error: 'unavailable',
+    })
+    // Der Versuch, die Bewerbung zu speichern, wurde unternommen — er ist nur nicht angekommen.
+    expect(calls.storeApplication).toHaveLength(1)
+  })
+
+  it('ES GEHT KEINE MAIL RAUS — weder an uns noch an den Bewerber', async () => {
+    /*
+     * Eine Eingangsbestätigung für eine Bewerbung, die nirgends steht, wäre genau die Zusage, die
+     * dieser Fix beseitigt; und eine interne Benachrichtigung verwiese auf eine Detailansicht, die
+     * es nicht gibt.
+     */
+    const { effects, calls } = noAccount()
+
+    await runPartnerApplication(VALID, effects, null)
+
+    expect(calls.notifyTeam).toHaveLength(0)
+    expect(calls.acknowledgeApplicant).toHaveLength(0)
+  })
+
+  it('ANTI-ENUMERATION: der Abbruch ist von einem Datenbankausfall nicht zu unterscheiden', async () => {
+    /*
+     * Die beiden Abbruchgründe haben vollkommen verschiedene Ursachen (Fehlkonfiguration des
+     * Mailversands gegen Infrastrukturausfall) und müssen für den Absender dieselbe Antwort
+     * ergeben: Eine eigene Meldung für „kein Konto auflösbar" wäre eine Auskunft darüber, ob es zu
+     * einer Adresse ein Konto gibt. Der Unterschied gehört ins Server-Log, nicht in die Rückgabe.
+     */
+    const { effects: ohneKonto } = noAccount()
+    const { effects: datenbankWeg } = makeEffects({
+      storeApplication: async () => {
+        throw new Error('Datenbank nicht erreichbar')
+      },
+    })
+
+    const a = await runPartnerApplication(VALID, ohneKonto, null)
+    const b = await runPartnerApplication(VALID, datenbankWeg, null)
+
+    expect(a).toEqual(b)
+    expect(Object.keys(a).sort()).toEqual(Object.keys(b).sort())
+  })
+
+  it('der Abbruch nennt WEDER Grund NOCH Adresse — die Rückgabe trägt nur `error`', async () => {
+    /*
+     * Gemessen auf den SCHLÜSSELN: Ein zusätzliches Feld („reason", „retryAfter", „accountExists")
+     * wäre sonst unsichtbar, solange die Oberfläche es nicht anzeigt — und genau dieser
+     * Rückgabewert entscheidet, was der öffentliche Weg erfahren kann.
+     */
+    const { effects } = noAccount()
+    const res = await runPartnerApplication(VALID, effects, null)
+
+    expect(Object.keys(res).sort()).toEqual(['error', 'ok'])
+    expect(JSON.stringify(res)).not.toContain(VALID.email)
   })
 })
 
@@ -348,11 +444,12 @@ describe('Fehlertoleranz', () => {
     expect(calls.storeApplication).toHaveLength(1)
   })
 
-  it('SCHEITERT DAS SPEICHERN, wird KEIN Erfolg gemeldet — der einzige solche Fall', async () => {
+  it('SCHEITERT DAS SPEICHERN, wird KEIN Erfolg gemeldet', async () => {
     /*
-     * Kein Enumerationssignal: Der Fall hängt an der Erreichbarkeit der Datenbank, nicht an der
-     * Adresse — dieselbe Eingabe liefe eine Minute später durch. Die Alternative wäre die
-     * schlimmere: ein „Danke, wir melden uns" für eine Bewerbung, die nirgends steht.
+     * Der erste von zwei Abbruchgründen (der zweite ist „kein Konto auflösbar", s. eigener Block).
+     * Kein Enumerationssignal: Er hängt an der Erreichbarkeit der Datenbank, nicht an der Adresse —
+     * dieselbe Eingabe liefe eine Minute später durch. Die Alternative wäre die schlimmere: ein
+     * „Danke, wir melden uns" für eine Bewerbung, die nirgends steht.
      */
     const { effects, calls } = makeEffects({
       storeApplication: async () => {

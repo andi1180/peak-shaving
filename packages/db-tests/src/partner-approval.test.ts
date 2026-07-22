@@ -300,25 +300,63 @@ describe('(2) Was NICHT genehmigt wird — jeder Grund unterscheidbar', () => {
     expect(await countPartners()).toBe(vorher)
   })
 
-  it('⚠ EIN ANTRAG OHNE KONTO WIRD ABGEWIESEN — und der Grund ist von allen anderen unterscheidbar', async () => {
+  it('⚠ EIN ANTRAG OHNE KONTO KANN GAR NICHT MEHR ENTSTEHEN — der Wächter liegt jetzt davor', async () => {
     /*
-     * Real aufgetreten: submit_partner_application legt den Antrag auch dann an, wenn die
-     * Kontoanlage scheitert (gemessen: 429 over_email_send_rate_limit) — bewusst, denn eine
-     * verlorene Bewerbung wiegt schwerer als eine fehlende Verknüpfung. Genehmigt entstünde daraus
-     * ein Partner mit user_id null: ein Zustand, der ausdrücklich für VON HAND aufgenommene Betriebe
-     * gedacht ist, nicht für gescheiterte Bewerbungen. Niemand käme je in dieses Portal, und der
-     * Slug wäre unwiderruflich verbraucht.
+     * ── DIESER TEST HAT AM 26.07.2026 SEINE AUSSAGE GEWECHSELT, UND ZWAR NACH OBEN ──────────────
+     * Vorher stand hier: „ein Antrag mit user_id null wird beim Genehmigen abgewiesen (no_account)".
+     * Der Fall war real — `submit_partner_application` legte den Antrag auch dann an, wenn die
+     * Kontoanlage scheiterte (gemessen: 429 over_email_send_rate_limit), und B16-4a fing ihn als
+     * Notbremse ab. Die Bewerbung war zu diesem Zeitpunkt aber bereits verloren: Der Bewerber sah
+     * „Danke, wir melden uns", und im Prüf-Eingang lag eine Zeile, mit der niemand etwas anfangen
+     * konnte.
+     *
+     * Seit der Nachbesserung (20260726120000) entsteht ein solcher Antrag nicht mehr. Das Fixture
+     * dieses Tests lässt sich deshalb nicht mehr bauen — was die stärkere Aussage ist: nicht „der
+     * Wrapper fängt es ab", sondern „es kann gar nicht mehr entstehen".
+     *
+     * ── DIE ABWEISUNG IM GENEHMIGUNGS-WRAPPER BLEIBT TROTZDEM STEHEN ────────────────────────────
+     * Tiefenstaffelung. Sie kostet nichts und ist die zweite Linie, falls je wieder ein Schreibweg
+     * entsteht, der am Trigger vorbeiläuft. Dass sie heute unerreichbar ist, macht sie nicht
+     * falsch — es macht sie unbenutzt.
      */
-    const admin = await newAdmin()
-    const applicationId = await submit({ email: `niemand-${randomUUID()}@test.local` })
-    expect((await readApplication(applicationId))!.user_id).toBeNull()
-
     const vorher = await countPartners()
-    const res = await approve(admin, applicationId, newSlug())
 
+    // (a) Der öffentliche Schreibweg legt nichts mehr an.
+    const email = `niemand-${randomUUID()}@test.local`
+    const res = await runAs({ role: 'service_role', commit: true }, async (c) => {
+      const { rows } = await c.query<{ r: { status: string } }>(
+        `select public.submit_partner_application(
+           p_company => 'Ohne Konto GmbH', p_first_name => 'Anna', p_last_name => 'Gruber',
+           p_email => $1, p_message => 'Wir montieren seit 20 Jahren Speicher und wollen Partner werden.'
+         ) as r`,
+        [email],
+      )
+      return rows[0]!.r
+    })
     expect(res).toEqual({ status: 'no_account' })
+    const angelegt = await sql<{ n: number }>(
+      `select count(*)::int as n from platform.partner_applications where email = $1`,
+      [email],
+    )
+    expect(angelegt[0]!.n).toBe(0)
+
+    // (b) Und auch am Wrapper vorbei entsteht die Zeile nicht — als `postgres`, mit allen Rechten.
+    await expect(
+      sql(
+        `insert into platform.partner_applications (company, first_name, last_name, email, message, user_id)
+         values ('Ohne Konto GmbH','Anna','Gruber',$1,'Am Wrapper vorbei, lang genug fuer den CHECK.', null)`,
+        [email],
+      ),
+    ).rejects.toThrow(/ohne verknüpftes Konto entsteht nicht/)
+
+    // (c) Der Abweisungsgrund im Genehmigungs-Wrapper existiert weiterhin im Funktionsrumpf.
+    const rumpf = await sql<{ def: string }>(
+      `select pg_get_functiondef('public.admin_approve_partner_application(uuid,text)'::regprocedure) as def`,
+    )
+    expect(rumpf[0]!.def).toContain('no_account')
+
+    // Es ist dabei kein Partner entstanden.
     expect(await countPartners()).toBe(vorher)
-    expect((await readApplication(applicationId))!.status).toBe('pending')
   })
 
   it('DIE ZWEI GRÜNDE, DIE OHNE VORPRÜFUNG DERSELBE 23505 WÄREN: Konto vergeben vs. Slug vergeben', async () => {

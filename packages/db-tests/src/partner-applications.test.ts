@@ -13,9 +13,18 @@
 //     RECHTEFLÄCHE (kein Grant auf der Tabelle für irgendeine Rolle) UND die Wrapper-Menge.
 // (3) DIE VERKNÜPFUNG MIT DEM KONTO. Sie ist der Grund, warum B16-4 überhaupt weiss, welches Konto
 //     freizuschalten ist. Drei Fälle: laufende Sitzung schlägt Adresse · genau ein Konto zur
-//     Adresse · kein oder mehrere Konten → unverknüpft, aber der Antrag entsteht trotzdem.
-// (4) EIN ANTRAG DARF NICHT VERLORENGEHEN. Er entsteht auch ohne Konto, auch mehrfach zur selben
-//     Adresse, und er blockiert kein Konto-Löschen (on delete set null).
+//     Adresse · kein oder mehrere Konten → ⚠ ABBRUCH, es entsteht KEIN Antrag (nachgebessert am
+//     26.07.2026, s. (4)).
+// (4) ⚠ EIN ANTRAG ENTSTEHT NICHT OHNE KONTO — NACHGEBESSERT, DIE B16-3-REGEL WAR HIER FALSCH.
+//     Ursprünglich entstand der Antrag auch unverknüpft („eine verlorene Bewerbung wiegt schwerer
+//     als eine fehlende Verknüpfung"). In Produktion hat genau das einen Antrag erzeugt, der zu
+//     keinem Login führt: die Kontoanlage scheiterte am Rate-Limit des Mailversands (429
+//     over_email_send_rate_limit), der Antrag wurde trotzdem geschrieben, und der Bewerber sah
+//     „Danke, wir melden uns". Seit 20260726120000 bricht der Schreibweg stattdessen ab
+//     (`no_account`), und ein Trigger setzt dieselbe Bedingung auf Speicherebene durch.
+//     Ein Antrag darf trotzdem nicht verlorengehen, wo es keinen Grund dazu gibt: mehrfach zur
+//     selben Adresse geht weiter, und ein Konto-Löschen bleibt möglich (on delete set null — der
+//     Grund, warum die Invariante ein Trigger ist und kein NOT NULL auf der Spalte).
 // (5) DIE RECHTEFLÄCHE DER VIER WRAPPER. `anon` hat in `platform` nirgends etwas; der Schreibweg ist
 //     service_role-only, die drei Admin-Wrapper authenticated-only und WERFEN 42501 statt leer zu
 //     antworten.
@@ -73,6 +82,18 @@ async function submit(input: SubmitInput = {}): Promise<Record<string, unknown>>
   const value = <K extends keyof SubmitInput>(key: K, fallback: SubmitInput[K]) =>
     key in input ? input[key] : fallback
 
+  /*
+   * ⚠ OHNE ausdrücklich übergebene Adresse entsteht ZUERST EIN KONTO (seit der Nachbesserung vom
+   * 26.07.2026). Das ist kein Test-Kunstgriff, sondern der reale Ablauf: Die Bewerbungsseite legt
+   * das Konto an, BEVOR sie diesen Wrapper ruft — ein Antrag ohne aufgelöstes Konto entsteht seit
+   * dem Fix gar nicht mehr. Eine erfundene Adresse als Vorgabewert machte deshalb JEDEN Test
+   * dieser Datei zu einem Test des Abbruchpfads, und die eigentlich gemeinten Zusicherungen (Form
+   * der Rückgabe, kein UNIQUE, Normalisierung, Admin-Sichten) wären still unprüfbar geworden.
+   * Wer den ABBRUCH messen will, übergibt eine Adresse ohne Konto — ausdrücklich und sichtbar.
+   */
+  const fallbackEmail =
+    'email' in input ? null : (await newPlainUser()).email
+
   const res = await runAs({ role: 'service_role', commit: true }, async (c) => {
     const { rows } = await c.query<{ r: Record<string, unknown> }>(
       `select public.submit_partner_application(
@@ -83,7 +104,7 @@ async function submit(input: SubmitInput = {}): Promise<Record<string, unknown>>
         value('company', 'Elektro Musterbetrieb GmbH'),
         value('firstName', 'Anna'),
         value('lastName', 'Gruber'),
-        value('email', `bewerbung-${randomUUID()}@test.local`),
+        value('email', fallbackEmail),
         value('message', 'Wir montieren seit 20 Jahren Speicher und wollen Partner werden.'),
         value('phone', null),
         value('website', null),
@@ -159,18 +180,51 @@ describe('(1) Anti-Enumeration: was die Bewerbung NICHT verrät', () => {
     expect(res.status).toBe('created')
   })
 
-  it('ein Konto zur Adresse ändert die ANTWORT nicht — nur die Zeile in der Datenbank', async () => {
-    const user = await newPlainUser()
+  it('ein NEUES und ein BESTEHENDES Konto ergeben dieselbe Antwort — nur die Zeile unterscheidet sich', async () => {
+    /*
+     * Der Fall, den die Bewerbungsseite real erzeugt: Sie legt vor diesem Aufruf ein Konto an. Ob
+     * es dabei NEU entstanden ist oder schon bestand (GoTrue antwortet dann mit 422
+     * `user_already_exists`, ohne das Passwort anzutasten), darf die Antwort nicht verraten — und
+     * tut es nicht: In beiden Fällen findet der Wrapper genau ein Konto und antwortet `created`.
+     */
+    const bestehend = await newPlainUser()
+    const frisch = await newPlainUser()
 
-    const mitKonto = await submit({ email: user.email })
-    const ohneKonto = await submit()
+    const mitBestehendem = await submit({ email: bestehend.email })
+    const mitFrischem = await submit({ email: frisch.email })
 
     // Bit-identische Form; nur die (zufällige) ID unterscheidet sich.
-    expect(Object.keys(mitKonto).sort()).toEqual(Object.keys(ohneKonto).sort())
-    expect(mitKonto.status).toBe(ohneKonto.status)
+    expect(Object.keys(mitBestehendem).sort()).toEqual(Object.keys(mitFrischem).sort())
+    expect(mitBestehendem.status).toBe(mitFrischem.status)
 
-    expect((await readApplication(mitKonto.application_id as string))!.user_id).toBe(user.id)
-    expect((await readApplication(ohneKonto.application_id as string))!.user_id).toBeNull()
+    expect((await readApplication(mitBestehendem.application_id as string))!.user_id).toBe(
+      bestehend.id,
+    )
+    expect((await readApplication(mitFrischem.application_id as string))!.user_id).toBe(frisch.id)
+  })
+
+  it('⚠ OFFENGELEGTE GRENZE: eine Adresse OHNE Konto bekommt seit dem Fix eine ANDERE Antwort', async () => {
+    /*
+     * Das ist der Preis der Invariante, und er wird hier gemessen statt beschwiegen: Bis zur
+     * Nachbesserung war die Rückgabe für eine bekannte und eine unbekannte Adresse identisch.
+     * `created` heisst jetzt, dass zur Adresse ein Konto existiert.
+     *
+     * WARUM DAS TRAGBAR IST — und woran sich das ändern würde, wenn jemand daran baut:
+     *   - „Kein Antrag ohne Konto" und „die Antwort verrät nichts über die Existenz einer Adresse"
+     *     schliessen einander aus, sobald die Kontoanlage scheitert. Es ist eine Wahl, keine Lücke.
+     *   - Der Wrapper ist service_role-only und hat GENAU EINEN Aufrufer
+     *     (`apps/web/lib/partner-application/store.ts`); von aussen ist er nicht erreichbar.
+     *   - Im Normalfall legt der Anwendungscode vorher ein Konto an, dann trifft `created` auf
+     *     beide Fälle zu. Erreichbar ist der Unterschied nur, wenn die Kontoanlage fehlschlägt —
+     *     also im Zeitfenster des Mailversand-Rate-Limits, das getrennt behoben wird.
+     *   - Nach AUSSEN führen beide Abbruchgründe (kein Konto / Datenbank weg) zu derselben
+     *     neutralen Meldung; das misst `apps/web/lib/partner-application/flow.test.ts`.
+     */
+    const ohneKonto = await submit({ email: `niemand-${randomUUID()}@test.local` })
+
+    expect(ohneKonto).toEqual({ status: 'no_account' })
+    // Und die Antwort trägt weiterhin NICHTS darüber hinaus — kein Grund, keine Adresse, kein Konto.
+    expect(Object.keys(ohneKonto)).toEqual(['status'])
   })
 
   it('ZWEITE Bewerbung mit derselben Adresse geht durch — kein UNIQUE, kein Constraint-Fehler', async () => {
@@ -179,7 +233,9 @@ describe('(1) Anti-Enumeration: was die Bewerbung NICHT verrät', () => {
      * Leck: „diese Adresse hat sich schon beworben" ist genau die Auskunft, die diese Seite nicht
      * geben darf. Mehrfachbewerbungen sind erlaubt und im Admin als zwei Zeilen sichtbar.
      */
-    const email = `doppelt-${randomUUID()}@test.local`
+    // Die Adresse trägt ein Konto — die zweite Bewerbung ist der REALE Fall: derselbe Betrieb
+    // bewirbt sich noch einmal, sein Konto gibt es seit dem ersten Mal.
+    const { email } = await newPlainUser()
 
     const erste = await submit({ email, company: 'Erster Anlauf GmbH' })
     const zweite = await submit({ email, company: 'Zweiter Anlauf GmbH' })
@@ -342,20 +398,36 @@ describe('(3) submit_partner_application: welches Konto verknüpft wird', () => 
     expect(row!.email).toBe(fremd.email.toLowerCase())
   })
 
-  it('KEIN Konto zur Adresse → der Antrag entsteht trotzdem, unverknüpft', async () => {
-    const res = await submit({ email: `niemand-${randomUUID()}@test.local` })
+  it('⚠ KEIN Konto zur Adresse → es entsteht KEIN Antrag (nachgebessert)', async () => {
+    /*
+     * DIE KERNZUSICHERUNG DIESER NACHBESSERUNG. Vorher entstand der Antrag unverknüpft — er führte
+     * zu keinem Login, war in B16-4a nicht genehmigbar (`no_account`), und der Bewerber bekam
+     * trotzdem „Danke, wir melden uns" zu sehen. In Produktion real aufgetreten, Ursache 429
+     * over_email_send_rate_limit bei der Kontoanlage.
+     */
+    const email = `niemand-${randomUUID()}@test.local`
+    const res = await submit({ email })
 
-    expect(res.status).toBe('created')
-    expect((await readApplication(res.application_id as string))!.user_id).toBeNull()
+    expect(res).toEqual({ status: 'no_account' })
+
+    // Und zwar wirklich NICHTS geschrieben — nicht bloss unverknüpft.
+    const rows = await sql<{ n: number }>(
+      `select count(*)::int as n from platform.partner_applications where email = $1`,
+      [email],
+    )
+    expect(rows[0]!.n).toBe(0)
   })
 
-  it('MEHRERE Konten zur Adresse → unverknüpft statt zufällig gewählt', async () => {
+  it('MEHRERE Konten zur Adresse → ebenfalls Abbruch, statt eines zufällig zu wählen', async () => {
     /*
      * auth.users erzwingt keine globale E-Mail-Eindeutigkeit (mehrere Identity-Provider). Einen der
      * Treffer zu nehmen hiesse, später ein zufällig ausgewähltes FREMDES Konto freizuschalten — der
-     * teuerste denkbare Fehler dieses Abschnitts. Abgewiesen wird der Antrag deshalb trotzdem nicht
-     * (anders als in admin_grant_role_by_email): dort steht eine Admin-Handlung auf dem Spiel, hier
-     * eine Bewerbung, die nicht verlorengehen darf.
+     * teuerste denkbare Fehler dieses Abschnitts.
+     *
+     * Seit der Nachbesserung endet der Fall im ABBRUCH statt in einem unverknüpften Antrag, und
+     * zwar mit DEMSELBEN Status wie „kein Konto": Ein eigener Status wäre für den Aufrufer eine
+     * Auskunft über den Kontobestand zu einer fremden Adresse — genau das, was dieser Wrapper
+     * nicht gibt.
      */
     const a = await newPlainUser()
     const b = await newPlainUser()
@@ -371,15 +443,25 @@ describe('(3) submit_partner_application: welches Konto verknüpft wird', () => 
 
     const res = await submit({ email: a.email })
 
-    expect(res.status).toBe('created')
-    expect((await readApplication(res.application_id as string))!.user_id).toBeNull()
+    expect(res).toEqual({ status: 'no_account' })
+    const rows = await sql<{ n: number }>(
+      `select count(*)::int as n from platform.partner_applications where email = $1`,
+      [a.email],
+    )
+    expect(rows[0]!.n).toBe(0)
   })
 
-  it('eine übergebene, aber nicht existierende Konto-ID verhindert den Antrag nicht', async () => {
-    const res = await submit({ userId: randomUUID() })
+  it('eine übergebene, aber nicht existierende Konto-ID fällt auf die Adresse zurück', async () => {
+    /*
+     * Eine abgelaufene oder gefälschte Sitzungskennung darf die Bewerbung nicht kosten, solange die
+     * Adresse selbst auflösbar ist — die Auflösung über `auth.users` greift dann weiterhin. Nur
+     * wenn AUCH sie ins Leere läuft, bricht der Schreibweg ab (Test darüber).
+     */
+    const user = await newPlainUser()
+    const res = await submit({ email: user.email, userId: randomUUID() })
 
     expect(res.status).toBe('created')
-    expect((await readApplication(res.application_id as string))!.user_id).toBeNull()
+    expect((await readApplication(res.application_id as string))!.user_id).toBe(user.id)
   })
 
   it('das Löschen des Kontos nullt die Verknüpfung und lässt den Antrag stehen', async () => {
@@ -397,6 +479,102 @@ describe('(3) submit_partner_application: welches Konto verknüpft wird', () => 
     expect(row).toBeDefined()
     expect(row!.user_id).toBeNull()
     expect(row!.company).toBe('Elektro Musterbetrieb GmbH')
+  })
+})
+
+// ── (3a) Die Invariante auf Speicherebene ────────────────────────────────────────────────────────
+describe('(3a) partner_applications_require_account: der Wächter unter dem Wrapper', () => {
+  /*
+   * ⚠ WARUM EIN TRIGGER UND KEIN `NOT NULL` AUF DER SPALTE — gemessen, nicht abgeleitet.
+   *
+   * `user_id` trägt `on delete set null`, und diese referentielle Aktion IST SELBST EIN UPDATE
+   * (dieselbe Falle wie bei leads.last_edited_by/B2-1, email_events.lead_id/B2-2 und
+   * analyses.lead_id/created_by/B14-1). In einer zurückgerollten Transaktion gegen PostgreSQL 17.6
+   * mit echtem Konto und echtem Antrag gemessen:
+   *
+   *   NOT NULL + on delete set null → `delete from auth.users` scheitert mit 23502. Das Konto ist
+   *                                   UNLÖSCHBAR, sobald ein Antrag daran hängt — ausgerechnet
+   *                                   gegen ein Löschverlangen.
+   *   NOT NULL + on delete cascade  → das Löschen VERNICHTET den offenen Antrag, und sobald aus ihm
+   *                                   ein Partner wurde, scheitert es mit 23503 an
+   *                                   partners_application_id_fkey (on delete restrict, B16-4a) —
+   *                                   das Konto ist dann wieder unlöschbar.
+   *
+   * Die Invariante ist deshalb enger gefasst, als eine Spaltenbedingung sie ausdrücken kann: Ein
+   * Antrag darf nicht ohne Konto ENTSTEHEN. Dass die Verknüpfung SPÄTER entfällt, weil die Person
+   * ihr Konto löscht, ist kein illegitimer Antrag — genau dafür ist `on delete set null` da (der
+   * Test direkt darüber misst es).
+   */
+  it('DER WÄCHTER: ein direkter INSERT ohne Konto wird abgewiesen — auch für postgres', async () => {
+    /*
+     * Als `postgres`, also mit allen Rechten und am Wrapper vorbei: Die Invariante ist eine
+     * Eigenschaft der Datenbank und keine Übereinkunft des Anwendungscodes. `service_role` hat auf
+     * dieser Tabelle ohnehin kein Grant (Teil (2) dieser Datei) und käme gar nicht so weit.
+     */
+    await expect(
+      sql(
+        `insert into platform.partner_applications (company, first_name, last_name, email, message, user_id)
+         values ('Direkt GmbH','A','B',$1,'Ein Antrag am Wrapper vorbei, lang genug fuer den CHECK.', null)`,
+        [`direkt-${randomUUID()}@test.local`],
+      ),
+    ).rejects.toThrow(/ohne verknüpftes Konto entsteht nicht/)
+  })
+
+  it('user_id lässt sich weder SETZEN noch UMHÄNGEN', async () => {
+    /*
+     * Die Gegenrichtung zur Ausnahme: Ein Antrag, dessen Konto gelöscht wurde, darf nicht
+     * nachträglich an ein anderes gehängt werden — an genau dieser Spalte entscheidet B16-4a, WER
+     * freigeschaltet wird. Ein Nachziehen von Hand wäre eine Genehmigung ohne Antragsteller.
+     */
+    const eigen = await newPlainUser()
+    const fremd = await newPlainUser()
+    const res = await submit({ email: eigen.email })
+    const id = res.application_id as string
+
+    // Umhängen auf ein anderes Konto.
+    await expect(
+      sql('update platform.partner_applications set user_id = $1 where id = $2', [fremd.id, id]),
+    ).rejects.toThrow(/nicht setzen oder umhängen/)
+
+    // Und nach dem Nullen auch das erneute Setzen.
+    await deleteUser(eigen.id)
+    spawnedUsers.splice(spawnedUsers.indexOf(eigen.id), 1)
+    expect((await readApplication(id))!.user_id).toBeNull()
+    await expect(
+      sql('update platform.partner_applications set user_id = $1 where id = $2', [fremd.id, id]),
+    ).rejects.toThrow(/nicht setzen oder umhängen/)
+  })
+
+  it('DIE AUSNAHME IST ENG: nullen PLUS eine andere Änderung ist gesperrt', async () => {
+    /*
+     * Erlaubt ist ausschliesslich das Nullen bei sonst BIT-IDENTISCHER Zeile — sonst wäre die
+     * Ausnahme ein Schlupfloch, durch das sich beliebige Felder mitverändern liessen (dieselbe
+     * Konstruktion wie reject_analysis_mutation, B14-1).
+     */
+    const user = await newPlainUser()
+    const id = (await submit({ email: user.email })).application_id as string
+
+    await expect(
+      sql(
+        `update platform.partner_applications set user_id = null, company = 'Umbenannt GmbH' where id = $1`,
+        [id],
+      ),
+    ).rejects.toThrow(/nicht setzen oder umhängen/)
+  })
+
+  it('ein normales UPDATE (Status, Prüfer, Zeitpunkt) läuft unverändert durch', async () => {
+    // Sonst hätte der Wächter die Genehmigungs- und Ablehnungswrapper aus B16-3/B16-4a mit
+    // blockiert — er darf nur auf user_id ansprechen.
+    const admin = await newAdmin()
+    const user = await newPlainUser()
+    const id = (await submit({ email: user.email })).application_id as string
+
+    const res = await asAdmin(admin, (q) =>
+      q(`select public.admin_reject_partner_application($1) as r`, [id]),
+    )
+
+    expect(res.status).toBe('ok')
+    expect((await readApplication(id))!.status).toBe('rejected')
   })
 })
 
@@ -457,7 +635,15 @@ describe('(5) Die drei Admin-Wrapper', () => {
     const admin = await newAdmin()
     const user = await newPlainUser()
 
-    const alt = await submit({ company: 'Alter Antrag GmbH' })
+    /*
+     * Für `has_account = false` wird das Konto NACHTRÄGLICH gelöscht — seit der Nachbesserung
+     * (20260726120000) ist das der einzige Weg, auf dem ein Antrag ohne Konto überhaupt noch
+     * existieren kann. Genau deshalb bleibt die Kennzeichnung in der Liste sinnvoll: Sie zeigt
+     * jetzt „das Konto wurde gelöscht" statt wie früher „die Kontoanlage ist schiefgegangen".
+     */
+    const gelöscht = await createUser()
+    const alt = await submit({ company: 'Alter Antrag GmbH', email: gelöscht.email })
+    await deleteUser(gelöscht.id)
     await sql(
       `update platform.partner_applications set created_at = now() - interval '2 days' where id = $1`,
       [alt.application_id],
