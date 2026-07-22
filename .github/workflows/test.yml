@@ -43,7 +43,9 @@ jobs:
       - name: Test web
         run: pnpm --filter web test
 
-      # UI-Gate: ein PR, der website/portal/web bricht, wird hier rot — nicht erst auf Vercel.
+      # UI-Gate: ein PR, der website/web bricht, wird hier rot — nicht erst auf Vercel.
       # (Lint + Typecheck oben laufen bereits root-weit über alle Packages inkl. apps/web.)
-      - name: Build apps (website + portal + web)
-        run: pnpm --filter website build && pnpm --filter portal build && pnpm --filter web build
+      # `portal` ist mit B10-3 entfallen: die App war ein leeres Gerüst, und der Portalteil
+      # ist faktisch in `apps/web` entstanden (Auth, Konto, Entitlements, Gutscheineinlösung).
+      - name: Build apps (website + web)
+        run: pnpm --filter website build && pnpm --filter web build

@@ -1,7 +1,7 @@
 import type { BatteryCandidate } from './battery'
 
 /**
- * PLATZHALTER-Katalog für den öffentlichen Rechner (`apps/website`, später `apps/portal`).
+ * PLATZHALTER-Katalog für den öffentlichen Rechner (`apps/website`).
  * Martins echter Batteriekatalog ist weiterhin offen (Pflichtenheft §8, OP#2) — bis dahin
  * arbeitet die Öffentlichkeitsseite mit diesen synthetischen Kandidaten, konsistent mit dem
  * Prinzip „mit synthetischen Daten arbeiten, solange nicht von Martin geliefert" (CLAUDE.md).
