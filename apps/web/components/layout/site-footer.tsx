@@ -5,6 +5,7 @@ import { EmblemImage } from '@/components/brand/emblem-image'
 import { WordmarkA } from '@/components/brand/wordmark'
 import { SignatureRule } from '@/components/brand/signature'
 import { LEISTUNGEN_FLAT, BRANCHEN_FLAT, PEAK_SHAVING_FLAT, COMPANY } from '@/lib/nav'
+import { PARTNER_BEWERBUNG_HREF } from '@/lib/partner-application/config'
 import { cn } from '@/lib/utils'
 
 const footerLink = cn(
@@ -138,6 +139,18 @@ export function SiteFooter() {
             <li>
               <Link href="/produkte" className={footerLink}>
                 {t('produkte')}
+              </Link>
+            </li>
+            {/*
+              B16-3: der einzige interne Link auf die Bewerbungsseite. Sie steht bewusst in KEINEM
+              Menü — die Informationsarchitektur (§4.1) richtet sich an Betriebe, die Strom
+              beziehen; diese Seite an Betriebe, die verweisen wollen. In der Hauptnavigation wäre
+              sie ein Fremdkörper, ohne internen Link bliebe eine indexierbare Seite ohne jedes
+              interne Signal.
+            */}
+            <li>
+              <Link href={PARTNER_BEWERBUNG_HREF} className={footerLink}>
+                {t('partnerWerden')}
               </Link>
             </li>
             <li>

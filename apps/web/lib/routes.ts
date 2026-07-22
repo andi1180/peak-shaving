@@ -39,6 +39,7 @@ import { WISSEN_HREF } from './wissen'
 import { AUTH_HREFS } from './auth/config'
 import { LEAD_HREFS } from './leads/config'
 import { PARTNER_ROUTE_TEMPLATE } from './leads/partner'
+import { PARTNER_BEWERBUNG_HREF } from './partner-application/config'
 
 export type SiteRoute = {
   /** Der Pfad OHNE Locale-Präfix — dasselbe, was `Link`/`pageAlternates` bekommen. */
@@ -148,6 +149,18 @@ export const SITE_ROUTES: SiteRoute[] = Array.from(
      * geraten, und ein dynamisches Segment kommt dort per Konstruktion nicht hinein.
      */
     WARTELISTE_HREF,
+    /*
+     * B16-3: die Bewerbungsseite für Fachbetriebe. Steht einzeln hier, weil sie in keinem Menü
+     * hängt (sie richtet sich an eine andere Zielgruppe als die gesamte Informationsarchitektur:
+     * an Betriebe, die VERKAUFEN wollen, nicht an solche, die Strom beziehen) — verlinkt ist sie
+     * in der Fusszeile.
+     *
+     * INDEXIERBAR, und das ist der Unterschied zu den Partner-LANDINGPAGES (`/partner/[slug]`,
+     * `DYNAMIC_TEMPLATES` unten): Es gibt genau EINE dieser Seiten, mit eigenem Inhalt, und sie
+     * soll von suchenden Fachbetrieben gefunden werden. Die Doorway-Page-Sorge, die dort `noindex`
+     * begründet, trifft hier nicht zu.
+     */
+    PARTNER_BEWERBUNG_HREF,
     ...AUTH_HREFS,
     ...LEAD_HREFS,
   ]),

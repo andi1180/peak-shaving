@@ -586,3 +586,40 @@ Kundennamen mehr, die Geschäftsunterlage muss ihren behalten.
 herausgegeben (angemeldeter Admin, ein Aufruf pro Datei). Es gibt **keinen** Weg, Lastgänge gebündelt
 zu exportieren, und es soll auch keiner entstehen, solange die Zweckbindung oben nicht erweitert ist.
 Dieselbe Begründung steht im Kopf der Migration — sie gilt dort dem Datenmodell, hier dem Betrieb.
+
+---
+
+## 7. Partner-Bewerbungen — OFFENE Aufbewahrungsfrist ⚠️ RECHTLICHER VERMERK (B16-3)
+
+Seit **B16-3** (`supabase/migrations/20260725150000_create_partner_applications.sql`) nimmt
+`/partner-werden` Bewerbungen von Fachbetrieben entgegen und legt sie in
+`platform.partner_applications` ab — mit Firma, Ansprechperson (Vor-/Nachname), E-Mail, Telefon,
+Website und einem **Pflicht-Freitext**, in dem der Betrieb schildert, was er tut und warum er Partner
+werden will. Zu jeder Bewerbung gehört ein Auth-Konto (bei der Bewerbung angelegt oder schon
+vorhanden).
+
+**⚠️ Für diese Tabelle gibt es KEINE Aufbewahrungsfrist und KEINEN Löschjob.** Das ist eine bewusst
+offen gelassene Lücke, kein Versehen:
+
+- Die bestehende Maschinerie (**B4-1**, `platform.run_lead_retention`, täglicher Vercel-Cron um
+  03:15 UTC) greift **ausschließlich** auf `platform.leads` und fasst
+  `platform.partner_applications` **nicht** an. Geprüft, nicht angenommen.
+- Welche Frist für einen **abgelehnten** Antrag gilt — und ob ein genehmigter unter die
+  kaufmännische 7-Jahres-Frist fällt, weil daraus eine Geschäftsbeziehung wurde —, gehört in
+  **dieselbe juristische Prüfung wie die noch ausstehenden Einwilligungstexte**
+  (`Fahrplan_2026.md` §7 „Fachliche Abhängigkeiten", Owner Martin).
+- Eine hier erfundene Frist wäre genau die Sorte Zahl, die 2028 als Entscheidung dasteht, die
+  niemand getroffen hat — dieselbe Abwägung, mit der B11 keine Tarifsätze rät.
+
+**Zu tun, sobald die Prüfung vorliegt:** Frist festlegen, eine Migration mit dem Gegenstück zu
+`platform.leads_due_for_anonymization`/`run_lead_retention` bauen und im bestehenden Cron-Endpunkt
+(`apps/web/app/api/cron/lead-retention`) **oder** in einem eigenen anstoßen. Bis dahin bleibt die
+Tabelle unbefristet — sie enthält Geschäftskontakte, keine Verbrauchsdaten, und es gibt für
+**keine** Rolle ein `delete`-Grant.
+
+**Ebenfalls offen und hier vermerkt, weil es den Betrieb betrifft:** Es gibt **keinen
+Genehmigen-Weg**. Ein Antrag lässt sich im Admin-Bereich nur **ablehnen**; Genehmigen erzeugt in
+B16-4 zusätzlich einen Partnereintrag, einen Kurz-Key und die Freischaltung des Kontos. Bis dahin
+wird ein aufgenommener Fachbetrieb **von Hand** unter `/admin/partner` angelegt, und sein Antrag
+bleibt auf „Offen" stehen. Weder in der Datenbank noch in der Oberfläche existiert ein Weg zum
+Status `approved`.

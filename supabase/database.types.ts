@@ -727,6 +727,54 @@ export type Database = {
           },
         ]
       }
+      partner_applications: {
+        Row: {
+          company: string
+          created_at: string
+          email: string
+          first_name: string
+          id: string
+          last_name: string
+          message: string
+          phone: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: Database["platform"]["Enums"]["partner_application_status"]
+          user_id: string | null
+          website: string | null
+        }
+        Insert: {
+          company: string
+          created_at?: string
+          email: string
+          first_name: string
+          id?: string
+          last_name: string
+          message: string
+          phone?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: Database["platform"]["Enums"]["partner_application_status"]
+          user_id?: string | null
+          website?: string | null
+        }
+        Update: {
+          company?: string
+          created_at?: string
+          email?: string
+          first_name?: string
+          id?: string
+          last_name?: string
+          message?: string
+          phone?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: Database["platform"]["Enums"]["partner_application_status"]
+          user_id?: string | null
+          website?: string | null
+        }
+        Relationships: []
+      }
       partners: {
         Row: {
           contact_first_name: string | null
@@ -1045,6 +1093,7 @@ export type Database = {
         | "metallverarbeitung"
         | "buero_dienstleistung"
         | "sonstige"
+      partner_application_status: "pending" | "approved" | "rejected"
       product_key: "monitor" | "calculator_pro"
     }
     CompositeTypes: {
@@ -1127,6 +1176,7 @@ export type Database = {
       admin_get_analysis: { Args: { p_id: string }; Returns: Json }
       admin_get_analysis_source: { Args: { p_id: string }; Returns: Json }
       admin_get_lead: { Args: { p_lead_id: string }; Returns: Json }
+      admin_get_partner_application: { Args: { p_id: string }; Returns: Json }
       admin_grant_role: {
         Args: { p_role: string; p_target_user_id: string }
         Returns: Json
@@ -1179,8 +1229,16 @@ export type Database = {
         }
         Returns: Json
       }
+      admin_list_partner_applications: {
+        Args: { p_limit?: number; p_offset?: number; p_status?: string }
+        Returns: Json
+      }
       admin_list_partners: { Args: never; Returns: Json }
       admin_list_scrape_targets: { Args: never; Returns: Json }
+      admin_reject_partner_application: {
+        Args: { p_id: string }
+        Returns: Json
+      }
       admin_revoke_role: {
         Args: { p_role: string; p_target_user_id: string }
         Returns: Json
@@ -1367,6 +1425,19 @@ export type Database = {
         Args: { p_max_batch?: number }
         Returns: Json
       }
+      submit_partner_application: {
+        Args: {
+          p_company: string
+          p_email: string
+          p_first_name: string
+          p_last_name: string
+          p_message: string
+          p_phone?: string
+          p_user_id?: string
+          p_website?: string
+        }
+        Returns: Json
+      }
       suppress_email_and_withdraw_all: {
         Args: { p_lead_id: string }
         Returns: Json
@@ -1533,6 +1604,7 @@ export const Constants = {
         "buero_dienstleistung",
         "sonstige",
       ],
+      partner_application_status: ["pending", "approved", "rejected"],
       product_key: ["monitor", "calculator_pro"],
     },
   },

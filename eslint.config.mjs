@@ -63,8 +63,9 @@ export default tseslint.config(
               message:
                 'Der service_role-Client (umgeht RLS) ist ausschließlich für den Stripe-Pfad ' +
                 '(app/api/stripe/webhook + lib/stripe/actions.ts), den Lead-/Einwilligungspfad ' +
-                '(lib/leads/**, B1-2), die Cron-Endpunkte (app/api/cron/**, B4-1) und den ' +
-                'Resend-Webhook (app/api/resend/**, B2-2). Für Nutzer-Reads den RLS-gebundenen ' +
+                '(lib/leads/**, B1-2), die Cron-Endpunkte (app/api/cron/**, B4-1), den ' +
+                'Resend-Webhook (app/api/resend/**, B2-2) und die Partner-Bewerbung ' +
+                '(lib/partner-application/**, B16-3). Für Nutzer-Reads den RLS-gebundenen ' +
                 'lib/supabase/server.ts verwenden.',
             },
           ],
@@ -95,6 +96,14 @@ export default tseslint.config(
      * der sich mit einer SIGNATUR über den rohen Rumpf ausweist und genau einen service_role-only
      * Wrapper aufruft (`public.record_email_event`). Ein RLS-gebundener Client hätte hier gar keine
      * Identität, an der RLS ansetzen könnte.
+     *
+     * B16-3 ERWEITERT sie ein viertes Mal um die Partner-Bewerbung (`lib/partner-application/**`) —
+     * strukturell derselbe Fall wie der Lead-Erfassungspfad: ein ÖFFENTLICHES Formular, das in eine
+     * Tabelle schreibt, die für `anon` und `authenticated` gar kein Grant hat
+     * (`platform.partner_applications`, RLS ohne Policy), über einen service_role-only-Wrapper
+     * (`public.submit_partner_application`). Es entsteht dabei ausdrücklich kein Nutzerdatum: eine
+     * Bewerbung gehört dem Betrieb, nicht einer Sitzung — der Regelfall ist anonym. Innerhalb des
+     * Moduls importiert nur `store.ts` den Client; die Action geht über dieses Modul.
      */
     files: [
       'apps/web/app/api/stripe/**/*.ts',
@@ -102,6 +111,7 @@ export default tseslint.config(
       'apps/web/app/api/resend/**/*.ts',
       'apps/web/lib/stripe/actions.ts',
       'apps/web/lib/leads/**/*.ts',
+      'apps/web/lib/partner-application/**/*.ts',
     ],
     rules: { 'no-restricted-imports': 'off' },
   },

@@ -26,6 +26,7 @@ import { ADMIN_HREF } from '@/lib/admin/config'
 import { LEADS_HREF } from '@/lib/admin/leads'
 import { ANALYSES_HREF } from '@/lib/admin/analyses'
 import { PARTNERS_HREF } from '@/lib/admin/partners'
+import { PARTNER_APPLICATIONS_HREF } from '@/lib/admin/partner-applications'
 
 const ITEMS = [
   { href: ADMIN_HREF, label: 'Übersicht' },
@@ -38,6 +39,14 @@ const ITEMS = [
   // Partner ist eine Vereinbarung mit eigener Lebensdauer — er entsteht vor dem ersten Lead und
   // überlebt dessen Anonymisierung (B16-1 hält `partner_slug` bewusst aus dem Guard heraus).
   { href: PARTNERS_HREF, label: 'Partner' },
+  /*
+   * B16-3: der Prüf-Eingang der Bewerbungen. Eigener Punkt neben „Partner" und ausdrücklich KEIN
+   * Unterpfad davon: `/admin/partner/antraege` hätte wegen der Präfix-Regel unten BEIDE Punkte
+   * gleichzeitig markiert — genau der Zustand, den der Kommentar dort ausschliesst. Fachlich sind es
+   * ohnehin zwei Dinge: „Partner" sind die aufgenommenen Betriebe, hier stehen die, über die noch
+   * nicht entschieden ist.
+   */
+  { href: PARTNER_APPLICATIONS_HREF, label: 'Partner-Anträge' },
 ] as const
 
 export function AdminNav() {

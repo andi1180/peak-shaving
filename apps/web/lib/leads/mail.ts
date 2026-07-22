@@ -19,8 +19,14 @@
  */
 import 'server-only'
 import { getTranslations } from 'next-intl/server'
-import { serverEnv } from '@/lib/env.server'
 import { COMPANY, CTA_HREF } from '@/lib/nav'
+import {
+  escapeHtml,
+  mailConfigured,
+  sendMail,
+  warnMailNotConfigured,
+  type MailOutcome,
+} from '@/lib/mail/send'
 import { absoluteUrl } from '@/lib/site'
 import {
   QUICK_DECIMAL,
@@ -40,22 +46,13 @@ import { unsubscribeHeaders, unsubscribeUrls } from './tokens'
  */
 const ECONTROL_TARIFKALKULATOR_URL = 'https://www.e-control.at/tarifkalkulator'
 
-export type ConsentMailOutcome =
-  { ok: true } | { ok: false; reason: 'not_configured' | 'send_failed' }
-
 /**
- * Nutzereingabe → HTML. Dieselbe Pflicht wie in `deliver.ts`, hier zusätzlich für den
- * Einwilligungs-WORTLAUT: der kommt zwar aus der eigenen Datenbank, aber er wird von Menschen
- * gepflegt und darf trotzdem kein Markup in eine Mail tragen.
+ * Der Versandweg selbst steht seit B16-3 in `lib/mail/send.ts` — dieselbe Funktion, nur nicht mehr
+ * privat in dieser Datei, weil die Partner-Bewerbung sie ebenfalls braucht und keine Lead-Mail ist.
+ * Verhaltensgleich; der Typ bleibt unter seinem bisherigen Namen erhalten, damit kein Aufrufer
+ * angefasst werden muss.
  */
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
-}
+export type ConsentMailOutcome = MailOutcome
 
 export type ConsentConfirmationMail = {
   to: string
@@ -73,8 +70,8 @@ export type ConsentConfirmationMail = {
 export async function sendConsentConfirmationMail(
   input: ConsentConfirmationMail,
 ): Promise<ConsentMailOutcome> {
-  if (!serverEnv.RESEND_API_KEY || !serverEnv.RESEND_FROM) {
-    warnNotConfigured(
+  if (!mailConfigured()) {
+    warnMailNotConfigured(
       'Bestätigungsmail',
       'Die Einwilligung bleibt unbestätigt (pending) und damit wirkungslos.',
     )
@@ -117,70 +114,7 @@ export async function sendConsentConfirmationMail(
     `</div>`,
   ].join('')
 
-  return deliver({ to: input.to, subject: t('subject'), text, html }, 'Bestätigungsmail')
-}
-
-/* ─── Gemeinsamer Versandweg ──────────────────────────────────────────────────────────────────── */
-
-function warnNotConfigured(what: string, consequence: string): void {
-  const missing = [
-    !serverEnv.RESEND_API_KEY && 'RESEND_API_KEY',
-    !serverEnv.RESEND_FROM && 'RESEND_FROM',
-  ]
-    .filter(Boolean)
-    .join(', ')
-  console.warn(`[leads] ${what} NICHT versendet — ${missing} fehlt. ${consequence}`)
-}
-
-/**
- * Der eine Resend-Aufruf aller Lead-Mails.
- *
- * Wirft NICHT: alle Aufrufer laufen weiter, wenn der Versand scheitert (die Begründungen stehen an
- * ihnen). Die Empfängeradresse steht in keinem Log-Text — ein Fehlerlog ist kein zulässiger zweiter
- * Speicherort für Personenbezug.
- *
- * `headers` (seit B4-2) trägt die RFC-8058-Kopfzeilen. Sie sind bewusst OPTIONAL und nicht der
- * Normalfall: die Bestätigungsmail darf sie nicht bekommen (abgemeldet werden kann nur, was
- * besteht — s. Kopf dieser Datei).
- */
-async function deliver(
-  message: {
-    to: string
-    subject: string
-    text: string
-    html: string
-    headers?: Record<string, string>
-  },
-  label: string,
-): Promise<ConsentMailOutcome> {
-  const apiKey = serverEnv.RESEND_API_KEY
-  const from = serverEnv.RESEND_FROM
-  if (!apiKey || !from) return { ok: false, reason: 'not_configured' }
-
-  try {
-    // Dynamischer Import wie in `lib/kontakt/deliver.ts`: ohne Key kostet ein Aufruf keinen
-    // Modul-Load.
-    const { Resend } = await import('resend')
-    const resend = new Resend(apiKey)
-
-    const { error } = await resend.emails.send({
-      from,
-      to: message.to,
-      subject: message.subject,
-      text: message.text,
-      html: message.html,
-      ...(message.headers ? { headers: message.headers } : {}),
-    })
-
-    if (error) {
-      console.error(`[leads] Resend hat die ${label} abgelehnt:`, error)
-      return { ok: false, reason: 'send_failed' }
-    }
-    return { ok: true }
-  } catch (cause) {
-    console.error(`[leads] Resend-Aufruf für die ${label} fehlgeschlagen:`, cause)
-    return { ok: false, reason: 'send_failed' }
-  }
+  return sendMail({ to: input.to, subject: t('subject'), text, html }, 'Bestätigungsmail')
 }
 
 /* ─── Zusendung des Rechenergebnisses (B3-2, 'rechnerergebnis') ───────────────────────────────── */
@@ -215,8 +149,8 @@ export type CalculatorResultMail = {
 export async function sendCalculatorResultMail(
   input: CalculatorResultMail,
 ): Promise<ConsentMailOutcome> {
-  if (!serverEnv.RESEND_API_KEY || !serverEnv.RESEND_FROM) {
-    warnNotConfigured(
+  if (!mailConfigured()) {
+    warnMailNotConfigured(
       'Ergebnis-Mail',
       'Lead und Einwilligung stehen; die Zusendung lässt sich nachholen.',
     )
@@ -292,7 +226,7 @@ export async function sendCalculatorResultMail(
     `</div>`,
   ].join('')
 
-  return deliver({ to: input.to, subject: t('subject'), text, html }, 'Ergebnis-Mail')
+  return sendMail({ to: input.to, subject: t('subject'), text, html }, 'Ergebnis-Mail')
 }
 
 /* ─── Vertragsablauf-Erinnerung (B4-2, 'contract_expiry_reminder') ────────────────────────────── */
@@ -351,8 +285,8 @@ function formatContractEnd(isoDate: string): string {
 export async function sendContractReminderMail(
   input: ContractReminderMail,
 ): Promise<ConsentMailOutcome> {
-  if (!serverEnv.RESEND_API_KEY || !serverEnv.RESEND_FROM) {
-    warnNotConfigured(
+  if (!mailConfigured()) {
+    warnMailNotConfigured(
       'Vertragsablauf-Erinnerung',
       'Der Versand wird als Fehlschlag protokolliert und NICHT automatisch wiederholt.',
     )
@@ -410,7 +344,7 @@ export async function sendContractReminderMail(
     `</div>`,
   ].join('')
 
-  return deliver(
+  return sendMail(
     { to: input.to, subject: t('subject', { date: endDate }), text, html, headers },
     'Vertragsablauf-Erinnerung',
   )
