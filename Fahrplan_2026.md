@@ -58,7 +58,7 @@ Mit inzwischen zwölf gebauten Teilabschnitten ist aus der Beschreibung unten so
 | **B7** Rechnungs-Prüfregelwerk | **blockiert** | auf Martins Prüfregelwerk als Fachdokument |
 | **B8** Rechnungseingang + Extraktion | **offen** | zusätzlich abhängig von offener Entscheidung 3 (Eingangsweg) |
 | **B9** Rechnungs-Wächter als Abo | **offen** | setzt B7/B8 voraus |
-| **B10** Kalkulator ans Entitlement-System | **gebaut** | B10-1 Nachweis `calculator_pro` (PR #33, `48096fa`) · B10-2 Routenschutz + Ablösung des Zugangscodes (PR #34, `779a8d7`) |
+| **B10** Kalkulator ans Entitlement-System | **gebaut** | B10-1 Nachweis `calculator_pro` (PR #33, `48096fa`) · B10-2 Routenschutz + Ablösung des Zugangscodes (PR #34, `779a8d7`) · B10-3 Doku + `apps/portal`-Aufräumen (PR #35, `db97293`) · B10-4 Gutschein-Einlösung auf der Kalkulator-Anfrage-Seite (PR #36, `ebfdb9d`) · B10-5 Registrierung erfasst Firma + Ansprechperson und schreibt einen Lead (PR #37, `2ca9adc`) |
 | **B11** Kalkulator auf Verordnungssätze umstellbar | **gebaut** | als Codemodul, s. unten |
 | **B12** Datenanbindung Vortageswerte | **offen** | |
 | **B13** Mandantenfähigkeit | **zurückgestellt** | bewusst additiv später; bekommt mit der Fachbetriebs-Lizenz den ersten realen Anwendungsfall |
@@ -83,7 +83,7 @@ Grund: Die Bezeichner sind außerhalb dieses Dokuments in Gebrauch — in bereit
   **`[Reihenfolge korrigiert 21.07.2026]` B3 wird VOR B2 gebaut.** B2 baut die gefilterte Sicht — aber die Filterdimensionen (Branche, Netzebene, PLZ) entstehen erst mit B3 und wurden in B1 ausdrücklich ausgeklammert. B2 vor B3 hieße, gegen nicht existierende Dimensionen und einen leeren Bestand zu bauen. Der ursprüngliche Grund für ein frühes B2 — es muss stehen, BEVOR der Bestand groß ist — bleibt unverändert gültig; er richtet sich gegen ein SPÄTES B2, nicht für ein sofortiges. B3 füllt den Bestand und definiert die Dimensionen, B2 wertet beides aus. **Die Nummern B2/B3 bleiben an ihren Inhalten** (sie sind in Migrationen, Code-Kommentaren und Handover-Logs als Bezeichner in Gebrauch); geändert ist allein die Baureihenfolge.
 - **B4** Vertragsablauf-Erinnerung — Versorger + Ablaufdatum erfassen, Erinnerung 2–3 Monate vorher. Erster zeitgesteuerter Job im System. **ERLEDIGT: B4-1 (22.07.2026, Scheduling + Fristdurchsetzung, ohne jeden Versand) und B4-2 (22.07.2026, Erinnerung + Landingpage `/vertragsende-erinnerung`, acht Wochen Vorlauf, täglich 06:40 UTC).** Mit B4-2 versendet die Plattform erstmals automatisiert E-Mails an reale Personen; die Doppelversand-Sperre ist der Primärschlüssel `(lead_id, contract_end_date)`, nicht eine Prüfung im Anwendungscode. Details im Handover `apps/web/CLAUDE.md`.
 - **B5** Förder-Check — IFB + EAG-Speicherförderung, rein deterministisch. Inhaltlich blockiert auf steuerliche Absicherung.
-- **B6** E-Control-Widget + Netzbetreiber-Anleitungen (Wiener Netze, Netz NÖ, Netz Burgenland). Widget ERST nach technischer Prüfung des Cookie-Verhaltens (s. offene Entscheidungen).
+- **B6** E-Control-Widget + Netzbetreiber-Anleitungen (Wiener Netze, Netz NÖ, Netz Burgenland). Widget ERST nach technischer Prüfung des Cookie-Verhaltens (s. offene Entscheidungen). **B6a (Cookie-Verhalten-Prüfung) ist an CC delegiert, Ergebnis noch ausständig** — kein Befund in dieser Session vorgefunden, deshalb hier nur als offener Faden vermerkt statt stillschweigend übergangen.
 - **B7** Rechnungs-Prüfregelwerk — deterministische Prüfungen auf strukturierten Rechnungsdaten: verrechnete Leistungsspitze, Angemessenheit der vereinbarten netzwirksamen Leistung (Mindestbemessung 20 %), Sommer-Nieder-Arbeitspreis (seit 01.04.2026, −20 % werktags 10–16 Uhr bei aktiver Viertelstundenauslesung), Blindarbeits-Positionen, korrekte Tarifzuordnung. Konfidenz-Flags. Dient BEIDEN Bezahlprodukten — der Einmal-Check ist der Einstiegsmonat des Abos, dieselbe Logik.
 
   VIER VERBINDLICHE SPEICHERREGELN (Datenoffenheit für künftige Produkte):
@@ -95,11 +95,15 @@ Grund: Die Bezeichner sind außerhalb dieses Dokuments in Gebrauch — in bereit
 - **B9** Rechnungs-Wächter als Abo (19 €/Monat) — Stripe-Produkt auf bestehender T4-Infrastruktur, Monatszyklus, Kundenbericht, Prüf-Queue im Admin AUSSCHLIESSLICH für Auffälligkeiten, Kundenbereich mit Berichtshistorie. BINDENDE KONSTRUKTIONSVORGABE: Bei 19 €/Monat darf keine Rechnung routinemäßig manuell geprüft werden — automatisiert, persönliche Prüfung nur bei ausgewiesener Auffälligkeit. Mengendimension (Zählpunkte/Standorte) beim Bau mitdenken, da Multi-Standort später darauf aufsetzt.
 - **B10** Kalkulator ans Entitlement-System — Ablösung des separaten, DB-losen Zugangscodes (`lib/kalkulator-access.ts`). Vorbedingung für jede Fachbetriebs-Lizenz.
 
-  **ERLEDIGT (22.07.2026), in zwei Schritten: B10-1 (PR #33, `48096fa`) und B10-2 (PR #34, `779a8d7`).** Der Produktschlüssel `calculator_pro` musste **nicht angelegt werden** — er steht seit T4-1 im Enum `platform.product_key`, weil `platform` von Anfang an für beide Produkte gebaut wurde; B10-1 hat ihn deshalb nicht hinzugefügt, sondern erstmals BENUTZT und die Produkt-Isolation als Verhalten abgesichert (bis dahin war jede Entitlement-Invariante ausschliesslich mit `monitor` geprüft — „der Parameter trägt den zweiten Wert schon mit" war eine Behauptung über eine nie so aufgerufene Funktion). **In beiden Schritten entstand keine Migration.**
+  **ERLEDIGT (22.07.2026), in fünf Schritten: B10-1 (PR #33, `48096fa`), B10-2 (PR #34, `779a8d7`), B10-3 (PR #35, `db97293`), B10-4 (PR #36, `ebfdb9d`) und B10-5 (PR #37, `2ca9adc`).** Der Produktschlüssel `calculator_pro` musste **nicht angelegt werden** — er steht seit T4-1 im Enum `platform.product_key`, weil `platform` von Anfang an für beide Produkte gebaut wurde; B10-1 hat ihn deshalb nicht hinzugefügt, sondern erstmals BENUTZT und die Produkt-Isolation als Verhalten abgesichert (bis dahin war jede Entitlement-Invariante ausschliesslich mit `monitor` geprüft — „der Parameter trägt den zweiten Wert schon mit" war eine Behauptung über eine nie so aufgerufene Funktion). **In B10-1/B10-2 entstand keine Migration.**
 
-  B10-2 schützt `/peak-shaving/kalkulator/rechner` server-seitig: **Sitzung UND aktives `calculator_pro`-Entitlement**, gelesen über denselben Wrapper wie der Monitor (`public.get_my_entitlement` — das Produkt ist dort ein Parameter, es gibt bewusst keinen zweiten Lesepfad). Der alte Zugangscode ist **vollständig entfernt, nicht umgangen**: `lib/kalkulator-access.ts` und `components/peak-shaving/calculator-gate.tsx` sind gelöscht, es gibt kein Eingabefeld mehr. Der **Vergabeweg ist der bestehende Gutscheincode-Mechanismus** (`CODE_PRODUCT_KEYS`), derselbe wie für den Monitor; **für `calculator_pro` gibt es bewusst keinen Stripe-Preis und keinen Checkout** — die Preisfrage ist unverändert offen (s. offene Entscheidung 3) und wird hier nicht durch einen Platzhalter vorweggenommen. **`apps/portal` wurde nicht reaktiviert, sondern gelöscht** (B10-3): der Portalteil lebt in `apps/web`. Fachliche Tiefe in `Pflichtenheft_Kalkulator_MVP.md` §7a.3, Handover in `apps/web/CLAUDE.md`.
+  B10-2 schützt `/peak-shaving/kalkulator/rechner` server-seitig: **Sitzung UND aktives `calculator_pro`-Entitlement**, gelesen über denselben Wrapper wie der Monitor (`public.get_my_entitlement` — das Produkt ist dort ein Parameter, es gibt bewusst keinen zweiten Lesepfad). Der alte Zugangscode ist **vollständig entfernt, nicht umgangen**: `lib/kalkulator-access.ts` und `components/peak-shaving/calculator-gate.tsx` sind gelöscht, es gibt kein Eingabefeld mehr. **B10-3 hat `apps/portal` nicht reaktiviert, sondern ersatzlos gelöscht** (nicht verschoben — der Portalteil lebt faktisch in `apps/web`) und die Doku nachgezogen; kein eigener Funktionsschritt, reine Aufräumarbeit. Fachliche Tiefe in `Pflichtenheft_Kalkulator_MVP.md` §7a.3, Handover in `apps/web/CLAUDE.md`.
 
-  **Zwei Punkte bleiben bewusst offen — keine Blocker:** (a) Der Zugriff ist an **einzelne Konten** gebunden; Gruppen-/Reseller-Zugriff ist **B13** und unverändert zurückgestellt. (b) Die **Registrierung** trägt kein Rücksprungziel durch den Bestätigungsmail-Flow — ein neu registrierter Nutzer landet nach der Bestätigung auf `/konto` und geht von dort weiter. Für den Normalfall (bestehendes Konto, abgelaufene Sitzung) funktioniert `?next=` bereits und führt zurück auf die Zielroute.
+  **B10-4** legt den fehlenden Vergabeweg direkt auf die Kalkulator-Anfrage-Seite: Gutscheincode-Einlösung über denselben Mechanismus wie beim Monitor (`CODE_PRODUCT_KEYS`), ohne den Umweg über `/konto`. **Für `calculator_pro` gibt es weiterhin bewusst keinen Stripe-Preis und keinen Checkout** — die Preisfrage (OP#1, Root-`CLAUDE.md`) bleibt offen und wird hier nicht durch einen Platzhalter vorweggenommen.
+
+  **B10-5 schliesst den zuvor offenen Punkt „Registrierung trägt kein Rücksprungziel durch den Bestätigungsmail-Flow":** Die Registrierung erfasst jetzt Firma + Vorname/Nachname als plattformweite Pflichtfelder (EIN Formular für Monitor- UND Kalkulator-Trichter, kein kalkulator-eigenes) und schreibt darüber einen Lead über denselben `capture_lead`-Wrapper wie das Kontaktformular (B1-2). Die Herkunft wird aus dem sanierten `?next=` abgeleitet — zwei neue `lead_sources`-Zeilen, `kalkulator-registrierung` (**mit Bindestrich**: der ursprünglich vorgesehene Unterstrich verletzt den `^[a-z0-9-]+$`-Constraint aus B1-1, real als SQLSTATE 23514 gemessen, deshalb korrigiert) und `registrierung`. `next` reist jetzt durch die gesamte Bestätigungsmail-Kette bis zurück auf die Rechner-Route.
+
+  **Ein Punkt bleibt bewusst offen — kein Blocker:** Der Zugriff ist an **einzelne Konten** gebunden; Gruppen-/Reseller-Zugriff ist **B13** und unverändert zurückgestellt.
 - **B11** Kalkulator auf Verordnungssätze umstellbar machen — Tarifsätze als konfigurierbare Datenschicht, damit Nov/Dez 2026 eine Konfigurationsänderung genügt statt eines Umbaus unter Zeitdruck.
 
   **ERLEDIGT (21.07.2026).** Die „konfigurierbare Datenschicht" ist als getyptes Codemodul umgesetzt (`packages/shared/src/tariff-catalog.ts`), nicht als Datenbanktabelle: was eine DB-Lösung hier leisten müsste — Versionierung, Freigabe durch eine zweite Person, Unveränderlichkeit nach der Auslieferung, Nachvollziehbarkeit der Quelle — leistet die Versionsverwaltung bereits, während ein Laufzeitabruf den vollständig im Browser rechnenden Rechner von einem Netzaufruf abhängig machte oder `anon` erstmals Zugriff auf `platform` gäbe. Eine Satzänderung ist damit ein PR mit einer Datei (Anleitung: `DEPLOYMENT.md` §3a).
@@ -120,6 +124,32 @@ Leitregel: kostenlos ist alles, was reine Rechenlogik oder Weiterleitung ist. Be
 - **BEZAHLT:** Netzentgelt- und Anschlussleistungs-Check (149–249 € einmalig), Rechnungs-Wächter (19 €/Mon.), Lastspitzen-Analyse (990 €), Projekt.
 
 Lastspitzen-Analyse und Projekt sind KEINE Bauabschnitte — sie sind Datenarbeit (Batteriekatalog, Wiener-Netze-Methodik, echtes Lastprofil) und hängen an Martin.
+
+---
+
+## Wiederkehrende Erlöse — Zuordnung zu Bauabschnitten
+
+Quelle: `GTM_Briefing_COOLiN_ENERGY.docx` §4 + `Fahrplan_2026_Leadgenerierung_COOLiN.docx` §3.3.
+
+| Modul | Richtpreis | Voraussetzung | Zuordnung |
+|---|---|---|---|
+| Wirkungsnachweis | 29 €/Mon., Jahr 1 inkl. | Abgeschlossenes Speicherprojekt | B14 (gebaut) liefert die Baseline; das Abo selbst hat keinen B-Namen |
+| Peak-Wächter, Vortag | 49 €/Mon./Zählpunkt | Datenanbindung Netzbetreiber | hängt an B12, offen, nicht begonnen |
+| Peak-Wächter, Echtzeit | 99–129 €/Mon. + Hardware | Wechselrichter-/Zähler-Schnittstelle | B15, ab Q2 2027 |
+| Netzentgelt-Prüfung | im Rechnungs-Wächter enthalten | — | vorgezogen in B7, kein eigener Punkt |
+| Anomalie-Erkennung | Aufpreis | Kontinuierliche Messdaten | hängt an B12/B15, kein eigener B-Name |
+| Multi-Standort | ab 29 €/Standort | Laufende Datenanbindung | 2026 als Mengenrabatt im Rechnungs-Wächter vorwegnehmbar; volle Form ab Q2 2027 |
+| Fachbetriebs-Lizenz | 249–499 €/Mon. | Fertiger Pro-Kalkulator + Batteriekatalog | B10 (gebaut) war die Vorbedingung; B13 folgt mit dem ersten Reseller |
+
+Nahezu das gesamte Abo-Portfolio hängt an B12 (Datenanbindung Vortageswerte) — offen, nicht begonnen, wartet auf niemanden. Die Meilenstein-Tabelle im GTM-Briefing will sie bis Nov/Dez 2026 „in Erprobung", damit Q1 2027 hält. Verdient vor Herbst eine echte Aufschlüsselung wie B7–B9, ist aber laut §7 des GTM-Briefings 2026 nicht umsatzkritisch — keine Dringlichkeit, nur nicht vergessen.
+
+---
+
+## Aufräumen — nicht vergessen
+
+- **`coolin2026` als Monitor-Gutscheincode:** Altlast aus dem früheren Kalkulator-Soft-Gate-Code (der Zugangscode selbst ist mit B10-2 gelöscht, dieselbe Zeichenfolge existiert aber unverändert als eingelöster Gutscheincode für `monitor`). Sollte über die Admin-Oberfläche deaktiviert werden. Owner: Andreas. Kein Bauauftrag.
+- **Beobachtet, bewusst nicht behoben:** Wird der `monitor`-Code auf der Kalkulator-Anfrage-Seite eingelöst, ist das Verhalten korrekt (Produkt-Isolation greift), aber die Weiterleitung gibt keinen Hinweis darauf, dass der Code für das andere Produkt gilt.
+- **OP#1 (Kalkulator-Preis) bleibt weiterhin OFFEN.** Eine jüngste Äußerung deutet auf ein bezahltes Modell hin — hier ausdrücklich NICHT als Entscheidung eingetragen, nur als Beobachtung vermerkt.
 
 ---
 
