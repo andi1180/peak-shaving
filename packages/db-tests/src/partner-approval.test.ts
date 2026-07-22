@@ -719,6 +719,7 @@ describe('(6) Rechte der neuen und der nachgezogenen Wrapper', () => {
   })
 
   it('anon kann beide Wrapper nicht einmal aufrufen', async () => {
+
     for (const call of [
       `select public.admin_approve_partner_application('${randomUUID()}', 'x') as r`,
       `select public.admin_link_partner_account('x', 'y@test.local') as r`,
