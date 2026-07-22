@@ -3,9 +3,8 @@
  *
  * Rein clientseitig, verlässt das Gerät nie — kein Fetch, kein Supabase-Import
  * hier. `try`/`catch` um jeden Zugriff: Safaris privater Modus und blockierte
- * Drittanbieter-Daten werfen (Muster wie `lib/kalkulator-access.ts`s
- * Aufräum-Zugriff) — ein Gratis-Check, der deswegen abstürzt, wäre der
- * schlimmere Fehler als einer, der sich nichts merkt.
+ * Drittanbieter-Daten werfen — ein Gratis-Check, der deswegen abstürzt, wäre
+ * der schlimmere Fehler als einer, der sich nichts merkt.
  */
 import type { GratisCheckRawValues } from './schema'
 

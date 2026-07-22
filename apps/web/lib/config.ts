@@ -42,10 +42,11 @@ export const EMBEDDED_CALCULATOR_SRC = new URL(
 /**
  * Höhe der Rechner-Fläche unterhalb des Headers (`rechner/page.tsx`).
  *
- * Geteilt mit `calculator-gate.tsx` (Prompt 26): das Gate zeigt, solange
- * `unlocked !== true`, an derselben Stelle eine leere, neutrale Fläche statt
- * des iframes — nur wenn beide dieselbe Höhe verwenden, verschiebt sich beim
- * Entsperren nichts (kein Layout-Sprung).
+ * Die Konstante entstand in Prompt 26, weil das damalige Soft-Gate an derselben
+ * Stelle eine leere Fläche EXAKT dieser Höhe zeigte (sonst sprang beim
+ * Entsperren das Layout). Seit B10-2 gibt es weder Gate noch zweiten Nutzer:
+ * Wer keinen Zugang hat, sieht eine eigene Seite, keinen Platzhalter in
+ * Rechnergrösse. Sie bleibt als benannte Höhe der Rechner-Fläche bestehen.
  */
 export const CALCULATOR_FRAME_STYLE = {
   height: 'calc(100dvh - var(--header-h))',

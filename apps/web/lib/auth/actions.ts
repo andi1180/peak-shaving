@@ -10,7 +10,7 @@
  */
 import { getLocale } from 'next-intl/server'
 import { createClient } from '@/lib/supabase/server'
-import { KONTO_HREF, PASSWORT_NEU_HREF } from './config'
+import { KONTO_HREF, NEXT_PARAM, PASSWORT_NEU_HREF, sanitizeNext } from './config'
 import { mapAuthError } from './errors'
 import {
   forgotSchema,
@@ -57,6 +57,18 @@ export async function signInAction(_prev: AuthState, formData: FormData): Promis
   })
   if (!parsed.success) return { fieldErrors: toFieldErrors(parsed.error.issues) }
 
+  /*
+   * Rücksprungziel (B10-2). Der Wert kommt als verstecktes Formularfeld aus der Anmeldeseite,
+   * stammt also aus der URL und ist damit vom Absender frei wählbar — er läuft deshalb durch
+   * `sanitizeNext`, das nur seiten-INTERNE Pfade durchlässt. Ohne diese Prüfung wäre der Login
+   * ein Open Redirect: ein Angreifer verschickte `/anmelden?next=https://…`, der Nutzer meldete
+   * sich bei UNS an und landete auf einer fremden Seite, die er für unsere hält.
+   *
+   * Gelesen wird VOR dem Anmeldeversuch: `redirectLocalized` wirft (NEXT_REDIRECT) und muss die
+   * letzte Anweisung bleiben.
+   */
+  const next = sanitizeNext(formData.get(NEXT_PARAM)?.toString(), KONTO_HREF)
+
   const supabase = await createClient()
   const { error } = await supabase.auth.signInWithPassword({
     email: parsed.data.email,
@@ -66,7 +78,7 @@ export async function signInAction(_prev: AuthState, formData: FormData): Promis
     const key = mapAuthError(error)
     return { formError: key, showResend: key === 'emailNotConfirmed', email: parsed.data.email }
   }
-  return redirectLocalized(KONTO_HREF)
+  return redirectLocalized(next)
 }
 
 /** Bestätigungsmail erneut senden (aus dem Login-Fehlerzustand). */

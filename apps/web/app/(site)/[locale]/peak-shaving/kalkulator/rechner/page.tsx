@@ -1,9 +1,20 @@
 import type { Metadata } from 'next'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
-import { CalculatorGate } from '@/components/peak-shaving/calculator-gate'
+import { CalculatorAccessRequest } from '@/components/peak-shaving/calculator-access-request'
+import { ANMELDEN_HREF, NEXT_PARAM } from '@/lib/auth/config'
+import { redirectToLocalized } from '@/lib/auth/server-helpers'
 import { CALCULATOR_FRAME_STYLE, EMBEDDED_CALCULATOR_SRC } from '@/lib/config'
+import { getCalculatorAccess } from '@/lib/kalkulator/access'
 import { CALCULATOR_RUN_HREF } from '@/lib/nav'
 import { robotsFor } from '@/lib/routes'
+
+/*
+ * J6: Die Zugangsentscheidung fällt serverseitig VOR dem Rendern — `getUser()` macht die Route
+ * ohnehin dynamisch, das steht hier ausdrücklich, damit es niemand versehentlich wieder statisch
+ * macht. Eine vorgerenderte Fassung dieser Seite gäbe es nur in EINER Variante, und die wäre für
+ * mindestens zwei der drei Zustände falsch.
+ */
+export const dynamic = 'force-dynamic'
 
 export async function generateMetadata({
   params,
@@ -56,6 +67,24 @@ export async function generateMetadata({
 export default async function Page({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params
   setRequestLocale(locale)
+
+  /*
+   * DIE PRIVILEGIENGRENZE (B10-2). Sie sitzt HIER — auf der Zielroute — und nicht an den Links
+   * hierher (Nav-CTA, Hero, Cross-Links): ein pro Link versteckter Rechner wäre per Direkt-URL
+   * erreichbar und müsste an jeder neuen Verlinkung mitgedacht werden. Ein Fundort, drei Antworten.
+   */
+  const access = await getCalculatorAccess()
+
+  /*
+   * Nicht angemeldet → Login MIT Rücksprungziel. Ohne `?next=` landete der Besucher nach dem
+   * Anmelden auf `/konto` und müsste den Weg zum Rechner selbst wiederfinden — er hat ihn ja
+   * gerade erst angeklickt. `redirectToLocalized` wirft (NEXT_REDIRECT); alles darunter läuft
+   * für diesen Fall nicht mehr.
+   */
+  if (access.state === 'anonymous') {
+    redirectToLocalized(ANMELDEN_HREF, locale, { [NEXT_PARAM]: CALCULATOR_RUN_HREF })
+  }
+
   const t = await getTranslations({ locale, namespace: 'CalculatorFrame' })
 
   return (
@@ -69,25 +98,34 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
       <h1 className="sr-only">{t('title')}</h1>
 
       {/*
-       * SOFT-GATE (Prompt 25, Popup-Präsentation seit Prompt 26): Solange kein
-       * gültiger Zugangscode vorliegt, zeigt `CalculatorGate` ein nicht
-       * schließbares Modal über einer leeren Fläche statt des iframes. Das Gate
-       * sitzt HIER — auf der Zielroute — und nicht an den Links hierher: sonst
-       * wäre es per Direkt-URL umgehbar und müsste an jeder neuen Verlinkung
-       * mitgedacht werden. Der Rechner selbst (`apps/website`) ist unangetastet,
-       * die Produktseite /peak-shaving/kalkulator und der öffentliche
-       * Schnellrechner bleiben ungated (§5.4). Keine echte Sicherheit —
-       * s. `lib/kalkulator-access.ts`.
+       * ZWEI ZUSTÄNDE BLEIBEN HIER (der dritte, „nicht angemeldet", ist oben
+       * bereits als Umleitung beantwortet und kommt nie bis hierher):
+       *
+       *   granted        → der Rechner, ohne jeden Dialog davor.
+       *   no_entitlement → die erklärende Anfrage-Seite.
+       *
+       * Der iframe wird im zweiten Fall NICHT gerendert — er steht nicht bloss
+       * hinter etwas, es gibt ihn im Markup nicht. Das ist der Unterschied zum
+       * abgelösten Soft-Gate, dessen Dialog eine Präsentationsschicht über einem
+       * ohnehin ausgelieferten Rechner war.
+       *
+       * Der Rechner selbst (`apps/website`) bleibt unangetastet und unter seiner
+       * eigenen URL erreichbar — das Gate sitzt vor dem iframe, nicht im iframe
+       * (unverändert seit Prompt 25). Die Produktseite /peak-shaving/kalkulator
+       * und der öffentliche Schnellrechner bleiben ungated (§5.4).
        */}
-      <CalculatorGate>
-        {/*
+      {access.state === 'granted' ? (
+        <>
+          {/*
          * HÖHE: `100dvh` (nicht `100vh`) — auf Mobile wächst/schrumpft die
          * Browserleiste; `vh` rechnet mit der GRÖSSTEN Fläche und schöbe den
          * Rechner unter die Leiste. `- var(--header-h)`: der Header ist fixiert
          * und liegt über allem, seine Höhe ist also kein nutzbarer Platz.
-         * `CALCULATOR_FRAME_STYLE` (`lib/config.ts`): dieselbe Höhe, die das
-         * Gate für seine leere Fläche im gesperrten Zustand verwendet — sonst
-         * verschiebt sich beim Entsperren das Layout.
+         * `CALCULATOR_FRAME_STYLE` (`lib/config.ts`): die Konstante wurde für
+         * das abgelöste Soft-Gate GETEILT (dessen leere Fläche musste exakt so
+         * hoch sein wie der iframe, sonst sprang beim Entsperren das Layout).
+         * Seit B10-2 gibt es diesen zweiten Nutzer nicht mehr — sie bleibt, weil
+         * sie die Höhe der Rechner-Fläche benennt, nicht weil sie geteilt wird.
          *
          * `min-h`: auf einem quergedrehten Handy bliebe sonst ein ~300px hoher
          * Schlitz übrig, in dem der Flow nicht bedienbar ist. Dann lieber die
@@ -103,13 +141,16 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
          * bringt seinen eigenen Grund (bg-surface-alt) und seine eigene
          * Innenbreite mit. Ein Kasten um den Kasten wäre doppelter Rahmen.
          */}
-        <iframe
-          src={EMBEDDED_CALCULATOR_SRC}
-          title={t('iframeTitle')}
-          className="block w-full border-0"
-          style={CALCULATOR_FRAME_STYLE}
-        />
-      </CalculatorGate>
+          <iframe
+            src={EMBEDDED_CALCULATOR_SRC}
+            title={t('iframeTitle')}
+            className="block w-full border-0"
+            style={CALCULATOR_FRAME_STYLE}
+          />
+        </>
+      ) : (
+        <CalculatorAccessRequest email={access.email} />
+      )}
     </>
   )
 }

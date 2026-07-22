@@ -28,6 +28,16 @@ export const AUTH_HREFS = [
 export const ACCOUNT_PRODUCT = 'monitor' as const
 
 /**
+ * Name des Redirect-Parameters an `/anmelden` (B10-2). EINE Stelle, weil ihn ab jetzt VIER
+ * Beteiligte teilen: die geschützte Route (setzt ihn), die Anmeldeseite (liest ihn), das
+ * Anmeldeformular (reicht ihn als verstecktes Feld weiter) und `signInAction` (leitet danach
+ * dorthin). Ein getippter String an vier Stellen wäre genau die Art Vertipper, die niemand
+ * bemerkt: der Login funktionierte weiter, nur landete der Nutzer wieder auf `/konto` statt
+ * dort, wo er hinwollte.
+ */
+export const NEXT_PARAM = 'next'
+
+/**
  * Nur seiten-INTERNE Pfade als Redirect-Ziel zulassen (kein Open Redirect über `?next=`):
  * genau ein führender „/", kein „//host", kein „http://…".
  */

@@ -253,8 +253,6 @@ export function CodeForm() {
 
   const fe = state.fieldErrors
   const v = state.values
-  /** Genau ein wählbares Produkt → festes Feld statt Auswahl (s. unten). */
-  const onlyProduct = CODE_PRODUCT_KEYS.length === 1 ? CODE_PRODUCT_KEYS[0] : null
 
   return (
     <form action={formAction} noValidate className="flex flex-col gap-4">
@@ -273,44 +271,35 @@ export function CodeForm() {
           required
         />
         {/*
-         * Bleibt genau EIN code-fähiges Produkt übrig, ist eine Auswahl keine Auswahl mehr — dann
-         * steht der Wert fest da (mit Begründung) und fährt als verstecktes Feld mit. Kommt ein
-         * zweites Produkt dazu, erscheint das Dropdown von selbst wieder.
-         * Der Grund, warum „Kalkulator Pro" fehlt: `lib/admin/config.ts`.
+         * B10-2: Hier stand bis zu diesem Schritt eine Fallunterscheidung — bei genau EINEM
+         * code-fähigen Produkt zeigte das Formular statt einer Auswahl ein festes Feld mit dem
+         * Satz „Der Pro-Kalkulator prüft diesen Zugang noch nicht". Beides ist entfallen, und
+         * zwar nicht aus Aufräumlust: `CODE_PRODUCT_KEYS` führt seit B10-2 zwei Produkte, der
+         * Einzelfall-Zweig war damit nachweislich unerreichbar (der Typecheck hat ihn als
+         * `2 === 1` gemeldet), und sein Begründungstext war zur Falschaussage geworden — der
+         * Kalkulator prüft den Zugang jetzt.
          */}
-        {onlyProduct ? (
-          <div>
-            <span className="text-small font-medium text-ink">Produkt</span>
-            <p className="mt-1.5 text-body text-text">{PRODUCT_LABELS[onlyProduct]}</p>
-            <input type="hidden" name="productKey" value={onlyProduct} />
-            <p className="mt-1.5 text-caption text-text-muted">
-              Der Pro-Kalkulator prüft diesen Zugang noch nicht — ein Code dafür bliebe wirkungslos
-              und steht deshalb nicht zur Wahl.
-            </p>
-          </div>
-        ) : (
-          <AdminSelect
-            id={`${prefix}-productKey`}
-            name="productKey"
-            label="Produkt"
-            /*
-             * `key` erzwingt einen Neuaufbau, sobald sich der zuletzt abgeschickte Wert ändert.
-             * Ohne ihn fiele die Auswahl nach einer abgelehnten Anlage sichtbar auf den ersten
-             * Eintrag zurück: React wendet `defaultValue` bei einem unkontrollierten `<select>` nur
-             * beim Einhängen an, und der Formular-Reset nach der Action setzt das Feld danach auf
-             * das ursprüngliche `selected` — nicht auf das, was der Nutzer gewählt hatte.
-             */
-            key={v?.productKey ?? 'initial'}
-            defaultValue={v?.productKey ?? CODE_PRODUCT_KEYS[0]}
-            error={fe?.productKey}
-          >
-            {CODE_PRODUCT_KEYS.map((key) => (
-              <option key={key} value={key}>
-                {PRODUCT_LABELS[key]}
-              </option>
-            ))}
-          </AdminSelect>
-        )}
+        <AdminSelect
+          id={`${prefix}-productKey`}
+          name="productKey"
+          label="Produkt"
+          /*
+           * `key` erzwingt einen Neuaufbau, sobald sich der zuletzt abgeschickte Wert ändert.
+           * Ohne ihn fiele die Auswahl nach einer abgelehnten Anlage sichtbar auf den ersten
+           * Eintrag zurück: React wendet `defaultValue` bei einem unkontrollierten `<select>` nur
+           * beim Einhängen an, und der Formular-Reset nach der Action setzt das Feld danach auf
+           * das ursprüngliche `selected` — nicht auf das, was der Nutzer gewählt hatte.
+           */
+          key={v?.productKey ?? 'initial'}
+          defaultValue={v?.productKey ?? CODE_PRODUCT_KEYS[0]}
+          error={fe?.productKey}
+        >
+          {CODE_PRODUCT_KEYS.map((key) => (
+            <option key={key} value={key}>
+              {PRODUCT_LABELS[key]}
+            </option>
+          ))}
+        </AdminSelect>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">

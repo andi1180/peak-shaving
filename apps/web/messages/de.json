@@ -1250,14 +1250,13 @@
     "title": "Peak-Shaving Kalkulator",
     "metaDescription": "Der Peak-Shaving Kalkulator von COOLiN ENERGY: Lastgang hochladen, Batterie simulieren, Ersparnis und Amortisation berechnen.",
     "iframeTitle": "Peak-Shaving Kalkulator — Lastgang hochladen, Batterie simulieren, Ersparnis berechnen",
-    "gate": {
+    "access": {
       "title": "Zugang zum Kalkulator",
-      "lead": "Der Peak-Shaving Kalkulator ist derzeit einem geschlossenen Kreis vorbehalten. Mit Ihrem Zugangscode geht es direkt weiter — er wird bei jedem Besuch neu abgefragt.",
-      "label": "Zugangscode",
-      "submit": "Kalkulator öffnen",
-      "error": "Dieser Zugangscode stimmt nicht. Bitte prüfen Sie die Schreibweise.",
-      "noCode": "Noch keinen Zugangscode?",
-      "noCodeLink": "Zugang auf Anfrage"
+      "lead": "Ihr Konto hat für den Peak-Shaving Kalkulator noch keine Freischaltung. Wir vergeben den Zugang auf Anfrage — schreiben Sie uns kurz, wofür Sie ihn brauchen, dann melden wir uns.",
+      "cta": "Zugang anfragen",
+      "redeemHint": "Sie haben bereits einen Gutscheincode?",
+      "redeemLink": "Im Konto einlösen",
+      "signedInAs": "Angemeldet als {email}."
     }
   },
   "Kontakt": {
@@ -1630,22 +1629,29 @@
       "processingRefresh": "Status aktualisieren",
       "checkoutCancelled": "Der Vorgang wurde abgebrochen — Sie können das Abo jederzeit erneut starten.",
       "checkoutError": "Da ist leider etwas schiefgelaufen. Bitte versuchen Sie es erneut.",
-      "logout": "Abmelden"
+      "logout": "Abmelden",
+      "calculatorTitle": "Peak-Shaving Kalkulator",
+      "calculatorProductLabel": "Kalkulator Pro",
+      "calculatorActive": "Freigeschaltet",
+      "calculatorOpen": "Kalkulator öffnen",
+      "calculatorInactive": "Nicht freigeschaltet",
+      "calculatorInactiveHint": "Den Zugang vergeben wir auf Anfrage. Mit einem Gutscheincode schalten Sie ihn unten selbst frei.",
+      "calculatorRequest": "Zugang anfragen"
     },
     "redeem": {
       "title": "Gutscheincode einlösen",
-      "intro": "Sie haben einen Zugangscode? Lösen Sie ihn hier ein — der Monitor wird sofort freigeschaltet.",
+      "intro": "Sie haben einen Zugangscode? Lösen Sie ihn hier ein — das zugehörige Produkt wird sofort freigeschaltet.",
       "label": "Gutscheincode",
       "hint": "Groß- und Kleinschreibung spielt keine Rolle.",
       "submit": "Code einlösen",
       "submitting": "Wird eingelöst …",
       "status": {
-        "redeemed": "Ihr Code wurde eingelöst — der Strom-Monitor ist jetzt freigeschaltet.",
+        "redeemed": "Ihr Code wurde eingelöst. Das zugehörige Produkt ist jetzt freigeschaltet.",
         "invalid_code": "Diesen Gutscheincode kennen wir nicht. Bitte prüfen Sie Ihre Eingabe.",
         "expired": "Dieser Gutscheincode ist abgelaufen.",
         "exhausted": "Dieser Gutscheincode wurde bereits vollständig eingelöst.",
         "already_redeemed": "Diesen Gutscheincode haben Sie bereits eingelöst.",
-        "already_active": "Sie haben bereits ein aktives Abo — ein Code ist dafür nicht mehr nötig."
+        "already_active": "Dieses Produkt ist für Ihr Konto bereits freigeschaltet — ein Code ist dafür nicht mehr nötig."
       },
       "errors": {
         "codeRequired": "Bitte geben Sie Ihren Gutscheincode ein.",
