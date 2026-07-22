@@ -8,7 +8,7 @@ import { ACCOUNT_PRODUCT, ANMELDEN_HREF, KONTO_HREF } from '@/lib/auth/config'
 import { CALCULATOR_PRODUCT } from '@/lib/kalkulator/access'
 import { CALCULATOR_RUN_HREF, KONTAKT_HREF } from '@/lib/nav'
 import { signOutAction } from '@/lib/auth/actions'
-import { RedeemCodeForm } from '@/components/konto/redeem-code-form'
+import { RedeemCodeForm } from '@/components/redemption/redeem-code-form'
 import { openBillingPortalAction } from '@/lib/stripe/actions'
 import {
   CHECKOUT_CANCEL,
