@@ -16,7 +16,33 @@ const PASSWORT_MIN = 8
 const emailField = z.string().trim().min(1, 'emailRequired').email('emailInvalid')
 const newPasswordField = z.string().min(PASSWORT_MIN, 'passwordTooShort')
 
-export const registerSchema = z.object({ email: emailField, password: newPasswordField })
+/*
+ * Firma und Name der Ansprechperson (B10-5) — PFLICHT, und zwar plattformweit gleich streng: es
+ * gibt genau EIN Registrierungsformular, und eine bedingte Validierung („nur wenn aus dem
+ * Kalkulator-Trichter") ergäbe denselben Screen mit zwei Strengegraden. Die Zielgruppe ist in
+ * beiden Produkten der Betrieb, nicht die Privatperson.
+ *
+ * ZWEI NAMENSFELDER STATT EINEM, Muster exakt wie das Kontaktformular (`lib/kontakt/schema.ts`):
+ * eine korrekte Anrede braucht den Nachnamen als eigenen Wert, und die nachträgliche Zerlegung
+ * eines Freitextnamens scheitert bei Doppelnamen, Namenszusätzen und Titeln — der Fehler landete
+ * dann in der Anrede einer echten E-Mail.
+ *
+ * `min(1)` statt `min(2)`: es gibt einbuchstabige Vornamen, und ein abgelehnter echter Name kostet
+ * mehr als ein zu kurz getippter. Die Obergrenzen entsprechen den Spaltenlängen von
+ * `platform.leads` (`LEAD_FIELDS`, B3-2) — ein hier durchgelassener längerer Wert liefe erst an der
+ * Datenbank auf, also nach der bereits angelegten Registrierung.
+ */
+const companyField = z.string().trim().min(1, 'companyRequired').max(120, 'companyTooLong')
+const firstNameField = z.string().trim().min(1, 'firstNameRequired').max(100, 'firstNameTooLong')
+const lastNameField = z.string().trim().min(1, 'lastNameRequired').max(100, 'lastNameTooLong')
+
+export const registerSchema = z.object({
+  email: emailField,
+  password: newPasswordField,
+  company: companyField,
+  firstName: firstNameField,
+  lastName: lastNameField,
+})
 export const loginSchema = z.object({
   email: emailField,
   // Beim Login KEINE Längenpolitik durchsickern lassen — nur „ausgefüllt".
@@ -27,7 +53,7 @@ export const newPasswordSchema = z
   .object({ password: newPasswordField, confirm: z.string().min(1, 'passwordRequired') })
   .refine((d) => d.password === d.confirm, { path: ['confirm'], message: 'passwordsDontMatch' })
 
-export type AuthFieldName = 'email' | 'password' | 'confirm'
+export type AuthFieldName = 'email' | 'password' | 'confirm' | 'company' | 'firstName' | 'lastName'
 
 /** Erste Meldung je Feld, als KEY. Reihenfolge egal — die Formulare fokussieren nach FIELD_ORDER. */
 export function toFieldErrors(issues: z.ZodIssue[]): Partial<Record<AuthFieldName, string>> {
@@ -58,6 +84,14 @@ export type AuthState = {
   resent?: boolean
   /** Für die Wiederanzeige / das erneute Senden mitgeführte Adresse. */
   email?: string
+  /*
+   * Die drei Pflichtangaben der Registrierung, für die Wiederanzeige nach einem Fehler (B10-5).
+   * Ohne sie räumte eine abgelehnte Eingabe drei ausgefüllte Felder ab — das Passwort wird bewusst
+   * NICHT mitgeführt (es gehört nicht in einen Server-Zustand, der zurück an den Client geht).
+   */
+  company?: string
+  firstName?: string
+  lastName?: string
 }
 
 export const AUTH_INITIAL_STATE: AuthState = {}

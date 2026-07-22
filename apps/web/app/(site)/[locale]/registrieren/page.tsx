@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { robotsFor } from '@/lib/routes'
-import { KONTO_HREF, REGISTRIEREN_HREF } from '@/lib/auth/config'
+import { KONTO_HREF, REGISTRIEREN_HREF, sanitizeNext } from '@/lib/auth/config'
 import { redirectToLocalized } from '@/lib/auth/server-helpers'
 import { createClient } from '@/lib/supabase/server'
 import { AuthPageShell } from '@/components/auth/auth-page-shell'
@@ -21,20 +21,39 @@ export async function generateMetadata({
   return { title: `${t('register.metaTitle')} — COOLiN ENERGY`, robots: robotsFor(REGISTRIEREN_HREF) }
 }
 
-export default async function Page({ params }: { params: Promise<{ locale: string }> }) {
+export default async function Page({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ locale: string }>
+  searchParams: Promise<{ next?: string }>
+}) {
   const { locale } = await params
   setRequestLocale(locale)
+
+  const { next: rawNext } = await searchParams
+  /*
+   * Rücksprungziel (B10-5), dieselbe Prüfung wie auf der Anmeldeseite: ausschliesslich
+   * seiten-INTERNE Pfade (`sanitizeNext`, kein Open Redirect). LEERER Rückfallwert statt `/konto` —
+   * „kein oder kein zulässiges Ziel" heisst hier „kein Ziel": daran hängt nicht nur eine
+   * Weiterleitung, sondern auch die Herkunft des entstehenden Leads, und ein Ersatzwert behauptete
+   * dort einen Trichter, aus dem die Person nicht kam.
+   *
+   * Die Prüfung steht VOR dem angemeldet-Zweig, weil beide Wege sie brauchen — wer schon angemeldet
+   * ist, soll dorthin geschickt werden, wo er hinwollte, und nicht auf die Kontoseite.
+   */
+  const next = sanitizeNext(rawNext, '')
 
   const supabase = await createClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (user) redirectToLocalized(KONTO_HREF, locale)
+  if (user) redirectToLocalized(next || KONTO_HREF, locale)
 
   const t = await getTranslations({ locale, namespace: 'Konto' })
   return (
     <AuthPageShell title={t('register.title')} lead={t('register.lead')}>
-      <RegisterForm />
+      <RegisterForm next={next || undefined} />
     </AuthPageShell>
   )
 }

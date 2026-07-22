@@ -71,7 +71,25 @@ export function LoginForm({ next }: { next?: string }) {
 
       <p className="text-small text-text-muted">
         {t('login.noAccount')}{' '}
-        <Link href={REGISTRIEREN_HREF} className="font-medium text-accent hover:text-accent-hover">
+        {/*
+         * Rücksprungziel WEITERREICHEN (B10-5). `next` ist hier bereits saniert (die Anmeldeseite
+         * schickt es durch `sanitizeNext` und gibt es nur weiter, wenn es vom Vorgabewert
+         * abweicht) — es steht also entweder ein zulässiges internes Ziel da oder gar keins, und
+         * dann bleibt der Link nackt. KEIN Ersatzwert: „kein zulässiges Ziel" heisst „kein Ziel".
+         *
+         * Ohne diese Weitergabe verlor der Kalkulator-Trichter seinen Kontext genau hier — der
+         * Weg Kalkulator → Anmelden → „Noch kein Konto?" endete bei einer Registrierung, die
+         * nicht mehr wusste, wofür sie stattfindet. Daran hängt seit B10-5 zweierlei: wohin der
+         * Bestätigungslink führt und unter welcher Herkunft der Lead entsteht.
+         */}
+        <Link
+          href={
+            next
+              ? { pathname: REGISTRIEREN_HREF, query: { [NEXT_PARAM]: next } }
+              : REGISTRIEREN_HREF
+          }
+          className="font-medium text-accent hover:text-accent-hover"
+        >
           {t('login.registerLink')}
         </Link>
       </p>

@@ -1,0 +1,56 @@
+-- B10-5 — die Registrierung als Einstiegspunkt: ZWEI Zeilen in platform.lead_sources.
+--
+-- Bis hierher erzeugte eine Registrierung ausschliesslich `auth.users` + `platform.profiles`. Wer
+-- sich anmeldete, die Bestätigungsmail aber nie öffnete, hinterliess eine E-Mail-Adresse ohne
+-- jeden Kontext — kein Betrieb, kein Name, keine Herkunft. Genau diese Abbrecher sind der Teil des
+-- Trichters, der am ehesten verlorengeht. Ab B10-5 schreibt der Registrierungsweg deshalb einen
+-- Lead, auf demselben Weg wie das Kontaktformular (`public.capture_lead`, B1-2).
+--
+-- ── WARUM ZWEI ZEILEN UND NICHT EINE ────────────────────────────────────────────────────────────
+-- Es gibt genau EIN Registrierungsformular, und es ist produktübergreifend: derselbe Screen trägt
+-- den Monitor-Trichter (`components/monitor/gratis-check-result.tsx`) und den Kalkulator-Zugang
+-- (Kalkulator-Route → `/anmelden?next=…` → „Noch kein Konto?"). Eine einzige Herkunft für beide
+-- Wege wäre still falsch: sie liesse die Frage „hat der Kalkulator-Zugang Registrierungen erzeugt?"
+-- unbeantwortbar, ohne dass es jemandem auffällt — der Lead wäre ja da. Das ist derselbe Fehler,
+-- gegen den `packages/db-tests/src/lead-source-registry.test.ts` gebaut ist („der Lead ist dann da,
+-- aber die Auswertung, welcher Kanal ihn gebracht hat, ist falsch").
+--
+-- Die Unterscheidung fällt im Anwendungscode aus dem Rücksprungziel (`?next=`), nicht hier:
+-- `apps/web/lib/leads/registration-source.ts`. Die Datenbank kennt nur die beiden Werte.
+--
+-- ── WARUM EINE MIGRATION UND KEIN SEED ──────────────────────────────────────────────────────────
+-- `platform.leads.first_source_key` ist ein Fremdschlüssel (B1-1). Ohne diese Zeilen könnte die
+-- Registrierung gar keinen Lead anlegen, und der Fehler fiele erst beim ersten echten Aufruf auf —
+-- also im Betrieb, nicht im CI. Idempotent wie die Seeds aus B1-1/B3-1 und wie die 'warteliste'-
+-- Zeile aus B3-4, deren Muster diese Migration wörtlich übernimmt.
+--
+-- ── SCHREIBWEISE: BINDESTRICH, NICHT UNTERSTRICH — die Datenbank lässt nichts anderes zu ────────
+-- Die Aufgabenstellung nannte 'kalkulator_registrierung' als Beispiel. Das ist hier nicht
+-- einfügbar: `platform.lead_sources.key` trägt seit B1-1 den CHECK `key ~ '^[a-z0-9-]+$'`, mit
+-- ausformulierter Begründung am Spaltenkommentar („Wandert in URLs/QR-Codes/Auswertungen — deshalb
+-- eng gefasst"). Ein Unterstrich wird mit SQLSTATE 23514 abgewiesen; GEMESSEN beim ersten
+-- Anwenden dieser Migration, nicht vermutet.
+--
+-- Der Schlüssel lautet deshalb 'kalkulator-registrierung'. Alle elf bestehenden Einstiegspunkte
+-- schreiben sich so ('wko-postaktion-qr', 'betroffenheits-check', 'vertragsablauf-landing', …) —
+-- die Schreibweise ist damit nicht Geschmack, sondern die geltende Regel dieser Tabelle.
+--
+-- Die Alternative wäre gewesen, den CHECK aufzuweichen. Dagegen sprechen zwei Dinge: Der Schlüssel
+-- KANN in einer URL landen (die Wartelisten-Route tut genau das, B3-4), und eine einmal vergebene
+-- Herkunft ist unveränderlich — ein Bestand mit zwei Schreibkonventionen liesse sich später nicht
+-- mehr vereinheitlichen, ohne die Herkunftsaussage bestehender Leads zu verlieren. Eine
+-- Invariante für eine Namensvorliebe zu lockern, wäre der schlechtere Handel.
+--
+-- ES ENTSTEHT KEINE NEUE EINWILLIGUNGSART und kein neuer Zweck: die Rechtsgrundlage der
+-- Registrierung ist VERTRAGSANBAHNUNG (ein Konto für einen zugangsbeschränkten B2B-Bereich ist
+-- selbst schon die Anbahnung), genau wie beim Kontaktformular. `public.capture_lead` wird ohne
+-- `p_purpose` aufgerufen und legt dann bewusst KEINE Zeile in `platform.consents` an.
+--
+-- NICHT hier: eine Änderung an `public.capture_lead` (die Zusammenführungsregeln bleiben, wie sie
+-- sind), an `platform.leads` (keine neue Spalte, `retention_basis` bleibt auf dem Vorgabewert
+-- 'marketing') oder an einem anderen Einstiegspunkt.
+
+insert into platform.lead_sources (key, label) values
+  ('registrierung', 'Registrierung (Konto)'),
+  ('kalkulator-registrierung', 'Registrierung über den Kalkulator-Zugang')
+on conflict (key) do nothing;

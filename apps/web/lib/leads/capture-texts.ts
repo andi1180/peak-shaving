@@ -12,7 +12,7 @@
  * darf keine Einwilligung eingesammelt werden; der Rest der Seite funktioniert unverändert weiter.
  */
 import 'server-only'
-import { LEAD_CAPTURE_REGISTRY, type LeadSourceKey } from './registry'
+import { LEAD_CAPTURE_REGISTRY, type LeadCaptureFormKey } from './registry'
 import { getActiveConsentText } from './store'
 
 export type LeadCaptureConsentTexts = {
@@ -25,7 +25,7 @@ export type LeadCaptureConsentTexts = {
 const NONE: LeadCaptureConsentTexts = { primary: null, marketing: null }
 
 export async function loadLeadCaptureTexts(
-  key: LeadSourceKey,
+  key: LeadCaptureFormKey,
   locale: string,
 ): Promise<LeadCaptureConsentTexts> {
   const entry = LEAD_CAPTURE_REGISTRY[key]
