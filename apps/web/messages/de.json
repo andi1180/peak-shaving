@@ -1925,6 +1925,66 @@
     "next": "Wir melden uns bei Ihnen. Falls wir Rückfragen zu Ihrem Betrieb haben, antworten wir einfach auf diese Adresse.",
     "fallback": "Sie erreichen uns jederzeit unter {email}."
   },
+  "PartnerApprovalMail": {
+    "//": "ARBEITSSTAND (B16-4b): die Benachrichtigung an einen freigeschalteten Fachbetrieb — ausgeloest beim Genehmigen einer Bewerbung und beim erneuten Senden im Admin-Bereich. Endgueltige Formulierungen von Andreas/Martina. Transaktional, kein Double-Opt-in und KEIN Abmeldelink (abgemeldet werden kann eine Aussendung, nicht die eine Nachricht, die einen Zugang mitteilt). KEINE Provisions-, Umsatz- oder Ersparniszusage und KEINE Zusage ueber die Bearbeitungsdauer von Anfragen. Genau ein Satz haengt vom Zustand ab (das Passwort): ein von Hand aufgenommener Betrieb hat bei keiner Bewerbung eines gesetzt.",
+    "subject": "Ihr Partnerzugang bei COOLiN ENERGY ist eingerichtet",
+    "greeting": "Guten Tag {name},",
+    "greetingNeutral": "Guten Tag,",
+    "intro": "wir haben {company} als Fachpartner aufgenommen. Ab sofort können Sie Ihre Bestandskunden über einen persönlichen Link an uns verweisen — jede Anfrage, die darüber entsteht, ist Ihrem Betrieb zugeordnet.",
+    "linkLead": "Das ist Ihr persönlicher Empfehlungslink:",
+    "portalLead": "Im Partner-Portal finden Sie diesen Link jederzeit wieder, dazu Textvorlagen für Ihre Kundenansprache:",
+    "passwordFromApplication": "Melden Sie sich mit der E-Mail-Adresse und dem Passwort an, die Sie bei Ihrer Bewerbung angegeben haben.",
+    "passwordExisting": "Melden Sie sich mit der E-Mail-Adresse und dem Passwort Ihres bestehenden Kontos bei coolin.at an.",
+    "passwordForgotten": "Passwort nicht mehr zur Hand? Über „Passwort vergessen\" auf der Anmeldeseite setzen Sie ein neues.",
+    "fallback": "Fragen zum Zugang oder zum Ablauf? Sie erreichen uns unter {email}."
+  },
+  "PartnerPortal": {
+    "//": "ARBEITSSTAND (B16-4b): Partner-Portal und die zwei E-Mail-Vorlagen zum Kopieren. Endgueltige Formulierungen von Andreas/Martina — die Vorlagen gehen unter dem NAMEN DES PARTNERS an dessen Bestandskunden und sind vor der ersten echten Aussendung zu ersetzen. Bindende Leitplanken fuer jede Neufassung: keine Preis-, Ergebnis- oder Ersparnisversprechen, keine Zusage ueber die Bearbeitungsdauer, und COOLiN tritt als unabhaengiger Pruefer auf, nicht als Verkaeufer. Es stehen bewusst KEINE Angaben zu einzelnen Interessenten im Portal (Namen, Firmen, Anzahl, Status) — die namentliche Sicht setzt einen Einwilligungszweck voraus, den es noch nicht gibt (B16-6).",
+    "metaTitle": "Partner-Portal",
+    "eyebrow": "Partner-Portal",
+    "title": "Ihr Empfehlungslink",
+    "intro": "Angemeldet als {company}. Über diesen Link verwiesene Anfragen sind Ihrem Betrieb zugeordnet.",
+    "link": {
+      "title": "Ihr persönlicher Link",
+      "hint": "Der Link ist dauerhaft und ändert sich nicht. Sie können ihn in E-Mails, Angebote oder auf Ihre Website übernehmen."
+    },
+    "templates": {
+      "title": "Textvorlagen für Ihre Kunden",
+      "intro": "Zwei Fassungen zum Kopieren — der Link ist bereits eingesetzt. Passen Sie den Text gerne an Ihre Ansprache an; er geht unter Ihrem Namen raus.",
+      "subjectLabel": "Betreff",
+      "bodyLabel": "Text",
+      "short": {
+        "label": "Kurze Fassung",
+        "subject": "Netzentgelte 2027: was sich für Ihren Betrieb ändert",
+        "body": "Guten Tag,\n\nab 2027 wird das Stromnetzentgelt in Österreich neu bemessen: Für viele Gewerbebetriebe zählt künftig auch die höchste bezogene Leistung, nicht nur die verbrauchte Energie.\n\nWir arbeiten dazu mit COOLiN ENERGY zusammen. COOLiN sieht sich Ihren Lastgang und Ihre Netzrechnung an und sagt Ihnen, was das für Ihren Betrieb bedeutet — unabhängig, und ohne dass Sie etwas kaufen müssen.\n\nWenn Sie das interessiert, melden Sie sich hier:\n{link}\n\nMit freundlichen Grüßen"
+      },
+      "long": {
+        "label": "Ausführliche Fassung",
+        "subject": "Leistungstarif ab 2027 — eine Einschätzung für Ihren Betrieb",
+        "body": "Guten Tag,\n\nmit 1. Jänner 2027 ändert sich in Österreich die Systematik der Netzentgelte. Bisher zahlen die meisten Gewerbebetriebe im Wesentlichen für die verbrauchte Energie. Künftig wird zusätzlich die höchste bezogene Leistung abgerechnet — also der eine Viertelstundenwert, in dem am meisten gleichzeitig gelaufen ist.\n\nFür Betriebe mit kurzen, kräftigen Lastspitzen — Kühlung, Druckluft, Öfen, Maschinenanlauf — kann das spürbar sein. Wie spürbar, hängt vom einzelnen Lastgang ab und lässt sich nicht pauschal sagen.\n\nWir arbeiten deshalb mit COOLiN ENERGY zusammen. COOLiN ist auf genau diese Frage spezialisiert und geht so vor:\n\n1. Sie stellen Ihren Viertelstunden-Lastgang und Ihre aktuelle Netzrechnung bereit. Den Lastgang bekommen Sie kostenlos von Ihrem Netzbetreiber.\n2. COOLiN wertet beides aus und zeigt Ihnen, wann Ihre Spitzen entstehen und was sie unter der neuen Systematik kosten würden.\n3. Sie erhalten eine nachvollziehbare Einschätzung — mit den Annahmen, auf denen sie beruht. Ob Sie daraus etwas machen, entscheiden Sie.\n\nCOOLiN prüft und rechnet; verkauft wird dabei nichts. Sollte sich eine technische Maßnahme rechnen, kommen wir als Ihr Fachbetrieb ins Spiel.\n\nHier können Sie sich unverbindlich melden:\n{link}\n\nFür Rückfragen bin ich wie gewohnt für Sie da.\n\nMit freundlichen Grüßen"
+      }
+    },
+    "stats": {
+      "title": "Auswertung",
+      "body": "Wie viele Anfragen über Ihren Link entstanden sind, sehen Sie hier in einem der nächsten Schritte. Solange die Zahlen nicht belastbar erhoben sind, zeigen wir hier keine."
+    },
+    "copy": {
+      "button": "Kopieren",
+      "copied": "Kopiert",
+      "copiedAnnounce": "In die Zwischenablage kopiert.",
+      "failed": "Kopieren hat nicht geklappt — bitte den Text oben markieren und von Hand kopieren."
+    },
+    "none": {
+      "title": "Kein Partnerzugang für dieses Konto",
+      "body": "Mit Ihrem Konto ist kein Fachbetrieb verknüpft. Dieser Bereich ist für Elektro- und Installationsbetriebe gedacht, die ihre Bestandskunden an uns verweisen.",
+      "cta": "Fachpartner werden",
+      "account": "Zu Ihrem Konto"
+    },
+    "error": {
+      "title": "Das lässt sich gerade nicht laden",
+      "body": "Ihr Partnerzugang konnte nicht abgerufen werden. Das heißt NICHT, dass es ihn nicht gibt — bitte laden Sie die Seite in einem Moment neu."
+    }
+  },
   "LeadMail": {
     "confirm": {
       "subject": "Bitte bestätigen Sie Ihre Einwilligung",

@@ -229,6 +229,12 @@ describe('(1) Genehmigung: aus einem Antrag wird ein Fachbetrieb', () => {
      * platform.partners hat dafür bewusst keine Spalten (B16-1). Eine Kopie wäre eine zweite Fassung
      * derselben Angabe, die ab dem ersten Korrekturformular auseinanderläuft — und die Adresse gäbe
      * es dann dreifach (Antrag, Partner, Konto). Erreichbar bleibt sie über application_id.
+     *
+     * Die Liste wird bei jeder neuen Spalte NACHGEZOGEN, nicht durch eine Teilmengen-Prüfung
+     * ersetzt: Sie ist die Absicherung dagegen, dass eine Kontaktangabe unbemerkt hierher wandert,
+     * und eine „enthält mindestens"-Prüfung könnte genau das nicht mehr fangen. Zuletzt ergänzt in
+     * B16-4b um `notified_at` (der Benachrichtigungsvermerk über den Portalzugang — ein
+     * Betriebsvermerk, keine Kontaktangabe).
      */
     const columns = await sql<{ column_name: string }>(
       `select column_name from information_schema.columns
@@ -242,6 +248,7 @@ describe('(1) Genehmigung: aus einem Antrag wird ein Fachbetrieb', () => {
       'created_at',
       'display_name',
       'is_active',
+      'notified_at',
       'slug',
       'updated_at',
       'user_id',

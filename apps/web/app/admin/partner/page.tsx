@@ -2,7 +2,14 @@ import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import { isCurrentUserAdmin } from '@/lib/admin/guard'
 import { Container, Num } from '@/components/ui/layout'
-import { AdminError, AdminPanel, AdminSection, Pill, formatDate } from '@/components/admin/ui'
+import {
+  AdminError,
+  AdminPanel,
+  AdminSection,
+  Pill,
+  formatDate,
+  formatDateTime,
+} from '@/components/admin/ui'
 import { ActionButton } from '@/components/admin/action-button'
 import {
   CreatePartnerForm,
@@ -11,7 +18,7 @@ import {
   ReferralLink,
 } from '@/components/admin/partner-forms'
 import { contactPersonLabel, readPartnerList } from '@/lib/admin/partners'
-import { setPartnerActiveAction } from '@/lib/admin/partners-actions'
+import { notifyPartnerAction, setPartnerActiveAction } from '@/lib/admin/partners-actions'
 import { partnerHref } from '@/lib/leads/partner'
 import { absoluteUrl } from '@/lib/site'
 
@@ -148,6 +155,18 @@ export default async function AdminPartnersPage() {
                         <dd className="text-text">{partner.account_email ?? '—'}</dd>
                       </div>
                       <div>
+                        {/*
+                          B16-4b: OB und WANN der Betrieb über seinen Portalzugang informiert
+                          wurde. Ohne diese Angabe sehen „wurde informiert und meldet sich nicht"
+                          und „hat nie eine Mail bekommen" identisch aus — ein Fachbetrieb, von dem
+                          nichts kommt —, verlangen aber gegensätzliches Handeln.
+                        */}
+                        <dt className="text-caption text-text-muted">Benachrichtigt</dt>
+                        <dd className="text-text">
+                          {partner.notified_at ? formatDateTime(partner.notified_at) : 'nie'}
+                        </dd>
+                      </div>
+                      <div>
                         <dt className="text-caption text-text-muted">Leads</dt>
                         <dd className="text-text">
                           <Num>{partner.lead_count}</Num>
@@ -195,6 +214,49 @@ export default async function AdminPartnersPage() {
                         }
                         showSuccess
                       />
+
+                      {/*
+                        B16-4b — „Benachrichtigung senden". Zwei reale Fälle: ein bei der
+                        Genehmigung fehlgeschlagener Versand, und ein VON HAND angelegter Betrieb
+                        (Raymann), der nie durch eine Genehmigung lief und dessen Konto erst
+                        nachträglich verknüpft wurde — ohne diese Schaltfläche gäbe es für ihn
+                        überhaupt keinen Weg, je von seinem Portal zu erfahren.
+
+                        OHNE VERKNÜPFTES KONTO GIBT ES SIE NICHT: Die Mail verweist auf ein Portal
+                        mit Anmeldung, und ohne Konto gibt es die nicht. An ihrer Stelle steht der
+                        Grund im Klartext — ein deaktivierter Knopf ohne Erklärung liesse jemanden
+                        raten, und ein gar nicht vorhandener sähe aus wie ein Fehler der Seite.
+                        Dieselbe Prüfung steht in der Action und in der Datenbank; die hier ist die
+                        sichtbare, die dort sind die wirksamen.
+                      */}
+                      {partner.user_id === null ? (
+                        <p className="max-w-sm text-caption text-text-muted">
+                          Benachrichtigung nicht möglich: An diesem Betrieb hängt kein Konto. Die
+                          Mail verweist auf das Partner-Portal, für das man sich anmelden muss —
+                          bitte zuerst unten ein Konto verknüpfen.
+                        </p>
+                      ) : (
+                        <ActionButton
+                          action={notifyPartnerAction}
+                          fields={{ slug: partner.slug }}
+                          label={
+                            partner.notified_at ? 'Benachrichtigung erneut senden' : 'Benachrichtigung senden'
+                          }
+                          pendingLabel="Wird versendet …"
+                          /*
+                           * Rückfrage NUR beim zweiten Mal: Eine erste Benachrichtigung ist genau
+                           * das, was der Betrieb erwartet. Eine zweite ist eine identische Mail in
+                           * einem Postfach, in dem die erste schon liegt — der einzige Grund dafür
+                           * ist ein Zustellproblem, und das soll eine bewusste Entscheidung sein.
+                           */
+                          confirm={
+                            partner.notified_at
+                              ? `„${partner.display_name}" wurde am ${formatDateTime(partner.notified_at)} bereits benachrichtigt. Dieselbe Mail noch einmal senden?`
+                              : undefined
+                          }
+                          showSuccess
+                        />
+                      )}
                     </div>
 
                     {/*

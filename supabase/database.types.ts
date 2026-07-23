@@ -1243,6 +1243,7 @@ export type Database = {
       }
       admin_list_partners: { Args: never; Returns: Json }
       admin_list_scrape_targets: { Args: never; Returns: Json }
+      admin_mark_partner_notified: { Args: { p_slug: string }; Returns: Json }
       admin_reject_partner_application: {
         Args: { p_id: string }
         Returns: Json
@@ -1366,6 +1367,7 @@ export type Database = {
         Args: { p_product: Database["platform"]["Enums"]["product_key"] }
         Returns: boolean
       }
+      get_my_partner: { Args: never; Returns: Json }
       get_my_profile: {
         Args: never
         Returns: {
