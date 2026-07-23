@@ -2,7 +2,7 @@ import createMiddleware from 'next-intl/middleware'
 import { NextResponse, type NextRequest } from 'next/server'
 import { routing } from './i18n/routing'
 import { updateSession } from './lib/supabase/middleware'
-import { ADMIN_HREF } from './lib/admin/config'
+import { ADMIN_HREF, ADMIN_PATHNAME_HEADER } from './lib/admin/config'
 
 const handleI18nRouting = createMiddleware(routing)
 
@@ -35,7 +35,18 @@ export async function middleware(request: NextRequest): Promise<Response> {
    * wurde. Deshalb: next-intl übersprungen, `updateSession` nicht.
    */
   if (request.nextUrl.pathname.startsWith(ADMIN_HREF)) {
-    return await updateSession(request, NextResponse.next({ request }))
+    /*
+     * Der angeforderte Pfad reist als Kopfzeile mit, damit die Zugangsschranke einen abgemeldeten
+     * Besucher MIT Rücksprungziel zum Admin-Eingang schicken kann (statt ihn nach dem Anmelden auf
+     * `/konto` abzusetzen). Begründung, warum es dafür eine Kopfzeile braucht und warum sie nicht
+     * fälschbar ist: `ADMIN_PATHNAME_HEADER` in `lib/admin/config.ts`.
+     *
+     * `headers.set` auf einer KOPIE der Anfrage-Kopfzeilen: ein vom Browser mitgeschickter Wert
+     * gleichen Namens wird dadurch überschrieben, nicht ergänzt.
+     */
+    const headers = new Headers(request.headers)
+    headers.set(ADMIN_PATHNAME_HEADER, request.nextUrl.pathname + request.nextUrl.search)
+    return await updateSession(request, NextResponse.next({ request: { headers } }))
   }
 
   const response = handleI18nRouting(request)
