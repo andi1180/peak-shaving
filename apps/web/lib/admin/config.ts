@@ -2,7 +2,12 @@
  * Konstanten des Admin-Bereichs (T4-4). Reines Konstanten-Modul ohne `server-only` und ohne
  * `next/*`-Import — es wird von der MIDDLEWARE (Edge-Runtime), von Server Components UND von
  * Client-Komponenten gelesen. Gleiche Rolle wie `lib/auth/config.ts` für den Auth-Bereich.
+ *
+ * Der Import aus `lib/auth/config` ist aus demselben Grund unbedenklich: jenes Modul ist ebenfalls
+ * rein. Es liefert die EINE Sanierung eines Rücksprungziels und den EINEN Parameternamen — beide
+ * hier nachzubauen wäre eine zweite Auslegung derselben Regel.
  */
+import { NEXT_PARAM, sanitizeNext } from '@/lib/auth/config'
 
 /**
  * Basispfad des Admin-Bereichs — OHNE Locale-Präfix. Die Route liegt bewusst außerhalb von
@@ -27,6 +32,52 @@ export const ADMIN_HREF = '/admin'
  * für dieselbe Handlung gibt.
  */
 export const ADMIN_ANMELDEN_HREF = '/admin/anmelden'
+
+/**
+ * Kopfzeile, über die die MIDDLEWARE dem Server den angeforderten Admin-Pfad mitteilt.
+ *
+ * ── WARUM ÜBERHAUPT EINE KOPFZEILE ──────────────────────────────────────────────────────────────
+ * Die Zugangsschranke sitzt in `isCurrentUserAdmin` (`lib/admin/guard.ts`) und wird aus einem
+ * LAYOUT und aus elf Seiten heraus aufgerufen. Keiner dieser Aufrufer kennt den angeforderten Pfad:
+ * ein Layout bekommt ihn nicht als Prop, und Next stellt ihn einer Server Component auch sonst
+ * nirgends bereit — gemessen an einem Route Handler unter `/admin`, der die vollständige
+ * Kopfzeilenliste ausgegeben hat (`accept`, `host`, `user-agent`, `x-forwarded-*` — mehr nicht).
+ * Die Middleware läuft ohnehin für jeden `/admin`-Pfad; sie ist die einzige Stelle, die ihn kennt.
+ *
+ * ── SIE IST NICHT FÄLSCHBAR ─────────────────────────────────────────────────────────────────────
+ * Die Middleware SETZT den Wert auf einer Kopie der Anfrage-Kopfzeilen und überschreibt damit einen
+ * etwaigen mitgeschickten. Der Leser prüft ihn trotzdem noch einmal (`adminNextTarget`) — was daraus
+ * folgen könnte, wäre ohnehin nur eine Weiterleitung auf einen anderen internen Admin-Pfad, und
+ * über den Zugang entscheidet allein die Rollenprüfung dahinter.
+ */
+export const ADMIN_PATHNAME_HEADER = 'x-admin-pathname'
+
+/**
+ * Das Rücksprungziel für den Admin-Eingang: der angeforderte Admin-Pfad, oder `/admin`.
+ *
+ * Zwei Prüfungen, beide mit eigenem Grund:
+ *   - `sanitizeNext` (dieselbe Funktion wie in `signInAction`, kein zweites Open-Redirect-Verfahren),
+ *   - und darüber hinaus MUSS das Ziel im Admin-Bereich liegen. Dieser Eingang existiert, damit ein
+ *     Admin im Verwaltungsbereich landet; ein Ziel ausserhalb wäre entweder ein Irrtum oder ein
+ *     untergeschobener Wert, und in beiden Fällen ist `/admin` die richtige Antwort.
+ *
+ * Der Eingang selbst ist ausgenommen — als Ziel wäre er eine Schleife auf sich selbst.
+ */
+export function adminNextTarget(pathname: string | null | undefined): string {
+  const next = sanitizeNext(pathname, ADMIN_HREF)
+  if (next === ADMIN_ANMELDEN_HREF || next.startsWith(`${ADMIN_ANMELDEN_HREF}?`)) return ADMIN_HREF
+  return next === ADMIN_HREF || next.startsWith(`${ADMIN_HREF}/`) || next.startsWith(`${ADMIN_HREF}?`)
+    ? next
+    : ADMIN_HREF
+}
+
+/** Der Admin-Eingang samt Rücksprungziel. Ist das Ziel ohnehin `/admin`, entfällt der Parameter —
+ *  dasselbe Muster wie im Auth-Callback, der `next` nur bei abweichendem Ziel anhängt. */
+export function adminLoginHref(pathname: string | null | undefined): string {
+  const next = adminNextTarget(pathname)
+  if (next === ADMIN_HREF) return ADMIN_ANMELDEN_HREF
+  return `${ADMIN_ANMELDEN_HREF}?${new URLSearchParams({ [NEXT_PARAM]: next }).toString()}`
+}
 
 /**
  * Die Produkte, für die ein Gutscheincode ausgestellt werden kann — Spiegel des Postgres-Enums

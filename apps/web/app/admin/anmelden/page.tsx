@@ -4,7 +4,8 @@ import { EmblemImage } from '@/components/brand/emblem-image'
 import { WordmarkA } from '@/components/brand/wordmark'
 import { Container } from '@/components/ui/layout'
 import { AdminLoginForm } from '@/components/admin/login-form'
-import { ADMIN_HREF } from '@/lib/admin/config'
+import { ADMIN_HREF, adminNextTarget } from '@/lib/admin/config'
+import { NEXT_PARAM } from '@/lib/auth/config'
 import { createClient } from '@/lib/supabase/server'
 
 /*
@@ -55,11 +56,28 @@ export const metadata: Metadata = {
   title: 'Admin-Anmeldung — COOLiN ENERGY',
 }
 
-export default async function AdminLoginPage() {
+export default async function AdminLoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ next?: string }>
+}) {
+  /*
+   * Das Rücksprungziel kommt von der Zugangsschranke (`lib/admin/guard.ts`): Wer abgemeldet
+   * `/admin/leads` aufruft, soll nach dem Anmelden DORT landen und nicht auf der Übersicht.
+   * `adminNextTarget` prüft den Wert (intern, innerhalb `/admin`); `signInAction` prüft ihn ein
+   * zweites Mal, weil das versteckte Feld im Browser frei änderbar ist.
+   */
+  const next = adminNextTarget((await searchParams)[NEXT_PARAM])
+
   const supabase = await createClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
+  /*
+   * Eine bestehende Sitzung geht auf `/admin` — ohne Ansehen der Rolle und BEWUSST ohne das
+   * Rücksprungziel: Wer hier mit eigener Sitzung landet, hat die Adresse selbst aufgerufen; ein
+   * mitgeschicktes `next` wäre dann nicht seine Absicht, sondern ein Wert aus der URL.
+   */
   if (user) redirect(ADMIN_HREF)
 
   return (
@@ -82,7 +100,7 @@ export default async function AdminLoginPage() {
           Interner Zugang für COOLiN ENERGY. Bitte melden Sie sich mit Ihrem Konto an.
         </p>
         <div className="mt-8 rounded-lg border border-line bg-surface p-6 sm:p-8">
-          <AdminLoginForm next={ADMIN_HREF} />
+          <AdminLoginForm next={next} />
         </div>
       </div>
     </Container>
