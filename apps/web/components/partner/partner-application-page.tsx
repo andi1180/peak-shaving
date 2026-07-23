@@ -1,9 +1,20 @@
-import { ArrowRight } from 'lucide-react'
+import { ArrowDown, ArrowRight } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Link } from '@/i18n/navigation'
+import { Button } from '@/components/ui/button'
 import { Container, Eyebrow, Section } from '@/components/ui/layout'
 import { PartnerApplicationForm } from '@/components/partner/partner-application-form'
 import { PARTNER_PORTAL_HREF } from '@/lib/partner-portal/config'
+
+/**
+ * Sprungmarke des Bewerbungsformulars.
+ *
+ * Das Formular steht weit unterhalb von Einleitung und Erklärabschnitt und wurde deshalb
+ * übersehen. Der Anker liegt an der Überschrift des Formularabschnitts; der Sprung landet dank
+ * `scroll-padding-top` (`app/globals.css`, einmal für die ganze Seite gesetzt) unter dem
+ * fixierten Header und nicht dahinter — deshalb hier KEIN eigenes `scroll-mt`.
+ */
+const FORM_ANCHOR = 'bewerbung'
 
 /**
  * `/partner-werden` — die öffentliche Bewerbungsseite für Fachbetriebe (B16-3, Modell A).
@@ -57,27 +68,48 @@ export function PartnerApplicationPage({
         <p className="mt-5 max-w-prose text-lead text-text">{t('lead')}</p>
 
         {/*
-          ── DER ZWEIG FÜR BESTEHENDE PARTNER (B16-Einstieg) ────────────────────────────────────────────
-          Steht VOR dem Formular und weit oben, weil diese Seite seit B16-Einstieg der EINZIGE öffentliche
-          Einstieg für BEIDE Gruppen ist: Der Knopf rechts oben führt hierher, und das Partner-
-          Portal hängt in keinem Menü (es ist `noindex` und war bis hierher nur über den Link in
-          der Freischaltungsmail erreichbar, s. `lib/routes.ts`). Ein Fachbetrieb, der seine Mail
-          nicht mehr findet, müsste sich sonst an einem Bewerbungsformular vorbeisuchen, das ihn
-          gar nicht mehr meint — und im Zweifel ein zweites Mal bewerben.
+          ── ZWEI WEGE, EINE RANGFOLGE ─────────────────────────────────────────────────────────────
+          Diese Seite ist seit B16-Einstieg der EINZIGE öffentliche Einstieg für BEIDE Gruppen: Der
+          Knopf rechts oben führt hierher, und das Partner-Portal hängt in keinem Menü (es ist
+          `noindex` und war bis dahin nur über den Link in der Freischaltungsmail erreichbar,
+          s. `lib/routes.ts`). Ein Fachbetrieb, der seine Mail nicht mehr findet, müsste sich sonst
+          an einem Bewerbungsformular vorbeisuchen, das ihn gar nicht mehr meint — und im Zweifel
+          ein zweites Mal bewerben.
 
-          Bewusst KEIN zweiter Knopf: Die Aufgabe dieser Seite bleibt die Bewerbung. Der Zweig ist
-          ein Hinweis mit Textlink, kein konkurrierender Handlungsaufruf.
+          Der Zweig für bestehende Partner steht deshalb weiterhin hier und unverändert. Er bekommt
+          aber den Sprung zur Bewerbung ZUR SEITE gestellt: Das Formular liegt unterhalb von
+          Einleitung und Erklärabschnitt und wurde ohne diesen Weg übersehen — und ein alleinstehender
+          Anmelde-Kasten direkt unter der Einleitung liest sich, als sei die Anmeldung der Zweck
+          einer Seite, die „Partner werden" heißt.
+
+          Die Rangfolge steckt in der Gestaltung, nicht in der Reihenfolge allein: Die Bewerbung ist
+          ein gefüllter Akzent-Knopf (der primäre Weg), die Anmeldung bleibt der Textlink in einem
+          zurückgenommenen Kasten (der sekundäre).
         */}
-        <p className="mt-8 inline-flex flex-wrap items-baseline gap-x-2 gap-y-1 rounded-md border border-line bg-surface-sunken px-4 py-3 text-small text-text-muted">
-          <span>{t('existing.text')}</span>
-          <Link
-            href={PARTNER_PORTAL_HREF}
-            className="inline-flex items-center gap-1 font-medium text-accent hover:text-accent-hover"
-          >
-            {t('existing.link')}
-            <ArrowRight className="h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden="true" />
-          </Link>
-        </p>
+        <div className="mt-8 flex flex-col items-start gap-4 sm:flex-row sm:flex-wrap sm:items-center">
+          <Button asChild size="lg">
+            {/*
+              Reiner Ankersprung auf derselben Seite — deshalb ein natives <a> und NICHT das
+              locale-bewusste `Link`: Es gibt keine Route zu übersetzen, und ein Fragment durch das
+              Routing zu schicken hieße, eine Navigation zu behaupten, die keine ist.
+            */}
+            <a href={`#${FORM_ANCHOR}`}>
+              {t('applyCta')}
+              <ArrowDown className="h-4 w-4 shrink-0" strokeWidth={2} aria-hidden="true" />
+            </a>
+          </Button>
+
+          <p className="inline-flex flex-wrap items-baseline gap-x-2 gap-y-1 rounded-md border border-line bg-surface-sunken px-4 py-3 text-small text-text-muted">
+            <span>{t('existing.text')}</span>
+            <Link
+              href={PARTNER_PORTAL_HREF}
+              className="inline-flex items-center gap-1 font-medium text-accent hover:text-accent-hover"
+            >
+              {t('existing.link')}
+              <ArrowRight className="h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden="true" />
+            </Link>
+          </p>
+        </div>
       </Container>
 
       <Section tone="alt" className="border-t border-line">
@@ -111,7 +143,9 @@ export function PartnerApplicationPage({
           */}
           <div className="grid gap-8 lg:grid-cols-5 lg:gap-12">
             <div className="lg:col-span-3">
-              <h2 className="text-h2 text-ink">{t('formTitle')}</h2>
+              <h2 id={FORM_ANCHOR} className="text-h2 text-ink">
+                {t('formTitle')}
+              </h2>
               <p className="mt-3 max-w-prose text-body text-text-muted">{t('formIntro')}</p>
               <div className="mt-6">
                 <PartnerApplicationForm sessionEmail={sessionEmail} />
