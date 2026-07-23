@@ -23,15 +23,14 @@
  *                    Fehlt er, sendet dieses Modul NICHT und meldet
  *                    `not_configured` — es crasht nicht (lokal/Preview normal).
  *
- *   RESEND_FROM      Pflicht. MUSS auf einer in Resend VERIFIZIERTEN Domain
- *                    liegen, sonst lehnt Resend die Sendung ab (403).
- *                    Beispiel:  COOLiN ENERGY <noreply@coolin.at>
- *                    NICHT die Adresse des Absenders eintragen — dessen Adresse
- *                    steht als `reply-to` (s. u.), nicht als `from`. Ein „from"
- *                    mit fremder Domain scheitert an SPF/DKIM.
- *
  *   RESEND_TO        Optional. Default: COMPANY.email (energy@coolin.at).
  *                    Nur setzen, wenn intern anders zugestellt werden soll.
+ *
+ * Der ABSENDER ist keine Umgebungsvariable mehr, sondern `MAIL_FROM`
+ * (`lib/mail/send.ts`) — die eine Stelle, an der er für ALLE Mails dieses
+ * Systems definiert ist, samt Begründung für `energy@coolin.at` statt
+ * `noreply@`. Die Adresse des Formular-Absenders steht als `reply-to` (s. u.),
+ * nie als `from`: ein „from" mit fremder Domain scheitert an SPF/DKIM.
  *
  * Danach: Domain in Resend verifizieren (DNS: SPF + DKIM), einmal echt testen.
  * Der Sendetest gehört zu Andreas mit gesetztem Key — nicht zu Claude Code.
@@ -41,6 +40,7 @@
 import 'server-only'
 import { COMPANY } from '@/lib/nav'
 import { serverEnv } from '@/lib/env.server'
+import { MAIL_FROM } from '@/lib/mail/send'
 import type { KontaktInput } from './schema'
 
 /**
@@ -218,20 +218,18 @@ export async function deliverKontakt(
   attribution: KontaktAttribution = {},
 ): Promise<DeliveryOutcome> {
   const apiKey = serverEnv.RESEND_API_KEY
-  const from = serverEnv.RESEND_FROM
   const to = serverEnv.RESEND_TO ?? DEFAULT_TO
 
   /*
-   * Ohne Key ODER ohne Absender ist eine Sendung physisch unmöglich (Resend
-   * verlangt beides). Deshalb hier EIN Zustand, nicht zwei: Für den Nutzer ist
-   * die Folge identisch. Die Server-Warnung nennt trotzdem, was genau fehlt —
-   * sie ist für Andreas, nicht für den Absender.
+   * Ohne Key ist eine Sendung physisch unmöglich. Seit der Absender im Code
+   * steht (`MAIL_FROM`), ist das der einzige Wert, der noch fehlen kann — die
+   * frühere zweite Bedingung (`RESEND_FROM`) ist damit gegenstandslos, nicht
+   * gelockert.
    */
-  if (!apiKey || !from) {
-    const missing = [!apiKey && 'RESEND_API_KEY', !from && 'RESEND_FROM'].filter(Boolean).join(', ')
+  if (!apiKey) {
     console.warn(
-      `[kontakt] Resend nicht konfiguriert — ${missing} fehlt. Die Anfrage wurde NICHT zugestellt. ` +
-        `Env in Vercel setzen (Details: lib/kontakt/deliver.ts, apps/web/.env.example).`,
+      `[kontakt] Resend nicht konfiguriert — RESEND_API_KEY fehlt. Die Anfrage wurde NICHT ` +
+        `zugestellt. Env in Vercel setzen (Details: lib/kontakt/deliver.ts, apps/web/.env.example).`,
     )
     return { ok: false, reason: 'not_configured' }
   }
@@ -251,7 +249,8 @@ export async function deliverKontakt(
     const resend = new Resend(apiKey)
 
     const { data, error } = await resend.emails.send({
-      from,
+      // Derselbe Absender wie alle übrigen Mails dieses Systems (`lib/mail/send.ts`).
+      from: MAIL_FROM,
       to,
       /*
        * DER PUNKT DER GANZEN MAIL: Antworten geht aus dem Postfach heraus, ohne

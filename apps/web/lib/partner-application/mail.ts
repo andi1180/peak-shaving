@@ -89,14 +89,25 @@ export async function sendPartnerApplicationNotification(
   const zeitstempel = TIMESTAMP.format(new Date())
   const name = `${input.firstName} ${input.lastName}`.trim()
 
+  /*
+   * ZWEI BLÖCKE, WEIL SIE ZWEI VERSCHIEDENE DINGE SIND — dieselbe Trennung wie in
+   * `lib/kontakt/deliver.ts`: Was der BEWERBER angegeben hat, steht hervorgehoben; was UNSER SYSTEM
+   * dazu vermerkt hat, steht neutral daneben. Wer die Mail liest, entscheidet über eine
+   * Geschäftsbeziehung — er muss sehen können, welche Zeile eine fremde Behauptung ist und welche
+   * eine eigene Feststellung. Bis hierher trug „Bewerbung erfolgte" und „Eingegangen" dieselbe
+   * Auszeichnung wie der Firmenname.
+   */
   const fields: Array<[string, string]> = [
     ['Betrieb', input.company],
     ['Ansprechperson', name],
     ['E-Mail', input.email],
     ['Telefon', input.phone ?? EMPTY],
     ['Website', input.website ?? EMPTY],
-    // Sie erklärt, warum die Zuordnung so ist, wie sie ist — und sie ist die einzige Angabe, die
-    // nicht aus dem Formular stammt.
+  ]
+
+  const meta: Array<[string, string]> = [
+    // Erklärt, warum die Zuordnung so ist, wie sie ist — die einzige Angabe, die nicht aus dem
+    // Formular stammt.
     ['Bewerbung erfolgte', input.hasSession ? 'aus einem angemeldeten Konto' : 'ohne Anmeldung'],
     ['Eingegangen', zeitstempel],
   ]
@@ -105,6 +116,7 @@ export async function sendPartnerApplicationNotification(
     'Neue Partner-Bewerbung über coolin.at',
     '',
     ...fields.map(([label, value]) => `${label}: ${value}`),
+    ...meta.map(([label, value]) => `${label}: ${value}`),
     '',
     'Was der Betrieb schreibt:',
     input.message,
@@ -131,10 +143,21 @@ export async function sendPartnerApplicationNotification(
     )
     .join('')
 
+  // Neutral gesetzt, ohne `<strong>` — wie die „Eingegangen"-Zeile im Kontaktformular (s. o.).
+  const metaRows = meta
+    .map(
+      ([label, value]) =>
+        `<tr>` +
+        `<td style="padding:4px 12px 4px 0;color:#525252;white-space:nowrap">${escapeHtml(label)}</td>` +
+        `<td style="padding:4px 0;color:#262626">${escapeHtml(value)}</td>` +
+        `</tr>`,
+    )
+    .join('')
+
   const html = [
     `<div style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;color:#262626">`,
     `<h2 style="margin:0 0 16px;font-size:18px;color:#171717">Neue Partner-Bewerbung über coolin.at</h2>`,
-    `<table cellpadding="0" cellspacing="0" border="0" style="margin:0 0 16px">${rows}</table>`,
+    `<table cellpadding="0" cellspacing="0" border="0" style="margin:0 0 16px">${rows}${metaRows}</table>`,
     `<p style="margin:0 0 6px;color:#525252">Was der Betrieb schreibt:</p>`,
     // `white-space:pre-wrap` erhält die Absätze des Absenders, ohne seinen Text in Markup zu
     // übersetzen — jede Übersetzung wäre eine Interpretation und ein Einfallstor (s. escapeHtml).

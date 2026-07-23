@@ -311,9 +311,9 @@ function StaleContractReminders({ health }: { health: ContractReminderHealth | n
             (älteste vom <Num>{formatDateTime(health.oldestAttemptedAt)}</Num>)
           </>
         ) : null}
-        . Der Versand wird NICHT automatisch wiederholt — das wäre eine Schleife. Zu prüfen: sind{' '}
-        <code>RESEND_API_KEY</code> und <code>RESEND_FROM</code> gesetzt, und hat Resend die Mails
-        abgelehnt? Der Grund steht je Fall auf der Detailseite des Leads.
+        . Der Versand wird NICHT automatisch wiederholt — das wäre eine Schleife. Zu prüfen: ist{' '}
+        <code>RESEND_API_KEY</code> gesetzt, und hat Resend die Mails abgelehnt? Der Grund steht je
+        Fall auf der Detailseite des Leads.
       </p>
     </div>
   )
