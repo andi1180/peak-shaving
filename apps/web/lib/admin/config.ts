@@ -13,6 +13,22 @@
 export const ADMIN_HREF = '/admin'
 
 /**
+ * Der eigene Anmelde-Eingang des Admin-Bereichs (B17) — die EINZIGE Route unterhalb von `/admin`,
+ * die anonym erreichbar ist (sie liegt deshalb ausserhalb von `app/admin/(intern)/`).
+ *
+ * ── ER ERHÖHT DIE SICHERHEIT NICHT, ER SCHAFFT KLARHEIT ──────────────────────────────────────────
+ * Es entsteht KEIN zweites Authentifizierungssystem: derselbe Supabase-Auth-Bestand, dieselbe
+ * Sitzung, dieselbe Server Action (`signInAction`, T4-2) und dieselbe Rollenprüfung
+ * (`platform.user_roles` über `public.is_admin`). Was hier neu ist, ist ausschliesslich ein eigener
+ * EINGANG und ein eigener RAHMEN. Wer diese Adresse kennt, hat dadurch keinen Vorteil — der Schutz
+ * liegt unverändert in der Rollenprüfung hinter der Anmeldung.
+ *
+ * Slug deutsch wie `/anmelden` (`lib/auth/config.ts`), damit es im ganzen System eine Schreibweise
+ * für dieselbe Handlung gibt.
+ */
+export const ADMIN_ANMELDEN_HREF = '/admin/anmelden'
+
+/**
  * Die Produkte, für die ein Gutscheincode ausgestellt werden kann — Spiegel des Postgres-Enums
  * `platform.product_key`. Weicht die Liste ab, lehnt die Datenbank den Wert ohnehin ab; sie steht
  * hier, damit das Formular ein Auswahlfeld statt eines freien Textfelds zeigen kann.

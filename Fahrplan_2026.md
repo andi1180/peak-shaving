@@ -40,7 +40,7 @@ Reaktivierbar, falls sich ein Bedarf jenseits des E-Control-Angebots zeigt (z. B
 
 ---
 
-## Bauabschnitte (neue Nummerierung B0–B16)
+## Bauabschnitte (neue Nummerierung B0–B17)
 
 ### Stand je Bauabschnitt
 
@@ -65,6 +65,7 @@ Mit inzwischen zwölf gebauten Teilabschnitten ist aus der Beschreibung unten so
 | **B14** Analyse-Persistenz Kalkulator | **gebaut** | B14-1 Ablage · B14-2 Export/Upload/Ansicht |
 | **B15** Echtzeit-Datenpfad | **offen** | ab Q2 2027 |
 | **B16** Partner-Attribution | **teilweise gebaut** | B16-1 Datenbank + B16-2 Landingpage/Lead-Erfassung/Partner-Stammdaten + B16-3 öffentliche Bewerbung mit Kontoerstellung und Prüf-Eingang + B16-4a Genehmigung samt Partner-Anlage und Kontoverknüpfung + B16-4b Partner-Portal, E-Mail-Vorlagen und Genehmigungsmail gebaut · **B16-5 und B16-6 offen** (Partner-Statistik, Partner-Sicht auf Leads) |
+| **B17** Admin-Portal | **gebaut** | eigener Anmelde-Eingang `/admin/anmelden` + eigener Rahmen für alle Admin-Seiten · **kein zweites Authentifizierungssystem**, kein Folgeschritt geplant |
 
 ### Die B-Nummern sind Namen, keine Positionen
 
@@ -159,6 +160,18 @@ Grund: Die Bezeichner sind außerhalb dieses Dokuments in Gebrauch — in bereit
   **Die zweite Entscheidung: die Anonymisierung behandelt die beiden Spalten unterschiedlich.** `referred_by_text` wird genullt und ist danach unveränderlich (Freitext einer Person, kann Namen Dritter enthalten). `partner_slug` ÜBERLEBT und steht bewusst nicht im Guard: ohne E-Mail, Name und PLZ ist „kam über Partner X" keine personenbezogene Angabe mehr, und die Partner-Statistik muss die werbliche Aufbewahrungsfrist von 24 Monaten überdauern — sonst verlöre ein Fachbetrieb rückwirkend den Nachweis über die von ihm gebrachten Kontakte.
 
   **Kein Cookie, kein localStorage, kein sessionStorage.** Die Attribution läuft ausschliesslich über den URL-Pfad und ein Formularfeld. Eine Speicherung auf dem Endgerät wäre nach §165 TKG einwilligungspflichtig und brächte einen Cookie-Banner für die gesamte Domain — das beendete die bestehende, cookielose Analytics-Architektur (offene Entscheidung 5). Diese Festlegung gilt auch für B16-2/B16-3.
+
+- **B17** Admin-Portal — **GEBAUT (27.07.2026), einziger Schritt, kein Folgeschritt geplant.** Der Verwaltungsbereich bekommt einen eigenen Anmelde-Eingang (`/admin/anmelden`) und einen eigenen Rahmen (Kopfzeile mit COOLiN-Logo, Kennzeichnung „Admin-Bereich", angemeldetes Konto, Abmelden, Navigation über die fünf bestehenden Bereiche). **Keine Migration, keine Änderung an einem `admin_*`-Wrapper und an keinem Grant** — reine Anwendungsarbeit in `apps/web`; `apps/website`, `packages/**` und `supabase/` mit 0 Zeilen Diff, ebenso `/anmelden`, `/konto`, `/registrieren`, `/partner-werden` und `/partner-portal`. 10 neue Anwendungstests (266 → **276**), DB-Gate unverändert.
+
+  **Die tragende Entscheidung: es entsteht KEIN zweites Authentifizierungssystem.** Derselbe Supabase-Auth-Bestand, dieselbe Sitzung, dieselbe Server Action (`signInAction` aus T4-2) und dieselbe Rollenprüfung aus T4 (`platform.user_roles` über `public.is_admin`). Neu sind ausschliesslich ein eigener **Eingang** und ein eigener **Rahmen**. **Eine eigene Anmelde-URL erhöht die Sicherheit nicht — sie schafft Klarheit; der Schutz liegt unverändert in der Rollenprüfung.** Konkreter Nutzen: Wer sich dort anmeldet, landet im Verwaltungsbereich statt auf der Kontoseite, und wer sich abmeldet, kommt an denselben Eingang zurück statt auf die Marketing-Startseite.
+
+  **Die Rollenvergabe bleibt dauerhaft manuell in Supabase — ausdrücklich keine Oberfläche dafür.** Das ist eine Festlegung, keine Vertagung: es gibt bewusst keinen Weg über die Oberfläche, Admin zu werden, auch nicht für bestehende Admins. Der Eingang trägt folgerichtig keinen Verweis auf Registrierung, Partnerprogramm oder Passwort-Zurücksetzen; er ist `noindex, nofollow` und steht in keiner sitemap (die Routenliste in `lib/routes.ts` liest ausschliesslich `app/(site)/[locale]/` — `/admin` lag noch nie darin).
+
+  **Ein Konto ohne Admin-Rolle bekommt am Eingang keine Sonderbehandlung.** Die Seite prüft gar keine Rolle: eine bestehende Sitzung wird ohne Ansehen auf `/admin` weitergeleitet, und dort entscheidet der unveränderte Guard — neutrale „Kein Zugriff"-Seite, neutraler Seitentitel, kein Hinweis darauf, dass eine Rolle fehlt oder dass es hier etwas zu haben gäbe.
+
+  **⚠ GEMESSEN, NICHT ABGELEITET — der Grund für die zwei getrennten Root-Layouts.** Der naheliegende Aufbau (ein gemeinsames Root-Layout für `/admin`, die Zugangsschranke eine Ebene tiefer in einer Route-Group) war gebaut und funktionierte. Gegen den ausgelieferten Inhalt geprüft, hat Next dabei in das **anonym** ausgelieferte HTML des Eingangs zusätzlich das Skript-Bündel der Admin-Übersicht geschrieben (`chunks/app/admin/(intern)/page-….js`, darin die Namen ihrer Server Actions). Ein Zugang entsteht dadurch nicht — die Actions lehnen ohne Sitzung ab, die DB-Wrapper prüfen `platform.is_admin()` selbst —, aber es ist genau die Struktur-Auskunft, die dieser Bereich nicht geben soll. Gegenprobe: keine öffentliche Seite tut das. Antwort: zwei getrennte Root-Layouts ohne gemeinsames Elternteil; danach lädt der Eingang nur noch seine eigenen zwei Bündel. Aus demselben Grund sind die Namen der Admin-Bereiche aus der Client-Navigation in ein serverseitiges Modul gewandert. Beides ist als Test gepinnt (`apps/web/lib/admin/route-protection.test.ts`), damit der Rückbau nicht wie eine Aufräumarbeit aussieht.
+
+  **⚠ Bewusst NICHT angefasst, offen für eine spätere Entscheidung:** Ein anonymer Aufruf einer geschützten Admin-Route leitet weiterhin auf die KUNDEN-Anmeldung `/anmelden` um, nicht auf den neuen Eingang. Diese Umleitung steckt in `lib/admin/guard.ts`, und dessen Verhalten war ausdrücklich unverändert zu lassen. Folge: Wer ein Lesezeichen auf `/admin/leads` hat und abgemeldet ist, landet nach der Anmeldung auf `/konto`. Der Fix wäre eine Zeile im Guard.
 
 ---
 
