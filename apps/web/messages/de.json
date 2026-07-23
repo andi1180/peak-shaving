@@ -33,7 +33,7 @@
     "konto": "Mein Konto",
     "stromCheck": "Strom-Monitor",
     "kontakt": "Kontakt",
-    "cta": "Kalkulator",
+    "partner": "Partner",
     "bau": "Bau & Baunebengewerbe",
     "hotellerieGastronomie": "Hotellerie & Gastronomie",
     "handwerk": "Handwerk",
@@ -1084,6 +1084,12 @@
       "title": "In 30 Minuten klären wir, wo Ihr größter Hebel liegt.",
       "lead": "Unverbindliches Erstgespräch inklusive Mini-Screening zu Verbrauch, Lastspitzen, Standorten und Zielbild.",
       "cta": "Termin anfragen"
+    },
+    "Partner": {
+      "//": "ARBEITSSTAND (B16-Einstieg): das Partner-Banner am Ende der Startseite. Endgueltige Formulierung von Andreas/Martina. Bindende Leitplanken wie bei PartnerBewerbung.*: KEIN Provisions-, Umsatz- oder Ersparnisversprechen, KEINE Zusage ueber die Bearbeitungsdauer, KEINE Angabe zur Anzahl bestehender Partner (es gibt noch keine), und COOLiN tritt als unabhaengiger Pruefer auf, nicht als Verkaeufer. Die erste Zeile nennt bewusst den ADRESSATEN und nicht das Angebot — ein Gewerbekunde soll in einem halben Satz erkennen, dass er nicht gemeint ist.",
+      "title": "Sie sind Elektro- oder PV-Betrieb?",
+      "text": "Empfehlen Sie Ihren Bestandskunden eine unabhängige Lastspitzen-Analyse — und übernehmen Sie die Montage.",
+      "cta": "Partner werden"
     }
   },
   "PeakShaving": {
@@ -1170,7 +1176,7 @@
       "eyebrow": "Peak-Shaving Kalkulator",
       "title": "Vom Lastgang zur belastbaren Speicherempfehlung",
       "lead": "Sie laden Ihre 15-Minuten-Lastgangdaten hoch und erhalten keine Faustformel, sondern eine durchgerechnete Entscheidungsgrundlage: welcher Speicher, welche Ersparnis, welche Amortisation — und wie die Zahl zustande kommt.",
-      "badge": "Derzeit frei zugänglich",
+      "badge": "Zugang auf Anfrage",
       "cta": "Kalkulator starten",
       "ctaHint": "Läuft direkt hier auf coolin.at"
     },
@@ -1581,7 +1587,9 @@
       "passwordHint": "Mindestens 8 Zeichen.",
       "submitting": "Bitte warten …",
       "showPassword": "Passwort anzeigen",
-      "hidePassword": "Passwort verbergen"
+      "hidePassword": "Passwort verbergen",
+      "partnerHint": "Sie sind Elektro- oder PV-Betrieb?",
+      "partnerLink": "Partner werden"
     },
     "errors": {
       "invalidCredentials": "E-Mail-Adresse oder Passwort ist nicht korrekt.",
@@ -1835,12 +1843,16 @@
     "note": "Ihre Anfrage ist unverbindlich. Wir geben Ihre Angaben nicht an Dritte weiter."
   },
   "PartnerBewerbung": {
-    "//": "ARBEITSSTAND (B16-3). Gerüst und Platzhaltertexte stammen aus dem Bau — die endgültigen Formulierungen kommen von Andreas/Martina. Sie enthalten AUSDRÜCKLICH KEIN Provisions- oder Umsatzversprechen (das Modell ist das erste Zugriffsrecht auf die Montage, keine Provision) und KEINE Zusage über die Bearbeitungsdauer — eine Frist, die niemand zugesagt hat, wird trotzdem gemessen. Vor der ersten echten Bewerbung ersetzen. Diese Seite richtet sich an FACHBETRIEBE, die Partner werden wollen — nicht zu verwechseln mit Partner.* (B16-2), das die Landingpage für die KUNDEN eines bereits aufgenommenen Betriebs beschreibt.",
+    "//": "ARBEITSSTAND (B16-3). Gerüst und Platzhaltertexte stammen aus dem Bau — die endgültigen Formulierungen kommen von Andreas/Martina. Sie enthalten AUSDRÜCKLICH KEIN Provisions- oder Umsatzversprechen (das Modell ist das erste Zugriffsrecht auf die Montage, keine Provision) und KEINE Zusage über die Bearbeitungsdauer — eine Frist, die niemand zugesagt hat, wird trotzdem gemessen. Vor der ersten echten Bewerbung ersetzen. Diese Seite richtet sich an FACHBETRIEBE, die Partner werden wollen — nicht zu verwechseln mit Partner.* (B16-2), das die Landingpage für die KUNDEN eines bereits aufgenommenen Betriebs beschreibt. NACHTRAG B16-Einstieg: existing.* ist der Zweig für BEREITS aufgenommene Partner. Er muss erhalten bleiben, solange diese Seite der einzige oeffentliche Einstieg fuer beide Gruppen ist — das Partner-Portal haengt in keinem Menue.",
     "metaTitle": "Partner werden — für Elektro- und Installationsbetriebe",
     "metaDescription": "Sie betreuen Gewerbebetriebe und wollen ihnen eine unabhängige Prüfung ihres Stromverbrauchs anbieten? Bewerben Sie sich als Fachpartner von COOLiN ENERGY.",
     "eyebrow": "Für Fachbetriebe",
     "title": "Partner von COOLiN ENERGY werden",
     "lead": "Sie betreuen Gewerbebetriebe elektrotechnisch und sehen dort täglich, wo Stromkosten entstehen. Wir rechnen für diese Betriebe aus, welcher Anteil davon vermeidbar ist und ob sich ein Batteriespeicher dafür trägt. Kommt eine Umsetzung in Frage, bekommt der Betrieb, der den Kontakt gebracht hat, das erste Zugriffsrecht auf die Montage.",
+    "existing": {
+      "text": "Sie sind bereits COOLiN-Partner?",
+      "link": "Zum Partnerportal anmelden"
+    },
     "how": {
       "title": "Wie die Zusammenarbeit läuft",
       "intro": "Sie verweisen Ihre Bestandskunden über einen personalisierten Link an uns. Wir führen die Analyse und die Kundenbeziehung; Sie bleiben der Betrieb vor Ort.",

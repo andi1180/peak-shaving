@@ -142,6 +142,25 @@ export const MAIN_NAV: NavItem[] = [
 /** Rechte Aktionen, Reihenfolge = Hierarchie leise → laut (§4.1). */
 export const LOGIN_HREF = '/login'
 export const KONTAKT_HREF = '/kontakt'
+
+/**
+ * Die Produktseite des Kalkulators — das Ziel der HANDLUNGSAUFFORDERUNGEN IM SEITENINHALT
+ * (Startseiten-Hero, Schnellrechner, `/peak-shaving`, die Ergebnis-Mail).
+ *
+ * ⚠ SEIT B16-EINSTIEG IST DAS NICHT MEHR DAS ZIEL DES KNOPFES RECHTS OBEN. Der Header trug bis
+ * dahin einen eigenen Kalkulator-Knopf neben dem Menüeintrag „Peak Shaving", der ohnehin dorthin
+ * führt — eine Dublette. An seiner Stelle steht jetzt „Partner" (`PARTNER_BEWERBUNG_HREF`); der
+ * Weg zum Kalkulator läuft unverändert über das Menü und über die CTAs im Inhalt, die diese
+ * Konstante benutzen.
+ *
+ * ZUM NAMEN „B16-Einstieg": ein reiner Oberflächen-/Textschritt zu B16, bewusst OHNE Nummer —
+ * `B16-5` (Partner-Statistik) und `B16-6` (Partner-Sicht auf Leads) sind im Fahrplan bereits
+ * vergeben und beide noch offen. Eine dieser Nummern hier zu verwenden hiesse, einen Bauabschnitt
+ * als erledigt zu kennzeichnen, der nicht stattgefunden hat.
+ *
+ * Der Name bleibt: Es ist weiterhin der primäre Handlungsaufruf der Seite, nur nicht mehr im
+ * Header. Wer ihn umbiegt, verschiebt vier Einstiege auf einmal (s. Fundorte oben).
+ */
 export const CTA_HREF = '/peak-shaving/kalkulator'
 
 /**

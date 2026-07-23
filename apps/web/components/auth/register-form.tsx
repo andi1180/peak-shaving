@@ -7,7 +7,14 @@ import { Link } from '@/i18n/navigation'
 import { signUpAction } from '@/lib/auth/actions'
 import { ANMELDEN_HREF, NEXT_PARAM } from '@/lib/auth/config'
 import { AUTH_INITIAL_STATE } from '@/lib/auth/schema'
-import { AuthField, AuthFormError, AuthNotice, AuthSubmit, useFocusFirstError } from './form-parts'
+import {
+  AuthField,
+  AuthFormError,
+  AuthNotice,
+  AuthSubmit,
+  PartnerHint,
+  useFocusFirstError,
+} from './form-parts'
 
 /*
  * Die Reihenfolge, in der nach einem Fehlversuch fokussiert wird — und zugleich die Reihenfolge im
@@ -112,6 +119,8 @@ export function RegisterForm({ next }: { next?: string }) {
           {t('register.loginLink')}
         </Link>
       </p>
+
+      <PartnerHint />
     </form>
   )
 }

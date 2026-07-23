@@ -5,7 +5,8 @@ import { Container } from '@/components/ui/layout'
 import { Button } from '@/components/ui/button'
 import { EmblemImage } from '@/components/brand/emblem-image'
 import { WordmarkA } from '@/components/brand/wordmark'
-import { MAIN_NAV, CTA_HREF, KONTAKT_HREF } from '@/lib/nav'
+import { MAIN_NAV, KONTAKT_HREF } from '@/lib/nav'
+import { PARTNER_BEWERBUNG_HREF } from '@/lib/partner-application/config'
 import { ANMELDEN_HREF, KONTO_HREF } from '@/lib/auth/config'
 import { createClient } from '@/lib/supabase/server'
 import { cn } from '@/lib/utils'
@@ -273,8 +274,21 @@ export async function SiteHeader() {
             <Button asChild variant="secondary" size="sm">
               <Link href={KONTAKT_HREF}>{t('kontakt')}</Link>
             </Button>
+            {/*
+             * PARTNER STATT KALKULATOR (B16-Einstieg).
+             *
+             * Hier stand bis B16-Einstieg ein zweiter Weg zum Kalkulator — daneben führt der
+             * Menüeintrag „Peak Shaving" bereits dorthin, und der bleibt der Produkteinstieg.
+             * Der Platz trägt jetzt den einzigen öffentlichen Einstieg zum Partnerprogramm, das
+             * sonst nur in der Fusszeile hing.
+             *
+             * Beschriftung „Partner", NICHT „Partnerportal": Es gibt heute keine Partner,
+             * praktisch jeder Aufruf kommt von jemandem ohne Konto, und „Portal" liest sich, als
+             * wäre ein Konto Voraussetzung. Die Zielseite trägt beide Wege — Bewerbung und
+             * Anmeldung für bestehende Partner.
+             */}
             <Button asChild variant="primary" size="sm">
-              <Link href={CTA_HREF}>{t('cta')}</Link>
+              <Link href={PARTNER_BEWERBUNG_HREF}>{t('partner')}</Link>
             </Button>
           </div>
 

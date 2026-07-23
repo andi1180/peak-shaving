@@ -54,9 +54,18 @@ export async function generateMetadata({
  * in `lib/config.ts`; dort ist auch dokumentiert, was in Phase 2 daraus wird.
  *
  * OP#1 (Kalkulator frei vs. bezahlt) ist OFFEN: Diese Seite trifft deshalb KEINE
- * endgültige Preis-Aussage. Der Badge nennt nur den Ist-Zustand („Derzeit frei
- * zugänglich") — kein „für immer kostenlos", kein „kostenlos testen" im CTA
- * selbst (§3.3: Preis-Aussage höchstens als Subtext/Badge neben dem Button).
+ * endgültige Preis-Aussage. Der Badge nennt nur den Ist-Zustand („Zugang auf
+ * Anfrage") — kein Preis, keine Zusage über eine Bearbeitungsdauer, kein
+ * „kostenlos testen" im CTA selbst (§3.3: Preis-Aussage höchstens als
+ * Subtext/Badge neben dem Button).
+ *
+ * ⚠ DER BADGE SAGTE BIS B16-Einstieg „Derzeit frei zugänglich" — das war seit B10-2
+ * unzutreffend: Die Rechner-Route verlangt seither eine Sitzung UND ein aktives
+ * `calculator_pro`-Entitlement, vergeben über Gutscheincodes an ausgewählte
+ * Betriebe (`lib/kalkulator/access.ts`). Wer nicht freigeschaltet ist, landet auf
+ * dem Anfrage-Zustand (`components/peak-shaving/calculator-access-request.tsx`) —
+ * die Seite versprach also einen Zugang, den sie nicht mehr gewährte. Wer den
+ * Zugangsweg erneut ändert, ändert diesen Satz mit.
  */
 export default async function Page({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params
@@ -71,8 +80,8 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
        * Warum nicht `Product`, und warum kein `offers`: s. `calculatorLd`. Kurz:
        * OP#1 (frei vs. bezahlt) ist offen; §3.3 verbietet dieser Seite schon in
        * der sichtbaren Copy jede endgültige Preis-Aussage — im Markup gilt
-       * dasselbe. Der Badge daneben sagt „Derzeit frei zugänglich", und genau so
-       * viel weiß auch das Markup: nämlich nichts über einen Preis.
+       * dasselbe. Der Badge daneben sagt „Zugang auf Anfrage", und genau so viel
+       * weiß auch das Markup: nämlich nichts über einen Preis.
        *
        * `name` ist ein eigener Message-Key und nicht der Nav-Label „Der
        * Kalkulator" oder der Hero-Eyebrow: Ein Produktname ist eine eigene Rolle
@@ -157,8 +166,9 @@ function CalculatorHero() {
 
       <div className="mt-8 flex flex-wrap items-center gap-4">
         <CalculatorButton label={t('cta')} size="lg" />
-        {/* Preis-Aussage als Badge NEBEN dem Button, nie im CTA-Text (§3.3) —
-            der CTA-Text muss den Übergang frei→bezahlt überleben. */}
+        {/* Zugangs-/Preis-Aussage als Badge NEBEN dem Button, nie im CTA-Text (§3.3) —
+            der CTA-Text muss den Übergang frei→bezahlt überleben. Der Badge selbst
+            benennt den Ist-Zustand seit B10-2: Zugang auf Anfrage. */}
         <Badge variant="neutral">{t('badge')}</Badge>
       </div>
     </Container>

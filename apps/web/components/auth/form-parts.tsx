@@ -10,8 +10,40 @@
 import * as React from 'react'
 import { Loader2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
+import { Link } from '@/i18n/navigation'
 import { Button } from '@/components/ui/button'
 import { FieldHint, Input, Label, PasswordInput } from '@/components/ui/input'
+import { PARTNER_BEWERBUNG_HREF } from '@/lib/partner-application/config'
+
+/**
+ * Der Partner-Hinweis am Fuss von Anmeldung und Registrierung (B16-Einstieg).
+ *
+ * ZWECK: Diese beiden Seiten sind für einen Fachbetrieb ein plausibler Irrweg — er sucht einen
+ * Zugang, findet ein Anmeldeformular und weiss nicht, dass es für ihn einen eigenen Weg gibt.
+ * Der Hinweis nennt ihn, ohne ihn wegzulocken.
+ *
+ * BEWUSST LEISE: Textlink, kein Knopf, unter dem bestehenden „Noch kein Konto?"-Verweis. Die
+ * Hauptaufgabe dieser Seiten bleibt Anmeldung bzw. Registrierung — ein konkurrierender
+ * Handlungsaufruf machte aus einem Hinweis eine Weiche.
+ *
+ * Ziel ist `/partner-werden` (nicht das Portal): Wer hier landet und Partner werden WILL, hat
+ * noch keinen Zugang; wer schon Partner IST, findet den Portal-Zweig oben auf jener Seite.
+ */
+export function PartnerHint() {
+  const t = useTranslations('Konto.shared')
+
+  return (
+    <p className="text-small text-text-muted">
+      {t('partnerHint')}{' '}
+      <Link
+        href={PARTNER_BEWERBUNG_HREF}
+        className="font-medium text-accent hover:text-accent-hover"
+      >
+        {t('partnerLink')}
+      </Link>
+    </p>
+  )
+}
 
 /**
  * Ein Feld mit Label + genau EINEM Hinweis-Slot: der Fehler ERSETZT den Hilfetext (nie zwei
@@ -94,7 +126,9 @@ export function AuthSubmit({
   return (
     <>
       <Button type="submit" variant="primary" size="lg" className="w-full" disabled={isPending}>
-        {isPending && <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2} aria-hidden="true" />}
+        {isPending && (
+          <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2} aria-hidden="true" />
+        )}
         {isPending ? pendingLabel : label}
       </Button>
       <span role="status" aria-live="polite" className="sr-only">
