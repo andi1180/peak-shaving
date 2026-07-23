@@ -13,7 +13,8 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion'
 import { EmblemImage } from '@/components/brand/emblem-image'
-import { MAIN_NAV, CTA_HREF, KONTAKT_HREF, type NavLeaf } from '@/lib/nav'
+import { MAIN_NAV, KONTAKT_HREF, type NavLeaf } from '@/lib/nav'
+import { PARTNER_BEWERBUNG_HREF } from '@/lib/partner-application/config'
 import { ANMELDEN_HREF, KONTO_HREF } from '@/lib/auth/config'
 import { cn } from '@/lib/utils'
 
@@ -170,9 +171,12 @@ export function MobileNav({ isLoggedIn }: { isLoggedIn: boolean }) {
            * laut (CTA) zuerst, leise (Login) zuletzt.
            */}
           <div className="shrink-0 space-y-2 border-t border-line p-4">
+            {/* Partner statt Kalkulator (B16-Einstieg) — dieselbe Entscheidung wie im Desktop-Header,
+                dort begründet. Der Kalkulator bleibt über das „Peak Shaving"-Accordion oben
+                erreichbar; hier stand bis B16-Einstieg der doppelte Weg dorthin. */}
             <SheetClose asChild>
               <Button asChild variant="primary" size="lg" className="w-full">
-                <Link href={CTA_HREF}>{t('cta')}</Link>
+                <Link href={PARTNER_BEWERBUNG_HREF}>{t('partner')}</Link>
               </Button>
             </SheetClose>
             <SheetClose asChild>

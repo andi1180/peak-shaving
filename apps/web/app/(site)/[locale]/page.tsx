@@ -7,6 +7,7 @@ import { BranchenTeaser } from '@/components/home/branchen-teaser'
 import { WissenTeaser } from '@/components/home/wissen-teaser'
 import { Vorgehen } from '@/components/home/vorgehen'
 import { KontaktCta } from '@/components/home/kontakt-cta'
+import { PartnerBanner } from '@/components/home/partner-banner'
 import { pageAlternates } from '@/lib/seo'
 
 export async function generateMetadata({
@@ -48,6 +49,12 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
       <WissenTeaser locale={locale} />
       <Vorgehen />
       <KontaktCta />
+      {/*
+       * NACH dem Kontakt-CTA, nicht davor (B16-Einstieg): Diese Seite richtet sich an Gewerbekunden, und
+       * ihr Ziel ist die Kontaktanfrage. Ein Partner-Aufruf weiter oben zöge Aufmerksamkeit von
+       * genau der Handlung ab, an der das Geschäft hängt. Ausführlich begründet in der Komponente.
+       */}
+      <PartnerBanner />
     </>
   )
 }

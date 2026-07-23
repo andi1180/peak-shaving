@@ -1,6 +1,9 @@
+import { ArrowRight } from 'lucide-react'
 import { useTranslations } from 'next-intl'
+import { Link } from '@/i18n/navigation'
 import { Container, Eyebrow, Section } from '@/components/ui/layout'
 import { PartnerApplicationForm } from '@/components/partner/partner-application-form'
+import { PARTNER_PORTAL_HREF } from '@/lib/partner-portal/config'
 
 /**
  * `/partner-werden` — die öffentliche Bewerbungsseite für Fachbetriebe (B16-3, Modell A).
@@ -52,6 +55,29 @@ export function PartnerApplicationPage({
         <Eyebrow>{t('eyebrow')}</Eyebrow>
         <h1 className="mt-3 max-w-prose text-h1 text-ink">{t('title')}</h1>
         <p className="mt-5 max-w-prose text-lead text-text">{t('lead')}</p>
+
+        {/*
+          ── DER ZWEIG FÜR BESTEHENDE PARTNER (B16-Einstieg) ────────────────────────────────────────────
+          Steht VOR dem Formular und weit oben, weil diese Seite seit B16-Einstieg der EINZIGE öffentliche
+          Einstieg für BEIDE Gruppen ist: Der Knopf rechts oben führt hierher, und das Partner-
+          Portal hängt in keinem Menü (es ist `noindex` und war bis hierher nur über den Link in
+          der Freischaltungsmail erreichbar, s. `lib/routes.ts`). Ein Fachbetrieb, der seine Mail
+          nicht mehr findet, müsste sich sonst an einem Bewerbungsformular vorbeisuchen, das ihn
+          gar nicht mehr meint — und im Zweifel ein zweites Mal bewerben.
+
+          Bewusst KEIN zweiter Knopf: Die Aufgabe dieser Seite bleibt die Bewerbung. Der Zweig ist
+          ein Hinweis mit Textlink, kein konkurrierender Handlungsaufruf.
+        */}
+        <p className="mt-8 inline-flex flex-wrap items-baseline gap-x-2 gap-y-1 rounded-md border border-line bg-surface-sunken px-4 py-3 text-small text-text-muted">
+          <span>{t('existing.text')}</span>
+          <Link
+            href={PARTNER_PORTAL_HREF}
+            className="inline-flex items-center gap-1 font-medium text-accent hover:text-accent-hover"
+          >
+            {t('existing.link')}
+            <ArrowRight className="h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden="true" />
+          </Link>
+        </p>
       </Container>
 
       <Section tone="alt" className="border-t border-line">
