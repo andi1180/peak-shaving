@@ -23,6 +23,8 @@
  */
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { approvalNotificationNote } from '@/lib/partner-portal/notify-messages'
+import { notifyPartnerBySlug } from '@/lib/partner-portal/notify-server'
 import { partnerApprovalSchema, toFieldErrors, type AdminState } from './schema'
 import { PARTNER_APPLICATIONS_HREF, PARTNER_APPLICATION_DETAIL_HREF } from './partner-applications'
 import { PARTNERS_HREF } from './partners'
@@ -94,10 +96,18 @@ export async function rejectPartnerApplicationAction(
  * Konto klären. Genau dafür gibt es die fünf unterscheidbaren Status im Wrapper; sie hier wieder
  * einzuebnen hiesse, die Unterscheidung zweimal zu bezahlen und einmal zu benutzen.
  *
- * ── DIE ERFOLGSMELDUNG SAGT, WAS NICHT PASSIERT IST ─────────────────────────────────────────────
- * Der Fachbetrieb ist angelegt und mit seinem Konto verknüpft — benachrichtigt ist er NICHT (die
- * Mail und das Portal sind B16-4b). Ohne diesen Satz hielte ein Admin den Vorgang für abgeschlossen,
- * und der Betrieb wartete auf eine Nachricht, die nicht kommt.
+ * ── ⚠ DIE GENEHMIGUNG SCHICKT SEIT B16-4b EINE MAIL — UND SIE DARF DARAN NICHT SCHEITERN ────────
+ * Bis B16-4a stand hier der Satz, dass der Betrieb angelegt, aber NICHT benachrichtigt ist. Er
+ * stimmt nicht mehr: Nach einer erfolgreichen Genehmigung geht die Freischaltungsmail raus, und
+ * `notified_at` hält fest, dass sie zugestellt wurde.
+ *
+ * Die Reihenfolge ist bindend und die Fehlerpolitik ebenso. Die Genehmigung ist EINE unumkehrbare
+ * Transaktion; ist sie durch, ist sie durch (der Kurz-Key ist danach unveränderlich, ein zweiter
+ * Versuch gäbe `already_reviewed`). Ein Mailproblem darf deshalb NICHT als Fehlschlag der
+ * Genehmigung zurückkommen — der Admin läse „hat nicht geklappt", der Betrieb wäre trotzdem
+ * angelegt, und die naheliegende Reaktion (nochmal versuchen) führte ins Leere. `notifyPartnerBySlug`
+ * wirft aus genau diesem Grund nie; jeder Fehlschlag wird zu einem ZUSTAND, den die Erfolgsmeldung
+ * benennt, samt dem, was jetzt zu tun ist.
  */
 export async function approvePartnerApplicationAction(
   _prev: AdminState,
@@ -138,18 +148,24 @@ export async function approvePartnerApplicationAction(
 
   const result = (data ?? {}) as { status?: unknown; current?: unknown; partner_slug?: unknown }
   switch (result.status) {
-    case 'ok':
+    case 'ok': {
+      /*
+       * Ab hier ist die Genehmigung VOLLZOGEN und unumkehrbar. Alles Weitere kann nur noch
+       * beschreiben, was zusätzlich geklappt hat — nie den Vorgang selbst umwerfen.
+       */
+      const notified = await notifyPartnerBySlug(supabase, parsed.data.slug)
+
       revalidatePath(PARTNER_APPLICATIONS_HREF)
       revalidatePath(PARTNER_APPLICATION_DETAIL_HREF(id))
       revalidatePath(PARTNERS_HREF)
-      return {
-        success:
-          `Bewerbung genehmigt. Der Fachbetrieb ist unter dem Kurz-Key „${parsed.data.slug}" ` +
-          'angelegt und mit dem Konto des Antrags verknüpft. ' +
-          'ER IST NOCH NICHT BENACHRICHTIGT — es geht keine automatische Nachricht raus; das ' +
-          'Partner-Portal und die Mail dazu kommen im nächsten Bauabschnitt. Bis dahin bitte selbst ' +
-          'Kontakt aufnehmen. Der Kurz-Key lässt sich nicht mehr ändern.',
-      }
+
+      const base =
+        `Bewerbung genehmigt. Der Fachbetrieb ist unter dem Kurz-Key „${parsed.data.slug}" ` +
+        'angelegt und mit dem Konto des Antrags verknüpft. Der Kurz-Key lässt sich nicht mehr ' +
+        'ändern. '
+
+      return { success: base + approvalNotificationNote(notified.status) }
+    }
     case 'already_reviewed':
       return {
         formError:

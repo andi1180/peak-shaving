@@ -28,6 +28,8 @@
  */
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { resendNotificationMessage } from '@/lib/partner-portal/notify-messages'
+import { notifyPartnerBySlug } from '@/lib/partner-portal/notify-server'
 import { PARTNERS_HREF } from './partners'
 import {
   partnerAccountLinkSchema,
@@ -285,8 +287,9 @@ export async function linkPartnerAccountAction(
       revalidatePath(PARTNERS_HREF)
       return {
         success:
-          `Konto „${parsed.data.email}" verknüpft. Der Betrieb erreicht damit später sein ` +
-          'Partner-Portal (B16-4b). Eine Nachricht darüber geht NICHT automatisch raus.',
+          `Konto „${parsed.data.email}" verknüpft. Der Betrieb erreicht damit sein Partner-Portal. ` +
+          'Eine Nachricht darüber geht NICHT automatisch raus — dafür gibt es jetzt die ' +
+          'Schaltfläche „Benachrichtigung senden" in seiner Karte.',
       }
     case 'already_linked':
       return {
@@ -332,4 +335,48 @@ export async function linkPartnerAccountAction(
     default:
       return { formError: GENERIC, values }
   }
+}
+
+// ── Benachrichtigung senden (B16-4b) ─────────────────────────────────────────────────────────────
+
+/**
+ * Schickt einem Fachbetrieb die Nachricht über seinen Portalzugang — erneut oder erstmals.
+ *
+ * ── ZWEI REALE FÄLLE, EINE SCHALTFLÄCHE ─────────────────────────────────────────────────────────
+ *   1. Der Versand bei der Genehmigung ist FEHLGESCHLAGEN. Er hängt an einem fremden Dienst und an
+ *      einer Konfiguration (`RESEND_*`); dass er scheitert, ist kein Ausnahmefall, sondern der
+ *      wahrscheinlichste Fehlerpunkt des ganzen Vorgangs. Ohne einen Weg zurück bliebe nur, die Mail
+ *      von Hand zu schreiben — mit einem Link, den jemand abtippt.
+ *   2. Der Betrieb ist VON HAND angelegt worden (Raymann) und lief nie durch eine Genehmigung. Sein
+ *      Konto wurde nachträglich verknüpft; ohne diese Aktion gäbe es für ihn überhaupt keinen Weg,
+ *      je etwas von seinem Portal zu erfahren.
+ *
+ * ── OHNE VERKNÜPFTES KONTO IST SIE GESPERRT ─────────────────────────────────────────────────────
+ * Die Oberfläche zeigt die Schaltfläche dann gar nicht erst (`/admin/partner`), diese Action weist
+ * es ein zweites Mal ab (`no_account` aus dem Ablauf), und die Datenbank ein drittes
+ * (`admin_mark_partner_notified`). Das ist keine dreifache Verdopplung derselben Prüfung, sondern
+ * drei Schichten mit verschiedener Reichweite — die unterste hält auch dann, wenn jemand die Aktion
+ * anders auslöst. Der Grund ist in allen dreien derselbe: Die Mail verweist auf ein Portal mit
+ * Anmeldung, und ohne Konto gibt es die nicht.
+ *
+ * ── DER EMPFÄNGER KOMMT AUS DER DATENBANK, NICHT AUS DEM FORMULAR ───────────────────────────────
+ * Übergeben wird ausschliesslich der Kurz-Key; Adresse, Anzeigename und Ansprechperson schlägt
+ * `notifyPartnerBySlug` selbst nach. Eine mitgeschickte Adresse könnte zu einem anderen Betrieb
+ * gehören als der Slug — und `notified_at` stünde danach an der falschen Zeile.
+ */
+export async function notifyPartnerAction(
+  _prev: AdminState,
+  formData: FormData,
+): Promise<AdminState> {
+  const slug = String(formData.get('slug') ?? '').trim()
+  if (!slug) return { formError: GONE }
+
+  const supabase = await sessionClient()
+  if (!supabase) return { formError: FORBIDDEN }
+
+  const outcome = await notifyPartnerBySlug(supabase, slug)
+
+  // Auch der Fehlerfall kann den Vermerk verändert haben (`sent`) — neu laden ist immer richtig.
+  revalidatePath(PARTNERS_HREF)
+  return resendNotificationMessage(outcome.status)
 }

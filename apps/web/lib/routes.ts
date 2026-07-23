@@ -40,6 +40,7 @@ import { AUTH_HREFS } from './auth/config'
 import { LEAD_HREFS } from './leads/config'
 import { PARTNER_ROUTE_TEMPLATE } from './leads/partner'
 import { PARTNER_BEWERBUNG_HREF } from './partner-application/config'
+import { PARTNER_PORTAL_HREF } from './partner-portal/config'
 
 export type SiteRoute = {
   /** Der Pfad OHNE Locale-Präfix — dasselbe, was `Link`/`pageAlternates` bekommen. */
@@ -161,6 +162,17 @@ export const SITE_ROUTES: SiteRoute[] = Array.from(
      * begründet, trifft hier nicht zu.
      */
     PARTNER_BEWERBUNG_HREF,
+    /*
+     * B16-4b: das eingeloggte Partner-Portal. Steht einzeln hier, weil es in keinem Menü hängt und
+     * auch in keines gehört: Es richtet sich an eine Handvoll Fachbetriebe, erreichbar über den
+     * Link in ihrer Freischaltungsmail — die Informationsarchitektur (§4.1) beschreibt die Seite
+     * für Interessenten.
+     *
+     * NICHT INDEXIERBAR (s. `indexable` unten): Hinter der Anmeldung steht nichts, was jemand
+     * finden könnte, und der crawlbare Inhalt ist der Erklärzustand für Konten ohne Partnerzeile —
+     * eine Seite, die für Suchende nichts beantwortet. Dieselbe Lage wie bei den Auth-Routen.
+     */
+    PARTNER_PORTAL_HREF,
     ...AUTH_HREFS,
     ...LEAD_HREFS,
   ]),
@@ -179,6 +191,8 @@ export const SITE_ROUTES: SiteRoute[] = Array.from(
    *     Datenpipe-Beweis ohne kuratierten Content/Produktseite drumherum.
    *   – Die Lead-Routen (B1-2, `LEAD_HREF_SET` oben): persönliche Einmal-Adressen
    *     aus einer E-Mail, deren Query einen Token bzw. eine signierte Lead-ID trägt.
+   *   – Das Partner-Portal (B16-4b, `PARTNER_PORTAL_HREF` oben): hinter der
+   *     Anmeldung, für eine Handvoll Fachbetriebe, ohne Inhalt für Suchende.
    *
    * `/styleguide` ist ebenfalls `noindex`, steht aber nicht in dieser Liste: Es
    * liegt in der Route-Group `(dev)` mit eigenem Root-Layout, also außerhalb der
@@ -187,6 +201,7 @@ export const SITE_ROUTES: SiteRoute[] = Array.from(
   indexable:
     href !== CALCULATOR_RUN_HREF &&
     href !== MONITOR_GRATIS_CHECK_HREF &&
+    href !== PARTNER_PORTAL_HREF &&
     !AUTH_HREF_SET.has(href) &&
     !LEAD_HREF_SET.has(href) &&
     !PLACEHOLDER_HREFS.includes(href),

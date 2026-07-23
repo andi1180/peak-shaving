@@ -92,6 +92,17 @@ export type PartnerApplicationDetail = Omit<PartnerApplicationRow, 'has_account'
    * Nach der Genehmigung ist er identisch mit `partner_slug`.
    */
   account_partner_slug: string | null
+  /**
+   * OB und WANN der entstandene Fachbetrieb über seinen Portalzugang benachrichtigt wurde (B16-4b) —
+   * `null` heisst „noch nie".
+   *
+   * ⚠ Der Grund, warum dieses Feld hier steht und nicht nur in der Partnerliste: Die Erfolgsmeldung
+   * der Genehmigung bleibt NICHT stehen (das Genehmigungsformular wird nur gerendert, solange der
+   * Antrag `pending` ist — mit dem Erfolg verschwindet es samt seiner Meldung; im Bau gemessen).
+   * Ohne dieses Feld wäre ausgerechnet der Fall „Mailversand gescheitert" auf dieser Seite unsichtbar
+   * und der Admin hielte den Vorgang für abgeschlossen.
+   */
+  partner_notified_at: string | null
 }
 
 export type PartnerApplicationList = {

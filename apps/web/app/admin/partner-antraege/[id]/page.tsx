@@ -301,8 +301,15 @@ export default async function AdminPartnerApplicationPage({
                 genehmigter Antrag in einer Sackgasse — man wüsste, dass entschieden wurde, aber
                 nicht, welcher Kurz-Key dabei entstanden ist.
 
-                Und der Satz, ohne den ein Admin den Vorgang für abgeschlossen hält: Der Betrieb ist
-                NICHT benachrichtigt. Er wartet sonst auf eine Mail, die es noch nicht gibt.
+                ── B16-4b: DER HINWEIS IST UMGEDREHT, NICHT NUR UMFORMULIERT ──
+                Bis B16-4a stand hier „Der Betrieb wurde NICHT benachrichtigt". Seit die
+                Genehmigungsmail existiert, stimmt das nicht mehr. Was hier NICHT steht, ist der
+                tatsächliche Zustand (benachrichtigt am … / Versand fehlgeschlagen) — und das ist
+                Absicht: Er steht in der Partnerkarte unter „Benachrichtigt", zusammen mit der
+                Schaltfläche, die etwas daran ändern kann. Ihn zusätzlich hier zu zeigen hiesse,
+                dieselbe Angabe an zwei Orten zu führen, von denen einer keine Handlung anbietet —
+                und der Antrag ist mit seiner Prüfung abgeschlossen; der Portalzugang beginnt
+                danach und gehört dem Fachbetrieb, nicht ihm.
               */}
               {application.status === 'approved' && application.partner_slug && (
                 <div className="mt-4 rounded-md border border-line bg-surface-sunken p-3">
@@ -317,14 +324,30 @@ export default async function AdminPartnerApplicationPage({
                     </Link>{' '}
                     samt Empfehlungslink.
                   </p>
-                  <p className="mt-2 max-w-prose text-caption text-text-muted">
-                    <span className="font-medium text-text">
-                      Der Betrieb wurde NICHT benachrichtigt.
-                    </span>{' '}
-                    Es geht keine automatische Nachricht raus — das Partner-Portal und die Mail dazu
-                    kommen im nächsten Bauabschnitt. Bis dahin bitte selbst Kontakt aufnehmen und
-                    den Empfehlungslink weitergeben.
-                  </p>
+                  {application.partner_notified_at ? (
+                    <p className="mt-2 max-w-prose text-caption text-text-muted">
+                      <span className="font-medium text-text">
+                        Benachrichtigt am {formatDateTime(application.partner_notified_at)}.
+                      </span>{' '}
+                      Der Betrieb hat seinen Empfehlungslink und den Weg ins Partner-Portal per
+                      E-Mail bekommen.
+                    </p>
+                  ) : (
+                    <p className="mt-2 max-w-prose text-caption text-text-muted">
+                      <span className="font-medium text-negative">
+                        Der Betrieb ist NICHT benachrichtigt.
+                      </span>{' '}
+                      Mit der Genehmigung geht die Nachricht automatisch raus — hier ist sie
+                      offenbar nicht zugestellt worden. Sie lässt sich{' '}
+                      <Link
+                        href={PARTNERS_HREF}
+                        className="text-accent underline decoration-accent underline-offset-[3px]"
+                      >
+                        in der Partnerliste
+                      </Link>{' '}
+                      nachholen; bis dahin weiss der Betrieb nichts von seiner Freischaltung.
+                    </p>
+                  )}
                 </div>
               )}
               <p className="mt-2 text-caption text-text-muted">

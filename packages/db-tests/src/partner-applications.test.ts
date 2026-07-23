@@ -716,9 +716,10 @@ describe('(5) Die drei Admin-Wrapper', () => {
     expect(res.status).toBe('ok')
     const app = res.application as Record<string, unknown>
     // `account_partner_slug` und `partner_slug` sind in B16-4a dazugekommen (der Fachbetrieb, an dem
-    // das Konto schon hängt, bzw. der aus diesem Antrag entstandene). Die Liste wird NACHGEZOGEN,
-    // nicht durch eine Teilmengen-Prüfung ersetzt: sie ist die Absicherung dagegen, dass ein Feld
-    // unbemerkt in eine Ansicht über fremde Personen wandert.
+    // das Konto schon hängt, bzw. der aus diesem Antrag entstandene), `partner_notified_at` in
+    // B16-4b (ob dieser Betrieb über seinen Portalzugang benachrichtigt wurde). Die Liste wird
+    // NACHGEZOGEN, nicht durch eine Teilmengen-Prüfung ersetzt: sie ist die Absicherung dagegen,
+    // dass ein Feld unbemerkt in eine Ansicht über fremde Personen wandert.
     expect(Object.keys(app).sort()).toEqual([
       'account_email',
       'account_partner_slug',
@@ -729,6 +730,7 @@ describe('(5) Die drei Admin-Wrapper', () => {
       'id',
       'last_name',
       'message',
+      'partner_notified_at',
       'partner_slug',
       'phone',
       'reviewed_at',

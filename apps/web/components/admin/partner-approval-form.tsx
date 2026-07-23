@@ -132,10 +132,18 @@ export function PartnerApprovalForm({
             Der Antrag ist danach endgültig geprüft. Eine Genehmigung lässt sich über die Oberfläche
             nicht zurücknehmen, und Fachbetriebe sind nicht löschbar.
           </li>
+          {/*
+            B16-4b hat diesen Punkt umgedreht: Bis dahin stand hier, dass KEINE Nachricht rausgeht.
+            Seit die Genehmigungsmail existiert, ist der Hinweis, der gebraucht wird, ein anderer —
+            dass sofort eine Mail an einen realen Betrieb rausgeht, und dass sie sich nicht
+            zurückholen lässt. Was danach tatsächlich passiert ist (versendet · nicht versendet ·
+            versendet, aber nicht vermerkt), sagt die Rückmeldung nach dem Bestätigen.
+          */}
           <li>
-            <span className="font-medium">Der Betrieb wird NICHT benachrichtigt.</span> Es geht keine
-            automatische Nachricht raus — das Partner-Portal und die Mail dazu kommen im nächsten
-            Bauabschnitt.
+            <span className="font-medium">Der Betrieb wird sofort per E-Mail benachrichtigt.</span>{' '}
+            Er bekommt seinen Empfehlungslink und den Weg ins Partner-Portal. Scheitert der Versand,
+            steht das in der Rückmeldung — die Genehmigung selbst gilt trotzdem, und die
+            Benachrichtigung lässt sich unter „Partner" nachholen.
           </li>
         </ul>
       </div>

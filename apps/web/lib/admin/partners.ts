@@ -46,6 +46,16 @@ export type PartnerRow = {
   account_email: string | null
   /** Der Antrag, aus dem dieser Betrieb entstanden ist — `null` bei von Hand angelegten. */
   application_id: string | null
+  /**
+   * Wann der Betrieb ZULETZT über seinen Portalzugang benachrichtigt wurde (B16-4b) — `null` heisst
+   * „noch nie".
+   *
+   * Ohne diese Angabe liessen sich zwei Zustände nicht unterscheiden, die im Admin-Bereich identisch
+   * aussehen (ein Fachbetrieb, von dem nichts kommt) und gegensätzliches Handeln verlangen: „wurde
+   * informiert und meldet sich nicht" gegen „hat nie eine Mail bekommen". Gesetzt wird sie
+   * ausschliesslich NACH erfolgreicher Zustellung (`public.admin_mark_partner_notified`).
+   */
+  notified_at: string | null
 }
 
 function asObject(data: unknown): Record<string, unknown> | null {
