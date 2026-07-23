@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { robotsFor } from '@/lib/routes'
 import { ANMELDEN_HREF, KONTO_HREF, sanitizeNext } from '@/lib/auth/config'
+import { loginContextForNext } from '@/lib/auth/login-context'
 import { redirectToLocalized } from '@/lib/auth/server-helpers'
 import { createClient } from '@/lib/supabase/server'
 import { AuthPageShell } from '@/components/auth/auth-page-shell'
@@ -46,9 +47,23 @@ export default async function Page({
   } = await supabase.auth.getUser()
   if (user) redirectToLocalized(next, locale)
 
+  /*
+   * Wortlaut und Ausweg richten sich nach dem Rücksprungziel (B16-Einstieg, Folgeschritt). Die
+   * Ableitung steht in `lib/auth/login-context.ts` und ist REIN — die Seite entscheidet hier
+   * nichts selbst, damit Überschrift und „Noch kein Konto?"-Link nicht aus zwei Auslegungen
+   * desselben Wertes entstehen können. Sie wirkt AUSSCHLIESSLICH auf Text und Zielpfad: Wer sich
+   * anmelden darf und wer ein Partner ist, entscheidet weiterhin allein die Datenbank hinter der
+   * Anmeldung.
+   */
+  const context = loginContextForNext(next)
+  const isPartner = context === 'partner'
+
   const t = await getTranslations({ locale, namespace: 'Konto' })
   return (
-    <AuthPageShell title={t('login.title')} lead={t('login.lead')}>
+    <AuthPageShell
+      title={isPartner ? t('login.partnerTitle') : t('login.title')}
+      lead={isPartner ? t('login.partnerLead') : t('login.lead')}
+    >
       {error === 'callback' && (
         <div role="alert" className="mb-4 rounded-md border border-negative bg-negative-subtle p-4">
           <p className="text-small font-semibold text-negative">{t('errors.callbackFailed')}</p>
@@ -56,7 +71,7 @@ export default async function Page({
       )}
       {/* Nur weitergeben, wenn es wirklich ein abweichendes Ziel gibt — sonst stünde auf jeder
           gewöhnlichen Anmeldung ein verstecktes Feld mit dem Wert, der ohnehin der Default ist. */}
-      <LoginForm next={next !== KONTO_HREF ? next : undefined} />
+      <LoginForm next={next !== KONTO_HREF ? next : undefined} context={context} />
     </AuthPageShell>
   )
 }
