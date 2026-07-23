@@ -7,7 +7,9 @@ import { Link } from '@/i18n/navigation'
 import { Button } from '@/components/ui/button'
 import { resendConfirmationAction, signInAction } from '@/lib/auth/actions'
 import { NEXT_PARAM, PASSWORT_VERGESSEN_HREF, REGISTRIEREN_HREF } from '@/lib/auth/config'
+import type { LoginContext } from '@/lib/auth/login-context'
 import { AUTH_INITIAL_STATE } from '@/lib/auth/schema'
+import { PARTNER_BEWERBUNG_HREF } from '@/lib/partner-application/config'
 import {
   AuthField,
   AuthFormError,
@@ -19,13 +21,26 @@ import {
 
 const FIELD_ORDER = ['email', 'password'] as const
 
-export function LoginForm({ next }: { next?: string }) {
+export function LoginForm({
+  next,
+  context = 'default',
+}: {
+  next?: string
+  /**
+   * Von der Seite ABGELEITET, nicht hier aus `next` zurückgerechnet (B16-Einstieg, Folgeschritt):
+   * Die Seite braucht denselben Wert für ihre Überschrift, und zwei Ableitungen desselben Ziels
+   * liefen beim ersten Umbau auseinander — dann stünde über dem Formular „Partner-Portal" und
+   * darunter ein Verweis auf die gewöhnliche Registrierung.
+   */
+  context?: LoginContext
+}) {
   const t = useTranslations('Konto')
   const [state, formAction, isPending] = useActionState(signInAction, AUTH_INITIAL_STATE)
   const prefix = `login-${React.useId()}`
   useFocusFirstError(state.fieldErrors, FIELD_ORDER, prefix)
 
   const fe = state.fieldErrors
+  const isPartner = context === 'partner'
   return (
     <div className="flex flex-col gap-5">
       <form action={formAction} noValidate className="flex flex-col gap-4">
@@ -79,21 +94,31 @@ export function LoginForm({ next }: { next?: string }) {
       <p className="text-small text-text-muted">
         {t('login.noAccount')}{' '}
         {/*
-         * Rücksprungziel WEITERREICHEN (B10-5). `next` ist hier bereits saniert (die Anmeldeseite
-         * schickt es durch `sanitizeNext` und gibt es nur weiter, wenn es vom Vorgabewert
-         * abweicht) — es steht also entweder ein zulässiges internes Ziel da oder gar keins, und
-         * dann bleibt der Link nackt. KEIN Ersatzwert: „kein zulässiges Ziel" heisst „kein Ziel".
+         * ZWEI ZIELE, EINE ZEILE.
          *
-         * Ohne diese Weitergabe verlor der Kalkulator-Trichter seinen Kontext genau hier — der
-         * Weg Kalkulator → Anmelden → „Noch kein Konto?" endete bei einer Registrierung, die
-         * nicht mehr wusste, wofür sie stattfindet. Daran hängt seit B10-5 zweierlei: wohin der
-         * Bestätigungslink führt und unter welcher Herkunft der Lead entsteht.
+         * (a) PARTNER-KONTEXT → `/partner-werden`, und AUSDRÜCKLICH OHNE `next`. Zum Portal führt
+         *     kein Formular, sondern eine Genehmigung (B16-3/B16-4a): Ein durchgereichtes
+         *     `?next=/partner-portal` versprächte eine Weiterleitung, die es nach dem Absenden
+         *     nicht gibt — die Bewerbung endet bei „wir melden uns", nicht im Portal. Ein Link
+         *     auf `/registrieren` wäre hier die eigentliche Sackgasse: das Konto entstünde,
+         *     trüge aber keine Partnerzeile, und das Portal zeigte demselben Menschen denselben
+         *     Erklärzustand wie jedem Monitor-Kunden.
+         *
+         * (b) SONST unverändert `/registrieren` MIT durchgereichtem `next` (B10-5) — der seit
+         *     B10-5 geprüfte Weg des Kalkulator-Zugangs; daran hängt, wohin der Bestätigungslink
+         *     führt UND unter welcher Herkunft der Lead entsteht. `next` ist hier bereits saniert
+         *     (die Anmeldeseite schickt es durch `sanitizeNext` und gibt es nur weiter, wenn es
+         *     vom Vorgabewert abweicht) — es steht also entweder ein zulässiges internes Ziel da
+         *     oder gar keins, und dann bleibt der Link nackt. KEIN Ersatzwert: „kein zulässiges
+         *     Ziel" heisst „kein Ziel".
          */}
         <Link
           href={
-            next
-              ? { pathname: REGISTRIEREN_HREF, query: { [NEXT_PARAM]: next } }
-              : REGISTRIEREN_HREF
+            isPartner
+              ? PARTNER_BEWERBUNG_HREF
+              : next
+                ? { pathname: REGISTRIEREN_HREF, query: { [NEXT_PARAM]: next } }
+                : REGISTRIEREN_HREF
           }
           className="font-medium text-accent hover:text-accent-hover"
         >
@@ -101,7 +126,12 @@ export function LoginForm({ next }: { next?: string }) {
         </Link>
       </p>
 
-      <PartnerHint />
+      {/*
+       * Im Partner-Kontext entfällt der Hinweis: Er zeigt auf dasselbe Ziel wie die Zeile darüber,
+       * und zwei Links auf dieselbe Seite direkt untereinander lesen sich wie ein Fehler. In allen
+       * anderen Fällen bleibt er, denn dort ist er tatsächlich eine zweite, andere Möglichkeit.
+       */}
+      {!isPartner && <PartnerHint />}
     </div>
   )
 }

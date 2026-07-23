@@ -1625,6 +1625,8 @@
       "metaTitle": "Anmelden",
       "title": "Anmelden",
       "lead": "Melden Sie sich mit Ihrer E-Mail-Adresse und Ihrem Passwort an.",
+      "partnerTitle": "Anmelden im Partner-Portal",
+      "partnerLead": "Melden Sie sich mit dem Konto an, mit dem Ihr Betrieb freigeschaltet wurde.",
       "submit": "Anmelden",
       "forgotLink": "Passwort vergessen?",
       "noAccount": "Noch kein Konto?",
