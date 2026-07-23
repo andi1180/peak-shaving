@@ -22,8 +22,9 @@
  * deshalb nur Session-Prüfung und Antwort-Auswertung, nicht der Aufruf selbst.
  */
 import { revalidatePath } from 'next/cache'
+import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { ADMIN_HREF, PRODUCT_LABELS } from './config'
+import { ADMIN_ANMELDEN_HREF, ADMIN_HREF, PRODUCT_LABELS } from './config'
 import {
   codeSchema,
   roleByEmailSchema,
@@ -385,4 +386,26 @@ export async function setCodeActiveAction(
     default:
       return { formError: GENERIC }
   }
+}
+
+/**
+ * Abmelden aus dem Admin-Bereich (B17) — dieselbe Sitzung, dieselbe Abmeldung, anderes Ziel.
+ *
+ * ── WARUM NICHT `signOutAction` AUS `lib/auth/actions.ts` ────────────────────────────────────────
+ * Sie tut fachlich dasselbe (`supabase.auth.signOut()`), leitet aber über `redirectToLocalized` auf
+ * die Startseite. Beides passt hier nicht: Das Ziel ist der Admin-Eingang, und der liegt AUSSERHALB
+ * der Sprach-Struktur — `redirectToLocalized` schickte ihn durch `getPathname`, das bei einer
+ * zweiten Sprache `/en/admin/anmelden` erzeugte, eine Route, die es nicht gibt (dieselbe
+ * Überlegung, aus der `components/admin/nav.tsx` `next/link` statt des locale-bewussten Links
+ * benutzt). Deshalb hier der schlichte `redirect` mit dem wörtlichen Pfad.
+ *
+ * Das ist KEIN zweiter Abmeldeweg im Sinne eines zweiten Auth-Systems: es gibt weiterhin genau eine
+ * Sitzung und genau einen Aufruf, der sie beendet. Verschieden ist allein, wohin der Nutzer danach
+ * geschickt wird — und ein Admin, der sich abmeldet, gehört an seinen Eingang zurück und nicht auf
+ * die Marketing-Startseite.
+ */
+export async function adminSignOutAction(): Promise<void> {
+  const supabase = await createClient()
+  await supabase.auth.signOut()
+  redirect(ADMIN_ANMELDEN_HREF)
 }
