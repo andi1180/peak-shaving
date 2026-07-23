@@ -124,18 +124,20 @@ export async function sendPartnerApprovalMail(input: PartnerApprovalMail): Promi
    *
    * Der Empfehlungslink steht zusätzlich als KOPIERBARER TEXT und nicht nur als Verweis: Der Betrieb
    * soll ihn in seine eigene Aussendung übernehmen, nicht anklicken — ein reines `<a>` mit
-   * Beschriftung liesse ihn genau das nicht tun.
+   * Beschriftung liesse ihn genau das nicht tun. Das ist die EINZIGE bewusste Abweichung vom
+   * Bestandsmuster (dort trägt der Link eine Beschriftung, `lib/leads/mail.ts`); der Abstands-
+   * rhythmus „Satz (12px) + Link (20px)" ist derselbe wie dort.
    */
   const html = [
     `<div style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;color:#262626">`,
     `<p style="margin:0 0 16px">${escapeHtml(greeting)}</p>`,
     `<p style="margin:0 0 16px">${escapeHtml(t('intro', { company: input.displayName }))}</p>`,
-    `<p style="margin:0 0 6px">${escapeHtml(t('linkLead'))}</p>`,
-    `<p style="margin:0 0 16px;padding:12px;background:#f5f5f5;border-radius:6px;word-break:break-all">`,
+    `<p style="margin:0 0 12px">${escapeHtml(t('linkLead'))}</p>`,
+    `<p style="margin:0 0 20px;padding:12px;background:#f5f5f5;border-radius:6px;word-break:break-all">`,
     `<a href="${escapeHtml(referralUrl)}" style="color:#0f766e;font-weight:600">${escapeHtml(referralUrl)}</a>`,
     `</p>`,
-    `<p style="margin:0 0 6px">${escapeHtml(t('portalLead'))}</p>`,
-    `<p style="margin:0 0 16px"><a href="${escapeHtml(portalUrl)}" style="color:#0f766e;font-weight:600">${escapeHtml(portalUrl)}</a></p>`,
+    `<p style="margin:0 0 12px">${escapeHtml(t('portalLead'))}</p>`,
+    `<p style="margin:0 0 20px"><a href="${escapeHtml(portalUrl)}" style="color:#0f766e;font-weight:600">${escapeHtml(portalUrl)}</a></p>`,
     `<p style="margin:0 0 16px">${escapeHtml(passwordLine)}</p>`,
     `<p style="margin:0 0 16px;font-size:13px;color:#525252">${escapeHtml(t('passwordForgotten'))}</p>`,
     `<p style="margin:0 0 16px;font-size:13px;color:#525252">${escapeHtml(t('fallback', { email: COMPANY.email }))}</p>`,

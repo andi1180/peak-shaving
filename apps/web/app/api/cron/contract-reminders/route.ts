@@ -258,7 +258,7 @@ export async function GET(request: Request): Promise<Response> {
         p_error: mail.ok
           ? undefined
           : mail.reason === 'not_configured'
-            ? 'Versand nicht konfiguriert (RESEND_API_KEY/RESEND_FROM fehlt).'
+            ? 'Versand nicht konfiguriert (RESEND_API_KEY fehlt).'
             : 'Der Mailversand wurde abgelehnt oder war nicht erreichbar.',
       })
       if (result.error) {

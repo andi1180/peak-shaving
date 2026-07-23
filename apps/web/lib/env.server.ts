@@ -35,10 +35,14 @@ const serverSchema = z.object({
   STRIPE_SECRET_KEY: optionalEnv,
   STRIPE_WEBHOOK_SECRET: optionalEnv,
   STRIPE_MONITOR_PRICE_ID: optionalEnv,
-  // Kontaktformular-Zustellung (Resend). Fehlt der Key/Absender, meldet lib/kontakt/deliver.ts
-  // `not_configured` (kein Crash) — deshalb optional.
+  // Zustellung über Resend (Kontaktformular + alle System-Mails). Fehlt der Key, melden die
+  // Versandpfade `not_configured` (kein Crash) — deshalb optional.
+  // ⚠ Es gibt bewusst KEIN `RESEND_FROM` (mehr): der Absender ist `MAIL_FROM` in
+  // `lib/mail/send.ts` — eine Definition im Code für alle Mails, samt Begründung. Eine
+  // Umgebungsvariable an dieser Stelle konnte je Deployment einen anderen Absender ergeben und hat
+  // schon einmal formal falsch dringestanden (422 von Resend). Ein in Vercel noch gesetzter Wert
+  // wird ab jetzt schlicht nicht mehr gelesen und kann dort entfernt werden (DEPLOYMENT.md §1c).
   RESEND_API_KEY: optionalEnv,
-  RESEND_FROM: optionalEnv,
   RESEND_TO: optionalEnv,
   // Signaturgeheimnis des Resend-Webhooks (B2-2, app/api/resend/webhook). Beginnt mit `whsec_`,
   // stammt aus der Endpunkt-Seite im Resend-Dashboard. Optional im Schema wie alles hier — aber
@@ -69,7 +73,6 @@ export const serverEnv = parseEnv(
     STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET,
     STRIPE_MONITOR_PRICE_ID: process.env.STRIPE_MONITOR_PRICE_ID,
     RESEND_API_KEY: process.env.RESEND_API_KEY,
-    RESEND_FROM: process.env.RESEND_FROM,
     RESEND_TO: process.env.RESEND_TO,
     RESEND_WEBHOOK_SECRET: process.env.RESEND_WEBHOOK_SECRET,
     TURNSTILE_SECRET_KEY: process.env.TURNSTILE_SECRET_KEY,

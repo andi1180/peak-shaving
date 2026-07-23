@@ -26,8 +26,10 @@ const mocks = vi.hoisted(() => ({
 // Voraussetzung dafür, das ECHTE Modul zu laden (dasselbe Problem wie in den Cron-Route-Tests).
 vi.mock('server-only', () => ({}))
 
+// Kein `RESEND_FROM`: der Absender kommt seit der Vereinheitlichung aus `MAIL_FROM`
+// (`lib/mail/send.ts`) und ist dort für alle Mails gepinnt (`lib/mail/sender.test.ts`).
 vi.mock('@/lib/env.server', () => ({
-  serverEnv: { RESEND_API_KEY: 'test-key', RESEND_FROM: 'COOLiN ENERGY <energy@coolin.at>' },
+  serverEnv: { RESEND_API_KEY: 'test-key' },
   requireLeadTokenSecret: () => 'test-token-geheimnis',
 }))
 

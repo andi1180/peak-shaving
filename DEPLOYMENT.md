@@ -70,15 +70,20 @@ das an der betroffenen Stelle sichtbar).
 | Variable | Scope | Wert-Herkunft | Pflicht |
 |---|---|---|---|
 | `RESEND_API_KEY` | Production (Preview optional) | resend.com → API Keys (beginnt mit `re_`) | optional, aber ohne sie versendet das Kontaktformular nichts |
-| `RESEND_FROM` | wie oben | Absender auf **verifizierter** Resend-Domain, z. B. `COOLiN ENERGY <noreply@…>` | wie oben |
 | `RESEND_TO` | optional | Empfänger der internen Benachrichtigung (Default: `energy@coolin.at`) | optional |
 | `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | optional | dash.cloudflare.com → Turnstile → Site | optional (sonst Honeypot) |
 | `TURNSTILE_SECRET_KEY` | optional | dash.cloudflare.com → Turnstile → Site (Secret) | optional |
 
+- **⚠️ `RESEND_FROM` GIBT ES NICHT MEHR.** Der Absender ist eine Konstante im Code
+  (`MAIL_FROM` in `apps/web/lib/mail/send.ts`, Wert `COOLiN ENERGY <energy@coolin.at>`) — s. §9.
+  Ein in Vercel noch gesetzter Wert wird nicht mehr gelesen und **kann dort entfernt werden**;
+  stehen zu lassen schadet nicht, ist aber irreführend.
 - **Seit B1-2 versendet derselbe Resend-Zugang zusätzlich die Double-Opt-in-Bestätigungsmail**
   (`apps/web/lib/leads/mail.ts`). Fehlt der Key, bleibt eine erteilte Einwilligung auf `pending` —
   rechtlich wirkungslos, aber ohne sichtbaren Fehler für den Absender. Der Fehlschlag steht als
   `[leads] Bestätigungsmail NICHT versendet …` im Vercel-Function-Log. S. §1f.
+- **Der Schlüssel trägt inzwischen sieben Mails**, nicht nur das Kontaktformular: die vollständige
+  Liste steht in §9. Fehlt er, versendet **keine** davon.
 
 ### 1d. Stripe + service_role (T4-3, server-only, Pflicht für Checkout/Webhook)
 
@@ -308,7 +313,7 @@ Spiegel, nur über Server-Code/RLS erreichbar — verifiziert: derzeit korrekt n
 - Lokal ist das bereits in `config.toml` gesetzt (`localhost:3000/**`, `127.0.0.1:3000/**`) — das betrifft
   nur den lokalen Stack, nicht die Cloud.
 
-### 2c. Authentication → SMTP: Resend eintragen (sonst harte Rate-Limits)
+### 2c. Authentication → SMTP: Resend eintragen (sonst harte Rate-Limits) ⚠️ SIEHE AUCH §9
 
 Project Settings → **Authentication → „SMTP Settings" → Custom SMTP aktivieren:**
 
@@ -318,15 +323,22 @@ Project Settings → **Authentication → „SMTP Settings" → Custom SMTP akti
 | Port | `465` (SSL) bzw. `587` |
 | Username | `resend` |
 | Password | ein **Resend-API-Key** (resend.com → API Keys) |
-| Sender email | Adresse auf einer in Resend **verifizierten** Domain (z. B. `noreply@coolin.at`) |
-| Sender name | z. B. `COOLiN ENERGY` |
+| Sender email | **`energy@coolin.at`** — dieselbe Adresse wie alle übrigen Mails (§9), **nicht** `noreply@` |
+| Sender name | `COOLiN ENERGY` |
 
 - **Was passiert, wenn man es NICHT tut:** Supabase' eingebauter Mailversand hat **harte Rate-Limits**
-  (wenige Mails pro Stunde) und ist ausdrücklich nur für Tests — in Produktion würden Registrierungs-
-  Bestätigungs- und Passwort-Reset-Mails verzögert oder gar nicht zugestellt. **Für Produktion untauglich.**
+  (wenige Mails pro Stunde), **landet nachweislich im Spam** und ist ausdrücklich nur für Tests — in
+  Produktion würden Registrierungs-Bestätigungs- und Passwort-Reset-Mails verzögert, im Spam-Ordner
+  oder gar nicht zugestellt. **Für Produktion untauglich.**
+- **⚠️ Custom SMTP hebt das Auth-Ratenlimit NICHT automatisch an.** Zusätzlich
+  **Authentication → Rate Limits → „Emails sent per hour"** eigens hochsetzen. Ein zu niedriges Limit
+  hat in **B16-3 real dazu geführt, dass Kontoanlagen mit HTTP 429 `over_email_send_rate_limit`
+  scheiterten** (gemessen, ~33 s nach einem vorherigen Versuch) — s. §9.
 - **Was du bei Resend selbst noch tun musst:** die Absender-**Domain verifizieren** (SPF- + DKIM-DNS-
-  Einträge bei deinem DNS-Provider setzen). Ohne verifizierte Domain lehnt Resend die Sendung ab.
-- Der API-Key für SMTP kann derselbe wie für das Kontaktformular sein oder ein separater — beides ok.
+  Einträge bei deinem DNS-Provider setzen). Für `coolin.at` ist das erledigt.
+- **Die Auth-Mail-Vorlagen liegen ebenfalls im Dashboard** (Authentication → Email Templates) und sind
+  **getrennt zu pflegen** — sie stehen nicht im Repo und ziehen bei Textänderungen im Code nicht nach.
+- Der API-Key für SMTP kann derselbe wie für den übrigen Versand sein oder ein separater — beides ok.
 
 ---
 
@@ -656,3 +668,80 @@ gegen GoTrue in der Fassung dieses Projekts, B16-3). Das bleibt bewusst so:
 
 **Erneut zu bewerten**, wenn Enumeration beobachtet wird (auffällige Serien von 422/429 auf
 `/registrieren`) oder wenn die Kontozugehörigkeit selbst schützenswert wird.
+
+---
+
+## 9. Ausgehende E-Mail — EIN Absender, EIN Versandweg ⚠️ BETRIEBSREGEL
+
+**Ausgehende Mail läuft grundsätzlich über Resend, Absender `energy@coolin.at`.** Das gilt AUCH für
+die Auth-Mails von Supabase (Registrierungsbestätigung, Passwort-Zurücksetzen): der eingebaute
+Supabase-Versand landet nachweislich im Spam. Diese Umstellung ist **Dashboard-Konfiguration**
+(Authentication → SMTP Settings, s. §2c) und **nicht im Repo abbildbar**. Zusätzlich ist
+**Authentication → Rate Limits → „Emails sent per hour" eigens hochzusetzen** — Custom SMTP hebt das
+Auth-Ratenlimit **NICHT** automatisch an. Ein zu niedriges Limit hat in **B16-3 real dazu geführt,
+dass Kontoanlagen mit 429 scheiterten** (`over_email_send_rate_limit`); seit **PR #43** bricht die
+Bewerbung in diesem Fall sichtbar ab, statt einen Antrag ohne Konto zu hinterlassen. Auch die
+**Auth-Mail-Vorlagen liegen im Dashboard** und sind getrennt zu pflegen.
+
+**Warum `energy@coolin.at` und ausdrücklich kein `noreply@`:** Die Adresse ist in Resend verifiziert
+(SPF+DKIM auf coolin.at) und liefert nachweislich zu — sie ist die einzige, für die das belegt ist.
+`noreply@`-Adressen werden von Filtern tendenziell schlechter bewertet, und bei einer Mail, die
+jemand unerwartet bekommt, muss eine Rückfrage möglich sein. Eine Antwort, die ins Leere läuft, ist
+im besten Fall eine verlorene Rückfrage und im schlechtesten eine Beschwerde.
+
+**Der Absender steht im Code, nicht in der Umgebung:** `MAIL_FROM` in
+`apps/web/lib/mail/send.ts` — **eine** Definition für alle Mails. `RESEND_FROM` gibt es nicht mehr
+(§1c). Gepinnt in `apps/web/lib/mail/sender.test.ts`, das jeden Versandpfad einmal echt auslöst.
+
+### Was dieses System verschickt (Stand 23.07.2026)
+
+**Über Resend — sieben Mails, alle mit demselben Absender:**
+
+| Anlass | Empfänger | Code | Reply-To |
+|---|---|---|---|
+| Kontaktformular | intern (`RESEND_TO`, sonst `energy@coolin.at`) | `lib/kontakt/deliver.ts` | der Absender des Formulars |
+| Double-Opt-in-Bestätigung (B1-2) | Interessent | `lib/leads/mail.ts` | — |
+| Zusendung des Rechenergebnisses (B3-2) | Interessent | `lib/leads/mail.ts` | — |
+| Vertragsablauf-Erinnerung (B4-2, Cron) | Interessent | `lib/leads/mail.ts` | — |
+| Partner-Bewerbung, Benachrichtigung (B16-3) | intern | `lib/partner-application/mail.ts` | der Bewerber |
+| Partner-Bewerbung, Eingangsbestätigung (B16-3) | Bewerber | `lib/partner-application/mail.ts` | — |
+| Partner-Freischaltung (B16-4b) | Fachbetrieb | `lib/partner-portal/mail.ts` | — |
+
+- Das **Kontaktformular schickt dem Absender KEINE eigene Bestätigung.** Kreuzt er zusätzlich die
+  Marketing-Einwilligung an, bekommt er die Double-Opt-in-Mail — das ist eine andere Sache.
+- **Abmeldelink (RFC 8058) trägt genau EINE dieser Mails: die Vertragsablauf-Erinnerung.** Sie ist
+  die einzige bestellte Aussendung. Die übrigen sechs sind transaktional — abgemeldet werden kann
+  eine Aussendung, nicht die Antwort auf einen Vorgang, den der Empfänger selbst angestossen hat.
+- Der **Fristendurchsetzungs-Lauf (B4-1, `lead-retention`, täglich 03:15 UTC) versendet bewusst
+  KEINE E-Mail** — er anonymisiert nur.
+
+**NICHT über Resend, sondern von Supabase selbst versendet — per Code NICHT erreichbar:**
+
+| Anlass | Auslöser im Code |
+|---|---|
+| Registrierungsbestätigung | `supabase.auth.signUp` / `.resend` (`lib/auth/actions.ts`, `lib/auth/sign-up.ts`) |
+| Passwort-Zurücksetzen | `supabase.auth.resetPasswordForEmail` (`lib/auth/actions.ts`) |
+
+Diese beiden hängen **ausschliesslich an der Dashboard-Konfiguration** (§2c): Absender, Versandweg,
+Ratenlimit und Vorlagen sind dort eingestellt, nicht im Repo. Der Code kann sie weder umleiten noch
+selbst versenden — er löst sie nur aus. **Das ist eine Feststellung, kein Arbeitsauftrag:** Es gibt
+in `apps/web` keinen Weg, diese Mails über `lib/mail/send.ts` zu schicken, und es soll auch keiner
+gebaut werden (er müsste GoTrues Bestätigungs-Token nachbauen).
+
+### ⚠️ OFFEN — von Andreas zu bestätigen
+
+**Ist die Umstellung auf Custom SMTP (§2c) in der Cloud bereits erfolgt?** Vom Repo aus **nicht
+prüfbar**: Auth-SMTP-Einstellungen und das Auth-Ratenlimit sind Projektkonfiguration und werden von
+`supabase db push` nicht erfasst; der Resend-API-Key ist in Vercel als „sensitive" hinterlegt und
+damit auch nicht auslesbar (dieselbe Grenze wie bei der Öffnungs-/Klick-Verfolgung, §2-Resend-a).
+
+**Zu bestätigen sind drei Dinge, einzeln:**
+
+1. Custom SMTP aktiv, **Sender email = `energy@coolin.at`** (nicht `noreply@`).
+2. **Authentication → Rate Limits → „Emails sent per hour" hochgesetzt** — das ist der Punkt, der bei
+   aktivem Custom SMTP am ehesten übersehen wird, weil das eine ohne das andere funktioniert bis zum
+   ersten Andrang.
+3. Die **Auth-Mail-Vorlagen** einmal durchgesehen (Absenderbezeichnung, Ton, Links auf die
+   Produktionsdomain).
+
+Bis das bestätigt ist, gilt der Zustand als **unbekannt**, nicht als erledigt.

@@ -20,6 +20,34 @@
  */
 import 'server-only'
 import { serverEnv } from '@/lib/env.server'
+import { COMPANY } from '@/lib/nav'
+
+/**
+ * DER ABSENDER ALLER ÜBER RESEND VERSENDETEN MAILS — eine Definition, nicht ein Fundort je Mail.
+ *
+ * ── WARUM `energy@coolin.at` UND AUSDRÜCKLICH KEIN `noreply@` ───────────────────────────────────
+ * Die Adresse ist in Resend verifiziert (SPF/DKIM auf coolin.at) und liefert nachweislich zu — sie
+ * ist damit die einzige, für die das belegt ist. Und sie ist ein echtes Postfach: `noreply@`-
+ * Adressen werden von Filtern tendenziell schlechter bewertet, und bei einer Mail, die jemand
+ * unerwartet bekommt (eine Bestätigung, eine Erinnerung, eine Freischaltung), muss eine Rückfrage
+ * möglich sein. Eine Antwort, die ins Leere läuft, ist im besten Fall eine verlorene Rückfrage und
+ * im schlechtesten eine Beschwerde.
+ *
+ * ── WARUM IM CODE UND NICHT IN DER UMGEBUNG ────────────────────────────────────────────────────
+ * Bis hierher kam der Wert aus `RESEND_FROM` und wurde an ZWEI Stellen gelesen (hier und in
+ * `lib/kontakt/deliver.ts`). Das hat zwei Nachteile, die beide real geworden sind: Resend verlangt
+ * strikt `email@domain` oder `Name <email@domain>`, und eine falsch formatierte Variable hat den
+ * Versand schon einmal mit 422 abgelehnt (Handover `apps/web/CLAUDE.md`, Domain-Umzug) — ein
+ * Fehler, den kein Build und kein Test fängt, weil er in der Umgebung steht. Ausserdem konnte der
+ * Absender je Deployment ein anderer sein, ohne dass es irgendwo auffiele. Als Konstante ist er
+ * versioniert, prüfbar und für alle sieben Mails derselbe; ein Wechsel der Absenderdomain ist ein
+ * PR mit einer Zeile — dieselbe Abwägung, mit der B11 die Tarifsätze in den Code gelegt hat.
+ *
+ * Die ADRESSE selbst steht weiterhin nur an einer Stelle (`COMPANY`, `lib/nav.ts`): sie ist die
+ * Firmenadresse, die auch der Footer und das JSON-LD zeigen. Eine zweite getippte Kopie wäre die
+ * Stelle, die bei einem Postfachwechsel still auf das alte Postfach zeigt.
+ */
+export const MAIL_FROM = `${COMPANY.name} <${COMPANY.email}>`
 
 export type MailOutcome = { ok: true } | { ok: false; reason: 'not_configured' | 'send_failed' }
 
@@ -37,20 +65,19 @@ export function escapeHtml(value: string): string {
     .replace(/'/g, '&#39;')
 }
 
-/** Ist der Versandweg überhaupt konfiguriert? Aufrufer prüfen das VOR dem Aufbau der Mail. */
+/**
+ * Ist der Versandweg überhaupt konfiguriert? Aufrufer prüfen das VOR dem Aufbau der Mail.
+ *
+ * Seit der Absender im Code steht (s. `MAIL_FROM`), fehlt dafür genau EIN Wert: der API-Schlüssel.
+ * Der Absender kann nicht mehr fehlen und nicht mehr formal falsch sein.
+ */
 export function mailConfigured(): boolean {
-  return Boolean(serverEnv.RESEND_API_KEY && serverEnv.RESEND_FROM)
+  return Boolean(serverEnv.RESEND_API_KEY)
 }
 
 /** Was fehlt — für das Server-Log, nicht für den Nutzer. */
 export function warnMailNotConfigured(what: string, consequence: string): void {
-  const missing = [
-    !serverEnv.RESEND_API_KEY && 'RESEND_API_KEY',
-    !serverEnv.RESEND_FROM && 'RESEND_FROM',
-  ]
-    .filter(Boolean)
-    .join(', ')
-  console.warn(`[mail] ${what} NICHT versendet — ${missing} fehlt. ${consequence}`)
+  console.warn(`[mail] ${what} NICHT versendet — RESEND_API_KEY fehlt. ${consequence}`)
 }
 
 export type OutgoingMail = {
@@ -64,16 +91,15 @@ export type OutgoingMail = {
    */
   headers?: Record<string, string>
   /**
-   * Antwortadresse. `from` MUSS unsere verifizierte Domain bleiben (SPF/DKIM) — eine fremde Adresse
-   * gehört hierher, nicht dorthin.
+   * Antwortadresse. `from` ist immer `MAIL_FROM` und MUSS unsere verifizierte Domain bleiben
+   * (SPF/DKIM) — eine fremde Adresse gehört hierher, nicht dorthin.
    */
   replyTo?: string
 }
 
 export async function sendMail(message: OutgoingMail, label: string): Promise<MailOutcome> {
   const apiKey = serverEnv.RESEND_API_KEY
-  const from = serverEnv.RESEND_FROM
-  if (!apiKey || !from) return { ok: false, reason: 'not_configured' }
+  if (!apiKey) return { ok: false, reason: 'not_configured' }
 
   try {
     // Dynamischer Import wie in `lib/kontakt/deliver.ts`: ohne Key kostet ein Aufruf keinen
@@ -82,7 +108,7 @@ export async function sendMail(message: OutgoingMail, label: string): Promise<Ma
     const resend = new Resend(apiKey)
 
     const { error } = await resend.emails.send({
-      from,
+      from: MAIL_FROM,
       to: message.to,
       subject: message.subject,
       text: message.text,
