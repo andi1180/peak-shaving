@@ -284,6 +284,36 @@ nicht `CRON_SECRET`.
 
 ---
 
+### 1j. iframe-Einbettung des Kalkulators (`apps/website`) in coolin.at (`apps/web`) ⚠️ BEFUND, KEINE ZUSAGE
+
+coolin.at (`apps/web`, Projekt `peak-shaving-web`) rahmt den Rechner (`apps/website`, Projekt
+`peak-shaving-website`) unter `/peak-shaving/kalkulator/rechner` per `<iframe src={EMBEDDED_CALCULATOR_SRC}>`
+ein (`apps/web/app/(site)/[locale]/peak-shaving/kalkulator/rechner/page.tsx`). Ob ein solches
+`<iframe>` etwas anzeigt, entscheidet ausschließlich die GERAHMTE Seite (`apps/website`) über ihre
+Response-Header — `X-Frame-Options` bzw. die CSP-Direktive `frame-ancestors`.
+
+**Fundort, geprüft (Stand 30.07.2026):** Es gibt in `apps/website` **keine** `headers()`-Funktion in
+`next.config.mjs`, **kein** `vercel.json`, **keine** `middleware.ts` — und damit **keine einzige
+Stelle im Repo**, die `X-Frame-Options` oder eine CSP mit `frame-ancestors` setzt. Repo-weiter Sweep
+(`grep -rniE "X-Frame-Options|frame-ancestors|Content-Security-Policy"` über alle `.mjs`/`.ts`/`.tsx`/
+`.json`, ohne `node_modules`/`.next`) liefert **0 Treffer**.
+
+**Was das bedeutet — kein Blocker, aber keine bewusste Konfiguration:** Next.js setzt `X-Frame-Options`
+nicht von sich aus. Die Einbettung funktioniert heute also nur, weil **nichts sie verbietet** —
+nicht, weil irgendwo eine Erlaubnis für genau `coolin.at`/`www.coolin.at` als Rahmen-Ursprung
+hinterlegt ist. Das ist der Unterschied zwischen „zulässig, weil niemand es eingeschränkt hat" und
+„absichtlich für diesen einen Rahmen freigegeben". Jede künftige, versehentlich hinzugefügte
+Sicherheits-Härtung (z. B. eine generische `X-Frame-Options: DENY` oder eine CSP ohne
+`frame-ancestors`-Ausnahme, etwa über ein künftiges Vercel-Projekt-Preset oder einen Security-Header-
+Baustein) würde die Einbettung **kommentarlos** stilllegen — es gäbe dann keine bestehende Ausnahme,
+die man „vergessen" hätte, weil es nie eine gab.
+
+**Nachtrag, falls dies je verschärft werden soll:** eine `frame-ancestors 'self' https://coolin.at
+https://www.coolin.at` in `apps/website/next.config.mjs` (`async headers()`) wäre die engere, bewusste
+Fassung — Apex UND `www`, analog zur in §1b dokumentierten Doppel-Domain-Vorsicht.
+
+---
+
 ## 2. Supabase-Dashboard-Einstellungen (nicht über Migrationen abgedeckt)
 
 Diese Einstellungen sind **PostgREST-/Auth-Projektkonfiguration**, kein DB-Schema — `supabase db push`
