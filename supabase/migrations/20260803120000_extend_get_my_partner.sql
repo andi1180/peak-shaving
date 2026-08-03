@@ -1,5 +1,9 @@
--- B18-3 (Schema+Schreibweg) — public.get_my_partner liefert zusätzlich Ansprechperson und Beitritt
--- (Fahrplan_2026.md, Abschnitt B18 — dritter Teil, Datenbankhälfte).
+-- B18-3 (Schema+Schreibweg) — public.get_my_partner liefert zusätzlich Ansprechperson und Beitritt.
+-- Die Datenbankhälfte; die „Allgemein"-Seite des Partner-Portals ist ein eigener, späterer Schritt.
+--
+-- ⚠ HINWEIS ZUR ABLAGE DER ENTSCHEIDUNGEN: `Fahrplan_2026.md` führt die Bauabschnitte B0–B17 und
+-- kennt B18 (noch) NICHT — hier steht deshalb bewusst KEIN Verweis auf einen Abschnitt, den es dort
+-- nicht gibt. Maßgeblich für den Stand der B18-Reihe ist der Handover in `apps/web/CLAUDE.md`.
 --
 -- ── WAS SICH ÄNDERT, IN EINEM SATZ ──────────────────────────────────────────────────────────────
 -- Die Rückgabe wächst ADDITIV um `contact_first_name`, `contact_last_name` und `created_at`. Sonst
