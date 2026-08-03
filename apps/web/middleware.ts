@@ -3,6 +3,8 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { routing } from './i18n/routing'
 import { updateSession } from './lib/supabase/middleware'
 import { ADMIN_HREF, ADMIN_PATHNAME_HEADER } from './lib/admin/config'
+import { leavesPortalHost } from './lib/portal-host'
+import { SITE_URL } from './lib/site'
 
 const handleI18nRouting = createMiddleware(routing)
 
@@ -22,6 +24,43 @@ const handleI18nRouting = createMiddleware(routing)
  * Nutzer flöge scheinbar zufällig aus der Session. Genau das vermeidet die Komposition hier.
  */
 export async function middleware(request: NextRequest): Promise<Response> {
+  /*
+   * DIE HOST-WEICHE (B18-1a) — sie steht GANZ OBEN, und das ist der einzige Ort, an dem sie stehen
+   * kann, ohne die Komposition darunter zu berühren.
+   *
+   * `partner.coolin.at` zeigt seit dem Aufschalten der Domain auf dasselbe Vercel-Projekt und
+   * lieferte damit die komplette Website ein zweites Mal aus. Ausserhalb des Portalbereichs geht
+   * jede Anfrage dieses Hosts deshalb dauerhaft auf denselben Pfad unter der kanonischen Basis.
+   *
+   * WARUM VOR ALLEM ANDEREN: Eine Umleitung ist eine ABSCHLIESSENDE Entscheidung — es gibt danach
+   * keine Response mehr, auf die next-intl oder Supabase noch schreiben könnten. Sie weiter unten
+   * einzuhängen hiesse, erst eine Response zu bauen und einen Session-Refresh auszulösen (also
+   * Auth-Cookies auf dem Portal-Host zu setzen), um beides anschliessend zu verwerfen. Umgekehrt
+   * bleibt die Reihenfolge next-intl → Supabase (s. u.) für ALLES, was hier durchfällt, wörtlich
+   * unangetastet: Auf den Routen, die auf dem Portal-Host BLEIBEN, läuft der Session-Refresh
+   * unverändert weiter — sie erreichen den Zweig darunter genauso wie auf der Hauptdomain.
+   *
+   * Der Ziel-Origin kommt aus `SITE_URL` (`lib/site.ts`), nicht als zweiter getippter Host: Es gibt
+   * genau eine Quelle der kanonischen Basis-URL, und Canonicals, sitemap und diese Weiche müssen
+   * dieselbe nennen. Pfad und Query reisen unverändert mit — ein Link auf eine Inhaltsseite soll
+   * auf der Hauptdomain an derselben Stelle ankommen und nicht auf der Startseite.
+   *
+   * 308 statt 301/302: dauerhaft UND methodenerhaltend. Der Unterschied ist hier bewusst
+   * andersherum als bei den `.html`-Alt-Pfaden in `next.config.mjs` (dort ist 301 richtig, weil ein
+   * altes Formular-POST nicht als POST weitergereicht werden soll) — auf dieser Subdomain gibt es
+   * keine Alt-Formulare, wohl aber Server Actions, und deren POST still zu einem GET zu machen
+   * verlöre die Aktion, statt sie am richtigen Ort auszuführen.
+   *
+   * Der Vergleich selbst steht in `lib/portal-host.ts` als EINE benannte Ableitung — hier
+   * absichtlich kein String-Vergleich. Insbesondere erkennt er ausschliesslich den exakten
+   * Portal-Host: `localhost:<port>` und `*.vercel.app` sind weder die Hauptdomain noch die
+   * Subdomain und laufen unverändert weiter (Begründung ausführlich dort).
+   */
+  if (leavesPortalHost(request.headers.get('host'), request.nextUrl.pathname)) {
+    const target = new URL(`${request.nextUrl.pathname}${request.nextUrl.search}`, SITE_URL)
+    return NextResponse.redirect(target, 308)
+  }
+
   /*
    * `/admin` (T4-4) steht bewusst AUSSERHALB der Sprach-Struktur — ein interner Verwaltungsbereich
    * ist kein Seiteninhalt (dieselbe Begründung wie beim Styleguide, s. `app/(dev)/layout.tsx`).
@@ -70,6 +109,23 @@ export const config = {
    * `opengraph-image` (§6.3): erzeugte Route ohne Dateiendung — ohne den Eintrag würde die
    * Middleware ihre fertige URL per 307 auf die präfixlose Fassung umleiten. Ein Social-Crawler
    * darf das Bild direkt und mit 200 bekommen.
+   *
+   * ── B18-1a: DER MATCHER BLEIBT UNVERÄNDERT, UND ZWAR NICHT AUS BEQUEMLICHKEIT ──────────────────
+   * Die Host-Weiche oben läuft nur, wo dieser Matcher greift. Genau die hier ausgeschlossenen
+   * Pfade sind die, die auf dem Portal-Host NICHT umgeleitet werden dürfen:
+   *
+   *   – `_next`/`_vercel`/Dateien mit Endung: die Skript-, Stil- und Schriftdateien der Seite. Sie
+   *     mitzunehmen hiesse, jeden Chunk einer Portal-Seite per 308 auf die Hauptdomain zu schicken
+   *     — die Seite auf `partner.coolin.at` lüde ihr eigenes JavaScript von einer fremden Herkunft
+   *     nach. Das ist der teuerste denkbare Fehler dieser Weiche und wäre erst im Browser sichtbar.
+   *   – `auth`: der Supabase-Callback tauscht den Code gegen eine Session und setzt seine Cookies
+   *     SELBST (s. o.). Ein 308 legte diesen Austausch auf eine andere Herkunft, deren Cookie-Jar
+   *     den PKCE-Verifier nicht hat — der Link aus der Bestätigungsmail schlüge fehl.
+   *   – `api`: kein Endpunkt wird vom Portalbereich aus aufgerufen, und ein methodenerhaltender 308
+   *     machte aus einem POST eine herkunftsübergreifende Wiederholung desselben POST.
+   *
+   * Ein Ausweiten des Matchers wäre also nicht neutral, sondern in jedem der drei Fälle ein
+   * Rückschritt. Was hier ausgeschlossen ist, wird auf dem Portal-Host ganz normal ausgeliefert.
    */
   matcher: ['/((?!api|auth|_next|_vercel|styleguide|.*opengraph-image|.*\\..*).*)'],
 }
