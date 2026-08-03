@@ -4,6 +4,8 @@
 
 Seit 20.07.2026 ist **`Fahrplan_2026.md`** (Repo-Root) die kanonische Quelle für Reihenfolge, Umfang und Begründung aller Bauabschnitte — bei Widerspruch zu einem Pflichtenheft gilt diese Datei. Der Haushalts-Tarifmonitor (Dokumente unten mit „RUHEND" markiert) ist eingestellt; Details und die neue Bauabschnitts-Nummerierung (B0–B15) stehen dort.
 
+**Ausnahme seit 27.07.2026:** Für Fragen zu Bauabschnitt B18 (Partner-Portal-Ausbau) gilt statt `Fahrplan_2026.md` die dedizierte `B18_Partner-Portal_Ausbau.md` — s. Eintrag unten.
+
 **Session-Einstieg, in dieser Reihenfolge:** `Fahrplan_2026.md` → diese Datei (Landkarte) → die `CLAUDE.md` der betroffenen App → `DEPLOYMENT.md`.
 
 ## Aktuelle Dateien in diesem claude.ai-Projektordner
@@ -22,6 +24,7 @@ Seit 20.07.2026 ist **`Fahrplan_2026.md`** (Repo-Root) die kanonische Quelle fü
 - `CLAUDE_Monitor.md` — Arbeitsregeln Monitor **(RUHEND seit 20.07.2026, s. `Fahrplan_2026.md`)**
 - `Pflichtenheft_Monitor_MVP.md` — Detaildokument Monitor **(RUHEND seit 20.07.2026, s. `Fahrplan_2026.md`)**
 - `DEPLOYMENT.md` — **Betriebshandbuch (neu im Arbeitsordner seit 24.07.2026)**: Cron-Zeitpläne und Fehlerbilder, Webhook-Aktivierung, Deployment Protection, dauerhafte Zusagen (keine Öffnungs-/Klick-Verfolgung, gedruckte Pfade), Anleitung zum Nachtragen von Tarifsätzen. **Niemals echte Werte** — nur Namen, Fundorte, Verfahren.
+- `B18_Partner-Portal_Ausbau.md` — **neu seit 27.07.2026**. Sitzungsstart-Dokument für Bauabschnitt B18: die sechs Teilschritte, Entscheidungen, offene Punkte. **Kanonisch für B18** — bei Widerspruch zu `Fahrplan_2026.md` oder einem Pflichtenheft gilt für B18-Fragen diese Datei. Repo-Pendant: `B18_Partner-Portal_Ausbau.md` (Repo-Root), identischer Name — wie `Fahrplan_2026.md` und diese Datei selbst KEIN Eintrag in der „Entsprechung im Repo"-Tabelle unten (die gilt nur für das `CLAUDE_*.md`-Suffix-Muster).
 
 ## Entsprechung im Repo (github.com/andi1180/peak-shaving)
 
