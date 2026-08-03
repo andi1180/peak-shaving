@@ -52,6 +52,11 @@ eine zweite Mail. Verifiziert im Code: `submitPartnerApplicationAction` ruft
 
 ### B18-1 — Subdomain `partner.coolin.at` (ZUERST)
 
+**Status: gebaut, gemergt, live.** PR #54 (Basis: Host-Weiche, Indexierungssperre) +
+Korrektur-PR (Wurzel = Portaleingang statt Weiterleitung auf coolin.at). B18-1b
+(Cookie-Domain) entfällt — das Portal lebt vollständig auf partner.coolin.at, keine
+geteilte Sitzung mit coolin.at nötig.
+
 Bewusst vor dem Inhaltsausbau: Erst die Infrastruktur richtig aufsetzen, dann in Ruhe befüllen.
 
 **Andreas erledigt vorab (CC kann kein DNS):**
@@ -72,6 +77,12 @@ Bewusst vor dem Inhaltsausbau: Erst die Infrastruktur richtig aufsetzen, dann in
 
 ### B18-2 — Onboarding vereinfachen
 
+**Status: gebaut, gemergt, live.** PR #56 (Kontoanlage ohne Mailversand,
+Aktivierungslink erst bei Freischaltung) · PR #59 ("Schon Partner?"-Link auf
+partner.coolin.at umgestellt) · PR #60 (Login-/Konto-Knopf aus dem öffentlichen Header
+entfernt, wie ursprünglich geplant). Nebenbei gehärtet: Turnstile-Schlüssel
+scharfgeschaltet, Produktionsbuild bricht seither ohne sie (PR #57/#58).
+
 **Neue Reihenfolge:**
 1. Bewerbung mit Passwort (existiert bereits) → Konto entsteht **ohne** Mailversand
    (Admin-API statt `signUp`)
@@ -91,6 +102,11 @@ ausser Partnern keine Registrierungen; sämtliche Partnerkommunikation läuft ü
 
 ### B18-3 — Portal-Struktur mit Menüs
 
+**Status: teilweise gebaut.** Schema/Schreibweg fertig (PR #61 — get_my_partner()
+liefert zusätzlich Ansprechperson + Beitrittsdatum, Grundlage für "Allgemein"),
+migriert auf die Cloud-DB. Oberfläche (Portal-Nav-Header, "Allgemein"-Seite,
+"Marketing"-Umzug) noch offen.
+
 Eigener Nav-Header im Portal (nicht der öffentliche), fortlaufend erweiterbar:
 
 | Menü | Inhalt |
@@ -102,6 +118,9 @@ Eigener Nav-Header im Portal (nicht der öffentliche), fortlaufend erweiterbar:
 
 ### B18-4 — Kalkulator-Anfrage über das Portal
 
+**Status: nicht begonnen.** Wartet auf Andreas' Entscheidung: Gutscheincode-Weg für
+calculator_pro daneben behalten oder ersetzen?
+
 - Auf der „Peak Shaving"-Portalseite: Anfrageformular mit Begründungstext.
 - Anfrage landet im Admin, dort ablehnen oder freigeben.
 - Bei Freigabe: `calculator_pro`-Entitlement für dieses Konto → der Kalkulator erscheint auf
@@ -112,6 +131,8 @@ Eigener Nav-Header im Portal (nicht der öffentliche), fortlaufend erweiterbar:
 bestehen bleiben oder ersetzt werden? Beide führen zum selben Entitlement.
 
 ### B18-5 — Admin-Leads: zwei Ansichten, EINE Tabelle
+
+**Status: nicht begonnen.**
 
 **Wichtig — technische Korrektur zur ursprünglichen Idee:** Zwei DB-Tabellen würden vier
 funktionierende Mechanismen zerreissen:
@@ -136,6 +157,11 @@ Interaktion, Löschfrist.
 Die Reiter „Partner" und „Partner-Anträge" bleiben unverändert.
 
 ### B18-6 — Partner sieht seine Leads ⚠ BLOCKIERT
+
+**Status: rechtlich freigegeben (Martin), technisch nicht begonnen.**
+Schema+Schreibweg-Prompt liegt fertig vor (neuer consent_purpose-Wert,
+get_my_partner_leads(), Checkbox auf der Partner-Landingpage) — startet, sobald B18-3
+komplett ist.
 
 Der Interessent gibt seine Daten **COOLiN**, nicht dem Partner. Ihm im Portal Firmenname,
 Ansprechperson und Kontaktdaten zu zeigen, ist eine Übermittlung an einen Dritten — von keiner der
