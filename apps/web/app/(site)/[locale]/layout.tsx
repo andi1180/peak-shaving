@@ -12,6 +12,24 @@ import { SiteHeader } from '@/components/layout/site-header'
 import { SiteFooter } from '@/components/layout/site-footer'
 import { PostHogAnalytics } from '@/components/analytics/posthog'
 import '../../globals.css'
+/*
+ * WÄCHTER ÜBER DIE PRODUKTIONSPFLICHTIGEN UMGEBUNGSVARIABLEN (`lib/env.guard.ts`, heute:
+ * Cloudflare Turnstile). Ein reiner Seiteneffekt-Import — die Datei prüft beim Laden und wirft,
+ * wenn dieser Build unter der Produktivdomain läuft und ein Wert fehlt.
+ *
+ * WARUM HIER UND NICHT IN `next.config.mjs` ODER EINER `instrumentation.ts`: Die Prüfung hängt an
+ * `IS_PRODUCTION_SITE` (`lib/site.ts`), also an TypeScript-Modulen, die `next.config.mjs` nicht
+ * importieren kann; und `instrumentation.ts` läuft beim Start des Servers, nicht beim `next build`
+ * — ein vergessener Wert fiele damit erst nach dem Deployment auf, also genau zu spät.
+ *
+ * Dieses Root-Layout dagegen wird beim Bauen JEDER öffentlichen Seite ausgewertet (gemessen: der
+ * Build bricht ab, s. Handover in CLAUDE.md), und es ist zugleich das Layout genau der Seiten, die
+ * die geschützten Formulare tragen — `/kontakt`, `/warteliste`, `/partner-werden`. Der Wächter
+ * steht damit an derselben Stelle wie das, was er schützt. Der Admin-Bereich und `/styleguide`
+ * haben eigene Root-Layouts und binden ihn bewusst NICHT ein: Für die Build-Wirkung genügt EIN
+ * Auswertungsort, und mehrere Einbindungen wären dieselbe Prüfung an mehreren Stellen.
+ */
+import '@/lib/env.guard'
 
 // Inter selbst gehostet via next/font (Pflichtenheft §7.4: Performance + DSGVO).
 // next/font lädt die Dateien zur BUILD-Zeit und liefert sie aus der eigenen

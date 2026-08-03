@@ -807,35 +807,48 @@ damit auch nicht auslesbar (dieselbe Grenze wie bei der Öffnungs-/Klick-Verfolg
 
 Bis das bestätigt ist, gilt der Zustand als **unbekannt**, nicht als erledigt.
 
-### ⚠️ OFFEN — B18-2a: Turnstile auf `/partner-werden` scharf schalten
+### ✅ ERLEDIGT — Turnstile ist scharf, und ein Wächter hält es so (B18-2a → 03.08.2026)
 
-**Das ist der wichtigste Betriebspunkt dieses Bauabschnitts, und er ist gemessen, nicht vermutet.**
+**Der Punkt war der wichtigste Betriebspunkt von B18-2a. Er ist geschlossen — die Werte sind
+gesetzt, und ein erneutes Vergessen bricht ab jetzt den Build, statt monatelang still zu bleiben.**
 
-Bis B18-2a war das Supabase-Auth-Ratenlimit die — unbeabsichtigte — Bremse gegen massenhafte
-Kontoanlage über das öffentliche Bewerbungsformular. Die Kontoanlage läuft jetzt über die Admin-API
-und kennt dieses Limit nicht mehr. **Was dort noch schützt, ist der Honeypot — und sonst nichts:**
+**Der Ausgangszustand, gemessen und nicht vermutet:** Bis B18-2a war das Supabase-Auth-Ratenlimit
+die — unbeabsichtigte — Bremse gegen massenhafte Kontoanlage über das öffentliche
+Bewerbungsformular. Die Kontoanlage läuft seither über die Admin-API und kennt dieses Limit nicht
+mehr. Am ausgelieferten HTML von `https://www.coolin.at/partner-werden` gemessen (03.08.2026,
+**vor** der Behebung): **0 Vorkommen von `challenges.cloudflare.com`, 0 `cf-turnstile`** — die drei
+„turnstile"-Treffer waren ausschliesslich Fehlertexte im next-intl-Katalog. Es schützte allein der
+Honeypot, und der hält Formular-Crawler auf, nicht ein Skript, das drei Feldnamen kennt.
 
-Am ausgelieferten HTML von `https://www.coolin.at/partner-werden` gemessen (03.08.2026): **0
-Vorkommen von `challenges.cloudflare.com`, 0 `cf-turnstile`**. Die drei „turnstile"-Treffer sind
-ausschliesslich Fehlertexte im next-intl-Katalog. `NEXT_PUBLIC_TURNSTILE_SITE_KEY` ist in Produktion
-also nicht gesetzt, das Widget rendert nicht — und ohne `TURNSTILE_SECRET_KEY` wird die
-serverseitige Prüfung übersprungen (`lib/kontakt/turnstile.ts` ist env-gated in beide Richtungen).
-
-**Beurteilung: das genügt nicht.** Ein Honeypot hält Formular-Crawler auf, nicht ein Skript, das drei
-Feldnamen kennt. Die Folge wäre nicht nur Müll in `platform.partner_applications`, sondern eine
-wachsende Zahl unbestätigter Zeilen in `auth.users`.
-
-**Zu tun (kein Code nötig, der Schutz ist gebaut):** in dash.cloudflare.com → Turnstile eine Site
-anlegen und **beide** Schlüssel in Vercel setzen —
+**Was jetzt gilt:** Beide Schlüssel sind in Vercel gesetzt (Scope **Production + Preview**) —
 
 | Variable | Scope | Hinweis |
 |---|---|---|
-| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | Production | im Browser sichtbar, bei Turnstile unkritisch |
-| `TURNSTILE_SECRET_KEY` | Production | **nie** `NEXT_PUBLIC_` |
+| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | Production + Preview | im Browser sichtbar, bei Turnstile unkritisch |
+| `TURNSTILE_SECRET_KEY` | Production + Preview | **nie** `NEXT_PUBLIC_` |
 
-Danach Redeploy. Einzeln gesetzt ist jeweils harmlos (Widget ohne Prüfung bzw. Prüfung ohne Widget →
-Letzteres lehnt ab), aber erst beide zusammen ergeben den Schutz. Er greift damit zugleich für
-`/kontakt` und die Lead-Erfassung, die denselben Mechanismus benutzen.
+Der Schutz greift damit zugleich für `/kontakt` und die Lead-Erfassung, die denselben Mechanismus
+benutzen. Einzeln gesetzt wäre jeweils harmlos, aber wirkungslos (Widget ohne Prüfung bzw. Prüfung
+ohne Widget → Letzteres lehnt ab); erst beide zusammen ergeben den Schutz.
+
+**⚠️ WER DIESE WERTE ENTFERNT, BRICHT DEN PRODUKTIONSBUILD — und zwar mit Absicht.** Seit dem
+03.08.2026 gibt es `apps/web/lib/env.guard.ts`: Läuft ein Build unter der Produktivdomain
+(`IS_PRODUCTION_SITE`, also `NEXT_PUBLIC_SITE_URL=https://coolin.at`) und fehlt einer der beiden
+Werte, bricht `next build` beim Sammeln der Seitendaten mit einer Meldung ab, die den fehlenden Wert
+benennt. Der Grund steht oben: Das Fehlen war an nichts zu erkennen — die Formulare funktionierten
+weiter, nur der Schutz fehlte. Ein Wächter, der erst zur Laufzeit meckert, hätte dieselbe Stille
+erzeugt.
+
+**Was der Wächter ausdrücklich NICHT tut:** Preview-Builds und lokale Builds laufen weiterhin ohne
+beide Werte durch (gemessen, Exit 0) — auch jetzt, wo sie in Preview gesetzt SIND. Und
+`lib/kontakt/turnstile.ts` bleibt unverändert env-gated: Ohne Secret wird die serverseitige Prüfung
+weiterhin übersprungen statt verweigert, sonst wäre jedes Formular lokal unbenutzbar. Der Wächter
+ist orthogonal dazu — er entscheidet nicht, wie geprüft wird, sondern nur, dass die Werte da sind,
+wo es keinen Grund gibt, sie nicht zu haben.
+
+**Bei einem künftigen Domainwechsel mitzudenken:** Die Bedingung hängt an `PRODUCTION_ORIGIN` in
+`apps/web/lib/site.ts` — derselben einen Stelle, an der die Produktivdomain steht. Ein Umzug ist
+dort ein Wort, nicht zwei.
 
 ### ⚠️ OFFEN — B18-2a: Lebensdauer des Aktivierungslinks prüfen
 
