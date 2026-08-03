@@ -21,10 +21,35 @@
  *              und legte ihm nahe, sich ein zweites Mal zu bewerben.
  */
 
-/** Die EINZIGEN Felder, die `public.get_my_partner` herausgibt (die Beschränkung steht in der DB). */
+/**
+ * Die EINZIGEN Felder, die `public.get_my_partner` herausgibt (die Beschränkung steht in der DB).
+ *
+ * ── SLUG UND ANZEIGENAME SIND PFLICHT, DIE ÜBRIGEN DREI NICHT ───────────────────────────────────
+ * `slug`/`displayName` tragen den Empfehlungslink; fehlt eines von beiden, ist die Antwort für
+ * diesen Zweck unbrauchbar und `readMyPartner` liefert `error` (s. unten). Die drei mit B18-3
+ * ergänzten Felder sind OPTIONAL, und zwar aus zwei verschiedenen Gründen gleichzeitig:
+ *
+ *   `contactFirstName`/`contactLastName` sind in `platform.partners` nullable — ein von Hand
+ *   aufgenommener Betrieb ohne hinterlegte Ansprechperson ist der reale Normalfall. `null` heisst
+ *   hier „nichts hinterlegt" und wird als solches durchgereicht, NICHT zu `''` geglättet: Eine
+ *   Oberfläche, die „keine Ansprechperson hinterlegt" schreiben will, muss den Fall erkennen können.
+ *
+ *   `partnerSince` fehlt, wenn die Antwort das Feld nicht (oder unlesbar) trägt — etwa aus einer
+ *   Datenbank, auf der diese Migration noch nicht liegt. Das ist kein Fehler, der ein Portal
+ *   sperren dürfte: Der Empfehlungslink funktioniert auch ohne Beitrittsdatum.
+ *
+ * Defensiv gelesen wie die bestehenden Felder — der Typ hier ist eine BEHAUPTUNG über die
+ * Migration, kein Beweis.
+ */
 export type PortalPartner = {
   slug: string
   displayName: string
+  /** Vorname der Ansprechperson; `null` = nicht hinterlegt, `undefined` = nicht mitgeliefert. */
+  contactFirstName?: string | null
+  /** Nachname der Ansprechperson; `null` = nicht hinterlegt, `undefined` = nicht mitgeliefert. */
+  contactLastName?: string | null
+  /** ISO-Zeitstempel aus `platform.partners.created_at` — seit wann der Betrieb Partner ist. */
+  partnerSince?: string
 }
 
 export type PortalState =
@@ -56,5 +81,31 @@ export function readMyPartner(data: unknown, error?: unknown): PortalState {
   const displayName = typeof obj.display_name === 'string' ? obj.display_name.trim() : ''
   if (slug === '' || displayName === '') return { state: 'error' }
 
-  return { state: 'partner', partner: { slug, displayName } }
+  return {
+    state: 'partner',
+    partner: {
+      slug,
+      displayName,
+      contactFirstName: optionalName(obj.contact_first_name),
+      contactLastName: optionalName(obj.contact_last_name),
+      partnerSince: typeof obj.created_at === 'string' ? obj.created_at : undefined,
+    },
+  }
+}
+
+/**
+ * Ein optionales Namensfeld der Ansprechperson (B18-3).
+ *
+ * Dieselbe defensive Haltung wie oben — mit einem bewussten Unterschied zu `slug`/`displayName`:
+ * Dort ist ein leerer Wert ein FEHLER (ohne sie gäbe es keinen Empfehlungslink), hier ist er eine
+ * ANGABE, nämlich „nicht hinterlegt". Ein Leerstring oder reine Leerzeichen werden deshalb zu
+ * `null` normalisiert statt durchgereicht: Beides sähe in einer Oberfläche wie ein hinterlegter,
+ * aber unsichtbarer Name aus, und die Anrede daraus wäre eine Lücke mitten im Satz. Alles, was
+ * keine Zeichenkette ist, gilt als „nicht mitgeliefert" (`undefined`).
+ */
+function optionalName(value: unknown): string | null | undefined {
+  if (value === null) return null
+  if (typeof value !== 'string') return undefined
+  const trimmed = value.trim()
+  return trimmed === '' ? null : trimmed
 }

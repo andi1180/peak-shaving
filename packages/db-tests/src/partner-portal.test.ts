@@ -1,5 +1,6 @@
 // DB-Gate für das Partner-Portal und den Benachrichtigungsvermerk
-// (Migration 20260726150000_create_partner_portal.sql, B16-4b).
+// (Migration 20260726150000_create_partner_portal.sql, B16-4b;
+//  erweitert um 20260803120000_extend_get_my_partner.sql, B18-3).
 //
 // ── WORAN DIESER SCHRITT SCHEITERN KÖNNTE, UND WAS DESHALB GEMESSEN WIRD ────────────────────────
 // (1) ⚠ FREMDE PARTNER. `public.get_my_partner` ist der erste Lesezugriff einer NEUEN
@@ -11,9 +12,14 @@
 //     stehen hier ZWEI Partner nebeneinander, und beide Richtungen werden geprüft.
 // (2) DER RÜCKGABEUMFANG. Was der Wrapper liefert, kann im ausgelieferten HTML landen — auch wenn
 //     niemand es rendert. Geprüft werden die SCHLÜSSEL der Antwort und zusätzlich der vollständige
-//     serialisierte Rückgabewert gegen die internen Felder (Ansprechperson, notified_at, user_id,
-//     application_id). Eine Auswahlliste im TypeScript-Leser wäre eine Zusage, die der nächste Umbau
-//     zurücknimmt; die hier gemessene steht in der Datenbank.
+//     serialisierte Rückgabewert gegen die internen Felder. ⚠ MIT B18-3 VERLÄUFT DIE TRENNLINIE
+//     ANDERS, NICHT SCHWÄCHER: Ansprechperson und `created_at` gehören dem angemeldeten Konto
+//     SELBST und fahren ab jetzt mit; `notified_at` (Betriebsvermerk), `user_id` und
+//     `application_id` (Kennungen FREMDER Datensätze) bleiben aussen vor, ebenso `is_active` (wird
+//     geprüft, nicht zurückgegeben — s. (3)) und `updated_at`. Eine Auswahlliste im
+//     TypeScript-Leser wäre eine Zusage, die der nächste Umbau zurücknimmt; die hier gemessene
+//     steht in der Datenbank. Dazu der Fall, der real vorkommt und still falsch werden kann: eine
+//     NICHT hinterlegte Ansprechperson muss als `null` ankommen, nicht als Leerstring.
 // (3) EIN INAKTIVER PARTNER IST NICHT AUFFINDBAR — dieselbe Antwort wie „kein Partner". Sonst könnte
 //     das Portal einen dritten Zustand erfinden und einem stillgelegten Betrieb weiterhin einen Link
 //     zum Kopieren anbieten, der nachweislich ins Leere führt (seine Landingpage antwortet 404).
@@ -77,16 +83,23 @@ async function newPlainUser(): Promise<TestUser> {
  * Antragsweg brächte hier drei weitere Fixtures und keine zusätzliche Aussage.
  */
 async function newPartner(
-  input: { userId?: string | null; displayName?: string; contactFirstName?: string } = {},
+  input: {
+    userId?: string | null
+    displayName?: string
+    /** `null` = ausdrücklich KEINE Ansprechperson hinterlegt (bei von Hand aufgenommenen Betrieben real). */
+    contactFirstName?: string | null
+    contactLastName?: string | null
+  } = {},
 ): Promise<string> {
   const slug = newSlug()
   await sql(
     `insert into platform.partners (slug, display_name, contact_first_name, contact_last_name, user_id)
-     values ($1, $2, $3, 'Gruber', $4)`,
+     values ($1, $2, $3, $4, $5)`,
     [
       slug,
       input.displayName ?? 'Elektro Musterbetrieb GmbH',
-      input.contactFirstName ?? 'Anna',
+      input.contactFirstName === undefined ? 'Anna' : input.contactFirstName,
+      input.contactLastName === undefined ? 'Gruber' : input.contactLastName,
       input.userId ?? null,
     ],
   )
@@ -118,6 +131,29 @@ async function asAdmin<T extends Record<string, unknown>>(
 
 async function markNotified(user: TestUser, slug: string) {
   return asAdmin(user, `select public.admin_mark_partner_notified($1) as r`, [slug])
+}
+
+/**
+ * `created_at` der Partnerzeile in MILLISEKUNDEN (B18-3).
+ *
+ * Bewusst nicht als Zeichenkette verglichen: Der Wrapper liefert den Zeitstempel über
+ * `jsonb_build_object`, also in der Darstellung SEINER Sitzung, dieser Lesepfad dagegen über den
+ * Treiber als `Date`. Zwei Schreibweisen desselben Augenblicks (`+00:00` gegen `Z`) wären ein roter
+ * Test ohne Fehler dahinter — verglichen wird deshalb der Zeitpunkt, nicht seine Notation.
+ */
+async function readCreatedAtMs(slug: string): Promise<number> {
+  const rows = await sql<{ created_at: Date }>(
+    `select created_at from platform.partners where slug = $1`,
+    [slug],
+  )
+  return new Date(rows[0]!.created_at).getTime()
+}
+
+/** Derselbe Zeitpunkt aus der Wrapper-Antwort — wirft bei allem, was kein Zeitstempel ist. */
+function msOf(value: unknown): number {
+  const ms = new Date(String(value)).getTime()
+  if (Number.isNaN(ms)) throw new Error(`kein lesbarer Zeitstempel: ${JSON.stringify(value)}`)
+  return ms
 }
 
 async function readNotifiedAt(slug: string): Promise<string | null> {
@@ -162,16 +198,26 @@ afterAll(async () => {
 describe('(1) get_my_partner — der Lesezugriff des eingeloggten Fachbetriebs', () => {
   it('liefert die eigene Partnerzeile', async () => {
     const user = await newPlainUser()
-    const slug = await newPartner({ userId: user.id, displayName: 'Raymann Elektrotechnik GmbH' })
+    const slug = await newPartner({
+      userId: user.id,
+      displayName: 'Raymann Elektrotechnik GmbH',
+      contactFirstName: 'Anna',
+      contactLastName: 'Gruber',
+    })
 
-    expect(await getMyPartner(user)).toEqual({
+    const res = await getMyPartner(user)
+    expect(res).toMatchObject({
       status: 'ok',
       slug,
       display_name: 'Raymann Elektrotechnik GmbH',
+      contact_first_name: 'Anna',
+      contact_last_name: 'Gruber',
     })
+    // Der Zeitstempel getrennt: er ist keine Fixture-Konstante, sondern der Wert der echten Zeile.
+    expect(msOf(res.created_at)).toBe(await readCreatedAtMs(slug))
   })
 
-  it('DER RÜCKGABEUMFANG: genau drei Schlüssel — keine internen Felder', async () => {
+  it('DER RÜCKGABEUMFANG: genau sechs Schlüssel — die eigenen Angaben, keine internen', async () => {
     const user = await newPlainUser()
     const slug = await newPartner({ userId: user.id, contactFirstName: 'Ingeborg' })
     // Ein Vermerk, der es unter keinen Umständen nach aussen schaffen darf.
@@ -179,16 +225,25 @@ describe('(1) get_my_partner — der Lesezugriff des eingeloggten Fachbetriebs',
     await markNotified(admin, slug)
 
     const res = await getMyPartner(user)
-    expect(Object.keys(res).sort()).toEqual(['display_name', 'slug', 'status'])
+    expect(Object.keys(res).sort()).toEqual([
+      'contact_first_name',
+      'contact_last_name',
+      'created_at',
+      'display_name',
+      'slug',
+      'status',
+    ])
 
     /*
-     * Zusätzlich der ROHTEXT: Eine Schlüsselprüfung fängt ein umbenanntes Feld nicht („kontakt"
-     * statt „contact_first_name" wäre ein vierter Schlüssel, aber der Test oben nennt ihn nicht
-     * beim Namen). Der Kontaktname und der Benachrichtigungsvermerk dürfen in der Antwort
-     * NIRGENDS vorkommen — auch nicht als Teil eines anderen Feldes.
+     * Zusätzlich der ROHTEXT. Mit B18-3 IST die Ansprechperson Teil der Antwort — sie gehört dem
+     * angemeldeten Konto selbst, und der Betrieb soll sie im Portal auf Richtigkeit prüfen können.
+     * Die Trennlinie verläuft ab jetzt anders, nicht schwächer: `notified_at` ist ein
+     * BETRIEBSVERMERK, `user_id` und `application_id` sind Kennungen FREMDER Datensätze — und eine
+     * Schlüsselprüfung allein fängt ein umbenanntes Feld nicht („vermerk" statt „notified_at" wäre
+     * ein siebter Schlüssel, aber der Test oben nennt ihn nicht beim Namen).
      */
     const raw = JSON.stringify(res)
-    expect(raw).not.toContain('Ingeborg')
+    expect(raw).toContain('Ingeborg')
     expect(raw).not.toContain('notified')
     expect(raw).not.toContain(user.id)
   })
@@ -196,18 +251,111 @@ describe('(1) get_my_partner — der Lesezugriff des eingeloggten Fachbetriebs',
   it('⚠ DER WÄCHTER: zwei Fachbetriebe sehen ausschliesslich den JEWEILS EIGENEN Link', async () => {
     const userA = await newPlainUser()
     const userB = await newPlainUser()
-    const slugA = await newPartner({ userId: userA.id, displayName: 'Betrieb A' })
-    const slugB = await newPartner({ userId: userB.id, displayName: 'Betrieb B' })
+    const slugA = await newPartner({
+      userId: userA.id,
+      displayName: 'Betrieb A',
+      contactFirstName: 'Anna',
+      contactLastName: 'Alpha',
+    })
+    const slugB = await newPartner({
+      userId: userB.id,
+      displayName: 'Betrieb B',
+      contactFirstName: 'Bertram',
+      contactLastName: 'Beta',
+    })
 
     const resA = await getMyPartner(userA)
     const resB = await getMyPartner(userB)
 
-    expect(resA).toEqual({ status: 'ok', slug: slugA, display_name: 'Betrieb A' })
-    expect(resB).toEqual({ status: 'ok', slug: slugB, display_name: 'Betrieb B' })
+    expect(resA).toMatchObject({
+      status: 'ok',
+      slug: slugA,
+      display_name: 'Betrieb A',
+      contact_first_name: 'Anna',
+      contact_last_name: 'Alpha',
+    })
+    expect(resB).toMatchObject({
+      status: 'ok',
+      slug: slugB,
+      display_name: 'Betrieb B',
+      contact_first_name: 'Bertram',
+      contact_last_name: 'Beta',
+    })
 
-    // Beide Richtungen ausdrücklich: der Slug des anderen darf in keiner der Antworten stehen.
+    /*
+     * Beide Richtungen ausdrücklich: weder der Slug noch — seit B18-3 — die Ansprechperson des
+     * anderen darf in einer der Antworten stehen. Die Ansprechperson ist genau der Wert, an dem
+     * eine fehlende `user_id`-Bedingung ab jetzt zuerst sichtbar würde.
+     */
     expect(JSON.stringify(resA)).not.toContain(slugB)
+    expect(JSON.stringify(resA)).not.toContain('Bertram')
     expect(JSON.stringify(resB)).not.toContain(slugA)
+    expect(JSON.stringify(resB)).not.toContain('Anna')
+  })
+
+  it('B18-3: eine NICHT hinterlegte Ansprechperson kommt als null, nicht als Leerstring', async () => {
+    /*
+     * Der reale Fall: ein von Hand aufgenommener Betrieb (B16-4a nennt Raymann namentlich), bei dem
+     * nie eine Ansprechperson erfasst wurde. Als `''` zurückgegeben sähe „nicht hinterlegt" in
+     * jeder Oberfläche wie ein hinterlegter, aber unsichtbarer Name aus — und eine daraus gebildete
+     * Anrede hätte mitten im Satz eine Lücke.
+     */
+    const user = await newPlainUser()
+    const slug = await newPartner({
+      userId: user.id,
+      contactFirstName: null,
+      contactLastName: null,
+    })
+
+    const res = await getMyPartner(user)
+    expect(res).toMatchObject({ status: 'ok', slug })
+    expect(res.contact_first_name).toBeNull()
+    expect(res.contact_last_name).toBeNull()
+    // Die Schlüssel bleiben da: „nicht hinterlegt" ist eine Angabe, kein fehlendes Feld.
+    expect(Object.keys(res)).toContain('contact_first_name')
+    expect(Object.keys(res)).toContain('contact_last_name')
+  })
+
+  it('B18-3: nur EINE Hälfte des Namens ist ein zulässiger Zustand', async () => {
+    const user = await newPlainUser()
+    const slug = await newPartner({
+      userId: user.id,
+      contactFirstName: 'Anna',
+      contactLastName: null,
+    })
+
+    const res = await getMyPartner(user)
+    expect(res).toMatchObject({ status: 'ok', slug, contact_first_name: 'Anna' })
+    expect(res.contact_last_name).toBeNull()
+  })
+
+  it('B18-3: das Beitrittsdatum ist der echte created_at der eigenen Zeile', async () => {
+    const user = await newPlainUser()
+    const slug = await newPartner({ userId: user.id })
+
+    // Ein von der Vorgabe abweichender Wert — sonst bewiese der Vergleich nur, dass „jetzt" ≈ „jetzt".
+    await sql(
+      `update platform.partners set created_at = timestamptz '2026-02-03 08:15:00+00' where slug = $1`,
+      [slug],
+    )
+
+    const res = await getMyPartner(user)
+    expect(msOf(res.created_at)).toBe(await readCreatedAtMs(slug))
+    expect(new Date(msOf(res.created_at)).toISOString()).toBe('2026-02-03T08:15:00.000Z')
+  })
+
+  it('B18-3: `updated_at` und `is_active` fahren weiterhin NICHT mit', async () => {
+    /*
+     * `is_active` wird in der BEDINGUNG geprüft und nicht zurückgegeben (B16-4b) — sonst könnte die
+     * Anwendung den dritten Zustand „gibt es, ist aber stillgelegt" erfinden. `updated_at` ist ein
+     * Wartungsvermerk und beantwortet keine Frage, die ein Fachbetrieb über sich selbst stellt.
+     */
+    const user = await newPlainUser()
+    await newPartner({ userId: user.id })
+
+    const keys = Object.keys(await getMyPartner(user))
+    expect(keys).not.toContain('updated_at')
+    expect(keys).not.toContain('is_active')
   })
 
   it('ein Konto OHNE Partnerzeile bekommt {status: none} — der Normalfall, kein Fehler', async () => {
