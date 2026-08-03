@@ -1,4 +1,6 @@
 import type { MetadataRoute } from 'next'
+import { headers } from 'next/headers'
+import { isPortalHost } from '@/lib/portal-host'
 import { absoluteUrl, IS_PRODUCTION_SITE } from '@/lib/site'
 
 /**
@@ -24,9 +26,46 @@ import { absoluteUrl, IS_PRODUCTION_SITE } from '@/lib/site'
  * Die URL kann dann trotzdem im Index landen (ohne Inhalt, allein über Links).
  * Ein `noindex` wirkt nur, wenn der Crawler die Seite lesen darf. Also: lesen
  * lassen. Die beiden Seiten schließen sich selbst aus, sauberer geht es nicht.
+ *
+ * ── B18-1a: DIESELBE FRAGE, EINMAL PRO HOST ─────────────────────────────────────────────────────
+ * `IS_PRODUCTION_SITE` beantwortet „liegt diese AUSLIEFERUNG unter der richtigen Adresse" und kommt
+ * aus der Umgebung. Seit `partner.coolin.at` auf dasselbe Vercel-Projekt zeigt, genügt das nicht
+ * mehr: Beide Hosts teilen sich dieselbe Auslieferung und bekämen damit dieselbe `robots.txt` —
+ * die Subdomain wäre eine indexierbare Zweitdomain mit identischem Inhalt. Der Host der ANFRAGE ist
+ * deshalb die zweite Bedingung, und `headers()` macht diese Route dafür dynamisch: Eine Antwort,
+ * die vom Host abhängt, darf nicht beim Bauen festgeschrieben werden.
+ *
+ * WARUM HIER UND NICHT IN `lib/routes.ts` ODER IN DER SEITEN-METADATA: Jene beiden entscheiden je
+ * PFAD. Der Portal-Host ist eine Frage des HOSTS — dieselbe `/anmelden` ist auf beiden Hosts
+ * dieselbe Datei. Ein Eintrag dort könnte den Host gar nicht sehen, und er wäre zusätzlich
+ * redundant: Die Pfade, die auf dem Portal-Host überhaupt erreichbar BLEIBEN (Portal + Auth), sind
+ * in `lib/routes.ts` bereits ausnahmslos `indexable: false` und tragen ihr `noindex` schon heute.
+ * Ein Test in `lib/portal-host.test.ts` hält genau diese Deckungsgleichheit fest — sie ist der
+ * Grund, warum hier EINE Bedingung genügt und nirgends sonst etwas nachzutragen ist. Alles andere
+ * auf diesem Host ist ein 308 auf die kanonische Basis, also ohnehin kein indexierbarer Inhalt.
+ *
+ * ⚠ WARUM KEINE POSITIVE ALLOWLIST INDEXIERBARER HOSTS (das wäre die strengere Fassung):
+ * GEMESSEN am 03.08.2026 leitet der Apex `coolin.at` per 308 auf `www.coolin.at` um — ausgeliefert
+ * wird die Seite also unter `www`, während `NEXT_PUBLIC_SITE_URL` (und damit `SITE_URL`,
+ * `PRODUCTION_ORIGIN` und jeder Canonical) auf den Apex OHNE `www` lautet. Eine Regel „indexierbar
+ * nur unter dem kanonischen Host" setzte damit die GESAMTE Seite auf `Disallow: /`, weil der
+ * einzige Host, der überhaupt mit 200 antwortet, nicht der kanonische ist. Diese Weiche fügt
+ * deshalb ausschliesslich eine VERBIETENDE Bedingung hinzu und erteilt nirgends eine neue Erlaubnis.
+ * Die verbleibende Lücke — ein weiterer, unbekannter Host auf derselben Auslieferung bekäme
+ * `Allow` — ist bekannt und gehört in die Domain-Konfiguration in Vercel, nicht in den Code.
+ *
+ * ⚠ FÜR B18-2 MITZUDENKEN: Solange NICHTS auf `partner.coolin.at` verlinkt, ist `Disallow: /` hier
+ * die vollständige Antwort. Sobald der Login-Knopf im öffentlichen Header dorthin zeigt, entsteht
+ * ein crawlbarer Link auf einen Host, den der Crawler nicht betreten darf — und genau dann greift
+ * die Warnung weiter oben in umgekehrter Richtung: Die URL kann ohne Inhalt im Index landen, weil
+ * Google das `noindex` der Anmeldeseite nicht mehr lesen darf. Das ist kein Grund, hier heute etwas
+ * anderes zu tun (die Alternative wäre, den gesamten Zweitdomain-Crawl zu erlauben), aber es ist der
+ * Zeitpunkt, an dem die Abwägung neu ansteht.
  */
-export default function robots(): MetadataRoute.Robots {
-  if (!IS_PRODUCTION_SITE) {
+export default async function robots(): Promise<MetadataRoute.Robots> {
+  const host = (await headers()).get('host')
+
+  if (isPortalHost(host) || !IS_PRODUCTION_SITE) {
     return {
       rules: [{ userAgent: '*', disallow: '/' }],
       /*
