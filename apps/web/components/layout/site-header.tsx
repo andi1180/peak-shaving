@@ -7,8 +7,6 @@ import { EmblemImage } from '@/components/brand/emblem-image'
 import { WordmarkA } from '@/components/brand/wordmark'
 import { MAIN_NAV, KONTAKT_HREF } from '@/lib/nav'
 import { PARTNER_BEWERBUNG_HREF } from '@/lib/partner-application/config'
-import { ANMELDEN_HREF, KONTO_HREF } from '@/lib/auth/config'
-import { createClient } from '@/lib/supabase/server'
 import { cn } from '@/lib/utils'
 import { MobileNav } from './mobile-nav'
 import {
@@ -56,22 +54,24 @@ export async function SiteHeader() {
   const t = await getTranslations('Nav')
 
   /*
-   * Session serverseitig lesen (T4 Nav-Verlinkung): der Login-Platz zeigt
-   * eingeloggt „Mein Konto" (→ /konto), sonst „Login" (→ /anmelden). Server-
-   * seitig ermittelt = flackerfrei, kein Client-Roundtrip.
+   * KEIN LOGIN-/KONTO-LINK IM ÖFFENTLICHEN HEADER (B18-2).
    *
-   * PREIS: `getUser()` liest die Auth-Cookies → die (site)-Seiten werden dadurch
-   * dynamisch statt statisch gerendert (bewusst, s. PR-Bericht). Der eigentliche
-   * Token-Refresh läuft ohnehin schon je Request in der Middleware
-   * (lib/supabase/middleware) — diese RSC liest nur.
+   * Bis hierher las diese Komponente die Sitzung (`supabase.auth.getUser()`) und
+   * zeigte eingeloggt „Mein Konto" (→ /konto), sonst „Login" (→ /anmelden). Der
+   * Platz ist ersatzlos entfallen: Der Kalkulator-Zugang läuft künftig über das
+   * Partner-Portal (B18-4), nicht mehr über Konto-Billing bzw. Gutscheincode —
+   * der Einstieg war damit für den öffentlichen Besucher praktisch tot.
+   *
+   * AUSBLENDEN, NICHT LÖSCHEN: /anmelden, /konto und /registrieren bleiben
+   * vollständig erreichbar (direkter Aufruf, Lesezeichen, der Login-Zweig von
+   * /partner-portal und /partner-werden). Es fehlt allein die Verlinkung von hier.
+   *
+   * NEBENEFFEKT, und er ist der eigentliche Gewinn: Mit dem Sitzungs-Lesen fällt
+   * der `cookies()`-Zugriff aus dem Header — und damit aus JEDER (site)-Seite, weil
+   * er im gemeinsamen Layout sass. Die öffentlichen Seiten werden dadurch wieder
+   * vorgerendert statt bei jedem Aufruf serverseitig gebaut. Wer hier wieder etwas
+   * Sitzungsabhängiges einbaut, nimmt das für die gesamte Website zurück.
    */
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  const isLoggedIn = user !== null
-  const accountHref = isLoggedIn ? KONTO_HREF : ANMELDEN_HREF
-  const accountLabel = isLoggedIn ? t('konto') : t('login')
 
   return (
     /*
@@ -255,22 +255,7 @@ export async function SiteHeader() {
         {/* Rechte Spalte: Aktionen (Desktop) + Hamburger (Mobile) im selben Grid-Slot */}
         <div className="flex shrink-0 items-center justify-self-end gap-2">
           <div className="hidden items-center gap-2 lg:flex">
-            {/*
-             * Login-/Konto-Platz (T4 Nav-Verlinkung): echtes Auth steht seit
-             * T4-2 (Supabase). Ersetzt den funktionslosen Platzhalter-`<span>`
-             * aus Prompt 26. Eingeloggt „Mein Konto" (→ /konto), sonst „Login"
-             * (→ /anmelden); der Zustand kommt serverseitig aus getUser() oben.
-             */}
-            <Link
-              href={accountHref}
-              className={cn(
-                'inline-flex items-center gap-1.5 rounded-md px-2 py-2 text-small text-text-muted',
-                'transition-colors hover:text-ink',
-                'outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
-              )}
-            >
-              {accountLabel}
-            </Link>
+            {/* Hier stand bis B18-2 der Login-/Konto-Platz — Begründung oben im Rumpf. */}
             <Button asChild variant="secondary" size="sm">
               <Link href={KONTAKT_HREF}>{t('kontakt')}</Link>
             </Button>
@@ -293,7 +278,7 @@ export async function SiteHeader() {
           </div>
 
           {/* Mobile */}
-          <MobileNav isLoggedIn={isLoggedIn} />
+          <MobileNav />
         </div>
       </Container>
     </header>

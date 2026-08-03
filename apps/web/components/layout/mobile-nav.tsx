@@ -15,7 +15,6 @@ import {
 import { EmblemImage } from '@/components/brand/emblem-image'
 import { MAIN_NAV, KONTAKT_HREF, type NavLeaf } from '@/lib/nav'
 import { PARTNER_BEWERBUNG_HREF } from '@/lib/partner-application/config'
-import { ANMELDEN_HREF, KONTO_HREF } from '@/lib/auth/config'
 import { cn } from '@/lib/utils'
 
 /*
@@ -56,11 +55,15 @@ function DrawerLink({
   )
 }
 
-export function MobileNav({ isLoggedIn }: { isLoggedIn: boolean }) {
+/*
+ * KEINE PROPS MEHR (B18-2): Das einzige, was hier je von aussen hereinkam, war
+ * der Anmeldezustand für den Konto-Einstieg unten im Drawer. Der ist entfallen
+ * (Begründung in site-header.tsx) — und mit der Prop verschwindet der Grund,
+ * warum der Header die Sitzung überhaupt lesen musste.
+ */
+export function MobileNav() {
   const t = useTranslations('Nav')
   const [open, setOpen] = useState(false)
-  const accountHref = isLoggedIn ? KONTO_HREF : ANMELDEN_HREF
-  const accountLabel = isLoggedIn ? t('konto') : t('login')
 
   return (
     <div className="lg:hidden">
@@ -168,7 +171,7 @@ export function MobileNav({ isLoggedIn }: { isLoggedIn: boolean }) {
           {/*
            * Aktionen unten: am Daumen erreichbar und immer sichtbar, egal wie
            * weit die Nav gescrollt ist. Reihenfolge wie im Desktop-Header —
-           * laut (CTA) zuerst, leise (Login) zuletzt.
+           * laut (CTA) zuerst, leise zuletzt.
            */}
           <div className="shrink-0 space-y-2 border-t border-line p-4">
             {/* Partner statt Kalkulator (B16-Einstieg) — dieselbe Entscheidung wie im Desktop-Header,
@@ -185,26 +188,11 @@ export function MobileNav({ isLoggedIn }: { isLoggedIn: boolean }) {
               </Button>
             </SheetClose>
             {/*
-             * Konto-Einstieg (T4 Nav-Verlinkung): eingeloggt „Mein Konto"
-             * (→ /konto), sonst „Login" (→ /anmelden) — Zustand aus der
-             * Server-Session (site-header.tsx, als Prop hereingereicht).
-             * SheetClose schließt den Drawer beim Klick. Der Monitor-Einstieg
-             * lebt jetzt im Leistungen-Accordion (trailingLeaf), nicht mehr hier —
-             * kein doppelter Eintrag im selben Drawer.
+             * Hier stand bis B18-2 der Konto-Einstieg („Mein Konto" / „Login").
+             * Entfernt zusammen mit dem Desktop-Pendant — Begründung in
+             * site-header.tsx. Der Monitor-Einstieg lebt im Leistungen-Accordion
+             * (trailingLeaf), nicht hier.
              */}
-            <div className="flex items-center justify-center pt-1 text-small">
-              <SheetClose asChild>
-                <Link
-                  href={accountHref}
-                  className={cn(
-                    'text-text-muted transition-colors hover:text-accent',
-                    'rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
-                  )}
-                >
-                  {accountLabel}
-                </Link>
-              </SheetClose>
-            </div>
           </div>
         </SheetContent>
       </Sheet>
