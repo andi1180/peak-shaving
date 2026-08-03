@@ -7,14 +7,22 @@
  * diese Lücke — und sie ist der erste nutzergerichtete Text dieses Systems, der einen ZUGANG
  * ankündigt statt einen Eingang zu bestätigen.
  *
- * ── VIER DINGE STEHEN DRIN, UND JEDES AUS EINEM GRUND ───────────────────────────────────────────
+ * ── FÜNF DINGE STEHEN DRIN, UND JEDES AUS EINEM GRUND ───────────────────────────────────────────
  *   1. Die Bestätigung, dass die Aufnahme durch ist. Ohne sie ist der Rest kontextlos.
- *   2. Der persönliche Empfehlungslink, VOLLSTÄNDIG. Er ist der eigentliche Gegenstand der
+ *   2. ⚠ DER AKTIVIERUNGSLINK (B18-2a), und zwar ZUERST — er ist die einzige Handlung, ohne die
+ *      nichts weitergeht. Erscheint nur, wenn das Konto tatsächlich noch unbestätigt ist.
+ *   3. Der persönliche Empfehlungslink, VOLLSTÄNDIG. Er ist der eigentliche Gegenstand der
  *      Partnerschaft; ihn nur im Portal zu zeigen hiesse, den Betrieb für die eine Angabe, die er
  *      sofort braucht, erst durch eine Anmeldung zu schicken.
- *   3. Der Verweis auf das Portal — dort liegen die Vorlagen, und dort steht der Link dauerhaft
+ *   4. Der Verweis auf das Portal — dort liegen die Vorlagen, und dort steht der Link dauerhaft
  *      (eine Mail wird verlegt).
- *   4. Womit man sich anmeldet. Der Satz ist der einzige, der vom Zustand abhängt (s. unten).
+ *   5. Womit man sich anmeldet. Der Satz hängt vom Zustand ab (s. unten).
+ *
+ * ── ⚠ B18-2a: SIE IST DIE EINZIGE MAIL NACH DER EINGANGSBESTÄTIGUNG ────────────────────────────
+ * Bis dahin bekam ein Bewerber ZWEI Mails, und die erste zum falschen Zeitpunkt: die
+ * Bestätigungsmail von Supabase ging bei der BEWERBUNG raus, er musste sein Konto also bestätigen,
+ * bevor er wusste, ob er überhaupt angenommen wird. Seit B18-2a entsteht das Konto unbestätigt und
+ * ohne jede Mail; der Aktivierungslink steckt hier. Aus zwei Mails wurde eine — nicht drei.
  *
  * ── KEIN DOUBLE-OPT-IN, KEINE EINWILLIGUNG, KEIN ABMELDELINK ────────────────────────────────────
  * Die Regel aus B1-1 verlangt eine Bestätigung, sobald die Erfüllung eine KÜNFTIGE E-Mail ist
@@ -44,8 +52,8 @@ import { routing } from '@/i18n/routing'
 import { escapeHtml, mailConfigured, sendMail, warnMailNotConfigured } from '@/lib/mail/send'
 import { COMPANY } from '@/lib/nav'
 import { absoluteUrl } from '@/lib/site'
+import { portalEntryUrl } from '@/lib/portal-host'
 import { partnerHref } from '@/lib/leads/partner'
-import { PARTNER_PORTAL_HREF } from './config'
 
 export type PartnerApprovalMail = {
   to: string
@@ -55,6 +63,20 @@ export type PartnerApprovalMail = {
   slug: string
   /** Steuert GENAU EINEN Satz — den über das Passwort. Begründung in `notify.ts`. */
   fromApplication: boolean
+  /**
+   * Der Aktivierungslink (B18-2a) — `null`, wenn das Konto BEREITS bestätigt ist.
+   *
+   * Der Fall ist real und nicht theoretisch: ein von Hand aufgenommener Fachbetrieb, dessen
+   * bestehendes Konto nachträglich verknüpft wurde (B16-4a), und ein Bewerber, der sich mit der
+   * Adresse eines längst bestätigten Kontos beworben hat. Beiden „schalten Sie Ihren Zugang frei"
+   * zu schreiben wäre eine Aufforderung zu einem Schritt, den es für sie nicht gibt — und der
+   * naheliegende Anruf käme genau von dem Betrieb, der ohnehin schon hineinkäme.
+   *
+   * Der Zustand wird NICHT aus `fromApplication` geraten, sondern kommt aus derselben
+   * GoTrue-Antwort, die den Token liefert (`email_confirmed_at`, gemessen — s.
+   * `lib/auth/admin-api.ts`).
+   */
+  activationUrl: string | null
 }
 
 /**
@@ -85,20 +107,33 @@ export async function sendPartnerApprovalMail(input: PartnerApprovalMail): Promi
     namespace: 'PartnerApprovalMail',
   })
 
+  /*
+   * Der Empfehlungslink zeigt auf die Landingpage `/partner/<slug>` — die liegt auf der
+   * HAUPTDOMAIN und wird auf dem Portal-Host per 308 weggeleitet; `absoluteUrl` ist hier also
+   * richtig (dieselbe Überlegung wie in `partner-portal-route.tsx`).
+   *
+   * Die Adresse des PORTALS dagegen ist seit B18-2a die Wurzel des Portal-Hosts
+   * (`portalEntryUrl()`, in Produktion `https://partner.coolin.at/`): Die Domain trägt die
+   * Bedeutung bereits, ein zusätzliches Pfadsegment wiederholte sie nur (B18-1a). Lokal und in
+   * jeder Preview gibt es diesen Host nicht — dort bleibt es beim Pfad auf der ausgelieferten
+   * Basis, sonst stünde in der Testmail eine tote Adresse.
+   */
   const referralUrl = absoluteUrl(partnerHref(input.slug))
-  const portalUrl = absoluteUrl(PARTNER_PORTAL_HREF)
+  const portalUrl = portalEntryUrl()
 
   const greeting = input.firstName ? t('greeting', { name: input.firstName }) : t('greetingNeutral')
   /*
-   * Der eine zustandsabhängige Satz. Er verrät nichts nach aussen — er steht in einer Mail an genau
-   * die Adresse, um deren Konto es geht.
+   * Die zustandsabhängigen Sätze. Sie verraten nichts nach aussen — sie stehen in einer Mail an
+   * genau die Adresse, um deren Konto es geht.
    */
   const passwordLine = input.fromApplication ? t('passwordFromApplication') : t('passwordExisting')
+  const activationUrl = input.activationUrl
 
   const text = [
     greeting,
     '',
     t('intro', { company: input.displayName }),
+    ...(activationUrl ? ['', t('activationLead'), activationUrl, '', t('activationNote')] : []),
     '',
     t('linkLead'),
     referralUrl,
@@ -132,6 +167,19 @@ export async function sendPartnerApprovalMail(input: PartnerApprovalMail): Promi
     `<div style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;color:#262626">`,
     `<p style="margin:0 0 16px">${escapeHtml(greeting)}</p>`,
     `<p style="margin:0 0 16px">${escapeHtml(t('intro', { company: input.displayName }))}</p>`,
+    /*
+     * Der Aktivierungsblock steht VOR dem Empfehlungslink: Er ist die einzige Handlung, ohne die
+     * nichts weitergeht. Der Link trägt hier — anders als der Empfehlungslink darunter — eine
+     * BESCHRIFTUNG statt seines Volltexts: Er soll angeklickt und nicht kopiert und weitergegeben
+     * werden, und ein 200 Zeichen langer Token im Fliesstext lädt zum Zweiten geradezu ein.
+     */
+    ...(activationUrl
+      ? [
+          `<p style="margin:0 0 12px">${escapeHtml(t('activationLead'))}</p>`,
+          `<p style="margin:0 0 12px"><a href="${escapeHtml(activationUrl)}" style="color:#0f766e;font-weight:600">${escapeHtml(t('activationLinkLabel'))}</a></p>`,
+          `<p style="margin:0 0 20px;font-size:13px;color:#525252">${escapeHtml(t('activationNote'))}</p>`,
+        ]
+      : []),
     `<p style="margin:0 0 12px">${escapeHtml(t('linkLead'))}</p>`,
     `<p style="margin:0 0 20px;padding:12px;background:#f5f5f5;border-radius:6px;word-break:break-all">`,
     `<a href="${escapeHtml(referralUrl)}" style="color:#0f766e;font-weight:600">${escapeHtml(referralUrl)}</a>`,

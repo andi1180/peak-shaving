@@ -186,8 +186,13 @@ export type ApplicantAcknowledgement = {
   locale: string
   /**
    * Wurde bei dieser Bewerbung ein NEUES Konto angelegt? Wenn nicht (bestehendes Konto oder bereits
-   * angemeldet), sagt die Mail das — sonst wartete jemand auf eine Bestätigungsmail, die nie kommt,
-   * und probierte ein Passwort, das nie gesetzt wurde.
+   * angemeldet), sagt die Mail das — sonst probierte jemand ein Passwort, das nie gesetzt wurde.
+   *
+   * ⚠ DER TEXT DES `true`-FALLS IST MIT B18-2a NACHGEZOGEN und war vorher falsch geworden: Er
+   * verwies auf „den Link in der separaten Bestätigungsmail" — die gibt es seit B18-2a nicht mehr,
+   * das Konto entsteht ohne jede Supabase-Mail. Jetzt sagt er, was tatsächlich passiert: das Konto
+   * ist angelegt, aber noch nicht freigeschaltet, und der Aktivierungslink kommt mit der
+   * Freischaltung. Genau die Sorte Satz, die kein Test und kein Build fängt.
    */
   accountCreated: boolean
 }

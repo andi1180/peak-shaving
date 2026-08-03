@@ -15,15 +15,29 @@
  *
  * ── DER LEAD-SCHREIBWEG WIRD HIER NICHT AUFGERUFEN ──────────────────────────────────────────────
  * Nicht vergessen, sondern ausgeschlossen: `signUpAction` schreibt seit B10-5 automatisch einen Lead;
- * diese Action benutzt sie deshalb NICHT, sondern den mit B16-3 herausgezogenen gemeinsamen Teil
- * (`lib/auth/sign-up.ts`). `PartnerApplicationEffects` hat gar kein Feld für eine Lead-Erfassung —
- * die Regel steht damit im Typ und nicht in der Disziplin dieser Datei.
+ * diese Action benutzt sie deshalb NICHT. `PartnerApplicationEffects` hat gar kein Feld für eine
+ * Lead-Erfassung — die Regel steht damit im Typ und nicht in der Disziplin dieser Datei.
+ *
+ * ── ⚠ SEIT B18-2a GEHT BEI DER BEWERBUNG KEINE SUPABASE-MAIL MEHR RAUS ──────────────────────────
+ * Bis hierher lief die Kontoanlage über den mit B16-3 geteilten `createAccountWithConfirmation`
+ * (`lib/auth/sign-up.ts`) und stiess damit SOFORT die Bestätigungsmail von Supabase an. Das war der
+ * Fehler, den ein echter Wochenendtest gezeigt hat: Der Bewerber musste sein Konto bestätigen,
+ * BEVOR er wusste, ob er überhaupt angenommen wird — und bekam nach der Freischaltung eine zweite
+ * Mail. Zwei Mails, die erste zum falschen Zeitpunkt.
+ *
+ * Jetzt entsteht das Konto UNBESTÄTIGT und ohne jede Mail (`createAccountWithoutConfirmation`,
+ * `lib/auth/admin-api.ts`); der Bewerber bekommt allein die Eingangsbestätigung über Resend. Der
+ * Aktivierungslink kommt erst mit der Freischaltung (B16-4b-Mail, um genau diesen Link erweitert) —
+ * es bleibt bei EINER Mail je Vorgang.
+ *
+ * `lib/auth/sign-up.ts` bleibt unverändert und gehört ab jetzt allein der Registrierung
+ * (`/registrieren`): dort ist die sofortige Bestätigungsmail richtig, weil sie das Ergebnis der
+ * Handlung ist, die die Person gerade vorgenommen hat.
  */
 
 import { headers } from 'next/headers'
 import { getLocale } from 'next-intl/server'
-import { KONTO_HREF } from '@/lib/auth/config'
-import { createAccountWithConfirmation } from '@/lib/auth/sign-up'
+import { createAccountWithoutConfirmation } from '@/lib/auth/admin-api'
 import { verifyTurnstile } from '@/lib/kontakt/turnstile'
 import { createClient } from '@/lib/supabase/server'
 import {
@@ -72,22 +86,26 @@ export async function submitPartnerApplicationAction(
     submission,
     {
       /*
-       * Das Rücksprungziel des Bestätigungslinks ist `/konto` und NICHT die Bewerbungsseite: Wer
-       * bestätigt hat, soll sein Konto sehen — die Bewerbungsseite zeigte ihm ein zweites Mal das
-       * Formular, das er gerade abgeschickt hat. Einen Partnerbereich gibt es noch nicht (B16-4+).
+       * ES GIBT KEIN RÜCKSPRUNGZIEL MEHR, WEIL ES KEINEN BESTÄTIGUNGSLINK MEHR GIBT (B18-2a). Das
+       * Konto entsteht unbestätigt und ohne Mail; anmeldefähig wird es erst durch den Klick auf den
+       * Aktivierungslink der Freischaltungsmail, und dessen Ziel ist das Partner-Portal — nicht
+       * `/konto`. Wohin der Bewerber am Ende kommt, entscheidet also die Freischaltung
+       * (`lib/partner-portal/**`) und nicht mehr dieser Aufruf.
        *
        * Ein Fehler wird NICHT ausgewertet, sondern nur als „kein Konto entstanden" gemeldet — die
-       * Antwort von GoTrue verrät, ob die Adresse bereits ein Konto hat (gemessen, s. Kopf von
-       * `lib/auth/sign-up.ts`), und genau das darf diese Seite nicht weitergeben. Ob die Bewerbung
-       * daraufhin entstehen darf, entscheidet die DATENBANK daran, ob am Ende ein Konto DA ist
-       * (`no_account`, s. Regel 3 in `flow.ts`) — nicht dieser Rückgabewert.
+       * Antwort von GoTrue verrät, ob die Adresse bereits ein Konto hat (gemessen: HTTP 422
+       * `email_exists`, s. Kopf von `lib/auth/admin-api.ts`), und genau das darf diese Seite nicht
+       * weitergeben. Ob die Bewerbung daraufhin entstehen darf, entscheidet die DATENBANK daran, ob
+       * am Ende ein Konto DA ist (`no_account`, s. Regel 3 in `flow.ts`) — nicht dieser
+       * Rückgabewert. Das Passwort eines BESTEHENDEN Kontos bleibt dabei unangetastet (ebenfalls
+       * gemessen), der Fall läuft also unverändert durch.
        */
       createAccount: async ({ email, password }) => {
-        const outcome = await createAccountWithConfirmation({ email, password, next: KONTO_HREF })
+        const outcome = await createAccountWithoutConfirmation({ email, password })
         if (!outcome.created) {
           console.warn(
             '[partner-application] Kontoanlage nicht erfolgt — der Antrag entsteht trotzdem ' +
-              `(code=${outcome.error.code ?? 'unbekannt'}, status=${outcome.error.status ?? '—'}).`,
+              `(code=${outcome.code ?? 'unbekannt'}, status=${outcome.status ?? '—'}).`,
           )
         }
         return outcome.created

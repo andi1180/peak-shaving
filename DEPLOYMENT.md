@@ -713,6 +713,15 @@ dass Kontoanlagen mit 429 scheiterten** (`over_email_send_rate_limit`); seit **P
 Bewerbung in diesem Fall sichtbar ab, statt einen Antrag ohne Konto zu hinterlassen. Auch die
 **Auth-Mail-Vorlagen liegen im Dashboard** und sind getrennt zu pflegen.
 
+> **⚠ NACHTRAG B18-2a (03.08.2026) — der Absatz oben gilt weiter, aber der PARTNER-Weg hängt nicht
+> mehr daran.** Die Partner-Bewerbung legt ihr Konto seit B18-2a über die GoTrue-**Admin**-API an und
+> versendet dabei **gar keine Mail** (`lib/auth/admin-api.ts`); der 429-Fall kann dort also nicht mehr
+> auftreten. Das Ratenlimit bleibt trotzdem hochzusetzen — es betrifft weiterhin die Registrierung
+> über `/registrieren` und das Passwort-Zurücksetzen. **Und es hat eine Nebenwirkung verloren, die
+> benannt gehört: Es war bis hierher die faktische Bremse gegen massenhafte Kontoanlage über das
+> öffentliche Bewerbungsformular.** Was jetzt dort schützt, steht als offener Betriebspunkt am Ende
+> dieses Abschnitts (Turnstile).
+
 **Warum `energy@coolin.at` und ausdrücklich kein `noreply@`:** Die Adresse ist in Resend verifiziert
 (SPF+DKIM auf coolin.at) und liefert nachweislich zu — sie ist die einzige, für die das belegt ist.
 `noreply@`-Adressen werden von Filtern tendenziell schlechter bewertet, und bei einer Mail, die
@@ -723,7 +732,7 @@ im besten Fall eine verlorene Rückfrage und im schlechtesten eine Beschwerde.
 `apps/web/lib/mail/send.ts` — **eine** Definition für alle Mails. `RESEND_FROM` gibt es nicht mehr
 (§1c). Gepinnt in `apps/web/lib/mail/sender.test.ts`, das jeden Versandpfad einmal echt auslöst.
 
-### Was dieses System verschickt (Stand 23.07.2026)
+### Was dieses System verschickt (Stand 03.08.2026, B18-2a)
 
 **Über Resend — sieben Mails, alle mit demselben Absender:**
 
@@ -735,7 +744,17 @@ im besten Fall eine verlorene Rückfrage und im schlechtesten eine Beschwerde.
 | Vertragsablauf-Erinnerung (B4-2, Cron) | Interessent | `lib/leads/mail.ts` | — |
 | Partner-Bewerbung, Benachrichtigung (B16-3) | intern | `lib/partner-application/mail.ts` | der Bewerber |
 | Partner-Bewerbung, Eingangsbestätigung (B16-3) | Bewerber | `lib/partner-application/mail.ts` | — |
-| Partner-Freischaltung (B16-4b) | Fachbetrieb | `lib/partner-portal/mail.ts` | — |
+| Partner-Freischaltung **inkl. Aktivierungslink** (B16-4b + B18-2a) | Fachbetrieb | `lib/partner-portal/mail.ts` | — |
+
+- **Die Zahl ist unverändert sieben** — B18-2a hat keine Mail hinzugefügt, sondern eine ENTFERNT
+  (die Supabase-Bestätigungsmail bei der Bewerbung, s. u.) und dafür den **Aktivierungslink in die
+  bestehende Freischaltungsmail gelegt**. Ein Bewerber bekommt damit genau zwei Mails über den
+  gesamten Weg: die Eingangsbestätigung und, nach der Prüfung, die Freischaltung.
+- Der Aktivierungsblock erscheint **nur, wenn das Konto tatsächlich noch unbestätigt ist** — ein von
+  Hand aufgenommener Fachbetrieb mit bestehendem Konto bekommt die Mail unverändert ohne ihn.
+- **Ohne Aktivierungslink geht die Mail gar nicht raus** (`send_failed`, im Admin-Bereich als
+  „erneut senden" sichtbar): Eine Freischaltung ohne ihn lüde in einen Zugang ein, der sich nicht
+  öffnen lässt.
 
 - Das **Kontaktformular schickt dem Absender KEINE eigene Bestätigung.** Kreuzt er zusätzlich die
   Marketing-Einwilligung an, bekommt er die Double-Opt-in-Mail — das ist eine andere Sache.
@@ -749,8 +768,20 @@ im besten Fall eine verlorene Rückfrage und im schlechtesten eine Beschwerde.
 
 | Anlass | Auslöser im Code |
 |---|---|
-| Registrierungsbestätigung | `supabase.auth.signUp` / `.resend` (`lib/auth/actions.ts`, `lib/auth/sign-up.ts`) |
+| Registrierungsbestätigung (`/registrieren`) | `supabase.auth.signUp` (`lib/auth/actions.ts`, `lib/auth/sign-up.ts`) |
+| „Bestätigungsmail erneut senden" (aus dem Login-Fehlerzustand) | `supabase.auth.resend` (`lib/auth/actions.ts`) |
 | Passwort-Zurücksetzen | `supabase.auth.resetPasswordForEmail` (`lib/auth/actions.ts`) |
+
+- **⚠ ENTFALLEN MIT B18-2a: die Bestätigungsmail bei der PARTNER-BEWERBUNG.** Sie ging bis dahin
+  sofort beim Absenden des Formulars raus — der Bewerber musste sein Konto also bestätigen, bevor er
+  wusste, ob er angenommen wird, und bekam nach der Freischaltung eine zweite Mail. Die Kontoanlage
+  läuft jetzt über die GoTrue-**Admin**-API (`lib/auth/admin-api.ts`, `email_confirm: false`) und
+  versendet nichts; das Konto ist bis zum Klick auf den Aktivierungslink nicht anmeldefähig
+  (gemessen: HTTP 400 `email_not_confirmed`).
+- **Die zweite Zeile ist der eine Weg, auf dem ein Bewerber doch eine Supabase-Mail sieht:** Wer sich
+  vor der Freischaltung anzumelden versucht, bekommt auf `/anmelden` den bestehenden Knopf
+  „Bestätigungsmail erneut senden". Das ist gewollt und unverändert (T4-2) — er fordert sie selbst
+  an, und die Adresse gehört ihm.
 
 Diese beiden hängen **ausschliesslich an der Dashboard-Konfiguration** (§2c): Absender, Versandweg,
 Ratenlimit und Vorlagen sind dort eingestellt, nicht im Repo. Der Code kann sie weder umleiten noch
@@ -775,3 +806,46 @@ damit auch nicht auslesbar (dieselbe Grenze wie bei der Öffnungs-/Klick-Verfolg
    Produktionsdomain).
 
 Bis das bestätigt ist, gilt der Zustand als **unbekannt**, nicht als erledigt.
+
+### ⚠️ OFFEN — B18-2a: Turnstile auf `/partner-werden` scharf schalten
+
+**Das ist der wichtigste Betriebspunkt dieses Bauabschnitts, und er ist gemessen, nicht vermutet.**
+
+Bis B18-2a war das Supabase-Auth-Ratenlimit die — unbeabsichtigte — Bremse gegen massenhafte
+Kontoanlage über das öffentliche Bewerbungsformular. Die Kontoanlage läuft jetzt über die Admin-API
+und kennt dieses Limit nicht mehr. **Was dort noch schützt, ist der Honeypot — und sonst nichts:**
+
+Am ausgelieferten HTML von `https://www.coolin.at/partner-werden` gemessen (03.08.2026): **0
+Vorkommen von `challenges.cloudflare.com`, 0 `cf-turnstile`**. Die drei „turnstile"-Treffer sind
+ausschliesslich Fehlertexte im next-intl-Katalog. `NEXT_PUBLIC_TURNSTILE_SITE_KEY` ist in Produktion
+also nicht gesetzt, das Widget rendert nicht — und ohne `TURNSTILE_SECRET_KEY` wird die
+serverseitige Prüfung übersprungen (`lib/kontakt/turnstile.ts` ist env-gated in beide Richtungen).
+
+**Beurteilung: das genügt nicht.** Ein Honeypot hält Formular-Crawler auf, nicht ein Skript, das drei
+Feldnamen kennt. Die Folge wäre nicht nur Müll in `platform.partner_applications`, sondern eine
+wachsende Zahl unbestätigter Zeilen in `auth.users`.
+
+**Zu tun (kein Code nötig, der Schutz ist gebaut):** in dash.cloudflare.com → Turnstile eine Site
+anlegen und **beide** Schlüssel in Vercel setzen —
+
+| Variable | Scope | Hinweis |
+|---|---|---|
+| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | Production | im Browser sichtbar, bei Turnstile unkritisch |
+| `TURNSTILE_SECRET_KEY` | Production | **nie** `NEXT_PUBLIC_` |
+
+Danach Redeploy. Einzeln gesetzt ist jeweils harmlos (Widget ohne Prüfung bzw. Prüfung ohne Widget →
+Letzteres lehnt ab), aber erst beide zusammen ergeben den Schutz. Er greift damit zugleich für
+`/kontakt` und die Lead-Erfassung, die denselben Mechanismus benutzen.
+
+### ⚠️ OFFEN — B18-2a: Lebensdauer des Aktivierungslinks prüfen
+
+Der Aktivierungslink der Freischaltungsmail ist ein GoTrue-Magic-Link und verfällt nach der
+Einstellung **Authentication → Email → „Email OTP Expiration"** (lokal `otp_expiry = 3600`, also eine
+Stunde). Für eine Mail, die unangekündigt in ein Geschäftspostfach fällt, ist das knapp.
+
+**Bewusst NICHT im Code geändert:** Der Wert gilt plattformweit (auch für Registrierungsbestätigung
+und Passwort-Zurücksetzen) und liegt in der Projektkonfiguration, nicht im Repo. **Der Rückweg
+existiert bereits und ist gemessen:** „Benachrichtigung senden" im Admin-Bereich unter „Partner"
+erzeugt einen frischen Link, und die Mail sagt das im Klartext („Falls er nicht mehr funktioniert,
+schreiben Sie uns kurz"). Zu entscheiden ist allein, ob der Wert im Dashboard hochgesetzt wird —
+Supabase warnt oberhalb einer Stunde im Security-Advisor, die Abwägung gehört zu Andreas.

@@ -11,24 +11,31 @@ import { describe, expect, it } from 'vitest'
 import { notifyPartner, type PartnerNotificationEffects } from './notify'
 import { approvalNotificationNote, resendNotificationMessage } from './notify-messages'
 
-type Calls = { loaded: string[]; sent: unknown[]; marked: string[] }
+type Calls = { loaded: string[]; linked: unknown[]; sent: unknown[]; marked: string[] }
+
+const USER_ID = '11111111-2222-3333-4444-555555555555'
 
 function effects(
   overrides: Partial<PartnerNotificationEffects> & {
     accountEmail?: string | null
+    userId?: string | null
     missing?: boolean
     sendOk?: boolean
     markOk?: boolean
     fromApplication?: boolean
+    /** B18-2a: `null` = der Aktivierungslink liess sich nicht erzeugen. */
+    activation?: { url: string; alreadyConfirmed: boolean } | null
   } = {},
 ): { effects: PartnerNotificationEffects; calls: Calls } {
-  const calls: Calls = { loaded: [], sent: [], marked: [] }
+  const calls: Calls = { loaded: [], linked: [], sent: [], marked: [] }
   const {
     accountEmail = 'betrieb@test.local',
+    userId = USER_ID,
     missing = false,
     sendOk = true,
     markOk = true,
     fromApplication = true,
+    activation = { url: 'https://partner.coolin.at/partner-aktivieren?token=abc', alreadyConfirmed: false },
   } = overrides
 
   return {
@@ -42,8 +49,13 @@ function effects(
           displayName: 'Elektro Musterbetrieb GmbH',
           contactFirstName: 'Anna',
           accountEmail,
+          userId,
           fromApplication,
         }
+      },
+      async createActivationLink(input) {
+        calls.linked.push(input)
+        return activation
       },
       async sendMail(input) {
         calls.sent.push(input)
@@ -77,6 +89,7 @@ describe('notifyPartner — der Gutfall', () => {
       displayName: 'Elektro Musterbetrieb GmbH',
       slug: 'musterbetrieb',
       fromApplication: true,
+      activationUrl: 'https://partner.coolin.at/partner-aktivieren?token=abc',
     })
   })
 
@@ -88,13 +101,65 @@ describe('notifyPartner — der Gutfall', () => {
   })
 })
 
+describe('⚠ B18-2a: OHNE AKTIVIERUNGSLINK GEHT KEINE MAIL RAUS', () => {
+  it('der Link entsteht VOR der Mail, für genau dieses Konto', async () => {
+    const { effects: e, calls } = effects({ accountEmail: 'konto@test.local' })
+
+    await notifyPartner('musterbetrieb', e)
+    expect(calls.linked).toEqual([{ email: 'konto@test.local', userId: USER_ID }])
+  })
+
+  it('⚠ kein Link → KEINE Mail und KEIN Vermerk (send_failed)', async () => {
+    /*
+     * Der wichtigste Test dieses Schritts. Seit die Bewerbung das Konto UNBESTÄTIGT anlegt, ist der
+     * Aktivierungslink der einzige Weg hinein: Eine Freischaltungsmail ohne ihn lüde in einen
+     * Zugang ein, der sich nicht öffnen lässt — und weil sie nun einmal draussen wäre, stünde der
+     * Betrieb anschliessend als „benachrichtigt" im Admin-Bereich.
+     */
+    const { effects: e, calls } = effects({ activation: null })
+
+    expect(await notifyPartner('musterbetrieb', e)).toEqual({ status: 'send_failed' })
+    expect(calls.sent).toHaveLength(0)
+    expect(calls.marked).toHaveLength(0)
+  })
+
+  it('ein BEREITS bestätigtes Konto bekommt die Mail OHNE Aktivierungsblock', async () => {
+    /*
+     * Real: ein von Hand aufgenommener Betrieb, dessen bestehendes Konto nachträglich verknüpft
+     * wurde (B16-4a). „Bitte schalten Sie Ihren Zugang frei" wäre dort die Aufforderung zu einem
+     * Schritt, den es für ihn nicht gibt.
+     */
+    const { effects: e, calls } = effects({
+      activation: { url: 'https://partner.coolin.at/partner-aktivieren?token=abc', alreadyConfirmed: true },
+    })
+
+    expect(await notifyPartner('raymann', e)).toEqual({ status: 'sent' })
+    expect(calls.sent).toHaveLength(1)
+    expect(calls.sent[0]).toMatchObject({ activationUrl: null })
+  })
+})
+
 describe('⚠ OHNE KONTO GEHT NICHTS RAUS', () => {
-  it('kein Konto → keine Mail, kein Vermerk', async () => {
+  it('kein Konto → keine Mail, kein Vermerk — und gar kein Aktivierungslink', async () => {
     const { effects: e, calls } = effects({ accountEmail: null })
 
     expect(await notifyPartner('raymann', e)).toEqual({ status: 'no_account' })
+    /*
+     * `linked` ist hier ausdrücklich mitgeprüft: `generate_link` legt auf eine UNBEKANNTE Adresse
+     * ein Konto AN (gemessen, s. `lib/auth/admin-api.ts`). Der Abbruch muss also VOR dem Aufruf
+     * liegen, nicht danach.
+     */
+    expect(calls.linked).toHaveLength(0)
     expect(calls.sent).toHaveLength(0)
     expect(calls.marked).toHaveLength(0)
+  })
+
+  it('Adresse vorhanden, aber keine Konto-Kennung → ebenfalls `no_account`', async () => {
+    const { effects: e, calls } = effects({ userId: null })
+
+    expect(await notifyPartner('raymann', e)).toEqual({ status: 'no_account' })
+    expect(calls.linked).toHaveLength(0)
+    expect(calls.sent).toHaveLength(0)
   })
 
   it('eine Adresse aus Leerzeichen zählt als KEINE Adresse', async () => {
@@ -153,6 +218,7 @@ describe('⚠ DER ABLAUF WIRFT NIE — sonst risse er eine vollzogene Genehmigun
     await expect(
       notifyPartner('musterbetrieb', {
         loadTarget: boom as never,
+        createActivationLink: boom as never,
         sendMail: boom as never,
         markNotified: boom as never,
       }),

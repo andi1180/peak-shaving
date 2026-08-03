@@ -43,6 +43,8 @@ import 'server-only'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/db-types'
 import { readPartnerList } from '@/lib/admin/partners'
+import { createActivationToken } from '@/lib/auth/admin-api'
+import { activationUrlFor } from './activation-url'
 import { sendPartnerApprovalMail } from './mail'
 import {
   notifyPartner,
@@ -76,6 +78,7 @@ export async function notifyPartnerBySlug(
           displayName: partner.display_name,
           contactFirstName: partner.contact_first_name,
           accountEmail: partner.account_email,
+          userId: partner.user_id,
           /*
            * Kam der Betrieb aus einer Bewerbung? Entscheidet GENAU EINEN Satz der Mail (den über
            * das Passwort) — Begründung am Feld in `notify.ts`.
@@ -86,6 +89,21 @@ export async function notifyPartnerBySlug(
         console.error('[partner-portal] Fachbetrieb nicht lesbar:', cause)
         return null
       }
+    },
+
+    /*
+     * ⚠ DER EINZIGE ERHÖHTE ZUGRIFF DIESES ABLAUFS (B18-2a) — und er bleibt in `admin-api.ts`.
+     *
+     * Die GoTrue-Admin-API verlangt `service_role`; einen Weg über den angemeldeten Client gibt es
+     * dafür nicht. Was hier ankommt, ist deshalb ein WERT (ein Token), kein Client — der
+     * service_role-Zugriff verlässt jenes Modul nie, und die eslint-Erlaubnisliste führt genau die
+     * eine Datei. Der Rest dieses Ablaufs läuft unverändert über den ANGEMELDETEN Client des
+     * handelnden Admins.
+     */
+    async createActivationLink({ email, userId }) {
+      const token = await createActivationToken({ email, expectedUserId: userId })
+      if (!token) return null
+      return { url: activationUrlFor(token.tokenHash), alreadyConfirmed: token.alreadyConfirmed }
     },
 
     async sendMail(input) {

@@ -24,6 +24,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { KontaktInput } from '@/lib/kontakt/schema'
 
 const LEAD_ID = '44444444-4444-4444-8444-444444444444'
+/** B18-2a: der Aktivierungslink, den die Freischaltungsmail tragen MUSS. */
+const ACTIVATION_URL = 'https://partner.coolin.at/partner-aktivieren?token=deadbeef'
 
 const mocks = vi.hoisted(() => ({ send: vi.fn() }))
 
@@ -163,6 +165,7 @@ const MAILS: Array<{ name: string; userFacing: boolean; send: () => Promise<unkn
         displayName: 'Elektro Muster GmbH',
         slug: 'elektro-muster',
         fromApplication: true,
+        activationUrl: ACTIVATION_URL,
       }),
   },
 ]
@@ -269,5 +272,71 @@ describe('Aufbau — die drei Partner-Mails folgen dem Bestand', () => {
     expect(sent.html).toMatch(/Eingegangen<\/td><td style="padding:4px 0;color:#262626">/)
     // Antworten geht direkt an den Bewerber — dieselbe Eigenschaft wie beim Kontaktformular.
     expect(sent.replyTo).toBe('eva@test.local')
+  })
+})
+
+describe('⚠ B18-2a: die Freischaltungsmail TRÄGT den Aktivierungslink', () => {
+  beforeEach(() => {
+    mocks.send.mockReset()
+    mocks.send.mockResolvedValue({ data: { id: 'mail-1' }, error: null })
+  })
+
+  async function approval(activationUrl: string | null) {
+    await portalMail.sendPartnerApprovalMail({
+      to: 'eva@test.local',
+      firstName: 'Eva',
+      displayName: 'Elektro Muster GmbH',
+      slug: 'elektro-muster',
+      fromApplication: true,
+      activationUrl,
+    })
+    return lastMail()
+  }
+
+  it('der Link steht in Text UND HTML — er ist die einzige Tür in den Zugang', async () => {
+    /*
+     * Seit B18-2a legt die Bewerbung ein UNBESTÄTIGTES Konto an. Fehlte dieser Link, bekäme der
+     * Fachbetrieb eine Einladung in einen Zugang, den er nicht öffnen kann — und der Fehler fiele
+     * erst auf, wenn die Mail bereits in seinem Postfach liegt. Deshalb an beiden Fundorten gepinnt.
+     */
+    const sent = await approval(ACTIVATION_URL)
+
+    expect(sent.text).toContain(ACTIVATION_URL)
+    expect(sent.html).toContain(`href="${ACTIVATION_URL}"`)
+    // Der erklärende Satz fährt mit — ein nackter Link ohne Grund sieht aus wie Phishing.
+    expect(sent.text).toContain('[PartnerApprovalMail.activationLead]')
+    expect(sent.text).toContain('[PartnerApprovalMail.activationNote]')
+  })
+
+  it('er steht VOR dem Empfehlungslink — die Aktivierung ist der erste Schritt', async () => {
+    const sent = await approval(ACTIVATION_URL)
+
+    expect(sent.text.indexOf('[PartnerApprovalMail.activationLead]')).toBeLessThan(
+      sent.text.indexOf('[PartnerApprovalMail.linkLead]'),
+    )
+  })
+
+  it('bei einem BEREITS bestätigten Konto fehlt der Block vollständig', async () => {
+    const sent = await approval(null)
+
+    expect(sent.text).not.toContain('[PartnerApprovalMail.activationLead]')
+    expect(sent.text).not.toContain('[PartnerApprovalMail.activationNote]')
+    expect(sent.text).not.toContain('/partner-aktivieren')
+    expect(sent.html).not.toContain('/partner-aktivieren')
+    // Der Rest der Mail bleibt vollständig — es fällt genau EIN Block weg.
+    expect(sent.text).toContain('[PartnerApprovalMail.linkLead]')
+    expect(sent.text).toContain('[PartnerApprovalMail.portalLead]')
+  })
+
+  it('die Adresse des Portals ist die des PORTALBEREICHS, nicht die Startseite', async () => {
+    /*
+     * Ausserhalb der Produktivdomain (hier: im Test) gibt es `partner.coolin.at` nicht — dann ist
+     * `/partner-portal` auf der ausgelieferten Basis die richtige Adresse. Die Fallunterscheidung
+     * selbst steht in `lib/portal-host.ts` und wird dort geprüft; hier zählt, dass die Mail
+     * niemals auf die Marketing-Startseite verweist.
+     */
+    const sent = await approval(ACTIVATION_URL)
+
+    expect(sent.text).toContain('/partner-portal')
   })
 })
