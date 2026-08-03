@@ -40,7 +40,7 @@ Reaktivierbar, falls sich ein Bedarf jenseits des E-Control-Angebots zeigt (z. B
 
 ---
 
-## Bauabschnitte (neue Nummerierung B0–B17)
+## Bauabschnitte (neue Nummerierung B0–B18)
 
 ### Stand je Bauabschnitt
 
@@ -64,8 +64,9 @@ Mit inzwischen zwölf gebauten Teilabschnitten ist aus der Beschreibung unten so
 | **B13** Mandantenfähigkeit | **zurückgestellt** | bewusst additiv später; bekommt mit der Fachbetriebs-Lizenz den ersten realen Anwendungsfall |
 | **B14** Analyse-Persistenz Kalkulator | **gebaut** | B14-1 Ablage · B14-2 Export/Upload/Ansicht |
 | **B15** Echtzeit-Datenpfad | **offen** | ab Q2 2027 |
-| **B16** Partner-Attribution | **teilweise gebaut** | B16-1 Datenbank + B16-2 Landingpage/Lead-Erfassung/Partner-Stammdaten + B16-3 öffentliche Bewerbung mit Kontoerstellung und Prüf-Eingang + B16-4a Genehmigung samt Partner-Anlage und Kontoverknüpfung + B16-4b Partner-Portal, E-Mail-Vorlagen und Genehmigungsmail gebaut · **B16-5 und B16-6 offen** (Partner-Statistik, Partner-Sicht auf Leads) |
-| **B17** Admin-Portal | **gebaut** | eigener Anmelde-Eingang `/admin/anmelden` + eigener Rahmen für alle Admin-Seiten · **kein zweites Authentifizierungssystem**, kein Folgeschritt geplant |
+| **B16** Partner-Attribution | **gebaut** | Partner-Datenmodell, öffentliche Bewerbung, Admin-Genehmigung, Portal-Grundlage (Empfehlungslink + Vorlagen) |
+| **B17** Admin-Portal | **gebaut** | eigener Eingang, eigener Rahmen, getrennt vom öffentlichen Bundle |
+| **B18** Partner-Portal-Ausbau | **teilweise gebaut** | B18-1/B18-2 fertig · B18-3 Schema-Schritt fertig, Oberfläche offen · B18-4/B18-5 offen · B18-6 rechtlich freigegeben, technisch offen — Details: B18_Partner-Portal_Ausbau.md |
 
 ### Die B-Nummern sind Namen, keine Positionen
 
@@ -172,6 +173,8 @@ Grund: Die Bezeichner sind außerhalb dieses Dokuments in Gebrauch — in bereit
   **⚠ GEMESSEN, NICHT ABGELEITET — der Grund für die zwei getrennten Root-Layouts.** Der naheliegende Aufbau (ein gemeinsames Root-Layout für `/admin`, die Zugangsschranke eine Ebene tiefer in einer Route-Group) war gebaut und funktionierte. Gegen den ausgelieferten Inhalt geprüft, hat Next dabei in das **anonym** ausgelieferte HTML des Eingangs zusätzlich das Skript-Bündel der Admin-Übersicht geschrieben (`chunks/app/admin/(intern)/page-….js`, darin die Namen ihrer Server Actions). Ein Zugang entsteht dadurch nicht — die Actions lehnen ohne Sitzung ab, die DB-Wrapper prüfen `platform.is_admin()` selbst —, aber es ist genau die Struktur-Auskunft, die dieser Bereich nicht geben soll. Gegenprobe: keine öffentliche Seite tut das. Antwort: zwei getrennte Root-Layouts ohne gemeinsames Elternteil; danach lädt der Eingang nur noch seine eigenen zwei Bündel. Aus demselben Grund sind die Namen der Admin-Bereiche aus der Client-Navigation in ein serverseitiges Modul gewandert. Beides ist als Test gepinnt (`apps/web/lib/admin/route-protection.test.ts`), damit der Rückbau nicht wie eine Aufräumarbeit aussieht.
 
   **⚠ Bewusst NICHT angefasst, offen für eine spätere Entscheidung:** Ein anonymer Aufruf einer geschützten Admin-Route leitet weiterhin auf die KUNDEN-Anmeldung `/anmelden` um, nicht auf den neuen Eingang. Diese Umleitung steckt in `lib/admin/guard.ts`, und dessen Verhalten war ausdrücklich unverändert zu lassen. Folge: Wer ein Lesezeichen auf `/admin/leads` hat und abgemeldet ist, landet nach der Anmeldung auf `/konto`. Der Fix wäre eine Zeile im Guard.
+
+- **B18** Partner-Portal-Ausbau — kanonische Quelle für Stand, Teilschritte und offene Punkte ist `B18_Partner-Portal_Ausbau.md`, nicht diese Datei.
 
 ---
 
