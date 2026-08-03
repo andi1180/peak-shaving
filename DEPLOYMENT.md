@@ -812,15 +812,32 @@ Bis das bestätigt ist, gilt der Zustand als **unbekannt**, nicht als erledigt.
 **Der Punkt war der wichtigste Betriebspunkt von B18-2a. Er ist geschlossen — die Werte sind
 gesetzt, und ein erneutes Vergessen bricht ab jetzt den Build, statt monatelang still zu bleiben.**
 
-**Der Ausgangszustand, gemessen und nicht vermutet:** Bis B18-2a war das Supabase-Auth-Ratenlimit
-die — unbeabsichtigte — Bremse gegen massenhafte Kontoanlage über das öffentliche
-Bewerbungsformular. Die Kontoanlage läuft seither über die Admin-API und kennt dieses Limit nicht
-mehr. Am ausgelieferten HTML von `https://www.coolin.at/partner-werden` gemessen (03.08.2026,
-**vor** der Behebung): **0 Vorkommen von `challenges.cloudflare.com`, 0 `cf-turnstile`** — die drei
-„turnstile"-Treffer waren ausschliesslich Fehlertexte im next-intl-Katalog. Es schützte allein der
-Honeypot, und der hält Formular-Crawler auf, nicht ein Skript, das drei Feldnamen kennt.
+**Der Ausgangszustand:** Bis B18-2a war das Supabase-Auth-Ratenlimit die — unbeabsichtigte — Bremse
+gegen massenhafte Kontoanlage über das öffentliche Bewerbungsformular. Die Kontoanlage läuft seither
+über die Admin-API und kennt dieses Limit nicht mehr. Es schützte danach allein der Honeypot, und
+der hält Formular-Crawler auf, nicht ein Skript, das drei Feldnamen kennt.
+
+> **⚠️ KORREKTUR AM NACHWEISVERFAHREN (03.08.2026) — WER TURNSTILE PRÜFT, DARF NICHT IM HTML SUCHEN.**
+> Der ursprüngliche Befund dieses Abschnitts lautete „0 Vorkommen von `cf-turnstile` /
+> `challenges.cloudflare.com` im ausgelieferten HTML, **also** ist der Site-Key nicht gesetzt". Der
+> Schluss ist FALSCH, und zwar unabhängig vom Ergebnis: `components/kontakt/turnstile-widget.tsx`
+> rendert serverseitig nur ein `<div className="mt-2">` — die Klasse `cf-turnstile` kommt dort gar
+> nicht vor, und das Cloudflare-Script wird erst nach der Hydration per
+> `document.createElement` eingehängt. **Beide Zeichenketten sind im Server-HTML immer 0, auch bei
+> vollständig scharfem Turnstile.** Nachgemessen am 03.08.2026 nach der Behebung: `/partner-werden`
+> liefert weiterhin 0× `cf-turnstile` im HTML — und Turnstile ist trotzdem aktiv.
+>
+> **Die zwei Prüfungen, die tatsächlich tragen:**
+> 1. *Der Site-Key im Client-Bundle.* Er wird zur Build-Zeit inlined:
+>    `curl -s https://www.coolin.at/partner-werden` → die `/_next/static/chunks/…`-URLs einsammeln,
+>    diese abrufen und nach `0x4…` (Turnstile-Site-Key-Präfix) bzw. nach
+>    `challenges.cloudflare.com` greppen. Am 03.08.2026 beides gefunden → das Widget ist scharf.
+> 2. *Der Build selbst.* Seit dem Wächter unten ist ein erfolgreiches Production-Deployment der
+>    Beweis, dass **beide** Werte gesetzt sind — ohne sie käme es gar nicht zustande. Das ist die
+>    verlässlichere der beiden Prüfungen, weil sie nicht vergessen werden kann.
 
 **Was jetzt gilt:** Beide Schlüssel sind in Vercel gesetzt (Scope **Production + Preview**) —
+belegt durch beide Prüfungen oben am Production-Deployment des Commits `e6687d5` —
 
 | Variable | Scope | Hinweis |
 |---|---|---|
