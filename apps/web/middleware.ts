@@ -3,7 +3,13 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { routing } from './i18n/routing'
 import { updateSession } from './lib/supabase/middleware'
 import { ADMIN_HREF, ADMIN_PATHNAME_HEADER } from './lib/admin/config'
-import { leavesPortalHost } from './lib/portal-host'
+import {
+  PORTAL_ROOT_RENDER_PATH,
+  isPortalHostRequest,
+  isPortalHostRoot,
+  isPortalRootRenderPath,
+  leavesPortalHost,
+} from './lib/portal-host'
 import { SITE_URL } from './lib/site'
 
 const handleI18nRouting = createMiddleware(routing)
@@ -25,8 +31,68 @@ const handleI18nRouting = createMiddleware(routing)
  */
 export async function middleware(request: NextRequest): Promise<Response> {
   /*
-   * DIE HOST-WEICHE (B18-1a) — sie steht GANZ OBEN, und das ist der einzige Ort, an dem sie stehen
-   * kann, ohne die Komposition darunter zu berühren.
+   * ⚠ DER WÄCHTER ÜBER DAS INTERNE REWRITE-ZIEL (B18-1a-Nachbesserung) — er steht VOR ALLEM
+   * ANDEREN, und diese Reihenfolge ist die eigentliche Absicherung, nicht der 404 selbst.
+   *
+   * `PORTAL_ROOT_RENDER_PATH` ist eine echte Datei unter `app/(site)/[locale]/` und damit eine
+   * echte Route — Next kennt keinen anderen Weg, etwas zu rendern. Erreichbar sein darf sie
+   * trotzdem auf KEINEM Host: Sie ist ausschliesslich das Ziel des Rewrites unten.
+   *
+   * WARUM GANZ OBEN UND NICHT NACH DER 308-WEICHE: Stünde der Wächter danach, liefe ein Aufruf auf
+   * dem Portal-Host zuerst in die Weiche — der interne Pfad stünde dann in einem
+   * `Location`-Header nach `coolin.at` und würde dort anschliessend gerendert. Genau das ist
+   * ausgeschlossen: das Ziel taucht in keiner Adresszeile und in keinem Location-Header auf.
+   *
+   * WARUM DER EIGENE REWRITE NICHT HIER HÄNGENBLEIBT: Ein Middleware-Rewrite betritt die
+   * Middleware kein zweites Mal — er ist eine Anweisung an den Router, keine neue Anfrage. Der
+   * Wächter sieht ausschliesslich, was von aussen kommt.
+   *
+   * 404 OHNE RUMPF, bewusst: Für diesen Pfad gibt es keine Seite, die ein Mensch sehen soll — auch
+   * keine gestaltete Fehlerseite, die den Pfad als „gibt es, nur nicht hier" ausweisen würde.
+   */
+  if (isPortalRootRenderPath(request.nextUrl.pathname)) {
+    return new NextResponse(null, { status: 404 })
+  }
+
+  /*
+   * DIE WURZEL DES PORTAL-HOSTS (B18-1a-Nachbesserung).
+   *
+   * `partner.coolin.at/` IST das Portal — nicht die Marketing-Startseite. Weil zwei Routen nicht
+   * denselben Pfad belegen können, wird hier intern auf `PORTAL_ROOT_RENDER_PATH` umgeschrieben:
+   * ein REWRITE, kein Redirect. Die Adresszeile bleibt exakt `/`, der Host bleibt der Portal-Host.
+   *
+   * ── WARUM DIESER ZWEIG next-intl NICHT DURCHLÄUFT, UND WARUM DAS DIE KOMPOSITION NICHT BRICHT ──
+   * Für `/` hat next-intl bei `localePrefix: 'as-needed'` genau EINE Aufgabe: das Präfix der
+   * Default-Locale zu ergänzen, damit das Segment `[locale]` existiert (`/` → `/de`). Genau das
+   * geschieht hier — in einem Schritt, zusammen mit dem Zielpfad. Es gibt also nichts zu übergeben,
+   * und es entsteht kein zweiter Locale-Mechanismus: `/de` läuft weiterhin ungebremst durch
+   * next-intl (`isPortalHostRoot` ist bewusst nur für das exakte `/` wahr) und wird von dort wie
+   * bisher auf `/` umgeleitet. Dieselbe Bauform wie der `/admin`-Zweig unten, der aus verwandtem
+   * Grund ebenfalls an next-intl vorbeigeht.
+   *
+   * WAS AUSDRÜCKLICH BLEIBT: die Reihenfolge „erst die Response, dann Supabase". `updateSession`
+   * bekommt GENAU DIESE Response und schreibt die refreshten Auth-Cookies darauf. Der
+   * Session-Refresh ist hier nicht Beiwerk, sondern der Kern: An dieser Route entscheidet sich, ob
+   * jemand angemeldet ist — sie ist Anmeldebildschirm und Portal in einem.
+   *
+   * ⚠ EINE ZWEITE SPRACHE MUSS HIER ENTSCHEIDEN WERDEN: Das Präfix kommt aus
+   * `routing.defaultLocale`, nicht aus einer Aushandlung. Solange es genau eine Locale gibt, ist
+   * das dasselbe Ergebnis, das next-intl liefern würde. Ein Test in `lib/portal-host.test.ts`
+   * bricht laut, sobald eine zweite Locale dazukommt.
+   */
+  if (isPortalHostRequest(request.headers) && isPortalHostRoot(request.nextUrl.pathname)) {
+    const target = request.nextUrl.clone()
+    target.pathname = `/${routing.defaultLocale}${PORTAL_ROOT_RENDER_PATH}`
+    return await updateSession(request, NextResponse.rewrite(target))
+  }
+
+  /*
+   * DIE HOST-WEICHE (B18-1a) — sie steht VOR der Komposition aus next-intl und Supabase, und das
+   * ist der einzige Ort, an dem sie stehen kann, ohne diese zu berühren. (Seit der Nachbesserung
+   * stehen zwei Zweige über ihr: der Wächter über das interne Rewrite-Ziel und die Wurzel des
+   * Portal-Hosts. Beide sind für sie unsichtbar — der eine antwortet abschliessend mit 404, der
+   * andere behandelt einen Pfad, der jetzt zum Portalbereich gehört und den sie deshalb ohnehin
+   * durchgelassen hätte.)
    *
    * `partner.coolin.at` zeigt seit dem Aufschalten der Domain auf dasselbe Vercel-Projekt und
    * lieferte damit die komplette Website ein zweites Mal aus. Ausserhalb des Portalbereichs geht
@@ -56,7 +122,7 @@ export async function middleware(request: NextRequest): Promise<Response> {
    * Portal-Host: `localhost:<port>` und `*.vercel.app` sind weder die Hauptdomain noch die
    * Subdomain und laufen unverändert weiter (Begründung ausführlich dort).
    */
-  if (leavesPortalHost(request.headers.get('host'), request.nextUrl.pathname)) {
+  if (leavesPortalHost(request.headers, request.nextUrl.pathname)) {
     const target = new URL(`${request.nextUrl.pathname}${request.nextUrl.search}`, SITE_URL)
     return NextResponse.redirect(target, 308)
   }

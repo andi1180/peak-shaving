@@ -1,14 +1,8 @@
 import type { Metadata } from 'next'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
-import { PartnerPortalPage } from '@/components/partner-portal/partner-portal-page'
-import { ANMELDEN_HREF, NEXT_PARAM } from '@/lib/auth/config'
-import { redirectToLocalized } from '@/lib/auth/server-helpers'
-import { partnerHref } from '@/lib/leads/partner'
+import { PartnerPortalRoute } from '@/components/partner-portal/partner-portal-route'
 import { PARTNER_PORTAL_HREF } from '@/lib/partner-portal/config'
-import { readMyPartner } from '@/lib/partner-portal/portal'
 import { robotsFor } from '@/lib/routes'
-import { absoluteUrl } from '@/lib/site'
-import { createClient } from '@/lib/supabase/server'
 
 /**
  * `/partner-portal` — der eingeloggte Bereich eines Fachbetriebs (B16-4b).
@@ -69,29 +63,10 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
   const { locale } = await params
   setRequestLocale(locale)
 
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  // Serverseitig, BEVOR irgendetwas gerendert oder ausgeliefert wird (Invariante J6).
-  if (!user) {
-    redirectToLocalized(ANMELDEN_HREF, locale, { [NEXT_PARAM]: PARTNER_PORTAL_HREF })
-  }
-
-  const { data, error } = await supabase.rpc('get_my_partner')
-  if (error) console.error('[partner-portal] get_my_partner:', error)
-
-  const state = readMyPartner(data, error)
-
   /*
-   * Der vollständige Link entsteht SERVERSEITIG aus `absoluteUrl` — es gibt in dieser App genau
-   * eine Basis-URL (`lib/site.ts`). Im Browser aus `window.location.origin` zusammengesetzt trüge
-   * er auf einer Preview-Domain eine Adresse, die ein Fachbetrieb an hunderte Bestandskunden
-   * verschickt und die in Wochen ins Leere zeigt. Dieselbe Begründung wie im Admin-Bereich (B16-2).
+   * Der Ablauf selbst liegt in `PartnerPortalRoute` — geteilt mit der Wurzel des Portal-Hosts
+   * (B18-1a-Nachbesserung). Diese Route bleibt unverändert erreichbar und behält ihr eigenes
+   * Rücksprungziel: Wer sich von HIER aus anmeldet, will hierher zurück.
    */
-  const referralUrl =
-    state.state === 'partner' ? absoluteUrl(partnerHref(state.partner.slug)) : null
-
-  return <PartnerPortalPage state={state} referralUrl={referralUrl} />
+  return <PartnerPortalRoute locale={locale} signInNext={PARTNER_PORTAL_HREF} />
 }

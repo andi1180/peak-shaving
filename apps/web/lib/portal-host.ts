@@ -46,6 +46,57 @@ import { PARTNER_PORTAL_HREF } from '@/lib/partner-portal/config'
 export const PORTAL_HOST = 'partner.coolin.at'
 
 /**
+ * Die Wurzel — auf dem Portal-Host der Eingang zum Portal, auf der Hauptdomain die
+ * Marketing-Startseite. DIESELBE Route, zwei Hosts, zwei Bedeutungen.
+ *
+ * ── ⚠ DIE KORRIGIERTE ANNAHME (B18-1a-Nachbesserung) ────────────────────────────────────────────
+ * Bis hierher stand `/` ausdrücklich NICHT im Portalbereich, begründet mit „die Startseite ist
+ * Marketing — nach dem Abmelden ist die Hauptdomain das richtige Ziel". Der erste Halbsatz stimmt
+ * für coolin.at und sagt über DIESEN Host nichts: Wer `partner.coolin.at` aufruft, will das Portal,
+ * nicht die Marketing-Startseite. GEMESSEN hat die Subdomain ihre eigene Wurzel per 308 auf
+ * `https://coolin.at/` geschickt — das genaue Gegenteil ihres Zwecks.
+ *
+ * Der zweite Halbsatz ist damit ebenfalls hinfällig: Abmelden führt weiterhin auf `/` (unverändert
+ * `signOutAction`), und `/` ist auf diesem Host der Anmeldebildschirm. Das Ziel ist also richtig —
+ * nur liegt es nicht mehr auf der Hauptdomain, sondern auf demselben Host.
+ */
+export const PORTAL_HOST_ROOT = '/'
+
+/**
+ * Die Route, die auf dem Portal-Host unter `/` GERENDERT wird — das Ziel eines rein INTERNEN
+ * Rewrites, das von aussen auf KEINEM Host erreichbar ist.
+ *
+ * ── WARUM ES SIE ÜBERHAUPT GIBT ─────────────────────────────────────────────────────────────────
+ * Zwei Routen können nicht denselben Pfad belegen: `app/(site)/[locale]/page.tsx` ist die
+ * Marketing-Startseite und muss es bleiben. Der naheliegende Ausweg — dieselbe Datei liest den Host
+ * und rendert einmal Marketing, einmal Portal — ist gemessen der teurere: Ein `headers()`-Zugriff
+ * nimmt der Startseite das statische Vorrendern, und zwar auf BEIDEN Hosts. Die wichtigste Seite
+ * der Website würde ab dann bei jedem Aufruf serverseitig gebaut, damit eine Subdomain mit einer
+ * Handvoll Nutzern ihren Eingang bekommt. Der Rewrite hält die Kosten dort, wo der Sonderfall ist:
+ * `/` auf coolin.at bleibt statisch, allein diese Route ist dynamisch.
+ *
+ * ── DIE AUFLAGE IST DIE UNSICHTBARKEIT, NICHT DER NAME ──────────────────────────────────────────
+ * Der Pfad darf auf keinem Host direkt aufrufbar sein und in keiner Adresszeile, keinem
+ * Location-Header, keinem `next`-Parameter und keiner sitemap auftauchen. Durchgesetzt wird das an
+ * drei Stellen, und keine davon ist Disziplin:
+ *
+ *   1. `middleware.ts` beantwortet JEDEN eingehenden Aufruf dieses Pfades mit 404 — auf beiden
+ *      Hosts, und VOR der 308-Weiche. Die Reihenfolge ist die eigentliche Entscheidung: liefe die
+ *      Weiche zuerst, stünde der Pfad auf dem Portal-Host in einem Location-Header nach coolin.at,
+ *      und dort würde er anschliessend gerendert. Der eigene Rewrite läuft nicht in diesen Wächter:
+ *      Ein Middleware-Rewrite betritt die Middleware kein zweites Mal.
+ *   2. `lib/routes.ts` führt den Pfad als internes Ziel — er steht damit in KEINER `SiteRoute` und
+ *      kann per Konstruktion in keine sitemap geraten; der Abgleich mit der Platte kennt ihn und
+ *      meldet ihn nicht als vergessene Seite.
+ *   3. Kein `next`-Parameter zeigt je hierher: Der Anmelde-Rücksprung dieser Route ist `/`.
+ *
+ * OFFENGELEGT: Der Name steht als Skript-Pfad im ausgelieferten HTML (`chunks/app/(site)/…`) — das
+ * ist bei DATEISYSTEM-Routing unvermeidbar und gilt für jede Route dieser App. Er ist keine
+ * Adresse: der Aufruf antwortet gemessen 404.
+ */
+export const PORTAL_ROOT_RENDER_PATH = '/portal-host-wurzel'
+
+/**
  * Die Pfade, die auf dem Portal-Host BLEIBEN. Alles andere wird auf die kanonische Basis umgeleitet.
  *
  * ── WARUM DIE AUTH-ROUTEN MITKOMMEN ─────────────────────────────────────────────────────────────
@@ -65,13 +116,20 @@ export const PORTAL_HOST = 'partner.coolin.at'
  * `setNewPasswordAction` und des Auth-Callbacks. Fehlte er hier, verliesse JEDER Anmeldevorgang,
  * der sein `next` verliert, den Portal-Host.
  *
- * NICHT dabei und bewusst so: `/` (die Startseite ist Marketing — nach dem Abmelden ist die
- * Hauptdomain das richtige Ziel), `/partner-werden` (die öffentliche Bewerbung, auf die der
+ * ── `/` GEHÖRT DAZU (B18-1a-Nachbesserung) ─────────────────────────────────────────────────────
+ * Es ist der Eingang zum Portal, nicht die Marketing-Startseite — die Begründung steht bei
+ * `PORTAL_HOST_ROOT`. Gerendert wird dort `PORTAL_ROOT_RENDER_PATH`.
+ *
+ * NICHT dabei und bewusst so: `/partner-werden` (die öffentliche Bewerbung, auf die der
  * Partner-Kontext der Anmeldeseite verweist — eine öffentliche Inhaltsseite gehört auf die
  * Hauptdomain), `/login` (englischer Alt-Slug, leitet ohnehin nur auf `/anmelden` um) und der
  * gesamte `/admin`-Bereich.
  */
-export const PORTAL_HOST_PATHS: readonly string[] = [PARTNER_PORTAL_HREF, ...AUTH_HREFS]
+export const PORTAL_HOST_PATHS: readonly string[] = [
+  PORTAL_HOST_ROOT,
+  PARTNER_PORTAL_HREF,
+  ...AUTH_HREFS,
+]
 
 /**
  * Host-Kopfzeile auf die reine Namensform bringen.
@@ -92,6 +150,39 @@ function normalizeHost(host: string | null | undefined): string {
 /** Kommt die Anfrage über die Portal-Subdomain? Exakter Vergleich, s. Kopf dieser Datei. */
 export function isPortalHost(host: string | null | undefined): boolean {
   return normalizeHost(host) === PORTAL_HOST
+}
+
+/** Der Ausschnitt, den beide Aufrufer erfüllen: `request.headers` und `await headers()`. */
+type HostHeaders = { get(name: string): string | null }
+
+/**
+ * Läuft DIESE Anfrage über den Portal-Host?
+ *
+ * ── ⚠ WARUM ZWEI KOPFZEILEN, UND WARUM DAS GEMESSEN IST ─────────────────────────────────────────
+ * Der naheliegende Weg — allein `host` — ist an einer Stelle nachweislich falsch, und zwar an
+ * genau der, an der es am meisten weh tut: Leitet eine Server Action mit `redirect('/')` weiter,
+ * rendert Next das ZIEL innerhalb derselben Antwort und lässt dafür die Middleware ein zweites Mal
+ * laufen — mit einer INTERNEN Anfrage. Gemessen gegen den Production-Build:
+ *
+ *     POST /anmelden   host= partner.coolin.at   x-forwarded-host= partner.coolin.at
+ *     GET  /           host= localhost:3990      x-forwarded-host= partner.coolin.at
+ *
+ * `host` trägt dort den Server selbst, `x-forwarded-host` den echten Host. Ohne die zweite
+ * Kopfzeile bekäme ein Fachbetrieb unmittelbar nach dem Anmelden die MARKETING-Startseite zu sehen
+ * (die Adresse `/` stimmte, der Inhalt nicht) und erst nach einem Neuladen sein Portal — und beim
+ * Abmelden dasselbe. Ein Fehler, den kein Statuscode und kein Location-Header zeigt.
+ *
+ * ── DIE VERKNÜPFUNG IST BEWUSST „ODER", ALSO MONOTON ────────────────────────────────────────────
+ * Sie kann eine Anfrage nur ZUSÄTZLICH als Portal-Host erkennen, nie eine als etwas anderes
+ * ausweisen — dieselbe Richtung wie die Normalisierung oben, und aus demselben Grund. Praktisch:
+ * Wer `x-forwarded-host: partner.coolin.at` von Hand mitschickt, bekommt für seine eigene Anfrage
+ * die ENGERE Behandlung (Portalbereich oder 308 auf die kanonische Basis, dazu `Disallow: /`) —
+ * niemals eine weitere. Die umgekehrte Verknüpfung („nur wenn beide zustimmen") wäre der
+ * gefährliche Entwurf: Mit ihr liesse sich die 308-Weiche auf dem Portal-Host abschalten und die
+ * vollständige Website unter der Subdomain ausliefern — genau der Zustand, den B18-1a beseitigt hat.
+ */
+export function isPortalHostRequest(headers: HostHeaders): boolean {
+  return isPortalHost(headers.get('host')) || isPortalHost(headers.get('x-forwarded-host'))
 }
 
 /**
@@ -120,7 +211,45 @@ function stripLocale(pathname: string): string {
  */
 export function isPortalPath(pathname: string): boolean {
   const path = stripLocale(pathname)
-  return PORTAL_HOST_PATHS.some((portal) => path === portal || path.startsWith(`${portal}/`))
+  return PORTAL_HOST_PATHS.some(
+    (portal) =>
+      path === portal ||
+      /*
+       * ⚠ `/` GILT AUSSCHLIESSLICH EXAKT, NIE ALS PRÄFIX. Als Präfix hiesse „alles" — das genaue
+       * Gegenteil dessen, wofür diese Liste da ist; die Weiche wäre wirkungslos und niemandem fiele
+       * es auf, weil jeder einzelne Pfad weiterhin funktioniert. Die Bedingung ist dabei nicht
+       * bloss theoretisch: `${'/'}/` ist „//", und ein Pfad wie „//admin" ist eine gültige
+       * Anfrage-Adresse, die sonst als Portalpfad durchginge.
+       */
+      (portal !== PORTAL_HOST_ROOT && path.startsWith(`${portal}/`)),
+  )
+}
+
+/**
+ * Ist das die WURZEL des Portal-Hosts — also der Aufruf, der das Portal rendern soll?
+ *
+ * Bewusst NUR das exakte `/` und ausdrücklich NICHT `/de`: Die präfixte Fassung der Default-Locale
+ * beantwortet next-intl seit jeher selbst (`localePrefix: 'as-needed'` leitet sie auf `/` um), und
+ * diese eine Zuständigkeit soll nicht in zwei Hände fallen. Für den Aufrufer sieht beides gleich
+ * aus — `/de` landet nach einer Umleitung auf `/` und damit im Portal —, aber die Locale-Regel
+ * bleibt vollständig bei next-intl.
+ */
+export function isPortalHostRoot(pathname: string): boolean {
+  return pathname === PORTAL_HOST_ROOT
+}
+
+/**
+ * Zielt diese Anfrage von aussen auf das interne Rewrite-Ziel?
+ *
+ * Wahr für den Pfad selbst, für seine locale-präfixte Fassung und für alles darunter — ein
+ * künftiges Kindsegment soll nicht versehentlich erreichbar werden. Die Grenzprüfung (Gleichheit
+ * ODER Schrägstrich dahinter) ist dieselbe wie in `isPortalPath`, damit ein erfundenes
+ * `…-wurzel-fremd` NICHT als internes Ziel gilt und ganz normal 404 der Anwendung bekommt statt
+ * einer Sonderbehandlung.
+ */
+export function isPortalRootRenderPath(pathname: string): boolean {
+  const path = stripLocale(pathname)
+  return path === PORTAL_ROOT_RENDER_PATH || path.startsWith(`${PORTAL_ROOT_RENDER_PATH}/`)
 }
 
 /**
@@ -129,6 +258,6 @@ export function isPortalPath(pathname: string): boolean {
  * DIE eine benannte Ableitung, die Middleware und Indexierungssignal teilen. Wahr ausschliesslich
  * für eine Anfrage, die ÜBER den Portal-Host kommt und NICHT auf den Portalbereich zielt.
  */
-export function leavesPortalHost(host: string | null | undefined, pathname: string): boolean {
-  return isPortalHost(host) && !isPortalPath(pathname)
+export function leavesPortalHost(headers: HostHeaders, pathname: string): boolean {
+  return isPortalHostRequest(headers) && !isPortalPath(pathname)
 }
