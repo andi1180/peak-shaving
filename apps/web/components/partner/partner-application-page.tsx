@@ -1,10 +1,9 @@
 import { ArrowDown, ArrowRight } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { Link } from '@/i18n/navigation'
 import { Button } from '@/components/ui/button'
 import { Container, Eyebrow, Section } from '@/components/ui/layout'
 import { PartnerApplicationForm } from '@/components/partner/partner-application-form'
-import { PARTNER_PORTAL_HREF } from '@/lib/partner-portal/config'
+import { portalEntryUrl } from '@/lib/portal-host'
 
 /**
  * Sprungmarke des Bewerbungsformulars.
@@ -101,13 +100,20 @@ export function PartnerApplicationPage({
 
           <p className="inline-flex flex-wrap items-baseline gap-x-2 gap-y-1 rounded-md border border-line bg-surface-sunken px-4 py-3 text-small text-text-muted">
             <span>{t('existing.text')}</span>
-            <Link
-              href={PARTNER_PORTAL_HREF}
+            {/*
+              Natives <a> und NICHT das locale-bewusste `Link` — aus demselben Grund wie beim
+              FORM_ANCHOR-Sprung oben, nur mit der anderen Hälfte der Begründung: In Produktion
+              liegt das Ziel auf einer FREMDEN Origin (`partner.coolin.at`), und über die führt
+              kein Next-Routing. Ein Pfad-Schlüssel wäre dort nichts zu übersetzen, sondern ein
+              Pfad, den es auf diesem Host gar nicht gibt.
+            */}
+            <a
+              href={portalEntryUrl()}
               className="inline-flex items-center gap-1 font-medium text-accent hover:text-accent-hover"
             >
               {t('existing.link')}
               <ArrowRight className="h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden="true" />
-            </Link>
+            </a>
           </p>
         </div>
       </Container>
