@@ -163,7 +163,14 @@ export function portalAbsoluteUrl(pathname: string): string {
 }
 
 /**
- * Die Adresse, unter der ein Fachbetrieb sein Portal wiederfindet — für die Mail und nur dafür.
+ * Die Adresse, unter der ein Fachbetrieb sein Portal wiederfindet.
+ *
+ * ZWEI Aufrufer, und beide meinen dasselbe: der Portal-Verweis in der Freischaltungsmail
+ * (`lib/partner-portal/mail.ts`, B18-2a) und der „Schon Partner? Anmelden"-Zweig auf
+ * `/partner-werden` (`components/partner/partner-application-page.tsx`, B18-2b). Der zweite ist
+ * der Grund, warum hier nicht mehr „für die Mail und nur dafür" steht: Wer seine Mail nicht mehr
+ * findet, sucht den Eingang auf der öffentlichen Seite — und beide müssen auf dieselbe Adresse
+ * zeigen, sonst gäbe es zwei Auslegungen davon, wo das Portal liegt.
  *
  * In Produktion ist das die WURZEL des Portal-Hosts, ohne Pfadanhang (B18-1a: die Domain trägt die
  * Bedeutung bereits, ein zusätzliches „/partner-portal" wiederholte sie nur). Sonst — lokal, in
