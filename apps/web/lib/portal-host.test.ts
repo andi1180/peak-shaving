@@ -3,7 +3,8 @@ import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { routing } from '@/i18n/routing'
 import { AUTH_HREFS } from './auth/config'
-import { PARTNER_PORTAL_HREF } from './partner-portal/config'
+import { activationUrlFor } from './partner-portal/activation-url'
+import { PARTNER_AKTIVIEREN_HREF, PARTNER_PORTAL_HREF } from './partner-portal/config'
 import {
   PORTAL_HOST,
   PORTAL_HOST_PATHS,
@@ -15,7 +16,10 @@ import {
   isPortalPath,
   isPortalRootRenderPath,
   leavesPortalHost,
+  portalAbsoluteUrl,
+  portalEntryUrl,
 } from './portal-host'
+import { IS_PRODUCTION_SITE, SITE_URL } from './site'
 import { SITE_ROUTES } from './routes'
 
 /**
@@ -97,14 +101,30 @@ describe('isPortalHost erkennt ausschliesslich die Portal-Subdomain', () => {
 /* ─── Die Pfade ──────────────────────────────────────────────────────────────────────────────── */
 
 describe('isPortalPath — was auf dem Portal-Host bleibt', () => {
-  it('führt die Wurzel, das Portal und die Auth-Routen', () => {
+  it('führt die Wurzel, das Portal, die Aktivierung und die Auth-Routen', () => {
     // Gepinnt, damit ein zusätzlicher Pfad eine BEWUSSTE Entscheidung bleibt: Was hier landet, ist
     // auf der Subdomain erreichbar und darf deshalb nichts Öffentliches sein.
     expect([...PORTAL_HOST_PATHS].sort()).toEqual(
-      ['/', '/anmelden', '/konto', '/partner-portal', '/passwort-neu', '/passwort-vergessen', '/registrieren'].sort(),
+      [
+        '/',
+        '/anmelden',
+        '/konto',
+        '/partner-aktivieren',
+        '/partner-portal',
+        '/passwort-neu',
+        '/passwort-vergessen',
+        '/registrieren',
+      ].sort(),
     )
     expect(PORTAL_HOST_PATHS).toContain(PORTAL_HOST_ROOT)
     expect(PORTAL_HOST_PATHS).toContain(PARTNER_PORTAL_HREF)
+    /*
+     * ⚠ B18-2a: Der Aktivierungslink aus der Freischaltungsmail zeigt auf DIESEN Host. Fiele die
+     * Seite unter die 308-Weiche, entstünde die Sitzung auf `coolin.at` — der Fachbetrieb landete
+     * auf der Marketing-Startseite und wäre auf seiner eigenen Subdomain weiterhin abgemeldet.
+     * Auth-Cookies sind host-gebunden; das ist keine Kosmetik, sondern der ganze Weg.
+     */
+    expect(PORTAL_HOST_PATHS).toContain(PARTNER_AKTIVIEREN_HREF)
     for (const href of AUTH_HREFS) expect(PORTAL_HOST_PATHS).toContain(href)
   })
 
@@ -172,6 +192,51 @@ describe('isPortalPath — was auf dem Portal-Host bleibt', () => {
   })
 })
 
+/* ─── Die Adressen, die in eine E-Mail wandern (B18-2a) ──────────────────────────────────────── */
+
+describe('portalAbsoluteUrl / portalEntryUrl — Adressen für die Freischaltungsmail', () => {
+  /*
+   * ⚠ DIESE ZEILEN LAUFEN OHNE `NEXT_PUBLIC_SITE_URL`, also im Nicht-Produktions-Zweig. Das ist
+   * kein Mangel des Tests, sondern der Zustand, in dem lokal und in jeder Preview gebaut wird —
+   * und genau dort muss die Adresse benutzbar bleiben. Der Produktionszweig wird darunter über
+   * seine EIGENSCHAFTEN geprüft (Host, Pfad), nicht über eine nachgestellte Umgebung: `SITE_URL`
+   * entsteht beim Modul-Laden aus einer zur Bauzeit ersetzten Konstante und lässt sich im Test
+   * nicht glaubwürdig umschalten.
+   */
+  it('ausserhalb der Produktivdomain zeigen beide auf die ausgelieferte Basis', () => {
+    expect(IS_PRODUCTION_SITE).toBe(false)
+    expect(portalAbsoluteUrl(PARTNER_AKTIVIEREN_HREF)).toBe(`${SITE_URL}${PARTNER_AKTIVIEREN_HREF}`)
+    // Nicht `/` — das wäre lokal die MARKETING-Startseite und damit die falsche Adresse.
+    expect(portalEntryUrl()).toBe(`${SITE_URL}${PARTNER_PORTAL_HREF}`)
+    expect(portalEntryUrl()).not.toBe(`${SITE_URL}/`)
+  })
+
+  it('der Aktivierungslink trägt den Token als Query und den Pfad der Aktivierungsseite', () => {
+    const url = new URL(activationUrlFor('abc123'))
+
+    expect(url.pathname).toBe(PARTNER_AKTIVIEREN_HREF)
+    expect(url.searchParams.get('token')).toBe('abc123')
+  })
+
+  it('ein Token mit Sonderzeichen wird kodiert und kommt unverändert wieder heraus', () => {
+    /*
+     * GoTrue liefert heute Hex. Die Zusicherung soll aber nicht an der Zeichenmenge eines fremden
+     * Systems hängen: Ändert sich das Format, darf der Link nicht still zerfallen.
+     */
+    const token = 'a+b/c=d&e f'
+    const url = new URL(activationUrlFor(token))
+
+    expect(url.searchParams.get('token')).toBe(token)
+    expect(url.toString()).not.toContain(' ')
+  })
+
+  it('die Aktivierungsseite ist NICHT indexierbar — ihre Adresse trägt einen einlösbaren Token', () => {
+    const route = SITE_ROUTES.find((entry) => entry.href === PARTNER_AKTIVIEREN_HREF)
+    expect(route, 'die Aktivierungsseite fehlt in SITE_ROUTES').toBeDefined()
+    expect(route?.indexable).toBe(false)
+  })
+})
+
 /* ─── Die Ableitung, die die Middleware benutzt ──────────────────────────────────────────────── */
 
 /** Kopfzeilen-Attrappe — dieselbe Form wie `request.headers` und `await headers()`. */
@@ -230,6 +295,20 @@ describe('leavesPortalHost — nur Portal-Host UND Nicht-Portal-Pfad', () => {
     for (const pathname of ['/', '/de', '/partner-portal', '/anmelden', '/konto', '/de/anmelden']) {
       expect(leavesPortalHost(portal, pathname), pathname).toBe(false)
     }
+  })
+
+  it('⚠ B18-2a: die Aktivierungsseite bleibt — SAMT Query, denn dort steht der Token', () => {
+    /*
+     * Die Wirkung, an der der ganze Schritt hängt: Würde dieser Pfad weggeleitet, entstünde die
+     * Sitzung auf der Hauptdomain (Auth-Cookies sind host-gebunden), und der Fachbetrieb wäre auf
+     * `partner.coolin.at` weiterhin abgemeldet — bei einem 308, der äusserlich völlig richtig
+     * aussieht. `isPortalPath` bewertet nur den Pfad; die Query fährt bei einer 308 ohnehin mit
+     * (`middleware.ts`), hier steht sie als Erinnerung daran, dass der Token in ihr steckt.
+     */
+    expect(leavesPortalHost(portal, PARTNER_AKTIVIEREN_HREF)).toBe(false)
+    expect(leavesPortalHost(portal, `/de${PARTNER_AKTIVIEREN_HREF}`)).toBe(false)
+    // Gegenprobe: der Namensverwandte ist KEIN Portalpfad und wird ganz normal weggeleitet.
+    expect(leavesPortalHost(portal, `${PARTNER_AKTIVIEREN_HREF}-fremd`)).toBe(true)
   })
 
   it('fasst die Hauptdomain, localhost und Previews auf KEINEM Pfad an', () => {

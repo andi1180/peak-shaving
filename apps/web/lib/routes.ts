@@ -40,7 +40,7 @@ import { AUTH_HREFS } from './auth/config'
 import { LEAD_HREFS } from './leads/config'
 import { PARTNER_ROUTE_TEMPLATE } from './leads/partner'
 import { PARTNER_BEWERBUNG_HREF } from './partner-application/config'
-import { PARTNER_PORTAL_HREF } from './partner-portal/config'
+import { PARTNER_AKTIVIEREN_HREF, PARTNER_PORTAL_HREF } from './partner-portal/config'
 import { PORTAL_ROOT_RENDER_PATH } from './portal-host'
 
 export type SiteRoute = {
@@ -174,6 +174,16 @@ export const SITE_ROUTES: SiteRoute[] = Array.from(
      * eine Seite, die für Suchende nichts beantwortet. Dieselbe Lage wie bei den Auth-Routen.
      */
     PARTNER_PORTAL_HREF,
+    /*
+     * B18-2a: die Aktivierungsseite des Partnerzugangs. Steht einzeln hier, weil sie in keinem Menü
+     * hängt und nie verlinkt wird — ihre einzige Adresse steht in der Freischaltungsmail und trägt
+     * einen einmalig einlösbaren Token im Query.
+     *
+     * NICHT INDEXIERBAR (s. `indexable` unten), und zwar aus demselben, schärferen Grund wie die
+     * Lead-Routen: Eine indexierte Seite dieser Art hiesse, persönliche Einmal-Adressen in einen
+     * öffentlichen Index zu geben. Ohne Token zeigt sie ohnehin nur einen Erklärtext.
+     */
+    PARTNER_AKTIVIEREN_HREF,
     ...AUTH_HREFS,
     ...LEAD_HREFS,
   ]),
@@ -194,6 +204,9 @@ export const SITE_ROUTES: SiteRoute[] = Array.from(
    *     aus einer E-Mail, deren Query einen Token bzw. eine signierte Lead-ID trägt.
    *   – Das Partner-Portal (B16-4b, `PARTNER_PORTAL_HREF` oben): hinter der
    *     Anmeldung, für eine Handvoll Fachbetriebe, ohne Inhalt für Suchende.
+   *   – Die Aktivierungsseite (B18-2a, `PARTNER_AKTIVIEREN_HREF` oben): eine
+   *     persönliche Einmal-Adresse aus einer E-Mail, deren Query einen einlösbaren
+   *     Token trägt — derselbe, schärfere Grund wie bei den Lead-Routen.
    *
    * `/styleguide` ist ebenfalls `noindex`, steht aber nicht in dieser Liste: Es
    * liegt in der Route-Group `(dev)` mit eigenem Root-Layout, also außerhalb der
@@ -203,6 +216,7 @@ export const SITE_ROUTES: SiteRoute[] = Array.from(
     href !== CALCULATOR_RUN_HREF &&
     href !== MONITOR_GRATIS_CHECK_HREF &&
     href !== PARTNER_PORTAL_HREF &&
+    href !== PARTNER_AKTIVIEREN_HREF &&
     !AUTH_HREF_SET.has(href) &&
     !LEAD_HREF_SET.has(href) &&
     !PLACEHOLDER_HREFS.includes(href),

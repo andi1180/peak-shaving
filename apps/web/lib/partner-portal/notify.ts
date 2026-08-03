@@ -70,6 +70,15 @@ export type PartnerNotificationTarget = {
    * Dieselbe Sorte Fallunterscheidung wie `accountCreated` in der Eingangsbestätigung (B16-3).
    */
   fromApplication: boolean
+  /**
+   * Die Kennung des verknüpften Kontos (B18-2a) — gebraucht, um den Aktivierungstoken der RICHTIGEN
+   * Zeile zuzuordnen.
+   *
+   * `null` heisst dasselbe wie eine fehlende `accountEmail`: kein Konto, keine Mail. Beide Felder
+   * kommen aus derselben Zeile von `admin_list_partners` und werden gemeinsam gesetzt oder
+   * gemeinsam genullt (`on delete set null`, B16-4a).
+   */
+  userId: string | null
 }
 
 /**
@@ -91,6 +100,17 @@ export type PartnerNotificationOutcome =
 export type PartnerNotificationEffects = {
   /** Schlägt den Fachbetrieb nach. `null` = gibt es nicht (mehr). Wirft nicht. */
   loadTarget: (slug: string) => Promise<PartnerNotificationTarget | null>
+  /**
+   * Erzeugt den Aktivierungslink (B18-2a). `null` = konnte nicht erzeugt werden. Wirft nicht.
+   *
+   * `alreadyConfirmed` sagt, ob das Konto überhaupt noch freizuschalten IST — der Link entsteht
+   * trotzdem und wird bei einem bestätigten Konto schlicht nicht in die Mail genommen (er würde
+   * dort einen Schritt ankündigen, den es für diesen Empfänger nicht gibt).
+   */
+  createActivationLink: (input: {
+    email: string
+    userId: string
+  }) => Promise<{ url: string; alreadyConfirmed: boolean } | null>
   /** Versendet die Benachrichtigung. Wirft nicht. */
   sendMail: (input: {
     to: string
@@ -98,6 +118,8 @@ export type PartnerNotificationEffects = {
     displayName: string
     slug: string
     fromApplication: boolean
+    /** `null` = das Konto ist bereits bestätigt; die Mail lässt den Aktivierungsblock dann weg. */
+    activationUrl: string | null
   }) => Promise<{ ok: boolean }>
   /**
    * Hält den erfolgten Versand fest (`public.admin_mark_partner_notified`). Wirft nicht.
@@ -121,7 +143,24 @@ export async function notifyPartner(
   if (!target) return { status: 'unknown_partner' }
 
   const to = target.accountEmail?.trim()
-  if (!to) return { status: 'no_account' }
+  if (!to || !target.userId) return { status: 'no_account' }
+
+  /*
+   * ⚠ DER AKTIVIERUNGSLINK ENTSTEHT VOR DER MAIL — UND SEIN FEHLSCHLAG VERHINDERT SIE (B18-2a).
+   *
+   * Seit die Bewerbung das Konto UNBESTÄTIGT anlegt (`lib/auth/admin-api.ts`), ist dieser Link der
+   * einzige Weg hinein. Eine Freischaltungsmail ohne ihn wäre die Einladung in einen Zugang, der
+   * sich nicht öffnen lässt: Der Fachbetrieb probierte sein Passwort, bekäme „E-Mail nicht
+   * bestätigt" und hätte nichts in der Hand — und weil die Mail nun einmal draussen wäre, sähe der
+   * Admin-Bereich anschliessend „benachrichtigt".
+   *
+   * Deshalb `send_failed` und ausdrücklich KEIN eigener sechster Status: Für den Admin ist die
+   * Handlung dieselbe wie bei einem fehlgeschlagenen Versand — erneut senden. Ein zusätzlicher Wert
+   * wäre eine Unterscheidung, die niemand anders benutzt. Was die beiden Fälle trennt, steht im
+   * Server-Log (`lib/auth/admin-api.ts` loggt den Grund).
+   */
+  const activation = await effects.createActivationLink({ email: to, userId: target.userId })
+  if (!activation) return { status: 'send_failed' }
 
   const sent = await effects.sendMail({
     to,
@@ -129,6 +168,13 @@ export async function notifyPartner(
     displayName: target.displayName,
     slug: target.slug,
     fromApplication: target.fromApplication,
+    /*
+     * Bei einem BEREITS bestätigten Konto fährt der Link nicht mit. Das ist kein Sonderfall der
+     * Bequemlichkeit: „Bitte schalten Sie Ihren Zugang frei" an jemanden, der längst hineinkommt,
+     * ist eine Aufforderung zu einem Schritt, den es für ihn nicht gibt — und der naheliegende
+     * Anruf käme ausgerechnet von dem Betrieb, bei dem alles in Ordnung ist.
+     */
+    activationUrl: activation.alreadyConfirmed ? null : activation.url,
   })
   // Regel 3: der Vermerk entsteht NUR nach erfolgreicher Zustellung.
   if (!sent.ok) return { status: 'send_failed' }

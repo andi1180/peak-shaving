@@ -1935,23 +1935,44 @@
     "subject": "Ihre Partner-Bewerbung bei COOLiN ENERGY",
     "greeting": "Guten Tag {name},",
     "intro": "vielen Dank für Ihre Bewerbung als Fachpartner. Wir haben Ihre Angaben erhalten und sehen sie uns an.",
-    "accountCreated": "Für Sie wurde ein Konto angelegt. Bitte bestätigen Sie es über den Link in der separaten Bestätigungsmail — erst danach können Sie sich anmelden.",
+    "accountCreated": "Für Sie wurde ein Konto mit dem Passwort angelegt, das Sie im Formular gewählt haben. Es ist noch nicht freigeschaltet: Sobald wir Ihre Bewerbung geprüft haben, schicken wir Ihnen einen Link, mit dem Sie Ihren Zugang aktivieren. Eine weitere Mail brauchen Sie bis dahin nicht zu erwarten.",
     "accountExisting": "Für Ihre E-Mail-Adresse besteht bereits ein Konto bei uns. Es wurde kein zweites angelegt und Ihr bisheriges Passwort ist unverändert — melden Sie sich bitte wie gewohnt damit an.",
     "next": "Wir melden uns bei Ihnen. Falls wir Rückfragen zu Ihrem Betrieb haben, antworten wir einfach auf diese Adresse.",
     "fallback": "Sie erreichen uns jederzeit unter {email}."
   },
   "PartnerApprovalMail": {
-    "//": "ARBEITSSTAND (B16-4b): die Benachrichtigung an einen freigeschalteten Fachbetrieb — ausgeloest beim Genehmigen einer Bewerbung und beim erneuten Senden im Admin-Bereich. Endgueltige Formulierungen von Andreas/Martina. Transaktional, kein Double-Opt-in und KEIN Abmeldelink (abgemeldet werden kann eine Aussendung, nicht die eine Nachricht, die einen Zugang mitteilt). KEINE Provisions-, Umsatz- oder Ersparniszusage und KEINE Zusage ueber die Bearbeitungsdauer von Anfragen. Genau ein Satz haengt vom Zustand ab (das Passwort): ein von Hand aufgenommener Betrieb hat bei keiner Bewerbung eines gesetzt.",
+    "//": "ARBEITSSTAND (B16-4b, mit B18-2a um den Aktivierungslink erweitert): die Benachrichtigung an einen freigeschalteten Fachbetrieb — ausgeloest beim Genehmigen einer Bewerbung und beim erneuten Senden im Admin-Bereich. Endgueltige Formulierungen von Andreas/Martina. Transaktional, kein Double-Opt-in und KEIN Abmeldelink (abgemeldet werden kann eine Aussendung, nicht die eine Nachricht, die einen Zugang mitteilt). KEINE Provisions-, Umsatz- oder Ersparniszusage und KEINE Zusage ueber die Bearbeitungsdauer von Anfragen. Es ist die EINZIGE Mail, die ein Bewerber nach der Eingangsbestaetigung bekommt — bei der Bewerbung geht seit B18-2a keine Bestaetigungsmail mehr raus. ZWEI Bloecke haengen vom Zustand ab: die Aktivierung (nur wenn das Konto noch unbestaetigt ist) und der Passwortsatz (ein von Hand aufgenommener Betrieb hat bei keiner Bewerbung eines gesetzt).",
     "subject": "Ihr Partnerzugang bei COOLiN ENERGY ist eingerichtet",
     "greeting": "Guten Tag {name},",
     "greetingNeutral": "Guten Tag,",
     "intro": "wir haben {company} als Fachpartner aufgenommen. Ab sofort können Sie Ihre Bestandskunden über einen persönlichen Link an uns verweisen — jede Anfrage, die darüber entsteht, ist Ihrem Betrieb zugeordnet.",
+    "activationLead": "Ein Schritt fehlt noch: Bitte schalten Sie Ihren Zugang über diesen Link frei. Damit bestätigen Sie Ihre E-Mail-Adresse und landen direkt im Partner-Portal.",
+    "activationLinkLabel": "Zugang freischalten",
+    "activationNote": "Der Link lässt sich einmal verwenden und ist nur begrenzt gültig. Falls er nicht mehr funktioniert, schreiben Sie uns kurz — wir schicken Ihnen einen neuen.",
     "linkLead": "Das ist Ihr persönlicher Empfehlungslink:",
     "portalLead": "Im Partner-Portal finden Sie diesen Link jederzeit wieder, dazu Textvorlagen für Ihre Kundenansprache:",
-    "passwordFromApplication": "Melden Sie sich mit der E-Mail-Adresse und dem Passwort an, die Sie bei Ihrer Bewerbung angegeben haben.",
+    "passwordFromApplication": "Danach melden Sie sich jederzeit mit der E-Mail-Adresse und dem Passwort an, die Sie bei Ihrer Bewerbung angegeben haben.",
     "passwordExisting": "Melden Sie sich mit der E-Mail-Adresse und dem Passwort Ihres bestehenden Kontos bei coolin.at an.",
     "passwordForgotten": "Passwort nicht mehr zur Hand? Über „Passwort vergessen\" auf der Anmeldeseite setzen Sie ein neues.",
     "fallback": "Fragen zum Zugang oder zum Ablauf? Sie erreichen uns unter {email}."
+  },
+  "PartnerActivation": {
+    "//": "ARBEITSSTAND (B18-2a): die Seite, auf der ein Fachbetrieb seinen Partnerzugang freischaltet — Ziel des Links aus der Freischaltungsmail. Endgueltige Formulierungen von Andreas/Martina. Der Klick ist der einzige Beweis, dass der Anmeldende Zugriff auf dieses Postfach hat; der Text darf ihn deshalb nicht als Formalitaet abtun. KEINE Aussage zur genauen Gueltigkeitsdauer des Links — sie ist eine Projekteinstellung im Supabase-Dashboard und keine Zusage, die diese Seite machen kann.",
+    "metaTitle": "Zugang freischalten",
+    "title": "Partnerzugang freischalten",
+    "lead": "Ein Klick, dann ist Ihr Zugang aktiv und Sie sind im Partner-Portal angemeldet.",
+    "note": "Ihr Passwort bleibt unverändert — Sie melden sich weiterhin mit dem an, das Sie selbst gesetzt haben.",
+    "submit": "Zugang freischalten",
+    "submitPending": "Wird freigeschaltet …",
+    "errors": {
+      "invalid": "Dieser Link wirkt nicht mehr — er wurde bereits verwendet oder ist abgelaufen. Schreiben Sie uns kurz, dann schicken wir Ihnen einen neuen.",
+      "generic": "Das hat gerade nicht geklappt. Bitte versuchen Sie es noch einmal."
+    },
+    "missing": {
+      "title": "Dieser Link ist unvollständig",
+      "lead": "In der Adresse fehlt der Teil, der Ihren Zugang freischaltet.",
+      "note": "Das passiert meistens, wenn der Link beim Kopieren abgeschnitten wurde. Öffnen Sie ihn bitte direkt aus unserer E-Mail — oder schreiben Sie uns kurz, dann schicken wir Ihnen einen neuen."
+    }
   },
   "PartnerPortal": {
     "//": "ARBEITSSTAND (B16-4b): Partner-Portal und die zwei E-Mail-Vorlagen zum Kopieren. Endgueltige Formulierungen von Andreas/Martina — die Vorlagen gehen unter dem NAMEN DES PARTNERS an dessen Bestandskunden und sind vor der ersten echten Aussendung zu ersetzen. Bindende Leitplanken fuer jede Neufassung: keine Preis-, Ergebnis- oder Ersparnisversprechen, keine Zusage ueber die Bearbeitungsdauer, und COOLiN tritt als unabhaengiger Pruefer auf, nicht als Verkaeufer. Es stehen bewusst KEINE Angaben zu einzelnen Interessenten im Portal (Namen, Firmen, Anzahl, Status) — die namentliche Sicht setzt einen Einwilligungszweck voraus, den es noch nicht gibt (B16-6).",

@@ -64,9 +64,10 @@ export default tseslint.config(
                 'Der service_role-Client (umgeht RLS) ist ausschließlich für den Stripe-Pfad ' +
                 '(app/api/stripe/webhook + lib/stripe/actions.ts), den Lead-/Einwilligungspfad ' +
                 '(lib/leads/**, B1-2), die Cron-Endpunkte (app/api/cron/**, B4-1), den ' +
-                'Resend-Webhook (app/api/resend/**, B2-2) und die Partner-Bewerbung ' +
-                '(lib/partner-application/**, B16-3). Für Nutzer-Reads den RLS-gebundenen ' +
-                'lib/supabase/server.ts verwenden.',
+                'Resend-Webhook (app/api/resend/**, B2-2), die Partner-Bewerbung ' +
+                '(lib/partner-application/**, B16-3) und die GoTrue-Admin-API ' +
+                '(lib/auth/admin-api.ts, B18-2a — genau diese eine Datei). Für Nutzer-Reads den ' +
+                'RLS-gebundenen lib/supabase/server.ts verwenden.',
             },
           ],
         },
@@ -104,6 +105,21 @@ export default tseslint.config(
      * (`public.submit_partner_application`). Es entsteht dabei ausdrücklich kein Nutzerdatum: eine
      * Bewerbung gehört dem Betrieb, nicht einer Sitzung — der Regelfall ist anonym. Innerhalb des
      * Moduls importiert nur `store.ts` den Client; die Action geht über dieses Modul.
+     *
+     * B18-2a ERWEITERT sie ein fünftes Mal — und als EINZIGE um eine DATEI statt ein Verzeichnis:
+     * `lib/auth/admin-api.ts`. Der Fall ist ein anderer als die vier darüber: Dort geht es jeweils
+     * um `public`-Wrapper, die für `anon`/`authenticated` kein Grant haben; hier um die
+     * GoTrue-ADMIN-API (Kontoanlage ohne Bestätigungsmail, Erzeugung des Aktivierungstokens), für
+     * die es schlicht KEINEN Weg über den angemeldeten Client gibt — sie verlangt den
+     * service_role-Schlüssel. Genau deshalb ist die Freigabe hier so eng wie möglich: `lib/auth/**`
+     * insgesamt zu öffnen hiesse, den erhöhten Zugriff dem gesamten öffentlichen
+     * Registrierungsweg zu geben, der ihn nicht braucht (`lib/auth/sign-up.ts` bleibt beim
+     * gewöhnlichen Client). Die Datei gibt ausserdem nie den Client zurück, sondern nur Werte —
+     * sonst wäre die Beschränkung auf eine Datei Kosmetik.
+     *
+     * ⚠ Zur Abgrenzung: B14-2 hat diese Liste bewusst NICHT erweitert, weil die vier
+     * Analyse-Wrapper `authenticated`-only sind und ein service_role-Client dort `created_by` leer
+     * gelassen hätte. Diese Begründung trägt hier nicht — es gibt keine zweite Tür.
      */
     files: [
       'apps/web/app/api/stripe/**/*.ts',
@@ -112,6 +128,7 @@ export default tseslint.config(
       'apps/web/lib/stripe/actions.ts',
       'apps/web/lib/leads/**/*.ts',
       'apps/web/lib/partner-application/**/*.ts',
+      'apps/web/lib/auth/admin-api.ts',
     ],
     rules: { 'no-restricted-imports': 'off' },
   },

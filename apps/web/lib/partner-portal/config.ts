@@ -20,3 +20,31 @@
 
 /** Das eingeloggte Partner-Portal — OHNE Locale-Präfix, wie alle Hrefs unter `app/(site)/[locale]`. */
 export const PARTNER_PORTAL_HREF = '/partner-portal'
+
+/**
+ * Die Aktivierungsseite (B18-2a) — das Ziel des Links aus der Freischaltungsmail.
+ *
+ * Sie liegt aus demselben Grund NICHT unter `/partner/` wie die beiden Nachbarn: dort sitzt seit
+ * B16-2 das dynamische `[slug]`, und ein statisches Kindsegment machte diesen Kurz-Key für immer
+ * unerreichbar.
+ *
+ * ── WARUM EINE EIGENE SEITE UND NICHT DER BESTEHENDE `/auth/callback` ───────────────────────────
+ * Der Callback tauscht einen PKCE-`code` gegen eine Sitzung und wirkt dabei im GET. Genau das darf
+ * dieser Link nicht: Ein Aktivierungstoken ist EINMALIG einlösbar (gemessen: die zweite Verwendung
+ * antwortet HTTP 403 `otp_expired`), und Mailscanner in Unternehmen — bei der Zielgruppe dieser
+ * Mail der Regelfall — rufen Links vorab ab. Ein wirkender GET verbrauchte den Token, bevor der
+ * Mensch ihn sieht; der Fachbetrieb bekäme „Link ungültig" und käme ohne Rückfrage nicht mehr in
+ * sein Portal. Deshalb dieselbe Bauform wie `/einwilligung-bestaetigen` (B1-2): der GET ZEIGT nur,
+ * die Wirkung hängt am POST.
+ */
+export const PARTNER_AKTIVIEREN_HREF = '/partner-aktivieren'
+
+/**
+ * Name des Token-Parameters im Aktivierungslink.
+ *
+ * EINE Stelle, weil ihn drei Beteiligte teilen: die Mail (baut die URL), die Seite (liest den
+ * Parameter) und das versteckte Formularfeld, über das der Token in den POST wandert. Derselbe
+ * Name wie bei der Einwilligungsbestätigung (`CONFIRM_TOKEN_PARAM`, B1-2) — und derselbe Grund für
+ * die Konstante.
+ */
+export const ACTIVATION_TOKEN_PARAM = 'token'

@@ -30,12 +30,19 @@
  *
  * 3. ⚠ EINE BEWERBUNG ENTSTEHT NIE OHNE AUFGELÖSTES KONTO (Nachbesserung, 26.07.2026). Jeder
  *    Fehler von `createAccount` wird weiterhin verschluckt und geloggt — dieser Ablauf wertet ihn
- *    NICHT aus. GEMESSEN gegen den lokalen Stack (nicht aus der Doku abgeleitet): GoTrue antwortet
- *    auf einen `signUp` mit einer bereits registrierten, bestätigten Adresse mit **HTTP 422
- *    `user_already_exists`** und auf einen Versuch innerhalb der Sperrfrist des Mailversands mit
- *    **HTTP 429 `over_email_send_rate_limit`**. Beide Antworten VERRATEN die Existenz; hier sind
- *    sie zudem gar nicht auseinanderzuhalten — in beiden Fällen meldet `createAccount` schlicht
- *    `false`.
+ *    NICHT aus. GEMESSEN gegen den lokalen Stack (nicht aus der Doku abgeleitet): Die Kontoanlage
+ *    antwortet auf eine bereits registrierte Adresse mit **HTTP 422 `email_exists`** und VERRÄT
+ *    damit deren Existenz.
+ *
+ *    ⚠ SEIT B18-2a IST DER ZWEITE GEMESSENE FALL WEGGEFALLEN, und das ist kein Detail: Bis dahin
+ *    lief die Anlage über `signUp`, und ein Versuch innerhalb der Sperrfrist des Mailversands
+ *    scheiterte mit **HTTP 429 `over_email_send_rate_limit`** — genau der Fall, der in Produktion
+ *    real aufgetreten ist und diese Nachbesserung ausgelöst hat. Die Anlage läuft jetzt über die
+ *    GoTrue-Admin-API und versendet gar keine Mail; das Auth-Ratenlimit greift dort nicht mehr.
+ *    Die Regel bleibt trotzdem wörtlich bestehen: Sie hängt nicht am 429, sondern an der Frage, ob
+ *    am Ende ein Konto DA ist — und die kann aus anderen Gründen weiterhin „nein" lauten.
+ *    (Was das Wegfallen des Ratenlimits für den Missbrauchsschutz bedeutet, steht im B18-2a-Eintrag
+ *    in `apps/web/CLAUDE.md`; die Bremse ist ab jetzt allein der Honeypot bzw. Turnstile.)
  *
  *    Die Unterscheidung, auf die es ankommt, trifft deshalb die DATENBANK: `storeApplication` löst
  *    die Adresse auf und meldet `no_account`, wenn dabei kein Konto herauskommt. Genau dann
@@ -163,8 +170,8 @@ export type PartnerApplicationEffects = {
     firstName: string
     /**
      * War der Bewerber schon angemeldet ODER besteht die Adresse bereits? Dann wurde KEIN neues
-     * Passwort gesetzt, und die Mail sagt das — sonst wartete jemand auf eine Bestätigungsmail, die
-     * nie kommt, und probierte ein Passwort, das nie gesetzt wurde.
+     * Passwort gesetzt, und die Mail sagt das — sonst probierte jemand ein Passwort, das nie
+     * gesetzt wurde.
      */
     accountCreated: boolean
   }) => Promise<unknown>

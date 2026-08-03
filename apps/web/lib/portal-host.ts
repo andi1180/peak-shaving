@@ -34,7 +34,8 @@
 
 import { routing } from '@/i18n/routing'
 import { AUTH_HREFS } from '@/lib/auth/config'
-import { PARTNER_PORTAL_HREF } from '@/lib/partner-portal/config'
+import { PARTNER_AKTIVIEREN_HREF, PARTNER_PORTAL_HREF } from '@/lib/partner-portal/config'
+import { IS_PRODUCTION_SITE, absoluteUrl } from '@/lib/site'
 
 /**
  * Die Subdomain, die ausschliesslich den Portalbereich bedient.
@@ -120,6 +121,13 @@ export const PORTAL_ROOT_RENDER_PATH = '/portal-host-wurzel'
  * Es ist der Eingang zum Portal, nicht die Marketing-Startseite — die Begründung steht bei
  * `PORTAL_HOST_ROOT`. Gerendert wird dort `PORTAL_ROOT_RENDER_PATH`.
  *
+ * ── `/partner-aktivieren` GEHÖRT DAZU (B18-2a) ─────────────────────────────────────────────────
+ * Der Aktivierungslink aus der Freischaltungsmail zeigt auf diesen Host, und das ist keine
+ * Kosmetik: Der Klick setzt die Auth-Cookies, und die sind HOST-gebunden. Fiele die Seite unter die
+ * 308-Weiche, entstünde die Sitzung auf `coolin.at` — der Fachbetrieb landete anschliessend auf der
+ * Marketing-Startseite statt in seinem Portal und wäre auf `partner.coolin.at` weiterhin
+ * abgemeldet.
+ *
  * NICHT dabei und bewusst so: `/partner-werden` (die öffentliche Bewerbung, auf die der
  * Partner-Kontext der Anmeldeseite verweist — eine öffentliche Inhaltsseite gehört auf die
  * Hauptdomain), `/login` (englischer Alt-Slug, leitet ohnehin nur auf `/anmelden` um) und der
@@ -128,8 +136,46 @@ export const PORTAL_ROOT_RENDER_PATH = '/portal-host-wurzel'
 export const PORTAL_HOST_PATHS: readonly string[] = [
   PORTAL_HOST_ROOT,
   PARTNER_PORTAL_HREF,
+  PARTNER_AKTIVIEREN_HREF,
   ...AUTH_HREFS,
 ]
+
+/**
+ * Eine absolute URL auf dem Portal-Host — für Links, die in eine E-MAIL wandern (B18-2a).
+ *
+ * ── WARUM NICHT `absoluteUrl` AUS `lib/site.ts` ────────────────────────────────────────────────
+ * Jene Datei beantwortet „unter welcher kanonischen Adresse liegt diese Auslieferung" und ist die
+ * einzige Quelle für Canonicals, hreflang, sitemap und die 308-Weiche. Sie kennt den Portal-Host
+ * nicht und soll ihn nicht kennen — die Trennung der beiden Fragen ist der Grund, warum es diese
+ * Datei überhaupt gibt (s. Kopf). Ein Aktivierungslink auf `coolin.at` funktionierte zwar, setzte
+ * die Sitzung aber auf der falschen Herkunft (s. `PORTAL_HOST_PATHS` oben).
+ *
+ * ── AUSSERHALB DER PRODUKTIVDOMAIN GIBT ES DEN PORTAL-HOST NICHT ───────────────────────────────
+ * Lokal und in jeder Preview existiert `partner.coolin.at` nicht; ein dorthin zeigender Link wäre
+ * beim Testen schlicht tot. Dann gilt die gewöhnliche Basis-URL — dieselbe Fallunterscheidung und
+ * dieselbe Richtung wie bei `redirectBaseUrl()` (`lib/auth/server-helpers.ts`): in Produktion der
+ * eine feststehende Host, sonst das, was tatsächlich ausgeliefert wird. `IS_PRODUCTION_SITE` ist
+ * fail-closed (ein unbekannter Origin gilt NICHT als Produktion), der Fehler geht also in die
+ * harmlose Richtung.
+ */
+export function portalAbsoluteUrl(pathname: string): string {
+  return IS_PRODUCTION_SITE ? new URL(pathname, `https://${PORTAL_HOST}`).toString() : absoluteUrl(pathname)
+}
+
+/**
+ * Die Adresse, unter der ein Fachbetrieb sein Portal wiederfindet — für die Mail und nur dafür.
+ *
+ * In Produktion ist das die WURZEL des Portal-Hosts, ohne Pfadanhang (B18-1a: die Domain trägt die
+ * Bedeutung bereits, ein zusätzliches „/partner-portal" wiederholte sie nur). Sonst — lokal, in
+ * jeder Preview — gibt es diesen Host nicht, und die richtige Adresse ist der Pfad auf der
+ * ausgelieferten Basis: `PORTAL_HOST_ROOT` wäre dort die Marketing-Startseite und damit falsch.
+ *
+ * Dass beide Fälle DENSELBEN Portalbereich zeigen, ist bereits gebaut und keine Annahme:
+ * `components/partner-portal/partner-portal-route.tsx` ist eine Fassung mit zwei Adressen.
+ */
+export function portalEntryUrl(): string {
+  return IS_PRODUCTION_SITE ? `https://${PORTAL_HOST}${PORTAL_HOST_ROOT}` : absoluteUrl(PARTNER_PORTAL_HREF)
+}
 
 /**
  * Host-Kopfzeile auf die reine Namensform bringen.
