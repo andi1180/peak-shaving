@@ -16,6 +16,7 @@
  * laden · nichts tun.
  */
 import type { PartnerNotificationOutcome } from './notify'
+import type { CalculatorRequestNotificationOutcome } from './calculator-request-notify'
 
 /**
  * Die Ergänzung zur Erfolgsmeldung einer GENEHMIGUNG.
@@ -81,5 +82,55 @@ export function resendNotificationMessage(
       }
     case 'unknown_partner':
       return { formError: 'Diesen Fachbetrieb gibt es nicht (mehr). Bitte die Seite neu laden.' }
+  }
+}
+
+/**
+ * Die Ergänzung zur Erfolgsmeldung einer FREIGABE einer Kalkulator-Anfrage (B18-4).
+ *
+ * ── ⚠ SIE RELATIVIERT DIE FREIGABE NIE, SIE BESCHREIBT NUR DIE MAIL ─────────────────────────────
+ * Die Freigabe ist an dieser Stelle bereits vollzogen: `public.admin_decide_calculator_request` setzt
+ * Status UND `calculator_pro`-Entitlement in EINER Transaktion. Der Betrieb KANN den Kalkulator
+ * benutzen, auch wenn keine einzige Mail hinausgegangen ist. Jeder Satz hier sagt deshalb
+ * ausdrücklich, dass der Zugang steht — sonst läse der Admin einen Mailfehler als „nicht
+ * freigegeben" und versuchte es erneut, was `already_reviewed` gäbe und wie ein zweiter Fehler
+ * aussähe.
+ *
+ * Eigene Funktion statt `approvalNotificationNote` mit einem zweiten Typ: Die fünf Zustände heissen
+ * gleich, die Handlungen dahinter sind andere. Dort verweist jeder Satz auf „Partner" als Ort zum
+ * Nachholen — hier gibt es diesen Ort NICHT: es existiert bewusst keine Schaltfläche, die eine
+ * Freischaltungsmail zu einer Anfrage erneut versendet (der Vermerk entsteht ausschliesslich im
+ * Ablauf der Entscheidung). Ein geteilter Text müsste auf einen Weg verweisen, den es hier nicht
+ * gibt.
+ */
+export function calculatorApprovalNotificationNote(
+  status: CalculatorRequestNotificationOutcome['status'],
+): string {
+  switch (status) {
+    case 'sent':
+      return 'Der Betrieb wurde per E-Mail über seinen Zugang informiert.'
+    case 'send_failed':
+      return (
+        'ACHTUNG: Die Benachrichtigung konnte NICHT versendet werden — der Betrieb weiss noch ' +
+        'nichts davon. Der Zugang selbst steht (das Entitlement ist vergeben); bitte den Betrieb ' +
+        'auf einem anderen Weg informieren.'
+      )
+    case 'not_recorded':
+      return (
+        'Die Benachrichtigung IST versendet, konnte aber nicht vermerkt werden — die Anfrage steht ' +
+        'deshalb als „nicht benachrichtigt". Der Zugang steht. Bitte NICHT von Hand nachfassen, ' +
+        'sonst hört der Betrieb dieselbe Nachricht zweimal.'
+      )
+    case 'no_account':
+      return (
+        'ACHTUNG: Es geht keine Benachrichtigung raus — an diesem Fachbetrieb hängt kein Konto ' +
+        '(mehr). Der Zugang selbst ist vergeben; bitte unter „Partner" ein Konto verknüpfen und den ' +
+        'Betrieb dann direkt informieren.'
+      )
+    case 'unknown_partner':
+      return (
+        'Die Benachrichtigung konnte nicht versendet werden, weil der Fachbetrieb gerade nicht ' +
+        'lesbar war. Der Zugang selbst steht — bitte den Betrieb auf einem anderen Weg informieren.'
+      )
   }
 }

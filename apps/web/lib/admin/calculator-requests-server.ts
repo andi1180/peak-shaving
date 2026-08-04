@@ -8,6 +8,7 @@ import {
   type CalculatorRequestDecision,
   type CalculatorRequestDecisionOutcome,
   type CalculatorRequestList,
+  type CalculatorRequestRow,
   type CalculatorRequestStatus,
 } from './calculator-requests'
 
@@ -38,6 +39,58 @@ export async function readCalculatorRequests(
   if (error) console.error('[calculator-request] admin_list_calculator_requests:', error)
 
   return readCalculatorRequestList(data, error)
+}
+
+/**
+ * Wie viele Zeilen die Suche nach EINER Anfrage höchstens durchsieht — vier volle Seiten der
+ * Wrapper-Obergrenze (`admin_list_calculator_requests` deckelt `p_limit` auf 200).
+ */
+const DETAIL_SCAN_PAGE_SIZE = 200
+const DETAIL_SCAN_MAX_PAGES = 4
+
+/**
+ * Eine einzelne Anfrage — oder warum sie nicht dasteht.
+ *
+ * ⚠ `truncated` IST KEIN ZIERAT. Es gibt bewusst keinen `admin_get_calculator_request`-Wrapper
+ * (B18-4 legt genau vier an, und die sind fertig und live). Die Detailseite liest deshalb über die
+ * LISTE und sucht die Zeile heraus. Das ist bis zur Obergrenze dieser Suche vollständig — darüber
+ * hinaus nicht mehr, und dann muss die Oberfläche das SAGEN. „Nicht gefunden" zu behaupten, weil
+ * man aufgehört hat zu suchen, ist genau die stille Falschaussage, gegen die dieser Bereich sonst
+ * überall gebaut ist (vgl. die offengelegte 200er-Grenze der „ersetzt"-Kennzeichnung in B14-2).
+ */
+export type CalculatorRequestLookup =
+  | { status: 'ok'; request: CalculatorRequestRow }
+  | { status: 'not_found' }
+  | { status: 'truncated'; scanned: number; total: number }
+  | { status: 'error' }
+
+/**
+ * Sucht EINE Anfrage über den Listen-Wrapper.
+ *
+ * Seitenweise und ohne Statusfilter (eine Kennung sagt nichts über den Zustand ihrer Zeile, und
+ * eine Detailseite, die eine abgelehnte Anfrage nicht mehr findet, wäre unbrauchbar). Abgebrochen
+ * wird, sobald die Zeile da ist, der Bestand erschöpft ist oder die Obergrenze erreicht ist — der
+ * letzte Fall wird BENANNT, nicht als „gibt es nicht" ausgegeben.
+ */
+export async function findCalculatorRequest(id: string): Promise<CalculatorRequestLookup> {
+  let total = 0
+
+  for (let page = 0; page < DETAIL_SCAN_MAX_PAGES; page += 1) {
+    const offset = page * DETAIL_SCAN_PAGE_SIZE
+    const list = await readCalculatorRequests({ limit: DETAIL_SCAN_PAGE_SIZE, offset })
+    if (!list) return { status: 'error' }
+
+    total = list.total
+    const hit = list.requests.find((request) => request.id === id)
+    if (hit) return { status: 'ok', request: hit }
+
+    // Erschöpft: entweder liefert die Seite nichts mehr, oder der Bestand ist durchgesehen.
+    if (list.requests.length === 0 || offset + list.requests.length >= list.total) {
+      return { status: 'not_found' }
+    }
+  }
+
+  return { status: 'truncated', scanned: DETAIL_SCAN_MAX_PAGES * DETAIL_SCAN_PAGE_SIZE, total }
 }
 
 /**

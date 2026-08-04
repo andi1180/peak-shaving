@@ -20,6 +20,7 @@ import { LEADS_HREF } from './leads'
 import { ANALYSES_HREF } from './analyses'
 import { PARTNERS_HREF } from './partners'
 import { PARTNER_APPLICATIONS_HREF } from './partner-applications'
+import { CALCULATOR_REQUESTS_HREF } from './calculator-requests'
 
 export type AdminNavItem = {
   href: string
@@ -45,4 +46,12 @@ export const ADMIN_NAV_ITEMS: readonly AdminNavItem[] = [
    * noch nicht entschieden ist.
    */
   { href: PARTNER_APPLICATIONS_HREF, label: 'Partner-Anträge' },
+  /*
+   * B18-4: der Prüf-Eingang der Kalkulator-Anfragen. Eigener Punkt und ausdrücklich KEIN Unterpfad
+   * eines Kalkulator-Bereichs — die Aktiv-Markierung in `AdminNav` arbeitet mit Präfixen und hätte
+   * sonst zwei Punkte gleichzeitig markiert (dieselbe Überlegung wie bei „Partner-Anträge").
+   * Fachlich ist es ohnehin ein eigener Gegenstand: hier stehen die Betriebe, über deren Zugang
+   * noch nicht entschieden ist.
+   */
+  { href: CALCULATOR_REQUESTS_HREF, label: 'Kalkulator-Anfragen' },
 ] as const
