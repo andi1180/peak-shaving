@@ -120,11 +120,35 @@ export default async function Page({
     )
   }
 
+  /*
+   * B18-6: Der zweite Wortlaut — die Freigabe an den empfehlenden Fachbetrieb. GETRENNT gelesen und
+   * getrennt gefangen: Fällt der eine Text aus, soll der andere trotzdem erscheinen. Ein gemeinsames
+   * try/catch machte aus einem fehlenden Marketing-Text eine fehlende Partner-Freigabe (und
+   * umgekehrt) — zwei Einwilligungen, die nichts miteinander zu tun haben.
+   *
+   * FAIL-CLOSED wie darüber: Ohne Wortlaut kein Kästchen. Die Folge ist ausdrücklich harmlos — die
+   * Anfrage entsteht unverändert, sie erscheint im Portal nur ohne Namen. Das ist derselbe Zustand
+   * wie bei einem nicht angekreuzten Kästchen und damit kein Zustand, den die Oberfläche erklären
+   * müsste.
+   */
+  let partnerDisclosureConsentText: string | null = null
+  try {
+    partnerDisclosureConsentText =
+      (await getActiveConsentText('partner_lead_disclosure', locale))?.body ?? null
+  } catch (cause) {
+    console.warn(
+      '[leads] Wortlaut der Partner-Freigabe nicht lesbar — die Ankreuzmöglichkeit wird ' +
+        'ausgelassen; die Anfrage entsteht unverändert, nur ohne Freigabe:',
+      cause,
+    )
+  }
+
   return (
     <PartnerLandingPage
       partnerName={partner.displayName}
       partnerSlug={partner.slug}
       marketingConsentText={marketingConsentText}
+      partnerDisclosureConsentText={partnerDisclosureConsentText}
     />
   )
 }

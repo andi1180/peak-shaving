@@ -112,6 +112,26 @@ export const kontaktSchema = z.object({
   marketing: z.boolean().optional(),
 
   /*
+   * FREIGABE AN DEN FACHBETRIEB (B18-6) — die zweite freiwillige Einwilligung, und dieselbe Form wie
+   * `marketing`: `boolean().optional()`, NIE `literal(true)`. Nicht angehakt ist die häufige, völlig
+   * gültige Antwort und kein Eingabefehler; die Anfrage entsteht in beiden Fällen.
+   *
+   * WAS SIE ERLAUBT: dass COOLiN die Anfrage dem empfehlenden Fachbetrieb OFFENLEGT — mit Firma,
+   * Name, E-Mail und Telefon (`public.get_my_partner_leads`). Sie ist die EINZIGE Rechtsgrundlage
+   * dieser Sicht: Der Interessent gibt seine Daten COOLiN, nicht dem Betrieb, und dass dieser ihn
+   * geschickt hat, deckt eine Weitergabe nicht. Ohne Freigabe zählt die Anfrage im Portal mit, trägt
+   * aber keinen Namen.
+   *
+   * ⚠ DER SERVER BEACHTET DIESES FELD NUR AUF DER PARTNER-LANDINGPAGE (`lib/kontakt/submit.ts`):
+   * dort, wo der Slug im PFAD steht UND ein aktiver Fachbetrieb aufgelöst werden konnte. Auf
+   * `/kontakt` wird die Ankreuzmöglichkeit gar nicht gerendert (der Wortlaut wird dort nicht
+   * hereingereicht) — ein trotzdem mitgeschicktes `true` erzeugte sonst eine Einwilligung zu einem
+   * Text, den die Person nie gesehen hat. Genau die Regel, die `lib/leads/capture-flow.ts` für die
+   * Erfassungsstrecken formuliert.
+   */
+  partnerFreigabe: z.boolean().optional(),
+
+  /*
    * „EMPFOHLEN DURCH" (B16-2) — Freitext, AUSDRÜCKLICH OPTIONAL.
    *
    * Zweck: Der Kunde kommt Tage nach der Partner-Mail direkt über die Startseite; der Pfad

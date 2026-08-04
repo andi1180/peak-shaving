@@ -101,11 +101,21 @@ export const UNSUBSCRIBE_STATUS = {
  */
 export const LEAD_SOURCE_KONTAKTFORMULAR = 'kontaktformular'
 
-/** Menschenlesbare Bezeichnung eines Zwecks — für Logs, nicht für die Oberfläche. */
+/**
+ * Ist der Wert ein bekannter Einwilligungszweck?
+ *
+ * ERSCHÖPFEND über das DB-Enum — auch über 'partner_lead_disclosure' (B18-6), obwohl aus DIESEM
+ * Zweck nie eine Mail und damit nie ein Abmeldelink entsteht. Die Prüfung ist ein Typwächter für
+ * `ConsentPurpose`; einen gültigen Wert auszulassen hiesse, dass sie etwas anderes prüft, als ihr
+ * Name sagt. Erreichbar wird der Widerrufspfad dadurch nicht: Die Nutzlast von `/abmelden` ist
+ * signiert (`lib/leads/actions.ts`), und signiert wird sie ausschliesslich von unserem Mail-Code —
+ * der für diesen Zweck keinen Link erzeugt.
+ */
 export function isConsentPurpose(value: unknown): value is ConsentPurpose {
   return (
     value === 'marketing_email' ||
     value === 'contract_expiry_reminder' ||
-    value === 'result_delivery'
+    value === 'result_delivery' ||
+    value === 'partner_lead_disclosure'
   )
 }

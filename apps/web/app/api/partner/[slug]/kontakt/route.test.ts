@@ -260,3 +260,94 @@ describe('POST /api/kontakt — der ?partner=-Weg und das Freitextfeld', () => {
     expect(mocks.deliverKontakt).not.toHaveBeenCalled()
   })
 })
+
+/**
+ * B18-6 — DIE FREIGABE AN DEN FACHBETRIEB WIRD NUR DORT ANGENOMMEN, WO SIE ANGEZEIGT WIRD.
+ *
+ * Die Ankreuzmöglichkeit erscheint ausschliesslich auf der Partner-Landingpage, weil nur sie den
+ * Wortlaut aus `platform.consent_texts` hereinreicht. Der Server verlässt sich darauf aber NICHT:
+ * Er beachtet `partnerFreigabe` nur, wenn die Absendung über den PFAD-Endpunkt kam UND ein aktiver
+ * Fachbetrieb aufgelöst wurde.
+ *
+ * Warum das mehr ist als Sorgfalt: Eine Einwilligung zu einem Text, den niemand gesehen hat, ist
+ * nicht bloss wertlos — ab ihr liesse sich kein echter Nachweis mehr von einem untergeschobenen
+ * unterscheiden, und zwar rückwirkend. Diese Einwilligung ist die EINZIGE Rechtsgrundlage dafür,
+ * dass ein Fachbetrieb später fremde Kontaktdaten sieht.
+ */
+describe('B18-6 — die Freigabe an den Fachbetrieb', () => {
+  it('Landingpage + angekreuzt: die Freigabe wird weitergereicht', async () => {
+    await partnerPost(
+      request(PARTNER_URL, payload({ partnerFreigabe: true })),
+      partnerParams('raymann'),
+    )
+
+    expect(mocks.captureKontaktLead.mock.calls[0]![0]).toMatchObject({
+      partnerSlug: 'raymann',
+      wantsPartnerDisclosure: true,
+    })
+  })
+
+  it('Landingpage ohne Häkchen: die Anfrage entsteht trotzdem, nur ohne Freigabe', async () => {
+    /*
+     * Die Einwilligung entscheidet NICHT, ob der Lead erfasst wird — nur, ob er später mit Namen
+     * sichtbar ist. Ein leeres Kästchen ist die erwartete Normalantwort und darf nichts kosten.
+     */
+    const res = await partnerPost(request(PARTNER_URL, payload()), partnerParams('raymann'))
+
+    expect(res.status).toBe(200)
+    expect(mocks.captureKontaktLead).toHaveBeenCalledTimes(1)
+    expect(mocks.captureKontaktLead.mock.calls[0]![0]).toMatchObject({
+      partnerSlug: 'raymann',
+      wantsPartnerDisclosure: false,
+    })
+  })
+
+  it('⚠ /kontakt mit `partnerFreigabe: true`: VERWORFEN — auch mit gültigem `?partner=`', async () => {
+    /*
+     * DIE MANIPULATIONSPROBE dieses Schritts. Auf `/kontakt` wird das Kästchen nie gerendert; ein
+     * `true` von dort kann deshalb nur aus einem selbstgebauten Aufruf stammen. Die Auflösung liefert
+     * hier bewusst einen ECHTEN Fachbetrieb — es scheitert also nicht an einem fehlenden Partner,
+     * sondern daran, dass der Slug nicht aus dem Pfad kam. Die Anfrage selbst bleibt unberührt.
+     */
+    mocks.resolvePartnerAttribution.mockResolvedValue({
+      sourceKey: 'kontaktformular',
+      partnerSlug: 'raymann',
+      partnerDisplayName: 'Raymann Elektrotechnik GmbH',
+    })
+
+    const res = await kontaktPost(
+      request(`${KONTAKT_URL}`, payload({ partnerFreigabe: true, partner: 'raymann' })),
+    )
+
+    expect(res.status).toBe(200)
+    expect(mocks.captureKontaktLead.mock.calls[0]![0]).toMatchObject({
+      partnerSlug: 'raymann',
+      wantsPartnerDisclosure: false,
+    })
+  })
+
+  it('Landingpage, aber kein auflösbarer Fachbetrieb: VERWORFEN', async () => {
+    /*
+     * Der reale Fall: Ein Betrieb wird stillgelegt, während seine Mail noch in Postfächern liegt.
+     * Der Lead entsteht dann ohne Zuordnung (Herkunft fällt auf 'kontaktformular' zurück) und taucht
+     * in KEINEM Portal auf — eine Einwilligung zu einer Weitergabe, die nicht stattfinden kann, wäre
+     * eine gespeicherte Willenserklärung ohne Gegenstand.
+     */
+    mocks.resolvePartnerAttribution.mockResolvedValue({
+      sourceKey: 'kontaktformular',
+      partnerSlug: null,
+      partnerDisplayName: null,
+    })
+
+    const res = await partnerPost(
+      request(PARTNER_URL, payload({ partnerFreigabe: true })),
+      partnerParams('stillgelegt'),
+    )
+
+    expect(res.status).toBe(200)
+    expect(mocks.captureKontaktLead.mock.calls[0]![0]).toMatchObject({
+      partnerSlug: null,
+      wantsPartnerDisclosure: false,
+    })
+  })
+})

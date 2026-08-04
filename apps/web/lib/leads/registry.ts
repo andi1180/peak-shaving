@@ -38,7 +38,20 @@
  * selbst. Damit sie nicht von der Datenbank wegdriften kann, beweist `lib/leads/config.ts` beim
  * Typecheck ihre Gleichheit mit `Database['platform']['Enums']['consent_purpose']`.
  */
-export type LeadConsentPurpose = 'marketing_email' | 'contract_expiry_reminder' | 'result_delivery'
+export type LeadConsentPurpose =
+  | 'marketing_email'
+  | 'contract_expiry_reminder'
+  | 'result_delivery'
+  /**
+   * B18-6: Freigabe, dass COOLiN die Anfrage dem empfehlenden Fachbetrieb OFFENLEGT — die einzige
+   * Rechtsgrundlage der Partner-Lead-Sicht (`public.get_my_partner_leads`).
+   *
+   * Er steht in dieser Union, weil `lib/leads/config.ts` beim Typecheck ihre GLEICHHEIT mit dem
+   * DB-Enum beweist — und er gehört zu KEINEM Eintrag der Registry unten: Die Einwilligung entsteht
+   * nicht über eine Erfassungsstrecke dieser Registry, sondern über die Partner-Landingpage, die
+   * dasselbe Modul wie `/kontakt` trägt (s. `LEAD_SOURCE_KEYS_WITHOUT_FORM`).
+   */
+  | 'partner_lead_disclosure'
 
 /**
  * Die Einstiegspunkte MIT eigenem Erfassungsformular — die Schlüssel, die `LEAD_CAPTURE_REGISTRY`

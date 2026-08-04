@@ -171,6 +171,29 @@ export async function handleKontaktSubmission(
     phone: data.telefon,
     // Nur wenn ausdrücklich angekreuzt — der Default ist `undefined`, nicht `true`.
     wantsMarketingEmail: data.marketing === true,
+    /*
+     * B18-6 — DIE FREIGABE AN DEN FACHBETRIEB, mit DREI Bedingungen statt einer.
+     *
+     * (1) angekreuzt, (2) die Absendung kam über den PFAD-Endpunkt der Landingpage, (3) dort wurde
+     * ein AKTIVER Fachbetrieb aufgelöst.
+     *
+     * Bedingung (2) ist die eigentliche: Nur die Landingpage rendert die Ankreuzmöglichkeit
+     * (`/kontakt` bekommt den Wortlaut nicht hereingereicht). Ein `partnerFreigabe: true` von
+     * `/kontakt` — auch mit `?partner=` — kann deshalb nur aus einem selbstgebauten Aufruf stammen,
+     * und es entstünde eine Einwilligung zu einem Text, den niemand gesehen hat. Ein solcher
+     * Nachweis wäre nicht bloss wertlos, sondern rückwirkend schädlich: Ab dann liesse sich kein
+     * echter mehr von einem untergeschobenen unterscheiden.
+     *
+     * Bedingung (3) folgt aus der Wirkung: Ohne aufgelösten Betrieb trägt der Lead keinen
+     * `partner_slug`, taucht also in KEINEM Portal auf. Eine Einwilligung zu einer Weitergabe, die
+     * nicht stattfinden kann, ist eine gespeicherte Willenserklärung ohne Gegenstand. Der Fall ist
+     * real: Ein Fachbetrieb wird stillgelegt, während seine Mail noch in Postfächern liegt (dann
+     * fällt die Herkunft auf 'kontaktformular' zurück, s. `resolvePartnerAttribution`).
+     */
+    wantsPartnerDisclosure:
+      data.partnerFreigabe === true &&
+      context.pathPartnerSlug != null &&
+      attribution.partnerSlug != null,
     // Nachweisfelder der Einwilligung (B1-1: ausschliesslich Nachweis, keine Profilbildung).
     // Dieselbe `x-forwarded-for`-Kette wie oben für Turnstile; der erste Eintrag ist der Client.
     sourceIp: remoteIp ?? null,
