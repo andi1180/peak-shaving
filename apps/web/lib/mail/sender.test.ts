@@ -1,5 +1,5 @@
 /**
- * DER ABSENDER — eine Zusicherung über ALLE sieben Mails, die dieses System über Resend verschickt.
+ * DER ABSENDER — eine Zusicherung über ALLE neun Mails, die dieses System über Resend verschickt.
  *
  * ── WARUM DIESER TEST DEN ECHTEN VERSANDWEG BAUT ─────────────────────────────────────────────────
  * Geprüft wird eine Eigenschaft, die kein Build und kein Typecheck fängt: Bis hierher kam der
@@ -53,6 +53,7 @@ const { MAIL_FROM } = await import('./send')
 const leadMail = await import('@/lib/leads/mail')
 const applicationMail = await import('@/lib/partner-application/mail')
 const portalMail = await import('@/lib/partner-portal/mail')
+const calculatorRequestMail = await import('@/lib/partner-portal/calculator-request-mail')
 const kontakt = await import('@/lib/kontakt/deliver')
 
 type SentMail = {
@@ -83,7 +84,7 @@ const KONTAKT_INPUT = {
 } as KontaktInput
 
 /**
- * Alle sieben Mails, jede einmal ausgelöst. Die Liste ist absichtlich vollständig und nicht
+ * Alle neun Mails, jede einmal ausgelöst. Die Liste ist absichtlich vollständig und nicht
  * stichprobenartig: Eine neue Mail, die ihren Absender selbst setzt, soll hier auffallen — und sie
  * fällt nur auf, wenn jemand sie hier einträgt. Deshalb steht am Ende zusätzlich eine Zählung
  * gegen die Zahl der Versandfunktionen.
@@ -168,6 +169,28 @@ const MAILS: Array<{ name: string; userFacing: boolean; send: () => Promise<unkn
         activationUrl: ACTIVATION_URL,
       }),
   },
+  {
+    name: 'Kalkulator-Anfrage (intern)',
+    userFacing: false,
+    send: () =>
+      calculatorRequestMail.sendCalculatorRequestNotification({
+        requestId: '55555555-5555-4555-8555-555555555555',
+        partnerSlug: 'elektro-muster',
+        partnerDisplayName: 'Elektro Muster GmbH',
+        accountEmail: 'anna@elektro-muster.at',
+        message: 'Wir wollen zehn Bestandskunden durchrechnen.',
+      }),
+  },
+  {
+    name: 'Kalkulator-Freigabe',
+    userFacing: true,
+    send: () =>
+      calculatorRequestMail.sendCalculatorRequestApprovalMail({
+        to: 'anna@elektro-muster.at',
+        firstName: 'Anna',
+        displayName: 'Elektro Muster GmbH',
+      }),
+  },
 ]
 
 describe('Absender — eine Definition für alle Mails', () => {
@@ -194,14 +217,15 @@ describe('Absender — eine Definition für alle Mails', () => {
 
   it('deckt jede Versandfunktion ab, die es gibt', async () => {
     /*
-     * Der Wächter gegen die wahrscheinlichste Lücke: eine achte Mail entsteht, setzt ihren Absender
+     * Der Wächter gegen die wahrscheinlichste Lücke: eine zehnte Mail entsteht, setzt ihren Absender
      * selbst und läuft an dieser Datei vorbei, weil niemand sie hier einträgt. Gezählt werden die
-     * exportierten `send*`-Funktionen der drei Mail-Module plus `deliverKontakt`.
+     * exportierten `send*`-Funktionen der vier Mail-Module plus `deliverKontakt`.
      */
     const exported = [
       ...Object.keys(leadMail),
       ...Object.keys(applicationMail),
       ...Object.keys(portalMail),
+      ...Object.keys(calculatorRequestMail),
     ].filter((name) => name.startsWith('send'))
 
     expect(exported.length + 1).toBe(MAILS.length)

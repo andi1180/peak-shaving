@@ -1957,6 +1957,16 @@
     "passwordForgotten": "Passwort nicht mehr zur Hand? Über „Passwort vergessen\" auf der Anmeldeseite setzen Sie ein neues.",
     "fallback": "Fragen zum Zugang oder zum Ablauf? Sie erreichen uns unter {email}."
   },
+  "CalculatorRequestMail": {
+    "//": "ARBEITSSTAND (B18-4): die Freischaltungsmail an einen Fachbetrieb, dessen Kalkulator-Anfrage genehmigt wurde. Endgueltige Formulierungen von Andreas/Martina. Rein INFORMATIV — kein Aktivierungslink und kein Token, anders als bei der Partner-Freischaltung (B18-2a): der Betrieb ist bereits angemeldet, er hat die Anfrage aus seinem Portal heraus gestellt; eine zweite Identitaetspruefung haette keine offene Frage zu klaeren. Transaktional, kein Double-Opt-in und KEIN Abmeldelink. KEINE Zusage ueber Preis, Laufzeit oder Umfang des Zugangs und KEINE Zusage ueber die Bearbeitungsdauer kuenftiger Anfragen. Der Link zeigt auf die WURZEL des Partner-Portals, nicht auf den Reiter — den gibt es erst mit der Oberflaeche (naechster Schritt); der Reiter wird im Text benannt.",
+    "subject": "Ihr Zugang zum Peak-Shaving-Kalkulator ist freigeschaltet",
+    "greeting": "Guten Tag {name},",
+    "greetingNeutral": "Guten Tag,",
+    "intro": "wir haben {company} den Zugang zum Peak-Shaving-Kalkulator freigeschaltet. Sie können ihn ab sofort für Ihre Kundenprojekte nutzen.",
+    "portalLead": "Sie finden ihn in Ihrem Partner-Portal im Bereich „Peak Shaving\":",
+    "note": "Eine gesonderte Anmeldung braucht es nicht — es gilt der Zugang, mit dem Sie sich schon heute im Partner-Portal anmelden.",
+    "fallback": "Fragen zum Kalkulator oder zu einer konkreten Auslegung? Sie erreichen uns unter {email}."
+  },
   "PartnerActivation": {
     "//": "ARBEITSSTAND (B18-2a): die Seite, auf der ein Fachbetrieb seinen Partnerzugang freischaltet — Ziel des Links aus der Freischaltungsmail. Endgueltige Formulierungen von Andreas/Martina. Der Klick ist der einzige Beweis, dass der Anmeldende Zugriff auf dieses Postfach hat; der Text darf ihn deshalb nicht als Formalitaet abtun. KEINE Aussage zur genauen Gueltigkeitsdauer des Links — sie ist eine Projekteinstellung im Supabase-Dashboard und keine Zusage, die diese Seite machen kann.",
     "metaTitle": "Zugang freischalten",

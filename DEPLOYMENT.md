@@ -284,7 +284,7 @@ nicht `CRON_SECRET`.
 
 ---
 
-### 1j. iframe-Einbettung des Kalkulators (`apps/website`) in coolin.at (`apps/web`) ⚠️ BEFUND, KEINE ZUSAGE
+### 1j. iframe-Einbettung des Kalkulators (`apps/website`) — GESETZT seit B18-4 (04.08.2026)
 
 coolin.at (`apps/web`, Projekt `peak-shaving-web`) rahmt den Rechner (`apps/website`, Projekt
 `peak-shaving-website`) unter `/peak-shaving/kalkulator/rechner` per `<iframe src={EMBEDDED_CALCULATOR_SRC}>`
@@ -292,25 +292,50 @@ ein (`apps/web/app/(site)/[locale]/peak-shaving/kalkulator/rechner/page.tsx`). O
 `<iframe>` etwas anzeigt, entscheidet ausschließlich die GERAHMTE Seite (`apps/website`) über ihre
 Response-Header — `X-Frame-Options` bzw. die CSP-Direktive `frame-ancestors`.
 
-**Fundort, geprüft (Stand 30.07.2026):** Es gibt in `apps/website` **keine** `headers()`-Funktion in
-`next.config.mjs`, **kein** `vercel.json`, **keine** `middleware.ts` — und damit **keine einzige
-Stelle im Repo**, die `X-Frame-Options` oder eine CSP mit `frame-ancestors` setzt. Repo-weiter Sweep
-(`grep -rniE "X-Frame-Options|frame-ancestors|Content-Security-Policy"` über alle `.mjs`/`.ts`/`.tsx`/
-`.json`, ohne `node_modules`/`.next`) liefert **0 Treffer**.
+**Der Zustand ist ab jetzt eine Zusage, kein Zufall.** `apps/website/next.config.mjs` setzt über
+`async headers()` auf **jeder** Route (`source: '/:path*'`):
 
-**Was das bedeutet — kein Blocker, aber keine bewusste Konfiguration:** Next.js setzt `X-Frame-Options`
-nicht von sich aus. Die Einbettung funktioniert heute also nur, weil **nichts sie verbietet** —
-nicht, weil irgendwo eine Erlaubnis für genau `coolin.at`/`www.coolin.at` als Rahmen-Ursprung
-hinterlegt ist. Das ist der Unterschied zwischen „zulässig, weil niemand es eingeschränkt hat" und
-„absichtlich für diesen einen Rahmen freigegeben". Jede künftige, versehentlich hinzugefügte
-Sicherheits-Härtung (z. B. eine generische `X-Frame-Options: DENY` oder eine CSP ohne
-`frame-ancestors`-Ausnahme, etwa über ein künftiges Vercel-Projekt-Preset oder einen Security-Header-
-Baustein) würde die Einbettung **kommentarlos** stilllegen — es gäbe dann keine bestehende Ausnahme,
-die man „vergessen" hätte, weil es nie eine gab.
+```
+Content-Security-Policy: frame-ancestors 'self' https://coolin.at https://www.coolin.at https://partner.coolin.at
+```
 
-**Nachtrag, falls dies je verschärft werden soll:** eine `frame-ancestors 'self' https://coolin.at
-https://www.coolin.at` in `apps/website/next.config.mjs` (`async headers()`) wäre die engere, bewusste
-Fassung — Apex UND `www`, analog zur in §1b dokumentierten Doppel-Domain-Vorsicht.
+**Warum das nötig war (der Befund bis 04.08.2026):** Es gab in `apps/website` keine
+`headers()`-Funktion, kein `vercel.json`, keine `middleware.ts` — und damit keine einzige Stelle im
+Repo, die `X-Frame-Options` oder eine CSP setzte (repo-weiter Sweep: 0 Treffer). Next.js setzt
+`X-Frame-Options` nicht von sich aus. Die Einbettung funktionierte also nur, weil **nichts sie
+verbot** — nicht, weil irgendwo eine Erlaubnis stand. Jede versehentlich hinzugefügte Härtung (ein
+generisches `X-Frame-Options: DENY`, eine CSP ohne `frame-ancestors`-Ausnahme, ein Vercel-Preset)
+hätte sie **kommentarlos** stillgelegt, und es gäbe keine bestehende Ausnahme, die jemand „vergessen"
+hätte. Mit dem Partner-Portal kam ein DRITTER Rahmen-Ursprung dazu (`partner.coolin.at`) — der
+Anlass, es einmal bewusst zu setzen statt ein zweites Mal auf Zufall zu bauen.
+
+**Gemessen vorher/nachher (nicht gefolgert):**
+
+| Rahmen-Ursprung | vor B18-4 | nach B18-4 |
+|---|---|---|
+| `https://www.coolin.at` | rahmt | rahmt |
+| `https://partner.coolin.at` | rahmt | rahmt |
+| `https://example.com` (nicht gelistet) | **rahmt ebenfalls** | **abgewiesen** |
+
+Gemessen wird gegen ECHTE Herkünfte: eine öffentliche Seite der jeweiligen Domain wird geladen und
+bekommt per JavaScript ein `<iframe>` auf den Rechner eingehängt — die Herkunft der Rahmen-Seite ist
+damit echt (Schema, Host UND Port 443), und genau die bewertet `frame-ancestors`. Der Browser
+protokolliert die Abweisung im Klartext („Framing … violates the following Content Security Policy
+directive: frame-ancestors …"). Gegenprobe im lokalen Lauf: ein Ziel OHNE CSP rahmt aus derselben
+nicht gelisteten Herkunft anstandslos — die Sperre kommt nachweislich von der Richtlinie und nicht
+vom Messaufbau.
+
+**⚠ Drei Punkte für den Betrieb:**
+
+1. **Eine weitere Domain wird HIER eingetragen** (`apps/website/next.config.mjs`) — sonst zeigt das
+   iframe dort einen leeren Rahmen, und der Grund steht nur in der Browser-Konsole.
+2. **`https://coolin.at` steht defensiv in der Liste.** Der Apex liefert heute kein Dokument aus (er
+   antwortet 308 auf `www`, s. §1b) und kann deshalb gar nicht als Rahmen-Ursprung auftreten. Wird
+   die Richtung je umgestellt, greift die Erlaubnis ohne weitere Änderung; nur `www` zu listen legte
+   die Einbettung bei genau dieser Umstellung still.
+3. **Die Richtlinie führt AUSSCHLIESSLICH `frame-ancestors`.** Eine vollständige CSP (`default-src`,
+   `script-src`, …) ist eine eigene, grössere Entscheidung mit realem Bruchrisiko für den Rechner
+   selbst; sie wurde hier bewusst NICHT nebenbei mitgenommen.
 
 ---
 
@@ -677,6 +702,20 @@ Fachbetrieb mit den Angaben aus dem Antrag, sein Kurz-Key wird vergeben und das 
   hätte aber nie ein Login. Ausweg: erneut bewerben lassen, oder den Betrieb von Hand anlegen und
   sein Konto unter `/admin/partner` verknüpfen (`public.admin_link_partner_account` — der Weg, über
   den auch der erste, von Hand aufgenommene Partner sein Konto bekommt).
+
+**Ergänzt mit B18-4 (04.08.2026) — eine ZWEITE Tabelle ohne Aufbewahrungsfrist.**
+`platform.calculator_requests` (Kalkulator-Anfragen von Fachbetrieben) fällt in dieselbe offene
+juristische Prüfung. Geprüft, nicht angenommen: `platform.run_lead_retention` greift unverändert
+**ausschließlich** auf `platform.leads`; es gibt für **keine** Rolle ein `delete`-Grant.
+
+Der Fall wiegt allerdings **leichter als bei den Bewerbungen**, und das ist der Unterschied, den man
+bei der Prüfung mitgeben sollte: Die Tabelle enthält **keine eigenen Kontaktdaten** — keine E-Mail,
+keinen Namen, keine Telefonnummer. Sie führt einen Verweis auf den Fachbetrieb (`partner_slug`), den
+Begründungstext des Betriebs, den Status und drei Zeitstempel. Alles Personenbezogene liegt an
+`platform.partners` bzw. `auth.users` und folgt deren Lebenszyklus (`reviewed_by` ist
+`on delete set null` — das Konto des Prüfers bleibt löschbar, der Vorgang bleibt über `reviewed_at`
+belegt). Der Begründungstext ist ein Freitext, den der Betrieb über sein eigenes Geschäft schreibt;
+ob darin Personenbezug landet, entscheidet er selbst.
 
 ---
 
