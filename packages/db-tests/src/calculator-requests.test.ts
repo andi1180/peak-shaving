@@ -548,22 +548,32 @@ describe('B18-4 — admin_decide_calculator_request', () => {
     const { user } = await newLinkedPartner()
     const req = await submit(user, 'Anfrage.')
 
-    // Das Anlegen des Entitlements künstlich zum Scheitern bringen. Alle bekannten Fehlerfälle
-    // werden vorher als Status beantwortet — ohne diesen Eingriff liesse sich die Atomarität nicht
-    // beobachten.
-    await sql(`create function pg_temp_fail_entitlement() returns trigger language plpgsql as $$
+    /*
+     * Das Anlegen des Entitlements künstlich zum Scheitern bringen. Alle bekannten Fehlerfälle
+     * werden vorher als Status beantwortet — ohne diesen Eingriff liesse sich die Atomarität nicht
+     * beobachten.
+     *
+     * ⚠ DIE BEDINGUNG NENNT DAS KONTO DIESES TESTS, NICHT NUR DAS PRODUKT. `platform.entitlements`
+     * ist eine GETEILTE Tabelle, und vitest fährt Testdateien PARALLEL: ein Wächter, der jede
+     * `calculator_pro`-Zeile blockiert, brächte `calculator-pro-entitlement.test.ts` zum Scheitern,
+     * sobald sich die beiden Läufe überlappen — ein Fehlschlag, der wie ein echter aussieht und je
+     * nach Zeitplanung mal auftritt und mal nicht. Die `user_id` wird interpoliert, weil eine
+     * WHEN-Klausel keine Parameter kennt; sie stammt aus `createUser` und ist damit eine UUID aus
+     * eigener Quelle, kein Fremdeingabewert.
+     */
+    await sql(`create function zz_b184_gate_block_fn() returns trigger language plpgsql as $$
                  begin raise exception 'B18-4-Gate: Entitlement absichtlich blockiert'; end $$`)
     await sql(`create trigger zz_b184_gate_block before insert or update
                  on platform.entitlements for each row
-                 when (new.product = 'calculator_pro')
-                 execute function pg_temp_fail_entitlement()`)
+                 when (new.product = 'calculator_pro' and new.user_id = '${user.id}'::uuid)
+                 execute function zz_b184_gate_block_fn()`)
     try {
       await expect(decide(admin, req.request_id, 'approved')).rejects.toThrow(
         /absichtlich blockiert/,
       )
     } finally {
       await sql(`drop trigger zz_b184_gate_block on platform.entitlements`)
-      await sql(`drop function pg_temp_fail_entitlement()`)
+      await sql(`drop function zz_b184_gate_block_fn()`)
     }
 
     const row = await readRequest(req.request_id)
