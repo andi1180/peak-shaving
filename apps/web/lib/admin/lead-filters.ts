@@ -17,7 +17,7 @@
  * umgeht.
  */
 
-import { INDUSTRIES, type Industry } from './leads'
+import { INDUSTRIES, type ConsentPurpose, type Industry } from './leads'
 
 /** Wie die Filter in der URL heissen. Deutsche Schlüssel — die Routen sind es auch. */
 export const FILTER_PARAMS = [
@@ -34,12 +34,28 @@ export const FILTER_PARAMS = [
   'verbrauch-bis',
   'vertragsende-ab',
   'vertragsende-bis',
+  // B18-5. Deutscher Schlüssel wie die übrigen, WERTE aber englisch (`assigned`/`unassigned`) —
+  // in diesem System sind Filterwerte durchgehend Datenbankwerte (`new`, `confirmed`,
+  // `netzebene_7`), und eine deutsche Wertemenge wäre der erste Fundort einer zweiten Konvention.
+  'partner',
 ] as const
 
 export type FilterParam = (typeof FILTER_PARAMS)[number]
 
 /** Rohform einer Anfrage: `searchParams` einer Seite oder `URLSearchParams` einer Route. */
 export type RawQuery = { [key: string]: string | string[] | undefined }
+
+/**
+ * Die drei Zustände des Partner-Filters (B18-5).
+ *
+ * `''` ist KEIN eigener Wert, sondern die Abwesenheit des Filters — dieselbe Konvention wie bei
+ * Status, Branche und Messart. Die zwei gesetzten Werte sind die der Datenbank
+ * (`p_partner_assignment`), damit der Filter nirgends übersetzt werden muss: eine Abbildung
+ * deutsch→englisch wäre eine zweite Stelle, an der ein unbekannter Wert still zu „kein Filter"
+ * werden könnte, und genau das darf hier nicht passieren (s. `filterRpcArgs`).
+ */
+export const PARTNER_ASSIGNMENTS = ['assigned', 'unassigned'] as const
+export type PartnerAssignment = (typeof PARTNER_ASSIGNMENTS)[number]
 
 export type LeadFilters = {
   status: string
@@ -55,6 +71,8 @@ export type LeadFilters = {
   consumptionMax: string
   contractEndFrom: string
   contractEndTo: string
+  /** '' = alle · 'assigned' = nur mit Fachbetrieb · 'unassigned' = nur ohne (B18-5). */
+  partnerAssignment: string
 }
 
 export const EMPTY_FILTERS: LeadFilters = {
@@ -71,6 +89,7 @@ export const EMPTY_FILTERS: LeadFilters = {
   consumptionMax: '',
   contractEndFrom: '',
   contractEndTo: '',
+  partnerAssignment: '',
 }
 
 function one(query: RawQuery, name: FilterParam): string {
@@ -93,6 +112,7 @@ export function readFilters(query: RawQuery): LeadFilters {
     consumptionMax: one(query, 'verbrauch-bis'),
     contractEndFrom: one(query, 'vertragsende-ab'),
     contractEndTo: one(query, 'vertragsende-bis'),
+    partnerAssignment: one(query, 'partner'),
   }
 }
 
@@ -112,6 +132,7 @@ export function filterSearchParams(filters: LeadFilters): URLSearchParams {
   if (filters.consumptionMax) sp.set('verbrauch-bis', filters.consumptionMax)
   if (filters.contractEndFrom) sp.set('vertragsende-ab', filters.contractEndFrom)
   if (filters.contractEndTo) sp.set('vertragsende-bis', filters.contractEndTo)
+  if (filters.partnerAssignment) sp.set('partner', filters.partnerAssignment)
   return sp
 }
 
@@ -147,19 +168,30 @@ function industryOrUndefined(value: string): Industry | undefined {
   return (INDUSTRIES as readonly string[]).includes(value) ? (value as Industry) : undefined
 }
 
-type ConsentPurposeArg = 'marketing_email' | 'contract_expiry_reminder' | 'result_delivery'
-
 /**
  * Die Filter als RPC-Argumente — GENAU EINMAL geschrieben, benutzt von `admin_list_leads` (dort um
- * limit/offset ergänzt) und von `admin_export_leads`. Ein unbekannter Wert bei Status, Messart oder
- * PLZ-Präfix wandert bewusst UNVERÄNDERT weiter: die Datenbank lehnt ihn als `invalid_filter` ab
- * und sagt welchen — still zu bereinigen hiesse, ein ungefiltertes Ergebnis für gefiltert zu halten.
+ * limit/offset ergänzt) und von `admin_export_leads`. Ein unbekannter Wert bei Status, Messart,
+ * PLZ-Präfix oder Partner-Zuordnung wandert bewusst UNVERÄNDERT weiter: die Datenbank lehnt ihn als
+ * `invalid_filter` ab und sagt welchen — still zu bereinigen hiesse, ein ungefiltertes Ergebnis für
+ * gefiltert zu halten.
+ *
+ * Genau deshalb ist `p_partner_assignment` in der Datenbank ein `text` mit zwei erlaubten Literalen
+ * und kein dreiwertiger `boolean` (B18-5): auf `boolean` abgebildet könnte ein unbekannter Wert nur
+ * zu `undefined` werden — also zu „kein Filter" —, und der Admin bekäme den vollen Bestand und
+ * hielte ihn für die gefilterte Teilmenge.
  */
 export function filterRpcArgs(filters: LeadFilters) {
   return {
     p_status: filters.status || undefined,
     p_source_key: filters.sourceKey || undefined,
-    p_consent_purpose: (filters.consentPurpose || undefined) as ConsentPurposeArg | undefined,
+    /*
+     * Der Zweck ist ein Postgres-ENUM, supabase-js erwartet dafür die Literal-Union. Sie kommt aus
+     * `./leads` und wird hier NICHT ein zweites Mal aufgezählt: eine eigene Liste hätte den seit
+     * B18-6 vierten Wert (`partner_lead_disclosure`) nicht mitbekommen, und die Zuweisung ist eine
+     * Typzusicherung — der Typfehler wäre also gar nicht aufgefallen, nur der Filter hätte an einer
+     * Stelle gefehlt, die niemand ansieht.
+     */
+    p_consent_purpose: (filters.consentPurpose || undefined) as ConsentPurpose | undefined,
     p_consent_status: filters.consentStatus || undefined,
     p_search: filters.search || undefined,
     p_due_only: filters.dueOnly,
@@ -170,5 +202,6 @@ export function filterRpcArgs(filters: LeadFilters) {
     p_consumption_max: intOrUndefined(filters.consumptionMax),
     p_contract_end_from: dateOrUndefined(filters.contractEndFrom),
     p_contract_end_to: dateOrUndefined(filters.contractEndTo),
+    p_partner_assignment: filters.partnerAssignment || undefined,
   }
 }
