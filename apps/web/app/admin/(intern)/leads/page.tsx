@@ -1,5 +1,4 @@
 import type { Metadata } from 'next'
-import type { ReactNode } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { isCurrentUserAdmin } from '@/lib/admin/guard'
@@ -16,7 +15,6 @@ import {
   Th,
   formatDate,
   formatDateTime,
-  formatKwh,
 } from '@/components/admin/ui'
 import {
   CONSENT_PURPOSES,
@@ -34,10 +32,10 @@ import {
   METERING_TYPE_LABELS,
   SUPPRESSIONS_HREF,
   consentStatusLabel,
+  contactName,
   emailEventLabel,
   hoursSince,
-  industryLabel,
-  meteringTypeLabel,
+  partnerLabel,
   purposeLabel,
   readContractReminderHealth,
   readEmailEventStats,
@@ -52,13 +50,17 @@ import {
   type JobRunsResult,
   type LeadConsentSummary,
   type LeadListRow,
+  type LeadPartner,
   type LeadSource,
   type LeadSourceStat,
 } from '@/lib/admin/leads'
 import {
+  EMPTY_FILTERS,
   filterRpcArgs,
   filterSearchParams,
   hasAnyFilter,
+  partnerTabParams,
+  PARTNER_TABS,
   readFilters,
   type LeadFilters,
   type RawQuery,
@@ -473,46 +475,110 @@ function SourceStats({ stats }: { stats: LeadSourceStat[] | null }) {
 }
 
 /**
- * Die Segmentierungsmerkmale einer Zeile, kompakt (B2-1).
+ * Die Reiterleiste über der Liste (B18-5).
  *
- * Zeigt NUR, was gesetzt ist: leere Felder sind bei kontextspezifischen Einstiegspunkten der
- * Normalfall (B3-1), und sechs Gedankenstriche je Zeile machten die Tabelle unlesbar, ohne etwas
- * auszusagen. Steht gar nichts da, sagt die Zelle das in einem Wort.
+ * Zwei prominente Links plus der Ausgangszustand — mehr ist es technisch nicht: sie setzen GENAU den
+ * `partner`-Parameter und tragen alle übrigen aktiven Filter unverändert mit (`partnerTabParams`).
+ * Damit bleibt jede bestehende Eingrenzung INNERHALB eines Reiters erhalten, und der Export-Link
+ * darunter übernimmt beides ohne eigenes Zutun — er liest denselben Filterstand.
+ *
+ * Bewusst `<a>`-Links und kein Formular: der Reiter IST die Adresse. Eine gefilterte Sicht soll sich
+ * weitergeben und per Zurück-Taste erreichen lassen, wie der ganze Rest dieser Seite (B1-3).
  */
-function SegmentCell({ lead }: { lead: LeadListRow }) {
-  const parts: ReactNode[] = []
-  if (lead.industry) parts.push(industryLabel(lead.industry))
-  if (lead.postal_code) parts.push(<Num key="plz">{lead.postal_code}</Num>)
-  if (lead.annual_consumption_kwh !== null) {
-    parts.push(<Num key="kwh">{formatKwh(lead.annual_consumption_kwh)}</Num>)
-  }
-  if (lead.metering_type) parts.push(meteringTypeLabel(lead.metering_type))
-  if (lead.contract_end_date) {
-    parts.push(
-      <span key="vertrag">
-        Vertragsende <Num>{formatDate(lead.contract_end_date)}</Num>
-      </span>,
-    )
-  }
-
-  if (parts.length === 0) return <span className="text-text-muted">—</span>
-
+function PartnerTabs({ filters }: { filters: LeadFilters }) {
   return (
-    <span className="text-caption text-text-muted">
-      {parts.map((part, i) => (
-        <span key={i}>
-          {i > 0 && ' · '}
-          {part}
-        </span>
-      ))}
-    </span>
+    <nav aria-label="Zuordnung zu einem Fachbetrieb" className="mt-8">
+      <ul className="flex flex-wrap gap-2 border-b border-line pb-px">
+        {PARTNER_TABS.map((tab) => {
+          const active = filters.partnerAssignment === tab.value
+          const qs = partnerTabParams(filters, tab.value).toString()
+          return (
+            <li key={tab.value || 'alle'}>
+              <Link
+                href={qs ? `${LEADS_HREF}?${qs}` : LEADS_HREF}
+                aria-current={active ? 'page' : undefined}
+                className={
+                  active
+                    ? 'inline-block rounded-t-md border-b-2 border-accent px-4 py-2 text-body font-semibold text-ink outline-none focus-visible:ring-2 focus-visible:ring-ring'
+                    : 'inline-block rounded-t-md border-b-2 border-transparent px-4 py-2 text-body text-text-muted outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-ring'
+                }
+              >
+                {tab.label}
+              </Link>
+            </li>
+          )
+        })}
+      </ul>
+    </nav>
   )
 }
 
-function LeadRow({ lead, sources }: { lead: LeadListRow; sources: LeadSource[] }) {
+/**
+ * Herkunft ODER Partner — je nach Reiter dieselbe Spalte mit verschiedener Frage.
+ *
+ * Im Reiter „Partner-Leads" ist die Herkunft nachrangig (sie ist dort fast durchgehend dieselbe:
+ * die Landingpage bzw. das Kontaktformular mit `?partner=`), und die eigentliche Frage lautet
+ * „welcher Fachbetrieb". Umgekehrt hat im Reiter „Direktanfragen" per Definition kein Lead einen
+ * Fachbetrieb — eine Partner-Spalte wäre dort eine Spalte aus Gedankenstrichen.
+ *
+ * Im Ausgangszustand („Alle") stehen beide Angaben übereinander, weil dort beide Sorten Zeilen
+ * nebeneinanderliegen und sich sonst nicht unterscheiden liessen.
+ */
+function OriginCell({
+  lead,
+  sources,
+  partners,
+  showPartnerOnly,
+}: {
+  lead: LeadListRow
+  sources: LeadSource[]
+  partners: LeadPartner[]
+  showPartnerOnly: boolean
+}) {
+  const partner = lead.partner_slug ? partnerLabel(lead.partner_slug, partners) : null
+
+  if (showPartnerOnly) {
+    // Kein Fachbetrieb im Partner-Reiter ist per Filter unmöglich; träte er doch auf, wäre der
+    // Gedankenstrich die ehrlichere Anzeige als eine leere Zelle.
+    return <>{partner ?? '—'}</>
+  }
+
+  return (
+    <>
+      {sourceLabel(lead.first_source_key, sources)}
+      {partner && <span className="mt-1 block text-caption text-text-muted">über {partner}</span>}
+    </>
+  )
+}
+
+function LeadRow({
+  lead,
+  sources,
+  partners,
+  showPartnerOnly,
+}: {
+  lead: LeadListRow
+  sources: LeadSource[]
+  partners: LeadPartner[]
+  showPartnerOnly: boolean
+}) {
+  const name = contactName(lead)
   return (
     <tr>
+      <Td>{lead.company ?? '—'}</Td>
+      {/*
+       * Ein Gedankenstrich und nicht das Weglassen der Zeile wie im Partner-Portal (B18-3): dort ist
+       * die Ansprechperson eine EIGENE Zeile in einer Aufzählung, hier eine Zelle in einer Tabelle —
+       * eine ausgelassene Zelle verschöbe alle folgenden. Die Tabelle hält es an den übrigen
+       * Nullable-Feldern seit jeher so (Firma).
+       */}
+      <Td>{name ?? '—'}</Td>
       <Td>
+        {/*
+         * Die E-Mail bleibt der Weg in die Detailsicht, obwohl sie nicht mehr die erste Spalte ist:
+         * sie ist das einzige Feld, das jeder Lead trägt (NOT NULL) — eine Firma kann fehlen, und
+         * ein Link, den es nur manchmal gibt, wäre schlechter als einer an zweiter Stelle.
+         */}
         <Link
           href={`${LEADS_HREF}/${lead.id}`}
           className="rounded-sm font-medium text-accent underline decoration-accent underline-offset-[3px] outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -525,39 +591,26 @@ function LeadRow({ lead, sources }: { lead: LeadListRow; sources: LeadSource[] }
           </span>
         )}
       </Td>
-      <Td>{lead.company ?? '—'}</Td>
       <Td>
-        <Pill tone={lead.status === 'anonymized' ? 'neutral' : 'warning'}>
-          {statusLabel(lead.status)}
-        </Pill>
+        <OriginCell
+          lead={lead}
+          sources={sources}
+          partners={partners}
+          showPartnerOnly={showPartnerOnly}
+        />
       </Td>
-      <Td>{sourceLabel(lead.first_source_key, sources)}</Td>
-      <Td>
+      <Td className="whitespace-nowrap">
         {/*
-         * B2-1: die Segmentierungsmerkmale in der Liste. Ohne sie liesse sich ein gesetzter Filter
-         * nicht am Ergebnis nachvollziehen — man sähe nur, dass die Menge kleiner wurde, nicht
-         * warum. Kompakt in EINER Zelle statt in sechs Spalten: die Tabelle soll überfliegbar
-         * bleiben, die vollständige Sicht steht auf der Detailseite.
+         * Seit B18-5 das ANLAGEdatum und nicht mehr die letzte Interaktion. Zwei Gründe: die Liste
+         * ist nach `created_at` sortiert (die angezeigte Spalte erklärt damit die Reihenfolge,
+         * statt eine zweite, unsichtbare zu haben), und „wann kam das herein" ist die Frage, die man
+         * an einer Anfrage-Liste stellt. Die letzte Interaktion steht weiterhin auf der Detailseite,
+         * wo sie zusammen mit der Löschfrist steht, die sie berechnet.
          */}
-        <SegmentCell lead={lead} />
+        <Num>{formatDate(lead.created_at)}</Num>
       </Td>
       <Td>
         <ConsentCell consents={lead.consents} />
-      </Td>
-      <Td className="whitespace-nowrap">
-        <Num>{formatDateTime(lead.last_interaction_at)}</Num>
-      </Td>
-      <Td className="whitespace-nowrap">
-        {lead.deletion_due ? (
-          // Fällige Fristen sind der einzige Grund, warum diese Liste vor B4 überhaupt regelmäßig
-          // angesehen werden muss — sie werden deshalb deutlich hervorgehoben, nicht nur datiert.
-          <span className="inline-flex flex-col items-start gap-1">
-            <Pill tone="negative">fällig</Pill>
-            <Num className="text-caption text-text-muted">{formatDate(lead.deletion_due_at)}</Num>
-          </span>
-        ) : (
-          <Num>{formatDate(lead.deletion_due_at)}</Num>
-        )}
       </Td>
     </tr>
   )
@@ -641,6 +694,23 @@ export default async function AdminLeadsPage({
   const sources = result?.sources ?? []
   const lastPage = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
+  /*
+   * B18-5: der aktive Reiter — aber nur, wenn der Wert einer IST. Ein unbekanntes `?partner=…`
+   * markiert bewusst keinen Reiter (die Datenbank lehnt es ohnehin als `invalid_filter` ab, und die
+   * Meldung darüber sagt „bitte zurücksetzen"); ein Reiter, der sich dabei als aktiv ausgäbe, machte
+   * den abgelehnten Filter zu einer gültigen Sicht.
+   */
+  const activeTab = PARTNER_TABS.find((t) => t.value === filters.partnerAssignment)?.value ?? ''
+  /*
+   * Im Reiter „Partner-Leads" trägt die vierte Spalte die Partner-Identität, sonst die Herkunft.
+   * Die Bedingung hängt am REITER und nicht daran, ob zufällig alle sichtbaren Zeilen einen
+   * Fachbetrieb tragen — eine Spaltenüberschrift, die sich je Seite ändern könnte, wäre keine.
+   */
+  const showPartnerOnly = activeTab === 'assigned'
+  /** Alle Filter leeren, den Reiter behalten (s. Kommentar an der Schaltfläche). */
+  const resetQuery = partnerTabParams(EMPTY_FILTERS, activeTab).toString()
+  const resetHref = resetQuery ? `${LEADS_HREF}?${resetQuery}` : LEADS_HREF
+
   return (
     <Container className="py-10 sm:py-14">
       <header className="border-b border-line pb-6">
@@ -705,6 +775,17 @@ export default async function AdminLeadsPage({
       {/* ── Filter ────────────────────────────────────────────────────────────────────────────── */}
       <AdminPanel className="mt-6">
         <form method="get" action={LEADS_HREF} className="flex flex-col gap-4">
+          {/*
+           * Der aktive Reiter reist als verstecktes Feld mit (B18-5). Ohne ihn setzte JEDE
+           * Filterabsendung die Zuordnung zurück — der Admin filterte innerhalb von
+           * „Partner-Leads" und bekäme wortlos den Gesamtbestand, also genau die Menge, die
+           * grösser ist als angefordert. Das Feld entsteht nur, wenn ein Reiter gesetzt ist:
+           * ein leeres `partner=` in der URL wäre ein Wert, den `readFilters` erst wieder
+           * verwerfen müsste.
+           */}
+          {filters.partnerAssignment && (
+            <input type="hidden" name="partner" value={filters.partnerAssignment} />
+          )}
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <div>
               <Label htmlFor="filter-suche">Suche (E-Mail oder Firma)</Label>
@@ -921,14 +1002,21 @@ export default async function AdminLeadsPage({
               Filtern
             </Button>
             <Button asChild variant="ghost" size="md">
-              <Link href={LEADS_HREF}>Zurücksetzen</Link>
+              {/*
+               * Zurückgesetzt werden die FILTER, nicht der Reiter: der Reiter ist die Sicht, in der
+               * gearbeitet wird, und wer ihn verlassen will, klickt ihn an. Ohne diese Unterscheidung
+               * wäre „Zurücksetzen" der einzige Weg, unbeabsichtigt den Bestand zu wechseln.
+               */}
+              <Link href={resetHref}>Zurücksetzen</Link>
             </Button>
           </div>
         </form>
       </AdminPanel>
 
       {/* ── Ergebnis ──────────────────────────────────────────────────────────────────────────── */}
-      <section aria-labelledby="treffer" className="mt-8">
+      <PartnerTabs filters={filters} />
+
+      <section aria-labelledby="treffer" className="mt-4">
         <h2 id="treffer" className="text-h4 text-ink">
           {invalidFilter ? (
             'Treffer'
@@ -958,22 +1046,26 @@ export default async function AdminLeadsPage({
                 <AdminTable>
                   <thead>
                     <tr>
-                      <Th>E-Mail</Th>
                       <Th>Firma</Th>
-                      <Th>Status</Th>
-                      <Th>Herkunft</Th>
-                      <Th>Betrieb</Th>
+                      <Th>Ansprechperson</Th>
+                      <Th>E-Mail</Th>
+                      <Th>{showPartnerOnly ? 'Partner' : 'Herkunft'}</Th>
+                      <Th>Datum</Th>
                       <Th>Einwilligungen</Th>
-                      <Th>Letzte Interaktion</Th>
-                      <Th>Löschfrist</Th>
                     </tr>
                   </thead>
                   <tbody>
                     {result.leads.length === 0 && (
-                      <EmptyRow colSpan={8}>Kein Lead passt zu diesen Filtern.</EmptyRow>
+                      <EmptyRow colSpan={6}>Kein Lead passt zu diesen Filtern.</EmptyRow>
                     )}
                     {result.leads.map((lead) => (
-                      <LeadRow key={lead.id} lead={lead} sources={result.sources} />
+                      <LeadRow
+                        key={lead.id}
+                        lead={lead}
+                        sources={result.sources}
+                        partners={result.partners}
+                        showPartnerOnly={showPartnerOnly}
+                      />
                     ))}
                   </tbody>
                 </AdminTable>

@@ -57,6 +57,26 @@ export type RawQuery = { [key: string]: string | string[] | undefined }
 export const PARTNER_ASSIGNMENTS = ['assigned', 'unassigned'] as const
 export type PartnerAssignment = (typeof PARTNER_ASSIGNMENTS)[number]
 
+/**
+ * Die Reiter über der Lead-Liste (B18-5-Oberfläche) — dieselben drei Zustände wie oben, nur mit
+ * Beschriftung. Sie stehen HIER und nicht in `lib/admin/leads.ts`, weil dieses Modul das Vokabular
+ * des Filters hält und `leads.ts` von hier gelesen wird, nicht umgekehrt.
+ *
+ * ── WARUM DER LEERE ZUSTAND EIN EIGENER REITER IST ───────────────────────────────────────────────
+ * Ein Reiter ist eine AUSSAGE über die Menge darunter. „Direktanfragen" über einer Liste, die auch
+ * Partner-Leads enthält, wäre genau die stille Falschbeschriftung, gegen die der Filter in B18-5 als
+ * `text` mit zwei Literalen gebaut wurde (ein unbekannter Wert darf nicht zu „kein Filter" werden).
+ * Ohne den dritten Reiter gäbe es umgekehrt gar keine Adresse mehr, unter der der GESAMTE Bestand
+ * sichtbar ist — und damit auch keine Ausfuhr über ihn, obwohl die Ausfuhr genau das seit B2-1 kann
+ * („ohne Filter — also der gesamte anschreibbare Bestand"). Der leere Zustand ist deshalb der
+ * Vorgabewert: wer `/admin/leads` ohne Parameter aufruft, sieht unverändert, was er bisher sah.
+ */
+export const PARTNER_TABS = [
+  { value: '', label: 'Alle' },
+  { value: 'assigned', label: 'Partner-Leads' },
+  { value: 'unassigned', label: 'Direktanfragen' },
+] as const satisfies ReadonlyArray<{ value: PartnerAssignment | ''; label: string }>
+
 export type LeadFilters = {
   status: string
   sourceKey: string
@@ -134,6 +154,20 @@ export function filterSearchParams(filters: LeadFilters): URLSearchParams {
   if (filters.contractEndTo) sp.set('vertragsende-bis', filters.contractEndTo)
   if (filters.partnerAssignment) sp.set('partner', filters.partnerAssignment)
   return sp
+}
+
+/**
+ * Der Filterstand eines anderen Reiters — alle übrigen Filter bleiben, die Zuordnung wechselt.
+ *
+ * Die SEITE hängt bewusst nicht mit dran (`filterSearchParams` führt sie ohnehin nicht): ein
+ * Reiterwechsel ändert die Treffermenge, und „Seite 3" der einen Menge ist in der anderen entweder
+ * eine andere oder gar keine. Der Wechsel führt deshalb immer auf Seite 1.
+ */
+export function partnerTabParams(
+  filters: LeadFilters,
+  assignment: PartnerAssignment | '',
+): URLSearchParams {
+  return filterSearchParams({ ...filters, partnerAssignment: assignment })
 }
 
 export function hasAnyFilter(filters: LeadFilters): boolean {
