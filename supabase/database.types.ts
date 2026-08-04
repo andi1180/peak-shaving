@@ -300,6 +300,47 @@ export type Database = {
           },
         ]
       }
+      calculator_requests: {
+        Row: {
+          created_at: string
+          id: string
+          message: string
+          notified_at: string | null
+          partner_slug: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: Database["platform"]["Enums"]["calculator_request_status"]
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          message: string
+          notified_at?: string | null
+          partner_slug: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: Database["platform"]["Enums"]["calculator_request_status"]
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          message?: string
+          notified_at?: string | null
+          partner_slug?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: Database["platform"]["Enums"]["calculator_request_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calculator_requests_partner_slug_fkey"
+            columns: ["partner_slug"]
+            isOneToOne: false
+            referencedRelation: "partners"
+            referencedColumns: ["slug"]
+          },
+        ]
+      }
       code_redemptions: {
         Row: {
           code_id: string
@@ -1003,6 +1044,7 @@ export type Database = {
           p_due_only?: boolean
           p_industry?: Database["platform"]["Enums"]["industry"]
           p_metering_type?: string
+          p_partner_assignment?: string
           p_partner_slug?: string
           p_postal_prefix?: string
           p_search?: string
@@ -1039,6 +1081,7 @@ export type Database = {
           p_due_only?: boolean
           p_industry?: Database["platform"]["Enums"]["industry"]
           p_metering_type?: string
+          p_partner_assignment?: string
           p_partner_slug?: string
           p_postal_prefix?: string
           p_search?: string
@@ -1094,6 +1137,7 @@ export type Database = {
       strip_emails: { Args: { p_text: string }; Returns: string }
     }
     Enums: {
+      calculator_request_status: "pending" | "approved" | "rejected"
       consent_purpose:
         | "marketing_email"
         | "contract_expiry_reminder"
@@ -1175,6 +1219,10 @@ export type Database = {
         }
         Returns: Json
       }
+      admin_decide_calculator_request: {
+        Args: { p_decision: string; p_id: string }
+        Returns: Json
+      }
       admin_email_event_stats: { Args: { p_days?: number }; Returns: Json }
       admin_export_leads: {
         Args: {
@@ -1224,6 +1272,10 @@ export type Database = {
         }
         Returns: Json
       }
+      admin_list_calculator_requests: {
+        Args: { p_limit?: number; p_offset?: number; p_status?: string }
+        Returns: Json
+      }
       admin_list_codes: { Args: never; Returns: Json }
       admin_list_customers: { Args: never; Returns: Json }
       admin_list_email_events: {
@@ -1263,6 +1315,10 @@ export type Database = {
       }
       admin_list_partners: { Args: never; Returns: Json }
       admin_list_scrape_targets: { Args: never; Returns: Json }
+      admin_mark_calculator_request_notified: {
+        Args: { p_id: string }
+        Returns: Json
+      }
       admin_mark_partner_notified: { Args: { p_slug: string }; Returns: Json }
       admin_reject_partner_application: {
         Args: { p_id: string }
@@ -1456,6 +1512,7 @@ export type Database = {
         Args: { p_max_batch?: number }
         Returns: Json
       }
+      submit_calculator_request: { Args: { p_message: string }; Returns: Json }
       submit_partner_application: {
         Args: {
           p_company: string
@@ -1617,6 +1674,7 @@ export const Constants = {
   },
   platform: {
     Enums: {
+      calculator_request_status: ["pending", "approved", "rejected"],
       consent_purpose: [
         "marketing_email",
         "contract_expiry_reminder",
