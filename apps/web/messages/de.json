@@ -1276,13 +1276,16 @@
     "metaDescription": "Der Peak-Shaving Kalkulator von COOLiN ENERGY: Lastgang hochladen, Batterie simulieren, Ersparnis und Amortisation berechnen.",
     "iframeTitle": "Peak-Shaving Kalkulator — Lastgang hochladen, Batterie simulieren, Ersparnis berechnen",
     "access": {
+      "//": "ARBEITSSTAND (B18-4): was ein angemeldetes Konto OHNE calculator_pro auf der öffentlichen Rechner-Route sieht. Endgültige Formulierungen kommen von Andreas/Martina. Der Gutscheincode-Weg ist mit B18-4 entfallen — der Zugang läuft über die Partnerschaft, und die zwei Schritte müssen als ZWEI erkennbar bleiben (Bewerbung, danach Anfrage im Portal): wer nur den ersten liest, wartet sonst auf eine Freischaltung, die er nie beantragt hat. Bindende Leitplanken, dieselben wie bei PartnerPortal.calculator: (1) KEINE Ersparnis-, Umsatz- oder Provisionszusage. (2) KEINE Zusage über die Bearbeitungsdauer und KEINE Zusage, dass Bewerbung oder Anfrage angenommen werden. (3) KEIN Preis (OP#1 ist offen). (4) Der Kontaktweg bleibt SEKUNDÄR — er ist die Rückfallebene für Fälle, die weder Bewerbung noch Portal-Anfrage abdecken, kein zweiter gleichrangiger Weg zum Zugang.",
       "title": "Zugang zum Kalkulator",
       "lead": "Ihr Konto hat für den Peak-Shaving Kalkulator noch keine Freischaltung.",
-      "redeemTitle": "Gutscheincode einlösen",
-      "redeemLead": "Sie haben einen Zugangscode von uns bekommen? Lösen Sie ihn hier ein — Sie landen anschließend direkt im Rechner.",
-      "contactTitle": "Noch keinen Code?",
-      "contactLead": "Wir vergeben den Zugang auf Anfrage — schreiben Sie uns kurz, wofür Sie ihn brauchen, dann melden wir uns.",
-      "cta": "Zugang anfragen",
+      "partnerTitle": "Der Zugang läuft über die Partnerschaft",
+      "partnerLead": "Den Kalkulator geben wir an Elektro- und Installationsbetriebe, die mit uns zusammenarbeiten. Zwei Schritte führen dorthin:",
+      "step1": "Als Fachbetrieb bewerben. Wir sehen uns die Bewerbung an und melden uns bei Ihnen.",
+      "step2": "Nach der Freischaltung als Partner im Partner-Portal den Reiter „Kalkulator“ öffnen und uns kurz schreiben, wofür Sie ihn brauchen. Über die Freigabe entscheiden wir dann.",
+      "partnerCta": "Fachpartner werden",
+      "contactLead": "Sie sind bereits Partner oder haben eine Frage zum Zugang?",
+      "contactCta": "Schreiben Sie uns.",
       "signedInAs": "Angemeldet als {email}."
     }
   },

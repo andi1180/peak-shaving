@@ -594,6 +594,81 @@ Code-Änderung nötig:
 
 ---
 
+## 4a. Supabase-CLI liefert 403 — die Ursache ist der eingeloggte ACCOUNT, nicht die Verlinkung
+
+Diagnostiziert **und behoben** am **04.08.2026**, nachdem derselbe Befund über **sechs Sitzungen** hinweg
+als „Management-API 403" abgehakt und jedes Mal mit `SUPABASE_DB_PASSWORD` umgangen wurde
+(Symptom-Beschreibung ohne Ursache: `apps/web/CLAUDE.md`, B18-6-Eintrag).
+
+> **Das richtige Konto ist `andreas.dax@adx-ventures.com`** (Organisation **COOLiN**,
+> `pvzkhkqfbflbnechlror`). Nach dem Wechsel darauf laufen `orgs list`, `projects list`
+> (`coolin_energy` erscheint mit **●** als linked), `migration list --linked` **ohne**
+> `SUPABASE_DB_PASSWORD` und die Management-API `/database/query` (HTTP 201). Der Abschnitt bleibt
+> stehen, weil der Zustand jederzeit wiederkehrt, sobald ein anderes Konto angemeldet wird.
+
+**Das Symptom:** `supabase projects list` zeigt ausschliesslich „Website" (`whuolerrayccbugpnsau`);
+`supabase migration list --linked`, `db push --linked` (ohne Passwort) und die Management-API
+`/database/query` antworten **403**. `supabase db push --linked` **mit** manuell gesetztem
+`SUPABASE_DB_PASSWORD` läuft dagegen zuverlässig durch.
+
+**Die Ursache:** Die CLI ist mit dem **falschen Konto** angemeldet — `office@alinadax.com`. Dieses Konto
+ist Mitglied in **genau einer** Organisation, `atelier-dax-web` (`testevhdtrabdskvgwlh`), und die enthält
+**genau ein** Projekt: „Website". `coolin_energy` (`amdeupwgytuvgpacsywh`) liegt in einer **anderen**
+Organisation, `pvzkhkqfbflbnechlror` — nachzulesen ohne jeden Netzaufruf in
+`supabase/.temp/linked-project.json`. Die beiden Organisations-IDs nebeneinander sind der ganze Befund.
+
+**Warum das Passwort trotzdem funktioniert — und warum das die Fehlersuche sechsmal in die Irre geführt
+hat:** Es sind **zwei unabhängige Zugangswege**. `SUPABASE_DB_PASSWORD` geht als Postgres-Rolle direkt an
+die Datenbank und kennt weder Konto noch Organisation. Alles andere (`projects list`, `migration list`,
+`db dump`, `/database/query`, auch das „Initialising login role..." vor `db push`) läuft über die
+**Management-API** und damit über die Kontoberechtigung. Dass der Passwort-Weg funktioniert, beweist,
+dass die **Verlinkung korrekt** ist — und sagt über den Token **nichts**. Genau diese Trennung macht den
+403 zu einem Berechtigungs-, nicht zu einem Konfigurationsproblem.
+
+**Wo die Zugangsdaten wirklich liegen** (nachgesehen, nicht geraten — CLI v2.95.4,
+`internal/utils/credentials/store.go`): im **macOS-Schlüsselbund** über `zalando/go-keyring`, Dienst
+`"Supabase CLI"`, Konto = **Profilname** (Vorgabe `supabase`, änderbar per globalem `--profile`). Der Wert
+ist als `go-keyring-base64:<base64>` verpackt. **`~/.supabase/access-token` existiert auf diesem Rechner
+nicht** — sein Fehlen ist deshalb **kein** Beleg für „nicht eingeloggt" und darf nicht mehr als solcher
+gelesen werden.
+
+**Diagnose in einem Befehl — vor jeder weiteren Vermutung:**
+
+```
+supabase orgs list      # muss pvzkhkqfbflbnechlror zeigen. Zeigt es nur testevhdtrabdskvgwlh → falsches Konto.
+```
+
+**Was ausdrücklich NICHT die Ursache war** (geprüft und ausgeschlossen, damit es niemand erneut prüft):
+`SUPABASE_ACCESS_TOKEN` ist **nirgends** gesetzt — nicht in der Umgebung, nicht in `~/.zprofile` (die
+einzige vorhandene Shell-Profildatei), nicht in einer `.env` im Repo. Ein Schlüsselbund-Leserecht-Problem
+liegt ebenfalls nicht vor: die CLI liest den Eintrag ohne Nachfrage und bekommt eine echte API-Antwort.
+Die Reihenfolge bleibt trotzdem richtig — **eine gesetzte `SUPABASE_ACCESS_TOKEN` überstimmt jeden
+`supabase login` stillschweigend**, sie ist deshalb weiterhin das Erste, was man ausschliesst.
+
+**Die Behebung — der Weg, der am 04.08.2026 tatsächlich funktioniert hat:** im Dashboard als das richtige
+Konto einen Personal Access Token erzeugen (Account → Access Tokens) und
+
+```
+supabase login --token sbp_…
+```
+
+Das überschreibt den Schlüsselbund-Eintrag direkt; ein vorheriges `supabase logout` ist nicht nötig.
+
+⚠️ **Warum NICHT der Browser-Weg (`supabase logout` + `supabase login`):** `logout` löscht nur den
+**lokalen** Token. Die Dashboard-Sitzung im Browser gehört weiterhin dem falschen Konto, und der
+Login-Flow bestätigt sie **ohne Kontoauswahl** — man landet wortgleich beim selben 403 und hält den Login
+für wirkungslos. Das ist die wahrscheinlichste Erklärung dafür, dass frühere Login-Versuche folgenlos
+blieben. Wer diesen Weg dennoch geht, muss sich **vorher auf `supabase.com` abmelden** oder ein privates
+Fenster verwenden.
+
+Prüfbefehl danach: `supabase migration list --linked` muss **ohne** `SUPABASE_DB_PASSWORD` durchlaufen.
+
+**Ein alter Token bleibt serverseitig gültig, bis er widerrufen wird.** `supabase logout` und ein
+überschreibender `--token`-Login entfernen ihn nur lokal. Ein Token, der nicht mehr gebraucht wird oder
+irgendwo im Klartext aufgetaucht ist, gehört im Dashboard unter Account → Access Tokens gelöscht.
+
+---
+
 ## 5. Gedruckte Pfade — dauerhafte Zusagen ⚠️ NICHT UMBENENNEN
 
 Ein Pfad, der auf Papier steht, ist keine interne Adresse mehr. Ein Brief, der in einem Betrieb im
