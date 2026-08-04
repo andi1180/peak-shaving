@@ -20,6 +20,21 @@
  * DATENBANK: lieber „eine Anfrage, die ich nicht sehe" als „eine, die es nie gab".
  */
 
+/**
+ * Die Adressen des Prüf-Eingangs.
+ *
+ * ⚠ EIGENER GESCHWISTERPFAD, ausdrücklich NICHT `/admin/kalkulator/anfragen`. `components/admin/nav.tsx`
+ * markiert einen Punkt als aktiv, sobald der Pfad mit ihm BEGINNT — ein Unterpfad des
+ * Kalkulator-Punktes hätte zwei Punkte gleichzeitig markiert, genau der Zustand, den der Kommentar
+ * dort ausschliesst. Dieselbe Entscheidung und derselbe Grund wie bei `/admin/partner-antraege`
+ * (B16-3).
+ */
+export const CALCULATOR_REQUESTS_HREF = '/admin/kalkulator-anfragen'
+
+export function CALCULATOR_REQUEST_DETAIL_HREF(id: string): string {
+  return `${CALCULATOR_REQUESTS_HREF}/${id}`
+}
+
 /** Die drei Zustände einer Anfrage — deckungsgleich mit `platform.calculator_request_status`. */
 export const CALCULATOR_REQUEST_STATUSES = ['pending', 'approved', 'rejected'] as const
 export type CalculatorRequestStatus = (typeof CALCULATOR_REQUEST_STATUSES)[number]
@@ -29,6 +44,18 @@ export function isCalculatorRequestStatus(value: unknown): value is CalculatorRe
     typeof value === 'string' &&
     (CALCULATOR_REQUEST_STATUSES as readonly string[]).includes(value)
   )
+}
+
+/**
+ * Die deutschen Beschriftungen der drei Zustände.
+ *
+ * Als `Record` über die Union getypt: Ein vierter Enum-Wert bricht hier beim Typecheck, statt in der
+ * Oberfläche als roher Schlüssel aufzutauchen (Muster `PARTNER_APPLICATION_STATUS_LABEL`, B16-3).
+ */
+export const CALCULATOR_REQUEST_STATUS_LABEL: Record<CalculatorRequestStatus, string> = {
+  pending: 'Offen',
+  approved: 'Freigegeben',
+  rejected: 'Abgelehnt',
 }
 
 /** Die beiden Entscheidungen — die Werte sind die des Enums, nicht eine zweite Übersetzung. */
