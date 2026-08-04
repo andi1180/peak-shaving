@@ -80,6 +80,22 @@ export const PORTAL_HOST_ROOT = '/'
 export const PORTAL_MARKETING_PATH = '/marketing'
 
 /**
+ * Der dritte Reiter des Portalbereichs (B18-6) — die Anfragen, die über den Empfehlungslink dieses
+ * Fachbetriebs entstanden sind.
+ *
+ * Dieselbe Namensregel wie `/marketing`: kurz, ohne Bereichspräfix, weil die Domain die Bedeutung
+ * bereits trägt. „leads" und nicht „anfragen", obwohl der Bereich sonst deutsch beschriftet ist —
+ * die ADRESSE folgt der Konvention der übrigen Pfade dieses Hosts (englisch, kleingeschrieben,
+ * einwortig), die BESCHRIFTUNG steht im Nachrichtenkatalog und ist deutsch. Beides zu vermischen
+ * hiesse, dass eine spätere Umbenennung des Reiters die Adresse mitzöge, die ein Fachbetrieb sich
+ * womöglich als Lesezeichen abgelegt hat.
+ *
+ * ⚠ Wer hier später eine öffentliche Seite `/leads` auf coolin.at anlegt, verschattet sie auf dem
+ * Portal-Host — dieselbe Kollision und dieselbe bewusste Nicht-Abfangung wie bei `/marketing`.
+ */
+export const PORTAL_LEADS_PATH = '/leads'
+
+/**
  * Die eigenen Seiten des Portalbereichs, wie sie AUF DEM PORTAL-HOST adressiert sind (B18-3).
  *
  * Die Wurzel ist „Allgemein" (Stammdaten des Betriebs), `/marketing` der zweite Reiter. Sie stehen
@@ -87,10 +103,15 @@ export const PORTAL_MARKETING_PATH = '/marketing'
  * der Portal-Host" beantwortet — jene die Konstanten des Portals als Produkt.
  *
  * Die Liste ist zugleich die Vorlage des internen Rewrites (s. `portalRenderPath`) und Teil von
- * `PORTAL_HOST_PATHS`. Ein neuer Reiter (B18-4 Peak Shaving, B18-6 Leads) ist genau ein Eintrag
- * hier plus eine Datei unter `app/portal/` — Weiche, Rewrite und Nav ziehen von selbst nach.
+ * `PORTAL_HOST_PATHS`. Ein neuer Reiter (B18-4 Peak Shaving) ist genau ein Eintrag hier plus eine
+ * Datei unter `app/portal/` — Weiche, Rewrite und Nav ziehen von selbst nach. Bei `/leads` (B18-6)
+ * war es genau das: dieser Eintrag, ein Eintrag in `PORTAL_NAV_ITEMS`, eine Seite.
  */
-export const PORTAL_AREA_PATHS: readonly string[] = [PORTAL_HOST_ROOT, PORTAL_MARKETING_PATH]
+export const PORTAL_AREA_PATHS: readonly string[] = [
+  PORTAL_HOST_ROOT,
+  PORTAL_MARKETING_PATH,
+  PORTAL_LEADS_PATH,
+]
 
 /**
  * Die Wurzel des Routen-Baums, unter dem der Portalbereich GERENDERT wird — das Ziel eines rein
