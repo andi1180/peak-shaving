@@ -111,6 +111,10 @@ describe('isPortalPath — was auf dem Portal-Host bleibt', () => {
       [
         '/',
         '/marketing',
+        // B18-6: der dritte Reiter. Er ist auf der Subdomain erreichbar und zeigt Kontaktdaten
+        // fremder Personen — die Aufnahme hier ist genau die bewusste Entscheidung, für die dieser
+        // Pin da ist. Die Seite dahinter prüft die Sitzung selbst (s. weiter unten).
+        '/leads',
         '/anmelden',
         '/konto',
         '/partner-aktivieren',
@@ -709,6 +713,7 @@ describe('die Ableitung hat genau einen Fundort und einen Aufrufer', () => {
     walk(path.resolve(import.meta.dirname, '..', 'components'))
 
     expect(consumers.map((file) => path.relative(appDir, file)).sort()).toEqual([
+      'portal/leads/page.tsx',
       'portal/marketing/page.tsx',
       'portal/page.tsx',
     ])

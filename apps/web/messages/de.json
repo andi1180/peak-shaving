@@ -1976,12 +1976,15 @@
     }
   },
   "PartnerPortal": {
-    "//": "ARBEITSSTAND (B16-4b): Partner-Portal und die zwei E-Mail-Vorlagen zum Kopieren. Endgueltige Formulierungen von Andreas/Martina — die Vorlagen gehen unter dem NAMEN DES PARTNERS an dessen Bestandskunden und sind vor der ersten echten Aussendung zu ersetzen. Bindende Leitplanken fuer jede Neufassung: keine Preis-, Ergebnis- oder Ersparnisversprechen, keine Zusage ueber die Bearbeitungsdauer, und COOLiN tritt als unabhaengiger Pruefer auf, nicht als Verkaeufer. Es stehen bewusst KEINE Angaben zu einzelnen Interessenten im Portal (Namen, Firmen, Anzahl, Status) — die namentliche Sicht setzt einen Einwilligungszweck voraus, den es noch nicht gibt (B16-6).",
+    "//": "ARBEITSSTAND (B16-4b): Partner-Portal und die zwei E-Mail-Vorlagen zum Kopieren. Endgueltige Formulierungen von Andreas/Martina — die Vorlagen gehen unter dem NAMEN DES PARTNERS an dessen Bestandskunden und sind vor der ersten echten Aussendung zu ersetzen. Bindende Leitplanken fuer jede Neufassung: keine Preis-, Ergebnis- oder Ersparnisversprechen, keine Zusage ueber die Bearbeitungsdauer, und COOLiN tritt als unabhaengiger Pruefer auf, nicht als Verkaeufer.",
+    "//leads": "ARBEITSSTAND (B18-6): Der Reiter 'leads' zeigt seit B18-6 Angaben zu einzelnen Interessenten — der frueher hier stehende Satz, das sei bewusst nicht der Fall, ist damit ueberholt und entfernt. Er galt, solange der noetige Einwilligungszweck fehlte; seit B18-6 gibt es ihn ('partner_lead_disclosure'), und ANGEZEIGT WIRD AUSSCHLIESSLICH, WAS DIE PERSON FREIGEGEBEN HAT — die Auswahl trifft die Datenbank, nicht diese Texte. Leitplanke fuer jede Neufassung der Leads-Texte: sachlich bleiben und die fehlende Freigabe NICHT als entgangene Gelegenheit darstellen. Sie ist eine gueltige Entscheidung einer Person, der Fachbetrieb kann daran nichts aendern, und ein Ton, der zum Nachfassen einlaedt, machte aus der Einwilligung ein Hindernis.",
     "metaTitle": "Partner-Portal",
     "nav": {
       "label": "Portalbereich",
       "general": "Allgemein",
-      "marketing": "Marketing"
+      "marketing": "Marketing",
+      "//leads": "Beschriftung bewusst 'Anfragen' und nicht 'Leads': Der Schluessel folgt der Adresse (/leads, wie die uebrigen Pfade dieses Hosts englisch), die Beschriftung dem Sprachgebrauch eines Elektrikers.",
+      "leads": "Anfragen"
     },
     "shell": {
       "badge": "Partner-Portal",
@@ -1996,6 +1999,20 @@
       "emailLabel": "Konto-E-Mail",
       "sinceLabel": "Partner seit",
       "hint": "Die Angaben pflegt COOLiN. Wenn etwas nicht stimmt oder sich geändert hat, schreiben Sie uns bitte kurz — wir ziehen es nach."
+    },
+    "leads": {
+      "title": "Ihre Anfragen",
+      "intro": "Anfragen, die über Ihren Empfehlungslink zu uns gekommen sind. Kontaktdaten sehen Sie dann, wenn die Person der Weitergabe an Ihren Betrieb zugestimmt hat.",
+      "total": "{count, plural, =0 {Bisher ist keine Anfrage über Ihren Link eingegangen.} one {# Anfrage über Ihren Link.} other {# Anfragen über Ihren Link.}}",
+      "empty": "Sobald jemand über Ihren Link eine Anfrage stellt, erscheint sie hier.",
+      "emptyWithoutConsent": "Die eingegangenen Anfragen sind bei uns in Bearbeitung. Kontaktdaten können wir Ihnen noch zu keiner davon zeigen — dafür braucht es die Zustimmung der jeweiligen Person.",
+      "withoutConsent": "{count, plural, one {Dazu kommt # Anfrage ohne Zustimmung zur Weitergabe. Sie ist oben mitgezählt; ihre Kontaktdaten dürfen wir Ihnen nicht zeigen.} other {Dazu kommen # Anfragen ohne Zustimmung zur Weitergabe. Sie sind oben mitgezählt; ihre Kontaktdaten dürfen wir Ihnen nicht zeigen.}}",
+      "unavailable": "Ihre Anfragen lassen sich gerade nicht abrufen. Bitte laden Sie die Seite in Kürze noch einmal — an den Anfragen selbst ändert das nichts.",
+      "contactLabel": "Ansprechperson",
+      "emailLabel": "E-Mail",
+      "phoneLabel": "Telefon",
+      "unnamed": "Ohne nähere Angabe",
+      "hint": "Wir melden uns bei jeder Anfrage selbst und prüfen sie. Wenn eine Umsetzung ansteht, kommen wir auf Sie zu."
     },
     "eyebrow": "Partner-Portal",
     "title": "Ihr Empfehlungslink",

@@ -1,4 +1,4 @@
-import { PORTAL_HOST_ROOT, PORTAL_MARKETING_PATH } from '@/lib/portal-host'
+import { PORTAL_HOST_ROOT, PORTAL_LEADS_PATH, PORTAL_MARKETING_PATH } from '@/lib/portal-host'
 
 /**
  * DIE REITER DES PORTALBEREICHS (B18-3) — Fundort der Navigationspunkte.
@@ -19,10 +19,10 @@ import { PORTAL_HOST_ROOT, PORTAL_MARKETING_PATH } from '@/lib/portal-host'
  * (§8.7). Die Punkte tragen deshalb einen Schlüssel unter `PartnerPortal.nav.*`; die Auflösung
  * passiert in der Navigation.
  *
- * ⚠ B18-4 (Peak Shaving) und B18-6 (Leads) sind bewusst NICHT als deaktivierte Platzhalter
- * angelegt: Ein Reiter, der nichts tut, ist Bauaufwand, den der tatsächliche Bau wieder anfassen
- * muss — und er verspricht dem Fachbetrieb etwas, das es noch nicht gibt. Sie kommen als je EIN
- * Eintrag in dieser Liste plus eine Datei unter `app/portal/`.
+ * ⚠ B18-4 (Peak Shaving) ist bewusst NICHT als deaktivierter Platzhalter angelegt: Ein Reiter, der
+ * nichts tut, ist Bauaufwand, den der tatsächliche Bau wieder anfassen muss — und er verspricht dem
+ * Fachbetrieb etwas, das es noch nicht gibt. Er kommt als EIN Eintrag in dieser Liste plus eine
+ * Datei unter `app/portal/`. Bei „Leads" (B18-6) war es genau das.
  */
 export type PortalNavItem = {
   /** Adresse AUF DEM PORTAL-HOST. */
@@ -34,4 +34,11 @@ export type PortalNavItem = {
 export const PORTAL_NAV_ITEMS: readonly PortalNavItem[] = [
   { href: PORTAL_HOST_ROOT, labelKey: 'general' },
   { href: PORTAL_MARKETING_PATH, labelKey: 'marketing' },
+  /*
+   * B18-6. Die Reihenfolge folgt dem Weg eines Fachbetriebs: erst wer er bei uns ist (Allgemein),
+   * dann womit er verweist (Marketing), dann was dabei herausgekommen ist (Leads) — und nicht der
+   * Wichtigkeit, sonst stünde dieser Punkt vorne und der Betrieb sähe beim ersten Aufruf eine leere
+   * Liste, bevor er überhaupt einen Link verschickt hat.
+   */
+  { href: PORTAL_LEADS_PATH, labelKey: 'leads' },
 ] as const
