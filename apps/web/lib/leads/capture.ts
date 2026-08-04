@@ -122,6 +122,13 @@ export type KontaktLeadInput = {
   phone?: string
   /** Hat die Person die (nicht vorausgewählte) Marketing-Einwilligung angekreuzt? */
   wantsMarketingEmail: boolean
+  /**
+   * B18-6: Hat die Person die (nicht vorausgewählte) Freigabe an den empfehlenden Fachbetrieb
+   * angekreuzt? Der Aufrufer hat bereits geprüft, dass die Absendung von der Partner-Landingpage
+   * kam UND ein aktiver Betrieb aufgelöst wurde (`lib/kontakt/submit.ts`) — hier steht nur noch,
+   * ob die Einwilligung zu schreiben ist.
+   */
+  wantsPartnerDisclosure?: boolean
   /** Nachweisfelder der Einwilligung (B1-1: nur Nachweis, keine Profilbildung, kein Index). */
   sourceIp?: string | null
   userAgent?: string | null
@@ -169,6 +176,53 @@ export async function captureKontaktLead(input: KontaktLeadInput): Promise<void>
       partnerSlug: input.partnerSlug ?? null,
       referredByText: input.referredByText ?? null,
     })
+
+    /*
+     * ─────────────────────────────────────────────────────────────────────────
+     * B18-6 — DIE FREIGABE AN DEN FACHBETRIEB IST EIN ZWEITER AUFRUF, KEIN ZWEITER ZWECK.
+     *
+     * `capture_lead` schreibt je Aufruf GENAU EINE Einwilligung, und jede trägt ihre eigene
+     * Textfassung, ihren eigenen Zeitpunkt und ihre eigenen Nachweisfelder (B1-1: die Historie IST
+     * der Nachweis). Das etablierte Muster seit B3-2 — `lib/leads/capture-flow.ts` macht es für die
+     * Erfassungsstrecken genauso. `capture_lead` selbst bleibt deshalb unverändert; der zweite
+     * Aufruf findet denselben Lead über die normalisierte Adresse und legt keinen zweiten an.
+     *
+     * ERST NACH dem ersten Aufruf: Ohne Lead gibt es nichts, woran die Einwilligung hängen könnte.
+     *
+     * KEIN VERSAND, kein `outcome`-Zweig. Der Zweck ist nicht bestätigungspflichtig
+     * (`platform.purpose_requires_double_opt_in` schliesst ihn nicht ein — an den Interessenten geht
+     * aus dieser Einwilligung überhaupt keine Mail), sie entsteht also sofort als `confirmed` und
+     * wirkt ab dem nächsten Portalaufruf. Auch kein Token: `capture_lead` verwürfe ihn seit B3-2
+     * ohnehin.
+     *
+     * EIGENES try/catch — und zwar aus zwei Richtungen. Nach unten: Ein Fehlschlag hier darf die
+     * Marketing-Bestätigungsmail darunter nicht verhindern (sie hängt an einem anderen Zweck und
+     * einer anderen Zusage). Nach oben: Er darf erst recht nicht die Anfrage umwerfen — die ist
+     * längst zugestellt. Die Fehlerrichtung ist bewusst gewählt: Ohne Einwilligung zählt die Anfrage
+     * im Portal mit, trägt aber keinen Namen — genau der Zustand, den ein Nicht-Ankreuzen erzeugt.
+     * Zu viel anzuzeigen wäre der einzige unumkehrbare Fehler; zu wenig ist ein Anruf.
+     * ─────────────────────────────────────────────────────────────────────────
+     */
+    if (input.wantsPartnerDisclosure) {
+      try {
+        await captureLead({
+          email: input.email,
+          sourceKey: input.sourceKey ?? LEAD_SOURCE_KONTAKTFORMULAR,
+          purpose: 'partner_lead_disclosure',
+          /*
+           * Die Identitätsfelder fahren NICHT noch einmal mit. `capture_lead` führt sie mit
+           * `coalesce(Bestand, neu)` zusammen — sie erneut zu schicken änderte nichts und liesse den
+           * Aufruf so aussehen, als könnte er es. Was hier zählt, sind die Nachweisfelder DIESER
+           * Einwilligung.
+           */
+          sourceIp: input.sourceIp ?? null,
+          userAgent: input.userAgent ?? null,
+          locale,
+        })
+      } catch (cause) {
+        console.error('[leads] Partner-Freigabe konnte nicht gespeichert werden:', cause)
+      }
+    }
 
     /*
      * NUR bei 'consent_created' geht eine Mail raus. 'consent_already_pending' bedeutet, dass für

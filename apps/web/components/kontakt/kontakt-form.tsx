@@ -62,6 +62,8 @@ type Values = {
   datenschutz: boolean
   /** Zusätzliche Marketing-Einwilligung (B1-2) — optional, NIE vorausgewählt. */
   marketing: boolean
+  /** Freigabe an den empfehlenden Fachbetrieb (B18-6) — optional, NIE vorausgewählt. */
+  partnerFreigabe: boolean
   /** Honeypot — s. u. Gehört in den State, damit React das Feld kontrolliert. */
   website: string
 }
@@ -83,6 +85,14 @@ const EMPTY_VALUES: Values = {
    * und darf den Versand nicht behindern.
    */
   marketing: false,
+  /*
+   * `false`, und es gibt auch hier keinen Pfad, der das vorbelegt (B18-6). Der Grund ist derselbe
+   * wie oben, wiegt hier aber schwerer: Diese Einwilligung ist die EINZIGE Rechtsgrundlage der
+   * gesamten Partner-Lead-Sicht. Wäre sie durch eine Vorbelegung unwirksam (EuGH Planet49 — eine
+   * Einwilligung verlangt eine aktive Handlung), stünde die Sicht von Anfang an ohne Grundlage da,
+   * und zwar rückwirkend für jede Zeile, die je darüber angezeigt wurde.
+   */
+  partnerFreigabe: false,
   website: '',
 }
 
@@ -115,10 +125,24 @@ const FIELD_ORDER: KontaktFieldName[] = [
  */
 export function KontaktForm({
   marketingConsentText = null,
+  partnerDisclosureConsentText = null,
   endpoint = '/api/kontakt',
   showReferredBy = true,
 }: {
   marketingConsentText?: string | null
+  /**
+   * @param partnerDisclosureConsentText Der WORTLAUT der Freigabe an den empfehlenden Fachbetrieb
+   *   (B18-6), serverseitig aus `platform.consent_texts` gelesen — dieselbe Quelle und dieselbe
+   *   Fail-closed-Regel wie `marketingConsentText`: Fehlt er (`null`), wird die Ankreuzmöglichkeit
+   *   NICHT gerendert; ohne Wortlaut darf keine Einwilligung eingesammelt werden.
+   *
+   *   Er wird AUSSCHLIESSLICH von der Partner-Landingpage hereingereicht — `/kontakt` übergibt ihn
+   *   nicht, dort erscheint das Kästchen also gar nicht. Das ist kein Zufall, sondern die
+   *   Voraussetzung dafür, dass der Server ein `partnerFreigabe: true` überhaupt beachten darf: Auf
+   *   `/kontakt` gibt es keinen Fachbetrieb im Pfad, an den offengelegt werden könnte, und eine
+   *   Einwilligung zu einem nie angezeigten Text wäre keine.
+   */
+  partnerDisclosureConsentText?: string | null
   /**
    * Wohin abgesendet wird. Vorgabe ist `/api/kontakt`; die Partner-Landingpage reicht
    * `/api/partner/<slug>/kontakt` herein (B16-2).
@@ -556,6 +580,43 @@ export function KontaktForm({
             {/* Was nach dem Ankreuzen passiert, gehört an die Stelle des Ankreuzens — sonst ist die
                 Bestätigungsmail für den Absender eine Überraschung. */}
             <p className="mt-2 pl-7 text-caption text-text-muted">{t('marketing.hint')}</p>
+          </div>
+        )}
+
+        {/*
+          FREIGABE AN DEN FACHBETRIEB (B18-6) — nur auf der Partner-Landingpage, weil nur dort ein
+          Wortlaut hereingereicht wird.
+
+          NICHT VORAUSGEWÄHLT, und das ist hier die wichtigste Zeile des Formulars: Diese
+          Einwilligung ist die einzige Rechtsgrundlage dafür, dass der Fachbetrieb später Namen und
+          Kontaktdaten sieht (`public.get_my_partner_leads`). Eine Vorbelegung machte sie unwirksam
+          (EuGH Planet49) — und damit die gesamte Sicht, rückwirkend.
+
+          SIE STEHT UNMITTELBAR VOR DEM ABSENDEN-KNOPF und optisch abgesetzt. Sie mit der
+          Datenschutz-Zustimmung zu verbinden wäre eine Kopplung, die sie ebenfalls unwirksam machte;
+          weiter oben im Formular wäre sie vergessen, bevor abgeschickt wird.
+
+          Der Text ist der Wortlaut aus `platform.consent_texts` — er nennt den Fachbetrieb bewusst
+          NICHT beim Namen (angezeigter und archivierter Wortlaut müssen derselbe String sein,
+          Begründung in der Migration). Eindeutig ist er trotzdem: Die Seite ringsum nennt den Betrieb
+          in Überschrift, Fliesstext und den nächsten Schritten.
+        */}
+        {partnerDisclosureConsentText && (
+          <div className="rounded-md border border-accent-border bg-accent-subtle p-4">
+            <div className="flex items-start gap-3">
+              <Checkbox
+                id={fieldId('partnerFreigabe')}
+                name="partnerFreigabe"
+                checked={values.partnerFreigabe}
+                onChange={(e) => set('partnerFreigabe', e.target.checked)}
+              />
+              <Label htmlFor={fieldId('partnerFreigabe')} className="font-normal text-text">
+                {partnerDisclosureConsentText}
+              </Label>
+            </div>
+            {/* Was das LEERE Kästchen bedeutet, gehört genauso an die Stelle des Ankreuzens: Die
+                Anfrage kommt in jedem Fall an — es geht nur darum, wer sie mit Namen sieht. */}
+            <p className="mt-2 pl-7 text-caption text-text-muted">{t('partnerFreigabe.hint')}</p>
           </div>
         )}
 

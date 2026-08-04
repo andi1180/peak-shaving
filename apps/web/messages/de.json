@@ -1314,6 +1314,9 @@
     "marketing": {
       "hint": "Freiwillig. Sie erhalten zuerst eine E-Mail mit einem Bestätigungslink — ohne Bestätigung passiert nichts. Abmelden können Sie sich jederzeit mit einem Klick."
     },
+    "partnerFreigabe": {
+      "hint": "Freiwillig. Ohne diese Freigabe kommt Ihre Anfrage genauso bei uns an — der Fachbetrieb sieht dann nur, dass eine Anfrage über ihn eingegangen ist, aber keinen Namen und keine Kontaktdaten."
+    },
     "themen": {
       "peakShaving": "Peak Shaving / Kalkulator",
       "sonstiges": "Sonstiges"

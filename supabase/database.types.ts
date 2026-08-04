@@ -777,33 +777,50 @@ export type Database = {
       }
       partners: {
         Row: {
+          application_id: string | null
           contact_first_name: string | null
           contact_last_name: string | null
           created_at: string
           display_name: string
           is_active: boolean
+          notified_at: string | null
           slug: string
           updated_at: string
+          user_id: string | null
         }
         Insert: {
+          application_id?: string | null
           contact_first_name?: string | null
           contact_last_name?: string | null
           created_at?: string
           display_name: string
           is_active?: boolean
+          notified_at?: string | null
           slug: string
           updated_at?: string
+          user_id?: string | null
         }
         Update: {
+          application_id?: string | null
           contact_first_name?: string | null
           contact_last_name?: string | null
           created_at?: string
           display_name?: string
           is_active?: boolean
+          notified_at?: string | null
           slug?: string
           updated_at?: string
+          user_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "partners_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "partner_applications"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
@@ -1081,6 +1098,7 @@ export type Database = {
         | "marketing_email"
         | "contract_expiry_reminder"
         | "result_delivery"
+        | "partner_lead_disclosure"
       entitlement_source: "stripe" | "manual"
       industry:
         | "baeckerei"
@@ -1368,6 +1386,7 @@ export type Database = {
         Returns: boolean
       }
       get_my_partner: { Args: never; Returns: Json }
+      get_my_partner_leads: { Args: never; Returns: Json }
       get_my_profile: {
         Args: never
         Returns: {
@@ -1600,6 +1619,7 @@ export const Constants = {
         "marketing_email",
         "contract_expiry_reminder",
         "result_delivery",
+        "partner_lead_disclosure",
       ],
       entitlement_source: ["stripe", "manual"],
       industry: [

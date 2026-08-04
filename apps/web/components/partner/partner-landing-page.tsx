@@ -35,10 +35,18 @@ export function PartnerLandingPage({
   partnerSlug,
   /** Wortlaut der Marketing-Einwilligung aus `platform.consent_texts` (B1-2) — s. `KontaktForm`. */
   marketingConsentText = null,
+  /**
+   * B18-6: Wortlaut der Freigabe an den empfehlenden Fachbetrieb, ebenfalls aus
+   * `platform.consent_texts`. NUR diese Seite reicht ihn herein — `/kontakt` tut es nicht, und
+   * genau daran hängt, dass der Server ein `partnerFreigabe: true` überhaupt beachten darf
+   * (s. `lib/kontakt/submit.ts`).
+   */
+  partnerDisclosureConsentText = null,
 }: {
   partnerName: string
   partnerSlug: string
   marketingConsentText?: string | null
+  partnerDisclosureConsentText?: string | null
 }) {
   const t = useTranslations('Partner')
 
@@ -80,6 +88,12 @@ export function PartnerLandingPage({
               */}
               <KontaktForm
                 marketingConsentText={marketingConsentText}
+                /*
+                  B18-6: Die Freigabe an den Fachbetrieb erscheint AUSSCHLIESSLICH hier. Sie ist die
+                  einzige Rechtsgrundlage dafür, dass er die Anfrage später mit Namen sieht — ohne
+                  sie zählt sie in seinem Portal mit, trägt aber keine Kontaktdaten.
+                */
+                partnerDisclosureConsentText={partnerDisclosureConsentText}
                 endpoint={`/api/partner/${partnerSlug}/kontakt`}
                 showReferredBy={false}
               />

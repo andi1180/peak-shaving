@@ -49,6 +49,11 @@ export const CONSENT_PURPOSES = [
   'marketing_email',
   'contract_expiry_reminder',
   'result_delivery',
+  // B18-6. Der Wert steht hier, weil die Lead-Detailseite die Einwilligungen eines Leads AUFLISTET
+  // und ihn ab dem ersten Partner-Lead anzeigen wird. Ohne Eintrag fiele die Anzeige auf den rohen
+  // Enum-Schlüssel zurück (`CONSENT_PURPOSE_LABELS[…] ?? purpose`, s. u.) — sichtbar falsch, aber
+  // nicht als Fehler erkennbar.
+  'partner_lead_disclosure',
 ] as const
 export type ConsentPurpose = (typeof CONSENT_PURPOSES)[number]
 
@@ -56,6 +61,9 @@ export const CONSENT_PURPOSE_LABELS: Record<ConsentPurpose, string> = {
   marketing_email: 'Informationen & Angebote',
   contract_expiry_reminder: 'Vertragsablauf-Erinnerung',
   result_delivery: 'Ergebnis-Zusendung',
+  // Bewusst „Weitergabe" und nicht „Empfehlung": Erlaubt wird die OFFENLEGUNG an den Fachbetrieb,
+  // nicht die Empfehlung selbst (die ist bereits geschehen und steht in `partner_slug`).
+  partner_lead_disclosure: 'Weitergabe an Fachbetrieb',
 }
 
 // ── Segmentierungsmerkmale (B3-1) ────────────────────────────────────────────────────────────────

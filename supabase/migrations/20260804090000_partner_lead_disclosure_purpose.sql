@@ -1,0 +1,65 @@
+-- B18-6 (Schema+Schreibweg), TEIL 1 VON 2 — das Vokabular: ein vierter Einwilligungszweck.
+--
+-- ⚠ HINWEIS ZUR ABLAGE DER ENTSCHEIDUNGEN: `Fahrplan_2026.md` führt die Bauabschnitte B0–B17 und
+-- kennt B18 (noch) NICHT — hier steht deshalb bewusst KEIN Verweis auf einen Abschnitt, den es dort
+-- nicht gibt. Maßgeblich für den Stand der B18-Reihe ist der Handover in `apps/web/CLAUDE.md`.
+--
+-- ── WARUM ES ÜBERHAUPT EINEN VIERTEN ZWECK BRAUCHT ──────────────────────────────────────────────
+-- Der Interessent gibt seine Daten COOLiN, nicht dem Fachbetrieb. Ihm im Partner-Portal Firmenname,
+-- Ansprechperson und Kontaktdaten zu zeigen, ist eine ÜBERMITTLUNG AN EINEN DRITTEN — und von keiner
+-- der drei bestehenden Einwilligungen gedeckt. Auch nicht davon, dass genau dieser Betrieb den
+-- Interessenten geschickt hat: Wer über einen Empfehlungslink kommt, hat damit erklärt, dass er von
+-- COOLiN etwas will, nicht dass sein Elektriker erfahren soll, was er COOLiN geschrieben hat.
+--
+-- Die Rechtsgrundlage der Partner-Lead-Sicht ist deshalb genau EINE: diese Einwilligung. Ist sie
+-- unwirksam, ist die gesamte Sicht von Anfang an ohne Grundlage — und zwar rückwirkend für jede
+-- Zeile, die je darüber angezeigt wurde. Das ist der Grund, warum sie nicht als „Nebenbedingung" in
+-- einen bestehenden Zweck gehängt wird.
+--
+-- ── DIESE MIGRATION MACHT NICHTS AUSSER DEM ENUM-WERT — UND DAS IST ERZWUNGEN, NICHT ORDNUNGSLIEBE
+-- Gemessen gegen PostgreSQL 17.6 (lokaler Stack, zurückgerollte Transaktionen): Ein mit
+-- `alter type … add value` hinzugefügter Wert eines BESTEHENDEN Enums kann in DERSELBEN Transaktion
+-- nicht benutzt werden — weder als Literal-Cast noch in einem INSERT. Beides scheitert mit
+--
+--     55P04  unsafe use of new value "…" of enum type platform.consent_purpose
+--
+-- Die Ausnahme, die PostgreSQL 12 eingeführt hat, greift hier NICHT: Sie gilt nur, wenn der Enum-TYP
+-- selbst in derselben Transaktion entstanden ist (im Gate gegengeprüft — dieser Fall läuft durch).
+-- `platform.consent_purpose` stammt aus B1-1.
+--
+-- Da die Supabase-CLI jede Migrationsdatei in einer Transaktion anwendet, ist die Aufteilung auf
+-- ZWEI Dateien die Bedingung dafür, dass die Folge-Migration überhaupt anwendbar ist. Sie wurde
+-- gemessen und nicht angenommen: eine zusammengelegte Fassung wurde probeweise gebaut und ist beim
+-- `supabase db reset` genau an dieser Stelle gescheitert.
+--
+-- ── ES GIBT HIER NICHTS AN `purpose_requires_double_opt_in` ZU ÄNDERN ───────────────────────────
+-- Die Funktion (B1-1) schliesst 'marketing_email' und 'contract_expiry_reminder' ein; ein neuer Wert
+-- fällt automatisch auf `false`. Das ist inhaltlich richtig und keine Lücke:
+--
+--   Die REGEL dort lautet „Bestätigung ist nötig, sobald die Erfüllung eine KÜNFTIGE Mail ist".
+--   An den Interessenten geht aus dieser Einwilligung überhaupt keine Mail — weder jetzt noch
+--   später. Sie steuert AUSSCHLIESSLICH die Sichtbarkeit im Portal des Fachbetriebs. Eine
+--   Bestätigungsmail könnte hier also nicht das prüfen, wofür der Double-Opt-in da ist (dass die
+--   Adresse dem Absender gehört), sondern wäre eine zusätzliche Hürde vor einer Wirkung, die den
+--   Absender gar nicht per Mail erreicht.
+--
+-- Folge im Anwendungscode: `public.capture_lead` legt die Einwilligung seit B3-2 SOFORT als
+-- `confirmed` an und meldet `outcome = 'consent_confirmed'` (nicht `consent_created`). Verzweigt
+-- wird weiterhin strikt am `outcome`, nie am Zweck.
+--
+-- ── WAS HIER AUSDRÜCKLICH NICHT ENTSTEHT ────────────────────────────────────────────────────────
+-- Kein Textstand (das ist Teil 2), keine Funktion, keine Spalte, kein Grant, keine Änderung an
+-- `capture_lead`, `has_confirmed_consent`, `anonymize_lead`, `guard_anonymized_lead` oder
+-- `get_my_partner`. Und ausdrücklich KEINE Aufbewahrungs-Sonderregel: Diese Einwilligung folgt der
+-- Frist ihres Leads (B4-1) wie jede andere.
+
+-- ═════════════════════════════════════════════════════════════════════════════════════════════════
+-- Der Wert
+-- ═════════════════════════════════════════════════════════════════════════════════════════════════
+-- ── ZUR BENENNUNG ───────────────────────────────────────────────────────────────────────────────
+-- Englisch wie die drei bestehenden Werte. „disclosure" (Offenlegung) und nicht „sharing" oder
+-- „referral": Was hier erlaubt wird, ist nicht die EMPFEHLUNG (die ist bereits geschehen und steckt
+-- in `leads.partner_slug`), sondern dass COOLiN dem Fachbetrieb OFFENLEGT, wer sich gemeldet hat.
+-- Ein Name, der die Empfehlung beschreibt, liesse die Einwilligung wie eine Formalie zur
+-- Attribution aussehen — sie ist aber die einzige Rechtsgrundlage einer Datenweitergabe.
+alter type platform.consent_purpose add value 'partner_lead_disclosure';
