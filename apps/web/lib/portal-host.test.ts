@@ -115,6 +115,10 @@ describe('isPortalPath — was auf dem Portal-Host bleibt', () => {
         // fremder Personen — die Aufnahme hier ist genau die bewusste Entscheidung, für die dieser
         // Pin da ist. Die Seite dahinter prüft die Sitzung selbst (s. weiter unten).
         '/leads',
+        // B18-4: der vierte Reiter. Auf der Subdomain erreichbar; er zeigt den Kalkulator selbst,
+        // sobald der Zugang besteht, und davor das Anfrageformular. Die Seite dahinter prüft die
+        // Sitzung UND das Entitlement selbst (s. weiter unten).
+        '/kalkulator',
         '/anmelden',
         '/konto',
         '/partner-aktivieren',
@@ -713,6 +717,7 @@ describe('die Ableitung hat genau einen Fundort und einen Aufrufer', () => {
     walk(path.resolve(import.meta.dirname, '..', 'components'))
 
     expect(consumers.map((file) => path.relative(appDir, file)).sort()).toEqual([
+      'portal/kalkulator/page.tsx',
       'portal/leads/page.tsx',
       'portal/marketing/page.tsx',
       'portal/page.tsx',

@@ -96,6 +96,22 @@ export const PORTAL_MARKETING_PATH = '/marketing'
 export const PORTAL_LEADS_PATH = '/leads'
 
 /**
+ * Der vierte Reiter des Portalbereichs (B18-4) — der Peak-Shaving-Kalkulator: Beschreibung und
+ * Anfrage, solange kein Zugang besteht, danach das Werkzeug selbst.
+ *
+ * Dieselbe Namensregel wie `/marketing` und `/leads`: kurz, ohne Bereichspräfix, weil die Domain
+ * die Bedeutung bereits trägt. „kalkulator" und nicht „calculator", weil dieses eine Wort auf
+ * coolin.at durchgehend deutsch geführt wird (`/peak-shaving/kalkulator`) — es ist der Produktname,
+ * nicht ein Strukturbegriff wie „leads"; ihn hier zu übersetzen hiesse, für dasselbe Produkt zwei
+ * Adressen zu haben.
+ *
+ * ⚠ Wer hier später eine öffentliche Seite `/kalkulator` auf coolin.at anlegt, verschattet sie auf
+ * dem Portal-Host — dieselbe Kollision und dieselbe bewusste Nicht-Abfangung wie bei `/marketing`
+ * und `/leads`.
+ */
+export const PORTAL_KALKULATOR_PATH = '/kalkulator'
+
+/**
  * Die eigenen Seiten des Portalbereichs, wie sie AUF DEM PORTAL-HOST adressiert sind (B18-3).
  *
  * Die Wurzel ist „Allgemein" (Stammdaten des Betriebs), `/marketing` der zweite Reiter. Sie stehen
@@ -111,6 +127,7 @@ export const PORTAL_AREA_PATHS: readonly string[] = [
   PORTAL_HOST_ROOT,
   PORTAL_MARKETING_PATH,
   PORTAL_LEADS_PATH,
+  PORTAL_KALKULATOR_PATH,
 ]
 
 /**
