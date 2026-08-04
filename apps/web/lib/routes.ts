@@ -41,7 +41,6 @@ import { LEAD_HREFS } from './leads/config'
 import { PARTNER_ROUTE_TEMPLATE } from './leads/partner'
 import { PARTNER_BEWERBUNG_HREF } from './partner-application/config'
 import { PARTNER_AKTIVIEREN_HREF, PARTNER_PORTAL_HREF } from './partner-portal/config'
-import { PORTAL_ROOT_RENDER_PATH } from './portal-host'
 
 export type SiteRoute = {
   /** Der Pfad OHNE Locale-Präfix — dasselbe, was `Link`/`pageAlternates` bekommen. */
@@ -273,21 +272,20 @@ const DYNAMIC_TEMPLATES = [
   PARTNER_ROUTE_TEMPLATE,
 ]
 
-/**
- * Routen, die es auf der Platte GIBT, die aber von aussen auf keinem Host erreichbar sind — reine
- * Ziele eines internen Rewrites (B18-1a-Nachbesserung).
+/*
+ * ── WO DER PORTALBEREICH GEBLIEBEN IST (B18-1a-Nachbesserung → B18-3) ──────────────────────────
+ * Hier stand bis B18-3 eine Liste `INTERNAL_REWRITE_TARGETS` mit dem internen Rewrite-Ziel des
+ * Portal-Hosts: Es lag als echte Route unter `app/(site)/[locale]/`, der Abgleich unten fand es auf
+ * der Platte, und ohne Ausnahmeeintrag hätte er es als „Seite ohne Eintrag" gemeldet — die einzig
+ * naheliegende Reparatur wäre gewesen, es in `SITE_ROUTES` und damit in die sitemap zu nehmen.
  *
- * Sie stehen ausdrücklich NICHT in `SITE_ROUTES`, und das ist die Aussage dieser Liste: Was hier
- * steht, kann per Konstruktion in keine sitemap geraten — es gibt für diese Pfade keinen
- * `SiteRoute`-Eintrag, aus dem einer entstehen könnte. Ein `indexable: false` wäre die schwächere
- * Fassung derselben Absicht: Es hielte den Pfad zwar aus der sitemap, machte ihn aber zu einer
- * Route, die die Anwendung als eine ihrer eigenen Adressen führt.
- *
- * Der Abgleich unten muss sie trotzdem kennen — sonst meldete er sie als „Seite ohne Eintrag", und
- * die einzig naheliegende Reparatur wäre, sie in `SITE_ROUTES` aufzunehmen. Genau das soll nicht
- * passieren, deshalb steht sie hier mit dieser Begründung statt dort ohne.
+ * Mit B18-3 liegt der Portalbereich unter `app/portal/**`, also AUSSERHALB von `PAGES_DIR`. Der
+ * Abgleich sieht ihn dadurch gar nicht mehr, und die Liste ist ersatzlos entfallen. **Das ist die
+ * STÄRKERE Zusage, nicht der Verzicht auf eine Prüfung:** Vorher stand die Unerreichbarkeit in
+ * einer gepflegten Ausnahmeliste, jetzt in der Ablage — es gibt keinen `SiteRoute`-Eintrag, aus dem
+ * ein sitemap-Eintrag entstehen könnte, und nichts, das jemand versehentlich ergänzen müsste.
+ * Ein Test in `lib/portal-host.test.ts` hält beides fest.
  */
-const INTERNAL_REWRITE_TARGETS = [PORTAL_ROOT_RENDER_PATH]
 
 /** Alle `page.tsx` unter `dir` als Routen-Pfade („/", „/wissen/[slug]", …). */
 function walkPages(dir: string, prefix = ''): string[] {
@@ -319,14 +317,6 @@ export function assertRoutesMatchDisk(): void {
     if (!onDisk.delete(template)) {
       throw new Error(
         `lib/routes.ts: DYNAMIC_TEMPLATES nennt "${template}", aber unter app/(site)/[locale] liegt keine solche Route.`,
-      )
-    }
-  }
-
-  for (const target of INTERNAL_REWRITE_TARGETS) {
-    if (!onDisk.delete(target)) {
-      throw new Error(
-        `lib/routes.ts: INTERNAL_REWRITE_TARGETS nennt "${target}", aber unter app/(site)/[locale] liegt keine solche Route — der interne Rewrite in middleware.ts liefe damit ins Leere.`,
       )
     }
   }

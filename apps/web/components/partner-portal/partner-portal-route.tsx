@@ -1,10 +1,7 @@
 import { PartnerPortalPage } from '@/components/partner-portal/partner-portal-page'
 import { ANMELDEN_HREF, NEXT_PARAM } from '@/lib/auth/config'
 import { redirectToLocalized } from '@/lib/auth/server-helpers'
-import { partnerHref } from '@/lib/leads/partner'
-import { readMyPartner } from '@/lib/partner-portal/portal'
-import { absoluteUrl } from '@/lib/site'
-import { createClient } from '@/lib/supabase/server'
+import { readPortal } from '@/lib/partner-portal/read'
 
 /**
  * DER PORTALBEREICH — EINE Fassung, zwei Adressen (B18-1a-Nachbesserung).
@@ -38,33 +35,17 @@ export async function PartnerPortalRoute({
   locale: string
   signInNext: string
 }) {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  /*
+   * Sitzung und Partnerzeile kommen seit B18-3 aus `readPortal` (`lib/partner-portal/read.ts`) —
+   * demselben Leseweg, den der Portalbereich auf `partner.coolin.at` benutzt. Diese Route ist davon
+   * im VERHALTEN unberührt: Sie leitet weiterhin selbst um, mit ihrem eigenen Rücksprungziel.
+   */
+  const portal = await readPortal()
 
   // Serverseitig, BEVOR irgendetwas gerendert oder ausgeliefert wird (Invariante J6).
-  if (!user) {
+  if (!portal) {
     redirectToLocalized(ANMELDEN_HREF, locale, { [NEXT_PARAM]: signInNext })
   }
 
-  const { data, error } = await supabase.rpc('get_my_partner')
-  if (error) console.error('[partner-portal] get_my_partner:', error)
-
-  const state = readMyPartner(data, error)
-
-  /*
-   * Der vollständige Link entsteht SERVERSEITIG aus `absoluteUrl` — es gibt in dieser App genau
-   * eine Basis-URL (`lib/site.ts`). Im Browser aus `window.location.origin` zusammengesetzt trüge
-   * er auf einer Preview-Domain eine Adresse, die ein Fachbetrieb an hunderte Bestandskunden
-   * verschickt und die in Wochen ins Leere zeigt. Dieselbe Begründung wie im Admin-Bereich (B16-2).
-   *
-   * ⚠ AUF DEM PORTAL-HOST GILT DASSELBE, und das ist Absicht: Der Empfehlungslink zeigt auf die
-   * Landingpage `/partner/<slug>` — die liegt auf der HAUPTDOMAIN und wird auf dem Portal-Host per
-   * 308 weggeleitet. Ein relativ gebildeter Link trüge hier also die falsche Adresse.
-   */
-  const referralUrl =
-    state.state === 'partner' ? absoluteUrl(partnerHref(state.partner.slug)) : null
-
-  return <PartnerPortalPage state={state} referralUrl={referralUrl} />
+  return <PartnerPortalPage state={portal.state} referralUrl={portal.referralUrl} />
 }

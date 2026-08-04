@@ -6,19 +6,22 @@ import { AUTH_HREFS } from './auth/config'
 import { activationUrlFor } from './partner-portal/activation-url'
 import { PARTNER_AKTIVIEREN_HREF, PARTNER_PORTAL_HREF } from './partner-portal/config'
 import {
+  PORTAL_AREA_PATHS,
   PORTAL_HOST,
   PORTAL_HOST_PATHS,
   PORTAL_HOST_ROOT,
-  PORTAL_ROOT_RENDER_PATH,
+  PORTAL_MARKETING_PATH,
+  PORTAL_RENDER_ROOT,
   isPortalHost,
   isPortalHostRequest,
-  isPortalHostRoot,
   isPortalPath,
-  isPortalRootRenderPath,
+  isPortalRenderPath,
   leavesPortalHost,
   portalAbsoluteUrl,
   portalEntryUrl,
+  portalRenderPath,
 } from './portal-host'
+import { PORTAL_NAV_ITEMS } from './partner-portal/nav'
 import { IS_PRODUCTION_SITE, SITE_URL } from './site'
 import { SITE_ROUTES } from './routes'
 
@@ -107,6 +110,7 @@ describe('isPortalPath — was auf dem Portal-Host bleibt', () => {
     expect([...PORTAL_HOST_PATHS].sort()).toEqual(
       [
         '/',
+        '/marketing',
         '/anmelden',
         '/konto',
         '/partner-aktivieren',
@@ -117,6 +121,8 @@ describe('isPortalPath — was auf dem Portal-Host bleibt', () => {
       ].sort(),
     )
     expect(PORTAL_HOST_PATHS).toContain(PORTAL_HOST_ROOT)
+    // B18-3: die eigenen Reiter des Portalbereichs kommen ABGELEITET dazu, nicht abgetippt.
+    for (const area of PORTAL_AREA_PATHS) expect(PORTAL_HOST_PATHS).toContain(area)
     expect(PORTAL_HOST_PATHS).toContain(PARTNER_PORTAL_HREF)
     /*
      * ⚠ B18-2a: Der Aktivierungslink aus der Freischaltungsmail zeigt auf DIESEN Host. Fiele die
@@ -147,6 +153,28 @@ describe('isPortalPath — was auf dem Portal-Host bleibt', () => {
      * gültige Anfrage-Adresse und wäre mit einer naiven `startsWith`-Fassung ein Portalpfad.
      */
     for (const pathname of ['//admin', '//leistungen', '//']) {
+      expect(isPortalPath(pathname), pathname).toBe(false)
+    }
+  })
+
+  /*
+   * B18-3: Der zweite Reiter ist eine Adresse AUF DEM PORTAL-HOST. Fiele er unter die 308-Weiche,
+   * schickte sie einen angemeldeten Fachbetrieb mitten aus seinem Portal auf `coolin.at/marketing`
+   * — eine Seite, die es dort nicht gibt.
+   */
+  it('lässt den Marketing-Reiter durch, mit und ohne Locale-Präfix', () => {
+    expect(isPortalPath(PORTAL_MARKETING_PATH)).toBe(true)
+    expect(isPortalPath(`/de${PORTAL_MARKETING_PATH}`)).toBe(true)
+  })
+
+  it('nimmt die Reiter EXAKT — Unterpfade und Namensverwandte sind keine Portalpfade', () => {
+    /*
+     * Anders als `/partner-portal` (das Unterpfade führen darf) werden die Reiter über
+     * `portalRenderPath` EXAKT auf den internen Baum abgebildet. Ein `/marketing/xyz` hat dort kein
+     * Ziel; ihn auf dem Host zu behalten hiesse, eine Adresse anzubieten, die nur die 404 der
+     * Anwendung erreichen kann.
+     */
+    for (const pathname of ['/marketing/', '/marketing/vorlagen', '/marketing-fremd']) {
       expect(isPortalPath(pathname), pathname).toBe(false)
     }
   })
@@ -331,7 +359,9 @@ describe('leavesPortalHost — nur Portal-Host UND Nicht-Portal-Pfad', () => {
  */
 describe('jeder Pfad auf dem Portal-Host ist bereits nicht indexierbar', () => {
   it('steht in lib/routes.ts und dort auf indexable: false', () => {
-    for (const pathname of PORTAL_HOST_PATHS.filter((path) => path !== PORTAL_HOST_ROOT)) {
+    for (const pathname of PORTAL_HOST_PATHS.filter(
+      (path) => !PORTAL_AREA_PATHS.includes(path),
+    )) {
       const route = SITE_ROUTES.find((entry) => entry.href === pathname)
       expect(route, `${pathname} fehlt in SITE_ROUTES`).toBeDefined()
       expect(route?.indexable, pathname).toBe(false)
@@ -339,87 +369,132 @@ describe('jeder Pfad auf dem Portal-Host ist bereits nicht indexierbar', () => {
   })
 
   /*
-   * ⚠ DIE WURZEL IST DIE EINE AUSNAHME, UND SIE IST KEINE LÜCKE. `/` ist auf der Hauptdomain die
-   * Marketing-Startseite und dort selbstverständlich indexierbar — dieselbe Route, zwei Hosts, zwei
-   * Bedeutungen. Was auf dem Portal-Host unter `/` ausgeliefert wird, ist NICHT dieser Eintrag,
-   * sondern `PORTAL_ROOT_RENDER_PATH`; dessen `noindex` wird unten am Quelltext festgehalten.
-   * Zusätzlich steht der gesamte Portal-Host in `app/robots.ts` auf `Disallow: /`.
+   * ⚠ DIE EIGENEN SEITEN DES PORTALS SIND DIE AUSNAHME, UND SIE SIND KEINE LÜCKE. `/` ist auf der
+   * Hauptdomain die Marketing-Startseite und dort selbstverständlich indexierbar — dieselbe Route,
+   * zwei Hosts, zwei Bedeutungen; `/marketing` gibt es auf der Hauptdomain gar nicht. Was auf dem
+   * Portal-Host ausgeliefert wird, ist NICHT der `/`-Eintrag, sondern der Baum unter
+   * `PORTAL_RENDER_ROOT`; dessen `noindex` wird unten am Quelltext festgehalten. Zusätzlich steht
+   * der gesamte Portal-Host in `app/robots.ts` auf `Disallow: /`.
    */
   it('die Wurzel ist auf der Hauptdomain weiterhin indexierbar', () => {
     const route = SITE_ROUTES.find((entry) => entry.href === PORTAL_HOST_ROOT)
     expect(route).toBeDefined()
     expect(route?.indexable).toBe(true)
   })
+
+  it('der Marketing-Reiter ist auf der Hauptdomain gar keine Route', () => {
+    expect(SITE_ROUTES.find((entry) => entry.href === PORTAL_MARKETING_PATH)).toBeUndefined()
+  })
 })
 
-/* ─── Die Wurzel des Portal-Hosts und ihr internes Rewrite-Ziel ──────────────────────────────── */
+/* ─── Die Adressen des Portalbereichs und ihr interner Render-Baum ───────────────────────────── */
 
-describe('isPortalHostRoot — nur das exakte „/"', () => {
-  it('erkennt die Wurzel', () => {
-    expect(isPortalHostRoot('/')).toBe(true)
+describe('portalRenderPath — die Abbildung Adresse → interner Baum', () => {
+  it('bildet die Wurzel auf den Baum selbst ab, den Reiter auf ein Kindsegment', () => {
+    expect(portalRenderPath(PORTAL_HOST_ROOT)).toBe(PORTAL_RENDER_ROOT)
+    expect(portalRenderPath(PORTAL_MARKETING_PATH)).toBe(`${PORTAL_RENDER_ROOT}/marketing`)
+  })
+
+  it('deckt JEDE Adresse des Bereichs ab — sonst liefe ein Reiter in die 308-Weiche', () => {
+    // Ohne diese Prüfung wäre ein neuer Eintrag in `PORTAL_AREA_PATHS` ohne Abbildung ein Reiter,
+    // der auf dem Portal-Host sichtbar ist und beim Klick auf coolin.at landet.
+    for (const area of PORTAL_AREA_PATHS) {
+      expect(portalRenderPath(area), area).toBeTruthy()
+    }
   })
 
   /*
-   * `/de` gehört bewusst NICHT dazu: die präfixte Fassung der Default-Locale beantwortet next-intl
-   * seit jeher selbst (`as-needed` leitet sie auf `/` um), und diese Zuständigkeit soll nicht in
-   * zwei Hände fallen. Für den Aufrufer sieht beides gleich aus — `/de` landet nach der Umleitung
-   * auf `/` und damit im Portal; `isPortalPath('/de')` hält die Umleitung dafür AUF dem Host.
+   * `/de` und `/de/marketing` gehören bewusst NICHT dazu: die präfixte Fassung der Default-Locale
+   * beantwortet next-intl seit jeher selbst (`as-needed` leitet sie auf die präfixlose um), und
+   * diese Zuständigkeit soll nicht in zwei Hände fallen. Für den Aufrufer sieht beides gleich aus;
+   * `isPortalPath` hält die Umleitung dafür AUF dem Host.
    */
   it('fasst die locale-präfixte Fassung nicht an — die gehört next-intl', () => {
-    for (const pathname of ['/de', '/de/', '/leistungen', '/anmelden', '']) {
-      expect(isPortalHostRoot(pathname), pathname).toBe(false)
+    for (const pathname of ['/de', '/de/', '/de/marketing', '/leistungen', '/anmelden', '']) {
+      expect(portalRenderPath(pathname), pathname).toBeNull()
     }
     expect(isPortalPath('/de')).toBe(true)
+    expect(isPortalPath('/de/marketing')).toBe(true)
+  })
+
+  it('bildet Namensverwandte und Unterpfade NICHT ab', () => {
+    for (const pathname of ['/marketing/', '/marketing/vorlagen', '/marketing-fremd', '//']) {
+      expect(portalRenderPath(pathname), pathname).toBeNull()
+    }
+  })
+
+  /*
+   * ⚠ DIE REITER DER NAVIGATION MÜSSEN DIE ADRESSEN AUF DEM PORTAL-HOST TRAGEN, nie die
+   * Render-Pfade: Ein Link auf den Render-Baum liefe in den 404-Wächter. Der Reiter wäre sichtbar,
+   * und der Klick endete auf einer leeren Seite — ein Fehler, den kein Build zeigt.
+   */
+  it('jeder Navigationspunkt ist eine Adresse des Bereichs', () => {
+    for (const item of PORTAL_NAV_ITEMS) {
+      expect(PORTAL_AREA_PATHS, item.href).toContain(item.href)
+      expect(isPortalRenderPath(item.href), item.href).toBe(false)
+    }
+    expect(PORTAL_NAV_ITEMS.map((item) => item.href)).toEqual([...PORTAL_AREA_PATHS])
   })
 })
 
-describe('isPortalRootRenderPath — das interne Ziel, von aussen tabu', () => {
-  it('erkennt es mit und ohne Locale-Präfix und alles darunter', () => {
+describe('isPortalRenderPath — der interne Baum, von aussen tabu', () => {
+  it('erkennt ihn mit und ohne Locale-Präfix und alles darunter', () => {
     for (const pathname of [
-      PORTAL_ROOT_RENDER_PATH,
-      `${PORTAL_ROOT_RENDER_PATH}/`,
-      `${PORTAL_ROOT_RENDER_PATH}/tiefer`,
-      `/de${PORTAL_ROOT_RENDER_PATH}`,
-      `/de${PORTAL_ROOT_RENDER_PATH}/tiefer`,
+      PORTAL_RENDER_ROOT,
+      `${PORTAL_RENDER_ROOT}/`,
+      `${PORTAL_RENDER_ROOT}/marketing`,
+      `${PORTAL_RENDER_ROOT}/tiefer`,
+      `/de${PORTAL_RENDER_ROOT}`,
+      `/de${PORTAL_RENDER_ROOT}/marketing`,
     ]) {
-      expect(isPortalRootRenderPath(pathname), pathname).toBe(true)
+      expect(isPortalRenderPath(pathname), pathname).toBe(true)
     }
   })
 
   it('fällt nicht auf Namensverwandte herein', () => {
     // Sie bekommen die gewöhnliche 404 der Anwendung, keine Sonderbehandlung.
-    for (const pathname of [`${PORTAL_ROOT_RENDER_PATH}-fremd`, '/portal-host', '/', '/wurzel']) {
-      expect(isPortalRootRenderPath(pathname), pathname).toBe(false)
+    for (const pathname of [`${PORTAL_RENDER_ROOT}-fremd`, '/portal-host', '/', '/marketing']) {
+      expect(isPortalRenderPath(pathname), pathname).toBe(false)
     }
   })
 
   it('ist KEIN Portalpfad — der Wächter entscheidet vor der Weiche, nicht die Liste', () => {
     /*
      * Die Unerreichbarkeit hängt am Wächter in `middleware.ts`, der VOR der 308-Weiche steht. Stünde
-     * das Ziel stattdessen in `PORTAL_HOST_PATHS`, wäre es auf dem Portal-Host direkt aufrufbar —
+     * der Baum stattdessen in `PORTAL_HOST_PATHS`, wäre er auf dem Portal-Host direkt aufrufbar —
      * genau das Gegenteil der Auflage.
      */
-    expect(PORTAL_HOST_PATHS).not.toContain(PORTAL_ROOT_RENDER_PATH)
-    expect(isPortalPath(PORTAL_ROOT_RENDER_PATH)).toBe(false)
+    expect(PORTAL_HOST_PATHS).not.toContain(PORTAL_RENDER_ROOT)
+    expect(isPortalPath(PORTAL_RENDER_ROOT)).toBe(false)
+    expect(isPortalPath(`${PORTAL_RENDER_ROOT}/marketing`)).toBe(false)
   })
 
   it('steht in KEINER SiteRoute und kann damit in keine sitemap geraten', () => {
-    expect(SITE_ROUTES.find((entry) => entry.href === PORTAL_ROOT_RENDER_PATH)).toBeUndefined()
+    /*
+     * Seit B18-3 ist das eine Eigenschaft der ABLAGE, nicht einer gepflegten Ausnahmeliste: Der Baum
+     * liegt unter `app/portal/**` und damit ausserhalb des Verzeichnisses, das `assertRoutesMatchDisk`
+     * liest. Es gibt keinen `SiteRoute`-Eintrag, aus dem ein sitemap-Eintrag entstehen könnte.
+     */
+    for (const route of SITE_ROUTES) {
+      expect(isPortalRenderPath(route.href), route.href).toBe(false)
+    }
   })
 })
 
 /*
- * ⚠ STOLPERDRAHT FÜR DIE ZWEITE SPRACHE. Der Rewrite in `middleware.ts` setzt das Locale-Präfix aus
- * `routing.defaultLocale`, statt es auszuhandeln — solange es genau EINE Locale gibt, ist das
- * dasselbe Ergebnis, das next-intl liefern würde. Kommt eine zweite dazu, ist das eine Entscheidung
- * und keine Kleinigkeit: Sie soll hier auffallen und nicht als „Portal spricht immer Deutsch" im
- * Betrieb.
+ * ⚠ STOLPERDRAHT FÜR DIE ZWEITE SPRACHE. Der Portalbereich liegt AUSSERHALB der Sprach-Struktur
+ * (wie `/admin`) und rendert unter `routing.defaultLocale`; seine Adressen werden EXAKT auf den
+ * internen Baum abgebildet, ohne Locale-Behandlung. Das ist richtig, solange es genau EINE Locale
+ * gibt: `/de/marketing` leitet next-intl von sich aus auf `/marketing` um. Mit einer zweiten Sprache
+ * gilt das nicht mehr — `/en/marketing` behielte sein Präfix, liefe an der Abbildung vorbei und
+ * endete in der 404 der Anwendung. Das ist eine Entscheidung und keine Kleinigkeit: Sie soll hier
+ * auffallen und nicht als „Portal spricht immer Deutsch" im Betrieb.
  */
 describe('die Abkürzung im Rewrite gilt nur für eine einzige Locale', () => {
   it('bricht laut, sobald eine zweite Sprache dazukommt', () => {
     expect(
       routing.locales.length,
-      'Zweite Locale erkannt: der Rewrite der Portal-Host-Wurzel in middleware.ts nimmt routing.defaultLocale. Vor dem Erweitern von routing.locales entscheiden, wie die Locale dort ausgehandelt wird.',
+      'Zweite Locale erkannt: der Portalbereich (middleware.ts, portalRenderPath) bildet seine Adressen ohne Locale-Behandlung ab und rendert unter routing.defaultLocale. Vor dem Erweitern von routing.locales entscheiden, welche Sprache ein angemeldeter Bereich zeigt und wie /<locale>/marketing behandelt wird.',
     ).toBe(1)
   })
 })
@@ -472,14 +547,14 @@ describe('die Ableitung hat genau einen Fundort und einen Aufrufer', () => {
    * dann auf dem Portal-Host in einem Location-Header nach coolin.at und würde dort gerendert.
    * Deshalb wird die Position am Quelltext festgehalten.
    */
-  it('der Wächter über das Rewrite-Ziel steht VOR der 308-Weiche', () => {
+  it('der Wächter über den Render-Baum steht VOR der 308-Weiche', () => {
     const middleware = stripComments(read('middleware.ts'))
-    const guard = middleware.indexOf('isPortalRootRenderPath(')
-    const rewrite = middleware.indexOf('isPortalHostRoot(')
+    const guard = middleware.indexOf('isPortalRenderPath(')
+    const rewrite = middleware.indexOf('portalRenderPath(')
     const weiche = middleware.indexOf('leavesPortalHost(')
 
-    expect(guard, 'middleware.ts ruft isPortalRootRenderPath nicht auf').toBeGreaterThan(-1)
-    expect(rewrite, 'middleware.ts ruft isPortalHostRoot nicht auf').toBeGreaterThan(-1)
+    expect(guard, 'middleware.ts ruft isPortalRenderPath nicht auf').toBeGreaterThan(-1)
+    expect(rewrite, 'middleware.ts ruft portalRenderPath nicht auf').toBeGreaterThan(-1)
     expect(guard).toBeLessThan(rewrite)
     expect(rewrite).toBeLessThan(weiche)
   })
@@ -488,7 +563,7 @@ describe('die Ableitung hat genau einen Fundort und einen Aufrufer', () => {
     // Ein Redirect schriebe den internen Pfad in die Adresszeile — genau das ist ausgeschlossen.
     const middleware = stripComments(read('middleware.ts'))
     const branch = middleware.slice(
-      middleware.indexOf('isPortalHostRoot('),
+      middleware.indexOf('portalRenderPath('),
       middleware.indexOf('leavesPortalHost('),
     )
     expect(branch).toMatch(/NextResponse\.rewrite\(/)
@@ -497,39 +572,145 @@ describe('die Ableitung hat genau einen Fundort und einen Aufrufer', () => {
     expect(branch).toMatch(/updateSession\(request, NextResponse\.rewrite\(/)
   })
 
-  it('das Rewrite-Ziel liegt als echte Route auf der Platte und ist nirgends verlinkt', () => {
-    const page = read(`app/(site)/[locale]${PORTAL_ROOT_RENDER_PATH}/page.tsx`)
-    // Es rendert den geteilten Portalbereich — keine zweite Fassung davon.
-    expect(stripComments(page)).toMatch(/PartnerPortalRoute/)
-    // Und es trifft die noindex-Entscheidung nicht selbst, sondern erbt sie vom Portalbereich.
-    expect(stripComments(page)).toMatch(/robotsFor\(PARTNER_PORTAL_HREF\)/)
+  /*
+   * ⚠ B18-3: Der Render-Baum liegt AUSSERHALB von `app/(site)/[locale]/`. Das ist keine
+   * Ablage-Vorliebe, sondern der Grund, warum er in keine sitemap geraten kann (der Abgleich in
+   * `lib/routes.ts` liest nur jenes Verzeichnis) und warum er den öffentlichen Website-Header nicht
+   * mehr trägt. Zöge ihn jemand zurück, wäre beides still wieder da.
+   */
+  it('der Render-Baum liegt unter app/portal/ und nicht in der Sprach-Struktur', () => {
+    const dir = path.resolve(import.meta.dirname, '..', 'app', PORTAL_RENDER_ROOT.slice(1))
+    expect(fs.existsSync(path.join(dir, 'layout.tsx')), 'app/portal/layout.tsx fehlt').toBe(true)
+    expect(fs.existsSync(path.join(dir, 'page.tsx')), 'app/portal/page.tsx fehlt').toBe(true)
+    expect(
+      fs.existsSync(path.resolve(import.meta.dirname, '..', 'app', '(site)', '[locale]', 'portal')),
+      'der Portalbereich darf nicht in der Sprach-Struktur liegen',
+    ).toBe(false)
   })
 
-  it('beide Portal-Routen benutzen DIESELBE Fassung des Portalbereichs', () => {
-    for (const file of [
-      `app/(site)/[locale]${PORTAL_ROOT_RENDER_PATH}/page.tsx`,
-      `app/(site)/[locale]${PARTNER_PORTAL_HREF}/page.tsx`,
-    ]) {
-      const source = stripComments(read(file))
-      expect(source, file).toMatch(/from '@\/components\/partner-portal\/partner-portal-route'/)
+  /**
+   * Jede Adresse des Bereichs hat eine Datei, und jede Datei liegt an ihrer Adresse. Ohne die zweite
+   * Richtung wäre ein umbenannter Ordner ein Reiter, der auf eine 404 zeigt — der Build bliebe grün.
+   */
+  it('zu jedem Reiter gibt es eine Seite unter dem Render-Baum', () => {
+    for (const area of PORTAL_AREA_PATHS) {
+      const renderPath = portalRenderPath(area)
+      expect(renderPath, area).toBeTruthy()
+      const file = path.resolve(import.meta.dirname, '..', 'app', `${renderPath!.slice(1)}/page.tsx`)
+      expect(fs.existsSync(file), `${area} → ${file}`).toBe(true)
+    }
+  })
+
+  /*
+   * ⚠ DIE ZUGANGSPRÜFUNG SITZT IN JEDER SEITE, NICHT IM LAYOUT — dieselbe Lehre wie im
+   * Admin-Bereich: Dass ein Layout `children` nicht rendert, verhindert nicht, dass Next die Seite
+   * rendert und ins Flight-Payload schreibt. Eine neue Seite ohne `readPortal` wäre ein
+   * Portalbereich ohne Anmeldung, und sie funktionierte tadellos.
+   */
+  it('jede Seite des Bereichs liest die Sitzung über den EINEN Leseweg', () => {
+    const dir = path.resolve(import.meta.dirname, '..', 'app', PORTAL_RENDER_ROOT.slice(1))
+    const pages: string[] = []
+    const walk = (current: string) => {
+      for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
+        if (entry.isDirectory()) walk(path.join(current, entry.name))
+        else if (entry.name === 'page.tsx') pages.push(path.join(current, entry.name))
+      }
+    }
+    walk(dir)
+
+    expect(pages.length, 'keine Seiten gefunden — der Test prüfte sonst nichts').toBeGreaterThan(1)
+    for (const file of pages) {
+      const source = stripComments(fs.readFileSync(file, 'utf8'))
+      expect(source, file).toMatch(/readPortal\(\)/)
       // Eine zweite, kopierte Fassung des Ablaufs würde auseinanderlaufen — sie ist hier
-      // strukturell ausgeschlossen: keine der beiden Routen liest die Sitzung selbst.
+      // strukturell ausgeschlossen: keine Seite liest die Sitzung selbst.
       expect(source, file).not.toMatch(/getUser\(/)
       expect(source, file).not.toMatch(/get_my_partner/)
     }
   })
 
+  it('die Bestandsroute benutzt DENSELBEN Leseweg und liest die Sitzung nicht selbst', () => {
+    const route = stripComments(read('components/partner-portal/partner-portal-route.tsx'))
+    expect(route).toMatch(/readPortal\(\)/)
+    expect(route).not.toMatch(/getUser\(/)
+    expect(route).not.toMatch(/get_my_partner/)
+
+    const bestand = stripComments(read(`app/(site)/[locale]${PARTNER_PORTAL_HREF}/page.tsx`))
+    expect(bestand).toMatch(/from '@\/components\/partner-portal\/partner-portal-route'/)
+  })
+
   /*
-   * Das Rücksprungziel auf dem Portal-Host ist `/` — nicht `/partner-portal`. Ein Portal-Pfad im
-   * `next`-Parameter wäre genau die Sichtbarkeit, die dieser Schritt beseitigt; und sie entstünde
-   * still, weil die Anmeldung trotzdem funktionierte.
+   * ⚠ KEIN `next`-PARAMETER ZEIGT AUF DEN RENDER-BAUM. Das Rücksprungziel ist die Adresse AUF DEM
+   * PORTAL-HOST; ein Render-Pfad dort führte nach dem Anmelden in den 404-Wächter — und zwar still,
+   * weil die Anmeldung selbst funktionierte. Geprüft über den GESAMTEN Quellbaum, nicht nur an den
+   * bekannten Stellen.
    */
-  it('die Wurzel schickt zur Anmeldung mit dem Ziel „/", die Bestandsroute mit ihrem eigenen', () => {
-    const root = stripComments(read(`app/(site)/[locale]${PORTAL_ROOT_RENDER_PATH}/page.tsx`))
-    expect(root).toMatch(/signInNext=\{PORTAL_HOST_ROOT\}/)
-    expect(root).not.toMatch(/signInNext=\{PARTNER_PORTAL_HREF\}/)
+  it('kein next-Parameter im Repo zeigt auf den Render-Baum', () => {
+    const roots = ['app', 'components', 'lib', 'messages', 'middleware.ts']
+    const offenders: string[] = []
+    const check = (file: string) => {
+      const source = stripComments(fs.readFileSync(file, 'utf8'))
+      // Die Konstanten selbst und ihre Erklärung sind erlaubt; ein NEXT_PARAM/`next=` daneben nicht.
+      for (const match of source.matchAll(/NEXT_PARAM\]:\s*([A-Za-z_.]+)/g)) {
+        if (/RENDER/.test(match[1] ?? '')) offenders.push(`${file}: ${match[0]}`)
+      }
+      if (source.includes(`next=${PORTAL_RENDER_ROOT}`)) offenders.push(`${file}: next=`)
+    }
+    const walk = (current: string) => {
+      const stat = fs.statSync(current)
+      if (stat.isFile()) {
+        if (/\.(tsx?|json)$/.test(current) && !current.endsWith('.test.ts')) check(current)
+        return
+      }
+      for (const entry of fs.readdirSync(current)) walk(path.join(current, entry))
+    }
+    for (const root of roots) walk(path.resolve(import.meta.dirname, '..', root))
+
+    expect(offenders).toEqual([])
+  })
+
+  /*
+   * Das Rücksprungziel auf dem Portal-Host ist die aufgerufene Adresse — nicht `/partner-portal`.
+   * Ein Portal-Pfad im `next`-Parameter wäre genau die Sichtbarkeit, die B18-1a beseitigt hat; und
+   * sie entstünde still, weil die Anmeldung trotzdem funktionierte.
+   */
+  it('jeder Reiter schickt zur Anmeldung mit SEINER eigenen Adresse zurück', () => {
+    const root = stripComments(read('app/portal/page.tsx'))
+    expect(root).toMatch(/NEXT_PARAM\]:\s*PORTAL_HOST_ROOT/)
+    expect(root).not.toMatch(/PARTNER_PORTAL_HREF/)
+
+    const marketing = stripComments(read('app/portal/marketing/page.tsx'))
+    expect(marketing).toMatch(/NEXT_PARAM\]:\s*PORTAL_MARKETING_PATH/)
 
     const bestand = stripComments(read(`app/(site)/[locale]${PARTNER_PORTAL_HREF}/page.tsx`))
     expect(bestand).toMatch(/signInNext=\{PARTNER_PORTAL_HREF\}/)
+  })
+
+  /*
+   * ⚠ /anmelden IST EINE GETEILTE ROUTE (öffentliche Website UND Partner-Login, je nach Host
+   * dieselbe Datei) und bekommt bewusst KEINEN Portal-Rahmen. Ihn dort zu zeigen verlangte eine
+   * Host-Prüfung im `(site)/[locale]`-Layout — genau das Muster, das B18-2 entfernt hat, weil es
+   * die gesamte Website dynamisch rendert (35 vorgerenderte Seiten wären wieder 6).
+   */
+  it('der Portal-Rahmen wird ausschliesslich aus dem Portalbereich heraus gerendert', () => {
+    const consumers: string[] = []
+    const walk = (current: string) => {
+      for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
+        const full = path.join(current, entry.name)
+        if (entry.isDirectory()) walk(full)
+        else if (/\.tsx?$/.test(entry.name) && !entry.name.endsWith('.test.ts')) {
+          const source = stripComments(fs.readFileSync(full, 'utf8'))
+          if (/from '(@\/components\/portal\/shell|\.\/shell)'/.test(source)) consumers.push(full)
+        }
+      }
+    }
+    const appDir = path.resolve(import.meta.dirname, '..', 'app')
+    walk(appDir)
+    walk(path.resolve(import.meta.dirname, '..', 'components'))
+
+    expect(consumers.map((file) => path.relative(appDir, file)).sort()).toEqual([
+      'portal/marketing/page.tsx',
+      'portal/page.tsx',
+    ])
   })
 })
