@@ -19,6 +19,8 @@ import {
   filterSearchParams,
   hasAnyFilter,
   PARTNER_ASSIGNMENTS,
+  PARTNER_TABS,
+  partnerTabParams,
   readFilters,
   type FilterParam,
 } from './lead-filters'
@@ -115,6 +117,57 @@ describe('der Partner-Zuordnungsfilter (B18-5)', () => {
     // `?partner=assigned&partner=unassigned` — welcher gälte? Keiner. Dieselbe Behandlung wie bei
     // allen übrigen Filtern (`one()` nimmt nur einfache Zeichenketten).
     expect(readFilters({ partner: ['assigned', 'unassigned'] }).partnerAssignment).toBe('')
+  })
+})
+
+describe('die Reiter über der Liste (B18-5-Oberfläche)', () => {
+  it('es gibt genau drei Reiter, und ihre Werte sind die des Filters plus der leere Zustand', () => {
+    /*
+     * Der leere Reiter ist Absicht und kein Übersehen: ohne ihn gäbe es keine Adresse mehr, unter
+     * der der GESAMTE Bestand sichtbar ist — und damit auch keine Ausfuhr über ihn, obwohl die
+     * Ausfuhr genau das seit B2-1 kann. Ein neuer Filterwert ohne Reiter (oder umgekehrt) macht
+     * diesen Test rot.
+     */
+    expect(PARTNER_TABS.map((t) => t.value)).toEqual(['', ...PARTNER_ASSIGNMENTS])
+    for (const tab of PARTNER_TABS) {
+      expect(tab.label.trim().length, `„${tab.value}" hat eine Beschriftung`).toBeGreaterThan(0)
+    }
+  })
+
+  it('ein Reiterwechsel behält ALLE übrigen Filter und tauscht nur die Zuordnung', () => {
+    /*
+     * DER KERNTEST DIESES ABSCHNITTS. Ein Reiter, der die gesetzten Filter abwirft, sähe aus wie
+     * eine Ansicht derselben Auswahl und wäre eine andere — und der Export-Link darunter übernähme
+     * die Verwechslung wortlos.
+     */
+    const filters = readFilters({ ...SAMPLE, partner: 'unassigned' })
+    const out = partnerTabParams(filters, 'assigned')
+
+    expect(out.get('partner')).toBe('assigned')
+    expect([...out.keys()].sort(), 'kein Filter geht verloren').toEqual([...FILTER_PARAMS].sort())
+    for (const param of FILTER_PARAMS) {
+      if (param === 'partner') continue
+      expect(out.get(param), `„${param}" bleibt unverändert`).toBe(SAMPLE[param])
+    }
+  })
+
+  it('der leere Reiter entfernt den Parameter, statt ihn leer zu setzen', () => {
+    const out = partnerTabParams(readFilters({ partner: 'assigned', branche: 'kuehlhaus' }), '')
+    expect(
+      out.has('partner'),
+      'ein leeres partner= wäre ein Wert, den readFilters erst wieder verwirft',
+    ).toBe(false)
+    expect(out.get('branche'), 'die übrigen Filter bleiben auch hier').toBe('kuehlhaus')
+  })
+
+  it('ein Reiterwechsel führt IMMER auf Seite 1', () => {
+    /*
+     * Der Wechsel ändert die Treffermenge; „Seite 3" der einen ist in der anderen eine andere oder
+     * gar keine. Eine mitgeschleppte Seitenzahl zeigte im besten Fall etwas Falsches und im
+     * schlechteren eine leere Tabelle, die wie „keine Treffer" aussieht.
+     */
+    const out = partnerTabParams(readFilters({ seite: '4', partner: 'assigned' }), 'unassigned')
+    expect(out.has('seite')).toBe(false)
   })
 })
 

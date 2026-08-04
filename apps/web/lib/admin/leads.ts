@@ -168,10 +168,32 @@ export type LeadListRow = LeadSegments & {
   anonymized_by: string | null
   created_at: string
   is_suppressed: boolean
+  /*
+   * B16-1: die Partner-Attribution fährt seit jeher in `admin_list_leads` mit, war hier aber nie
+   * getypt und damit von der Oberfläche aus unerreichbar. Dieselbe Trennung wie in `LeadDetailRow`:
+   * `partner_slug` ist die bestätigte Zuordnung (URTEIL), `referred_by_text` die Angabe des
+   * Interessenten (BEOBACHTUNG). Der Anzeigename steht NICHT je Zeile — er kommt aus der
+   * `partners`-Liste derselben Antwort (s. `LeadListResult.partners`).
+   */
+  partner_slug: string | null
+  referred_by_text: string | null
   consents: LeadConsentSummary[]
 }
 
 export type LeadSource = { key: string; label: string }
+
+/**
+ * Ein Fachbetrieb, wie ihn `admin_list_leads` neben den Zeilen mitliefert (B16-1).
+ *
+ * Die Liste fährt aus DEMSELBEN Grund mit wie die Einstiegspunkte: `platform.partners` ist eine
+ * Tabelle, die der Anwendungscode nicht spiegeln kann — ein neuer Fachbetrieb wäre sonst ohne
+ * Anzeigename. Deshalb braucht die Partner-Spalte KEINEN Join im Wrapper: der Slug steht an der
+ * Zeile, der Name in dieser Liste, beide aus derselben Antwort.
+ *
+ * `is_active = false` heisst „stillgelegt" — seine Leads sind weiterhin da und zugeordnet, seine
+ * Landingpage antwortet aber 404 (B16-2). Das ist ein sichtbarer Zustand, kein Ausbleiben.
+ */
+export type LeadPartner = { slug: string; display_name: string; is_active: boolean }
 
 export type LeadListResult = {
   leads: LeadListRow[]
@@ -187,6 +209,8 @@ export type LeadListResult = {
   limit: number
   offset: number
   sources: LeadSource[]
+  /** Alle Fachbetriebe (auch stillgelegte) — Nachschlagewerk für die Partner-Spalte, s. oben. */
+  partners: LeadPartner[]
 }
 
 export type LeadConsentDetail = LeadConsentSummary & {
@@ -484,6 +508,7 @@ export function readLeadList(data: unknown): LeadListResult | null {
     limit: typeof obj.limit === 'number' ? obj.limit : 50,
     offset: typeof obj.offset === 'number' ? obj.offset : 0,
     sources: Array.isArray(obj.sources) ? (obj.sources as LeadSource[]) : [],
+    partners: Array.isArray(obj.partners) ? (obj.partners as LeadPartner[]) : [],
   }
 }
 
@@ -592,6 +617,33 @@ export function meteringTypeLabel(meteringType: string): string {
 /** Herkunftsbezeichnung aus der mitgelieferten `sources`-Liste — Schlüssel als Rückfallebene. */
 export function sourceLabel(key: string, sources: LeadSource[]): string {
   return sources.find((s) => s.key === key)?.label ?? key
+}
+
+/**
+ * Anzeigename eines Fachbetriebs aus der mitgelieferten `partners`-Liste.
+ *
+ * Der SLUG ist die Rückfallebene, nicht die Anzeige: er ist zwar eindeutig und unveränderlich, aber
+ * eine Adress-Kennung („elektro-mueller"), kein Name. Ihn zu zeigen, wo ein Name verfügbar ist,
+ * verlangte vom Leser eine Übersetzung, die die Antwort schon mitbringt. Fehlt der Eintrag doch
+ * einmal (theoretisch: ein Betrieb, der zwischen den zwei Abfragen desselben Wrappers entstünde),
+ * ist der Slug die ehrlichere Auskunft als ein Gedankenstrich — er benennt die Zuordnung, die
+ * nachweislich besteht.
+ */
+export function partnerLabel(slug: string, partners: LeadPartner[]): string {
+  return partners.find((p) => p.slug === slug)?.display_name ?? slug
+}
+
+/**
+ * Vor- und Nachname als EINE Zeile, oder `null`, wenn beides fehlt.
+ *
+ * Gespeichert sind sie GETRENNT und bleiben es (die Anrede braucht den Nachnamen einzeln, s.
+ * Namens-Split) — zusammengefügt wird nur für die Anzeige, und zwar hier an einer Stelle. Ist nur
+ * eine Hälfte hinterlegt, ist das ein zulässiger Zustand (B18-3) und wird gezeigt, statt die Zeile
+ * als leer auszuweisen.
+ */
+export function contactName(lead: { first_name: string | null; last_name: string | null }) {
+  const parts = [lead.first_name, lead.last_name].map((p) => p?.trim()).filter(Boolean)
+  return parts.length > 0 ? parts.join(' ') : null
 }
 
 export const RETENTION_BASIS_LABELS: Record<string, string> = {
