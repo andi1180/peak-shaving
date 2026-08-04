@@ -5,6 +5,10 @@ import {
   type CalculatorRequestSubmission,
 } from './calculator-request'
 import { sendCalculatorRequestNotification } from './calculator-request-mail'
+import {
+  readMyCalculatorRequest,
+  type MyCalculatorRequestState,
+} from './my-calculator-request'
 
 /**
  * DER SCHREIBWEG DES FACHBETRIEBS (B18-4) — Anfrage anlegen und COOLiN benachrichtigen.
@@ -67,4 +71,30 @@ export async function submitCalculatorRequest(
   }
 
   return outcome
+}
+
+/**
+ * DER LESEWEG DES FACHBETRIEBS (B18-4, Portal-Oberfläche): die eigene, letzte Anfrage.
+ *
+ * ── WARUM ER NICHT IN `readPortal` STECKT ───────────────────────────────────────────────────────
+ * Dieselbe Begründung wie bei `readPartnerLeads` (B18-6): `readPortal` beantwortet die Frage, die
+ * JEDE Seite des Bereichs stellt, und läuft auf vier Routen. Diese Anfrage braucht genau EINE Seite
+ * — sie dort einzuhängen hiesse, bei jedem Aufruf von „Allgemein", „Marketing" und „Anfragen" eine
+ * Abfrage zu fahren, deren Ergebnis niemand ansieht.
+ *
+ * ── DIE REIHENFOLGE AUF DER SEITE IST BINDEND, ABER NICHT AUS SICHERHEITSGRÜNDEN ────────────────
+ * Der Wrapper ist an `auth.uid()` gebunden und antwortet ohne Sitzung `{status: none}` — er wäre
+ * also nicht unsicher, sondern nutzlos. Der Grund ist ein anderer: Die Seite muss zuerst wissen, ob
+ * sie überhaupt den Portal-Rahmen zeigt, und ob der Zugang womöglich schon besteht.
+ *
+ * WIRFT NICHT. Jeder Fehlschlag wird geloggt und zu `{state: 'error'}` — und `error` führt auf der
+ * Seite ausdrücklich NICHT zu einem Formular (Begründung in `my-calculator-request.ts`).
+ */
+export async function readMyCalculatorRequestState(): Promise<MyCalculatorRequestState> {
+  const supabase = await createClient()
+
+  const { data, error } = await supabase.rpc('get_my_calculator_request')
+  if (error) console.error('[calculator-request] get_my_calculator_request:', error)
+
+  return readMyCalculatorRequest(data, error)
 }

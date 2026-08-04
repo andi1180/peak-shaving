@@ -762,3 +762,156 @@ describe('B18-4 — referentielle Sicherungen', () => {
     expect(partner[0]?.user_id).toBeNull()
   })
 })
+
+// ═══════════════════════════════════════════════════════════════════════════════════════════════
+// B18-4 (Portal-Oberfläche) — public.get_my_calculator_request
+// ═══════════════════════════════════════════════════════════════════════════════════════════════
+// Der Lesepfad, den der Schema-Schritt offengelassen hatte: „meine eigene letzte Anfrage".
+//
+// ⚠ DIE GEFÄHRLICHSTE LÜCKE IST MIT GENAU EINEM FACHBETRIEB UNSICHTBAR. Fehlte die
+// `auth.uid()`-Bindung, sähe jeder Partner irgendeine Anfrage — mit einem einzigen Betrieb im
+// Bestand wäre das seine eigene, und alles sähe richtig aus. Deshalb stehen hier zwei nebeneinander,
+// und zwar in BEIDE Richtungen geprüft.
+//
+// Zweitens: „noch nie angefragt" und „kein Partnerzugang" sind VERSCHIEDENE Zustände. Aus dem einen
+// folgt ein Formular, aus dem anderen eine Erklärseite — sie zusammenzufassen zwänge die Oberfläche
+// zu raten.
+
+/** Der Weg der Portalseite: ein angemeldetes Konto liest seine eigene Anfrage. */
+async function myRequest(user: TestUser | null): Promise<Json> {
+  return runAs({ role: 'authenticated', userId: user?.id, commit: true }, async (c) => {
+    const { rows } = await c.query<{ r: Json }>(`select public.get_my_calculator_request() as r`)
+    return rows[0]!.r
+  })
+}
+
+describe('B18-4 Portal — public.get_my_calculator_request', () => {
+  it('ist authenticated-only (has_function_privilege, Arbeitsregel 5)', async () => {
+    const rows = await sql<{ role: string; can: boolean }>(
+      `select r.rolname as role,
+              has_function_privilege(r.rolname, 'public.get_my_calculator_request()', 'execute') as can
+         from unnest(array['anon','authenticated','service_role']) as r(rolname)`,
+    )
+    const can = Object.fromEntries(rows.map((r) => [r.role, r.can]))
+    expect(can).toEqual({ anon: false, authenticated: true, service_role: false })
+  })
+
+  it('hat genau eine Überladung, ist SECURITY DEFINER, stable, parameterlos', async () => {
+    const rows = await sql<{
+      n: number
+      secdef: boolean
+      volatile: string
+      nargs: number
+      config: string[] | null
+    }>(
+      `select count(*) over ()::int as n, p.prosecdef as secdef, p.provolatile as volatile,
+              p.pronargs as nargs, p.proconfig as config
+         from pg_proc p join pg_namespace ns on ns.oid = p.pronamespace
+        where ns.nspname = 'public' and p.proname = 'get_my_calculator_request'`,
+    )
+    expect(rows).toHaveLength(1)
+    expect(rows[0]).toMatchObject({ n: 1, secdef: true, volatile: 's', nargs: 0 })
+    expect(rows[0]?.config).toEqual(['search_path=""'])
+  })
+
+  it('es entsteht KEIN Tabellenrecht auf platform.calculator_requests', async () => {
+    const rows = await sql<{ n: number }>(
+      `select count(*)::int as n
+         from information_schema.role_table_grants
+        where table_schema = 'platform' and table_name = 'calculator_requests'
+          and grantee in ('anon','authenticated','service_role')`,
+    )
+    expect(rows[0]?.n).toBe(0)
+  })
+
+  it('liefert {status: none} ohne Partnerzeile, bei STILLGELEGTEM Betrieb und ohne Sitzung', async () => {
+    const ohne = await newPlainUser()
+    expect((await myRequest(ohne)).status).toBe('none')
+
+    const still = await newPlainUser()
+    await newPartner({ userId: still.id, isActive: false })
+    expect((await myRequest(still)).status).toBe('none')
+
+    expect((await myRequest(null)).status).toBe('none')
+  })
+
+  it('⚠ „noch nie angefragt" ist ok mit request=null — NICHT none', async () => {
+    const { user } = await newLinkedPartner()
+    const r = await myRequest(user)
+    expect(r.status).toBe('ok')
+    expect(r.request).toBeNull()
+  })
+
+  it('liefert die eigene OFFENE Anfrage samt Begründung und Zeitpunkt', async () => {
+    const { user } = await newLinkedPartner()
+    const req = await submit(user, 'Wir möchten zehn Bestandskunden durchrechnen.')
+
+    const r = await myRequest(user)
+    expect(r.status).toBe('ok')
+    const request = r.request as Json
+    expect(request.id).toBe(req.request_id)
+    expect(request.status).toBe('pending')
+    expect(request.message).toBe('Wir möchten zehn Bestandskunden durchrechnen.')
+    expect(request.created_at).toBeTruthy()
+    expect(request.reviewed_at).toBeNull()
+  })
+
+  it('liefert eine ABGELEHNTE Anfrage weiter — die Oberfläche muss sie benennen können', async () => {
+    const admin = await newAdmin()
+    const { user } = await newLinkedPartner()
+    const req = await submit(user, 'Erster Versuch.')
+    await decide(admin, req.request_id, 'rejected')
+
+    const request = (await myRequest(user)).request as Json
+    expect(request.status).toBe('rejected')
+    expect(request.reviewed_at).toBeTruthy()
+  })
+
+  it('liefert nach einer erneuten Einreichung die NEUESTE, nicht die alte', async () => {
+    const admin = await newAdmin()
+    const { user } = await newLinkedPartner()
+    const erste = await submit(user, 'Erster Versuch.')
+    await decide(admin, erste.request_id, 'rejected')
+    const zweite = await submit(user, 'Zweiter Versuch, mit mehr Kontext.')
+
+    const request = (await myRequest(user)).request as Json
+    expect(request.id).toBe(zweite.request_id)
+    expect(request.id).not.toBe(erste.request_id)
+    expect(request.status).toBe('pending')
+    expect(request.message).toBe('Zweiter Versuch, mit mehr Kontext.')
+  })
+
+  it('⚠ ein Partner sieht NIE die Anfrage eines anderen — beide Richtungen', async () => {
+    const a = await newLinkedPartner('ZZ Betrieb A')
+    const b = await newLinkedPartner('ZZ Betrieb B')
+    const reqA = await submit(a.user, 'Anfrage von A.')
+    const reqB = await submit(b.user, 'Anfrage von B.')
+
+    const rA = (await myRequest(a.user)).request as Json
+    const rB = (await myRequest(b.user)).request as Json
+    expect(rA.id).toBe(reqA.request_id)
+    expect(rA.message).toBe('Anfrage von A.')
+    expect(rB.id).toBe(reqB.request_id)
+    expect(rB.message).toBe('Anfrage von B.')
+  })
+
+  it('⚠ gibt weder reviewed_by noch notified_at heraus', async () => {
+    const admin = await newAdmin()
+    const { user } = await newLinkedPartner()
+    const req = await submit(user, 'Anfrage.')
+    await decide(admin, req.request_id, 'approved')
+    await markNotified(admin, req.request_id)
+
+    const request = (await myRequest(user)).request as Json
+    expect(Object.keys(request).sort()).toEqual([
+      'created_at',
+      'id',
+      'message',
+      'reviewed_at',
+      'status',
+    ])
+    // Der Vermerk existiert nachweislich — er wird nur nicht herausgegeben.
+    const row = await readRequest(req.request_id)
+    expect(row?.notified_at).not.toBeNull()
+  })
+})
