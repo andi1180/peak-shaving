@@ -64,38 +64,95 @@ export const PORTAL_HOST = 'partner.coolin.at'
 export const PORTAL_HOST_ROOT = '/'
 
 /**
- * Die Route, die auf dem Portal-Host unter `/` GERENDERT wird — das Ziel eines rein INTERNEN
- * Rewrites, das von aussen auf KEINEM Host erreichbar ist.
+ * Der zweite Reiter des Portalbereichs (B18-3) — die Adresse, unter der ein Fachbetrieb seinen
+ * Empfehlungslink und die Textvorlagen findet.
  *
- * ── WARUM ES SIE ÜBERHAUPT GIBT ─────────────────────────────────────────────────────────────────
+ * ── ER IST EINE ADRESSE AUF DEM PORTAL-HOST, KEIN PFAD DER WEBSITE ──────────────────────────────
+ * `partner.coolin.at/marketing` — auf `coolin.at` gibt es diesen Pfad nicht und soll es nicht
+ * geben. Der Name bleibt bewusst kurz und ohne Bereichspräfix: Die Domain trägt die Bedeutung
+ * bereits (dieselbe Überlegung, aus der die Wurzel in B18-1a kein „/portal" bekommen hat).
+ *
+ * ⚠ Wer hier später eine öffentliche Seite `/marketing` auf coolin.at anlegt, verschattet sie auf
+ * dem Portal-Host — ein Fachbetrieb bekäme dort seinen Portalreiter statt der Marketingseite. Die
+ * Kollision ist am Namen erkennbar und wird nicht abgefangen; ein Präfix, das sie ausschlösse,
+ * stünde in jeder Adresszeile des Portals.
+ */
+export const PORTAL_MARKETING_PATH = '/marketing'
+
+/**
+ * Die eigenen Seiten des Portalbereichs, wie sie AUF DEM PORTAL-HOST adressiert sind (B18-3).
+ *
+ * Die Wurzel ist „Allgemein" (Stammdaten des Betriebs), `/marketing` der zweite Reiter. Sie stehen
+ * hier und nicht in `lib/partner-portal/config.ts`, weil diese Datei die Frage „welche Adressen hat
+ * der Portal-Host" beantwortet — jene die Konstanten des Portals als Produkt.
+ *
+ * Die Liste ist zugleich die Vorlage des internen Rewrites (s. `portalRenderPath`) und Teil von
+ * `PORTAL_HOST_PATHS`. Ein neuer Reiter (B18-4 Peak Shaving, B18-6 Leads) ist genau ein Eintrag
+ * hier plus eine Datei unter `app/portal/` — Weiche, Rewrite und Nav ziehen von selbst nach.
+ */
+export const PORTAL_AREA_PATHS: readonly string[] = [PORTAL_HOST_ROOT, PORTAL_MARKETING_PATH]
+
+/**
+ * Die Wurzel des Routen-Baums, unter dem der Portalbereich GERENDERT wird — das Ziel eines rein
+ * INTERNEN Rewrites, das von aussen auf KEINEM Host erreichbar ist.
+ *
+ * ── WARUM ES IHN ÜBERHAUPT GIBT ─────────────────────────────────────────────────────────────────
  * Zwei Routen können nicht denselben Pfad belegen: `app/(site)/[locale]/page.tsx` ist die
  * Marketing-Startseite und muss es bleiben. Der naheliegende Ausweg — dieselbe Datei liest den Host
  * und rendert einmal Marketing, einmal Portal — ist gemessen der teurere: Ein `headers()`-Zugriff
  * nimmt der Startseite das statische Vorrendern, und zwar auf BEIDEN Hosts. Die wichtigste Seite
  * der Website würde ab dann bei jedem Aufruf serverseitig gebaut, damit eine Subdomain mit einer
  * Handvoll Nutzern ihren Eingang bekommt. Der Rewrite hält die Kosten dort, wo der Sonderfall ist:
- * `/` auf coolin.at bleibt statisch, allein diese Route ist dynamisch.
+ * `/` auf coolin.at bleibt statisch, allein dieser Baum ist dynamisch.
+ *
+ * ── SEIT B18-3 IST ES EIN BAUM, KEINE EINZELNE SEITE ────────────────────────────────────────────
+ * Bis dahin lag hier genau eine Route (`/portal-host-wurzel`) unter `app/(site)/[locale]/`, und der
+ * Rewrite musste ihr das Locale-Präfix voranstellen. Der Portalbereich liegt jetzt als eigener
+ * Root-Layout-Baum unter `app/portal/**` — AUSSERHALB der Sprach-Struktur, dieselbe Entscheidung
+ * und dieselbe Begründung wie bei `/admin` (`lib/admin/config.ts`): ein eingeloggter Bereich ist
+ * kein Seiteninhalt, er braucht kein Locale-Präfix und keine Übersetzung. Der Rewrite baut deshalb
+ * kein Präfix mehr; die Locale setzt das Portal-Layout selbst.
  *
  * ── DIE AUFLAGE IST DIE UNSICHTBARKEIT, NICHT DER NAME ──────────────────────────────────────────
  * Der Pfad darf auf keinem Host direkt aufrufbar sein und in keiner Adresszeile, keinem
  * Location-Header, keinem `next`-Parameter und keiner sitemap auftauchen. Durchgesetzt wird das an
  * drei Stellen, und keine davon ist Disziplin:
  *
- *   1. `middleware.ts` beantwortet JEDEN eingehenden Aufruf dieses Pfades mit 404 — auf beiden
+ *   1. `middleware.ts` beantwortet JEDEN eingehenden Aufruf dieses Baums mit 404 — auf beiden
  *      Hosts, und VOR der 308-Weiche. Die Reihenfolge ist die eigentliche Entscheidung: liefe die
  *      Weiche zuerst, stünde der Pfad auf dem Portal-Host in einem Location-Header nach coolin.at,
  *      und dort würde er anschliessend gerendert. Der eigene Rewrite läuft nicht in diesen Wächter:
  *      Ein Middleware-Rewrite betritt die Middleware kein zweites Mal.
- *   2. `lib/routes.ts` führt den Pfad als internes Ziel — er steht damit in KEINER `SiteRoute` und
- *      kann per Konstruktion in keine sitemap geraten; der Abgleich mit der Platte kennt ihn und
- *      meldet ihn nicht als vergessene Seite.
- *   3. Kein `next`-Parameter zeigt je hierher: Der Anmelde-Rücksprung dieser Route ist `/`.
+ *   2. `lib/routes.ts` kann ihn per Konstruktion nicht führen: Der Abgleich mit der Platte liest
+ *      ausschliesslich `app/(site)/[locale]/`, und dort liegt der Baum nicht mehr. Er steht damit in
+ *      KEINER `SiteRoute` — eine stärkere Zusage als der frühere Ausnahmeeintrag, der ihn kannte.
+ *   3. Kein `next`-Parameter zeigt je hierher: Der Anmelde-Rücksprung ist die Adresse AUF DEM
+ *      PORTAL-HOST (`/` bzw. `/marketing`), nie der Render-Pfad.
  *
- * OFFENGELEGT: Der Name steht als Skript-Pfad im ausgelieferten HTML (`chunks/app/(site)/…`) — das
+ * OFFENGELEGT: Der Name steht als Skript-Pfad im ausgelieferten HTML (`chunks/app/portal/…`) — das
  * ist bei DATEISYSTEM-Routing unvermeidbar und gilt für jede Route dieser App. Er ist keine
  * Adresse: der Aufruf antwortet gemessen 404.
  */
-export const PORTAL_ROOT_RENDER_PATH = '/portal-host-wurzel'
+export const PORTAL_RENDER_ROOT = '/portal'
+
+/**
+ * Der Render-Pfad zu einer Adresse des Portalbereichs — oder `null`, wenn der Pfad keine ist.
+ *
+ * EXAKTER Vergleich, ohne Locale-Behandlung, und beides mit Grund: Die präfixte Fassung der
+ * Default-Locale beantwortet next-intl seit jeher selbst (`localePrefix: 'as-needed'` leitet `/de`
+ * auf `/` und `/de/marketing` auf `/marketing` um), und diese eine Zuständigkeit soll nicht in zwei
+ * Hände fallen. Für den Aufrufer sieht beides gleich aus — die präfixte Adresse landet nach einer
+ * Umleitung auf der präfixlosen und damit im Portal.
+ *
+ * ⚠ EINE ZWEITE SPRACHE MUSS HIER ENTSCHIEDEN WERDEN: `/en/marketing` würde bei `as-needed` NICHT
+ * auf `/marketing` umgeleitet (für eine Nicht-Default-Locale ist das Präfix nötig) und liefe damit
+ * an dieser Abbildung vorbei — die Anfrage bliebe auf dem Portal-Host und endete in der 404 der
+ * Anwendung. Ein Test in `lib/portal-host.test.ts` bricht laut, sobald `routing.locales` wächst.
+ */
+export function portalRenderPath(pathname: string): string | null {
+  if (!PORTAL_AREA_PATHS.includes(pathname)) return null
+  return pathname === PORTAL_HOST_ROOT ? PORTAL_RENDER_ROOT : `${PORTAL_RENDER_ROOT}${pathname}`
+}
 
 /**
  * Die Pfade, die auf dem Portal-Host BLEIBEN. Alles andere wird auf die kanonische Basis umgeleitet.
@@ -117,9 +174,10 @@ export const PORTAL_ROOT_RENDER_PATH = '/portal-host-wurzel'
  * `setNewPasswordAction` und des Auth-Callbacks. Fehlte er hier, verliesse JEDER Anmeldevorgang,
  * der sein `next` verliert, den Portal-Host.
  *
- * ── `/` GEHÖRT DAZU (B18-1a-Nachbesserung) ─────────────────────────────────────────────────────
- * Es ist der Eingang zum Portal, nicht die Marketing-Startseite — die Begründung steht bei
- * `PORTAL_HOST_ROOT`. Gerendert wird dort `PORTAL_ROOT_RENDER_PATH`.
+ * ── DIE EIGENEN SEITEN DES PORTALS KOMMEN ABGELEITET DAZU (B18-1a-Nachbesserung, B18-3) ────────
+ * `PORTAL_AREA_PATHS` führt sie an EINER Stelle; die Wurzel ist der Eingang zum Portal und nicht
+ * die Marketing-Startseite (Begründung bei `PORTAL_HOST_ROOT`). Gerendert werden sie unter
+ * `PORTAL_RENDER_ROOT`, erreicht über den internen Rewrite in `middleware.ts`.
  *
  * ── `/partner-aktivieren` GEHÖRT DAZU (B18-2a) ─────────────────────────────────────────────────
  * Der Aktivierungslink aus der Freischaltungsmail zeigt auf diesen Host, und das ist keine
@@ -134,7 +192,7 @@ export const PORTAL_ROOT_RENDER_PATH = '/portal-host-wurzel'
  * gesamte `/admin`-Bereich.
  */
 export const PORTAL_HOST_PATHS: readonly string[] = [
-  PORTAL_HOST_ROOT,
+  ...PORTAL_AREA_PATHS,
   PARTNER_PORTAL_HREF,
   PARTNER_AKTIVIEREN_HREF,
   ...AUTH_HREFS,
@@ -268,41 +326,35 @@ export function isPortalPath(pathname: string): boolean {
     (portal) =>
       path === portal ||
       /*
-       * ⚠ `/` GILT AUSSCHLIESSLICH EXAKT, NIE ALS PRÄFIX. Als Präfix hiesse „alles" — das genaue
-       * Gegenteil dessen, wofür diese Liste da ist; die Weiche wäre wirkungslos und niemandem fiele
-       * es auf, weil jeder einzelne Pfad weiterhin funktioniert. Die Bedingung ist dabei nicht
-       * bloss theoretisch: `${'/'}/` ist „//", und ein Pfad wie „//admin" ist eine gültige
-       * Anfrage-Adresse, die sonst als Portalpfad durchginge.
+       * ⚠ DIE EIGENEN SEITEN DES PORTALS GELTEN AUSSCHLIESSLICH EXAKT, NIE ALS PRÄFIX.
+       *
+       * Für `/` ist das die harte Anforderung: Als Präfix hiesse „alles" — das genaue Gegenteil
+       * dessen, wofür diese Liste da ist; die Weiche wäre wirkungslos und niemandem fiele es auf,
+       * weil jeder einzelne Pfad weiterhin funktioniert. Die Bedingung ist dabei nicht bloss
+       * theoretisch: `${'/'}/` ist „//", und ein Pfad wie „//admin" ist eine gültige Anfrage-
+       * Adresse, die sonst als Portalpfad durchginge.
+       *
+       * Für die übrigen Reiter (B18-3) ist es dieselbe Regel aus einem zweiten Grund: Ihre Adressen
+       * werden über `portalRenderPath` EXAKT auf den internen Baum abgebildet. Ein `/marketing/xyz`
+       * hat dort kein Ziel; es auf dem Host zu behalten hiesse, eine Adresse anzubieten, die
+       * anschliessend nur die 404 der Anwendung erreichen kann.
        */
-      (portal !== PORTAL_HOST_ROOT && path.startsWith(`${portal}/`)),
+      (!PORTAL_AREA_PATHS.includes(portal) && path.startsWith(`${portal}/`)),
   )
 }
 
 /**
- * Ist das die WURZEL des Portal-Hosts — also der Aufruf, der das Portal rendern soll?
+ * Zielt diese Anfrage von aussen auf den internen Render-Baum?
  *
- * Bewusst NUR das exakte `/` und ausdrücklich NICHT `/de`: Die präfixte Fassung der Default-Locale
- * beantwortet next-intl seit jeher selbst (`localePrefix: 'as-needed'` leitet sie auf `/` um), und
- * diese eine Zuständigkeit soll nicht in zwei Hände fallen. Für den Aufrufer sieht beides gleich
- * aus — `/de` landet nach einer Umleitung auf `/` und damit im Portal —, aber die Locale-Regel
- * bleibt vollständig bei next-intl.
+ * Wahr für den Pfad selbst, für seine locale-präfixte Fassung und für alles darunter — jeder
+ * Reiter des Portals liegt darunter, und ein künftiger soll nicht versehentlich erreichbar werden.
+ * Die Grenzprüfung (Gleichheit ODER Schrägstrich dahinter) ist dieselbe wie in `isPortalPath`,
+ * damit ein erfundenes `/portal-fremd` NICHT als internes Ziel gilt und ganz normal die 404 der
+ * Anwendung bekommt statt einer Sonderbehandlung.
  */
-export function isPortalHostRoot(pathname: string): boolean {
-  return pathname === PORTAL_HOST_ROOT
-}
-
-/**
- * Zielt diese Anfrage von aussen auf das interne Rewrite-Ziel?
- *
- * Wahr für den Pfad selbst, für seine locale-präfixte Fassung und für alles darunter — ein
- * künftiges Kindsegment soll nicht versehentlich erreichbar werden. Die Grenzprüfung (Gleichheit
- * ODER Schrägstrich dahinter) ist dieselbe wie in `isPortalPath`, damit ein erfundenes
- * `…-wurzel-fremd` NICHT als internes Ziel gilt und ganz normal 404 der Anwendung bekommt statt
- * einer Sonderbehandlung.
- */
-export function isPortalRootRenderPath(pathname: string): boolean {
+export function isPortalRenderPath(pathname: string): boolean {
   const path = stripLocale(pathname)
-  return path === PORTAL_ROOT_RENDER_PATH || path.startsWith(`${PORTAL_ROOT_RENDER_PATH}/`)
+  return path === PORTAL_RENDER_ROOT || path.startsWith(`${PORTAL_RENDER_ROOT}/`)
 }
 
 /**

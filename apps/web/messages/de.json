@@ -1975,6 +1975,25 @@
   "PartnerPortal": {
     "//": "ARBEITSSTAND (B16-4b): Partner-Portal und die zwei E-Mail-Vorlagen zum Kopieren. Endgueltige Formulierungen von Andreas/Martina — die Vorlagen gehen unter dem NAMEN DES PARTNERS an dessen Bestandskunden und sind vor der ersten echten Aussendung zu ersetzen. Bindende Leitplanken fuer jede Neufassung: keine Preis-, Ergebnis- oder Ersparnisversprechen, keine Zusage ueber die Bearbeitungsdauer, und COOLiN tritt als unabhaengiger Pruefer auf, nicht als Verkaeufer. Es stehen bewusst KEINE Angaben zu einzelnen Interessenten im Portal (Namen, Firmen, Anzahl, Status) — die namentliche Sicht setzt einen Einwilligungszweck voraus, den es noch nicht gibt (B16-6).",
     "metaTitle": "Partner-Portal",
+    "nav": {
+      "label": "Portalbereich",
+      "general": "Allgemein",
+      "marketing": "Marketing"
+    },
+    "shell": {
+      "badge": "Partner-Portal",
+      "signOut": "Abmelden",
+      "home": "Zur Übersicht"
+    },
+    "general": {
+      "title": "Ihr Betrieb",
+      "intro": "Diese Angaben führen wir zu Ihrem Betrieb. Sie sind die Grundlage dafür, wie Ihre Empfehlungen zugeordnet werden.",
+      "companyLabel": "Firma",
+      "contactLabel": "Ansprechperson",
+      "emailLabel": "Konto-E-Mail",
+      "sinceLabel": "Partner seit",
+      "hint": "Die Angaben pflegt COOLiN. Wenn etwas nicht stimmt oder sich geändert hat, schreiben Sie uns bitte kurz — wir ziehen es nach."
+    },
     "eyebrow": "Partner-Portal",
     "title": "Ihr Empfehlungslink",
     "intro": "Angemeldet als {company}. Über diesen Link verwiesene Anfragen sind Ihrem Betrieb zugeordnet.",

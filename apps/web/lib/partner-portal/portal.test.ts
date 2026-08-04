@@ -144,11 +144,17 @@ describe('readMyPartner — die drei mit B18-3 ergänzten Felder', () => {
 /**
  * ⚠ DIE MARKETING-SEITE DARF DIE NEUEN FELDER NICHT MITFÜHREN (B18-3, Punkt 4).
  *
- * `partner-portal-page.tsx` ist eine Server-Komponente. Was sie liest, kann im ausgelieferten HTML
- * bzw. im Flight-Payload landen, sobald es durch eine Komponentengrenze wandert — auch dann, wenn
- * niemand es rendert. Die drei Felder sind für die kommende „Allgemein"-Seite gedacht, nicht für
- * diese; sie hier beiläufig mitzunehmen wäre genau die Art Ausweitung, die niemandem auffällt, weil
- * die Seite danach unverändert aussieht.
+ * Diese Dateien sind Server-Komponenten. Was sie lesen, kann im ausgelieferten HTML bzw. im
+ * Flight-Payload landen, sobald es durch eine Komponentengrenze wandert — auch dann, wenn niemand es
+ * rendert. Die drei Felder gehören dem Reiter „Allgemein" (`components/portal/general-panel.tsx`,
+ * B18-3-Oberfläche), nicht dem Marketing-Inhalt; sie hier beiläufig mitzunehmen wäre genau die Art
+ * Ausweitung, die niemandem auffällt, weil die Seite danach unverändert aussieht.
+ *
+ * ── MIT DER B18-3-OBERFLÄCHE HAT DIE PRÜFUNG EINE ZWEITE, SCHÄRFERE AUFGABE BEKOMMEN ────────────
+ * Seit die Felder tatsächlich irgendwo gerendert werden, ist die naheliegende „Vereinheitlichung"
+ * real: sie in den geteilten Marketing-Inhalt zu ziehen, damit „alles an einer Stelle" steht. Genau
+ * das ist ausgeschlossen — dieser Inhalt läuft AUCH über `/partner-portal` auf coolin.at, also über
+ * eine Route, die die Angaben nicht braucht.
  *
  * Ein Laufzeittest kann das nicht sehen: Die Seite rendert die Felder ja gerade NICHT, ihre Ausgabe
  * ist mit und ohne Zugriff identisch. Deshalb am Quelltext festgehalten — dieselbe Haltung wie in
@@ -167,8 +173,11 @@ describe('die bestehende Portal-Seite liest die B18-3-Felder nicht', () => {
   it('weder die Seite noch die Route nennen eines der drei Felder', () => {
     for (const file of [
       'components/partner-portal/partner-portal-page.tsx',
+      // B18-3: der geteilte Marketing-Inhalt — er läuft AUCH über `/partner-portal` auf coolin.at.
+      'components/partner-portal/partner-marketing-content.tsx',
       'components/partner-portal/partner-portal-route.tsx',
       'app/(site)/[locale]/partner-portal/page.tsx',
+      'app/portal/marketing/page.tsx',
     ]) {
       const source = read(file)
       for (const field of [
@@ -185,7 +194,25 @@ describe('die bestehende Portal-Seite liest die B18-3-Felder nicht', () => {
   })
 
   it('die Seite reicht unverändert nur `state` und `referralUrl` durch', () => {
+    // Seit B18-3 kommen beide aus `readPortal` (`lib/partner-portal/read.ts`) statt aus lokalen
+    // Variablen — durchgereicht wird weiterhin GENAU dieses Paar, nichts daneben.
     const route = read('components/partner-portal/partner-portal-route.tsx')
-    expect(route).toMatch(/<PartnerPortalPage state=\{state\} referralUrl=\{referralUrl\} \/>/)
+    expect(route).toMatch(
+      /<PartnerPortalPage state=\{portal\.state\} referralUrl=\{portal\.referralUrl\} \/>/,
+    )
+  })
+
+  /*
+   * ⚠ DER LESEWEG SELBST GIBT DIE FELDER HERAUS — er ist für BEIDE Rahmen derselbe (`readPortal`).
+   * Das ist richtig und die Voraussetzung des Reiters „Allgemein"; die Beschränkung sitzt eine Ebene
+   * höher, nämlich darin, WER sie rendert. Diese Prüfung hält fest, dass der Leseweg nicht
+   * zusätzlich etwas herausgibt, das `get_my_partner` gar nicht liefert — insbesondere die
+   * Konto-Adresse kommt aus der SITZUNG und nicht aus dem Wrapper.
+   */
+  it('der geteilte Leseweg holt die Konto-Adresse aus der Sitzung, nicht aus dem Wrapper', () => {
+    const source = read('lib/partner-portal/read.ts')
+    expect(source).toMatch(/user\.email/)
+    expect(source).not.toContain('contact_first_name')
+    expect(source).not.toContain('contact_last_name')
   })
 })
