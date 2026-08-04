@@ -1187,6 +1187,7 @@ export type Database = {
           p_due_only?: boolean
           p_industry?: Database["platform"]["Enums"]["industry"]
           p_metering_type?: string
+          p_partner_assignment?: string
           p_partner_slug?: string
           p_postal_prefix?: string
           p_search?: string
@@ -1247,6 +1248,7 @@ export type Database = {
           p_limit?: number
           p_metering_type?: string
           p_offset?: number
+          p_partner_assignment?: string
           p_partner_slug?: string
           p_postal_prefix?: string
           p_search?: string
