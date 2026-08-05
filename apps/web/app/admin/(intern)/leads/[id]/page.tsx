@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import { getTranslations } from 'next-intl/server'
 import { createClient } from '@/lib/supabase/server'
 import { isCurrentUserAdmin } from '@/lib/admin/guard'
 import { Container, Num } from '@/components/ui/layout'
@@ -33,6 +34,7 @@ import {
   type EmailEventRow,
   type LeadConsentDetail,
 } from '@/lib/admin/leads'
+import { themaLabel } from '@/lib/admin/lead-thema'
 
 /*
  * `/admin/leads/[id]` — die Detailsicht eines Leads (B1-3).
@@ -274,6 +276,22 @@ export default async function AdminLeadDetailPage({ params }: { params: Promise<
   const isAnonymized = lead.anonymized_at !== null
 
   /*
+   * Das Thema kommt als SCHLÜSSEL aus der Datenbank und wird hier zum Anzeigetext aufgelöst — über
+   * dieselbe Taxonomie, die das Kontaktformular und das interne Aufnahmeformular füllt
+   * (`lib/admin/lead-thema.ts`). Ein hier abgetipptes Label wäre eine zweite Übersetzung, die beim
+   * ersten Leistungs-Rename abdriftet. Warum diese eine Stelle des Admin-Bereichs next-intl
+   * anfasst: s. Kopf jenes Moduls. Ein Schlüssel, den die heutige Liste nicht kennt, wird roh
+   * angezeigt statt zu werfen — die Spalte trägt bewusst keinen CHECK.
+   */
+  const [tNav, tKontakt] = await Promise.all([
+    getTranslations({ locale: 'de', namespace: 'Nav' }),
+    getTranslations({ locale: 'de', namespace: 'Kontakt' }),
+  ])
+  const thema = themaLabel(lead.thema, (namespace, key) =>
+    namespace === 'Nav' ? tNav(key) : tKontakt(key),
+  )
+
+  /*
    * B4-2: die Erinnerung zum AKTUELL eingetragenen Vertragsende — das ist die Frage, die im
    * Zweifel gestellt wird („die Person sagt, sie habe nichts bekommen"). Zeilen zu einem ANDEREN
    * Datum bleiben sichtbar (s. unten): sie sind die Spur einer Korrektur und beantworten die
@@ -347,6 +365,18 @@ export default async function AdminLeadDetailPage({ params }: { params: Promise<
             <Field label="Ersterfassung über">
               {lead.first_source_label ?? lead.first_source_key}
             </Field>
+            {/*
+             * Das Thema steht bei der Herkunft und nicht bei den Betriebsdaten: Beide beantworten,
+             * WORÜBER und WOHER die Anfrage kam, nicht wie der Betrieb aussieht. Es ist ausserdem
+             * bewusst NICHT im Korrekturformular darunter — das Thema ist die ANGABE des
+             * Absenders, kein Urteil eines Admins (dieselbe Trennlinie wie zwischen
+             * `referred_by_text` und `partner_slug`); `admin_update_lead` hat dafür keinen
+             * Parameter.
+             *
+             * „nicht angegeben" statt eines Gedankenstrichs: Die meisten Erfassungswege erheben
+             * gar kein Thema, ein leeres Feld ist hier der Normalfall und keine Auffälligkeit.
+             */}
+            <Field label="Thema der Anfrage">{thema ?? 'nicht angegeben'}</Field>
             <Field label="Angelegt">
               <Num>{formatDateTime(lead.created_at)}</Num>
             </Field>
@@ -465,9 +495,7 @@ export default async function AdminLeadDetailPage({ params }: { params: Promise<
              * B19-Nachbesserung. Steht bewusst NEBEN der Zuordnung und nicht an ihrer Stelle: ein
              * hier genannter Betrieb hat weder Konto noch Portal und sieht die Anfrage nirgends.
              */}
-            <Field label="Formlos genannter Betrieb">
-              {lead.mentioned_business_name ?? '—'}
-            </Field>
+            <Field label="Formlos genannter Betrieb">{lead.mentioned_business_name ?? '—'}</Field>
           </dl>
           <p className="mt-4 max-w-prose text-caption text-text-muted">
             Die Zuordnung entsteht automatisch, wenn die Anfrage über einen Empfehlungslink kam. Sie
@@ -479,9 +507,9 @@ export default async function AdminLeadDetailPage({ params }: { params: Promise<
           </p>
           <p className="mt-2 max-w-prose text-caption text-text-muted">
             Ein formlos genannter Betrieb wird beim Anlegen eines Leads über „Lead anlegen“ erfasst.
-            Er ist eine Notiz: kein Konto, kein Portalzugang, keine Freigabe — er sieht diese Anfrage
-            nicht. Wird aus ihm später ein echter Fachbetrieb, läuft das über den Partner-Antrag und
-            beginnt bei null.
+            Er ist eine Notiz: kein Konto, kein Portalzugang, keine Freigabe — er sieht diese
+            Anfrage nicht. Wird aus ihm später ein echter Fachbetrieb, läuft das über den
+            Partner-Antrag und beginnt bei null.
           </p>
         </AdminPanel>
       </AdminSection>

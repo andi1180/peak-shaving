@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { getTranslations } from 'next-intl/server'
 import { createClient } from '@/lib/supabase/server'
 import { isCurrentUserAdmin } from '@/lib/admin/guard'
 import { Container } from '@/components/ui/layout'
@@ -12,6 +13,7 @@ import {
 } from '@/components/admin/lead-intake-form'
 import { readPartnerList } from '@/lib/admin/partners'
 import { readMentionedBusinessList } from '@/lib/admin/mentioned-businesses'
+import { themaOptions } from '@/lib/admin/lead-thema'
 import { getActiveConsentText } from '@/lib/leads/store'
 import { LEADS_HREF } from '@/lib/admin/leads'
 
@@ -44,6 +46,25 @@ export default async function NewLeadPage() {
   if (!(await isCurrentUserAdmin())) return null
 
   const supabase = await createClient()
+
+  /*
+   * ── DIE THEMEN-BESCHRIFTUNGEN, UND WARUM DIESE EINE STELLE next-intl ANFASST ───────────────────
+   * Der Admin-Bereich hält seine EIGENEN Sätze im Code (`lib/admin/schema.ts`: er liegt ausserhalb
+   * der next-intl-Struktur, ein Key-Umweg ohne Wörterbuch wäre eine Indirektion ohne Nutzen). Das
+   * gilt weiterhin. Die Themen sind aber nicht seine Texte, sondern die der ÖFFENTLICHEN Taxonomie
+   * — dieselben acht Beschriftungen, die das Kontaktformular zeigt. Sie hier abzutippen wäre genau
+   * die zweite Liste, gegen die `lib/kontakt/themen.ts` gebaut ist: Beim ersten Leistungs-Rename
+   * stünde im Admin-Bereich ein Name, den es nicht mehr gibt.
+   *
+   * Aufgelöst wird SERVERSEITIG mit fester Locale — derselbe Aufruf, den `lib/kontakt/submit.ts`
+   * aus einer API-Route heraus macht (auch dort gibt es keinen Locale-Kontext). Ins Client-Bündel
+   * wandern fertige Zeichenketten, kein Nachrichtenkatalog und kein Provider.
+   */
+  const [tNav, tKontakt] = await Promise.all([
+    getTranslations({ locale: 'de', namespace: 'Nav' }),
+    getTranslations({ locale: 'de', namespace: 'Kontakt' }),
+  ])
+  const themen = themaOptions((namespace, key) => (namespace === 'Nav' ? tNav(key) : tKontakt(key)))
 
   /*
    * Drei unabhängige Vorbereitungen. Jede darf fehlschlagen, ohne die Seite unbrauchbar zu machen:
@@ -128,6 +149,7 @@ export default async function NewLeadPage() {
         <LeadIntakeForm
           partners={partners}
           mentionedBusinesses={mentionedBusinesses}
+          themen={themen}
           partnerDisclosureConsentText={disclosureText?.body ?? null}
         />
       </AdminPanel>

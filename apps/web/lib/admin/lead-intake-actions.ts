@@ -70,6 +70,12 @@ export async function createLeadAction(_prev: AdminState, formData: FormData): P
     email: text(formData, 'email'),
     unternehmen: text(formData, 'unternehmen'),
     telefon: text(formData, 'telefon'),
+    /*
+     * Der SCHLÜSSEL aus dem Auswahlfeld, nicht das Label — was gespeichert wird, muss stabil und
+     * sprachunabhängig sein. Ein Wert, den die Taxonomie nicht kennt, wird im Schema abgewiesen
+     * (`lib/admin/lead-intake.ts`); die Datenbank kann es nicht, sie trägt bewusst keinen CHECK.
+     */
+    thema: text(formData, 'thema'),
     zuordnung: text(formData, 'zuordnung'),
     neueFirma: text(formData, 'neueFirma'),
     /*
@@ -87,6 +93,7 @@ export async function createLeadAction(_prev: AdminState, formData: FormData): P
     email: values.email,
     unternehmen: values.unternehmen ?? '',
     telefon: values.telefon ?? '',
+    thema: values.thema ?? '',
     zuordnung: values.zuordnung ?? '',
     neueFirma: values.neueFirma ?? '',
     datenschutz: values.datenschutz ? 'on' : '',

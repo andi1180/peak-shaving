@@ -5,15 +5,25 @@
  *
  * ── ES IST BEWUSST NICHT DAS ÖFFENTLICHE KONTAKTFORMULAR ────────────────────────────────────────
  * `components/kontakt/kontakt-form.tsx` wiederzuverwenden wäre naheliegend und falsch: Es trägt
- * Turnstile, einen Honeypot, Thema und Nachricht, ein Marketing-Häkchen und next-intl-Texte. Nichts
- * davon passt. Der Honeypot fängt Bots — hier ist die Anmeldung die Prüfung. Thema und Nachricht
- * leben dort in der internen Benachrichtigungsmail, die hier nicht entsteht. Und das
- * Marketing-Häkchen ist ohne Bestätigungsmail nicht einlösbar (ausführlich in `lib/admin/lead-intake.ts`).
+ * Turnstile, einen Honeypot, eine Nachricht, ein Marketing-Häkchen und next-intl-Texte. Nichts
+ * davon passt. Der Honeypot fängt Bots — hier ist die Anmeldung die Prüfung. Die Nachricht lebt
+ * dort in der internen Benachrichtigungsmail, die hier nicht entsteht. Und das Marketing-Häkchen
+ * ist ohne Bestätigungsmail nicht einlösbar (ausführlich in `lib/admin/lead-intake.ts`).
  *
  * ── DIE FEHLENDEN FELDER SIND DIE AUSSAGE DIESES FORMULARS ──────────────────────────────────────
- * Kein Thema, keine Nachricht, kein Marketing — jedes davon wäre eine Requisite, die aussähe, als
- * bewirkte sie etwas. Die Oberfläche sagt an Ort und Stelle, warum sie fehlen, statt es dem
- * nächsten Leser als Lücke zu überlassen.
+ * Keine Nachricht, kein Marketing — beides wäre eine Requisite, die aussähe, als bewirkte sie
+ * etwas. Die Oberfläche sagt an Ort und Stelle, warum sie fehlen, statt es dem nächsten Leser als
+ * Lücke zu überlassen.
+ *
+ * DAS THEMA GEHÖRTE BIS ZULETZT IN DIESE AUFZÄHLUNG und tut es nicht mehr: `platform.leads.thema`
+ * existiert, der Wert ist auf der Detailseite lesbar, und damit ist das Feld keine Requisite mehr.
+ * Es bleibt OPTIONAL — anders als im öffentlichen Formular, wo der Absender selbst wählt: Hier
+ * ordnet ein Mensch ein Telefonat ein, und nicht jedes Gespräch lässt sich sauber zuschlagen.
+ *
+ * ⚠ DIE OPTIONEN KOMMEN ALS PROP HEREIN, NICHT AUS EINER LISTE IN DIESER DATEI. Sie stammen aus
+ * `lib/kontakt/themen.ts` (datengetrieben aus `LEISTUNGEN`); die Beschriftungen löst die Seite
+ * serverseitig auf. Acht Wörter hier abzutippen wäre die zweite Liste, gegen die jenes Modul
+ * gebaut ist.
  */
 
 import * as React from 'react'
@@ -29,6 +39,7 @@ import {
   NEW_MENTION_OPTION,
   PARTNER_OPTION_PREFIX,
 } from '@/lib/admin/lead-intake'
+import type { ThemaOption } from '@/lib/admin/lead-thema'
 
 export type PartnerOption = { slug: string; displayName: string }
 export type MentionedBusinessOption = { id: string; name: string }
@@ -36,6 +47,7 @@ export type MentionedBusinessOption = { id: string; name: string }
 export function LeadIntakeForm({
   partners,
   mentionedBusinesses,
+  themen,
   partnerDisclosureConsentText,
 }: {
   /** Nur AKTIVE Fachbetriebe — die Server Action prüft die Auswahl unabhängig davon erneut. */
@@ -47,6 +59,12 @@ export function LeadIntakeForm({
    * Optionswerte ein Präfix (s. `lib/admin/lead-intake.ts`).
    */
   mentionedBusinesses: MentionedBusinessOption[]
+  /**
+   * Die Themen aus `lib/kontakt/themen.ts`, Beschriftungen serverseitig aufgelöst — dieselbe Liste
+   * und dieselbe Reihenfolge wie im öffentlichen Formular. Ist sie leer, entfällt das Feld: eine
+   * Auswahl ohne Optionen wäre ein Bedienelement ohne Wirkung.
+   */
+  themen: ThemaOption[]
   /**
    * Der WORTLAUT der Freigabe aus `platform.consent_texts`. Ist er `null`, wird die
    * Ankreuzmöglichkeit gar nicht erst gerendert: Ohne den Text, dem zugestimmt wird, darf keine
@@ -86,8 +104,9 @@ export function LeadIntakeForm({
       <div className="rounded-lg border border-border bg-surface-subtle p-4 text-body-sm text-text">
         <p className="font-medium text-ink">Dieser Weg versendet keine E-Mail.</p>
         <p className="mt-1 text-text-muted">
-          Weder an die eingetragene Adresse noch intern. Der Kontakt wird ausschliesslich gespeichert
-          — die Adresse deshalb am Telefon zurücklesen lassen, eine Prüfmail gibt es nicht.
+          Weder an die eingetragene Adresse noch intern. Der Kontakt wird ausschliesslich
+          gespeichert — die Adresse deshalb am Telefon zurücklesen lassen, eine Prüfmail gibt es
+          nicht.
         </p>
       </div>
 
@@ -137,6 +156,34 @@ export function LeadIntakeForm({
           error={fieldError('telefon')}
         />
       </div>
+
+      {/*
+       * ── DAS THEMA: OPTIONAL, UND DAS IST DER UNTERSCHIED ZUM ÖFFENTLICHEN FORMULAR ────────────
+       * Dort ist es Pflicht, weil der Absender selbst aus einer Liste wählt, die er vor sich sieht.
+       * Hier ordnet ein Mensch ein Telefonat ein — und nicht jedes Gespräch lässt sich sauber
+       * einem Thema zuschlagen. Ein Pflichtfeld erzwänge dann eine erfundene Zuordnung, und
+       * „Sonstiges" hiesse hinterher sowohl „passt nirgends" als auch „wollte niemand entscheiden".
+       *
+       * Die Optionen sind dieselben wie im öffentlichen Dropdown (aus `lib/kontakt/themen.ts`,
+       * datengetrieben aus den Leistungen) — es gibt hier keine eigene Liste, die abdriften könnte.
+       */}
+      {themen.length > 0 && (
+        <AdminSelect
+          id="lead-thema"
+          name="thema"
+          label="Thema (optional)"
+          defaultValue={state.values?.thema ?? ''}
+          error={fieldError('thema')}
+          hint="Worum ging es im Gespräch? Dieselbe Einteilung wie im Kontaktformular auf der Website. Leer lassen, wenn sich das Anliegen nicht sauber zuordnen lässt — eine erfundene Zuordnung verfälscht die Auswertung mehr, als eine fehlende sie kostet."
+        >
+          <option value="">— keine Angabe —</option>
+          {themen.map((thema) => (
+            <option key={thema.key} value={thema.key}>
+              {thema.label}
+            </option>
+          ))}
+        </AdminSelect>
+      )}
 
       {/*
        * ── EIN FELD, ZWEI SEHR VERSCHIEDENE WIRKUNGEN ────────────────────────────────────────────
@@ -202,7 +249,11 @@ export function LeadIntakeForm({
         <legend className="px-1 text-caption font-medium text-text-muted">Einwilligungen</legend>
 
         <div className="flex items-start gap-2">
-          <Checkbox id="lead-datenschutz" name="datenschutz" defaultChecked={state.values?.datenschutz === 'on'} />
+          <Checkbox
+            id="lead-datenschutz"
+            name="datenschutz"
+            defaultChecked={state.values?.datenschutz === 'on'}
+          />
           <Label htmlFor="lead-datenschutz" className="font-normal text-text">
             Der Anrufer hat der Verarbeitung seiner Daten nach unserer Datenschutzerklärung
             zugestimmt.
@@ -243,21 +294,26 @@ export function LeadIntakeForm({
 
       {/*
        * WAS DIESES FORMULAR NICHT ERHEBT, und warum — an Ort und Stelle statt nur im Handover.
-       * Ohne diesen Absatz liest sich das Fehlen von Thema, Nachricht und Marketing wie eine
-       * Lücke, die jemand „nur noch schnell" schliesst; genau dabei entstünden entweder ein
-       * Feld ohne Speicherort oder eine Einwilligung ohne Rechtswert.
+       * Ohne diesen Absatz liest sich das Fehlen von Nachricht und Marketing wie eine Lücke, die
+       * jemand „nur noch schnell" schliesst; genau dabei entstünden entweder ein Feld ohne
+       * Speicherort oder eine Einwilligung ohne Rechtswert.
+       *
+       * Das THEMA stand hier bis zuletzt mit drin und ist herausgenommen — es hat jetzt eine
+       * Spalte und steht oben als Auswahlfeld. Ein Absatz, der sein Fehlen erklärt, während es
+       * daneben zu sehen ist, wäre schlimmer als keiner.
        */}
       <details className="rounded-lg border border-border p-4">
         <summary className="cursor-pointer text-body-sm font-medium text-ink">
-          Warum es hier kein Feld für Thema, Nachricht und Werbe-Einwilligung gibt
+          Warum es hier kein Feld für die Nachricht und keine Werbe-Einwilligung gibt
         </summary>
         <div className="mt-3 space-y-2 text-body-sm text-text-muted">
           <p>
-            <span className="font-medium text-text">Thema und Nachricht:</span> Für beides gibt es
-            keine Spalte. Der Lead-Bestand speichert ausschliesslich Identitätsfelder; im
-            öffentlichen Formular leben Thema und Nachricht allein in der internen
-            Benachrichtigungsmail — und die entsteht hier nicht. Das Anliegen gehört bis auf
-            Weiteres in die Gesprächsnotiz.
+            <span className="font-medium text-text">Nachricht:</span> Dafür gibt es keine Spalte.
+            Der Lead-Bestand speichert ausschliesslich Identitätsfelder und die Einordnung; im
+            öffentlichen Formular lebt der Nachrichtentext allein in der internen
+            Benachrichtigungsmail — und die entsteht hier nicht. Ein Feld, dessen Inhalt beim
+            Speichern verschwindet, sähe aus wie eine Notiz und wäre keine. Das Anliegen gehört bis
+            auf Weiteres in die Gesprächsnotiz; für die grobe Einordnung ist das Thema oben da.
           </p>
           <p>
             <span className="font-medium text-text">Werbe-Einwilligung:</span> Sie verlangt eine

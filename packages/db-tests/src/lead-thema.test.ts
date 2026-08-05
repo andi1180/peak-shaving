@@ -382,6 +382,54 @@ describe('(5) admin_list_leads und admin_export_leads liefern das Thema mit', ()
     expect(exportedById.get(withThema.lead_id!)).toBe('energiemanagement')
     expect(exportedById.get(withoutThema.lead_id!)).toBeNull()
   })
+
+  /*
+   * ── DER DRITTE LESEWEG, NACHGEZOGEN ────────────────────────────────────────────────────────────
+   * `admin_get_lead` baut seine Spaltenliste EXPLIZIT auf und hat die neue Spalte deshalb nicht von
+   * selbst übernommen (anders als `platform.leads_matching`, das `setof platform.leads` liefert).
+   * Ohne diese Zeile wäre das Thema über das interne Aufnahmeformular eingebbar und auf der
+   * Detailseite unsichtbar — ein Feld ohne Sicht ist dieselbe Requisite wie ein Feld ohne
+   * Speicherort.
+   */
+  it('admin_get_lead führt thema mit — sonst wäre das Feld schreibbar und nirgends lesbar', async () => {
+    const admin = await newAdmin()
+    const mit = await capture(newEmail(), { p_thema: 'smartHeating' })
+    const ohne = await capture(newEmail())
+
+    type Detail = { status: string; lead: Record<string, unknown> }
+
+    const a = await callAs<Detail>(admin, 'select public.admin_get_lead($1) as r', [mit.lead_id])
+    expect(a.status).toBe('ok')
+    expect(Object.keys(a.lead), 'der Schlüssel muss existieren, nicht nur der Wert').toContain(
+      'thema',
+    )
+    expect(a.lead.thema).toBe('smartHeating')
+
+    const b = await callAs<Detail>(admin, 'select public.admin_get_lead($1) as r', [ohne.lead_id])
+    expect(b.lead.thema, 'ohne Angabe bleibt es null, kein Platzhalter').toBeNull()
+  })
+
+  it('admin_get_lead ist unverändert authenticated-only und WIRFT für einen Nicht-Admin', async () => {
+    /*
+     * Der Wrapper wurde per `create or replace` bei unveränderter Signatur nachgezogen — es gab
+     * keinen DROP und damit nichts wiederherzustellen. Gemessen statt vorausgesetzt: In B3-1 ist
+     * genau dieser Schritt schon einmal übersehen worden.
+     *
+     * Die Grants per Introspektion (Arbeitsregel 5), die Ablehnung dagegen ECHT: Der eingeloggte
+     * Nicht-Admin HAT das Grant, und die Ablehnung erfolgt im Rumpf per RAISE.
+     */
+    expect(await canExecute('authenticated', 'admin_get_lead')).toBe(true)
+    expect(await canExecute('anon', 'admin_get_lead')).toBe(false)
+    expect(await canExecute('service_role', 'admin_get_lead')).toBe(false)
+
+    const plain = await createUser()
+    spawnedUsers.push(plain.id)
+    const lead = await capture(newEmail(), { p_thema: 'esg' })
+
+    await expect(
+      callAs(plain, 'select public.admin_get_lead($1) as r', [lead.lead_id]),
+    ).rejects.toMatchObject({ code: '42501' })
+  })
 })
 
 // ── (6) Anonymisierung ───────────────────────────────────────────────────────────────────────────

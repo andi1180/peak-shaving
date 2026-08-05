@@ -46,18 +46,37 @@
  * Partner-Landingpage sind davon UNBERÜHRT; nur dieser eine Aufrufort schreibt den Freitext nicht
  * mehr.
  *
- * ── WARUM ES KEIN FELD FÜR THEMA UND NACHRICHT GIBT ─────────────────────────────────────────────
- * Für beides existiert keine Spalte. `platform.leads` speichert ausschliesslich Identitätsfelder
- * (B1-2, Regel 2: „DER NACHRICHTENTEXT WIRD NICHT GESPEICHERT") — im öffentlichen Formular leben
- * Thema und Nachricht allein in der internen Benachrichtigungsmail, und genau die entsteht hier
- * nicht. Zwei Felder anzubieten, deren Inhalt beim Absenden ersatzlos verschwindet, wäre eine
- * Requisite: Sie sähe aus wie eine Notiz und wäre keine. Das Anliegen gehört bis auf Weiteres in
- * die Gesprächsnotiz ausserhalb dieses Systems.
+ * ── DAS THEMA GIBT ES JETZT, DIE NACHRICHT WEITERHIN NICHT ──────────────────────────────────────
+ * Hier stand bis zuletzt, es gebe für BEIDES keine Spalte. Für das Thema stimmt das nicht mehr:
+ * `platform.leads.thema` existiert seit der Migration `20260805150000`, und der öffentliche
+ * Kontaktweg befüllt sie. Damit fällt der Grund weg, der das Feld hier ausgeschlossen hat — es ist
+ * keine Requisite mehr, sondern eine Angabe mit Speicherort, und sie ist auf der Detailseite
+ * lesbar (`admin_get_lead`, Migration `20260805180000`).
+ *
+ * OPTIONAL, nicht Pflicht — und das ist der Unterschied zum öffentlichen Formular. Dort wählt der
+ * Absender aus einer Liste, die er vor sich sieht; hier ordnet ein Mensch ein Telefonat ein, und
+ * nicht jedes Gespräch lässt sich sauber einem Thema zuschlagen. Ein Pflichtfeld erzwänge in genau
+ * diesen Fällen eine erfundene Zuordnung — und die Auswertung dahinter wäre still falsch, weil
+ * „Sonstiges" dann sowohl „passt nirgends" als auch „wollte niemand entscheiden" hiesse.
+ *
+ * ⚠ DIE WERTE KOMMEN AUS `lib/kontakt/themen.ts`, NICHT AUS EINER LISTE IN DIESER DATEI. Jenes
+ * Modul leitet sie datengetrieben aus `LEISTUNGEN` ab, damit ein Leistungs-Rename nicht still
+ * abdriftet; eine zweite Aufzählung hier wäre genau die Drift, gegen die es gebaut ist. Geprüft
+ * wird über `isThemaKey` — derselbe Wächter, den auch der Deep-Link benutzt.
+ *
+ * FÜR DIE NACHRICHT GILT DER ALTE SATZ UNVERÄNDERT: `platform.leads` speichert keinen Freitext des
+ * Anliegens (B1-2, Regel 2: „DER NACHRICHTENTEXT WIRD NICHT GESPEICHERT"), im öffentlichen
+ * Formular lebt er allein in der internen Benachrichtigungsmail — und die entsteht hier nicht. Ein
+ * Feld dafür wäre weiterhin eine Requisite: Es sähe aus wie eine Notiz und wäre keine. Das
+ * Anliegen gehört bis auf Weiteres in die Gesprächsnotiz ausserhalb dieses Systems. Auch ein
+ * Freitextfeld NEBEN der Auswahl entsteht hier bewusst nicht — es bräuchte eine eigene Spalte und
+ * eine eigene Begründung.
  */
 
 import { z } from 'zod'
 import type { LeadConsentPurpose, LeadSourceKey } from '@/lib/leads/registry'
 import { LEAD_SOURCE_TELEFONANFRAGE } from '@/lib/leads/config'
+import { isThemaKey } from '@/lib/kontakt/themen'
 import { toFieldErrors } from './schema'
 
 /*
@@ -123,6 +142,31 @@ export const leadIntakeSchema = z.object({
   telefon: optionalText(MAX.telefon, 'Höchstens 60 Zeichen.'),
 
   /*
+   * ── DAS THEMA: OPTIONAL, ABER NICHT BELIEBIG ───────────────────────────────────────────────────
+   * Leer heisst „nicht eingeordnet" und ist ein zulässiger Zustand (Begründung im Kopf). Ein
+   * GESETZTER Wert muss dagegen aus der Taxonomie stammen — geprüft über `isThemaKey`, also gegen
+   * dieselbe Liste, die das Formular rendert und die das öffentliche Kontaktschema mit
+   * `z.enum(THEMA_KEYS)` benutzt. Kein `z.enum` hier, weil das die Werte ein zweites Mal
+   * aufzählte; die Prüfung soll aus der Liste FOLGEN, nicht sie wiederholen.
+   *
+   * Abgewiesen statt still verworfen — dieselbe Regel wie bei `zuordnung`: Ein Wert, der aus
+   * keinem gerenderten Auswahlfeld stammen kann, ist ein Fehler und keine Angabe. Still verworfen
+   * stünde am Ende ein Lead ohne Thema da, obwohl jemand eines ausgewählt hat.
+   *
+   * ⚠ Die Datenbank kann das NICHT abfangen: `platform.leads.thema` trägt bewusst keinen CHECK
+   * (die Werteliste ist datengetrieben, ein Constraint wäre eine zweite und liesse die Erfassung
+   * beim ersten Leistungs-Rename mit 23514 scheitern). Diese Prüfung hier ist die einzige.
+   */
+  thema: z
+    .string()
+    .trim()
+    .optional()
+    .refine(
+      (value) => value === undefined || value === '' || isThemaKey(value),
+      'Dieses Thema kennen wir nicht. Bitte die Seite neu laden und noch einmal wählen.',
+    ),
+
+  /*
    * ── EIN FELD, ZWEI SEHR VERSCHIEDENE WIRKUNGEN ─────────────────────────────────────────────────
    * Für die aufnehmende Person ist es EINE Frage: „Wer hat Sie geschickt?" Technisch führen die
    * Antworten an zwei verschiedene Orte, und deshalb trägt der Wert ein Präfix:
@@ -151,7 +195,9 @@ export const leadIntakeSchema = z.object({
    * am Telefon nicht zustimmt, dessen Daten werden nicht gespeichert.
    */
   datenschutz: z.literal(true, {
-    errorMap: () => ({ message: 'Ohne Zustimmung zur Datenschutzerklärung dürfen wir den Kontakt nicht speichern.' }),
+    errorMap: () => ({
+      message: 'Ohne Zustimmung zur Datenschutzerklärung dürfen wir den Kontakt nicht speichern.',
+    }),
   }),
 
   /* Die Freigabe an den Fachbetrieb (B18-6). Nie vorausgewählt, nie erforderlich. */
@@ -174,6 +220,11 @@ export type LeadIntakeCall = {
   lastName: string | null
   phone: string | null
   partnerSlug: string | null
+  /**
+   * Der SCHLÜSSEL des Themas (`peakShaving`, …) oder `null`. Nie das übersetzte Label: das steht in
+   * `messages/*.json`, ist sprachabhängig und wäre im Bestand eine zweite, veraltende Kopie.
+   */
+  thema: string | null
   /*
    * `referredByText` steht hier bewusst NICHT MEHR. Die Spalte `platform.leads.referred_by_text`
    * und der öffentliche Weg dorthin bleiben unverändert bestehen — dieser Aufrufort schreibt sie
@@ -190,8 +241,7 @@ export type LeadIntakeCall = {
  * aufnehmende Person ist beides derselbe Vorgang.
  */
 export type LeadIntakeMention =
-  | { kind: 'existing'; businessId: string }
-  | { kind: 'new'; name: string }
+  { kind: 'existing'; businessId: string } | { kind: 'new'; name: string }
 
 export type LeadIntakePlan =
   | { ok: true; calls: LeadIntakeCall[]; mention: LeadIntakeMention | null }
@@ -272,7 +322,10 @@ export function planLeadIntake(
       if (name === null) {
         return {
           ok: false,
-          fieldErrors: { neueFirma: 'Bitte den Namen der Firma eintragen — oder oben eine andere Auswahl treffen.' },
+          fieldErrors: {
+            neueFirma:
+              'Bitte den Namen der Firma eintragen — oder oben eine andere Auswahl treffen.',
+          },
         }
       }
       mention = { kind: 'new', name }
@@ -330,6 +383,7 @@ export function planLeadIntake(
     lastName: orNull(values.nachname),
     phone: orNull(values.telefon),
     partnerSlug,
+    thema: orNull(values.thema),
   }
 
   if (!wantsDisclosure) return { ok: true, calls: [base], mention }
@@ -361,6 +415,14 @@ export function planLeadIntake(
         firstName: null,
         lastName: null,
         phone: null,
+        /*
+         * Das Thema fährt aus demselben Grund nicht mit: Der zweite Aufruf schreibt eine
+         * EINWILLIGUNG, nicht die Angaben. `capture_lead` führt das Thema zwar mit
+         * `coalesce(neu, Bestand)` zusammen (der jüngere Wert gewinnt) — derselbe Wert ein zweites
+         * Mal geschickt änderte also nichts, liesse den Aufruf aber so aussehen, als trüge er die
+         * Angabe. Dieselbe Entscheidung wie in `lib/leads/capture.ts` für den öffentlichen Weg.
+         */
+        thema: null,
       },
     ],
     mention,
