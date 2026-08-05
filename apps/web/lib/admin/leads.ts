@@ -179,6 +179,25 @@ export type LeadListRow = LeadSegments & {
    */
   partner_slug: string | null
   referred_by_text: string | null
+  /*
+   * Die FORMLOSE Firmenerwähnung (B19-Nachbesserung). Sie fährt seit den Spaltenfiltern auch in
+   * `admin_list_leads` mit — davor stand sie nur in `admin_get_lead`, also nur auf der Detailseite.
+   * Ohne sie bliebe die Zuordnungsspalte der Liste ausgerechnet bei intern aufgenommenen Anfragen
+   * leer, obwohl dort eine Zuordnung erfasst wurde.
+   *
+   * Ausdrücklich KEINE Variante von `partner_slug`: sie zeigt auf `platform.mentioned_businesses` —
+   * eine Notiz ohne Konto, ohne Portal und ohne Zugriffsrecht. Anders als die Partner ist der Name
+   * je Zeile mitgeliefert und nicht über eine Nachschlageliste auflösbar: formlos genannte Firmen
+   * sind eine offene Menge, von der je Seite nur eine Handvoll vorkommt.
+   */
+  mentioned_business_id: string | null
+  mentioned_business_name: string | null
+  /**
+   * Das Thema der Anfrage — der SCHLÜSSEL aus `lib/kontakt/themen.ts`, nicht das übersetzte Label
+   * (dieselbe Begründung wie in `LeadDetailRow`). `null` heisst „nicht eingeordnet" und ist ein
+   * zulässiger Zustand: nur der Kontaktweg und das interne Aufnahmeformular befüllen die Spalte.
+   */
+  thema: string | null
   consents: LeadConsentSummary[]
 }
 
@@ -273,29 +292,17 @@ export type LeadDetailRow = LeadListRow & {
   partner_is_active: boolean | null
   referred_by_text: string | null
   /*
-   * B19-Nachbesserung: die FORMLOSE Firmenerwähnung. Eine dritte Angabe neben den beiden oben, und
-   * ausdrücklich keine Variante von `partner_slug`: Sie zeigt auf `platform.mentioned_businesses` —
-   * eine Notiz ohne Konto, ohne Portal und ohne Zugriffsrecht. `public.get_my_partner_leads` (B18-6)
-   * kennt diese Spalte nicht und soll sie nie kennen; ein hier eingetragener Betrieb sieht die
-   * Anfrage also nirgends.
+   * `mentioned_business_id`/`-name` (B19-Nachbesserung: die FORMLOSE Firmenerwähnung) und `thema`
+   * stehen NICHT mehr hier: seit den Spaltenfiltern liefert sie schon `admin_list_leads`, und sie
+   * sind über `LeadListRow` geerbt. Eine zweite Deklaration wäre eine zweite Beschreibung
+   * derselben Spalte — und die beiden könnten auseinanderlaufen.
    *
-   * Der Name fährt mit, damit die Detailansicht keinen zweiten Aufruf braucht (dasselbe Argument
-   * wie bei `partner_display_name`). Ein `is_active` gibt es nicht — die Tabelle kennt keins.
+   * Für beide gilt unverändert: `mentioned_business_id` ist ausdrücklich KEINE Variante von
+   * `partner_slug` (sie zeigt auf `platform.mentioned_businesses` — eine Notiz ohne Konto, ohne
+   * Portal und ohne Zugriffsrecht; `public.get_my_partner_leads` kennt die Spalte nicht und soll
+   * sie nie kennen), und `thema` kann einen Wert tragen, den die heutige Taxonomie nicht mehr kennt
+   * (die Spalte hat bewusst keinen CHECK) — er wird dann roh angezeigt.
    */
-  mentioned_business_id: string | null
-  mentioned_business_name: string | null
-  /*
-   * Das Thema der Anfrage — der SCHLÜSSEL aus `lib/kontakt/themen.ts` (`peakShaving`, `esg`, …),
-   * NICHT das übersetzte Label: das steht in `messages/*.json`, ist sprachabhängig und wäre im
-   * Bestand eine zweite, veraltende Kopie. Die Anzeige löst ihn über dieselbe Liste wieder auf, die
-   * auch das Dropdown füllt (`lib/admin/lead-thema.ts`).
-   *
-   * `null` heisst „nicht eingeordnet" — ein zulässiger Zustand: Nur der Kontaktweg (öffentliches
-   * Formular und Partner-Landingpage) und das interne Aufnahmeformular befüllen die Spalte, alle
-   * übrigen Erfassungswege lassen sie leer. Ein Wert, den die heutige Taxonomie nicht mehr kennt,
-   * ist ebenfalls möglich (die Spalte trägt bewusst keinen CHECK) und wird roh angezeigt.
-   */
-  thema: string | null
 }
 
 // ── Sperrliste: der Grund (B2-2) ─────────────────────────────────────────────────────────────────

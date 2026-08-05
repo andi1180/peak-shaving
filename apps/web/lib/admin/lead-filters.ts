@@ -17,7 +17,12 @@
  * umgeht.
  */
 
-import { INDUSTRIES, type ConsentPurpose, type Industry } from './leads'
+import {
+  isLeadSourceCategory,
+  sourceKeysForCategories,
+  type LeadSourceCategory,
+} from './lead-source-categories'
+import { INDUSTRIES, type Industry } from './leads'
 
 /** Wie die Filter in der URL heissen. Deutsche Schlüssel — die Routen sind es auch. */
 export const FILTER_PARAMS = [
@@ -38,6 +43,20 @@ export const FILTER_PARAMS = [
   // in diesem System sind Filterwerte durchgehend Datenbankwerte (`new`, `confirmed`,
   // `netzebene_7`), und eine deutsche Wertemenge wäre der erste Fundort einer zweiten Konvention.
   'partner',
+  // ── Die Spaltenfilter ──────────────────────────────────────────────────────────────────────────
+  // Ein Parameter je SPALTE, benannt wie die Spalte. Wer die Adresse liest, soll die Sicht
+  // rekonstruieren können, ohne den Code zu kennen.
+  'firma',
+  'vorname',
+  'nachname',
+  'mail',
+  'telefon',
+  'zuordnung',
+  'herkunft',
+  'thema',
+  'thema-leer',
+  'von',
+  'bis',
 ] as const
 
 export type FilterParam = (typeof FILTER_PARAMS)[number]
@@ -58,30 +77,28 @@ export const PARTNER_ASSIGNMENTS = ['assigned', 'unassigned'] as const
 export type PartnerAssignment = (typeof PARTNER_ASSIGNMENTS)[number]
 
 /**
- * Die Reiter über der Lead-Liste (B18-5-Oberfläche) — dieselben drei Zustände wie oben, nur mit
- * Beschriftung. Sie stehen HIER und nicht in `lib/admin/leads.ts`, weil dieses Modul das Vokabular
- * des Filters hält und `leads.ts` von hier gelesen wird, nicht umgekehrt.
+ * Die drei Zustände als AUSWAHL, nicht mehr als Reiterleiste.
  *
- * ── WARUM DER LEERE ZUSTAND EIN EIGENER REITER IST ───────────────────────────────────────────────
- * Ein Reiter ist eine AUSSAGE über die Menge darunter. „Direktanfragen" über einer Liste, die auch
- * Partner-Leads enthält, wäre genau die stille Falschbeschriftung, gegen die der Filter in B18-5 als
- * `text` mit zwei Literalen gebaut wurde (ein unbekannter Wert darf nicht zu „kein Filter" werden).
- * Ohne den dritten Reiter gäbe es umgekehrt gar keine Adresse mehr, unter der der GESAMTE Bestand
- * sichtbar ist — und damit auch keine Ausfuhr über ihn, obwohl die Ausfuhr genau das seit B2-1 kann
- * („ohne Filter — also der gesamte anschreibbare Bestand"). Der leere Zustand ist deshalb der
- * Vorgabewert: wer `/admin/leads` ohne Parameter aufruft, sieht unverändert, was er bisher sah.
+ * ── WAS SICH GEGENÜBER B18-5 GEÄNDERT HAT, UND WAS NICHT ─────────────────────────────────────────
+ * Bis hierher waren das drei Reiter über der Liste. Die Reiter sind weg, die FÄHIGKEIT ist es nicht:
+ * dieselben drei Zustände stehen jetzt im Filter-Popover der Zuordnungsspalte. Der leere Wert
+ * bleibt der Vorgabewert und damit die Adresse, unter der der GESAMTE Bestand sichtbar ist — die
+ * Grundlage der Ausfuhr „ohne Filter — also der gesamte anschreibbare Bestand" (B2-1).
+ *
+ * Die Beschriftungen sagen jetzt „Fachbetrieb" statt „Partner-Leads"/„Direktanfragen": Der Filter
+ * greift auf `partner_slug`, also auf die bestätigte ZUORDNUNG — und in derselben Spalte steht seit
+ * dieser Runde auch die formlos genannte Firma und der „empfohlen von"-Freitext. „Direktanfragen"
+ * über einer Zeile, die einen Firmennamen zeigt, wäre genau die Falschbeschriftung, gegen die B18-5
+ * seinen Filter als `text` mit zwei Literalen gebaut hat.
  */
-export const PARTNER_TABS = [
-  { value: '', label: 'Alle' },
-  { value: 'assigned', label: 'Partner-Leads' },
-  { value: 'unassigned', label: 'Direktanfragen' },
-] as const satisfies ReadonlyArray<{ value: PartnerAssignment | ''; label: string }>
+export const PARTNER_ASSIGNMENT_LABELS: Record<PartnerAssignment, string> = {
+  assigned: 'nur mit Fachbetrieb',
+  unassigned: 'nur ohne Fachbetrieb',
+}
 
 export type LeadFilters = {
   status: string
   sourceKey: string
-  consentPurpose: string
-  consentStatus: string
   search: string
   dueOnly: boolean
   industry: string
@@ -93,13 +110,35 @@ export type LeadFilters = {
   contractEndTo: string
   /** '' = alle · 'assigned' = nur mit Fachbetrieb · 'unassigned' = nur ohne (B18-5). */
   partnerAssignment: string
+  // ── Die Spaltenfilter ──────────────────────────────────────────────────────────────────────────
+  /** Die sechs Textspalten. Substring-Suche, je Spalte einzeln. */
+  email: string
+  company: string
+  firstName: string
+  lastName: string
+  phone: string
+  assignment: string
+  /** Die drei Anzeige-Kategorien der Herkunft (nicht die 15 Schlüssel). */
+  sourceCategories: LeadSourceCategory[]
+  /** Themen-SCHLÜSSEL (`peakShaving`, …) — das Label steht in `messages/de.json`. */
+  themaKeys: string[]
+  /** „ohne Thema" als eigener Zustand: `thema is null` ist eine Aussage, kein fehlender Filter. */
+  themaNone: boolean
+  /**
+   * Einwilligungen als MEHRFACHauswahl. Die früheren Einzelwerte (`?zweck=`/`?einwilligung=`)
+   * werden weiterhin gelesen und landen als einelementige Liste hier — eine gespeicherte Adresse
+   * aus der Zeit vor den Spaltenfiltern zeigt damit unverändert dasselbe Ergebnis.
+   */
+  consentPurposes: string[]
+  consentStates: string[]
+  /** Anlagedatum, einschliessende Grenzen, „YYYY-MM-DD". */
+  createdFrom: string
+  createdTo: string
 }
 
 export const EMPTY_FILTERS: LeadFilters = {
   status: '',
   sourceKey: '',
-  consentPurpose: '',
-  consentStatus: '',
   search: '',
   dueOnly: false,
   industry: '',
@@ -110,6 +149,19 @@ export const EMPTY_FILTERS: LeadFilters = {
   contractEndFrom: '',
   contractEndTo: '',
   partnerAssignment: '',
+  email: '',
+  company: '',
+  firstName: '',
+  lastName: '',
+  phone: '',
+  assignment: '',
+  sourceCategories: [],
+  themaKeys: [],
+  themaNone: false,
+  consentPurposes: [],
+  consentStates: [],
+  createdFrom: '',
+  createdTo: '',
 }
 
 function one(query: RawQuery, name: FilterParam): string {
@@ -117,12 +169,24 @@ function one(query: RawQuery, name: FilterParam): string {
   return typeof value === 'string' ? value.trim() : ''
 }
 
+/**
+ * Ein mehrfach gesetzter Parameter (`?herkunft=partner&herkunft=admin`).
+ *
+ * Bewusst KEINE Komma-Trennung: ein Wert, der selbst ein Komma enthält, wäre damit nicht mehr
+ * darstellbar, und die Regel „ein Parameter = ein Wert" gilt in dieser Anwendung überall sonst.
+ * Leere Einträge fallen weg, Dubletten ebenfalls — eine Ankreuzliste kann denselben Wert nicht
+ * zweimal meinen, und zweimal derselbe Wert im Ausfuhrprotokoll sähe aus wie ein Fehler.
+ */
+function many(query: RawQuery, name: FilterParam): string[] {
+  const value = query[name]
+  const raw = typeof value === 'string' ? [value] : Array.isArray(value) ? value : []
+  return [...new Set(raw.map((v) => v.trim()).filter(Boolean))]
+}
+
 export function readFilters(query: RawQuery): LeadFilters {
   return {
     status: one(query, 'status'),
     sourceKey: one(query, 'quelle'),
-    consentPurpose: one(query, 'zweck'),
-    consentStatus: one(query, 'einwilligung'),
     search: one(query, 'suche'),
     dueOnly: one(query, 'faellig') === '1',
     industry: one(query, 'branche'),
@@ -133,6 +197,26 @@ export function readFilters(query: RawQuery): LeadFilters {
     contractEndFrom: one(query, 'vertragsende-ab'),
     contractEndTo: one(query, 'vertragsende-bis'),
     partnerAssignment: one(query, 'partner'),
+    email: one(query, 'mail'),
+    company: one(query, 'firma'),
+    firstName: one(query, 'vorname'),
+    lastName: one(query, 'nachname'),
+    phone: one(query, 'telefon'),
+    assignment: one(query, 'zuordnung'),
+    /*
+     * Ein unbekannter Kategoriewert wird VERWORFEN und nicht durchgereicht — der einzige Filter,
+     * bei dem das richtig ist: Die Kategorien sind eine Erfindung DIESER Oberfläche, die Datenbank
+     * kennt sie nicht und könnte sie folglich auch nicht als `invalid_filter` ablehnen. Was
+     * ankommt, ist eine Schlüsselmenge; ein unbekannter Kategoriename hätte darin gar keine
+     * Entsprechung. Verworfen wird er sichtbar: die Ankreuzliste zeigt ihn nicht als gesetzt.
+     */
+    sourceCategories: many(query, 'herkunft').filter(isLeadSourceCategory),
+    themaKeys: many(query, 'thema'),
+    themaNone: one(query, 'thema-leer') === '1',
+    consentPurposes: many(query, 'zweck'),
+    consentStates: many(query, 'einwilligung'),
+    createdFrom: one(query, 'von'),
+    createdTo: one(query, 'bis'),
   }
 }
 
@@ -141,8 +225,6 @@ export function filterSearchParams(filters: LeadFilters): URLSearchParams {
   const sp = new URLSearchParams()
   if (filters.status) sp.set('status', filters.status)
   if (filters.sourceKey) sp.set('quelle', filters.sourceKey)
-  if (filters.consentPurpose) sp.set('zweck', filters.consentPurpose)
-  if (filters.consentStatus) sp.set('einwilligung', filters.consentStatus)
   if (filters.search) sp.set('suche', filters.search)
   if (filters.dueOnly) sp.set('faellig', '1')
   if (filters.industry) sp.set('branche', filters.industry)
@@ -153,21 +235,35 @@ export function filterSearchParams(filters: LeadFilters): URLSearchParams {
   if (filters.contractEndFrom) sp.set('vertragsende-ab', filters.contractEndFrom)
   if (filters.contractEndTo) sp.set('vertragsende-bis', filters.contractEndTo)
   if (filters.partnerAssignment) sp.set('partner', filters.partnerAssignment)
+  if (filters.email) sp.set('mail', filters.email)
+  if (filters.company) sp.set('firma', filters.company)
+  if (filters.firstName) sp.set('vorname', filters.firstName)
+  if (filters.lastName) sp.set('nachname', filters.lastName)
+  if (filters.phone) sp.set('telefon', filters.phone)
+  if (filters.assignment) sp.set('zuordnung', filters.assignment)
+  for (const category of filters.sourceCategories) sp.append('herkunft', category)
+  for (const key of filters.themaKeys) sp.append('thema', key)
+  if (filters.themaNone) sp.set('thema-leer', '1')
+  for (const purpose of filters.consentPurposes) sp.append('zweck', purpose)
+  for (const state of filters.consentStates) sp.append('einwilligung', state)
+  if (filters.createdFrom) sp.set('von', filters.createdFrom)
+  if (filters.createdTo) sp.set('bis', filters.createdTo)
   return sp
 }
 
 /**
- * Der Filterstand eines anderen Reiters — alle übrigen Filter bleiben, die Zuordnung wechselt.
+ * Der Filterstand mit GEÄNDERTEM Wert einer einzelnen Spalte — die Grundlage jedes Popovers und
+ * jedes „Filter entfernen"-Links.
  *
- * Die SEITE hängt bewusst nicht mit dran (`filterSearchParams` führt sie ohnehin nicht): ein
- * Reiterwechsel ändert die Treffermenge, und „Seite 3" der einen Menge ist in der anderen entweder
- * eine andere oder gar keine. Der Wechsel führt deshalb immer auf Seite 1.
+ * Die SEITE hängt bewusst nicht mit dran (`filterSearchParams` führt sie ohnehin nicht): eine
+ * Filteränderung ändert die Treffermenge, und „Seite 3" der einen Menge ist in der anderen entweder
+ * eine andere oder gar keine. Jede Änderung führt deshalb auf Seite 1.
  */
-export function partnerTabParams(
+export function withFilters(
   filters: LeadFilters,
-  assignment: PartnerAssignment | '',
+  patch: Partial<LeadFilters>,
 ): URLSearchParams {
-  return filterSearchParams({ ...filters, partnerAssignment: assignment })
+  return filterSearchParams({ ...filters, ...patch })
 }
 
 export function hasAnyFilter(filters: LeadFilters): boolean {
@@ -218,15 +314,6 @@ export function filterRpcArgs(filters: LeadFilters) {
   return {
     p_status: filters.status || undefined,
     p_source_key: filters.sourceKey || undefined,
-    /*
-     * Der Zweck ist ein Postgres-ENUM, supabase-js erwartet dafür die Literal-Union. Sie kommt aus
-     * `./leads` und wird hier NICHT ein zweites Mal aufgezählt: eine eigene Liste hätte den seit
-     * B18-6 vierten Wert (`partner_lead_disclosure`) nicht mitbekommen, und die Zuweisung ist eine
-     * Typzusicherung — der Typfehler wäre also gar nicht aufgefallen, nur der Filter hätte an einer
-     * Stelle gefehlt, die niemand ansieht.
-     */
-    p_consent_purpose: (filters.consentPurpose || undefined) as ConsentPurpose | undefined,
-    p_consent_status: filters.consentStatus || undefined,
     p_search: filters.search || undefined,
     p_due_only: filters.dueOnly,
     p_industry: industryOrUndefined(filters.industry),
@@ -237,5 +324,37 @@ export function filterRpcArgs(filters: LeadFilters) {
     p_contract_end_from: dateOrUndefined(filters.contractEndFrom),
     p_contract_end_to: dateOrUndefined(filters.contractEndTo),
     p_partner_assignment: filters.partnerAssignment || undefined,
+    // ── Die Spaltenfilter ────────────────────────────────────────────────────────────────────────
+    // Die sechs Textfilter gehen ROH weiter — die Maskierung der LIKE-Sonderzeichen steht in der
+    // Datenbank (`platform.like_pattern`), damit sie für Liste UND Ausfuhr dieselbe ist. Hier zu
+    // maskieren hiesse, sie ein zweites Mal auszulegen.
+    p_email: filters.email || undefined,
+    p_company: filters.company || undefined,
+    p_first_name: filters.firstName || undefined,
+    p_last_name: filters.lastName || undefined,
+    p_phone: filters.phone || undefined,
+    p_assignment: filters.assignment || undefined,
+    /*
+     * Die drei Anzeige-Kategorien werden HIER zu Herkunftsschlüsseln aufgelöst, nicht in der
+     * Datenbank: `lead_sources` ist eine Tabelle, die laufend wächst, und eine Kategorienregel dort
+     * wäre eine zweite Taxonomie neben der Anzeige (ausführlich in `lead-source-categories.ts`).
+     * Vollständige oder leere Auswahl ergibt `undefined` — beides heisst „keine Einschränkung", und
+     * ein Filter, der alles durchlässt, gehört nicht ins Ausfuhrprotokoll.
+     */
+    p_source_keys: sourceKeysForCategories(filters.sourceCategories),
+    p_thema_keys: filters.themaKeys.length > 0 ? filters.themaKeys : undefined,
+    p_thema_none: filters.themaNone,
+    /*
+     * Die frühere Einzelauswahl (`p_consent_purpose`/`p_consent_status`) wird bewusst NICHT MEHR
+     * gesetzt: Eine alte Adresse (`?zweck=marketing_email`) landet über `readFilters` als
+     * einelementige Liste in der Mehrfachauswahl, und die Mengenform beantwortet dieselbe Frage
+     * (`exists` mit `= any(...)` statt `=`). Zwei Wege für denselben Filter nebeneinander wären
+     * zwei Stellen, an denen er sich ändern kann. Die Skalare bleiben in der Datenbank bestehen —
+     * dort kostet ihr Verbleib nichts und ein Entfernen brauchte einen eigenen Grund.
+     */
+    p_consent_purposes: filters.consentPurposes.length > 0 ? filters.consentPurposes : undefined,
+    p_consent_states: filters.consentStates.length > 0 ? filters.consentStates : undefined,
+    p_created_from: dateOrUndefined(filters.createdFrom),
+    p_created_to: dateOrUndefined(filters.createdTo),
   }
 }

@@ -1,5 +1,6 @@
 /**
- * Tests für das Filter-Vokabular der Lead-Sicht (`lib/admin/lead-filters.ts`, B2-1/B18-5).
+ * Tests für das Filter-Vokabular der Lead-Sicht (`lib/admin/lead-filters.ts`, B2-1/B18-5 und die
+ * Spaltenfilter).
  *
  * ── WARUM DAS MODUL EINEN TEST BRAUCHT, OBWOHL ES NUR ZEICHENKETTEN SCHIEBT ──────────────────────
  * Es ist die einzige Stelle, an der die Filternamen stehen — genau damit ein Filter nicht an einer
@@ -19,11 +20,12 @@ import {
   filterSearchParams,
   hasAnyFilter,
   PARTNER_ASSIGNMENTS,
-  PARTNER_TABS,
-  partnerTabParams,
+  PARTNER_ASSIGNMENT_LABELS,
   readFilters,
+  withFilters,
   type FilterParam,
 } from './lead-filters'
+import { LEAD_SOURCE_CATEGORIES } from './lead-source-categories'
 
 /**
  * Ein gültiger Beispielwert je Filter. Der Typ ist `Record<FilterParam, string>` — ein NEUER
@@ -44,6 +46,17 @@ const SAMPLE: Record<FilterParam, string> = {
   'vertragsende-ab': '2027-01-01',
   'vertragsende-bis': '2027-12-31',
   partner: 'assigned',
+  firma: 'Bäckerei',
+  vorname: 'Anna',
+  nachname: 'von der Gruber',
+  mail: '@coolin.at',
+  telefon: '+43',
+  zuordnung: 'Raymann',
+  herkunft: 'partner',
+  thema: 'peakShaving',
+  'thema-leer': '1',
+  von: '2026-08-01',
+  bis: '2026-08-05',
 }
 
 describe('das Vokabular ist vollständig — jeder Filter überlebt den Rundlauf', () => {
@@ -66,7 +79,7 @@ describe('das Vokabular ist vollständig — jeder Filter überlebt den Rundlauf
 
   it('alle Filter gemeinsam gesetzt ergeben genau FILTER_PARAMS — keiner fehlt, keiner zu viel', () => {
     const out = filterSearchParams(readFilters({ ...SAMPLE }))
-    expect([...out.keys()].sort()).toEqual([...FILTER_PARAMS].sort())
+    expect([...new Set(out.keys())].sort()).toEqual([...FILTER_PARAMS].sort())
   })
 
   it('EMPTY_FILTERS erzeugt keinen einzigen Parameter — „kein Filter" ist kein Filter', () => {
@@ -76,6 +89,58 @@ describe('das Vokabular ist vollständig — jeder Filter überlebt den Rundlauf
 
   it('readFilters ohne Anfrage liefert exakt EMPTY_FILTERS', () => {
     expect(readFilters({})).toEqual(EMPTY_FILTERS)
+  })
+})
+
+describe('die Mehrfachauswahl-Filter', () => {
+  it('mehrere Werte überleben als mehrere Parameter derselben Adresse', () => {
+    const filters = readFilters({
+      herkunft: ['partner', 'admin'],
+      thema: ['peakShaving', 'esg'],
+      einwilligung: ['confirmed', 'none'],
+    })
+    expect(filters.sourceCategories).toEqual(['partner', 'admin'])
+    expect(filters.themaKeys).toEqual(['peakShaving', 'esg'])
+    expect(filters.consentStates).toEqual(['confirmed', 'none'])
+
+    const out = filterSearchParams(filters)
+    expect(out.getAll('herkunft')).toEqual(['partner', 'admin'])
+    expect(out.getAll('thema')).toEqual(['peakShaving', 'esg'])
+    expect(out.getAll('einwilligung')).toEqual(['confirmed', 'none'])
+  })
+
+  it('Dubletten und leere Einträge fallen weg', () => {
+    /*
+     * Eine Ankreuzliste kann denselben Wert nicht zweimal meinen. Zweimal derselbe Wert käme
+     * zusätzlich im Ausfuhrprotokoll an (`platform.lead_filter_summary` schreibt die Menge
+     * wörtlich) und sähe dort aus wie ein Fehler.
+     */
+    const filters = readFilters({ thema: ['esg', 'esg', '  ', 'peakShaving'] })
+    expect(filters.themaKeys).toEqual(['esg', 'peakShaving'])
+  })
+
+  it('eine ALTE Adresse mit Einzelwert wird unverändert weiter verstanden', () => {
+    /*
+     * `?zweck=marketing_email` stammt aus der Zeit vor den Spaltenfiltern (B1-3 bot genau einen
+     * Zweck an). Eine gespeicherte Adresse muss dasselbe Ergebnis zeigen wie damals — sonst wäre
+     * ein Lesezeichen still zu einer anderen Auswahl geworden.
+     */
+    const filters = readFilters({ zweck: 'marketing_email', einwilligung: 'pending' })
+    expect(filters.consentPurposes).toEqual(['marketing_email'])
+    expect(filters.consentStates).toEqual(['pending'])
+    expect(filterRpcArgs(filters).p_consent_purposes).toEqual(['marketing_email'])
+    expect(filterRpcArgs(filters).p_consent_states).toEqual(['pending'])
+  })
+
+  it('ein unbekannter Herkunfts-KATEGORIEWERT wird verworfen — als einziger Filter', () => {
+    /*
+     * Die Ausnahme von der Regel „unbekannte Werte wandern zur Datenbank und werden dort
+     * abgelehnt": Die drei Kategorien sind eine Erfindung DIESER Oberfläche. Die Datenbank kennt
+     * sie nicht und bekommt ohnehin eine Schlüsselmenge — ein unbekannter Kategoriename hätte darin
+     * gar keine Entsprechung und könnte deshalb auch nicht als `invalid_filter` zurückkommen.
+     */
+    expect(readFilters({ herkunft: ['partner', 'quatsch'] }).sourceCategories).toEqual(['partner'])
+    expect(readFilters({ herkunft: 'quatsch' }).sourceCategories).toEqual([])
   })
 })
 
@@ -89,6 +154,18 @@ describe('der Partner-Zuordnungsfilter (B18-5)', () => {
     }
   })
 
+  it('beide Zustände haben eine Beschriftung — die Fähigkeit der Reiter bleibt bedienbar', () => {
+    /*
+     * Die drei Reiter aus B18-5 sind weg, ihre FÄHIGKEIT nicht: dieselben zwei Werte stehen jetzt
+     * im Popover der Zuordnungsspalte, der leere Zustand ist wie bisher die Adresse ohne Parameter.
+     * Ein Wert ohne Beschriftung wäre ein Ankreuzfeld ohne Text.
+     */
+    for (const value of PARTNER_ASSIGNMENTS) {
+      expect(PARTNER_ASSIGNMENT_LABELS[value].trim().length).toBeGreaterThan(0)
+    }
+    expect(Object.keys(PARTNER_ASSIGNMENT_LABELS).sort()).toEqual([...PARTNER_ASSIGNMENTS].sort())
+  })
+
   it('ein UNBEKANNTER Wert wandert unverändert an die Datenbank — sie lehnt ihn ab', () => {
     /*
      * Die Versuchung wäre, hier gegen PARTNER_ASSIGNMENTS zu prüfen und Unbekanntes auf `undefined`
@@ -96,9 +173,6 @@ describe('der Partner-Zuordnungsfilter (B18-5)', () => {
      * Filter", der Admin bekäme den VOLLEN Bestand und hielte ihn für die gefilterte Teilmenge.
      * Die Datenbank antwortet stattdessen mit {status:'invalid_filter'} und sagt welchen — dieselbe
      * Behandlung wie bei Status, Messart und PLZ-Präfix.
-     *
-     * Genau deshalb ist `p_partner_assignment` in der Datenbank ein `text` mit zwei erlaubten
-     * Literalen und kein dreiwertiger `boolean`: auf `boolean` gäbe es diesen Weg nicht.
      */
     expect(filterRpcArgs(readFilters({ partner: 'quatsch' })).p_partner_assignment).toBe('quatsch')
     expect(filterRpcArgs(readFilters({ partner: 'true' })).p_partner_assignment).toBe('true')
@@ -113,83 +187,99 @@ describe('der Partner-Zuordnungsfilter (B18-5)', () => {
     }
   })
 
-  it('ein mehrfach gesetzter Parameter wird verworfen statt geraten', () => {
+  it('ein mehrfach gesetzter EINZELWERT-Parameter wird verworfen statt geraten', () => {
     // `?partner=assigned&partner=unassigned` — welcher gälte? Keiner. Dieselbe Behandlung wie bei
-    // allen übrigen Filtern (`one()` nimmt nur einfache Zeichenketten).
+    // allen übrigen Einzelwert-Filtern (`one()` nimmt nur einfache Zeichenketten).
     expect(readFilters({ partner: ['assigned', 'unassigned'] }).partnerAssignment).toBe('')
   })
 })
 
-describe('die Reiter über der Liste (B18-5-Oberfläche)', () => {
-  it('es gibt genau drei Reiter, und ihre Werte sind die des Filters plus der leere Zustand', () => {
+describe('withFilters — die Grundlage jedes Popovers und jeder Filter-Marke', () => {
+  it('eine Filteränderung behält ALLE übrigen Filter', () => {
     /*
-     * Der leere Reiter ist Absicht und kein Übersehen: ohne ihn gäbe es keine Adresse mehr, unter
-     * der der GESAMTE Bestand sichtbar ist — und damit auch keine Ausfuhr über ihn, obwohl die
-     * Ausfuhr genau das seit B2-1 kann. Ein neuer Filterwert ohne Reiter (oder umgekehrt) macht
-     * diesen Test rot.
-     */
-    expect(PARTNER_TABS.map((t) => t.value)).toEqual(['', ...PARTNER_ASSIGNMENTS])
-    for (const tab of PARTNER_TABS) {
-      expect(tab.label.trim().length, `„${tab.value}" hat eine Beschriftung`).toBeGreaterThan(0)
-    }
-  })
-
-  it('ein Reiterwechsel behält ALLE übrigen Filter und tauscht nur die Zuordnung', () => {
-    /*
-     * DER KERNTEST DIESES ABSCHNITTS. Ein Reiter, der die gesetzten Filter abwirft, sähe aus wie
-     * eine Ansicht derselben Auswahl und wäre eine andere — und der Export-Link darunter übernähme
-     * die Verwechslung wortlos.
+     * DER KERNTEST DIESES ABSCHNITTS. Ein Popover, das die gesetzten Filter abwirft, zeigte eine
+     * GRÖSSERE Menge als angefordert — und der Export-Link darunter übernähme die Verwechslung
+     * wortlos. Genau dieser Fehler wäre in B18-5 beinahe entstanden (dort trug ein verstecktes Feld
+     * den Reiter mit).
      */
     const filters = readFilters({ ...SAMPLE, partner: 'unassigned' })
-    const out = partnerTabParams(filters, 'assigned')
+    const out = withFilters(filters, { partnerAssignment: 'assigned' })
 
     expect(out.get('partner')).toBe('assigned')
-    expect([...out.keys()].sort(), 'kein Filter geht verloren').toEqual([...FILTER_PARAMS].sort())
+    expect([...new Set(out.keys())].sort(), 'kein Filter geht verloren').toEqual(
+      [...FILTER_PARAMS].sort(),
+    )
     for (const param of FILTER_PARAMS) {
       if (param === 'partner') continue
       expect(out.get(param), `„${param}" bleibt unverändert`).toBe(SAMPLE[param])
     }
   })
 
-  it('der leere Reiter entfernt den Parameter, statt ihn leer zu setzen', () => {
-    const out = partnerTabParams(readFilters({ partner: 'assigned', branche: 'kuehlhaus' }), '')
+  it('das Leeren eines Filters entfernt den Parameter, statt ihn leer zu setzen', () => {
+    const out = withFilters(readFilters({ partner: 'assigned', firma: 'Bäck' }), {
+      partnerAssignment: '',
+    })
     expect(
       out.has('partner'),
       'ein leeres partner= wäre ein Wert, den readFilters erst wieder verwirft',
     ).toBe(false)
-    expect(out.get('branche'), 'die übrigen Filter bleiben auch hier').toBe('kuehlhaus')
+    expect(out.get('firma'), 'die übrigen Filter bleiben auch hier').toBe('Bäck')
   })
 
-  it('ein Reiterwechsel führt IMMER auf Seite 1', () => {
+  it('das Entfernen EINES Wertes einer Mehrfachauswahl lässt die übrigen stehen', () => {
+    const filters = readFilters({ thema: ['esg', 'peakShaving'] })
+    const out = withFilters(filters, { themaKeys: ['peakShaving'] })
+    expect(out.getAll('thema')).toEqual(['peakShaving'])
+  })
+
+  it('eine Filteränderung führt IMMER auf Seite 1', () => {
     /*
-     * Der Wechsel ändert die Treffermenge; „Seite 3" der einen ist in der anderen eine andere oder
+     * Die Änderung ändert die Treffermenge; „Seite 3" der einen ist in der anderen eine andere oder
      * gar keine. Eine mitgeschleppte Seitenzahl zeigte im besten Fall etwas Falsches und im
      * schlechteren eine leere Tabelle, die wie „keine Treffer" aussieht.
      */
-    const out = partnerTabParams(readFilters({ seite: '4', partner: 'assigned' }), 'unassigned')
+    const out = withFilters(readFilters({ seite: '4', partner: 'assigned' }), {
+      partnerAssignment: 'unassigned',
+    })
     expect(out.has('seite')).toBe(false)
   })
 })
 
 describe('die RPC-Argumente', () => {
   it('der vierte Einwilligungszweck kommt durch (B18-6)', () => {
+    expect(
+      filterRpcArgs(readFilters({ zweck: 'partner_lead_disclosure' })).p_consent_purposes,
+    ).toEqual(['partner_lead_disclosure'])
+  })
+
+  it('die Herkunfts-Kategorien werden zu Schlüsseln aufgelöst, nicht durchgereicht', () => {
     /*
-     * `partner_lead_disclosure` gibt es seit B18-6 im DB-Enum, und die Lead-Liste bietet ihn im
-     * Filter an. Die Zuweisung in `filterRpcArgs` ist eine TYPZUSICHERUNG — eine eigene, veraltete
-     * Literal-Union hätte hier keinen Typfehler erzeugt, sondern nur behauptet, den Wert gäbe es
-     * nicht. Deshalb kommt die Union jetzt aus `./leads`, und dieser Test hält den Wert fest.
+     * Die Datenbank kennt keine Kategorien (`lead_sources` ist eine wachsende Tabelle — eine
+     * Kategorienregel dort wäre eine zweite Taxonomie neben der Anzeige). Was ankommt, ist eine
+     * Schlüsselmenge.
      */
-    expect(filterRpcArgs(readFilters({ zweck: 'partner_lead_disclosure' })).p_consent_purpose).toBe(
-      'partner_lead_disclosure',
-    )
+    const args = filterRpcArgs(readFilters({ herkunft: 'partner' }))
+    expect(args.p_source_keys).toEqual(['partner-empfehlung'])
+
+    const admin = filterRpcArgs(readFilters({ herkunft: 'admin' }))
+    expect(admin.p_source_keys).toEqual(['telefonanfrage'])
+  })
+
+  it('ALLE Kategorien angekreuzt ist kein Filter — sonst stünde „alles" im Ausfuhrprotokoll', () => {
+    const args = filterRpcArgs(readFilters({ herkunft: [...LEAD_SOURCE_CATEGORIES] }))
+    expect(args.p_source_keys).toBeUndefined()
   })
 
   it('unbrauchbare Zahlen und Daten werden verworfen statt zu 0 bzw. an Postgres gereicht', () => {
     const args = filterRpcArgs(
-      readFilters({ 'verbrauch-ab': 'viel', 'vertragsende-ab': '01.01.2027' }),
+      readFilters({ 'verbrauch-ab': 'viel', 'vertragsende-ab': '01.01.2027', von: '5.8.2026' }),
     )
     expect(args.p_consumption_min, '„viel" wäre als 0 ein echter Filter').toBeUndefined()
-    expect(args.p_contract_end_from, 'ein unparsbares Datum wäre ein harter DB-Fehler').toBeUndefined()
+    expect(
+      args.p_contract_end_from,
+      'ein unparsbares Datum wäre ein harter DB-Fehler',
+    ).toBeUndefined()
+    expect(args.p_created_from, 'dasselbe für das Anlagedatum').toBeUndefined()
   })
 
   it('eine erfundene Branche wird abgefangen, BEVOR sie am Postgres-Enum scheitert', () => {
@@ -197,14 +287,27 @@ describe('die RPC-Argumente', () => {
     expect(filterRpcArgs(readFilters({ branche: 'kuehlhaus' })).p_industry).toBe('kuehlhaus')
   })
 
+  it('die Textfilter gehen ROH weiter — die Maskierung steht in der Datenbank', () => {
+    /*
+     * `platform.like_pattern` maskiert `%`, `_` und `\`, und zwar für Liste UND Ausfuhr gemeinsam.
+     * Hier zusätzlich zu maskieren hiesse, dieselbe Regel ein zweites Mal auszulegen — und die
+     * doppelte Maskierung fände dann genau die Zeilen nicht, die das Sonderzeichen wirklich tragen.
+     */
+    const args = filterRpcArgs(readFilters({ firma: '50% Rabatt_GmbH' }))
+    expect(args.p_company).toBe('50% Rabatt_GmbH')
+  })
+
   it('jeder Filter hat genau ein RPC-Argument, und keines bleibt bei „alles" gesetzt', () => {
     const allSet = filterRpcArgs(readFilters({ ...SAMPLE }))
     const none = filterRpcArgs(EMPTY_FILTERS)
 
-    // `p_due_only` ist der einzige boolesche Filter: „aus" ist dort `false`, nicht `undefined`.
-    expect(none.p_due_only).toBe(false)
+    // Die zwei booleschen Filter: „aus" ist dort `false`, nicht `undefined`.
+    const BOOLEANS = ['p_due_only', 'p_thema_none']
+    for (const key of BOOLEANS) {
+      expect(none[key as keyof typeof none], `${key} ist ohne Filter false`).toBe(false)
+    }
     for (const [key, value] of Object.entries(none)) {
-      if (key === 'p_due_only') continue
+      if (BOOLEANS.includes(key)) continue
       expect(value, `${key} ist ohne Filter nicht gesetzt`).toBeUndefined()
     }
     for (const [key, value] of Object.entries(allSet)) {
@@ -212,7 +315,7 @@ describe('die RPC-Argumente', () => {
     }
     expect(
       Object.keys(allSet).length,
-      'ein RPC-Argument je Filter (dueOnly zählt mit)',
+      'ein RPC-Argument je Filter (die zwei booleschen zählen mit)',
     ).toBe(FILTER_PARAMS.length)
   })
 })
