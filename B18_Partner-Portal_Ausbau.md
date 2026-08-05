@@ -7,7 +7,7 @@
 
 ## ZUERST LESEN
 
-1. `Fahrplan_2026.md` — kanonische Quelle. B10–B17 sind vergeben, **B18 ist frei**.
+1. `Fahrplan_2026.md` — kanonische Quelle. **B18 ist vollständig gebaut, gemergt, live.** Details unten.
 2. `CLAUDE_PEAKSHAVING.md` — Arbeitsregeln, u. a. **Arbeitsregel 5** (SECURITY-DEFINER-Funktion
    nie ohne Grant aufrufen, um fehlenden Zugriff zu beweisen — schiesst Postgres ab).
 3. `DEPLOYMENT.md` §9 — Mailversand, Absender, Auth-SMTP-Fallstricke.
@@ -102,10 +102,9 @@ ausser Partnern keine Registrierungen; sämtliche Partnerkommunikation läuft ü
 
 ### B18-3 — Portal-Struktur mit Menüs
 
-**Status: teilweise gebaut.** Schema/Schreibweg fertig (PR #61 — get_my_partner()
-liefert zusätzlich Ansprechperson + Beitrittsdatum, Grundlage für "Allgemein"),
-migriert auf die Cloud-DB. Oberfläche (Portal-Nav-Header, "Allgemein"-Seite,
-"Marketing"-Umzug) noch offen.
+**Status: gebaut, gemergt, live.** PR #61 (Schema/Schreibweg — `get_my_partner()`
+liefert zusätzlich Ansprechperson + Beitrittsdatum) + PR #63 (Oberfläche: eigener
+Portal-Rahmen unter `app/portal/**`, Reiter Allgemein/Marketing).
 
 Eigener Nav-Header im Portal (nicht der öffentliche), fortlaufend erweiterbar:
 
@@ -118,21 +117,29 @@ Eigener Nav-Header im Portal (nicht der öffentliche), fortlaufend erweiterbar:
 
 ### B18-4 — Kalkulator-Anfrage über das Portal
 
-**Status: nicht begonnen.** Wartet auf Andreas' Entscheidung: Gutscheincode-Weg für
-calculator_pro daneben behalten oder ersetzen?
+**Status: gebaut, gemergt, live.** PR #70 (Schema: `platform.calculator_requests`,
+vier Wrapper, `frame-ancestors` erstmals bewusst gesetzt) · PR #71 (Admin-Prüfeingang
+„Kalkulator-Anfragen") · PR #72 (Portal-Reiter „Kalkulator", vier Zustände) · eigener
+PR (Admin-Direktzugriff ohne Entitlement-Prüfung, PR #76) · PR #75 (öffentliche
+Produktseite: „Zugang anfragen" statt Selbstbedienung). Der Gutscheincode-Weg für
+`calculator_pro` ist wie entschieden entfernt worden — der Monitor-Gutscheinweg über
+`/konto` ist davon unberührt.
 
-- Auf der „Peak Shaving"-Portalseite: Anfrageformular mit Begründungstext.
-- Anfrage landet im Admin, dort ablehnen oder freigeben.
+- Auf dem Portal-Reiter „Kalkulator": Anfrageformular mit Begründungstext.
+- Anfrage landet im Admin unter „Kalkulator-Anfragen", dort ablehnen oder freigeben.
 - Bei Freigabe: `calculator_pro`-Entitlement für dieses Konto → der Kalkulator erscheint auf
-  derselben Portalseite als iframe. **Kein Zugangscode nötig**, der Portal-Login genügt.
+  demselben Portal-Reiter als iframe. **Kein Zugangscode nötig**, der Portal-Login genügt.
 - Nutzt den bestehenden Entitlement-Mechanismus, kein neuer.
-
-**Offene Frage an Andreas:** Soll der bestehende Gutscheincode-Weg für `calculator_pro` daneben
-bestehen bleiben oder ersetzt werden? Beide führen zum selben Entitlement.
 
 ### B18-5 — Admin-Leads: zwei Ansichten, EINE Tabelle
 
-**Status: nicht begonnen.**
+**Status: gebaut, gemergt, live.** Schema-PR #67 (Filter „hat einen Fachbetrieb /
+hat keinen" in `leads_matching`) + Oberflächen-PR #69 (zwei Reiter „Partner-Leads" /
+„Direktanfragen"). **Nachtrag:** Die Reiter sind mit B19 (PR #81) wieder entfernt und
+durch spaltenweise Filter über der gesamten Lead-Liste ersetzt worden — s. Abschnitt
+„B19" unten. Die datenseitige Filterfähigkeit aus dieser Migration (`p_partner_slug`,
+`p_partner_assignment` in `leads_matching`) bleibt dabei bestehen und wird von den
+neuen Spaltenfiltern mitbenutzt.
 
 **Wichtig — technische Korrektur zur ursprünglichen Idee:** Zwei DB-Tabellen würden vier
 funktionierende Mechanismen zerreissen:
@@ -156,12 +163,12 @@ Interaktion, Löschfrist.
 
 Die Reiter „Partner" und „Partner-Anträge" bleiben unverändert.
 
-### B18-6 — Partner sieht seine Leads ⚠ BLOCKIERT
+### B18-6 — Partner sieht seine Leads
 
-**Status: rechtlich freigegeben (Martin), technisch nicht begonnen.**
-Schema+Schreibweg-Prompt liegt fertig vor (neuer consent_purpose-Wert,
-get_my_partner_leads(), Checkbox auf der Partner-Landingpage) — startet, sobald B18-3
-komplett ist.
+**Status: gebaut, gemergt, live.** Rechtlich freigegeben (Martin) UND technisch
+fertig: PR #64 (Schema+Schreibweg — neuer `consent_purpose`-Wert
+`partner_lead_disclosure`, `get_my_partner_leads()`, Checkbox auf der
+Partner-Landingpage) + PR #66 (Portal-Reiter „Anfragen").
 
 Der Interessent gibt seine Daten **COOLiN**, nicht dem Partner. Ihm im Portal Firmenname,
 Ansprechperson und Kontaktdaten zu zeigen, ist eine Übermittlung an einen Dritten — von keiner der
@@ -205,20 +212,34 @@ zusammen mit den drei ohnehin offenen Einwilligungstexten.
 ## OFFENE PUNKTE
 
 **Andreas:**
-- DNS/Vercel/Supabase-Redirect für `partner.coolin.at` (Vorbedingung B18-1)
-- Entscheidung: Gutscheincode-Weg für `calculator_pro` neben B18-4 behalten oder ersetzen?
 - `coolin2026` als Monitor-Gutscheincode deaktivieren (Altlast aus dem alten Soft-Gate)
-- Vercel-CLI-Token abgelaufen — CC musste den Deployment-Nachweis über die GitHub-API führen
 - Vier Textblöcke im Arbeitsstand (Landingpage, Bewerbungsseite, Bewerbungs-Mails,
   Portal-Vorlagen) → Martina, vor der ersten echten Partner-Aussendung
 
 **Martin / extern:**
-- Juristische Prüfung der Einwilligungstexte + neuer Zweck für B18-6 (blockiert B18-6)
 - Aufbewahrungsfrist für abgelehnte Partner-Anträge (`run_lead_retention` fasst
   `partner_applications` nicht an — DEPLOYMENT.md §7)
 
 **Nicht Teil von B18:** Partner-Statistik (Klickzählung ohne Cookies braucht eigene serverseitige
 Lösung, wartet auf echten Verkehr), Kundenportal, Peak-Wächter (B12/B15), Stripe-Umstellung.
+
+---
+
+## B19 — Admin-Leaderfassung und Listen-Neugestaltung (nicht ursprünglich Teil von B18, in derselben Sitzung entstanden)
+
+**Status: gebaut, gemergt, live.** PR #77 (Admin-Formular „Lead anlegen" für
+telefonische Anfragen, bewusst **mailfrei** — interne Erfassung soll den
+Interessenten nicht wie eine Web-Einreichung behandeln, es geht keine
+Bestätigungs- oder Benachrichtigungsmail hinaus) · PR #78 (formlose
+Fachbetrieb-Erwähnung bekommt eine eigene Ablage, `platform.mentioned_businesses`
+— getrennt von `platform.partners`, weil eine formlos genannte Firma keine
+Bewerbung durchlaufen und keine Freischaltung erhalten hat) · PR #79 (Thema der
+Kontaktanfrage wird Bestand, `platform.leads.thema`, gespeist aus
+`kontaktformular` und `partner-empfehlung`, sonst leer) · PR #80 („Lead anlegen"
+bekommt dieselbe Themen-Auswahl, die Lead-Detailseite zeigt das Thema) · PR #81
+(Leads-Liste bekommt zehn Spalten mit spaltenweisen Excel-artigen Filtern statt
+der bisherigen Filtersektion und der B18-5-Reiter „Partner-Leads" /
+„Direktanfragen").
 
 ---
 
