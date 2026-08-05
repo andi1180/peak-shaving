@@ -21,6 +21,7 @@ import { ANALYSES_HREF } from './analyses'
 import { PARTNERS_HREF } from './partners'
 import { PARTNER_APPLICATIONS_HREF } from './partner-applications'
 import { CALCULATOR_REQUESTS_HREF } from './calculator-requests'
+import { ADMIN_CALCULATOR_HREF } from './calculator'
 
 export type AdminNavItem = {
   href: string
@@ -54,4 +55,20 @@ export const ADMIN_NAV_ITEMS: readonly AdminNavItem[] = [
    * noch nicht entschieden ist.
    */
   { href: CALCULATOR_REQUESTS_HREF, label: 'Kalkulator-Anfragen' },
+  /*
+   * B18-4: das Werkzeug selbst. Eigener Punkt und ausdrücklich NICHT derselbe Bereich wie
+   * „Kalkulator-Anfragen" — dort wird über FREMDE Zugänge entschieden, hier wird gerechnet; das sind
+   * zwei Tätigkeiten mit zwei Adressen.
+   *
+   * ⚠ DIE PRÄFIX-REGEL GILT IN BEIDE RICHTUNGEN, und hier ist die zweite die knappe: `AdminNav`
+   * markiert aktiv, sobald der Pfad mit dem Punkt beginnt. `/admin/kalkulator` ist der KÜRZERE der
+   * beiden Pfade und hätte den Prüf-Eingang geschluckt, wäre dieser `/admin/kalkulator/anfragen`
+   * genannt worden — genau deshalb heisst er seit B18-4 `/admin/kalkulator-anfragen`. Die beiden
+   * sind Geschwister, kein Paar aus Ober- und Unterpfad; gemessen in `lib/admin/calculator-ui.test.ts`
+   * (und zusätzlich von der bestehenden Präfix-Probe über ALLE Punkte erfasst).
+   *
+   * ⚠ DIESER PUNKT PRÜFT KEIN ENTITLEMENT. Wer den Admin-Bereich betreten darf, bekommt den Rechner
+   * sofort — Begründung in `app/admin/(intern)/kalkulator/page.tsx`.
+   */
+  { href: ADMIN_CALCULATOR_HREF, label: 'Kalkulator' },
 ] as const
