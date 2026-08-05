@@ -1,5 +1,6 @@
 import type { MetadataRoute } from 'next'
 import { headers } from 'next/headers'
+import { isAccessHost } from '@/lib/access-host'
 import { isPortalHost } from '@/lib/portal-host'
 import { absoluteUrl, IS_PRODUCTION_SITE } from '@/lib/site'
 
@@ -61,11 +62,23 @@ import { absoluteUrl, IS_PRODUCTION_SITE } from '@/lib/site'
  * Google das `noindex` der Anmeldeseite nicht mehr lesen darf. Das ist kein Grund, hier heute etwas
  * anderes zu tun (die Alternative wäre, den gesamten Zweitdomain-Crawl zu erlauben), aber es ist der
  * Zeitpunkt, an dem die Abwägung neu ansteht.
+ *
+ * ── ZUGANGSPLATTFORM (Baustein 1): DIESELBE FRAGE, DRITTER HOST ────────────────────────────────
+ * `access.coolin.at` zeigt ebenfalls auf dieses Vercel-Projekt und lieferte vor Baustein 1
+ * gemessen die komplette Website aus. Die Bedingung ist deshalb um diesen Host erweitert, nicht
+ * verallgemeinert: Es bleibt bei EINER verbietenden Prüfung je namentlich benanntem Host — eine
+ * Negativ-Regel („alles, was nicht die Hauptdomain ist") setzte jede Preview und jede lokale
+ * Entwicklung auf `Disallow: /`, und beim Testen fiele es nicht auf, weil die Seiten ja weiterhin
+ * ausgeliefert werden. Die Ableitung selbst liegt je Produkt in seiner eigenen Datei; hier steht
+ * kein Hostname.
+ *
+ * Die Zugangsplattform braucht darüber hinaus nichts in `lib/routes.ts`: Ihr Render-Baum liegt
+ * ausserhalb von `app/(site)/[locale]/` und kann per Konstruktion in keine sitemap geraten.
  */
 export default async function robots(): Promise<MetadataRoute.Robots> {
   const host = (await headers()).get('host')
 
-  if (isPortalHost(host) || !IS_PRODUCTION_SITE) {
+  if (isPortalHost(host) || isAccessHost(host) || !IS_PRODUCTION_SITE) {
     return {
       rules: [{ userAgent: '*', disallow: '/' }],
       /*

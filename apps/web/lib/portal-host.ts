@@ -30,10 +30,19 @@
  * Bewusst KEINE zweite Umgebungsvariable für die Portal-Domain: Der Host steht in jeder Anfrage,
  * und eine Variable, die man in einer Umgebung zu setzen vergisst, machte aus dem Portal-Host
  * still wieder eine vollständige Zweitdomain.
+ *
+ * ── SEIT DER ZWEITEN SUBDOMAIN LIEGEN DIE HELFER IN `lib/host-match.ts` ─────────────────────────
+ * Normalisierung, die Zwei-Kopfzeilen-Regel und das Abtrennen des Locale-Präfixes standen hier als
+ * private Funktionen — richtig, solange es genau eine Subdomain gab. Mit `access.coolin.at`
+ * (Zugangsplattform) stellt eine zweite Datei exakt dieselben drei Fragen; beide lesen die Antwort
+ * jetzt aus EINER Fassung. Das Verhalten ist unverändert, die Begründungen sind mitgewandert und
+ * stehen dort am Code (sie sind GEMESSEN, nicht abgeleitet — eine Kopie erbt den Code, nicht die
+ * Messung). DIESE Datei beantwortet weiterhin allein „welcher Host ist der Portal-Host und welche
+ * Pfade gehören ihm".
  */
 
-import { routing } from '@/i18n/routing'
 import { AUTH_HREFS } from '@/lib/auth/config'
+import { matchesHost, requestMatchesHost, stripLocale, type HostHeaders } from '@/lib/host-match'
 import { PARTNER_AKTIVIEREN_HREF, PARTNER_PORTAL_HREF } from '@/lib/partner-portal/config'
 import { IS_PRODUCTION_SITE, absoluteUrl } from '@/lib/site'
 
@@ -280,75 +289,21 @@ export function portalEntryUrl(): string {
   return IS_PRODUCTION_SITE ? `https://${PORTAL_HOST}${PORTAL_HOST_ROOT}` : absoluteUrl(PARTNER_PORTAL_HREF)
 }
 
-/**
- * Host-Kopfzeile auf die reine Namensform bringen.
- *
- * Ein Port (`localhost:3000`) und die FQDN-Schreibweise mit Punkt am Ende (`partner.coolin.at.`)
- * bezeichnen denselben Host. Ohne Normalisierung wäre die zweite Form ein NICHT erkannter
- * Portal-Host — und damit wieder eine vollständige Zweitdomain. Die Normalisierung kann nur
- * zusätzliche Schreibweisen ALS Portal-Host erkennen, nie einen fremden Host dazu machen.
- *
- * Der Port wird nur als abschliessendes `:<Ziffern>` entfernt, damit eine IPv6-Adresse (`[::1]`)
- * nicht mitten im Literal abgeschnitten wird.
- */
-function normalizeHost(host: string | null | undefined): string {
-  if (!host) return ''
-  return host.trim().toLowerCase().replace(/:\d+$/, '').replace(/\.$/, '')
-}
-
-/** Kommt die Anfrage über die Portal-Subdomain? Exakter Vergleich, s. Kopf dieser Datei. */
+/** Kommt die Anfrage über die Portal-Subdomain? Exakter Vergleich, s. `lib/host-match.ts`. */
 export function isPortalHost(host: string | null | undefined): boolean {
-  return normalizeHost(host) === PORTAL_HOST
+  return matchesHost(host, PORTAL_HOST)
 }
-
-/** Der Ausschnitt, den beide Aufrufer erfüllen: `request.headers` und `await headers()`. */
-type HostHeaders = { get(name: string): string | null }
 
 /**
  * Läuft DIESE Anfrage über den Portal-Host?
  *
- * ── ⚠ WARUM ZWEI KOPFZEILEN, UND WARUM DAS GEMESSEN IST ─────────────────────────────────────────
- * Der naheliegende Weg — allein `host` — ist an einer Stelle nachweislich falsch, und zwar an
- * genau der, an der es am meisten weh tut: Leitet eine Server Action mit `redirect('/')` weiter,
- * rendert Next das ZIEL innerhalb derselben Antwort und lässt dafür die Middleware ein zweites Mal
- * laufen — mit einer INTERNEN Anfrage. Gemessen gegen den Production-Build:
- *
- *     POST /anmelden   host= partner.coolin.at   x-forwarded-host= partner.coolin.at
- *     GET  /           host= localhost:3990      x-forwarded-host= partner.coolin.at
- *
- * `host` trägt dort den Server selbst, `x-forwarded-host` den echten Host. Ohne die zweite
- * Kopfzeile bekäme ein Fachbetrieb unmittelbar nach dem Anmelden die MARKETING-Startseite zu sehen
- * (die Adresse `/` stimmte, der Inhalt nicht) und erst nach einem Neuladen sein Portal — und beim
- * Abmelden dasselbe. Ein Fehler, den kein Statuscode und kein Location-Header zeigt.
- *
- * ── DIE VERKNÜPFUNG IST BEWUSST „ODER", ALSO MONOTON ────────────────────────────────────────────
- * Sie kann eine Anfrage nur ZUSÄTZLICH als Portal-Host erkennen, nie eine als etwas anderes
- * ausweisen — dieselbe Richtung wie die Normalisierung oben, und aus demselben Grund. Praktisch:
- * Wer `x-forwarded-host: partner.coolin.at` von Hand mitschickt, bekommt für seine eigene Anfrage
- * die ENGERE Behandlung (Portalbereich oder 308 auf die kanonische Basis, dazu `Disallow: /`) —
- * niemals eine weitere. Die umgekehrte Verknüpfung („nur wenn beide zustimmen") wäre der
- * gefährliche Entwurf: Mit ihr liesse sich die 308-Weiche auf dem Portal-Host abschalten und die
- * vollständige Website unter der Subdomain ausliefern — genau der Zustand, den B18-1a beseitigt hat.
+ * Prüft `host` UND `x-forwarded-host` — die Begründung dafür ist gemessen und steht bei
+ * `requestMatchesHost` in `lib/host-match.ts`. Kurzfassung: Nach einer Server-Action-Weiterleitung
+ * trägt `host` den Server selbst; ohne die zweite Kopfzeile sähe ein Fachbetrieb unmittelbar nach
+ * dem Anmelden die Marketing-Startseite statt seines Portals.
  */
 export function isPortalHostRequest(headers: HostHeaders): boolean {
-  return isPortalHost(headers.get('host')) || isPortalHost(headers.get('x-forwarded-host'))
-}
-
-/**
- * Entfernt ein führendes Locale-Segment.
- *
- * `localePrefix: 'as-needed'` (i18n/routing.ts) liefert Deutsch OHNE Präfix aus — `/de/anmelden`
- * ist aber weiterhin eine gültige Adresse (next-intl leitet sie auf `/anmelden` um), und eine
- * zweite Sprache brächte `/en/anmelden`. Die Weiche läuft VOR dem Locale-Routing und sieht deshalb
- * den rohen Pfad. Ohne diesen Schritt würde `/de/anmelden` auf dem Portal-Host weggeleitet,
- * mitten im Anmeldevorgang.
- */
-function stripLocale(pathname: string): string {
-  for (const locale of routing.locales) {
-    if (pathname === `/${locale}`) return '/'
-    if (pathname.startsWith(`/${locale}/`)) return pathname.slice(locale.length + 1)
-  }
-  return pathname
+  return requestMatchesHost(headers, PORTAL_HOST)
 }
 
 /**
