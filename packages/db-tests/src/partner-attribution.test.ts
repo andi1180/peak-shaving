@@ -544,7 +544,7 @@ describe('(3) public.capture_lead', () => {
     expect(rows[0]).toEqual({ first_name: 'Test', last_name: 'Person', phone: '+43 1 0000' })
   })
 
-  it('GENAU EINE Überladung, die zwei Parameter hängen am ENDE', async () => {
+  it('GENAU EINE Überladung, die zwei Parameter hängen HINTER dem B3-1-Block', async () => {
     const rows = await sql<{ args: string[] }>(
       `select p.proargnames as args
          from pg_proc p join pg_namespace n on n.oid = p.pronamespace
@@ -554,7 +554,16 @@ describe('(3) public.capture_lead', () => {
     // Erfassungspfad lahm (der Grund für DROP + CREATE statt eines blossen CREATE).
     expect(rows).toHaveLength(1)
     const args = rows[0]!.args
-    expect(args.slice(-2)).toEqual(['p_partner_slug', 'p_referred_by_text'])
+    /*
+     * Geprüft wird die POSITION der beiden zueinander und zum letzten B3-1-Feld, nicht mehr „ganz
+     * am Ende": Seit der Thema-Spalte hängt `p_thema` dahinter (dasselbe additive Muster). Die
+     * Aussage, auf die es hier ankommt, bleibt unverändert — die zwei stehen unmittelbar hinter
+     * dem Segmentierungsblock und in dieser Reihenfolge, ein bestehender POSITIONALER Aufruf
+     * bleibt damit gültig.
+     */
+    const start = args.indexOf('p_contract_end_date')
+    expect(start).toBeGreaterThan(-1)
+    expect(args.slice(start + 1, start + 3)).toEqual(['p_partner_slug', 'p_referred_by_text'])
   })
 })
 

@@ -119,6 +119,18 @@ export type CaptureLeadInput = {
   partnerSlug?: string | null
   /** Der Freitext „Empfohlen durch" — die BEOBACHTUNG, nicht das Urteil (B16-1). */
   referredByText?: string | null
+  /*
+   * Das im Kontaktformular gewählte Thema — der SCHLÜSSEL aus `lib/kontakt/themen.ts`
+   * (z. B. `peakShaving`), NIE das übersetzte Label. Nur der Kontaktweg übergibt ihn; alle
+   * anderen Erfassungswege lassen die Spalte null.
+   *
+   * Zusammenführung nach der B3-1-Segmentierungsregel: der JÜNGERE Wert gewinnt. Ein Thema ist
+   * kein Identitätsmerkmal, sondern das Anliegen DIESER Absendung — anders als
+   * `company`/`firstName`/`lastName`/`phone`/`partnerSlug`, wo der Bestand gewinnt. `undefined`
+   * wird deshalb durchgereicht und nicht in `null` übersetzt: sonst löschte jede Erfassung über
+   * einen themenlosen Weg das zuvor genannte Thema.
+   */
+  thema?: string | null
 }
 
 /** EIN atomarer Aufruf: Lead + optionale Einwilligung in einer Transaktion. */
@@ -145,6 +157,7 @@ export async function captureLead(input: CaptureLeadInput): Promise<CaptureResul
     p_contract_end_date: input.contractEndDate ?? undefined,
     p_partner_slug: input.partnerSlug ?? undefined,
     p_referred_by_text: input.referredByText ?? undefined,
+    p_thema: input.thema ?? undefined,
   })
   if (error) throw new Error(`capture_lead: ${error.message}`)
 
