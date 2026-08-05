@@ -1170,13 +1170,13 @@
   "PeakShavingCalculator": {
     "metaDescription": "Der Peak-Shaving Kalkulator: echte Lastgang-Analyse, physikalisch korrekte Batteriesimulation, Speicherempfehlung und ROI für Gewerbebetriebe in Österreich.",
     "appName": "Peak-Shaving Kalkulator",
+    "//cta": "ARBEITSSTAND (B18-4): Hero.cta und Cta.cta sind DERSELBE Knopf an zwei Stellen und muessen wortgleich bleiben — er fuehrt seit B18-4 zur Kontaktanfrage (/kontakt?thema=peakShaving), nicht mehr in den Rechner. Endgueltige Formulierung von Andreas/Martina. Leitplanken: (1) KEINE Zusage ueber die Bearbeitungsdauer und keine Zusage, dass die Anfrage angenommen wird. (2) KEIN Preis (OP#1 ist offen) und keine Ersparniszusage — die Zugangs-/Preisaussage steht als Badge NEBEN dem Knopf, nie im Knopftext (§3.3). (3) Knopftext und Hero.badge muessen dasselbe sagen: 'Zugang anfragen' zu 'Zugang auf Anfrage'. Ein Knopf, der einen Start verspricht, den die Rechner-Route ohne calculator_pro-Entitlement nicht liefern kann, war genau der Widerspruch, den B18-4 aufgeloest hat. (4) Cta.ctaNote hiess bis B18-4 'external' — der Name stammte aus der Zeit des externen Absprungs auf apps/website und fuehrte fuer einen Hinweis auf das EIGENE Kontaktformular in die Irre.",
     "Hero": {
       "eyebrow": "Peak-Shaving Kalkulator",
       "title": "Vom Lastgang zur belastbaren Speicherempfehlung",
       "lead": "Sie laden Ihre 15-Minuten-Lastgangdaten hoch und erhalten keine Faustformel, sondern eine durchgerechnete Entscheidungsgrundlage: welcher Speicher, welche Ersparnis, welche Amortisation — und wie die Zahl zustande kommt.",
       "badge": "Zugang auf Anfrage",
-      "cta": "Kalkulator starten",
-      "ctaHint": "Läuft direkt hier auf coolin.at"
+      "cta": "Zugang anfragen"
     },
     "Leistet": {
       "eyebrow": "Was der Kalkulator leistet",
@@ -1242,9 +1242,8 @@
     "Cta": {
       "title": "Rechnen Sie mit Ihren eigenen Daten",
       "lead": "Sie brauchen Ihren Lastgang im 15-Minuten-Raster und Ihre Netzrechnung — mehr nicht.",
-      "cta": "Kalkulator starten",
-      "hint": "Läuft direkt hier auf coolin.at",
-      "external": "Ihre Lastgangdaten werden im Browser verarbeitet und nicht an uns übertragen."
+      "cta": "Zugang anfragen",
+      "ctaNote": "Der Knopf führt zum Kontaktformular: Sie stellen eine Anfrage, wir melden uns bei Ihnen."
     },
     "HowItWorks": {
       "eyebrow": "In vier Schritten",
@@ -1440,7 +1439,6 @@
     "impressum": "Impressum",
     "datenschutz": "Datenschutz",
     "login": "Login",
-    "peakShavingCalculatorRun": "Kalkulator starten",
     "bau": "Bau & Baunebengewerbe",
     "hotellerieGastronomie": "Hotellerie & Gastronomie",
     "handwerk": "Handwerk",
