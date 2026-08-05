@@ -1266,21 +1266,34 @@ export type Database = {
       admin_email_event_stats: { Args: { p_days?: number }; Returns: Json }
       admin_export_leads: {
         Args: {
+          p_assignment?: string
+          p_company?: string
           p_consent_purpose?: Database["platform"]["Enums"]["consent_purpose"]
+          p_consent_purposes?: string[]
+          p_consent_states?: string[]
           p_consent_status?: string
           p_consumption_max?: number
           p_consumption_min?: number
           p_contract_end_from?: string
           p_contract_end_to?: string
+          p_created_from?: string
+          p_created_to?: string
           p_due_only?: boolean
+          p_email?: string
+          p_first_name?: string
           p_industry?: Database["platform"]["Enums"]["industry"]
+          p_last_name?: string
           p_metering_type?: string
           p_partner_assignment?: string
           p_partner_slug?: string
+          p_phone?: string
           p_postal_prefix?: string
           p_search?: string
           p_source_key?: string
+          p_source_keys?: string[]
           p_status?: string
+          p_thema_keys?: string[]
+          p_thema_none?: boolean
         }
         Returns: Json
       }
@@ -1329,23 +1342,36 @@ export type Database = {
       }
       admin_list_leads: {
         Args: {
+          p_assignment?: string
+          p_company?: string
           p_consent_purpose?: Database["platform"]["Enums"]["consent_purpose"]
+          p_consent_purposes?: string[]
+          p_consent_states?: string[]
           p_consent_status?: string
           p_consumption_max?: number
           p_consumption_min?: number
           p_contract_end_from?: string
           p_contract_end_to?: string
+          p_created_from?: string
+          p_created_to?: string
           p_due_only?: boolean
+          p_email?: string
+          p_first_name?: string
           p_industry?: Database["platform"]["Enums"]["industry"]
+          p_last_name?: string
           p_limit?: number
           p_metering_type?: string
           p_offset?: number
           p_partner_assignment?: string
           p_partner_slug?: string
+          p_phone?: string
           p_postal_prefix?: string
           p_search?: string
           p_source_key?: string
+          p_source_keys?: string[]
           p_status?: string
+          p_thema_keys?: string[]
+          p_thema_none?: boolean
         }
         Returns: Json
       }

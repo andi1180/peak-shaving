@@ -1,10 +1,11 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { getTranslations } from 'next-intl/server'
 import { createClient } from '@/lib/supabase/server'
 import { isCurrentUserAdmin } from '@/lib/admin/guard'
 import { Container, Num } from '@/components/ui/layout'
 import { Button } from '@/components/ui/button'
-import { Checkbox, Input, Label, Select } from '@/components/ui/input'
+import { Checkbox, Label } from '@/components/ui/input'
 import {
   AdminError,
   AdminPanel,
@@ -16,59 +17,61 @@ import {
   formatDate,
   formatDateTime,
 } from '@/components/admin/ui'
+import { ColumnFilter } from '@/components/admin/column-filter'
+import {
+  ActiveFilterChips,
+  ChoiceFilterPanel,
+  DateRangeFilterPanel,
+  TextFilterPanel,
+} from '@/components/admin/lead-filter-panels'
 import {
   CONSENT_PURPOSES,
   CONSENT_STATUS_LABELS,
   CONTRACT_REMINDER_JOB_KEY,
   EMAIL_EVENT_STATS_DAYS,
   EXPORTS_HREF,
-  INDUSTRIES,
-  INDUSTRY_LABELS,
-  JOB_STALE_AFTER_HOURS,
   LEADS_EXPORT_HREF,
   LEADS_HREF,
   LEAD_NEW_HREF,
   LEAD_RETENTION_JOB_KEY,
-  LEAD_STATUSES,
-  METERING_TYPE_LABELS,
+  JOB_STALE_AFTER_HOURS,
   SUPPRESSIONS_HREF,
   consentStatusLabel,
-  contactName,
-  emailEventLabel,
   hoursSince,
+  emailEventLabel,
   partnerLabel,
   purposeLabel,
   readContractReminderHealth,
   readEmailEventStats,
   readJobRuns,
   readLeadList,
-  readLeadSourceStats,
   readStatus,
-  sourceLabel,
-  statusLabel,
   type ContractReminderHealth,
   type EmailEventStats,
   type JobRunsResult,
   type LeadConsentSummary,
   type LeadListRow,
   type LeadPartner,
-  type LeadSource,
-  type LeadSourceStat,
 } from '@/lib/admin/leads'
 import {
-  EMPTY_FILTERS,
   filterRpcArgs,
   filterSearchParams,
   hasAnyFilter,
-  partnerTabParams,
-  PARTNER_TABS,
+  PARTNER_ASSIGNMENT_LABELS,
   readFilters,
   type LeadFilters,
   type RawQuery,
 } from '@/lib/admin/lead-filters'
+import {
+  LEAD_SOURCE_CATEGORIES,
+  LEAD_SOURCE_CATEGORY_LABELS,
+  categoryOfSourceKey,
+  sourceCategoryLabel,
+} from '@/lib/admin/lead-source-categories'
+import { themaOptions } from '@/lib/admin/lead-thema'
 
 /*
- * `/admin/leads` — die Lead-Liste (B1-3).
+ * `/admin/leads` — die Lead-Liste (B1-3, spaltenweise Filter seit 05.08.2026).
  *
  * ── WARUM DIESER ABSCHNITT EINE EIGENE ROUTE IST (und nicht ein fünfter Block auf `/admin`) ──────
  * T4-4 hat vier Verwaltungsflächen bewusst auf EINE Seite gelegt: vier kurze Tabellen ohne eigenen
@@ -83,10 +86,25 @@ import {
  * Anwendung wirft 40 weg und zeigt 10 — die Trefferzahl wäre falsch und „Seite 2" übersprünge
  * Treffer) und holte mehr personenbezogene Daten, als jemals angezeigt werden.
  *
- * ── DAS FILTERFORMULAR IST EIN ECHTES GET-FORMULAR ───────────────────────────────────────────────
- * Kein Client-Zustand, keine Server Action: die Filter SIND die URL. Damit funktioniert die Ansicht
- * ohne JavaScript, ist teilbar, und es gibt keinen zweiten Ort, an dem der Filterzustand leben und
- * mit der URL auseinanderlaufen könnte.
+ * ── DIE FILTER SITZEN IN DEN SPALTENKÖPFEN, DER ZUSTAND BLEIBT DIE URL ───────────────────────────
+ * Die grosse Filtersektion oberhalb der Liste und die drei Reiter aus B18-5 sind entfallen; an
+ * ihrer Stelle steht je Spalte ein Symbol, das ein Popover öffnet. Was sich NICHT geändert hat, ist
+ * das Prinzip: In jedem Popover steckt ein echtes `<form method="get">`, jede Änderung ist ein
+ * Seitenaufruf, und der vollständige Filterstand steht in der Adresse. Es gibt weiterhin keinen
+ * zweiten Ort, an dem er leben und mit der URL auseinanderlaufen könnte.
+ *
+ * Die FÄHIGKEITEN der drei Reiter sind vollständig erhalten: „nur mit Fachbetrieb" und „nur ohne
+ * Fachbetrieb" stehen im Popover der Zuordnungsspalte, „alle" ist wie bisher der Zustand ohne
+ * Parameter.
+ *
+ * ── WAS HIER BEWUSST NICHT MEHR STEHT ────────────────────────────────────────────────────────────
+ * Die Auswertung „Rücklauf je Herkunft" (B3-4) ist entfernt. Sie beantwortete eine ANDERE Frage als
+ * diese Seite (welcher Kanal bringt Kontakte — nicht: welcher Kontakt ist das) und zählte dafür
+ * bestandsweit, also ausdrücklich an den Filtern vorbei. Über einer Liste, die sich jetzt spaltenweise
+ * eingrenzen lässt, sind zwei Zahlen mit verschiedenen Bezugsgrössen nebeneinander irreführend: die
+ * Tabelle zeigte fünf Treffer und der Abschnitt darüber weiterhin dreistellige Summen. Der Wrapper
+ * `public.admin_lead_source_stats` bleibt bestehen und unangetastet — die Auswertung gehört auf eine
+ * eigene Fläche, nicht über den Bestand.
  *
  * Die Zugangsprüfung läuft über dieselbe Funktion wie im Layout (`isCurrentUserAdmin`, per `cache()`
  * auf einen Aufruf je Anfrage zusammengefasst). Sie ist hier NICHT redundant: dass das Layout
@@ -103,6 +121,9 @@ export const metadata: Metadata = {
 }
 
 const PAGE_SIZE = 50
+
+/** Zahl der Spalten — steht an EINER Stelle, damit der Leerzustand nicht daneben liegt. */
+const COLUMN_COUNT = 10
 
 /**
  * Baut eine URL mit denselben Filtern und einer geänderten Seite.
@@ -122,6 +143,34 @@ function pageHref(filters: LeadFilters, page: number): string {
 function exportHref(filters: LeadFilters): string {
   const qs = filterSearchParams(filters).toString()
   return qs ? `${LEADS_EXPORT_HREF}?${qs}` : LEADS_EXPORT_HREF
+}
+
+/**
+ * Ein Spaltenkopf mit Filter. Beschriftung und Symbol stehen nebeneinander, damit die Spalte auch
+ * ohne geöffnetes Popover erkennen lässt, ob sie eingegrenzt ist (Farbe UND `aria-label` tragen
+ * die Aussage — Farbe ist nie das einzige Merkmal, WCAG 1.4.1).
+ */
+function FilterTh({
+  label,
+  active,
+  children,
+  className,
+}: {
+  label: string
+  active: boolean
+  children: React.ReactNode
+  className?: string
+}) {
+  return (
+    <Th className={className}>
+      <span className="flex items-center gap-1 whitespace-nowrap">
+        {label}
+        <ColumnFilter label={label} active={active}>
+          {children}
+        </ColumnFilter>
+      </span>
+    </Th>
+  )
 }
 
 /**
@@ -323,29 +372,6 @@ function StaleContractReminders({ health }: { health: ContractReminderHealth | n
 }
 
 /**
- * Rücklauf je Herkunftsquelle (B3-4) — die kleinste Auswertung, die die Frage beantwortet, ob die
- * Postaktion etwas gebracht hat.
- *
- * ── WARUM SIE ÜBERHAUPT HIER STEHT ───────────────────────────────────────────────────────────────
- * B3-4 teilt die Warteliste in ZWEI Routen: `/warteliste` (organisch) und `/warteliste/wko` (der
- * gedruckte QR-Code). Ohne eine Stelle, an der beide Herkünfte nebeneinander sichtbar sind, wäre
- * diese Teilung folgenlos — die Leads lägen unterscheidbar im Bestand, und niemand könnte die eine
- * Frage beantworten, für die sie getrennt erfasst werden.
- *
- * ── ABGRENZUNG ZU B2, ausdrücklich ───────────────────────────────────────────────────────────────
- * Das ist KEINE gefilterte Sicht und KEIN Export. Es gibt nichts anzuklicken, nichts einzugrenzen
- * und keine einzige Adresse: nur Zahlen je Quelle. Segmentierung (Branche, Netzebene, PLZ), Export
- * und Massenaussendung bleiben B2 — sie hängen an einer Zustell- und Prüfschicht, die es noch nicht
- * gibt. Eine Zahl kann man ansehen; eine Adressliste kann man versenden.
- *
- * ── DIE BEIDEN SPALTEN ZÄHLEN VERSCHIEDENE DINGE ─────────────────────────────────────────────────
- * Leads über `first_source_key` (wo der Lead ins System kam, seit B1-1 unveränderlich), bestätigte
- * Einwilligungen über den `source_key` der EINWILLIGUNG (wo genau diese erteilt wurde). Sonst würde
- * die Reaktion auf eine Kampagne dem älteren Kanal gutgeschrieben, über den dieselbe Person Monate
- * zuvor hereinkam — und der Brief systematisch zu niedrig bewertet. Die zweite Zahl ist deshalb
- * KEIN „davon", und die Fußzeile sagt das.
- */
-/**
  * Rückläufer und Beschwerden der letzten 30 Tage (B2-2).
  *
  * ── WARUM DAS AUF DER ÜBERSICHTSSEITE STEHT UND NICHT IN EINER EIGENEN AUSWERTUNG ────────────────
@@ -421,164 +447,102 @@ function EmailEventStatsPanel({ stats }: { stats: EmailEventStats | null }) {
   )
 }
 
-function SourceStats({ stats }: { stats: LeadSourceStat[] | null }) {
-  if (stats === null) {
+/**
+ * Die Zuordnungsspalte — EINE Spalte, deren Inhalt von der Herkunft abhängt.
+ *
+ * ── WARUM NICHT DREI SPALTEN ─────────────────────────────────────────────────────────────────────
+ * Die drei möglichen Angaben schliessen einander in der Praxis fast immer aus: Ein Lead über einen
+ * Partnerlink hat einen Fachbetrieb, eine intern aufgenommene Anfrage hat höchstens eine formlos
+ * genannte Firma, und eine Anfrage über das Kontaktformular hat höchstens den „empfohlen
+ * durch"-Freitext. Drei eigene Spalten wären damit drei überwiegend leere — und die Tabelle hätte
+ * dreizehn statt zehn.
+ *
+ * ── DIE HERKUNFT ENTSCHEIDET, WAS GEZEIGT WIRD, ABER NICHT ALLEIN ────────────────────────────────
+ * Bei einer intern aufgenommenen Anfrage kann BEIDES gesetzt sein (B19-Nachbesserung: es gibt
+ * bewusst keinen CHECK dagegen — ein Lead kann über den Link von Betrieb A hereingekommen sein und
+ * beim Rückruf Betrieb B genannt haben). Deshalb wird nicht „entweder/oder" geraten, sondern
+ * gezeigt, was tatsächlich dasteht — und WELCHES von beidem es ist, steht als Kennzeichnung dabei.
+ * Ohne sie sähe eine formlos getippte Notiz aus wie ein freigeschalteter Fachbetrieb, und die
+ * beiden bedeuten grundverschiedene Dinge (die eine ist ein Zugriffsrecht, die andere eine Notiz).
+ */
+function AssignmentCell({ lead, partners }: { lead: LeadListRow; partners: LeadPartner[] }) {
+  const category = categoryOfSourceKey(lead.first_source_key)
+  const partner = lead.partner_slug ? partnerLabel(lead.partner_slug, partners) : null
+  const mentioned = lead.mentioned_business_name
+
+  if (category === 'partner') {
+    // Kein Fachbetrieb bei dieser Herkunft ist der Fall „Betrieb stillgelegt, Mail lag noch in
+    // Postfächern" (B16-2): die Anfrage kam an, die Zuordnung wurde verworfen. Leer ist dann die
+    // richtige Anzeige — es gibt nichts zuzuordnen.
+    return partner ? <>{partner}</> : <Empty />
+  }
+
+  if (category === 'admin') {
+    if (!partner && !mentioned) return <Empty />
     return (
-      <AdminPanel className="mt-6">
-        <AdminError>Die Herkunftszählung konnte nicht geladen werden.</AdminError>
-      </AdminPanel>
+      <span className="flex flex-col gap-0.5">
+        {partner && <span>{partner}</span>}
+        {mentioned && (
+          <span>
+            {mentioned}
+            <span className="block text-caption text-text-muted">formlos genannt</span>
+          </span>
+        )}
+      </span>
     )
   }
 
+  // „Kontaktformular": der Freitext des Interessenten. Eine BEOBACHTUNG, kein Urteil — die
+  // Kennzeichnung sagt das, damit sie niemand für eine bestätigte Zuordnung hält (B16-1).
+  if (!lead.referred_by_text) return <Empty />
   return (
-    <AdminPanel className="mt-6 p-0 sm:p-0">
-      <div className="px-4 py-4 sm:px-6">
-        <h2 className="text-h4 text-ink">Rücklauf je Herkunft</h2>
-        <div className="mt-3">
-          <AdminTable>
-            <thead>
-              <tr>
-                <Th>Herkunft</Th>
-                <Th>Leads</Th>
-                <Th>bestätigte Marketing-Einwilligungen</Th>
-              </tr>
-            </thead>
-            <tbody>
-              {stats.length === 0 && <EmptyRow colSpan={3}>Keine Herkunftsquellen.</EmptyRow>}
-              {stats.map((row) => (
-                <tr key={row.key}>
-                  <Td>
-                    {row.label}
-                    {/* Der Schlüssel steht daneben, weil er im Code, in der URL und in dieser
-                        Tabelle derselbe sein muss — die Bezeichnung ist frei änderbar, er nicht. */}
-                    <span className="ml-2 text-caption text-text-muted">{row.key}</span>
-                  </Td>
-                  <Td className="whitespace-nowrap">
-                    <Num>{row.lead_count}</Num>
-                  </Td>
-                  <Td className="whitespace-nowrap">
-                    <Num>{row.confirmed_marketing_count}</Num>
-                  </Td>
-                </tr>
-              ))}
-            </tbody>
-          </AdminTable>
-        </div>
-      </div>
-      <p className="border-t border-line px-4 py-3 text-caption text-text-muted sm:px-6">
-        Leads zählen nach der Herkunft, über die sie ins System kamen; Einwilligungen nach der
-        Herkunft, an der sie erteilt wurden — die zweite Zahl ist deshalb kein „davon".
-        Anonymisierte Leads bleiben enthalten: sie waren echter Rücklauf. Kein Export, keine
-        gefilterte Sicht — beides kommt mit B2.
-      </p>
-    </AdminPanel>
+    <span>
+      {lead.referred_by_text}
+      <span className="block text-caption text-text-muted">empfohlen von (Angabe)</span>
+    </span>
   )
 }
 
 /**
- * Die Reiterleiste über der Liste (B18-5).
+ * Eine leere Zelle — wirklich leer.
  *
- * Zwei prominente Links plus der Ausgangszustand — mehr ist es technisch nicht: sie setzen GENAU den
- * `partner`-Parameter und tragen alle übrigen aktiven Filter unverändert mit (`partnerTabParams`).
- * Damit bleibt jede bestehende Eingrenzung INNERHALB eines Reiters erhalten, und der Export-Link
- * darunter übernimmt beides ohne eigenes Zutun — er liest denselben Filterstand.
+ * ── WARUM KEIN „—" ──────────────────────────────────────────────────────────────────────────────
+ * Bei zehn Spalten, von denen drei regelmässig nichts enthalten (Telefon, Zuordnung, Thema), wäre
+ * eine Spalte voller Gedankenstriche optisches Rauschen, das sich beim Überfliegen wie Inhalt
+ * liest. Die Zelle bleibt trotzdem eine Zelle — anders als im Partner-Portal (B18-3) wird hier
+ * keine Zeile ausgelassen, das verschöbe alle folgenden Spalten.
  *
- * Bewusst `<a>`-Links und kein Formular: der Reiter IST die Adresse. Eine gefilterte Sicht soll sich
- * weitergeben und per Zurück-Taste erreichen lassen, wie der ganze Rest dieser Seite (B1-3).
+ * ── UND AUCH KEIN VERSTECKTES „nicht angegeben" ─────────────────────────────────────────────────
+ * Der erste Entwurf trug ein `sr-only`-„nicht angegeben". Im Browserlauf gemessen: `sr-only`
+ * blendet über `clip` aus, nicht über `display` — der Text steht damit im `innerText` und landet
+ * beim KOPIEREN der Tabelle mit. Eine Lead-Liste wird kopiert (in eine Tabellenkalkulation, in eine
+ * Mail), und dort stünde dann in jeder dritten Zelle ein Wort, das niemand geschrieben hat. Eine
+ * leere Tabellenzelle ist ohnehin die konventionelle Form für „keine Angabe"; die Spaltenüberschrift
+ * bleibt vorgelesen, weil `Th` sie als `scope="col"` führt.
  */
-function PartnerTabs({ filters }: { filters: LeadFilters }) {
-  return (
-    <nav aria-label="Zuordnung zu einem Fachbetrieb" className="mt-8">
-      <ul className="flex flex-wrap gap-2 border-b border-line pb-px">
-        {PARTNER_TABS.map((tab) => {
-          const active = filters.partnerAssignment === tab.value
-          const qs = partnerTabParams(filters, tab.value).toString()
-          return (
-            <li key={tab.value || 'alle'}>
-              <Link
-                href={qs ? `${LEADS_HREF}?${qs}` : LEADS_HREF}
-                aria-current={active ? 'page' : undefined}
-                className={
-                  active
-                    ? 'inline-block rounded-t-md border-b-2 border-accent px-4 py-2 text-body font-semibold text-ink outline-none focus-visible:ring-2 focus-visible:ring-ring'
-                    : 'inline-block rounded-t-md border-b-2 border-transparent px-4 py-2 text-body text-text-muted outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-ring'
-                }
-              >
-                {tab.label}
-              </Link>
-            </li>
-          )
-        })}
-      </ul>
-    </nav>
-  )
-}
-
-/**
- * Herkunft ODER Partner — je nach Reiter dieselbe Spalte mit verschiedener Frage.
- *
- * Im Reiter „Partner-Leads" ist die Herkunft nachrangig (sie ist dort fast durchgehend dieselbe:
- * die Landingpage bzw. das Kontaktformular mit `?partner=`), und die eigentliche Frage lautet
- * „welcher Fachbetrieb". Umgekehrt hat im Reiter „Direktanfragen" per Definition kein Lead einen
- * Fachbetrieb — eine Partner-Spalte wäre dort eine Spalte aus Gedankenstrichen.
- *
- * Im Ausgangszustand („Alle") stehen beide Angaben übereinander, weil dort beide Sorten Zeilen
- * nebeneinanderliegen und sich sonst nicht unterscheiden liessen.
- */
-function OriginCell({
-  lead,
-  sources,
-  partners,
-  showPartnerOnly,
-}: {
-  lead: LeadListRow
-  sources: LeadSource[]
-  partners: LeadPartner[]
-  showPartnerOnly: boolean
-}) {
-  const partner = lead.partner_slug ? partnerLabel(lead.partner_slug, partners) : null
-
-  if (showPartnerOnly) {
-    // Kein Fachbetrieb im Partner-Reiter ist per Filter unmöglich; träte er doch auf, wäre der
-    // Gedankenstrich die ehrlichere Anzeige als eine leere Zelle.
-    return <>{partner ?? '—'}</>
-  }
-
-  return (
-    <>
-      {sourceLabel(lead.first_source_key, sources)}
-      {partner && <span className="mt-1 block text-caption text-text-muted">über {partner}</span>}
-    </>
-  )
+function Empty() {
+  return null
 }
 
 function LeadRow({
   lead,
-  sources,
   partners,
-  showPartnerOnly,
+  themaLabels,
 }: {
   lead: LeadListRow
-  sources: LeadSource[]
   partners: LeadPartner[]
-  showPartnerOnly: boolean
+  themaLabels: Map<string, string>
 }) {
-  const name = contactName(lead)
   return (
     <tr>
-      <Td>{lead.company ?? '—'}</Td>
-      {/*
-       * Ein Gedankenstrich und nicht das Weglassen der Zeile wie im Partner-Portal (B18-3): dort ist
-       * die Ansprechperson eine EIGENE Zeile in einer Aufzählung, hier eine Zelle in einer Tabelle —
-       * eine ausgelassene Zelle verschöbe alle folgenden. Die Tabelle hält es an den übrigen
-       * Nullable-Feldern seit jeher so (Firma).
-       */}
-      <Td>{name ?? '—'}</Td>
+      <Td>{lead.company ?? <Empty />}</Td>
+      <Td>{lead.first_name ?? <Empty />}</Td>
+      <Td>{lead.last_name ?? <Empty />}</Td>
       <Td>
         {/*
-         * Die E-Mail bleibt der Weg in die Detailsicht, obwohl sie nicht mehr die erste Spalte ist:
-         * sie ist das einzige Feld, das jeder Lead trägt (NOT NULL) — eine Firma kann fehlen, und
-         * ein Link, den es nur manchmal gibt, wäre schlechter als einer an zweiter Stelle.
+         * Die E-Mail bleibt der Weg in die Detailsicht: sie ist das einzige Feld, das jeder Lead
+         * trägt (NOT NULL) — eine Firma kann fehlen, und ein Link, den es nur manchmal gibt, wäre
+         * schlechter als einer in der Mitte der Zeile.
          */}
         <Link
           href={`${LEADS_HREF}/${lead.id}`}
@@ -592,21 +556,27 @@ function LeadRow({
           </span>
         )}
       </Td>
+      <Td className="whitespace-nowrap">{lead.phone ?? <Empty />}</Td>
+      <Td>{sourceCategoryLabel(lead.first_source_key)}</Td>
       <Td>
-        <OriginCell
-          lead={lead}
-          sources={sources}
-          partners={partners}
-          showPartnerOnly={showPartnerOnly}
-        />
+        <AssignmentCell lead={lead} partners={partners} />
+      </Td>
+      <Td>
+        {/*
+         * Das LABEL, nicht der Schlüssel — aufgelöst über dieselbe Taxonomie, die das öffentliche
+         * Dropdown füllt. Ein Schlüssel, den die heutige Liste nicht mehr kennt (umbenanntes
+         * Leistungsfeld, Altbestand), wird ROH gezeigt statt verschwiegen: ein leeres Feld sähe aus
+         * wie „nicht angegeben" und wäre eine Angabe (`lib/admin/lead-thema.ts`).
+         */}
+        {lead.thema ? (themaLabels.get(lead.thema) ?? lead.thema) : <Empty />}
       </Td>
       <Td className="whitespace-nowrap">
         {/*
-         * Seit B18-5 das ANLAGEdatum und nicht mehr die letzte Interaktion. Zwei Gründe: die Liste
-         * ist nach `created_at` sortiert (die angezeigte Spalte erklärt damit die Reihenfolge,
-         * statt eine zweite, unsichtbare zu haben), und „wann kam das herein" ist die Frage, die man
-         * an einer Anfrage-Liste stellt. Die letzte Interaktion steht weiterhin auf der Detailseite,
-         * wo sie zusammen mit der Löschfrist steht, die sie berechnet.
+         * Das ANLAGEdatum (seit B18-5). Zwei Gründe: die Liste ist nach `created_at` sortiert (die
+         * angezeigte Spalte erklärt damit die Reihenfolge, statt eine zweite, unsichtbare zu haben),
+         * und „wann kam das herein" ist die Frage, die man an eine Anfrage-Liste stellt. Die letzte
+         * Interaktion steht weiterhin auf der Detailseite, wo sie zusammen mit der Löschfrist steht,
+         * die sie berechnet.
          */}
         <Num>{formatDate(lead.created_at)}</Num>
       </Td>
@@ -642,6 +612,20 @@ export default async function AdminLeadsPage({
   })
   if (res.error) console.error('[admin/leads] admin_list_leads:', res.error)
 
+  /*
+   * Die Themen-Beschriftungen kommen aus der ÖFFENTLICHEN Taxonomie und werden SERVERSEITIG mit
+   * fester Locale aufgelöst — derselbe Weg wie im Aufnahmeformular (B19). Der Admin-Bereich hält
+   * seine eigenen Sätze sonst im Code (`lib/admin/schema.ts`); das gilt weiterhin und wird hier
+   * nicht aufgeweicht: aufgelöst werden ausschliesslich fremde Texte, die dieser Bereich nur
+   * anzeigt und nie besitzt. Ins Client-Bündel wandern fertige Zeichenketten, kein Katalog.
+   */
+  const [tNav, tKontakt] = await Promise.all([
+    getTranslations({ locale: 'de', namespace: 'Nav' }),
+    getTranslations({ locale: 'de', namespace: 'Kontakt' }),
+  ])
+  const themen = themaOptions((namespace, key) => (namespace === 'Nav' ? tNav(key) : tKontakt(key)))
+  const themaLabels = new Map(themen.map((t) => [t.key, t.label]))
+
   // Weitere, voneinander unabhängige Aufrufe: der Stand der zeitgesteuerten Jobs (B4-1/B4-2) und
   // der Befund offener Erinnerungen. Bewusst NICHT in `admin_list_leads` hineingezogen — die
   // Lead-Liste ist gefiltert und seitenweise, der Job-Stand ist keines von beidem; ein gemeinsamer
@@ -651,7 +635,7 @@ export default async function AdminLeadsPage({
   // Je Job ein eigener Aufruf statt eines gemeinsamen mit `p_job_key => null`: sonst müsste die
   // Seite die Läufe hier auseinandersortieren, und `last_success` käme gemischt zurück — der
   // Fristenlauf würde die Erinnerung als „läuft" ausweisen (oder umgekehrt).
-  const [retentionRes, reminderRes, healthRes, sourceStatsRes, emailStatsRes] = await Promise.all([
+  const [retentionRes, reminderRes, healthRes, emailStatsRes] = await Promise.all([
     supabase.rpc('admin_list_job_runs', {
       p_job_key: LEAD_RETENTION_JOB_KEY,
       // 5 statt 1: der LETZTE Lauf (evtl. verweigert) und der letzte ERFOLGREICHE können
@@ -661,27 +645,19 @@ export default async function AdminLeadsPage({
     }),
     supabase.rpc('admin_list_job_runs', { p_job_key: CONTRACT_REMINDER_JOB_KEY, p_limit: 5 }),
     supabase.rpc('admin_contract_reminder_health'),
-    // B3-4: die Herkunftszählung. Ebenfalls ein eigener Aufruf — sie zählt den GESAMTEN Bestand und
-    // hat mit den Filtern der Liste nichts zu tun; in `admin_list_leads` hineingezogen müsste sie
-    // bei jedem Seitenwechsel mitgerechnet werden und wäre gleichzeitig versucht, sich am Filter zu
-    // orientieren (dann zählte sie etwas anderes, als die Überschrift verspricht).
-    supabase.rpc('admin_lead_source_stats'),
-    // B2-2: die Frühwarnung. Ebenfalls ein eigener Aufruf und ebenfalls filterunabhängig — die
-    // Beschwerdequote ist eine Eigenschaft der AUSSENDUNG, nicht der gerade angesehenen Teilmenge.
+    // B2-2: die Frühwarnung. Ein eigener Aufruf und filterunabhängig — die Beschwerdequote ist eine
+    // Eigenschaft der AUSSENDUNG, nicht der gerade angesehenen Teilmenge.
     supabase.rpc('admin_email_event_stats', { p_days: EMAIL_EVENT_STATS_DAYS }),
   ])
   if (retentionRes.error) console.error('[admin/leads] admin_list_job_runs:', retentionRes.error)
   if (reminderRes.error) console.error('[admin/leads] admin_list_job_runs:', reminderRes.error)
   if (healthRes.error)
     console.error('[admin/leads] admin_contract_reminder_health:', healthRes.error)
-  if (sourceStatsRes.error)
-    console.error('[admin/leads] admin_lead_source_stats:', sourceStatsRes.error)
   if (emailStatsRes.error)
     console.error('[admin/leads] admin_email_event_stats:', emailStatsRes.error)
   const retentionRuns = readJobRuns(retentionRes.data)
   const reminderRuns = readJobRuns(reminderRes.data)
   const reminderHealth = readContractReminderHealth(healthRes.data)
-  const sourceStats = readLeadSourceStats(sourceStatsRes.data)
   const emailStats = readEmailEventStats(emailStatsRes.data)
 
   const result = readLeadList(res.data)
@@ -692,25 +668,7 @@ export default async function AdminLeadsPage({
 
   const total = result?.total ?? 0
   const exportTotal = result?.exportTotal ?? 0
-  const sources = result?.sources ?? []
   const lastPage = Math.max(1, Math.ceil(total / PAGE_SIZE))
-
-  /*
-   * B18-5: der aktive Reiter — aber nur, wenn der Wert einer IST. Ein unbekanntes `?partner=…`
-   * markiert bewusst keinen Reiter (die Datenbank lehnt es ohnehin als `invalid_filter` ab, und die
-   * Meldung darüber sagt „bitte zurücksetzen"); ein Reiter, der sich dabei als aktiv ausgäbe, machte
-   * den abgelehnten Filter zu einer gültigen Sicht.
-   */
-  const activeTab = PARTNER_TABS.find((t) => t.value === filters.partnerAssignment)?.value ?? ''
-  /*
-   * Im Reiter „Partner-Leads" trägt die vierte Spalte die Partner-Identität, sonst die Herkunft.
-   * Die Bedingung hängt am REITER und nicht daran, ob zufällig alle sichtbaren Zeilen einen
-   * Fachbetrieb tragen — eine Spaltenüberschrift, die sich je Seite ändern könnte, wäre keine.
-   */
-  const showPartnerOnly = activeTab === 'assigned'
-  /** Alle Filter leeren, den Reiter behalten (s. Kommentar an der Schaltfläche). */
-  const resetQuery = partnerTabParams(EMPTY_FILTERS, activeTab).toString()
-  const resetHref = resetQuery ? `${LEADS_HREF}?${resetQuery}` : LEADS_HREF
 
   return (
     <Container className="py-10 sm:py-14">
@@ -751,11 +709,6 @@ export default async function AdminLeadsPage({
       {/*
        * Steht bewusst OBEN und nicht im Kleingedruckten: die Zeile beschreibt keine Einschränkung
        * der Oberfläche, sondern den Betriebszustand einer Rechtspflicht.
-       *
-       * ERSETZT den B1-3-Hinweis „Löschfristen werden derzeit manuell durchgesetzt" — der ist mit
-       * B4-1 sachlich falsch geworden. Der Filter „nur zur Anonymisierung fällige" bleibt
-       * bestehen: er zeigt jetzt, WAS der nächste Lauf anfassen wird, statt einer Arbeitsliste
-       * für Handarbeit.
        */}
       <div className="mt-6">
         <JobStatus
@@ -781,253 +734,8 @@ export default async function AdminLeadsPage({
 
       <EmailEventStatsPanel stats={emailStats} />
 
-      <SourceStats stats={sourceStats} />
-
-      {/* ── Filter ────────────────────────────────────────────────────────────────────────────── */}
-      <AdminPanel className="mt-6">
-        <form method="get" action={LEADS_HREF} className="flex flex-col gap-4">
-          {/*
-           * Der aktive Reiter reist als verstecktes Feld mit (B18-5). Ohne ihn setzte JEDE
-           * Filterabsendung die Zuordnung zurück — der Admin filterte innerhalb von
-           * „Partner-Leads" und bekäme wortlos den Gesamtbestand, also genau die Menge, die
-           * grösser ist als angefordert. Das Feld entsteht nur, wenn ein Reiter gesetzt ist:
-           * ein leeres `partner=` in der URL wäre ein Wert, den `readFilters` erst wieder
-           * verwerfen müsste.
-           */}
-          {filters.partnerAssignment && (
-            <input type="hidden" name="partner" value={filters.partnerAssignment} />
-          )}
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <div>
-              <Label htmlFor="filter-suche">Suche (E-Mail oder Firma)</Label>
-              <div className="mt-1.5">
-                <Input
-                  id="filter-suche"
-                  name="suche"
-                  type="search"
-                  defaultValue={filters.search}
-                  placeholder="teil einer Adresse oder Firma"
-                />
-              </div>
-            </div>
-
-            <div>
-              <Label htmlFor="filter-status">Status</Label>
-              <div className="mt-1.5">
-                <Select id="filter-status" name="status" defaultValue={filters.status}>
-                  <option value="">alle</option>
-                  {LEAD_STATUSES.map((s) => (
-                    <option key={s} value={s}>
-                      {statusLabel(s)}
-                    </option>
-                  ))}
-                </Select>
-              </div>
-            </div>
-
-            <div>
-              <Label htmlFor="filter-quelle">Herkunft</Label>
-              <div className="mt-1.5">
-                <Select id="filter-quelle" name="quelle" defaultValue={filters.sourceKey}>
-                  <option value="">alle</option>
-                  {/*
-                   * Die Einstiegspunkte kommen aus der DATENBANK (`lead_sources` ist eine Tabelle,
-                   * kein Enum — laufend kommen neue dazu, B3). Eine Konstante hier ließe jede neue
-                   * Quelle im Filter fehlen, ohne dass es auffiele.
-                   */}
-                  {sources.map((s) => (
-                    <option key={s.key} value={s.key}>
-                      {s.label}
-                    </option>
-                  ))}
-                </Select>
-              </div>
-            </div>
-
-            <div>
-              <Label htmlFor="filter-zweck">Einwilligung — Zweck</Label>
-              <div className="mt-1.5">
-                <Select id="filter-zweck" name="zweck" defaultValue={filters.consentPurpose}>
-                  <option value="">alle</option>
-                  {CONSENT_PURPOSES.map((p) => (
-                    <option key={p} value={p}>
-                      {purposeLabel(p)}
-                    </option>
-                  ))}
-                </Select>
-              </div>
-            </div>
-
-            <div>
-              <Label htmlFor="filter-einwilligung">Einwilligung — Zustand</Label>
-              <div className="mt-1.5">
-                <Select
-                  id="filter-einwilligung"
-                  name="einwilligung"
-                  defaultValue={filters.consentStatus}
-                >
-                  <option value="">alle</option>
-                  {Object.entries(CONSENT_STATUS_LABELS).map(([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
-                  <option value="none">keine (für den gewählten Zweck)</option>
-                </Select>
-              </div>
-            </div>
-
-            <div className="flex items-end">
-              <div className="flex items-start gap-2 pb-2">
-                <Checkbox
-                  id="filter-faellig"
-                  name="faellig"
-                  value="1"
-                  defaultChecked={filters.dueOnly}
-                />
-                <Label htmlFor="filter-faellig" className="font-normal">
-                  nur zur Anonymisierung fällige
-                </Label>
-              </div>
-            </div>
-          </div>
-
-          {/*
-           * ── B2-1: die Segmentierungsdimensionen aus B3-1 ─────────────────────────────────────
-           * Optisch abgesetzt, weil sie eine andere Frage beantworten als die Filter darüber: die
-           * oberen betreffen den Zustand eines Leads im System (Status, Herkunft, Einwilligung),
-           * diese hier den BETRIEB dahinter. Das ist die Trennung, entlang derer die Aussendung
-           * im November zusammengestellt wird.
-           */}
-          <fieldset className="border-t border-line pt-4">
-            <legend className="sr-only">Betriebsmerkmale</legend>
-            <p className="text-caption font-semibold uppercase tracking-wide text-text-muted">
-              Betrieb
-            </p>
-            <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              <div>
-                <Label htmlFor="filter-branche">Branche</Label>
-                <div className="mt-1.5">
-                  <Select id="filter-branche" name="branche" defaultValue={filters.industry}>
-                    <option value="">alle</option>
-                    {INDUSTRIES.map((key) => (
-                      <option key={key} value={key}>
-                        {INDUSTRY_LABELS[key]}
-                      </option>
-                    ))}
-                  </Select>
-                </div>
-              </div>
-
-              <div>
-                <Label htmlFor="filter-messart">Messart</Label>
-                <div className="mt-1.5">
-                  <Select id="filter-messart" name="messart" defaultValue={filters.meteringType}>
-                    <option value="">alle</option>
-                    {Object.entries(METERING_TYPE_LABELS).map(([value, label]) => (
-                      <option key={value} value={value}>
-                        {label}
-                      </option>
-                    ))}
-                  </Select>
-                </div>
-              </div>
-
-              <div>
-                <Label htmlFor="filter-plz">PLZ beginnt mit</Label>
-                <div className="mt-1.5">
-                  <Input
-                    id="filter-plz"
-                    name="plz"
-                    inputMode="numeric"
-                    maxLength={4}
-                    defaultValue={filters.postalPrefix}
-                    placeholder="z. B. 11"
-                    aria-describedby="filter-plz-hint"
-                  />
-                </div>
-                {/*
-                 * Führende Ziffern statt vollständiger PLZ: „11" trifft die Wiener Innenbezirke.
-                 * Ein Gleichheitsfilter zwänge dazu, ein Netzgebiet als Aufzählung einzelner
-                 * Postleitzahlen zu treffen — und eine vergessene wäre nicht sichtbar, sondern nur
-                 * eine etwas kleinere Menge.
-                 */}
-                <p id="filter-plz-hint" className="mt-1.5 text-caption text-text-muted">
-                  Führende Ziffern — „11“ trifft alle Wiener Innenbezirke.
-                </p>
-              </div>
-
-              <div>
-                <Label htmlFor="filter-verbrauch-ab">Jahresverbrauch ab (kWh)</Label>
-                <div className="mt-1.5">
-                  <Input
-                    id="filter-verbrauch-ab"
-                    name="verbrauch-ab"
-                    inputMode="numeric"
-                    defaultValue={filters.consumptionMin}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <Label htmlFor="filter-verbrauch-bis">Jahresverbrauch bis (kWh)</Label>
-                <div className="mt-1.5">
-                  <Input
-                    id="filter-verbrauch-bis"
-                    name="verbrauch-bis"
-                    inputMode="numeric"
-                    defaultValue={filters.consumptionMax}
-                  />
-                </div>
-              </div>
-
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <Label htmlFor="filter-vertragsende-ab">Vertragsende ab</Label>
-                  <div className="mt-1.5">
-                    <Input
-                      id="filter-vertragsende-ab"
-                      name="vertragsende-ab"
-                      type="date"
-                      defaultValue={filters.contractEndFrom}
-                    />
-                  </div>
-                </div>
-                <div>
-                  <Label htmlFor="filter-vertragsende-bis">Vertragsende bis</Label>
-                  <div className="mt-1.5">
-                    <Input
-                      id="filter-vertragsende-bis"
-                      name="vertragsende-bis"
-                      type="date"
-                      defaultValue={filters.contractEndTo}
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </fieldset>
-
-          <div className="flex flex-wrap items-center gap-3">
-            <Button type="submit" variant="primary" size="md">
-              Filtern
-            </Button>
-            <Button asChild variant="ghost" size="md">
-              {/*
-               * Zurückgesetzt werden die FILTER, nicht der Reiter: der Reiter ist die Sicht, in der
-               * gearbeitet wird, und wer ihn verlassen will, klickt ihn an. Ohne diese Unterscheidung
-               * wäre „Zurücksetzen" der einzige Weg, unbeabsichtigt den Bestand zu wechseln.
-               */}
-              <Link href={resetHref}>Zurücksetzen</Link>
-            </Button>
-          </div>
-        </form>
-      </AdminPanel>
-
       {/* ── Ergebnis ──────────────────────────────────────────────────────────────────────────── */}
-      <PartnerTabs filters={filters} />
-
-      <section aria-labelledby="treffer" className="mt-4">
+      <section aria-labelledby="treffer" className="mt-8">
         <h2 id="treffer" className="text-h4 text-ink">
           {invalidFilter ? (
             'Treffer'
@@ -1037,6 +745,8 @@ export default async function AdminLeadsPage({
             </>
           )}
         </h2>
+
+        <ActiveFilterChips filters={filters} themaLabels={themaLabels} />
 
         {invalidFilter ? (
           <div className="mt-4">
@@ -1057,25 +767,154 @@ export default async function AdminLeadsPage({
                 <AdminTable>
                   <thead>
                     <tr>
-                      <Th>Firma</Th>
-                      <Th>Ansprechperson</Th>
-                      <Th>E-Mail</Th>
-                      <Th>{showPartnerOnly ? 'Partner' : 'Herkunft'}</Th>
-                      <Th>Datum</Th>
-                      <Th>Einwilligungen</Th>
+                      <FilterTh label="Firma" active={!!filters.company}>
+                        <TextFilterPanel
+                          filters={filters}
+                          param="firma"
+                          value={filters.company}
+                          clear={{ company: '' }}
+                          placeholder="Teil des Firmennamens"
+                        />
+                      </FilterTh>
+                      <FilterTh label="Vorname" active={!!filters.firstName}>
+                        <TextFilterPanel
+                          filters={filters}
+                          param="vorname"
+                          value={filters.firstName}
+                          clear={{ firstName: '' }}
+                        />
+                      </FilterTh>
+                      <FilterTh label="Name" active={!!filters.lastName}>
+                        <TextFilterPanel
+                          filters={filters}
+                          param="nachname"
+                          value={filters.lastName}
+                          clear={{ lastName: '' }}
+                        />
+                      </FilterTh>
+                      <FilterTh label="E-Mail" active={!!filters.email}>
+                        <TextFilterPanel
+                          filters={filters}
+                          param="mail"
+                          value={filters.email}
+                          clear={{ email: '' }}
+                          placeholder="Teil der Adresse"
+                        />
+                      </FilterTh>
+                      <FilterTh label="Telefon" active={!!filters.phone}>
+                        <TextFilterPanel
+                          filters={filters}
+                          param="telefon"
+                          value={filters.phone}
+                          clear={{ phone: '' }}
+                        />
+                      </FilterTh>
+                      <FilterTh
+                        label="Herkunft"
+                        active={filters.sourceCategories.length > 0 || !!filters.sourceKey}
+                      >
+                        <ChoiceFilterPanel
+                          filters={filters}
+                          param="herkunft"
+                          selected={filters.sourceCategories}
+                          clear={{ sourceCategories: [] }}
+                          choices={LEAD_SOURCE_CATEGORIES.map((category) => ({
+                            value: category,
+                            label: LEAD_SOURCE_CATEGORY_LABELS[category],
+                          }))}
+                        />
+                      </FilterTh>
+                      <FilterTh
+                        label="Zuordnung"
+                        active={!!filters.assignment || !!filters.partnerAssignment}
+                      >
+                        {/*
+                         * ZWEI Fragen in EINEM Popover, und sie sind bewusst verschieden: das
+                         * Suchfeld trifft den angezeigten TEXT (Fachbetrieb, formlos genannte
+                         * Firma, „empfohlen von"-Freitext), die zwei Ankreuzfelder die bestätigte
+                         * ZUORDNUNG (`partner_slug`) — die Fähigkeit der drei B18-5-Reiter.
+                         * Beobachtung und Urteil bleiben damit auch in der Bedienung getrennt
+                         * (B16-1), stehen aber dort, wo man sie sucht: an der Spalte.
+                         */}
+                        <div className="flex flex-col gap-3">
+                          <TextFilterPanel
+                            filters={filters}
+                            param="zuordnung"
+                            value={filters.assignment}
+                            clear={{ assignment: '' }}
+                            placeholder="Fachbetrieb, Firma oder Angabe"
+                          />
+                          <div className="border-t border-line pt-3">
+                            <form method="get" action={LEADS_HREF}>
+                              <PartnerAssignmentChoice filters={filters} />
+                            </form>
+                          </div>
+                        </div>
+                      </FilterTh>
+                      <FilterTh
+                        label="Thema"
+                        active={filters.themaKeys.length > 0 || filters.themaNone}
+                      >
+                        <ChoiceFilterPanel
+                          filters={filters}
+                          param="thema"
+                          selected={filters.themaKeys}
+                          clear={{ themaKeys: [], themaNone: false }}
+                          choices={themen.map((t) => ({ value: t.key, label: t.label }))}
+                          extraParams={['thema-leer']}
+                          extra={
+                            <div className="flex items-start gap-2 border-t border-line pt-2">
+                              <Checkbox
+                                id="f-thema-leer"
+                                name="thema-leer"
+                                value="1"
+                                defaultChecked={filters.themaNone}
+                              />
+                              <Label htmlFor="f-thema-leer" className="font-normal leading-tight">
+                                ohne Thema
+                                <span className="block text-caption text-text-muted">
+                                  z. B. Warteliste, Registrierung, Telefonaufnahme
+                                </span>
+                              </Label>
+                            </div>
+                          }
+                        />
+                      </FilterTh>
+                      <FilterTh
+                        label="Datum"
+                        active={!!filters.createdFrom || !!filters.createdTo}
+                        className="whitespace-nowrap"
+                      >
+                        <DateRangeFilterPanel filters={filters} />
+                      </FilterTh>
+                      <FilterTh
+                        label="Einwilligungen"
+                        active={
+                          filters.consentPurposes.length > 0 || filters.consentStates.length > 0
+                        }
+                      >
+                        {/*
+                         * Zwei Ankreuzlisten in EINEM Formular — Zweck UND Zustand. Getrennt
+                         * abzusenden hiesse, dass die zweite Auswahl die erste überschreibt: ein
+                         * GET-Formular schickt nur seine eigenen Felder, und der jeweils andere
+                         * Parameter fiele beim Absenden weg.
+                         */}
+                        <form method="get" action={LEADS_HREF}>
+                          <ConsentChoice filters={filters} />
+                        </form>
+                      </FilterTh>
                     </tr>
                   </thead>
                   <tbody>
                     {result.leads.length === 0 && (
-                      <EmptyRow colSpan={6}>Kein Lead passt zu diesen Filtern.</EmptyRow>
+                      <EmptyRow colSpan={COLUMN_COUNT}>Kein Lead passt zu diesen Filtern.</EmptyRow>
                     )}
                     {result.leads.map((lead) => (
                       <LeadRow
                         key={lead.id}
                         lead={lead}
-                        sources={result.sources}
                         partners={result.partners}
-                        showPartnerOnly={showPartnerOnly}
+                        themaLabels={themaLabels}
                       />
                     ))}
                   </tbody>
@@ -1125,7 +964,7 @@ export default async function AdminLeadsPage({
                   </Button>
                   <span className="text-caption text-text-muted">
                     {hasAnyFilter(filters)
-                      ? 'mit dem gerade angewandten Filter'
+                      ? 'mit den gerade gesetzten Spaltenfiltern'
                       : 'ohne Filter — also der gesamte anschreibbare Bestand'}
                   </span>
                 </div>
@@ -1150,7 +989,8 @@ export default async function AdminLeadsPage({
                   ).
                 </p>
                 <p className="mt-2 max-w-prose text-caption text-text-muted">
-                  Keine Sammelaktionen und kein Versand — die Aussendung kommt mit B2-2.
+                  Die formlos genannte Firma steht in der Liste, aber bewusst nicht in der Datei —
+                  ein Filter schränkt Zeilen ein, eine zusätzliche Spalte änderte das Dateiformat.
                 </p>
               </div>
             </AdminPanel>
@@ -1158,5 +998,148 @@ export default async function AdminLeadsPage({
         )}
       </section>
     </Container>
+  )
+}
+
+/**
+ * Die zwei Zustände der Fachbetrieb-Zuordnung als Ankreuzfelder — die Fähigkeit der B18-5-Reiter.
+ *
+ * Bewusst als Auswahl aus ZWEI Feldern und nicht als drei Optionsfelder: „beide angekreuzt" ist
+ * dasselbe wie „keins angekreuzt" (jeder Lead hat einen Fachbetrieb oder keinen), und ein dritter
+ * Zustand „alle" wäre eine Schaltfläche, die nichts tut, was das Zurücksetzen nicht schon tut.
+ */
+function PartnerAssignmentChoice({ filters }: { filters: LeadFilters }) {
+  return (
+    <>
+      {[...filterSearchParams(filters).entries()]
+        .filter(([name]) => name !== 'partner')
+        .map(([name, value], i) => (
+          <input key={`${name}-${value}-${i}`} type="hidden" name={name} value={value} />
+        ))}
+      <fieldset className="flex flex-col gap-2">
+        <legend className="mb-1 text-caption font-semibold uppercase tracking-wide text-text-muted">
+          Fachbetrieb
+        </legend>
+        {(['assigned', 'unassigned'] as const).map((value) => (
+          <div key={value} className="flex items-start gap-2">
+            {/*
+             * Ein Optionsfeld (`radio`) statt einer Ankreuzbox: die beiden Zustände schliessen
+             * einander aus. Ohne einen Weg zurück auf „alle" wäre die Auswahl allerdings eine
+             * Falle — dafür gibt es „Zurücksetzen" darunter.
+             */}
+            <input
+              type="radio"
+              id={`f-partner-${value}`}
+              name="partner"
+              value={value}
+              defaultChecked={filters.partnerAssignment === value}
+              className="mt-1 h-4 w-4 accent-accent"
+            />
+            <Label htmlFor={`f-partner-${value}`} className="font-normal leading-tight">
+              {PARTNER_ASSIGNMENT_LABELS[value]}
+            </Label>
+          </div>
+        ))}
+      </fieldset>
+      <div className="mt-3 flex items-center justify-between gap-2">
+        <Button type="submit" variant="primary" size="sm">
+          Übernehmen
+        </Button>
+        <Link
+          href={
+            filterSearchParams({ ...filters, partnerAssignment: '' }).toString()
+              ? `${LEADS_HREF}?${filterSearchParams({ ...filters, partnerAssignment: '' })}`
+              : LEADS_HREF
+          }
+          className="rounded-sm text-caption text-text-muted underline underline-offset-2 outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          Zurücksetzen
+        </Link>
+      </div>
+    </>
+  )
+}
+
+/** Zweck UND Zustand in EINEM Formular — s. Kommentar an der Spalte. */
+function ConsentChoice({ filters }: { filters: LeadFilters }) {
+  const purposes = new Set(filters.consentPurposes)
+  const states = new Set(filters.consentStates)
+  return (
+    <>
+      {[...filterSearchParams(filters).entries()]
+        .filter(([name]) => name !== 'zweck' && name !== 'einwilligung')
+        .map(([name, value], i) => (
+          <input key={`${name}-${value}-${i}`} type="hidden" name={name} value={value} />
+        ))}
+      <fieldset className="flex flex-col gap-2">
+        <legend className="mb-1 text-caption font-semibold uppercase tracking-wide text-text-muted">
+          Zweck
+        </legend>
+        {CONSENT_PURPOSES.map((purpose) => (
+          <div key={purpose} className="flex items-start gap-2">
+            <Checkbox
+              id={`f-zweck-${purpose}`}
+              name="zweck"
+              value={purpose}
+              defaultChecked={purposes.has(purpose)}
+            />
+            <Label htmlFor={`f-zweck-${purpose}`} className="font-normal leading-tight">
+              {purposeLabel(purpose)}
+            </Label>
+          </div>
+        ))}
+      </fieldset>
+      <fieldset className="mt-3 flex flex-col gap-2 border-t border-line pt-3">
+        <legend className="mb-1 text-caption font-semibold uppercase tracking-wide text-text-muted">
+          Zustand
+        </legend>
+        {Object.entries(CONSENT_STATUS_LABELS).map(([value, label]) => (
+          <div key={value} className="flex items-start gap-2">
+            <Checkbox
+              id={`f-einw-${value}`}
+              name="einwilligung"
+              value={value}
+              defaultChecked={states.has(value)}
+            />
+            <Label htmlFor={`f-einw-${value}`} className="font-normal leading-tight">
+              {label}
+            </Label>
+          </div>
+        ))}
+        {/*
+         * Die Umkehrung: KEINE (passende) Einwilligung. Sie steht bei den Zuständen, weil sie einer
+         * ist — und sie darf mit echten Zuständen zusammen angekreuzt sein (dann gilt „oder").
+         */}
+        <div className="flex items-start gap-2 border-t border-line pt-2">
+          <Checkbox
+            id="f-einw-none"
+            name="einwilligung"
+            value="none"
+            defaultChecked={states.has('none')}
+          />
+          <Label htmlFor="f-einw-none" className="font-normal leading-tight">
+            keine
+            <span className="block text-caption text-text-muted">
+              ohne Zweck: gar keine Einwilligung
+            </span>
+          </Label>
+        </div>
+      </fieldset>
+      <div className="mt-3 flex items-center justify-between gap-2">
+        <Button type="submit" variant="primary" size="sm">
+          Übernehmen
+        </Button>
+        <Link
+          href={
+            filterSearchParams({ ...filters, consentPurposes: [], consentStates: [] }).toString()
+              ? `${LEADS_HREF}?${filterSearchParams({ ...filters, consentPurposes: [], consentStates: [] })}`
+              : LEADS_HREF
+          }
+          className="rounded-sm text-caption text-text-muted underline underline-offset-2 outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          Zurücksetzen
+        </Link>
+      </div>
+    </>
   )
 }
