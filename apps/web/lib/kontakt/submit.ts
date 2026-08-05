@@ -202,6 +202,23 @@ export async function handleKontaktSubmission(
     sourceKey: attribution.sourceKey,
     partnerSlug: attribution.partnerSlug,
     referredByText,
+    /*
+     * Das Thema wandert ab jetzt zusätzlich in den Bestand — derselbe Wert, der oben schon die
+     * Betreffzeile der internen Mail bildet, keine zweite Herleitung.
+     *
+     * `thema.key`, NICHT `themaLabel`: Der Schlüssel ist stabil und sprachunabhängig, das Label
+     * ist übersetzt und darf sich ändern (`lib/kontakt/themen.ts` sagt genau das für Formular und
+     * API-Contract; für den Bestand gilt es doppelt — eine Auswertung über zwei Sprachen zerfiele
+     * sonst in zwei Gruppen für dieselbe Sache). `thema.key === data.thema`; die Auflösung über
+     * `findThema` steht hier trotzdem, weil sie einen unbekannten Wert laut abweist, statt ihn
+     * durchzureichen.
+     *
+     * Dies ist der EINZIGE Erfassungsweg, der die Spalte befüllt — beide Endpunkte teilen sich
+     * diese Datei, die Partner-Landingpage schreibt das Thema also mit. Alle übrigen Wege
+     * (Telefonaufnahme, Registrierung, Warteliste, Rechnerergebnis, Artikel-Formulare) übergeben
+     * nichts und lassen sie null.
+     */
+    thema: thema.key,
   })
 
   return NextResponse.json<KontaktResponse>({ ok: true })

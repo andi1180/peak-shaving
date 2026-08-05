@@ -140,6 +140,16 @@ export type KontaktLeadInput = {
   partnerSlug?: string | null
   /** Freitext „Empfohlen durch" — BEOBACHTUNG, landet nie in `partner_slug` (B16-1). */
   referredByText?: string | null
+  /**
+   * Das gewählte Thema als SCHLÜSSEL aus `lib/kontakt/themen.ts` (`peakShaving`, `esg`, …), nicht
+   * als übersetztes Label: Das Label steht in `messages/*.json`, ist sprachabhängig und änderbar —
+   * im Bestand wäre es eine zweite, veraltende Kopie. Die Anzeige löst den Schlüssel über dieselbe
+   * Liste wieder auf, die das Dropdown füllt.
+   *
+   * Der Wert kommt AUSSCHLIESSLICH aus diesem Formular; jeder andere Erfassungsweg lässt die
+   * Spalte null, und „kein Thema angegeben" ist deshalb eine eigene Aussage (kein Rückfallwert).
+   */
+  thema?: string | null
 }
 
 /**
@@ -175,6 +185,7 @@ export async function captureKontaktLead(input: KontaktLeadInput): Promise<void>
       locale,
       partnerSlug: input.partnerSlug ?? null,
       referredByText: input.referredByText ?? null,
+      thema: input.thema ?? null,
     })
 
     /*

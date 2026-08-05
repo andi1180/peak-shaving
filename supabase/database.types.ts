@@ -687,6 +687,7 @@ export type Database = {
           last_edited_by: string | null
           last_interaction_at: string
           last_name: string | null
+          mentioned_business_id: string | null
           metering_type: string | null
           partner_slug: string | null
           phone: string | null
@@ -695,6 +696,7 @@ export type Database = {
           retention_basis: string
           status: string
           supplier: string | null
+          thema: string | null
           updated_at: string
         }
         Insert: {
@@ -714,6 +716,7 @@ export type Database = {
           last_edited_by?: string | null
           last_interaction_at?: string
           last_name?: string | null
+          mentioned_business_id?: string | null
           metering_type?: string | null
           partner_slug?: string | null
           phone?: string | null
@@ -722,6 +725,7 @@ export type Database = {
           retention_basis?: string
           status?: string
           supplier?: string | null
+          thema?: string | null
           updated_at?: string
         }
         Update: {
@@ -741,6 +745,7 @@ export type Database = {
           last_edited_by?: string | null
           last_interaction_at?: string
           last_name?: string | null
+          mentioned_business_id?: string | null
           metering_type?: string | null
           partner_slug?: string | null
           phone?: string | null
@@ -749,6 +754,7 @@ export type Database = {
           retention_basis?: string
           status?: string
           supplier?: string | null
+          thema?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -760,6 +766,13 @@ export type Database = {
             referencedColumns: ["key"]
           },
           {
+            foreignKeyName: "leads_mentioned_business_id_fkey"
+            columns: ["mentioned_business_id"]
+            isOneToOne: false
+            referencedRelation: "mentioned_businesses"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "leads_partner_slug_fkey"
             columns: ["partner_slug"]
             isOneToOne: false
@@ -767,6 +780,27 @@ export type Database = {
             referencedColumns: ["slug"]
           },
         ]
+      }
+      mentioned_businesses: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: []
       }
       partner_applications: {
         Row: {
@@ -1105,6 +1139,7 @@ export type Database = {
           last_edited_by: string | null
           last_interaction_at: string
           last_name: string | null
+          mentioned_business_id: string | null
           metering_type: string | null
           partner_slug: string | null
           phone: string | null
@@ -1113,6 +1148,7 @@ export type Database = {
           retention_basis: string
           status: string
           supplier: string | null
+          thema: string | null
           updated_at: string
         }[]
         SetofOptions: {
@@ -1416,6 +1452,7 @@ export type Database = {
           p_source_ip?: unknown
           p_source_key: string
           p_supplier?: string
+          p_thema?: string
           p_token_expires_at?: string
           p_token_hash?: string
           p_user_agent?: string
