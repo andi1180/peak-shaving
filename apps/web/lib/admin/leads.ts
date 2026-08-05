@@ -284,6 +284,18 @@ export type LeadDetailRow = LeadListRow & {
    */
   mentioned_business_id: string | null
   mentioned_business_name: string | null
+  /*
+   * Das Thema der Anfrage — der SCHLÜSSEL aus `lib/kontakt/themen.ts` (`peakShaving`, `esg`, …),
+   * NICHT das übersetzte Label: das steht in `messages/*.json`, ist sprachabhängig und wäre im
+   * Bestand eine zweite, veraltende Kopie. Die Anzeige löst ihn über dieselbe Liste wieder auf, die
+   * auch das Dropdown füllt (`lib/admin/lead-thema.ts`).
+   *
+   * `null` heisst „nicht eingeordnet" — ein zulässiger Zustand: Nur der Kontaktweg (öffentliches
+   * Formular und Partner-Landingpage) und das interne Aufnahmeformular befüllen die Spalte, alle
+   * übrigen Erfassungswege lassen sie leer. Ein Wert, den die heutige Taxonomie nicht mehr kennt,
+   * ist ebenfalls möglich (die Spalte trägt bewusst keinen CHECK) und wird roh angezeigt.
+   */
+  thema: string | null
 }
 
 // ── Sperrliste: der Grund (B2-2) ─────────────────────────────────────────────────────────────────

@@ -105,7 +105,10 @@ describe('B19 — der Weg ist mailfrei, und das ist gemessen', () => {
     // Ein Feld, das der Plan ignoriert, wäre eine Requisite. Es darf auch nicht versehentlich
     // zurückkommen: Das Schema kennt den Namen nicht, das Formular rendert ihn nicht.
     const quelle = readFileSync(join(HERE, 'lead-intake.ts'), 'utf8')
-    const formular = readFileSync(join(process.cwd(), 'components', 'admin', 'lead-intake-form.tsx'), 'utf8')
+    const formular = readFileSync(
+      join(process.cwd(), 'components', 'admin', 'lead-intake-form.tsx'),
+      'utf8',
+    )
     expect(quelle).not.toMatch(/^\s*marketing:/m)
     expect(formular).not.toContain('name="marketing"')
   })
@@ -117,6 +120,7 @@ const GUELTIG = {
   email: 'eva.mayr@baeckerei-mayr.at',
   unternehmen: 'Bäckerei Mayr GmbH',
   telefon: '+43 1 234 5678',
+  thema: '',
   zuordnung: '',
   neueFirma: '',
   datenschutz: true as const,
@@ -209,14 +213,99 @@ describe('planLeadIntake — der Ablauf', () => {
   it('macht aus leeren Optionalfeldern `null`, nicht Leerstrings', () => {
     // Dieselbe Normalisierung wie `capture_lead`: ein Leerstring ist keine Angabe. Ohne sie
     // überschriebe eine zweite Erfassung einen echten Bestandswert mit „".
-    const plan = planLeadIntake(
-      { ...GUELTIG, unternehmen: '', telefon: '   ' },
-      [],
-    )
+    const plan = planLeadIntake({ ...GUELTIG, unternehmen: '', telefon: '   ' }, [])
     expect(plan.ok).toBe(true)
     if (!plan.ok) return
     expect(plan.calls[0]?.company).toBeNull()
     expect(plan.calls[0]?.phone).toBeNull()
+  })
+})
+
+/**
+ * Das Thema — seit `platform.leads.thema` existiert, ist es hier kein leeres Versprechen mehr.
+ *
+ * ── WAS HIER GEPRÜFT WIRD UND WAS BEWUSST NICHT ─────────────────────────────────────────────────
+ * Was die Datenbank aus dem Wert macht (Speicherung, Zusammenführung, Anonymisierung), steht in
+ * `packages/db-tests/src/lead-thema.test.ts`. Was nur hier prüfbar ist: dass der Wert überhaupt in
+ * den Plan gerät, dass er OPTIONAL ist, und dass ein Wert, den die Taxonomie nicht kennt,
+ * ABGEWIESEN wird statt still zu verschwinden — die Datenbank kann das nicht abfangen, sie trägt
+ * bewusst keinen CHECK.
+ */
+describe('planLeadIntake — das Thema', () => {
+  it('reicht ein gewähltes Thema als SCHLÜSSEL durch', () => {
+    const plan = planLeadIntake({ ...GUELTIG, thema: 'peakShaving' }, [])
+    expect(plan.ok).toBe(true)
+    if (!plan.ok) return
+    expect(plan.calls[0]?.thema).toBe('peakShaving')
+  })
+
+  it('ist optional — ohne Auswahl entsteht der Lead trotzdem, mit thema = null', () => {
+    /*
+     * Der Unterschied zum öffentlichen Formular, wo das Feld Pflicht ist: Hier ordnet ein Mensch
+     * ein Telefonat ein, und nicht jedes Gespräch lässt sich sauber zuschlagen. Ein Pflichtfeld
+     * erzwänge eine erfundene Zuordnung.
+     */
+    const plan = planLeadIntake({ ...GUELTIG, thema: '' }, [])
+    expect(plan.ok).toBe(true)
+    if (!plan.ok) return
+    expect(plan.calls).toHaveLength(1)
+    expect(plan.calls[0]?.thema).toBeNull()
+  })
+
+  it('macht aus reinen Leerzeichen `null`, nicht einen Leerstring', () => {
+    // Ein '' überlebte jedes COALESCE und verdrängte über einen zweiten Kontakt ein echtes Thema.
+    const plan = planLeadIntake({ ...GUELTIG, thema: '   ' }, [])
+    expect(plan.ok).toBe(true)
+    if (!plan.ok) return
+    expect(plan.calls[0]?.thema).toBeNull()
+  })
+
+  it('weist ein Thema ab, das die Taxonomie nicht kennt — statt es still zu verwerfen', () => {
+    /*
+     * Aus keinem gerenderten Auswahlfeld kann dieser Wert stammen. Still verworfen stünde am Ende
+     * ein Lead ohne Thema da, obwohl jemand eines ausgewählt hat — dieselbe Regel wie bei
+     * `zuordnung`.
+     */
+    const plan = planLeadIntake({ ...GUELTIG, thema: 'erfunden' }, [])
+    expect(plan.ok).toBe(false)
+    if (plan.ok) return
+    expect(plan.fieldErrors.thema).toBeTruthy()
+  })
+
+  it('trägt das Thema NICHT in den zweiten Aufruf der Partner-Freigabe', () => {
+    // Der zweite Aufruf schreibt eine EINWILLIGUNG, nicht die Angaben — dieselbe Entscheidung wie
+    // bei den Identitätsfeldern und wie im öffentlichen Weg (`lib/leads/capture.ts`).
+    const plan = planLeadIntake(
+      { ...GUELTIG, thema: 'esg', zuordnung: 'partner:raymann', partnerFreigabe: true },
+      ['raymann'],
+    )
+    expect(plan.ok).toBe(true)
+    if (!plan.ok) return
+    expect(plan.calls).toHaveLength(2)
+    expect(plan.calls[0]?.thema).toBe('esg')
+    expect(plan.calls[1]?.thema).toBeNull()
+  })
+
+  it('zählt die Themen NICHT selbst auf — die Liste kommt aus der Taxonomie', () => {
+    /*
+     * Der eigentliche Wächter dieses Schritts. Eine getippte Werteliste im Admin-Bereich wäre die
+     * zweite Taxonomie, gegen die `lib/kontakt/themen.ts` gebaut ist: Beim ersten Leistungs-Rename
+     * zeigte das Formular einen Namen, den es nicht mehr gibt, und die Prüfung liesse einen Wert
+     * durch, den das öffentliche Formular gar nicht mehr anbietet.
+     *
+     * Geprüft an der QUELLE, weil ein Verhaltenstest das nicht sehen könnte: Eine abgetippte Liste
+     * mit denselben acht Werten verhielte sich heute identisch und driftete erst später ab.
+     */
+    const quelle = readFileSync(join(HERE, 'lead-intake.ts'), 'utf8')
+    const formular = readFileSync(
+      join(process.cwd(), 'components', 'admin', 'lead-intake-form.tsx'),
+      'utf8',
+    )
+    expect(quelle).toContain("from '@/lib/kontakt/themen'")
+    for (const key of ['peakShaving', 'pvSpeicher', 'sonstiges']) {
+      expect(quelle, `${key} darf im Admin-Schema nicht abgetippt stehen`).not.toContain(`'${key}'`)
+      expect(formular, `${key} darf im Formular nicht abgetippt stehen`).not.toContain(`'${key}'`)
+    }
   })
 })
 
@@ -234,7 +323,11 @@ describe('planLeadIntake — formlos genannte Firmen', () => {
   const FIRMA_ID = '11111111-2222-3333-4444-555555555555'
 
   it('setzt bei einer bestehenden Firma NIE partnerSlug', () => {
-    const plan = planLeadIntake({ ...GUELTIG, zuordnung: `firma:${FIRMA_ID}` }, ['raymann'], [FIRMA_ID])
+    const plan = planLeadIntake(
+      { ...GUELTIG, zuordnung: `firma:${FIRMA_ID}` },
+      ['raymann'],
+      [FIRMA_ID],
+    )
     expect(plan.ok).toBe(true)
     if (!plan.ok) return
     expect(plan.calls).toHaveLength(1)
@@ -282,7 +375,11 @@ describe('planLeadIntake — formlos genannte Firmen', () => {
   it('lehnt eine Firmenkennung ab, die das Formular nicht angeboten hat', () => {
     // Sonst schlüge erst `admin_attach_mentioned_business` mit 22023 fehl — nach dem Anlegen des
     // Leads, also als technischer Fehler statt als Feldmeldung davor.
-    const plan = planLeadIntake({ ...GUELTIG, zuordnung: 'firma:erfunden' }, ['raymann'], [FIRMA_ID])
+    const plan = planLeadIntake(
+      { ...GUELTIG, zuordnung: 'firma:erfunden' },
+      ['raymann'],
+      [FIRMA_ID],
+    )
     expect(plan.ok).toBe(false)
     if (plan.ok) return
     expect(plan.fieldErrors.zuordnung).toBeTruthy()
