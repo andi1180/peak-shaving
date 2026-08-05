@@ -12,7 +12,7 @@ import { ReportGallery } from '@/components/peak-shaving/report-gallery'
 import { HowItWorks } from '@/components/peak-shaving/how-it-works'
 import { EnergyFlow } from '@/components/peak-shaving/energy-flow'
 import { JsonLd } from '@/components/json-ld'
-import { CALCULATOR_RUN_HREF } from '@/lib/nav'
+import { kontaktHrefFor } from '@/lib/kontakt/themen'
 import { calculatorLd } from '@/lib/json-ld'
 import { canonicalUrl, pageAlternates } from '@/lib/seo'
 
@@ -48,10 +48,11 @@ export async function generateMetadata({
  * hier steht, was das Werkzeug leistet und wie es sich vom freien Schnellrechner
  * unterscheidet (§5.4).
  *
- * PHASE 1 vs. PHASE 2: Der CTA springt EXTERN auf `apps/website` ab — die
- * eigenständige, laufende Kalkulator-App (§8.1). `apps/web` importiert dafür
- * bewusst weder Engine noch Kalkulator-UI. Die URL steht als benannte Konstante
- * in `lib/config.ts`; dort ist auch dokumentiert, was in Phase 2 daraus wird.
+ * DER CTA FÜHRT NICHT MEHR IN DEN RECHNER, sondern zur Kontaktanfrage — s. die
+ * ausführliche Begründung an `KontaktanfrageButton` weiter unten. Der Rechner
+ * selbst liegt unverändert in `apps/website` und läuft unter
+ * `/peak-shaving/kalkulator/rechner` im iframe (`EMBEDDED_CALCULATOR_SRC` in
+ * `lib/config.ts`); diese Seite verlinkt ihn nur nicht mehr direkt.
  *
  * OP#1 (Kalkulator frei vs. bezahlt) ist OFFEN: Diese Seite trifft deshalb KEINE
  * endgültige Preis-Aussage. Der Badge nennt nur den Ist-Zustand („Zugang auf
@@ -124,28 +125,41 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
 }
 
 /**
- * Der Absprung zum Rechner, an EINER Stelle.
+ * Der CTA dieser Seite, an EINER Stelle — er führt zur KONTAKTANFRAGE.
  *
- * WAR EXTERN, IST JETZT INTERN: Bis Prompt 6 sprang dieser Button per
- * `target="_blank"` auf `apps/website` — der Nutzer verließ coolin.at, und der
- * Button trug ein „öffnet in neuem Tab"-Icon. Seit Prompt 7 führt er auf
- * `/peak-shaving/kalkulator/rechner`; dort läuft derselbe Rechner im iframe
- * innerhalb der coolin.at-Hülle. Damit entfallen `target`/`rel`/das
- * ExternalLink-Icon und der `sr-only`-Zusatz „öffnet in neuem Tab" — sie wären
- * jetzt schlicht falsch.
+ * ZWEI MAL UMGEZOGEN, und der zweite Umzug ist der wichtige:
+ * (1) Bis Prompt 6 sprang der Button per `target="_blank"` auf `apps/website` —
+ *     der Nutzer verließ coolin.at.
+ * (2) Ab Prompt 7 führte er auf `/peak-shaving/kalkulator/rechner`, den Rechner
+ *     im iframe innerhalb der coolin.at-Hülle.
+ * (3) Seit B18-4 ist genau das eine FALSCHE ZUSAGE für nahezu jeden Besucher:
+ *     die Rechner-Route verlangt eine Sitzung UND ein aktives
+ *     `calculator_pro`-Entitlement (`lib/kalkulator/access.ts`). Wer nicht
+ *     angemeldet ist, wird auf `/anmelden` umgeleitet; wer angemeldet, aber
+ *     nicht freigeschaltet ist, landet auf dem Anfrage-Zustand. Ein Knopf
+ *     „Kalkulator starten" versprach damit einen Start, den er nicht liefern
+ *     kann — und der Badge daneben sagt seit dem B16-Einstieg das Gegenteil
+ *     („Zugang auf Anfrage").
  *
- * Die externe URL ist NICHT weg, sie ist nur umgezogen: sie ist ab jetzt die
- * iframe-Quelle (`EMBEDDED_CALCULATOR_SRC` in `lib/config.ts`) und taucht auf
- * dieser Seite nicht mehr auf.
+ * Der Knopf führt deshalb dorthin, wo die Anfrage tatsächlich hingehört:
+ * `/kontakt?thema=peakShaving`, der BESTEHENDE Deep-Link — kein neuer Parameter
+ * und kein zweiter Kontaktweg. Er wird über `kontaktHrefFor` gebaut und nicht
+ * als Zeichenkette getippt: die Funktion WIRFT bei einem unbekannten Thema, ein
+ * Tippfehler wäre sonst ein Deep-Link, der still auf „Bitte wählen" stehen
+ * bliebe (`lib/kontakt/themen.ts`).
+ *
+ * ⚠ DIE RECHNER-ROUTE BLEIBT UNANGETASTET und ist weiter erreichbar (Lesezeichen,
+ * Portal-Reiter „Kalkulator", `/konto`) — sie ist hier nur nicht mehr der Knopf,
+ * den ein anonymer Besucher als Erstes sieht. `CALCULATOR_RUN_HREF` wird von
+ * dieser Datei folglich nicht mehr importiert.
  *
  * `Link` aus `@/i18n/navigation` (nicht `next/link`): nur der setzt das
- * Locale-Präfix — bei der externen URL wäre genau das falsch gewesen, bei einer
- * internen Route ist es Pflicht.
+ * Locale-Präfix. Der Query-Teil reist dabei mit — im Browserlauf gemessen.
  */
-function CalculatorButton({ label, size = 'md' }: { label: string; size?: 'md' | 'lg' }) {
+function KontaktanfrageButton({ label, size = 'md' }: { label: string; size?: 'md' | 'lg' }) {
   return (
     <Button asChild variant="primary" size={size}>
-      <Link href={CALCULATOR_RUN_HREF}>
+      <Link href={kontaktHrefFor('peakShaving')}>
         {label}
         <ArrowRight className="h-4 w-4 shrink-0" strokeWidth={2} aria-hidden="true" />
       </Link>
@@ -165,10 +179,13 @@ function CalculatorHero() {
       <p className="mt-5 max-w-prose text-lead text-text">{t('lead')}</p>
 
       <div className="mt-8 flex flex-wrap items-center gap-4">
-        <CalculatorButton label={t('cta')} size="lg" />
+        <KontaktanfrageButton label={t('cta')} size="lg" />
         {/* Zugangs-/Preis-Aussage als Badge NEBEN dem Button, nie im CTA-Text (§3.3) —
             der CTA-Text muss den Übergang frei→bezahlt überleben. Der Badge selbst
-            benennt den Ist-Zustand seit B10-2: Zugang auf Anfrage. */}
+            benennt den Ist-Zustand seit B10-2: Zugang auf Anfrage. Knopf und Badge
+            sagen seit B18-4 dasselbe („Zugang anfragen" / „Zugang auf Anfrage")
+            statt einander zu widersprechen — das ist der Grund, warum der Badge
+            unverändert bleiben konnte. */}
         <Badge variant="neutral">{t('badge')}</Badge>
       </div>
     </Container>
@@ -294,18 +311,31 @@ function CtaSection() {
           <p className="mt-5 text-body text-white/80">{t('lead')}</p>
 
           <div className="mt-8">
-            <CalculatorButton label={t('cta')} size="lg" />
+            <KontaktanfrageButton label={t('cta')} size="lg" />
           </div>
 
           {/*
-           * Stand Prompt 6 warnte hier ein Hinweis, dass der Klick auf eine
-           * FREMDE Adresse führt. Das stimmt nicht mehr — der Rechner läuft jetzt
-           * in dieser Hülle. Statt den Satz ersatzlos zu streichen, steht hier
-           * die Zusage, die an dieser Stelle wirklich zählt und die der Rechner
-           * einlöst (Kalkulator-Prinzip 4: die Daten verlassen den Browser nicht).
+           * DER SATZ HAT DREIMAL DIE AUSSAGE GEWECHSELT, WEIL DER KNOPF ES TAT:
+           * Stand Prompt 6 warnte er vor dem Sprung auf eine FREMDE Adresse; ab
+           * Prompt 7 trug er die Zusage, die der Rechner in dieser Hülle einlöst
+           * (Kalkulator-Prinzip 4: die Daten verlassen den Browser nicht). Beides
+           * setzt voraus, dass der Knopf in den Rechner führt — seit B18-4 tut er
+           * das nicht mehr, und eine Datenschutz-Zusage über eine Verarbeitung,
+           * die auf den nächsten Klick gar nicht folgt, wäre eine Zusage über
+           * etwas anderes, als hier gerade passiert.
+           *
+           * Jetzt sagt er schlicht, was der Klick auslöst: eine Anfrage, auf die
+           * wir uns melden. Bewusst OHNE Zusage über die Bearbeitungsdauer und
+           * ohne Preis (OP#1 offen) — dieselbe Leitplanke wie bei den übrigen
+           * Anfrage-Texten (`CalculatorFrame.access`, `PartnerBewerbung.*`).
+           *
+           * Der Schlüssel hiess bis B18-4 `external` — ein Name aus der Zeit des
+           * externen Absprungs, der für einen Hinweis auf das EIGENE Kontaktformular
+           * in die Irre führt (dieselbe Umbenennung und derselbe Grund wie
+           * `Nav.cta` → `Nav.partner` in Prompt 25).
            */}
           <p className="mt-8 border-t border-white/20 pt-6 text-caption text-white/70">
-            {t('external')}
+            {t('ctaNote')}
           </p>
         </div>
       </Container>
