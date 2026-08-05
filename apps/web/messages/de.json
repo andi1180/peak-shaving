@@ -1986,6 +1986,22 @@
       "note": "Das passiert meistens, wenn der Link beim Kopieren abgeschnitten wurde. Öffnen Sie ihn bitte direkt aus unserer E-Mail — oder schreiben Sie uns kurz, dann schicken wir Ihnen einen neuen."
     }
   },
+  "Access": {
+    "//": "ARBEITSSTAND (Zugangsplattform, Baustein 1): Platzhaltertexte der Subdomain access.coolin.at. Endgueltige Formulierungen von Andreas/Martin. BINDENDE LEITPLANKEN fuer jede Neufassung — sie sind aus Pflichtenheft_Zugangsplattform_MVP.md abgeleitet, nicht Geschmack: (1) KEIN Preis und keine Preisstufe (die Staffel in §7.2 ist interne Kalkulationsgrundlage, nicht bestaetigt; §9 fuehrt den SIM-Tarif weiterhin als offen). (2) KEINE Zusage ueber einen Termin oder eine Verfuegbarkeit. (3) KEINE Compliance-Zusage — die NISG-Nachweispflicht liegt rechtlich beim BETREIBER (§2.6); 'NISG-konform' waere eine Behauptung, die diese Plattform nicht einloesen kann, und §7.4 sagt ausdruecklich: nicht den Zugang verkaufen, sondern die Nachweisfuehrung. (4) KEIN Hersteller- und kein Geraetename — der Produktname ist bewusst objekttyp-offen gehalten (§0), und die einzige konkrete Anbindung ist noch nicht gebaut. (5) Der Produktname selbst ist ein Arbeitstitel (§0/§9), ebenso die Subdomain.",
+    "metaTitle": "Zugangsplattform",
+    "shell": {
+      "badge": "Zugangsplattform",
+      "home": "Zur Übersicht"
+    },
+    "placeholder": {
+      "eyebrow": "Im Aufbau",
+      "title": "Zugangsplattform",
+      "lead": "Hier entsteht der Bereich, über den Fachbetriebe den Fernzugriff auf die von ihnen betreuten Anlagen verwalten — personengebunden, mit nachvollziehbarem Protokoll darüber, wer wann worauf zugegriffen hat.",
+      "statusTitle": "Noch nichts zu tun",
+      "statusBody": "Der Bereich ist noch im Aufbau und hat noch keine Anmeldung. Sobald er benutzbar ist, melden wir uns bei den Betrieben, mit denen wir darüber im Gespräch sind.",
+      "contactLead": "Fragen dazu beantworten wir gern per E-Mail:"
+    }
+  },
   "PartnerPortal": {
     "//": "ARBEITSSTAND (B16-4b): Partner-Portal und die zwei E-Mail-Vorlagen zum Kopieren. Endgueltige Formulierungen von Andreas/Martina — die Vorlagen gehen unter dem NAMEN DES PARTNERS an dessen Bestandskunden und sind vor der ersten echten Aussendung zu ersetzen. Bindende Leitplanken fuer jede Neufassung: keine Preis-, Ergebnis- oder Ersparnisversprechen, keine Zusage ueber die Bearbeitungsdauer, und COOLiN tritt als unabhaengiger Pruefer auf, nicht als Verkaeufer.",
     "//leads": "ARBEITSSTAND (B18-6): Der Reiter 'leads' zeigt seit B18-6 Angaben zu einzelnen Interessenten — der frueher hier stehende Satz, das sei bewusst nicht der Fall, ist damit ueberholt und entfernt. Er galt, solange der noetige Einwilligungszweck fehlte; seit B18-6 gibt es ihn ('partner_lead_disclosure'), und ANGEZEIGT WIRD AUSSCHLIESSLICH, WAS DIE PERSON FREIGEGEBEN HAT — die Auswahl trifft die Datenbank, nicht diese Texte. Leitplanke fuer jede Neufassung der Leads-Texte: sachlich bleiben und die fehlende Freigabe NICHT als entgangene Gelegenheit darstellen. Sie ist eine gueltige Entscheidung einer Person, der Fachbetrieb kann daran nichts aendern, und ein Ton, der zum Nachfassen einlaedt, machte aus der Einwilligung ein Hindernis.",

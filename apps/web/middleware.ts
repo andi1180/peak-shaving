@@ -4,6 +4,12 @@ import { routing } from './i18n/routing'
 import { updateSession } from './lib/supabase/middleware'
 import { ADMIN_HREF, ADMIN_PATHNAME_HEADER } from './lib/admin/config'
 import {
+  isAccessHostRequest,
+  isAccessRenderPath,
+  leavesAccessHost,
+  accessRenderPath,
+} from './lib/access-host'
+import {
   isPortalHostRequest,
   isPortalRenderPath,
   leavesPortalHost,
@@ -55,6 +61,27 @@ export async function middleware(request: NextRequest): Promise<Response> {
   }
 
   /*
+   * ⚠ DERSELBE WÄCHTER FÜR DEN RENDER-BAUM DER ZUGANGSPLATTFORM (Baustein 1).
+   *
+   * Gleiche Aufgabe, gleiche Begründung, gleiche Position wie der Zweig darüber — nur für den
+   * anderen Baum: `app/access/**` sind echte Dateien und damit echte Routen (Next kennt keinen
+   * anderen Weg, etwas zu rendern), erreichbar sein dürfen sie trotzdem auf KEINEM Host. Sie sind
+   * ausschliesslich das Ziel des Rewrites unten.
+   *
+   * ZWEI GETRENNTE ZWEIGE STATT EINER ZUSAMMENGEFASSTEN BEDINGUNG, und das ist Absicht: Jeder Baum
+   * trägt seine eigene benannte Ableitung in seiner eigenen Datei (`lib/portal-host.ts`,
+   * `lib/access-host.ts`). Eine gemeinsame Liste hier wäre ein dritter Fundort, an dem ein neuer
+   * Produktbereich vergessen werden kann — und das Vergessen wäre still: Der Pfad wäre dann von
+   * aussen erreichbar und würde tadellos rendern.
+   *
+   * Vollständige Begründung samt der drei Stellen, die die Unsichtbarkeit durchsetzen:
+   * `ACCESS_RENDER_ROOT` in `lib/access-host.ts`.
+   */
+  if (isAccessRenderPath(request.nextUrl.pathname)) {
+    return new NextResponse(null, { status: 404 })
+  }
+
+  /*
    * DER PORTALBEREICH AUF DEM PORTAL-HOST (B18-1a-Nachbesserung, mit B18-3 auf mehrere Reiter
    * erweitert).
    *
@@ -81,6 +108,41 @@ export async function middleware(request: NextRequest): Promise<Response> {
    */
   if (isPortalHostRequest(request.headers)) {
     const renderPath = portalRenderPath(request.nextUrl.pathname)
+    if (renderPath) {
+      const target = request.nextUrl.clone()
+      target.pathname = renderPath
+      return await updateSession(request, NextResponse.rewrite(target))
+    }
+  }
+
+  /*
+   * DIE ZUGANGSPLATTFORM AUF IHREM HOST (Baustein 1).
+   *
+   * `access.coolin.at/` IST die Plattform — nicht die Marketing-Startseite. Weil zwei Routen nicht
+   * denselben Pfad belegen können, wird hier intern auf den Baum unter `ACCESS_RENDER_ROOT`
+   * umgeschrieben: ein REWRITE, kein Redirect. Die Adresszeile bleibt exakt die aufgerufene, der
+   * Host bleibt der Plattform-Host, und in keiner Adresse taucht „access" als Pfadsegment auf.
+   *
+   * ── WARUM DIESER ZWEIG next-intl NICHT DURCHLÄUFT ──────────────────────────────────────────────
+   * Weil es hier nichts zu lokalisieren gibt: Die Plattform liegt als eigener Root-Layout-Baum unter
+   * `app/access/**` und damit AUSSERHALB der Sprach-Struktur — dieselbe Entscheidung und dieselbe
+   * Begründung wie beim Portalbereich darüber und beim `/admin`-Zweig unten. Das Zielsegment
+   * `[locale]` gibt es dort gar nicht, also gibt es auch kein Präfix zu ergänzen. Die präfixte
+   * Fassung der Default-Locale bleibt vollständig bei next-intl: `/de` läuft weiterhin ungebremst
+   * dorthin (`accessRenderPath` ist bewusst nur für die exakten Adressen wahr) und wird von dort wie
+   * bisher auf die präfixlose Fassung umgeleitet.
+   *
+   * ── WARUM DER SESSION-REFRESH SCHON JETZT MITLÄUFT, OBWOHL ES HIER NOCH KEINE AUTH GIBT ────────
+   * Er ist keine Auth-LOGIK (keine Zugangsprüfung, keine Rollen, kein Gate), sondern Cookie-Hygiene,
+   * die die Middleware für jede andere Route dieser App ohnehin erledigt. Ihn hier auszulassen wäre
+   * die teurere Wahl: Der Portal-Zweig darüber begründet ausführlich, dass die umgekehrte
+   * Reihenfolge refreshte Tokens STILL verwirft und ein Nutzer dann scheinbar zufällig aus der
+   * Sitzung fliegt — ein Fehler, den kein Test und kein Statuscode zeigt. Diese Zeile jetzt richtig
+   * zu haben, statt sie in Baustein 6.1 nachzuziehen, kostet einen Cookie-Refresh auf einem Host,
+   * auf dem noch niemand angemeldet ist, und nimmt genau diese Falle aus dem Weg.
+   */
+  if (isAccessHostRequest(request.headers)) {
+    const renderPath = accessRenderPath(request.nextUrl.pathname)
     if (renderPath) {
       const target = request.nextUrl.clone()
       target.pathname = renderPath
@@ -125,6 +187,27 @@ export async function middleware(request: NextRequest): Promise<Response> {
    * Subdomain und laufen unverändert weiter (Begründung ausführlich dort).
    */
   if (leavesPortalHost(request.headers, request.nextUrl.pathname)) {
+    const target = new URL(`${request.nextUrl.pathname}${request.nextUrl.search}`, SITE_URL)
+    return NextResponse.redirect(target, 308)
+  }
+
+  /*
+   * DIESELBE WEICHE FÜR DEN ZUGANGSPLATTFORM-HOST (Baustein 1).
+   *
+   * Gemessen vor dem Bau: `access.coolin.at` lieferte die komplette Website ein zweites Mal aus
+   * (`/` und `/leistungen` je 200) — dieselbe Lage wie bei `partner.coolin.at` vor B18-1a. Ausserhalb
+   * der Plattform geht jede Anfrage dieses Hosts deshalb dauerhaft auf denselben Pfad unter der
+   * kanonischen Basis.
+   *
+   * Jede Begründung des Portal-Zweigs darüber gilt hier wörtlich: die Position VOR der Komposition
+   * aus next-intl und Supabase (eine Umleitung ist eine ABSCHLIESSENDE Entscheidung — danach gibt es
+   * keine Response mehr, auf die noch geschrieben werden könnte), der Ziel-Origin aus `SITE_URL`
+   * statt eines zweiten getippten Hosts (es gibt genau eine Quelle der kanonischen Basis-URL), Pfad
+   * und Query reisen unverändert mit, und 308 statt 301/302: dauerhaft UND methodenerhaltend, weil
+   * hier Server Actions liegen werden und deren POST still zu einem GET zu machen die Aktion
+   * verlöre, statt sie am richtigen Ort auszuführen.
+   */
+  if (leavesAccessHost(request.headers, request.nextUrl.pathname)) {
     const target = new URL(`${request.nextUrl.pathname}${request.nextUrl.search}`, SITE_URL)
     return NextResponse.redirect(target, 308)
   }
