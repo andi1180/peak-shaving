@@ -27,6 +27,7 @@ import {
   JOB_STALE_AFTER_HOURS,
   LEADS_EXPORT_HREF,
   LEADS_HREF,
+  LEAD_NEW_HREF,
   LEAD_RETENTION_JOB_KEY,
   LEAD_STATUSES,
   METERING_TYPE_LABELS,
@@ -714,7 +715,17 @@ export default async function AdminLeadsPage({
   return (
     <Container className="py-10 sm:py-14">
       <header className="border-b border-line pb-6">
-        <h1 className="text-h2 text-ink">Leads</h1>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <h1 className="text-h2 text-ink">Leads</h1>
+          {/*
+           * B19 — der einzige Weg, von Hand einen Lead anzulegen (telefonische Anfragen). Steht
+           * oben und nicht am Ende der Liste: Er wird während eines Telefonats gebraucht, nicht
+           * nach dem Durchsehen des Bestands.
+           */}
+          <Button asChild variant="primary" size="md">
+            <Link href={LEAD_NEW_HREF}>Lead anlegen</Link>
+          </Button>
+        </div>
         <p className="mt-2 max-w-prose text-body text-text-muted">
           Der Bestand aus Kontaktformular, Rechner und den übrigen Einstiegspunkten. Nur bestätigte
           Einwilligungen dürfen angeschrieben werden — alles andere ist rechtlich wertlos.

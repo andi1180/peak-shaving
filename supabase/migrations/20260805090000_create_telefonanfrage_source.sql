@@ -1,0 +1,46 @@
+-- B19 — die Herkunft der intern erfassten Telefonanfrage.
+--
+-- Anlass: Anfragen kommen auch per Telefon herein. Bisher gab es dafür keinen Weg in den Bestand
+-- ausser dem öffentlichen Kontaktformular — also entweder gar keinen Lead oder einen, der unter
+-- 'kontaktformular' steht und damit die Kanal-Auswertung still verfälscht. Diese Migration liefert
+-- die EINE Datenbank-Voraussetzung dafür und sonst NICHTS.
+--
+-- ── WAS HIER AUSDRÜCKLICH NICHT PASSIERT ────────────────────────────────────────────────────────
+-- Keine Änderung an `public.capture_lead` — der Wrapper ist seit B16-1 fertig und richtig, und der
+-- neue Weg ist nichts weiter als ein zweiter AUFRUFER mit einem anderen `p_source_key`. Keine neue
+-- Spalte, kein neuer `consent_purpose` (die Rechtsgrundlage einer telefonisch entgegengenommenen
+-- Anfrage ist dieselbe wie beim Kontaktformular: Vertragsanbahnung), kein neuer Wrapper, kein
+-- `tenant_id`. Auch `admin_list_leads`/`admin_export_leads` bleiben unberührt: beide lesen die
+-- Herkunft über den FK auf diese Tabelle und zeigen den neuen Wert dadurch von selbst.
+--
+-- ── WARUM 'telefonanfrage' UND NICHT 'admin-telefon' ────────────────────────────────────────────
+-- Jeder bestehende Schlüssel benennt den KANAL aus Sicht des Interessenten — 'kontaktformular',
+-- 'schnellrechner', 'fachvortrag', 'direktkontakt', 'partner-empfehlung'. Keiner benennt die
+-- interne Stelle, die ihn eingetragen hat. Ein Präfix 'admin-' wäre der erste Schlüssel, der von
+-- der Erfassungs-MECHANIK statt von der Herkunft handelt; in derselben Spalte nebeneinander liesse
+-- sich dann nicht mehr sagen, wonach die Werte eigentlich benannt sind. Dass COOLiN die Zeile
+-- selbst angelegt hat, steht im LABEL, wo es hingehört (es ist eine Angabe für den Menschen, der
+-- die Liste liest, keine Auswertungsdimension).
+--
+-- ── WARUM NICHT DAS BESTEHENDE 'direktkontakt' ──────────────────────────────────────────────────
+-- 'direktkontakt' ist seit B1-1 geseedet und trägt in `LEAD_CAPTURE_FORM_KEYS` ein eigenes
+-- öffentliches Erfassungsformular (B3-2) — es ist ein Einstiegspunkt, den der Interessent selbst
+-- bedient. Diesen Weg darauf zu legen, vermischte „hat sich bei einer Veranstaltung selbst
+-- eingetragen" mit „hat angerufen, wir haben getippt". `first_source_key` ist seit B1-1
+-- unveränderlich; die Vermischung wäre nachträglich nicht mehr zu trennen.
+--
+-- ── SCHREIBWEISE: BINDESTRICH-REGEL GILT, WIRD HIER ABER NICHT GEBRAUCHT ────────────────────────
+-- `platform.lead_sources.key` trägt seit B1-1 den CHECK `^[a-z0-9-]+$` (in B10-5 ist ein
+-- Unterstrich real mit SQLSTATE 23514 abgewiesen worden). 'telefonanfrage' ist einteilig und
+-- erfüllt ihn ohne Trennzeichen.
+--
+-- ⚠ GEGENSTÜCK IM CODE IST PFLICHT, NICHT KÜR: `lead-source-registry.test.ts` (DB-Gate) prüft in
+-- BEIDE Richtungen, dass die aktiven Zeilen dieser Tabelle genau der Liste in
+-- `apps/web/lib/leads/registry.ts` entsprechen. Diese Zeile ohne den dortigen Eintrag in
+-- `LEAD_SOURCE_KEYS_WITHOUT_FORM` macht das Gate rot — bewusst so, damit Datenbank und
+-- Anwendungscode nicht auseinanderdriften können.
+--
+-- Idempotent wie alle Herkunfts-Seeds seit B1-1.
+insert into platform.lead_sources (key, label) values
+  ('telefonanfrage', 'Telefonische Anfrage (intern erfasst)')
+on conflict (key) do nothing;

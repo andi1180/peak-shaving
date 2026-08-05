@@ -7,7 +7,7 @@
  */
 
 import type { Database } from '@/db-types'
-import type { LeadConsentPurpose } from './registry'
+import type { LeadConsentPurpose, LeadSourceKey } from './registry'
 
 /** Zweck einer Einwilligung — 1:1 das DB-Enum `platform.consent_purpose` (B1-1). */
 export type ConsentPurpose = Database['platform']['Enums']['consent_purpose']
@@ -100,6 +100,21 @@ export const UNSUBSCRIBE_STATUS = {
  * Erfassungskomponente mit den weiteren Einstiegspunkten.
  */
 export const LEAD_SOURCE_KONTAKTFORMULAR = 'kontaktformular'
+
+/**
+ * B19 — die intern erfasste Telefonanfrage (`app/admin/(intern)/leads/neu`).
+ *
+ * Eigene Herkunft und nicht 'kontaktformular': `first_source_key` ist seit B1-1 unveränderlich und
+ * die Grundlage jeder Kanal-Auswertung. Ein telefonisch aufgenommener Lead unter der Herkunft des
+ * öffentlichen Formulars machte die Frage „wie viele Anfragen bringt die Website?" unbeantwortbar,
+ * ohne dass es jemandem auffiele — der Lead wäre ja da. Dasselbe Argument wie bei B10-5 (zwei
+ * Registrierungs-Herkünfte) und B16-2 ('partner-empfehlung').
+ *
+ * Der Typ ist absichtlich `LeadSourceKey` und nicht `string`: `lib/leads/registry.ts` führt die
+ * erschöpfende Liste, und das DB-Gate pinnt sie gegen `platform.lead_sources`. Ein Tippfehler hier
+ * ist damit ein Typfehler und kein Fremdschlüsselverstoss zur Laufzeit.
+ */
+export const LEAD_SOURCE_TELEFONANFRAGE: LeadSourceKey = 'telefonanfrage'
 
 /**
  * Ist der Wert ein bekannter Einwilligungszweck?

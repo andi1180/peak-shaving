@@ -13,6 +13,8 @@
 
 /** Basispfad des Lead-Abschnitts — ohne Locale-Präfix, wie der ganze Admin-Bereich. */
 export const LEADS_HREF = '/admin/leads'
+/** Eine telefonisch hereingekommene Anfrage von Hand aufnehmen (B19) — versendet keine E-Mail. */
+export const LEAD_NEW_HREF = '/admin/leads/neu'
 export const SUPPRESSIONS_HREF = '/admin/leads/sperrliste'
 /** Das Protokoll der Ausfuhren (B2-1). */
 export const EXPORTS_HREF = '/admin/leads/exporte'
