@@ -40,7 +40,7 @@ Reaktivierbar, falls sich ein Bedarf jenseits des E-Control-Angebots zeigt (z. B
 
 ---
 
-## Bauabschnitte (neue Nummerierung B0–B18)
+## Bauabschnitte (neue Nummerierung B0–B19)
 
 ### Stand je Bauabschnitt
 
@@ -66,7 +66,8 @@ Mit inzwischen zwölf gebauten Teilabschnitten ist aus der Beschreibung unten so
 | **B15** Echtzeit-Datenpfad | **offen** | ab Q2 2027 |
 | **B16** Partner-Attribution | **gebaut** | Partner-Datenmodell, öffentliche Bewerbung, Admin-Genehmigung, Portal-Grundlage (Empfehlungslink + Vorlagen) |
 | **B17** Admin-Portal | **gebaut** | eigener Eingang, eigener Rahmen, getrennt vom öffentlichen Bundle |
-| **B18** Partner-Portal-Ausbau | **teilweise gebaut** | B18-1/B18-2 fertig · B18-3 Schema-Schritt fertig, Oberfläche offen · B18-4/B18-5 offen · B18-6 rechtlich freigegeben, technisch offen — Details: B18_Partner-Portal_Ausbau.md |
+| **B18** Partner-Portal-Ausbau | **gebaut** | alle sechs Teilschritte fertig, Details: B18_Partner-Portal_Ausbau.md |
+| **B19** Admin-Leaderfassung und Listen-Neugestaltung | **gebaut** | Admin-Leaderfassung ohne Mailversand, formlose Fachbetrieb-Erwähnung getrennt von platform.partners, Thema-Feld, neu gestaltete Leads-Liste — Details: B18_Partner-Portal_Ausbau.md (dort mitgeführt, kein eigenes Dokument) |
 
 ### Die B-Nummern sind Namen, keine Positionen
 
