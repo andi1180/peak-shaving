@@ -217,6 +217,7 @@ export function AdminSelect({
   error,
   hint,
   children,
+  onValueChange,
 }: {
   id: string
   name: string
@@ -225,6 +226,16 @@ export function AdminSelect({
   error?: string
   hint?: React.ReactNode
   children: React.ReactNode
+  /**
+   * Zusätzlicher Beobachter der Auswahl — optional und additiv (B19; die bestehenden Verwendungen
+   * bleiben unverändert und brauchen ihn nicht).
+   *
+   * Gebraucht dort, wo die Auswahl ein ANDERES Feld steuert: Bei der Aufnahme einer Telefonanfrage
+   * ist die Partner-Freigabe erst ankreuzbar, wenn ein Fachbetrieb zugeordnet ist. Das Feld bleibt
+   * dabei UNKONTROLLIERT (`defaultValue`), damit die Wiederanzeige nach einer beanstandeten Eingabe
+   * weiter über den Formularzustand läuft — der Beobachter liest nur mit, er übernimmt nicht.
+   */
+  onValueChange?: (value: string) => void
 }) {
   const hintId = `${id}-hint`
   const showHint = Boolean(error) || Boolean(hint)
@@ -236,6 +247,7 @@ export function AdminSelect({
           id={id}
           name={name}
           defaultValue={defaultValue}
+          onChange={onValueChange ? (e) => onValueChange(e.currentTarget.value) : undefined}
           aria-invalid={error ? true : undefined}
           aria-describedby={showHint ? hintId : undefined}
         >

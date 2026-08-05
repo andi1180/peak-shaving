@@ -105,11 +105,23 @@ export const LEAD_CAPTURE_FORM_KEYS = [
  * Zeilen, die eine Partner-Aussendung behaupten, zu der kein Partner gehört. Genau dieselbe
  * Überlegung wie bei 'registrierung' oben, nur mit einer Zahl daran, über die später ein
  * Montageprojekt zugeteilt wird.
+ *
+ * ── 'telefonanfrage' (B19) STEHT AUS DEM SCHÄRFSTEN GRUND VON ALLEN HIER ─────────────────────────
+ * Diese Herkunft hat ein Formular, aber es ist ein ADMIN-Formular hinter der Anmeldung
+ * (`app/admin/(intern)/leads/neu`) — nichts, was auf einer öffentlichen Seite platziert werden
+ * könnte, und damit nichts, was diese Registry beschreibt.
+ *
+ * Entscheidend ist auch hier die Wirkung von `findLeadCaptureEntry` (unten): Stünde der Schlüssel
+ * in `LEAD_CAPTURE_FORM_KEYS`, liesse sich über den GENERISCHEN, ÖFFENTLICHEN Erfassungs-Endpunkt
+ * ein Lead unter der Herkunft 'telefonanfrage' anlegen. Der Bestand enthielte dann Zeilen, die
+ * einen Anruf und eine interne Aufnahme behaupten, die es nie gab — und zwar ausgerechnet in der
+ * Herkunft, deren einziger Zweck es ist, das intern Erfasste vom selbst Abgeschickten zu trennen.
  */
 export const LEAD_SOURCE_KEYS_WITHOUT_FORM = [
   'registrierung',
   'kalkulator-registrierung',
   'partner-empfehlung',
+  'telefonanfrage',
 ] as const
 
 /**
