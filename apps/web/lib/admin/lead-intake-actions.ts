@@ -38,6 +38,7 @@ import { createClient } from '@/lib/supabase/server'
 import { captureLead } from '@/lib/leads/store'
 import { LEADS_HREF } from './leads'
 import { readPartnerList } from './partners'
+import { readAttachOutcome, readMentionedBusinessList } from './mentioned-businesses'
 import { planLeadIntake, type LeadIntakeInput } from './lead-intake'
 import type { AdminState } from './schema'
 
@@ -69,8 +70,8 @@ export async function createLeadAction(_prev: AdminState, formData: FormData): P
     email: text(formData, 'email'),
     unternehmen: text(formData, 'unternehmen'),
     telefon: text(formData, 'telefon'),
-    empfehlung: text(formData, 'empfehlung'),
-    partnerSlug: text(formData, 'partnerSlug'),
+    zuordnung: text(formData, 'zuordnung'),
+    neueFirma: text(formData, 'neueFirma'),
     /*
      * `literal(true)` im Schema: Ein fehlendes Häkchen wird hier zu `false` und dort zu einer
      * Feldmeldung — nicht still zu „keine Einwilligung, aber speichern wir trotzdem".
@@ -86,8 +87,8 @@ export async function createLeadAction(_prev: AdminState, formData: FormData): P
     email: values.email,
     unternehmen: values.unternehmen ?? '',
     telefon: values.telefon ?? '',
-    empfehlung: values.empfehlung ?? '',
-    partnerSlug: values.partnerSlug ?? '',
+    zuordnung: values.zuordnung ?? '',
+    neueFirma: values.neueFirma ?? '',
     datenschutz: values.datenschutz ? 'on' : '',
     partnerFreigabe: values.partnerFreigabe ? 'on' : '',
   }
@@ -109,16 +110,32 @@ export async function createLeadAction(_prev: AdminState, formData: FormData): P
    * hängt später, wer ein Montageprojekt bekommt (B16-1). Und ein Betrieb kann zwischen Aufbau der
    * Seite und Klick stillgelegt worden sein — dann darf keine Freigabe an ihn mehr entstehen.
    */
-  const partnerRes = await supabase.rpc('admin_list_partners')
+  const [partnerRes, businessRes] = await Promise.all([
+    supabase.rpc('admin_list_partners'),
+    /*
+     * Die formlos erfassten Firmen werden aus demselben Grund neu gelesen: Der Wert eines
+     * `<option>` ist im Browser in fünf Sekunden geändert, und eine Kennung, die es nicht gibt,
+     * bräche erst NACH dem Anlegen des Leads — als Datenbankfehler statt als Feldmeldung.
+     */
+    supabase.rpc('admin_list_mentioned_businesses'),
+  ])
+
   if (partnerRes.error) {
     console.error('[admin/lead-intake] admin_list_partners:', partnerRes.error)
     return { formError: GENERIC, values: echo }
   }
-  const partners = readPartnerList(partnerRes.data)
-  if (partners === null) return { formError: FORBIDDEN, values: echo }
-  const activeSlugs = partners.filter((partner) => partner.is_active).map((partner) => partner.slug)
+  if (businessRes.error) {
+    console.error('[admin/lead-intake] admin_list_mentioned_businesses:', businessRes.error)
+    return { formError: GENERIC, values: echo }
+  }
 
-  const plan = planLeadIntake(values, activeSlugs)
+  const partners = readPartnerList(partnerRes.data)
+  const businesses = readMentionedBusinessList(businessRes.data)
+  if (partners === null || businesses === null) return { formError: FORBIDDEN, values: echo }
+  const activeSlugs = partners.filter((partner) => partner.is_active).map((partner) => partner.slug)
+  const businessIds = businesses.map((business) => business.id)
+
+  const plan = planLeadIntake(values, activeSlugs, businessIds)
   if (!plan.ok) return { fieldErrors: plan.fieldErrors, values: echo }
 
   /*
@@ -130,13 +147,15 @@ export async function createLeadAction(_prev: AdminState, formData: FormData): P
   const sourceIp = headerList.get('x-forwarded-for')?.split(',')[0]?.trim() ?? null
   const userAgent = headerList.get('user-agent')
 
+  let leadId: string | null = null
   try {
     /*
      * NACHEINANDER, nicht nebenläufig: Der zweite Aufruf (die Partner-Freigabe) hängt am Lead, den
      * der erste anlegt. Parallel gestartet könnten beide denselben Lead anzulegen versuchen.
      */
     for (const call of plan.calls) {
-      await captureLead({ ...call, sourceIp, userAgent, locale: 'de' })
+      const result = await captureLead({ ...call, sourceIp, userAgent, locale: 'de' })
+      leadId ??= result.leadId
     }
   } catch (cause) {
     /*
@@ -154,11 +173,71 @@ export async function createLeadAction(_prev: AdminState, formData: FormData): P
     return { formError: GENERIC, values: echo }
   }
 
+  /*
+   * ── DIE FORMLOSE FIRMENERWÄHNUNG: ZWEITER AUFRUF, WEIL ES DEN LEAD VORHER NICHT GIBT ───────────
+   * `public.capture_lead` ist der ANONYME Erfassungspfad (service_role-only) und wird für diesen
+   * Zusatz bewusst NICHT erweitert — eine formlos genannte Firma entsteht ausschliesslich durch
+   * eine angemeldete Person. `admin_attach_mentioned_business` ist deshalb `authenticated`-only
+   * (`created_by = auth.uid()`) und läuft über den ANGEMELDETEN Client; die eslint-Erlaubnisliste
+   * für `service_role` bleibt unangetastet.
+   *
+   * Für die aufnehmende Person ist es trotzdem EIN Vorgang: Anlegen-oder-Finden der Firma UND die
+   * Zuordnung zum Lead passieren in EINER Transaktion in der Datenbank.
+   *
+   * ⚠ ZWEI AUFRUFE HEISST: ES GIBT EINEN TEILERFOLG. Der Lead steht dann bereits, die Zuordnung
+   * nicht. Das wird NICHT als Erfolg quittiert und auch nicht als glatter Fehlschlag — beides wäre
+   * falsch und beides führte zu einer zweiten, unnötigen Eingabe. Die Meldung sagt genau, was
+   * gespeichert ist und was fehlt.
+   */
+  let mentionNote = ''
+  if (plan.mention !== null) {
+    const attach =
+      leadId === null
+        ? null
+        : await supabase.rpc('admin_attach_mentioned_business', {
+            p_lead_id: leadId,
+            ...(plan.mention.kind === 'existing'
+              ? { p_business_id: plan.mention.businessId }
+              : { p_name: plan.mention.name }),
+          })
+
+    if (attach === null || attach.error) {
+      if (attach?.error) {
+        console.error('[admin/lead-intake] admin_attach_mentioned_business:', attach.error)
+      }
+      return {
+        formError:
+          'Der Lead wurde gespeichert, die Firmen-Zuordnung nicht. Bitte den Lead in der Liste öffnen und die Firma dort ergänzen — es wurde keine E-Mail versendet.',
+        values: echo,
+      }
+    }
+
+    const outcome = readAttachOutcome(attach.data)
+    if (outcome?.status !== 'ok') {
+      console.error('[admin/lead-intake] attach outcome:', outcome?.status ?? 'unlesbar')
+      return {
+        formError:
+          'Der Lead wurde gespeichert, die Firmen-Zuordnung nicht. Bitte den Lead in der Liste öffnen und die Firma dort ergänzen — es wurde keine E-Mail versendet.',
+        values: echo,
+      }
+    }
+
+    /*
+     * Der Name kommt aus der ANTWORT, nicht aus der Eingabe: Bei einer bereits erfassten Firma ist
+     * das die gespeicherte Schreibweise — und genau die soll die Rückmeldung zeigen, damit sichtbar
+     * wird, dass „elektro huber" auf den bestehenden Eintrag „Elektro Huber" gelaufen ist.
+     */
+    const firma = outcome.name ?? (plan.mention.kind === 'new' ? plan.mention.name : 'Firma')
+    mentionNote = outcome.created
+      ? ` „${firma}" wurde als Firma neu angelegt und zugeordnet.`
+      : ` Firma „${firma}" zugeordnet.`
+  }
+
   revalidatePath(LEADS_HREF)
 
   const name = `${values.vorname.trim()} ${values.nachname.trim()}`.trim()
   const disclosure = plan.calls.length > 1 ? ' Freigabe an den Fachbetrieb vermerkt.' : ''
   return {
-    success: `${name} (${values.email.trim()}) wurde als Telefonanfrage gespeichert.${disclosure} Es wurde keine E-Mail versendet.`,
+    success: `${name} (${values.email.trim()}) wurde als Telefonanfrage gespeichert.${disclosure}${mentionNote} Es wurde keine E-Mail versendet.`,
   }
 }

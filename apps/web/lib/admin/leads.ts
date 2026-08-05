@@ -272,6 +272,18 @@ export type LeadDetailRow = LeadListRow & {
   partner_display_name: string | null
   partner_is_active: boolean | null
   referred_by_text: string | null
+  /*
+   * B19-Nachbesserung: die FORMLOSE Firmenerwähnung. Eine dritte Angabe neben den beiden oben, und
+   * ausdrücklich keine Variante von `partner_slug`: Sie zeigt auf `platform.mentioned_businesses` —
+   * eine Notiz ohne Konto, ohne Portal und ohne Zugriffsrecht. `public.get_my_partner_leads` (B18-6)
+   * kennt diese Spalte nicht und soll sie nie kennen; ein hier eingetragener Betrieb sieht die
+   * Anfrage also nirgends.
+   *
+   * Der Name fährt mit, damit die Detailansicht keinen zweiten Aufruf braucht (dasselbe Argument
+   * wie bei `partner_display_name`). Ein `is_active` gibt es nicht — die Tabelle kennt keins.
+   */
+  mentioned_business_id: string | null
+  mentioned_business_name: string | null
 }
 
 // ── Sperrliste: der Grund (B2-2) ─────────────────────────────────────────────────────────────────

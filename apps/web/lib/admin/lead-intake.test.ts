@@ -26,6 +26,8 @@ const PFAD = [
   join(process.cwd(), 'components', 'admin', 'lead-intake-form.tsx'),
   join(HERE, 'lead-intake-actions.ts'),
   join(HERE, 'lead-intake.ts'),
+  // B19-Nachbesserung: der Leser der formlos erfassten Firmen liegt seither ebenfalls auf dem Weg.
+  join(HERE, 'mentioned-businesses.ts'),
 ]
 
 /**
@@ -89,7 +91,7 @@ describe('B19 — der Weg ist mailfrei, und das ist gemessen', () => {
      * wie eine Zustimmung, nach `has_confirmed_consent` aber keine.
      */
     const plan = planLeadIntake(
-      { ...GUELTIG, partnerSlug: 'raymann', partnerFreigabe: true },
+      { ...GUELTIG, zuordnung: 'partner:raymann', partnerFreigabe: true },
       ['raymann'],
     )
     expect(plan.ok).toBe(true)
@@ -115,8 +117,8 @@ const GUELTIG = {
   email: 'eva.mayr@baeckerei-mayr.at',
   unternehmen: 'Bäckerei Mayr GmbH',
   telefon: '+43 1 234 5678',
-  empfehlung: 'mein Elektriker aus Wiener Neustadt',
-  partnerSlug: '',
+  zuordnung: '',
+  neueFirma: '',
   datenschutz: true as const,
   partnerFreigabe: false,
 }
@@ -137,14 +139,14 @@ describe('planLeadIntake — der Ablauf', () => {
       lastName: 'Mayr-Stihl',
       company: 'Bäckerei Mayr GmbH',
       phone: '+43 1 234 5678',
-      referredByText: 'mein Elektriker aus Wiener Neustadt',
       partnerSlug: null,
     })
+    expect(plan.mention).toBeNull()
   })
 
   it('macht aus der Partner-Freigabe einen ZWEITEN Aufruf, ohne die Identitätsfelder zu wiederholen', () => {
     const plan = planLeadIntake(
-      { ...GUELTIG, partnerSlug: 'raymann', partnerFreigabe: true },
+      { ...GUELTIG, zuordnung: 'partner:raymann', partnerFreigabe: true },
       ['raymann', 'huber'],
     )
     expect(plan.ok).toBe(true)
@@ -163,12 +165,11 @@ describe('planLeadIntake — der Ablauf', () => {
     expect(zweiter?.lastName).toBeNull()
     expect(zweiter?.company).toBeNull()
     expect(zweiter?.phone).toBeNull()
-    expect(zweiter?.referredByText).toBeNull()
   })
 
   it('lehnt eine Freigabe OHNE zugeordneten Fachbetrieb ab, statt sie still zu verwerfen', () => {
     // Sonst entstünde eine bestätigte Einwilligung zu einer Weitergabe, die nicht stattfinden kann.
-    const plan = planLeadIntake({ ...GUELTIG, partnerSlug: '', partnerFreigabe: true }, ['raymann'])
+    const plan = planLeadIntake({ ...GUELTIG, zuordnung: '', partnerFreigabe: true }, ['raymann'])
     expect(plan.ok).toBe(false)
     if (plan.ok) return
     expect(plan.fieldErrors.partnerFreigabe).toMatch(/Fachbetrieb/)
@@ -177,10 +178,10 @@ describe('planLeadIntake — der Ablauf', () => {
   it('lehnt einen Fachbetrieb ab, den es nicht (mehr) aktiv gibt', () => {
     // Ein stillgelegter Betrieb zwischen Seitenaufbau und Klick: `capture_lead` verwürfe den Slug
     // still, und die Zuordnung sähe aus wie erfolgt.
-    const plan = planLeadIntake({ ...GUELTIG, partnerSlug: 'stillgelegt' }, ['raymann'])
+    const plan = planLeadIntake({ ...GUELTIG, zuordnung: 'partner:stillgelegt' }, ['raymann'])
     expect(plan.ok).toBe(false)
     if (plan.ok) return
-    expect(plan.fieldErrors.partnerSlug).toBeTruthy()
+    expect(plan.fieldErrors.zuordnung).toBeTruthy()
   })
 
   it('verweigert die Aufnahme ohne Datenschutz-Häkchen', () => {
@@ -209,13 +210,148 @@ describe('planLeadIntake — der Ablauf', () => {
     // Dieselbe Normalisierung wie `capture_lead`: ein Leerstring ist keine Angabe. Ohne sie
     // überschriebe eine zweite Erfassung einen echten Bestandswert mit „".
     const plan = planLeadIntake(
-      { ...GUELTIG, unternehmen: '', telefon: '   ', empfehlung: '' },
+      { ...GUELTIG, unternehmen: '', telefon: '   ' },
       [],
     )
     expect(plan.ok).toBe(true)
     if (!plan.ok) return
     expect(plan.calls[0]?.company).toBeNull()
     expect(plan.calls[0]?.phone).toBeNull()
-    expect(plan.calls[0]?.referredByText).toBeNull()
+  })
+})
+
+/**
+ * B19-Nachbesserung — die formlose Firmenerwähnung.
+ *
+ * ── DIE EIGENSCHAFT, AN DER DIESER NACHTRAG HÄNGT ───────────────────────────────────────────────
+ * Eine formlos genannte Firma darf NIE `partner_slug` setzen. Jene Spalte ist seit B18-6 ein
+ * ZUGRIFFSRECHT: über sie zeigt `public.get_my_partner_leads` einem angemeldeten Fachbetrieb SEINE
+ * Anfragen mit Namen. Ein Name, den jemand am Telefon gehört hat, hat weder Bewerbung noch Prüfung
+ * noch Konto durchlaufen — er dort einzutragen wäre eine Partnerschaft durch Zuhören. Die Tests
+ * unten messen das an JEDEM der drei Auswahlwege.
+ */
+describe('planLeadIntake — formlos genannte Firmen', () => {
+  const FIRMA_ID = '11111111-2222-3333-4444-555555555555'
+
+  it('setzt bei einer bestehenden Firma NIE partnerSlug', () => {
+    const plan = planLeadIntake({ ...GUELTIG, zuordnung: `firma:${FIRMA_ID}` }, ['raymann'], [FIRMA_ID])
+    expect(plan.ok).toBe(true)
+    if (!plan.ok) return
+    expect(plan.calls).toHaveLength(1)
+    expect(plan.calls[0]?.partnerSlug).toBeNull()
+    expect(plan.mention).toEqual({ kind: 'existing', businessId: FIRMA_ID })
+  })
+
+  it('setzt bei einer NEUEN Firma NIE partnerSlug und reicht den Namen durch', () => {
+    const plan = planLeadIntake(
+      { ...GUELTIG, zuordnung: 'neu', neueFirma: '  Elektro Huber  ' },
+      ['raymann'],
+      [],
+    )
+    expect(plan.ok).toBe(true)
+    if (!plan.ok) return
+    expect(plan.calls[0]?.partnerSlug).toBeNull()
+    // Randleerzeichen fallen weg — sonst entstünde neben „Elektro Huber" ein zweiter Eintrag.
+    expect(plan.mention).toEqual({ kind: 'new', name: 'Elektro Huber' })
+  })
+
+  it('erzeugt bei einem echten Fachbetrieb KEINE Firmenerwähnung', () => {
+    // Die Gegenrichtung: eine Zuordnung ist kein Anlass, zusätzlich eine Notiz anzulegen.
+    const plan = planLeadIntake({ ...GUELTIG, zuordnung: 'partner:raymann' }, ['raymann'], [])
+    expect(plan.ok).toBe(true)
+    if (!plan.ok) return
+    expect(plan.calls[0]?.partnerSlug).toBe('raymann')
+    expect(plan.mention).toBeNull()
+  })
+
+  it('lehnt eine Freigabe an eine formlos genannte Firma ab', () => {
+    /*
+     * Sie hat kein Portal, kein Konto und keinen Anspruch — die Einwilligung hätte keinen
+     * Gegenstand. Das ist ein FEHLER und kein stilles Verwerfen: Am Telefon hat jemand „ja" gesagt.
+     */
+    const plan = planLeadIntake(
+      { ...GUELTIG, zuordnung: `firma:${FIRMA_ID}`, partnerFreigabe: true },
+      ['raymann'],
+      [FIRMA_ID],
+    )
+    expect(plan.ok).toBe(false)
+    if (plan.ok) return
+    expect(plan.fieldErrors.partnerFreigabe).toMatch(/Fachbetrieb/)
+  })
+
+  it('lehnt eine Firmenkennung ab, die das Formular nicht angeboten hat', () => {
+    // Sonst schlüge erst `admin_attach_mentioned_business` mit 22023 fehl — nach dem Anlegen des
+    // Leads, also als technischer Fehler statt als Feldmeldung davor.
+    const plan = planLeadIntake({ ...GUELTIG, zuordnung: 'firma:erfunden' }, ['raymann'], [FIRMA_ID])
+    expect(plan.ok).toBe(false)
+    if (plan.ok) return
+    expect(plan.fieldErrors.zuordnung).toBeTruthy()
+  })
+
+  it('verlangt einen Namen, wenn „neue Firma" gewählt ist', () => {
+    // Still auf „keine Zuordnung" zurückzufallen sähe aus wie eine gespeicherte Angabe.
+    const plan = planLeadIntake({ ...GUELTIG, zuordnung: 'neu', neueFirma: '   ' }, [], [])
+    expect(plan.ok).toBe(false)
+    if (plan.ok) return
+    expect(plan.fieldErrors.neueFirma).toBeTruthy()
+  })
+
+  it('weist einen Auswahlwert ohne bekanntes Präfix ab, statt ihn zu verwerfen', () => {
+    // Ein Wert ohne Präfix kann aus keinem gerenderten Auswahlfeld stammen. Er DARF insbesondere
+    // nicht als Slug durchgehen: das wäre genau der Weg zu einer erschlichenen Partner-Zuordnung.
+    const plan = planLeadIntake({ ...GUELTIG, zuordnung: 'raymann' }, ['raymann'], [])
+    expect(plan.ok).toBe(false)
+    if (plan.ok) return
+    expect(plan.fieldErrors.zuordnung).toBeTruthy()
+  })
+
+  it('erzeugt ohne Auswahl weder Zuordnung noch Erwähnung', () => {
+    const plan = planLeadIntake(GUELTIG, ['raymann'], [FIRMA_ID])
+    expect(plan.ok).toBe(true)
+    if (!plan.ok) return
+    expect(plan.calls[0]?.partnerSlug).toBeNull()
+    expect(plan.mention).toBeNull()
+  })
+})
+
+/** Entfernt Block- und Zeilenkommentare (dieselbe Aufbereitung wie beim Mailfreiheits-Wächter). */
+function ohneKommentare(source: string): string {
+  return source.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/.*$/gm, '$1 ')
+}
+
+describe('B19-Nachbesserung — der Freitext ist aus DIESEM Weg verschwunden', () => {
+  it('kennt weder ein Feld „empfehlung" noch schreibt es referred_by_text', () => {
+    /*
+     * `platform.leads.referred_by_text`, `public.capture_lead`, der öffentliche Kontaktweg und die
+     * Partner-Landingpage bleiben unverändert — NUR dieser Aufrufort schreibt die Spalte nicht
+     * mehr. Gemessen an der Quelle, weil ein Verhaltenstest ein wieder eingebautes Feld erst dann
+     * fände, wenn jemand ihn erweitert.
+     */
+    // Kommentare vorher entfernen: Das ERKLÄREN der Regel darf nicht als Verstoss zählen — genau
+    // diese Falle hat in B11 einmal zugeschlagen (der Wächter wurde am Erklärtext rot).
+    const quelle = ohneKommentare(readFileSync(join(HERE, 'lead-intake.ts'), 'utf8'))
+    const action = ohneKommentare(readFileSync(join(HERE, 'lead-intake-actions.ts'), 'utf8'))
+    const formular = readFileSync(
+      join(process.cwd(), 'components', 'admin', 'lead-intake-form.tsx'),
+      'utf8',
+    )
+    expect(quelle).not.toContain('referredByText')
+    expect(action).not.toContain('referredByText')
+    expect(formular).not.toContain('name="empfehlung"')
+  })
+
+  it('legt in KEINEM Fall eine Partnerzeile an', () => {
+    /*
+     * Die schärfste Zusage dieses Nachtrags: `platform.partners` wird von diesem Pfad weder
+     * erweitert noch beschrieben — auch nicht mit `is_active = false`. Es gibt dafür keinen
+     * Wrapper, und dieser Wächter macht rot, sobald einer hier auftaucht.
+     */
+    const quelle = ohneKommentare(readFileSync(join(HERE, 'lead-intake.ts'), 'utf8'))
+    const action = ohneKommentare(readFileSync(join(HERE, 'lead-intake-actions.ts'), 'utf8'))
+    for (const datei of [quelle, action]) {
+      expect(datei).not.toContain('admin_create_partner')
+      expect(datei).not.toContain('admin_update_partner')
+      expect(datei).not.toContain('admin_set_partner_active')
+    }
   })
 })

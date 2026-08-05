@@ -5,8 +5,13 @@ import { isCurrentUserAdmin } from '@/lib/admin/guard'
 import { Container } from '@/components/ui/layout'
 import { Button } from '@/components/ui/button'
 import { AdminError, AdminPanel } from '@/components/admin/ui'
-import { LeadIntakeForm, type PartnerOption } from '@/components/admin/lead-intake-form'
+import {
+  LeadIntakeForm,
+  type MentionedBusinessOption,
+  type PartnerOption,
+} from '@/components/admin/lead-intake-form'
 import { readPartnerList } from '@/lib/admin/partners'
+import { readMentionedBusinessList } from '@/lib/admin/mentioned-businesses'
 import { getActiveConsentText } from '@/lib/leads/store'
 import { LEADS_HREF } from '@/lib/admin/leads'
 
@@ -41,12 +46,14 @@ export default async function NewLeadPage() {
   const supabase = await createClient()
 
   /*
-   * Zwei unabhängige Vorbereitungen. Beide dürfen fehlschlagen, ohne die Seite unbrauchbar zu
-   * machen: Ohne Fachbetriebe entfällt die Zuordnung, ohne Wortlaut entfällt die Freigabe — die
-   * Aufnahme des Leads selbst hängt an keinem von beiden.
+   * Drei unabhängige Vorbereitungen. Jede darf fehlschlagen, ohne die Seite unbrauchbar zu machen:
+   * Ohne Fachbetriebe entfällt die Zuordnung, ohne die formlos erfassten Firmen bleibt der Weg
+   * „neue Firma eintragen" bestehen, ohne Wortlaut entfällt die Freigabe — die Aufnahme des Leads
+   * selbst hängt an keinem der drei.
    */
-  const [partnerRes, disclosureText] = await Promise.all([
+  const [partnerRes, businessRes, disclosureText] = await Promise.all([
     supabase.rpc('admin_list_partners'),
+    supabase.rpc('admin_list_mentioned_businesses'),
     /*
      * Der WORTLAUT der Freigabe kommt aus `platform.consent_texts` und nicht aus dieser Datei:
      * Angezeigter und archivierter Text müssen dieselbe Quelle haben (B1-1, append-only). Fehlt er,
@@ -60,7 +67,11 @@ export default async function NewLeadPage() {
   ])
 
   if (partnerRes.error) console.error('[admin/lead-intake] admin_list_partners:', partnerRes.error)
+  if (businessRes.error) {
+    console.error('[admin/lead-intake] admin_list_mentioned_businesses:', businessRes.error)
+  }
   const partnerRows = readPartnerList(partnerRes.data)
+  const businessRows = readMentionedBusinessList(businessRes.data)
 
   /*
    * Nur AKTIVE Betriebe stehen zur Wahl — ein stillgelegter darf keine neue Zuordnung mehr
@@ -71,6 +82,16 @@ export default async function NewLeadPage() {
   const partners: PartnerOption[] = (partnerRows ?? [])
     .filter((partner) => partner.is_active)
     .map((partner) => ({ slug: partner.slug, displayName: partner.display_name }))
+
+  /*
+   * Die formlos erfassten Firmen kennen KEINE Stilllegung — es gibt kein `is_active`, und das ist
+   * Absicht: Sie sind eine Notiz und kein Konto-Vorläufer (s. `lib/admin/mentioned-businesses.ts`).
+   * Es wird deshalb auch nichts gefiltert.
+   */
+  const mentionedBusinesses: MentionedBusinessOption[] = (businessRows ?? []).map((business) => ({
+    id: business.id,
+    name: business.name,
+  }))
 
   return (
     <Container className="py-10 sm:py-14">
@@ -95,8 +116,18 @@ export default async function NewLeadPage() {
             </AdminError>
           </div>
         )}
+        {businessRows === null && (
+          <div className="mb-4">
+            <AdminError>
+              Die formlos erfassten Firmen konnten nicht geladen werden. Eine bestehende Firma lässt
+              sich deshalb gerade nicht auswählen. „Neue Firma eintragen“ funktioniert weiterhin und
+              findet eine gleich geschriebene bestehende Firma auch dann wieder.
+            </AdminError>
+          </div>
+        )}
         <LeadIntakeForm
           partners={partners}
+          mentionedBusinesses={mentionedBusinesses}
           partnerDisclosureConsentText={disclosureText?.body ?? null}
         />
       </AdminPanel>

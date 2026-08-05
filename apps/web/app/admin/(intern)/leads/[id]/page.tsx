@@ -461,6 +461,13 @@ export default async function AdminLeadDetailPage({ params }: { params: Promise<
             <Field label="Empfohlen durch (Angabe des Interessenten)">
               {lead.referred_by_text ?? '—'}
             </Field>
+            {/*
+             * B19-Nachbesserung. Steht bewusst NEBEN der Zuordnung und nicht an ihrer Stelle: ein
+             * hier genannter Betrieb hat weder Konto noch Portal und sieht die Anfrage nirgends.
+             */}
+            <Field label="Formlos genannter Betrieb">
+              {lead.mentioned_business_name ?? '—'}
+            </Field>
           </dl>
           <p className="mt-4 max-w-prose text-caption text-text-muted">
             Die Zuordnung entsteht automatisch, wenn die Anfrage über einen Empfehlungslink kam. Sie
@@ -469,6 +476,12 @@ export default async function AdminLeadDetailPage({ params }: { params: Promise<
             anonymisierten Lead bleibt die Zuordnung erhalten (sie ist ohne Adresse, Name und PLZ
             kein Personenbezug mehr und trägt die Partner-Statistik über die Löschfrist hinaus); der
             Freitext wird dabei gelöscht, weil er Namen Dritter enthalten kann.
+          </p>
+          <p className="mt-2 max-w-prose text-caption text-text-muted">
+            Ein formlos genannter Betrieb wird beim Anlegen eines Leads über „Lead anlegen“ erfasst.
+            Er ist eine Notiz: kein Konto, kein Portalzugang, keine Freigabe — er sieht diese Anfrage
+            nicht. Wird aus ihm später ein echter Fachbetrieb, läuft das über den Partner-Antrag und
+            beginnt bei null.
           </p>
         </AdminPanel>
       </AdminSection>

@@ -24,15 +24,29 @@ import { Checkbox, Label } from '@/components/ui/input'
 import { AdminError, AdminField, AdminSelect, AdminSuccess } from '@/components/admin/ui'
 import { ADMIN_INITIAL_STATE } from '@/lib/admin/schema'
 import { createLeadAction } from '@/lib/admin/lead-intake-actions'
+import {
+  MENTION_OPTION_PREFIX,
+  NEW_MENTION_OPTION,
+  PARTNER_OPTION_PREFIX,
+} from '@/lib/admin/lead-intake'
 
 export type PartnerOption = { slug: string; displayName: string }
+export type MentionedBusinessOption = { id: string; name: string }
 
 export function LeadIntakeForm({
   partners,
+  mentionedBusinesses,
   partnerDisclosureConsentText,
 }: {
   /** Nur AKTIVE Fachbetriebe — die Server Action prüft die Auswahl unabhängig davon erneut. */
   partners: PartnerOption[]
+  /**
+   * Die formlos erfassten Firmen (`platform.mentioned_businesses`). Sie stehen im SELBEN Auswahlfeld
+   * wie die Fachbetriebe, weil die Frage am Telefon dieselbe ist („wer hat Sie geschickt?") — was
+   * die beiden Antworten BEWIRKEN, ist allerdings grundverschieden, und genau deshalb tragen die
+   * Optionswerte ein Präfix (s. `lib/admin/lead-intake.ts`).
+   */
+  mentionedBusinesses: MentionedBusinessOption[]
   /**
    * Der WORTLAUT der Freigabe aus `platform.consent_texts`. Ist er `null`, wird die
    * Ankreuzmöglichkeit gar nicht erst gerendert: Ohne den Text, dem zugestimmt wird, darf keine
@@ -44,11 +58,14 @@ export function LeadIntakeForm({
   const [state, formAction, isPending] = useActionState(createLeadAction, ADMIN_INITIAL_STATE)
 
   /*
-   * Nur die Zuordnung ist kontrolliert: An ihr hängt, ob die Freigabe überhaupt ankreuzbar ist.
-   * Der Rest läuft unkontrolliert über `defaultValue` — nach einer beanstandeten Eingabe kommen die
-   * Werte über `state.values` zurück, damit niemand alles neu tippen muss.
+   * Nur die Zuordnung ist kontrolliert: An ihr hängen ZWEI Dinge — ob die Freigabe ankreuzbar ist
+   * (nur bei einem echten Fachbetrieb) und ob das Feld für eine neue Firma erscheint. Der Rest
+   * läuft unkontrolliert über `defaultValue`; nach einer beanstandeten Eingabe kommen die Werte
+   * über `state.values` zurück, damit niemand alles neu tippen muss.
    */
-  const [partnerSlug, setPartnerSlug] = React.useState(state.values?.partnerSlug ?? '')
+  const [zuordnung, setZuordnung] = React.useState(state.values?.zuordnung ?? '')
+  const isPartner = zuordnung.startsWith(PARTNER_OPTION_PREFIX)
+  const isNewBusiness = zuordnung === NEW_MENTION_OPTION
   const fieldError = (name: string) => state.fieldErrors?.[name]
 
   return (
@@ -121,42 +138,65 @@ export function LeadIntakeForm({
         />
       </div>
 
-      <AdminField
-        id="lead-empfehlung"
-        name="empfehlung"
-        label="Empfohlen durch (Freitext)"
-        defaultValue={state.values?.empfehlung}
-        error={fieldError('empfehlung')}
-        hint="Was der Anrufer selbst gesagt hat, z. B. „mein Elektriker aus Wiener Neustadt“. Eine BEOBACHTUNG — die verbindliche Zuordnung ist das Feld darunter."
-      />
-
       {/*
-       * ZWEI FELDER FÜR DAS, WAS WIE EINES AUSSIEHT (B16-1). Oben der Freitext des Anrufers,
-       * hier das Urteil: Nur dieses Feld entscheidet, wer die Anfrage später im Portal sieht und
-       * wem ein Montageprojekt zugeteilt wird. In einem Feld vermischt liesse sich nicht mehr
-       * feststellen, ob ein Name dort steht, weil der Kunde ihn genannt hat oder weil ihn jemand
-       * zugeordnet hat.
+       * ── EIN FELD, ZWEI SEHR VERSCHIEDENE WIRKUNGEN ────────────────────────────────────────────
+       * Am Telefon ist es EINE Frage: „Wer hat Sie geschickt?" Der ausgewählte Wert entscheidet
+       * aber darüber, ob eine ZUORDNUNG entsteht (echter Fachbetrieb — er sieht die Anfrage später
+       * in seinem Portal und bekommt das erste Zugriffsrecht auf die Montage) oder nur eine NOTIZ
+       * (formlos genannte Firma — sie bewirkt nichts ausser Wiederfindbarkeit beim nächsten Anruf).
+       * Deshalb sind die Optionen in zwei benannte Gruppen geteilt, statt in einer Liste zu stehen.
        */}
       <AdminSelect
-        id="lead-partner"
-        name="partnerSlug"
-        label="Fachbetrieb zuordnen"
-        defaultValue={partnerSlug}
-        error={fieldError('partnerSlug')}
-        hint="Verbindliche Zuordnung. Nachträglich nur auf der Lead-Detailseite änderbar."
+        id="lead-zuordnung"
+        name="zuordnung"
+        label="Empfohlen durch"
+        defaultValue={zuordnung}
+        error={fieldError('zuordnung')}
+        hint="Nur ein Fachbetrieb aus der ersten Gruppe sieht die Anfrage später in seinem Portal. Formlos erfasste Firmen sind eine reine Notiz."
         /*
          * Der Select bleibt UNKONTROLLIERT (`defaultValue` trägt die Wiederanzeige); der Beobachter
-         * liest den Wert nur mit, weil die Freigabe darunter daran hängt.
+         * liest den Wert nur mit, weil Freigabe und Firmen-Feld daran hängen.
          */
-        onValueChange={setPartnerSlug}
+        onValueChange={setZuordnung}
       >
-        <option value="">— keine Zuordnung —</option>
-        {partners.map((partner) => (
-          <option key={partner.slug} value={partner.slug}>
-            {partner.displayName}
-          </option>
-        ))}
+        <option value="">— keine Angabe —</option>
+        {partners.length > 0 && (
+          <optgroup label="Fachbetriebe (Partner)">
+            {partners.map((partner) => (
+              <option key={partner.slug} value={`${PARTNER_OPTION_PREFIX}${partner.slug}`}>
+                {partner.displayName}
+              </option>
+            ))}
+          </optgroup>
+        )}
+        {mentionedBusinesses.length > 0 && (
+          <optgroup label="Formlos erfasste Firmen">
+            {mentionedBusinesses.map((business) => (
+              <option key={business.id} value={`${MENTION_OPTION_PREFIX}${business.id}`}>
+                {business.name}
+              </option>
+            ))}
+          </optgroup>
+        )}
+        <option value={NEW_MENTION_OPTION}>+ Neue Firma eintragen …</option>
       </AdminSelect>
+
+      {/*
+       * Erscheint nur, wenn „neue Firma" gewählt ist. Ein dauerhaft sichtbares Feld neben der Liste
+       * wäre die Einladung, denselben Betrieb beim nächsten Anruf erneut zu tippen — genau das, was
+       * dieser Abschnitt abschafft.
+       */}
+      {isNewBusiness && (
+        <AdminField
+          id="lead-neue-firma"
+          name="neueFirma"
+          label="Name der Firma"
+          required
+          defaultValue={state.values?.neueFirma}
+          error={fieldError('neueFirma')}
+          hint="Wird beim Speichern angelegt und steht ab dem nächsten Anruf in der Auswahl. Gleiche Schreibweise findet den bestehenden Eintrag — es entsteht kein Duplikat."
+        />
+      )}
 
       <fieldset className="space-y-3 rounded-lg border border-border p-4">
         <legend className="px-1 text-caption font-medium text-text-muted">Einwilligungen</legend>
@@ -181,16 +221,16 @@ export function LeadIntakeForm({
                 id="lead-partner-freigabe"
                 name="partnerFreigabe"
                 defaultChecked={state.values?.partnerFreigabe === 'on'}
-                disabled={partnerSlug === ''}
+                disabled={!isPartner}
               />
               <Label htmlFor="lead-partner-freigabe" className="font-normal text-text">
                 {partnerDisclosureConsentText}
               </Label>
             </div>
             <p className="pl-7 text-caption text-text-muted">
-              {partnerSlug === ''
-                ? 'Erst wählbar, wenn oben ein Fachbetrieb zugeordnet ist — eine Freigabe ohne Empfänger hätte keinen Gegenstand.'
-                : 'Wirkt sofort: Der Betrieb sieht die Anfrage mit Namen in seinem Portal. Ohne Freigabe zählt sie dort nur mit.'}
+              {isPartner
+                ? 'Wirkt sofort: Der Betrieb sieht die Anfrage mit Namen in seinem Portal. Ohne Freigabe zählt sie dort nur mit.'
+                : 'Erst wählbar, wenn oben ein Fachbetrieb (erste Gruppe) zugeordnet ist — eine formlos erfasste Firma hat kein Portal, die Freigabe hätte dort keinen Gegenstand.'}
             </p>
             {fieldError('partnerFreigabe') && (
               <p role="alert" className="pl-7 text-caption text-negative">
