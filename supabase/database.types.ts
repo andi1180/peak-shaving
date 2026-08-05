@@ -1175,6 +1175,10 @@ export type Database = {
         Args: { p_id: string; p_slug: string }
         Returns: Json
       }
+      admin_attach_mentioned_business: {
+        Args: { p_business_id?: string; p_lead_id: string; p_name?: string }
+        Returns: Json
+      }
       admin_contract_reminder_health: { Args: never; Returns: Json }
       admin_create_analysis: {
         Args: {
@@ -1309,6 +1313,7 @@ export type Database = {
         }
         Returns: Json
       }
+      admin_list_mentioned_businesses: { Args: never; Returns: Json }
       admin_list_partner_applications: {
         Args: { p_limit?: number; p_offset?: number; p_status?: string }
         Returns: Json

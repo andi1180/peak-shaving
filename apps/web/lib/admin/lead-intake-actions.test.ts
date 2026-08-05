@@ -31,6 +31,14 @@ vi.mock('next/headers', () => ({
 
 const { createLeadAction } = await import('./lead-intake-actions')
 
+const BUSINESS_ID = '11111111-2222-3333-4444-555555555555'
+
+/** Die formlos erfassten Firmen — eigene Ablage, ausdrücklich NICHT `platform.partners`. */
+const BUSINESSES = {
+  status: 'ok',
+  businesses: [{ id: BUSINESS_ID, name: 'Elektro Huber', created_at: '2026-08-01T00:00:00Z', lead_count: 2 }],
+}
+
 const PARTNERS = {
   status: 'ok',
   partners: [
@@ -47,8 +55,8 @@ function formular(overrides: Record<string, string> = {}): FormData {
     email: 'eva.mayr@baeckerei-mayr.at',
     unternehmen: 'Bäckerei Mayr GmbH',
     telefon: '+43 1 234 5678',
-    empfehlung: '',
-    partnerSlug: '',
+    zuordnung: '',
+    neueFirma: '',
     datenschutz: 'on',
     ...overrides,
   }
@@ -65,9 +73,14 @@ beforeEach(() => {
   getUser.mockReset()
   createClient.mockClear()
   getUser.mockResolvedValue({ data: { user: { id: 'admin-1' } } })
-  rpc.mockImplementation(async (fn: string) =>
-    fn === 'is_admin' ? { data: true, error: null } : { data: PARTNERS, error: null },
-  )
+  rpc.mockImplementation(async (fn: string) => {
+    if (fn === 'is_admin') return { data: true, error: null }
+    if (fn === 'admin_list_mentioned_businesses') return { data: BUSINESSES, error: null }
+    if (fn === 'admin_attach_mentioned_business') {
+      return { data: { status: 'ok', business_id: BUSINESS_ID, name: 'Elektro Huber', created: false }, error: null }
+    }
+    return { data: PARTNERS, error: null }
+  })
   captureLead.mockResolvedValue({ outcome: 'lead_only', leadId: 'lead-1', consentId: null })
 })
 
@@ -114,7 +127,7 @@ describe('createLeadAction — der Gutfall', () => {
   it('ruft capture_lead ZWEIMAL, wenn die Partner-Freigabe angehakt ist', async () => {
     const state = await createLeadAction(
       {},
-      formular({ partnerSlug: 'raymann', partnerFreigabe: 'on' }),
+      formular({ zuordnung: 'partner:raymann', partnerFreigabe: 'on' }),
     )
 
     expect(state.success).toBeTruthy()
@@ -124,8 +137,8 @@ describe('createLeadAction — der Gutfall', () => {
   })
 
   it('lehnt einen STILLGELEGTEN Fachbetrieb ab, obwohl der Wrapper ihn kennt', async () => {
-    const state = await createLeadAction({}, formular({ partnerSlug: 'stillgelegt' }))
-    expect(state.fieldErrors?.partnerSlug).toBeTruthy()
+    const state = await createLeadAction({}, formular({ zuordnung: 'partner:stillgelegt' }))
+    expect(state.fieldErrors?.zuordnung).toBeTruthy()
     expect(captureLead).not.toHaveBeenCalled()
   })
 })
@@ -151,5 +164,86 @@ describe('createLeadAction — Ablehnungen und Fehlschläge', () => {
     const state = await createLeadAction({}, formular())
     expect(state.success).toBeUndefined()
     expect(state.formError).toBeTruthy()
+  })
+})
+
+/**
+ * B19-Nachbesserung — die formlose Firmenerwähnung.
+ *
+ * Was sich NUR hier prüfen lässt: dass die Zuordnung ein ZWEITER Aufruf nach dem Lead ist (sie
+ * braucht dessen Kennung), dass ein Fehlschlag dieses zweiten Aufrufs NICHT als Erfolg quittiert
+ * wird — und dass auf diesem Weg unter keinen Umständen ein Fachbetrieb entsteht.
+ */
+describe('createLeadAction — formlos genannte Firmen', () => {
+  function rpcNamen(): string[] {
+    return rpc.mock.calls.map((call) => call[0] as string)
+  }
+
+  it('ordnet eine bestehende Firma über ihre Kennung zu — GENAU EIN Aufruf', async () => {
+    const state = await createLeadAction({}, formular({ zuordnung: `firma:${BUSINESS_ID}` }))
+
+    expect(state.formError).toBeUndefined()
+    expect(state.success).toContain('Elektro Huber')
+    const attach = rpc.mock.calls.filter((call) => call[0] === 'admin_attach_mentioned_business')
+    expect(attach).toHaveLength(1)
+    expect(attach[0]?.[1]).toEqual({ p_lead_id: 'lead-1', p_business_id: BUSINESS_ID })
+  })
+
+  it('legt eine neue Firma über ihren NAMEN an, nicht über eine erfundene Kennung', async () => {
+    rpc.mockImplementation(async (fn: string) => {
+      if (fn === 'is_admin') return { data: true, error: null }
+      if (fn === 'admin_list_mentioned_businesses') return { data: BUSINESSES, error: null }
+      if (fn === 'admin_attach_mentioned_business') {
+        return { data: { status: 'ok', business_id: 'neu-1', name: 'Elektro Neu', created: true }, error: null }
+      }
+      return { data: PARTNERS, error: null }
+    })
+
+    const state = await createLeadAction({}, formular({ zuordnung: 'neu', neueFirma: 'Elektro Neu' }))
+
+    expect(state.success).toContain('neu angelegt')
+    const attach = rpc.mock.calls.filter((call) => call[0] === 'admin_attach_mentioned_business')
+    expect(attach[0]?.[1]).toEqual({ p_lead_id: 'lead-1', p_name: 'Elektro Neu' })
+  })
+
+  it('legt dabei NIE eine Partnerzeile an und setzt NIE partner_slug', async () => {
+    /*
+     * Die tragende Zusage: `platform.leads.partner_slug` ist seit B18-6 ein Zugriffsrecht
+     * (`get_my_partner_leads`). Eine am Telefon gehörte Firma darf es nicht bekommen.
+     */
+    await createLeadAction({}, formular({ zuordnung: `firma:${BUSINESS_ID}` }))
+
+    expect(captureLead.mock.calls[0]?.[0]).toMatchObject({ partnerSlug: null })
+    expect(rpcNamen()).not.toContain('admin_create_partner')
+    expect(rpcNamen()).not.toContain('admin_update_partner')
+    expect(rpcNamen()).not.toContain('admin_set_partner_active')
+  })
+
+  it('quittiert eine fehlgeschlagene Zuordnung NICHT als Erfolg, benennt aber den Teilerfolg', async () => {
+    rpc.mockImplementation(async (fn: string) => {
+      if (fn === 'is_admin') return { data: true, error: null }
+      if (fn === 'admin_list_mentioned_businesses') return { data: BUSINESSES, error: null }
+      if (fn === 'admin_attach_mentioned_business') return { data: null, error: { message: 'weg' } }
+      return { data: PARTNERS, error: null }
+    })
+
+    const state = await createLeadAction({}, formular({ zuordnung: `firma:${BUSINESS_ID}` }))
+
+    expect(state.success).toBeUndefined()
+    expect(state.formError).toContain('Lead wurde gespeichert')
+    // Der Lead IST da — die Meldung darf nicht zu einer zweiten Eingabe verleiten.
+    expect(captureLead).toHaveBeenCalledTimes(1)
+  })
+
+  it('ordnet gar nichts zu, wenn keine Firma gewählt ist', async () => {
+    await createLeadAction({}, formular())
+    expect(rpcNamen()).not.toContain('admin_attach_mentioned_business')
+  })
+
+  it('berührt die Datenbank nicht, wenn „neue Firma" ohne Namen abgesendet wird', async () => {
+    const state = await createLeadAction({}, formular({ zuordnung: 'neu' }))
+    expect(state.fieldErrors?.neueFirma).toBeTruthy()
+    expect(captureLead).not.toHaveBeenCalled()
+    expect(rpcNamen()).not.toContain('admin_attach_mentioned_business')
   })
 })
