@@ -353,7 +353,19 @@ mit: Fail-closed, Crons nur in Production, Registrierung hängt am Deployment, *
 Deployment Protection (§1i)** — ohne Bypass-Secret verwirft Vercel auch diesen Aufruf, bevor der
 Endpunkt ihn sieht.
 
-- **Registrierter Job 3:** `/api/cron/spot-price-sync`, täglich **13:20 UTC**. Holt die
+- **⚠️ NOCH NICHT REGISTRIERT (Stand 27.08.2026).** Der Endpunkt ist gebaut, getestet und
+  deployt, aber `apps/web/vercel.json` trägt **bewusst noch keinen** `crons`-Eintrag für ihn. Grund:
+  der Grant aus der Migration unten steht noch nicht in der Cloud, und ein registrierter Job liefe
+  dort täglich in einen **42501** (kein Datenschaden, keine Mail — aber ein täglich roter Lauf).
+  **Nachzuholen, in dieser Reihenfolge:** (1) `supabase db push --linked` (bei 403 zuerst §4a),
+  (2) Rechtefläche in der Cloud gegenprüfen, (3) Backfill einmal gegen die Cloud, (4) den Eintrag
+  ```json
+  { "path": "/api/cron/spot-price-sync", "schedule": "20 13 * * *" }
+  ```
+  in `apps/web/vercel.json` ergänzen und deployen. Die Registrierung hängt am Production-Deployment,
+  nicht an der Datei (§1g) — danach mit
+  `GET https://api.vercel.com/v1/projects/<projectId>/crons` prüfen, nicht annehmen.
+- **Vorgesehener Job 3:** `/api/cron/spot-price-sync`, täglich **13:20 UTC**. Holt die
   aWATTar-Marktpreise und legt sie per Upsert ab. **Versendet keine E-Mail** und erreicht niemanden.
 - **⚠️ Warum 13:20 UTC — und warum trotz Sommerzeit nur EIN Eintrag.** Die Preise des Folgetags
   stehen nach der Day-Ahead-Auktion ab ungefähr **14 Uhr Ortszeit** fest. Diese Marke wandert übers

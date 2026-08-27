@@ -9,10 +9,6 @@
     {
       "path": "/api/cron/contract-reminders",
       "schedule": "40 6 * * *"
-    },
-    {
-      "path": "/api/cron/spot-price-sync",
-      "schedule": "20 13 * * *"
     }
   ]
 }

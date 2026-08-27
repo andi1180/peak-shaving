@@ -1,8 +1,13 @@
 /**
  * `GET /api/cron/spot-price-sync` — der tägliche Abruf der aWATTar-Marktpreise (B21-2a).
  *
- * Täglich 13:20 UTC (`apps/web/vercel.json`). Der DRITTE zeitgesteuerte Job des Systems, nach dem
- * Fristenlauf (B4-1, 03:15 UTC) und der Vertragsablauf-Erinnerung (B4-2, 06:40 UTC).
+ * Vorgesehen täglich 13:20 UTC. Der DRITTE zeitgesteuerte Job des Systems, nach dem Fristenlauf
+ * (B4-1, 03:15 UTC) und der Vertragsablauf-Erinnerung (B4-2, 06:40 UTC).
+ *
+ * ⚠ NOCH NICHT REGISTRIERT: `apps/web/vercel.json` trägt bewusst noch keinen `crons`-Eintrag für
+ * diesen Pfad. Der Grant aus Migration 20260827160000 steht noch nicht in der Cloud, und ein
+ * registrierter Job liefe dort täglich in einen 42501. Die Reihenfolge zum Nachholen steht in
+ * `DEPLOYMENT.md` §1k; der Endpunkt selbst ist vollständig und braucht dafür keine Änderung.
  *
  * Er versendet — wie der Fristenlauf und anders als die Erinnerung — KEINE E-Mail und erreicht
  * niemanden. Er holt öffentliche Börsenpreise und legt sie ab.
