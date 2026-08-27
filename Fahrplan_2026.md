@@ -69,7 +69,7 @@ Mit inzwischen zwölf gebauten Teilabschnitten ist aus der Beschreibung unten so
 | **B18** Partner-Portal-Ausbau | **gebaut** | alle sechs Teilschritte fertig, Details: B18_Partner-Portal_Ausbau.md |
 | **B19** Admin-Leaderfassung und Listen-Neugestaltung | **gebaut** | Admin-Leaderfassung ohne Mailversand, formlose Fachbetrieb-Erwähnung getrennt von platform.partners, Thema-Feld, neu gestaltete Leads-Liste — Details: B18_Partner-Portal_Ausbau.md (dort mitgeführt, kein eigenes Dokument) |
 | **B20** Zugangsplattform (Wechselrichter-Fernzugriff) | **offen** | eigene Bau-Session, eigene Subdomain `access.coolin.at` in `apps/web` — kanonische Quelle Pflichtenheft_Zugangsplattform_MVP.md, nicht diese Datei. Baustein 1 (Subdomain-Routing) abgeschlossen. |
-| **B21** Tarif- & Ladeoptimierung | **teilweise gebaut** | Schema (dieser Schritt) — Schreibweg/Oberfläche offen. Kanonische Quelle für die fachliche Tiefe: Pflichtenheft_Kalkulator_Delta_Tarifoptimierung.md |
+| **B21** Tarif- & Ladeoptimierung | **teilweise gebaut** | Schema (B21-1) + Schreibweg aWATTar-Sync (B21-2a) — Tarif-Pflege-UI und Engine-Anbindung offen. Kanonische Quelle für die fachliche Tiefe: Pflichtenheft_Kalkulator_Delta_Tarifoptimierung.md |
 
 ### Die B-Nummern sind Namen, keine Positionen
 
@@ -194,6 +194,14 @@ Grund: Die Bezeichner sind außerhalb dieses Dokuments in Gebrauch — in bereit
   **⚠ `unique nulls not distinct`, nicht das gewöhnliche `unique`.** Bei Netzebene 3–6 ist `metering_variant` null, und ein gewöhnliches `unique` wertet NULL nie als gleich zu NULL — es liesse ausgerechnet für den heute belegten Regelfall beliebig viele Duplikate derselben Tarifkombination zu, und welcher Leistungspreis in eine Analyse einginge, entschiede die Sortierreihenfolge einer Abfrage. Beide Richtungen sind gemessen (Duplikat abgewiesen, neuer Stand erlaubt).
 
   **Verhältnis zu B11 ist eine OFFENE Entscheidung, keine Ablöse.** `packages/shared/src/tariff-catalog.ts` (Codemodul, `DEPLOYMENT.md` §3a) deckt perspektivisch denselben fachlichen Gegenstand ab wie `grid_tariffs`. B11 bleibt unverändert in Kraft, bis eine ausdrückliche Ablöse-Entscheidung fällt; B21-1 fasst die Datei mit 0 Zeilen Diff nicht an.
+
+  **ERLEDIGT: B21-2a (27.08.2026, SCHREIBWEG aWATTar).** Die Spotpreise füllen sich jetzt selbst. Migration `supabase/migrations/20260827160000_grant_service_role_spot_prices_write.sql` (genau ein Grant), die reine Sync-Logik `apps/web/lib/spot-prices/sync.ts`, der dritte Cron-Job `apps/web/app/api/cron/spot-price-sync` (täglich **13:20 UTC**) und das einmalige Backfill-Skript `apps/web/scripts/backfill-spot-prices.mjs`. 23 neue Tests in `apps/web` (587 → **610**), 11 netto neue im DB-Gate (643 → **654**). **Keine Engine-Änderung, keine UI-Änderung, kein Tarif-Pflege-UI** — `packages/engine`, `apps/website` und die beiden Tabellen `grid_tariffs`/`grid_tariff_rate_windows` sind unangetastet.
+
+  **Der Befund, der den Grant grösser macht als geplant: `INSERT … ON CONFLICT DO UPDATE` verlangt in PostgreSQL zusätzlich das SELECT-Recht.** Geplant war `grant insert, update`. Als rohes SQL unter `set local role service_role` Stufe für Stufe gemessen: `insert` → 42501, `insert, update` → 42501, erst `insert, update, select` → OK. Es ist keine PostgREST-Eigenheit und betrifft spezifisch das Upsert — ein reines `INSERT` ohne `on conflict` läuft bereits mit dem blossen INSERT-Recht durch. Vertraulich ändert das nichts (`spot_prices` ist für `anon` ohnehin frei lesbar, `service_role` umgeht RLS ohnehin), aber es hat eine Folge für das DB-Gate: ein Test, der nur ein INSERT prüfte, bliebe bei einem verkürzten Grant **grün** und liesse den Sync in Produktion auflaufen. Der neue Test fährt deshalb genau den Weg, den der Sync fährt.
+
+  **13:20 UTC ist eine DST-Entscheidung, keine gerundete Zahl.** Die Preise des Folgetags stehen ab ungefähr 14 Uhr Ortszeit fest — das sind 13:00 UTC im Winter und 12:00 UTC im Sommer. Ein Vercel-Cron kennt keine Sommerzeit; 13:20 UTC liegt in beiden Fällen sicher danach und ersetzt zwei DST-abhängige Einträge durch einen. Dieselbe Fixed-UTC-Konvention wie B4-1/B4-2 (`DEPLOYMENT.md` §1k).
+
+  **Backfill ist ein Skript, kein zweiter Endpunkt-Modus.** Als offener HTTP-Pfad liesse sich mit demselben Geheimnis ein beliebig grosser Abruf auslösen — dieselbe Überlegung, aus der B4-1 die Mengenobergrenze aus dem Handler heraushält. Real ausgeführt: **8.759** lückenlose Stundenwerte über zwölf Monate in **einem** Aufruf (die Quelle kennt weder Pagination noch eine Obergrenze), Umrechnung `Eur/MWh → ct/kWh` von Hand gegen die API-Antwort nachgerechnet, derselbe Zeitraum zweimal geschrieben ergibt 0 Duplikate.
 
 ---
 
