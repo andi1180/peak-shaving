@@ -606,6 +606,12 @@ Fachliche Tiefe: `Pflichtenheft_Kalkulator_Delta_Tarifoptimierung.md` (Delta 5, 
 Anders als seinerzeit bei `monitor` (§2a): **`public` ist über die Data API bereits per Default
 exponiert.** Die „Exposed schemas"-Liste bleibt unverändert `public, graphql_public, monitor`.
 
+**Stand Cloud (verifiziert 27.08.2026):** Migration `20260827120000` angewandt, `supabase migration
+list --linked` zeigt lokal = Cloud. Gegen die Cloud gemessen: `anon` und `authenticated` lesen alle
+drei Tabellen (leer, kein Fehler), alle sechs Schreibversuche (2 Rollen × 3 Tabellen) scheitern mit
+**42501 `permission denied for table`** — auf Grant-Ebene, nicht an der RLS-Policy. Die Tabellen
+sind leer und sollen es bis B21-2 bleiben.
+
 ### Das Rechte-Muster — und die Falle, die es nötig macht ⚠️
 
 Beide Schichten sind gesetzt, jede für sich reicht gegen einen Schreibzugriff:
