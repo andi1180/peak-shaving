@@ -353,18 +353,22 @@ mit: Fail-closed, Crons nur in Production, Registrierung hängt am Deployment, *
 Deployment Protection (§1i)** — ohne Bypass-Secret verwirft Vercel auch diesen Aufruf, bevor der
 Endpunkt ihn sieht.
 
-- **⚠️ NOCH NICHT REGISTRIERT (Stand 27.08.2026).** Der Endpunkt ist gebaut, getestet und
-  deployt, aber `apps/web/vercel.json` trägt **bewusst noch keinen** `crons`-Eintrag für ihn. Grund:
-  der Grant aus der Migration unten steht noch nicht in der Cloud, und ein registrierter Job liefe
-  dort täglich in einen **42501** (kein Datenschaden, keine Mail — aber ein täglich roter Lauf).
-  **Nachzuholen, in dieser Reihenfolge:** (1) `supabase db push --linked` (bei 403 zuerst §4a),
-  (2) Rechtefläche in der Cloud gegenprüfen, (3) Backfill einmal gegen die Cloud, (4) den Eintrag
-  ```json
-  { "path": "/api/cron/spot-price-sync", "schedule": "20 13 * * *" }
-  ```
-  in `apps/web/vercel.json` ergänzen und deployen. Die Registrierung hängt am Production-Deployment,
-  nicht an der Datei (§1g) — danach mit
-  `GET https://api.vercel.com/v1/projects/<projectId>/crons` prüfen, nicht annehmen.
+- **✅ REGISTRIERT (27.08.2026).** Die vier Schritte aus der früheren Fassung dieses Absatzes sind
+  abgearbeitet — in genau dieser Reihenfolge, weil ein vor dem Grant registrierter Job täglich in
+  einen **42501** gelaufen wäre (kein Datenschaden, keine Mail, aber ein täglich roter Lauf):
+  (1) `supabase db push --linked` — lief **ohne** `SUPABASE_DB_PASSWORD` durch, nachdem die
+  Konto-Ursache aus §4a behoben war; (2) Rechtefläche gegen die Cloud gemessen, nicht angenommen:
+  `service_role` hat dort exakt `INSERT,SELECT,UPDATE` auf `spot_prices` und **gar nichts** auf
+  `grid_tariffs`/`grid_tariff_rate_windows`, `anon`/`authenticated` unverändert nur `SELECT` auf
+  allen drei, `DELETE` für keine Client-Rolle; ein `anon`-INSERT über die Data API wird mit
+  **42501 `permission denied for table`** abgewiesen — also auf **Grant**-Ebene, der direkte Beleg,
+  dass das `revoke all` aus B21-1 auch in der Cloud steht; (3) Backfill einmal gegen die Cloud:
+  **8.759** Zeilen, Spanne 2025-08-27T19:00Z … 2026-08-27T17:00Z, 0 Duplikate, drei Werte gegen die
+  aWATTar-Antwort nachgerechnet (126,12 Eur/MWh → 12,612 ct/kWh usw.); ein zweiter Lauf über einen
+  Monat schrieb 743 Zeilen erneut und liess die Gesamtzahl bei **8.759** — das Upsert ist auch in
+  der Cloud idempotent; (4) der `crons`-Eintrag steht in `apps/web/vercel.json`.
+  **⚠️ Die Registrierung hängt am Production-Deployment, nicht an der Datei** (§1g) — nach dem Merge
+  mit `GET https://api.vercel.com/v1/projects/<projectId>/crons` prüfen, nicht annehmen.
 - **Vorgesehener Job 3:** `/api/cron/spot-price-sync`, täglich **13:20 UTC**. Holt die
   aWATTar-Marktpreise und legt sie per Upsert ab. **Versendet keine E-Mail** und erreicht niemanden.
 - **⚠️ Warum 13:20 UTC — und warum trotz Sommerzeit nur EIN Eintrag.** Die Preise des Folgetags
@@ -811,8 +815,11 @@ gelesen werden.
 **Diagnose in einem Befehl — vor jeder weiteren Vermutung:**
 
 ```
-supabase orgs list      # muss pvzkhkqfbflbnechlror zeigen. Zeigt es nur testevhdtrabdskvgwlh → falsches Konto.
+supabase orgs list      # zeigt es nur testevhdtrabdskvgwlh → falsches Konto.
 ```
+
+⚠️ **Aber nicht als Positivbeleg lesen:** `orgs list` liefert mit dem *korrekten* Konto eine **leere**
+Tabelle (27.08.2026 gemessen). Der belastbare Befehl ist `supabase projects list` — siehe §4a-bis.
 
 **Was ausdrücklich NICHT die Ursache war** (geprüft und ausgeschlossen, damit es niemand erneut prüft):
 `SUPABASE_ACCESS_TOKEN` ist **nirgends** gesetzt — nicht in der Umgebung, nicht in `~/.zprofile` (die
@@ -842,6 +849,113 @@ Prüfbefehl danach: `supabase migration list --linked` muss **ohne** `SUPABASE_D
 **Ein alter Token bleibt serverseitig gültig, bis er widerrufen wird.** `supabase logout` und ein
 überschreibender `--token`-Login entfernen ihn nur lokal. Ein Token, der nicht mehr gebraucht wird oder
 irgendwo im Klartext aufgetaucht ist, gehört im Dashboard unter Account → Access Tokens gelöscht.
+
+---
+
+### 4a-bis. Der Rückfall vom 27.08.2026 — die Ursache, gemessen statt vermutet
+
+Der 403 kehrte am **27.08.2026** zurück und blockierte den Cloud-Push von B21-2a. Der Abschnitt oben
+sagte richtig „falsches Konto", aber nicht **wodurch** — und genau das hat die Wiederholung nicht
+verhindert. Hier steht der konkrete Hergang.
+
+**Der Zeitstempel ist der ganze Befund.** Der Schlüsselbund führt zu jedem Eintrag ein Erstell- und
+ein Änderungsdatum:
+
+```
+security find-generic-password -s "Supabase CLI" -a "supabase" 2>&1 | grep -E 'cdat|mdat'
+  cdat = 2026-07-24 09:16:30Z   ← Erstellung
+  mdat = 2026-08-07 14:50:57Z   ← letzte ÜBERSCHREIBUNG
+```
+
+Die Behebung vom **04.08.2026** hat funktioniert. Am **07.08.2026 um 14:50:57Z** wurde der Eintrag
+**erneut überschrieben** — mit dem falschen Konto. Die Shell-History zeigt womit:
+
+```
+…/Developer/atelier-dax-web    (npm install, npm run dev)
+supabase logout                ← ~/.zsh_history Zeile 644
+supabase login                 ← ~/.zsh_history Zeile 645   Browser-Flow, KEIN --token
+…/Developer/atelier-dax-web    (weiter im selben Projekt)
+```
+
+Also exakt die Sequenz, vor der dieser Abschnitt bereits warnt: `logout` löscht nur lokal, der
+Browser-Flow bestätigt die noch offene Dashboard-Sitzung **ohne Kontoauswahl**. In der gesamten
+History steht **kein einziges** `supabase login --token` (`grep -c` → 0) — die 04.08-Behebung lief in
+einer Agenten-Sitzung, deren Befehle nicht in `~/.zsh_history` landen.
+
+**Die strukturelle Ursache — und der Grund, warum es wiederkam:** Die CLI hält **genau einen
+rechnerweiten Token** (Schlüsselbund-Konto = Profilname, Vorgabe `supabase`). Auf diesem Rechner
+liegen **zwei Projekte unter zwei verschiedenen Supabase-Konten**. Jede Anmeldung im einen kippt
+stillschweigend die des anderen. Das ist kein Bedienfehler, sondern eine geteilte Ressource ohne
+Trennung — es wird sich wiederholen, solange beide Konten denselben Slot benutzen.
+
+**Was es erneut NICHT war** (nachgemessen, damit es niemand ein drittes Mal prüft):
+`SUPABASE_ACCESS_TOKEN` ist nirgends gesetzt. Es gibt auf diesem Rechner **überhaupt keine
+Shell-Profildatei, die `supabase` erwähnt** — `~/.zshrc`, `~/.zshenv`, `~/.bashrc`, `~/.profile`
+existieren nicht; `~/.zprofile` existiert und enthält keinen Treffer. **Es gibt also keine „Zeile in
+einer Profildatei", die man korrigieren könnte.**
+
+#### ⚠️ `--profile` ist KEINE Isolation — gemessen, und der naive Einsatz macht es schlimmer
+
+Naheliegend wäre, den COOLiN-Token über `--profile` in einem eigenen Slot zu halten. In CLI v2.95.4
+ist `--profile` aber **kein benannter Credential-Slot, sondern ein Pfad zu einer Profil-Konfigdatei**
+(gedacht für abweichende Deployments; verlangt `name`, `api_url`, `dashboard_url`, `project_host` in
+`snake_case`). Und — das ist der gefährliche Teil — **die Benutzung schreibt einen klebrigen globalen
+Zeiger** `~/.supabase/profile`. Solange der existiert, benutzt **jeder** nachfolgende Befehl **ohne**
+Flag dieses Profil, `login` eingeschlossen.
+
+In beide Richtungen gemessen (`mdat`-Vergleich vor/nach):
+
+| Vorgang | Zeiger | `coolin`-Slot | Vorgabe-Slot |
+|---|---|---|---|
+| `--profile …/coolin.toml login --token` | wird gesetzt | **neu** | unverändert ✔ |
+| danach `supabase login` **ohne** Flag | steht auf coolin | **überschrieben** ⚠️ | unverändert ⚠️ |
+| Zeiger gelöscht, dann `supabase login` ohne Flag | bleibt weg | **unverändert** ✔ | neu ✔ |
+
+Zeile 2 ist die Falle: ein zurückgelassener Zeiger dreht die Wirkung um — dann zerstört ausgerechnet
+der Login im **anderen** Projekt den COOLiN-Token. Wer `--profile` benutzt, **muss**
+`~/.supabase/profile` danach entfernen.
+
+#### Der Weg, der am 27.08.2026 tatsächlich funktioniert hat
+
+Einmalig einrichten — eigener Schlüsselbund-Slot, Zeiger sofort wieder weg:
+
+```bash
+cat > ~/.supabase/coolin.toml <<'EOF'
+name = "coolin"
+api_url = "https://api.supabase.com"
+dashboard_url = "https://supabase.com/dashboard"
+project_host = "supabase.co"
+EOF
+supabase --profile ~/.supabase/coolin.toml login --token sbp_…   # Token des COOLiN-Kontos
+rm -f ~/.supabase/profile        # ⚠️ PFLICHT — sonst gilt die Falle oben
+```
+
+Danach jede Cloud-Operation dieses Repos **ohne** `--profile`, mit dem Token per Aufruf aus dem
+eigenen Slot:
+
+```bash
+export SUPABASE_ACCESS_TOKEN=$(security find-generic-password -w -s "Supabase CLI" -a coolin   | sed 's/^go-keyring-base64://' | base64 -d)
+supabase db push --linked
+```
+
+Das ist echte Trennung: `SUPABASE_ACCESS_TOKEN` überstimmt den Schlüsselbund (die Eigenschaft, vor der
+der Abschnitt oben warnt — hier **bewusst und auf einen Aufruf begrenzt** genutzt), es entsteht kein
+klebriger Zeiger, und ein `supabase login` im anderen Projekt trifft nur den Vorgabe-Slot. Genau so
+gemessen: mit Vorgabe-Slot auf dem Fremdkonto lieferte `supabase projects list` **0** Treffer für
+`coolin_energy`, mit gesetzter Variable die Zeile `● pvzkhkqfbflbnechlror | coolin_energy`.
+
+#### Diagnose: `projects list`, nicht `orgs list`
+
+⚠️ **`supabase orgs list` liefert mit dem korrekten Konto eine LEERE Tabelle** (27.08.2026 gemessen) —
+der Prüfbefehl aus dem Abschnitt oben sieht damit aus wie ein Fehlschlag, obwohl alles stimmt.
+Aussagekräftig ist:
+
+```bash
+supabase projects list    # muss `coolin_energy` in pvzkhkqfbflbnechlror mit ● (linked) zeigen
+```
+
+Zeigt es stattdessen nur „Website" in `testevhdtrabdskvgwlh`, ist der Vorgabe-Slot aktiv — dann die
+Variable aus dem Block darüber setzen.
 
 ---
 
