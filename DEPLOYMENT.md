@@ -187,7 +187,7 @@ Code: `apps/web/app/api/cron/**` · Zeitplan: `apps/web/vercel.json` · Vorlage:
 - **Die Registrierung hängt am Deployment, nicht an der Datei:** Vercel liest `vercel.json` beim
   Build und registriert die Jobs des Production-Deployments. Eine geänderte Datei ohne
   Production-Deployment ändert **nichts**. Prüfen (nicht annehmen):
-  `GET https://api.vercel.com/v1/projects/<projectId>/crons` → der Eintrag muss dort stehen.
+  `GET https://api.vercel.com/v9/projects/<projectId>?teamId=<teamId>` → Feld `crons` → der Eintrag muss dort stehen. **⚠️ NICHT `/v1/projects/<projectId>/crons`** — dieser Pfad antwortet **404** (27.08.2026 gemessen); die Crons hängen am Projektobjekt.
 - **✔ `CRON_SECRET` ist gefahrlos rotierbar** — im ausdrücklichen Gegensatz zu `LEAD_TOKEN_SECRET`
   (§1f). Der Wert ist zustandsbehaftet nur zwischen Vercel und dem Endpunkt; es hängen **keine
   bereits versendeten Links** daran, die er entwerten könnte. Neu setzen, neu deployen, fertig.
@@ -266,7 +266,8 @@ entsteht dabei
 - **kein Eintrag im Laufprotokoll** (`platform.job_runs` — die Zeile entsteht erst im Handler).
 
 **Symptom, an dem es aufgefallen ist:** Beide Cron-Jobs korrekt registriert (per
-`GET /v1/projects/<projectId>/crons` bestätigt), „View Logs" **leer**, und auf `/admin/leads` seit
+`GET /v1/projects/<projectId>/crons` bestätigt — **dieser Pfad antwortet heute 404, s. §1e/§1k**),
+„View Logs" **leer**, und auf `/admin/leads` seit
 Tagen die 48-Stunden-Warnung für beide Läufe.
 
 **Warum die Ursache schwer zu finden ist:** Aufrufe über die **eigene Domain** (`coolin.at`) sind von
@@ -367,8 +368,14 @@ Endpunkt ihn sieht.
   aWATTar-Antwort nachgerechnet (126,12 Eur/MWh → 12,612 ct/kWh usw.); ein zweiter Lauf über einen
   Monat schrieb 743 Zeilen erneut und liess die Gesamtzahl bei **8.759** — das Upsert ist auch in
   der Cloud idempotent; (4) der `crons`-Eintrag steht in `apps/web/vercel.json`.
-  **⚠️ Die Registrierung hängt am Production-Deployment, nicht an der Datei** (§1g) — nach dem Merge
-  mit `GET https://api.vercel.com/v1/projects/<projectId>/crons` prüfen, nicht annehmen.
+  **✅ Registrierung live bestätigt** (nicht angenommen): Production-Deployment
+  `dpl_AgYuCM1LUXUoQSCqSaWyhqLSBF2z` für Merge-Commit `97bc53b` steht auf `READY`, und
+  `GET https://api.vercel.com/v9/projects/<projectId>?teamId=<teamId>` führt im Feld `crons` alle drei
+  Jobs mit genau diesem `deploymentId` und `disabledAt: null` — darunter
+  `/api/cron/spot-price-sync` mit `20 13 * * *`.
+  **⚠️ Der Prüfpfad ist `/v9/projects/<projectId>` (Feld `crons`), NICHT
+  `/v1/projects/<projectId>/crons`** — Letzterer antwortet 404. Die Registrierung hängt am
+  Production-Deployment, nicht an der Datei (§1g).
 - **Vorgesehener Job 3:** `/api/cron/spot-price-sync`, täglich **13:20 UTC**. Holt die
   aWATTar-Marktpreise und legt sie per Upsert ab. **Versendet keine E-Mail** und erreicht niemanden.
 - **⚠️ Warum 13:20 UTC — und warum trotz Sommerzeit nur EIN Eintrag.** Die Preise des Folgetags
