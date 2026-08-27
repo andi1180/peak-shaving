@@ -1,0 +1,65 @@
+-- B21-2a — Schreibweg für die Spotpreise: der Grant, den der aWATTar-Sync braucht.
+--
+-- Kanonische fachliche Quelle: `Pflichtenheft_Kalkulator_Delta_Tarifoptimierung.md`, Delta 7.
+-- Bauabschnitt und Reihenfolge: `Fahrplan_2026.md`, Zeile B21.
+--
+-- ── WAS HIER ENTSTEHT ───────────────────────────────────────────────────────────────────────────
+-- GENAU EIN Grant auf GENAU EINE Tabelle. Kein Wrapper, keine Policy, keine Spalte, kein Trigger.
+--
+-- B21-1 hat `public.spot_prices` bewusst ohne jedes Recht für `service_role` angelegt — auch ohne
+-- lesendes — mit der ausdrücklichen Begründung, der Schreibweg entscheide in seinem eigenen PR,
+-- welche Rolle wie schreibt. Das ist dieser PR: der tägliche Cron-Abruf
+-- (`app/api/cron/spot-price-sync`) und der einmalige Backfill (`scripts/backfill-spot-prices.mjs`)
+-- schreiben über `service_role`.
+--
+-- ── WAS AUSDRÜCKLICH NICHT ENTSTEHT ─────────────────────────────────────────────────────────────
+-- KEIN Grant auf `public.grid_tariffs` und `public.grid_tariff_rate_windows`. Deren Schreibweg ist
+-- das Admin-Pflege-UI und damit ein eigener PR; die Tarifzeilen pflegt ein Mensch, nicht ein Job.
+--
+-- KEIN `delete`: der Sync überschreibt per Upsert und löscht nie. Ein historischer Marktpreis ist
+-- eine Tatsache der Vergangenheit — eine Zeile zu entfernen hiesse, eine bereits gerechnete
+-- Simulation nachträglich um ihre Grundlage zu bringen (dieselbe Überlegung wie beim Append-only
+-- der Analyse-Ablage, B14-1).
+--
+-- KEINE Änderung an RLS oder an den Policies: `service_role` trägt `rolbypassrls` (lokal gemessen),
+-- die SELECT-Policy für `anon`/`authenticated` bleibt exakt wie sie ist.
+--
+-- ── ⚠ WARUM `select` MIT DABEI IST, OBWOHL DER SYNC NICHTS LIEST — GEMESSEN, NICHT ANGENOMMEN ───
+-- Die naheliegende Fassung dieses Grants ist `grant insert, update`: der Sync schreibt nur, er liest
+-- keine Zeile zurück (der supabase-js-Aufruf hängt bewusst KEIN `.select()` an). Diese Fassung
+-- funktioniert NICHT, und der Grund liegt in PostgreSQL selbst, nicht in PostgREST:
+--
+--   `INSERT … ON CONFLICT (provider, ts_start) DO UPDATE` verlangt zusätzlich zu INSERT und UPDATE
+--   das SELECT-Recht — die Konfliktauflösung muss die Arbiter-Spalten lesen.
+--
+-- Gegen den lokalen Stack (PostgreSQL 17.6) Stufe für Stufe nachgemessen, als ROHES SQL unter
+-- `set local role service_role` in einer zurückgerollten Transaktion, also ohne PostgREST im Spiel:
+--
+--   kein Grant               → 42501 permission denied for table spot_prices
+--   nur insert               → 42501
+--   insert + update          → 42501     ← die naheliegende Fassung, sie reicht NICHT
+--   insert + update + select → OK
+--
+-- Gegenprobe, die den Fall eingrenzt: ein reines `INSERT` OHNE `on conflict` läuft bereits mit dem
+-- blossen INSERT-Recht durch. Es ist also spezifisch das Upsert, nicht das Schreiben an sich — und
+-- damit genau der Weg, den `unique (provider, ts_start)` aus B21-1 für den täglichen Abruf vorsieht.
+--
+-- Die Alternative wäre gewesen, das Upsert durch `delete` + `insert` zu ersetzen (bräuchte ein
+-- DELETE-Recht, wäre nicht atomar und widerspräche dem Nicht-Löschen oben) oder einen
+-- SECURITY-DEFINER-Wrapper zu bauen (widerspräche der B21-1-Entscheidung für den direkten
+-- Tabellenzugriff und führte für Referenzdaten ohne Personenbezug eine zweite Aufrufkonvention ein).
+-- `select` ist die kleinste Rechtefläche, die den vorgesehenen Weg tatsächlich gehen kann.
+--
+-- Dabei entsteht KEIN Vertraulichkeitsunterschied: `spot_prices` ist für `anon` ohnehin frei lesbar
+-- (B21-1, TEIL 4), und `service_role` umgeht RLS ohnehin. Das gelesene Recht gibt niemandem Einblick
+-- in etwas, das nicht schon öffentlich wäre — anders als bei `platform`, wo dieselbe Zeile eine
+-- ernste Entscheidung wäre.
+--
+-- ── FÜR DEN NÄCHSTEN, DER EINE `public`-TABELLE BESCHREIBBAR MACHT ──────────────────────────────
+-- Der Grant allein genügt zur Laufzeit nicht: PostgREST hält die Rechtelage in seinem Schema-Cache.
+-- Nach einer Grant-Änderung an einer LAUFENDEN Instanz braucht es ein `notify pgrst, 'reload schema'`
+-- (bzw. einen Neustart), sonst antwortet die Data API weiterhin mit 42501, obwohl das Recht in
+-- `information_schema.role_table_grants` bereits steht. Bei einem Deploy über `supabase db push`
+-- erledigt sich das von selbst; beim Messen von Hand ist es die häufigste Fehlerquelle und hat auch
+-- hier zunächst ein falsches Negativ erzeugt.
+grant insert, update, select on table public.spot_prices to service_role;

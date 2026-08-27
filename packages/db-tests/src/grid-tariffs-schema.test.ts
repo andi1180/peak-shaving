@@ -48,6 +48,26 @@ const TABLES = ['grid_tariffs', 'grid_tariff_rate_windows', 'spot_prices'] as co
 /** Rechte, deren Vorhandensein an einer dieser Tabellen ein Fehler wäre. */
 const WRITE_PRIVILEGES = ['INSERT', 'UPDATE', 'DELETE', 'TRUNCATE'] as const
 
+/**
+ * Die Tabellen, die für ALLE drei Client-Rollen verschlossen bleiben.
+ *
+ * B21-1 hat alle drei so angelegt. B21-2a (Migration 20260827160000) öffnet `spot_prices` gezielt
+ * für `service_role` — der tägliche aWATTar-Abruf schreibt dorthin, und das Upsert braucht dafür
+ * INSERT, UPDATE und SELECT. Die beiden Tarif-Tabellen bleiben unangetastet: ihr Schreibweg ist das
+ * Admin-Pflege-UI und damit ein eigener PR.
+ *
+ * Die beiden Grant-Prüfungen laufen deshalb nur noch über diese Teilmenge — nicht, weil die Regel
+ * für `spot_prices` entfallen wäre, sondern weil sie dort jetzt eine ANDERE ist und in
+ * `spot-prices-write-access.test.ts` ausdrücklich und vollständig gemessen wird (exakt
+ * `INSERT,SELECT,UPDATE` für `service_role`, weiterhin nur `SELECT` für `anon`/`authenticated`,
+ * weiterhin kein DELETE für irgendwen). Diese Liste hier zu kürzen, ohne sie dort zu ersetzen, wäre
+ * ein stiller Verlust der Absicherung.
+ *
+ * Alle übrigen Prüfungen dieser Datei — RLS aktiv, ausschliesslich eine SELECT-Policy, Lesbarkeit
+ * für anon/authenticated, Abweisung ihrer Schreibversuche — gelten unverändert für alle drei.
+ */
+const WRITE_CLOSED_TABLES = ['grid_tariffs', 'grid_tariff_rate_windows'] as const
+
 /** Ein vollständiger, gültiger INSERT je Tabelle — der Schreibversuch soll an RECHTEN scheitern. */
 const INSERT_SQL: Record<(typeof TABLES)[number], string> = {
   grid_tariffs: `insert into public.grid_tariffs
@@ -116,7 +136,30 @@ describe('B21-1 — Schreibzugriff: anon und authenticated werden abgewiesen', (
 
 describe('B21-1 — Rechtefläche: KEIN Schreib-Grant für irgendeine Rolle', () => {
   for (const table of TABLES) {
-    it(`public.${table} vergibt an keine Rolle INSERT/UPDATE/DELETE/TRUNCATE`, async () => {
+    it(`public.${table} hat RLS aktiv`, async () => {
+      const rows = await sql<{ relrowsecurity: boolean }>(
+        `select c.relrowsecurity
+           from pg_class c join pg_namespace n on n.oid = c.relnamespace
+          where n.nspname = 'public' and c.relname = $1`,
+        [table],
+      )
+      expect(rows[0]?.relrowsecurity).toBe(true)
+    })
+
+    it(`public.${table} trägt AUSSCHLIESSLICH eine SELECT-Policy`, async () => {
+      const rows = await sql<{ cmd: string }>(
+        `select cmd from pg_policies where schemaname = 'public' and tablename = $1`,
+        [table],
+      )
+      expect(rows.map((r) => r.cmd)).toEqual(['SELECT'])
+    })
+  }
+
+  // Die zwei Grant-Prüfungen laufen nur über die Tabellen, die verschlossen BLEIBEN — s. die
+  // Begründung an `WRITE_CLOSED_TABLES`. Für `spot_prices` misst `spot-prices-write-access.test.ts`
+  // die neue Rechtefläche vollständig; RLS und Policy oben gelten weiterhin für alle drei.
+  for (const table of WRITE_CLOSED_TABLES) {
+    it(`public.${table} vergibt an keine Client-Rolle INSERT/UPDATE/DELETE/TRUNCATE`, async () => {
       const rows = await sql<{ grantee: string; privilege_type: string }>(
         `select grantee, privilege_type
            from information_schema.role_table_grants
@@ -144,24 +187,6 @@ describe('B21-1 — Rechtefläche: KEIN Schreib-Grant für irgendeine Rolle', ()
         [table],
       )
       expect(rows.map((r) => r.grantee)).toEqual(['anon', 'authenticated'])
-    })
-
-    it(`public.${table} hat RLS aktiv`, async () => {
-      const rows = await sql<{ relrowsecurity: boolean }>(
-        `select c.relrowsecurity
-           from pg_class c join pg_namespace n on n.oid = c.relnamespace
-          where n.nspname = 'public' and c.relname = $1`,
-        [table],
-      )
-      expect(rows[0]?.relrowsecurity).toBe(true)
-    })
-
-    it(`public.${table} trägt AUSSCHLIESSLICH eine SELECT-Policy`, async () => {
-      const rows = await sql<{ cmd: string }>(
-        `select cmd from pg_policies where schemaname = 'public' and tablename = $1`,
-        [table],
-      )
-      expect(rows.map((r) => r.cmd)).toEqual(['SELECT'])
     })
   }
 })

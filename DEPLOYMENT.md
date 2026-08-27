@@ -339,6 +339,99 @@ vom Messaufbau.
 
 ---
 
+### 1k. Spotpreis-Sync — dritter Cron-Job (B21-2a, server-only)
+
+Code: `apps/web/app/api/cron/spot-price-sync/route.ts` · reine Logik:
+`apps/web/lib/spot-prices/sync.ts` · Zeitplan: `apps/web/vercel.json` · Backfill:
+`apps/web/scripts/backfill-spot-prices.mjs` · Ziel: `public.spot_prices` (B21-1) ·
+fachliche Quelle: `Pflichtenheft_Kalkulator_Delta_Tarifoptimierung.md`, Delta 7.
+
+**Keine neue Umgebungsvariable.** Der Job benutzt dasselbe `CRON_SECRET` und denselben
+`SUPABASE_SERVICE_ROLE_KEY` wie die beiden Jobs aus §1g — ein zweites Geheimnis und eine zweite
+Prüfvariante wären zwei Wege, dieselbe Aussenkante falsch zu machen. Alles aus §1g gilt unverändert
+mit: Fail-closed, Crons nur in Production, Registrierung hängt am Deployment, **und insbesondere
+Deployment Protection (§1i)** — ohne Bypass-Secret verwirft Vercel auch diesen Aufruf, bevor der
+Endpunkt ihn sieht.
+
+- **⚠️ NOCH NICHT REGISTRIERT (Stand 27.08.2026).** Der Endpunkt ist gebaut, getestet und
+  deployt, aber `apps/web/vercel.json` trägt **bewusst noch keinen** `crons`-Eintrag für ihn. Grund:
+  der Grant aus der Migration unten steht noch nicht in der Cloud, und ein registrierter Job liefe
+  dort täglich in einen **42501** (kein Datenschaden, keine Mail — aber ein täglich roter Lauf).
+  **Nachzuholen, in dieser Reihenfolge:** (1) `supabase db push --linked` (bei 403 zuerst §4a),
+  (2) Rechtefläche in der Cloud gegenprüfen, (3) Backfill einmal gegen die Cloud, (4) den Eintrag
+  ```json
+  { "path": "/api/cron/spot-price-sync", "schedule": "20 13 * * *" }
+  ```
+  in `apps/web/vercel.json` ergänzen und deployen. Die Registrierung hängt am Production-Deployment,
+  nicht an der Datei (§1g) — danach mit
+  `GET https://api.vercel.com/v1/projects/<projectId>/crons` prüfen, nicht annehmen.
+- **Vorgesehener Job 3:** `/api/cron/spot-price-sync`, täglich **13:20 UTC**. Holt die
+  aWATTar-Marktpreise und legt sie per Upsert ab. **Versendet keine E-Mail** und erreicht niemanden.
+- **⚠️ Warum 13:20 UTC — und warum trotz Sommerzeit nur EIN Eintrag.** Die Preise des Folgetags
+  stehen nach der Day-Ahead-Auktion ab ungefähr **14 Uhr Ortszeit** fest. Diese Marke wandert übers
+  Jahr, ein Vercel-Cron läuft dagegen in UTC und kennt keine Sommerzeit:
+
+  | Jahreszeit | Ortszeit-Marke | entspricht |
+  |---|---|---|
+  | Winter (CET, UTC+1) | 14:00 | **13:00 UTC** |
+  | Sommer (CEST, UTC+2) | 14:00 | **12:00 UTC** |
+
+  `13:20 UTC` liegt in **beiden** Fällen sicher danach — 20 Minuten nach der späteren, winterlichen
+  Marke. Zwei DST-abhängige Einträge wären zweimal dieselbe Aufgabe mit der Frage, welcher gerade
+  gilt. Dieselbe Fixed-UTC-Konvention wie §1g, nur mit dem für die Schwankung nötigen Abstand.
+- **Ein zu früher Lauf ist kein Schaden, nur ein leerer.** Die Quelle liefert dann weniger Einträge,
+  das Upsert schreibt weniger Zeilen, `outcome` bleibt `success`. Real gemessen: das Fenster umfasst
+  drei Tage, geliefert wurden 46 Stundenwerte (heute vollständig, morgen bis 23:00 Ortszeit,
+  übermorgen noch nicht veröffentlicht).
+- **Das abgefragte Fenster ist bewusst grösser als nötig** — `[heute 00:00 UTC, +3 Tage)` statt nur
+  der Folgetag. Der Mehraufwand ist eine Anfrage; der Gewinn ist, dass ein einzelner ausgefallener
+  Lauf sich am nächsten Tag von selbst repariert, statt eine Lücke zu hinterlassen, die niemand
+  bemerkt. Möglich nur, weil `unique (provider, ts_start)` (B21-1) das wiederholte Schreiben
+  desselben Zeitraums gefahrlos macht.
+- **⚠️ Betriebsgrenze: aWATTar-Fair-Use, 100 Abfragen pro Tag.** Der Job braucht **eine**. Der
+  Backfill braucht **eine** (ein einzelner Aufruf über zwölf Monate liefert 8.759 lückenlose
+  Stundenwerte; die Quelle kennt weder Pagination noch eine Obergrenze — gemessen). Der Abstand zur
+  Grenze ist also gross, aber sie ist der Grund, warum es **keine** Wiederholungsschleife im
+  Endpunkt gibt: ein fehlgeschlagener Lauf wartet auf den nächsten Tag, statt zu pollen.
+- **Kein Laufprotokoll in `platform.job_runs`** — anders als die beiden Jobs aus §1g. Deren Wirkung
+  ist unumkehrbar (eine Anonymisierung, eine versendete Mail) und muss nachvollziehbar sein. Hier
+  ist die Wirkung ein Upsert öffentlicher Börsenpreise: wiederholbar, ohne Personenbezug, und der
+  Zustand ist der Tabelleninhalt selbst. **Die Kontrolle im Betrieb ist deshalb eine Abfrage:**
+
+  ```sql
+  select max(ts_start) from public.spot_prices where provider = 'awattar_at';
+  ```
+
+  Liegt der Wert nicht mindestens beim morgigen Tagesende, ist der Sync stehengeblieben. Ein
+  Protokoll daneben führte einen zweiten Wahrheitsort ein, der mit dem ersten auseinanderlaufen kann.
+- **Grant:** Migration `20260827160000_grant_service_role_spot_prices_write.sql` gibt `service_role`
+  auf `public.spot_prices` **`insert, update, select`**. Das `select` ist nicht überflüssig:
+  `INSERT … ON CONFLICT DO UPDATE` verlangt es in PostgreSQL zusätzlich (Stufe für Stufe als rohes
+  SQL gemessen — `insert, update` allein ergibt **42501**). Begründung und Messreihe stehen im Kopf
+  der Migration. `grid_tariffs` und `grid_tariff_rate_windows` bleiben für alle Client-Rollen
+  verschlossen; ihr Schreibweg ist das Admin-Pflege-UI.
+- **Nichts im Supabase-Dashboard zu tun:** `public` ist über die Data API bereits per Default
+  exponiert (§2a betrifft nur `monitor`).
+
+#### Einmaliger Backfill
+
+Holt die historischen Preise für das rollierende 12-Monats-Fenster der Simulation. Bewusst ein
+Skript und **kein** zweiter Modus des Cron-Endpunkts: als offener HTTP-Pfad liesse sich mit demselben
+Geheimnis ein beliebig grosser Abruf auslösen — ein Query-Parameter entschiede dann über die Grösse
+des Vorgangs (dieselbe Überlegung, aus der §1g die Mengenobergrenze aus dem Handler heraushält).
+
+```bash
+cd apps/web
+SUPABASE_URL=… SUPABASE_SERVICE_ROLE_KEY=… pnpm backfill:spot-prices          # 12 Monate
+SUPABASE_URL=… SUPABASE_SERVICE_ROLE_KEY=… pnpm backfill:spot-prices --months 3
+```
+
+Die Werte kommen aus der Shell, **nicht** aus einer Datei im Repo (§4, Prinzip S1). Das Skript ist
+gefahrlos wiederholbar: derselbe Zeitraum ein zweites Mal geschrieben ergibt dieselbe Zeilenzahl
+(gemessen — 743 Zeilen zweimal geschrieben, Tabelle danach 743 Zeilen, 0 Duplikate).
+
+---
+
 ## 2. Supabase-Dashboard-Einstellungen (nicht über Migrationen abgedeckt)
 
 Diese Einstellungen sind **PostgREST-/Auth-Projektkonfiguration**, kein DB-Schema — `supabase db push`
