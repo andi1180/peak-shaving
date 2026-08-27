@@ -1061,6 +1061,22 @@ export type Database = {
         }
         Returns: boolean
       }
+      invalid_lead_filter: {
+        Args: {
+          p_consent_purposes: string[]
+          p_consent_states: string[]
+          p_consent_status: string
+          p_created_from: string
+          p_created_to: string
+          p_metering_type: string
+          p_partner_assignment: string
+          p_partner_slug: string
+          p_postal_prefix: string
+          p_source_keys: string[]
+          p_status: string
+        }
+        Returns: string
+      }
       is_admin: { Args: never; Returns: boolean }
       is_permanent_bounce: {
         Args: { p_bounce_type: string; p_event_type: string }
@@ -1069,21 +1085,34 @@ export type Database = {
       is_suppressed: { Args: { p_email: string }; Returns: boolean }
       lead_filter_summary: {
         Args: {
+          p_assignment?: string
+          p_company?: string
           p_consent_purpose?: Database["platform"]["Enums"]["consent_purpose"]
+          p_consent_purposes?: string[]
+          p_consent_states?: string[]
           p_consent_status?: string
           p_consumption_max?: number
           p_consumption_min?: number
           p_contract_end_from?: string
           p_contract_end_to?: string
+          p_created_from?: string
+          p_created_to?: string
           p_due_only?: boolean
+          p_email?: string
+          p_first_name?: string
           p_industry?: Database["platform"]["Enums"]["industry"]
+          p_last_name?: string
           p_metering_type?: string
           p_partner_assignment?: string
           p_partner_slug?: string
+          p_phone?: string
           p_postal_prefix?: string
           p_search?: string
           p_source_key?: string
+          p_source_keys?: string[]
           p_status?: string
+          p_thema_keys?: string[]
+          p_thema_none?: boolean
         }
         Returns: string
       }
@@ -1106,21 +1135,34 @@ export type Database = {
       }
       leads_matching: {
         Args: {
+          p_assignment?: string
+          p_company?: string
           p_consent_purpose?: Database["platform"]["Enums"]["consent_purpose"]
+          p_consent_purposes?: string[]
+          p_consent_states?: string[]
           p_consent_status?: string
           p_consumption_max?: number
           p_consumption_min?: number
           p_contract_end_from?: string
           p_contract_end_to?: string
+          p_created_from?: string
+          p_created_to?: string
           p_due_only?: boolean
+          p_email?: string
+          p_first_name?: string
           p_industry?: Database["platform"]["Enums"]["industry"]
+          p_last_name?: string
           p_metering_type?: string
           p_partner_assignment?: string
           p_partner_slug?: string
+          p_phone?: string
           p_postal_prefix?: string
           p_search?: string
           p_source_key?: string
+          p_source_keys?: string[]
           p_status?: string
+          p_thema_keys?: string[]
+          p_thema_none?: boolean
         }
         Returns: {
           annual_consumption_kwh: number | null
@@ -1158,6 +1200,7 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      like_pattern: { Args: { p_input: string }; Returns: string }
       marketing_consent_state: { Args: { p_lead_id: string }; Returns: string }
       normalize_email: { Args: { p_email: string }; Returns: string }
       purpose_requires_double_opt_in: {
@@ -1200,7 +1243,125 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      grid_tariff_rate_windows: {
+        Row: {
+          ct_per_kwh: number
+          grid_tariff_id: string
+          id: string
+          label: string
+          month_day_from: string | null
+          month_day_to: string | null
+          time_from: string
+          time_to: string
+        }
+        Insert: {
+          ct_per_kwh: number
+          grid_tariff_id: string
+          id?: string
+          label: string
+          month_day_from?: string | null
+          month_day_to?: string | null
+          time_from: string
+          time_to: string
+        }
+        Update: {
+          ct_per_kwh?: number
+          grid_tariff_id?: string
+          id?: string
+          label?: string
+          month_day_from?: string | null
+          month_day_to?: string | null
+          time_from?: string
+          time_to?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "grid_tariff_rate_windows_grid_tariff_id_fkey"
+            columns: ["grid_tariff_id"]
+            isOneToOne: false
+            referencedRelation: "grid_tariffs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      grid_tariffs: {
+        Row: {
+          created_at: string
+          created_by: string
+          grundpreis_amount: number
+          grundpreis_unit: string
+          id: string
+          metering_variant: string | null
+          netzebene: number
+          netzverlust_ct_per_kwh: number
+          operator_id: string
+          operator_name: string
+          price_basis: string
+          valid_from: string
+          valid_until: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          grundpreis_amount: number
+          grundpreis_unit: string
+          id?: string
+          metering_variant?: string | null
+          netzebene: number
+          netzverlust_ct_per_kwh: number
+          operator_id: string
+          operator_name: string
+          price_basis: string
+          valid_from: string
+          valid_until?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          grundpreis_amount?: number
+          grundpreis_unit?: string
+          id?: string
+          metering_variant?: string | null
+          netzebene?: number
+          netzverlust_ct_per_kwh?: number
+          operator_id?: string
+          operator_name?: string
+          price_basis?: string
+          valid_from?: string
+          valid_until?: string | null
+        }
+        Relationships: []
+      }
+      spot_prices: {
+        Row: {
+          ct_per_kwh: number
+          fetched_at: string
+          id: string
+          price_basis: string
+          provider: string
+          ts_end: string
+          ts_start: string
+        }
+        Insert: {
+          ct_per_kwh: number
+          fetched_at?: string
+          id?: string
+          price_basis?: string
+          provider: string
+          ts_end: string
+          ts_start: string
+        }
+        Update: {
+          ct_per_kwh?: number
+          fetched_at?: string
+          id?: string
+          price_basis?: string
+          provider?: string
+          ts_end?: string
+          ts_start?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
