@@ -68,6 +68,7 @@ Mit inzwischen zwölf gebauten Teilabschnitten ist aus der Beschreibung unten so
 | **B17** Admin-Portal | **gebaut** | eigener Eingang, eigener Rahmen, getrennt vom öffentlichen Bundle |
 | **B18** Partner-Portal-Ausbau | **gebaut** | alle sechs Teilschritte fertig, Details: B18_Partner-Portal_Ausbau.md |
 | **B19** Admin-Leaderfassung und Listen-Neugestaltung | **gebaut** | Admin-Leaderfassung ohne Mailversand, formlose Fachbetrieb-Erwähnung getrennt von platform.partners, Thema-Feld, neu gestaltete Leads-Liste — Details: B18_Partner-Portal_Ausbau.md (dort mitgeführt, kein eigenes Dokument) |
+| **B20** Zugangsplattform (Wechselrichter-Fernzugriff) | **offen** | eigene Bau-Session, eigene Subdomain `access.coolin.at` in `apps/web` — kanonische Quelle Pflichtenheft_Zugangsplattform_MVP.md, nicht diese Datei. Baustein 1 (Subdomain-Routing) abgeschlossen. |
 
 ### Die B-Nummern sind Namen, keine Positionen
 
@@ -176,6 +177,8 @@ Grund: Die Bezeichner sind außerhalb dieses Dokuments in Gebrauch — in bereit
   **⚠ Bewusst NICHT angefasst, offen für eine spätere Entscheidung:** Ein anonymer Aufruf einer geschützten Admin-Route leitet weiterhin auf die KUNDEN-Anmeldung `/anmelden` um, nicht auf den neuen Eingang. Diese Umleitung steckt in `lib/admin/guard.ts`, und dessen Verhalten war ausdrücklich unverändert zu lassen. Folge: Wer ein Lesezeichen auf `/admin/leads` hat und abgemeldet ist, landet nach der Anmeldung auf `/konto`. Der Fix wäre eine Zeile im Guard.
 
 - **B18** Partner-Portal-Ausbau — kanonische Quelle für Stand, Teilschritte und offene Punkte ist `B18_Partner-Portal_Ausbau.md`, nicht diese Datei.
+
+- **B20** Zugangsplattform (Wechselrichter-Fernzugriff für PV-Installateure) — eigenständiges drittes Produkt, eigene Bau-Session, getrennt von Website-, Kalkulator- und Partner-Portal-Session. Kanonische Quelle für Stand, Bausteine und offene Punkte ist `Pflichtenheft_Zugangsplattform_MVP.md`, nicht diese Datei.
 
 ---
 

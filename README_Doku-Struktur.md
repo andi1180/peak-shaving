@@ -25,6 +25,7 @@ Seit 20.07.2026 ist **`Fahrplan_2026.md`** (Repo-Root) die kanonische Quelle fü
 - `Pflichtenheft_Monitor_MVP.md` — Detaildokument Monitor **(RUHEND seit 20.07.2026, s. `Fahrplan_2026.md`)**
 - `DEPLOYMENT.md` — **Betriebshandbuch (neu im Arbeitsordner seit 24.07.2026)**: Cron-Zeitpläne und Fehlerbilder, Webhook-Aktivierung, Deployment Protection, dauerhafte Zusagen (keine Öffnungs-/Klick-Verfolgung, gedruckte Pfade), Anleitung zum Nachtragen von Tarifsätzen. **Niemals echte Werte** — nur Namen, Fundorte, Verfahren.
 - `B18_Partner-Portal_Ausbau.md` — **neu seit 27.07.2026**. Sitzungsstart-Dokument für Bauabschnitt B18: die sechs Teilschritte, Entscheidungen, offene Punkte. **Kanonisch für B18** — bei Widerspruch zu `Fahrplan_2026.md` oder einem Pflichtenheft gilt für B18-Fragen diese Datei. Repo-Pendant: `B18_Partner-Portal_Ausbau.md` (Repo-Root), identischer Name — wie `Fahrplan_2026.md` und diese Datei selbst KEIN Eintrag in der „Entsprechung im Repo"-Tabelle unten (die gilt nur für das `CLAUDE_*.md`-Suffix-Muster).
+- `Pflichtenheft_Zugangsplattform_MVP.md` — Detaildokument für das dritte, eigenständige Produkt Zugangsplattform (B20). Kanonisch für die fachliche Tiefe zu B20; für Reihenfolge und Bauabschnitts-Zuordnung bleibt `Fahrplan_2026.md` maßgeblich. Repo-Pendant: identischer Name, Repo-Root.
 
 ## Entsprechung im Repo (github.com/andi1180/peak-shaving)
 
@@ -37,10 +38,11 @@ Seit 20.07.2026 ist **`Fahrplan_2026.md`** (Repo-Root) die kanonische Quelle fü
 | `CLAUDE_Monitor.md` | `packages/tariff-monitor/CLAUDE.md` **(RUHEND)** |
 | `Pflichtenheft_Monitor_MVP.md` | `Pflichtenheft_Monitor_MVP.md` (Repo-Root) **(RUHEND)** |
 | `DEPLOYMENT.md` | `DEPLOYMENT.md` (Repo-Root) — **neu im Arbeitsordner seit 24.07.2026**, s. unten |
+| `CLAUDE_Zugangsplattform.md` | `apps/web/app/access/CLAUDE.md` |
 
 ## Regel
 
-**Hier im Projektordner:** jede `CLAUDE_*.md` trägt einen Bauabschnitt-Suffix im Namen (`_Website`, `_PEAKSHAVING`, `_Monitor`). Keine Datei heißt hier bare `CLAUDE.md`.
+**Hier im Projektordner:** jede `CLAUDE_*.md` trägt einen Bauabschnitt-Suffix im Namen (`_Website`, `_PEAKSHAVING`, `_Monitor`, `_Zugangsplattform`). Keine Datei heißt hier bare `CLAUDE.md`.
 
 **Im Repo:** jede Datei heißt exakt `CLAUDE.md`, eindeutig durch ihren Ordner (Repo-Root = Kalkulator, `apps/web/` = Website, künftiger Monitor-Ordner = Monitor).
 
