@@ -20,6 +20,7 @@ Seit 20.07.2026 ist **`Fahrplan_2026.md`** (Repo-Root) die kanonische Quelle fü
   **Alle Kapitel bewusst ohne Schema-Details** — geschrieben für die Beurteilung durch Fachfremde ohne Repo-Zugang; die Wahrheit über das Schema liegt in `supabase/migrations/` und `packages/db-tests/`.
 - `CLAUDE_PEAKSHAVING.md` — Arbeitsregeln Kalkulator
 - `Pflichtenheft_Kalkulator_MVP.md` — Detaildokument Kalkulator
+- `Pflichtenheft_Kalkulator_Delta_Tarifoptimierung.md` — **Delta** zum Kalkulator-Pflichtenheft, kein Ersatz (Bauabschnitt **B21**, Tarif- & Ladeoptimierung). Der zweite Ersparnis-Hebel neben Peak Shaving: optimaler Stromtarif und optimales Ladeverhalten, simuliert gegen echte historische Marktpreise. Wer daraus baut, liest **zuerst** `Pflichtenheft_Kalkulator_MVP.md`, **dann** dieses Delta. Alles, was das Delta nicht erwähnt, bleibt unverändert gültig.
 - `DESIGN.md` — Design-Tokens Kalkulator
 - `CLAUDE_Monitor.md` — Arbeitsregeln Monitor **(RUHEND seit 20.07.2026, s. `Fahrplan_2026.md`)**
 - `Pflichtenheft_Monitor_MVP.md` — Detaildokument Monitor **(RUHEND seit 20.07.2026, s. `Fahrplan_2026.md`)**
@@ -35,6 +36,7 @@ Seit 20.07.2026 ist **`Fahrplan_2026.md`** (Repo-Root) die kanonische Quelle fü
 | `Pflichtenheft_Website_Coolin.md` | `apps/web/Pflichtenheft_Website_Coolin.md` |
 | `CLAUDE_PEAKSHAVING.md` | `CLAUDE.md` (Repo-Root) |
 | `Pflichtenheft_Kalkulator_MVP.md` | `Pflichtenheft_Kalkulator_MVP.md` (Repo-Root) |
+| `Pflichtenheft_Kalkulator_Delta_Tarifoptimierung.md` | `Pflichtenheft_Kalkulator_Delta_Tarifoptimierung.md` (Repo-Root) |
 | `CLAUDE_Monitor.md` | `packages/tariff-monitor/CLAUDE.md` **(RUHEND)** |
 | `Pflichtenheft_Monitor_MVP.md` | `Pflichtenheft_Monitor_MVP.md` (Repo-Root) **(RUHEND)** |
 | `DEPLOYMENT.md` | `DEPLOYMENT.md` (Repo-Root) — **neu im Arbeitsordner seit 24.07.2026**, s. unten |

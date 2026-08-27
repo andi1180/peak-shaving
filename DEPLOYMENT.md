@@ -513,6 +513,19 @@ Signing Secret, Prüfschritt).
 
 ## 3a. Tarifsätze nachtragen (B11) — Kalkulator, KEINE Datenbank, KEINE Migration
 
+> **⚠ Querverweis seit B21-1 (27.08.2026): dieser Abschnitt ist NICHT MEHR die einzige Wahrheit über
+> Netzbetreiber-Tarifsätze.** Mit B21-1 existieren die Datenbank-Tabellen `public.grid_tariffs` und
+> `public.grid_tariff_rate_windows` (s. §3b), die **perspektivisch denselben fachlichen Gegenstand
+> abdecken**: Grundpreis, Netzebene, Leistungsmessungs-Variante, Gültigkeitszeitraum.
+>
+> **B11 bleibt bis auf Weiteres unverändert in Kraft, und dieser Abschnitt gilt weiter.** Die
+> Tabellen sind heute LEER und haben keinen Schreibweg; der Kalkulator liest ausschliesslich das
+> Codemodul. Ob und wann `grid_tariffs` das Codemodul ablöst, ist eine **noch nicht getroffene
+> Entscheidung** — sie fällt ausdrücklich nicht nebenbei beim Nachtragen eines Satzes. Bis dahin
+> gilt: **hier eintragen, nicht in die Datenbank.** Wer es umgekehrt tut, ändert nichts am Verhalten
+> des Rechners und glaubt trotzdem, einen Satz gepflegt zu haben.
+
+
 > **Diese Anleitung wird im November/Dezember 2026 unter Zeitdruck gelesen, wenn die
 > Tarifverordnung (SNE-T-V) erscheint. Deshalb knapp und schrittweise.**
 
@@ -571,6 +584,76 @@ Vorgabewert ist schlimmer als ein fehlender — er sieht aus wie eine Aussage.
   Importe und wird rot, sobald jemand es doch tut.
 - **Keine Werte in archivierten Analysen nachziehen.** Die Preise stehen dort denormalisiert und
   bleiben, wie sie waren (B14-1, Regel (b)); ein neuer Stand ändert nur künftige Rechnungen.
+
+---
+
+## 3b. Referenzdaten-Tabellen im `public`-Schema (B21-1) — Tarifzeilen und Spotpreise
+
+Seit **27.08.2026** stehen drei Tabellen im `public`-Schema. Sie tragen **öffentliche Referenzdaten**
+— veröffentlichte Preisblätter der Netzbetreiber und Börsen-Spotpreise —, **keinen Personenbezug**:
+
+| Tabelle | Inhalt |
+|---|---|
+| `public.grid_tariffs` | eine effektiv datierte Tarifzeile je Netzbetreiber / Netzebene / Leistungsmessungs-Variante / Stand |
+| `public.grid_tariff_rate_windows` | beliebig viele Zeitfenster je Tarifzeile (`normal`, `snap`, künftig `winter`) |
+| `public.spot_prices` | historische Marktpreise je Zeitscheibe (Quelle aWATTar), Unique auf `(provider, ts_start)` |
+
+Fachliche Tiefe: `Pflichtenheft_Kalkulator_Delta_Tarifoptimierung.md` (Delta 5, 6, 7). Migration:
+`supabase/migrations/20260827120000_create_grid_tariffs_and_spot_prices.sql`.
+
+### Im Dashboard ist NICHTS zu tun ✅
+
+Anders als seinerzeit bei `monitor` (§2a): **`public` ist über die Data API bereits per Default
+exponiert.** Die „Exposed schemas"-Liste bleibt unverändert `public, graphql_public, monitor`.
+
+**Stand Cloud (verifiziert 27.08.2026):** Migration `20260827120000` angewandt, `supabase migration
+list --linked` zeigt lokal = Cloud. Gegen die Cloud gemessen: `anon` und `authenticated` lesen alle
+drei Tabellen (leer, kein Fehler), alle sechs Schreibversuche (2 Rollen × 3 Tabellen) scheitern mit
+**42501 `permission denied for table`** — auf Grant-Ebene, nicht an der RLS-Policy. Die Tabellen
+sind leer und sollen es bis B21-2 bleiben.
+
+### Das Rechte-Muster — und die Falle, die es nötig macht ⚠️
+
+Beide Schichten sind gesetzt, jede für sich reicht gegen einen Schreibzugriff:
+
+- **RLS aktiv, ausschliesslich eine SELECT-Policy** `to anon, authenticated using (true)`. Es gibt
+  keinen INSERT/UPDATE/DELETE-Pfad, auch nicht als Policy.
+- **`revoke all … from public, anon, authenticated, service_role`, danach gezielt `grant select
+  to anon, authenticated`.** `service_role` bekommt bewusst **gar keinen** Grant — auch keinen
+  lesenden: es gibt heute keinen serverseitigen Verbraucher, und der Schreibweg (B21-2) entscheidet
+  in seinem eigenen PR, welche Rolle wie schreibt.
+
+> **⚠ Warum der `revoke` nicht weggelassen werden darf — gemessen, nicht abgeleitet.**
+> Supabase vergibt per ALTER DEFAULT PRIVILEGES auf **NEUE Tabellen im `public`-Schema** automatisch
+> **ALLE** Tabellenrechte an `anon`, `authenticated` und `service_role` — INSERT, UPDATE, DELETE und
+> TRUNCATE eingeschlossen. Nachgewiesen in einer zurückgerollten Transaktion gegen PostgreSQL 17.6:
+> ein blosses `create table public.…` liefert allen drei Rollen ungefragt
+> `DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE`.
+>
+> Für **Funktionen** ist diese Falle seit T4-2 in einem Dutzend Migrationen dokumentiert; für
+> **Tabellen** war sie bis B21-1 nie relevant, weil das Repo im `public`-Schema ausschliesslich
+> Funktionen anlegte. Das `monitor`-Muster (§2a, Migration `20260717174454`) ist deshalb **nicht
+> wortgleich übertragbar**: `monitor` steht nicht in `pg_default_acl`, dort genügte ein blosser
+> `grant select`.
+>
+> **Wer künftig eine Tabelle in `public` anlegt, nimmt den `revoke`-Block mit.** Ohne ihn entsteht
+> ein öffentlich beschreibbarer Datenbestand, und zwar lautlos: der Lesepfad funktioniert
+> unverändert, und keine Oberfläche zeigt einen Unterschied. Abgesichert im DB-Gate
+> (`packages/db-tests/src/grid-tariffs-schema.test.ts`) — dort wird die Rechtefläche gegen
+> `information_schema.role_table_grants` **gemessen**. Ein blosser Schreibversuch genügt dafür
+> nicht: RLS weist ihn auch dann mit 42501 ab, wenn der Grant fälschlich vorhanden ist.
+
+### Pflege: es gibt heute KEINEN Schreibweg
+
+Die drei Tabellen sind mit B21-1 **leer** und bleiben es. Kein Wrapper, kein Cron-Endpunkt, kein
+Admin-UI, kein Schreib-Grant. Der tägliche aWATTar-Abruf (Muster wie die Cron-Jobs in §1g) und das
+gemeinsame Admin-Pflege-UI für Netzbetreiber- und Stromanbieter-Tarife kommen mit **B21-2**.
+
+**Zeilen werden nie in-place überschrieben.** Ein neues Preisblatt ist eine **neue Zeile** mit
+eigenem `valid_from`; am Vorgänger wird `valid_until` gesetzt. Eine 2026 archivierte Analyse (§6,
+B14) muss auch 2028 noch sagen können, welcher Stand ihr zugrunde lag. Nebeneffekt desselben
+Entwurfs: Existiert für einen Zeitraum keine Zeile, gibt es automatisch keine Berechnungsgrundlage —
+genau die Verweigerung, die §3a heute im Code abbildet, ohne eine Zeile Sonderfall-Code.
 
 ---
 

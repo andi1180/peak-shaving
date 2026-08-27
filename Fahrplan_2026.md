@@ -40,7 +40,7 @@ Reaktivierbar, falls sich ein Bedarf jenseits des E-Control-Angebots zeigt (z. B
 
 ---
 
-## Bauabschnitte (neue Nummerierung B0–B19)
+## Bauabschnitte (neue Nummerierung B0–B21)
 
 ### Stand je Bauabschnitt
 
@@ -69,6 +69,7 @@ Mit inzwischen zwölf gebauten Teilabschnitten ist aus der Beschreibung unten so
 | **B18** Partner-Portal-Ausbau | **gebaut** | alle sechs Teilschritte fertig, Details: B18_Partner-Portal_Ausbau.md |
 | **B19** Admin-Leaderfassung und Listen-Neugestaltung | **gebaut** | Admin-Leaderfassung ohne Mailversand, formlose Fachbetrieb-Erwähnung getrennt von platform.partners, Thema-Feld, neu gestaltete Leads-Liste — Details: B18_Partner-Portal_Ausbau.md (dort mitgeführt, kein eigenes Dokument) |
 | **B20** Zugangsplattform (Wechselrichter-Fernzugriff) | **offen** | eigene Bau-Session, eigene Subdomain `access.coolin.at` in `apps/web` — kanonische Quelle Pflichtenheft_Zugangsplattform_MVP.md, nicht diese Datei. Baustein 1 (Subdomain-Routing) abgeschlossen. |
+| **B21** Tarif- & Ladeoptimierung | **teilweise gebaut** | Schema (dieser Schritt) — Schreibweg/Oberfläche offen. Kanonische Quelle für die fachliche Tiefe: Pflichtenheft_Kalkulator_Delta_Tarifoptimierung.md |
 
 ### Die B-Nummern sind Namen, keine Positionen
 
@@ -179,6 +180,20 @@ Grund: Die Bezeichner sind außerhalb dieses Dokuments in Gebrauch — in bereit
 - **B18** Partner-Portal-Ausbau — kanonische Quelle für Stand, Teilschritte und offene Punkte ist `B18_Partner-Portal_Ausbau.md`, nicht diese Datei.
 
 - **B20** Zugangsplattform (Wechselrichter-Fernzugriff für PV-Installateure) — eigenständiges drittes Produkt, eigene Bau-Session, getrennt von Website-, Kalkulator- und Partner-Portal-Session. Kanonische Quelle für Stand, Bausteine und offene Punkte ist `Pflichtenheft_Zugangsplattform_MVP.md`, nicht diese Datei.
+
+- **B21** Tarif- & Ladeoptimierung — der Kalkulator bekommt einen **zweiten, unabhängigen Ersparnis-Hebel** neben Peak Shaving: Ersparnis durch optimalen Stromtarif und optimales Ladeverhalten, simuliert gegen **echte historische Marktpreise** (aWATTar), in Kombination mit der passenden Batterie. Damit wird Peak Shaving optional statt tragende Säule — ein Kunde ohne Leistungspreis-Komponente (Privathaushalt, Netzebene ohne Leistungsmessung) bekommt trotzdem eine vollständige, ehrliche Analyse. Kanonische Quelle für die fachliche Tiefe ist `Pflichtenheft_Kalkulator_Delta_Tarifoptimierung.md`; für Reihenfolge und Umfang bleibt diese Datei maßgeblich.
+
+  **Drei Teil-PRs, in dieser Reihenfolge: Schema → Schreibweg → Oberfläche.** Dieselbe Praxis wie bei B1, B14 und B16.
+
+  **ERLEDIGT: B21-1 (27.08.2026, NUR SCHEMA).** Migration `supabase/migrations/20260827120000_create_grid_tariffs_and_spot_prices.sql`: die drei Referenzdaten-Tabellen `public.grid_tariffs` (effektiv datierte Netzbetreiber-Tarifzeilen), `public.grid_tariff_rate_windows` (beliebig viele Zeitfenster je Tarifzeile — SNAP heute, Winter sobald veröffentlicht, ohne dass sich `grid_tariffs` je wieder ändert) und `public.spot_prices` (historische Marktpreise, Unique auf `(provider, ts_start)` für sicheres Upsert). Dazu zwei kleine `packages/shared`-Erweiterungen: der Typ `PriceBasis` (`net | gross`, Delta 6) und der vierte `LoadProfile.source`-Wert `standard_profile` (Delta 8). 26 neue Tests im DB-Gate (617 → **643**). **Kein Schreibweg, kein Cron, kein Admin-UI, keine Zeile Inhalt, keine Engine-Änderung, keine UI-Änderung** — das sind B21-2 und B21-3.
+
+  **Die Entscheidung, die B21-1 trägt: `public` mit direktem RLS-Select, NICHT das RPC-Wrapper-Muster.** `platform` trägt personenbezogene Daten und ist deshalb nicht über die Data API exponiert; erreichbar nur über SECURITY-DEFINER-Wrapper. Diese drei Tabellen sind das Gegenteil — veröffentlichte Preisblätter und Börsenpreise, kein Personenbezug, für jeden lesbar. Sie folgen deshalb dem einzigen bereits bestehenden anon-lesbaren Muster im Repo (`monitor.tariff_snapshots`). Der Konsument ist `apps/website` (der Kalkulator), und der hat heute keinerlei Supabase-Anbindung — ein Wrapper hätte dort denselben Client gebraucht wie ein Select und nichts geschützt, was hier zu schützen wäre.
+
+  **⚠ Gemessen, nicht angenommen: neue Tabellen im `public`-Schema sind NICHT von selbst nur-lesbar.** Es sind die ersten Tabellen, die dieses Repo dort anlegt (bisher stehen dort ausschliesslich Funktionen). Supabase vergibt per ALTER DEFAULT PRIVILEGES auf NEUE public-Tabellen automatisch ALLE Rechte an `anon`, `authenticated` und `service_role` — INSERT/UPDATE/DELETE/TRUNCATE eingeschlossen. In einer zurückgerollten Transaktion gegen PostgreSQL 17.6 nachgewiesen. „Kein Schreib-Grant" ist deshalb nicht erfüllt, indem man keinen schreibt: es verlangt ein ausdrückliches `revoke all`. Das DB-Gate misst die Rechtefläche, statt sie aus der Migration abzulesen.
+
+  **⚠ `unique nulls not distinct`, nicht das gewöhnliche `unique`.** Bei Netzebene 3–6 ist `metering_variant` null, und ein gewöhnliches `unique` wertet NULL nie als gleich zu NULL — es liesse ausgerechnet für den heute belegten Regelfall beliebig viele Duplikate derselben Tarifkombination zu, und welcher Leistungspreis in eine Analyse einginge, entschiede die Sortierreihenfolge einer Abfrage. Beide Richtungen sind gemessen (Duplikat abgewiesen, neuer Stand erlaubt).
+
+  **Verhältnis zu B11 ist eine OFFENE Entscheidung, keine Ablöse.** `packages/shared/src/tariff-catalog.ts` (Codemodul, `DEPLOYMENT.md` §3a) deckt perspektivisch denselben fachlichen Gegenstand ab wie `grid_tariffs`. B11 bleibt unverändert in Kraft, bis eine ausdrückliche Ablöse-Entscheidung fällt; B21-1 fasst die Datei mit 0 Zeilen Diff nicht an.
 
 ---
 

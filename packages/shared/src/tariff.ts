@@ -12,6 +12,21 @@ export const billingModelSchema = z.enum([
 ])
 export type BillingModel = z.infer<typeof billingModelSchema>
 
+/**
+ * Preisbasis einer Preisquelle (Delta 6 „Brutto/Netto") — Pflichtangabe an JEDER Quelle:
+ * Netzbetreiber-Tarifzeile, Stromanbieter-Tarif, Spotpreis-Reihe.
+ *
+ * Der Grund ist ein realer Widerspruch zwischen den eigenen Quellen: Netzentgelte stehen im
+ * Tarifblatt exklusive Steuern, aWATTar liefert netto, ein verglichener Endkundentarif dagegen
+ * brutto. Ohne die Angabe AN DER QUELLE ist jeder Vergleich zweier Zahlen stillschweigend um 20 %
+ * falsch — und zwar in einer Richtung, die niemandem auffällt, weil beide Zahlen plausibel aussehen.
+ *
+ * Gerechnet wird durchgängig NETTO. Die Umsatzsteuer kommt ausschliesslich ganz am Schluss für die
+ * brutto-orientierte Ergebnisdarstellung von Privatkunden drauf, nie in der Zwischenrechnung.
+ */
+export const priceBasisSchema = z.enum(['net', 'gross'])
+export type PriceBasis = z.infer<typeof priceBasisSchema>
+
 /** Einfaches HT/NT-Fenster für tarifbewusstes Laden (§3.1, MVP). */
 export const timeOfUseWindowSchema = z.object({
   from: z.string(), // "HH:mm"
