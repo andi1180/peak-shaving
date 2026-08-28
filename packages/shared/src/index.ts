@@ -21,3 +21,7 @@ export * from './analysis-bundle'
 // App der Engine als Parameter hineinreicht. Abgesichert durch
 // `packages/engine/src/tariff/no-catalog-dependency.test.ts`.
 export * from './tariff-catalog'
+// Delta 15 (Regeln A und B): das Zeitfenster einer Analyse und seine Untergrenze. Steht hier und
+// nicht in `engine`, weil der Rechenkern mit dem Profil rechnet, das er bekommt — WELCHES Profil er
+// bekommen darf, entscheiden die Ränder (Upload-Schritt). Dieselbe Aufteilung wie bei `tariff-catalog`.
+export * from './analysis-window'

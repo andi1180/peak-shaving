@@ -460,6 +460,65 @@ Nicht-Stunden-Sprung**.
 
 ---
 
+## 1-Website. Vercel — Projekt `peak-shaving-website` (= `apps/website`, der Kalkulator)
+
+Bis B21-3a hatte dieses Projekt **überhaupt keine** eigene Umgebungsvariable: der Rechner lief
+vollständig im Browser, ohne Datenbank, ohne Netzaufruf. Environment Variables liegen unter
+**Vercel → Project `peak-shaving-website` → Settings → Environment Variables** — ein ANDERES Projekt
+als das aus §1 (`peak-shaving-web`). Wer die Werte dort einträgt, hat nichts erreicht.
+
+### 1-Website-a. Supabase-Lesezugang für Tarif- und Preisdaten (B21-3a, **client-seitig**)
+
+| Variable | Scope | Wert-Herkunft (Dashboard-Feld) |
+|---|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | Production, Preview, Development | Project Settings → API → **Project URL** |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Production, Preview, Development | Project Settings → API Keys → **`anon` `public`** |
+
+Dasselbe Supabase-Projekt wie in §1a (eine Plattform, ein Projekt) — nur unter den **`NEXT_PUBLIC_`**-
+Namen, die das Root-`.env.example` seit jeher für genau diesen Fall reserviert.
+
+#### ⚠️ Warum hier `NEXT_PUBLIC_`, obwohl §1a das ausdrücklich verbietet
+
+Das ist kein Widerspruch, sondern der andere Fall. `apps/web` liest Supabase **ausschliesslich
+server-seitig**; ein nicht-präfixter Name kann dort strukturell nie ins Client-Bündel gelangen, und
+genau deshalb steht er dort so. `apps/website` ist das Gegenteil: der Rechner rechnet im Browser
+(Prinzip 4), die Abfrage läuft im Browser, und eine nicht-präfixte Variable wäre dort schlicht
+`undefined`. **Nicht die Namen aus §1a hier eintragen und nicht die Namen von hier dort** — beide
+Projekte lesen nur ihre eigenen.
+
+Der `anon`-Schlüssel ist öffentlich und für den Browser gedacht. Er schützt nichts; RLS tut es
+(§3b: die drei Tabellen tragen genau eine SELECT-Policy und für keine Rolle ein Schreibrecht).
+
+#### Fehlen sie, läuft der Rechner weiter
+
+Beide Variablen sind **optional**. Ohne sie bricht weder Build noch Start: die Datenschicht meldet
+`not_configured`, und die Peak-Shaving-Rechnung — die keine Marktpreise braucht — funktioniert
+unverändert. Das ist Absicht: ein lokaler Lauf ohne `.env.local` soll den Rechner nicht lahmlegen.
+**Was ohne sie NICHT geht, sobald B21-3b steht:** der aWATTar-Tarifvergleich.
+
+#### Was dabei den Browser verlässt — und was nicht ⚠️ FÜR DEN DATENSCHUTZHINWEIS
+
+Die Zusage aus Prinzip 4 bleibt: **Lastgang, Messwerte und Datei werden nicht hochgeladen.** Eine
+Abfrage trägt aber zwangsläufig ihre Parameter mit — gewählter Netzbetreiber, Netzebene und die
+**Zeitgrenzen des Lastgangs** (Delta 15 Regel A: das Abfragefenster IST der Lastgang). Aus „Juni 2025
+bis Juni 2026" folgt nichts über einen Verbrauch, aber es ist mehr als nichts. Die Alternative —
+die gesamte Preistabelle in den Browser laden — bedeutete rund 8.760 Zeilen je Analyse und liesse die
+Zeitgrenzen trotzdem nicht verschwinden. Der Schnitt ist bewusst so gesetzt; er gehört in den
+Datenschutzhinweis, nicht in eine Fussnote.
+
+#### Prüfen, ob es wirkt
+
+```bash
+# Sind die Referenzdaten für `anon` überhaupt lesbar? (ohne Anmeldung, gegen die Cloud)
+curl -s "https://<PROJECT_REF>.supabase.co/rest/v1/spot_prices?select=ts_start&limit=1" \
+  -H "apikey: <ANON_KEY>"
+```
+
+Antwortet das mit einer Zeile, stimmt der Zugang. Ein `42501` bedeutet, dass die B21-1-Grants fehlen
+(§3b), **nicht** dass die Variable falsch ist.
+
+---
+
 ## 2. Supabase-Dashboard-Einstellungen (nicht über Migrationen abgedeckt)
 
 Diese Einstellungen sind **PostgREST-/Auth-Projektkonfiguration**, kein DB-Schema — `supabase db push`

@@ -4,6 +4,12 @@ import { useState } from 'react'
 import { AlertTriangle, ArrowRight, ShieldCheck, XCircle } from 'lucide-react'
 import { parseLoadProfile } from 'engine'
 import type { ColumnMapping, Detection, Unit, ValueColumnInfo } from 'engine'
+import {
+  SPOT_PRICE_ANCHOR_DATE,
+  analysisWindow,
+  startsBeforeSpotPriceAnchor,
+  type LoadProfile,
+} from 'shared'
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
@@ -23,7 +29,12 @@ type ParseInput = {
    */
   bytes: Uint8Array
 }
-type Notice = { kind: 'warning' | 'error'; message: string }
+/**
+ * Eine Meldung im Upload-Schritt. `title` ist Teil der Meldung und nicht aus `kind` abgeleitet:
+ * ein abgelehnter ZEITRAUM (Delta 15, Regel B) ist kein Lesefehler — „Datei konnte nicht gelesen
+ * werden" wäre dort schlicht unwahr und schickte den Nutzer auf die Suche nach einem Formatproblem.
+ */
+type Notice = { kind: 'warning' | 'error'; title: string; message: string }
 // Aktiver Mehrspalten-Mapping-Fall (§3.2): der Nutzer bestätigt die Rollen, dann wird `input` mit den
 // gewählten Spalten erneut geparst. `input` bleibt erhalten, um genau diese Datei neu parsen zu können.
 type MappingState = {
@@ -46,6 +57,52 @@ async function readForParsing(file: File): Promise<ParseInput> {
   const bytes = new Uint8Array(buffer)
   const content = isXlsx ? buffer : new TextDecoder().decode(bytes)
   return { content, fileName: file.name, format: isXlsx ? 'xlsx' : 'csv', bytes }
+}
+
+/**
+ * Delta 15, Regel B — die Untergrenze des Kalkulators.
+ *
+ * Ein Lastgang, der VOR dem 1.1.2025 beginnt, wird hier abgelehnt: für diesen Zeitraum gibt es
+ * keine Marktpreise (`public.spot_prices`, Backfill-Anker aus B21-2a), und der Tarifvergleich würde
+ * später an der fehlenden Preiskurve scheitern — an einer Stelle, an der die Meldung niemandem mehr
+ * sagt, was zu tun ist. Ablehnen heisst deshalb: hier, mit dem konkreten Datum der Datei und dem
+ * konkreten frühesten zulässigen Datum.
+ *
+ * ── WO DIE PRÜFUNG SITZT, UND WARUM NICHT IM PARSER ────────────────────────────────────────────
+ * Im Upload-Schritt, nicht in `parseLoadProfile`. Der Parser ist die generische Lese-Fähigkeit der
+ * Engine; er liest eine Datei korrekt oder nicht. „Ab wann nehmen wir einen Lastgang an" ist dagegen
+ * eine Produktentscheidung, die sich mit dem Datenbestand ändert (wächst der Backfill nach hinten,
+ * wandert die Grenze mit). Im Parser stünde sie zwischen den Formaterkennungen und machte ausserdem
+ * vier grüne Engine-Testdateien rot, die bewusst mit 2023er-Fixtures rechnen — die Zahlen dort sind
+ * Regressionsgrundlage, kein Kundenfall. Delta 14 Punkt 8 hat genau diese Wahl offengelassen; sie
+ * ist hiermit getroffen.
+ *
+ * ── „VOR JEDEM PARSING" IST NICHT ERFÜLLBAR — und das ist keine Abkürzung ──────────────────────
+ * Der Beginn eines Lastgangs steht erst fest, NACHDEM die Datei gelesen wurde; davor gäbe es ihn
+ * nur über eine zweite, parallele Datumserkennung neben der des Parsers — also über eine zweite
+ * Wahrheit. Die Prüfung sitzt deshalb unmittelbar nach dem Parsen und VOR jeder Übernahme: kein
+ * `load`-State, kein Schritt 2, keine Rechnung. Der Nutzer sieht eine Ablehnung, keinen Teilzustand.
+ */
+function rejectIfBeforeAnchor(profile: LoadProfile, timezone: string): string | null {
+  const window = analysisWindow(profile)
+  if (!window || !startsBeforeSpotPriceAnchor(window, timezone)) return null
+
+  /*
+   * Beide Daten in der Zeitzone des Lastgangs formatiert, damit im Text dasselbe Datum steht, das
+   * in der Datei steht — und dasselbe, gegen das die Regel geprüft hat. Der Anker wird dafür als
+   * reines Datum (`T00:00` ortszeitlich) gelesen und NICHT als der UTC-Zeitpunkt: sonst nennte die
+   * Meldung in Wien den „1. Jänner 2025, 01:00" als Grenze und wäre um eine Stunde neben der Regel.
+   */
+  const fmt = new Intl.DateTimeFormat('de-AT', { dateStyle: 'long', timeZone: timezone })
+  const beginn = fmt.format(new Date(window.startIso))
+  const frühestens = fmt.format(new Date(`${SPOT_PRICE_ANCHOR_DATE}T12:00:00Z`))
+
+  return (
+    `Ihr Lastgang beginnt am ${beginn}. Für den Tarifvergleich stehen Börsen-Strompreise erst ` +
+    `ab ${frühestens} zur Verfügung — ältere Zeiträume lassen sich damit nicht ehrlich ` +
+    `nachrechnen. Bitte laden Sie einen Lastgang hoch, der am oder nach dem ${frühestens} ` +
+    `beginnt; ideal sind die letzten zwölf Monate.`
+  )
 }
 
 export function StepUpload({
@@ -72,6 +129,12 @@ export function StepUpload({
     const outcome = parseLoadProfile(input)
 
     if (outcome.ok) {
+      // Delta 15, Regel B — VOR jeder Übernahme in den Flow.
+      const tooOld = rejectIfBeforeAnchor(outcome.profile, outcome.detection.timezone)
+      if (tooOld) {
+        setNotice({ kind: 'error', title: 'Zeitraum nicht auswertbar', message: tooOld })
+        return
+      }
       setLoad({
         fileName: file.name,
         profile: outcome.profile,
@@ -92,10 +155,18 @@ export function StepUpload({
         })
         return
       }
-      setNotice({ kind: 'warning', message: outcome.issues.map((i) => i.message).join(' ') })
+      setNotice({
+        kind: 'warning',
+        title: 'Format unklar',
+        message: outcome.issues.map((i) => i.message).join(' '),
+      })
       return
     }
-    setNotice({ kind: 'error', message: outcome.error.message })
+    setNotice({
+      kind: 'error',
+      title: 'Datei konnte nicht gelesen werden',
+      message: outcome.error.message,
+    })
   }
 
   // Bestätigte Rollen → erneuter Parser-Aufruf mit den gewählten Spalten. 'ok' → normaler Pfad.
@@ -104,6 +175,13 @@ export function StepUpload({
     setMappingError(null)
     const outcome = parseLoadProfile(mapping.input, { columns, unit })
     if (outcome.ok) {
+      // Delta 15, Regel B — auch hier, und nicht nur im stillen Pfad: die bestätigte Zuordnung
+      // erzeugt denselben Lastgang, und eine Regel, die nur einen von zwei Wegen abdeckt, ist keine.
+      const tooOld = rejectIfBeforeAnchor(outcome.profile, outcome.detection.timezone)
+      if (tooOld) {
+        setMappingError(tooOld)
+        return
+      }
       onComplete({
         fileName: mapping.fileName,
         profile: outcome.profile,
@@ -160,9 +238,7 @@ export function StepUpload({
                 ) : (
                   <AlertTriangle className="h-4 w-4" />
                 )}
-                <AlertTitle>
-                  {notice.kind === 'error' ? 'Datei konnte nicht gelesen werden' : 'Format unklar'}
-                </AlertTitle>
+                <AlertTitle>{notice.title}</AlertTitle>
                 <AlertDescription>{notice.message}</AlertDescription>
               </Alert>
             )}

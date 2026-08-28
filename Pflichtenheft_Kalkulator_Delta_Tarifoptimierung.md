@@ -243,7 +243,15 @@ Kompakt, mit Fundstellen — bei Bedarf vor dem Bau gegen den dann aktuellen Cod
 | 5 | Winter-Tarif — noch nicht veröffentlicht | extern (Netzbetreiber) | Delta 5, Schema ist bereits vorbereitet |
 | 6 | Batterie-Degradation im ROI-Horizont nicht modelliert | — | vorerst nur Report-Hinweis, echte Lösung später |
 | 7 | Batteriekatalog-Daten von Martin | Martin | wie bisher, unabhängig von diesem Delta |
-| 8 | **Ort der Regel-B-Prüfung** (Delta 15): Parser (`parseLoadProfile`) oder Upload-Schritt (`apps/website`)? Und was geschieht mit den Demo-/Test-Lastgängen VOR dem Anker — s. den Messbefund in Delta 15 | Andreas/Claude Code, beim Bau-Prompt zu B21-3 | Bau von Regel B, nicht die Regel selbst |
+| 8 | ~~**Ort der Regel-B-Prüfung** (Delta 15): Parser (`parseLoadProfile`) oder Upload-Schritt (`apps/website`)? Und was geschieht mit den Demo-/Test-Lastgängen VOR dem Anker~~ **ERLEDIGT mit B21-3a (28.08.2026)** — s. Entscheidung unter der Tabelle | Andreas/Claude Code | — |
+
+**Zu Punkt 8 — die getroffene Entscheidung (B21-3a, 28.08.2026):**
+
+1. **Die Prüfung sitzt im UPLOAD-SCHRITT**, nicht im Parser: `apps/website/components/flow/step-upload.tsx`, Funktion `rejectIfBeforeAnchor`, aufgerufen in **beiden** Parse-Pfaden (stiller Pfad UND Mehrspalten-Bestätigung). Begründung: Der Parser beantwortet „lässt sich diese Datei lesen?", nicht „wollen wir mit diesem Zeitraum rechnen?" — Letzteres ist eine Produktentscheidung, die sich mit dem Datenbestand verschiebt. Zudem bleiben so die vier Engine-Testdateien mit 2023er-Fixtures unberührt.
+2. **`parseLoadProfile` trägt einen Kommentar**, der die Abwesenheit der Prüfung als Entscheidung ausweist und hierher verweist — damit niemand sie später als vergessene Zeile „nachträgt".
+3. **Die Demo-Lastgänge gibt es jetzt in ZWEI Jahrgängen.** Die Generatoren nehmen ein `--year`; Vorgabe ist 2025. Die 2023er-Dateien bleiben unverändert liegen (Regressionsgrundlage) und sind mit `--year 2023` byte-identisch reproduzierbar — nachgemessen. Einzelheiten und die Referenzwerte beider Jahrgänge: `dev-fixtures/README.md`.
+4. **⚠ Regel B prüft den KALENDERTAG in der Zeitzone des Lastgangs, nicht den UTC-Zeitpunkt.** Ein österreichischer Kalenderjahr-2025-Export beginnt `01.01.2025 00:00` Ortszeit = `2024-12-31T23:00:00Z`, also eine Stunde VOR dem Anker; gegen den Zeitpunkt geprüft würde ausgerechnet der Regelfall abgelehnt, für den die Regel gemacht ist. Delta 15 nennt die Grenze als Datum — genau so ist sie umgesetzt (`SPOT_PRICE_ANCHOR_DATE` in `packages/shared/src/analysis-window.ts`).
+5. **⚠ OFFEN GEBLIEBEN, für B21-3b:** Die erste Stunde eines solchen Lastgangs hat deshalb keinen Spotpreis (gemessen: `min(ts_start)` in der Cloud ist exakt `2025-01-01T00:00:00Z`). Das ist **keine** betriebliche Lücke im Sinn von Regel C, sondern eine systematische Kante des Ankers: sie trifft jeden Kalenderjahr-2025-Lastgang und schliesst sich nicht von selbst. Wer den Preisbereich verdrahtet, muss sie ausdrücklich behandeln — Backfill-Anker einen Tag vorziehen (dann wandern **beide** Zahlen) oder den Abfragebereich bewusst auf den Anker kappen. Sie als gewöhnliche Regel-C-Lücke durchlaufen zu lassen hiesse, für jeden solchen Lastgang den ganzen Vergleich als nicht berechenbar auszuweisen.
 
 ---
 
