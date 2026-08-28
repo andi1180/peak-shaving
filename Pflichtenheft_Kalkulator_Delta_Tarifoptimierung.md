@@ -145,7 +145,7 @@ public.grid_tariff_rate_windows (
 **API-Fakten, verifiziert (Websuche, nicht nur aus der separaten Studien-Session übernommen):** `start`/`end`-Parameter als Epoch-Millisekunden, beliebiger historischer Bereich abfragbar, kein Auth, kostenlos, 100 Abfragen/Tag Fair-Use. Preise kommen ohne USt. (bestätigt Delta 6).
 
 **Design:**
-1. **Einmaliger Backfill** der letzten ~12 Monate beim Erstaufsetzen.
+1. **Einmaliger Backfill** der letzten ~12 Monate beim Erstaufsetzen. **⚠ ÜBERHOLT — gebaut mit B21-2a, korrigiert am 28.08.2026:** der Backfill läuft ab einem **festen Anker `2025-01-01T00:00:00Z`** bis heute, nicht rollierend. Ein rollierendes Fenster liess eine Lücke, deren Lage vom Ausführungstag abhing (der Erstlauf begann bei 2025-08-27 und liess Jan–Aug 2025 leer). Der Anker ist zugleich die Untergrenze aus **Delta 15 Regel B**.
 2. **Täglicher Cron**, kurz nach 14 Uhr CET/CEST (UTC-Umrechnung beachten, DST-Wechsel — gleiche Sorgfalt wie bei den bestehenden Cron-Jobs B4-1/B4-2), holt den neu veröffentlichten Folgetag.
 3. **Tabelle**, Unique-Constraint auf `(provider, ts_start)` für sicheres Upsert:
    ```sql
@@ -161,7 +161,7 @@ public.grid_tariff_rate_windows (
    )
    ```
 4. **Cron-Endpunkt in `apps/web`** (`apps/web/app/api/cron/spot-price-sync` o. ä.) — etabliertes Muster seit B4-1/B4-2, auch wenn `apps/website` (Kalkulator) die Daten konsumiert.
-5. **Ein Bau, zwei Verbraucher:** dieselbe Tabelle bedient jetzt den Kalkulator (rollierendes 12-Monats-Fenster für die Simulation) und später — ohne Neubau — das Management-Produkt (morgige Preise ab 14 Uhr). Kein Vorgriff auf Management-Funktionalität, nur auf die Datenhaltung (konsistent mit der Entscheidung aus der Supabase-Diskussion: Referenzdaten ja, kundenspezifischer Betriebszustand nein).
+5. **Ein Bau, zwei Verbraucher:** dieselbe Tabelle bedient jetzt den Kalkulator (~~rollierendes 12-Monats-Fenster für die Simulation~~ — **präzisiert durch Delta 15 Regel A:** das Fenster ist der Zeitraum des hochgeladenen Lastgangs selbst) und später — ohne Neubau — das Management-Produkt (morgige Preise ab 14 Uhr). Kein Vorgriff auf Management-Funktionalität, nur auf die Datenhaltung (konsistent mit der Entscheidung aus der Supabase-Diskussion: Referenzdaten ja, kundenspezifischer Betriebszustand nein).
 
 **Anbieter-Offenheit:** `provider`-Spalte von Anfang an, auch wenn aktuell nur `awattar_at` befüllt wird — keine Auswahl-UI jetzt, nur der Tag, damit später keine Migration nötig ist.
 
@@ -243,6 +243,47 @@ Kompakt, mit Fundstellen — bei Bedarf vor dem Bau gegen den dann aktuellen Cod
 | 5 | Winter-Tarif — noch nicht veröffentlicht | extern (Netzbetreiber) | Delta 5, Schema ist bereits vorbereitet |
 | 6 | Batterie-Degradation im ROI-Horizont nicht modelliert | — | vorerst nur Report-Hinweis, echte Lösung später |
 | 7 | Batteriekatalog-Daten von Martin | Martin | wie bisher, unabhängig von diesem Delta |
+| 8 | **Ort der Regel-B-Prüfung** (Delta 15): Parser (`parseLoadProfile`) oder Upload-Schritt (`apps/website`)? Und was geschieht mit den Demo-/Test-Lastgängen VOR dem Anker — s. den Messbefund in Delta 15 | Andreas/Claude Code, beim Bau-Prompt zu B21-3 | Bau von Regel B, nicht die Regel selbst |
+
+---
+
+## Delta 15 — Zeitfenster-Regeln für den aWATTar-Vergleich (ergänzt Delta 4)
+
+**Entstehung:** aus der Bau-Nachbereitung von B21-2a/b, anhand eines konkreten Beispiels (Lastgang Juni–Juni) geklärt. Ergänzt Delta 4 um drei Regeln, die dort bisher unausgesprochen blieben. **Status: entschieden, nicht gebaut** — wie das übrige Delta.
+
+### Regel A — Zeitfenster-Symmetrie
+
+Der aWATTar-Vergleich (`dynamicPriceProfile`, Delta 4/7) verwendet für eine gegebene Analyse **exakt den Zeitraum, den der hochgeladene Lastgang selbst abdeckt** — dessen frühesten bis spätesten Zeitstempel, **nicht** ein festes Kalenderjahr und **nicht** „die letzten 12 Monate ab heute".
+
+Das erweitert **Prinzip 1** („Die Rechnung ist die Wahrheit") auf die Vergleichsseite: beide Seiten der Analyse — Ist-Kosten aus der Netzrechnung, Vergleichskosten aus aWATTar — beziehen sich auf **dieselbe echte Zeitscheibe**, ohne Versatz. Ein Lastgang Juni 2025 – Juni 2026 gegen Kalenderjahr-2025-Preise gerechnet wäre keine Ungenauigkeit, sondern eine Antwort auf eine andere Frage als die gestellte.
+
+**Präzisiert Delta 7 Punkt 5** („rollierendes 12-Monats-Fenster für die Simulation") — das Fenster der Simulation ist der Lastgang, nicht der Kalender. Der Backfill (Delta 7 Punkt 1) füllt weiterhin einen festen Bereich; das ist die Vorratshaltung, nicht das Analysefenster.
+
+### Regel B — Untergrenze
+
+Lastgänge, deren Beginn **vor dem 1.1.2025** liegt, werden **beim Upload abgelehnt** — mit einer konkreten Meldung, nicht erst später in der Pipeline an fehlenden Preisdaten scheiternd.
+
+**1.1.2025 ist der harte Anker:** der früheste Zeitpunkt, für den `public.spot_prices` geführt wird (Backfill-Nachtrag zu B21-2a, 28.08.2026 — `BACKFILL_ANCHOR_ISO` in `apps/web/scripts/backfill-spot-prices.mjs`, `DEPLOYMENT.md` §1k), und zugleich die bewusst gesetzte Untergrenze dessen, was der Kalkulator als Lastgang akzeptiert. Die beiden Zahlen sind dieselbe Zahl und dürfen nicht auseinanderlaufen.
+
+**⚠ Beim Bau mitzudenken — gemessen am 28.08.2026, nicht abgeleitet:** Der eigene Bestand liegt heute **unterhalb** dieses Ankers.
+
+| Datei / Fundstelle | Zeitraum | wird über `parseLoadProfile` gelesen |
+|---|---|---|
+| `dev-fixtures/demo-baeckerei-lastgang-2023.csv` | 01.01.2023 – 31.12.2023 | ja (`simulation/simulate.test.ts`, `recommendation/rank.test.ts`) |
+| `dev-fixtures/demo-baeckerei-mit-pv-netzlastgang-2023.csv` + `…-pv-erzeugung-2023.csv` | 01.01.2023 – 31.12.2023 | ja (`simulation/pv-chain.test.ts`) |
+| `packages/engine/src/fixtures/profiles.ts` (§3.11-Suite) | ab `2024-02-01T00:00:00Z` | nein — im Code konstruiert, kein Upload |
+
+Daraus folgt die offene Frage in Delta 14 Punkt 8, **nicht** eine hier vorweggenommene Antwort: Sitzt die Prüfung **im Parser**, werden vier bestehende, heute grüne Engine-Testdateien rot und der Demo-Lastgang des öffentlichen Rechners unbrauchbar. Sitzt sie **im Upload-Schritt** (`apps/website`), bleiben Engine und Tests unberührt, aber der Demo-Lastgang im Browser wird abgewiesen — er müsste dann auf einen Zeitraum ab 2025 neu erzeugt werden (die Generatoren in `dev-fixtures/` sind deterministisch, das ist Arbeit, keine Hürde). **Die Regel steht; wo sie greift und was mit den Fixtures geschieht, entscheidet der Bau-Prompt.**
+
+### Regel C — Lückenbehandlung
+
+Fehlen für einen Teil des angeforderten Zeitraums Preisdaten in `spot_prices` (ein verpasster Cron-Tag, eine künftige Störung), wird **nicht interpoliert und nicht übersprungen**. Der aWATTar-Vergleichsteil der betroffenen Analyse wird **ausdrücklich als nicht berechenbar gekennzeichnet**, nicht mit einer still unvollständigen Zahl beantwortet.
+
+Dieselbe Haltung wie bei **Netzebene 7** (B11: verweigert die Berechnung, statt vor der Tarifverordnung zu schätzen) — hier auf **betriebliche** Datenlücken übertragen, nicht nur auf regulatorische. Die Begründung ist in beiden Fällen dieselbe: eine zu niedrig ausgewiesene Vergleichszahl fällt niemandem als Fehler auf, sondern als Ergebnis.
+
+### Zwei Fehlerarten, zwei Meldungen — nicht derselbe Codepfad
+
+**Regel B prüft eine feste Grenze** (ein Datum, vor dem grundsätzlich nichts geführt wird), **Regel C eine betriebliche Unvollständigkeit** (eine Lücke innerhalb eines an sich gültigen Zeitraums). Sie sind verschiedene Zustände mit verschiedenen Konsequenzen: B ist dauerhaft und liegt beim Nutzer (anderer Lastgang), C ist vorübergehend und liegt bei uns (der nächste Sync schliesst sie). In einen gemeinsamen „Preisdaten fehlen"-Pfad zusammengelegt, bekäme der Nutzer für einen behebbaren Betriebszustand die Meldung einer dauerhaften Ablehnung — und niemand sähe an der Meldung, dass ein Cron stehengeblieben ist.
 
 ---
 
