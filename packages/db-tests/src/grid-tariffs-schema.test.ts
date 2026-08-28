@@ -49,24 +49,25 @@ const TABLES = ['grid_tariffs', 'grid_tariff_rate_windows', 'spot_prices'] as co
 const WRITE_PRIVILEGES = ['INSERT', 'UPDATE', 'DELETE', 'TRUNCATE'] as const
 
 /**
- * Die Tabellen, die für ALLE drei Client-Rollen verschlossen bleiben.
+ * Die Rollen, die auf ALLEN drei Tabellen dauerhaft nur LESEN dürfen — und das ist die Regel, die
+ * diese Datei absichert.
  *
- * B21-1 hat alle drei so angelegt. B21-2a (Migration 20260827160000) öffnet `spot_prices` gezielt
- * für `service_role` — der tägliche aWATTar-Abruf schreibt dorthin, und das Upsert braucht dafür
- * INSERT, UPDATE und SELECT. Die beiden Tarif-Tabellen bleiben unangetastet: ihr Schreibweg ist das
- * Admin-Pflege-UI und damit ein eigener PR.
+ * ⚠ B21-1 hatte alle drei Tabellen für ALLE drei Client-Rollen verschlossen; diese Datei prüfte das
+ * entsprechend rollenübergreifend. Beides ist inzwischen überholt, und zwar in zwei Schritten:
+ *   B21-2a öffnet `spot_prices` für `service_role` (INSERT/SELECT/UPDATE — der tägliche
+ *          aWATTar-Abruf; gemessen in `spot-prices-write-access.test.ts`).
+ *   B21-2b öffnet `grid_tariffs` (INSERT/SELECT/UPDATE) und `grid_tariff_rate_windows` (nur INSERT)
+ *          für `service_role` — der Admin-Pflegeweg; gemessen in `grid-tariff-write-path.test.ts`.
  *
- * Die beiden Grant-Prüfungen laufen deshalb nur noch über diese Teilmenge — nicht, weil die Regel
- * für `spot_prices` entfallen wäre, sondern weil sie dort jetzt eine ANDERE ist und in
- * `spot-prices-write-access.test.ts` ausdrücklich und vollständig gemessen wird (exakt
- * `INSERT,SELECT,UPDATE` für `service_role`, weiterhin nur `SELECT` für `anon`/`authenticated`,
- * weiterhin kein DELETE für irgendwen). Diese Liste hier zu kürzen, ohne sie dort zu ersetzen, wäre
- * ein stiller Verlust der Absicherung.
+ * Für `service_role` gibt es damit keine gemeinsame Aussage mehr; ihre Rechtefläche ist je Tabelle
+ * eine andere und wird je Tabelle vollständig in der Datei ihres Schreibwegs gemessen. Was
+ * ausnahmslos für alle drei gilt und hier bleibt: `anon` und `authenticated` dürfen NUR lesen.
  *
- * Alle übrigen Prüfungen dieser Datei — RLS aktiv, ausschliesslich eine SELECT-Policy, Lesbarkeit
- * für anon/authenticated, Abweisung ihrer Schreibversuche — gelten unverändert für alle drei.
+ * Die Prüfungen laufen deshalb weiterhin über ALLE DREI Tabellen — nur über zwei Rollen statt drei.
+ * Eine gekürzte TABELLEN-Liste wäre der stille Verlust gewesen, vor dem der B21-2a-Kommentar an
+ * dieser Stelle gewarnt hat.
  */
-const WRITE_CLOSED_TABLES = ['grid_tariffs', 'grid_tariff_rate_windows'] as const
+const READ_ONLY_ROLES = ['anon', 'authenticated'] as const
 
 /** Ein vollständiger, gültiger INSERT je Tabelle — der Schreibversuch soll an RECHTEN scheitern. */
 const INSERT_SQL: Record<(typeof TABLES)[number], string> = {
@@ -155,36 +156,35 @@ describe('B21-1 — Rechtefläche: KEIN Schreib-Grant für irgendeine Rolle', ()
     })
   }
 
-  // Die zwei Grant-Prüfungen laufen nur über die Tabellen, die verschlossen BLEIBEN — s. die
-  // Begründung an `WRITE_CLOSED_TABLES`. Für `spot_prices` misst `spot-prices-write-access.test.ts`
-  // die neue Rechtefläche vollständig; RLS und Policy oben gelten weiterhin für alle drei.
-  for (const table of WRITE_CLOSED_TABLES) {
-    it(`public.${table} vergibt an keine Client-Rolle INSERT/UPDATE/DELETE/TRUNCATE`, async () => {
+  // Die zwei Grant-Prüfungen laufen über ALLE drei Tabellen, aber nur über die Rollen, die dauerhaft
+  // nur lesen dürfen — s. die Begründung an `READ_ONLY_ROLES`. Die Rechtefläche von `service_role`
+  // ist je Tabelle eine andere und wird in der Datei ihres jeweiligen Schreibwegs vollständig
+  // gemessen (`spot-prices-write-access.test.ts`, `grid-tariff-write-path.test.ts`).
+  for (const table of TABLES) {
+    it(`public.${table} vergibt an anon und authenticated kein INSERT/UPDATE/DELETE/TRUNCATE`, async () => {
       const rows = await sql<{ grantee: string; privilege_type: string }>(
         `select grantee, privilege_type
            from information_schema.role_table_grants
           where table_schema = 'public' and table_name = $1
             and privilege_type = any($2::text[])
+            and grantee = any($3::text[])
           order by grantee, privilege_type`,
-        [table, WRITE_PRIVILEGES as unknown as string[]],
+        [table, WRITE_PRIVILEGES as unknown as string[], READ_ONLY_ROLES as unknown as string[]],
       )
-      // `postgres` ist der Eigentümer und behält seine Rechte — geprüft wird die Rechtefläche der
-      // drei Supabase-Client-Rollen. Ein Treffer hier heisst: die Migration hat das `revoke all`
-      // vergessen (oder eine spätere Migration hat es zurückgenommen).
-      const clientRoles = rows.filter((r) =>
-        ['anon', 'authenticated', 'service_role'].includes(r.grantee),
-      )
-      expect(clientRoles).toEqual([])
+      // `postgres` ist der Eigentümer und behält seine Rechte. Ein Treffer hier heisst: die Migration
+      // hat das `revoke all` vergessen (oder eine spätere Migration hat es zurückgenommen) — und ein
+      // blosser Schreibversuch finge das NICHT, weil RLS ihn ohnehin mit 42501 abweist.
+      expect(rows).toEqual([])
     })
 
-    it(`public.${table} gibt SELECT genau an anon und authenticated (service_role NICHT)`, async () => {
+    it(`public.${table} gibt SELECT an anon und authenticated`, async () => {
       const rows = await sql<{ grantee: string }>(
         `select grantee
            from information_schema.role_table_grants
           where table_schema = 'public' and table_name = $1 and privilege_type = 'SELECT'
-            and grantee in ('anon', 'authenticated', 'service_role')
+            and grantee = any($2::text[])
           order by grantee`,
-        [table],
+        [table, READ_ONLY_ROLES as unknown as string[]],
       )
       expect(rows.map((r) => r.grantee)).toEqual(['anon', 'authenticated'])
     })

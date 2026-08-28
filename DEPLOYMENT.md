@@ -761,6 +761,113 @@ genau die Verweigerung, die §3a heute im Code abbildet, ohne eine Zeile Sonderf
 
 ---
 
+## 3c. Netzbetreiber-Tarife pflegen (B21-2b) — Admin-UI, kein Dashboard-Eingriff
+
+Seit **28.08.2026** gibt es für `public.grid_tariffs` und `public.grid_tariff_rate_windows` einen
+Schreibweg: den Admin-Bereich unter **`/admin/netzbetreiber-tarife`**. Migration:
+`supabase/migrations/20260828090000_create_grid_tariff_write_path.sql`. Fachliche Tiefe:
+`Pflichtenheft_Kalkulator_Delta_Tarifoptimierung.md`, Delta 5 und Delta 10.
+
+### Im Dashboard ist NICHTS zu tun ✅
+
+Wie schon bei §3b: `public` ist über die Data API bereits per Default exponiert, die
+„Exposed schemas"-Liste bleibt unverändert. Es gibt auch keine neue Umgebungsvariable — der
+Schreibweg benutzt den bereits gesetzten `SUPABASE_SERVICE_ROLE_KEY` (§1d).
+
+### Was der Pflegeweg kann — und was ausdrücklich nicht
+
+| | |
+|---|---|
+| **Anlegen** | Tarifzeile + 1..n Zeitfenster, in EINEM Vorgang |
+| **Ablösen** | Der bisher offene Stand derselben Kombination wird automatisch auf `valid_from − 1 Tag` beendet |
+| **Bearbeiten** | ❌ gibt es nicht — weder im UI noch in der Datenbank |
+| **Löschen** | ❌ gibt es nicht — kein `delete`-Grant für irgendeine Rolle |
+| **Rückwirkend korrigieren** | ❌ bewusst nicht: ein neuer Stand muss NACH dem Beginn des offenen liegen |
+
+Eine rückwirkende Korrektur eines bereits gerechneten Zeitraums bleibt damit ein **seltener Eingriff
+von Hand** (SQL-Editor im Dashboard) und ist kein Knopf. Der Grund ist derselbe wie beim Append-only
+der Analyse-Ablage (§6): Sie ändert nachträglich, was einem Kunden gegenüber bereits gerechnet wurde.
+
+### Die Rechtefläche — gemessen, nicht abgeleitet ⚠️
+
+`service_role` bekommt **je Tabelle verschieden viel**, und zwar exakt so viel, wie der Schreibweg
+tatsächlich braucht:
+
+| Tabelle | `anon` / `authenticated` | `service_role` |
+|---|---|---|
+| `public.grid_tariffs` | `SELECT` | `INSERT, SELECT, UPDATE` |
+| `public.grid_tariff_rate_windows` | `SELECT` | `INSERT` |
+
+> **⚠ Warum `grid_tariffs` SELECT braucht und `grid_tariff_rate_windows` nicht.**
+> Gegen den lokalen Stack (PostgreSQL 17.6) in zurückgerollten Transaktionen Stufe für Stufe
+> gemessen, indem `public.create_grid_tariff` unter `set local role service_role` mit einer bereits
+> offenen Vorgängerzeile **tatsächlich aufgerufen** wurde (nur so läuft der UPDATE-Zweig überhaupt an):
+>
+> | Grant-Stufe | Ergebnis des Aufrufs |
+> |---|---|
+> | kein Grant | 42501 `grid_tariffs` |
+> | `grid_tariffs`: insert | 42501 `grid_tariffs` |
+> | `grid_tariffs`: insert + select | 42501 `grid_tariffs` ← UPDATE fehlt |
+> | `grid_tariffs`: insert + update | 42501 `grid_tariffs` ← SELECT fehlt |
+> | `grid_tariffs`: insert + select + update | 42501 `grid_tariff_rate_windows` |
+> | + `rate_windows`: insert | **OK** |
+> | + `rate_windows`: insert + select + update | OK (kein Unterschied) |
+>
+> `grid_tariffs` braucht SELECT nicht für eine Leseabfrage der Anwendung, sondern weil die Funktion
+> die offene Zeile SUCHT und die neue mit `returning id` anlegt; UPDATE braucht sie fürs Schliessen
+> der Vorgängerin. Für die Zeitfenster genügt INSERT — die Funktion liest dort nichts, und der
+> Fremdschlüssel braucht zur Laufzeit **kein** `references`-Recht (die Prüfung läuft im systemeigenen
+> Constraint-Trigger).
+>
+> **Ein SELECT-Grant „vorsichtshalber" wäre hier kein harmloser Überschuss, sondern ein falscher
+> Beleg** — er behauptete, der Schreibweg lese diese Tabelle, und der nächste Umbau nähme das als
+> gegeben. Abgesichert im DB-Gate (`packages/db-tests/src/grid-tariff-write-path.test.ts`), das die
+> Rechtefläche EXAKT vergleicht.
+
+**Kein `DELETE` und kein `TRUNCATE` für irgendeine Rolle** — auch nicht für `service_role`, und auch
+nicht auf den Zeitfenstern (obwohl deren `on delete cascade` sie technisch mitnähme).
+
+### ⚠️ Die Autorisierung liegt hier im Anwendungscode, nicht in der Datenbank
+
+Das ist die **einzige** Stelle des Systems, an der das so ist, und sie muss offen dastehen:
+
+- Jeder andere Admin-Schreibweg ruft einen `admin_*`-Wrapper in `platform`, der `platform.is_admin()`
+  als erste Anweisung selbst prüft. Ein Fehler im Anwendungscode kann dort niemandem Schreibzugriff
+  verschaffen.
+- `public.create_grid_tariff` ist **SECURITY INVOKER** und läuft als `service_role` — die trägt kein
+  JWT, `auth.uid()` ist leer, es gibt in der Datenbank nichts zu prüfen.
+
+Die Zugangsentscheidung fällt deshalb in **`apps/web/lib/admin/grid-tariffs-actions.ts`**
+(`isCurrentUserAdmin()` als erste Anweisung, fail-closed) und zusätzlich im Layout des Admin-Bereichs.
+Die ESLint-Erlaubnisliste für den service_role-Client ist dafür um **genau diese eine Datei**
+erweitert (Muster `lib/auth/admin-api.ts`).
+
+Warum trotzdem so: B21-1 hat für diese Tabellen bewusst den **direkten** Tabellenzugriff statt des
+RPC-Wrapper-Musters gewählt (veröffentlichte Preisblätter, kein Personenbezug, `anon`-lesbar). Ein
+Schreib-Grant für `authenticated` wäre die Alternative gewesen — er gälte aber für **jedes**
+angemeldete Konto, nicht nur für Admins; einfangen liesse sich das nur mit einer RLS-Policy, die
+ihrerseits `platform.is_admin()` aufruft, also mit genau dem Wrapper-Muster, das B21-1 verworfen hat.
+
+**Stand Cloud (verifiziert 28.08.2026):** Migration `20260828090000` angewandt, `migration list
+--linked` zeigt lokal = Cloud. Gegen die Cloud gemessen: Rechtefläche exakt wie in der Tabelle oben;
+`public.create_grid_tariff` existiert **genau einmal**, ist **SECURITY INVOKER** (`prosecdef = false`)
+und hat EXECUTE **nur** für `service_role` (`anon`/`authenticated` je `false`, per
+`has_function_privilege` — kein Aufruf als Rolle ohne Grant, Arbeitsregel 5). Beide Tabellen weiterhin
+**leer**, `spot_prices` mit unverändert 8.759 Zeilen unberührt.
+
+### Offen: die Preisblätter selbst
+
+Die Tabellen sind weiterhin leer. Was fehlt, sind die **Zahlen** — sie kommen aus den Preisblättern
+der Netzbetreiber und, für Netzebene 7 ab 2027, aus der noch nicht erlassenen Tarifverordnung
+(SNE-T-V). Bis dahin gibt es für diese Zeiträume automatisch keine Berechnungsgrundlage; genau das
+ist der Nebeneffekt der Effektiv-Datierung und kein Mangel (§3b).
+
+**Stromanbieter-Tarife (`retail_tariffs`) sind NICHT Teil von B21-2b** — Delta 5 nennt beide Seiten
+gemeinsam, für diesen Bauabschnitt ist ausdrücklich entschieden, nur die Netzbetreiber-Seite zu bauen.
+Es gibt dafür weder Tabelle noch Wrapper noch UI.
+
+---
+
 ## 4. Anhang — DB-Verbindung für Tooling (DB-Gate gegen die Cloud, einmalig)
 
 Rein operativ, für den seltenen Fall, dass das DB-Gate (`packages/db-tests`) noch einmal gegen die Cloud
