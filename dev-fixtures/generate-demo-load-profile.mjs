@@ -4,17 +4,45 @@
 // siehe README.md in diesem Ordner. Deterministisch (fixer Seed): erneutes Ausführen
 // erzeugt exakt dieselbe Datei.
 //
-// Ausführen: node dev-fixtures/generate-demo-load-profile.mjs
+// Ausführen: node dev-fixtures/generate-demo-load-profile.mjs [--year 2025]
+//
+// ── DAS JAHR IST EIN PARAMETER (B21-3a, Delta 15 Regel B) ──────────────────────────────────────
+// Der Kalkulator lehnt seit B21-3a Lastgänge ab, die vor dem 1.1.2025 beginnen (davor gibt es keine
+// Marktpreise). Der 2023er-Demo-Lastgang wäre damit im Browser nicht mehr benutzbar — er BLEIBT
+// aber unverändert liegen, weil vier Engine-Testdateien seine Zahlen als Regressionsgrundlage
+// pinnen. Deshalb ein Parameter statt einer geänderten Konstante: die Vorgabe erzeugt die 2025er
+// Datei für den Handtest, `--year 2023` reproduziert die bestehende byte-identisch.
+//
+// ⚠ Die Aggregate der beiden Jahrgänge sind NICHT gleich, und das ist kein Fehler im Generator:
+// der Seed ist derselbe, also fällt je Slot-Index dieselbe Zufallszahl — aber der Wochentag zu
+// einem Slot-Index unterscheidet sich (1.1.2023 = Sonntag, 1.1.2025 = Mittwoch), und der
+// Tagesverlauf hängt am Wochentag (Sonntag geschlossen, Samstag verkürzt). Die konkreten Zahlen
+// beider Jahrgänge stehen in README.md.
 
 import { writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-const YEAR = 2023 // kein Schaltjahr → exakt 365 × 96 = 35.040 Viertelstunden-Slots
+// Vorgabe 2025 (Delta 15, Regel B). Nur Nicht-Schaltjahre ergeben exakt 365 × 96 = 35.040 Slots —
+// ein Schaltjahr würde stillschweigend 35.136 Slots liefern und jede gepinnte Zahl verschieben.
+const yearArg = process.argv.indexOf('--year')
+const YEAR = yearArg === -1 ? 2025 : Number(process.argv[yearArg + 1])
+if (!Number.isInteger(YEAR) || YEAR < 2000 || YEAR > 2100) {
+  console.error(`Ungültiges Jahr: ${process.argv[yearArg + 1]}`)
+  process.exit(1)
+}
+const isLeap = (YEAR % 4 === 0 && YEAR % 100 !== 0) || YEAR % 400 === 0
+if (isLeap) {
+  console.error(`${YEAR} ist ein Schaltjahr — der Generator erzeugt bewusst nur 365-Tage-Jahrgänge.`)
+  process.exit(1)
+}
 const SLOTS_PER_DAY = 96
 const DAYS = 365
 const STEP_MS = 15 * 60 * 1000
-const OUT_FILE = join(dirname(fileURLToPath(import.meta.url)), 'demo-baeckerei-lastgang-2023.csv')
+const OUT_FILE = join(
+  dirname(fileURLToPath(import.meta.url)),
+  `demo-baeckerei-lastgang-${YEAR}.csv`,
+)
 
 // Deterministischer PRNG (mulberry32) — reproduzierbare Ausgabe bei jedem Lauf.
 function mulberry32(seed) {
@@ -27,6 +55,8 @@ function mulberry32(seed) {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296
   }
 }
+// Der Seed bleibt fest und jahresUNABHÄNGIG: so ist der einzige Unterschied zwischen zwei
+// Jahrgängen der Kalender (Wochentage/Monate), nicht zusätzlich eine andere Zufallsreihe.
 const rand = mulberry32(20230101)
 
 function pad2(n) {

@@ -1,0 +1,122 @@
+import { readFileSync } from 'node:fs'
+import { describe, expect, it } from 'vitest'
+
+import {
+  SPOT_PRICE_ANCHOR_DATE,
+  SPOT_PRICE_ANCHOR_ISO,
+  analysisWindow,
+  startsBeforeSpotPriceAnchor,
+} from './analysis-window'
+import type { LoadProfile } from './load-profile'
+
+function profile(timestamps: string[]): LoadProfile {
+  return {
+    readings: timestamps.map((ts) => ({ ts, gridPowerKw: 1 })),
+    intervalMinutes: 15,
+    timezoneMeta: 'Europe/Vienna',
+    source: 'import_only',
+  }
+}
+
+describe('Delta 15, Regel A — das Fenster ist der Lastgang selbst', () => {
+  it('liefert frühesten und spätesten Zeitstempel', () => {
+    const w = analysisWindow(
+      profile(['2025-06-01T00:00:00.000Z', '2025-06-01T00:15:00.000Z', '2026-05-31T23:45:00.000Z']),
+    )
+    expect(w).toEqual({
+      startIso: '2025-06-01T00:00:00.000Z',
+      endIso: '2026-05-31T23:45:00.000Z',
+    })
+  })
+
+  it('findet die Grenzen auch bei UNSORTIERTEN Messwerten', () => {
+    // Der Parser sortiert — aber ein `standard_profile` (Delta 8) muss das nicht. Eine stillschweigende
+    // Sortierungs-Annahme wäre genau die Voraussetzung, die später niemand mehr prüft.
+    const w = analysisWindow(
+      profile([
+        '2025-08-15T12:00:00.000Z',
+        '2025-03-02T06:00:00.000Z',
+        '2025-12-31T23:45:00.000Z',
+        '2025-05-05T18:30:00.000Z',
+      ]),
+    )
+    expect(w?.startIso).toBe('2025-03-02T06:00:00.000Z')
+    expect(w?.endIso).toBe('2025-12-31T23:45:00.000Z')
+  })
+
+  it('liefert kein erfundenes Fenster für ein leeres Profil', () => {
+    expect(analysisWindow(profile([]))).toBeNull()
+  })
+})
+
+const VIENNA = 'Europe/Vienna'
+
+describe('Delta 15, Regel B — Untergrenze 1.1.2025', () => {
+  it('weist einen Lastgang vor dem Anker ab', () => {
+    const w = analysisWindow(profile(['2023-01-01T00:00:00.000Z', '2023-12-31T23:45:00.000Z']))!
+    expect(startsBeforeSpotPriceAnchor(w, VIENNA)).toBe(true)
+  })
+
+  it('lässt einen Lastgang GENAU auf dem Anker durch', () => {
+    const w = analysisWindow(profile([SPOT_PRICE_ANCHOR_ISO, '2025-12-31T23:45:00.000Z']))!
+    expect(startsBeforeSpotPriceAnchor(w, VIENNA)).toBe(false)
+  })
+
+  /*
+   * ⚠ DER FALL, DER DIE REGEL DEFINIERT — an einem echten Netzbetreiber-Export gemessen.
+   * Ein österreichischer Kalenderjahr-2025-Lastgang beginnt mit `01.01.2025 00:00` ORTSZEIT; in UTC
+   * ist das `2024-12-31T23:00:00Z`, eine Stunde VOR dem Anker-Zeitpunkt. Gegen den Zeitpunkt geprüft
+   * würde ausgerechnet der Regelfall abgelehnt, für den die Regel gemacht ist.
+   */
+  it('lässt einen Lastgang durch, der ORTSZEIT am 1.1.2025 beginnt (UTC eine Stunde davor)', () => {
+    const w = analysisWindow(profile(['2024-12-31T23:00:00.000Z', '2025-12-31T22:45:00.000Z']))!
+    expect(w.startIso < SPOT_PRICE_ANCHOR_ISO).toBe(true) // in UTC VOR dem Anker …
+    expect(startsBeforeSpotPriceAnchor(w, VIENNA)).toBe(false) // … ortszeitlich aber am Anker-Tag
+  })
+
+  it('weist den Tag DAVOR ab (31.12.2024 Ortszeit)', () => {
+    const w = analysisWindow(profile(['2024-12-30T23:00:00.000Z', '2025-12-31T22:45:00.000Z']))!
+    expect(startsBeforeSpotPriceAnchor(w, VIENNA)).toBe(true)
+  })
+
+  it('rechnet die Zeitzone wirklich um, statt UTC zu unterstellen', () => {
+    // Derselbe Zeitpunkt, zwei Zeitzonen: in Wien ist es bereits der 1.1., in Los Angeles noch der
+    // 31.12. Ein Test mit nur einer Zeitzone bliebe auch dann grün, wenn `timezone` ignoriert würde.
+    const w = analysisWindow(profile(['2024-12-31T23:30:00.000Z', '2025-12-31T22:45:00.000Z']))!
+    expect(startsBeforeSpotPriceAnchor(w, VIENNA)).toBe(false)
+    expect(startsBeforeSpotPriceAnchor(w, 'America/Los_Angeles')).toBe(true)
+  })
+
+  it('entscheidet am ANFANG, nicht am Ende', () => {
+    // Ein Lastgang, der vor dem Anker beginnt und weit danach endet, ist trotzdem abzulehnen —
+    // der Vergleich braucht Preise für den GANZEN Zeitraum (Regel A), nicht für einen Teil davon.
+    const w = analysisWindow(profile(['2024-06-01T00:00:00.000Z', '2026-06-01T00:00:00.000Z']))!
+    expect(startsBeforeSpotPriceAnchor(w, VIENNA)).toBe(true)
+  })
+
+  it('Anker-Datum und Anker-Zeitpunkt bezeichnen denselben Tag', () => {
+    expect(SPOT_PRICE_ANCHOR_ISO.slice(0, 10)).toBe(SPOT_PRICE_ANCHOR_DATE)
+  })
+})
+
+describe('Delta 15 — der Anker existiert zweimal und darf nicht auseinanderlaufen', () => {
+  /*
+   * ⚠ Dieser Wächter liest eine Datei einer ANDEREN App. Das ist Absicht und der einzige verfügbare
+   * Weg: `apps/web/scripts/backfill-spot-prices.mjs` ist ein Node-Skript ausserhalb jedes Bundlers,
+   * es kann `shared` nicht importieren. Delta 15 verlangt ausdrücklich, dass die beiden Zahlen
+   * dieselbe bleiben — ohne diesen Test wäre das eine Absichtserklärung ohne Absicherung.
+   *
+   * Läuft der Backfill-Anker nach vorn, ohne dass die Konstante folgt, nimmt der Rechner Lastgänge
+   * an, für die es keine Preise gibt: aus einer dauerhaften Ablehnung (Regel B) würde eine
+   * vorübergehende Datenlücke (Regel C) — genau die Verwechslung, die Delta 15 ausschliesst.
+   */
+  it('stimmt mit BACKFILL_ANCHOR_ISO im Backfill-Skript überein', () => {
+    const script = readFileSync(
+      new URL('../../../apps/web/scripts/backfill-spot-prices.mjs', import.meta.url),
+      'utf8',
+    )
+    const match = /const BACKFILL_ANCHOR_ISO = '([^']+)'/.exec(script)
+    expect(match, 'BACKFILL_ANCHOR_ISO im Backfill-Skript nicht gefunden').not.toBeNull()
+    expect(match![1]).toBe(SPOT_PRICE_ANCHOR_ISO)
+  })
+})

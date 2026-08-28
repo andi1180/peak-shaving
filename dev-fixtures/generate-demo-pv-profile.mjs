@@ -13,19 +13,37 @@
 // bleibt unberührt und zusätzlich verfügbar.
 //
 // Deterministisch (fixer Seed): erneutes Ausführen erzeugt byte-identische Dateien.
-// Ausführen: node dev-fixtures/generate-demo-pv-profile.mjs
+// Ausführen: node dev-fixtures/generate-demo-pv-profile.mjs [--year 2025]
+//
+// ── DAS JAHR IST EIN PARAMETER (B21-3a, Delta 15 Regel B) ──────────────────────────────────────
+// Wie beim no-PV-Bäcker: der Kalkulator lehnt seit B21-3a Lastgänge vor dem 1.1.2025 ab, das
+// 2023er-Paar bleibt aber liegen, weil `simulation/pv-chain.test.ts` seine Zahlen pinnt. Vorgabe
+// erzeugt den 2025er-Jahrgang, `--year 2023` reproduziert das bestehende Paar byte-identisch.
+// Die Konsistenz-Zusage gilt in JEDEM Jahrgang, weil sie aus der Konstruktion folgt
+// (Netz-Lastgang = Verbrauch − BruttoPV) und nicht aus den Zahlen eines bestimmten Jahres.
 
 import { writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-const YEAR = 2023 // kein Schaltjahr → 365 × 96 = 35.040 Viertelstunden-Slots
+// Vorgabe 2025 (Delta 15, Regel B). Nur Nicht-Schaltjahre ergeben exakt 365 × 96 = 35.040 Slots.
+const yearArg = process.argv.indexOf('--year')
+const YEAR = yearArg === -1 ? 2025 : Number(process.argv[yearArg + 1])
+if (!Number.isInteger(YEAR) || YEAR < 2000 || YEAR > 2100) {
+  console.error(`Ungültiges Jahr: ${process.argv[yearArg + 1]}`)
+  process.exit(1)
+}
+const isLeap = (YEAR % 4 === 0 && YEAR % 100 !== 0) || YEAR % 400 === 0
+if (isLeap) {
+  console.error(`${YEAR} ist ein Schaltjahr — der Generator erzeugt bewusst nur 365-Tage-Jahrgänge.`)
+  process.exit(1)
+}
 const SLOTS_PER_DAY = 96
 const DAYS = 365
 const STEP_MS = 15 * 60 * 1000
 const OUT_DIR = dirname(fileURLToPath(import.meta.url))
-const LOAD_FILE = join(OUT_DIR, 'demo-baeckerei-mit-pv-netzlastgang-2023.csv')
-const PV_FILE = join(OUT_DIR, 'demo-baeckerei-pv-erzeugung-2023.csv')
+const LOAD_FILE = join(OUT_DIR, `demo-baeckerei-mit-pv-netzlastgang-${YEAR}.csv`)
+const PV_FILE = join(OUT_DIR, `demo-baeckerei-pv-erzeugung-${YEAR}.csv`)
 
 // Deterministischer PRNG (mulberry32) — reproduzierbare Ausgabe bei jedem Lauf.
 function mulberry32(seed) {

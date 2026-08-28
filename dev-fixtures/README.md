@@ -4,6 +4,21 @@
 Rechners (`apps/website`) gegen den echten Parser (`packages/engine`), solange Martins reale
 Netzbetreiber-Exporte (Pflichtenheft §8 OP#4) noch ausstehen.
 
+## ⚠ Zwei Jahrgänge derselben Bäckerei — 2023 UND 2025 (seit B21-3a)
+
+Seit **Delta 15 Regel B** (28.08.2026) lehnt der Rechner beim Upload jeden Lastgang ab, der **vor dem
+1.1.2025** beginnt — davor gibt es in `public.spot_prices` keine Marktpreise. Die 2023er-Dateien sind
+damit im Browser nicht mehr benutzbar. Sie bleiben trotzdem liegen, und beides ist Absicht:
+
+| Jahrgang | Wofür | Wer liest ihn |
+|---|---|---|
+| **2023** | eingefrorene **Regressionsgrundlage** — die gepinnten Zahlen der Engine-Tests hängen daran | `simulation/simulate.test.ts`, `recommendation/rank.test.ts`, `simulation/pv-chain.test.ts` |
+| **2025** | **Handtest im Browser** — läuft durch Regel B hindurch | niemand automatisiert; per Hand hochgeladen |
+
+Die Regel sitzt im **Upload-Schritt** (`apps/website/components/flow/step-upload.tsx`), nicht im
+Parser — deshalb bleiben die Engine-Tests von ihr unberührt (die Begründung steht im Kopf von
+`parseLoadProfile` und in Delta 15).
+
 ## `demo-baeckerei-lastgang-2023.csv`
 
 Synthetischer 12-Monats-Viertelstunden-Lastgang einer Bäckerei **ohne PV**: Ofen-Anlauf
@@ -39,6 +54,27 @@ Verifiziert gegen den echten `parseLoadProfile`: `ok: true`, 35.040 Werte im auf
 `LoadProfile` (Rohdatei hat etwas weniger Zeilen — die absichtlichen Lücken werden ja erst
 beim Parsen wieder aufgefüllt).
 
+### Beide Jahrgänge im Vergleich — gemessen am 28.08.2026 (B21-3a)
+
+`demo-baeckerei-lastgang-2023.csv` und `demo-baeckerei-lastgang-2025.csv`, jeweils durch
+`parseLoadProfile` → `simulateBattery` (60 kWh / 30 kW / η 0,9 · Leistungspreis 100 €/kW·a):
+
+| | **2023** (Regression) | **2025** (Handtest) |
+|---|---|---|
+| Datenzeilen / Slots im `LoadProfile` | 35.029 / **35.040** | 35.029 / **35.040** |
+| Fenster (UTC) | 2022-12-31T23:00Z … 2023-12-31T22:45Z | 2024-12-31T23:00Z … 2025-12-31T22:45Z |
+| `source` · `coveredMonths` · `coveredDays` | `import_only` · 12 · 365 | `import_only` · 12 · 365 |
+| Jahres-Peak | **50,780 kW** | **50,780 kW** |
+| Σ signierte Energie | 88.221,6 kWh | 88.426,4 kWh |
+| `annual_max` → cap / `newBilledKw` | **20,780 kW** | **20,780 kW** |
+| `monthly_max_average` → `newBilledKw` | 20,558 kW | 20,576 kW |
+
+**Warum die Summen nicht identisch sind — kein Fehler im Generator:** Der Seed ist derselbe, also
+fällt je Slot-Index dieselbe Zufallszahl. Der **Wochentag** zu einem Slot-Index unterscheidet sich
+aber (1.1.2023 = Sonntag, 1.1.2025 = Mittwoch), und der Tagesverlauf hängt am Wochentag (Sonntag
+geschlossen, Samstag verkürzt). Peak und `annual_max` bleiben trotzdem gleich: der Jahres-Peak
+entsteht aus dem Ofen-Anlauf, nicht aus dem Wochentagsmuster.
+
 ## `demo-baeckerei-mit-pv-netzlastgang-2023.csv` + `demo-baeckerei-pv-erzeugung-2023.csv` (PV-Paar)
 
 Ein **konsistentes Paar** für den PvProfile-Pfad (Upload → Engine → Trace, §3.1):
@@ -56,6 +92,40 @@ in JEDEM Slot — die Konsistenz-Warnung aus `alignPvGrossToLoad` feuert bei die
 Verbrauch) und den PV-Eigenverbrauch. Die absichtlichen Lücken (Interpolations-/Datenqualitäts-Demo)
 liegen nur im Netz-Lastgang; die PV-Datei ist lückenlos (Abdeckungslücken sind ohnehin kein
 Konsistenz-Widerspruch).
+
+### Jahrgang 2025 (`…-2025.csv`) — und ein dabei gefundener Parser-Befund ⚠
+
+Seit B21-3a gibt es dasselbe Paar auch als Jahrgang 2025 (Regel B, s. oben). Gemessen für beide:
+`inconsistentSlots = 0`, `matchedSlots = 35.040`, max. Brutto-PV **28,00 kW** — die Konsistenz-Zusage
+gilt in jedem Jahrgang, weil sie aus der Konstruktion folgt und nicht aus den Zahlen eines
+bestimmten Jahres.
+
+**Ein Unterschied ist aber real und gehört gekannt:** Der 2023er-Netzlastgang wird als
+`source: 'net_signed'` erkannt, der **2025er als `import_only`**. Ursache ist eine bestehende
+Eigenschaft des Parsers, nicht der Datei: `detectStructure` entscheidet „signiert oder nicht"
+anhand der ersten **`SAMPLE_ROWS = 60`** Datenzeilen (`packages/engine/src/parser/detect.ts:277`,
+dort als `[ANNAHME]` vermerkt). Gemessen:
+
+| Jahrgang | erste negative Datenzeile | negative Zeilen gesamt | erkannte `source` |
+|---|---|---|---|
+| 2023 | **#41** (`01.01.2023 10:00;-0,30`) | 5.825 | `net_signed` ✔ |
+| 2025 | **#343** (`04.01.2025 13:30;-0,16`) | 5.815 | `import_only` ✘ |
+
+Der 1.1.2023 war ein **Sonntag** (Laden zu, Grundlast 3,2 kW → die schwache Jänner-PV übertrifft sie
+schon um 10:00); der 1.1.2025 ist ein **Mittwoch**, die erste Einspeisung fällt auf den Samstag
+danach — ausserhalb des Stichprobenfensters.
+
+**Folgen — und was ausdrücklich NICHT betroffen ist:** Die **Zahlen sind identisch**. `normalizeLoad`
+klemmt bei `import_only` nichts weg (die Vorzeichenkonvention greift nur bei `net_signed`), die
+negativen Werte stehen unverändert im `gridPowerKw`, PV-Ladung und Eigenverbrauch rechnen normal.
+Falsch ist allein das **Etikett** — und dadurch erscheint die §3.1-Pflichtwarnung
+(„Eigenverbrauchs-/Lastverschiebungs-Ersparnis nicht beurteilbar"), obwohl Einspeisung vorliegt.
+
+**Das ist ein vorbestehender Defekt, kein durch B21-3a eingeführter**, und er trifft auch echte
+Kundendateien: jeder signierte Netz-Lastgang, dessen erste Einspeisung nach Zeile 60 liegt (also
+praktisch jeder Winter-Beginn an einem Werktag), wird heute als `import_only` etikettiert. Bewusst
+NICHT in B21-3a behoben — eine Änderung an der Quellen-Erkennung ist ein Engine-Eingriff mit
+repoweiter Wirkung und gehört in einen eigenen PR.
 
 ## Reale Formate (OP#4) — ANONYMISIERT
 
@@ -111,12 +181,18 @@ Teiljahres-Warnung mit dem „Mit Jahreshöchstwert rechnen"-Shortcut aus. Test-
 ## Neu erzeugen
 
 ```
-node dev-fixtures/generate-demo-load-profile.mjs           # no-PV-Bäcker (import_only)
-node dev-fixtures/generate-demo-pv-profile.mjs             # konsistentes PV-Paar (net_signed + Brutto-PV)
+node dev-fixtures/generate-demo-load-profile.mjs           # no-PV-Bäcker 2025 (Vorgabe)
+node dev-fixtures/generate-demo-load-profile.mjs --year 2023   # der eingefrorene Regressions-Jahrgang
+node dev-fixtures/generate-demo-pv-profile.mjs             # PV-Paar 2025 (Vorgabe)
+node dev-fixtures/generate-demo-pv-profile.mjs --year 2023      # das eingefrorene PV-Paar
 node dev-fixtures/generate-eda-netzbetreiber-fixtures.mjs  # Format A (Split-Timestamp + Mehrspalten)
 node dev-fixtures/generate-wechselrichter-ess-fixtures.mjs # Format B (ESS-XLSX, wird abgelehnt)
 node dev-fixtures/generate-teiljahr-lastgang.mjs           # Teiljahres-Lastgang (7 Tage, §3.5-Regression)
 ```
 
 Alle deterministisch (fixer Seed) — erzeugen bei jedem Lauf byte-identische Ausgabe (auch der
-SheetJS-XLSX-Write ist byte-stabil).
+SheetJS-XLSX-Write ist byte-stabil). **Der `--year`-Parameter ist die Absicherung dafür, dass die
+2023er-Dateien reproduzierbar bleiben:** bei der Umstellung auf 2025 wurde nachgemessen, dass
+`--year 2023` alle drei Bestandsdateien **byte-identisch** (MD5 unverändert) wiederherstellt. Nur
+Nicht-Schaltjahre sind zulässig — ein Schaltjahr ergäbe still 35.136 statt 35.040 Slots und
+verschöbe jede gepinnte Zahl; der Generator bricht deshalb ab.

@@ -106,7 +106,28 @@ function buildPreview(draft: DetectionDraft): TablePreview {
   return { headers, rows }
 }
 
-/** Parst rohen Datei-Inhalt zu einem validierten LoadProfile (§3.1–§3.3). Kein Datei-I/O. */
+/**
+ * Parst rohen Datei-Inhalt zu einem validierten LoadProfile (§3.1–§3.3). Kein Datei-I/O.
+ *
+ * ── ⚠ HIER FEHLT ABSICHTLICH EINE PRÜFUNG: die Datums-UNTERGRENZE (Delta 15, Regel B) ──────────
+ * Der Kalkulator nimmt Lastgänge erst **ab dem 1.1.2025** an — davor gibt es in `public.spot_prices`
+ * keine Marktpreise, und der Tarifvergleich wäre nicht rechenbar. Diese Grenze wird **NICHT hier**
+ * geprüft, und das ist eine getroffene Entscheidung (B21-3a, Delta 14 Punkt 8), keine vergessene
+ * Zeile:
+ *
+ *   • Der Parser ist die generische LESE-Fähigkeit der Engine. Er beantwortet „lässt sich diese
+ *     Datei korrekt lesen?" — nicht „wollen wir mit diesem Zeitraum rechnen?". Das Zweite ist eine
+ *     Produktentscheidung, die sich mit dem Datenbestand verschiebt (wächst der Backfill nach
+ *     hinten, wandert die Grenze mit) und deshalb nicht in den Rechenkern gehört.
+ *   • Vier bestehende Engine-Testdateien lesen bewusst 2023er-Fixtures über genau diese Funktion
+ *     (`simulation/simulate.test.ts`, `recommendation/rank.test.ts`, `simulation/pv-chain.test.ts`).
+ *     Ihre Zahlen sind Regressionsgrundlage, kein Kundenfall — eine Grenze im Parser machte sie rot
+ *     und nähme der Engine ihre Vergleichsbasis.
+ *
+ * Geprüft wird im **Upload-Schritt** (`apps/website/components/flow/step-upload.tsx`,
+ * `rejectIfBeforeAnchor`), unmittelbar nach dem Parsen und vor jeder Übernahme in den Flow. Die
+ * Konstante steht in `packages/shared/src/analysis-window.ts` (`SPOT_PRICE_ANCHOR_ISO`).
+ */
 export function parseLoadProfile(
   input: { content: string | ArrayBuffer | Uint8Array; fileName?: string; format?: 'csv' | 'xlsx' },
   options: ParseOptions = {},
