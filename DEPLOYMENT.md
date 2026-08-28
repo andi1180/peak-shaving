@@ -400,8 +400,9 @@ Endpunkt ihn sieht.
   bemerkt. Möglich nur, weil `unique (provider, ts_start)` (B21-1) das wiederholte Schreiben
   desselben Zeitraums gefahrlos macht.
 - **⚠️ Betriebsgrenze: aWATTar-Fair-Use, 100 Abfragen pro Tag.** Der Job braucht **eine**. Der
-  Backfill braucht **eine** (ein einzelner Aufruf über zwölf Monate liefert 8.759 lückenlose
-  Stundenwerte; die Quelle kennt weder Pagination noch eine Obergrenze — gemessen). Der Abstand zur
+  Backfill braucht **eine** (ein einzelner Aufruf über den vollen Ankerzeitraum liefert 14.503
+  lückenlose Stundenwerte, gemessen am 28.08.2026; die Quelle kennt weder Pagination noch eine
+  Obergrenze). Der Abstand zur
   Grenze ist also gross, aber sie ist der Grund, warum es **keine** Wiederholungsschleife im
   Endpunkt gibt: ein fehlgeschlagener Lauf wartet auf den nächsten Tag, statt zu pollen.
 - **Kein Laufprotokoll in `platform.job_runs`** — anders als die beiden Jobs aus §1g. Deren Wirkung
@@ -424,22 +425,38 @@ Endpunkt ihn sieht.
 - **Nichts im Supabase-Dashboard zu tun:** `public` ist über die Data API bereits per Default
   exponiert (§2a betrifft nur `monitor`).
 
-#### Einmaliger Backfill
+#### Einmaliger Backfill — **fester Anker 1.1.2025 bis heute**
 
-Holt die historischen Preise für das rollierende 12-Monats-Fenster der Simulation. Bewusst ein
-Skript und **kein** zweiter Modus des Cron-Endpunkts: als offener HTTP-Pfad liesse sich mit demselben
-Geheimnis ein beliebig grosser Abruf auslösen — ein Query-Parameter entschiede dann über die Grösse
-des Vorgangs (dieselbe Überlegung, aus der §1g die Mengenobergrenze aus dem Handler heraushält).
+Holt die historischen Preise ab dem **festen Anker `2025-01-01T00:00:00Z`** bis zum Zeitpunkt des
+Laufs. Bewusst ein Skript und **kein** zweiter Modus des Cron-Endpunkts: als offener HTTP-Pfad liesse
+sich mit demselben Geheimnis ein beliebig grosser Abruf auslösen — ein Query-Parameter entschiede
+dann über die Grösse des Vorgangs (dieselbe Überlegung, aus der §1g die Mengenobergrenze aus dem
+Handler heraushält).
 
 ```bash
 cd apps/web
-SUPABASE_URL=… SUPABASE_SERVICE_ROLE_KEY=… pnpm backfill:spot-prices          # 12 Monate
-SUPABASE_URL=… SUPABASE_SERVICE_ROLE_KEY=… pnpm backfill:spot-prices --months 3
+SUPABASE_URL=… SUPABASE_SERVICE_ROLE_KEY=… pnpm backfill:spot-prices                      # ab 1.1.2025
+SUPABASE_URL=… SUPABASE_SERVICE_ROLE_KEY=… pnpm backfill:spot-prices --start 2024-01-01   # abweichender Anfang
 ```
+
+**⚠️ Warum ein fester Anker und kein rollierendes Fenster (Nachtrag 28.08.2026).** Die erste Fassung
+holte „die letzten zwölf Monate ab jetzt". Damit hängt das Ergebnis vom Tag des Laufs ab: der Lauf
+vom 27.08.2026 begann bei `2025-08-27T19:00Z` und liess **alles davor leer** — eine Lücke, die
+niemand sieht, weil die Tabelle gefüllt aussieht und `max(ts_start)` (die Betriebskontrolle oben)
+nur das obere Ende prüft. Ein Neuaufbau (neue Umgebung, neues Projekt) reproduzierte sie an einem
+anderen Datum erneut. Der Anker steht deshalb als Konstante `BACKFILL_ANCHOR_ISO` im Skript: derselbe
+Aufruf liefert unabhängig vom Ausführungstag denselben Anfang.
 
 Die Werte kommen aus der Shell, **nicht** aus einer Datei im Repo (§4, Prinzip S1). Das Skript ist
 gefahrlos wiederholbar: derselbe Zeitraum ein zweites Mal geschrieben ergibt dieselbe Zeilenzahl
-(gemessen — 743 Zeilen zweimal geschrieben, Tabelle danach 743 Zeilen, 0 Duplikate).
+(gemessen — 743 Zeilen zweimal geschrieben, Tabelle danach 743 Zeilen, 0 Duplikate). **Der Nachtrag
+selbst ist der grössere Beleg dafür:** der Lauf vom 28.08.2026 holte 14.503 Einträge über den
+gesamten Zeitraum, davon 8.759 bereits vorhandene — die Tabelle wuchs von **8.759 auf 14.503** Zeilen
+(+5.744 für Jan–Aug 2025), **0 Duplikate**, und alle 8.759 Bestandszeilen blieben in Anzahl UND Wert
+unverändert (vorher/nachher Zeile für Zeile verglichen). Stichprobe aus dem neu gefüllten Bereich
+gegen die echte aWATTar-Antwort nachgerechnet: 2025-03-15 09:00Z 71,91 Eur/MWh → 7,191 ct/kWh ·
+10:00Z 72,64 → 7,264 · 11:00Z 63,17 → 6,317. Lückenprüfung über alle 14.503 Zeilen: **kein einziger
+Nicht-Stunden-Sprung**.
 
 ---
 
