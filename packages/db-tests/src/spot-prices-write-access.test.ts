@@ -15,11 +15,14 @@
 //     Ein Test, der nur ein INSERT prüfte, bliebe bei einem auf `insert, update` verkürzten Grant
 //     GRÜN und liesse den Sync in Produktion mit 42501 auflaufen.
 //
-// ── (2) DIE ÖFFNUNG IST AUF EINE TABELLE BEGRENZT, UND DAS WIRD GEMESSEN ───────────────────────
-//     `grid_tariffs` und `grid_tariff_rate_windows` bleiben für `service_role` ohne jedes Recht;
-//     ihr Schreibweg ist das Admin-Pflege-UI und damit ein eigener PR. Ein versehentlich zu breiter
-//     Grant fiele sonst nirgends auf — der Lesepfad funktioniert unverändert, und keine Oberfläche
-//     zeigt einen Unterschied.
+// ── (2) DIE ÖFFNUNG BLEIBT AUF DAS UPSERT BEGRENZT — kein DELETE, keine zweite Tabelle ────────
+//     ⚠ Der ursprüngliche B21-2a-Abschnitt hielt hier zusätzlich fest, dass `grid_tariffs` und
+//     `grid_tariff_rate_windows` für `service_role` OHNE JEDES RECHT bleiben. Das ist seit B21-2b
+//     nicht mehr wahr: Der Admin-Pflegeweg (Migration 20260828090000) öffnet sie gezielt
+//     (`grid_tariffs`: INSERT/SELECT/UPDATE, `grid_tariff_rate_windows`: nur INSERT). Die Aussage ist
+//     nicht entfallen, sondern in `grid-tariff-write-path.test.ts` UMGEZOGEN und dort vollständig
+//     gemessen — samt der Stufenmessung, aus der die Mindestfläche stammt.
+//     Was hier bleibt, ist die Aussage über DIESE Tabelle: exakt INSERT/SELECT/UPDATE, kein DELETE.
 //
 // ── (3) KEIN `delete`, AUCH NICHT FÜR `service_role` ───────────────────────────────────────────
 //     Der Sync überschreibt per Upsert und löscht nie. Ein historischer Marktpreis ist eine Tatsache
@@ -93,32 +96,33 @@ describe('B21-2a — service_role darf spot_prices upserten', () => {
   })
 
   it('DELETE wird auch für service_role abgewiesen', async () => {
-    const err = await attempt('service_role', `delete from public.spot_prices where provider = 'gate-b21-2a'`)
+    const err = await attempt(
+      'service_role',
+      `delete from public.spot_prices where provider = 'gate-b21-2a'`,
+    )
     expect(err?.code).toBe('42501')
   })
 })
 
-describe('B21-2a — die Öffnung bleibt auf spot_prices begrenzt', () => {
-  for (const table of ['grid_tariffs', 'grid_tariff_rate_windows'] as const) {
-    it(`service_role hat auf public.${table} weiterhin GAR KEIN Recht`, async () => {
-      const rows = await sql<{ privs: string }>(
-        `select coalesce(string_agg(privilege_type, ','), '(keine)') privs
-           from information_schema.role_table_grants
-          where table_schema = 'public' and table_name = $1 and grantee = 'service_role'`,
-        [table],
-      )
-      expect(rows[0]?.privs).toBe('(keine)')
-    })
-  }
-
-  it('service_role INSERT auf public.grid_tariffs scheitert mit 42501', async () => {
-    const err = await attempt(
-      'service_role',
-      `insert into public.grid_tariffs
-         (operator_id, operator_name, netzebene, metering_variant, grundpreis_amount,
-          grundpreis_unit, netzverlust_ct_per_kwh, price_basis, valid_from, created_by)
-       values ('gate-b21-2a', 'Probe', 5, null, 1, 'eur_per_kw_year', 1, 'net', '2026-01-01', 'gate')`,
-    )
+describe('B21-2a — die Öffnung bleibt auf das UPSERT begrenzt', () => {
+  /*
+   * ⚠ Hier standen bis B21-2b drei Tests, die für `grid_tariffs` und `grid_tariff_rate_windows`
+   * „GAR KEIN Recht für service_role" festhielten. Mit dem Admin-Pflegeweg (Migration
+   * 20260828090000) ist das überholt; die Rechtefläche BEIDER Tabellen wird seither in
+   * `grid-tariff-write-path.test.ts` gemessen — dort schärfer als hier, weil sie je Tabelle
+   * verschieden ist (`grid_tariffs`: INSERT/SELECT/UPDATE, `grid_tariff_rate_windows`: nur INSERT)
+   * und aus einer Stufenmessung stammt. Ersatzlos gestrichen wurde nichts.
+   *
+   * Was diese Datei weiterhin absichert, ist die Öffnung, die B21-2a selbst vorgenommen hat: Sie
+   * bleibt auf das Upsert beschränkt — SELECT ist nur deshalb dabei, weil `on conflict … do update`
+   * es verlangt (s. Kopf), und DELETE bleibt für jede Rolle ausgeschlossen.
+   */
+  it('das TRUNCATE-Recht bekommt auch service_role nicht', async () => {
+    // `revoke all` aus B21-1 nimmt es weg; B21-2a gibt gezielt drei Rechte zurück, TRUNCATE ist
+    // keines davon. Ein TRUNCATE wäre der einzige Weg, den gesamten Preisverlauf in einem Schritt zu
+    // verlieren — und `information_schema` führt es als eigenes Recht, der Rechteflächen-Test oben
+    // fängt es also nur, weil er die Liste EXAKT vergleicht.
+    const err = await attempt('service_role', 'truncate table public.spot_prices')
     expect(err?.code).toBe('42501')
   })
 })
@@ -126,7 +130,10 @@ describe('B21-2a — die Öffnung bleibt auf spot_prices begrenzt', () => {
 describe('B21-2a — anon und authenticated bleiben unverändert NUR lesend', () => {
   for (const role of ['anon', 'authenticated'] as const) {
     it(`${role} liest public.spot_prices weiterhin ohne Fehler`, async () => {
-      const rows = await runAs({ role }, async (c) => (await c.query('select * from public.spot_prices')).rows)
+      const rows = await runAs(
+        { role },
+        async (c) => (await c.query('select * from public.spot_prices')).rows,
+      )
       expect(rows).toEqual([])
     })
 

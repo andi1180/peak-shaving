@@ -65,9 +65,10 @@ export default tseslint.config(
                 '(app/api/stripe/webhook + lib/stripe/actions.ts), den Lead-/Einwilligungspfad ' +
                 '(lib/leads/**, B1-2), die Cron-Endpunkte (app/api/cron/**, B4-1), den ' +
                 'Resend-Webhook (app/api/resend/**, B2-2), die Partner-Bewerbung ' +
-                '(lib/partner-application/**, B16-3) und die GoTrue-Admin-API ' +
-                '(lib/auth/admin-api.ts, B18-2a — genau diese eine Datei). Für Nutzer-Reads den ' +
-                'RLS-gebundenen lib/supabase/server.ts verwenden.',
+                '(lib/partner-application/**, B16-3), die GoTrue-Admin-API ' +
+                '(lib/auth/admin-api.ts, B18-2a) und den Tarif-Pflegeweg ' +
+                '(lib/admin/grid-tariffs-actions.ts, B21-2b) — die letzten beiden je genau diese ' +
+                'eine Datei. Für Nutzer-Reads den RLS-gebundenen lib/supabase/server.ts verwenden.',
             },
           ],
         },
@@ -120,6 +121,18 @@ export default tseslint.config(
      * ⚠ Zur Abgrenzung: B14-2 hat diese Liste bewusst NICHT erweitert, weil die vier
      * Analyse-Wrapper `authenticated`-only sind und ein service_role-Client dort `created_by` leer
      * gelassen hätte. Diese Begründung trägt hier nicht — es gibt keine zweite Tür.
+     *
+     * B21-2b ERWEITERT sie ein sechstes Mal, wieder um eine DATEI: `lib/admin/grid-tariffs-actions.ts`.
+     * Der Fall ist ein anderer als alle fünf darüber — dort schreiben ÖFFENTLICHE oder MASCHINELLE
+     * Pfade über `public`-Wrapper, die für `anon`/`authenticated` kein Grant haben. Hier schreibt ein
+     * ADMIN, und zwar in `public`-Tabellen, die B21-1 bewusst ohne Wrapper-Muster angelegt hat
+     * (veröffentlichte Preisblätter, kein Personenbezug, direkter RLS-Select). `authenticated` hat
+     * dort nur `select` und bekommt bewusst kein Schreibrecht: ein solches Grant gälte für JEDES
+     * angemeldete Konto. Die Rollenprüfung liegt deshalb ausnahmsweise im Anwendungscode
+     * (`isCurrentUserAdmin()` als erste Anweisung der Action) — ausführlich begründet im Kopf der
+     * Datei und in Migration 20260828090000. Die Freigabe ist genau deshalb auf die eine Datei
+     * begrenzt: `lib/admin/**` insgesamt zu öffnen gäbe den erhöhten Zugriff dem gesamten
+     * Admin-Bereich, der ihn nirgends sonst braucht.
      */
     files: [
       'apps/web/app/api/stripe/**/*.ts',
@@ -129,6 +142,7 @@ export default tseslint.config(
       'apps/web/lib/leads/**/*.ts',
       'apps/web/lib/partner-application/**/*.ts',
       'apps/web/lib/auth/admin-api.ts',
+      'apps/web/lib/admin/grid-tariffs-actions.ts',
     ],
     rules: { 'no-restricted-imports': 'off' },
   },

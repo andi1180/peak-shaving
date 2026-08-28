@@ -1651,6 +1651,22 @@ export type Database = {
         Returns: Json
       }
       confirm_consent: { Args: { p_token_hash: string }; Returns: Json }
+      create_grid_tariff: {
+        Args: {
+          p_created_by: string
+          p_grundpreis_amount: number
+          p_grundpreis_unit: string
+          p_metering_variant?: string
+          p_netzebene: number
+          p_netzverlust_ct_per_kwh: number
+          p_operator_id: string
+          p_operator_name: string
+          p_price_basis: string
+          p_valid_from: string
+          p_windows: Json
+        }
+        Returns: Json
+      }
       finish_contract_reminder_run: {
         Args: {
           p_detail?: string

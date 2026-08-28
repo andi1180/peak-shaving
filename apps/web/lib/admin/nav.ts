@@ -22,6 +22,7 @@ import { PARTNERS_HREF } from './partners'
 import { PARTNER_APPLICATIONS_HREF } from './partner-applications'
 import { CALCULATOR_REQUESTS_HREF } from './calculator-requests'
 import { ADMIN_CALCULATOR_HREF } from './calculator'
+import { GRID_TARIFFS_HREF } from './grid-tariffs'
 
 export type AdminNavItem = {
   href: string
@@ -71,4 +72,11 @@ export const ADMIN_NAV_ITEMS: readonly AdminNavItem[] = [
    * sofort — Begründung in `app/admin/(intern)/kalkulator/page.tsx`.
    */
   { href: ADMIN_CALCULATOR_HREF, label: 'Kalkulator' },
+  /*
+   * B21-2b: die Pflege der Netzbetreiber-Preisblätter. Eigener Punkt und ausdrücklich KEIN Unterpfad
+   * von „Kalkulator" — die Präfix-Regel von `AdminNav` markierte sonst beide gleichzeitig (dieselbe
+   * Überlegung wie bei „Kalkulator-Anfragen"). Fachlich sind es ohnehin zwei Dinge: dort wird
+   * gerechnet, hier stehen die Referenzdaten, gegen die gerechnet wird.
+   */
+  { href: GRID_TARIFFS_HREF, label: 'Netzbetreiber-Tarife' },
 ] as const
