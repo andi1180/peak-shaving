@@ -1,10 +1,17 @@
 /**
  * Einmaliger Backfill der aWATTar-Marktpreise (B21-2a).
  *
- *   SUPABASE_URL=… SUPABASE_SERVICE_ROLE_KEY=… node apps/web/scripts/backfill-spot-prices.mjs [--months 12]
+ *   SUPABASE_URL=… SUPABASE_SERVICE_ROLE_KEY=… node apps/web/scripts/backfill-spot-prices.mjs [--start 2025-01-01]
  *
  * Die Schlüssel kommen aus der Shell, nicht aus einer Datei im Repo (DEPLOYMENT.md §4, Prinzip S1).
- * Ohne Argumente werden die letzten zwölf Monate bis jetzt geholt.
+ * Ohne Argumente wird ab dem festen Anker (s. u.) bis jetzt geholt.
+ *
+ * ── WARUM EIN FESTER ANKER UND KEIN ROLLIERENDES FENSTER ────────────────────────────────────────
+ * Die erste Fassung holte „die letzten zwölf Monate ab jetzt". Das Ergebnis hängt damit vom Tag des
+ * Laufs ab: der Lauf vom 27.08.2026 begann bei 2025-08-27 und liess alles davor leer — eine Lücke,
+ * die niemand sieht, weil die Tabelle gefüllt aussieht. Ein Neuaufbau (neue Umgebung, neues Projekt)
+ * reproduzierte sie an einem anderen Datum erneut. Der Anker macht den Backfill stattdessen
+ * reproduzierbar: derselbe Aufruf liefert unabhängig vom Ausführungstag denselben Anfang.
  *
  * ── WARUM EIN SKRIPT UND KEIN ZWEITER ENDPUNKT ──────────────────────────────────────────────────
  * Der Backfill ist ein einmaliger Vorgang, kein Betriebszustand. Als Modus des Cron-Endpunkts wäre
@@ -42,20 +49,29 @@ if (!url || !key) {
   process.exit(1)
 }
 
-const monthsArg = process.argv.indexOf('--months')
-const months = monthsArg === -1 ? 12 : Number(process.argv[monthsArg + 1])
-if (!Number.isInteger(months) || months < 1 || months > 60) {
-  console.error('--months erwartet eine ganze Zahl zwischen 1 und 60.')
+/**
+ * Der feste Anfang des Backfills. Bewusst eine Konstante und kein gerechnetes Datum: ein
+ * rollierendes Fenster hinterlässt je nach Ausführungstag eine andere Lücke (s. Kopf).
+ */
+const BACKFILL_ANCHOR_ISO = '2025-01-01T00:00:00Z'
+
+const startArg = process.argv.indexOf('--start')
+const startIso = startArg === -1 ? BACKFILL_ANCHOR_ISO : process.argv[startArg + 1]
+const start = new Date(startIso ?? '')
+if (Number.isNaN(start.getTime())) {
+  console.error('--start erwartet ein ISO-8601-Datum, z. B. 2025-01-01 oder 2025-01-01T00:00:00Z.')
   process.exit(1)
 }
 
 const end = new Date()
-const start = new Date(end)
-start.setUTCMonth(start.getUTCMonth() - months)
+if (start.getTime() >= end.getTime()) {
+  console.error('--start muss in der Vergangenheit liegen.')
+  process.exit(1)
+}
 
 const supabase = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } })
 
-console.log(`Backfill ${start.toISOString()} … ${end.toISOString()} (${months} Monate)`)
+console.log(`Backfill ${start.toISOString()} … ${end.toISOString()}`)
 
 try {
   const result = await syncSpotPrices({
