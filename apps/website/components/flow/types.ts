@@ -4,6 +4,7 @@ import type {
   LoadProfile,
   PvProfile,
   TariffParams,
+  TariffPricingInputs,
   TariffSelection,
 } from 'shared'
 import type { BatteryOverride } from '@/lib/analysis-protocol'
@@ -27,6 +28,16 @@ export type TariffResult = {
   // needs_mapping) → `pv` bleibt null. Die Meldung wandert in den Report (dataQuality), damit der
   // Upload nicht still verpufft (§3.1). Nur gesetzt, wenn tatsächlich eine Datei abgelehnt wurde.
   pvError?: string
+  /**
+   * B21-3b (Delta 4): die beiden Preisseiten für den kombinierten Intervallpreis — Netzbetreiber-
+   * Tarifzeilen und Marktpreis-Reihe, geholt für den Zeitraum des Lastgangs (Delta 15 Regel A).
+   *
+   * `undefined` heisst: der Tarifoptimierungs-Hebel wurde NICHT angefordert. Dann gibt es keinen
+   * Netzwerkaufruf und die Engine rechnet unverändert wie vor B21 — das ist kein Fehlerfall.
+   * Ist es gesetzt, wurde angefordert; ein `null` DARIN heisst „angefordert, aber nicht lesbar" und
+   * führt zur ausdrücklichen Kennzeichnung „nicht berechenbar" statt zu einem stillen Rückfall.
+   */
+  tariffPricing?: TariffPricingInputs
 }
 
 // Ergebnis von Schritt 1 (parseLoadProfile, §3.2/§3.3) — die echte, getypte Nutzlast.

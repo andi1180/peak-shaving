@@ -1,4 +1,4 @@
-import type { BatteryCandidate, LoadProfile, TariffParams } from 'shared'
+import type { BatteryCandidate, LoadProfile, TariffParams, TariffPricingInputs } from 'shared'
 
 import {
   capForIntervalSeries,
@@ -67,8 +67,9 @@ export function computeBatterySavings(
   battery: BatteryCandidate,
   tariffParams: TariffParams,
   precomputed?: BatterySimulationResult,
+  pricing?: TariffPricingInputs,
 ): BatterySavings {
-  const sim = precomputed ?? simulateBattery(loadProfile, battery, tariffParams)
+  const sim = precomputed ?? simulateBattery(loadProfile, battery, tariffParams, undefined, pricing)
 
   const strategy = getTariffStrategy(tariffParams.billingModel)
   const oldBilledKw = strategy.billedKw(loadProfile, tariffParams)
@@ -78,7 +79,19 @@ export function computeBatterySavings(
   const eta = battery.roundTripEfficiency
   const periodOfInterval = periodIndexByInterval(loadProfile, tariffParams.billingModel)
   const capForInterval = capForIntervalSeries(sim.capKwByPeriod, periodOfInterval)
-  const { rateCtPerKwh } = intervalTariffRates(loadProfile, tariffParams)
+  /*
+   * Delta 4 (B21-3b): mit `pricing` sind das die KOMBINIERTEN Preise (Marktpreis + Netzentgelt),
+   * sonst wie bisher die Fenster-/Standardpreise. Die Buchhaltung darunter ist unverändert — genau
+   * das ist die Entscheidung aus Delta 4: das Netzentgelt bekommt KEINEN vierten Ersparnis-Topf,
+   * sondern geht in dieselbe Eigenverbrauchs-/Lastverschiebungs-Rechnung ein, die es schon gibt
+   * (Prinzip 2, Doppelzählungsrisiko).
+   *
+   * Ist der Hebel angefordert, aber nicht berechenbar, liefert `intervalTariffRates` bewusst
+   * durchgehend den Standardpreis: `dischargeCt - layer.chargeCt` ist dann überall 0, die
+   * Lastverschiebung bleibt 0, und der Eigenverbrauch (der ohnehin an `energyPriceCtPerKwh` hängt,
+   * nicht an dieser Reihe) ist unberührt.
+   */
+  const { rateCtPerKwh } = intervalTariffRates(loadProfile, tariffParams, pricing)
 
   const std = tariffParams.energyPriceCtPerKwh
   const einspeise = tariffParams.einspeiseverguetungCtPerKwh

@@ -1,4 +1,4 @@
-import type { BatteryCandidate, LoadProfile, PvProfile, TariffParams } from 'shared'
+import type { BatteryCandidate, LoadProfile, PvProfile, TariffParams, TariffPricingInputs } from 'shared'
 
 import { getTariffStrategy } from '../tariff/strategy'
 import { searchCaps } from './cap-search'
@@ -76,6 +76,7 @@ export function simulateBattery(
   battery: BatteryCandidate,
   tariffParams: TariffParams,
   pvProfile?: PvProfile,
+  pricing?: TariffPricingInputs,
 ): BatterySimulationResult {
   const physics = toPhysics(battery)
   const deltaH = intervalHours(loadProfile)
@@ -98,7 +99,10 @@ export function simulateBattery(
 
   // 3. Kombinierter Dispatch (§3.6). Günstige Tarif-Fenster (§3.7 Schritt 5a) steuern das
   //    tarifbewusste Laden; ohne Fenster ist `isCheapWindow` überall false → reiner Spitzenschutz.
-  const { isCheapWindow } = intervalTariffRates(loadProfile, tariffParams)
+  // `pricing` (Delta 4, B21-3b) ändert nur den INHALT von `isCheapWindow` — welche Stunden günstig
+  //    sind, entscheidet dann der kombinierte Preis statt eines Wanduhr-Fensters. Der Dispatch selbst
+  //    bekommt unverändert nur das Boolean und ist nicht angefasst.
+  const { isCheapWindow } = intervalTariffRates(loadProfile, tariffParams, pricing)
   const socStart = startSoc(physics)
   const dispatch = runCombinedDispatch(
     draws,

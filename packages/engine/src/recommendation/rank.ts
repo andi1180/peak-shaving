@@ -5,6 +5,7 @@ import type {
   LoadProfile,
   PvProfile,
   TariffParams,
+  TariffPricingInputs,
 } from 'shared'
 
 import { topPeaksKw } from '../peaks/metrics'
@@ -84,11 +85,17 @@ function buildPerBatteryEntry(
   financialParams: FinancialParams | undefined,
   topPeaks: Array<{ ts: string; kw: number }>,
   pvProfile: PvProfile | undefined,
+  pricing: TariffPricingInputs | undefined,
 ): AnalysisResult['perBattery'][number] {
   // PvProfile ändert Dispatch/Ersparnis NICHT (s. `simulateBattery`) — es reichert nur den Trace um die
   // echte Brutto-PV an. `computeBatterySavings` nutzt denselben `sim` (dessen Dispatch pv-unabhängig ist).
-  const sim = simulateBattery(loadProfile, battery, tariffParams, pvProfile)
-  const savings = computeBatterySavings(loadProfile, battery, tariffParams, sim)
+  //
+  // `pricing` (Delta 4, B21-3b) dagegen SCHON: der kombinierte Intervallpreis entscheidet mit, in
+  // welchen Stunden geladen wird (`isCheapWindow` im Dispatch) und womit eine verschobene kWh
+  // bewertet wird. Es muss deshalb an BEIDE Stellen — die Simulation und die Buchhaltung darüber;
+  // nur an eine gereicht rechnete die eine gegen einen anderen Preis als die andere.
+  const sim = simulateBattery(loadProfile, battery, tariffParams, pvProfile, pricing)
+  const savings = computeBatterySavings(loadProfile, battery, tariffParams, sim, pricing)
   const roi = calculateRoi(battery, savings.totalSavingPerYear, horizonYears, financialParams)
   const powerLimited = isPowerLimited(loadProfile, battery, tariffParams, sim.capKwByPeriod)
 
@@ -143,12 +150,13 @@ export function recommendBattery(
   horizonYears: number,
   financialParams?: FinancialParams,
   pvProfile?: PvProfile,
+  pricing?: TariffPricingInputs,
 ): RecommendationResult {
   // Top-Peaks (§3.4) sind profil-, nicht batterieabhängig — einmal für den ganzen Katalog rechnen und
   // je Kandidat in `buildDispatchTrace` injizieren (dieselbe Menge, die `AnalysisResult.peaks.top` zeigt).
   const topPeaks = topPeaksKw(loadProfile)
   const perBattery = catalog.map((battery) =>
-    buildPerBatteryEntry(loadProfile, battery, tariffParams, horizonYears, financialParams, topPeaks, pvProfile),
+    buildPerBatteryEntry(loadProfile, battery, tariffParams, horizonYears, financialParams, topPeaks, pvProfile, pricing),
   )
 
   perBattery.sort((a, b) =>

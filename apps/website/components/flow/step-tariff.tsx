@@ -13,10 +13,12 @@ import {
   tariffParamsSchema,
   tariffSelectionFrom,
   type FinancialParams,
+  type LoadProfile,
   type Netzebene,
   type NetzbetreiberId,
   type PendingReason,
   type TariffParams,
+  type TariffPricingInputs,
   type TariffSelection,
 } from 'shared'
 
@@ -44,6 +46,7 @@ import { Num } from '@/components/report/num'
 import { parseNum, percentHint } from '@/lib/form-utils'
 import { FileDrop } from './file-drop'
 import { TarifNichtVerfuegbar } from './tarif-nicht-verfuegbar'
+import { loadTariffPricing } from '@/lib/tariff-pricing'
 import type { ParsedPv, TariffResult } from './types'
 
 async function readForParsing(
@@ -98,9 +101,16 @@ type PendingState = {
 const DEVIATION_THRESHOLD = 0.1
 
 export function StepTariff({
+  loadProfile,
   onBack,
   onComplete,
 }: {
+  /**
+   * B21-3b: der bereits geparste Lastgang aus Schritt 1. Gebraucht wird allein sein ZEITRAUM —
+   * die Preisabfragen laufen über genau die Zeitscheibe, die der Lastgang abdeckt (Delta 15
+   * Regel A). Die Messwerte selbst verlassen den Browser weiterhin nicht (Prinzip 4).
+   */
+  loadProfile: LoadProfile
   onBack: () => void
   onComplete: (result: TariffResult) => void
 }) {
@@ -110,6 +120,19 @@ export function StepTariff({
   const [pv, setPv] = useState<ParsedPv | null>(null)
   const [pvIssue, setPvIssue] = useState<string | null>(null)
   const [errors, setErrors] = useState<Record<string, string>>({})
+
+  /*
+   * ── B21-3b: der Tarifoptimierungs-Hebel (Delta 4) ───────────────────────────────────────────
+   * Bewusst eine schlichte Schaltfläche und keine ausgearbeitete Oberfläche: die Darstellung des
+   * Hebels im Ergebnis ist Delta 9 und ein eigener Bauabschnitt. Was hier steht, ist die
+   * VERDRAHTUNG — ohne eine Möglichkeit, ihn einzuschalten, liesse sich der ganze Datenweg nicht
+   * end-to-end prüfen.
+   *
+   * Ist er AUS, passiert nichts Neues: kein Netzwerkaufruf, kein zusätzliches Feld im Payload, und
+   * die Engine rechnet wie vor B21.
+   */
+  const [useTariffOptimization, setUseTariffOptimization] = useState(false)
+  const [pricingBusy, setPricingBusy] = useState(false)
 
   // ── B11: Netzbetreiber & Netzebene ────────────────────────────────────────────────────────────
   const [netzbetreiber, setNetzbetreiber] = useState<NetzbetreiberId | typeof NOT_SET>(NOT_SET)
@@ -222,7 +245,7 @@ export function StepTariff({
     )
   }
 
-  function handleSubmit() {
+  async function handleSubmit() {
     /*
      * B11, TEIL 4: Zu einer Kombination ohne Leistungspreis wird NICHT gerechnet. Die Sperre sitzt
      * hier UND am Knopf — der Knopf ist die sichtbare Hälfte, diese Zeile die wirksame.
@@ -288,6 +311,30 @@ export function StepTariff({
     // Report). `handlePvFile` löscht `pvIssue` bei jedem neuen Versuch, ein späterer Erfolg (pv gesetzt)
     // hebt sie also auf.
     const pvError = pv == null && pvIssue != null ? pvIssue : undefined
+
+    /*
+     * Die Preisdaten werden NUR geholt, wenn der Hebel angefordert ist (Delta 4). Ohne ihn gibt es
+     * keinen Netzwerkaufruf — der öffentliche Rechner bleibt für jeden, der ihn nicht braucht,
+     * genau so netzfrei wie vor B21.
+     *
+     * Ein Fehlschlag bricht hier NICHTS ab: `loadTariffPricing` liefert dann `null` für die
+     * betroffene Seite, und die Engine kennzeichnet den Hebel als nicht berechenbar (Regel C).
+     * Die Peak-Shaving-Analyse läuft unverändert weiter — sie hängt an keiner dieser Zahlen.
+     */
+    let tariffPricing: TariffPricingInputs | undefined
+    if (useTariffOptimization) {
+      setPricingBusy(true)
+      try {
+        tariffPricing = await loadTariffPricing(
+          loadProfile,
+          netzbetreiber === NOT_SET ? null : netzbetreiber,
+          netzebene === NOT_SET ? null : Number(netzebene),
+        )
+      } finally {
+        setPricingBusy(false)
+      }
+    }
+
     onComplete({
       tariff: tRes.data as TariffParams,
       financial,
@@ -297,6 +344,7 @@ export function StepTariff({
       // Analyse-Bündel (Fassung 2). `undefined`, wenn kein Netzbetreiber gewählt wurde: dann
       // stammen die Werte direkt aus der Netzrechnung, und das ist eine eigene Aussage.
       tariffSelection: selection ?? undefined,
+      tariffPricing,
     })
   }
 
@@ -442,6 +490,25 @@ export function StepTariff({
             <Checkbox checked={useNight} onCheckedChange={(v) => setUseNight(v === true)} />
             Niedertarif-/HT-NT-Fenster hinterlegen (optional)
           </label>
+          {/*
+           * B21-3b (Delta 4) — VERDRAHTUNG, noch keine ausgearbeitete Darstellung. Die Ergebnis-
+           * Ansicht des Hebels ist Delta 9 und ein eigener Bauabschnitt; hier steht nur der
+           * Schalter, der den Datenweg überhaupt anstösst.
+           */}
+          <label className="flex items-start gap-2 text-sm text-text">
+            <Checkbox
+              checked={useTariffOptimization}
+              onCheckedChange={(v) => setUseTariffOptimization(v === true)}
+            />
+            <span>
+              Mit Börsen-Strompreisen vergleichen (optional)
+              <span className="mt-0.5 block text-xs text-text-muted">
+                Rechnet den Arbeitspreis je Viertelstunde aus Marktpreis und Netzentgelt Ihres
+                Netzbetreibers. Fehlen für Ihren Zeitraum Daten, wird dieser Teil ausdrücklich als
+                nicht berechenbar ausgewiesen — die Spitzenkappung bleibt davon unberührt.
+              </span>
+            </span>
+          </label>
           {useNight && (
             <div className="grid gap-4 rounded-lg border border-border bg-surface-alt p-4 sm:grid-cols-3">
               <NumberField
@@ -569,8 +636,8 @@ export function StepTariff({
            * steht oben im Klartext — ein Knopf, der stumm nicht reagiert, wäre eine Panne; einer,
            * der neben der Begründung deaktiviert ist, ist die Aussage selbst.
            */}
-          <Button onClick={handleSubmit} disabled={pending != null}>
-            Analyse starten
+          <Button onClick={() => void handleSubmit()} disabled={pending != null || pricingBusy}>
+            {pricingBusy ? 'Preisdaten werden geladen …' : 'Analyse starten'}
             <ArrowRight className="h-4 w-4" />
           </Button>
         </div>

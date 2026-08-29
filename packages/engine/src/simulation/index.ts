@@ -16,6 +16,12 @@ export type { DispatchResult } from './dispatch'
 export { runPeakProtection } from './peak-protection'
 export { buildDispatchTrace } from './trace'
 export { alignPvGrossToLoad, pvConsistencyWarning, pvCoverageWarning } from './pv'
+// Delta 4 (B21-3b): der kombinierte Intervallpreis. `evaluateTariffOptimization` ist der Weg für
+// einen Aufrufer, der EINMAL profilweit wissen will, ob der Tarifoptimierungs-Hebel rechenbar ist —
+// dieselbe Rechnung wie in `intervalTariffRates`, keine zweite Prüfung daneben.
+export { intervalTariffRates, evaluateTariffOptimization } from './tou'
+export type { IntervalTariffRates } from './tou'
+export { findGridTariffRow, findGridTariffWindow, parseClockMinutes } from './grid-tariff-window'
 export type { PvAlignment } from './pv'
 export {
   START_SOC_FRACTION,
