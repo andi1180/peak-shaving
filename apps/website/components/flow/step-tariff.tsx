@@ -7,13 +7,17 @@ import {
   NETZBETREIBER_IDS,
   NETZBETREIBER_LABELS,
   NETZEBENEN,
+  METERING_VARIANTS,
+  METERING_VARIANT_LABELS,
   financialParamsSchema,
+  hasMeteringVariant,
   lookupTariffProfile,
   pendingAcrossAllBetreiber,
   tariffParamsSchema,
   tariffSelectionFrom,
   type FinancialParams,
   type LoadProfile,
+  type MeteringVariant,
   type Netzebene,
   type NetzbetreiberId,
   type PendingReason,
@@ -42,10 +46,11 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { NumberField } from '@/components/ui/number-field'
+import { InfoHint, LabelWithInfo } from '@/components/ui/info-hint'
 import { Num } from '@/components/report/num'
 import { parseNum, percentHint } from '@/lib/form-utils'
 import { FileDrop } from './file-drop'
-import { TarifNichtVerfuegbar } from './tarif-nicht-verfuegbar'
+import { TarifNichtVerfuegbar, TarifOhneLeistungsmessung } from './tarif-nicht-verfuegbar'
 import { loadTariffPricing } from '@/lib/tariff-pricing'
 import type { ParsedPv, TariffResult } from './types'
 
@@ -137,6 +142,16 @@ export function StepTariff({
   // ── B11: Netzbetreiber & Netzebene ────────────────────────────────────────────────────────────
   const [netzbetreiber, setNetzbetreiber] = useState<NetzbetreiberId | typeof NOT_SET>(NOT_SET)
   const [netzebene, setNetzebene] = useState<string>(NOT_SET)
+  /*
+   * Delta 9a — die dritte Auswahl-Dimension (Delta 5). Sichtbar NUR bei Netzebenen, die eine
+   * Variante anbieten; bei allen anderen bleibt sie `NOT_SET` und reist als `null` in die Abfrage.
+   *
+   * Sie wird bewusst NICHT gerendert statt nur deaktiviert oder versteckt: ein deaktiviertes Feld
+   * gäbe es weiterhin, und der nächste Umbau schickte seinen Wert mit — dann stünde eine Variante in
+   * der Abfrage, wo `IS NULL` hingehört, und die gepflegte Tarifzeile wäre nicht auffindbar.
+   * Dieselbe Überlegung wie im Admin-Formular (B21-2b).
+   */
+  const [meteringVariant, setMeteringVariant] = useState<MeteringVariant | typeof NOT_SET>(NOT_SET)
   /** Gesetzt, sobald eine Kombination MIT Sätzen vorbelegt hat — trägt die Vorgabewerte von damals. */
   const [selection, setSelection] = useState<TariffSelection | null>(null)
   /*
@@ -161,6 +176,13 @@ export function StepTariff({
   function applySelection(nextBetreiber: string, nextEbene: string) {
     setNetzbetreiber(nextBetreiber as NetzbetreiberId | typeof NOT_SET)
     setNetzebene(nextEbene)
+
+    /*
+     * Wechselt die Netzebene auf eine ohne Variante, wird die Auswahl zurückgenommen — sonst bliebe
+     * ein unsichtbarer Wert stehen und liefe in die Abfrage. Das Feld ist dann nicht mehr sichtbar,
+     * der Nutzer könnte ihn also gar nicht mehr korrigieren.
+     */
+    if (nextEbene === NOT_SET || !hasMeteringVariant(Number(nextEbene))) setMeteringVariant(NOT_SET)
 
     if (nextBetreiber === NOT_SET || nextEbene === NOT_SET) {
       setSelection(null)
@@ -212,6 +234,36 @@ export function StepTariff({
       : null
   })()
 
+  /** Bietet die gewählte Netzebene überhaupt eine Messvariante an (Delta 5: heute NE 7)? */
+  const showMeteringVariant = netzebene !== NOT_SET && hasMeteringVariant(Number(netzebene))
+
+  /*
+   * Delta 9a — der gültige Fall ohne Leistungspreis-Komponente. Er hebt die B11-Sperre auf, und
+   * zwar aus einem fachlichen und nicht aus einem Bequemlichkeits-Grund: die Sperre steht dort, wo
+   * uns eine Zahl FEHLT. Hier fehlt keine — für diesen Anschluss gibt es keine. Was ohne
+   * Leistungspreis rechenbar bleibt (Eigenverbrauch, Lastverschiebung, der Vergleich mit den
+   * Börsenpreisen), ist genau das, worum es diesem Kunden geht.
+   */
+  const noPowerMeasurement = showMeteringVariant && meteringVariant === 'ohne_leistungsmessung'
+  const blocked = pending != null && !noPowerMeasurement
+
+  /**
+   * Messvariante übernehmen. Bei „ohne Leistungsmessung" wird der Leistungspreis auf 0 vorbelegt —
+   * das ist keine erfundene Zahl, sondern die einzige richtige: dieser Anschluss hat den Posten
+   * nicht. Stünde dort weiter der Vorgabewert, wiese der Report eine Spitzenkappungs-Ersparnis aus,
+   * die der Hinweis darüber im selben Atemzug bestreitet.
+   *
+   * Beim Zurückwechseln wird NICHTS wiederhergestellt: was der Nutzer sieht, ist sein Feld, und ein
+   * Formular, das eingetragene Werte hinter seinem Rücken zurücksetzt, ist schlimmer als eine 0, die
+   * er stehen sieht.
+   */
+  function applyMeteringVariant(next: string) {
+    setMeteringVariant(next as MeteringVariant | typeof NOT_SET)
+    if (next === 'ohne_leistungsmessung') {
+      setF((s) => ({ ...s, leistungspreisEurPerKwYear: '0', minBillableKw: '0' }))
+    }
+  }
+
   /*
    * Weicht der eingetragene Leistungspreis deutlich vom Vorgabewert ab, ein NEUTRALER Hinweis —
    * kein Fehler, keine Sperre. Der Kunde hat womöglich einen Sondervertrag, und die Rechnung
@@ -250,7 +302,7 @@ export function StepTariff({
      * B11, TEIL 4: Zu einer Kombination ohne Leistungspreis wird NICHT gerechnet. Die Sperre sitzt
      * hier UND am Knopf — der Knopf ist die sichtbare Hälfte, diese Zeile die wirksame.
      */
-    if (pending) return
+    if (blocked) return
 
     const errs: Record<string, string> = {}
 
@@ -329,6 +381,9 @@ export function StepTariff({
           loadProfile,
           netzbetreiber === NOT_SET ? null : netzbetreiber,
           netzebene === NOT_SET ? null : Number(netzebene),
+          // Nur wo die Netzebene eine Variante ANBIETET, darf eine mitfahren — sonst gehört `null`
+          // in die Abfrage (B21-1, `nulls not distinct`).
+          showMeteringVariant && meteringVariant !== NOT_SET ? meteringVariant : null,
         )
       } finally {
         setPricingBusy(false)
@@ -365,7 +420,14 @@ export function StepTariff({
         <Section title="Netzbetreiber & Netzebene">
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="netzbetreiber">Netzbetreiber</Label>
+              <LabelWithInfo htmlFor="netzbetreiber" label="Netzbetreiber">
+                Das ist das Unternehmen, dem die Leitungen bis zu Ihrem Zähler gehören — nicht Ihr
+                Stromlieferant. Beide stehen auf Ihrer Rechnung, oft auf getrennten Seiten. Die
+                Auswahl belegt Leistungspreis und Abrechnungsmodell vor und entscheidet, welches
+                Netzentgelt in den Vergleich mit den Börsen-Strompreisen eingeht. Wissen Sie es
+                nicht: „Nicht angeben" wählen und die Werte von der Rechnung eintragen — die
+                Rechnung ist ohnehin massgeblich.
+              </LabelWithInfo>
               <Select
                 value={netzbetreiber}
                 onValueChange={(v) => applySelection(v, netzebene)}
@@ -384,7 +446,12 @@ export function StepTariff({
               </Select>
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="netzebene">Netzebene</Label>
+              <LabelWithInfo htmlFor="netzebene" label="Netzebene">
+                Die Netzebene sagt, wie „weit oben" im Stromnetz Ihr Anschluss hängt — je näher am
+                Hochspannungsnetz, desto niedriger die Zahl und desto günstiger das Netzentgelt.
+                Gewerbebetriebe liegen meist auf 5 bis 7, ein eigenes Umspannwerk auf 3 oder 4. Der
+                Wert steht auf Ihrer Netzrechnung, üblicherweise als „Netzebene" oder „NE".
+              </LabelWithInfo>
               <Select value={netzebene} onValueChange={(v) => applySelection(netzbetreiber, v)}>
                 <SelectTrigger id="netzebene">
                   <SelectValue />
@@ -399,6 +466,36 @@ export function StepTariff({
                 </SelectContent>
               </Select>
             </div>
+            {/*
+              Delta 9a — die dritte Auswahl, kontextabhängig (Delta 5). Sie wird NICHT gerendert, wo
+              die Netzebene keine Variante anbietet; s. die Begründung am `meteringVariant`-State.
+            */}
+            {showMeteringVariant && (
+              <div className="flex flex-col gap-1.5">
+                <LabelWithInfo htmlFor="meteringVariant" label="Leistungsmessung">
+                  Auf dieser Netzebene gibt es mehrere Anschlussarten, und sie werden verschieden
+                  abgerechnet. <strong>Mit Leistungsmessung</strong> heisst: Ihr Zähler erfasst die
+                  höchste Viertelstunde, und die kostet extra — nur dann bringt eine Spitzenkappung
+                  überhaupt etwas. <strong>Ohne Leistungsmessung</strong> heisst: Sie zahlen nur
+                  Arbeitspreis und Pauschale. <strong>Unterbrechbar</strong> ist ein eigener,
+                  günstigerer Tarif für abschaltbare Anlagen (z. B. Wärmepumpen mit Sperrzeiten).
+                  Welche gilt, steht auf Ihrer Netzrechnung.
+                </LabelWithInfo>
+                <Select value={meteringVariant} onValueChange={applyMeteringVariant}>
+                  <SelectTrigger id="meteringVariant">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NOT_SET}>Nicht angeben</SelectItem>
+                    {METERING_VARIANTS.map((v) => (
+                      <SelectItem key={v} value={v}>
+                        {METERING_VARIANT_LABELS[v]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
 
           {/*
@@ -414,14 +511,50 @@ export function StepTariff({
             </p>
           )}
 
-          {pending && (
-            <TarifNichtVerfuegbar
-              reason={pending.reason}
-              netzbetreiber={pending.netzbetreiber}
-              netzebene={pending.netzebene}
-              note={pending.note}
-            />
+          {/*
+            Delta 9a: zwei Aussagen, die einander ausschliessen. „Ohne Leistungsmessung" hat Vorrang
+            und ersetzt die Verweigerung — es fehlt nichts, es gilt nur ein anderer Tarifaufbau.
+          */}
+          {noPowerMeasurement ? (
+            <TarifOhneLeistungsmessung />
+          ) : (
+            pending && (
+              <TarifNichtVerfuegbar
+                reason={pending.reason}
+                netzbetreiber={pending.netzbetreiber}
+                netzebene={pending.netzebene}
+                note={pending.note}
+              />
+            )
           )}
+
+          {/*
+            ── Delta 9a: der Tarifoptimierungs-Hebel steht JETZT HIER ──────────────────────────────
+            In B21-3b sass er im Abschnitt „Energiepreise", weil er dort als blosse Verdrahtung
+            entstand. Er hängt aber an genau den zwei Feldern darüber: ohne Netzbetreiber und
+            Netzebene gibt es keine Netzentgelt-Seite, und ohne die ist er nicht berechenbar. Neben
+            den Feldern, von denen er abhängt, ist der Zusammenhang sichtbar; einen Abschnitt weiter
+            unten war er es nicht.
+          */}
+          <InfoHint
+            label="Vergleich mit Börsen-Strompreisen"
+            before={
+              <label className="flex items-center gap-2 text-sm text-text">
+                <Checkbox
+                  checked={useTariffOptimization}
+                  onCheckedChange={(v) => setUseTariffOptimization(v === true)}
+                />
+                Mit Börsen-Strompreisen vergleichen (optional)
+              </label>
+            }
+          >
+            Statt eines festen Arbeitspreises rechnen wir jede Viertelstunde mit dem tatsächlichen
+            Börsenpreis jener Stunde plus dem Netzentgelt Ihres Netzbetreibers. Das zeigt, was ein
+            Speicher zusätzlich gebracht hätte, wenn er in billigen Stunden geladen und in teuren
+            entladen hätte — rückblickend auf echte Marktpreise Ihres Zeitraums, nicht als Prognose.
+            Fehlen für Ihren Zeitraum Preisdaten, sagen wir das ausdrücklich und zeigen keine Zahl.
+            Die Spitzenkappung bleibt davon in jedem Fall unberührt.
+          </InfoHint>
         </Section>
 
         <Section title="Leistungspreis">
@@ -489,25 +622,6 @@ export function StepTariff({
           <label className="flex items-center gap-2 text-sm text-text">
             <Checkbox checked={useNight} onCheckedChange={(v) => setUseNight(v === true)} />
             Niedertarif-/HT-NT-Fenster hinterlegen (optional)
-          </label>
-          {/*
-           * B21-3b (Delta 4) — VERDRAHTUNG, noch keine ausgearbeitete Darstellung. Die Ergebnis-
-           * Ansicht des Hebels ist Delta 9 und ein eigener Bauabschnitt; hier steht nur der
-           * Schalter, der den Datenweg überhaupt anstösst.
-           */}
-          <label className="flex items-start gap-2 text-sm text-text">
-            <Checkbox
-              checked={useTariffOptimization}
-              onCheckedChange={(v) => setUseTariffOptimization(v === true)}
-            />
-            <span>
-              Mit Börsen-Strompreisen vergleichen (optional)
-              <span className="mt-0.5 block text-xs text-text-muted">
-                Rechnet den Arbeitspreis je Viertelstunde aus Marktpreis und Netzentgelt Ihres
-                Netzbetreibers. Fehlen für Ihren Zeitraum Daten, wird dieser Teil ausdrücklich als
-                nicht berechenbar ausgewiesen — die Spitzenkappung bleibt davon unberührt.
-              </span>
-            </span>
           </label>
           {useNight && (
             <div className="grid gap-4 rounded-lg border border-border bg-surface-alt p-4 sm:grid-cols-3">
@@ -636,7 +750,7 @@ export function StepTariff({
            * steht oben im Klartext — ein Knopf, der stumm nicht reagiert, wäre eine Panne; einer,
            * der neben der Begründung deaktiviert ist, ist die Aussage selbst.
            */}
-          <Button onClick={() => void handleSubmit()} disabled={pending != null || pricingBusy}>
+          <Button onClick={() => void handleSubmit()} disabled={blocked || pricingBusy}>
             {pricingBusy ? 'Preisdaten werden geladen …' : 'Analyse starten'}
             <ArrowRight className="h-4 w-4" />
           </Button>

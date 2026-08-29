@@ -25,7 +25,53 @@ import { WARTELISTE_URL } from '@/lib/constants'
  * Die Warteliste steht als Möglichkeit daneben, nicht als Bedingung. Der Rechner bleibt für jede
  * andere Kombination vollständig benutzbar, und wer den Leistungspreis auf seiner Netzrechnung
  * stehen hat, kommt ohne Netzbetreiber-Auswahl weiter — der Weg dorthin steht im Text.
+ *
+ * ── DELTA 9a: EIN DRITTER FALL, DER KEINE VERWEIGERUNG IST ──────────────────────────────────────
+ * Bis hierher hiess „kein Leistungspreis" immer: uns fehlt eine Zahl. Mit der Messvarianten-Auswahl
+ * (Delta 5) kommt ein Fall dazu, in dem gar keine Zahl fehlt — ein Anschluss OHNE Leistungsmessung
+ * hat schlicht keine Leistungspreis-Komponente. Das ist der normale Zustand dieses Anschlusses und
+ * kein Mangel unserer Daten.
+ *
+ * Ihn mit demselben Text zu beantworten wäre gleich doppelt falsch: er behauptete einen Mangel, den
+ * es nicht gibt, und er sperrte eine Analyse, die sehr wohl möglich ist — die Spitzenkappung
+ * entfällt, der Arbeitspreis-Teil (Tarifoptimierung, Delta 4) bleibt vollständig rechenbar. Deshalb
+ * steht dieser Fall GANZ OBEN, blockiert nichts und trägt einen eigenen Ton.
  */
+/**
+ * Delta 9a — der gültige Fall, und deshalb eine EIGENE Komponente neben der Verweigerung.
+ *
+ * Sie steht hier und nicht in `step-tariff.tsx`, weil genau diese Datei die Frage beantwortet „was
+ * sagen wir, wenn kein Leistungspreis gilt" — und die Antwort hat seit Delta 9 zwei grundverschiedene
+ * Ausprägungen. Getrennte Komponenten statt eines Zweigs mit einem `reason`, der dann nichts
+ * bedeutet: dieser Fall hat kein `reason`, weil ihm nichts fehlt.
+ *
+ * Bewusst die NEUTRALE Alert-Variante, nicht Bernstein: Warnfarbe ist Information und kein Dekor
+ * (DESIGN.md). Hier ist nichts zu warnen.
+ */
+export function TarifOhneLeistungsmessung() {
+  return (
+    <Alert data-testid="tarif-ohne-leistungsmessung">
+      <Info className="h-4 w-4" />
+      <AlertTitle>
+        Ohne Leistungsmessung gibt es keinen Leistungspreis — das ist kein Fehler
+      </AlertTitle>
+      <AlertDescription>
+        <p className="mb-3 text-text">
+          Anschlüsse ohne Leistungsmessung zahlen kein Entgelt auf die höchste Viertelstunde. Damit
+          entfällt für Sie genau der Posten, den die Spitzenkappung senken würde — eine Ersparnis
+          daraus wäre erfunden, und wir weisen sie deshalb nicht aus. Der Leistungspreis unten steht
+          deshalb auf 0; wie jedes Feld bleibt er editierbar.
+        </p>
+        <p className="text-text">
+          Alles Übrige rechnet weiter: Eigenverbrauch, Lastverschiebung und der Vergleich mit den
+          Börsen-Strompreisen hängen am Arbeitspreis, nicht an der Leistungsmessung. Sie können die
+          Analyse ganz normal starten.
+        </p>
+      </AlertDescription>
+    </Alert>
+  )
+}
+
 export function TarifNichtVerfuegbar({
   reason,
   netzbetreiber,

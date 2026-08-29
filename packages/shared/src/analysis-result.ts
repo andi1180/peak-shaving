@@ -1,5 +1,6 @@
 import type { BatteryCandidate } from './battery'
 import type { BillingModel } from './tariff'
+import type { TariffOptimizationStatus } from './tariff-pricing'
 
 /**
  * [ANNAHME, fixiert mit §3.4-Implementierung] Verteilung der Bezugsspitzen für die
@@ -118,6 +119,22 @@ export type AnalysisResult = {
     einspeiseverguetungCtPerKwh: number
     billingModel: BillingModel
   }
+  /**
+   * Delta 9 (B21-3b/9a): Konnte der Tarifoptimierungs-Hebel für diese Analyse gerechnet werden?
+   *
+   * `undefined` heisst: gar nicht angefordert (der Hebel war aus) — kein Fehlerfall, sondern der
+   * unveränderte Stand vor B21. Sonst trägt das Feld entweder `{ computable: true }` oder den
+   * strukturierten Befund (`side`/`kind`/`ranges`/`message`).
+   *
+   * ── WARUM EIN EIGENES FELD UND NICHT `dataQuality.warnings` ────────────────────────────────────
+   * Bis B21-3b reiste der Befund als reiner TEXT in den Warnungen, weil es keine Anzeige gab, die
+   * ihn hätte auswerten können. Seit Delta 9a gibt es sie — und eine Oberfläche, die an einem Satz
+   * erkennen müsste, ob eine Zahl gezeigt werden darf, wäre genau die Kopplung, die
+   * `TariffOptimizationBlocker` mit seinen drei Feldern vermeidet. Der Text steht deshalb nicht
+   * mehr zusätzlich in `warnings`: derselbe Befund an zwei Orten liefe beim nächsten Umbau
+   * auseinander, und der Leser sähe denselben Satz zweimal auf einer Seite.
+   */
+  tariffOptimization?: TariffOptimizationStatus
   dataQuality: {
     coveredDays: number
     /** Anzahl der 12 Kalendermonate (lokal) mit ≥ 1 Messwert. < 12 = Teiljahres-Datensatz (§3.5) —

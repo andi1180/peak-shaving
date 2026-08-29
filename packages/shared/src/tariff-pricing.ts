@@ -133,3 +133,47 @@ export type TariffOptimizationBlocker = {
 export type TariffOptimizationStatus =
   | { computable: true }
   | ({ computable: false } & TariffOptimizationBlocker)
+
+/**
+ * ── Die Leistungsmessungs-Variante (Delta 5 / Delta 9) ──────────────────────────────────────────
+ *
+ * Spiegel des CHECK `metering_variant in (…)` aus B21-1. Sie steht hier und nicht in
+ * `tariff-catalog.ts`: sie gehört zur DATENBANK-Seite der Netzentgelte (B21), nicht zur B11-
+ * Vorgabewert-Tabelle im Code — und `tariff-pricing.ts` ist das Modul, das die Abfrage-Dimensionen
+ * dieser Seite beschreibt.
+ *
+ * ⚠ `apps/web/lib/admin/grid-tariffs.ts` führt dieselbe Liste ein zweites Mal, für das
+ * Admin-Pflegeformular (B21-2b). Das ist bewusst kein geteilter Import: der Admin-Bereich spiegelt
+ * dort das gesamte Vokabular der Tabelle (Grundpreis-Einheiten, Preisbasis, Fenster-Vorschläge),
+ * von dem der Rechner nichts braucht — und `NETZEBENEN` steht aus demselben Grund schon heute an
+ * beiden Orten. Die harte Grenze ist in beiden Fällen der CHECK in der Datenbank; weicht eine der
+ * Listen ab, wird der Wert dort abgewiesen. Eine Liste hier zu erweitern, ohne dass die Datenbank
+ * ihn kennt, hiesse dagegen: die Abfrage findet nie eine Zeile.
+ */
+export const METERING_VARIANTS = [
+  'mit_leistungsmessung',
+  'ohne_leistungsmessung',
+  'unterbrechbar',
+] as const
+export type MeteringVariant = (typeof METERING_VARIANTS)[number]
+
+export const METERING_VARIANT_LABELS: Record<MeteringVariant, string> = {
+  mit_leistungsmessung: 'mit Leistungsmessung',
+  ohne_leistungsmessung: 'ohne Leistungsmessung',
+  unterbrechbar: 'unterbrechbare Nutzung',
+}
+
+/**
+ * Netzebenen, die überhaupt eine Variante anbieten (Delta 5: nach dem Wiener-Netze-Beispiel NE 7).
+ *
+ * Das ist keine Anzeigefrage. Bei NE 3–6 gehört `null` in die Spalte, und genau darauf ist der
+ * `unique nulls not distinct`-Constraint aus B21-1 ausgelegt: `null` und `'mit_leistungsmessung'`
+ * sind für die Effektiv-Datierung zwei verschiedene Kombinationen. Würde die Oberfläche für NE 3–6
+ * eine Variante mitschicken, fände die Abfrage die gepflegte Zeile nicht — und der Hebel fiele mit
+ * „keine Netzentgelt-Daten" aus, obwohl die Daten da sind.
+ */
+export const NETZEBENEN_MIT_MESSVARIANTE: readonly number[] = [7]
+
+export function hasMeteringVariant(netzebene: number): boolean {
+  return NETZEBENEN_MIT_MESSVARIANTE.includes(netzebene)
+}

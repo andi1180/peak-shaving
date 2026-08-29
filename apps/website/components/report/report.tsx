@@ -28,6 +28,7 @@ import { LoadChart } from './load-chart'
 import { Num } from './num'
 import { PrintAssumptionsSnapshot } from './print-assumptions-snapshot'
 import { RecommendationCard } from './recommendation-card'
+import { TariffOptimizationCard } from './tariff-optimization-card'
 import { TariffSourceNote } from './tariff-source-note'
 
 // Report — ruhig, datendicht, desktop-first, Tablet Pflicht (§6.2). Bewusst ANDERER
@@ -139,8 +140,19 @@ export function Report({
       )}
 
       <div className="grid gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-1">
+        <div className="flex flex-col gap-6 lg:col-span-1">
           {recommended && <RecommendationCard entry={recommended} primary />}
+          {/*
+            Delta 9a — der Tarifoptimierungs-Hebel steht DANEBEN, nicht darin: er ist eine eigene
+            Aussage über eine eigene Datengrundlage, und wenn er ausfällt, bleibt die
+            Peak-Shaving-Karte darüber unverändert stehen und sichtbar. Ohne angeforderten Hebel
+            rendert die Karte gar nichts.
+          */}
+          <TariffOptimizationCard
+            status={result.tariffOptimization}
+            recommended={recommended}
+            timeZone={loadProfile.timezoneMeta}
+          />
         </div>
         <div className="flex flex-col gap-6 lg:col-span-2">
           <div className="rounded-lg border border-border bg-surface p-6 print:break-inside-avoid">
