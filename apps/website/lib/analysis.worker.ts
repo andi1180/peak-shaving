@@ -86,16 +86,20 @@ function computeAnalysis(
    * dieselbe Rechnung, die auch `intervalTariffRates` im Rechenkern anstellt (keine zweite
    * Prüfung daneben, die auseinanderlaufen könnte).
    *
-   * Die Meldung landet in `dataQuality.warnings` — dem bestehenden Weg für „diese Analyse trägt
-   * eine Einschränkung", auf dem schon die §3.1-Pflichtwarnung und die PV-Befunde reisen. Sie
-   * nennt Grund UND betroffenen Zeitraum; die strukturierte Fassung (`side`/`kind`/`ranges`)
-   * liegt in der Engine bereit, sobald die Oberfläche sie darstellt (Delta 9).
+   * ⚠ Delta 9a: Der Befund reist jetzt als STRUKTURIERTES Feld (`result.tariffOptimization`) und
+   * NICHT mehr zusätzlich als Satz in `dataQuality.warnings`. Bis B21-3b war der Text der einzige
+   * Weg, weil es keine Anzeige gab, die den Befund hätte auswerten können; seit Delta 9a gibt es
+   * die Ergebniskarte, und sie verzweigt an `side`/`kind`/`ranges`. Beide Wege nebeneinander
+   * bedeuteten denselben Satz zweimal auf einer Seite — und zwei Orte, die beim nächsten Umbau
+   * auseinanderlaufen.
    *
    * `undefined` heisst: nicht angefordert — dann gibt es auch nichts zu melden.
    */
-  const tariffStatus = evaluateTariffOptimization(loadProfile, payload.tariff, payload.tariffPricing)
-  const tariffWarnings =
-    tariffStatus && !tariffStatus.computable ? [tariffStatus.message] : []
+  const tariffOptimization = evaluateTariffOptimization(
+    loadProfile,
+    payload.tariff,
+    payload.tariffPricing,
+  )
 
   // --- perBattery/recommendation: ECHTER Engine-Aufruf (§3.6–§3.8) ---
   // `financial` ist bereits vollständig optional gebaut (§3.9) — fehlt es (Formular sammelt es
@@ -127,13 +131,13 @@ function computeAnalysis(
       energyPriceCtPerKwh: payload.tariff.energyPriceCtPerKwh,
       einspeiseverguetungCtPerKwh: payload.tariff.einspeiseverguetungCtPerKwh,
     },
-    dataQuality:
-      pvWarnings.length || tariffWarnings.length
-        ? {
-            ...payload.load.dataQuality,
-            warnings: [...payload.load.dataQuality.warnings, ...pvWarnings, ...tariffWarnings],
-          }
-        : payload.load.dataQuality,
+    tariffOptimization,
+    dataQuality: pvWarnings.length
+      ? {
+          ...payload.load.dataQuality,
+          warnings: [...payload.load.dataQuality.warnings, ...pvWarnings],
+        }
+      : payload.load.dataQuality,
   }
 }
 

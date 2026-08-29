@@ -25,16 +25,18 @@ import { analysisWindowToPriceRange, fetchGridTariffs, fetchSpotPrices } from '.
  * Abfrage mit erfundenen Parametern lieferte entweder nichts oder — schlimmer — die Zeile eines
  * fremden Betreibers.
  *
- * ⚠ `meteringVariant` ist heute fest `null`. Das ist kein vergessener Parameter, sondern der
- * aktuelle Stand: eine Auswahl dafür gibt es in der Oberfläche noch nicht (Delta 9), und für die
- * Netzebenen 3–6 gehört ausdrücklich `null` in die Spalte (B21-1, `nulls not distinct`). Netzebene 7
- * — die einzige mit Varianten — wird vor der Tarifverordnung ohnehin verweigert (B11), erreicht
- * diese Stelle also nicht. Sobald Delta 9 die Auswahl bringt, wird daraus ein Parameter.
+ * ⚠ `meteringVariant` ist seit Delta 9a ein echter Parameter (vorher fest `null`). Er MUSS `null`
+ * sein, wo die Netzebene keine Variante anbietet — bei NE 3–6 steht in der Spalte `null`, und die
+ * Abfrage filtert dort ausdrücklich auf `IS NULL` (B21-1, `nulls not distinct`). Eine mitgeschickte
+ * Variante fände dort keine Zeile, und der Hebel fiele mit „keine Netzentgelt-Daten" aus, obwohl die
+ * Daten gepflegt sind. Die Entscheidung darüber trifft die Oberfläche (`hasMeteringVariant`), nicht
+ * diese Funktion: sie reicht durch, was sie bekommt.
  */
 export async function loadTariffPricing(
   loadProfile: LoadProfile,
   operatorId: string | null,
   netzebene: number | null,
+  meteringVariant: string | null,
 ): Promise<TariffPricingInputs> {
   const window = analysisWindow(loadProfile)
   if (!window) return { gridTariffRows: null, spotPrices: null }
@@ -45,7 +47,7 @@ export async function loadTariffPricing(
   // doppelt so lange am Warten, ohne dass die Antwort besser würde.
   const [gridResult, spotResult] = await Promise.all([
     operatorId != null && netzebene != null
-      ? fetchGridTariffs(operatorId, netzebene, null, window.startIso, window.endIso)
+      ? fetchGridTariffs(operatorId, netzebene, meteringVariant, window.startIso, window.endIso)
       : Promise.resolve(null),
     fetchSpotPrices(priceRange.from, priceRange.to),
   ])

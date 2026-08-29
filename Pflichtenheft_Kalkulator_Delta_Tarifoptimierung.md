@@ -195,11 +195,19 @@ Zwei neue Wege neben dem bestehenden Lastgang-Upload, **komplementär, nicht red
 
 ## Delta 9 — UI/UX
 
-- **Infobuttons pro Feld/Funktion** mit kurzer Erklärung — bindende Anforderung, insbesondere für Privatkunden. Natürliche Erweiterung von Prinzip 5 (Transparenz), kein neues Prinzip.
-- **Schritt 2 (Tarif) erweitert** um die Leistungsmessungs-Variante als dritte Auswahl, kontextabhängig sichtbar (nur bei Netzebenen, die sie anbieten).
-- **Drei gleichwertige Startpunkte für den Lastgang-Schritt:** Datei-Upload (bestehend), Rechnungs-Scan (neu), Standardprofil/manuelle Verbrauchsangabe (neu) — alle drei münden auf denselben `LoadProfile`-Contract, keine UI-Verzweigung danach.
-- **`tarif-nicht-verfuegbar.tsx` muss überarbeitet werden:** heute reine Verweigerung (B11, NE7). Muss künftig unterscheiden zwischen „keine Daten vorhanden" (echte Verweigerung) und „ohne Leistungsmessung — gültiger Fall ohne Leistungspreis-Komponente" (kein Fehler, normaler Pfad).
-- Detail-Layout erst entwerfen, sobald Datenmodell/Migrationen stehen — nicht Teil dieses Deltas.
+> **Stand 29.08.2026: Delta 9a ist ABGESCHLOSSEN, Delta 9b ist ein eigener, späterer Bauabschnitt.** Die Trennlinie liegt zwischen der Bedienung des Hebels (9a: Formular, Erklärungen, Ergebnisanzeige) und den zusätzlichen EINSTIEGEN in den Lastgang-Schritt (9b: Rechnungs-Scan, Standardprofil/manuelle Verbrauchsangabe). 9b bringt neue Datenquellen und damit eigene fachliche Fragen; 9a brauchte keine.
+
+**9a — abgeschlossen (B21-3c, 29.08.2026):**
+
+- ✅ **Infobuttons pro Feld/Funktion** mit kurzer Erklärung — bindende Anforderung, insbesondere für Privatkunden. Natürliche Erweiterung von Prinzip 5 (Transparenz), kein neues Prinzip. Umgesetzt als `apps/website/components/ui/info-hint.tsx`; aufklappender Absatz im Textfluss statt Hover-Tooltip (auf einem Touchgerät gibt es kein Hover) und ohne neue Abhängigkeit. **Gesetzt sind sie an den in diesem Abschnitt NEUEN Feldern** — Netzbetreiber, Netzebene, Messvariante, Aktivierungs-Schalter, Ergebniskarte; ein repo-weiter Nachtrag auf alle Bestandsfelder ist bewusst nicht erfolgt.
+- ✅ **Schritt 2 (Tarif) erweitert** um die Leistungsmessungs-Variante als dritte Auswahl, kontextabhängig sichtbar (nur bei Netzebenen, die sie anbieten). Sie wird bei den übrigen Netzebenen **gar nicht gerendert**, nicht nur deaktiviert: ein deaktiviertes Feld gäbe es weiterhin, und sein Wert liefe beim nächsten Umbau in die Abfrage — wo `IS NULL` hingehört (B21-1, `nulls not distinct`).
+- ✅ **`tarif-nicht-verfuegbar.tsx` überarbeitet:** die Datei unterscheidet jetzt drei Fälle. Die beiden Verweigerungen (B11: Verordnung ausstehend / Preisblatt noch nicht hinterlegt) sind unverändert und sperren weiterhin; neu daneben steht `TarifOhneLeistungsmessung` — **kein Fehler, neutrale Färbung, kein Warteliste-Link, keine Sperre**, und der Leistungspreis wird mit 0 vorbelegt, weil dieser Anschluss den Posten nicht hat.
+- ✅ **Ergebnisanzeige des Hebels:** eine eigene Karte neben der Peak-Shaving-Empfehlung. Sie zeigt **entweder** die gerechnete Zahl **oder** den Grund samt betroffenem Zeitraum — nie beides, und im Blocker-Fall ausdrücklich keine Zahl (Delta 15). Sprache durchgehend rückblickend („wäre möglich gewesen"), nie als Zusage (Delta 11). Der Befund reist dafür als Contract-Feld `AnalysisResult.tariffOptimization` statt als Text in `dataQuality.warnings`.
+
+**9b — offen, eigener Bauabschnitt:**
+
+- **Drei gleichwertige Startpunkte für den Lastgang-Schritt:** Datei-Upload (bestehend), Rechnungs-Scan (neu), Standardprofil/manuelle Verbrauchsangabe (neu) — alle drei münden auf denselben `LoadProfile`-Contract, keine UI-Verzweigung danach. **Mitzudenken:** ein Standardprofil trägt laut Delta 3/8 die Tarif-Arbitrage, aber NICHT die Leistungspreis-Dimension — der vierte `LoadProfile.source`-Wert `standard_profile` (B21-1) existiert dafür bereits, wird aber von der Simulation noch nicht gelesen.
+- **Delta 16 (PDF-Report)** bleibt ebenfalls offen und wartet auf die Klärung seiner zwei offenen Fragen.
 
 ---
 
