@@ -41,7 +41,12 @@ export function PrintAssumptionsSnapshot({
       <p className="mb-3 text-sm font-medium text-ink">
         Annahmen &amp; Rechenweise — Stand dieser Berechnung
       </p>
-      <div className="grid gap-x-8 sm:grid-cols-2">
+      {/*
+        Delta 16a: im Druck EINSPALTIG. Auf A4 (rund 700 px Inhaltsbreite) ist `sm:` noch aktiv,
+        jede Spalte damit rund 340 px breit — Beschriftung und Wert stossen dort aneinander
+        („Abrechnungsmodell" / „Mittel der 12 Monatshöchstwerte"). Datendicht heisst nicht gedrängt.
+      */}
+      <div className="grid gap-x-8 sm:grid-cols-2 print:grid-cols-1">
         <div>
           <Row label="Abrechnungsmodell" value={billingModelLabel[assumptions.billingModel]} />
           <Row label="Betrachtungshorizont" value={`${assumptions.horizonYears} Jahre`} />

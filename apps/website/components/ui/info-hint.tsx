@@ -25,6 +25,20 @@ import { cn } from '@/lib/utils'
  * `<button>` mit `aria-expanded`/`aria-controls`; Tastatur und Screenreader bekommen dasselbe wie
  * die Maus, und die Erklärung ist ein normaler Absatz, kein `title`-Attribut.
  *
+ * ── IM DRUCK IST DER KNOPF SINNLOS — DIE ERKLÄRUNG NICHT IMMER (Delta 16a) ──────────────────────
+ * Auslöser und aufgeklappte Fläche sind `print:hidden`: ein Knopf auf Papier ist eine Requisite,
+ * und ob die Erklärung im Ausdruck steht, hinge sonst davon ab, ob der Nutzer sie vor dem Drucken
+ * zufällig aufgeklappt hatte — dasselbe Dokument sähe bei zwei Leuten verschieden aus.
+ *
+ * `printExplanation` kehrt das für EINZELNE Infobuttons um: die Erklärung erscheint dann im Druck
+ * IMMER, unabhängig vom Aufklappzustand, als eigener Absatz (dieselbe Technik wie
+ * `print-assumptions-snapshot.tsx`: `hidden print:block`). Der Knopf bleibt auch dann verborgen.
+ *
+ * Es ist bewusst ein OPT-IN und keine neue Voreinstellung: Delta 16a benennt genau eine Stelle, an
+ * der die Erklärung mitdrucken soll (die Tarifoptimierungs-Karte). Alle übrigen Infobuttons sind
+ * Formular-Hilfen zu Feldern, die im Druck gar nicht vorkommen — sie würden den Report mit
+ * Erklärungen zu Nicht-Vorhandenem fluten.
+ *
  * ── WHITE-LABEL ─────────────────────────────────────────────────────────────────────────────────
  * Auslöser und Erklärfläche laufen über `accent`/`accent-subtle` (§6.1) — kein Hex im Code, damit
  * die Partner-Akzentfarbe durchschlägt.
@@ -33,6 +47,7 @@ export function InfoHint({
   label,
   children,
   before,
+  printExplanation = false,
   className,
 }: {
   /** Worauf sich die Erklärung bezieht — landet im `aria-label`; sonst hiesse jeder Knopf „Info". */
@@ -40,6 +55,12 @@ export function InfoHint({
   children: ReactNode
   /** Was links vom Knopf in derselben Zeile steht (die Feldbeschriftung, eine Überschrift, …). */
   before?: ReactNode
+  /**
+   * Delta 16a, Opt-in: die Erklärung erscheint im DRUCK immer — unabhängig davon, ob sie am
+   * Bildschirm aufgeklappt ist. Nur dort setzen, wo der gedruckte Report die Aussage wirklich
+   * braucht (s. Kopf); der Vorgabewert lässt das bestehende Verhalten unberührt.
+   */
+  printExplanation?: boolean
   className?: string
 }) {
   const [open, setOpen] = useState(false)
@@ -65,6 +86,17 @@ export function InfoHint({
           id={id}
           className="rounded-md border border-border bg-accent-subtle px-3 py-2 text-xs leading-relaxed text-text print:hidden"
         >
+          {children}
+        </p>
+      )}
+      {/*
+        Druck-Pendant (Delta 16a). Eigener Absatz statt einer Umschaltung des obigen: der obige
+        hängt an `open`, und genau diese Abhängigkeit soll im Druck nicht bestehen. Kein `id` —
+        `aria-controls` oben zeigt weiterhin auf den interaktiven Absatz, und zwei Elemente mit
+        derselben Kennung wären ungültiges HTML.
+      */}
+      {printExplanation && (
+        <p className="hidden rounded-md border border-border bg-accent-subtle px-3 py-2 text-xs leading-relaxed text-text print:block print:break-inside-avoid">
           {children}
         </p>
       )}

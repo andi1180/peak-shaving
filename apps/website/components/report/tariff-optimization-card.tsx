@@ -72,7 +72,10 @@ export function TariffOptimizationCard({
 
   if (!status.computable) {
     return (
-      <Card className="border-warning" data-testid="tarifoptimierung-blocker">
+      <Card
+        className="border-warning print:break-inside-avoid"
+        data-testid="tarifoptimierung-blocker"
+      >
         <CardHeader>
           <div className="flex items-center gap-2 text-warning">
             <AlertCircle className="h-4 w-4 shrink-0" />
@@ -111,7 +114,10 @@ export function TariffOptimizationCard({
   const saving = recommended?.loadShiftSavingPerYear ?? 0
 
   return (
-    <Card className="border-accent" data-testid="tarifoptimierung-ergebnis">
+    <Card
+      className="border-accent print:break-inside-avoid"
+      data-testid="tarifoptimierung-ergebnis"
+    >
       <CardHeader>
         <div className="flex items-center gap-2 text-accent">
           <LineChart className="h-4 w-4 shrink-0" />
@@ -125,8 +131,16 @@ export function TariffOptimizationCard({
             pro Jahr zusätzlich — durch Laden in günstigen und Entladen in teuren Viertelstunden
           </p>
         </div>
+        {/*
+          Delta 16a / CLAUDE.md Punkt (d): DIESE Erklärung druckt mit — als einzige im Report.
+          Sie trägt zwei Aussagen, die auf einem weitergereichten Blatt nicht fehlen dürfen: dass
+          die Zahl ein RÜCKBLICK ist und keine Zusage (Delta 11), und dass sie in der
+          Gesamtersparnis bereits enthalten ist und nicht obendrauf kommt (Prinzip 2). Ohne sie
+          stünde im PDF eine grosse Euro-Zahl ohne beides.
+        */}
         <InfoHint
           label="Vergleich mit Börsen-Strompreisen"
+          printExplanation
           before={
             <p className="text-text">
               Rückblickend gerechnet auf die tatsächlichen Marktpreise Ihres Zeitraums.

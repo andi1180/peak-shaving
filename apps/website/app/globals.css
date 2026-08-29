@@ -99,4 +99,52 @@
   @page {
     margin: 14mm 12mm;
   }
+
+  /*
+   * Delta 16a — Feinschliff des Druck-Layouts. Alles hier ist Typografie und Umbruch; kein
+   * Element wird ein-/ausgeblendet (das entscheiden `print:hidden`/`print:block` an Ort und
+   * Stelle) und kein Chart angefasst.
+   */
+
+  /* Der Bildschirm-Report steht auf `bg-surface-alt` mit Rahmen um jede Karte. Auf Papier ist der
+     Rahmen die Information, der Grauton nur Toner — die Flächen bleiben weiss. */
+  body {
+    background: var(--color-surface);
+  }
+
+  /* Keine Schusterjungen/Hurenkinder: eine einzelne Zeile eines Absatzes allein auf einer Seite
+     ist in einem Dokument, das ein Kunde behält, schlicht unsauber. */
+  p,
+  li {
+    orphans: 3;
+    widows: 3;
+  }
+
+  /* Eine Überschrift am Seitenfuss, deren Abschnitt erst auf der nächsten Seite beginnt, ist eine
+     falsche Fährte — sie wandert mit. */
+  h1,
+  h2,
+  h3 {
+    break-after: avoid-page;
+    break-inside: avoid-page;
+  }
+
+  /* Eine Tabellenzeile oder ein Listenpunkt gehört nicht über zwei Blätter verteilt. */
+  tr,
+  li {
+    break-inside: avoid;
+  }
+
+  /* Recharts zeichnet in ein SVG fester Höhe. Ohne diese Regel darf der Umbruch mitten hindurch —
+     die obere Hälfte einer Kurve auf Seite 2, die untere auf Seite 3. Die Chart-Kästen tragen
+     bereits `print:break-inside-avoid`; das hier fängt alles, was künftig dazukommt. */
+  svg {
+    break-inside: avoid;
+  }
+
+  /* Der Bildschirm-Report hat oben und unten grosszügige Luft (`py-8`). Auf einem Blatt mit
+     eigenem Seitenrand ist das doppelter Rand. */
+  main {
+    padding-top: 0;
+  }
 }

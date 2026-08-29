@@ -207,7 +207,7 @@ Zwei neue Wege neben dem bestehenden Lastgang-Upload, **komplementär, nicht red
 **9b — offen, eigener Bauabschnitt:**
 
 - **Drei gleichwertige Startpunkte für den Lastgang-Schritt:** Datei-Upload (bestehend), Rechnungs-Scan (neu), Standardprofil/manuelle Verbrauchsangabe (neu) — alle drei münden auf denselben `LoadProfile`-Contract, keine UI-Verzweigung danach. **Mitzudenken:** ein Standardprofil trägt laut Delta 3/8 die Tarif-Arbitrage, aber NICHT die Leistungspreis-Dimension — der vierte `LoadProfile.source`-Wert `standard_profile` (B21-1) existiert dafür bereits, wird aber von der Simulation noch nicht gelesen.
-- **Delta 16 (PDF-Report)** ist inzwischen **entschieden, nicht gebaut** — eigener Abschnitt unten (Rendering bleibt `window.print()`, das Name/Firma-Gate ist echte Lead-Erfassung). Offen dort nur noch Inhalt/Umfang des erweiterten Reports.
+- **Delta 16 (PDF-Report)** ist entschieden und **zur Hälfte gebaut**: 16a (Deckblatt, Methodik-Kapitel, Druck-Layout) ist fertig, **16b (Name/Firma-Gate + Lead-Schreibpfad) ist offen** — eigener Abschnitt unten.
 
 ---
 
@@ -316,6 +316,8 @@ Dieselbe Haltung wie bei **Netzebene 7** (B11: verweigert die Berechnung, statt 
 ---
 
 ## Delta 16 — Erweiterter PDF-Report mit Name/Firma-Gate (ergänzt §6.2, §5.1, §7a.1(c))
+
+> **Stand 29.08.2026: 16a ist GEBAUT, 16b ist offen.** Die Trennlinie liegt zwischen dem DOKUMENT und dem GATE. **16a (fertig):** Deckblatt, Methodik-/Vorbehalte-Kapitel, Seitenumbrüche und Druck-Typografie — reines Print-CSS in `apps/website`, ohne eine Zeile Datenbank. **16b (offen):** das Name/Firma-Gate samt Lead-Schreibpfad — Migration, eigener Herkunftsschlüssel und `apps/website`s erster Server-Kontext. Die beiden berühren einander an genau einer Stelle: der `customer`-Prop von `PrintCover`, die heute leer bleibt und dann gefüllt wird. Handover mit den Messwerten: `CLAUDE.md`, Eintrag „GEBAUT: Delta 16a".
 
 Basis existiert bereits: `window.print()` gegen ein Print-Stylesheet (`step-result.tsx`, U2 Prompt D) erfüllt §6.2s PDF-Export-Anforderung ohne Bibliothek. „Erweiterter Report" baut auf diesem Weg auf, ersetzt ihn nicht.
 
