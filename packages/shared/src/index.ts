@@ -25,3 +25,7 @@ export * from './tariff-catalog'
 // nicht in `engine`, weil der Rechenkern mit dem Profil rechnet, das er bekommt — WELCHES Profil er
 // bekommen darf, entscheiden die Ränder (Upload-Schritt). Dieselbe Aufteilung wie bei `tariff-catalog`.
 export * from './analysis-window'
+// Delta 4 (B21-3b): die Eingaben des kombinierten Intervallpreises — Netzbetreiber-Tarifzeilen und
+// Marktpreis-Reihe. Aus demselben Grund hier wie `tariff-catalog`: der Rechenkern bekommt sie als
+// PARAMETER und darf die Datenschicht nicht kennen (Wächter in `engine/src/tariff/`).
+export * from './tariff-pricing'

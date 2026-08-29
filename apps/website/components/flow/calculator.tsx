@@ -58,7 +58,15 @@ export function Calculator() {
       {narrow ? (
         <div className="mx-auto w-full max-w-2xl px-4 sm:px-6">
           {step === 1 && <StepUpload initialLoad={load} onComplete={handleUpload} />}
-          {step === 2 && <StepTariff onBack={() => setStep(1)} onComplete={handleTariff} />}
+          {step === 2 && load && (
+            <StepTariff
+              // B21-3b: nur für den ZEITRAUM der Preisabfragen (Delta 15 Regel A) — die Messwerte
+              // selbst bleiben im Browser (Prinzip 4).
+              loadProfile={load.profile}
+              onBack={() => setStep(1)}
+              onComplete={handleTariff}
+            />
+          )}
           {step === 3 && <StepAnalyzing progress={analysis.progress} status={analysis.status} />}
         </div>
       ) : (

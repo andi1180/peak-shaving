@@ -71,6 +71,18 @@ Beide Seiten werden dafür zeitvariabel, nicht nur die Energie-Seite:
 
 `intervalTariffRates()` wird entsprechend verallgemeinert: Rückgabe bleibt strukturell gleich (`rateCtPerKwh[]`, `isCheapWindow[]`), aber der Preis pro Intervall setzt sich aus beiden Quellen zusammen, bevor der Vergleich gegen den Referenzpreis läuft. **Der Dispatch selbst ändert sich nicht** — weiterhin nur `isCheapWindow` als Boolean an `runCombinedDispatch`, exakt wie heute.
 
+### Nachtrag (29.08.2026, mit B21-3b gebaut) — „nicht berechenbar" gilt SYMMETRISCH
+
+Delta 15 Regel C benennt die Lückenbehandlung nur für die **Spotpreis**-Seite. Beim Bau zeigte sich, dass sie für die **Netzentgelt**-Seite genauso gelten muss, und zwar aus demselben Grund: fehlt für einen Teil des Lastgang-Zeitraums eine gültige Tarifzeile (oder deckt keines ihrer Zeitfenster das Intervall ab), ist der kombinierte Preis `energyPrice(t) + netzVerbrauchspreis(t)` dort **nicht bildbar** — es ist dasselbe Loch in derselben Rechnung. Für den Rest zu rechnen und die Lücke zu überspringen ergäbe eine zu niedrige Vergleichszahl, die niemandem als Fehler auffiele, sondern als Ergebnis.
+
+**Das ist eine Ergänzung, kein Widerspruch zu Delta 15.** Regel B (Untergrenze, dauerhaft, beim Nutzer) und Regel C (Lücke, vorübergehend, bei uns) bleiben unverändert getrennt. Die Netzentgelt-Lücke ist ein **dritter** Zustand mit einer eigenen Ursache: sie ist weder eine Nutzer-Sache noch ein stehengebliebener Cron, sondern ein **fehlender Pflegestand** (ein Preisblatt, das noch niemand eingetragen hat, B21-2b). Sie wird deshalb eigens benannt.
+
+Umgesetzt als eine Angabe mit drei Feldern — `side` (`grid_tariff` / `spot_price`), `kind` (`gap` / `unavailable` / `price_basis`) und den betroffenen Zeitbereichen —, damit die Oberfläche (Delta 9) daran verzweigen kann, ohne eine Meldung zu parsen. Fehlen BEIDE Seiten, wird die Netzentgelt-Seite genannt: sie ist von Hand nachzutragen, während sich eine Spotpreis-Lücke mit dem nächsten Cron-Lauf von selbst schliesst.
+
+**`price_basis` ist der dritte Grund und stammt aus Delta 6:** eine Preisquelle, die nicht netto ist, wird **nicht umgerechnet**, sondern macht den Hebel nicht berechenbar. Eine Umrechnung setzte einen Steuersatz voraus, und einen zu erfinden ist derselbe Fehler wie eine erfundene Tarifzahl (B11).
+
+**Wichtig für die Ergebnistreue:** In allen diesen Fällen fällt die Engine ausdrücklich **nicht** auf das statische Fensterschema zurück. Sie liefert für den Hebel nichts und sagt warum — Peak Shaving und Eigenverbrauch bleiben davon unberührt (gemessen: bit-identisch zu einem Lauf ohne Hebel).
+
 **[OFFEN, nicht Teil des Bau-Prompts] LP-Lücke:** Der bestehende Mechanismus ist eine Greedy-Schwellwert-Heuristik, kein echter Optimierer. Bei zwei Preisstufen (HT/NT) unerheblich, bei 8.760 echt unterschiedlichen Stundenpreisen potenziell relevant. Die Studienzahlen (−43 % / 266 €/Jahr Haushalt, LP via scipy/HiGHS) sind **nicht** automatisch das, was diese Engine liefert. Validierung per kurzem, separatem Skript-Spike **nach** diesem Bau, nicht davor — s. Delta 11 und Delta 14 für die Konsequenz (keine Studienzahlen in Kundenkommunikation, bis geklärt).
 
 ---

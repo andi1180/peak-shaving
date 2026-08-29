@@ -54,6 +54,27 @@ function stripComments(source: string): string {
   return source.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/.*$/gm, '$1')
 }
 
+/**
+ * Entfernt Zeichenkettenliterale — NUR für die Bezeichner-Prüfung, nicht für die Modulpfad-Prüfung.
+ *
+ * ── WARUM (gemessen in B21-3b, nicht vorsorglich) ──────────────────────────────────────────────
+ * `Netzebene` ist ein exportierter TYP der Datenschicht — und zugleich ein ganz normales deutsches
+ * Wort, das in einer an den Nutzer gerichteten Meldung vorkommt („… und die gewählte Netzebene
+ * liegen keine Netzentgelt-Daten vor"). Ohne diesen Schnitt schlug der Wächter darauf an, und die
+ * einzige Abhilfe wäre gewesen, den ANZEIGETEXT zu verstümmeln, um einen Test zufriedenzustellen —
+ * dieselbe Fehlerziehung, die schon beim Kommentar-Fall beobachtet wurde (s. `stripComments`).
+ *
+ * Der Schnitt schwächt die Prüfung nicht: eine Abhängigkeit entsteht durch einen IMPORT oder eine
+ * BENUTZUNG des Symbols, nie dadurch, dass sein Name in einem Text steht. Die Modulpfad-Prüfung
+ * darunter behält die Literale ausdrücklich — dort IST die Zeichenkette der Beweis.
+ */
+function stripStringLiterals(source: string): string {
+  return source
+    .replace(/'(?:[^'\\\n]|\\.)*'/g, "''")
+    .replace(/"(?:[^"\\\n]|\\.)*"/g, '""')
+    .replace(/`(?:[^`\\]|\\.)*`/g, '``')
+}
+
 /** Jeder Bezeichner, den die Datenschicht öffentlich anbietet — Werte UND reine Typen. */
 function catalogExportNames(): string[] {
   const source = readFileSync(CATALOG_FILE, 'utf8')
@@ -99,7 +120,7 @@ describe('engine hängt nicht an der Tarifsatz-Datenschicht (B11)', () => {
     for (const file of files) {
       // Diese Datei selbst nennt die Bezeichner naturgemäss — sie ist der Wächter, nicht der Fall.
       if (file.endsWith('no-catalog-dependency.test.ts')) continue
-      const source = stripComments(readFileSync(file, 'utf8'))
+      const source = stripStringLiterals(stripComments(readFileSync(file, 'utf8')))
       for (const name of catalogNames) {
         if (new RegExp(`\\b${name}\\b`).test(source)) {
           offenders.push(`${file.slice(ENGINE_SRC.length + 1)} → ${name}`)
