@@ -4,6 +4,7 @@ import type { AnalysisResult } from 'shared'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { formatEur, formatKw, formatYears } from '@/lib/format'
+import { HINDSIGHT_NOTE } from '@/lib/report-copy'
 import { Num } from './num'
 
 type Entry = AnalysisResult['perBattery'][number]
@@ -87,11 +88,13 @@ export function RecommendationCard({
             <span className="text-ink">Gesamt</span>
             <Num className="text-positive">{formatEur(entry.totalSavingPerYear)}</Num>
           </div>
-          {/* Hindsight-Hinweis Pflicht (§6.2): Eigenverbrauch/Lastverschiebung mit vollem Rückblick. */}
+          {/* Hindsight-Hinweis Pflicht (§6.2): Eigenverbrauch/Lastverschiebung mit vollem Rückblick.
+              Wortlaut seit Delta 16a aus `lib/report-copy.ts` — der Methodik-Abschnitt des
+              Druck-Reports trägt DIESELBE Aussage und darf nicht davon abweichen. Gerendert
+              unverändert; am Bildschirm ist der Satz bit-gleich zu vorher. */}
           <p className="mt-2 flex items-start gap-1.5 text-xs text-text-muted">
             <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
-            Eigenverbrauch &amp; tarifbewusstes Laden sind mit vollem Rückblick auf das Jahresprofil
-            gerechnet (Bestmarke). Der Spitzenschutz-Anteil ist davon nicht betroffen.
+            {HINDSIGHT_NOTE}
           </p>
         </div>
 

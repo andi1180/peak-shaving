@@ -27,6 +27,7 @@ import { LeadDialog } from './lead-dialog'
 import { LoadChart } from './load-chart'
 import { Num } from './num'
 import { PrintAssumptionsSnapshot } from './print-assumptions-snapshot'
+import { PrintMethodology } from './print-methodology'
 import { RecommendationCard } from './recommendation-card'
 import { TariffOptimizationCard } from './tariff-optimization-card'
 import { TariffSourceNote } from './tariff-source-note'
@@ -116,18 +117,20 @@ export function Report({
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8 sm:px-6">
-      <KeyMetric current={result.current} />
+      <div className="print:break-inside-avoid">
+        <KeyMetric current={result.current} />
+      </div>
 
       {showPartialYearWarning && (
-        <Alert variant="warning">
+        <Alert variant="warning" className="print:break-inside-avoid">
           <AlertTriangle className="h-4 w-4" />
           <AlertTitle>
             Nur <Num>{result.dataQuality.coveredMonths}</Num> von 12 Monaten mit Daten
           </AlertTitle>
           <AlertDescription>
             <p className="mb-3 text-text">
-              Der abgerechnete Leistungswert oben unter dem Modell „Mittelwert der Monatsspitzen" ist
-              damit nicht aussagekräftig — die{' '}
+              Der abgerechnete Leistungswert oben unter dem Modell „Mittelwert der Monatsspitzen"
+              ist damit nicht aussagekräftig — die{' '}
               <Num>{12 - result.dataQuality.coveredMonths}</Num> Monate ohne Daten kann das Modell
               nicht mitteln. „Jahreshöchstwert" als Abrechnungsmodell liefert für diesen Datensatz
               eine belastbarere Zahl.
@@ -168,7 +171,13 @@ export function Report({
               leistungspreisRatePerKwYear={leistungspreisRatePerKwYear}
             />
           </div>
-          <div className="grid gap-6 sm:grid-cols-2">
+          {/*
+            Im DRUCK einspaltig: A4 minus Rand ergibt rund 700 px Inhaltsbreite — dort ist `sm:`
+            noch aktiv, und Kostenvergleich und Energiefluss stünden zu zweit auf halber Breite.
+            Ein Chart, das auf Papier auf 340 px gequetscht wird, ist keine Abbildung mehr.
+            Betrifft ausschliesslich die Anordnung; die Charts selbst sind unverändert.
+          */}
+          <div className="grid gap-6 sm:grid-cols-2 print:grid-cols-1">
             <div className="rounded-lg border border-border bg-surface p-6 print:break-inside-avoid">
               <p className="mb-1 text-sm font-medium text-ink">Kostenvergleich mit/ohne Batterie</p>
               <p className="mb-3 text-xs text-text-muted">
@@ -189,7 +198,7 @@ export function Report({
                 onSelectBattery={setSelectedBatteryId}
                 timeZone={loadProfile.timezoneMeta}
               />
-              <div className="flex flex-col justify-center gap-3 rounded-lg border border-border bg-surface p-6">
+              <div className="flex flex-col justify-center gap-3 rounded-lg border border-border bg-surface p-6 print:break-inside-avoid">
                 <p className="text-sm font-medium text-ink">Nächster Schritt</p>
                 <p className="text-sm text-text-muted">{result.recommendation.rationale}</p>
                 <div className="print:hidden">
@@ -254,8 +263,16 @@ export function Report({
       {/* Druck-Pendant zur Accordion oben — Snapshot statt Eingabefelder (§6.2 Teil D). */}
       <PrintAssumptionsSnapshot assumptions={a} recommended={recommended} />
 
+      {/*
+        Delta 16a — Methodik & Vorbehalte, nur im Druck. Steht bewusst NACH den Zahlen und den
+        Annahmen: wer das Blatt aufschlägt, soll zuerst sein Ergebnis sehen. Die Komponente setzt
+        selbst einen Seitenumbruch davor, damit das Kapitel nicht als Rest einer Zahlenseite
+        beginnt.
+      */}
+      <PrintMethodology />
+
       {result.dataQuality.warnings.length > 0 && (
-        <Alert>
+        <Alert className="print:break-inside-avoid">
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Datenqualität</AlertTitle>
           <AlertDescription>
