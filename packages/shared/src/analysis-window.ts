@@ -21,8 +21,18 @@
 import type { LoadProfile } from './load-profile'
 
 /**
- * Der früheste Zeitpunkt, für den `public.spot_prices` geführt wird — und damit zugleich die
- * Untergrenze dessen, was der Kalkulator als Lastgang annimmt (Delta 15, Regel B).
+ * Der früheste Zeitpunkt, für den `public.spot_prices` geführt wird — die untere Kante des
+ * Preisbestands.
+ *
+ * ── ⚠ WARUM 23:00 UTC AM VORTAG UND NICHT MITTERNACHT UTC ──────────────────────────────────────
+ * Dies ist die MITTERNACHT DER ORTSZEIT des Ankertags (`SPOT_PRICE_ANCHOR_DATE`, Europe/Vienna,
+ * im Winter UTC+1). Ein österreichischer Kalenderjahr-2025-Lastgang beginnt mit `01.01.2025 00:00`
+ * Ortszeit, also `2024-12-31T23:00:00Z` — Regel B lässt ihn zu Recht durch (sie prüft den
+ * KALENDERTAG, s. `SPOT_PRICE_ANCHOR_DATE`). Stünde der Preisbestand erst ab Mitternacht UTC, hätte
+ * ausgerechnet dessen ERSTE STUNDE keinen Preis, und der aWATTar-Vergleich fiele für JEDEN solchen
+ * Lastgang unter Regel C („nicht berechenbar"). Das wäre keine betriebliche Lücke, sondern eine
+ * systematische Kante des Ankers, die sich nicht von selbst schliesst. Sie ist deshalb geschlossen,
+ * indem der Bestand eine Stunde früher beginnt — nicht, indem die Abfrage sie wegkappt.
  *
  * ⚠ DIESE ZAHL EXISTIERT EIN ZWEITES MAL: als `BACKFILL_ANCHOR_ISO` in
  * `apps/web/scripts/backfill-spot-prices.mjs`. Die beiden sind DIESELBE Zahl und dürfen nicht
@@ -32,7 +42,7 @@ import type { LoadProfile } from './load-profile'
  * ein `.mjs`-Skript ausserhalb jedes Bundlers, in einer ANDEREN App. Gegen das Auseinanderlaufen
  * steht deshalb ein Wächter, der die Skriptdatei liest — `analysis-window.test.ts`.
  */
-export const SPOT_PRICE_ANCHOR_ISO = '2025-01-01T00:00:00Z'
+export const SPOT_PRICE_ANCHOR_ISO = '2024-12-31T23:00:00Z'
 
 /**
  * Derselbe Anker als KALENDERTAG — und der ist es, gegen den Regel B prüft.
@@ -48,15 +58,13 @@ export const SPOT_PRICE_ANCHOR_ISO = '2025-01-01T00:00:00Z'
  * Delta 15 nennt die Grenze als DATUM („Beginn vor dem 1.1.2025"), nicht als Zeitpunkt. Geprüft
  * wird deshalb der Kalendertag des ersten Messwerts in der Zeitzone des Lastgangs.
  *
- * ── ⚠ WAS DAMIT OFFEN BLEIBT — für B21-3b, hier bewusst nicht gelöst ───────────────────────────
- * Die erste Stunde eines solchen Lastgangs (Ortszeit 00:00–01:00 am 1.1.) liegt vor dem Anker und
- * hat deshalb KEINEN Spotpreis. Das ist keine betriebliche Lücke (Regel C, „ein Cron ist
- * stehengeblieben"), sondern eine systematische Kante des Ankers: sie trifft JEDEN
- * Kalenderjahr-2025-Lastgang und schliesst sich nicht von selbst. Wer den Preisbereich in B21-3b
- * verdrahtet, muss sie ausdrücklich behandeln — entweder durch Vorziehen des Backfill-Ankers um
- * einen Tag (dann wandern BEIDE Zahlen, s. u.) oder durch bewusstes Kappen des Abfragebereichs auf
- * den Anker. Sie als gewöhnliche Regel-C-Lücke durchlaufen zu lassen hiesse, für jeden solchen
- * Lastgang den ganzen Vergleich als nicht berechenbar auszuweisen.
+ * ── DIE EIN-STUNDEN-KANTE IST GESCHLOSSEN ──────────────────────────────────────────────────────
+ * Die erste Stunde eines solchen Lastgangs (Ortszeit 00:00–01:00 am 1.1.) liegt vor Mitternacht
+ * UTC. Sie hatte anfangs keinen Spotpreis, was den ganzen aWATTar-Vergleich für jeden
+ * Kalenderjahr-2025-Lastgang unter Regel C fallen liess. Geschlossen wurde das auf der Seite des
+ * BESTANDS, nicht der Abfrage: `SPOT_PRICE_ANCHOR_ISO` (und mit ihm der Backfill-Anker) liegt auf
+ * der ORTSZEIT-Mitternacht dieses Tages, also eine Stunde früher. Das Anker-DATUM ist dabei
+ * unverändert geblieben — Regel B lehnt weiterhin genau das ab, was sie vorher ablehnte.
  */
 export const SPOT_PRICE_ANCHOR_DATE = '2025-01-01'
 

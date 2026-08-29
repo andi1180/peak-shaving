@@ -425,9 +425,9 @@ Endpunkt ihn sieht.
 - **Nichts im Supabase-Dashboard zu tun:** `public` ist über die Data API bereits per Default
   exponiert (§2a betrifft nur `monitor`).
 
-#### Einmaliger Backfill — **fester Anker 1.1.2025 bis heute**
+#### Einmaliger Backfill — **fester Anker 1.1.2025 (Ortszeit) bis heute**
 
-Holt die historischen Preise ab dem **festen Anker `2025-01-01T00:00:00Z`** bis zum Zeitpunkt des
+Holt die historischen Preise ab dem **festen Anker `2024-12-31T23:00:00Z`** bis zum Zeitpunkt des
 Laufs. Bewusst ein Skript und **kein** zweiter Modus des Cron-Endpunkts: als offener HTTP-Pfad liesse
 sich mit demselben Geheimnis ein beliebig grosser Abruf auslösen — ein Query-Parameter entschiede
 dann über die Grösse des Vorgangs (dieselbe Überlegung, aus der §1g die Mengenobergrenze aus dem
@@ -435,7 +435,7 @@ Handler heraushält).
 
 ```bash
 cd apps/web
-SUPABASE_URL=… SUPABASE_SERVICE_ROLE_KEY=… pnpm backfill:spot-prices                      # ab 1.1.2025
+SUPABASE_URL=… SUPABASE_SERVICE_ROLE_KEY=… pnpm backfill:spot-prices                      # ab 1.1.2025 Ortszeit
 SUPABASE_URL=… SUPABASE_SERVICE_ROLE_KEY=… pnpm backfill:spot-prices --start 2024-01-01   # abweichender Anfang
 ```
 
@@ -446,6 +446,28 @@ niemand sieht, weil die Tabelle gefüllt aussieht und `max(ts_start)` (die Betri
 nur das obere Ende prüft. Ein Neuaufbau (neue Umgebung, neues Projekt) reproduzierte sie an einem
 anderen Datum erneut. Der Anker steht deshalb als Konstante `BACKFILL_ANCHOR_ISO` im Skript: derselbe
 Aufruf liefert unabhängig vom Ausführungstag denselben Anfang.
+
+**⚠️ Warum `23:00Z` am Vortag und nicht Mitternacht UTC (Nachtrag 29.08.2026).** Der Anker ist die
+**Mitternacht der ORTSZEIT** des 1.1.2025 (Europe/Vienna, im Winter UTC+1) — dieselbe Ortszeit-Logik,
+mit der Regel B beim Upload gegen den *Kalendertag* prüft
+(`packages/shared/src/analysis-window.ts`). Ein österreichischer Kalenderjahr-2025-Lastgang beginnt
+mit `01.01.2025 00:00` Ortszeit, in UTC also `2024-12-31T23:00:00Z`. Mit dem früheren Anker
+`2025-01-01T00:00:00Z` hatte ausgerechnet dessen **erste Stunde** keinen Preis — und der
+aWATTar-Vergleich fiele damit für **jeden** solchen Lastgang unter Delta 15 Regel C („nicht
+berechenbar"). Das war keine betriebliche Lücke (kein stehengebliebener Cron), sondern eine
+systematische Kante des Ankers, die sich nicht von selbst schliesst. Geschlossen ist sie auf der
+Seite des **Bestands**, nicht der Abfrage: eine Stunde mehr Vorrat statt einer Sonderregel im
+Abfragebereich. Die Zahl steht ein zweites Mal als `SPOT_PRICE_ANCHOR_ISO` in
+`packages/shared/src/analysis-window.ts`; ein Wächter dort liest die Skriptdatei und hält beide
+zusammen (`analysis-window.test.ts`). **Das Anker-DATUM (`SPOT_PRICE_ANCHOR_DATE`) ist dabei
+unverändert `2025-01-01`** — Regel B lehnt weiterhin genau das ab, was sie vorher ablehnte.
+
+**Der Nachzieh-Lauf vom 29.08.2026, gemessen** (Vorher-Baseline vor dem Lauf erhoben): 14.526
+Einträge geholt, Tabelle **14.542 → 14.543** Zeilen — **genau eine neue Zeile**
+(`2024-12-31T23:00:00Z`, 109 Eur/MWh → **10,9 ct/kWh**, gegen die echte aWATTar-Antwort
+nachgerechnet). Alle 14.542 Bestandszeilen Zeile für Zeile in Anzahl UND Wert unverändert
+(`ct_per_kwh`/`ts_end`/`provider`/`price_basis`), **0 Duplikate**, und über den gesamten Bereich
+`2024-12-31T23:00Z … 2026-08-29T21:00Z` **kein einziger Nicht-Stunden-Sprung**.
 
 Die Werte kommen aus der Shell, **nicht** aus einer Datei im Repo (§4, Prinzip S1). Das Skript ist
 gefahrlos wiederholbar: derselbe Zeitraum ein zweites Mal geschrieben ergibt dieselbe Zeilenzahl
@@ -473,6 +495,20 @@ als das aus §1 (`peak-shaving-web`). Wer die Werte dort einträgt, hat nichts e
 |---|---|---|
 | `NEXT_PUBLIC_SUPABASE_URL` | Production, Preview, Development | Project Settings → API → **Project URL** |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Production, Preview, Development | Project Settings → API Keys → **`anon` `public`** |
+
+- **✅ GESETZT (29.08.2026).** Beide Variablen stehen im Projekt `peak-shaving-website` für
+  **Production und Preview** (vorher hatte das Projekt **null** Umgebungsvariablen — Baseline vor
+  dem Eintrag gemessen). *Development* ist bewusst nicht gesetzt: der lokale Lauf liest
+  `.env.local`, und ohne die läuft der Rechner ohnehin weiter (s. u.).
+- **⚠️ Der Projekt-Ref ist `amdeupwgytuvgpacsywh`, NICHT `pvzkhkqfbflbnechlror`** — Letzteres ist die
+  **Organisation** (so steht es auch in §4a-bis und in der Ausgabe von `supabase projects list`, wo
+  beide Spalten nebeneinander stehen). Mit der Org-Kennung als Projekt-Ref antwortet
+  `GET /v1/projects/<ref>/api-keys` mit **404**, was wie ein fehlendes Token-Recht aussieht und
+  keines ist. Die Projekt-Kennung steht in `supabase/.temp/project-ref`.
+- **Eingetragen ist der `anon`-Schlüssel (legacy JWT), wie die Tabelle es nennt.** Das Projekt führt
+  daneben einen neueren `sb_publishable_…`-Schlüssel; **beide wurden gegen die Cloud geprüft und
+  liefern dieselbe Zeile** (`spot_prices`, HTTP 200). Wer auf die neuen Schlüssel umstellt, stellt
+  beide Projekte gemeinsam um — nicht nur dieses.
 
 Dasselbe Supabase-Projekt wie in §1a (eine Plattform, ein Projekt) — nur unter den **`NEXT_PUBLIC_`**-
 Namen, die das Root-`.env.example` seit jeher für genau diesen Fall reserviert.
