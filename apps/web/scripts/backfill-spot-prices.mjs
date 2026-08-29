@@ -52,8 +52,18 @@ if (!url || !key) {
 /**
  * Der feste Anfang des Backfills. Bewusst eine Konstante und kein gerechnetes Datum: ein
  * rollierendes Fenster hinterlässt je nach Ausführungstag eine andere Lücke (s. Kopf).
+ *
+ * ⚠ 23:00 UTC AM VORTAG IST KEIN VERTIPPER, sondern die MITTERNACHT DER ORTSZEIT des 1.1.2025
+ * (Europe/Vienna, im Winter UTC+1). Ein österreichischer Kalenderjahr-Lastgang beginnt genau dort;
+ * begänne der Preisbestand erst um Mitternacht UTC, hätte dessen erste Stunde keinen Preis und der
+ * aWATTar-Vergleich wäre für JEDEN solchen Lastgang „nicht berechenbar" (Delta 15, Regel C) — eine
+ * systematische Kante des Ankers, keine betriebliche Lücke. Dieselbe Ortszeit-Logik, mit der Regel B
+ * beim Upload gegen den KALENDERTAG prüft (`packages/shared/src/analysis-window.ts`).
+ *
+ * Diese Zahl steht dort ein zweites Mal als `SPOT_PRICE_ANCHOR_ISO`; ein Wächter in
+ * `analysis-window.test.ts` liest DIESE Datei und hält beide zusammen.
  */
-const BACKFILL_ANCHOR_ISO = '2025-01-01T00:00:00Z'
+const BACKFILL_ANCHOR_ISO = '2024-12-31T23:00:00Z'
 
 const startArg = process.argv.indexOf('--start')
 const startIso = startArg === -1 ? BACKFILL_ANCHOR_ISO : process.argv[startArg + 1]

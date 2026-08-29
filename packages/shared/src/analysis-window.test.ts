@@ -68,9 +68,9 @@ describe('Delta 15, Regel B — Untergrenze 1.1.2025', () => {
    * ist das `2024-12-31T23:00:00Z`, eine Stunde VOR dem Anker-Zeitpunkt. Gegen den Zeitpunkt geprüft
    * würde ausgerechnet der Regelfall abgelehnt, für den die Regel gemacht ist.
    */
-  it('lässt einen Lastgang durch, der ORTSZEIT am 1.1.2025 beginnt (UTC eine Stunde davor)', () => {
+  it('lässt einen Lastgang durch, der ORTSZEIT am 1.1.2025 beginnt (UTC am Vortag)', () => {
     const w = analysisWindow(profile(['2024-12-31T23:00:00.000Z', '2025-12-31T22:45:00.000Z']))!
-    expect(w.startIso < SPOT_PRICE_ANCHOR_ISO).toBe(true) // in UTC VOR dem Anker …
+    expect(w.startIso.slice(0, 10) < SPOT_PRICE_ANCHOR_DATE).toBe(true) // in UTC am VORTAG …
     expect(startsBeforeSpotPriceAnchor(w, VIENNA)).toBe(false) // … ortszeitlich aber am Anker-Tag
   })
 
@@ -94,8 +94,35 @@ describe('Delta 15, Regel B — Untergrenze 1.1.2025', () => {
     expect(startsBeforeSpotPriceAnchor(w, VIENNA)).toBe(true)
   })
 
-  it('Anker-Datum und Anker-Zeitpunkt bezeichnen denselben Tag', () => {
-    expect(SPOT_PRICE_ANCHOR_ISO.slice(0, 10)).toBe(SPOT_PRICE_ANCHOR_DATE)
+  /*
+   * ⚠ DIE BEIDEN ANKER-KONSTANTEN TRAGEN BEWUSST NICHT DASSELBE DATUM. `SPOT_PRICE_ANCHOR_DATE` ist
+   * der Kalendertag, gegen den Regel B prüft; `SPOT_PRICE_ANCHOR_ISO` ist der Zeitpunkt, ab dem
+   * Preise geführt werden — und der muss die ORTSZEIT-Mitternacht dieses Tages sein, sonst hätte
+   * die erste Stunde jedes österreichischen Kalenderjahr-Lastgangs keinen Preis (s. Modulkopf).
+   * Ein blosser Vergleich der Datumsanteile wäre hier also falsch; geprüft wird die Kante selbst.
+   */
+  it('der Anker-Zeitpunkt ist die ORTSZEIT-Mitternacht des Anker-Tags', () => {
+    const anchorMs = new Date(SPOT_PRICE_ANCHOR_ISO).getTime()
+    const viennaDate = (ms: number) =>
+      new Intl.DateTimeFormat('en-CA', {
+        timeZone: VIENNA,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      }).format(new Date(ms))
+
+    expect(viennaDate(anchorMs)).toBe(SPOT_PRICE_ANCHOR_DATE) // der Anker liegt am Anker-Tag …
+    expect(viennaDate(anchorMs - 1) < SPOT_PRICE_ANCHOR_DATE).toBe(true) // … und ist dessen erster Moment
+  })
+
+  it('deckt den ersten Messwert eines Kalenderjahr-Lastgangs ab (die Ein-Stunden-Kante)', () => {
+    // Genau der Fall, für den der Anker um eine Stunde vorgezogen wurde: der erste Zeitstempel
+    // eines österreichischen 2025er-Exports darf nicht VOR dem Preisbestand liegen, sonst wäre der
+    // aWATTar-Vergleich für jeden solchen Lastgang „nicht berechenbar" (Regel C).
+    const w = analysisWindow(profile(['2024-12-31T23:00:00.000Z', '2025-12-31T22:45:00.000Z']))!
+    expect(new Date(w.startIso).getTime()).toBeGreaterThanOrEqual(
+      new Date(SPOT_PRICE_ANCHOR_ISO).getTime(),
+    )
   })
 })
 
