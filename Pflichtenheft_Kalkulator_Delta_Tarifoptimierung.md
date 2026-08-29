@@ -207,7 +207,7 @@ Zwei neue Wege neben dem bestehenden Lastgang-Upload, **komplementär, nicht red
 **9b — offen, eigener Bauabschnitt:**
 
 - **Drei gleichwertige Startpunkte für den Lastgang-Schritt:** Datei-Upload (bestehend), Rechnungs-Scan (neu), Standardprofil/manuelle Verbrauchsangabe (neu) — alle drei münden auf denselben `LoadProfile`-Contract, keine UI-Verzweigung danach. **Mitzudenken:** ein Standardprofil trägt laut Delta 3/8 die Tarif-Arbitrage, aber NICHT die Leistungspreis-Dimension — der vierte `LoadProfile.source`-Wert `standard_profile` (B21-1) existiert dafür bereits, wird aber von der Simulation noch nicht gelesen.
-- **Delta 16 (PDF-Report)** bleibt ebenfalls offen und wartet auf die Klärung seiner zwei offenen Fragen.
+- **Delta 16 (PDF-Report)** ist inzwischen **entschieden, nicht gebaut** — eigener Abschnitt unten (Rendering bleibt `window.print()`, das Name/Firma-Gate ist echte Lead-Erfassung). Offen dort nur noch Inhalt/Umfang des erweiterten Reports.
 
 ---
 
@@ -312,6 +312,20 @@ Dieselbe Haltung wie bei **Netzebene 7** (B11: verweigert die Berechnung, statt 
 ### Zwei Fehlerarten, zwei Meldungen — nicht derselbe Codepfad
 
 **Regel B prüft eine feste Grenze** (ein Datum, vor dem grundsätzlich nichts geführt wird), **Regel C eine betriebliche Unvollständigkeit** (eine Lücke innerhalb eines an sich gültigen Zeitraums). Sie sind verschiedene Zustände mit verschiedenen Konsequenzen: B ist dauerhaft und liegt beim Nutzer (anderer Lastgang), C ist vorübergehend und liegt bei uns (der nächste Sync schliesst sie). In einen gemeinsamen „Preisdaten fehlen"-Pfad zusammengelegt, bekäme der Nutzer für einen behebbaren Betriebszustand die Meldung einer dauerhaften Ablehnung — und niemand sähe an der Meldung, dass ein Cron stehengeblieben ist.
+
+---
+
+## Delta 16 — Erweiterter PDF-Report mit Name/Firma-Gate (ergänzt §6.2, §5.1, §7a.1(c))
+
+Basis existiert bereits: `window.print()` gegen ein Print-Stylesheet (`step-result.tsx`, U2 Prompt D) erfüllt §6.2s PDF-Export-Anforderung ohne Bibliothek. „Erweiterter Report" baut auf diesem Weg auf, ersetzt ihn nicht.
+
+**Entscheidung 1 — Rendering:** `window.print()` bleibt der Weg, **kein serverseitiges PDF**. Begründung: ein Chart-reicher Report bräuchte `dispatchTrace` serverseitig — eine deutlich grössere Prinzip-4-Ausnahme, als ursprünglich angenommen. Die beiden Alternativen (Headless-Browser; zweite Chart-Implementierung) bringen entweder neue Infrastruktur oder ein Divergenzrisiko, das dieses Projekt sonst konsequent vermeidet. **Konsequenz: kein Mail-Anhang möglich** (kein serverseitig erzeugtes Artefakt) — der Kunde lädt selbst herunter, wie heute schon.
+
+**Entscheidung 2 — Name/Firma-Gate:** echte **Lead-Erfassung**, konsentgebunden, kein reines Personalisierungsfeld. Fliesst in dieselbe Infrastruktur wie §5.1 (`platform.leads`/`platform.consents`, `public.capture_lead`, `consent_texts` serverseitig aufgelöst) — nicht als neue Parallel-Mechanik. Da diese Infrastruktur heute nur aus `apps/web` erreichbar ist, ist das Schreiben selbst **`apps/website`s erster Server-Kontakt überhaupt**; eigener Herkunftsschlüssel in `platform.lead_sources` nötig.
+
+**Explizit draussen:** Partner-/White-Label-Branding (MVP §7 stuft das selbst als `[v2]` ein, keine Daten dafür vorhanden) — der Report trägt COOLiNs eigene Marke.
+
+**Inhalt/Umfang des „erweiterten" Reports** gegenüber dem heutigen Basis-Export: im Detail zu klären, sobald der Bau-Prompt dafür ansteht (u. a. offener Bezug auf `CLAUDE.md` Punkt d aus dem B21-3c-Handover — der Blocker-Befund der Tarifoptimierungs-Karte erscheint heute nicht im Druck-Report; vom Bestandsaufnahme-Lauf notiert, dort noch nicht aufgelöst).
 
 ---
 
