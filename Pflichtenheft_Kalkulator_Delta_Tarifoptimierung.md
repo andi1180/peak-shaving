@@ -207,7 +207,7 @@ Zwei neue Wege neben dem bestehenden Lastgang-Upload, **komplementär, nicht red
 **9b — offen, eigener Bauabschnitt:**
 
 - **Drei gleichwertige Startpunkte für den Lastgang-Schritt:** Datei-Upload (bestehend), Rechnungs-Scan (neu), Standardprofil/manuelle Verbrauchsangabe (neu) — alle drei münden auf denselben `LoadProfile`-Contract, keine UI-Verzweigung danach. **Mitzudenken:** ein Standardprofil trägt laut Delta 3/8 die Tarif-Arbitrage, aber NICHT die Leistungspreis-Dimension — der vierte `LoadProfile.source`-Wert `standard_profile` (B21-1) existiert dafür bereits, wird aber von der Simulation noch nicht gelesen.
-- **Delta 16 (PDF-Report)** ist entschieden und **zur Hälfte gebaut**: 16a (Deckblatt, Methodik-Kapitel, Druck-Layout) ist fertig, **16b (Name/Firma-Gate + Lead-Schreibpfad) ist offen** — eigener Abschnitt unten.
+- **Delta 16 (PDF-Report)** ist **vollständig gebaut**: 16a (Deckblatt, Methodik-Kapitel, Druck-Layout) am 29.08.2026, **16b (Name/Firma-Gate + Lead-Schreibpfad) am 30.08.2026** — eigener Abschnitt unten.
 
 ---
 
@@ -317,7 +317,14 @@ Dieselbe Haltung wie bei **Netzebene 7** (B11: verweigert die Berechnung, statt 
 
 ## Delta 16 — Erweiterter PDF-Report mit Name/Firma-Gate (ergänzt §6.2, §5.1, §7a.1(c))
 
-> **Stand 29.08.2026: 16a ist GEBAUT, 16b ist offen.** Die Trennlinie liegt zwischen dem DOKUMENT und dem GATE. **16a (fertig):** Deckblatt, Methodik-/Vorbehalte-Kapitel, Seitenumbrüche und Druck-Typografie — reines Print-CSS in `apps/website`, ohne eine Zeile Datenbank. **16b (offen):** das Name/Firma-Gate samt Lead-Schreibpfad — Migration, eigener Herkunftsschlüssel und `apps/website`s erster Server-Kontext. Die beiden berühren einander an genau einer Stelle: der `customer`-Prop von `PrintCover`, die heute leer bleibt und dann gefüllt wird. Handover mit den Messwerten: `CLAUDE.md`, Eintrag „GEBAUT: Delta 16a".
+> **✅ ABGESCHLOSSEN. 16a am 29.08.2026, 16b am 30.08.2026.** Die Trennlinie lag zwischen dem DOKUMENT und dem GATE. **16a:** Deckblatt, Methodik-/Vorbehalte-Kapitel, Seitenumbrüche und Druck-Typografie — reines Print-CSS in `apps/website`, ohne eine Zeile Datenbank. **16b:** das Name/Firma-Gate samt Lead-Schreibpfad — zwei Migrationen, ein eigener Herkunftsschlüssel, ein fünfter Einwilligungszweck und `apps/website`s erster Server-Kontext. Die beiden berührten einander an genau einer Stelle: der `customer`-Prop von `PrintCover`, die jetzt gefüllt wird. Handover mit den Messwerten: `CLAUDE.md`, Einträge „GEBAUT: Delta 16a" und „GEBAUT: Delta 16b".
+>
+> **Vier Befunde aus dem Bau von 16b, die die Entscheidung unten präzisieren:**
+>
+> 1. **Der Zweck ist ein NEUER Enum-Wert `offer_contact`, nicht `result_delivery`.** Dessen geseedeter Wortlaut (B1-1) lautet „Ich möchte mein Rechenergebnis per E-Mail zugeschickt bekommen. Die E-Mail-Adresse wird ausschließlich für diese Zusendung verwendet" — beides ist hier falsch: Entscheidung 1 schliesst jeden Mail-Anhang aus, und „ausschliesslich für diese Zusendung" verböte genau die Kontaktaufnahme, um die es geht. §5.1 benennt die Zweckbindung dagegen wörtlich („Kontaktaufnahme durch COOLiN bzw. den Fachpartner"), und dafür gab es keinen Wert. Zwei Migrationen, weil `alter type … add value` in derselben Transaktion nicht benutzbar ist (55P04, in B18-6 gemessen).
+> 2. **Das Gate erhebt zusätzlich die E-Mail-Adresse.** `platform.leads.email` ist `not null` — ein Lead ohne Adresse ist strukturell unmöglich. §5.1 führt sie ohnehin als Pflichtfeld.
+> 3. **„Funktion/Rolle im Unternehmen" (§5.1) wird NICHT erhoben.** Es gibt dafür weder eine Spalte in `platform.leads` noch einen Parameter in `capture_lead`. Erhoben und verworfen wäre es eine Requisite (der alte Stub `lead-dialog.tsx` tut bis heute genau das). Offen, sobald jemand die Spalte nachträgt.
+> 4. **Der Herkunftsschlüssel `rechner-report` steht in `LEAD_SOURCE_KEYS_WITHOUT_FORM`, nicht in `LEAD_CAPTURE_FORM_KEYS`.** Sonst liesse sich über den generischen, öffentlichen Erfassungs-Endpunkt von coolin.at ein Lead anlegen, der einen heruntergeladenen Report behauptet, den es nie gab — dieselbe Gefahr wie bei `partner-empfehlung` (B16-2) und `telefonanfrage` (B19).
 
 Basis existiert bereits: `window.print()` gegen ein Print-Stylesheet (`step-result.tsx`, U2 Prompt D) erfüllt §6.2s PDF-Export-Anforderung ohne Bibliothek. „Erweiterter Report" baut auf diesem Weg auf, ersetzt ihn nicht.
 
@@ -327,10 +334,16 @@ Basis existiert bereits: `window.print()` gegen ein Print-Stylesheet (`step-resu
 
 **Explizit draussen:** Partner-/White-Label-Branding (MVP §7 stuft das selbst als `[v2]` ein, keine Daten dafür vorhanden) — der Report trägt COOLiNs eigene Marke.
 
-**Inhalt/Umfang des „erweiterten" Reports** gegenüber dem heutigen Basis-Export: im Detail zu klären, sobald der Bau-Prompt dafür ansteht (u. a. offener Bezug auf `CLAUDE.md` Punkt d aus dem B21-3c-Handover — der Blocker-Befund der Tarifoptimierungs-Karte erscheint heute nicht im Druck-Report; vom Bestandsaufnahme-Lauf notiert, dort noch nicht aufgelöst).
+**Inhalt/Umfang des „erweiterten" Reports** ist mit 16a entschieden und gebaut: Deckblatt, Methodik-/Vorbehalte-Kapitel, Print-Layout. Der dort offene Bezug auf `CLAUDE.md` Punkt d aus dem B21-3c-Handover ist aufgelöst — und der Punkt war ungenau: die Blocker-Karte der Tarifoptimierung druckte immer schon vollständig mit; verborgen war die Erklärung des BERECHENBAREN Falls, die seit 16a über ein `printExplanation`-Opt-in mitdruckt.
 
 ---
 
 ## Nächste Schritte
 
-Dieses Delta ist inhaltlich abgeschlossen. Als Nächstes: **eigener Übergabeprompt für Claude Code** (separates Dokument, kommt nach Bestätigung dieses Deltas) — mit AUFGABE/NICHT-TUN/Verifikation im gewohnten Format, vermutlich in Teil-PRs analog zur bisherigen Praxis (Schema → Schreibweg → Oberfläche).
+Dieses Delta ist inhaltlich abgeschlossen **und bis auf Delta 9b vollständig gebaut** (Schema → Schreibweg → Engine → Oberfläche → Report, B21-1 bis B21-3c und Delta 16a/16b).
+
+**Offen bleibt:**
+
+- **Delta 9b** — Rechnungs-Scan und Standardprofil/manuelle Verbrauchsangabe.
+- **Der LP-Spike** (Delta 14 Punkt 1). Bis er gelaufen ist, gehören die Studienzahlen (−43 % / 266 €) weiterhin **nicht** in die Kundenkommunikation.
+- **Der finale Einwilligungswortlaut** zu `offer_contact` (`Fahrplan_2026.md` §7, Owner Martin). Der Bestand trägt einen als solchen gekennzeichneten Arbeitsstand („[MARTIN: Copy / rechtlich — Arbeitsstand, juristisch ungeprüft] …"). `platform.consent_texts` ist append-only: die geprüfte Fassung kommt als **neue Zeile mit `version = 2`**, die bestehende wird NICHT editiert — sonst zeigten bereits erteilte Einwilligungen auf einen Text, den ihnen niemand angezeigt hat.

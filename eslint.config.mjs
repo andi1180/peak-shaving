@@ -146,5 +146,47 @@ export default tseslint.config(
     ],
     rules: { 'no-restricted-imports': 'off' },
   },
+  {
+    /*
+     * Delta 16b: dieselbe Bremse ein zweites Mal — jetzt für `apps/website` (den Kalkulator).
+     *
+     * Diese App hatte bis hierher ÜBERHAUPT keinen serverseitigen Datenbank-Zugriff: nur den
+     * anon-Lesezugang aus B21-3a (`lib/tariff-data/client.ts`, browser-tauglich, `select` auf
+     * veröffentlichte Preisdaten). Mit dem Name/Firma-Gate kommt ein service_role-Schlüssel dazu,
+     * der jede RLS umgeht — und damit derselbe Bedarf an einer strukturellen Grenze, den `apps/web`
+     * seit T4-3 hat.
+     *
+     * Die Regel ist eine EIGENE und keine Erweiterung der Allowlist darüber: Die Modulpfade sind
+     * app-lokal (`@/` zeigt in jeder App woandershin), ein gemeinsamer Eintrag würde in der
+     * jeweils anderen App ins Leere zeigen und dort nichts schützen.
+     *
+     * ⚠ ERLAUBT IST GENAU EINE DATEI — `lib/report-gate/store.ts`, der zwei Aufrufe grosse
+     * Datenbank-Rand des Gates. Nicht `lib/report-gate/**`: dort liegt auch die Server Action, und
+     * die soll den Client nicht selbst bauen können. Dieselbe engste Form wie bei
+     * `apps/web/lib/auth/admin-api.ts` (B18-2a) und `lib/admin/grid-tariffs-actions.ts` (B21-2b).
+     */
+    files: ['apps/website/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: '@/lib/report-gate/service-role',
+              message:
+                'Der service_role-Client (umgeht RLS) ist ausschließlich für den Datenbank-Rand ' +
+                'des Report-Gates gedacht: apps/website/lib/report-gate/store.ts — genau diese ' +
+                'eine Datei. Der Rechner liest Tarif- und Preisdaten über den anon-Client in ' +
+                'lib/tariff-data/client.ts; alles andere braucht hier keine Datenbank.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ['apps/website/lib/report-gate/store.ts'],
+    rules: { 'no-restricted-imports': 'off' },
+  },
   prettier,
 )

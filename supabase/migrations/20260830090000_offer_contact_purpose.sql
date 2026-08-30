@@ -1,0 +1,75 @@
+-- Delta 16b (Name/Firma-Gate vor dem Report-Download), TEIL 1 VON 2 — das Vokabular: ein FÜNFTER
+-- Einwilligungszweck.
+--
+-- Kanonische fachliche Quelle: `Pflichtenheft_Kalkulator_Delta_Tarifoptimierung.md`, Delta 16
+-- (Entscheidung 2: „echte Lead-Erfassung, konsentgebunden") und `Pflichtenheft_Kalkulator_MVP.md`
+-- §5.1 (Zweckbindung ausdrücklich: „Kontaktaufnahme durch COOLiN bzw. den Fachpartner").
+--
+-- ── WARUM ES ÜBERHAUPT EINEN FÜNFTEN ZWECK BRAUCHT ──────────────────────────────────────────────
+-- Wer den erweiterten Report herunterlädt, gibt Name, Firma und Adresse für GENAU EINE
+-- Gegenleistung: dass COOLiN sich zu einer Auslegung meldet. Keiner der vier bestehenden Zwecke
+-- deckt das ab — jeder von ihnen wäre eine andere Zusage:
+--
+--   'result_delivery'          — der Wortlaut aus B1-1 sagt wörtlich „Ich möchte mein Rechenergebnis
+--                                per E-Mail zugeschickt bekommen. Die E-Mail-Adresse wird
+--                                ausschließlich für diese Zusendung verwendet." Beides ist hier
+--                                falsch: Delta 16 Entscheidung 1 schliesst ein serverseitig
+--                                erzeugtes PDF und damit jeden Mail-Anhang aus (der Kunde lädt
+--                                selbst herunter), und „ausschliesslich für diese Zusendung"
+--                                verböte genau die Kontaktaufnahme, um die es geht.
+--   'marketing_email'          — eine Aussendungs-Einwilligung. Sie als BEDINGUNG vor einen Download
+--                                zu setzen, wäre eine Kopplung; und ihr geseedeter Wortlaut
+--                                verspricht Newsletter, nicht ein Angebot zu dieser einen Analyse.
+--   'contract_expiry_reminder' — betrifft Versorger und Vertragsende, die hier gar nicht erhoben
+--                                werden.
+--   'partner_lead_disclosure'  — eine Übermittlung an einen Dritten. Sie hat mit dem Download
+--                                nichts zu tun (B18-6).
+--
+-- Die Rechtsgrundlage der Erfassung am Report-Gate ist deshalb genau EINE: diese Einwilligung. Sie
+-- als Nebenbedingung an einen bestehenden Zweck zu hängen, hiesse, einem Menschen einen Text zu
+-- zeigen und einen anderen zu archivieren.
+--
+-- ── DIESE MIGRATION MACHT NICHTS AUSSER DEM ENUM-WERT — UND DAS IST ERZWUNGEN ───────────────────
+-- Wortgleich der Befund aus B18-6 (`20260804090000_partner_lead_disclosure_purpose.sql`), dort
+-- gegen PostgreSQL 17.6 gemessen: Ein mit `alter type … add value` hinzugefügter Wert eines
+-- BESTEHENDEN Enums ist in DERSELBEN Transaktion nicht benutzbar — weder als Literal-Cast noch in
+-- einem INSERT; beides scheitert mit
+--
+--     55P04  unsafe use of new value "…" of enum type platform.consent_purpose
+--
+-- Die PostgreSQL-12-Ausnahme greift nicht: sie gilt nur, wenn der Enum-TYP selbst in derselben
+-- Transaktion entstanden ist. `platform.consent_purpose` stammt aus B1-1. Da die Supabase-CLI jede
+-- Migrationsdatei in EINER Transaktion anwendet, ist die Aufteilung auf zwei Dateien die Bedingung
+-- dafür, dass die Folge-Migration (Herkunftsschlüssel + Textstand) überhaupt anwendbar ist.
+--
+-- ── ES GIBT HIER NICHTS AN `purpose_requires_double_opt_in` ZU ÄNDERN ───────────────────────────
+-- Die Funktion (B1-1) zählt 'marketing_email' und 'contract_expiry_reminder' auf; ein neuer Wert
+-- fällt automatisch auf `false`. Das ist inhaltlich richtig und keine Lücke:
+--
+--   Die REGEL dort lautet „Bestätigung ist nötig, sobald die Erfüllung eine KÜNFTIGE Mail ist".
+--   Die Erfüllung ist hier der Download, der IM SELBEN Moment stattfindet — und `apps/website` hat
+--   überhaupt keinen Mailversand (kein Resend, kein Absender). Eine Bestätigungsmail wäre eine
+--   Hürde vor einer Leistung, die schon erbracht ist; im schlechteren Fall stünde der Nutzer vor
+--   einem Report, den er erst nach einem Klick in seinem Postfach bekäme.
+--
+-- Folge im Anwendungscode: `public.capture_lead` legt die Einwilligung seit B3-2 SOFORT als
+-- `confirmed` an und meldet `outcome = 'consent_confirmed'` (nicht `consent_created`). Verzweigt
+-- wird weiterhin strikt am `outcome`, nie am Zweck.
+--
+-- ── WAS HIER AUSDRÜCKLICH NICHT ENTSTEHT ────────────────────────────────────────────────────────
+-- Kein Textstand (das ist Teil 2), kein Herkunftsschlüssel (ebenfalls Teil 2), keine Funktion,
+-- keine Spalte, kein Grant, keine Änderung an `capture_lead`, `has_confirmed_consent`,
+-- `anonymize_lead` oder `guard_anonymized_lead`. Und ausdrücklich KEINE Aufbewahrungs-Sonderregel:
+-- Diese Einwilligung folgt der Frist ihres Leads (B4-1) wie jede andere.
+
+-- ═════════════════════════════════════════════════════════════════════════════════════════════════
+-- Der Wert
+-- ═════════════════════════════════════════════════════════════════════════════════════════════════
+-- ── ZUR BENENNUNG ───────────────────────────────────────────────────────────────────────────────
+-- Englisch wie die vier bestehenden Werte. „offer" (Angebot) und nicht „download" oder „report":
+-- Was hier erlaubt wird, ist NICHT der Download — den holt sich der Nutzer selbst, dafür braucht es
+-- keine Einwilligung. Erlaubt wird, dass COOLiN die Kontaktdaten behält und sich mit einem Angebot
+-- meldet; §5.1 formuliert die Zweckbindung genau so. Ein Name, der den Download beschreibt, liesse
+-- die Einwilligung wie eine Formalie vor einem Knopf aussehen — sie ist aber die einzige
+-- Rechtsgrundlage dafür, dass die Person danach überhaupt im Bestand steht.
+alter type platform.consent_purpose add value 'offer_contact';

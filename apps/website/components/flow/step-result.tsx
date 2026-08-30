@@ -1,10 +1,14 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Download, FileJson, Printer, RotateCcw } from 'lucide-react'
 import { buildTariffSourceRef, type AnalysisResult, type TariffSourceRef } from 'shared'
 
 import { PrintCover } from '@/components/report/print-cover'
+import {
+  ReportGateDialog,
+  type ReportGateCustomer,
+} from '@/components/report/report-gate-dialog'
 import { Report } from '@/components/report/report'
 import { Button } from '@/components/ui/button'
 import { buildBundle, bundleFileName, serializeBundle } from '@/lib/bundle-export'
@@ -40,6 +44,30 @@ export function StepResult({
   onRestart: () => void
 }) {
   const [bundleError, setBundleError] = useState<string | null>(null)
+
+  /*
+   * Delta 16b — das Name/Firma-Gate. `customer` ist `null`, solange niemand es durchlaufen hat;
+   * dann bleibt das Deckblatt namenlos (`PrintCover` rendert den Block dann gar nicht) und der
+   * PDF-Knopf öffnet das Formular statt zu drucken.
+   *
+   * Der Zustand lebt HIER und nicht im Dialog: er überdauert dessen Schliessen, sodass ein zweiter
+   * Ausdruck nicht erneut fragt. Er überdauert bewusst NICHT die Seite — es gibt keinen Speicher
+   * auf dem Endgerät (§165 TKG, dieselbe Überlegung wie in `lib/tariff-data/client.ts`).
+   */
+  const [customer, setCustomer] = useState<ReportGateCustomer | null>(null)
+  const [printRequested, setPrintRequested] = useState(false)
+
+  /*
+   * ⚠ WARUM DER DRUCK ÜBER EINEN EFFEKT LÄUFT UND NICHT DIREKT IM RÜCKRUF: `window.print()`
+   * unmittelbar nach `setCustomer` aufgerufen druckte die Seite VOR dem Re-Render — das Deckblatt
+   * trüge dann genau den Namen nicht, für den das Gate da ist. Der Effekt läuft erst, nachdem React
+   * den neuen Zustand ausgegeben hat.
+   */
+  useEffect(() => {
+    if (!printRequested) return
+    setPrintRequested(false)
+    window.print()
+  }, [printRequested])
 
   /*
    * B11 — die Herkunft der Tarifsätze zum ANGEZEIGTEN Lauf. EINE Ableitung, zwei Abnehmer: der
@@ -102,10 +130,11 @@ export function StepResult({
       {/*
         Delta 16a — Deckblatt, ausschliesslich im Druck. Es steht hier und nicht im `Report`, weil
         es zum DOKUMENT gehört und nicht zur Auswertung: der Report ist auch die Bildschirmansicht,
-        das Deckblatt gibt es nur auf Papier. `customer` bleibt bis Delta 16b ungesetzt.
+        das Deckblatt gibt es nur auf Papier. `customer` füllt seit Delta 16b das Name/Firma-Gate —
+        ohne dessen Durchlauf bleibt der Block leer, statt eine Platzhalterzeile zu zeigen.
       */}
       <div className="mx-auto w-full max-w-6xl px-4 sm:px-6">
-        <PrintCover loadProfile={load.profile} />
+        <PrintCover loadProfile={load.profile} customer={customer ?? undefined} />
       </div>
 
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-3 px-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
@@ -115,10 +144,25 @@ export function StepResult({
             <Download className="h-4 w-4" />
             Als CSV exportieren
           </Button>
-          <Button variant="outline" size="sm" onClick={() => window.print()}>
-            <Printer className="h-4 w-4" />
-            Als PDF speichern
-          </Button>
+          {/*
+           * Delta 16b — zwei Zustände, EIN Knopf an derselben Stelle. Vor dem Gate öffnet er das
+           * Formular (der Dialog bringt seinen Auslöser mit), danach druckt er direkt: ein zweites
+           * Mal nach denselben Angaben zu fragen wäre eine Hürde ohne Ertrag, die Einwilligung
+           * steht bereits im Bestand.
+           */}
+          {customer ? (
+            <Button variant="outline" size="sm" onClick={() => setPrintRequested(true)}>
+              <Printer className="h-4 w-4" />
+              Als PDF speichern
+            </Button>
+          ) : (
+            <ReportGateDialog
+              onUnlocked={(next) => {
+                setCustomer(next)
+                setPrintRequested(true)
+              }}
+            />
+          )}
           {/*
            * Bewusst unauffällig (ghost) und als letzter der drei Ausgabewege: PDF und CSV sind für
            * den Kunden, das Bündel ist für das Archiv. Es steht trotzdem hier und nicht hinter einer

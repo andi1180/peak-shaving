@@ -13,3 +13,15 @@ export const DEFAULT_HORIZON_YEARS = 10
  * öffnet deshalb in einem neuen Tab — aus dem iframe heraus wäre er sonst nicht sichtbar.
  */
 export const WARTELISTE_URL = 'https://www.coolin.at/warteliste'
+
+/**
+ * Delta 16b / §5.1 — die Datenschutzerklärung. PFLICHT-Link an der Einwilligung: §5.1 verlangt die
+ * Ankreuzmöglichkeit ausdrücklich „mit Link zur Datenschutzerklärung".
+ *
+ * ABSOLUT, mit `www`, aus demselben Grund wie `WARTELISTE_URL` darüber: der Rechner ist eine eigene
+ * Anwendung auf einer eigenen Herkunft und läuft auf coolin.at zusätzlich im iframe. Ein relativer
+ * Pfad zeigte auf den Rechner selbst, wo es die Seite nicht gibt; ohne `www` käme eine Weiterleitung.
+ * Er öffnet in einem neuen Tab — aus dem iframe heraus wäre er sonst nicht sichtbar, und ein Klick
+ * auf den Datenschutzlink darf ausserdem NIE das halb ausgefüllte Formular verwerfen.
+ */
+export const DATENSCHUTZ_URL = 'https://www.coolin.at/datenschutz'
