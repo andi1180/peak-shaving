@@ -14,8 +14,10 @@ import {
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { cn } from '@/lib/utils'
 import { FileDrop } from './file-drop'
 import { MappingPanel } from './mapping-panel'
+import { StandardProfilePanel } from './standard-profile-panel'
 import type { ParsedLoad } from './types'
 
 type ParseInput = {
@@ -117,6 +119,16 @@ export function StepUpload({
   const [notice, setNotice] = useState<Notice | null>(null)
   const [mapping, setMapping] = useState<MappingState | null>(null)
   const [mappingError, setMappingError] = useState<string | null>(null)
+  /*
+   * Delta 9b-1 — welcher der Einstiege gerade offen ist. Die Datei-Seite ist der Vorgabewert und in
+   * ihrem Verhalten UNVERÄNDERT (kein Pfad dieses Zweigs ist angefasst); der Standardprofil-Zweig
+   * steht daneben, nicht darunter (Delta 9b: gleichwertige Startpunkte).
+   *
+   * Der Rechnungs-Scan (der zweite neue Einstieg aus Delta 8) fehlt hier bewusst: er ist ein
+   * eigener Bauabschnitt (9b-2). Eine dritte, deaktivierte Schaltfläche wäre eine Ankündigung an
+   * einer Stelle, an der der Nutzer eine Entscheidung treffen soll.
+   */
+  const [mode, setMode] = useState<'datei' | 'standardprofil'>('datei')
 
   async function handleFile(file: File) {
     setFileName(file.name)
@@ -209,9 +221,35 @@ export function StepUpload({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Lastgang hochladen</CardTitle>
+        <CardTitle>Verbrauchsdaten</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
+        {!mapping && (
+          <div className="grid grid-cols-2 gap-2 rounded-lg border border-border bg-surface-alt p-1">
+            {(
+              [
+                ['datei', 'Lastgang-Datei'],
+                ['standardprofil', 'Standardprofil / Verbrauch'],
+              ] as const
+            ).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                aria-pressed={mode === value}
+                onClick={() => setMode(value)}
+                className={cn(
+                  'rounded-md px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent',
+                  mode === value
+                    ? 'bg-surface text-ink shadow-sm'
+                    : 'text-text-muted hover:text-ink',
+                )}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
+        {!mapping && mode === 'standardprofil' && <StandardProfilePanel onComplete={onComplete} />}
         {mapping ? (
           <MappingPanel
             detection={mapping.detection}
@@ -221,6 +259,7 @@ export function StepUpload({
             onCancel={handleCancelMapping}
           />
         ) : (
+          mode === 'datei' && (
           <>
             <FileDrop
               accept=".csv,.xlsx,.xls"
@@ -249,10 +288,13 @@ export function StepUpload({
               </Button>
             </div>
           </>
+          )
         )}
         <p className="flex items-center gap-1.5 text-xs text-text-muted">
           <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-accent" />
-          Die Datei wird ausschließlich in Ihrem Browser verarbeitet und nicht hochgeladen.
+          {mode === 'standardprofil'
+            ? 'Ihre Angaben werden ausschließlich in Ihrem Browser verarbeitet und nicht übertragen.'
+            : 'Die Datei wird ausschließlich in Ihrem Browser verarbeitet und nicht hochgeladen.'}
         </p>
       </CardContent>
     </Card>

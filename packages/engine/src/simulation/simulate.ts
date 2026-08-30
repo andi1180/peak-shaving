@@ -12,6 +12,7 @@ import {
   startSoc,
   toPhysics,
 } from './helpers'
+import { isPeakShavingDisabled } from './peak-shaving'
 import { alignPvGrossToLoad } from './pv'
 import { computeSocFloor } from './reserve'
 import { intervalTariffRates } from './tou'
@@ -67,6 +68,11 @@ export type BatterySimulationResult = {
  *   • `static`  → NUR Eigenverbrauch/Lastverschiebung, KEINE Spitzenkappung → keine Kapp-Schwelle
  *     (`cap = ∞` je Slot) und damit reserve-frei (`socFloor ≡ 0`): die volle Kapazität steht dem
  *     Eigenverbrauch zur Verfügung (nicht durch eine Spitzen-Reserve gebunden).
+ * Seit Delta 9b-1 gibt es einen ZWEITEN Grund für dieselbe reserve-freie Konfiguration: einen
+ * SYNTHETISCHEN Lastgang (`loadProfile.source === 'standard_profile'`, Delta 3/8). Dort ist die
+ * Spitze kein Messwert, sondern eine Eigenschaft der Durchschnittskurve — sie zu kappen ergäbe eine
+ * Ersparnis auf eine erfundene Zahl. Beide Gründe stehen in `peakShavingBlockers` (peak-shaving.ts).
+ *
  * Die Kern-Physik-Primitiven (`searchCaps`/`computeSocFloor`/`runCombinedDispatch`) bleiben
  * controlType-agnostisch — sie bekommen Caps/Reserve als Eingabe; NUR dieser Orchestrator entscheidet,
  * welche er ihnen für `static` vs. `dynamic` reicht. Die Ersparnis-Zuschreibung folgt in §3.7.
@@ -82,18 +88,24 @@ export function simulateBattery(
   const deltaH = intervalHours(loadProfile)
   const draws = drawSeries(loadProfile)
   const periodOfInterval = periodIndexByInterval(loadProfile, tariffParams.billingModel)
-  const isStatic = battery.controlType === 'static'
+  /*
+   * Delta 3/Delta 8 (9b-1): NICHT mehr nur `controlType === 'static'`. Dieselbe reserve-freie
+   * Konfiguration gilt jetzt auch für ein SYNTHETISCHES Standardlastprofil — dort gibt es keine
+   * gemessene Spitze, die zu kappen wäre. Die Bedingung steht an genau EINER Stelle
+   * (`peakShavingBlockers`), weil die Zuschreibung in §3.7 dieselbe Antwort braucht.
+   */
+  const noPeakShaving = isPeakShavingDisabled(loadProfile, battery)
 
-  // 1. Kapp-Suche (§3.6.1). `static` kappt keine Spitzen → `cap = ∞` je Contract-Slot (nie eine Spitze
-  //    gekappt); `dynamic` sucht die niedrigste machbare Schwelle je Periode.
-  const capKwByPeriod = isStatic
+  // 1. Kapp-Suche (§3.6.1). Ohne Spitzenkappung → `cap = ∞` je Contract-Slot (nie eine Spitze
+  //    gekappt); sonst die niedrigste machbare Schwelle je Periode.
+  const capKwByPeriod = noPeakShaving
     ? new Array<number>(periodSlotCount(tariffParams.billingModel)).fill(Infinity)
     : searchCaps(loadProfile, physics, tariffParams.billingModel).capKwByPeriod
   const capForInterval = capForIntervalSeries(capKwByPeriod, periodOfInterval)
 
-  // 2. Spitzen-Reserve (§3.6-Kasten). Bei `cap = ∞` ergäbe `computeSocFloor` ohnehin überall 0; für
-  //    `static` setzen wir die reserve-freie Trajektorie direkt (kein Rückwärts-Pass nötig).
-  const socFloorKwh = isStatic
+  // 2. Spitzen-Reserve (§3.6-Kasten). Bei `cap = ∞` ergäbe `computeSocFloor` ohnehin überall 0; ohne
+  //    Spitzenkappung setzen wir die reserve-freie Trajektorie direkt (kein Rückwärts-Pass nötig).
+  const socFloorKwh = noPeakShaving
     ? new Array<number>(draws.length).fill(0)
     : computeSocFloor(draws, capForInterval, physics, deltaH)
 

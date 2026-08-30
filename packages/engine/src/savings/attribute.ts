@@ -6,6 +6,7 @@ import {
   intervalHours,
   periodIndexByInterval,
 } from '../simulation/helpers'
+import { peakShavingBlockers } from '../simulation/peak-shaving'
 import { simulateBattery, type BatterySimulationResult } from '../simulation/simulate'
 import { intervalTariffRates } from '../simulation/tou'
 import { getTariffStrategy } from '../tariff/strategy'
@@ -144,7 +145,7 @@ export function computeBatterySavings(
   const selfConsumptionSavingPerYear = (pvSelfConsumedKwh * pvSelfConsumptionCtPerKwh) / 100
   const loadShiftSavingPerYear = loadShiftCtKwh / 100
 
-  // ── controlType-Zuschreibung (§3.6/§3.7; Martins Semantik, OP#5) ─────────────────────────────────
+  // ── Zuschreibung der Spitzenkappung (§3.6/§3.7; Martins Semantik OP#5, Delta 3/8) ───────────────
   // controlType ist eine Frage der STEUERUNGS-Konfiguration, nicht der Batteriezelle.
   //  • 'dynamic' → Spitzenkappung: voller Leistungspreis-Anteil kreditiert (newBilledKw = gekappt).
   //  • 'static'  → NUR Eigenverbrauch/Lastverschiebung, KEINE Spitzenkappung: `leistungspreisSaving = 0`
@@ -152,18 +153,42 @@ export function computeBatterySavings(
   //    reserve-frei simuliert (`simulateBattery`, cap = ∞ / socFloor ≡ 0 für static) → Eigenverbrauch
   //    nutzt die volle Kapazität. Die drei Ersparnis-Töpfe oben stammen aus GENAU diesem Fahrplan, die
   //    Nicht-Doppelzählung (Summe = total) gilt für static unverändert.
+  //  • Delta 8 (9b-1): derselbe Zweig gilt für ein SYNTHETISCHES Standardlastprofil, auch bei einer
+  //    'dynamic'-Batterie und auch bei einem Leistungspreis > 0. Ohne diese Zurücknahme entstünde
+  //    aus dem reserve-freien Fahrplan eine Differenz zum ungekappten `billedKw` — mal positiv, mal
+  //    negativ — und die würde als Spitzenkappungs-Ersparnis auf eine erfundene Spitze kreditiert.
+  //    Die Bedingung selbst steht in `peakShavingBlockers`, damit Simulation und Zuschreibung
+  //    nicht getrennt voneinander entscheiden können.
   const warnings: string[] = []
   let newBilledKw: number
   let leistungspreisSavingPerYear: number
-  if (battery.controlType === 'static') {
+  const blockers = peakShavingBlockers(loadProfile, battery)
+  if (blockers.length > 0) {
     newBilledKw = oldBilledKw
     leistungspreisSavingPerYear = 0
-    warnings.push(
-      'Statische Steuerung: nur Eigenverbrauch/Lastverschiebung, keine Spitzenkappung — der ' +
-        'Leistungspreis-Anteil wird nicht kreditiert. Mit zusätzlicher Steuerungshardware ' +
-        '(z. B. Smartfox/iHome Manager) auf Peak-Shaving aufrüstbar; die Kostenmodellierung dieser ' +
-        'Aufrüstung ist offen bis zum realen Katalog (OP#2).',
-    )
+    /*
+     * Je Grund ein eigener Satz, und beide, wenn beide zutreffen: „statische Steuerung" erklärt
+     * einem Kunden mit synthetischem Lastgang nicht, warum auch die dynamische Batterie daneben
+     * nichts kappt — und umgekehrt. Ein gemeinsamer, allgemeiner Satz („keine Spitzenkappung")
+     * verlöre genau die Information, die den Unterschied ausmacht: der eine Grund ist mit anderer
+     * Hardware behebbar, der andere mit einem echten Lastgang.
+     */
+    if (blockers.includes('static_control')) {
+      warnings.push(
+        'Statische Steuerung: nur Eigenverbrauch/Lastverschiebung, keine Spitzenkappung — der ' +
+          'Leistungspreis-Anteil wird nicht kreditiert. Mit zusätzlicher Steuerungshardware ' +
+          '(z. B. Smartfox/iHome Manager) auf Peak-Shaving aufrüstbar; die Kostenmodellierung dieser ' +
+          'Aufrüstung ist offen bis zum realen Katalog (OP#2).',
+      )
+    }
+    if (blockers.includes('standard_profile')) {
+      warnings.push(
+        'Synthetisches Standardlastprofil: die Spitzenkappung wird nicht gerechnet und nicht ' +
+          'kreditiert — ein Durchschnittsprofil trägt keine individuelle Lastspitze, und eine ' +
+          'daraus geschätzte Leistungspreis-Ersparnis wäre eine erfundene Zahl. Für diese ' +
+          'Dimension bitte einen echten Lastgang hochladen.',
+      )
+    }
   } else {
     newBilledKw = sim.newBilledKw
     leistungspreisSavingPerYear = (oldBilledKw - newBilledKw) * tariffParams.leistungspreisEurPerKwYear

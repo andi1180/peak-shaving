@@ -124,6 +124,21 @@ export function StepResult({
   }
 
   const bundleBlocked = !load.sourceBytes
+  /*
+   * Delta 9b-1: „kein Bündel" hat jetzt ZWEI Gründe, und sie verlangen zwei verschiedene Sätze.
+   * Bei einem Standardprofil gibt es GAR KEINE Ursprungsdatei — „liegt nicht mehr vor … bitte
+   * erneut hochladen" behauptete dort einen Verlust, den es nie gab, und schickte den Nutzer eine
+   * Datei suchen, die er nicht hat. Es ist ausserdem kein Fehler, sondern eine Eigenschaft dieses
+   * Einstiegs; deshalb in der neutralen Textfarbe statt in Rot.
+   */
+  const bundleBlockedBecauseSynthetic = bundleBlocked && load.profile.source === 'standard_profile'
+  const bundleBlockedText = bundleBlockedBecauseSynthetic
+    ? 'Ein Analyse-Bündel gibt es für ein Standardprofil nicht: es bindet eine Analyse an ihre ' +
+      'Ursprungsdatei, und die gibt es hier nicht — die Zahlen stammen aus Ihrer Verbrauchsangabe, ' +
+      'nicht aus einer Messdatei. PDF und CSV stehen unverändert zur Verfügung.'
+    : 'Ein Analyse-Bündel ist für diesen Lauf nicht möglich: die Ursprungsdatei liegt nicht ' +
+      'mehr vor. Ohne sie liesse sich keine Prüfsumme rechnen — und ein Bündel ohne ' +
+      'Prüfsumme bindet die Analyse an keine Datei. Bitte laden Sie den Lastgang erneut hoch.'
 
   return (
     <div className="flex flex-col gap-4">
@@ -173,11 +188,7 @@ export function StepResult({
             size="sm"
             onClick={() => void handleExportBundle()}
             disabled={bundleBlocked || recomputing}
-            title={
-              bundleBlocked
-                ? 'Die Ursprungsdatei liegt nicht mehr vor — ohne sie bindet die Prüfsumme nichts.'
-                : undefined
-            }
+            title={bundleBlocked ? bundleBlockedText : undefined}
           >
             <FileJson className="h-4 w-4" />
             Analyse-Bündel (JSON)
@@ -191,11 +202,15 @@ export function StepResult({
 
       {(bundleError || bundleBlocked) && (
         <div className="mx-auto w-full max-w-6xl px-4 sm:px-6 print:hidden">
-          <p role="alert" className="text-sm text-negative">
-            {bundleError ??
-              'Ein Analyse-Bündel ist für diesen Lauf nicht möglich: die Ursprungsdatei liegt nicht ' +
-                'mehr vor. Ohne sie liesse sich keine Prüfsumme rechnen — und ein Bündel ohne ' +
-                'Prüfsumme bindet die Analyse an keine Datei. Bitte laden Sie den Lastgang erneut hoch.'}
+          <p
+            role="alert"
+            className={
+              bundleError || !bundleBlockedBecauseSynthetic
+                ? 'text-sm text-negative'
+                : 'text-sm text-text-muted'
+            }
+          >
+            {bundleError ?? bundleBlockedText}
           </p>
         </div>
       )}
