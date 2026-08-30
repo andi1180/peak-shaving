@@ -62,8 +62,8 @@ const tariff: TariffParams = {
 
 describe('Delta 8 — Standardprofil trägt die Leistungspreis-Dimension nicht', () => {
   it('nennt die Herkunft als Grund, auch bei einer dynamischen Batterie', () => {
-    expect(peakShavingBlockers(standardProfile, battery)).toEqual(['standard_profile'])
-    expect(peakShavingBlockers(measuredProfile, battery)).toEqual([])
+    expect(peakShavingBlockers(standardProfile, battery, tariff)).toEqual(['standard_profile'])
+    expect(peakShavingBlockers(measuredProfile, battery, tariff)).toEqual([])
   })
 
   it('simuliert reserve-frei (cap = ∞, socFloor ≡ 0) — es wird gar nicht erst gekappt', () => {
@@ -105,7 +105,7 @@ describe('Delta 8 — Standardprofil trägt die Leistungspreis-Dimension nicht',
 
   it('nennt bei einer statischen Batterie auf einem Standardprofil BEIDE Gründe', () => {
     const statisch: BatteryCandidate = { ...battery, id: 'test-stat-10', controlType: 'static' }
-    expect(peakShavingBlockers(standardProfile, statisch)).toEqual([
+    expect(peakShavingBlockers(standardProfile, statisch, tariff)).toEqual([
       'static_control',
       'standard_profile',
     ])

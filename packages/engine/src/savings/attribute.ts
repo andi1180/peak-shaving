@@ -157,21 +157,29 @@ export function computeBatterySavings(
   //    'dynamic'-Batterie und auch bei einem Leistungspreis > 0. Ohne diese Zurücknahme entstünde
   //    aus dem reserve-freien Fahrplan eine Differenz zum ungekappten `billedKw` — mal positiv, mal
   //    negativ — und die würde als Spitzenkappungs-Ersparnis auf eine erfundene Spitze kreditiert.
+  //  • Delta 3 (erste Anwendung): ebenso bei einem Tarif OHNE Leistungspreis. Rechnerisch ändert der
+  //    Zweig hier nichts (der `else`-Ausdruck ergäbe × 0 = 0); seine Wirkung liegt in der
+  //    SIMULATION, die dadurch reserve-frei läuft — und genau deshalb MUSS die Zuschreibung
+  //    denselben Zweig nehmen: derselbe reserve-freie Fahrplan verschiebt `sim.newBilledKw`
+  //    gegenüber dem ungekappten Wert, und `newBilledKw` ist eine ausgewiesene Report-Zahl, keine
+  //    blosse Zwischengrösse. Sie dürfte nicht behaupten, die Batterie senke den abgerechneten
+  //    Leistungswert, wenn gar nicht gekappt wurde.
   //    Die Bedingung selbst steht in `peakShavingBlockers`, damit Simulation und Zuschreibung
   //    nicht getrennt voneinander entscheiden können.
   const warnings: string[] = []
   let newBilledKw: number
   let leistungspreisSavingPerYear: number
-  const blockers = peakShavingBlockers(loadProfile, battery)
+  const blockers = peakShavingBlockers(loadProfile, battery, tariffParams)
   if (blockers.length > 0) {
     newBilledKw = oldBilledKw
     leistungspreisSavingPerYear = 0
     /*
-     * Je Grund ein eigener Satz, und beide, wenn beide zutreffen: „statische Steuerung" erklärt
+     * Je Grund ein eigener Satz, und alle zutreffenden nebeneinander: „statische Steuerung" erklärt
      * einem Kunden mit synthetischem Lastgang nicht, warum auch die dynamische Batterie daneben
      * nichts kappt — und umgekehrt. Ein gemeinsamer, allgemeiner Satz („keine Spitzenkappung")
      * verlöre genau die Information, die den Unterschied ausmacht: der eine Grund ist mit anderer
-     * Hardware behebbar, der andere mit einem echten Lastgang.
+     * Hardware behebbar, der zweite mit einem echten Lastgang, der dritte gar nicht — dort ist
+     * nichts zu beheben, weil nichts fehlt.
      */
     if (blockers.includes('static_control')) {
       warnings.push(
@@ -187,6 +195,21 @@ export function computeBatterySavings(
           'kreditiert — ein Durchschnittsprofil trägt keine individuelle Lastspitze, und eine ' +
           'daraus geschätzte Leistungspreis-Ersparnis wäre eine erfundene Zahl. Für diese ' +
           'Dimension bitte einen echten Lastgang hochladen.',
+      )
+    }
+    /*
+     * Anders als die beiden Gründe darüber benennt dieser KEINEN Mangel: es fehlt weder Hardware
+     * noch ein Messwert, der Tarif hat den Posten schlicht nicht. Der Satz sagt deshalb, dass das
+     * Ergebnis vollständig ist, statt zu einer Nachbesserung aufzufordern — und er erklärt die 0 in
+     * der Ersparnis-Aufschlüsselung, die sonst wie ein Rechenfehler aussähe. Zugleich ist er der
+     * Hinweis darauf, dass die volle Kapazität dem Eigenverbrauch zugutekommt.
+     */
+    if (blockers.includes('no_demand_charge')) {
+      warnings.push(
+        'Tarif ohne Leistungspreis: es gibt keinen Leistungspreis-Anteil, der sich kappen liesse — ' +
+          'die Spitzenkappung wird deshalb nicht gerechnet und nicht kreditiert. Das ist kein ' +
+          'fehlender Wert, sondern eine Eigenschaft Ihrer Abrechnung; die volle Batteriekapazität ' +
+          'steht dafür dem Eigenverbrauch und der Lastverschiebung zur Verfügung.',
       )
     }
   } else {
