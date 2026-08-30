@@ -68,10 +68,14 @@ export type BatterySimulationResult = {
  *   • `static`  → NUR Eigenverbrauch/Lastverschiebung, KEINE Spitzenkappung → keine Kapp-Schwelle
  *     (`cap = ∞` je Slot) und damit reserve-frei (`socFloor ≡ 0`): die volle Kapazität steht dem
  *     Eigenverbrauch zur Verfügung (nicht durch eine Spitzen-Reserve gebunden).
- * Seit Delta 9b-1 gibt es einen ZWEITEN Grund für dieselbe reserve-freie Konfiguration: einen
- * SYNTHETISCHEN Lastgang (`loadProfile.source === 'standard_profile'`, Delta 3/8). Dort ist die
- * Spitze kein Messwert, sondern eine Eigenschaft der Durchschnittskurve — sie zu kappen ergäbe eine
- * Ersparnis auf eine erfundene Zahl. Beide Gründe stehen in `peakShavingBlockers` (peak-shaving.ts).
+ * Seit Delta 9b-1 gibt es weitere Gründe für dieselbe reserve-freie Konfiguration: einen
+ * SYNTHETISCHEN Lastgang (`loadProfile.source === 'standard_profile'`, Delta 8) — dort ist die
+ * Spitze kein Messwert, sondern eine Eigenschaft der Durchschnittskurve, sie zu kappen ergäbe eine
+ * Ersparnis auf eine erfundene Zahl — und einen Tarif OHNE Leistungspreis
+ * (`leistungspreisEurPerKwYear === 0`, Delta 3/5). Beim Letzteren war die Zuschreibung schon immer
+ * folgenlos (× 0 = 0); hier im Orchestrator ist er es NICHT: sonst bände `socFloor` weiter
+ * Kapazität, um eine Spitze zu schützen, deren Senkung nichts wert ist — zu Lasten des
+ * Eigenverbrauchs. Alle Gründe stehen in `peakShavingBlockers` (peak-shaving.ts).
  *
  * Die Kern-Physik-Primitiven (`searchCaps`/`computeSocFloor`/`runCombinedDispatch`) bleiben
  * controlType-agnostisch — sie bekommen Caps/Reserve als Eingabe; NUR dieser Orchestrator entscheidet,
@@ -90,11 +94,12 @@ export function simulateBattery(
   const periodOfInterval = periodIndexByInterval(loadProfile, tariffParams.billingModel)
   /*
    * Delta 3/Delta 8 (9b-1): NICHT mehr nur `controlType === 'static'`. Dieselbe reserve-freie
-   * Konfiguration gilt jetzt auch für ein SYNTHETISCHES Standardlastprofil — dort gibt es keine
-   * gemessene Spitze, die zu kappen wäre. Die Bedingung steht an genau EINER Stelle
-   * (`peakShavingBlockers`), weil die Zuschreibung in §3.7 dieselbe Antwort braucht.
+   * Konfiguration gilt auch für ein SYNTHETISCHES Standardlastprofil (keine gemessene Spitze, die
+   * zu kappen wäre) und für einen Tarif OHNE Leistungspreis (kein Posten, den eine Kappung senken
+   * könnte). Die Bedingung steht an genau EINER Stelle (`peakShavingBlockers`), weil die
+   * Zuschreibung in §3.7 dieselbe Antwort braucht.
    */
-  const noPeakShaving = isPeakShavingDisabled(loadProfile, battery)
+  const noPeakShaving = isPeakShavingDisabled(loadProfile, battery, tariffParams)
 
   // 1. Kapp-Suche (§3.6.1). Ohne Spitzenkappung → `cap = ∞` je Contract-Slot (nie eine Spitze
   //    gekappt); sonst die niedrigste machbare Schwelle je Periode.
