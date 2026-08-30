@@ -9,3 +9,5 @@ export * from './simulation'
 export * from './savings'
 export * from './roi'
 export * from './recommendation'
+// Delta 8 / 9b-1: das synthetische Standardlastprofil (H0) für Kunden ohne echten Lastgang.
+export * from './standard-profile'

@@ -90,6 +90,21 @@ export function Report({
   const showPartialYearWarning =
     a.billingModel.startsWith('monthly') && result.dataQuality.coveredMonths < 12
 
+  /*
+   * Delta 8 / 9b-1 — der Lastgang ist SYNTHETISCH (Standardprofil aus einer Verbrauchsangabe).
+   *
+   * Der Hinweis steht direkt unter der Kern-Kennzahl und nicht in der Datenqualitäts-Box weiter
+   * unten, aus demselben Grund wie die Teiljahres-Warnung: er QUALIFIZIERT genau die Zahl darüber.
+   * Der abgerechnete Leistungswert ist hier die Spitze einer Durchschnittskurve, also keine
+   * gemessene Spitze — das muss neben ihr stehen, nicht drei Bildschirmhöhen darunter.
+   *
+   * Abgeleitet aus `loadProfile.source` und damit aus derselben Eigenschaft, an der die Engine die
+   * Spitzenkappung abschaltet (`peakShavingBlockers`) — kein zweiter Zustand, der auseinanderlaufen
+   * könnte. Sichtbar am Bildschirm UND im Druck: auf einem weitergereichten Blatt ist die Herkunft
+   * der Zahlen die wichtigste Angabe überhaupt.
+   */
+  const isStandardProfile = loadProfile.source === 'standard_profile'
+
   // Shortcut „Mit Jahreshöchstwert rechnen": GENAU derselbe Recompute-Pfad wie das Annahmen-Panel
   // (§6.2, Prompt C) — `onRecompute` → Worker `recompute`. KEIN zweiter Umschalt-Mechanismus: der
   // neue `billingModel` fließt über das Ergebnis zurück und das Panel spiegelt ihn (liveBillingModel).
@@ -120,6 +135,27 @@ export function Report({
       <div className="print:break-inside-avoid">
         <KeyMetric current={result.current} />
       </div>
+
+      {isStandardProfile && (
+        <Alert className="print:break-inside-avoid">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Auf Basis eines Standardlastprofils — keine gemessenen Werte</AlertTitle>
+          <AlertDescription>
+            <p className="text-text">
+              Diese Analyse rechnet mit einem <strong>synthetischen Durchschnittsprofil</strong>,
+              das aus Ihrer Jahresverbrauchs-Angabe gebildet wurde. Für den Tarifvergleich reicht
+              das: dafür zählt, wann im Tagesverlauf Strom verbraucht wird. Die oben gezeigten
+              Leistungswerte sind dagegen die Spitzen dieser Durchschnittskurve und{' '}
+              <strong>keine gemessene Lastspitze</strong> — eine Ersparnis beim Leistungspreis wird
+              deshalb gar nicht erst ausgewiesen, statt sie zu schätzen.{' '}
+              <strong>
+                Für die Leistungspreis-Dimension: echten Lastgang hochladen (Viertelstundenwerte
+                Ihres Netzbetreibers).
+              </strong>
+            </p>
+          </AlertDescription>
+        </Alert>
+      )}
 
       {showPartialYearWarning && (
         <Alert variant="warning" className="print:break-inside-avoid">

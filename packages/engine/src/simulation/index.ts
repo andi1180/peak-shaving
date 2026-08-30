@@ -14,6 +14,11 @@ export { computeSocFloor } from './reserve'
 export { runCombinedDispatch } from './dispatch'
 export type { DispatchResult } from './dispatch'
 export { runPeakProtection } from './peak-protection'
+// Delta 3/8 (9b-1): die EINE Stelle, an der entschieden wird, ob die Spitzenkappung überhaupt
+// gerechnet und kreditiert wird — von `simulateBattery` (§3.6) und `computeBatterySavings` (§3.7)
+// gemeinsam benutzt.
+export { peakShavingBlockers, isPeakShavingDisabled } from './peak-shaving'
+export type { PeakShavingBlocker } from './peak-shaving'
 export { buildDispatchTrace } from './trace'
 export { alignPvGrossToLoad, pvConsistencyWarning, pvCoverageWarning } from './pv'
 // Delta 4 (B21-3b): der kombinierte Intervallpreis. `evaluateTariffOptimization` ist der Weg für

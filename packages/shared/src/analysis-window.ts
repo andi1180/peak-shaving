@@ -126,3 +126,36 @@ function localDate(iso: string, timezone: string): string {
     day: '2-digit',
   }).format(new Date(iso))
 }
+
+/**
+ * Welches Kalenderjahr ein SYNTHETISCHES Standardlastprofil abdecken soll (Delta 8 / 9b-1).
+ *
+ * ── WARUM ES ÜBERHAUPT EIN JAHR BRAUCHT ─────────────────────────────────────────────────────────
+ * Regel A verlangt, dass der aWATTar-Vergleich exakt auf dem Zeitraum des Lastgangs liegt. Ein
+ * hochgeladener Lastgang bringt seinen Zeitraum mit; ein erzeugter hat keinen, bis ihm einer gegeben
+ * wird. Er muss zwei Bedingungen erfüllen: er darf nicht vor dem Anker beginnen (Regel B), und er
+ * muss VOLLSTÄNDIG in der Vergangenheit liegen — sonst rechnete der Vergleich gegen Marktpreise, die
+ * es noch nicht gibt (Regel C, „nicht berechenbar"), und das ausgerechnet für den Kunden, der
+ * ohnehin schon die schwächere Datengrundlage hat.
+ *
+ * Deshalb das ZULETZT ABGESCHLOSSENE Kalenderjahr: zwölf volle Monate (also keine Teiljahres-
+ * Verzerrung der `monthly_*`-Abrechnung, §3.5) und durchgehend gedeckte Preise.
+ *
+ * ── WARUM NICHT „DIE LETZTEN 12 MONATE" ────────────────────────────────────────────────────────
+ * Ein rollierendes Fenster machte das erzeugte Profil vom AUSFÜHRUNGSTAG abhängig: zwei Kunden mit
+ * derselben Eingabe bekämen an zwei Tagen zwei verschiedene Profile und zwei verschiedene Zahlen,
+ * ohne dass irgendetwas an ihrer Anlage anders wäre. Ein Kalenderjahr ist benennbar („2025") und in
+ * einem Report nachvollziehbar; ein gleitendes Fenster ist es nicht.
+ *
+ * `now` ist ein Pflichtparameter — die Funktion bleibt damit rein und testbar; eine Funktion, die
+ * selbst auf die Uhr sieht, lässt sich nicht gegen einen Stichtag prüfen.
+ */
+export function standardProfileYear(now: Date): number {
+  const anchorYear = Number(SPOT_PRICE_ANCHOR_DATE.slice(0, 4))
+  /*
+   * Untergrenze ist das Anker-Jahr: davor gibt es keine Marktpreise, und ein Profil, das Regel B
+   * verletzt, dürfte gar nicht erst entstehen. Die Grenze greift nur in einem Jahr, in dem das
+   * Vorjahr noch vor dem Anker läge — heute (2026) ist sie nicht wirksam, sie steht als Sperre.
+   */
+  return Math.max(anchorYear, now.getUTCFullYear() - 1)
+}

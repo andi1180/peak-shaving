@@ -25,3 +25,13 @@ export const WARTELISTE_URL = 'https://www.coolin.at/warteliste'
  * auf den Datenschutzlink darf ausserdem NIE das halb ausgefüllte Formular verwerfen.
  */
 export const DATENSCHUTZ_URL = 'https://www.coolin.at/datenschutz'
+
+/**
+ * Delta 9b-1 — Zeitzone der Tagesform eines synthetischen Standardlastprofils.
+ *
+ * Der Generator verlangt sie als Pflichtparameter (eine stillschweigend angenommene Zeitzone wäre
+ * eine zweite Wahrheit neben der des Parsers). Für einen österreichischen Kunden ist es dieselbe,
+ * auf die auch der Parser zurückfällt (`DEFAULT_TZ` in `packages/engine/src/parser/parse.ts`) —
+ * bewusst NICHT die des Browsers: ein Kunde im Urlaub bekäme sonst ein anderes Lastprofil.
+ */
+export const STANDARD_PROFILE_TIMEZONE = 'Europe/Vienna'

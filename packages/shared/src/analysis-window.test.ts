@@ -5,6 +5,7 @@ import {
   SPOT_PRICE_ANCHOR_DATE,
   SPOT_PRICE_ANCHOR_ISO,
   analysisWindow,
+  standardProfileYear,
   startsBeforeSpotPriceAnchor,
 } from './analysis-window'
 import type { LoadProfile } from './load-profile'
@@ -145,5 +146,30 @@ describe('Delta 15 — der Anker existiert zweimal und darf nicht auseinanderlau
     const match = /const BACKFILL_ANCHOR_ISO = '([^']+)'/.exec(script)
     expect(match, 'BACKFILL_ANCHOR_ISO im Backfill-Skript nicht gefunden').not.toBeNull()
     expect(match![1]).toBe(SPOT_PRICE_ANCHOR_ISO)
+  })
+})
+
+describe('Delta 8 / 9b-1 — Zeitraum eines synthetischen Standardlastprofils', () => {
+  /*
+   * Das erzeugte Profil muss zwei Bedingungen erfüllen, und beide werden hier gemessen statt
+   * angenommen: nicht vor dem Anker (Regel B) und vollständig in der Vergangenheit (sonst rechnete
+   * der Marktpreis-Vergleich gegen Preise, die es noch nicht gibt — Regel C).
+   */
+  it('liefert das zuletzt abgeschlossene Kalenderjahr', () => {
+    expect(standardProfileYear(new Date('2026-08-30T00:00:00Z'))).toBe(2025)
+    expect(standardProfileYear(new Date('2026-01-01T00:00:00Z'))).toBe(2025)
+    expect(standardProfileYear(new Date('2027-06-15T00:00:00Z'))).toBe(2026)
+  })
+
+  it('fällt nie unter das Anker-Jahr — ein Profil, das Regel B verletzt, darf nicht entstehen', () => {
+    const jahr = standardProfileYear(new Date('2025-05-01T00:00:00Z'))
+    expect(jahr).toBe(Number(SPOT_PRICE_ANCHOR_DATE.slice(0, 4)))
+    expect(`${jahr}-12-31` >= SPOT_PRICE_ANCHOR_DATE).toBe(true)
+  })
+
+  it('hängt NICHT vom Tag innerhalb des Jahres ab — sonst wäre dieselbe Eingabe morgen ein anderes Profil', () => {
+    const tage = ['2026-01-01', '2026-03-17', '2026-08-30', '2026-12-31']
+    const jahre = new Set(tage.map((t) => standardProfileYear(new Date(`${t}T12:00:00Z`))))
+    expect(jahre.size).toBe(1)
   })
 })

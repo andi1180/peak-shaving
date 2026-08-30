@@ -46,9 +46,11 @@ const isStatic = battery.controlType === 'static' || tariffParams.leistungspreis
 ```
 `leistungspreisEurPerKwYear = 0` läuft laut Bestandsaufnahme (Delta 12, Punkt 3) bereits heute überall sauber durch — keine ungeschützte Division, Schema erlaubt `0` explizit. `hasLeistungspreis` ist damit **kein persistiertes Feld**, sondern genau dieser Ausdruck, an genau einer Stelle ausgewertet.
 
+> **Stand 30.08.2026 (9b-1):** Die EINE Stelle heisst jetzt `peakShavingBlockers` (`packages/engine/src/simulation/peak-shaving.ts`) und wird von `simulateBattery` (Kappungs-Konfiguration) UND `computeBatterySavings` (Zuschreibung) gelesen — die zweite Stelle war beim Schreiben dieses Deltas übersehen worden, und ohne sie entstünde aus dem reserve-freien Fahrplan eine zufällige Differenz zum ungekappten `billedKw`, die als Ersparnis kreditiert würde. Enthalten ist bislang NUR die zweite Anwendung (`standard_profile`); die HIER beschriebene erste (`leistungspreisEurPerKwYear === 0`) ist bewusst noch nicht gebaut: sie ist rechnerisch folgenlos (`(alt − neu) × 0 = 0`), ändert aber die Simulation (die Reserve gäbe Kapazität für den Eigenverbrauch frei) und gehört mit eigener Messung in einen eigenen Schritt. Wer sie nachträgt, tut es dort und an keiner zweiten Stelle.
+
 **Woher kommt `leistungspreisEurPerKwYear = 0`:** aus der gewählten Netzbetreiber-Tarifvariante „ohne Leistungsmessung" (Delta 5) — dort ist der Grundpreis laut Tarifblatt ein reiner Jahres-Pauschalbetrag, kein €/kW-Wert. Die Variante **ist** der reale Fall hinter dem Flag, kein zusätzliches UI-Element nötig.
 
-**Zweite Anwendung (Pessimismus, s. Delta 11):** Derselbe Pfad wird auch aktiviert, wenn `loadProfile.source === 'standard_profile'` — unabhängig davon, ob der Kunde nominell leistungsgemessen ist. Ohne echten Lastgang lässt sich eine individuelle Spitze nicht seriös schätzen; der Kalkulator berechnet für diesen Fall keine Leistungspreis-Ersparnis, sondern ausschließlich die Tarif-Ersparnis.
+**Zweite Anwendung (Pessimismus, s. Delta 11) — GEBAUT am 30.08.2026 (9b-1), als einzige der beiden:** Derselbe Pfad wird auch aktiviert, wenn `loadProfile.source === 'standard_profile'` — unabhängig davon, ob der Kunde nominell leistungsgemessen ist. Ohne echten Lastgang lässt sich eine individuelle Spitze nicht seriös schätzen; der Kalkulator berechnet für diesen Fall keine Leistungspreis-Ersparnis, sondern ausschließlich die Tarif-Ersparnis.
 
 ---
 
@@ -189,13 +191,15 @@ Zwei neue Wege neben dem bestehenden Lastgang-Upload, **komplementär, nicht red
 
 **Standardlastprofil.** Für Kunden ohne echten Lastgang: Jahresverbrauch (aus Rechnungs-Scan oder manueller Eingabe) + Kundenklasse (privat/klein-gewerblich) → skaliertes synthetisches Profil (H0 für Haushalte — Begriff bereits aus der separaten Ladeoptimierungs-Studie bekannt —, passendes G-Profil für Kleingewerbe `[MARTIN, welche Quelle/welches Profilsystem in AT üblich]`). Neuer `LoadProfile.source`-Wert: `'standard_profile'`.
 
+> **Stand 30.08.2026:** Der Standardlastprofil-Teil ist als **9b-1 gebaut** (H0/Privat); der Rechnungs-Scan ist **offen (9b-2)**, das G-Profil für Kleingewerbe bleibt auf Martin blockiert. Details in Delta 9.
+
 **Pessimismus-Konsequenz (Delta 3, zweite Anwendung):** Ein Standardprofil trägt die Tarif-Arbitrage-Rechnung (Tagesform genügt für Durchschnittspreis-Optimierung), aber **nicht** die Leistungspreis-Dimensionierung. Deshalb automatisch `hasLeistungspreis`-Pfad (Delta 3), unabhängig vom nominellen Vertragsstatus des Kunden — keine erfundene Spitzenlast-Ersparnis. Report zeigt ausschließlich die Tarif-Ersparnis, mit sichtbarem Hinweis „für die Leistungspreis-Dimension: echten Lastgang hochladen".
 
 ---
 
 ## Delta 9 — UI/UX
 
-> **Stand 29.08.2026: Delta 9a ist ABGESCHLOSSEN, Delta 9b ist ein eigener, späterer Bauabschnitt.** Die Trennlinie liegt zwischen der Bedienung des Hebels (9a: Formular, Erklärungen, Ergebnisanzeige) und den zusätzlichen EINSTIEGEN in den Lastgang-Schritt (9b: Rechnungs-Scan, Standardprofil/manuelle Verbrauchsangabe). 9b bringt neue Datenquellen und damit eigene fachliche Fragen; 9a brauchte keine.
+> **Stand 30.08.2026: Delta 9a ist ABGESCHLOSSEN, Delta 9b ist geteilt — 9b-1 (Standardprofil) ist GEBAUT, 9b-2 (Rechnungs-Scan) ist offen.** Die Trennlinie zwischen 9a und 9b liegt zwischen der Bedienung des Hebels (9a: Formular, Erklärungen, Ergebnisanzeige) und den zusätzlichen EINSTIEGEN in den Lastgang-Schritt. Innerhalb von 9b ist erneut geteilt, weil die beiden Einstiege nichts miteinander teilen: 9b-1 erzeugt einen Lastgang aus einer Zahl (rein, deterministisch, keine neue Infrastruktur), 9b-2 liest ihn aus einem Dokument (Extraktionsmodul, s. Abgrenzung zu B8 in Delta 8).
 
 **9a — abgeschlossen (B21-3c, 29.08.2026):**
 
@@ -204,9 +208,20 @@ Zwei neue Wege neben dem bestehenden Lastgang-Upload, **komplementär, nicht red
 - ✅ **`tarif-nicht-verfuegbar.tsx` überarbeitet:** die Datei unterscheidet jetzt drei Fälle. Die beiden Verweigerungen (B11: Verordnung ausstehend / Preisblatt noch nicht hinterlegt) sind unverändert und sperren weiterhin; neu daneben steht `TarifOhneLeistungsmessung` — **kein Fehler, neutrale Färbung, kein Warteliste-Link, keine Sperre**, und der Leistungspreis wird mit 0 vorbelegt, weil dieser Anschluss den Posten nicht hat.
 - ✅ **Ergebnisanzeige des Hebels:** eine eigene Karte neben der Peak-Shaving-Empfehlung. Sie zeigt **entweder** die gerechnete Zahl **oder** den Grund samt betroffenem Zeitraum — nie beides, und im Blocker-Fall ausdrücklich keine Zahl (Delta 15). Sprache durchgehend rückblickend („wäre möglich gewesen"), nie als Zusage (Delta 11). Der Befund reist dafür als Contract-Feld `AnalysisResult.tariffOptimization` statt als Text in `dataQuality.warnings`.
 
-**9b — offen, eigener Bauabschnitt:**
+**9b-1 — abgeschlossen (30.08.2026):**
 
-- **Drei gleichwertige Startpunkte für den Lastgang-Schritt:** Datei-Upload (bestehend), Rechnungs-Scan (neu), Standardprofil/manuelle Verbrauchsangabe (neu) — alle drei münden auf denselben `LoadProfile`-Contract, keine UI-Verzweigung danach. **Mitzudenken:** ein Standardprofil trägt laut Delta 3/8 die Tarif-Arbitrage, aber NICHT die Leistungspreis-Dimension — der vierte `LoadProfile.source`-Wert `standard_profile` (B21-1) existiert dafür bereits, wird aber von der Simulation noch nicht gelesen.
+- ✅ **Zweiter, gleichwertiger Startpunkt im Lastgang-Schritt:** „Standardprofil / Verbrauch" neben dem Datei-Upload (`apps/website/components/flow/standard-profile-panel.tsx`, Umschaltung in `step-upload.tsx`). Beide münden auf denselben `LoadProfile`-Contract, nachgelagert verzweigt nichts — bis auf die eine Stelle, an der es verzweigen MUSS (nächster Punkt). Der Datei-Pfad ist mit 0 Zeilen Verhaltensänderung unangetastet.
+- ✅ **H0-Generator** (`packages/engine/src/standard-profile/h0.ts`): Jahresverbrauch + Kundenklasse → skaliertes Haushaltsprofil, rein und deterministisch, **ohne jeden Zufall**. Referenzparameter aus dem Methodik-Abschnitt „Lastprofil Haushalt" der Ladeoptimierungs-Simulationsstudie: 10 kWh/Tag Referenzmittel, Winter/Sommer 1,32, Doppelspitze Morgen/Abend, flacherer Wochenendverlauf. Gemessen (3.650 kWh/Jahr): Summe exakt 3.650,000000 kWh, Verhältnis 1,3186, Spitze/Mittel Werktag 2,471 gegen Wochenende 1,972.
+- ✅ **Der `hasLeistungspreis`-Pfad wird erzwungen** (Delta 3, zweite Anwendung): `peakShavingBlockers` (`packages/engine/src/simulation/peak-shaving.ts`) ist die EINE Stelle, an der entschieden wird, ob die Spitzenkappung gerechnet und kreditiert wird — von `simulateBattery` und `computeBatterySavings` gemeinsam gelesen, damit Simulation und Zuschreibung nicht getrennt entscheiden können. Live gegengeprüft mit einem Tarif MIT Leistungsmessung: Standardprofil € 0 über alle Kandidaten, echter Lastgang € 2.487,60.
+- ✅ **Report-Hinweis** direkt unter der Kern-Kennzahl (nicht in der Datenqualitäts-Box weiter unten — er qualifiziert genau die Zahl darüber): synthetisches Profil, keine gemessene Lastspitze, „für die Leistungspreis-Dimension: echten Lastgang hochladen". Sichtbar am Bildschirm UND im Druck.
+- ✅ **Infobuttons** an Jahresverbrauch und Kundenklasse, plus einer zur Einordnung des ganzen Einstiegs (Muster aus 9a).
+- ⚠ **Kleingewerbe ist SICHTBAR und deaktiviert**, mit Begründung daneben — nicht versteckt. Der Typ `StandardProfileCustomerClass` führt den Wert, der Generator lehnt ihn mit `no_profile_for_class` ab. **Offen und auf Martin blockiert:** welches G-Profil in Österreich üblich ist (s. Delta 8). Eine aus dem H0 abgeleitete Gewerbekurve wäre eine geratene Zahl mit seriösem Etikett.
+- **Zeitraum des erzeugten Profils:** das zuletzt abgeschlossene Kalenderjahr (`standardProfileYear`, `packages/shared/src/analysis-window.ts`). Kein rollierendes Fenster — sonst wäre dieselbe Eingabe an zwei Tagen ein anderes Profil.
+- **Kein Analyse-Bündel für diesen Einstieg** (B14-2): es bindet eine Analyse an ihre Ursprungsdatei, und die gibt es hier nicht. PDF und CSV bleiben unverändert verfügbar; die Oberfläche sagt das mit einem eigenen, neutralen Satz statt mit der Fehlermeldung des Datei-Pfads.
+
+**9b-2 — offen, eigener Bauabschnitt:**
+
+- **Rechnungs-Scan** als dritter Startpunkt: Extraktion von Netzebene, Netzbetreiber, Tarifsätzen, Leistungsmessungs-Variante und **Jahresverbrauch** aus der gescannten Jahresrechnung. Der extrahierte Jahresverbrauch ist der Input für den in 9b-1 gebauten Generator — kein eigenständiger dritter Rechenweg. Abgrenzung zu B8 (Extraktion ja, kein Urteil): s. Delta 8.
 - **Delta 16 (PDF-Report)** ist **vollständig gebaut**: 16a (Deckblatt, Methodik-Kapitel, Druck-Layout) am 29.08.2026, **16b (Name/Firma-Gate + Lead-Schreibpfad) am 30.08.2026** — eigener Abschnitt unten.
 
 ---
