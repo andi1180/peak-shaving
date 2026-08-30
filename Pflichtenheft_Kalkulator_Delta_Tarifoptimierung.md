@@ -281,6 +281,13 @@ Kompakt, mit Fundstellen — bei Bedarf vor dem Bau gegen den dann aktuellen Cod
 | 6 | Batterie-Degradation im ROI-Horizont nicht modelliert | — | vorerst nur Report-Hinweis, echte Lösung später |
 | 7 | Batteriekatalog-Daten von Martin | Martin | wie bisher, unabhängig von diesem Delta |
 | 8 | ~~**Ort der Regel-B-Prüfung** (Delta 15): Parser (`parseLoadProfile`) oder Upload-Schritt (`apps/website`)? Und was geschieht mit den Demo-/Test-Lastgängen VOR dem Anker~~ **ERLEDIGT mit B21-3a (28.08.2026)** — s. Entscheidung unter der Tabelle | Andreas/Claude Code | — |
+| 9 | **Schwellenwert „grosse Datenlücke"** — ab wie vielen zusammenhängend interpolierten Viertelstunden weist der Report eine Lücke eigens aus? Vorläufig gesetzt auf **2.688 Slots = 4 Wochen** (`LARGE_GAP_SLOTS_THRESHOLD`, `apps/website/lib/constants.ts`) | Martin | nichts — der Hinweis ist gebaut, offen ist nur seine Auslöseschwelle |
+
+**Zu Punkt 9 — was gebaut ist und was Martin entscheidet (30.08.2026):**
+
+Der Contract trägt seit dem Nachtrag zu Delta 14 ein Feld `dataQuality.largestGapSlots` — die **längste zusammenhängend interpolierte** Lücke in 15-min-Slots, neben der bereits geführten Summe `gapsInterpolated`. Der Report zieht daraus einen **eigenen** Hinweissatz, ausdrücklich nicht den Teiljahres-Satz: dort FEHLT ein Zeitraum (`coveredMonths < 12`), hier sieht der Zeitraum vollständig aus und hat trotzdem keine Substanz. **Am realen Fall gemessen, und genau das ist die Begründung für den eigenen Satz:** ein Lastgang mit einer 156-Tage-Lücke mitten im Jahr meldet `coveredMonths = 12` — die bestehende Warnung schweigt bei ihm vollständig.
+
+**Offen ist allein die Zahl.** Welche Lücke einen Lastgang unbrauchbar macht, hängt am Abrechnungsmodell: bei `monthly_*` kann ein einziger fehlender Monat die Mittelung tragen, bei `annual_max` genügt die eine Woche, in der die Jahresspitze lag. Gesetzt sind vier Wochen, weil das die kleinste Lücke ist, die unter **jedem** der geführten Modelle sicher wehtut — eine kleinere Schwelle machte den Hinweis zur Dauerbegleitung und damit wertlos. Der Wert steht an genau **einer** Stelle und ist eine Zeile Änderung; die Auswertung (`showLargeGapWarning` in `report.tsx`) und die Zahl selbst (aus dem Parser) bleiben davon unberührt.
 
 **Zu Punkt 8 — die getroffene Entscheidung (B21-3a, 28.08.2026):**
 

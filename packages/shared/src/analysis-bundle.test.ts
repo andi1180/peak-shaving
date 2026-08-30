@@ -88,7 +88,13 @@ function makeResult(overrides: Partial<AnalysisResult> = {}): AnalysisResult {
       einspeiseverguetungCtPerKwh: 8,
       billingModel: 'annual_max',
     },
-    dataQuality: { coveredDays: 365, coveredMonths: 12, gapsInterpolated: 0, warnings: [] },
+    dataQuality: {
+      coveredDays: 365,
+      coveredMonths: 12,
+      gapsInterpolated: 0,
+      largestGapSlots: 0,
+      warnings: [],
+    },
     ...overrides,
   }
 }

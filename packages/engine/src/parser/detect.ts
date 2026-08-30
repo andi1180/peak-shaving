@@ -61,6 +61,41 @@ function columnSamples(rows: RawCell[][], col: number, n = SAMPLE_ROWS): RawCell
   return out
 }
 
+/**
+ * Zweite Stichprobe, GLEICHMÄSSIG über die ganze Datei verteilt (erste UND letzte Datenzeile
+ * inklusive) — die Rückfallebene für Dateien mit langem Anfangs-Leerlauf.
+ *
+ * ⚠ Warum es sie braucht: `columnSamples` liest die ERSTEN `SAMPLE_ROWS` Datenzeilen. Ein realer
+ * Netzbetreiber-Export kann über Tausende Zeilen hinweg Zeitstempel führen, die Wert-Zellen aber
+ * leer lassen (der Zählpunkt war noch nicht in Betrieb, die Fernauslesung begann später) und erst
+ * danach echte Messwerte tragen. In der Kopf-Stichprobe ist dann JEDE Zelle leer, `numericFraction`
+ * liefert 0, es wird keine einzige Wert-Spalte gefunden — und der Parser lehnt eine vollständig
+ * brauchbare Datei mit `no_value_column` ab. An einem realen Kundenexport gemessen (rund 15.000
+ * leere Wert-Zellen vor dem ersten Messwert): abgelehnt wurde nicht eine unlesbare Datei, sondern
+ * eine, deren Daten weiter hinten stehen.
+ *
+ * Bewusst KEIN Ersatz für die Kopf-Stichprobe, sondern eine Ergänzung, die ausschliesslich greift,
+ * wenn die Kopf-Stichprobe GAR NICHTS gefunden hat (s. `detectStructure`). Dadurch kann sie eine
+ * bereits erkannte Struktur nicht verändern — sie kann nur eine bisher abgelehnte Datei retten.
+ * Eine spaltenweise Ausweitung („für jede Spalte, die im Kopf nichts hergab, zusätzlich verteilt
+ * nachsehen") wäre genau das nicht: sie könnte eine heute einspaltige Erkennung still zu einer
+ * zweispaltigen machen und damit `source` und Vorzeichenrechnung einer Bestandsdatei ändern.
+ */
+function spreadColumnSamples(rows: RawCell[][], col: number, n = SAMPLE_ROWS): RawCell[] {
+  const count = Math.min(n, rows.length)
+  if (count === 0) return []
+  if (count === 1) return [rows[0]?.[col] ?? null]
+  const out: RawCell[] = []
+  for (let k = 0; k < count; k++) {
+    // k = 0 → erste Zeile, k = count-1 → LETZTE Zeile, dazwischen gleichmässig verteilt.
+    out.push(rows[Math.round(((rows.length - 1) * k) / (count - 1))]?.[col] ?? null)
+  }
+  return out
+}
+
+/** Woher die Stichprobe einer Spalte kommt — Dateikopf oder über die ganze Datei verteilt. */
+type ColumnSampler = (col: number) => RawCell[]
+
 function looksLikeTimestamp(cell: RawCell): boolean {
   return detectDateFormat([cell]) !== null
 }
@@ -166,6 +201,74 @@ function pickStartTimeCol(timeCols: number[], headers: string[]): number {
   return nonEnd[0] ?? timeCols[0]!
 }
 
+type TimestampDetection = {
+  timestampCol: number | null
+  timeColumn: number | null
+  dateFormat: DateFormat | null
+}
+
+/**
+ * Zeitstempel-Spalte(n) aus EINER Stichprobe: (1) kombinierte Datum+Zeit-Spalte, sonst
+ * (2) Split-Timestamp (getrennte Datums- + Zeitspalte, OP#4). Der Ablauf ist unverändert der
+ * bisherige — herausgezogen ist er nur, damit dieselbe Logik auch mit der verteilten Stichprobe
+ * laufen kann (s. `spreadColumnSamples`).
+ */
+function detectTimestampColumns(
+  width: number,
+  headers: string[],
+  sample: ColumnSampler,
+): TimestampDetection {
+  // (1) Kombinierter Zeitstempel: erste Spalte, deren Stichprobe ein Datum+Zeit-Format ergibt.
+  for (let col = 0; col < width; col++) {
+    const fmt = detectDateFormat(sample(col))
+    if (fmt) return { timestampCol: col, timeColumn: null, dateFormat: fmt }
+  }
+
+  // (2) Split-Timestamp (OP#4): keine kombinierte Spalte gefunden → getrennte Datums- + Zeitspalte.
+  let dateCol: number | null = null
+  let dateOnlyFmt: DateFormat | null = null
+  for (let col = 0; col < width; col++) {
+    const fmt = detectDateOnlyFormat(sample(col))
+    if (fmt) {
+      dateCol = col
+      dateOnlyFmt = fmt
+      break
+    }
+  }
+  if (dateCol != null) {
+    const timeCols: number[] = []
+    for (let col = 0; col < width; col++) {
+      if (col === dateCol) continue
+      if (looksLikeTimeColumn(sample(col))) timeCols.push(col)
+    }
+    if (timeCols.length >= 1) {
+      return {
+        timestampCol: dateCol,
+        timeColumn: pickStartTimeCol(timeCols, headers),
+        dateFormat: dateOnlyFmt,
+      }
+    }
+  }
+
+  return { timestampCol: null, timeColumn: null, dateFormat: null }
+}
+
+/** Spalten, deren Stichprobe überwiegend Zahlen trägt — Zeitstempel-/Zeitspalte ausgenommen. */
+function findValueCandidates(
+  width: number,
+  timestampCol: number | null,
+  timeColumn: number | null,
+  decimal: DecimalSeparator,
+  sample: ColumnSampler,
+): number[] {
+  const out: number[] = []
+  for (let col = 0; col < width; col++) {
+    if (col === timestampCol || col === timeColumn) continue
+    if (numericFraction(sample(col), decimal) >= 0.6) out.push(col)
+  }
+  return out
+}
+
 /** Generische Struktur-Erkennung (§3.2). Adapter-Hints/Optionen werden im Orchestrator daraufgelegt. */
 export function detectStructure(
   matrix: RawCell[][],
@@ -187,55 +290,37 @@ export function detectStructure(
   const dataRows = matrix.slice(headerRow === null ? 0 : headerRow + 1)
   const width = rowWidth(matrix)
 
-  // (1) Kombinierter Zeitstempel: erste Spalte, deren Stichprobe ein Datum+Zeit-Format ergibt.
-  let timestampCol: number | null = null
-  let timeColumn: number | null = null
-  let dateFormat: DateFormat | null = null
-  for (let col = 0; col < width; col++) {
-    const fmt = detectDateFormat(columnSamples(dataRows, col))
-    if (fmt) {
-      timestampCol = col
-      dateFormat = fmt
-      break
-    }
+  // Zwei Stichproben-Arten: der Dateikopf (wie bisher) und, als Rückfallebene, eine über die ganze
+  // Datei verteilte. Die verteilte lohnt nur, wenn es überhaupt mehr Zeilen gibt, als die
+  // Kopf-Stichprobe liest — sonst liefert sie dieselben Zellen und der zweite Anlauf wäre umsonst.
+  const head: ColumnSampler = (col) => columnSamples(dataRows, col)
+  const spread: ColumnSampler = (col) => spreadColumnSamples(dataRows, col)
+  const hasRowsBeyondHead = dataRows.length > SAMPLE_ROWS
+
+  // Zeitstempel. Der zweite Anlauf läuft NUR, wenn der erste nichts gefunden hat — dann steht heute
+  // ohnehin `no_timestamp_column` am Ende, er kann also keine bestehende Erkennung verändern.
+  let ts = detectTimestampColumns(width, headers, head)
+  if (ts.timestampCol == null && hasRowsBeyondHead) {
+    ts = detectTimestampColumns(width, headers, spread)
+  }
+  const { timestampCol, timeColumn, dateFormat } = ts
+
+  // Wert-Spalten. Ebenfalls zweistufig, und ebenfalls nur als Ganzes: fand der Kopf mindestens EINE
+  // Spalte, bleibt es exakt bei seinem Ergebnis (sonst könnte eine im Kopf leere Zusatzspalte eine
+  // heute einspaltige Datei still zu einer zweispaltigen machen — und damit `source` kippen).
+  let valueSampler = head
+  let valueCandidates = findValueCandidates(width, timestampCol, timeColumn, decimalGuess, head)
+  if (valueCandidates.length === 0 && hasRowsBeyondHead) {
+    valueSampler = spread
+    valueCandidates = findValueCandidates(width, timestampCol, timeColumn, decimalGuess, spread)
   }
 
-  // (2) Split-Timestamp (OP#4): keine kombinierte Spalte gefunden → getrennte Datums- + Zeitspalte.
-  if (timestampCol == null) {
-    let dateCol: number | null = null
-    let dateOnlyFmt: DateFormat | null = null
-    for (let col = 0; col < width; col++) {
-      const fmt = detectDateOnlyFormat(columnSamples(dataRows, col))
-      if (fmt) {
-        dateCol = col
-        dateOnlyFmt = fmt
-        break
-      }
-    }
-    if (dateCol != null) {
-      const timeCols: number[] = []
-      for (let col = 0; col < width; col++) {
-        if (col === dateCol) continue
-        if (looksLikeTimeColumn(columnSamples(dataRows, col))) timeCols.push(col)
-      }
-      if (timeCols.length >= 1) {
-        timestampCol = dateCol
-        dateFormat = dateOnlyFmt
-        timeColumn = pickStartTimeCol(timeCols, headers)
-      }
-    }
-  }
-
-  // Dezimaltrenner aus den Wert-Spalten verfeinern (Zeitstempel- und Zeitspalte ausgenommen).
-  const valueCandidates: number[] = []
-  for (let col = 0; col < width; col++) {
-    if (col === timestampCol || col === timeColumn) continue
-    if (numericFraction(columnSamples(dataRows, col), decimalGuess) >= 0.6)
-      valueCandidates.push(col)
-  }
+  // Dezimaltrenner aus den Wert-Spalten verfeinern — aus DERSELBEN Stichprobe, die die Spalten
+  // gefunden hat: bei einem geretteten Anfangs-Leerlauf trüge die Kopf-Stichprobe nur leere Zellen
+  // und der Trenner fiele grundlos auf die Grobschätzung zurück.
   const valueStrings: string[] = []
   for (const col of valueCandidates) {
-    for (const c of columnSamples(dataRows, col)) {
+    for (const c of valueSampler(col)) {
       if (typeof c === 'string') valueStrings.push(c)
     }
   }
@@ -274,6 +359,13 @@ export function detectStructure(
     // Einzelspalte mit Negativwerten → net_signed; sonst import_only
     // [ANNAHME] all-positiv ist zwischen net_signed (nie eingespeist) und import_only nicht
     // unterscheidbar → import_only als sichere Vorgabe (löst die §3.1-Schutzwarnung aus).
+    //
+    // ⚠ BEWUSST die KOPF-Stichprobe, auch wenn die Wert-Spalte über `spread` gerettet wurde: die
+    // Vorzeichen-Erkennung bleibt von diesem Schritt unangetastet. Sie hier mitzuweiten änderte das
+    // Etikett bestehender Dateien (bekannt und dokumentiert: ein signierter Lastgang, dessen erste
+    // Einspeisung nach Zeile 60 liegt, gilt heute als `import_only` — B21-3a). Folgenlos für die
+    // ZAHLEN (`normalizeLoad` klemmt bei `import_only` nichts weg), aber eine repoweite Änderung
+    // der Quellen-Erkennung, die in einen eigenen Schritt gehört und nicht als Nebenwirkung hier.
     source = hasNegative(columnSamples(dataRows, col), decimal) ? 'net_signed' : 'import_only'
   } else {
     source = 'import_only'

@@ -202,6 +202,7 @@ export function generateStandardLoadProfile(input: StandardProfileInput): Standa
       coveredMonths: months.size,
       // Es gibt keine Lücke, die zu füllen wäre — es gibt gar keine Messung.
       gapsInterpolated: 0,
+      largestGapSlots: 0,
       warnings: [
         `Synthetisches Standardlastprofil (H0, Privathaushalt) für das Jahr ${year}, linear auf ` +
           `${new Intl.NumberFormat('de-AT').format(Math.round(annualConsumptionKwh))} kWh/Jahr ` +

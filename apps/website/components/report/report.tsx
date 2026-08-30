@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/accordion'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
-import { DEFAULT_HORIZON_YEARS } from '@/lib/constants'
+import { DEFAULT_HORIZON_YEARS, LARGE_GAP_SLOTS_THRESHOLD } from '@/lib/constants'
 import type { RecomputeInput } from '@/components/flow/types'
 import { AssumptionsPanel } from './assumptions-panel'
 import { CostChart } from './cost-chart'
@@ -89,6 +89,27 @@ export function Report({
   // Annahmen-Panel) auf `annual_max` wechselt.
   const showPartialYearWarning =
     a.billingModel.startsWith('monthly') && result.dataQuality.coveredMonths < 12
+
+  /*
+   * Grosse zusammenhängende Datenlücke (§3.3) — ein EIGENER Hinweis neben der Teiljahres-Warnung
+   * darüber, und ausdrücklich nicht derselbe Satz.
+   *
+   * Die beiden sagen Verschiedenes: dort FEHLT ein Zeitraum (< 12 belegte Monate, das Modell kann
+   * nicht mitteln, was es nicht hat), hier sieht der Zeitraum VOLLSTÄNDIG aus und hat trotzdem
+   * keine Substanz — die Slots existieren, ihre Werte sind aber linear zwischen den Rändern
+   * aufgefüllt. Genau das ist die gefährlichere Lage: eine Lastspitze innerhalb der Lücke kann in
+   * keiner Zahl dieses Reports auftauchen, und nichts an der Kern-Kennzahl sieht danach aus.
+   * Zusammengelegt bekäme der Nutzer für zwei verschiedene Datenmängel eine Meldung, aus der er
+   * nicht ableiten kann, was er tun soll (anderer Zeitraum vs. vollständiger Lastgang).
+   *
+   * Rein aus dem Contract abgeleitet (`dataQuality.largestGapSlots`) — dieselbe Zahl, die der
+   * Parser beim Interpolieren gemessen hat, keine zweite Rechnung. Die Schwelle ist VORLÄUFIG und
+   * steht als einzelne Konstante (s. `LARGE_GAP_SLOTS_THRESHOLD`, Delta 14 Punkt 9). Ein älteres
+   * Ergebnis ohne das Feld (`undefined`) fällt hier still durch — kein Hinweis statt eines Fehlers.
+   */
+  const largestGapSlots = result.dataQuality.largestGapSlots
+  const showLargeGapWarning = largestGapSlots > LARGE_GAP_SLOTS_THRESHOLD
+  const largestGapDays = Math.round(largestGapSlots / 96)
 
   /*
    * Delta 8 / 9b-1 — der Lastgang ist SYNTHETISCH (Standardprofil aus einer Verbrauchsangabe).
@@ -174,6 +195,29 @@ export function Report({
             <Button size="sm" onClick={handleSwitchToAnnualMax} disabled={recomputing}>
               {recomputing ? 'Rechnet neu …' : 'Mit Jahreshöchstwert rechnen'}
             </Button>
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {showLargeGapWarning && (
+        <Alert variant="warning" className="print:break-inside-avoid">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>
+            Grosse Datenlücke: <Num>{largestGapDays}</Num> Tage am Stück ohne Messwerte
+          </AlertTitle>
+          <AlertDescription>
+            <p className="text-text">
+              Der Zeitraum ist zwar durchgehend abgedeckt, in diesem Abschnitt stammen die Werte
+              aber <strong>nicht aus einer Messung</strong> — sie wurden linear zwischen dem letzten
+              und dem nächsten bekannten Wert aufgefüllt. Eine Lastspitze, die in diesen{' '}
+              <Num>{largestGapDays}</Num> Tagen aufgetreten ist, kann in keiner Zahl dieses Reports
+              vorkommen: der abgerechnete Leistungswert oben und die daraus abgeleitete Ersparnis
+              sind für diesen Datensatz eher zu niedrig als zu hoch.{' '}
+              <strong>
+                Bitte den vollständigen Lastgang beim Netzbetreiber anfordern (Viertelstundenwerte
+                ohne Lücke).
+              </strong>
+            </p>
           </AlertDescription>
         </Alert>
       )}

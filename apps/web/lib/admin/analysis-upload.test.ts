@@ -91,7 +91,13 @@ const RESULT: AnalysisResult = {
     einspeiseverguetungCtPerKwh: 8,
     billingModel: 'monthly_max_average',
   },
-  dataQuality: { coveredDays: 365, coveredMonths: 12, gapsInterpolated: 0, warnings: [] },
+  dataQuality: {
+    coveredDays: 365,
+    coveredMonths: 12,
+    gapsInterpolated: 0,
+    largestGapSlots: 0,
+    warnings: [],
+  },
 }
 
 const INPUTS: AnalysisBundleInputs = {
