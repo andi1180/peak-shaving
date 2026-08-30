@@ -560,6 +560,27 @@ Antwortet das mit einer Zeile, stimmt der Zugang. Ein `42501` bedeutet, dass die
 | `SUPABASE_SERVICE_ROLE_KEY` | Production, Preview | Project Settings → API Keys → **`service_role` `secret`** |
 | `SUPABASE_URL` | optional | Project Settings → API → **Project URL** — fehlt sie, wird `NEXT_PUBLIC_SUPABASE_URL` benutzt |
 
+- **✅ GESETZT UND AKTIV SEIT 30.08.2026.** `SUPABASE_SERVICE_ROLE_KEY` steht im Projekt
+  `peak-shaving-website` als EIN Eintrag für **Production und Preview**, Typ `sensitive` (also nicht
+  zurücklesbar — dieselbe Einstellung wie in §1a). Baseline vor dem Eintrag gemessen: das Projekt
+  hatte **4** Einträge (die zwei `NEXT_PUBLIC_`-Variablen je Scope), danach **5**.
+  `peak-shaving-web` ist dabei **unangetastet** geblieben — vorher wie nachher **16** Einträge.
+- **`SUPABASE_URL` ist bewusst NICHT gesetzt.** Der Code liest sie mit Rückfall auf
+  `NEXT_PUBLIC_SUPABASE_URL`, und die steht bereits (§1-Website-a). Eine zweite Variable mit
+  demselben Wert wäre ein zweiter Ort, an dem beim nächsten Projektwechsel eine veraltete
+  Projekt-URL stehen bleiben kann.
+- **Es ist der `service_role`-Schlüssel vom Typ `legacy`** (JWT, 219 Zeichen) — derselbe, den §1a
+  für `peak-shaving-web` nennt. Das Projekt führt daneben einen neueren `sb_secret_…`; eine
+  Umstellung darauf betrifft **beide** Projekte gemeinsam und ist kein Nebeneffekt.
+  ⚠️ Der Wert wurde **nicht** aus `peak-shaving-web` kopiert — dessen Variablen sind `sensitive`
+  und damit nicht auslesbar. Er stammt aus der Quelle
+  (`GET /v1/projects/<ref>/api-keys`, Projekt-Ref `amdeupwgytuvgpacsywh`) und wurde vor dem
+  Eintragen **gegen die Cloud geprüft**: Payload trägt `"role": "service_role"`, ein RPC auf
+  `get_active_consent_text` antwortet **200**, derselbe Aufruf mit dem `anon`-Schlüssel **42501**.
+- **Ein neues Deployment ist Pflicht.** Die Variable wird zur LAUFZEIT gelesen; ein bereits
+  gebautes Deployment bekommt sie nicht nachträglich. Am 30.08.2026 per Redeploy des
+  Production-Deployments von `ab17e272` wirksam gemacht.
+
 > ⚠️ **DAS IST DER MÄCHTIGSTE SCHLÜSSEL DES GESAMTEN PROJEKTS.** Er umgeht **jede** RLS: Wer ihn hat,
 > liest und schreibt den kompletten Lead-Bestand, alle Einwilligungen, alle Zahlungsdaten und alle
 > Analysen — quer über beide Produkte. Bis Delta 16b lag er ausschliesslich im Vercel-Projekt
@@ -598,16 +619,31 @@ Widget im Dialog; die Schlüssel aus §1c gelten dort nicht mit.
 #### Prüfen, ob es wirkt
 
 ```bash
-# 1. Der Schlüssel darf NIRGENDS im ausgelieferten JavaScript stehen.
-#    (Beim Bauen gemessen: 0 Treffer im gesamten .next, nicht nur in static/ —
-#     er wird erst zur Laufzeit aus process.env gelesen, nie eingesetzt.)
-grep -r "<die ersten 12 Zeichen des Schlüssels>" apps/website/.next | wc -l   # muss 0 sein
+# 1. Der Schlüssel darf NIRGENDS im ausgelieferten JavaScript stehen — gegen die PRODUKTION.
+#    ⚠️ Mit einer GEGENPROBE fahren: der anon-Schlüssel MUSS gefunden werden, sonst greift der
+#    Grep gar nicht und „0 Treffer" bedeutet nichts. Und Vorsicht beim JWT-Präfix
+#    `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9` — das tragen anon UND service_role; das Payload
+#    dekodieren und `role` lesen, statt am Präfix zu entscheiden.
+BASE=https://peak-shaving-website-ten.vercel.app
+curl -s "$BASE/rechner?embed=1" | grep -oE '/_next/static/chunks/[^"]+\.js' | sort -u > /tmp/c.txt
+while read -r c; do curl -s "$BASE$c" | grep -c "service_role"; done < /tmp/c.txt   # alles 0
 
 # 2. Wirkt das Gate live? Rechner öffnen, eine Analyse fahren, „Als PDF speichern" klicken.
 #    Erscheint der Einwilligungstext (er beginnt mit „[MARTIN: Copy / rechtlich …"), ist der
 #    serverseitige Zugang da. Steht stattdessen „Der Einwilligungstext ist gerade nicht abrufbar",
 #    fehlt der Schlüssel — oder die Migration 20260830090100 ist nicht gepusht.
 ```
+
+**Am 30.08.2026 live gegen die Produktion gemessen** (Playwright, voller 4-Schritt-Durchlauf):
+Fail-closed-Meldung **verschwunden**, Einwilligungstext kommt aus `platform.consent_texts`, Haken
+`unchecked`, ohne Haken **0** Druckvorgänge, Honeypot serverseitig abgewiesen (**0** Druckvorgänge),
+Erfolg gibt den Druck frei und das Deckblatt trägt Name und Firma, **0 Konsolenfehler**. Über
+`admin_list_leads` gegengelesen: Herkunft `rechner-report`, genau **eine** Einwilligung
+`offer_contact` / `confirmed`. Der dafür angelegte Prüf-Lead (`…@example.invalid`) ist danach
+**entfernt** und der Zählstand auf den vorher gemessenen Wert zurückgeführt worden — ein
+synthetischer Eintrag verfälschte sonst genau die Statistik, für die es diese Herkunft gibt.
+**11 Client-Chunks der Produktion geprüft: 0 Vorkommen des Schlüssels, 0 Vorkommen von
+`service_role`; der einzige JWT im Bündel trägt `"role": "anon"`.**
 
 ---
 
