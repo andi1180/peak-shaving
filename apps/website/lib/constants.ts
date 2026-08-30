@@ -35,3 +35,20 @@ export const DATENSCHUTZ_URL = 'https://www.coolin.at/datenschutz'
  * bewusst NICHT die des Browsers: ein Kunde im Urlaub bekäme sonst ein anderes Lastprofil.
  */
 export const STANDARD_PROFILE_TIMEZONE = 'Europe/Vienna'
+
+/**
+ * ⚠ VORLÄUFIG, offen für Martin (Delta 14 Punkt 9) — ab welcher Länge eine zusammenhängend
+ * interpolierte Datenlücke im Report eigens benannt wird.
+ *
+ * 4 Wochen × 7 Tage × 96 Viertelstunden = 2.688 Slots. Der Wert ist eine nachvollziehbare
+ * Setzung, KEINE fachliche Festlegung: welche Lücke einen Lastgang unbrauchbar macht, hängt am
+ * Abrechnungsmodell (bei `monthly_*` kann ein einziger fehlender Monat die Mittelung tragen, bei
+ * `annual_max` genügt die eine Woche, in der die Jahresspitze lag). Ein Monat ist die kleinste
+ * Lücke, die unter JEDEM der geführten Modelle sicher wehtut — deshalb diese Grösse und nicht
+ * eine kleinere, die den Hinweis zur Dauerbegleitung machte.
+ *
+ * Wer den Wert ersetzt, ersetzt genau diese Zeile: die Auswertung steht an EINER Stelle
+ * (`report.tsx`, `showLargeGapWarning`), und die Zahl selbst kommt aus dem Contract
+ * (`dataQuality.largestGapSlots`), nicht aus einer zweiten Rechnung.
+ */
+export const LARGE_GAP_SLOTS_THRESHOLD = 4 * 7 * 96

@@ -141,6 +141,17 @@ export type AnalysisResult = {
      * verzerrt `monthly_*`-Abrechnung; der Report zieht daraus die prominente Teiljahres-Warnung. */
     coveredMonths: number
     gapsInterpolated: number
+    /**
+     * Längste ZUSAMMENHÄNGENDE interpolierte Lücke, in 15-min-Slots (0 = keine).
+     *
+     * Neben `gapsInterpolated` (der SUMME), weil die Summe die gefährlichere Lage nicht zeigt:
+     * 2.000 über das Jahr verstreute Einzelslots sind eine Kleinigkeit, 2.000 am Stück sind drei
+     * Wochen ohne jede Messung — linear zwischen den Rändern aufgefüllt, also ohne jede Lastspitze,
+     * die dort tatsächlich stattgefunden hat. Der Report zieht daraus einen eigenen Hinweis; er ist
+     * ausdrücklich NICHT der Teiljahres-Hinweis (`coveredMonths`): dort FEHLT ein Zeitraum, hier
+     * sieht der Zeitraum vollständig aus und hat trotzdem keine Substanz.
+     */
+    largestGapSlots: number
     warnings: string[]
   }
 }

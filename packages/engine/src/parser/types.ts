@@ -91,6 +91,8 @@ export type DataQuality = {
   /** Anzahl der 12 Kalendermonate (lokal) mit ≥ 1 Messwert. < 12 = Teiljahres-Datensatz (§3.5). */
   coveredMonths: number
   gapsInterpolated: number
+  /** Längste ZUSAMMENHÄNGENDE interpolierte Lücke in 15-min-Slots (0 = keine). */
+  largestGapSlots: number
   warnings: string[]
 }
 

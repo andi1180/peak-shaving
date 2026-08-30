@@ -12,6 +12,8 @@ export type PrepareResult = {
   intervalMinutes: number
   coveredDays: number
   gapsInterpolated: number
+  /** Längste ZUSAMMENHÄNGENDE interpolierte Lücke in 15-min-Slots (0 = keine). S. `DataQuality`. */
+  largestGapSlots: number
   warnings: string[]
 }
 
@@ -65,7 +67,14 @@ export function prepareSeries(readings: RawReading[], maxInterpolationGap: numbe
 
   const intervalMinutes = detectIntervalMinutes(deduped.map((r) => r.ms))
   if (deduped.length < 2) {
-    return { slots: deduped, intervalMinutes, coveredDays: 0, gapsInterpolated: 0, warnings }
+    return {
+      slots: deduped,
+      intervalMinutes,
+      coveredDays: 0,
+      gapsInterpolated: 0,
+      largestGapSlots: 0,
+      warnings,
+    }
   }
   // Nur bei 15-min füllen wir das Gitter; anderes Intervall meldet der Orchestrator als Fehler.
   if (intervalMinutes !== 15) {
@@ -74,6 +83,7 @@ export function prepareSeries(readings: RawReading[], maxInterpolationGap: numbe
       intervalMinutes,
       coveredDays: 0,
       gapsInterpolated: 0,
+      largestGapSlots: 0,
       warnings,
     }
   }
@@ -91,6 +101,7 @@ export function prepareSeries(readings: RawReading[], maxInterpolationGap: numbe
 
   // Lücken füllen (linear). Klein (≤ maxInterpolationGap) still, groß mit Warnung.
   let gapsInterpolated = 0
+  let largestGapSlots = 0
   let largeGaps = 0
   let i = 0
   while (i < totalSlots) {
@@ -111,6 +122,11 @@ export function prepareSeries(readings: RawReading[], maxInterpolationGap: numbe
         grid[start + k] = round3(leftVal + stepVal * (k + 1))
       }
       gapsInterpolated += runLength
+      // Die LÄNGSTE zusammenhängende Lücke, nicht ihre Summe: 2.000 über das Jahr verstreute
+      // Einzelslots sind eine andere Aussage als 2.000 am Stück (dort fehlt ein ganzer Monat
+      // Substanz in einem Zeitraum, der vollständig aussieht). Gezählt wird nur, was tatsächlich
+      // interpoliert WURDE — deshalb steht die Zeile in diesem Zweig und nicht davor.
+      largestGapSlots = Math.max(largestGapSlots, runLength)
       if (runLength > maxInterpolationGap) largeGaps++
     }
   }
@@ -136,7 +152,7 @@ export function prepareSeries(readings: RawReading[], maxInterpolationGap: numbe
 
   const coveredDays = Math.round(totalSlots / SLOTS_PER_DAY)
 
-  return { slots, intervalMinutes, coveredDays, gapsInterpolated, warnings }
+  return { slots, intervalMinutes, coveredDays, gapsInterpolated, largestGapSlots, warnings }
 }
 
 export function slotsToIso(slots: PreparedSlot[]): { ms: number; iso: string; value: number }[] {
