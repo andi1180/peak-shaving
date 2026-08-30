@@ -52,6 +52,22 @@ export type LeadConsentPurpose =
    * dasselbe Modul wie `/kontakt` trägt (s. `LEAD_SOURCE_KEYS_WITHOUT_FORM`).
    */
   | 'partner_lead_disclosure'
+  /**
+   * Delta 16b: Einwilligung, dass COOLiN Name, Firma und Adresse behält und sich zu einem Angebot
+   * für die berechnete Auslegung meldet — die Rechtsgrundlage des Name/Firma-Gates vor dem
+   * Report-Download im Kalkulator (§5.1 nennt die Zweckbindung wortgleich: „Kontaktaufnahme durch
+   * COOLiN bzw. den Fachpartner").
+   *
+   * Er steht in dieser Union, weil `lib/leads/config.ts` beim Typecheck ihre GLEICHHEIT mit dem
+   * DB-Enum beweist — und er gehört zu KEINEM Eintrag der Registry unten: Die Einwilligung entsteht
+   * nicht über eine Erfassungsstrecke dieser Registry, sondern in `apps/website` (eigene App,
+   * eigene Server Action, eigenes Formular; s. `LEAD_SOURCE_KEYS_WITHOUT_FORM`).
+   *
+   * NICHT 'result_delivery': Delta 16 Entscheidung 1 schliesst jedes serverseitig erzeugte PDF und
+   * damit jeden Mail-Anhang aus — der Kunde lädt selbst herunter. Ausführlich begründet im Kopf der
+   * Migration `20260830090000_offer_contact_purpose.sql`.
+   */
+  | 'offer_contact'
 
 /**
  * Die Einstiegspunkte MIT eigenem Erfassungsformular — die Schlüssel, die `LEAD_CAPTURE_REGISTRY`
@@ -116,12 +132,27 @@ export const LEAD_CAPTURE_FORM_KEYS = [
  * ein Lead unter der Herkunft 'telefonanfrage' anlegen. Der Bestand enthielte dann Zeilen, die
  * einen Anruf und eine interne Aufnahme behaupten, die es nie gab — und zwar ausgerechnet in der
  * Herkunft, deren einziger Zweck es ist, das intern Erfasste vom selbst Abgeschickten zu trennen.
+ *
+ * ── 'rechner-report' (Delta 16b) STEHT AUS BEIDEN GRÜNDEN ZUGLEICH HIER ─────────────────────────
+ * Das Name/Firma-Gate vor dem Download des erweiterten Reports HAT ein Formular — aber es lebt in
+ * einer ANDEREN ANWENDUNG: `apps/website` (der Kalkulator), mit eigenen Feldern, eigenen Texten und
+ * einer eigenen Server Action (`apps/website/lib/report-gate/**`). Vier Texte unter
+ * `LeadCapture.entries.*`, die dort niemand liest, und eine Feldliste, die dort nichts steuert,
+ * wären auch hier eine Requisite; die Prüfregel steht bewusst in `packages/shared`
+ * (`report-gate.ts`), weil beide Apps sie brauchen und `registry.ts` abhängigkeitsfrei bleibt.
+ *
+ * Entscheidend ist wieder die Wirkung von `findLeadCaptureEntry` (unten): Stünde der Schlüssel in
+ * `LEAD_CAPTURE_FORM_KEYS`, liesse sich über den GENERISCHEN, öffentlichen Erfassungs-Endpunkt von
+ * coolin.at ein Lead unter der Herkunft 'rechner-report' anlegen — eine Zeile, die einen
+ * heruntergeladenen Report behauptet, den es nie gab, und zwar in der Herkunft, an der später die
+ * Wirksamkeit genau dieses Gates gemessen wird.
  */
 export const LEAD_SOURCE_KEYS_WITHOUT_FORM = [
   'registrierung',
   'kalkulator-registrierung',
   'partner-empfehlung',
   'telefonanfrage',
+  'rechner-report',
 ] as const
 
 /**

@@ -1222,6 +1222,7 @@ export type Database = {
         | "contract_expiry_reminder"
         | "result_delivery"
         | "partner_lead_disclosure"
+        | "offer_contact"
       entitlement_source: "stripe" | "manual"
       industry:
         | "baeckerei"
@@ -1926,6 +1927,7 @@ export const Constants = {
         "contract_expiry_reminder",
         "result_delivery",
         "partner_lead_disclosure",
+        "offer_contact",
       ],
       entitlement_source: ["stripe", "manual"],
       industry: [

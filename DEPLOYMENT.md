@@ -553,6 +553,62 @@ curl -s "https://<PROJECT_REF>.supabase.co/rest/v1/spot_prices?select=ts_start&l
 Antwortet das mit einer Zeile, stimmt der Zugang. Ein `42501` bedeutet, dass die B21-1-Grants fehlen
 (§3b), **nicht** dass die Variable falsch ist.
 
+### 1-Website-b. Serverseitiger Schreibzugang für das Report-Gate (Delta 16b) ⚠️ HÖCHSTE TRAGWEITE
+
+| Variable | Scope | Wert-Herkunft (Dashboard-Feld) |
+|---|---|---|
+| `SUPABASE_SERVICE_ROLE_KEY` | Production, Preview | Project Settings → API Keys → **`service_role` `secret`** |
+| `SUPABASE_URL` | optional | Project Settings → API → **Project URL** — fehlt sie, wird `NEXT_PUBLIC_SUPABASE_URL` benutzt |
+
+> ⚠️ **DAS IST DER MÄCHTIGSTE SCHLÜSSEL DES GESAMTEN PROJEKTS.** Er umgeht **jede** RLS: Wer ihn hat,
+> liest und schreibt den kompletten Lead-Bestand, alle Einwilligungen, alle Zahlungsdaten und alle
+> Analysen — quer über beide Produkte. Bis Delta 16b lag er ausschliesslich im Vercel-Projekt
+> `peak-shaving-web`; seither liegt er in einem **zweiten** Projekt, und damit gibt es einen zweiten
+> Ort, an dem er verlorengehen kann. Wer ihn rotiert, rotiert ihn in **BEIDEN** Projekten
+> (`peak-shaving-web` §1a **und** `peak-shaving-website` hier) — ein einseitig rotierter Schlüssel
+> legt genau eine der beiden Anwendungen still, und zwar erst beim nächsten echten Aufruf.
+
+**⚠️ NIEMALS mit `NEXT_PUBLIC_` präfixen.** Next setzt `NEXT_PUBLIC_`-Werte zur Bauzeit **textuell**
+ins Client-Bündel ein; unter diesem Präfix stünde der service_role-Schlüssel im ausgelieferten
+JavaScript und wäre öffentlich. Das ist der Grund, warum diese App jetzt **zwei** Namensfamilien
+führt: die aus §1-Website-a sind für den Browser bestimmt, die hier ausdrücklich nicht.
+
+**Wofür genau — und für nichts sonst.** Der Schlüssel wird an **einer** Stelle gelesen
+(`apps/website/lib/report-gate/service-role.ts`) und von **einer** Datei benutzt
+(`apps/website/lib/report-gate/store.ts`), die genau **zwei** `public`-Wrapper aufruft:
+`get_active_consent_text` (lesend, der anzuzeigende Einwilligungswortlaut) und `capture_lead`
+(schreibend, Lead + Einwilligung). Beide sind `service_role`-only gegrantet — es gibt keine zweite
+Tür. Ein Import des Client-Moduls aus irgendeiner anderen Datei ist ein **Lint-Fehler**
+(`no-restricted-imports`, root `eslint.config.mjs`), und `import 'server-only'` bricht den Build,
+falls er je aus einer Client-Komponente gezogen wird.
+
+**Fehlt er, bleibt der Rechner vollständig benutzbar — aber der PDF-Knopf gibt nichts frei.** Der
+Dialog holt den Einwilligungswortlaut serverseitig; ohne Zugang bekommt er `null`, zeigt die
+Ankreuzmöglichkeit **gar nicht** und sagt im Klartext, dass die Zustimmung gerade nicht eingeholt
+werden kann. Das ist Absicht und **fail closed**: ein Report mit Namen auf dem Deckblatt, ohne dass
+eine Einwilligung entstanden ist, wäre schlimmer als ein Knopf, der nicht auslöst. Rechnen, Charts,
+CSV-Export und Analyse-Bündel sind davon unberührt.
+
+**Bot-Schutz:** Das Gate schützt sich mit einem **Honeypot** (verstecktes Feld `website`, immer
+aktiv, serverseitig ausgewertet). **Turnstile gibt es in diesem Projekt NICHT** — es lebt
+ausschliesslich in `peak-shaving-web` (§1c, `lib/kontakt/turnstile.ts`). Wer es hier nachrüstet,
+braucht `NEXT_PUBLIC_TURNSTILE_SITE_KEY` + `TURNSTILE_SECRET_KEY` **in diesem** Projekt und das
+Widget im Dialog; die Schlüssel aus §1c gelten dort nicht mit.
+
+#### Prüfen, ob es wirkt
+
+```bash
+# 1. Der Schlüssel darf NIRGENDS im ausgelieferten JavaScript stehen.
+#    (Beim Bauen gemessen: 0 Treffer im gesamten .next, nicht nur in static/ —
+#     er wird erst zur Laufzeit aus process.env gelesen, nie eingesetzt.)
+grep -r "<die ersten 12 Zeichen des Schlüssels>" apps/website/.next | wc -l   # muss 0 sein
+
+# 2. Wirkt das Gate live? Rechner öffnen, eine Analyse fahren, „Als PDF speichern" klicken.
+#    Erscheint der Einwilligungstext (er beginnt mit „[MARTIN: Copy / rechtlich …"), ist der
+#    serverseitige Zugang da. Steht stattdessen „Der Einwilligungstext ist gerade nicht abrufbar",
+#    fehlt der Schlüssel — oder die Migration 20260830090100 ist nicht gepusht.
+```
+
 ---
 
 ## 2. Supabase-Dashboard-Einstellungen (nicht über Migrationen abgedeckt)

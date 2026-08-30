@@ -29,3 +29,7 @@ export * from './analysis-window'
 // Marktpreis-Reihe. Aus demselben Grund hier wie `tariff-catalog`: der Rechenkern bekommt sie als
 // PARAMETER und darf die Datenschicht nicht kennen (Wächter in `engine/src/tariff/`).
 export * from './tariff-pricing'
+// Delta 16b: das Name/Firma-Gate vor dem Report-Download — Herkunftsschlüssel, Einwilligungszweck
+// und die EINE Prüfregel für Formular (Rückmeldung), Server Action (Wahrheit) und DB-Gate
+// (Abgleich mit `platform.lead_sources`). Bewusst importfrei; Begründung im Kopf der Datei.
+export * from './report-gate'
