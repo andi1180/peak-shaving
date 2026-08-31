@@ -656,6 +656,22 @@ synthetischer Eintrag verfälschte sonst genau die Statistik, für die es diese 
   Vercel `peak-shaving-web` (**16** Einträge, keiner davon KI), Vercel `peak-shaving-website`
   (**3** Einträge: die zwei `NEXT_PUBLIC_`-Supabase-Werte und der service_role-Schlüssel),
   lokale Umgebung (nicht gesetzt). **Es gibt im gesamten Projekt bisher keinen KI-Zugang.**
+  **Nach dem Merge von 9b-2a am 31.08.2026 erneut gegengeprüft** — diesmal über die Vercel-API
+  statt über die CLI, also scope-genau: `peak-shaving-website` führt **5** Einträge
+  (`SUPABASE_SERVICE_ROLE_KEY` production+preview, `NEXT_PUBLIC_SUPABASE_ANON_KEY` und
+  `NEXT_PUBLIC_SUPABASE_URL` je einmal pro Scope), **kein Name mit `ANTHROPIC`/`CLAUDE`/`OPENAI`/
+  `LLM`/`GEMINI`**, auch nicht unter abweichender Schreibweise. Beide Vercel-Projekte laufen
+  produktiv auf dem Merge-Commit `ab2656f` (`READY`, `target: production`, je einzeln über
+  `githubCommitSha` abgeglichen — Arbeitsregel 4). Der Code ist also live, der Zugang fehlt.
+
+> ⚠️ **„LIVE PRÜFEN, OB DER SCHLÜSSEL WIRKT" GEHT VOR 9b-2b NICHT — und das ist keine Nachlässigkeit,
+> sondern eine Eigenschaft des Bauschnitts.** `isInvoiceScanConfigured()` und `scanInvoice()` haben
+> im gesamten Repo **null Aufrufer** (gemessen am 31.08.2026): 9b-2a ist reines Backend, es gibt
+> keine Route, keine Seite und kein Formular, das sie anfasst. Ein gesetzter Schlüssel ist damit
+> über die ausgelieferte Anwendung **nicht beobachtbar** — weder positiv noch negativ. Die
+> autoritative Prüfung ist bis dahin die Env-Auflistung des Projekts (unten), **nicht** ein Aufruf
+> gegen die Produktion. Wer es trotzdem versucht, misst nichts; der erste echte Live-Nachweis
+> entsteht mit der Oberfläche in 9b-2b.
 - **Er gehört in `peak-shaving-website`, NICHT in `peak-shaving-web`.** Der Rechnungs-Scan lebt im
   Kalkulator; die Marketing-/Admin-App ruft kein Modell auf. Ein Schlüssel dort wäre eine dritte
   offene Fläche ohne Nutzen.
@@ -719,7 +735,7 @@ grep -rl claude-sonnet-5 .next/server | wc -l   # Voraussetzung: >= 1, sonst ist
 ```
 
 **⚠️ NACHZUHOLEN, SOBALD DER SCHLÜSSEL STEHT:** Der Extraktionspfad ist bis heute **nie gegen ein
-echtes Modell gelaufen** (mangels Schlüssel). Geprüft ist die Mechanik (Anfrageform, Auswertung,
+echtes Modell gelaufen** (mangels Schlüssel; am 31.08.2026 nach dem Merge erneut bestätigt). Geprüft ist die Mechanik (Anfrageform, Auswertung,
 alle Ausgänge, Bündel-Freiheit); **nicht geprüft ist die Ablesequalität.** Vor dem Livegang einmal
 von Hand mit den bereits vorliegenden **echten Urbanz-Rechnungen** durchspielen und die extrahierten
 Zahlen Feld für Feld gegen das Papier halten — **ausdrücklich NICHT als committeter Testfall**
