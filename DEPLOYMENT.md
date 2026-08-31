@@ -645,33 +645,43 @@ synthetischer Eintrag verfälschte sonst genau die Statistik, für die es diese 
 **11 Client-Chunks der Produktion geprüft: 0 Vorkommen des Schlüssels, 0 Vorkommen von
 `service_role`; der einzige JWT im Bündel trägt `"role": "anon"`.**
 
-### 1-Website-c. KI-Zugang für den Rechnungs-Scan (Delta 9b-2) ⚠️ ABRECHENBAR — NOCH NICHT GESETZT
+### 1-Website-c. KI-Zugang für den Rechnungs-Scan (Delta 9b-2) ⚠️ ABRECHENBAR — GESETZT, ECHT GEPRÜFT
 
 | Variable | Scope | Wert-Herkunft |
 |---|---|---|
 | `ANTHROPIC_API_KEY` | Production, Preview | console.anthropic.com → **API Keys** → neuen Schlüssel erzeugen (`sk-ant-…`) |
 
-- **❌ NOCH NICHT GESETZT — und das ist der eine Punkt, der 9b-2 vom Livegang trennt.** Am
-  31.08.2026 an fünf Orten gemessen: repo-weiter grep (0), `.env.example` (root und `apps/web`, 0),
-  Vercel `peak-shaving-web` (**16** Einträge, keiner davon KI), Vercel `peak-shaving-website`
-  (**3** Einträge: die zwei `NEXT_PUBLIC_`-Supabase-Werte und der service_role-Schlüssel),
-  lokale Umgebung (nicht gesetzt). **Es gibt im gesamten Projekt bisher keinen KI-Zugang.**
-  **Nach dem Merge von 9b-2a am 31.08.2026 erneut gegengeprüft** — diesmal über die Vercel-API
-  statt über die CLI, also scope-genau: `peak-shaving-website` führt **5** Einträge
-  (`SUPABASE_SERVICE_ROLE_KEY` production+preview, `NEXT_PUBLIC_SUPABASE_ANON_KEY` und
-  `NEXT_PUBLIC_SUPABASE_URL` je einmal pro Scope), **kein Name mit `ANTHROPIC`/`CLAUDE`/`OPENAI`/
-  `LLM`/`GEMINI`**, auch nicht unter abweichender Schreibweise. Beide Vercel-Projekte laufen
-  produktiv auf dem Merge-Commit `ab2656f` (`READY`, `target: production`, je einzeln über
-  `githubCommitSha` abgeglichen — Arbeitsregel 4). Der Code ist also live, der Zugang fehlt.
+- **✅ GESETZT UND GEGEN DIE ECHTE API GEPRÜFT (31.08.2026).** Vercel `peak-shaving-website` führt
+  `ANTHROPIC_API_KEY` für **Production und Preview**, Typ `sensitive`. Baseline vorher gemessen
+  (Arbeitsregel 3): das Projekt hatte **5** Einträge, danach **6**. `peak-shaving-web` ist
+  unangetastet und bekommt bewusst keinen KI-Zugang.
+- **⚠️ DER WERT IST AUS VERCEL NICHT ZURÜCKLESBAR.** Typ `sensitive` heisst: `GET /v10/projects/
+  <id>/env?decrypt=true` liefert den Namen und `value` mit **Länge 0**, und `vercel env pull` legt
+  die Zeile mit leerem Wert an (beides am 31.08.2026 gemessen). Wer den Schlüssel lokal braucht
+  — etwa um die Ablesequalität an echten Rechnungen nachzumessen —, holt ihn aus dem
+  Anthropic-Dashboard, **nicht** aus Vercel.
+
+> ⚠️ **DER ERSTE ECHTE AUFRUF HAT EINEN TOTALAUSFALL AUFGEDECKT (31.08.2026) — behoben.** Das
+> JSON-Schema deklarierte die drei Aufzählungsfelder als `type: ['string', 'null']` mit `null` in
+> der `enum`-Liste. Nach JSON Schema ist das gültig; die API weist es mit **HTTP 400** ab
+> (`Invalid schema: Enum value 'wiener_netze' does not match declared type '['string', 'null']'`),
+> und zwar **bevor das Modell die Rechnung sieht**. Wirkung: **jeder** Scan endete in `api_error`
+> — das Modul war seit dem Merge von 9b-2a in Produktion vollständig funktionslos. Der Bau-Schritt
+> hatte den Pfad gegen einen lokalen **Stub** der Messages-API gemessen, und ein Stub validiert das
+> Schema nicht. Die Fassung ist jetzt `anyOf: [{ type, enum }, { type: 'null' }]`; ein Test in
+> `packages/shared/src/invoice-scan.test.ts` pinnt sie und verbietet die Kombination „Typ-Union +
+> `enum`" im gesamten Schema. **Lehre für den nächsten externen Dienst: ein Stub beweist die
+> Mechanik, nicht die Annahme des Gegenübers.**
 
 > ⚠️ **„LIVE PRÜFEN, OB DER SCHLÜSSEL WIRKT" GEHT VOR 9b-2b NICHT — und das ist keine Nachlässigkeit,
 > sondern eine Eigenschaft des Bauschnitts.** `isInvoiceScanConfigured()` und `scanInvoice()` haben
-> im gesamten Repo **null Aufrufer** (gemessen am 31.08.2026): 9b-2a ist reines Backend, es gibt
-> keine Route, keine Seite und kein Formular, das sie anfasst. Ein gesetzter Schlüssel ist damit
-> über die ausgelieferte Anwendung **nicht beobachtbar** — weder positiv noch negativ. Die
-> autoritative Prüfung ist bis dahin die Env-Auflistung des Projekts (unten), **nicht** ein Aufruf
-> gegen die Produktion. Wer es trotzdem versucht, misst nichts; der erste echte Live-Nachweis
-> entsteht mit der Oberfläche in 9b-2b.
+> im gesamten Repo **null Aufrufer**: 9b-2a ist reines Backend, es gibt keine Route, keine Seite und
+> kein Formular, das sie anfasst. Ein gesetzter Schlüssel ist damit über die ausgelieferte
+> Anwendung **nicht beobachtbar**. Genau deshalb ist der Ausfall oben erst durch einen Aufruf
+> **ausserhalb** der Anwendung gefunden worden — mit einem Bündel des echten Moduls
+> (`esbuild --external:@anthropic-ai/sdk --external:server-only`, `node --conditions=react-server`)
+> gegen die echten Rechnungen. Der erste Live-Nachweis über die Oberfläche entsteht mit 9b-2b.
+
 - **Er gehört in `peak-shaving-website`, NICHT in `peak-shaving-web`.** Der Rechnungs-Scan lebt im
   Kalkulator; die Marketing-/Admin-App ruft kein Modell auf. Ein Schlüssel dort wäre eine dritte
   offene Fläche ohne Nutzen.
