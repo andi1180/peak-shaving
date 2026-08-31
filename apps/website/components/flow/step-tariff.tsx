@@ -50,7 +50,11 @@ import { InfoHint, LabelWithInfo } from '@/components/ui/info-hint'
 import { Num } from '@/components/report/num'
 import { parseNum, percentHint } from '@/lib/form-utils'
 import { FileDrop } from './file-drop'
-import { TarifNichtVerfuegbar, TarifOhneLeistungsmessung } from './tarif-nicht-verfuegbar'
+import {
+  TarifMessvarianteOffen,
+  TarifNichtVerfuegbar,
+  TarifOhneLeistungsmessung,
+} from './tarif-nicht-verfuegbar'
 import { loadTariffPricing } from '@/lib/tariff-pricing'
 import type { ParsedPv, TariffPrefill, TariffResult } from './types'
 
@@ -402,6 +406,15 @@ export function StepTariff({
    * Börsenpreisen), ist genau das, worum es diesem Kunden geht.
    */
   const noPowerMeasurement = showMeteringVariant && meteringVariant === 'ohne_leistungsmessung'
+
+  /*
+   * Delta 9a, Nachtrag — solange die Messvariante offen ist, gilt KEINE der beiden Aussagen.
+   *
+   * Der Zustand ist neu, die Sperre ist es nicht: `blocked` hängt weiterhin allein an `pending` und
+   * an „ohne Leistungsmessung". Eine unbeantwortete Frage ist kein Grund, weiterzurechnen — welcher
+   * Leistungspreis gälte, ist ja gerade das, was hier noch offen ist.
+   */
+  const meteringVariantOpen = showMeteringVariant && meteringVariant === NOT_SET
   const blocked = pending != null && !noPowerMeasurement
 
   /**
@@ -669,10 +682,17 @@ export function StepTariff({
           )}
 
           {/*
-            Delta 9a: zwei Aussagen, die einander ausschliessen. „Ohne Leistungsmessung" hat Vorrang
-            und ersetzt die Verweigerung — es fehlt nichts, es gilt nur ein anderer Tarifaufbau.
+            Delta 9a: drei Aussagen, die einander ausschliessen, in der Reihenfolge ihrer Bedingung.
+
+            Zuerst die offene Messvariante — solange sie fehlt, wissen wir nicht, welche der beiden
+            anderen gilt, und die Regulierungslücke samt Warteliste hier vorwegzunehmen wäre für
+            jeden Anschluss ohne Leistungsmessung schlicht die falsche Auskunft. Danach „ohne
+            Leistungsmessung": es fehlt nichts, es gilt nur ein anderer Tarifaufbau. Zuletzt die
+            Verweigerung, inhaltlich unverändert — nur der Zeitpunkt hat sich verschoben.
           */}
-          {noPowerMeasurement ? (
+          {meteringVariantOpen ? (
+            <TarifMessvarianteOffen netzebene={Number(netzebene)} />
+          ) : noPowerMeasurement ? (
             <TarifOhneLeistungsmessung />
           ) : (
             pending && (

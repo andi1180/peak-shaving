@@ -72,6 +72,40 @@ export function TarifOhneLeistungsmessung() {
   )
 }
 
+/**
+ * Delta 9a, Nachtrag — der Zustand VOR der Messvarianten-Wahl.
+ *
+ * Auf einer Netzebene mit Messvarianten (heute NE 7) entscheidet die Anschlussart darüber, welche
+ * der beiden anderen Meldungen gilt: ohne Leistungsmessung fehlt gar nichts, mit Leistungsmessung
+ * fehlt der Satz aus der noch nicht erlassenen Tarifverordnung. Solange die Variante nicht gewählt
+ * ist, wissen WIR nicht, welcher der beiden Fälle vorliegt — und dürfen deshalb keinen der beiden
+ * behaupten.
+ *
+ * Bis hierher stand an dieser Stelle sofort die Regulierungslücke samt Warteliste. Das war für die
+ * Hälfte der Besucher schlicht falsch: wer ohne Leistungsmessung angeschlossen ist, bekam eine
+ * Verweigerung zu lesen, die ihn nichts angeht, und einen Warteliste-Link auf eine Verordnung, auf
+ * die er nicht wartet. Ein Teil davon klickt an dieser Stelle weg — kein Test fängt das.
+ *
+ * Deshalb NEUTRAL: kein Bernstein (Warnfarbe ist Information, kein Dekor — DESIGN.md), kein
+ * Warteliste-Link, kein Wort zum Verordnungsstand. Der Hinweis sagt genau eine Sache: es fehlt noch
+ * eine Angabe, und sie steht auf der Netzrechnung des Kunden.
+ */
+export function TarifMessvarianteOffen({ netzebene }: { netzebene: number }) {
+  return (
+    <Alert data-testid="tarif-messvariante-offen">
+      <Info className="h-4 w-4" />
+      <AlertTitle>Bitte noch die Leistungsmessungs-Variante wählen</AlertTitle>
+      <AlertDescription>
+        <p className="text-text">
+          Auf Netzebene {netzebene} hängt vom Anschluss ab, ob überhaupt ein Leistungspreis anfällt.
+          Wählen Sie oben die Variante, die auf Ihrer Netzrechnung steht — dann sehen Sie, ob und wie
+          sich das auf Ihren Fall auswirkt.
+        </p>
+      </AlertDescription>
+    </Alert>
+  )
+}
+
 export function TarifNichtVerfuegbar({
   reason,
   netzbetreiber,
