@@ -84,6 +84,24 @@ export type InvoiceScanOutcome =
  *      Netz-Arbeitspreis ein — eine Rechnung ohne jeden Netzbezug hätte damit „Netzentgelt =
  *      0 ct/kWh" behauptet. Nicht sichtbar falsch, aber still falsch, und genau die Sorte Zahl,
  *      die in einer Wirtschaftlichkeitsrechnung als gutes Ergebnis erscheint statt als Fehler.
+ *
+ * ── ⚠ DER ABSCHNITT ZU `meteringVariant` (31.08.2026) SCHLIESST EINE ANWEISUNGS-LÜCKE ─────────
+ * Der Prompt erwähnte das Feld zuvor mit KEINEM Wort; die einzige Anweisung stand in der
+ * Schema-Beschreibung und lautete „…, wenn die Rechnung sie benennt". Das war nicht bloss vage,
+ * sondern IRREFÜHREND: keine österreichische Rechnung benennt die Variante mit dem Codewort des
+ * Schemas — sie schreibt „pauschale Leistung" oder „nicht gemessene Leistung". Die Anweisung
+ * forderte damit wörtlich etwas, das nie eintritt, und liess offen, was stattdessen gilt. `null`
+ * war unter ihr die WÖRTLICH richtige Antwort, `ohne_leistungsmessung` die FACHLICH richtige —
+ * beide vertretbar, und genau deshalb wechselte das Ergebnis von Lauf zu Lauf.
+ *
+ * Der Abschnitt nennt deshalb die Formulierungen selbst, dazu die eine Verwechslung, die den Fall
+ * trägt: das blosse Wort „Leistung"/„Netzleistung" ist KEIN Hinweis auf eine Leistungsmessung —
+ * entscheidend ist die Bezugsgrösse (je kW gegen je Tag), und ein Zusatz wie „pauschal" schlägt das
+ * blosse Wort. `null` bleibt ausdrücklich erlaubt, wo kein Muster passt; ein Feld, das etwas raten
+ * MUSS, wäre wieder derselbe Fehler in der anderen Richtung.
+ *
+ * ⚠ Die Beispiel-Formulierungen sind branchenüblich und stammen nicht aus einer bestimmten
+ * Kundenrechnung; die zwei genannten Zahlen sind erfunden.
  */
 const SYSTEM_PROMPT = [
   'Du liest eine österreichische Strom- oder Netzrechnung und trägst die darin ausgewiesenen',
@@ -135,6 +153,57 @@ const SYSTEM_PROMPT = [
   'Positionen, die sich auf Einspeisung oder Erzeugung beziehen — etwa „(Rest-)Einspeisung',
   'Erzeuger" —, gehören NICHT in dieses Feld, auch dann nicht, wenn sie mit 0,00 ct/kWh ausgewiesen',
   'sind. Weist eine Rechnung gar keine Netznutzung für Bezug aus, ist das Feld null.',
+  '',
+  'meteringVariant — wie du sie erkennst:',
+  'Österreichische Rechnungen schreiben diese Wörter NIE so hin, wie das Schema sie nennt. Sie',
+  'umschreiben sie. Schliesse deshalb aus den folgenden Formulierungen, und zwar NUR aus ihnen:',
+  '',
+  'ZUERST diese Vorbedingung prüfen: Rechnet das Dokument überhaupt einen BEZUG ab, also bezogene',
+  'Energie? Tut es das nicht — etwa auf einer reinen Einspeise- oder Erzeuger-Abrechnung, die nur',
+  'eingespeiste Kilowattstunden abrechnet —, dann ist meteringVariant null, und du wendest die',
+  'Muster unten gar nicht erst an. Ein Lastprofil-Code eines EINSPEISE-Zählpunkts (E1 und ähnliche)',
+  'ist in diesem Fall kein Hinweis auf irgendeine Variante.',
+  '',
+  'Gibt es einen Bezug, gilt:',
+  '',
+  '„ohne_leistungsmessung" — Hinweise sind zum Beispiel:',
+  '  „pauschale Leistung", „Leistung pauschal", „Pauschalleistung", „nicht gemessene Leistung",',
+  '  „nicht lastprofilgemessen", „Standardlastprofil", „SLP", die Angabe eines Lastprofil-Codes für',
+  '  den BEZUGS-Zählpunkt (H0, G0 bis G6 und ähnliche; ein E-Code steht für Einspeisung und zählt',
+  '  hier NICHT) — oder eine Netzleistung/Grundgebühr, die je TAG oder je MONAT als Pauschale',
+  '  abgerechnet wird (etwa „0,082500 /d") statt je kW.',
+  '',
+  '„mit_leistungsmessung" — Hinweise sind zum Beispiel:',
+  '  „mit Leistungsmessung", „Leistungsmessung", „gemessene Leistung", „Höchstleistung",',
+  '  „Monatshöchstleistung", „registrierende Leistungsmessung", „RLM", „Lastprofilzähler",',
+  '  „viertelstündliche Messung" — oder ein Leistungsentgelt, das AUF EINEN GEMESSENEN kW-WERT',
+  '  angewandt wird (etwa „44,00 EUR je kW und Jahr" mal einer abgerechneten Leistung).',
+  '',
+  '„unterbrechbar" — Hinweise sind zum Beispiel:',
+  '  „unterbrechbar", „unterbrechbare Lieferung", „unterbrechbarer Netzzugang", „abschaltbar",',
+  '  „Sperrzeiten". Nur, wenn sich das auf den Bezugs-Zählpunkt dieser Rechnung bezieht — viele',
+  '  Rechnungen führen einen unterbrechbaren Zählpunkt ZUSÄTZLICH neben dem gewöhnlichen.',
+  '',
+  'Wenn Muster einander zu widersprechen scheinen, gilt:',
+  '- Das blosse Wort „Leistung", „Netzleistung" oder „Leistungspreis" ist für sich KEIN Hinweis auf',
+  '  eine Leistungsmessung. Entscheidend ist die Bezugsgrösse: je kW heisst gemessen, je Tag oder',
+  '  je Monat pauschal heisst nicht gemessen.',
+  '- Ein Zusatz wie „pauschal" oder „nicht gemessen" schlägt das blosse Wort „Leistung". „Netz-',
+  '  leistung pauschale Leistung" ist also ohne_leistungsmessung, nicht mit_leistungsmessung.',
+  '- Führt die Rechnung mehrere Zählpunkte, gilt der Zählpunkt für den BEZUG. Ein Einspeise- oder',
+  '  Erzeuger-Zählpunkt (Lastprofil E1 und ähnliche) sagt über die Bezugs-Variante nichts.',
+  '',
+  'Findest du keines dieser Muster — etwa auf einer reinen Einspeise-Abrechnung, die gar keinen',
+  'Bezug abrechnet —, ist das Feld null. Das ist ein richtiges Ergebnis und kein Versäumnis. Rate',
+  'die Variante NICHT aus der Netzebene, aus der Höhe des Verbrauchs oder daraus, dass es sich um',
+  'einen Haushalt oder einen Betrieb handelt.',
+  '',
+  'Diese Erkennungsregel betrifft AUSSCHLIESSLICH das Feld meteringVariant. Sie ändert nichts an',
+  'den Zahlenfeldern. Insbesondere: Eine im Netzzugangsvertrag vereinbarte Leistung oder eine',
+  'ausgewiesene Mindestleistung in kW (Spaltenüberschriften wie „NBL [kW]", „vereinbarte Leistung",',
+  '„Mindestleistung") gehört weiterhin in minBillableKw — auch dann, wenn nach allem Obigen',
+  'ohne_leistungsmessung gilt. Die beiden Angaben widersprechen einander nicht: die eine sagt, WIE',
+  'abgerechnet wird, die andere nennt einen vertraglich vereinbarten Wert.',
 ].join('\n')
 
 /*

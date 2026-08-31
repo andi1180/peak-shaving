@@ -185,8 +185,19 @@ export const INVOICE_SCAN_JSON_SCHEMA: { [key: string]: unknown } = {
     meteringVariant: nullableEnum(
       'string',
       INVOICE_SCAN_METERING_VARIANTS,
-      'Die Leistungsmessungs-Variante, wenn die Rechnung sie benennt. null, wenn nicht ' +
-        'erkennbar.',
+      /*
+       * ⚠ Der Text lautete bis zum 31.08.2026 „…, wenn die Rechnung sie BENENNT". Das war
+       * irreführend: keine österreichische Rechnung benennt die Variante mit dem Codewort dieses
+       * Schemas — sie schreibt „pauschale Leistung" oder „nicht gemessene Leistung". Die Anweisung
+       * forderte damit wörtlich etwas, das nie eintritt, und das Ergebnis wechselte von Lauf zu
+       * Lauf zwischen der wörtlich richtigen (`null`) und der fachlich richtigen Antwort. Welche
+       * Formulierungen auf welchen Wert zeigen, steht ausführlich im System-Prompt
+       * (`apps/website/lib/invoice-scan/extract.ts`); hier nur so viel, dass die Beschreibung ihm
+       * nicht widerspricht.
+       */
+      'Die Leistungsmessungs-Variante des Bezugs-Zählpunkts, erschlossen aus den Formulierungen ' +
+        'der Rechnung (sie nennt diese Begriffe nicht wörtlich). null, wenn keines der bekannten ' +
+        'Muster vorkommt — etwa auf einer reinen Einspeise-Abrechnung.',
     ),
     rates: {
       type: 'object',
