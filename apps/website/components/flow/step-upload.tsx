@@ -16,9 +16,10 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 import { FileDrop } from './file-drop'
+import { InvoiceScanPanel } from './invoice-scan-panel'
 import { MappingPanel } from './mapping-panel'
 import { StandardProfilePanel } from './standard-profile-panel'
-import type { ParsedLoad } from './types'
+import type { ParsedLoad, TariffPrefill } from './types'
 
 type ParseInput = {
   content: string | ArrayBuffer
@@ -107,12 +108,50 @@ function rejectIfBeforeAnchor(profile: LoadProfile, timezone: string): string | 
   )
 }
 
+/**
+ * Die drei Einstiege. Beschriftung und Datenschutz-Satz stehen hier BEIEINANDER, damit ein vierter
+ * Modus nicht an der einen Stelle ergänzt und an der anderen vergessen werden kann — genau das
+ * passierte sonst beim Satz unten, der vorher eine Ja/Nein-Verzweigung war.
+ */
+const MODES = [
+  {
+    value: 'datei',
+    label: 'Lastgang-Datei',
+    privacy: 'Die Datei wird ausschließlich in Ihrem Browser verarbeitet und nicht hochgeladen.',
+  },
+  {
+    value: 'standardprofil',
+    label: 'Standardprofil / Verbrauch',
+    privacy: 'Ihre Angaben werden ausschließlich in Ihrem Browser verarbeitet und nicht übertragen.',
+  },
+  {
+    /*
+     * ⚠ DER EINZIGE SATZ DIESER LISTE, DER KEINE ZUSICHERUNG IST, SONDERN EINE OFFENLEGUNG.
+     * Die beiden Sätze darüber wären hier schlicht UNWAHR: die Rechnung wird sehr wohl übertragen.
+     * Ihn wiederzuverwenden wäre deshalb kein Schönheitsfehler, sondern eine falsche Zusage an
+     * einer Stelle, an der der Nutzer gerade eine Datei mit seinem Namen darauf ablegt.
+     */
+    value: 'rechnungsscan',
+    label: 'Stromrechnung (PDF)',
+    privacy:
+      'Ihre Rechnung wird zum Auslesen an Anthropic übertragen und dabei nirgends gespeichert; ' +
+      'zurück kommen nur die abgelesenen Werte.',
+  },
+] as const
+type Mode = (typeof MODES)[number]['value']
+
 export function StepUpload({
   initialLoad,
   onComplete,
 }: {
   initialLoad: ParsedLoad | null
-  onComplete: (load: ParsedLoad) => void
+  /**
+   * Delta 9b-2b: das zweite Argument trägt die aus einer Rechnung abgelesenen Tarifangaben nach
+   * Schritt 2. Es ist OPTIONAL, weil es die beiden anderen Einstiege nicht gibt — ein Lastgang und
+   * ein von Hand eingetragener Jahresverbrauch sagen über den Tarif nichts, und ein leeres Objekt
+   * an ihrer Stelle wäre eine Aussage, die sie nicht treffen.
+   */
+  onComplete: (load: ParsedLoad, tariffPrefill?: TariffPrefill) => void
 }) {
   const [fileName, setFileName] = useState<string | null>(initialLoad?.fileName ?? null)
   const [load, setLoad] = useState<ParsedLoad | null>(initialLoad)
@@ -120,15 +159,19 @@ export function StepUpload({
   const [mapping, setMapping] = useState<MappingState | null>(null)
   const [mappingError, setMappingError] = useState<string | null>(null)
   /*
-   * Delta 9b-1 — welcher der Einstiege gerade offen ist. Die Datei-Seite ist der Vorgabewert und in
-   * ihrem Verhalten UNVERÄNDERT (kein Pfad dieses Zweigs ist angefasst); der Standardprofil-Zweig
-   * steht daneben, nicht darunter (Delta 9b: gleichwertige Startpunkte).
+   * Delta 9b — welcher der drei Einstiege gerade offen ist. Sie stehen NEBENEINANDER und nicht
+   * untereinander: Delta 9b nennt sie ausdrücklich gleichwertige Startpunkte, und als „Notlösung"
+   * unter dem Upload versteckt erreichten die beiden neuen genau die Zielgruppe nicht, für die es
+   * sie gibt.
    *
-   * Der Rechnungs-Scan (der zweite neue Einstieg aus Delta 8) fehlt hier bewusst: er ist ein
-   * eigener Bauabschnitt (9b-2). Eine dritte, deaktivierte Schaltfläche wäre eine Ankündigung an
-   * einer Stelle, an der der Nutzer eine Entscheidung treffen soll.
+   * Die Datei-Seite bleibt der Vorgabewert und ist in ihrem Verhalten UNVERÄNDERT — kein Pfad
+   * dieses Zweigs ist angefasst.
+   *
+   * ⚠ `rechnungsscan` (Delta 9b-2b) ist der einzige Modus, in dem etwas das Gerät verlässt. Das
+   * ist nicht nur eine Zeile weiter unten sichtbar, sondern trägt einen eigenen Datenschutz-Satz
+   * (s. ganz unten) UND einen eigenen Hinweisblock direkt am Upload (`InvoiceScanPanel`).
    */
-  const [mode, setMode] = useState<'datei' | 'standardprofil'>('datei')
+  const [mode, setMode] = useState<Mode>('datei')
 
   async function handleFile(file: File) {
     setFileName(file.name)
@@ -225,13 +268,8 @@ export function StepUpload({
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         {!mapping && (
-          <div className="grid grid-cols-2 gap-2 rounded-lg border border-border bg-surface-alt p-1">
-            {(
-              [
-                ['datei', 'Lastgang-Datei'],
-                ['standardprofil', 'Standardprofil / Verbrauch'],
-              ] as const
-            ).map(([value, label]) => (
+          <div className="grid grid-cols-1 gap-2 rounded-lg border border-border bg-surface-alt p-1 sm:grid-cols-3">
+            {MODES.map(({ value, label }) => (
               <button
                 key={value}
                 type="button"
@@ -250,6 +288,7 @@ export function StepUpload({
           </div>
         )}
         {!mapping && mode === 'standardprofil' && <StandardProfilePanel onComplete={onComplete} />}
+        {!mapping && mode === 'rechnungsscan' && <InvoiceScanPanel onComplete={onComplete} />}
         {mapping ? (
           <MappingPanel
             detection={mapping.detection}
@@ -290,11 +329,14 @@ export function StepUpload({
           </>
           )
         )}
-        <p className="flex items-center gap-1.5 text-xs text-text-muted">
-          <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-accent" />
-          {mode === 'standardprofil'
-            ? 'Ihre Angaben werden ausschließlich in Ihrem Browser verarbeitet und nicht übertragen.'
-            : 'Die Datei wird ausschließlich in Ihrem Browser verarbeitet und nicht hochgeladen.'}
+        {/*
+          Der Satz kommt aus `MODES` und nicht aus einer Verzweigung: mit dem dritten Einstieg wäre
+          aus der Ja/Nein-Frage eine verschachtelte Bedingung geworden, in der der Vorgabewert
+          („nicht hochgeladen") für einen Modus gilt, für den er nicht stimmt.
+        */}
+        <p className="flex items-start gap-1.5 text-xs text-text-muted">
+          <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent" />
+          {MODES.find((m) => m.value === mode)?.privacy}
         </p>
       </CardContent>
     </Card>

@@ -35,8 +35,27 @@ import type { ParsedLoad } from './types'
  * schon dasteht. Die Sperre selbst sitzt in der Engine (`peakShavingBlockers`), nicht in dieser
  * Oberfläche: eine Zusage, die nur ein Formular gibt, hält der nächste Umbau nicht.
  */
-export function StandardProfilePanel({ onComplete }: { onComplete: (load: ParsedLoad) => void }) {
-  const [annual, setAnnual] = useState('')
+export function StandardProfilePanel({
+  initialAnnualKwh = null,
+  onComplete,
+}: {
+  /**
+   * Delta 9b-2b: ein aus einer Rechnung ABGELESENER Jahresverbrauch, der das Feld vorbelegt.
+   *
+   * `null` heisst „nicht erkennbar" und belegt bewusst NICHTS vor — das Feld bleibt leer, wie es
+   * ohne Scan wäre. Eine 0 oder ein Platzhalter sähe hier aus wie eine Angabe, und der Nutzer
+   * bemerkte die Lücke nicht mehr. Der Wert steht als INITIALWERT im State und nicht in einem
+   * Effekt: er ist eine Vorbelegung, keine Vorschrift, und was der Nutzer daraufhin tippt, darf
+   * kein späterer Render wieder überschreiben.
+   */
+  initialAnnualKwh?: number | null
+  onComplete: (load: ParsedLoad) => void
+}) {
+  const [annual, setAnnual] = useState(() =>
+    initialAnnualKwh != null && Number.isFinite(initialAnnualKwh) && initialAnnualKwh > 0
+      ? String(initialAnnualKwh)
+      : '',
+  )
   const [customerClass, setCustomerClass] = useState<StandardProfileCustomerClass>('privat')
   const [error, setError] = useState<string | null>(null)
 

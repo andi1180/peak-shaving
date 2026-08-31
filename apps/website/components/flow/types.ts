@@ -1,6 +1,7 @@
 import type { DataQuality } from 'engine'
 import type {
   FinancialParams,
+  InvoiceExtraction,
   LoadProfile,
   PvProfile,
   TariffParams,
@@ -56,6 +57,27 @@ export type ParsedLoad = {
    */
   sourceBytes?: Uint8Array
 }
+
+/**
+ * Delta 8 / 9b-2b — was ein Rechnungs-Scan aus Schritt 1 in Schritt 2 mitnimmt.
+ *
+ * ── ⚠ `annualConsumptionKwh` FEHLT HIER, UND ZWAR ABSICHTLICH ──────────────────────────────────
+ * Der Jahresverbrauch wird bereits in Schritt 1 verbraucht: er ist der Eingang in
+ * `generateStandardLoadProfile` (9b-1) und wird dort zum `LoadProfile`. Reiste er zusätzlich nach
+ * Schritt 2 mit, gäbe es ihn zweimal — und der zweite Weg wäre genau der „dritte Rechenweg", den
+ * Delta 8 ausschliesst. Der `Pick` sagt das im Typ, statt es einem Kommentar zu überlassen.
+ *
+ * ── ⚠ EIN GELESENES FELD HAT HEUTE KEIN ZIEL: `rates.arbeitspreisNetzCtPerKwh` ────────────────
+ * Der Netznutzungs-Arbeitspreis hat in Schritt 2 kein Eingabefeld — er kommt seit B21-3b aus
+ * `public.grid_tariffs`, nicht aus dem Formular. Er wird deshalb gelesen und NICHT gesetzt. Das
+ * ist keine Lücke dieses Schritts, sondern die Folge davon, dass die Netzentgelt-Seite eine
+ * gepflegte Datenquelle ist und keine Nutzereingabe. Wer dafür je ein Feld baut, findet den Wert
+ * hier bereits vor.
+ */
+export type TariffPrefill = Pick<
+  InvoiceExtraction,
+  'netzbetreiber' | 'netzebene' | 'meteringVariant' | 'rates'
+>
 
 // Ergebnis der optionalen PV-Datei (parsePvProfile, §3.1) — Brutto-PV-Erzeugung.
 export type ParsedPv = {
