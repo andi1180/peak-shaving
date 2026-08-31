@@ -131,32 +131,63 @@ function nullableNumber(description: string) {
   return { type: ['number', 'null'], description } as const
 }
 
+/**
+ * Ein Aufzählungsfeld, das auch `null` sein darf.
+ *
+ * ── ⚠ WARUM `anyOf` UND NICHT `type: ['string', 'null']` MIT `null` IN DER `enum`-LISTE ────────
+ * Die naheliegende Schreibweise ist nach JSON Schema gültig und wird von der API TROTZDEM
+ * abgewiesen — mit HTTP 400 und der Meldung
+ *   `Invalid schema: Enum value 'wiener_netze' does not match declared type '['string', 'null']'`.
+ * Der Validator prüft jeden `enum`-Wert gegen den deklarierten Typ und akzeptiert dort keine
+ * Typ-Union. Die Folge war kein Ablesefehler, sondern ein TOTALAUSFALL: JEDER Scan endete in
+ * `api_error`, bevor das Modell die Rechnung überhaupt zu sehen bekam.
+ *
+ * Am 31.08.2026 gegen die ECHTE API gemessen (sieben Schreibweisen, `claude-sonnet-5`):
+ *   `type: ['string','null']` + `enum: [...werte, null]`   → 400   ← der Defekt
+ *   `type: ['integer','null']` + `enum: [...werte, null]`  → 400   ← derselbe Defekt
+ *   `anyOf: [{ type, enum }, { type: 'null' }]`            → 200   ← diese Fassung
+ *   `enum: [...werte, null]` ganz OHNE `type`              → 200   (zulässig, aber schwächer:
+ *                                                                   der Typ steht dann nirgends)
+ *   `type: ['number','null']` OHNE `enum`                  → 200   (deshalb ist `nullableNumber`
+ *                                                                   oben unverändert richtig)
+ *
+ * Die Prüfung `invoice-scan.test.ts` pinnt die Schreibweise, damit sie nicht zurückfällt — ein
+ * Stub der Messages-API validiert das Schema NICHT und hat den Defekt genau deshalb durchgelassen.
+ */
+function nullableEnum<T extends string | number>(
+  type: 'string' | 'integer',
+  values: readonly T[],
+  description: string,
+) {
+  return {
+    anyOf: [{ type, enum: [...values] }, { type: 'null' }],
+    description,
+  } as const
+}
+
 export const INVOICE_SCAN_JSON_SCHEMA: { [key: string]: unknown } = {
   type: 'object',
   additionalProperties: false,
   required: ['netzbetreiber', 'netzebene', 'meteringVariant', 'rates', 'annualConsumptionKwh'],
   properties: {
-    netzbetreiber: {
-      type: ['string', 'null'],
-      enum: [...INVOICE_SCAN_OPERATORS, null],
-      description:
-        'Der Netzbetreiber, der die Rechnung ausgestellt hat. null, wenn er nicht auf dem ' +
+    netzbetreiber: nullableEnum(
+      'string',
+      INVOICE_SCAN_OPERATORS,
+      'Der Netzbetreiber, der die Rechnung ausgestellt hat. null, wenn er nicht auf dem ' +
         'Dokument steht oder keiner der aufgezählten ist.',
-    },
-    netzebene: {
-      type: ['integer', 'null'],
-      enum: [...INVOICE_SCAN_NETZEBENEN, null],
-      description:
-        'Die Netzebene des Anschlusses (3 bis 7), wenn sie auf der Rechnung ausgewiesen ist. ' +
+    ),
+    netzebene: nullableEnum(
+      'integer',
+      INVOICE_SCAN_NETZEBENEN,
+      'Die Netzebene des Anschlusses (3 bis 7), wenn sie auf der Rechnung ausgewiesen ist. ' +
         'null, wenn sie nicht dasteht — nicht aus der Anschlussleistung erschliessen.',
-    },
-    meteringVariant: {
-      type: ['string', 'null'],
-      enum: [...INVOICE_SCAN_METERING_VARIANTS, null],
-      description:
-        'Die Leistungsmessungs-Variante, wenn die Rechnung sie benennt. null, wenn nicht ' +
+    ),
+    meteringVariant: nullableEnum(
+      'string',
+      INVOICE_SCAN_METERING_VARIANTS,
+      'Die Leistungsmessungs-Variante, wenn die Rechnung sie benennt. null, wenn nicht ' +
         'erkennbar.',
-    },
+    ),
     rates: {
       type: 'object',
       additionalProperties: false,

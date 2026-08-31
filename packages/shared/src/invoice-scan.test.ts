@@ -78,16 +78,67 @@ describe('JSON-Schema', () => {
 
   it('lässt für jedes Feld ausdrücklich null zu — „nicht erkennbar" muss ausdrückbar sein', () => {
     const props = INVOICE_SCAN_JSON_SCHEMA.properties as Record<string, Record<string, unknown>>
-    for (const key of ['netzbetreiber', 'netzebene', 'annualConsumptionKwh']) {
-      expect(props[key].type).toContain('null')
-    }
-    for (const enumKey of ['netzbetreiber', 'netzebene', 'meteringVariant']) {
-      expect(props[enumKey].enum).toContain(null)
-    }
 
+    // Die Zahlenfelder: Typ-Union ohne `enum` — von der API akzeptiert (31.08.2026 gemessen).
+    expect(props.annualConsumptionKwh.type).toContain('null')
     const rateProps = (props.rates.properties ?? {}) as Record<string, { type: unknown }>
     for (const key of INVOICE_SCAN_RATE_KEYS) {
       expect(rateProps[key].type).toEqual(['number', 'null'])
+    }
+
+    // Die Aufzählungsfelder: `anyOf` mit einem ausdrücklichen null-Zweig, s. Test darunter.
+    for (const enumKey of ['netzbetreiber', 'netzebene', 'meteringVariant']) {
+      const branches = props[enumKey].anyOf as { type: string; enum?: unknown[] }[]
+      expect(branches.map((branch) => branch.type)).toContain('null')
+    }
+  })
+
+  /*
+   * ⚠ DER WÄCHTER GEGEN DEN AUSFALL VOM 31.08.2026.
+   *
+   * Die Aufzählungsfelder standen als `type: ['string', 'null']` mit `null` in der `enum`-Liste da.
+   * Das ist nach JSON Schema gültig, wird von der API aber mit HTTP 400 abgewiesen — und zwar
+   * BEVOR das Modell die Rechnung sieht. Wirkung: JEDER Scan endete in `api_error`, das Modul war
+   * in Produktion vollständig funktionslos. Gefunden hat es erst der erste Aufruf gegen die ECHTE
+   * API; der Stub aus dem Bau-Schritt validiert das Schema NICHT und liess es anstandslos durch.
+   *
+   * Deshalb prüft dieser Test nicht „sieht plausibel aus", sondern die eine Kombination, die den
+   * Ausfall erzeugt hat: Typ-Union UND `enum` an derselben Stelle. Sie darf im ganzen Schema
+   * nirgends vorkommen — auch nicht in einem Feld, das es heute noch gar nicht gibt.
+   */
+  it('kombiniert nirgends eine Typ-Union mit einer enum-Liste (die API weist das mit 400 ab)', () => {
+    const offenders: string[] = []
+
+    const walk = (node: unknown, path: string): void => {
+      if (node === null || typeof node !== 'object') return
+      if (Array.isArray(node)) {
+        node.forEach((item, index) => walk(item, `${path}[${index}]`))
+        return
+      }
+      const obj = node as Record<string, unknown>
+      if (Array.isArray(obj.type) && obj.enum !== undefined) offenders.push(path)
+      for (const [key, value] of Object.entries(obj)) walk(value, `${path}.${key}`)
+    }
+
+    walk(INVOICE_SCAN_JSON_SCHEMA, '$')
+    expect(offenders).toEqual([])
+  })
+
+  it('bietet für jeden Aufzählungswert genau einen Zweig — die Werte selbst bleiben erzwungen', () => {
+    const props = INVOICE_SCAN_JSON_SCHEMA.properties as Record<string, Record<string, unknown>>
+    const expected: Record<string, { type: string; values: readonly (string | number)[] }> = {
+      netzbetreiber: { type: 'string', values: INVOICE_SCAN_OPERATORS },
+      netzebene: { type: 'integer', values: INVOICE_SCAN_NETZEBENEN },
+      meteringVariant: { type: 'string', values: INVOICE_SCAN_METERING_VARIANTS },
+    }
+
+    for (const [key, { type, values }] of Object.entries(expected)) {
+      const branches = props[key].anyOf as { type: string; enum?: unknown[] }[]
+      expect(branches).toHaveLength(2)
+      expect(branches[0]).toEqual({ type, enum: [...values] })
+      expect(branches[1]).toEqual({ type: 'null' })
+      // Kein null in der Werteliste — der null-Zweig ist der einzige Weg dorthin.
+      expect(branches[0].enum).not.toContain(null)
     }
   })
 
