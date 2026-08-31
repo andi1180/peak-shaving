@@ -8,7 +8,7 @@ import { StepAnalyzing } from './step-analyzing'
 import { StepResult } from './step-result'
 import { StepTariff } from './step-tariff'
 import { StepUpload } from './step-upload'
-import type { CalculatorPayload, ParsedLoad, TariffResult } from './types'
+import type { CalculatorPayload, ParsedLoad, TariffPrefill, TariffResult } from './types'
 
 type Step = 1 | 2 | 3 | 4
 
@@ -16,6 +16,14 @@ type Step = 1 | 2 | 3 | 4
 export function Calculator() {
   const [step, setStep] = useState<Step>(1)
   const [load, setLoad] = useState<ParsedLoad | null>(null)
+  /*
+   * Delta 9b-2b: die aus einer Rechnung abgelesenen Tarifangaben. Sie hängen NICHT an `ParsedLoad`,
+   * obwohl sie im selben Schritt entstehen — ein `LoadProfile` ist der Verbrauch, und ein
+   * Tarifsatz gehört nicht hinein. In `ParsedLoad` mitgeführt reiste er ausserdem in das
+   * Analyse-Bündel (B14-2), wo die Tarifwerte längst denormalisiert stehen; er stünde dort ein
+   * zweites Mal und könnte von den gerechneten abweichen.
+   */
+  const [tariffPrefill, setTariffPrefill] = useState<TariffPrefill | undefined>(undefined)
   // Original-Payload (Tarif/Finanzen/PV) — für das Annahmen-Panel (§6.2): `recompute()` braucht
   // die unveränderten `load`/`pv`, um sie mit editierten `tariff`/`financial` neu zu verschicken.
   const [payload, setPayload] = useState<CalculatorPayload | null>(null)
@@ -26,8 +34,14 @@ export function Calculator() {
     if (step === 3 && analysis.status === 'done') setStep(4)
   }, [step, analysis.status])
 
-  function handleUpload(l: ParsedLoad) {
+  function handleUpload(l: ParsedLoad, prefill?: TariffPrefill) {
     setLoad(l)
+    /*
+     * Auch das LEERE Ergebnis wird übernommen: wer zurückgeht und statt der Rechnung eine
+     * Lastgang-Datei wählt, darf nicht die Tarifwerte der vorigen Rechnung im Formular vorfinden.
+     * `setTariffPrefill(prefill)` statt `if (prefill)` — die Zuweisung IST das Zurücksetzen.
+     */
+    setTariffPrefill(prefill)
     setStep(2)
   }
 
@@ -43,6 +57,7 @@ export function Calculator() {
     analysis.reset()
     setLoad(null)
     setPayload(null)
+    setTariffPrefill(undefined)
     setStep(1)
   }
 
@@ -63,6 +78,8 @@ export function Calculator() {
               // B21-3b: nur für den ZEITRAUM der Preisabfragen (Delta 15 Regel A) — die Messwerte
               // selbst bleiben im Browser (Prinzip 4).
               loadProfile={load.profile}
+              // Delta 9b-2b: vorbelegt aus dem Rechnungs-Scan, sonst `undefined` (= wie vorher).
+              prefill={tariffPrefill}
               onBack={() => setStep(1)}
               onComplete={handleTariff}
             />

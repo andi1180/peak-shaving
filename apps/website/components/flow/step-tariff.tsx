@@ -52,7 +52,7 @@ import { parseNum, percentHint } from '@/lib/form-utils'
 import { FileDrop } from './file-drop'
 import { TarifNichtVerfuegbar, TarifOhneLeistungsmessung } from './tarif-nicht-verfuegbar'
 import { loadTariffPricing } from '@/lib/tariff-pricing'
-import type { ParsedPv, TariffResult } from './types'
+import type { ParsedPv, TariffPrefill, TariffResult } from './types'
 
 async function readForParsing(
   file: File,
@@ -78,6 +78,150 @@ const initial = {
   taxRatePercent: '',
 }
 type FormState = typeof initial
+
+/**
+ * Die Katalog-Vorbelegung zu einer Kombination — die REINE Hälfte von `applySelection`.
+ *
+ * Sie steht hier ausserhalb der Komponente, weil sie ZWEI Aufrufer hat: die Auswahl von Hand
+ * (`applySelection`, setState-basiert) und die Vorbelegung aus einem Rechnungs-Scan
+ * (`buildInitialTariffState`, läuft vor dem ersten Render). Zweimal ausgeschrieben liefen die
+ * beiden Wege auseinander, sobald jemand die Regel ändert — und dann bekäme derselbe Kunde je
+ * nach Einstieg einen anderen Vorgabewert.
+ */
+function catalogPrefill(
+  netzbetreiber: NetzbetreiberId,
+  netzebene: Netzebene,
+  stichtag: string,
+): { fields: Partial<FormState>; selection: TariffSelection } | null {
+  const result = lookupTariffProfile({ netzbetreiber, netzebene, on: stichtag })
+  if (result.status !== 'available') return null
+  return {
+    fields: {
+      leistungspreisEurPerKwYear: String(result.profile.leistungspreisEurPerKwYear),
+      minBillableKw: String(result.profile.minBillableKw),
+      billingModel: result.profile.billingModel,
+    },
+    selection: tariffSelectionFrom(result.set, result.profile),
+  }
+}
+
+/**
+ * Delta 9b-2b — der Anfangszustand des Formulars, wenn Schritt 1 einen Rechnungs-Scan mitgibt.
+ *
+ * ── ⚠ ALS INITIALZUSTAND, NICHT ALS EFFEKT ────────────────────────────────────────────────────
+ * Ein `useEffect`, der nach dem ersten Render Felder setzt, hätte zwei Fehler auf einmal: der
+ * Nutzer sähe für einen Moment die Vorgabewerte und dann etwas anderes, und jeder spätere Lauf des
+ * Effekts überschriebe, was er inzwischen getippt hat. Ein Initialwert ist genau das, was eine
+ * Vorbelegung ist — ein Startpunkt, den der Nutzer ab der ersten Tastatureingabe besitzt.
+ *
+ * ── ⚠ DIE REIHENFOLGE DER DREI SCHICHTEN IST DIE EIGENTLICHE FACHLICHE AUSSAGE ────────────────
+ *   1. Katalog-Vorbelegung (B11) — was für diese Kombination allgemein gilt.
+ *   2. „ohne Leistungsmessung" (Delta 9a) — setzt Leistungspreis und Sockel auf 0, weil dieser
+ *      Anschluss den Posten nicht hat.
+ *   3. Die TATSÄCHLICH auf der Rechnung gelesenen Sätze — sie schlagen beides.
+ *
+ * Schicht 3 zuletzt, weil Prinzip 1 sagt: die Rechnung ist die Wahrheit. Stünde sie vor Schicht 2,
+ * überschriebe ausgerechnet die Pauschal-Regel den abgelesenen Wert. Und weil Schicht 3 nur
+ * setzt, was NICHT `null` ist, bleibt die 0 aus Schicht 2 stehen, wo die Rechnung schweigt — genau
+ * richtig: ein Anschluss ohne Leistungsmessung hat keinen Leistungspreis, und dass er nicht auf
+ * der Rechnung steht, ist die Bestätigung und nicht die Lücke.
+ *
+ * ── UND WAS DARAUS FÜR `overriddenFields` FOLGT ───────────────────────────────────────────────
+ * `overriddenFields` wird nicht mitgeschrieben, sondern ABGELEITET: `buildTariffSourceRef`
+ * vergleicht die gerechneten Werte gegen `selection.defaults`. Weil Schicht 1 die Vorgabewerte
+ * setzt UND `selection` füllt, erscheint jeder abgelesene Satz, der davon abweicht, von selbst als
+ * überschrieben — was er ja auch ist: er kommt aus der Rechnung des Kunden und nicht aus unserer
+ * Tabelle. Es war dafür keine Zeile Buchführung nötig, und das ist der Grund, warum diese Funktion
+ * `catalogPrefill` benutzt statt die Felder direkt zu setzen.
+ */
+function buildInitialTariffState(prefill: TariffPrefill | undefined) {
+  const stichtag = new Date().toISOString().slice(0, 10)
+  /*
+   * ── ⚠ NACH EINEM SCAN STARTEN DIE TARIFFELDER LEER, NICHT AUF DEN VORGABEWERTEN ──────────────
+   * Das ist der Unterschied zwischen diesem Einstieg und den beiden anderen, und er ist gemessen
+   * worden, nicht ausgedacht: liest der Scan den Arbeitspreis nicht (was bei einem Flex-Tarif mit
+   * dreizehn Monatspreisen der RICHTIGE Ausgang ist), stünde dort sonst weiterhin die 25 aus
+   * `initial` — und der Nutzer, dem eine Zeile darüber gerade „Rechnung gelesen" gemeldet wurde,
+   * hält sie für seine Zahl. Ein Vorgabewert ist genau dann gefährlich, wenn er wie ein Messwert
+   * aussieht.
+   *
+   * Was danach trotzdem stehen darf, steht aus einem NENNBAREN Grund da: die Katalog-Vorbelegung
+   * (Schicht 1) trägt die Herkunftszeile sichtbar über den Feldern, und die 0 bei „ohne
+   * Leistungsmessung" (Schicht 2) hat ihren eigenen erklärenden Hinweis. Alles Übrige bleibt leer
+   * und wird beim Absenden als Pflichtfeld eingefordert — sichtbar, statt still gefüllt.
+   *
+   * `billingModel` ist davon ausgenommen: es ist eine Auswahl und kann nicht leer sein, und der
+   * Scan liefert es grundsätzlich nicht (Delta 9b-2a: eine Rechnung zeigt einen abgerechneten
+   * Wert, nicht die Regel dahinter). Es bleibt deshalb die Wahl des Nutzers.
+   */
+  const blanked: FormState = prefill
+    ? {
+        ...initial,
+        leistungspreisEurPerKwYear: '',
+        minBillableKw: '',
+        energyPriceCtPerKwh: '',
+        einspeiseverguetungCtPerKwh: '',
+        energyPriceNightCtPerKwh: '',
+      }
+    : initial
+  let form: FormState = { ...blanked }
+  let selection: TariffSelection | null = null
+
+  const netzbetreiber: NetzbetreiberId | typeof NOT_SET = prefill?.netzbetreiber ?? NOT_SET
+  const ebene = prefill?.netzebene ?? null
+  const netzebene = ebene != null ? String(ebene) : NOT_SET
+  /*
+   * Eine Messvariante nur dort, wo die Netzebene überhaupt eine anbietet — dieselbe Regel wie in
+   * `applySelection`. Ohne sie stünde ein unsichtbarer Wert im State, den der Nutzer nicht mehr
+   * korrigieren könnte, und der später in die Preisabfrage liefe.
+   */
+  const meteringVariant: MeteringVariant | typeof NOT_SET =
+    ebene != null && hasMeteringVariant(ebene) && prefill?.meteringVariant
+      ? prefill.meteringVariant
+      : NOT_SET
+
+  // 1. Katalog
+  if (netzbetreiber !== NOT_SET && ebene != null) {
+    const catalog = catalogPrefill(netzbetreiber, ebene, stichtag)
+    if (catalog) {
+      form = { ...form, ...catalog.fields }
+      selection = catalog.selection
+    }
+  }
+
+  // 2. Ohne Leistungsmessung (identisch zu `applyMeteringVariant`)
+  if (meteringVariant === 'ohne_leistungsmessung') {
+    form = { ...form, leistungspreisEurPerKwYear: '0', minBillableKw: '0' }
+  }
+
+  // 3. Die abgelesenen Sätze — nur, was tatsächlich dastand.
+  const rates = prefill?.rates
+  if (rates) {
+    if (rates.leistungspreisEurPerKwYear != null) {
+      form = { ...form, leistungspreisEurPerKwYear: String(rates.leistungspreisEurPerKwYear) }
+    }
+    if (rates.minBillableKw != null) form = { ...form, minBillableKw: String(rates.minBillableKw) }
+    if (rates.energyPriceCtPerKwh != null) {
+      form = { ...form, energyPriceCtPerKwh: String(rates.energyPriceCtPerKwh) }
+    }
+    if (rates.einspeiseverguetungCtPerKwh != null) {
+      form = { ...form, einspeiseverguetungCtPerKwh: String(rates.einspeiseverguetungCtPerKwh) }
+    }
+    if (rates.energyPriceNightCtPerKwh != null) {
+      form = { ...form, energyPriceNightCtPerKwh: String(rates.energyPriceNightCtPerKwh) }
+    }
+  }
+
+  /*
+   * Der Nachttarif-Abschnitt wird nur aufgeklappt, wenn die Rechnung tatsächlich einen ausweist.
+   * Ihn vorsorglich zu öffnen hiesse, dem Nutzer ein leeres Fenster-Paar (22:00–06:00) als Angabe
+   * seiner Rechnung unterzuschieben — die Fenster stehen NICHT im Scan (Delta 9b-2a: Strukturen,
+   * keine Beträge), sie sind unsere Vorbelegung.
+   */
+  const useNight = rates?.energyPriceNightCtPerKwh != null
+
+  return { stichtag, form, selection, netzbetreiber, netzebene, meteringVariant, useNight }
+}
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -107,6 +251,7 @@ const DEVIATION_THRESHOLD = 0.1
 
 export function StepTariff({
   loadProfile,
+  prefill,
   onBack,
   onComplete,
 }: {
@@ -118,9 +263,21 @@ export function StepTariff({
   loadProfile: LoadProfile
   onBack: () => void
   onComplete: (result: TariffResult) => void
+  /**
+   * Delta 9b-2b: die aus einer Rechnung abgelesenen Tarifangaben aus Schritt 1. `undefined` heisst
+   * „kein Rechnungs-Scan" — dann verhält sich dieser Schritt Zeile für Zeile wie vor 9b-2b.
+   */
+  prefill?: TariffPrefill
 }) {
-  const [f, setF] = useState<FormState>(initial)
-  const [useNight, setUseNight] = useState(false)
+  /*
+   * EINMAL berechnet und danach festgehalten: der Anfangszustand hängt am Scan und am Stichtag,
+   * und beide dürfen sich innerhalb einer Sitzung nicht ändern (der Stichtag aus demselben Grund
+   * wie bisher — sonst wechselte eine Sitzung über Mitternacht still den Tarifsatz-Stand, mitten
+   * in einer bereits vorbelegten Eingabe).
+   */
+  const [init] = useState(() => buildInitialTariffState(prefill))
+  const [f, setF] = useState<FormState>(init.form)
+  const [useNight, setUseNight] = useState(init.useNight)
   const [pvName, setPvName] = useState<string | null>(null)
   const [pv, setPv] = useState<ParsedPv | null>(null)
   const [pvIssue, setPvIssue] = useState<string | null>(null)
@@ -140,8 +297,10 @@ export function StepTariff({
   const [pricingBusy, setPricingBusy] = useState(false)
 
   // ── B11: Netzbetreiber & Netzebene ────────────────────────────────────────────────────────────
-  const [netzbetreiber, setNetzbetreiber] = useState<NetzbetreiberId | typeof NOT_SET>(NOT_SET)
-  const [netzebene, setNetzebene] = useState<string>(NOT_SET)
+  const [netzbetreiber, setNetzbetreiber] = useState<NetzbetreiberId | typeof NOT_SET>(
+    init.netzbetreiber,
+  )
+  const [netzebene, setNetzebene] = useState<string>(init.netzebene)
   /*
    * Delta 9a — die dritte Auswahl-Dimension (Delta 5). Sichtbar NUR bei Netzebenen, die eine
    * Variante anbieten; bei allen anderen bleibt sie `NOT_SET` und reist als `null` in die Abfrage.
@@ -151,16 +310,18 @@ export function StepTariff({
    * der Abfrage, wo `IS NULL` hingehört, und die gepflegte Tarifzeile wäre nicht auffindbar.
    * Dieselbe Überlegung wie im Admin-Formular (B21-2b).
    */
-  const [meteringVariant, setMeteringVariant] = useState<MeteringVariant | typeof NOT_SET>(NOT_SET)
+  const [meteringVariant, setMeteringVariant] = useState<MeteringVariant | typeof NOT_SET>(
+    init.meteringVariant,
+  )
   /** Gesetzt, sobald eine Kombination MIT Sätzen vorbelegt hat — trägt die Vorgabewerte von damals. */
-  const [selection, setSelection] = useState<TariffSelection | null>(null)
+  const [selection, setSelection] = useState<TariffSelection | null>(init.selection)
   /*
    * Der Stichtag EINMAL bestimmt und danach festgehalten: `lookupTariffProfile` ist rein und
    * bekommt das Datum übergeben (dieselbe Regel wie im Rechenkern). Würde es bei jedem Render neu
    * gelesen, könnte eine Sitzung über Mitternacht hinweg still auf einen anderen Tarifsatz-Stand
    * wechseln — mitten in einer bereits vorbelegten Eingabe.
    */
-  const [stichtag] = useState(() => new Date().toISOString().slice(0, 10))
+  const [stichtag] = useState(init.stichtag)
 
   const set = (k: keyof FormState) => (v: string) => setF((s) => ({ ...s, [k]: v }))
 
@@ -189,24 +350,20 @@ export function StepTariff({
       return
     }
 
-    const result = lookupTariffProfile({
-      netzbetreiber: nextBetreiber as NetzbetreiberId,
-      netzebene: Number(nextEbene) as Netzebene,
-      on: stichtag,
-    })
+    // Dieselbe reine Regel wie bei der Vorbelegung aus einem Rechnungs-Scan (9b-2b) — EIN Ort.
+    const catalog = catalogPrefill(
+      nextBetreiber as NetzbetreiberId,
+      Number(nextEbene) as Netzebene,
+      stichtag,
+    )
 
-    if (result.status !== 'available') {
+    if (!catalog) {
       setSelection(null)
       return
     }
 
-    setF((s) => ({
-      ...s,
-      leistungspreisEurPerKwYear: String(result.profile.leistungspreisEurPerKwYear),
-      minBillableKw: String(result.profile.minBillableKw),
-      billingModel: result.profile.billingModel,
-    }))
-    setSelection(tariffSelectionFrom(result.set, result.profile))
+    setF((s) => ({ ...s, ...catalog.fields }))
+    setSelection(catalog.selection)
   }
 
   /*
