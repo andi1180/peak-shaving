@@ -33,3 +33,6 @@ export * from './tariff-pricing'
 // und die EINE Prüfregel für Formular (Rückmeldung), Server Action (Wahrheit) und DB-Gate
 // (Abgleich mit `platform.lead_sources`). Bewusst importfrei; Begründung im Kopf der Datei.
 export * from './report-gate'
+// Delta 9b-2a: der Rechnungs-Scan — Zielschema und Auswertung der Modellantwort. Hier und nicht in
+// `apps/website`, weil die App keinen eigenen Testlauf hat; Begründung im Kopf der Datei.
+export * from './invoice-scan'

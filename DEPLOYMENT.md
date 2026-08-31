@@ -645,6 +645,86 @@ synthetischer Eintrag verfälschte sonst genau die Statistik, für die es diese 
 **11 Client-Chunks der Produktion geprüft: 0 Vorkommen des Schlüssels, 0 Vorkommen von
 `service_role`; der einzige JWT im Bündel trägt `"role": "anon"`.**
 
+### 1-Website-c. KI-Zugang für den Rechnungs-Scan (Delta 9b-2) ⚠️ ABRECHENBAR — NOCH NICHT GESETZT
+
+| Variable | Scope | Wert-Herkunft |
+|---|---|---|
+| `ANTHROPIC_API_KEY` | Production, Preview | console.anthropic.com → **API Keys** → neuen Schlüssel erzeugen (`sk-ant-…`) |
+
+- **❌ NOCH NICHT GESETZT — und das ist der eine Punkt, der 9b-2 vom Livegang trennt.** Am
+  31.08.2026 an fünf Orten gemessen: repo-weiter grep (0), `.env.example` (root und `apps/web`, 0),
+  Vercel `peak-shaving-web` (**16** Einträge, keiner davon KI), Vercel `peak-shaving-website`
+  (**3** Einträge: die zwei `NEXT_PUBLIC_`-Supabase-Werte und der service_role-Schlüssel),
+  lokale Umgebung (nicht gesetzt). **Es gibt im gesamten Projekt bisher keinen KI-Zugang.**
+- **Er gehört in `peak-shaving-website`, NICHT in `peak-shaving-web`.** Der Rechnungs-Scan lebt im
+  Kalkulator; die Marketing-/Admin-App ruft kein Modell auf. Ein Schlüssel dort wäre eine dritte
+  offene Fläche ohne Nutzen.
+- **Ein neues Deployment ist Pflicht.** Die Variable wird zur LAUFZEIT gelesen (require-on-use,
+  genau die Eigenschaft, die sie aus dem Bündel heraushält) — ein bereits gebautes Deployment
+  bekommt sie nicht nachträglich. Dieselbe Falle wie bei §1-Website-b.
+
+> ⚠️ **DIESER SCHLÜSSEL IST EINE OFFENE KASSE.** Anders als der `anon`-Schlüssel schützt ihn keine
+> RLS, und anders als ein Formular-Geheimnis hat er kein Kontingent, das ihn begrenzte: Wer ihn hat,
+> stellt beliebig viele Aufrufe auf die Rechnung des Kontos. Er gehört damit in dieselbe
+> Sorgfaltsklasse wie der service_role-Schlüssel aus §1-Website-b. Ein Leck merkt man an der
+> Abrechnung, nicht an einem Fehler — deshalb im Anthropic-Dashboard ein **Ausgabenlimit** setzen,
+> bevor der Pfad live geht. Rotation ist gefahrlos: der Schlüssel ist zustandslos, es hängen keine
+> versendeten Links daran (anders als `LEAD_TOKEN_SECRET`, §1e). Im Dashboard neu erzeugen, hier
+> setzen, neu deployen, alten Schlüssel widerrufen.
+
+**⚠️ NIEMALS mit `NEXT_PUBLIC_` präfixen.** Gleiche Begründung wie in §1-Website-b: Next setzt
+solche Werte zur Bauzeit **textuell** ins Client-Bündel ein.
+
+**Wofür genau — und für nichts sonst.** Der Schlüssel wird an **einer** Stelle gelesen
+(`apps/website/lib/invoice-scan/ai-client.ts`) und von **einer** Datei benutzt
+(`apps/website/lib/invoice-scan/extract.ts`), die **genau einen** Aufruf macht: eine hochgeladene
+Rechnung als `document`-Block an die Messages-API, mit einem erzwungenen JSON-Schema. Es gibt
+bewusst **keine** allgemeine, wiederverwendbare KI-Hilfsfunktion. Ein Import des Client-Moduls aus
+irgendeiner anderen Datei ist ein **Lint-Fehler** (`no-restricted-imports`, root
+`eslint.config.mjs`), und `import 'server-only'` bricht den Build, falls er je aus einer
+Client-Komponente gezogen wird.
+
+**Modell und Kosten.** `claude-sonnet-5` (Kennung in `ai-client.ts`, `INVOICE_SCAN_MODEL`). Eine
+Rechnung von ein bis wenigen Seiten liegt in der Grössenordnung weniger Cent je Scan. Bewusst nicht
+das kleinste Modell: ein um den Faktor 10 falsch abgelesener Leistungspreis fällt in einer
+Wirtschaftlichkeitsrechnung **nicht als Fehler auf, sondern als überraschend gutes Ergebnis**
+(dieselbe Überlegung wie bei der Eur/MWh-Umrechnung in §1k).
+
+**Fehlt er, bleibt der Rechner vollständig benutzbar.** Der Scan meldet `not_configured` und macht
+**keinen** Aufruf; Datei-Upload, Standardprofil, Rechnung, Charts, PDF und Analyse-Bündel sind
+unberührt. Das ist Absicht — der Rechnungs-Scan ist ein dritter Einstieg, kein Fundament.
+
+**⚠️ Was dabei den Browser verlässt — GEHÖRT IN DEN DATENSCHUTZHINWEIS.** Für den **Lastgang** gilt
+Prinzip 4 unverändert: er wird nicht hochgeladen. Für die **Rechnung** gilt es nicht mehr — sie
+geht als Datei an die Anthropic-API. Sie wird dabei **nirgends gespeichert** (keine Datenbank, keine
+Datei, kein Log), und aus der Funktion kommen ausschliesslich die extrahierten Felder heraus. Der
+Hinweis an den Kunden ist Teil der Oberfläche (9b-2b) und **muss** vor dem Livegang stehen. Ein
+AV-Vertrag mit Anthropic ist dafür zu klären — er ist im ruhenden Monitor-Pflichtenheft schon
+einmal als offener Rechtspunkt vermerkt worden und wird hier zum ersten Mal wirklich fällig.
+
+#### Prüfen, ob es wirkt
+
+```bash
+# 1. Der Schlüssel darf NIRGENDS im ausgelieferten JavaScript stehen.
+#    ⚠️ Mit GEGENPROBE fahren, sonst bedeutet „0 Treffer" nichts — und der Scan-Code muss
+#    überhaupt im Build sein (ohne Oberfläche wird er wegoptimiert und der Grep ist wertlos).
+cd apps/website && rm -rf .next
+ANTHROPIC_API_KEY=SENTINEL_XYZ NEXT_PUBLIC_SUPABASE_ANON_KEY=SENTINEL_ANON npx next build
+grep -rl SENTINEL_XYZ  .next          | wc -l   # muss 0 sein (GANZES .next, nicht nur static/)
+grep -rl SENTINEL_ANON .next/static   | wc -l   # Positivkontrolle: muss >= 1 sein
+grep -rl claude-sonnet-5 .next/server | wc -l   # Voraussetzung: >= 1, sonst ist der Code gar nicht drin
+
+# 2. Wirkt der Scan live? Rechner öffnen, den Rechnungs-Einstieg wählen, eine Rechnung hochladen.
+#    „Der Rechnungs-Scan ist nicht eingerichtet" heisst: Variable fehlt oder Deployment ist alt.
+```
+
+**⚠️ NACHZUHOLEN, SOBALD DER SCHLÜSSEL STEHT:** Der Extraktionspfad ist bis heute **nie gegen ein
+echtes Modell gelaufen** (mangels Schlüssel). Geprüft ist die Mechanik (Anfrageform, Auswertung,
+alle Ausgänge, Bündel-Freiheit); **nicht geprüft ist die Ablesequalität.** Vor dem Livegang einmal
+von Hand mit den bereits vorliegenden **echten Urbanz-Rechnungen** durchspielen und die extrahierten
+Zahlen Feld für Feld gegen das Papier halten — **ausdrücklich NICHT als committeter Testfall**
+(Kundendaten gehören nicht ins Repo, auch nicht anonymisiert).
+
 ---
 
 ## 2. Supabase-Dashboard-Einstellungen (nicht über Migrationen abgedeckt)

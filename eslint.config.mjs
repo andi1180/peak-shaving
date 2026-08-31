@@ -160,10 +160,15 @@ export default tseslint.config(
      * app-lokal (`@/` zeigt in jeder App woandershin), ein gemeinsamer Eintrag würde in der
      * jeweils anderen App ins Leere zeigen und dort nichts schützen.
      *
-     * ⚠ ERLAUBT IST GENAU EINE DATEI — `lib/report-gate/store.ts`, der zwei Aufrufe grosse
-     * Datenbank-Rand des Gates. Nicht `lib/report-gate/**`: dort liegt auch die Server Action, und
-     * die soll den Client nicht selbst bauen können. Dieselbe engste Form wie bei
-     * `apps/web/lib/auth/admin-api.ts` (B18-2a) und `lib/admin/grid-tariffs-actions.ts` (B21-2b).
+     * ⚠ ERLAUBT IST JE MODUL GENAU EINE DATEI — `lib/report-gate/store.ts` für den service_role-
+     * Client, `lib/invoice-scan/extract.ts` für den KI-Client. Nicht die Verzeichnisse: dort liegt
+     * je auch eine Server Action, und die soll sich ihren Zugang nicht selbst bauen können.
+     * Dieselbe engste Form wie bei `apps/web/lib/auth/admin-api.ts` (B18-2a) und
+     * `lib/admin/grid-tariffs-actions.ts` (B21-2b).
+     *
+     * Delta 9b-2a: der KI-Client (`lib/invoice-scan/ai-client.ts`) kommt als ZWEITER Eintrag dazu.
+     * Er ist kein geringeres Geheimnis als der service_role-Schlüssel — er ist auf die Rechnung
+     * des Kontos abrechenbar und hat kein Kontingent, das ihn begrenzte.
      */
     files: ['apps/website/**/*.{ts,tsx}'],
     rules: {
@@ -179,14 +184,63 @@ export default tseslint.config(
                 'eine Datei. Der Rechner liest Tarif- und Preisdaten über den anon-Client in ' +
                 'lib/tariff-data/client.ts; alles andere braucht hier keine Datenbank.',
             },
+            {
+              name: '@/lib/invoice-scan/ai-client',
+              message:
+                'Der KI-Client (abrechenbarer Anthropic-Schlüssel) ist ausschließlich für den ' +
+                'einen externen Aufruf des Rechnungs-Scans gedacht: ' +
+                'apps/website/lib/invoice-scan/extract.ts — genau diese eine Datei. Es gibt hier ' +
+                'bewusst keine allgemeine, wiederverwendbare KI-Hilfsfunktion.',
+            },
           ],
         },
       ],
     },
   },
   {
+    /*
+     * Die beiden Ausnahmen — und sie schalten die Regel NICHT ab, sondern tauschen sie.
+     *
+     * Ein blosses `'no-restricted-imports': 'off'` (die Fassung bis Delta 16b) erlaubte der
+     * ausgenommenen Datei ab sofort JEDEN eingeschränkten Import. Solange es nur einen gab, war
+     * das folgenlos. Mit dem zweiten ist es das nicht mehr: der Datenbank-Rand des Report-Gates
+     * hat im KI-Client nichts verloren und umgekehrt. Jede Datei behält deshalb die Sperre auf das
+     * jeweils ANDERE Modul.
+     */
     files: ['apps/website/lib/report-gate/store.ts'],
-    rules: { 'no-restricted-imports': 'off' },
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: '@/lib/invoice-scan/ai-client',
+              message:
+                'Der Datenbank-Rand des Report-Gates braucht keinen KI-Client. Der eine erlaubte ' +
+                'Ort ist apps/website/lib/invoice-scan/extract.ts.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ['apps/website/lib/invoice-scan/extract.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: '@/lib/report-gate/service-role',
+              message:
+                'Der Rechnungs-Scan braucht keine Datenbank — er schreibt und liest bewusst ' +
+                'nichts. Der eine erlaubte Ort ist apps/website/lib/report-gate/store.ts.',
+            },
+          ],
+        },
+      ],
+    },
   },
   prettier,
 )
