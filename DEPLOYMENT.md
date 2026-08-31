@@ -744,12 +744,22 @@ grep -rl claude-sonnet-5 .next/server | wc -l   # Voraussetzung: >= 1, sonst ist
 #    „Der Rechnungs-Scan ist nicht eingerichtet" heisst: Variable fehlt oder Deployment ist alt.
 ```
 
-**⚠️ NACHZUHOLEN, SOBALD DER SCHLÜSSEL STEHT:** Der Extraktionspfad ist bis heute **nie gegen ein
-echtes Modell gelaufen** (mangels Schlüssel; am 31.08.2026 nach dem Merge erneut bestätigt). Geprüft ist die Mechanik (Anfrageform, Auswertung,
-alle Ausgänge, Bündel-Freiheit); **nicht geprüft ist die Ablesequalität.** Vor dem Livegang einmal
-von Hand mit den bereits vorliegenden **echten Urbanz-Rechnungen** durchspielen und die extrahierten
-Zahlen Feld für Feld gegen das Papier halten — **ausdrücklich NICHT als committeter Testfall**
-(Kundendaten gehören nicht ins Repo, auch nicht anonymisiert).
+**✅ ERLEDIGT AM 31.08.2026:** Der Extraktionspfad ist gegen das echte Modell gelaufen — dabei kam
+zuerst der Schema-Totalausfall oben heraus, und nach dessen Behebung die Ablesequalität. Zwei echte
+Jahresabrechnungen eines Bestandskunden (Wiener Netze, NE 7, H0 — eine volle Zwölf-Monats-Abrechnung,
+eine reine Einspeise-Teilabrechnung) durch den Produktionspfad: **20 Felder, 0 falsche Werte**,
+18 exakt richtig, 2 vorsichtig auf `null` gelassen. Insbesondere blieb der Leistungspreis leer, wo die
+Netzleistung als Tagespauschale abgerechnet wird; der Energiepreis blieb leer bei einem Flex-Tarif
+mit dreizehn Monatspreisen; und der Jahresverbrauch blieb auf der Teilabrechnung leer, obwohl eine
+Einspeisemenge und ein Vorperioden-Verbrauch danebenstanden. **Dateien und Zahlen liegen bewusst
+nicht im Repo und wurden nicht als Testfall committet** (Kundendaten gehören nicht in den Bestand,
+auch nicht anonymisiert).
+
+**Offen geblieben und für 9b-2b vorzumerken:** Weist eine Rechnung denselben Posten mit **zwei Sätzen
+für zwei Gültigkeitszeiträume** aus (Netz-Arbeitspreis vor/nach einer Erhöhung, Einspeisevergütung
+vor/nach einer Anpassung), verhält sich der Scan uneinheitlich — einmal `null`, einmal der zeitlich
+letzte Satz. Der System-Prompt sagt zu diesem Fall heute nichts. Die Regel gehört dort ergänzt und
+danach an denselben Rechnungen nachgemessen; `null` ist bis dahin die sichere Richtung.
 
 ---
 
