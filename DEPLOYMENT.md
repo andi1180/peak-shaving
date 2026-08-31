@@ -480,6 +480,90 @@ gegen die echte aWATTar-Antwort nachgerechnet: 2025-03-15 09:00Z 71,91 Eur/MWh �
 10:00Z 72,64 → 7,264 · 11:00Z 63,17 → 6,317. Lückenprüfung über alle 14.503 Zeilen: **kein einziger
 Nicht-Stunden-Sprung**.
 
+### 1l. KI-Zugang für den Tarifblatt-Scan (Admin) ⚠️ ABRECHENBAR — NICHT GESETZT
+
+```
+ANTHROPIC_API_KEY = sk-ant-…
+```
+
+Ohne diese Variable meldet der Scan im Admin-Formular sichtbar **„Der Tarifblatt-Scan ist derzeit
+nicht eingerichtet"**, und das Formular bleibt unverändert von Hand ausfüllbar. **Das ist heute der
+zu erwartende Zustand** — gemessen am 31.08.2026: `peak-shaving-web` führt **16** Einträge, keiner
+davon KI (weder `ANTHROPIC`, `CLAUDE`, `OPENAI`, `LLM` noch `GEMINI`). Der Schlüssel im
+Nachbarprojekt `peak-shaving-website` (§1-Website-c) hilft hier **nicht**: die beiden Vercel-Projekte
+lesen ausschliesslich ihre eigenen Variablen.
+
+**Wo:** Vercel → Project **`peak-shaving-web`** → Settings → Environment Variables → Production
+(+ Preview, wenn dort geprüft werden soll). Danach **Redeploy** — der Wert wird zur Laufzeit aus
+`process.env` gelesen und erreicht ein bereits gebautes Deployment nicht.
+
+**⚠️ Der Schlüssel ist kein geringeres Geheimnis als der service_role-Schlüssel.** Er ist auf die
+Rechnung des Kontos abrechenbar und hat kein Kontingent, das ihn begrenzte — ein Leck merkt man an
+der Abrechnung, nicht an einem Fehler. Vor dem Setzen im Anthropic-Dashboard ein **Ausgabenlimit**
+hinterlegen. Der Wert ist danach aus Vercel **nicht mehr zurücklesbar** (Typ `sensitive`); wer lokal
+prüfen will, holt ihn aus dem Anthropic-Dashboard.
+
+**Es ist derselbe Schlüsselwert wie in `peak-shaving-website` verwendbar, aber ein eigener ist
+besser:** zwei Schlüssel lassen sich getrennt rotieren und getrennt in der Abrechnung zuordnen.
+**Bei einer Rotation sind beide Projekte zu erneuern**, wenn derselbe Wert an beiden Stellen steht.
+
+#### Was der Scan tut — und was er ausdrücklich nicht tut
+
+Ein hochgeladenes **Preisblatt (PDF)** geht an genau einen Empfänger (Anthropic), für genau einen
+Zweck, und wird nirgends gespeichert: keine Datenbank, keine Datei, kein Log mit Inhalt. Aus der
+Funktion kommen ausschliesslich die extrahierten Felder.
+
+**Datenschutzrechtlich ist das unauffällig** — und das ist der Unterschied zum Rechnungs-Scan des
+Rechners (§1-Website-c): Dort verlässt das Dokument EINES KUNDEN das Gerät, hier ein
+**veröffentlichtes Preisblatt eines Netzbetreibers ohne jeden Personenbezug**. Es gibt hier niemanden
+aufzuklären und nichts zu erlauben. Der Lastgang kommt in diesem Modul überhaupt nicht vor.
+
+**Der Scan schreibt KEINE Zeile.** Er befüllt das Formular; angelegt wird ein Tarifstand
+ausschliesslich, wenn ein Mensch die Werte bestätigt und absendet — über den unveränderten
+Schreibweg aus §3c. Das ist keine Bequemlichkeit, sondern die Bedingung, unter der dieser Scan
+gebaut wurde: **ein Tarifstand ist nachträglich nicht mehr änderbar** (kein Bearbeiten, kein
+Löschen, kein `delete`-Grant) und geht in JEDE künftige Analyse dieser Netzebene ein.
+
+#### Grenzen, die beim Prüfen zu erwarten sind
+
+- **Ein Preisblatt mit MEHREREN Netzebenen nebeneinander füllt die ebenenabhängigen Felder NICHT.**
+  Netzebene, Grundpreis, Netzverlustentgelt und die Zeitfenster bleiben dann leer; übernommen werden
+  nur Betreibername, Gültigkeitsbeginn und Preisbasis. Das ist beabsichtigt: Das Formular legt genau
+  EINEN Stand für GENAU EINE Ebene an, und eine ausgewählte Zeile wäre geraten. Der naheliegende
+  Ausweg — dem Modell die im Formular gewählte Netzebene als Hinweis mitgeben — ist bewusst **nicht**
+  gebaut; er machte die Antwort von einem Formularzustand abhängig, den der Admin womöglich gar
+  nicht bewusst gesetzt hat. **Das ist der benannte nächste Schritt, falls sich der Fall als
+  Regelfall herausstellt.**
+- **Der Betreibername kommt als Freitext, NIE als Kennung.** Passt er auf einen bereits eingetragenen
+  Betrieb, wird dessen bestehende Kennung benutzt; sonst schaltet das Formular auf „Anderer
+  Netzbetreiber …" und lässt das Kennungsfeld **leer**. Eine vom Modell erfundene `operator_id`
+  erzeugte keine Ablehnung, sondern eine zweite Betreiber-Identität (§3c).
+- **Betrag und Einheit des Grundpreises gelten nur als PAAR.** Fehlt eines, sind beide leer — ein
+  übernommener Betrag ohne gelesene Einheit behauptete einen Leistungspreis, auch wenn auf dem Blatt
+  eine Jahrespauschale steht (der Unterschied zwischen „Spitzenkappung lohnt sich" und
+  „Leistungspreis 0, gar keine Spitzenkappung").
+- **Ein unvollständig gelesenes Zeitfenster wird verworfen, nicht ergänzt.** Ein fehlendes Fenster
+  sieht der Admin; ein mit geratener Uhrzeit erfundenes gälte rund um die Uhr.
+- **Fachliche Dateigrenze 10 MB** (`MAX_TARIFF_SHEET_FILE_BYTES`); `bodySizeLimit` steht auf 24 MB
+  und liegt bewusst darüber, damit die Anwendung ablehnt und nicht die Plattform.
+
+#### ⚠️ Was NICHT gegen die echte API gemessen ist
+
+Der Bau-Schritt lief gegen einen **lokalen Stub** der Messages-API (`ANTHROPIC_BASE_URL`), weil kein
+Schlüssel vorlag. Geprüft ist damit die Mechanik: Client, HTTP-Weg, Nutzlast, Auswertung,
+Formular-Befüllung, Fehlerzustände. **Ein Stub validiert das JSON-Schema NICHT** — genau dieser
+Umstand hat am 31.08.2026 den Rechnungs-Scan in Produktion funktionslos gemacht (HTTP 400 bei jedem
+Aufruf, §1-Website-c). Abgesichert ist das hier über einen Test, der das ganze Schema rekursiv auf
+die eine Kombination prüft, welche die echte API abweist (Typ-Union **und** `enum` an derselben
+Stelle) — die Fassung stammt aus der Messreihe von 9b-2a.
+
+**Offen bleibt deshalb die ABLESEQUALITÄT.** Sobald der Schlüssel gesetzt ist: ein echtes Preisblatt
+hochladen und Feld für Feld gegen das Papier prüfen, mit besonderem Augenmerk auf die
+Mehrfach-Zeitraum-Regel (steht auf dem Blatt „bisher" und „neu" nebeneinander, muss der **zuletzt
+beginnende** Satz herauskommen) und auf die Abgrenzung Bezug/Einspeisung.
+
+---
+
 ---
 
 ## 1-Website. Vercel — Projekt `peak-shaving-website` (= `apps/website`, der Kalkulator)
