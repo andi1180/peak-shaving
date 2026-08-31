@@ -47,11 +47,22 @@ export default tseslint.config(
     },
   },
   {
-    // T4-3 (Aufgabe 3): der service_role-Supabase-Client (umgeht RLS) darf NUR in eng begrenzten
-    // Pfaden importiert werden. Ein versehentlicher Import in eine Server-Component/Page/Nutzer-Read
-    // soll `pnpm lint` rot machen — `import 'server-only'` allein fängt das nicht (eine
-    // Server-Component ist ebenfalls server-seitig). Die Allowlist steht im Folge-Block (dort
-    // Regel = off).
+    /*
+     * T4-3 (Aufgabe 3): der service_role-Supabase-Client (umgeht RLS) darf NUR in eng begrenzten
+     * Pfaden importiert werden. Ein versehentlicher Import in eine Server-Component/Page/Nutzer-Read
+     * soll `pnpm lint` rot machen — `import 'server-only'` allein fängt das nicht (eine
+     * Server-Component ist ebenfalls server-seitig).
+     *
+     * Der Tarifblatt-Scan nimmt den KI-Client als ZWEITES eingeschränktes Modul dazu. Er ist kein
+     * geringeres Geheimnis als der service_role-Schlüssel: er ist auf die Rechnung des Kontos
+     * abrechenbar und hat kein Kontingent, das ihn begrenzte — ein Leck merkt man an der
+     * Abrechnung, nicht an einem Fehler.
+     *
+     * ⚠ DIE ALLOWLISTS IM FOLGE-BLOCK SCHALTEN DIE REGEL NICHT AB, SIE TAUSCHEN SIE. Solange es
+     * genau EIN eingeschränktes Modul gab, war ein schlichtes `off` folgenlos; mit dem zweiten ist
+     * es das nicht mehr — die acht service_role-Pfade dürften ab sofort auch den KI-Client ziehen.
+     * Dieselbe Korrektur, die Delta 9b-2a in `apps/website` nötig gemacht hat.
+     */
     files: ['apps/web/**/*.{ts,tsx}'],
     rules: {
       'no-restricted-imports': [
@@ -69,6 +80,15 @@ export default tseslint.config(
                 '(lib/auth/admin-api.ts, B18-2a) und den Tarif-Pflegeweg ' +
                 '(lib/admin/grid-tariffs-actions.ts, B21-2b) — die letzten beiden je genau diese ' +
                 'eine Datei. Für Nutzer-Reads den RLS-gebundenen lib/supabase/server.ts verwenden.',
+            },
+            {
+              name: '@/lib/admin/tariff-scan/ai-client',
+              message:
+                'Der KI-Client ist ausschließlich für die Extraktion des Tarifblatt-Scans ' +
+                'gedacht: apps/web/lib/admin/tariff-scan/extract.ts — genau diese eine Datei, ' +
+                'nicht das Verzeichnis (dort liegt auch die Server Action, und die soll sich ' +
+                'ihren Zugang nicht selbst bauen können). Der Schlüssel ist abrechenbar und hat ' +
+                'kein Kontingent, das ihn begrenzte.',
             },
           ],
         },
@@ -144,7 +164,61 @@ export default tseslint.config(
       'apps/web/lib/auth/admin-api.ts',
       'apps/web/lib/admin/grid-tariffs-actions.ts',
     ],
-    rules: { 'no-restricted-imports': 'off' },
+    /*
+     * ⚠ NICHT `'no-restricted-imports': 'off'` — s. die Begründung im Block darüber. Diese acht
+     * Pfade dürfen den service_role-Client ziehen und den KI-Client ausdrücklich NICHT: keiner von
+     * ihnen befragt ein Sprachmodell, und ein abrechenbarer Schlüssel hat im Stripe-Webhook oder im
+     * Lead-Pfad nichts zu suchen.
+     */
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: '@/lib/admin/tariff-scan/ai-client',
+              message:
+                'Der KI-Client ist ausschließlich für die Extraktion des Tarifblatt-Scans ' +
+                'gedacht: apps/web/lib/admin/tariff-scan/extract.ts — genau diese eine Datei, ' +
+                'nicht das Verzeichnis (dort liegt auch die Server Action, und die soll sich ' +
+                'ihren Zugang nicht selbst bauen können). Der Schlüssel ist abrechenbar und hat ' +
+                'kein Kontingent, das ihn begrenzte.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    /*
+     * Allowlist des KI-Clients: GENAU EINE Datei, nicht das Verzeichnis. `tariff-scan/actions.ts`
+     * liegt daneben und soll sich seinen Zugang nicht selbst bauen können — dieselbe engste Form
+     * wie bei `lib/auth/admin-api.ts` (B18-2a), `lib/admin/grid-tariffs-actions.ts` (B21-2b) und
+     * `apps/website/lib/invoice-scan/extract.ts` (Delta 9b-2a).
+     *
+     * Der service_role-Client bleibt hier gesperrt, und das ist keine Förmlichkeit: Der
+     * Tarifblatt-Scan LIEST ein Preisblatt und schreibt keine Zeile. Der Weg in die Datenbank
+     * bleibt allein `createGridTariffAction` — angestossen von einem Menschen, der die gelesenen
+     * Werte vorher bestätigt hat. Könnte diese Datei selbst schreiben, wäre genau die
+     * Bestätigungsstufe umgehbar, für die es diesen Aufbau gibt.
+     */
+    files: ['apps/web/lib/admin/tariff-scan/extract.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: '@/lib/supabase/service-role',
+              message:
+                'Der Tarifblatt-Scan liest nur — er legt keinen Tarifstand an. Der Schreibweg ist ' +
+                'lib/admin/grid-tariffs-actions.ts, und er beginnt bei einem Menschen, der die ' +
+                'gelesenen Werte bestätigt hat.',
+            },
+          ],
+        },
+      ],
+    },
   },
   {
     /*

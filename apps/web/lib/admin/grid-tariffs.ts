@@ -188,6 +188,56 @@ export function operatorOptions(existing: readonly GridTariffRow[]): OperatorOpt
     .sort((a, b) => a.name.localeCompare(b.name, 'de-AT'))
 }
 
+/**
+ * Ordnet einen GELESENEN Betreibernamen einer bereits bekannten Kennung zu — oder keiner.
+ *
+ * ── ⚠ WARUM DIE ZUORDNUNG HIER GESCHIEHT UND NICHT IM MODELL ──────────────────────────────────
+ * Der Tarifblatt-Scan liefert ausdrücklich nur den GEDRUCKTEN NAMEN und niemals eine Kennung. Eine
+ * vom Modell erfundene `operator_id` erzeugte keine Ablehnung, sondern eine ZWEITE
+ * Betreiber-Identität: `wiener_netze` und `wienernetze` sind für den `unique`-Constraint aus B21-1
+ * verschiedene Kombinationen, beide blieben offen, und die Effektiv-Datierung griffe zwischen
+ * ihnen nie — der Fehler fiele erst auf, wenn eine Analyse den falschen Leistungspreis zieht
+ * (ausführlich im Kopf von `operatorOptions`).
+ *
+ * Deshalb: Findet sich der Name unter den bereits vergebenen Kennungen, wird die BESTEHENDE
+ * benutzt. Findet er sich nicht, gibt es hier ausdrücklich keinen Vorschlag — die Oberfläche
+ * schaltet auf „Anderer Netzbetreiber …", trägt den Namen ein und lässt das Kennungsfeld LEER.
+ * Eine Kennung vergibt ein Mensch.
+ *
+ * Verglichen wird nachsichtig, aber nicht raten: kleingeschrieben, ohne Satzzeichen und ohne die
+ * üblichen Rechtsformzusätze — „Wiener Netze GmbH" auf dem Blatt und „Wiener Netze" in der Liste
+ * sind derselbe Betrieb. Ein Präfix-Vergleich in beide Richtungen fängt die Fälle ab, in denen
+ * eine Seite einen Zusatz trägt, den die andere nicht kennt.
+ */
+export function matchOperatorByName(
+  name: string | null,
+  options: readonly OperatorOption[],
+): OperatorOption | null {
+  const needle = normalizeOperatorName(name)
+  if (needle === '') return null
+
+  const exact = options.find((o) => normalizeOperatorName(o.name) === needle)
+  if (exact) return exact
+
+  return (
+    options.find((o) => {
+      const candidate = normalizeOperatorName(o.name)
+      return candidate !== '' && (candidate.startsWith(needle) || needle.startsWith(candidate))
+    }) ?? null
+  )
+}
+
+/** Kleingeschrieben, ohne Satzzeichen, ohne Rechtsformzusatz, mit einfachen Leerzeichen. */
+function normalizeOperatorName(name: string | null): string {
+  if (!name) return ''
+  return name
+    .toLowerCase()
+    .replace(/[.,]/g, ' ')
+    .replace(/\b(gmbh|ag|co|kg|se|ug|mbh|und|&)\b/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
 /** Sentinel des Auswahlfelds für „steht nicht in der Liste" — dann tragen zwei Felder die Angaben. */
 export const OPERATOR_OTHER = '__andere__'
 
