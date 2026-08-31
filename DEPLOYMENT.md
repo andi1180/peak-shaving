@@ -796,15 +796,22 @@ sie über ein esbuild-Bündel des echten Moduls ausserhalb des Repos
 
 > ⚠️ **ZWEI PUNKTE BLEIBEN OFFEN — beide gemessen, beide bewusst nicht in diesem Schritt behoben.**
 >
-> **(a) `meteringVariant` ist weiterhin unbeständig.** In einem von drei Läufen derselben Rechnung
-> kam statt `ohne_leistungsmessung` ein `null`. Das ist **keine** Zeitraum-Frage, sondern ein
-> Urteilsfeld: die Rechnung sagt nirgends „ohne Leistungsmessung", sondern „pauschale Leistung" und
-> „nicht gemessene Leistung" — beide Antworten sind vertretbar. **Die Folge ist aber grösser als bei
-> den Zahlen:** `ohne_leistungsmessung` setzt in Schritt 2 den Leistungspreis auf 0 und hebt die
-> B11-Sperre für Netzebene 7 auf, `null` lässt sie greifen. Derselbe Kunde kommt also mal durch und
-> steht mal vor der Verweigerung. Die Behebung wäre eine BENENNUNGS-Regel im Prompt (welche
-> Formulierungen österreichischer Rechnungen auf welche Variante zeigen) und gehört in einen eigenen
-> Schritt samt eigener Messreihe.
+> **(a)** ~~`meteringVariant` ist weiterhin unbeständig.~~ **✅ ERLEDIGT AM 31.08.2026.** Die
+> Benennungs-Regel steht jetzt im System-Prompt: je Wert eine Liste der Formulierungen, die
+> österreichische Rechnungen tatsächlich verwenden, dazu die Verwechslung, die den Fall trug (das
+> blosse Wort „Leistung" ist kein Hinweis auf eine Leistungsmessung — entscheidend ist je kW gegen
+> je Tag), und als Vorbedingung: rechnet ein Dokument gar keinen Bezug ab, ist das Feld `null`. Die
+> Schema-Beschreibung in `packages/shared` ist mitgezogen, weil ihr „…, wenn die Rechnung sie
+> benennt" der Regel widersprach — keine Rechnung benennt die Variante mit dem Codewort des Schemas.
+> **Gemessen: beide echten Rechnungen 5/5 bit-identisch in allen Feldern** (Vollrechnung
+> `ohne_leistungsmessung`, Einspeise-Teilabrechnung `null`), Zeitraum-Regel unverändert korrekt.
+> **⚠ Zwei Nebenbefunde aus derselben Messreihe, für den nächsten Prompt-Eingriff:** eine
+> Prompt-Regel kann auf ein NACHBARFELD durchschlagen (die erste Fassung machte `minBillableKw`
+> unbeständig — behoben mit einer ausdrücklichen Abgrenzung), und **ein Vorher-Zustand ist nur
+> hergestellt, wenn AUCH `packages/shared/src/invoice-scan.ts` zurückgesetzt wird**: die
+> Schema-Beschreibungen gehen mit an die API, ein Rücksetzen von `extract.ts` allein misst nichts.
+> **Offen bleibt:** `unterbrechbar` ist nur synthetisch belegt, und die Musterlisten stammen aus
+> zwei Rechnungen eines Lieferanten — bei ungewohnter Formulierung ist `null` der sichere Ausgang.
 >
 > **(b) Ein variabler Tarif liefert jetzt den letzten Monat.** Die Vollrechnung trägt einen
 > Flex-Tarif mit dreizehn Monatspreisen; unter der neuen Regel steht der Juni-Preis im Formular. Das
