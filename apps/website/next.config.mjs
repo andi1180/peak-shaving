@@ -22,6 +22,21 @@ const nextConfig = {
     NEXT_PUBLIC_ENGINE_COMMIT_SHA: process.env.VERCEL_GIT_COMMIT_SHA ?? '',
   },
 
+  experimental: {
+    /*
+     * Delta 9b-2a: der Rechnungs-Scan schickt eine PDF durch eine Server Action. Next begrenzt den
+     * Rumpf einer Server Action standardmässig auf 1 MB; eine eingescannte Netzrechnung liegt
+     * darüber, und die Ablehnung käme als undurchsichtiger Fehler statt als Satz.
+     *
+     * Der Wert liegt bewusst ETWAS ÜBER der fachlichen Obergrenze von 6 MB
+     * (`MAX_INVOICE_FILE_BYTES` in `lib/invoice-scan/ai-client.ts`): so entscheidet die Anwendung
+     * über zu grosse Dateien und antwortet verständlich, statt dass die Plattform die Anfrage
+     * vorher abschneidet. Dasselbe Muster wie in `apps/web` (B14-2) — dort mit 24 MB, weil ein
+     * Jahres-Lastgang durchgeht; eine Rechnung ist ein bis wenige Seiten und braucht das nicht.
+     */
+    serverActions: { bodySizeLimit: '8mb' },
+  },
+
   /*
    * B18-4: WER DIESEN RECHNER RAHMEN DARF — zum ersten Mal ausdrücklich entschieden.
    *
