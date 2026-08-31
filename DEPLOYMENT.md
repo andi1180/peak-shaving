@@ -755,11 +755,63 @@ Einspeisemenge und ein Vorperioden-Verbrauch danebenstanden. **Dateien und Zahle
 nicht im Repo und wurden nicht als Testfall committet** (Kundendaten gehören nicht in den Bestand,
 auch nicht anonymisiert).
 
-**Offen geblieben und für 9b-2b vorzumerken:** Weist eine Rechnung denselben Posten mit **zwei Sätzen
-für zwei Gültigkeitszeiträume** aus (Netz-Arbeitspreis vor/nach einer Erhöhung, Einspeisevergütung
-vor/nach einer Anpassung), verhält sich der Scan uneinheitlich — einmal `null`, einmal der zeitlich
-letzte Satz. Der System-Prompt sagt zu diesem Fall heute nichts. Die Regel gehört dort ergänzt und
-danach an denselben Rechnungen nachgemessen; `null` ist bis dahin die sichere Richtung.
+**✅ ERLEDIGT AM 31.08.2026 — die Mehrfach-Zeitraum-Regel steht.** Weist eine Rechnung denselben
+Posten mit mehreren Sätzen für mehrere Gültigkeitszeiträume aus, gilt jetzt der Wert des **zuletzt
+endenden Abschnitts** — nicht `null`, nicht der erste, nicht der grösste und ausdrücklich kein
+Durchschnitt. Die Regel steht im System-Prompt (`apps/website/lib/invoice-scan/extract.ts`); der
+`USER_PROMPT` ist mitgezogen, weil sein bisheriges „lass null, was nicht EINDEUTIG dasteht" ihr
+direkt widersprochen hätte.
+
+**Zwei weitere Regeln stammen aus derselben Messreihe** und sind mit einer Sonde auf die ROHE
+Modellantwort ermittelt worden, nicht erraten:
+
+- **Vorzeichen.** Die Einspeisevergütung steht auf Rechnungen als Gutschrift mit Minuszeichen. Das
+  Modell lieferte sie mal als `4.56`, mal als `-4.56`; `parseInvoiceExtraction` weist negative Werte
+  ab, aus `-4.56` wurde also `null`. Von aussen sah das aus wie „mal erkannt, mal nicht" — tatsächlich
+  war sie jedes Mal erkannt und einmal weggeworfen. Der Prompt verlangt jetzt den Betrag ohne Vorzeichen.
+- **Bezug gegen Einspeisung.** Auf einer reinen Einspeise-Teilabrechnung steht unter den Netzentgelten
+  „(Rest-)Einspeisung Erzeuger … 0,00 ct/kWh". Das Modell trug diese 0 als Netz-Arbeitspreis ein — eine
+  Rechnung ganz ohne Netzbezug hätte damit „Netzentgelt = 0 ct/kWh" behauptet. Nicht sichtbar falsch,
+  aber still falsch, und genau die Sorte Zahl, die in einer Wirtschaftlichkeitsrechnung als gutes
+  Ergebnis erscheint statt als Fehler. `arbeitspreisNetzCtPerKwh` ist jetzt ausdrücklich auf BEZOGENE
+  Energie eingegrenzt.
+
+**Gemessen gegen die echte API** (`claude-sonnet-5`), drei Dokumente: eine synthetische
+Mehrfach-Zeitraum-Rechnung (drei Arbeitspreis-Abschnitte, je zwei für Netznutzung, Netzleistung und
+Einspeisung) und die beiden echten Kundenrechnungen. Auf der synthetischen trifft jedes der vier
+Mehrfach-Felder den aktuellsten Satz — beim Arbeitspreis weder den ersten noch den grössten, bei der
+Einspeisevergütung bewusst den *kleineren* der beiden, sodass „nimm den grössten" ausgeschlossen ist.
+Auf den echten Rechnungen sind **alle sechs Zahlenfelder über drei Läufe bit-identisch**; der
+Netz-Arbeitspreis der Teilabrechnung ist von `0` auf `null` gewechselt (die Abgrenzung greift), und
+der Leistungspreis der Vollrechnung bleibt korrekt `null` — dort gibt es zwar zwei Zeitabschnitte,
+aber die Netzleistung wird als **Tagespauschale** abgerechnet, nicht je kW; die Zeitraum-Regel darf
+und soll dort nicht greifen.
+
+**Nachbau der Prüfung:** die synthetische Rechnung ist ein Textdokument mit je zwei bis drei datierten
+Abschnitten pro Posten, bei denen der jüngste Wert weder der erste noch der grösste ist. Sie liegt
+bewusst **nicht im Repo** (dieselbe Regel wie bei den Prüf-PDFs aus 9b-2a: ein Artefakt, das nur eine
+Extraktion auslöst, gehört nicht in den Bestand) und ist in wenigen Zeilen neu erzeugt. Gefahren wird
+sie über ein esbuild-Bündel des echten Moduls ausserhalb des Repos
+(`--external:@anthropic-ai/sdk --external:server-only`, `node --conditions=react-server`).
+
+> ⚠️ **ZWEI PUNKTE BLEIBEN OFFEN — beide gemessen, beide bewusst nicht in diesem Schritt behoben.**
+>
+> **(a) `meteringVariant` ist weiterhin unbeständig.** In einem von drei Läufen derselben Rechnung
+> kam statt `ohne_leistungsmessung` ein `null`. Das ist **keine** Zeitraum-Frage, sondern ein
+> Urteilsfeld: die Rechnung sagt nirgends „ohne Leistungsmessung", sondern „pauschale Leistung" und
+> „nicht gemessene Leistung" — beide Antworten sind vertretbar. **Die Folge ist aber grösser als bei
+> den Zahlen:** `ohne_leistungsmessung` setzt in Schritt 2 den Leistungspreis auf 0 und hebt die
+> B11-Sperre für Netzebene 7 auf, `null` lässt sie greifen. Derselbe Kunde kommt also mal durch und
+> steht mal vor der Verweigerung. Die Behebung wäre eine BENENNUNGS-Regel im Prompt (welche
+> Formulierungen österreichischer Rechnungen auf welche Variante zeigen) und gehört in einen eigenen
+> Schritt samt eigener Messreihe.
+>
+> **(b) Ein variabler Tarif liefert jetzt den letzten Monat.** Die Vollrechnung trägt einen
+> Flex-Tarif mit dreizehn Monatspreisen; unter der neuen Regel steht der Juni-Preis im Formular. Das
+> ist die beabsichtigte Folge — ein Jahresmittel wäre eine gerechnete Zahl, die nirgends auf dem
+> Dokument steht. Fachlich ist ein Sommermonat als Grundlage einer Jahresrechnung aber eher zu
+> niedrig. Der Wert bleibt in Schritt 2 editierbar; ob der Rechner für variable Tarife einen eigenen
+> Hinweis braucht, ist eine offene Produktfrage.
 
 ---
 

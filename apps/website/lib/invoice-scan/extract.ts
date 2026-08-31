@@ -48,6 +48,42 @@ export type InvoiceScanOutcome =
  * Tarifsatz in B11, nur mit einem seriöseren Etikett. Deshalb steht die Regel dreimal, in drei
  * Formen: als Grundsatz, als Verbot des Erschliessens aus verwandten Angaben, und als ausdrückliche
  * Erlaubnis, alles auf `null` zu lassen.
+ *
+ * ── ⚠ DER ABSCHNITT ZU MEHRFACH-ZEITRÄUMEN IST EINE NACHBESSERUNG (31.08.2026) ────────────────
+ * Ohne ihn gab es für den HÄUFIGSTEN Fall einer österreichischen Jahresabrechnung — derselbe Posten
+ * mehrfach, je Zeitabschnitt ein eigener Betrag — gar keine Regel. Das Modell entschied deshalb
+ * jedes Mal neu: an derselben Datei lieferte es in einem Lauf `null`, im nächsten den letzten Satz.
+ * Jede der beiden Antworten war für sich vertretbar; die UNBESTIMMTHEIT ist es nicht. Dieselbe
+ * Rechnung muss dasselbe Formular ergeben, sonst ist der Scan keine Ablesung, sondern ein Würfel.
+ *
+ * Entschieden ist der ZULETZT endende Abschnitt, nicht `null`: bei einem Tarifwechsel ist genau
+ * dieser Wert der heute gültige, und ihn zu verschweigen liesse den Nutzer eine Zahl abtippen, die
+ * klar auf dem Papier steht.
+ *
+ * ⚠ Bei einem VARIABLEN Tarif (ein eigener Preis je Monat) ist damit der letzte Monat der
+ * ausgewiesene Wert. Das ist die Folge derselben Regel und bewusst in Kauf genommen — ein
+ * Jahresmittel wäre eine GERECHNETE Zahl, die nirgends auf dem Dokument steht, und die Grundregel
+ * „lieber nichts als geraten" verbietet sie. Der Wert bleibt in Schritt 2 editierbar; dass ein
+ * Sommermonat als Grundlage einer Jahresrechnung zu niedrig sein kann, steht als offener Punkt in
+ * `DEPLOYMENT.md` §1-Website-c.
+ *
+ * ⚠ Die Zahlen in den Beispielen des Prompts sind ERFUNDEN und bewusst keine echten Werte aus einer
+ * Kundenrechnung — auch ein Tarifsatz samt Abrechnungszeitraum ist ein Datum aus dem Vertrag eines
+ * Menschen und gehört nicht in den Bestand.
+ *
+ * ── ⚠ ZWEI WEITERE ABSÄTZE STAMMEN AUS DERSELBEN MESSREIHE, UND SIE SIND KEINE ZEITRAUM-FRAGE ──
+ * Nach der Zeitraum-Regel blieben an den echten Rechnungen zwei Felder unbeständig. Beide Ursachen
+ * sind mit einer Sonde auf die ROHE Modellantwort gemessen worden, nicht erraten:
+ *
+ *   1. VORZEICHEN. Das Modell lieferte die Einspeisevergütung mal als `4.56`, mal als `-4.56` —
+ *      es übernahm das Minuszeichen der Gutschriftzeile. `parseInvoiceExtraction` weist negative
+ *      Werte ab, aus `-4.56` wurde also `null`. Von aussen sah das aus wie „mal erkannt, mal
+ *      nicht"; tatsächlich war es jedes Mal erkannt und einmal weggeworfen.
+ *   2. BEZUG GEGEN EINSPEISUNG. Auf einer reinen Einspeise-Teilabrechnung steht unter den
+ *      Netzentgelten „(Rest-)Einspeisung Erzeuger … 0,00 ct/kWh". Das Modell trug diese 0 als
+ *      Netz-Arbeitspreis ein — eine Rechnung ohne jeden Netzbezug hätte damit „Netzentgelt =
+ *      0 ct/kWh" behauptet. Nicht sichtbar falsch, aber still falsch, und genau die Sorte Zahl,
+ *      die in einer Wirtschaftlichkeitsrechnung als gutes Ergebnis erscheint statt als Fehler.
  */
 const SYSTEM_PROMPT = [
   'Du liest eine österreichische Strom- oder Netzrechnung und trägst die darin ausgewiesenen',
@@ -70,11 +106,48 @@ const SYSTEM_PROMPT = [
   '- Bei getrenntem Hoch-/Niedertarif gehört der Hochtarif in energyPriceCtPerKwh und der',
   '  Niedertarif in energyPriceNightCtPerKwh.',
   '- Ist das Dokument keine Strom-/Netzrechnung, unlesbar oder leer, lass ALLE Felder null.',
+  '',
+  'Mehrere Werte für denselben Posten (Tarifwechsel, Preisanpassung, monatlich wechselnder Preis):',
+  'Österreichische Jahresabrechnungen weisen denselben Posten oft MEHRFACH aus, je Zeitabschnitt',
+  'einen eigenen Betrag — etwa „01.01.20-30.06.20: 3,10 ct/kWh" und „01.07.20-31.12.20: 3,90',
+  'ct/kWh", oder bei einem variablen Tarif einen eigenen Preis je Monat.',
+  '',
+  'In diesem Fall gilt der Wert des ZULETZT endenden Zeitabschnitts — also der jüngste, aktuellste',
+  'Satz. Dieser eine Wert gehört in das Feld.',
+  '',
+  '- Trage NICHT null ein. Mehrere Werte sind kein Grund zu schweigen: der Posten steht auf der',
+  '  Rechnung, und welcher Satz zuletzt galt, ist ablesbar.',
+  '- Nimm NICHT den ersten und NICHT den grössten, sondern den mit dem spätesten Zeitraum.',
+  '- Bilde KEINEN Durchschnitt und rechne nicht zusammen. Ein Mittelwert steht nirgends auf dem',
+  '  Dokument und wäre eine gerechnete Zahl, keine abgelesene.',
+  '- Steht bei den Abschnitten kein Datum, sodass sich der jüngste nicht bestimmen lässt, ist das',
+  '  Feld null. Nur dann.',
+  '- Das gilt für alle Zahlenfelder gleichermassen, insbesondere für Arbeitspreis, Netz-Arbeitspreis',
+  '  und Einspeisevergütung.',
+  '',
+  'Vorzeichen: Gutschriften stehen auf Rechnungen mit einem Minuszeichen (die Einspeisevergütung',
+  'etwa als „-9,90 ct/kWh", weil sie dem Kunden gutgeschrieben wird). Trage trotzdem den Betrag',
+  'OHNE Vorzeichen ein, also 9,90. Alle Felder dieses Schemas sind Beträge, keine Buchungen — ein',
+  'negativer Wert ist kein gültiges Ergebnis und geht verloren.',
+  '',
+  'Abgrenzung Bezug/Einspeisung: arbeitspreisNetzCtPerKwh ist ausschliesslich der Arbeitspreis der',
+  'Netznutzung für BEZOGENE Energie (Positionen wie „Netznutzung", „Netznutzungsentgelt").',
+  'Positionen, die sich auf Einspeisung oder Erzeugung beziehen — etwa „(Rest-)Einspeisung',
+  'Erzeuger" —, gehören NICHT in dieses Feld, auch dann nicht, wenn sie mit 0,00 ct/kWh ausgewiesen',
+  'sind. Weist eine Rechnung gar keine Netznutzung für Bezug aus, ist das Feld null.',
 ].join('\n')
 
+/*
+ * ⚠ Der zweite Satz war bis zum 31.08.2026 „Lass jedes Feld null, das nicht EINDEUTIG auf dem
+ * Dokument steht." Das stand ab der Mehrfach-Zeitraum-Regel im System-Prompt in direktem
+ * Widerspruch zu ihr: mehrere Sätze für denselben Posten sind ja gerade nicht „eindeutig", und die
+ * beiden Anweisungen hätten einander aufgehoben — die Unbestimmtheit wäre nur verschoben gewesen.
+ * Massgeblich ist jetzt „steht nicht darauf", und für das Mehrfach-Vorkommen gilt die Regel oben.
+ */
 const USER_PROMPT =
-  'Lies aus dieser Rechnung die Angaben nach Schema aus. Lass jedes Feld null, das nicht ' +
-  'eindeutig auf dem Dokument steht.'
+  'Lies aus dieser Rechnung die Angaben nach Schema aus. Lass jedes Feld null, das auf dem ' +
+  'Dokument nicht steht. Steht ein Posten mehrfach für verschiedene Zeitabschnitte, gilt der ' +
+  'Wert des zuletzt endenden Abschnitts.'
 
 /**
  * Extrahiert die Tarif- und Verbrauchsangaben aus einer Rechnung.
