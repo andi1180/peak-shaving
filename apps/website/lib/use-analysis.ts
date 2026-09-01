@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { AnalysisResult, FinancialParams, TariffParams } from 'shared'
 import type { CalculatorPayload } from '@/components/flow/types'
 import type { AnalysisRequest, BatteryOverride, WorkerOutbound } from './analysis-protocol'
+import { resolveBatteryOverride } from './battery-override'
 
 export type AnalysisStatus = 'idle' | 'running' | 'done' | 'error'
 
@@ -165,12 +166,28 @@ export function useAnalysis() {
       recomputingRef.current = true
       setRecomputing(true)
       setRecomputeError(null)
+      /*
+       * ⚠ DERSELBE Rückfall wie im Worker, aus DERSELBEN Funktion (Nachtrag zu Delta 17 Teil 2,
+       * 01.09.2026). Der Worker rechnet damit, hier wird PROTOKOLLIERT — und aus dem Protokoll
+       * schreibt der Bündel-Export (B14-2) den Katalog-Stand ins Archiv. Bliebe hier der
+       * unaufgelöste Wert stehen, trüge das Bündel einen Katalog, gegen den nie gerechnet wurde:
+       * genau der Fehler, vor dem `applyBatteryOverride` warnt, nur eine Ebene höher.
+       *
+       * Der Worker löst zusätzlich selbst auf — die Funktion ist idempotent, und eine Nachricht,
+       * die nicht über diesen Hook läuft, darf das Preset ebenfalls nicht verlieren.
+       */
+      const effectiveOverride = resolveBatteryOverride(batteryOverride, payload.batteryPreset)
       pendingLiveRef.current = {
         tariff: payload.tariff,
         financial: payload.financial,
-        batteryOverride,
+        batteryOverride: effectiveOverride,
       }
-      const request: AnalysisRequest = { type: 'recompute', payload, horizonYears, batteryOverride }
+      const request: AnalysisRequest = {
+        type: 'recompute',
+        payload,
+        horizonYears,
+        batteryOverride: effectiveOverride,
+      }
       worker.postMessage(request)
     },
     [],

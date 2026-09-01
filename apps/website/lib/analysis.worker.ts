@@ -10,8 +10,9 @@ import { DEMO_BATTERY_CATALOG, type AnalysisResult, type BatteryCandidate } from
 
 import type { AnalysisRequest, WorkerOutbound } from './analysis-protocol'
 // B14-2: dieselbe Katalog-Änderung, die auch der Bündel-Export mitschreibt — eine Definition,
-// zwei Aufrufer (s. `lib/battery-override.ts`).
-import { applyBatteryOverride } from './battery-override'
+// zwei Aufrufer (s. `lib/battery-override.ts`). `resolveBatteryOverride` entscheidet dort ebenso
+// zentral, WELCHER Override für einen Lauf gilt (ausdrücklicher schlägt Preset).
+import { applyBatteryOverride, resolveBatteryOverride } from './battery-override'
 import { DEFAULT_HORIZON_YEARS } from './constants'
 import type { CalculatorPayload } from '@/components/flow/types'
 
@@ -179,7 +180,27 @@ ctx.onmessage = (event: MessageEvent<AnalysisRequest>) => {
 
   if (msg.type === 'recompute') {
     try {
-      const catalog = applyBatteryOverride(DEMO_BATTERY_CATALOG, msg.batteryOverride)
+      /*
+       * ⚠ DAS PRESET ÜBERLEBT DIE NEUBERECHNUNG (Nachtrag zu Delta 17 Teil 2, 01.09.2026).
+       *
+       * Hier stand bis zum 01.09.2026 nur `msg.batteryOverride` — und der ist `undefined`, sobald
+       * der Nutzer die Batteriefelder gar nicht anfasst (das Annahmen-Panel emittiert ihn nur bei
+       * Abweichung von seiner Grundlinie, und die IST bereits das preset-angewandte Gerät). Wer
+       * seinen Speicher mit „90 %" bestätigt hatte und danach nur den Horizont änderte, rechnete
+       * ab dem nächsten Tastendruck wieder mit den 91 % aus dem Katalog. Es gab dafür keine
+       * Meldung: die Ersparnis sprang lautlos auf einen Wert, den niemand angegeben hatte.
+       *
+       * Der Rückfall steht deshalb HIER und nicht bei den Aufrufern: es gibt neun Wege in eine
+       * Neuberechnung (acht Felder des Annahmen-Panels über `computeAndSend`, dazu der
+       * Jahreshöchstwert-Shortcut in `report.tsx`), und eine Regel, die jeder von ihnen einzeln
+       * mitbringen müsste, ist keine — der zehnte vergisst sie.
+       *
+       * `resolveBatteryOverride` ist bewusst geteilt: der Hook protokolliert damit denselben Wert
+       * in `AnalysisRunInputs`, aus dem der Bündel-Export den Katalog-Stand schreibt. Nur hier
+       * aufgelöst trüge das Archiv einen Katalog, gegen den nie gerechnet wurde.
+       */
+      const override = resolveBatteryOverride(msg.batteryOverride, msg.payload.batteryPreset)
+      const catalog = applyBatteryOverride(DEMO_BATTERY_CATALOG, override)
       const result = computeAnalysis(msg.payload, msg.horizonYears, catalog)
       post({ type: 'recomputed', result })
     } catch (err) {
