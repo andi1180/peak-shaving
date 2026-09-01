@@ -42,3 +42,6 @@ export * from './upload-classification'
 // Delta 17: mehrere gelesene Rechnungen zu EINEM Satz Vorbelegungen — Einigkeit übernimmt,
 // Widerspruch bleibt leer und wird benannt. Begründung im Kopf der Datei.
 export * from './invoice-merge'
+// Delta 17 Teil 2: die Batterie-Freitexterfassung — Zielschema, Auswertung und die Zuordnung einer
+// genannten Kapazität zum FESTEN Katalog (der Abstand wird benannt, nicht weggerundet).
+export * from './battery-text'

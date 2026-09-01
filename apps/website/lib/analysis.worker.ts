@@ -146,7 +146,17 @@ ctx.onmessage = (event: MessageEvent<AnalysisRequest>) => {
   if (!msg) return
 
   if (msg.type === 'run') {
-    const result = computeAnalysis(msg.payload, DEFAULT_HORIZON_YEARS, DEMO_BATTERY_CATALOG)
+    /*
+     * Delta 17 Teil 2 — das aus einer Freitext-Angabe BESTÄTIGTE Preset gilt schon beim ERSTEN
+     * Lauf, und zwar über GENAU DIESELBE Funktion wie die Live-Neuberechnung. Kein zweiter
+     * Mechanismus: ein Preset IST ein `batteryOverride`, nur eben von Anfang an gesetzt.
+     *
+     * Trägt es nur eine `batteryId` (der Nutzer hat einen Speicher gewählt, aber weder Wirkungsgrad
+     * noch Preis genannt), lässt `applyBatteryOverride` den Katalog UNVERÄNDERT — die Rechnung ist
+     * dann bit-gleich zu vorher, und das Preset wirkt allein als Vorauswahl im Report.
+     */
+    const catalog = applyBatteryOverride(DEMO_BATTERY_CATALOG, msg.payload.batteryPreset)
+    const result = computeAnalysis(msg.payload, DEFAULT_HORIZON_YEARS, catalog)
 
     // Künstliche Fortschrittsanimation NUR beim Erstlauf (§5 Schritt 3, StepAnalyzing) — kein
     // fachlicher Wert, reine Wahrnehmungs-Geste. `recompute` (unten) überspringt sie bewusst,

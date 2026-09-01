@@ -371,7 +371,7 @@ Basis existiert bereits: `window.print()` gegen ein Print-Stylesheet (`step-resu
 
 ## Delta 17 — Flexible Eingabe: beliebig viele Unterlagen mit freier Bezeichnung (ergänzt Delta 8, Delta 9)
 
-> **✅ TEIL 1 GEBAUT am 01.09.2026** (mehrzeiliger Upload + Zuordnung + Bestätigungsstufe). Handover mit den Messwerten: `CLAUDE.md`, Eintrag „GEBAUT: Delta 17". Die Batterie-Freitexterfassung ist ausdrücklich **Teil 2** und nicht Gegenstand dieses Schritts.
+> **✅ VOLLSTÄNDIG GEBAUT am 01.09.2026.** **Teil 1:** mehrzeiliger Upload + Zuordnung + Bestätigungsstufe. **Teil 2:** die eigene Batterie als freier Satz — sie füttert den BESTEHENDEN `batteryOverride`-Mechanismus (§6.2) und erfindet keinen neuen; der Katalog bleibt fest, eine genannte Kapazität führt zur AUSWAHL des nächstliegenden Kandidaten, und der Abstand wird ausdrücklich benannt statt weggerundet. Handover mit den Messwerten: `CLAUDE.md`, Einträge „GEBAUT: Delta 17 (Teil 1 von 2)" und „(Teil 2 von 2)".
 
 **Das Problem, das die drei bestehenden Einstiege offenlassen.** Delta 8/9b hat den Kreis der bedienbaren Kunden zweimal erweitert (Standardprofil, Rechnungs-Scan), aber alle drei Einstiege setzen dieselbe Vorentscheidung voraus: **der Nutzer muss die ART seiner Unterlage kennen**, bevor er den passenden Reiter wählt. Wer einen Stapel vom Steuerberater oder vom Elektriker bekommt, weiss genau das nicht. Wer daran abbricht, kommt in keiner Zahl vor — kein Test und kein Build fängt das.
 
@@ -402,11 +402,10 @@ Es gibt damit **keinen Weg, auf dem ein Lastgang zum Einordnen hochgeladen wird*
 
 ## Nächste Schritte
 
-Dieses Delta ist inhaltlich abgeschlossen und **vollständig gebaut** (Schema → Schreibweg → Engine → Oberfläche → Report, B21-1 bis B21-3c, Delta 16a/16b und Delta 9a/9b). Delta 17 Teil 1 ist gebaut.
+Dieses Delta ist inhaltlich abgeschlossen und **vollständig gebaut** (Schema → Schreibweg → Engine → Oberfläche → Report, B21-1 bis B21-3c, Delta 16a/16b, Delta 9a/9b und Delta 17 Teil 1+2).
 
 **Offen bleibt:**
 
-- **Delta 17, Teil 2** — die Batterie-Freitexterfassung.
 - **Das G-Profil für Kleingewerbe** (Delta 8, auf Martin blockiert) — der Auswahlpunkt steht sichtbar und gesperrt im Formular.
 - **Der LP-Spike** (Delta 14 Punkt 1). Bis er gelaufen ist, gehören die Studienzahlen (−43 % / 266 €) weiterhin **nicht** in die Kundenkommunikation.
 - **Der finale Einwilligungswortlaut** zu `offer_contact` (`Fahrplan_2026.md` §7, Owner Martin). Der Bestand trägt einen als solchen gekennzeichneten Arbeitsstand („[MARTIN: Copy / rechtlich — Arbeitsstand, juristisch ungeprüft] …"). `platform.consent_texts` ist append-only: die geprüfte Fassung kommt als **neue Zeile mit `version = 2`**, die bestehende wird NICHT editiert — sonst zeigten bereits erteilte Einwilligungen auf einen Text, den ihnen niemand angezeigt hat.
