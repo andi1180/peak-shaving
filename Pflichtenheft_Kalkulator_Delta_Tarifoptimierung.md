@@ -398,11 +398,35 @@ Es gibt damit **keinen Weg, auf dem ein Lastgang zum Einordnen hochgeladen wird*
 
 **Explizit draussen:** ein Chat-artiges Freitextfeld ohne Bestätigungsstufe · jede Änderung an `invoice-scan`/`tariff-sheet-scan` selbst · die Batterie-Freitexterfassung (Teil 2) · ein Zeitraum-Freitext (Delta 15 Regel A bleibt: das Fenster IST der Lastgang).
 
+## Delta 18 — Report-Anfrage: eine Frage in eigenen Worten statt acht Formularfelder (ergänzt §6.2, Delta 9, Delta 17)
+
+> **✅ GEBAUT am 01.09.2026.** Ein Freitextfeld im Report übersetzt einen Satz in genau die acht Grössen, die eine Live-Neuberechnung (§6.2) entgegennimmt — mit Vorschau, ausdrücklicher Bestätigung und einer begründeten Absage für alles andere. Handover mit den Messwerten: `CLAUDE.md`, Eintrag „GEBAUT: Delta 18".
+
+**Das Problem, das das Annahmen-Panel offenlässt.** Seit U2 Prompt C kann der Nutzer acht Annahmen ändern und das Ergebnis live neu rechnen lassen. Das setzt aber voraus, dass er **unsere Vokabeln kennt**: „Betrachtungshorizont", „Abrechnungsmodell", „Round-Trip-Wirkungsgrad". Seine Frage lautet dagegen „Was wäre bei 15 Jahren und 5 % Förderung?" — und sie steht in einer Accordion, die er erst aufklappen muss, unter Feldern, deren Namen er zuordnen muss. Dieselbe Beobachtung wie in Delta 17: wer daran abbricht, kommt in keiner Zahl vor.
+
+**Die Umkehrung.** Ein Feld unmittelbar über „Annahmen & Rechenweise" nimmt einen Satz entgegen und schlägt daraus Änderungen vor. Bestätigt der Nutzer, läuft **derselbe** `onRecompute`-Aufruf, den auch das Panel auslöst.
+
+**Entscheidung 1 — Es entsteht KEIN neuer Parameter, und das ist die tragende Randbedingung.** Übersetzt wird ausschliesslich in die acht bereits vorhandenen Grössen: `billingModel`, `horizonYears`, die vier Finanzgrössen (`subsidyPercent`, `fixedSubsidyEur`, `depreciationYears`, `taxRatePercent`) sowie Wirkungsgrad und Preis der **angezeigten** Batterie. Das Feld ist eine **Übersetzung**, keine Erweiterung des Rechners — es kann nichts, was das Panel darunter nicht auch kann.
+
+**Entscheidung 2 — Alles Übrige wird ABGELEHNT und begründet, nicht verschwiegen.** Das Modell wählt aus einer **geschlossenen Liste** von sieben Ablehnungsgründen (`zeitraum` · `batteriekapazitaet` · `andere_batterie` · `boersenpreis_hebel` · `energiepreise` · `lastgang` · `sonstiges`); die Sätze dazu stehen bei uns. Ein stillschweigend ignorierter Wunsch wäre der schlimmere Ausgang: der Nutzer hielte das nächste Ergebnis für die Antwort auf seine Frage. Wo es einen Weg gibt, nennt die Absage ihn (eine andere Katalog-Batterie wählt man im Energiefluss-Chart; Energiepreise stehen in Schritt 2; ein anderer Lastgang beginnt eine neue Analyse).
+
+**Entscheidung 3 — Keine automatische Anwendung.** Zwischen dem Gelesenen und dem Gerechneten steht eine **Vorschau je Feld (alt → neu)** und ein ausdrückliches „Übernehmen". Dieselbe Haltung wie in Delta 17 und beim Tarifblatt-Scan — hier zusätzlich deshalb, weil der Nutzer ein **fertiges Ergebnis** vor sich hat: ein Satz, der es ohne Rückfrage verändert, macht aus einer Auskunft eine Überraschung.
+
+**Entscheidung 4 — Der Bezugspunkt der Vorschau ist der WIRKSAME Stand, nicht Schritt 2.** Verglichen wird gegen die Eingangsgrössen des **angezeigten** Laufs (`AnalysisRunInputs`), nicht gegen `originalTariff`/`originalFinancial`. Zwei Gründe: eine Vorschau gegen etwas, das der Nutzer nicht mehr vor sich hat, ist keine; und eine daraus gebaute Neuberechnung baute eine zuvor im Panel gemachte Einstellung **still wieder ab** — dieselbe Klasse von stillem Verlust wie beim Batterie-Preset (Nachtrag zu Delta 17 Teil 2). Aus demselben Grund reist ein nicht erwähnter `batteryOverride` unverändert mit, statt auf `undefined` zu fallen.
+
+**Entscheidung 5 — Der aktuelle Stand wird NICHT an das Modell geschickt.** Es erfährt weder den Lastgang noch das Ergebnis noch die geltenden Annahmen; hinaus geht ausschliesslich der getippte Satz. Der Vergleich mit dem Ist-Stand ist eine **reine, geprüfte Funktion** (`buildRecomputeProposal`), kein Rechenschritt des Modells. Folge, ausdrücklich in Kauf genommen: **relative Wünsche** („verdopple den Horizont") sind nicht auflösbar und fallen unter `sonstiges` — mit einem Satz, der um den Zielwert bittet.
+
+**Entscheidung 6 — Kein Umschalten des Börsenpreis-Hebels.** `useTariffOptimization` ist reiner Zustand von Schritt 2, und das Einschalten verlangt einen Netzabruf der Preisdaten (B21-3a/3b), den es aus dem fertigen Ergebnis heraus nicht gibt. Ein Rücklauf auf Schritt 2 existiert nicht (nur „Neue Analyse", die beim Upload beginnt). Der Wunsch wird deshalb abgelehnt und begründet, nicht halb umgesetzt.
+
+**Explizit draussen:** ein Zeitraum-Parameter (Delta 15 Regel A bleibt: das Fenster IST der Lastgang) · eine frei gewählte Batteriegrösse (der Katalog ist fest, Delta 17 Teil 2) · das Umschalten des Hebels (Entscheidung 6) · jede Änderung an den vier bestehenden Extraktions-Modulen · ein mehrstufiger Dialog (das Feld beantwortet eine Anfrage, es führt kein Gespräch).
+
+---
+
 ---
 
 ## Nächste Schritte
 
-Dieses Delta ist inhaltlich abgeschlossen und **vollständig gebaut** (Schema → Schreibweg → Engine → Oberfläche → Report, B21-1 bis B21-3c, Delta 16a/16b, Delta 9a/9b und Delta 17 Teil 1+2).
+Dieses Delta ist inhaltlich abgeschlossen und **vollständig gebaut** (Schema → Schreibweg → Engine → Oberfläche → Report, B21-1 bis B21-3c, Delta 16a/16b, Delta 9a/9b, Delta 17 Teil 1+2 und Delta 18).
 
 **Offen bleibt:**
 

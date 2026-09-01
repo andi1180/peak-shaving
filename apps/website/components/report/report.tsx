@@ -3,8 +3,12 @@ import { AlertCircle, AlertTriangle } from 'lucide-react'
 import {
   DEMO_BATTERY_CATALOG,
   type AnalysisResult,
+  type BillingModel,
   type FinancialParams,
   type LoadProfile,
+  type ProposedChange,
+  type ReportRequestCurrent,
+  type ReportRequestField,
   type TariffParams,
   type TariffSourceRef,
 } from 'shared'
@@ -19,6 +23,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { applyBatteryOverride } from '@/lib/battery-override'
 import { DEFAULT_HORIZON_YEARS, LARGE_GAP_SLOTS_THRESHOLD } from '@/lib/constants'
+import type { AnalysisRunInputs } from '@/lib/use-analysis'
 import type { BatteryPreset, RecomputeInput } from '@/components/flow/types'
 import { AssumptionsPanel } from './assumptions-panel'
 import { CostChart } from './cost-chart'
@@ -30,6 +35,7 @@ import { Num } from './num'
 import { PrintAssumptionsSnapshot } from './print-assumptions-snapshot'
 import { PrintMethodology } from './print-methodology'
 import { RecommendationCard } from './recommendation-card'
+import { ReportRequestPanel } from './report-request-panel'
 import { TariffOptimizationCard } from './tariff-optimization-card'
 import { TariffSourceNote } from './tariff-source-note'
 
@@ -52,6 +58,7 @@ export function Report({
   recomputeError,
   isLive,
   batteryPreset,
+  effectiveInputs,
   onRecompute,
   onResetAssumptions,
 }: {
@@ -69,6 +76,21 @@ export function Report({
    * dann verhält sich der Report Zeile für Zeile wie vorher.
    */
   batteryPreset?: BatteryPreset
+  /**
+   * Delta 18: die Eingangsgrössen GENAU des angezeigten Laufs (`displayInputs` aus `useAnalysis`).
+   *
+   * ── ⚠ WARUM DAS FREITEXTFELD DIESEN STAND BRAUCHT UND NICHT `originalTariff`/`originalFinancial`
+   * Die beiden `original*` sind der Stand aus Schritt 2 und zugleich das Ziel von „Zurücksetzen".
+   * Für eine VORSCHAU wären sie der falsche Bezugspunkt: sie zeigte dann Änderungen gegenüber
+   * etwas, das der Nutzer gar nicht mehr vor sich hat. Schlimmer noch — hätte er zuvor im
+   * Annahmen-Panel etwas eingestellt, baute eine daraus abgeleitete Neuberechnung genau diese
+   * Einstellung still wieder ab. Dieselbe Klasse von stillem Verlust wie beim Batterie-Preset
+   * (Nachtrag zu Delta 17 Teil 2).
+   *
+   * `null` nur theoretisch (der Hook füllt es im selben Schritt, in dem das Ergebnis entsteht) —
+   * dann sind die Werte aus Schritt 2 die beste verfügbare Aussage.
+   */
+  effectiveInputs: AnalysisRunInputs | null
   onRecompute: (input: RecomputeInput) => void
   onResetAssumptions: () => void
 }) {
@@ -103,6 +125,9 @@ export function Report({
    * Es ist ausdrücklich das PRESET und nicht der zuletzt angezeigte Lauf: die Grundlinie darf einer
    * laufenden Änderung im Panel nicht nachwandern, sonst gäbe es nichts mehr zurückzusetzen.
    */
+  /** Delta 18: erzwingt einen Neuaufbau des Annahmen-Panels nach einer Änderung per Freitext. */
+  const [assumptionsKey, setAssumptionsKey] = useState(0)
+
   const baselineCatalog = useMemo(
     () => applyBatteryOverride(DEMO_BATTERY_CATALOG, batteryPreset),
     [batteryPreset],
@@ -163,6 +188,113 @@ export function Report({
    * der Zahlen die wichtigste Angabe überhaupt.
    */
   const isStandardProfile = loadProfile.source === 'standard_profile'
+
+  /*
+   * ── Delta 18: DER AKTUELL WIRKSAME STAND ────────────────────────────────────────────────────
+   * Bezugspunkt der Vorschau UND Grundlage jeder daraus gebauten Neuberechnung. Er kommt aus dem
+   * ANGEZEIGTEN Lauf, nicht aus Schritt 2 (s. `effectiveInputs`): `assumptions` sagt, womit der
+   * Worker gerechnet hat, `perBattery[…].battery` ist der tatsächlich benutzte Katalog-Eintrag
+   * (inklusive Preset und Panel-Änderung), und `financial` steht nur in den Eingaben.
+   */
+  const effectiveTariff = effectiveInputs?.tariff ?? originalTariff
+  const effectiveFinancial = effectiveInputs?.financial ?? originalFinancial
+  const selectedEntry =
+    result.perBattery.find((p) => p.battery.id === selectedBatteryId) ?? recommended
+  const selectedBattery =
+    selectedEntry?.battery ?? baselineCatalog.find((b) => b.id === selectedBatteryId) ?? baselineCatalog[0]!
+
+  const requestCurrent: ReportRequestCurrent = {
+    billingModel: a.billingModel,
+    horizonYears: a.horizonYears,
+    subsidyPercent: effectiveFinancial?.subsidyPercent ?? null,
+    fixedSubsidyEur: effectiveFinancial?.fixedSubsidyEur ?? null,
+    depreciationYears: effectiveFinancial?.depreciationYears ?? null,
+    taxRatePercent: effectiveFinancial?.taxRatePercent ?? null,
+    roundTripEfficiencyPercent: selectedBattery.roundTripEfficiency * 100,
+    pricePerKwh: selectedBattery.pricePerKwh,
+  }
+
+  /*
+   * ── Delta 18: DIE ÜBERSETZUNG IN EINE NEUBERECHNUNG ─────────────────────────────────────────
+   * Es entsteht KEIN neuer Mechanismus: gebaut wird dasselbe `RecomputeInput`, das auch das
+   * Annahmen-Panel liefert, und es geht durch denselben `onRecompute`. Alles, was der Satz nicht
+   * erwähnt, reist unverändert mit — ein Feld wegzulassen hiesse, es still auf den Stand von
+   * Schritt 2 zurückzusetzen.
+   */
+  function applyReportRequest(changes: ProposedChange[]) {
+    const numberFor = (field: ReportRequestField): number | undefined => {
+      const hit = changes.find((c) => c.field === field)
+      return typeof hit?.to === 'number' ? hit.to : undefined
+    }
+    const billing = changes.find((c) => c.field === 'billingModel')?.to as BillingModel | undefined
+
+    const subsidyPercent = numberFor('subsidyPercent')
+    const fixedSubsidyEur = numberFor('fixedSubsidyEur')
+    const depreciationYears = numberFor('depreciationYears')
+    const taxRatePercent = numberFor('taxRatePercent')
+    /*
+     * Auf dem wirksamen Stand aufgesetzt, nicht auf `originalFinancial`. `investitionsfreibetrag-
+     * Percent` und `note` reisen dadurch von selbst mit — sie sind in keinem der beiden Wege
+     * editierbar und dürfen trotzdem nicht verschwinden.
+     *
+     * Eine erneute zod-Prüfung findet hier bewusst NICHT statt: die Grenzen (0–100 %, positiv)
+     * stehen bereits in `parseReportRequestExtraction` und sind wortgleich die aus
+     * `financialParamsSchema`; die unveränderten Felder stammen aus einem bereits geprüften Stand.
+     * Eine zweite Prüfung mit stillem Rückfall fügte einen Pfad hinzu, auf dem eine Angabe des
+     * Nutzers lautlos verschwände, ohne Sicherheit hinzuzufügen.
+     */
+    const touchesFinancial =
+      subsidyPercent !== undefined ||
+      fixedSubsidyEur !== undefined ||
+      depreciationYears !== undefined ||
+      taxRatePercent !== undefined
+    const financial: FinancialParams | undefined =
+      touchesFinancial || effectiveFinancial
+        ? {
+            ...effectiveFinancial,
+            ...(subsidyPercent !== undefined ? { subsidyPercent } : {}),
+            ...(fixedSubsidyEur !== undefined ? { fixedSubsidyEur } : {}),
+            ...(depreciationYears !== undefined ? { depreciationYears } : {}),
+            ...(taxRatePercent !== undefined ? { taxRatePercent } : {}),
+          }
+        : undefined
+
+    const efficiencyPercent = numberFor('roundTripEfficiencyPercent')
+    const pricePerKwh = numberFor('pricePerKwh')
+    /*
+     * ⚠ DIE EINZIGE STELLE, AN DER PROZENT ZU BRUCHTEIL WIRD — wie in `battery-text-panel.tsx`
+     * und aus demselben Grund: zweimal umgerechnet wäre der Wirkungsgrad 0,9 %, eine Zahl, die
+     * durch jede Schemaprüfung liefe und die Ersparnis lautlos vernichtete.
+     *
+     * Nennt der Satz keine der beiden Batteriegrössen, reist der WIRKSAME Override unverändert
+     * mit — nicht `undefined`. Sonst verlöre dieser Weg ein bestätigtes Preset und eine
+     * Panel-Änderung, also genau der Defekt, der im Nachtrag zu Delta 17 Teil 2 behoben wurde.
+     */
+    const batteryOverride =
+      efficiencyPercent !== undefined || pricePerKwh !== undefined
+        ? {
+            batteryId: selectedBattery.id,
+            roundTripEfficiency:
+              (efficiencyPercent ?? requestCurrent.roundTripEfficiencyPercent) / 100,
+            pricePerKwh: pricePerKwh ?? requestCurrent.pricePerKwh,
+          }
+        : effectiveInputs?.batteryOverride
+
+    onRecompute({
+      tariff: billing ? { ...effectiveTariff, billingModel: billing } : effectiveTariff,
+      financial,
+      horizonYears: numberFor('horizonYears') ?? a.horizonYears,
+      batteryOverride,
+    })
+    /*
+     * Das Annahmen-Panel hält seine Felder in lokalem Zustand, der aus den Werten beim MOUNTEN
+     * stammt. Nach einer Änderung von hier zeigte es sonst weiter die alten Zahlen — und der
+     * nächste Klick dort schickte sie zurück und machte diese Änderung still rückgängig. Der
+     * Schlüsselwechsel baut es neu auf, mit den jetzt wirksamen Werten als Vorbelegung; sein
+     * Ziel für „Zurücksetzen" bleibt davon unberührt (`original*`).
+     */
+    setAssumptionsKey((n) => n + 1)
+  }
 
   // Shortcut „Mit Jahreshöchstwert rechnen": GENAU derselbe Recompute-Pfad wie das Annahmen-Panel
   // (§6.2, Prompt C) — `onRecompute` → Worker `recompute`. KEIN zweiter Umschalt-Mechanismus: der
@@ -347,6 +479,20 @@ export function Report({
         </Accordion>
       )}
 
+      {/*
+        ── Delta 18: die Report-Anfrage in eigenen Worten ────────────────────────────────────────
+        Steht ABSICHTLICH hier: unmittelbar über „Annahmen & Rechenweise", weil es genau dessen
+        acht Grössen bedient und nichts darüber hinaus — und AUSSERHALB der Accordion, weil eine
+        Abkürzung, die man erst aufklappen muss, keine ist. `print:hidden` wie die beiden
+        Accordions: ein Eingabefeld gehört nicht ins gedruckte Dokument.
+      */}
+      <ReportRequestPanel
+        current={requestCurrent}
+        batteryName={selectedBattery.name}
+        recomputing={recomputing}
+        onApply={applyReportRequest}
+      />
+
       <Accordion
         type="single"
         collapsible
@@ -356,9 +502,18 @@ export function Report({
           <AccordionTrigger>Annahmen &amp; Rechenweise</AccordionTrigger>
           <AccordionContent>
             <AssumptionsPanel
+              key={assumptionsKey}
               originalTariff={originalTariff}
               originalFinancial={originalFinancial}
               originalHorizonYears={DEFAULT_HORIZON_YEARS}
+              /*
+               * Delta 18: die Felder starten auf dem WIRKSAMEN Stand, „Zurücksetzen" führt
+               * weiterhin auf `original*`. Ohne diese Trennung zeigte das Panel nach einer
+               * Änderung per Freitext die alten Zahlen — und machte sie beim nächsten Klick
+               * still rückgängig.
+               */
+              effectiveFinancial={effectiveFinancial}
+              effectiveHorizonYears={a.horizonYears}
               liveBillingModel={a.billingModel}
               originalBattery={
                 baselineCatalog.find((b) => b.id === selectedBatteryId) ??

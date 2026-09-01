@@ -45,3 +45,6 @@ export * from './invoice-merge'
 // Delta 17 Teil 2: die Batterie-Freitexterfassung — Zielschema, Auswertung und die Zuordnung einer
 // genannten Kapazität zum FESTEN Katalog (der Abstand wird benannt, nicht weggerundet).
 export * from './battery-text'
+// Delta 18: die Report-Anfrage-Übersetzung — ein Satz wird zu einem VORSCHLAG für genau die acht
+// Grössen, die eine Neuberechnung entgegennimmt; alles andere wird als solches abgelehnt.
+export * from './report-request'
