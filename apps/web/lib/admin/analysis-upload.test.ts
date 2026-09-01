@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  ANALYSIS_BUNDLE_VERSION,
   ENGINE_COMMIT_SHA_PLACEHOLDER,
   ENGINE_VERSION,
   buildAnalysisBundle,
@@ -151,14 +152,16 @@ describe('B14-2 — Prüfkette des Analyse-Uploads', () => {
   // ── Pflicht-Test 1 ────────────────────────────────────────────────────────────────────────────
   it('weist eine unbekannte bundleVersion ab und erzeugt keine Argumente', async () => {
     const bundle = await bundleFor()
-    // Seit B11 sind 1 UND 2 gültig; unbekannt ist die nächsthöhere. Der Fall bleibt derselbe:
-    // ein Bündel aus einer neueren Rechner-Fassung wird nicht halb verstanden übernommen.
-    const text = JSON.stringify({ ...bundle, bundleVersion: 3 })
+    // Seit der Bestandsbatterie sind 1, 2 UND 3 gültig; unbekannt ist die nächsthöhere. Der Fall
+    // bleibt derselbe: ein Bündel aus einer neueren Rechner-Fassung wird nicht halb verstanden
+    // übernommen. Die Zahl wandert mit `ANALYSIS_BUNDLE_VERSION` mit.
+    const unknown = ANALYSIS_BUNDLE_VERSION + 1
+    const text = JSON.stringify({ ...bundle, bundleVersion: unknown })
 
     const result = await prepare(text)
     expect(result.ok).toBe(false)
     if (result.ok) throw new Error('unerreichbar')
-    expect(result.message).toMatch(/Unbekannte Bündel-Fassung 3/)
+    expect(result.message).toMatch(new RegExp(`Unbekannte Bündel-Fassung ${unknown}`))
     expect(result.message).toMatch(/es wird nichts angelegt/i)
     // Es gibt keine Argumente — also gibt es auch nichts, was an die Datenbank gehen könnte.
     expect('prepared' in result).toBe(false)

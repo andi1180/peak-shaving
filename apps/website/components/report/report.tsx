@@ -21,7 +21,7 @@ import {
 } from '@/components/ui/accordion'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
-import { applyBatteryOverride } from '@/lib/battery-override'
+import { applyBatteryOverride, overrideSourceFor } from '@/lib/battery-override'
 import { DEFAULT_HORIZON_YEARS, LARGE_GAP_SLOTS_THRESHOLD } from '@/lib/constants'
 import type { AnalysisRunInputs } from '@/lib/use-analysis'
 import type { BatteryPreset, RecomputeInput } from '@/components/flow/types'
@@ -142,6 +142,35 @@ export function Report({
   const alternatives = result.perBattery.filter((p) => p !== recommended).slice(0, 3)
   const a = result.assumptions
 
+  /*
+   * ── DIE BESTANDSANLAGE DES KUNDEN ──────────────────────────────────────────────────────────────
+   * Hat der Kunde in Schritt 2 seinen eigenen Speicher bestätigt (`source: 'existing'`), ist ER der
+   * primäre Block dieses Reports — nicht eine Empfehlung, die er nicht braucht. Für ihn weist der
+   * Report weder Investition noch Amortisation aus: die Anschaffung ist bezahlt, und beide Zahlen
+   * beantworten eine Kaufentscheidung, die längst gefallen ist.
+   *
+   * ⚠ DIE EMPFEHLUNG BLEIBT DAVON UNBERÜHRT. `recommendBattery` läuft unverändert über den vollen
+   * Katalog (Architektur-Vorgabe, s. `rank.ts`) — sie wandert nur in einen eigenen, klar als
+   * Neuanschaffung gerahmten Abschnitt darunter. Damit beantwortet der Report weiterhin die Frage,
+   * die ein Bestandskunde tatsächlich hat: lohnt sich zusätzlich ein grösseres Gerät?
+   *
+   * Der wirksame Override des ANGEZEIGTEN Laufs entscheidet, nicht der Stand aus Schritt 2: eine
+   * Live-Neuberechnung kann ihn verschoben haben (`resolveBatteryOverride` hält `existing` dabei
+   * fest, solange dieselbe Anlage gemeint ist). `batteryPreset` ist nur der theoretische Rückfall,
+   * solange `effectiveInputs` noch nicht steht — dieselbe Vorrangregel wie bei `effectiveTariff`.
+   *
+   * Findet die Kennung keinen gerechneten Kandidaten (praktisch unmöglich, sie stammt aus dem
+   * festen Katalog), bleibt es beim heutigen Verhalten — kein leerer primärer Block.
+   */
+  const activeOverride = effectiveInputs?.batteryOverride ?? batteryPreset
+  const existingEntry =
+    activeOverride?.source === 'existing'
+      ? result.perBattery.find((p) => p.battery.id === activeOverride.batteryId)
+      : undefined
+  const isExisting = existingEntry != null
+  /** Der Block, der oben steht: die Anlage des Kunden, sonst die Empfehlung. */
+  const primaryEntry = existingEntry ?? recommended
+
   // Teiljahres-Verzerrung der KERN-Kennzahl (§3.5): ein `monthly_*`-Modell mittelt/summiert über die
   // 12 Monate — bei < 12 belegten Monaten ist der abgerechnete Leistungswert oben nicht aussagekräftig
   // (leere Monate flossen früher als 0 in die Mittelung, verdünnten den realen Peak auf ~1/12; die
@@ -201,7 +230,9 @@ export function Report({
   const selectedEntry =
     result.perBattery.find((p) => p.battery.id === selectedBatteryId) ?? recommended
   const selectedBattery =
-    selectedEntry?.battery ?? baselineCatalog.find((b) => b.id === selectedBatteryId) ?? baselineCatalog[0]!
+    selectedEntry?.battery ??
+    baselineCatalog.find((b) => b.id === selectedBatteryId) ??
+    baselineCatalog[0]!
 
   const requestCurrent: ReportRequestCurrent = {
     billingModel: a.billingModel,
@@ -277,6 +308,14 @@ export function Report({
             roundTripEfficiency:
               (efficiencyPercent ?? requestCurrent.roundTripEfficiencyPercent) / 100,
             pricePerKwh: pricePerKwh ?? requestCurrent.pricePerKwh,
+            /*
+             * Korrigierte Zahlen ändern nicht, WEM das Gerät gehört: betrifft die Anfrage die
+             * bestätigte Bestandsanlage, bleibt sie eine — sonst forderte der Report nach einem
+             * Satz wie „rechne mit 85 % Wirkungsgrad" plötzlich wieder eine Investition für einen
+             * Speicher, der längst an der Wand hängt. Dieselbe Regel hält
+             * `resolveBatteryOverride` zusätzlich zentral fest.
+             */
+            source: overrideSourceFor(selectedBattery.id, activeOverride),
           }
         : effectiveInputs?.batteryOverride
 
@@ -320,6 +359,90 @@ export function Report({
     result.current.billedKw > 0
       ? result.current.leistungspreisCostPerYear / result.current.billedKw
       : null
+
+  /*
+   * ── DREI KÄSTEN, DIE JE NACH FALL AN VERSCHIEDENEN STELLEN STEHEN ──────────────────────────────
+   * Als Konstanten und nicht zweimal ausgeschrieben: die beiden Anordnungen unterscheiden sich in
+   * der PLATZIERUNG, nicht im Inhalt — zwei Kopien liefen beim nächsten Umbau auseinander, und
+   * dann sähe derselbe Kunde je nach Fall zwei verschiedene Charts.
+   */
+
+  /*
+   * ⚠ DER KOSTENVERGLEICH GEHÖRT ZUR NEUANSCHAFFUNG UND WANDERT MIT IHR NACH UNTEN.
+   *
+   * Er zeigt kumulierte Kosten mit/ohne Batterie samt Break-even — und beide Linien BEGINNEN bei
+   * `netInvestment` (s. `buildYearSeries` in `cost-chart.tsx`). Genau diese Investition ist bei
+   * einer bestehenden Anlage bereits ausgegeben; auf sie einen Break-even zu zeichnen hiesse, die
+   * Amortisation durch die Hintertür wieder aufzumachen, die der primäre Block gerade weglässt.
+   *
+   * Eine Fassung „ohne Investitionsachse" wäre kein Ersatz: übrig blieben zwei Geraden mit
+   * konstantem Abstand, also nichts, was die Jahresersparnis als Zahl nicht schon sagt. Deshalb
+   * bleibt der Kasten unverändert an die Empfehlung gebunden und steht dort, wo er hingehört —
+   * im Neuanschaffungs-Abschnitt.
+   */
+  const costChartBox = (
+    <div className="rounded-lg border border-border bg-surface p-6 print:break-inside-avoid">
+      <p className="mb-1 text-sm font-medium text-ink">Kostenvergleich mit/ohne Batterie</p>
+      <p className="mb-3 text-xs text-text-muted">
+        Kumulierte Kosten über {a.horizonYears} Jahre, Ersparnis nach Kategorie
+      </p>
+      {recommended && (
+        <CostChart
+          entry={recommended}
+          currentLeistungspreisCostPerYear={result.current.leistungspreisCostPerYear}
+          horizonYears={a.horizonYears}
+        />
+      )}
+    </div>
+  )
+
+  const energyFlowBox = (
+    <EnergyFlowChart
+      perBattery={result.perBattery}
+      selectedBatteryId={selectedBatteryId}
+      onSelectBattery={setSelectedBatteryId}
+      timeZone={loadProfile.timezoneMeta}
+    />
+  )
+
+  const nextStepBox = (
+    <div className="flex flex-col justify-center gap-3 rounded-lg border border-border bg-surface p-6 print:break-inside-avoid">
+      <p className="text-sm font-medium text-ink">Nächster Schritt</p>
+      {/*
+        `recommendation.rationale` beschreibt den empfohlenen KAUF („spart X, amortisiert in Y") —
+        neben der bestehenden Anlage wäre das die Antwort auf eine andere Frage, und sie steht
+        unverändert im Neuanschaffungs-Abschnitt darunter.
+      */}
+      <p className="text-sm text-text-muted">
+        {isExisting
+          ? 'Ihr Speicher ist oben mit Ihren Angaben durchgerechnet. Ob sich daneben ein neues Gerät lohnt, zeigt der Vergleich darunter.'
+          : result.recommendation.rationale}
+      </p>
+      <div className="print:hidden">
+        <LeadDialog />
+      </div>
+    </div>
+  )
+
+  const alternativesAccordion =
+    alternatives.length > 0 ? (
+      <Accordion
+        type="single"
+        collapsible
+        className="rounded-lg border border-border bg-surface px-4 print:hidden"
+      >
+        <AccordionItem value="alternatives" className="border-b-0">
+          <AccordionTrigger>{alternatives.length} Alternativen ansehen</AccordionTrigger>
+          <AccordionContent>
+            <div className="grid gap-4 pt-2 sm:grid-cols-2">
+              {alternatives.map((entry) => (
+                <RecommendationCard key={entry.battery.id} entry={entry} />
+              ))}
+            </div>
+          </AccordionContent>
+        </AccordionItem>
+      </Accordion>
+    ) : null
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8 sm:px-6">
@@ -394,29 +517,50 @@ export function Report({
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="flex flex-col gap-6 lg:col-span-1">
-          {recommended && <RecommendationCard entry={recommended} primary />}
+          {/*
+            Der primäre Block: die bestehende Anlage des Kunden, sonst die Empfehlung. Die Variante
+            entscheidet allein darüber, ob Investition und Amortisation dastehen — Ersparnis,
+            Aufschlüsselung und Vorbehalte sind in beiden Fällen dieselben, aus derselben
+            `perBattery`-Zeile derselben EINEN Rechnung.
+          */}
+          {primaryEntry && (
+            <RecommendationCard
+              entry={primaryEntry}
+              primary
+              variant={isExisting ? 'existing' : 'catalog'}
+            />
+          )}
           {/*
             Delta 9a — der Tarifoptimierungs-Hebel steht DANEBEN, nicht darin: er ist eine eigene
             Aussage über eine eigene Datengrundlage, und wenn er ausfällt, bleibt die
             Peak-Shaving-Karte darüber unverändert stehen und sichtbar. Ohne angeforderten Hebel
             rendert die Karte gar nichts.
+
+            Er trägt die Zahl DESSELBEN Geräts wie der Block darüber: eine Lastverschiebungs-
+            Ersparnis, die zu einer anderen Batterie gehört, stünde sonst unerklärt in derselben
+            Spalte neben der des Kunden.
           */}
           <TariffOptimizationCard
             status={result.tariffOptimization}
-            recommended={recommended}
+            recommended={primaryEntry}
             timeZone={loadProfile.timezoneMeta}
           />
         </div>
         <div className="flex flex-col gap-6 lg:col-span-2">
           <div className="rounded-lg border border-border bg-surface p-6 print:break-inside-avoid">
             <p className="mb-1 text-sm font-medium text-ink">Lastgang mit Kapp-Linie</p>
+            {/*
+              Die Kapp-Linie gehört zum primären Block darüber. Bei einem Bestandskunden ist das
+              SEINE Anlage — eine Schwelle, die ein Gerät zöge, das er erst kaufen müsste, wäre im
+              Hauptdiagramm seiner eigenen Auswertung die falsche Linie.
+            */}
             <p className="mb-3 text-xs text-text-muted">
-              Jahresverlauf, teuerste abgefangene Spitzen markiert (anklickbar) — Kapp-Schwelle der
-              empfohlenen Batterie eingezeichnet
+              Jahresverlauf, teuerste abgefangene Spitzen markiert (anklickbar) — Kapp-Schwelle{' '}
+              {isExisting ? 'Ihres Speichers' : 'der empfohlenen Batterie'} eingezeichnet
             </p>
             <LoadChart
               loadProfile={loadProfile}
-              dispatchTrace={recommended?.dispatchTrace}
+              dispatchTrace={primaryEntry?.dispatchTrace}
               billingModel={a.billingModel}
               leistungspreisRatePerKwYear={leistungspreisRatePerKwYear}
             />
@@ -428,55 +572,59 @@ export function Report({
             Betrifft ausschliesslich die Anordnung; die Charts selbst sind unverändert.
           */}
           <div className="grid gap-6 sm:grid-cols-2 print:grid-cols-1">
-            <div className="rounded-lg border border-border bg-surface p-6 print:break-inside-avoid">
-              <p className="mb-1 text-sm font-medium text-ink">Kostenvergleich mit/ohne Batterie</p>
-              <p className="mb-3 text-xs text-text-muted">
-                Kumulierte Kosten über {a.horizonYears} Jahre, Ersparnis nach Kategorie
-              </p>
-              {recommended && (
-                <CostChart
-                  entry={recommended}
-                  currentLeistungspreisCostPerYear={result.current.leistungspreisCostPerYear}
-                  horizonYears={a.horizonYears}
-                />
-              )}
-            </div>
-            <div className="flex flex-col gap-6">
-              <EnergyFlowChart
-                perBattery={result.perBattery}
-                selectedBatteryId={selectedBatteryId}
-                onSelectBattery={setSelectedBatteryId}
-                timeZone={loadProfile.timezoneMeta}
-              />
-              <div className="flex flex-col justify-center gap-3 rounded-lg border border-border bg-surface p-6 print:break-inside-avoid">
-                <p className="text-sm font-medium text-ink">Nächster Schritt</p>
-                <p className="text-sm text-text-muted">{result.recommendation.rationale}</p>
-                <div className="print:hidden">
-                  <LeadDialog />
+            {isExisting ? (
+              <>
+                {energyFlowBox}
+                {nextStepBox}
+              </>
+            ) : (
+              <>
+                {costChartBox}
+                <div className="flex flex-col gap-6">
+                  {energyFlowBox}
+                  {nextStepBox}
                 </div>
-              </div>
-            </div>
+              </>
+            )}
           </div>
         </div>
       </div>
 
-      {alternatives.length > 0 && (
-        <Accordion
-          type="single"
-          collapsible
-          className="rounded-lg border border-border bg-surface px-4 print:hidden"
-        >
-          <AccordionItem value="alternatives" className="border-b-0">
-            <AccordionTrigger>{alternatives.length} Alternativen ansehen</AccordionTrigger>
-            <AccordionContent>
-              <div className="grid gap-4 pt-2 sm:grid-cols-2">
-                {alternatives.map((entry) => (
-                  <RecommendationCard key={entry.battery.id} entry={entry} />
-                ))}
-              </div>
-            </AccordionContent>
-          </AccordionItem>
-        </Accordion>
+      {/*
+        ── DER NEUANSCHAFFUNGS-VERGLEICH ────────────────────────────────────────────────────────
+        Das Ranking ist unverändert (voller Katalog, `rank.ts` unangetastet) — nur die RAHMUNG ist
+        eine andere: für jemanden, der bereits einen Speicher hat, ist die Empfehlung keine Antwort
+        auf „was soll ich tun", sondern auf „was brächte ein neues Gerät zusätzlich". Genau das
+        sagt die Überschrift, und deshalb tragen ausschliesslich diese Karten Investition und
+        Amortisation.
+
+        Die Alternativen-Aufklappliste steht INNERHALB des Abschnitts, nicht bloss darunter: sie
+        gehört zur selben Frage, und die Zugehörigkeit soll aus der Struktur folgen und nicht aus
+        der zufälligen Reihenfolge zweier Nachbarn.
+      */}
+      {isExisting ? (
+        <section className="flex flex-col gap-4">
+          <div>
+            <h2 className="text-lg font-semibold text-ink">
+              Falls Sie stattdessen neu kaufen würden
+            </h2>
+            <p className="mt-1 text-sm text-text-muted">
+              Der Rechner vergleicht unverändert den vollen Katalog. Hier steht, was ein{' '}
+              <strong>neu angeschaffter</strong> Speicher an diesem Lastgang leisten würde — diese
+              Zahlen tragen deshalb Investition und Amortisation, Ihre bestehende Anlage oben trägt
+              beides nicht.
+            </p>
+          </div>
+          <div className="grid gap-6 lg:grid-cols-3">
+            <div className="lg:col-span-1">
+              {recommended && <RecommendationCard entry={recommended} primary />}
+            </div>
+            <div className="lg:col-span-2">{costChartBox}</div>
+          </div>
+          {alternativesAccordion}
+        </section>
+      ) : (
+        alternativesAccordion
       )}
 
       {/*
@@ -516,13 +664,18 @@ export function Report({
               effectiveHorizonYears={a.horizonYears}
               liveBillingModel={a.billingModel}
               originalBattery={
-                baselineCatalog.find((b) => b.id === selectedBatteryId) ??
-                baselineCatalog[0]!
+                baselineCatalog.find((b) => b.id === selectedBatteryId) ?? baselineCatalog[0]!
               }
               selectedBatteryName={
                 result.perBattery.find((p) => p.battery.id === selectedBatteryId)?.battery.name ??
                 selectedBatteryId
               }
+              /*
+               * Die Herkunft der gerade bearbeiteten Batterie — abgeleitet, nicht im Panel
+               * erfunden: dort ist nur ein Katalog-Eintrag sichtbar, und ob der dem Kunden
+               * bereits gehört, steht ausschliesslich im wirksamen Override.
+               */
+              batterySource={overrideSourceFor(selectedBatteryId, activeOverride)}
               isEdited={isLive}
               recomputing={recomputing}
               recomputeError={recomputeError}

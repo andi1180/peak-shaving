@@ -7,6 +7,7 @@ import {
   buildAnalysisBundle,
   deriveBaselineExtracts,
   isPlaceholderCommitSha,
+  SUPPORTED_ANALYSIS_BUNDLE_VERSIONS,
   parseAnalysisBundle,
   serializeAnalysisBundle,
   type AnalysisBundleInputs,
@@ -201,7 +202,7 @@ describe('B11 — Tarif-Herkunft im Bündel (Fassung 2)', () => {
       sourceFile: SOURCE,
     })
 
-    expect(bundle.bundleVersion).toBe(2)
+    expect(bundle.bundleVersion).toBe(ANALYSIS_BUNDLE_VERSION)
     expect(bundle.inputs.tariffSetId).toBe('at-2026')
     expect(bundle.inputs.tariffSetValidFrom).toBe('2026-01-01')
     expect(bundle.inputs.tariffProfileKey).toBe('wiener_netze:NE3')
@@ -225,7 +226,7 @@ describe('B11 — Tarif-Herkunft im Bündel (Fassung 2)', () => {
     // Fehlend, nicht leer: „kam direkt aus der Netzrechnung" ist eine eigene Aussage.
     expect(bundle.inputs.tariffSetId).toBeUndefined()
     expect(bundle.inputs.tariffOverriddenFields).toBeUndefined()
-    expect(bundle.bundleVersion).toBe(2)
+    expect(bundle.bundleVersion).toBe(ANALYSIS_BUNDLE_VERSION)
   })
 
   it('unterscheidet „unverändert übernommen" von „keine Auswahl"', async () => {
@@ -260,11 +261,70 @@ describe('B11 — Tarif-Herkunft im Bündel (Fassung 2)', () => {
   })
 
   it('lehnt eine unbekannte Fassung weiterhin ab, statt zu raten', () => {
-    const parsed = parseAnalysisBundle({ bundleVersion: 3 })
+    // Unbekannt ist die nächsthöhere Fassung — die Zahl wandert mit `ANALYSIS_BUNDLE_VERSION` mit,
+    // der Fall bleibt derselbe: ein Bündel aus einem neueren Rechner-Stand wird nicht halb
+    // verstanden übernommen.
+    const parsed = parseAnalysisBundle({ bundleVersion: ANALYSIS_BUNDLE_VERSION + 1 })
     expect(parsed.ok).toBe(false)
     if (parsed.ok) return
-    expect(parsed.message).toContain('Unbekannte Bündel-Fassung 3')
-    expect(parsed.message).toContain('1, 2')
+    expect(parsed.message).toContain(`Unbekannte Bündel-Fassung ${ANALYSIS_BUNDLE_VERSION + 1}`)
+    expect(parsed.message).toContain(SUPPORTED_ANALYSIS_BUNDLE_VERSIONS.join(', '))
+  })
+})
+
+describe('Bestandsbatterie — die Herkunft des Overrides (Fassung 3)', () => {
+  /*
+   * ⚠ WORUM ES HIER GEHT: `source` entscheidet, ob der Report für dieses Gerät Investition und
+   * Amortisation ausweist. Die Angabe muss deshalb EINGEFROREN mitreisen — wer 2028 eine
+   * archivierte Baseline liest, muss wissen, welche der beiden Aussagen der Kunde damals gesehen
+   * hat. Ohne sie liesse sich eine Bestandsanlage nachträglich nicht mehr von einer
+   * durchgespielten Katalog-Variante unterscheiden.
+   */
+  it('trägt `existing` wortgleich durch Export und Prüfung', async () => {
+    const bundle = await buildAnalysisBundle({
+      engineVersion: ENGINE_VERSION,
+      engineCommitSha: REAL_COMMIT,
+      computedAt: '2026-07-21T10:00:00.000Z',
+      inputs: {
+        ...INPUTS,
+        batteryOverride: {
+          batteryId: 'test-c60',
+          roundTripEfficiency: 0.9,
+          pricePerKwh: 900,
+          source: 'existing',
+        },
+      },
+      result: makeResult(),
+      sourceFileName: 'lastgang-2023.csv',
+      sourceFile: SOURCE,
+    })
+
+    expect(bundle.bundleVersion).toBe(3)
+    expect(bundle.inputs.batteryOverride?.source).toBe('existing')
+
+    const parsed = parseAnalysisBundle(JSON.parse(serializeAnalysisBundle(bundle)))
+    expect(parsed.ok).toBe(true)
+    if (!parsed.ok) return
+    // UNVERÄNDERT: die Prüfung gibt das rohe Objekt zurück, sie schreibt nichts um.
+    expect(parsed.bundle.inputs.batteryOverride).toEqual({
+      batteryId: 'test-c60',
+      roundTripEfficiency: 0.9,
+      pricePerKwh: 900,
+      source: 'existing',
+    })
+  })
+
+  it('nimmt ein Bündel der Fassung 2 an — dort fehlt die Herkunft, und das ist eine eigene Aussage', async () => {
+    const current = await makeBundle()
+    // Wie der Rechner es VOR diesem Bauabschnitt erzeugt hat: Fassung 2, ohne `source`. Dort ist
+    // nicht „Katalog" gemeint, sondern „die Unterscheidung gab es noch nicht".
+    const v2 = { ...current, bundleVersion: 2 }
+
+    const parsed = parseAnalysisBundle(JSON.parse(JSON.stringify(v2)))
+    expect(parsed.ok).toBe(true)
+    if (!parsed.ok) return
+    expect(parsed.bundle.bundleVersion).toBe(2)
+    expect(parsed.bundle.inputs.batteryOverride?.source).toBeUndefined()
   })
 })
 

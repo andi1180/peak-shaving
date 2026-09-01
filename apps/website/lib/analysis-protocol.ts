@@ -1,4 +1,4 @@
-import type { AnalysisResult } from 'shared'
+import type { AnalysisResult, BatteryOverrideSource } from 'shared'
 import type { CalculatorPayload } from '@/components/flow/types'
 
 // Nachrichten-Protokoll zwischen UI-Thread und Analyse-Worker. Der Payload trägt seit
@@ -18,6 +18,18 @@ export type BatteryOverride = {
   batteryId: string
   roundTripEfficiency?: number
   pricePerKwh?: number
+  /**
+   * Ob dieser Override den BEREITS VORHANDENEN Speicher des Kunden beschreibt (`existing`) oder
+   * eine durchgespielte Katalog-Variante (`catalog_preset`). Der Wert entscheidet im Report, ob
+   * Investition und Amortisation ausgewiesen werden — s. `BatteryOverrideSource` in `shared`.
+   *
+   * ⚠ ABSICHTLICH PFLICHT und nicht optional: es gibt drei Stellen, an denen ein Override
+   * entsteht, und jede von ihnen weiss, welcher Fall vorliegt. Optional wäre der Vorgabewert
+   * „keine Angabe", und der vierte Aufrufer träfe die Entscheidung dann versehentlich — mit dem
+   * Ergebnis, dass ein Bestandsgerät wieder mit einer Amortisationszeit dasteht. Der Compiler
+   * fragt jetzt danach.
+   */
+  source: BatteryOverrideSource
 }
 
 export type AnalysisRequest =
