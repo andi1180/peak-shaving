@@ -58,7 +58,14 @@ import {
   type Netzebene,
   type OperatorOption,
 } from '@/lib/admin/grid-tariffs'
-import { AdminError, AdminField, AdminPanel, AdminSelect, AdminSuccess } from './ui'
+import {
+  AdminError,
+  AdminField,
+  AdminFixedValue,
+  AdminPanel,
+  AdminSelect,
+  AdminSuccess,
+} from './ui'
 
 /** Die Vorsilbe jeder DOM-Kennung, wenn der Aufrufer keine eigene vorgibt (Einzelformular). */
 const DEFAULT_FORM_ID = 'gt'
@@ -96,10 +103,27 @@ const NETZEBENE_UNSET = ''
  * ein grauer Beispielbetrag aus wie ein abgelesener — und `38.52` WAR am 01.09.2026 an
  * WN-EX0105 sogar der zutreffende NE-3-Grundpreis, während `0.62` frei erfunden war (die echten
  * Netzverlustentgelte dieses Blattes liegen bei 0,109 bis 0,700). Format-Platzhalter wie „00:00"
- * oder „04-01" bleiben: sie zeigen eine Schreibweise, die man nicht raten kann, und sind als
- * Betrag nicht lesbar.
+ * oder „24:00" bleiben: sie zeigen eine Schreibweise, die man nicht raten kann (das Tagesende ist
+ * 24:00), und ein leeres Uhrzeit-Feld ist ohnehin kein gültiges Fenster — ein Uhrzeit-Platzhalter
+ * kann also nie für eine abgelesene Angabe gehalten werden.
+ *
+ * ── ⚠ DIE SAISONFELDER WAREN GENAU DAVON AUSGENOMMEN — UND ES HAT ZUGESCHLAGEN ────────────────
+ * Für „04-01"/„09-30" galt dieselbe Begründung, und sie trug nicht: Ein Monat-Tag-Paar IST als
+ * Wert lesbar, und diese beiden Zahlen sind zufällig die reale SNAP-Saison (1. April bis
+ * 30. September) genau des Blattes, das durch dieses Formular läuft. Am 01.09.2026 gemessen: Der
+ * Scan liefert für die Netzebenen 3 bis 6 korrekt KEINE Saison — im Formular stand darunter
+ * trotzdem sichtbar „04-01"/„09-30", und die Kopfzeile der Fensterzeile bürgte mit „Vorbelegt aus
+ * dem Preisblatt-Scan" optisch dafür mit. Das las sich als saisonal begrenzter NE-3-Tarif; die
+ * Rohantwort des Modells enthält an dieser Stelle nachweislich nichts. Dieselbe Falle wie beim
+ * Betrag „38.52", eine Ebene tiefer.
+ *
+ * Der Ersatz nennt deshalb keine Schreibweise, sondern die BEDEUTUNG des leeren Feldes; das Format
+ * steht ohnehin in der Beschriftung („MM-TT").
  */
 const AMOUNT_PLACEHOLDER = 'Betrag vom Preisblatt'
+
+/** Der Platzhalter der beiden Saisonfelder — eine Aussage über das leere Feld, keine Zahl. */
+const SEASON_PLACEHOLDER = 'leer = ganzjährig'
 
 /**
  * Der Herkunfts-Hinweis an einem Feld, das der Scan tatsächlich befüllt hat.
@@ -129,6 +153,28 @@ function scanOrigin(fromScan: boolean, hint?: React.ReactNode): React.ReactNode 
   ) : (
     origin
   )
+}
+
+/**
+ * Der Hinweis an EINEM der beiden Saisonfelder.
+ *
+ * Drei Zustände, drei verschiedene Aussagen — und der mittlere ist der, dessentwegen es diese
+ * Funktion gibt:
+ *
+ *   - Der Scan hat eine Saison gelesen  → der gewohnte Herkunftsvermerk.
+ *   - Der Scan hat die ZEILE gelesen, aber KEINE Saison → das wird ausdrücklich gesagt. Ohne diesen
+ *     Satz ist „der Scan hat hier nichts gefunden" von „ich habe die Saison noch nicht eingetragen"
+ *     nicht zu unterscheiden — und die Kopfzeile der Fensterzeile sagt daneben „Vorbelegt aus dem
+ *     Preisblatt-Scan".
+ *   - Kein Scan (Anlage von Hand) → kein Hinweis; der Platzhalter sagt bereits, was leer bedeutet.
+ */
+function seasonHint(
+  window: TariffSheetWindow | null,
+  field: 'monthDayFrom' | 'monthDayTo',
+): React.ReactNode {
+  if (!window) return undefined
+  if (window[field] !== null) return scanOrigin(true)
+  return 'Der Scan hat für dieses Fenster keine Saison gelesen — leer heisst ganzjährig.'
 }
 
 /** Reihenfolge, in der nach dem ersten Fehler fokussiert wird — von oben nach unten im Formular. */
@@ -228,6 +274,33 @@ export function CreateGridTariffForm({
    */
   const showVariant = netzebene !== null && hasMeteringVariant(netzebene)
 
+  /*
+   * ── ⚠ DIE IDENTITÄT EINER GESCANNTEN TARIFZEILE IST FEST, KEIN AUSWAHLFELD ──────────────────
+   * Hat der Scan die Kombination gelesen, steht sie als TEXT da und reist als verstecktes Feld
+   * mit. Der Grund ist nicht Bequemlichkeit, sondern was ein Umschalten bedeutete: Diese Instanz
+   * wurde AUS einem Kandidaten erzeugt — Grundpreis, Netzverlust und Fensterliste gehören zu
+   * SEINER Netzebene. Ein Dropdown änderte die Beschriftung und liesse die Preise stehen; heraus
+   * käme ein Tarifstand, der die Werte der einen Ebene unter dem Namen einer anderen anlegt. Und
+   * er wäre nicht mehr korrigierbar (kein Bearbeiten, B21-2b). Die Kopfzeile über dem Formular
+   * (`tariff-scan-candidates.tsx`) nennt dieselbe Kombination und kann dadurch nicht mehr von dem
+   * abweichen, was das Formular absendet.
+   *
+   * ⚠ MASSGEBLICH IST DER GELESENE WERT, NICHT `prefill != null`. Es gibt den Fall, dass ein Scan
+   * blattweite Angaben liefert und KEINE Zeile zuordnen kann (`tariffSheetFormPrefill(…, null)`) —
+   * dort MUSS die Auswahl bleiben, sonst liesse sich der Stand gar nicht anlegen. Dasselbe gilt
+   * für eine Netzebene 7 ohne gelesene Variante: `gridTariffSchema` verlangt sie dort, und ohne
+   * Auswahlfeld wäre das Formular unabsendbar.
+   */
+  const fixedNetzebene = prefill?.netzebene ?? null
+  const fixedVariant = fixedNetzebene !== null && showVariant ? (prefill?.meteringVariant ?? null) : null
+
+  /*
+   * Der eine Ausweg, wenn der Scan eine Zeile falsch zugeordnet hat. Er steht AN der Instanz und
+   * nicht nur im Handover: Ohne Dropdown ist „hier stimmt die Ebene nicht" sonst eine Sackgasse.
+   */
+  const fixedIdentityHint =
+    'Diese Zeile ist auf die gelesene Kombination festgelegt. Falsch zugeordnet? Diese Zeile stehen lassen und den Tarifstand unten von Hand anlegen.'
+
   return (
     <form action={formAction} className="flex flex-col gap-6" noValidate>
       {state.formError && <AdminError>{state.formError}</AdminError>}
@@ -295,6 +368,22 @@ export function CreateGridTariffForm({
 
       {/* ── Netzebene und Messvariante ────────────────────────────────────────────────────────── */}
       <div className="grid gap-4 sm:grid-cols-2">
+        {fixedNetzebene !== null ? (
+          <>
+            {/*
+              Der Wert reist als verstecktes Feld mit — `readGridTariffForm` liest weiterhin genau
+              `netzebene`, Schema und Server Action bleiben unangetastet.
+            */}
+            <input type="hidden" name="netzebene" value={String(fixedNetzebene)} />
+            <AdminFixedValue
+              id={`${formId}-netzebene`}
+              label="Netzebene"
+              value={`Netzebene ${fixedNetzebene}`}
+              error={state.fieldErrors?.netzebene}
+              hint={scanOrigin(true, fixedIdentityHint)}
+            />
+          </>
+        ) : (
         <AdminSelect
           id={`${formId}-netzebene`}
           name="netzebene"
@@ -327,6 +416,7 @@ export function CreateGridTariffForm({
             </option>
           ))}
         </AdminSelect>
+        )}
 
         {/*
           Die Variante gibt es NUR auf den Netzebenen, die sie anbieten (Delta 5). Auf allen anderen
@@ -334,7 +424,18 @@ export function CreateGridTariffForm({
           verstecktes täte es doch, und in der Spalte stünde dann eine Variante, wo `null` hingehört.
           Genau darauf beruht der `unique nulls not distinct`-Constraint aus B21-1.
         */}
-        {showVariant ? (
+        {fixedVariant !== null ? (
+          <>
+            <input type="hidden" name="meteringVariant" value={fixedVariant} />
+            <AdminFixedValue
+              id={`${formId}-meteringVariant`}
+              label="Leistungsmessungs-Variante"
+              value={METERING_VARIANT_LABELS[fixedVariant]}
+              error={state.fieldErrors?.meteringVariant}
+              hint={scanOrigin(true)}
+            />
+          </>
+        ) : showVariant ? (
           <AdminSelect
             id={`${formId}-meteringVariant`}
             name="meteringVariant"
@@ -517,20 +618,31 @@ export function CreateGridTariffForm({
                     hint="Tagesende ist 24:00 — deshalb ein Textfeld und kein Zeitwähler."
                     required
                   />
+                  {/*
+                    ⚠ DIE HERKUNFT STEHT HIER FELDGENAU UND NICHT AN DER KOPFZEILE.
+                    Für Bezeichnung, Uhrzeiten und Arbeitspreis ist die zeilenweite Aussage oben
+                    richtig: `parseWindow` verwirft eine Fensterzeile, sobald eines dieser vier
+                    Felder fehlt — sie stammen also ganz oder gar nicht aus dem Scan. Die Saison
+                    ist der EINZIGE Teil, den eine gelesene Zeile legitim NICHT trägt (ganzjährig
+                    heisst: beide Felder null). Genau dort trug die Kopfzeile ihre Aussage zu weit
+                    und bürgte für zwei leere Felder mit.
+                  */}
                   <AdminField
                     id={`${formId}-w${index}_monthDayFrom`}
                     name={`w${index}_monthDayFrom`}
                     label="Saison von (MM-TT, optional)"
-                    placeholder="04-01"
+                    placeholder={SEASON_PLACEHOLDER}
                     error={state.fieldErrors?.[`w${index}_monthDayFrom`]}
+                    hint={seasonHint(row.prefill, 'monthDayFrom')}
                     defaultValue={row.prefill?.monthDayFrom ?? undefined}
                   />
                   <AdminField
                     id={`${formId}-w${index}_monthDayTo`}
                     name={`w${index}_monthDayTo`}
                     label="Saison bis (MM-TT, optional)"
-                    placeholder="09-30"
+                    placeholder={SEASON_PLACEHOLDER}
                     error={state.fieldErrors?.[`w${index}_monthDayTo`]}
+                    hint={seasonHint(row.prefill, 'monthDayTo')}
                     defaultValue={row.prefill?.monthDayTo ?? undefined}
                   />
                 </div>

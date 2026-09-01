@@ -208,6 +208,59 @@ export function AdminField({
   )
 }
 
+/**
+ * Eine FESTSTEHENDE Angabe im Formular: Beschriftung und Wert als Text, kein Eingabefeld.
+ *
+ * ── ⚠ WOFÜR SIE DA IST UND WARUM SIE KEIN `readOnly`-FELD IST ─────────────────────────────────
+ * `AdminField` kennt bereits `readOnly` — sichtbar, nicht änderbar, wird mitgeschickt. Das ist
+ * die richtige Form, wenn ein Feld einen Wert TRÄGT, den man nur nicht anfassen soll. Hier geht es
+ * um etwas anderes: Die Angabe ist gar kein Eingabefeld mehr, sondern eine EIGENSCHAFT dieser
+ * Formular-Instanz — welche Tarifzeile hier angelegt wird. Ein graues Eingabefeld sähe weiterhin
+ * aus wie ein Feld, an dem man vielleicht doch etwas ändern könnte; ein Text sieht aus wie eine
+ * Feststellung. Der Wert selbst reist als verstecktes Feld mit (der Aufrufer setzt es), damit die
+ * FormData-Schlüssel und damit `readGridTariffForm`/`gridTariffSchema` unangetastet bleiben.
+ *
+ * Der Fehler-Slot ist trotzdem vorhanden: Ein Feld ohne Anzeigemöglichkeit für seinen Fehler
+ * verschluckt ihn, und die Meldung erschiene nirgends.
+ */
+export function AdminFixedValue({
+  id,
+  label,
+  value,
+  error,
+  hint,
+}: {
+  id: string
+  label: string
+  value: React.ReactNode
+  error?: string
+  hint?: React.ReactNode
+}) {
+  const hintId = `${id}-hint`
+  const showHint = Boolean(error) || Boolean(hint)
+  return (
+    <div>
+      {/*
+        Ein `<label>` ohne zugehöriges Bedienelement wäre falsch ausgezeichnet — deshalb ein
+        schlichtes `<p>` mit derselben Optik (`Label` rendert genau diese Klassen).
+      */}
+      <p className="text-small font-medium text-ink">{label}</p>
+      <p
+        id={id}
+        className="mt-1.5 flex h-10 items-center text-body text-text"
+        aria-describedby={showHint ? hintId : undefined}
+      >
+        {value}
+      </p>
+      {showHint && (
+        <FieldHint id={hintId} tone={error ? 'error' : 'muted'}>
+          {error ?? hint}
+        </FieldHint>
+      )}
+    </div>
+  )
+}
+
 /** Auswahlfeld mit Label und Hinweis-Slot — gleiche Form wie AdminField. */
 export function AdminSelect({
   id,

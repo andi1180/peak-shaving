@@ -141,6 +141,33 @@ export function TariffScanCandidates({ operators }: { operators: readonly Operat
               )
             })}
           </ul>
+
+          {/*
+            ── ⚠ DER AUSWEG, OHNE DEN DIE FESTE IDENTITÄT EINE SACKGASSE WÄRE ──────────────────
+            Seit die Netzebene einer gescannten Zeile nicht mehr umschaltbar ist (die Preise
+            gehören zu IHRER Ebene, ein Umschalten legte sie unter falschem Namen an), braucht ein
+            falsch zugeordneter Kandidat einen zweiten Weg. Ohne dieses Formular gäbe es ihn nicht:
+            Solange ein Scan Kandidaten geliefert hat, rendert dieser Bereich AUSSCHLIESSLICH deren
+            Formulare — der Admin müsste die Seite neu laden, um überhaupt wieder eines ohne
+            Vorbelegung zu sehen, und verlöre dabei die übrigen sechs.
+
+            Es ist DIESELBE Komponente mit `prefill = null`, keine zweite Fassung.
+          */}
+          <AdminPanel>
+            <h4 className="text-small font-semibold text-ink">Tarifzeile von Hand anlegen</h4>
+            <p className="mt-1 max-w-prose text-caption text-text-muted">
+              Für eine Zeile, die der Scan nicht gelesen oder falsch zugeordnet hat. Alle Angaben
+              werden hier selbst eingetragen — es ist nichts vorbelegt.
+            </p>
+            <div className="mt-4">
+              <CreateGridTariffForm
+                key={`${scanNonce}:manuell`}
+                operators={operators}
+                prefill={null}
+                formId="gt-manuell"
+              />
+            </div>
+          </AdminPanel>
         </div>
       )}
     </div>
