@@ -32,26 +32,60 @@ function CostRow({ label, value }: { label: string; value: number }) {
   )
 }
 
+/**
+ * Die Ergebniskarte eines Kandidaten.
+ *
+ * ── ⚠ ZWEI VARIANTEN, EINE KOMPONENTE — und warum kein zweiter Komponentenname ────────────────
+ * `catalog` (Vorgabe) beantwortet eine KAUFENTSCHEIDUNG: was kostet das Gerät, und ab wann hat es
+ * sich bezahlt gemacht. `existing` beschreibt eine Anlage, die der Kunde BEREITS BESITZT — dort
+ * sind Investition und Amortisation keine Auskunft, sondern eine Irreführung: die Anschaffung ist
+ * bezahlt (Sunk Cost), und eine Amortisationszeit beantwortet eine Frage, die für dieses Gerät
+ * niemand mehr stellt.
+ *
+ * Beide zeigen ansonsten DASSELBE — Ersparnis, Aufschlüsselung, Hindsight-Vorbehalt, Warnungen —
+ * und zwar aus derselben `perBattery`-Zeile derselben EINEN Rechnung (Prinzip 2). Eine zweite
+ * Komponente wäre eine zweite Stelle, an der dieselbe Aufschlüsselung gepflegt werden müsste;
+ * abweichen dürfen genau zwei Blöcke, und das sagt eine Prop deutlicher als ein Dateiname.
+ */
 export function RecommendationCard({
   entry,
   primary = false,
+  variant = 'catalog',
 }: {
   entry: Entry
   primary?: boolean
+  /** `existing` = die bestehende Anlage des Kunden: ohne Investition, ohne Amortisation. */
+  variant?: 'catalog' | 'existing'
 }) {
   const b = entry.battery
+  const isExisting = variant === 'existing'
   const baseCost = b.usableCapacityKwh * b.pricePerKwh
   const foundation = b.requiresFoundation ? (b.foundationCost ?? 0) : 0
   const inverter = b.inverterIncluded ? 0 : (b.extraInverterCost ?? 0)
 
   return (
-    <Card className={primary ? 'border-accent' : undefined}>
+    <Card
+      className={primary ? 'border-accent' : undefined}
+      data-testid={isExisting ? 'bestandsbatterie' : undefined}
+    >
       <CardHeader>
         <div className="flex flex-wrap items-center gap-2">
-          {primary && (
+          {/*
+            Kein „Empfehlung"-Abzeichen für ein Gerät, das der Kunde schon hat — empfohlen wird,
+            was man noch kaufen kann. Das Abzeichen benennt stattdessen, WESSEN Anlage hier steht:
+            unter der Karte folgt der Neuanschaffungs-Vergleich, und die beiden dürfen sich nicht
+            vermischen.
+          */}
+          {isExisting ? (
             <span className="rounded-full bg-accent px-2 py-0.5 text-xs font-medium text-accent-foreground">
-              Empfehlung
+              Ihre bestehende Anlage
             </span>
+          ) : (
+            primary && (
+              <span className="rounded-full bg-accent px-2 py-0.5 text-xs font-medium text-accent-foreground">
+                Empfehlung
+              </span>
+            )
           )}
           <span className="rounded-full bg-surface-alt px-2 py-0.5 text-xs font-medium text-text-muted">
             {classLabel[b.class]}
@@ -68,12 +102,18 @@ export function RecommendationCard({
               {formatEur(entry.totalSavingPerYear)}
             </Num>
           </div>
-          <div>
-            <p className="text-xs uppercase tracking-wide text-text-muted">Amortisation</p>
-            <Num className="text-2xl font-semibold text-ink">
-              {formatYears(entry.amortizationYears)}
-            </Num>
-          </div>
+          {/*
+            Amortisation NUR im Katalog-Fall. Für ein bereits installiertes Gerät stünde hier eine
+            Zahl, die die Anschaffung erneut in die Zukunft rechnet — sie ist längst bezahlt.
+          */}
+          {!isExisting && (
+            <div>
+              <p className="text-xs uppercase tracking-wide text-text-muted">Amortisation</p>
+              <Num className="text-2xl font-semibold text-ink">
+                {formatYears(entry.amortizationYears)}
+              </Num>
+            </div>
+          )}
         </div>
 
         <div>
@@ -98,24 +138,36 @@ export function RecommendationCard({
           </p>
         </div>
 
-        <div>
-          <p className="mb-1 text-sm font-medium text-ink">Investition</p>
-          <CostRow
-            label={`Speicher (${formatKw(b.maxPowerKw)} / ${b.usableCapacityKwh} kWh)`}
-            value={baseCost}
-          />
-          {foundation > 0 && <CostRow label="Betonsockel" value={foundation} />}
-          {inverter > 0 && <CostRow label="Separater Wechselrichter" value={inverter} />}
-          <div className="flex items-center justify-between border-t border-border py-2 text-sm font-semibold">
-            <span className="text-ink">Gesamtinvestition</span>
-            <Num className="text-ink">{formatEur(entry.totalInvestment)}</Num>
-          </div>
-          {!entry.taxEffectsIncluded && (
-            <p className="mt-1 text-xs text-text-muted">
-              Förderung &amp; Steuervorteil: keine Angabe (nicht in die Rechnung einbezogen).
+        {isExisting ? (
+          <div className="rounded-md bg-surface-alt p-3">
+            <p className="text-sm text-text-muted">
+              <strong className="text-ink">Keine Investition, keine Amortisation.</strong> Dieser
+              Speicher steht bereits bei Ihnen — die Anschaffung ist bezahlt, und eine
+              Amortisationszeit beantwortet eine Kaufentscheidung, die längst gefallen ist. Was oben
+              steht, ist allein das, was die Anlage in diesem Zeitraum eingespart hätte. Ob sich
+              zusätzlich ein neues Gerät lohnt, steht im Vergleich darunter.
             </p>
-          )}
-        </div>
+          </div>
+        ) : (
+          <div>
+            <p className="mb-1 text-sm font-medium text-ink">Investition</p>
+            <CostRow
+              label={`Speicher (${formatKw(b.maxPowerKw)} / ${b.usableCapacityKwh} kWh)`}
+              value={baseCost}
+            />
+            {foundation > 0 && <CostRow label="Betonsockel" value={foundation} />}
+            {inverter > 0 && <CostRow label="Separater Wechselrichter" value={inverter} />}
+            <div className="flex items-center justify-between border-t border-border py-2 text-sm font-semibold">
+              <span className="text-ink">Gesamtinvestition</span>
+              <Num className="text-ink">{formatEur(entry.totalInvestment)}</Num>
+            </div>
+            {!entry.taxEffectsIncluded && (
+              <p className="mt-1 text-xs text-text-muted">
+                Förderung &amp; Steuervorteil: keine Angabe (nicht in die Rechnung einbezogen).
+              </p>
+            )}
+          </div>
+        )}
 
         {entry.warnings.length > 0 && (
           <Alert variant="warning">

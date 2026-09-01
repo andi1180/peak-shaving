@@ -52,17 +52,27 @@ import type { TariffOverridableField } from './tariff-catalog'
  * einem Bündel der Fassung 2, hat der Nutzer keinen Netzbetreiber gewählt — fehlt sie in Fassung 1,
  * konnte es sie gar nicht geben. Ohne die Fassungsnummer wären diese beiden Fälle 2027 nicht mehr
  * zu unterscheiden.
+ *
+ * ── FASSUNG 3 (Bestandsbatterie) ───────────────────────────────────────────────────────────────
+ * `inputs.batteryOverride` trägt zusätzlich `source` — ob die geänderten Batteriewerte den BEREITS
+ * VORHANDENEN Speicher des Kunden beschreiben oder eine durchgespielte Katalog-Variante. Dieselbe
+ * Überlegung wie bei Fassung 2, nur an einer anderen Zahl: fehlt `source` in einem Bündel der
+ * Fassung 3, hat niemand an der Batterie gedreht — fehlt es in Fassung 1 oder 2, konnte die
+ * Unterscheidung gar nicht getroffen werden. Und sie ist nicht kosmetisch: bei `existing` weist der
+ * Report weder Investition noch Amortisation aus (die Anschaffung ist bereits bezahlt), bei
+ * `catalog_preset` beides. Wer 2028 eine archivierte Baseline liest, muss wissen, welche der beiden
+ * Aussagen der Kunde damals gesehen hat.
  */
-export const ANALYSIS_BUNDLE_VERSION = 2
+export const ANALYSIS_BUNDLE_VERSION = 3
 
 /**
  * Fassungen, die der Upload annimmt.
  *
- * Fassung 1 bleibt gültig: es kann bereits ein Bündel exportiert und noch nicht hochgeladen worden
- * sein, und ein Bündel unbrauchbar zu machen, das ein Mensch in der Hand hält, wäre der schlechtere
- * Handel. Bei Fassung 1 bleiben die neuen Felder schlicht leer.
+ * Ältere Fassungen bleiben gültig: es kann bereits ein Bündel exportiert und noch nicht hochgeladen
+ * worden sein, und ein Bündel unbrauchbar zu machen, das ein Mensch in der Hand hält, wäre der
+ * schlechtere Handel. Bei einer älteren Fassung bleiben die jeweils neueren Felder schlicht leer.
  */
-export const SUPPORTED_ANALYSIS_BUNDLE_VERSIONS: readonly number[] = [1, 2]
+export const SUPPORTED_ANALYSIS_BUNDLE_VERSIONS: readonly number[] = [1, 2, 3]
 
 /**
  * Fassung der Rechen-Engine, VON HAND gepflegt.
@@ -99,6 +109,26 @@ export function isPlaceholderCommitSha(sha: unknown): boolean {
 }
 
 /**
+ * Woher die geänderten Batteriewerte stammen — und damit, ob der Report für dieses Gerät eine
+ * Investition ausweisen darf.
+ *
+ * `existing`      Der Kunde HAT diesen Speicher bereits (Delta 17 Teil 2, Freitext-Angabe in
+ *                 Schritt 2, von ihm bestätigt). Die Anschaffung ist bezahlt: Investition und
+ *                 Amortisation beantworten eine Kaufentscheidung, die längst gefallen ist, und
+ *                 gehören deshalb nicht an diese Zahlen. Was bleibt, ist die Ersparnis.
+ * `catalog_preset` Ein durchgespielter Katalog-Kandidat mit von Hand geänderten Werten
+ *                 (Annahmen-Panel §6.2 oder Freitext-Anfrage Delta 18). Eine Anschaffung, die noch
+ *                 bevorsteht — Investition und Amortisation sind hier die eigentliche Aussage.
+ *
+ * ── WARUM DIESER TYP IN `shared` STEHT UND NICHT IN DER APP ────────────────────────────────────
+ * Er wird an zwei Orten gebraucht: im Bündel (unten, als eingefrorene Angabe) und im Rechner
+ * (`apps/website/lib/analysis-protocol.ts`, als laufender Zustand). Zweimal ausgeschrieben liefen
+ * die beiden Wertelisten beim nächsten Zuwachs auseinander — und dann trüge ein Archiv-Eintrag
+ * eine Herkunft, die der Leser nicht mehr einordnen kann. Eine Definition, zwei Benutzer.
+ */
+export type BatteryOverrideSource = 'existing' | 'catalog_preset'
+
+/**
  * Sämtliche Eingangsgrössen der Rechnung — als WERTE, niemals als Verweis auf eine Katalog- oder
  * Tarifzeile.
  *
@@ -121,14 +151,18 @@ export type AnalysisBundleInputs = {
    */
   batteryCatalog: BatteryCandidate[]
   /**
-   * Die im Annahmen-Panel (§6.2) an genau EINEM Kandidaten geänderten Werte — zusätzlich zum
-   * bereits geänderten `batteryCatalog`, damit später erkennbar bleibt, dass hier von Hand
-   * eingegriffen wurde und nicht der Katalog selbst so aussah.
+   * Die an genau EINEM Kandidaten geänderten Werte — zusätzlich zum bereits geänderten
+   * `batteryCatalog`, damit später erkennbar bleibt, dass hier von Hand eingegriffen wurde und
+   * nicht der Katalog selbst so aussah.
+   *
+   * `source` fehlt in jedem Bündel der Fassungen 1 und 2 (s. `ANALYSIS_BUNDLE_VERSION`); ab
+   * Fassung 3 ist es gesetzt, sobald es einen Override gibt.
    */
   batteryOverride?: {
     batteryId: string
     roundTripEfficiency?: number
     pricePerKwh?: number
+    source?: BatteryOverrideSource
   }
   /** Name der optionalen Brutto-PV-Datei (§3.1); `null`, wenn keine hochgeladen wurde. */
   pvFileName: string | null

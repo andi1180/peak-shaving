@@ -1,4 +1,4 @@
-import type { BatteryCandidate } from 'shared'
+import type { BatteryCandidate, BatteryOverrideSource } from 'shared'
 import type { BatteryOverride } from './analysis-protocol'
 
 /**
@@ -63,5 +63,42 @@ export function resolveBatteryOverride(
   explicit: BatteryOverride | undefined,
   preset: BatteryOverride | undefined,
 ): BatteryOverride | undefined {
-  return explicit ?? preset
+  if (!explicit) return preset
+  /*
+   * ⚠ DIE HERKUNFT WANDERT MIT, WENN DAS GERÄT DASSELBE BLEIBT.
+   *
+   * Ein Bestandsgerät hört nicht auf, dem Kunden zu gehören, weil er im Annahmen-Panel seinen
+   * Wirkungsgrad korrigiert — geändert haben sich zwei Zahlen, nicht die Identität der Anlage.
+   * Fiele `source` dabei auf `catalog_preset` zurück, verschwände der primäre Bestandsblock beim
+   * ersten Tastendruck und der Report forderte plötzlich wieder eine Investition für einen
+   * Speicher, der längst an der Wand hängt.
+   *
+   * Die Regel steht HIER und nicht bei den Aufrufern, aus demselben Grund wie der Rückfall
+   * darunter: es gibt neun Wege in eine Neuberechnung, und eine Regel, die jeder von ihnen
+   * einzeln mitbringen müsste, ist keine. Die Aufrufer setzen `source` trotzdem selbst — sie
+   * wissen, was sie tun; diese Zeile ist das Netz für den zehnten.
+   */
+  const keepsExistingDevice =
+    preset?.source === 'existing' && preset.batteryId === explicit.batteryId
+  return keepsExistingDevice ? { ...explicit, source: 'existing' } : explicit
+}
+
+/**
+ * Die Herkunft, die ein NEUER Override auf `batteryId` tragen muss.
+ *
+ * Ein Aufrufer, der eine Batteriegrösse ändert, weiss selbst nicht, ob das Gerät dem Kunden gehört
+ * — das steht im gerade wirksamen Override. Genau EINE Kennung kann `existing` sein (es gibt immer
+ * nur einen aktiven Override, §6.2/U2 Prompt C); jede andere Batterie ist eine durchgespielte
+ * Alternative, auch dann, wenn der Kunde daneben eine eigene Anlage hat.
+ *
+ * Eine Definition, zwei Aufrufer (Annahmen-Panel über eine Prop, Freitext-Anfrage direkt) —
+ * zweimal ausgeschrieben ergäbe dieselbe Bedienung je nach Weg zwei verschiedene Reports.
+ */
+export function overrideSourceFor(
+  batteryId: string,
+  active: BatteryOverride | undefined,
+): BatteryOverrideSource {
+  return active?.source === 'existing' && active.batteryId === batteryId
+    ? 'existing'
+    : 'catalog_preset'
 }

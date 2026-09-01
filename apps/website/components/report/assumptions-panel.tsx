@@ -5,6 +5,7 @@ import { RotateCcw } from 'lucide-react'
 import {
   financialParamsSchema,
   type BatteryCandidate,
+  type BatteryOverrideSource,
   type BillingModel,
   type FinancialParams,
   type TariffParams,
@@ -59,6 +60,7 @@ export function AssumptionsPanel({
   effectiveHorizonYears,
   liveBillingModel,
   selectedBatteryName,
+  batterySource,
   isEdited,
   recomputing,
   recomputeError,
@@ -85,6 +87,16 @@ export function AssumptionsPanel({
    * und dieses Dropdown NIE auseinanderlaufen (kein zweiter Umschalt-Zustand). */
   liveBillingModel: BillingModel
   selectedBatteryName: string
+  /**
+   * Herkunft der GERADE BEARBEITETEN Batterie (`originalBattery`) — vom Report aus dem wirksamen
+   * Override abgeleitet (`overrideSourceFor`), nicht hier erfunden.
+   *
+   * ⚠ Das Panel darf sie nicht selbst raten: es sieht nur einen Katalog-Eintrag, und ob der dem
+   * Kunden bereits gehört, steht ausschliesslich im Override. Gäbe es hier einen Vorgabewert,
+   * verlöre eine korrigierte Bestandsanlage mit dem ersten Tastendruck ihre Herkunft und stünde
+   * im Report wieder mit Investition und Amortisation da.
+   */
+  batterySource: BatteryOverrideSource
   isEdited: boolean
   recomputing: boolean
   recomputeError: string | null
@@ -221,6 +233,10 @@ export function AssumptionsPanel({
             batteryId: originalBattery.id,
             roundTripEfficiency: efficiencyFraction,
             pricePerKwh: price,
+            // Korrigierte Zahlen ändern nicht, WEM das Gerät gehört. `resolveBatteryOverride`
+            // hält dieselbe Regel zusätzlich zentral fest — hier steht sie, weil dieses Panel
+            // weiss, welche Batterie es gerade bearbeitet.
+            source: batterySource,
           }
         : undefined
 

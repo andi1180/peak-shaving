@@ -160,6 +160,13 @@ export function BatteryTextPanel({
     onPreset({
       batteryId: battery.id,
       /*
+       * ⚠ DIE EINE STELLE IM GANZEN RECHNER, AN DER `existing` ENTSTEHT. Hier — und nur hier —
+       * hat ein Mensch bestätigt, dass er diesen Speicher BEREITS HAT. Der Report weist für ihn
+       * deshalb weder Investition noch Amortisation aus: beide beantworten eine Kaufentscheidung,
+       * die längst gefallen ist, und ihre Anschaffungskosten sind ausgegeben.
+       */
+      source: 'existing',
+      /*
        * ⚠ DIE EINZIGE STELLE, AN DER PROZENT ZU BRUCHTEIL WIRD. Der Text nennt „90 %", der Katalog
        * führt 0,9. Zweimal umgerechnet wäre der Wirkungsgrad 0,9 % — eine Zahl, die durch jede
        * Schemaprüfung liefe und die Ersparnis lautlos vernichtete.
