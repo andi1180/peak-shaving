@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { AnalysisResult, FinancialParams, TariffParams } from 'shared'
 import type { CalculatorPayload } from '@/components/flow/types'
 import type { AnalysisRequest, BatteryOverride, WorkerOutbound } from './analysis-protocol'
-import { resolveBatteryOverride } from './battery-override'
 
 export type AnalysisStatus = 'idle' | 'running' | 'done' | 'error'
 
@@ -85,15 +84,14 @@ export function useAnalysis() {
     setResultInputs(null)
     setLiveInputs(null)
     /*
-     * Delta 17 Teil 2: das Preset reist als `batteryOverride` mit — es IST einer, und der
-     * Bündel-Export (B14-2) schreibt daraus den Katalog-STAND, gegen den tatsächlich gerechnet
-     * wurde. Ohne diese Zeile trüge das Archiv den unveränderten Katalog und behauptete damit eine
-     * Rechnung, die so nie gelaufen ist.
+     * Der Erstlauf hat keinen Override: das Annahmen-Panel (§6.2) erzeugt ihn erst später, und ein
+     * bestätigter Bestandsspeicher ist seit dem 01.09.2026 keiner mehr (er reist als eigenes
+     * Payload-Feld und verändert den Katalog nicht). Das Bündel schreibt daraus korrekt den
+     * unveränderten Katalog-Stand — genau den, gegen den gerechnet wurde.
      */
     pendingRunRef.current = {
       tariff: payload.tariff,
       financial: payload.financial,
-      batteryOverride: payload.batteryPreset,
     }
     pendingLiveRef.current = null
 
@@ -167,26 +165,24 @@ export function useAnalysis() {
       setRecomputing(true)
       setRecomputeError(null)
       /*
-       * ⚠ DERSELBE Rückfall wie im Worker, aus DERSELBEN Funktion (Nachtrag zu Delta 17 Teil 2,
-       * 01.09.2026). Der Worker rechnet damit, hier wird PROTOKOLLIERT — und aus dem Protokoll
-       * schreibt der Bündel-Export (B14-2) den Katalog-Stand ins Archiv. Bliebe hier der
-       * unaufgelöste Wert stehen, trüge das Bündel einen Katalog, gegen den nie gerechnet wurde:
-       * genau der Fehler, vor dem `applyBatteryOverride` warnt, nur eine Ebene höher.
+       * Der Worker rechnet mit diesem Override, hier wird er PROTOKOLLIERT — und aus dem Protokoll
+       * schreibt der Bündel-Export (B14-2) den Katalog-Stand ins Archiv. Beide Seiten bekommen
+       * denselben Wert, sonst trüge das Bündel einen Katalog, gegen den nie gerechnet wurde.
        *
-       * Der Worker löst zusätzlich selbst auf — die Funktion ist idempotent, und eine Nachricht,
-       * die nicht über diesen Hook läuft, darf das Preset ebenfalls nicht verlieren.
+       * Eine Auflösung gegen ein Preset gibt es hier seit dem 01.09.2026 nicht mehr: der
+       * Bestandsspeicher ist kein Override, er reist im `payload` mit und erreicht den Worker bei
+       * jeder Nachricht unverändert.
        */
-      const effectiveOverride = resolveBatteryOverride(batteryOverride, payload.batteryPreset)
       pendingLiveRef.current = {
         tariff: payload.tariff,
         financial: payload.financial,
-        batteryOverride: effectiveOverride,
+        batteryOverride,
       }
       const request: AnalysisRequest = {
         type: 'recompute',
         payload,
         horizonYears,
-        batteryOverride: effectiveOverride,
+        batteryOverride,
       }
       worker.postMessage(request)
     },

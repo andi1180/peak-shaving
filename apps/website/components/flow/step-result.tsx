@@ -225,11 +225,12 @@ export function StepResult({
         recomputeError={recomputeError}
         isLive={isLive}
         /*
-         * Delta 17 Teil 2: der in Schritt 2 bestätigte Speicher. Der Report wählt ihn vor UND
-         * bildet daraus die Grundlinie des Annahmen-Panels — deshalb reist das ganze Preset mit
-         * und nicht nur seine Kennung (s. `baselineCatalog` dort).
+         * Delta 17 Teil 2: der in Schritt 2 bestätigte Speicher. Das GERECHNETE Ergebnis dazu steht
+         * im Contract (`result.existingBatteryAnalysis`); mitgereicht wird hier nur, ob der
+         * Wirkungsgrad eine Annahme war — die einzige Zahl des Bestandsblocks, die nicht vom
+         * Kunden stammt, und deshalb im Report als solche auszuweisen.
          */
-        batteryPreset={payload.batteryPreset}
+        existingBattery={payload.existingBattery}
         /*
          * Delta 18: die Eingangsgrössen des ANGEZEIGTEN Laufs — Bezugspunkt der Freitext-Vorschau
          * und Grundlage jeder daraus gebauten Neuberechnung. Dieselbe Quelle, aus der auch das

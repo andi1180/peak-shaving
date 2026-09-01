@@ -52,3 +52,18 @@ export const STANDARD_PROFILE_TIMEZONE = 'Europe/Vienna'
  * (`dataQuality.largestGapSlots`), nicht aus einer zweiten Rechnung.
  */
 export const LARGE_GAP_SLOTS_THRESHOLD = 4 * 7 * 96
+
+/**
+ * ⚠ [ANNAHME] Wirkungsgrad einer bestehenden Kundenanlage, wenn der Freitext keinen nennt.
+ *
+ * Eine Simulation braucht ihn zwingend (§3.6: die Physik rechnet mit Leistung, Energie UND
+ * Wirkungsgrad) — anders als Kapazität und Leistung lässt er sich also nicht einfach weglassen,
+ * ohne den ganzen Bestandsblock aufzugeben. 0,90 liegt in der Mitte dessen, was der Katalog führt
+ * (0,88–0,91), und ist ein branchenüblicher Rundwert für einen Lithium-Speicher inklusive
+ * Wechselrichter-Verlusten.
+ *
+ * Er ist damit die EINZIGE Zahl des Bestandsblocks, die nicht vom Kunden stammt — und genau
+ * deshalb wird sie in der Oberfläche als „angenommen" ausgewiesen und nicht als seine Angabe
+ * getarnt (`ExistingBatteryInput.efficiencyAssumed`). Nennt der Kunde einen Wert, gilt seiner.
+ */
+export const ASSUMED_EXISTING_ROUND_TRIP_EFFICIENCY = 0.9

@@ -1,5 +1,5 @@
 import { AlertCircle, LineChart } from 'lucide-react'
-import type { AnalysisResult, TariffOptimizationStatus, TariffPriceRange } from 'shared'
+import type { BatteryResultEntry, TariffOptimizationStatus, TariffPriceRange } from 'shared'
 
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { InfoHint } from '@/components/ui/info-hint'
@@ -65,7 +65,13 @@ export function TariffOptimizationCard({
   /** `undefined` = Hebel nicht angefordert; dann rendert die Karte nichts. */
   status: TariffOptimizationStatus | undefined
   /** Die angezeigte Empfehlung — sie trägt die gerechnete Zahl (`loadShiftSavingPerYear`). */
-  recommended: AnalysisResult['perBattery'][number] | undefined
+  /**
+   * Der primäre Block des Reports — die bestehende Anlage des Kunden, sonst die Empfehlung.
+   * `BatteryResultEntry` statt des `perBattery`-Elementtyps, weil hier ausschliesslich
+   * Lastverschiebungs- und Hochrechnungsfelder gelesen werden und keine Investition; nur so kann
+   * die Karte im Bestandsfall die Zahl DESSELBEN Geräts zeigen wie der Block darüber.
+   */
+  recommended: BatteryResultEntry | undefined
   timeZone: string
 }) {
   if (!status) return null

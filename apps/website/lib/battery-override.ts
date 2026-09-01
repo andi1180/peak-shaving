@@ -1,4 +1,4 @@
-import type { BatteryCandidate, BatteryOverrideSource } from 'shared'
+import type { BatteryCandidate } from 'shared'
 import type { BatteryOverride } from './analysis-protocol'
 
 /**
@@ -31,74 +31,23 @@ export function applyBatteryOverride(
   )
 }
 
-/**
- * Welcher Override für einen LAUF gilt: der ausdrücklich gesetzte — sonst das bestätigte Preset.
+/*
+ * ── ⚠ WAS HIER BIS ZUM 01.09.2026 STAND UND WARUM ES ENTFALLEN IST ────────────────────────────
+ * `resolveBatteryOverride` und `overrideSourceFor`: die Regeln, nach denen ein aus einem Freitext
+ * bestätigter Speicher (`batteryPreset`) eine Live-Neuberechnung überlebte und dabei seine
+ * Herkunft `existing` behielt. Beide waren nötig, weil dieser Speicher ein OVERRIDE auf einen
+ * Katalog-Kandidaten war — und ein Override ist genau das, was das Annahmen-Panel bei jedem
+ * Tastendruck neu bildet oder weglässt. Vergass ein Aufrufer die Auflösung, verschwand die Angabe
+ * des Kunden lautlos (gemessener Defekt vom selben Tag).
  *
- * ── ⚠ WARUM ES DIESE FUNKTION GIBT (gemessener Defekt, 01.09.2026) ─────────────────────────────
- * Delta 17 Teil 2 wendet das Preset beim ERSTLAUF an. Eine Live-Neuberechnung (§6.2) baute den
- * Katalog dagegen aus `msg.batteryOverride` — und der ist `undefined`, sobald der Nutzer die
- * Batteriefelder NICHT anfasst: das Annahmen-Panel emittiert ihn nur bei Abweichung von seiner
- * Grundlinie, und die Grundlinie IST bereits das preset-angewandte Gerät. Ein Nutzer, der nach
- * bestätigten „90 %" nur den Betrachtungshorizont ändert, bekam damit still wieder die 91 % aus
- * dem Katalog — die Angabe, die er gemacht hat, verschwand ohne jede Meldung. Dasselbe galt für
- * den Jahreshöchstwert-Shortcut, der gar keinen Override mitgibt.
+ * Seit die bestehende Anlage ein EIGENES Feld des `CalculatorPayload` ist
+ * (`existingBattery`, s. `components/flow/types.ts`) und ausserhalb von `perBattery` simuliert
+ * wird, gibt es nichts mehr aufzulösen: beide Worker-Handler bekommen den vollen Payload, das
+ * Feld reist bei jeder Nachricht unverändert mit. Der Defekt ist damit nicht behoben, sondern
+ * strukturell unmöglich geworden.
  *
- * ── ⚠ SIE HAT ZWEI AUFRUFER, UND DAS IST DER EIGENTLICHE PUNKT ────────────────────────────────
- * Der Worker RECHNET mit dem Ergebnis, der Hook PROTOKOLLIERT es (`AnalysisRunInputs`), und aus
- * dem Protokoll schreibt der Bündel-Export den Katalog-Stand ins Archiv (`bundle-export.ts`). Nur
- * im Worker aufgelöst behauptete das Bündel einen Katalog, gegen den nie gerechnet wurde — genau
- * der Fehler, vor dem der Kopf von `applyBatteryOverride` warnt, nur eine Ebene höher. Deshalb
- * EINE Regel, von beiden gelesen.
- *
- * ── WAS SIE BEWUSST NICHT TUT: ZUSAMMENFÜHREN ─────────────────────────────────────────────────
- * Es bleibt bei GENAU EINEM aktiven Override (Architektur-Vorgabe §6.2/U2 Prompt C). Bearbeitet
- * der Nutzer einen ANDEREN Kandidaten als den voreingestellten, gewinnt seine ausdrückliche
- * Eingabe und das Preset tritt zurück — es wird nicht heimlich danebengelegt. Ob das die richtige
- * fachliche Antwort ist, ist eine offene Produktfrage (s. CLAUDE.md); technisch ist es die einzige,
- * die den bestehenden Ein-Override-Mechanismus nicht aufbricht.
- *
- * Idempotent: ein bereits aufgelöster Wert bleibt unverändert.
+ * `BatteryOverride.source` bleibt am Typ (`analysis-protocol.ts`): das Analyse-Bündel führt es
+ * seit Fassung 3, und ein Bündel aus dieser Zeit muss lesbar bleiben. Neu entsteht ausschliesslich
+ * `catalog_preset` — die einzige Herkunft, die ein Override auf einen KATALOG-Kandidaten haben
+ * kann.
  */
-export function resolveBatteryOverride(
-  explicit: BatteryOverride | undefined,
-  preset: BatteryOverride | undefined,
-): BatteryOverride | undefined {
-  if (!explicit) return preset
-  /*
-   * ⚠ DIE HERKUNFT WANDERT MIT, WENN DAS GERÄT DASSELBE BLEIBT.
-   *
-   * Ein Bestandsgerät hört nicht auf, dem Kunden zu gehören, weil er im Annahmen-Panel seinen
-   * Wirkungsgrad korrigiert — geändert haben sich zwei Zahlen, nicht die Identität der Anlage.
-   * Fiele `source` dabei auf `catalog_preset` zurück, verschwände der primäre Bestandsblock beim
-   * ersten Tastendruck und der Report forderte plötzlich wieder eine Investition für einen
-   * Speicher, der längst an der Wand hängt.
-   *
-   * Die Regel steht HIER und nicht bei den Aufrufern, aus demselben Grund wie der Rückfall
-   * darunter: es gibt neun Wege in eine Neuberechnung, und eine Regel, die jeder von ihnen
-   * einzeln mitbringen müsste, ist keine. Die Aufrufer setzen `source` trotzdem selbst — sie
-   * wissen, was sie tun; diese Zeile ist das Netz für den zehnten.
-   */
-  const keepsExistingDevice =
-    preset?.source === 'existing' && preset.batteryId === explicit.batteryId
-  return keepsExistingDevice ? { ...explicit, source: 'existing' } : explicit
-}
-
-/**
- * Die Herkunft, die ein NEUER Override auf `batteryId` tragen muss.
- *
- * Ein Aufrufer, der eine Batteriegrösse ändert, weiss selbst nicht, ob das Gerät dem Kunden gehört
- * — das steht im gerade wirksamen Override. Genau EINE Kennung kann `existing` sein (es gibt immer
- * nur einen aktiven Override, §6.2/U2 Prompt C); jede andere Batterie ist eine durchgespielte
- * Alternative, auch dann, wenn der Kunde daneben eine eigene Anlage hat.
- *
- * Eine Definition, zwei Aufrufer (Annahmen-Panel über eine Prop, Freitext-Anfrage direkt) —
- * zweimal ausgeschrieben ergäbe dieselbe Bedienung je nach Weg zwei verschiedene Reports.
- */
-export function overrideSourceFor(
-  batteryId: string,
-  active: BatteryOverride | undefined,
-): BatteryOverrideSource {
-  return active?.source === 'existing' && active.batteryId === batteryId
-    ? 'existing'
-    : 'catalog_preset'
-}

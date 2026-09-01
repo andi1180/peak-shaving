@@ -1,12 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
-import { DEMO_BATTERY_CATALOG } from './demo-battery-catalog'
 import {
   BATTERY_TEXT_JSON_SCHEMA,
   BATTERY_TEXT_NUMBER_KEYS,
   batteryTextExtractionIsEmpty,
   emptyBatteryTextExtraction,
-  matchCatalogByCapacity,
   parseBatteryTextExtraction,
 } from './battery-text'
 
@@ -137,92 +135,5 @@ describe('parseBatteryTextExtraction — fail closed', () => {
     expect(batteryTextExtractionIsEmpty({ ...emptyBatteryTextExtraction(), capacityKwh: 20 })).toBe(
       false,
     )
-  })
-})
-
-describe('matchCatalogByCapacity — der Abstand wird benannt, nicht weggerundet', () => {
-  // Der feste Katalog: 10 · 15 · 25 · 40 · 60 kWh.
-  const capacities = DEMO_BATTERY_CATALOG.map((b) => b.usableCapacityKwh).sort((a, b) => a - b)
-
-  it('arbeitet gegen genau die fünf festen Kandidaten', () => {
-    expect(capacities).toEqual([10, 15, 25, 40, 60])
-  })
-
-  it('meldet einen exakten Treffer als solchen und nennt dann keine Nachbarn', () => {
-    const match = matchCatalogByCapacity(25, DEMO_BATTERY_CATALOG)
-    expect(match).toEqual({
-      candidateId: 'demo-com-c25',
-      exact: true,
-      lowerId: null,
-      upperId: null,
-      outside: null,
-    })
-  })
-
-  it('⚠ nennt bei 20 kWh BEIDE Nachbarn (15 und 25) und meldet „kein exakter Treffer"', () => {
-    const match = matchCatalogByCapacity(20, DEMO_BATTERY_CATALOG)
-    expect(match?.exact).toBe(false)
-    expect(match?.lowerId).toBe('demo-res-r15')
-    expect(match?.upperId).toBe('demo-com-c25')
-    expect(match?.outside).toBeNull()
-    // Gleichstand (je 5 kWh) → der KLEINERE gewinnt: er rechnet eher zu niedrig als zu hoch.
-    expect(match?.candidateId).toBe('demo-res-r15')
-  })
-
-  it('wählt sonst den tatsächlich näheren Kandidaten', () => {
-    expect(matchCatalogByCapacity(22, DEMO_BATTERY_CATALOG)?.candidateId).toBe('demo-com-c25')
-    expect(matchCatalogByCapacity(17, DEMO_BATTERY_CATALOG)?.candidateId).toBe('demo-res-r15')
-    expect(matchCatalogByCapacity(52, DEMO_BATTERY_CATALOG)?.candidateId).toBe('demo-com-c60')
-    expect(matchCatalogByCapacity(44, DEMO_BATTERY_CATALOG)?.candidateId).toBe('demo-com-c40')
-  })
-
-  it('⚠ der Gleichstand fällt IMMER zum kleineren — auch weiter oben im Katalog', () => {
-    // 50 liegt genau zwischen 40 und 60; die Regel ist keine Eigenheit des 15/25-Falls.
-    const match = matchCatalogByCapacity(50, DEMO_BATTERY_CATALOG)
-    expect(match?.candidateId).toBe('demo-com-c40')
-    expect(match?.lowerId).toBe('demo-com-c40')
-    expect(match?.upperId).toBe('demo-com-c60')
-  })
-
-  it('meldet eine Angabe UNTER dem kleinsten Kandidaten als solche', () => {
-    const match = matchCatalogByCapacity(5, DEMO_BATTERY_CATALOG)
-    expect(match).toEqual({
-      candidateId: 'demo-res-r10',
-      exact: false,
-      lowerId: null,
-      upperId: 'demo-res-r10',
-      outside: 'below',
-    })
-  })
-
-  it('meldet eine Angabe ÜBER dem grössten Kandidaten als solche', () => {
-    const match = matchCatalogByCapacity(200, DEMO_BATTERY_CATALOG)
-    expect(match).toEqual({
-      candidateId: 'demo-com-c60',
-      exact: false,
-      lowerId: 'demo-com-c60',
-      upperId: null,
-      outside: 'above',
-    })
-  })
-
-  it('ordnet ohne Kapazitätsangabe gar nichts zu — es wird kein Kandidat erfunden', () => {
-    expect(matchCatalogByCapacity(null, DEMO_BATTERY_CATALOG)).toBeNull()
-    expect(matchCatalogByCapacity(0, DEMO_BATTERY_CATALOG)).toBeNull()
-    expect(matchCatalogByCapacity(-5, DEMO_BATTERY_CATALOG)).toBeNull()
-    expect(matchCatalogByCapacity(Number.NaN, DEMO_BATTERY_CATALOG)).toBeNull()
-    expect(matchCatalogByCapacity(20, [])).toBeNull()
-  })
-
-  it('liefert immer eine Kennung, die es im Katalog wirklich gibt', () => {
-    const ids = new Set(DEMO_BATTERY_CATALOG.map((b) => b.id))
-    for (const kwh of [1, 10, 12, 15, 20, 25, 33, 40, 55, 60, 999]) {
-      const match = matchCatalogByCapacity(kwh, DEMO_BATTERY_CATALOG)
-      expect(match).not.toBeNull()
-      expect(ids.has(match!.candidateId)).toBe(true)
-      for (const neighbour of [match!.lowerId, match!.upperId]) {
-        if (neighbour !== null) expect(ids.has(neighbour)).toBe(true)
-      }
-    }
   })
 })

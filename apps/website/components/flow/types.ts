@@ -1,5 +1,6 @@
 import type { DataQuality } from 'engine'
 import type {
+  BatteryCandidate,
   FinancialParams,
   InvoiceExtraction,
   LoadProfile,
@@ -40,26 +41,43 @@ export type TariffResult = {
    */
   tariffPricing?: TariffPricingInputs
   /**
-   * Delta 17 Teil 2: der vom Nutzer BESTÄTIGTE Speicher aus der Freitext-Angabe.
+   * Delta 17 Teil 2: der vom Nutzer BESTÄTIGTE Speicher, den er bereits besitzt.
    *
    * `undefined` heisst „keine Angabe oder nicht übernommen" — dann verhält sich der Rechner Zeile
-   * für Zeile wie vorher: voller Katalog, Empfehlung, keine Vorauswahl.
+   * für Zeile wie vorher: voller Katalog, Empfehlung, Investition, Amortisation.
    */
-  batteryPreset?: BatteryPreset
+  existingBattery?: ExistingBatteryInput
 }
 
 /**
- * Delta 17 Teil 2 — die aus einer Freitext-Angabe bestätigte Batterie-Vorauswahl.
+ * Der bereits installierte Speicher des Kunden, mit seinen EXAKTEN Werten.
  *
- * ⚠ Es ist BEWUSST derselbe Typ wie `BatteryOverride` (§6.2, Annahmen-Panel) und kein zweiter:
- * die Freitexterfassung füttert genau den bestehenden Mechanismus und erfindet keinen neuen. Ein
- * Preset mit nur `batteryId` lässt den Katalog unverändert (`applyBatteryOverride` schreibt dann
- * nichts) und wirkt allein als Vorauswahl im Report; kommen Wirkungsgrad oder Preis dazu, ist es
- * ab dem ERSTEN Lauf ein gewöhnlicher Override auf genau diesen einen Kandidaten.
+ * ── ⚠ SEIT DEM 01.09.2026 KEIN `BatteryOverride` MEHR ─────────────────────────────────────────
+ * Bis dahin war dies ein Alias von `BatteryOverride`: die Angabe wurde auf den nächstliegenden
+ * KATALOG-Kandidaten abgebildet und nur Wirkungsgrad und Preis übernommen. Wer 19,2 kWh besass,
+ * bekam die Ersparnis von 15 kWh zu sehen. Jetzt reist ein fertiger, aus seinen Angaben gebauter
+ * Kandidat mit (`buildExistingBatteryCandidate`), der ausserhalb von `perBattery` simuliert wird.
  *
- * Kapazität und Leistung stehen hier bewusst NICHT: der Katalog ist fest.
+ * ⚠ Er darf NIE in `calculateRoi` gelangen: seine Investitionsfelder sind Platzhalter (die
+ * Anschaffung ist bezahlt), s. Kopf von `battery-combination.ts`.
+ *
+ * ── WARUM DAS DEN VERLUST-DEFEKT VON DELTA 17 TEIL 2 STRUKTURELL BEENDET ───────────────────────
+ * Der bestätigte Speicher war als `batteryPreset` ein Override und musste bei jeder
+ * Neuberechnung eigens gegen einen ausdrücklichen Override aufgelöst werden — vergass ein
+ * Aufrufer das, verschwand die Angabe des Kunden lautlos (gemessener Defekt, 01.09.2026). Als
+ * Feld des `CalculatorPayload` reist er jetzt bei JEDER Nachricht unverändert mit: beide
+ * Worker-Handler bekommen den vollen Payload, es gibt nichts mehr aufzulösen.
  */
-export type BatteryPreset = BatteryOverride
+export type ExistingBatteryInput = {
+  /** Der simulierbare Kandidat — Kapazität, Leistung und Wirkungsgrad wie angegeben. */
+  battery: BatteryCandidate
+  /**
+   * `true` = der Freitext nannte KEINEN Wirkungsgrad, es gilt die dokumentierte Annahme
+   * (`ASSUMED_EXISTING_ROUND_TRIP_EFFICIENCY`). Reist mit, damit der Report die einzige Zahl des
+   * Bestandsblocks, die nicht vom Kunden stammt, als solche ausweisen kann — und nicht als seine.
+   */
+  efficiencyAssumed: boolean
+}
 
 // Ergebnis von Schritt 1 (parseLoadProfile, §3.2/§3.3) — die echte, getypte Nutzlast.
 export type ParsedLoad = {
