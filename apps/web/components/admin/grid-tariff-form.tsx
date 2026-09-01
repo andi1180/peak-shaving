@@ -41,6 +41,7 @@ import {
   RATE_WINDOW_LABEL_SUGGESTIONS,
   hasMeteringVariant,
   matchOperatorByName,
+  type Netzebene,
   type OperatorOption,
 } from '@/lib/admin/grid-tariffs'
 import { AdminError, AdminField, AdminPanel, AdminSelect, AdminSuccess } from './ui'
@@ -61,6 +62,61 @@ function numberValue(value: number | null | undefined): string | undefined {
   return typeof value === 'number' ? String(value) : undefined
 }
 
+/**
+ * Der Wert des Netzebene-Feldes, solange keine gewählt ist.
+ *
+ * ⚠ Es gibt bewusst KEINE Vorauswahl mehr. Vorher stand das Feld auf `NETZEBENEN[0]`, also auf
+ * „Netzebene 3" — und zwar auch dann, wenn ein Scan gerade KEINE Ebene erkannt hatte (bei einem
+ * Blatt mit mehreren gleichrangigen Ebenen ist genau das der vorgesehene Ausgang). Eine
+ * Vorauswahl ist von einer getroffenen Auswahl nicht zu unterscheiden; sie ginge hier in eine
+ * Zeile ein, die sich nachträglich nicht mehr korrigieren lässt (B21-2b: kein Bearbeiten, kein
+ * `delete`-Grant). Der leere Wert läuft in `gridTariffSchema` sauber in „Bitte eine Netzebene
+ * wählen." — die Prüfung war dafür nicht anzufassen.
+ */
+const NETZEBENE_UNSET = ''
+
+/**
+ * ⚠ EIN PLATZHALTER ZEIGT EIN FORMAT, NIE EINEN PLAUSIBLEN WERT.
+ *
+ * Die Betragsfelder trugen Beispielzahlen (`38.52`, `0.62`, `4.14`). In einem leeren Feld sieht
+ * ein grauer Beispielbetrag aus wie ein abgelesener — und `38.52` WAR am 01.09.2026 an
+ * WN-EX0105 sogar der zutreffende NE-3-Grundpreis, während `0.62` frei erfunden war (die echten
+ * Netzverlustentgelte dieses Blattes liegen bei 0,109 bis 0,700). Format-Platzhalter wie „00:00"
+ * oder „04-01" bleiben: sie zeigen eine Schreibweise, die man nicht raten kann, und sind als
+ * Betrag nicht lesbar.
+ */
+const AMOUNT_PLACEHOLDER = 'Betrag vom Preisblatt'
+
+/**
+ * Der Herkunfts-Hinweis an einem Feld, das der Scan tatsächlich befüllt hat.
+ *
+ * ── ⚠ WARUM ES IHN BRAUCHT ────────────────────────────────────────────────────────────────────
+ * Ohne ihn ist ein vom Scan befülltes Feld von einem leeren Feld mit Platzhalter und von einer
+ * blossen Vorauswahl NICHT zu unterscheiden. Am 01.09.2026 an einem echten Preisblatt gemessen:
+ * Der Scan von WN-EX0105 liefert wegen der Mehr-Ebenen-Regel bewusst nur `operatorName`,
+ * `priceBasis` und `validFrom`. Das Formular zeigte danach trotzdem „Netzebene 3" (Vorauswahl),
+ * darunter „38.52" und daneben „0.62" (beides Platzhalter). Das las sich wie eine gelungene
+ * Extraktion mit genau einem falschen Wert — es war das Gegenteil: nichts davon kam aus dem Scan.
+ *
+ * ── ER BESCHREIBT DIE VORBELEGUNG, NICHT DEN AKTUELLEN FELDINHALT ─────────────────────────────
+ * Die Felder sind bewusst unkontrolliert (s. `formNonce` unten); der Hinweis wird deshalb aus der
+ * GEPARSTEN EXTRAKTION abgeleitet und nicht aus dem Formularzustand. Er bleibt stehen, wenn der
+ * Admin den Wert danach überschreibt — „vorbelegt" sagt genau das aus, und der Fall ist harmlos:
+ * Wer selbst tippt, weiss, woher sein Wert stammt. Die Frage, die der Hinweis beantwortet, ist
+ * die umgekehrte: „stand das schon da, oder hat der Scan es gelesen?"
+ */
+function scanOrigin(fromScan: boolean, hint?: React.ReactNode): React.ReactNode {
+  if (!fromScan) return hint
+  const origin = <span className="font-medium text-accent">Vorbelegt aus dem Preisblatt-Scan</span>
+  return hint ? (
+    <>
+      {origin} · {hint}
+    </>
+  ) : (
+    origin
+  )
+}
+
 /** Reihenfolge, in der nach dem ersten Fehler fokussiert wird — von oben nach unten im Formular. */
 const FIELD_ORDER = [
   'operatorId',
@@ -78,7 +134,7 @@ export function CreateGridTariffForm({ operators }: { operators: readonly Operat
   const [state, formAction, isPending] = useActionState(createGridTariffAction, ADMIN_INITIAL_STATE)
 
   const [operatorId, setOperatorId] = React.useState<string>(operators[0]?.id ?? OPERATOR_OTHER)
-  const [netzebene, setNetzebene] = React.useState<number>(NETZEBENEN[0])
+  const [netzebene, setNetzebene] = React.useState<Netzebene | null>(null)
 
   /*
    * Stabile Schlüssel statt des Array-Index: Beim Entfernen einer Zeile würde React sonst die
@@ -125,7 +181,12 @@ export function CreateGridTariffForm({ operators }: { operators: readonly Operat
     if (matched) setOperatorId(matched.id)
     else if (extraction.operatorName !== null) setOperatorId(OPERATOR_OTHER)
 
-    if (extraction.netzebene !== null) setNetzebene(extraction.netzebene)
+    /*
+     * UNBEDINGT setzen, auch auf `null`. Ein Scan verwirft, was vorher im Formular stand (s. o.) —
+     * und gerade die nicht erkannte Ebene muss sichtbar leer werden statt auf dem letzten Wert
+     * stehen zu bleiben, der dann wie ein Ergebnis des Scans aussähe.
+     */
+    setNetzebene(extraction.netzebene)
 
     /*
      * Frische Schlüssel für jedes gelesene Fenster — dadurch entstehen neue Elemente, die ihre
@@ -151,7 +212,11 @@ export function CreateGridTariffForm({ operators }: { operators: readonly Operat
   }, [fieldErrors])
 
   const known = operators.find((o) => o.id === operatorId)
-  const showVariant = hasMeteringVariant(netzebene)
+  /*
+   * Ohne gewählte Netzebene steht die Frage nach der Messvariante gar nicht an — sie hängt an
+   * `NETZEBENEN_MIT_MESSVARIANTE`, und das ist erst mit einer Ebene beantwortbar.
+   */
+  const showVariant = netzebene !== null && hasMeteringVariant(netzebene)
 
   return (
     <div className="flex flex-col gap-6">
@@ -179,7 +244,10 @@ export function CreateGridTariffForm({ operators }: { operators: readonly Operat
               label="Netzbetreiber"
               defaultValue={operatorId}
               onValueChange={setOperatorId}
-              hint="Bereits eingetragene Betreiber stehen zur Auswahl. Ein neuer wird EINMAL von Hand erfasst und ist danach hier zu finden."
+              hint={scanOrigin(
+                scan?.operatorName != null,
+                'Bereits eingetragene Betreiber stehen zur Auswahl. Ein neuer wird EINMAL von Hand erfasst und ist danach hier zu finden.',
+              )}
             >
               {operators.map((o) => (
                 <option key={o.id} value={o.id}>
@@ -220,6 +288,7 @@ export function CreateGridTariffForm({ operators }: { operators: readonly Operat
                   label="Anzeigename (neu)"
                   placeholder="Linz Netz GmbH"
                   error={state.fieldErrors?.operatorName}
+                  hint={scanOrigin(scan?.operatorName != null)}
                   defaultValue={scan?.operatorName ?? state.values?.operatorName}
                   required
                 />
@@ -233,10 +302,23 @@ export function CreateGridTariffForm({ operators }: { operators: readonly Operat
               id={`${ID}-netzebene`}
               name="netzebene"
               label="Netzebene"
-              defaultValue={String(netzebene)}
+              defaultValue={netzebene === null ? NETZEBENE_UNSET : String(netzebene)}
               error={state.fieldErrors?.netzebene}
-              onValueChange={(v) => setNetzebene(Number(v))}
+              onValueChange={(v) =>
+                setNetzebene(v === NETZEBENE_UNSET ? null : (Number(v) as Netzebene))
+              }
+              hint={
+                scan
+                  ? scanOrigin(
+                      scan.netzebene !== null,
+                      scan.netzebene === null
+                        ? 'Der Scan hat keine eindeutige Netzebene erkannt — führt das Blatt mehrere gleichrangig, bleibt sie bewusst offen. Bitte von Hand wählen.'
+                        : undefined,
+                    )
+                  : undefined
+              }
             >
+              <option value={NETZEBENE_UNSET}>— bitte wählen —</option>
               {NETZEBENEN.map((n) => (
                 <option key={n} value={n}>
                   Netzebene {n}
@@ -257,6 +339,7 @@ export function CreateGridTariffForm({ operators }: { operators: readonly Operat
                 label="Leistungsmessungs-Variante"
                 defaultValue={scan?.meteringVariant ?? METERING_VARIANTS[0]}
                 error={state.fieldErrors?.meteringVariant}
+                hint={scanOrigin(scan?.meteringVariant != null)}
               >
                 {METERING_VARIANTS.map((v) => (
                   <option key={v} value={v}>
@@ -264,6 +347,10 @@ export function CreateGridTariffForm({ operators }: { operators: readonly Operat
                   </option>
                 ))}
               </AdminSelect>
+            ) : netzebene === null ? (
+              <p className="self-end pb-2 text-caption text-text-muted">
+                Erst mit der Netzebene steht fest, ob eine Leistungsmessungs-Variante dazugehört.
+              </p>
             ) : (
               <p className="self-end pb-2 text-caption text-text-muted">
                 Netzebene {netzebene} kennt keine Leistungsmessungs-Variante — das Feld entfällt.
@@ -278,8 +365,9 @@ export function CreateGridTariffForm({ operators }: { operators: readonly Operat
               name="grundpreisAmount"
               label="Grundpreis"
               inputMode="numeric"
-              placeholder="38.52"
+              placeholder={AMOUNT_PLACEHOLDER}
               error={state.fieldErrors?.grundpreisAmount}
+              hint={scanOrigin(scan?.grundpreisAmount != null)}
               defaultValue={numberValue(scan?.grundpreisAmount) ?? state.values?.grundpreisAmount}
               required
             />
@@ -289,7 +377,10 @@ export function CreateGridTariffForm({ operators }: { operators: readonly Operat
               label="Einheit des Grundpreises"
               defaultValue={scan?.grundpreisUnit ?? DEFAULT_GRUNDPREIS_UNIT}
               error={state.fieldErrors?.grundpreisUnit}
-              hint="Die Einheit entscheidet die Bedeutung: nur EUR/kW·Jahr ist ein Leistungspreis. Eine Jahrespauschale heisst Leistungspreis 0 — also keine Spitzenkappung."
+              hint={scanOrigin(
+                scan?.grundpreisUnit != null,
+                'Die Einheit entscheidet die Bedeutung: nur EUR/kW·Jahr ist ein Leistungspreis. Eine Jahrespauschale heisst Leistungspreis 0 — also keine Spitzenkappung.',
+              )}
             >
               {GRUNDPREIS_UNITS.map((u) => (
                 <option key={u} value={u}>
@@ -305,8 +396,9 @@ export function CreateGridTariffForm({ operators }: { operators: readonly Operat
               name="netzverlustCtPerKwh"
               label="Netzverlustentgelt (ct/kWh)"
               inputMode="numeric"
-              placeholder="0.62"
+              placeholder={AMOUNT_PLACEHOLDER}
               error={state.fieldErrors?.netzverlustCtPerKwh}
+              hint={scanOrigin(scan?.netzverlustCtPerKwh != null)}
               defaultValue={
                 numberValue(scan?.netzverlustCtPerKwh) ?? state.values?.netzverlustCtPerKwh
               }
@@ -318,7 +410,10 @@ export function CreateGridTariffForm({ operators }: { operators: readonly Operat
               label="Preisbasis"
               defaultValue={scan?.priceBasis ?? DEFAULT_PRICE_BASIS}
               error={state.fieldErrors?.priceBasis}
-              hint="Netzentgelte stehen laut Tarifblatt netto. Ohne diese Angabe wäre ein Vergleich zwischen zwei Quellen stillschweigend um 20 % falsch."
+              hint={scanOrigin(
+                scan?.priceBasis != null,
+                'Netzentgelte stehen laut Tarifblatt netto. Ohne diese Angabe wäre ein Vergleich zwischen zwei Quellen stillschweigend um 20 % falsch.',
+              )}
             >
               {PRICE_BASES.map((b) => (
                 <option key={b} value={b}>
@@ -335,7 +430,10 @@ export function CreateGridTariffForm({ operators }: { operators: readonly Operat
             type="date"
             error={state.fieldErrors?.validFrom}
             defaultValue={scan?.validFrom ?? state.values?.validFrom}
-            hint="Ein bereits offener Stand derselben Kombination wird automatisch am Vortag beendet. Der Tag muss NACH dessen Beginn liegen."
+            hint={scanOrigin(
+              scan?.validFrom != null,
+              'Ein bereits offener Stand derselben Kombination wird automatisch am Vortag beendet. Der Tag muss NACH dessen Beginn liegen.',
+            )}
             required
           />
         </React.Fragment>
@@ -356,6 +454,16 @@ export function CreateGridTariffForm({ operators }: { operators: readonly Operat
                   <div className="flex items-start justify-between gap-4">
                     <p className="text-caption font-semibold uppercase tracking-wide text-text-muted">
                       Fenster {index + 1}
+                      {/*
+                        Eine Fensterzeile stammt als GANZES aus dem Scan oder gar nicht
+                        (`parseWindow` verwirft ein halb gelesenes Fenster) — die Herkunft
+                        gehört deshalb an die Kopfzeile und nicht sechsmal an die Einzelfelder.
+                      */}
+                      {row.prefill && (
+                        <span className="ml-2 font-medium normal-case tracking-normal text-accent">
+                          Vorbelegt aus dem Preisblatt-Scan
+                        </span>
+                      )}
                     </p>
                     {windowRows.length > 1 && (
                       <button
@@ -386,7 +494,7 @@ export function CreateGridTariffForm({ operators }: { operators: readonly Operat
                       name={`w${index}_ctPerKwh`}
                       label="Arbeitspreis (ct/kWh)"
                       inputMode="numeric"
-                      placeholder="4.14"
+                      placeholder={AMOUNT_PLACEHOLDER}
                       error={state.fieldErrors?.[`w${index}_ctPerKwh`]}
                       defaultValue={numberValue(row.prefill?.ctPerKwh)}
                       required
