@@ -169,6 +169,19 @@ export async function createGridTariffAction(
             ? ` Der bisher gültige Stand wurde automatisch zum ${formatDay(until)} beendet — es ` +
               'entsteht dadurch weder eine Lücke noch eine Überschneidung.'
             : ' Für diese Kombination gab es noch keinen offenen Stand.'),
+        /*
+         * ⚠ AUCH IM ERFOLGSFALL FAHREN DIE EINGABEN MIT — und das ist keine Kosmetik.
+         * Das Formular ersetzt sich nach einem `created` durch eine reine Anzeige dessen, was
+         * angelegt wurde (s. `components/admin/grid-tariff-form.tsx`), und die Felder sind dort
+         * unkontrolliert: was der Admin getippt hat, steht danach nirgends mehr im Browser.
+         * Ohne diese Zeile wäre der angelegte Stand für ihn im selben Moment unsichtbar, in dem
+         * er unumkehrbar wird — und das Einzige, was ihm bliebe, wäre ein Löschvorgang mit
+         * Protokoll (B21-2c), um überhaupt nachzusehen, was er abgeschickt hat.
+         *
+         * Es ist derselbe `values`-Slot, den die Fehlerfälle ohnehin benutzen (AdminState); es
+         * entsteht kein zweiter Rückkanal und kein neues Feld.
+         */
+        values,
       }
     }
     case 'invalid_valid_from': {

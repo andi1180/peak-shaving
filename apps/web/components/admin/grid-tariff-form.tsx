@@ -55,8 +55,11 @@ import {
   RATE_WINDOW_LABEL_SUGGESTIONS,
   hasMeteringVariant,
   matchOperatorByName,
+  type GrundpreisUnit,
+  type MeteringVariant,
   type Netzebene,
   type OperatorOption,
+  type PriceBasisValue,
 } from '@/lib/admin/grid-tariffs'
 import {
   AdminError,
@@ -65,6 +68,7 @@ import {
   AdminPanel,
   AdminSelect,
   AdminSuccess,
+  formatDate,
 } from './ui'
 
 /** Die Vorsilbe jeder DOM-Kennung, wenn der Aufrufer keine eigene vorgibt (Einzelformular). */
@@ -221,6 +225,178 @@ function initialWindowRows(prefill: TariffSheetFormPrefill | null): WindowRow[] 
   return windows.map((window, index) => ({ key: index, prefill: window }))
 }
 
+/**
+ * Die Zusammenfassung EINES angelegten Zeitfensters, aus den abgesendeten Formularwerten.
+ *
+ * Die Indizes sind lückenlos: das Formular nummeriert seine Fensterzeilen über den ARRAY-INDEX
+ * (`w${index}_…`), nicht über den stabilen Schlüssel — nach dem Entfernen einer Zeile rutschen die
+ * folgenden nach. Deshalb genügt ein aufsteigender Durchlauf, bis kein `w{i}_label` mehr da ist;
+ * dieselbe Annahme trifft `readGridTariffForm` (B21-2b) auf der Serverseite.
+ */
+function submittedWindows(values: Record<string, string>): {
+  label: string
+  ctPerKwh: string
+  timeFrom: string
+  timeTo: string
+  season: string | null
+}[] {
+  const out = []
+  for (let i = 0; values[`w${i}_label`] !== undefined; i += 1) {
+    const from = values[`w${i}_monthDayFrom`]?.trim()
+    const to = values[`w${i}_monthDayTo`]?.trim()
+    out.push({
+      label: values[`w${i}_label`] ?? '',
+      ctPerKwh: values[`w${i}_ctPerKwh`] ?? '',
+      timeFrom: values[`w${i}_timeFrom`] ?? '',
+      timeTo: values[`w${i}_timeTo`] ?? '',
+      season: from && to ? `${from} bis ${to}` : null,
+    })
+  }
+  return out
+}
+
+/** Ein Wert, den das Formular gar nicht erst mitgeschickt hat — als solcher erkennbar. */
+const MISSING = '—'
+
+/**
+ * Was nach einem erfolgreichen Anlegen an der Stelle des Formulars steht.
+ *
+ * ── ⚠ WARUM DAS FORMULAR VERSCHWINDET UND NICHT NUR EINE MELDUNG DAZUKOMMT ────────────────────
+ * Bis hierher blieb es nach einem `created` unverändert stehen — mit ausgefüllten Feldern und
+ * einem klickbaren „Tarifstand anlegen". Der zweite Klick ist nicht harmlos, und er hat ZWEI
+ * Ausgänge, die beide schlecht sind (an der echten Funktion gemessen, s. Handover):
+ *
+ *   1. UNVERÄNDERT abgeschickt antwortet `create_grid_tariff` mit `invalid_valid_from` — also
+ *      einem FEHLER am Datumsfeld („Der bisher gültige Stand beginnt am …"), und zwar wegen des
+ *      Standes, den derselbe Klick eine Sekunde zuvor selbst angelegt hat. Für den Admin liest
+ *      sich das, als sei etwas schiefgegangen.
+ *   2. Mit GEÄNDERTEM Gültigkeitsbeginn legt er einen ZWEITEN Stand an und beendet den gerade
+ *      erst erzeugten am Vortag (gemessen: `closed_count: 1`). Das ist der teure Fall — es gibt
+ *      kein Bearbeiten, der Rückbau ist ein protokollierter Löschvorgang (B21-2c).
+ *
+ * Ein Formular, das nach getaner Arbeit stehen bleibt, lädt genau dazu ein. Es wird deshalb
+ * ERSETZT statt deaktiviert: ein Feld mit `readOnly` sähe weiterhin aus, als liesse sich vielleicht
+ * doch etwas ändern — dieselbe Überlegung, aus der `AdminFixedValue` (PR #120) kein graues
+ * Eingabefeld ist.
+ *
+ * ── DIE WERTE BLEIBEN LESBAR, UND ZWAR AUS EINEM BESTIMMTEN GRUND ─────────────────────────────
+ * Angezeigt wird, was ABGESCHICKT wurde (`state.values`), nicht was die Datenbank zurückmeldet.
+ * Der Admin hat gerade neun Felder und bis zu zwölf Zeitfenster von einem Preisblatt abgetippt;
+ * verschwände das mit dem Klick, könnte er es mit nichts mehr vergleichen. Die Liste „Alle
+ * Tarifzeilen" darunter zeigt die Zeile zwar ebenfalls (`revalidatePath`), aber ohne die
+ * Zeitfenster-Sätze.
+ */
+function CreatedGridTariff({
+  idPrefix,
+  values,
+}: {
+  idPrefix: string
+  values: Record<string, string>
+}) {
+  const variant = values.meteringVariant
+  const unit = values.grundpreisUnit
+  const basis = values.priceBasis
+  const windows = submittedWindows(values)
+
+  const isVariant = (v: string | undefined): v is MeteringVariant =>
+    v !== undefined && (METERING_VARIANTS as readonly string[]).includes(v)
+  const isUnit = (v: string | undefined): v is GrundpreisUnit =>
+    v !== undefined && (GRUNDPREIS_UNITS as readonly string[]).includes(v)
+  const isBasis = (v: string | undefined): v is PriceBasisValue =>
+    v !== undefined && (PRICE_BASES as readonly string[]).includes(v)
+
+  return (
+    <div className="flex flex-col gap-6">
+      {/*
+        Dieselbe zweispaltige Aufteilung wie im Formular: Der Admin sieht seine Eingaben an
+        derselben Stelle wieder, nur eingefroren — nicht in einer anderen Anordnung, die er erst
+        wieder zuordnen müsste.
+      */}
+      <div className="grid gap-4 sm:grid-cols-2">
+        <AdminFixedValue
+          id={`${idPrefix}-created-operator`}
+          label="Netzbetreiber"
+          value={values.operatorName || MISSING}
+          hint={values.operatorId ? `Kennung ${values.operatorId}` : undefined}
+        />
+        <AdminFixedValue
+          id={`${idPrefix}-created-netzebene`}
+          label="Netzebene"
+          value={values.netzebene ? `Netzebene ${values.netzebene}` : MISSING}
+        />
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <AdminFixedValue
+          id={`${idPrefix}-created-grundpreis`}
+          label="Grundpreis"
+          value={values.grundpreisAmount || MISSING}
+          hint={isUnit(unit) ? GRUNDPREIS_UNIT_LABELS[unit] : undefined}
+        />
+        <AdminFixedValue
+          id={`${idPrefix}-created-netzverlust`}
+          label="Netzverlustentgelt (ct/kWh)"
+          value={values.netzverlustCtPerKwh || MISSING}
+        />
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        {/*
+          Die Messvariante steht nur da, wo eine mitgeschickt wurde — auf den Netzebenen 3 bis 6
+          gehört `null` in die Spalte, und eine Zeile „Messvariante: —" behauptete dort eine
+          fehlende Angabe statt einer nicht vorhandenen (B21-1, `nulls not distinct`).
+        */}
+        {isVariant(variant) && (
+          <AdminFixedValue
+            id={`${idPrefix}-created-meteringVariant`}
+            label="Leistungsmessungs-Variante"
+            value={METERING_VARIANT_LABELS[variant]}
+          />
+        )}
+        <AdminFixedValue
+          id={`${idPrefix}-created-priceBasis`}
+          label="Preisbasis"
+          value={isBasis(basis) ? PRICE_BASIS_LABELS[basis] : MISSING}
+        />
+        <AdminFixedValue
+          id={`${idPrefix}-created-validFrom`}
+          label="Gültig ab"
+          value={values.validFrom ? formatDate(values.validFrom) : MISSING}
+        />
+      </div>
+
+      <div className="border-t border-line pt-5">
+        <h4 className="text-small font-semibold text-ink">
+          {windows.length === 1 ? 'Zeitfenster' : `Zeitfenster (${windows.length})`}
+        </h4>
+        <ul className="mt-3 flex flex-col gap-2">
+          {windows.map((w, index) => (
+            <li
+              key={index}
+              className="rounded-md border border-line bg-surface-sunken px-3 py-2 text-small text-text"
+            >
+              <span className="font-medium text-ink">{w.label}</span>
+              <span className="text-text-muted"> · </span>
+              <span className="tabular-nums">{w.ctPerKwh} ct/kWh</span>
+              <span className="text-text-muted"> · </span>
+              <span className="tabular-nums">
+                {w.timeFrom}–{w.timeTo}
+              </span>
+              <span className="text-text-muted"> · {w.season ?? 'ganzjährig'}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <p className="max-w-prose text-caption text-text-muted">
+        Dieser Stand ist angelegt und lässt sich nicht mehr bearbeiten. Er steht ab jetzt in der
+        Liste „Alle Tarifzeilen" weiter unten. Für eine weitere Tarifzeile bitte die Seite neu
+        laden.
+      </p>
+    </div>
+  )
+}
+
 export function CreateGridTariffForm({
   operators,
   prefill = null,
@@ -301,10 +477,36 @@ export function CreateGridTariffForm({
   const fixedIdentityHint =
     'Diese Zeile ist auf die gelesene Kombination festgelegt. Falsch zugeordnet? Diese Zeile stehen lassen und den Tarifstand unten von Hand anlegen.'
 
+  /*
+   * ── ⚠ NACH EINEM ERFOLG GIBT ES KEIN FORMULAR MEHR ──────────────────────────────────────────
+   * `state.success` ist für DIESE Action gleichbedeutend mit `status: 'created'`: die Server
+   * Action setzt das Feld in genau einem Zweig (`grid-tariffs-actions.ts`), alle übrigen Ausgänge
+   * antworten mit `formError` oder `fieldErrors`. Ein eigenes Statusfeld auf `AdminState` — das
+   * zehn andere Admin-Formulare mitträgen — wäre dafür nicht nötig; die Bedingung ist als Kommentar
+   * an beiden Enden festgehalten, damit ein künftiger zweiter `success`-Zweig nicht still das
+   * Formular sperrt.
+   *
+   * Es wird kein `<form>` gerendert, nicht bloss ein deaktivierter Knopf: was es nicht gibt, lässt
+   * sich auch nicht über einen zweiten Klick, die Eingabetaste in einem Feld oder ein
+   * wiederhergestelltes Formular auslösen. Die Begründung, warum ein zweiter Klick teuer ist, steht
+   * bei `CreatedGridTariff`.
+   *
+   * REIN CLIENTSEITIG ABGELEITET: kein Speicher, keine zweite Datenquelle. Ein Neuladen der Seite
+   * zeigt wieder das leere Formular — richtig so, denn dann steht die angelegte Zeile in der Liste
+   * darunter (`revalidatePath`), und das ist der Ort, an dem sie dauerhaft hingehört.
+   */
+  if (state.success) {
+    return (
+      <div className="flex flex-col gap-6">
+        <AdminSuccess>{state.success}</AdminSuccess>
+        <CreatedGridTariff idPrefix={formId} values={state.values ?? {}} />
+      </div>
+    )
+  }
+
   return (
     <form action={formAction} className="flex flex-col gap-6" noValidate>
       {state.formError && <AdminError>{state.formError}</AdminError>}
-      {state.success && <AdminSuccess>{state.success}</AdminSuccess>}
 
       {/* ── Netzbetreiber ─────────────────────────────────────────────────────────────────────── */}
       <div className="grid gap-4 sm:grid-cols-2">

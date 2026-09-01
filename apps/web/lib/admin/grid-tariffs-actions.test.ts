@@ -30,7 +30,7 @@ vi.mock('./guard', () => ({ isCurrentUserAdmin: () => isCurrentUserAdmin() }))
 vi.mock('./session', () => ({ currentUserEmail: () => currentUserEmail() }))
 vi.mock('next/cache', () => ({ revalidatePath: (p: string) => revalidatePath(p) }))
 
-const { deleteGridTariffAction } = await import('./grid-tariffs-actions')
+const { createGridTariffAction, deleteGridTariffAction } = await import('./grid-tariffs-actions')
 
 const ID = '11111111-2222-4333-8444-555555555555'
 
@@ -160,5 +160,127 @@ describe('deleteGridTariffAction — Antworten der Datenbank', () => {
     expect(state.formError).toMatch(/nicht geklappt/)
     expect(state.success).toBeUndefined()
     expect(revalidatePath).not.toHaveBeenCalled()
+  })
+})
+
+/**
+ * ── ⚠ DER ERFOLGSFALL MUSS DIE EINGABEN ZURÜCKGEBEN ─────────────────────────────────────────────
+ * Seit dem Nachtrag zu PR #120 ersetzt sich `CreateGridTariffForm` nach einem `created` durch eine
+ * reine Anzeige dessen, was angelegt wurde — und die liest ausschliesslich `state.values`. Fiele
+ * die Zeile aus dem Erfolgszweig, stünde dort für JEDES Feld ein Gedankenstrich: der Admin hätte
+ * gerade neun Felder und bis zu zwölf Zeitfenster abgetippt, der Vorgang wäre unumkehrbar, und
+ * das Abgeschickte wäre im selben Moment unsichtbar. Kein Typfehler, kein Absturz, keine
+ * Fehlermeldung — genau die Sorte stiller Verlust, die nur ein Test fängt.
+ */
+function createForm(overrides: Record<string, string> = {}): FormData {
+  const fd = new FormData()
+  const base: Record<string, string> = {
+    operatorSelect: 'wiener_netze',
+    operatorId: 'wiener_netze',
+    operatorName: 'Wiener Netze GmbH',
+    netzebene: '5',
+    grundpreisAmount: '44.8',
+    grundpreisUnit: 'eur_per_kw_year',
+    netzverlustCtPerKwh: '0.74',
+    priceBasis: 'net',
+    validFrom: '2027-01-01',
+    w0_label: 'normal',
+    w0_ctPerKwh: '4.62',
+    w0_timeFrom: '00:00',
+    w0_timeTo: '24:00',
+    w0_monthDayFrom: '',
+    w0_monthDayTo: '',
+    ...overrides,
+  }
+  for (const [k, v] of Object.entries(base)) fd.set(k, v)
+  return fd
+}
+
+describe('createGridTariffAction — der Erfolgsfall trägt die Eingaben zurück', () => {
+  beforeEach(() => {
+    rpc.mockResolvedValue({
+      data: { status: 'created', id: ID, window_count: 1, closed_count: 0, closed_valid_until: null },
+      error: null,
+    })
+  })
+
+  it('meldet den Erfolg UND liefert die abgesendeten Werte mit', async () => {
+    const state = await createGridTariffAction({}, createForm())
+    expect(state.success).toContain('Tarifstand angelegt')
+    expect(state.formError).toBeUndefined()
+    expect(state.fieldErrors).toBeUndefined()
+    expect(state.values).toBeDefined()
+    // Genau die Felder, aus denen die Erfolgsanzeige ihre Zeilen baut.
+    expect(state.values).toMatchObject({
+      operatorName: 'Wiener Netze GmbH',
+      operatorId: 'wiener_netze',
+      netzebene: '5',
+      grundpreisAmount: '44.8',
+      grundpreisUnit: 'eur_per_kw_year',
+      netzverlustCtPerKwh: '0.74',
+      priceBasis: 'net',
+      validFrom: '2027-01-01',
+      w0_label: 'normal',
+      w0_ctPerKwh: '4.62',
+      w0_timeFrom: '00:00',
+      w0_timeTo: '24:00',
+    })
+  })
+
+  it('die Messvariante fährt mit, wo es eine gibt — und fehlt sonst', async () => {
+    const withVariant = await createGridTariffAction(
+      {},
+      createForm({ netzebene: '7', meteringVariant: 'mit_leistungsmessung' }),
+    )
+    expect(withVariant.values?.meteringVariant).toBe('mit_leistungsmessung')
+
+    const without = await createGridTariffAction({}, createForm())
+    expect(without.values?.meteringVariant).toBeUndefined()
+  })
+
+  it('ein zweites Zeitfenster erscheint vollständig unter seinem eigenen Index', async () => {
+    const state = await createGridTariffAction(
+      {},
+      createForm({
+        w1_label: 'snap',
+        w1_ctPerKwh: '11.35',
+        w1_timeFrom: '17:00',
+        w1_timeTo: '20:00',
+        w1_monthDayFrom: '10-01',
+        w1_monthDayTo: '03-31',
+      }),
+    )
+    expect(state.values).toMatchObject({
+      w1_label: 'snap',
+      w1_ctPerKwh: '11.35',
+      w1_timeFrom: '17:00',
+      w1_timeTo: '20:00',
+      w1_monthDayFrom: '10-01',
+      w1_monthDayTo: '03-31',
+    })
+  })
+
+  /*
+   * Die Gegenprobe: `success` ist für DIESE Action gleichbedeutend mit „angelegt" — daran hängt im
+   * Formular die Entscheidung, die Eingabefelder überhaupt nicht mehr zu rendern. Ein Fehlerfall
+   * darf das Feld deshalb unter keinen Umständen setzen.
+   */
+  it('ein abgelehnter Gültigkeitsbeginn setzt KEIN success', async () => {
+    rpc.mockResolvedValue({
+      data: { status: 'invalid_valid_from', open_valid_from: '2027-01-01' },
+      error: null,
+    })
+    const state = await createGridTariffAction({}, createForm())
+    expect(state.success).toBeUndefined()
+    expect(state.fieldErrors?.validFrom).toContain('01.01.2027')
+    expect(state.values).toBeDefined()
+  })
+
+  it('auch „keine Berechtigung" setzt KEIN success', async () => {
+    isCurrentUserAdmin.mockResolvedValue(false)
+    const state = await createGridTariffAction({}, createForm())
+    expect(state.success).toBeUndefined()
+    expect(state.formError).toBe('Keine Berechtigung. Bitte laden Sie die Seite neu.')
+    expect(createServiceRoleClient).not.toHaveBeenCalled()
   })
 })
