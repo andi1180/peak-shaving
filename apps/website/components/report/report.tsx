@@ -30,6 +30,7 @@ import { EnergyFlowChart } from './energy-flow-chart'
 import { KeyMetric } from './key-metric'
 import { LeadDialog } from './lead-dialog'
 import { LoadChart } from './load-chart'
+import { MonthlyTariffChart } from './monthly-tariff-chart'
 import { Num } from './num'
 import { PrintAssumptionsSnapshot } from './print-assumptions-snapshot'
 import { PrintMethodology } from './print-methodology'
@@ -379,6 +380,35 @@ export function Report({
   )
 
   /*
+   * ── DER MONATSVERGLEICH „IST vs. aWATTar" (01.09.2026) ─────────────────────────────────────
+   * Steht im Bestandsfall an der Stelle, die der Kostenvergleich dort freigemacht hat (s. oben):
+   * Für einen Kunden mit Anlage ist die offene Frage nicht mehr „welche Batterie kaufe ich",
+   * sondern „was zahle ich am Netz — heute und mit einem anderen Stromvertrag".
+   *
+   * ⚠ `null`, WENN DER HEBEL NICHT BERECHENBAR IST — und dann entfällt die Sektion ERSATZLOS,
+   * nicht als leere Box mit Überschrift. Die Bedingung ist genau eine (`monthlyComparison`
+   * vorhanden), und der Worker setzt sie ausschliesslich bei `computable === true` UND
+   * vorhandener Bestandsanlage. Eine hier nachgebaute Zweitprüfung an `status.computable`
+   * könnte davon abweichen; die Frage „darf ich diese Zahlen zeigen" hat einen Ort.
+   */
+  const monthlyComparison =
+    result.tariffOptimization?.computable === true
+      ? result.tariffOptimization.monthlyComparison
+      : undefined
+  /*
+   * ⚠ ÜBER BEIDE SPALTEN. Gemessen: in einer halben Spalte ist die Zeichenfläche rund 300 px
+   * breit, und 12 Monate × 3 Reihen ergeben dort 2 px schmale Balken — eine Abbildung, die man
+   * nicht mehr lesen kann. Der Kasten steht deshalb an der Stelle, die der Kostenvergleich im
+   * Bestandsfall freigemacht hat (erster Eintrag dieses Rasters), nimmt aber die volle Breite.
+   * Im Druck ist das Raster ohnehin einspaltig (`print:grid-cols-1`).
+   */
+  const monthlyTariffBox = monthlyComparison ? (
+    <div className="sm:col-span-2">
+      <MonthlyTariffChart comparison={monthlyComparison} />
+    </div>
+  ) : null
+
+  /*
    * ⚠ IM BESTANDSFALL ZEIGT DER ENERGIEFLUSS DIE ANLAGE DES KUNDEN, NICHT DEN KATALOG.
    *
    * Der Chart illustriert den primären Block darüber — und das ist dort SEIN Speicher. Ein
@@ -673,7 +703,14 @@ export function Report({
           */}
           <div className="grid gap-6 sm:grid-cols-2 print:grid-cols-1">
             {isExisting ? (
+              /*
+                Der Monatsvergleich zuerst über die volle Breite, darunter unverändert
+                Energiefluss und „Nächster Schritt" nebeneinander. Ohne ihn (Hebel nicht
+                berechenbar) rendert `monthlyTariffBox` `null`, und übrig bleibt Zeile für Zeile
+                die bisherige Zweiteilung — keine leere Box, keine leere Spalte.
+              */
               <>
+                {monthlyTariffBox}
                 {energyFlowBox}
                 {nextStepBox}
               </>

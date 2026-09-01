@@ -24,8 +24,12 @@ export { alignPvGrossToLoad, pvConsistencyWarning, pvCoverageWarning } from './p
 // Delta 4 (B21-3b): der kombinierte Intervallpreis. `evaluateTariffOptimization` ist der Weg für
 // einen Aufrufer, der EINMAL profilweit wissen will, ob der Tarifoptimierungs-Hebel rechenbar ist —
 // dieselbe Rechnung wie in `intervalTariffRates`, keine zweite Prüfung daneben.
-export { intervalTariffRates, evaluateTariffOptimization } from './tou'
-export type { IntervalTariffRates } from './tou'
+export { intervalTariffRates, evaluateTariffOptimization, combinedIntervalPrices } from './tou'
+export type { IntervalTariffRates, CombinedIntervalPrices } from './tou'
+// Monatsvergleich „Ist vs. aWATTar ohne Steuerung vs. aWATTar mit Speicher" (01.09.2026) — reine
+// Aggregation über den bereits gerechneten Dispatch; beide Preisreihen kommen aus DERSELBEN
+// `combinedIntervalPrices`, nur mit unterschiedlicher Energiepreis-Eingabe.
+export { buildMonthlyTariffComparison } from './monthly-tariff-comparison'
 export { findGridTariffRow, findGridTariffWindow, parseClockMinutes } from './grid-tariff-window'
 export type { PvAlignment } from './pv'
 export {

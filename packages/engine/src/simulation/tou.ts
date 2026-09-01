@@ -109,6 +109,16 @@ function isNetBasis(basis: string): boolean {
 }
 
 /**
+ * Das Ergebnis von `combinedIntervalPrices` — entweder die Preisreihe oder der EINE Grund, aus dem
+ * es sie nicht gibt. Bewusst eine diskriminierte Union statt „Preise plus optionalem Fehler":
+ * eine halb gefüllte Reihe neben einem Befund wäre genau die Grundlage, aus der jemand doch noch
+ * eine Zahl bildet.
+ */
+export type CombinedIntervalPrices =
+  | { prices: number[] }
+  | { blocker: TariffOptimizationStatus & { computable: false } }
+
+/**
  * Der kombinierte Intervallpreis (Delta 4):
  *
  *     effectivePriceCtPerKwh(t) = energyPrice(t) + netzVerbrauchspreis(t)
@@ -121,11 +131,30 @@ function isNetBasis(basis: string): boolean {
  * berechenbar — nicht für den Rest berechnet und für die Lücke geschätzt. Delta 15 Regel C nennt
  * das für die Spotpreis-Seite; hier gilt es symmetrisch auch für die Netzentgelt-Seite, denn eine
  * fehlende Tarifzeile ist dieselbe Art von Loch in derselben Rechnung.
+ *
+ * ── ⚠ DIE ENERGIEPREIS-SEITE IST EIN PARAMETER, DIE NETZENTGELT-SEITE NICHT (01.09.2026) ───────
+ * `energyPriceCtPerKwh` schaltet die ERSTE Komponente um:
+ *   • weggelassen → der BÖRSENPREIS der jeweiligen Stunde (die aWATTar-Seite, unverändert),
+ *   • eine Zahl   → derselbe Arbeitspreis für jedes Intervall (der IST-Tarif aus Schritt 2).
+ *
+ * Der Grund ist der Monatsvergleich „Ist vs. aWATTar": beide Reihen müssen dieselbe
+ * Netzentgelt-Logik (Fensterzuordnung + Netzverlust-Sockel) durchlaufen, sonst vergleicht der
+ * Report zwei Zahlen, die verschieden zusammengesetzt sind — und die Differenz enthielte einen
+ * Anteil, der gar nicht am Strompreis liegt. Zwei parallele Implementierungen derselben
+ * Fensterlogik liefen beim nächsten Preisblatt-Ausbau garantiert auseinander; es ist deshalb EINE
+ * Funktion mit zwei Aufrufen, nicht zwei Funktionen.
+ *
+ * ⚠ Die Lückenprüfung der SPOTPREIS-Seite läuft auch dann, wenn ihr Wert gar nicht benutzt wird.
+ * Das ist Absicht: beide Aufrufe teilen dasselbe `pricing` und müssen deshalb denselben Befund
+ * liefern. Ein Ist-Preis, der eine Spotpreis-Lücke überlebt, während die aWATTar-Reihe daran
+ * scheitert, ergäbe im Report eine einzelne Balkenreihe ohne ihre Vergleichsreihen — genau der
+ * Teilzustand, den der Monatsvergleich ausschliesst.
  */
-function combinedPrices(
+export function combinedIntervalPrices(
   loadProfile: LoadProfile,
   pricing: TariffPricingInputs,
-): { prices: number[] } | { blocker: TariffOptimizationStatus & { computable: false } } {
+  energyPriceCtPerKwh?: number,
+): CombinedIntervalPrices {
   const { gridTariffRows, spotPrices } = pricing
 
   if (gridTariffRows == null || gridTariffRows.length === 0) {
@@ -220,8 +249,12 @@ function combinedPrices(
     if (spot == null) {
       spotGaps.push({ fromIso: reading.ts, toIso: new Date(ms + intervalMs).toISOString() })
     }
+    // Die Energiepreis-Komponente: der übergebene Festpreis, sonst der Börsenpreis der Stunde.
+    const energyCt = energyPriceCtPerKwh ?? spot?.ctPerKwh ?? null
     prices[i] =
-      row && window && spot ? spot.ctPerKwh + window.ctPerKwh + row.netzverlustCtPerKwh : Number.NaN
+      row && window && energyCt != null
+        ? energyCt + window.ctPerKwh + row.netzverlustCtPerKwh
+        : Number.NaN
   }
 
   // Die Netzentgelt-Seite wird zuerst gemeldet: fehlt sie, ist das ein Pflegestand, der von Hand
@@ -308,7 +341,7 @@ export function intervalTariffRates(
   const count = loadProfile.readings.length
 
   if (pricing) {
-    const combined = combinedPrices(loadProfile, pricing)
+    const combined = combinedIntervalPrices(loadProfile, pricing)
     if ('blocker' in combined) {
       return {
         rateCtPerKwh: new Array<number>(count).fill(std),

@@ -127,11 +127,53 @@ export type TariffOptimizationBlocker = {
 }
 
 /**
+ * Der Monatsvergleich „Ist-Tarif vs. aWATTar ohne Steuerung vs. aWATTar mit dem Speicher des
+ * Kunden" (01.09.2026) — drei Kostenreihen über die zwölf Kalendermonate.
+ *
+ * ── ⚠ WARUM DIE DREI REIHEN GEMEINSAM ENTSTEHEN ODER GAR NICHT ─────────────────────────────────
+ * Sie sitzen deshalb IM `computable: true`-Zweig und nicht als eigenes Feld daneben: alle drei
+ * beruhen auf demselben kombinierten Intervallpreis (Marktpreis bzw. Ist-Arbeitspreis, je plus
+ * Netzentgelt und Netzverlust). Ist der Hebel nicht berechenbar, gibt es KEINE davon — auch nicht
+ * die Ist-Reihe, obwohl deren Energiepreis aus Schritt 2 stammt und für sich genommen bekannt
+ * wäre: `intervalTariffRates` füllt die Preisreihe im nicht berechenbaren Fall bewusst
+ * durchgehend mit dem Standard-Arbeitspreis, und eine daraus gebildete Aggregation zeigte dann
+ * „aWATTar = Ist" statt „nicht berechenbar". Ein Balkenpaar, das Gleichstand behauptet, ist
+ * schlimmer als eine fehlende Sektion.
+ *
+ * ── ⚠ MONATE OHNE MESSWERT SIND `null`, NICHT `0` ──────────────────────────────────────────────
+ * Ein 0-Wert sähe aus wie „gemessen, kostet nichts". Die Anzeige spart solche Monate aus.
+ *
+ * ── ⚠ HIER WIRD NICHT AUF EIN JAHR HOCHGERECHNET ───────────────────────────────────────────────
+ * `annualizationFactor` (§3.7.1) gilt ausdrücklich NICHT für diese Reihen: sie zeigen, was in den
+ * tatsächlich gemessenen Monaten angefallen wäre. Ein hochgerechneter Monatsbalken wäre eine
+ * Angabe über einen Monat, für den es keine Messung gibt.
+ */
+export type MonthlyTariffComparison = {
+  /** Index 0 = Jänner. `null` = kein Messwert in diesem Kalendermonat. Länge immer 12. */
+  currentTariffEur: (number | null)[]
+  /** aWATTar-Preise auf den ROHEN, unveränderten Lastgang — ohne jeden Dispatch. */
+  spotWithoutControlEur: (number | null)[]
+  /** aWATTar-Preise auf den Netzbezug NACH dem Dispatch der bestehenden Anlage. */
+  spotWithBatteryEur: (number | null)[]
+  /** Zahl der belegten Kalendermonate — die Bezugsgrösse des Hinweistexts im Report. */
+  coveredMonths: number
+}
+
+/**
  * Ergebnis der Prüfung „lässt sich der Tarifoptimierungs-Hebel für diese Analyse rechnen?".
  * `undefined` an einer Stelle, die diesen Typ optional führt, heisst: gar nicht angefordert.
  */
 export type TariffOptimizationStatus =
-  | { computable: true }
+  | {
+      computable: true
+      /**
+       * Additiv und optional (01.09.2026): der Monatsvergleich entsteht nur, wenn der Kunde eine
+       * bestehende Anlage angegeben hat — die dritte Reihe braucht deren Dispatch. Fehlt das Feld,
+       * ist der Hebel dennoch berechenbar; Präzedenz `tariffOptimization`/`existingBatteryAnalysis`
+       * im `AnalysisResult`, und wie dort erzwingt das keinen `bundleVersion`-Sprung (B14-2).
+       */
+      monthlyComparison?: MonthlyTariffComparison
+    }
   | ({ computable: false } & TariffOptimizationBlocker)
 
 /**
