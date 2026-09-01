@@ -1,0 +1,164 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+/**
+ * B21-2c — die Server Action des Löschwegs (`deleteGridTariffAction`).
+ *
+ * ── DIE EIGENSCHAFT, DIE SICH NUR HIER PRÜFEN LÄSST ─────────────────────────────────────────────
+ * Dass eine Ablehnung die Datenbank NICHT BERÜHRT. Nicht „dort abgelehnt wird" — es entsteht kein
+ * Client, kein RPC, gar nichts. Der service_role-Client ist deshalb ersetzt und zählt mit, ob er
+ * überhaupt erzeugt wurde; ohne Client kein RPC, ohne RPC keine gelöschte Zeile.
+ *
+ * ⚠ Das ist an dieser Stelle mehr als eine Formalie: `public.delete_grid_tariff` ist SECURITY
+ * INVOKER und prüft KEINE Rolle (der Aufrufer ist `service_role` und trägt kein JWT). Diese
+ * Rollenprüfung IST die Zugangsentscheidung — sie hat in der Datenbank kein Gegenstück, das sie
+ * auffangen würde. Fällt sie weg, löscht jeder angemeldete Nutzer, der die Action-Kennung kennt.
+ *
+ * Das Verhalten der Funktion selbst (Kaskade, Abzug, not_found, Rechtefläche) ist B21-2c und liegt
+ * im DB-Gate (`packages/db-tests/src/grid-tariff-delete-path.test.ts`).
+ */
+
+const rpc = vi.fn()
+const createServiceRoleClient = vi.fn(() => ({ rpc }))
+const isCurrentUserAdmin = vi.fn()
+const currentUserEmail = vi.fn()
+const revalidatePath = vi.fn()
+
+vi.mock('@/lib/supabase/service-role', () => ({
+  createServiceRoleClient: () => createServiceRoleClient(),
+}))
+vi.mock('./guard', () => ({ isCurrentUserAdmin: () => isCurrentUserAdmin() }))
+vi.mock('./session', () => ({ currentUserEmail: () => currentUserEmail() }))
+vi.mock('next/cache', () => ({ revalidatePath: (p: string) => revalidatePath(p) }))
+
+const { deleteGridTariffAction } = await import('./grid-tariffs-actions')
+
+const ID = '11111111-2222-4333-8444-555555555555'
+
+function formFor(tariffId: string): FormData {
+  const fd = new FormData()
+  fd.set('tariffId', tariffId)
+  return fd
+}
+
+beforeEach(() => {
+  rpc.mockReset()
+  createServiceRoleClient.mockClear()
+  isCurrentUserAdmin.mockReset()
+  currentUserEmail.mockReset()
+  revalidatePath.mockReset()
+  isCurrentUserAdmin.mockResolvedValue(true)
+  currentUserEmail.mockResolvedValue('admin@coolin.at')
+  rpc.mockResolvedValue({ data: { status: 'deleted', id: ID, window_count: 2 }, error: null })
+})
+
+describe('deleteGridTariffAction — ohne Adminrolle geschieht NICHTS', () => {
+  it('lehnt ab, ohne einen service_role-Client zu erzeugen', async () => {
+    isCurrentUserAdmin.mockResolvedValue(false)
+    const state = await deleteGridTariffAction({}, formFor(ID))
+
+    expect(state.formError).toMatch(/Keine Berechtigung/)
+    expect(createServiceRoleClient).not.toHaveBeenCalled()
+    expect(rpc).not.toHaveBeenCalled()
+  })
+
+  it('die Prüfung steht VOR der Formprüfung — auch eine unbrauchbare id ergibt „Keine Berechtigung"', async () => {
+    // Wer keinen Zugang hat, soll nicht erfahren, welche Felder die Action kennt und wie sie
+    // geprüft werden (dieselbe Reihenfolge wie beim Anlegen).
+    isCurrentUserAdmin.mockResolvedValue(false)
+    const state = await deleteGridTariffAction({}, formFor('offensichtlich-keine-uuid'))
+
+    expect(state.formError).toMatch(/Keine Berechtigung/)
+    expect(createServiceRoleClient).not.toHaveBeenCalled()
+  })
+
+  it('ein Fehler beim Lesen der Rolle gilt als „kein Zugang" (fail closed)', async () => {
+    isCurrentUserAdmin.mockRejectedValue(new Error('Sitzung nicht lesbar'))
+    await expect(deleteGridTariffAction({}, formFor(ID))).rejects.toThrow()
+    expect(createServiceRoleClient).not.toHaveBeenCalled()
+    expect(rpc).not.toHaveBeenCalled()
+  })
+})
+
+describe('deleteGridTariffAction — die Prüfkette liegt VOR der Datenbank', () => {
+  it('eine unbrauchbare Kennung erreicht die Datenbank gar nicht', async () => {
+    const state = await deleteGridTariffAction({}, formFor('12345'))
+
+    expect(state.formError).toMatch(/keine gültige Tarifzeile/)
+    expect(createServiceRoleClient).not.toHaveBeenCalled()
+    expect(rpc).not.toHaveBeenCalled()
+  })
+
+  it('ein fehlendes Feld ebenfalls', async () => {
+    const state = await deleteGridTariffAction({}, new FormData())
+
+    expect(state.formError).toMatch(/keine gültige Tarifzeile/)
+    expect(rpc).not.toHaveBeenCalled()
+  })
+})
+
+describe('deleteGridTariffAction — der Gutfall setzt GENAU EINEN Aufruf ab', () => {
+  it('reicht Kennung und Adresse durch und meldet den Erfolg samt Zeitfenster-Zahl', async () => {
+    const state = await deleteGridTariffAction({}, formFor(ID))
+
+    expect(rpc).toHaveBeenCalledTimes(1)
+    expect(rpc).toHaveBeenCalledWith('delete_grid_tariff', {
+      p_tariff_id: ID,
+      p_deleted_by: 'admin@coolin.at',
+    })
+    expect(state.formError).toBeUndefined()
+    expect(state.success).toMatch(/gelöscht, mit 2 Zeitfenstern/)
+    expect(state.success).toMatch(/Löschprotokoll/)
+    expect(revalidatePath).toHaveBeenCalledWith('/admin/netzbetreiber-tarife')
+  })
+
+  it('ohne lesbare Sitzungsadresse steht ein erkennbarer Platzhalter im Protokoll', async () => {
+    // Wie beim Anlegen (`created_by`): ein leerer String sähe später wie eine Angabe aus.
+    currentUserEmail.mockResolvedValue(null)
+    await deleteGridTariffAction({}, formFor(ID))
+
+    expect(rpc).toHaveBeenCalledWith('delete_grid_tariff', {
+      p_tariff_id: ID,
+      p_deleted_by: 'unbekannt',
+    })
+  })
+
+  it('EIN Zeitfenster wird korrekt im Singular gemeldet', async () => {
+    rpc.mockResolvedValue({ data: { status: 'deleted', id: ID, window_count: 1 }, error: null })
+    const state = await deleteGridTariffAction({}, formFor(ID))
+
+    expect(state.success).toMatch(/mit 1 Zeitfenster\./)
+  })
+})
+
+describe('deleteGridTariffAction — Antworten der Datenbank', () => {
+  it('`not_found` bekommt einen eigenen Satz statt der Allgemeinmeldung', async () => {
+    // Der reale Fall: zwei offene Browser-Fenster, eines hat die Zeile schon entfernt. Ein
+    // allgemeines „hat nicht geklappt" liesse den Admin die Ursache suchen, die es nicht gibt.
+    rpc.mockResolvedValue({ data: null, error: { code: 'P0001', message: 'not_found' } })
+    const state = await deleteGridTariffAction({}, formFor(ID))
+
+    expect(state.formError).toMatch(/gibt es nicht mehr/)
+    expect(state.success).toBeUndefined()
+    expect(revalidatePath).not.toHaveBeenCalled()
+  })
+
+  it('ein Betriebsfehler wird NICHT als Erfolg ausgegeben', async () => {
+    rpc.mockResolvedValue({ data: null, error: { code: '08006', message: 'connection failure' } })
+    const state = await deleteGridTariffAction({}, formFor(ID))
+
+    expect(state.formError).toMatch(/nicht geklappt/)
+    expect(state.success).toBeUndefined()
+    expect(revalidatePath).not.toHaveBeenCalled()
+  })
+
+  it('ein unerwarteter Status gilt als Fehlschlag, nicht als Erfolg', async () => {
+    // Fail closed: käme je ein neuer Status dazu, den diese Datei nicht kennt, darf die Oberfläche
+    // nicht „gelöscht" behaupten — die Zeile stünde ja womöglich noch.
+    rpc.mockResolvedValue({ data: { status: 'irgendwas_neues' }, error: null })
+    const state = await deleteGridTariffAction({}, formFor(ID))
+
+    expect(state.formError).toMatch(/nicht geklappt/)
+    expect(state.success).toBeUndefined()
+    expect(revalidatePath).not.toHaveBeenCalled()
+  })
+})
