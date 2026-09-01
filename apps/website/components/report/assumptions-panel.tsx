@@ -55,6 +55,8 @@ export function AssumptionsPanel({
   originalFinancial,
   originalHorizonYears,
   originalBattery,
+  effectiveFinancial,
+  effectiveHorizonYears,
   liveBillingModel,
   selectedBatteryName,
   isEdited,
@@ -67,6 +69,17 @@ export function AssumptionsPanel({
   originalFinancial?: FinancialParams
   originalHorizonYears: number
   originalBattery: BatteryCandidate
+  /**
+   * Delta 18 — der WIRKSAME Stand, ausschliesslich als VORBELEGUNG der Felder.
+   *
+   * ⚠ Bewusst getrennt von `original*`: die sind das Ziel von „Zurücksetzen" (§6.2
+   * „Reset-auf-Original-Kontrolle") und dürfen dem wirksamen Stand nicht nachwandern, sonst gäbe
+   * es nichts mehr zurückzusetzen. Beim ersten Aufbau sind beide gleich; sie fallen erst
+   * auseinander, wenn die Report-Anfrage (Delta 18) etwas geändert hat und das Panel deshalb mit
+   * neuem Schlüssel neu aufgebaut wird.
+   */
+  effectiveFinancial?: FinancialParams
+  effectiveHorizonYears: number
   /** `billingModel` des aktuell angezeigten (ggf. live neu berechneten) Ergebnisses — die EINE
    * Wahrheit. Das Panel spiegelt ihn (s. Sync unten), damit der Teiljahres-Shortcut oben (report.tsx)
    * und dieses Dropdown NIE auseinanderlaufen (kein zweiter Umschalt-Zustand). */
@@ -82,18 +95,20 @@ export function AssumptionsPanel({
   // einem Umschalten (Teiljahres-Shortcut oben) auf, mountet es frisch und muss den aktuellen
   // `billingModel` zeigen — nicht den ursprünglichen. Der Sync unten deckt den bereits gemounteten Fall.
   const [billingModel, setBillingModel] = useState<BillingModel>(liveBillingModel)
-  const [horizonYears, setHorizonYears] = useState(String(originalHorizonYears))
+  // Delta 18: Vorbelegung aus dem WIRKSAMEN Stand (s. `effectiveFinancial`/`effectiveHorizonYears`).
+  // `handleReset` unten stellt weiterhin `original*` her — die beiden Rollen sind getrennt.
+  const [horizonYears, setHorizonYears] = useState(String(effectiveHorizonYears))
   const [subsidyPercent, setSubsidyPercent] = useState(
-    String(originalFinancial?.subsidyPercent ?? ''),
+    String(effectiveFinancial?.subsidyPercent ?? ''),
   )
   const [fixedSubsidyEur, setFixedSubsidyEur] = useState(
-    String(originalFinancial?.fixedSubsidyEur ?? ''),
+    String(effectiveFinancial?.fixedSubsidyEur ?? ''),
   )
   const [depreciationYears, setDepreciationYears] = useState(
-    String(originalFinancial?.depreciationYears ?? ''),
+    String(effectiveFinancial?.depreciationYears ?? ''),
   )
   const [taxRatePercent, setTaxRatePercent] = useState(
-    String(originalFinancial?.taxRatePercent ?? ''),
+    String(effectiveFinancial?.taxRatePercent ?? ''),
   )
   const [efficiencyPercent, setEfficiencyPercent] = useState(
     String(originalBattery.roundTripEfficiency * 100),
@@ -174,10 +189,12 @@ export function AssumptionsPanel({
     if (f.taxRatePercent.trim() !== '') financialRaw.taxRatePercent = parseNum(f.taxRatePercent)
     // Nicht in diesem Panel editierbare Original-Felder unverändert mitführen (§6.2-Scope: nur
     // subsidyPercent/fixedSubsidyEur/depreciationYears/taxRatePercent/billingModel/horizonYears).
-    if (originalFinancial?.investitionsfreibetragPercent != null) {
-      financialRaw.investitionsfreibetragPercent = originalFinancial.investitionsfreibetragPercent
+    // Delta 18: aus dem WIRKSAMEN Stand, nicht aus `original*` — sonst fielen die beiden Felder
+    // nach einer Änderung per Freitext still weg.
+    if (effectiveFinancial?.investitionsfreibetragPercent != null) {
+      financialRaw.investitionsfreibetragPercent = effectiveFinancial.investitionsfreibetragPercent
     }
-    if (originalFinancial?.note) financialRaw.note = originalFinancial.note
+    if (effectiveFinancial?.note) financialRaw.note = effectiveFinancial.note
 
     let financial: FinancialParams | undefined
     if (Object.keys(financialRaw).length > 0) {

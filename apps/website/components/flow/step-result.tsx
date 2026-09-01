@@ -230,6 +230,12 @@ export function StepResult({
          * und nicht nur seine Kennung (s. `baselineCatalog` dort).
          */
         batteryPreset={payload.batteryPreset}
+        /*
+         * Delta 18: die Eingangsgrössen des ANGEZEIGTEN Laufs — Bezugspunkt der Freitext-Vorschau
+         * und Grundlage jeder daraus gebauten Neuberechnung. Dieselbe Quelle, aus der auch das
+         * Analyse-Bündel schöpft; zwei getrennte Ableitungen liefen auseinander.
+         */
+        effectiveInputs={inputs}
         onRecompute={onRecompute}
         onResetAssumptions={onResetAssumptions}
       />

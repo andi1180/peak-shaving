@@ -252,6 +252,9 @@ export default tseslint.config(
      *
      * Delta 17 Teil 2: der KI-Client der Batterie-Freitexterfassung (`lib/battery-text/ai-client.ts`)
      * ist der VIERTE Eintrag — mit `lib/battery-text/extract.ts` als einziger erlaubter Datei.
+         *
+     * Delta 18: der KI-Client der Report-Anfrage-Übersetzung (`lib/report-request/ai-client.ts`)
+     * ist der FÜNFTE Eintrag — mit `lib/report-request/extract.ts` als einziger erlaubter Datei.
      */
     files: ['apps/website/**/*.{ts,tsx}'],
     rules: {
@@ -288,6 +291,13 @@ export default tseslint.config(
                 'Der KI-Client der Batterie-Erfassung (abrechenbarer Anthropic-Schlüssel) ist ' +
                 'ausschließlich für den einen externen Aufruf der Erfassung gedacht: ' +
                 'apps/website/lib/battery-text/extract.ts — genau diese eine Datei.',
+            },
+            {
+              name: '@/lib/report-request/ai-client',
+              message:
+                'Der KI-Client der Report-Anfrage (abrechenbarer Anthropic-Schlüssel) ist ' +
+                'ausschließlich für den einen externen Aufruf der Übersetzung gedacht: ' +
+                'apps/website/lib/report-request/extract.ts — genau diese eine Datei.',
             },
           ],
         },
@@ -328,6 +338,12 @@ export default tseslint.config(
                 'Der Datenbank-Rand des Report-Gates braucht keinen KI-Client. Der eine erlaubte ' +
                 'Ort ist apps/website/lib/battery-text/extract.ts.',
             },
+            {
+              name: '@/lib/report-request/ai-client',
+              message:
+                'Der Datenbank-Rand des Report-Gates braucht keinen KI-Client. Der eine erlaubte ' +
+                'Ort ist apps/website/lib/report-request/extract.ts.',
+            },
           ],
         },
       ],
@@ -360,6 +376,12 @@ export default tseslint.config(
                 'Der Rechnungs-Scan hat seinen eigenen KI-Client. Der Client der ' +
                 'Batterie-Erfassung gehört ausschließlich nach ' +
                 'apps/website/lib/battery-text/extract.ts.',
+            },
+            {
+              name: '@/lib/report-request/ai-client',
+              message:
+                'Der Rechnungs-Scan hat seinen eigenen KI-Client. Der Client der Report-Anfrage ' +
+                'gehört ausschließlich nach apps/website/lib/report-request/extract.ts.',
             },
           ],
         },
@@ -417,6 +439,12 @@ export default tseslint.config(
                 'Der KI-Client der Batterie-Erfassung gehört ausschließlich nach ' +
                 'apps/website/lib/battery-text/extract.ts.',
             },
+            {
+              name: '@/lib/report-request/ai-client',
+              message:
+                'Der KI-Client der Report-Anfrage gehört ausschließlich nach ' +
+                'apps/website/lib/report-request/extract.ts.',
+            },
           ],
           patterns: [
             {
@@ -462,6 +490,13 @@ export default tseslint.config(
                 'Die Dokument-Zuordnung hat ihren eigenen KI-Client. Der Client der ' +
                 'Batterie-Erfassung gehört ausschließlich nach ' +
                 'apps/website/lib/battery-text/extract.ts.',
+            },
+            {
+              name: '@/lib/report-request/ai-client',
+              message:
+                'Die Dokument-Zuordnung hat ihren eigenen KI-Client. Der Client der ' +
+                'Report-Anfrage gehört ausschließlich nach ' +
+                'apps/website/lib/report-request/extract.ts.',
             },
           ],
         },
@@ -509,6 +544,12 @@ export default tseslint.config(
                 'apps/website/lib/battery-text/extract.ts — auch die Server Action daneben soll ' +
                 'sich ihren Zugang nicht selbst bauen können.',
             },
+            {
+              name: '@/lib/report-request/ai-client',
+              message:
+                'Der KI-Client der Report-Anfrage gehört ausschließlich nach ' +
+                'apps/website/lib/report-request/extract.ts.',
+            },
           ],
           patterns: [
             {
@@ -552,6 +593,114 @@ export default tseslint.config(
                 'Die Batterie-Erfassung hat ihren eigenen KI-Client. Der Client der ' +
                 'Dokument-Zuordnung gehört ausschließlich nach ' +
                 'apps/website/lib/upload-classification/extract.ts.',
+            },
+            {
+              name: '@/lib/report-request/ai-client',
+              message:
+                'Die Batterie-Erfassung hat ihren eigenen KI-Client. Der Client der ' +
+                'Report-Anfrage gehört ausschließlich nach ' +
+                'apps/website/lib/report-request/extract.ts.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    /*
+     * Delta 18 — dasselbe Paar für die Report-Anfrage-Übersetzung, und das Verzeichnis-Muster
+     * gegen die RELATIVE Schreibweise ist wie in Delta 17 Teil 2 von Anfang an gesetzt: `paths`
+     * erfasst nur die Alias-Form (`@/lib/…`), ein Nachbar im selben Verzeichnis erreicht den
+     * Client über `./ai-client` trotzdem. Damit die Sperre nichts kostet, liegt die Längengrenze
+     * in `limits.ts` — die Server Action hat dadurch keinen Grund, das Client-Modul anzufassen.
+     */
+    files: ['apps/website/lib/report-request/**/*.ts'],
+    ignores: ['apps/website/lib/report-request/extract.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: '@/lib/report-gate/service-role',
+              message:
+                'Die Report-Anfrage braucht keine Datenbank. Der eine erlaubte Ort für den ' +
+                'service_role-Client ist apps/website/lib/report-gate/store.ts.',
+            },
+            {
+              name: '@/lib/invoice-scan/ai-client',
+              message:
+                'Der KI-Client des Rechnungs-Scans gehört ausschließlich nach ' +
+                'apps/website/lib/invoice-scan/extract.ts.',
+            },
+            {
+              name: '@/lib/upload-classification/ai-client',
+              message:
+                'Der KI-Client der Dokument-Zuordnung gehört ausschließlich nach ' +
+                'apps/website/lib/upload-classification/extract.ts.',
+            },
+            {
+              name: '@/lib/battery-text/ai-client',
+              message:
+                'Der KI-Client der Batterie-Erfassung gehört ausschließlich nach ' +
+                'apps/website/lib/battery-text/extract.ts.',
+            },
+            {
+              name: '@/lib/report-request/ai-client',
+              message:
+                'Der KI-Client der Report-Anfrage gehört ausschließlich nach ' +
+                'apps/website/lib/report-request/extract.ts — auch die Server Action daneben soll ' +
+                'sich ihren Zugang nicht selbst bauen können.',
+            },
+          ],
+          patterns: [
+            {
+              group: ['./ai-client', '../report-request/ai-client'],
+              message:
+                'Auch relativ nicht: der KI-Client der Report-Anfrage gehört ausschließlich nach ' +
+                'apps/website/lib/report-request/extract.ts. Konstanten, die die Server Action ' +
+                'braucht, stehen in limits.ts.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    /*
+     * Die fünfte Ausnahmedatei — sie tauscht die Regel ebenfalls, statt sie abzuschalten.
+     */
+    files: ['apps/website/lib/report-request/extract.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: '@/lib/report-gate/service-role',
+              message:
+                'Die Report-Anfrage braucht keine Datenbank — sie schreibt und liest bewusst ' +
+                'nichts. Der eine erlaubte Ort ist apps/website/lib/report-gate/store.ts.',
+            },
+            {
+              name: '@/lib/invoice-scan/ai-client',
+              message:
+                'Die Report-Anfrage hat ihren eigenen KI-Client. Der Client des Rechnungs-Scans ' +
+                'gehört ausschließlich nach apps/website/lib/invoice-scan/extract.ts.',
+            },
+            {
+              name: '@/lib/upload-classification/ai-client',
+              message:
+                'Die Report-Anfrage hat ihren eigenen KI-Client. Der Client der ' +
+                'Dokument-Zuordnung gehört ausschließlich nach ' +
+                'apps/website/lib/upload-classification/extract.ts.',
+            },
+            {
+              name: '@/lib/battery-text/ai-client',
+              message:
+                'Die Report-Anfrage hat ihren eigenen KI-Client. Der Client der ' +
+                'Batterie-Erfassung gehört ausschließlich nach ' +
+                'apps/website/lib/battery-text/extract.ts.',
             },
           ],
         },
