@@ -70,6 +70,10 @@ function makeResult(overrides: Partial<AnalysisResult> = {}): AnalysisResult {
         leistungspreisSavingPerYear: 3000,
         selfConsumptionSavingPerYear: 0,
         loadShiftSavingPerYear: 0,
+        selfConsumptionSavingOverCoveredPeriod: 0,
+        loadShiftSavingOverCoveredPeriod: 0,
+        annualizationFactor: 1,
+        coveredDays: 365,
         totalSavingPerYear: 3000,
         totalInvestment: 14100,
         subsidyAmount: 0,
@@ -299,7 +303,10 @@ describe('Bestandsbatterie — die Herkunft des Overrides (Fassung 3)', () => {
       sourceFile: SOURCE,
     })
 
-    expect(bundle.bundleVersion).toBe(3)
+    // Die AKTUELLE Fassung, nicht die 3: geprüft wird hier, dass `source` mitreist — nicht, in
+    // welcher Fassung es eingeführt wurde. Eine feste Zahl wäre bei jedem Fassungssprung erneut
+    // nachzuziehen und stünde dann für eine Aussage, die der Test gar nicht macht.
+    expect(bundle.bundleVersion).toBe(ANALYSIS_BUNDLE_VERSION)
     expect(bundle.inputs.batteryOverride?.source).toBe('existing')
 
     const parsed = parseAnalysisBundle(JSON.parse(serializeAnalysisBundle(bundle)))

@@ -130,6 +130,23 @@ export function TariffOptimizationCard({
           <p className="text-xs text-text-muted">
             pro Jahr zusätzlich — durch Laden in günstigen und Entladen in teuren Viertelstunden
           </p>
+          {/*
+            §3.7-Jahres-Hochrechnung: diese Zahl IST `loadShiftSavingPerYear`, also bei einem
+            Teilzeitraum-Lastgang eine hochgerechnete Grösse. Sie steht hier gross und mit dem
+            Etikett „pro Jahr" — der Vorbehalt gehört deshalb an dieselbe Stelle und nicht nur in
+            die Ersparnis-Aufschlüsselung nebenan, sonst trägt derselbe Wert im selben Report
+            einmal einen Vorbehalt und einmal nicht.
+          */}
+          {recommended != null && recommended.annualizationFactor > 1 && (
+            <p className="text-xs text-text-muted">
+              Hochgerechnet aus <Num>{recommended.coveredDays}</Num> abgedeckten Tagen — gemessen
+              wurden in diesem Zeitraum{' '}
+              <Num className="font-medium text-text">
+                {formatEur(recommended.loadShiftSavingOverCoveredPeriod)}
+              </Num>
+              .
+            </p>
+          )}
         </div>
         {/*
           Delta 16a / CLAUDE.md Punkt (d): DIESE Erklärung druckt mit — als einzige im Report.

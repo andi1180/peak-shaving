@@ -10,6 +10,7 @@ import { peakShavingBlockers } from '../simulation/peak-shaving'
 import { simulateBattery, type BatterySimulationResult } from '../simulation/simulate'
 import { intervalTariffRates } from '../simulation/tou'
 import { getTariffStrategy } from '../tariff/strategy'
+import { annualizationFactor, coveredDaysOf } from './annualization'
 
 /**
  * Kombinierter Dispatch → benannte Ersparnis-Felder (§3.7). EIN Simulationslauf (§3.6), aus dem alle
@@ -23,10 +24,24 @@ export type BatterySavings = {
   newBilledKw: number
   /** Leistungspreis-Ersparnis = (alter − neuer billedKw) × Leistungspreis. `static` → 0 (nicht kreditiert). */
   leistungspreisSavingPerYear: number
-  /** Eigenverbrauchs-Ersparnis: aus PV geladene, später selbst verbrauchte kWh × (Arbeitspreis − Einspeisevergütung). */
+  /**
+   * Eigenverbrauchs-Ersparnis: aus PV geladene, später selbst verbrauchte kWh × (Arbeitspreis −
+   * Einspeisevergütung) — auf ein Jahr hochgerechnet (`× annualizationFactor`, s. `annualization.ts`).
+   */
   selfConsumptionSavingPerYear: number
-  /** Lastverschiebungs-Ersparnis: im günstigen Fenster geladene, im teuren Fenster genutzte kWh × (teuer − günstig). 0 ohne Tarif-Fenster. */
+  /**
+   * Lastverschiebungs-Ersparnis: im günstigen Fenster geladene, im teuren Fenster genutzte kWh ×
+   * (teuer − günstig). 0 ohne Tarif-Fenster — ebenfalls auf ein Jahr hochgerechnet.
+   */
   loadShiftSavingPerYear: number
+  /** Der GEMESSENE Eigenverbrauchs-Wert über den tatsächlich abgedeckten Zeitraum (nicht hochgerechnet). */
+  selfConsumptionSavingOverCoveredPeriod: number
+  /** Der GEMESSENE Lastverschiebungs-Wert über den tatsächlich abgedeckten Zeitraum (nicht hochgerechnet). */
+  loadShiftSavingOverCoveredPeriod: number
+  /** `365 / coveredDays` bei einem echten Teilzeitraum-Lastgang, sonst exakt `1` (s. `annualizationFactor`). */
+  annualizationFactor: number
+  /** Abgedeckte Tage des Lastgangs — die Bezugsgrösse des Faktors, damit der Report sie benennen kann. */
+  coveredDays: number
   /** Summe der drei Anteile aus DEMSELBEN Fahrplan. */
   totalSavingPerYear: number
   /** Contract-Warnungen (z.B. static-Steuerung: Spitzenkappung nicht kreditiert). */
@@ -142,8 +157,23 @@ export function computeBatterySavings(
     }
   }
 
-  const selfConsumptionSavingPerYear = (pvSelfConsumedKwh * pvSelfConsumptionCtPerKwh) / 100
-  const loadShiftSavingPerYear = loadShiftCtKwh / 100
+  /*
+   * ── JAHRES-HOCHRECHNUNG DER BEIDEN ENERGIE-TÖPFE ───────────────────────────────────────────────
+   * Was hier steht, ist eine SUMME über die vorhandenen Intervalle — bei einem 209-Tage-Lastgang
+   * also die Ersparnis über 209 Tage. Der Leistungspreis-Anteil unten ist dagegen ratenbasiert
+   * (€/kW·Jahr) und damit bereits eine Jahresgrösse. Beide in dieselbe `totalSavingPerYear` zu
+   * addieren und daraus Amortisation und Netto-Ersparnis über den Horizont zu bilden, hiesse,
+   * ungleichartige Grössen wie gleichartige zu behandeln. Der Faktor macht sie gleichartig; die
+   * gemessenen Rohwerte bleiben daneben stehen und werden im Report ausgewiesen (Prinzip 5).
+   *
+   * ⚠ Der Faktor betrifft AUSSCHLIESSLICH diese beiden Zeilen. `leistungspreisSavingPerYear`,
+   * `newBilledKw` und alles in `roi.ts` bleiben unangetastet — dort wäre er eine Doppelung.
+   */
+  const selfConsumptionSavingOverCoveredPeriod = (pvSelfConsumedKwh * pvSelfConsumptionCtPerKwh) / 100
+  const loadShiftSavingOverCoveredPeriod = loadShiftCtKwh / 100
+  const factor = annualizationFactor(loadProfile)
+  const selfConsumptionSavingPerYear = selfConsumptionSavingOverCoveredPeriod * factor
+  const loadShiftSavingPerYear = loadShiftSavingOverCoveredPeriod * factor
 
   // ── Zuschreibung der Spitzenkappung (§3.6/§3.7; Martins Semantik OP#5, Delta 3/8) ───────────────
   // controlType ist eine Frage der STEUERUNGS-Konfiguration, nicht der Batteriezelle.
@@ -225,6 +255,10 @@ export function computeBatterySavings(
     leistungspreisSavingPerYear,
     selfConsumptionSavingPerYear,
     loadShiftSavingPerYear,
+    selfConsumptionSavingOverCoveredPeriod,
+    loadShiftSavingOverCoveredPeriod,
+    annualizationFactor: factor,
+    coveredDays: coveredDaysOf(loadProfile),
     totalSavingPerYear,
     warnings,
   }

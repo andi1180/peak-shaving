@@ -62,8 +62,21 @@ import type { TariffOverridableField } from './tariff-catalog'
  * Report weder Investition noch Amortisation aus (die Anschaffung ist bereits bezahlt), bei
  * `catalog_preset` beides. Wer 2028 eine archivierte Baseline liest, muss wissen, welche der beiden
  * Aussagen der Kunde damals gesehen hat.
+ *
+ * ── FASSUNG 4 (Jahres-Hochrechnung der Energie-Töpfe) ──────────────────────────────────────────
+ * Die einzige der vier Fassungen, die die BEDEUTUNG eines bereits vorhandenen Feldes ändert — und
+ * genau deshalb die wichtigste. `result.perBattery[].selfConsumptionSavingPerYear` und
+ * `…loadShiftSavingPerYear` waren bei einem Lastgang unter einem Jahr die rohe Summe über die
+ * vorhandenen Tage, trugen aber schon das Jahres-Etikett (s. `savings/annualization.ts`). Ab
+ * Fassung 4 sind es echte Jahresgrössen, und die gemessenen Rohwerte stehen als eigene Felder
+ * daneben (`…OverCoveredPeriod`, `annualizationFactor`, `coveredDays`).
+ *
+ * Wer 2028 eine Baseline der Fassung ≤ 3 mit einer der Fassung 4 vergleicht, muss das wissen: bei
+ * voller Jahresabdeckung sind beide identisch, bei einem Teiljahres-Lastgang unterscheiden sie sich
+ * um genau diesen Faktor — und der Unterschied ist keine bessere Rechnung an denselben Zahlen,
+ * sondern eine Korrektur an einer Grösse, die vorher zwei verschiedene Dinge bedeuten konnte.
  */
-export const ANALYSIS_BUNDLE_VERSION = 3
+export const ANALYSIS_BUNDLE_VERSION = 4
 
 /**
  * Fassungen, die der Upload annimmt.
@@ -72,7 +85,7 @@ export const ANALYSIS_BUNDLE_VERSION = 3
  * worden sein, und ein Bündel unbrauchbar zu machen, das ein Mensch in der Hand hält, wäre der
  * schlechtere Handel. Bei einer älteren Fassung bleiben die jeweils neueren Felder schlicht leer.
  */
-export const SUPPORTED_ANALYSIS_BUNDLE_VERSIONS: readonly number[] = [1, 2, 3]
+export const SUPPORTED_ANALYSIS_BUNDLE_VERSIONS: readonly number[] = [1, 2, 3, 4]
 
 /**
  * Fassung der Rechen-Engine, VON HAND gepflegt.
@@ -83,7 +96,7 @@ export const SUPPORTED_ANALYSIS_BUNDLE_VERSIONS: readonly number[] = [1, 2, 3]
  *
  * Bei einer Änderung am Rechenkern, die Ergebnisse verschiebt, MITZIEHEN.
  */
-export const ENGINE_VERSION = '1.0.0-mvp'
+export const ENGINE_VERSION = '1.1.0-mvp'
 
 /**
  * Was anstelle des Commits geschrieben wird, wenn die Bauumgebung keinen kennt (lokaler

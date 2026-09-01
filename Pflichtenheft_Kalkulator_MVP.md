@@ -263,6 +263,21 @@ Aus dem einen Simulationslauf (§3.6) ergeben sich alle Effekte gleichzeitig:
 
 Der Report weist die Anteile getrennt aus (Transparenz), betont aber die **eine** Gesamtzahl. Priorität `peak_first`: Spitzenschutz hat Vorrang, weil eine verpasste Spitze eine ganze Periode kostet; Eigenverbrauch und Lastverschiebung nutzen nur die verbleibende Kapazität und dürfen die Spitzen-Reserve nie gefährden.
 
+#### 3.7.1 Jahres-Hochrechnung der Energie-Anteile (Teilzeitraum-Lastgänge)
+
+Die drei Anteile sind **nicht von gleicher Art**, und das muss die Rechnung berücksichtigen:
+
+- `leistungspreisSavingPerYear` ist **ratenbasiert** (kW × €/kW·Jahr) und damit konstruktionsbedingt bereits eine Jahresgrösse — unabhängig davon, ob der Lastgang 7 Tage oder 12 Monate abdeckt.
+- `selfConsumptionSaving` und `loadShiftSaving` entstehen als **Summe über die vorhandenen Intervalle**. Bei einem Lastgang über 209 Tage ist das die Ersparnis *über 209 Tage*.
+
+**Regel.** Bei einem echten Lastgang (`source ≠ standard_profile`) mit `coveredDays < 365` werden **ausschliesslich die beiden Energie-Anteile** mit `365 / coveredDays` auf ein Jahr hochgerechnet; der Leistungspreis-Anteil bleibt unangetastet. `coveredDays ≥ 365` und ein synthetisches Standardlastprofil ergeben den Faktor **1** — es wird nie nach unten skaliert.
+
+**Warum überhaupt.** Ohne die Hochrechnung addiert `totalSavingPerYear` eine Jahresgrösse und eine Teilzeitraumgrösse und trägt trotzdem das Etikett „pro Jahr"; über `amortizationYears` und `netSavingOverHorizon` (§3.9) geht dieser Fehler in jede ausgewiesene Wirtschaftlichkeitszahl ein — umso stärker, je kürzer der Lastgang ist. Ein Fehler, der wie ein Ergebnis aussieht.
+
+**Die Annahme, und ihre Sichtbarkeit.** Hochgerechnet wird unter der Annahme eines **homogenen Jahres**: die nicht abgedeckten Tage verhalten sich im Mittel wie die abgedeckten. Bei einem reinen Sommer- oder Winterzeitraum ist das nachweislich zu optimistisch bzw. zu vorsichtig. Der hochgerechnete Wert darf den gemessenen deshalb **nicht verdrängen**: `selfConsumptionSavingOverCoveredPeriod`, `loadShiftSavingOverCoveredPeriod`, `annualizationFactor` und `coveredDays` stehen als eigene Felder im Contract (§3.10), der Report weist den gemessenen Rohwert samt Annahme unmittelbar bei den beiden betroffenen Zeilen aus (nicht als Fussnote), und der CSV-Export führt beide Paare in eigenen Spalten.
+
+**Abgrenzung zur Teiljahres-Warnung (§3.5).** Die beiden sagen Verschiedenes und haben verschiedene Bedingungen: die Teiljahres-Warnung betrifft den **abgerechneten Leistungswert** unter einem `monthly_*`-Modell (`coveredMonths < 12`), diese Regel betrifft die **Energie-Anteile** und gilt unabhängig vom Abrechnungsmodell.
+
 ### 3.8 Batterie-Empfehlung
 
 - Simulation für **alle** Kandidaten aus dem Katalog (nicht nur kWh-Stufen, sondern konkrete Modelle inkl. Klasse).

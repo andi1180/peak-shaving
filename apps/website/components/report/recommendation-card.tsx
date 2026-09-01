@@ -136,6 +136,45 @@ export function RecommendationCard({
             <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
             {HINDSIGHT_NOTE}
           </p>
+          {/*
+            ── Jahres-Hochrechnung der beiden ENERGIE-Zeilen (§3.7) ─────────────────────────────
+            Steht bewusst HIER, unmittelbar unter den beiden betroffenen Zeilen, und nicht als
+            Fussnote am Seitenende: die Zahlen darüber tragen das Etikett „pro Jahr", obwohl der
+            Lastgang weniger als ein Jahr abdeckt — wer sie liest, muss im selben Blick sehen, was
+            gemessen und was angenommen ist. Der gemessene Rohwert steht deshalb im Klartext daneben
+            und nicht bloss in der CSV.
+
+            Die Spitzenkappungs-Zeile darüber ist ausdrücklich NICHT betroffen (ratenbasiert,
+            €/kW·Jahr) — das zu sagen ist Teil der Auskunft, sonst überträgt der Leser den Vorbehalt
+            auf die ganze Aufschlüsselung.
+
+            Sichtbar am Bildschirm UND im Druck: auf einem weitergereichten Blatt ist die Frage
+            „worauf beruht die Jahreszahl?" die erste, die jemand stellt.
+          */}
+          {entry.annualizationFactor > 1 && (
+            <div
+              className="mt-2 rounded-md bg-surface-alt p-3 text-xs text-text-muted print:break-inside-avoid"
+              data-testid="hochrechnung-hinweis"
+            >
+              <strong className="text-ink">
+                Eigenverbrauch und tarifbewusstes Laden sind auf ein Jahr hochgerechnet.
+              </strong>{' '}
+              Ihr Lastgang deckt <Num>{entry.coveredDays}</Num> von 365 Tagen ab. Gemessen wurden in
+              diesem Zeitraum{' '}
+              <Num className="font-medium text-text">
+                {formatEur(entry.selfConsumptionSavingOverCoveredPeriod)}
+              </Num>{' '}
+              Eigenverbrauch und{' '}
+              <Num className="font-medium text-text">
+                {formatEur(entry.loadShiftSavingOverCoveredPeriod)}
+              </Num>{' '}
+              tarifbewusstes Laden. Für die Jahreszahlen oben nehmen wir an, dass sich die übrigen{' '}
+              <Num>{365 - entry.coveredDays}</Num> Tage im Mittel wie die gemessenen verhalten — bei
+              einem reinen Sommer- oder Winterzeitraum ist das eher zu optimistisch bzw. zu
+              vorsichtig. <strong className="text-ink">Die Spitzenkappung ist nicht betroffen</strong>
+              : sie hängt am Leistungspreis (€ je kW und Jahr) und ist bereits eine Jahresgrösse.
+            </div>
+          )}
         </div>
 
         {isExisting ? (

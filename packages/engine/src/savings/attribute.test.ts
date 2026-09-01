@@ -158,12 +158,35 @@ describe('§3.7 controlType (Martins Semantik, OP#5)', () => {
   it('dynamic-Pfad unberührt (OP#5): bit-identische Zahlen wie vor der static-Änderung', () => {
     // Baseline vor der Änderung erfasst (dynamic, withNightWindow, Batterie 100 kWh/50 kW/η0,9).
     // Der static-Fix fasst den dynamic-Zweig NICHT an → diese Zahlen müssen exakt erhalten bleiben.
+    //
+    // ⚠ Die beiden ENERGIE-Pins stehen seit der §3.7-Jahres-Hochrechnung auf den GEMESSENEN Feldern
+    // (`…OverCoveredPeriod`) — und tragen dort UNVERÄNDERT dieselben historischen Zahlen. Das ist
+    // kein Nachziehen an ein neues Verhalten: die Buchhaltung über den Fahrplan ist Zeile für Zeile
+    // dieselbe geblieben; hinzugekommen ist allein die Umrechnung auf ein Jahr, die dieses
+    // 10-Tage-Profil vorher gar nicht hatte. Der Pin misst damit weiterhin genau das, wofür er
+    // angelegt wurde (der static-Fix hat den dynamic-Zweig nicht angefasst), nur an der Stelle, an
+    // der die Grösse unverändert dieselbe Bedeutung hat.
     const dyn = computeBatterySavings(lp, battery('dynamic'), withNightWindow)
     expect(dyn.newBilledKw).toBeCloseTo(40.00001907348633, 8)
     expect(dyn.leistungspreisSavingPerYear).toBeCloseTo(4999.998092651367, 6)
-    expect(dyn.selfConsumptionSavingPerYear).toBeCloseTo(104.04, 8)
-    expect(dyn.loadShiftSavingPerYear).toBeCloseTo(110.50000495910645, 8)
-    expect(dyn.totalSavingPerYear).toBeCloseTo(5214.538097610473, 6)
+    expect(dyn.selfConsumptionSavingOverCoveredPeriod).toBeCloseTo(104.04, 8)
+    expect(dyn.loadShiftSavingOverCoveredPeriod).toBeCloseTo(110.50000495910645, 8)
+  })
+
+  it('§3.7 Hochrechnung: das 10-Tage-Profil wird mit 36,5 auf ein Jahr gerechnet — Leistungspreis nicht', () => {
+    const dyn = computeBatterySavings(lp, battery('dynamic'), withNightWindow)
+    const factor = 365 / 10
+
+    expect(dyn.coveredDays).toBe(10)
+    expect(dyn.annualizationFactor).toBe(factor)
+    expect(dyn.selfConsumptionSavingPerYear).toBe(104.04 * factor)
+    expect(dyn.loadShiftSavingPerYear).toBe(110.50000495910645 * factor)
+    // Ratenbasiert und deshalb unskaliert — der historische Pin oben steht unverändert.
+    expect(dyn.leistungspreisSavingPerYear).toBeCloseTo(4999.998092651367, 6)
+    expect(dyn.totalSavingPerYear).toBeCloseTo(
+      dyn.leistungspreisSavingPerYear + (104.04 + 110.50000495910645) * factor,
+      6,
+    )
   })
 })
 
