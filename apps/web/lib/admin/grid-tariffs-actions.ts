@@ -196,3 +196,74 @@ export async function createGridTariffAction(
       return { formError: GENERIC, values }
   }
 }
+
+/**
+ * Entfernt GENAU EINE Tarifzeile samt ihrer Zeitfenster und hinterlässt dabei einen vollständigen
+ * Abzug in `public.grid_tariff_deletions` (B21-2c).
+ *
+ * ── WARUM ES DIESEN WEG ÜBERHAUPT GIBT ──────────────────────────────────────────────────────────
+ * Der Pflegeweg hängt nur an. Ein vertippter PROBEEINTRAG blieb damit für immer stehen — und er
+ * belegt die Kombination, sodass jeder echte Stand mit demselben oder früherem Beginn auf
+ * `invalid_valid_from` läuft. Das Löschen behebt genau das. Es ist ausdrücklich ein Werkzeug für
+ * Testzeilen und KEINE rückwirkende Korrektur eines bereits gerechneten Zeitraums; dass jede
+ * Löschung protokolliert wird, ist der Unterschied zwischen beidem.
+ *
+ * ── DIESELBE ZUGANGSENTSCHEIDUNG WIE BEIM ANLEGEN, AN DERSELBEN STELLE ──────────────────────────
+ * `public.delete_grid_tariff` ist wie `create_grid_tariff` SECURITY INVOKER und prüft KEINE Rolle
+ * (der Aufrufer ist `service_role` und trägt kein JWT). Die Prüfung steht deshalb hier, als erste
+ * Anweisung und fail closed — eine Server Action ist ein eigener, direkt adressierbarer Endpunkt;
+ * dass die Seite davor prüft, schützt sie nicht.
+ */
+export async function deleteGridTariffAction(
+  _prev: AdminState,
+  formData: FormData,
+): Promise<AdminState> {
+  if (!(await isCurrentUserAdmin())) return { formError: FORBIDDEN }
+
+  const tariffId = String(formData.get('tariffId') ?? '')
+  /*
+   * Der Wert kommt aus einem verborgenen Feld, ist damit aber nicht vertrauenswürdiger als jede
+   * andere Eingabe. Geprüft wird die FORM, nicht die Existenz: eine unbekannte, aber wohlgeformte
+   * Kennung beantwortet die Datenbank selbst mit `not_found` — und das ist die ehrlichere Antwort
+   * als eine erfundene hier.
+   */
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(tariffId)) {
+    return { formError: 'Es wurde keine gültige Tarifzeile übergeben. Bitte die Seite neu laden.' }
+  }
+
+  const deletedBy = (await currentUserEmail()) ?? 'unbekannt'
+
+  const supabase = createServiceRoleClient()
+  const { data, error } = await supabase.rpc('delete_grid_tariff', {
+    p_tariff_id: tariffId,
+    p_deleted_by: deletedBy,
+  })
+
+  if (error) {
+    const code = (error as { code?: string }).code
+    if (code === 'P0001' && error.message === 'not_found') {
+      return {
+        formError:
+          'Diese Tarifzeile gibt es nicht mehr — vermutlich wurde sie inzwischen an anderer ' +
+          'Stelle entfernt. Bitte die Seite neu laden.',
+      }
+    }
+    console.error('[admin/grid-tariffs] delete_grid_tariff:', error)
+    return { formError: GENERIC }
+  }
+
+  const result = (data ?? {}) as { status?: unknown; window_count?: unknown }
+
+  if (result.status !== 'deleted') {
+    console.error('[admin/grid-tariffs] unerwartete Antwort beim Löschen:', data)
+    return { formError: GENERIC }
+  }
+
+  revalidatePath(GRID_TARIFFS_HREF)
+  const windows = Number(result.window_count ?? 0)
+  return {
+    success:
+      `Tarifstand gelöscht, mit ${windows} ${windows === 1 ? 'Zeitfenster' : 'Zeitfenstern'}. ` +
+      'Ein vollständiger Abzug der Zeile bleibt im Löschprotokoll erhalten.',
+  }
+}

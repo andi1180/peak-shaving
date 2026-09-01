@@ -24,6 +24,13 @@
 //     NUR INSERT. Ein SELECT-Grant „vorsichtshalber" wäre dort kein harmloser Überschuss, sondern
 //     ein falscher Beleg — er behauptete, der Schreibweg lese diese Tabelle.
 //
+//     ⚠ DAS IST DIE FLÄCHE DIESES WEGES, NICHT MEHR DIE DER TABELLE. B21-2c (Migration
+//     20260901120000) legt einen zweiten Weg daneben — `public.delete_grid_tariff` — und der
+//     braucht auf `grid_tariffs` zusätzlich DELETE und auf `grid_tariff_rate_windows` zusätzlich
+//     SELECT (er liest die Zeitfenster für den Abzug ins Löschprotokoll). Die Erwartungen unten
+//     sind deshalb nachgezogen; die Stufenmessung dazu steht im Kopf von
+//     `grid-tariff-delete-path.test.ts`.
+//
 // ── (2) DIE EFFEKTIV-DATIERUNG IST DIE EIGENTLICHE ZUSAGE ─────────────────────────────────────
 //     Ein neuer Stand schliesst die bisher offene Zeile derselben Kombination auf `valid_from - 1`.
 //     Lückenlos UND überlappungsfrei folgt daraus von selbst; beides wird unten an echten Zeilen
@@ -403,41 +410,103 @@ describe('B21-2b — Effektiv-Datierung: lückenlos und ohne Überschneidung', (
 })
 
 describe('B21-2b — die Rechtefläche ist genau so gross wie der Schreibweg', () => {
-  it('service_role hat auf grid_tariffs exakt INSERT, SELECT, UPDATE — kein DELETE', async () => {
+  it('service_role hat auf grid_tariffs exakt DELETE, INSERT, SELECT, UPDATE', async () => {
+    /*
+     * ⚠ B21-2c HAT DIESE ZUSAGE GEÄNDERT, und der Test ist deshalb NACHGEZOGEN statt grün geprügelt:
+     * Bis dahin lautete sie „exakt INSERT, SELECT, UPDATE — kein DELETE". Der Löschweg
+     * (`public.delete_grid_tariff`, Migration 20260901120000) braucht das DELETE hier tatsächlich;
+     * die vollständige Stufenmessung steht im Kopf von `grid-tariff-delete-path.test.ts`.
+     *
+     * Der Vergleich bleibt EXAKT (kein „enthält"): Ein zusätzliches Recht, das niemand braucht, soll
+     * weiterhin rot werden.
+     */
     const rows = await sql<{ privs: string }>(
       `select coalesce(string_agg(privilege_type, ',' order by privilege_type), '(keine)') privs
          from information_schema.role_table_grants
         where table_schema = 'public' and table_name = 'grid_tariffs' and grantee = 'service_role'`,
     )
-    expect(rows[0]?.privs).toBe('INSERT,SELECT,UPDATE')
+    expect(rows[0]?.privs).toBe('DELETE,INSERT,SELECT,UPDATE')
   })
 
-  it('service_role hat auf grid_tariff_rate_windows exakt INSERT — sonst NICHTS', async () => {
-    // Gemessen (s. Kopf): Der Schreibweg liest dort nichts und ändert nichts; auch der Fremdschlüssel
-    // braucht zur Laufzeit kein `references`-Recht. Ein SELECT-Grant „vorsichtshalber" wäre ein
-    // falscher Beleg über den Schreibweg.
+  it('service_role hat auf grid_tariff_rate_windows exakt INSERT und SELECT — kein DELETE', async () => {
+    /*
+     * Gemessen (s. Kopf): Der ANLAGEweg liest dort nichts und ändert nichts; auch der Fremdschlüssel
+     * braucht zur Laufzeit kein `references`-Recht. Ein SELECT-Grant „vorsichtshalber" wäre ein
+     * falscher Beleg über diesen Weg — und genau deshalb stand hier bis B21-2c `INSERT` allein.
+     *
+     * ⚠ B21-2c fügt SELECT hinzu, und zwar NICHT vorsichtshalber: Der Löschweg schreibt einen
+     * vollständigen Abzug der Zeile ins Protokoll, und die ct/kWh-Sätze stehen in den Zeitfenstern —
+     * er LIEST diese Tabelle also wirklich. DELETE kommt dabei ausdrücklich NICHT dazu (die Kaskade
+     * braucht es nicht, s. der Test weiter unten).
+     */
     const rows = await sql<{ privs: string }>(
       `select coalesce(string_agg(privilege_type, ',' order by privilege_type), '(keine)') privs
          from information_schema.role_table_grants
         where table_schema = 'public' and table_name = 'grid_tariff_rate_windows'
           and grantee = 'service_role'`,
     )
-    expect(rows[0]?.privs).toBe('INSERT')
+    expect(rows[0]?.privs).toBe('INSERT,SELECT')
+  })
+
+  it('DELETE auf public.grid_tariff_rate_windows wird auch für service_role abgewiesen', async () => {
+    /*
+     * ⚠ Diese Zusage galt bis B21-2c für BEIDE Tabellen. Für `grid_tariffs` ist sie mit dem
+     * Löschweg entfallen (der Test darüber misst die neue Fläche); für die Kind-Tabelle steht sie
+     * weiterhin — und belegt jetzt etwas SCHÄRFERES als vorher: Die Zeitfenster verschwinden über
+     * die Kaskade, OHNE dass irgendein Weg sie löschen dürfte. Gemessen im Kopf von
+     * `grid-tariff-delete-path.test.ts` (die referentielle Aktion läuft im systemeigenen
+     * Constraint-Trigger mit den Rechten des Eigentümers).
+     */
+    const err = await runAs({ role: 'service_role' }, async (c) => {
+      try {
+        await c.query('delete from public.grid_tariff_rate_windows where false')
+        return null
+      } catch (e) {
+        return e as { code?: string }
+      }
+    })
+    expect(err?.code).toBe('42501')
+  })
+
+  it('der Anlageweg ist umkehrbar: eine angelegte Zeile lässt sich als service_role wieder entfernen', async () => {
+    /*
+     * Der POSITIVE Gegenbeweis, der den früheren 42501-Test auf `grid_tariffs` ersetzt: Ein Grant
+     * allein sagt nur, dass ein Recht dasteht — nicht, dass der Weg läuft. Hier wird eine Zeile über
+     * `create_grid_tariff` angelegt und über `delete_grid_tariff` wieder entfernt; geprüft wird, dass
+     * die Zeitfenster über die Kaskade mitgehen und eine Protokollzeile entsteht.
+     *
+     * Die Tiefe (Abzug-Inhalt, not_found, Fremdzeile unberührt, Mindest-Rechtefläche) liegt in
+     * `grid-tariff-delete-path.test.ts`; hier steht die Klammer über BEIDE Wege — dass das, was
+     * dieser Weg anlegt, auch wieder verschwinden kann.
+     */
+    const out = await runAs({ role: 'service_role' }, async (c) => {
+      const created = await call(c, { validFrom: '2026-01-01' })
+      const del = await c.query(
+        `select public.delete_grid_tariff(p_tariff_id => $1::uuid, p_deleted_by => $2) as r`,
+        [created.id, 'gate-loeschung@test.local'],
+      )
+      await readAsOwner(c)
+      const after = await c.query(
+        `select (select count(*)::int from public.grid_tariffs where id = $1) parent,
+                (select count(*)::int from public.grid_tariff_rate_windows where grid_tariff_id = $1) kinder,
+                (select count(*)::int from public.grid_tariff_deletions where grid_tariff_id = $1) log`,
+        [created.id],
+      )
+      return {
+        created,
+        deleted: (del.rows[0] as { r: { status: string; window_count: number } }).r,
+        after: after.rows[0] as { parent: number; kinder: number; log: number },
+      }
+    })
+
+    expect(out.created.status).toBe('created')
+    expect(out.created.window_count).toBe(2)
+    expect(out.deleted.status).toBe('deleted')
+    expect(out.deleted.window_count).toBe(2)
+    expect(out.after).toEqual({ parent: 0, kinder: 0, log: 1 })
   })
 
   for (const table of ['grid_tariffs', 'grid_tariff_rate_windows'] as const) {
-    it(`DELETE auf public.${table} wird auch für service_role abgewiesen`, async () => {
-      const err = await runAs({ role: 'service_role' }, async (c) => {
-        try {
-          await c.query(`delete from public.${table} where false`)
-          return null
-        } catch (e) {
-          return e as { code?: string }
-        }
-      })
-      expect(err?.code).toBe('42501')
-    })
-
     it(`anon und authenticated haben auf public.${table} weiterhin exakt SELECT`, async () => {
       const rows = await sql<{ grantee: string; privs: string }>(
         `select grantee, string_agg(privilege_type, ',' order by privilege_type) privs

@@ -3,10 +3,13 @@ import { createClient } from '@/lib/supabase/server'
 import { isCurrentUserAdmin } from '@/lib/admin/guard'
 import { Container, Num } from '@/components/ui/layout'
 import { AdminError, AdminPanel, AdminSection, Pill, formatDate } from '@/components/admin/ui'
+import { ActionButton } from '@/components/admin/action-button'
 import { CreateGridTariffForm } from '@/components/admin/grid-tariff-form'
+import { deleteGridTariffAction } from '@/lib/admin/grid-tariffs-actions'
 import {
   combinationKey,
   combinationLabel,
+  deleteConfirmText,
   grundpreisUnitLabel,
   isOpen,
   operatorOptions,
@@ -20,16 +23,24 @@ import {
 /*
  * `/admin/netzbetreiber-tarife` — die Pflege der Netzbetreiber-Tarifzeilen (B21-2b, Delta 5/10).
  *
- * ── EINE FÄHIGKEIT: ANLEGEN ─────────────────────────────────────────────────────────────────────
- * Auflisten und neu anlegen, mehr nicht. Es gibt kein Bearbeiten und kein Löschen — weder hier noch
- * in der Datenbank (kein `delete`-Grant für irgendeine Rolle, keine Update-Funktion). Ein
- * Tarifstand ist eine Aussage über einen Zeitraum; eine 2026 archivierte Analyse (B14) muss 2028
- * noch sagen können, welcher Stand ihr zugrunde lag. Ein neues Preisblatt ist deshalb ein NEUER
- * Stand, und die bisher offene Zeile schliesst die Datenbank in derselben Transaktion.
+ * ── ZWEI FÄHIGKEITEN: ANLEGEN UND LÖSCHEN ───────────────────────────────────────────────────────
+ * Auflisten, neu anlegen, eine Zeile entfernen. Es gibt weiterhin KEIN Bearbeiten — weder hier noch
+ * in der Datenbank (keine Update-Funktion). Ein Tarifstand ist eine Aussage über einen Zeitraum;
+ * eine 2026 archivierte Analyse (B14) muss 2028 noch sagen können, welcher Stand ihr zugrunde lag.
+ * Ein neues Preisblatt ist deshalb ein NEUER Stand, und die bisher offene Zeile schliesst die
+ * Datenbank in derselben Transaktion.
  *
- * Eine rückwirkende Korrektur eines bereits gerechneten Zeitraums bleibt bewusst ein seltener
- * Eingriff von Hand — kein Knopf: sie ändert nachträglich, was einem Kunden gegenüber schon
- * gerechnet wurde.
+ * ── DAS LÖSCHEN IST FÜR TESTZEILEN DA, NICHT FÜR RÜCKWIRKENDE KORREKTUREN (B21-2c) ──────────────
+ * Der Anlass ist eine Nebenwirkung des reinen Anhänge-Wegs: Ein vertippter Probeeintrag blieb
+ * bisher für immer stehen UND belegte die Kombination, sodass jeder echte Stand mit demselben oder
+ * früherem Beginn auf `invalid_valid_from` lief.
+ *
+ * Eine rückwirkende Korrektur eines bereits GERECHNETEN Zeitraums bleibt trotzdem ein seltener
+ * Eingriff mit Bedacht: sie ändert nachträglich, was einem Kunden gegenüber schon gerechnet wurde.
+ * Deshalb hinterlässt jede Löschung einen vollständigen Abzug der Zeile samt Zeitfenstern in
+ * `public.grid_tariff_deletions` — ohne ihn wäre eine gelöschte Zeile von einer nie angelegten
+ * nicht unterscheidbar. Eine Ansicht des Protokolls gibt es (noch) nicht; es wird bei Bedarf im
+ * SQL-Editor gelesen.
  *
  * ── GELESEN WIRD ÜBER DEN ANGEMELDETEN CLIENT, GESCHRIEBEN ÜBER service_role ────────────────────
  * `authenticated` hat auf beiden Tabellen seit B21-1 `select` (es sind veröffentlichte
@@ -131,7 +142,7 @@ export default async function AdminGridTariffsPage() {
       <AdminSection
         id="tarif-liste"
         title="Alle Tarifzeilen"
-        description="Je Kombination aus Netzbetreiber, Netzebene und Messvariante steht der aktuelle Stand oben, darunter die abgelösten."
+        description="Je Kombination aus Netzbetreiber, Netzebene und Messvariante steht der aktuelle Stand oben, darunter die abgelösten. Löschen entfernt eine Zeile samt ihren Zeitfenstern und hinterlässt einen vollständigen Abzug im Löschprotokoll — gedacht für Probeeinträge, nicht für die Korrektur eines bereits gerechneten Zeitraums."
       >
         {failed ? (
           <AdminError>
@@ -249,6 +260,38 @@ export default async function AdminGridTariffsPage() {
                                 ))}
                               </ul>
                             )}
+                          </div>
+
+                          {/*
+                            Der Löschknopf steht am FUSS der Zeile, nicht neben der Markierung oben:
+                            Wer ihn drückt, soll vorher gesehen haben, was in dieser Zeile steht —
+                            Grundpreis, Preisbasis und vor allem die Zeitfenster mit den
+                            Arbeitspreisen. Zwei Stände derselben Kombination unterscheiden sich in
+                            der Kopfzeile nur durch ein Datum.
+
+                            Wiederverwendet wird `ActionButton` (T4-4) mit seiner `confirm`-Prop —
+                            die Rückfrage benennt die Zeile eindeutig. Das ausführliche
+                            `<details>`-Muster aus `lead-actions.tsx` ist für Vorgänge mit
+                            MEHRTEILIGEN Folgen reserviert („was verschwindet, was bleibt"); hier ist
+                            die Folge eine einzige und in einem Satz sagbar.
+
+                            ⚠ OHNE `showSuccess`, und das ist gemessen und nicht übersehen: Nach dem
+                            Löschen verschwindet die Zeile — und mit ihr dieser Knopf samt seinem
+                            Meldungs-Slot. Eine Erfolgsmeldung wäre hier eine Requisite, die niemand
+                            je zu sehen bekommt. Die Rückmeldung IST das Verschwinden; was der
+                            Vorgang hinterlässt, sagt die Rückfrage vorher (der Abzug im
+                            Löschprotokoll). Der Fehler-Slot bleibt dagegen wirksam: schlägt der
+                            Vorgang fehl, steht die Zeile noch da und die Meldung mit ihr.
+                          */}
+                          <div className="mt-4 flex justify-end border-t border-line pt-3">
+                            <ActionButton
+                              action={deleteGridTariffAction}
+                              fields={{ tariffId: row.id }}
+                              label="Tarifstand löschen"
+                              pendingLabel="wird gelöscht …"
+                              variant="ghost"
+                              confirm={deleteConfirmText(row, windowsByTariff.get(row.id) ?? [])}
+                            />
                           </div>
                         </li>
                       )

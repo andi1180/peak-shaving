@@ -1244,6 +1244,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      grid_tariff_deletions: {
+        Row: {
+          deleted_at: string
+          deleted_by: string
+          grid_tariff_id: string
+          id: string
+          tariff_snapshot: Json
+        }
+        Insert: {
+          deleted_at?: string
+          deleted_by: string
+          grid_tariff_id: string
+          id?: string
+          tariff_snapshot: Json
+        }
+        Update: {
+          deleted_at?: string
+          deleted_by?: string
+          grid_tariff_id?: string
+          id?: string
+          tariff_snapshot?: Json
+        }
+        Relationships: []
+      }
       grid_tariff_rate_windows: {
         Row: {
           ct_per_kwh: number
@@ -1666,6 +1690,10 @@ export type Database = {
           p_valid_from: string
           p_windows: Json
         }
+        Returns: Json
+      }
+      delete_grid_tariff: {
+        Args: { p_deleted_by: string; p_tariff_id: string }
         Returns: Json
       }
       finish_contract_reminder_run: {

@@ -15,6 +15,7 @@
  * müsste.
  */
 import { NETZBETREIBER_IDS, NETZBETREIBER_LABELS, type NetzbetreiberId } from 'shared'
+import { formatDate } from './format'
 
 /** Basispfad des Abschnitts — ohne Locale-Präfix, wie der ganze Admin-Bereich. */
 export const GRID_TARIFFS_HREF = '/admin/netzbetreiber-tarife'
@@ -277,4 +278,37 @@ export function seasonLabel(from: string | null, to: string | null): string {
 /** `14:00:00` wird zu `14:00`. PostgREST liefert `time` mit Sekunden; die Seite zeigt sie nicht. */
 export function shortTime(value: string): string {
   return /^\d{2}:\d{2}:\d{2}$/.test(value) ? value.slice(0, 5) : value
+}
+
+/**
+ * Der Rückfragetext vor dem Löschen einer Tarifzeile (B21-2c).
+ *
+ * ── ⚠ ER MUSS DIE ZEILE EINDEUTIG BENENNEN, UND ZWAR AUS EINEM KONKRETEN GRUND ──────────────────
+ * Eine Kombination trägt in der Liste MEHRERE Stände untereinander, die sich in der Kopfzeile nur
+ * durch ein Datum unterscheiden. Ein allgemeines „Wirklich löschen?" beantwortete damit die falsche
+ * Frage: Es fragt, OB gelöscht werden soll, aber der wahrscheinliche Fehlgriff ist nicht das
+ * Löschen an sich — es ist die falsche ZEILE. Der Text nennt deshalb die Kombination, den
+ * Gültigkeitszeitraum und, wo es zutrifft, dass es der AKTUELLE Stand ist.
+ *
+ * Steht hier und nicht in der Seite, weil er Vokabular ist und die Seite ihn sonst als einzige
+ * kennte: die Zahlen und Bezeichnungen kommen aus denselben Helfern, die auch die Zeile rendern.
+ */
+export function deleteConfirmText(
+  row: GridTariffRow,
+  windows: readonly GridTariffRateWindowRow[],
+): string {
+  const zeitraum = row.valid_until
+    ? `gültig ${formatDate(row.valid_from)} bis ${formatDate(row.valid_until)}`
+    : `gültig ab ${formatDate(row.valid_from)} — DER AKTUELLE STAND`
+  const fenster =
+    windows.length === 1 ? '1 Zeitfenster' : `${windows.length} Zeitfenster`
+
+  return (
+    'Diesen Tarifstand löschen?\n\n' +
+    `${combinationLabel(row)}\n` +
+    `${zeitraum}\n` +
+    `Grundpreis ${row.grundpreis_amount} ${grundpreisUnitLabel(row.grundpreis_unit)} · ${fenster}\n\n` +
+    'Die Zeile und ihre Zeitfenster werden entfernt. Ein vollständiger Abzug bleibt im ' +
+    'Löschprotokoll erhalten.'
+  )
 }

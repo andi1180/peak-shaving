@@ -1224,12 +1224,13 @@ genau die Verweigerung, die §3a heute im Code abbildet, ohne eine Zeile Sonderf
 
 ---
 
-## 3c. Netzbetreiber-Tarife pflegen (B21-2b) — Admin-UI, kein Dashboard-Eingriff
+## 3c. Netzbetreiber-Tarife pflegen (B21-2b/2c) — Admin-UI, kein Dashboard-Eingriff
 
 Seit **28.08.2026** gibt es für `public.grid_tariffs` und `public.grid_tariff_rate_windows` einen
-Schreibweg: den Admin-Bereich unter **`/admin/netzbetreiber-tarife`**. Migration:
-`supabase/migrations/20260828090000_create_grid_tariff_write_path.sql`. Fachliche Tiefe:
-`Pflichtenheft_Kalkulator_Delta_Tarifoptimierung.md`, Delta 5 und Delta 10.
+Schreibweg: den Admin-Bereich unter **`/admin/netzbetreiber-tarife`**. Migrationen:
+`supabase/migrations/20260828090000_create_grid_tariff_write_path.sql` (Anlegen) und
+`…20260901120000_create_grid_tariff_delete_path.sql` (Löschen, seit **01.09.2026**). Fachliche
+Tiefe: `Pflichtenheft_Kalkulator_Delta_Tarifoptimierung.md`, Delta 5 und Delta 10.
 
 ### Im Dashboard ist NICHTS zu tun ✅
 
@@ -1243,13 +1244,44 @@ Schreibweg benutzt den bereits gesetzten `SUPABASE_SERVICE_ROLE_KEY` (§1d).
 |---|---|
 | **Anlegen** | Tarifzeile + 1..n Zeitfenster, in EINEM Vorgang |
 | **Ablösen** | Der bisher offene Stand derselben Kombination wird automatisch auf `valid_from − 1 Tag` beendet |
+| **Löschen** | ✅ seit B21-2c: GENAU EINE Zeile je Vorgang, samt ihren Zeitfenstern (Kaskade) — **mit vollständigem Abzug im Löschprotokoll** |
 | **Bearbeiten** | ❌ gibt es nicht — weder im UI noch in der Datenbank |
-| **Löschen** | ❌ gibt es nicht — kein `delete`-Grant für irgendeine Rolle |
 | **Rückwirkend korrigieren** | ❌ bewusst nicht: ein neuer Stand muss NACH dem Beginn des offenen liegen |
+| **Mehrere auf einmal löschen** | ❌ keine Mehrfachauswahl, ein Aufruf = eine Zeile |
 
 Eine rückwirkende Korrektur eines bereits gerechneten Zeitraums bleibt damit ein **seltener Eingriff
 von Hand** (SQL-Editor im Dashboard) und ist kein Knopf. Der Grund ist derselbe wie beim Append-only
 der Analyse-Ablage (§6): Sie ändert nachträglich, was einem Kunden gegenüber bereits gerechnet wurde.
+
+### Das Löschen (B21-2c) — wofür es da ist, und wofür nicht ⚠️
+
+**Wofür:** Probeeinträge. Der Pflegeweg hängt nur an, und ein vertippter Stand blieb bisher nicht nur
+für immer stehen — er **belegte die Kombination**, sodass jeder echte Stand mit demselben oder
+früherem Beginn auf `invalid_valid_from` lief (`unique nulls not distinct`, §3b). Genau das behebt
+das Löschen; nach dem Entfernen läuft dieselbe Anlage durch (im DB-Gate gemessen).
+
+**Wofür nicht:** die Korrektur eines Zeitraums, für den bereits einem Kunden gegenüber gerechnet
+wurde. Dass diese Unterscheidung nicht bloss eine Absichtserklärung bleibt, ist der Grund für das
+Protokoll:
+
+| | |
+|---|---|
+| **Tabelle** | `public.grid_tariff_deletions` — `grid_tariff_id`, `deleted_by`, `deleted_at`, `tariff_snapshot` |
+| **Der Abzug** | die **vollständige** Elternzeile plus Schlüssel `rate_windows` mit **allen** Zeitfenstern |
+| **Warum die Fenster mit müssen** | die ct/kWh-Sätze stehen dort, nicht auf der Elternzeile — ein Protokoll ohne sie sähe vollständig aus und wäre es nicht |
+| **Kein Fremdschlüssel** | die referenzierte Zeile existiert danach nicht mehr; ein FK wäre entweder unmöglich (`restrict`) oder selbstzerstörend (`cascade`) |
+| **Rechte** | RLS an, **keine Policy**, für `service_role` **nur `INSERT`** — kein SELECT, kein UPDATE, kein DELETE; für `anon`/`authenticated` **gar kein Recht** (Muster `platform.admin_exports`/`job_runs`) |
+| **Ansicht** | ❌ es gibt (noch) keine — gelesen wird bei Bedarf im SQL-Editor |
+
+> **Wiederherstellen** ist damit von Hand möglich und war der Zweck des Abzugs: `tariff_snapshot`
+> enthält alle Werte, die `public.create_grid_tariff` als Argumente braucht.
+
+`public.delete_grid_tariff(p_tariff_id, p_deleted_by)` erledigt Protokoll und Löschung in **einer**
+Transaktion — getrennt wäre jeder Aufruf über PostgREST seine eigene, und ein Abbruch hinterliesse
+entweder eine Spur ohne Vorgang oder einen Vorgang ohne Spur. Eine **unbekannte Kennung wirft**
+(`P0001 not_found`) statt still zu melden, es sei gelöscht worden; die Oberfläche macht daraus die
+Bitte, neu zu laden (live gemessen: der Knopf einer inzwischen anderswo entfernten Zeile zeigt genau
+diesen Satz und schreibt **keine** Protokollzeile).
 
 ### Die Rechtefläche — gemessen, nicht abgeleitet ⚠️
 
@@ -1258,8 +1290,28 @@ tatsächlich braucht:
 
 | Tabelle | `anon` / `authenticated` | `service_role` |
 |---|---|---|
-| `public.grid_tariffs` | `SELECT` | `INSERT, SELECT, UPDATE` |
-| `public.grid_tariff_rate_windows` | `SELECT` | `INSERT` |
+| `public.grid_tariffs` | `SELECT` | `DELETE, INSERT, SELECT, UPDATE` |
+| `public.grid_tariff_rate_windows` | `SELECT` | `INSERT, SELECT` |
+| `public.grid_tariff_deletions` | *(gar nichts)* | `INSERT` |
+
+> ⚠️ **Was B21-2c daran geändert hat — und was ausdrücklich nicht.** Dazugekommen sind `DELETE` auf
+> `grid_tariffs` (der Löschweg selbst) und `SELECT` auf `grid_tariff_rate_windows` (er LIEST die
+> Zeitfenster für den Abzug — nicht „vorsichtshalber", s. den Absatz darunter). **`DELETE` auf der
+> Kind-Tabelle kommt NICHT dazu:** Stufe für Stufe gemessen, dass die Kaskade allein mit dem
+> DELETE-Recht auf der Elternzeile läuft (die referentielle Aktion läuft im systemeigenen
+> Constraint-Trigger mit den Rechten des Eigentümers). Der 42501-Nachweis für die Kind-Tabelle steht
+> deshalb weiterhin im DB-Gate und belegt jetzt etwas Schärferes: die Zeitfenster verschwinden, ohne
+> dass irgendein Weg sie löschen dürfte.
+>
+> | Stufe (Aufruf von `delete_grid_tariff` als `service_role`) | Ergebnis |
+> |---|---|
+> | volle Grants | OK — Eltern 0, Kinder 0, Protokoll 1 |
+> | ohne `DELETE` auf `grid_tariffs` | 42501 `grid_tariffs` |
+> | ohne `SELECT` auf `grid_tariff_rate_windows` | 42501 `grid_tariff_rate_windows` |
+> | ohne `INSERT` auf `grid_tariff_deletions` | 42501 `grid_tariff_deletions` |
+> | ohne `SELECT` auf `grid_tariffs` | 42501 `grid_tariffs` |
+> | ohne `UPDATE` auf `grid_tariffs` | 42501 `grid_tariffs` — das `select … for update` verlangt es |
+> | **zusätzlich** `DELETE` auf `grid_tariff_rate_windows` | OK, **kein Unterschied** |
 
 > **⚠ Warum `grid_tariffs` SELECT braucht und `grid_tariff_rate_windows` nicht.**
 > Gegen den lokalen Stack (PostgreSQL 17.6) in zurückgerollten Transaktionen Stufe für Stufe
@@ -1287,8 +1339,9 @@ tatsächlich braucht:
 > gegeben. Abgesichert im DB-Gate (`packages/db-tests/src/grid-tariff-write-path.test.ts`), das die
 > Rechtefläche EXAKT vergleicht.
 
-**Kein `DELETE` und kein `TRUNCATE` für irgendeine Rolle** — auch nicht für `service_role`, und auch
-nicht auf den Zeitfenstern (obwohl deren `on delete cascade` sie technisch mitnähme).
+**Kein `TRUNCATE` für irgendeine Rolle**, und **kein `DELETE` ausser dem einen aus B21-2c**: `anon`
+und `authenticated` bleiben auf allen drei Tabellen ausschliesslich lesend (auf dem Löschprotokoll
+nicht einmal das), die Zeitfenster bleiben für jede Rolle unlöschbar.
 
 ### ⚠️ Die Autorisierung liegt hier im Anwendungscode, nicht in der Datenbank
 
@@ -1297,11 +1350,18 @@ Das ist die **einzige** Stelle des Systems, an der das so ist, und sie muss offe
 - Jeder andere Admin-Schreibweg ruft einen `admin_*`-Wrapper in `platform`, der `platform.is_admin()`
   als erste Anweisung selbst prüft. Ein Fehler im Anwendungscode kann dort niemandem Schreibzugriff
   verschaffen.
-- `public.create_grid_tariff` ist **SECURITY INVOKER** und läuft als `service_role` — die trägt kein
-  JWT, `auth.uid()` ist leer, es gibt in der Datenbank nichts zu prüfen.
+- `public.create_grid_tariff` **und** `public.delete_grid_tariff` (B21-2c) sind **SECURITY INVOKER**
+  und laufen als `service_role` — die trägt kein JWT, `auth.uid()` ist leer, es gibt in der Datenbank
+  nichts zu prüfen.
 
 Die Zugangsentscheidung fällt deshalb in **`apps/web/lib/admin/grid-tariffs-actions.ts`**
-(`isCurrentUserAdmin()` als erste Anweisung, fail-closed) und zusätzlich im Layout des Admin-Bereichs.
+(`isCurrentUserAdmin()` als erste Anweisung beider Actions, fail-closed) und zusätzlich im Layout des
+Admin-Bereichs. **Beim Löschen wiegt das schwerer als beim Anlegen** — ein Fehler dort legt nicht
+etwas Falsches an, sondern entfernt etwas Richtiges. Deshalb ist die Prüfung zusätzlich als Test
+festgehalten (`apps/web/lib/admin/grid-tariffs-actions.test.ts`: ohne Adminrolle entsteht **kein**
+service_role-Client und **kein** RPC), und live gemessen ist sie auch: derselbe Action-Aufruf
+byte-gleich wiederholt ergibt mit der Sitzung eines Nicht-Admins „Keine Berechtigung" und eine
+unveränderte Zeile, mit der eines Admins die Löschung samt Protokolleintrag.
 Die ESLint-Erlaubnisliste für den service_role-Client ist dafür um **genau diese eine Datei**
 erweitert (Muster `lib/auth/admin-api.ts`).
 
@@ -1317,6 +1377,16 @@ ihrerseits `platform.is_admin()` aufruft, also mit genau dem Wrapper-Muster, das
 und hat EXECUTE **nur** für `service_role` (`anon`/`authenticated` je `false`, per
 `has_function_privilege` — kein Aufruf als Rolle ohne Grant, Arbeitsregel 5). Beide Tabellen weiterhin
 **leer**, `spot_prices` mit unverändert 8.759 Zeilen unberührt.
+
+**Stand Cloud (verifiziert 01.09.2026, B21-2c):** Migration `20260901120000` angewandt,
+`migration list --linked` zeigt lokal = Cloud. **Vorher-Baseline vor dem Push gemessen**
+(Arbeitsregel 3): `grid_tariffs` `INSERT,SELECT,UPDATE` · `grid_tariff_rate_windows` `INSERT` ·
+`delete_grid_tariff` existierte **nicht** · `grid_tariff_deletions` existierte **nicht** ·
+1 Tarifzeile / 1 Zeitfenster / 14.615 Spotpreise. **Nachher:** Rechtefläche exakt wie in der Tabelle
+oben, `delete_grid_tariff` existiert genau einmal mit `prosecdef = false` und EXECUTE nur für
+`service_role`, `grid_tariff_deletions` mit RLS aktiv und **0 Policies**. **Der Bestand ist
+unberührt** — dieselbe eine Tarifzeile (Wiener Netze NE 7, `ohne_leistungsmessung`, gültig ab
+01.01.2025), dasselbe Zeitfenster, unverändert 14.615 Spotpreise, Löschprotokoll leer.
 
 ### Offen: die Preisblätter selbst
 
