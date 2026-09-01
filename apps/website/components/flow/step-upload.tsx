@@ -4,34 +4,20 @@ import { useState } from 'react'
 import { AlertTriangle, ArrowRight, ShieldCheck, XCircle } from 'lucide-react'
 import { parseLoadProfile } from 'engine'
 import type { ColumnMapping, Detection, Unit, ValueColumnInfo } from 'engine'
-import {
-  SPOT_PRICE_ANCHOR_DATE,
-  analysisWindow,
-  startsBeforeSpotPriceAnchor,
-  type LoadProfile,
-} from 'shared'
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { rejectIfBeforeAnchor } from '@/lib/anchor-rule'
+import { readForParsing, type ParseInput } from '@/lib/file-input'
 import { cn } from '@/lib/utils'
 import { FileDrop } from './file-drop'
 import { InvoiceScanPanel } from './invoice-scan-panel'
 import { MappingPanel } from './mapping-panel'
+import { MixedUploadPanel } from './mixed-upload-panel'
 import { StandardProfilePanel } from './standard-profile-panel'
 import type { ParsedLoad, TariffPrefill } from './types'
 
-type ParseInput = {
-  content: string | ArrayBuffer
-  fileName: string
-  format: 'csv' | 'xlsx'
-  /**
-   * B14-2: die rohen Bytes derselben Datei. Sie werden mitgeführt, damit die Prüfsumme des
-   * Analyse-Bündels über die TATSÄCHLICH verarbeitete Ursprungsdatei entsteht — auch im
-   * Mapping-Fall, in dem dieselbe Datei ein zweites Mal geparst wird.
-   */
-  bytes: Uint8Array
-}
 /**
  * Eine Meldung im Upload-Schritt. `title` ist Teil der Meldung und nicht aus `kind` abgeleitet:
  * ein abgelehnter ZEITRAUM (Delta 15, Regel B) ist kein Lesefehler — „Datei konnte nicht gelesen
@@ -47,71 +33,14 @@ type MappingState = {
   valueColumns: ValueColumnInfo[]
 }
 
-async function readForParsing(file: File): Promise<ParseInput> {
-  const isXlsx = /\.(xlsx|xls)$/i.test(file.name)
-  /*
-   * EINMAL lesen, zweimal verwenden: der Puffer geht als `bytes` in die Prüfsumme und — bei CSV —
-   * als daraus dekodierter Text in den Parser. `new TextDecoder()` liefert dasselbe wie
-   * `file.text()` (beides ist UTF-8-Dekodierung samt BOM-Entfernung, so die Datei-API-Spezifikation);
-   * zweimal zu lesen hiesse dagegen, dass Prüfsumme und geparster Inhalt aus zwei Lesevorgängen
-   * stammen — bei einer Datei, die sich zwischendurch ändert, wären sie verschiedene Dateien.
-   */
-  const buffer = await file.arrayBuffer()
-  const bytes = new Uint8Array(buffer)
-  const content = isXlsx ? buffer : new TextDecoder().decode(bytes)
-  return { content, fileName: file.name, format: isXlsx ? 'xlsx' : 'csv', bytes }
-}
-
 /**
- * Delta 15, Regel B — die Untergrenze des Kalkulators.
- *
- * Ein Lastgang, der VOR dem 1.1.2025 beginnt, wird hier abgelehnt: für diesen Zeitraum gibt es
- * keine Marktpreise (`public.spot_prices`, Backfill-Anker aus B21-2a), und der Tarifvergleich würde
- * später an der fehlenden Preiskurve scheitern — an einer Stelle, an der die Meldung niemandem mehr
- * sagt, was zu tun ist. Ablehnen heisst deshalb: hier, mit dem konkreten Datum der Datei und dem
- * konkreten frühesten zulässigen Datum.
- *
- * ── WO DIE PRÜFUNG SITZT, UND WARUM NICHT IM PARSER ────────────────────────────────────────────
- * Im Upload-Schritt, nicht in `parseLoadProfile`. Der Parser ist die generische Lese-Fähigkeit der
- * Engine; er liest eine Datei korrekt oder nicht. „Ab wann nehmen wir einen Lastgang an" ist dagegen
- * eine Produktentscheidung, die sich mit dem Datenbestand ändert (wächst der Backfill nach hinten,
- * wandert die Grenze mit). Im Parser stünde sie zwischen den Formaterkennungen und machte ausserdem
- * vier grüne Engine-Testdateien rot, die bewusst mit 2023er-Fixtures rechnen — die Zahlen dort sind
- * Regressionsgrundlage, kein Kundenfall. Delta 14 Punkt 8 hat genau diese Wahl offengelassen; sie
- * ist hiermit getroffen.
- *
- * ── „VOR JEDEM PARSING" IST NICHT ERFÜLLBAR — und das ist keine Abkürzung ──────────────────────
- * Der Beginn eines Lastgangs steht erst fest, NACHDEM die Datei gelesen wurde; davor gäbe es ihn
- * nur über eine zweite, parallele Datumserkennung neben der des Parsers — also über eine zweite
- * Wahrheit. Die Prüfung sitzt deshalb unmittelbar nach dem Parsen und VOR jeder Übernahme: kein
- * `load`-State, kein Schritt 2, keine Rechnung. Der Nutzer sieht eine Ablehnung, keinen Teilzustand.
- */
-function rejectIfBeforeAnchor(profile: LoadProfile, timezone: string): string | null {
-  const window = analysisWindow(profile)
-  if (!window || !startsBeforeSpotPriceAnchor(window, timezone)) return null
-
-  /*
-   * Beide Daten in der Zeitzone des Lastgangs formatiert, damit im Text dasselbe Datum steht, das
-   * in der Datei steht — und dasselbe, gegen das die Regel geprüft hat. Der Anker wird dafür als
-   * reines Datum (`T00:00` ortszeitlich) gelesen und NICHT als der UTC-Zeitpunkt: sonst nennte die
-   * Meldung in Wien den „1. Jänner 2025, 01:00" als Grenze und wäre um eine Stunde neben der Regel.
-   */
-  const fmt = new Intl.DateTimeFormat('de-AT', { dateStyle: 'long', timeZone: timezone })
-  const beginn = fmt.format(new Date(window.startIso))
-  const frühestens = fmt.format(new Date(`${SPOT_PRICE_ANCHOR_DATE}T12:00:00Z`))
-
-  return (
-    `Ihr Lastgang beginnt am ${beginn}. Für den Tarifvergleich stehen Börsen-Strompreise erst ` +
-    `ab ${frühestens} zur Verfügung — ältere Zeiträume lassen sich damit nicht ehrlich ` +
-    `nachrechnen. Bitte laden Sie einen Lastgang hoch, der am oder nach dem ${frühestens} ` +
-    `beginnt; ideal sind die letzten zwölf Monate.`
-  )
-}
-
-/**
- * Die drei Einstiege. Beschriftung und Datenschutz-Satz stehen hier BEIEINANDER, damit ein vierter
+ * Die vier Einstiege. Beschriftung und Datenschutz-Satz stehen hier BEIEINANDER, damit ein weiterer
  * Modus nicht an der einen Stelle ergänzt und an der anderen vergessen werden kann — genau das
  * passierte sonst beim Satz unten, der vorher eine Ja/Nein-Verzweigung war.
+ *
+ * ⚠ Die Spaltenzahl der Umschaltleiste weiter unten folgt der LÄNGE dieser Liste und ist als
+ * Tailwind-Klasse ausgeschrieben (dynamisch zusammengesetzte Klassennamen entfernt der
+ * Build-Schritt). Wer hier einen fünften Eintrag ergänzt, zieht sie mit.
  */
 const MODES = [
   {
@@ -137,6 +66,19 @@ const MODES = [
       'Ihre Rechnung wird zum Auslesen an Anthropic übertragen und dabei nirgends gespeichert; ' +
       'zurück kommen nur die abgelesenen Werte.',
   },
+  {
+    /*
+     * Delta 17 — der einzige Satz dieser Liste, der ZWEI verschiedene Zusagen macht, weil dieser
+     * Einstieg zwei verschiedene Wege enthält: Lastgänge werden im Browser gelesen, PDFs übertragen.
+     * Ihn auf die schärfere der beiden zu verkürzen („wird übertragen") wäre unnötig abschreckend,
+     * auf die mildere zu verkürzen wäre eine falsche Zusage. Also beide, in einem Satz.
+     */
+    value: 'gemischt',
+    label: 'Mehrere Unterlagen',
+    privacy:
+      'Lastgang-Dateien (CSV/XLSX) bleiben in Ihrem Browser; PDF-Dateien werden zum Einordnen ' +
+      'und Auslesen an Anthropic übertragen und dabei nirgends gespeichert.',
+  },
 ] as const
 type Mode = (typeof MODES)[number]['value']
 
@@ -159,17 +101,19 @@ export function StepUpload({
   const [mapping, setMapping] = useState<MappingState | null>(null)
   const [mappingError, setMappingError] = useState<string | null>(null)
   /*
-   * Delta 9b — welcher der drei Einstiege gerade offen ist. Sie stehen NEBENEINANDER und nicht
-   * untereinander: Delta 9b nennt sie ausdrücklich gleichwertige Startpunkte, und als „Notlösung"
-   * unter dem Upload versteckt erreichten die beiden neuen genau die Zielgruppe nicht, für die es
-   * sie gibt.
+   * Delta 9b / Delta 17 — welcher der vier Einstiege gerade offen ist. Sie stehen NEBENEINANDER und
+   * nicht untereinander: Delta 9b nennt sie ausdrücklich gleichwertige Startpunkte, und als
+   * „Notlösung" unter dem Upload versteckt erreichten die neuen genau die Zielgruppe nicht, für die
+   * es sie gibt.
    *
    * Die Datei-Seite bleibt der Vorgabewert und ist in ihrem Verhalten UNVERÄNDERT — kein Pfad
-   * dieses Zweigs ist angefasst.
+   * dieses Zweigs ist angefasst; dasselbe gilt für die beiden Panels der Modi 2 und 3.
    *
-   * ⚠ `rechnungsscan` (Delta 9b-2b) ist der einzige Modus, in dem etwas das Gerät verlässt. Das
-   * ist nicht nur eine Zeile weiter unten sichtbar, sondern trägt einen eigenen Datenschutz-Satz
-   * (s. ganz unten) UND einen eigenen Hinweisblock direkt am Upload (`InvoiceScanPanel`).
+   * ⚠ `rechnungsscan` und `gemischt` sind die Modi, in denen etwas das Gerät verlassen KANN. Das
+   * ist nicht nur eine Zeile weiter unten sichtbar, sondern trägt je einen eigenen Datenschutz-Satz
+   * (s. ganz unten) UND einen eigenen Hinweisblock direkt am Upload (`InvoiceScanPanel` bzw.
+   * `MixedUploadPanel`). Im vierten Modus gilt die Zusage für Lastgänge unverändert weiter — dort
+   * wird ausschliesslich eine PDF übertragen (Begründung im Kopf des Panels).
    */
   const [mode, setMode] = useState<Mode>('datei')
 
@@ -268,7 +212,7 @@ export function StepUpload({
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         {!mapping && (
-          <div className="grid grid-cols-1 gap-2 rounded-lg border border-border bg-surface-alt p-1 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-2 rounded-lg border border-border bg-surface-alt p-1 sm:grid-cols-2 lg:grid-cols-4">
             {MODES.map(({ value, label }) => (
               <button
                 key={value}
@@ -289,6 +233,7 @@ export function StepUpload({
         )}
         {!mapping && mode === 'standardprofil' && <StandardProfilePanel onComplete={onComplete} />}
         {!mapping && mode === 'rechnungsscan' && <InvoiceScanPanel onComplete={onComplete} />}
+        {!mapping && mode === 'gemischt' && <MixedUploadPanel onComplete={onComplete} />}
         {mapping ? (
           <MappingPanel
             detection={mapping.detection}

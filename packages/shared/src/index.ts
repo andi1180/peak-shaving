@@ -36,3 +36,9 @@ export * from './report-gate'
 // Delta 9b-2a: der Rechnungs-Scan — Zielschema und Auswertung der Modellantwort. Hier und nicht in
 // `apps/website`, weil die App keinen eigenen Testlauf hat; Begründung im Kopf der Datei.
 export * from './invoice-scan'
+// Delta 17: die Dokument-Zuordnung des vierten Einstiegs — Zielarten, Ja/Nein-Aussage je Kandidat
+// und die Regel, die daraus genau eine Art macht. Hier aus demselben Grund wie `invoice-scan`.
+export * from './upload-classification'
+// Delta 17: mehrere gelesene Rechnungen zu EINEM Satz Vorbelegungen — Einigkeit übernimmt,
+// Widerspruch bleibt leer und wird benannt. Begründung im Kopf der Datei.
+export * from './invoice-merge'
