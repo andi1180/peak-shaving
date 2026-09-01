@@ -2,6 +2,7 @@ import {
   alignPvGrossToLoad,
   analyzeCurrentPeaks,
   buildDispatchTrace,
+  buildMonthlyTariffComparison,
   calculateRoi,
   computeBatterySavings,
   evaluateTariffOptimization,
@@ -19,6 +20,7 @@ import {
   type BatteryCandidate,
   type BatteryResultEntry,
   type ExistingBatteryAnalysis,
+  type TariffOptimizationStatus,
 } from 'shared'
 
 import type { AnalysisRequest, WorkerOutbound } from './analysis-protocol'
@@ -59,6 +61,20 @@ function post(message: WorkerOutbound): void {
   ctx.postMessage(message)
 }
 
+type ExistingBatteryOutcome = {
+  analysis: ExistingBatteryAnalysis
+  /**
+   * Netzbezug nach dem Dispatch der bestehenden Anlage (signiert, + = Bezug) — die Eingangsgrösse
+   * der Monatsreihe „aWATTar mit Ihrem Speicher".
+   *
+   * ⚠ Sie reist als Rückgabewert heraus und NICHT als zusätzliches Contract-Feld: eine Rohreihe
+   * mit bis zu 35.040 Werten im `AnalysisResult` wäre eine zweite, ungenutzte Kopie des Dispatchs
+   * (derselbe Grund, aus dem `DispatchTrace` den Lastgang nicht dupliziert). Aggregiert wird
+   * direkt hier, im selben Aufruf, in dem die Simulation ohnehin schon lebt.
+   */
+  gridAfterKw: number[]
+}
+
 /**
  * Die bestehende Anlage des Kunden — und je Katalog-Kandidat das Szenario „zusätzlich dazu".
  *
@@ -95,7 +111,7 @@ function buildExistingBatteryAnalysis(
   payload: CalculatorPayload,
   horizonYears: number,
   catalog: BatteryCandidate[],
-): ExistingBatteryAnalysis | undefined {
+): ExistingBatteryOutcome | undefined {
   const existing = payload.existingBattery?.battery
   if (!existing) return undefined
 
@@ -169,7 +185,7 @@ function buildExistingBatteryAnalysis(
       : a.amortizationYears - b.amortizationYears,
   )
 
-  return { entry, addonScenarios }
+  return { analysis: { entry, addonScenarios }, gridAfterKw: sim.dispatch.gridAfterKw }
 }
 
 function computeAnalysis(
@@ -221,11 +237,48 @@ function computeAnalysis(
    *
    * `undefined` heisst: nicht angefordert — dann gibt es auch nichts zu melden.
    */
-  const tariffOptimization = evaluateTariffOptimization(
+  const baseTariffOptimization = evaluateTariffOptimization(
     loadProfile,
     payload.tariff,
     payload.tariffPricing,
   )
+
+  /*
+   * Die bestehende Anlage des Kunden — ausserhalb von `perBattery`, s. `buildExistingBatteryAnalysis`.
+   * `undefined`, wenn keine angegeben wurde: dann ist dieser Report Zeile für Zeile der bisherige.
+   *
+   * ⚠ Läuft in BEIDEN Handlern (Erstlauf wie Live-Neuberechnung), weil Tarif, Horizont und
+   * Förderparameter sowohl die Ersparnis der Anlage als auch die Amortisation jedes
+   * Zusatzgeräts verschieben. Nur im Erstlauf gerechnet stünde nach der ersten Änderung im
+   * Annahmen-Panel ein Bestandsblock aus einer anderen Rechnung neben dem übrigen Report.
+   */
+  const existing = buildExistingBatteryAnalysis(payload, horizonYears, catalog)
+
+  /*
+   * --- Monatsvergleich „Ist vs. aWATTar ohne Steuerung vs. aWATTar mit Ihrem Speicher" ---
+   *
+   * ⚠ ER HÄNGT AN GENAU ZWEI BEDINGUNGEN, UND BEIDE SIND HART:
+   *   1. `computable === true` — sonst ist die Preisreihe des Hebels bewusst durchgehend mit dem
+   *      Standard-Arbeitspreis gefüllt (s. `intervalTariffRates`), und eine daraus gebildete
+   *      Aggregation zeigte „aWATTar = Ist" statt „nicht berechenbar". Ein Balkenpaar, das
+   *      Gleichstand behauptet, ist der stille Rückfall, vor dem Delta 15 warnt.
+   *   2. Eine BESTEHENDE Anlage — die dritte Reihe ist ihr Dispatch. Ohne sie gäbe es zwei von
+   *      drei Reihen, und der Vergleich hiesse etwas anderes als das, was die Überschrift sagt.
+   * Fehlt eine der beiden, entsteht KEINE der drei Reihen (kein Teilzustand) und die Sektion im
+   * Report entfällt vollständig.
+   */
+  const monthlyComparison =
+    baseTariffOptimization?.computable === true && existing && payload.tariffPricing
+      ? buildMonthlyTariffComparison(
+          loadProfile,
+          payload.tariff,
+          payload.tariffPricing,
+          existing.gridAfterKw,
+        )
+      : undefined
+  const tariffOptimization: TariffOptimizationStatus | undefined = monthlyComparison
+    ? { computable: true, monthlyComparison }
+    : baseTariffOptimization
 
   // --- perBattery/recommendation: ECHTER Engine-Aufruf (§3.6–§3.8) ---
   // `financial` ist bereits vollständig optional gebaut (§3.9) — fehlt es (Formular sammelt es
@@ -258,16 +311,7 @@ function computeAnalysis(
       einspeiseverguetungCtPerKwh: payload.tariff.einspeiseverguetungCtPerKwh,
     },
     tariffOptimization,
-    /*
-     * Die bestehende Anlage des Kunden — ausserhalb von `perBattery`, s. `buildExistingBatteryAnalysis`.
-     * `undefined`, wenn keine angegeben wurde: dann ist dieser Report Zeile für Zeile der bisherige.
-     *
-     * ⚠ Läuft in BEIDEN Handlern (Erstlauf wie Live-Neuberechnung), weil Tarif, Horizont und
-     * Förderparameter sowohl die Ersparnis der Anlage als auch die Amortisation jedes
-     * Zusatzgeräts verschieben. Nur im Erstlauf gerechnet stünde nach der ersten Änderung im
-     * Annahmen-Panel ein Bestandsblock aus einer anderen Rechnung neben dem übrigen Report.
-     */
-    existingBatteryAnalysis: buildExistingBatteryAnalysis(payload, horizonYears, catalog),
+    existingBatteryAnalysis: existing?.analysis,
     dataQuality: pvWarnings.length
       ? {
           ...payload.load.dataQuality,
