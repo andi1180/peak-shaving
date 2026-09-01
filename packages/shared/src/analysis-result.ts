@@ -93,8 +93,29 @@ export type AnalysisResult = {
     battery: BatteryCandidate
     newBilledKw: number
     leistungspreisSavingPerYear: number
+    /**
+     * Eigenverbrauchs-Ersparnis PRO JAHR. Bei einem echten Lastgang, der weniger als ein Jahr
+     * abdeckt, ist das die HOCHGERECHNETE Grösse (`…OverCoveredPeriod × annualizationFactor`).
+     */
     selfConsumptionSavingPerYear: number
-    loadShiftSavingPerYear: number // [MN] tarifbewusstes Laden; 0 ohne Tarif-Fenster
+    /** [MN] tarifbewusstes Laden; 0 ohne Tarif-Fenster. Ebenfalls hochgerechnet, s. oben. */
+    loadShiftSavingPerYear: number
+    /**
+     * ── Die beiden GEMESSENEN Energie-Werte über den tatsächlich abgedeckten Zeitraum ───────────
+     * Anders als die Leistungspreis-Ersparnis (ratenbasiert, €/kW·Jahr → konstruktionsbedingt eine
+     * Jahresgrösse) entstehen Eigenverbrauch und Lastverschiebung als SUMME über die vorhandenen
+     * Intervalle. Bei einem Teilzeitraum-Lastgang muss diese Summe hochgerechnet werden, damit sie
+     * mit dem Leistungspreis-Anteil in dieselbe `totalSavingPerYear` und in die ROI-Kette darf
+     * (§3.7). Die Hochrechnung ist aber eine ANNAHME (homogenes Jahr) — der gemessene Wert darf sie
+     * deshalb nicht verdrängen und steht als eigenes Feld daneben, damit der Report beide zeigen
+     * kann (Prinzip 5). Bei voller Jahresabdeckung sind Paar und Faktor trivial (Faktor = 1).
+     */
+    selfConsumptionSavingOverCoveredPeriod: number
+    loadShiftSavingOverCoveredPeriod: number
+    /** `365 / coveredDays` bei einem echten Teilzeitraum-Lastgang, sonst exakt `1`. */
+    annualizationFactor: number
+    /** Abgedeckte Tage — die Bezugsgrösse des Faktors, damit Report/CSV sie benennen können. */
+    coveredDays: number
     totalSavingPerYear: number // Summe aus DEMSELBEN Fahrplan (keine Doppelrechnung)
     totalInvestment: number
     subsidyAmount: number
