@@ -31,9 +31,15 @@ import { BATTERY_TEXT_MODEL, createBatteryTextClient } from './ai-client'
  *
  * ── ⚠ ES WIRD NICHTS ÜBERNOMMEN, SONDERN VORGESCHLAGEN ────────────────────────────────────────
  * Was hier herauskommt, geht in eine Bestätigungsstufe (`battery-text-panel.tsx`), exakt wie in
- * Teil 1. Der Grund ist hier besonders scharf: der Katalog ist FEST, eine genannte Kapazität führt
- * also zur Auswahl eines Kandidaten mit einer ANDEREN Kapazität — und wer 20 kWh besitzt, muss
- * sehen, dass gerade über 15 oder 25 kWh gerechnet wird.
+ * Teil 1. Der Grund ist hier besonders scharf: aus diesen Zahlen wird ein SIMULIERBARER Speicher
+ * gebaut, und die Ersparnis, die der Report anschliessend ausweist, ist die seiner Anlage. Ein
+ * verlesenes kW als kWh verschöbe sie unmittelbar — und niemand ausser dem Kunden selbst kann das
+ * bemerken.
+ *
+ * ⚠ Seit dem 01.09.2026 wird die genannte Kapazität NICHT mehr auf den nächstliegenden
+ * Katalog-Kandidaten gerundet; gerechnet wird mit den exakten Werten (s. `battery-combination.ts`).
+ * Der frühere Hinweis „wer 20 kWh besitzt, sieht eine Rechnung über 15 oder 25 kWh" ist damit
+ * gegenstandslos.
  */
 
 export type BatteryTextOutcome =

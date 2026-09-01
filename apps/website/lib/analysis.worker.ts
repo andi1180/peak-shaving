@@ -1,18 +1,30 @@
 import {
   alignPvGrossToLoad,
   analyzeCurrentPeaks,
+  buildDispatchTrace,
+  calculateRoi,
+  computeBatterySavings,
   evaluateTariffOptimization,
   pvConsistencyWarning,
   pvCoverageWarning,
   recommendBattery,
+  simulateBattery,
+  topPeaksKw,
 } from 'engine'
-import { DEMO_BATTERY_CATALOG, type AnalysisResult, type BatteryCandidate } from 'shared'
+import {
+  DEMO_BATTERY_CATALOG,
+  combineBatteries,
+  type AddonBatteryScenario,
+  type AnalysisResult,
+  type BatteryCandidate,
+  type BatteryResultEntry,
+  type ExistingBatteryAnalysis,
+} from 'shared'
 
 import type { AnalysisRequest, WorkerOutbound } from './analysis-protocol'
 // B14-2: dieselbe Katalog-Änderung, die auch der Bündel-Export mitschreibt — eine Definition,
-// zwei Aufrufer (s. `lib/battery-override.ts`). `resolveBatteryOverride` entscheidet dort ebenso
-// zentral, WELCHER Override für einen Lauf gilt (ausdrücklicher schlägt Preset).
-import { applyBatteryOverride, resolveBatteryOverride } from './battery-override'
+// zwei Aufrufer (s. `lib/battery-override.ts`).
+import { applyBatteryOverride } from './battery-override'
 import { DEFAULT_HORIZON_YEARS } from './constants'
 import type { CalculatorPayload } from '@/components/flow/types'
 
@@ -45,6 +57,119 @@ const ctx = self as unknown as Worker
 
 function post(message: WorkerOutbound): void {
   ctx.postMessage(message)
+}
+
+/**
+ * Die bestehende Anlage des Kunden — und je Katalog-Kandidat das Szenario „zusätzlich dazu".
+ *
+ * ── ⚠ WARUM DAS NICHT ÜBER `recommendBattery` LÄUFT ───────────────────────────────────────────
+ * `recommendBattery` (§3.8) verkettet Simulation → Zuschreibung → ROI und SORTIERT anschliessend
+ * nach `netSavingOverHorizon`; daraus entsteht `recommendation`. Der Speicher des Kunden gehört
+ * dort nicht hinein: er ist keine Kaufoption, und seine Investitionsfelder sind Platzhalter (die
+ * Anschaffung ist bezahlt). Mit einem Platzhalterpreis von 0 wäre seine Netto-Investition 0 und
+ * er sortierte sich zwangsläufig auf Platz 1 — der Report spräche eine Kaufempfehlung für ein
+ * Gerät aus, das der Kunde bereits besitzt.
+ *
+ * Aufgerufen werden deshalb dieselben Bausteine EINZELN und in derselben Reihenfolge wie in
+ * `rank.ts`: `simulateBattery` (§3.6) → `computeBatterySavings` (§3.7). `calculateRoi` (§3.9)
+ * bleibt für die Anlage selbst aus — genau das ist die fachliche Aussage.
+ *
+ * ── ⚠ DIE KOMBINATION WIRD SIMULIERT, AUSGEWIESEN WIRD DIE DIFFERENZ ──────────────────────────
+ * Zwei Speicher am selben Anschluss sind physikalisch EIN Speicher mit addierter Kapazität und
+ * Leistung (`combineBatteries`). Simuliert wird deshalb die Kombination — ausgewiesen aber nur,
+ * was ÜBER den Bestand hinausgeht (`kombiniert − Bestand allein`). Die Bruttozahl der Kombination
+ * enthielte die Ersparnis, die der Kunde ohnehin schon hat; als „Ersparnis durch dieses Gerät"
+ * gezeigt wäre sie eine Kaufbegründung mit fremdem Geld.
+ *
+ * Die Summe wird aus den DREI Differenzen gebildet und nicht als Differenz der beiden Summen: nur
+ * so addieren sich die Zeilen der Ersparnis-Aufschlüsselung im Report auf den ausgewiesenen
+ * Gesamtwert (bit-genau, ohne ULP-Abweichung). Fachlich sind beide Wege identisch, weil beide
+ * Läufe ihre Anteile exakt aufsummieren (§3.7).
+ *
+ * ── ⚠ DIE INVESTITION IST DIE DES ZUSATZGERÄTS, NIE DIE DER KOMBINATION ───────────────────────
+ * `calculateRoi(addon, …)` — nicht `calculateRoi(combined, …)`. Der kombinierte Kandidat trüge die
+ * addierte Kapazität zum Zusatzpreis und behauptete damit eine Investition, die es nirgends gibt.
+ * Bezahlt wird ausschliesslich das neue Gerät; verglichen wird es an dem, was es zusätzlich bringt.
+ */
+function buildExistingBatteryAnalysis(
+  payload: CalculatorPayload,
+  horizonYears: number,
+  catalog: BatteryCandidate[],
+): ExistingBatteryAnalysis | undefined {
+  const existing = payload.existingBattery?.battery
+  if (!existing) return undefined
+
+  const loadProfile = payload.load.profile
+  const pvProfile = payload.pv?.profile
+  const pricing = payload.tariffPricing
+  // Profil-, nicht batterieabhängig — einmal für alle Läufe (dieselbe Menge wie `peaks.top`).
+  const topPeaks = topPeaksKw(loadProfile)
+
+  const sim = simulateBattery(loadProfile, existing, payload.tariff, pvProfile, pricing)
+  const savings = computeBatterySavings(loadProfile, existing, payload.tariff, sim, pricing)
+  const entry: BatteryResultEntry = {
+    battery: existing,
+    ...savings,
+    dispatchTrace: buildDispatchTrace(loadProfile, payload.tariff, sim, topPeaks),
+  }
+
+  const addonScenarios: AddonBatteryScenario[] = catalog.map((addon) => {
+    const combined = combineBatteries(existing, addon)
+    const cSim = simulateBattery(loadProfile, combined, payload.tariff, pvProfile, pricing)
+    const cSav = computeBatterySavings(loadProfile, combined, payload.tariff, cSim, pricing)
+
+    const leistungspreisSavingPerYear =
+      cSav.leistungspreisSavingPerYear - savings.leistungspreisSavingPerYear
+    const selfConsumptionSavingPerYear =
+      cSav.selfConsumptionSavingPerYear - savings.selfConsumptionSavingPerYear
+    const loadShiftSavingPerYear = cSav.loadShiftSavingPerYear - savings.loadShiftSavingPerYear
+    const totalSavingPerYear =
+      leistungspreisSavingPerYear + selfConsumptionSavingPerYear + loadShiftSavingPerYear
+
+    return {
+      // Das ZUSATZgerät: es wird gekauft, seine Karte zeigt seinen Preis und seine Amortisation.
+      battery: addon,
+      combined,
+      // Absolutwert der Kombination (keine Differenz) — der abgerechnete Leistungswert IST eine
+      // absolute Grösse; eine Differenz zweier kW-Werte wäre hier keine sinnvolle Aussage.
+      newBilledKw: cSav.newBilledKw,
+      leistungspreisSavingPerYear,
+      selfConsumptionSavingPerYear,
+      loadShiftSavingPerYear,
+      selfConsumptionSavingOverCoveredPeriod:
+        cSav.selfConsumptionSavingOverCoveredPeriod -
+        savings.selfConsumptionSavingOverCoveredPeriod,
+      loadShiftSavingOverCoveredPeriod:
+        cSav.loadShiftSavingOverCoveredPeriod - savings.loadShiftSavingOverCoveredPeriod,
+      // Faktor und abgedeckte Tage hängen am LASTGANG, nicht an der Batterie — beide Läufe liefern
+      // denselben Wert, eine Differenz wäre hier sinnlos.
+      annualizationFactor: cSav.annualizationFactor,
+      coveredDays: cSav.coveredDays,
+      totalSavingPerYear,
+      /*
+       * Die Warnungen des KOMBINIERTEN Laufs (z. B. „statische Steuerung: keine Spitzenkappung").
+       * Bewusst nicht die §3.8-Warnungen aus `rank.ts` (Betonsockel, separater Wechselrichter):
+       * die stehen für das Zusatzgerät ohnehin als eigene Kostenzeilen in der Investitionsliste
+       * der Karte — ein zweites Mal als Warnung wären sie Lärm.
+       */
+      warnings: cSav.warnings,
+      ...calculateRoi(addon, totalSavingPerYear, horizonYears, payload.financial),
+    }
+  })
+
+  /*
+   * Dieselbe Sortierregel wie `rank.ts` (§3.8): primär `netSavingOverHorizon` absteigend, Tie-Break
+   * `amortizationYears` aufsteigend — hier auf die INKREMENTELLE Ersparnis angewandt. Zwei
+   * verschiedene Rangfolgen im selben Report wären für denselben Leser zwei verschiedene
+   * Bedeutungen von „am besten".
+   */
+  addonScenarios.sort((a, b) =>
+    b.netSavingOverHorizon !== a.netSavingOverHorizon
+      ? b.netSavingOverHorizon - a.netSavingOverHorizon
+      : a.amortizationYears - b.amortizationYears,
+  )
+
+  return { entry, addonScenarios }
 }
 
 function computeAnalysis(
@@ -133,6 +258,16 @@ function computeAnalysis(
       einspeiseverguetungCtPerKwh: payload.tariff.einspeiseverguetungCtPerKwh,
     },
     tariffOptimization,
+    /*
+     * Die bestehende Anlage des Kunden — ausserhalb von `perBattery`, s. `buildExistingBatteryAnalysis`.
+     * `undefined`, wenn keine angegeben wurde: dann ist dieser Report Zeile für Zeile der bisherige.
+     *
+     * ⚠ Läuft in BEIDEN Handlern (Erstlauf wie Live-Neuberechnung), weil Tarif, Horizont und
+     * Förderparameter sowohl die Ersparnis der Anlage als auch die Amortisation jedes
+     * Zusatzgeräts verschieben. Nur im Erstlauf gerechnet stünde nach der ersten Änderung im
+     * Annahmen-Panel ein Bestandsblock aus einer anderen Rechnung neben dem übrigen Report.
+     */
+    existingBatteryAnalysis: buildExistingBatteryAnalysis(payload, horizonYears, catalog),
     dataQuality: pvWarnings.length
       ? {
           ...payload.load.dataQuality,
@@ -148,16 +283,13 @@ ctx.onmessage = (event: MessageEvent<AnalysisRequest>) => {
 
   if (msg.type === 'run') {
     /*
-     * Delta 17 Teil 2 — das aus einer Freitext-Angabe BESTÄTIGTE Preset gilt schon beim ERSTEN
-     * Lauf, und zwar über GENAU DIESELBE Funktion wie die Live-Neuberechnung. Kein zweiter
-     * Mechanismus: ein Preset IST ein `batteryOverride`, nur eben von Anfang an gesetzt.
-     *
-     * Trägt es nur eine `batteryId` (der Nutzer hat einen Speicher gewählt, aber weder Wirkungsgrad
-     * noch Preis genannt), lässt `applyBatteryOverride` den Katalog UNVERÄNDERT — die Rechnung ist
-     * dann bit-gleich zu vorher, und das Preset wirkt allein als Vorauswahl im Report.
+     * Der Katalog des Erstlaufs ist der UNVERÄNDERTE — es gibt beim ersten Lauf keinen Override
+     * (der entsteht erst im Annahmen-Panel, §6.2). Ein bestätigter Bestandsspeicher verändert ihn
+     * ausdrücklich NICHT mehr: er ist kein Katalog-Kandidat, sondern wird daneben simuliert
+     * (`buildExistingBatteryAnalysis`). Nur so bleiben die Zusatzspeicher-Szenarien ehrlich —
+     * verglichen wird gegen echte Katalog-Geräte, nicht gegen ein umetikettiertes.
      */
-    const catalog = applyBatteryOverride(DEMO_BATTERY_CATALOG, msg.payload.batteryPreset)
-    const result = computeAnalysis(msg.payload, DEFAULT_HORIZON_YEARS, catalog)
+    const result = computeAnalysis(msg.payload, DEFAULT_HORIZON_YEARS, DEMO_BATTERY_CATALOG)
 
     // Künstliche Fortschrittsanimation NUR beim Erstlauf (§5 Schritt 3, StepAnalyzing) — kein
     // fachlicher Wert, reine Wahrnehmungs-Geste. `recompute` (unten) überspringt sie bewusst,
@@ -181,26 +313,13 @@ ctx.onmessage = (event: MessageEvent<AnalysisRequest>) => {
   if (msg.type === 'recompute') {
     try {
       /*
-       * ⚠ DAS PRESET ÜBERLEBT DIE NEUBERECHNUNG (Nachtrag zu Delta 17 Teil 2, 01.09.2026).
-       *
-       * Hier stand bis zum 01.09.2026 nur `msg.batteryOverride` — und der ist `undefined`, sobald
-       * der Nutzer die Batteriefelder gar nicht anfasst (das Annahmen-Panel emittiert ihn nur bei
-       * Abweichung von seiner Grundlinie, und die IST bereits das preset-angewandte Gerät). Wer
-       * seinen Speicher mit „90 %" bestätigt hatte und danach nur den Horizont änderte, rechnete
-       * ab dem nächsten Tastendruck wieder mit den 91 % aus dem Katalog. Es gab dafür keine
-       * Meldung: die Ersparnis sprang lautlos auf einen Wert, den niemand angegeben hatte.
-       *
-       * Der Rückfall steht deshalb HIER und nicht bei den Aufrufern: es gibt neun Wege in eine
-       * Neuberechnung (acht Felder des Annahmen-Panels über `computeAndSend`, dazu der
-       * Jahreshöchstwert-Shortcut in `report.tsx`), und eine Regel, die jeder von ihnen einzeln
-       * mitbringen müsste, ist keine — der zehnte vergisst sie.
-       *
-       * `resolveBatteryOverride` ist bewusst geteilt: der Hook protokolliert damit denselben Wert
-       * in `AnalysisRunInputs`, aus dem der Bündel-Export den Katalog-Stand schreibt. Nur hier
-       * aufgelöst trüge das Archiv einen Katalog, gegen den nie gerechnet wurde.
+       * Der Bestandsspeicher reist im PAYLOAD mit und muss hier nicht aufgelöst werden — anders
+       * als bis zum 01.09.2026, als er als `batteryPreset` ein Override war und bei jeder
+       * Neuberechnung gegen einen ausdrücklichen Override abzugleichen war (vergass ein Aufrufer
+       * das, verschwand die Angabe des Kunden lautlos). `msg.payload` trägt ihn unverändert;
+       * `computeAnalysis` liest ihn selbst.
        */
-      const override = resolveBatteryOverride(msg.batteryOverride, msg.payload.batteryPreset)
-      const catalog = applyBatteryOverride(DEMO_BATTERY_CATALOG, override)
+      const catalog = applyBatteryOverride(DEMO_BATTERY_CATALOG, msg.batteryOverride)
       const result = computeAnalysis(msg.payload, msg.horizonYears, catalog)
       post({ type: 'recomputed', result })
     } catch (err) {

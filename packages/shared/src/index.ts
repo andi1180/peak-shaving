@@ -42,9 +42,12 @@ export * from './upload-classification'
 // Delta 17: mehrere gelesene Rechnungen zu EINEM Satz Vorbelegungen — Einigkeit übernimmt,
 // Widerspruch bleibt leer und wird benannt. Begründung im Kopf der Datei.
 export * from './invoice-merge'
-// Delta 17 Teil 2: die Batterie-Freitexterfassung — Zielschema, Auswertung und die Zuordnung einer
-// genannten Kapazität zum FESTEN Katalog (der Abstand wird benannt, nicht weggerundet).
+// Delta 17 Teil 2: die Batterie-Freitexterfassung — Zielschema und Auswertung einer freien Angabe
+// über den eigenen Speicher.
 export * from './battery-text'
+// Der Speicher des Kunden mit seinen EXAKTEN Werten (kein Katalog-Ersatz) und der virtuelle
+// Speicher „Bestand + ein Zusatzgerät". Begründung im Kopf der Datei.
+export * from './battery-combination'
 // Delta 18: die Report-Anfrage-Übersetzung — ein Satz wird zu einem VORSCHLAG für genau die acht
 // Grössen, die eine Neuberechnung entgegennimmt; alles andere wird als solches abgelehnt.
 export * from './report-request'

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { AlertCircle, AlertTriangle } from 'lucide-react'
 import {
   DEMO_BATTERY_CATALOG,
@@ -21,10 +21,9 @@ import {
 } from '@/components/ui/accordion'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
-import { applyBatteryOverride, overrideSourceFor } from '@/lib/battery-override'
 import { DEFAULT_HORIZON_YEARS, LARGE_GAP_SLOTS_THRESHOLD } from '@/lib/constants'
 import type { AnalysisRunInputs } from '@/lib/use-analysis'
-import type { BatteryPreset, RecomputeInput } from '@/components/flow/types'
+import type { ExistingBatteryInput, RecomputeInput } from '@/components/flow/types'
 import { AssumptionsPanel } from './assumptions-panel'
 import { CostChart } from './cost-chart'
 import { EnergyFlowChart } from './energy-flow-chart'
@@ -57,7 +56,7 @@ export function Report({
   recomputing,
   recomputeError,
   isLive,
-  batteryPreset,
+  existingBattery,
   effectiveInputs,
   onRecompute,
   onResetAssumptions,
@@ -74,8 +73,12 @@ export function Report({
   /**
    * Delta 17 Teil 2: der in Schritt 2 bestätigte Speicher des Kunden. `undefined` = keine Angabe,
    * dann verhält sich der Report Zeile für Zeile wie vorher.
+   *
+   * ⚠ Das GERECHNETE Ergebnis dazu steht im Contract (`result.existingBatteryAnalysis`) — hier
+   * wird ausschliesslich gelesen, ob der Wirkungsgrad eine Annahme war. Diese eine Zahl stammt
+   * nicht vom Kunden und darf im Report nicht als seine erscheinen.
    */
-  batteryPreset?: BatteryPreset
+  existingBattery?: ExistingBatteryInput
   /**
    * Delta 18: die Eingangsgrössen GENAU des angezeigten Laufs (`displayInputs` aus `useAnalysis`).
    *
@@ -98,40 +101,26 @@ export function Report({
   // angezeigt werden (§6.2 „aktuell angezeigte Batterie") — unabhängig von der Empfehlung, per
   // Dropdown im Chart wählbar (auch eine `static`-Alternative, um den Fallback zu sehen).
   /*
-   * Delta 17 Teil 2 — hat der Kunde seinen eigenen Speicher bestätigt, startet die Ansicht auf
-   * IHM und nicht auf der Empfehlung: Energiefluss-Chart und Annahmen-Panel zeigen dann seine
-   * Anlage. Die Empfehlung selbst bleibt unangetastet und steht unverändert oben — der Rechner
-   * vergleicht weiterhin den vollen Katalog, er beginnt nur an einer anderen Stelle.
-   *
-   * Fällt die Kennung nicht auf einen gerechneten Kandidaten (sie kommt aus dem festen Katalog,
-   * also praktisch immer), bleibt es bei der Empfehlung — kein leerer Zustand.
+   * ⚠ IMMER ein KATALOG-Kandidat, auch im Bestandsfall. Die Auswahl steuert das Annahmen-Panel
+   * (Wirkungsgrad/Preis der angezeigten Batterie) und die Delta-18-Freitextanfrage — beide
+   * arbeiten ausschliesslich auf Katalog-Geräten. Die bestehende Anlage des Kunden lässt sich dort
+   * bewusst nicht bearbeiten: ihre Werte hat er in Schritt 2 angegeben, und sie sind keine
+   * Annahme, an der man drehen könnte (s. Handover, offener Punkt).
    */
-  const [selectedBatteryId, setSelectedBatteryId] = useState(
-    batteryPreset && result.perBattery.some((p) => p.battery.id === batteryPreset.batteryId)
-      ? batteryPreset.batteryId
-      : result.recommendation.batteryId,
-  )
+  const [selectedBatteryId, setSelectedBatteryId] = useState(result.recommendation.batteryId)
 
-  /*
-   * ⚠ DER KATALOG-STAND, GEGEN DEN DIESER REPORT ENTSTANDEN IST — und NICHT der unveränderte.
-   *
-   * Das Annahmen-Panel benutzt ihn doppelt: als Vorbelegung seiner Felder UND als Grundlinie, auf
-   * die „Zurücksetzen" zurückführt. Beides muss zu dem passen, was tatsächlich GERECHNET wurde:
-   * hat der Kunde in Schritt 2 seinen Speicher mit 90 % Wirkungsgrad bestätigt, lief der Erstlauf
-   * mit 90 %. Stünde im Panel der Katalogwert (91 %), zeigte es eine Zahl an, mit der nichts
-   * gerechnet wurde — und die nächste Live-Neuberechnung schickte sie zurück und verwürfe damit
-   * still die Angabe des Kunden. Beim Live-Lauf gemessen, bevor diese Zeile stand.
-   *
-   * Es ist ausdrücklich das PRESET und nicht der zuletzt angezeigte Lauf: die Grundlinie darf einer
-   * laufenden Änderung im Panel nicht nachwandern, sonst gäbe es nichts mehr zurückzusetzen.
-   */
   /** Delta 18: erzwingt einen Neuaufbau des Annahmen-Panels nach einer Änderung per Freitext. */
   const [assumptionsKey, setAssumptionsKey] = useState(0)
 
-  const baselineCatalog = useMemo(
-    () => applyBatteryOverride(DEMO_BATTERY_CATALOG, batteryPreset),
-    [batteryPreset],
-  )
+  /*
+   * Die Grundlinie des Annahmen-Panels: Vorbelegung seiner Felder UND das Ziel von „Zurücksetzen".
+   *
+   * Seit dem 01.09.2026 ist das schlicht der unveränderte Katalog. Bis dahin wurde hier ein
+   * bestätigtes Batterie-Preset eingerechnet, weil der Speicher des Kunden ein Override auf einen
+   * Katalog-Kandidaten war — er ist es nicht mehr (er wird daneben simuliert), und der Katalog ist
+   * damit wieder das, was er auch vor Delta 17 Teil 2 war.
+   */
+  const baselineCatalog = DEMO_BATTERY_CATALOG
 
   const recommended =
     result.perBattery.find((p) => p.battery.id === result.recommendation.batteryId) ??
@@ -144,32 +133,24 @@ export function Report({
 
   /*
    * ── DIE BESTANDSANLAGE DES KUNDEN ──────────────────────────────────────────────────────────────
-   * Hat der Kunde in Schritt 2 seinen eigenen Speicher bestätigt (`source: 'existing'`), ist ER der
-   * primäre Block dieses Reports — nicht eine Empfehlung, die er nicht braucht. Für ihn weist der
-   * Report weder Investition noch Amortisation aus: die Anschaffung ist bezahlt, und beide Zahlen
-   * beantworten eine Kaufentscheidung, die längst gefallen ist.
+   * Hat der Kunde in Schritt 2 seinen eigenen Speicher angegeben, ist ER der primäre Block dieses
+   * Reports — nicht eine Empfehlung, die er nicht braucht. Für ihn weist der Report weder
+   * Investition noch Amortisation aus: die Anschaffung ist bezahlt, und beide Zahlen beantworten
+   * eine Kaufentscheidung, die längst gefallen ist.
    *
-   * ⚠ DIE EMPFEHLUNG BLEIBT DAVON UNBERÜHRT. `recommendBattery` läuft unverändert über den vollen
-   * Katalog (Architektur-Vorgabe, s. `rank.ts`) — sie wandert nur in einen eigenen, klar als
-   * Neuanschaffung gerahmten Abschnitt darunter. Damit beantwortet der Report weiterhin die Frage,
-   * die ein Bestandskunde tatsächlich hat: lohnt sich zusätzlich ein grösseres Gerät?
+   * ⚠ SEIT DEM 01.09.2026 KOMMT DAS ERGEBNIS AUS DEM CONTRACT, NICHT AUS EINER ABLEITUNG. Bis
+   * dahin wurde der Bestandseintrag über die Kennung eines Overrides in `perBattery` gesucht — er
+   * WAR ein Katalog-Kandidat, und der Kunde bekam dessen Kapazität vorgerechnet statt seiner. Der
+   * Worker simuliert die Anlage jetzt mit ihren exakten Werten ausserhalb des Rankings
+   * (`existingBatteryAnalysis`); es gibt hier nichts mehr zu suchen und nichts zuzuordnen.
    *
-   * Der wirksame Override des ANGEZEIGTEN Laufs entscheidet, nicht der Stand aus Schritt 2: eine
-   * Live-Neuberechnung kann ihn verschoben haben (`resolveBatteryOverride` hält `existing` dabei
-   * fest, solange dieselbe Anlage gemeint ist). `batteryPreset` ist nur der theoretische Rückfall,
-   * solange `effectiveInputs` noch nicht steht — dieselbe Vorrangregel wie bei `effectiveTariff`.
-   *
-   * Findet die Kennung keinen gerechneten Kandidaten (praktisch unmöglich, sie stammt aus dem
-   * festen Katalog), bleibt es beim heutigen Verhalten — kein leerer primärer Block.
+   * ⚠ Der KATALOG-Lauf (`perBattery`/`recommendation`) bleibt davon unberührt und liefert
+   * unverändert alle fünf Kandidaten — er ist die Grundlage der Zusatzspeicher-Szenarien darunter.
    */
-  const activeOverride = effectiveInputs?.batteryOverride ?? batteryPreset
-  const existingEntry =
-    activeOverride?.source === 'existing'
-      ? result.perBattery.find((p) => p.battery.id === activeOverride.batteryId)
-      : undefined
-  const isExisting = existingEntry != null
+  const existingAnalysis = result.existingBatteryAnalysis
+  const isExisting = existingAnalysis != null
   /** Der Block, der oben steht: die Anlage des Kunden, sonst die Empfehlung. */
-  const primaryEntry = existingEntry ?? recommended
+  const primaryEntry = existingAnalysis?.entry ?? recommended
 
   // Teiljahres-Verzerrung der KERN-Kennzahl (§3.5): ein `monthly_*`-Modell mittelt/summiert über die
   // 12 Monate — bei < 12 belegten Monaten ist der abgerechnete Leistungswert oben nicht aussagekräftig
@@ -309,13 +290,13 @@ export function Report({
               (efficiencyPercent ?? requestCurrent.roundTripEfficiencyPercent) / 100,
             pricePerKwh: pricePerKwh ?? requestCurrent.pricePerKwh,
             /*
-             * Korrigierte Zahlen ändern nicht, WEM das Gerät gehört: betrifft die Anfrage die
-             * bestätigte Bestandsanlage, bleibt sie eine — sonst forderte der Report nach einem
-             * Satz wie „rechne mit 85 % Wirkungsgrad" plötzlich wieder eine Investition für einen
-             * Speicher, der längst an der Wand hängt. Dieselbe Regel hält
-             * `resolveBatteryOverride` zusätzlich zentral fest.
+             * Ein Override betrifft ausschliesslich einen KATALOG-Kandidaten — die bestehende
+             * Anlage des Kunden ist seit dem 01.09.2026 keiner mehr (sie wird ausserhalb von
+             * `perBattery` simuliert und lässt sich hier gar nicht auswählen). `catalog_preset`
+             * ist damit die einzige Herkunft, die noch entstehen kann; das Feld bleibt am Typ,
+             * weil das Analyse-Bündel es seit Fassung 3 führt.
              */
-            source: overrideSourceFor(selectedBattery.id, activeOverride),
+            source: 'catalog_preset' as const,
           }
         : effectiveInputs?.batteryOverride
 
@@ -368,17 +349,18 @@ export function Report({
    */
 
   /*
-   * ⚠ DER KOSTENVERGLEICH GEHÖRT ZUR NEUANSCHAFFUNG UND WANDERT MIT IHR NACH UNTEN.
+   * ⚠ DER KOSTENVERGLEICH ENTFÄLLT IM BESTANDSFALL ERSATZLOS.
    *
    * Er zeigt kumulierte Kosten mit/ohne Batterie samt Break-even — und beide Linien BEGINNEN bei
-   * `netInvestment` (s. `buildYearSeries` in `cost-chart.tsx`). Genau diese Investition ist bei
-   * einer bestehenden Anlage bereits ausgegeben; auf sie einen Break-even zu zeichnen hiesse, die
-   * Amortisation durch die Hintertür wieder aufzumachen, die der primäre Block gerade weglässt.
+   * `netInvestment` (s. `buildYearSeries` in `cost-chart.tsx`). Für ein Zusatzgerät wäre das die
+   * falsche Kurvenform: verglichen würde dort nicht „mit gegen ohne Batterie", sondern „mit
+   * gegen ohne ZUSATZgerät", also eine Differenz gegen eine Differenz. Diese Kurve gibt es nicht,
+   * und eine mit der bestehenden Ersparnis vermischte wäre eine Kaufbegründung mit fremdem Geld.
    *
-   * Eine Fassung „ohne Investitionsachse" wäre kein Ersatz: übrig blieben zwei Geraden mit
-   * konstantem Abstand, also nichts, was die Jahresersparnis als Zahl nicht schon sagt. Deshalb
-   * bleibt der Kasten unverändert an die Empfehlung gebunden und steht dort, wo er hingehört —
-   * im Neuanschaffungs-Abschnitt.
+   * Eine Fassung „ohne Investitionsachse" wäre ebenfalls kein Ersatz: übrig blieben zwei Geraden
+   * mit konstantem Abstand, also nichts, was die Jahresersparnis als Zahl nicht schon sagt. Der
+   * Kasten bleibt deshalb an die Katalog-Empfehlung gebunden und erscheint nur dort, wo es diese
+   * Empfehlung als primäre Aussage gibt — im Bestandsfall gar nicht.
    */
   const costChartBox = (
     <div className="rounded-lg border border-border bg-surface p-6 print:break-inside-avoid">
@@ -396,7 +378,25 @@ export function Report({
     </div>
   )
 
-  const energyFlowBox = (
+  /*
+   * ⚠ IM BESTANDSFALL ZEIGT DER ENERGIEFLUSS DIE ANLAGE DES KUNDEN, NICHT DEN KATALOG.
+   *
+   * Der Chart illustriert den primären Block darüber — und das ist dort SEIN Speicher. Ein
+   * Tagesverlauf eines Geräts, das er erst kaufen müsste, wäre in seiner eigenen Auswertung die
+   * falsche Kurve (dieselbe Überlegung wie bei der Kapp-Linie im Lastgang-Chart).
+   *
+   * Die Auswahlliste entfällt dabei: es gibt genau einen Eintrag, und `selectedBatteryId` bleibt
+   * ein Katalog-Kandidat für das Annahmen-Panel (s. dort). Ein Dropdown, das diese Kennung
+   * überschreiben könnte, würde das Panel auf einen Eintrag zeigen lassen, den es nicht führt.
+   */
+  const energyFlowBox = existingAnalysis ? (
+    <EnergyFlowChart
+      perBattery={[existingAnalysis.entry]}
+      selectedBatteryId={existingAnalysis.entry.battery.id}
+      onSelectBattery={setSelectedBatteryId}
+      timeZone={loadProfile.timezoneMeta}
+    />
+  ) : (
     <EnergyFlowChart
       perBattery={result.perBattery}
       selectedBatteryId={selectedBatteryId}
@@ -409,13 +409,14 @@ export function Report({
     <div className="flex flex-col justify-center gap-3 rounded-lg border border-border bg-surface p-6 print:break-inside-avoid">
       <p className="text-sm font-medium text-ink">Nächster Schritt</p>
       {/*
-        `recommendation.rationale` beschreibt den empfohlenen KAUF („spart X, amortisiert in Y") —
-        neben der bestehenden Anlage wäre das die Antwort auf eine andere Frage, und sie steht
-        unverändert im Neuanschaffungs-Abschnitt darunter.
+        `recommendation.rationale` beschreibt den empfohlenen KAUF („spart X, amortisiert in Y").
+        Neben einer bestehenden Anlage wäre das die Antwort auf eine andere Frage: dort ist nicht
+        der Kauf EINES Speichers offen, sondern der eines ZUSÄTZLICHEN — und den beantwortet der
+        Abschnitt darunter mit den inkrementellen Zahlen, nicht mit dieser Zeile.
       */}
       <p className="text-sm text-text-muted">
         {isExisting
-          ? 'Ihr Speicher ist oben mit Ihren Angaben durchgerechnet. Ob sich daneben ein neues Gerät lohnt, zeigt der Vergleich darunter.'
+          ? 'Ihr Speicher ist oben mit Ihren exakten Angaben durchgerechnet. Ob sich daneben ein zusätzliches Gerät lohnt, steht im Abschnitt darunter.'
           : result.recommendation.rationale}
       </p>
       <div className="print:hidden">
@@ -443,6 +444,80 @@ export function Report({
         </AccordionItem>
       </Accordion>
     ) : null
+
+  /*
+   * ── LOHNT SICH EIN ZUSÄTZLICHER SPEICHER? (01.09.2026) ─────────────────────────────────────
+   * Die Frage, die ein Bestandskunde tatsächlich hat — und die der Report bis heute nicht
+   * beantwortet hat: er zeigte stattdessen eine Empfehlung für den Neukauf EINES Speichers, als
+   * hätte der Kunde keinen.
+   *
+   * Gerechnet ist je Katalog-Kandidat ein KOMBINIERTER Speicher (Bestand + Gerät), ausgewiesen ist
+   * die Differenz zum Bestand allein (s. Worker). Die Sortierung kommt aus dem Contract und folgt
+   * derselben Regel wie das Katalog-Ranking.
+   *
+   * ⚠ SIND ALLE FÜNF DIFFERENZEN ≤ 0, STEHT DORT EIN SATZ UND KEINE KARTEN. Fünf Karten mit
+   * „€ 0 zusätzlich" und „∞ Jahre" beantworten die Frage zwar formal richtig, verstecken die
+   * Antwort aber in einer Tabelle, die aussieht, als sei etwas schiefgegangen. Der Satz sagt sie.
+   */
+  const positiveAddons = (existingAnalysis?.addonScenarios ?? []).filter(
+    (scenario) => scenario.totalSavingPerYear > 0,
+  )
+
+  const addonSection = existingAnalysis ? (
+    <section className="flex flex-col gap-4" data-testid="zusatzspeicher-sektion">
+      <div>
+        <h2 className="text-lg font-semibold text-ink">Lohnt sich ein zusätzlicher Speicher?</h2>
+        <p className="mt-1 text-sm text-text-muted">
+          Gerechnet wird Ihre bestehende Anlage <strong>gemeinsam</strong> mit je einem Gerät aus
+          unserem Katalog — Kapazität und Leistung addiert. Ausgewiesen ist davon nur, was{' '}
+          <strong>über Ihre bestehende Anlage hinaus</strong> herauskommt; die Investition ist die
+          des neuen Geräts allein.
+        </p>
+      </div>
+      {positiveAddons.length > 0 ? (
+        <Accordion
+          type="single"
+          collapsible
+          className="rounded-lg border border-border bg-surface px-4 print:hidden"
+        >
+          <AccordionItem value="addons" className="border-b-0">
+            <AccordionTrigger>
+              {positiveAddons.length}{' '}
+              {positiveAddons.length === 1 ? 'Zusatzspeicher' : 'Zusatzspeicher'} ansehen
+            </AccordionTrigger>
+            <AccordionContent>
+              <div className="grid gap-4 pt-2 sm:grid-cols-2">
+                {positiveAddons.map((scenario) => (
+                  <RecommendationCard
+                    key={scenario.battery.id}
+                    entry={scenario}
+                    variant="addon"
+                  />
+                ))}
+              </div>
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
+      ) : (
+        <Alert variant="default" data-testid="zusatzspeicher-lohnt-nicht">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Ein zusätzlicher Speicher lohnt sich derzeit nicht</AlertTitle>
+          <AlertDescription>
+            <p>
+              Keines der Geräte aus unserem Katalog bringt neben Ihrer bestehenden Anlage eine
+              zusätzliche Ersparnis. Ihr Speicher deckt bei diesem Verbrauch bereits ab, was
+              wirtschaftlich zu holen ist — mehr Kapazität stünde die meiste Zeit ungenutzt da.
+            </p>
+            <p className="mt-2 text-xs">
+              Das ist eine Aussage über <strong>diesen</strong> Lastgang und diese Tarifangaben.
+              Wächst Ihr Verbrauch, ändert sich Ihr Tarif oder kommt PV dazu, kann die Antwort eine
+              andere sein.
+            </p>
+          </AlertDescription>
+        </Alert>
+      )}
+    </section>
+  ) : null
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8 sm:px-6">
@@ -518,17 +593,23 @@ export function Report({
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="flex flex-col gap-6 lg:col-span-1">
           {/*
-            Der primäre Block: die bestehende Anlage des Kunden, sonst die Empfehlung. Die Variante
-            entscheidet allein darüber, ob Investition und Amortisation dastehen — Ersparnis,
-            Aufschlüsselung und Vorbehalte sind in beiden Fällen dieselben, aus derselben
-            `perBattery`-Zeile derselben EINEN Rechnung.
+            Der primäre Block: die bestehende Anlage des Kunden, sonst die Empfehlung.
+            Ausgeschrieben in zwei Zweigen statt über eine berechnete `variant`-Prop, weil die
+            beiden VERSCHIEDENE Eingangsdaten haben: die Anlage trägt keine Investition
+            (`BatteryResultEntry`), der Katalog-Kandidat schon. Genau das setzt die diskriminierte
+            Props-Union durch — eine Variable im `variant` würde sie umgehen.
+
+            Ersparnis, Aufschlüsselung und Vorbehalte sind in beiden Fällen dieselben.
           */}
-          {primaryEntry && (
+          {existingAnalysis ? (
             <RecommendationCard
-              entry={primaryEntry}
+              entry={existingAnalysis.entry}
               primary
-              variant={isExisting ? 'existing' : 'catalog'}
+              variant="existing"
+              efficiencyAssumed={existingBattery?.efficiencyAssumed}
             />
+          ) : (
+            recommended && <RecommendationCard entry={recommended} primary />
           )}
           {/*
             Delta 9a — der Tarifoptimierungs-Hebel steht DANEBEN, nicht darin: er ist eine eigene
@@ -591,41 +672,11 @@ export function Report({
       </div>
 
       {/*
-        ── DER NEUANSCHAFFUNGS-VERGLEICH ────────────────────────────────────────────────────────
-        Das Ranking ist unverändert (voller Katalog, `rank.ts` unangetastet) — nur die RAHMUNG ist
-        eine andere: für jemanden, der bereits einen Speicher hat, ist die Empfehlung keine Antwort
-        auf „was soll ich tun", sondern auf „was brächte ein neues Gerät zusätzlich". Genau das
-        sagt die Überschrift, und deshalb tragen ausschliesslich diese Karten Investition und
-        Amortisation.
-
-        Die Alternativen-Aufklappliste steht INNERHALB des Abschnitts, nicht bloss darunter: sie
-        gehört zur selben Frage, und die Zugehörigkeit soll aus der Struktur folgen und nicht aus
-        der zufälligen Reihenfolge zweier Nachbarn.
+        Im Bestandsfall: die Zusatzspeicher-Frage statt der Neuanschaffungs-Empfehlung. Die
+        Alternativen-Aufklappliste des Katalog-Laufs entfällt dort — sie beantwortete „welchen
+        Speicher soll ich kaufen", und diese Frage stellt sich einem Kunden mit Anlage nicht.
       */}
-      {isExisting ? (
-        <section className="flex flex-col gap-4">
-          <div>
-            <h2 className="text-lg font-semibold text-ink">
-              Falls Sie stattdessen neu kaufen würden
-            </h2>
-            <p className="mt-1 text-sm text-text-muted">
-              Der Rechner vergleicht unverändert den vollen Katalog. Hier steht, was ein{' '}
-              <strong>neu angeschaffter</strong> Speicher an diesem Lastgang leisten würde — diese
-              Zahlen tragen deshalb Investition und Amortisation, Ihre bestehende Anlage oben trägt
-              beides nicht.
-            </p>
-          </div>
-          <div className="grid gap-6 lg:grid-cols-3">
-            <div className="lg:col-span-1">
-              {recommended && <RecommendationCard entry={recommended} primary />}
-            </div>
-            <div className="lg:col-span-2">{costChartBox}</div>
-          </div>
-          {alternativesAccordion}
-        </section>
-      ) : (
-        alternativesAccordion
-      )}
+      {isExisting ? addonSection : alternativesAccordion}
 
       {/*
         ── Delta 18: die Report-Anfrage in eigenen Worten ────────────────────────────────────────
@@ -670,12 +721,8 @@ export function Report({
                 result.perBattery.find((p) => p.battery.id === selectedBatteryId)?.battery.name ??
                 selectedBatteryId
               }
-              /*
-               * Die Herkunft der gerade bearbeiteten Batterie — abgeleitet, nicht im Panel
-               * erfunden: dort ist nur ein Katalog-Eintrag sichtbar, und ob der dem Kunden
-               * bereits gehört, steht ausschliesslich im wirksamen Override.
-               */
-              batterySource={overrideSourceFor(selectedBatteryId, activeOverride)}
+              // Im Panel ist ausschliesslich ein Katalog-Gerät bearbeitbar (s. `selectedBatteryId`).
+              batterySource="catalog_preset"
               isEdited={isLive}
               recomputing={recomputing}
               recomputeError={recomputeError}

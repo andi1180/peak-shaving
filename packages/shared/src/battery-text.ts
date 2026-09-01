@@ -13,25 +13,27 @@
  * ohnehin kann — ein `batteryOverride` auf GENAU EINEN Katalog-Kandidaten, und zwar nur auf
  * Wirkungsgrad und Preis.
  *
- * ── ⚠ DIE HARTE GRENZE: KAPAZITÄT UND LEISTUNG SIND NICHT ÜBERSCHREIBBAR ──────────────────────
- * Der Katalog bleibt fest (fünf Kandidaten, `demo-battery-catalog.ts`). Eine genannte Kapazität
- * führt deshalb NICHT zu einer neuen Kapazitätsstufe, sondern zur AUSWAHL des nächstliegenden
- * Kandidaten — und der Abstand dazu wird ausdrücklich benannt, statt weggerundet zu werden
- * (`matchCatalogByCapacity` unten). Wer 20 kWh besitzt, bekommt eine Rechnung über 15 oder 25 kWh
- * zu sehen, und er muss das WISSEN: sonst hält er eine Ersparnis für die seiner Anlage, die zu
- * einer anderen gehört.
+ * ── ⚠ DIE KATALOG-ZUORDNUNG IST AM 01.09.2026 ENTFALLEN ──────────────────────────────────────
+ * Bis dahin stand hier `matchCatalogByCapacity`: eine genannte Kapazität führte nicht zu einer
+ * neuen Kapazitätsstufe, sondern zur AUSWAHL des nächstliegenden Katalog-Kandidaten, und der
+ * Abstand wurde benannt statt weggerundet. Die Begründung war, dass es für eine erfundene
+ * Kapazität keinen Preis gibt. Für die KAUFENTSCHEIDUNG trägt sie weiterhin — für die bereits
+ * INSTALLIERTE Anlage trägt sie nicht: dort wird gar kein Preis gezeigt (sie ist bezahlt), und
+ * übrig blieb eine Rechnung über ein Gerät, das der Kunde nicht besitzt. Wer 19,2 kWh hat, sah
+ * die Ersparnis von 15 kWh und hielt sie für seine.
+ *
+ * Die bestehende Anlage wird deshalb mit ihren EXAKTEN Werten simuliert
+ * (`buildExistingBatteryCandidate` in `battery-combination.ts`) und läuft ausdrücklich nicht mehr
+ * durch den Katalog. Dieses Modul liest seither nur noch, was im Satz steht.
  *
  * ── WARUM DIESER TEIL IN `shared` LIEGT ────────────────────────────────────────────────────────
  * Wortgleich zu `invoice-scan.ts`, `report-gate.ts` und `upload-classification.ts`:
  * `apps/website` hat KEINEN eigenen Testlauf. Hier steht genau der Teil, der sich ohne einen
- * Modellaufruf prüfen lässt — Zielschema, Auswertung und die Zuordnungsregel.
+ * Modellaufruf prüfen lässt — Zielschema und Auswertung.
  *
- * Der einzige Import ist ein TYP-Import (`BatteryCandidate`); er ist zur Laufzeit nicht vorhanden
- * und erzeugt keine Kopplung. Kein zod (`apps/website` führt es nicht), und das JSON-Schema ist
+ * Die Datei hat NULL Importe. Kein zod (`apps/website` führt es nicht), und das JSON-Schema ist
  * die WIRE-Fassung, die an die API geht.
  */
-import type { BatteryCandidate } from './battery'
-
 /**
  * Was aus einem Satz über die eigene Batterie gelesen werden kann. Jedes Feld einzeln:
  * Wert ODER „nicht erkennbar" — nie „vermutlich 0" (dieselbe Regel wie im Rechnungs-Scan).
@@ -187,84 +189,4 @@ export function batteryTextExtractionIsEmpty(extraction: BatteryTextExtraction):
     extraction.hasExistingBattery === null &&
     BATTERY_TEXT_NUMBER_KEYS.every((key) => extraction[key] === null)
   )
-}
-
-/* ─────────────────────────────────────────────────────────────────────────────────────────────
- * Die Zuordnung zum festen Katalog.
- * ────────────────────────────────────────────────────────────────────────────────────────────── */
-
-/**
- * Das Ergebnis der Zuordnung einer genannten Kapazität zum FESTEN Katalog.
- *
- * Es trägt bewusst STRUKTUR statt eines fertigen Satzes (dieselbe Entscheidung wie bei
- * `TariffOptimizationBlocker`): die Oberfläche formuliert daraus, ohne eine Meldung parsen zu
- * müssen, und der Abstand bleibt maschinenlesbar.
- */
-export type CatalogCapacityMatch = {
-  /** Der vorgeschlagene Kandidat. Immer gesetzt — der Katalog ist nie leer. */
-  candidateId: string
-  /** Trifft die genannte Kapazität einen Kandidaten EXAKT? */
-  exact: boolean
-  /**
-   * Die beiden Nachbarn, zwischen denen die Angabe liegt. Bei einem exakten Treffer beide `null`
-   * (dort gibt es keinen Abstand zu benennen), ebenso jeweils der Rand, über den die Angabe
-   * hinausragt.
-   */
-  lowerId: string | null
-  upperId: string | null
-  /** Liegt die Angabe ausserhalb der Katalogspanne? `null` = sie liegt darin. */
-  outside: 'below' | 'above' | null
-}
-
-/**
- * Sucht den Katalog-Kandidaten, dessen nutzbare Kapazität einer genannten Kapazität am nächsten
- * liegt — und benennt den Abstand.
- *
- * ── ⚠ BEI GLEICHEM ABSTAND GEWINNT DER KLEINERE, UND DAS IST EINE FACHLICHE ENTSCHEIDUNG ──────
- * 20 kWh liegen genau zwischen 15 und 25. Der kleinere Kandidat rechnet die Ersparnis eher zu
- * NIEDRIG als zu hoch — und das ist die Richtung, in die dieses Projekt bei Unsicherheit irrt
- * (dieselbe Haltung wie „lieber nichts als geraten"). Eine zu hohe Ersparnis fällt niemandem als
- * Fehler auf, sondern als gutes Ergebnis.
- *
- * ⚠ Die Folge ist spürbar und muss in der Oberfläche sichtbar sein: die kleineren Kandidaten des
- * Katalogs sind `residential`/`static` und kappen deshalb GAR KEINE Spitzen (`peakShavingBlockers`,
- * Delta 3) — der Wechsel von 25 auf 15 kWh ist damit nicht bloss „etwas weniger", sondern ein
- * anderer Rechenweg. Genau deshalb ist der Vorschlag ein VORSCHLAG: der Mensch sieht beide
- * Nachbarn samt ihrer Bauart und wählt.
- *
- * @param capacityKwh Muss positiv sein; sonst gibt es nichts zuzuordnen (`null`).
- * @param catalog     Der feste Katalog. Leer → `null` (kein erfundener Kandidat).
- */
-export function matchCatalogByCapacity(
-  capacityKwh: number | null,
-  catalog: readonly BatteryCandidate[],
-): CatalogCapacityMatch | null {
-  if (capacityKwh === null || !Number.isFinite(capacityKwh) || capacityKwh <= 0) return null
-  if (catalog.length === 0) return null
-
-  const sorted = [...catalog].sort((a, b) => a.usableCapacityKwh - b.usableCapacityKwh)
-
-  const exactHit = sorted.find((b) => b.usableCapacityKwh === capacityKwh)
-  if (exactHit) {
-    return { candidateId: exactHit.id, exact: true, lowerId: null, upperId: null, outside: null }
-  }
-
-  const below = [...sorted].reverse().find((b) => b.usableCapacityKwh < capacityKwh) ?? null
-  const above = sorted.find((b) => b.usableCapacityKwh > capacityKwh) ?? null
-
-  if (!below && above) {
-    // Unterhalb des kleinsten Kandidaten: der kleinste ist der nächstliegende, aber zu gross.
-    return { candidateId: above.id, exact: false, lowerId: null, upperId: above.id, outside: 'below' }
-  }
-  if (below && !above) {
-    return { candidateId: below.id, exact: false, lowerId: below.id, upperId: null, outside: 'above' }
-  }
-  if (!below || !above) return null
-
-  const distanceBelow = capacityKwh - below.usableCapacityKwh
-  const distanceAbove = above.usableCapacityKwh - capacityKwh
-  // `<=` statt `<`: bei Gleichstand gewinnt der KLEINERE (Begründung oben).
-  const candidateId = distanceBelow <= distanceAbove ? below.id : above.id
-
-  return { candidateId, exact: false, lowerId: below.id, upperId: above.id, outside: null }
 }

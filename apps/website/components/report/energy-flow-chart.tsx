@@ -12,7 +12,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import type { AnalysisResult } from 'shared'
+import type { BatteryResultEntry } from 'shared'
 
 import {
   Select,
@@ -25,7 +25,13 @@ import { formatKw, formatKwh } from '@/lib/format'
 import { formatDayLabel, formatTimeLabel } from '@/lib/local-time'
 import { Num } from './num'
 
-type Entry = AnalysisResult['perBattery'][number]
+/**
+ * Absichtlich `BatteryResultEntry` und nicht `AnalysisResult['perBattery'][number]`: dieser Chart
+ * liest ausschliesslich `battery` und `dispatchTrace`, keine Investition. Damit kann auch die
+ * bestehende Anlage des Kunden (die keine ROI-Felder trägt) hier gezeigt werden — sie ist im
+ * Bestandsfall der einzige sinnvolle Energiefluss, weil sie der primäre Block des Reports ist.
+ */
+type Entry = BatteryResultEntry
 type RepresentativeDay = NonNullable<Entry['dispatchTrace']>['representativeDays'][number]
 type DayLabel = RepresentativeDay['label']
 
@@ -163,10 +169,21 @@ export function EnergyFlowChart({
             {/* Druck-Ersatz für den unten ausgeblendeten Batterie-Select (§6.2 Teil D: kein
                 interaktives Chrome im Druck) — sonst geht im PDF verloren, welche Batterie hier
                 gezeigt wird. */}
-            <span className="hidden print:inline"> — {entry.battery.name}</span>
+            {/*
+              Bei genau EINEM Eintrag (Bestandsfall: die Anlage des Kunden) gibt es keine Auswahl —
+              dann muss der Name dauerhaft dastehen, nicht nur im Druck.
+            */}
+            <span className={perBattery.length > 1 ? 'hidden print:inline' : undefined}>
+              {' '}
+              — {entry.battery.name}
+            </span>
           </p>
         </div>
-        {/* Interaktive Batterie-Auswahl: im Druck ohne Wirkung, deshalb ausgeblendet. */}
+        {/*
+          Interaktive Batterie-Auswahl: im Druck ohne Wirkung, deshalb ausgeblendet — und bei einem
+          einzigen Eintrag gar nicht erst gerendert (nichts zu wählen; der Name steht oben).
+        */}
+        {perBattery.length > 1 && (
         <div className="print:hidden">
           <Select value={selectedBatteryId} onValueChange={onSelectBattery}>
             <SelectTrigger className="w-56" aria-label="Batterie für Energiefluss-Chart">
@@ -181,6 +198,7 @@ export function EnergyFlowChart({
             </SelectContent>
           </Select>
         </div>
+        )}
       </div>
 
       {activeDay && worstDay && pvDay && (

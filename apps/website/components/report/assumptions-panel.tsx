@@ -88,8 +88,13 @@ export function AssumptionsPanel({
   liveBillingModel: BillingModel
   selectedBatteryName: string
   /**
-   * Herkunft der GERADE BEARBEITETEN Batterie (`originalBattery`) — vom Report aus dem wirksamen
-   * Override abgeleitet (`overrideSourceFor`), nicht hier erfunden.
+   * Herkunft der GERADE BEARBEITETEN Batterie (`originalBattery`) — vom Report gesetzt, nicht hier
+   * erfunden.
+   *
+   * ⚠ Seit dem 01.09.2026 ist hier ausschliesslich ein KATALOG-Gerät bearbeitbar: die bestehende
+   * Anlage des Kunden wird ausserhalb von `perBattery` simuliert und lässt sich im Panel gar nicht
+   * auswählen. Der Report übergibt deshalb konstant `catalog_preset`; das Feld bleibt, weil das
+   * Analyse-Bündel es seit Fassung 3 führt.
    *
    * ⚠ Das Panel darf sie nicht selbst raten: es sieht nur einen Katalog-Eintrag, und ob der dem
    * Kunden bereits gehört, steht ausschliesslich im Override. Gäbe es hier einen Vorgabewert,
@@ -233,9 +238,8 @@ export function AssumptionsPanel({
             batteryId: originalBattery.id,
             roundTripEfficiency: efficiencyFraction,
             pricePerKwh: price,
-            // Korrigierte Zahlen ändern nicht, WEM das Gerät gehört. `resolveBatteryOverride`
-            // hält dieselbe Regel zusätzlich zentral fest — hier steht sie, weil dieses Panel
-            // weiss, welche Batterie es gerade bearbeitet.
+            // Korrigierte Zahlen ändern nicht, WEM das Gerät gehört — die Herkunft kommt
+            // unverändert von aussen (s. `batterySource`), nicht aus den geänderten Zahlen.
             source: batterySource,
           }
         : undefined

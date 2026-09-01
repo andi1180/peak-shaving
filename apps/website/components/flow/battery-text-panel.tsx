@@ -2,54 +2,48 @@
 
 import { useState } from 'react'
 import { AlertTriangle, BatteryCharging, CheckCircle2, Loader2, Sparkles } from 'lucide-react'
-import {
-  DEMO_BATTERY_CATALOG,
-  matchCatalogByCapacity,
-  type BatteryCandidate,
-  type BatteryTextExtraction,
-} from 'shared'
+import { buildExistingBatteryCandidate, type BatteryTextExtraction } from 'shared'
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { readBatteryText, type BatteryTextResponse } from '@/lib/battery-text/actions'
-import type { BatteryPreset } from './types'
+import { ASSUMED_EXISTING_ROUND_TRIP_EFFICIENCY } from '@/lib/constants'
+import type { ExistingBatteryInput } from './types'
 
 /**
  * Delta 17 Teil 2 — „Haben Sie schon einen Speicher?" als freier Satz.
  *
- * ── WAS BISHER FEHLTE ─────────────────────────────────────────────────────────────────────────
- * Der Rechner kennt genau EINEN Fall: „keine Batterie, wir empfehlen eine". Einen Umschalter für
- * „ich habe schon eine" gibt es nirgends (repo-weit gemessen). Wer bereits einen Speicher besitzt,
- * bekommt deshalb eine Empfehlung für ein Gerät, das er hat — und keine Stelle, an der er das
- * sagen könnte.
+ * ── ⚠ DIE ANGABE WIRD NICHT MEHR AUF DEN KATALOG GERUNDET (01.09.2026) ────────────────────────
+ * Bis dahin wurde eine genannte Kapazität dem NÄCHSTLIEGENDEN der fünf Katalog-Kandidaten
+ * zugeordnet, und der Abstand wurde ausdrücklich benannt („19,2 kWh liegt zwischen 15 und 25 —
+ * kein exakter Treffer"). Die Begründung war, dass es für eine erfundene Kapazität keinen Preis
+ * gibt. Sie trägt weiterhin für die KAUFENTSCHEIDUNG — für die bereits installierte Anlage trägt
+ * sie nicht: dort weist der Report gar keinen Preis aus (die Anschaffung ist bezahlt), und übrig
+ * blieb eine Ersparnis, die zu einem Gerät gehört, das der Kunde nicht besitzt. Ein benannter
+ * Abstand macht eine falsche Zahl nicht richtig, er macht sie nur erklärt.
  *
- * ── ⚠ WAS DIESES FELD TUT — UND WAS AUSDRÜCKLICH NICHT ────────────────────────────────────────
- * Es erfindet KEINEN neuen Mechanismus. Was am Ende geschieht, ist genau das, was das
- * Annahmen-Panel (§6.2) seit U2 Prompt C ohnehin kann: ein `batteryOverride` auf GENAU EINEN
- * Katalog-Kandidaten, und ausschliesslich auf Wirkungsgrad und Preis. Der Katalog selbst bleibt
- * fest — es entsteht keine neue Kapazitätsstufe.
+ * Der Speicher wird deshalb mit seinen EXAKTEN Werten simuliert. Er läuft dafür ausserhalb von
+ * `recommendBattery`/`perBattery` (kein Ranking, keine Empfehlung, keine Investition) — die
+ * Empfehlung aus dem Katalog bleibt davon unberührt und beantwortet die andere Frage: ob sich
+ * ZUSÄTZLICH ein Gerät lohnt.
  *
- * Daraus folgt die eine Sache, die der Nutzer WISSEN muss und die dieses Panel deshalb ausdrücklich
- * sagt: eine genannte Kapazität führt zur AUSWAHL eines Kandidaten mit einer möglicherweise
- * ANDEREN Kapazität. Wer 20 kWh besitzt, bekommt eine Rechnung über 15 oder 25 kWh zu sehen. Der
- * Abstand wird benannt, nicht weggerundet (`matchCatalogByCapacity`).
+ * ── ⚠ WAS DAFÜR IM SATZ STEHEN MUSS ───────────────────────────────────────────────────────────
+ * Kapazität UND Leistung. Beide bestimmen die Physik (§3.6: kWh und kW), und keine von beiden
+ * lässt sich aus der anderen erschliessen — ein 20-kWh-Speicher mit 5 kW ist ein anderes Gerät als
+ * einer mit 20 kW. Fehlt eine der beiden, wird NICHTS übernommen und die Oberfläche sagt, was
+ * fehlt (statt eine C-Rate zu erfinden). Der Wirkungsgrad ist die einzige Ausnahme: ohne ihn kann
+ * gar nicht simuliert werden, deshalb gilt eine dokumentierte Annahme — die im Ergebnis
+ * ausdrücklich als „angenommen" ausgewiesen wird.
  *
  * ── ⚠ VORSCHLAG, KEINE STILLE ÜBERNAHME ──────────────────────────────────────────────────────
  * Zwischen dem Gelesenen und dem Gerechneten steht ein ausdrückliches „Übernehmen" — exakt das
- * Muster aus Teil 1. Kein Auto-Submit, keine Vorauswahl, die sich selbst bestätigt.
+ * Muster aus Teil 1. Kein Auto-Submit.
  *
  * ── DAS FELD IST OPTIONAL, UND LEER HEISST UNVERÄNDERT ────────────────────────────────────────
  * Ohne Eingabe passiert nichts Neues: kein Netzaufruf, kein Feld im Payload, und der Rechner
- * empfiehlt wie bisher aus dem vollen Katalog.
+ * empfiehlt wie bisher einen Speicher aus dem Katalog.
  */
 
 type ReadError = Extract<BatteryTextResponse, { ok: false }>['error']
@@ -62,9 +56,9 @@ const ERROR_TEXT: Record<ReadError, { title: string; message: string }> = {
   unreadable: {
     title: 'Keine Kenndaten erkannt',
     message:
-      'Aus dieser Angabe liessen sich keine Kenndaten lesen. Hilfreich sind Kapazität in kWh, ' +
-      'Leistung in kW und, falls bekannt, Wirkungsgrad und Preis je kWh. Sie können den Speicher ' +
-      'auch unten im Ergebnis von Hand auswählen.',
+      'Aus dieser Angabe liessen sich keine Kenndaten lesen. Nötig sind die nutzbare Kapazität in ' +
+      'kWh und die Lade-/Entladeleistung in kW; hilfreich ist zusätzlich der Wirkungsgrad. Ohne ' +
+      'diese Angabe rechnen wir wie bisher mit einem Speicher aus unserem Katalog.',
   },
   not_configured: {
     title: 'Auslesen derzeit nicht verfügbar',
@@ -80,18 +74,7 @@ const ERROR_TEXT: Record<ReadError, { title: string; message: string }> = {
   },
 }
 
-const NO_PRESET = '__keine__'
-
 const fmt = new Intl.NumberFormat('de-AT', { maximumFractionDigits: 1 })
-
-function byId(id: string): BatteryCandidate | undefined {
-  return DEMO_BATTERY_CATALOG.find((b) => b.id === id)
-}
-
-/** „HomeStore R15 (15 kWh / 7,5 kW)" — die Angaben, an denen der Nutzer die Wahl beurteilt. */
-function describe(battery: BatteryCandidate): string {
-  return `${battery.name} (${fmt.format(battery.usableCapacityKwh)} kWh / ${fmt.format(battery.maxPowerKw)} kW)`
-}
 
 /** Nennt in einem Satz, was tatsächlich gelesen wurde. Ohne diese Liste ist das Feld eine Blackbox. */
 function readFields(e: BatteryTextExtraction): string[] {
@@ -105,19 +88,47 @@ function readFields(e: BatteryTextExtraction): string[] {
   return found
 }
 
+/**
+ * Baut aus dem Gelesenen den Speicher des Kunden — oder sagt, warum es nicht geht.
+ *
+ * ⚠ Die Prozent→Bruchteil-Umrechnung geschieht an GENAU DIESER Stelle. Der Text nennt „90 %", die
+ * Physik rechnet mit 0,9. Zweimal umgerechnet wäre der Wirkungsgrad 0,9 % — eine Zahl, die durch
+ * jede Prüfung liefe und die Ersparnis lautlos vernichtete.
+ *
+ * `pricePerKwh` wird bewusst NICHT übernommen, auch wenn der Kunde ihn nennt: der Bestandsblock
+ * weist keine Investition aus, und ein mitgeführter Preis könnte über einen künftigen Aufrufer in
+ * eine Amortisationsrechnung geraten, die es für dieses Gerät nicht gibt.
+ */
+function buildInput(e: BatteryTextExtraction): ExistingBatteryInput | { missing: string[] } {
+  const missing: string[] = []
+  if (e.capacityKwh == null || e.capacityKwh <= 0) missing.push('die nutzbare Kapazität in kWh')
+  if (e.maxPowerKw == null || e.maxPowerKw <= 0) missing.push('die Lade-/Entladeleistung in kW')
+  if (missing.length > 0) return { missing }
+
+  const efficiencyAssumed = e.roundTripEfficiencyPercent == null
+  return {
+    battery: buildExistingBatteryCandidate({
+      usableCapacityKwh: e.capacityKwh!,
+      maxPowerKw: e.maxPowerKw!,
+      roundTripEfficiency: efficiencyAssumed
+        ? ASSUMED_EXISTING_ROUND_TRIP_EFFICIENCY
+        : e.roundTripEfficiencyPercent! / 100,
+    }),
+    efficiencyAssumed,
+  }
+}
+
 export function BatteryTextPanel({
-  preset,
-  onPreset,
+  existing,
+  onExisting,
 }: {
-  preset: BatteryPreset | null
-  onPreset: (preset: BatteryPreset | null) => void
+  existing: ExistingBatteryInput | null
+  onExisting: (existing: ExistingBatteryInput | null) => void
 }) {
   const [text, setText] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<{ title: string; message: string } | null>(null)
   const [extraction, setExtraction] = useState<BatteryTextExtraction | null>(null)
-  /** Die Auswahl in der Bestätigungsstufe — vorbelegt aus der Zuordnung, frei änderbar. */
-  const [choice, setChoice] = useState<string>(NO_PRESET)
 
   async function handleRead() {
     setError(null)
@@ -130,18 +141,6 @@ export function BatteryTextPanel({
         return
       }
       setExtraction(response.extraction)
-      /*
-       * Die Zuordnung belegt die Auswahl VOR — sie bestätigt sich damit aber nicht selbst: der
-       * Vorschlag steht in einem Auswahlfeld, und erst „Übernehmen" wirkt.
-       *
-       * Sagt der Text ausdrücklich, dass KEIN Speicher vorhanden ist, wird gar nichts vorbelegt:
-       * dann ist die Empfehlung aus dem vollen Katalog genau das Richtige.
-       */
-      const match =
-        response.extraction.hasExistingBattery === false
-          ? null
-          : matchCatalogByCapacity(response.extraction.capacityKwh, DEMO_BATTERY_CATALOG)
-      setChoice(match?.candidateId ?? NO_PRESET)
     } catch {
       // Eine Server Action kann auch am Netz scheitern, bevor sie ihren Fehlerzustand bilden kann.
       setError(ERROR_TEXT.unavailable)
@@ -150,64 +149,35 @@ export function BatteryTextPanel({
     }
   }
 
-  function handleApply() {
-    if (choice === NO_PRESET) {
-      onPreset(null)
-      return
-    }
-    const battery = byId(choice)
-    if (!battery) return
-    onPreset({
-      batteryId: battery.id,
-      /*
-       * ⚠ DIE EINE STELLE IM GANZEN RECHNER, AN DER `existing` ENTSTEHT. Hier — und nur hier —
-       * hat ein Mensch bestätigt, dass er diesen Speicher BEREITS HAT. Der Report weist für ihn
-       * deshalb weder Investition noch Amortisation aus: beide beantworten eine Kaufentscheidung,
-       * die längst gefallen ist, und ihre Anschaffungskosten sind ausgegeben.
-       */
-      source: 'existing',
-      /*
-       * ⚠ DIE EINZIGE STELLE, AN DER PROZENT ZU BRUCHTEIL WIRD. Der Text nennt „90 %", der Katalog
-       * führt 0,9. Zweimal umgerechnet wäre der Wirkungsgrad 0,9 % — eine Zahl, die durch jede
-       * Schemaprüfung liefe und die Ersparnis lautlos vernichtete.
-       *
-       * Nur gesetzt, wenn der Text tatsächlich einen Wert nannte: sonst bleibt der Kandidat bei
-       * SEINEM Wirkungsgrad, und `applyBatteryOverride` lässt ihn unangetastet.
-       */
-      ...(extraction?.roundTripEfficiencyPercent != null
-        ? { roundTripEfficiency: extraction.roundTripEfficiencyPercent / 100 }
-        : {}),
-      ...(extraction?.pricePerKwh != null ? { pricePerKwh: extraction.pricePerKwh } : {}),
-    })
-  }
-
   /* ── Bereits übernommen ────────────────────────────────────────────────────────────────────── */
-  if (preset) {
-    const battery = byId(preset.batteryId)
+  if (existing) {
+    const b = existing.battery
     return (
       <Alert variant="default" data-testid="batterie-uebernommen">
         <CheckCircle2 className="h-4 w-4 text-positive" />
         <AlertTitle>Wir rechnen mit Ihrem Speicher</AlertTitle>
         <AlertDescription>
           <p>
-            Ausgewählt: <strong>{battery ? describe(battery) : preset.batteryId}</strong>
-            {preset.roundTripEfficiency != null &&
-              ` · Wirkungsgrad ${fmt.format(preset.roundTripEfficiency * 100)} % (Ihre Angabe)`}
-            {preset.pricePerKwh != null &&
-              ` · ${fmt.format(preset.pricePerKwh)} €/kWh (Ihre Angabe)`}
+            <strong>
+              {fmt.format(b.usableCapacityKwh)} kWh nutzbar · {fmt.format(b.maxPowerKw)} kW ·{' '}
+              {fmt.format(b.roundTripEfficiency * 100)} % Wirkungsgrad
+            </strong>{' '}
+            {existing.efficiencyAssumed
+              ? '(Kapazität und Leistung aus Ihrer Angabe, Wirkungsgrad angenommen)'
+              : '(Ihre Angaben)'}
           </p>
           <p className="mt-2 text-xs">
-            Der Rechner vergleicht weiterhin alle Speicher des Katalogs — Ihrer ist danach im
-            Ergebnis vorausgewählt, und Sie können dort jederzeit umschalten.
+            Gerechnet wird mit genau diesen Werten — nicht mit einem ähnlichen Gerät aus unserem
+            Katalog. Im Ergebnis steht Ihre Anlage oben, ohne Investition und ohne Amortisation;
+            darunter zeigen wir, ob sich ein <strong>zusätzlicher</strong> Speicher lohnen würde.
           </p>
           <Button
             variant="ghost"
             size="sm"
             className="mt-2 px-0"
             onClick={() => {
-              onPreset(null)
+              onExisting(null)
               setExtraction(null)
-              setChoice(NO_PRESET)
             }}
           >
             Auswahl aufheben
@@ -217,12 +187,11 @@ export function BatteryTextPanel({
     )
   }
 
-  const match = extraction
-    ? matchCatalogByCapacity(extraction.capacityKwh, DEMO_BATTERY_CATALOG)
-    : null
-  const lower = match?.lowerId ? byId(match.lowerId) : undefined
-  const upper = match?.upperId ? byId(match.upperId) : undefined
   const found = extraction ? readFields(extraction) : []
+  const declinedBattery = extraction?.hasExistingBattery === false
+  const built = extraction && !declinedBattery ? buildInput(extraction) : null
+  const ready = built != null && 'battery' in built ? built : null
+  const missing = built != null && 'missing' in built ? built.missing : null
 
   return (
     <div className="flex flex-col gap-3">
@@ -232,13 +201,15 @@ export function BatteryTextPanel({
           id="batterieAngabe"
           value={text}
           maxLength={400}
-          placeholder="z. B. Sungrow, 20 kWh nutzbar, ca. 10 kW, Wirkungsgrad rund 90 %"
+          placeholder="z. B. Sungrow, 19,2 kWh nutzbar, 10,6 kW, Wirkungsgrad rund 90 %"
           onChange={(event) => setText(event.target.value)}
         />
         <p className="text-xs text-text-muted">
-          Schreiben Sie es in eigenen Worten — Kapazität, Leistung, Wirkungsgrad, Preis, soweit Sie
-          es wissen. Ohne Angabe empfehlen wir Ihnen wie bisher einen Speicher aus unserem Katalog.
-          Ihre Angabe wird zum Auslesen an Anthropic übertragen und dabei nirgends gespeichert.
+          Schreiben Sie es in eigenen Worten. Wir brauchen die <strong>nutzbare Kapazität</strong>{' '}
+          (kWh) und die <strong>Lade-/Entladeleistung</strong> (kW); der Wirkungsgrad hilft, ist
+          aber nicht zwingend. Ohne Angabe empfehlen wir Ihnen wie bisher einen Speicher aus unserem
+          Katalog. Ihre Angabe wird zum Auslesen an Anthropic übertragen und dabei nirgends
+          gespeichert.
         </p>
       </div>
 
@@ -280,77 +251,53 @@ export function BatteryTextPanel({
           <p className="flex items-start gap-2 text-sm text-ink">
             <BatteryCharging className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
             <span>
-              {extraction.hasExistingBattery === false
-                ? 'Verstanden: Sie haben noch keinen Speicher.'
-                : 'Gelesen:'}{' '}
+              {declinedBattery ? 'Verstanden: Sie haben noch keinen Speicher.' : 'Gelesen:'}{' '}
               {found.length > 0 ? found.join(' · ') : 'keine Kenndaten'}
             </span>
           </p>
 
           {/*
-            ⚠ DER ABSTAND WIRD BENANNT, NICHT WEGGERUNDET. Der Katalog ist fest; eine genannte
-            Kapazität, die keinen Kandidaten trifft, führt zu einer Rechnung über eine ANDERE
-            Kapazität. Wer das nicht sieht, hält die Ersparnis für die seiner Anlage.
+            ⚠ Fehlt eine der beiden Physik-Grössen, wird NICHTS übernommen — und es wird gesagt,
+            welche. Eine aus der anderen zu erschliessen (etwa über eine angenommene C-Rate) wäre
+            genau die erfundene Zahl, die dieser Bauabschnitt beseitigt.
           */}
-          {match && !match.exact && lower && upper && (
-            <p className="text-sm text-text-muted" data-testid="batterie-abstand">
-              {fmt.format(extraction.capacityKwh ?? 0)} kWh liegt zwischen{' '}
-              <strong>{describe(lower)}</strong> und <strong>{describe(upper)}</strong> —{' '}
-              <strong>kein exakter Treffer</strong>. Wir rechnen mit der Kapazität des gewählten
-              Katalog-Geräts, nicht mit Ihrer Angabe.
-            </p>
-          )}
-          {match && !match.exact && match.outside && (
-            <p className="text-sm text-text-muted" data-testid="batterie-abstand">
-              {fmt.format(extraction.capacityKwh ?? 0)} kWh liegt{' '}
-              {match.outside === 'below' ? 'unter' : 'über'} allem, was unser Katalog führt (
-              {fmt.format(byId(match.candidateId)?.usableCapacityKwh ?? 0)} kWh ist der{' '}
-              {match.outside === 'below' ? 'kleinste' : 'grösste'} Speicher) —{' '}
-              <strong>kein exakter Treffer</strong>. Wir rechnen mit der Kapazität des gewählten
-              Katalog-Geräts, nicht mit Ihrer Angabe.
-            </p>
-          )}
-          {match?.exact && (
-            <p className="text-sm text-text-muted" data-testid="batterie-abstand">
-              Ihre Angabe trifft <strong>{describe(byId(match.candidateId)!)}</strong> genau.
-            </p>
-          )}
-          {!match && extraction.hasExistingBattery !== false && (
-            <p className="text-sm text-text-muted">
-              Ohne Kapazitätsangabe können wir keinen Speicher vorschlagen — bitte wählen Sie
-              selbst, oder lassen Sie uns wie bisher empfehlen.
+          {missing && (
+            <p className="text-sm text-text-muted" data-testid="batterie-fehlend">
+              Für eine Simulation Ihrer Anlage fehlt noch <strong>{missing.join(' und ')}</strong>.
+              Bitte ergänzen Sie die Angabe oben und lesen Sie sie erneut aus — oder lassen Sie uns
+              wie bisher einen Speicher empfehlen.
             </p>
           )}
 
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="batterieAuswahl">Womit sollen wir rechnen?</Label>
-            <Select value={choice} onValueChange={setChoice}>
-              <SelectTrigger id="batterieAuswahl">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={NO_PRESET}>
-                  Keine Vorauswahl — empfehlen Sie mir einen
-                </SelectItem>
-                {DEMO_BATTERY_CATALOG.map((battery) => (
-                  <SelectItem key={battery.id} value={battery.id}>
-                    {describe(battery)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-text-muted">
-              Übernommen werden aus Ihrer Angabe nur <strong>Wirkungsgrad</strong> und{' '}
-              <strong>Preis</strong>. Kapazität und Leistung sind die des Katalog-Geräts — beide
-              bestimmen die Physik der Simulation und lassen sich nicht frei setzen.
-            </p>
-          </div>
-
-          <div>
-            <Button type="button" size="sm" onClick={handleApply}>
-              Übernehmen
-            </Button>
-          </div>
+          {ready && (
+            <>
+              <p className="text-sm text-text-muted" data-testid="batterie-exakt">
+                Wir rechnen mit <strong>{fmt.format(ready.battery.usableCapacityKwh)} kWh</strong>{' '}
+                und <strong>{fmt.format(ready.battery.maxPowerKw)} kW</strong> — Ihren exakten
+                Werten, nicht mit einem ähnlichen Katalog-Gerät.
+                {ready.efficiencyAssumed && (
+                  <>
+                    {' '}
+                    Ihre Angabe nennt keinen Wirkungsgrad; wir rechnen deshalb mit{' '}
+                    <strong>
+                      {fmt.format(ASSUMED_EXISTING_ROUND_TRIP_EFFICIENCY * 100)} % (angenommen)
+                    </strong>
+                    .
+                  </>
+                )}
+              </p>
+              <p className="text-xs text-text-muted">
+                Wir nehmen dabei an, dass Ihr Speicher <strong>keine Lastspitzen kappt</strong> —
+                das setzt eine eigene Steuerung voraus, die eine Bestandsanlage meist nicht hat.
+                Eigenverbrauch und tarifbewusstes Laden werden voll gerechnet.
+              </p>
+              <div>
+                <Button type="button" size="sm" onClick={() => onExisting(ready)}>
+                  Übernehmen
+                </Button>
+              </div>
+            </>
+          )}
         </div>
       )}
     </div>

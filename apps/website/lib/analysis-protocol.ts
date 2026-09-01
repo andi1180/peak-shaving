@@ -23,11 +23,12 @@ export type BatteryOverride = {
    * eine durchgespielte Katalog-Variante (`catalog_preset`). Der Wert entscheidet im Report, ob
    * Investition und Amortisation ausgewiesen werden — s. `BatteryOverrideSource` in `shared`.
    *
-   * ⚠ ABSICHTLICH PFLICHT und nicht optional: es gibt drei Stellen, an denen ein Override
-   * entsteht, und jede von ihnen weiss, welcher Fall vorliegt. Optional wäre der Vorgabewert
-   * „keine Angabe", und der vierte Aufrufer träfe die Entscheidung dann versehentlich — mit dem
-   * Ergebnis, dass ein Bestandsgerät wieder mit einer Amortisationszeit dasteht. Der Compiler
-   * fragt jetzt danach.
+   * ⚠ SEIT DEM 01.09.2026 ENTSTEHT NUR NOCH `catalog_preset`. Ein Override betrifft
+   * ausschliesslich einen KATALOG-Kandidaten; die bestehende Anlage des Kunden ist keiner mehr —
+   * sie reist als eigenes Payload-Feld (`existingBattery`) und wird ausserhalb von `perBattery`
+   * simuliert. Das Feld bleibt trotzdem PFLICHT und der Wert `existing` erhalten: das
+   * Analyse-Bündel führt beides seit Fassung 3, und ein Bündel aus dieser Zeit muss lesbar
+   * bleiben.
    */
   source: BatteryOverrideSource
 }
