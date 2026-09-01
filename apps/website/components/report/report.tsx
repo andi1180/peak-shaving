@@ -455,12 +455,27 @@ export function Report({
    * die Differenz zum Bestand allein (s. Worker). Die Sortierung kommt aus dem Contract und folgt
    * derselben Regel wie das Katalog-Ranking.
    *
-   * ⚠ SIND ALLE FÜNF DIFFERENZEN ≤ 0, STEHT DORT EIN SATZ UND KEINE KARTEN. Fünf Karten mit
-   * „€ 0 zusätzlich" und „∞ Jahre" beantworten die Frage zwar formal richtig, verstecken die
-   * Antwort aber in einer Tabelle, die aussieht, als sei etwas schiefgegangen. Der Satz sagt sie.
+   * ⚠ GEZEIGT WIRD EIN KANDIDAT NUR, WENN ER SICH IM BETRACHTUNGSZEITRAUM RECHNET —
+   * `netSavingOverHorizon > 0`, also `Jahresersparnis × Horizont − Nettoinvestition > 0`
+   * (`calculateRoi`, §3.9). Bis zum 01.09.2026 stand hier `totalSavingPerYear > 0`, und diese
+   * Bedingung war zu schwach: an einem realen Bestandsfall lieferten ALLE fünf Kandidaten eine
+   * technisch positive, wirtschaftlich aber bedeutungslose Ersparnis (€ 22–32 im Jahr bei
+   * € 6.750 Investition — Amortisation 250 bis 410 Jahre). Der Filter griff nicht, und der Report
+   * legte einem Kunden fünf Kaufoptionen vor, von denen keine je zurückkommt.
+   *
+   * ⚠ Es ist bewusst KEINE neue Schwelle erfunden worden. `netSavingOverHorizon` steht bereits im
+   * Contract, und der Betrachtungszeitraum ist eine Angabe des Nutzers (Annahmen-Panel, §6.2) —
+   * eine gesetzte Mindest-Ersparnis oder eine maximale Amortisationsdauer wäre dagegen eine Zahl,
+   * auf die sich niemand festgelegt hat (s. der offene Punkt (b) im Handover vom 01.09.2026).
+   * Verlängert der Kunde den Horizont, verschiebt sich die Antwort mit — nachvollziehbar und aus
+   * seiner eigenen Eingabe.
+   *
+   * SIND ALLE FÜNF ≤ 0, STEHT DORT EIN SATZ UND KEINE KARTEN. Fünf Karten mit „€ 22 zusätzlich"
+   * und „312 Jahre" beantworten die Frage zwar formal richtig, verstecken die Antwort aber in
+   * einer Tabelle, die aussieht, als sei etwas zu vergleichen. Der Satz sagt sie.
    */
   const positiveAddons = (existingAnalysis?.addonScenarios ?? []).filter(
-    (scenario) => scenario.totalSavingPerYear > 0,
+    (scenario) => scenario.netSavingOverHorizon > 0,
   )
 
   const addonSection = existingAnalysis ? (
@@ -504,14 +519,18 @@ export function Report({
           <AlertTitle>Ein zusätzlicher Speicher lohnt sich derzeit nicht</AlertTitle>
           <AlertDescription>
             <p>
-              Keines der Geräte aus unserem Katalog bringt neben Ihrer bestehenden Anlage eine
-              zusätzliche Ersparnis. Ihr Speicher deckt bei diesem Verbrauch bereits ab, was
-              wirtschaftlich zu holen ist — mehr Kapazität stünde die meiste Zeit ungenutzt da.
+              Keines der Geräte aus unserem Katalog verdient neben Ihrer bestehenden Anlage seine
+              Anschaffung innerhalb von {a.horizonYears} Jahren wieder ein. Eine zusätzliche
+              Ersparnis kann dabei durchaus herauskommen — über den Betrachtungszeitraum gerechnet
+              bleibt sie nur unter dem, was das Gerät kostet. Ihr Speicher deckt bei diesem
+              Verbrauch bereits ab, was sich wirtschaftlich holen lässt; mehr Kapazität stünde
+              einen grossen Teil der Zeit ungenutzt da.
             </p>
             <p className="mt-2 text-xs">
-              Das ist eine Aussage über <strong>diesen</strong> Lastgang und diese Tarifangaben.
-              Wächst Ihr Verbrauch, ändert sich Ihr Tarif oder kommt PV dazu, kann die Antwort eine
-              andere sein.
+              Das ist eine Aussage über <strong>diesen</strong> Lastgang, diese Tarifangaben und
+              einen Betrachtungszeitraum von {a.horizonYears} Jahren. Wächst Ihr Verbrauch, ändert
+              sich Ihr Tarif, kommt PV dazu oder rechnen Sie über einen längeren Zeitraum, kann die
+              Antwort eine andere sein.
             </p>
           </AlertDescription>
         </Alert>
