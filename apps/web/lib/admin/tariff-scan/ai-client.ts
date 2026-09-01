@@ -33,11 +33,12 @@ import Anthropic from '@anthropic-ai/sdk'
  * Zugriff (`process.env.X` in einer Funktion, kein Literal auf Modulebene) ist hier ausdrücklich
  * richtig.
  *
- * ⚠ ZUM ZEITPUNKT DIESES BAUSCHRITTS IST DER SCHLÜSSEL IN `peak-shaving-web` NICHT GESETZT
- * (gemessen: 16 Einträge, keiner davon KI). Er ist im Nachbarprojekt `peak-shaving-website`
- * vorhanden, und die beiden Projekte lesen ausschliesslich ihre EIGENEN Variablen. `not_configured`
- * ist damit bis auf Weiteres der zu erwartende Zustand in Produktion — Einrichtung und
- * Rotationshinweis in `DEPLOYMENT.md` §1l.
+ * ⚠ KORREKTUR (01.09.2026): DER SCHLÜSSEL IST IN `peak-shaving-web` GESETZT. Bis dahin stand hier
+ * das Gegenteil (am 31.08.2026 gemessen: 16 Einträge, keiner davon KI), und `not_configured` galt
+ * als der zu erwartende Produktionszustand. Über die Vercel-API scope-genau nachgemessen: die
+ * Variable liegt für Production UND Preview vor. Der Schlüssel im Nachbarprojekt
+ * `peak-shaving-website` ist ein anderer und unabhängig zu rotieren — die beiden Projekte lesen
+ * ausschliesslich ihre EIGENEN Variablen. Einrichtung und Rotationshinweis in `DEPLOYMENT.md` §1l.
  */
 
 /**

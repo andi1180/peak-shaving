@@ -32,7 +32,12 @@ beforeEach(() => {
   isCurrentUserAdmin.mockReset().mockResolvedValue(true)
   extractTariffSheetData.mockReset().mockResolvedValue({
     ok: true,
-    extraction: { operatorName: 'Wiener Netze GmbH', windows: [] },
+    extraction: {
+      operatorName: 'Wiener Netze GmbH',
+      priceBasis: 'net',
+      validFrom: '2026-01-01',
+      candidates: [],
+    },
   })
 })
 
@@ -75,7 +80,21 @@ describe('Prüfkette vor jedem externen Kontakt', () => {
 
 describe('Ausgänge', () => {
   it('reicht die extrahierten Felder durch — und sonst nichts', async () => {
-    const extraction = { operatorName: 'Netz NÖ GmbH', windows: [] }
+    const extraction = {
+      operatorName: 'Netz NÖ GmbH',
+      priceBasis: 'net',
+      validFrom: '2026-01-01',
+      candidates: [
+        {
+          netzebene: 3,
+          meteringVariant: null,
+          grundpreisAmount: 38.52,
+          grundpreisUnit: 'eur_per_kw_year',
+          netzverlustCtPerKwh: 1.23,
+          windows: [],
+        },
+      ],
+    }
     extractTariffSheetData.mockResolvedValue({ ok: true, extraction })
 
     const result = await scanTariffSheet(pdf())

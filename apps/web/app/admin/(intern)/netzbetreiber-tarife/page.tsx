@@ -4,7 +4,7 @@ import { isCurrentUserAdmin } from '@/lib/admin/guard'
 import { Container, Num } from '@/components/ui/layout'
 import { AdminError, AdminPanel, AdminSection, Pill, formatDate } from '@/components/admin/ui'
 import { ActionButton } from '@/components/admin/action-button'
-import { CreateGridTariffForm } from '@/components/admin/grid-tariff-form'
+import { TariffScanCandidates } from '@/components/admin/tariff-scan-candidates'
 import { deleteGridTariffAction } from '@/lib/admin/grid-tariffs-actions'
 import {
   combinationKey,
@@ -124,7 +124,7 @@ export default async function AdminGridTariffsPage() {
       <AdminSection
         id="tarif-neu"
         title="Neuen Tarifstand anlegen"
-        description="Tarifzeile und Zeitfenster entstehen zusammen in einem Vorgang. Bricht etwas ab, entsteht gar nichts — es bleibt keine Tarifzeile ohne Arbeitspreis zurück."
+        description="Tarifzeile und Zeitfenster entstehen zusammen in einem Vorgang. Bricht etwas ab, entsteht gar nichts — es bleibt keine Tarifzeile ohne Arbeitspreis zurück. Führt ein gescanntes Preisblatt mehrere Netzebenen, entsteht je Tarifzeile ein eigenes Formular: jede wird einzeln geprüft und einzeln angelegt."
       >
         <AdminPanel>
           {failed ? (
@@ -134,7 +134,7 @@ export default async function AdminGridTariffsPage() {
               einen bestehenden ablöst.
             </AdminError>
           ) : (
-            <CreateGridTariffForm operators={operatorOptions(tariffs)} />
+            <TariffScanCandidates operators={operatorOptions(tariffs)} />
           )}
         </AdminPanel>
       </AdminSection>
