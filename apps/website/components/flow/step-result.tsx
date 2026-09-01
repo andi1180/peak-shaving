@@ -224,6 +224,12 @@ export function StepResult({
         recomputing={recomputing}
         recomputeError={recomputeError}
         isLive={isLive}
+        /*
+         * Delta 17 Teil 2: der in Schritt 2 bestätigte Speicher. Der Report wählt ihn vor UND
+         * bildet daraus die Grundlinie des Annahmen-Panels — deshalb reist das ganze Preset mit
+         * und nicht nur seine Kennung (s. `baselineCatalog` dort).
+         */
+        batteryPreset={payload.batteryPreset}
         onRecompute={onRecompute}
         onResetAssumptions={onResetAssumptions}
       />

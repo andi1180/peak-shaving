@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { AlertCircle, AlertTriangle } from 'lucide-react'
 import {
   DEMO_BATTERY_CATALOG,
@@ -17,8 +17,9 @@ import {
 } from '@/components/ui/accordion'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
+import { applyBatteryOverride } from '@/lib/battery-override'
 import { DEFAULT_HORIZON_YEARS, LARGE_GAP_SLOTS_THRESHOLD } from '@/lib/constants'
-import type { RecomputeInput } from '@/components/flow/types'
+import type { BatteryPreset, RecomputeInput } from '@/components/flow/types'
 import { AssumptionsPanel } from './assumptions-panel'
 import { CostChart } from './cost-chart'
 import { EnergyFlowChart } from './energy-flow-chart'
@@ -50,6 +51,7 @@ export function Report({
   recomputing,
   recomputeError,
   isLive,
+  batteryPreset,
   onRecompute,
   onResetAssumptions,
 }: {
@@ -62,13 +64,49 @@ export function Report({
   recomputing: boolean
   recomputeError: string | null
   isLive: boolean
+  /**
+   * Delta 17 Teil 2: der in Schritt 2 bestätigte Speicher des Kunden. `undefined` = keine Angabe,
+   * dann verhält sich der Report Zeile für Zeile wie vorher.
+   */
+  batteryPreset?: BatteryPreset
   onRecompute: (input: RecomputeInput) => void
   onResetAssumptions: () => void
 }) {
   // Batterie, deren Energiefluss-Chart + Annahmen-Panel-Felder (Wirkungsgrad/Preis) gerade
   // angezeigt werden (§6.2 „aktuell angezeigte Batterie") — unabhängig von der Empfehlung, per
   // Dropdown im Chart wählbar (auch eine `static`-Alternative, um den Fallback zu sehen).
-  const [selectedBatteryId, setSelectedBatteryId] = useState(result.recommendation.batteryId)
+  /*
+   * Delta 17 Teil 2 — hat der Kunde seinen eigenen Speicher bestätigt, startet die Ansicht auf
+   * IHM und nicht auf der Empfehlung: Energiefluss-Chart und Annahmen-Panel zeigen dann seine
+   * Anlage. Die Empfehlung selbst bleibt unangetastet und steht unverändert oben — der Rechner
+   * vergleicht weiterhin den vollen Katalog, er beginnt nur an einer anderen Stelle.
+   *
+   * Fällt die Kennung nicht auf einen gerechneten Kandidaten (sie kommt aus dem festen Katalog,
+   * also praktisch immer), bleibt es bei der Empfehlung — kein leerer Zustand.
+   */
+  const [selectedBatteryId, setSelectedBatteryId] = useState(
+    batteryPreset && result.perBattery.some((p) => p.battery.id === batteryPreset.batteryId)
+      ? batteryPreset.batteryId
+      : result.recommendation.batteryId,
+  )
+
+  /*
+   * ⚠ DER KATALOG-STAND, GEGEN DEN DIESER REPORT ENTSTANDEN IST — und NICHT der unveränderte.
+   *
+   * Das Annahmen-Panel benutzt ihn doppelt: als Vorbelegung seiner Felder UND als Grundlinie, auf
+   * die „Zurücksetzen" zurückführt. Beides muss zu dem passen, was tatsächlich GERECHNET wurde:
+   * hat der Kunde in Schritt 2 seinen Speicher mit 90 % Wirkungsgrad bestätigt, lief der Erstlauf
+   * mit 90 %. Stünde im Panel der Katalogwert (91 %), zeigte es eine Zahl an, mit der nichts
+   * gerechnet wurde — und die nächste Live-Neuberechnung schickte sie zurück und verwürfe damit
+   * still die Angabe des Kunden. Beim Live-Lauf gemessen, bevor diese Zeile stand.
+   *
+   * Es ist ausdrücklich das PRESET und nicht der zuletzt angezeigte Lauf: die Grundlinie darf einer
+   * laufenden Änderung im Panel nicht nachwandern, sonst gäbe es nichts mehr zurückzusetzen.
+   */
+  const baselineCatalog = useMemo(
+    () => applyBatteryOverride(DEMO_BATTERY_CATALOG, batteryPreset),
+    [batteryPreset],
+  )
 
   const recommended =
     result.perBattery.find((p) => p.battery.id === result.recommendation.batteryId) ??
@@ -323,8 +361,8 @@ export function Report({
               originalHorizonYears={DEFAULT_HORIZON_YEARS}
               liveBillingModel={a.billingModel}
               originalBattery={
-                DEMO_BATTERY_CATALOG.find((b) => b.id === selectedBatteryId) ??
-                DEMO_BATTERY_CATALOG[0]!
+                baselineCatalog.find((b) => b.id === selectedBatteryId) ??
+                baselineCatalog[0]!
               }
               selectedBatteryName={
                 result.perBattery.find((p) => p.battery.id === selectedBatteryId)?.battery.name ??

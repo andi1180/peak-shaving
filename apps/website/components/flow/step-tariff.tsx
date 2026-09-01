@@ -46,6 +46,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { NumberField } from '@/components/ui/number-field'
+import { BatteryTextPanel } from './battery-text-panel'
 import { InfoHint, LabelWithInfo } from '@/components/ui/info-hint'
 import { Num } from '@/components/report/num'
 import { parseNum, percentHint } from '@/lib/form-utils'
@@ -56,7 +57,7 @@ import {
   TarifOhneLeistungsmessung,
 } from './tarif-nicht-verfuegbar'
 import { loadTariffPricing } from '@/lib/tariff-pricing'
-import type { ParsedPv, TariffPrefill, TariffResult } from './types'
+import type { BatteryPreset, ParsedPv, TariffPrefill, TariffResult } from './types'
 
 async function readForParsing(
   file: File,
@@ -327,6 +328,14 @@ export function StepTariff({
    */
   const [stichtag] = useState(init.stichtag)
 
+  /*
+   * Delta 17 Teil 2 — der aus einer Freitext-Angabe BESTÄTIGTE Speicher.
+   *
+   * `null` ist der Normalfall und heisst „wie bisher": voller Katalog, Empfehlung, keine
+   * Vorauswahl. Das Feld ist optional, und ohne Eingabe entsteht kein Netzaufruf.
+   */
+  const [batteryPreset, setBatteryPreset] = useState<BatteryPreset | null>(null)
+
   const set = (k: keyof FormState) => (v: string) => setF((s) => ({ ...s, [k]: v }))
 
   /**
@@ -565,6 +574,11 @@ export function StepTariff({
       financial,
       pv,
       pvError,
+      /*
+       * Delta 17 Teil 2: `undefined` statt `null`, wenn nichts bestätigt wurde — dann trägt der
+       * Payload das Feld gar nicht, und der Worker verhält sich Zeile für Zeile wie vorher.
+       */
+      ...(batteryPreset ? { batteryPreset } : {}),
       // B11: die Herkunft der Vorgabewerte reist mit — sie steht dauerhaft im Report und im
       // Analyse-Bündel (Fassung 2). `undefined`, wenn kein Netzbetreiber gewählt wurde: dann
       // stammen die Werte direkt aus der Netzrechnung, und das ist eine eigene Aussage.
@@ -732,6 +746,15 @@ export function StepTariff({
             Fehlen für Ihren Zeitraum Preisdaten, sagen wir das ausdrücklich und zeigen keine Zahl.
             Die Spitzenkappung bleibt davon in jedem Fall unberührt.
           </InfoHint>
+
+          {/*
+            ── Delta 17 Teil 2: der eigene Speicher, in eigenen Worten ────────────────────────────
+            Steht hier und nicht im Abschnitt „Leistungspreis": es ist eine Angabe über die ANLAGE
+            des Kunden, keine über seinen Tarif — und es ist nach den beiden Auswahlfeldern darüber
+            die zweite Stelle, an der er etwas über sich selbst sagt statt eine Zahl von seiner
+            Rechnung abzutippen. Optional; ohne Eingabe passiert nichts Neues.
+          */}
+          <BatteryTextPanel preset={batteryPreset} onPreset={setBatteryPreset} />
         </Section>
 
         <Section title="Leistungspreis">

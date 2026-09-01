@@ -39,7 +39,27 @@ export type TariffResult = {
    * führt zur ausdrücklichen Kennzeichnung „nicht berechenbar" statt zu einem stillen Rückfall.
    */
   tariffPricing?: TariffPricingInputs
+  /**
+   * Delta 17 Teil 2: der vom Nutzer BESTÄTIGTE Speicher aus der Freitext-Angabe.
+   *
+   * `undefined` heisst „keine Angabe oder nicht übernommen" — dann verhält sich der Rechner Zeile
+   * für Zeile wie vorher: voller Katalog, Empfehlung, keine Vorauswahl.
+   */
+  batteryPreset?: BatteryPreset
 }
+
+/**
+ * Delta 17 Teil 2 — die aus einer Freitext-Angabe bestätigte Batterie-Vorauswahl.
+ *
+ * ⚠ Es ist BEWUSST derselbe Typ wie `BatteryOverride` (§6.2, Annahmen-Panel) und kein zweiter:
+ * die Freitexterfassung füttert genau den bestehenden Mechanismus und erfindet keinen neuen. Ein
+ * Preset mit nur `batteryId` lässt den Katalog unverändert (`applyBatteryOverride` schreibt dann
+ * nichts) und wirkt allein als Vorauswahl im Report; kommen Wirkungsgrad oder Preis dazu, ist es
+ * ab dem ERSTEN Lauf ein gewöhnlicher Override auf genau diesen einen Kandidaten.
+ *
+ * Kapazität und Leistung stehen hier bewusst NICHT: der Katalog ist fest.
+ */
+export type BatteryPreset = BatteryOverride
 
 // Ergebnis von Schritt 1 (parseLoadProfile, §3.2/§3.3) — die echte, getypte Nutzlast.
 export type ParsedLoad = {

@@ -83,7 +83,17 @@ export function useAnalysis() {
     recomputingRef.current = false
     setResultInputs(null)
     setLiveInputs(null)
-    pendingRunRef.current = { tariff: payload.tariff, financial: payload.financial }
+    /*
+     * Delta 17 Teil 2: das Preset reist als `batteryOverride` mit — es IST einer, und der
+     * Bündel-Export (B14-2) schreibt daraus den Katalog-STAND, gegen den tatsächlich gerechnet
+     * wurde. Ohne diese Zeile trüge das Archiv den unveränderten Katalog und behauptete damit eine
+     * Rechnung, die so nie gelaufen ist.
+     */
+    pendingRunRef.current = {
+      tariff: payload.tariff,
+      financial: payload.financial,
+      batteryOverride: payload.batteryPreset,
+    }
     pendingLiveRef.current = null
 
     const worker = new Worker(new URL('./analysis.worker.ts', import.meta.url))
