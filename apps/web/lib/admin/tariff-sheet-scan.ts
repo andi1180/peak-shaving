@@ -30,29 +30,54 @@
  * verzweigen. Zusätzlich wird `invoice-scan.ts` vom ÖFFENTLICHEN Rechner gebündelt — Preisbasis,
  * Gültigkeitsbeginn und Fensterliste sind Admin-Begriffe und haben dort nichts verloren.
  *
- * ── WARUM HIER UND NICHT IN `packages/shared` ─────────────────────────────────────────────────
- * Der Rechnungs-Scan liegt dort aus EINEM Grund: `apps/website` hat keinen eigenen Testlauf, der
- * prüfbare Teil wäre in der App unprüfbar. Diese Zwangslage gibt es hier nicht — `apps/web` hat
- * seit B1-2 einen Testlauf, der die Testdateien unter `lib` einschliesst.
+ * ── ⚠ EIN BLATT, VIELE TARIFZEILEN — DIE FORM, DIE DIESES MODUL SEIT TEIL B TRÄGT ─────────────
+ * Bis zum 01.09.2026 beschrieb dieser Typ GENAU EINEN Tarifstand, und ein Preisblatt mit mehreren
+ * Netzebenen nebeneinander — der REGELFALL — lieferte deshalb bewusst nur die blattweiten
+ * Angaben: Netzebene, Grundpreis, Netzverlustentgelt und die gesamte Fensterliste blieben leer,
+ * weil jede Auswahl EINER Zeile geraten gewesen wäre. Das war ehrlich und teuer: Der Admin tippte
+ * das ganze Blatt ab.
  *
- * Es spricht sogar etwas dagegen: Die Listen, mit denen dieses Schema übereinstimmen MUSS
- * (`NETZEBENEN`, `METERING_VARIANTS`, `GRUNDPREIS_UNITS`, `PRICE_BASES`), liegen in
- * `./grid-tariffs` — also in dieser App. Hier kann das Schema sie IMPORTIEREN. In `shared` abgelegt
- * müsste es sie ein zweites Mal ausschreiben, und der Abgleich wäre wieder ein Test statt einer
- * Tatsache. Der Rechnungs-Scan musste genau das tun und hat es sich mit drei Spiegel-Tests
- * erkauft; dieser Schritt braucht sie nicht.
+ * Die Struktur beantwortet das jetzt, statt die Frage ans Modell zurückzugeben: Ein Blatt zerfällt
+ * in BLATTWEITE Angaben (Betreiber, Gültigkeitsbeginn, Preisbasis — sie gelten für jede Zeile
+ * dieses Dokuments) und eine LISTE von Kandidaten, von denen jeder genau eine künftige Tarifzeile
+ * beschreibt.
  *
- * ── ⚠ DIE FACHLICHE REGEL, DIE ALLES TRÄGT — UND SIE WIEGT HIER SCHWERER ALS BEIM KUNDEN ──────
- * „Lieber nichts als geraten" gilt wie beim Rechnungs-Scan. Der Einsatz ist aber ein anderer: Ein
- * hier eingetragener Tarifstand ist NACHTRÄGLICH NICHT MEHR ÄNDERBAR (kein Bearbeiten, kein
- * Löschen, kein `delete`-Grant — B21-2b), und er ist die Grundlage, auf der der Kalkulator FREMDEN
- * Kunden eine Wirtschaftlichkeit ausrechnet. Ein falsch abgelesener Satz beim Rechnungs-Scan
- * betrifft eine Person, die ihre eigene Rechnung danebenliegen hat; ein falsch abgelesenes
- * Tarifblatt betrifft jede künftige Analyse dieser Netzebene.
+ * ── ⚠⚠ DIE IDENTITÄT EINES KANDIDATEN IST DAS PAAR (netzebene, meteringVariant) ────────────────
+ * NICHT die Netzebene allein. Das ist die tragende Feststellung dieses Umbaus, und sie ist
+ * gemessen und nicht abgeleitet:
  *
- * Deshalb ist jedes Feld einzeln `Wert ODER null`, und die Auswertung unten setzt zurück statt zu
- * retten. Zwei Regeln gehen darüber hinaus und sind unten an Ort und Stelle begründet:
- * Betrag+Einheit gelten nur ALS PAAR, und ein unvollständiges Zeitfenster wird VERWORFEN.
+ *   - `NETZEBENEN` kennt FÜNF Werte (3 bis 7), `NETZEBENEN_MIT_MESSVARIANTE` genau eine davon (7)
+ *     mit DREI Varianten. Die Zahl unterscheidbarer Kombinationen ist damit 4 + 3 = SIEBEN — genau
+ *     die sieben Tarifzeilen des Wiener-Netze-Blattes WN-EX0105, an dem der Fall aufgefallen ist.
+ *     Ein Kandidaten-Array, das nur nach `netzebene` schlüsselte, klappte dessen drei NE-7-Zeilen
+ *     zu einer zusammen und verlöre zwei Leistungspreise.
+ *   - Es ist dieselbe Schlüsselform, die auch die Datenbank benutzt: der Constraint
+ *     `unique nulls not distinct (operator_id, netzebene, metering_variant, valid_from)` aus
+ *     B21-1. Ein Kandidat entspricht 1:1 einer künftigen Zeile, nicht ungefähr.
+ *
+ * ── ⚠ WAS „VERBINDLICH GESETZT" HIER HEISST — und wo die Vorgabe zu korrigieren war ───────────
+ * `netzebene` ist INNERHALB eines Kandidaten nicht nullbar: Ein Eintrag, dessen Ebene unsicher
+ * ist, gehört gar nicht in die Liste. Eine unsichere Zuordnung führt zu WENIGER Kandidaten, nie zu
+ * einem Kandidaten mit unsicherer Identität — sonst entstünde aus einem Lesefehler eine Tarifzeile
+ * unter falscher Ebene, und die ist nachträglich nicht mehr korrigierbar (B21-2b).
+ *
+ * `meteringVariant` KANN dagegen strukturell nicht nicht-nullbar sein, und das ist kein
+ * Weichmacher: `METERING_VARIANTS` führt drei Werte, von denen KEINER „trifft nicht zu" bedeutet.
+ * Auf den Netzebenen 3 bis 6 gibt es keine Variante, und genau dort gehört `null` in die
+ * Datenbankspalte — der `nulls not distinct`-Constraint beruht darauf. Innerhalb eines Kandidaten
+ * bedeutet `null` deshalb ENTSCHIEDEN „diese Kombination hat keine Variante", nicht „unsicher";
+ * das Unsichere ist bereits vorher ausgeschieden.
+ *
+ * ── WAS AUS DER EINZELFASSUNG UNVERÄNDERT BLEIBT ──────────────────────────────────────────────
+ * „Lieber nichts als geraten" gilt wie beim Rechnungs-Scan. Der Einsatz ist ein anderer: Ein hier
+ * eingetragener Tarifstand ist NACHTRÄGLICH NICHT MEHR ÄNDERBAR (Löschen gibt es seit B21-2c, aber
+ * als protokollierter Rückbau für Probeeinträge, nicht als Korrektur), und er ist die Grundlage,
+ * auf der der Kalkulator FREMDEN Kunden eine Wirtschaftlichkeit ausrechnet.
+ *
+ * Jedes Feld bleibt deshalb einzeln `Wert ODER null`, und die Auswertung unten setzt zurück statt
+ * zu retten. Die zwei Regeln, die darüber hinausgehen, gelten jetzt JE KANDIDAT statt global:
+ * Betrag+Einheit gelten nur ALS PAAR, und ein unvollständiges Zeitfenster wird VERWORFEN. Ein
+ * fehlerhafter Kandidat reisst die übrigen ausdrücklich NICHT mit.
  */
 import {
   GRUNDPREIS_UNITS,
@@ -103,7 +128,25 @@ export interface TariffSheetWindow {
 }
 
 /**
- * Das vollständige Ergebnis einer Extraktion.
+ * GENAU EINE künftige Tarifzeile — eine Kombination aus Netzebene und Messvariante samt ihren
+ * Preisen.
+ *
+ * ⚠ `netzebene` ist verbindlich, `meteringVariant` ist ENTSCHIEDEN nullbar (s. Kopf). Beides
+ * zusammen ist die Identität des Eintrags; zwei Kandidaten mit derselben Kombination sind ein
+ * Widerspruch und werden in der Auswertung verworfen.
+ */
+export interface TariffSheetCandidate {
+  netzebene: Netzebene
+  meteringVariant: MeteringVariant | null
+  grundpreisAmount: number | null
+  grundpreisUnit: GrundpreisUnit | null
+  netzverlustCtPerKwh: number | null
+  /** Kann leer sein — dann hat der Scan für diese Kombination kein Fenster gefunden. */
+  windows: TariffSheetWindow[]
+}
+
+/**
+ * Das vollständige Ergebnis einer Extraktion: die blattweiten Angaben plus die Kandidatenliste.
  *
  * ⚠ `operatorName` IST FREITEXT UND AUSDRÜCKLICH KEINE KENNUNG. Das Modell darf die stabile
  * `operator_id` NICHT erfinden: sie trägt weder Fremdschlüssel noch CHECK, und ein Tippfehler
@@ -116,34 +159,80 @@ export interface TariffSheetWindow {
  * Das Modell liefert deshalb NUR den gedruckten Namen. Die Zuordnung zu einer bestehenden Kennung
  * trifft die Oberfläche über einen Namensvergleich; findet sie keine, wählt sie „Anderer
  * Netzbetreiber …" und lässt das Kennungsfeld LEER — ein Mensch vergibt sie.
+ *
+ * ⚠ DIE DREI BLATTWEITEN FELDER SIND GEMESSEN, NICHT AUSGEDACHT: Es sind exakt die drei, die der
+ * Scan am 01.09.2026 an WN-EX0105 geliefert hat, als er die ebenenabhängigen noch verweigerte.
  */
 export interface TariffSheetExtraction {
   operatorName: string | null
+  priceBasis: PriceBasisValue | null
+  /** `JJJJ-MM-TT`. */
+  validFrom: string | null
+  /** Kann leer sein — dann hat der Scan keine einzige Tarifzeile sicher zuordnen können. */
+  candidates: TariffSheetCandidate[]
+}
+
+/** Ein Ergebnis, in dem NICHTS erkannt wurde. Der Ausgangszustand jeder Auswertung. */
+export function emptyTariffSheetExtraction(): TariffSheetExtraction {
+  return { operatorName: null, priceBasis: null, validFrom: null, candidates: [] }
+}
+
+/**
+ * Die Vorbelegung GENAU EINES Anlageformulars: die blattweiten Angaben plus ein Kandidat.
+ *
+ * ⚠ WARUM DIESE ZUSAMMENFÜHRUNG EINE EIGENE, GETESTETE FUNKTION IST UND KEINE `{...a, ...b}`-Zeile
+ * in der Oberfläche: Das Formular legt eine Zeile an, die sich nicht mehr korrigieren lässt. Läge
+ * die Zusammenführung an der Verwendungsstelle, gäbe es sie beim nächsten zweiten Aufrufer
+ * zweimal — und zwei Fassungen, die auseinanderlaufen, ergäben zwei verschiedene Vorbelegungen für
+ * dasselbe Blatt.
+ *
+ * `netzebene` ist hier — anders als im Kandidaten — nullbar: Es gibt den Fall, dass ein Blatt
+ * gelesen wurde, aber keine einzige Zeile sicher zuordenbar war. Dann trägt die Vorbelegung nur
+ * die blattweiten Angaben, das Formular zeigt „— bitte wählen —", und der Hinweis darunter sagt
+ * genau das. Aus einem KANDIDATEN entsteht dieser Zustand nie.
+ */
+export interface TariffSheetFormPrefill {
+  operatorName: string | null
+  priceBasis: PriceBasisValue | null
+  validFrom: string | null
   netzebene: Netzebene | null
   meteringVariant: MeteringVariant | null
   grundpreisAmount: number | null
   grundpreisUnit: GrundpreisUnit | null
   netzverlustCtPerKwh: number | null
-  priceBasis: PriceBasisValue | null
-  /** `JJJJ-MM-TT`. */
-  validFrom: string | null
-  /** Kann leer sein — dann hat der Scan kein Fenster gefunden. */
   windows: TariffSheetWindow[]
 }
 
-/** Ein Ergebnis, in dem NICHTS erkannt wurde. Der Ausgangszustand jeder Auswertung. */
-export function emptyTariffSheetExtraction(): TariffSheetExtraction {
+export function tariffSheetFormPrefill(
+  extraction: TariffSheetExtraction,
+  candidate: TariffSheetCandidate | null,
+): TariffSheetFormPrefill {
   return {
-    operatorName: null,
-    netzebene: null,
-    meteringVariant: null,
-    grundpreisAmount: null,
-    grundpreisUnit: null,
-    netzverlustCtPerKwh: null,
-    priceBasis: null,
-    validFrom: null,
-    windows: [],
+    operatorName: extraction.operatorName,
+    priceBasis: extraction.priceBasis,
+    validFrom: extraction.validFrom,
+    netzebene: candidate?.netzebene ?? null,
+    meteringVariant: candidate?.meteringVariant ?? null,
+    grundpreisAmount: candidate?.grundpreisAmount ?? null,
+    grundpreisUnit: candidate?.grundpreisUnit ?? null,
+    netzverlustCtPerKwh: candidate?.netzverlustCtPerKwh ?? null,
+    windows: candidate?.windows ?? [],
   }
+}
+
+/**
+ * Die Identität eines Kandidaten als Zeichenkette.
+ *
+ * EINE Definition, ZWEI Aufrufer: die Auswertung erkennt damit Dubletten, und die Oberfläche
+ * bildet daraus die eindeutige `id`-Vorsilbe des zugehörigen Formulars. Zwei Fassungen liefen
+ * auseinander, und dann trügen zwei Formulare dieselben DOM-Kennungen — der Fokussprung nach einem
+ * Feldfehler landete im falschen.
+ */
+export function candidateIdentityKey(candidate: {
+  netzebene: Netzebene
+  meteringVariant: MeteringVariant | null
+}): string {
+  return `ne${candidate.netzebene}-${candidate.meteringVariant ?? 'keine'}`
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────────────────────
@@ -169,10 +258,11 @@ function nullableString(description: string) {
  * Schema nicht und liess es anstandslos durch.
  *
  * Diese Fassung ist die gemessene (dort aus sieben Schreibweisen ermittelt) und hier bewusst
- * erneut ausgeschrieben statt importiert — der Rechnungs-Scan bleibt in diesem Schritt mit 0
- * Zeilen Diff unangetastet. Damit die Verdopplung nicht in den Defekt zurückfallen kann, prüft
+ * erneut ausgeschrieben statt importiert — der Rechnungs-Scan bleibt mit 0 Zeilen Diff
+ * unangetastet. Damit die Verdopplung nicht in den Defekt zurückfallen kann, prüft
  * `tariff-sheet-scan.test.ts` das GANZE Schema rekursiv auf die eine Kombination, die ihn erzeugt:
- * Typ-Union UND `enum` an derselben Stelle.
+ * Typ-Union UND `enum` an derselben Stelle — ausdrücklich auch innerhalb der `items` der beiden
+ * Arrays, die dieses Schema jetzt trägt.
  */
 function nullableEnum<T extends string | number>(
   type: 'string' | 'integer',
@@ -195,98 +285,129 @@ export const TARIFF_SHEET_WINDOW_KEYS = [
   'ctPerKwh',
 ] as const satisfies readonly (keyof TariffSheetWindow)[]
 
+/** Die Felder eines Kandidaten, in fester Reihenfolge — ebenso geteilt. */
+export const TARIFF_SHEET_CANDIDATE_KEYS = [
+  'netzebene',
+  'meteringVariant',
+  'grundpreisAmount',
+  'grundpreisUnit',
+  'netzverlustCtPerKwh',
+  'windows',
+] as const satisfies readonly (keyof TariffSheetCandidate)[]
+
+const WINDOW_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  required: [...TARIFF_SHEET_WINDOW_KEYS],
+  properties: {
+    label: nullableString(
+      'Kurze Bezeichnung des Fensters in Kleinbuchstaben, wie das Blatt es nennt: ' +
+        '"normal" für den Regel-/Grundpreis, "snap" für ein Hochlastfenster (auch ' +
+        '"Spitzenzeit", "Hochtarif"), "winter" für ein reines Winterfenster. Steht dort ' +
+        'ein anderer Name, nimm ihn in Kleinbuchstaben.',
+    ),
+    monthDayFrom: nullableString(
+      'Beginn der Saison als MM-TT (zum Beispiel "10-01"), wenn das Fenster nur in einem ' +
+        'Teil des Jahres gilt. null, wenn es ganzjährig gilt. Ohne Jahreszahl.',
+    ),
+    monthDayTo: nullableString(
+      'Ende der Saison als MM-TT (zum Beispiel "03-31"). null, wenn ganzjährig. Gib beide ' +
+        'Saisongrenzen an oder keine.',
+    ),
+    timeFrom: nullableString(
+      'Beginn der Tageszeit als HH:MM (zum Beispiel "17:00"). Ein ganztägiges Fenster ' +
+        'beginnt um "00:00".',
+    ),
+    timeTo: nullableString(
+      'Ende der Tageszeit als HH:MM. Ein ganztägiges Fenster endet um "24:00" — nicht ' +
+        '"23:59" und nicht "00:00".',
+    ),
+    ctPerKwh: nullableNumber('Der Arbeitspreis dieses Fensters in Cent je kWh.'),
+  },
+} as const
+
 export const TARIFF_SHEET_SCAN_JSON_SCHEMA: { [key: string]: unknown } = {
   type: 'object',
   additionalProperties: false,
-  required: [
-    'operatorName',
-    'netzebene',
-    'meteringVariant',
-    'grundpreisAmount',
-    'grundpreisUnit',
-    'netzverlustCtPerKwh',
-    'priceBasis',
-    'validFrom',
-    'windows',
-  ],
+  required: ['operatorName', 'priceBasis', 'validFrom', 'candidates'],
   properties: {
     operatorName: nullableString(
       'Der Name des Netzbetreibers, GENAU so wie er auf dem Preisblatt gedruckt steht (zum ' +
         'Beispiel "Wiener Netze GmbH"). Erfinde keine Kurzform und keine technische Kennung. ' +
-        'null, wenn kein Betreiber auf dem Dokument steht.',
-    ),
-    netzebene: nullableEnum(
-      'integer',
-      NETZEBENEN,
-      'Die Netzebene (3 bis 7), für die dieses Preisblatt gilt. null, wenn das Blatt keine ' +
-        'Netzebene ausweist oder mehrere zugleich behandelt, ohne dass eine erkennbar gemeint ist.',
-    ),
-    meteringVariant: nullableEnum(
-      'string',
-      METERING_VARIANTS,
-      'Die Leistungsmessungs-Variante, für die dieser Tarif gilt, erschlossen aus den ' +
-        'Formulierungen des Blattes. null, wenn das Blatt nicht danach unterscheidet.',
-    ),
-    grundpreisAmount: nullableNumber(
-      'Der Betrag des Grund-/Leistungspreises der Netznutzung, als reine Zahl ohne Einheit. ' +
-        'Die zugehörige Einheit gehört in grundpreisUnit — beide nur gemeinsam.',
-    ),
-    grundpreisUnit: nullableEnum(
-      'string',
-      GRUNDPREIS_UNITS,
-      'Die Einheit des Grundpreises: "eur_per_kw_year" für einen Betrag je kW und Jahr (ein ' +
-        'echter Leistungspreis), "eur_per_year" für eine reine Jahrespauschale ohne kW-Bezug. ' +
-        'null, wenn die Einheit nicht eindeutig dasteht.',
-    ),
-    netzverlustCtPerKwh: nullableNumber(
-      'Das Netzverlustentgelt in Cent je kWh. Das ist ein EIGENER Posten und nicht der ' +
-        'Arbeitspreis der Netznutzung.',
+        'null, wenn kein Betreiber auf dem Dokument steht. Gilt für das ganze Blatt.',
     ),
     priceBasis: nullableEnum(
       'string',
       PRICE_BASES,
       'Ob die Beträge des Blattes netto ("net", ohne Umsatzsteuer) oder brutto ("gross") ' +
-        'ausgewiesen sind. null, wenn das Blatt dazu nichts sagt.',
+        'ausgewiesen sind. null, wenn das Blatt dazu nichts sagt. Gilt für das ganze Blatt.',
     ),
     validFrom: nullableString(
       'Der Tag, ab dem dieses Preisblatt gilt, als JJJJ-MM-TT (zum Beispiel "2026-01-01"). ' +
         'null, wenn kein Gültigkeitsbeginn dasteht — rechne ihn NICHT aus einem Druckdatum oder ' +
-        'einer Jahreszahl im Titel zurück.',
+        'einer Jahreszahl im Titel zurück. Gilt für das ganze Blatt.',
     ),
-    windows: {
+    candidates: {
       type: 'array',
       description:
-        'Die zeitabhängigen Arbeitspreise der Netznutzung — je Preis ein Eintrag. Ein Blatt mit ' +
-        'einem einzigen ganztägigen Arbeitspreis hat GENAU EINEN Eintrag. Leeres Array, wenn das ' +
-        'Blatt keinen Arbeitspreis ausweist.',
+        'Eine Liste mit EINEM Eintrag je Tarifzeile des Blattes. Eine Tarifzeile ist genau eine ' +
+        'Kombination aus Netzebene und — auf Netzebene 7 — Leistungsmessungs-Variante. Ein Blatt, ' +
+        'das die Netzebenen 3 bis 7 führt und Netzebene 7 zusätzlich nach drei Messvarianten ' +
+        'aufteilt, hat SIEBEN Einträge. Ein Blatt mit nur einer Netzebene hat GENAU EINEN. ' +
+        'Leeres Array, wenn sich keine Zeile sicher zuordnen lässt.',
       items: {
         type: 'object',
         additionalProperties: false,
-        required: [...TARIFF_SHEET_WINDOW_KEYS],
+        required: [...TARIFF_SHEET_CANDIDATE_KEYS],
         properties: {
-          label: nullableString(
-            'Kurze Bezeichnung des Fensters in Kleinbuchstaben, wie das Blatt es nennt: ' +
-              '"normal" für den Regel-/Grundpreis, "snap" für ein Hochlastfenster (auch ' +
-              '"Spitzenzeit", "Hochtarif"), "winter" für ein reines Winterfenster. Steht dort ' +
-              'ein anderer Name, nimm ihn in Kleinbuchstaben.',
+          /*
+           * Als EINZIGES Feld des ganzen Schemas nicht nullbar: Die Netzebene ist die Identität
+           * des Eintrags. Ein Eintrag ohne sie wäre eine Tarifzeile ohne Adresse — die Anweisung
+           * verlangt deshalb, eine unsichere Zeile ganz wegzulassen statt sie mit `null` zu
+           * führen. (Ein einzelner `type` mit `enum` ist unproblematisch; die HTTP-400-Falle
+           * greift nur bei einer Typ-UNION mit `enum`, s. `nullableEnum`.)
+           */
+          netzebene: {
+            type: 'integer',
+            enum: [...NETZEBENEN],
+            description:
+              'Die Netzebene DIESES Eintrags (3 bis 7) — immer gesetzt, denn jeder Eintrag ' +
+              'beschreibt genau eine Kombination. Lässt sich eine Zeile keiner Netzebene sicher ' +
+              'zuordnen, lass den ganzen Eintrag weg, statt hier zu raten.',
+          },
+          meteringVariant: nullableEnum(
+            'string',
+            METERING_VARIANTS,
+            'Die Leistungsmessungs-Variante DIESES Eintrags, erschlossen aus den Formulierungen ' +
+              'des Blattes. null, wenn die Zeile keine Variante hat — auf den Netzebenen 3 bis 6 ' +
+              'ist das der Regelfall, weil dort ohnehin gemessen wird.',
           ),
-          monthDayFrom: nullableString(
-            'Beginn der Saison als MM-TT (zum Beispiel "10-01"), wenn das Fenster nur in einem ' +
-              'Teil des Jahres gilt. null, wenn es ganzjährig gilt. Ohne Jahreszahl.',
+          grundpreisAmount: nullableNumber(
+            'Der Betrag des Grund-/Leistungspreises der Netznutzung DIESES Eintrags, als reine ' +
+              'Zahl ohne Einheit. Die zugehörige Einheit gehört in grundpreisUnit — beide nur ' +
+              'gemeinsam.',
           ),
-          monthDayTo: nullableString(
-            'Ende der Saison als MM-TT (zum Beispiel "03-31"). null, wenn ganzjährig. Gib beide ' +
-              'Saisongrenzen an oder keine.',
+          grundpreisUnit: nullableEnum(
+            'string',
+            GRUNDPREIS_UNITS,
+            'Die Einheit des Grundpreises: "eur_per_kw_year" für einen Betrag je kW und Jahr ' +
+              '(ein echter Leistungspreis), "eur_per_year" für eine reine Jahrespauschale ohne ' +
+              'kW-Bezug. null, wenn die Einheit nicht eindeutig dasteht.',
           ),
-          timeFrom: nullableString(
-            'Beginn der Tageszeit als HH:MM (zum Beispiel "17:00"). Ein ganztägiges Fenster ' +
-              'beginnt um "00:00".',
+          netzverlustCtPerKwh: nullableNumber(
+            'Das Netzverlustentgelt DIESES Eintrags in Cent je kWh. Das ist ein EIGENER Posten ' +
+              'und nicht der Arbeitspreis der Netznutzung. Führt das Blatt es je Netzebene, ' +
+              'nimm den Wert der Netzebene dieses Eintrags — auch wenn sich mehrere Einträge ' +
+              'denselben Wert teilen.',
           ),
-          timeTo: nullableString(
-            'Ende der Tageszeit als HH:MM. Ein ganztägiges Fenster endet um "24:00" — nicht ' +
-              '"23:59" und nicht "00:00".',
-          ),
-          ctPerKwh: nullableNumber('Der Arbeitspreis dieses Fensters in Cent je kWh.'),
+          windows: {
+            type: 'array',
+            description:
+              'Die zeitabhängigen Arbeitspreise der Netznutzung DIESES Eintrags — je Preis ein ' +
+              'Element. Eine Zeile mit einem einzigen ganztägigen Arbeitspreis hat GENAU EIN ' +
+              'Element. Leeres Array, wenn für diese Zeile kein Arbeitspreis ausgewiesen ist.',
+            items: WINDOW_SCHEMA,
+          },
         },
       },
     },
@@ -399,14 +520,25 @@ function parseWindow(raw: unknown): TariffSheetWindow | null {
 }
 
 /**
- * Wertet die Antwort des Modells aus — FAIL CLOSED, Feld für Feld.
+ * Ein Kandidat — oder `null`, wenn seine Identität nicht feststeht.
  *
- * Es wird nichts geworfen und nichts gerettet: was nicht als sauberer Wert ankommt, ist `null`.
- * Auch eine vollständig unbrauchbare Antwort ergibt ein gültiges Ergebnis, in dem schlicht nichts
- * erkannt wurde — genau die Antwort, die ein unlesbares Blatt verdient.
+ * ── ⚠ OHNE NETZEBENE GIBT ES KEINEN EINTRAG ───────────────────────────────────────────────────
+ * Das ist die einzige harte Bedingung. Alles Übrige darf fehlen (der Admin trägt es vom Blatt
+ * ab), aber eine Tarifzeile ohne Ebene ist keine Tarifzeile: Sie liesse sich weder anlegen noch
+ * einer Zeile des Blattes zuordnen, und sie stünde im Formular als leere Auswahl da, die wie ein
+ * Ergebnis des Scans aussähe.
+ *
+ * ── ⚠ EIN FEHLERHAFTER KANDIDAT REISST DIE ÜBRIGEN NICHT MIT ──────────────────────────────────
+ * Diese Funktion ist bewusst je Eintrag aufgerufen und wirft nie: Ein unbrauchbarer vierter
+ * Eintrag lässt die Einträge eins bis drei und fünf bis sieben unberührt. Die Alternative — bei
+ * einem kaputten Eintrag das ganze Blatt zu verwerfen — machte aus einem Lesefehler in einer Zeile
+ * ein vollständig abzutippendes Blatt.
  */
-export function parseTariffSheetExtraction(raw: unknown): TariffSheetExtraction {
-  const root = record(raw)
+function parseCandidate(raw: unknown): TariffSheetCandidate | null {
+  const obj = record(raw)
+
+  const netzebene = oneOf(obj.netzebene, NETZEBENEN)
+  if (netzebene === null) return null
 
   /*
    * ── ⚠ BETRAG UND EINHEIT GELTEN NUR ALS PAAR ────────────────────────────────────────────────
@@ -417,40 +549,80 @@ export function parseTariffSheetExtraction(raw: unknown): TariffSheetExtraction 
    * „Leistungspreis 0, gar keine Spitzenkappung" (Delta 3).
    *
    * Umgekehrt ist eine Einheit ohne Betrag wertlos. Fehlt eines von beiden, fallen beide auf
-   * `null`, und der Admin trägt sie vom Blatt ab.
+   * `null`, und der Admin trägt sie vom Blatt ab. Die Regel gilt JE KANDIDAT: Ein Blatt, das für
+   * Netzebene 3 beides ausweist und für Netzebene 7 nur einen Betrag, behält den einen und
+   * verwirft den anderen.
    */
-  const grundpreisAmount = finiteNonNegative(root.grundpreisAmount)
-  const grundpreisUnit = oneOf(root.grundpreisUnit, GRUNDPREIS_UNITS)
+  const grundpreisAmount = finiteNonNegative(obj.grundpreisAmount)
+  const grundpreisUnit = oneOf(obj.grundpreisUnit, GRUNDPREIS_UNITS)
   const grundpreisComplete = grundpreisAmount !== null && grundpreisUnit !== null
 
-  const windows = Array.isArray(root.windows)
-    ? root.windows.map(parseWindow).filter((window): window is TariffSheetWindow => window !== null)
+  const windows = Array.isArray(obj.windows)
+    ? obj.windows.map(parseWindow).filter((window): window is TariffSheetWindow => window !== null)
     : []
 
   return {
-    operatorName: text(root.operatorName, 200),
-    netzebene: oneOf(root.netzebene, NETZEBENEN),
-    meteringVariant: oneOf(root.meteringVariant, METERING_VARIANTS),
+    netzebene,
+    meteringVariant: oneOf(obj.meteringVariant, METERING_VARIANTS),
     grundpreisAmount: grundpreisComplete ? grundpreisAmount : null,
     grundpreisUnit: grundpreisComplete ? grundpreisUnit : null,
-    netzverlustCtPerKwh: finiteNonNegative(root.netzverlustCtPerKwh),
-    priceBasis: oneOf(root.priceBasis, PRICE_BASES),
-    validFrom: isoDate(root.validFrom),
+    netzverlustCtPerKwh: finiteNonNegative(obj.netzverlustCtPerKwh),
     windows,
   }
 }
 
-/** Hat die Extraktion überhaupt etwas gefunden? Entscheidet den `unreadable`-Ausgang. */
+/**
+ * Wertet die Antwort des Modells aus — FAIL CLOSED, Feld für Feld und Kandidat für Kandidat.
+ *
+ * Es wird nichts geworfen und nichts gerettet: was nicht als sauberer Wert ankommt, ist `null`.
+ * Auch eine vollständig unbrauchbare Antwort ergibt ein gültiges Ergebnis, in dem schlicht nichts
+ * erkannt wurde — genau die Antwort, die ein unlesbares Blatt verdient.
+ *
+ * ── ⚠ ZWEI KANDIDATEN MIT DERSELBEN IDENTITÄT SIND EIN WIDERSPRUCH, KEINE ZWEITE ZEILE ────────
+ * Die Kombination (Netzebene, Messvariante) ist zusammen mit Betreiber und Gültigkeitsbeginn genau
+ * der `unique nulls not distinct`-Schlüssel aus B21-1. Zwei Einträge derselben Kombination
+ * könnten also gar nicht beide angelegt werden — der zweite liefe in `invalid_valid_from`, und
+ * zwar erst NACHDEM der erste bereits in der Datenbank steht. Der spätere wird deshalb hier
+ * verworfen: Zwei gleich beschriftete Formulare mit verschiedenen Preisen sind ein Widerspruch,
+ * den der Admin am Formular nicht auflösen kann, und eine im Voraus zum Scheitern verurteilte
+ * Zeile ist keine Hilfe. Es gewinnt der ERSTE Eintrag — die Reihenfolge des Blattes.
+ */
+export function parseTariffSheetExtraction(raw: unknown): TariffSheetExtraction {
+  const root = record(raw)
+
+  const candidates: TariffSheetCandidate[] = []
+  const seen = new Set<string>()
+  if (Array.isArray(root.candidates)) {
+    for (const entry of root.candidates) {
+      const candidate = parseCandidate(entry)
+      if (candidate === null) continue
+      const key = candidateIdentityKey(candidate)
+      if (seen.has(key)) continue
+      seen.add(key)
+      candidates.push(candidate)
+    }
+  }
+
+  return {
+    operatorName: text(root.operatorName, 200),
+    priceBasis: oneOf(root.priceBasis, PRICE_BASES),
+    validFrom: isoDate(root.validFrom),
+    candidates,
+  }
+}
+
+/**
+ * Hat die Extraktion überhaupt etwas gefunden? Entscheidet den `unreadable`-Ausgang.
+ *
+ * Leer heisst: keine einzige Tarifzeile UND keine blattweite Angabe. Ein Blatt, von dem nur der
+ * Betreibername lesbar war, ist ausdrücklich NICHT leer — es hat etwas geliefert, und der Admin
+ * soll sehen, was.
+ */
 export function tariffSheetExtractionIsEmpty(extraction: TariffSheetExtraction): boolean {
   return (
     extraction.operatorName === null &&
-    extraction.netzebene === null &&
-    extraction.meteringVariant === null &&
-    extraction.grundpreisAmount === null &&
-    extraction.grundpreisUnit === null &&
-    extraction.netzverlustCtPerKwh === null &&
     extraction.priceBasis === null &&
     extraction.validFrom === null &&
-    extraction.windows.length === 0
+    extraction.candidates.length === 0
   )
 }

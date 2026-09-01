@@ -11,13 +11,15 @@ import {
 import { AdminError, AdminPanel } from './ui'
 
 /**
- * Der Tarifblatt-Scan über dem Anlageformular.
+ * Der Tarifblatt-Scan über dem Anlagebereich.
  *
- * ── ⚠ ER FÜLLT DAS FORMULAR, ER SENDET ES NICHT AB ────────────────────────────────────────────
- * Es gibt hier bewusst KEIN automatisches Absenden und keine Abkürzung dorthin. Ein Tarifstand ist
- * nachträglich nicht mehr änderbar (B21-2b: kein Bearbeiten, kein Löschen, kein `delete`-Grant),
- * und er geht in JEDE künftige Analyse dieser Netzebene ein. Was das Modell gelesen hat, ist ein
- * VORSCHLAG; verantwortlich ist der Mensch, der ihn bestätigt.
+ * ── ⚠ ER FÜLLT DIE FORMULARE, ER SENDET SIE NICHT AB ──────────────────────────────────────────
+ * Es gibt hier bewusst KEIN automatisches Absenden und keine Abkürzung dorthin — auch dann nicht,
+ * wenn ein Blatt sieben Tarifzeilen auf einmal liefert. Ein Tarifstand ist nachträglich nicht mehr
+ * korrigierbar (B21-2b: kein Bearbeiten, keine Update-Funktion; das Löschen aus B21-2c ist ein
+ * protokollierter Rückbau für Probeeinträge) und geht in JEDE künftige Analyse SEINER Netzebene
+ * ein. Was das Modell gelesen hat, ist ein VORSCHLAG; verantwortlich ist der Mensch, der ihn
+ * bestätigt — je Zeile einzeln (s. `tariff-scan-candidates.tsx`).
  *
  * Deshalb sagt die Rückmeldung nach einem Scan zwei Dinge: was übernommen wurde UND dass jedes
  * Feld gegen das Blatt zu prüfen ist, bevor es abgeschickt wird.
@@ -26,7 +28,7 @@ import { AdminError, AdminPanel } from './ui'
  * Schlägt der Scan fehl oder ist er nicht eingerichtet, bleibt das Formular unverändert von Hand
  * ausfüllbar — es gibt keinen Zustand, in dem der Scan das Anlegen blockiert. Der Datei-Eingang
  * steht ausserhalb des `<form>`: ein verschachteltes Formular gibt es in HTML nicht, und die PDF
- * darf auf keinen Fall im Rumpf des Tarif-Formulars mitfahren.
+ * darf auf keinen Fall im Rumpf eines Tarif-Formulars mitfahren.
  */
 export function TariffScanPanel({
   onExtracted,
@@ -66,11 +68,11 @@ export function TariffScanPanel({
     <AdminPanel className="bg-surface-sunken">
       <h4 className="text-small font-semibold text-ink">Preisblatt auslesen (optional)</h4>
       <p className="mt-1 max-w-prose text-caption text-text-muted">
-        Laden Sie das veröffentlichte Preisblatt als PDF hoch. Die erkannten Werte werden in das
-        Formular darunter eingetragen —{' '}
-        <span className="font-medium text-text">abgeschickt wird nichts</span>. Prüfen Sie
-        anschliessend jedes Feld gegen das Blatt: Ein einmal angelegter Tarifstand lässt sich nicht
-        mehr korrigieren.
+        Laden Sie das veröffentlichte Preisblatt als PDF hoch. Für jede erkannte Tarifzeile —
+        Netzebene und, wo das Blatt sie unterscheidet, Messvariante — entsteht darunter ein eigenes,
+        vorbelegtes Formular. <span className="font-medium text-text">Abgeschickt wird nichts</span>;
+        jede Zeile wird einzeln geprüft und einzeln angelegt. Ein einmal angelegter Tarifstand lässt
+        sich nicht mehr korrigieren.
       </p>
 
       <div className="mt-4 flex flex-wrap items-center gap-3">
@@ -121,32 +123,62 @@ export function TariffScanPanel({
 /**
  * Die Rückmeldung nach einem gelaufenen Scan.
  *
- * Sie zählt, WIE VIEL erkannt wurde, statt Erfolg zu behaupten — ein Preisblatt, das mehrere
- * Netzebenen gleichrangig führt, liefert bewusst nur die blattweiten Angaben (s. System-Prompt),
- * und das ist kein Fehler, sondern das vorgesehene Ergebnis. Der Prüfsatz steht in jedem Fall
- * dabei.
+ * ── SIE ZÄHLT, WAS ANKAM — UND BENENNT, WAS FEHLT ─────────────────────────────────────────────
+ * Zwei Zahlen genügen hier nicht. Ein Blatt zerfällt seit der Mehr-Ebenen-Extraktion in zwei ganz
+ * verschiedene Dinge: die TARIFZEILEN (je eine Kombination aus Netzebene und Messvariante) und die
+ * drei BLATTWEITEN Angaben, die für alle gemeinsam gelten. Fehlt eine der drei, fehlt sie in JEDEM
+ * Formular darunter — das ist eine andere Aussage als „eine Zeile weniger gefunden" und wird
+ * deshalb getrennt genannt, mit Namen statt als Zahl.
+ *
+ * Ebenfalls ausdrücklich genannt: Zeilen ohne Zeitfenster. Ein Tarifstand ohne Arbeitspreis lässt
+ * sich gar nicht anlegen (`create_grid_tariff` antwortet `no_windows`) — wer das erst beim
+ * Absenden erfährt, hat vorher alles andere geprüft.
+ *
+ * Der Prüfsatz steht in jedem Fall dabei.
  */
+const SHEET_WIDE_FIELDS = [
+  { key: 'operatorName', label: 'Netzbetreiber' },
+  { key: 'priceBasis', label: 'Preisbasis' },
+  { key: 'validFrom', label: 'Gültig ab' },
+] as const satisfies readonly { key: keyof TariffSheetExtraction; label: string }[]
+
+/** „A", „A und B", „A, B und C" — eine Aufzählung, die sich vorlesen lässt. */
+function germanList(items: readonly string[]): string {
+  if (items.length <= 1) return items[0] ?? ''
+  return `${items.slice(0, -1).join(', ')} und ${items[items.length - 1]}`
+}
+
 function describe(extraction: TariffSheetExtraction): string {
-  const fields = [
-    extraction.operatorName,
-    extraction.netzebene,
-    extraction.meteringVariant,
-    extraction.grundpreisAmount,
-    extraction.netzverlustCtPerKwh,
-    extraction.priceBasis,
-    extraction.validFrom,
-  ].filter((value) => value !== null).length
+  const rows = extraction.candidates.length
+  const rowText =
+    rows === 0
+      ? 'keine Tarifzeile sicher zuordenbar'
+      : `${rows} ${rows === 1 ? 'Tarifzeile' : 'Tarifzeilen'} erkannt`
 
-  const windows = extraction.windows.length
-  const windowText =
-    windows === 0
-      ? 'kein Zeitfenster'
-      : `${windows} ${windows === 1 ? 'Zeitfenster' : 'Zeitfenster'}`
+  const present = SHEET_WIDE_FIELDS.filter((field) => extraction[field.key] !== null)
+  const missing = SHEET_WIDE_FIELDS.filter((field) => extraction[field.key] === null)
 
-  return (
-    `Preisblatt gelesen: ${fields} von 7 Angaben und ${windowText} übernommen. ` +
-    'Alles Übrige blieb leer — bitte ergänzen und jeden übernommenen Wert gegen das Blatt prüfen.'
-  )
+  const sheetWide =
+    missing.length === 0
+      ? `Blattweit übernommen: ${germanList(SHEET_WIDE_FIELDS.map((f) => f.label))}.`
+      : present.length === 0
+        ? 'Blattweit wurde nichts erkannt — Netzbetreiber, Preisbasis und Gültig ab sind zu ergänzen.'
+        : `Blattweit übernommen: ${germanList(present.map((f) => f.label))}; es fehlt ` +
+          `${germanList(missing.map((f) => f.label))}.`
+
+  const withoutWindows = extraction.candidates.filter((c) => c.windows.length === 0).length
+  const windowNote =
+    withoutWindows === 0
+      ? ''
+      : ` ${withoutWindows} ${withoutWindows === 1 ? 'Zeile trägt' : 'Zeilen tragen'} kein ` +
+        'Zeitfenster — ohne mindestens eines lässt sich ein Tarifstand nicht anlegen.'
+
+  const closing =
+    rows === 0
+      ? ' Bitte die Werte von Hand ergänzen.'
+      : ' Bitte jeden übernommenen Wert gegen das Blatt prüfen; jede Zeile wird einzeln angelegt.'
+
+  return `Preisblatt gelesen: ${rowText}. ${sheetWide}${windowNote}${closing}`
 }
 
 /** Die Zustände, die der Scan melden kann — aus der Antwort abgeleitet, nicht abgetippt. */

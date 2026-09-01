@@ -480,18 +480,29 @@ gegen die echte aWATTar-Antwort nachgerechnet: 2025-03-15 09:00Z 71,91 Eur/MWh �
 10:00Z 72,64 → 7,264 · 11:00Z 63,17 → 6,317. Lückenprüfung über alle 14.503 Zeilen: **kein einziger
 Nicht-Stunden-Sprung**.
 
-### 1l. KI-Zugang für den Tarifblatt-Scan (Admin) ⚠️ ABRECHENBAR — NICHT GESETZT
+### 1l. KI-Zugang für den Tarifblatt-Scan (Admin) ⚠️ ABRECHENBAR — GESETZT
 
 ```
 ANTHROPIC_API_KEY = sk-ant-…
 ```
 
 Ohne diese Variable meldet der Scan im Admin-Formular sichtbar **„Der Tarifblatt-Scan ist derzeit
-nicht eingerichtet"**, und das Formular bleibt unverändert von Hand ausfüllbar. **Das ist heute der
-zu erwartende Zustand** — gemessen am 31.08.2026: `peak-shaving-web` führt **16** Einträge, keiner
-davon KI (weder `ANTHROPIC`, `CLAUDE`, `OPENAI`, `LLM` noch `GEMINI`). Der Schlüssel im
-Nachbarprojekt `peak-shaving-website` (§1-Website-c) hilft hier **nicht**: die beiden Vercel-Projekte
-lesen ausschliesslich ihre eigenen Variablen.
+nicht eingerichtet"**, und das Formular bleibt unverändert von Hand ausfüllbar.
+
+**⚠️ KORREKTUR (01.09.2026): Der Schlüssel IST inzwischen gesetzt.** Bis dahin stand hier „NICHT
+GESETZT — das ist heute der zu erwartende Zustand", gemessen am 31.08.2026 (16 Einträge, keiner
+davon KI). Am 01.09.2026 über die Vercel-API scope-genau nachgemessen: `peak-shaving-web` führt
+`ANTHROPIC_API_KEY` für **Production UND Preview**. `not_configured` ist damit **kein** zu
+erwartender Produktionszustand mehr. Der Schlüssel im Nachbarprojekt `peak-shaving-website`
+(§1-Website-c) bleibt davon unberührt: die beiden Vercel-Projekte lesen ausschliesslich ihre eigenen
+Variablen, und die Werte sind unabhängig voneinander zu rotieren.
+
+**⚠️ Er ist im Gegensatz zu den meisten anderen Variablen dieses Projekts als `encrypted` und nicht
+als `sensitive` hinterlegt und damit ZURÜCKLESBAR** — über
+`GET /v1/projects/peak-shaving-web/env/<envId>` liefert die API den Klartext (bei `sensitive` kommt
+eine leere Zeichenkette, s. §1-Website-a). Das ist für eine Nachmessung praktisch und
+sicherheitstechnisch die schwächere Einstellung: Wer Zugriff auf den Vercel-Token hat, hat damit
+auch den abrechenbaren Schlüssel. Bei der nächsten Rotation als `sensitive` neu anlegen.
 
 **Wo:** Vercel → Project **`peak-shaving-web`** → Settings → Environment Variables → Production
 (+ Preview, wenn dort geprüft werden soll). Danach **Redeploy** — der Wert wird zur Laufzeit aus
@@ -526,14 +537,21 @@ Löschen, kein `delete`-Grant) und geht in JEDE künftige Analyse dieser Netzebe
 
 #### Grenzen, die beim Prüfen zu erwarten sind
 
-- **Ein Preisblatt mit MEHREREN Netzebenen nebeneinander füllt die ebenenabhängigen Felder NICHT.**
-  Netzebene, Grundpreis, Netzverlustentgelt und die Zeitfenster bleiben dann leer; übernommen werden
-  nur Betreibername, Gültigkeitsbeginn und Preisbasis. Das ist beabsichtigt: Das Formular legt genau
-  EINEN Stand für GENAU EINE Ebene an, und eine ausgewählte Zeile wäre geraten. Der naheliegende
-  Ausweg — dem Modell die im Formular gewählte Netzebene als Hinweis mitgeben — ist bewusst **nicht**
-  gebaut; er machte die Antwort von einem Formularzustand abhängig, den der Admin womöglich gar
-  nicht bewusst gesetzt hat. **Das ist der benannte nächste Schritt, falls sich der Fall als
-  Regelfall herausstellt.**
+- **✅ BEHOBEN am 01.09.2026 — ein Preisblatt mit mehreren Netzebenen wird jetzt VOLLSTÄNDIG
+  gelesen.** Bis dahin galt: „füllt die ebenenabhängigen Felder NICHT; übernommen werden nur
+  Betreibername, Gültigkeitsbeginn und Preisbasis". Der Grund war, dass das Schema genau EINEN
+  Tarifstand beschrieb und das Modell eine Zeile hätte auswählen müssen. Beantwortet wird die Frage
+  jetzt von der Struktur: Die Antwort trägt eine **Liste von Kandidaten**, je einer für eine
+  Kombination aus Netzebene und — auf Netzebene 7 — Messvariante, und die Oberfläche zeigt je
+  Kandidat ein eigenes, vorbelegtes Formular. **Jede Zeile wird EINZELN geprüft und einzeln
+  angelegt; es gibt bewusst keinen Sammel-Absenden-Knopf.** Gemessen an WN-EX0105: 7 Tarifzeilen,
+  Netzebene 7 dreifach, alle 98 Feldwerte gegen das Papier geprüft. Der damals benannte Ausweg
+  (dem Modell die im Formular gewählte Netzebene als Hinweis mitgeben) ist damit gegenstandslos und
+  wurde NICHT gebaut — er hätte die Antwort von einem Formularzustand abhängig gemacht.
+- **Eine Zeile, die sich keiner Netzebene sicher zuordnen lässt, wird WEGGELASSEN, nicht geraten.**
+  Findet der Scan gar keine, bleibt es beim Einzelformular; übernommen sind dann nur die drei
+  blattweiten Angaben, die Netzebene steht sichtbar auf „— bitte wählen —", und der Hinweis darunter
+  nennt den Grund.
 - **Der Betreibername kommt als Freitext, NIE als Kennung.** Passt er auf einen bereits eingetragenen
   Betrieb, wird dessen bestehende Kennung benutzt; sonst schaltet das Formular auf „Anderer
   Netzbetreiber …" und lässt das Kennungsfeld **leer**. Eine vom Modell erfundene `operator_id`
@@ -547,20 +565,32 @@ Löschen, kein `delete`-Grant) und geht in JEDE künftige Analyse dieser Netzebe
 - **Fachliche Dateigrenze 10 MB** (`MAX_TARIFF_SHEET_FILE_BYTES`); `bodySizeLimit` steht auf 24 MB
   und liegt bewusst darüber, damit die Anwendung ablehnt und nicht die Plattform.
 
-#### ⚠️ Was NICHT gegen die echte API gemessen ist
+#### ✅ Was gegen die ECHTE API gemessen ist (01.09.2026)
 
-Der Bau-Schritt lief gegen einen **lokalen Stub** der Messages-API (`ANTHROPIC_BASE_URL`), weil kein
-Schlüssel vorlag. Geprüft ist damit die Mechanik: Client, HTTP-Weg, Nutzlast, Auswertung,
-Formular-Befüllung, Fehlerzustände. **Ein Stub validiert das JSON-Schema NICHT** — genau dieser
-Umstand hat am 31.08.2026 den Rechnungs-Scan in Produktion funktionslos gemacht (HTTP 400 bei jedem
-Aufruf, §1-Website-c). Abgesichert ist das hier über einen Test, der das ganze Schema rekursiv auf
-die eine Kombination prüft, welche die echte API abweist (Typ-Union **und** `enum` an derselben
-Stelle) — die Fassung stammt aus der Messreihe von 9b-2a.
+Der Bau-Schritt vom 31.08.2026 lief gegen einen **lokalen Stub** der Messages-API, weil kein
+Schlüssel vorlag; geprüft war damit die Mechanik, nicht die Ablesequalität. **Beides ist jetzt an der
+echten API und am echten Preisblatt gemessen** (WN-EX0105 Vers. 2/2026, zwei Seiten):
 
-**Offen bleibt deshalb die ABLESEQUALITÄT.** Sobald der Schlüssel gesetzt ist: ein echtes Preisblatt
-hochladen und Feld für Feld gegen das Papier prüfen, mit besonderem Augenmerk auf die
-Mehrfach-Zeitraum-Regel (steht auf dem Blatt „bisher" und „neu" nebeneinander, muss der **zuletzt
-beginnende** Satz herauskommen) und auf die Abgrenzung Bezug/Einspeisung.
+- **7 Tarifzeilen erkannt** — Netzebenen 3 bis 6 plus Netzebene 7 dreifach (mit Leistungsmessung,
+  ohne Leistungsmessung, unterbrechbare Nutzung).
+- **98 Feldwerte Feld für Feld gegen das Papier verglichen, 0 Abweichungen**: drei blattweite
+  Angaben, 5 Werte je Kandidat und 10 Zeitfenster mit je 6 Feldern.
+- **Die fachlich wichtigste Unterscheidung sitzt**: Netzebene 7 ohne Leistungsmessung steht auf dem
+  Blatt als „54,00 (EUR/Jahr)" und kommt als `eur_per_year` zurück, alle übrigen als
+  `eur_per_kw_year`. Das ist der Unterschied zwischen „Spitzenkappung lohnt sich" und
+  „Leistungspreis 0, gar keine Spitzenkappung" (Delta 3).
+- **Das SNAP-Fenster aus der Fussnote auf Seite 2** (1. April bis 30. September, 10:00 bis 16:00
+  Uhr) landet bei allen drei Netzebene-7-Zeilen und ausdrücklich bei KEINER der Ebenen 3 bis 6 —
+  die Fussnote sagt „gilt nur für Kund*innen auf Netzebene 7".
+- **Der Grundpreis 0,00 der unterbrechbaren Nutzung** kommt als echte 0 durch, nicht als „nicht
+  erkannt".
+
+Der rekursive Schema-Wächter bleibt trotzdem bestehen und ist mit der Kandidatenliste sogar
+wichtiger geworden: Die Aufzählungsfelder liegen jetzt zwei Ebenen tief, und ein Test, der nur die
+obersten `properties` gelesen hätte, wäre mit dem Umbau still blind geworden.
+
+**Offen bleibt:** ein Preisblatt, das „bisher" und „neu" NEBENEINANDER führt (die
+Mehrfach-Zeitraum-Regel) — WN-EX0105 trägt nur einen Stand, der Fall war daran nicht messbar.
 
 ---
 

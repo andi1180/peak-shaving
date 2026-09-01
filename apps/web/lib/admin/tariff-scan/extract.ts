@@ -45,9 +45,10 @@ export type TariffSheetScanOutcome =
  *
  * ── DER GANZE TEXT DIENT EINEM ZIEL: LIEBER NICHTS ALS GERATEN ────────────────────────────────
  * Prinzip 1 („Die Rechnung ist die Wahrheit") gilt hier für das Preisblatt, und der Einsatz ist
- * höher als beim Rechnungs-Scan: Ein hier angelegter Tarifstand ist NACHTRÄGLICH NICHT MEHR
- * ÄNDERBAR (B21-2b: kein `delete`-Grant, keine Update-Funktion) und geht in JEDE künftige Analyse
- * dieser Netzebene ein — nicht nur in die eines einzelnen Kunden.
+ * höher als beim Rechnungs-Scan: Ein hier angelegter Tarifstand ist nachträglich nicht mehr
+ * korrigierbar (B21-2b: keine Update-Funktion; das Löschen aus B21-2c ist ein protokollierter
+ * Rückbau für Probeeinträge) und geht in JEDE künftige Analyse dieser Netzebene ein — nicht nur in
+ * die eines einzelnen Kunden.
  *
  * ── ⚠ VIER ABSÄTZE SIND AUS DEN ZWEI RECHNUNGS-SCAN-NACHTRÄGEN VOM 31.08.2026 ÜBERNOMMEN ──────
  * Sie stehen dort nicht aus Vorsicht, sondern weil jeder von ihnen einen an echten Dokumenten
@@ -67,18 +68,21 @@ export type TariffSheetScanOutcome =
  *      umschreibt sie. Die tragende Verwechslung ist dieselbe: das blosse Wort „Leistung" ist KEIN
  *      Hinweis auf eine Leistungsmessung — entscheidend ist die Bezugsgrösse (je kW gegen je Tag).
  *
- * ── ⚠ DIE MEHR-EBENEN-REGEL IST DIE EINE STELLE, AN DER DIESER SCAN BEWUSST SCHWACH IST ───────
- * Ein Preisblatt führt typischerweise ALLE Netzebenen in einer Tabelle. Das Formular legt aber
- * genau EINEN Tarifstand für GENAU EINE Netzebene an. Das Modell müsste also eine Zeile auswählen
- * — und jede Auswahl wäre geraten. Deshalb: Behandelt das Blatt mehrere Ebenen gleichrangig, sind
- * die ebenenabhängigen Felder `null`, und der Admin trägt sie ab. Das kostet Tipparbeit; die
- * Gegenrichtung kostete einen falschen Leistungspreis für jeden künftigen Kunden dieser Ebene, in
- * einer Tabelle, die kein Bearbeiten kennt.
+ * ── ⚠ DIE MEHR-EBENEN-REGEL IST ERSETZT: JE KOMBINATION EIN EINTRAG ───────────────────────────
+ * Bis zum 01.09.2026 stand hier das Gegenteil. Das Schema beschrieb GENAU EINEN Tarifstand, ein
+ * Preisblatt führt aber typischerweise ALLE Netzebenen in einer Tabelle — das Modell hätte eine
+ * Zeile auswählen müssen, und jede Auswahl wäre geraten gewesen. Die Anweisung lautete deshalb:
+ * bei mehreren gleichrangigen Ebenen sind die ebenenabhängigen Felder `null`. Das war ehrlich und
+ * teuer; an WN-EX0105 gemessen kamen drei von neun Angaben zurück, den Rest tippte der Admin ab.
  *
- * Der naheliegende Ausweg — dem Modell die im Formular gewählte Netzebene als Hinweis mitgeben —
- * ist bewusst NICHT gebaut: er machte die Antwort von einem Formularzustand abhängig, den der
- * Admin womöglich gar nicht bewusst gesetzt hat. Er steht als benannter nächster Schritt in
- * `DEPLOYMENT.md` §1l.
+ * Beantwortet wird die Frage jetzt von der STRUKTUR statt vom Modell: Das Schema trägt eine LISTE
+ * (`candidates`), und jeder Eintrag beschreibt genau eine Kombination aus Netzebene und — auf
+ * Netzebene 7 — Messvariante. Es gibt damit nichts mehr auszuwählen; das Modell liest jede Zeile,
+ * die es sicher zuordnen kann, und lässt jede weg, die es nicht kann.
+ *
+ * ⚠ DIE IDENTITÄT IST DAS PAAR, NICHT DIE EBENE. Netzebene 7 mit drei Varianten nebeneinander sind
+ * DREI Einträge, nicht einer — sonst gingen zwei Leistungspreise verloren, und zwar unbemerkt.
+ * Ausführlich begründet im Kopf von `../tariff-sheet-scan`.
  *
  * ⚠ Die Zahlen und Formulierungen in den Beispielen sind branchenüblich bzw. erfunden und stammen
  * nicht aus einem bestimmten Preisblatt.
@@ -103,34 +107,62 @@ const SYSTEM_PROMPT = [
   '  dann ×100). Bist du dir bei einer Einheit nicht sicher, ist das Feld null.',
   '- Das Dezimaltrennzeichen ist auf österreichischen Dokumenten das Komma, der Tausenderpunkt der',
   '  Punkt: „1.234,56" ist eintausendzweihundertvierunddreissig Komma fünf sechs.',
-  '- Ist das Dokument kein Netz-Preisblatt, unlesbar oder leer, lass ALLE Felder null und die',
-  '  Fensterliste leer.',
+  '- Ist das Dokument kein Netz-Preisblatt, unlesbar oder leer, lass ALLE blattweiten Felder null',
+  '  und die Kandidatenliste leer.',
   '',
-  'MEHRERE NETZEBENEN AUF EINEM BLATT — der wichtigste Sonderfall:',
+  'DER AUFBAU DER ANTWORT — blattweite Angaben und eine Liste von Tarifzeilen:',
+  'Ein Preisblatt hat Angaben, die für das GANZE Blatt gelten, und Preise, die je Tarifzeile',
+  'verschieden sind.',
+  '',
+  '- Blattweit und nur EINMAL einzutragen: operatorName, validFrom, priceBasis.',
+  '- Je Tarifzeile ein eigener Eintrag in candidates: netzebene, meteringVariant,',
+  '  grundpreisAmount, grundpreisUnit, netzverlustCtPerKwh und die Fensterliste windows.',
+  '',
+  'JE KOMBINATION AUS NETZEBENE UND MESSVARIANTE EIN EINTRAG — der wichtigste Punkt:',
   'Viele Preisblätter führen alle Netzebenen nebeneinander, meist als Tabelle mit einer Zeile oder',
-  'Spalte je Ebene. Dieses Schema beschreibt aber GENAU EINE Netzebene.',
+  'Spalte je Ebene. Lege für JEDE Zeile, die du sicher zuordnen kannst, einen eigenen Eintrag an.',
   '',
-  '- Behandelt das Blatt erkennbar GENAU EINE Netzebene (sie steht im Titel, in der Überschrift',
-  '  des Abschnitts oder es gibt nur eine), trage sie ein und lies alle Werte für sie.',
-  '- Behandelt das Blatt MEHRERE Ebenen gleichrangig, ohne dass eine erkennbar gemeint ist, dann',
-  '  ist netzebene null — und ebenso jeder Wert, der von der Ebene abhängt: grundpreisAmount,',
-  '  grundpreisUnit, netzverlustCtPerKwh und die gesamte Fensterliste (leeres Array).',
-  '  Wähle in diesem Fall KEINE Ebene aus, auch nicht die erste, die grösste oder die',
-  '  vollständigste. Trage dann nur die blattweiten Angaben ein: operatorName, validFrom und',
-  '  priceBasis.',
+  '- Ein Blatt mit den Netzebenen 3 bis 7 hat mindestens FÜNF Einträge, nicht einen.',
+  '- Unterscheidet das Blatt eine Netzebene zusätzlich nach Leistungsmessungs-Variante — auf',
+  '  Netzebene 7 ist das der Regelfall —, dann ist JEDE dieser Varianten ein EIGENER Eintrag.',
+  '  Führt das Blatt Netzebene 7 mit Leistungsmessung, ohne Leistungsmessung und unterbrechbar',
+  '  auf, sind das DREI Einträge mit netzebene 7 und drei verschiedenen meteringVariant-Werten —',
+  '  nicht ein Eintrag. Fasse sie NICHT zusammen und wähle nicht eine davon aus: du verlörest',
+  '  sonst die Preise der anderen, und niemand würde es bemerken.',
+  '- Zwei Einträge mit derselben Kombination aus netzebene und meteringVariant darf es NICHT',
+  '  geben. Trifft dasselbe Paar zweimal zu, gehört es in EINEN Eintrag.',
+  '- Unterscheidet das Blatt eine Netzebene nicht nach Variante, ist meteringVariant für diesen',
+  '  Eintrag null. Das ist ein richtiges Ergebnis und kein Versäumnis.',
+  '',
+  'WAS DU AUSLÄSST — und warum das kein Fehler ist:',
+  'Lässt sich eine Zeile keiner Netzebene sicher zuordnen, lass den ganzen Eintrag WEG. Rate die',
+  'Netzebene nicht und trage sie nicht „vorläufig" ein. Ein fehlender Eintrag sieht der Mensch, der',
+  'die Werte anschliessend bestätigt; ein Eintrag unter falscher Netzebene sieht er nicht — und er',
+  'wäre die Preisgrundlage für jeden künftigen Kunden dieser Ebene.',
+  '',
+  'Dasselbe gilt innerhalb eines Eintrags: Ein Preis, den du für DIESE Zeile nicht sicher lesen',
+  'kannst, ist null. Nimm keinen Wert aus einer NACHBARZEILE — die Netzebenen haben verschiedene',
+  'Entgelte, und ein übernommener Nachbarwert ist die gefährlichste Art von Fehler, weil er',
+  'plausibel aussieht.',
+  '',
+  'Sind auf dem ganzen Blatt keine Zeilen sicher zuordenbar, ist candidates ein leeres Array. Trage',
+  'dann trotzdem die blattweiten Angaben ein, die dastehen.',
   '',
   'MEHRERE GÜLTIGKEITSZEITRÄUME:',
   'Preisblätter stellen häufig den bisherigen und den neuen Satz nebeneinander („gültig bis',
   '31.12.2025" / „gültig ab 01.01.2026"), oder ein Blatt führt mehrere Zeitabschnitte auf.',
   '',
   'In diesem Fall gilt durchgehend der Satz des ZULETZT beginnenden Zeitraums — also der jüngste,',
-  'aktuellste. Sein Beginn gehört in validFrom, und alle Beträge gehören zu genau diesem Zeitraum.',
+  'aktuellste. Sein Beginn gehört in validFrom, und alle Beträge in allen Einträgen gehören zu',
+  'genau diesem Zeitraum.',
   '',
   '- Trage NICHT null ein. Mehrere Werte sind kein Grund zu schweigen: der Posten steht auf dem',
   '  Blatt, und welcher Satz zuletzt gilt, ist ablesbar.',
   '- Nimm NICHT den ersten und NICHT den grössten, sondern den mit dem spätesten Beginn.',
   '- Mische NICHT: nimm nicht den Grundpreis aus dem einen und den Arbeitspreis aus dem anderen',
   '  Zeitraum. Alle Werte stammen aus demselben, dem jüngsten.',
+  '- Lege für einen älteren Zeitraum KEINE eigenen Einträge an. Die Kandidatenliste beschreibt die',
+  '  Tarifzeilen EINES Standes, nicht die Geschichte des Blattes.',
   '- Bilde KEINEN Durchschnitt und rechne nicht zusammen. Ein Mittelwert steht nirgends auf dem',
   '  Dokument und wäre eine gerechnete Zahl, keine abgelesene.',
   '- Lässt sich der jüngste Zeitraum nicht bestimmen, weil kein Datum dabeisteht, ist validFrom',
@@ -145,14 +177,15 @@ const SYSTEM_PROMPT = [
   'Einspeise- oder Erzeuger-Abschnitt gehören in KEINES der Felder — auch dann nicht, wenn sie mit',
   '0,00 ausgewiesen sind, und auch dann nicht, wenn im Bezugsabschnitt nichts Vergleichbares steht.',
   'Ein leeres Feld ist richtig; eine übernommene Einspeise-Null behauptete ein Netzentgelt von',
-  'null und fiele niemandem als Fehler auf.',
+  'null und fiele niemandem als Fehler auf. Lege für Einspeise-Zeilen auch KEINE eigenen',
+  'Kandidaten-Einträge an.',
   '',
   'VORZEICHEN:',
   'Stehen Beträge mit einem Minuszeichen (Gutschriften, Abschläge, Rabattzeilen), trage den Betrag',
   'OHNE Vorzeichen ein. Alle Felder dieses Schemas sind Beträge, keine Buchungen — ein negativer',
   'Wert ist kein gültiges Ergebnis und geht verloren.',
   '',
-  'grundpreisAmount UND grundpreisUnit — nur gemeinsam:',
+  'grundpreisAmount UND grundpreisUnit — nur gemeinsam, und je Eintrag:',
   'Der Grundpreis der Netznutzung wird auf zwei grundsätzlich verschiedene Arten abgerechnet, und',
   'die Unterscheidung ist die wichtigste Zahl dieses ganzen Blattes:',
   '',
@@ -166,6 +199,8 @@ const SYSTEM_PROMPT = [
   'der Unterschied entscheidet darüber, ob überhaupt eine Spitzenkappung gerechnet wird.',
   'Ist eine Pauschale je Tag oder je Monat ausgewiesen, rechne sie auf das Jahr um (×365 bzw. ×12)',
   'und nimm „eur_per_year" — aber nur, wenn der Bezugszeitraum eindeutig dasteht.',
+  'Ein Blatt kann für verschiedene Netzebenen verschiedene Einheiten führen: entscheide die Einheit',
+  'für JEDEN Eintrag einzeln, nicht einmal für das ganze Blatt.',
   '',
   'netzverlustCtPerKwh:',
   'Das Netzverlustentgelt ist ein EIGENER Posten und NICHT der Arbeitspreis der Netznutzung.',
@@ -173,14 +208,17 @@ const SYSTEM_PROMPT = [
   'Netznutzung" auf der einen Seite, „Netzverlustentgelt" auf der anderen. Der Arbeitspreis der',
   'Netznutzung gehört in die Fensterliste, nicht in dieses Feld. Findest du keinen ausdrücklich als',
   'Netzverlustentgelt bezeichneten Posten, ist das Feld null.',
+  'Es wird je Netzebene ausgewiesen: nimm für jeden Eintrag den Wert SEINER Netzebene. Teilen sich',
+  'mehrere Einträge denselben Wert — etwa die drei Messvarianten einer Netzebene —, trage ihn bei',
+  'jedem von ihnen ein.',
   '',
-  'DIE FENSTERLISTE (windows) — die zeitabhängigen Arbeitspreise der Netznutzung:',
-  'Jeder Arbeitspreis der Netznutzung wird ein Eintrag. Weist das Blatt einen einzigen,',
-  'ganztägigen Arbeitspreis aus, ist das GENAU EIN Eintrag mit timeFrom „00:00", timeTo „24:00"',
-  'und ohne Saison (beide Saisonfelder null).',
+  'DIE FENSTERLISTE (windows) — die zeitabhängigen Arbeitspreise der Netznutzung, je Eintrag:',
+  'Jeder Arbeitspreis der Netznutzung DIESER Tarifzeile wird ein Element. Weist das Blatt für sie',
+  'einen einzigen, ganztägigen Arbeitspreis aus, ist das GENAU EIN Element mit timeFrom „00:00",',
+  'timeTo „24:00" und ohne Saison (beide Saisonfelder null).',
   '',
   'Weist das Blatt zeitlich oder saisonal unterschiedene Arbeitspreise aus, wird jeder davon ein',
-  'eigener Eintrag:',
+  'eigenes Element:',
   '- Der Regel-/Grundpreis, der ausserhalb der besonderen Zeiten gilt, heisst „normal" und deckt',
   '  in der Regel den ganzen Tag ab (00:00 bis 24:00) und das ganze Jahr.',
   '- Ein Hochlastfenster heisst „snap". Blätter nennen es „Hochlastzeitfenster", „Spitzenzeit",',
@@ -189,17 +227,19 @@ const SYSTEM_PROMPT = [
   '- Ein Fenster, das nur eine Jahreszeit betrifft, heisst „winter" (bzw. „sommer").',
   '- Nennt das Blatt einen anderen Namen, nimm ihn in Kleinbuchstaben.',
   '',
-  'Zu jedem Eintrag:',
+  'Zu jedem Element:',
   '- timeFrom und timeTo als HH:MM. Das Tagesende ist „24:00", nicht „23:59" und nicht „00:00".',
   '- Die Saison als MM-TT ohne Jahreszahl, etwa monthDayFrom „10-01" und monthDayTo „03-31" für',
   '  Oktober bis März. Gilt das Fenster ganzjährig, sind BEIDE Saisonfelder null.',
   '- Gib die Saison vollständig an oder gar nicht. Eine halbe Saisonangabe ist unbrauchbar.',
-  '- Kannst du für einen Arbeitspreis die Uhrzeiten oder den Betrag nicht sicher lesen, lass den',
-  '  ganzen Eintrag weg. Erfinde keine Uhrzeit und setze keine Standardzeit ein — ein Fenster mit',
+  '- Kannst du für einen Arbeitspreis die Uhrzeiten oder den Betrag nicht sicher lesen, lass das',
+  '  ganze Element weg. Erfinde keine Uhrzeit und setze keine Standardzeit ein — ein Fenster mit',
   '  geratener Zeit gilt sonst rund um die Uhr.',
   '- Nimm in die Liste NUR Arbeitspreise der Netznutzung für BEZUG auf. Keine Energiepreise eines',
   '  Lieferanten, keine Steuern und Abgaben, keine Einspeise-Entgelte, kein Netzverlustentgelt und',
   '  keinen Leistungspreis.',
+  '- Gilt dieselbe Zeitfenster-Struktur für mehrere Netzebenen, wiederhole sie bei jedem Eintrag',
+  '  mit dessen eigenen Beträgen. Verweise nicht auf einen anderen Eintrag.',
   '',
   'meteringVariant — wie du sie erkennst:',
   'Österreichische Dokumente schreiben diese Wörter NIE so hin, wie das Schema sie nennt. Sie',
@@ -226,9 +266,10 @@ const SYSTEM_PROMPT = [
   '  je Monat pauschal heisst nicht gemessen.',
   '- Ein Zusatz wie „pauschal" oder „nicht gemessen" schlägt das blosse Wort „Leistung".',
   '',
-  'Unterscheidet das Blatt gar nicht nach Messvariante — was auf höheren Netzebenen der Regelfall',
-  'ist, weil dort ohnehin gemessen wird —, ist das Feld null. Das ist ein richtiges Ergebnis und',
-  'kein Versäumnis. Rate die Variante NICHT aus der Netzebene.',
+  'Unterscheidet das Blatt für eine Netzebene gar nicht nach Messvariante — was auf höheren',
+  'Netzebenen der Regelfall ist, weil dort ohnehin gemessen wird —, ist das Feld für diesen Eintrag',
+  'null. Das ist ein richtiges Ergebnis und kein Versäumnis. Rate die Variante NICHT aus der',
+  'Netzebene, und lege für eine nicht ausgewiesene Variante KEINEN eigenen Eintrag an.',
   '',
   'validFrom:',
   'Der Tag, ab dem das Blatt gilt, als JJJJ-MM-TT. Er steht meist als „gültig ab 1. Jänner 2026"',
@@ -242,15 +283,21 @@ const SYSTEM_PROMPT = [
  * Mehrfach-Zeitraum-Regel oben (mehrere Sätze sind ja gerade nicht eindeutig), und zwei
  * Anweisungen, die einander aufheben, verschieben die Unbestimmtheit nur — genau der Fehler, den
  * der Rechnungs-Scan am 31.08.2026 korrigieren musste.
+ *
+ * Der letzte Satz verstärkt die Kandidatenregel. Er stand hier bis zum 01.09.2026 in der
+ * GEGENTEILIGEN Fassung („lass die ebenenabhängigen Felder null") und musste in derselben Änderung
+ * mitwandern: eine Anweisung im System-Prompt und ihre Umkehrung im Auftrag hätten die
+ * Unbestimmtheit wiederhergestellt, die beide beseitigen sollen.
  */
 const USER_PROMPT =
   'Lies aus diesem Preisblatt die Entgelte nach Schema aus. Lass jedes Feld null, das auf dem ' +
   'Dokument nicht steht. Stehen mehrere Gültigkeitszeiträume nebeneinander, gilt durchgehend der ' +
-  'zuletzt beginnende. Behandelt das Blatt mehrere Netzebenen gleichrangig, lass die ' +
-  'ebenenabhängigen Felder null und die Fensterliste leer.'
+  'zuletzt beginnende. Lege für JEDE Kombination aus Netzebene und Messvariante, die das Blatt ' +
+  'ausweist, einen eigenen Eintrag in candidates an — Netzebene 7 mit mehreren Varianten ergibt ' +
+  'mehrere Einträge. Eine Zeile, die du keiner Netzebene sicher zuordnen kannst, lässt du weg.'
 
 /**
- * Extrahiert einen Tarifstand aus einem Preisblatt.
+ * Extrahiert die Tarifzeilen aus einem Preisblatt.
  *
  * @param pdfBase64 Das Preisblatt als base64-kodierte PDF (ohne `data:`-Präfix, ohne Umbrüche).
  *
@@ -258,27 +305,18 @@ const USER_PROMPT =
  *   `not_configured`  Der Schlüssel fehlt. Kein Aufruf. Ein eigener Zustand, weil die Oberfläche
  *                     dafür etwas anderes sagen muss als bei einem Fehlschlag — „noch nicht
  *                     eingerichtet" ist kein Fehler und schon gar keine Aussage über das Blatt.
- *                     ⚠ In `peak-shaving-web` ist der Schlüssel derzeit NICHT gesetzt; das ist
- *                     bis auf Weiteres der zu erwartende Zustand in Produktion.
+ *                     ⚠ Seit dem 01.09.2026 ist der Schlüssel in `peak-shaving-web` gesetzt — der
+ *                     Zustand ist damit KEIN zu erwartender Produktionszustand mehr (§1l).
  *   `api_error`       Der Aufruf ist gescheitert (Netz, Kontingent, Ablehnung). Wiederholbar.
  *   `unreadable`      Der Aufruf lief, aber es wurde NICHTS gefunden. Das ist ein BEFUND, kein
  *                     Fehler. Er kommt als eigener Ausgang zurück, damit der Aufrufer nicht ein
  *                     unverändertes Formular vorlegt und so tut, als hätte der Scan funktioniert.
  *
- * Es gibt bewusst KEINEN vierten Ausgang für „teilweise erkannt": ein Ergebnis mit drei von
- * sieben Angaben ist ein normaler Erfolg — bei einem Mehr-Ebenen-Blatt sogar der vorgesehene.
- * Genau dieser Fall ist am 01.09.2026 an WN-EX0105 gemessen worden: gelesen wurden `operatorName`,
- * `priceBasis` und `validFrom`, alles Übrige blieb wie vorgesehen leer.
- *
- * ⚠ SIEBEN, NICHT NEUN — die beiden Zahlen sind nicht dieselbe Größe. `TariffSheetExtraction` hat
- * neun Mitglieder; die Meldung an den Admin (`describe` in `components/admin/tariff-scan-panel.tsx`)
- * zählt aber die sieben SKALARE, die einzeln fehlen können: `operatorName`, `netzebene`,
- * `meteringVariant`, `grundpreisAmount`, `netzverlustCtPerKwh`, `priceBasis`, `validFrom`.
- * Nicht mitgezählt sind `grundpreisUnit` (steht nie allein — Betrag und Einheit gelten nur als
- * Paar, s. `parseTariffSheetExtraction`) und `windows` (eine Liste, die die Meldung getrennt
- * ausweist). Welche Felder fehlen, steht im Ergebnis selbst; seit dem 01.09.2026 trägt zudem jedes
- * vom Scan befüllte Formularfeld sichtbar seine Herkunft, damit eine bewusste Enthaltung nicht
- * mehr wie eine Übernahme aussieht.
+ * Es gibt bewusst KEINEN vierten Ausgang für „teilweise erkannt": ein Ergebnis mit drei von sieben
+ * Tarifzeilen ist ein normaler Erfolg — der Admin sieht, welche gelesen wurden, und trägt die
+ * übrigen von Hand nach. „Nichts gefunden" heisst hier: keine einzige Tarifzeile UND keine der
+ * drei blattweiten Angaben (s. `tariffSheetExtractionIsEmpty`); ein Blatt, von dem nur der
+ * Betreibername lesbar war, ist ausdrücklich NICHT leer.
  */
 export async function extractTariffSheetData(pdfBase64: string): Promise<TariffSheetScanOutcome> {
   let client
@@ -297,12 +335,31 @@ export async function extractTariffSheetData(pdfBase64: string): Promise<TariffS
     const response = await client.messages.create({
       model: TARIFF_SHEET_SCAN_MODEL,
       /*
-       * Grosszügiger als beim Rechnungs-Scan (dort 4096): die Antwort trägt hier eine Liste
-       * unbekannter Länge. Ein Blatt mit Hochlastfenstern je Saison kommt schnell auf ein Dutzend
-       * Einträge, und eine abgeschnittene Antwort wäre kein Teilergebnis, sondern ungültiges JSON
-       * — sie landete als `api_error`, ohne dass jemand die Ursache sähe.
+       * ── ⚠ DIE ZAHL IST GEMESSEN, NICHT GESCHÄTZT ──────────────────────────────────────────
+       * Bis zum 01.09.2026 standen hier 8192 — bemessen für EINE Tarifzeile mit EINER
+       * Fensterliste. Seit der Umstellung auf Kandidaten trägt eine Antwort bis zu sieben
+       * Tarifzeilen mit je eigener Fensterliste (4 + 3, s. `../tariff-sheet-scan`), also ein
+       * Vielfaches.
+       *
+       * Der Bedarf wurde am Zeichenumfang einer konstruierten Höchstlast-Antwort gemessen
+       * (7 Kandidaten, lange Fensterbezeichnungen, vierstellige Beträge mit vier Nachkommastellen,
+       * eingerückt ausgegeben — die teuerste Schreibweise):
+       *
+       *     1 Fenster je Kandidat   →   3.236 Zeichen
+       *     6 Fenster je Kandidat   →  11.286 Zeichen
+       *    12 Fenster je Kandidat   →  20.960 Zeichen
+       *    20 Fenster je Kandidat   →  33.896 Zeichen
+       *
+       * Bei konservativ gerechneten 2 Zeichen je Token (JSON liegt real eher bei 3 bis 4) sind das
+       * rund 10.500 Tokens für den realistischen Höchstfall von zwölf Fenstern je Zeile und rund
+       * 17.000 für den unrealistischen von zwanzig. 16384 deckt den ersten mit Reserve ab.
+       *
+       * ⚠ EINE ABGESCHNITTENE ANTWORT IST KEIN TEILERGEBNIS, sondern ungültiges JSON: sie landet
+       * als `api_error`, ohne dass jemand die Ursache sähe. Die Grenze grosszügig zu setzen kostet
+       * nichts (abgerechnet werden die tatsächlich erzeugten Tokens), sie zu knapp zu setzen macht
+       * den Scan für genau die Blätter unbrauchbar, für die er gebaut wurde.
        */
-      max_tokens: 8192,
+      max_tokens: 16384,
       system: SYSTEM_PROMPT,
       /*
        * Das Schema wird von der API erzwungen (`json_schema` mit `additionalProperties: false` und
