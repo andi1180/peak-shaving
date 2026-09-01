@@ -243,6 +243,12 @@ export default tseslint.config(
      * Delta 9b-2a: der KI-Client (`lib/invoice-scan/ai-client.ts`) kommt als ZWEITER Eintrag dazu.
      * Er ist kein geringeres Geheimnis als der service_role-Schlüssel — er ist auf die Rechnung
      * des Kontos abrechenbar und hat kein Kontingent, das ihn begrenzte.
+     *
+     * Delta 17: der KI-Client der Dokument-Zuordnung (`lib/upload-classification/ai-client.ts`) ist
+     * der DRITTE Eintrag — mit `lib/upload-classification/extract.ts` als einziger erlaubter Datei.
+     * Er ist bewusst nicht derselbe Client wie der des Rechnungs-Scans: eine geteilte Datei hätte
+     * zwei erlaubte Orte und damit keine Bremse mehr, und die beiden Anbindungen sollen sich
+     * unabhängig voneinander abschalten lassen.
      */
     files: ['apps/website/**/*.{ts,tsx}'],
     rules: {
@@ -265,6 +271,13 @@ export default tseslint.config(
                 'einen externen Aufruf des Rechnungs-Scans gedacht: ' +
                 'apps/website/lib/invoice-scan/extract.ts — genau diese eine Datei. Es gibt hier ' +
                 'bewusst keine allgemeine, wiederverwendbare KI-Hilfsfunktion.',
+            },
+            {
+              name: '@/lib/upload-classification/ai-client',
+              message:
+                'Der KI-Client der Dokument-Zuordnung (abrechenbarer Anthropic-Schlüssel) ist ' +
+                'ausschließlich für den einen externen Aufruf der Zuordnung gedacht: ' +
+                'apps/website/lib/upload-classification/extract.ts — genau diese eine Datei.',
             },
           ],
         },
@@ -293,6 +306,12 @@ export default tseslint.config(
                 'Der Datenbank-Rand des Report-Gates braucht keinen KI-Client. Der eine erlaubte ' +
                 'Ort ist apps/website/lib/invoice-scan/extract.ts.',
             },
+            {
+              name: '@/lib/upload-classification/ai-client',
+              message:
+                'Der Datenbank-Rand des Report-Gates braucht keinen KI-Client. Der eine erlaubte ' +
+                'Ort ist apps/website/lib/upload-classification/extract.ts.',
+            },
           ],
         },
       ],
@@ -310,6 +329,103 @@ export default tseslint.config(
               message:
                 'Der Rechnungs-Scan braucht keine Datenbank — er schreibt und liest bewusst ' +
                 'nichts. Der eine erlaubte Ort ist apps/website/lib/report-gate/store.ts.',
+            },
+            {
+              name: '@/lib/upload-classification/ai-client',
+              message:
+                'Der Rechnungs-Scan hat seinen eigenen KI-Client. Der Client der Dokument-' +
+                'Zuordnung gehört ausschließlich nach ' +
+                'apps/website/lib/upload-classification/extract.ts — die beiden sollen sich ' +
+                'unabhängig voneinander abschalten lassen.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    /*
+     * ⚠ Delta 17, GEMESSENER BEFUND: Die Pfad-Sperre oben greift NUR für die Alias-Schreibweise
+     * (`@/lib/…`). Ein Nachbar im selben Verzeichnis erreicht den Client aber auch RELATIV
+     * (`./ai-client`) — und dieser Import wird von `paths` nicht erfasst. Beim Bau dieses
+     * Abschnitts als Probe nachgewiesen: `actions.ts` mit `from './ai-client'` lief durch, während
+     * dieselbe Zeile in der Alias-Schreibweise sauber abgewiesen wurde.
+     *
+     * Für die Zuordnung wird die Lücke hier geschlossen: das GANZE Verzeichnis — ausser der einen
+     * erlaubten Datei — bekommt zusätzlich ein Muster auf die relative Schreibweise. Die `paths`
+     * von oben stehen mit dabei, weil eine spätere Regelangabe die frühere für dieselben Dateien
+     * ersetzt und die Sperren sonst still verschwänden.
+     *
+     * ⚠ Die beiden BESTEHENDEN Anbindungen (`lib/invoice-scan`, `apps/web/lib/admin/tariff-scan`)
+     * haben dieselbe Lücke und sind in diesem Bauabschnitt bewusst NICHT angefasst: dort zieht die
+     * Server Action ihre Grössen-Konstante real aus `./ai-client`, ein Muster hier machte den
+     * Bestand rot. Das gehört in einen eigenen Schritt (Konstanten aus dem Client-Modul lösen,
+     * dann dasselbe Muster nachziehen) — s. CLAUDE.md, Delta 17.
+     */
+    files: ['apps/website/lib/upload-classification/**/*.ts'],
+    ignores: ['apps/website/lib/upload-classification/extract.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: '@/lib/report-gate/service-role',
+              message:
+                'Die Dokument-Zuordnung braucht keine Datenbank. Der eine erlaubte Ort für den ' +
+                'service_role-Client ist apps/website/lib/report-gate/store.ts.',
+            },
+            {
+              name: '@/lib/invoice-scan/ai-client',
+              message:
+                'Der KI-Client des Rechnungs-Scans gehört ausschließlich nach ' +
+                'apps/website/lib/invoice-scan/extract.ts.',
+            },
+            {
+              name: '@/lib/upload-classification/ai-client',
+              message:
+                'Der KI-Client der Dokument-Zuordnung gehört ausschließlich nach ' +
+                'apps/website/lib/upload-classification/extract.ts — auch die Server Action ' +
+                'daneben soll sich ihren Zugang nicht selbst bauen können.',
+            },
+          ],
+          patterns: [
+            {
+              group: ['./ai-client', '../upload-classification/ai-client'],
+              message:
+                'Auch relativ nicht: der KI-Client der Dokument-Zuordnung gehört ausschließlich ' +
+                'nach apps/website/lib/upload-classification/extract.ts. Konstanten, die die ' +
+                'Server Action braucht, gehören in ein eigenes Modul ohne Schlüsselzugriff.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    /*
+     * Delta 17: die dritte Ausnahmedatei — und sie tauscht die Regel ebenfalls, statt sie
+     * abzuschalten. Die Zuordnung darf ihren EIGENEN KI-Client ziehen und weder den
+     * service_role-Client noch den KI-Client des Rechnungs-Scans.
+     */
+    files: ['apps/website/lib/upload-classification/extract.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: '@/lib/report-gate/service-role',
+              message:
+                'Die Dokument-Zuordnung braucht keine Datenbank — sie schreibt und liest bewusst ' +
+                'nichts. Der eine erlaubte Ort ist apps/website/lib/report-gate/store.ts.',
+            },
+            {
+              name: '@/lib/invoice-scan/ai-client',
+              message:
+                'Die Dokument-Zuordnung hat ihren eigenen KI-Client. Der Client des ' +
+                'Rechnungs-Scans gehört ausschließlich nach ' +
+                'apps/website/lib/invoice-scan/extract.ts.',
             },
           ],
         },

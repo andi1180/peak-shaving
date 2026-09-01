@@ -369,12 +369,44 @@ Basis existiert bereits: `window.print()` gegen ein Print-Stylesheet (`step-resu
 
 ---
 
+## Delta 17 — Flexible Eingabe: beliebig viele Unterlagen mit freier Bezeichnung (ergänzt Delta 8, Delta 9)
+
+> **✅ TEIL 1 GEBAUT am 01.09.2026** (mehrzeiliger Upload + Zuordnung + Bestätigungsstufe). Handover mit den Messwerten: `CLAUDE.md`, Eintrag „GEBAUT: Delta 17". Die Batterie-Freitexterfassung ist ausdrücklich **Teil 2** und nicht Gegenstand dieses Schritts.
+
+**Das Problem, das die drei bestehenden Einstiege offenlassen.** Delta 8/9b hat den Kreis der bedienbaren Kunden zweimal erweitert (Standardprofil, Rechnungs-Scan), aber alle drei Einstiege setzen dieselbe Vorentscheidung voraus: **der Nutzer muss die ART seiner Unterlage kennen**, bevor er den passenden Reiter wählt. Wer einen Stapel vom Steuerberater oder vom Elektriker bekommt, weiss genau das nicht. Wer daran abbricht, kommt in keiner Zahl vor — kein Test und kein Build fängt das.
+
+**Die Umkehrung.** Ein vierter, gleichrangiger Einstieg nimmt **beliebig viele Zeilen** entgegen, jede mit einer **frei getippten Bezeichnung** („Rechnung 01/25") und einer Datei. Die Zuordnung schlägt je Zeile eine Art vor; der Nutzer bestätigt oder korrigiert. Erst danach läuft jede Zeile in das jeweils **bestehende** Modul.
+
+**Entscheidung 1 — Vier Zielarten, und `unbekannt` ist eine davon.** `rechnung` · `lastgang` · `tarifblatt` · `unbekannt`. Der vierte Wert ist kein Fehlerzustand, sondern die richtige Antwort für ein Dokument, das keine der drei Arten ist — UND für eines, bei dem die Zuordnung sich nicht festlegen kann. Beides führt zu derselben Handlung (der Mensch entscheidet) und braucht deshalb keine zwei Werte.
+
+**Entscheidung 2 — Keine Konfidenz, sondern eine Ja/Nein-Aussage je Kandidat.** Das Modell beantwortet drei getrennte, geschlossene Fragen (ist das eine Rechnung? ein Lastgang? ein Tarifblatt?) statt eine Wahrscheinlichkeit zu nennen. Begründung, dieselbe wie bei „lieber nichts als geraten": eine Zahl zwischen 0 und 1 sieht aus wie eine Messung, ist aber die Selbsteinschätzung des Modells über seine eigene Antwort — und jede Schwelle darauf („ab 0,7 übernehmen") wäre eine erfundene Grenze, die nie gegen echte Dokumente geeicht wurde. **Genau eine Zustimmung ergibt die Art; keine oder mehrere ergeben `unbekannt`.** Eine Rangfolge bei mehreren Zustimmungen ist ausdrücklich NICHT gebaut: Rechnung und Tarifblatt verwechselt man, weil beide Preise auflisten — und was von beidem zutrifft, entscheidet der Bezug auf einen einzelnen Kunden, den genau das unsichere Urteil nicht feststellen konnte.
+
+**Entscheidung 3 — Die Bestätigungsstufe ist nicht verhandelbar.** Zwischen Vorschlag und Verarbeitung steht immer ein Mensch. Es gibt keinen Auto-Durchlauf, auch nicht bei eindeutigem Urteil. Dieselbe Haltung wie beim Tarifblatt-Scan, wo die Bestätigung die Bedingung war, unter der er überhaupt gebaut werden durfte — hier zusätzlich deshalb, weil dies der **erste Ort im Produkt ist, an dem überhaupt eine Vermutung angestellt wird**.
+
+**Entscheidung 4 — Prinzip 4 bleibt für Lastgänge unangetastet, und das bestimmt die Architektur.** Die Zuordnung ist zweigeteilt:
+
+- **CSV/XLSX → vollständig im Browser**, ohne jeden Netzaufruf: es läuft der ECHTE Parser (§3.2). Das Ergebnis ist damit keine Vermutung, sondern eine **Messung** — „diese Datei liest sich als Lastgang" ist bewiesen, wenn sie sich liest; ein Wechselrichter-Log wird über `not_a_load_profile` positiv abgelehnt statt mangels Treffern durchgewunken. Das gelesene Profil wird behalten, dieselbe Datei wird nicht zweimal geparst.
+- **PDF → Server Action**, weil ein PDF im Browser nicht zuverlässig lesbar ist (dieselbe Abwägung wie in Delta 9b-2a).
+
+Es gibt damit **keinen Weg, auf dem ein Lastgang zum Einordnen hochgeladen wird**. Die Sperre steht nicht nur in der Oberfläche, sondern in der Server Action selbst (sie nimmt ausschliesslich PDF entgegen).
+
+**Entscheidung 5 — Mehrere Rechnungen: Einigkeit übernimmt, Widerspruch bleibt leer und wird benannt.** Der Regelfall dieses Einstiegs sind zwei oder drei Rechnungen, Schritt 2 nimmt aber EINEN Satz Tarifangaben. Je Feld gilt: sagt keine etwas → leer; sagen alle dasselbe → dieser Wert; widersprechen sie einander → **leer, und das Feld wird dem Nutzer genannt**. Drei Alternativen sind verworfen — „die neueste gewinnt" ist **nicht möglich** (`InvoiceExtraction` trägt kein Datum; welche Rechnung die jüngere ist, steht nirgends im Ergebnis), „die erste gewinnt" wäre ein Zufall der Bedienreihenfolge, ein Mittelwert wäre eine gerechnete Zahl, die auf keiner der Rechnungen steht.
+
+**Entscheidung 6 — Genau ein Lastgang je Analyse.** Mehrere bestätigte Lastgänge werden abgelehnt statt zusammengeführt: der Rechner wertet einen zusammenhängenden Zeitraum aus (Delta 15 Regel A), mehrere nebeneinander wären zwei Analysen.
+
+**Bekannte, ehrlich benannte Lücke: ein Tarifblatt wird ERKANNT, aber im öffentlichen Rechner nicht ausgewertet.** Der Tarifblatt-Scan gehört zum Admin-Bereich (`apps/web`), wo ein Mensch jeden gelesenen Wert bestätigt, bevor er als Tarifstand für ALLE künftigen Analysen dieser Netzebene gilt (B21-2b: nicht mehr änderbar, kein `delete`-Grant). Diesen Weg im Kundenrechner zu öffnen hiesse, einen Kunden-Upload über die Preisgrundlage anderer Kunden entscheiden zu lassen. Der Nutzer erfährt das ausdrücklich, statt dass die Zeile still verschwindet.
+
+**Explizit draussen:** ein Chat-artiges Freitextfeld ohne Bestätigungsstufe · jede Änderung an `invoice-scan`/`tariff-sheet-scan` selbst · die Batterie-Freitexterfassung (Teil 2) · ein Zeitraum-Freitext (Delta 15 Regel A bleibt: das Fenster IST der Lastgang).
+
+---
+
 ## Nächste Schritte
 
-Dieses Delta ist inhaltlich abgeschlossen **und bis auf Delta 9b vollständig gebaut** (Schema → Schreibweg → Engine → Oberfläche → Report, B21-1 bis B21-3c und Delta 16a/16b).
+Dieses Delta ist inhaltlich abgeschlossen und **vollständig gebaut** (Schema → Schreibweg → Engine → Oberfläche → Report, B21-1 bis B21-3c, Delta 16a/16b und Delta 9a/9b). Delta 17 Teil 1 ist gebaut.
 
 **Offen bleibt:**
 
-- **Delta 9b** — Rechnungs-Scan und Standardprofil/manuelle Verbrauchsangabe.
+- **Delta 17, Teil 2** — die Batterie-Freitexterfassung.
+- **Das G-Profil für Kleingewerbe** (Delta 8, auf Martin blockiert) — der Auswahlpunkt steht sichtbar und gesperrt im Formular.
 - **Der LP-Spike** (Delta 14 Punkt 1). Bis er gelaufen ist, gehören die Studienzahlen (−43 % / 266 €) weiterhin **nicht** in die Kundenkommunikation.
 - **Der finale Einwilligungswortlaut** zu `offer_contact` (`Fahrplan_2026.md` §7, Owner Martin). Der Bestand trägt einen als solchen gekennzeichneten Arbeitsstand („[MARTIN: Copy / rechtlich — Arbeitsstand, juristisch ungeprüft] …"). `platform.consent_texts` ist append-only: die geprüfte Fassung kommt als **neue Zeile mit `version = 2`**, die bestehende wird NICHT editiert — sonst zeigten bereits erteilte Einwilligungen auf einen Text, den ihnen niemand angezeigt hat.
