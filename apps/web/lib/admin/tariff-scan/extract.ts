@@ -265,9 +265,20 @@ const USER_PROMPT =
  *                     Fehler. Er kommt als eigener Ausgang zurück, damit der Aufrufer nicht ein
  *                     unverändertes Formular vorlegt und so tut, als hätte der Scan funktioniert.
  *
- * Es gibt bewusst KEINEN vierten Ausgang für „teilweise erkannt": ein Ergebnis mit drei von neun
- * Feldern ist ein normaler Erfolg — bei einem Mehr-Ebenen-Blatt sogar der vorgesehene. Welche
- * Felder fehlen, steht im Ergebnis selbst, und der Admin sieht es vor dem Absenden.
+ * Es gibt bewusst KEINEN vierten Ausgang für „teilweise erkannt": ein Ergebnis mit drei von
+ * sieben Angaben ist ein normaler Erfolg — bei einem Mehr-Ebenen-Blatt sogar der vorgesehene.
+ * Genau dieser Fall ist am 01.09.2026 an WN-EX0105 gemessen worden: gelesen wurden `operatorName`,
+ * `priceBasis` und `validFrom`, alles Übrige blieb wie vorgesehen leer.
+ *
+ * ⚠ SIEBEN, NICHT NEUN — die beiden Zahlen sind nicht dieselbe Größe. `TariffSheetExtraction` hat
+ * neun Mitglieder; die Meldung an den Admin (`describe` in `components/admin/tariff-scan-panel.tsx`)
+ * zählt aber die sieben SKALARE, die einzeln fehlen können: `operatorName`, `netzebene`,
+ * `meteringVariant`, `grundpreisAmount`, `netzverlustCtPerKwh`, `priceBasis`, `validFrom`.
+ * Nicht mitgezählt sind `grundpreisUnit` (steht nie allein — Betrag und Einheit gelten nur als
+ * Paar, s. `parseTariffSheetExtraction`) und `windows` (eine Liste, die die Meldung getrennt
+ * ausweist). Welche Felder fehlen, steht im Ergebnis selbst; seit dem 01.09.2026 trägt zudem jedes
+ * vom Scan befüllte Formularfeld sichtbar seine Herkunft, damit eine bewusste Enthaltung nicht
+ * mehr wie eine Übernahme aussieht.
  */
 export async function extractTariffSheetData(pdfBase64: string): Promise<TariffSheetScanOutcome> {
   let client
