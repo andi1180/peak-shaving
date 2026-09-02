@@ -5,6 +5,7 @@ import { Container, Num } from '@/components/ui/layout'
 import { AdminError, AdminPanel, AdminSection, Pill, formatDate } from '@/components/admin/ui'
 import { ActionButton } from '@/components/admin/action-button'
 import { TariffScanCandidates } from '@/components/admin/tariff-scan-candidates'
+import { AddRateWindowSection } from '@/components/admin/add-rate-window-form'
 import { deleteGridTariffAction } from '@/lib/admin/grid-tariffs-actions'
 import {
   combinationKey,
@@ -256,11 +257,33 @@ export default async function AdminGridTariffsPage() {
                                     </span>
                                     <Num>{w.ct_per_kwh}</Num>{' '}
                                     <span className="text-text-muted">ct/kWh</span>
+                                    {w.note && (
+                                      <span className="block text-caption text-text-muted">
+                                        {w.note}
+                                      </span>
+                                    )}
                                   </li>
                                 ))}
                               </ul>
                             )}
                           </div>
+
+                          {/*
+                            ⚠ NUR AM OFFENEN STAND — und das ist keine Anzeigefrage.
+                            Ein abgelöster Stand ist eine abgeschlossene Aussage über einen
+                            VERGANGENEN Zeitraum; ein nachträglich angehängtes Fenster änderte
+                            rückwirkend den Preis, mit dem einem Kunden gegenüber bereits gerechnet
+                            wurde — und zwar unsichtbar, denn die Zeile sähe danach lediglich um ein
+                            Fenster reicher aus. `public.add_grid_tariff_rate_window` weist es
+                            zusätzlich mit `closed_tariff` ab; dass die Oberfläche den Weg gar nicht
+                            erst anbietet, ist die zweite, nicht die einzige Schranke.
+                          */}
+                          {open && (
+                            <AddRateWindowSection
+                              tariffId={row.id}
+                              existingWindows={windowsByTariff.get(row.id) ?? []}
+                            />
+                          )}
 
                           {/*
                             Der Löschknopf steht am FUSS der Zeile, nicht neben der Markierung oben:

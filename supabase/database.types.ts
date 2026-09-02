@@ -1276,6 +1276,7 @@ export type Database = {
           label: string
           month_day_from: string | null
           month_day_to: string | null
+          note: string | null
           time_from: string
           time_to: string
         }
@@ -1286,6 +1287,7 @@ export type Database = {
           label: string
           month_day_from?: string | null
           month_day_to?: string | null
+          note?: string | null
           time_from: string
           time_to: string
         }
@@ -1296,6 +1298,7 @@ export type Database = {
           label?: string
           month_day_from?: string | null
           month_day_to?: string | null
+          note?: string | null
           time_from?: string
           time_to?: string
         }
@@ -1392,6 +1395,19 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      add_grid_tariff_rate_window: {
+        Args: {
+          p_ct_per_kwh: number
+          p_label: string
+          p_month_day_from?: string
+          p_month_day_to?: string
+          p_note?: string
+          p_tariff_id: string
+          p_time_from: string
+          p_time_to: string
+        }
+        Returns: Json
+      }
       admin_anonymize_lead: { Args: { p_lead_id: string }; Returns: Json }
       admin_approve_partner_application: {
         Args: { p_id: string; p_slug: string }

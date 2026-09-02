@@ -78,29 +78,82 @@ function amountField(label: string) {
     .min(0, `${label} kann nicht negativ sein.`)
 }
 
-/** Ein Zeitfenster (`public.grid_tariff_rate_windows`). */
-export const gridTariffWindowSchema = z
-  .object({
-    label: z
-      .string()
-      .trim()
-      .min(1, 'Bitte eine Bezeichnung angeben, z. B. normal oder snap.')
-      .max(64, 'Höchstens 64 Zeichen.'),
-    // Leer heisst ganzjährig — deshalb `optional`, nicht `min(1)`.
-    monthDayFrom: monthDayField.optional(),
-    monthDayTo: monthDayField.optional(),
-    timeFrom: timeField,
-    timeTo: timeField,
-    ctPerKwh: amountField('den Arbeitspreis'),
-  })
-  .refine((w) => (w.monthDayFrom === undefined) === (w.monthDayTo === undefined), {
-    // Eine halb angegebene Saison ist keine Angabe: „ab 01.04." ohne Ende liesse offen, ob das
-    // Fenster einen Tag oder neun Monate gilt — und die Datenbank nähme beide Werte an.
-    message: 'Saison bitte mit Beginn UND Ende angeben, oder beides leer lassen (ganzjährig).',
+/**
+ * Die Felder EINES Zeitfensters (`public.grid_tariff_rate_windows`) — ohne die Saison-Paarregel.
+ *
+ * ── ⚠ WARUM DIE FELDER UND DIE REGEL GETRENNT STEHEN (B21-2d) ──────────────────────────────────
+ * Es gibt seither ZWEI Wege, auf denen ein Zeitfenster entsteht: als Teil einer neuen Tarifzeile
+ * (`gridTariffSchema.windows`) und einzeln an einen bestehenden Stand (`addRateWindowSchema`).
+ * Beide müssen dieselben Grenzen und dieselbe Paarregel anwenden — ein zweites Mal ausgeschrieben
+ * liefen sie auseinander, und derselbe Eintrag würde je nach Weg angenommen oder abgewiesen.
+ *
+ * `.refine()`/`.superRefine()` liefert ein `ZodEffects`, und darauf gibt es kein `.extend()` mehr.
+ * Deshalb ist die Basis ein reines Objekt, und BEIDE Schemata setzen die Regel selbst darauf —
+ * über denselben Helfer, mit derselben Meldung und demselben Pfad.
+ */
+const rateWindowFields = z.object({
+  label: z
+    .string()
+    .trim()
+    .min(1, 'Bitte eine Bezeichnung angeben, z. B. normal oder snap.')
+    .max(64, 'Höchstens 64 Zeichen.'),
+  // Leer heisst ganzjährig — deshalb `optional`, nicht `min(1)`.
+  monthDayFrom: monthDayField.optional(),
+  monthDayTo: monthDayField.optional(),
+  timeFrom: timeField,
+  timeTo: timeField,
+  ctPerKwh: amountField('den Arbeitspreis'),
+  /**
+   * Freitext-Notiz (B21-2d) — optional, für Menschen, geht in keine Berechnung ein.
+   *
+   * ⚠ Die Längengrenze steht HIER und ausdrücklich nicht als CHECK in der Datenbank: dort wiese sie
+   * mit einem rohen 23514 ab, hier meldet sie sich am Feld. Dieselbe Aufteilung wie bei `label`.
+   */
+  note: z.string().trim().max(500, 'Höchstens 500 Zeichen.').optional(),
+})
+
+/**
+ * Eine halb angegebene Saison ist keine Angabe: „ab 01.04." ohne Ende liesse offen, ob das Fenster
+ * einen Tag oder neun Monate gilt — und die Datenbank nähme beide Werte an.
+ */
+function requireSeasonPair(
+  value: { monthDayFrom?: string; monthDayTo?: string },
+  ctx: z.RefinementCtx,
+): void {
+  if ((value.monthDayFrom === undefined) === (value.monthDayTo === undefined)) return
+  ctx.addIssue({
+    code: z.ZodIssueCode.custom,
     path: ['monthDayFrom'],
+    message: 'Saison bitte mit Beginn UND Ende angeben, oder beides leer lassen (ganzjährig).',
   })
+}
+
+/** Ein Zeitfenster als Teil einer neuen Tarifzeile. */
+export const gridTariffWindowSchema = rateWindowFields.superRefine(requireSeasonPair)
 
 export type GridTariffWindowInput = z.infer<typeof gridTariffWindowSchema>
+
+/**
+ * Ein Zeitfenster, das EINZELN an einen bestehenden Tarifstand gehängt wird (B21-2d).
+ *
+ * Dieselben Feldgrenzen und dieselbe Paarregel wie oben, plus die Kennung des Stands. Geprüft wird
+ * hier nur die FORM der Kennung, nicht ihre Existenz — und schon gar nicht, ob der Stand noch offen
+ * ist: Beides beantwortet `public.add_grid_tariff_rate_window` selbst (`not_found` /
+ * `closed_tariff`), und eine zwischenzeitlich abgelöste Zeile wäre hier ohnehin nicht mehr aktuell.
+ */
+export const addRateWindowSchema = rateWindowFields
+  .extend({
+    tariffId: z
+      .string()
+      .trim()
+      .regex(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+        'Es wurde keine gültige Tarifzeile übergeben. Bitte die Seite neu laden.',
+      ),
+  })
+  .superRefine(requireSeasonPair)
+
+export type AddRateWindowInput = z.infer<typeof addRateWindowSchema>
 
 /**
  * Die Tarifzeile selbst.
@@ -207,6 +260,7 @@ export function readGridTariffForm(formData: FormData): Record<string, unknown> 
       timeFrom: str(`w${i}_timeFrom`),
       timeTo: str(`w${i}_timeTo`),
       ctPerKwh: str(`w${i}_ctPerKwh`),
+      note: opt(`w${i}_note`),
     }))
 
   return {
@@ -220,6 +274,33 @@ export function readGridTariffForm(formData: FormData): Record<string, unknown> 
     priceBasis: str('priceBasis'),
     validFrom: str('validFrom'),
     windows,
+  }
+}
+
+/**
+ * Rohwerte des „Zeitfenster ergänzen"-Formulars (B21-2d) — noch UNGEPRÜFT.
+ *
+ * ⚠ FLACHE Feldnamen (`label`, `timeFrom`, …), NICHT die indizierten `w0_*` des Anlageformulars.
+ * Dieses Formular trägt genau EIN Fenster; ein Index daran wäre eine Nummer ohne zweite Zeile, und
+ * die Fehlerpfade des Schemas (`label`, `timeFrom`) liessen sich nicht mehr direkt auf Feldnamen
+ * abbilden. `RateWindowFields` bekommt die Vorsilbe deshalb als Prop und liefert hier `''`.
+ */
+export function readAddRateWindowForm(formData: FormData): Record<string, unknown> {
+  const str = (name: string): string => String(formData.get(name) ?? '').trim()
+  const opt = (name: string): string | undefined => {
+    const value = str(name)
+    return value === '' ? undefined : value
+  }
+
+  return {
+    tariffId: str('tariffId'),
+    label: str('label'),
+    monthDayFrom: opt('monthDayFrom'),
+    monthDayTo: opt('monthDayTo'),
+    timeFrom: str('timeFrom'),
+    timeTo: str('timeTo'),
+    ctPerKwh: str('ctPerKwh'),
+    note: opt('note'),
   }
 }
 
