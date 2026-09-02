@@ -255,6 +255,9 @@ export default tseslint.config(
          *
      * Delta 18: der KI-Client der Report-Anfrage-Übersetzung (`lib/report-request/ai-client.ts`)
      * ist der FÜNFTE Eintrag — mit `lib/report-request/extract.ts` als einziger erlaubter Datei.
+     *
+     * B22c: der KI-Client des PV-Auslegungs-Scans (`lib/pv-design-scan/ai-client.ts`) ist der
+     * SECHSTE Eintrag — mit `lib/pv-design-scan/extract.ts` als einziger erlaubter Datei.
      */
     files: ['apps/website/**/*.{ts,tsx}'],
     rules: {
@@ -298,6 +301,13 @@ export default tseslint.config(
                 'Der KI-Client der Report-Anfrage (abrechenbarer Anthropic-Schlüssel) ist ' +
                 'ausschließlich für den einen externen Aufruf der Übersetzung gedacht: ' +
                 'apps/website/lib/report-request/extract.ts — genau diese eine Datei.',
+            },
+            {
+              name: '@/lib/pv-design-scan/ai-client',
+              message:
+                'Der KI-Client des PV-Auslegungs-Scans (abrechenbarer Anthropic-Schlüssel) ist ' +
+                'ausschließlich für den einen externen Aufruf der Extraktion gedacht: ' +
+                'apps/website/lib/pv-design-scan/extract.ts — genau diese eine Datei.',
             },
           ],
         },
@@ -344,6 +354,12 @@ export default tseslint.config(
                 'Der Datenbank-Rand des Report-Gates braucht keinen KI-Client. Der eine erlaubte ' +
                 'Ort ist apps/website/lib/report-request/extract.ts.',
             },
+            {
+              name: '@/lib/pv-design-scan/ai-client',
+              message:
+                'Der Datenbank-Rand des Report-Gates braucht keinen KI-Client. Der eine erlaubte ' +
+                'Ort ist apps/website/lib/pv-design-scan/extract.ts.',
+            },
           ],
         },
       ],
@@ -382,6 +398,13 @@ export default tseslint.config(
               message:
                 'Der Rechnungs-Scan hat seinen eigenen KI-Client. Der Client der Report-Anfrage ' +
                 'gehört ausschließlich nach apps/website/lib/report-request/extract.ts.',
+            },
+            {
+              name: '@/lib/pv-design-scan/ai-client',
+              message:
+                'Der Rechnungs-Scan hat seinen eigenen KI-Client. Der Client des ' +
+                'PV-Auslegungs-Scans gehört ausschließlich nach ' +
+                'apps/website/lib/pv-design-scan/extract.ts.',
             },
           ],
         },
@@ -445,6 +468,12 @@ export default tseslint.config(
                 'Der KI-Client der Report-Anfrage gehört ausschließlich nach ' +
                 'apps/website/lib/report-request/extract.ts.',
             },
+            {
+              name: '@/lib/pv-design-scan/ai-client',
+              message:
+                'Der KI-Client des PV-Auslegungs-Scans gehört ausschließlich nach ' +
+                'apps/website/lib/pv-design-scan/extract.ts.',
+            },
           ],
           patterns: [
             {
@@ -498,6 +527,13 @@ export default tseslint.config(
                 'Report-Anfrage gehört ausschließlich nach ' +
                 'apps/website/lib/report-request/extract.ts.',
             },
+            {
+              name: '@/lib/pv-design-scan/ai-client',
+              message:
+                'Die Dokument-Zuordnung hat ihren eigenen KI-Client. Der Client des ' +
+                'PV-Auslegungs-Scans gehört ausschließlich nach ' +
+                'apps/website/lib/pv-design-scan/extract.ts.',
+            },
           ],
         },
       ],
@@ -550,6 +586,12 @@ export default tseslint.config(
                 'Der KI-Client der Report-Anfrage gehört ausschließlich nach ' +
                 'apps/website/lib/report-request/extract.ts.',
             },
+            {
+              name: '@/lib/pv-design-scan/ai-client',
+              message:
+                'Der KI-Client des PV-Auslegungs-Scans gehört ausschließlich nach ' +
+                'apps/website/lib/pv-design-scan/extract.ts.',
+            },
           ],
           patterns: [
             {
@@ -600,6 +642,13 @@ export default tseslint.config(
                 'Die Batterie-Erfassung hat ihren eigenen KI-Client. Der Client der ' +
                 'Report-Anfrage gehört ausschließlich nach ' +
                 'apps/website/lib/report-request/extract.ts.',
+            },
+            {
+              name: '@/lib/pv-design-scan/ai-client',
+              message:
+                'Die Batterie-Erfassung hat ihren eigenen KI-Client. Der Client des ' +
+                'PV-Auslegungs-Scans gehört ausschließlich nach ' +
+                'apps/website/lib/pv-design-scan/extract.ts.',
             },
           ],
         },
@@ -652,6 +701,12 @@ export default tseslint.config(
                 'apps/website/lib/report-request/extract.ts — auch die Server Action daneben soll ' +
                 'sich ihren Zugang nicht selbst bauen können.',
             },
+            {
+              name: '@/lib/pv-design-scan/ai-client',
+              message:
+                'Der KI-Client des PV-Auslegungs-Scans gehört ausschließlich nach ' +
+                'apps/website/lib/pv-design-scan/extract.ts.',
+            },
           ],
           patterns: [
             {
@@ -701,6 +756,73 @@ export default tseslint.config(
                 'Die Report-Anfrage hat ihren eigenen KI-Client. Der Client der ' +
                 'Batterie-Erfassung gehört ausschließlich nach ' +
                 'apps/website/lib/battery-text/extract.ts.',
+            },
+            {
+              name: '@/lib/pv-design-scan/ai-client',
+              message:
+                'Die Report-Anfrage hat ihren eigenen KI-Client. Der Client des ' +
+                'PV-Auslegungs-Scans gehört ausschließlich nach ' +
+                'apps/website/lib/pv-design-scan/extract.ts.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    /*
+     * B22c — die SECHSTE Ausnahmedatei, und sie tauscht die Regel ebenfalls, statt sie
+     * abzuschalten: der PV-Auslegungs-Scan darf seinen EIGENEN KI-Client ziehen und weder den
+     * service_role-Client noch einen der vier anderen.
+     *
+     * ⚠ ES GIBT HIER BEWUSST KEIN VERZEICHNIS-MUSTER GEGEN DIE RELATIVE SCHREIBWEISE
+     * (`./ai-client`), anders als bei `battery-text` und `report-request`. Der Grund ist derselbe,
+     * aus dem er bei `invoice-scan` fehlt: die Server Action daneben zieht ihre Grössen-Konstante
+     * real aus `./ai-client` (es gibt kein `limits.ts`, s. Kopf von
+     * `lib/pv-design-scan/ai-client.ts`), ein Muster machte den eigenen Bestand rot. Die in
+     * Delta 17 gemessene Lücke besteht damit für dieses Verzeichnis genauso fort wie für
+     * `lib/invoice-scan` — sie zu schliessen heisst, die Konstante für BEIDE in ein eigenes Modul
+     * ohne Schlüsselzugriff zu lösen, und das ist ein eigener Schritt.
+     */
+    files: ['apps/website/lib/pv-design-scan/extract.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: '@/lib/report-gate/service-role',
+              message:
+                'Der PV-Auslegungs-Scan braucht keine Datenbank — er schreibt und liest bewusst ' +
+                'nichts. Der eine erlaubte Ort ist apps/website/lib/report-gate/store.ts.',
+            },
+            {
+              name: '@/lib/invoice-scan/ai-client',
+              message:
+                'Der PV-Auslegungs-Scan hat seinen eigenen KI-Client. Der Client des ' +
+                'Rechnungs-Scans gehört ausschließlich nach ' +
+                'apps/website/lib/invoice-scan/extract.ts.',
+            },
+            {
+              name: '@/lib/upload-classification/ai-client',
+              message:
+                'Der PV-Auslegungs-Scan hat seinen eigenen KI-Client. Der Client der ' +
+                'Dokument-Zuordnung gehört ausschließlich nach ' +
+                'apps/website/lib/upload-classification/extract.ts.',
+            },
+            {
+              name: '@/lib/battery-text/ai-client',
+              message:
+                'Der PV-Auslegungs-Scan hat seinen eigenen KI-Client. Der Client der ' +
+                'Batterie-Erfassung gehört ausschließlich nach ' +
+                'apps/website/lib/battery-text/extract.ts.',
+            },
+            {
+              name: '@/lib/report-request/ai-client',
+              message:
+                'Der PV-Auslegungs-Scan hat seinen eigenen KI-Client. Der Client der ' +
+                'Report-Anfrage gehört ausschließlich nach ' +
+                'apps/website/lib/report-request/extract.ts.',
             },
           ],
         },

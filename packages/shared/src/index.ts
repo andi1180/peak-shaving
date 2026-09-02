@@ -71,6 +71,11 @@ export * from './plz-centroids'
 // PVGIS-Azimut-Konvention umgerechnet wird. Die Verwechslung kostet gemessen 56 % der Ersparnis;
 // sie gehört deshalb dorthin, wo sie geprüft werden kann (`apps/website` hat keinen Testlauf).
 export * from './pv-design'
+// B22c: der Vertrag des PV-Auslegungs-Scans (die sechste KI-Anbindung) — Wire-Schema, Auswertung
+// und die Regel, wie aus einer gelesenen Auslegung eine Formular-Vorbelegung wird. Hier aus
+// demselben Grund wie `invoice-scan`: die App hat keinen Testlauf, und der Fang der
+// Azimut-Konventions-Falle ist die Zusage, die geprüft sein muss.
+export * from './pv-design-scan'
 // 02.09.2026: der reale Vorteil eines aWATTar-Wechsels, aufgeteilt in „reiner Tarifwechsel" und
 // „Wert der Ladesteuerung". Hier und nicht in `apps/website`, weil die App keinen Testlauf hat und
 // die Zusage „die beiden Teile ergeben bit-genau die Kopfzahl" nur als Test etwas wert ist.

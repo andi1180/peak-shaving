@@ -433,7 +433,14 @@ entscheidend ist die **Tagesform relativ zur Last**.
 - **Kleingewerbe-Analogie:** was nicht seriös geht, wird **sichtbar und deaktiviert** angeboten statt
   versteckt (Delta 9, Transparenz gilt auch für Unfertiges).
 
-### (c) B22c — Scan-Weg (entspricht Delta 9b-2)
+### (c) B22c — Scan-Weg (entspricht Delta 9b-2) — **GEBAUT 02.09.2026**
+
+> **Stand: gebaut.** `packages/shared/src/pv-design-scan.ts` (Wire-Schema, Auswertung und die
+> Regel, wie aus einer gelesenen Auslegung eine Vorbelegung wird) + `apps/website/lib/pv-design-scan/`
+> (drei Dateien nach dem Muster des Rechnungs-Scans, **ohne** `limits.ts` — s. Kopf von
+> `ai-client.ts`) + der dritte Einstieg im B22b-Formular. **Der Testmaterial-Vorbehalt aus §4 ist
+> NICHT eingelöst:** gemessen ist die Mechanik gegen die echte API und das eine vorliegende
+> Dokument, nicht die Formatrobustheit.
 
 **Umfang:** die **sechste** KI-Anbindung des Projekts, die ausschließlich die Felder von B22b
 **vorbelegt**.
@@ -511,11 +518,11 @@ je Zeile den Stand nach diesem Pflichtenheft.
 | Wetterjahr-Regel gegen Delta 15 Regel A | Entscheidung | **ENTSCHIEDEN** — §2.1, Zehn-Jahres-Mittel 2014–2023 als benannte `[ANNAHME]` | — |
 | Fünfter `source`-Wert oder eigenes Kennzeichen | Contract-Entscheidung | **ENTSCHIEDEN** — §2.2, orthogonales `pvSource?: 'estimated'`, **kein** fünfter `source`-Wert | — |
 | PLZ/Gemeinde → Koordinate | **ERLEDIGT** | **GEBAUT am 02.09.2026 (B22b).** Beschafft ist NICHT der Statistik-Austria-Datensatz, sondern **GeoNames `AT.zip`** (2.501 österreichische PLZ, Lizenz **CC BY 4.0**, Abruf 02.09.2026) — der Weg (statisches Codemodul, §2.3) ist unverändert. `packages/shared/src/plz-centroids.ts`; Ableitungsregeln, gemessene Güte (Hauptort → Zentroid: Median 0,5 km · p90 2,2 km · max 24,8 km) und die zwei benannten Grenzen stehen im Kopf der Datei. ⚠ **Die Namensnennung ist eine Lizenzbedingung** und steht zusätzlich sichtbar in der Oberfläche | — |
-| Testmaterial für den Scan-Weg | **Fehlanzeige** | **UNVERÄNDERT OFFEN.** n = 1 — ein Dokument, eine Programmversion (PV\*SOL premium 2024 R6), ein Planer, eine Sprache. Nötig sind mindestens fünf bis zehn echte Auslegungen verschiedener Herkunft, darunter **mindestens ein Scan** und **mindestens ein Nicht-PV\*SOL-Werkzeug**, je mit Feld-für-Feld-Abgleich gegen das Papier `[MARTIN]` | **B22c** (nicht B22a/B22b) |
+| Testmaterial für den Scan-Weg | **Fehlanzeige** | **UNVERÄNDERT OFFEN — B22c ist am 02.09.2026 TROTZDEM GEBAUT worden.** n = 1 ist geblieben: ein Dokument, eine Programmversion (PV\*SOL premium 2024 R6), ein Planer, eine Sprache. Gemessen ist damit die MECHANIK end-to-end gegen die echte API und das echte Dokument (30/30 Prüfungen; beide Flächen mit 4,25/5,95 kWp, 90°, Südosten 133° → von PVGIS zurückgespiegelter Azimut −47°), **nicht die Formatrobustheit**. Nötig bleiben fünf bis zehn echte Auslegungen verschiedener Herkunft, darunter **mindestens ein Scan** und **mindestens ein Nicht-PV\*SOL-Werkzeug**, je mit Feld-für-Feld-Abgleich gegen das Papier `[MARTIN]`. Was die Lücke bis dahin trägt, ist die Bestätigungsstufe: der Scan belegt das B22b-Formular vor und stellt nichts fest | **nichts** — der Weg läuft; seine Zuverlässigkeit über PV\*SOL hinaus ist unbelegt |
 | Verhalten auf `net_signed`-Lastgängen | offen | **ENTSCHIEDEN** — §2.4, wird dort nicht angeboten, aber sichtbar begründet | — |
 | Alpiner Geländehorizont bei PLZ-Genauigkeit | ungemessen | **UNVERÄNDERT OFFEN.** PVGIS rechnet den Geländehorizont aus einem Höhenmodell **an der übergebenen Koordinate**; in flachem Gelände folgenlos, in einem engen Alpental kann der Gemeinde-Mittelpunkt einen anderen Horizont haben als der Hof am Hang. Die Innsbruck-Messung zeigt den Effekt **nicht**, widerlegt ihn aber auch nicht — sie misst nur einen Punkt. **Eine Messung an einem echten Alpental-Standort wäre billig nachzuholen.** | **nichts** — der Generator läuft, die Genauigkeit ist dort unbelegt |
 | Stundenwert → Viertelstunde | Entscheidung | **ENTSCHIEDEN** — §2.5, Treppenfunktion | — |
-| PV\*SOL-Neigung 90° gegen „dachparallel" | **nicht entscheidbar** | **UNVERÄNDERT OFFEN.** Der innere Widerspruch (`Neigung 90 °` bei `Einbausituation: Dachparallel`, Dokumenttitel „PV am Hausdach") ist aus dem Dokument **nicht auflösbar**. Falls es je gebraucht wird: **beim Planer nachfragen, nicht ableiten** `[MARTIN]`. Für B22 folgt daraus nur die Regel, dass ein Extraktor einen solchen Wert **nicht stillschweigend übernehmen** darf | **B22c** (als Randfall, nicht als Sperre) |
+| PV\*SOL-Neigung 90° gegen „dachparallel" | **nicht entscheidbar** | **UNVERÄNDERT OFFEN, in B22c aber sichtbar gemacht.** Der innere Widerspruch (`Neigung 90 °` bei `Einbausituation: Dachparallel`, Dokumenttitel „PV am Hausdach") ist aus dem Dokument **nicht auflösbar**; er bleibt eine Frage an den Planer `[MARTIN]`. Umgesetzt ist die daraus folgende Regel: der Wert wird UNVERÄNDERT übernommen (ein auf eine „plausible" Dachneigung geglätteter Wert verschöbe die Erzeugungskurve, ohne dass es jemand sähe) und ab `PV_DESIGN_STEEP_SLOPE_DEG` = 60° in der Vorschau als ungewöhnlich steil **markiert** — ein Hinweis, keine Sperre | **nichts** |
 
 ### 4.1 Zusätzlich, aus der Zerlegung — hier NICHT entschieden
 

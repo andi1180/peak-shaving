@@ -759,7 +759,7 @@ synthetischer Eintrag verfälschte sonst genau die Statistik, für die es diese 
 **11 Client-Chunks der Produktion geprüft: 0 Vorkommen des Schlüssels, 0 Vorkommen von
 `service_role`; der einzige JWT im Bündel trägt `"role": "anon"`.**
 
-### 1-Website-c. KI-Zugang für den Rechnungs-Scan (Delta 9b-2) ⚠️ ABRECHENBAR — GESETZT, ECHT GEPRÜFT
+### 1-Website-c. KI-Zugang für Rechnungs-Scan (Delta 9b-2) und PV-Auslegungs-Scan (B22c) ⚠️ ABRECHENBAR — GESETZT, ECHT GEPRÜFT
 
 | Variable | Scope | Wert-Herkunft |
 |---|---|---|
@@ -857,6 +857,64 @@ grep -rl claude-sonnet-5 .next/server | wc -l   # Voraussetzung: >= 1, sonst ist
 # 2. Wirkt der Scan live? Rechner öffnen, den Rechnungs-Einstieg wählen, eine Rechnung hochladen.
 #    „Der Rechnungs-Scan ist nicht eingerichtet" heisst: Variable fehlt oder Deployment ist alt.
 ```
+
+#### Nachtrag B22c (02.09.2026): derselbe Schlüssel, ein ZWEITER Verbraucher in dieser App
+
+**Es ist KEINE neue Variable.** `ANTHROPIC_API_KEY` in `peak-shaving-website` trägt ab jetzt zwei
+Anbindungen: den Rechnungs-Scan (`lib/invoice-scan/**`) und den PV-Auslegungs-Scan
+(`lib/pv-design-scan/**`, die **sechste** KI-Anbindung des Projekts). Beide lesen ihn an je einer
+Stelle, beide haben einen EIGENEN Client, und der ESLint-Eintrag erlaubt je Client GENAU EINE Datei
+— ein gemeinsames Client-Modul hätte mehrere erlaubte Orte und damit keine Bremse mehr.
+
+**Praktische Folge für die Rotation:** unverändert ein Wert an einem Ort — aber ein Widerruf legt ab
+jetzt **beide** Scans still. Der Rechner bleibt in beiden Fällen vollständig benutzbar
+(`not_configured`, kein Aufruf); Datei-Upload, Standardprofil, PV-Formular, PVGIS-Abruf, Rechnung,
+Charts, PDF und Analyse-Bündel sind unberührt.
+
+**⚠️ Der Scan liest ein PLANUNGSDOKUMENT, keine Rechnung — und das ist ein eigener
+Datenschutz-Sachverhalt.** Ein PV-Angebot trägt üblicherweise Name und Adresse des Kunden im Kopf.
+Die Datei geht wie die Rechnung an Anthropic, wird **nirgends gespeichert**, und aus der Funktion
+kommen ausschliesslich die extrahierten Felder. Der Hinweis darauf steht sichtbar am Upload
+(`components/flow/pv-design-panel.tsx`) und ist ausdrücklich ein ANDERER Satz als der des
+PVGIS-Abrufs daneben: dorthin gehen nur Koordinate und Auslegung, hierhin die ganze Datei. Der
+AV-Vertrag mit Anthropic bleibt derselbe offene Rechtspunkt.
+
+**Grössengrenze und `bodySizeLimit`.** `MAX_PV_DESIGN_FILE_BYTES` = **8 MB**
+(`lib/pv-design-scan/ai-client.ts`) — grösser als die 6 MB des Rechnungs-Scans, weil ein
+Planungsexposé zwei Dutzend Seiten mit Diagrammen hat statt ein bis wenige (das vorliegende: 19
+Seiten, 1,1 MB). `experimental.serverActions.bodySizeLimit` in `apps/website/next.config.mjs` ist
+dafür von **8 auf 12 MB** angehoben: bei 8 MB läge die fachliche Grenze genau auf der
+Plattformgrenze, und eine Datei knapp darunter scheiterte am Rumpf-Overhead statt an unserer
+Prüfung. **Für den Rechnungs-Scan ändert das nichts an der zulässigen Grösse** — seine eigene
+6-MB-Prüfung läuft unverändert in seiner Server Action; was sich ändert, ist die ART der Ablehnung
+zwischen 8 und 12 MB (jetzt ein Satz aus der Anwendung statt eines Plattformfehlers).
+
+> ✅ **GEGEN DIE ECHTE API UND DAS ECHTE DOKUMENT GEMESSEN (02.09.2026)** — anders als bei 9b-2a,
+> das gegen einen Stub gebaut wurde und deshalb den HTTP-400-Totalausfall nicht gesehen hat. Voller
+> 4-Schritt-Durchlauf über die echte Oberfläche gegen einen Production-Build, mit dem echten
+> PV\*SOL-Exposé (19 Seiten) und einem echten PVGIS-Abruf: **30/30 Prüfungen grün, 0
+> Konsolenfehler**, Extraktion 5,3 s. Gelesen wurden beide Modulflächen mit `4,25` und `5,95 kWp`,
+> `90°` Neigung, `Südosten` und der gedruckten `133°`; PVGIS spiegelte daraus **Azimut −47°**
+> zurück — die Konventions-Umrechnung ist damit end-to-end belegt und nicht bloss behauptet.
+> Fehlerpfade einzeln gefahren: CSV im PDF-Feld → „Nur PDF" (ohne externen Kontakt), eine
+> Stromrechnung → „Keine Modulfläche gefunden", zweiter Server ohne Schlüssel → „nicht verfügbar",
+> und in allen drei Fällen blieb das Formular voll benutzbar.
+
+> ⚠️ **WAS DAMIT NICHT GEMESSEN IST: DIE FORMATROBUSTHEIT.** Es liegt **genau ein**
+> PV\*SOL-Dokument vor (eine Programmversion, ein Planer, eine Sprache). Ob die Feldbezeichner in
+> anderen Versionen gleich heissen, ob PVsyst/Polysun/Hersteller-Konfiguratoren vergleichbare
+> Felder ausweisen und ob deren Azimut-Zählweise dieselbe ist, ist **nicht ableitbar** — zwischen
+> den zwei bisher gemessenen Werkzeugen ist sie es nachweislich nicht. Nötig sind fünf bis zehn
+> echte Auslegungen verschiedener Herkunft, darunter mindestens ein Scan und mindestens ein
+> Nicht-PV\*SOL-Werkzeug, je mit Feld-für-Feld-Abgleich gegen das Papier (Owner Martin,
+> `Pflichtenheft_PV_Zeitreihengenerator.md` §4). Bis dahin trägt die Bestätigungsstufe die Last:
+> der Scan belegt vor, er stellt nichts fest.
+
+**Modell und Kosten (B22c).** `claude-sonnet-5` (`PV_DESIGN_SCAN_MODEL`). Bewusst nicht das
+kleinste Modell, und der Grund ist gemessen: eine um 180° verwechselte Ausrichtung senkt die
+ausgewiesene Ersparnis um **56 %**, und die falsche Zahl sieht völlig plausibel aus (eine schlecht
+ausgerichtete Fassadenanlage). Ein 19-seitiges Dokument mit mehreren Modulflächen ist genau die
+Aufgabe, bei der ein kleineres Modell Zeilen verwechselt.
 
 **✅ ERLEDIGT AM 31.08.2026:** Der Extraktionspfad ist gegen das echte Modell gelaufen — dabei kam
 zuerst der Schema-Totalausfall oben heraus, und nach dessen Behebung die Ablesequalität. Zwei echte
