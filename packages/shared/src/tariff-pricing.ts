@@ -53,6 +53,28 @@ export type GridTariffRowInput = {
   validUntil: string | null
   /** Zeitunabhängiger Anteil des Netz-Arbeitspreises; kommt zu jedem Fensterpreis hinzu. */
   netzverlustCtPerKwh: number
+  /**
+   * Der Grundpreis der Tarifzeile — Delta 19, und er ist NUR in EINER seiner beiden Bedeutungen
+   * eine hier verwertbare Zahl (s. `grundpreisUnit`).
+   *
+   * Optional, weil dieser Typ die Teilmenge beschreibt, die der Rechenkern liest, und ein Aufrufer
+   * ohne Netz-Grundpreis (jeder bestehende Test, jede ältere Datenzeile) unverändert gültig bleiben
+   * muss. Fehlt er, wird kein Netz-Fixkostenanteil eingerechnet — nicht ein geschätzter.
+   */
+  grundpreisAmount?: number
+  /**
+   * `'eur_per_year'`     = eine JAHRESPAUSCHALE des Netzbetreibers. Sie hat im Rechner sonst keinen
+   *                        Ort (Delta 3: der Leistungspreis ist dann 0) und wird deshalb im
+   *                        Monatsvergleich anteilig eingerechnet.
+   * `'eur_per_kw_year'`  = der LEISTUNGSPREIS. Er ist bereits die Jahreszahl weiter oben im Report
+   *                        und darf im Monatsvergleich ausdrücklich NICHT auftauchen — dort wäre er
+   *                        zum einen doppelt gezählt, zum anderen bräuchte seine Verteilung auf
+   *                        Monate eine Aufteilungsregel, die weder Preisblatt noch Pflichtenheft
+   *                        hergeben (und die je Abrechnungsmodell anders ausfiele).
+   *
+   * Ein unbekannter Wert wird wie ein fehlender behandelt: es wird nichts eingerechnet.
+   */
+  grundpreisUnit?: string
   /** Delta 6: Pflichtangabe an der Quelle. Gerechnet wird durchgängig netto. */
   priceBasis: PriceBasis | string
   windows: GridTariffWindowInput[]
@@ -157,6 +179,56 @@ export type MonthlyTariffComparison = {
   spotWithBatteryEur: (number | null)[]
   /** Zahl der belegten Kalendermonate — die Bezugsgrösse des Hinweistexts im Report. */
   coveredMonths: number
+  /**
+   * Die anteilig eingerechneten FIXKOSTEN (Delta 19) — Summen über die abgedeckten Tage, in Euro.
+   *
+   * ── ⚠ SIE STECKEN BEREITS IN DEN DREI REIHEN OBEN ──────────────────────────────────────────
+   * Dieses Feld ist die Aufschlüsselung, nicht ein zusätzlicher Posten: wer die Zahlen hier zu
+   * einem Balken addiert, zählt sie doppelt. Es steht da, damit der Report SAGEN kann, was in den
+   * Balken steckt — ohne die Aufschlüsselung wäre die Sektion eine Zahl ohne Herkunft (Prinzip 5).
+   */
+  fixedCosts: MonthlyFixedCosts
+}
+
+/**
+ * Was an verbrauchsUNABHÄNGIGEN Kosten in den Monatsreihen steckt (Delta 19).
+ *
+ * ── ⚠ ANTEILIG NACH TATSÄCHLICH ABGEDECKTEN KALENDERTAGEN ──────────────────────────────────────
+ * Ein Lastgang, der am 20. eines Monats beginnt, trägt für diesen Monat elf Dreissigstel der
+ * Monatsgebühr, nicht die ganze. Der volle Betrag stünde sonst neben Arbeitskosten, die nur elf
+ * Tage abdecken — ein Monatsbalken, der zwei verschiedene Zeiträume mischt. Dieselbe Haltung wie
+ * bei den `null`-Monaten: gezeigt wird, was gemessen ist.
+ */
+export type MonthlyFixedCosts = {
+  /**
+   * Netz-Grundpreis als Jahrespauschale (`grundpreisUnit === 'eur_per_year'`), anteilig.
+   *
+   * ⚠ Er steckt in ALLEN DREI Reihen und in jeder in derselben Höhe: derselbe Netzanschluss
+   * bleibt derselbe Netzanschluss, egal von wem der Kunde seine Energie kauft. Er kürzt sich aus
+   * jeder Differenz heraus — und genau deshalb darf er drin sein: er macht die absoluten
+   * Monatszahlen richtig, ohne den Vergleich zu verschieben. `0`, wenn die Tarifzeile keine
+   * Jahrespauschale trägt (dann ist ihr Grundpreis der Leistungspreis, s. `grundpreisUnit`).
+   */
+  networkBaseFeeEur: number
+  /** Grundgebühr des HEUTIGEN Lieferanten — ausschliesslich in „Ihr Tarif heute". */
+  supplierBaseFeeEur: number
+  /** Grundgebühr von aWATTar — ausschliesslich in den beiden aWATTar-Reihen. */
+  awattarBaseFeeEur: number
+  /** Der zugrunde liegende Monatssatz des heutigen Lieferanten (0 = keine Angabe). */
+  supplierFeeEurPerMonth: number
+  /** Der zugrunde liegende Monatssatz von aWATTar. */
+  awattarFeeEurPerMonth: number
+  /**
+   * Abgedeckte Kalendertage — die Bezugsgrösse der Anteiligkeit.
+   *
+   * ⚠ NICHT dasselbe wie `BatterySavings.coveredDays` (§3.7.1). Dort ist es
+   * `round(Intervalle / 96)`, hier die Zahl der TATSÄCHLICH BERÜHRTEN Kalendertage in Ortszeit —
+   * ein am Vormittag endender Lastgang berührt einen Tag mehr, als er volle Tage enthält, und
+   * eine Monatsgebühr fällt für diesen angebrochenen Tag anteilig sehr wohl an. Gemessen an einem
+   * 209-Tage-Lastgang: 209 dort, 210 hier. Die beiden Zahlen dürfen nicht gegeneinander
+   * ausgetauscht werden.
+   */
+  coveredDays: number
 }
 
 /**

@@ -155,22 +155,33 @@ describe('§3.7 controlType (Martins Semantik, OP#5)', () => {
     )
   })
 
-  it('dynamic-Pfad unberührt (OP#5): bit-identische Zahlen wie vor der static-Änderung', () => {
+  it('dynamic-Pfad unberührt (OP#5): der LEISTUNGSPREIS-Teil ist bit-identisch wie vor der static-Änderung', () => {
     // Baseline vor der Änderung erfasst (dynamic, withNightWindow, Batterie 100 kWh/50 kW/η0,9).
     // Der static-Fix fasst den dynamic-Zweig NICHT an → diese Zahlen müssen exakt erhalten bleiben.
     //
-    // ⚠ Die beiden ENERGIE-Pins stehen seit der §3.7-Jahres-Hochrechnung auf den GEMESSENEN Feldern
-    // (`…OverCoveredPeriod`) — und tragen dort UNVERÄNDERT dieselben historischen Zahlen. Das ist
-    // kein Nachziehen an ein neues Verhalten: die Buchhaltung über den Fahrplan ist Zeile für Zeile
-    // dieselbe geblieben; hinzugekommen ist allein die Umrechnung auf ein Jahr, die dieses
-    // 10-Tage-Profil vorher gar nicht hatte. Der Pin misst damit weiterhin genau das, wofür er
-    // angelegt wurde (der static-Fix hat den dynamic-Zweig nicht angefasst), nur an der Stelle, an
-    // der die Grösse unverändert dieselbe Bedeutung hat.
+    // ⚠ DELTA 19 HAT DIE BEIDEN ENERGIE-PINS BEWUSST VERSCHOBEN — und das ist der einzige Grund,
+    // aus dem sie sich je bewegen durften. Sie standen seit dem static-Fix (OP#5) auf 104,04 bzw.
+    // 110,50000495910645 und haben seither jede Änderung überlebt, weil keine die Buchhaltung über
+    // den Fahrplan angefasst hat. Delta 19 fasst genau sie an: die Ladeverluste sind ab jetzt auf
+    // der KOSTEN-Seite verbucht (§3.7). Die neuen Werte sind nachrechenbar und stehen deshalb als
+    // RECHNUNG da, nicht als abgeschriebene Zahl aus einem Lauf:
+    //   • Eigenverbrauch: Wert einer PV-kWh 25 − 8 = 17 ct → 25 − 8/0,9 = 16,111… ct  (−5,229 %)
+    //     104,04 × (25 − 8/0,9) / 17 = 98,60
+    //   • Lastverschiebung: Aufschlag 25 − 12 = 13 ct → 25 − 12/0,9 = 11,666… ct     (−10,256 %)
+    //     110,50000495910645 × (25 − 12/0,9) / 13 = 99,16667111714679
+    // Der Fahrplan selbst ist dabei unverändert (`newBilledKw` und der Leistungspreis-Anteil
+    // stehen bit-genau wie zuvor) — es ist eine reine Bewertungsänderung, keine andere Physik.
     const dyn = computeBatterySavings(lp, battery('dynamic'), withNightWindow)
+    const eta = 0.9
     expect(dyn.newBilledKw).toBeCloseTo(40.00001907348633, 8)
     expect(dyn.leistungspreisSavingPerYear).toBeCloseTo(4999.998092651367, 6)
-    expect(dyn.selfConsumptionSavingOverCoveredPeriod).toBeCloseTo(104.04, 8)
-    expect(dyn.loadShiftSavingOverCoveredPeriod).toBeCloseTo(110.50000495910645, 8)
+    expect(dyn.selfConsumptionSavingOverCoveredPeriod).toBeCloseTo((104.04 * (25 - 8 / eta)) / 17, 8)
+    expect(dyn.selfConsumptionSavingOverCoveredPeriod).toBeCloseTo(98.6, 8)
+    expect(dyn.loadShiftSavingOverCoveredPeriod).toBeCloseTo(
+      (110.50000495910645 * (25 - 12 / eta)) / 13,
+      8,
+    )
+    expect(dyn.loadShiftSavingOverCoveredPeriod).toBeCloseTo(99.16667111714679, 8)
   })
 
   it('§3.7 Hochrechnung: das 10-Tage-Profil wird mit 36,5 auf ein Jahr gerechnet — Leistungspreis nicht', () => {
@@ -179,12 +190,14 @@ describe('§3.7 controlType (Martins Semantik, OP#5)', () => {
 
     expect(dyn.coveredDays).toBe(10)
     expect(dyn.annualizationFactor).toBe(factor)
-    expect(dyn.selfConsumptionSavingPerYear).toBe(104.04 * factor)
-    expect(dyn.loadShiftSavingPerYear).toBe(110.50000495910645 * factor)
+    // Delta 19 (Ladeverluste als Kosten): 98,60 statt 104,04 bzw. 99,16667… statt 110,50000…
+    // — die Herleitung steht im Pin-Test darüber.
+    expect(dyn.selfConsumptionSavingPerYear).toBe(98.6 * factor)
+    expect(dyn.loadShiftSavingPerYear).toBe(99.16667111714679 * factor)
     // Ratenbasiert und deshalb unskaliert — der historische Pin oben steht unverändert.
     expect(dyn.leistungspreisSavingPerYear).toBeCloseTo(4999.998092651367, 6)
     expect(dyn.totalSavingPerYear).toBeCloseTo(
-      dyn.leistungspreisSavingPerYear + (104.04 + 110.50000495910645) * factor,
+      dyn.leistungspreisSavingPerYear + (98.6 + 99.16667111714679) * factor,
       6,
     )
   })

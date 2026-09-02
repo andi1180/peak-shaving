@@ -60,6 +60,21 @@ export const tariffParamsSchema = z.object({
   timeOfUseWindows: z.array(timeOfUseWindowSchema).optional(),
   dynamicPriceProfile: z.unknown().optional(), // [v2] Spot-/dynamische Preise (Arbitrage)
   einspeiseverguetungCtPerKwh: z.number().nonnegative(),
+  /**
+   * Monatliche Grundgebühr des heutigen Stromlieferanten (netto, €/Monat) — Delta 19.
+   *
+   * ── ⚠ SIE GEHT NICHT IN DIE BATTERIE-ERSPARNIS EIN, UND DAS IST KEIN VERSEHEN ─────────────────
+   * Eine Grundgebühr ist verbrauchsUNABHÄNGIG: sie fällt mit und ohne Speicher in derselben Höhe
+   * an und kürzt sich aus jeder Ersparnis-Differenz heraus. Sie in `totalSavingPerYear` einzurechnen
+   * hiesse, eine Zahl zu verändern, an der sich nichts ändert. Ihr einziger Ort ist der
+   * TARIFVERGLEICH (§3.7.2, Monatsvergleich Ist vs. aWATTar) — dort ist sie sehr wohl relevant, weil
+   * der Kunde beim Wechsel die eine Gebühr gegen die andere tauscht.
+   *
+   * OPTIONAL mit der Bedeutung „keine Angabe" — dann wird mit 0 gerechnet. Das ist die
+   * konservative Richtung: 0 lässt den HEUTIGEN Tarif billiger aussehen als er ist und den
+   * aWATTar-Vorteil damit kleiner, nicht grösser.
+   */
+  supplierBaseFeeEurPerMonth: z.number().nonnegative().optional(),
   netzebene: z.string().optional(), // Metadatum
   benutzungsdauerModel: benutzungsdauerModelSchema.optional(),
 })

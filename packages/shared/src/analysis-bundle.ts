@@ -75,8 +75,26 @@ import type { TariffOverridableField } from './tariff-catalog'
  * voller Jahresabdeckung sind beide identisch, bei einem Teiljahres-Lastgang unterscheiden sie sich
  * um genau diesen Faktor — und der Unterschied ist keine bessere Rechnung an denselben Zahlen,
  * sondern eine Korrektur an einer Grösse, die vorher zwei verschiedene Dinge bedeuten konnte.
+ *
+ * ── FASSUNG 5 (Ladeverluste als Kosten + Grundgebühren im Tarifvergleich) ──────────────────────
+ * Die zweite Fassung, die die BEDEUTUNG bestehender Felder ändert — und sie betrifft JEDEN Kunden,
+ * nicht nur die mit Teiljahres-Lastgang.
+ *
+ * 1. `result.perBattery[].selfConsumptionSavingPerYear` und `…loadShiftSavingPerYear` (samt ihren
+ *    `…OverCoveredPeriod`-Zwillingen und allem, was daraus folgt: `totalSavingPerYear`,
+ *    `amortizationYears`, `netSavingOverHorizon`) bewerten die geladene Energie ab jetzt zum Preis
+ *    der TATSÄCHLICH BEZOGENEN Menge — also inklusive Ladeverlust (§3.7, Delta 19). Bis Fassung 4
+ *    war jede gespeicherte kWh bezahlt, als hätte sie keine Verluste verursacht; beide Töpfe waren
+ *    dadurch systematisch zu hoch, und zwar umso stärker, je schlechter der Wirkungsgrad und je
+ *    kleiner der Preisabstand zwischen Laden und Entladen. Wer 2028 eine Baseline der Fassung ≤ 4
+ *    mit einer der Fassung 5 vergleicht, vergleicht an dieser Stelle zwei verschiedene
+ *    Definitionen — nicht zwei Messungen.
+ * 2. `result.tariffOptimization.monthlyComparison` trägt zusätzlich die anteiligen GRUNDGEBÜHREN
+ *    (Netz-Jahrespauschale, Lieferant, aWATTar) — die Monatsbalken sind damit vollständige
+ *    Monatskosten und nicht mehr nur Arbeitskosten. `inputs.tariff.supplierBaseFeeEurPerMonth` hält
+ *    fest, welche Gebühr der Kunde damals angegeben hat (fehlt sie, wurde mit 0 gerechnet).
  */
-export const ANALYSIS_BUNDLE_VERSION = 4
+export const ANALYSIS_BUNDLE_VERSION = 5
 
 /**
  * Fassungen, die der Upload annimmt.
@@ -85,7 +103,7 @@ export const ANALYSIS_BUNDLE_VERSION = 4
  * worden sein, und ein Bündel unbrauchbar zu machen, das ein Mensch in der Hand hält, wäre der
  * schlechtere Handel. Bei einer älteren Fassung bleiben die jeweils neueren Felder schlicht leer.
  */
-export const SUPPORTED_ANALYSIS_BUNDLE_VERSIONS: readonly number[] = [1, 2, 3, 4]
+export const SUPPORTED_ANALYSIS_BUNDLE_VERSIONS: readonly number[] = [1, 2, 3, 4, 5]
 
 /**
  * Fassung der Rechen-Engine, VON HAND gepflegt.
@@ -96,7 +114,7 @@ export const SUPPORTED_ANALYSIS_BUNDLE_VERSIONS: readonly number[] = [1, 2, 3, 4
  *
  * Bei einer Änderung am Rechenkern, die Ergebnisse verschiebt, MITZIEHEN.
  */
-export const ENGINE_VERSION = '1.1.0-mvp'
+export const ENGINE_VERSION = '1.2.0-mvp'
 
 /**
  * Was anstelle des Commits geschrieben wird, wenn die Bauumgebung keinen kennt (lokaler
