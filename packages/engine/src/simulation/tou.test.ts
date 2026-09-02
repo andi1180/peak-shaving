@@ -336,6 +336,112 @@ describe('Delta 4 — kombinierter Intervallpreis', () => {
     expect(rateCtPerKwh[0]!).toBeGreaterThan(0)
   })
 
+  /*
+   * ── Bezugswert = TAGES-Mittel (02.09.2026) ───────────────────────────────────────────────────
+   *
+   * Die beiden Tests oben sind TAGESINVARIANT (dieselbe Preisform an jedem Tag) und würden die
+   * Umstellung vom Perioden- auf das Tages-Mittel deshalb gar nicht bemerken. Die folgenden zwei
+   * bauen ein Preismuster, das sich VON TAG ZU TAG unterscheidet — nur daran ist die Regel
+   * überhaupt messbar. Beide nennen ausdrücklich, was der alte Perioden-Bezugswert gesagt hätte:
+   * ein Test, der nur das neue Ergebnis behauptet, bliebe auch bei einem Rückfall grün.
+   *
+   * Das Netzentgelt ist hier ein FLACHER Sockel (ganztägiges Fenster, kein SNAP), damit die
+   * Schwellen von Hand nachrechenbar bleiben: kombiniert = Spotpreis + 4,50 + 1,23 = Spot + 5,73.
+   */
+  function flatGridRow(): GridTariffRowInput {
+    return {
+      validFrom: '2024-01-01',
+      validUntil: null,
+      netzverlustCtPerKwh: 1.23,
+      priceBasis: 'net',
+      windows: [
+        { label: 'normal', monthDayFrom: null, monthDayTo: null, timeFrom: '00:00:00', timeTo: '24:00:00', ctPerKwh: 4.5 },
+      ],
+    }
+  }
+
+  it('misst gegen das Mittel SEINES Kalendertags — ein billiger und ein teurer Tag nebeneinander', () => {
+    /*
+     * Zwei volle Kalendertage in Wiener Ortszeit (Start 2024-12-31T23:00Z = 01.01.2025 00:00 Wien):
+     *   Tag 1 (01.01.): Stundenpreise 10 / 20 im Wechsel  → kombiniert 15,73 / 25,73, Tagesmittel 20,73
+     *   Tag 2 (02.01.): Stundenpreise 40 / 50 im Wechsel  → kombiniert 45,73 / 55,73, Tagesmittel 50,73
+     * Perioden-Mittel über beide Tage: 35,73.
+     *
+     * ⚠ Der ALTE Bezugswert (Perioden-Mittel 35,73) hätte gesagt: der GANZE Tag 1 ist günstig
+     * (15,73 und 25,73 liegen beide darunter) und vom Tag 2 KEINE einzige Stunde. Das ist kein
+     * Ladefenster-Kriterium mehr, sondern ein Saison-Filter — genau der Befund, der zu dieser
+     * Änderung geführt hat. Die neue Regel findet in JEDEM Tag dessen billigere Hälfte.
+     */
+    const load = profile(START_UTC, 192)
+    const spot = spotSeries(START_UTC, 48, (h) => (h < 24 ? 10 : 40) + (h % 2 === 0 ? 0 : 10))
+    const pricing: TariffPricingInputs = { gridTariffRows: [flatGridRow()], spotPrices: spot }
+
+    const { rateCtPerKwh, isCheapWindow, touActive } = intervalTariffRates(load, tariff, pricing)
+    expect(touActive).toBe(true)
+
+    // Die vier Preisstufen, von Hand: Spot + 5,73.
+    expect(rateCtPerKwh[0]!).toBeCloseTo(15.73, 10) // Tag 1, billige Stunde
+    expect(rateCtPerKwh[4]!).toBeCloseTo(25.73, 10) // Tag 1, teure Stunde
+    expect(rateCtPerKwh[96]!).toBeCloseTo(45.73, 10) // Tag 2, billige Stunde
+    expect(rateCtPerKwh[100]!).toBeCloseTo(55.73, 10) // Tag 2, teure Stunde
+
+    // Tag 1: nur die billigere Hälfte. Der alte Bezugswert (35,73) hätte BEIDE als günstig gewertet.
+    expect(isCheapWindow[0]).toBe(true)
+    expect(isCheapWindow[4]).toBe(false)
+
+    // Tag 2: ebenfalls die billigere Hälfte. Der alte Bezugswert hätte hier GAR NICHTS gefunden —
+    // das ist die Stunde, in der die Batterie bisher nicht tarifbewusst geladen hat.
+    expect(isCheapWindow[96]).toBe(true)
+    expect(isCheapWindow[100]).toBe(false)
+
+    // Gegenprobe auf die Menge: genau die Hälfte aller Intervalle, nicht ein ganzer Tag.
+    const cheapCount = isCheapWindow.filter(Boolean).length
+    expect(cheapCount).toBe(96)
+    const cheapOnDayTwo = isCheapWindow.slice(96).filter(Boolean).length
+    expect(cheapOnDayTwo).toBe(48) // alte Regel: 0
+  })
+
+  it('ein Randfragment unter halber Tagesabdeckung fällt auf das PERIODEN-Mittel zurück', () => {
+    /*
+     * Der Lastgang beginnt um 18:00 Ortszeit (2025-01-01T17:00Z) und trägt für den 01.01. nur
+     * 6 Stunden = 24 von 96 Intervallen — unter der halben Tagesabdeckung. Der 02.01. ist voll.
+     *
+     *   Fragment (01.01.): 5 Stunden zu 20, eine zu 30  → eigenes Mittel 21,67 (+5,73 = 27,40)
+     *   Voller Tag (02.01.): 45 / 55 im Wechsel         → Tagesmittel 50 (+5,73 = 55,73)
+     *   Perioden-Mittel über alle 30 Stunden: 44,33 (+5,73 = 50,06)
+     *
+     * Damit misst dieser Test BEIDE Richtungen an einem einzigen Lauf:
+     *   • Die 30-ct-Stunde des Fragments ist günstig — gegen das PERIODEN-Mittel (35,73 < 50,06).
+     *     Gegen das eigene Fragment-Mittel (27,40) wäre sie NICHT günstig.
+     *   • Die 45-ct-Stunden des vollen Tages sind günstig — gegen dessen EIGENES Mittel
+     *     (50,73 < 55,73). Gegen das Perioden-Mittel (50,06) wären sie NICHT günstig.
+     * Ein Rückfall in die eine oder die andere Richtung macht also je eine Zeile rot.
+     */
+    const FRAGMENT_START = '2025-01-01T17:00:00Z' // 18:00 Ortszeit Wien
+    const load = profile(FRAGMENT_START, 120)
+    const spot = spotSeries(FRAGMENT_START, 30, (h) => {
+      if (h < 6) return h === 5 ? 30 : 20
+      return (h - 6) % 2 === 0 ? 45 : 55
+    })
+    const pricing: TariffPricingInputs = { gridTariffRows: [flatGridRow()], spotPrices: spot }
+
+    const { rateCtPerKwh, isCheapWindow } = intervalTariffRates(load, tariff, pricing)
+    expect(rateCtPerKwh[0]!).toBeCloseTo(25.73, 10) // Fragment, 20 ct
+    expect(rateCtPerKwh[20]!).toBeCloseTo(35.73, 10) // Fragment, 30 ct
+    expect(rateCtPerKwh[24]!).toBeCloseTo(50.73, 10) // voller Tag, 45 ct
+    expect(rateCtPerKwh[28]!).toBeCloseTo(60.73, 10) // voller Tag, 55 ct
+
+    // Fragment → Perioden-Mittel. Beide Stufen liegen darunter, auch die teurere.
+    expect(isCheapWindow[0]).toBe(true)
+    expect(isCheapWindow[20]).toBe(true) // eigenes Fragment-Mittel hätte `false` gesagt
+    expect(isCheapWindow.slice(0, 24).every(Boolean)).toBe(true)
+
+    // Voller Tag → eigenes Tagesmittel.
+    expect(isCheapWindow[24]).toBe(true) // Perioden-Mittel hätte `false` gesagt
+    expect(isCheapWindow[28]).toBe(false)
+    expect(isCheapWindow.slice(24).filter(Boolean).length).toBe(48)
+  })
+
   it('ohne `pricing` verhält es sich exakt wie vor B21 — statische Fenster, kein Status', () => {
     const load = profile(START_UTC, 96)
     const withNight: TariffParams = { ...tariff, energyPriceNightCtPerKwh: 12 }

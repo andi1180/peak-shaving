@@ -87,6 +87,16 @@ Umgesetzt als eine Angabe mit drei Feldern — `side` (`grid_tariff` / `spot_pri
 
 **Wichtig für die Ergebnistreue:** In allen diesen Fällen fällt die Engine ausdrücklich **nicht** auf das statische Fensterschema zurück. Sie liefert für den Hebel nichts und sagt warum — Peak Shaving und Eigenverbrauch bleiben davon unberührt (gemessen: bit-identisch zu einem Lauf ohne Hebel).
 
+### Nachtrag (02.09.2026) — der Bezugswert der Preisschwelle ist das TAGES-Mittel
+
+Der kombinierte Preis wird seit B21-3b gegen einen Durchschnitt gemessen, nicht mehr gegen `energyPriceCtPerKwh` (s. o.). Dieser Durchschnitt war bis 02.09.2026 das Mittel über den **ganzen Lastgang**; er ist jetzt das Mittel des jeweiligen **Kalendertags** (lokale Wanduhr, dieselbe Gruppierung wie `coveredMonthlyPeaksKw` §3.4/§3.5 — DST-Tage und Schaltjahre fallen dadurch von selbst richtig).
+
+**Grund:** Über eine Jahres-Preiskurve gemessen ist ein Perioden-Mittel kein Ladefenster-Kriterium, sondern ein Saison-Filter — im teuren Winter liegt fast jede Stunde darüber (nichts gilt als günstig, obwohl es auch dort billige Nächte gibt), im billigen Sommer fast jede darunter (alles gilt als günstig, auch die Tagesspitze). Der Speicher zykliert real täglich; der Bezugswert muss deshalb ebenfalls der Tag sein.
+
+**Randfall:** Ein Kalendertag mit weniger als der halben Tagesabdeckung (bei einem 15-min-Gitter: unter 48 von 96 Intervallen — ein Fragment am Anfang oder Ende des Lastgangs) fällt auf das **Perioden-Mittel** zurück, nicht auf 0 und nicht auf den Vortag: das Mittel eines Ausschnitts wäre kein Tagesmittel, und alles darin sähe je nach Ausschnitt willkürlich günstig oder teuer aus.
+
+**Es ist ausdrücklich das Tages-IST, kein kausaler Proxy** (Vortag, gleitendes Fenster). Der übrige Dispatch rechnet ohnehin mit vollem Rückblick (`searchCaps`/`computeSocFloor` sehen das ganze Periodenprofil, §3.6 „Methodische Konsequenz"); ein nur an dieser einen Stelle kausaler Bezugswert wäre halbe Kausalität ohne Wirkung. Der Vorbehalt „Bestmarke mit vollem Rückblick" (§6.2) deckt das ab und gilt unverändert. Rückgabe, Signatur von `runCombinedDispatch` und der statische Fenster-Zweig sind unberührt.
+
 **[OFFEN, nicht Teil des Bau-Prompts] LP-Lücke:** Der bestehende Mechanismus ist eine Greedy-Schwellwert-Heuristik, kein echter Optimierer. Bei zwei Preisstufen (HT/NT) unerheblich, bei 8.760 echt unterschiedlichen Stundenpreisen potenziell relevant. Die Studienzahlen (−43 % / 266 €/Jahr Haushalt, LP via scipy/HiGHS) sind **nicht** automatisch das, was diese Engine liefert. Validierung per kurzem, separatem Skript-Spike **nach** diesem Bau, nicht davor — s. Delta 11 und Delta 14 für die Konsequenz (keine Studienzahlen in Kundenkommunikation, bis geklärt).
 
 ---

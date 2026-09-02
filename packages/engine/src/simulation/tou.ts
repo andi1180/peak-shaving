@@ -301,6 +301,89 @@ function gapMessage(what: string, ranges: TariffPriceRange[]): string {
 }
 
 /**
+ * Anteil eines vollen Tages, den ein Kalendertag mindestens tragen muss, damit sein eigenes Mittel
+ * als Bezugswert taugt. Bei einem 15-min-Gitter sind das 48 von 96 Intervallen.
+ */
+const MIN_DAY_COVERAGE_RATIO = 0.5
+
+/** Lokaler Kalendertag als Schlüssel — `utcMsToLocalFields` ist DST-bewusst (s. `parser/datetime`). */
+function localDayKey(ms: number, timezoneMeta: LoadProfile['timezoneMeta']): string {
+  const { year, month, day } = utcMsToLocalFields(ms, timezoneMeta)
+  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+}
+
+/**
+ * „Günstig" = der kombinierte Preis liegt unter dem Mittel SEINES Kalendertags (lokale Wanduhr).
+ *
+ * ── ⚠ WARUM TAGES- UND NICHT PERIODEN-MITTEL ─────────────────────────────────────────────────
+ * Bis 02.09.2026 war der Bezugswert das arithmetische Mittel über den GANZEN Lastgang. Bei einer
+ * Jahres-Preiskurve ist das kein Schwellenwert für „lohnt sich das Laden", sondern im Wesentlichen
+ * ein SAISON-Filter: in einem teuren Winter liegt fast jede Stunde über dem Jahresmittel (nichts
+ * gilt als günstig, obwohl es auch dort billige Nächte gibt), in einem billigen Sommer fast jede
+ * darunter (alles gilt als günstig, auch die Tagesspitze). Die Batterie wird dadurch genau dann
+ * nicht tarifbewusst geladen, wenn der Preisabstand innerhalb des Tages am grössten ist — und im
+ * Sommer wahllos, weil die Schwelle nicht mehr unterscheidet. Der Speicher zykliert real TÄGLICH;
+ * der Bezugswert, gegen den „billig" gemessen wird, muss deshalb ebenfalls der Tag sein.
+ *
+ * Die Gruppierung läuft über die lokale Wanduhr — dieselbe Ableitung wie `coveredMonthlyPeaksKw`
+ * (§3.4/§3.5) und `buildMonthlyTariffComparison`. DST-Tage (92 bzw. 100 Intervalle) und Schaltjahre
+ * fallen dadurch von selbst richtig, ohne eine eigene Regel.
+ *
+ * ── ⚠ ES IST DAS TAGES-IST, KEIN KAUSALER PROXY (Vortag, gleitendes Fenster) ─────────────────
+ * Das Mittel eines Tages steht erst fest, wenn der Tag vorbei ist — die Schwelle „weiss" also
+ * mehr, als eine reale Steuerung um 03:00 wüsste. Das ist bewusst so: der übrige Dispatch rechnet
+ * ohnehin mit vollem Rückblick (`searchCaps`, `computeSocFloor` sehen das ganze Periodenprofil,
+ * §3.6 „Methodische Konsequenz"), und ein nur HIER kausaler Bezugswert wäre halbe Kausalität ohne
+ * Wirkung — er machte die Zahl nicht ehrlicher, nur die Begründung inkonsistent. Der Vorbehalt
+ * „Bestmarke mit vollem Rückblick" (§6.2, HINDSIGHT_NOTE im Report) deckt genau das ab und gilt
+ * unverändert weiter.
+ *
+ * ── ⚠ RANDFRAGMENTE FALLEN AUF DAS PERIODEN-MITTEL ZURÜCK, NICHT AUF 0 UND NICHT AUF DEN VORTAG ─
+ * Ein Lastgang beginnt oder endet mitten im Tag; ein solches Fragment trägt womöglich nur die
+ * teuren Nachmittagsstunden. Sein eigenes Mittel wäre dann kein Tagesmittel, sondern das Mittel
+ * eines Ausschnitts — und alles darin sähe je nach Ausschnitt willkürlich günstig oder teuer aus.
+ * Unterhalb der halben Tagesabdeckung gilt deshalb der Perioden-Durchschnitt (der bisherige
+ * Bezugswert): eine bekannte, benannte Grösse statt einer aus zu wenigen Werten gebildeten. Der
+ * Vortag scheidet aus demselben Grund aus wie oben — er wäre eine kausale Regel an genau einer
+ * Stelle eines rückblickenden Verfahrens.
+ */
+function cheapAgainstDailyMean(loadProfile: LoadProfile, rateCtPerKwh: number[]): boolean[] {
+  const count = rateCtPerKwh.length
+  const tz = loadProfile.timezoneMeta
+
+  // Perioden-Mittel: Rückfallwert für Randfragmente (und der Bezugswert von vor dem 02.09.2026).
+  let periodSum = 0
+  for (const rate of rateCtPerKwh) periodSum += rate
+  const periodMean = periodSum / (count || 1)
+
+  const intervalsPerDay = loadProfile.intervalMinutes > 0 ? (24 * 60) / loadProfile.intervalMinutes : 0
+  const minIntervals = Math.ceil(intervalsPerDay * MIN_DAY_COVERAGE_RATIO)
+
+  const dayKeys = new Array<string>(count)
+  const sums = new Map<string, number>()
+  const counts = new Map<string, number>()
+  for (let i = 0; i < count; i++) {
+    const reading = loadProfile.readings[i]
+    // Reisst die Preisreihe über die Readings hinaus (kann nur bei abweichender Reihenlänge
+    // passieren), bleibt es für diese Intervalle beim Perioden-Mittel statt bei einem geratenen Tag.
+    const key = reading ? localDayKey(Date.parse(reading.ts), tz) : ''
+    dayKeys[i] = key
+    if (!key) continue
+    sums.set(key, (sums.get(key) ?? 0) + rateCtPerKwh[i]!)
+    counts.set(key, (counts.get(key) ?? 0) + 1)
+  }
+
+  const isCheapWindow = new Array<boolean>(count)
+  for (let i = 0; i < count; i++) {
+    const key = dayKeys[i]!
+    const n = key ? (counts.get(key) ?? 0) : 0
+    const reference = n >= minIntervals && n > 0 ? sums.get(key)! / n : periodMean
+    isCheapWindow[i] = rateCtPerKwh[i]! < reference - EPS
+  }
+  return isCheapWindow
+}
+
+/**
  * Per-Intervall-Arbeitspreis + Günstig-Fenster-Flag (§3.7, Delta 4).
  *
  * ── OHNE `pricing` (Stand vor B21) ─────────────────────────────────────────────────────────────
@@ -312,12 +395,15 @@ function gapMessage(what: string, ranges: TariffPriceRange[]): string {
  * ── MIT `pricing` (Tarifoptimierungs-Hebel angefordert, B21-3b) ────────────────────────────────
  * Der Preis je Intervall ist der kombinierte (Marktpreis + Netzentgelt, s. `combinedPrices`).
  * Der Referenzpreis, gegen den „günstig" gemessen wird, ist dann NICHT mehr
- * `energyPriceCtPerKwh`, sondern das arithmetische MITTEL der kombinierten Preise über den
- * Lastgang. Das ist eine bewusste Entscheidung und keine Feinheit: der kombinierte Preis liegt
- * durch das Netzentgelt als Ganzes höher als der reine Energiepreis — gegen den alten Bezugswert
- * gemessen wäre keine einzige Stunde mehr „günstig", und die Lastverschiebung fiele still auf 0.
- * „Unterdurchschnittlich teure Stunde" ist der Begriff, den eine Preiskurve mit 8.760
- * verschiedenen Werten überhaupt zulässt.
+ * `energyPriceCtPerKwh`: der kombinierte Preis liegt durch das Netzentgelt als Ganzes höher als der
+ * reine Energiepreis — gegen den alten Bezugswert gemessen wäre keine einzige Stunde mehr
+ * „günstig", und die Lastverschiebung fiele still auf 0. „Unterdurchschnittlich teure Stunde" ist
+ * der Begriff, den eine Preiskurve mit 8.760 verschiedenen Werten überhaupt zulässt.
+ *
+ * Seit 02.09.2026 ist dieser Durchschnitt der des jeweiligen KALENDERTAGS (lokale Wanduhr), nicht
+ * mehr der des ganzen Lastgangs — samt Rückfallregel für Randfragmente. Begründung und Randfälle
+ * stehen vollständig bei `cheapAgainstDailyMean` und sind dort nachzulesen, bevor jemand die
+ * Schwelle wieder anfasst.
  *
  * ⚠ Das bleibt eine Greedy-Schwelle und ist kein Optimierer (Delta 4 „LP-Lücke", Delta 11/14):
  * bei zwei Preisstufen (HT/NT) ist der Unterschied unerheblich, bei 8.760 echt verschiedenen
@@ -352,13 +438,13 @@ export function intervalTariffRates(
     }
 
     const rateCtPerKwh = combined.prices
-    const reference = rateCtPerKwh.reduce((sum, v) => sum + v, 0) / (count || 1)
-    const isCheapWindow = new Array<boolean>(count)
+    const isCheapWindow = cheapAgainstDailyMean(loadProfile, rateCtPerKwh)
     let touActive = false
-    for (let i = 0; i < count; i++) {
-      const cheap = rateCtPerKwh[i]! < reference - EPS
-      isCheapWindow[i] = cheap
-      if (cheap) touActive = true
+    for (const cheap of isCheapWindow) {
+      if (cheap) {
+        touActive = true
+        break
+      }
     }
     return { rateCtPerKwh, isCheapWindow, touActive, tariffOptimization: { computable: true } }
   }
