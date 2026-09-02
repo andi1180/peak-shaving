@@ -165,7 +165,7 @@ export function TariffOptimizationCard({
             und Ihrem Speicher gegenüber{' '}
             <Num className="font-medium text-ink">{formatEur(totals!.current)}</Num> mit Ihrem
             heutigen Tarif — also <Num className="font-medium text-ink">{formatEur(surcharge)}</Num>{' '}
-            mehr.
+            mehr. Alle Beträge exkl. MwSt.
           </p>
           <p className="mt-2 text-text-muted">
             Die Zahl unten ist deshalb <strong>kein Grund zum Wechseln</strong>: sie sagt, was Ihre
@@ -201,7 +201,8 @@ export function TariffOptimizationCard({
           <div>
             <Num className="block text-3xl font-semibold text-positive">{formatEur(saving)}</Num>
             <p className="text-xs text-text-muted">
-              pro Jahr zusätzlich — durch Laden in günstigen und Entladen in teuren Viertelstunden
+              pro Jahr zusätzlich (exkl. MwSt.) — durch Laden in günstigen und Entladen in teuren
+              Viertelstunden
             </p>
             {/*
             §3.7-Jahres-Hochrechnung: diese Zahl IST `loadShiftSavingPerYear`, also bei einem

@@ -70,7 +70,7 @@ const SERIES = [
   },
   {
     key: 'spotWithBatteryEur',
-    label: 'aWATTar mit Ihrem Speicher',
+    label: 'aWATTar mit Ihrem Speicher (Ladung optimiert)',
     color: 'var(--color-accent)',
   },
 ] as const
@@ -145,7 +145,7 @@ export function MonthlyTariffChart({ comparison }: { comparison: MonthlyTariffCo
       <p className="mb-1 text-sm font-medium text-ink">Das zahlen Sie jetzt vs. mit aWATTar</p>
       <p className="mb-3 text-xs text-text-muted">
         Energie- und Netzkosten je Monat, inklusive Grundgebühren — Ihr Tarif, aWATTar ohne
-        Steuerung und aWATTar mit Ihrem Speicher
+        Steuerung und aWATTar mit Ihrem Speicher (Ladung optimiert). Alle Beträge exkl. MwSt.
       </p>
 
       <div className="h-64 w-full">
@@ -196,6 +196,13 @@ export function MonthlyTariffChart({ comparison }: { comparison: MonthlyTariffCo
             </span>
           </span>
         ))}
+        {/*
+          Der Netto-Hinweis steht EINMAL unter dem Summen-Block und nicht an jeder der drei Zeilen:
+          er gilt für alle drei gleichermassen, und dreimal wiederholt wäre er Lärm an genau der
+          Stelle, an der ein Leser die Beträge vergleicht. An den einzelnen Monatsbalken und im
+          Tooltip steht er bewusst gar nicht — die Chart-Unterzeile deckt sie mit ab.
+        */}
+        <span className="mt-1">Alle Beträge exkl. MwSt.</span>
       </div>
 
       {/*
