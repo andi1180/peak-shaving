@@ -93,8 +93,27 @@ import type { TariffOverridableField } from './tariff-catalog'
  *    (Netz-Jahrespauschale, Lieferant, aWATTar) — die Monatsbalken sind damit vollständige
  *    Monatskosten und nicht mehr nur Arbeitskosten. `inputs.tariff.supplierBaseFeeEurPerMonth` hält
  *    fest, welche Gebühr der Kunde damals angegeben hat (fehlt sie, wurde mit 0 gerechnet).
+ *
+ * ── FASSUNG 6 (B22: geschätzte PV-Erzeugung) ──────────────────────────────────────────────────
+ * `inputs.pvSource` sagt, ob die PV-Komponente des gerechneten Lastgangs GEMESSEN oder GESCHÄTZT
+ * war. Rein additiv wie die Fassungen 2 und 3 — und die Fassungsnummer steigt aus genau demselben
+ * Grund: `undefined` bedeutet ab Fassung 6 „keine geschätzte PV, der Lastgang ist so gemessen
+ * worden", in einer Baseline der Fassung ≤ 5 dagegen „die Unterscheidung gab es noch nicht".
+ *
+ * ⚠ Das ist keine Kosmetik. Bei geschätzter PV weist der Rechner GAR KEINE
+ * Spitzenkappungs-Ersparnis aus (`peakShavingBlockers` → `estimated_pv`), und der
+ * Eigenverbrauchs-Anteil beruht auf einem Zehn-Jahres-Mittel des EU-Dienstes PVGIS statt auf einer
+ * Messung. Wer 2028 den Wirkungsnachweis gegen eine archivierte Baseline führt, misst sonst gegen
+ * eine Zahl, deren Herkunft niemand mehr kennt — genau der Fall, den `analysis_kind` und
+ * `engine_commit_sha` für andere Dimensionen bereits verhindern.
+ *
+ * ⚠ BENANNTE LÜCKE: die AUSLEGUNG (Standort, kWp, Neigung, Ausrichtung je Modulfläche) reist
+ * NICHT mit. Das Bündel sagt damit, DASS geschätzt wurde, aber nicht, WOMIT. Das ist bewusst so
+ * gebaut und nicht vergessen — es wäre ein eigenes Feld nach der B14-1-Regel „als Werte, nie als
+ * Verweis", und es gehört in denselben Schritt, der die Auslegung auch im Report ausweist. Wer es
+ * ergänzt, erhöht die Fassung erneut.
  */
-export const ANALYSIS_BUNDLE_VERSION = 5
+export const ANALYSIS_BUNDLE_VERSION = 6
 
 /**
  * Fassungen, die der Upload annimmt.
@@ -103,7 +122,7 @@ export const ANALYSIS_BUNDLE_VERSION = 5
  * worden sein, und ein Bündel unbrauchbar zu machen, das ein Mensch in der Hand hält, wäre der
  * schlechtere Handel. Bei einer älteren Fassung bleiben die jeweils neueren Felder schlicht leer.
  */
-export const SUPPORTED_ANALYSIS_BUNDLE_VERSIONS: readonly number[] = [1, 2, 3, 4, 5]
+export const SUPPORTED_ANALYSIS_BUNDLE_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6]
 
 /**
  * Fassung der Rechen-Engine, VON HAND gepflegt.
@@ -197,6 +216,20 @@ export type AnalysisBundleInputs = {
   }
   /** Name der optionalen Brutto-PV-Datei (§3.1); `null`, wenn keine hochgeladen wurde. */
   pvFileName: string | null
+  /**
+   * B22 (Fassung 6) — war die PV-Komponente des gerechneten Lastgangs GESCHÄTZT?
+   *
+   * `'estimated'` heisst: die Erzeugungskurve stammt aus einem Zehn-Jahres-Mittel des EU-Dienstes
+   * PVGIS für Standort und Auslegung des Kunden und wurde vom Verbrauch abgezogen. Der Wert ist
+   * wortgleich `LoadProfile.pvSource` des Lastgangs, gegen den gerechnet wurde — er wird von dort
+   * ÜBERNOMMEN und nicht neben ihm geführt, damit es keine zweite Wahrheit gibt.
+   *
+   * `undefined` heisst „keine geschätzte PV" — und ausdrücklich nicht „unbekannt": der Verbrauch
+   * daneben kann sehr wohl gemessen sein (`source: 'import_only'` + geschätzte PV ist der
+   * Regelfall dieses Wegs). Genau deshalb steht es orthogonal zu `inputs.tariff`/`result` und
+   * nicht als fünfter `source`-Wert (Pflichtenheft §2.2).
+   */
+  pvSource?: 'estimated'
 
   // ── B11: Herkunft der Tarifsätze (Fassung 2) ─────────────────────────────────────────────────
   //

@@ -47,7 +47,22 @@ export function Calculator() {
 
   function handleTariff(result: TariffResult) {
     if (!load) return
-    const p: CalculatorPayload = { ...result, load }
+    /*
+     * ── B22b: DER GERECHNETE LASTGANG IST DER GEKOPPELTE ────────────────────────────────────────
+     * Hat der Nutzer eine PV-Schätzung übernommen, ist ab hier ihr Ergebnis der Lastgang: Verbrauch
+     * minus geschätzte Erzeugung, signiert, mit `pvSource: 'estimated'`. Er ersetzt das Profil im
+     * PAYLOAD und nicht im `load`-State — der behält den Stand aus Schritt 1, damit ein Rücksprung
+     * nach Schritt 2 wieder von der ungekoppelten Fassung ausgeht und die Erzeugung nicht ein
+     * zweites Mal abgezogen wird.
+     *
+     * Dateiname und Rohbytes bleiben unverändert: die Prüfsumme des Analyse-Bündels bindet die
+     * URSPRUNGSDATEI, und die ist dieselbe geblieben. Dass mit einer geschätzten PV gerechnet
+     * wurde, sagt das Bündel über `inputs.pvSource` (Fassung 6).
+     */
+    const effectiveLoad: ParsedLoad = result.estimatedPv
+      ? { ...load, profile: result.estimatedPv.profile }
+      : load
+    const p: CalculatorPayload = { ...result, load: effectiveLoad }
     setPayload(p)
     setStep(3)
     analysis.start(p) // Off-Main-Thread; komplettes AnalysisResult echt (§3.4-3.8, Prompt 4 abgeschlossen).
@@ -78,6 +93,8 @@ export function Calculator() {
               // B21-3b: nur für den ZEITRAUM der Preisabfragen (Delta 15 Regel A) — die Messwerte
               // selbst bleiben im Browser (Prinzip 4).
               loadProfile={load.profile}
+              // B22b: dieselbe Abdeckung erbt das erzeugte Brutto-PV-Profil (§3.1).
+              loadDataQuality={load.dataQuality}
               // Delta 9b-2b: vorbelegt aus dem Rechnungs-Scan, sonst `undefined` (= wie vorher).
               prefill={tariffPrefill}
               onBack={() => setStep(1)}
@@ -95,7 +112,12 @@ export function Calculator() {
             // B14-2: die Eingaben GENAU zu `displayResult` — der Hook führt beide paarweise, damit
             // ein Bündel keine Eingaben zu einem anderen Ergebnis mitschreiben kann.
             inputs={analysis.displayInputs}
-            load={load}
+            /*
+             * B22b: der Lastgang, gegen den TATSÄCHLICH gerechnet wurde — bei geschätzter PV also
+             * der gekoppelte. Report-Chart, Druck-Deckblatt und Analyse-Bündel lesen ihn; eine
+             * zweite Fassung daneben zeigte eine andere Kurve, als die Zahlen darüber beschreiben.
+             */
+            load={payload.load}
             payload={payload}
             recomputing={analysis.recomputing}
             recomputeError={analysis.recomputeError}

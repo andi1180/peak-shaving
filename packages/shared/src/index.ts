@@ -62,3 +62,12 @@ export * from './tariff-window-rules'
 // Der Kollisions-Wächter darüber: welches bestehende Fenster würde ein NEUES in welchem
 // Teilzeitraum verdrängen, mit welcher Preisänderung? Reine Berechnung, kein Anzeigetext.
 export * from './tariff-window-collision'
+// B22b: PLZ → Koordinate als statisches Codemodul (Pflichtenheft §2.3). Hier und nicht in
+// `engine`, aus demselben Grund wie `tariff-catalog`: der Rechenkern bekommt die Koordinate als
+// PARAMETER und darf die Datenschicht nicht kennen. Quelle und Lizenz stehen im Kopf der Datei —
+// die Namensnennung ist eine Lizenzbedingung und zusätzlich in der Oberfläche zu rendern.
+export * from './plz-centroids'
+// B22b: die PV-Auslegung, wie ein Mensch sie eingibt — und die EINE Stelle, an der Kompass in die
+// PVGIS-Azimut-Konvention umgerechnet wird. Die Verwechslung kostet gemessen 56 % der Ersparnis;
+// sie gehört deshalb dorthin, wo sie geprüft werden kann (`apps/website` hat keinen Testlauf).
+export * from './pv-design'

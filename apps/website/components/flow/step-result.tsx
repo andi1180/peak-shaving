@@ -240,6 +240,13 @@ export function StepResult({
              */
             existingBattery={payload.existingBattery}
             /*
+             * B22b: die Zusammenfassung der geschätzten PV-Erzeugung. Sie kommt aus dem PAYLOAD und
+             * nicht aus `load.profile.pvSource`: das Feld sagt nur, DASS geschätzt wurde — der
+             * Report-Hinweis nennt Standort, Auslegung, Wetterjahre und die an DIESER Anlage
+             * gemessene Streuung.
+             */
+            estimatedPv={payload.estimatedPv?.summary}
+            /*
              * Delta 18: die Eingangsgrössen des ANGEZEIGTEN Laufs — Bezugspunkt der Freitext-Vorschau
              * und Grundlage jeder daraus gebauten Neuberechnung. Dieselbe Quelle, aus der auch das
              * Analyse-Bündel schöpft; zwei getrennte Ableitungen liefen auseinander.

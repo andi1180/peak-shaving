@@ -47,6 +47,7 @@ import {
 } from '@/components/ui/select'
 import { NumberField } from '@/components/ui/number-field'
 import { BatteryTextPanel } from './battery-text-panel'
+import { PvDesignPanel } from './pv-design-panel'
 import { InfoHint, LabelWithInfo } from '@/components/ui/info-hint'
 import { Num } from '@/components/report/num'
 import { parseNum, percentHint } from '@/lib/form-utils'
@@ -57,7 +58,14 @@ import {
   TarifOhneLeistungsmessung,
 } from './tarif-nicht-verfuegbar'
 import { loadTariffPricing } from '@/lib/tariff-pricing'
-import type { ExistingBatteryInput, ParsedPv, TariffPrefill, TariffResult } from './types'
+import type {
+  EstimatedPvResult,
+  ExistingBatteryInput,
+  ParsedLoad,
+  ParsedPv,
+  TariffPrefill,
+  TariffResult,
+} from './types'
 
 async function readForParsing(
   file: File,
@@ -276,6 +284,7 @@ const DEVIATION_THRESHOLD = 0.1
 
 export function StepTariff({
   loadProfile,
+  loadDataQuality,
   prefill,
   onBack,
   onComplete,
@@ -286,6 +295,12 @@ export function StepTariff({
    * Regel A). Die Messwerte selbst verlassen den Browser weiterhin nicht (Prinzip 4).
    */
   loadProfile: LoadProfile
+  /**
+   * B22b: die Datenqualität DESSELBEN Lastgangs. Gebraucht wird sie ausschliesslich für das
+   * erzeugte Brutto-PV-Profil: es trägt dieselben Zeitstempel und damit dieselbe Abdeckung, und
+   * sie dort neu zu berechnen wäre eine zweite Zahl über denselben Sachverhalt.
+   */
+  loadDataQuality: ParsedLoad['dataQuality']
   onBack: () => void
   onComplete: (result: TariffResult) => void
   /**
@@ -306,6 +321,11 @@ export function StepTariff({
   const [pvName, setPvName] = useState<string | null>(null)
   const [pv, setPv] = useState<ParsedPv | null>(null)
   const [pvIssue, setPvIssue] = useState<string | null>(null)
+  /*
+   * B22b: die übernommene PV-Schätzung. `null` heisst „nicht geschätzt" — dann rechnet der Rechner
+   * Zeile für Zeile wie vor B22.
+   */
+  const [estimatedPv, setEstimatedPv] = useState<EstimatedPvResult | null>(null)
   const [errors, setErrors] = useState<Record<string, string>>({})
 
   /*
@@ -487,6 +507,13 @@ export function StepTariff({
     const outcome = parsePvProfile(await readForParsing(file))
     if (outcome.ok) {
       setPv({ fileName: file.name, profile: outcome.profile, dataQuality: outcome.dataQuality })
+      /*
+       * B22b — EINE MESSUNG SCHLÄGT EINE SCHÄTZUNG (Prinzip 1), und der Zustand muss AUSSCHLIESSEND
+       * sein: stünden beide nebeneinander, entschiede die Reihenfolge im `onComplete`, welche
+       * gilt. Wer eine gemessene Brutto-PV nachreicht, verwirft die Schätzung damit ausdrücklich —
+       * sichtbar, weil das Schätzformular an dieser Stelle verschwindet.
+       */
+      setEstimatedPv(null)
       return
     }
     setPvIssue(
@@ -601,7 +628,14 @@ export function StepTariff({
     onComplete({
       tariff: tRes.data as TariffParams,
       financial,
-      pv,
+      /*
+       * B22b: die geschätzte Brutto-PV tritt an die Stelle einer hochgeladenen Datei. Beides
+       * zugleich kann nicht vorkommen — der Generator wird bei vorhandenem PV-Profil gar nicht
+       * angeboten (s. die Verzweigung im PV-Abschnitt unten): wer ein PV-Profil hat, hat eine
+       * Anlage, und deren Wirkung steckt bereits in seinem Lastgang.
+       */
+      pv: estimatedPv ? estimatedPv.pv : pv,
+      ...(estimatedPv ? { estimatedPv } : {}),
       pvError,
       /*
        * Delta 17 Teil 2: `undefined` statt `null`, wenn nichts bestätigt wurde — dann trägt der
@@ -929,6 +963,32 @@ export function StepTariff({
         </Section>
 
         <Section title="PV-Erzeugung (optional)">
+          {/*
+            ── B22b: SCHÄTZEN ODER MESSEN, NIE BEIDES ─────────────────────────────────────────
+            Der Generator erscheint NUR, solange keine PV-Datei gelesen wurde — und das ist keine
+            Bequemlichkeit, sondern Physik: wer ein Brutto-PV-Profil hat, HAT eine Anlage, und
+            deren Erzeugung steckt bereits in seinem Lastgang (bei `import_only` unsichtbar im
+            gesenkten Bezug). Eine geschätzte Kurve zusätzlich abzuziehen zöge dieselbe Energie ein
+            zweites Mal ab. Umgekehrt bleibt der Datei-Upload sichtbar und benutzbar: eine Messung
+            schlägt eine Schätzung (Prinzip 1), und wer die Datei nachreicht, verwirft damit die
+            Schätzung ausdrücklich.
+          */}
+          {pv == null && (
+            <PvDesignPanel
+              loadProfile={loadProfile}
+              dataQuality={loadDataQuality}
+              applied={estimatedPv}
+              onApply={setEstimatedPv}
+              onClear={() => setEstimatedPv(null)}
+            />
+          )}
+          {estimatedPv && (
+            <p className="text-xs text-text-muted">
+              Sie rechnen mit einer geschätzten Erzeugung. Laden Sie ein gemessenes
+              Wechselrichter-Profil hoch, ersetzt es die Schätzung — eine Messung schlägt eine
+              Schätzung.
+            </p>
+          )}
           <FileDrop
             accept=".csv,.xlsx,.xls"
             fileName={pvName}
