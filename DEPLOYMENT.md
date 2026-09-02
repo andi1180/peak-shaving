@@ -876,6 +876,21 @@ Durchschnitt. Die Regel steht im System-Prompt (`apps/website/lib/invoice-scan/e
 `USER_PROMPT` ist mitgezogen, weil sein bisheriges „lass null, was nicht EINDEUTIG dasteht" ihr
 direkt widersprochen hätte.
 
+**⚠ OFFEN SEIT 02.09.2026 — die Grundgebühr des Lieferanten ist NEU und noch nicht an einer echten
+Rechnung gemessen.** `rates.supplierBaseFeeEurPerMonth` (Delta 19 / §3.7.3) wird ab jetzt mitgelesen
+und belegt das gleichnamige Feld in Schritt 2 vor. Geprüft ist bislang nur der prüfbare Teil
+(Schema, Auswertung, die Trennlinie in der Anweisung — `packages/shared/src/invoice-scan.test.ts`);
+es lag kein Schlüssel vor. **Worauf beim Nachmessen zu achten ist:** Auf derselben Rechnung stehen
+ZWEI verbrauchsunabhängige Pauschalen — die des LIEFERANTEN und der Grundpreis des NETZBETREIBERS —,
+und beide heissen oft wörtlich „Grundpreis". Der System-Prompt entscheidet deshalb am
+RECHNUNGSABSCHNITT (Energielieferung gegen Netznutzung), nicht am Wort. Die gefährliche Fehlleistung
+ist nicht ein leeres Feld, sondern der Netz-Posten an dieser Stelle: er sieht wie eine korrekte
+Ablesung aus und verschiebt den Monatsvergleich zugunsten des Tarifwechsels (§3.7.3 legt ihn auf
+ALLE DREI Reihen, diese Gebühr nur auf „Ihr Tarif heute"). **Beim Nachmessen also beide Beträge
+gegen das Papier halten, nicht nur einen.** Ebenfalls zu prüfen: eine als TAGESpauschale
+ausgewiesene Gebühr muss `null` bleiben, und `null` ist auch dort richtig, wo sich der Abschnitt
+nicht zuordnen lässt.
+
 **Zwei weitere Regeln stammen aus derselben Messreihe** und sind mit einer Sonde auf die ROHE
 Modellantwort ermittelt worden, nicht erraten:
 

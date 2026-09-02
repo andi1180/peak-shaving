@@ -100,6 +100,12 @@ function readFields(e: InvoiceExtraction): string[] {
   if (e.rates.energyPriceCtPerKwh != null) found.push('Arbeitspreis')
   if (e.rates.energyPriceNightCtPerKwh != null) found.push('Nachttarif')
   if (e.rates.einspeiseverguetungCtPerKwh != null) found.push('Einspeisevergütung')
+  /*
+   * Delta 19 / §3.7.3 — ausdrücklich „Ihres Lieferanten": auf der Rechnung steht daneben der
+   * gleichnamige Grundpreis des NETZBETREIBERS, und der Kunde soll an dieser Zeile erkennen
+   * können, welchen der beiden Posten wir gelesen haben.
+   */
+  if (e.rates.supplierBaseFeeEurPerMonth != null) found.push('Grundgebühr Ihres Lieferanten')
   return found
 }
 

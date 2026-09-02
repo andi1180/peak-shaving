@@ -65,6 +65,12 @@ export const INVOICE_MERGE_FIELD_LABELS: Record<InvoiceMergeFieldKey, string> = 
   energyPriceCtPerKwh: 'Arbeitspreis',
   energyPriceNightCtPerKwh: 'Nachttarif',
   einspeiseverguetungCtPerKwh: 'Einspeisevergütung',
+  /*
+   * Delta 19 / §3.7.3 — ausdrücklich „des Lieferanten": daneben steht auf jeder Rechnung der
+   * gleichnamige Grundpreis des NETZBETREIBERS, und ein blosses „Grundgebühr" liesse den Nutzer
+   * beim gemeldeten Widerspruch im Unklaren, welchen der beiden Posten er nachsehen soll.
+   */
+  supplierBaseFeeEurPerMonth: 'Grundgebühr des Lieferanten',
 }
 
 export type InvoiceMergeResult = {

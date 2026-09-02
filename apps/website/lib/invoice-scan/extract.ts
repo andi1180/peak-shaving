@@ -102,6 +102,25 @@ export type InvoiceScanOutcome =
  *
  * ⚠ Die Beispiel-Formulierungen sind branchenüblich und stammen nicht aus einer bestimmten
  * Kundenrechnung; die zwei genannten Zahlen sind erfunden.
+ *
+ * ── ⚠ DER ABSCHNITT ZU `supplierBaseFeeEurPerMonth` (02.09.2026) TRENNT ZWEI GLEICHNAMIGE POSTEN ─
+ * Delta 19 hat die Grundgebühr des Lieferanten als optionale Eingabe in Schritt 2 eingeführt
+ * (§3.7.3); der Scan liest sie ab jetzt mit. Die ganze Schwierigkeit steckt in EINER Verwechslung:
+ * Auf derselben Rechnung stehen zwei verbrauchsunabhängige Pauschalen — die des LIEFERANTEN und der
+ * Grundpreis des NETZBETREIBERS —, und beide heissen oft wörtlich „Grundpreis". Der Abschnitt sagt
+ * deshalb nicht, welches Wort zu suchen ist, sondern welcher RECHNUNGSTEIL entscheidet
+ * (Energielieferung gegen Netznutzung) — dieselbe Bauweise wie bei `meteringVariant`, wo das blosse
+ * Wort „Leistung" ebenfalls nichts beweist.
+ *
+ * Die Verwechslung ist nicht folgenlos: §3.7.3 legt den Netz-Grundpreis auf ALLE DREI Reihen des
+ * Monatsvergleichs (er kürzt sich aus jeder Differenz heraus), die Lieferanten-Gebühr dagegen nur
+ * auf „Ihr Tarif heute". Hier eingetragen verschöbe der Netz-Posten also genau die Differenz, die
+ * der Report ausweist — und zwar zugunsten des Wechsels. Der Netz-Grundpreis kommt ohnehin aus
+ * `public.grid_tariffs` (B21) und ist keine Nutzereingabe; er stünde damit doppelt.
+ *
+ * `null` bleibt ausdrücklich erlaubt und ist die richtige Antwort, wo sich der Posten nicht sicher
+ * zuordnen lässt: das Formularfeld steht auf 0, und 0 ist die konservative Richtung (§3.7.3 — sie
+ * lässt den heutigen Tarif billiger aussehen und den Wechselvorteil kleiner, nicht grösser).
  */
 const SYSTEM_PROMPT = [
   'Du liest eine österreichische Strom- oder Netzrechnung und trägst die darin ausgewiesenen',
@@ -140,8 +159,8 @@ const SYSTEM_PROMPT = [
   '  Dokument und wäre eine gerechnete Zahl, keine abgelesene.',
   '- Steht bei den Abschnitten kein Datum, sodass sich der jüngste nicht bestimmen lässt, ist das',
   '  Feld null. Nur dann.',
-  '- Das gilt für alle Zahlenfelder gleichermassen, insbesondere für Arbeitspreis, Netz-Arbeitspreis',
-  '  und Einspeisevergütung.',
+  '- Das gilt für alle Zahlenfelder gleichermassen, insbesondere für Arbeitspreis, Netz-Arbeitspreis,',
+  '  Einspeisevergütung und die Grundgebühr des Lieferanten.',
   '',
   'Vorzeichen: Gutschriften stehen auf Rechnungen mit einem Minuszeichen (die Einspeisevergütung',
   'etwa als „-9,90 ct/kWh", weil sie dem Kunden gutgeschrieben wird). Trage trotzdem den Betrag',
@@ -153,6 +172,37 @@ const SYSTEM_PROMPT = [
   'Positionen, die sich auf Einspeisung oder Erzeugung beziehen — etwa „(Rest-)Einspeisung',
   'Erzeuger" —, gehören NICHT in dieses Feld, auch dann nicht, wenn sie mit 0,00 ct/kWh ausgewiesen',
   'sind. Weist eine Rechnung gar keine Netznutzung für Bezug aus, ist das Feld null.',
+  '',
+  'supplierBaseFeeEurPerMonth — die Grundgebühr des STROMLIEFERANTEN, und nur sie:',
+  'Auf einer österreichischen Stromrechnung stehen ZWEI verbrauchsunabhängige Pauschalen',
+  'nebeneinander, und beide heissen oft fast gleich. In dieses Feld gehört ausschliesslich die des',
+  'LIEFERANTEN (Vertrieb, Energielieferant) — die des NETZBETREIBERS gehört NICHT hinein, auch dann',
+  'nicht, wenn beide auf derselben Seite stehen.',
+  '',
+  'GEHÖRT hinein — die Pauschale aus dem Abschnitt Energielieferung/Stromlieferung, also dem Teil',
+  'mit dem Namen deines Lieferanten. Typische Bezeichnungen:',
+  '  „Grundpreis", „Grundentgelt", „Grundgebühr", „Basispreis", „Fixentgelt", „Servicepauschale",',
+  '  „Monatspauschale" — jeweils unter Energie/Lieferung/Vertrieb ausgewiesen.',
+  '',
+  'GEHÖRT NICHT hinein — alles aus dem Abschnitt Netz/Netznutzung/Netzbetreiber, auch wenn dort',
+  'dasselbe Wort steht:',
+  '  „Netz-Grundpreis", „Grundpreis Netznutzung", „Netzgrundentgelt", „Netzbereitstellungsentgelt",',
+  '  „Messentgelt", „Entgelt für Messleistungen", „Zählermiete", „Netzverlustentgelt",',
+  '  „Netznutzungsentgelt". Ebenso wenig der Leistungspreis (Euro je kW und Jahr) — der hat sein',
+  '  eigenes Feld — und keine Steuer oder Abgabe (Elektrizitätsabgabe, Ökostrompauschale,',
+  '  Gebrauchsabgabe, Umsatzsteuer).',
+  '',
+  'Zur Entscheidung:',
+  '- Das blosse Wort „Grundpreis" oder „Grundentgelt" sagt für sich NICHTS. Entscheidend ist, unter',
+  '  welchem Abschnitt der Posten steht: Energielieferung heisst Lieferant, Netznutzung heisst',
+  '  Netzbetreiber.',
+  '- Lässt sich das nicht sicher zuordnen — etwa weil die Rechnung nur eine Summe ohne Abschnitte',
+  '  ausweist —, ist das Feld null. Rate NICHT und nimm NICHT die einzige Pauschale, die du findest.',
+  '- Die Einheit ist Euro je MONAT. Steht die Gebühr als Jahresbetrag da und ist der Bezugszeitraum',
+  '  eindeutig, rechne ÷12. Steht sie als TAGESpauschale (etwa „0,082500 /d"), ist das Feld null —',
+  '  eine Tagespauschale auf den Monat zu rechnen verlangte eine Monatslänge, die nirgends dasteht.',
+  '- Findet die Rechnung gar keine Grundgebühr des Lieferanten, ist das Feld null. Trage nicht 0',
+  '  ein, um „keine gefunden" auszudrücken — 0 hiesse „es gibt sie und sie beträgt null".',
   '',
   'meteringVariant — wie du sie erkennst:',
   'Österreichische Rechnungen schreiben diese Wörter NIE so hin, wie das Schema sie nennt. Sie',
