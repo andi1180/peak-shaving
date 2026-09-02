@@ -366,6 +366,82 @@ export default tseslint.config(
     },
   },
   {
+    /*
+     * Delta 17 nachgezogen — das Verzeichnis-Muster gegen die RELATIVE Schreibweise, das hier bis
+     * jetzt gefehlt hat: `paths` erfasst nur die Alias-Form (`@/lib/…`), ein Nachbar im selben
+     * Verzeichnis erreicht den Client über `./ai-client` trotzdem. Genau das war die in Delta 17
+     * gemessene Lücke.
+     *
+     * ⚠ ABWEICHUNG vom Muster in `battery-text`/`report-request`: dort liegt die Längengrenze in
+     * einem eigenen `limits.ts`, und die Sperre kostet deshalb nichts. Hier gibt es kein
+     * `limits.ts` — die Server Action daneben zieht `MAX_INVOICE_FILE_BYTES` real aus
+     * `./ai-client`, ein pauschales Muster machte den eigenen Bestand rot. Gesperrt ist deshalb
+     * alles AUSSER genau dieser Konstante: was den Schlüssel anfasst
+     * (`createInvoiceScanClient`, `INVOICE_SCAN_MODEL`), ist auch relativ nicht mehr erreichbar,
+     * und ein `import * as` fällt ebenfalls durch. Die saubere Endform bleibt, die Konstante in
+     * ein eigenes Modul ohne Schlüsselzugriff zu lösen — dann entfällt `allowImportNames`.
+     */
+    files: ['apps/website/lib/invoice-scan/**/*.ts'],
+    ignores: ['apps/website/lib/invoice-scan/extract.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: '@/lib/report-gate/service-role',
+              message:
+                'Der Rechnungs-Scan braucht keine Datenbank. Der eine erlaubte Ort für den ' +
+                'service_role-Client ist apps/website/lib/report-gate/store.ts.',
+            },
+            {
+              name: '@/lib/invoice-scan/ai-client',
+              message:
+                'Der KI-Client des Rechnungs-Scans gehört ausschließlich nach ' +
+                'apps/website/lib/invoice-scan/extract.ts — auch die Server Action daneben soll ' +
+                'sich ihren Zugang nicht selbst bauen können.',
+            },
+            {
+              name: '@/lib/upload-classification/ai-client',
+              message:
+                'Der KI-Client der Dokument-Zuordnung gehört ausschließlich nach ' +
+                'apps/website/lib/upload-classification/extract.ts.',
+            },
+            {
+              name: '@/lib/battery-text/ai-client',
+              message:
+                'Der KI-Client der Batterie-Erfassung gehört ausschließlich nach ' +
+                'apps/website/lib/battery-text/extract.ts.',
+            },
+            {
+              name: '@/lib/report-request/ai-client',
+              message:
+                'Der KI-Client der Report-Anfrage gehört ausschließlich nach ' +
+                'apps/website/lib/report-request/extract.ts.',
+            },
+            {
+              name: '@/lib/pv-design-scan/ai-client',
+              message:
+                'Der KI-Client des PV-Auslegungs-Scans gehört ausschließlich nach ' +
+                'apps/website/lib/pv-design-scan/extract.ts.',
+            },
+          ],
+          patterns: [
+            {
+              group: ['./ai-client', '../invoice-scan/ai-client'],
+              allowImportNames: ['MAX_INVOICE_FILE_BYTES'],
+              message:
+                'Auch relativ nicht: der KI-Client des Rechnungs-Scans gehört ausschließlich ' +
+                'nach apps/website/lib/invoice-scan/extract.ts. Erlaubt bleibt allein die ' +
+                'Grössenkonstante MAX_INVOICE_FILE_BYTES, die die Server Action braucht — ' +
+                'solange es hier kein limits.ts gibt.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
     files: ['apps/website/lib/invoice-scan/extract.ts'],
     rules: {
       'no-restricted-imports': [
@@ -771,18 +847,91 @@ export default tseslint.config(
   },
   {
     /*
+     * B22c nachgezogen — dasselbe Verzeichnis-Muster gegen die RELATIVE Schreibweise wie bei
+     * `invoice-scan`, und aus demselben Grund: `paths` erfasst nur die Alias-Form (`@/lib/…`),
+     * ein Nachbar im selben Verzeichnis erreicht den Client über `./ai-client` trotzdem.
+     *
+     * ⚠ Auch hier gibt es kein `limits.ts` — die Server Action daneben zieht
+     * `MAX_PV_DESIGN_FILE_BYTES` real aus `./ai-client`. Gesperrt ist deshalb alles AUSSER genau
+     * dieser Konstante: was den Schlüssel anfasst (`createPvDesignScanClient`,
+     * `PV_DESIGN_SCAN_MODEL`), ist auch relativ nicht mehr erreichbar, und ein `import * as`
+     * fällt ebenfalls durch. Die saubere Endform bleibt, die Konstante für BEIDE Verzeichnisse in
+     * ein eigenes Modul ohne Schlüsselzugriff zu lösen — dann entfällt `allowImportNames`.
+     */
+    files: ['apps/website/lib/pv-design-scan/**/*.ts'],
+    ignores: ['apps/website/lib/pv-design-scan/extract.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: '@/lib/report-gate/service-role',
+              message:
+                'Der PV-Auslegungs-Scan braucht keine Datenbank. Der eine erlaubte Ort für den ' +
+                'service_role-Client ist apps/website/lib/report-gate/store.ts.',
+            },
+            {
+              name: '@/lib/invoice-scan/ai-client',
+              message:
+                'Der KI-Client des Rechnungs-Scans gehört ausschließlich nach ' +
+                'apps/website/lib/invoice-scan/extract.ts.',
+            },
+            {
+              name: '@/lib/upload-classification/ai-client',
+              message:
+                'Der KI-Client der Dokument-Zuordnung gehört ausschließlich nach ' +
+                'apps/website/lib/upload-classification/extract.ts.',
+            },
+            {
+              name: '@/lib/battery-text/ai-client',
+              message:
+                'Der KI-Client der Batterie-Erfassung gehört ausschließlich nach ' +
+                'apps/website/lib/battery-text/extract.ts.',
+            },
+            {
+              name: '@/lib/report-request/ai-client',
+              message:
+                'Der KI-Client der Report-Anfrage gehört ausschließlich nach ' +
+                'apps/website/lib/report-request/extract.ts.',
+            },
+            {
+              name: '@/lib/pv-design-scan/ai-client',
+              message:
+                'Der KI-Client des PV-Auslegungs-Scans gehört ausschließlich nach ' +
+                'apps/website/lib/pv-design-scan/extract.ts — auch die Server Action daneben ' +
+                'soll sich ihren Zugang nicht selbst bauen können.',
+            },
+          ],
+          patterns: [
+            {
+              group: ['./ai-client', '../pv-design-scan/ai-client'],
+              allowImportNames: ['MAX_PV_DESIGN_FILE_BYTES'],
+              message:
+                'Auch relativ nicht: der KI-Client des PV-Auslegungs-Scans gehört ausschließlich ' +
+                'nach apps/website/lib/pv-design-scan/extract.ts. Erlaubt bleibt allein die ' +
+                'Grössenkonstante MAX_PV_DESIGN_FILE_BYTES, die die Server Action braucht — ' +
+                'solange es hier kein limits.ts gibt.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    /*
      * B22c — die SECHSTE Ausnahmedatei, und sie tauscht die Regel ebenfalls, statt sie
      * abzuschalten: der PV-Auslegungs-Scan darf seinen EIGENEN KI-Client ziehen und weder den
      * service_role-Client noch einen der vier anderen.
      *
-     * ⚠ ES GIBT HIER BEWUSST KEIN VERZEICHNIS-MUSTER GEGEN DIE RELATIVE SCHREIBWEISE
-     * (`./ai-client`), anders als bei `battery-text` und `report-request`. Der Grund ist derselbe,
-     * aus dem er bei `invoice-scan` fehlt: die Server Action daneben zieht ihre Grössen-Konstante
-     * real aus `./ai-client` (es gibt kein `limits.ts`, s. Kopf von
-     * `lib/pv-design-scan/ai-client.ts`), ein Muster machte den eigenen Bestand rot. Die in
-     * Delta 17 gemessene Lücke besteht damit für dieses Verzeichnis genauso fort wie für
-     * `lib/invoice-scan` — sie zu schliessen heisst, die Konstante für BEIDE in ein eigenes Modul
-     * ohne Schlüsselzugriff zu lösen, und das ist ein eigener Schritt.
+     * ⚠ NACHGETRAGEN: das Verzeichnis-Muster gegen die RELATIVE Schreibweise (`./ai-client`) steht
+     * jetzt im Block darüber — für `invoice-scan` ebenso. Es gibt hier weiterhin kein `limits.ts`,
+     * die Server Action daneben zieht ihre Grössen-Konstante real aus `./ai-client`; gesperrt ist
+     * deshalb alles AUSSER dieser einen Konstante (`allowImportNames`), womit der
+     * schlüsselführende Teil des Moduls auch relativ unerreichbar ist. Die in Delta 17 gemessene
+     * Lücke ist damit geschlossen, die saubere Endform bleibt aber offen: die Konstante für BEIDE
+     * Verzeichnisse in ein eigenes Modul ohne Schlüsselzugriff zu lösen — dann entfällt
+     * `allowImportNames`, und das ist ein eigener Schritt.
      */
     files: ['apps/website/lib/pv-design-scan/extract.ts'],
     rules: {
