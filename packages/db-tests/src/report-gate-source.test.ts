@@ -67,7 +67,7 @@ describe('Delta 16b — Herkunft, Zweck und Wortlaut existieren', () => {
     expect(rows[0]?.requires).toBe(false)
   })
 
-  it('es gibt genau eine deutsche Textfassung, und sie ist als Arbeitsstand gekennzeichnet', async () => {
+  it('die jüngste deutsche Textfassung trägt KEINE interne Review-Markierung mehr', async () => {
     const rows = await sql<{ version: number; body: string }>(
       `select version, body from platform.consent_texts
         where purpose = $1::platform.consent_purpose and locale = 'de'
@@ -75,15 +75,36 @@ describe('Delta 16b — Herkunft, Zweck und Wortlaut existieren', () => {
       [REPORT_GATE_CONSENT_PURPOSE],
     )
 
-    expect(rows.length).toBeGreaterThanOrEqual(1)
+    expect(rows.length).toBeGreaterThanOrEqual(2)
     /*
-     * Der Wortlaut ist juristisch UNGEPRÜFT (Fahrplan §7, Owner Martin) und trägt seine
-     * Kennzeichnung IM TEXT — nicht nur im Migrationskommentar. `consent_texts` ist append-only:
-     * ein ungekennzeichneter Platzhalter sähe im Bestand ununterscheidbar aus wie ein geprüfter
-     * Text und liesse sich nicht mehr korrigieren, sondern nur noch durch eine Fassung 2 ergänzen.
-     * Diese Prüfung ist deshalb bewusst hart — sie fällt, sobald jemand einen echten Rechtstext
-     * einsetzt, und genau dann ist sie mit der Fassungsnummer gemeinsam zu aktualisieren.
+     * ⚠ DIESE PRÜFUNG HAT IHR VORZEICHEN GEWECHSELT, UND ZWAR BEWUSST.
+     *
+     * Bis 02.09.2026 stand hier das Gegenteil: die Fassung MUSSTE „[MARTIN: Copy / rechtlich" im
+     * Body tragen, damit ein ungeprüfter Platzhalter im append-only-Bestand als solcher erkennbar
+     * bleibt. Gemessen wurde damit aber die falsche Stelle: der Body ist KUNDENTEXT — er steht im
+     * Report-Download-Dialog neben der Ankreuzmöglichkeit. Die Markierung war also nicht für uns
+     * sichtbar, sondern für den Kunden, und sie stand mitten in seiner Einwilligungserklärung.
+     *
+     * Der Vorbehalt ist damit nicht verschwunden, er steht jetzt dort, wo er hingehört: im Kopf der
+     * Migration und in `Fahrplan_2026.md` §7 (Owner Martin). Kommt die geprüfte Fassung, ist sie
+     * eine version 3 — und diese Prüfung bleibt dann unverändert richtig.
      */
+    expect(rows[0]?.body).not.toContain('[MARTIN')
+    expect(rows[0]?.body.startsWith('Ich willige ein, dass die COOLiN ENERGY GmbH')).toBe(true)
+  })
+
+  it('die ältere Fassung bleibt unangetastet — append-only ist der Nachweis', async () => {
+    /*
+     * Fassung 1 belegt weiterhin korrekt, was denjenigen angezeigt wurde, die sie gesehen haben.
+     * Ein UPDATE darauf änderte rückwirkend den Wortlaut, dem bereits erfasste Leads zugestimmt
+     * haben — genau das verhindert `reject_consent_text_mutation` (B1-1). Der Test hält fest, dass
+     * die Korrektur als NEUE Zeile kam und nicht als Bearbeitung.
+     */
+    const rows = await sql<{ body: string }>(
+      `select body from platform.consent_texts
+        where purpose = $1::platform.consent_purpose and locale = 'de' and version = 1`,
+      [REPORT_GATE_CONSENT_PURPOSE],
+    )
     expect(rows[0]?.body).toContain('[MARTIN: Copy / rechtlich')
   })
 })

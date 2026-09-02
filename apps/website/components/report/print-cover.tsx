@@ -69,8 +69,11 @@ export function PrintCover({
      */
     <div className="hidden print:block print:break-after-page">
       <div className="flex min-h-[60vh] flex-col justify-center">
-        <p className="text-sm font-semibold uppercase tracking-[0.2em] text-accent">COOLiN</p>
-        <h1 className="mt-6 text-4xl font-semibold leading-tight text-ink">Peak-Shaving-Analyse</h1>
+        {/*
+          Die Marke steht seit der wiederkehrenden Kopfzeile (`print-frame.tsx`) auf JEDER Seite —
+          eine zusätzliche „COOLiN"-Zeile unmittelbar darunter nannte sie auf dem Deckblatt zweimal.
+        */}
+        <h1 className="text-4xl font-semibold leading-tight text-ink">Peak-Shaving-Analyse</h1>
         <p className="mt-3 max-w-prose text-base text-text-muted">
           Wirtschaftlichkeitsbetrachtung eines Batteriespeichers auf Basis Ihres
           Viertelstunden-Lastgangs

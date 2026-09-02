@@ -33,6 +33,23 @@
   --color-on-accent: #ffffff;
 
   /*
+   * MARKENANKER COOLiN — Navy. NICHT White-Label-überschreibbar und ausdrücklich KEIN UI-Ton.
+   *
+   * Der Kalkulator ist ein Werkzeug und braucht keinen Markenanker (DESIGN.md: „Ein Akzent, nicht
+   * drei") — die Bildschirmoberfläche benutzt diesen Ton deshalb nirgends. Er existiert für GENAU
+   * EINEN Zweck: die Kopf-/Fusszeile des Druck-Reports (`components/report/print-frame.tsx`). Ein
+   * Blatt, das ein Installateur beim Kunden dalässt, trägt COOLiNs Marke und nicht die
+   * White-Label-Akzentfarbe eines Mandanten — deshalb hängt der Balken bewusst NICHT an
+   * `--color-accent`.
+   *
+   * ⚠ WERT WORTGLEICH AUS `apps/web/DESIGN.md` bzw. `apps/web/app/globals.css` (dort der
+   * Bestandston aus `reference/favicon.png`). Nicht frei gewählt und nicht neu gemischt: derselbe
+   * Balken erscheint auf coolin.at, und zwei Blautöne nebeneinander wären zwei Marken.
+   */
+  --color-navy: #18336f; /* Wortmarke, Emblem-Grund — hier: Druck-Kopfzeile */
+  --color-on-navy: #ffffff;
+
+  /*
    * shadcn/ui-Bridge — mappt die shadcn-Konvention (bg-primary, text-muted-foreground …)
    * auf die DESIGN.md-Tokens oben. KEIN eigenes Theme: nur Aliasse, damit die Primitives
    * unverändert unsere Wahrheit rendern und `shadcn add` später weiter funktioniert.
@@ -97,7 +114,17 @@
     print-color-adjust: exact;
   }
   @page {
-    margin: 14mm 12mm;
+    /* Unten mehr Rand: dort läuft die wiederkehrende Fusszeile (s. `print-frame.tsx`). */
+    margin: 12mm 12mm 10mm;
+  }
+
+  /*
+   * Höhe der wiederkehrenden Fusszeile — EINE Zahl für zwei Stellen: den sichtbaren, fixierten
+   * Block UND den `<tfoot>`-Platzhalter, der im Fluss genau so viel Raum freihält. Liefen die
+   * beiden auseinander, liefe entweder Text unter die Fusszeile oder es bliebe eine Lücke.
+   */
+  :root {
+    --print-footer-h: 11mm;
   }
 
   /*
@@ -146,5 +173,69 @@
      eigenem Seitenrand ist das doppelter Rand. */
   main {
     padding-top: 0;
+  }
+
+  /*
+   * ⚠ RECHARTS MISST SICH BEIM DRUCK NICHT NEU — und das ist der Grund für die zwei Regeln hier.
+   *
+   * `ResponsiveContainer` liest die Breite EINMAL, beim Rendern am Bildschirm, und schreibt sie als
+   * Inline-Breite an den Wrapper und als `width`-Attribut ans SVG. Ein Druckvorgang legt die Seite
+   * neu um, lässt React aber nicht neu rendern (weder `window.print()` noch die Druck-Vorschau tun
+   * das). Ein Chart, der am Bildschirm über die volle Breite (~1150 px) läuft, behält seine 1150 px
+   * auch auf einem A4-Blatt mit rund 700 px Inhaltsbreite — und wird am rechten Blattrand
+   * ABGESCHNITTEN. Am 02.09.2026 im echten PDF gemessen: die Grenznutzen-Kurve verlor ihre rechte
+   * Achsenbeschriftung und ihren Achsentitel.
+   *
+   * Recharts setzt am `<svg>` eine `viewBox` — es genügt deshalb, den Wrapper auf die verfügbare
+   * Breite zu deckeln; die Zeichnung skaliert von selbst proportional mit. Charts, die ohnehin
+   * schmaler als die Seite sind, bleiben unberührt (`max-width` deckelt nur nach oben).
+   *
+   * ⚠ DIE ERSTE REGEL SIEHT ÜBERFLÜSSIG AUS UND IST DER EIGENTLICHE HEBEL. Recharts v3 baut
+   * zwischen `.recharts-responsive-container` und `.recharts-wrapper` einen Innen-`div` mit
+   * `width: 0; height: 0; overflow: visible` (die Messkonstruktion, mit der es die Elternbreite
+   * ermittelt). Eine prozentuale Begrenzung am Wrapper bezieht sich auf genau diesen Kasten und
+   * ergibt damit NULL — am 02.09.2026 gemessen: mit `max-width: 100%` allein verschwand die
+   * Grenznutzen-Kurve im PDF vollständig (Wrapper-Breite 0 px). Der Innen-`div` bekommt hier
+   * deshalb seine echte Breite zurück; erst dann greift die Begrenzung darunter.
+   *
+   * `!important` ist hier nötig und nicht Bequemlichkeit: die 0 steht als INLINE-Stil am Element,
+   * und ein Stylesheet schlägt einen Inline-Stil sonst nicht.
+   */
+  .recharts-responsive-container > div {
+    width: 100% !important;
+  }
+  /*
+   * ⚠ `width` UND NICHT `max-width` — der Unterschied ist am echten PDF gemessen und hat einen
+   * zweiten, unerwarteten Grund: die Inline-Breite des Wrappers (am Bildschirm z. B. 1054 px) geht
+   * als MINDESTINHALTSBREITE in die Berechnung des Druck-Rahmens ein. Der Rahmen ist eine
+   * `<table>` (s. `print-frame.tsx`), und eine Tabelle wird nie schmaler als ihr Mindestinhalt —
+   * die gesamte Seite wurde dadurch rund 90 px breiter als der Satzspiegel, und der Report lief
+   * rechts über den Blattrand hinaus (die Beträge der Empfehlungskarte waren abgeschnitten).
+   * `max-width` deckelt die tatsächliche Breite, nimmt den Druck aber nicht heraus; erst eine
+   * ersetzte `width` tut das.
+   *
+   * Charts, die schmaler als die Seite sind, werden dadurch NICHT verzerrt: das SVG behält über
+   * seine `viewBox` und `preserveAspectRatio` sein Seitenverhältnis und steht dann zentriert im
+   * breiteren Kasten.
+   */
+  .recharts-wrapper {
+    width: 100% !important;
+  }
+
+  /*
+   * Kompaktere Fassung für Abschnitte, die auf Papier sonst zwei Drittel eines Blattes belegen
+   * (heute: der Einblicks-Abschnitt „Wann lädt der Speicher / zu welchem Preis").
+   *
+   * ⚠ `zoom` und NICHT `transform: scale()`: `scale` verkleinert nur die Darstellung und lässt den
+   * Platz stehen — es entstünde genau die Lücke, die hier weg soll. `zoom` verkleinert den
+   * Layout-Kasten selbst und wird beim Seitenumbruch mitgerechnet. Der massgebliche Export-Weg ist
+   * Chromium (`window.print()`), dort ist das Verhalten gemessen.
+   *
+   * Es ist bewusst EIN Massstab für den ganzen Abschnitt und keine Sammlung kleinerer Schriftgrade:
+   * die eine Hälfte ist ein CSS-Raster, die andere ein Recharts-SVG mit fester Pixelgrösse — nur
+   * der Massstab trifft beide gleich, und nur so bleiben sie zueinander in Proportion.
+   */
+  .print-compact {
+    zoom: 0.85;
   }
 }

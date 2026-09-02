@@ -405,9 +405,17 @@ export function Report({
    * nicht mehr lesen kann. Der Kasten steht deshalb an der Stelle, die der Kostenvergleich im
    * Bestandsfall freigemacht hat (erster Eintrag dieses Rasters), nimmt aber die volle Breite.
    * Im Druck ist das Raster ohnehin einspaltig (`print:grid-cols-1`).
+   *
+   * ⚠ `print:col-span-1` IST NICHT REDUNDANT, SONDERN DER FIX EINES GEMESSENEN DRUCKFEHLERS
+   * (02.09.2026, am echten PDF): A4 minus Rand sind rund 700 px — dort ist `sm:` (640 px) noch
+   * AKTIV, `sm:col-span-2` galt also auch im Druck. Ein Element, das zwei Spalten überspannt,
+   * erzeugt in einem einspaltigen Raster eine zweite, IMPLIZITE Spalte; das Raster wurde dadurch
+   * breiter als das Blatt, und die beiden folgenden Kästen (Energiefluss, „Nächster Schritt")
+   * rutschten übereinander und über den linken Blattrand hinaus — beide Textblöcke waren
+   * übereinander lesbar. Die Spaltenzahl allein zu ändern genügt hier nicht; die Spanne muss mit.
    */
   const monthlyTariffBox = monthlyComparison ? (
-    <div className="sm:col-span-2">
+    <div className="sm:col-span-2 print:col-span-1">
       <MonthlyTariffChart comparison={monthlyComparison} />
     </div>
   ) : null
@@ -482,7 +490,14 @@ export function Report({
   const dispatchInsightSection =
     primaryEntry && (hourFlow || chargePrice) ? (
       <section
-        className="grid gap-6 lg:grid-cols-2 print:grid-cols-1"
+        /*
+         * `print-compact` (globals.css): beide Kästen im Druck um 15 % verkleinert. Am Bildschirm
+         * stehen sie nebeneinander, im Druck untereinander über die volle Blattbreite — in
+         * Originalgrösse belegten sie dort je rund zwei Drittel einer Seite und schoben den Rest
+         * des Reports über zwei fast leere Blätter. Der Massstab ist der einzige Hebel, der beide
+         * gemeinsam trifft: die Heatmap ist ein CSS-Raster, der Preis-Chart ein Recharts-SVG.
+         */
+        className="print-compact grid gap-6 lg:grid-cols-2 print:grid-cols-1"
         data-testid="dispatch-einblick"
       >
         {hourFlow && (
