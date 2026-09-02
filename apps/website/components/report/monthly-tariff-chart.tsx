@@ -108,8 +108,15 @@ function MonthTooltip({
   )
 }
 
-/** Summe über die belegten Monate — `null`-Monate tragen nichts bei (sie sind keine 0). */
-function sumCovered(values: (number | null)[]): number {
+/**
+ * Summe über die belegten Monate — `null`-Monate tragen nichts bei (sie sind keine 0).
+ *
+ * ⚠ EXPORTIERT, WEIL ES EINEN ZWEITEN KONSUMENTEN GIBT: `tariff-optimization-card.tsx` entscheidet
+ * an genau diesen Summen, ob es vor der Karte warnt (02.09.2026). Ein zweites Mal ausgeschrieben
+ * könnten Legende und Warnung auseinanderlaufen — und dann stünde im selben Report eine Warnung
+ * über Zahlen, die daneben anders summiert dastehen.
+ */
+export function sumCovered(values: (number | null)[]): number {
   return values.reduce<number>((sum, v) => (v == null ? sum : sum + v), 0)
 }
 
