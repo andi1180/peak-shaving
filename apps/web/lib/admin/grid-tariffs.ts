@@ -14,7 +14,14 @@
  * unterscheidet die Seite an `res.error` — es gibt keinen Zwischenzustand, den ein Leser abfangen
  * müsste.
  */
-import { NETZBETREIBER_IDS, NETZBETREIBER_LABELS, type NetzbetreiberId } from 'shared'
+import {
+  NETZBETREIBER_IDS,
+  NETZBETREIBER_LABELS,
+  findWindowCollisions,
+  type GridTariffWindowInput,
+  type NetzbetreiberId,
+  type WindowCollision,
+} from 'shared'
 import { formatDate } from './format'
 
 /** Basispfad des Abschnitts — ohne Locale-Präfix, wie der ganze Admin-Bereich. */
@@ -126,6 +133,8 @@ export type GridTariffRateWindowRow = {
   time_from: string
   time_to: string
   ct_per_kwh: number
+  /** B21-2d: Freitext für Menschen — geht in keine Berechnung ein. */
+  note: string | null
 }
 
 /** Eine Tarifzeile mit ihren Zeitfenstern — die Einheit, in der die Seite denkt. */
@@ -310,5 +319,112 @@ export function deleteConfirmText(
     `Grundpreis ${row.grundpreis_amount} ${grundpreisUnitLabel(row.grundpreis_unit)} · ${fenster}\n\n` +
     'Die Zeile und ihre Zeitfenster werden entfernt. Ein vollständiger Abzug bleibt im ' +
     'Löschprotokoll erhalten.'
+  )
+}
+
+// ── Kollisions-Wächter (B21-2d) ──────────────────────────────────────────────────────────────────
+//
+// ── ⚠ WARUM DIE REGEL AUS `shared` KOMMT UND NICHT HIER STEHT ───────────────────────────────────
+// Welches Zeitfenster zu einem Zeitpunkt gilt, entscheidet der Rechenkern (`packages/engine`) über
+// `selectRateWindow` — dieselbe Funktion, die `shared/tariff-window-rules.ts` bereitstellt. Eine
+// hier nachgebaute Auslegung wäre eine ZWEITE Regel: Die Warnung sagte dann etwas anderes, als der
+// Kalkulator später rechnet, und der Admin bekäme eine Zusage, die niemand hält. Dieses Modul
+// FORMULIERT den Befund, es ermittelt ihn nicht.
+
+/** Eine gespeicherte Fensterzeile in der Form, in der die Auswahlregel sie liest. */
+export function toWindowInput(row: GridTariffRateWindowRow): GridTariffWindowInput {
+  return {
+    label: row.label,
+    monthDayFrom: row.month_day_from,
+    monthDayTo: row.month_day_to,
+    timeFrom: row.time_from,
+    timeTo: row.time_to,
+    ctPerKwh: row.ct_per_kwh,
+  }
+}
+
+/** Die Rohwerte des Formulars, wie sie im Browser stehen — alle als Zeichenkette. */
+export type RateWindowDraft = {
+  label: string
+  monthDayFrom: string
+  monthDayTo: string
+  timeFrom: string
+  timeTo: string
+  ctPerKwh: string
+}
+
+const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$|^24:00$/
+const MONTH_DAY_RE = /^(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/
+
+/**
+ * Ein noch unvollständiges Formular ergibt `null` — dann gibt es nichts zu prüfen.
+ *
+ * ⚠ Die Prüfungen sind bewusst DIESELBEN Muster wie in `gridTariffWindowSchema`, und sie sind
+ * absichtlich streng: Aus einer halb getippten Uhrzeit („1") entstünde sonst ein Fenster, dessen
+ * gemeldete Verdrängung mit dem nichts zu tun hat, was der Admin gleich abschickt. Lieber KEINE
+ * Warnung als eine über ein Fenster, das so nie angelegt wird — die Warnung ist eine Auskunft über
+ * den fertigen Eintrag, keine Tipp-Begleitung.
+ */
+export function draftToWindowInput(draft: RateWindowDraft): GridTariffWindowInput | null {
+  const timeFrom = draft.timeFrom.trim()
+  const timeTo = draft.timeTo.trim()
+  if (!TIME_RE.test(timeFrom) || !TIME_RE.test(timeTo)) return null
+
+  const ct = Number(draft.ctPerKwh.trim().replace(',', '.'))
+  if (!Number.isFinite(ct) || ct < 0 || draft.ctPerKwh.trim() === '') return null
+
+  const from = draft.monthDayFrom.trim()
+  const to = draft.monthDayTo.trim()
+  // Eine halb angegebene Saison ist keine Angabe (dieselbe Regel wie `requireSeasonPair`).
+  if ((from === '') !== (to === '')) return null
+  if (from !== '' && (!MONTH_DAY_RE.test(from) || !MONTH_DAY_RE.test(to))) return null
+
+  return {
+    label: draft.label.trim(),
+    monthDayFrom: from === '' ? null : from,
+    monthDayTo: to === '' ? null : to,
+    timeFrom,
+    timeTo,
+    ctPerKwh: ct,
+  }
+}
+
+/** Welche bestehenden Fenster würde der Entwurf verdrängen? Leer, solange er unvollständig ist. */
+export function draftCollisions(
+  draft: RateWindowDraft,
+  existing: readonly GridTariffRateWindowRow[],
+): WindowCollision[] {
+  const candidate = draftToWindowInput(draft)
+  if (candidate === null) return []
+  return findWindowCollisions(candidate, existing.map(toWindowInput))
+}
+
+/** `04-01` → `01.04.` — die Schreibweise, in der die Liste Zeiträume ohnehin zeigt. */
+function monthDayText(monthDay: string): string {
+  const [month, day] = monthDay.split('-')
+  return `${day}.${month}.`
+}
+
+/** de-AT mit mindestens zwei Nachkommastellen — Netzentgelte werden in ct/kWh mit Cent genannt. */
+const CT = new Intl.NumberFormat('de-AT', { minimumFractionDigits: 2, maximumFractionDigits: 3 })
+
+/**
+ * Ein Kollisionsbefund als Satz.
+ *
+ * ── ⚠ ER MUSS DIE PREISÄNDERUNG NENNEN, NICHT NUR DIE ÜBERSCHNEIDUNG ──────────────────────────
+ * „Dieses Fenster überschneidet sich mit ‚snap'" beschreibt eine Lage; entschieden wird aber über
+ * einen SATZ. Erst „5,58 → 9,90 ct/kWh" macht sichtbar, was sich für jeden künftigen Kunden dieser
+ * Netzebene ändert — und genau das lässt sich nachträglich nicht mehr korrigieren.
+ */
+export function describeWindowCollision(collision: WindowCollision): string {
+  const zeitraum =
+    collision.season === null
+      ? 'ganzjährig'
+      : `vom ${monthDayText(collision.season.from)} bis ${monthDayText(collision.season.to)}`
+
+  return (
+    `Dieses Fenster verdrängt ${zeitraum} zwischen ${collision.clock.from} und ` +
+    `${collision.clock.to} das Fenster „${collision.displaced.label}" ` +
+    `(${CT.format(collision.fromCtPerKwh)} → ${CT.format(collision.toCtPerKwh)} ct/kWh).`
   )
 }

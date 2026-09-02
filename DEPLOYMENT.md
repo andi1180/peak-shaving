@@ -1269,13 +1269,15 @@ genau die Verweigerung, die §3a heute im Code abbildet, ohne eine Zeile Sonderf
 
 ---
 
-## 3c. Netzbetreiber-Tarife pflegen (B21-2b/2c) — Admin-UI, kein Dashboard-Eingriff
+## 3c. Netzbetreiber-Tarife pflegen (B21-2b/2c/2d) — Admin-UI, kein Dashboard-Eingriff
 
 Seit **28.08.2026** gibt es für `public.grid_tariffs` und `public.grid_tariff_rate_windows` einen
 Schreibweg: den Admin-Bereich unter **`/admin/netzbetreiber-tarife`**. Migrationen:
-`supabase/migrations/20260828090000_create_grid_tariff_write_path.sql` (Anlegen) und
-`…20260901120000_create_grid_tariff_delete_path.sql` (Löschen, seit **01.09.2026**). Fachliche
-Tiefe: `Pflichtenheft_Kalkulator_Delta_Tarifoptimierung.md`, Delta 5 und Delta 10.
+`supabase/migrations/20260828090000_create_grid_tariff_write_path.sql` (Anlegen),
+`…20260901120000_create_grid_tariff_delete_path.sql` (Löschen, seit **01.09.2026**) und
+`…20260902180000_add_grid_tariff_rate_window.sql` (ein Zeitfenster ergänzen + Notizfeld, seit
+**02.09.2026**). Fachliche Tiefe: `Pflichtenheft_Kalkulator_Delta_Tarifoptimierung.md`, Delta 5 und
+Delta 10.
 
 ### Im Dashboard ist NICHTS zu tun ✅
 
@@ -1290,7 +1292,10 @@ Schreibweg benutzt den bereits gesetzten `SUPABASE_SERVICE_ROLE_KEY` (§1d).
 | **Anlegen** | Tarifzeile + 1..n Zeitfenster, in EINEM Vorgang |
 | **Ablösen** | Der bisher offene Stand derselben Kombination wird automatisch auf `valid_from − 1 Tag` beendet |
 | **Löschen** | ✅ seit B21-2c: GENAU EINE Zeile je Vorgang, samt ihren Zeitfenstern (Kaskade) — **mit vollständigem Abzug im Löschprotokoll** |
-| **Bearbeiten** | ❌ gibt es nicht — weder im UI noch in der Datenbank |
+| **Zeitfenster ergänzen** | ✅ seit B21-2d: EIN Fenster je Vorgang, **nur an einen OFFENEN Stand** — und **nicht mehr einzeln entfernbar** |
+| **Notiz je Zeitfenster** | ✅ seit B21-2d: Freitext für Menschen (Preisblatt-Fussnote, Begründung des Zuschnitts) — geht in **keine** Berechnung ein |
+| **Bearbeiten** | ❌ gibt es nicht — weder im UI noch in der Datenbank. ⚠️ Das ANHÄNGEN eines Fensters ist kein Bearbeiten: es ändert keine bestehende Zeile, kann eine aber **verdrängen** (s. u.) |
+| **Ein einzelnes Zeitfenster entfernen** | ❌ kein `delete` auf `grid_tariff_rate_windows`, für keine Rolle — rückgängig macht das nur das Löschen des GANZEN Stands (protokolliert) |
 | **Rückwirkend korrigieren** | ❌ bewusst nicht: ein neuer Stand muss NACH dem Beginn des offenen liegen |
 | **Mehrere auf einmal löschen** | ❌ keine Mehrfachauswahl, ein Aufruf = eine Zeile |
 
@@ -1327,6 +1332,45 @@ entweder eine Spur ohne Vorgang oder einen Vorgang ohne Spur. Eine **unbekannte 
 (`P0001 not_found`) statt still zu melden, es sei gelöscht worden; die Oberfläche macht daraus die
 Bitte, neu zu laden (live gemessen: der Knopf einer inzwischen anderswo entfernten Zeile zeigt genau
 diesen Satz und schreibt **keine** Protokollzeile).
+
+### Ein Zeitfenster ergänzen (B21-2d) — wofür, und was dabei still passieren kann ⚠️
+
+**Wofür:** Ein Preisblatt-Nachtrag oder ein beim Abtippen übersehenes Fenster. Bis dahin gab es
+dafür nur einen Weg — den ganzen Stand löschen und neu anlegen, protokolliert und mit neuer
+Kennung. Das ist für eine ERGÄNZUNG zu viel.
+
+**Nur an einen OFFENEN Stand.** Ein abgelöster Stand ist eine abgeschlossene Aussage über einen
+VERGANGENEN Zeitraum; ein nachträglich angehängtes Fenster änderte rückwirkend den Preis, mit dem
+einem Kunden gegenüber bereits gerechnet wurde — und zwar unsichtbar: die Zeile sähe danach
+lediglich um ein Fenster reicher aus. Die Oberfläche bietet den Weg dort gar nicht erst an, und
+`public.add_grid_tariff_rate_window` weist ihn zusätzlich mit **`P0001 closed_tariff`** ab. Eine
+unbekannte Kennung wirft **`P0001 not_found`** statt still nichts zu tun.
+
+> ⚠️ **DIE FALLE, gegen die dieser Abschnitt gebaut ist: ein neues Fenster kann ein bestehendes
+> VERDRÄNGEN, ohne dass irgendetwas gelöscht wird.** Überlappende Fenster sind der Regelfall (ein
+> ganztägiges `normal` plus ausgeschnittene Hochlastfenster), und welches gilt, entscheidet die
+> ENGERE Abdeckung — nicht die Reihenfolge der Eingabe. Das verdrängte Fenster steht danach
+> unverändert in der Liste **und gilt trotzdem nicht mehr**. Das Formular rechnet deshalb beim
+> Tippen aus, welches Fenster in welchem Teilzeitraum durch welchen Satz ersetzt würde, und zeigt
+> es im Klartext (Beispiel: „Dieses Fenster verdrängt vom 01.04. bis 30.09. zwischen 11:00 und
+> 13:00 das Fenster ‚snap' (5,58 → 9,90 ct/kWh)."). **Es sperrt nicht** — eine Verdrängung ist oft
+> genau das Gewollte —, sondern verlangt eine Bestätigung.
+>
+> Gerechnet wird das mit **derselben** Auswahlregel, die der Kalkulator später anwendet
+> (`packages/shared/src/tariff-window-rules.ts`, B21-2d Teil A). Eine im Admin-Bereich nachgebaute
+> Regel wäre eine zweite Auslegung — die Warnung sagte dann etwas anderes, als die Engine rechnet.
+
+**Die Notiz** (`grid_tariff_rate_windows.note`) ist Freitext für Menschen: Preisblatt-Fussnote,
+Begründung des Zuschnitts. Sie ist nullable, ohne Default und **ohne CHECK** (die Längengrenze steht
+im Formularschema und meldet sich am Feld, statt als rohes 23514 abzuweisen); der Kalkulator liest
+die Spalte **nicht** (sie steht nicht in der Spaltenliste von
+`apps/website/lib/tariff-data/grid-tariffs.ts`). Sie heisst `note` und nicht `comment`, weil
+`COMMENT` ein SQL-Schlüsselwort ist. Der Löschabzug nimmt sie **automatisch** mit — B21-2c schreibt
+ihn über `to_jsonb(w)` und zählt keine Spalten auf.
+
+**`create_grid_tariff` ist dafür per `create or replace` bei UNVERÄNDERTER Signatur nachgezogen**
+(Grants bleiben): auch Fenster der ersten Stunde können eine Notiz tragen. Ein Aufrufer, der `note`
+nicht mitschickt, bleibt gültig — `jsonb_to_recordset` liefert für ein fehlendes Feld `null`.
 
 ### Die Rechtefläche — gemessen, nicht abgeleitet ⚠️
 
@@ -1388,6 +1432,23 @@ tatsächlich braucht:
 und `authenticated` bleiben auf allen drei Tabellen ausschliesslich lesend (auf dem Löschprotokoll
 nicht einmal das), die Zeitfenster bleiben für jede Rolle unlöschbar.
 
+> ⚠️ **B21-2d bringt KEIN neues Tabellenrecht** — die Tabelle oben gilt unverändert. Alle vier
+> Rechte, die `public.add_grid_tariff_rate_window` braucht, stehen bereits; Stufe für Stufe
+> gemessen, je Stufe genau ein Recht entzogen und die Funktion echt aufgerufen:
+>
+> | Stufe (Aufruf als `service_role`) | Ergebnis |
+> |---|---|
+> | volle Grants (Stand nach B21-2b/2c) | OK, `window_count 1` |
+> | ohne `INSERT` auf `grid_tariff_rate_windows` | 42501 `grid_tariff_rate_windows` |
+> | ohne `SELECT` auf `grid_tariff_rate_windows` | 42501 `grid_tariff_rate_windows` |
+> | ohne `SELECT` auf `grid_tariffs` | 42501 `grid_tariffs` |
+> | ohne `UPDATE` auf `grid_tariffs` | 42501 `grid_tariffs` — das `select … for update` verlangt es |
+> | **zusätzlich** `DELETE` auf `grid_tariff_rate_windows` | OK, **kein Unterschied** |
+>
+> **Nebenbefund, beim Messen aufgeschlagen:** Das `SELECT` auf `grid_tariff_rate_windows` verlangt
+> schon das `returning id` DES INSERT — der 42501 trifft die INSERT-Anweisung, nicht die Zählabfrage
+> darunter. Wer die Zählung je entfernt, weil sie entbehrlich scheint, braucht das Recht trotzdem.
+
 ### ⚠️ Die Autorisierung liegt hier im Anwendungscode, nicht in der Datenbank
 
 Das ist die **einzige** Stelle des Systems, an der das so ist, und sie muss offen dastehen:
@@ -1432,6 +1493,30 @@ oben, `delete_grid_tariff` existiert genau einmal mit `prosecdef = false` und EX
 `service_role`, `grid_tariff_deletions` mit RLS aktiv und **0 Policies**. **Der Bestand ist
 unberührt** — dieselbe eine Tarifzeile (Wiener Netze NE 7, `ohne_leistungsmessung`, gültig ab
 01.01.2025), dasselbe Zeitfenster, unverändert 14.615 Spotpreise, Löschprotokoll leer.
+
+**Stand Cloud (verifiziert 02.09.2026, B21-2d):** Migration `20260902180000` angewandt,
+`migration list --linked` zeigt lokal = Cloud. **Vorher-Baseline vor dem Push gemessen**
+(Arbeitsregel 3): `add_grid_tariff_rate_window` existierte **0×**, die Spalte
+`grid_tariff_rate_windows.note` **0×**, Rechtefläche `INSERT,SELECT` bzw.
+`DELETE,INSERT,SELECT,UPDATE`, Bestand 7 Tarifzeilen / 10 Zeitfenster / 1 Löschprotokollzeile /
+14.663 Spotpreise. **Nachher:** die Funktion existiert genau einmal mit `prosecdef = false`, EXECUTE
+nur für `service_role` (`anon`/`authenticated` je `false`, per `has_function_privilege` — kein
+Aufruf als Rolle ohne Grant, Arbeitsregel 5), die Spalte ist `text`, nullable, ohne Default, und die
+**Rechtefläche ist Zeichen für Zeichen unverändert**.
+
+**Der Weg ist gegen die Produktion FUNKTIONAL gemessen, nicht nur introspektiv** — und zwar an
+eigens angelegten Test-Ständen unter dem Betreiber `zz_b21_2d_probe`, damit die sieben echten
+Wiener-Netze-Zeilen unangetastet bleiben: Fenster an einen offenen Stand angehängt (`added`,
+`window_count 2`, Notiz gespeichert) · zweiter Stand angelegt, der den ersten ablöst · Anhängen an
+den abgelösten Stand → **`P0001 closed_tariff`**, und die Zeile bekam nachweislich **kein** drittes
+Fenster · unbekannte Kennung → **`P0001 not_found`** · beide Test-Stände über den Löschweg entfernt,
+der Abzug trägt die Notiz automatisch mit. **Endstand: unverändert 7 Tarifzeilen / 10 Zeitfenster /
+14.663 Spotpreise, 0 Test-Reste, 0 Zeitfenster mit Notiz.**
+
+> ⚠️ Das Löschprotokoll ist dabei von 1 auf **3** Zeilen gewachsen (die zwei Test-Stände). Das ist
+> beabsichtigt und nicht rückgängig zu machen — es gibt für `grid_tariff_deletions` bewusst kein
+> `delete`-Grant. Beide Zeilen sind an `operator_id = 'zz_b21_2d_probe'` und
+> `deleted_by = 'b21-2d-probe@test.local'` als Prüfvorgänge erkennbar.
 
 ### Offen: die Preisblätter selbst
 

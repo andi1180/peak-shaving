@@ -181,6 +181,133 @@ function seasonHint(
   return 'Der Scan hat für dieses Fenster keine Saison gelesen — leer heisst ganzjährig.'
 }
 
+/**
+ * Die sechs Felder EINES Zeitfensters (B21-2d aus dem Anlageformular herausgezogen).
+ *
+ * ── ⚠ WARUM SIE HIER STEHEN BLEIBT UND NICHT IN EINE EIGENE DATEI WANDERT ─────────────────────
+ * Sie braucht `AMOUNT_PLACEHOLDER`, `SEASON_PLACEHOLDER`, `numberValue` und `seasonHint` — und die
+ * ersten beiden Helfer benutzt das Formular oben WEITERHIN für Grundpreis und Netzverlust. In eine
+ * eigene Datei verschoben müssten sie entweder mitwandern (dann importierte das Anlageformular
+ * seine eigenen Platzhalter aus einer Datei über Zeitfenster) oder von hier importiert werden
+ * (Zirkelbezug). Beides wäre Umbau für nichts: Beide Verwender rendern auf DERSELBEN Seite.
+ *
+ * ── ⚠ DIE FELDNAMEN KOMMEN ALS VORSILBE HEREIN, SIE WERDEN NICHT ABGELEITET ────────────────────
+ * Das Anlageformular nummeriert seine Zeilen (`w0_label`, `w1_label`, …) und `readGridTariffForm`
+ * liest genau diese Namen. Das „Zeitfenster ergänzen"-Formular trägt genau EIN Fenster und benutzt
+ * deshalb FLACHE Namen (`label`, `timeFrom`, …) — ein Index daran wäre eine Nummer ohne zweite
+ * Zeile, und die Fehlerpfade von `addRateWindowSchema` liessen sich nicht mehr direkt auf
+ * Feldnamen abbilden. Die Vorsilbe ist damit der einzige Unterschied zwischen beiden Verwendungen.
+ *
+ * Verhaltensgleich zur bisherigen, eingebetteten Fassung: Für `namePrefix = `w${index}_`` entstehen
+ * Zeichen für Zeichen dieselben `id`- und `name`-Attribute wie vorher.
+ */
+export function RateWindowFields({
+  formId,
+  namePrefix,
+  fieldErrors,
+  prefill,
+}: {
+  formId: string
+  /** `w0_`, `w1_`, … im Anlageformular; `''` beim Ergänzen eines einzelnen Fensters. */
+  namePrefix: string
+  fieldErrors: Record<string, string> | undefined
+  /** Die gelesenen Werte aus dem Preisblatt-Scan — `null` bei Eingabe von Hand. */
+  prefill: TariffSheetWindow | null
+}) {
+  const name = (leaf: string): string => `${namePrefix}${leaf}`
+  const error = (leaf: string): string | undefined => fieldErrors?.[name(leaf)]
+
+  return (
+    <div className="mt-3 grid gap-4 sm:grid-cols-2">
+      <AdminField
+        id={`${formId}-${name('label')}`}
+        name={name('label')}
+        label="Bezeichnung"
+        placeholder={RATE_WINDOW_LABEL_SUGGESTIONS.join(' · ')}
+        error={error('label')}
+        defaultValue={prefill?.label}
+        required
+      />
+      <AdminField
+        id={`${formId}-${name('ctPerKwh')}`}
+        name={name('ctPerKwh')}
+        label="Arbeitspreis (ct/kWh)"
+        inputMode="numeric"
+        placeholder={AMOUNT_PLACEHOLDER}
+        error={error('ctPerKwh')}
+        defaultValue={numberValue(prefill?.ctPerKwh)}
+        required
+      />
+      <AdminField
+        id={`${formId}-${name('timeFrom')}`}
+        name={name('timeFrom')}
+        label="Uhrzeit von"
+        placeholder="00:00"
+        error={error('timeFrom')}
+        defaultValue={prefill?.timeFrom}
+        required
+      />
+      <AdminField
+        id={`${formId}-${name('timeTo')}`}
+        name={name('timeTo')}
+        label="Uhrzeit bis"
+        placeholder="24:00"
+        error={error('timeTo')}
+        defaultValue={prefill?.timeTo}
+        hint="Tagesende ist 24:00 — deshalb ein Textfeld und kein Zeitwähler."
+        required
+      />
+      {/*
+        ⚠ DIE HERKUNFT STEHT HIER FELDGENAU UND NICHT AN DER KOPFZEILE.
+        Für Bezeichnung, Uhrzeiten und Arbeitspreis ist die zeilenweite Aussage oben
+        richtig: `parseWindow` verwirft eine Fensterzeile, sobald eines dieser vier
+        Felder fehlt — sie stammen also ganz oder gar nicht aus dem Scan. Die Saison
+        ist der EINZIGE Teil, den eine gelesene Zeile legitim NICHT trägt (ganzjährig
+        heisst: beide Felder null). Genau dort trug die Kopfzeile ihre Aussage zu weit
+        und bürgte für zwei leere Felder mit.
+      */}
+      <AdminField
+        id={`${formId}-${name('monthDayFrom')}`}
+        name={name('monthDayFrom')}
+        label="Saison von (MM-TT, optional)"
+        placeholder={SEASON_PLACEHOLDER}
+        error={error('monthDayFrom')}
+        hint={seasonHint(prefill, 'monthDayFrom')}
+        defaultValue={prefill?.monthDayFrom ?? undefined}
+      />
+      <AdminField
+        id={`${formId}-${name('monthDayTo')}`}
+        name={name('monthDayTo')}
+        label="Saison bis (MM-TT, optional)"
+        placeholder={SEASON_PLACEHOLDER}
+        error={error('monthDayTo')}
+        hint={seasonHint(prefill, 'monthDayTo')}
+        defaultValue={prefill?.monthDayTo ?? undefined}
+      />
+      {/*
+        Die Notiz steht ALLEIN in einer eigenen Zeile (B21-2d): Sie ist der einzige Freitext des
+        Fensters, und in der zweispaltigen Reihe daneben stünde ein einzeiliges Feld für einen Satz,
+        der eine Preisblatt-Fussnote tragen soll.
+      */}
+      <div className="sm:col-span-2">
+        <AdminField
+          id={`${formId}-${name('note')}`}
+          name={name('note')}
+          label="Notiz (optional)"
+          placeholder="z. B. Fussnote des Preisblatts"
+          error={error('note')}
+          hint="Für Menschen — sie geht in keine Berechnung ein und erscheint nicht im Kalkulator."
+        />
+      </div>
+    </div>
+  )
+}
+
+/** Die Vorsilbe der Feldnamen einer Fensterzeile im Anlageformular. */
+function windowPrefix(index: number): string {
+  return `w${index}_`
+}
+
 /** Reihenfolge, in der nach dem ersten Fehler fokussiert wird — von oben nach unten im Formular. */
 const FIELD_ORDER = [
   'operatorId',
@@ -781,73 +908,12 @@ export function CreateGridTariffForm({
                   )}
                 </div>
 
-                <div className="mt-3 grid gap-4 sm:grid-cols-2">
-                  <AdminField
-                    id={`${formId}-w${index}_label`}
-                    name={`w${index}_label`}
-                    label="Bezeichnung"
-                    placeholder={RATE_WINDOW_LABEL_SUGGESTIONS.join(' · ')}
-                    error={state.fieldErrors?.[`w${index}_label`]}
-                    defaultValue={row.prefill?.label}
-                    required
-                  />
-                  <AdminField
-                    id={`${formId}-w${index}_ctPerKwh`}
-                    name={`w${index}_ctPerKwh`}
-                    label="Arbeitspreis (ct/kWh)"
-                    inputMode="numeric"
-                    placeholder={AMOUNT_PLACEHOLDER}
-                    error={state.fieldErrors?.[`w${index}_ctPerKwh`]}
-                    defaultValue={numberValue(row.prefill?.ctPerKwh)}
-                    required
-                  />
-                  <AdminField
-                    id={`${formId}-w${index}_timeFrom`}
-                    name={`w${index}_timeFrom`}
-                    label="Uhrzeit von"
-                    placeholder="00:00"
-                    error={state.fieldErrors?.[`w${index}_timeFrom`]}
-                    defaultValue={row.prefill?.timeFrom}
-                    required
-                  />
-                  <AdminField
-                    id={`${formId}-w${index}_timeTo`}
-                    name={`w${index}_timeTo`}
-                    label="Uhrzeit bis"
-                    placeholder="24:00"
-                    error={state.fieldErrors?.[`w${index}_timeTo`]}
-                    defaultValue={row.prefill?.timeTo}
-                    hint="Tagesende ist 24:00 — deshalb ein Textfeld und kein Zeitwähler."
-                    required
-                  />
-                  {/*
-                    ⚠ DIE HERKUNFT STEHT HIER FELDGENAU UND NICHT AN DER KOPFZEILE.
-                    Für Bezeichnung, Uhrzeiten und Arbeitspreis ist die zeilenweite Aussage oben
-                    richtig: `parseWindow` verwirft eine Fensterzeile, sobald eines dieser vier
-                    Felder fehlt — sie stammen also ganz oder gar nicht aus dem Scan. Die Saison
-                    ist der EINZIGE Teil, den eine gelesene Zeile legitim NICHT trägt (ganzjährig
-                    heisst: beide Felder null). Genau dort trug die Kopfzeile ihre Aussage zu weit
-                    und bürgte für zwei leere Felder mit.
-                  */}
-                  <AdminField
-                    id={`${formId}-w${index}_monthDayFrom`}
-                    name={`w${index}_monthDayFrom`}
-                    label="Saison von (MM-TT, optional)"
-                    placeholder={SEASON_PLACEHOLDER}
-                    error={state.fieldErrors?.[`w${index}_monthDayFrom`]}
-                    hint={seasonHint(row.prefill, 'monthDayFrom')}
-                    defaultValue={row.prefill?.monthDayFrom ?? undefined}
-                  />
-                  <AdminField
-                    id={`${formId}-w${index}_monthDayTo`}
-                    name={`w${index}_monthDayTo`}
-                    label="Saison bis (MM-TT, optional)"
-                    placeholder={SEASON_PLACEHOLDER}
-                    error={state.fieldErrors?.[`w${index}_monthDayTo`]}
-                    hint={seasonHint(row.prefill, 'monthDayTo')}
-                    defaultValue={row.prefill?.monthDayTo ?? undefined}
-                  />
-                </div>
+                <RateWindowFields
+                  formId={formId}
+                  namePrefix={windowPrefix(index)}
+                  fieldErrors={state.fieldErrors}
+                  prefill={row.prefill}
+                />
               </AdminPanel>
             </li>
           ))}

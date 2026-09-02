@@ -35,7 +35,14 @@ import { isCurrentUserAdmin } from './guard'
 import { currentUserEmail } from './session'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { GRID_TARIFFS_HREF } from './grid-tariffs'
-import { gridTariffFieldErrors, gridTariffSchema, readGridTariffForm } from './grid-tariffs-schema'
+import {
+  addRateWindowSchema,
+  gridTariffFieldErrors,
+  gridTariffSchema,
+  readAddRateWindowForm,
+  readGridTariffForm,
+} from './grid-tariffs-schema'
+import { toFieldErrors } from './schema'
 import type { AdminState } from './schema'
 
 const FORBIDDEN = 'Keine Berechtigung. Bitte laden Sie die Seite neu.'
@@ -106,6 +113,9 @@ export async function createGridTariffAction(
       time_from: w.timeFrom,
       time_to: w.timeTo,
       ct_per_kwh: w.ctPerKwh,
+      // B21-2d: `jsonb_to_recordset` liest das Feld seit `20260902180000` mit; ein fehlendes ergibt
+      // dort null. Bewusst `?? null` statt Weglassen — so steht im Aufruf, dass es die Spalte gibt.
+      note: w.note ?? null,
     })),
   })
 
@@ -278,5 +288,112 @@ export async function deleteGridTariffAction(
     success:
       `Tarifstand gelöscht, mit ${windows} ${windows === 1 ? 'Zeitfenster' : 'Zeitfenstern'}. ` +
       'Ein vollständiger Abzug der Zeile bleibt im Löschprotokoll erhalten.',
+  }
+}
+
+/**
+ * Hängt GENAU EIN Zeitfenster an einen bestehenden, OFFENEN Tarifstand (B21-2d).
+ *
+ * ── WARUM ES DIESEN WEG GIBT ────────────────────────────────────────────────────────────────────
+ * Der Anlageweg nimmt alle Zeitfenster in EINEM Vorgang entgegen. Wird später ein Fenster
+ * nachgereicht (ein Preisblatt-Nachtrag, ein beim Abtippen übersehenes SNAP-Fenster), gab es dafür
+ * bisher nur einen Weg: den ganzen Stand löschen und neu anlegen — protokolliert (B21-2c) und mit
+ * einer neuen Kennung. Das ist für eine ERGÄNZUNG zu viel.
+ *
+ * ── ⚠ NUR AN EINEN OFFENEN STAND, UND DIE REGEL STEHT IN DER DATENBANK ─────────────────────────
+ * Die Oberfläche bietet den Weg an einem abgelösten Stand gar nicht erst an; `add_grid_tariff_rate_window`
+ * lehnt ihn zusätzlich mit `closed_tariff` ab. Beides zusammen ist keine Verdopplung, sondern zwei
+ * Reichweiten: Eine Server Action ist ein eigener, direkt adressierbarer Endpunkt — dass eine Seite
+ * einen Knopf weglässt, ist keine Regel.
+ *
+ * Dieselbe Zugangsentscheidung an derselben Stelle wie in den beiden Actions darüber: die Funktion
+ * ist SECURITY INVOKER und prüft KEINE Rolle (der Aufrufer ist `service_role` und trägt kein JWT).
+ */
+export async function addRateWindowAction(
+  _prev: AdminState,
+  formData: FormData,
+): Promise<AdminState> {
+  const values = Object.fromEntries(
+    [...formData.entries()]
+      .filter(([, v]) => typeof v === 'string')
+      .map(([k, v]) => [k, String(v)]),
+  )
+
+  if (!(await isCurrentUserAdmin())) return { formError: FORBIDDEN, values }
+
+  const parsed = addRateWindowSchema.safeParse(readAddRateWindowForm(formData))
+  if (!parsed.success) {
+    /*
+     * `toFieldErrors` genügt hier, wo `gridTariffFieldErrors` beim Anlageformular nötig ist: Dieses
+     * Formular trägt GENAU EIN Fenster mit flachen Feldnamen (`label`, `timeFrom`, …), die Pfade des
+     * Schemas sind also bereits die Feldnamen. Beim Anlegen sind es Array-Pfade (`windows.2.timeFrom`),
+     * und erst deren Übersetzung bringt die Meldung an die richtige ZEILE.
+     */
+    return { fieldErrors: toFieldErrors(parsed.error.issues), values }
+  }
+  const input = parsed.data
+
+  const supabase = createServiceRoleClient()
+  const { data, error } = await supabase.rpc('add_grid_tariff_rate_window', {
+    p_tariff_id: input.tariffId,
+    p_label: input.label,
+    p_month_day_from: input.monthDayFrom ?? undefined,
+    p_month_day_to: input.monthDayTo ?? undefined,
+    p_time_from: input.timeFrom,
+    p_time_to: input.timeTo,
+    p_ct_per_kwh: input.ctPerKwh,
+    p_note: input.note ?? undefined,
+  })
+
+  if (error) {
+    const code = (error as { code?: string }).code
+    if (code === 'P0001') {
+      switch (error.message) {
+        case 'not_found':
+          return {
+            formError:
+              'Diese Tarifzeile gibt es nicht mehr — vermutlich wurde sie inzwischen entfernt. ' +
+              'Bitte die Seite neu laden.',
+            values,
+          }
+        case 'closed_tariff':
+          /*
+           * Über die Oberfläche unerreichbar (das Formular erscheint nur am offenen Stand). Der Fall
+           * ist trotzdem real: Zwischen dem Laden der Seite und dem Klick kann ein neuer Stand
+           * angelegt worden sein, der diesen hier abgelöst hat.
+           */
+          return {
+            formError:
+              'Dieser Stand ist inzwischen abgelöst. An einen abgelösten Stand lässt sich kein ' +
+              'Zeitfenster mehr hängen — er ist eine abgeschlossene Aussage über einen vergangenen ' +
+              'Zeitraum. Bitte die Seite neu laden; das Fenster gehört an den aktuellen Stand.',
+            values,
+          }
+      }
+    }
+    console.error('[admin/grid-tariffs] add_grid_tariff_rate_window:', error)
+    return { formError: GENERIC, values }
+  }
+
+  const result = (data ?? {}) as { status?: unknown; window_count?: unknown }
+
+  if (result.status !== 'added') {
+    console.error('[admin/grid-tariffs] unerwartete Antwort beim Anhängen:', data)
+    return { formError: GENERIC, values }
+  }
+
+  revalidatePath(GRID_TARIFFS_HREF)
+  const count = Number(result.window_count ?? 0)
+  return {
+    success:
+      `Zeitfenster hinzugefügt. Diese Tarifzeile trägt jetzt ${count} davon. ` +
+      'Ein hinzugefügtes Fenster lässt sich nicht mehr einzeln entfernen — rückgängig macht das ' +
+      'nur das Löschen des ganzen Tarifstands (protokolliert).',
+    /*
+     * ⚠ AUCH IM ERFOLGSFALL FAHREN DIE EINGABEN MIT — aus demselben Grund wie beim Anlegen
+     * (s. dortiger Kommentar): Das Formular ersetzt sich danach durch eine reine Anzeige des
+     * Hinzugefügten, und seine Felder sind unkontrolliert.
+     */
+    values,
   }
 }
