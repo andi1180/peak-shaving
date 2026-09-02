@@ -71,3 +71,7 @@ export * from './plz-centroids'
 // PVGIS-Azimut-Konvention umgerechnet wird. Die Verwechslung kostet gemessen 56 % der Ersparnis;
 // sie gehört deshalb dorthin, wo sie geprüft werden kann (`apps/website` hat keinen Testlauf).
 export * from './pv-design'
+// 02.09.2026: der reale Vorteil eines aWATTar-Wechsels, aufgeteilt in „reiner Tarifwechsel" und
+// „Wert der Ladesteuerung". Hier und nicht in `apps/website`, weil die App keinen Testlauf hat und
+// die Zusage „die beiden Teile ergeben bit-genau die Kopfzahl" nur als Test etwas wert ist.
+export * from './real-saving'
