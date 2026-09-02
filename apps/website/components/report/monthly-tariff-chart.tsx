@@ -3,7 +3,7 @@
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import type { MonthlyTariffComparison } from 'shared'
 
-import { formatEur } from '@/lib/format'
+import { formatEur, formatEur2 } from '@/lib/format'
 import { Num } from './num'
 
 /**
@@ -22,9 +22,17 @@ import { Num } from './num'
  * sind davon bewusst unberührt geblieben — sie umzubenennen ist ein eigener Schritt.
  *
  * ── ⚠ KEIN LEISTUNGSPREIS IN DIESEN BALKEN ─────────────────────────────────────────────────────
- * Sie zeigen ausschliesslich Arbeits- und Netz-Arbeitspreis. Der Leistungspreis bleibt die
- * bestehende Jahreszahl weiter oben im Report; ihn auf Monate zu verteilen verlangte eine
- * Aufteilungsregel, die es nicht gibt. Der Hinweistext unter dem Chart sagt das.
+ * Sie zeigen Arbeits- und Netz-Arbeitspreis sowie die anteiligen Grundgebühren (Delta 19). Der
+ * Leistungspreis bleibt die bestehende Jahreszahl weiter oben im Report; ihn auf Monate zu
+ * verteilen verlangte eine Aufteilungsregel, die es nicht gibt. Der Hinweistext unter dem Chart
+ * sagt das.
+ *
+ * ── ⚠ DER AUSWEIS „WAS HIER EINGERECHNET IST" IST TEIL DER AUSSAGE, NICHT SCHMUCK ──────────────
+ * Sobald Fixkosten in den Balken stecken, ist aus einer Ziffer nicht mehr ablesbar, woraus sie
+ * besteht — und die Grundgebühren sind ausgerechnet der Posten, den ein Kunde beim Nachrechnen auf
+ * seiner Rechnung sucht und sonst nicht wiederfindet. Der Block nennt deshalb jeden Bestandteil
+ * einzeln, samt dem, was NICHT drin ist (Prinzip 5). Er steht im Druck mit da: auf einem
+ * weitergereichten Blatt gibt es keinen Tooltip und keine Rückfragemöglichkeit.
  */
 
 const MONTH_LABELS = [
@@ -106,6 +114,7 @@ function sumCovered(values: (number | null)[]): number {
 }
 
 export function MonthlyTariffChart({ comparison }: { comparison: MonthlyTariffComparison }) {
+  const fixed = comparison.fixedCosts
   const rows: Row[] = MONTH_LABELS.map((month, i) => ({
     month,
     // ⚠ `null`, nicht 0: ein Nullbalken sähe aus wie „gemessen, kostet nichts". Recharts zeichnet
@@ -128,8 +137,8 @@ export function MonthlyTariffChart({ comparison }: { comparison: MonthlyTariffCo
     >
       <p className="mb-1 text-sm font-medium text-ink">Das zahlen Sie jetzt vs. mit aWATTar</p>
       <p className="mb-3 text-xs text-text-muted">
-        Energie- und Netz-Arbeitskosten je Monat — Ihr Tarif, aWATTar ohne Steuerung und aWATTar mit
-        Ihrem Speicher
+        Energie- und Netzkosten je Monat, inklusive Grundgebühren — Ihr Tarif, aWATTar ohne
+        Steuerung und aWATTar mit Ihrem Speicher
       </p>
 
       <div className="h-64 w-full">
@@ -182,13 +191,76 @@ export function MonthlyTariffChart({ comparison }: { comparison: MonthlyTariffCo
         ))}
       </div>
 
+      {/*
+        ── „Was hier eingerechnet ist" (Delta 19) ───────────────────────────────────────────────
+        Eine Liste statt eines Fliesstexts: der Leser sucht einen einzelnen Posten („wo ist meine
+        Grundgebühr?"), und in einem Absatz findet er ihn nicht. Die Beträge stehen daneben, weil
+        „ist eingerechnet" ohne Zahl nicht nachrechenbar ist — und weil ein Kunde am Betrag sofort
+        sieht, ob wir seine Gebühr richtig verstanden haben.
+      */}
+      <div
+        className="mt-4 rounded-md border border-border bg-surface-alt px-4 py-3 text-xs text-text-muted print:break-inside-avoid"
+        data-testid="monatsvergleich-bestandteile"
+      >
+        <p className="mb-2 font-medium text-ink">Was hier eingerechnet ist</p>
+        <ul className="flex list-disc flex-col gap-1 pl-4">
+          <li>
+            <strong>Arbeitspreis</strong> je Viertelstunde — im Ist-Tarif Ihr fester Satz, bei
+            aWATTar der tatsächliche Börsenpreis jener Stunde.
+          </li>
+          <li>
+            <strong>Netz-Arbeitspreis</strong> Ihres Netzbetreibers samt Netzverlustentgelt — in
+            allen drei Reihen identisch, er hängt am Anschluss und nicht am Stromvertrag.
+          </li>
+          <li>
+            <strong>Ladeverluste</strong> des Speichers: um eine Kilowattstunde einzuspeichern,
+            muss mehr als eine bezogen werden. Die Reihe „mit Ihrem Speicher" trägt diesen
+            Mehrbezug.
+          </li>
+          {fixed.networkBaseFeeEur > 0 && (
+            <li>
+              <strong>Netz-Grundpreis</strong> (Jahrespauschale), anteilig für{' '}
+              <Num>{fixed.coveredDays}</Num> gemessene Tage:{' '}
+              <Num className="text-ink">{formatEur2(fixed.networkBaseFeeEur)}</Num> — in allen drei
+              Reihen gleich hoch, er verschiebt den Vergleich also nicht.
+            </li>
+          )}
+          <li>
+            <strong>Grundgebühr Ihres heutigen Lieferanten</strong>:{' '}
+            {fixed.supplierFeeEurPerMonth > 0 ? (
+              <>
+                <Num className="text-ink">{formatEur2(fixed.supplierFeeEurPerMonth)}</Num>/Monat,
+                anteilig <Num className="text-ink">{formatEur2(fixed.supplierBaseFeeEur)}</Num> —
+                nur in „Ihr Tarif heute".
+              </>
+            ) : (
+              <>
+                nicht angegeben, gerechnet mit <Num className="text-ink">€ 0</Num>. Ihr heutiger
+                Tarif erscheint dadurch eher zu günstig; die Zahl lässt sich in Schritt 2 nachtragen.
+              </>
+            )}
+          </li>
+          <li>
+            <strong>Grundgebühr aWATTar</strong>:{' '}
+            <Num className="text-ink">{formatEur2(fixed.awattarFeeEurPerMonth)}</Num>/Monat (netto),
+            anteilig <Num className="text-ink">{formatEur2(fixed.awattarBaseFeeEur)}</Num> — nur in
+            den beiden aWATTar-Reihen.
+          </li>
+          <li>
+            <strong>Nicht</strong> eingerechnet: der Leistungspreis (€/kW·Jahr) — er bleibt die
+            Jahreszahl weiter oben im Report; Umsatzsteuer — gerechnet wird durchgängig netto;
+            Wechsel- oder Vertragskosten.
+          </li>
+        </ul>
+      </div>
+
       <div className="mt-3 border-t border-border pt-3 text-xs text-text-muted">
         <p>
           Gemessen auf <Num>{comparison.coveredMonths}</Num> von 12 Monaten — nur Monate mit
           Messwerten sind gezeichnet, die übrigen bleiben leer und werden{' '}
-          <strong>nicht hochgerechnet</strong>. Gerechnet ist je Viertelstunde der tatsächliche
-          Preis jener Stunde plus das Netzentgelt Ihres Netzbetreibers; der Leistungspreis steckt{' '}
-          <strong>nicht</strong> in diesen Balken, er bleibt die Jahreszahl weiter oben.
+          <strong>nicht hochgerechnet</strong>. Die Monatsgebühren sind{' '}
+          <strong>anteilig nach den tatsächlich gemessenen Tagen</strong> gerechnet, nie als voller
+          Monatsbetrag.
         </p>
         <p className="mt-2">
           Rückblickend gerechnet auf die tatsächlichen Marktpreise Ihres Zeitraums — kein

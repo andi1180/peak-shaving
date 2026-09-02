@@ -257,8 +257,8 @@ Für eine gegebene Batterie ist die interessante Frage: **Wie tief kann die Kapp
 
 Aus dem einen Simulationslauf (§3.6) ergeben sich alle Effekte gleichzeitig:
 - `leistungspreisSavingPerYear` = (alter abgerechneter kW − neuer abgerechneter kW) × `leistungspreisEurPerKwYear`.
-- `selfConsumptionSavingPerYear` = Σ (durch Batterie verschobene kWh von Einspeisung→Eigenverbrauch) × (`energyPrice − einspeisevergütung`).
-- `loadShiftSavingPerYear` `[MN]` = Σ (aus günstigem Tarif-Fenster geladene und in teurem Fenster genutzte kWh) × (`teurer − günstiger` Tarif). Nur wenn Tarif-Fenster gesetzt sind; sonst 0.
+- `selfConsumptionSavingPerYear` = Σ (durch Batterie verschobene kWh von Einspeisung→Eigenverbrauch) × (`energyPrice − einspeisevergütung ÷ η`), s. §3.7.2.
+- `loadShiftSavingPerYear` `[MN]` = Σ (aus günstigem Tarif-Fenster geladene und in teurem Fenster genutzte kWh) × (`teurer − günstiger ÷ η` Tarif), s. §3.7.2. Nur wenn Tarif-Fenster gesetzt sind; sonst 0.
 - `totalSavingPerYear` = Summe **aus demselben Fahrplan** (keine unabhängige Doppelrechnung).
 
 Der Report weist die Anteile getrennt aus (Transparenz), betont aber die **eine** Gesamtzahl. Priorität `peak_first`: Spitzenschutz hat Vorrang, weil eine verpasste Spitze eine ganze Periode kostet; Eigenverbrauch und Lastverschiebung nutzen nur die verbleibende Kapazität und dürfen die Spitzen-Reserve nie gefährden.
@@ -277,6 +277,41 @@ Die drei Anteile sind **nicht von gleicher Art**, und das muss die Rechnung ber�
 **Die Annahme, und ihre Sichtbarkeit.** Hochgerechnet wird unter der Annahme eines **homogenen Jahres**: die nicht abgedeckten Tage verhalten sich im Mittel wie die abgedeckten. Bei einem reinen Sommer- oder Winterzeitraum ist das nachweislich zu optimistisch bzw. zu vorsichtig. Der hochgerechnete Wert darf den gemessenen deshalb **nicht verdrängen**: `selfConsumptionSavingOverCoveredPeriod`, `loadShiftSavingOverCoveredPeriod`, `annualizationFactor` und `coveredDays` stehen als eigene Felder im Contract (§3.10), der Report weist den gemessenen Rohwert samt Annahme unmittelbar bei den beiden betroffenen Zeilen aus (nicht als Fussnote), und der CSV-Export führt beide Paare in eigenen Spalten.
 
 **Abgrenzung zur Teiljahres-Warnung (§3.5).** Die beiden sagen Verschiedenes und haben verschiedene Bedingungen: die Teiljahres-Warnung betrifft den **abgerechneten Leistungswert** unter einem `monthly_*`-Modell (`coveredMonths < 12`), diese Regel betrifft die **Energie-Anteile** und gilt unabhängig vom Abrechnungsmodell.
+
+#### 3.7.2 Ladeverluste sind eine Koste, nicht nur ein SoC-Effekt
+
+**Die Regel.** Eine im Speicher liegende Kilowattstunde wird mit dem Preis der **tatsächlich dafür bezogenen** Menge bewertet — also mit `1/η` kWh, nicht mit einer. Der Ladeverlust steht damit auf der **Kosten**-Seite beider Energie-Anteile:
+
+- Eigenverbrauch: Wert einer PV-kWh = `energyPrice − einspeisevergütung ÷ η` (statt `energyPrice − einspeisevergütung`). Entgangen ist der Einspeiseerlös der `1/η` kWh, die für sie ins Gerät mussten.
+- Lastverschiebung: Aufschlag je kWh = `max(0, teuer − günstig ÷ η)` (statt `max(0, teuer − günstig)`).
+
+**Was sich ausdrücklich NICHT ändert.** Die eingespeicherte (`soc += P·Δ·η`) und die entnommene Menge (`soc -= P·Δ`) sind Physik und bleiben unangetastet; der Nutzen einer entnommenen kWh bleibt der volle Bezugspreis (sie ersetzt genau eine bezogene kWh). Der **Leistungspreis-Anteil** ist ratenbasiert, kennt keine kWh und ist unberührt — ebenso `newBilledKw` und alles in §3.9, das daraus folgt. Auch der **Netzbezug selbst** war nie falsch: der Dispatch zieht seit jeher die volle Ladeleistung aus dem Netz, der Mehrbezug steckt also bereits in `gridAfterKw` und damit im Monatsvergleich (§3.7.3). Falsch war allein die **Bewertung**.
+
+**Warum überhaupt.** Bis zu dieser Änderung war jede gespeicherte kWh bezahlt, als hätte sie keine Verluste verursacht. Beide Energie-Anteile — und über `totalSavingPerYear` auch `amortizationYears` und `netSavingOverHorizon` — waren dadurch **systematisch zu hoch**, und zwar umso stärker, je schlechter der Wirkungsgrad und je kleiner der Preisabstand zwischen Laden und Entladen ist. Wieder ein Fehler, der wie ein Ergebnis aussieht.
+
+**Die Kippgrenze.** Bei einem Ladepreis von `η × Entladepreis` ist die Verschiebung nach Abzug der Verluste exakt wertlos; darüber ist sie ein Verlustgeschäft. Bei η = 0,9 lohnt sie sich gegen einen 25-ct-Tagespreis erst unterhalb von 22,5 ct. Der Dispatch entscheidet weiterhin an einer Preis-Schwelle und nicht an der Wirtschaftlichkeit (§3.6 Schritt 5) — er lädt also auch dort, wo nichts zu verdienen ist; die Bewertung weist den Ertrag dann korrekt mit 0 aus.
+
+**Bewusst offen geblieben.** Die für die **Spitzenkappung** geladene Energie bleibt unbepreist: sie legt keine kWh in einen Topf, weder auf der Nutzen- noch auf der Kostenseite (§3.7, Zuordnungsregel). Der Wert der Spitzenkappung ist der Leistungspreis, nicht eine Preisdifferenz; ein Kostenposten allein auf dieser Seite ergäbe einen vierten, negativen Topf, den dieser Abschnitt nicht kennt.
+
+**Fassungsbruch.** Die Änderung verschiebt die Bedeutung bestehender Contract-Felder für **jeden** Kunden — Analyse-Bündel **Fassung 5**, `ENGINE_VERSION` 1.2.0-mvp. Eine 2026 archivierte Baseline der Fassung ≤ 4 und eine der Fassung 5 sind an dieser Stelle **zwei Definitionen**, nicht zwei Messungen.
+
+#### 3.7.3 Grundgebühren im Tarifvergleich (nicht in der Batterie-Ersparnis)
+
+Eine Grundgebühr ist verbrauchs**unabhängig**: sie fällt mit und ohne Speicher in derselben Höhe an und kürzt sich aus jeder Ersparnis-Differenz heraus. Sie gehört deshalb **nicht** in `totalSavingPerYear` — dort veränderte sie eine Zahl, an der sich nichts ändert. Ihr Ort ist der **Monatsvergleich Ist-Tarif vs. aWATTar** (§6.2): dort tauscht der Kunde beim Wechsel die eine Gebühr gegen die andere, und ohne sie vergleicht der Report zwei unvollständige Rechnungen — asymmetrisch, weil die beiden Gebühren verschieden hoch sind.
+
+Drei Posten, drei Zuordnungen:
+
+| Posten | Quelle | Reihen |
+|---|---|---|
+| Netz-Grundpreis, **nur** als Jahrespauschale (`grundpreis_unit = 'eur_per_year'`) | `public.grid_tariffs` (B21) | **alle drei**, gleich hoch |
+| Grundgebühr des heutigen Lieferanten | `TariffParams.supplierBaseFeeEurPerMonth`, optionale Eingabe in Schritt 2, ohne Angabe **0** | nur „Ihr Tarif heute" |
+| Grundgebühr von aWATTar | Code-Konstante `AWATTAR_BASE_FEE` (netto, versionskontrolliert) | nur die beiden aWATTar-Reihen |
+
+**`eur_per_kw_year` wird ausdrücklich NICHT eingerechnet** — das ist der Leistungspreis, er steht bereits als Jahreszahl im Report, und seine Verteilung auf Monate bräuchte eine Aufteilungsregel, die weder Preisblatt noch Pflichtenheft hergeben (§3.5). Ihn hier als Pauschale zu lesen wäre doppelt gezählt und falsch dimensioniert.
+
+**Anteilig nach abgedeckten Kalendertagen**, nie als voller Monatsbetrag: gerechnet wird tagweise über die tatsächlich belegten Kalendertage in Ortszeit (Monatsgebühren ÷ Tage ihres Monats, Netz-Jahrespauschale ÷ Tage ihres Jahres). Ein Lastgang, der am 20. beginnt, trägt elf Dreissigstel — der volle Betrag stünde sonst neben Arbeitskosten aus elf Tagen. Der Report weist die Bestandteile einzeln aus (Prinzip 5), einschliesslich dessen, was **nicht** drin ist (Leistungspreis, Umsatzsteuer, Wechselkosten).
+
+**Ohne Angabe wird mit 0 gerechnet, nicht geschätzt.** Das ist die konservative Richtung: 0 lässt den heutigen Tarif billiger aussehen als er ist und den aWATTar-Vorteil damit kleiner, nicht grösser. Eine geschätzte Gebühr wäre die gefährliche.
 
 ### 3.8 Batterie-Empfehlung
 

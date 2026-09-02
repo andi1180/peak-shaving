@@ -51,3 +51,6 @@ export * from './battery-combination'
 // Delta 18: die Report-Anfrage-Übersetzung — ein Satz wird zu einem VORSCHLAG für genau die acht
 // Grössen, die eine Neuberechnung entgegennimmt; alles andere wird als solches abgelehnt.
 export * from './report-request'
+// Delta 19: Grundgebühren von Stromlieferanten (heute: aWATTar). Code-Konstante statt
+// Datenbankzeile — sie hat keine Netz-Dimension; Begründung im Kopf der Datei.
+export * from './supplier-tariffs'

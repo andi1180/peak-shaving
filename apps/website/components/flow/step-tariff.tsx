@@ -74,6 +74,14 @@ const initial = {
   energyPriceCtPerKwh: '25',
   einspeiseverguetungCtPerKwh: '8',
   energyPriceNightCtPerKwh: '18',
+  /*
+   * Delta 19: die monatliche Grundgebühr des heutigen Lieferanten. Vorgabewert '0' und ausdrücklich
+   * NICHT leer — 0 heisst „keine oder nicht bekannt" und ist zugleich die konservative Richtung:
+   * sie lässt den heutigen Tarif billiger aussehen als er ist und den aWATTar-Vorteil damit
+   * kleiner, nicht grösser. Ein geschätzter Vorgabewert wäre die gefährliche Richtung — er sähe
+   * aus wie ein Wert von der Rechnung des Kunden.
+   */
+  supplierBaseFeeEurPerMonth: '0',
   windowFrom: '22:00',
   windowTo: '06:00',
   fixedSubsidyEur: '',
@@ -491,6 +499,15 @@ export function StepTariff({
       minBillableKw: parseNum(f.minBillableKw),
       energyPriceCtPerKwh: parseNum(f.energyPriceCtPerKwh),
       einspeiseverguetungCtPerKwh: parseNum(f.einspeiseverguetungCtPerKwh),
+      /*
+       * Delta 19: leer gelassen heisst „keine Angabe" — dann reist das Feld gar nicht mit und die
+       * Engine rechnet mit 0. Eine 0 zu schicken wäre inhaltlich dasselbe; sie NICHT zu schicken
+       * hält im Analyse-Bündel (Fassung 5) den Unterschied zwischen „mit 0 gerechnet, weil nichts
+       * angegeben" und „ausdrücklich 0 angegeben" offen.
+       */
+      ...(f.supplierBaseFeeEurPerMonth.trim() === ''
+        ? {}
+        : { supplierBaseFeeEurPerMonth: parseNum(f.supplierBaseFeeEurPerMonth) }),
     }
     if (netzebene !== NOT_SET) tariffInput.netzebene = `NE ${netzebene}`
     if (useNight) {
@@ -818,6 +835,50 @@ export function StepTariff({
               onChange={set('einspeiseverguetungCtPerKwh')}
               error={errors.einspeiseverguetungCtPerKwh}
             />
+          </div>
+          {/*
+            ── Delta 19: die Grundgebühr des heutigen Lieferanten ────────────────────────────────
+            Optional und mit Vorgabewert 0. Sie geht ausdrücklich NICHT in die Batterie-Ersparnis
+            ein (sie fällt mit und ohne Speicher gleich hoch an), sondern ausschliesslich in den
+            Tarifvergleich — genau dort ist sie relevant, weil ein Wechsel die eine Gebühr gegen
+            die andere tauscht. Der Infobutton sagt beides, damit niemand erwartet, dass sich die
+            Amortisation dadurch bewegt.
+          */}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="flex flex-col gap-1.5">
+              <LabelWithInfo htmlFor="supplierBaseFee" label="Grundgebühr Ihres Stromlieferanten">
+                Der feste Betrag, den Ihr heutiger Stromlieferant unabhängig vom Verbrauch je Monat
+                verrechnet — auf Ihrer Rechnung meist als „Grundgebühr" oder „Grundpreis" des
+                Lieferanten ausgewiesen, netto. Nicht gemeint ist der Grundpreis Ihres
+                NETZbetreibers: der hängt am Anschluss und ändert sich durch einen Anbieterwechsel
+                nicht. Diese Gebühr beeinflusst die Wirtschaftlichkeit des Speichers nicht (sie
+                fällt mit und ohne Speicher gleich hoch an), wohl aber den Vergleich mit einem
+                anderen Stromvertrag: dort tauschen Sie sie gegen die des neuen Anbieters. Ohne
+                Angabe rechnen wir mit 0 — dann sieht Ihr heutiger Tarif eher zu günstig aus als zu
+                teuer.
+              </LabelWithInfo>
+              <div className="relative">
+                <Input
+                  id="supplierBaseFee"
+                  type="number"
+                  inputMode="decimal"
+                  step="any"
+                  min={0}
+                  value={f.supplierBaseFeeEurPerMonth}
+                  onChange={(e) => set('supplierBaseFeeEurPerMonth')(e.target.value)}
+                  className="pr-20"
+                  aria-invalid={errors.supplierBaseFeeEurPerMonth ? true : undefined}
+                />
+                <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-text-muted">
+                  €/Monat
+                </span>
+              </div>
+              {errors.supplierBaseFeeEurPerMonth && (
+                <span className="text-xs text-negative">
+                  {errors.supplierBaseFeeEurPerMonth}
+                </span>
+              )}
+            </div>
           </div>
           <label className="flex items-center gap-2 text-sm text-text">
             <Checkbox checked={useNight} onCheckedChange={(v) => setUseNight(v === true)} />

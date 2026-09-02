@@ -26,12 +26,14 @@ export type BatterySavings = {
   leistungspreisSavingPerYear: number
   /**
    * Eigenverbrauchs-Ersparnis: aus PV geladene, später selbst verbrauchte kWh × (Arbeitspreis −
-   * Einspeisevergütung) — auf ein Jahr hochgerechnet (`× annualizationFactor`, s. `annualization.ts`).
+   * Einspeisevergütung ÷ Ladewirkungsgrad) — auf ein Jahr hochgerechnet (`× annualizationFactor`,
+   * s. `annualization.ts`). Der Ladeverlust steckt seit Delta 19 in der Kosten-Seite (§3.7).
    */
   selfConsumptionSavingPerYear: number
   /**
    * Lastverschiebungs-Ersparnis: im günstigen Fenster geladene, im teuren Fenster genutzte kWh ×
-   * (teuer − günstig). 0 ohne Tarif-Fenster — ebenfalls auf ein Jahr hochgerechnet.
+   * (teuer − günstig ÷ Ladewirkungsgrad). 0 ohne Tarif-Fenster — ebenfalls auf ein Jahr
+   * hochgerechnet. Der Ladeverlust steckt seit Delta 19 in der Kosten-Seite (§3.7).
    */
   loadShiftSavingPerYear: number
   /** Der GEMESSENE Eigenverbrauchs-Wert über den tatsächlich abgedeckten Zeitraum (nicht hochgerechnet). */
@@ -54,8 +56,12 @@ type EnergyLayer = {
   kwh: number
   /** 'pv' = aus Einspeisung/PV-Überschuss geladen; 'grid' = aus dem Netz geladen. */
   origin: 'pv' | 'grid'
-  /** Nur für 'grid': Arbeitspreis (ct/kWh) zum Ladezeitpunkt — Basis für die Lastverschiebungs-Bewertung. */
-  chargeCt: number
+  /**
+   * Was diese Schicht je EINGESPEICHERTER kWh gekostet hat (ct) — der LADEVERLUST IST DARIN
+   * ENTHALTEN (§3.7, Delta 19). Nur für 'grid' benutzt; die PV-Seite bewertet über eine eigene,
+   * profilweite Rate (s. `pvSelfConsumptionCtPerKwh`), weil ihr Preis nicht am Ladeintervall hängt.
+   */
+  costCtPerStoredKwh: number
 }
 
 const EPS = 1e-9
@@ -77,6 +83,18 @@ const EPS = 1e-9
  *     in genau EINEN Topf: 'pv' → Eigenverbrauch, 'grid' → Lastverschiebung (Wert = teuer − günstig).
  * Weil Peak-Entladung keine kWh in einen Energie-Topf legt und jede Eigenverbrauchs-kWh ihrer
  * Herkunft folgt, ist keine kWh doppelt gezählt → Summe = total (Prinzip 2).
+ *
+ * ── Der Ladeverlust auf der KOSTEN-Seite (Delta 19, §3.7) ───────────────────────────────────────
+ * Jede Schicht trägt, was sie je EINGESPEICHERTER kWh gekostet hat — also den Preis der `1/η` kWh,
+ * die für sie bezogen (bzw. der Einspeisung entzogen) wurden. Die eingespeicherte Menge bleibt
+ * dabei unverändert die des Fahrplans; geändert hat sich allein ihr Preis. Beide Energie-Töpfe
+ * fallen dadurch, der Leistungspreis-Anteil nicht (er ist ratenbasiert und kennt keine kWh).
+ *
+ * ⚠ Die für die SPITZENKAPPUNG geladene Energie bleibt weiterhin unbepreist — sie legt keine kWh
+ * in einen Topf, weder auf der Nutzen- noch auf der Kostenseite. Das ist unverändert und
+ * ausdrücklich kein Nebeneffekt dieser Änderung: der Wert der Spitzenkappung ist der Leistungspreis,
+ * nicht eine Preisdifferenz, und ein Kostenposten allein auf dieser Seite ergäbe einen vierten
+ * (negativen) Topf, den §3.7 nicht kennt.
  */
 export function computeBatterySavings(
   loadProfile: LoadProfile,
@@ -111,14 +129,43 @@ export function computeBatterySavings(
 
   const std = tariffParams.energyPriceCtPerKwh
   const einspeise = tariffParams.einspeiseverguetungCtPerKwh
-  // Eigenverbrauchs-Wert einer PV-kWh: vermeidet Bezug zum Arbeitspreis, verzichtet auf Einspeisung.
-  const pvSelfConsumptionCtPerKwh = Math.max(0, std - einspeise)
+
+  /*
+   * ── ⚠ DER LADEVERLUST IST EINE KOSTE, NICHT NUR EIN SoC-EFFEKT (Delta 19, §3.7) ───────────────
+   * Um EINE kWh einzuspeichern, müssen `1/η` kWh bezogen (bzw. dem Einspeiseerlös entzogen) werden
+   * — der Dispatch bildet das physikalisch längst ab (`soc += P·Δ·η`). Bis Delta 19 fehlte die
+   * andere Hälfte: die BEWERTUNG lief über den Preis je BEZOGENER kWh, angewandt auf die
+   * eingespeicherte Menge. Damit war jede gespeicherte kWh bezahlt, als hätte sie keine Verluste
+   * verursacht, und beide Energie-Töpfe waren systematisch zu hoch.
+   *
+   * Der Faktor korrigiert ausschliesslich die KOSTEN-Seite. Die eingespeicherte und die entnommene
+   * Menge bleiben unangetastet (sie sind Physik und stehen im Fahrplan); der Nutzen einer
+   * entnommenen kWh bleibt ebenfalls unangetastet (sie ersetzt genau eine bezogene kWh).
+   *
+   * `roundTripEfficiency` ist im Schema `> 0` (`packages/shared/src/battery.ts`) — die Prüfung
+   * steht trotzdem da: sie kostet nichts, und ein `Infinity` an dieser Stelle vergiftete lautlos
+   * jede Zahl, die daraus entsteht.
+   */
+  const chargeLossFactor = eta > 0 ? 1 / eta : 1
+
+  /*
+   * Eigenverbrauchs-Wert einer PV-kWh: vermeidet Bezug zum Arbeitspreis, verzichtet dafür auf die
+   * Einspeisung der `1/η` kWh, die für sie ins Gerät mussten. Vor Delta 19 stand hier
+   * `std - einspeise` — dieselbe Auslassung wie auf der Netz-Seite, nur mit dem Einspeiseerlös als
+   * entgangenem Preis. `max(0, …)`: bei einer Einspeisevergütung über dem Arbeitspreis ist
+   * Zwischenspeichern ein Verlustgeschäft, und ein negativer Topf wäre eine Ersparnis mit
+   * falschem Vorzeichen (der Dispatch entscheidet nicht preisbasiert, s. §3.6 Schritt 3).
+   */
+  const pvSelfConsumptionCtPerKwh = Math.max(0, std - einspeise * chargeLossFactor)
 
   // FIFO-Warteschlange. Der Start-SoC (§3.6.1, 50 % [ANNAHME]) trägt keine Herkunft → als neutrale
-  // 'grid'-Schicht zum Standardpreis geführt: erzeugt weder Eigenverbrauchs- noch Lastverschiebungs-
-  // Ersparnis (chargeCt = std) und verhindert nur den FIFO-Unterlauf.
+  // 'grid'-Schicht zum Standardpreis geführt: erzeugt keine Lastverschiebungs-Ersparnis (ihre Kosten
+  // liegen mit dem Ladeverlust sogar über jedem realen Entladepreis derselben Preisstufe) und
+  // verhindert nur den FIFO-Unterlauf.
   const layers: EnergyLayer[] = []
-  if (sim.startSocKwh > EPS) layers.push({ kwh: sim.startSocKwh, origin: 'grid', chargeCt: std })
+  if (sim.startSocKwh > EPS) {
+    layers.push({ kwh: sim.startSocKwh, origin: 'grid', costCtPerStoredKwh: std * chargeLossFactor })
+  }
 
   let pvSelfConsumedKwh = 0
   let loadShiftCtKwh = 0 // Σ kWh × (teuer − günstig) in ct·kWh, am Ende /100 → €
@@ -132,8 +179,17 @@ export function computeBatterySavings(
     if (bk > EPS) {
       // Laden — Herkunft aus dem Vorzeichen der Ausgangslast (deckt sich mit dem Dispatch-Branch).
       const storedKwh = bk * deltaH * eta // exakt wie der Dispatch (soc += P·Δ·η)
-      if (draw < 0) layers.push({ kwh: storedKwh, origin: 'pv', chargeCt: einspeise })
-      else layers.push({ kwh: storedKwh, origin: 'grid', chargeCt: rateCtPerKwh[i] ?? std })
+      // Bezogen wurden `bk * deltaH` kWh — gespeichert davon `storedKwh`. Der Preis wird deshalb
+      // auf die BEZOGENE Menge angewandt und auf die gespeicherte umgelegt (× 1/η, s. o.).
+      if (draw < 0) {
+        layers.push({ kwh: storedKwh, origin: 'pv', costCtPerStoredKwh: einspeise * chargeLossFactor })
+      } else {
+        layers.push({
+          kwh: storedKwh,
+          origin: 'grid',
+          costCtPerStoredKwh: (rateCtPerKwh[i] ?? std) * chargeLossFactor,
+        })
+      }
     } else if (bk < -EPS) {
       // Entladen — FIFO entnehmen und je nach Zweck/Herkunft zuordnen.
       let remaining = -bk * deltaH // Lieferung 1:1 aus dem SoC (soc -= P·Δ)
@@ -150,8 +206,10 @@ export function computeBatterySavings(
         if (layer.origin === 'pv') {
           pvSelfConsumedKwh += take
         } else {
-          // 'grid': Lastverschiebung = nur der Aufschlag (teuer jetzt − günstig beim Laden), ≥ 0.
-          loadShiftCtKwh += take * Math.max(0, dischargeCt - layer.chargeCt)
+          // 'grid': Lastverschiebung = nur der Aufschlag (teuer jetzt − günstig beim Laden INKLUSIVE
+          // Ladeverlust), ≥ 0. Der Verlust kann eine Verschiebung damit auch ganz aufzehren: bei
+          // η = 0,9 lohnt sich 15 → 16 ct nicht mehr, und das ist die Wahrheit, nicht ein Rundungsfehler.
+          loadShiftCtKwh += take * Math.max(0, dischargeCt - layer.costCtPerStoredKwh)
         }
       }
     }
