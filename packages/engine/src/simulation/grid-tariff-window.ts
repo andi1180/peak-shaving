@@ -1,4 +1,5 @@
 import type { GridTariffRowInput, GridTariffWindowInput } from 'shared'
+import { selectRateWindow } from 'shared'
 
 /**
  * Netzentgelt-Seite des kombinierten Intervallpreises (Delta 4/Delta 5): welche Tarifzeile gilt an
@@ -7,88 +8,20 @@ import type { GridTariffRowInput, GridTariffWindowInput } from 'shared'
  * Eigene Datei, weil die Auswahlregeln fachliche Aussagen sind und keine Hilfsfunktionen: welche
  * Zeile ein Datum abdeckt, entscheidet über den Preis einer ganzen Jahreshälfte; welches Fenster
  * eine Stunde abdeckt, über die Bewertung jeder verschobenen kWh.
- */
-
-const MINUTES_PER_DAY = 24 * 60
-
-/** 'HH:MM' oder 'HH:MM:SS' → Minuten seit Mitternacht. `24:00:00` ergibt 1440 (Tagesende). */
-export function parseClockMinutes(value: string): number {
-  const [h, m] = value.split(':')
-  return (Number(h) || 0) * 60 + (Number(m) || 0)
-}
-
-/**
- * Liegt `minuteOfDay` im Fenster [from, to)? Über Mitternacht laufende Fenster (from > to) werden
- * als Vereinigung [from, 24:00) ∪ [0, to) gelesen — dieselbe Regel wie bei den `timeOfUseWindows`
- * der Energiepreis-Seite (`tou.ts`), damit SNAP und HT/NT nicht zwei Lesarten haben.
  *
- * Ein Fenster `00:00–24:00` (ganztägig) ergibt from=0, to=1440 und trifft damit jede Minute.
- */
-function inClockWindow(minuteOfDay: number, from: number, to: number): boolean {
-  if (from <= to) return minuteOfDay >= from && minuteOfDay < to
-  return minuteOfDay >= from || minuteOfDay < to
-}
-
-/** 'MM-DD' → Ordnungszahl im (nicht-Schalt-)Jahr, nur für Vergleich und Längenmessung. */
-function monthDayOrdinal(monthDay: string): number {
-  const [mm, dd] = monthDay.split('-')
-  return (Number(mm) || 0) * 100 + (Number(dd) || 0)
-}
-
-/**
- * Liegt der Kalendertag in der (jahreslosen) Saison? `null` an einer der Grenzen heisst ganzjährig.
- * Über den Jahreswechsel laufende Saisons (10-01 … 03-31, der reale Winter-Fall) werden wie die
- * Uhrzeit-Fenster als Vereinigung gelesen — beide Grenzen INKLUSIV, denn eine Saison endet mit
- * ihrem letzten Tag und nicht am Vortag davon.
- */
-function inSeason(month: number, day: number, from: string | null, to: string | null): boolean {
-  if (from == null || to == null) return true
-  const value = month * 100 + day
-  const a = monthDayOrdinal(from)
-  const b = monthDayOrdinal(to)
-  if (a <= b) return value >= a && value <= b
-  return value >= a || value <= b
-}
-
-/**
- * Wie „eng" ist ein Fenster? Kleinere Zahl = spezifischer.
+ * ── ⚠ DIE FENSTER-AUSWAHLREGEL LIEGT SEIT DEM 02.09.2026 IN `shared` ───────────────────────────
+ * `inSeason`, `inClockWindow`, `coverageScore` und die Auswahl darüber sind nach
+ * `packages/shared/src/tariff-window-rules.ts` gewandert und werden von dort importiert. Der Grund
+ * ist ein ZWEITER Konsument, der `engine` nicht kennen darf: Der Admin-Pflegeweg in `apps/web`
+ * warnt beim Hinzufügen eines Fensters, welches bestehende dadurch verdrängt würde — und diese
+ * Warnung muss dieselbe Regel benutzen, nach der die Engine später rechnet. Ausgeschrieben wären es
+ * zwei Regeln, die auseinanderlaufen können; die Warnung sagte dann etwas, das die Rechnung nicht
+ * einhält. Begründung in voller Länge im Kopf der Datei dort.
  *
- * ── WARUM ES DIESE ORDNUNG ÜBERHAUPT BRAUCHT ───────────────────────────────────────────────────
- * Überlappende Fenster sind der REGELFALL, nicht der Ausnahmefall: ein Preisblatt führt ein
- * ganztägiges Grundfenster (`normal`, 00:00–24:00) UND darin ausgeschnittene Hochlastfenster
- * (`snap`, 17:00–20:00, saisonal). Genau so ist es in B21-2b gegen die Cloud eingegeben worden.
- * Ohne Ordnung entschiede die Sortierreihenfolge der Abfrage, welcher Preis gilt — derselbe
- * Zustand, den der `nulls not distinct`-Constraint aus B21-1 auf der Zeilenebene ausschliesst.
- *
- * Gewählt ist die ENGERE Abdeckung, weil ein ausgeschnittenes Fenster fachlich die Ausnahme von
- * der Regel ist. Bei exakt gleicher Abdeckung gewinnt der HÖHERE Preis: zwei gleich enge Fenster
- * sind ein Pflegefehler, und die teurere Lesart weist eine zu HOHE statt einer zu niedrigen
- * Vergleichszahl aus — eine zu niedrige fiele niemandem als Fehler auf, sondern als Ergebnis.
+ * Die DATIERUNG der Tarifzeile (`findGridTariffRow`, unten) ist davon unberührt und bleibt hier:
+ * sie beantwortet eine andere Frage (welcher Stand gilt an einem Datum) und hat ausserhalb des
+ * Rechenkerns keinen Konsumenten.
  */
-function coverageScore(window: GridTariffWindowInput): number {
-  const from = parseClockMinutes(window.timeFrom)
-  const to = parseClockMinutes(window.timeTo)
-  const minutes = from <= to ? to - from : MINUTES_PER_DAY - from + to
-  const seasonDays = seasonLengthDays(window.monthDayFrom, window.monthDayTo)
-  return seasonDays * minutes
-}
-
-/** Länge der Saison in Tagen (grob, nur als Ordnungsmass — 366 = ganzjährig). */
-function seasonLengthDays(from: string | null, to: string | null): number {
-  if (from == null || to == null) return 366
-  const days = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
-  const dayOfYear = (monthDay: string): number => {
-    const [mm, dd] = monthDay.split('-')
-    const month = Number(mm) || 1
-    const day = Number(dd) || 1
-    let n = day
-    for (let m = 1; m < month; m++) n += days[m - 1]!
-    return n
-  }
-  const a = dayOfYear(from)
-  const b = dayOfYear(to)
-  return a <= b ? b - a + 1 : 366 - a + b + 1
-}
 
 /**
  * Die Tarifzeile, die einen Kalendertag abdeckt — `null`, wenn keine ihn abdeckt.
@@ -115,25 +48,17 @@ export function findGridTariffRow(
   return best
 }
 
-/** Das Zeitfenster einer Tarifzeile, das den Zeitpunkt abdeckt — `null`, wenn keins passt. */
+/**
+ * Das Zeitfenster einer Tarifzeile, das den Zeitpunkt abdeckt — `null`, wenn keins passt.
+ *
+ * Reicht die Fensterliste an die geteilte Auswahlregel weiter (s. Kopf). Der Einstiegspunkt bleibt
+ * hier, weil der Rechenkern in Tarifzeilen denkt und nicht in Fensterlisten.
+ */
 export function findGridTariffWindow(
   row: GridTariffRowInput,
   month: number,
   day: number,
   minuteOfDay: number,
 ): GridTariffWindowInput | null {
-  let best: GridTariffWindowInput | null = null
-  let bestScore = Number.POSITIVE_INFINITY
-  for (const window of row.windows) {
-    if (!inSeason(month, day, window.monthDayFrom, window.monthDayTo)) continue
-    const from = parseClockMinutes(window.timeFrom)
-    const to = parseClockMinutes(window.timeTo)
-    if (!inClockWindow(minuteOfDay, from, to)) continue
-    const score = coverageScore(window)
-    if (score < bestScore || (score === bestScore && best !== null && window.ctPerKwh > best.ctPerKwh)) {
-      best = window
-      bestScore = score
-    }
-  }
-  return best
+  return selectRateWindow(row.windows, month, day, minuteOfDay)
 }
