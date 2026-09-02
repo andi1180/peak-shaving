@@ -26,6 +26,11 @@ export { alignPvGrossToLoad, pvConsistencyWarning, pvCoverageWarning } from './p
 // dieselbe Rechnung wie in `intervalTariffRates`, keine zweite Prüfung daneben.
 export { intervalTariffRates, evaluateTariffOptimization, combinedIntervalPrices } from './tou'
 export type { IntervalTariffRates, CombinedIntervalPrices } from './tou'
+// Tages-Rangfolge für Laden/Entladen (§3.6 Schritt 5, 02.09.2026): zwei Schranken auf denselben
+// EINEN Fahrplan — Ladeobergrenze und Preis-Untergrenze —, gebildet aus der Preisreihe (Delta 4)
+// und der Physik des Kandidaten. Aktiv nur bei einer echten Preiskurve, nicht beim HT/NT-Fenster.
+export { dailyPriceOrder } from './daily-price-order'
+export type { DailyPriceOrder, DailyPriceOrderInputs } from './daily-price-order'
 // Monatsvergleich „Ist vs. aWATTar ohne Steuerung vs. aWATTar mit Speicher" (01.09.2026) — reine
 // Aggregation über den bereits gerechneten Dispatch; beide Preisreihen kommen aus DERSELBEN
 // `combinedIntervalPrices`, nur mit unterschiedlicher Energiepreis-Eingabe.

@@ -2,6 +2,7 @@ import type { BatteryCandidate, LoadProfile, PvProfile, TariffParams, TariffPric
 
 import { getTariffStrategy } from '../tariff/strategy'
 import { searchCaps } from './cap-search'
+import { dailyPriceOrder } from './daily-price-order'
 import { runCombinedDispatch, type DispatchResult } from './dispatch'
 import {
   capForIntervalSeries,
@@ -117,9 +118,37 @@ export function simulateBattery(
   // 3. Kombinierter Dispatch (§3.6). Günstige Tarif-Fenster (§3.7 Schritt 5a) steuern das
   //    tarifbewusste Laden; ohne Fenster ist `isCheapWindow` überall false → reiner Spitzenschutz.
   // `pricing` (Delta 4, B21-3b) ändert nur den INHALT von `isCheapWindow` — welche Stunden günstig
-  //    sind, entscheidet dann der kombinierte Preis statt eines Wanduhr-Fensters. Der Dispatch selbst
-  //    bekommt unverändert nur das Boolean und ist nicht angefasst.
-  const { isCheapWindow } = intervalTariffRates(loadProfile, tariffParams, pricing)
+  //    sind, entscheidet dann der kombinierte Preis statt eines Wanduhr-Fensters.
+  const rates = intervalTariffRates(loadProfile, tariffParams, pricing)
+  const { isCheapWindow } = rates
+
+  /*
+   * ── TAGES-RANGFOLGE (§3.6 Schritt 5, Produktentscheidung 02.09.2026) ──────────────────────────
+   * Die Preisschwelle sagt, WELCHE Stunden günstig sind; die Rangfolge sagt, WELCHE davon die
+   * günstigsten sind, die heute noch kommen — und spiegelbildlich, für welche teuren Stunden
+   * Energie liegen bleiben muss. Sie entsteht hier im Orchestrator, weil sie beide Seiten braucht,
+   * die es sonst nirgends zusammen gibt: die Preisreihe (`tou.ts`) UND die Physik des Kandidaten.
+   *
+   * ⚠ NUR bei einer ECHTEN Preiskurve (`computable === true`, also mit angefordertem und
+   * rechenbarem Delta-4-Hebel). Beim statischen Wanduhr-Fenster (HT/NT) gibt es innerhalb eines
+   * Tages gar keine Rangfolge — alle Nachtstunden kosten exakt dasselbe, und eine Reihenfolge
+   * unter Gleichen wäre erfunden. Der statische Zweig bleibt damit unverändert (§3.6 Schritt 5 in
+   * seiner bisherigen Form), und der nicht berechenbare Fall fällt weiterhin auf gar nichts zurück
+   * statt auf eine andere Grundlage (Delta 15 Regel C).
+   */
+  const priceOrder =
+    rates.tariffOptimization?.computable === true
+      ? dailyPriceOrder({
+          loadProfile,
+          rateCtPerKwh: rates.rateCtPerKwh,
+          preferChargeInterval: isCheapWindow,
+          capForInterval,
+          draws,
+          physics,
+          deltaH,
+        })
+      : undefined
+
   const socStart = startSoc(physics)
   const dispatch = runCombinedDispatch(
     draws,
@@ -129,6 +158,7 @@ export function simulateBattery(
     socStart,
     deltaH,
     isCheapWindow,
+    priceOrder,
   )
 
   // 4. Neuer abgerechneter kW-Wert via die bereits gebaute TariffStrategy (§3.5) auf dem gekappten Profil.
