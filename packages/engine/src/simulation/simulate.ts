@@ -43,6 +43,26 @@ export type BatterySimulationResult = {
    * signierten `gridPowerKw` enthalten, s. Kopf-Kommentar `simulateBattery`).
    */
   grossPvKw?: number[]
+  /**
+   * Der Arbeitspreis je Intervall (ct/kWh), MIT DEM DIESER FAHRPLAN ENTSTANDEN IST — nicht eine
+   * daneben gerechnete zweite Preisreihe. Er liegt in `simulateBattery` ohnehin vor
+   * (`intervalTariffRates`, Schritt 3) und wird seit dem 02.09.2026 mit herausgereicht, damit die
+   * Trace-Auswertung („zu welchem Preis wurde geladen?") ihn nicht ein zweites Mal bilden muss —
+   * zwei Wege zu derselben Preisreihe liefen beim nächsten Preisblatt-Ausbau auseinander, und die
+   * ausgewiesene Ladepreis-Zahl gehörte dann zu einem anderen Preis als der Fahrplan.
+   */
+  rateCtPerKwh: number[]
+  /**
+   * War das eine ECHTE Preiskurve (Delta-4-Hebel angefordert UND rechenbar)?
+   *
+   * ⚠ Die Unterscheidung ist nötig, weil `rateCtPerKwh` IMMER gefüllt ist: im nicht berechenbaren
+   * Fall bewusst durchgehend mit dem Standard-Arbeitspreis (s. `intervalTariffRates`). Eine
+   * Preis-Auswertung darüber zeigte in jedem Monat denselben Wert und behauptete damit, die
+   * Ladesteuerung bringe nichts — statt zu sagen, dass sie nicht bewertbar ist. Das statische
+   * HT/NT-Fenster ist aus demselben Grund NICHT „computable": dort nimmt der Preis genau zwei
+   * Werte an, und ein Mittel darüber misst Fensterlängen, keine Preisbewegung.
+   */
+  priceCurveComputable: boolean
 }
 
 /**
@@ -174,5 +194,14 @@ export function simulateBattery(
   // Brutto-PV (optional): NUR ausgerichtet + konsistenzgeprüft, kein Physik-Eingriff (s. Kopf-Kommentar).
   const grossPvKw = pvProfile ? alignPvGrossToLoad(loadProfile, pvProfile).grossPvKw : undefined
 
-  return { capKwByPeriod, newBilledKw, socFloorKwh, dispatch, startSocKwh: socStart, grossPvKw }
+  return {
+    capKwByPeriod,
+    newBilledKw,
+    socFloorKwh,
+    dispatch,
+    startSocKwh: socStart,
+    grossPvKw,
+    rateCtPerKwh: rates.rateCtPerKwh,
+    priceCurveComputable: rates.tariffOptimization?.computable === true,
+  }
 }

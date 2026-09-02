@@ -1,4 +1,4 @@
-import type { DispatchTrace, LoadProfile, TariffParams } from 'shared'
+import type { DispatchTrace, LoadProfile, MonthlyChargePrice, TariffParams } from 'shared'
 
 import { utcMsToLocalFields } from '../parser/datetime'
 import { capForIntervalSeries, drawSeries, intervalHours, periodIndexByInterval } from './helpers'
@@ -94,7 +94,129 @@ export function buildDispatchTrace(
     grossPvKw: sim.grossPvKw,
   })
 
-  return { capKwByPeriod: sim.capKwByPeriod, caughtPeaks, representativeDays }
+  /*
+   * Stunden-Heatmap + Ø-Ladepreis (02.09.2026): EIN weiterer Durchlauf über dieselben Reihen, die
+   * oben schon gelesen werden — keine zweite Simulation und keine zweite Preisreihe (`rateCtPerKwh`
+   * kommt aus `sim`, ist also GENAU der Preis, mit dem dieser Fahrplan entstanden ist).
+   */
+  const { batteryFlowByHourMonth, monthlyChargePrice } = buildFlowAndPriceAggregates(loadProfile, sim)
+
+  return {
+    capKwByPeriod: sim.capKwByPeriod,
+    caughtPeaks,
+    representativeDays,
+    batteryFlowByHourMonth,
+    monthlyChargePrice,
+  }
+}
+
+const HOURS_PER_DAY = 24
+const MONTHS_PER_YEAR = 12
+
+/** 2D-Akkumulator `[stunde][monat]`, mit 0 vorbelegt. */
+function zeroHourMonth(): number[][] {
+  return Array.from({ length: HOURS_PER_DAY }, () => new Array<number>(MONTHS_PER_YEAR).fill(0))
+}
+
+/**
+ * Die beiden Monats-/Stunden-Aggregate des Traces (02.09.2026) — Stunden-Heatmap und Ø-Ladepreis.
+ *
+ * ── ⚠ EIN DURCHLAUF, WEIL BEIDE DIESELBE GRUPPIERUNG BRAUCHEN ────────────────────────────────
+ * Beide gruppieren über die LOKALE Wanduhr (`utcMsToLocalFields`) — dieselbe Ableitung wie
+ * `coveredMonthlyPeaksKw` (§3.4/§3.5), `buildMonthlyTariffComparison` und `cheapAgainstDailyMean`.
+ * Damit fallen DST-Tage (92 bzw. 100 Intervalle) und Schaltjahre von selbst richtig, ohne eine
+ * eigene Regel — und „14 Uhr" heisst hier dasselbe wie überall sonst im Report. Über UTC gruppiert
+ * wanderte die Heatmap im Sommerhalbjahr um eine Spalte, und die Aussage „mittags wird geladen"
+ * wäre je nach Jahreszeit um eine Stunde falsch.
+ *
+ * ── ⚠ NETZSEITIGE MENGEN (`batteryPowerKw × Δt`), NICHT SoC-SEITIGE ──────────────────────────
+ * Der Dispatch schreibt `soc += P·Δ·η` beim Laden — die im Speicher ankommende Menge liegt auf der
+ * Ladeseite um den Wirkungsgrad unter der bezogenen. Gezählt wird durchgängig die BEZOGENE Menge:
+ * sie ist die, die bezahlt wurde, und sie ist die Gewichtung, zu der ein Ladepreis gehört. Auf den
+ * PREIS wirkt die Wahl nicht (η kürzt sich aus einem gewichteten Mittel heraus) — auf `chargedKwh`
+ * sehr wohl, um rund 11 %. S. `MonthlyChargePrice` in `packages/shared`.
+ */
+function buildFlowAndPriceAggregates(
+  loadProfile: LoadProfile,
+  sim: BatterySimulationResult,
+): Pick<DispatchTrace, 'batteryFlowByHourMonth' | 'monthlyChargePrice'> {
+  const readings = loadProfile.readings
+  const tz = loadProfile.timezoneMeta
+  const deltaH = intervalHours(loadProfile)
+  const power = sim.dispatch.batteryPowerKw
+  const rates = sim.rateCtPerKwh
+
+  const cellKwh = zeroHourMonth()
+  const cellCount = zeroHourMonth()
+
+  const monthCount = new Array<number>(MONTHS_PER_YEAR).fill(0)
+  const rateSum = new Array<number>(MONTHS_PER_YEAR).fill(0)
+  const rateCount = new Array<number>(MONTHS_PER_YEAR).fill(0)
+  const chargeKwh = new Array<number>(MONTHS_PER_YEAR).fill(0)
+  const chargeCost = new Array<number>(MONTHS_PER_YEAR).fill(0)
+  const dischargeKwh = new Array<number>(MONTHS_PER_YEAR).fill(0)
+  const dischargeCost = new Array<number>(MONTHS_PER_YEAR).fill(0)
+
+  for (let i = 0; i < readings.length; i++) {
+    const { month, hour } = utcMsToLocalFields(Date.parse(readings[i]!.ts), tz)
+    const m = month - 1
+    monthCount[m]! += 1
+
+    const p = power[i] ?? 0
+    // Netzseitige Energie dieses Intervalls (+ = bezogen/geladen, − = abgegeben/entladen).
+    const kwh = Number.isFinite(p) ? p * deltaH : 0
+    cellKwh[hour]![m]! += kwh
+    cellCount[hour]![m]! += 1
+
+    /*
+     * Fehlt für ein Intervall ein brauchbarer Preis (kann bei abweichender Reihenlänge passieren),
+     * bleibt es aus BEIDEN Preis-Seiten heraus — aus dem Vergleichswert UND aus der Gewichtung.
+     * Nur die Kosten zu überspringen und die Menge zu zählen verschöbe das gewichtete Mittel
+     * lautlos nach unten; die Heatmap zeigt das Intervall trotzdem, sie kennt keinen Preis.
+     */
+    const rate = rates[i]
+    if (rate == null || !Number.isFinite(rate)) continue
+    rateSum[m]! += rate
+    rateCount[m]! += 1
+
+    if (kwh > EPS) {
+      chargeKwh[m]! += kwh
+      chargeCost[m]! += kwh * rate
+    } else if (kwh < -EPS) {
+      dischargeKwh[m]! += -kwh
+      dischargeCost[m]! += -kwh * rate
+    }
+  }
+
+  // `null` = in dieser Zelle liegt kein einziges Intervall. Eine 0 dort sähe aus wie „gemessen,
+  // der Speicher ruht" — genau die Verwechslung, die `MonthlyTariffComparison` bei den Monaten
+  // schon vermeidet.
+  const batteryFlowByHourMonth = cellKwh.map((row, h) =>
+    row.map((value, m) => (cellCount[h]![m]! > 0 ? value : null)),
+  )
+
+  /*
+   * ⚠ Der Ø-Ladepreis entsteht NUR bei einer echten Preiskurve. Ohne sie trägt `rateCtPerKwh`
+   * durchgehend den Standard-Arbeitspreis, und alle drei Reihen wären in jedem Monat dieselbe
+   * Zahl — eine Grafik, die behauptet, die Ladesteuerung bringe nichts, statt zu sagen, dass sie
+   * nicht bewertbar ist. Die Bedingung steht an EINER Stelle: die Oberfläche prüft danach nur
+   * noch, ob das Feld da ist (dieselbe Regel wie beim Monatsvergleich).
+   */
+  if (!sim.priceCurveComputable) return { batteryFlowByHourMonth, monthlyChargePrice: undefined }
+
+  const monthlyChargePrice: MonthlyChargePrice = {
+    // Gewichtete Mittel: `null`, wenn in diesem Monat gar nicht geladen bzw. entladen wurde — eine
+    // 0 wäre ein Preis, den nie jemand bezahlt hat.
+    chargeCtPerKwh: chargeKwh.map((kwh, m) => (kwh > EPS ? chargeCost[m]! / kwh : null)),
+    dischargeCtPerKwh: dischargeKwh.map((kwh, m) => (kwh > EPS ? dischargeCost[m]! / kwh : null)),
+    // Der Vergleichswert: UNGEWICHTET über alle Intervalle des Monats — der Preis eines Speichers,
+    // der blind über den Monat verteilt lädt. Ohne ihn ist der Ladepreis eine Zahl ohne Massstab.
+    averageCtPerKwh: rateSum.map((sum, m) => (rateCount[m]! > 0 ? sum / rateCount[m]! : null)),
+    chargedKwh: chargeKwh.map((kwh, m) => (monthCount[m]! > 0 ? kwh : null)),
+    dischargedKwh: dischargeKwh.map((kwh, m) => (monthCount[m]! > 0 ? kwh : null)),
+  }
+
+  return { batteryFlowByHourMonth, monthlyChargePrice }
 }
 
 type DayContext = {

@@ -25,11 +25,14 @@ import { DEFAULT_HORIZON_YEARS, LARGE_GAP_SLOTS_THRESHOLD } from '@/lib/constant
 import type { AnalysisRunInputs } from '@/lib/use-analysis'
 import type { ExistingBatteryInput, RecomputeInput } from '@/components/flow/types'
 import { AssumptionsPanel } from './assumptions-panel'
+import { BatteryFlowHeatmap } from './battery-flow-heatmap'
+import { ChargePriceChart } from './charge-price-chart'
 import { CostChart } from './cost-chart'
 import { EnergyFlowChart } from './energy-flow-chart'
 import { KeyMetric } from './key-metric'
 import { LeadDialog } from './lead-dialog'
 import { LoadChart } from './load-chart'
+import { MarginalBenefitChart } from './marginal-benefit-chart'
 import { MonthlyTariffChart } from './monthly-tariff-chart'
 import { Num } from './num'
 import { PrintAssumptionsSnapshot } from './print-assumptions-snapshot'
@@ -456,6 +459,39 @@ export function Report({
     </div>
   )
 
+  /*
+   * ── WANN LÄDT DER SPEICHER, UND ZU WELCHEM PREIS? (02.09.2026) ─────────────────────────────
+   * Beide Kästen lesen den Trace des PRIMÄREN Blocks — im Bestandsfall also die Anlage des Kunden,
+   * sonst die Empfehlung. Dieselbe Wahl wie bei der Kapp-Linie im Lastgang-Chart: ein Fahrplan
+   * eines Geräts, das der Kunde erst kaufen müsste, wäre in seiner eigenen Auswertung die falsche
+   * Kurve.
+   *
+   * ⚠ EIN EIGENER, VOLLBREITER ABSCHNITT — NICHT IM INNEREN `sm:grid-cols-2`-RASTER. Dort ist die
+   * Zeichenfläche rund 300 px breit; eine Heatmap mit 12 Spalten und ein Preis-Chart mit 12 Monaten
+   * × 2 Balken sind darin nicht mehr lesbar (dieselbe Messung, die den Monatsvergleich über beide
+   * Spalten gestellt hat).
+   *
+   * ⚠ DER LADEPREIS ERSCHEINT NUR, WENN DAS FELD DA IST — und die Engine setzt es ausschliesslich
+   * bei einer echten Preiskurve (`trace.ts`). Keine zweite Prüfung an `tariffOptimization` hier:
+   * die Frage „darf ich diese Zahlen zeigen" hat einen Ort. Fehlt es, entfällt der Kasten
+   * ERSATZLOS — keine leere Box, und die Heatmap daneben bleibt stehen.
+   */
+  const primaryTrace = primaryEntry?.dispatchTrace
+  const hourFlow = primaryTrace?.batteryFlowByHourMonth
+  const chargePrice = primaryTrace?.monthlyChargePrice
+  const dispatchInsightSection =
+    primaryEntry && (hourFlow || chargePrice) ? (
+      <section
+        className="grid gap-6 lg:grid-cols-2 print:grid-cols-1"
+        data-testid="dispatch-einblick"
+      >
+        {hourFlow && (
+          <BatteryFlowHeatmap grid={hourFlow} batteryName={primaryEntry.battery.name} />
+        )}
+        {chargePrice && <ChargePriceChart price={chargePrice} />}
+      </section>
+    ) : null
+
   const alternativesAccordion =
     alternatives.length > 0 ? (
       <Accordion
@@ -475,6 +511,15 @@ export function Report({
         </AccordionItem>
       </Accordion>
     ) : null
+
+  /*
+   * Der Grenznutzen über den Katalog: was bleibt bei welcher Grösse netto übrig? Steht ÜBER der
+   * Alternativen-Aufklappliste — die Karten darin beantworten „welches Gerät", die Kurve davor die
+   * vorgelagerte Frage „welche Grösse überhaupt", und die ist ohne Aufklappen zu sehen.
+   */
+  const catalogMarginalBenefit = (
+    <MarginalBenefitChart points={result.perBattery} horizonYears={a.horizonYears} variant="catalog" />
+  )
 
   /*
    * ── LOHNT SICH EIN ZUSÄTZLICHER SPEICHER? (01.09.2026) ─────────────────────────────────────
@@ -520,6 +565,17 @@ export function Report({
           des neuen Geräts allein.
         </p>
       </div>
+      {/*
+        ⚠ UNBEDINGT — ausdrücklich NICHT an `netSavingOverHorizon > 0` gekoppelt. Rechnet sich
+        keines der Geräte, ist diese Kurve die BEGRÜNDUNG des Klarsatzes darunter: sie zeigt, dass
+        die Linie über alle Grössen unter der Nulllinie bleibt und nicht bloss knapp danebenliegt.
+        Ein Klarsatz ohne Bild wäre eine Behauptung, die der Kunde nicht nachprüfen kann.
+      */}
+      <MarginalBenefitChart
+        points={existingAnalysis.addonScenarios}
+        horizonYears={a.horizonYears}
+        variant="addon"
+      />
       {positiveAddons.length > 0 ? (
         <Accordion
           type="single"
@@ -733,7 +789,16 @@ export function Report({
         Alternativen-Aufklappliste des Katalog-Laufs entfällt dort — sie beantwortete „welchen
         Speicher soll ich kaufen", und diese Frage stellt sich einem Kunden mit Anlage nicht.
       */}
-      {isExisting ? addonSection : alternativesAccordion}
+      {dispatchInsightSection}
+
+      {isExisting ? (
+        addonSection
+      ) : (
+        <>
+          {catalogMarginalBenefit}
+          {alternativesAccordion}
+        </>
+      )}
 
       {/*
         ── Delta 18: die Report-Anfrage in eigenen Worten ────────────────────────────────────────
