@@ -11,3 +11,7 @@ export * from './roi'
 export * from './recommendation'
 // Delta 8 / 9b-1: das synthetische Standardlastprofil (H0) für Kunden ohne echten Lastgang.
 export * from './standard-profile'
+// B22a: der PV-Zeitreihengenerator — PVGIS-Stundenwerte werden zu einem gemittelten
+// Referenzprofil und dieses zu einem signierten Netz-Lastgang (Verbrauch − Erzeugung). Der
+// Netzaufruf selbst liegt bewusst NICHT hier, sondern als Proxy in `apps/website/lib/pvgis/`.
+export * from './pv-generation'

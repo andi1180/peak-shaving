@@ -23,6 +23,13 @@ import type { BatteryCandidate, LoadProfile, TariffParams } from 'shared'
  *     Spitzenlast-Ersparnis wäre eine erfundene Zahl (Prinzip 1, Prinzip 7).
  *     ⚠ Das gilt UNABHÄNGIG vom nominellen Vertragsstatus des Kunden — auch wenn er einen Tarif
  *     MIT Leistungsmessung gewählt hat und der Leistungspreis > 0 ist. Delta 8 sagt das wörtlich.
+ *   • `estimated_pv` (B22): die ERZEUGUNGSSEITE des Lastgangs ist geschätzt. Der Verbrauch kann
+ *     gemessen sein — abgezogen wurde aber eine aus PVGIS gemittelte Erzeugungskurve, und dadurch
+ *     ist JEDE Spitze dieses Lastgangs zur Hälfte eine Schätzung: sie steht dort, wo die geschätzte
+ *     Erzeugung gerade klein war, nicht dort, wo der Zähler eine gemessen hat. Eine Kappung darauf
+ *     wäre eine Ersparnis auf eine nie gemessene Spitze.
+ *     ⚠ Auch dieser Grund gilt UNABHÄNGIG vom Vertragsstatus: ein Tarif mit Leistungsmessung macht
+ *     die geschätzte Spitze nicht zu einer gemessenen.
  *   • `no_demand_charge` (Delta 3, ERSTE Anwendung; Tarifvariante „ohne Leistungsmessung", Delta 5):
  *     der TARIF hat den Posten gar nicht. Eine Aussage über die Abrechnung — weder ein Produkt-
  *     noch ein Datenmangel, sondern schlicht nichts zu sparen. Behebbar allein durch einen anderen
@@ -43,7 +50,11 @@ import type { BatteryCandidate, LoadProfile, TariffParams } from 'shared'
  * Deshalb eine LISTE und kein einzelner Grund: treffen mehrere zu, sind auch mehrere wahr, und der
  * Report soll alle sagen können statt einen davon zu unterschlagen.
  */
-export type PeakShavingBlocker = 'static_control' | 'standard_profile' | 'no_demand_charge'
+export type PeakShavingBlocker =
+  | 'static_control'
+  | 'standard_profile'
+  | 'no_demand_charge'
+  | 'estimated_pv'
 
 export function peakShavingBlockers(
   loadProfile: LoadProfile,
@@ -53,6 +64,15 @@ export function peakShavingBlockers(
   const blockers: PeakShavingBlocker[] = []
   if (battery.controlType === 'static') blockers.push('static_control')
   if (loadProfile.source === 'standard_profile') blockers.push('standard_profile')
+  /*
+   * B22: `pvSource` steht ORTHOGONAL zu `source` und wird deshalb getrennt geprüft. Beide können
+   * zugleich zutreffen — „synthetischer Verbrauch minus geschätzter Erzeugung" ist die schwächste
+   * Grundlage im ganzen Rechner und zugleich der wichtigste Anwendungsfall. Dass die Sperre dort
+   * schon aus `standard_profile` folgt, macht diese Prüfung NICHT überflüssig: sie trägt auch den
+   * Fall „echter Lastgang ohne Einspeisespalte + geschätzte PV", für den es sonst gar keinen
+   * Blocker gäbe.
+   */
+  if (loadProfile.pvSource === 'estimated') blockers.push('estimated_pv')
   if (tariffParams.leistungspreisEurPerKwYear === 0) blockers.push('no_demand_charge')
   return blockers
 }

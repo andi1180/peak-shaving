@@ -522,12 +522,34 @@ je Zeile den Stand nach diesem Pflichtenheft.
 Die drei Bau-Schritte in §3 nennen je eigene Entscheidungen. Zwei davon sind in diesem Pflichtenheft
 bewusst **nicht** getroffen worden, weil die Bestandsaufnahme sie weder misst noch vorentscheidet:
 
-- **Schaltjahr-Abbildung** (B22a): ein Schaltjahr-Wetterjahr auf ein Nicht-Schaltjahr abzubilden —
-  und umgekehrt — ist eine eigene Entscheidung. Sie ist im Bau-Prompt für B22a zu treffen und dort zu
-  begründen, nicht beiläufig beim Umsetzen.
-- **Fehlerbild bei nicht erreichbarem PVGIS** (B22a): benannter Zustand nach dem Muster
-  `not_configured` / `api_error`, aber die konkreten Zustände und ihre Meldungen sind offen. Fest
-  steht nur, was **nicht** zulässig ist: ein stiller Rückfall auf eine ersatzweise Kurve.
+- **Schaltjahr-Abbildung** (B22a): ~~ist im Bau-Prompt für B22a zu treffen~~ **ENTSCHIEDEN am
+  02.09.2026 mit dem Bau von B22a.** Das Referenzprofil trägt **8.760** Werte und kennt den
+  29. Februar nicht; fällt er im Analysejahr an, bekommt er die Werte des **28. Februar**. Die
+  24 Stunden des 29. Februar eines Schaltjahr-Wetterjahres fliessen in **keine** Zelle — sie werden
+  verworfen und nicht auf den 28. addiert. Begründung an den echten Daten gemessen (29.02. 11:00 UTC
+  = 2.293,65 W über zwei Jahre, 28.02. = 5.205,78 W über zehn) und im Kopf von
+  `packages/engine/src/pv-generation/reference-profile.ts` ausgeschrieben.
+- **Fehlerbild bei nicht erreichbarem PVGIS** (B22a): ~~die konkreten Zustände sind offen~~
+  **ENTSCHIEDEN am 02.09.2026.** Jeder AUSSENfehler (Netzwerk, Zeitüberschreitung, Non-200,
+  unlesbarer Rumpf, unerwartetes Schema, unvollständige Reihe) mündet in **`pvgis_error`**; daneben
+  stehen **`invalid_input`** und **`rate_limited`** für Anfragen, die **gar nicht erst hinausgehen** —
+  sie als `pvgis_error` zu melden hiesse, dem Dienst etwas anzulasten, das bei uns liegt. Kein
+  `not_configured` (es ist nichts einzurichten) und ausdrücklich **kein stiller Rückfall** auf eine
+  ersatzweise Kurve.
+
+### 4.2 Neu offen seit dem Bau von B22a (02.09.2026)
+
+- **⚠ Das Zehn-Jahres-Mittel GLÄTTET die Kurve, und das macht die Schätzung optimistisch.** §2.1
+  begründet das Mittel über die Genauigkeit des **Jahresertrags** (0,6 % gegen Meteonorm); über die
+  **Form** sagt es nichts. Gegen die echte PVGIS-Antwort gemessen (Wien, 10,2 kWp, 90°, Azimut −47,
+  H0 4.500 kWh, Speicher 19,2 kWh / 10,6 kW): die gemittelte Kurve erreicht als Spitze **6,18 kW**,
+  die zehn Einzeljahre **7,55–8,30 kW**; die Eigenverbrauchs-Ersparnis liegt dadurch bei **€ 428,27**
+  statt bei € 408,45 — **4,9 % über dem Mittel der einzeln gerechneten Jahre und über jedem einzelnen
+  davon.** Der Report-Hinweis (§2.2 Punkt 1) sollte das **neben** der ± 5,8 %-Streuung nennen.
+  Blockiert nichts.
+- **Die Kennzeichnung im Analyse-Bündel (§2.2 Punkt 2) ist NICHT gebaut.** Das Bündel trägt
+  `inputs`/`result`, aber keinen Lastgang — `pvSource` reist heute nicht mit. Der Nachtrag ist ein
+  **Sprung der Bündel-Fassung** und gehört zu dem Schritt, der den Report-Hinweis baut (B22b).
 
 ---
 

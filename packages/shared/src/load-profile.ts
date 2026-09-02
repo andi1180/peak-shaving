@@ -35,11 +35,34 @@ export const loadSourceSchema = z.enum([
 ])
 export type LoadSource = z.infer<typeof loadSourceSchema>
 
+/**
+ * Herkunft der PV-KOMPONENTE dieses Lastgangs (B22, Pflichtenheft PV-Zeitreihengenerator §2.2).
+ *
+ * ── WARUM ORTHOGONAL ZU `source` UND KEIN FÜNFTER `source`-WERT ─────────────────────────────────
+ * `source` beschreibt, wie der Lastgang zustande kam. Die Schätzung betrifft aber nur die
+ * PV-HÄLFTE; der Verbrauch daneben kann sehr wohl gemessen sein (`import_only` + geschätzte PV)
+ * oder synthetisch (`standard_profile` + geschätzte PV — der wichtigste Anwendungsfall und die
+ * schwächste Grundlage im ganzen Rechner). Ein fünfter `source`-Wert könnte diese beiden Aussagen
+ * nicht mehr auseinanderhalten: er machte aus zwei Angaben eine und verlöre genau die, auf die es
+ * bei der Beurteilung ankommt.
+ *
+ * ⚠ `undefined` heisst „keine geschätzte PV", NIE „unbekannt". Es gibt genau einen Ort, der das
+ * Feld setzt: die Kopplungsfunktion `applyEstimatedPv` (`packages/engine/src/pv-generation/`).
+ *
+ * ⚠ Das Feld ist NICHT folgenlos: `peakShavingBlockers` liest es und schaltet die
+ * Leistungspreis-Dimension hart ab (Blocker-Grund `estimated_pv`). Eine Spitzenkappung auf einem
+ * Lastgang, dessen Spitzen zur Hälfte aus einer Schätzung stammen, wäre eine Ersparnis auf eine
+ * Spitze, die so nie gemessen wurde.
+ */
+export const pvSourceSchema = z.literal('estimated')
+export type PvSource = z.infer<typeof pvSourceSchema>
+
 export const loadProfileSchema = z.object({
   readings: z.array(loadReadingSchema),
   intervalMinutes: z.literal(15), // MVP nur 15-min; andere → Fehler/Resampling im Parser
   timezoneMeta: z.string(), // z.B. "Europe/Vienna" (nur Metadatum; Speicherung in UTC)
   source: loadSourceSchema,
+  pvSource: pvSourceSchema.optional(),
 })
 export type LoadProfile = z.infer<typeof loadProfileSchema>
 
