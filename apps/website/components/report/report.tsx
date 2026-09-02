@@ -38,6 +38,7 @@ import { RecommendationCard } from './recommendation-card'
 import { ReportRequestPanel } from './report-request-panel'
 import { TariffOptimizationCard } from './tariff-optimization-card'
 import { TariffSourceNote } from './tariff-source-note'
+import { TariffVintageNote } from './tariff-vintage-note'
 
 // Report — ruhig, datendicht, desktop-first, Tablet Pflicht (§6.2). Bewusst ANDERER
 // Charakter als die Marketing-Seite. `loadProfile` ist der rohe, client-seitig geparste Lastgang
@@ -821,6 +822,10 @@ export function Report({
       {/* B11: dauerhaft sichtbar, auch im Druck — ohne diese Angabe ist die Baseline später nicht
           einzuordnen (s. Kommentar in der Komponente). */}
       <TariffSourceNote source={tariffSource} />
+
+      {/* Auf welchem Preisstand Arbeitspreis und Grundgebühr beruhen — erscheint nur, wenn der
+          ausgewertete Zeitraum in ein noch laufendes Kalenderjahr reicht (s. Komponente). */}
+      <TariffVintageNote loadProfile={loadProfile} tariff={originalTariff} />
 
       <p className="text-xs text-text-muted">
         {/* Nicht verhandelbar (CLAUDE.md): keine ROI-Zahl als „echt", bevor gegen echten Lastgang validiert. */}
