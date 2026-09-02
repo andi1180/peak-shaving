@@ -68,6 +68,89 @@ export type DispatchTrace = {
       socKwh: number
     }>
   }>
+  /**
+   * ── STUNDEN-HEATMAP: NETTO-Batteriefluss je (Stunde des Tages × Kalendermonat), in kWh ────────
+   *
+   * `[stunde 0..23][monat 0..11]`, Vorzeichen wie überall im Trace: **+ = laden, − = entladen**.
+   * Gezählt wird die NETZSEITIGE Menge (`batteryPowerKw × Δt`) — also das, was tatsächlich bezogen
+   * bzw. abgegeben wurde, nicht die im Speicher ankommende Energie (die läge auf der Ladeseite um
+   * den Wirkungsgrad darunter, s. `MonthlyChargePrice.chargedKwh`).
+   *
+   * ── ⚠ WARUM 24 UND NICHT 96 STUNDEN-SPALTEN ──────────────────────────────────────────────────
+   * Der Fahrplan liegt im 15-min-Gitter, die PREISQUELLE aber stündlich (aWATTar, `spot_prices`).
+   * Eine Viertelstunden-Achse suggerierte eine Auflösung, die es preisseitig nicht gibt — man sähe
+   * vier nebeneinanderliegende Zellen, deren Unterschiede ausschliesslich aus der Last stammen,
+   * und läse sie als Steuerungsentscheidung.
+   *
+   * ── ⚠ `null` HEISST „KEIN MESSWERT", `0` HEISST „SPEICHER RUHT" ──────────────────────────────
+   * Eine Zelle ist `null`, wenn in dieser Stunde dieses Monats kein einziges Intervall im Lastgang
+   * liegt (Teiljahres-Lastgang: elf leere Spalten). Sie ist `0`, wenn Intervalle vorliegen und sich
+   * Laden und Entladen darin zu null aufheben oder gar nichts fliesst — das ist eine Aussage, keine
+   * Lücke. Dieselbe Regel wie bei `MonthlyTariffComparison`: eine 0 an der Stelle eines fehlenden
+   * Monats sähe aus wie „gemessen, es fliesst nichts".
+   *
+   * Optional und additiv (kein `bundleVersion`-Sprung, B14-2): ein älteres archiviertes Ergebnis
+   * trägt das Feld nicht, und `undefined` ist dort die zutreffende Aussage.
+   */
+  batteryFlowByHourMonth?: (number | null)[][]
+  /**
+   * Ø-Ladepreis je Kalendermonat samt den beiden Zahlen, ohne die er nichts aussagt (02.09.2026).
+   *
+   * ── ⚠ NUR BEI EINER ECHTEN PREISKURVE — SONST GAR NICHT ──────────────────────────────────────
+   * Die Engine setzt das Feld ausschliesslich, wenn der Delta-4-Hebel angefordert UND rechenbar
+   * war (`tariffOptimization.computable === true`). Der Grund ist derselbe wie beim
+   * Monatsvergleich: `intervalTariffRates` füllt die Preisreihe im nicht berechenbaren Fall
+   * bewusst durchgehend mit dem Standard-Arbeitspreis — eine daraus gebildete Auswertung zeigte
+   * dann in jedem Monat „Ladepreis = Entladepreis = Durchschnitt" und behauptete damit, die
+   * Steuerung bringe nichts, statt zu sagen, dass sie nicht bewertbar ist.
+   *
+   * Auch das statische HT/NT-Fenster ist ausgenommen: dort nimmt der Preis genau zwei Werte an,
+   * und ein arithmetisches Mittel darüber ist eine Aussage über Fensterlängen, nicht über
+   * Preisbewegung — dieselbe Überlegung, aus der die Tages-Rangfolge (§3.6.2) dort nicht greift.
+   */
+  monthlyChargePrice?: MonthlyChargePrice
+}
+
+/**
+ * Ø-Ladepreis, Ø-Entladepreis und der Vergleichswert je Kalendermonat (Index 0 = Jänner, Länge 12).
+ *
+ * ── ⚠ OHNE `averageCtPerKwh` IST DIE GANZE GRÖSSE WERTLOS ──────────────────────────────────────
+ * „Der Speicher hat im März zu 7,2 ct geladen" ist für sich genommen keine Auskunft — teuer oder
+ * günstig ist das erst im Verhältnis zu dem, was in diesem März überhaupt zu zahlen war.
+ * `averageCtPerKwh` ist deshalb kein Beiwerk, sondern die Bezugsgrösse: das UNGEWICHTETE Mittel
+ * über ALLE Intervalle des Monats, also der Preis, den ein Speicher zahlte, der blind über den
+ * Monat verteilt lädt. Liegt der Ladepreis darunter, hat die Steuerung tatsächlich die günstigen
+ * Stunden getroffen.
+ *
+ * ── ⚠ `chargedKwh` IST NETZSEITIG — UND DAS IST DIE EINE STELLE, AN DER DER WIRKUNGSGRAD ZÄHLT ─
+ * Der Dispatch schreibt `soc += P·Δ·η` beim Laden und `soc −= P·Δ` beim Entladen: die NETZseitige
+ * Menge ist `P·Δ` auf beiden Seiten, die im Speicher ankommende Menge liegt auf der LADESEITE um
+ * den Faktor η darunter (bei η = 0,9 rund 11 %), auf der Entladeseite ist sie identisch. Gezählt
+ * wird durchgängig die netzseitige, bezogene und bezahlte Menge — sie ist die, die auf der
+ * Rechnung steht, und sie ist die Gewichtung, zu der der Ladepreis gehört.
+ *
+ * ⚠ Auf den PREIS selbst wirkt die Wahl nicht: ein gewichtetes Mittel ist gegen einen konstanten
+ * Faktor auf allen Gewichten invariant (η kürzt sich aus Zähler und Nenner). Genau deshalb steht
+ * `chargedKwh` mit im Contract — an ihm ist die Verwechslung überhaupt erst messbar, und eine
+ * still SoC-seitig gerechnete Menge sähe um 11 % daneben ohne dass irgendeine Zahl auffällig würde.
+ *
+ * ── ⚠ `null` HEISST NICHT ÜBERALL DASSELBE ──────────────────────────────────────────────────────
+ * Bei `averageCtPerKwh`/`chargedKwh`/`dischargedKwh`: kein Messwert in diesem Kalendermonat.
+ * Bei `chargeCtPerKwh`/`dischargeCtPerKwh` zusätzlich: der Monat ist gemessen, aber es wurde nicht
+ * geladen bzw. nicht entladen — dann gibt es kein gewichtetes Mittel, und eine 0 wäre ein Preis,
+ * den nie jemand bezahlt hat.
+ */
+export type MonthlyChargePrice = {
+  /** Mit der bezogenen Menge gewichteter Ø-Arbeitspreis der LADE-Intervalle (ct/kWh). */
+  chargeCtPerKwh: (number | null)[]
+  /** Mit der abgegebenen Menge gewichteter Ø-Arbeitspreis der ENTLADE-Intervalle (ct/kWh). */
+  dischargeCtPerKwh: (number | null)[]
+  /** Der Vergleichswert: UNGEWICHTETES Mittel über alle Intervalle des Monats (ct/kWh). */
+  averageCtPerKwh: (number | null)[]
+  /** Netzseitig BEZOGENE Lademenge (kWh) — die Gewichtung von `chargeCtPerKwh`, s. oben. */
+  chargedKwh: (number | null)[]
+  /** Netzseitig abgegebene Entlademenge (kWh) — die Gewichtung von `dischargeCtPerKwh`. */
+  dischargedKwh: (number | null)[]
 }
 // Chart 2 (Kostenvergleich mit/ohne Batterie über Horizont) wird aus den
 // perBattery-Aggregaten (Ersparnis-/Investitionsfelder) gespeist — kein Trace nötig.
