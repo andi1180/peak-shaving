@@ -78,6 +78,23 @@ export interface InvoiceScanRates {
   energyPriceNightCtPerKwh: number | null
   /** Einspeisevergütung in ct/kWh. */
   einspeiseverguetungCtPerKwh: number | null
+  /**
+   * Delta 19 / §3.7.3 — die monatliche Grundgebühr des STROMLIEFERANTEN in €/Monat.
+   *
+   * ── ⚠ DIE EINE VERWECHSLUNG, DIE DIESES FELD TRÄGT ──────────────────────────────────────────
+   * Auf derselben Rechnung stehen ZWEI verbrauchsunabhängige Pauschalen nebeneinander: die
+   * Grundgebühr des LIEFERANTEN (Vertrieb) und der Grundpreis des NETZBETREIBERS. Nur die erste
+   * gehört hierher. Der Netz-Grundpreis kommt seit B21 aus `public.grid_tariffs` und ist keine
+   * Nutzereingabe; hier eingetragen stünde er ein zweites Mal in der Rechnung — und §3.7.3 legt
+   * ihn ausdrücklich auf ALLE DREI Vergleichsreihen, während diese Gebühr nur die Reihe „Ihr
+   * Tarif heute" trägt. Verwechselt verschöbe sie also genau die Differenz, die der Report
+   * ausweist. Die Trennlinie steht deshalb ausformuliert in der Schema-Beschreibung unten (sie
+   * geht an das Modell) und im System-Prompt.
+   *
+   * ⚠ Ebenfalls NICHT hierher gehört der Leistungspreis (€/kW und Jahr) — der steht als eigenes
+   * Feld weiter oben und ist verbrauchsunabhängig, aber nicht pauschal.
+   */
+  supplierBaseFeeEurPerMonth: number | null
 }
 
 /** Das vollständige Ergebnis einer Extraktion. Jedes Feld einzeln: Wert oder „nicht erkennbar". */
@@ -98,6 +115,7 @@ export const INVOICE_SCAN_RATE_KEYS = [
   'energyPriceCtPerKwh',
   'energyPriceNightCtPerKwh',
   'einspeiseverguetungCtPerKwh',
+  'supplierBaseFeeEurPerMonth',
 ] as const satisfies readonly (keyof InvoiceScanRates)[]
 
 /** Ein Ergebnis, in dem NICHTS erkannt wurde. Der Ausgangszustand jeder Auswertung. */
@@ -113,6 +131,7 @@ export function emptyInvoiceExtraction(): InvoiceExtraction {
       energyPriceCtPerKwh: null,
       energyPriceNightCtPerKwh: null,
       einspeiseverguetungCtPerKwh: null,
+      supplierBaseFeeEurPerMonth: null,
     },
     annualConsumptionKwh: null,
   }
@@ -224,6 +243,21 @@ export const INVOICE_SCAN_JSON_SCHEMA: { [key: string]: unknown } = {
         ),
         einspeiseverguetungCtPerKwh: nullableNumber(
           'Einspeisevergütung in Cent je kWh, falls die Rechnung eine ausweist.',
+        ),
+        /*
+         * ⚠ Die Beschreibung nennt die Abgrenzung ausdrücklich, weil sie an das Modell geht und
+         * dort die eigentliche Arbeit tut. Ein Test pinnt sie (`invoice-scan.test.ts`): wer sie
+         * beim nächsten Umformulieren verliert, macht ihn rot — der Netz-Grundpreis in diesem
+         * Feld wäre sonst eine Zahl, die plausibel aussieht und die falsche Vergleichsreihe
+         * belastet.
+         */
+        supplierBaseFeeEurPerMonth: nullableNumber(
+          'Monatliche Grundgebühr / Grundentgelt des STROMLIEFERANTEN (Vertrieb, Energielieferant) ' +
+            'in Euro je MONAT. Ausdrücklich NICHT der Grundpreis / das Grundentgelt des ' +
+            'NETZBETREIBERS und NICHT der Leistungspreis — auch dann nicht, wenn beide Posten auf ' +
+            'derselben Rechnung stehen. Steht die Gebühr als Jahresbetrag, auf den Monat umrechnen ' +
+            '(÷12), und nur dann, wenn der Bezugszeitraum eindeutig dasteht. Steht sie als ' +
+            'Tagespauschale, ist das Feld null.',
         ),
       },
     },

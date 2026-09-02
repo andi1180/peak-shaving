@@ -223,6 +223,18 @@ function buildInitialTariffState(prefill: TariffPrefill | undefined) {
     if (rates.energyPriceNightCtPerKwh != null) {
       form = { ...form, energyPriceNightCtPerKwh: String(rates.energyPriceNightCtPerKwh) }
     }
+    /*
+     * Delta 19 / §3.7.3 — die Grundgebühr des Lieferanten. Sie steht ausdrücklich NICHT in der
+     * `blanked`-Liste oben: ihr Vorgabewert '0' ist einer der NENNBAREN, die auch nach einem Scan
+     * stehen bleiben dürfen. 0 heisst dort „keine oder nicht bekannt", das Feld ist als optional
+     * beschriftet und trägt seinen eigenen Infobutton — und 0 ist die konservative Richtung: sie
+     * lässt den heutigen Tarif billiger aussehen als er ist und den aWATTar-Vorteil damit kleiner,
+     * nicht grösser. Ein leeres Feld hätte hier den umgekehrten Preis: es würde beim Absenden als
+     * Pflichtangabe eingefordert, obwohl viele Rechnungen die Gebühr gar nicht ausweisen.
+     */
+    if (rates.supplierBaseFeeEurPerMonth != null) {
+      form = { ...form, supplierBaseFeeEurPerMonth: String(rates.supplierBaseFeeEurPerMonth) }
+    }
   }
 
   /*

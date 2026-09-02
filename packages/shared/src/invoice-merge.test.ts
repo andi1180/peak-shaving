@@ -38,6 +38,7 @@ describe('Feldliste und Beschriftungen', () => {
       'energyPriceCtPerKwh',
       'energyPriceNightCtPerKwh',
       'einspeiseverguetungCtPerKwh',
+      'supplierBaseFeeEurPerMonth',
     ])
   })
 

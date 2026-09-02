@@ -35,6 +35,7 @@ function completeRaw() {
       energyPriceCtPerKwh: 25,
       energyPriceNightCtPerKwh: 12,
       einspeiseverguetungCtPerKwh: 8,
+      supplierBaseFeeEurPerMonth: 3.5,
     },
     annualConsumptionKwh: 88426.4,
   }
@@ -162,6 +163,7 @@ describe('parseInvoiceExtraction — der Gutfall', () => {
         energyPriceCtPerKwh: 25,
         energyPriceNightCtPerKwh: 12,
         einspeiseverguetungCtPerKwh: 8,
+        supplierBaseFeeEurPerMonth: 3.5,
       },
       annualConsumptionKwh: 88426.4,
     })
@@ -264,6 +266,81 @@ describe('parseInvoiceExtraction — fail closed, Feld für Feld', () => {
       'rates',
     ])
     expect(Object.keys(parsed.rates)).toEqual([...INVOICE_SCAN_RATE_KEYS])
+  })
+})
+
+describe('supplierBaseFeeEurPerMonth — Lieferant gegen Netzbetreiber (Delta 19 / §3.7.3)', () => {
+  /**
+   * ⚠ WAS DIESE DREI TESTS BEWEISEN — UND WAS NICHT.
+   *
+   * Sie beweisen, dass die beiden gleichnamigen Posten einer Rechnung ZWEI GETRENNTE ZIELE haben
+   * und einander nicht überschreiben, und dass die Trennlinie in der Anweisung an das Modell
+   * tatsächlich dasteht. Sie beweisen NICHT, dass das Modell sie auseinanderhält — das entscheidet
+   * ein Aufruf gegen eine echte Rechnung, wie im Kopf dieser Datei vermerkt.
+   *
+   * Warum das trotzdem der richtige Prüfzweck ist: „Zahl gefunden" wäre hier nichts wert. Die
+   * gefährliche Fehlleistung ist nicht eine fehlende Zahl, sondern eine PLAUSIBLE an der falschen
+   * Stelle — der Netz-Grundpreis in diesem Feld sähe wie eine korrekte Ablesung aus und verschöbe
+   * §3.7.3s Monatsvergleich zugunsten des Tarifwechsels (er gehört auf ALLE DREI Reihen, diese
+   * Gebühr nur auf „Ihr Tarif heute").
+   */
+
+  /** Beide Posten nebeneinander, wie sie auf einer echten Rechnung stehen. Zahlen erfunden. */
+  function bothFeesRaw() {
+    return {
+      ...completeRaw(),
+      rates: {
+        ...completeRaw().rates,
+        // Abschnitt „Energielieferung": die Grundgebühr des Lieferanten, €/Monat.
+        supplierBaseFeeEurPerMonth: 3.5,
+        // Abschnitt „Netznutzung": der Grundpreis des Netzbetreibers, €/kW und Jahr.
+        leistungspreisEurPerKwYear: 38.52,
+      },
+    }
+  }
+
+  it('führt beide Posten getrennt — der eine landet nicht im Feld des anderen', () => {
+    const parsed = parseInvoiceExtraction(bothFeesRaw())
+    expect(parsed.rates.supplierBaseFeeEurPerMonth).toBe(3.5)
+    expect(parsed.rates.leistungspreisEurPerKwYear).toBe(38.52)
+    // Und ausdrücklich nicht vertauscht — die eigentliche Aussage dieses Tests.
+    expect(parsed.rates.supplierBaseFeeEurPerMonth).not.toBe(38.52)
+    expect(parsed.rates.leistungspreisEurPerKwYear).not.toBe(3.5)
+  })
+
+  it('lässt die Gebühr null, wenn nur der Netz-Grundpreis dasteht — sie wird nicht ersatzweise gefüllt', () => {
+    const parsed = parseInvoiceExtraction({
+      ...completeRaw(),
+      rates: { ...completeRaw().rates, supplierBaseFeeEurPerMonth: null },
+    })
+    expect(parsed.rates.supplierBaseFeeEurPerMonth).toBeNull()
+    expect(parsed.rates.leistungspreisEurPerKwYear).toBe(38.52)
+  })
+
+  it('nennt die Abgrenzung in der Schema-Beschreibung, die an das Modell geht', () => {
+    /*
+     * Die Beschreibung ist der einzige Teil dieser Regel, der ohne API-Schlüssel prüfbar ist —
+     * und der Ort, an dem sie beim nächsten Umformulieren still verschwinden könnte. Geprüft wird
+     * deshalb der INHALT der Abgrenzung, nicht ihr Wortlaut.
+     */
+    const props = INVOICE_SCAN_JSON_SCHEMA.properties as Record<string, Record<string, unknown>>
+    const rateProps = props.rates.properties as Record<string, { description: string }>
+    const description = rateProps.supplierBaseFeeEurPerMonth.description
+
+    expect(description).toContain('STROMLIEFERANTEN')
+    expect(description).toContain('NICHT')
+    expect(description).toContain('NETZBETREIBERS')
+    expect(description).toContain('MONAT')
+  })
+
+  it('verwirft einen negativen Betrag, statt ihn zu retten', () => {
+    const parsed = parseInvoiceExtraction({
+      ...completeRaw(),
+      rates: { ...completeRaw().rates, supplierBaseFeeEurPerMonth: -3.5 },
+    })
+    expect(parsed.rates.supplierBaseFeeEurPerMonth).toBeNull()
+    // Ein Feld fällt aus, nicht das Ergebnis.
+    expect(parsed.rates.leistungspreisEurPerKwYear).toBe(38.52)
   })
 })
 

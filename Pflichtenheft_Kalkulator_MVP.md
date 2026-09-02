@@ -304,12 +304,14 @@ Drei Posten, drei Zuordnungen:
 | Posten | Quelle | Reihen |
 |---|---|---|
 | Netz-Grundpreis, **nur** als Jahrespauschale (`grundpreis_unit = 'eur_per_year'`) | `public.grid_tariffs` (B21) | **alle drei**, gleich hoch |
-| Grundgebühr des heutigen Lieferanten | `TariffParams.supplierBaseFeeEurPerMonth`, optionale Eingabe in Schritt 2, ohne Angabe **0** | nur „Ihr Tarif heute" |
+| Grundgebühr des heutigen Lieferanten | `TariffParams.supplierBaseFeeEurPerMonth`, optionale Eingabe in Schritt 2, ohne Angabe **0**; seit 02.09.2026 zusätzlich vom **Rechnungs-Scan** vorbelegt (Delta 8 / 9b-2) | nur „Ihr Tarif heute" |
 | Grundgebühr von aWATTar | Code-Konstante `AWATTAR_BASE_FEE` (netto, versionskontrolliert) | nur die beiden aWATTar-Reihen |
 
 **`eur_per_kw_year` wird ausdrücklich NICHT eingerechnet** — das ist der Leistungspreis, er steht bereits als Jahreszahl im Report, und seine Verteilung auf Monate bräuchte eine Aufteilungsregel, die weder Preisblatt noch Pflichtenheft hergeben (§3.5). Ihn hier als Pauschale zu lesen wäre doppelt gezählt und falsch dimensioniert.
 
 **Anteilig nach abgedeckten Kalendertagen**, nie als voller Monatsbetrag: gerechnet wird tagweise über die tatsächlich belegten Kalendertage in Ortszeit (Monatsgebühren ÷ Tage ihres Monats, Netz-Jahrespauschale ÷ Tage ihres Jahres). Ein Lastgang, der am 20. beginnt, trägt elf Dreissigstel — der volle Betrag stünde sonst neben Arbeitskosten aus elf Tagen. Der Report weist die Bestandteile einzeln aus (Prinzip 5), einschliesslich dessen, was **nicht** drin ist (Leistungspreis, Umsatzsteuer, Wechselkosten).
+
+**⚠ Der Rechnungs-Scan darf sie nicht mit dem Netz-Grundpreis verwechseln.** Beide stehen auf derselben Rechnung, beide heissen oft wörtlich „Grundpreis" — und sie haben in der Tabelle oben verschiedene Zeilen: der Netz-Posten liegt auf **allen drei** Reihen und kürzt sich aus jeder Differenz heraus, diese Gebühr nur auf „Ihr Tarif heute". Ein hier eingetragener Netz-Grundpreis verschöbe also genau die ausgewiesene Differenz, und zwar zugunsten des Wechsels; er stünde ausserdem doppelt, weil er ohnehin aus `public.grid_tariffs` kommt. Entschieden wird deshalb am **Rechnungsabschnitt** (Energielieferung gegen Netznutzung), nicht am Wort — und wo sich das nicht sicher zuordnen lässt, bleibt das Feld leer.
 
 **Ohne Angabe wird mit 0 gerechnet, nicht geschätzt.** Das ist die konservative Richtung: 0 lässt den heutigen Tarif billiger aussehen als er ist und den aWATTar-Vorteil damit kleiner, nicht grösser. Eine geschätzte Gebühr wäre die gefährliche.
 

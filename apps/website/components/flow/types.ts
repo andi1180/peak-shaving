@@ -111,6 +111,13 @@ export type ParsedLoad = {
  * ist keine Lücke dieses Schritts, sondern die Folge davon, dass die Netzentgelt-Seite eine
  * gepflegte Datenquelle ist und keine Nutzereingabe. Wer dafür je ein Feld baut, findet den Wert
  * hier bereits vor.
+ *
+ * ── DIE GRUNDGEBÜHR DES LIEFERANTEN REIST OHNE EIGENEN EINTRAG MIT ────────────────────────────
+ * `rates.supplierBaseFeeEurPerMonth` (Delta 19 / §3.7.3) ist Teil von `rates` und damit vom `Pick`
+ * bereits erfasst — es war hier keine Zeile zu ergänzen. Das ist der Grund, warum das Feld in
+ * `InvoiceScanRates` steht und nicht als siebtes Feld neben `rates`: Schema, Auswertung, die
+ * Vollständigkeitsprüfung (`invoiceExtractionIsEmpty`) und dieser Weg hierher laufen alle über
+ * `INVOICE_SCAN_RATE_KEYS`. Ihr Ziel ist Schicht 3 in `buildInitialTariffState` (step-tariff.tsx).
  */
 export type TariffPrefill = Pick<
   InvoiceExtraction,
