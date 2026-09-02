@@ -28,13 +28,24 @@ const nextConfig = {
      * Rumpf einer Server Action standardmässig auf 1 MB; eine eingescannte Netzrechnung liegt
      * darüber, und die Ablehnung käme als undurchsichtiger Fehler statt als Satz.
      *
-     * Der Wert liegt bewusst ETWAS ÜBER der fachlichen Obergrenze von 6 MB
-     * (`MAX_INVOICE_FILE_BYTES` in `lib/invoice-scan/ai-client.ts`): so entscheidet die Anwendung
-     * über zu grosse Dateien und antwortet verständlich, statt dass die Plattform die Anfrage
-     * vorher abschneidet. Dasselbe Muster wie in `apps/web` (B14-2) — dort mit 24 MB, weil ein
-     * Jahres-Lastgang durchgeht; eine Rechnung ist ein bis wenige Seiten und braucht das nicht.
+     * Der Wert liegt bewusst ETWAS ÜBER der grössten fachlichen Obergrenze: so entscheidet die
+     * Anwendung über zu grosse Dateien und antwortet verständlich, statt dass die Plattform die
+     * Anfrage vorher abschneidet. Dasselbe Muster wie in `apps/web` (B14-2) — dort mit 24 MB, weil
+     * ein Jahres-Lastgang durchgeht.
+     *
+     * ⚠ B22c HAT DEN WERT VON 8 auf 12 MB ANGEHOBEN, und der Grund ist die Dokumentart: der
+     * PV-Auslegungs-Scan lässt bis `MAX_PV_DESIGN_FILE_BYTES` = 8 MB durch
+     * (`lib/pv-design-scan/ai-client.ts`), weil ein Planungsexposé zwei Dutzend Seiten mit
+     * Diagrammen und Fotos hat statt ein bis wenige wie eine Rechnung. Bei 8 MB Plattformgrenze
+     * läge die fachliche Grenze GENAU auf der Plattformgrenze, und eine Datei knapp darunter
+     * scheiterte am Rumpf-Overhead statt an unserer Prüfung.
+     *
+     * ⚠ Für den Rechnungs-Scan ändert das NICHTS an der zulässigen Grösse: seine eigene Grenze
+     * (`MAX_INVOICE_FILE_BYTES` = 6 MB) prüft seine Server Action unverändert selbst. Was sich
+     * ändert, ist die ART der Ablehnung zwischen 8 und 12 MB — sie kommt jetzt als Satz aus der
+     * Anwendung statt als Plattformfehler, also genau so, wie dieses Muster es vorsieht.
      */
-    serverActions: { bodySizeLimit: '8mb' },
+    serverActions: { bodySizeLimit: '12mb' },
   },
 
   /*

@@ -1,7 +1,7 @@
 'use client'
 
 import { useRef, useState } from 'react'
-import { AlertTriangle, CheckCircle2, Plus, Sun, Trash2 } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, FileText, Loader2, Plus, Sun, Trash2 } from 'lucide-react'
 import {
   applyEstimatedPv,
   buildEstimatedPvProfile,
@@ -17,12 +17,15 @@ import {
   compassDirectionInfo,
   lookupPostalCodeCentroid,
   pvArrayAzimuthDeg,
+  pvDesignPrefill,
   summarizeAnnualYields,
   type CompassDirection,
   type EstimatedPvSummary,
   type LoadProfile,
   type PostalCodeCentroid,
   type PvArrayInput,
+  type PvDesignArrayPrefill,
+  type PvDesignExtraction,
 } from 'shared'
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -42,6 +45,8 @@ import { Num } from '@/components/report/num'
 import { formatDeg, formatKwh, formatKwp, formatPercent } from '@/lib/format'
 import { parseNum } from '@/lib/form-utils'
 import { fetchPvReferenceProfileAction } from '@/lib/pvgis/actions'
+import { scanPvDesign, type PvDesignScanResponse } from '@/lib/pv-design-scan/actions'
+import { FileDrop } from './file-drop'
 import type { EstimatedPvResult, ParsedLoad } from './types'
 
 /**
@@ -81,10 +86,122 @@ type ArrayDraft = {
   slopeDeg: string
   direction: CompassDirection
   compassDeg: string
+  /**
+   * B22c: die gelesene Auslegung, aus der diese Zeile vorbelegt wurde — oder `undefined`, wenn
+   * sie von Hand entstanden ist.
+   *
+   * ⚠ SIE BLEIBT AN DER ZEILE STEHEN, WEIL DIE HERKUNFT SONST UNSICHTBAR WÄRE. Ein vorbelegtes
+   * Feld ist von einem selbst getippten nicht zu unterscheiden — und ein Vorgabewert, den der
+   * Scan NICHT gefüllt hat (die Himmelsrichtung steht auf „Süden", weil das Auswahlfeld nicht
+   * leer sein kann), sähe nach einer Angabe aus dem Dokument aus. Genau dieser Defekt ist am
+   * 01.09.2026 im Tarifblatt-Scan gemessen worden: dort stand ein Platzhalter neben abgelesenen
+   * Werten und war von ihnen nicht zu trennen. Der Vermerk unten nennt deshalb BEIDES — was
+   * übernommen wurde und was nicht.
+   */
+  scan?: PvDesignArrayPrefill
 }
 
 function emptyDraft(key: number): ArrayDraft {
   return { key, peakPowerKwp: '', slopeDeg: '30', direction: 'S', compassDeg: '' }
+}
+
+/** Eine gelesene Zahl als Feldwert — leer, wo nichts gelesen wurde. */
+function draftValue(v: number | null): string {
+  return v == null ? '' : String(v)
+}
+
+/**
+ * Eine GELESENE Zahl in der Vorschau — deutsch geschrieben, aber ausdrücklich UNGERUNDET.
+ *
+ * ⚠ NICHT `formatKwp`/`formatDeg` VERWENDEN, und der Grund ist der Zweck dieser Vorschau. Sie
+ * dient dem Abgleich Feld für Feld gegen das Papier: dort steht „4,25 kWp", und `formatKwp` macht
+ * daraus „4,3 kWp" (eine Nachkommastelle). Der Leser könnte dann nicht mehr entscheiden, ob wir
+ * 4,25 gelesen haben oder tatsächlich 4,3 — also genau die Frage nicht beantworten, für die die
+ * Bestätigungsstufe da ist. In der Zusammenfassung NACH dem PVGIS-Abruf ist eine Nachkommastelle
+ * dagegen richtig und bleibt unverändert: dort steht eine gerechnete Summe, kein abgelesener Wert.
+ *
+ * Im Live-Lauf am 02.09.2026 gemessen: die erste Fassung zeigte „4,3 kWp" und „6 kWp" für die
+ * gelesenen 4,25 und 5,95 — die Formularfelder trugen die exakten Werte, die Vorschau nicht.
+ */
+function formatRead(v: number): string {
+  return new Intl.NumberFormat('de-AT', { maximumFractionDigits: 6 }).format(v)
+}
+
+/**
+ * Eine gelesene Modulfläche als Formularzeile.
+ *
+ * ⚠ EIN NICHT GELESENES FELD BLEIBT LEER, es fällt NICHT auf den Vorgabewert des leeren Formulars
+ * zurück (die Neigung stünde sonst auf „30", ohne dass das im Dokument stünde). Das gilt nicht für
+ * die Himmelsrichtung: ihr Auswahlfeld kann nicht leer sein, sie behält deshalb „Süden" — und
+ * genau darauf weist der Vermerk an der Zeile ausdrücklich hin.
+ */
+function draftFromScan(key: number, p: PvDesignArrayPrefill): ArrayDraft {
+  return {
+    key,
+    peakPowerKwp: draftValue(p.peakPowerKwp),
+    slopeDeg: draftValue(p.slopeDeg),
+    direction: p.direction ?? 'S',
+    compassDeg: draftValue(p.compassDeg),
+    scan: p,
+  }
+}
+
+/** Was an einer vorbelegten Zeile ÜBERNOMMEN wurde — für den Herkunftsvermerk. */
+function adoptedFields(p: PvDesignArrayPrefill): string[] {
+  const read: string[] = []
+  if (p.peakPowerKwp != null) read.push('Nennleistung')
+  if (p.slopeDeg != null) read.push('Neigung')
+  if (p.direction != null) read.push('Ausrichtung')
+  if (p.compassDeg != null) read.push('Winkel')
+  return read
+}
+
+/**
+ * Was an einer vorbelegten Zeile OFFEN geblieben ist — je Grund ein eigener Satz.
+ *
+ * ⚠ DER ZWEITE PUNKT IST DER TEURE. Widersprechen sich die gedruckte Gradzahl und die
+ * Himmelsrichtung, ist das der Fingerabdruck der Konventions-Verwechslung: PV*SOL zählt vom
+ * Norden, PVGIS vom Süden, und dieselbe Fläche trägt je nach Werkzeug 133° oder −47°. Übernommen
+ * zeigte die Anlage in die Gegenrichtung und die ausgewiesene Ersparnis fiele gemessen um 56 % —
+ * bei einer Zahl, die völlig plausibel aussieht. Übernommen wird deshalb nur die Himmelsrichtung
+ * (ein Wort ist über alle Zählweisen hinweg eindeutig), und der Widerspruch wird BENANNT, statt
+ * eine der beiden Angaben stillschweigend zu bevorzugen.
+ */
+function openPoints(p: PvDesignArrayPrefill): string[] {
+  const open: string[] = []
+  if (p.peakPowerKwp == null) open.push('Die Nennleistung stand nicht im Dokument — bitte eintragen.')
+  if (p.slopeDeg == null) open.push('Die Neigung stand nicht im Dokument — bitte eintragen.')
+  if (p.direction == null) {
+    open.push(
+      'Im Dokument stand keine Himmelsrichtung als Wort. Die Auswahl unten zeigt „Süden" — das ' +
+        'ist der Vorgabewert des Formulars und NICHT Ihre Auslegung. Bitte selbst wählen.',
+    )
+  }
+  if (p.degreeConflict) {
+    const info = compassDirectionInfo(p.degreeConflict.direction)
+    open.push(
+      `Das Dokument nennt ${formatRead(p.degreeConflict.printedDeg)}° neben „${info.label}" — das passt nicht ` +
+        `zusammen (${info.label} liegt bei ${info.compassDeg}° auf dem Kompass). Vermutlich zählt ` +
+        'das Dokument die Grade von einer anderen Richtung aus. Der Winkel wurde deshalb NICHT ' +
+        'übernommen, die Himmelsrichtung schon — sie ist eindeutig. Tragen Sie den Winkel nur ' +
+        'ein, wenn Sie ihn ab Norden gezählt kennen.',
+    )
+  }
+  if (p.unverifiedDeg != null) {
+    open.push(
+      `Das Dokument nennt ${formatRead(p.unverifiedDeg)}°, aber keine Himmelsrichtung dazu. Ohne sie lässt ` +
+        'sich nicht prüfen, ob die Zahl ab Norden oder ab Süden gezählt ist — die beiden liegen ' +
+        '180° auseinander. Der Winkel wurde deshalb nicht übernommen.',
+    )
+  }
+  if (p.steepSlope) {
+    open.push(
+      `Die Neigung ${formatRead(p.slopeDeg ?? 0)}° ist ungewöhnlich steil (das ist eine Fassade, kein übliches ` +
+        'Dach). So steht sie im Dokument und wurde unverändert übernommen — bitte prüfen, ob sie ' +
+        'stimmt.',
+    )
+  }
+  return open
 }
 
 /** Was aus einer Zeile wird, sobald sie vollständig ist — sonst der Grund, warum nicht. */
@@ -144,6 +261,18 @@ export function PvDesignPanel({
   const [busy, setBusy] = useState(false)
   const [failure, setFailure] = useState<string | null>(null)
   const [preview, setPreview] = useState<EstimatedPvResult | null>(null)
+  /**
+   * B22c: die Ortsangabe aus einem gelesenen Planungsdokument — reine Anzeige.
+   *
+   * ⚠ SIE BELEGT DAS PLZ-FELD AUSDRÜCKLICH NICHT. Ein Planungsdokument trägt keine Koordinate,
+   * sondern den Namen eines Klimadatensatzes („Wien 11, AUT (1996 - 2015)"); daraus eine
+   * Postleitzahl abzuleiten wäre dieselbe Rateleistung, die für die PLZ-Zentroiden ausdrücklich
+   * ausgeschlossen ist (kein Geocoding, kein Fremddienst, kein Treffer ⇒ nichts). Eine falsch
+   * geratene PLZ verschöbe die Koordinate, ohne dass die Zahl falsch aussähe.
+   */
+  const [scanLocation, setScanLocation] = useState<string | null>(null)
+  /** Mehr Modulflächen im Dokument als das Formular fasst — wird im Klartext gesagt, nicht still gekappt. */
+  const [scanOverflow, setScanOverflow] = useState(0)
 
   const centroid: PostalCodeCentroid | null = lookupPostalCodeCentroid(postalCode)
 
@@ -181,6 +310,29 @@ export function PvDesignPanel({
 
   function removeArray(key: number) {
     setDrafts((ds) => (ds.length <= 1 ? ds : ds.filter((d) => d.key !== key)))
+  }
+
+  /**
+   * B22c — die gelesene Auslegung wird in die Formularzeilen übernommen.
+   *
+   * ⚠ SIE ERSETZT DIE ZEILEN, sie ergänzt sie nicht. Ein Dokument beschreibt EINE Anlage; die
+   * gelesenen Flächen neben schon eingetippte zu stellen ergäbe eine Anlage, die es nirgends gibt
+   * — und die Summe der Nennleistungen wäre still zu hoch.
+   *
+   * ⚠ ES WIRD NICHTS GERECHNET. Der Abruf bei PVGIS bleibt ein eigener, ausdrücklicher Klick —
+   * dieselbe Haltung wie im Formular-Weg: zwischen dem Gelesenen und dem Gerechneten steht ein
+   * Mensch, weil ein einzelner falsch gelesener Winkel die halbe Ersparnis bewegt.
+   */
+  function adoptScan(extraction: PvDesignExtraction) {
+    const prefills = pvDesignPrefill(extraction)
+    const taken = prefills.slice(0, MAX_ARRAYS)
+    setDrafts(taken.map((p) => draftFromScan(nextKey.current++, p)))
+    setScanOverflow(prefills.length - taken.length)
+    setScanLocation(extraction.locationText)
+    // Ein neuer Vorschlag macht eine frühere Vorschau und frühere Feldfehler gegenstandslos.
+    setErrors({})
+    setPreview(null)
+    setFailure(null)
   }
 
   async function handleFetch() {
@@ -348,6 +500,13 @@ export function PvDesignPanel({
         innerhalb einer Stadt ändert der Standort den Ertrag um weniger als 1 %.
       </p>
 
+      {/*
+        B22c — DER DRITTE EINSTIEG, gleichwertig neben „PLZ eintragen" und „Formular ausfüllen".
+        Er füllt dieselben Felder, die ein Mensch sonst abtippt; gerechnet wird danach unverändert
+        über denselben Knopf.
+      */}
+      <PvDesignScanSection onAdopt={adoptScan} />
+
       <div className="flex flex-col gap-1.5">
         <LabelWithInfo htmlFor="pvPostalCode" label="Postleitzahl des Standorts">
           Aus der Postleitzahl leiten wir die Koordinate ab, mit der PVGIS den Sonnenstand rechnet.
@@ -368,6 +527,18 @@ export function PvDesignPanel({
         {!errors.postalCode && centroid && (
           <span data-testid="pv-plz-treffer" className="text-xs text-positive">
             {centroid.postalCode} {centroid.name}
+          </span>
+        )}
+        {scanLocation && (
+          /*
+            ⚠ REINE ANZEIGE — die PLZ wird daraus NICHT abgeleitet (s. `scanLocation`). Der Satz
+            steht trotzdem hier und nicht im Scan-Abschnitt oben: er ist eine Hilfe für GENAU
+            dieses Feld, und der Nutzer soll ihn lesen, während er die Postleitzahl eintippt.
+          */
+          <span data-testid="pv-scan-ort" className="text-xs text-text-muted">
+            Im Dokument steht als Standort „{scanLocation}". Wir leiten daraus bewusst keine
+            Postleitzahl ab — eine geratene Koordinate verschöbe die ganze Erzeugungsrechnung.
+            Bitte die PLZ des Anlagenstandorts selbst eintragen.
           </span>
         )}
       </div>
@@ -392,6 +563,8 @@ export function PvDesignPanel({
                 </button>
               )}
             </div>
+
+            {d.scan && <ScanOriginNote scan={d.scan} />}
 
             <div className="grid gap-3 sm:grid-cols-2">
               <NumberField
@@ -471,6 +644,24 @@ export function PvDesignPanel({
           </div>
         )
       })}
+
+      {scanOverflow > 0 && (
+        /*
+          ⚠ NICHT STILL GEKAPPT. Das Formular fasst sechs Flächen; ein Dokument mit mehr ergäbe
+          sonst eine Anlage, die kleiner ist als die geplante — und die Ersparnis wäre zu niedrig,
+          ohne dass jemand den Grund sähe.
+        */
+        <Alert variant="warning">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>Nicht alle Modulflächen übernommen</AlertTitle>
+          <AlertDescription>
+            Das Dokument führt {scanOverflow === 1 ? 'eine weitere Modulfläche' : `${scanOverflow} weitere Modulflächen`}
+            , als dieses Formular fasst ({MAX_ARRAYS}). Bitte fassen Sie gleich ausgerichtete
+            Flächen zusammen oder rechnen Sie sie getrennt — sonst fehlt ihre Erzeugung im
+            Ergebnis.
+          </AlertDescription>
+        </Alert>
+      )}
 
       {drafts.length < MAX_ARRAYS && (
         <div>
@@ -557,6 +748,272 @@ export function PvDesignPanel({
         </a>
         ). Erzeugungsdaten: PVGIS, Joint Research Centre der Europäischen Kommission.
       </p>
+    </div>
+  )
+}
+
+/**
+ * B22c — der Herkunftsvermerk an einer vorbelegten Zeile.
+ *
+ * ⚠ ER BLEIBT STEHEN, AUCH WENN DER NUTZER DANACH SELBST TIPPT, und beschreibt damit die
+ * VORBELEGUNG, nicht den aktuellen Feldinhalt. Das Wort „übernommen" sagt genau das. Ihn beim
+ * Tippen nachzuführen verlangte kontrollierte Felder; die Frage, die er beantwortet, ist ohnehin
+ * die umgekehrte — „stand das schon da, oder habe ich es eingetragen?". Dieselbe Entscheidung und
+ * dieselbe Begründung wie beim Tarifblatt-Scan (`apps/web`, 01.09.2026).
+ */
+function ScanOriginNote({ scan }: { scan: PvDesignArrayPrefill }) {
+  const adopted = adoptedFields(scan)
+  const open = openPoints(scan)
+
+  return (
+    <div data-testid="pv-scan-herkunft" className="flex flex-col gap-1 text-xs leading-relaxed">
+      <span className="text-accent">
+        {adopted.length > 0
+          ? `Aus dem Dokument übernommen: ${adopted.join(', ')}.`
+          : 'Aus dem Dokument liess sich für diese Fläche nichts übernehmen.'}
+        {scan.moduleCount != null && ` Das Dokument nennt dazu ${scan.moduleCount} Module.`}
+      </span>
+      {open.map((line, i) => (
+        <span key={i} className="text-warning">
+          {line}
+        </span>
+      ))}
+    </div>
+  )
+}
+
+/**
+ * Was der Nutzer zu einem Fehlschlag zu sehen bekommt — je Zustand ein eigener Satz.
+ *
+ * Der Schlüssel ist die Fehler-Union der Server Action und NICHT `string`: so wird ein neuer
+ * Zustand im Backend hier zum Typfehler, statt still in einer Auffang-Meldung zu landen, die dem
+ * Nutzer etwas Falsches erzählt.
+ */
+type PvScanError = Extract<PvDesignScanResponse, { ok: false }>['error']
+
+const SCAN_ERROR_TEXT: Record<PvScanError, { title: string; message: string }> = {
+  no_file: {
+    title: 'Keine Datei',
+    message: 'Die Datei scheint leer zu sein. Bitte wählen Sie die PDF Ihres Angebots.',
+  },
+  wrong_type: {
+    title: 'Nur PDF',
+    message:
+      'Wir können bislang nur PDF-Dateien auslesen. Ein Foto oder Screenshot geht noch nicht — ' +
+      'bitte laden Sie die PDF Ihres Planers hoch oder tragen Sie die Auslegung unten selbst ein.',
+  },
+  too_large: {
+    title: 'Datei zu gross',
+    message:
+      'Die Datei ist grösser als 8 MB. Ein Auslegungsdokument liegt normalerweise weit darunter — ' +
+      'bitte prüfen Sie, ob Sie versehentlich ein sehr hoch aufgelöstes Scan-Bild hochgeladen haben.',
+  },
+  unreadable: {
+    title: 'Keine Modulfläche gefunden',
+    message:
+      'In diesem Dokument war keine Modulfläche mit Nennleistung, Neigung oder Ausrichtung zu ' +
+      'finden. Das kann daran liegen, dass es ein eingescanntes Bild ohne Text ist, oder dass es ' +
+      'gar keine Anlagenauslegung ist. Bitte tragen Sie die Werte unten selbst ein — das Ergebnis ' +
+      'ist dasselbe, Sie tippen nur mehr.',
+  },
+  not_configured: {
+    title: 'Dokument-Auslesen derzeit nicht verfügbar',
+    message:
+      'Das Auslesen von Auslegungsdokumenten ist auf diesem Server nicht eingerichtet. Das ' +
+      'Formular unten funktioniert unverändert.',
+  },
+  unavailable: {
+    title: 'Auslesen fehlgeschlagen',
+    message:
+      'Wir konnten das Dokument gerade nicht auslesen. Bitte versuchen Sie es später noch einmal — ' +
+      'oder tragen Sie die Auslegung unten selbst ein.',
+  },
+}
+
+/**
+ * B22c — der Scan-Weg (Pflichtenheft §3(c), entspricht Delta 9b-2). Die SECHSTE KI-Anbindung.
+ *
+ * ── ER BELEGT VOR, ER RECHNET NICHT ───────────────────────────────────────────────────────────
+ * Was er tut, ist genau das, was ein Mensch sonst abtippt: die Modulflächen des Formulars füllen.
+ * Er liefert keine Zeitreihe (die Ertragskurve steht im Dokument ausschliesslich als BILD, aus dem
+ * Text ist kein Monatswert zu holen — Bestandsaufnahme 3.2), keine Koordinate und keinen
+ * PVGIS-Abruf. Der Abruf bleibt ein eigener, ausdrücklicher Klick weiter unten.
+ *
+ * ── ⚠ VORSCHAU, KEINE STILLE ÜBERNAHME ────────────────────────────────────────────────────────
+ * Zwischen dem Gelesenen und dem Formular steht eine Liste und ein ausdrückliches „Übernehmen" —
+ * dieselbe Haltung wie beim Rechnungs-Scan, beim Tarifblatt-Scan und bei der Freitext-Batterie,
+ * hier zusätzlich deshalb, weil ein einzelner falsch gelesener Winkel gemessen 56 % der Ersparnis
+ * bewegt. Nach der Übernahme bleibt jedes Feld editierbar: der Scan ist ein Abtipp-Ersatz, keine
+ * Feststellung — und was aus einer PLANUNG gelesen wird, ist ohnehin nie eine Messung.
+ */
+function PvDesignScanSection({ onAdopt }: { onAdopt: (extraction: PvDesignExtraction) => void }) {
+  const [fileName, setFileName] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<{ title: string; message: string } | null>(null)
+  const [extraction, setExtraction] = useState<PvDesignExtraction | null>(null)
+  const [adopted, setAdopted] = useState(false)
+
+  async function handleFile(file: File) {
+    setFileName(file.name)
+    setError(null)
+    setExtraction(null)
+    setAdopted(false)
+    setBusy(true)
+    try {
+      const response = await scanPvDesign(file)
+      if (!response.ok) {
+        setError(SCAN_ERROR_TEXT[response.error])
+        return
+      }
+      setExtraction(response.extraction)
+    } catch {
+      /*
+       * Eine Server Action kann auch am Netz scheitern, bevor sie ihren eigenen Fehlerzustand
+       * bilden kann. Dann gilt dieselbe Meldung wie bei `unavailable` — und ausdrücklich KEIN
+       * Weiterreichen der technischen Ursache: sie sagt dem Absender nichts und einem Angreifer
+       * etwas.
+       */
+      setError(SCAN_ERROR_TEXT.unavailable)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const prefills = extraction ? pvDesignPrefill(extraction) : []
+
+  return (
+    <div className="flex flex-col gap-3 rounded-md border border-border bg-surface p-3">
+      <p className="flex items-center gap-1.5 text-sm font-medium text-ink">
+        <FileText className="h-4 w-4 shrink-0" />
+        Auslegung aus einem Angebot übernehmen (optional)
+      </p>
+      <p className="text-xs leading-relaxed text-text-muted">
+        Wenn Ihnen ein Angebot oder eine Auslegung Ihres Installateurs vorliegt (PV*SOL, PVsyst
+        oder ähnlich), lesen wir Nennleistung, Neigung und Ausrichtung je Modulfläche daraus aus
+        und belegen die Felder darunter vor. Sie prüfen und korrigieren, bevor gerechnet wird.
+      </p>
+
+      {/*
+        ⚠ EIGENER DATENSCHUTZ-SATZ, UND ER SAGT ETWAS ANDERES ALS DER ABSATZ DARÜBER.
+        Für die Erzeugungsrechnung gehen nur Koordinate und Auslegung an PVGIS; DIESE Datei
+        dagegen verlässt den Browser als Ganzes und geht an Anthropic. Ein Angebot trägt
+        üblicherweise Name und Adresse im Kopf — wer die Datei ablegt, muss das VORHER gelesen
+        haben, nicht danach. Denselben Satz führt der Rechnungs-Scan aus demselben Grund.
+      */}
+      <p className="rounded-md border border-border bg-surface-alt px-3 py-2 text-xs leading-relaxed text-text-muted">
+        <strong>Was mit Ihrem Dokument geschieht:</strong> Anders als Ihr Lastgang verlässt diese
+        Datei Ihren Browser — sie wird zum Auslesen an <strong>Anthropic</strong> übertragen, den
+        Anbieter des Sprachmodells, das sie liest. Sie wird dabei{' '}
+        <strong>nirgends gespeichert</strong>, weder bei uns noch in einer Datenbank oder einem
+        Protokoll; zurück kommen ausschliesslich die abgelesenen Werte, die Sie gleich vor sich
+        sehen. Ein Angebot trägt oft Ihren Namen und Ihre Adresse im Kopf. Wenn Sie das nicht
+        möchten, tragen Sie die vier Angaben je Modulfläche einfach unten selbst ein — das
+        Ergebnis ist dasselbe.
+      </p>
+
+      <FileDrop
+        compact
+        accept=".pdf,application/pdf"
+        fileName={fileName}
+        onFile={(file) => {
+          void handleFile(file)
+        }}
+        title="Angebot oder Auslegung als PDF hierher ziehen oder klicken"
+        hint="PV*SOL, PVsyst oder ähnlich — max. 8 MB"
+      />
+
+      {busy && (
+        <p className="flex items-center gap-2 text-xs text-text-muted">
+          <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" />
+          Das Dokument wird gelesen — das dauert einen Moment.
+        </p>
+      )}
+
+      {error && (
+        <Alert variant="destructive">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>{error.title}</AlertTitle>
+          <AlertDescription>{error.message}</AlertDescription>
+        </Alert>
+      )}
+
+      {adopted && (
+        <Alert variant="default">
+          <CheckCircle2 className="h-4 w-4 text-positive" />
+          <AlertTitle>Übernommen</AlertTitle>
+          <AlertDescription>
+            Die Felder unten sind vorbelegt. Bitte prüfen und bei Bedarf korrigieren — danach die
+            Postleitzahl eintragen und die Erzeugung berechnen.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {extraction && !adopted && (
+        <div
+          data-testid="pv-scan-vorschau"
+          className="flex flex-col gap-3 rounded-md border border-accent bg-accent-subtle p-3"
+        >
+          <p className="text-sm font-medium text-ink">
+            Das haben wir gelesen — bitte gegen Ihr Dokument prüfen
+          </p>
+
+          {extraction.locationText && (
+            <p className="text-xs text-text-muted">
+              Standort laut Dokument: <strong>{extraction.locationText}</strong>. Daraus leiten wir
+              bewusst keine Postleitzahl ab — die tragen Sie gleich selbst ein.
+            </p>
+          )}
+
+          <ol className="flex flex-col gap-2">
+            {prefills.map((p, i) => (
+              <li key={i} className="rounded-md border border-border bg-surface p-2">
+                <p className="text-xs font-medium text-ink">
+                  Modulfläche {i + 1}
+                  {p.peakPowerKwp != null && (
+                    <>
+                      {' · '}
+                      <Num>{formatRead(p.peakPowerKwp)}</Num> kWp
+                    </>
+                  )}
+                  {p.slopeDeg != null && (
+                    <>
+                      {' · '}
+                      <Num>{formatRead(p.slopeDeg)}</Num>° Neigung
+                    </>
+                  )}
+                  {p.direction != null && ` · ${compassDirectionInfo(p.direction).label}`}
+                  {p.compassDeg != null && (
+                    <>
+                      {' ('}
+                      <Num>{formatRead(p.compassDeg)}</Num>° ab Norden)
+                    </>
+                  )}
+                </p>
+                <ScanOriginNote scan={p} />
+              </li>
+            ))}
+          </ol>
+
+          <p className="text-xs leading-relaxed text-text-muted">
+            Stimmt das mit Ihrem Dokument überein? Dann übernehmen — es wird dabei noch nichts
+            gerechnet, und jedes Feld bleibt danach änderbar.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              size="sm"
+              onClick={() => {
+                onAdopt(extraction)
+                setAdopted(true)
+              }}
+            >
+              In das Formular übernehmen
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setExtraction(null)}>
+              Verwerfen
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
