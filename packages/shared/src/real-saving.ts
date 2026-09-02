@@ -10,10 +10,18 @@
  *
  * Diese Grösse beantwortet sie: die Differenz zwischen dem, was der Kunde HEUTE zahlt, und dem,
  * was er mit aWATTar UND seinem Speicher gezahlt hätte. Sie ist damit eine KASSEN-Grösse aus dem
- * Monatsvergleich und keine Attributions-Grösse aus der §3.7-Buchhaltung — die beiden Rechenwege
- * unterscheiden sich um wenige Prozent, und der Unterschied ist im Handover vom 02.09.2026 in
- * drei Posten aufgelöst (Clamp, Start-SoC, Restenergie). Massgeblich für „was zahle ich" ist der
- * Monatsvergleich.
+ * Monatsvergleich und keine Attributions-Grösse aus der §3.7-Buchhaltung. Massgeblich für „was
+ * zahle ich" ist der Monatsvergleich.
+ *
+ * ⚠ ZUM ABSTAND DER BEIDEN RECHENWEGE — hier stand „wenige Prozent", und das war schon damals nur
+ * für den PV-losen Fall richtig. Dort sind es tatsächlich drei benannte Posten (Clamp, Start-SoC,
+ * Restenergie; am echten Kundenfall −5,22 € auf 204 €). MIT Einspeisung klaffte der Abstand bis
+ * zum 02.09.2026 auf **47 %** auf: die §3.7-Attribution bewertete den Eigenverbrauch am Fixtarif
+ * des Kunden, während diese Kassen-Grösse an den aWATTar-Preisen rechnete. Das ist mit §3.7.2
+ * (eine Preisbasis für beide Energie-Töpfe) behoben — geblieben sind die drei Posten oben und der
+ * Start-SoC, der als einziger noch am Fixtarif hängt (rund 1 € über den gemessenen Zeitraum).
+ * Eine Prozentzusage steht hier bewusst nicht mehr: sie hing an der Konstellation, nicht an der
+ * Rechnung, und wäre beim nächsten Fall wieder falsch.
  *
  * ── ⚠ ZWEI URSACHEN, UND DIE ERSTE KANN NEGATIV SEIN ───────────────────────────────────────────
  * `tariffSwitchEur` ist der reine Wechsel OHNE jede Steuerung (Ist-Tarif gegen aWATTar auf den

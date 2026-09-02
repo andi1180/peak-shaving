@@ -25,9 +25,11 @@ export type BatterySavings = {
   /** Leistungspreis-Ersparnis = (alter − neuer billedKw) × Leistungspreis. `static` → 0 (nicht kreditiert). */
   leistungspreisSavingPerYear: number
   /**
-   * Eigenverbrauchs-Ersparnis: aus PV geladene, später selbst verbrauchte kWh × (Arbeitspreis −
-   * Einspeisevergütung ÷ Ladewirkungsgrad) — auf ein Jahr hochgerechnet (`× annualizationFactor`,
-   * s. `annualization.ts`). Der Ladeverlust steckt seit Delta 19 in der Kosten-Seite (§3.7).
+   * Eigenverbrauchs-Ersparnis: aus PV geladene, später selbst verbrauchte kWh × (Preis des
+   * ENTLADE-Intervalls − Einspeisevergütung ÷ Ladewirkungsgrad) — auf ein Jahr hochgerechnet
+   * (`× annualizationFactor`, s. `annualization.ts`). Der Ladeverlust steckt seit Delta 19 in der
+   * Kosten-Seite (§3.7); der Entladepreis kommt seit §3.7.2 aus derselben Intervallreihe wie bei
+   * der Lastverschiebung und nicht mehr aus dem Fixtarif des Kunden.
    */
   selfConsumptionSavingPerYear: number
   /**
@@ -58,8 +60,11 @@ type EnergyLayer = {
   origin: 'pv' | 'grid'
   /**
    * Was diese Schicht je EINGESPEICHERTER kWh gekostet hat (ct) — der LADEVERLUST IST DARIN
-   * ENTHALTEN (§3.7, Delta 19). Nur für 'grid' benutzt; die PV-Seite bewertet über eine eigene,
-   * profilweite Rate (s. `pvSelfConsumptionCtPerKwh`), weil ihr Preis nicht am Ladeintervall hängt.
+   * ENTHALTEN (§3.7, Delta 19). Für BEIDE Herkünfte massgeblich: 'grid' trägt den Preis ihres
+   * Ladeintervalls, 'pv' die entgangene Einspeisevergütung (zeitunabhängig, aber aus demselben
+   * Grund hier und nicht als profilweite Konstante daneben). Der NUTZEN einer Entnahme ist in
+   * beiden Fällen der Preis ihres ENTLADE-Intervalls, gelesen aus derselben Reihe
+   * (§3.7.2 Preisbasis-Vereinheitlichung — s. Entlade-Zweig unten).
    */
   costCtPerStoredKwh: number
 }
@@ -80,7 +85,8 @@ const EPS = 1e-9
  *   • Entladen bei `draw > cap` → SPITZENKAPPUNG: verbraucht FIFO-Schichten, erzeugt aber KEINEN
  *     Energie-Topf — dieser Anteil steckt vollständig in `leistungspreisSaving` (via billedKw).
  *   • Entladen bei `draw ≤ cap` → EIGENVERBRAUCH: die entnommenen Schichten fließen je nach Herkunft
- *     in genau EINEN Topf: 'pv' → Eigenverbrauch, 'grid' → Lastverschiebung (Wert = teuer − günstig).
+ *     in genau EINEN Topf: 'pv' → Eigenverbrauch, 'grid' → Lastverschiebung. Der WERT ist in beiden
+ *     Fällen derselbe Ausdruck (Entladepreis − Einstandspreis, ≥ 0), s. den Absatz zur Preisbasis.
  * Weil Peak-Entladung keine kWh in einen Energie-Topf legt und jede Eigenverbrauchs-kWh ihrer
  * Herkunft folgt, ist keine kWh doppelt gezählt → Summe = total (Prinzip 2).
  *
@@ -89,6 +95,21 @@ const EPS = 1e-9
  * die für sie bezogen (bzw. der Einspeisung entzogen) wurden. Die eingespeicherte Menge bleibt
  * dabei unverändert die des Fahrplans; geändert hat sich allein ihr Preis. Beide Energie-Töpfe
  * fallen dadurch, der Leistungspreis-Anteil nicht (er ist ratenbasiert und kennt keine kWh).
+ *
+ * ── EINE PREISBASIS FÜR BEIDE ENERGIE-TÖPFE (§3.7.2) ───────────────────────────────────────────
+ * Der Nutzen JEDER entnommenen kWh ist der Preis des Intervalls, in dem sie entnommen wird — das
+ * hängt an der Entnahme, nicht an der Herkunft. Beide Töpfe lesen dafür dieselbe Reihe
+ * (`intervalTariffRates`), und zwar bedingungslos: ohne Tarifoptimierungs-Hebel sind das die
+ * Fenster-/Standardpreise, mit Hebel die kombinierten Marktpreise (Delta 4). Die Herkunft
+ * entscheidet nur noch über den EINSTANDSPREIS und über den Topf, nicht mehr über die Preiswelt.
+ *
+ * Zuvor hing der Eigenverbrauch an `tariffParams.energyPriceCtPerKwh` — dem heutigen Fixtarif des
+ * Kunden —, während die Lastverschiebung längst über die Reihe lief. Bei aktivem Hebel addierte
+ * `totalSavingPerYear` damit zwei Töpfe aus ZWEI VERSCHIEDENEN TARIFWELTEN und trug das über
+ * `calculateRoi` in Amortisation und Netto-Ersparnis weiter. Am echten Kundenfall gemessen
+ * (209 Tage, 19,2 kWh/10,6 kW/η 0,9, Arbeitspreis 9,5 ct, 10,2 kWp geschätzte PV): 881,3 kWh
+ * PV-Entladung, in der Attribution mit 9,50 ct/kWh bewertet, in der Kassen-Rechnung des
+ * Monatsvergleichs mit 21,69 ct/kWh — rund 107 € zu niedrig über den Zeitraum.
  *
  * ⚠ Die für die SPITZENKAPPUNG geladene Energie bleibt weiterhin unbepreist — sie legt keine kWh
  * in einen Topf, weder auf der Nutzen- noch auf der Kostenseite. Das ist unverändert und
@@ -120,10 +141,15 @@ export function computeBatterySavings(
    * sondern geht in dieselbe Eigenverbrauchs-/Lastverschiebungs-Rechnung ein, die es schon gibt
    * (Prinzip 2, Doppelzählungsrisiko).
    *
+   * ⚠ Diese Reihe ist seit §3.7.2 die EINZIGE Preisquelle der Bewertung — für die Lastverschiebung
+   * UND für den Eigenverbrauch. Sie wird bedingungslos gelesen; ein `pricing`-Branch wäre die
+   * falsche Antwort gewesen, weil es hier nur EINE Reihe gibt und sie ohne Hebel bereits genau die
+   * Preise trägt, mit denen vorher gerechnet wurde.
+   *
    * Ist der Hebel angefordert, aber nicht berechenbar, liefert `intervalTariffRates` bewusst
-   * durchgehend den Standardpreis: `dischargeCt - layer.chargeCt` ist dann überall 0, die
-   * Lastverschiebung bleibt 0, und der Eigenverbrauch (der ohnehin an `energyPriceCtPerKwh` hängt,
-   * nicht an dieser Reihe) ist unberührt.
+   * durchgehend den Standardpreis: jede Netz-Schicht wurde dann zu demselben Preis geladen, zu dem
+   * sie entladen wird, die Lastverschiebung bleibt 0, und der Eigenverbrauch wird mit genau dem
+   * Arbeitspreis bewertet, mit dem er auch ohne Hebel bewertet würde.
    */
   const { rateCtPerKwh } = intervalTariffRates(loadProfile, tariffParams, pricing)
 
@@ -149,25 +175,35 @@ export function computeBatterySavings(
   const chargeLossFactor = eta > 0 ? 1 / eta : 1
 
   /*
-   * Eigenverbrauchs-Wert einer PV-kWh: vermeidet Bezug zum Arbeitspreis, verzichtet dafür auf die
-   * Einspeisung der `1/η` kWh, die für sie ins Gerät mussten. Vor Delta 19 stand hier
-   * `std - einspeise` — dieselbe Auslassung wie auf der Netz-Seite, nur mit dem Einspeiseerlös als
-   * entgangenem Preis. `max(0, …)`: bei einer Einspeisevergütung über dem Arbeitspreis ist
-   * Zwischenspeichern ein Verlustgeschäft, und ein negativer Topf wäre eine Ersparnis mit
-   * falschem Vorzeichen (der Dispatch entscheidet nicht preisbasiert, s. §3.6 Schritt 3).
+   * ⚠ HIER STAND EINE PROFILWEITE EIGENVERBRAUCHS-RATE — sie ist ersatzlos entfallen (§3.7.2).
+   * `max(0, energyPriceCtPerKwh − einspeise/η)` bewertete jede PV-kWh mit dem Fixtarif des Kunden,
+   * gleichgültig WANN sie entnommen wurde. Das war schon ohne Hebel ungenau (eine im günstigen
+   * Nachtfenster entnommene kWh vermeidet den günstigen Preis, nicht den Tagespreis) und mit
+   * aktivem Hebel schlicht die falsche Tarifwelt. Der Wert einer Entnahme hängt am
+   * ENTLADE-Intervall und wird deshalb dort gebildet, wo dieses Intervall bekannt ist.
    */
-  const pvSelfConsumptionCtPerKwh = Math.max(0, std - einspeise * chargeLossFactor)
 
-  // FIFO-Warteschlange. Der Start-SoC (§3.6.1, 50 % [ANNAHME]) trägt keine Herkunft → als neutrale
-  // 'grid'-Schicht zum Standardpreis geführt: erzeugt keine Lastverschiebungs-Ersparnis (ihre Kosten
-  // liegen mit dem Ladeverlust sogar über jedem realen Entladepreis derselben Preisstufe) und
-  // verhindert nur den FIFO-Unterlauf.
+  /*
+   * FIFO-Warteschlange. Der Start-SoC (§3.6.1, 50 % [ANNAHME]) trägt keine Herkunft → als neutrale
+   * 'grid'-Schicht geführt: er soll den FIFO-Unterlauf verhindern und sonst nichts.
+   *
+   * ⚠ SEIN EINSTANDSPREIS BLEIBT `std`, AUSDRÜCKLICH AUCH BEI AKTIVEM HEBEL — entschieden, nicht
+   * übersehen (§3.7.2). Diese Energie stammt aus der Zeit VOR dem Beobachtungsfenster; es gibt
+   * keinen beobachteten Ladezeitpunkt, dem sich ein Slot-Preis zuordnen liesse. `rateCtPerKwh[0]`
+   * wäre eine ebenso geratene Zahl, nur mit falscher Präzision: der Marktpreis der ersten
+   * Viertelstunde des Lastgangs hat mit dieser Energie nichts zu tun. `std` ist dabei die
+   * konservative und nicht die bequeme Wahl (Pessimismus-Prinzip) — ein hoch angesetzter Einstand
+   * lässt die Lastverschiebung dieser einen Schicht eher zu klein als zu gross ausfallen.
+   *
+   * Restposten, gemessen und benannt: am echten Kundenfall trägt sie rund 1 € über den Zeitraum.
+   * Sie ist der einzige Ort in dieser Funktion, an dem noch der Fixtarif steht.
+   */
   const layers: EnergyLayer[] = []
   if (sim.startSocKwh > EPS) {
     layers.push({ kwh: sim.startSocKwh, origin: 'grid', costCtPerStoredKwh: std * chargeLossFactor })
   }
 
-  let pvSelfConsumedKwh = 0
+  let pvCtKwh = 0 // Σ kWh × (Entladepreis − Einspeisevergütung/η) in ct·kWh, am Ende /100 → €
   let loadShiftCtKwh = 0 // Σ kWh × (teuer − günstig) in ct·kWh, am Ende /100 → €
 
   const batteryPowerKw = sim.dispatch.batteryPowerKw
@@ -203,13 +239,26 @@ export function computeBatterySavings(
         if (layer.kwh <= EPS) layers.shift()
 
         if (isPeak) continue // Spitzenkappung → steckt in leistungspreisSaving, kein Energie-Topf.
+        /*
+         * DIESELBE FORMEL FÜR BEIDE TÖPFE (§3.7.2): Nutzen der entnommenen kWh — der Preis ihres
+         * ENTLADE-Intervalls — minus ihrem Einstandspreis inklusive Ladeverlust. Verschieden ist
+         * allein, was sie gekostet hat (PV: entgangene Einspeisevergütung · Netz: Ladepreis) und in
+         * welchen Topf sie fällt.
+         *
+         * `max(0, …)` für beide: bei einem Entladepreis unter dem Einstand ist Zwischenspeichern
+         * ein Verlustgeschäft, und ein negativer Beitrag wäre eine Ersparnis mit falschem
+         * Vorzeichen — der Dispatch entscheidet nicht preisbasiert (§3.6 Schritt 3). Der Clamp
+         * greift dadurch JE INTERVALL statt einmal profilweit: eine Stunde, in der der kombinierte
+         * Preis unter der Einspeisevergütung liegt, trägt 0 bei, statt den Topf zu mindern.
+         */
+        const value = take * Math.max(0, dischargeCt - layer.costCtPerStoredKwh)
         if (layer.origin === 'pv') {
-          pvSelfConsumedKwh += take
+          pvCtKwh += value
         } else {
-          // 'grid': Lastverschiebung = nur der Aufschlag (teuer jetzt − günstig beim Laden INKLUSIVE
-          // Ladeverlust), ≥ 0. Der Verlust kann eine Verschiebung damit auch ganz aufzehren: bei
-          // η = 0,9 lohnt sich 15 → 16 ct nicht mehr, und das ist die Wahrheit, nicht ein Rundungsfehler.
-          loadShiftCtKwh += take * Math.max(0, dischargeCt - layer.costCtPerStoredKwh)
+          // 'grid' → Lastverschiebung: der Aufschlag (teuer jetzt − günstig beim Laden INKLUSIVE
+          // Ladeverlust). Der Verlust kann eine Verschiebung ganz aufzehren: bei η = 0,9 lohnt sich
+          // 15 → 16 ct nicht mehr, und das ist die Wahrheit, nicht ein Rundungsfehler.
+          loadShiftCtKwh += value
         }
       }
     }
@@ -227,7 +276,7 @@ export function computeBatterySavings(
    * ⚠ Der Faktor betrifft AUSSCHLIESSLICH diese beiden Zeilen. `leistungspreisSavingPerYear`,
    * `newBilledKw` und alles in `roi.ts` bleiben unangetastet — dort wäre er eine Doppelung.
    */
-  const selfConsumptionSavingOverCoveredPeriod = (pvSelfConsumedKwh * pvSelfConsumptionCtPerKwh) / 100
+  const selfConsumptionSavingOverCoveredPeriod = pvCtKwh / 100
   const loadShiftSavingOverCoveredPeriod = loadShiftCtKwh / 100
   const factor = annualizationFactor(loadProfile)
   const selfConsumptionSavingPerYear = selfConsumptionSavingOverCoveredPeriod * factor

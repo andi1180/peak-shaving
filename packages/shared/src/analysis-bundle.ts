@@ -112,8 +112,27 @@ import type { TariffOverridableField } from './tariff-catalog'
  * gebaut und nicht vergessen — es wäre ein eigenes Feld nach der B14-1-Regel „als Werte, nie als
  * Verweis", und es gehört in denselben Schritt, der die Auslegung auch im Report ausweist. Wer es
  * ergänzt, erhöht die Fassung erneut.
+ *
+ * ── FASSUNG 7 (§3.7.2: eine Preisbasis für beide Energie-Töpfe) ────────────────────────────────
+ * `result.perBattery[].selfConsumptionSavingPerYear` (und der gemessene Zwilling
+ * `…OverCoveredPeriod`) bedeutet ab hier etwas anderes: der Eigenverbrauch wird mit dem Preis des
+ * ENTLADE-Intervalls bewertet und nicht mehr mit `inputs.tariff.energyPriceCtPerKwh`. Kein Feld
+ * kommt hinzu, kein Feld fällt weg — genau deshalb braucht es die Fassungsnummer: eine Baseline
+ * der Fassung ≤ 6 und eine der Fassung 7 sind an dieser Stelle ZWEI DEFINITIONEN und nicht zwei
+ * Messungen, und man sähe es der Zahl nicht an.
+ *
+ * ⚠ Betroffen ist, wer EINSPEISUNG im Lastgang hat UND den Tarifoptimierungs-Hebel aktiviert hatte
+ * — bei aktivem Hebel addierte `totalSavingPerYear` zuvor zwei Töpfe aus zwei Tarifwelten (der
+ * Eigenverbrauch am Fixtarif des Kunden, die Lastverschiebung an den kombinierten Marktpreisen).
+ * Ohne Einspeisung ist der Eigenverbrauchs-Topf 0 und die Fassung ohne Wirkung; ohne Hebel sind
+ * beide Fassungen wertgleich. Über `calculateRoi` reicht der Unterschied bis in
+ * `amortizationYears` und `netSavingOverHorizon` — also bis in die Spalten, gegen die der
+ * Wirkungsnachweis läuft.
+ *
+ * ⚠ Und wie bei jeder Fassung davor: eine archivierte Zeile wird NICHT nachgerechnet (B14-1
+ * Regel a). Eine 2026 gerechnete Baseline bleibt die Prognose, die 2026 abgegeben wurde.
  */
-export const ANALYSIS_BUNDLE_VERSION = 6
+export const ANALYSIS_BUNDLE_VERSION = 7
 
 /**
  * Fassungen, die der Upload annimmt.
@@ -122,7 +141,7 @@ export const ANALYSIS_BUNDLE_VERSION = 6
  * worden sein, und ein Bündel unbrauchbar zu machen, das ein Mensch in der Hand hält, wäre der
  * schlechtere Handel. Bei einer älteren Fassung bleiben die jeweils neueren Felder schlicht leer.
  */
-export const SUPPORTED_ANALYSIS_BUNDLE_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6]
+export const SUPPORTED_ANALYSIS_BUNDLE_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7]
 
 /**
  * Fassung der Rechen-Engine, VON HAND gepflegt.
@@ -133,7 +152,7 @@ export const SUPPORTED_ANALYSIS_BUNDLE_VERSIONS: readonly number[] = [1, 2, 3, 4
  *
  * Bei einer Änderung am Rechenkern, die Ergebnisse verschiebt, MITZIEHEN.
  */
-export const ENGINE_VERSION = '1.2.0-mvp'
+export const ENGINE_VERSION = '1.3.0-mvp'
 
 /**
  * Was anstelle des Commits geschrieben wird, wenn die Bauumgebung keinen kennt (lokaler

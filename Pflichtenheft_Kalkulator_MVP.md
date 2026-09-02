@@ -277,7 +277,7 @@ Für eine gegebene Batterie ist die interessante Frage: **Wie tief kann die Kapp
 
 Aus dem einen Simulationslauf (§3.6) ergeben sich alle Effekte gleichzeitig:
 - `leistungspreisSavingPerYear` = (alter abgerechneter kW − neuer abgerechneter kW) × `leistungspreisEurPerKwYear`.
-- `selfConsumptionSavingPerYear` = Σ (durch Batterie verschobene kWh von Einspeisung→Eigenverbrauch) × (`energyPrice − einspeisevergütung ÷ η`), s. §3.7.2.
+- `selfConsumptionSavingPerYear` = Σ (durch Batterie verschobene kWh von Einspeisung→Eigenverbrauch) × (`Preis des Entlade-Intervalls − einspeisevergütung ÷ η`), s. §3.7.2. Der Entladepreis kommt aus derselben Intervallreihe wie bei der Lastverschiebung — nicht aus dem Fixtarif des Kunden.
 - `loadShiftSavingPerYear` `[MN]` = Σ (aus günstigem Tarif-Fenster geladene und in teurem Fenster genutzte kWh) × (`teurer − günstiger ÷ η` Tarif), s. §3.7.2. Nur wenn Tarif-Fenster gesetzt sind; sonst 0.
 - `totalSavingPerYear` = Summe **aus demselben Fahrplan** (keine unabhängige Doppelrechnung).
 
@@ -302,7 +302,7 @@ Die drei Anteile sind **nicht von gleicher Art**, und das muss die Rechnung ber�
 
 **Die Regel.** Eine im Speicher liegende Kilowattstunde wird mit dem Preis der **tatsächlich dafür bezogenen** Menge bewertet — also mit `1/η` kWh, nicht mit einer. Der Ladeverlust steht damit auf der **Kosten**-Seite beider Energie-Anteile:
 
-- Eigenverbrauch: Wert einer PV-kWh = `energyPrice − einspeisevergütung ÷ η` (statt `energyPrice − einspeisevergütung`). Entgangen ist der Einspeiseerlös der `1/η` kWh, die für sie ins Gerät mussten.
+- Eigenverbrauch: Wert einer PV-kWh = `max(0, Preis des Entlade-Intervalls − einspeisevergütung ÷ η)` (statt `energyPrice − einspeisevergütung`). Entgangen ist der Einspeiseerlös der `1/η` kWh, die für sie ins Gerät mussten. Zum Entladepreis s. den Nachtrag unten — bis 02.09.2026 stand hier der Fixtarif `energyPrice`.
 - Lastverschiebung: Aufschlag je kWh = `max(0, teuer − günstig ÷ η)` (statt `max(0, teuer − günstig)`).
 
 **Was sich ausdrücklich NICHT ändert.** Die eingespeicherte (`soc += P·Δ·η`) und die entnommene Menge (`soc -= P·Δ`) sind Physik und bleiben unangetastet; der Nutzen einer entnommenen kWh bleibt der volle Bezugspreis (sie ersetzt genau eine bezogene kWh). Der **Leistungspreis-Anteil** ist ratenbasiert, kennt keine kWh und ist unberührt — ebenso `newBilledKw` und alles in §3.9, das daraus folgt. Auch der **Netzbezug selbst** war nie falsch: der Dispatch zieht seit jeher die volle Ladeleistung aus dem Netz, der Mehrbezug steckt also bereits in `gridAfterKw` und damit im Monatsvergleich (§3.7.3). Falsch war allein die **Bewertung**.
@@ -314,6 +314,22 @@ Die drei Anteile sind **nicht von gleicher Art**, und das muss die Rechnung ber�
 **Bewusst offen geblieben.** Die für die **Spitzenkappung** geladene Energie bleibt unbepreist: sie legt keine kWh in einen Topf, weder auf der Nutzen- noch auf der Kostenseite (§3.7, Zuordnungsregel). Der Wert der Spitzenkappung ist der Leistungspreis, nicht eine Preisdifferenz; ein Kostenposten allein auf dieser Seite ergäbe einen vierten, negativen Topf, den dieser Abschnitt nicht kennt.
 
 **Fassungsbruch.** Die Änderung verschiebt die Bedeutung bestehender Contract-Felder für **jeden** Kunden — Analyse-Bündel **Fassung 5**, `ENGINE_VERSION` 1.2.0-mvp. Eine 2026 archivierte Baseline der Fassung ≤ 4 und eine der Fassung 5 sind an dieser Stelle **zwei Definitionen**, nicht zwei Messungen.
+
+---
+
+**Nachtrag 02.09.2026 — EINE Preisbasis für beide Energie-Töpfe.**
+
+**Der Befund.** Der Nutzen einer entnommenen kWh ist der Preis des Intervalls, in dem sie entnommen wird. Für die **Lastverschiebung** war das seit Delta 4 so gerechnet (kombinierter Intervallpreis aus Marktpreis + Netzentgelt); der **Eigenverbrauch** dagegen lief über eine profilweite Konstante auf Basis von `energyPriceCtPerKwh` — dem heutigen Fixtarif des Kunden. Bei aktivem Tarifoptimierungs-Hebel addierte `totalSavingPerYear` damit zwei Töpfe aus **zwei verschiedenen Tarifwelten** und trug das über §3.9 in Amortisation und Netto-Ersparnis weiter.
+
+**Die Regel.** Beide Töpfe lesen dieselbe Intervallreihe, **bedingungslos** — ohne Hebel sind das die Fenster-/Standardpreise (dann ist die Bewertung wertgleich zu vorher), mit Hebel die kombinierten Marktpreise. Die Herkunft einer Schicht entscheidet nur noch über den **Einstandspreis** (PV: entgangene Einspeisevergütung · Netz: Ladepreis) und über den Topf, nicht mehr über die Preiswelt. Beide Töpfe tragen denselben Ausdruck `max(0, Entladepreis − Einstandspreis)`; der Clamp greift dadurch **je Intervall** statt einmal profilweit.
+
+**Gemessen** (echter Kundenfall, 209 Tage, 19,2 kWh/10,6 kW/η 0,9, Arbeitspreis 9,5 ct, 10,2 kWp geschätzte PV): 881,3 kWh PV-Entladung, in der Attribution mit **9,50 ct/kWh** bewertet, in der Kassen-Rechnung des Monatsvergleichs (§3.7.3) mit **21,69 ct/kWh** — rund **107 €** zu niedrig über den Zeitraum. Der Defekt ist ausdrücklich **nicht** an geschätzte PV gebunden: die `'pv'`-Schicht entsteht allein aus dem Vorzeichen der Netzlast, also aus Einspeisung am Zähler. Jeder Kunde mit gemessener Einspeisung und aktivem Hebel war betroffen; ohne Einspeisung lag der Defekt schlafend (`selfConsumptionSaving = 0`).
+
+**Die eine Ausnahme, entschieden.** Der Start-SoC (§3.6.1, 50 % `[ANNAHME]`) behält als Einstandspreis `energyPriceCtPerKwh` — auch bei aktivem Hebel. Diese Energie stammt aus der Zeit **vor** dem Beobachtungsfenster; es gibt keinen beobachteten Ladezeitpunkt, dem sich ein Slot-Preis zuordnen liesse, und der Marktpreis der ersten Viertelstunde des Lastgangs wäre eine ebenso geratene Zahl mit falscher Präzision. `std` ist dabei die konservative Wahl (ein hoch angesetzter Einstand lässt die Lastverschiebung dieser einen Schicht eher zu klein ausfallen). Restposten am gemessenen Fall: rund 1 € über den Zeitraum.
+
+**Was sich ausdrücklich NICHT ändert.** Der Absatz oben gilt unverändert: Physik, Leistungspreis-Anteil, `newBilledKw`, der Netzbezug und der Monatsvergleich sind unberührt. Es ist erneut eine reine **Bewertungs**-Änderung; an denselben Fahrplan gehalten sind `loadShiftSaving`, `leistungspreisSaving` und `newBilledKw` bit-identisch.
+
+**Fassungsbruch.** Wieder verschiebt sich die Bedeutung eines bestehenden Contract-Feldes — Analyse-Bündel **Fassung 7**, `ENGINE_VERSION` 1.3.0-mvp. Betroffen ist jede Baseline mit Einspeisung **und** aktivem Hebel; eine der Fassung ≤ 6 und eine der Fassung 7 sind dort zwei Definitionen, nicht zwei Messungen.
 
 #### 3.7.3 Grundgebühren im Tarifvergleich (nicht in der Batterie-Ersparnis)
 
