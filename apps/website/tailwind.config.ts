@@ -16,6 +16,14 @@ export default {
           foreground: 'var(--color-on-accent)',
         },
         ink: 'var(--color-ink)',
+        /*
+         * Markenanker COOLiN — NUR für die Kopf-/Fusszeile des Druck-Reports (s. globals.css).
+         * Kein UI-Ton: die Bildschirmoberfläche benutzt ihn nirgends.
+         */
+        navy: {
+          DEFAULT: 'var(--color-navy)',
+          foreground: 'var(--color-on-navy)',
+        },
         text: {
           DEFAULT: 'var(--color-text)',
           muted: 'var(--color-text-muted)',

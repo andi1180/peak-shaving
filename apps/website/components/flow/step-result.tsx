@@ -5,10 +5,8 @@ import { Download, FileJson, Printer, RotateCcw } from 'lucide-react'
 import { buildTariffSourceRef, type AnalysisResult, type TariffSourceRef } from 'shared'
 
 import { PrintCover } from '@/components/report/print-cover'
-import {
-  ReportGateDialog,
-  type ReportGateCustomer,
-} from '@/components/report/report-gate-dialog'
+import { PrintFrame, PrintRunningFooter } from '@/components/report/print-frame'
+import { ReportGateDialog, type ReportGateCustomer } from '@/components/report/report-gate-dialog'
 import { Report } from '@/components/report/report'
 import { Button } from '@/components/ui/button'
 import { buildBundle, bundleFileName, serializeBundle } from '@/lib/bundle-export'
@@ -141,105 +139,117 @@ export function StepResult({
       'Prüfsumme bindet die Analyse an keine Datei. Bitte laden Sie den Lastgang erneut hoch.'
 
   return (
-    <div className="flex flex-col gap-4">
-      {/*
+    /*
+     * Der Druck-Rahmen (Kopf-/Fusszeile auf jeder Seite). Am Bildschirm ein durchsichtiger
+     * Wrapper — er rendert dort nichts als seinen Inhalt; s. `print-frame.tsx`.
+     *
+     * Die Fusszeile steht als `position: fixed` NEBEN dem Rahmen und nicht darin: in einer
+     * Tabellenzelle ist `fixed` in Chromium nicht zuverlässig positioniert.
+     */
+    <>
+      <PrintRunningFooter />
+      <PrintFrame>
+        <div className="flex flex-col gap-4">
+          {/*
         Delta 16a — Deckblatt, ausschliesslich im Druck. Es steht hier und nicht im `Report`, weil
         es zum DOKUMENT gehört und nicht zur Auswertung: der Report ist auch die Bildschirmansicht,
         das Deckblatt gibt es nur auf Papier. `customer` füllt seit Delta 16b das Name/Firma-Gate —
         ohne dessen Durchlauf bleibt der Block leer, statt eine Platzhalterzeile zu zeigen.
       */}
-      <div className="mx-auto w-full max-w-6xl px-4 sm:px-6">
-        <PrintCover loadProfile={load.profile} customer={customer ?? undefined} />
-      </div>
+          <div className="mx-auto w-full max-w-6xl px-4 sm:px-6">
+            <PrintCover loadProfile={load.profile} customer={customer ?? undefined} />
+          </div>
 
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-3 px-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-        <h1 className="text-2xl font-semibold text-ink">Ihr Ergebnis</h1>
-        <div className="flex flex-wrap items-center gap-2 print:hidden">
-          <Button variant="outline" size="sm" onClick={handleExportCsv}>
-            <Download className="h-4 w-4" />
-            Als CSV exportieren
-          </Button>
-          {/*
-           * Delta 16b — zwei Zustände, EIN Knopf an derselben Stelle. Vor dem Gate öffnet er das
-           * Formular (der Dialog bringt seinen Auslöser mit), danach druckt er direkt: ein zweites
-           * Mal nach denselben Angaben zu fragen wäre eine Hürde ohne Ertrag, die Einwilligung
-           * steht bereits im Bestand.
-           */}
-          {customer ? (
-            <Button variant="outline" size="sm" onClick={() => setPrintRequested(true)}>
-              <Printer className="h-4 w-4" />
-              Als PDF speichern
-            </Button>
-          ) : (
-            <ReportGateDialog
-              onUnlocked={(next) => {
-                setCustomer(next)
-                setPrintRequested(true)
-              }}
-            />
+          <div className="mx-auto flex w-full max-w-6xl flex-col gap-3 px-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+            <h1 className="text-2xl font-semibold text-ink">Ihr Ergebnis</h1>
+            <div className="flex flex-wrap items-center gap-2 print:hidden">
+              <Button variant="outline" size="sm" onClick={handleExportCsv}>
+                <Download className="h-4 w-4" />
+                Als CSV exportieren
+              </Button>
+              {/*
+               * Delta 16b — zwei Zustände, EIN Knopf an derselben Stelle. Vor dem Gate öffnet er das
+               * Formular (der Dialog bringt seinen Auslöser mit), danach druckt er direkt: ein zweites
+               * Mal nach denselben Angaben zu fragen wäre eine Hürde ohne Ertrag, die Einwilligung
+               * steht bereits im Bestand.
+               */}
+              {customer ? (
+                <Button variant="outline" size="sm" onClick={() => setPrintRequested(true)}>
+                  <Printer className="h-4 w-4" />
+                  Als PDF speichern
+                </Button>
+              ) : (
+                <ReportGateDialog
+                  onUnlocked={(next) => {
+                    setCustomer(next)
+                    setPrintRequested(true)
+                  }}
+                />
+              )}
+              {/*
+               * Bewusst unauffällig (ghost) und als letzter der drei Ausgabewege: PDF und CSV sind für
+               * den Kunden, das Bündel ist für das Archiv. Es steht trotzdem hier und nicht hinter einer
+               * Zugangshürde — es entsteht eine lokale Datei, kein Datenabfluss.
+               */}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => void handleExportBundle()}
+                disabled={bundleBlocked || recomputing}
+                title={bundleBlocked ? bundleBlockedText : undefined}
+              >
+                <FileJson className="h-4 w-4" />
+                Analyse-Bündel (JSON)
+              </Button>
+              <Button variant="outline" size="sm" onClick={onRestart}>
+                <RotateCcw className="h-4 w-4" />
+                Neue Analyse
+              </Button>
+            </div>
+          </div>
+
+          {(bundleError || bundleBlocked) && (
+            <div className="mx-auto w-full max-w-6xl px-4 sm:px-6 print:hidden">
+              <p
+                role="alert"
+                className={
+                  bundleError || !bundleBlockedBecauseSynthetic
+                    ? 'text-sm text-negative'
+                    : 'text-sm text-text-muted'
+                }
+              >
+                {bundleError ?? bundleBlockedText}
+              </p>
+            </div>
           )}
-          {/*
-           * Bewusst unauffällig (ghost) und als letzter der drei Ausgabewege: PDF und CSV sind für
-           * den Kunden, das Bündel ist für das Archiv. Es steht trotzdem hier und nicht hinter einer
-           * Zugangshürde — es entsteht eine lokale Datei, kein Datenabfluss.
-           */}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => void handleExportBundle()}
-            disabled={bundleBlocked || recomputing}
-            title={bundleBlocked ? bundleBlockedText : undefined}
-          >
-            <FileJson className="h-4 w-4" />
-            Analyse-Bündel (JSON)
-          </Button>
-          <Button variant="outline" size="sm" onClick={onRestart}>
-            <RotateCcw className="h-4 w-4" />
-            Neue Analyse
-          </Button>
-        </div>
-      </div>
 
-      {(bundleError || bundleBlocked) && (
-        <div className="mx-auto w-full max-w-6xl px-4 sm:px-6 print:hidden">
-          <p
-            role="alert"
-            className={
-              bundleError || !bundleBlockedBecauseSynthetic
-                ? 'text-sm text-negative'
-                : 'text-sm text-text-muted'
-            }
-          >
-            {bundleError ?? bundleBlockedText}
-          </p>
+          <Report
+            result={result}
+            loadProfile={load.profile}
+            tariffSource={tariffSource}
+            originalTariff={payload.tariff}
+            originalFinancial={payload.financial}
+            recomputing={recomputing}
+            recomputeError={recomputeError}
+            isLive={isLive}
+            /*
+             * Delta 17 Teil 2: der in Schritt 2 bestätigte Speicher. Das GERECHNETE Ergebnis dazu steht
+             * im Contract (`result.existingBatteryAnalysis`); mitgereicht wird hier nur, ob der
+             * Wirkungsgrad eine Annahme war — die einzige Zahl des Bestandsblocks, die nicht vom
+             * Kunden stammt, und deshalb im Report als solche auszuweisen.
+             */
+            existingBattery={payload.existingBattery}
+            /*
+             * Delta 18: die Eingangsgrössen des ANGEZEIGTEN Laufs — Bezugspunkt der Freitext-Vorschau
+             * und Grundlage jeder daraus gebauten Neuberechnung. Dieselbe Quelle, aus der auch das
+             * Analyse-Bündel schöpft; zwei getrennte Ableitungen liefen auseinander.
+             */
+            effectiveInputs={inputs}
+            onRecompute={onRecompute}
+            onResetAssumptions={onResetAssumptions}
+          />
         </div>
-      )}
-
-      <Report
-        result={result}
-        loadProfile={load.profile}
-        tariffSource={tariffSource}
-        originalTariff={payload.tariff}
-        originalFinancial={payload.financial}
-        recomputing={recomputing}
-        recomputeError={recomputeError}
-        isLive={isLive}
-        /*
-         * Delta 17 Teil 2: der in Schritt 2 bestätigte Speicher. Das GERECHNETE Ergebnis dazu steht
-         * im Contract (`result.existingBatteryAnalysis`); mitgereicht wird hier nur, ob der
-         * Wirkungsgrad eine Annahme war — die einzige Zahl des Bestandsblocks, die nicht vom
-         * Kunden stammt, und deshalb im Report als solche auszuweisen.
-         */
-        existingBattery={payload.existingBattery}
-        /*
-         * Delta 18: die Eingangsgrössen des ANGEZEIGTEN Laufs — Bezugspunkt der Freitext-Vorschau
-         * und Grundlage jeder daraus gebauten Neuberechnung. Dieselbe Quelle, aus der auch das
-         * Analyse-Bündel schöpft; zwei getrennte Ableitungen liefen auseinander.
-         */
-        effectiveInputs={inputs}
-        onRecompute={onRecompute}
-        onResetAssumptions={onResetAssumptions}
-      />
-    </div>
+      </PrintFrame>
+    </>
   )
 }
