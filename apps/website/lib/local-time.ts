@@ -61,3 +61,21 @@ export function formatDateTimeLabel(utcMs: number, timeZone: string): string {
   }
   return fmt.format(utcMs)
 }
+
+const yearCache = new Map<string, Intl.DateTimeFormat>()
+
+/**
+ * Lokales Kalenderjahr — dieselbe Wanduhr-Ableitung wie `localMonthIndex`.
+ *
+ * Braucht die Vintage-Kennzeichnung der Tarifwerte (`TariffVintageNote`): ob ein Lastgang in ein
+ * Kalenderjahr reicht, entscheidet sich in der Zeitzone des Zählpunkts, nicht in UTC — ein Wert
+ * vom 31.12. 23:45 Ortszeit gehört noch ins alte Jahr, in UTC steht er bereits im neuen.
+ */
+export function localYear(utcMs: number, timeZone: string): number {
+  let fmt = yearCache.get(timeZone)
+  if (!fmt) {
+    fmt = new Intl.DateTimeFormat('en-US', { timeZone, year: 'numeric' })
+    yearCache.set(timeZone, fmt)
+  }
+  return Number(fmt.format(utcMs))
+}
