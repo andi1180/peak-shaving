@@ -97,6 +97,14 @@ Der kombinierte Preis wird seit B21-3b gegen einen Durchschnitt gemessen, nicht 
 
 **Es ist ausdrücklich das Tages-IST, kein kausaler Proxy** (Vortag, gleitendes Fenster). Der übrige Dispatch rechnet ohnehin mit vollem Rückblick (`searchCaps`/`computeSocFloor` sehen das ganze Periodenprofil, §3.6 „Methodische Konsequenz"); ein nur an dieser einen Stelle kausaler Bezugswert wäre halbe Kausalität ohne Wirkung. Der Vorbehalt „Bestmarke mit vollem Rückblick" (§6.2) deckt das ab und gilt unverändert. Rückgabe, Signatur von `runCombinedDispatch` und der statische Fenster-Zweig sind unberührt.
 
+### Nachtrag (02.09.2026) — aus der Schwelle wird eine Tages-Rangfolge
+
+Die Preisschwelle sagt, WELCHE Stunden eines Tages günstig sind. Sie sagt nicht, welche davon die günstigsten sind, die heute noch kommen — und der Dispatch läuft chronologisch und greedy: er füllt die Batterie in den ERSTEN unterdurchschnittlichen Stunden und steht danach voll da, auch wenn drei Stunden später das eigentliche Tagestief folgt. Spiegelbildlich entlädt Schritt 4 bei der ersten Gelegenheit und hat in der teuersten Stunde nichts mehr übrig. Bei zwei Preisstufen (HT/NT) ist das unerheblich; bei 8.760 echt verschiedenen Stundenpreisen ist es der Unterschied zwischen „irgendwann billig geladen" und „am billigsten geladen".
+
+**Gebaut als zwei Schranken auf denselben EINEN Fahrplan** (Ladeobergrenze in Schritt 5, Preis-Untergrenze in Schritt 4, Letztere über `max()` mit der Spitzen-Reserve verrechnet). Der Dispatch behält seine sechs Schritte; die Spitzenkappung und die Spitzenbereitschaft sind ausdrücklich ausgenommen. **Vollständige fachliche Fassung: `Pflichtenheft_Kalkulator_MVP.md` §3.6.2** — dort steht auch die tragende Einschränkung („nur, wenn die Ressource bis dahin nicht wieder beschafft werden kann"), ohne die eine Rangfolge messbar SCHLECHTER wäre als der Stand davor.
+
+**Für dieses Delta relevant:** Die Rangfolge greift ausschliesslich im `pricing`-Zweig, also nur bei einer berechenbaren echten Preiskurve; der statische Fenster-Zweig ist unverändert, und der nicht berechenbare Fall fällt weiterhin auf gar nichts zurück (Regel C). Rückgabe und Signatur von `intervalTariffRates` sind unberührt — die Rangfolge entsteht im Orchestrator `simulateBattery`, weil sie beide Seiten braucht: die Preisreihe UND die Physik des Kandidaten.
+
 **[OFFEN, nicht Teil des Bau-Prompts] LP-Lücke:** Der bestehende Mechanismus ist eine Greedy-Schwellwert-Heuristik, kein echter Optimierer. Bei zwei Preisstufen (HT/NT) unerheblich, bei 8.760 echt unterschiedlichen Stundenpreisen potenziell relevant. Die Studienzahlen (−43 % / 266 €/Jahr Haushalt, LP via scipy/HiGHS) sind **nicht** automatisch das, was diese Engine liefert. Validierung per kurzem, separatem Skript-Spike **nach** diesem Bau, nicht davor — s. Delta 11 und Delta 14 für die Konsequenz (keine Studienzahlen in Kundenkommunikation, bis geklärt).
 
 ---
