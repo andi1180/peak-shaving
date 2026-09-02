@@ -243,7 +243,18 @@ export function TariffOptimizationCard({
             Zahl sagt also: <strong>so viel wäre in diesem Zeitraum möglich gewesen</strong> — sie
             ist kein Versprechen für die Zukunft, denn die Marktpreise von morgen kennt niemand. Sie
             steckt bereits in der Gesamtersparnis der Empfehlung (als „Lastverschiebung") und kommt
-            nicht zusätzlich obendrauf.
+            nicht zusätzlich obendrauf.{' '}
+            {/*
+              §3.7.2: die Kopfkarte („was zahle ich real weniger") enthält zusätzlich den
+              PV-Eigenverbrauch, diese Zahl hier nicht. Ohne den Satz sieht die Differenz zwischen
+              beiden Karten wie ein Rechenfehler aus — sie ist aber genau dieser zweite Topf.
+            */}
+            <strong>
+              Sie zeigt ausschliesslich den Gewinn aus den Preisunterschieden.
+            </strong>{' '}
+            Was Ihre PV-Erzeugung über den Speicher zusätzlich einspart, steht als eigener Anteil
+            („Eigenverbrauch") in der Ersparnis-Aufschlüsselung und ist in dieser Zahl nicht
+            enthalten.
           </InfoHint>
           {saving <= 0 && (
             <p className="border-t border-border pt-3 text-text-muted">
