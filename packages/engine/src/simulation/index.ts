@@ -35,7 +35,11 @@ export type { DailyPriceOrder, DailyPriceOrderInputs } from './daily-price-order
 // Aggregation über den bereits gerechneten Dispatch; beide Preisreihen kommen aus DERSELBEN
 // `combinedIntervalPrices`, nur mit unterschiedlicher Energiepreis-Eingabe.
 export { buildMonthlyTariffComparison } from './monthly-tariff-comparison'
-export { findGridTariffRow, findGridTariffWindow, parseClockMinutes } from './grid-tariff-window'
+// ⚠ `parseClockMinutes` wird hier NICHT mehr re-exportiert: Es liegt seit dem 02.09.2026 in
+// `shared` (`tariff-window-rules.ts`) und ist von dort erreichbar. Ein zweiter Weg zur selben
+// Funktion wäre genau die Doppelung, die das Verschieben vermeiden sollte — und er hatte
+// ausserhalb dieser Datei ohnehin null Konsumenten (gemessen).
+export { findGridTariffRow, findGridTariffWindow } from './grid-tariff-window'
 export type { PvAlignment } from './pv'
 export {
   START_SOC_FRACTION,

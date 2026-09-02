@@ -54,3 +54,11 @@ export * from './report-request'
 // Delta 19: Grundgebühren von Stromlieferanten (heute: aWATTar). Code-Konstante statt
 // Datenbankzeile — sie hat keine Netz-Dimension; Begründung im Kopf der Datei.
 export * from './supplier-tariffs'
+// Delta 5 (02.09.2026): die Auswahlregel der Netzentgelt-Zeitfenster — welches Fenster einer
+// Tarifzeile gilt zu einem Zeitpunkt. Hier und nicht in `engine`, weil sie ZWEI Konsumenten in
+// verschiedenen Paketen hat: den Rechenkern (Intervallpreis, Delta 4) und den Admin-Pflegeweg in
+// `apps/web`, der `engine` nicht kennt. Eine Definition, zwei Konsumenten.
+export * from './tariff-window-rules'
+// Der Kollisions-Wächter darüber: welches bestehende Fenster würde ein NEUES in welchem
+// Teilzeitraum verdrängen, mit welcher Preisänderung? Reine Berechnung, kein Anzeigetext.
+export * from './tariff-window-collision'
