@@ -286,6 +286,23 @@ export function computeBatterySavings(
       )
     }
     /*
+     * B22 — der Satz nennt AUSDRÜCKLICH beide Hälften: was geschätzt ist (die Erzeugung) und was
+     * dadurch nicht mehr beurteilbar ist (die Spitze). „Die PV ist geschätzt" allein liesse offen,
+     * warum daraus eine ganze Ersparnis-Dimension entfällt — und genau das ist die Information, die
+     * ein Kunde braucht, um zu entscheiden, ob er sich den echten Lastgang besorgt.
+     */
+    if (blockers.includes('estimated_pv')) {
+      warnings.push(
+        'Geschätzte PV-Erzeugung: die Erzeugungskurve stammt nicht aus Ihrer Anlage, sondern aus ' +
+          'einem Zehn-Jahres-Mittel des EU-Dienstes PVGIS für Ihren Standort und Ihre Auslegung. ' +
+          'Sie wurde vom Verbrauch abgezogen — damit ist jede Lastspitze dieses Lastgangs zur ' +
+          'Hälfte eine Schätzung, und die Spitzenkappung wird deshalb nicht gerechnet und nicht ' +
+          'kreditiert. Eigenverbrauch und Lastverschiebung bleiben aussagekräftig, sind aber ' +
+          'ebenfalls eine Schätzung. Für die Leistungspreis-Dimension bitte einen Lastgang mit ' +
+          'gemessener Einspeisung hochladen.',
+      )
+    }
+    /*
      * Anders als die beiden Gründe darüber benennt dieser KEINEN Mangel: es fehlt weder Hardware
      * noch ein Messwert, der Tarif hat den Posten schlicht nicht. Der Satz sagt deshalb, dass das
      * Ergebnis vollständig ist, statt zu einer Nachbesserung aufzufordern — und er erklärt die 0 in
