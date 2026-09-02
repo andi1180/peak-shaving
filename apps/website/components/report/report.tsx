@@ -749,6 +749,15 @@ export function Report({
               primary
               variant="existing"
               efficiencyAssumed={existingBattery?.efficiencyAssumed}
+              /*
+                ⚠ Liegt der Monatsvergleich vor, zeigt die Kopfkarte den REALEN Vorteil gegenüber
+                dem heutigen Tarif statt der aWATTar-internen Attributionszahl (02.09.2026).
+                Weitergereicht wird DASSELBE `monthlyComparison`, das der Chart darunter zeichnet —
+                nicht eine zweite Ableitung aus `result.tariffOptimization`: sonst könnten Kopfkarte
+                und Chart im selben Report an verschiedenen Bedingungen hängen. Fehlt es (Hebel
+                nicht berechenbar oder keine Bestandsanlage), bleibt die bisherige Darstellung.
+              */
+              monthlyComparison={monthlyComparison}
             />
           ) : (
             recommended && <RecommendationCard entry={recommended} primary />
