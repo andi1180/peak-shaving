@@ -134,6 +134,12 @@ export function RecommendationCard(props: RecommendationCardProps) {
             <Num className="text-2xl font-semibold text-positive">
               {formatEur(entry.totalSavingPerYear)}
             </Num>
+            {/*
+              Gerechnet wird durchgängig netto (Delta 6). Der Hinweis steht an der grossen Zahl und
+              nicht nur im Methodik-Abschnitt: sie ist der Betrag, den ein Kunde mit seiner Rechnung
+              vergleicht — und die trägt Umsatzsteuer.
+            */}
+            <p className="text-xs text-text-muted">exkl. MwSt.</p>
           </div>
           {/*
             Amortisation, wo es eine Anschaffung gibt. Für ein bereits installiertes Gerät stünde
