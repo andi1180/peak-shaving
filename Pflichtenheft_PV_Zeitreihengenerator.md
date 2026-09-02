@@ -510,7 +510,7 @@ je Zeile den Stand nach diesem Pflichtenheft.
 |---|---|---|---|
 | Wetterjahr-Regel gegen Delta 15 Regel A | Entscheidung | **ENTSCHIEDEN** — §2.1, Zehn-Jahres-Mittel 2014–2023 als benannte `[ANNAHME]` | — |
 | Fünfter `source`-Wert oder eigenes Kennzeichen | Contract-Entscheidung | **ENTSCHIEDEN** — §2.2, orthogonales `pvSource?: 'estimated'`, **kein** fünfter `source`-Wert | — |
-| PLZ/Gemeinde → Koordinate | offen | **Weg ENTSCHIEDEN** — §2.3, statisches Codemodul. **OFFEN bleibt die Beschaffung:** Datensatz, Fassung und Lizenzlage der Statistik-Austria-Zentroiden `[ANDREAS]` | **B22b** (nicht B22a) |
+| PLZ/Gemeinde → Koordinate | **ERLEDIGT** | **GEBAUT am 02.09.2026 (B22b).** Beschafft ist NICHT der Statistik-Austria-Datensatz, sondern **GeoNames `AT.zip`** (2.501 österreichische PLZ, Lizenz **CC BY 4.0**, Abruf 02.09.2026) — der Weg (statisches Codemodul, §2.3) ist unverändert. `packages/shared/src/plz-centroids.ts`; Ableitungsregeln, gemessene Güte (Hauptort → Zentroid: Median 0,5 km · p90 2,2 km · max 24,8 km) und die zwei benannten Grenzen stehen im Kopf der Datei. ⚠ **Die Namensnennung ist eine Lizenzbedingung** und steht zusätzlich sichtbar in der Oberfläche | — |
 | Testmaterial für den Scan-Weg | **Fehlanzeige** | **UNVERÄNDERT OFFEN.** n = 1 — ein Dokument, eine Programmversion (PV\*SOL premium 2024 R6), ein Planer, eine Sprache. Nötig sind mindestens fünf bis zehn echte Auslegungen verschiedener Herkunft, darunter **mindestens ein Scan** und **mindestens ein Nicht-PV\*SOL-Werkzeug**, je mit Feld-für-Feld-Abgleich gegen das Papier `[MARTIN]` | **B22c** (nicht B22a/B22b) |
 | Verhalten auf `net_signed`-Lastgängen | offen | **ENTSCHIEDEN** — §2.4, wird dort nicht angeboten, aber sichtbar begründet | — |
 | Alpiner Geländehorizont bei PLZ-Genauigkeit | ungemessen | **UNVERÄNDERT OFFEN.** PVGIS rechnet den Geländehorizont aus einem Höhenmodell **an der übergebenen Koordinate**; in flachem Gelände folgenlos, in einem engen Alpental kann der Gemeinde-Mittelpunkt einen anderen Horizont haben als der Hof am Hang. Die Innsbruck-Messung zeigt den Effekt **nicht**, widerlegt ihn aber auch nicht — sie misst nur einen Punkt. **Eine Messung an einem echten Alpental-Standort wäre billig nachzuholen.** | **nichts** — der Generator läuft, die Genauigkeit ist dort unbelegt |
@@ -547,9 +547,11 @@ bewusst **nicht** getroffen worden, weil die Bestandsaufnahme sie weder misst no
   statt bei € 408,45 — **4,9 % über dem Mittel der einzeln gerechneten Jahre und über jedem einzelnen
   davon.** Der Report-Hinweis (§2.2 Punkt 1) sollte das **neben** der ± 5,8 %-Streuung nennen.
   Blockiert nichts.
-- **Die Kennzeichnung im Analyse-Bündel (§2.2 Punkt 2) ist NICHT gebaut.** Das Bündel trägt
-  `inputs`/`result`, aber keinen Lastgang — `pvSource` reist heute nicht mit. Der Nachtrag ist ein
-  **Sprung der Bündel-Fassung** und gehört zu dem Schritt, der den Report-Hinweis baut (B22b).
+- ~~**Die Kennzeichnung im Analyse-Bündel (§2.2 Punkt 2) ist NICHT gebaut.**~~ **ERLEDIGT am
+  02.09.2026 mit B22b:** `inputs.pvSource` reist mit, **Bündel-Fassung 5 → 6**. ⚠ **Benannte
+  Restlücke:** die AUSLEGUNG (Standort, kWp, Neigung, Ausrichtung je Modulfläche) reist NICHT mit —
+  das Bündel sagt, DASS geschätzt wurde, aber nicht, WOMIT. Wer das ergänzt, erhöht die Fassung
+  erneut (Begründung im Kopf von `packages/shared/src/analysis-bundle.ts`).
 
 ---
 
@@ -563,10 +565,15 @@ Ein Bau-Schritt gilt als abgeschlossen, wenn zusätzlich zu Bau, Tests, Typechec
    `pvSource: 'estimated'` schlägt in `peakShavingBlockers` durch, **mit Gegenbeweis** — derselbe
    Tarif mit Leistungsmessung liefert bei geschätzter PV **€ 0** Spitzenkappungs-Ersparnis und beim
    gemessenen Lastgang eine positive Zahl (Muster: Delta 9b-1, dort € 0,00 gegen € 2.487,60).
-2. **B22b:** Ein voller Durchlauf über die **echte** Oberfläche gegen den Production-Build, mit dem
-   Kompass→`aspect`-Kreuzcheck als eigener Prüfpunkt: „Südosten" ergibt `aspect −47`, und die
-   Übernahme der rohen 133 ist strukturell nicht erreichbar. Der Report-Hinweis ist **im
-   Druckmedium sichtbar** (`boundingBox() != null` unter `emulateMedia({ media: 'print' })`).
+2. **B22b:** ~~Ein voller Durchlauf über die **echte** Oberfläche …~~ **ERFÜLLT am 02.09.2026.**
+   Zwei Läufe gegen den Production-Build, **43 Prüfungen, alle grün, 0 Konsolenfehler**, mit
+   ECHTEN PVGIS-Aufrufen (kein Stub). Der Kompass→`aspect`-Kreuzcheck ist über die von PVGIS
+   ZURÜCKGESPIEGELTEN Eingaben gemessen und nicht über ein Protokoll: „Südosten" + 133° ergibt
+   `aspect −47`, „Südwesten" ohne Feinangabe `+45`. Die Übernahme der rohen 133 ist strukturell
+   nicht erreichbar — „Nordwesten + 133" wird abgewiesen, und dabei ging **kein Abruf hinaus**
+   (0 POSTs gemessen). Der Report-Hinweis ist im Druckmedium sichtbar (`boundingBox() != null`
+   unter `emulateMedia({ media: 'print' })`). Gegenbeweis zum Blocker an derselben Oberfläche:
+   Spitzenkappung **€ 0** mit Schätzung gegen **€ 2.700** ohne.
 3. **B22c:** Feld-für-Feld-Abgleich gegen das Papier an mindestens fünf echten Auslegungen, wie er
    für den Rechnungs-Scan am 31.08.2026 gefahren wurde (dort: 20 Felder, 0 falsche Werte, an zwei
    echten Rechnungen). **Ein Stub validiert das JSON-Schema nicht** — die Ablesequalität ist gegen die

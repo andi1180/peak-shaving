@@ -951,6 +951,64 @@ sie über ein esbuild-Bündel des echten Moduls ausserhalb des Repos
 
 ---
 
+### §1-Website-d. PVGIS-Anbindung (B22) — kein Schlüssel, aber eine Laufzeitgrenze
+
+**Es ist NICHTS einzurichten.** PVGIS (Joint Research Centre der Europäischen Kommission,
+`https://re.jrc.ec.europa.eu/api/v5_3/seriescalc`) ist offen und kostenlos: kein Konto, kein
+Schlüssel, keine Umgebungsvariable, kein `not_configured`-Zustand. Der Rechner ruft den Dienst über
+einen Proxy in `apps/website/lib/pvgis/` auf — nötig, weil PVGIS **keine CORS-Header** setzt
+(gemessen: 0 Treffer auf `Access-Control-*`, weder auf die Antwort noch auf den Preflight) und
+zusätzlich zwei Cookies setzt, die über einen Proxy gar nicht erst entstehen.
+
+#### ⚠️ `maxDuration` steht in `app/rechner/page.tsx` — NICHT an der Server Action
+
+Der naheliegende Ort wäre `lib/pvgis/actions.ts`. **Dort wirkt die Angabe nicht** (gemessen am
+02.09.2026): Next liest `maxDuration` in `build/analysis/get-page-static-info.js` aus den Exporten
+einer **Seiten-/Route-Datei**; ein `'use server'`-Modul wird dabei nicht betrachtet. Der Build bricht
+deshalb auch nicht ab — er nimmt den Export kommentarlos hin und ignoriert ihn. Eine Server Action
+läuft in der Funktion der Route, die sie auslöst; die einzige Route, die den Rechner rendert, ist
+`/rechner`.
+
+Der Wert ist **60**. Gemessen (B22a, gegen den echten Dienst): ein Wetterjahr 1,41 s, alle zehn in
+EINEM Aufruf 7,80 s bei 8,2 MB Antwort. `PVGIS_TIMEOUT_MS` in `lib/pvgis/client.ts` bricht bei 25 s
+selbst ab; die Plattformgrenze liegt bewusst darüber, damit dieser Abbruch greift und der Kunde die
+benannte Meldung bekommt, statt dass die Anfrage vorher weggeschnitten wird und daraus ein
+unerklärter Fehler wird. **60 s ist zugleich die Obergrenze, die JEDER Vercel-Tarif zulässt** — ein
+höherer Wert wäre auf einem kleineren Tarif ein Deployment-Fehler. Die übrigen Server Actions dieser
+Route erben die Grenze und brechen alle selbst früher ab.
+
+#### Fairness gegenüber einem fremden, kostenlosen Dienst
+
+- **EIN Aufruf für alle zehn Wetterjahre** (`startyear`/`endyear`), nicht zehn — dieselbe
+  Datenmenge, ein Aufruf. Und es ist die ehrlichere Form: bei zehn Einzelaufrufen könnte einer
+  scheitern, und aus dem Zehn-Jahres-Mittel würde still ein Neun-Jahres-Mittel.
+- **Ein Aufruf JE MODULFLÄCHE**, nacheinander und nicht parallel. Zwei Flächen sind der Normalfall
+  und kosten rund 16 s.
+- Eine **prozesslokale Frequenzgrenze** (20 Aufrufe/Minute) steht VOR dem externen Kontakt. ⚠ Sie
+  begrenzt je Instanz, nicht global — eine Bremse gegen den offensichtlichen Missbrauch, keine
+  Quote (s. Kopf von `lib/pvgis/client.ts`).
+
+#### ⚠️ Was den Browser verlässt — FÜR DEN DATENSCHUTZHINWEIS
+
+Hinaus gehen **Koordinate (aus der PLZ), Neigung, Ausrichtung, kWp und der Wetterjahr-Zeitraum**.
+**Der Lastgang nicht** — der Proxy liefert ein Referenzprofil zurück, die Verrechnung
+Verbrauch − Erzeugung geschieht im Browser. Es ist die **zweite** benannte Ausnahme von Prinzip 4
+(die erste ist der Rechnungs-Scan, §1-Website-c; die dritte, kleinere ist B21-3a). Entschärft ist
+sie gemessen: innerhalb einer Stadt (≤ 13 km) liegt der Ertragsunterschied unter 1 % — die Anwendung
+erhebt deshalb **nie** eine hausgenaue Adresse, und der Panel-Text sagt das im Klartext.
+
+#### ⚠️ PLZ-Koordinaten: GeoNames, CC BY 4.0 — die Namensnennung ist eine LIZENZBEDINGUNG
+
+`packages/shared/src/plz-centroids.ts` (2.501 österreichische Postleitzahlen) ist aus dem
+GeoNames-Datensatz `AT.zip` abgeleitet (abgerufen 02.09.2026, Lizenz **Creative Commons Attribution
+4.0**). Die Lizenz verlangt die Nennung mit Link auf `www.geonames.org`. Sie steht deshalb an **zwei**
+Orten: im Kopf des Codemoduls und **sichtbar in der Oberfläche** (Fuss des PV-Schätzformulars in
+Schritt 2). **Wer die Tabelle an einer dritten Stelle verwendet, nimmt die Nennung mit** — sonst ist
+die Nutzung nicht mehr lizenzkonform. Ein Austausch des Datensatzes ist ein PR mit einer Datei; die
+Ableitungsregeln und die gemessene Güte stehen im Kopf des Moduls.
+
+---
+
 ## 2. Supabase-Dashboard-Einstellungen (nicht über Migrationen abgedeckt)
 
 Diese Einstellungen sind **PostgREST-/Auth-Projektkonfiguration**, kein DB-Schema — `supabase db push`

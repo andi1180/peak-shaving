@@ -71,6 +71,19 @@ export async function buildBundle(args: BundleExportArgs): Promise<AnalysisBundl
       batteryOverride: args.inputs.batteryOverride,
       pvFileName: args.pv?.fileName ?? null,
       /*
+       * B22 (Bündel-Fassung 6) — war die PV-Komponente GESCHÄTZT?
+       *
+       * Der Wert wird aus dem Lastgang ÜBERNOMMEN, gegen den tatsächlich gerechnet wurde, und
+       * nicht aus einem zweiten Zustand abgeleitet: `load.profile` ist dasselbe Objekt, das der
+       * Worker bekommen hat (`payload.load`), und `pvSource` setzt allein `applyEstimatedPv`.
+       * Eine zweite Quelle könnte davon abweichen — und dann behauptete das Archiv eine Herkunft,
+       * die zur gespeicherten Rechnung nicht passt.
+       *
+       * Bewusst konditional statt `?? undefined`: `pvSource: undefined` im JSON zu führen sähe im
+       * Archiv aus wie ein gesetztes, leeres Feld. Fehlt der Schlüssel, ist die Aussage eindeutig.
+       */
+      ...(args.load.profile.pvSource ? { pvSource: args.load.profile.pvSource } : {}),
+      /*
        * B11 (Bündel-Fassung 2) — die HERKUNFT der Tarifsätze, nicht die Sätze selbst. Leistungspreis,
        * Abrechnungsmodell und Mindestbemessung stehen unverändert als WERTE in `inputs.tariff`
        * (oben): die B14-1-Regel „kein Fremdschlüssel auf veränderliche Konfiguration" war

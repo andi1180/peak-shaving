@@ -10,6 +10,7 @@ import {
   type ReportRequestCurrent,
   type ReportRequestField,
   type TariffParams,
+  type EstimatedPvSummary,
   type TariffSourceRef,
 } from 'shared'
 
@@ -29,6 +30,7 @@ import { BatteryFlowHeatmap } from './battery-flow-heatmap'
 import { ChargePriceChart } from './charge-price-chart'
 import { CostChart } from './cost-chart'
 import { EnergyFlowChart } from './energy-flow-chart'
+import { EstimatedPvNote } from './estimated-pv-note'
 import { KeyMetric } from './key-metric'
 import { LeadDialog } from './lead-dialog'
 import { LoadChart } from './load-chart'
@@ -62,6 +64,7 @@ export function Report({
   recomputeError,
   isLive,
   existingBattery,
+  estimatedPv,
   effectiveInputs,
   onRecompute,
   onResetAssumptions,
@@ -84,6 +87,15 @@ export function Report({
    * nicht vom Kunden und darf im Report nicht als seine erscheinen.
    */
   existingBattery?: ExistingBatteryInput
+  /**
+   * B22b: die Zusammenfassung der GESCHÄTZTEN PV-Erzeugung, falls eine übernommen wurde.
+   *
+   * `undefined` heisst „nicht geschätzt" — dann erscheint der Hinweis gar nicht, und der Report
+   * verhält sich Zeile für Zeile wie vor B22. Er wird ausdrücklich als eigene Prop gereicht und
+   * nicht aus `loadProfile.pvSource` allein abgeleitet: das Feld sagt nur DASS geschätzt wurde,
+   * der Hinweis nennt WOMIT (Standort, kWp, Wetterjahre, gemessene Streuung).
+   */
+  estimatedPv?: EstimatedPvSummary
   /**
    * Delta 18: die Eingangsgrössen GENAU des angezeigten Laufs (`displayInputs` aus `useAnalysis`).
    *
@@ -666,6 +678,15 @@ export function Report({
           </AlertDescription>
         </Alert>
       )}
+
+      {/*
+        B22b — die Herkunft der Erzeugungskurve, direkt unter der Kern-Kennzahl und im Druck
+        sichtbar. Steht NACH dem Standardprofil-Hinweis, weil beide zutreffen können: synthetischer
+        Verbrauch MINUS geschätzter Erzeugung ist die schwächste Grundlage im ganzen Rechner (und
+        zugleich der wichtigste Anwendungsfall). Zwei Sätze für zwei Sachverhalte, nicht einer für
+        beide — dieselbe Regel wie bei den Blocker-Warnsätzen der Engine.
+      */}
+      {estimatedPv && <EstimatedPvNote summary={estimatedPv} />}
 
       {showPartialYearWarning && (
         <Alert variant="warning" className="print:break-inside-avoid">

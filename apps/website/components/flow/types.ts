@@ -1,6 +1,7 @@
 import type { DataQuality } from 'engine'
 import type {
   BatteryCandidate,
+  EstimatedPvSummary,
   FinancialParams,
   InvoiceExtraction,
   LoadProfile,
@@ -47,6 +48,32 @@ export type TariffResult = {
    * für Zeile wie vorher: voller Katalog, Empfehlung, Investition, Amortisation.
    */
   existingBattery?: ExistingBatteryInput
+  /**
+   * B22b: die geschätzte PV-Erzeugung — der GEKOPPELTE Lastgang und was der Report darüber sagen
+   * muss. `undefined` heisst „nicht geschätzt"; dann verhält sich der Rechner Zeile für Zeile wie
+   * vor B22.
+   *
+   * ⚠ Er trägt den fertigen Lastgang und nicht die Erzeugungsreihe: die Kopplung geschieht GENAU
+   * EINMAL (im Panel, mit den Zeitstempeln des Lastgangs), und ein zweites Mal aufaddieren ist
+   * damit strukturell ausgeschlossen. Wer stattdessen die Reihe weiterreichte, müsste an jeder
+   * späteren Stelle wissen, ob sie schon abgezogen wurde.
+   */
+  estimatedPv?: EstimatedPvResult
+}
+
+/**
+ * B22b — das Ergebnis des PV-Zeitreihengenerators, wie es Schritt 2 verlässt.
+ *
+ * `profile` ist der signierte Netz-Lastgang (Verbrauch − geschätzte Erzeugung) mit
+ * `pvSource: 'estimated'`; er ERSETZT den Lastgang aus Schritt 1 für die Rechnung. `pv` ist das
+ * zugehörige Brutto-PV-Profil und ausdrücklich BEIWERK DER ANZEIGE (Energiefluss-Chart) — es
+ * ändert keine Ersparnis-Zahl (B22a, `couple.ts`). `summary` ist das, was der Report über die
+ * Herkunft sagen können muss.
+ */
+export type EstimatedPvResult = {
+  profile: LoadProfile
+  pv: ParsedPv
+  summary: EstimatedPvSummary
 }
 
 /**

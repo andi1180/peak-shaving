@@ -30,6 +30,33 @@ import { SiteHeader } from '@/components/marketing/site-header'
  * Route, deren TTFB hinter einem Klick liegt. Wenn das je stört, ist die
  * saubere Auflösung eine eigene statische Route, kein Query-Parameter.
  */
+/**
+ * B22b — die Laufzeitgrenze für den PVGIS-Proxy (Pflichtenheft §3(a), letzter Absatz).
+ *
+ * ── ⚠ WARUM SIE HIER STEHT UND NICHT IN `lib/pvgis/actions.ts` ─────────────────────────────────
+ * Der Bau-Auftrag sah sie an der Server Action vor. **Gemessen (02.09.2026): dort wirkt sie
+ * nicht.** Next liest `maxDuration` in `build/analysis/get-page-static-info.js` aus den EXPORTEN
+ * einer Seiten-/Route-Datei; ein `'use server'`-Modul wird dabei gar nicht betrachtet. Der Build
+ * bricht deshalb auch nicht ab — er nimmt den Export kommentarlos hin und ignoriert ihn. Genau die
+ * Sorte Zusage, die man für erfüllt hält, bis der erste echte Aufruf abgeschnitten wird.
+ *
+ * Eine Server Action läuft in der Funktion der Route, die sie auslöst; die einzige Route, die den
+ * Rechner rendert, ist diese hier.
+ *
+ * ── WARUM 60 UND NICHT DAS MINIMUM ─────────────────────────────────────────────────────────────
+ * Gemessen (B22a, gegen den echten Dienst von einem Wohnanschluss): ein Wetterjahr 1,41 s, alle
+ * zehn in EINEM Aufruf 7,80 s bei 8,2 MB. Dazu kommt das Auswerten von 87.600 Stundenwerten.
+ * `PVGIS_TIMEOUT_MS` in `lib/pvgis/client.ts` bricht bei 25 s selbst ab — 60 s liegt bewusst
+ * darüber, damit dieser Abbruch greift und der Kunde die benannte Meldung `pvgis_error` bekommt,
+ * statt dass die Plattform die Anfrage vorher wegschneidet und daraus ein unerklärter Fehler wird.
+ *
+ * ⚠ 60 s ist zugleich die Obergrenze, die JEDER Vercel-Tarif zulässt; ein höherer Wert wäre auf
+ * einem kleineren Tarif ein Deployment-Fehler. Die übrigen Server Actions dieser Route (Rechnungs-
+ * Scan, Report-Anfrage, …) erben die Grenze — für sie ist sie grosszügiger als bisher und
+ * unschädlich: sie brechen alle selbst früher ab.
+ */
+export const maxDuration = 60
+
 export default async function RechnerPage({
   searchParams,
 }: {
