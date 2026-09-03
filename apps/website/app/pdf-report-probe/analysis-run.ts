@@ -1,7 +1,11 @@
-import type { AnalysisResult } from 'shared'
+import type { AnalysisResult, LoadProfile } from 'shared'
 
 import type { AnalysisRequest, WorkerOutbound } from '@/lib/analysis-protocol'
 import { DEFAULT_HORIZON_YEARS } from '@/lib/constants'
+import {
+  buildRecommendationChapter,
+  type RecommendationChapter,
+} from '@/lib/pdf-report/recommendation'
 import { buildReportSummary, type ReportSummary } from '@/lib/pdf-report/summary'
 import { buildSummaryProbePayload } from './summary-fixtures'
 import type { SummaryProbeKind } from './summary-probe-kinds'
@@ -42,7 +46,26 @@ import type { SummaryProbeKind } from './summary-probe-kinds'
 /** Reissleine, damit ein hängender Lauf nicht als „Knopf tut nichts" endet. */
 const PROBE_TIMEOUT_MS = 60_000
 
-export type SummaryProbeRun = { result: AnalysisResult; summary: ReportSummary }
+export type SummaryProbeRun = {
+  result: AnalysisResult
+  summary: ReportSummary
+  /**
+   * B23c-2 — was das Empfehlungs-Kapitel aus demselben Ergebnis ableitet. Ebenfalls DIE
+   * Produktionsfunktion, hier aufgerufen und nicht nachgebaut: der Prüfstand zeigt, welche
+   * Aussagen das Dokument gleich trägt und welche entfallen.
+   */
+  chapter: RecommendationChapter
+  /**
+   * B23c-2 — DER Lastgang, gegen den gerechnet wurde. Er reist mit heraus, weil das Dokument ihn
+   * für das Diagramm braucht (`PdfReportInput.loadProfile`) und `DispatchTrace` bewusst keine
+   * Rohreihe trägt.
+   *
+   * ⚠ Ausdrücklich DASSELBE Objekt, das in den Payload ging — nicht ein zweiter Aufruf von
+   * `buildLoadProfileFixture()`. Zwei Lastgänge im selben Prüflauf wären eine Kurve, die zu einer
+   * anderen Rechnung gehört als die Zahlen daneben, und man sähe es dem Bild nicht an.
+   */
+  loadProfile: LoadProfile
+}
 
 export async function runSummaryAnalysis(kind: SummaryProbeKind): Promise<SummaryProbeRun> {
   const payload = buildSummaryProbePayload(kind)
@@ -77,7 +100,12 @@ export async function runSummaryAnalysis(kind: SummaryProbeKind): Promise<Summar
       }
       worker.postMessage(request)
     })
-    return { result, summary: buildReportSummary(result) }
+    return {
+      result,
+      summary: buildReportSummary(result),
+      chapter: buildRecommendationChapter(result),
+      loadProfile: payload.load.profile,
+    }
   } finally {
     worker.terminate()
   }

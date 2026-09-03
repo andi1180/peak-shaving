@@ -100,6 +100,16 @@ export const PDF_LAYOUT = {
   footerHeight: 22,
 } as const
 
+/**
+ * Nutzbare Satzbreite einer A4-Seite unter diesem Layout: 595 pt − 2 × 48 pt.
+ *
+ * ⚠ Steht seit B23c-2 hier und nicht mehr in `chart-probe.tsx`: das Report-Dokument
+ * (`document.tsx`) bettet Chart-Bilder in genau dieser Breite ein, und der Chart-Prüfstand tut
+ * dasselbe. Zweimal ausgeschrieben wären es zwei Satzspiegel, und das Prüf-PDF bewiese dann eine
+ * Einbettung, die es im Report so nicht gibt. `chart-probe.tsx` exportiert den Namen weiter.
+ */
+export const PDF_CONTENT_WIDTH_PT = 595 - 2 * PDF_LAYOUT.pageHorizontal
+
 /** Schriftgrade. Ein Report, kein Prospekt: wenige Stufen, klarer Abstand dazwischen. */
 export const PDF_TYPE = {
   family: 'Inter',

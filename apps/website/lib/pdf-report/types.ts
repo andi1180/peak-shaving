@@ -1,4 +1,4 @@
-import type { AnalysisResult } from 'shared'
+import type { AnalysisResult, LoadProfile } from 'shared'
 
 /**
  * B23a/B23c-1 — Eingangsgrössen des react-pdf-Reports.
@@ -18,6 +18,19 @@ import type { AnalysisResult } from 'shared'
  * dabei um die Felder, die die neue Darstellung LIEST, nicht auf den vollen Contract.
  * `dispatchTrace` etwa hängt bereits an `perBattery`/`existingBatteryAnalysis` und braucht keine
  * eigene Zeile.
+ *
+ * ── B23c-2: DIE TEILMENGE IST UNVERÄNDERT GEBLIEBEN, UND DAS IST EIN BEFUND ────────────────────
+ * Empfehlungs-Aussage, Ladesteuerungs-Aussage und der Lastgang-Chart lesen zusammen: `perBattery`
+ * (Batterie, Investition, ROI, Warnungen UND `dispatchTrace` mit der Kapp-Schwelle),
+ * `recommendation` (welcher Kandidat), `existingBatteryAnalysis` (der primäre Block),
+ * `tariffOptimization` (ob die Ladesteuerung bewertbar ist), `assumptions` (Horizont,
+ * Abrechnungsmodell) und `current` (abgerechneter Leistungswert, Ist-Kosten). Alle sechs stehen
+ * bereits hier — ausgezählt und nicht angenommen. Ein Feld ohne nachweisbare Verwendung kommt
+ * nicht dazu, nur weil ein Schritt „gross" ist.
+ *
+ * Was der Chart darüber hinaus braucht, ist der ROHE Lastgang — und der steht bewusst NICHT im
+ * `AnalysisResult` (`DispatchTrace` führt ausdrücklich keine Rohreihe, s. dort). Er kommt deshalb
+ * als eigenes Feld des Eingangs, nicht als Teil des Ergebnisses.
  */
 export type PdfReportAnalysis = Pick<
   AnalysisResult,
@@ -66,4 +79,23 @@ export type PdfReportInput = {
    * und das Dokument trüge dann wieder die Platzhalter-Seite, die dieser Schritt gerade ersetzt.
    */
   analysis: PdfReportAnalysis
+  /**
+   * B23c-2 — der Lastgang, aus dem das Diagramm entsteht (`charts.tsx`).
+   *
+   * ── ⚠ WARUM ER NICHT AUS `analysis` KOMMT ────────────────────────────────────────────────────
+   * `DispatchTrace` trägt bewusst KEINE Rohreihe: die Oberfläche besitzt den geparsten Lastgang
+   * ohnehin client-seitig, und bis zu 35.040 Punkte ein zweites Mal durch den Contract zu schicken
+   * wäre eine Kopie, die mit dem Original auseinanderlaufen kann. Genau derselbe Weg wie am
+   * Bildschirm: `report.tsx` bekommt `loadProfile` als eigene Prop neben dem Ergebnis.
+   *
+   * ── ⚠ UND WARUM HIER KEIN `Pick<…>` STEHT ────────────────────────────────────────────────────
+   * Gelesen werden `readings` und `timezoneMeta`. Die engere Signatur ginge trotzdem nicht: das
+   * Bild entsteht aus der UNVERÄNDERTEN Produktionskomponente `LoadChart`, und deren Prop ist der
+   * volle `LoadProfile` — sie dafür aufzuweichen hiesse, eine Bildschirm-Komponente für den
+   * PDF-Weg anzufassen (Contract-Entscheidung 1, D2: es gibt genau eine Zeichenimplementierung).
+   *
+   * PFLICHT: einen Report über einen Lastgang, den es nicht gibt, gibt es nicht. Optional gemacht
+   * wäre „Report ohne Diagramm" ein Zustand, den ein Aufrufer versehentlich herstellen kann.
+   */
+  loadProfile: LoadProfile
 }

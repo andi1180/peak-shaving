@@ -2,6 +2,7 @@ import { buildRealSavingBreakdown, sumCovered, type BatteryResultEntry } from 's
 
 import { formatEur, formatKw, formatKwh1, formatYears } from '@/lib/format'
 import { HINDSIGHT_NOTE } from '@/lib/report-copy'
+import type { ReportRow, ReportStatement, ReportTone } from './statement'
 import type { PdfReportAnalysis } from './types'
 
 /**
@@ -47,29 +48,18 @@ import type { PdfReportAnalysis } from './types'
  * Schritts. Die Lücke ist benannt, nicht übersehen.
  */
 
-export type SummaryTone = 'positive' | 'warning' | 'neutral'
-
-/** Eine Zeile der Aufschlüsselung. Werte sind FERTIG formatiert — hier fällt die Rundung. */
-export type SummaryRow = {
-  label: string
-  /** Zweite, kleinere Zeile unter der Beschriftung. Fehlt, wo die Beschriftung für sich steht. */
-  hint?: string
-  value: string
-  tone: SummaryTone
-  /** `true` = Abschlusszeile der Aufschlüsselung (abgesetzt, halbfett). */
-  total?: boolean
-}
-
-/** Eine der drei bis vier Kernaussagen. */
-export type SummaryStatement = {
-  /** Stabil — zur Wiedererkennung in Prüfläufen, nicht im Dokument sichtbar. */
+/**
+ * ⚠ Die drei Darstellungstypen sind mit B23c-2 nach `statement.ts` gewandert: `document.tsx`
+ * rendert die Executive Summary und das Empfehlungs-Kapitel durch dieselben Bausteine, und zwei
+ * strukturgleiche Definitionen liefen beim nächsten Feld auseinander. Hier bleiben die Aliasse
+ * stehen, damit der Zuschnitt dieser Datei lesbar bleibt — `SummaryStatement` ist zusätzlich in
+ * der Kennung ENGER: ihre vier Werte sind die vier Aussagen, die diese Seite kennt, und ein
+ * Tippfehler darin ist damit ein Compile-Fehler statt einer Aussage, die niemand wiederfindet.
+ */
+export type SummaryTone = ReportTone
+export type SummaryRow = ReportRow
+export type SummaryStatement = ReportStatement & {
   id: 'savings' | 'peak_shaving' | 'load_shift' | 'addon'
-  title: string
-  /** Die eine grosse Zahl. `null`, wo die Aussage keine trägt (der Zusatzspeicher-Klarsatz). */
-  amount: { value: string; caption: string; tone: Exclude<SummaryTone, 'neutral'> } | null
-  rows: SummaryRow[]
-  /** Was der Leser über die Zahl wissen muss, damit er sie nicht falsch verwendet. */
-  body: string
 }
 
 /** Die Kern-Kennzahl — die Zahl, die weh tut (§6.2). Steht immer, sie hängt an keiner Batterie. */
@@ -101,7 +91,7 @@ function savingRow(label: string, eur: number): SummaryRow {
  * verschieden gewählte „primäre" Geräte in Bildschirm-Report und PDF wären derselbe Report mit zwei
  * verschiedenen Antworten.
  */
-function primaryEntryOf(analysis: PdfReportAnalysis): BatteryResultEntry | undefined {
+export function primaryEntryOf(analysis: PdfReportAnalysis): BatteryResultEntry | undefined {
   if (analysis.existingBatteryAnalysis) return analysis.existingBatteryAnalysis.entry
   return (
     analysis.perBattery.find((p) => p.battery.id === analysis.recommendation.batteryId) ??

@@ -1,5 +1,7 @@
 import { pdf } from '@react-pdf/renderer'
 
+import { buildReportCharts, reportChartBuildCount, type ReportChartRasters } from './charts'
+import { fitRasterToWidth } from './chart-raster'
 import { ReportDocument } from './document'
 import { registerReportFonts } from './fonts'
 import {
@@ -8,6 +10,7 @@ import {
   type AgendaPageNumbers,
   type PageNumberSink,
 } from './page-numbers'
+import { PDF_CONTENT_WIDTH_PT } from './theme'
 import type { PdfReportInput } from './types'
 
 /**
@@ -36,14 +39,41 @@ import type { PdfReportInput } from './types'
  * Eine Abweichung heisst gerade, dass der Umbruch von den Zahlen abhängt — dann kann die Iteration
  * pendeln, und der Preis wäre eine unbestimmte Zahl von Durchläufen für einen Fall, den das Layout
  * (feste, einzeilige Zahlenspalte) ausschliessen soll.
+ *
+ * ── ⚠ B23c-2: DIE CHART-BILDER ENTSTEHEN GENAU EINMAL, VOR DEM ERSTEN DURCHLAUF ────────────────
+ * Sie sind Eingabe des Dokumentbaums, nicht sein Erzeugnis. Zwei Gründe, und der zweite wiegt
+ * schwerer:
+ *   1. Rastern braucht ein DOM und mehrere Frames (`chart-capture.ts`); der Dokumentbaum ist
+ *      gegenüber `pdf(...).toBlob()` synchron und kann darauf nicht warten.
+ *   2. Alle Durchläufe müssen BIT-IDENTISCHE Bilder bekommen. Je Durchlauf neu gerastert könnte
+ *      eine um einen Bildpunkt abweichende Höhe den Umbruch verschieben — dann schlüge der
+ *      Wächter (`measurementsAgree`) an, und die Ursache stünde nirgends im Dokument.
+ *
+ * Gemessen wird das über `reportChartBuildCount()`: `chartBuilds` im Ergebnis ist die Zahl der
+ * Rasterungen, die für DIESE Erzeugung tatsächlich gelaufen sind — 1, unabhängig davon, ob zwei
+ * oder drei Durchläufe nötig waren. Der Zähler sitzt an der Rasterung selbst (`charts.ts`) und
+ * nicht hier: zöge jemand den Aufruf in einen Durchlauf, stiege er auf 3 oder 4.
+ *
+ * ⚠ DIE DIFFERENZ WIRD ERST AM ENDE GEBILDET, NICHT GLEICH NACH DEM EINEN AUFRUF — und das ist
+ * kein Schönheitsfehler, sondern der Unterschied zwischen einer Messung und einer Tautologie.
+ * Unmittelbar nach `buildReportCharts` abgelesen wäre die 1 die triviale Folge des einen Aufrufs
+ * daneben; in einer Wächter-Probe (Rasterung in `renderPass` verschoben) blieb sie deshalb
+ * fälschlich bei 1. Gebildet über die GANZE Erzeugung fängt sie jede zusätzliche Rasterung, egal
+ * an welcher Stelle sie eingebaut wird.
  */
 
 /** Was ein Durchlauf hergibt — das PDF und, was dabei gemessen wurde. */
 type Pass = { blob: Blob; sink: PageNumberSink }
 
-async function renderPass(input: PdfReportInput, agenda: AgendaPageNumbers): Promise<Pass> {
+async function renderPass(
+  input: PdfReportInput,
+  charts: ReportChartRasters,
+  agenda: AgendaPageNumbers,
+): Promise<Pass> {
   const sink = createPageNumberSink()
-  const blob = await pdf(<ReportDocument input={input} agenda={agenda} sink={sink} />).toBlob()
+  const blob = await pdf(
+    <ReportDocument input={input} charts={charts} agenda={agenda} sink={sink} />,
+  ).toBlob()
   return { blob, sink }
 }
 
@@ -55,6 +85,24 @@ export type RenderReportResult = {
   totalPages: number
   /** Zahl der Renderdurchläufe: 2 im Regelfall, 3 im Wächterfall. */
   passes: number
+  /**
+   * Zahl der Chart-Rasterungen, die für DIESE Erzeugung gelaufen sind. Muss 1 sein, unabhängig von
+   * `passes` — s. den Kopf dieser Datei. Ein Diagnosewert: die Zusage „einmal je Dokument" ist der
+   * architektonische Kern dieses Schritts, und eine Zusage, die niemand messen kann, ist eine
+   * Behauptung.
+   */
+  chartBuilds: number
+  /** Was beim Rastern herauskam — für die Anzeige im Prüfstand, nicht zur Steuerung. */
+  charts: ReportChartRasters
+  /**
+   * Die pt-Masse, mit denen das Lastgang-Bild im Dokument steht — über DIESELBE Funktion gebildet
+   * wie dort (`fitRasterToWidth`, `PDF_CONTENT_WIDTH_PT`). `null`, wenn kein Bild entstanden ist.
+   *
+   * ⚠ Es ist die ERWARTUNG, nicht der Nachweis. Der läuft am erzeugten PDF: die `cm`-Matrix der
+   * Bildplatzierung gegen die intrinsische Grösse des Bild-XObjects (wie in B23b). Eine Zahl, die
+   * aus derselben Funktion stammt wie die geprüfte, prüfte sich selbst.
+   */
+  chartEmbeddedPt: { width: number; height: number } | null
 }
 
 export async function renderReportPdf(input: PdfReportInput): Promise<RenderReportResult> {
@@ -64,11 +112,26 @@ export async function renderReportPdf(input: PdfReportInput): Promise<RenderRepo
    */
   registerReportFonts()
 
+  /*
+   * Die Chart-Bilder: EINMAL, vor allen Durchläufen.
+   *
+   * ⚠ `buildsBefore` wird HIER genommen, die Differenz aber erst BEIM RÜCKGEBEN gebildet — sie
+   * umfasst damit die ganze Erzeugung und nicht nur diesen einen Aufruf. Gleich hier abgelesen
+   * wäre die 1 die triviale Folge der Zeile darunter; in der Wächter-Probe (Rasterung in
+   * `renderPass` verschoben) blieb sie deshalb fälschlich bei 1, obwohl real dreimal gerastert
+   * wurde.
+   */
+  const buildsBefore = reportChartBuildCount()
+  const charts = await buildReportCharts(input)
+  const chartEmbeddedPt = charts.load
+    ? fitRasterToWidth(charts.load, PDF_CONTENT_WIDTH_PT)
+    : null
+
   // 1. Durchlauf: messen. Das erzeugte PDF trägt eine leere Zahlenspalte und wird verworfen.
-  const measure = await renderPass(input, null)
+  const measure = await renderPass(input, charts, null)
 
   // 2. Durchlauf: mit den gemessenen Zahlen — und dabei erneut messen.
-  const withPages = await renderPass(input, measure.sink.pages)
+  const withPages = await renderPass(input, charts, measure.sink.pages)
 
   if (measurementsAgree(measure.sink, withPages.sink)) {
     return {
@@ -76,6 +139,9 @@ export async function renderReportPdf(input: PdfReportInput): Promise<RenderRepo
       agendaPages: measure.sink.pages,
       totalPages: withPages.sink.totalPages,
       passes: 2,
+      chartBuilds: reportChartBuildCount() - buildsBefore,
+      charts,
+      chartEmbeddedPt,
     }
   }
 
@@ -84,11 +150,14 @@ export async function renderReportPdf(input: PdfReportInput): Promise<RenderRepo
     '[pdf-report] Die Seitenverweise der Agenda wurden verworfen: die beiden Renderdurchläufe ' +
       'haben verschiedene Seitenzahlen gemessen. Ausgeliefert wird die Agenda ohne Zahlen.',
   )
-  const withoutPages = await renderPass(input, null)
+  const withoutPages = await renderPass(input, charts, null)
   return {
     blob: withoutPages.blob,
     agendaPages: null,
     totalPages: withoutPages.sink.totalPages,
     passes: 3,
+    chartBuilds: reportChartBuildCount() - buildsBefore,
+    charts,
+    chartEmbeddedPt,
   }
 }

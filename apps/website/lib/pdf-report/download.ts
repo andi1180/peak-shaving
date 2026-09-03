@@ -22,6 +22,24 @@ export type ReportPdfOutcome = {
   passes: number
   /** `false`, wenn der Wächter angeschlagen hat und ohne Seitenverweise ausgeliefert wurde. */
   agendaHasPageNumbers: boolean
+  /**
+   * B23c-2 — was beim Erzeugen der Chart-Bilder herauskam.
+   *
+   * ⚠ `builds` MUSS 1 sein, unabhängig von `passes`: die Bilder entstehen einmal je Dokument und
+   * nicht je Renderdurchlauf (s. `render.tsx`). Der Wert ist gemessen, nicht hingeschrieben.
+   */
+  chart: {
+    builds: number
+    /** Bildpunkte des Lastgang-Rasters — `null`, wenn kein Bild entstanden ist. */
+    loadPx: { width: number; height: number } | null
+    /** Seitenverhältnis des Bildes und die pt-Masse, mit denen es eingebettet wurde. */
+    loadAspectRatio: number | null
+    loadEmbeddedPt: { width: number; height: number } | null
+    /** Stützpunkte der Kurve im gerenderten SVG — am `<path>` gezählt (s. `charts.ts`). */
+    loadVertices: number | null
+    loadError: string | null
+    captureMs: number
+  }
 }
 
 /**
@@ -69,10 +87,23 @@ export async function downloadReportPdf(
   anchor.remove()
   URL.revokeObjectURL(url)
 
+  const raster = result.charts.load
+
   return {
     fileName,
     totalPages: result.totalPages,
     passes: result.passes,
     agendaHasPageNumbers: result.agendaPages !== null,
+    chart: {
+      builds: result.chartBuilds,
+      loadPx: raster ? { width: raster.widthPx, height: raster.heightPx } : null,
+      loadAspectRatio: raster ? raster.aspectRatio : null,
+      /* Aus `render.tsx` durchgereicht — dort entsteht die Höhe mit DERSELBEN Funktion, die auch
+         das Dokument benutzt. Hier nachzurechnen wäre ein zweiter Rechenweg für dieselbe Zahl. */
+      loadEmbeddedPt: result.chartEmbeddedPt,
+      loadVertices: result.charts.loadVertices,
+      loadError: result.charts.loadError,
+      captureMs: result.charts.captureMs,
+    },
   }
 }

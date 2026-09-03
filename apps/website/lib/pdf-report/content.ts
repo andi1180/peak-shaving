@@ -102,6 +102,7 @@ export const METHODOLOGY_ITEMS: readonly MethodologyItem[] = [
 /** Kapitel-Kennungen, damit die Dokument-Bausteine sie nicht als Zeichenkette ausschreiben. */
 export const SECTION_ID = {
   results: 'kernergebnisse',
+  recommendation: 'empfehlung',
   methodology: 'methodik',
 } as const
 
@@ -110,6 +111,36 @@ export const RESULTS_SECTION: ReportSection = {
   level: 1,
   title: 'Kernergebnisse',
 }
+
+/**
+ * B23c-2 — das Kapitel, das die Kaufaussage, das Lastgang-Diagramm und die Ladesteuerung trägt.
+ *
+ * ── ⚠ EIN KAPITEL UND NICHT ZWEI, UND DER GRUND IST DAS BILD ──────────────────────────────────
+ * Das Diagramm steht IM FLUSS zwischen den beiden Textteilen: es ist der Beleg für die
+ * Kapp-Schwelle, von der die Empfehlung darüber lebt, und der Anschauungsgegenstand für die
+ * Ladesteuerung darunter. Als eigene `<Page>` dazwischen wäre es ein Kapitel ohne Aussage; hinter
+ * beiden Texten wäre es ein Anhang. Die Agenda führt deshalb EINEN Eintrag — der Titel nennt
+ * beides, damit ein Leser, der die Agenda überfliegt, weiss, wo die Empfehlung steht.
+ *
+ * ⚠ Das Kapitel ist eine eigene `<Page>` (D5, Regel 1). Als `<View break>` im Kernergebnis-Kapitel
+ * bekäme es in der Agenda die Seitenzahl JENES Kapitels — plausibel aussehend und falsch.
+ */
+export const RECOMMENDATION_SECTION: ReportSection = {
+  id: SECTION_ID.recommendation,
+  level: 1,
+  title: 'Empfehlung und Lastverlauf',
+}
+
+/**
+ * Steht unter der Kapitelüberschrift.
+ *
+ * ⚠ Er kündigt bewusst NICHT an, was auf der Seite steht („Empfehlung, Diagramm, Ladesteuerung").
+ * Was dort steht, hängt davon ab, was gerechnet werden konnte (s. den Kopf von
+ * `recommendation.ts`) — eine feste Ankündigung wäre auf jedem Report falsch, dem eine dieser
+ * Aussagen fehlt. Dieselbe Regel wie bei `RESULTS_INTRO`.
+ */
+export const RECOMMENDATION_INTRO =
+  'Welches Gerät, was es kostet — und wie sich Ihr Lastgang mit ihm liest.'
 
 /** Steht unter der Kapitelüberschrift — wörtlich wie im CSS-Weg (`print-methodology.tsx`). */
 export const METHODOLOGY_INTRO =
@@ -130,6 +161,7 @@ export const METHODOLOGY_SECTION: ReportSection = {
  */
 export const REPORT_AGENDA: readonly ReportSection[] = [
   RESULTS_SECTION,
+  RECOMMENDATION_SECTION,
   METHODOLOGY_SECTION,
   ...METHODOLOGY_ITEMS,
 ]
