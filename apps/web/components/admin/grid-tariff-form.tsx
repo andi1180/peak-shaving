@@ -124,7 +124,7 @@ const NETZEBENE_UNSET = ''
  * Der Ersatz nennt deshalb keine Schreibweise, sondern die BEDEUTUNG des leeren Feldes; das Format
  * steht ohnehin in der Beschriftung („MM-TT").
  */
-const AMOUNT_PLACEHOLDER = 'Betrag vom Preisblatt'
+export const AMOUNT_PLACEHOLDER = 'Betrag vom Preisblatt'
 
 /** Der Platzhalter der beiden Saisonfelder — eine Aussage über das leere Feld, keine Zahl. */
 const SEASON_PLACEHOLDER = 'leer = ganzjährig'

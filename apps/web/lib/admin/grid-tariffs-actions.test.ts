@@ -30,7 +30,8 @@ vi.mock('./guard', () => ({ isCurrentUserAdmin: () => isCurrentUserAdmin() }))
 vi.mock('./session', () => ({ currentUserEmail: () => currentUserEmail() }))
 vi.mock('next/cache', () => ({ revalidatePath: (p: string) => revalidatePath(p) }))
 
-const { createGridTariffAction, deleteGridTariffAction } = await import('./grid-tariffs-actions')
+const { backfillGridTariffAction, createGridTariffAction, deleteGridTariffAction } =
+  await import('./grid-tariffs-actions')
 
 const ID = '11111111-2222-4333-8444-555555555555'
 
@@ -199,7 +200,13 @@ function createForm(overrides: Record<string, string> = {}): FormData {
 describe('createGridTariffAction — der Erfolgsfall trägt die Eingaben zurück', () => {
   beforeEach(() => {
     rpc.mockResolvedValue({
-      data: { status: 'created', id: ID, window_count: 1, closed_count: 0, closed_valid_until: null },
+      data: {
+        status: 'created',
+        id: ID,
+        window_count: 1,
+        closed_count: 0,
+        closed_valid_until: null,
+      },
       error: null,
     })
   })
@@ -282,5 +289,116 @@ describe('createGridTariffAction — der Erfolgsfall trägt die Eingaben zurück
     expect(state.success).toBeUndefined()
     expect(state.formError).toBe('Keine Berechtigung. Bitte laden Sie die Seite neu.')
     expect(createServiceRoleClient).not.toHaveBeenCalled()
+  })
+})
+
+describe('backfillGridTariffAction — der Nachtrag ist ein eigener Weg, kein Sonderfall des Anlegens', () => {
+  /** Ein vollständiges Formular des Nachtrag-Wegs — ohne `operatorName` (der kommt aus dem Bestand). */
+  function backfillForm(overrides: Record<string, string> = {}): FormData {
+    const fd = new FormData()
+    const base: Record<string, string> = {
+      operatorId: 'wiener_netze',
+      netzebene: '5',
+      grundpreisAmount: '38.52',
+      grundpreisUnit: 'eur_per_kw_year',
+      netzverlustCtPerKwh: '1.23',
+      priceBasis: 'net',
+      validFrom: '2025-01-01',
+      w0_label: 'normal',
+      w0_timeFrom: '00:00',
+      w0_timeTo: '24:00',
+      w0_ctPerKwh: '6.98',
+      ...overrides,
+    }
+    for (const [k, v] of Object.entries(base)) fd.set(k, v)
+    return fd
+  }
+
+  it('lehnt ohne Adminrolle ab, ohne einen service_role-Client zu erzeugen', async () => {
+    /*
+     * Dieselbe Eigenschaft wie bei den drei Actions darüber, und sie wiegt hier genauso schwer:
+     * `public.backfill_grid_tariff` ist SECURITY INVOKER und prüft KEINE Rolle. Diese Zeile IST die
+     * Zugangsentscheidung — sie hat in der Datenbank kein Gegenstück, das sie auffinge.
+     */
+    isCurrentUserAdmin.mockResolvedValue(false)
+    const state = await backfillGridTariffAction({}, backfillForm())
+
+    expect(state.formError).toMatch(/Keine Berechtigung/)
+    expect(createServiceRoleClient).not.toHaveBeenCalled()
+    expect(rpc).not.toHaveBeenCalled()
+  })
+
+  it('ruft `backfill_grid_tariff` — und übergibt KEINEN Anzeigenamen', async () => {
+    /*
+     * Der Wrapper hat für `operator_name` bewusst keinen Parameter: Der Name kommt aus dem Bestand,
+     * sonst stünde dieselbe Kennung mit zwei Anzeigenamen in der Liste. Ein hier trotzdem
+     * mitgeschicktes Argument würde von PostgREST als unbekannter Parameter abgewiesen — der Test
+     * pinnt die Abwesenheit, nicht bloss die Anwesenheit der übrigen.
+     */
+    rpc.mockResolvedValue({
+      data: { status: 'backfilled', window_count: 1, new_valid_until: '2025-12-31' },
+      error: null,
+    })
+    const state = await backfillGridTariffAction({}, backfillForm())
+
+    expect(rpc).toHaveBeenCalledTimes(1)
+    const [fn, args] = rpc.mock.calls[0] as [string, Record<string, unknown>]
+    expect(fn).toBe('backfill_grid_tariff')
+    expect(args).not.toHaveProperty('p_operator_name')
+    expect(args.p_operator_id).toBe('wiener_netze')
+    expect(args.p_netzebene).toBe(5)
+    expect(args.p_valid_from).toBe('2025-01-01')
+    expect(args.p_windows).toEqual([
+      {
+        label: 'normal',
+        month_day_from: null,
+        month_day_to: null,
+        time_from: '00:00',
+        time_to: '24:00',
+        ct_per_kwh: 6.98,
+        note: null,
+      },
+    ])
+    expect(state.success).toMatch(/nachgetragen/)
+    expect(state.success).toContain('31.12.2025')
+    expect(revalidatePath).toHaveBeenCalled()
+  })
+
+  it('⚠ `not_before_oldest` verlangt ein FRÜHERES Datum — nicht ein späteres wie beim Anlegen', async () => {
+    /*
+     * Der teuerste denkbare Textfehler dieses Abschnitts: Ein aus `createGridTariffAction`
+     * übernommener Satz („muss NACH diesem Tag beginnen") schickte den Eintragenden in die
+     * verkehrte Richtung, er korrigierte nach hinten und liefe erneut in dieselbe Abweisung.
+     */
+    rpc.mockResolvedValue({
+      data: { status: 'not_before_oldest', min_valid_from: '2026-01-01' },
+      error: null,
+    })
+    const state = await backfillGridTariffAction({}, backfillForm({ validFrom: '2026-06-01' }))
+
+    expect(state.fieldErrors?.validFrom).toContain('01.01.2026')
+    expect(state.fieldErrors?.validFrom).toMatch(/VOR diesem Tag/)
+    expect(state.fieldErrors?.validFrom).not.toMatch(/NACH diesem Tag/)
+    expect(state.success).toBeUndefined()
+    expect(revalidatePath).not.toHaveBeenCalled()
+  })
+
+  it('`no_existing_stand` verweist auf den Anlageweg statt einen Fehler zu behaupten', async () => {
+    // Kein stilles Anlegen einer ersten Zeile: dafür ist `create_grid_tariff` da (s. Migration).
+    rpc.mockResolvedValue({ data: { status: 'no_existing_stand' }, error: null })
+    const state = await backfillGridTariffAction({}, backfillForm({ operatorId: 'linz_netz' }))
+
+    expect(state.formError).toMatch(/noch gar keinen Tarifstand/)
+    expect(state.formError).toMatch(/Neuen Tarifstand anlegen/)
+    expect(revalidatePath).not.toHaveBeenCalled()
+  })
+
+  it('ein unbrauchbares Formular erzeugt weder Client noch RPC', async () => {
+    // Die Prüfkette liegt VOR der Datenbank: was hier scheitert, fragt sie gar nicht erst.
+    const state = await backfillGridTariffAction({}, backfillForm({ validFrom: '01.01.2025' }))
+
+    expect(state.fieldErrors?.validFrom).toBeTruthy()
+    expect(createServiceRoleClient).not.toHaveBeenCalled()
+    expect(rpc).not.toHaveBeenCalled()
   })
 })

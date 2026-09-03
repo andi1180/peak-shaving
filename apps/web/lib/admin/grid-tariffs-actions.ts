@@ -37,6 +37,7 @@ import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { GRID_TARIFFS_HREF } from './grid-tariffs'
 import {
   addRateWindowSchema,
+  backfillGridTariffSchema,
   gridTariffFieldErrors,
   gridTariffSchema,
   readAddRateWindowForm,
@@ -395,5 +396,164 @@ export async function addRateWindowAction(
      * Hinzugefügten, und seine Felder sind unkontrolliert.
      */
     values,
+  }
+}
+
+/**
+ * Trägt einen HISTORISCHEN Tarifstand VOR dem ältesten vorhandenen nach (B21-2e).
+ *
+ * ── WARUM ES DIESEN WEG GIBT ────────────────────────────────────────────────────────────────────
+ * `createGridTariffAction` hängt ausschliesslich NACH vorne an: ein `validFrom`, das nicht hinter
+ * dem Beginn des offenen Stands liegt, endet dort auf `invalid_valid_from`. Für einen Zeitraum, der
+ * VOR dem ältesten erfassten Preisblatt liegt, gab es damit keinen Weg — obwohl genau der gebraucht
+ * wird, sobald ein Lastgang weiter zurückreicht als die Tarifpflege. Bis hierher blieb nur der
+ * SQL-Editor.
+ *
+ * ── ⚠ DIE MELDUNGEN NENNEN DIE ANDERE RICHTUNG, UND DAS IST KEINE FORMULIERUNGSFRAGE ───────────
+ * Beim Anlegen lautet die Korrektur „später wählen", hier „früher wählen". Ein aus dem Anlegen
+ * übernommener Satz schickte den Eintragenden also in die VERKEHRTE Richtung — er korrigierte das
+ * Datum nach hinten und liefe erneut in dieselbe Abweisung. Deshalb hat der Wrapper auch eigene
+ * Statuswerte (`backfilled`/`not_before_oldest` statt `created`/`invalid_valid_from`): eine Antwort
+ * allein sagt sonst nicht mehr, WELCHE Funktion sie gegeben hat.
+ *
+ * Dieselbe Zugangsentscheidung an derselben Stelle wie in den drei Actions darüber: die Funktion ist
+ * SECURITY INVOKER und prüft KEINE Rolle (der Aufrufer ist `service_role` und trägt kein JWT).
+ */
+export async function backfillGridTariffAction(
+  _prev: AdminState,
+  formData: FormData,
+): Promise<AdminState> {
+  const values = Object.fromEntries(
+    [...formData.entries()]
+      .filter(([, v]) => typeof v === 'string')
+      .map(([k, v]) => [k, String(v)]),
+  )
+
+  if (!(await isCurrentUserAdmin())) return { formError: FORBIDDEN, values }
+
+  const parsed = backfillGridTariffSchema.safeParse(readGridTariffForm(formData))
+  if (!parsed.success) {
+    return { fieldErrors: gridTariffFieldErrors(parsed.error.issues), values }
+  }
+  const input = parsed.data
+
+  const createdBy = (await currentUserEmail()) ?? 'unbekannt'
+
+  const supabase = createServiceRoleClient()
+  const { data, error } = await supabase.rpc('backfill_grid_tariff', {
+    p_operator_id: input.operatorId,
+    p_netzebene: input.netzebene,
+    p_metering_variant: input.meteringVariant ?? undefined,
+    p_grundpreis_amount: input.grundpreisAmount,
+    p_grundpreis_unit: input.grundpreisUnit,
+    p_netzverlust_ct_per_kwh: input.netzverlustCtPerKwh,
+    p_price_basis: input.priceBasis,
+    p_valid_from: input.validFrom,
+    p_created_by: createdBy,
+    p_windows: input.windows.map((w) => ({
+      label: w.label,
+      month_day_from: w.monthDayFrom ?? null,
+      month_day_to: w.monthDayTo ?? null,
+      time_from: w.timeFrom,
+      time_to: w.timeTo,
+      ct_per_kwh: w.ctPerKwh,
+      note: w.note ?? null,
+    })),
+  })
+
+  if (error) {
+    const code = (error as { code?: string }).code
+    if (code === 'P0001') {
+      switch (error.message) {
+        case 'duplicate_valid_from':
+          return {
+            fieldErrors: {
+              validFrom:
+                'Für diese Kombination gibt es bereits einen Stand mit genau diesem Beginn. ' +
+                'Bitte einen anderen Tag wählen.',
+            },
+            values,
+          }
+        case 'invalid_window':
+          return {
+            formError:
+              'Mindestens ein Zeitfenster konnte nicht gelesen werden. Bitte Uhrzeiten als HH:MM ' +
+              'und den Arbeitspreis als Zahl angeben.',
+            values,
+          }
+        case 'invalid_input':
+          return {
+            formError:
+              'Mindestens ein Wert liegt ausserhalb dessen, was die Datenbank zulässt ' +
+              '(Netzebene, Einheit oder Preisbasis).',
+            values,
+          }
+      }
+    }
+    console.error('[admin/grid-tariffs] backfill_grid_tariff:', error)
+    return { formError: GENERIC, values }
+  }
+
+  const result = (data ?? {}) as {
+    status?: unknown
+    window_count?: unknown
+    new_valid_until?: unknown
+    min_valid_from?: unknown
+  }
+
+  switch (result.status) {
+    case 'backfilled': {
+      revalidatePath(GRID_TARIFFS_HREF)
+      const windows = Number(result.window_count ?? 0)
+      const until = typeof result.new_valid_until === 'string' ? result.new_valid_until : null
+
+      return {
+        success:
+          `Früherer Tarifstand nachgetragen, mit ${windows} ${
+            windows === 1 ? 'Zeitfenster' : 'Zeitfenstern'
+          }.` +
+          (until
+            ? ` Er gilt bis zum ${formatDay(until)} — dem Tag vor dem Beginn des bisher ältesten ` +
+              'Stands; es entsteht dadurch weder eine Lücke noch eine Überschneidung.'
+            : ''),
+        /*
+         * Wie beim Anlegen: das Formular ersetzt sich nach dem Erfolg durch eine reine Anzeige, und
+         * seine Felder sind unkontrolliert — ohne diese Zeile wäre der nachgetragene Stand für den
+         * Eintragenden in dem Moment unsichtbar, in dem er unumkehrbar wird.
+         */
+        values,
+      }
+    }
+    case 'not_before_oldest': {
+      const oldest = typeof result.min_valid_from === 'string' ? result.min_valid_from : null
+      return {
+        fieldErrors: {
+          validFrom:
+            (oldest
+              ? `Der bisher älteste Stand dieser Kombination beginnt am ${formatDay(oldest)}. `
+              : 'Es gibt bereits einen älteren Stand. ') +
+            'Ein nachgetragener Stand muss VOR diesem Tag beginnen — dieser Weg fügt ausschliesslich ' +
+            'davor ein und kann keine Lücke mitten in der Historie füllen.',
+        },
+        values,
+      }
+    }
+    case 'no_existing_stand':
+      return {
+        formError:
+          'Für diese Kombination gibt es noch gar keinen Tarifstand. Ein früherer Stand lässt sich ' +
+          'nur VOR einen bestehenden setzen — den ersten bitte oben über „Neuen Tarifstand anlegen" ' +
+          'eintragen.',
+        values,
+      }
+    case 'no_windows':
+      return {
+        formError:
+          'Ohne Zeitfenster ist die Tarifzeile unvollständig — bitte mindestens eines angeben.',
+        values,
+      }
+    default:
+      console.error('[admin/grid-tariffs] unerwartete Antwort beim Nachtragen:', data)
+      return { formError: GENERIC, values }
   }
 }

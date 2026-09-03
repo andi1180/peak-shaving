@@ -122,6 +122,13 @@ export type GridTariffRow = {
   valid_until: string | null
   created_by: string
   created_at: string
+  /**
+   * B21-2e: Zeitpunkt, zu dem diese Zeile als HISTORISCHER Stand nachgetragen wurde.
+   *
+   * `null` heisst „regulär vorwärts angehängt" und ist für jede vor B21-2e entstandene Zeile bereits
+   * die zutreffende Aussage — die Spalte hat bewusst keinen Default (s. Migration).
+   */
+  backfilled_at: string | null
 }
 
 export type GridTariffRateWindowRow = {
@@ -309,8 +316,7 @@ export function deleteConfirmText(
   const zeitraum = row.valid_until
     ? `gültig ${formatDate(row.valid_from)} bis ${formatDate(row.valid_until)}`
     : `gültig ab ${formatDate(row.valid_from)} — DER AKTUELLE STAND`
-  const fenster =
-    windows.length === 1 ? '1 Zeitfenster' : `${windows.length} Zeitfenster`
+  const fenster = windows.length === 1 ? '1 Zeitfenster' : `${windows.length} Zeitfenster`
 
   return (
     'Diesen Tarifstand löschen?\n\n' +
@@ -427,4 +433,87 @@ export function describeWindowCollision(collision: WindowCollision): string {
     `${collision.clock.to} das Fenster „${collision.displaced.label}" ` +
     `(${CT.format(collision.fromCtPerKwh)} → ${CT.format(collision.toCtPerKwh)} ct/kWh).`
   )
+}
+
+// ── Früheren Stand nachtragen (B21-2e) ───────────────────────────────────────────────────────────
+
+/**
+ * Der Tag VOR `iso` — das Ende, das ein nachgetragener Stand bekommt.
+ *
+ * ⚠ Gerechnet wird über `Date.UTC`, nicht über die lokale Zeit: `new Date('2026-01-01')` liegt in
+ * UTC, ein anschliessendes `setDate` läuft aber in der Zeitzone des Servers. In Wien (UTC+1/+2)
+ * ergäbe das für einen Monatsersten den VORLETZTEN Tag des Vormonats — ein um einen Tag falscher
+ * Bestätigungstext neben einem korrekt rechnenden Wrapper wäre der schlechteste Fall: er behauptete
+ * eine Lücke, die es nicht gibt.
+ *
+ * Die massgebliche Rechnung steht in `public.backfill_grid_tariff` (`valid_from - 1`); diese hier
+ * dient AUSSCHLIESSLICH der Anzeige vor dem Absenden.
+ */
+export function previousDay(iso: string): string | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso.trim())
+  if (!match) return null
+  const ms =
+    Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])) - 24 * 60 * 60 * 1000
+  const d = new Date(ms)
+  if (Number.isNaN(d.getTime())) return null
+  return d.toISOString().slice(0, 10)
+}
+
+/**
+ * Der Satz, der VOR dem Absenden sagt, welchen Zeitraum der nachgetragene Stand abdeckt.
+ *
+ * ── ⚠ ER MUSS BEIDE ENDEN NENNEN ───────────────────────────────────────────────────────────────
+ * Der Eintragende gibt nur den BEGINN an; das Ende ergibt sich aus der bestehenden ältesten Zeile
+ * und ist damit die einzige Angabe des Vorgangs, die er nicht selbst getippt hat. Ohne sie bliebe
+ * offen, ob der neue Stand bis heute gilt — und genau das ist der Fehler, gegen den der ganze
+ * Abschnitt gebaut ist (ein offener Stand in der Vergangenheit).
+ *
+ * Ebenso gehört hinein, dass die neue Zeile NICHT der aktuelle Stand wird: „Tarifstand angelegt"
+ * liest sich sonst wie „ab jetzt gilt das hier".
+ */
+export function backfillRangeText(validFrom: string, oldestValidFrom: string): string | null {
+  const until = previousDay(oldestValidFrom)
+  if (until === null || previousDay(validFrom) === null) return null
+
+  return (
+    `Dieser Stand gilt vom ${formatDate(validFrom)} bis ${formatDate(until)} — unmittelbar vor dem ` +
+    `bisher ältesten Stand dieser Kombination (ab ${formatDate(oldestValidFrom)}). Er wird dadurch ` +
+    'NICHT zum aktuellen Stand.'
+  )
+}
+
+/**
+ * Ab wann ein OFFENER Stand als lange unverändert gilt — reine Anzeige, kein Blocker.
+ *
+ * ── ⚠ WARUM 15 MONATE UND NICHT 12 ─────────────────────────────────────────────────────────────
+ * Netzentgelt-Preisblätter gelten kalenderjahrweise, und der Stand fürs Folgejahr wird typischerweise
+ * im Spätherbst erfasst — zwischen zwei Erfassungen liegen also regelmässig knapp zwölf Monate. Bei
+ * einer 12-Monats-Schwelle stünde der Hinweis deshalb im Normalbetrieb jedes Jahr für ein paar Wochen
+ * da und wäre nach kurzer Zeit ein Möbelstück, das niemand mehr liest.
+ *
+ * 15 Monate liegen sicher hinter einem vollständigen Jahreszyklus samt Quartal Puffer: Eine gepflegte
+ * Kombination erreicht die Schwelle nie, eine, die einen ganzen Preisblatt-Zyklus verpasst hat, schon.
+ *
+ * ⚠ Gemessen wird an `created_at` (WANN wurde die Zeile eingetragen), NICHT an `valid_from`: Ein
+ * Stand, der ab 01.01.2027 gilt und im November 2026 erfasst wurde, ist frisch gepflegt — an
+ * `valid_from` gemessen sähe er nach über einem Jahr Stillstand aus, und der Hinweis wäre falsch.
+ */
+export const STALE_OPEN_STAND_MONTHS = 15
+
+/**
+ * Wie viele volle Monate liegt `createdAt` zurück — oder `null`, wenn die Schwelle nicht erreicht ist.
+ *
+ * `now` ist ein PFLICHTPARAMETER: eine Funktion, die selbst auf die Uhr sieht, lässt sich nicht gegen
+ * einen Stichtag prüfen (dieselbe Regel wie bei `standardProfileYear` im Kalkulator).
+ */
+export function staleOpenStandMonths(createdAt: string, now: Date): number | null {
+  const created = new Date(createdAt)
+  if (Number.isNaN(created.getTime())) return null
+
+  const months =
+    (now.getUTCFullYear() - created.getUTCFullYear()) * 12 +
+    (now.getUTCMonth() - created.getUTCMonth()) -
+    (now.getUTCDate() < created.getUTCDate() ? 1 : 0)
+
+  return months >= STALE_OPEN_STAND_MONTHS ? months : null
 }

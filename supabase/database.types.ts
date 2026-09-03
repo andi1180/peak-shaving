@@ -1314,6 +1314,7 @@ export type Database = {
       }
       grid_tariffs: {
         Row: {
+          backfilled_at: string | null
           created_at: string
           created_by: string
           grundpreis_amount: number
@@ -1329,6 +1330,7 @@ export type Database = {
           valid_until: string | null
         }
         Insert: {
+          backfilled_at?: string | null
           created_at?: string
           created_by: string
           grundpreis_amount: number
@@ -1344,6 +1346,7 @@ export type Database = {
           valid_until?: string | null
         }
         Update: {
+          backfilled_at?: string | null
           created_at?: string
           created_by?: string
           grundpreis_amount?: number
@@ -1658,6 +1661,21 @@ export type Database = {
         Args: {
           p_lead_id: string
           p_purpose: Database["platform"]["Enums"]["consent_purpose"]
+        }
+        Returns: Json
+      }
+      backfill_grid_tariff: {
+        Args: {
+          p_created_by: string
+          p_grundpreis_amount: number
+          p_grundpreis_unit: string
+          p_metering_variant?: string
+          p_netzebene: number
+          p_netzverlust_ct_per_kwh: number
+          p_operator_id: string
+          p_price_basis: string
+          p_valid_from: string
+          p_windows: Json
         }
         Returns: Json
       }
