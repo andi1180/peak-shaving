@@ -63,6 +63,17 @@ export const PDF_COLORS = {
   border: '#e2e8f0',
   /** `--color-surface-alt` (Slate 50). */
   surfaceAlt: '#f8fafc',
+  /**
+   * Die drei SEMANTISCHEN Töne (B23c-1) — Farbe ist hier Information, kein Dekor (DESIGN.md).
+   *
+   * `positive` = Ersparnis · `negative` = Kosten · `warning` = ein Betrag, der in die falsche
+   * Richtung zeigt (der reine Tarifwechsel ist im gemessenen Realfall negativ). Sie sind bewusst
+   * NICHT durch den Akzent ersetzbar: der ist White-Label-Kandidat (s. Kopf), diese drei tragen
+   * eine Bedeutung und dürfen sich mit einer Mandantenfarbe nicht mitverschieben.
+   */
+  positive: '#15803d',
+  negative: '#b91c1c',
+  warning: '#b45309',
 } as const
 
 /**

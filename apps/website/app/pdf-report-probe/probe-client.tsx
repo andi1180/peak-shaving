@@ -1,7 +1,7 @@
 'use client'
 
-import { useMemo, useState } from 'react'
-import { FileText, ImageDown } from 'lucide-react'
+import { useState } from 'react'
+import { Calculator, FileText, ImageDown } from 'lucide-react'
 import type { AnalysisResult, LoadProfile } from 'shared'
 
 import { Button } from '@/components/ui/button'
@@ -16,16 +16,38 @@ import {
   formatPrintedAt,
   reportSubtitle,
 } from '@/lib/pdf-report/derive'
+/*
+ * ⚠ NUR DER TYP. `buildReportSummary` selbst wird in `analysis-run.ts` aufgerufen (dynamisch
+ * geladen): statisch hier importiert zöge es den `shared`-Barrel samt PLZ-Tabelle in den First
+ * Load dieser Route — gemessen rund 60 kB für eine Anzeige, die es erst nach einem Klick gibt.
+ */
+import type { ReportSummary } from '@/lib/pdf-report/summary'
+import {
+  SUMMARY_PROBE_KINDS,
+  SUMMARY_PROBE_LABEL,
+  type SummaryProbeKind,
+} from './summary-probe-kinds'
 
 /**
- * B23a — Prüfstand-Oberfläche.
+ * B23a/B23c-1 — Prüfstand-Oberfläche.
  *
- * ── DIE ABLEITUNGEN LAUFEN ECHT, DIE EINGANGSGRÖSSEN SIND SYNTHETISCH ──────────────────────────
+ * ── B23c-1: DER PRÜFSTAND HAT JETZT EINEN ECHTEN RECHENLAUF ────────────────────────────────────
+ * Bis hierher gab es keinen — die Ableitungen liefen gegen strukturelle Teilmengen (`Pick<…>`), und
+ * das genügte, solange sie je ein einziges Feld lasen. Die Executive Summary liest sechs Felder und
+ * trifft daran Abbruch-Entscheidungen; ein von Hand zusammengesetztes Ergebnis prüfte davon nichts.
+ * `runSummaryAnalysis` schickt deshalb einen echten `CalculatorPayload` an den ECHTEN Analyse-Worker
+ * (`analysis-run.ts`) und arbeitet mit dem, was herauskommt.
+ *
+ * ⚠ Der Umschalter „Ladeoptimierung berechenbar" ist damit ERSATZLOS entfallen. Er setzte
+ * `tariffOptimization` von Hand; jetzt entscheidet die DATENLAGE des jeweiligen Falls darüber
+ * (`blocker` liefert keine Börsenpreise), und der Titelvorschlag folgt einem gerechneten Wert statt
+ * einem Häkchen.
+ *
+ * ── DIE ÜBRIGEN ABLEITUNGEN LAUFEN UNVERÄNDERT ECHT ────────────────────────────────────────────
  * `defaultReportTitle`, `reportSubtitle` und `formatAnalysisPeriod` sind DIE Produktionsfunktionen
- * aus `lib/pdf-report/derive.ts` — sie werden hier nicht nachgebaut. Was synthetisch ist, sind ihre
- * Eingaben: der Prüfstand hat keinen Rechenlauf, und einen zu erfinden hiesse, ein vollständiges
- * `AnalysisResult` zusammenzusetzen, von dem die Ableitung ein einziges Feld liest. Genau deshalb
- * nehmen die drei Funktionen strukturelle Teilmengen entgegen (`Pick<…>`).
+ * aus `lib/pdf-report/derive.ts` — sie werden hier nicht nachgebaut. Untertitel und Zeitraum
+ * bekommen weiterhin eine schmale Teilmenge herein: `reportSubtitle` liest genau `source`, und der
+ * Umschalter dafür ist der einzige Weg, die zweite Fassung des Satzes überhaupt zu sehen.
  *
  * ── B23b: DREI EINZELN AUSLÖSBARE CHART-LÄUFE ─────────────────────────────────────────────────
  * Je Chart-TYP einer (kategorial/Balken · Raster/Heatmap · kontinuierlich mit grosser Punktzahl).
@@ -39,18 +61,12 @@ import {
  * §3: ≈ 307 kB gzip) im First Load dieser Route.
  */
 
-/** Nur die zwei Felder, die `defaultReportTitle` bzw. `reportSubtitle` tatsächlich lesen. */
-type ProbeToggles = { tariffLever: boolean; standardProfile: boolean }
-
-function probeResult(toggles: ProbeToggles): Pick<AnalysisResult, 'tariffOptimization'> {
-  return { tariffOptimization: toggles.tariffLever ? { computable: true } : undefined }
-}
-
+/** Nur das eine Feld, das `reportSubtitle` tatsächlich liest — plus die zwei für den Zeitraum. */
 function probeProfile(
-  toggles: ProbeToggles,
+  standardProfile: boolean,
 ): Pick<LoadProfile, 'source' | 'readings' | 'timezoneMeta'> {
   return {
-    source: toggles.standardProfile ? 'standard_profile' : 'net_signed',
+    source: standardProfile ? 'standard_profile' : 'net_signed',
     timezoneMeta: 'Europe/Vienna',
     /* Erster und letzter Zeitstempel genügen — `formatAnalysisPeriod` liest genau die zwei. */
     readings: [
@@ -61,8 +77,14 @@ function probeProfile(
 }
 
 export function PdfReportProbe() {
-  const [tariffLever, setTariffLever] = useState(true)
   const [standardProfile, setStandardProfile] = useState(false)
+  const [probeKind, setProbeKind] = useState<SummaryProbeKind>('bestand')
+  const [analysis, setAnalysis] = useState<AnalysisResult | null>(null)
+  const [summary, setSummary] = useState<ReportSummary | null>(null)
+  const [analysisKind, setAnalysisKind] = useState<SummaryProbeKind | null>(null)
+  const [analysisMs, setAnalysisMs] = useState(0)
+  const [analysisPending, setAnalysisPending] = useState(false)
+  const [analysisError, setAnalysisError] = useState<string | null>(null)
   const [name, setName] = useState('Anna Gruber')
   const [company, setCompany] = useState('Bäckerei Gruber GmbH')
   const [address, setAddress] = useState('Hauptstraße 12\n2100 Korneuburg')
@@ -73,10 +95,16 @@ export function PdfReportProbe() {
   const [chartReport, setChartReport] = useState<ChartProbeReport | null>(null)
   const [chartError, setChartError] = useState<string | null>(null)
 
-  const toggles = useMemo(() => ({ tariffLever, standardProfile }), [tariffLever, standardProfile])
-  const suggestedTitle = defaultReportTitle(probeResult(toggles))
-  const subtitle = reportSubtitle(probeProfile(toggles))
-  const period = formatAnalysisPeriod(probeProfile(toggles))
+  const subtitle = reportSubtitle(probeProfile(standardProfile))
+  const period = formatAnalysisPeriod(probeProfile(standardProfile))
+
+  /*
+   * ⚠ Solange NICHTS gerechnet ist, gibt es auch keinen Titelvorschlag — er hängt an
+   * `tariffOptimization.computable` und damit an einem Ergebnis. Ein Vorschlag „auf Verdacht"
+   * nennte „& Ladeoptimierung" womöglich auf einem Report, der sie gar nicht ausweist.
+   */
+  const suggestedTitle = analysis ? defaultReportTitle(analysis) : ''
+
 
   /*
    * Der Titel folgt dem Vorschlag, solange niemand ihn angefasst hat — sobald doch, gehört er dem
@@ -86,7 +114,34 @@ export function PdfReportProbe() {
   const [titleOverride, setTitleOverride] = useState<string | null>(null)
   const title = titleOverride ?? suggestedTitle
 
+  async function handleAnalyse() {
+    setAnalysisError(null)
+    setAnalysis(null)
+    setSummary(null)
+    setAnalysisKind(null)
+    setOutcome(null)
+    setAnalysisPending(true)
+    const started = performance.now()
+    try {
+      /* Zieht den Lastgang (35.040 Werte) und die Spotpreis-Reihe — erst hier, nicht beim Laden. */
+      const { runSummaryAnalysis } = await import('./analysis-run')
+      const run = await runSummaryAnalysis(probeKind)
+      setAnalysisMs(performance.now() - started)
+      setAnalysis(run.result)
+      /* DIE Produktionsfunktion, gelaufen in `analysis-run.ts` — der Prüfstand zeigt, was das
+         Dokument gleich rendern wird, statt es nachzubauen. */
+      setSummary(run.summary)
+      setAnalysisKind(probeKind)
+      /* Ein neuer Fall bringt einen neuen Vorschlag — ein Titel von Hand bleibt trotzdem stehen. */
+    } catch (cause) {
+      setAnalysisError(cause instanceof Error ? cause.message : 'Unbekannter Fehler')
+    } finally {
+      setAnalysisPending(false)
+    }
+  }
+
   async function handleGenerate() {
+    if (!analysis) return
     setError(null)
     setOutcome(null)
     setPending(true)
@@ -100,6 +155,7 @@ export function PdfReportProbe() {
           customer: { name, company, address },
           period,
           printedAt: formatPrintedAt(now),
+          analysis,
         },
         now,
       )
@@ -132,21 +188,88 @@ export function PdfReportProbe() {
         <h1 className="text-2xl font-semibold text-ink">PDF-Report-Prüfstand</h1>
         <p className="mt-1 text-sm text-text-muted">
           B23a — Dokumentgerüst (Deckblatt, Kopf-/Fusszeile mit Seitenzahl, Agenda mit
-          Seitenverweisen, Methodik). Interne Route, nicht verlinkt, <code>noindex</code>. Der
-          Export im Rechner ist davon unberührt und läuft weiter über den Druckdialog.
+          Seitenverweisen, Methodik). B23c-1 — Kernergebnisse aus einem ECHTEN, hier im Browser
+          gerechneten Ergebnis. Interne Route, nicht verlinkt, <code>noindex</code>. Der Export im
+          Rechner ist davon unberührt und läuft weiter über den Druckdialog.
         </p>
       </div>
 
       <div className="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4">
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            id="probe-tariff-lever"
-            type="checkbox"
-            checked={tariffLever}
-            onChange={(e) => setTariffLever(e.target.checked)}
-          />
-          Ladeoptimierung berechenbar (<code>tariffOptimization.computable</code>)
-        </label>
+        <div className="flex flex-col gap-2">
+          <p className="text-sm font-medium text-ink">Rechenlauf</p>
+          <p className="text-xs text-text-muted">
+            Derselbe Lastgang wie die Chart-Läufe (35.040 Viertelstundenwerte), gerechnet vom
+            ECHTEN Analyse-Worker. Der Fall entscheidet über die Datenlage — nicht über die
+            Darstellung: was auf der Kernergebnis-Seite steht, folgt daraus.
+          </p>
+          {SUMMARY_PROBE_KINDS.map((kind) => (
+            <label key={kind} className="flex items-center gap-2 text-sm">
+              <input
+                id={`probe-kind-${kind}`}
+                type="radio"
+                name="probe-kind"
+                checked={probeKind === kind}
+                onChange={() => setProbeKind(kind)}
+              />
+              {SUMMARY_PROBE_LABEL[kind]}
+            </label>
+          ))}
+          <div>
+            <Button
+              id="probe-analyse"
+              variant="secondary"
+              onClick={() => void handleAnalyse()}
+              disabled={analysisPending}
+            >
+              <Calculator className="h-4 w-4" />
+              {analysisPending ? 'Wird gerechnet …' : 'Analyse rechnen'}
+            </Button>
+          </div>
+        </div>
+
+        {analysisError && (
+          <p id="probe-analysis-error" role="alert" className="text-sm text-negative">
+            {analysisError}
+          </p>
+        )}
+
+        {analysis && summary && analysisKind && (
+          <div id="probe-analysis" className="flex flex-col gap-1 text-sm">
+            <p className="text-text-muted">
+              Gerechnet: <strong id="probe-analysis-kind">{analysisKind}</strong> in{' '}
+              <strong id="probe-analysis-ms">{Math.round(analysisMs)} ms</strong> ·
+              Ladeoptimierung berechenbar:{' '}
+              <strong id="probe-analysis-computable">
+                {analysis.tariffOptimization?.computable === true ? 'ja' : 'nein'}
+              </strong>{' '}
+              · Bestandsanlage:{' '}
+              <strong id="probe-analysis-existing">
+                {analysis.existingBatteryAnalysis ? 'ja' : 'nein'}
+              </strong>
+            </p>
+            <p className="text-text-muted">
+              Kern-Kennzahl:{' '}
+              <strong id="probe-headline">
+                {summary.headline.peakValue} · {summary.headline.costValue}
+              </strong>
+            </p>
+            <p className="text-text-muted">
+              Kernaussagen der Seite:{' '}
+              <strong id="probe-summary-ids">
+                {summary.statements.map((s) => s.id).join(', ') || '—'}
+              </strong>
+            </p>
+            <ul id="probe-summary" className="flex flex-col gap-0.5 text-text-muted">
+              {summary.statements.map((statement) => (
+                <li key={statement.id} data-statement={statement.id}>
+                  {statement.title}
+                  {statement.amount ? ` — ${statement.amount.value}` : ''}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         <label className="flex items-center gap-2 text-sm">
           <input
             id="probe-standard-profile"
@@ -198,10 +321,24 @@ export function PdfReportProbe() {
         </div>
 
         <div>
-          <Button id="probe-generate" onClick={() => void handleGenerate()} disabled={pending}>
+          {/*
+            ⚠ GESPERRT, SOLANGE NICHTS GERECHNET IST — der Report trägt seit B23c-1 ein Ergebnis
+            (`PdfReportInput.analysis` ist Pflicht), und ohne eines gibt es kein Dokument. Ein
+            Knopf, der dann eine Ausnahme wirft, sähe wie ein Defekt aus.
+          */}
+          <Button
+            id="probe-generate"
+            onClick={() => void handleGenerate()}
+            disabled={pending || analysis === null}
+          >
             <FileText className="h-4 w-4" />
             {pending ? 'Wird erzeugt …' : 'PDF erzeugen'}
           </Button>
+          {analysis === null && (
+            <p className="mt-1 text-xs text-text-muted">
+              Erst rechnen — die Kernergebnis-Seite entsteht aus dem Ergebnis, nicht aus Vorgaben.
+            </p>
+          )}
         </div>
       </div>
 
