@@ -21,6 +21,7 @@ import {
  * geladen): statisch hier importiert zöge es den `shared`-Barrel samt PLZ-Tabelle in den First
  * Load dieser Route — gemessen rund 60 kB für eine Anzeige, die es erst nach einem Klick gibt.
  */
+import type { RecommendationChapter } from '@/lib/pdf-report/recommendation'
 import type { ReportSummary } from '@/lib/pdf-report/summary'
 import {
   SUMMARY_PROBE_KINDS,
@@ -61,19 +62,18 @@ import {
  * §3: ≈ 307 kB gzip) im First Load dieser Route.
  */
 
-/** Nur das eine Feld, das `reportSubtitle` tatsächlich liest — plus die zwei für den Zeitraum. */
-function probeProfile(
-  standardProfile: boolean,
-): Pick<LoadProfile, 'source' | 'readings' | 'timezoneMeta'> {
-  return {
-    source: standardProfile ? 'standard_profile' : 'net_signed',
-    timezoneMeta: 'Europe/Vienna',
-    /* Erster und letzter Zeitstempel genügen — `formatAnalysisPeriod` liest genau die zwei. */
-    readings: [
-      { ts: '2024-12-31T23:00:00.000Z', gridPowerKw: 0 },
-      { ts: '2025-12-31T22:45:00.000Z', gridPowerKw: 0 },
-    ],
-  }
+/**
+ * Nur das eine Feld, das `reportSubtitle` tatsächlich liest.
+ *
+ * ⚠ Der Umschalter ist der einzige Weg, die zweite Fassung des Untertitels überhaupt zu sehen —
+ * der Prüf-Lastgang ist ein gemessener (`net_signed`) und wechselt seine Herkunft nicht.
+ *
+ * ⚠ B23c-2: die zwei Zeitstempel für den ZEITRAUM sind hier entfallen. Er kommt jetzt aus dem
+ * ECHTEN Lastgang des Rechenlaufs — demselben, aus dem gleich das Diagramm entsteht. Eine zweite,
+ * danebengeschriebene Zeitspanne wäre die Sorte Doppelung, die erst auffällt, wenn sie abweicht.
+ */
+function probeProfile(standardProfile: boolean): Pick<LoadProfile, 'source'> {
+  return { source: standardProfile ? 'standard_profile' : 'net_signed' }
 }
 
 export function PdfReportProbe() {
@@ -81,6 +81,9 @@ export function PdfReportProbe() {
   const [probeKind, setProbeKind] = useState<SummaryProbeKind>('bestand')
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null)
   const [summary, setSummary] = useState<ReportSummary | null>(null)
+  const [chapter, setChapter] = useState<RecommendationChapter | null>(null)
+  /** Der Lastgang des Rechenlaufs — Grundlage des Diagramms UND des Zeitraums auf dem Deckblatt. */
+  const [loadProfile, setLoadProfile] = useState<LoadProfile | null>(null)
   const [analysisKind, setAnalysisKind] = useState<SummaryProbeKind | null>(null)
   const [analysisMs, setAnalysisMs] = useState(0)
   const [analysisPending, setAnalysisPending] = useState(false)
@@ -96,7 +99,8 @@ export function PdfReportProbe() {
   const [chartError, setChartError] = useState<string | null>(null)
 
   const subtitle = reportSubtitle(probeProfile(standardProfile))
-  const period = formatAnalysisPeriod(probeProfile(standardProfile))
+  /* Aus dem echten Lastgang — vor dem ersten Lauf gibt es keinen, und dann auch keinen Zeitraum. */
+  const period = loadProfile ? formatAnalysisPeriod(loadProfile) : null
 
   /*
    * ⚠ Solange NICHTS gerechnet ist, gibt es auch keinen Titelvorschlag — er hängt an
@@ -118,6 +122,8 @@ export function PdfReportProbe() {
     setAnalysisError(null)
     setAnalysis(null)
     setSummary(null)
+    setChapter(null)
+    setLoadProfile(null)
     setAnalysisKind(null)
     setOutcome(null)
     setAnalysisPending(true)
@@ -131,6 +137,8 @@ export function PdfReportProbe() {
       /* DIE Produktionsfunktion, gelaufen in `analysis-run.ts` — der Prüfstand zeigt, was das
          Dokument gleich rendern wird, statt es nachzubauen. */
       setSummary(run.summary)
+      setChapter(run.chapter)
+      setLoadProfile(run.loadProfile)
       setAnalysisKind(probeKind)
       /* Ein neuer Fall bringt einen neuen Vorschlag — ein Titel von Hand bleibt trotzdem stehen. */
     } catch (cause) {
@@ -141,7 +149,7 @@ export function PdfReportProbe() {
   }
 
   async function handleGenerate() {
-    if (!analysis) return
+    if (!analysis || !loadProfile) return
     setError(null)
     setOutcome(null)
     setPending(true)
@@ -156,6 +164,7 @@ export function PdfReportProbe() {
           period,
           printedAt: formatPrintedAt(now),
           analysis,
+          loadProfile,
         },
         now,
       )
@@ -259,6 +268,38 @@ export function PdfReportProbe() {
                 {summary.statements.map((s) => s.id).join(', ') || '—'}
               </strong>
             </p>
+            {/*
+              B23c-2 — was das Empfehlungs-Kapitel aus DEMSELBEN Ergebnis ableitet. Auch das ist die
+              Produktionsfunktion (`buildRecommendationChapter`), gelaufen in `analysis-run.ts`; der
+              Prüfstand zeigt, was gleich im Dokument steht, statt es nachzubauen.
+            */}
+            <p className="text-text-muted">
+              Empfehlungs-Kapitel:{' '}
+              <strong id="probe-chapter-ids">
+                {[
+                  chapter?.recommendation ? 'recommendation' : null,
+                  chapter?.chart.capStatement ? 'cap_statement' : 'no_cap_note',
+                  chapter?.loadControl ? 'load_control' : null,
+                ]
+                  .filter((v) => v !== null)
+                  .join(', ')}
+              </strong>
+            </p>
+            {chapter?.recommendation && (
+              <p className="text-text-muted">
+                Kaufaussage:{' '}
+                <strong id="probe-chapter-recommendation">
+                  {chapter.recommendation.title}
+                  {chapter.recommendation.amount
+                    ? ` — ${chapter.recommendation.amount.value}`
+                    : ''}
+                </strong>{' '}
+                · Warnungen:{' '}
+                <strong id="probe-chapter-warnings">
+                  {chapter.recommendation.notes?.length ?? 0}
+                </strong>
+              </p>
+            )}
             <ul id="probe-summary" className="flex flex-col gap-0.5 text-text-muted">
               {summary.statements.map((statement) => (
                 <li key={statement.id} data-statement={statement.id}>
@@ -352,6 +393,40 @@ export function PdfReportProbe() {
             <strong id="probe-passes">{outcome.passes}</strong> · Agenda mit Seitenzahlen:{' '}
             <strong id="probe-agenda-numbers">{outcome.agendaHasPageNumbers ? 'ja' : 'nein'}</strong>
           </p>
+          {/*
+            ⚠ `Chart-Rasterungen` muss 1 sein, UNABHÄNGIG von der Zahl der Durchläufe daneben — das
+            ist die eine Zusage dieses Schritts, die man sonst nur behaupten könnte. Der Zähler
+            sitzt an der Rasterung (`charts.ts`), nicht an ihrem Aufrufer.
+          */}
+          <p>
+            Chart-Rasterungen für dieses Dokument:{' '}
+            <strong id="probe-chart-builds">{outcome.chart.builds}</strong> · Dauer:{' '}
+            <strong id="probe-report-chart-ms">{Math.round(outcome.chart.captureMs)} ms</strong>
+          </p>
+          {outcome.chart.loadPx && outcome.chart.loadEmbeddedPt && (
+            <p>
+              Lastgang-Bild:{' '}
+              <strong id="probe-report-chart-px">
+                {outcome.chart.loadPx.width} × {outcome.chart.loadPx.height} px
+              </strong>{' '}
+              · Seitenverhältnis Bild:{' '}
+              <strong id="probe-report-chart-raster-ratio">
+                {outcome.chart.loadAspectRatio?.toFixed(6)}
+              </strong>{' '}
+              · eingebettet mit{' '}
+              <strong id="probe-report-chart-pt">
+                {outcome.chart.loadEmbeddedPt.width.toFixed(2)} ×{' '}
+                {outcome.chart.loadEmbeddedPt.height.toFixed(2)} pt
+              </strong>{' '}
+              · Stützpunkte der Kurve:{' '}
+              <strong id="probe-report-chart-vertices">{outcome.chart.loadVertices}</strong>
+            </p>
+          )}
+          {outcome.chart.loadError && (
+            <p id="probe-report-chart-error" className="text-negative">
+              Kein Lastgang-Bild: {outcome.chart.loadError}
+            </p>
+          )}
         </div>
       )}
 

@@ -1,16 +1,21 @@
 import { Document, Image, Page, StyleSheet, Text, View } from '@react-pdf/renderer'
 
 import { PRINT_COMPANY } from '@/lib/company'
+import type { ReportChartRasters } from './charts'
+import { fitRasterToWidth } from './chart-raster'
 import {
   METHODOLOGY_INTRO,
   METHODOLOGY_ITEMS,
   METHODOLOGY_SECTION,
+  RECOMMENDATION_INTRO,
+  RECOMMENDATION_SECTION,
   REPORT_AGENDA,
   RESULTS_FOOTNOTE,
   RESULTS_INTRO,
   RESULTS_SECTION,
   type ReportSection,
 } from './content'
+import { buildRecommendationChapter } from './recommendation'
 import {
   recordSectionPage,
   recordTotalPages,
@@ -18,13 +23,9 @@ import {
   type AgendaPageNumbers,
   type PageNumberSink,
 } from './page-numbers'
-import {
-  buildReportSummary,
-  type SummaryRow,
-  type SummaryStatement,
-  type SummaryTone,
-} from './summary'
-import { PDF_COLORS, PDF_LAYOUT, PDF_TYPE } from './theme'
+import type { ReportRow, ReportStatement, ReportTone } from './statement'
+import { buildReportSummary } from './summary'
+import { PDF_COLORS, PDF_CONTENT_WIDTH_PT, PDF_LAYOUT, PDF_TYPE } from './theme'
 import type { PdfReportInput } from './types'
 
 /**
@@ -231,6 +232,22 @@ const styles = StyleSheet.create({
   rowHint: { fontSize: PDF_TYPE.small, color: PDF_COLORS.textMuted },
   rowValue: { fontWeight: 600 },
 
+  statementNote: { marginTop: 2, fontSize: PDF_TYPE.small, color: PDF_COLORS.warning },
+
+  /* Chart im Fluss (B23c-2) — bewusst KEIN Rahmen und KEIN Kasten, s. `ChartFigure`. */
+  figure: { marginTop: 14 },
+  figureCaption: { marginTop: 4, fontSize: PDF_TYPE.small, color: PDF_COLORS.textMuted },
+  figureStatement: { marginTop: 4, color: PDF_COLORS.text },
+  figureMissing: {
+    marginTop: 14,
+    padding: 10,
+    borderLeftWidth: 2,
+    borderLeftColor: PDF_COLORS.warning,
+    backgroundColor: PDF_COLORS.surfaceAlt,
+    fontSize: PDF_TYPE.small,
+    color: PDF_COLORS.textMuted,
+  },
+
   footnote: {
     marginTop: 16,
     paddingTop: 8,
@@ -421,13 +438,13 @@ function Agenda({ pages }: { pages: AgendaPageNumbers }) {
 }
 
 /** Die semantischen Töne in Farbe — an EINER Stelle, nicht an jeder Zeile. */
-const TONE_COLOR: Record<SummaryTone, string> = {
+const TONE_COLOR: Record<ReportTone, string> = {
   positive: PDF_COLORS.positive,
   warning: PDF_COLORS.warning,
   neutral: PDF_COLORS.text,
 }
 
-function StatementRow({ row }: { row: SummaryRow }) {
+function StatementRow({ row }: { row: ReportRow }) {
   return (
     <View style={row.total ? [styles.row, styles.rowTotal] : styles.row}>
       <View style={styles.rowLabelCell}>
@@ -453,7 +470,7 @@ function StatementRow({ row }: { row: SummaryRow }) {
  * einen Schutz behauptet, den sie nicht leistet, ist schlimmer als kein Schutz. Die Folge ist als
  * offener Punkt benannt (s. `ResultsChapter`).
  */
-function Statement({ statement }: { statement: SummaryStatement }) {
+function Statement({ statement }: { statement: ReportStatement }) {
   return (
     <View style={styles.statement} wrap={false}>
       <Text style={styles.statementTitle}>{statement.title}</Text>
@@ -474,6 +491,17 @@ function Statement({ statement }: { statement: SummaryStatement }) {
         </View>
       )}
       <Text style={styles.statementBody}>{statement.body}</Text>
+      {/*
+        Die §3.8-Warnungen, je eine Zeile. Sie stehen NEBEN der Investition und nicht in ihr:
+        „Betonsockel nötig (+€1800)" ist bereits in der Gesamtsumme enthalten — wer den Satz
+        überliest, hält die Summe für zu hoch. Fehlt die Liste, gibt es keine Warnung; eine leere
+        Zeile wäre hier ein Loch.
+      */}
+      {statement.notes?.map((note) => (
+        <Text key={note} style={styles.statementNote}>
+          · {note}
+        </Text>
+      ))}
     </View>
   )
 }
@@ -533,6 +561,102 @@ function ResultsChapter({ input }: { input: PdfReportInput }) {
   )
 }
 
+/**
+ * Das Lastgang-Diagramm im Fluss.
+ *
+ * ── ⚠ KEIN KASTEN, KEIN RAHMEN — und das ist eine Entscheidung, keine Auslassung ───────────────
+ * Am Bildschirm steht der Chart in einer umrahmten Karte, weil er dort neben anderen Karten liegt
+ * und sich von ihnen abgrenzen muss. Auf einem Blatt gibt es diese Nachbarn nicht: ein Rahmen um
+ * ein Diagramm, das ohnehin allein zwischen zwei Absätzen steht, ist ein Strich ohne Aufgabe. Das
+ * Bild läuft deshalb frei im Satzspiegel, mit der Bildunterschrift direkt darunter.
+ *
+ * ── ⚠ DIE HÖHE KOMMT AUS `fitRasterToWidth` UND NIRGENDS SONST ────────────────────────────────
+ * Falle 3 des Spikes (§2.4): eine von Hand gesetzte Höhe streckt oder staucht das Bild, ohne dass
+ * irgendetwas kaputt aussieht — gemessen 13,6 % vertikale Streckung, am Bildschirm unsichtbar und
+ * erst im 300-dpi-Vergleich aufgefallen.
+ *
+ * ⚠ `wrap={false}` um Bild UND Unterschrift: eine Bildunterschrift auf der Folgeseite gehört zu
+ * einem Bild, das der Leser nicht mehr sieht. Der Block ist mit rund 160 pt Bildhöhe deutlich
+ * kleiner als der Satzspiegel — ein `wrap={false}`-Block, der die Seite sprengt, würde
+ * abgeschnitten statt umzubrechen.
+ */
+function ChartFigure({
+  charts,
+  legend,
+}: {
+  charts: ReportChartRasters
+  legend: ReturnType<typeof buildRecommendationChapter>['chart']
+}) {
+  if (!charts.load) {
+    /*
+     * Ein fehlgeschlagenes Bild kostet nicht das Dokument (s. `charts.tsx`) — aber es wird
+     * BENANNT. Still weggelassen suchte der Leser nach einem Absatz, der nie kam; und die Zahlen
+     * um diese Stelle herum sind davon nachweislich unberührt, weil sie aus dem Ergebnis stammen
+     * und nicht aus dem Bild.
+     */
+    return (
+      <Text style={styles.figureMissing}>
+        Das Lastgang-Diagramm konnte auf diesem Gerät nicht erzeugt werden. Die Zahlen in diesem
+        Dokument sind davon nicht betroffen — sie stammen aus der Berechnung, nicht aus der
+        Abbildung.
+      </Text>
+    )
+  }
+
+  const box = fitRasterToWidth(charts.load, PDF_CONTENT_WIDTH_PT)
+  return (
+    <View style={styles.figure} wrap={false}>
+      <Image src={charts.load.dataUrl} style={{ width: box.width, height: box.height }} />
+      <Text style={styles.figureCaption}>{legend.caption}</Text>
+      {/*
+        Genau eine der beiden steht: die Spitzenkappungs-Aussage ODER die Erklärung, warum keine
+        Kapp-Linie im Bild ist. Die Entscheidung fällt in `recommendation.ts` und nicht hier — die
+        Frage „darf diese Aussage im Dokument stehen" ist fachlich (Delta 3) und hätte an zwei
+        Orten zwei Antworten.
+      */}
+      {legend.capStatement && <Text style={styles.figureStatement}>{legend.capStatement}</Text>}
+      {legend.noCapNote && <Text style={styles.figureCaption}>{legend.noCapNote}</Text>}
+    </View>
+  )
+}
+
+/**
+ * B23c-2 — Empfehlung, Lastgang-Diagramm und Ladesteuerung.
+ *
+ * ── ⚠ DAS BILD IST HIER SCHON FERTIG ──────────────────────────────────────────────────────────
+ * `charts` kommt als fertige Data-URI herein und wird in diesem Baum NICHT erzeugt. Rastern
+ * verlangt ein DOM und mehrere Frames; der Dokumentbaum ist synchron und läuft zwei- bis dreimal
+ * (`render.tsx`). Ein Chart, der hier entstünde, entstünde je Durchlauf neu — und zwei Bilder mit
+ * um einen Bildpunkt abweichender Höhe verschöben den Umbruch, worauf der Agenda-Wächter
+ * anschlüge, ohne dass die Ursache irgendwo im Dokument stünde.
+ *
+ * ── ⚠ WAS AUF DIESER SEITE STEHT, ENTSCHEIDET `recommendation.ts` ─────────────────────────────
+ * Hier wird gerendert, was die Ableitung liefert. Keine Verzweigung an einem Contract-Feld in
+ * diesem JSX — dieselbe Regel wie beim Kernergebnis-Kapitel: fehlt eine Aussage, fehlt sie schlicht.
+ */
+function RecommendationChapter({
+  input,
+  charts,
+}: {
+  input: PdfReportInput
+  charts: ReportChartRasters
+}) {
+  const chapter = buildRecommendationChapter(input.analysis)
+
+  return (
+    <View style={styles.body}>
+      <Text style={styles.h2}>{RECOMMENDATION_SECTION.title}</Text>
+      <Text style={styles.lead}>{RECOMMENDATION_INTRO}</Text>
+
+      {chapter.recommendation && <Statement statement={chapter.recommendation} />}
+
+      <ChartFigure charts={charts} legend={chapter.chart} />
+
+      {chapter.loadControl && <Statement statement={chapter.loadControl} />}
+    </View>
+  )
+}
+
 function MethodologyChapter() {
   return (
     <View style={styles.body}>
@@ -560,10 +684,16 @@ function MethodologyChapter() {
  */
 export function ReportDocument({
   input,
+  charts,
   agenda,
   sink,
 }: {
   input: PdfReportInput
+  /**
+   * Die fertigen Chart-Bilder — EINMAL je Dokument erzeugt (`render.tsx` → `charts.ts`), nicht je
+   * Durchlauf. Bit-identisch über alle Durchläufe und damit derselbe Umbruch; s. `ChartFigure`.
+   */
+  charts: ReportChartRasters
   agenda: AgendaPageNumbers
   sink: PageNumberSink
 }) {
@@ -591,6 +721,12 @@ export function ReportDocument({
         <PageFurniture sink={sink} />
         <SectionAnchor id={RESULTS_SECTION.id} sink={sink} />
         <ResultsChapter input={input} />
+      </Page>
+
+      <Page size="A4" style={styles.page}>
+        <PageFurniture sink={sink} />
+        <SectionAnchor id={RECOMMENDATION_SECTION.id} sink={sink} />
+        <RecommendationChapter input={input} charts={charts} />
       </Page>
 
       <Page size="A4" style={styles.page}>

@@ -3,7 +3,7 @@ import { Document, Image, Page, StyleSheet, Text, View, pdf } from '@react-pdf/r
 import type { ChartRaster } from './chart-raster'
 import { fitRasterToWidth } from './chart-raster'
 import { registerReportFonts } from './fonts'
-import { PDF_COLORS, PDF_LAYOUT, PDF_TYPE } from './theme'
+import { PDF_COLORS, PDF_CONTENT_WIDTH_PT, PDF_LAYOUT, PDF_TYPE } from './theme'
 
 /**
  * B23b — das Mini-Dokument des Chart-Prüfstands: EIN Rasterbild, sonst nichts.
@@ -23,8 +23,13 @@ import { PDF_COLORS, PDF_LAYOUT, PDF_TYPE } from './theme'
  * ist es gerade egal" ist genau die, die beim nächsten Kopieren mitwandert.
  */
 
-/** Nutzbare Satzbreite einer A4-Seite unter dem Report-Layout: 595 pt − 2 × 48 pt. */
-export const PDF_CONTENT_WIDTH_PT = 595 - 2 * PDF_LAYOUT.pageHorizontal
+/**
+ * ⚠ Die Konstante wohnt seit B23c-2 in `theme.ts` — das Report-Dokument bettet seine Chart-Bilder
+ * in derselben Breite ein, und zwei Satzspiegel liessen dieses Prüf-PDF eine Einbettung belegen,
+ * die es im Report nicht gibt. Hier bleibt der Re-Export, damit der Prüfstand sie unverändert
+ * unter ihrem Namen liest.
+ */
+export { PDF_CONTENT_WIDTH_PT }
 
 const styles = StyleSheet.create({
   page: {

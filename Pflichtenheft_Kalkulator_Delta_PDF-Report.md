@@ -121,7 +121,8 @@ Ohne Fehler, ohne Warnung, mit **0 Konsolenfehlern** — und der Rückruf läuft
 | **B23a** | Dokumentgerüst: Deckblatt, Kopf-/Fusszeile mit Seitenzahl, Agenda mit Seitenverweisen, Methodik-Kapitel, Fontweg, Titel-/Untertitel-Ableitung, die zwei Dokument-Felder im Gate-Dialog, unverlinkte Prüfroute | **gebaut, 03.09.2026** |
 | **B23b** | Charts als Rasterbild: generische Pipeline (`chart-raster.ts` + `chart-capture.ts`), an drei strukturell verschiedenen Chart-Typen bewiesen, Downsampling, Seitenverhältnis | **gebaut, 03.09.2026** (s. D11) |
 | **B23c-1** | Contract-Erweiterung (`PdfReportInput.analysis`) und die Executive Summary „Kernergebnisse" — Kern-Kennzahl plus drei bis vier abgeleitete Kernaussagen, kein Chart | **gebaut, 03.09.2026** (s. D12) |
-| **B23c-2/3/4** | Die übrigen Bestands-Report-Karten im neuen Fluss (Charts über die B23b-Pipeline, Annahmen-Snapshot, Warnungen) — **erst danach ist der Cutover möglich** | offen |
+| **B23c-2** | Empfehlung, Ladesteuerung und der ERSTE Chart im Dokument (Lastgang mit Kapp-Linie) über die B23b-Pipeline | **gebaut, 03.09.2026** (s. D13) |
+| **B23c-3/4** | Die übrigen Report-Charts (Monatsvergleich, Heatmap samt Anker, Kostenvergleich, Tages-Energiefluss, Grenznutzen, Ø-Ladepreis), Annahmen-Snapshot, Datenqualität und Warnungen — **erst danach ist der Cutover möglich** | offen |
 | **B23d** | Calls-to-Action-Seite | offen, hängt an einer noch nicht getroffenen Entscheidung: Kontakthinweis gegen QR-Code |
 | **Cutover** | Umschalten des Kunden-Knopfes, Rückbau des CSS-Wegs (`print-cover`, `print-frame`, `print-methodology`, `print-assumptions-snapshot`, `@media print`) | **nicht Teil dieser Zerlegung** — eigene Entscheidung, nachdem B23c inhaltliche Parität hergestellt hat |
 
@@ -133,7 +134,7 @@ Ohne Fehler, ohne Warnung, mit **0 Konsolenfehlern** — und der Rückruf läuft
 
 ## D9 — ⚠ Der neue Weg ist NICHT live, und das ist eine Zusage
 
-Der Knopf im Rechner löst unverändert `window.print()` aus. Der react-pdf-Weg ist ausschliesslich über die unverlinkte, `noindex`-Route `/pdf-report-probe` erreichbar. **Umgeschaltet wird erst, wenn B23c vollständig ist** — vorher wäre der neue Report ein Rückschritt: mit B23c-1 trägt er Deckblatt, Agenda, Kernergebnisse und Methodik, aber noch keine Grafik und keine Empfehlung.
+Der Knopf im Rechner löst unverändert `window.print()` aus. Der react-pdf-Weg ist ausschliesslich über die unverlinkte, `noindex`-Route `/pdf-report-probe` erreichbar. **Umgeschaltet wird erst, wenn B23c vollständig ist** — vorher wäre der neue Report ein Rückschritt: mit B23c-2 trägt er Deckblatt, Agenda, Kernergebnisse, Empfehlung, das Lastgang-Diagramm und Methodik, aber noch nicht die übrigen sechs Grafiken, den Annahmen-Snapshot und die Datenqualität.
 
 Die Prüfroute enthält bewusst **nicht** den Gate-Dialog: der schreibt einen echten Lead nach `platform.leads`, und eine Prüfroute, die das kann, verfälscht genau die Statistik, für die die Herkunft `rechner-report` existiert.
 
@@ -146,7 +147,8 @@ Die Prüfroute enthält bewusst **nicht** den Gate-Dialog: der schreibt einen ec
 - **`[OFFEN]` Der Ladezustand beim ersten Export** (Spike §6 (e)): der Lazy-Chunk (≈ 307 kB gzip) lädt beim ersten Klick. Lokal unter 200 ms, über eine echte Leitung nicht. Die Prüfroute zeigt „Wird erzeugt …"; der spätere Kunden-Knopf braucht dasselbe.
 - **`[OFFEN]` Kerning** (Spike §6 (c)) — „aWATTar" steht in react-pdf mit sichtbarer Lücke zwischen den beiden T. Kosmetisch, am Papier sichtbar.
 - **`[OFFEN]` Kein automatischer Wächter gegen die `lineHeight`-Falle** (D7).
-- **`[OFFEN]` Die Kernergebnis-Seite sagt im KATALOG-Fall nichts zur Kaufentscheidung** (D12) — sie zeigt dort Kern-Kennzahl und die gerechnete §3.7-Aufschlüsselung, aber weder Investition noch Amortisation noch eine Empfehlung. Bewusste Lücke; ob und in welcher Sprache der Neuanschaffungs-Fall eine eigene Aussage bekommt, ist eine eigene Entscheidung.
+- **`[ERLEDIGT mit B23c-2]` Die Kernergebnis-Seite sagt im KATALOG-Fall nichts zur Kaufentscheidung** (D12). Sie tut es weiterhin nicht — die Kaufaussage steht jetzt im eigenen Kapitel „Empfehlung und Lastverlauf“ (D13), samt Investition, Amortisation, Netto über den Horizont und den §3.8-Warnungen, und zwar in BEIDEN Fällen.
+- **`[OFFEN]` Der Blocker-BEFUND der Ladesteuerung erscheint im PDF gar nicht** (D13) — am Bildschirm trägt ihn eine eigene Karte (betroffene Seite, Grund, Zeitbereiche). Er gehört zu den „was fehlt und warum“-Aussagen und damit in dasselbe Kapitel wie Datenqualität und Warnungen (B23c-4).
 - **`[OFFEN]` Waisenschutz für die Schluss-Fussnote der Kernergebnis-Seite** (D12) — `minPresenceAhead` ist gemessen wirkungslos; heute tritt der Fall in keinem der drei Prüfläufe auf, ist aber eine Eigenschaft des Textes und keine Zusage des Layouts.
 - **Nicht Teil dieses Deltas** (Spike §6 (g)): Barrierefreiheit/PDF-Tags, PDF/A, Dateigrösse eines vollständigen Reports mit sieben Charts, Verhalten auf Safari/iOS — gemessen wurde ausschliesslich Chromium.
 - **White-Label bleibt `[v2]`.** Ein PDF trägt kein Stylesheet des Betrachters; die Farben werden beim Erzeugen eingebrannt. Sobald White-Label real wird (MVP §7; `platform.partners` trägt heute weder Logo noch Farbe), wandert `PDF_COLORS` von einer Konstante zu einem Parameter des Dokuments.
@@ -273,3 +275,120 @@ zu lassen.
 Seite Kern-Kennzahl und die gerechnete §3.7-Aufschlüsselung des bestgereihten Geräts — keine
 Kaufempfehlung, keine Investition, keine Amortisation. **Gemessen:** die Wörter „Investition",
 „Amortisation" und „zusätzlicher Speicher" kommen im Katalog-PDF 0× vor.
+
+---
+
+## D13 — B23c-2: die erste Karte mit Chart im echten Dokument
+
+**Gebaut am 03.09.2026.** Damit steht zum ersten Mal ein über die B23b-Pipeline gerastertes Chart
+IM Zwei-/Drei-Pass-Dokument aus B23a — bis hierher waren beide Hälften getrennt bewiesen (ein Chart
+in einem Mini-PDF, ein Dokument ohne Chart).
+
+**Das neue Kapitel ist EINES und heisst „Empfehlung und Lastverlauf".** Es trägt in dieser
+Reihenfolge: die Kaufaussage, das Lastgang-Diagramm im Fluss, die Ladesteuerungs-Aussage. Das Bild
+steht bewusst ZWISCHEN den beiden Textteilen — es ist der Beleg für die Kapp-Schwelle, von der die
+Empfehlung darüber lebt, und der Anschauungsgegenstand für die Ladesteuerung darunter. Als eigene
+`<Page>` dazwischen wäre es ein Kapitel ohne Aussage, hinter beiden Texten ein Anhang. Es ist eine
+eigene `<Page>` (D5, Regel 1) und rendert ohne Rahmen und ohne Kasten: am Bildschirm grenzt die
+Karte den Chart gegen ihre Nachbarn ab, auf einem Blatt gibt es diese Nachbarn nicht.
+
+### Die Orchestrierung ist der Kern, nicht die Textkarten
+
+**Das Bild entsteht GENAU EINMAL je Dokument, VOR dem ersten Renderdurchlauf** (`charts.tsx`,
+aufgerufen aus `render.tsx`), und wandert als fertige Data-URI in alle Durchläufe. Zwei Gründe, und
+der zweite wiegt schwerer:
+
+1. Rastern braucht ein DOM und mehrere Frames (`chart-capture.ts`); der Dokumentbaum ist gegenüber
+   `pdf(...).toBlob()` synchron und kann darauf nicht warten.
+2. Alle Durchläufe müssen BIT-IDENTISCHE Bilder bekommen. Je Durchlauf neu gerastert könnte eine um
+   einen Bildpunkt abweichende Höhe den Umbruch verschieben — dann schlüge der Agenda-Wächter
+   (`measurementsAgree`) an, und die Ursache stünde nirgends im Dokument.
+
+**Gemessen statt behauptet:** ein Zähler an der Rasterung selbst (`reportChartBuildCount()`) liefert
+`chartBuilds` — in allen drei Prüfläufen **1 bei 2 Durchläufen**.
+
+> **⚠ Die erste Fassung dieser Messung war eine Tautologie, und die Wächter-Probe hat sie gefangen.**
+> Die Differenz wurde unmittelbar nach dem einen Aufruf gebildet; mit der Rasterung in `renderPass`
+> verschoben (also der FALSCHEN Architektur) blieb sie deshalb fälschlich bei 1. Sie wird jetzt über
+> die GANZE Erzeugung gebildet und meldet in derselben Probe korrekt **3**.
+
+### Der Contract ist NICHT gewachsen — und das ist ein Befund
+
+`PdfReportAnalysis` bleibt derselbe `Pick<…>` aus B23c-1. Empfehlungs-Aussage,
+Ladesteuerungs-Aussage und Chart lesen zusammen genau die sechs Felder, die bereits dort stehen —
+`dispatchTrace` mit der Kapp-Schwelle hängt an `perBattery`/`existingBatteryAnalysis`, wie
+`types.ts` es vorhergesagt hatte. Ein Feld ohne nachweisbare Verwendung kommt nicht dazu, nur weil
+ein Schritt „gross" ist.
+
+**Gewachsen ist der EINGANG um `PdfReportInput.loadProfile`** — den rohen Lastgang. Der steht
+bewusst NICHT im `AnalysisResult` (`DispatchTrace` führt ausdrücklich keine Rohreihe) und kommt
+deshalb als eigenes Feld, genau wie am Bildschirm (`report.tsx` bekommt `loadProfile` neben dem
+Ergebnis). Er ist der volle `LoadProfile` und kein `Pick<…>`: das Bild entsteht aus der
+UNVERÄNDERTEN Produktionskomponente `LoadChart`, und deren Prop ist der volle Typ — sie dafür
+aufzuweichen hiesse, eine Bildschirm-Komponente für den PDF-Weg anzufassen (Contract-Entscheidung 1).
+
+### Dieselbe Schweigeregel wie D12, an zwei neuen Stellen
+
+- Die **Ladesteuerungs-Aussage** entfällt VOLLSTÄNDIG bei `tariffOptimization?.computable !== true`.
+  **Gemessen** (Prüflauf „Blocker"): sie kommt 0× vor, „Börsenpreis" 0×, „Ladesteuerung" 0×.
+- Die **Spitzenkappungs-Aussage** (Kapp-Schwelle, abgefangene Spitzen, abgerechneter Wert vorher →
+  nachher) entfällt, wenn der Speicher den abgerechneten Leistungswert nicht senkt. An ihrer Stelle
+  steht dann eine Aussage über das BILD — warum keine gestrichelte Linie darin ist —, keine über
+  eine Ersparnis. **Gemessen:** im Bestands- und im Blocker-Fall (`buildExistingBatteryCandidate`
+  setzt `controlType: 'static'`) fehlt sie, im Katalog-Fall steht sie samt Schwelle.
+
+**Was dieses Kapitel bewusst NICHT wiederholt:** die Ladesteuerungs-Aussage trägt KEINE Kopfzahl —
+sie wäre bit-identisch mit der auf der Kernergebnis-Seite, und zwei gleich grosse Beträge unter zwei
+ähnlichen Überschriften laden dazu ein, sie zu addieren. Aus demselben Grund fehlt die Warnung
+„aWATTar wäre derzeit teurer": sie ist rechnerisch dieselbe Aussage wie die Kernergebnis-Zeile „Was
+aWATTar Sie zusätzlich kosten würde" (`surcharge = −totalEur`, dieselben drei Summen).
+
+**Der Engine-Satz `recommendation.rationale` wird bewusst nicht übernommen:** er formatiert seine
+Beträge selbst (`€1234` über `toFixed(0)`, `rank.ts`) und stünde im selben Dokument neben
+`formatEur` („€ 1.234"). Dieselben Grössen stehen als Zeilen; nur ihre Formatierung ist die des
+Dokuments.
+
+### Gemessen am erzeugten PDF
+
+Drei Läufe über die echte Prüfroute gegen den Production-Build, **82 Prüfungen, alle grün, 0
+Konsolenfehler, 0 Seitenfehler**:
+
+| | Bestand | Blocker | Katalog |
+|---|---|---|---|
+| Seiten | 8 | 7 | 8 |
+| Durchläufe / Rasterungen | 2 / **1** | 2 / **1** | 2 / **1** |
+| Rasterbild | 2700 × 864 px | 2700 × 864 px | 2700 × 864 px |
+| Stützpunkte der Kurve | **2.920** | 2.920 | 2.920 |
+| Kapitel-Aussagen | Empfehlung, keine Kapp-Linie, Ladesteuerung | Empfehlung, keine Kapp-Linie | Empfehlung, **Kapp-Aussage**, Ladesteuerung |
+
+- **Downsampling auf dem echten Weg:** 2.920 Stützpunkte am gerenderten `<path>` gezählt (bei 35.040
+  Rohwerten) — exakt die Zahl aus B23b und Spike §4.
+- **Seitenverhältnis gegen die tatsächliche Platzierung:** intrinsische Grösse des Bild-XObjects aus
+  dem Rohstrom des PDF (2700 × 864 → 3,125000) gegen die `cm`-Matrix der Platzierung
+  (499,00 × 159,68 pt → 3,125000). Auf sechs Nachkommastellen gleich, in allen drei Läufen.
+- **Die Kurve ist wirklich im PDF, nicht bloss ein Kasten:** das eingebettete RGB-XObject entpackt
+  und Bildpunkte gezählt — Katalog: Lastgang-Kurve `#475569` **421.964**, Kapp-Linie `#0f766e`
+  **6.604**, abgefangene Spitzen `#b45309` **4.237**. Bestand/Blocker: Kurve **426.004**, Kapp-Linie
+  **0**, Spitzen **0** — die fehlende Kapp-Linie ist damit auch im BILD nachgewiesen und nicht nur
+  im Text.
+- **Agenda erneut gemessen**, nicht aus B23c-1 übernommen: jeder Agenda-Eintrag gegen die
+  TATSÄCHLICHE erste Seite seines Kapitels — Kernergebnisse 3/3/3, Empfehlung und Lastverlauf
+  5/4/5, Methodik 7/6/7. Die Abweichung des Blocker-Laufs ist der Beleg, dass gemessen und nicht
+  abgezählt wird.
+
+**Drei Wächter-Proben, jede bringt gezielt Rot:** (1) `computable`-Gate entfernt → **genau 3** rot,
+alle im Blocker-Lauf. (2) Kapp-Bedingung entfernt → **genau 2** rot, und im PDF steht dann wörtlich
+„Kapp-Schwelle … zwischen kW und - kW" (`Math.min` über eine leere Liste) und „sinkt dadurch von
+50,8 kW auf 50,8 kW" — der Unsinn, den die Bedingung verhindert. (3) Rasterung in `renderPass`
+verschoben → **genau 3** rot, `chartBuilds` meldet 3 statt 1.
+
+### Bündelgrösse
+
+`/rechner` First Load: **581.268 → 584.360 Bytes gzip**, roh dagegen **1.919.673 → 1.919.820 Bytes
+(+147)**. Der Unterschied ist reine Chunk-Graph-Buchhaltung: der Graph hat einen Chunk mehr
+(16 → 17), weil `charts.tsx` die Produktionskomponente `LoadChart` zieht und Next daraufhin ein paar
+`shared`-zod-Module in einen eigenen, geteilten Chunk auslagert (1.937 Bytes, Inhalt nachgesehen);
+mehr, kleinere gzip-Ströme komprimieren schlechter. **Gemessen: über den GESAMTEN
+`/rechner`-First-Load-Satz kommen `@react-pdf`, `fitRasterToWidth`, `reportChartBuildCount` und
+jeder Text des neuen Kapitels 0× vor** — es ist kein neuer Code auf der Route, nur eine andere
+Aufteilung. `/pdf-report-probe` bleibt bei 117 kB.
