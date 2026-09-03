@@ -1687,12 +1687,59 @@ der Abzug trägt die Notiz automatisch mit. **Endstand: unverändert 7 Tarifzeil
 > `delete`-Grant. Beide Zeilen sind an `operator_id = 'zz_b21_2d_probe'` und
 > `deleted_by = 'b21-2d-probe@test.local'` als Prüfvorgänge erkennbar.
 
+**Stand Cloud (verifiziert 03.09.2026, B21-2e):** Migration `20260903090000` angewandt,
+`migration list --linked` zeigt lokal = Cloud. **Vorher-Baseline vor dem Push gemessen**
+(Arbeitsregel 3): `backfill_grid_tariff` existierte **0×**, die Spalte `grid_tariffs.backfilled_at`
+**0×**, Rechtefläche exakt wie in der Tabelle oben, Bestand 7 Tarifzeilen / 10 Zeitfenster /
+3 Löschprotokollzeilen / 14.663 Spotpreise, alle sieben Zeilen `valid_from = 2026-01-01` und **keine**
+mit `valid_until`. **Nachher:** die Funktion existiert genau einmal mit `prosecdef = false`, EXECUTE
+nur für `service_role` (`anon`/`authenticated`/`public` je `false`, per `has_function_privilege` —
+kein Aufruf als Rolle ohne Grant, Arbeitsregel 5), die Spalte ist `timestamptz`, **nullable, ohne
+Default**, und die **Rechtefläche ist Zeichen für Zeichen unverändert** — der Nachtrag kommt mit den
+bereits vergebenen Rechten aus (s. die Stufenmessung weiter oben).
+
+**Der reine Push hat am Datenbestand NICHTS geändert:** dieselben sieben Zeilen mit denselben IDs,
+dasselbe `valid_from`, weiterhin keine mit `valid_until` — und **alle sieben tragen `backfilled_at`
+= `null`**. Das ist kein ausgebliebener Backfill, sondern bereits die zutreffende Aussage: sie wurden
+vorwärts angehängt, nicht nachgetragen (deshalb gibt es bewusst keinen Default).
+
+**Der Weg ist gegen die Produktion FUNKTIONAL gemessen, nicht nur introspektiv** — an einer eigens
+angelegten Kombination unter dem Betreiber `zz_b21_2e_probe`, damit die sieben echten
+Wiener-Netze-Zeilen unangetastet bleiben; jeder Aufruf als **`service_role`** (die Grants greifen
+also wirklich):
+
+| Vorgang | Ergebnis |
+|---|---|
+| `create_grid_tariff`, `valid_from 2026-01-01`, 1 Fenster | `created`, `window_count 1` |
+| `backfill_grid_tariff`, `valid_from 2025-01-01`, 1 Fenster | **`backfilled`**, `new_valid_until` **2025-12-31** (= `2026-01-01 − 1 Tag`), `preceded_valid_from 2026-01-01` |
+| Zustand danach | neue Zeile 2025-01-01 → 2025-12-31 mit **gesetztem `backfilled_at`**; die 2026er Zeile **unverändert offen** und `backfilled_at = null` |
+| Anzeigename der neuen Zeile | aus dem Bestand übernommen (der Wrapper hat dafür keinen Parameter) |
+| `backfill_grid_tariff`, `valid_from 2025-06-01` (MITTEN in der Historie) | **`not_before_oldest`** mit `min_valid_from 2025-01-01` — und **keine dritte Zeile** entstanden |
+| beide Testzeilen über `delete_grid_tariff` entfernt | je `deleted`, Kaskade nimmt das Zeitfenster mit |
+
+**Endstand: unverändert 7 Tarifzeilen / 10 Zeitfenster / 14.663 Spotpreise, 0 Test-Reste, alle sieben
+`backfilled_at = null`.** Der Löschabzug trägt die neue Spalte **automatisch** mit (`to_jsonb(t)`,
+B21-2c zählt keine Spalten auf) — im Protokoll der nachgetragenen Testzeile steht `backfilled_at`
+mit Zeitstempel, in dem der vorwärts angelegten `null`.
+
+> ⚠️ Das Löschprotokoll ist dabei von 3 auf **5** Zeilen gewachsen (die zwei Test-Stände). Das ist
+> beabsichtigt und nicht rückgängig zu machen — es gibt für `grid_tariff_deletions` bewusst kein
+> `delete`-Grant. Beide Zeilen sind an `operator_id = 'zz_b21_2e_probe'` und
+> `deleted_by = 'b21-2e-probe@test.local'` als Prüfvorgänge erkennbar. **Die Alternative wäre
+> gewesen, an einer ECHTEN Wiener-Netze-Zeile nachzutragen und sie anschliessend ganz zu löschen** —
+> also produktive Preisblattdaten zu entfernen und mit neuer Kennung neu anzulegen; die gemessene
+> Aussage wäre dieselbe gewesen, der Preis ungleich höher.
+
 ### Offen: die Preisblätter selbst
 
-Die Tabellen sind weiterhin leer. Was fehlt, sind die **Zahlen** — sie kommen aus den Preisblättern
-der Netzbetreiber und, für Netzebene 7 ab 2027, aus der noch nicht erlassenen Tarifverordnung
-(SNE-T-V). Bis dahin gibt es für diese Zeiträume automatisch keine Berechnungsgrundlage; genau das
-ist der Nebeneffekt der Effektiv-Datierung und kein Mangel (§3b).
+⚠️ Der frühere Satz „die Tabellen sind weiterhin leer" stimmt seit dem **01.09.2026** nicht mehr:
+`grid_tariffs` führt die **sieben** Zeilen des Wiener-Netze-Preisblatts WN-EX0105 (NE 3–6 plus die
+drei NE-7-Varianten, alle gültig ab 01.01.2026) mit **10** Zeitfenstern. Was weiterhin fehlt, sind
+die **übrigen Netzbetreiber** — ihre Zahlen kommen aus deren Preisblättern — und, für Netzebene 7 ab
+2027, die noch nicht erlassene Tarifverordnung (SNE-T-V). Bis dahin gibt es für diese Zeiträume
+automatisch keine Berechnungsgrundlage; genau das ist der Nebeneffekt der Effektiv-Datierung und kein
+Mangel (§3b) — und **für einen Zeitraum VOR dem ältesten erfassten Stand ist genau das ab B21-2e
+nachträglich behebbar**, ohne SQL-Editor.
 
 **Stromanbieter-Tarife (`retail_tariffs`) sind NICHT Teil von B21-2b** — Delta 5 nennt beide Seiten
 gemeinsam, für diesen Bauabschnitt ist ausdrücklich entschieden, nur die Netzbetreiber-Seite zu bauen.
