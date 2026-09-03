@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
 import { DATENSCHUTZ_URL } from '@/lib/constants'
 import { loadReportGateConsentText, submitReportGate } from '@/lib/report-gate/actions'
 
@@ -52,6 +53,28 @@ import { loadReportGateConsentText, submitReportGate } from '@/lib/report-gate/a
  * dieselbe Auswahlregel, mit der `capture_lead` ihn archiviert. Liefert sie nichts, wird die
  * Ankreuzmöglichkeit GAR NICHT gezeigt und das Absenden bleibt gesperrt: ein hier hartkodierter
  * Ersatztext wäre ein Nachweis über einen Wortlaut, der nirgends steht.
+ *
+ * ── B23a — ZWEI ZUSÄTZLICHE FELDER FÜR DAS DOKUMENT, UND SIE SIND ABSCHALTBAR ──────────────────
+ * Der neue PDF-Report (react-pdf) trägt einen frei wählbaren TITEL und eine optionale ADRESSE auf
+ * dem Deckblatt. Beide werden hier erhoben — aber NUR, wenn der Aufrufer sie über `documentFields`
+ * anfordert.
+ *
+ * ⚠ WARUM NICHT BEDINGUNGSLOS, obwohl die Aufgabenstellung „zwei neue Felder" lautete: der neue
+ * Weg ist in dieser Fassung ausdrücklich NICHT live (B23a; umgeschaltet wird mit B23c). Der Knopf
+ * im Rechner löst weiterhin `window.print()` gegen das Print-Stylesheet aus, und dessen Deckblatt
+ * (`print-cover.tsx`, in dieser PR unangetastet) kennt weder Titel noch Adresse. Bedingungslos
+ * gerendert wären die zwei Felder deshalb genau das, was dieses Repo an anderer Stelle als
+ * „Requisite" verwirft: erhoben, angezeigt, und ohne jede Wirkung — der alte Stub
+ * `lead-dialog.tsx` tut bis heute genau das mit „Funktion/Rolle".
+ *
+ * Bei der ADRESSE wäre es zusätzlich mehr als eine Kosmetik: nach einer Anschrift zu fragen und sie
+ * anschliessend zu verwerfen ist eine Erhebung ohne Zweck — und zwar personenbezogen. Die Adresse
+ * wird deshalb weder gespeichert noch übertragen (kein Feld in `ReportGateSubmission`, keine Spalte
+ * in `platform.leads`, kein Parameter in `capture_lead`); sie lebt im Zustand dieses Dialogs und
+ * geht von dort in das Dokument, das der Browser erzeugt.
+ *
+ * OHNE `documentFields` ist diese Komponente Zeile für Zeile die bisherige — dieselben vier
+ * Pflichtfelder, derselbe Honeypot, dieselbe Einwilligung, dieselbe Absendung.
  */
 
 /* Getypt über `ReportGateFieldKey` (nicht `Record<string, string>`): ein neues Feld in `shared`
@@ -69,19 +92,54 @@ const FIELD_ERROR_TEXT: Record<string, string> = {
   emailInvalid: 'Bitte eine gültige E-Mail-Adresse eingeben.',
 }
 
-export type ReportGateCustomer = { name: string; company: string }
+/**
+ * Die Werte fürs Deckblatt.
+ *
+ * `name`/`company` stammen aus der ERFASSUNG (sie stehen danach in `platform.leads`).
+ * `title`/`address` sind reine DOKUMENT-Angaben und entstehen nur, wenn der Aufrufer sie über
+ * `documentFields` angefordert hat — sonst bleiben sie `undefined`, und der bestehende Aufrufer
+ * (`step-result.tsx`) sieht keinen Unterschied.
+ */
+export type ReportGateCustomer = {
+  name: string
+  company: string
+  /** B23a. `undefined`, wenn `documentFields` nicht angefordert war. */
+  title?: string
+  /** B23a. Freitext, mehrzeilig, optional — wird NICHT gespeichert (s. Kopf). */
+  address?: string
+}
+
+/**
+ * B23a — die Dokument-Felder anfordern.
+ *
+ * `defaultTitle` wird HEREINGEREICHT und nicht hier abgeleitet: die Ableitung braucht das
+ * Rechenergebnis (`defaultReportTitle` in `lib/pdf-report/derive.ts`, sie liest
+ * `tariffOptimization.computable`), und dieser Dialog kennt es nicht. Ihn das Ergebnis lesen zu
+ * lassen, hiesse ein Lead-Formular an den Contract zu binden, von dem es nichts braucht.
+ */
+export type ReportGateDocumentFields = { defaultTitle: string }
 
 export function ReportGateDialog({
   onUnlocked,
+  documentFields,
 }: {
   /** Wird GENAU EINMAL aufgerufen — nach erfolgreicher Erfassung, mit den Werten fürs Deckblatt. */
   onUnlocked: (customer: ReportGateCustomer) => void
+  /** B23a. Fehlt sie, werden Titel und Adresse GAR NICHT gerendert — s. Kopf. */
+  documentFields?: ReportGateDocumentFields
 }) {
   const [open, setOpen] = useState(false)
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [company, setCompany] = useState('')
   const [email, setEmail] = useState('')
+  /*
+   * B23a. Der Titel startet auf dem VORSCHLAG und ist von dort an der Wert des Nutzers — bewusst
+   * ohne Nachführung, wenn sich `defaultTitle` später ändert: was jemand getippt hat, gehört ihm.
+   * Ohne `documentFields` bleiben beide Zustände unberührt und wandern nirgendwohin.
+   */
+  const [title, setTitle] = useState(documentFields?.defaultTitle ?? '')
+  const [address, setAddress] = useState('')
   const [consent, setConsent] = useState(false)
   /** Der Honeypot. Ein Mensch sieht das Feld nicht und lässt es daher leer. */
   const [website, setWebsite] = useState('')
@@ -162,7 +220,17 @@ export function ReportGateDialog({
       const response = await submitReportGate(submission)
       if (response.ok) {
         setOpen(false)
-        onUnlocked(response.customer)
+        /*
+         * B23a: Name und Firma kommen aus der ANTWORT DES SERVERS (er hat sie getrimmt und
+         * geschrieben — massgeblich ist, was im Bestand steht). Titel und Adresse kommen aus dem
+         * Formularzustand, weil sie nirgends hingeschickt wurden; ohne `documentFields` sind sie
+         * `undefined` und der bestehende Aufrufer bekommt exakt das bisherige Objekt.
+         */
+        onUnlocked(
+          documentFields
+            ? { ...response.customer, title: title.trim(), address: address.trim() || undefined }
+            : response.customer,
+        )
         return
       }
       if (response.error === 'validation') {
@@ -255,6 +323,46 @@ export function ReportGateDialog({
               error={fieldErrors.email}
             />
           </div>
+
+          {/*
+            B23a — die Dokument-Angaben. Sie stehen UNTER den Pflichtfeldern und optisch abgesetzt,
+            weil sie eine andere Sache sind: die vier oben werden erfasst und gespeichert, diese
+            zwei gestalten nur das Blatt. Sie erscheinen ausschliesslich, wenn der Aufrufer sie
+            angefordert hat — s. Kopf.
+          */}
+          {documentFields && (
+            <div className="flex flex-col gap-3 border-t border-border pt-4">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor={`${ids}-title`}>Titel des Dokuments</Label>
+                <Input
+                  id={`${ids}-title`}
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                />
+                <p className="text-xs text-text-muted">
+                  Vorgeschlagen aus Ihrer Auswertung — Sie können ihn überschreiben.
+                </p>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor={`${ids}-address`}>Adresse (falls bekannt)</Label>
+                <Textarea
+                  id={`${ids}-address`}
+                  value={address}
+                  rows={3}
+                  autoComplete="street-address"
+                  onChange={(e) => setAddress(e.target.value)}
+                />
+                {/*
+                  Der Satz ist keine Beruhigung, sondern eine Tatsache über den Code: es gibt kein
+                  Feld dafür in `ReportGateSubmission`, keine Spalte in `platform.leads` und keinen
+                  Parameter in `capture_lead`.
+                */}
+                <p className="text-xs text-text-muted">
+                  Erscheint nur auf dem Deckblatt. Wird nicht übertragen und nicht gespeichert.
+                </p>
+              </div>
+            </div>
+          )}
 
           {/*
             HONEYPOT — gleicher Feldname (`website`) und gleiche Mechanik wie im Erfassungspfad von
