@@ -1385,15 +1385,16 @@ genau die Verweigerung, die §3a heute im Code abbildet, ohne eine Zeile Sonderf
 
 ---
 
-## 3c. Netzbetreiber-Tarife pflegen (B21-2b/2c/2d) — Admin-UI, kein Dashboard-Eingriff
+## 3c. Netzbetreiber-Tarife pflegen (B21-2b/2c/2d/2e) — Admin-UI, kein Dashboard-Eingriff
 
 Seit **28.08.2026** gibt es für `public.grid_tariffs` und `public.grid_tariff_rate_windows` einen
 Schreibweg: den Admin-Bereich unter **`/admin/netzbetreiber-tarife`**. Migrationen:
 `supabase/migrations/20260828090000_create_grid_tariff_write_path.sql` (Anlegen),
-`…20260901120000_create_grid_tariff_delete_path.sql` (Löschen, seit **01.09.2026**) und
+`…20260901120000_create_grid_tariff_delete_path.sql` (Löschen, seit **01.09.2026**),
 `…20260902180000_add_grid_tariff_rate_window.sql` (ein Zeitfenster ergänzen + Notizfeld, seit
-**02.09.2026**). Fachliche Tiefe: `Pflichtenheft_Kalkulator_Delta_Tarifoptimierung.md`, Delta 5 und
-Delta 10.
+**02.09.2026**) und `…20260903090000_backfill_grid_tariff.sql` (einen FRÜHEREN Stand nachtragen,
+seit **03.09.2026**). Fachliche Tiefe: `Pflichtenheft_Kalkulator_Delta_Tarifoptimierung.md`, Delta 5
+und Delta 10.
 
 ### Im Dashboard ist NICHTS zu tun ✅
 
@@ -1407,6 +1408,8 @@ Schreibweg benutzt den bereits gesetzten `SUPABASE_SERVICE_ROLE_KEY` (§1d).
 |---|---|
 | **Anlegen** | Tarifzeile + 1..n Zeitfenster, in EINEM Vorgang |
 | **Ablösen** | Der bisher offene Stand derselben Kombination wird automatisch auf `valid_from − 1 Tag` beendet |
+| **Früheren Stand nachtragen** | ✅ seit B21-2e: EINE Zeile je Vorgang, **nur VOR dem ältesten** vorhandenen Stand — sie bekommt ihr `valid_until` aus dessen `valid_from − 1 Tag` und wird dadurch **NICHT** zum aktuellen Stand |
+| **Eine Lücke MITTEN in der Historie füllen** | ❌ bewusst nicht — der Guard misst gegen `min(valid_from)`, ein Tag dazwischen wird abgewiesen (s. u.) |
 | **Löschen** | ✅ seit B21-2c: GENAU EINE Zeile je Vorgang, samt ihren Zeitfenstern (Kaskade) — **mit vollständigem Abzug im Löschprotokoll** |
 | **Zeitfenster ergänzen** | ✅ seit B21-2d: EIN Fenster je Vorgang, **nur an einen OFFENEN Stand** — und **nicht mehr einzeln entfernbar** |
 | **Notiz je Zeitfenster** | ✅ seit B21-2d: Freitext für Menschen (Preisblatt-Fussnote, Begründung des Zuschnitts) — geht in **keine** Berechnung ein |
@@ -1488,6 +1491,49 @@ ihn über `to_jsonb(w)` und zählt keine Spalten auf.
 (Grants bleiben): auch Fenster der ersten Stunde können eine Notiz tragen. Ein Aufrufer, der `note`
 nicht mitschickt, bleibt gültig — `jsonb_to_recordset` liefert für ein fehlendes Feld `null`.
 
+### Einen früheren Stand nachtragen (B21-2e) — wofür, und die eine Falle ⚠️
+
+**Wofür:** Ein Lastgang reicht weiter zurück als die erfassten Preisblätter. Bis dahin gab es dafür
+gar keinen Weg — `create_grid_tariff` hängt ausschliesslich nach vorne an und weist alles, was nicht
+hinter dem offenen Stand beginnt, mit `invalid_valid_from` ab; blieb nur der SQL-Editor.
+
+**Der Weg liegt an der ÄLTESTEN Zeile einer Kombination** („Früheren Stand ergänzen"), nicht im
+Abschnitt „Neuen Tarifstand anlegen". `public.backfill_grid_tariff` setzt das `valid_until` der
+neuen Zeile selbst auf `valid_from` der bisher ältesten **minus einen Tag** — lückenlos und
+überlappungsfrei, spiegelbildlich zum Ablösen. Die bestehende Nachbarzeile wird dabei **nicht
+angefasst**.
+
+> ⚠️ **DIE FALLE, gegen die der Rumpf gebaut ist: „NUR GESCHLOSSENE ZEILEN".** Die naheliegende
+> Umsetzung kopiert die Abfrage aus `create_grid_tariff` — und die filtert auf `valid_until is null`,
+> sucht also den OFFENEN Stand. Es gibt aber Kombinationen ohne offenen Stand: der offene wurde über
+> `delete_grid_tariff` entfernt, die abgelösten stehen weiter da. Auf den offenen gefiltert fände die
+> Funktion nichts und legte die neue Zeile **OHNE `valid_until`** an — ein **offener Stand in der
+> VERGANGENHEIT**, unter dem eine Analyse fortan jeden Zeitraum bis heute mit einem historischen
+> Preisblatt rechnete, ohne dass irgendetwas danach aussähe. Deshalb misst der Guard gegen
+> `min(valid_from)` über **ALLE** Zeilen, offene wie geschlossene; im DB-Gate ist genau dieser Fall
+> der zentrale Wächter.
+
+**Statuswerte** (bewusst ANDERE als beim Anlegen, damit eine Antwort allein sagt, welche Funktion sie
+gegeben hat): `backfilled` · `not_before_oldest` (mit `min_valid_from`) · `no_existing_stand` ·
+`no_windows`; dazu `P0001`: `duplicate_valid_from`, `invalid_input`, `invalid_window`.
+
+| | |
+|---|---|
+| **Richtung der Korrektur** | „muss **VOR** diesem Tag beginnen" — beim Anlegen ist es „**NACH**". Ein übernommener Satz schickte den Eintragenden in die verkehrte Richtung |
+| **Kombination** | fest aus der Karte (verstecktes Feld), kein Auswahlfeld — der Guard bezieht sich auf GENAU diese |
+| **Anzeigename** | kommt aus dem Bestand; der Wrapper hat dafür **keinen Parameter** (sonst stünde dieselbe Kennung mit zwei Namen in der Liste) |
+| **Bestätigung** | Ankreuzmöglichkeit, die den entstehenden Zeitraum mit **beiden** Daten nennt und die Unumkehrbarkeit benennt |
+| **Kennzeichnung** | `grid_tariffs.backfilled_at` (nullable, **kein Default**) — in der Liste als „nachgetragen am …". `null` heisst „regulär vorwärts angehängt" und ist für jede vor B21-2e entstandene Zeile bereits die zutreffende Aussage |
+| **Sperre** | `pg_advisory_xact_lock` mit **demselben** Schlüssel wie `create_grid_tariff` — er ist das Einzige, was Backfill und Anlage gegeneinander serialisiert (gemessen); das ERGEBNIS hängt nicht an ihm, die beiden können ihre Entscheidungen nicht gegenseitig verschieben |
+| **Bearbeiten** | ❌ weiterhin nicht — rückgängig macht das nur das Löschen des ganzen Stands (protokolliert) |
+
+**Ein passiver Hinweis, kein Ablaufdatum:** Ein offener Stand, der seit **15 Monaten** unverändert
+ist (gemessen an `created_at`, nicht an `valid_from`), bekommt in der Liste einen Satz dazu. Er
+**sperrt nichts** — ein Tarifstand verfällt nicht, solange kein neues Preisblatt erschienen ist, und
+ein automatisches Ende erfände eine Lücke, die es fachlich nicht gibt. Die Schwelle liegt bewusst
+hinter einem vollen Jahreszyklus samt Quartal Puffer: bei 12 Monaten stünde der Hinweis im
+Normalbetrieb jedes Jahr für ein paar Wochen da und wäre bald ein Möbelstück.
+
 ### Die Rechtefläche — gemessen, nicht abgeleitet ⚠️
 
 `service_role` bekommt **je Tabelle verschieden viel**, und zwar exakt so viel, wie der Schreibweg
@@ -1498,6 +1544,13 @@ tatsächlich braucht:
 | `public.grid_tariffs` | `SELECT` | `DELETE, INSERT, SELECT, UPDATE` |
 | `public.grid_tariff_rate_windows` | `SELECT` | `INSERT, SELECT` |
 | `public.grid_tariff_deletions` | *(gar nichts)* | `INSERT` |
+
+**B21-2e hat daran NICHTS geändert** — der Nachtrag kommt mit den bereits vergebenen Rechten aus.
+Stufenmessung (je Stufe genau ein Recht entzogen, Funktion echt aufgerufen): `grid_tariffs`
+INSERT + SELECT + UPDATE (das `for update`) und `grid_tariff_rate_windows` INSERT sind nötig;
+`grid_tariff_rate_windows.SELECT` und `grid_tariffs.DELETE` sind es **nicht** (⚠️ Unterschied zu
+`add_grid_tariff_rate_window`, das schon für sein `returning id` ein SELECT auf den Zeitfenstern
+braucht — der Backfill fügt sie ohne `returning` ein und zählt über `get diagnostics`).
 
 > ⚠️ **Was B21-2c daran geändert hat — und was ausdrücklich nicht.** Dazugekommen sind `DELETE` auf
 > `grid_tariffs` (der Löschweg selbst) und `SELECT` auf `grid_tariff_rate_windows` (er LIEST die

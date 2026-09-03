@@ -6,8 +6,10 @@ import { AdminError, AdminPanel, AdminSection, Pill, formatDate } from '@/compon
 import { ActionButton } from '@/components/admin/action-button'
 import { TariffScanCandidates } from '@/components/admin/tariff-scan-candidates'
 import { AddRateWindowSection } from '@/components/admin/add-rate-window-form'
+import { BackfillGridTariffSection } from '@/components/admin/backfill-grid-tariff-form'
 import { deleteGridTariffAction } from '@/lib/admin/grid-tariffs-actions'
 import {
+  STALE_OPEN_STAND_MONTHS,
   combinationKey,
   combinationLabel,
   deleteConfirmText,
@@ -17,6 +19,7 @@ import {
   priceBasisLabel,
   seasonLabel,
   shortTime,
+  staleOpenStandMonths,
   type GridTariffRateWindowRow,
   type GridTariffRow,
 } from '@/lib/admin/grid-tariffs'
@@ -102,6 +105,13 @@ export default async function AdminGridTariffsPage() {
    * die Seite eine andere Zusammengehörigkeit an, als die Effektiv-Datierung tatsächlich benutzt.
    * Die Reihenfolge innerhalb einer Gruppe kommt aus der Abfrage: jüngster Stand zuerst.
    */
+  /*
+   * EIN Stichtag für die ganze Seite. Bei mehreren Karten mit je eigenem `new Date()` könnten zwei
+   * Zeilen desselben Aufrufs über einen Monatswechsel hinweg verschieden bewertet werden — an einer
+   * reinen Anzeige folgenlos, aber es gäbe zwei „Jetzt" in einer Antwort.
+   */
+  const now = new Date()
+
   const groups = new Map<string, GridTariffRow[]>()
   for (const row of tariffs) {
     const key = combinationKey(row)
@@ -143,7 +153,7 @@ export default async function AdminGridTariffsPage() {
       <AdminSection
         id="tarif-liste"
         title="Alle Tarifzeilen"
-        description="Je Kombination aus Netzbetreiber, Netzebene und Messvariante steht der aktuelle Stand oben, darunter die abgelösten. Löschen entfernt eine Zeile samt ihren Zeitfenstern und hinterlässt einen vollständigen Abzug im Löschprotokoll — gedacht für Probeeinträge, nicht für die Korrektur eines bereits gerechneten Zeitraums."
+        description="Je Kombination aus Netzbetreiber, Netzebene und Messvariante steht der aktuelle Stand oben, darunter die abgelösten. Am ältesten Stand lässt sich ein früherer nachtragen — für einen Lastgang, der weiter zurückreicht als die bisher erfassten Preisblätter. Löschen entfernt eine Zeile samt ihren Zeitfenstern und hinterlässt einen vollständigen Abzug im Löschprotokoll — gedacht für Probeeinträge, nicht für die Korrektur eines bereits gerechneten Zeitraums."
       >
         {failed ? (
           <AdminError>
@@ -169,8 +179,17 @@ export default async function AdminGridTariffsPage() {
                   </p>
 
                   <ul className="mt-4 flex flex-col gap-4">
-                    {rows.map((row) => {
+                    {rows.map((row, index) => {
                       const open = isOpen(row)
+                      /*
+                       * Die Abfrage sortiert `valid_from` ABSTEIGEND — der älteste Stand einer
+                       * Kombination ist damit der LETZTE Eintrag. Bewusst nicht neu gerechnet: eine
+                       * zweite Ableitung von „der älteste" könnte von der Reihenfolge abweichen, in
+                       * der die Liste ihn anzeigt, und der Nachtrag hinge dann an einer anderen
+                       * Zeile als der, unter der sein Formular steht.
+                       */
+                      const oldest = index === rows.length - 1
+                      const stale = open ? staleOpenStandMonths(row.created_at, now) : null
                       return (
                         <li
                           key={row.id}
@@ -196,11 +215,24 @@ export default async function AdminGridTariffsPage() {
                                 </>
                               )}
                             </p>
-                            {open ? (
-                              <Pill tone="positive">aktuell</Pill>
-                            ) : (
-                              <Pill tone="neutral">abgelöst</Pill>
-                            )}
+                            <div className="flex flex-wrap items-center gap-2">
+                              {/*
+                                Ein nachgetragener Stand ist an seinen Daten NICHT zu erkennen — er
+                                sieht aus wie jeder andere abgelöste. Die Kennzeichnung ist die
+                                einzige Stelle, an der später nachvollziehbar bleibt, dass für diesen
+                                Zeitraum erst SPÄTER eine Berechnungsgrundlage entstanden ist.
+                              */}
+                              {row.backfilled_at && (
+                                <Pill tone="neutral">
+                                  nachgetragen am <Num>{formatDate(row.backfilled_at)}</Num>
+                                </Pill>
+                              )}
+                              {open ? (
+                                <Pill tone="positive">aktuell</Pill>
+                              ) : (
+                                <Pill tone="neutral">abgelöst</Pill>
+                              )}
+                            </div>
                           </div>
 
                           <dl className="mt-3 flex flex-wrap gap-x-8 gap-y-2 text-small">
@@ -284,6 +316,34 @@ export default async function AdminGridTariffsPage() {
                               existingWindows={windowsByTariff.get(row.id) ?? []}
                             />
                           )}
+
+                          {/*
+                            ⚠ REINE ANZEIGE — KEIN BLOCKER, KEIN ABLAUFDATUM.
+                            Ein Tarifstand verfällt nicht: Solange kein neues Preisblatt erschienen
+                            ist, ist der alte weiterhin richtig, und ein automatisches Ende erfände
+                            eine Lücke, die es fachlich nicht gibt. Der Hinweis sagt deshalb nur, wie
+                            lange hier nichts nachgetragen wurde, und lässt jede Handlung offen.
+                          */}
+                          {stale !== null && (
+                            <p className="mt-3 border-t border-line pt-3 text-caption text-text-muted">
+                              Dieser Stand ist seit <Num>{stale}</Num> Monaten unverändert (angelegt{' '}
+                              <Num>{formatDate(row.created_at)}</Num>). Ab{' '}
+                              <Num>{STALE_OPEN_STAND_MONTHS}</Num> Monaten erscheint dieser Hinweis
+                              — er sperrt nichts. Falls inzwischen ein neues Preisblatt vorliegt,
+                              gehört es als neuer Stand oben eingetragen.
+                            </p>
+                          )}
+
+                          {/*
+                            ⚠ NUR AM ÄLTESTEN STAND, und das ist keine Anzeigefrage.
+                            `public.backfill_grid_tariff` fügt AUSSCHLIESSLICH vor dem Minimum ein;
+                            an einer jüngeren Zeile angeboten führte das Formular ausnahmslos in die
+                            Abweisung `not_before_oldest` — ein Weg, der nie funktioniert, ist
+                            schlimmer als keiner. Die Datenbank weist ihn zusätzlich ab; dass die
+                            Oberfläche ihn hier gar nicht erst anbietet, ist die zweite, nicht die
+                            einzige Schranke.
+                          */}
+                          {oldest && <BackfillGridTariffSection oldest={row} />}
 
                           {/*
                             Der Löschknopf steht am FUSS der Zeile, nicht neben der Markierung oben:

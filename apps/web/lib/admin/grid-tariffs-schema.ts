@@ -28,6 +28,7 @@ import {
   NETZEBENEN,
   PRICE_BASES,
   hasMeteringVariant,
+  type MeteringVariant,
 } from './grid-tariffs'
 
 /**
@@ -156,67 +157,103 @@ export const addRateWindowSchema = rateWindowFields
 export type AddRateWindowInput = z.infer<typeof addRateWindowSchema>
 
 /**
- * Die Tarifzeile selbst.
+ * Die Felder EINER Tarifzeile — ohne den Anzeigenamen und ohne die Messvarianten-Regel.
  *
+ * ── ⚠ WARUM DIE FELDER UND DIE REGEL GETRENNT STEHEN (B21-2e) ──────────────────────────────────
+ * Es gibt seither ZWEI Wege, auf denen eine Tarifzeile entsteht: vorwärts angehängt
+ * (`gridTariffSchema`) und rückwärts nachgetragen (`backfillGridTariffSchema`). Beide müssen
+ * dieselben Grenzen und dieselbe Messvarianten-Regel anwenden — ein zweites Mal ausgeschrieben
+ * liefen sie auseinander, und derselbe Eintrag würde je nach Weg angenommen oder abgewiesen.
+ * Dieselbe Aufteilung, die `rateWindowFields` weiter oben schon für die Zeitfenster hat, und aus
+ * demselben Grund: `.superRefine()` liefert ein `ZodEffects`, darauf gibt es kein `.extend()` mehr.
+ *
+ * ⚠ `operatorName` steht bewusst NICHT hier: Der Backfill setzt eine bestehende Kombination voraus
+ * und übernimmt den Anzeigenamen aus dem Bestand (`public.backfill_grid_tariff` hat dafür gar
+ * keinen Parameter). Ihn im Formular erneut zu erfragen erzeugte die Möglichkeit, dass dieselbe
+ * Kennung mit ZWEI Anzeigenamen in der Liste steht — sichtbar als zwei Gruppen, die es nicht gibt.
+ */
+const gridTariffFields = z.object({
+  operatorId: operatorIdField,
+  netzebene: z.coerce
+    .number({ invalid_type_error: 'Bitte eine Netzebene wählen.' })
+    .int('Bitte eine Netzebene wählen.')
+    .refine((n) => (NETZEBENEN as readonly number[]).includes(n), 'Bitte eine Netzebene wählen.'),
+  meteringVariant: z.enum(METERING_VARIANTS).optional(),
+  grundpreisAmount: amountField('den Grundpreis'),
+  grundpreisUnit: z.enum(GRUNDPREIS_UNITS, {
+    errorMap: () => ({ message: 'Bitte die Einheit des Grundpreises wählen.' }),
+  }),
+  netzverlustCtPerKwh: amountField('das Netzverlustentgelt'),
+  priceBasis: z.enum(PRICE_BASES, {
+    errorMap: () => ({ message: 'Bitte angeben, ob die Beträge netto oder brutto sind.' }),
+  }),
+  validFrom: z
+    .string()
+    .trim()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Bitte ein Datum angeben (JJJJ-MM-TT).')
+    .refine((v) => !Number.isNaN(Date.parse(v)), 'Bitte ein gültiges Datum angeben.'),
+  windows: z
+    .array(gridTariffWindowSchema)
+    .min(
+      1,
+      'Mindestens ein Zeitfenster ist nötig — ohne Arbeitspreis ist die Tarifzeile unvollständig.',
+    ),
+})
+
+/**
  * `meteringVariant` ist KONTEXTABHÄNGIG pflichtig (Delta 5): Netzebenen, die eine Variante
  * anbieten, verlangen sie; alle anderen dürfen keine tragen. Beides ist eine echte Bedingung und
  * nicht nur eine Anzeigefrage — `null` gegen `'mit_leistungsmessung'` sind für die
  * Effektiv-Datierung zwei verschiedene Kombinationen.
  */
-export const gridTariffSchema = z
-  .object({
-    operatorId: operatorIdField,
+function requireMeteringVariantMatch(
+  v: { netzebene: number; meteringVariant?: MeteringVariant },
+  ctx: z.RefinementCtx,
+): void {
+  if (hasMeteringVariant(v.netzebene) && v.meteringVariant === undefined) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['meteringVariant'],
+      message: `Auf Netzebene ${v.netzebene} gehört die Leistungsmessungs-Variante zur Tarifzeile.`,
+    })
+  }
+  if (!hasMeteringVariant(v.netzebene) && v.meteringVariant !== undefined) {
+    // Erreichbar nur an der Oberfläche vorbei (das Feld wird bei NE 3–6 gar nicht gerendert).
+    // Stillschweigend auf null zu setzen wäre schlechter: der Eintragende hätte eine Variante
+    // gewählt und bekäme eine Zeile ohne sie.
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['meteringVariant'],
+      message: `Netzebene ${v.netzebene} kennt keine Leistungsmessungs-Variante.`,
+    })
+  }
+}
+
+/** Eine NEUE Tarifzeile, vorwärts angehängt (B21-2b) — mit Anzeigename. */
+export const gridTariffSchema = gridTariffFields
+  .extend({
     operatorName: z
       .string()
       .trim()
       .min(1, 'Bitte den Anzeigenamen des Netzbetreibers angeben.')
       .max(200, 'Zu lang.'),
-    netzebene: z.coerce
-      .number({ invalid_type_error: 'Bitte eine Netzebene wählen.' })
-      .int('Bitte eine Netzebene wählen.')
-      .refine((n) => (NETZEBENEN as readonly number[]).includes(n), 'Bitte eine Netzebene wählen.'),
-    meteringVariant: z.enum(METERING_VARIANTS).optional(),
-    grundpreisAmount: amountField('den Grundpreis'),
-    grundpreisUnit: z.enum(GRUNDPREIS_UNITS, {
-      errorMap: () => ({ message: 'Bitte die Einheit des Grundpreises wählen.' }),
-    }),
-    netzverlustCtPerKwh: amountField('das Netzverlustentgelt'),
-    priceBasis: z.enum(PRICE_BASES, {
-      errorMap: () => ({ message: 'Bitte angeben, ob die Beträge netto oder brutto sind.' }),
-    }),
-    validFrom: z
-      .string()
-      .trim()
-      .regex(/^\d{4}-\d{2}-\d{2}$/, 'Bitte ein Datum angeben (JJJJ-MM-TT).')
-      .refine((v) => !Number.isNaN(Date.parse(v)), 'Bitte ein gültiges Datum angeben.'),
-    windows: z
-      .array(gridTariffWindowSchema)
-      .min(
-        1,
-        'Mindestens ein Zeitfenster ist nötig — ohne Arbeitspreis ist die Tarifzeile unvollständig.',
-      ),
   })
-  .superRefine((v, ctx) => {
-    if (hasMeteringVariant(v.netzebene) && v.meteringVariant === undefined) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['meteringVariant'],
-        message: `Auf Netzebene ${v.netzebene} gehört die Leistungsmessungs-Variante zur Tarifzeile.`,
-      })
-    }
-    if (!hasMeteringVariant(v.netzebene) && v.meteringVariant !== undefined) {
-      // Erreichbar nur an der Oberfläche vorbei (das Feld wird bei NE 3–6 gar nicht gerendert).
-      // Stillschweigend auf null zu setzen wäre schlechter: der Eintragende hätte eine Variante
-      // gewählt und bekäme eine Zeile ohne sie.
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['meteringVariant'],
-        message: `Netzebene ${v.netzebene} kennt keine Leistungsmessungs-Variante.`,
-      })
-    }
-  })
+  .superRefine(requireMeteringVariantMatch)
 
 export type GridTariffInput = z.infer<typeof gridTariffSchema>
+
+/**
+ * Ein HISTORISCHER Tarifstand, VOR den ältesten vorhandenen nachgetragen (B21-2e).
+ *
+ * Dieselben Feldgrenzen und dieselbe Messvarianten-Regel wie oben, nur ohne Anzeigenamen (s. den
+ * Kopf von `gridTariffFields`). Geprüft wird hier ausschliesslich die FORM: ob die Kombination
+ * überhaupt existiert und ob `validFrom` wirklich VOR dem ältesten Stand liegt, beantwortet
+ * `public.backfill_grid_tariff` selbst (`no_existing_stand` / `not_before_oldest`) — und zwar unter
+ * einer Sperre. Eine hier vorweggenommene Prüfung wäre zum Zeitpunkt des Klicks womöglich veraltet.
+ */
+export const backfillGridTariffSchema = gridTariffFields.superRefine(requireMeteringVariantMatch)
+
+export type BackfillGridTariffInput = z.infer<typeof backfillGridTariffSchema>
 
 // ── Formulardaten einlesen ───────────────────────────────────────────────────────────────────────
 
