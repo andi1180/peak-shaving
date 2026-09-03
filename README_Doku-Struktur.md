@@ -29,6 +29,8 @@ Seit 20.07.2026 ist **`Fahrplan_2026.md`** (Repo-Root) die kanonische Quelle fü
 - `Pflichtenheft_Zugangsplattform_MVP.md` — Detaildokument für das dritte, eigenständige Produkt Zugangsplattform (B20). Kanonisch für die fachliche Tiefe zu B20; für Reihenfolge und Bauabschnitts-Zuordnung bleibt `Fahrplan_2026.md` maßgeblich. Repo-Pendant: identischer Name, Repo-Root.
 - `Pflichtenheft_PV_Zeitreihengenerator.md` — **neu seit 02.09.2026**. Detaildokument für Bauabschnitt **B22** (PV-Zeitreihengenerator): ein Kunde ohne sichtbare PV-Erzeugung im Lastgang bekommt eine als **geschätzt gekennzeichnete** Eigenverbrauchs-Rechnung. Enthält die fünf festgelegten Contract-Entscheidungen (Wetterjahr, Kennzeichnung `pvSource`, PLZ→Koordinate, Verhalten auf `net_signed`, Stunde→Viertelstunde), die Zerlegung in **B22a/B22b/B22c** und die offenen Punkte mit Angabe, welchen Schritt sie blockieren. Kanonisch für die fachliche Tiefe zu B22; für Reihenfolge und Umfang bleibt `Fahrplan_2026.md` maßgeblich. **Vorgelagerte Faktenquelle:** `PV_Zeitreihengenerator_Bestandsaufnahme.md` (Repo-Root, 02.09.2026) — die gemessene Bestandsaufnahme, auf der das Pflichtenheft beruht; sie liegt **nur im Repo**, nicht in diesem Projektordner. Bei Widerspruch gilt die Bestandsaufnahme für die **Messung**, das Pflichtenheft für die **Entscheidung**. Repo-Pendant: identischer Name, Repo-Root.
 
+- `Pflichtenheft_Kalkulator_Delta_PDF-Report.md` — **neu seit 03.09.2026**. **Delta** zum Kalkulator-Pflichtenheft §6.2, kein Ersatz (Bauabschnitt **B23**): der Report wird mit `@react-pdf/renderer` neu gerendert statt über `window.print()`, weil der CSS-Weg nachweislich keinen Seitenzähler und keine Agenda mit Seitenverweisen kann. Enthält die fünf Contract-Entscheidungen (hybrid react-pdf + Rasterbild für Charts · Titel editierbar / Untertitel abgeleitet · Adresse als reines Druckfeld ohne Migration · Zwei-Pass-Agenda · Fontweg), die Zerlegung **B23a–B23d** und die offenen Punkte. **⚠ Der neue Weg ist bis zum Cutover NICHT live** — der Export im Rechner läuft weiter über den Druckdialog. **Vorgelagerte Faktenquelle:** `PDF_Rendering_Spike_Bestandsaufnahme.md` (Repo-Root, 03.09.2026) — die Messung, auf der das Delta beruht; sie liegt **nur im Repo**, nicht in diesem Projektordner. Bei Widerspruch gilt die Bestandsaufnahme für die **Messung**, das Delta für die **Entscheidung**. Repo-Pendant: identischer Name, Repo-Root.
+
 ## Entsprechung im Repo (github.com/andi1180/peak-shaving)
 
 | Hier im Projektordner | Im Repo |
@@ -38,6 +40,7 @@ Seit 20.07.2026 ist **`Fahrplan_2026.md`** (Repo-Root) die kanonische Quelle fü
 | `CLAUDE_PEAKSHAVING.md` | `CLAUDE.md` (Repo-Root) |
 | `Pflichtenheft_Kalkulator_MVP.md` | `Pflichtenheft_Kalkulator_MVP.md` (Repo-Root) |
 | `Pflichtenheft_Kalkulator_Delta_Tarifoptimierung.md` | `Pflichtenheft_Kalkulator_Delta_Tarifoptimierung.md` (Repo-Root) |
+| `Pflichtenheft_Kalkulator_Delta_PDF-Report.md` | `Pflichtenheft_Kalkulator_Delta_PDF-Report.md` (Repo-Root) |
 | `CLAUDE_Monitor.md` | `packages/tariff-monitor/CLAUDE.md` **(RUHEND)** |
 | `Pflichtenheft_Monitor_MVP.md` | `Pflichtenheft_Monitor_MVP.md` (Repo-Root) **(RUHEND)** |
 | `DEPLOYMENT.md` | `DEPLOYMENT.md` (Repo-Root) — **neu im Arbeitsordner seit 24.07.2026**, s. unten |
