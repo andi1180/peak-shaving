@@ -134,8 +134,28 @@ export const REPORT_AGENDA: readonly ReportSection[] = [
   ...METHODOLOGY_ITEMS,
 ]
 
-/** Was die Platzhalter-Seite sagt, solange die Kennzahlen noch im CSS-Weg leben (B23c). */
-export const RESULTS_PLACEHOLDER_BODY =
-  'Die Kennzahlen, Grafiken und die Speicherempfehlung stehen in dieser Fassung des Dokuments ' +
-  'noch nicht. Sie werden in einem eigenen Schritt aus dem bestehenden Report übernommen; bis ' +
-  'dahin ist die vollständige Auswertung der Report am Bildschirm und dessen Ausdruck.'
+/**
+ * B23c-1 — was unter der Kapitelüberschrift steht.
+ *
+ * Bis zu diesem Schritt stand hier eine ausdrücklich gekennzeichnete PLATZHALTER-Seite
+ * (`RESULTS_PLACEHOLDER_BODY`, B23a). Sie ist ersatzlos entfallen: das Kapitel trägt jetzt die
+ * gerechneten Zahlen (`summary.ts`). Die Abschnitts-Kennung (`SECTION_ID.results`), der Titel und
+ * die Stellung in `REPORT_AGENDA` sind dabei UNVERÄNDERT geblieben — der Agenda-Eintrag zeigt auf
+ * denselben Abschnitt wie vorher, nur ist dessen Inhalt jetzt echt.
+ *
+ * ⚠ Der Satz kündigt bewusst NICHT an, was auf der Seite steht („Ersparnis, Empfehlung, …"). Was
+ * dort steht, hängt davon ab, was gerechnet werden konnte (s. den Kopf von `summary.ts`) — eine
+ * feste Ankündigung wäre auf jedem Report falsch, dem eine dieser Aussagen fehlt.
+ */
+export const RESULTS_INTRO = 'Die Zahlen, um die es geht — und wie sie zueinander stehen.'
+
+/**
+ * Steht als Fussnote unter den Kernaussagen.
+ *
+ * ⚠ Er verweist auf das Methodik-Kapitel und wiederholt dessen Inhalt NICHT. Die Vorbehalte stehen
+ * an einer Stelle; sie hier zu paraphrasieren hiesse, denselben Vorbehalt in zwei Schärfen in
+ * dasselbe Dokument zu setzen — genau das, wogegen `lib/report-copy.ts` angelegt wurde.
+ */
+export const RESULTS_FOOTNOTE =
+  'Alle Beträge netto (ohne USt.). Wie diese Zahlen entstanden sind und wo ihre Grenzen liegen, ' +
+  `steht im Kapitel „${METHODOLOGY_SECTION.title}".`

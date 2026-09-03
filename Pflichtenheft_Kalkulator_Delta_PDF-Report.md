@@ -120,19 +120,20 @@ Ohne Fehler, ohne Warnung, mit **0 Konsolenfehlern** — und der Rückruf läuft
 |---|---|---|
 | **B23a** | Dokumentgerüst: Deckblatt, Kopf-/Fusszeile mit Seitenzahl, Agenda mit Seitenverweisen, Methodik-Kapitel, Fontweg, Titel-/Untertitel-Ableitung, die zwei Dokument-Felder im Gate-Dialog, unverlinkte Prüfroute | **gebaut, 03.09.2026** |
 | **B23b** | Charts als Rasterbild: generische Pipeline (`chart-raster.ts` + `chart-capture.ts`), an drei strukturell verschiedenen Chart-Typen bewiesen, Downsampling, Seitenverhältnis | **gebaut, 03.09.2026** (s. D11) |
-| **B23c** | Übernahme der Bestands-Report-Karten in den neuen Fluss (Kern-Kennzahl, Empfehlung, Aufschlüsselung, Annahmen-Snapshot, Warnungen) — **erst danach ist der Cutover möglich** | offen |
+| **B23c-1** | Contract-Erweiterung (`PdfReportInput.analysis`) und die Executive Summary „Kernergebnisse" — Kern-Kennzahl plus drei bis vier abgeleitete Kernaussagen, kein Chart | **gebaut, 03.09.2026** (s. D12) |
+| **B23c-2/3/4** | Die übrigen Bestands-Report-Karten im neuen Fluss (Charts über die B23b-Pipeline, Annahmen-Snapshot, Warnungen) — **erst danach ist der Cutover möglich** | offen |
 | **B23d** | Calls-to-Action-Seite | offen, hängt an einer noch nicht getroffenen Entscheidung: Kontakthinweis gegen QR-Code |
 | **Cutover** | Umschalten des Kunden-Knopfes, Rückbau des CSS-Wegs (`print-cover`, `print-frame`, `print-methodology`, `print-assumptions-snapshot`, `@media print`) | **nicht Teil dieser Zerlegung** — eigene Entscheidung, nachdem B23c inhaltliche Parität hergestellt hat |
 
 **Was in B23a fertig ist:** das Dokument trägt Deckblatt (Titel, Untertitel, Kunde, mehrzeilige Anschrift, Zeitraum, Erstellungsdatum, Vorbehalt), auf jeder Seite Kopfzeile (Emblem + Wortmarke + Navy-Balken) und Fusszeile (Absender + Web + „Seite X von Y"), eine Agenda mit gemessenen Seitenverweisen und das Methodik-Kapitel mit denselben sechs Punkten wie der CSS-Weg (der Hindsight-Hinweis WÖRTLICH aus `lib/report-copy.ts` importiert, nicht abgeschrieben).
 
-**Was in B23a bewusst NICHT fertig ist:** die Kernergebnisse. Sie stehen als ausdrücklich gekennzeichnete Platzhalter-Seite im Dokument — nicht, weil sie vergessen wurden, sondern damit die Agenda mehr als triviale Ein-Seiten-Sprünge zeigt und der Mechanismus messbar wird.
+**Was in B23a bewusst NICHT fertig war:** die Kernergebnisse. Sie standen als ausdrücklich gekennzeichnete Platzhalter-Seite im Dokument — nicht, weil sie vergessen wurden, sondern damit die Agenda mehr als triviale Ein-Seiten-Sprünge zeigt und der Mechanismus messbar wird. **Mit B23c-1 ist die Platzhalter-Seite ersatzlos entfallen** (s. D12).
 
 ---
 
 ## D9 — ⚠ Der neue Weg ist NICHT live, und das ist eine Zusage
 
-Der Knopf im Rechner löst unverändert `window.print()` aus. Der react-pdf-Weg ist ausschliesslich über die unverlinkte, `noindex`-Route `/pdf-report-probe` erreichbar. **Umgeschaltet wird erst mit B23c** — vorher wäre der neue Report ein Rückschritt: Deckblatt und Methodik ohne Kennzahlen, Grafiken und Empfehlung.
+Der Knopf im Rechner löst unverändert `window.print()` aus. Der react-pdf-Weg ist ausschliesslich über die unverlinkte, `noindex`-Route `/pdf-report-probe` erreichbar. **Umgeschaltet wird erst, wenn B23c vollständig ist** — vorher wäre der neue Report ein Rückschritt: mit B23c-1 trägt er Deckblatt, Agenda, Kernergebnisse und Methodik, aber noch keine Grafik und keine Empfehlung.
 
 Die Prüfroute enthält bewusst **nicht** den Gate-Dialog: der schreibt einen echten Lead nach `platform.leads`, und eine Prüfroute, die das kann, verfälscht genau die Statistik, für die die Herkunft `rechner-report` existiert.
 
@@ -145,6 +146,8 @@ Die Prüfroute enthält bewusst **nicht** den Gate-Dialog: der schreibt einen ec
 - **`[OFFEN]` Der Ladezustand beim ersten Export** (Spike §6 (e)): der Lazy-Chunk (≈ 307 kB gzip) lädt beim ersten Klick. Lokal unter 200 ms, über eine echte Leitung nicht. Die Prüfroute zeigt „Wird erzeugt …"; der spätere Kunden-Knopf braucht dasselbe.
 - **`[OFFEN]` Kerning** (Spike §6 (c)) — „aWATTar" steht in react-pdf mit sichtbarer Lücke zwischen den beiden T. Kosmetisch, am Papier sichtbar.
 - **`[OFFEN]` Kein automatischer Wächter gegen die `lineHeight`-Falle** (D7).
+- **`[OFFEN]` Die Kernergebnis-Seite sagt im KATALOG-Fall nichts zur Kaufentscheidung** (D12) — sie zeigt dort Kern-Kennzahl und die gerechnete §3.7-Aufschlüsselung, aber weder Investition noch Amortisation noch eine Empfehlung. Bewusste Lücke; ob und in welcher Sprache der Neuanschaffungs-Fall eine eigene Aussage bekommt, ist eine eigene Entscheidung.
+- **`[OFFEN]` Waisenschutz für die Schluss-Fussnote der Kernergebnis-Seite** (D12) — `minPresenceAhead` ist gemessen wirkungslos; heute tritt der Fall in keinem der drei Prüfläufe auf, ist aber eine Eigenschaft des Textes und keine Zusage des Layouts.
 - **Nicht Teil dieses Deltas** (Spike §6 (g)): Barrierefreiheit/PDF-Tags, PDF/A, Dateigrösse eines vollständigen Reports mit sieben Charts, Verhalten auf Safari/iOS — gemessen wurde ausschliesslich Chromium.
 - **White-Label bleibt `[v2]`.** Ein PDF trägt kein Stylesheet des Betrachters; die Farben werden beim Erzeugen eingebrannt. Sobald White-Label real wird (MVP §7; `platform.partners` trägt heute weder Logo noch Farbe), wandert `PDF_COLORS` von einer Konstante zu einem Parameter des Dokuments.
 
@@ -211,3 +214,62 @@ unverändert; sie werden gemountet und gelesen.
 Prüfstand wird deshalb die ganze Karte samt Fliesstext gerastert. Für den Report ist das die falsche
 Aufteilung (Text gehört nativ daneben, nicht als Pixel ins Bild); die Entscheidung und der dafür
 nötige Anker gehören in B23c.
+
+---
+
+## D12 — B23c-1: die Executive Summary, und die Regel, nach der sie schweigt
+
+**Gebaut am 03.09.2026.** Der Platzhalter aus B23a ist ersatzlos entfallen; `SECTION_ID.results`,
+der Kapiteltitel und die Stellung in `REPORT_AGENDA` sind unverändert — der Agenda-Eintrag zeigt auf
+denselben Abschnitt, nur ist dessen Inhalt jetzt gerechnet.
+
+**Der Contract wächst um eine TEILMENGE, nicht um den ganzen Report.** `PdfReportInput.analysis` ist
+ein `Pick<AnalysisResult, 'current' | 'perBattery' | 'recommendation' | 'assumptions' |
+'tariffOptimization' | 'existingBatteryAnalysis'>` — dasselbe Muster wie die `Pick<…>`-Parameter in
+`derive.ts`, und aus demselben Grund: die engere Signatur sagt, was das Dokument LIEST. Sie wächst
+mit jedem Schritt, der eine weitere Karte übernimmt, und zwar um die Felder dieser Karte.
+
+**Die Seite trägt eine Kern-Kennzahl und drei bis vier Kernaussagen.** Welche, entscheidet
+ausschliesslich `lib/pdf-report/summary.ts`; das Dokument rendert, was die Ableitung liefert, und
+verzweigt an keinem Contract-Feld selbst. Die Regel dahinter ist eine einzige:
+
+> **Jede Aussage entsteht NUR, wenn die Grösse, um die es geht, tatsächlich gerechnet wurde. Fehlt
+> die Grundlage, fehlt die ZEILE — nicht ein Strich, nicht eine 0, nicht ein „nicht verfügbar".**
+
+Dasselbe Muster wie das leere Adressfeld auf dem Deckblatt (D4). Auf einer Seite mit der Überschrift
+„Kernergebnisse" wiegt es schwerer als sonst irgendwo: sie ist die eine Seite, die ein
+weitergereichter Report garantiert gelesen bekommt. Konkret ausgelassen wird
+
+- die **Ladesteuerung**, wenn `tariffOptimization?.computable !== true` — und zwar vollständig, ohne
+  gedämpfte Ersatzzahl. Genau davor warnt Delta 15 Regel C: `intervalTariffRates` füllt die
+  Preisreihe im nicht berechenbaren Fall bewusst durchgehend mit dem Standard-Arbeitspreis, und eine
+  daraus gebildete Zahl behauptete, die Steuerung bringe nichts, statt zu sagen, dass sie nicht
+  bewertbar ist. **Gemessen** (Prüflauf „Blocker"): die Aussage kommt im erzeugten PDF 0× vor, das
+  Wort „Börsenpreis" ebenfalls, und der Titelvorschlag verliert korrekt „& Ladeoptimierung" (D3).
+- die **Spitzenkappung**, wenn der Speicher den abgerechneten Leistungswert nicht senkt — eine
+  `static` gesteuerte Anlage kappt nicht, ein Anschluss ohne Leistungsmessung hat den Posten gar
+  nicht (Delta 3). **Gemessen:** im Bestandsfall (`buildExistingBatteryCandidate` setzt
+  `controlType: 'static'`) fehlt die Aussage, im Katalog-Fall steht sie.
+- der **Zusatzspeicher**, wenn es keine bestehende Anlage gibt. Die Schwelle ist unverändert
+  `netSavingOverHorizon > 0` — dieselbe wie im Bildschirm-Report, keine neue erfunden.
+
+**Es wird nichts nachgerechnet.** Die einzige Arithmetik der Ableitung sind `sumCovered` und
+`buildRealSavingBreakdown`, und beide sind DIESELBEN Funktionen wie am Bildschirm. `sumCovered` ist
+dafür von `monthly-tariff-chart.tsx` nach `packages/shared/src/real-saving.ts` gewandert (die
+Chart-Datei exportiert den Namen weiter, ihre drei Konsumenten bleiben unverändert): der PDF-Weg
+liegt in einem eigenen Lazy-Chunk und darf keine Chart-Bibliothek ziehen, und ein zweiter Reducer
+ergäbe im selben Report anders gebildete Summen derselben drei Reihen.
+
+**⚠ Die eine Stelle, an der zwei richtige Zahlen wie ein Rechenfehler aussehen.** Im Bestandsfall
+trägt die Aufschlüsselung eine Zeile „Wert der Ladesteuerung" (Kassengrösse aus dem Monatsvergleich)
+und wenige Zeilen weiter steht die Kernaussage „Wert der Ladesteuerung unter aWATTar"
+(§3.7-Attribution). Gemessen unterscheiden sie sich um einen Euro (€ 450 gegen € 451, die Posten
+sind im Kopf von `real-saving.ts` benannt). Am Bildschirm liegen die beiden in getrennten Karten;
+auf einer Seite ist der Abstand deshalb ausdrücklich benannt, statt eine der beiden Zahlen
+wegzulassen — weglassen hiesse, „was zahle ich real" oder „was ist die Steuerung wert" unbeantwortet
+zu lassen.
+
+**Der KATALOG-Fall bekommt bewusst keine eigene Sprache** (s. D10): ohne bestehende Anlage zeigt die
+Seite Kern-Kennzahl und die gerechnete §3.7-Aufschlüsselung des bestgereihten Geräts — keine
+Kaufempfehlung, keine Investition, keine Amortisation. **Gemessen:** die Wörter „Investition",
+„Amortisation" und „zusätzlicher Speicher" kommen im Katalog-PDF 0× vor.

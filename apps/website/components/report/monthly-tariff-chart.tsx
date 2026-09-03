@@ -1,7 +1,7 @@
 'use client'
 
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import type { MonthlyTariffComparison } from 'shared'
+import { sumCovered, type MonthlyTariffComparison } from 'shared'
 
 import { formatEur, formatEur2 } from '@/lib/format'
 import { Num } from './num'
@@ -111,14 +111,18 @@ function MonthTooltip({
 /**
  * Summe über die belegten Monate — `null`-Monate tragen nichts bei (sie sind keine 0).
  *
- * ⚠ EXPORTIERT, WEIL ES EINEN ZWEITEN KONSUMENTEN GIBT: `tariff-optimization-card.tsx` entscheidet
- * an genau diesen Summen, ob es vor der Karte warnt (02.09.2026). Ein zweites Mal ausgeschrieben
- * könnten Legende und Warnung auseinanderlaufen — und dann stünde im selben Report eine Warnung
- * über Zahlen, die daneben anders summiert dastehen.
+ * ⚠ DIE DEFINITION IST MIT B23c-1 NACH `packages/shared` (`real-saving.ts`) GEWANDERT, weil ein
+ * VIERTER Konsument dazugekommen ist: die Executive Summary des PDF-Reports. Der liegt in einem
+ * eigenen Lazy-Chunk und darf diese Datei nicht importieren — sie zieht Recharts, und eine
+ * Chart-Bibliothek im PDF-Weg wäre Fracht für etwas, das gar nicht zeichnet.
+ *
+ * Hier steht der Name weiterhin, damit die drei bestehenden Konsumenten (die Legende unten,
+ * `recommendation-card.tsx`, `tariff-optimization-card.tsx`) unverändert bleiben — sie sind auf
+ * derselben Seite wie dieser Chart, und ein Import aus dem Nachbarmodul ist dort die kürzere
+ * Aussage. Beim Cutover, wenn die Bildschirm-Karten ohnehin angefasst werden, ziehen sie direkt
+ * auf `shared` um und diese Zeile fällt weg.
  */
-export function sumCovered(values: (number | null)[]): number {
-  return values.reduce<number>((sum, v) => (v == null ? sum : sum + v), 0)
-}
+export { sumCovered }
 
 export function MonthlyTariffChart({ comparison }: { comparison: MonthlyTariffComparison }) {
   const fixed = comparison.fixedCosts

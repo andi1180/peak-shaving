@@ -6,7 +6,8 @@ import {
   METHODOLOGY_ITEMS,
   METHODOLOGY_SECTION,
   REPORT_AGENDA,
-  RESULTS_PLACEHOLDER_BODY,
+  RESULTS_FOOTNOTE,
+  RESULTS_INTRO,
   RESULTS_SECTION,
   type ReportSection,
 } from './content'
@@ -17,6 +18,12 @@ import {
   type AgendaPageNumbers,
   type PageNumberSink,
 } from './page-numbers'
+import {
+  buildReportSummary,
+  type SummaryRow,
+  type SummaryStatement,
+  type SummaryTone,
+} from './summary'
 import { PDF_COLORS, PDF_LAYOUT, PDF_TYPE } from './theme'
 import type { PdfReportInput } from './types'
 
@@ -183,12 +190,53 @@ const styles = StyleSheet.create({
   item: { marginBottom: 11 },
   itemTitle: { fontSize: PDF_TYPE.h3, fontWeight: 600, color: PDF_COLORS.ink },
   itemBody: { marginTop: 1, color: PDF_COLORS.textMuted },
-  placeholderBox: {
+  /* Kernergebnisse (B23c-1) */
+  headline: {
     marginTop: 14,
-    padding: 12,
+    padding: 14,
     backgroundColor: PDF_COLORS.surfaceAlt,
     borderWidth: 0.5,
     borderColor: PDF_COLORS.border,
+    flexDirection: 'row',
+    gap: 24,
+  },
+  headlineCell: { flexGrow: 1, flexBasis: 0 },
+  headlineValue: { fontSize: 22, fontWeight: 700, color: PDF_COLORS.ink },
+  /* Kosten in Rot — dieselbe Farbzuordnung wie `key-metric.tsx` am Bildschirm. */
+  headlineValueCost: { fontSize: 22, fontWeight: 700, color: PDF_COLORS.negative },
+  headlineCaption: { marginTop: 2, fontSize: PDF_TYPE.small, color: PDF_COLORS.textMuted },
+
+  statement: { marginTop: 14 },
+  statementTitle: { fontSize: PDF_TYPE.h3, fontWeight: 600, color: PDF_COLORS.ink },
+  statementAmountRow: { marginTop: 3, flexDirection: 'row', alignItems: 'flex-end', gap: 6 },
+  statementAmount: { fontSize: 15, fontWeight: 700 },
+  statementAmountCaption: { fontSize: PDF_TYPE.small, color: PDF_COLORS.textMuted },
+  statementBody: { marginTop: 3, color: PDF_COLORS.textMuted },
+
+  rowList: { marginTop: 5 },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 12,
+    paddingTop: 2.5,
+    paddingBottom: 2.5,
+    borderTopWidth: 0.5,
+    borderTopColor: PDF_COLORS.border,
+  },
+  rowTotal: { borderTopWidth: 1, borderTopColor: PDF_COLORS.border },
+  rowLabelCell: { flexGrow: 1, flexBasis: 0 },
+  rowLabel: { color: PDF_COLORS.textMuted },
+  rowLabelTotal: { fontWeight: 600, color: PDF_COLORS.ink },
+  rowHint: { fontSize: PDF_TYPE.small, color: PDF_COLORS.textMuted },
+  rowValue: { fontWeight: 600 },
+
+  footnote: {
+    marginTop: 16,
+    paddingTop: 8,
+    borderTopWidth: 0.5,
+    borderTopColor: PDF_COLORS.border,
+    fontSize: PDF_TYPE.small,
     color: PDF_COLORS.textMuted,
   },
 
@@ -372,12 +420,115 @@ function Agenda({ pages }: { pages: AgendaPageNumbers }) {
   )
 }
 
-function ResultsChapter() {
+/** Die semantischen Töne in Farbe — an EINER Stelle, nicht an jeder Zeile. */
+const TONE_COLOR: Record<SummaryTone, string> = {
+  positive: PDF_COLORS.positive,
+  warning: PDF_COLORS.warning,
+  neutral: PDF_COLORS.text,
+}
+
+function StatementRow({ row }: { row: SummaryRow }) {
+  return (
+    <View style={row.total ? [styles.row, styles.rowTotal] : styles.row}>
+      <View style={styles.rowLabelCell}>
+        <Text style={row.total ? styles.rowLabelTotal : styles.rowLabel}>{row.label}</Text>
+        {/* Der Hinweis steht NUR, wo es einen gibt — eine leere zweite Zeile wäre ein Loch. */}
+        {row.hint && <Text style={styles.rowHint}>{row.hint}</Text>}
+      </View>
+      <Text style={[styles.rowValue, { color: TONE_COLOR[row.tone] }]}>{row.value}</Text>
+    </View>
+  )
+}
+
+/**
+ * Eine Kernaussage.
+ *
+ * ⚠ `wrap={false}`: eine Aussage, deren Kopfzahl auf der einen und deren Aufschlüsselung auf der
+ * nächsten Seite steht, ist genau die Trennung, die einen Betrag ohne seinen Vorbehalt dastehen
+ * lässt. Umbrechen darf das Kapitel zwischen den Aussagen, nicht innerhalb einer.
+ *
+ * ⚠ GEMESSEN UND VERWORFEN: `minPresenceAhead` (react-pdfs Waisenschutz) bewegt hier NICHTS — mit
+ * 46 pt und mit 56 pt, am `wrap={false}`-Element wie an einem umschliessenden `View`, blieb der
+ * Umbruch in allen drei Prüfläufen unverändert. Es steht deshalb nicht im Code: eine Zeile, die
+ * einen Schutz behauptet, den sie nicht leistet, ist schlimmer als kein Schutz. Die Folge ist als
+ * offener Punkt benannt (s. `ResultsChapter`).
+ */
+function Statement({ statement }: { statement: SummaryStatement }) {
+  return (
+    <View style={styles.statement} wrap={false}>
+      <Text style={styles.statementTitle}>{statement.title}</Text>
+      {/* Keine Kopfzahl, wo es keine gibt (der Zusatzspeicher-Klarsatz) — s. `summary.ts`. */}
+      {statement.amount && (
+        <View style={styles.statementAmountRow}>
+          <Text style={[styles.statementAmount, { color: TONE_COLOR[statement.amount.tone] }]}>
+            {statement.amount.value}
+          </Text>
+          <Text style={styles.statementAmountCaption}>{statement.amount.caption}</Text>
+        </View>
+      )}
+      {statement.rows.length > 0 && (
+        <View style={styles.rowList}>
+          {statement.rows.map((row) => (
+            <StatementRow key={row.label} row={row} />
+          ))}
+        </View>
+      )}
+      <Text style={styles.statementBody}>{statement.body}</Text>
+    </View>
+  )
+}
+
+/**
+ * B23c-1 — die Kernergebnisse. Bis hierher eine ausdrücklich gekennzeichnete Platzhalter-Seite.
+ *
+ * ── ⚠ WAS AUF DIESER SEITE STEHT, ENTSCHEIDET `summary.ts` UND NICHT DIESE DATEI ───────────────
+ * Hier wird ausschliesslich gerendert, was die Ableitung geliefert hat. Es gibt bewusst KEINE
+ * Verzweigung an einem Contract-Feld in diesem JSX: die Frage „darf diese Zahl im Dokument
+ * stehen" ist fachlich (Delta 15 Regel C, Delta 3, Prinzip 2) und hätte an zwei Orten zwei
+ * Antworten. Fehlt eine Aussage, fehlt sie hier schlicht in der Liste.
+ *
+ * ⚠ KEIN CHART. B23c-1 ist Text und Zahlen; die Rasterbild-Pipeline (B23b) hängt sich mit B23c-2
+ * in diesen Fluss ein. Ein Chart hier hiesse, `rasterizeChart` in den Renderpfad zu ziehen — und
+ * der ist synchron und kennt kein DOM.
+ *
+ * ── ⚠ BEOBACHTET UND OHNE MECHANISCHEN SCHUTZ: DIE FUSSNOTE KANN ALLEIN AUF EINER SEITE LANDEN ─
+ * Mit einer um eine Zeile längeren Kern-Kennzahl-Beschriftung füllte der Blocker-Fall Seite 3 so
+ * weit, dass die Schlussfussnote als EINZIGER Inhalt auf Seite 4 rutschte. In den drei heutigen
+ * Prüfläufen tritt das nicht mehr auf (die Beschriftung ist auf eine Zeile gekürzt, s. `summary.ts`)
+ * — aber das ist ein Zustand des Textes, keine Zusage des Layouts.
+ *
+ * Der naheliegende Schutz `minPresenceAhead` wurde GEMESSEN und ist hier wirkungslos (s.
+ * `Statement`). Die zwei Auswege, die wirken würden, sind beide schlechter: die Fussnote in den
+ * letzten `wrap={false}`-Block zu ziehen kann einen zu langen Block über den Satzspiegel hinaus
+ * abschneiden (Inhaltsverlust statt einer unschönen Seite), und die Abstände so lange zu
+ * verkleinern, bis ein Fall passt, hält genau bis zur nächsten Textänderung. Mit B23c-2 kommen
+ * Charts in dieses Kapitel und ändern den Umbruch ohnehin — dann ist am erzeugten PDF neu zu
+ * messen, ob eine Seite allein mit dieser Fussnote dasteht.
+ */
+function ResultsChapter({ input }: { input: PdfReportInput }) {
+  const summary = buildReportSummary(input.analysis)
+
   return (
     <View style={styles.body}>
       <Text style={styles.h2}>{RESULTS_SECTION.title}</Text>
-      <Text style={styles.lead}>Die Zahlen, um die es geht.</Text>
-      <Text style={styles.placeholderBox}>{RESULTS_PLACEHOLDER_BODY}</Text>
+      <Text style={styles.lead}>{RESULTS_INTRO}</Text>
+
+      <View style={styles.headline}>
+        <View style={styles.headlineCell}>
+          <Text style={styles.headlineValue}>{summary.headline.peakValue}</Text>
+          <Text style={styles.headlineCaption}>{summary.headline.peakCaption}</Text>
+        </View>
+        <View style={styles.headlineCell}>
+          <Text style={styles.headlineValueCost}>{summary.headline.costValue}</Text>
+          <Text style={styles.headlineCaption}>{summary.headline.costCaption}</Text>
+        </View>
+      </View>
+
+      {summary.statements.map((statement) => (
+        <Statement key={statement.id} statement={statement} />
+      ))}
+
+      <Text style={styles.footnote}>{RESULTS_FOOTNOTE}</Text>
     </View>
   )
 }
@@ -439,7 +590,7 @@ export function ReportDocument({
       <Page size="A4" style={styles.page}>
         <PageFurniture sink={sink} />
         <SectionAnchor id={RESULTS_SECTION.id} sink={sink} />
-        <ResultsChapter />
+        <ResultsChapter input={input} />
       </Page>
 
       <Page size="A4" style={styles.page}>
