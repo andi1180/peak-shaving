@@ -119,7 +119,7 @@ Ohne Fehler, ohne Warnung, mit **0 Konsolenfehlern** — und der Rückruf läuft
 | | Umfang | Stand |
 |---|---|---|
 | **B23a** | Dokumentgerüst: Deckblatt, Kopf-/Fusszeile mit Seitenzahl, Agenda mit Seitenverweisen, Methodik-Kapitel, Fontweg, Titel-/Untertitel-Ableitung, die zwei Dokument-Felder im Gate-Dialog, unverlinkte Prüfroute | **gebaut, 03.09.2026** |
-| **B23b** | Charts als Rasterbild: `svgToPng` + `inlineComputedPaint` (Spike Variante 2, 41 wiederverwendbare Zeilen), Downsampling, Seitenverhältnis | offen |
+| **B23b** | Charts als Rasterbild: generische Pipeline (`chart-raster.ts` + `chart-capture.ts`), an drei strukturell verschiedenen Chart-Typen bewiesen, Downsampling, Seitenverhältnis | **gebaut, 03.09.2026** (s. D11) |
 | **B23c** | Übernahme der Bestands-Report-Karten in den neuen Fluss (Kern-Kennzahl, Empfehlung, Aufschlüsselung, Annahmen-Snapshot, Warnungen) — **erst danach ist der Cutover möglich** | offen |
 | **B23d** | Calls-to-Action-Seite | offen, hängt an einer noch nicht getroffenen Entscheidung: Kontakthinweis gegen QR-Code |
 | **Cutover** | Umschalten des Kunden-Knopfes, Rückbau des CSS-Wegs (`print-cover`, `print-frame`, `print-methodology`, `print-assumptions-snapshot`, `@media print`) | **nicht Teil dieser Zerlegung** — eigene Entscheidung, nachdem B23c inhaltliche Parität hergestellt hat |
@@ -147,3 +147,67 @@ Die Prüfroute enthält bewusst **nicht** den Gate-Dialog: der schreibt einen ec
 - **`[OFFEN]` Kein automatischer Wächter gegen die `lineHeight`-Falle** (D7).
 - **Nicht Teil dieses Deltas** (Spike §6 (g)): Barrierefreiheit/PDF-Tags, PDF/A, Dateigrösse eines vollständigen Reports mit sieben Charts, Verhalten auf Safari/iOS — gemessen wurde ausschliesslich Chromium.
 - **White-Label bleibt `[v2]`.** Ein PDF trägt kein Stylesheet des Betrachters; die Farben werden beim Erzeugen eingebrannt. Sobald White-Label real wird (MVP §7; `platform.partners` trägt heute weder Logo noch Farbe), wandert `PDF_COLORS` von einer Konstante zu einem Parameter des Dokuments.
+
+---
+
+## D11 — B23b: die Rasterbild-Pipeline, und was an ihr über den Spike hinaus gemessen ist
+
+Der Spike hat Variante 2 an GENAU EINEM Chart bestätigt: einem Recharts-Balkenchart. Gebaut ist
+jetzt eine Pipeline mit EINEM Einstieg (`rasterizeChart`), die an drei strukturell verschiedenen
+Chart-Typen gemessen ist — kategorial/Balken, Raster/Heatmap und kontinuierlich mit grosser
+Punktzahl. Die vier übrigen Report-Charts (Kostenvergleich, Tages-Energiefluss, Grenznutzen-Kurve,
+Ø-Ladepreis) sind strukturell je einem dieser drei ähnlich und folgen in B23c.
+
+**Vier Befunde, die der Spike nicht hatte:**
+
+**(1) ⚠ Es braucht ZWEI Serialisierungswege, nicht einen.** Die Stunden-Heatmap ist kein SVG,
+sondern ein CSS-Grid aus `div`s (so begründet in ihrem eigenen Kopfkommentar). `XMLSerializer` auf
+ein `<svg>` greift dort ins Leere. Der zweite Weg verpackt das HTML in ein `<foreignObject>` und
+schreibt dabei den VOLLSTÄNDIGEN berechneten Stil je Element fest — im `foreignObject` gibt es kein
+Stylesheet, was dort nicht inline steht, existiert nicht, und das betrifft nicht nur Farben, sondern
+das gesamte Layout. Gemessen: der Weg trägt, mit `color-mix()`-Sättigungen, gestricheltem Rand für
+leere Zellen und Fliesstext.
+
+**(2) ⚠ Ein „ODER"-Selektor ist bei asynchron rendernden Charts ein Timing-Zufall.** Der erste
+Entwurf lautete „nimm `svg.recharts-surface`, sonst das erste Kind". `ResponsiveContainer` rendert
+seinen `<svg>` aber erst einige Frames nach dem Mounten, das erste Kind steht sofort — die
+Wartebedingung war erfüllt, bevor es den Chart gab. Gemessen: **2280 × 2643 px statt 2280 × 768 px**
+(die ganze Karte statt des Zeichenbereichs), und beim Lastgang zusätzlich über den HTML-Weg, was die
+Kurve ungezeichnet liess (**0 Bildpunkte in jeder erwarteten Farbe**). Ohne Fehler, ohne Warnung.
+Der Standardwert ist deshalb deterministisch; wer den Zeichenbereich will, sagt es ausdrücklich.
+
+**(3) ⚠ Die Schrift fehlt im serialisierten SVG — auf BEIDEN Wegen.** Ein freistehendes SVG kennt die
+`@font-face`-Regeln der Seite nicht, und `next/font` vergibt zur Bauzeit erzeugte Familiennamen
+(`__Inter_e8ce45`), die dort auf nichts zeigen. Der Text fiele auf eine System-Schrift zurück — im
+PDF stünde ein Chart in einer anderen Schrift neben nativem Inter-Text. Inter wird deshalb als
+Data-URI in das serialisierte SVG eingebettet, und zwar aus **derselben Liste** (`PDF_FONT_SOURCES`
+in `theme.ts`), die `fonts.ts` bei react-pdf registriert. Gemessen ohne Einbettung: die Flächen und
+Linien bleiben **bit-identisch** (Akzent-Bildpunkte unverändert), die Beschriftungen ändern sich —
+0,5 % bis 5,5 % der Bildpunkte je nach Textanteil.
+
+**(4) ⚠ Eine von Hand nachgerechnete `color-mix()`-Farbe trifft den Bildpunkt nicht.** Der Spike
+nennt für die Zwischenstufe des Monatsvergleichs **#87bab6**; im Bild steht **#87bbb6**.
+`getComputedStyle` liefert für `color-mix()` keinen `rgb()`-Wert, sondern
+`color(srgb 0.529412 0.731373 0.715686)` — die Rundung auf 8 Bit passiert erst im Canvas, und
+0,731373 × 255 = 186,5001 landet auf 187. Eine gemischte Farbe ohne Toleranz zu prüfen heisst, die
+Rundung zu messen statt die Farbe.
+
+**Downsampling, gemessen statt nachgestellt:** der Lastgang wird mit dem VOLLEN Profil gemountet
+(35.040 Werte) und die Stützpunktzahl danach am gerenderten `<path>` gezählt — **2.920**, exakt die
+Zahl aus Spike §4. `downsampleMinMax` läuft damit nachweislich auf dem echten Weg zum Chart.
+
+**Seitenverhältnis (Falle 3):** `fitRasterToWidth` ist die einzige Stelle, an der eine Bildhöhe
+entsteht. Der Nachweis läuft NICHT über dieselbe Funktion, sondern über das erzeugte PDF: die
+`cm`-Matrix der Bildplatzierung gegen die intrinsische Grösse des Bild-XObjects. Gemessen für alle
+drei Typen auf sechs Nachkommastellen gleich (2,773438 · 0,883191 · 3,125000).
+
+**Was B23b ausdrücklich NICHT tut:** es hängt sich nicht in den bestehenden Fluss ein.
+`PdfReportInput`, `ReportDocument` und `render.tsx` (B23a) haben 0 Zeilen Diff — die
+Contract-Erweiterung um das Ergebnis kommt mit B23c. Die drei Chart-Komponenten sind ebenfalls
+unverändert; sie werden gemountet und gelesen.
+
+**`[OFFEN]` Welcher Ausschnitt eines Charts ins Bild gehört.** Bei Recharts trennt
+`svg.recharts-surface` den Zeichenbereich sauber ab. Die Heatmap trägt keinen solchen Anker — im
+Prüfstand wird deshalb die ganze Karte samt Fliesstext gerastert. Für den Report ist das die falsche
+Aufteilung (Text gehört nativ daneben, nicht als Pixel ins Bild); die Entscheidung und der dafür
+nötige Anker gehören in B23c.

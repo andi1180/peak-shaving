@@ -23,6 +23,29 @@
  * Druck-Report auch.
  */
 
+/** Statische Assets der EIGENEN Herkunft — s. D6 des Deltas (Fontweg: URL-Fetch, keine Data-URI im Bündel). */
+const PDF_FONT_BASE = '/report-fonts'
+
+/**
+ * Die Schriftdateien des Reports — Pfad und Gewicht je Schnitt.
+ *
+ * ── ⚠ WARUM DIESE LISTE IN `theme.ts` STEHT UND NICHT IN `fonts.ts` ────────────────────────────
+ * Sie hat seit B23b ZWEI Konsumenten: `fonts.ts` registriert sie bei `@react-pdf/renderer`, und
+ * `chart-raster.ts` bettet dieselben Dateien als Data-URI in das serialisierte Chart-SVG ein (dort
+ * gibt es kein Stylesheet der Seite, s. den Kopf jener Datei). Zweimal ausgeschrieben liefen die
+ * beiden auseinander — und dann stünde im PDF ein Chart in einer anderen Schrift neben nativem
+ * Text, ohne dass irgendetwas fehlschlüge. `fonts.ts` zieht `@react-pdf/renderer`; `theme.ts` tut
+ * das nicht und ist deshalb der Ort, den beide lesen können.
+ *
+ * Die Dateien liegen als WOFF unter `public/report-fonts/` — woff2 verarbeitet fontkit nicht
+ * (Spike §2.2, „Falle 2"), und `next/font` liefert ausschliesslich woff2.
+ */
+export const PDF_FONT_SOURCES = [
+  { src: `${PDF_FONT_BASE}/Inter-Regular.woff`, fontWeight: 400 },
+  { src: `${PDF_FONT_BASE}/Inter-SemiBold.woff`, fontWeight: 600 },
+  { src: `${PDF_FONT_BASE}/Inter-Bold.woff`, fontWeight: 700 },
+] as const
+
 /** Wörtliche Abschrift der Tokens aus `app/globals.css`. */
 export const PDF_COLORS = {
   /** `--color-navy` — Wortmarke/Emblem-Grund. Trägt COOLiNs Marke, NICHT den White-Label-Akzent. */

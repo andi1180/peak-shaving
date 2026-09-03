@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { FileText } from 'lucide-react'
+import { FileText, ImageDown } from 'lucide-react'
 import type { AnalysisResult, LoadProfile } from 'shared'
 
 import { Button } from '@/components/ui/button'
@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import type { ReportPdfOutcome } from '@/lib/pdf-report/download'
+import type { ChartProbeKind, ChartProbeReport } from './chart-runs'
 import {
   defaultReportTitle,
   formatAnalysisPeriod,
@@ -25,6 +26,13 @@ import {
  * Eingaben: der Prüfstand hat keinen Rechenlauf, und einen zu erfinden hiesse, ein vollständiges
  * `AnalysisResult` zusammenzusetzen, von dem die Ableitung ein einziges Feld liest. Genau deshalb
  * nehmen die drei Funktionen strukturelle Teilmengen entgegen (`Pick<…>`).
+ *
+ * ── B23b: DREI EINZELN AUSLÖSBARE CHART-LÄUFE ─────────────────────────────────────────────────
+ * Je Chart-TYP einer (kategorial/Balken · Raster/Heatmap · kontinuierlich mit grosser Punktzahl).
+ * Jeder mountet die UNVERÄNDERTE Produktionskomponente abseits des Sichtfelds, rastert sie und legt
+ * ein eigenständiges Mini-PDF mit genau diesem einen Bild ab. Getrennte Knöpfe und getrennte
+ * Dateien, weil ein Sammellauf die Zahlen vermengte, um die es geht: Seitenverhältnis,
+ * Farbstichprobe und — beim Lastgang — die Stützpunktzahl nach dem Downsampling.
  *
  * ⚠ `@react-pdf/renderer` wird hier NICHT importiert. Der Weg dorthin ist der dynamische Import in
  * `lib/pdf-report/download.ts`, und zwar erst im Klick-Handler — sonst läge der Lazy-Chunk (Spike
@@ -61,6 +69,9 @@ export function PdfReportProbe() {
   const [pending, setPending] = useState(false)
   const [outcome, setOutcome] = useState<ReportPdfOutcome | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [chartPending, setChartPending] = useState<ChartProbeKind | null>(null)
+  const [chartReport, setChartReport] = useState<ChartProbeReport | null>(null)
+  const [chartError, setChartError] = useState<string | null>(null)
 
   const toggles = useMemo(() => ({ tariffLever, standardProfile }), [tariffLever, standardProfile])
   const suggestedTitle = defaultReportTitle(probeResult(toggles))
@@ -97,6 +108,21 @@ export function PdfReportProbe() {
       setError(cause instanceof Error ? cause.message : 'Unbekannter Fehler')
     } finally {
       setPending(false)
+    }
+  }
+
+  async function handleChart(kind: ChartProbeKind) {
+    setChartError(null)
+    setChartReport(null)
+    setChartPending(kind)
+    try {
+      /* Zieht Recharts UND react-pdf — deshalb erst hier, nicht auf Modulebene. */
+      const { runChartProbe } = await import('./chart-runs')
+      setChartReport(await runChartProbe(kind))
+    } catch (cause) {
+      setChartError(cause instanceof Error ? cause.message : 'Unbekannter Fehler')
+    } finally {
+      setChartPending(null)
     }
   }
 
@@ -197,6 +223,126 @@ export function PdfReportProbe() {
           {error}
         </p>
       )}
+
+      <div className="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4">
+        <div>
+          <h2 className="text-lg font-semibold text-ink">B23b — Chart als Rasterbild</h2>
+          <p className="mt-1 text-sm text-text-muted">
+            Drei strukturell verschiedene Chart-Typen, je ein eigener Lauf und ein eigenes Mini-PDF
+            mit genau diesem einen Bild. Gemountet werden die unveränderten Report-Komponenten mit
+            ihren echten Props, abseits des Sichtfelds.
+          </p>
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          <Button
+            id="probe-chart-monthly"
+            variant="secondary"
+            onClick={() => void handleChart('monthly')}
+            disabled={chartPending !== null}
+          >
+            <ImageDown className="h-4 w-4" />
+            {chartPending === 'monthly' ? 'Wird erzeugt …' : 'Balken (Monatsvergleich)'}
+          </Button>
+          <Button
+            id="probe-chart-heatmap"
+            variant="secondary"
+            onClick={() => void handleChart('heatmap')}
+            disabled={chartPending !== null}
+          >
+            <ImageDown className="h-4 w-4" />
+            {chartPending === 'heatmap' ? 'Wird erzeugt …' : 'Raster (Heatmap)'}
+          </Button>
+          <Button
+            id="probe-chart-load"
+            variant="secondary"
+            onClick={() => void handleChart('load')}
+            disabled={chartPending !== null}
+          >
+            <ImageDown className="h-4 w-4" />
+            {chartPending === 'load' ? 'Wird erzeugt …' : 'Lastgang (35.040 Punkte)'}
+          </Button>
+        </div>
+
+        {chartReport && (
+          <div id="probe-chart-outcome" className="flex flex-col gap-2 text-sm">
+            <p>
+              <strong id="probe-chart-label">{chartReport.label}</strong> — Datei:{' '}
+              <strong>{chartReport.fileName}</strong>
+            </p>
+            <p className="text-text-muted">
+              Rasterbild:{' '}
+              <strong id="probe-chart-px">
+                {chartReport.widthPx} × {chartReport.heightPx} px
+              </strong>{' '}
+              · Seitenverhältnis Bild:{' '}
+              <strong id="probe-chart-raster-ratio">
+                {chartReport.rasterAspectRatio.toFixed(6)}
+              </strong>{' '}
+              · im PDF eingebettet mit{' '}
+              <strong id="probe-chart-pt">
+                {chartReport.imageWidthPt.toFixed(2)} × {chartReport.imageHeightPt.toFixed(2)} pt
+              </strong>{' '}
+              · Seitenverhältnis Einbettung:{' '}
+              <strong id="probe-chart-image-ratio">{chartReport.imageAspectRatio.toFixed(6)}</strong>
+            </p>
+            <p className="text-text-muted">
+              Dauer bis zum fertigen Raster:{' '}
+              <strong id="probe-chart-ms">{Math.round(chartReport.captureMs)} ms</strong> ·
+              Data-URI:{' '}
+              <strong id="probe-chart-datalen">
+                {Math.round(chartReport.dataUrlLength / 1024)} kB
+              </strong>
+            </p>
+
+            {chartReport.vertices && (
+              <p className="text-text-muted">
+                Stützpunkte der Kurve — roh:{' '}
+                <strong id="probe-chart-vertices-raw">{chartReport.vertices.raw}</strong> · im SVG
+                gezeichnet:{' '}
+                <strong id="probe-chart-vertices-drawn">{chartReport.vertices.drawn}</strong>
+              </p>
+            )}
+
+            <ul id="probe-chart-colors" className="flex flex-col gap-0.5 text-text-muted">
+              {chartReport.colorSamples.map((sample) => (
+                <li
+                  key={sample.hex}
+                  data-hex={sample.hex}
+                  data-pixels={sample.pixels}
+                  data-exact-pixels={sample.exactPixels}
+                  data-tolerance={sample.tolerance}
+                >
+                  <span
+                    className="mr-1.5 inline-block h-2.5 w-2.5 shrink-0 rounded-sm align-middle"
+                    style={{ backgroundColor: sample.hex }}
+                    aria-hidden
+                  />
+                  {sample.label} (<code>{sample.token}</code> = {sample.hex}):{' '}
+                  <strong className={sample.ok ? 'text-positive' : 'text-negative'}>
+                    {sample.pixels} Bildpunkte
+                  </strong>
+                  {sample.tolerance > 0
+                    ? ` (Toleranz ±${sample.tolerance} je Kanal; bit-genau: ${sample.exactPixels})`
+                    : ' (bit-genau)'}
+                </li>
+              ))}
+            </ul>
+
+            <ul className="flex list-disc flex-col gap-0.5 pl-4 text-xs text-text-muted">
+              {chartReport.notes.map((note) => (
+                <li key={note}>{note}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {chartError && (
+          <p id="probe-chart-error" role="alert" className="text-sm text-negative">
+            {chartError}
+          </p>
+        )}
+      </div>
     </div>
   )
 }

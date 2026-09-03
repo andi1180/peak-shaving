@@ -1,6 +1,6 @@
 import { Font } from '@react-pdf/renderer'
 
-import { PDF_TYPE } from './theme'
+import { PDF_FONT_SOURCES, PDF_TYPE } from './theme'
 
 /**
  * B23a — Registrierung der Report-Schrift.
@@ -36,7 +36,6 @@ import { PDF_TYPE } from './theme'
  * auf. Ein Wort ungetrennt in die nächste Zeile zu schieben ist der kleinere Fehler.
  */
 
-const FONT_BASE = '/report-fonts'
 
 let registered = false
 
@@ -49,14 +48,12 @@ export function registerReportFonts(): void {
   if (registered) return
   registered = true
 
-  Font.register({
-    family: PDF_TYPE.family,
-    fonts: [
-      { src: `${FONT_BASE}/Inter-Regular.woff`, fontWeight: 400 },
-      { src: `${FONT_BASE}/Inter-SemiBold.woff`, fontWeight: 600 },
-      { src: `${FONT_BASE}/Inter-Bold.woff`, fontWeight: 700 },
-    ],
-  })
+  /*
+   * Die Liste steht seit B23b in `theme.ts`: `chart-raster.ts` bettet DIESELBEN Dateien als
+   * Data-URI in das serialisierte Chart-SVG ein. Zwei Listen liefen auseinander, und dann stünde
+   * im PDF ein Chart in einer anderen Schrift neben nativem Text.
+   */
+  Font.register({ family: PDF_TYPE.family, fonts: [...PDF_FONT_SOURCES] })
 
   Font.registerHyphenationCallback((word) => [word])
 }
