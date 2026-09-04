@@ -2,8 +2,10 @@ import { Document, Image, Page, StyleSheet, Text, View } from '@react-pdf/render
 
 import { PRINT_COMPANY } from '@/lib/company'
 import type { ReportChartRasters } from './charts'
-import { fitRasterToWidth } from './chart-raster'
+import { fitRasterToWidth, type ChartRaster } from './chart-raster'
 import {
+  DETAIL_INTRO,
+  DETAIL_SECTION,
   METHODOLOGY_INTRO,
   METHODOLOGY_ITEMS,
   METHODOLOGY_SECTION,
@@ -15,6 +17,7 @@ import {
   RESULTS_SECTION,
   type ReportSection,
 } from './content'
+import { buildDetailChapter } from './detail'
 import { buildRecommendationChapter } from './recommendation'
 import {
   recordSectionPage,
@@ -562,10 +565,10 @@ function ResultsChapter({ input }: { input: PdfReportInput }) {
 }
 
 /**
- * Das Lastgang-Diagramm im Fluss.
+ * Ein Diagramm im Fluss — Bild, Bildunterschrift und die Sätze, die dazugehören.
  *
  * ── ⚠ KEIN KASTEN, KEIN RAHMEN — und das ist eine Entscheidung, keine Auslassung ───────────────
- * Am Bildschirm steht der Chart in einer umrahmten Karte, weil er dort neben anderen Karten liegt
+ * Am Bildschirm steht ein Chart in einer umrahmten Karte, weil er dort neben anderen Karten liegt
  * und sich von ihnen abgrenzen muss. Auf einem Blatt gibt es diese Nachbarn nicht: ein Rahmen um
  * ein Diagramm, das ohnehin allein zwischen zwei Absätzen steht, ist ein Strich ohne Aufgabe. Das
  * Bild läuft deshalb frei im Satzspiegel, mit der Bildunterschrift direkt darunter.
@@ -576,47 +579,74 @@ function ResultsChapter({ input }: { input: PdfReportInput }) {
  * erst im 300-dpi-Vergleich aufgefallen.
  *
  * ⚠ `wrap={false}` um Bild UND Unterschrift: eine Bildunterschrift auf der Folgeseite gehört zu
- * einem Bild, das der Leser nicht mehr sieht. Der Block ist mit rund 160 pt Bildhöhe deutlich
- * kleiner als der Satzspiegel — ein `wrap={false}`-Block, der die Seite sprengt, würde
+ * einem Bild, das der Leser nicht mehr sieht. Die Blöcke sind mit rund 160–180 pt Bildhöhe
+ * deutlich kleiner als der Satzspiegel — ein `wrap={false}`-Block, der die Seite sprengt, würde
  * abgeschnitten statt umzubrechen.
+ *
+ * ⚠ B23c-3a: EIN Baustein für alle drei Bilder. Vorher war er auf den Lastgang zugeschnitten; mit
+ * dem zweiten und dritten Bild wären daraus drei strukturgleiche Bausteine geworden, von denen der
+ * nächste Umbau zwei anfasst und einen vergisst. `statement` und `note` bilden dabei genau die
+ * beiden Textsorten ab, die es unter einem Bild gibt: eine Aussage in Fliesstextfarbe und ein
+ * Hinweis in der Farbe der Bildunterschrift.
  */
 function ChartFigure({
-  charts,
-  legend,
+  raster,
+  caption,
+  statement,
+  note,
+  missing,
 }: {
-  charts: ReportChartRasters
-  legend: ReturnType<typeof buildRecommendationChapter>['chart']
+  raster: ChartRaster | null
+  caption: string
+  /** Die fachliche Aussage zum Bild — steht in Fliesstextfarbe. */
+  statement?: string | null
+  /** Der leisere Zusatz — steht in der Farbe der Bildunterschrift. */
+  note?: string | null
+  /** Was an der Stelle des Bildes steht, wenn keines entstanden ist. */
+  missing: string
 }) {
-  if (!charts.load) {
+  if (!raster) {
     /*
-     * Ein fehlgeschlagenes Bild kostet nicht das Dokument (s. `charts.tsx`) — aber es wird
-     * BENANNT. Still weggelassen suchte der Leser nach einem Absatz, der nie kam; und die Zahlen
-     * um diese Stelle herum sind davon nachweislich unberührt, weil sie aus dem Ergebnis stammen
-     * und nicht aus dem Bild.
+     * Ein fehlgeschlagenes oder für diesen Fall gar nicht vorgesehenes Bild kostet nicht das
+     * Dokument (s. `charts.tsx`) — aber es wird BENANNT. Still weggelassen suchte der Leser nach
+     * einem Absatz, der nie kam; und die Zahlen um diese Stelle herum sind davon nachweislich
+     * unberührt, weil sie aus dem Ergebnis stammen und nicht aus dem Bild.
+     */
+    /*
+     * ⚠ `wrap={false}`: gemessen bricht dieser Absatz sonst mitten im Satz auf die Folgeseite um
+     * und lässt dort seine zweite Hälfte ohne die Aussage stehen, zu der sie gehört. Er ist mit
+     * rund fünf Zeilen weit kleiner als der Satzspiegel — die Gefahr eines abgeschnittenen
+     * `wrap={false}`-Blocks besteht hier nicht.
      */
     return (
-      <Text style={styles.figureMissing}>
-        Das Lastgang-Diagramm konnte auf diesem Gerät nicht erzeugt werden. Die Zahlen in diesem
-        Dokument sind davon nicht betroffen — sie stammen aus der Berechnung, nicht aus der
-        Abbildung.
+      <Text style={styles.figureMissing} wrap={false}>
+        {missing}
       </Text>
     )
   }
 
-  const box = fitRasterToWidth(charts.load, PDF_CONTENT_WIDTH_PT)
+  const box = fitRasterToWidth(raster, PDF_CONTENT_WIDTH_PT)
   return (
     <View style={styles.figure} wrap={false}>
-      <Image src={charts.load.dataUrl} style={{ width: box.width, height: box.height }} />
-      <Text style={styles.figureCaption}>{legend.caption}</Text>
+      <Image src={raster.dataUrl} style={{ width: box.width, height: box.height }} />
+      <Text style={styles.figureCaption}>{caption}</Text>
       {/*
-        Genau eine der beiden steht: die Spitzenkappungs-Aussage ODER die Erklärung, warum keine
-        Kapp-Linie im Bild ist. Die Entscheidung fällt in `recommendation.ts` und nicht hier — die
-        Frage „darf diese Aussage im Dokument stehen" ist fachlich (Delta 3) und hätte an zwei
-        Orten zwei Antworten.
+        Genau eine der beiden steht, wo sie einander ausschliessen (Lastgang: die
+        Spitzenkappungs-Aussage ODER die Erklärung, warum keine Kapp-Linie im Bild ist). Die
+        Entscheidung fällt in der jeweiligen Ableitung und nicht hier — die Frage „darf diese
+        Aussage im Dokument stehen" ist fachlich und hätte an zwei Orten zwei Antworten.
       */}
-      {legend.capStatement && <Text style={styles.figureStatement}>{legend.capStatement}</Text>}
-      {legend.noCapNote && <Text style={styles.figureCaption}>{legend.noCapNote}</Text>}
+      {statement && <Text style={styles.figureStatement}>{statement}</Text>}
+      {note && <Text style={styles.figureCaption}>{note}</Text>}
     </View>
+  )
+}
+
+/** Was an der Stelle eines fehlgeschlagenen Bildes steht. */
+function figureMissingText(what: string): string {
+  return (
+    `${what} konnte auf diesem Gerät nicht erzeugt werden. Die Zahlen in diesem Dokument sind ` +
+    'davon nicht betroffen — sie stammen aus der Berechnung, nicht aus der Abbildung.'
   )
 }
 
@@ -650,9 +680,65 @@ function RecommendationChapter({
 
       {chapter.recommendation && <Statement statement={chapter.recommendation} />}
 
-      <ChartFigure charts={charts} legend={chapter.chart} />
+      <ChartFigure
+        raster={charts.load}
+        caption={chapter.chart.caption}
+        statement={chapter.chart.capStatement}
+        note={chapter.chart.noCapNote}
+        missing={figureMissingText('Das Lastgang-Diagramm')}
+      />
 
       {chapter.loadControl && <Statement statement={chapter.loadControl} />}
+    </View>
+  )
+}
+
+/**
+ * B23c-3a — Kostenverlauf und Tages-Energiefluss.
+ *
+ * ── ⚠ WAS AUF DIESER SEITE STEHT, ENTSCHEIDET `detail.ts` ─────────────────────────────────────
+ * Hier wird gerendert, was die Ableitung liefert — keine Verzweigung an einem Contract-Feld in
+ * diesem JSX. Insbesondere WELCHER Kostenvergleich steht (Monatsvergleich oder kumulierte Kosten)
+ * ist dort entschieden, und `charts.tsx` hat das Bild aus DERSELBEN Entscheidung gerastert. Zwei
+ * getrennte Verzweigungen ergäben eine Bildunterschrift, die ein anderes Bild beschreibt als das
+ * darüber, und man sähe es der Seite nicht an.
+ *
+ * ── ⚠ EIN FEHLENDES BILD IST HIER EIN REGELFALL, KEIN FEHLER ──────────────────────────────────
+ * Der Tages-Energiefluss entsteht nur, wenn die Simulation überhaupt einen Tag hergibt (keine
+ * abgefangene Spitze UND keine PV-Einspeisung ⇒ keiner). Dann steht an seiner Stelle die
+ * Begründung — ausgeschrieben in `detail.ts`, nicht hier: „was fehlt und warum" ist eine
+ * fachliche Aussage.
+ */
+function DetailChapter({
+  input,
+  charts,
+}: {
+  input: PdfReportInput
+  charts: ReportChartRasters
+}) {
+  const chapter = buildDetailChapter(input.analysis, { flowDay: charts.flowDay })
+
+  return (
+    <View style={styles.body}>
+      <Text style={styles.h2}>{DETAIL_SECTION.title}</Text>
+      <Text style={styles.lead}>{DETAIL_INTRO}</Text>
+
+      <ChartFigure
+        raster={charts.cost}
+        caption={chapter.cost?.figure.caption ?? ''}
+        note={chapter.cost?.figure.note}
+        /* `costMissing` steht, wenn es gar nichts zu vergleichen gab; sonst ist ein fehlendes
+           Bild ein Fehlschlag der Rasterung, und der bekommt den Fehlschlag-Satz. */
+        missing={chapter.costMissing ?? figureMissingText('Der Kostenvergleich')}
+      />
+      {chapter.cost?.statement && <Statement statement={chapter.cost.statement} />}
+
+      <ChartFigure
+        raster={charts.flow}
+        caption={chapter.flow?.caption ?? ''}
+        note={chapter.flow?.note}
+        missing={chapter.flowMissing ?? figureMissingText('Der Tages-Energiefluss')}
+      />
     </View>
   )
 }
@@ -727,6 +813,12 @@ export function ReportDocument({
         <PageFurniture sink={sink} />
         <SectionAnchor id={RECOMMENDATION_SECTION.id} sink={sink} />
         <RecommendationChapter input={input} charts={charts} />
+      </Page>
+
+      <Page size="A4" style={styles.page}>
+        <PageFurniture sink={sink} />
+        <SectionAnchor id={DETAIL_SECTION.id} sink={sink} />
+        <DetailChapter input={input} charts={charts} />
       </Page>
 
       <Page size="A4" style={styles.page}>

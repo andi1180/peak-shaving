@@ -73,7 +73,15 @@ export type CaptureOptions = RasterizeOptions & {
 }
 
 const DEFAULT_WIDTH = 760
-const DEFAULT_TIMEOUT_MS = 5000
+const DEFAULT_TIMEOUT_MS = 8000
+
+/**
+ * So viele aufeinanderfolgende Frames muss der gezeichnete Baum unverändert bleiben, bevor
+ * gerastert wird. Drei, weil zwei zufällig gleich sein können: react-smooth interpoliert mit
+ * `requestAnimationFrame`, und am Anfang wie am Ende einer Animation liegen die Zwischenwerte
+ * dicht beieinander.
+ */
+const STABLE_FRAMES = 3
 
 /**
  * Der Standardwert: die gemountete Komponente selbst. Trägt jeden Chart, der KEIN SVG ist — die
@@ -128,6 +136,76 @@ async function waitForLayout(
 }
 
 /**
+ * Wartet, bis sich der gezeichnete Baum über mehrere Frames nicht mehr ändert.
+ *
+ * ── ⚠ DER GRUND IST EIN GEMESSENER, STILLER FEHLSCHLAG (B23c-3a) ──────────────────────────────
+ * `waitForLayout` prüft, ob das Zielelement DA ist und PLATZ hat — beides trifft auf einen
+ * Recharts-Zeichenbereich zu, sobald die Achsen stehen. Die Datenreihen kommen aber später: die
+ * Report-Charts schalten die Einblend-Animation überwiegend ab (`isAnimationActive={false}`), der
+ * Tages-Energiefluss tut es ausdrücklich NICHT (§6.2 erlaubt ihm als einzigem „leichte
+ * Interaktion/Animation"). Gerastert wurde deshalb der Zustand bei t = 0: **Achsen, Gitter und
+ * Beschriftungen vollständig, alle vier Datenreihen unsichtbar** — ohne Fehler, ohne Warnung, ein
+ * technisch einwandfreies Bild eines leeren Charts. Dieselbe Klasse stillen Fehlschlags wie der
+ * „ODER"-Selektor aus B23b und die `lineHeight`-Falle aus B23a.
+ *
+ * ⚠ DESHALB IMMER UND NICHT AUF ZURUF. Ein Schalter „warte, wenn dieser Chart animiert" verlangte,
+ * dass der Aufrufer von der Animation einer fremden Komponente weiss; der nächste Chart, der eine
+ * bekommt, käme wieder leer heraus, und niemand sähe es. Für einen statischen Chart kostet die
+ * Prüfung drei Frames.
+ *
+ * ── ⚠ STILLSTAND ALLEIN GENÜGT NICHT — auch das ist gemessen ─────────────────────────────────
+ * Die erste Fassung wartete nur darauf, dass sich der serialisierte Baum über drei Frames nicht
+ * mehr ändert. Sie lief in genau denselben leeren Chart: zwischen dem Mounten und dem ersten Tick
+ * von react-smooth liegen mehrere IDENTISCHE Frames — der Anfangszustand der Animation ist stabil,
+ * und er ist der unsichtbare. Am gerenderten Baum abgelesen (Tages-Energiefluss, alle Pfade mit
+ * vollständigem `d`): beide Flächen mit einem Clip-Rechteck der Breite `0`, beide Linien mit
+ * `stroke-dasharray="0px …"`. Der Baum war fertig, die Reihen waren unsichtbar.
+ *
+ * Gewartet wird deshalb auf BEIDES: der Baum steht still UND er zeigt keinen dieser zwei
+ * Anfangszustände mehr. Beide Marken sind die Mechanik, mit der react-smooth Recharts-Reihen
+ * einblendet; eine Wartezeit „lang genug für die Animation" wäre stattdessen eine geratene Zahl,
+ * die beim ersten längeren Übergang wieder ins Leere liefe.
+ *
+ * Verglichen wird der serialisierte Inhalt des Zielelements. Er umfasst Pfaddaten, Anstrich und
+ * die Hilfsmittel, mit denen animiert wird — also genau das, was sich währenddessen ändert.
+ */
+function isStillDrawing(el: Element): boolean {
+  /* Flächen: react-smooth zieht ein Clip-Rechteck von Breite 0 auf die volle Breite auf. */
+  for (const rect of el.querySelectorAll('clipPath > rect')) {
+    if (rect.getAttribute('width') === '0') return true
+  }
+  /* Linien: dieselbe Bibliothek animiert sie über `stroke-dasharray`, beginnend bei „0px …". */
+  for (const path of el.querySelectorAll('path[stroke-dasharray]')) {
+    if ((path.getAttribute('stroke-dasharray') ?? '').startsWith('0px')) return true
+  }
+  return false
+}
+
+async function waitForStableRender(el: Element, timeoutMs: number): Promise<void> {
+  const deadline = performance.now() + timeoutMs
+  let previous: string | null = null
+  let unchanged = 0
+  for (;;) {
+    const current = isStillDrawing(el) ? null : el.innerHTML
+    if (current !== null && current === previous) {
+      unchanged += 1
+      if (unchanged >= STABLE_FRAMES) return
+    } else {
+      unchanged = 0
+      previous = current
+    }
+    if (performance.now() > deadline) {
+      throw new Error(
+        'Das Chart hat sich innerhalb der Wartezeit nicht beruhigt — es zeichnet noch. Gerastert ' +
+          'würde sonst ein Zwischenzustand, bei einer Einblend-Animation im schlimmsten Fall ein ' +
+          'Chart ganz ohne Datenreihen. Lieber ein benannter Fehlschlag als ein leeres Bild.',
+      )
+    }
+    await nextFrame()
+  }
+}
+
+/**
  * Mountet `node` abseits des Sichtfelds, rastert das ausgewählte Element und räumt wieder ab.
  *
  * ⚠ Das Abräumen läuft in `finally` — bleibt der Kasten nach einem Fehlschlag stehen, sammelt jede
@@ -155,7 +233,10 @@ export async function captureChart(
   try {
     root = createRoot(container)
     root.render(node)
-    const el = await waitForLayout(container, select, options.timeoutMs ?? DEFAULT_TIMEOUT_MS)
+    const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS
+    const el = await waitForLayout(container, select, timeoutMs)
+    /* Erst da und gross genug, DANN fertig gezeichnet — s. `waitForStableRender`. */
+    await waitForStableRender(el, timeoutMs)
     options.inspect?.(el)
     return await rasterizeChart(el, options)
   } finally {

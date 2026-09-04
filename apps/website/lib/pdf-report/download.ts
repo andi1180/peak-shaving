@@ -23,23 +23,44 @@ export type ReportPdfOutcome = {
   /** `false`, wenn der Wächter angeschlagen hat und ohne Seitenverweise ausgeliefert wurde. */
   agendaHasPageNumbers: boolean
   /**
-   * B23c-2 — was beim Erzeugen der Chart-Bilder herauskam.
+   * B23c-2/B23c-3a — was beim Erzeugen der Chart-Bilder herauskam.
    *
-   * ⚠ `builds` MUSS 1 sein, unabhängig von `passes`: die Bilder entstehen einmal je Dokument und
-   * nicht je Renderdurchlauf (s. `render.tsx`). Der Wert ist gemessen, nicht hingeschrieben.
+   * ⚠ `builds` MUSS der Zahl der tatsächlich gerasterten Bilder entsprechen (höchstens drei) und
+   * darf NICHT mit `passes` skalieren: die Bilder entstehen einmal je Dokument und nicht je
+   * Renderdurchlauf (s. `render.tsx`). Der Wert ist gemessen, nicht hingeschrieben.
    */
   chart: {
     builds: number
-    /** Bildpunkte des Lastgang-Rasters — `null`, wenn kein Bild entstanden ist. */
-    loadPx: { width: number; height: number } | null
-    /** Seitenverhältnis des Bildes und die pt-Masse, mit denen es eingebettet wurde. */
-    loadAspectRatio: number | null
-    loadEmbeddedPt: { width: number; height: number } | null
-    /** Stützpunkte der Kurve im gerenderten SVG — am `<path>` gezählt (s. `charts.ts`). */
+    load: ChartFigureOutcome
+    /** Stützpunkte der Kurve im gerenderten SVG — am `<path>` gezählt (s. `charts.tsx`). */
     loadVertices: number | null
-    loadError: string | null
+    cost: ChartFigureOutcome
+    /**
+     * Welche Fassung des Kostenvergleichs gerastert wurde — `null`, wenn keine entstanden ist.
+     * Reist mit heraus, damit ein Prüflauf die ENTSCHEIDUNG messen kann (Monatsvergleich ODER
+     * kumulierte Kosten) und nicht nur, dass irgendein Bild da ist.
+     */
+    costKind: 'monthly' | 'cumulative' | null
+    flow: ChartFigureOutcome
+    /**
+     * Die Tagesbeschriftung, die die Energiefluss-Komponente beim Rastern getragen hat — aus dem
+     * gerenderten Baum GELESEN (s. `charts.tsx`). Der Nachweis, WELCHER Tag im Bild steht.
+     */
+    flowDay: string | null
     captureMs: number
   }
+}
+
+/** Was über ein einzelnes Bild zu berichten ist. */
+export type ChartFigureOutcome = {
+  /** Bildpunkte des Rasters — `null`, wenn kein Bild entstanden ist. */
+  px: { width: number; height: number } | null
+  /** Seitenverhältnis des Bildes. */
+  aspectRatio: number | null
+  /** Die pt-Masse, mit denen es eingebettet wurde. */
+  embeddedPt: { width: number; height: number } | null
+  /** Warum kein Bild — `null` heisst entweder „Bild entstanden" oder „für diesen Fall keines vorgesehen". */
+  error: string | null
 }
 
 /**
@@ -87,7 +108,18 @@ export async function downloadReportPdf(
   anchor.remove()
   URL.revokeObjectURL(url)
 
-  const raster = result.charts.load
+  /* Aus `render.tsx` durchgereicht — dort entsteht die Höhe mit DERSELBEN Funktion, die auch das
+     Dokument benutzt. Hier nachzurechnen wäre ein zweiter Rechenweg für dieselbe Zahl. */
+  const figure = (
+    raster: { widthPx: number; heightPx: number; aspectRatio: number } | null,
+    embeddedPt: { width: number; height: number } | null,
+    error: string | null,
+  ): ChartFigureOutcome => ({
+    px: raster ? { width: raster.widthPx, height: raster.heightPx } : null,
+    aspectRatio: raster ? raster.aspectRatio : null,
+    embeddedPt,
+    error,
+  })
 
   return {
     fileName,
@@ -96,13 +128,12 @@ export async function downloadReportPdf(
     agendaHasPageNumbers: result.agendaPages !== null,
     chart: {
       builds: result.chartBuilds,
-      loadPx: raster ? { width: raster.widthPx, height: raster.heightPx } : null,
-      loadAspectRatio: raster ? raster.aspectRatio : null,
-      /* Aus `render.tsx` durchgereicht — dort entsteht die Höhe mit DERSELBEN Funktion, die auch
-         das Dokument benutzt. Hier nachzurechnen wäre ein zweiter Rechenweg für dieselbe Zahl. */
-      loadEmbeddedPt: result.chartEmbeddedPt,
+      load: figure(result.charts.load, result.chartEmbeddedPt.load, result.charts.loadError),
       loadVertices: result.charts.loadVertices,
-      loadError: result.charts.loadError,
+      cost: figure(result.charts.cost, result.chartEmbeddedPt.cost, result.charts.costError),
+      costKind: result.charts.costKind,
+      flow: figure(result.charts.flow, result.chartEmbeddedPt.flow, result.charts.flowError),
+      flowDay: result.charts.flowDay,
       captureMs: result.charts.captureMs,
     },
   }

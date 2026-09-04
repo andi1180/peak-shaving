@@ -103,6 +103,7 @@ export const METHODOLOGY_ITEMS: readonly MethodologyItem[] = [
 export const SECTION_ID = {
   results: 'kernergebnisse',
   recommendation: 'empfehlung',
+  detail: 'kostenverlauf',
   methodology: 'methodik',
 } as const
 
@@ -142,6 +143,32 @@ export const RECOMMENDATION_SECTION: ReportSection = {
 export const RECOMMENDATION_INTRO =
   'Welches Gerät, was es kostet — und wie sich Ihr Lastgang mit ihm liest.'
 
+/**
+ * B23c-3a — das Kapitel mit dem Kostenvergleich und dem Tages-Energiefluss.
+ *
+ * ── ⚠ EIN EIGENES KAPITEL UND KEIN ANHANG AN „Empfehlung und Lastverlauf" ─────────────────────
+ * Jenes Kapitel beantwortet „welches Gerät und was kostet es"; dieses zeigt, wie sich das über die
+ * Zeit auswirkt und wie ein einzelner Tag damit aussieht. Zwei Bilder mehr auf jener Seite hätten
+ * sie ohnehin über den Satzspiegel getragen — dann stünde in der Agenda ein Kapitel, dessen
+ * grösserer Teil auf einer Seite steht, die sie nicht nennt.
+ *
+ * ⚠ Eigene `<Page>` (D5, Regel 1). Als `<View break>` im Empfehlungs-Kapitel bekäme es in der
+ * Agenda die Seitenzahl JENES Kapitels — plausibel aussehend und falsch.
+ *
+ * ⚠ Der Titel nennt bewusst weder „Monatsvergleich" noch „Kostenvergleich": welcher der beiden
+ * steht, hängt an der Datenlage (`detail.ts`), und ein Titel, der einen davon ankündigt, wäre auf
+ * jedem zweiten Report falsch. Dieselbe Regel wie bei den beiden Kapitel-Vorspännen.
+ */
+export const DETAIL_SECTION: ReportSection = {
+  id: SECTION_ID.detail,
+  level: 1,
+  title: 'Kostenverlauf und ein Tag im Detail',
+}
+
+/** Steht unter der Kapitelüberschrift. Sagt, worum es geht, nicht was auf der Seite steht. */
+export const DETAIL_INTRO =
+  'Wie sich die Zahlen über die Zeit auswirken — und wie ein einzelner Tag damit aussieht.'
+
 /** Steht unter der Kapitelüberschrift — wörtlich wie im CSS-Weg (`print-methodology.tsx`). */
 export const METHODOLOGY_INTRO =
   'Wie diese Zahlen entstanden sind — und wo ihre Grenzen liegen.'
@@ -162,6 +189,7 @@ export const METHODOLOGY_SECTION: ReportSection = {
 export const REPORT_AGENDA: readonly ReportSection[] = [
   RESULTS_SECTION,
   RECOMMENDATION_SECTION,
+  DETAIL_SECTION,
   METHODOLOGY_SECTION,
   ...METHODOLOGY_ITEMS,
 ]

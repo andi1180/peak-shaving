@@ -392,3 +392,165 @@ mehr, kleinere gzip-Ströme komprimieren schlechter. **Gemessen: über den GESAM
 `/rechner`-First-Load-Satz kommen `@react-pdf`, `fitRasterToWidth`, `reportChartBuildCount` und
 jeder Text des neuen Kapitels 0× vor** — es ist kein neuer Code auf der Route, nur eine andere
 Aufteilung. `/pdf-report-probe` bleibt bei 117 kB.
+
+---
+
+## D14 — B23c-3a: Kostenverlauf und ein Tag im Detail
+
+**Gebaut am 04.09.2026.** Das Dokument trägt damit drei der sieben Report-Grafiken. Neu ist das
+Kapitel **„Kostenverlauf und ein Tag im Detail"** — eine eigene `<Page>` mit eigenem Agenda-Eintrag
+(D5, Regel 1), zwischen „Empfehlung und Lastverlauf" und „Methodik & Vorbehalte".
+
+### Die eine Bedingung, und die eine benannte Abweichung
+
+Das Kapitel trägt **entweder** den Monatsvergleich „Ihr Tarif heute gegen aWATTar" **oder** den
+kumulierten Kostenvergleich mit/ohne Speicher, gefolgt vom Tages-Energiefluss. Entschieden wird das
+an GENAU EINER Bedingung — ist `tariffOptimization.monthlyComparison` gerechnet, steht der
+Monatsvergleich, sonst der Kostenvergleich. Ausdrücklich keine zweite Prüfung an `computable`: der
+Worker setzt das Feld ausschliesslich bei berechenbarem Hebel UND vorhandener Bestandsanlage, und
+eine hier nachgebaute Zweitprüfung könnte davon abweichen (dieselbe Regel wie in `report.tsx` und
+`summary.ts`).
+
+> **⚠ Der Bildschirm-Report verzweigt anders, und das ist gemessen statt angenommen.** `report.tsx`
+> entscheidet an `isExisting`: im Bestandsfall steht der Monatsvergleich (oder, wenn er fehlt, GAR
+> NICHTS), im Katalog-Fall der Kostenvergleich. Der Fall „Bestandsanlage, Hebel nicht berechenbar"
+> trägt am Bildschirm damit KEINEN der beiden.
+
+Im PDF trägt er den Kostenvergleich. Drei Gründe, alle drei in `detail.ts` ausgeschrieben:
+
+1. Am Bildschirm ist der Kostenvergleich an die Katalog-Empfehlung als PRIMÄRE Aussage gebunden,
+   und die gibt es für einen Bestandskunden dort nicht — die Sektion „Falls Sie stattdessen neu
+   kaufen würden" ist am Bildschirm ersatzlos gestrichen.
+2. Im PDF gibt es sie sehr wohl: B23c-2 trägt die Kaufaussage in BEIDEN Fällen, im Bestandsfall in
+   genau dieser Rahmung. Der Kostenvergleich ist das BILD zu jener Aussage — dieselbe
+   Nettoinvestition, dieselbe Amortisation, derselbe Betrachtungszeitraum.
+3. Ein Kapitel, das im Blocker-Fall gar nichts trägt, wäre ein Agenda-Eintrag auf eine Seite, die
+   nur sagt, dass sie leer ist.
+
+Nicht übernommen wird die Begründung, die am Bildschirm dagegen spricht (die Kurve vergleicht „mit
+gegen ohne Speicher" und ist für ein ZUSATZgerät die falsche Form) — genau deshalb steht sie hier
+unter derselben Rahmung wie die Kaufaussage, als Ersatz und nicht als Ergänzung.
+
+### Der Contract ist zum zweiten Mal NICHT gewachsen — ausgezählt
+
+`PdfReportAnalysis` bleibt der `Pick<…>` aus B23c-1. Die drei Bilder lesen zusammen: den
+Monatsvergleich aus `tariffOptimization`, den empfohlenen Eintrag aus `perBattery` (über
+`recommendation`) samt `current.leistungspreisCostPerYear` und `assumptions.horizonYears`, und für
+den Energiefluss `existingBatteryAnalysis.entry` bzw. `perBattery` (je `dispatchTrace` mit
+`representativeDays`) plus die Zeitzone aus `PdfReportInput.loadProfile`. Alle sechs Felder standen
+bereits dort; `representativeDays` hängt an `dispatchTrace`, genau wie `capKwByPeriod` in B23c-2.
+
+### Die Tagesauswahl wird GELESEN, nicht nachgebaut
+
+Welcher Tag im Energiefluss steht, entscheidet `EnergyFlowChart` selbst (`worst_caught_peak`, sonst
+`pv_strong`, sonst ein erklärter Leerzustand). Die Komponente wird unverändert und ohne Interaktion
+gemountet — ihr Standardzustand IST die Auswahl. Die Beschriftung („10. Feb. (Teuerste abgefangene
+Spitze)") wird beim Rastern aus dem GERENDERTEN Baum gelesen und geht von dort in die
+Bildunterschrift; die Zeitachse des Bildes zeigt nur Uhrzeiten, das Datum ginge sonst verloren.
+Findet sich die Zeile nicht oder ist sie unplausibel lang, fehlt der Halbsatz — ein aus einem
+fremden Element gegriffener Text unter einem Bild wäre schlimmer als keine Angabe.
+
+Geprüft wird im Code nur die VORBEDINGUNG: ob der Trace überhaupt einen Tag trägt. Ohne einen
+rendert die Komponente ihren Leerzustand, es gäbe keinen Zeichenbereich, und der Rasterweg liefe
+acht Sekunden in eine Zeitüberschreitung — statt dass das Dokument sagt, warum kein Bild da ist.
+
+### ⚠ Zwei Befunde an der Pipeline, beide stille Fehlschläge
+
+**(1) Ein animierender Chart wird bei t = 0 gerastert — vier Datenreihen fehlen, fehlerfrei.**
+`waitForLayout` (B23b) prüft, ob das Zielelement DA ist und PLATZ hat; beides trifft auf einen
+Recharts-Zeichenbereich zu, sobald die Achsen stehen. Der Tages-Energiefluss ist der einzige
+Report-Chart, der seine Einblend-Animation ausdrücklich BEHÄLT (§6.2 erlaubt ihm als einzigem
+„leichte Interaktion/Animation"); alle übrigen setzen `isAnimationActive={false}`. Gerastert wurde
+deshalb ein technisch einwandfreies Bild eines leeren Charts: Achsen, Gitter, Ticks und Nulllinie
+vollständig, **0 Bildpunkte in jeder Serienfarbe**.
+
+Am gerenderten Baum abgelesen (alle sechs Pfade mit vollständigem `d`): beide Flächen mit einem
+Clip-Rechteck der Breite `0`, beide Linien mit `stroke-dasharray="0px …"`. **Stillstand allein
+genügt als Wartebedingung NICHT** — die erste Fassung wartete auf drei unveränderte Frames und lief
+in genau denselben leeren Chart, weil zwischen Mounten und dem ersten Tick von react-smooth mehrere
+IDENTISCHE Frames liegen und der Anfangszustand der stabile und unsichtbare ist. Gewartet wird
+jetzt auf beides: der Baum steht still UND zeigt keinen dieser zwei Anfangszustände mehr. Eine
+Wartezeit „lang genug für die Animation" wäre stattdessen eine geratene Zahl.
+
+**(2) `stop-color` fehlte in der Anstrichliste — der Break-even-Balken kam grau heraus.** Ein
+Verlauf trägt seine Farben an seinen `<stop>`-Kindern, und dort als `stop-color`. Im freistehenden
+SVG blieb `var(--color-negative)` damit unaufgelöst und fiel auf den Anfangswert SCHWARZ zurück:
+das Band zwischen den beiden Kostenlinien war einheitlich grau statt rot vor und grün nach dem
+Break-even — die Farbe trug keine Information mehr (DESIGN.md). `stop-color`/`stop-opacity` werden
+jetzt eingebettet, und zwar nur auf `<stop>`: auf jedem anderen Element sind sie wirkungslos und
+blähten die Data-URI.
+
+### Gemessen am erzeugten PDF
+
+Drei Läufe über die Prüfroute gegen den Production-Build, **99 Prüfungen, alle grün, 0
+Konsolenfehler, 0 Seitenfehler**:
+
+| | Bestand | Blocker | Katalog |
+|---|---|---|---|
+| Seiten (B23c-2 → jetzt) | 8 → **10** | 7 → **8** | 8 → **10** |
+| Durchläufe / Rasterungen | 2 / **2** | 2 / **2** | 2 / **3** |
+| Kosten-Chart | **Monatsvergleich** | kumuliert | kumuliert |
+| Energiefluss | kein Tag | kein Tag | **10. Feb.** |
+| Agenda (4 Kapitel) | 3 / 5 / 7 / 9 | 3 / 4 / 6 / 7 | 3 / 5 / 7 / 9 |
+| Dateigrösse | 522 kB | 528 kB | 609 kB |
+
+- **Agenda erneut gemessen**, nicht übernommen: jeder Eintrag gegen die TATSÄCHLICHE erste Seite
+  seines Kapitels, erkannt an Titel UND Vorspann. Der blosse Titel genügt nicht — „Methodik &
+  Vorbehalte" steht auch im Fliesstext der Kernergebnis-Fussnote, und danach gesucht meldete die
+  Prüfung eine Seite, auf der das Kapitel gar nicht beginnt.
+- **Seitenverhältnis** je Bild: intrinsische Grösse des XObjects aus dem Rohstrom gegen die
+  `cm`-Matrix der Platzierung — 2,773438 · 2,968750 · 3,125000, relative Abweichung < 1e-6.
+- **Die Bilder sind gezeichnet, nicht bloss Kästen** (entpackte RGB-Ströme, Bildpunkte gezählt):
+  Monatsvergleich Akzent **105.630** · Mischton **110.740** · grau **248.890** — also alle drei
+  Reihen. Kostenvergleich „mit Batterie" Akzent **10.291**, Band **423.359** rötlich und **88.477**
+  grünlich. Energiefluss Verbrauch (ink) **4.699** · Batterie (Akzent-hover) **13.291** · Netzbezug
+  **19.544**. Lastgang unverändert: Kapp-Linie **6.604** im Katalog-Fall, **0** in den beiden
+  anderen.
+- **Die Bandfarben werden als EIGENSCHAFT geprüft, nicht als fester Wert** (rötlich/grünlich statt
+  einer nachgerechneten Mischfarbe) — D11, Befund 4: eine von Hand gemischte Farbe misst die
+  Rundung statt die Farbe. Die tatsächliche Deckung ist hier zudem das Produkt aus `stopOpacity`
+  und der Flächendeckung, die Recharts vorgibt.
+- **Grün gibt es nur, wo es einen Schnittpunkt gibt.** Im Blocker-Fall spielt das Gerät seine
+  Anschaffung im Horizont nicht ein; das Band ist durchgehend rot, und die Bildunterschrift sagt
+  genau das statt „bis dahin rot und danach grün".
+- **Querprobe über zwei Kapitel hinweg:** die drei Monatssummen des Detail-Kapitels ergeben die
+  Differenzen der Kernergebnis-Seite exakt — € 20.721 − € 9.766 = € 10.955 („Reiner Tarifwechsel")
+  und € 9.766 − € 9.316 = € 450 („Wert der Ladesteuerung").
+- **Der Energiefluss-Tag ist gegen den Trace gehalten**, nicht bloss als „irgendein Datum" geprüft:
+  gelesen „10. Feb. (Teuerste abgefangene Spitze)", im Trace `worst_caught_peak@2025-02-10`.
+
+**Vier Wächter-Proben, jede bringt gezielt Rot:** (1) Rasterung in `renderPass` gezogen →
+`chartBuilds` 6 / 6 / 9 statt 2 / 2 / 3, **6** Prüfungen rot. (2) Animationszustand ignoriert →
+**genau 1** rot, und zwar der leere Energiefluss (Akzent-hover 0, ink 0). (3) `stop-color` nicht
+eingebettet → **4** rot, das Band mit **219.294** bzw. **509.935** neutralgrauen Bildpunkten.
+(4) Vorbedingung „trägt der Trace einen Tag" entfernt → **7** rot, und an der Stelle der Begründung
+steht die technische Meldung einer Zeitüberschreitung.
+
+### Bündelgrösse
+
+`/rechner` First Load: **584.361 → 583.328 Bytes gzip** (−1.033), roh **1.919.820 → 1.920.145**
+(+325), Chunk-Zahl unverändert **17**. `/pdf-report-probe` 117 → 118 kB.
+
+Es ist erneut reine Chunk-Graph-Buchhaltung: `charts.tsx` zieht jetzt vier statt einer
+Produktionskomponente, und Next zieht die vier daraufhin aus dem Seiten-Chunk in zwei kleine
+geteilte Chunks (14.181 und 15.683 Bytes roh); der Seiten-Chunk schrumpft entsprechend von 226.374
+auf 215.329 Bytes, und die drei recharts-tragenden Chunks werden zu zweien neu aufgeteilt.
+**Gemessen: über den GESAMTEN `/rechner`-First-Load-Satz kommen `@react-pdf`, `fitRasterToWidth`,
+`reportChartBuildCount`, `buildDetailChapter` und der Kapiteltitel 0× vor** — es ist kein neuer Code
+auf der Route.
+
+### `[OFFEN]` nach diesem Schritt
+
+- **Der `pv_strong`-Rückfall ist mit den Prüf-Fixtures nicht erreichbar.** Der Prüf-Lastgang trägt
+  keine Einspeisung, und der Bestandsspeicher ist `static` — im Bestands- wie im Blocker-Fall
+  trägt der Trace deshalb GAR KEINEN Tag (dieselbe Lage wie am Bildschirm), im Katalog-Fall genau
+  `worst_caught_peak`. Der Rückfall läuft im UNVERÄNDERTEN Bauteil und wird hier nicht nachgebaut;
+  gemessen ist er trotzdem nicht. Ein zweiter Lastgang für dieselbe Prüfroute wäre eine zweite
+  Grundlage (s. `summary-fixtures.ts`) und ist deshalb bewusst unterblieben.
+- **Die Tagesangabe trägt kein Jahr.** `formatDayLabel` formatiert Tag und Monat — am Bildschirm
+  genügt das, im weitergereichten PDF wäre das Jahr besser. Ändern hiesse die Komponente anfassen.
+- **„Break-even" und „Jahr" stehen am Rand des Zeichenbereichs und werden dort beschnitten** —
+  dasselbe wie am Bildschirm, geerbt und nicht durch das Rastern verursacht.
+- **Der Heatmap-Anker (D11) ist unverändert offen**, ebenso die Grenznutzen-Kurve, der Ø-Ladepreis
+  und der Zusatzspeicher-Abschnitt — alles B23c-3b.
+- **Die Data-URIs sind weiterhin der teure Teil**: die PDFs wiegen jetzt 522–609 kB.

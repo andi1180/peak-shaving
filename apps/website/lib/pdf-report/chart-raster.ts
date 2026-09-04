@@ -183,6 +183,22 @@ const SVG_PAINT_PROPERTIES = [
 ] as const
 
 /**
+ * ⚠ NUR AUF `<stop>`, und ihr Fehlen war ein GEMESSENER stiller Fehler (B23c-3a).
+ *
+ * Ein Verlauf (`<linearGradient>`) trägt seine Farben nicht am benutzenden Element, sondern an
+ * seinen `<stop>`-Kindern — und dort als `stop-color`, das in der Liste oben nicht vorkommt. Im
+ * freistehenden SVG bleibt eine `var(--color-…)`-Angabe damit unaufgelöst, und `stop-color` fällt
+ * auf seinen Anfangswert SCHWARZ zurück. Gemessen am Kostenvergleich: das Band zwischen den beiden
+ * Kostenlinien kam einheitlich grau heraus statt rot vor und grün nach dem Break-even — ohne
+ * Fehler, ohne Warnung, und die Aussage der Farbe war weg (DESIGN.md: Farbe ist Information).
+ *
+ * Getrennt von der Liste oben, weil beide Eigenschaften auf jedem anderen Element wirkungslos
+ * sind: als Attribut überall zurückgeschrieben blähten sie die Data-URI, ohne ein Bildpunkt zu
+ * ändern.
+ */
+const SVG_GRADIENT_STOP_PROPERTIES = ['stop-color', 'stop-opacity'] as const
+
+/**
  * Läuft Original und Klon PARALLEL ab. Der Klon ist strukturgleich, die Kinder stehen also an
  * denselben Stellen.
  *
@@ -219,6 +235,12 @@ export function inlineComputedPaint(source: Element, target: Element): void {
         continue
       }
       t.setAttribute(property, value)
+    }
+    if (s.tagName === 'stop') {
+      for (const property of SVG_GRADIENT_STOP_PROPERTIES) {
+        const value = computed.getPropertyValue(property)
+        if (value) t.setAttribute(property, value)
+      }
     }
   })
 }

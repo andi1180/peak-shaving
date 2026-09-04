@@ -3,6 +3,11 @@ import type { AnalysisResult, LoadProfile } from 'shared'
 import type { AnalysisRequest, WorkerOutbound } from '@/lib/analysis-protocol'
 import { DEFAULT_HORIZON_YEARS } from '@/lib/constants'
 import {
+  buildDetailChapter,
+  detailChartPlan,
+  type DetailChapter,
+} from '@/lib/pdf-report/detail'
+import {
   buildRecommendationChapter,
   type RecommendationChapter,
 } from '@/lib/pdf-report/recommendation'
@@ -56,6 +61,28 @@ export type SummaryProbeRun = {
    */
   chapter: RecommendationChapter
   /**
+   * B23c-3a — was das Kapitel „Kostenverlauf und ein Tag im Detail" aus demselben Ergebnis
+   * ableitet. Wieder DIE Produktionsfunktion, hier aufgerufen und nicht nachgebaut.
+   *
+   * ⚠ `flowDay` bleibt hier `null`: welcher Tag im Bild steht, misst erst die Rasterung
+   * (`charts.tsx` liest ihn aus dem gerenderten Baum). Der Prüfstand zeigt also, WAS das Kapitel
+   * tragen wird, nicht die Tagesangabe — die steht nach dem Erzeugen im Ergebnisblock.
+   */
+  detail: DetailChapter
+  /** Welcher Kosten-Chart entstehen wird — die ENTSCHEIDUNG, vor dem Erzeugen sichtbar. */
+  detailCostKind: 'monthly' | 'cumulative' | null
+  /** Ob überhaupt ein Energiefluss-Tag vorliegt (s. `detailChartPlan`). */
+  detailFlowPlanned: boolean
+  /**
+   * Die Tage, die der Trace des Energiefluss-Eintrags TRÄGT — Etikett und Datum, unverändert aus
+   * `DispatchTrace.representativeDays`.
+   *
+   * ⚠ Damit lässt sich der Tag, den die Komponente beim Rastern GEWÄHLT hat (`chart.flowDay`),
+   * gegen die Datenlage halten, statt bloss festzustellen, dass irgendein Datum im Bild steht.
+   * Der Prüfstand leitet daraus NICHTS ab — er zeigt, was zur Wahl stand.
+   */
+  detailFlowDays: { label: string; date: string }[]
+  /**
    * B23c-2 — DER Lastgang, gegen den gerechnet wurde. Er reist mit heraus, weil das Dokument ihn
    * für das Diagramm braucht (`PdfReportInput.loadProfile`) und `DispatchTrace` bewusst keine
    * Rohreihe trägt.
@@ -100,10 +127,22 @@ export async function runSummaryAnalysis(kind: SummaryProbeKind): Promise<Summar
       }
       worker.postMessage(request)
     })
+    const plan = detailChartPlan(result)
+    const flowEntry = plan.flow
+      ? (plan.flow.entries.find((e) => e.battery.id === plan.flow!.selectedBatteryId) ??
+        plan.flow.entries[0])
+      : undefined
     return {
       result,
       summary: buildReportSummary(result),
       chapter: buildRecommendationChapter(result),
+      detail: buildDetailChapter(result),
+      detailCostKind: plan.cost?.kind ?? null,
+      detailFlowPlanned: plan.flow !== null,
+      detailFlowDays: (flowEntry?.dispatchTrace?.representativeDays ?? []).map((d) => ({
+        label: d.label,
+        date: d.date,
+      })),
       loadProfile: payload.load.profile,
     }
   } finally {
