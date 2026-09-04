@@ -69,3 +69,45 @@ export type ReportStatement = {
    */
   notes?: string[]
 }
+
+/**
+ * B23c-3b-2 — eine kompakte Vergleichstabelle mehrerer Kandidaten.
+ *
+ * ── ⚠ WARUM EINE TABELLE UND NICHT DIE EMPFEHLUNGSKARTE JE KANDIDAT ───────────────────────────
+ * Am Bildschirm zeigt die Alternativen-Aufklappliste je Gerät eine volle `RecommendationCard` —
+ * mit Aufschlüsselung, Hindsight-Vorbehalt und Warnungen. Auf Papier wäre das für fünf Kandidaten
+ * ein halbes Dutzend Seiten, auf denen sich derselbe Vorbehalt fünfmal wiederholt und die eine
+ * Frage, um die es geht („welches Gerät ist besser?"), zwischen den Wiederholungen verschwindet.
+ * Eine Tabelle beantwortet genau diese Frage: sechs Grössen nebeneinander, in einer Zeile je Gerät.
+ *
+ * ⚠ Es ist ausdrücklich eine DARSTELLUNGS-Form wie `ReportRow`: die Zellen sind FERTIG formatierte
+ * Zeichenketten, die Rundung fällt in der Ableitung. `document.tsx` weiss deshalb nicht, welche
+ * Tabelle es rendert — und es gibt nur EINE Rendering-Stelle für beide Konsumenten
+ * (Zusatzgeräte im Bestandsfall, Katalog-Alternativen sonst).
+ */
+export type ReportTableColumn = {
+  label: string
+  /**
+   * Relatives Breitengewicht (`flexGrow`), nicht pt.
+   *
+   * ⚠ Absolute Breiten stünden hier falsch: die Satzbreite ist eine Eigenschaft des Layouts
+   * (`PDF_CONTENT_WIDTH_PT`), und eine zweite, hier abgeschriebene Aufteilung liefe beim nächsten
+   * Randwechsel von ihr weg. Was die Ableitung weiss, ist das VERHÄLTNIS: ein Gerätename braucht
+   * mehr Platz als eine Jahreszahl.
+   */
+  width: number
+  /** Zahlen rechtsbündig — sonst stehen die Beträge einer Spalte nicht untereinander. */
+  align?: 'right'
+}
+
+export type ReportTableRow = {
+  /** Stabil (die Batterie-Kennung) — Reihenfolge und Wiedererkennung in Prüfläufen. */
+  key: string
+  /** Genau so viele Einträge wie `columns`, in derselben Reihenfolge. */
+  cells: string[]
+}
+
+export type ReportTable = {
+  columns: ReportTableColumn[]
+  rows: ReportTableRow[]
+}

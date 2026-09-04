@@ -6,6 +6,8 @@ import type { ReportChartRasters } from './charts'
 import { fitRasterToWidth, type ChartRaster } from './chart-raster'
 import {
   buildReportAgenda,
+  COMPARISON_INTRO,
+  COMPARISON_SECTION,
   DETAIL_INTRO,
   DETAIL_SECTION,
   INSIGHT_INTRO,
@@ -20,6 +22,7 @@ import {
   RESULTS_SECTION,
   type ReportSection,
 } from './content'
+import { buildComparisonChapter, hasComparisonChapter } from './comparison'
 import { buildDetailChapter } from './detail'
 import { buildInsightChapter, hasInsightChapter } from './insight'
 import { buildRecommendationChapter } from './recommendation'
@@ -30,7 +33,7 @@ import {
   type AgendaPageNumbers,
   type PageNumberSink,
 } from './page-numbers'
-import type { ReportRow, ReportStatement, ReportTone } from './statement'
+import type { ReportRow, ReportStatement, ReportTable, ReportTone } from './statement'
 import { buildReportSummary } from './summary'
 import { PDF_COLORS, PDF_CONTENT_WIDTH_PT, PDF_LAYOUT, PDF_TYPE } from './theme'
 import type { PdfReportInput } from './types'
@@ -240,6 +243,32 @@ const styles = StyleSheet.create({
   rowValue: { fontWeight: 600 },
 
   statementNote: { marginTop: 2, fontSize: PDF_TYPE.small, color: PDF_COLORS.warning },
+
+  /*
+   * Vergleichstabelle (B23c-3b-2).
+   *
+   * ⚠ EINE Stufe kleiner als der Fliesstext (`small`, 8,5 pt): sechs Spalten in 499 pt Satzbreite
+   * tragen bei 9,5 pt nicht ohne Umbruch, und eine Tabelle, in der die Hälfte der Zellen zweizeilig
+   * wird, ist keine Tabelle mehr. Der Fliesstext daneben bleibt unverändert.
+   */
+  table: { marginTop: 8 },
+  tableHeader: {
+    flexDirection: 'row',
+    gap: 6,
+    paddingBottom: 2.5,
+    borderBottomWidth: 1,
+    borderBottomColor: PDF_COLORS.border,
+  },
+  tableRow: {
+    flexDirection: 'row',
+    gap: 6,
+    paddingTop: 2.5,
+    paddingBottom: 2.5,
+    borderBottomWidth: 0.5,
+    borderBottomColor: PDF_COLORS.border,
+  },
+  tableHeaderCell: { fontSize: PDF_TYPE.small, fontWeight: 600, color: PDF_COLORS.ink },
+  tableCell: { fontSize: PDF_TYPE.small, color: PDF_COLORS.text },
 
   /* Chart im Fluss (B23c-2) — bewusst KEIN Rahmen und KEIN Kasten, s. `ChartFigure`. */
   figure: { marginTop: 14 },
@@ -533,6 +562,64 @@ function Statement({ statement }: { statement: ReportStatement }) {
         <Text key={note} style={styles.statementNote}>
           · {note}
         </Text>
+      ))}
+    </View>
+  )
+}
+
+/**
+ * Eine Vergleichstabelle (B23c-3b-2).
+ *
+ * ── ⚠ RELATIVE BREITEN, KEINE PT-ANGABEN ──────────────────────────────────────────────────────
+ * Die Spaltengewichte kommen als `flexGrow` aus der Ableitung; die tatsächliche Breite ergibt sich
+ * aus dem Satzspiegel. Eine hier abgeschriebene pt-Aufteilung liefe beim nächsten Randwechsel von
+ * `PDF_LAYOUT` weg, und die Tabelle stünde entweder über den Rand hinaus oder als Streifen in der
+ * Seitenmitte.
+ *
+ * ⚠ `flexBasis: 0` neben `flexGrow`: ohne das verteilt Flex den RESTPLATZ nach dem Inhalt, und
+ * eine Zeile mit einem langen Gerätenamen bekäme andere Spaltenbreiten als die Zeile darunter —
+ * die Zahlen einer Spalte stünden dann nicht mehr untereinander.
+ *
+ * ⚠ `wrap={false}`: eine Tabelle, deren Kopfzeile auf der einen und deren Zeilen auf der nächsten
+ * Seite stehen, ist eine Zahlenkolonne ohne Beschriftung. Sie ist mit höchstens fünf Zeilen weit
+ * kleiner als der Satzspiegel — die Gefahr eines abgeschnittenen `wrap={false}`-Blocks besteht
+ * hier nicht.
+ */
+function StatementTable({ table }: { table: ReportTable }) {
+  return (
+    <View style={styles.table} wrap={false}>
+      <View style={styles.tableHeader}>
+        {table.columns.map((column) => (
+          <Text
+            key={column.label}
+            style={[
+              styles.tableHeaderCell,
+              { flexGrow: column.width, flexBasis: 0 },
+              column.align === 'right' ? { textAlign: 'right' } : {},
+            ]}
+          >
+            {column.label}
+          </Text>
+        ))}
+      </View>
+      {table.rows.map((row) => (
+        <View key={row.key} style={styles.tableRow}>
+          {row.cells.map((cell, index) => {
+            const column = table.columns[index]
+            return (
+              <Text
+                key={column?.label ?? String(index)}
+                style={[
+                  styles.tableCell,
+                  { flexGrow: column?.width ?? 1, flexBasis: 0 },
+                  column?.align === 'right' ? { textAlign: 'right' } : {},
+                ]}
+              >
+                {cell}
+              </Text>
+            )
+          })}
+        </View>
       ))}
     </View>
   )
@@ -874,6 +961,52 @@ function InsightChapter({
   )
 }
 
+/**
+ * B23c-3b-2 — Speichergrösse und Gerätewahl: die Grenznutzen-Kurve und die Vergleichstabelle.
+ *
+ * ── ⚠ DIESES KAPITEL GIBT ES NICHT IN JEDEM DOKUMENT ──────────────────────────────────────────
+ * Es ist das zweite bedingte Kapitel (nach dem Ladeverhalten): ohne Zusatzszenario und ohne
+ * Alternative zur Empfehlung entfällt es samt Agenda-Eintrag. Der Aufrufer entscheidet das EINMAL
+ * und lässt die `<Page>` sonst ganz weg.
+ *
+ * ── ⚠ WAS AUF DIESER SEITE STEHT, ENTSCHEIDET `comparison.ts` ─────────────────────────────────
+ * Hier wird gerendert, was die Ableitung liefert — keine Verzweigung an einem Contract-Feld in
+ * diesem JSX. Insbesondere ob unter der Kurve eine TABELLE oder der KLARSATZ steht, ist dort
+ * entschieden; `charts.tsx` hat das Bild aus DERSELBEN Ableitung gerastert.
+ *
+ * ⚠ Die Kurve steht ÜBER der Aussage und nicht darunter: rechnet sich keines der Geräte, ist sie
+ * die Begründung des Klarsatzes, und eine Begründung, die man erst nach der Feststellung sieht,
+ * liest sich wie ein Nachtrag. Dieselbe Reihenfolge wie am Bildschirm.
+ */
+function ComparisonChapter({
+  input,
+  charts,
+}: {
+  input: PdfReportInput
+  charts: ReportChartRasters
+}) {
+  const chapter = buildComparisonChapter(input.analysis)
+
+  return (
+    <View style={styles.body}>
+      <Text style={styles.h2}>{COMPARISON_SECTION.title}</Text>
+      <Text style={styles.lead}>{COMPARISON_INTRO}</Text>
+
+      <ChartFigure
+        raster={charts.comparison}
+        caption={chapter.figure?.caption ?? ''}
+        note={chapter.figure?.note}
+        /* `figureMissing` steht, wenn es für diesen Fall gar keine Kurve gibt; sonst ist ein
+           fehlendes Bild ein Fehlschlag der Rasterung und bekommt den Fehlschlag-Satz. */
+        missing={chapter.figureMissing ?? figureMissingText('Die Grenznutzen-Kurve')}
+      />
+
+      <Statement statement={chapter.statement} />
+      {chapter.table && <StatementTable table={chapter.table} />}
+    </View>
+  )
+}
+
 function MethodologyChapter() {
   return (
     <View style={styles.body}>
@@ -921,6 +1054,7 @@ export function ReportDocument({
    * Agenda verschweigt — beides sähe man dem Dokument nicht an.
    */
   const hasInsight = hasInsightChapter(input.analysis)
+  const hasComparison = hasComparisonChapter(input.analysis)
 
   return (
     <Document
@@ -939,7 +1073,10 @@ export function ReportDocument({
       <Page size="A4" style={styles.page}>
         <PageFurniture sink={sink} />
         <SectionAnchor id="agenda" sink={sink} />
-        <Agenda sections={buildReportAgenda({ insight: hasInsight })} pages={agenda} />
+        <Agenda
+          sections={buildReportAgenda({ insight: hasInsight, comparison: hasComparison })}
+          pages={agenda}
+        />
       </Page>
 
       <Page size="A4" style={styles.page}>
@@ -965,6 +1102,14 @@ export function ReportDocument({
           <PageFurniture sink={sink} />
           <SectionAnchor id={INSIGHT_SECTION.id} sink={sink} />
           <InsightChapter input={input} charts={charts} />
+        </Page>
+      )}
+
+      {hasComparison && (
+        <Page size="A4" style={styles.page}>
+          <PageFurniture sink={sink} />
+          <SectionAnchor id={COMPARISON_SECTION.id} sink={sink} />
+          <ComparisonChapter input={input} charts={charts} />
         </Page>
       )}
 

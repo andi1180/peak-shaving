@@ -50,9 +50,10 @@ import type { PdfReportInput } from './types'
  *      Wächter (`measurementsAgree`) an, und die Ursache stünde nirgends im Dokument.
  *
  * Gemessen wird das über `reportChartBuildCount()`: `chartBuilds` im Ergebnis ist die Zahl der
- * Rasterungen, die für DIESE Erzeugung tatsächlich gelaufen sind. Seit B23c-3b-1 sind es bis zu
- * FÜNF (Lastgang, Kostenvergleich, Tages-Energiefluss, Stunden-Heatmap, Ø-Ladepreis) — die Zahl
- * folgt also den BILDERN, die das Dokument zeigt, und ausdrücklich nicht der Zahl der Durchläufe.
+ * Rasterungen, die für DIESE Erzeugung tatsächlich gelaufen sind. Seit B23c-3b-2 sind es bis zu
+ * SECHS (Lastgang, Kostenvergleich, Tages-Energiefluss, Stunden-Heatmap, Ø-Ladepreis und
+ * Grenznutzen-Kurve) — die Zahl folgt also den BILDERN, die das Dokument zeigt, und ausdrücklich
+ * nicht der Zahl der Durchläufe.
  * Der Zähler sitzt an der Rasterung selbst (`charts.tsx`) und nicht hier: zöge jemand den Aufruf in
  * einen Durchlauf, verdoppelte oder verdreifachte er sich.
  *
@@ -90,7 +91,7 @@ export type RenderReportResult = {
   /**
    * Zahl der Chart-Rasterungen, die für DIESE Erzeugung gelaufen sind.
    *
-   * ⚠ Muss der Zahl der Bilder entsprechen, die das Dokument zeigt (höchstens fünf), und
+   * ⚠ Muss der Zahl der Bilder entsprechen, die das Dokument zeigt (höchstens sechs), und
    * ausdrücklich NICHT mit `passes` skalieren — s. den Kopf dieser Datei. Ein Diagnosewert: die
    * Zusage „je Bild einmal pro Dokument" ist der architektonische Kern dieses Schritts, und eine
    * Zusage, die niemand messen kann, ist eine Behauptung.
@@ -112,6 +113,7 @@ export type RenderReportResult = {
     flow: EmbeddedBox | null
     hourFlow: EmbeddedBox | null
     chargePrice: EmbeddedBox | null
+    comparison: EmbeddedBox | null
   }
 }
 
@@ -143,6 +145,7 @@ export async function renderReportPdf(input: PdfReportInput): Promise<RenderRepo
     flow: embed(charts.flow),
     hourFlow: embed(charts.hourFlow),
     chargePrice: embed(charts.chargePrice),
+    comparison: embed(charts.comparison),
   }
 
   // 1. Durchlauf: messen. Das erzeugte PDF trägt eine leere Zahlenspalte und wird verworfen.

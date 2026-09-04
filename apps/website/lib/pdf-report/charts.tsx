@@ -3,9 +3,11 @@ import { ChargePriceChart } from '@/components/report/charge-price-chart'
 import { CostChart } from '@/components/report/cost-chart'
 import { EnergyFlowChart } from '@/components/report/energy-flow-chart'
 import { LoadChart } from '@/components/report/load-chart'
+import { MarginalBenefitChart } from '@/components/report/marginal-benefit-chart'
 import { MonthlyTariffChart } from '@/components/report/monthly-tariff-chart'
 import { captureChart, selectHeatmapGrid, selectRechartsSurface } from './chart-capture'
 import type { ChartRaster } from './chart-raster'
+import { comparisonChartPlan } from './comparison'
 import { detailChartPlan } from './detail'
 import { insightChartPlan } from './insight'
 import { primaryEntryOf } from './summary'
@@ -43,6 +45,12 @@ import type { PdfReportInput } from './types'
  * entsteht, und `document.tsx` liest DIESELBE Ableitung für den Text daneben. Die Heatmap ist
  * dabei der EINZIGE Chart des Reports, der über den HTML-Weg gerastert wird (`foreignObject`) —
  * sie ist bewusst kein SVG, und ihr Ausschnitt kommt aus dem Anker `selectHeatmapGrid`.
+ *
+ * ── ⚠ B23c-3b-2: BIS ZU SECHS BILDER, UND DREI DAVON KÖNNEN EINZELN ENTFALLEN ────────────────
+ * Dazu kommt die Grenznutzen-Kurve. Sie ist der EINZIGE Chart, der in beiden Fällen dasselbe
+ * Bauteil mit ANDEREN Daten zeigt (`variant: 'addon'` gegen `'catalog'`) — welcher Fall gilt,
+ * entscheidet wieder die Ableitung (`comparisonChartPlan`) und nicht dieses Modul, und
+ * `document.tsx` liest DIESELBE Ableitung für den Text daneben.
  *
  * ── ⚠ DIESES MODUL ZIEHT RECHARTS ─────────────────────────────────────────────────────────────
  * Es mountet die UNVERÄNDERTEN Produktionskomponenten (Contract-Entscheidung 1, D2: der Chart im
@@ -101,6 +109,19 @@ export type ReportChartRasters = {
   /** Ø-Ladepreis je Monat. `null`, wenn keine echte Preiskurve vorlag. */
   chargePrice: ChartRaster | null
   chargePriceError: string | null
+
+  /**
+   * Grenznutzen-Kurve. `null`, wenn weniger als zwei zeichenbare Kandidaten vorliegen — dann
+   * rendert die Komponente nichts (s. `comparison.ts`).
+   */
+  comparison: ChartRaster | null
+  comparisonError: string | null
+  /**
+   * Welche Fassung gerastert wurde: Zusatzgeräte neben einer bestehenden Anlage oder der Katalog.
+   * `null` heisst: es gab keine zu rastern. Reist mit heraus, damit ein Prüflauf die ENTSCHEIDUNG
+   * messen kann und nicht nur, dass irgendein Bild entstanden ist — dieselbe Rolle wie `costKind`.
+   */
+  comparisonVariant: 'addon' | 'catalog' | null
 
   /** Mounten, Layout und Rastern aller Bilder zusammen, in ms. */
   captureMs: number
@@ -386,6 +407,32 @@ export async function buildReportCharts(input: PdfReportInput): Promise<ReportCh
           }),
         )
 
+  /*
+   * Die Grenznutzen-Kurve.
+   *
+   * ⚠ `comparisonPlan === null` heisst: weniger als zwei zeichenbare Punkte, und dann rendert
+   * `MarginalBenefitChart` bewusst gar nichts (eine Linie durch einen Punkt ist keine Kurve).
+   * Ohne diese Vorbedingung liefe `captureChart` acht Sekunden in die Zeitüberschreitung — wie bei
+   * Energiefluss und Heatmap. Die Begründung steht im Dokument (`comparison.ts`, `figureMissing`).
+   *
+   * ⚠ Gerastert wird UNBEDINGT, auch wenn alle Punkte unter der Nulllinie liegen: die Kurve ist
+   * dann die Begründung des Klarsatzes darunter (wortgleich zu `report.tsx`).
+   */
+  const comparisonPlan = comparisonChartPlan(analysis)
+  const comparison: Attempt =
+    comparisonPlan === null
+      ? { raster: null, error: null }
+      : await attempt(() =>
+          captureChart(
+            <MarginalBenefitChart
+              points={comparisonPlan.points}
+              horizonYears={comparisonPlan.horizonYears}
+              variant={comparisonPlan.variant}
+            />,
+            { width: DETAIL_CHART_WIDTH_PX, select: selectRechartsSurface },
+          ),
+        )
+
   return {
     load: load.raster,
     loadError: load.error,
@@ -400,6 +447,9 @@ export async function buildReportCharts(input: PdfReportInput): Promise<ReportCh
     hourFlowError: hourFlow.error,
     chargePrice: chargePrice.raster,
     chargePriceError: chargePrice.error,
+    comparison: comparison.raster,
+    comparisonError: comparison.error,
+    comparisonVariant: comparisonPlan?.variant ?? null,
     captureMs: performance.now() - started,
   }
 }

@@ -380,7 +380,30 @@ const ACCENT_LIGHTEST = {
   tolerance: 1,
 }
 
-export async function runChartProbe(kind: ChartProbeKind): Promise<ChartProbeReport> {
+/**
+ * B23c-3b-2 — womit der Heatmap-Lauf gefahren wird.
+ *
+ * ── ⚠ WOZU DIE ÜBERGABE ÜBERHAUPT DA IST ──────────────────────────────────────────────────────
+ * D15 hat den Unterschied „leere Zelle" gegen „gemessene Null" am B23b-FIXTURE nachgewiesen und
+ * als offenen Punkt benannt, dass er an einem ECHTEN, durch den Analyse-Worker gerechneten
+ * Teiljahres-Lastgang noch aussteht. Genau das ist mit dieser Übergabe möglich: der Rasterweg
+ * bleibt Zeichen für Zeichen derselbe (dieselbe Komponente, dieselbe Mount-Breite, derselbe Anker
+ * `selectHeatmapGrid`, dieselben Zellproben) — es wechselt allein die Datenquelle.
+ *
+ * Ohne Angabe läuft der Fixture-Lauf unverändert weiter; er ist der Vergleichsmassstab, gegen den
+ * die B23b-Zahlen gemessen wurden.
+ */
+export type ChartProbeOptions = {
+  /** Das Raster eines echten Rechenlaufs (`SummaryProbeRun.hourFlowGrid`). */
+  heatmapGrid?: (number | null)[][] | null
+  /** Der Name der Batterie, zu der es gehört — er steht im Titel der Komponente. */
+  heatmapBatteryName?: string
+}
+
+export async function runChartProbe(
+  kind: ChartProbeKind,
+  options: ChartProbeOptions = {},
+): Promise<ChartProbeReport> {
   const started = performance.now()
 
   if (kind === 'monthly') {
@@ -429,10 +452,19 @@ export async function runChartProbe(kind: ChartProbeKind): Promise<ChartProbeRep
      * und die zwei erklärenden Absätze stehen im Report NATIV daneben (`insight.ts`,
      * `document.tsx`), statt als Bildpunkte im PDF zu landen.
      */
-    const grid = buildBatteryFlowFixture()
+    /*
+     * ⚠ Das Raster kommt aus dem echten Rechenlauf, WENN einer gelaufen ist — sonst das
+     * B23b-Fixture. Beides fährt denselben Rasterweg; was sich unterscheidet, ist allein, ob die
+     * Zahlen gerechnet oder konstruiert sind (s. `ChartProbeOptions`).
+     */
+    const fromRun = options.heatmapGrid ?? null
+    const grid = fromRun ?? buildBatteryFlowFixture()
+    const batteryName = fromRun
+      ? (options.heatmapBatteryName ?? 'Speicher aus dem Rechenlauf')
+      : 'PeakStore C25 (Prüfdaten)'
     let cells: CellSpots = { rootWidthCss: 0, spots: [] }
     const raster = await captureChart(
-      <BatteryFlowHeatmap grid={grid} batteryName="PeakStore C25 (Prüfdaten)" />,
+      <BatteryFlowHeatmap grid={grid} batteryName={batteryName} />,
       {
         width: 620,
         select: selectHeatmapGrid,
@@ -474,6 +506,11 @@ export async function runChartProbe(kind: ChartProbeKind): Promise<ChartProbeRep
           'auf null gemessenen und der stärksten Zelle — die einzige Messung, die „leer" von ' +
           '„gemessene Null" trennt, weil eine leere Zelle im Bild papierweiss ist und Papierweiss ' +
           'ohnehin überall steht.',
+        fromRun
+          ? `Raster aus dem ECHTEN Rechenlauf (${batteryName}) — nicht aus dem B23b-Fixture. ` +
+            `${grid.flat().filter((v) => v === null).length} von 288 Zellen ohne Messwert.`
+          : 'Raster aus dem B23b-Fixture. Für den Nachweis „leer ≠ gemessene Null" an ECHTEN ' +
+            'Daten zuerst einen Teiljahres-Rechenlauf fahren (D15).',
       ],
     }
   }

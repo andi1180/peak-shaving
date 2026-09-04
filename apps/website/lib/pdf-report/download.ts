@@ -25,7 +25,7 @@ export type ReportPdfOutcome = {
   /**
    * B23c-2/B23c-3a — was beim Erzeugen der Chart-Bilder herauskam.
    *
-   * ⚠ `builds` MUSS der Zahl der tatsächlich gerasterten Bilder entsprechen (höchstens fünf) und
+   * ⚠ `builds` MUSS der Zahl der tatsächlich gerasterten Bilder entsprechen (höchstens sechs) und
    * darf NICHT mit `passes` skalieren: die Bilder entstehen einmal je Dokument und nicht je
    * Renderdurchlauf (s. `render.tsx`). Der Wert ist gemessen, nicht hingeschrieben.
    */
@@ -54,6 +54,14 @@ export type ReportPdfOutcome = {
     hourFlow: ChartFigureOutcome
     /** B23c-3b-1 — der Ø-Ladepreis je Monat. */
     chargePrice: ChartFigureOutcome
+    /** B23c-3b-2 — die Grenznutzen-Kurve. */
+    comparison: ChartFigureOutcome
+    /**
+     * Welche Fassung der Kurve gerastert wurde (Zusatzgeräte oder Katalog) — `null`, wenn keine
+     * entstanden ist. Dieselbe Rolle wie `costKind`: die ENTSCHEIDUNG messbar machen und nicht
+     * bloss, dass irgendein Bild da ist.
+     */
+    comparisonVariant: 'addon' | 'catalog' | null
     captureMs: number
   }
 }
@@ -151,6 +159,12 @@ export async function downloadReportPdf(
         result.chartEmbeddedPt.chargePrice,
         result.charts.chargePriceError,
       ),
+      comparison: figure(
+        result.charts.comparison,
+        result.chartEmbeddedPt.comparison,
+        result.charts.comparisonError,
+      ),
+      comparisonVariant: result.charts.comparisonVariant,
       captureMs: result.charts.captureMs,
     },
   }

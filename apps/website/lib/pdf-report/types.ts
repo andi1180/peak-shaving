@@ -58,6 +58,22 @@ import type { AnalysisResult, LoadProfile } from 'shared'
  * Ein Feld hier zu ergänzen, das gar nicht auf dieser Ebene liegt, wäre eine Zeile, die eine
  * Abhängigkeit BEHAUPTET, die es nicht gibt — und die nächste Lesung des Typs zöge daraus den
  * falschen Schluss, welche Teile des Contracts das Dokument tatsächlich braucht.
+ *
+ * ── B23c-3b-2: ZUM VIERTEN MAL UNVERÄNDERT — WIEDER AUSGEZÄHLT ────────────────────────────────
+ * Der naheliegende Schluss wäre gewesen, den `Pick<…>` um `addonScenarios` zu erweitern. Das Feld
+ * ist aber KEINES von `AnalysisResult`, sondern von `ExistingBatteryAnalysis` — und die hängt an
+ * `existingBatteryAnalysis`, das bereits oben steht (dieselbe Lage wie `batteryFlowByHourMonth`
+ * unter `dispatchTrace` in B23c-3b-1). Nachgezählt liest das Kapitel „Speichergrösse und
+ * Gerätewahl" genau vier Wege:
+ *   • `existingBatteryAnalysis.addonScenarios` → im Bestandsfall die Punkte der Kurve und die
+ *     Zeilen der Tabelle;
+ *   • `perBattery` → sonst dieselben, aus dem Katalog-Lauf;
+ *   • `recommendation` → welcher Kandidat aus der Alternativentabelle herausfällt;
+ *   • `assumptions.horizonYears` → die Achse der Kurve, die Spaltenüberschrift und der Klarsatz.
+ *
+ * Alle vier stehen bereits hier. Ein Feld zu ergänzen, das gar nicht auf dieser Ebene liegt, wäre
+ * eine Zeile, die eine Abhängigkeit BEHAUPTET, die es nicht gibt — und die nächste Lesung des Typs
+ * zöge daraus den falschen Schluss, welche Teile des Contracts das Dokument tatsächlich braucht.
  */
 export type PdfReportAnalysis = Pick<
   AnalysisResult,

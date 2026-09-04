@@ -1,5 +1,7 @@
 import type { DispatchTrace, LoadProfile, MonthlyTariffComparison } from 'shared'
 
+import { localMonthIndex } from '@/lib/local-time'
+
 /**
  * B23b — Prüfdaten für die drei Chart-Typen des Rasterbild-Prüfstands.
  *
@@ -174,6 +176,51 @@ export function buildLoadProfileFixture(): LoadProfile {
     source: 'net_signed',
   }
   return loadProfileCache
+}
+
+/**
+ * B23c-3b-2 — DERSELBE Lastgang, auf die Monate Jänner bis August GEKÜRZT.
+ *
+ * ── ⚠ EINE KÜRZUNG IST KEINE ZWEITE GRUNDLAGE ─────────────────────────────────────────────────
+ * `summary-fixtures.ts` begründet, warum es für diese Prüfroute nur EINEN Lastgang gibt: ein
+ * zweiter wäre eine zweite Grundlage, gegen die niemand die übrigen Läufe mehr vergleichen könnte.
+ * Das gilt hier NICHT — jeder Messwert dieses Profils ist Zeichen für Zeichen einer des vollen
+ * Jahrgangs, es fehlen nur die letzten vier Monate. Was daran gemessen wird, ist damit gegen den
+ * Volljahres-Lauf unmittelbar vergleichbar.
+ *
+ * ── ⚠ WOZU ER GEBRAUCHT WIRD ──────────────────────────────────────────────────────────────────
+ * Die Stunden-Heatmap unterscheidet eine LEERE Zelle (kein Messwert, durchsichtig mit
+ * gestricheltem Rand) von einer GEMESSENEN NULL (hellste Stufe der Skala). Der Unterschied ist bei
+ * einem Teiljahres-Lastgang „die halbe Grafik" (so der Kopf der Komponente) — am Volljahrgang gibt
+ * es ihn gar nicht zu sehen: dort ist keine einzige Zelle leer (`emptyCells = 0`), und eine
+ * Farbprobe könnte nichts finden, was es nicht gibt. D15 hat den Nachweis am B23b-Fixture geführt
+ * und als offenen Punkt benannt, dass er an einem ECHTEN, durch den Analyse-Worker gerechneten
+ * Teiljahres-Lastgang noch aussteht. Genau dafür ist dieses Profil da.
+ *
+ * ── GEFILTERT NACH LOKALEM MONAT, NICHT NACH EINER SLOT-ZAHL ──────────────────────────────────
+ * Eine abgezählte Zahl von Vierteljahresstunden träfe die Monatsgrenze um Stunden daneben: die
+ * Zeitumstellung Ende März verschiebt die Ortszeit gegenüber der gleichmässigen UTC-Achse um eine
+ * Stunde, und ein „243 Tage"-Schnitt reichte damit in den September hinein — die Heatmap hätte in
+ * der Septemberspalte zwei belegte Zellen und 22 leere, und der Prüflauf müsste erklären, warum.
+ * Gefiltert wird deshalb über DIESELBE Wanduhr-Ableitung, mit der die Engine die Heatmap-Spalten
+ * bildet (`localMonthIndex` ↔ `utcMsToLocalFields`).
+ */
+const PARTIAL_YEAR_LAST_MONTH_INDEX = 7 /* August */
+
+let partialProfileCache: LoadProfile | null = null
+
+export function buildPartialYearLoadProfileFixture(): LoadProfile {
+  if (partialProfileCache) return partialProfileCache
+
+  const full = buildLoadProfileFixture()
+  partialProfileCache = {
+    ...full,
+    readings: full.readings.filter(
+      (r) =>
+        localMonthIndex(Date.parse(r.ts), full.timezoneMeta) <= PARTIAL_YEAR_LAST_MONTH_INDEX,
+    ),
+  }
+  return partialProfileCache
 }
 
 /**
