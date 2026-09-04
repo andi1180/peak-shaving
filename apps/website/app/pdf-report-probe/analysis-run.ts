@@ -8,6 +8,12 @@ import {
   type DetailChapter,
 } from '@/lib/pdf-report/detail'
 import {
+  buildInsightChapter,
+  insightChartPlan,
+  summarizeHourFlow,
+  type InsightChapter,
+} from '@/lib/pdf-report/insight'
+import {
   buildRecommendationChapter,
   type RecommendationChapter,
 } from '@/lib/pdf-report/recommendation'
@@ -83,6 +89,27 @@ export type SummaryProbeRun = {
    */
   detailFlowDays: { label: string; date: string }[]
   /**
+   * B23c-3b-1 — was das Kapitel „Das Ladeverhalten Ihres Speichers" aus demselben Ergebnis
+   * ableitet. Wieder DIE Produktionsfunktion, hier aufgerufen und nicht nachgebaut.
+   */
+  insight: InsightChapter
+  /**
+   * Die ENTSCHEIDUNG, vor dem Erzeugen sichtbar: entsteht das Kapitel überhaupt, und welches der
+   * beiden Bilder trägt es? Beides kann einzeln entfallen — im Blocker-Fall beides zusammen, und
+   * dann gibt es weder Kapitel noch Agenda-Eintrag.
+   */
+  insightPlanned: { chapter: boolean; hourFlow: boolean; chargePrice: boolean }
+  /**
+   * Die Rohzahlen des Heatmap-Rasters, ungerundet — stärkste Zelle, Hauptladestunde und wie viele
+   * der 288 Zellen keinen Messwert tragen.
+   *
+   * ⚠ `emptyCells` ist die Grösse, an der sich „leer" von „gemessene Null" überhaupt trennen
+   * lässt: bei einem Volljahres-Lastgang ist sie 0, und dann kann eine Farbstichprobe im Bild
+   * keine gestrichelte Zelle finden, weil es keine gibt. Der Prüfstand zeigt sie, damit ein
+   * Prüflauf nicht das Fehlen einer Zelle für einen Fehlschlag der Rasterung hält.
+   */
+  hourFlowSummary: { maxAbsKwh: number; peakHour: number; emptyCells: number } | null
+  /**
    * B23c-2 — DER Lastgang, gegen den gerechnet wurde. Er reist mit heraus, weil das Dokument ihn
    * für das Diagramm braucht (`PdfReportInput.loadProfile`) und `DispatchTrace` bewusst keine
    * Rohreihe trägt.
@@ -128,6 +155,7 @@ export async function runSummaryAnalysis(kind: SummaryProbeKind): Promise<Summar
       worker.postMessage(request)
     })
     const plan = detailChartPlan(result)
+    const insight = insightChartPlan(result)
     const flowEntry = plan.flow
       ? (plan.flow.entries.find((e) => e.battery.id === plan.flow!.selectedBatteryId) ??
         plan.flow.entries[0])
@@ -143,6 +171,22 @@ export async function runSummaryAnalysis(kind: SummaryProbeKind): Promise<Summar
         label: d.label,
         date: d.date,
       })),
+      insight: buildInsightChapter(result),
+      insightPlanned: {
+        chapter: insight.hourFlow !== null || insight.chargePrice !== null,
+        hourFlow: insight.hourFlow !== null,
+        chargePrice: insight.chargePrice !== null,
+      },
+      hourFlowSummary: insight.hourFlow
+        ? (() => {
+            const summary = summarizeHourFlow(insight.hourFlow.grid)
+            return {
+              maxAbsKwh: summary.maxAbsKwh,
+              peakHour: summary.peakHour,
+              emptyCells: summary.emptyCells,
+            }
+          })()
+        : null,
       loadProfile: payload.load.profile,
     }
   } finally {

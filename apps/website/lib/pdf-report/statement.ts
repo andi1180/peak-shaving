@@ -17,6 +17,22 @@
 /** Farbe ist Information, kein Dekor (DESIGN.md) — s. `PDF_COLORS` in `theme.ts`. */
 export type ReportTone = 'positive' | 'warning' | 'neutral'
 
+/**
+ * Was unter einem Bild steht: die Bildunterschrift und, wo es etwas zu sagen gibt, ein leiserer
+ * Zusatz.
+ *
+ * ⚠ Steht seit B23c-3b-1 hier und nicht mehr in `detail.ts`: es gibt jetzt zwei Kapitel mit
+ * Bildern (`detail.ts`, `insight.ts`), und `document.tsx` rendert beide durch DENSELBEN Baustein
+ * (`ChartFigure`). Zwei strukturgleiche Typdefinitionen wären genau die Doppelung, die man erst
+ * bemerkt, wenn eine der beiden ein Feld bekommt und der Renderer es nur für die eine Hälfte zeigt
+ * — dieselbe Überlegung, aus der `ReportStatement` in B23c-2 hierher gewandert ist.
+ */
+export type ReportFigure = {
+  caption: string
+  /** Steht unter der Bildunterschrift, wo es etwas zu sagen gibt. */
+  note: string | null
+}
+
 /** Eine Zeile einer Aufschlüsselung. */
 export type ReportRow = {
   label: string

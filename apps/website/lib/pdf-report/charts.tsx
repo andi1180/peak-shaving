@@ -1,10 +1,13 @@
+import { BatteryFlowHeatmap } from '@/components/report/battery-flow-heatmap'
+import { ChargePriceChart } from '@/components/report/charge-price-chart'
 import { CostChart } from '@/components/report/cost-chart'
 import { EnergyFlowChart } from '@/components/report/energy-flow-chart'
 import { LoadChart } from '@/components/report/load-chart'
 import { MonthlyTariffChart } from '@/components/report/monthly-tariff-chart'
-import { captureChart, selectRechartsSurface } from './chart-capture'
+import { captureChart, selectHeatmapGrid, selectRechartsSurface } from './chart-capture'
 import type { ChartRaster } from './chart-raster'
 import { detailChartPlan } from './detail'
+import { insightChartPlan } from './insight'
 import { primaryEntryOf } from './summary'
 import type { PdfReportInput } from './types'
 
@@ -33,6 +36,13 @@ import type { PdfReportInput } from './types'
  * ⚠ `chartBuilds` ist damit NICHT mehr „immer 1", sondern „so viele, wie das Dokument Bilder
  * zeigt" — und weiterhin UNABHÄNGIG von der Zahl der Renderdurchläufe. Genau das ist die Zusage,
  * die der Zähler misst; s. den Kopf von `render.tsx`.
+ *
+ * ── ⚠ B23c-3b-1: BIS ZU FÜNF BILDER, UND ZWEI DAVON KÖNNEN EINZELN ENTFALLEN ──────────────────
+ * Dazu kommen die Stunden-Heatmap und der Ø-Ladepreis. Auch hier wird die ENTSCHEIDUNG gelesen und
+ * nicht nachgebaut: `insightChartPlan` sagt, welches der beiden für diesen Fall überhaupt
+ * entsteht, und `document.tsx` liest DIESELBE Ableitung für den Text daneben. Die Heatmap ist
+ * dabei der EINZIGE Chart des Reports, der über den HTML-Weg gerastert wird (`foreignObject`) —
+ * sie ist bewusst kein SVG, und ihr Ausschnitt kommt aus dem Anker `selectHeatmapGrid`.
  *
  * ── ⚠ DIESES MODUL ZIEHT RECHARTS ─────────────────────────────────────────────────────────────
  * Es mountet die UNVERÄNDERTEN Produktionskomponenten (Contract-Entscheidung 1, D2: der Chart im
@@ -81,6 +91,17 @@ export type ReportChartRasters = {
    */
   flowDay: string | null
 
+  /**
+   * Stunden-Heatmap. `null`, wenn der Speicher im Zeitraum gar nicht arbeitet — dann rendert die
+   * Komponente nichts, und es gibt keinen Ausschnitt zu rastern (s. `insight.ts`).
+   */
+  hourFlow: ChartRaster | null
+  hourFlowError: string | null
+
+  /** Ø-Ladepreis je Monat. `null`, wenn keine echte Preiskurve vorlag. */
+  chargePrice: ChartRaster | null
+  chargePriceError: string | null
+
   /** Mounten, Layout und Rastern aller Bilder zusammen, in ms. */
   captureMs: number
 }
@@ -104,6 +125,23 @@ const LOAD_CHART_WIDTH_PX = 900
  * aber relativ kleiner — der Chart würde im PDF auf dieselbe Satzbreite skaliert.
  */
 const DETAIL_CHART_WIDTH_PX = 760
+
+/**
+ * Mount-Breite der Stunden-Heatmap. Bewusst SCHMALER als die übrigen, und der Grund ist kein
+ * Auflösungs-, sondern ein Proportionsgrund.
+ *
+ * Das Raster hat feste Zeilenhöhen (16 px je Stunde, 24 Zeilen), aber elastische Spaltenbreiten
+ * (`1fr`). Eine breitere Mount-Fläche macht die Zellen also nicht grösser, sondern flacher: bei
+ * 760 px trüge jede rund 60 × 16 px, ein Verhältnis von fast 4:1, und das Raster läse sich wie ein
+ * Streifenmuster statt wie ein Raster. Am Bildschirm steht die Karte in einer halben Spalte
+ * (rund 500 px, davon 452 px Rasterbreite) und die Zellen liegen bei rund 2:1 — 620 px Mount
+ * (abzüglich der 48 px Kartenpolsterung: 572 px Raster) kommt dem am nächsten, ohne die Schrift
+ * der Monatsköpfe relativ zu klein werden zu lassen.
+ *
+ * ⚠ Die Grösse auf dem PAPIER entsteht davon unabhängig in `fitRasterToWidth` — diese Zahl
+ * entscheidet nur, wie das Bild AUSSIEHT.
+ */
+const HEATMAP_CHART_WIDTH_PX = 620
 
 /**
  * Zählt die Stützpunkte des Lastgang-Pfads im GERENDERTEN SVG — wortgleich zum B23b-Prüfstand.
@@ -195,6 +233,7 @@ export async function buildReportCharts(input: PdfReportInput): Promise<ReportCh
   const analysis = input.analysis
   const primary = primaryEntryOf(analysis)
   const plan = detailChartPlan(analysis)
+  const insight = insightChartPlan(analysis)
 
   /*
    * [ABGELEITET, keine Contract-Zahl] Roher Leistungspreis-Satz (€/kW·a) aus den Ist-Kosten —
@@ -303,6 +342,50 @@ export async function buildReportCharts(input: PdfReportInput): Promise<ReportCh
           ),
         )
 
+  /*
+   * Die Stunden-Heatmap — der EINZIGE Chart des Reports über den HTML-Weg.
+   *
+   * ⚠ `selectHeatmapGrid` und ausdrücklich nicht der Standardwert: der träfe die ganze Karte samt
+   * Titel, Beschreibung, Legende und den zwei erklärenden Absätzen (so lief der B23b-Prüfstand).
+   * Diese Texte stehen im PDF NATIV daneben (`insight.ts`) — als Bildpunkte wären sie weder
+   * durchsuchbar noch kopierbar und bei jeder Skalierung weicher als der Text ringsum (D11).
+   *
+   * ⚠ `insight.hourFlow === null` heisst: die Komponente rendert für diesen Fall gar nichts (der
+   * Speicher arbeitet im Zeitraum nicht). Dann gäbe es keinen Anker, `captureChart` liefe acht
+   * Sekunden in die Zeitüberschreitung, und an der Stelle einer Aussage stünde eine technische
+   * Meldung. Die Aussage steht im Dokument (`insight.ts`, `hourFlowMissing`).
+   */
+  const hourFlowPlan = insight.hourFlow
+  const hourFlow: Attempt =
+    hourFlowPlan === null
+      ? { raster: null, error: null }
+      : await attempt(() =>
+          captureChart(
+            <BatteryFlowHeatmap
+              grid={hourFlowPlan.grid}
+              batteryName={hourFlowPlan.batteryName}
+            />,
+            { width: HEATMAP_CHART_WIDTH_PX, select: selectHeatmapGrid },
+          ),
+        )
+
+  /*
+   * Der Ø-Ladepreis je Monat.
+   *
+   * ⚠ Wieder nur der Zeichenbereich: die Legende der Komponente (mengengewichteter Gesamtpreis,
+   * Zahl der Monate unter dem Durchschnitt) liegt ausserhalb und steht im PDF als Zeilen daneben.
+   */
+  const chargePricePlan = insight.chargePrice
+  const chargePrice: Attempt =
+    chargePricePlan === null
+      ? { raster: null, error: null }
+      : await attempt(() =>
+          captureChart(<ChargePriceChart price={chargePricePlan.price} />, {
+            width: DETAIL_CHART_WIDTH_PX,
+            select: selectRechartsSurface,
+          }),
+        )
+
   return {
     load: load.raster,
     loadError: load.error,
@@ -313,6 +396,10 @@ export async function buildReportCharts(input: PdfReportInput): Promise<ReportCh
     flow: flow.raster,
     flowError: flow.error,
     flowDay: flow.raster ? measured.flowDay : null,
+    hourFlow: hourFlow.raster,
+    hourFlowError: hourFlow.error,
+    chargePrice: chargePrice.raster,
+    chargePriceError: chargePrice.error,
     captureMs: performance.now() - started,
   }
 }

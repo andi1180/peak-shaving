@@ -50,11 +50,11 @@ import type { PdfReportInput } from './types'
  *      Wächter (`measurementsAgree`) an, und die Ursache stünde nirgends im Dokument.
  *
  * Gemessen wird das über `reportChartBuildCount()`: `chartBuilds` im Ergebnis ist die Zahl der
- * Rasterungen, die für DIESE Erzeugung tatsächlich gelaufen sind. Seit B23c-3a sind es bis zu DREI
- * (Lastgang, Kostenvergleich, Tages-Energiefluss) — die Zahl folgt also den BILDERN, die das
- * Dokument zeigt, und ausdrücklich nicht der Zahl der Durchläufe. Der Zähler sitzt an der
- * Rasterung selbst (`charts.tsx`) und nicht hier: zöge jemand den Aufruf in einen Durchlauf,
- * verdoppelte oder verdreifachte er sich.
+ * Rasterungen, die für DIESE Erzeugung tatsächlich gelaufen sind. Seit B23c-3b-1 sind es bis zu
+ * FÜNF (Lastgang, Kostenvergleich, Tages-Energiefluss, Stunden-Heatmap, Ø-Ladepreis) — die Zahl
+ * folgt also den BILDERN, die das Dokument zeigt, und ausdrücklich nicht der Zahl der Durchläufe.
+ * Der Zähler sitzt an der Rasterung selbst (`charts.tsx`) und nicht hier: zöge jemand den Aufruf in
+ * einen Durchlauf, verdoppelte oder verdreifachte er sich.
  *
  * ⚠ DIE DIFFERENZ WIRD ERST AM ENDE GEBILDET, NICHT GLEICH NACH DEM EINEN AUFRUF — und das ist
  * kein Schönheitsfehler, sondern der Unterschied zwischen einer Messung und einer Tautologie.
@@ -90,7 +90,7 @@ export type RenderReportResult = {
   /**
    * Zahl der Chart-Rasterungen, die für DIESE Erzeugung gelaufen sind.
    *
-   * ⚠ Muss der Zahl der Bilder entsprechen, die das Dokument zeigt (höchstens drei), und
+   * ⚠ Muss der Zahl der Bilder entsprechen, die das Dokument zeigt (höchstens fünf), und
    * ausdrücklich NICHT mit `passes` skalieren — s. den Kopf dieser Datei. Ein Diagnosewert: die
    * Zusage „je Bild einmal pro Dokument" ist der architektonische Kern dieses Schritts, und eine
    * Zusage, die niemand messen kann, ist eine Behauptung.
@@ -110,6 +110,8 @@ export type RenderReportResult = {
     load: EmbeddedBox | null
     cost: EmbeddedBox | null
     flow: EmbeddedBox | null
+    hourFlow: EmbeddedBox | null
+    chargePrice: EmbeddedBox | null
   }
 }
 
@@ -139,6 +141,8 @@ export async function renderReportPdf(input: PdfReportInput): Promise<RenderRepo
     load: embed(charts.load),
     cost: embed(charts.cost),
     flow: embed(charts.flow),
+    hourFlow: embed(charts.hourFlow),
+    chargePrice: embed(charts.chargePrice),
   }
 
   // 1. Durchlauf: messen. Das erzeugte PDF trägt eine leere Zahlenspalte und wird verworfen.

@@ -1,23 +1,27 @@
+import type { ReactNode } from 'react'
 import { Document, Image, Page, StyleSheet, Text, View } from '@react-pdf/renderer'
 
 import { PRINT_COMPANY } from '@/lib/company'
 import type { ReportChartRasters } from './charts'
 import { fitRasterToWidth, type ChartRaster } from './chart-raster'
 import {
+  buildReportAgenda,
   DETAIL_INTRO,
   DETAIL_SECTION,
+  INSIGHT_INTRO,
+  INSIGHT_SECTION,
   METHODOLOGY_INTRO,
   METHODOLOGY_ITEMS,
   METHODOLOGY_SECTION,
   RECOMMENDATION_INTRO,
   RECOMMENDATION_SECTION,
-  REPORT_AGENDA,
   RESULTS_FOOTNOTE,
   RESULTS_INTRO,
   RESULTS_SECTION,
   type ReportSection,
 } from './content'
 import { buildDetailChapter } from './detail'
+import { buildInsightChapter, hasInsightChapter } from './insight'
 import { buildRecommendationChapter } from './recommendation'
 import {
   recordSectionPage,
@@ -239,6 +243,18 @@ const styles = StyleSheet.create({
 
   /* Chart im Fluss (B23c-2) — bewusst KEIN Rahmen und KEIN Kasten, s. `ChartFigure`. */
   figure: { marginTop: 14 },
+  /*
+   * Legende eines Bildes (B23c-3b-1) — NATIV, nicht als Teil des Rasters.
+   *
+   * ⚠ Die Farben kommen aus `PDF_COLORS` und sind damit dieselben, die im Bild stehen: die
+   * Heatmap zeichnet mit `var(--color-accent)`/`var(--color-ink)`, und `theme.ts` führt beide als
+   * wörtliche Abschrift derselben Tokens. Eine hier neu gewählte Farbe wäre eine Legende, die eine
+   * andere Grafik beschreibt als die daneben.
+   */
+  legend: { marginTop: 5, flexDirection: 'row', flexWrap: 'wrap', gap: 14 },
+  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  legendSwatch: { width: 8, height: 8, borderRadius: 1.5 },
+  legendLabel: { fontSize: PDF_TYPE.small, color: PDF_COLORS.textMuted },
   figureCaption: { marginTop: 4, fontSize: PDF_TYPE.small, color: PDF_COLORS.textMuted },
   figureStatement: { marginTop: 4, color: PDF_COLORS.text },
   figureMissing: {
@@ -414,7 +430,20 @@ function AgendaRow({ section, pages }: { section: ReportSection; pages: AgendaPa
   )
 }
 
-function Agenda({ pages }: { pages: AgendaPageNumbers }) {
+function Agenda({
+  sections,
+  pages,
+}: {
+  /**
+   * ⚠ HEREINGEREICHT UND NICHT HIER GEBILDET (B23c-3b-1). Seit dem „Ladeverhalten"-Kapitel gibt es
+   * ein Kapitel, das nicht in jedem Dokument entsteht — und die Agenda darf genau dann keinen
+   * Eintrag dafür tragen. Die Entscheidung fällt EINMAL in `ReportDocument` und speist Agenda UND
+   * Seitenbaum; zwei getrennte Auswertungen ergäben einen Eintrag ohne Kapitel (Zahlenspalte bleibt
+   * leer, weil kein Sentinel meldet) oder ein Kapitel ohne Eintrag.
+   */
+  sections: readonly ReportSection[]
+  pages: AgendaPageNumbers
+}) {
   return (
     <View style={styles.body}>
       <Text style={styles.h2}>Inhalt</Text>
@@ -422,7 +451,7 @@ function Agenda({ pages }: { pages: AgendaPageNumbers }) {
         Was in diesem Dokument steht — und auf welcher Seite es beginnt.
       </Text>
       <View style={styles.agendaList}>
-        {REPORT_AGENDA.map((section) => (
+        {sections.map((section) => (
           <AgendaRow key={section.id} section={section} pages={pages} />
         ))}
       </View>
@@ -592,12 +621,22 @@ function ResultsChapter({ input }: { input: PdfReportInput }) {
 function ChartFigure({
   raster,
   caption,
+  legend,
   statement,
   note,
   missing,
 }: {
   raster: ChartRaster | null
   caption: string
+  /**
+   * B23c-3b-1 — die Legende, NATIV und unmittelbar unter dem Bild.
+   *
+   * ⚠ Sie steht hier und nicht im Bild, weil sie im gerasterten Ausschnitt gar nicht vorkommt: die
+   * Heatmap wird auf ihr blosses Raster zugeschnitten (`selectHeatmapGrid`), ihre Legende liegt
+   * darunter in der Karte. Ohne sie stünde ein Farbraster ohne Schlüssel im Dokument. Sie erscheint
+   * ausschliesslich MIT Bild — unter einer Fehlmeldung wäre sie ein Schlüssel zu nichts.
+   */
+  legend?: ReactNode
   /** Die fachliche Aussage zum Bild — steht in Fliesstextfarbe. */
   statement?: string | null
   /** Der leisere Zusatz — steht in der Farbe der Bildunterschrift. */
@@ -629,6 +668,7 @@ function ChartFigure({
   return (
     <View style={styles.figure} wrap={false}>
       <Image src={raster.dataUrl} style={{ width: box.width, height: box.height }} />
+      {legend}
       <Text style={styles.figureCaption}>{caption}</Text>
       {/*
         Genau eine der beiden steht, wo sie einander ausschliessen (Lastgang: die
@@ -743,6 +783,97 @@ function DetailChapter({
   )
 }
 
+/**
+ * Die Legende der Stunden-Heatmap — drei Farbmuster, nativ.
+ *
+ * ── ⚠ SIE IST NICHT TEIL DES BILDES, UND DAS IST DER PUNKT DIESES SCHRITTS ────────────────────
+ * Gerastert wird ausschliesslich das Raster (D11: Text gehört nativ neben das Bild). Die Legende
+ * der Komponente liegt darunter in der Karte und käme deshalb im PDF gar nicht vor — ein
+ * Farbraster ohne Schlüssel. Sie wird hier aus DENSELBEN Tokens gebaut, mit denen die Komponente
+ * zeichnet (`PDF_COLORS.accent`/`ink`/`border` sind die wörtliche Abschrift von
+ * `--color-accent`/`--color-ink`/`--color-border`, s. `theme.ts`).
+ *
+ * ⚠ Das dritte Muster ist LEER mit gestricheltem Rand — genau wie eine Zelle ohne Messwert. Der
+ * Unterschied zu einer gemessenen Null (hellste Stufe der Skala) ist bei einem Teiljahres-Lastgang
+ * die halbe Grafik; eine Legende, die ihn nicht führt, liesse den Leser beides für dasselbe halten.
+ */
+function HeatmapLegend() {
+  return (
+    <View style={styles.legend}>
+      <View style={styles.legendItem}>
+        <View style={[styles.legendSwatch, { backgroundColor: PDF_COLORS.accent }]} />
+        <Text style={styles.legendLabel}>netto geladen</Text>
+      </View>
+      <View style={styles.legendItem}>
+        <View style={[styles.legendSwatch, { backgroundColor: PDF_COLORS.ink }]} />
+        <Text style={styles.legendLabel}>netto entladen</Text>
+      </View>
+      <View style={styles.legendItem}>
+        <View
+          style={[
+            styles.legendSwatch,
+            {
+              borderWidth: 0.75,
+              borderColor: PDF_COLORS.border,
+              borderStyle: 'dashed',
+            },
+          ]}
+        />
+        <Text style={styles.legendLabel}>keine Messwerte</Text>
+      </View>
+    </View>
+  )
+}
+
+/**
+ * B23c-3b-1 — das Ladeverhalten: Stunden-Heatmap und Ø-Ladepreis.
+ *
+ * ── ⚠ DIESES KAPITEL GIBT ES NICHT IN JEDEM DOKUMENT ──────────────────────────────────────────
+ * Es entsteht nur, wenn wenigstens eines der beiden Bilder entsteht (`hasInsightChapter`). Der
+ * Aufrufer entscheidet das EINMAL und lässt die `<Page>` sonst ganz weg — samt Agenda-Eintrag. Ein
+ * Kapitel, das nur sagt, dass es leer ist, wäre ein Agenda-Eintrag auf eine leere Seite (D14).
+ *
+ * ── ⚠ WAS AUF DIESER SEITE STEHT, ENTSCHEIDET `insight.ts` ────────────────────────────────────
+ * Hier wird gerendert, was die Ableitung liefert — keine Verzweigung an einem Contract-Feld in
+ * diesem JSX, und insbesondere keine Zweitprüfung an `tariffOptimization`. `charts.tsx` hat die
+ * Bilder aus DERSELBEN Ableitung gerastert; zwei getrennte Entscheidungen ergäben eine Legende und
+ * Kennzahlen, die zu einem anderen Bild gehören als dem darüber.
+ */
+function InsightChapter({
+  input,
+  charts,
+}: {
+  input: PdfReportInput
+  charts: ReportChartRasters
+}) {
+  const chapter = buildInsightChapter(input.analysis)
+
+  return (
+    <View style={styles.body}>
+      <Text style={styles.h2}>{INSIGHT_SECTION.title}</Text>
+      <Text style={styles.lead}>{INSIGHT_INTRO}</Text>
+
+      <ChartFigure
+        raster={charts.hourFlow}
+        caption={chapter.hourFlow?.figure.caption ?? ''}
+        legend={<HeatmapLegend />}
+        /* `hourFlowMissing` steht, wenn es für diesen Fall gar kein Raster gibt; sonst ist ein
+           fehlendes Bild ein Fehlschlag der Rasterung und bekommt den Fehlschlag-Satz. */
+        missing={chapter.hourFlowMissing ?? figureMissingText('Die Stunden-Heatmap')}
+      />
+      {chapter.hourFlow && <Statement statement={chapter.hourFlow.statement} />}
+
+      <ChartFigure
+        raster={charts.chargePrice}
+        caption={chapter.chargePrice?.figure.caption ?? ''}
+        note={chapter.chargePrice?.figure.note}
+        missing={chapter.chargePriceMissing ?? figureMissingText('Der Ø-Ladepreis')}
+      />
+      {chapter.chargePrice && <Statement statement={chapter.chargePrice.statement} />}
+    </View>
+  )
+}
+
 function MethodologyChapter() {
   return (
     <View style={styles.body}>
@@ -783,6 +914,14 @@ export function ReportDocument({
   agenda: AgendaPageNumbers
   sink: PageNumberSink
 }) {
+  /*
+   * ⚠ EINMAL ENTSCHIEDEN, ZWEIMAL GELESEN (B23c-3b-1): die Agenda führt den Eintrag genau dann,
+   * wenn die `<Page>` darunter entsteht. Zwei getrennte Auswertungen ergäben entweder einen
+   * Eintrag mit dauerhaft leerer Zahlenspalte (kein Sentinel meldet je) oder ein Kapitel, das die
+   * Agenda verschweigt — beides sähe man dem Dokument nicht an.
+   */
+  const hasInsight = hasInsightChapter(input.analysis)
+
   return (
     <Document
       title={input.title}
@@ -800,7 +939,7 @@ export function ReportDocument({
       <Page size="A4" style={styles.page}>
         <PageFurniture sink={sink} />
         <SectionAnchor id="agenda" sink={sink} />
-        <Agenda pages={agenda} />
+        <Agenda sections={buildReportAgenda({ insight: hasInsight })} pages={agenda} />
       </Page>
 
       <Page size="A4" style={styles.page}>
@@ -820,6 +959,14 @@ export function ReportDocument({
         <SectionAnchor id={DETAIL_SECTION.id} sink={sink} />
         <DetailChapter input={input} charts={charts} />
       </Page>
+
+      {hasInsight && (
+        <Page size="A4" style={styles.page}>
+          <PageFurniture sink={sink} />
+          <SectionAnchor id={INSIGHT_SECTION.id} sink={sink} />
+          <InsightChapter input={input} charts={charts} />
+        </Page>
+      )}
 
       <Page size="A4" style={styles.page}>
         <PageFurniture sink={sink} />

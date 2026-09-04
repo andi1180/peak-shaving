@@ -109,7 +109,25 @@ export function BatteryFlowHeatmap({
       </p>
 
       <div className="overflow-x-auto">
-        <div className="min-w-[420px]">
+        {/*
+          ⚠ DER ANKER FÜR DEN PDF-REPORT (B23c-3b-1, Delta D11) — er umfasst GENAU die
+          Monats-Kopfzeile und die 24 Datenzeilen, und ausdrücklich nicht Titel, Beschreibung,
+          Legende und die beiden Absätze darunter.
+
+          Der PDF-Weg rastert ein Chart als Bild (`lib/pdf-report/chart-raster.ts`) und setzt den
+          Text daneben NATIV. Bei einem Recharts-Chart trennt `svg.recharts-surface` den
+          Zeichenbereich ab; diese Heatmap ist bewusst kein SVG (s. Kopf) und hatte bis hierher
+          keinen solchen Anker — in B23b wurde deshalb die GANZE Karte samt Fliesstext gerastert,
+          und D11 hat den fehlenden Anker als offenen Punkt benannt. Text als Bildpunkte in ein PDF
+          zu legen heisst: nicht durchsuchbar, nicht kopierbar, und bei jeder Skalierung weicher
+          als der Text daneben.
+
+          ⚠ WER DIESES `div` VERSCHIEBT ODER DEN NAMEN ÄNDERT, ÄNDERT DEN BILDAUSSCHNITT IM PDF.
+          Der Rasterweg wartet auf ein Element mit Ausdehnung; findet er den Anker nicht, läuft er
+          in eine Zeitüberschreitung und das Kapitel sagt, dass kein Bild da ist — kein stiller
+          Fehlschlag, aber auch kein Bild.
+        */}
+        <div className="min-w-[420px]" data-testid="stunden-heatmap-raster">
           {/* Kopfzeile: Monate */}
           <div className="mb-1 grid grid-cols-[2.5rem_repeat(12,1fr)] gap-px">
             <div />

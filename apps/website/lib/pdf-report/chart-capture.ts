@@ -100,6 +100,26 @@ export function selectRechartsSurface(container: HTMLElement): Element | null {
   return container.querySelector('svg.recharts-surface')
 }
 
+/**
+ * B23c-3b-1 — das blosse RASTER der Stunden-Heatmap: Monats-Kopfzeile und die 24 Datenzeilen.
+ *
+ * ── ⚠ WARUM DIE HEATMAP EINEN EIGENEN SELEKTOR BRAUCHT ────────────────────────────────────────
+ * Sie ist ausdrücklich kein SVG (ihr Kopfkommentar begründet das), `selectRechartsSurface` greift
+ * dort also ins Leere. Der Standardwert — das erste Kind des Mount-Kastens — trifft die GANZE
+ * Karte samt Titel, Beschreibung, Legende und den beiden erklärenden Absätzen; genau so lief der
+ * B23b-Prüfstand, und D11 hat den fehlenden Anker als offenen Punkt benannt. Text als Bildpunkte
+ * in ein PDF zu legen ist die falsche Aufteilung: er gehört nativ daneben.
+ *
+ * ⚠ Der Anker ist ein `data-testid` IN der Komponente (`battery-flow-heatmap.tsx`) und kein
+ * Strukturpfad („zweites Kind des dritten div"): ein Pfad bräche beim ersten Umbau der Komponente
+ * still und rasterte danach irgendetwas anderes. Bleibt der Anker aus, findet dieser Selektor
+ * nichts, die Wartezeit läuft ab, und das Kapitel sagt, dass kein Bild da ist — ein benannter
+ * Fehlschlag statt eines falschen Bildes (dieselbe Regel wie bei `selectRechartsSurface`).
+ */
+export function selectHeatmapGrid(container: HTMLElement): Element | null {
+  return container.querySelector('[data-testid="stunden-heatmap-raster"]')
+}
+
 function nextFrame(): Promise<void> {
   return new Promise((resolve) => window.requestAnimationFrame(() => resolve()))
 }

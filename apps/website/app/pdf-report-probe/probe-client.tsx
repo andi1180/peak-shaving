@@ -22,6 +22,7 @@ import {
  * Load dieser Route — gemessen rund 60 kB für eine Anzeige, die es erst nach einem Klick gibt.
  */
 import type { DetailChapter } from '@/lib/pdf-report/detail'
+import type { InsightChapter } from '@/lib/pdf-report/insight'
 import type { RecommendationChapter } from '@/lib/pdf-report/recommendation'
 import type { ReportSummary } from '@/lib/pdf-report/summary'
 import {
@@ -74,15 +75,18 @@ import {
  * danebengeschriebene Zeitspanne wäre die Sorte Doppelung, die erst auffällt, wenn sie abweicht.
  */
 /**
- * Die drei Bilder eines Dokuments, in Dokumentreihenfolge.
+ * Die Bilder eines Dokuments, in Dokumentreihenfolge — seit B23c-3b-1 fünf.
  *
- * ⚠ Als Liste und nicht dreimal ausgeschrieben: die drei Zeilen unterscheiden sich nur in
- * Beschriftung und Schlüssel, und drei Kopien liefen beim nächsten hinzukommenden Bild auseinander.
+ * ⚠ Als Liste und nicht je Bild ausgeschrieben: die Zeilen unterscheiden sich nur in Beschriftung
+ * und Schlüssel, und Kopien liefen beim nächsten hinzukommenden Bild auseinander. Genau das ist
+ * hier eingetreten und hat nichts gekostet — die zwei neuen Zeilen sind zwei Einträge.
  */
 const CHART_FIGURES = [
   { key: 'load', label: 'Lastgang-Bild' },
   { key: 'cost', label: 'Kosten-Bild' },
   { key: 'flow', label: 'Energiefluss-Bild' },
+  { key: 'hourFlow', label: 'Heatmap-Bild (nur Raster)' },
+  { key: 'chargePrice', label: 'Ladepreis-Bild' },
 ] as const
 
 function probeProfile(standardProfile: boolean): Pick<LoadProfile, 'source'> {
@@ -100,6 +104,11 @@ export function PdfReportProbe() {
     costKind: 'monthly' | 'cumulative' | null
     flowPlanned: boolean
     flowDays: { label: string; date: string }[]
+  } | null>(null)
+  const [insight, setInsight] = useState<{
+    chapter: InsightChapter
+    planned: { chapter: boolean; hourFlow: boolean; chargePrice: boolean }
+    hourFlowSummary: { maxAbsKwh: number; peakHour: number; emptyCells: number } | null
   } | null>(null)
   /** Der Lastgang des Rechenlaufs — Grundlage des Diagramms UND des Zeitraums auf dem Deckblatt. */
   const [loadProfile, setLoadProfile] = useState<LoadProfile | null>(null)
@@ -143,6 +152,7 @@ export function PdfReportProbe() {
     setSummary(null)
     setChapter(null)
     setDetail(null)
+    setInsight(null)
     setLoadProfile(null)
     setAnalysisKind(null)
     setOutcome(null)
@@ -163,6 +173,11 @@ export function PdfReportProbe() {
         costKind: run.detailCostKind,
         flowPlanned: run.detailFlowPlanned,
         flowDays: run.detailFlowDays,
+      })
+      setInsight({
+        chapter: run.insight,
+        planned: run.insightPlanned,
+        hourFlowSummary: run.hourFlowSummary,
       })
       setLoadProfile(run.loadProfile)
       setAnalysisKind(probeKind)
@@ -223,9 +238,10 @@ export function PdfReportProbe() {
         <h1 className="text-2xl font-semibold text-ink">PDF-Report-Prüfstand</h1>
         <p className="mt-1 text-sm text-text-muted">
           B23a — Dokumentgerüst (Deckblatt, Kopf-/Fusszeile mit Seitenzahl, Agenda mit
-          Seitenverweisen, Methodik). B23c-1/2/3a — Kernergebnisse, Empfehlung mit
-          Lastgang-Diagramm sowie Kostenverlauf und Tages-Energiefluss, alle aus einem ECHTEN, hier
-          im Browser gerechneten Ergebnis. Interne Route, nicht verlinkt, <code>noindex</code>. Der
+          Seitenverweisen, Methodik). B23c-1/2/3a/3b-1 — Kernergebnisse, Empfehlung mit
+          Lastgang-Diagramm, Kostenverlauf und Tages-Energiefluss sowie das Ladeverhalten
+          (Stunden-Heatmap und Ø-Ladepreis), alle aus einem ECHTEN, hier im Browser gerechneten
+          Ergebnis. Interne Route, nicht verlinkt, <code>noindex</code>. Der
           Export im Rechner ist davon unberührt und läuft weiter über den Druckdialog.
         </p>
       </div>
@@ -351,6 +367,43 @@ export function PdfReportProbe() {
                   <>
                     {' '}
                     · Grund: <span id="probe-detail-flow-missing">{detail.chapter.flowMissing}</span>
+                  </>
+                )}
+              </p>
+            )}
+            {/*
+              B23c-3b-1 — die ENTSCHEIDUNG des Ladeverhalten-Kapitels, vor dem Erzeugen sichtbar.
+              Es ist das erste Kapitel, das es nicht in jedem Dokument gibt: fehlen beide Bilder,
+              entfallen Kapitel UND Agenda-Eintrag. Wieder die Produktionsfunktionen
+              (`insightChartPlan` / `buildInsightChapter`), gelaufen in `analysis-run.ts`.
+            */}
+            {insight && (
+              <p className="text-text-muted">
+                Ladeverhalten-Kapitel:{' '}
+                <strong id="probe-insight-chapter">
+                  {insight.planned.chapter ? 'ja' : 'nein'}
+                </strong>{' '}
+                · Heatmap{' '}
+                <strong id="probe-insight-hourflow">
+                  {insight.planned.hourFlow ? 'ja' : 'nein'}
+                </strong>{' '}
+                · Ladepreis{' '}
+                <strong id="probe-insight-chargeprice">
+                  {insight.planned.chargePrice ? 'ja' : 'nein'}
+                </strong>
+                {insight.hourFlowSummary && (
+                  <>
+                    {' '}
+                    · Stärkste Zelle{' '}
+                    <strong id="probe-insight-maxabs">
+                      {insight.hourFlowSummary.maxAbsKwh.toFixed(3)} kWh
+                    </strong>{' '}
+                    · Hauptladestunde{' '}
+                    <strong id="probe-insight-peakhour">
+                      {String(insight.hourFlowSummary.peakHour).padStart(2, '0')}
+                    </strong>{' '}
+                    · Zellen ohne Messwert{' '}
+                    <strong id="probe-insight-empty">{insight.hourFlowSummary.emptyCells}</strong>
                   </>
                 )}
               </p>
@@ -606,6 +659,37 @@ export function PdfReportProbe() {
                 </li>
               ))}
             </ul>
+
+            {/*
+              B23c-3b-1 — die Zellprobe: welche Farbe hat GENAU diese Zelle im fertigen Bild
+              bekommen. Sie beantwortet als einzige die Frage „bleibt eine leere Zelle von einer
+              gemessenen Null unterscheidbar" — eine blosse Farbzählung könnte das nicht, weil eine
+              leere Zelle papierweiss ist und Papierweiss ohnehin überall steht.
+            */}
+            {chartReport.cellProbes && chartReport.cellProbes.length > 0 && (
+              <ul id="probe-chart-cells" className="flex flex-col gap-0.5 text-text-muted">
+                {chartReport.cellProbes.map((cell) => (
+                  <li
+                    key={cell.label}
+                    data-hour={cell.hour}
+                    data-month={cell.month}
+                    data-value={cell.value === null ? 'null' : String(cell.value)}
+                    data-hex={cell.hex}
+                    data-border-style={cell.borderStyle}
+                  >
+                    <span
+                      className="mr-1.5 inline-block h-2.5 w-2.5 shrink-0 rounded-sm border border-border align-middle"
+                      style={{ backgroundColor: cell.hex }}
+                      aria-hidden
+                    />
+                    {cell.label} — Zelle [{cell.hour}h / Monat {cell.month + 1}], Wert{' '}
+                    <code>{cell.value === null ? 'null' : cell.value}</code>: im Bild{' '}
+                    <strong>{cell.hex}</strong> (berechnet <code>{cell.computed}</code>, Rand{' '}
+                    <code>{cell.borderStyle}</code>)
+                  </li>
+                ))}
+              </ul>
+            )}
 
             <ul className="flex list-disc flex-col gap-0.5 pl-4 text-xs text-text-muted">
               {chartReport.notes.map((note) => (

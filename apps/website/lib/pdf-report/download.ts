@@ -25,7 +25,7 @@ export type ReportPdfOutcome = {
   /**
    * B23c-2/B23c-3a — was beim Erzeugen der Chart-Bilder herauskam.
    *
-   * ⚠ `builds` MUSS der Zahl der tatsächlich gerasterten Bilder entsprechen (höchstens drei) und
+   * ⚠ `builds` MUSS der Zahl der tatsächlich gerasterten Bilder entsprechen (höchstens fünf) und
    * darf NICHT mit `passes` skalieren: die Bilder entstehen einmal je Dokument und nicht je
    * Renderdurchlauf (s. `render.tsx`). Der Wert ist gemessen, nicht hingeschrieben.
    */
@@ -47,6 +47,13 @@ export type ReportPdfOutcome = {
      * gerenderten Baum GELESEN (s. `charts.tsx`). Der Nachweis, WELCHER Tag im Bild steht.
      */
     flowDay: string | null
+    /**
+     * B23c-3b-1 — die Stunden-Heatmap. Der EINZIGE Chart des Reports, der über den HTML-Weg
+     * (`foreignObject`) gerastert wird; ihr Ausschnitt ist das blosse Raster (s. `charts.tsx`).
+     */
+    hourFlow: ChartFigureOutcome
+    /** B23c-3b-1 — der Ø-Ladepreis je Monat. */
+    chargePrice: ChartFigureOutcome
     captureMs: number
   }
 }
@@ -134,6 +141,16 @@ export async function downloadReportPdf(
       costKind: result.charts.costKind,
       flow: figure(result.charts.flow, result.chartEmbeddedPt.flow, result.charts.flowError),
       flowDay: result.charts.flowDay,
+      hourFlow: figure(
+        result.charts.hourFlow,
+        result.chartEmbeddedPt.hourFlow,
+        result.charts.hourFlowError,
+      ),
+      chargePrice: figure(
+        result.charts.chargePrice,
+        result.chartEmbeddedPt.chargePrice,
+        result.charts.chargePriceError,
+      ),
       captureMs: result.charts.captureMs,
     },
   }
