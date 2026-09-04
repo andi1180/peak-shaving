@@ -757,6 +757,42 @@ export function PdfReportProbe() {
               {outcome.chart.comparisonVariant ?? 'keine'}
             </strong>
           </p>
+          {/*
+            Die Zeitmessung. Reine DIAGNOSE — sie steuert nichts und ist ausschliesslich hier,
+            damit ein Prüflauf die Phasen einzeln ablesen kann, statt eine Gesamtzahl zu deuten.
+
+            ⚠ Die Werte eines ERSTEN Aufrufs in einer Sitzung sind mit denen jedes weiteren nicht
+            vergleichbar: `Lazy-Chunk` holt dann den Renderer über das Netz, und die drei
+            WOFF-Dateien werden im ersten Durchlauf geholt — die stecken also in `Durchläufe`,
+            nicht in `Fonts` (s. `render.tsx`).
+          */}
+          <p>
+            Gesamt (Klick bis Blob):{' '}
+            <strong id="probe-timing-total">{Math.round(outcome.timings.totalMs)} ms</strong> ·
+            Lazy-Chunk:{' '}
+            <strong id="probe-timing-import">{Math.round(outcome.timings.importMs)} ms</strong> ·
+            Fonts registriert:{' '}
+            <strong id="probe-timing-fonts">
+              {outcome.timings.render.fontsMs.toFixed(1)} ms
+            </strong>{' '}
+            · Rasterung gesamt:{' '}
+            <strong id="probe-timing-charts">
+              {Math.round(outcome.timings.render.chartsMs)} ms
+            </strong>{' '}
+            · Durchläufe:{' '}
+            <strong id="probe-timing-passes">
+              {outcome.timings.render.passMs.map((ms) => `${Math.round(ms)} ms`).join(' · ')}
+            </strong>
+          </p>
+          <p>
+            Rasterung je Bild:{' '}
+            <strong id="probe-timing-figures">
+              {CHART_FIGURES.map(({ key, label }) => {
+                const ms = outcome.timings.render.figureMs[key]
+                return `${label}: ${ms === null ? 'nicht gerastert' : `${Math.round(ms)} ms`}`
+              }).join(' · ')}
+            </strong>
+          </p>
           {CHART_FIGURES.map(({ key, label }) => {
             const fig = outcome.chart[key]
             return fig.px && fig.embeddedPt ? (

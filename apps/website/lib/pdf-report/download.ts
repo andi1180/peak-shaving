@@ -1,3 +1,9 @@
+/*
+ * ⚠ NUR DER TYP, und das ist hier keine Formalie: `import type` wird beim Übersetzen restlos
+ * entfernt. Ein WERT-Import aus `./render` zöge den Lazy-Chunk in jede Seite, die diese Datei
+ * liest — genau das, was der Kopf unten ausschliesst.
+ */
+import type { ReportRenderTimings } from './render'
 import type { PdfReportInput } from './types'
 
 /**
@@ -10,7 +16,7 @@ import type { PdfReportInput } from './types'
  * `./fonts` auf Modulebene. Ein solcher Import wäre die eine Zeile, die den 307-kB-Chunk in jede
  * Seite zieht, die diese Datei liest.
  *
- * `./types` ist typ-only und trägt zur Laufzeit nichts.
+ * `./types` und der Zeit-Typ aus `./render` sind typ-only und tragen zur Laufzeit nichts.
  */
 
 export type { PdfReportInput }
@@ -22,6 +28,27 @@ export type ReportPdfOutcome = {
   passes: number
   /** `false`, wenn der Wächter angeschlagen hat und ohne Seitenverweise ausgeliefert wurde. */
   agendaHasPageNumbers: boolean
+  /**
+   * Wo die Zeit hingegangen ist. Reine DIAGNOSE — nichts hier steuert etwas.
+   *
+   * ⚠ `importMs` ist der Teil, den `renderReportPdf` selbst nicht sehen kann: der dynamische Import
+   * unten holt beim ERSTEN Aufruf einer Sitzung den Lazy-Chunk (Spike §3: ≈ 773 kB roh / ≈ 307 kB
+   * gzip) über das Netz, bei jedem weiteren kommt er aus dem Modulcache und die Zahl fällt auf
+   * nahezu null. Genau dieser Unterschied ist der Grund, warum ein erster und ein zweiter Export
+   * derselben Sitzung getrennt zu messen sind.
+   */
+  timings: {
+    /** Der dynamische Import von `./render` — kalt der Lazy-Chunk, warm ≈ 0. */
+    importMs: number
+    /** Die Phasen innerhalb der Erzeugung. */
+    render: ReportRenderTimings
+    /**
+     * Von der ersten Zeile dieser Funktion bis zum fertigen Blob — also der Wert, den ein
+     * Ladezustand am Knopf überbrücken müsste. Die Ablage als Datei danach ist nicht enthalten;
+     * sie ist ein paar DOM-Aufrufe und hängt am Browser, nicht an dieser Rechnung.
+     */
+    totalMs: number
+  }
   /**
    * B23c-2/B23c-3a — was beim Erzeugen der Chart-Bilder herauskam.
    *
@@ -102,8 +129,11 @@ export async function downloadReportPdf(
   input: PdfReportInput,
   now: Date,
 ): Promise<ReportPdfOutcome> {
+  const startedAt = performance.now()
   const { renderReportPdf } = await import('./render')
+  const importMs = performance.now() - startedAt
   const result = await renderReportPdf(input)
+  const totalMs = performance.now() - startedAt
 
   const fileName = reportPdfFileName(now)
 
@@ -141,6 +171,7 @@ export async function downloadReportPdf(
     totalPages: result.totalPages,
     passes: result.passes,
     agendaHasPageNumbers: result.agendaPages !== null,
+    timings: { importMs, render: result.timings, totalMs },
     chart: {
       builds: result.chartBuilds,
       load: figure(result.charts.load, result.chartEmbeddedPt.load, result.charts.loadError),

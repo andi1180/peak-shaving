@@ -125,6 +125,29 @@ export type ReportChartRasters = {
 
   /** Mounten, Layout und Rastern aller Bilder zusammen, in ms. */
   captureMs: number
+
+  /**
+   * Dauer JE Bild, in ms.
+   *
+   * ⚠ `null` heisst „gar nicht gerastert" (der Fall sieht dieses Bild nicht vor) und ausdrücklich
+   * nicht „0 ms". Ein fehlgeschlagener Lauf trägt sehr wohl eine Zahl — er hat Zeit gekostet, und
+   * beim Rastern ist der teuerste Fall gerade der, der in eine Wartezeit läuft.
+   *
+   * Reiner DIAGNOSE-Wert wie `captureMs` und `chartBuilds`: er steuert nichts. Er steht hier, weil
+   * `captureMs` allein nur sagt, DASS die Rasterung der teure Teil ist, aber nicht, welches Bild
+   * ihn ausmacht — und das ist die Zahl, an der eine Optimierung ansetzen müsste.
+   */
+  figureMs: ReportChartFigureMs
+}
+
+/** Dauer je Bild, in Dokumentreihenfolge. `null` = für diesen Fall nicht gerastert. */
+export type ReportChartFigureMs = {
+  load: number | null
+  cost: number | null
+  flow: number | null
+  hourFlow: number | null
+  chargePrice: number | null
+  comparison: number | null
 }
 
 /**
@@ -221,17 +244,28 @@ export function reportChartBuildCount(): number {
   return chartBuildCount
 }
 
-/** Ein Rasterlauf, der das Dokument nicht kostet. */
-type Attempt = { raster: ChartRaster | null; error: string | null }
+/**
+ * Ein Rasterlauf, der das Dokument nicht kostet.
+ *
+ * ⚠ `ms` ist `null` GENAU DANN, wenn gar nicht gerastert wurde — nicht bei einem Fehlschlag. Der
+ * kostet Zeit wie ein Erfolg (beim Rastern sogar mehr: ein Fehlschlag ist im Regelfall eine
+ * abgelaufene Wartezeit), und ihn mit 0 zu führen machte aus einer teuren Zeile eine unsichtbare.
+ */
+type Attempt = { raster: ChartRaster | null; error: string | null; ms: number | null }
+
+/** Für einen Fall, der dieses Bild gar nicht vorsieht — kein Lauf, keine Zeit, kein Zähler. */
+const NOT_RASTERIZED: Attempt = { raster: null, error: null, ms: null }
 
 async function attempt(run: () => Promise<ChartRaster>): Promise<Attempt> {
   chartBuildCount += 1
+  const started = performance.now()
   try {
-    return { raster: await run(), error: null }
+    return { raster: await run(), error: null, ms: performance.now() - started }
   } catch (cause) {
     return {
       raster: null,
       error: cause instanceof Error ? cause.message : 'Unbekannter Fehler',
+      ms: performance.now() - started,
     }
   }
 }
@@ -312,7 +346,7 @@ export async function buildReportCharts(input: PdfReportInput): Promise<ReportCh
   const costPlan = plan.cost
   const cost: Attempt =
     costPlan === null
-      ? { raster: null, error: null }
+      ? NOT_RASTERIZED
       : await attempt(() =>
           captureChart(
             costPlan.kind === 'monthly' ? (
@@ -344,7 +378,7 @@ export async function buildReportCharts(input: PdfReportInput): Promise<ReportCh
   const flowPlan = plan.flow
   const flow: Attempt =
     flowPlan === null
-      ? { raster: null, error: null }
+      ? NOT_RASTERIZED
       : await attempt(() =>
           captureChart(
             <EnergyFlowChart
@@ -379,7 +413,7 @@ export async function buildReportCharts(input: PdfReportInput): Promise<ReportCh
   const hourFlowPlan = insight.hourFlow
   const hourFlow: Attempt =
     hourFlowPlan === null
-      ? { raster: null, error: null }
+      ? NOT_RASTERIZED
       : await attempt(() =>
           captureChart(
             <BatteryFlowHeatmap
@@ -399,7 +433,7 @@ export async function buildReportCharts(input: PdfReportInput): Promise<ReportCh
   const chargePricePlan = insight.chargePrice
   const chargePrice: Attempt =
     chargePricePlan === null
-      ? { raster: null, error: null }
+      ? NOT_RASTERIZED
       : await attempt(() =>
           captureChart(<ChargePriceChart price={chargePricePlan.price} />, {
             width: DETAIL_CHART_WIDTH_PX,
@@ -421,7 +455,7 @@ export async function buildReportCharts(input: PdfReportInput): Promise<ReportCh
   const comparisonPlan = comparisonChartPlan(analysis)
   const comparison: Attempt =
     comparisonPlan === null
-      ? { raster: null, error: null }
+      ? NOT_RASTERIZED
       : await attempt(() =>
           captureChart(
             <MarginalBenefitChart
@@ -451,5 +485,13 @@ export async function buildReportCharts(input: PdfReportInput): Promise<ReportCh
     comparisonError: comparison.error,
     comparisonVariant: comparisonPlan?.variant ?? null,
     captureMs: performance.now() - started,
+    figureMs: {
+      load: load.ms,
+      cost: cost.ms,
+      flow: flow.ms,
+      hourFlow: hourFlow.ms,
+      chargePrice: chargePrice.ms,
+      comparison: comparison.ms,
+    },
   }
 }
