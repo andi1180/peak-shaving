@@ -5,6 +5,8 @@ import { PRINT_COMPANY } from '@/lib/company'
 import type { ReportChartRasters } from './charts'
 import { fitRasterToWidth, type ChartRaster } from './chart-raster'
 import {
+  BASIS_INTRO,
+  BASIS_SECTION,
   buildReportAgenda,
   COMPARISON_INTRO,
   COMPARISON_SECTION,
@@ -17,11 +19,13 @@ import {
   METHODOLOGY_SECTION,
   RECOMMENDATION_INTRO,
   RECOMMENDATION_SECTION,
+  REPORT_DISCLAIMER,
   RESULTS_FOOTNOTE,
   RESULTS_INTRO,
   RESULTS_SECTION,
   type ReportSection,
 } from './content'
+import { buildBasisChapter } from './basis'
 import { buildComparisonChapter, hasComparisonChapter } from './comparison'
 import { buildDetailChapter } from './detail'
 import { buildInsightChapter, hasInsightChapter } from './insight'
@@ -33,7 +37,13 @@ import {
   type AgendaPageNumbers,
   type PageNumberSink,
 } from './page-numbers'
-import type { ReportRow, ReportStatement, ReportTable, ReportTone } from './statement'
+import type {
+  ReportNotice,
+  ReportRow,
+  ReportStatement,
+  ReportTable,
+  ReportTone,
+} from './statement'
 import { buildReportSummary } from './summary'
 import { PDF_COLORS, PDF_CONTENT_WIDTH_PT, PDF_LAYOUT, PDF_TYPE } from './theme'
 import type { PdfReportInput } from './types'
@@ -296,6 +306,37 @@ const styles = StyleSheet.create({
     color: PDF_COLORS.textMuted,
   },
 
+  /*
+   * Ein Hinweis (B23c-4) — ein Kasten mit farbiger Kante links.
+   *
+   * ⚠ DIESELBE FORM WIE `figureMissing`, und das ist Absicht: beides sind Aussagen ÜBER die
+   * Zahlen und nicht welche von ihnen. Eine zweite Kastenform für dieselbe Rolle liesse den Leser
+   * einen Unterschied vermuten, den es nicht gibt. Die Kantenfarbe trägt den Ton (`warning` =
+   * Mangel an der Datengrundlage, `neutral` = eine Eigenschaft, die man kennen muss) — Farbe ist
+   * Information, kein Dekor (DESIGN.md).
+   */
+  notice: {
+    marginTop: 12,
+    padding: 10,
+    borderLeftWidth: 2,
+    backgroundColor: PDF_COLORS.surfaceAlt,
+  },
+  noticeTitle: { fontSize: PDF_TYPE.h3, fontWeight: 600, color: PDF_COLORS.ink },
+  noticeBody: { marginTop: 3, color: PDF_COLORS.textMuted },
+  noticeListLabel: { marginTop: 5, fontSize: PDF_TYPE.small, fontWeight: 600, color: PDF_COLORS.ink },
+  noticeListItem: { marginTop: 1, color: PDF_COLORS.text },
+  noticeHint: { marginTop: 5, color: PDF_COLORS.textMuted },
+
+  /*
+   * Die zwei Schlussabsätze des Reports (Tarifherkunft, Preisstand) und der Vorbehalt.
+   *
+   * ⚠ Kleiner und leiser als der Fliesstext — wortgleich zur Rolle am Bildschirm
+   * (`text-xs text-text-muted`): es sind Herkunftsangaben, keine Aussagen über das Ergebnis. Sie
+   * stehen trotzdem im Dokument und nicht in einer Fussnote: ohne sie ist eine später archivierte
+   * Baseline nicht mehr einzuordnen.
+   */
+  provenance: { marginTop: 10, fontSize: PDF_TYPE.small, color: PDF_COLORS.textMuted },
+
   footnote: {
     marginTop: 16,
     paddingTop: 8,
@@ -437,11 +478,12 @@ function Cover({ input }: { input: PdfReportInput }) {
       {/*
         Wörtlich derselbe Vorbehalt wie auf dem Deckblatt des CSS-Wegs, und aus demselben Grund an
         dieser Stelle: wer den Report weiterreicht, soll ihn sehen, bevor er die Zahlen sieht.
+
+        ⚠ B23c-4: er steht seither in `content.ts` und nicht mehr hier ausgeschrieben — das
+        Schlusskapitel trägt ihn ein zweites Mal, und zwei Fassungen desselben Vorbehalts im selben
+        Dokument lesen sich wie zwei verschiedene Einschränkungen.
       */}
-      <Text style={styles.coverDisclaimer}>
-        Demo-Berechnung mit Beispieldaten. Die Zahlen sind noch nicht gegen einen echten Lastgang und
-        eine echte Netzrechnung validiert.
-      </Text>
+      <Text style={styles.coverDisclaimer}>{REPORT_DISCLAIMER}</Text>
     </View>
   )
 }
@@ -514,6 +556,54 @@ function StatementRow({ row }: { row: ReportRow }) {
         {row.hint && <Text style={styles.rowHint}>{row.hint}</Text>}
       </View>
       <Text style={[styles.rowValue, { color: TONE_COLOR[row.tone] }]}>{row.value}</Text>
+    </View>
+  )
+}
+
+/**
+ * Ein Hinweis (B23c-4) — eine Feststellung ÜBER die Zahlen.
+ *
+ * ── ⚠ EIN BAUSTEIN FÜR VIER STELLEN ───────────────────────────────────────────────────────────
+ * Die drei Hinweise bei der Kern-Kennzahl (`summary.ts`) und die zwei Kästen des Schlusskapitels
+ * (`basis.ts`: Datenqualität, Blocker-Befund) rendern hier durch. Vier eigene Formen für dieselbe
+ * Rolle wären genau die Doppelung, die man erst bemerkt, wenn eine davon ein Feld bekommt und der
+ * Leser den Unterschied für eine Bedeutung hält.
+ *
+ * ── ⚠ HIER STEHT BEWUSST KEIN `wrap={false}` — ANDERS ALS BEI `Statement` ─────────────────────
+ * Eine Kernaussage trägt eine feste Zahl von Zeilen und ist damit nachweislich kleiner als der
+ * Satzspiegel; ein Hinweis nicht: die Aufzählung des Blocker-Befunds führt die betroffenen
+ * ZEITBEREICHE, und wie viele es sind, entscheidet die Datenlage. Ein `wrap={false}`-Block, der
+ * die Seite sprengt, wird von react-pdf ABGESCHNITTEN statt umgebrochen — bei einem Befund über
+ * fehlende Preise wäre das ein stiller Inhaltsverlust an genau der Stelle, die sagt, was fehlt.
+ *
+ * Der Preis dafür ist ein Hinweis, der im Ungünstigsten über einen Seitenwechsel läuft. Dieselbe
+ * Abwägung steht bereits an `ResultsChapter`: eine unschöne Seite ist besser als ein Block, den
+ * niemand mehr ganz sieht.
+ *
+ * ⚠ Fehlt eine Aufzählung oder ein Zusatzabsatz, wird NICHTS gerendert — keine leere Zeile, keine
+ * Beschriftung ohne Inhalt. Dasselbe Muster wie beim `hint` einer Zeile und beim leeren
+ * Adressfeld des Deckblatts.
+ */
+function Notice({ notice }: { notice: ReportNotice }) {
+  return (
+    <View style={[styles.notice, { borderLeftColor: TONE_COLOR[notice.tone] }]}>
+      <Text style={styles.noticeTitle}>{notice.title}</Text>
+      <Text style={styles.noticeBody}>{notice.body}</Text>
+      {notice.list && (
+        <View>
+          {notice.list.label && <Text style={styles.noticeListLabel}>{notice.list.label}</Text>}
+          {notice.list.items.map((item) => (
+            <Text key={item} style={styles.noticeListItem}>
+              · {item}
+            </Text>
+          ))}
+        </View>
+      )}
+      {notice.hints.map((hint) => (
+        <Text key={hint} style={styles.noticeHint}>
+          {hint}
+        </Text>
+      ))}
     </View>
   )
 }
@@ -653,7 +743,7 @@ function StatementTable({ table }: { table: ReportTable }) {
  * messen, ob eine Seite allein mit dieser Fussnote dasteht.
  */
 function ResultsChapter({ input }: { input: PdfReportInput }) {
-  const summary = buildReportSummary(input.analysis)
+  const summary = buildReportSummary(input.analysis, input.loadProfile)
 
   return (
     <View style={styles.body}>
@@ -670,6 +760,17 @@ function ResultsChapter({ input }: { input: PdfReportInput }) {
           <Text style={styles.headlineCaption}>{summary.headline.costCaption}</Text>
         </View>
       </View>
+
+      {/*
+        ⚠ ZWISCHEN Kopfzahl und Aussagen, nicht darunter oder im Schlusskapitel: sie qualifizieren
+        GENAU die Zahl darüber (der abgerechnete Leistungswert eines Standardprofils ist die Spitze
+        einer Durchschnittskurve und keine gemessene Spitze). Dieselbe Stellung wie am Bildschirm,
+        wo sie unmittelbar unter der Kern-Kennzahl stehen und ausdrücklich NICHT in der
+        Datenqualitäts-Box weiter unten — die wurde beim Live-Test überscrollt.
+      */}
+      {summary.notices.map((notice) => (
+        <Notice key={notice.id} notice={notice} />
+      ))}
 
       {summary.statements.map((statement) => (
         <Statement key={statement.id} statement={statement} />
@@ -1025,6 +1126,49 @@ function MethodologyChapter() {
 }
 
 /**
+ * B23c-4 — Annahmen und Datengrundlage: das Schlusskapitel.
+ *
+ * ── ⚠ WAS AUF DIESER SEITE STEHT, ENTSCHEIDET `basis.ts` ──────────────────────────────────────
+ * Hier wird gerendert, was die Ableitung liefert — keine Verzweigung an einem Contract-Feld in
+ * diesem JSX. Ob es einen Datenqualitäts-Kasten gibt, ob ein Blocker-Befund dasteht und ob der
+ * Preisstand-Hinweis erscheint, ist dort (bzw. in `derive.ts`) entschieden. Fehlt einer, fehlt er
+ * hier schlicht in der Liste.
+ *
+ * ── DIE REIHENFOLGE IST DIE DES BILDSCHIRMS ───────────────────────────────────────────────────
+ * Erst womit gerechnet wurde (Annahmen), dann was an den Daten war (Qualität), dann was NICHT
+ * gerechnet werden konnte (Blocker), dann die Herkunft der Tarifwerte und ihr Preisstand, zuletzt
+ * der Vorbehalt. Vom Bekannten zum Fehlenden — wer bis hierher liest, sucht die Grenzen.
+ *
+ * ⚠ Das Kapitel ist eine eigene `<Page>` (D5, Regel 1) und ausdrücklich KEIN drittes bedingtes
+ * Kapitel: Annahmen, Tarifherkunft und Vorbehalt gibt es in jedem Report.
+ */
+function BasisChapter({ input }: { input: PdfReportInput }) {
+  const chapter = buildBasisChapter(input)
+
+  return (
+    <View style={styles.body}>
+      <Text style={styles.h2}>{BASIS_SECTION.title}</Text>
+      <Text style={styles.lead}>{BASIS_INTRO}</Text>
+
+      <Statement statement={chapter.assumptions} />
+      {chapter.dataQuality && <Notice notice={chapter.dataQuality} />}
+      {chapter.blocker && <Notice notice={chapter.blocker} />}
+
+      <Text style={styles.provenance}>{chapter.tariffSource}</Text>
+      {chapter.tariffVintage && <Text style={styles.provenance}>{chapter.tariffVintage}</Text>}
+
+      {/*
+        ⚠ Derselbe Vorbehalt wie auf dem Deckblatt, aus DERSELBEN Konstante — s. `REPORT_DISCLAIMER`
+        in `content.ts`. Dass er zweimal steht, ist Absicht (ein weitergereichter Report wird von
+        beiden Enden gelesen); dass er zweimal ANDERS stünde, wäre es nicht. Der CSS-Weg trägt ihn
+        ebenso zweimal.
+      */}
+      <Text style={styles.footnote}>{REPORT_DISCLAIMER}</Text>
+    </View>
+  )
+}
+
+/**
  * Das Dokument.
  *
  * `agenda` trägt die im ERSTEN Durchlauf gemessenen Seitenzahlen; `null` heisst „noch nicht
@@ -1117,6 +1261,12 @@ export function ReportDocument({
         <PageFurniture sink={sink} />
         <SectionAnchor id={METHODOLOGY_SECTION.id} sink={sink} />
         <MethodologyChapter />
+      </Page>
+
+      <Page size="A4" style={styles.page}>
+        <PageFurniture sink={sink} />
+        <SectionAnchor id={BASIS_SECTION.id} sink={sink} />
+        <BasisChapter input={input} />
       </Page>
     </Document>
   )

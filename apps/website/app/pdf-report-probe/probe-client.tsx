@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { Calculator, FileText, ImageDown } from 'lucide-react'
-import type { AnalysisResult, LoadProfile } from 'shared'
+import type { AnalysisResult, LoadProfile, TariffSourceRef } from 'shared'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -21,6 +21,7 @@ import {
  * geladen): statisch hier importiert zöge es den `shared`-Barrel samt PLZ-Tabelle in den First
  * Load dieser Route — gemessen rund 60 kB für eine Anzeige, die es erst nach einem Klick gibt.
  */
+import type { BasisChapter } from '@/lib/pdf-report/basis'
 import type { ComparisonChapter } from '@/lib/pdf-report/comparison'
 import type { DetailChapter } from '@/lib/pdf-report/detail'
 import type { InsightChapter } from '@/lib/pdf-report/insight'
@@ -66,16 +67,6 @@ import {
  */
 
 /**
- * Nur das eine Feld, das `reportSubtitle` tatsächlich liest.
- *
- * ⚠ Der Umschalter ist der einzige Weg, die zweite Fassung des Untertitels überhaupt zu sehen —
- * der Prüf-Lastgang ist ein gemessener (`net_signed`) und wechselt seine Herkunft nicht.
- *
- * ⚠ B23c-2: die zwei Zeitstempel für den ZEITRAUM sind hier entfallen. Er kommt jetzt aus dem
- * ECHTEN Lastgang des Rechenlaufs — demselben, aus dem gleich das Diagramm entsteht. Eine zweite,
- * danebengeschriebene Zeitspanne wäre die Sorte Doppelung, die erst auffällt, wenn sie abweicht.
- */
-/**
  * Die Bilder eines Dokuments, in Dokumentreihenfolge — seit B23c-3b-1 fünf.
  *
  * ⚠ Als Liste und nicht je Bild ausgeschrieben: die Zeilen unterscheiden sich nur in Beschriftung
@@ -91,12 +82,29 @@ const CHART_FIGURES = [
   { key: 'comparison', label: 'Grenznutzen-Bild' },
 ] as const
 
-function probeProfile(standardProfile: boolean): Pick<LoadProfile, 'source'> {
-  return { source: standardProfile ? 'standard_profile' : 'net_signed' }
+/**
+ * Die Herkunft, aus der `reportSubtitle` seine Fassung wählt.
+ *
+ * ── ⚠ B23c-4: DER UMSCHALTER IST ENTFALLEN, UND DAS IST EINE KORREKTUR ────────────────────────
+ * Bis hierher gab es einen Ankreuzkasten, weil der Prüf-Lastgang ein gemessener war und seine
+ * Herkunft nie wechselte — die zweite Fassung des Untertitels war anders nicht zu sehen. Seit dem
+ * Prüffall `standardprofil` gibt es einen ECHTEN synthetischen Lastgang (aus DEM Generator, den
+ * auch der Rechner benutzt), und der Umschalter wäre ab jetzt schädlich: er könnte auf einem Report
+ * über ein Standardprofil „auf Basis Ihres Viertelstunden-Lastgangs" stehen lassen — genau die
+ * Verwechslung, gegen die `reportSubtitle` ausdrücklich nicht editierbar ist.
+ *
+ * Vor dem ersten Rechenlauf gibt es noch keinen Lastgang; dann steht die Fassung des gemessenen
+ * Falls da, weil vier der acht Prüffälle sie tragen.
+ *
+ * ⚠ B23c-2: die zwei Zeitstempel für den ZEITRAUM sind hier entfallen. Er kommt aus dem ECHTEN
+ * Lastgang des Rechenlaufs — demselben, aus dem gleich das Diagramm entsteht. Eine zweite,
+ * danebengeschriebene Zeitspanne wäre die Sorte Doppelung, die erst auffällt, wenn sie abweicht.
+ */
+function probeProfile(loadProfile: LoadProfile | null): Pick<LoadProfile, 'source'> {
+  return { source: loadProfile?.source ?? 'net_signed' }
 }
 
 export function PdfReportProbe() {
-  const [standardProfile, setStandardProfile] = useState(false)
   const [probeKind, setProbeKind] = useState<SummaryProbeKind>('bestand')
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null)
   const [summary, setSummary] = useState<ReportSummary | null>(null)
@@ -130,6 +138,17 @@ export function PdfReportProbe() {
     grid: (number | null)[][]
     batteryName: string
   } | null>(null)
+  /*
+   * B23c-4 — das Schlusskapitel des letzten Rechenlaufs, samt der Herkunftsangabe und dem
+   * Preisstand-Satz. Sie reisen mit, weil das Dokument sie als Eingang braucht
+   * (`PdfReportInput.tariffSource`/`tariffVintage`) und der Prüfstand die ENTSCHEIDUNG vor dem
+   * Erzeugen zeigen soll.
+   */
+  const [basis, setBasis] = useState<{
+    chapter: BasisChapter
+    noticeIds: string[]
+    tariffSource: TariffSourceRef | null
+  } | null>(null)
   /** Der Lastgang des Rechenlaufs — Grundlage des Diagramms UND des Zeitraums auf dem Deckblatt. */
   const [loadProfile, setLoadProfile] = useState<LoadProfile | null>(null)
   const [analysisKind, setAnalysisKind] = useState<SummaryProbeKind | null>(null)
@@ -146,7 +165,7 @@ export function PdfReportProbe() {
   const [chartReport, setChartReport] = useState<ChartProbeReport | null>(null)
   const [chartError, setChartError] = useState<string | null>(null)
 
-  const subtitle = reportSubtitle(probeProfile(standardProfile))
+  const subtitle = reportSubtitle(probeProfile(loadProfile))
   /* Aus dem echten Lastgang — vor dem ersten Lauf gibt es keinen, und dann auch keinen Zeitraum. */
   const period = loadProfile ? formatAnalysisPeriod(loadProfile) : null
 
@@ -183,7 +202,7 @@ export function PdfReportProbe() {
     try {
       /* Zieht den Lastgang (35.040 Werte) und die Spotpreis-Reihe — erst hier, nicht beim Laden. */
       const { runSummaryAnalysis } = await import('./analysis-run')
-      const run = await runSummaryAnalysis(probeKind)
+      const run = await runSummaryAnalysis(probeKind, new Date())
       setAnalysisMs(performance.now() - started)
       setAnalysis(run.result)
       /* DIE Produktionsfunktion, gelaufen in `analysis-run.ts` — der Prüfstand zeigt, was das
@@ -202,6 +221,11 @@ export function PdfReportProbe() {
         hourFlowSummary: run.hourFlowSummary,
       })
       setComparison({ chapter: run.comparison, planned: run.comparisonPlanned })
+      setBasis({
+        chapter: run.basis,
+        noticeIds: run.noticeIds,
+        tariffSource: run.tariffSource,
+      })
       setHourFlowGrid(
         run.hourFlowGrid
           ? {
@@ -225,7 +249,7 @@ export function PdfReportProbe() {
   }
 
   async function handleGenerate() {
-    if (!analysis || !loadProfile) return
+    if (!analysis || !loadProfile || !basis) return
     setError(null)
     setOutcome(null)
     setPending(true)
@@ -241,6 +265,14 @@ export function PdfReportProbe() {
           printedAt: formatPrintedAt(now),
           analysis,
           loadProfile,
+          /*
+           * ⚠ AUS DEMSELBEN Rechenlauf wie das Ergebnis daneben — nicht hier ein zweites Mal
+           * abgeleitet. Der Preisstand-Satz entsteht in `derive.ts` (er hängt an einem Stichtag)
+           * und ist bereits in `run.basis` gebildet; ihn hier neu zu bilden wäre eine zweite
+           * Ableitung derselben Aussage, die vom gezeigten Prüfstand abweichen könnte.
+           */
+          tariffSource: basis.tariffSource,
+          tariffVintage: basis.chapter.tariffVintage,
         },
         now,
       )
@@ -480,6 +512,101 @@ export function PdfReportProbe() {
                 <strong id="probe-comparison-rows">{comparison.planned.tableRows}</strong>
               </p>
             )}
+            {/*
+              B23c-4 — die drei Hinweise bei der Kern-Kennzahl und die ENTSCHEIDUNGEN des
+              Schlusskapitels, vor dem Erzeugen sichtbar. Wieder die Produktionsfunktionen
+              (`buildReportSummary` / `buildBasisChapter` / `tariffVintageNote`).
+
+              ⚠ Die Hinweis-Kennungen stehen als LISTE da und nicht als „ja/nein": gemessen wird,
+              dass jeder Fall GENAU EINEN trägt — welcher, und vor allem welche beiden nicht.
+            */}
+            <p className="text-text-muted">
+              Kennzahl-Hinweise:{' '}
+              <strong id="probe-notices">
+                {basis && basis.noticeIds.length > 0 ? basis.noticeIds.join(', ') : 'keine'}
+              </strong>
+            </p>
+            {basis && (
+              <p className="text-text-muted">
+                Datenqualitäts-Kasten:{' '}
+                <strong id="probe-basis-dataquality">
+                  {basis.chapter.dataQuality ? 'ja' : 'nein'}
+                </strong>{' '}
+                · Blocker-Befund:{' '}
+                <strong id="probe-basis-blocker">{basis.chapter.blocker ? 'ja' : 'nein'}</strong> ·
+                Preisstand-Hinweis:{' '}
+                <strong id="probe-basis-vintage">
+                  {basis.chapter.tariffVintage ? 'ja' : 'nein'}
+                </strong>{' '}
+                · Tarifstand:{' '}
+                <strong id="probe-basis-tariffsource">
+                  {basis.tariffSource ? basis.tariffSource.tariffSetId : 'keiner gewählt'}
+                </strong>
+              </p>
+            )}
+            {/*
+              ⚠ DIE ROHEN Werte der Annahmen-Tabelle, unverändert aus dem Contract — dieselben
+              Felder, die `print-assumptions-snapshot.tsx` am Bildschirm liest. Sie stehen hier,
+              damit ein Prüflauf die GEDRUCKTE Tabelle gegen die `AnalysisResult`-Instanz halten
+              kann statt gegen die Ableitung, die sie erzeugt hat: der Vergleich zweier Ausgaben
+              DERSELBEN Funktion ist eine Tautologie und fände ein falsch gelesenes Feld nicht.
+            */}
+            {analysis && (
+              <p className="text-text-muted">
+                Annahmen (roh):{' '}
+                <strong id="probe-assumptions-raw">
+                  {JSON.stringify({
+                    billingModel: analysis.assumptions.billingModel,
+                    horizonYears: analysis.assumptions.horizonYears,
+                    energyPriceCtPerKwh: analysis.assumptions.energyPriceCtPerKwh,
+                    einspeiseverguetungCtPerKwh: analysis.assumptions.einspeiseverguetungCtPerKwh,
+                    roundTripEfficiency: analysis.assumptions.roundTripEfficiency,
+                    battery: (() => {
+                      const r =
+                        analysis.perBattery.find(
+                          (p) => p.battery.id === analysis.recommendation.batteryId,
+                        ) ?? analysis.perBattery[0]
+                      return r
+                        ? {
+                            name: r.battery.name,
+                            pricePerKwh: r.battery.pricePerKwh,
+                            totalInvestment: r.totalInvestment,
+                            netInvestment: r.netInvestment,
+                            taxEffectsIncluded: r.taxEffectsIncluded,
+                          }
+                        : null
+                    })(),
+                  })}
+                </strong>
+              </p>
+            )}
+            {/*
+              ⚠ DER ROHE Befund, unverändert aus dem Contract — Seite, Grund und die Zeitbereiche
+              als UTC-ISO. Er steht hier, damit ein Prüflauf den GEDRUCKTEN Text gegen die
+              Datenlage halten kann statt bloss festzustellen, dass irgendein Zeitraum im Dokument
+              steht (dieselbe Rolle wie `detailFlowDays` beim Energiefluss-Tag). Der Prüfstand
+              leitet daraus NICHTS ab.
+            */}
+            {analysis?.tariffOptimization && !analysis.tariffOptimization.computable && (
+              <p className="text-text-muted">
+                Blocker (roh):{' '}
+                <strong id="probe-blocker-raw">
+                  {analysis.tariffOptimization.side} · {analysis.tariffOptimization.kind} ·{' '}
+                  {analysis.tariffOptimization.ranges
+                    .map((r) => `${r.fromIso}…${r.toIso}`)
+                    .join(' | ') || 'keine Bereiche'}
+                </strong>
+              </p>
+            )}
+            {basis && (
+              <ul id="probe-basis-assumptions" className="flex flex-col gap-0.5 text-text-muted">
+                {basis.chapter.assumptions.rows.map((row) => (
+                  <li key={row.label} data-row={row.label}>
+                    {row.label}: {row.value}
+                  </li>
+                ))}
+              </ul>
+            )}
             <ul id="probe-summary" className="flex flex-col gap-0.5 text-text-muted">
               {summary.statements.map((statement) => (
                 <li key={statement.id} data-statement={statement.id}>
@@ -490,16 +617,6 @@ export function PdfReportProbe() {
             </ul>
           </div>
         )}
-
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            id="probe-standard-profile"
-            type="checkbox"
-            checked={standardProfile}
-            onChange={(e) => setStandardProfile(e.target.checked)}
-          />
-          Standardlastprofil statt gemessenem Lastgang (<code>source</code>)
-        </label>
 
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="probe-title">Titel des Dokuments</Label>

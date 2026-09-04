@@ -254,3 +254,97 @@ export function buildDispatchTraceFixture(): DispatchTrace {
     representativeDays: [],
   }
 }
+
+/**
+ * B23c-4 — DERSELBE Volljahrgang mit EINER grossen, linear interpolierten Lücke.
+ *
+ * ── ⚠ WOZU ER GEBRAUCHT WIRD ──────────────────────────────────────────────────────────────────
+ * Der Datenlücken-Hinweis bei der Kern-Kennzahl hängt an `dataQuality.largestGapSlots` — der
+ * LÄNGSTEN zusammenhängenden Lücke, nicht ihrer Summe. Der Volljahrgang trägt keine (er ist
+ * lückenlos erzeugt), und die Zahl bloss in die Datenqualität zu schreiben wäre eine Angabe über
+ * ein Profil, das sie nicht hat. Hier wird die Lücke tatsächlich gebaut: die Werte des Zeitraums
+ * sind linear zwischen seinen Rändern aufgefüllt, genau wie der Parser es täte
+ * (`prepareSeries`) — die Zeitstempel bleiben vollständig, der Zeitraum sieht deshalb abgedeckt
+ * aus und hat trotzdem keine Substanz. Genau das ist die Aussage des Hinweises.
+ *
+ * ── DIE LAGE IST GEWÄHLT UND NICHT ZUFÄLLIG ───────────────────────────────────────────────────
+ * Sie liegt weit hinter dem dominanten Jahreshöchstwert (Tag 40) und vor der dritten hohen Spitze
+ * (Tag 205): keine der drei Spitzen, an denen die übrigen Läufe gemessen werden, fällt in die
+ * Lücke. Was sich zwischen diesem Lauf und dem Volljahres-Lauf unterscheidet, ist damit die Lücke
+ * und nicht eine verschwundene Spitze.
+ *
+ * ⚠ 30 Tage = 2.880 Slots, also oberhalb von `LARGE_GAP_SLOTS_THRESHOLD` (2.688 = 4 Wochen). Die
+ * Zahl ist bewusst nicht knapp darüber gewählt: eine Lücke von 2.689 Slots prüfte die Schwelle,
+ * nicht den Hinweis, und ein Report, in dem „28 Tage" steht, liest sich wie ein Grenzfall.
+ */
+const GAP_START_SLOT = 100 * 96
+export const GAP_LENGTH_SLOTS = 30 * 96
+
+let gapProfileCache: LoadProfile | null = null
+
+export function buildGapLoadProfileFixture(): LoadProfile {
+  if (gapProfileCache) return gapProfileCache
+
+  const full = buildLoadProfileFixture()
+  const before = full.readings[GAP_START_SLOT - 1]!
+  const after = full.readings[GAP_START_SLOT + GAP_LENGTH_SLOTS]!
+  const span = GAP_LENGTH_SLOTS + 1
+
+  gapProfileCache = {
+    ...full,
+    readings: full.readings.map((reading, index) => {
+      if (index < GAP_START_SLOT || index >= GAP_START_SLOT + GAP_LENGTH_SLOTS) return reading
+      const step = (index - (GAP_START_SLOT - 1)) / span
+      const kw = before.gridPowerKw + (after.gridPowerKw - before.gridPowerKw) * step
+      return { ts: reading.ts, gridPowerKw: Math.round(kw * 1000) / 1000 }
+    }),
+  }
+  return gapProfileCache
+}
+
+/**
+ * B23c-4 — DERSELBE Teiljahrgang, verschoben in das LAUFENDE Kalenderjahr.
+ *
+ * ── ⚠ DER EINZIGE FIXTURE-LASTGANG, DER VON DER UHR ABHÄNGT — UND ER MUSS ES ──────────────────
+ * Der Preisstand-Hinweis (`tariffVintageNote`) erscheint genau dann, wenn der ausgewertete
+ * Zeitraum in ein noch LAUFENDES Kalenderjahr reicht: dafür gibt es noch keine Jahresrechnung,
+ * die eingetragenen Preise stammen also zwangsläufig aus einer älteren. Der Prüf-Lastgang deckt
+ * ein abgeschlossenes Jahr ab; an ihm ist der Hinweis strukturell unerreichbar, und der positive
+ * Zweig bliebe gebaut und ungemessen. Die Eigenschaft, um die es geht, IST der Bezug zur
+ * heutigen Uhr — ein fest datiertes Profil kann sie nicht herstellen.
+ *
+ * ── VERSCHOBEN WIRD UM GANZE TAGE, UND DAS ENDE LIEGT IMMER IN DER VERGANGENHEIT ──────────────
+ * Der letzte Messwert landet auf dem letzten Slot vor dem Beginn des laufenden Monats. Ein
+ * Lastgang, der in die Zukunft reicht, wäre kein Prüffall, sondern ein Widerspruch; ganze Tage
+ * halten die Ortszeit je Messwert stabil (bis auf die Zeitumstellung, die für die gemessene
+ * Aussage ohne Belang ist).
+ *
+ * ⚠ IM JÄNNER ERSCHEINT DER HINWEIS NICHT, und das ist die richtige Antwort und kein Defekt:
+ * die acht Monate vor einem Jänner enden im VORjahr, für das es sehr wohl eine Jahresrechnung
+ * gibt. Wer in diesem Monat prüft, misst den negativen Zweig — und der Volljahres-Lauf misst ihn
+ * ohnehin das ganze Jahr über.
+ */
+export function buildCurrentYearPartialLoadProfileFixture(now: Date): LoadProfile {
+  const base = buildPartialYearLoadProfileFixture()
+  const last = base.readings[base.readings.length - 1]!
+
+  /* Beginn des laufenden Monats in ORTSZEIT — dieselbe Wanduhr, nach der gefiltert wurde. */
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: base.timezoneMeta,
+    year: 'numeric',
+    month: '2-digit',
+  }).format(now)
+  const monthStartMs = Date.parse(`${parts}-01T00:00:00Z`)
+
+  const dayMs = 24 * 60 * 60 * 1000
+  const shiftDays = Math.round((monthStartMs - Date.parse(last.ts)) / dayMs)
+  const shiftMs = shiftDays * dayMs
+
+  return {
+    ...base,
+    readings: base.readings.map((r) => ({
+      ts: new Date(Date.parse(r.ts) + shiftMs).toISOString(),
+      gridPowerKw: r.gridPowerKw,
+    })),
+  }
+}

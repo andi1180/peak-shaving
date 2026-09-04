@@ -107,6 +107,7 @@ export const SECTION_ID = {
   insight: 'ladeverhalten',
   comparison: 'geraetewahl',
   methodology: 'methodik',
+  basis: 'grundlage',
 } as const
 
 export const RESULTS_SECTION: ReportSection = {
@@ -238,6 +239,55 @@ export const METHODOLOGY_SECTION: ReportSection = {
   title: 'Methodik & Vorbehalte',
 }
 
+/**
+ * B23c-4 — das Schlusskapitel: womit gerechnet wurde, woher die Werte stammen, was an diesem
+ * Datensatz zu wissen ist.
+ *
+ * ── ⚠ ES STEHT NACH DER METHODIK, UND DAS IST EINE ANDERE REIHENFOLGE ALS AM BILDSCHIRM ───────
+ * Dort liegt der Annahmen-Schnappschuss VOR dem Methodik-Kapitel und die Datenqualitäts-Box
+ * dahinter — die beiden gehören dort zu zwei verschiedenen Stellen der Seite. Auf Papier ist das
+ * eine Aussage: die Methodik sagt, WIE gerechnet wurde, dieses Kapitel WOMIT und was dabei fehlte.
+ * Sie auseinanderzuziehen hiesse, dem Leser zweimal denselben Gedankengang zuzumuten.
+ *
+ * ⚠ Eigene `<Page>` (D5, Regel 1). Als `<View break>` im Methodik-Kapitel bekäme es in der Agenda
+ * die Seitenzahl JENES Kapitels — plausibel aussehend und falsch.
+ *
+ * ⚠ Es ist AUSDRÜCKLICH KEIN drittes bedingtes Kapitel: Annahmen, Tarifherkunft und der
+ * Schluss-Vorbehalt gibt es in jedem Report. Nur die einzelnen Abschnitte darin entfallen, wenn
+ * es sie nicht gibt (Datenqualität ohne Warnungen, der Blocker-Befund ohne Blocker, der
+ * Preisstand-Hinweis bei einem abgeschlossenen Kalenderjahr) — `ReportChapterPresence` wächst
+ * deshalb nicht.
+ */
+export const BASIS_SECTION: ReportSection = {
+  id: SECTION_ID.basis,
+  level: 1,
+  title: 'Annahmen und Datengrundlage',
+}
+
+/** Steht unter der Kapitelüberschrift. Sagt, worum es geht, nicht was auf der Seite steht. */
+export const BASIS_INTRO =
+  'Womit gerechnet wurde, woher die Tarifwerte stammen — und was an diesem Datensatz zu wissen ist.'
+
+/**
+ * Der Vorbehalt, der auf dem Deckblatt UND am Schluss steht.
+ *
+ * ── ⚠ EINE DEFINITION, ZWEI KONSUMENTEN — und die Doppelung im Dokument ist Absicht ───────────
+ * Der CSS-Weg trägt ihn ebenso zweimal (`print-cover.tsx` und der Schlussabsatz in `report.tsx`),
+ * und der Grund ist derselbe: ein weitergereichter Report wird von beiden Enden gelesen. Wer die
+ * Zahlen sucht, schlägt vorne auf; wer nach der Grundlage fragt, hinten.
+ *
+ * ⚠ Er steht deshalb HIER und nicht zweimal ausgeschrieben. Zwei Fassungen desselben Vorbehalts
+ * im selben Dokument — der Bildschirm hat wörtlich zwei, die sich um ein „Die" unterscheiden —
+ * lesen sich wie zwei verschiedene Einschränkungen. Es ist ein Vorbehalt und keine Zahl (D16):
+ * dass er zweimal steht, ist richtig; dass er zweimal ANDERS stünde, wäre es nicht.
+ *
+ * Nicht verhandelbar (CLAUDE.md): keine ROI-Zahl als „echt", bevor gegen einen echten Lastgang
+ * und eine echte Netzrechnung validiert wurde.
+ */
+export const REPORT_DISCLAIMER =
+  'Demo-Berechnung mit Beispieldaten. Die Zahlen sind noch nicht gegen einen echten Lastgang und ' +
+  'eine echte Netzrechnung validiert.'
+
 /** Welche BEDINGTEN Kapitel dieses Dokument trägt. */
 export type ReportChapterPresence = {
   /** `false` = weder Heatmap noch Ø-Ladepreis entstehen — s. `insight.ts`. */
@@ -274,6 +324,7 @@ export function buildReportAgenda(
     ...(presence.comparison ? [COMPARISON_SECTION] : []),
     METHODOLOGY_SECTION,
     ...METHODOLOGY_ITEMS,
+    BASIS_SECTION,
   ]
 }
 

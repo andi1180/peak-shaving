@@ -1,8 +1,15 @@
-import { buildRealSavingBreakdown, sumCovered, type BatteryResultEntry } from 'shared'
+import {
+  buildRealSavingBreakdown,
+  sumCovered,
+  type BatteryResultEntry,
+  type BillingModel,
+  type LoadProfile,
+} from 'shared'
 
+import { LARGE_GAP_SLOTS_THRESHOLD } from '@/lib/constants'
 import { formatEur, formatKw, formatKwh1, formatYears } from '@/lib/format'
 import { HINDSIGHT_NOTE } from '@/lib/report-copy'
-import type { ReportRow, ReportStatement, ReportTone } from './statement'
+import type { ReportNotice, ReportRow, ReportStatement, ReportTone } from './statement'
 import type { PdfReportAnalysis } from './types'
 
 /**
@@ -72,6 +79,13 @@ export type SummaryHeadline = {
 
 export type ReportSummary = {
   headline: SummaryHeadline
+  /**
+   * B23c-4 — die Hinweise, die die Kern-Kennzahl QUALIFIZIEREN. Stehen zwischen ihr und den
+   * Kernaussagen, in derselben Reihenfolge wie am Bildschirm.
+   *
+   * Leer heisst: an diesem Datensatz ist nichts einzuschränken. S. `buildNotices`.
+   */
+  notices: ReportNotice[]
   statements: SummaryStatement[]
 }
 
@@ -424,8 +438,186 @@ function buildAddon(analysis: PdfReportAnalysis): SummaryStatement | null {
   }
 }
 
-export function buildReportSummary(analysis: PdfReportAnalysis): ReportSummary {
+/* ────────────────────────────────────────────────────────────────────────────────────────────────
+ * B23c-4 — die drei Hinweise, die die Kern-Kennzahl qualifizieren
+ * ──────────────────────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * ⚠ DREI BEDINGUNGEN, DIE VONEINANDER UNABHÄNGIG SIND — und genau so sind sie am Bildschirm
+ * begründet.
+ *
+ * `report.tsx` führt sie als drei getrennte `Alert`-Kästen mit drei getrennten Bedingungen, und der
+ * Kommentar am mittleren sagt ausdrücklich, warum sie nicht zusammengelegt werden dürfen: sie sagen
+ * VERSCHIEDENES, und die Handlung, die daraus folgt, ist je eine andere.
+ *
+ *   • Teiljahr — es FEHLT ein Zeitraum. Ein `monthly_*`-Modell kann nicht mitteln, was es nicht
+ *     hat. Abhilfe: ein anderes Abrechnungsmodell (oder mehr Monate).
+ *   • Datenlücke — der Zeitraum sieht VOLLSTÄNDIG aus und hat trotzdem keine Substanz: die Slots
+ *     existieren, ihre Werte sind linear aufgefüllt. Abhilfe: den vollständigen Lastgang anfordern.
+ *   • Standardprofil — es gibt gar keine Messung, nur eine Durchschnittskurve aus einer
+ *     Verbrauchsangabe. Abhilfe: einen echten Lastgang hochladen.
+ *
+ * Zu einem Satz zusammengezogen bekäme der Leser für drei verschiedene Datenmängel eine Meldung,
+ * aus der er nicht ableiten kann, was zu tun ist. Sie stehen deshalb einzeln, und alle drei können
+ * gleichzeitig zutreffen.
+ *
+ * ⚠ SIE STEHEN BEI DER KERN-KENNZAHL UND NICHT IM SCHLUSSKAPITEL. Sie qualifizieren genau die Zahl
+ * darüber — der abgerechnete Leistungswert eines Standardprofils ist die Spitze einer
+ * Durchschnittskurve und keine gemessene Spitze. Drei Seiten weiter hinten stünde die Einordnung
+ * dort, wo sie niemand mehr mit der Zahl zusammenbringt (so schon der Bildschirm-Kommentar: „nicht
+ * nur in der Datenqualitäts-Box, die beim Live-Test überscrollt wurde").
+ *
+ * ⚠ KEINE der drei Schwellen ist hier erfunden: `< 12` Monate und `startsWith('monthly')` stehen
+ * so in `report.tsx`, die Lückengrenze ist die EINE Konstante `LARGE_GAP_SLOTS_THRESHOLD`
+ * (importiert, nicht abgeschrieben — sie ist ein als vorläufig gekennzeichneter Platzhalter,
+ * Delta 14 Punkt 9), und `source === 'standard_profile'` ist dieselbe Eigenschaft, an der die
+ * Engine die Spitzenkappung abschaltet (`peakShavingBlockers`).
+ */
+
+/**
+ * Die Anzeigenamen der Abrechnungsmodelle.
+ *
+ * ⚠ BEWUSSTE DOPPELUNG ZU `print-assumptions-snapshot.tsx`. Sie zu teilen hiesse, aus dem
+ * PDF-Verzeichnis in eine Bildschirm-Komponente zu importieren — und die zieht React und das
+ * Zahlenformat-Bauteil in den Lazy-Chunk des PDF-Wegs. Dieselbe Doppelung wie beim Methodik-Text
+ * (`content.ts`) und aus demselben Grund: solange beide Wege nebeneinander stehen, ist der TEXT
+ * doppelt; beim Cutover fällt der CSS-Weg samt Doppelung weg.
+ */
+const BILLING_MODEL_LABEL: Record<BillingModel, string> = {
+  monthly_max_average: 'Mittel der 12 Monatshöchstwerte',
+  annual_max: 'Jahreshöchstwert',
+  monthly_max_sum: 'Summe der 12 Monatshöchstwerte',
+}
+
+/**
+ * Teiljahres-Datensatz unter einem monatsbasierten Abrechnungsmodell (§3.5).
+ *
+ * ⚠ BENANNTE ABWEICHUNG VOM BILDSCHIRM, UND SIE IST EINE PRÄZISIERUNG: dort steht das Modell fest
+ * als „Mittelwert der Monatsspitzen" im Satz, obwohl die Bedingung (`startsWith('monthly')`) auch
+ * `monthly_max_sum` trifft — dann benennt der Satz das falsche Modell. Hier steht der Name, den
+ * das Ergebnis tatsächlich trägt. Es ist derselbe BEFUND, nur nicht mehr an einen der zwei Fälle
+ * gebunden.
+ *
+ * ⚠ Der Bildschirm trägt zusätzlich einen KNOPF („Mit Jahreshöchstwert rechnen"). Auf Papier gibt
+ * es ihn nicht, und ein Satz, der auf eine Schaltfläche verweist, die dort nicht existiert, wäre
+ * eine tote Anweisung. Die Handlung steht deshalb als Aussage da — sie ist ohnehin der Inhalt des
+ * Knopfes, nicht seine Beschriftung.
+ */
+function buildPartialYearNotice(analysis: PdfReportAnalysis): ReportNotice | null {
+  const { billingModel } = analysis.assumptions
+  const { coveredMonths } = analysis.dataQuality
+  if (!billingModel.startsWith('monthly') || coveredMonths >= 12) return null
+
+  return {
+    id: 'partial_year',
+    tone: 'warning',
+    title: `Nur ${coveredMonths} von 12 Monaten mit Daten`,
+    body:
+      `Der abgerechnete Leistungswert oben unter dem Modell „${BILLING_MODEL_LABEL[billingModel]}" ` +
+      `ist damit nicht aussagekräftig — die ${12 - coveredMonths} Monate ohne Daten kann das ` +
+      'Modell nicht mitteln. „Jahreshöchstwert" als Abrechnungsmodell liefert für diesen Datensatz ' +
+      'eine belastbarere Zahl.',
+    list: null,
+    hints: [],
+  }
+}
+
+/**
+ * Eine grosse zusammenhängende Datenlücke (§3.3).
+ *
+ * ⚠ Gemessen wird die LÄNGSTE zusammenhängende Lücke und nicht ihre Summe: 2.000 über das Jahr
+ * verstreute Einzelslots sind eine Kleinigkeit, 2.000 am Stück sind drei Wochen ohne jede Messung.
+ * `largestGapSlots` ist dieselbe Zahl, die der Parser beim Interpolieren gemessen hat — hier wird
+ * nichts nachgerechnet ausser der Umrechnung in Tage (96 Slots je Tag, wie am Bildschirm).
+ *
+ * ⚠ Ein älteres archiviertes Ergebnis trägt das Feld nicht; `undefined > Schwelle` ist `false`, und
+ * dann steht hier kein Hinweis statt eines Fehlers (wortgleiche Überlegung wie in `report.tsx`).
+ */
+function buildLargeGapNotice(analysis: PdfReportAnalysis): ReportNotice | null {
+  const slots = analysis.dataQuality.largestGapSlots
+  if (!(slots > LARGE_GAP_SLOTS_THRESHOLD)) return null
+
+  const days = Math.round(slots / 96)
+  return {
+    id: 'large_gap',
+    tone: 'warning',
+    title: `Grosse Datenlücke: ${days} Tage am Stück ohne Messwerte`,
+    body:
+      'Der Zeitraum ist zwar durchgehend abgedeckt, in diesem Abschnitt stammen die Werte aber ' +
+      'nicht aus einer Messung — sie wurden linear zwischen dem letzten und dem nächsten bekannten ' +
+      `Wert aufgefüllt. Eine Lastspitze, die in diesen ${days} Tagen aufgetreten ist, kann in ` +
+      'keiner Zahl dieses Reports vorkommen: der abgerechnete Leistungswert oben und die daraus ' +
+      'abgeleitete Ersparnis sind für diesen Datensatz eher zu niedrig als zu hoch.',
+    list: null,
+    hints: [
+      'Bitte den vollständigen Lastgang beim Netzbetreiber anfordern (Viertelstundenwerte ohne ' +
+        'Lücke).',
+    ],
+  }
+}
+
+/**
+ * Der Lastgang ist SYNTHETISCH (Delta 8 / 9b-1).
+ *
+ * ⚠ NEUTRALER Ton, nicht Warnung — wortgleich zum Bildschirm, wo dieser Kasten als einziger der
+ * drei die Standard-Variante trägt. Ein Standardprofil ist kein Mangel an den Daten, sondern eine
+ * andere Art von Grundlage: für den Tarifvergleich reicht sie, für die Leistungspreis-Dimension
+ * nicht. Ihn bernsteinfarben zu setzen hiesse, einen vollständig legitimen Einstieg (Delta 9b-1)
+ * als Fehler zu kennzeichnen.
+ *
+ * ⚠ Er sagt zusätzlich, dass die Leistungspreis-Ersparnis gar nicht erst ausgewiesen wird — das
+ * erklärt die 0 in der Aufschlüsselung darunter, die sonst wie ein Rechenfehler aussieht. Dieselbe
+ * Rolle wie der Engine-Warnsatz an der Batterie (`peakShavingBlockers`), nur an der Stelle, an der
+ * die 0 steht.
+ */
+function buildStandardProfileNotice(
+  loadProfile: Pick<LoadProfile, 'source'>,
+): ReportNotice | null {
+  if (loadProfile.source !== 'standard_profile') return null
+
+  return {
+    id: 'standard_profile',
+    tone: 'neutral',
+    title: 'Auf Basis eines Standardlastprofils — keine gemessenen Werte',
+    body:
+      'Diese Analyse rechnet mit einem synthetischen Durchschnittsprofil, das aus Ihrer ' +
+      'Jahresverbrauchs-Angabe gebildet wurde. Für den Tarifvergleich reicht das: dafür zählt, ' +
+      'wann im Tagesverlauf Strom verbraucht wird. Die oben gezeigten Leistungswerte sind dagegen ' +
+      'die Spitzen dieser Durchschnittskurve und keine gemessene Lastspitze — eine Ersparnis beim ' +
+      'Leistungspreis wird deshalb gar nicht erst ausgewiesen, statt sie zu schätzen.',
+    list: null,
+    hints: [
+      'Für die Leistungspreis-Dimension: echten Lastgang hochladen (Viertelstundenwerte Ihres ' +
+        'Netzbetreibers).',
+    ],
+  }
+}
+
+/**
+ * Die drei Hinweise in der Reihenfolge des Bildschirms.
+ *
+ * ⚠ Die Reihenfolge ist übernommen und nicht neu gewählt: zuerst die Herkunft der Daten
+ * (Standardprofil), dann die zwei Mängel am Umfang. Wer den Report von oben liest, erfährt erst,
+ * WORAUS gerechnet wurde, und danach, was daran fehlt.
+ */
+function buildNotices(
+  analysis: PdfReportAnalysis,
+  loadProfile: Pick<LoadProfile, 'source'>,
+): ReportNotice[] {
+  return [
+    buildStandardProfileNotice(loadProfile),
+    buildPartialYearNotice(analysis),
+    buildLargeGapNotice(analysis),
+  ].filter((n): n is ReportNotice => n !== null)
+}
+
+export function buildReportSummary(
+  analysis: PdfReportAnalysis,
+  /* Gelesen wird ausschliesslich die HERKUNFT — s. `buildStandardProfileNotice`. */
+  loadProfile: Pick<LoadProfile, 'source'>,
+): ReportSummary {
   const headline = buildHeadline(analysis.current)
+  const notices = buildNotices(analysis, loadProfile)
   const entry = primaryEntryOf(analysis)
 
   /*
@@ -434,7 +626,7 @@ export function buildReportSummary(analysis: PdfReportAnalysis): ReportSummary {
    * mit dem heutigen Katalog nicht (er ist nie leer); die Seite behandelt ihn trotzdem, weil eine
    * Executive Summary, die bei leerem Katalog eine Ausnahme wirft, den ganzen Report kostet.
    */
-  if (!entry) return { headline, statements: [] }
+  if (!entry) return { headline, notices, statements: [] }
 
   /*
    * ⚠ `isRealComparison` reist als eigener Rückgabewert heraus und wird NICHT aus dem erzeugten
@@ -451,5 +643,5 @@ export function buildReportSummary(analysis: PdfReportAnalysis): ReportSummary {
     buildAddon(analysis),
   ].filter((s): s is SummaryStatement => s !== null)
 
-  return { headline, statements }
+  return { headline, notices, statements }
 }
