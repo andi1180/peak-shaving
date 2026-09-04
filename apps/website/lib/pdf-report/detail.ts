@@ -6,7 +6,7 @@ import type {
 import { sumCovered } from 'shared'
 
 import { formatEur, formatYears } from '@/lib/format'
-import type { ReportRow, ReportStatement } from './statement'
+import type { ReportFigure, ReportRow, ReportStatement } from './statement'
 import type { PdfReportAnalysis } from './types'
 
 /**
@@ -147,12 +147,14 @@ export function detailChartPlan(analysis: PdfReportAnalysis): DetailChartPlan {
  * Das Kapitel: was neben den Bildern steht
  * ──────────────────────────────────────────────────────────────────────────────────────────── */
 
-/** Bildunterschrift und der Satz darunter — dieselbe Form wie `ChartLegend` in `recommendation.ts`. */
-export type DetailFigure = {
-  caption: string
-  /** Steht unter der Bildunterschrift, wo es etwas zu sagen gibt. */
-  note: string | null
-}
+/**
+ * Bildunterschrift und der Satz darunter.
+ *
+ * ⚠ B23c-3b-1: der Typ selbst ist nach `statement.ts` gewandert (`ReportFigure`) — mit `insight.ts`
+ * gibt es ein zweites Kapitel mit Bildern, und `document.tsx` rendert beide durch denselben
+ * Baustein. Der Name bleibt hier als Alias stehen, damit die Ableitung ihre eigene Sprache behält.
+ */
+export type DetailFigure = ReportFigure
 
 export type DetailChapter = {
   /** Was unter dem Kosten-Chart steht. `null` = es entsteht keiner. */

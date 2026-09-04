@@ -44,6 +44,20 @@ import type { AnalysisResult, LoadProfile } from 'shared'
  * wächst also NICHT — ein Feld ohne nachweisbare Verwendung kommt nicht dazu, nur weil ein Schritt
  * drei Bilder bringt. `representativeDays` insbesondere hängt an `dispatchTrace` und braucht keine
  * eigene Zeile, genau wie `capKwByPeriod` in B23c-2.
+ *
+ * ── B23c-3b-1: ZUM DRITTEN MAL UNVERÄNDERT — UND DAS IST AUSGEZÄHLT, NICHT ANGENOMMEN ──────────
+ * Der naheliegende Schluss wäre gewesen, den `Pick<…>` um `batteryFlowByHourMonth` und
+ * `monthlyChargePrice` zu erweitern. Beide sind aber KEINE Felder von `AnalysisResult`, sondern
+ * von `DispatchTrace` — und der hängt an `perBattery` bzw. `existingBatteryAnalysis.entry`, die
+ * beide bereits oben stehen. Nachgezählt liest das Kapitel „Das Ladeverhalten Ihres Speichers"
+ * genau drei Wege:
+ *   • `existingBatteryAnalysis` → im Bestandsfall der primäre Eintrag (`primaryEntryOf`);
+ *   • `perBattery` + `recommendation` → sonst derselbe Eintrag über die Empfehlung;
+ *   • dessen `dispatchTrace.batteryFlowByHourMonth` bzw. `.monthlyChargePrice` → die zwei Bilder.
+ *
+ * Ein Feld hier zu ergänzen, das gar nicht auf dieser Ebene liegt, wäre eine Zeile, die eine
+ * Abhängigkeit BEHAUPTET, die es nicht gibt — und die nächste Lesung des Typs zöge daraus den
+ * falschen Schluss, welche Teile des Contracts das Dokument tatsächlich braucht.
  */
 export type PdfReportAnalysis = Pick<
   AnalysisResult,

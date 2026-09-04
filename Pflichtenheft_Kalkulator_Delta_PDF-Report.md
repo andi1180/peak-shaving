@@ -211,11 +211,13 @@ drei Typen auf sechs Nachkommastellen gleich (2,773438 · 0,883191 · 3,125000).
 Contract-Erweiterung um das Ergebnis kommt mit B23c. Die drei Chart-Komponenten sind ebenfalls
 unverändert; sie werden gemountet und gelesen.
 
-**`[OFFEN]` Welcher Ausschnitt eines Charts ins Bild gehört.** Bei Recharts trennt
-`svg.recharts-surface` den Zeichenbereich sauber ab. Die Heatmap trägt keinen solchen Anker — im
-Prüfstand wird deshalb die ganze Karte samt Fliesstext gerastert. Für den Report ist das die falsche
-Aufteilung (Text gehört nativ daneben, nicht als Pixel ins Bild); die Entscheidung und der dafür
-nötige Anker gehören in B23c.
+**~~`[OFFEN]`~~ ERLEDIGT mit B23c-3b-1 (04.09.2026, s. D15): Welcher Ausschnitt eines Charts ins Bild
+gehört.** Bei Recharts trennt `svg.recharts-surface` den Zeichenbereich sauber ab. Die Heatmap trug
+keinen solchen Anker — im B23b-Prüfstand wurde deshalb die ganze Karte samt Fliesstext gerastert.
+Für den Report ist das die falsche Aufteilung (Text gehört nativ daneben, nicht als Pixel ins Bild).
+Sie trägt jetzt einen: `data-testid="stunden-heatmap-raster"` um Monatskopf und die 24 Datenzeilen,
+gelesen von `selectHeatmapGrid`. Gemessen, was das ausmacht: 1710 × 1209 px statt 1860 × 2106 px,
+und rund 86.000 Bildpunkte Text stehen jetzt nativ daneben statt im Bild.
 
 ---
 
@@ -551,6 +553,189 @@ auf der Route.
   genügt das, im weitergereichten PDF wäre das Jahr besser. Ändern hiesse die Komponente anfassen.
 - **„Break-even" und „Jahr" stehen am Rand des Zeichenbereichs und werden dort beschnitten** —
   dasselbe wie am Bildschirm, geerbt und nicht durch das Rastern verursacht.
-- **Der Heatmap-Anker (D11) ist unverändert offen**, ebenso die Grenznutzen-Kurve, der Ø-Ladepreis
-  und der Zusatzspeicher-Abschnitt — alles B23c-3b.
+- ~~**Der Heatmap-Anker (D11) ist unverändert offen**~~ — **erledigt mit B23c-3b-1 (s. D15)**,
+  zusammen mit dem Ø-Ladepreis. Offen bleiben Grenznutzen-Kurve und Zusatzspeicher-Abschnitt
+  (B23c-3b-2).
 - **Die Data-URIs sind weiterhin der teure Teil**: die PDFs wiegen jetzt 522–609 kB.
+
+
+---
+
+## D15 — B23c-3b-1: das Ladeverhalten, und das erste Kapitel, das es nicht immer gibt
+
+**Gebaut am 04.09.2026.** Das Dokument trägt damit fünf der sieben Report-Grafiken. Neu ist das
+Kapitel **„Das Ladeverhalten Ihres Speichers"** mit der Stunden-Heatmap und dem Ø-Ladepreis je
+Monat — eine eigene `<Page>` (D5, Regel 1) zwischen „Kostenverlauf und ein Tag im Detail" und
+„Methodik & Vorbehalte", in derselben Reihenfolge wie am Bildschirm.
+
+### Der Heatmap-Anker: D11s letzter offener Punkt ist entschieden
+
+D11 hat den fehlenden Anker als offenen Punkt benannt: bei Recharts trennt `svg.recharts-surface`
+den Zeichenbereich ab, die Heatmap ist bewusst kein SVG und hatte nichts Vergleichbares — im
+B23b-Prüfstand wurde deshalb die GANZE Karte samt Fliesstext gerastert.
+
+`battery-flow-heatmap.tsx` trägt jetzt **genau einen** neuen Anker (`data-testid`) um die
+Monats-Kopfzeile und die 24 Datenzeilen; 0 Zeilen Diff an Logik, Farben und Zellenverhalten.
+`selectHeatmapGrid` (neben `selectRechartsSurface`) liest ihn. Es ist der ERSTE
+Produktionseinsatz des HTML-/`foreignObject`-Wegs — bis hierher war er nur im Prüfstand gemessen.
+
+**Gemessen, was der Zuschnitt ausmacht** (Wächter-Probe: Anker entfernt, Standardselektor):
+1710 × 1209 px gegen **1860 × 2106 px**, und im Bild der ganzen Karte stehen **6.215** Bildpunkte in
+`--color-ink` (die Überschrift) sowie **85.377** in `--color-text-muted` (Beschreibung, Legende, die
+zwei Absätze) — im zugeschnittenen Bild **0** bzw. **5.768** (nur Monatsköpfe und Stundenlabels).
+Rund 86.000 Bildpunkte Text sind damit aus dem Bild heraus und stehen nativ daneben.
+
+**Warum das nicht Kosmetik ist:** Text als Bildpunkte ist nicht durchsuchbar, nicht kopierbar und
+bei jeder Skalierung weicher als der Text daneben. Die Legende der Heatmap ist deshalb im PDF ein
+nativer Baustein aus denselben `theme.ts`-Tokens, mit denen die Komponente zeichnet — inklusive des
+dritten Musters (leer, gestrichelt umrandet).
+
+### ⚠ Leere Zelle ≠ gemessene Null — positionsgenau im Bild abgelesen
+
+Die Komponente warnt in ihrem Kopf: `null` (kein Messwert) wird als leere Zelle mit gestricheltem
+Rand gezeichnet, eine echte 0 als hellste Stufe der Skala; „der Unterschied ist bei einem
+Teiljahres-Lastgang die halbe Grafik". Verlöre das Rastern ihn, wäre das eine ernste Regression und
+niemandem als Fehler anzusehen.
+
+**Eine Farbzählung kann das nicht beantworten:** eine leere Zelle ist durchsichtig und im Bild
+papierweiss — und Papierweiss steht ohnehin überall (Kartengrund, Zellabstände). Gezählt würde der
+Hintergrund, nicht die Zelle. Gemessen wird deshalb POSITIONSGENAU: die Zelle wird über ihren
+Rasterindex im DOM aufgesucht (`grid[h][m]` → `zeile[h+1].kind[m+1]`, nicht über einen formatierten
+`title`-Text), ihr Mittelpunkt relativ zum gerasterten Element gemerkt und derselbe Punkt im PNG
+abgelesen. Am B23b-Fixture (es trägt als einziges leere Zellen — der Prüf-Lastgang der Report-Läufe
+ist ein Volljahrgang):
+
+| Zelle | Wert | berechnet am lebenden Element | im Bild |
+|---|---|---|---|
+| leer (0 h / Sep) | `null` | `rgba(0, 0, 0, 0)`, Rand `dashed` | **#ffffff** |
+| gemessene Null (0 h / Mär) | `0` | `color(srgb 0.962353 0.97851 0.977255)` | **#f5faf9** |
+| stärkste Ladezelle (11 h / Aug) | `126` | `color(srgb 0.0588235 0.462745 0.431373)` | **#0f766e** |
+| stärkste Entladezelle (19 h / Jän) | `−70` | `color(srgb 0.463529 0.481412 0.523882)` | **#767b86** |
+
+Die beiden ersten Zeilen sind der Nachweis: **#ffffff gegen #f5faf9**, unterscheidbar. Die zweite
+Hälfte ist der Rand — ohne ihn wäre eine leere Zelle im Bild vom Kartengrund nicht zu trennen:
+**51.864 Bildpunkte in `--color-border` (#e2e8f0), bit-genau**.
+
+⚠ Keine der vier Farben ist von Hand gemischt (D11, Befund 4) — abgelesen wird, was der Browser
+berechnet und das Bild trägt.
+
+### ⚠ Das erste Kapitel, das nicht in jedem Dokument steht
+
+Beide Bilder hängen an einer Datenlage, die fehlen kann: die Heatmap rendert bewusst NICHTS, wenn
+keine Zelle einen von null verschiedenen Wert trägt, und den Ø-Ladepreis gibt es nur mit einer
+echten Börsenpreis-Reihe. Fehlen beide, entfällt das Kapitel — ein Kapitel, das nur sagt, dass es
+leer ist, wäre ein Agenda-Eintrag auf eine leere Seite (D14).
+
+**Folge für die Agenda:** `REPORT_AGENDA` ist keine Konstante mehr, sondern
+`buildReportAgenda({ insight })`. `ReportDocument` bildet die Entscheidung EINMAL und speist damit
+Agenda UND Seitenbaum; zwei getrennte Auswertungen ergäben einen Eintrag mit dauerhaft leerer
+Zahlenspalte (kein Sentinel meldet je) oder ein Kapitel, das die Agenda verschweigt. `content.ts`
+nahm das seit B23a für sich in Anspruch („führt AUSSCHLIESSLICH Abschnitte, die tatsächlich
+gerendert werden") — jetzt trägt der Code es.
+
+**Die eine Bedingung ist die aus `report.tsx`** (`primaryEntry && (hourFlow || chargePrice)`), also
+reines Vorhandensein der Trace-Felder und ausdrücklich keine Zweitprüfung an
+`tariffOptimization.computable`. Dazu kommt die VORBEDINGUNG der Heatmap-Komponente — und die ist
+keine zweite Fachregel, sondern dasselbe wie `hasRepresentativeDay` in D14: ohne sie liefe
+`captureChart` acht Sekunden in eine Zeitüberschreitung und setzte eine technische Meldung an die
+Stelle einer Aussage.
+
+### Der Contract ist zum DRITTEN Mal nicht gewachsen — ausgezählt
+
+Der naheliegende Schluss wäre gewesen, den `Pick<…>` um `batteryFlowByHourMonth` und
+`monthlyChargePrice` zu erweitern. Beide sind aber keine Felder von `AnalysisResult`, sondern von
+`DispatchTrace` — und der hängt an `perBattery` bzw. `existingBatteryAnalysis.entry`, die beide
+bereits dort stehen. Ein Feld zu ergänzen, das gar nicht auf dieser Ebene liegt, behauptete eine
+Abhängigkeit, die es nicht gibt.
+
+### Eine Rechnung, zwei Konsumenten
+
+„Stärkste Zelle", „am meisten geladen um" und die drei Ladepreis-Kennzahlen entstehen in
+`insight.ts` EINMAL und werden von Bildunterschrift und Fliesstext gemeinsam gelesen. Dass die
+beiden Komponenten dieselben Grössen für den BILDSCHIRM ein zweites Mal bilden, ist die bewusst in
+Kauf genommene Doppelung zwischen den zwei Rendering-Wegen — dieselbe, die `content.ts` für den
+Methodik-Text und `detail.ts` für die Leerzustands-Begründungen benennt. Über einen Import aus der
+Komponente aufzulösen ginge nicht, ohne die Ableitung an React und an die Darstellung zu binden.
+
+### Gemessen am erzeugten PDF
+
+Drei Läufe über die Prüfroute gegen den Production-Build, **102 Prüfungen, alle grün, 0
+Konsolenfehler, 0 Seitenfehler**:
+
+| | Bestand | Blocker | Katalog |
+|---|---|---|---|
+| Seiten (B23c-3a → jetzt) | 10 → **13** | 8 → **10** | 10 → **13** |
+| Rasterungen / Durchläufe | **4** / 2 | **3** / 2 | **5** / 2 |
+| Heatmap | ja | ja | ja |
+| Ø-Ladepreis | ja | **nein** (keine Preiskurve) | ja |
+| Agenda (5 Kapitel) | 3 / 5 / 7 / 9 / 12 | 3 / 4 / 6 / 7 / 9 | 3 / 5 / 7 / 9 / 12 |
+| Rasterdauer | 461 ms | 434 ms | 2.074 ms |
+| Dateigrösse | 663 kB | 593 kB | 772 kB |
+
+- **`chartBuilds` folgt den BILDERN, nicht den Durchläufen** — 4 / 3 / 5 bei je 2 Durchläufen, und
+  je genau so viele, wie das Dokument zeigt.
+- **Agenda erneut gemessen**, jeder der FÜNF Einträge gegen die tatsächliche erste Seite seines
+  Kapitels. ⚠ Der Erkennungs-Stolperdraht aus D14 ist hier schärfer geworden: die
+  Kernergebnis-Fussnote enthält den Methodik-Titel UND dessen Vorspann („Wie diese Zahlen
+  entstanden sind und wo ihre Grenzen liegen, steht im Kapitel …") — „Titel irgendwo UND Vorspann
+  irgendwo" meldete deshalb Seite 4 statt 12. Erkannt wird an Titel und Vorspann **unmittelbar
+  hintereinander**.
+- **Seitenverhältnis** je Bild aus dem Rohstrom gegen die `cm`-Matrix: 3,125000 · 2,968750 ·
+  2,773438 · **1,414392** · 2,773438, relative Abweichung < 1e-5. ⚠ Die Zuordnung Bild →
+  Platzierung läuft über die OBJEKTNUMMER (react-pdf legt sie in Dokumentreihenfolge an), nicht
+  über die Reihenfolge im Rohstrom — dort steht je Bild zuerst seine DeviceGray-Alphamaske, und
+  nach Rohstrom-Reihenfolge gepaart meldete die Prüfung vier falsche Verhältnisse.
+- **Die Heatmap steht auf der ersten Seite ihres Kapitels** (9 / 7 / 9), der Ladepreis auf der
+  folgenden.
+- **Die Bilder sind gezeichnet** (entpackte RGB-Ströme): Heatmap — stärkste Zelle voll gesättigt
+  (Anteil exakt 1,0) in allen drei Läufen, gemessene Nullen als hellste Stufe **1.159.895 /
+  1.758.522 / 259.237** Bildpunkte, Sättigungsrampen (Akzent bzw. Ink gegen Weiss, Toleranz 2)
+  **154.898+198.026 / 0+12.336 / 433.156+451.672**. Ladepreis — Akzent-Balken **105.630 bzw.
+  180.936**, 45-%-Mischung **1.498 bzw. 338.687**, gestrichelte Durchschnittslinie **248.890 bzw.
+  17.340**.
+- **⚠ Im Blocker-Fall trägt die Heatmap KEINE einzige Ladezelle** (Akzent-Rampe 0, Ink-Rampe
+  12.336): der statisch gesteuerte Speicher entlädt dort über den Zeitraum seinen Anfangs-Ladestand
+  und lädt kein einziges Mal nach. Geprüft wird deshalb die Eigenschaft der SKALA (die stärkste
+  Zelle ist voll gesättigt) und nicht „Akzent muss vorkommen" — welche Richtung sie trägt, hängt an
+  den Daten.
+- **Die Zeile „Zellen ohne Messwert" erscheint nicht**, weil der Prüf-Lastgang ein Volljahrgang ist
+  (0 von 288 leeren Zellen) — geprüft am Zeilenmuster und nicht am Halbsatz der Bildunterschrift,
+  der den Unterschied gerade erklärt.
+
+**Vier Wächter-Proben, jede bringt gezielt Rot:** (1) Anker entfernt → Heatmap-Bild 1860 × 2106
+statt 1710 × 1209, mit 6.215 Überschrift- und 85.377 Fliesstext-Bildpunkten darin. (2) Legende auf
+`null` → der Legendenblock „netto geladen netto entladen keine Messwerte" verschwindet, „keine
+Messwerte" 1 → 0. (3) Mengengewichtung durch das arithmetische Mittel der Monatspreise ersetzt →
+„Geladen zu **8,35** ct/kWh" wird zu **8,30** ct/kWh; ⚠ der Abstand ist an dieser synthetischen
+Preisreihe klein, die Probe zeigt also zugleich, dass eine Prüfung auf „irgendeine Zahl" die
+Verwechslung nicht fangen würde. (4) Die `price`-Prüfung in `insightChartPlan` entfernt → der
+Blocker-Lauf scheitert schon beim Rechnen mit „Cannot read properties of undefined (reading
+'averageCtPerKwh')", es entsteht gar kein Dokument.
+
+### Bündelgrösse
+
+`/rechner` First Load: **583.328 → 583.333 Bytes gzip** (+5), roh **1.920.145 → 1.920.293** (+148),
+Chunk-Zahl unverändert **17**. `/pdf-report-probe` **117.863 → 118.341** gzip (+478), roh
+396.490 → 398.433, unverändert 6 Chunks.
+
+Der Zuwachs auf `/rechner` ist die eine neue Zeichenkette auf der Route: das `data-testid` des
+Ankers, das die Bildschirm-Heatmap mitrendert. **Gemessen über den GESAMTEN `/rechner`-First-Load-
+Satz: `@react-pdf`, `fitRasterToWidth`, `reportChartBuildCount`, `buildInsightChapter`,
+`insightChartPlan`, `summarizeHourFlow`, `selectHeatmapGrid` und der Kapiteltitel kommen 0× vor**,
+`stunden-heatmap-raster` genau 1×.
+
+### `[OFFEN]` nach diesem Schritt
+
+- **Der Fall „gar kein Kapitel" ist gebaut, aber nicht gemessen.** Er verlangt einen Speicher, der
+  im ganzen Zeitraum nicht arbeitet, UND eine fehlende Preiskurve; die drei Prüf-Fälle erreichen
+  ihn nicht (der Blocker-Speicher entlädt sehr wohl). Ein vierter Fixture-Fall wäre eine zweite
+  Grundlage — dieselbe Überlegung, aus der D14 den `pv_strong`-Rückfall nicht nachgestellt hat.
+- **Der Unterschied „leer ≠ gemessene Null" ist am B23b-Fixture gemessen, nicht am Report-Lastgang**
+  — der ist ein Volljahrgang und trägt keine leere Zelle. Für einen echten Teiljahres-Lastgang ist
+  er im PDF neu zu messen.
+- **Das Kapitel läuft über zwei bis drei Seiten** (Heatmap 352,8 pt, Ladepreis 179,9 pt plus Text).
+  Kein `wrap={false}`-Block sprengt den Satzspiegel; ob die Aufteilung schöner ginge, ist eine
+  Layout- und keine Richtigkeitsfrage.
+- **Offen bleiben Grenznutzen-Kurve, Zusatzspeicher-Abschnitt und Katalog-Alternativen** (B23c-3b-2)
+  sowie Annahmen-Snapshot und Datenqualität (B23c-4).
+- **Die Data-URIs bleiben der teure Teil**: die PDFs wiegen jetzt 593–772 kB.

@@ -104,6 +104,7 @@ export const SECTION_ID = {
   results: 'kernergebnisse',
   recommendation: 'empfehlung',
   detail: 'kostenverlauf',
+  insight: 'ladeverhalten',
   methodology: 'methodik',
 } as const
 
@@ -169,6 +170,33 @@ export const DETAIL_SECTION: ReportSection = {
 export const DETAIL_INTRO =
   'Wie sich die Zahlen über die Zeit auswirken — und wie ein einzelner Tag damit aussieht.'
 
+/**
+ * B23c-3b-1 — das Kapitel mit der Stunden-Heatmap und dem Ø-Ladepreis.
+ *
+ * ── ⚠ ES IST DAS ERSTE KAPITEL, DAS ES NICHT IMMER GIBT ───────────────────────────────────────
+ * Beide Bilder hängen an einer Datenlage, die fehlen kann: die Heatmap zeigt nichts, wenn der
+ * Speicher im ausgewerteten Zeitraum gar nicht arbeitet, und den Ø-Ladepreis gibt es nur mit einer
+ * echten Börsenpreis-Reihe. Im Blocker-Fall trifft beides zusammen (gemessen, s. `insight.ts`) —
+ * dann entsteht das Kapitel NICHT, und die Agenda führt es folgerichtig auch nicht. Deshalb ist
+ * `REPORT_AGENDA` seit diesem Schritt keine Konstante mehr, sondern `buildReportAgenda(…)`.
+ *
+ * ⚠ Eigene `<Page>` (D5, Regel 1). Als `<View break>` im Detail-Kapitel bekäme es in der Agenda
+ * die Seitenzahl JENES Kapitels — plausibel aussehend und falsch.
+ *
+ * ⚠ Der Titel nennt bewusst weder „Heatmap" noch „Ladepreis": welches der beiden Bilder steht,
+ * hängt an der Datenlage, und ein Titel, der eines davon ankündigt, wäre auf jedem Report falsch,
+ * dem es fehlt. Dieselbe Regel wie bei den drei Kapiteln davor.
+ */
+export const INSIGHT_SECTION: ReportSection = {
+  id: SECTION_ID.insight,
+  level: 1,
+  title: 'Das Ladeverhalten Ihres Speichers',
+}
+
+/** Steht unter der Kapitelüberschrift. Sagt, worum es geht, nicht was auf der Seite steht. */
+export const INSIGHT_INTRO =
+  'Wann Ihr Speicher arbeitet — und was das über seine Steuerung aussagt.'
+
 /** Steht unter der Kapitelüberschrift — wörtlich wie im CSS-Weg (`print-methodology.tsx`). */
 export const METHODOLOGY_INTRO =
   'Wie diese Zahlen entstanden sind — und wo ihre Grenzen liegen.'
@@ -179,20 +207,37 @@ export const METHODOLOGY_SECTION: ReportSection = {
   title: 'Methodik & Vorbehalte',
 }
 
+/** Welche BEDINGTEN Kapitel dieses Dokument trägt. */
+export type ReportChapterPresence = {
+  /** `false` = weder Heatmap noch Ø-Ladepreis entstehen — s. `insight.ts`. */
+  insight: boolean
+}
+
 /**
  * Die Agenda in Dokumentreihenfolge.
  *
  * ⚠ Sie führt AUSSCHLIESSLICH Abschnitte, die tatsächlich gerendert werden. Ein Eintrag für ein
- * Kapitel, das es noch nicht gibt, wäre ein Verweis ins Leere — und die Seitenzahl daneben eine
- * Zahl, die nichts bezeichnet. Die Liste wächst mit B23c, nicht vorher.
+ * Kapitel, das es in diesem Dokument nicht gibt, wäre ein Verweis ins Leere — und die Zahl daneben
+ * bliebe leer, weil kein Sentinel sie je meldet.
+ *
+ * ⚠ B23c-3b-1: DESHALB EINE FUNKTION UND KEINE KONSTANTE. Bis hierher gab es jedes Kapitel in
+ * jedem Dokument, und die Liste konnte fest stehen. Das „Ladeverhalten"-Kapitel entsteht nur, wenn
+ * wenigstens eines seiner beiden Bilder entsteht — im Blocker-Fall keines. Der Aufrufer
+ * (`document.tsx`) bildet die Entscheidung EINMAL und gibt sie an Agenda UND Seitenbaum; zwei
+ * getrennte Auswertungen ergäben einen Eintrag ohne Kapitel oder ein Kapitel ohne Eintrag.
  */
-export const REPORT_AGENDA: readonly ReportSection[] = [
-  RESULTS_SECTION,
-  RECOMMENDATION_SECTION,
-  DETAIL_SECTION,
-  METHODOLOGY_SECTION,
-  ...METHODOLOGY_ITEMS,
-]
+export function buildReportAgenda(
+  presence: ReportChapterPresence,
+): readonly ReportSection[] {
+  return [
+    RESULTS_SECTION,
+    RECOMMENDATION_SECTION,
+    DETAIL_SECTION,
+    ...(presence.insight ? [INSIGHT_SECTION] : []),
+    METHODOLOGY_SECTION,
+    ...METHODOLOGY_ITEMS,
+  ]
+}
 
 /**
  * B23c-1 — was unter der Kapitelüberschrift steht.
