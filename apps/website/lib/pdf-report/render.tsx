@@ -1,6 +1,11 @@
 import { pdf } from '@react-pdf/renderer'
 
-import { buildReportCharts, reportChartBuildCount, type ReportChartRasters } from './charts'
+import {
+  buildReportCharts,
+  reportChartBuildCount,
+  type ReportChartFigureMs,
+  type ReportChartRasters,
+} from './charts'
 import { fitRasterToWidth, type ChartRaster } from './chart-raster'
 import { ReportDocument } from './document'
 import { registerReportFonts } from './fonts'
@@ -65,19 +70,48 @@ import type { PdfReportInput } from './types'
  * an welcher Stelle sie eingebaut wird.
  */
 
-/** Was ein Durchlauf hergibt — das PDF und, was dabei gemessen wurde. */
-type Pass = { blob: Blob; sink: PageNumberSink }
+/** Was ein Durchlauf hergibt — das PDF, was dabei gemessen wurde, und wie lange er gedauert hat. */
+type Pass = { blob: Blob; sink: PageNumberSink; ms: number }
 
 async function renderPass(
   input: PdfReportInput,
   charts: ReportChartRasters,
   agenda: AgendaPageNumbers,
 ): Promise<Pass> {
+  const started = performance.now()
   const sink = createPageNumberSink()
   const blob = await pdf(
     <ReportDocument input={input} charts={charts} agenda={agenda} sink={sink} />,
   ).toBlob()
-  return { blob, sink }
+  return { blob, sink, ms: performance.now() - started }
+}
+
+/**
+ * Wo die Zeit einer Erzeugung hingeht. Reiner DIAGNOSE-Wert: er steuert nichts, wird nirgends
+ * verzweigt und ist ausschliesslich dazu da, eine Zahl messbar zu machen, die man sonst nur
+ * behaupten könnte — dieselbe Rolle wie `chartBuilds` und `captureMs`.
+ *
+ * ── ⚠ `fontsMs` IST NICHT DIE ZEIT, DIE DIE SCHRIFT KOSTET ────────────────────────────────────
+ * `registerReportFonts()` schreibt nur einen Eintrag in die Font-Verwaltung von react-pdf; GEHOLT
+ * werden die drei WOFF-Dateien erst, wenn der erste Durchlauf sie tatsächlich braucht (`fonts.ts`
+ * beschreibt den URL-Fetch-Weg). Beim ERSTEN Aufruf in einer Sitzung steckt diese Wartezeit
+ * deshalb in `passMs[0]`, nicht hier; jeder weitere Aufruf findet sie im Cache. Genau darum ist
+ * ein kalter Lauf nicht mit einem warmen vergleichbar, und genau darum sind beide zu messen.
+ */
+export type ReportRenderTimings = {
+  /** Die Registrierung selbst — s. die Warnung oben. */
+  fontsMs: number
+  /** Alle Rasterungen zusammen; identisch zu `charts.captureMs`. */
+  chartsMs: number
+  /** Dauer je Bild, `null` wo für diesen Fall keines vorgesehen ist. */
+  figureMs: ReportChartFigureMs
+  /**
+   * Dauer je Renderdurchlauf, in der Reihenfolge, in der sie gelaufen sind: messen · mit Zahlen ·
+   * (nur im Wächterfall) ohne Zahlen. Die Länge ist damit dieselbe Zahl wie `passes`.
+   */
+  passMs: number[]
+  /** Von der ersten bis zur letzten Zeile von `renderReportPdf`. */
+  totalMs: number
 }
 
 export type RenderReportResult = {
@@ -88,6 +122,8 @@ export type RenderReportResult = {
   totalPages: number
   /** Zahl der Renderdurchläufe: 2 im Regelfall, 3 im Wächterfall. */
   passes: number
+  /** Wo die Zeit hingegangen ist — reine Diagnose, s. `ReportRenderTimings`. */
+  timings: ReportRenderTimings
   /**
    * Zahl der Chart-Rasterungen, die für DIESE Erzeugung gelaufen sind.
    *
@@ -120,11 +156,15 @@ export type RenderReportResult = {
 type EmbeddedBox = { width: number; height: number }
 
 export async function renderReportPdf(input: PdfReportInput): Promise<RenderReportResult> {
+  const startedAt = performance.now()
+
   /*
    * Vor dem ersten Rendern. Die Schrift wird per URL von der eigenen Herkunft geholt; ohne
    * Registrierung fiele das Dokument auf Helvetica zurück — sichtbar, aber ohne Fehlermeldung.
    */
+  const fontsStarted = performance.now()
   registerReportFonts()
+  const fontsMs = performance.now() - fontsStarted
 
   /*
    * Die Chart-Bilder: EINMAL, vor allen Durchläufen.
@@ -160,6 +200,13 @@ export async function renderReportPdf(input: PdfReportInput): Promise<RenderRepo
       agendaPages: measure.sink.pages,
       totalPages: withPages.sink.totalPages,
       passes: 2,
+      timings: {
+        fontsMs,
+        chartsMs: charts.captureMs,
+        figureMs: charts.figureMs,
+        passMs: [measure.ms, withPages.ms],
+        totalMs: performance.now() - startedAt,
+      },
       chartBuilds: reportChartBuildCount() - buildsBefore,
       charts,
       chartEmbeddedPt,
@@ -177,6 +224,13 @@ export async function renderReportPdf(input: PdfReportInput): Promise<RenderRepo
     agendaPages: null,
     totalPages: withoutPages.sink.totalPages,
     passes: 3,
+    timings: {
+      fontsMs,
+      chartsMs: charts.captureMs,
+      figureMs: charts.figureMs,
+      passMs: [measure.ms, withPages.ms, withoutPages.ms],
+      totalMs: performance.now() - startedAt,
+    },
     chartBuilds: reportChartBuildCount() - buildsBefore,
     charts,
     chartEmbeddedPt,

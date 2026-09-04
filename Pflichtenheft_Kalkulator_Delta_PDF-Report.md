@@ -1328,3 +1328,171 @@ Datengrundlage" und `buildBasisChapter` kommen 0× vor**, `stunden-heatmap-raste
   Falle aus B22c). Wer die Prüfroute je dort fahren will, setzt es in `app/pdf-report-probe/page.tsx`
   — in einer `page`-Datei, nicht in `'use server'`.
 - **Der Preisstand-Hinweis erscheint im Jänner nicht** (unverändert aus D17).
+
+---
+
+## D19 — Wie lange eine Erzeugung dauert (Messreihe, keine Umsetzung)
+
+**Reine Messung.** Dieser Schritt ändert weder Dokumentinhalt noch Chart-Auswahl noch Reihenfolge
+noch Contract; er baut keinen Ladezustand, kein UI und keine Fehlerbehandlung für gescheiterte
+Erzeugungen. Er liefert die Zahlen, auf deren Grundlage über beides **getrennt** zu entscheiden ist,
+und enthält deshalb bewusst **keine Empfehlung**.
+
+### Was instrumentiert wurde — und warum es stehen bleibt
+
+`performance.now()` an den Phasengrenzen, sonst nichts:
+
+- `charts.tsx` misst je Rasterung (`figureMs`). `null` heisst „für diesen Fall gar nicht gerastert";
+  ein **Fehlschlag trägt sehr wohl eine Zahl**, weil er Zeit kostet — beim Rastern sogar am meisten,
+  denn der teuerste Fehlschlag ist eine abgelaufene Wartezeit.
+- `render.tsx` misst Font-Registrierung, Rasterung gesamt und **jeden Renderdurchlauf einzeln**
+  (`ReportRenderTimings`).
+- `download.ts` misst zusätzlich den dynamischen Import (`importMs`) — den Teil, den
+  `renderReportPdf` selbst nicht sehen kann — und die Gesamtzeit von der ersten Zeile bis zum
+  fertigen Blob.
+- Der Prüfstand zeigt alles an; die Werte steuern **nichts** und werden nirgends verzweigt.
+
+Sie bleiben dauerhaft im Code, aus demselben Grund wie `chartBuilds` und `captureMs`: eine Zahl, die
+niemand messen kann, ist eine Behauptung — und die nächste Messung ist damit kostenlos.
+
+**Bündelgrösse, gemessen:** `/rechner` First Load roh **1.923.160 Bytes, 19 Chunks** — **bit-genau
+die D18-Zahl**, die Instrumentierung kostet die Kundenroute also exakt null Bytes. Über den GESAMTEN
+`/rechner`-First-Load-Satz kommen `@react-pdf`, `importMs`, `figureMs`, `passMs`,
+`ReportRenderTimings` und `probe-timing-total` **0×** vor, `stunden-heatmap-raster` genau 1×
+(Positivkontrolle). `/pdf-report-probe` roh **405.849 → 406.840** (die Anzeigetexte), unverändert
+6 Chunks. `ReportRenderTimings` steht **0×** in beiden Bündeln — der Typ-Import in `download.ts` ist
+`import type` und wird restlos entfernt; ein Wert-Import zöge den Lazy-Chunk in jede Seite, die die
+Datei liest.
+
+### ⚠ Zwei Annahmen der Aufgabenstellung sind falsch — gemessen, nicht abgeleitet
+
+**(a) Es sind höchstens SECHS Rasterungen je Dokument, nicht sieben.** Der Bildschirm-Report führt
+sieben Grafiken, aber Monatsvergleich und kumulierter Kostenvergleich schliessen einander aus
+(D14) — ein Dokument sieht immer nur eine von beiden. Genau so steht es seit D16 im Kopf von
+`render.tsx` („bis zu SECHS"), und die Messung bestätigt es: `builds` ist in allen 60 Läufen 6 bzw. 5,
+nie 7.
+
+**(b) Der grösste Fall ist NICHT der Bestandsfall mit Zusatzspeicher-Tabelle, sondern der
+Katalog-Fall.** `zusatz` trägt nur **fünf** Rasterungen: seine Bestandsanlage ist `static`, der Trace
+gibt deshalb gar keinen Tag her, und der Tages-Energiefluss entfällt (D14). Ausgerechnet dieses
+fehlende Bild ist das mit Abstand teuerste (s. u.). Gemessen wurden deshalb **drei** Fälle:
+
+| Fall | Rasterungen | Seiten |
+| --- | --- | --- |
+| `katalog` | **6** | 16 |
+| `pv_standardprofil` | **6** | **17** (die meisten) |
+| `zusatz` (Zusatzspeicher-Tabelle) | 5 | 16 |
+
+### Methode
+
+Production-Build (`next start`, Port 4993), Chromium über Playwright, die Prüfroute
+`/pdf-report-probe`. Gemessen wird **ausschliesslich die Erzeugung** — der Rechenlauf davor ist
+nicht enthalten, er geht im echten Ablauf ohnehin voraus.
+
+- **warm** = zweite und jede weitere Erzeugung in DERSELBEN Sitzung. Der erste Lauf jeder
+  warmen Sitzung wird verworfen und getrennt als kalter berichtet.
+- **kalt** = je Wiederholung ein **frischer Browser-Kontext** (eigener Cache, eigener Modulzustand),
+  also Lazy-Chunk und Schriftdateien ungeladen.
+- **5 Wiederholungen je Konfiguration**, berichtet als **Minimum / Median / Maximum**. Eine
+  Einzelmessung ist nach der Bündelgrössen-Erfahrung aus D16 (Streuung als vermeintliches Signal)
+  nicht belastbar.
+- **CPU-Drosselung 4×** über CDP `Emulation.setCPUThrottlingRate` — als untere Schranke für ein
+  durchschnittliches Kundengerät, nicht als Abbild eines bestimmten.
+- 3 Fälle × kalt/warm × 1×/4× = **12 Konfigurationen, 60 gemessene Erzeugungen** (plus 6 verworfene
+  Erstläufe). **0 Konsolenfehler, 0 Seitenfehler.** In **allen 60** Läufen `passes = 2` — der
+  Wächter-Durchlauf ist nie eingetreten.
+
+### Die Zahlen (min / Median / max, in ms)
+
+**`katalog` — 6 Rasterungen, 16 Seiten**
+
+| Phase | warm 1× | kalt 1× | warm 4× | kalt 4× |
+| --- | --- | --- | --- | --- |
+| **Gesamt (Klick → Blob)** | 5012 / **5034** / 5098 | 5518 / **5619** / 5792 | 14927 / **14943** / 15316 | 17293 / **18077** / 18594 |
+| Lazy-Chunk | 0 / 0 / 0 | 92 / 96 / 166 | 0 / 0 / 0 | 262 / 266 / 320 |
+| Fonts registrieren | 0 / 0 / 0 | 0 / 0,1 / 0,1 | 0 / 0 / 0 | 0 / 0 / 0,1 |
+| Rasterung gesamt | 2065 / **2078** / 2078 | 2105 / 2118 / 2172 | 3292 / **3293** / 3336 | 3600 / 3739 / 3955 |
+| Durchlauf 1 (messen) | 1502 / **1519** / 1592 | 1861 / **1934** / 1989 | 5821 / **5893** / 5960 | 7466 / **8106** / 8229 |
+| Durchlauf 2 (final) | 1419 / **1431** / 1450 | 1427 / 1465 / 1480 | 5750 / **5770** / 6032 | 5928 / 5995 / 6498 |
+
+**`pv_standardprofil` — 6 Rasterungen, 17 Seiten**
+
+| Phase | warm 1× | kalt 1× | warm 4× | kalt 4× |
+| --- | --- | --- | --- | --- |
+| **Gesamt (Klick → Blob)** | 4894 / **4930** / 4986 | 5522 / **5546** / 5564 | 14895 / **15031** / 15213 | 17589 / **17705** / 18863 |
+| Lazy-Chunk | 0 / 0 / 0 | 88 / 92 / 100 | 0 / 0 / 0 | 270 / 274 / 281 |
+| Rasterung gesamt | 2076 / 2084 / 2109 | 2122 / 2127 / 2130 | 3359 / 3377 / 3438 | 3630 / 3701 / 3733 |
+| Durchlauf 1 (messen) | 1425 / 1446 / 1477 | 1861 / 1894 / 1917 | 5826 / 5921 / 5964 | 7640 / 7843 / 8310 |
+| Durchlauf 2 (final) | 1374 / 1386 / 1426 | 1430 / 1432 / 1439 | 5710 / 5754 / 5811 | 5871 / 5992 / 7005 |
+
+**`zusatz` — 5 Rasterungen, 16 Seiten**
+
+| Phase | warm 1× | kalt 1× | warm 4× | kalt 4× |
+| --- | --- | --- | --- | --- |
+| **Gesamt (Klick → Blob)** | 3002 / **3062** / 3107 | 3606 / **3683** / 3701 | 12027 / **12152** / 12720 | 14390 / **14488** / 14565 |
+| Lazy-Chunk | 0 / 0 / 0 | 88 / 94 / 97 | 0 / 0 / 0 | 254 / 262 / 266 |
+| Rasterung gesamt | 461 / **477** / 494 | 505 / 510 / 534 | 1590 / **1625** / 1667 | 1809 / 1833 / 1869 |
+| Durchlauf 1 (messen) | 1298 / 1314 / 1342 | 1719 / 1753 / 1765 | 5286 / 5340 / 5360 | 7027 / 7069 / 7081 |
+| Durchlauf 2 (final) | 1227 / 1265 / 1285 | 1284 / 1319 / 1331 | 5150 / 5223 / 5702 | 5250 / 5322 / 5370 |
+
+**Je Bild** (Median; `katalog`, das Feld mit allen sechs):
+
+| Bild | warm 1× | kalt 1× | warm 4× | kalt 4× | Faktor 4×/1× (warm) |
+| --- | --- | --- | --- | --- | --- |
+| **Tages-Energiefluss** | **1578** | 1595 | **1674** | 1707 | **1,06** |
+| Stunden-Heatmap (nur Raster) | 231 | 245 | 875 | 1008 | 3,79 |
+| Lastgang | 112 | 129 | 364 | 498 | 3,25 |
+| Ø-Ladepreis | 53 | 49 | 129 | 169 | 2,43 |
+| Kostenvergleich | 52 | 59 | 145 | 198 | 2,79 |
+| Grenznutzen-Kurve | 48 | 48 | 108 | 139 | 2,25 |
+
+Die Summe der sechs (2074 ms) trifft `Rasterung gesamt` (2078 ms) — der Rest ist die Ableitung der
+Chart-Pläne davor.
+
+### ⚠ Was die Zahlen sagen — vier Befunde
+
+**1. Ein einziges Bild macht drei Viertel der Rasterung aus, und es RECHNET dabei nicht.** Der
+Tages-Energiefluss kostet 1578 von 2078 ms und wächst unter vierfacher Drosselung um **6 %**, während
+jedes andere Bild um den Faktor 2,3 bis 3,8 wächst. Es ist also **Wartezeit, keine Rechenzeit**:
+`waitForStableRender` (D14) wartet die Einblend-Animation von react-smooth ab, und der Energiefluss
+ist der einzige Report-Chart, der sie behält (§6.2 erlaubt ihm als einzigem „leichte Interaktion/
+Animation"). Genau daher stammt der ganze Abstand zwischen `katalog` (5034 ms) und `zusatz`
+(3062 ms) — der zweite Fall zeigt dieses Bild nicht.
+
+**2. Der Messdurchlauf ist NICHT billiger als der finale.** 1519 gegen 1431 ms (warm 1×), 5893 gegen
+5770 ms (warm 4×). Der Zwei-Durchlauf-Entwurf aus D5 — die Voraussetzung dafür, dass die Agenda echte
+Seitenverweise trägt — kostet damit rund eine **Verdopplung** der Renderzeit, und ein
+Wächter-Durchlauf käme mit demselben Betrag noch einmal obendrauf.
+
+**3. `fontsMs` ist null, die Schrift kostet trotzdem.** Die Registrierung selbst liegt bei 0…0,1 ms;
+GEHOLT werden die drei WOFF-Dateien erst im ersten Durchlauf, der sie braucht. Sichtbar wird das
+ausschliesslich in der Differenz: **Durchlauf 1 kalt 1934 gegen warm 1519 ms ≈ 415 ms** (`zusatz`:
+1753 gegen 1314 ≈ 439 ms). Zusammen mit dem Lazy-Chunk ergibt das einen **Kalt-Aufschlag von rund
+0,6 s bei 1× und 2,4 bis 3,1 s bei 4×** — ein Kunde, der den Report zweimal zieht, erlebt nur den
+zweiten Wert.
+
+**4. Die Seitenzahl ist fast irrelevant, die Zahl der Bilder nicht.** `pv_standardprofil` trägt eine
+Seite MEHR als `katalog` und ist mit 4930 gegen 5034 ms nicht langsamer. Was zählt, sind die Bilder:
+ein Bild weniger (`zusatz`) spart knapp zwei Sekunden. Unter Drosselung skalieren die Renderdurchläufe
+um den Faktor ~3,9 (CPU-gebunden), die Rasterung nur um ~1,6 (durch den Energiefluss
+wanduhr-gebunden).
+
+### ⚠ Was NICHT gemessen ist
+
+- **Ein echtes Kundengerät.** Die 4×-Drosselung ist eine untere Schranke, kein Abbild eines
+  bestimmten Telefons oder Laptops; gemessen wurde auf der Entwicklungsmaschine.
+- **Eine echte Leitung.** Lazy-Chunk und Schriftdateien kommen über die Loopback-Schnittstelle. Der
+  Kalt-Aufschlag ist damit die **günstigste** Fassung des kalten Falls; über eine echte Verbindung
+  liegt er höher (der Chunk misst laut Spike §3 ≈ 307 kB gzip).
+- **Der Wächter-Durchlauf.** Er ist in keinem der 60 Läufe eingetreten; nach Befund 2 wäre er rund
+  +1,4 s (1×) bzw. +5,8 s (4×).
+- **Die übrigen zehn Prüffälle**, der Spitzenspeicherbedarf und die Dateigrösse des Ergebnisses.
+
+### `[OFFEN]` nach diesem Schritt
+
+- **Ladezustand und UI am Kunden-Knopf** sind ausdrücklich NICHT Teil dieser Messung und getrennt zu
+  entscheiden.
+- **Eine Fehlerbehandlung für gescheiterte Erzeugungen** gibt es weiterhin nicht — offener Punkt aus
+  dem Cutover-Gespräch, nicht Gegenstand dieses Schritts.
+- Alle `[OFFEN]`-Punkte aus D18 gelten unverändert weiter; der Knopf im Rechner löst nach wie vor
+  `window.print()` aus.
