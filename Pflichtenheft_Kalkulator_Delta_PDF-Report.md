@@ -1496,3 +1496,155 @@ wanduhr-gebunden).
   dem Cutover-Gespräch, nicht Gegenstand dieses Schritts.
 - Alle `[OFFEN]`-Punkte aus D18 gelten unverändert weiter; der Knopf im Rechner löst nach wie vor
   `window.print()` aus.
+
+---
+
+## D20 — Die Einblend-Animation für den Rasterungspfad abschalten (Messreihe mit A/B)
+
+**Ein Prop, ein Konsument.** `EnergyFlowChart` bekommt ein optionales `disableAnimation` (Standard
+`false`); gesetzt wird es an **genau einer** Stelle im ganzen Repo — dem Mount-Aufruf der Rasterung
+in `charts.tsx`. Der Bildschirm-Aufruf (`report.tsx`, zwei Stellen) setzt es NICHT und hat
+**0 Zeilen Diff**. Weder Dokumentinhalt noch Chart-Auswahl, Reihenfolge, Contract,
+Zwei-Durchlauf-Mechanismus noch Layout ändern sich; es entsteht kein Ladezustand und keine
+Fehlerbehandlung, und der Kunden-Knopf löst unverändert `window.print()` aus.
+
+### Warum überhaupt
+
+D19 Befund 1: der Tages-Energiefluss kostet **1578 von 2078 ms** der gesamten Rasterung und wächst
+unter vierfacher CPU-Drosselung nur um 6 %, während jedes andere Bild um den Faktor 2,3 bis 3,8
+wächst. Es ist also **Wartezeit, keine Rechenzeit** — `waitForStableRender` (D14) wartet die
+Einblend-Animation von react-smooth ab, und der Energiefluss ist der einzige Report-Chart, der sie
+behält (§6.2 erlaubt ihm als einzigem „leichte Interaktion/Animation").
+
+**Auf einem Blatt Papier gibt es keine Animation.** Sie abseits des Sichtfelds abzuwarten ist
+Wartezeit ohne jede Wirkung auf das Ergebnis.
+
+### Umgesetzt als Spread eines leeren Objekts
+
+Im Bildschirmfall wird `{}` gespreadet, im Rasterungsfall `{ isAnimationActive: false }`. Damit
+bekommen die vier Datenreihen am Bildschirm **bit-identisch dieselben Props wie zuvor**. Ein
+explizites `isAnimationActive={true}` wäre heute gleichwertig, hinge aber am Standardwert von
+recharts und wäre eine Aussage, die diese Datei nicht treffen muss.
+
+**`waitForStableRender` bleibt unverändert in Kraft und wird ausdrücklich NICHT umgangen** — es
+prüft weiterhin beide Anfangszustände (Clip-Breite 0, `stroke-dasharray="0px …"`) und den
+Stillstand, findet sie hier nur sofort erfüllt. Der Schalter, den D14 als „warte, wenn dieser Chart
+animiert" verworfen hat, entsteht damit nicht: die Wartelogik weiss weiterhin nichts von der
+Animation einer fremden Komponente.
+
+### Methode — wortgleich zu D19, aber als A/B auf DERSELBEN Maschine in DERSELBEN Sitzung
+
+Die D19-Zahlen sind nicht als Vergleichsgrundlage übernommen, sondern **neu gemessen**: der
+pristine Stand wurde gestasht, neu gebaut und vollständig durchgemessen (VORHER), danach derselbe
+Durchlauf mit der Änderung (NACHHER). Sonst wäre der Vergleich einer gegen eine Notiz.
+
+Production-Build (`next start`), Chromium über Playwright, Prüfroute `/pdf-report-probe`,
+3 Fälle × kalt/warm × 1×/4×, **5 Wiederholungen je Konfiguration**, Median berichtet. Je
+Wiederholung ein **frischer Browser-Kontext**: die erste Erzeugung darin ist die KALTE Stichprobe,
+die zweite die WARME. CPU-Drosselung über CDP `Emulation.setCPUThrottlingRate`, gesetzt **nach** dem
+Rechenlauf und **vor** der ersten Erzeugung — gemessen wird ausschliesslich die Erzeugung.
+
+**Je Stand 60 gemessene Erzeugungen, zusammen 120. In beiden Ständen: 0 Konsolenfehler,
+0 Seitenfehler, `passes = 2` durchgehend, `builds` 6/6/5 und Seiten 16/17/16** — die strukturellen
+D19-Feststellungen reproduzieren unverändert.
+
+### Die Zahlen (Median, VORHER → NACHHER)
+
+**`katalog` — 6 Rasterungen, 16 Seiten**
+
+| Phase | warm 1× | kalt 1× | warm 4× | kalt 4× |
+| --- | --- | --- | --- | --- |
+| **Gesamt (Klick → Blob)** | 5033 → **3440** (−31,7 %) | 5597 → **4006** (−28,4 %) | 15737 → **14469** (−8,1 %) | 17944 → **16323** (−9,0 %) |
+| Rasterung gesamt | 2100 → **553** (−73,7 %) | 2126 → **581** (−72,7 %) | 3510 → **1950** (−44,4 %) | 3732 → **2130** (−42,9 %) |
+| Durchlauf 1 (messen) | 1505 → 1503 | 1899 → 1879 | 6157 → 6405 | 7727 → 7689 |
+| Durchlauf 2 (final) | 1412 → 1396 | 1480 → 1442 | 5998 → 5912 | 6086 → 5959 |
+| **Bild Tages-Energiefluss** | 1582 → **47** (−1535) | 1592 → **47** (−1545) | 1687 → **143** (−1544) | 1713 → **184** (−1529) |
+| Bild Stunden-Heatmap | 244 → 233 | 247 → 246 | 937 → 990 | 1008 → 986 |
+| Bild Lastgang | 115 → 120 | 129 → 129 | 409 → 395 | 497 → 514 |
+
+**`pv_standardprofil` — 6 Rasterungen, 17 Seiten**
+
+| Phase | warm 1× | kalt 1× | warm 4× | kalt 4× |
+| --- | --- | --- | --- | --- |
+| **Gesamt (Klick → Blob)** | 5042 → **3660** (−27,4 %) | 5542 → **4168** (−24,8 %) | 15549 → **14083** (−9,4 %) | 17848 → **16394** (−8,1 %) |
+| Rasterung gesamt | 2117 → **579** (−72,6 %) | 2140 → **609** (−71,5 %) | 3565 → **2016** (−43,5 %) | 3692 → **2180** (−41,0 %) |
+| **Bild Tages-Energiefluss** | 1584 → **49** (−1535) | 1588 → **48** (−1540) | 1680 → **136** (−1544) | 1692 → **151** (−1541) |
+
+**`zusatz` — 5 Rasterungen, 16 Seiten, KEIN Energiefluss-Bild**
+
+| Phase | warm 1× | kalt 1× | warm 4× | kalt 4× |
+| --- | --- | --- | --- | --- |
+| **Gesamt (Klick → Blob)** | 3040 → 3188 (**+4,9 %**) | 3585 → 3723 (**+3,8 %**) | 12036 → 12506 (**+3,9 %**) | 14243 → 15181 (**+6,6 %**) |
+| Rasterung gesamt | 467 → 517 | 505 → 527 | 1652 → 1769 | 1803 → 1941 |
+| Bild Tages-Energiefluss | — | — | — | — |
+
+### ⚠ Drei Befunde
+
+**1. Der Rückgang IST die ausgewartete Animation — auf die Millisekunde, nicht ungefähr.** Der
+Absolutbetrag ist über **alle acht** Konfigurationen (zwei Fälle × vier Konfigurationen) praktisch
+konstant: **1529 bis 1545 ms**, Streubreite 16 ms. Genau das sagt „Wartezeit" vorher und
+„Rechenzeit" nicht: eine CPU-gebundene Ersparnis müsste unter vierfacher Drosselung mitwachsen, sie
+tut es nicht. Gegengeprüft an der Quelle statt behauptet: `Area` und `Line` tragen in recharts 3.9.2
+`animationDuration: 1500`; die drei Frames, die `waitForStableRender` zusätzlich verlangt, sind bei
+60 Hz rund 50 ms. **1500 + 50 ≈ 1535.** Ein anderer, zufälliger Effekt könnte diese Zahl nicht
+treffen.
+
+**2. ⚠ `zusatz` ist um 3,8 bis 6,6 % LANGSAMER geworden — und das ist die wichtigste Zahl der
+Messreihe.** Dieser Fall zeigt den Energiefluss gar nicht (`flow: null`, D19 Befund b), die Änderung
+kann ihn also nicht erreichen. Der Zuwachs ist **Drift zwischen den zwei rund 45 Minuten
+auseinanderliegenden Läufen**, nicht Wirkung. Er ist damit die unfreiwillige, aber belastbarste
+Negativkontrolle der ganzen Reihe: er **beziffert das Rauschen** dieses Aufbaus mit rund **±5 %**.
+Die Ersparnis der beiden anderen Fälle (25 bis 32 % bei 1×) liegt weit ausserhalb; korrigiert man um
+die Drift, ist der wahre Gewinn eher grösser als gemessen. Wer diese Reihe wiederholt, misst
+`zusatz` mit und **liest daran zuerst ab, wie vergleichbar die zwei Läufe überhaupt sind**.
+
+**3. Die Ersparnis fällt durch bis zur Gesamtzeit, und die Renderdurchläufe bleiben unberührt.**
+Durchlauf 1 und 2 bewegen sich um höchstens 4 % und in beide Richtungen — also im Driftband aus
+Befund 2. Der relative Gewinn ist bei **1×** am grössten (rund ein Drittel), weil dort die
+Rasterung den grössten Anteil hat; bei **4×** bleibt der Betrag derselbe, macht aber nur noch 8 bis
+9 % aus, weil die CPU-gebundenen Renderdurchläufe dann dominieren.
+
+### Verifikation — der Bildschirm-Chart animiert unverändert
+
+Gemessen wird die Mechanik selbst, auf die auch `isStillDrawing` wartet: ein rAF-Sampler läuft
+durchgehend ab dem Klick auf „Analyse starten" und zählt, in wie vielen Frames die Energiefluss-
+KARTE ein Clip-Rechteck der Breite 0 bzw. ein mit `0px` beginnendes `stroke-dasharray` trägt. Der
+Sampler ist auf die Karte eingegrenzt: jeder andere Report-Chart setzt `isAnimationActive={false}`
+und könnte diese Marken gar nicht erzeugen — dokumentweit gezählt wäre es trotzdem eine Aussage über
+alle Charts statt über diesen einen. Voller 4-Schritt-Durchlauf über `/rechner` mit
+`demo-baeckerei-lastgang-2025.csv`, je 0 Konsolen- und Seitenfehler.
+
+| Stand | Frames mit Clip-Breite 0 | Frames mit `0px …` | Frames mit Karte |
+| --- | --- | --- | --- |
+| VORHER (pristine) | **8** | **8** | 303 |
+| NACHHER (diese Änderung) | **8** | **8** | 303 |
+| Negativkontrolle: `disableAnimation` am BILDSCHIRM-Aufruf | **0** | **0** | 303 |
+
+Die Negativkontrolle ist der Teil, der die zwei Achten erst zu einer Aussage macht: sie zeigt, dass
+der Sampler auf 0 gehen KANN und die Marken nicht ohnehin immer zählt. Danach war `report.tsx`
+wiederhergestellt (0 Zeilen Diff).
+
+### Verifikation — Bündel
+
+`/rechner` First Load roh **1.923.160 → 1.923.232 Bytes** (**+72**), unverändert **19 Chunks**;
+`/pdf-report-probe` roh **406.840 → 406.840**, unverändert 6 Chunks. Die Vorher-Zahl ist durch
+Stashen und Neubauen **selbst gemessen** und trifft die D19-Zahl bit-genau — sie ist nicht aus dem
+Handover übernommen. Die 72 Bytes sind der Prop-Name, den die BILDSCHIRM-Fassung mitträgt;
+`animationProps` kommt 0× vor (der Minifizierer benennt die lokale Konstante um). Über den GESAMTEN
+`/rechner`-First-Load-Satz: `@react-pdf` **0×** (unverändert), `disableAnimation` **0× → 1×**,
+`stunden-heatmap-raster` genau 1× (Positivkontrolle).
+
+### ⚠ Was NICHT gemessen ist
+
+- **Ein echtes Kundengerät und eine echte Leitung** — unverändert die D19-Einschränkungen.
+- **Der Wächter-Durchlauf** ist in keinem der 120 Läufe eingetreten.
+- **Die übrigen neun Prüffälle**, der Spitzenspeicherbedarf und die Dateigrösse.
+- **Ob die Erzeugung damit schnell genug ist.** Diese PR liefert eine Zahl, keine Bewertung.
+
+### `[OFFEN]` nach diesem Schritt
+
+- **Der grösste verbleibende Posten sind jetzt die zwei Renderdurchläufe** (zusammen rund 2,9 s warm
+  1×, 12,3 s warm 4× im `katalog`-Fall) und darin der Messdurchlauf, den D5 für die Seitenverweise
+  der Agenda braucht — D19 Befund 2 gilt unverändert.
+- **Ladezustand und UI am Kunden-Knopf**, **Fehlerbehandlung für gescheiterte Erzeugungen** und der
+  **Cutover** sind weiterhin getrennt zu entscheiden; alle `[OFFEN]`-Punkte aus D18/D19 gelten fort.

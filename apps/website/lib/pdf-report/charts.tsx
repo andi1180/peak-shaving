@@ -374,6 +374,14 @@ export async function buildReportCharts(input: PdfReportInput): Promise<ReportCh
    * ihren erklärten Leerzustand rendern — dann gibt es keinen Zeichenbereich, `captureChart` liefe
    * fünf Sekunden in die Zeitüberschreitung, und das Ergebnis wäre ein Fehler, wo es eine Aussage
    * braucht. Die Aussage steht im Dokument (`detail.ts`, `flowMissing`).
+   *
+   * ⚠ `disableAnimation` — die EINZIGE Stelle im Repo, die diesen Prop setzt (D20). Der
+   * Tages-Energiefluss ist der einzige Report-Chart, der seine Einblend-Animation behält (§6.2),
+   * und D19 hat gemessen, dass ausgerechnet das Abwarten dieser Animation 1578 von 2078 ms der
+   * gesamten Rasterung kostet — Wartezeit, keine Rechenzeit. Auf Papier gibt es keine Animation.
+   * `waitForStableRender` (chart-capture.ts) bleibt trotzdem unverändert in Kraft und wird auch
+   * NICHT umgangen: es prüft weiterhin beide Anfangszustände und den Stillstand, findet sie hier
+   * nur sofort erfüllt. Der Bildschirm-Chart (`report.tsx`) ist unberührt.
    */
   const flowPlan = plan.flow
   const flow: Attempt =
@@ -386,6 +394,7 @@ export async function buildReportCharts(input: PdfReportInput): Promise<ReportCh
               selectedBatteryId={flowPlan.selectedBatteryId}
               onSelectBattery={() => {}}
               timeZone={input.loadProfile.timezoneMeta}
+              disableAnimation
             />,
             {
               width: DETAIL_CHART_WIDTH_PX,
