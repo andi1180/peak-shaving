@@ -111,3 +111,39 @@ export type ReportTable = {
   columns: ReportTableColumn[]
   rows: ReportTableRow[]
 }
+
+/**
+ * B23c-4 — ein Hinweis: eine Feststellung ÜBER die Zahlen, nicht eine von ihnen.
+ *
+ * ── ⚠ WARUM DAS KEIN `ReportStatement` IST ────────────────────────────────────────────────────
+ * Eine Kernaussage trägt eine Zahl und schlüsselt sie auf; ein Hinweis sagt, was an der Grundlage
+ * dieser Zahlen zu wissen ist — er hat keinen Betrag, und einen erfundenen zu ergänzen (etwa eine
+ * 0) wäre genau die Zahl, gegen die er warnt. Am Bildschirm sind das `Alert`-Kästen und keine
+ * Karten; die Trennung ist also nicht hier erfunden, sondern übernommen.
+ *
+ * ⚠ `tone` kennt bewusst kein `positive`: ein Hinweis meldet entweder einen Mangel an der
+ * Datengrundlage (`warning`) oder eine Eigenschaft, die man kennen muss (`neutral`). „Positiv"
+ * gibt es an dieser Stelle nicht — eine grüne Meldung neben der Kern-Kennzahl läse sich wie ein
+ * Gütesiegel.
+ */
+export type ReportNotice = {
+  /** Stabil — zur Wiedererkennung in Prüfläufen, nicht im Dokument sichtbar. */
+  id: string
+  tone: Exclude<ReportTone, 'positive'>
+  title: string
+  /** Der eine Absatz, der die Feststellung trägt. */
+  body: string
+  /**
+   * Eine Aufzählung darunter (betroffene Zeitbereiche, Datenqualitäts-Warnungen der Engine).
+   * `null` heisst: es gibt keine — nicht „wir zeigen sie hier nicht".
+   */
+  list: { label: string | null; items: string[] } | null
+  /**
+   * Was der Leser daraus machen kann, und was davon NICHT betroffen ist — je Eintrag ein Absatz.
+   *
+   * Leer heisst: die Feststellung steht für sich. Bewusst eine LISTE und kein einzelner Satz: der
+   * Blocker-Befund trägt zwei Absätze, die Verschiedenes sagen (was zu tun ist, und was unberührt
+   * bleibt), und sie in einen zu ziehen liesse den zweiten als Nachsatz des ersten lesen.
+   */
+  hints: string[]
+}

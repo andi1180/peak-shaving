@@ -1,4 +1,6 @@
-import type { AnalysisResult, LoadProfile } from 'shared'
+import type { AnalysisResult, LoadProfile, TariffParams } from 'shared'
+
+import { localYear } from '@/lib/local-time'
 
 /**
  * B23a — Titel, Untertitel und Zeitraum des Reports, aus dem Contract abgeleitet.
@@ -89,4 +91,52 @@ export function formatPrintedAt(now: Date): string {
     month: '2-digit',
     year: 'numeric',
   }).format(now)
+}
+
+/**
+ * B23c-4 — auf welchem Preisstand Arbeitspreis und Grundgebühr beruhen. `null` = kein Hinweis.
+ *
+ * ── ⚠ WARUM DIESER EINE SATZ DES SCHLUSSKAPITELS HIER STEHT UND NICHT IN `basis.ts` ───────────
+ * Er ist der einzige Teil des Reports, dessen Aussage von der UHR abhängt — und diese Datei ist
+ * die eine, die Grössen ableitet, für die das gilt (`formatPrintedAt`). `basis.ts` bekäme sonst
+ * einen Zeitpunkt hereingereicht, den `PdfReportInput` ein zweites Mal führen müsste (neben dem
+ * bereits formatierten `printedAt`) — zwei Felder für denselben Augenblick, die auseinanderlaufen
+ * können. Das Ergebnis reist stattdessen als fertige Zeichenkette mit, genau wie `period` und
+ * `subtitle`.
+ *
+ * ⚠ `now` ist ein PARAMETER und wird nicht von der Uhr gelesen: nur so lässt sich die Aussage
+ * gegen einen festen Stichtag prüfen (dieselbe Regel wie bei `formatPrintedAt`).
+ *
+ * ── DIE BEDINGUNG HÄNGT AM ZEITRAUM, NICHT AN EINEM RECHNUNGSDATUM ────────────────────────────
+ * Wortgleich übernommen aus `components/report/tariff-vintage-note.tsx` (samt Begründung dort):
+ * `InvoiceExtraction` trägt kein Datum, welche Rechnung der Kunde vor sich hatte, weiss der
+ * Rechner nicht. Was er weiss, ist der ausgewertete Zeitraum — reicht er in ein noch LAUFENDES
+ * Kalenderjahr, kann es dafür noch gar keine Jahresrechnung geben, und die eingetragenen Preise
+ * stammen zwangsläufig aus einer älteren Abrechnung.
+ *
+ * ⚠ Die Grundgebühr wird nur genannt, wo es sie gibt (Delta 19: optional, ohne Angabe 0). Sie
+ * mitzunennen, wo keine eingetragen wurde, behauptete eine Grundlage, die in der Rechnung gar
+ * nicht vorkommt.
+ */
+export function tariffVintageNote(
+  loadProfile: Pick<LoadProfile, 'readings' | 'timezoneMeta'>,
+  tariff: Pick<TariffParams, 'supplierBaseFeeEurPerMonth'>,
+  now: Date,
+): string | null {
+  const last = loadProfile.readings[loadProfile.readings.length - 1]
+  if (!last) return null
+
+  const periodEndYear = localYear(Date.parse(last.ts), loadProfile.timezoneMeta)
+  const currentYear = localYear(now.getTime(), loadProfile.timezoneMeta)
+  if (periodEndYear < currentYear) return null
+
+  const hasBaseFee =
+    tariff.supplierBaseFeeEurPerMonth != null && tariff.supplierBaseFeeEurPerMonth > 0
+  const posten = hasBaseFee ? 'Arbeitspreis und Grundgebühr basieren' : 'Der Arbeitspreis basiert'
+
+  return (
+    `${posten} auf einer ${periodEndYear - 1}er-Vorjahresrechnung — für ${periodEndYear} gibt es ` +
+    `noch keine Jahresabrechnung. Für eine aktuelle Zahl wird die ${periodEndYear}er-` +
+    'Jahresrechnung des Kunden benötigt.'
+  )
 }

@@ -8,7 +8,17 @@
  * der Prüfroute — für zwei Zeichenketten je Fall.
  */
 
-export type SummaryProbeKind = 'bestand' | 'blocker' | 'katalog' | 'teiljahr' | 'zusatz'
+export type SummaryProbeKind =
+  | 'bestand'
+  | 'blocker'
+  | 'katalog'
+  | 'teiljahr'
+  | 'zusatz'
+  | 'teiljahr_monat'
+  | 'luecke'
+  | 'standardprofil'
+  | 'blocker_luecke'
+  | 'foerderung'
 
 export const SUMMARY_PROBE_KINDS: readonly SummaryProbeKind[] = [
   'bestand',
@@ -16,6 +26,11 @@ export const SUMMARY_PROBE_KINDS: readonly SummaryProbeKind[] = [
   'katalog',
   'teiljahr',
   'zusatz',
+  'teiljahr_monat',
+  'luecke',
+  'standardprofil',
+  'blocker_luecke',
+  'foerderung',
 ]
 
 export const SUMMARY_PROBE_LABEL: Record<SummaryProbeKind, string> = {
@@ -36,6 +51,47 @@ export const SUMMARY_PROBE_LABEL: Record<SummaryProbeKind, string> = {
    * gemessene, und der Tabellen-Zweig gebaut, aber ungeprüft.
    */
   zusatz: 'Kleine Bestandsanlage, 25 Jahre Horizont (Zusatzspeicher rechnet sich)',
+  /*
+   * B23c-4 — die drei Fälle, die JE EINEN der drei Hinweise bei der Kern-Kennzahl auslösen und
+   * ausdrücklich keinen zweiten.
+   *
+   * ── ⚠ WARUM DREI EIGENE FÄLLE UND NICHT EINER MIT ALLEN DREIEN ────────────────────────────
+   * Die drei Bedingungen sind voneinander unabhängig (`summary.ts`, `buildNotices`), und ein
+   * gemeinsamer Lauf mit allen dreien beweist das NICHT: er bliebe auch dann grün, wenn zwei der
+   * Bedingungen in Wahrheit an derselben Grösse hingen. Gemessen wird die Unabhängigkeit erst,
+   * wenn jeder Hinweis einmal ALLEIN dasteht — und die beiden anderen nachweislich fehlen.
+   *
+   * Was die drei Läufe SONST noch zeigen, ist Beiwerk und ausdrücklich kein zweiter Hinweis am
+   * selben Ort: `teiljahr_monat` erreicht zusätzlich den Preisstand-Absatz im Schlusskapitel
+   * (sein Zeitraum reicht ins laufende Jahr), `luecke` und `standardprofil` erreichen den
+   * Datenqualitäts-Kasten. Beides steht ein Kapitel weiter hinten.
+   */
+  teiljahr_monat:
+    'Teiljahr unter „Mittel der Monatshöchstwerte" (NUR der Teiljahres-Hinweis, laufendes Jahr)',
+  luecke: 'Volljahr mit 30 Tagen interpolierter Lücke (NUR der Datenlücken-Hinweis)',
+  standardprofil: 'Standardlastprofil H0 statt Messung (NUR der Standardprofil-Hinweis)',
+  /*
+   * B23c-4 — der Blocker mit ZEITBEREICHEN.
+   *
+   * ── ⚠ WARUM DER BESTEHENDE `blocker`-FALL DAFÜR NICHT REICHT ──────────────────────────────
+   * Er fährt `spotPrices: null` und erzeugt damit `kind: 'unavailable'` — „wir konnten die Preise
+   * nicht abrufen", und dazu gibt es KEINE Bereiche (gemessen: `ranges` ist leer). Der andere
+   * Grund, `kind: 'gap'`, ist der einzige, der Zeitbereiche trägt, und genau deren Darstellung im
+   * Schlusskapitel wäre sonst gebaut und nie gemessen. Die zwei Gründe sind auch fachlich
+   * verschieden: dort liegt es an uns (ein Abruf misslang), hier an einer Lücke im Bestand, die
+   * sich mit dem nächsten Cron-Lauf von selbst schliesst.
+   */
+  blocker_luecke: 'Bestandsanlage, Lücke in den Börsenpreisen (Blocker MIT Zeitbereich)',
+  /*
+   * B23c-4 — der EINZIGE Fall mit Förderung und Steuervorteil.
+   *
+   * ── ⚠ OHNE IHN SIND ZWEI ZEILEN DER ANNAHMEN-TABELLE NICHT UNTERSCHEIDBAR ─────────────────
+   * Ohne Finanzparameter ist `netInvestment` Zahl für Zahl gleich `totalInvestment`, und eine
+   * Wächter-Probe, die das eine gegen das andere tauscht, bliebe grün (gemessen). Er erreicht
+   * ausserdem den zweiten Zweig der Zeile „Nettoinvestition": die übrigen Läufe zeigen dort
+   * „keine Angabe (nicht einbezogen)", dieser einen echten Betrag.
+   */
+  foerderung: 'Ohne Bestandsanlage, MIT Förderung und Steuervorteil (Nettoinvestition ≠ brutto)',
 }
 
 /**

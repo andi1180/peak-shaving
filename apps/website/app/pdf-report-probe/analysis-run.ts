@@ -1,7 +1,10 @@
-import type { AnalysisResult, LoadProfile } from 'shared'
+import type { AnalysisResult, LoadProfile, TariffParams, TariffSourceRef } from 'shared'
+import { buildTariffSourceRef } from 'shared'
 
 import type { AnalysisRequest, WorkerOutbound } from '@/lib/analysis-protocol'
 import { DEFAULT_HORIZON_YEARS } from '@/lib/constants'
+import { buildBasisChapter, type BasisChapter } from '@/lib/pdf-report/basis'
+import { tariffVintageNote } from '@/lib/pdf-report/derive'
 import {
   buildComparisonChapter,
   comparisonChartPlan,
@@ -152,10 +155,32 @@ export type SummaryProbeRun = {
    * anderen Rechnung gehört als die Zahlen daneben, und man sähe es dem Bild nicht an.
    */
   loadProfile: LoadProfile
+
+  /**
+   * B23c-4 — was das Schlusskapitel „Annahmen und Datengrundlage" aus demselben Ergebnis ableitet.
+   * Wieder DIE Produktionsfunktion, hier aufgerufen und nicht nachgebaut.
+   *
+   * ⚠ `tariffVintage` entsteht in `derive.ts` und hängt an der heutigen Uhr; es reist in
+   * `PdfReportInput` mit und wird hier bereits gebildet, damit ein Prüflauf die ENTSCHEIDUNG
+   * sieht (Hinweis oder nicht), bevor er das Dokument erzeugt.
+   */
+  basis: BasisChapter
+  /**
+   * B23c-4 — die drei Hinweise bei der Kern-Kennzahl, als Kennungen. Die ENTSCHEIDUNG vor dem
+   * Erzeugen sichtbar: welcher steht, und vor allem welcher NICHT.
+   */
+  noticeIds: string[]
+  /** Die Herkunft der Tarifsätze zum gerechneten Lauf. `null` = kein hinterlegter Stand gewählt. */
+  tariffSource: TariffSourceRef | null
+  /** Der Tarif, mit dem gerechnet wurde — für `tariffVintageNote` (die Grundgebühr). */
+  tariff: TariffParams
 }
 
-export async function runSummaryAnalysis(kind: SummaryProbeKind): Promise<SummaryProbeRun> {
-  const payload = buildSummaryProbePayload(kind)
+export async function runSummaryAnalysis(
+  kind: SummaryProbeKind,
+  now: Date,
+): Promise<SummaryProbeRun> {
+  const payload = buildSummaryProbePayload(kind, now)
   const worker = new Worker(new URL('../../lib/analysis.worker.ts', import.meta.url))
 
   try {
@@ -194,9 +219,36 @@ export async function runSummaryAnalysis(kind: SummaryProbeKind): Promise<Summar
       ? (plan.flow.entries.find((e) => e.battery.id === plan.flow!.selectedBatteryId) ??
         plan.flow.entries[0])
       : undefined
+    const summary = buildReportSummary(result, payload.load.profile)
+    /*
+     * ⚠ AUS DEMSELBEN Ergebnis und DEMSELBEN Lastgang wie das Dokument gleich — nicht aus einer
+     * zweiten Ableitung. `tariffVintage` kommt dabei über `derive.ts` und nicht aus `basis.ts`
+     * (dort steht es als hereingereichte Zeichenkette, s. den Kopf jener Datei).
+     */
+    const tariffSource: TariffSourceRef | null = payload.tariffSelection
+      ? buildTariffSourceRef(payload.tariffSelection, {
+          leistungspreisEurPerKwYear: payload.tariff.leistungspreisEurPerKwYear,
+          billingModel: payload.tariff.billingModel,
+          minBillableKw: payload.tariff.minBillableKw,
+        })
+      : null
+
     return {
       result,
-      summary: buildReportSummary(result),
+      summary,
+      basis: buildBasisChapter({
+        title: '',
+        subtitle: '',
+        period: null,
+        printedAt: '',
+        analysis: result,
+        loadProfile: payload.load.profile,
+        tariffSource,
+        tariffVintage: tariffVintageNote(payload.load.profile, payload.tariff, now),
+      }),
+      noticeIds: summary.notices.map((n) => n.id),
+      tariffSource,
+      tariff: payload.tariff,
       chapter: buildRecommendationChapter(result),
       detail: buildDetailChapter(result),
       detailCostKind: plan.cost?.kind ?? null,

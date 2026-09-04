@@ -1,4 +1,4 @@
-import type { AnalysisResult, LoadProfile } from 'shared'
+import type { AnalysisResult, LoadProfile, TariffSourceRef } from 'shared'
 
 /**
  * B23a/B23c-1 — Eingangsgrössen des react-pdf-Reports.
@@ -74,6 +74,21 @@ import type { AnalysisResult, LoadProfile } from 'shared'
  * Alle vier stehen bereits hier. Ein Feld zu ergänzen, das gar nicht auf dieser Ebene liegt, wäre
  * eine Zeile, die eine Abhängigkeit BEHAUPTET, die es nicht gibt — und die nächste Lesung des Typs
  * zöge daraus den falschen Schluss, welche Teile des Contracts das Dokument tatsächlich braucht.
+ *
+ * ── B23c-4: DER TYP WÄCHST UM GENAU EIN FELD — `dataQuality`, AUSGEZÄHLT ──────────────────────
+ * Zum ersten Mal seit B23c-1 kommt eine Zeile dazu, und sie ist erarbeitet und nicht angenommen.
+ * Das Schlusskapitel und die drei Hinweise bei der Kern-Kennzahl lesen zusammen:
+ *   • `dataQuality.coveredMonths` → der Teiljahres-Hinweis (mit `assumptions.billingModel`),
+ *   • `dataQuality.largestGapSlots` → der Datenlücken-Hinweis,
+ *   • `dataQuality.coveredDays`/`gapsInterpolated`/`warnings` → der Datenqualitäts-Kasten,
+ *   • `assumptions` (Abrechnungsmodell, Horizont, Arbeitspreis, Einspeisevergütung, Wirkungsgrad)
+ *     → die Annahmen-Tabelle,
+ *   • `perBattery` + `recommendation` → das Gerät dieser Tabelle (Preis, Investition,
+ *     Nettoinvestition, `taxEffectsIncluded`),
+ *   • `tariffOptimization` → der strukturierte Blocker-Befund (`side`/`kind`/`ranges`).
+ *
+ * Nur `dataQuality` fehlte; die übrigen fünf standen bereits hier. Der vierte Hinweis dieser Seite
+ * — das Standardprofil — hängt an `loadProfile.source` und damit nicht am Ergebnis, s. unten.
  */
 export type PdfReportAnalysis = Pick<
   AnalysisResult,
@@ -83,6 +98,7 @@ export type PdfReportAnalysis = Pick<
   | 'assumptions'
   | 'tariffOptimization'
   | 'existingBatteryAnalysis'
+  | 'dataQuality'
 >
 
 /**
@@ -141,4 +157,34 @@ export type PdfReportInput = {
    * wäre „Report ohne Diagramm" ein Zustand, den ein Aufrufer versehentlich herstellen kann.
    */
   loadProfile: LoadProfile
+  /**
+   * B23c-4 — welcher Tarifsatz-Stand dieser Rechnung zugrunde lag (B11). `null` = kein
+   * hinterlegter Stand gewählt.
+   *
+   * ── ⚠ WARUM ER NICHT AUS `analysis` KOMMT ────────────────────────────────────────────────────
+   * Er steht nicht im `AnalysisResult`: die Engine rechnet mit TARIFWERTEN und nicht mit ihrer
+   * Herkunft. Am Bildschirm ist es genauso — `report.tsx` bekommt `tariffSource` als eigene Prop
+   * neben dem Ergebnis, abgeleitet aus der Auswahl des Nutzers und den tatsächlich gerechneten
+   * Werten (`buildTariffSourceRef`).
+   *
+   * ⚠ PFLICHT und `null`-fähig, nicht optional: „kein Stand gewählt" ist eine AUSSAGE (der Kunde
+   * hat die Werte aus seiner Netzrechnung eingetragen — die bessere Grundlage, Prinzip 1) und
+   * etwas anderes als „diese Angabe wurde vergessen". Optional gemacht liessen sich die beiden
+   * nicht mehr unterscheiden.
+   */
+  tariffSource: TariffSourceRef | null
+  /**
+   * B23c-4 — auf welchem Preisstand Arbeitspreis und Grundgebühr beruhen. `null` = kein Hinweis.
+   *
+   * Fertig abgeleitet, genau wie `period`, `subtitle` und `printedAt`: die Aussage hängt an einem
+   * STICHTAG, und `derive.ts` ist die Stelle, an der solche Grössen entstehen
+   * (`tariffVintageNote(loadProfile, tariff, now)`). Der Alternativweg — den Zeitpunkt hier ein
+   * zweites Mal zu führen, neben dem bereits formatierten `printedAt` — wären zwei Felder für
+   * denselben Augenblick, die auseinanderlaufen können.
+   *
+   * ⚠ Deshalb steht hier auch KEIN `tariff`-Feld: die Grundgebühr wird ausschliesslich für diesen
+   * einen Satz gelesen, und sie wird in `derive.ts` gelesen. Ein Feld, das nur weitergereicht
+   * würde, behauptete eine Abhängigkeit des Dokuments, die es nicht gibt.
+   */
+  tariffVintage: string | null
 }

@@ -1,15 +1,26 @@
+import { generateStandardLoadProfile } from 'engine'
 import {
   buildExistingBatteryCandidate,
+  lookupTariffProfile,
+  tariffSelectionFrom,
   type GridTariffRowInput,
   type LoadProfile,
   type SpotPriceSeriesInput,
+  type FinancialParams,
   type TariffParams,
   type TariffPricingInputs,
+  type TariffSelection,
 } from 'shared'
 
 import type { CalculatorPayload } from '@/components/flow/types'
 import { localMonthIndex } from '@/lib/local-time'
-import { buildLoadProfileFixture, buildPartialYearLoadProfileFixture } from './chart-fixtures'
+import {
+  buildCurrentYearPartialLoadProfileFixture,
+  buildGapLoadProfileFixture,
+  buildLoadProfileFixture,
+  buildPartialYearLoadProfileFixture,
+  GAP_LENGTH_SLOTS,
+} from './chart-fixtures'
 import type { SummaryProbeKind } from './summary-probe-kinds'
 
 /**
@@ -137,6 +148,39 @@ function pricingComplete(profile: LoadProfile): TariffPricingInputs {
 }
 
 /**
+ * B23c-4 — dieselbe Preisreihe, aber mit einer echten LÜCKE.
+ *
+ * ── ⚠ DIE LÜCKE IST GEBAUT UND NICHT BLOSS GEMELDET ───────────────────────────────────────────
+ * `missingRanges` sagt der Engine, was fehlt; `complete: false` löst den Blocker aus. Die Reihe
+ * trägt die betroffenen Stunden deshalb tatsächlich NICHT — eine Meldung über eine Lücke, die es
+ * in den Daten nicht gibt, wäre eine Angabe über eine Reihe, die sie nicht hat (dieselbe Haltung
+ * wie beim Lastgang mit interpolierter Lücke).
+ *
+ * Drei Stunden mitten im Juli, weit weg von den Spitzen, an denen die übrigen Läufe gemessen
+ * werden — was diesen Lauf von den anderen unterscheidet, ist die Lücke und nicht eine
+ * verschwundene Spitze.
+ */
+const SPOT_GAP_FROM_ISO = '2025-07-04T10:00:00.000Z'
+const SPOT_GAP_TO_ISO = '2025-07-04T13:00:00.000Z'
+
+function pricingWithGap(profile: LoadProfile): TariffPricingInputs {
+  const full = buildSpotPrices(profile)
+  const fromMs = Date.parse(SPOT_GAP_FROM_ISO)
+  const toMs = Date.parse(SPOT_GAP_TO_ISO)
+  return {
+    gridTariffRows: GRID_TARIFF_ROWS,
+    spotPrices: {
+      prices: full.prices.filter((p) => {
+        const ms = Date.parse(p.tsStart)
+        return ms < fromMs || ms >= toMs
+      }),
+      complete: false,
+      missingRanges: [{ fromIso: SPOT_GAP_FROM_ISO, toIso: SPOT_GAP_TO_ISO }],
+    },
+  }
+}
+
+/**
  * Dieselbe Netzentgelt-Seite, aber OHNE Marktpreise.
  *
  * ⚠ `spotPrices: null` heisst „angefordert, aber nicht lesbar" und ist etwas anderes als ein
@@ -191,44 +235,207 @@ const SMALL_EXISTING_BATTERY = buildExistingBatteryCandidate({
 })
 
 /**
+ * B23c-4 — der Lastgang je Prüffall, samt der Datenqualität, die der Parser dazu gemeldet hätte.
+ *
+ * ── ⚠ DIE DATENQUALITÄT IST EINE EINGABE UND KEIN ERGEBNIS ────────────────────────────────────
+ * `dataQuality` entsteht im PARSER und reist im Payload zum Worker, der sie unverändert in das
+ * Ergebnis übernimmt. Sie hier zu setzen ist damit dasselbe wie einen Lastgang zu setzen — nicht
+ * dasselbe wie eine Ergebniszahl danebenzuschreiben (s. Modulkopf).
+ *
+ * ⚠ WAS DARIN STEHT, IST AM PROFIL ABGEZÄHLT UND NICHT BEHAUPTET: Tage und Monate ergeben sich aus
+ * den Messwerten, und die Lückenzahlen des `luecke`-Falls sind die Länge der Lücke, die
+ * `buildGapLoadProfileFixture` tatsächlich baut. Eine hier notierte Lückenzahl ohne Lücke im Profil
+ * wäre eine Angabe über einen Datensatz, der sie nicht hat.
+ */
+type ProbeLoad = CalculatorPayload['load']
+
+/**
+ * Das Kalenderjahr des Prüf-Lastgangs — aus IHM abgeleitet und nicht danebengeschrieben.
+ *
+ * ⚠ Über die ORTSZEIT gelesen: der Volljahrgang beginnt bei `2024-12-31T23:00Z`, was in Wien der
+ * 1. Jänner ist. Über UTC gelesen ergäbe sich das Vorjahr — und das Standardprofil entstünde für
+ * einen Zeitraum, den weder die Preisreihe noch die Netzentgelt-Zeile abdecken.
+ */
+function probeYear(): number {
+  const profile = buildLoadProfileFixture()
+  const fmt = new Intl.DateTimeFormat('en-CA', {
+    timeZone: profile.timezoneMeta,
+    year: 'numeric',
+  })
+  return Number(fmt.format(Date.parse(profile.readings[0]!.ts)))
+}
+
+function loadFor(kind: SummaryProbeKind, now: Date): ProbeLoad {
+  /*
+   * Das Standardprofil kommt aus DEM Generator, den auch der Rechner benutzt (Delta 9b-1) — samt
+   * der Datenqualitäts-Warnung, die er selbst formuliert. Es ist der einzige Fall, der einen
+   * ANDEREN Lastgang braucht und nicht bloss einen Ausschnitt des einen: `source` ist die
+   * Eigenschaft, um die es geht, und sie einem gemessenen Profil anzuheften wäre eine Behauptung
+   * über seine Herkunft.
+   *
+   * ⚠ Das Jahr ist das des Prüf-Lastgangs und nicht `standardProfileYear(now)`: nur so decken die
+   * Preisreihe und die Netzentgelt-Zeile denselben Zeitraum ab wie in den übrigen Läufen.
+   */
+  if (kind === 'standardprofil') {
+    const year = probeYear()
+    const outcome = generateStandardLoadProfile({
+      annualConsumptionKwh: 4_500,
+      customerClass: 'privat',
+      year: year,
+      timeZone: 'Europe/Vienna',
+    })
+    if (!outcome.ok) throw new Error(`Standardprofil nicht erzeugbar: ${outcome.reason}`)
+    return {
+      fileName: `Standardprofil ${year} · 4.500 kWh/Jahr`,
+      profile: outcome.profile,
+      dataQuality: outcome.dataQuality,
+    }
+  }
+
+  if (kind === 'luecke') {
+    const profile = buildGapLoadProfileFixture()
+    return {
+      fileName: 'pruefstand-jahreslastgang-mit-luecke.csv',
+      profile,
+      dataQuality: {
+        ...countedQuality(profile),
+        gapsInterpolated: GAP_LENGTH_SLOTS,
+        largestGapSlots: GAP_LENGTH_SLOTS,
+        /*
+         * ⚠ WORTGLEICH ZU DEM, WAS `prepareSeries` SCHRIEBE (`packages/engine/src/parser`), samt
+         * der dortigen Schwelle von 4 Intervallen. Ein eigener Satz an dieser Stelle wäre eine
+         * Warnung, die im echten Betrieb so nie erschiene.
+         */
+        warnings: [
+          '1 größere Datenlücke(n) interpoliert (> 4 Intervalle) — im Report als ' +
+            'Datenqualitäts-Hinweis kennzeichnen.',
+        ],
+      },
+    }
+  }
+
+  if (kind === 'teiljahr_monat') {
+    const profile = buildCurrentYearPartialLoadProfileFixture(now)
+    return {
+      fileName: 'pruefstand-teiljahr-laufendes-jahr.csv',
+      profile,
+      dataQuality: { ...countedQuality(profile), gapsInterpolated: 0, largestGapSlots: 0, warnings: [] },
+    }
+  }
+
+  const partial = kind === 'teiljahr'
+  const profile = partial ? buildPartialYearLoadProfileFixture() : buildLoadProfileFixture()
+  return {
+    fileName: partial ? 'pruefstand-teiljahr-jan-aug.csv' : 'pruefstand-jahreslastgang.csv',
+    profile,
+    dataQuality: { ...countedQuality(profile), gapsInterpolated: 0, largestGapSlots: 0, warnings: [] },
+  }
+}
+
+/**
+ * ⚠ GEZÄHLT, NICHT ABGESCHRIEBEN. Wie viele Tage und Kalendermonate ein Lastgang abdeckt, ergibt
+ * sich aus seinen Messwerten — eine hier notierte Zahl wäre eine zweite Wahrheit neben dem Profil
+ * und liefe beim nächsten Zuschnitt von ihm weg. Der Volljahrgang zählt sich damit ebenfalls
+ * selbst und trifft die bisher fest notierten 365/12.
+ */
+function countedQuality(profile: LoadProfile): { coveredDays: number; coveredMonths: number } {
+  const coveredMonths = new Set(
+    profile.readings.map((r) => localMonthIndex(Date.parse(r.ts), profile.timezoneMeta)),
+  ).size
+  const coveredDays = Math.round(profile.readings.length / (24 * (60 / profile.intervalMinutes)))
+  return { coveredDays, coveredMonths }
+}
+
+/**
+ * B23c-4 — der gewählte Tarifsatz-Stand (B11), aus dem der Report seine Herkunftsangabe bildet.
+ *
+ * ── ⚠ ER WIRD NACHGESCHLAGEN UND NICHT ERFUNDEN, UND ZWAR ZUM SELBEN STICHTAG WIE IM RECHNER ──
+ * `lookupTariffProfile` + `tariffSelectionFrom` sind DIE Funktionen, die auch der Tarif-Schritt
+ * benutzt, und der schlägt zum HEUTIGEN Tag nach (`step-tariff.tsx`: `stichtag = new Date()…`) und
+ * nicht zum Zeitraum des Lastgangs. Eine hier von Hand notierte Auswahl trüge eine
+ * Stand-Bezeichnung und ein Gültigkeitsdatum, die es in `tariff-catalog.ts` gar nicht geben muss;
+ * ein anderer Stichtag ergäbe eine Herkunftsangabe, die im Rechner so nie entstünde.
+ *
+ * ⚠ BEIDE ZWEIGE DER HERKUNFTSANGABE SIND DAMIT GEMESSEN, OHNE EINEN GEDREHTEN KNOPF: der
+ * Katalog-Vorgabewert für Wiener Netze NE 3 ist `monthly_max_average` (38,52 · 0). Die Prüf-Fixtur
+ * rechnet mit `annual_max` — also weist die Angabe das Abrechnungsmodell korrekt als „selbst
+ * eingetragen" aus. Der Fall `teiljahr_monat` rechnet mit DEM Vorgabewert und trifft den anderen
+ * Zweig („unverändert übernommen").
+ */
+function selectionFor(kind: SummaryProbeKind, now: Date): TariffSelection | undefined {
+  /*
+   * ⚠ EIN FALL BLEIBT BEWUSST OHNE AUSWAHL. Der `null`-Zweig der Herkunftsangabe ist eine eigene
+   * AUSSAGE — „die Werte stammen aus Ihrer Netzrechnung", also die BESSERE Grundlage (Prinzip 1) —
+   * und wäre sonst gebaut und nie gemessen. Der Katalog-Fall trägt ihn, weil er ohnehin der Lauf
+   * ohne bestehende Anlage ist: ein Kunde, der weder einen Speicher noch einen hinterlegten
+   * Tarifstand mitbringt, ist kein konstruierter, sondern der einfachste Fall.
+   */
+  if (kind === 'katalog') return undefined
+
+  /* ⚠ `Netzebene` ist eine ZAHL; `TariffParams.netzebene` daneben ist ein Metadaten-String. */
+  const on = now.toISOString().slice(0, 10)
+  const found = lookupTariffProfile({ netzbetreiber: 'wiener_netze', netzebene: 3, on })
+  return found.status === 'available' ? tariffSelectionFrom(found.set, found.profile) : undefined
+}
+
+/**
+ * B23c-4 — Förderung und Steuervorteil, für GENAU EINEN Prüffall.
+ *
+ * ── ⚠ WOZU: SONST SIND ZWEI FELDER DER ANNAHMEN-TABELLE NICHT UNTERSCHEIDBAR ──────────────────
+ * Ohne Finanzparameter meldet `calculateRoi` `taxEffectsIncluded: false`, und `netInvestment` ist
+ * dann Zahl für Zahl gleich `totalInvestment`. Die Tabelle liest beide — und eine Wächter-Probe,
+ * die das eine gegen das andere tauscht, bliebe an solchen Daten GRÜN (gemessen). Erst mit einer
+ * echten Förderung trennen sich die Werte, und erst dann ist die Zeile „Nettoinvestition" gegen
+ * die richtige Grösse geprüft.
+ *
+ * ⚠ Damit wird zugleich der ZWEITE Zweig dieser Zeile erreicht: ohne Steuereffekte steht dort
+ * ausdrücklich „keine Angabe (nicht einbezogen)" statt des Bruttowerts (den auszuweisen eine
+ * Rechnung behauptete, die nicht stattgefunden hat). Die übrigen acht Läufe messen jenen Zweig.
+ *
+ * Die Zahlen sind gerundete Grössenordnungen einer österreichischen Investitionsförderung und als
+ * PRÜFEINGABE gekennzeichnet — sie sind kein Förderungsstand, auf den sich jemand berufen könnte.
+ */
+const PROBE_FINANCIAL: FinancialParams = {
+  subsidyPercent: 20,
+  taxRatePercent: 25,
+  depreciationYears: 10,
+}
+
+/**
  * Der Payload eines Prüflaufs — genau der Typ, den auch der Rechner an den Worker schickt.
  *
  * `sourceBytes` fehlt bewusst: es hängt allein am Analyse-Bündel (B14-2) und hat mit der
  * Executive Summary nichts zu tun. Ein erfundener Byte-Block stünde hier als Angabe da, die nichts
  * bezeichnet.
+ *
+ * ⚠ `now` ist ein PARAMETER: genau ein Prüffall (`teiljahr_monat`) hängt an der heutigen Uhr, weil
+ * die Eigenschaft, die er misst, der Bezug zum LAUFENDEN Kalenderjahr ist (s.
+ * `buildCurrentYearPartialLoadProfileFixture`). Eine Fixtur, die selbst auf die Uhr sieht, liesse
+ * sich gegen keinen Stichtag prüfen.
  */
-export function buildSummaryProbePayload(kind: SummaryProbeKind): CalculatorPayload {
-  const partial = kind === 'teiljahr'
-  const profile = partial ? buildPartialYearLoadProfileFixture() : buildLoadProfileFixture()
-
-  /*
-   * ⚠ GEZÄHLT, NICHT ABGESCHRIEBEN. Wie viele Tage und Kalendermonate der gekürzte Lastgang
-   * abdeckt, ergibt sich aus seinen Messwerten — eine hier notierte Zahl wäre eine zweite Wahrheit
-   * neben dem Profil und liefe beim nächsten Zuschnitt von ihm weg. Der Volljahrgang zählt sich
-   * damit ebenfalls selbst und trifft die bisher fest notierten 365/12.
-   */
-  const coveredMonths = new Set(
-    profile.readings.map((r) => localMonthIndex(Date.parse(r.ts), profile.timezoneMeta)),
-  ).size
-  const coveredDays = Math.round(profile.readings.length / (24 * (60 / profile.intervalMinutes)))
+export function buildSummaryProbePayload(kind: SummaryProbeKind, now: Date): CalculatorPayload {
+  const load = loadFor(kind, now)
 
   return {
-    load: {
-      fileName: partial ? 'pruefstand-teiljahr-jan-aug.csv' : 'pruefstand-jahreslastgang.csv',
-      profile,
-      dataQuality: {
-        coveredDays,
-        coveredMonths,
-        gapsInterpolated: 0,
-        largestGapSlots: 0,
-        warnings: [],
-      },
-    },
-    tariff: TARIFF,
+    load,
+    /*
+     * ⚠ Der Teiljahres-Hinweis erscheint NUR unter einem monatsbasierten Abrechnungsmodell
+     * (§3.5) — der Prüf-Tarif rechnet sonst durchgehend mit `annual_max`, und genau deshalb ist
+     * der bestehende `teiljahr`-Lauf frei von ihm, obwohl er acht Monate abdeckt.
+     */
+    tariff:
+      kind === 'teiljahr_monat' ? { ...TARIFF, billingModel: 'monthly_max_average' } : TARIFF,
+    tariffSelection: selectionFor(kind, now),
+    financial: kind === 'foerderung' ? PROBE_FINANCIAL : undefined,
     pv: null,
-    tariffPricing: kind === 'blocker' ? PRICING_WITHOUT_SPOT : pricingComplete(profile),
+    tariffPricing:
+      kind === 'blocker'
+        ? PRICING_WITHOUT_SPOT
+        : kind === 'blocker_luecke'
+          ? pricingWithGap(load.profile)
+          : pricingComplete(load.profile),
     existingBattery:
-      kind === 'katalog'
+      kind === 'katalog' || kind === 'standardprofil'
         ? undefined
         : {
             battery: kind === 'zusatz' ? SMALL_EXISTING_BATTERY : EXISTING_BATTERY,

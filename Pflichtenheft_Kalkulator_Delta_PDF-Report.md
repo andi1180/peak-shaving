@@ -919,5 +919,234 @@ er offen.
 - **Die Kurve trägt keine Beschriftung der einzelnen Punkte** — welcher Punkt welches Gerät ist,
   steht am Bildschirm im Tooltip und im PDF nur mittelbar über die Tabelle (Kapazität als X-Achse).
   Ein Datenpunkt-Label wäre eine Änderung an der Komponente.
-- **Offen bleiben Annahmen-Snapshot und Datenqualität** (B23c-4) sowie der Cutover selbst.
+- ~~**Offen bleiben Annahmen-Snapshot und Datenqualität** (B23c-4)~~ — **gebaut, s. D17.** Offen bleibt der Cutover selbst.
 - **Die Data-URIs bleiben der teure Teil**: die PDFs wiegen jetzt 651–834 kB.
+
+---
+
+## D17 — B23c-4: die Hinweise bei der Kern-Kennzahl und das Schlusskapitel
+
+**Gebaut am 04.09.2026.** Damit trägt das Dokument alle Inhalte des Bildschirm-Reports bis auf eine
+benannte Ausnahme (s. `[OFFEN]`). Neu sind **drei Hinweise bei der Kern-Kennzahl** (`summary.ts`)
+und das Kapitel **„Annahmen und Datengrundlage"** (`basis.ts`) — eine eigene `<Page>` (D5, Regel 1)
+als LETZTES Kapitel, hinter der Methodik.
+
+### Drei Hinweise, drei Bedingungen — und warum sie einzeln gemessen sind
+
+`summary.ts` ist zum ersten Mal seit B23c-1 erweitert worden. Die drei Hinweise hängen an je einer
+eigenen Bedingung, alle drei wortgleich aus `report.tsx` übernommen:
+
+| Hinweis | Bedingung | Ton |
+|---|---|---|
+| Standardprofil | `loadProfile.source === 'standard_profile'` | neutral |
+| Teiljahr | `billingModel.startsWith('monthly') && coveredMonths < 12` | Warnung |
+| Datenlücke | `largestGapSlots > LARGE_GAP_SLOTS_THRESHOLD` | Warnung |
+
+Der Bildschirm-Kommentar begründet ausdrücklich, warum sie nicht zusammengelegt werden: sie sagen
+Verschiedenes, und die Handlung, die daraus folgt, ist je eine andere (anderes Abrechnungsmodell ·
+vollständigen Lastgang anfordern · echten Lastgang hochladen). Sie stehen deshalb einzeln, und alle
+drei können zugleich zutreffen.
+
+**Sie stehen ZWISCHEN Kopfzahl und Kernaussagen** und nicht im Schlusskapitel: sie qualifizieren
+genau die Zahl darüber — der abgerechnete Leistungswert eines Standardprofils ist die Spitze einer
+Durchschnittskurve und keine gemessene Spitze. Dieselbe Stellung wie am Bildschirm, wo der Kommentar
+das ausdrücklich begründet („nicht nur in der Datenqualitäts-Box, die beim Live-Test überscrollt
+wurde").
+
+**Keine Schwelle ist hier erfunden:** `< 12` und `startsWith('monthly')` stehen so in `report.tsx`,
+die Lückengrenze ist die EINE Konstante `LARGE_GAP_SLOTS_THRESHOLD` (importiert, nicht abgeschrieben
+— ein als vorläufig gekennzeichneter Platzhalter, Delta 14 Punkt 9), und `source` ist dieselbe
+Eigenschaft, an der die Engine die Spitzenkappung abschaltet.
+
+> **⚠ Benannte Präzisierung gegenüber dem Bildschirm.** Dort steht das Modell fest als „Mittelwert
+> der Monatsspitzen" im Satz, obwohl die Bedingung auch `monthly_max_sum` trifft — dann benennt der
+> Satz das falsche Modell. Im PDF steht der Name, den das Ergebnis tatsächlich trägt. Es ist
+> derselbe BEFUND, nur nicht mehr an einen der zwei Fälle gebunden. Der KNOPF des Bildschirms („Mit
+> Jahreshöchstwert rechnen") entfällt: ein Satz, der auf eine Schaltfläche verweist, die es auf
+> Papier nicht gibt, wäre eine tote Anweisung — der Inhalt des Knopfes steht als Aussage da.
+
+### Das Schlusskapitel: sechs Teile, vier davon bedingt
+
+In dieser Reihenfolge: Annahmen-Tabelle (nativ, kein Bild) → Datenqualitäts-Kasten → Blocker-Befund
+→ Tarifherkunft → Preisstand → Schluss-Vorbehalt. **Vom Bekannten zum Fehlenden** — wer bis hierher
+liest, sucht die Grenzen.
+
+Es steht NACH der Methodik, und das ist eine andere Reihenfolge als am Bildschirm (dort liegt der
+Annahmen-Schnappschuss davor und die Datenqualitäts-Box dahinter). Auf Papier ist es eine Aussage:
+die Methodik sagt, WIE gerechnet wurde, dieses Kapitel WOMIT und was dabei fehlte.
+
+**Es ist ausdrücklich KEIN drittes bedingtes Kapitel** — Annahmen, Tarifherkunft und Vorbehalt gibt
+es in jedem Report; nur die einzelnen Abschnitte darin entfallen. `ReportChapterPresence` wächst
+deshalb nicht.
+
+**⚠ Der Blocker-Befund ist die Lücke, die `recommendation.ts` benannt und hierher verwiesen hat.**
+Dort entfällt die Ladesteuerungs-Aussage vollständig, wenn der Hebel nicht berechenbar ist (Delta 15
+Regel C) — der STRUKTURIERTE Befund (`side`/`kind`/`ranges`) erschien im PDF damit gar nicht. Er
+gehört zu den „was fehlt und warum"-Aussagen und nicht unter eine Überschrift, die einen Wert
+ankündigt. Er trägt ausdrücklich KEINEN Betrag.
+
+**Zwei Selbstverweise des Bildschirms sind ersetzt, nicht gestrichen:** der Annahmen-Schnappschuss
+verweist auf „das Annahmen-Panel im Bildschirm-Report", die Blocker-Karte auf „die Empfehlung
+nebenan". Auf einem weitergereichten Blatt gibt es weder ein Panel noch ein Nebenan. An ihre Stelle
+tritt die AUSSAGE, die sie transportieren sollten.
+
+### Der Contract wächst um GENAU EIN Feld — ausgezählt
+
+`PdfReportAnalysis` bekommt `dataQuality` und sonst nichts. Nachgezählt lesen die vier neuen
+Bausteine: `dataQuality.coveredMonths` (Teiljahr), `.largestGapSlots` (Lücke),
+`.coveredDays`/`.gapsInterpolated`/`.warnings` (Datenqualität), `assumptions` (Annahmen-Tabelle,
+und `billingModel` zusätzlich für den Teiljahres-Hinweis), `perBattery` + `recommendation` (das
+Gerät der Tabelle) und `tariffOptimization` (der Blocker). Nur `dataQuality` fehlte.
+
+**`PdfReportInput` wächst um ZWEI Felder:** `tariffSource` (die Herkunft der Tarifsätze steht nicht
+im `AnalysisResult` — die Engine rechnet mit Tarifwerten, nicht mit ihrer Herkunft; am Bildschirm
+ist es genauso eine eigene Prop) und `tariffVintage` als fertige Zeichenkette. Ein `tariff`-Feld
+steht ausdrücklich NICHT dort: die Grundgebühr wird ausschliesslich für den Preisstand-Satz gelesen,
+und der entsteht in `derive.ts`.
+
+> **⚠ Der Preisstand-Satz ist der einzige Teil dieses Kapitels, der in `derive.ts` steht.** Seine
+> Aussage hängt an der UHR, und diese Datei ist die eine, die Grössen ableitet, für die das gilt
+> (`formatPrintedAt`). Die Alternative wäre ein zweites Feld für denselben Augenblick gewesen (neben
+> dem bereits formatierten `printedAt`) — zwei Darstellungen desselben Zeitpunkts, die
+> auseinanderlaufen können.
+
+### Der Vorbehalt steht zweimal, und deshalb an EINER Stelle
+
+Deckblatt und Schlusskapitel tragen denselben Satz; der CSS-Weg tut das ebenso (`print-cover.tsx`
+und der Schlussabsatz in `report.tsx`), und der Grund ist derselbe: ein weitergereichter Report wird
+von beiden Enden gelesen. Er ist ein Vorbehalt und keine Zahl (D16) — dass er zweimal steht, ist
+richtig; dass er zweimal ANDERS stünde, wäre es nicht. Der Bildschirm hat wörtlich zwei Fassungen,
+die sich um ein „Die" unterscheiden. Er steht deshalb ab jetzt in `content.ts`
+(`REPORT_DISCLAIMER`), gelesen von Deckblatt und Schlusskapitel.
+
+### ⚠ Kein `wrap={false}` am Hinweis — anders als bei `Statement`
+
+Eine Kernaussage trägt eine feste Zahl von Zeilen und ist nachweislich kleiner als der Satzspiegel.
+Ein Hinweis nicht: die Aufzählung des Blocker-Befunds führt die betroffenen Zeitbereiche, und wie
+viele es sind, entscheidet die Datenlage. Ein `wrap={false}`-Block, der die Seite sprengt, wird von
+react-pdf ABGESCHNITTEN statt umgebrochen — bei einem Befund über fehlende Preise wäre das ein
+stiller Inhaltsverlust an genau der Stelle, die sagt, was fehlt. Der Preis ist ein Hinweis, der im
+Ungünstigsten über einen Seitenwechsel läuft; dieselbe Abwägung steht bereits an `ResultsChapter`.
+
+### Gemessen am erzeugten PDF
+
+Zehn Läufe über die Prüfroute gegen den Production-Build, **326 Prüfungen, alle grün, 0
+Konsolenfehler, 0 Seitenfehler**. Drei Prüffälle sind neu (`teiljahr_monat`, `luecke`,
+`standardprofil`), dazu zwei, die je einen sonst unerreichbaren Zweig öffnen (`blocker_luecke`,
+`foerderung`):
+
+| | Hinweis | Datenqualität | Blocker | Preisstand | Tarifstand | Seiten |
+|---|---|---|---|---|---|---|
+| bestand | — | — | — | — | at-2026 | 15 |
+| blocker | — | — | `unavailable`, 0 Bereiche | — | at-2026 | 13 |
+| blocker_luecke | — | — | **`gap`, 1 Bereich** | — | at-2026 | 13 |
+| katalog | — | — | — | — | **keiner** | 16 |
+| teiljahr | — | — | — | — | at-2026 | 15 |
+| zusatz | — | — | — | — | at-2026 | 16 |
+| **teiljahr_monat** | **`partial_year`** | — | — | **ja** | at-2026 | 15 |
+| **luecke** | **`large_gap`** | **ja** | — | — | at-2026 | 16 |
+| **standardprofil** | **`standard_profile`** | **ja** | — | — | at-2026 | 16 |
+| foerderung | — | — | — | — | at-2026 | 16 |
+
+- **Jeder der drei Hinweise steht einmal ALLEIN**, und in den sieben übrigen Läufen kommt sein
+  Wortlaut im gesamten PDF **0×** vor. Ein gemeinsamer Lauf mit allen dreien bewiese die
+  Unabhängigkeit nicht: er bliebe auch dann grün, wenn zwei Bedingungen in Wahrheit an derselben
+  Grösse hingen.
+- **Der Hinweis steht auf DERSELBEN Seite wie die Kern-Kennzahl** (je gemessen, nicht angenommen).
+- **Der Blocker-Befund ist gegen den ROHEN Contract-Wert gehalten**, nicht bloss auf Vorhandensein
+  geprüft: Seite, Grund und die Zeitbereiche in Ortszeit gegen `side`/`kind`/`ranges` der Analyse
+  (gemessen `spot_price · gap · 04.07.2025, 12:00 – 04.07.2025, 15:00`).
+- **Die Annahmen-Tabelle ist gegen die ROHE `AnalysisResult`-Instanz gehalten** und unabhängig
+  formatiert (de-AT Intl), nicht gegen die Ableitung, die sie erzeugt hat.
+- **Agenda erneut gemessen**, jeder der SIEBEN Einträge gegen die tatsächliche erste Seite seines
+  Kapitels (Titel und Vorspann unmittelbar hintereinander, D15). Alle 70 Zahlen treffen; „Seite X
+  von Y" auf allen **151** Seiten der zehn Dokumente.
+- **Der Vorbehalt steht in jedem Dokument genau 2× und wortgleich**, auf Seite 1 und auf der
+  letzten Seite.
+
+### ⚠ Zwei Prüffälle öffnen je einen sonst unerreichbaren Zweig
+
+**`blocker_luecke`.** Der bestehende `blocker`-Fall fährt `spotPrices: null` und erzeugt damit
+`kind: 'unavailable'` — dazu gibt es KEINE Bereiche (gemessen). `kind: 'gap'` ist der einzige Grund,
+der Zeitbereiche trägt, und genau deren Darstellung wäre sonst gebaut und nie gemessen.
+
+**`foerderung`.** Ohne Finanzparameter meldet `calculateRoi` `taxEffectsIncluded: false`, und
+`netInvestment` ist Zahl für Zahl gleich `totalInvestment`. **Gemessen: eine Wächter-Probe, die das
+eine gegen das andere tauscht, bleibt an solchen Daten GRÜN.** Erst mit einer echten Förderung
+trennen sich die Werte (19.100 gegen 10.505), und erst dann ist die Zeile „Nettoinvestition" gegen
+die richtige Grösse geprüft. Der Lauf erreicht zugleich den zweiten Zweig jener Zeile — die übrigen
+neun zeigen dort „keine Angabe (nicht einbezogen)".
+
+### ⚠ Drei Fehler in der PRÜFUNG, alle von einer Wächter-Probe gefunden
+
+Sie sind der eigentliche Ertrag der Proben und stehen hier, weil sie sich wiederholen werden.
+
+1. **Die Erwartung stammte aus dem geprüften Code.** Die erste Fassung verglich das PDF gegen das,
+   was der Prüfstand anzeigt — und beides kommt aus DERSELBEN Ableitung. Mit entfernter
+   `billingModel`-Bedingung blieb alles grün, weil die Erwartung mit dem Fehler mitwanderte. Sie
+   steht jetzt als Tabelle in der Prüfung und folgt dem AUFBAU der Prüffälle.
+2. **`indexOf` über das ganze Dokument traf den Fliesstext.** „Arbeitspreis" und
+   „Abrechnungsmodell" stehen auch in den Kernergebnis-Aussagen; die erste Fundstelle ist deshalb
+   regelmässig nicht die Tabellenzeile, und die Prüfung meldete Rot an einer Tabelle, die stimmt.
+3. **ALLE Vorkommen zu durchsuchen war umgekehrt zu grosszügig.** Mit vertauschter Investitions-
+   Zeile fand die Prüfung „Gesamtinvestition € 19.100" in der Kaufaussage des Empfehlungs-Kapitels
+   wieder und blieb grün. Gesucht wird jetzt im ABSCHNITT der Tabelle.
+
+**⚠ Dazu ein Extraktions-Artefakt, das keiner ist:** pdfjs zerlegt einen react-pdf-Textlauf an
+Kerning-Stellen und setzt dort ein Leerzeichen — aus „04.07.2025" wird „04.07 .2025". Am Bild
+gemessen überlappen die Glyphen (zweiter Lauf bei x = 87,8, erster endet bei x = 90,1); im PDF steht
+keine Lücke. Verglichen wird deshalb ohne Leerzeichen.
+
+**Sechs Wächter-Proben, jede bringt gezielt Rot:** (1) `billingModel`-Bedingung entfernt → **2** rot
+im `teiljahr`-Lauf. (2) Lückenschwelle aufgehoben → **4** rot, „Grosse Datenlücke: 0 Tage" in Läufen
+ohne Lücke. (3) Datenqualitäts-Kasten an `gapsInterpolated` statt an `warnings` → **2** rot, der
+Kasten des Standardprofil-Laufs verschwindet. (4) Investitions-Zeilen vertauscht → **1** rot, und
+zwar NUR im Förderungs-Lauf (s. o.). (5) Blocker ohne Zeitbereiche → **2** rot. (6) Schluss-Vorbehalt
+eigenständig formuliert statt geteilt → **2** rot („1×" statt „2× wortgleich"). Danach jeweils
+wiederhergestellt, 326/326 grün.
+
+**⚠ Nebenbefund, zum dritten Mal:** eine Probe, die eine Konstante oder Funktion unbenutzt lässt,
+bricht den BUILD an ESLint (`no-unused-vars`) — hier zweimal, und dann misst der Prüflauf den alten
+Server statt Rot zu melden. Die Probe muss die Symbole referenziert lassen.
+
+### Layout, am Bild gemessen
+
+Ein Hinweis bei der Kern-Kennzahl schiebt die Kernaussagen darunter auf die Folgeseite (sie tragen
+`wrap={false}`): das Kapitel läuft dann über zwei Seiten, und die erste bleibt zu rund 45 % leer.
+Das ist die bekannte Eigenschaft, die `ResultsChapter` bereits benennt — die Folgeseite ist gut
+gefüllt, die Agenda nennt weiterhin die erste. Der grosszügige Zeilenabstand des Kastens ist der des
+Dokuments (an einer unveränderten Kernergebnis-Seite gegengeprüft) und keine Eigenheit des Hinweises.
+
+### Bündelgrösse
+
+`/rechner` First Load: roh **1.920.351 → 1.923.660** (+3.309), Chunk-Zahl **17 → 18**.
+`/pdf-report-probe` roh **400.137 → 404.457**, unverändert 6 Chunks.
+
+Es ist erneut Chunk-Graph-Buchhaltung, und sie ist ausgezählt: der Seiten-Chunk SCHRUMPFT von
+201.727 auf 178.897 Bytes, ein Chunk (25.475) wird zu zweien (27.159 und 25.270), ein weiterer
+verschiebt sich um rund 900 Bytes. **Gemessen über den GESAMTEN `/rechner`-First-Load-Satz:
+`@react-pdf`, `fitRasterToWidth`, `buildBasisChapter`, `tariffVintageNote`, `buildNotices`,
+„Annahmen und Datengrundlage" und „Grosse Datenlücke" kommen 0× vor**, `stunden-heatmap-raster`
+genau 1× (Positivkontrolle) — es ist kein neuer Code auf der Route. Die gzip-Zahl dieser Route ist
+zwischen zwei Builds ohnehin nicht stabil (D16: rund 120 Bytes Streuung); massgeblich ist die
+Rohgrösse.
+
+### `[OFFEN]` nach diesem Schritt
+
+- **⚠ EIN Bildschirm-Inhalt fehlt im PDF und ist bewusst nicht ergänzt: der Hinweis zur GESCHÄTZTEN
+  PV-Erzeugung** (`estimated-pv-note.tsx`, B22b). Er nennt Standort, kWp, Wetterjahre und die
+  gemessene Streuung — und die stehen in `EstimatedPvSummary`, einer eigenen Prop des
+  Bildschirm-Reports, nicht im Contract und nicht im Lastgang. `loadProfile.pvSource` sagt nur, DASS
+  geschätzt wurde, nicht WOMIT; eine daraus gebaute Kurzfassung wäre eine zweite Formulierung
+  desselben Befunds (D16). Wer ihn nachträgt, erweitert `PdfReportInput` um jene Zusammenfassung und
+  braucht einen Prüffall mit echter PVGIS-Schätzung.
+- **Der Fall „gar kein Kapitel" ist für beide bedingten Kapitel unverändert gebaut und ungemessen**
+  (D16) — er gehört in die Abschluss-Prüfung vor dem Cutover, zusammen mit dem `pv_strong`-Rückfall
+  des Energieflusses (D14).
+- **Der Preisstand-Hinweis erscheint im Jänner nicht**, und das ist die richtige Antwort: die acht
+  Monate vor einem Jänner enden im Vorjahr. Der Prüffall hängt als einziger an der heutigen Uhr; wer
+  im Jänner prüft, misst dort den negativen Zweig.
+- **Der Cutover ist NICHT Teil von B23c** und braucht eine eigene Entscheidung. Der Knopf im Rechner
+  löst unverändert `window.print()` gegen das Print-Stylesheet aus; der react-pdf-Weg ist
+  ausschliesslich über die unverlinkte, `noindex`-Route `/pdf-report-probe` erreichbar.
+- **Die Data-URIs bleiben der teure Teil**: die PDFs wiegen jetzt 657–852 kB.
