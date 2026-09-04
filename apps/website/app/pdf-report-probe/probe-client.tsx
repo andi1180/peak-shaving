@@ -21,6 +21,7 @@ import {
  * geladen): statisch hier importiert zöge es den `shared`-Barrel samt PLZ-Tabelle in den First
  * Load dieser Route — gemessen rund 60 kB für eine Anzeige, die es erst nach einem Klick gibt.
  */
+import type { DetailChapter } from '@/lib/pdf-report/detail'
 import type { RecommendationChapter } from '@/lib/pdf-report/recommendation'
 import type { ReportSummary } from '@/lib/pdf-report/summary'
 import {
@@ -72,6 +73,18 @@ import {
  * ECHTEN Lastgang des Rechenlaufs — demselben, aus dem gleich das Diagramm entsteht. Eine zweite,
  * danebengeschriebene Zeitspanne wäre die Sorte Doppelung, die erst auffällt, wenn sie abweicht.
  */
+/**
+ * Die drei Bilder eines Dokuments, in Dokumentreihenfolge.
+ *
+ * ⚠ Als Liste und nicht dreimal ausgeschrieben: die drei Zeilen unterscheiden sich nur in
+ * Beschriftung und Schlüssel, und drei Kopien liefen beim nächsten hinzukommenden Bild auseinander.
+ */
+const CHART_FIGURES = [
+  { key: 'load', label: 'Lastgang-Bild' },
+  { key: 'cost', label: 'Kosten-Bild' },
+  { key: 'flow', label: 'Energiefluss-Bild' },
+] as const
+
 function probeProfile(standardProfile: boolean): Pick<LoadProfile, 'source'> {
   return { source: standardProfile ? 'standard_profile' : 'net_signed' }
 }
@@ -82,6 +95,12 @@ export function PdfReportProbe() {
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null)
   const [summary, setSummary] = useState<ReportSummary | null>(null)
   const [chapter, setChapter] = useState<RecommendationChapter | null>(null)
+  const [detail, setDetail] = useState<{
+    chapter: DetailChapter
+    costKind: 'monthly' | 'cumulative' | null
+    flowPlanned: boolean
+    flowDays: { label: string; date: string }[]
+  } | null>(null)
   /** Der Lastgang des Rechenlaufs — Grundlage des Diagramms UND des Zeitraums auf dem Deckblatt. */
   const [loadProfile, setLoadProfile] = useState<LoadProfile | null>(null)
   const [analysisKind, setAnalysisKind] = useState<SummaryProbeKind | null>(null)
@@ -123,6 +142,7 @@ export function PdfReportProbe() {
     setAnalysis(null)
     setSummary(null)
     setChapter(null)
+    setDetail(null)
     setLoadProfile(null)
     setAnalysisKind(null)
     setOutcome(null)
@@ -138,6 +158,12 @@ export function PdfReportProbe() {
          Dokument gleich rendern wird, statt es nachzubauen. */
       setSummary(run.summary)
       setChapter(run.chapter)
+      setDetail({
+        chapter: run.detail,
+        costKind: run.detailCostKind,
+        flowPlanned: run.detailFlowPlanned,
+        flowDays: run.detailFlowDays,
+      })
       setLoadProfile(run.loadProfile)
       setAnalysisKind(probeKind)
       /* Ein neuer Fall bringt einen neuen Vorschlag — ein Titel von Hand bleibt trotzdem stehen. */
@@ -197,9 +223,10 @@ export function PdfReportProbe() {
         <h1 className="text-2xl font-semibold text-ink">PDF-Report-Prüfstand</h1>
         <p className="mt-1 text-sm text-text-muted">
           B23a — Dokumentgerüst (Deckblatt, Kopf-/Fusszeile mit Seitenzahl, Agenda mit
-          Seitenverweisen, Methodik). B23c-1 — Kernergebnisse aus einem ECHTEN, hier im Browser
-          gerechneten Ergebnis. Interne Route, nicht verlinkt, <code>noindex</code>. Der Export im
-          Rechner ist davon unberührt und läuft weiter über den Druckdialog.
+          Seitenverweisen, Methodik). B23c-1/2/3a — Kernergebnisse, Empfehlung mit
+          Lastgang-Diagramm sowie Kostenverlauf und Tages-Energiefluss, alle aus einem ECHTEN, hier
+          im Browser gerechneten Ergebnis. Interne Route, nicht verlinkt, <code>noindex</code>. Der
+          Export im Rechner ist davon unberührt und läuft weiter über den Druckdialog.
         </p>
       </div>
 
@@ -300,6 +327,34 @@ export function PdfReportProbe() {
                 </strong>
               </p>
             )}
+            {/*
+              B23c-3a — die ENTSCHEIDUNG des Detail-Kapitels, vor dem Erzeugen sichtbar: welcher
+              Kosten-Chart entsteht (die beiden schliessen einander aus) und ob es überhaupt einen
+              Energiefluss-Tag gibt. Wieder die Produktionsfunktion (`detailChartPlan` /
+              `buildDetailChapter`), gelaufen in `analysis-run.ts`.
+            */}
+            {detail && (
+              <p className="text-text-muted">
+                Detail-Kapitel: Kosten-Chart{' '}
+                <strong id="probe-detail-cost-kind">{detail.costKind ?? 'keiner'}</strong> ·
+                Aufschlüsselung{' '}
+                <strong id="probe-detail-cost-statement">
+                  {detail.chapter.cost?.statement?.id ?? 'keine'}
+                </strong>{' '}
+                · Energiefluss-Tag vorhanden:{' '}
+                <strong id="probe-detail-flow">{detail.flowPlanned ? 'ja' : 'nein'}</strong> ·
+                Tage im Trace:{' '}
+                <strong id="probe-detail-flow-days">
+                  {detail.flowDays.map((d) => `${d.label}@${d.date}`).join(', ') || '—'}
+                </strong>
+                {detail.chapter.flowMissing && (
+                  <>
+                    {' '}
+                    · Grund: <span id="probe-detail-flow-missing">{detail.chapter.flowMissing}</span>
+                  </>
+                )}
+              </p>
+            )}
             <ul id="probe-summary" className="flex flex-col gap-0.5 text-text-muted">
               {summary.statements.map((statement) => (
                 <li key={statement.id} data-statement={statement.id}>
@@ -394,39 +449,50 @@ export function PdfReportProbe() {
             <strong id="probe-agenda-numbers">{outcome.agendaHasPageNumbers ? 'ja' : 'nein'}</strong>
           </p>
           {/*
-            ⚠ `Chart-Rasterungen` muss 1 sein, UNABHÄNGIG von der Zahl der Durchläufe daneben — das
-            ist die eine Zusage dieses Schritts, die man sonst nur behaupten könnte. Der Zähler
-            sitzt an der Rasterung (`charts.ts`), nicht an ihrem Aufrufer.
+            ⚠ `Chart-Rasterungen` muss der Zahl der tatsächlich gezeigten Bilder entsprechen —
+            UNABHÄNGIG von der Zahl der Durchläufe daneben. Das ist die eine Zusage dieses
+            Schritts, die man sonst nur behaupten könnte; der Zähler sitzt an der Rasterung
+            (`charts.tsx`), nicht an ihrem Aufrufer.
           */}
           <p>
             Chart-Rasterungen für dieses Dokument:{' '}
             <strong id="probe-chart-builds">{outcome.chart.builds}</strong> · Dauer:{' '}
-            <strong id="probe-report-chart-ms">{Math.round(outcome.chart.captureMs)} ms</strong>
+            <strong id="probe-report-chart-ms">{Math.round(outcome.chart.captureMs)} ms</strong> ·
+            Kosten-Chart:{' '}
+            <strong id="probe-report-cost-kind">{outcome.chart.costKind ?? 'keiner'}</strong> ·
+            Energiefluss-Tag:{' '}
+            <strong id="probe-report-flow-day">{outcome.chart.flowDay ?? '—'}</strong>
           </p>
-          {outcome.chart.loadPx && outcome.chart.loadEmbeddedPt && (
-            <p>
-              Lastgang-Bild:{' '}
-              <strong id="probe-report-chart-px">
-                {outcome.chart.loadPx.width} × {outcome.chart.loadPx.height} px
-              </strong>{' '}
-              · Seitenverhältnis Bild:{' '}
-              <strong id="probe-report-chart-raster-ratio">
-                {outcome.chart.loadAspectRatio?.toFixed(6)}
-              </strong>{' '}
-              · eingebettet mit{' '}
-              <strong id="probe-report-chart-pt">
-                {outcome.chart.loadEmbeddedPt.width.toFixed(2)} ×{' '}
-                {outcome.chart.loadEmbeddedPt.height.toFixed(2)} pt
-              </strong>{' '}
-              · Stützpunkte der Kurve:{' '}
-              <strong id="probe-report-chart-vertices">{outcome.chart.loadVertices}</strong>
-            </p>
-          )}
-          {outcome.chart.loadError && (
-            <p id="probe-report-chart-error" className="text-negative">
-              Kein Lastgang-Bild: {outcome.chart.loadError}
-            </p>
-          )}
+          {CHART_FIGURES.map(({ key, label }) => {
+            const fig = outcome.chart[key]
+            return fig.px && fig.embeddedPt ? (
+              <p key={key}>
+                {label}:{' '}
+                <strong id={`probe-report-${key}-px`}>
+                  {fig.px.width} × {fig.px.height} px
+                </strong>{' '}
+                · Seitenverhältnis Bild:{' '}
+                <strong id={`probe-report-${key}-raster-ratio`}>
+                  {fig.aspectRatio?.toFixed(6)}
+                </strong>{' '}
+                · eingebettet mit{' '}
+                <strong id={`probe-report-${key}-pt`}>
+                  {fig.embeddedPt.width.toFixed(2)} × {fig.embeddedPt.height.toFixed(2)} pt
+                </strong>
+                {key === 'load' && (
+                  <>
+                    {' '}
+                    · Stützpunkte der Kurve:{' '}
+                    <strong id="probe-report-chart-vertices">{outcome.chart.loadVertices}</strong>
+                  </>
+                )}
+              </p>
+            ) : (
+              <p key={key} id={`probe-report-${key}-missing`} className="text-text-muted">
+                {label}: kein Bild{fig.error ? ` — ${fig.error}` : ' (für diesen Fall keines)'}
+              </p>
+            )
+          })}
         </div>
       )}
 

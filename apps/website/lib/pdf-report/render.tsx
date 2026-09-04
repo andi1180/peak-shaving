@@ -1,7 +1,7 @@
 import { pdf } from '@react-pdf/renderer'
 
 import { buildReportCharts, reportChartBuildCount, type ReportChartRasters } from './charts'
-import { fitRasterToWidth } from './chart-raster'
+import { fitRasterToWidth, type ChartRaster } from './chart-raster'
 import { ReportDocument } from './document'
 import { registerReportFonts } from './fonts'
 import {
@@ -50,9 +50,11 @@ import type { PdfReportInput } from './types'
  *      Wächter (`measurementsAgree`) an, und die Ursache stünde nirgends im Dokument.
  *
  * Gemessen wird das über `reportChartBuildCount()`: `chartBuilds` im Ergebnis ist die Zahl der
- * Rasterungen, die für DIESE Erzeugung tatsächlich gelaufen sind — 1, unabhängig davon, ob zwei
- * oder drei Durchläufe nötig waren. Der Zähler sitzt an der Rasterung selbst (`charts.ts`) und
- * nicht hier: zöge jemand den Aufruf in einen Durchlauf, stiege er auf 3 oder 4.
+ * Rasterungen, die für DIESE Erzeugung tatsächlich gelaufen sind. Seit B23c-3a sind es bis zu DREI
+ * (Lastgang, Kostenvergleich, Tages-Energiefluss) — die Zahl folgt also den BILDERN, die das
+ * Dokument zeigt, und ausdrücklich nicht der Zahl der Durchläufe. Der Zähler sitzt an der
+ * Rasterung selbst (`charts.tsx`) und nicht hier: zöge jemand den Aufruf in einen Durchlauf,
+ * verdoppelte oder verdreifachte er sich.
  *
  * ⚠ DIE DIFFERENZ WIRD ERST AM ENDE GEBILDET, NICHT GLEICH NACH DEM EINEN AUFRUF — und das ist
  * kein Schönheitsfehler, sondern der Unterschied zwischen einer Messung und einer Tautologie.
@@ -86,24 +88,32 @@ export type RenderReportResult = {
   /** Zahl der Renderdurchläufe: 2 im Regelfall, 3 im Wächterfall. */
   passes: number
   /**
-   * Zahl der Chart-Rasterungen, die für DIESE Erzeugung gelaufen sind. Muss 1 sein, unabhängig von
-   * `passes` — s. den Kopf dieser Datei. Ein Diagnosewert: die Zusage „einmal je Dokument" ist der
-   * architektonische Kern dieses Schritts, und eine Zusage, die niemand messen kann, ist eine
-   * Behauptung.
+   * Zahl der Chart-Rasterungen, die für DIESE Erzeugung gelaufen sind.
+   *
+   * ⚠ Muss der Zahl der Bilder entsprechen, die das Dokument zeigt (höchstens drei), und
+   * ausdrücklich NICHT mit `passes` skalieren — s. den Kopf dieser Datei. Ein Diagnosewert: die
+   * Zusage „je Bild einmal pro Dokument" ist der architektonische Kern dieses Schritts, und eine
+   * Zusage, die niemand messen kann, ist eine Behauptung.
    */
   chartBuilds: number
   /** Was beim Rastern herauskam — für die Anzeige im Prüfstand, nicht zur Steuerung. */
   charts: ReportChartRasters
   /**
-   * Die pt-Masse, mit denen das Lastgang-Bild im Dokument steht — über DIESELBE Funktion gebildet
-   * wie dort (`fitRasterToWidth`, `PDF_CONTENT_WIDTH_PT`). `null`, wenn kein Bild entstanden ist.
+   * Die pt-Masse, mit denen die Bilder im Dokument stehen — je über DIESELBE Funktion gebildet wie
+   * dort (`fitRasterToWidth`, `PDF_CONTENT_WIDTH_PT`). `null`, wo kein Bild entstanden ist.
    *
    * ⚠ Es ist die ERWARTUNG, nicht der Nachweis. Der läuft am erzeugten PDF: die `cm`-Matrix der
    * Bildplatzierung gegen die intrinsische Grösse des Bild-XObjects (wie in B23b). Eine Zahl, die
    * aus derselben Funktion stammt wie die geprüfte, prüfte sich selbst.
    */
-  chartEmbeddedPt: { width: number; height: number } | null
+  chartEmbeddedPt: {
+    load: EmbeddedBox | null
+    cost: EmbeddedBox | null
+    flow: EmbeddedBox | null
+  }
 }
+
+type EmbeddedBox = { width: number; height: number }
 
 export async function renderReportPdf(input: PdfReportInput): Promise<RenderReportResult> {
   /*
@@ -123,9 +133,13 @@ export async function renderReportPdf(input: PdfReportInput): Promise<RenderRepo
    */
   const buildsBefore = reportChartBuildCount()
   const charts = await buildReportCharts(input)
-  const chartEmbeddedPt = charts.load
-    ? fitRasterToWidth(charts.load, PDF_CONTENT_WIDTH_PT)
-    : null
+  const embed = (raster: ChartRaster | null): EmbeddedBox | null =>
+    raster ? fitRasterToWidth(raster, PDF_CONTENT_WIDTH_PT) : null
+  const chartEmbeddedPt = {
+    load: embed(charts.load),
+    cost: embed(charts.cost),
+    flow: embed(charts.flow),
+  }
 
   // 1. Durchlauf: messen. Das erzeugte PDF trägt eine leere Zahlenspalte und wird verworfen.
   const measure = await renderPass(input, charts, null)

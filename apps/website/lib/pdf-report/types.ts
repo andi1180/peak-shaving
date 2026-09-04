@@ -31,6 +31,19 @@ import type { AnalysisResult, LoadProfile } from 'shared'
  * Was der Chart darüber hinaus braucht, ist der ROHE Lastgang — und der steht bewusst NICHT im
  * `AnalysisResult` (`DispatchTrace` führt ausdrücklich keine Rohreihe, s. dort). Er kommt deshalb
  * als eigenes Feld des Eingangs, nicht als Teil des Ergebnisses.
+ *
+ * ── B23c-3a: ERNEUT UNVERÄNDERT — AUSGEZÄHLT, NICHT ANGENOMMEN ─────────────────────────────────
+ * Die drei hinzugekommenen Bilder lesen zusammen:
+ *   • Monatsvergleich → `tariffOptimization.monthlyComparison` (in `tariffOptimization`);
+ *   • Kostenvergleich → der empfohlene Eintrag aus `perBattery` (über `recommendation`),
+ *     `current.leistungspreisCostPerYear` und `assumptions.horizonYears`;
+ *   • Tages-Energiefluss → `existingBatteryAnalysis.entry` bzw. `perBattery` (je `dispatchTrace`
+ *     mit `representativeDays`) und die Zeitzone aus `loadProfile.timezoneMeta`.
+ *
+ * Alle sechs Contract-Felder stehen bereits oben, die Zeitzone im Lastgang daneben. Der `Pick<…>`
+ * wächst also NICHT — ein Feld ohne nachweisbare Verwendung kommt nicht dazu, nur weil ein Schritt
+ * drei Bilder bringt. `representativeDays` insbesondere hängt an `dispatchTrace` und braucht keine
+ * eigene Zeile, genau wie `capKwByPeriod` in B23c-2.
  */
 export type PdfReportAnalysis = Pick<
   AnalysisResult,
