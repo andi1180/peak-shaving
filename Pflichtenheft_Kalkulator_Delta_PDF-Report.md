@@ -730,12 +730,194 @@ Satz: `@react-pdf`, `fitRasterToWidth`, `reportChartBuildCount`, `buildInsightCh
   im ganzen Zeitraum nicht arbeitet, UND eine fehlende Preiskurve; die drei Prüf-Fälle erreichen
   ihn nicht (der Blocker-Speicher entlädt sehr wohl). Ein vierter Fixture-Fall wäre eine zweite
   Grundlage — dieselbe Überlegung, aus der D14 den `pv_strong`-Rückfall nicht nachgestellt hat.
-- **Der Unterschied „leer ≠ gemessene Null" ist am B23b-Fixture gemessen, nicht am Report-Lastgang**
-  — der ist ein Volljahrgang und trägt keine leere Zelle. Für einen echten Teiljahres-Lastgang ist
-  er im PDF neu zu messen.
+- ~~**Der Unterschied „leer ≠ gemessene Null" ist am B23b-Fixture gemessen, nicht am
+  Report-Lastgang**~~ — **ERLEDIGT mit B23c-3b-2 (04.09.2026, s. D16):** der neue Prüffall
+  `teiljahr` fährt denselben Lastgang auf Jänner bis August gekürzt durch den ECHTEN Analyse-Worker;
+  gemessen sind 96 von 288 leeren Zellen, **#ffffff** gegen **#f5faf9** positionsgenau im Bild und
+  51.864 bit-genaue Rand-Bildpunkte, mit dem Volljahres-Lauf (0 leere Zellen, 0 Rand-Bildpunkte) als
+  Gegenprobe.
 - **Das Kapitel läuft über zwei bis drei Seiten** (Heatmap 352,8 pt, Ladepreis 179,9 pt plus Text).
   Kein `wrap={false}`-Block sprengt den Satzspiegel; ob die Aufteilung schöner ginge, ist eine
   Layout- und keine Richtigkeitsfrage.
-- **Offen bleiben Grenznutzen-Kurve, Zusatzspeicher-Abschnitt und Katalog-Alternativen** (B23c-3b-2)
-  sowie Annahmen-Snapshot und Datenqualität (B23c-4).
+- ~~**Offen bleiben Grenznutzen-Kurve, Zusatzspeicher-Abschnitt und Katalog-Alternativen**
+  (B23c-3b-2)~~ — **gebaut, s. D16.** Offen bleiben Annahmen-Snapshot und Datenqualität (B23c-4).
 - **Die Data-URIs bleiben der teure Teil**: die PDFs wiegen jetzt 593–772 kB.
+
+---
+
+## D16 — B23c-3b-2: Speichergrösse und Gerätewahl, und die Tabelle statt der wiederholten Karte
+
+**Gebaut am 04.09.2026.** Das Dokument trägt damit **sechs der sieben** Report-Grafiken. Neu ist das
+Kapitel **„Speichergrösse und Gerätewahl"** mit der Grenznutzen-Kurve und einer kompakten
+Vergleichstabelle — eine eigene `<Page>` (D5, Regel 1) zwischen „Das Ladeverhalten Ihres Speichers"
+und „Methodik & Vorbehalte", in derselben Reihenfolge wie am Bildschirm.
+
+### Ein Kapitel für zwei Fälle, die einander ausschliessen
+
+`report.tsx` verzweigt am Seitenende an `isExisting`: im Bestandsfall die Zusatzspeicher-Sektion
+(Grenznutzen `variant="addon"`, darunter Karten ODER der Klarsatz), sonst die Katalog-Kurve
+(`variant="catalog"`) samt Alternativen-Aufklappliste. Beide beantworten dieselbe Frage in zwei
+Rahmungen — „welche GRÖSSE lohnt sich, und welches Gerät dieser Grösse". Es ist deshalb EIN Kapitel
+mit zwei Inhalten und nicht zwei Kapitel, von denen eines in jedem Dokument leer bliebe; der Titel
+nennt folgerichtig weder „Zusatzspeicher" noch „Alternativen".
+
+**Die Kurve steht ÜBER der Aussage und erscheint unbedingt**, auch wenn alle Punkte unter der
+Nulllinie liegen — wortgleich zur Begründung in `report.tsx` und `marginal-benefit-chart.tsx`:
+rechnet sich keines der Geräte, ist sie die BEGRÜNDUNG des Klarsatzes. Sie zeigt, dass die Linie
+über alle Grössen unter null bleibt und nicht bloss knapp danebenliegt.
+
+### Eine Tabelle statt der wiederholten Empfehlungskarte
+
+Am Bildschirm zeigt die Aufklappliste je Gerät eine volle `RecommendationCard`. Auf Papier wären das
+für fünf Kandidaten mehrere Seiten, auf denen sich derselbe Hindsight-Vorbehalt fünfmal wiederholt
+und die eine Frage („welches Gerät ist besser?") zwischen den Wiederholungen verschwindet. Die
+Tabelle beantwortet genau sie: sechs Grössen nebeneinander, eine Zeile je Gerät.
+
+**EINE Funktion, ZWEI Konsumenten** (`buildCandidateTable`): Zusatzgeräte und Katalog-Alternativen
+sind beide `BatteryResultEntry & BatteryRoiSummary` — dass eine Funktion beide bedient, ist eine
+Eigenschaft des Contracts und keine hier erfundene Verallgemeinerung. Die Spalten sind identisch;
+was sich unterscheidet, ist die BEDEUTUNG (im Zusatzfall sind alle Ersparnis-Zahlen Differenzen),
+und das steht im Fliesstext daneben — „Zusätzliche Ersparnis pro Jahr" passt in keine Spalte von
+60 pt, und zwei Spaltensätze wären zwei Tabellen, die beim nächsten Nachtrag auseinanderlaufen.
+Kapazität und Leistung teilen sich eine Zelle („25 kWh / 15 kW"): sie sind zusammen die „Grösse"
+eines Geräts und werden auch am Bildschirm gemeinsam genannt.
+
+> **⚠ Benannte Abweichung vom Bildschirm: die Alternativentabelle ist VOLLSTÄNDIG.** `report.tsx`
+> kürzt auf drei (`.slice(0, 3)`, §3.8/§6.2 „2–3 Alternativen"), und dort ist das richtig: jede
+> Alternative ist eine volle Karte. Im PDF ist eine Alternative eine TABELLENZEILE — die Kürzung
+> spart einen Zeilenabstand und kostet eine Angabe. Dazu kommt der Unterschied, der auf Papier
+> zählt: ein Bildschirm-Report lässt sich weiter aufklappen, ein weitergereichtes Blatt nicht.
+> **Gemessen** (Wächter-Probe): mit der Bildschirm-Kürzung verschwindet HomeStore R15 aus dem
+> gedruckten Report.
+
+### Der Klarsatz steht wortgleich, die Kopfzahl steht nicht doppelt
+
+Die Kernergebnis-Seite trägt im Bestandsfall bereits eine Zusatzspeicher-Aussage (`summary.ts`):
+entweder den bestgereihten Kandidaten mit Kopfzahl oder den Klarsatz in gekürzter Form. Dieses
+Kapitel trägt deshalb **keine Kopfzahl** — sie wäre im positiven Fall bit-identisch mit der dort
+(dieselbe Regel wie bei der Ladesteuerungs-Aussage, D13). Der **Klarsatz** dagegen steht wortgleich
+zum Bildschirm, samt beider Absätze, die die Kernergebnis-Seite kürzt: er ist eine FESTSTELLUNG und
+keine Zahl, und zwei verschieden formulierte Fassungen desselben Befunds sähen wie zwei Befunde aus.
+**Gemessen: 5 von 5 Sätzen wortgleich**, gelesen aus der QUELLE von `report.tsx` gegen den
+GEDRUCKTEN Text.
+
+### Der Contract ist zum VIERTEN Mal nicht gewachsen — ausgezählt
+
+Der naheliegende Schluss wäre gewesen, den `Pick<…>` um `addonScenarios` zu erweitern. Das Feld ist
+aber keines von `AnalysisResult`, sondern von `ExistingBatteryAnalysis` — und die hängt an
+`existingBatteryAnalysis`, das bereits dort steht (dieselbe Lage wie `batteryFlowByHourMonth` unter
+`dispatchTrace` in D15). Nachgezählt liest das Kapitel `existingBatteryAnalysis.addonScenarios`,
+`perBattery`, `recommendation` und `assumptions.horizonYears` — alle vier standen bereits dort.
+
+### Gemessen am erzeugten PDF
+
+Fünf Läufe über die Prüfroute gegen den Production-Build, **0 Konsolenfehler, 0 Seitenfehler**:
+
+| | Bestand | Blocker | Katalog | Teiljahr | Zusatz |
+|---|---|---|---|---|---|
+| Seiten (D15 → jetzt) | 13 → **14** | 10 → **11** | 13 → **15** | (neu) **14** | (neu) **15** |
+| Rasterungen / Durchläufe | **5** / 2 | **4** / 2 | **6** / 2 | **5** / 2 | **5** / 2 |
+| Kurve | addon | addon | catalog | addon | addon |
+| Aussage darunter | `addon_none` | `addon_none` | `catalog_alternatives` | `addon_none` | `addon_table` |
+| Tabellenzeilen | 0 (Klarsatz) | 0 (Klarsatz) | **4** | 0 (Klarsatz) | **4** |
+| Leere Heatmap-Zellen | 0 | 0 | 0 | **96** | 0 |
+| Dateigrösse | 724 kB | 651 kB | 834 kB | 661 kB | 717 kB |
+
+- **Agenda erneut gemessen**, jeder der SECHS Einträge gegen die tatsächliche erste Seite seines
+  Kapitels, erkannt an Titel und Vorspann unmittelbar hintereinander (D15). Bestand/Teiljahr
+  3 / 5 / 7 / 9 / 12 / 13 · Blocker 3 / 4 / 6 / 7 / 9 / 10 · Katalog/Zusatz 3 / 5 / 7 / 9 / 12 / 14.
+  Alle 30 Zahlen treffen. „Seite X von Y" auf allen **69** Seiten der fünf Dokumente.
+- **Seitenverhältnis** der Grenznutzen-Kurve aus dem Rohstrom (2130 × 768 px = **2,773438**) gegen
+  die `cm`-Matrix der Platzierung (499,00 × 179,92 pt = **2,773437**), in allen fünf Läufen; die
+  Zuordnung Bild → Platzierung läuft wie in D15 über die OBJEKTNUMMER.
+- **Das Bild ist gezeichnet, nicht bloss ein Kasten** (entpackter RGB-Strom): Akzent (Linie und
+  Punkte) **10.617–12.401** Bildpunkte, Sekundärton (Nulllinie und Achsenbeschriftung)
+  **20.669–22.916**, Rasterlinien **5.481–8.162**.
+- **Die Zahl der Tabellenzeilen ist gegen die Kandidatenzahl gehalten**, nicht bloss „> 0": Katalog
+  5 Geräte − 1 Empfehlung = **4** Zeilen (PeakStore C40 · C25 · HomeStore R10 · R15, die Empfehlung
+  C60 fehlt korrekt); Zusatzfall **4** von 5 Szenarien. Die Zeile „Davon im Betrachtungszeitraum
+  wirtschaftlich" zählt über ALLE betrachteten Geräte (Katalog 3 von 5) und nicht über die gezeigten
+  Zeilen — sonst fehlte ausgerechnet der beste Kandidat in der eigenen Statistik.
+
+### ⚠ Der Zusatzspeicher-Tabellenzweig ist nur über den HORIZONT erreichbar — und das ist ein Befund
+
+An diesem Prüf-Lastgang bleibt neben JEDER Bestandsanlage jedes Zusatzgerät unter der Nulllinie, und
+zwar strukturell: die Anlage des Kunden ist `static` (Pessimismus-Prinzip), der kombinierte Speicher
+damit ebenfalls — ein Zusatzgerät kappt also KEINE Spitzen —, und der Lastgang trägt keine
+Einspeisung, also gibt es auch keinen Eigenverbrauch. Übrig bleibt allein die Lastverschiebung, und
+die trägt bei diesen Preisen die Anschaffung in zehn Jahren nicht. **Gemessen: auch mit 5 kWh
+Bestand sind alle fünf Szenarien über zehn Jahre negativ.**
+
+Erreicht wird der Zweig deshalb über GENAU die Grösse, die ihn am Bildschirm auch erreicht: den
+**Betrachtungszeitraum**. Er ist eine Angabe des Nutzers (Annahmen-Panel, §6.2), und die Schwelle
+`netSavingOverHorizon > 0` verschiebt sich mit ihm — so ist sie am 01.09.2026 begründet worden. Über
+25 Jahre rechnen sich vier der fünf Szenarien. Eine hier erfundene Mindest-Ersparnis oder eine
+gedrehte Preisreihe wären dagegen Zahlen, auf die sich niemand festgelegt hat.
+
+### ⚠ D15s erster offener Punkt ist geschlossen: „leer ≠ gemessene Null" an ECHTEN Daten
+
+D15 hat den Unterschied am B23b-**Fixture** nachgewiesen und offengelassen, ob er an einem echten,
+durch den Analyse-Worker gerechneten Teiljahres-Lastgang trägt. Der neue Prüffall `teiljahr` fährt
+DENSELBEN Lastgang, auf die Monate Jänner bis August gekürzt (gefiltert über die lokale Wanduhr —
+eine abgezählte Slot-Zahl reichte wegen der Zeitumstellung in den September hinein). Gemessen wird
+positionsgenau wie in D15: Zelle über den Rasterindex im DOM aufsuchen, Mittelpunkt merken,
+denselben Punkt im PNG ablesen.
+
+| Zelle | Wert | berechnet am lebenden Element | im Bild |
+|---|---|---|---|
+| leer (0 h / Sep) | `null` | `rgba(0, 0, 0, 0)`, Rand `dashed` | **#ffffff** |
+| gemessene Null (0 h / Jän) | `0` | `color(srgb 0.962353 0.97851 0.977255)` | **#f5faf9** |
+| stärkste Ladezelle (4 h / Aug) | `328,6` | `color(srgb 0.0588235 0.462745 0.431373)` | **#0f766e** |
+| stärkste Entladezelle (15 h / Jän) | `−281,6` | `color(srgb 0.190588 0.217569 0.281647)` | **#313748** |
+
+**96 von 288 Zellen ohne Messwert** — genau die vier fehlenden Monate × 24 Stunden —, und
+**51.864 Bildpunkte in `--color-border` (#e2e8f0)**, bit-genau: ohne den gestrichelten Rand wäre
+eine leere Zelle im Bild vom papierweissen Kartengrund nicht zu trennen.
+
+**Der Volljahres-Lauf ist die Gegenprobe und liefert genau das Gegenteil:** 0 leere Zellen, **0**
+Rand-Bildpunkte, und die Zellprobe findet gar keine leere Zelle zum Messen. Der Unterschied ist an
+einem Volljahrgang also nicht bloss unauffällig — er ist dort nicht existent, und genau deshalb war
+er offen.
+
+**Vier Wächter-Proben, jede bringt gezielt Rot:**
+1. Kurve an den `netSavingOverHorizon > 0`-Filter gekoppelt → im Bestandsfall **keine Kurve**
+   (`chartBuilds` 5 → 4), und an ihrer Stelle steht die Fehlmeldung, während der Klarsatz darunter
+   unbelegt dasteht. ⚠ Zusätzlich wird der Begründungstext dabei selbst falsch („es liegt nur ein
+   einziges durchgerechnetes Gerät vor" — es sind fünf).
+2. Bildschirm-Kürzung `.slice(0, 3)` auf die Alternativen → Tabelle 4 → **3** Zeilen, HomeStore R15
+   fehlt im gedruckten Report.
+3. „Davon wirtschaftlich" über die gezeigten Zeilen statt über alle Kandidaten → **4 statt 5**
+   betrachtete Geräte und **2 statt 3** wirtschaftliche; die Empfehlung fehlt in ihrer eigenen
+   Statistik.
+4. Der Klarsatz gegen die QUELLE von `report.tsx` — 5 von 5 Sätzen wortgleich; eine Umformulierung
+   an einer der beiden Stellen macht die Prüfung rot.
+
+### Bündelgrösse
+
+`/rechner` First Load: roh **1.920.293 → 1.920.351** (+58), Chunk-Zahl unverändert **17**.
+`/pdf-report-probe` roh **398.433 → 400.137** (+1.704), unverändert 6 Chunks.
+
+**Gemessen über den GESAMTEN `/rechner`-First-Load-Satz: `@react-pdf`, `fitRasterToWidth`,
+`reportChartBuildCount`, `buildComparisonChapter`, `comparisonChartPlan`, `buildCandidateTable`,
+`hasComparisonChapter` und der Kapiteltitel kommen 0× vor**, `stunden-heatmap-raster` genau 1×
+(Positivkontrolle) — es ist kein neuer Code auf der Route; die 58 Bytes sind Chunk-Graph-Buchhaltung.
+
+> **⚠ Neu gemessen und für künftige Schritte wichtig: die GZIP-Zahl dieser Route ist zwischen zwei
+> Builds derselben Quelle nicht stabil.** Drei Builds ergaben bei bit-genau gleicher Rohgrösse
+> (1.920.351) die Werte **582.863 / 582.984 / 582.982** — rund 120 Bytes Streuung, weil sich
+> Modul-Reihenfolge und -Kennungen zwischen Builds verschieben. Vergleichbar ist deshalb die
+> ROHGRÖSSE; eine gzip-Differenz unterhalb von etwa 200 Bytes ist Rauschen. (Die in D15 genannten
+> „+5 Bytes gzip" liegen darunter.)
+
+### `[OFFEN]` nach diesem Schritt
+
+- **Der Fall „gar kein Kapitel" ist für BEIDE bedingten Kapitel gebaut und für keines gemessen.**
+  Beim Ladeverhalten verlangt er einen Speicher, der im ganzen Zeitraum nicht arbeitet, UND eine
+  fehlende Preiskurve; bei der Gerätewahl einen Katalog mit einem einzigen Gerät. Beides erreichen
+  die fünf Prüf-Fälle nicht — dasselbe bleibt für die Abschluss-Prüfung vor dem Cutover offen.
+- **Der `pv_strong`-Rückfall des Energieflusses** ist unverändert nicht erreichbar (D14).
+- **Die Kurve trägt keine Beschriftung der einzelnen Punkte** — welcher Punkt welches Gerät ist,
+  steht am Bildschirm im Tooltip und im PDF nur mittelbar über die Tabelle (Kapazität als X-Achse).
+  Ein Datenpunkt-Label wäre eine Änderung an der Komponente.
+- **Offen bleiben Annahmen-Snapshot und Datenqualität** (B23c-4) sowie der Cutover selbst.
+- **Die Data-URIs bleiben der teure Teil**: die PDFs wiegen jetzt 651–834 kB.

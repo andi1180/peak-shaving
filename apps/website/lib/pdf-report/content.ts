@@ -105,6 +105,7 @@ export const SECTION_ID = {
   recommendation: 'empfehlung',
   detail: 'kostenverlauf',
   insight: 'ladeverhalten',
+  comparison: 'geraetewahl',
   methodology: 'methodik',
 } as const
 
@@ -197,6 +198,36 @@ export const INSIGHT_SECTION: ReportSection = {
 export const INSIGHT_INTRO =
   'Wann Ihr Speicher arbeitet — und was das über seine Steuerung aussagt.'
 
+/**
+ * B23c-3b-2 — das Kapitel mit der Grenznutzen-Kurve und der Kandidatentabelle.
+ *
+ * ── ⚠ EIN KAPITEL FÜR ZWEI EINANDER AUSSCHLIESSENDE FÄLLE ─────────────────────────────────────
+ * Im Bestandsfall steht hier die Zusatzspeicher-Frage (Kurve über die Zusatzgeräte, darunter die
+ * Tabelle der wirtschaftlichen ODER der Klarsatz), sonst die Katalog-Kurve mit der Tabelle der
+ * übrigen Geräte — genau die Verzweigung, die `report.tsx` am Ende der Seite trifft. Zwei eigene
+ * Kapitel wären zwei Agenda-Einträge, von denen einer in jedem Dokument ins Leere zeigte.
+ *
+ * ⚠ Eigene `<Page>` (D5, Regel 1). Als `<View break>` im Ladeverhalten-Kapitel bekäme es in der
+ * Agenda die Seitenzahl JENES Kapitels — plausibel aussehend und falsch.
+ *
+ * ⚠ Der Titel nennt bewusst weder „Zusatzspeicher" noch „Alternativen": welcher der beiden Fälle
+ * steht, hängt daran, ob der Kunde bereits einen Speicher hat, und ein Titel, der einen davon
+ * ankündigt, wäre auf jedem zweiten Report falsch. Dieselbe Regel wie bei den Kapiteln davor.
+ *
+ * ⚠ Es ist das ZWEITE bedingte Kapitel (nach `INSIGHT_SECTION`) — es entfällt, wenn es weder
+ * Zusatzszenarien noch eine Alternative zur Empfehlung gibt (s. `hasComparisonChapter`).
+ */
+export const COMPARISON_SECTION: ReportSection = {
+  id: SECTION_ID.comparison,
+  level: 1,
+  title: 'Speichergrösse und Gerätewahl',
+}
+
+/** Steht unter der Kapitelüberschrift. Sagt, worum es geht, nicht was auf der Seite steht. */
+export const COMPARISON_INTRO =
+  'Was jede weitere Kilowattstunde Speicher noch bringt — und wie die Geräte des Katalogs dabei ' +
+  'abschneiden.'
+
 /** Steht unter der Kapitelüberschrift — wörtlich wie im CSS-Weg (`print-methodology.tsx`). */
 export const METHODOLOGY_INTRO =
   'Wie diese Zahlen entstanden sind — und wo ihre Grenzen liegen.'
@@ -211,6 +242,12 @@ export const METHODOLOGY_SECTION: ReportSection = {
 export type ReportChapterPresence = {
   /** `false` = weder Heatmap noch Ø-Ladepreis entstehen — s. `insight.ts`. */
   insight: boolean
+  /**
+   * `false` = es gibt weder ein Zusatzszenario noch eine Alternative zur Empfehlung — s.
+   * `comparison.ts`. Mit dem heutigen Katalog tritt der Fall nicht ein; er ist trotzdem geführt,
+   * weil ein leeres Kapitel eine Seitenzahl verspricht, hinter der nichts steht.
+   */
+  comparison: boolean
 }
 
 /**
@@ -234,6 +271,7 @@ export function buildReportAgenda(
     RECOMMENDATION_SECTION,
     DETAIL_SECTION,
     ...(presence.insight ? [INSIGHT_SECTION] : []),
+    ...(presence.comparison ? [COMPARISON_SECTION] : []),
     METHODOLOGY_SECTION,
     ...METHODOLOGY_ITEMS,
   ]

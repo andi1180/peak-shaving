@@ -3,6 +3,12 @@ import type { AnalysisResult, LoadProfile } from 'shared'
 import type { AnalysisRequest, WorkerOutbound } from '@/lib/analysis-protocol'
 import { DEFAULT_HORIZON_YEARS } from '@/lib/constants'
 import {
+  buildComparisonChapter,
+  comparisonChartPlan,
+  hasComparisonChapter,
+  type ComparisonChapter,
+} from '@/lib/pdf-report/comparison'
+import {
   buildDetailChapter,
   detailChartPlan,
   type DetailChapter,
@@ -19,7 +25,7 @@ import {
 } from '@/lib/pdf-report/recommendation'
 import { buildReportSummary, type ReportSummary } from '@/lib/pdf-report/summary'
 import { buildSummaryProbePayload } from './summary-fixtures'
-import type { SummaryProbeKind } from './summary-probe-kinds'
+import { SUMMARY_PROBE_HORIZON_YEARS, type SummaryProbeKind } from './summary-probe-kinds'
 
 /**
  * B23c-1 — ein ECHTER Rechenlauf für den Prüfstand.
@@ -110,6 +116,33 @@ export type SummaryProbeRun = {
    */
   hourFlowSummary: { maxAbsKwh: number; peakHour: number; emptyCells: number } | null
   /**
+   * B23c-3b-2 — DAS Raster, das die Heatmap im Dokument zeichnet.
+   *
+   * ⚠ Es reist mit heraus, damit der Chart-Prüfstand die Zellproben („leer" gegen „gemessene
+   * Null", positionsgenau im Bild) an einem ECHTEN, hier gerechneten Raster fahren kann statt am
+   * B23b-Fixture — genau der offene Punkt aus D15. Ausdrücklich DASSELBE Objekt, das auch
+   * `charts.tsx` rastern würde (aus `insightChartPlan`), nicht ein zweiter Aufbau: zwei Raster im
+   * selben Prüflauf wären zwei Grafiken, und die Probe spräche über die falsche.
+   */
+  hourFlowGrid: (number | null)[][] | null
+
+  /**
+   * B23c-3b-2 — was das Kapitel „Speichergrösse und Gerätewahl" aus demselben Ergebnis ableitet.
+   * Wieder DIE Produktionsfunktion, hier aufgerufen und nicht nachgebaut.
+   */
+  comparison: ComparisonChapter
+  /**
+   * Die ENTSCHEIDUNG, vor dem Erzeugen sichtbar: entsteht das Kapitel, welche Fassung der Kurve
+   * (Zusatzgeräte oder Katalog), wie viele Punkte trägt sie, und wie viele Zeilen hat die Tabelle.
+   * `tableRows = 0` heisst: an ihrer Stelle steht der Klarsatz.
+   */
+  comparisonPlanned: {
+    chapter: boolean
+    variant: 'addon' | 'catalog' | null
+    points: number
+    tableRows: number
+  }
+  /**
    * B23c-2 — DER Lastgang, gegen den gerechnet wurde. Er reist mit heraus, weil das Dokument ihn
    * für das Diagramm braucht (`PdfReportInput.loadProfile`) und `DispatchTrace` bewusst keine
    * Rohreihe trägt.
@@ -150,7 +183,8 @@ export async function runSummaryAnalysis(kind: SummaryProbeKind): Promise<Summar
       const request: AnalysisRequest = {
         type: 'recompute',
         payload,
-        horizonYears: DEFAULT_HORIZON_YEARS,
+        /* Vorgabe wie im Rechner; ein Fall weicht bewusst ab (s. `SUMMARY_PROBE_HORIZON_YEARS`). */
+        horizonYears: SUMMARY_PROBE_HORIZON_YEARS[kind] ?? DEFAULT_HORIZON_YEARS,
       }
       worker.postMessage(request)
     })
@@ -172,6 +206,17 @@ export async function runSummaryAnalysis(kind: SummaryProbeKind): Promise<Summar
         date: d.date,
       })),
       insight: buildInsightChapter(result),
+      comparison: buildComparisonChapter(result),
+      comparisonPlanned: (() => {
+        const plan = comparisonChartPlan(result)
+        const chapter = buildComparisonChapter(result)
+        return {
+          chapter: hasComparisonChapter(result),
+          variant: plan?.variant ?? null,
+          points: plan?.points.length ?? 0,
+          tableRows: chapter.table?.rows.length ?? 0,
+        }
+      })(),
       insightPlanned: {
         chapter: insight.hourFlow !== null || insight.chargePrice !== null,
         hourFlow: insight.hourFlow !== null,
@@ -187,6 +232,7 @@ export async function runSummaryAnalysis(kind: SummaryProbeKind): Promise<Summar
             }
           })()
         : null,
+      hourFlowGrid: insight.hourFlow?.grid ?? null,
       loadProfile: payload.load.profile,
     }
   } finally {

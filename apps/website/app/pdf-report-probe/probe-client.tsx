@@ -21,6 +21,7 @@ import {
  * geladen): statisch hier importiert zöge es den `shared`-Barrel samt PLZ-Tabelle in den First
  * Load dieser Route — gemessen rund 60 kB für eine Anzeige, die es erst nach einem Klick gibt.
  */
+import type { ComparisonChapter } from '@/lib/pdf-report/comparison'
 import type { DetailChapter } from '@/lib/pdf-report/detail'
 import type { InsightChapter } from '@/lib/pdf-report/insight'
 import type { RecommendationChapter } from '@/lib/pdf-report/recommendation'
@@ -87,6 +88,7 @@ const CHART_FIGURES = [
   { key: 'flow', label: 'Energiefluss-Bild' },
   { key: 'hourFlow', label: 'Heatmap-Bild (nur Raster)' },
   { key: 'chargePrice', label: 'Ladepreis-Bild' },
+  { key: 'comparison', label: 'Grenznutzen-Bild' },
 ] as const
 
 function probeProfile(standardProfile: boolean): Pick<LoadProfile, 'source'> {
@@ -109,6 +111,24 @@ export function PdfReportProbe() {
     chapter: InsightChapter
     planned: { chapter: boolean; hourFlow: boolean; chargePrice: boolean }
     hourFlowSummary: { maxAbsKwh: number; peakHour: number; emptyCells: number } | null
+  } | null>(null)
+  const [comparison, setComparison] = useState<{
+    chapter: ComparisonChapter
+    planned: {
+      chapter: boolean
+      variant: 'addon' | 'catalog' | null
+      points: number
+      tableRows: number
+    }
+  } | null>(null)
+  /*
+   * B23c-3b-2 — das Heatmap-Raster des letzten Rechenlaufs, samt dem Namen der Batterie, zu der es
+   * gehört. Es speist den Heatmap-Chart-Lauf darunter: nur so laufen die Zellproben („leer" gegen
+   * „gemessene Null") an einem ECHTEN, gerechneten Raster statt am B23b-Fixture (D15).
+   */
+  const [hourFlowGrid, setHourFlowGrid] = useState<{
+    grid: (number | null)[][]
+    batteryName: string
   } | null>(null)
   /** Der Lastgang des Rechenlaufs — Grundlage des Diagramms UND des Zeitraums auf dem Deckblatt. */
   const [loadProfile, setLoadProfile] = useState<LoadProfile | null>(null)
@@ -153,6 +173,8 @@ export function PdfReportProbe() {
     setChapter(null)
     setDetail(null)
     setInsight(null)
+    setComparison(null)
+    setHourFlowGrid(null)
     setLoadProfile(null)
     setAnalysisKind(null)
     setOutcome(null)
@@ -179,6 +201,19 @@ export function PdfReportProbe() {
         planned: run.insightPlanned,
         hourFlowSummary: run.hourFlowSummary,
       })
+      setComparison({ chapter: run.comparison, planned: run.comparisonPlanned })
+      setHourFlowGrid(
+        run.hourFlowGrid
+          ? {
+              grid: run.hourFlowGrid,
+              batteryName:
+                run.result.existingBatteryAnalysis?.entry.battery.name ??
+                run.result.perBattery.find((p) => p.battery.id === run.result.recommendation.batteryId)
+                  ?.battery.name ??
+                'Speicher aus dem Rechenlauf',
+            }
+          : null,
+      )
       setLoadProfile(run.loadProfile)
       setAnalysisKind(probeKind)
       /* Ein neuer Fall bringt einen neuen Vorschlag — ein Titel von Hand bleibt trotzdem stehen. */
@@ -224,7 +259,17 @@ export function PdfReportProbe() {
     try {
       /* Zieht Recharts UND react-pdf — deshalb erst hier, nicht auf Modulebene. */
       const { runChartProbe } = await import('./chart-runs')
-      setChartReport(await runChartProbe(kind))
+      /*
+       * ⚠ Das Raster des letzten Rechenlaufs wird MITGEGEBEN, wenn es eines gibt — dann misst die
+       * Heatmap-Probe an echten, gerechneten Zahlen (D15). Ohne Rechenlauf bleibt es der
+       * B23b-Fixture-Lauf, der Vergleichsmassstab der dortigen Zahlen.
+       */
+      setChartReport(
+        await runChartProbe(kind, {
+          heatmapGrid: hourFlowGrid?.grid ?? null,
+          heatmapBatteryName: hourFlowGrid?.batteryName,
+        }),
+      )
     } catch (cause) {
       setChartError(cause instanceof Error ? cause.message : 'Unbekannter Fehler')
     } finally {
@@ -238,9 +283,10 @@ export function PdfReportProbe() {
         <h1 className="text-2xl font-semibold text-ink">PDF-Report-Prüfstand</h1>
         <p className="mt-1 text-sm text-text-muted">
           B23a — Dokumentgerüst (Deckblatt, Kopf-/Fusszeile mit Seitenzahl, Agenda mit
-          Seitenverweisen, Methodik). B23c-1/2/3a/3b-1 — Kernergebnisse, Empfehlung mit
-          Lastgang-Diagramm, Kostenverlauf und Tages-Energiefluss sowie das Ladeverhalten
-          (Stunden-Heatmap und Ø-Ladepreis), alle aus einem ECHTEN, hier im Browser gerechneten
+          Seitenverweisen, Methodik). B23c-1/2/3a/3b — Kernergebnisse, Empfehlung mit
+          Lastgang-Diagramm, Kostenverlauf und Tages-Energiefluss, das Ladeverhalten
+          (Stunden-Heatmap und Ø-Ladepreis) sowie Speichergrösse und Gerätewahl (Grenznutzen-Kurve
+          und Vergleichstabelle), alle aus einem ECHTEN, hier im Browser gerechneten
           Ergebnis. Interne Route, nicht verlinkt, <code>noindex</code>. Der
           Export im Rechner ist davon unberührt und läuft weiter über den Druckdialog.
         </p>
@@ -408,6 +454,32 @@ export function PdfReportProbe() {
                 )}
               </p>
             )}
+            {/*
+              B23c-3b-2 — die ENTSCHEIDUNG des Kapitels „Speichergrösse und Gerätewahl", vor dem
+              Erzeugen sichtbar: welche Fassung der Grenznutzen-Kurve entsteht, wie viele Punkte sie
+              trägt, und ob darunter eine Tabelle oder der Klarsatz steht. Wieder die
+              Produktionsfunktionen (`comparisonChartPlan` / `buildComparisonChapter`).
+            */}
+            {comparison && (
+              <p className="text-text-muted">
+                Gerätewahl-Kapitel:{' '}
+                <strong id="probe-comparison-chapter">
+                  {comparison.planned.chapter ? 'ja' : 'nein'}
+                </strong>{' '}
+                · Kurve{' '}
+                <strong id="probe-comparison-variant">
+                  {comparison.planned.variant ?? 'keine'}
+                </strong>{' '}
+                mit{' '}
+                <strong id="probe-comparison-points">{comparison.planned.points}</strong> Punkten ·
+                Aussage{' '}
+                <strong id="probe-comparison-statement">
+                  {comparison.chapter.statement.id}
+                </strong>{' '}
+                · Tabellenzeilen{' '}
+                <strong id="probe-comparison-rows">{comparison.planned.tableRows}</strong>
+              </p>
+            )}
             <ul id="probe-summary" className="flex flex-col gap-0.5 text-text-muted">
               {summary.statements.map((statement) => (
                 <li key={statement.id} data-statement={statement.id}>
@@ -514,7 +586,11 @@ export function PdfReportProbe() {
             Kosten-Chart:{' '}
             <strong id="probe-report-cost-kind">{outcome.chart.costKind ?? 'keiner'}</strong> ·
             Energiefluss-Tag:{' '}
-            <strong id="probe-report-flow-day">{outcome.chart.flowDay ?? '—'}</strong>
+            <strong id="probe-report-flow-day">{outcome.chart.flowDay ?? '—'}</strong> ·
+            Grenznutzen-Kurve:{' '}
+            <strong id="probe-report-comparison-variant">
+              {outcome.chart.comparisonVariant ?? 'keine'}
+            </strong>
           </p>
           {CHART_FIGURES.map(({ key, label }) => {
             const fig = outcome.chart[key]

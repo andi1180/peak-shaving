@@ -1,17 +1,19 @@
 import {
   buildExistingBatteryCandidate,
   type GridTariffRowInput,
+  type LoadProfile,
   type SpotPriceSeriesInput,
   type TariffParams,
   type TariffPricingInputs,
 } from 'shared'
 
 import type { CalculatorPayload } from '@/components/flow/types'
-import { buildLoadProfileFixture } from './chart-fixtures'
+import { localMonthIndex } from '@/lib/local-time'
+import { buildLoadProfileFixture, buildPartialYearLoadProfileFixture } from './chart-fixtures'
 import type { SummaryProbeKind } from './summary-probe-kinds'
 
 /**
- * B23c-1 — die EINGABEN der drei Prüfläufe der Executive Summary.
+ * B23c-1 — die EINGABEN der Prüfläufe der Executive Summary (seit B23c-3b-2 vier).
  *
  * ── ⚠ HIER STEHEN AUSSCHLIESSLICH EINGABEN, KEIN EINZIGES ERGEBNIS ────────────────────────────
  * Das `AnalysisResult`, aus dem die Kernergebnis-Seite entsteht, wird im Browser GERECHNET
@@ -25,6 +27,12 @@ import type { SummaryProbeKind } from './summary-probe-kinds'
  * `buildLoadProfileFixture()` — ein voller Jahrgang im 15-min-Gitter (35.040 Werte, ein
  * dominanter Jahreshöchstwert von 50,78 kW). Ein zweiter Lastgang für dieselbe Prüfroute wäre eine
  * zweite Grundlage, gegen die niemand die Chart-Läufe daneben mehr vergleichen könnte.
+ *
+ * ⚠ B23c-3b-2 nimmt davon KEINE Ausnahme: der Teiljahres-Fall fährt DENSELBEN Lastgang, auf die
+ * Monate Jänner bis August gekürzt (`buildPartialYearLoadProfileFixture`). Jeder seiner Messwerte
+ * ist Zeichen für Zeichen einer des Volljahrgangs — was daran gemessen wird, bleibt gegen die
+ * übrigen Läufe vergleichbar. Gebraucht wird er für den einen Zustand, den ein Volljahrgang nicht
+ * herstellen kann: leere Zellen in der Stunden-Heatmap (D15).
  *
  * ⚠ Er trägt KEINE Einspeisung (alle Werte positiv). Der Eigenverbrauchs-Anteil kommt deshalb als
  * echte 0 heraus — eine GERECHNETE Null und kein fehlender Wert. Genau das ist der Unterschied,
@@ -80,8 +88,7 @@ const HOUR_MS = 60 * 60 * 1000
  * meldet `combinedIntervalPrices` eine Lücke von 15 Minuten und der Hebel gilt als nicht
  * berechenbar. Die Länge wird deshalb aus dem Lastgang abgeleitet und nicht abgezählt.
  */
-function buildSpotPrices(): SpotPriceSeriesInput {
-  const profile = buildLoadProfileFixture()
+function buildSpotPrices(profile: LoadProfile): SpotPriceSeriesInput {
   const first = profile.readings[0]!
   const last = profile.readings[profile.readings.length - 1]!
   const startMs = Date.parse(first.ts)
@@ -112,11 +119,21 @@ function buildSpotPrices(): SpotPriceSeriesInput {
  * vollen Lastgang (35.040 Werte). Auf Modulebene entstünde beides, sobald irgendetwas diese Datei
  * anfasst — auch dann, wenn niemand einen Lauf startet.
  */
-let pricingCache: TariffPricingInputs | null = null
+const pricingCache = new Map<LoadProfile, TariffPricingInputs>()
 
-function pricingComplete(): TariffPricingInputs {
-  pricingCache ??= { gridTariffRows: GRID_TARIFF_ROWS, spotPrices: buildSpotPrices() }
-  return pricingCache
+/**
+ * ⚠ Die Preisreihe hängt am LASTGANG und wird deshalb je Profil gebildet (Delta 15 Regel A: der
+ * Vergleich läuft auf genau dem Zeitraum, den der Lastgang abdeckt). Für den Teiljahres-Fall eine
+ * Volljahres-Reihe zu benutzen wäre folgenlos, für den umgekehrten Fall dagegen eine Lücke von vier
+ * Monaten — und der Hebel gälte als nicht berechenbar, ohne dass es an den Preisen läge.
+ */
+function pricingComplete(profile: LoadProfile): TariffPricingInputs {
+  let cached = pricingCache.get(profile)
+  if (!cached) {
+    cached = { gridTariffRows: GRID_TARIFF_ROWS, spotPrices: buildSpotPrices(profile) }
+    pricingCache.set(profile, cached)
+  }
+  return cached
 }
 
 /**
@@ -160,6 +177,20 @@ const EXISTING_BATTERY = buildExistingBatteryCandidate({
 })
 
 /**
+ * B23c-3b-2 — eine KLEINE bestehende Anlage (ein Heimspeicher der untersten Grösse).
+ *
+ * ⚠ Sie ist nicht „realistischer" als die dokumentierte 19,2-kWh-Anlage, sondern beantwortet eine
+ * andere Frage: neben jener rechnet sich KEIN Katalog-Gerät im Betrachtungszeitraum (gemessen —
+ * alle fünf Zusatzszenarien liegen unter der Nulllinie), und damit wäre der Tabellen-Zweig des
+ * Kapitels gebaut, aber nie gemessen. Der Klarsatz-Zweig ist an ihr weiterhin abgedeckt.
+ */
+const SMALL_EXISTING_BATTERY = buildExistingBatteryCandidate({
+  usableCapacityKwh: 5,
+  maxPowerKw: 3,
+  roundTripEfficiency: 0.9,
+})
+
+/**
  * Der Payload eines Prüflaufs — genau der Typ, den auch der Rechner an den Worker schickt.
  *
  * `sourceBytes` fehlt bewusst: es hängt allein am Analyse-Bündel (B14-2) und hat mit der
@@ -167,15 +198,27 @@ const EXISTING_BATTERY = buildExistingBatteryCandidate({
  * bezeichnet.
  */
 export function buildSummaryProbePayload(kind: SummaryProbeKind): CalculatorPayload {
-  const profile = buildLoadProfileFixture()
+  const partial = kind === 'teiljahr'
+  const profile = partial ? buildPartialYearLoadProfileFixture() : buildLoadProfileFixture()
+
+  /*
+   * ⚠ GEZÄHLT, NICHT ABGESCHRIEBEN. Wie viele Tage und Kalendermonate der gekürzte Lastgang
+   * abdeckt, ergibt sich aus seinen Messwerten — eine hier notierte Zahl wäre eine zweite Wahrheit
+   * neben dem Profil und liefe beim nächsten Zuschnitt von ihm weg. Der Volljahrgang zählt sich
+   * damit ebenfalls selbst und trifft die bisher fest notierten 365/12.
+   */
+  const coveredMonths = new Set(
+    profile.readings.map((r) => localMonthIndex(Date.parse(r.ts), profile.timezoneMeta)),
+  ).size
+  const coveredDays = Math.round(profile.readings.length / (24 * (60 / profile.intervalMinutes)))
 
   return {
     load: {
-      fileName: 'pruefstand-jahreslastgang.csv',
+      fileName: partial ? 'pruefstand-teiljahr-jan-aug.csv' : 'pruefstand-jahreslastgang.csv',
       profile,
       dataQuality: {
-        coveredDays: 365,
-        coveredMonths: 12,
+        coveredDays,
+        coveredMonths,
         gapsInterpolated: 0,
         largestGapSlots: 0,
         warnings: [],
@@ -183,10 +226,13 @@ export function buildSummaryProbePayload(kind: SummaryProbeKind): CalculatorPayl
     },
     tariff: TARIFF,
     pv: null,
-    tariffPricing: kind === 'blocker' ? PRICING_WITHOUT_SPOT : pricingComplete(),
+    tariffPricing: kind === 'blocker' ? PRICING_WITHOUT_SPOT : pricingComplete(profile),
     existingBattery:
       kind === 'katalog'
         ? undefined
-        : { battery: EXISTING_BATTERY, efficiencyAssumed: false },
+        : {
+            battery: kind === 'zusatz' ? SMALL_EXISTING_BATTERY : EXISTING_BATTERY,
+            efficiencyAssumed: false,
+          },
   }
 }
