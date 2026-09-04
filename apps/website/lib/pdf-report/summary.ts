@@ -1,13 +1,23 @@
 import {
+  PV_TEN_YEAR_SMOOTHING_OPTIMISM_PERCENT,
   buildRealSavingBreakdown,
   sumCovered,
   type BatteryResultEntry,
   type BillingModel,
+  type EstimatedPvSummary,
   type LoadProfile,
 } from 'shared'
 
 import { LARGE_GAP_SLOTS_THRESHOLD } from '@/lib/constants'
-import { formatEur, formatKw, formatKwh1, formatYears } from '@/lib/format'
+import {
+  formatEur,
+  formatKw,
+  formatKwh,
+  formatKwh1,
+  formatKwp,
+  formatPercent,
+  formatYears,
+} from '@/lib/format'
 import { HINDSIGHT_NOTE } from '@/lib/report-copy'
 import type { ReportNotice, ReportRow, ReportStatement, ReportTone } from './statement'
 import type { PdfReportAnalysis } from './types'
@@ -439,26 +449,29 @@ function buildAddon(analysis: PdfReportAnalysis): SummaryStatement | null {
 }
 
 /* ────────────────────────────────────────────────────────────────────────────────────────────────
- * B23c-4 — die drei Hinweise, die die Kern-Kennzahl qualifizieren
+ * B23c-4/-5 — die vier Hinweise, die die Kern-Kennzahl qualifizieren
  * ──────────────────────────────────────────────────────────────────────────────────────────── */
 
 /**
- * ⚠ DREI BEDINGUNGEN, DIE VONEINANDER UNABHÄNGIG SIND — und genau so sind sie am Bildschirm
+ * ⚠ VIER BEDINGUNGEN, DIE VONEINANDER UNABHÄNGIG SIND — und genau so sind sie am Bildschirm
  * begründet.
  *
- * `report.tsx` führt sie als drei getrennte `Alert`-Kästen mit drei getrennten Bedingungen, und der
- * Kommentar am mittleren sagt ausdrücklich, warum sie nicht zusammengelegt werden dürfen: sie sagen
+ * `report.tsx` führt sie als vier getrennte `Alert`-Kästen mit vier getrennten Bedingungen, und die
+ * Kommentare dort sagen ausdrücklich, warum sie nicht zusammengelegt werden dürfen: sie sagen
  * VERSCHIEDENES, und die Handlung, die daraus folgt, ist je eine andere.
  *
  *   • Teiljahr — es FEHLT ein Zeitraum. Ein `monthly_*`-Modell kann nicht mitteln, was es nicht
  *     hat. Abhilfe: ein anderes Abrechnungsmodell (oder mehr Monate).
  *   • Datenlücke — der Zeitraum sieht VOLLSTÄNDIG aus und hat trotzdem keine Substanz: die Slots
  *     existieren, ihre Werte sind linear aufgefüllt. Abhilfe: den vollständigen Lastgang anfordern.
- *   • Standardprofil — es gibt gar keine Messung, nur eine Durchschnittskurve aus einer
- *     Verbrauchsangabe. Abhilfe: einen echten Lastgang hochladen.
+ *   • Standardprofil — es gibt gar keine Messung des VERBRAUCHS, nur eine Durchschnittskurve aus
+ *     einer Verbrauchsangabe. Abhilfe: einen echten Lastgang hochladen.
+ *   • Geschätzte PV (B23c-5) — es gibt keine Messung der ERZEUGUNG, nur eine Wetterjahr-Kurve von
+ *     PVGIS. Abhilfe: einen Lastgang MIT Einspeisung anfordern. Die zwei letzten können zugleich
+ *     zutreffen und sind dann die schwächste Grundlage im ganzen Rechner.
  *
- * Zu einem Satz zusammengezogen bekäme der Leser für drei verschiedene Datenmängel eine Meldung,
- * aus der er nicht ableiten kann, was zu tun ist. Sie stehen deshalb einzeln, und alle drei können
+ * Zu einem Satz zusammengezogen bekäme der Leser für vier verschiedene Sachverhalte eine Meldung,
+ * aus der er nicht ableiten kann, was zu tun ist. Sie stehen deshalb einzeln, und alle vier können
  * gleichzeitig zutreffen.
  *
  * ⚠ SIE STEHEN BEI DER KERN-KENNZAHL UND NICHT IM SCHLUSSKAPITEL. Sie qualifizieren genau die Zahl
@@ -594,18 +607,99 @@ function buildStandardProfileNotice(
 }
 
 /**
- * Die drei Hinweise in der Reihenfolge des Bildschirms.
+ * B23c-5 — die PV-Erzeugung ist GESCHÄTZT und nicht gemessen (B22b, Pflichtenheft §2.2 Punkt 1).
  *
- * ⚠ Die Reihenfolge ist übernommen und nicht neu gewählt: zuerst die Herkunft der Daten
- * (Standardprofil), dann die zwei Mängel am Umfang. Wer den Report von oben liest, erfährt erst,
- * WORAUS gerechnet wurde, und danach, was daran fehlt.
+ * ── ⚠ SEINE DATEN STEHEN NIRGENDS IM CONTRACT, UND DAS IST DER GANZE GRUND FÜR DAS EIGENE FELD ──
+ * Die Engine bekommt einen fertigen Lastgang, dem die geschätzte Erzeugung bereits abgezogen ist
+ * (`applyEstimatedPv`, B22a) — WOMIT geschätzt wurde, erfährt sie nie. `loadProfile.pvSource` sagt
+ * allein, DASS geschätzt wurde. Standort, Nennleistung, Wetterjahre und die für DIESE Anlage
+ * gemessene Streuung stehen ausschliesslich in `EstimatedPvSummary`, und die reist deshalb als
+ * eigenständiges Feld des Eingangs herein (`types.ts`), genau wie am Bildschirm als eigene Prop.
+ *
+ * Eine aus `pvSource` gebaute Kurzfassung wäre keine Abkürzung, sondern eine ZWEITE Formulierung
+ * desselben Befunds ohne seine Zahlen — genau das, was D17 als offenen Punkt benannt und
+ * ausdrücklich nicht gebaut hat.
+ *
+ * ── ⚠ ER NENNT ZWEI UNSICHERHEITEN, NICHT EINE — wortgleich zum Bildschirm ────────────────────
+ * 1. Die **Jahresstreuung** (± x %) aus der ECHTEN PVGIS-Antwort DIESER Anlage, nicht aus einer
+ *    Konstanten: die dokumentierten ± 5,8 % gehören zu EINER Konfiguration, eine andere Auslegung
+ *    an einem anderen Standort streut anders. `spread === null` heisst „keine Angabe" und nicht
+ *    „Streuung 0" — dann steht der Satz ohne Zahlen da, statt eine zu erfinden.
+ * 2. Der **systematische Aufschlag** der Glättung (`PV_TEN_YEAR_SMOOTHING_OPTIMISM_PERCENT`, eine
+ *    IMPORTIERTE `[ANNAHME]`-Konstante und keine abgeschriebene Zahl): ein Mehrjahres-Mittel ist
+ *    glatter als jedes einzelne Jahr und sättigt Speicher und Verbrauch seltener. Ohne ihn läse
+ *    sich das „±" wie eine symmetrische Unsicherheit, und das ist es nicht.
+ *
+ * ── WAS ER NICHT TUT ──────────────────────────────────────────────────────────────────────────
+ * Er BEGRÜNDET nicht, warum die Spitzenkappung entfällt — das sagt der Engine-Warnsatz zum Blocker
+ * `estimated_pv` (`savings/attribute.ts`) dort, wo die € 0 steht. Er STELLT die Folge fest, weil
+ * das der Satz ist, den der Bildschirm an dieser Stelle trägt; die Begründung bleibt beim Betrag.
+ *
+ * ── ⚠ NEUTRALER TON, NICHT WARNUNG ────────────────────────────────────────────────────────────
+ * Wortgleich zum Bildschirm, wo dieser Kasten (wie der Standardprofil-Hinweis) die Standard- und
+ * nicht die Warn-Variante trägt. Eine geschätzte Erzeugungskurve ist kein Mangel an den Daten,
+ * sondern eine andere Art von Grundlage — und der einzige Weg für einen Kunden, dessen Lastgang
+ * gar keine Einspeisung führt (Delta 9b-1/B22b, der wichtigste Anwendungsfall des Generators).
+ */
+function buildEstimatedPvNotice(summary: EstimatedPvSummary | undefined): ReportNotice | null {
+  if (!summary) return null
+
+  const spread = summary.spread
+  const arrays =
+    summary.arrayCount > 1 ? `, aufgeteilt auf ${summary.arrayCount} Modulflächen` : ''
+
+  return {
+    id: 'estimated_pv',
+    tone: 'neutral',
+    title: 'PV-Erzeugung geschätzt — nicht gemessen',
+    body:
+      'Die Eigenverbrauchs-Ersparnis in diesem Report beruht auf einer geschätzten ' +
+      'Erzeugungskurve. Sie stammt nicht aus Ihrer Anlage, sondern aus dem Mittel der Wetterjahre ' +
+      `${summary.weatherYears.from}–${summary.weatherYears.to} des EU-Dienstes PVGIS für ` +
+      `${formatKwp(summary.totalPeakPowerKwp)} am Standort ${summary.postalCode} ` +
+      `${summary.locationName}${arrays} — und wurde von Ihrem Verbrauch abgezogen.`,
+    list: null,
+    hints: [
+      'Wie genau das ist: ' +
+        (spread
+          ? `Die zehn Wetterjahre liegen zwischen ${formatKwh(spread.minKwh)} und ` +
+            `${formatKwh(spread.maxKwh)} im Jahr, im Mittel ${formatKwh(spread.meanKwh)} — also ` +
+            `± ${formatPercent(spread.spreadPercent)} allein durch das Wetter.`
+          : 'Die Streuung zwischen den Wetterjahren liegt in der Grössenordnung einiger Prozent.') +
+        ' Dazu kommt ein systematischer Aufschlag: ein Mehrjahres-Mittel ist glatter als jedes ' +
+        'einzelne Jahr, und eine glattere Erzeugung wird seltener eingespeist. Gemessen fällt die ' +
+        'Eigenverbrauchs-Ersparnis dadurch rund ' +
+        `${formatPercent(PV_TEN_YEAR_SMOOTHING_OPTIMISM_PERCENT)} höher aus als beim Mittel der ` +
+        'einzeln gerechneten Jahre — die Schätzung ist also eher etwas zu optimistisch als zu ' +
+        'vorsichtig.',
+      'Weil damit auch jede Lastspitze zur Hälfte geschätzt ist, weist der Report keine ' +
+        'Leistungspreis-Ersparnis aus. Für eine gemessene Aussage: Lastgang mit Einspeisung beim ' +
+        'Netzbetreiber anfordern (Viertelstundenwerte, Bezug und Einspeisung).',
+    ],
+  }
+}
+
+/**
+ * Die vier Hinweise in der Reihenfolge des Bildschirms.
+ *
+ * ⚠ Die Reihenfolge ist übernommen und nicht neu gewählt: zuerst die Herkunft der Daten (woraus
+ * der Verbrauch stammt, dann woraus die Erzeugung stammt), danach die zwei Mängel am Umfang. Wer
+ * den Report von oben liest, erfährt erst, WORAUS gerechnet wurde, und danach, was daran fehlt.
+ *
+ * ⚠ B23c-5: der PV-Hinweis steht damit an GENAU derselben relativen Stelle wie in `report.tsx` —
+ * zwischen Standardprofil und Teiljahr. Der dortige Kommentar begründet das ausdrücklich: beide
+ * Herkunfts-Hinweise können zugleich zutreffen, und synthetischer Verbrauch MINUS geschätzter
+ * Erzeugung ist die schwächste Grundlage im ganzen Rechner (und zugleich der wichtigste
+ * Anwendungsfall). Zwei Sätze für zwei Sachverhalte, nicht einer für beide.
  */
 function buildNotices(
   analysis: PdfReportAnalysis,
   loadProfile: Pick<LoadProfile, 'source'>,
+  estimatedPv: EstimatedPvSummary | undefined,
 ): ReportNotice[] {
   return [
     buildStandardProfileNotice(loadProfile),
+    buildEstimatedPvNotice(estimatedPv),
     buildPartialYearNotice(analysis),
     buildLargeGapNotice(analysis),
   ].filter((n): n is ReportNotice => n !== null)
@@ -615,9 +709,15 @@ export function buildReportSummary(
   analysis: PdfReportAnalysis,
   /* Gelesen wird ausschliesslich die HERKUNFT — s. `buildStandardProfileNotice`. */
   loadProfile: Pick<LoadProfile, 'source'>,
+  /*
+   * B23c-5 — die Zusammenfassung der geschätzten PV-Erzeugung, falls eine übernommen wurde.
+   * `undefined` heisst „nicht geschätzt", und dann entfällt der Hinweis ganz (s.
+   * `buildEstimatedPvNotice`). Sie steht bewusst NICHT in `analysis`: die Engine kennt sie nicht.
+   */
+  estimatedPv?: EstimatedPvSummary,
 ): ReportSummary {
   const headline = buildHeadline(analysis.current)
-  const notices = buildNotices(analysis, loadProfile)
+  const notices = buildNotices(analysis, loadProfile, estimatedPv)
   const entry = primaryEntryOf(analysis)
 
   /*

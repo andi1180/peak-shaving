@@ -1,4 +1,10 @@
-import type { AnalysisResult, LoadProfile, TariffParams, TariffSourceRef } from 'shared'
+import type {
+  AnalysisResult,
+  EstimatedPvSummary,
+  LoadProfile,
+  TariffParams,
+  TariffSourceRef,
+} from 'shared'
 import { buildTariffSourceRef } from 'shared'
 
 import type { AnalysisRequest, WorkerOutbound } from '@/lib/analysis-protocol'
@@ -27,7 +33,8 @@ import {
   type RecommendationChapter,
 } from '@/lib/pdf-report/recommendation'
 import { buildReportSummary, type ReportSummary } from '@/lib/pdf-report/summary'
-import { buildSummaryProbePayload } from './summary-fixtures'
+import { buildEstimatedPvProbe } from './pv-estimate-fixture'
+import { buildSummaryProbePayload, probeLoadFor } from './summary-fixtures'
 import { SUMMARY_PROBE_HORIZON_YEARS, type SummaryProbeKind } from './summary-probe-kinds'
 
 /**
@@ -166,10 +173,19 @@ export type SummaryProbeRun = {
    */
   basis: BasisChapter
   /**
-   * B23c-4 — die drei Hinweise bei der Kern-Kennzahl, als Kennungen. Die ENTSCHEIDUNG vor dem
+   * B23c-4/-5 — die Hinweise bei der Kern-Kennzahl, als Kennungen. Die ENTSCHEIDUNG vor dem
    * Erzeugen sichtbar: welcher steht, und vor allem welcher NICHT.
    */
   noticeIds: string[]
+  /**
+   * B23c-5 — die LIVE bei PVGIS geholte Zusammenfassung, falls der Fall eine PV-Schätzung fährt.
+   *
+   * ⚠ Sie reist mit heraus, weil das Dokument sie als eigenständigen Eingang braucht
+   * (`PdfReportInput.estimatedPv`) — im `AnalysisResult` steht sie nirgends, die Engine bekommt nur
+   * den bereits gekoppelten Lastgang. `null` heisst „nicht geschätzt": dann fehlt der Hinweis
+   * ganz, und das ist die richtige Antwort und kein fehlender Wert.
+   */
+  estimatedPv: EstimatedPvSummary | null
   /** Die Herkunft der Tarifsätze zum gerechneten Lauf. `null` = kein hinterlegter Stand gewählt. */
   tariffSource: TariffSourceRef | null
   /** Der Tarif, mit dem gerechnet wurde — für `tariffVintageNote` (die Grundgebühr). */
@@ -180,7 +196,23 @@ export async function runSummaryAnalysis(
   kind: SummaryProbeKind,
   now: Date,
 ): Promise<SummaryProbeRun> {
-  const payload = buildSummaryProbePayload(kind, now)
+  /*
+   * ⚠ B23c-5 — DIESER SCHRITT GEHT INS NETZ, und zwar VOR dem Rechenlauf.
+   *
+   * Die geschätzte Erzeugung muss vom Verbrauch abgezogen sein, bevor der Worker rechnet — sie
+   * ändert den Lastgang, nicht das Ergebnis. Ein Abruf danach käme zu spät, und einer daneben
+   * ergäbe zwei Lastgänge im selben Lauf. Er kostet rund 17 s (zwei Modulflächen à 8 MB), und
+   * genau das ist der Preis dafür, dass die Zahlen des Hinweises gemessen und nicht notiert sind.
+   */
+  const estimate =
+    kind === 'pv_schaetzung' || kind === 'pv_standardprofil'
+      ? await (async () => {
+          const base = probeLoadFor(kind, now)
+          return buildEstimatedPvProbe(base.profile, base.dataQuality)
+        })()
+      : null
+
+  const payload = buildSummaryProbePayload(kind, now, estimate ?? undefined)
   const worker = new Worker(new URL('../../lib/analysis.worker.ts', import.meta.url))
 
   try {
@@ -219,7 +251,7 @@ export async function runSummaryAnalysis(
       ? (plan.flow.entries.find((e) => e.battery.id === plan.flow!.selectedBatteryId) ??
         plan.flow.entries[0])
       : undefined
-    const summary = buildReportSummary(result, payload.load.profile)
+    const summary = buildReportSummary(result, payload.load.profile, estimate?.summary)
     /*
      * ⚠ AUS DEMSELBEN Ergebnis und DEMSELBEN Lastgang wie das Dokument gleich — nicht aus einer
      * zweiten Ableitung. `tariffVintage` kommt dabei über `derive.ts` und nicht aus `basis.ts`
@@ -247,6 +279,7 @@ export async function runSummaryAnalysis(
         tariffVintage: tariffVintageNote(payload.load.profile, payload.tariff, now),
       }),
       noticeIds: summary.notices.map((n) => n.id),
+      estimatedPv: estimate?.summary ?? null,
       tariffSource,
       tariff: payload.tariff,
       chapter: buildRecommendationChapter(result),

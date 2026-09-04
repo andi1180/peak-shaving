@@ -1150,3 +1150,181 @@ Rohgrösse.
   löst unverändert `window.print()` gegen das Print-Stylesheet aus; der react-pdf-Weg ist
   ausschliesslich über die unverlinkte, `noindex`-Route `/pdf-report-probe` erreichbar.
 - **Die Data-URIs bleiben der teure Teil**: die PDFs wiegen jetzt 657–852 kB.
+
+## D18 — B23c-5: der PV-Schätzungshinweis, und der letzte Bildschirm-Inhalt
+
+**Gebaut am 04.09.2026.** Damit trägt das Dokument **alle** Inhalte des Bildschirm-Reports — der in
+D17 als `[OFFEN]` benannte Hinweis zur geschätzten PV-Erzeugung (`estimated-pv-note.tsx`, B22b) ist
+der letzte gewesen. Neu: ein VIERTER Hinweis bei der Kern-Kennzahl in `summary.ts`, ein
+eigenständiges Contract-Feld und zwei Prüffälle, die die Schätzung LIVE bei PVGIS holen.
+
+### Der Contract wächst um GENAU EIN Feld — und ausdrücklich AUSSERHALB des Analyse-Picks
+
+`PdfReportInput.estimatedPv?: EstimatedPvSummary`. `PdfReportAnalysis` ist **unverändert** — zum
+fünften Mal, und wieder ausgezählt.
+
+Das ist keine Formfrage. Die Zusammenfassung steht an **keiner** Stelle im `AnalysisResult`, und
+zwar strukturell: die Engine bekommt einen Lastgang, dem die geschätzte Erzeugung bereits abgezogen
+ist (`applyEstimatedPv`, B22a) — WOMIT geschätzt wurde, erfährt sie nie. `loadProfile.pvSource` sagt
+allein, DASS geschätzt wurde. Standort, Nennleistung, Wetterjahre und die für diese Anlage gemessene
+Streuung gibt es nur hier. Am Bildschirm ist es genauso eine eigene Prop neben dem Ergebnis, und der
+dortige Kommentar begründet es wörtlich gleich.
+
+⚠ **Optional und nicht `null`-fähig** — anders als `tariffSource`. Dort ist „kein Stand gewählt" eine
+eigenständige AUSSAGE (der Kunde hat die Werte aus seiner Netzrechnung, die bessere Grundlage). Hier
+gibt es dieses Gegenstück nicht: „nicht geschätzt" ist die Abwesenheit einer Frage. `undefined` ⇒ der
+Hinweis erscheint gar nicht, kein Platzhaltertext.
+
+### Der vierte Hinweis — wortgleich, an derselben relativen Stelle
+
+Er steht in `buildNotices` zwischen Standardprofil und Teiljahr, also an GENAU der Stelle, an der
+`report.tsx` ihn führt. Beide Herkunfts-Hinweise zuerst (woraus der Verbrauch stammt, dann woraus die
+Erzeugung stammt), danach die zwei Mängel am Umfang.
+
+Übernommen sind beide Unsicherheiten, die der Bildschirm-Kommentar ausdrücklich als *zwei* benennt:
+
+1. **Die Jahresstreuung** (± x %) — aus der ECHTEN PVGIS-Antwort dieser Anlage, nicht aus einer
+   Konstanten. `spread === null` heisst „keine Angabe" und nicht „Streuung 0"; dann steht der Satz
+   ohne Zahlen da, statt eine zu erfinden.
+2. **Der systematische Aufschlag der Glättung** — über die IMPORTIERTE Konstante
+   `PV_TEN_YEAR_SMOOTHING_OPTIMISM_PERCENT` und nicht als abgeschriebene Zahl. Ohne ihn läse sich
+   das „±" wie eine symmetrische Unsicherheit, und das ist es nicht.
+
+**Neutraler Ton, nicht Warnung** — wortgleich zum Bildschirm, wo dieser Kasten wie der
+Standardprofil-Hinweis die Standard-Variante trägt. Eine geschätzte Erzeugungskurve ist kein Mangel
+an den Daten, sondern eine andere Art von Grundlage.
+
+⚠ **Er begründet NICHT, warum die Spitzenkappung entfällt.** Das sagt der Engine-Warnsatz zum Blocker
+`estimated_pv` (`savings/attribute.ts`, in diesem Schritt mit 0 Zeilen Diff) dort, wo die € 0 steht.
+Er STELLT die Folge fest, weil das der Satz ist, den der Bildschirm an dieser Stelle trägt.
+
+### ⚠ Der Prüffall holt die Zahlen LIVE — und das ist keine Bequemlichkeit
+
+`EstimatedPvSummary` besteht fast vollständig aus ANTWORTEN von PVGIS: Wetterjahre, zehn
+Jahreserträge, die daraus gebildete Streuung, die zurückgespiegelten Azimut- und Neigungswerte. Eine
+notierte Zusammenfassung wäre genau der zweite Zahlensatz, den `summary-fixtures.ts` in seinem Kopf
+ausschliesst — der Hinweis sähe richtig aus, weil seine Zahlen danebenstehen, und ausgerechnet die
+eine Grösse, um die es ihm geht, wäre erfunden.
+
+`pv-estimate-fixture.ts` fährt deshalb den PRODUKTIONSWEG: `lookupPostalCodeCentroid` →
+`pvArrayAzimuthDeg` → `fetchPvReferenceProfileAction` → `expandReferenceToTimestamps` →
+`summarizeAnnualYields` → `applyEstimatedPv`/`buildEstimatedPvProfile`. Dieselbe Haltung wie
+`analysis-run.ts`, wo der echte Analyse-Worker läuft statt einer zweiten Orchestrierung. **EINGABE
+ist allein die Auslegung** (PLZ 1100, 4,25 kWp/90°/SO 133° und 5,95 kWp/35°/SW) — die Anlage aus dem
+echten PV*SOL-Exposé, an dem B22c den Scan-Weg gemessen hat.
+
+Preis: zwei Aufrufe à rund 8 MB, gemessen 19–20 s je Prüflauf gegen 1,4–2,4 s der übrigen.
+
+### ⚠ Zwei PV-Prüffälle, und sie messen Verschiedenes
+
+**`pv_schaetzung`** — gemessener Lastgang (`import_only`), der PV-Hinweis steht **ALLEIN**. Nur so
+ist gemessen, dass er an `estimatedPv` hängt und nicht an `loadProfile.source`; dieselbe Überlegung,
+aus der die drei B23c-4-Fälle je einzeln stehen.
+
+⚠ Er trägt DENSELBEN Volljahrgang, nur ehrlich als `import_only` etikettiert statt `net_signed`. Das
+Profil hat keinen einzigen negativen Wert — es ist ein Export ohne Einspeise-Spalte, und das ist
+zugleich der EINZIGE Zustand, in dem der Generator überhaupt angeboten wird
+(`pvGeneratorEligibility` weist `net_signed` mit `measured_feed_in` ab). Das alte Etikett wäre hier
+nicht bloss ungenau, sondern die Behauptung eines Falls, den der Rechner nicht zulässt.
+
+**`pv_standardprofil`** — Standardprofil H0 plus dieselbe Schätzung, der einzige Fall mit ZWEI
+Hinweisen. Er misst, was ein einzeln stehender Hinweis nicht messen kann: **die Reihenfolge**. Er ist
+zugleich der wichtigste Anwendungsfall des Generators und die Konfiguration, an der B22b ihn live
+gemessen hat.
+
+### Gemessen am erzeugten PDF
+
+Sieben Läufe über die Prüfroute gegen den Production-Build, **72 Prüfungen, alle grün, 0
+Konsolenfehler, 0 Seitenfehler**.
+
+| Lauf | Hinweise | Seiten | kB | Dauer |
+|---|---|---|---|---|
+| **pv_schaetzung** | **`estimated_pv`** | 16 | 797 | 20,0 s |
+| **pv_standardprofil** | **`standard_profile`, `estimated_pv`** | 17 | 956 | 19,1 s |
+| bestand | — | 15 | 729 | 1,9 s |
+| standardprofil | `standard_profile` | 16 | 852 | 1,6 s |
+| luecke | `large_gap` | 16 | 708 | 2,4 s |
+| teiljahr_monat | `partial_year` | 15 | 666 | 1,9 s |
+| katalog | — | 16 | 838 | 1,4 s |
+
+**Die PVGIS-Antwort, in beiden Läufen identisch:** Wetterjahre **2014–2023**, **10,2 kWp** auf **2**
+Flächen, **1100 Wien, Favoriten**, zurückgespiegelter Azimut **−47 / +45**, Jahresertrag
+**9.221,60 … 10.177,13 kWh, Mittel 9.740,94, ± 4,90473 %**. Der Azimut ist der Durchstich der
+Konventions-Umrechnung Kompass → PVGIS end-to-end an echten Werten; Mittel und Streuung treffen die
+in B22c dokumentierte Messung derselben Anlage (9.741 kWh ± 4,9 %).
+
+- **Der Wortlaut ist gegen die ROHE `EstimatedPvSummary`-Instanz gehalten**, nicht bloss auf
+  Vorhandensein geprüft: die Prüfung liest die ungerundeten Antwortwerte aus dem Prüfstand und
+  formatiert sie UNABHÄNGIG (de-AT Intl) zu den drei Sätzen, die im PDF stehen müssen. Die
+  Glättungs-Prozentzahl wird dabei aus der QUELLE von `packages/shared/src/pv-design.ts` gelesen —
+  gegen die Ableitung gehalten wäre der Vergleich tautologisch (Lehre 1 aus D17).
+- **In den fünf Läufen ohne Schätzung kommen Titel, Rumpf und Glättungssatz je 0× im ganzen PDF vor.**
+- **Der Hinweis steht in beiden PV-Läufen auf DERSELBEN Seite wie die Kern-Kennzahl** (gemessen, nicht
+  angenommen).
+- **Die Reihenfolge ist gegen `report.tsx` gehalten und nicht gegen die eigene Ableitung:** die
+  Prüfung liest die Quelldatei, sortiert die vier Kästen nach ihrer Position im JSX
+  (`standard_profile, estimated_pv, partial_year, large_gap`) und misst dieselbe Folge im PDF. Im
+  Fliesstext des `pv_standardprofil`-Laufs: Kern-Kennzahl @1244 → Standardprofil @1333 → PV @1856 →
+  erste Kernaussage @4439.
+- **Agenda erneut gemessen**, jeder genannte Eintrag gegen die tatsächliche erste Seite seines
+  Kapitels; „Seite X von Y" auf allen Seiten aller sieben Dokumente.
+
+### Vier Wächter-Proben, jede bringt gezielt Rot
+
+1. **`document.tsx` reicht `estimatedPv` nicht durch** → **7** rot, alle im PV-Lauf; `bestand` bleibt
+   grün, das PDF schrumpft von 16 auf 15 Seiten. ⚠ Der Prüfstand meldet dabei WEITERHIN
+   `estimated_pv` — die Ableitung läuft ja —, während das Dokument den Hinweis gar nicht trägt.
+   Genau diese Divergenz zwischen Anzeige und Ausgabe fängt die Probe.
+2. **Reihenfolge in `buildNotices` vertauscht** (PV vor Standardprofil) → **genau 2** rot, und zwar
+   NUR im `pv_standardprofil`-Lauf; `pv_schaetzung` bleibt korrekt grün. Das ist zugleich der
+   Beleg, dass ein einzeln stehender Hinweis die Reihenfolge nicht messen kann — beide Prüffälle
+   werden gebraucht.
+3. **Die Glättungszahl aus der Streuung statt aus der Konstanten bezogen**, bei gleichzeitig auf
+   7,3 gesetzter Konstante → **genau 1** rot, und im PDF steht „rund **4,9 %**" statt „rund 7,3 %".
+   Damit sind die zwei Prozentzahlen als VERSCHIEDEN BEQUELLT nachgewiesen, obwohl sie im
+   ungestörten Lauf identisch drucken. Die Konstante bleibt in der Probe referenziert — sonst
+   bricht ESLint den Build, und dann misst der Prüflauf den alten Server (Nebenbefund D17, zum
+   vierten Mal).
+4. **Der Modulflächen-Halbsatz entfällt** (`arrayCount > 1` aufgehoben) → **genau 1** rot; „aufgeteilt
+   auf 2 Modulflächen" verschwindet aus dem Rumpf.
+
+Danach jeweils wiederhergestellt, 72/72 grün.
+
+### ⚠ Ein Zufall dieser Auslegung, der eine Prüfung schwächt
+
+**Beide Prozentzahlen des Hinweises drucken „4,9 %"**: die gemessene Streuung ist 4,90473 %, die
+Glättungs-Konstante 4,9 — auf eine Nachkommastelle fallen sie zusammen. Eine Prüfung, die nur nach
+der ZAHL suchte, könnte die zwei an dieser Anlage nicht auseinanderhalten. Die Prüfung vergleicht
+deshalb **ganze Sätze**, und die unterscheiden sich vollständig; zusätzlich trennt Wächter-Probe 3
+die Quellen (s. u.). **Wer diesen Prüffall je auf eine andere Auslegung stellt, gewinnt die
+Unterscheidung von selbst zurück.**
+
+### Bündelgrösse
+
+`/rechner` First Load: roh **1.923.660 → 1.923.160** (**−500**), Chunk-Zahl **18 → 19**.
+`/pdf-report-probe` roh **404.457 → 405.849**, unverändert 6 Chunks.
+
+Die Rohgrösse der Kundenroute SINKT, und das ist wieder Chunk-Graph-Buchhaltung: der Seiten-Chunk
+schrumpft von 178.897 auf 178.771 Bytes, ein weiterer Chunk (25,4 kB) kommt hinzu. **Gemessen über
+den GESAMTEN `/rechner`-First-Load-Satz: `@react-pdf`, `fitRasterToWidth`, `buildEstimatedPvNotice`,
+`buildEstimatedPvProbe`, „PV-Erzeugung geschätzt", „geschätzten Erzeugungskurve", „Annahmen und
+Datengrundlage" und `buildBasisChapter` kommen 0× vor**, `stunden-heatmap-raster` genau 1×
+(Positivkontrolle) — es ist kein neuer Code auf der Route. Die Baseline ist durch Stashen von
+`apps/website` erhoben worden und trifft die D17-Zahlen bit-genau.
+
+### `[OFFEN]` nach diesem Schritt
+
+- **Das Dokument hat inhaltliche Parität mit dem Bildschirm-Report.** Damit ist B23c abgeschlossen;
+  was bleibt, ist die Entscheidung über den **Cutover** — der ist ausdrücklich NICHT Teil von B23c.
+  Der Knopf im Rechner löst unverändert `window.print()` aus.
+- **Der Fall „gar kein Kapitel" ist für beide bedingten Kapitel unverändert gebaut und ungemessen**
+  (D16), ebenso der `pv_strong`-Rückfall des Energieflusses (D14) — beides gehört in die
+  Abschluss-Prüfung vor dem Cutover.
+- **Die beiden PV-Prüffälle brauchen NETZ.** Ohne Erreichbarkeit von PVGIS scheitern sie mit einer
+  benannten Meldung statt still auf notierte Zahlen zurückzufallen — das ist Absicht, macht sie aber
+  zu den einzigen Prüfläufen, die von einem fremden Dienst abhängen.
+- **Die Prüfroute hat kein `maxDuration`.** Lokal gegen `next start` ist das folgenlos; auf einem
+  Vercel-Deployment würde die Server Action des Proxys an der Plattformgrenze abgeschnitten (die
+  Falle aus B22c). Wer die Prüfroute je dort fahren will, setzt es in `app/pdf-report-probe/page.tsx`
+  — in einer `page`-Datei, nicht in `'use server'`.
+- **Der Preisstand-Hinweis erscheint im Jänner nicht** (unverändert aus D17).

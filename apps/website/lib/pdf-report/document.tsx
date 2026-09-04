@@ -743,7 +743,7 @@ function StatementTable({ table }: { table: ReportTable }) {
  * messen, ob eine Seite allein mit dieser Fussnote dasteht.
  */
 function ResultsChapter({ input }: { input: PdfReportInput }) {
-  const summary = buildReportSummary(input.analysis, input.loadProfile)
+  const summary = buildReportSummary(input.analysis, input.loadProfile, input.estimatedPv)
 
   return (
     <View style={styles.body}>
@@ -767,6 +767,10 @@ function ResultsChapter({ input }: { input: PdfReportInput }) {
         einer Durchschnittskurve und keine gemessene Spitze). Dieselbe Stellung wie am Bildschirm,
         wo sie unmittelbar unter der Kern-Kennzahl stehen und ausdrücklich NICHT in der
         Datenqualitäts-Box weiter unten — die wurde beim Live-Test überscrollt.
+
+        ⚠ B23c-5: es sind jetzt vier, und ihre REIHENFOLGE ist die des Bildschirms (`buildNotices`)
+        — sie entsteht in der Ableitung und nicht hier. Hier durchsortiert stünde dieselbe
+        Entscheidung an zwei Orten.
       */}
       {summary.notices.map((notice) => (
         <Notice key={notice.id} notice={notice} />

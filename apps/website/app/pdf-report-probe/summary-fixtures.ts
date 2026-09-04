@@ -265,6 +265,18 @@ function probeYear(): number {
   return Number(fmt.format(Date.parse(profile.readings[0]!.ts)))
 }
 
+/**
+ * B23c-5 — der Lastgang eines Prüffalls, OHNE den Rest des Payloads.
+ *
+ * Exportiert für genau einen Aufrufer: der PV-Fall braucht die BASIS, von der die geschätzte
+ * Erzeugung abgezogen wird, bevor der Payload überhaupt entstehen kann (`analysis-run.ts`). Den
+ * ganzen Payload dafür zweimal zu bauen hiesse, die Spotpreis-Reihe über 35.040 Intervalle zweimal
+ * zu erzeugen und danach eine der beiden wegzuwerfen.
+ */
+export function probeLoadFor(kind: SummaryProbeKind, now: Date): ProbeLoad {
+  return loadFor(kind, now)
+}
+
 function loadFor(kind: SummaryProbeKind, now: Date): ProbeLoad {
   /*
    * Das Standardprofil kommt aus DEM Generator, den auch der Rechner benutzt (Delta 9b-1) — samt
@@ -276,7 +288,7 @@ function loadFor(kind: SummaryProbeKind, now: Date): ProbeLoad {
    * ⚠ Das Jahr ist das des Prüf-Lastgangs und nicht `standardProfileYear(now)`: nur so decken die
    * Preisreihe und die Netzentgelt-Zeile denselben Zeitraum ab wie in den übrigen Läufen.
    */
-  if (kind === 'standardprofil') {
+  if (kind === 'standardprofil' || kind === 'pv_standardprofil') {
     const year = probeYear()
     const outcome = generateStandardLoadProfile({
       annualConsumptionKwh: 4_500,
@@ -311,6 +323,32 @@ function loadFor(kind: SummaryProbeKind, now: Date): ProbeLoad {
             'Datenqualitäts-Hinweis kennzeichnen.',
         ],
       },
+    }
+  }
+
+  /*
+   * B23c-5 — DERSELBE Volljahrgang, nur ehrlich etikettiert.
+   *
+   * ── ⚠ WARUM `import_only` UND NICHT `net_signed` ──────────────────────────────────────────
+   * Das Fixture-Profil trägt keinen einzigen negativen Wert — es hat gar keine Einspeisung, und
+   * `import_only` ist die Bezeichnung eines Netzbetreiber-Exports ohne Einspeise-Spalte. Es ist
+   * zugleich der EINZIGE Zustand, in dem der PV-Generator überhaupt angeboten wird
+   * (`pvGeneratorEligibility` weist `net_signed` mit `measured_feed_in` ab): eine gemessene
+   * Einspeisung UND eine geschätzte Erzeugung nebeneinander zöge dieselbe Energie zweimal ab.
+   * Das Etikett `net_signed` auf einem Profil ohne Einspeisung wäre hier also nicht bloss
+   * ungenau, sondern die Behauptung eines Falls, den der Rechner gar nicht zulässt.
+   *
+   * ⚠ Es ist KEINE zweite Grundlage: jeder Messwert ist Zeichen für Zeichen einer des
+   * Volljahrgangs (dieselbe Überlegung wie beim Teiljahres-Zuschnitt, s. `chart-fixtures.ts`).
+   * Die geschätzte Erzeugung wird erst DANACH abgezogen, live und ausserhalb dieser Datei
+   * (`pv-estimate-fixture.ts`).
+   */
+  if (kind === 'pv_schaetzung') {
+    const profile: LoadProfile = { ...buildLoadProfileFixture(), source: 'import_only' }
+    return {
+      fileName: 'pruefstand-jahreslastgang-ohne-einspeisung.csv',
+      profile,
+      dataQuality: { ...countedQuality(profile), gapsInterpolated: 0, largestGapSlots: 0, warnings: [] },
     }
   }
 
@@ -413,8 +451,21 @@ const PROBE_FINANCIAL: FinancialParams = {
  * `buildCurrentYearPartialLoadProfileFixture`). Eine Fixtur, die selbst auf die Uhr sieht, liesse
  * sich gegen keinen Stichtag prüfen.
  */
-export function buildSummaryProbePayload(kind: SummaryProbeKind, now: Date): CalculatorPayload {
-  const load = loadFor(kind, now)
+export function buildSummaryProbePayload(
+  kind: SummaryProbeKind,
+  now: Date,
+  /*
+   * B23c-5 — die LIVE bei PVGIS geholte Schätzung, falls der Fall eine braucht.
+   *
+   * ⚠ Sie kommt als Parameter herein und wird nicht hier geholt: diese Datei ist bewusst frei von
+   * Netz und `async` (sie baut EINGABEN), und ein Abruf mitten in ihr machte jeden der elf
+   * Prüffälle von einem fremden Dienst abhängig. Der Lastgang, den sie ersetzt, stammt aus
+   * `loadFor` — er ist die BASIS, von der die geschätzte Erzeugung abgezogen wurde.
+   */
+  estimatedPv?: { profile: CalculatorPayload['load']['profile']; pv: CalculatorPayload['pv'] },
+): CalculatorPayload {
+  const base = loadFor(kind, now)
+  const load: ProbeLoad = estimatedPv ? { ...base, profile: estimatedPv.profile } : base
 
   return {
     load,
@@ -427,7 +478,12 @@ export function buildSummaryProbePayload(kind: SummaryProbeKind, now: Date): Cal
       kind === 'teiljahr_monat' ? { ...TARIFF, billingModel: 'monthly_max_average' } : TARIFF,
     tariffSelection: selectionFor(kind, now),
     financial: kind === 'foerderung' ? PROBE_FINANCIAL : undefined,
-    pv: null,
+    /*
+     * ⚠ Das Brutto-PV-Profil reist mit, wo es eines gibt — genau wie im Rechner. Es ändert keine
+     * Ersparnis-Zahl (B22a), aber es speist `dispatchTrace.pvGenerationKw` und damit den
+     * Energiefluss-Chart; ohne es entstünde im Prüflauf ein anderer Trace als im echten Weg.
+     */
+    pv: estimatedPv?.pv ?? null,
     tariffPricing:
       kind === 'blocker'
         ? PRICING_WITHOUT_SPOT

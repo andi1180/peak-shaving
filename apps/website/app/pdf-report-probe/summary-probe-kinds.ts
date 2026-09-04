@@ -19,6 +19,8 @@ export type SummaryProbeKind =
   | 'standardprofil'
   | 'blocker_luecke'
   | 'foerderung'
+  | 'pv_schaetzung'
+  | 'pv_standardprofil'
 
 export const SUMMARY_PROBE_KINDS: readonly SummaryProbeKind[] = [
   'bestand',
@@ -31,6 +33,8 @@ export const SUMMARY_PROBE_KINDS: readonly SummaryProbeKind[] = [
   'standardprofil',
   'blocker_luecke',
   'foerderung',
+  'pv_schaetzung',
+  'pv_standardprofil',
 ]
 
 export const SUMMARY_PROBE_LABEL: Record<SummaryProbeKind, string> = {
@@ -92,6 +96,45 @@ export const SUMMARY_PROBE_LABEL: Record<SummaryProbeKind, string> = {
    * „keine Angabe (nicht einbezogen)", dieser einen echten Betrag.
    */
   foerderung: 'Ohne Bestandsanlage, MIT Förderung und Steuervorteil (Nettoinvestition ≠ brutto)',
+  /*
+   * B23c-5 — der EINZIGE Fall mit geschätzter PV-Erzeugung, und er holt sie LIVE bei PVGIS.
+   *
+   * ── ⚠ WARUM ER ALLEIN STEHT UND NICHT AUF DEM STANDARDPROFIL AUFSETZT ─────────────────────
+   * Am Bildschirm ist das Standardprofil der wichtigste Anwendungsfall des Generators, und beide
+   * Hinweise treffen dort zugleich zu. Als PRÜFFALL wäre genau das wertlos: mit zwei Hinweisen
+   * nebeneinander liesse sich nicht mehr sagen, ob der PV-Hinweis an `estimatedPv` hängt oder an
+   * `loadProfile.source` — dieselbe Überlegung, aus der die drei B23c-4-Fälle je EINZELN stehen.
+   * Er fährt deshalb einen GEMESSENEN Lastgang (`import_only`, keine Einspeisung — genau der
+   * Zustand, in dem der Generator überhaupt angeboten wird, s. `pvGeneratorEligibility`).
+   *
+   * ── ⚠ ER BRAUCHT NETZ, UND ZWAR ABSICHTLICH ───────────────────────────────────────────────
+   * Standort, Nennleistung, Wetterjahre und die Streuung sind KEINE Eingaben, die man notieren
+   * kann — sie kommen aus der Antwort von PVGIS. Eine hier abgeschriebene Zusammenfassung wäre
+   * genau der zweite Zahlensatz, den dieser Prüfstand nicht haben darf (s. `summary-fixtures.ts`):
+   * der Hinweis sähe richtig aus, weil seine Zahlen danebenstehen, nicht weil sie herauskommen.
+   * EINGABE ist die Auslegung (PLZ, kWp, Neigung, Ausrichtung), s. `pv-estimate-fixture.ts`.
+   */
+  pv_schaetzung: 'Gemessener Lastgang + LIVE bei PVGIS geschätzte PV (NUR der PV-Hinweis)',
+  /*
+   * B23c-5 — der wichtigste ANWENDUNGSFALL des Generators, und der einzige Prüffall mit ZWEI
+   * Hinweisen nebeneinander.
+   *
+   * ── ⚠ ER MISST ETWAS, DAS EIN EINZELN STEHENDER HINWEIS NICHT MESSEN KANN: DIE REIHENFOLGE ──
+   * `report.tsx` führt die vier Kästen in einer festen Folge, und der Kommentar am PV-Kasten
+   * begründet ausdrücklich, warum er NACH dem Standardprofil steht: beide können zugleich
+   * zutreffen, und synthetischer Verbrauch MINUS geschätzter Erzeugung ist die schwächste
+   * Grundlage im ganzen Rechner. In einem Lauf mit nur EINEM Hinweis ist diese Folge gar nicht
+   * beobachtbar — die Kennungsliste allein käme aus derselben Ableitung, die geprüft werden soll.
+   *
+   * ⚠ Er ERSETZT `pv_schaetzung` nicht: dort steht der PV-Hinweis ALLEIN, und nur so ist gemessen,
+   * dass er an `estimatedPv` hängt und nicht an `loadProfile.source`. Die zwei Läufe messen
+   * Verschiedenes und brauchen einander.
+   *
+   * Es ist zugleich die Konfiguration, an der B22b den Generator live gemessen hat (H0 4.500 kWh
+   * + dieselben zwei Modulflächen) — kein für die Prüfung erfundener Zustand.
+   */
+  pv_standardprofil:
+    'Standardprofil H0 + LIVE geschätzte PV (ZWEI Hinweise — misst die Reihenfolge)',
 }
 
 /**
