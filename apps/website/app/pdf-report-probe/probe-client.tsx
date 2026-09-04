@@ -2,7 +2,12 @@
 
 import { useState } from 'react'
 import { Calculator, FileText, ImageDown } from 'lucide-react'
-import type { AnalysisResult, LoadProfile, TariffSourceRef } from 'shared'
+import type {
+  AnalysisResult,
+  EstimatedPvSummary,
+  LoadProfile,
+  TariffSourceRef,
+} from 'shared'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -148,6 +153,11 @@ export function PdfReportProbe() {
     chapter: BasisChapter
     noticeIds: string[]
     tariffSource: TariffSourceRef | null
+    /*
+     * B23c-5 — die LIVE geholte PV-Zusammenfassung des Laufs. `null` heisst „nicht geschätzt";
+     * dann fehlt der Hinweis im Dokument ganz, und genau das ist die richtige Antwort.
+     */
+    estimatedPv: EstimatedPvSummary | null
   } | null>(null)
   /** Der Lastgang des Rechenlaufs — Grundlage des Diagramms UND des Zeitraums auf dem Deckblatt. */
   const [loadProfile, setLoadProfile] = useState<LoadProfile | null>(null)
@@ -225,6 +235,7 @@ export function PdfReportProbe() {
         chapter: run.basis,
         noticeIds: run.noticeIds,
         tariffSource: run.tariffSource,
+        estimatedPv: run.estimatedPv,
       })
       setHourFlowGrid(
         run.hourFlowGrid
@@ -273,6 +284,12 @@ export function PdfReportProbe() {
            */
           tariffSource: basis.tariffSource,
           tariffVintage: basis.chapter.tariffVintage,
+          /*
+           * ⚠ AUS DEMSELBEN Lauf wie der Lastgang daneben — es ist die Zusammenfassung DER
+           * Schätzung, die von genau diesem Verbrauch abgezogen wurde. `undefined` heisst „nicht
+           * geschätzt"; ein Platzhalter stünde als Angabe da, die nichts bezeichnet.
+           */
+          estimatedPv: basis.estimatedPv ?? undefined,
         },
         now,
       )
@@ -526,6 +543,37 @@ export function PdfReportProbe() {
                 {basis && basis.noticeIds.length > 0 ? basis.noticeIds.join(', ') : 'keine'}
               </strong>
             </p>
+            {/*
+              B23c-5 — die ROHEN Antwortwerte der PV-Schätzung, vor dem Erzeugen sichtbar.
+
+              ⚠ Sie stehen hier, damit sich der Hinweis im PDF gegen die ANTWORT von PVGIS halten
+              lässt und nicht bloss gegen sich selbst: Wetterjahre, Nennleistung, Standort und die
+              gemessene Streuung sind genau die Grössen, die er nennt. Ungerundet und in derselben
+              Form, in der `EstimatedPvSummary` sie trägt — die Formatierung geschieht erst in
+              `summary.ts`, und eine hier vorformatierte Zahl liesse den Vergleich tautologisch
+              werden.
+            */}
+            {basis?.estimatedPv && (
+              <p className="text-text-muted">
+                PV-Schätzung (live von PVGIS):{' '}
+                <strong id="probe-pv-years">
+                  {basis.estimatedPv.weatherYears.from}–{basis.estimatedPv.weatherYears.to}
+                </strong>{' '}
+                · <strong id="probe-pv-kwp">{basis.estimatedPv.totalPeakPowerKwp}</strong> kWp auf{' '}
+                <strong id="probe-pv-arrays">{basis.estimatedPv.arrayCount}</strong> Flächen ·{' '}
+                <strong id="probe-pv-plz">{basis.estimatedPv.postalCode}</strong>{' '}
+                <strong id="probe-pv-ort">{basis.estimatedPv.locationName}</strong> · Azimut{' '}
+                <strong id="probe-pv-azimuth">
+                  {basis.estimatedPv.echoedAzimuthDeg.join(' / ')}
+                </strong>{' '}
+                · Ertrag{' '}
+                <strong id="probe-pv-spread">
+                  {basis.estimatedPv.spread
+                    ? `${basis.estimatedPv.spread.minKwh} … ${basis.estimatedPv.spread.maxKwh}, Mittel ${basis.estimatedPv.spread.meanKwh}, ± ${basis.estimatedPv.spread.spreadPercent} %`
+                    : 'keine Angabe'}
+                </strong>
+              </p>
+            )}
             {basis && (
               <p className="text-text-muted">
                 Datenqualitäts-Kasten:{' '}

@@ -1,4 +1,4 @@
-import type { AnalysisResult, LoadProfile, TariffSourceRef } from 'shared'
+import type { AnalysisResult, EstimatedPvSummary, LoadProfile, TariffSourceRef } from 'shared'
 
 /**
  * B23a/B23c-1 — Eingangsgrössen des react-pdf-Reports.
@@ -187,4 +187,28 @@ export type PdfReportInput = {
    * würde, behauptete eine Abhängigkeit des Dokuments, die es nicht gibt.
    */
   tariffVintage: string | null
+  /**
+   * B23c-5 — die Zusammenfassung der GESCHÄTZTEN PV-Erzeugung (B22b), falls eine übernommen wurde.
+   *
+   * `undefined` heisst „nicht geschätzt" — dann erscheint der Hinweis gar nicht, und das Dokument
+   * verhält sich Zeile für Zeile wie vor diesem Schritt. Ausdrücklich KEIN Platzhaltertext: „keine
+   * PV geschätzt" wäre eine Aussage über eine Frage, die nie gestellt wurde.
+   *
+   * ── ⚠ WARUM DAS EIN EIGENSTÄNDIGES FELD IST UND NICHT IN `PdfReportAnalysis` GEHÖRT ───────────
+   * Es steht nicht im `AnalysisResult`, und zwar an keiner Stelle: die Engine bekommt einen
+   * fertigen Lastgang, dem die geschätzte Erzeugung bereits abgezogen ist (`applyEstimatedPv`,
+   * B22a) — WOMIT geschätzt wurde, erfährt sie nie. `loadProfile.pvSource` sagt allein, DASS
+   * geschätzt wurde; Standort, Nennleistung, Wetterjahre und die gemessene Streuung stehen
+   * ausschliesslich hier. Am Bildschirm ist es genauso eine eigene Prop neben dem Ergebnis
+   * (`report.tsx`), und aus demselben Grund.
+   *
+   * ⚠ Eine aus `pvSource` gebaute Kurzfassung wäre deshalb keine Abkürzung, sondern eine ZWEITE
+   * Formulierung desselben Befunds ohne seine Zahlen (D16) — genau die Doppelung, die D17 als
+   * offenen Punkt benannt und ausdrücklich nicht gebaut hat.
+   *
+   * ⚠ OPTIONAL und nicht `null`-fähig: anders als `tariffSource` gibt es hier keine zweite,
+   * eigenständige Aussage („kein Stand gewählt" ist eine Angabe, „nicht geschätzt" ist die
+   * Abwesenheit einer Frage). Ein Aufrufer, der nichts geschätzt hat, lässt das Feld weg.
+   */
+  estimatedPv?: EstimatedPvSummary
 }
