@@ -117,12 +117,30 @@ const LEGEND = [
  * EXPLIZITE AUSNAHME vom sonstigen Report-Ruhe-Prinzip (§6.1/DESIGN.md, hier bewusst NICHT
  * `isAnimationActive={false}`): dieser eine Chart darf "leichte Interaktion/Animation" haben (§6.2)
  * — anders als Chart 1/2. Der Tages-Wechsel remounted den Chart (key=Datum) und animiert erneut.
+ *
+ * ── ⚠ `disableAnimation` — AUSSCHLIESSLICH für den Off-Screen-Rasterungspfad (D20) ─────────────
+ * D19 hat gemessen, dass GENAU DIESE Animation drei Viertel der gesamten Rasterungszeit eines
+ * PDF-Reports ausmacht: 1578 von 2078 ms, und sie wächst unter vierfacher CPU-Drosselung nur um
+ * 6 % (jedes andere Bild um den Faktor 2,3 bis 3,8). Es ist also WARTEzeit, keine Rechenzeit —
+ * `waitForStableRender` (chart-capture.ts) wartet die Einblendung ab, weil ein früher gerastertes
+ * Bild alle vier Datenreihen unsichtbar trüge.
+ *
+ * Auf einem Blatt Papier gibt es keine Animation; sie abseits des Sichtfelds abzuwarten ist reine
+ * Wartezeit ohne jede Wirkung auf das Ergebnis. Der Prop schaltet sie deshalb NUR dort ab.
+ *
+ * ⚠ Er wird ausschliesslich von `lib/pdf-report/charts.tsx` gesetzt. Der Bildschirm-Aufruf
+ * (`report.tsx`) setzt ihn NICHT und reicht auch kein `isAnimationActive` durch — dort bleibt
+ * §6.2 unverändert in Kraft. Umgesetzt als Spread eines LEEREN Objekts im Bildschirmfall, damit
+ * die Charts dort bit-identisch dieselben Props bekommen wie zuvor; ein explizites
+ * `isAnimationActive={true}` wäre zwar heute gleichwertig, hinge aber am Standardwert von
+ * recharts und wäre damit eine Aussage, die diese Datei nicht treffen muss.
  */
 export function EnergyFlowChart({
   perBattery,
   selectedBatteryId,
   onSelectBattery,
   timeZone,
+  disableAnimation = false,
 }: {
   perBattery: Entry[]
   selectedBatteryId: string
@@ -130,6 +148,8 @@ export function EnergyFlowChart({
   /** `loadProfile.timezoneMeta` (DST-bewusst, s. LoadChart) — ein einzelner Kalendertag hängt
    * ebenso an der lokalen Wanduhr wie die Jahresübersicht. */
   timeZone: string
+  /** Nur für die Off-Screen-Rasterung (PDF). Standard `false` = Bildschirmverhalten, unverändert. */
+  disableAnimation?: boolean
 }) {
   const [preferredTab, setPreferredTab] = useState<DayLabel | null>(null)
 
@@ -158,6 +178,9 @@ export function EnergyFlowChart({
     if (points.length === 0) return [0, 1]
     return [points[0]!.x, points[points.length - 1]!.x]
   }, [points])
+
+  /* Leeres Objekt im Bildschirmfall: dort wird nachweislich kein zusätzlicher Prop gereicht. */
+  const animationProps = disableAnimation ? ({ isAnimationActive: false } as const) : {}
 
   return (
     <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-6 print:break-inside-avoid">
@@ -252,6 +275,7 @@ export function EnergyFlowChart({
                 <Tooltip content={<FlowTooltip timeZone={timeZone} />} />
                 <ReferenceLine y={0} stroke="var(--color-border)" />
                 <Area
+                  {...animationProps}
                   dataKey="verbrauch"
                   name="Verbrauch"
                   type="monotone"
@@ -262,6 +286,7 @@ export function EnergyFlowChart({
                   fillOpacity={0.06}
                 />
                 <Area
+                  {...animationProps}
                   dataKey="pv"
                   name="PV-Erzeugung"
                   type="monotone"
@@ -272,6 +297,7 @@ export function EnergyFlowChart({
                   fillOpacity={0.15}
                 />
                 <Line
+                  {...animationProps}
                   dataKey="netz"
                   name="Netzbezug"
                   type="monotone"
@@ -280,6 +306,7 @@ export function EnergyFlowChart({
                   strokeWidth={1.5}
                 />
                 <Line
+                  {...animationProps}
                   dataKey="batterie"
                   name="Batterie"
                   type="monotone"
