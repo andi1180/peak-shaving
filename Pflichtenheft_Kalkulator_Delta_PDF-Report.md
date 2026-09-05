@@ -1648,3 +1648,159 @@ Handover übernommen. Die 72 Bytes sind der Prop-Name, den die BILDSCHIRM-Fassun
   der Agenda braucht — D19 Befund 2 gilt unverändert.
 - **Ladezustand und UI am Kunden-Knopf**, **Fehlerbehandlung für gescheiterte Erzeugungen** und der
   **Cutover** sind weiterhin getrennt zu entscheiden; alle `[OFFEN]`-Punkte aus D18/D19 gelten fort.
+
+---
+
+## D21 — Cutover Teil 1: der neue Weg wird bedienbar, hinter einem Schalter mit Vorgabe AUS
+
+**Diese PR schaltet NICHTS um.** Sie macht den react-pdf-Weg zum ersten Mal aus dem echten
+Kunden-Auslöseweg heraus erreichbar — und zwar ausschliesslich, wenn eine Umgebungsvariable
+ausdrücklich auf einen Wert gesetzt wird, den kein Deployment heute trägt. Bis dahin verhält sich
+der Rechner Zeile für Zeile wie vorher; D9 („der neue Weg ist NICHT live") bleibt damit für jede
+bestehende Umgebung gültig, verliert aber seine Unbedingtheit: der Weg IST jetzt einschaltbar.
+
+### Die sechs Entscheidungen dieses Schritts
+
+**(1) Ladezustand — Pflicht, und ausdrücklich ohne Phasen oder Prozent.** D19/D20 haben gemessen,
+was eine Erzeugung kostet: **3,4–4,7 s** je nach Fall und Cache-Lage, unter vierfacher CPU-Drosselung
+das Dreifache. Der Kopf von `download.ts` verlangt deshalb seit B23a einen Ladezustand („sonst sieht
+ein Klick, der ein paar hundert Millisekunden nichts tut, wie ein toter Knopf aus"). Umgesetzt sind
+drei Dinge zusammen: der Knopf ist **gesperrt**, er trägt die Beschriftung „Report wird erzeugt …"
+samt Spinner, und darunter steht ein `role="status"`-Satz, der sagt, was geschieht und dass der
+Download von selbst startet.
+
+**Kein Fortschrittsbalken, und das ist begründet:** was ein Dokument kostet, hängt an der Zahl der
+Bilder (fünf oder sechs — D19 Befund (a)) und an der Seitenzahl, die erst der Messdurchlauf kennt
+(D5). Ein Balken, der bei 80 % stehenbleibt, weil dieser Lauf ein Bild mehr trägt, ist schlechter
+als gar keiner.
+
+**(2) Fehlerfall — eine Meldung mit Wiederholung, und AUSDRÜCKLICH KEIN stiller Rückfall auf
+`window.print()`.** Die zwei Wege tragen verschiedene Felder (Titel und Adresse gibt es nur im
+neuen) und verschiedene Seitenumbrüche; ein Ausdruck, der nach einem Fehlschlag heimlich der andere
+ist, wäre ein anderes Dokument unter demselben Knopf — und niemand könnte im Nachhinein sagen,
+welches der Kunde in der Hand hält. Der Fehlerblock nennt zuerst die Handlungsanweisung, dann die
+technische Ursache als untergeordnete Zeile („Loading chunk 429 failed" sagt einem Bäcker nichts,
+einem Support-Anruf dagegen alles); ohne verwertbare Meldung fehlt die zweite Zeile ganz.
+
+**(3) Der Rückfallschalter IST der Schalter.** `NEXT_PUBLIC_PDF_REPORT_ENGINE=react-pdf` schaltet
+ein; **jeder andere Wert — nicht gesetzt, leer, `print`, `false`, ein Tippfehler — bedeutet AUS**.
+Die Prüfung ist bewusst ein Vergleich auf genau diese Zeichenkette und keine Wahrheitswert-Prüfung:
+`…=false` wäre dabei eine nicht-leere Zeichenkette und damit wahr, und der neue Weg ginge live, weil
+jemand ihn abschalten wollte. Ein Schalter, den ein Tippfehler EINschaltet, ist keiner.
+
+⚠ `NEXT_PUBLIC_*` ist ein **Bauzeit**-Wert (Next ersetzt ihn textuell an der Fundstelle). Umschalten
+heisst deshalb: Variable in Vercel setzen bzw. entfernen **und neu ausrollen** — es gibt keinen
+Laufzeit-Schalter. Aus demselben Grund muss der Zugriff wörtlich als
+`process.env.NEXT_PUBLIC_PDF_REPORT_ENGINE` stehen bleiben; über einen Zwischenschritt gelesen
+(`process.env[NAME]`, ein Spread, eine Hilfsfunktion mit dem Namen als Parameter) findet die
+Ersetzung nicht statt, und der Schalter stünde dauerhaft auf AUS, ohne dass irgendetwas
+fehlschlüge.
+
+**(4) Die Gate-Felder gehen mit dem Schalter live.** `documentFields` (Titel + Adresse, B23a/D3/D4)
+wird GENAU DANN gesetzt, wenn der neue Weg aktiv ist. Mit ausgeschaltetem Schalter erhebt der Dialog
+sie nicht — der CSS-Weg (`print-cover.tsx`) kennt beide Felder nicht, und sie dort zu erheben wäre
+genau die „Requisite", die der Kopf des Dialogs seit B23a ausschliesst: erhoben, angezeigt und ohne
+jede Wirkung. Bei der Adresse käme hinzu, dass eine Erhebung ohne Zweck personenbezogen ist.
+
+Ein **geleertes** Titelfeld fällt auf den Vorschlag aus `defaultReportTitle` zurück statt eine leere
+Zeile zu drucken: der Titel ist die einzige Angabe des Deckblatts, die es immer geben muss.
+
+**(5) Der alte Weg bleibt vollständig bestehen.** `print-cover.tsx`, `print-frame.tsx`,
+`print-methodology.tsx`, `print-assumptions-snapshot.tsx`, der `@media print`-Block in `globals.css`
+und jedes `print:hidden` sind unangetastet. Der Rückbau ist eine eigene PR nach einer
+Beobachtungsphase — solange beide Wege nebeneinander stehen, bleibt der Methodik-TEXT doppelt im
+Repo (D10, unverändert).
+
+**(6) Der Fall „gar kein Kapitel" bleibt gebaut und ungemessen — bewusst akzeptiertes Risiko.**
+D15/D16/D17/D18 führen ihn seit vier Schritten als offenen Punkt: das Ladeverhalten-Kapitel entfällt
+nur, wenn ein Speicher im ganzen Zeitraum nicht arbeitet UND keine Preiskurve vorliegt; das
+Gerätewahl-Kapitel nur bei einem Katalog mit einem einzigen Gerät. Beide Zustände sind mit den
+heutigen Prüf-Fixtures nicht erreichbar. Das Risiko wird mit dem Einschalten übernommen und nicht
+davor beseitigt: die Agenda wird in `ReportDocument` aus **derselben** Präsenz-Entscheidung gebildet
+wie der Seitenbaum (D15), ein Eintrag ohne Kapitel kann also strukturell nicht entstehen — was
+ungemessen bleibt, ist das Layout eines Dokuments mit einem Kapitel weniger.
+
+### ⚠ Der Defekt, den erst der Live-Lauf gefangen hat: eine Effekt-Aufräumung, die mitten in der Arbeit läuft
+
+Der Auslöser läuft über einen `useEffect`, nach dem Vorbild des bestehenden Gate→Druck-Mechanismus
+(`step-result.tsx`) — und aus einem **zweiten**, hier neuen Grund: `downloadReportPdf` arbeitet
+synchron im selben Thread, sobald der Lazy-Chunk da ist. Unmittelbar im Klick-Rückruf gestartet
+könnte die Auflösung des dynamischen Imports auf einem Microtask **vor dem ersten Paint** liegen —
+der Ladezustand wäre gesetzt, aber nie gezeigt. Ein `useEffect` (kein `useLayoutEffect`) läuft nach
+dem Paint.
+
+Die erste Fassung führte zusätzlich ein `let cancelled = false` im Effekt und setzte es in dessen
+Aufräumfunktion. **Das war falsch, und es sah aus wie ein Hänger der Erzeugung:** der Effekt setzt
+als Erstes `setPdfRequested(false)`, damit ändert sich seine eigene Abhängigkeit, React räumt auf und
+startet ihn neu — die Aufräumung läuft also mitten in der Erzeugung. Gemessen: das PDF wurde
+vollständig erzeugt und **heruntergeladen**, aber `setPdfState({ kind: 'idle' })` wurde übersprungen;
+der Knopf blieb nach 60 s noch auf „Report wird erzeugt …", und ein zweiter Export war unmöglich.
+Ersetzt durch einen `mounted`-Vermerk in einem Ref: er sagt, was gemeint ist („gibt es diese
+Komponente noch"), und ändert sich nur beim Ausbau.
+
+### Verifikation — vier Läufe über die ECHTE Oberfläche gegen den Production-Build
+
+Playwright, Port 4930, voller 4-Schritt-Durchlauf mit `dev-fixtures/demo-baeckerei-lastgang-2025.csv`
+(Wiener Netze, Leistungspreis 38,52 · Arbeitspreis 25 ct · Einspeisevergütung 8 ct). `window.print()`
+ist in jedem Lauf abgefangen und gezählt. **Der einzige Konsolenfehler ist in allen Läufen der
+vorbestehende `/favicon.ico`-404** — eigens nachgemessen und über die Konsolen-Herkunft eindeutig
+zugeordnet, nicht bloss angenommen.
+
+⚠ **Es ist KEIN Lead in die Produktion geschrieben worden.** Der Report-Gate-Schreibpfad liest seine
+Verbindung aus `SUPABASE_URL` (mit Vorrang vor `NEXT_PUBLIC_SUPABASE_URL`, s.
+`lib/report-gate/service-role.ts`); für den Lauf zeigte sie auf einen zustandslosen lokalen Stub, der
+`get_active_consent_text` und `capture_lead` beantwortet. Die Preisdaten kamen unverändert aus der
+echten Cloud. Der Stub protokollierte genau **einen** `capture_lead`-Aufruf je Gate-Durchlauf.
+
+| Lauf | Ergebnis |
+| --- | --- |
+| **Flag AUS** | Gate-Beschriftungen exakt `["Vorname *","Nachname *","Firma *","E-Mail *","Website (bitte frei lassen)"]` — **0 Titel-, 0 Adressfelder**; `window.print()` **1×**, **0 Downloads**; Knopfbeschriftung unverändert „Als PDF speichern"; zweiter Klick druckt erneut (**2×**) **ohne** das Gate wieder zu öffnen. |
+| **Flag AN, alle Felder** | Gate trägt **7** Beschriftungen inkl. „Titel des Dokuments" und „Adresse (falls bekannt)"; Titelvorschlag `Wirtschaftlichkeitsanalyse Batteriespeicher`; während der Erzeugung **Knopf gesperrt**, Beschriftung „Report wird erzeugt …", **0 Knöpfe** mit der alten Beschriftung, Status-Satz sichtbar; **4,0 s** bis zum fertigen Download; `window.print()` **0×**; Datei **375.365 Bytes**, **15 Seiten**. |
+| **Flag AN, Dokumentfelder leer** | Titel fällt auf den Vorschlag zurück, **kein** Adressblock; `window.print()` **0×**, Download **374.998 Bytes**, 15 Seiten. |
+| **Flag AN, erzwungener Fehler** | Der Lazy-Chunk wurde auf Netzebene abgewürgt (genau **ein** abgebrochener Chunk, `429.…js`). Fehlerblock erscheint mit Handlungssatz + technischem Hinweis, **1** Knopf „Erneut versuchen", Hauptknopf zurück auf „Als PDF speichern" und **nicht** gesperrt; **`window.print()` 0×, 0 Downloads** — kein stiller Rückfall. Nach dem Lösen der Sperre führt „Erneut versuchen" zum Download (375.365 Bytes), Fehlerblock und Wiederholen-Knopf verschwinden. |
+
+**Das Deckblatt, Feld für Feld gegen die Eingaben gehalten** (pdfjs über die erzeugten Dateien):
+
+- mit Feldern: `Wirtschaftlichkeitsanalyse Bäckerei Gruber` · `Auf Basis Ihres Viertelstunden-Lastgangs`
+  · `ERSTELLT FÜR` · `Bäckerei Gruber GmbH` · `Anna Gruber` · **`Hauptstraße 12` · `2100 Korneuburg`**
+  · `01.01.2025 – 31.12.2025` · `05.09.2026`;
+- ohne Felder: derselbe Aufbau, aber Titel `Wirtschaftlichkeitsanalyse Batteriespeicher` und **keine
+  Adresszeilen** — der Block fehlt ganz, statt eine leere Zeile zu drucken.
+
+### Verifikation — Bündel
+
+`/rechner` First Load roh **1.923.232 → 1.926.670 Bytes (+3.438)** bei Flag AUS, unverändert **19
+Chunks**; `/pdf-report-probe` roh **406.840 → 406.840**, unverändert 6 Chunks. Die Vorher-Zahl ist
+durch einen eigenen Bau vor der Änderung gemessen und trifft die D20-Zahl bit-genau.
+
+⚠ **Die Zusage ist NICHT „unverändert", und das ist offengelegt.** Der Zuwachs ist `derive.ts` (der
+eine Teil von `lib/pdf-report/`, der statisch importiert werden darf — fünf Ableitungen samt
+Intl-Formatierern), der Effekt samt Zusammenbau des Eingangs und die drei neuen Anzeigetexte. Zur
+Einordnung: B23c-4 hat an derselben Route +3.309 Bytes gekostet.
+
+**Was dagegen zählt und gemessen ist: `@react-pdf` kommt über den GESAMTEN `/rechner`-First-Load-Satz
+0× vor — in BEIDEN Bauzuständen.** Der Lazy-Chunk bleibt draussen, `stunden-heatmap-raster` genau 1×
+(Positivkontrolle).
+
+**Ein Nebenbefund, der die Bauzeit-Natur des Schalters belegt:** der Bau mit **eingeschaltetem**
+Schalter ist mit **1.926.570 Bytes um 100 Bytes KLEINER** als der ausgeschaltete. Bei gesetzter
+Variable ersetzt Next sie textuell, der Vergleich faltet sich zu `true`, und die Zeichenkette
+`react-pdf` kommt im Bündel **0×** vor; bei nicht gesetzter Variable bleiben Zugriff und Literal
+stehen (`NEXT_PUBLIC_PDF_REPORT_ENGINE` 1×). Beide Bauzustände tragen 19 Chunks.
+
+### `[OFFEN]` nach diesem Schritt
+
+- **Das Einschalten in Produktion ist ein eigener, bewusster Schritt** — mit Redeploy (s. (3)) und
+  einer Beobachtungsphase, bevor der CSS-Weg zurückgebaut wird.
+- **Der Rückbau von `print-*.tsx`, dem `window.print()`-Pfad und dem `@media print`-Block** ist die
+  darauffolgende PR; mit ihr fällt auch die in D10 benannte Doppelung des Methodik-Texts und die in
+  `derive.ts` benannte Doppelung der Zeitraum-Formatierung.
+- **Kein serverseitiges Fehler-Logging.** Ein gescheiterter Export ist heute ausschliesslich im
+  Browser des Kunden sichtbar; wie oft er eintritt, weiss niemand. Bewusst nicht gebaut — es gibt in
+  dieser App keine Fehler-Telemetrie, und eine für diesen einen Fall einzuführen wäre der Umbau, den
+  niemand angefordert hat.
+- **Kein Abbrechen einer laufenden Erzeugung.** Wer „Neue Analyse" drückt, während erzeugt wird,
+  bekommt die Datei trotzdem — die Arbeit läuft weiter, nur die Anzeige ist weg.
+- **Safari/iOS ist unverändert ungemessen** (D10, Spike §6 (g)); der Download läuft über eine
+  `blob:`-URL und einen synthetischen Klick.
+- Alle übrigen `[OFFEN]`-Punkte aus D10/D18/D19/D20 gelten fort.

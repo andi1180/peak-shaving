@@ -1065,6 +1065,56 @@ Schritt 2). **Wer die Tabelle an einer dritten Stelle verwendet, nimmt die Nennu
 die Nutzung nicht mehr lizenzkonform. Ein Austausch des Datensatzes ist ein PR mit einer Datei; die
 Ableitungsregeln und die gemessene Güte stehen im Kopf des Moduls.
 
+### §1-Website-e. Schalter für den neu gerenderten PDF-Report (Cutover Teil 1, D21) ⚠️ HEUTE AUS
+
+| Variable | Scope | Wert |
+|---|---|---|
+| `NEXT_PUBLIC_PDF_REPORT_ENGINE` | Production, Preview | `react-pdf` — **schaltet den neuen Weg EIN** |
+| `NEXT_PUBLIC_PDF_REPORT_ENGINE` | — | **weglassen** = der bisherige `window.print()`-Weg (aktueller Zustand) |
+
+**❌ HEUTE NICHT GESETZT, und das ist der beabsichtigte Zustand.** Der Knopf „Als PDF speichern" im
+Rechner löst unverändert `window.print()` gegen das Print-Stylesheet aus. Das Einschalten ist ein
+eigener, bewusster Schritt (D21) — es ist keine Nacharbeit zu einem Merge, sondern eine
+Produktentscheidung.
+
+- **Eingeschaltet wird ausschliesslich durch den exakten Wert `react-pdf`.** Jeder andere Wert —
+  nicht gesetzt, leer, `print`, `false`, ein Tippfehler — bedeutet **AUS**. Das ist bewusst keine
+  Wahrheitswert-Prüfung: `…=false` wäre eine nicht-leere Zeichenkette und damit wahr, und der neue
+  Weg ginge live, weil jemand ihn abschalten wollte.
+- **⚠️ Der Wert wirkt zur BAUZEIT, nicht zur Laufzeit.** Next ersetzt `NEXT_PUBLIC_*` beim Bauen
+  textuell an der Fundstelle; ein bereits gebautes Deployment ändert sich durch das Setzen der
+  Variable **nicht**. Ein- wie Ausschalten heisst deshalb immer: Variable setzen bzw. entfernen
+  **und neu ausrollen** — dieselbe Falle wie in §1-Website-b und §1-Website-c, hier aber in beide
+  Richtungen (auch der Rückfall braucht ein Deployment).
+- **Der Rückfallschalter ist derselbe Eintrag.** Der alte Weg bleibt vollständig im Code
+  (`print-cover.tsx`, `print-frame.tsx`, `print-methodology.tsx`,
+  `print-assumptions-snapshot.tsx`, der `@media print`-Block); ein Rückbau ist eine eigene PR nach
+  einer Beobachtungsphase.
+- **Kein Schlüssel, keine Tragweite im Sinn von §1-Website-b/c.** Der Wert ist im Browser sichtbar
+  und soll es sein.
+
+#### Was sich mit dem Einschalten für den Kunden ändert
+
+1. Der Gate-Dialog erhebt **zwei zusätzliche Felder** (Titel des Dokuments, Adresse). Die Adresse
+   wird ausdrücklich **nicht übertragen und nicht gespeichert** — sie hat weder eine Spalte in
+   `platform.leads` noch einen Parameter in `capture_lead` und geht ausschliesslich ins erzeugte
+   Dokument (D4).
+2. Der Klick erzeugt das PDF **im Browser** und dauert dabei messbar (D19/D20: **3,4–4,7 s**, unter
+   vierfacher CPU-Drosselung das Dreifache). Währenddessen ist der Knopf gesperrt und trägt einen
+   Ladezustand.
+3. Scheitert die Erzeugung, erscheint eine Meldung mit „Erneut versuchen" — und **kein stiller
+   Rückfall** auf `window.print()` (die zwei Wege tragen verschiedene Felder, D21).
+
+#### Prüfen, ob es wirkt
+
+Nach dem Ausrollen im Rechner bis zum Ergebnis gehen und „Als PDF speichern" drücken: der
+Gate-Dialog muss die Felder **„Titel des Dokuments"** und **„Adresse (falls bekannt)"** zeigen.
+Zeigt er nur die vier Pflichtfelder, ist der Schalter aus (oder das Deployment ist älter als der
+Eintrag). Zweite Kontrolle: nach dem Absenden lädt eine Datei `coolin-report-<JJJJ-MM-TT>.pdf`
+herunter, statt dass sich der Druckdialog des Browsers öffnet.
+
+---
+
 ---
 
 ## 2. Supabase-Dashboard-Einstellungen (nicht über Migrationen abgedeckt)
