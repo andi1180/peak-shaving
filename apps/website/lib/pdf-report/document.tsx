@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { Document, Image, Page, StyleSheet, Text, View } from '@react-pdf/renderer'
 
-import { PRINT_COMPANY } from '@/lib/company'
+import { PRINT_COMPANY, REPORT_CONTACT } from '@/lib/company'
 import type { ReportChartRasters } from './charts'
 import { fitRasterToWidth, type ChartRaster } from './chart-raster'
 import {
@@ -37,13 +37,7 @@ import {
   type AgendaPageNumbers,
   type PageNumberSink,
 } from './page-numbers'
-import type {
-  ReportNotice,
-  ReportRow,
-  ReportStatement,
-  ReportTable,
-  ReportTone,
-} from './statement'
+import type { ReportNotice, ReportRow, ReportStatement, ReportTable, ReportTone } from './statement'
 import { buildReportSummary } from './summary'
 import { PDF_COLORS, PDF_CONTENT_WIDTH_PT, PDF_LAYOUT, PDF_TYPE } from './theme'
 import type { PdfReportInput } from './types'
@@ -77,6 +71,37 @@ import type { PdfReportInput } from './types'
  * genau einer Stelle in `theme.ts`, je als wörtliche Abschrift des gleichnamigen Tokens aus
  * `app/globals.css`.
  */
+
+/**
+ * ⚠ DER ZEILENABSTAND MUSS AN JEDER TEXTFORM EINZELN STEHEN — gemessen am 06.09.2026, und der
+ * Befund erklärt, warum der Fliesstext bis hierher doppelt gesetzt aussah.
+ *
+ * `@react-pdf/renderer` 4.9.0 vererbt `lineHeight` NICHT von einem `<View>` an ein `<Text>` darin.
+ * `fontSize`, `color` und `fontFamily` erbt es sehr wohl — genau deshalb sah der bisherige
+ * `body: { lineHeight: 1.45 }` auf dem Kapitel-Wrapper aus, als täte er etwas. Er tat NICHTS: am
+ * gerenderten PDF nachgemessen lagen die Zeilen eines Absatzes **22,2 pt** auseinander, bei 9,5 pt
+ * Schrift also beim Faktor **2,34** — das ist der Vorgabewert aus den Metriken der eingebetteten
+ * Inter-WOFF, nicht 1,45. Die Gegenprobe steht daneben: `coverTitle` (`lineHeight: 1.18`, direkt am
+ * `<Text>`) misst 1,18, `outroLead` (1,35) misst 1,33.
+ *
+ * ⚠ UND ER DARF TROTZDEM NICHT AUF DIE `<Page>` — dort würde er zwar vererbt, löscht aber die
+ * fixierte Fusszeile (s. die Warnung an `styles.page`). Zwischen „vererbt nicht" und „löscht die
+ * Fusszeile" bleibt genau ein Weg: jede Textform trägt ihn selbst.
+ *
+ * ⚠ UND ER WIRKT NUR ZUSAMMEN MIT EINEM `fontSize` IM SELBEN STYLE-OBJEKT — zweiter gemessener
+ * Befund desselben Tages, und er hat den ersten Anlauf zur Hälfte wirkungslos gemacht. `footnote`
+ * (eigenes `fontSize: small`) sprang sofort auf 1,25; `statementBody` (Schriftgrad von der `<Page>`
+ * geerbt) blieb bei **2,37** — mit identischem `lineHeight` im selben Stylesheet. react-pdf
+ * multipliziert den Faktor offenbar gegen den Schriftgrad, den es im aufgelösten Style FINDET, und
+ * ein bloss geerbter zählt dafür nicht.
+ *
+ * Deshalb trägt diese Konstante BEIDES. Sie steht als erste Eigenschaft jeder Textform; wo ein
+ * anderer Grad gilt, überschreibt ihn das `fontSize` DANACH im selben Objekt.
+ *
+ * ⚠ AUSGENOMMEN SIND KOPF- UND FUSSZEILE. Sie sind einzeilig, und ein `lineHeight` im Teilbaum
+ * eines `fixed`-Elements mit `render`-Prop ist die Falle von oben.
+ */
+const LEADING = { fontSize: PDF_TYPE.body, lineHeight: PDF_TYPE.lineHeight } as const
 
 const styles = StyleSheet.create({
   /*
@@ -138,57 +163,159 @@ const styles = StyleSheet.create({
   },
   footerRight: { flexDirection: 'row', gap: 4 },
 
-  /** Der Zeilenabstand des Fliesstexts — s. die Warnung an `page`. */
-  body: { lineHeight: 1.45 },
+  /*
+   * Der Kapitel-Wrapper. Er trägt bewusst KEINEN `lineHeight` mehr — er würde nicht vererbt
+   * (s. `LEADING` oben) und stünde hier als Zeile, die etwas zu tun scheint und nichts tut.
+   */
+  body: {},
 
-  h2: { fontSize: PDF_TYPE.h2, fontWeight: 600, color: PDF_COLORS.ink },
-  lead: { marginTop: 3, fontSize: PDF_TYPE.body, color: PDF_COLORS.textMuted },
+  h2: { ...LEADING, fontSize: PDF_TYPE.h2, fontWeight: 600, color: PDF_COLORS.ink },
+  lead: { ...LEADING, marginTop: 3, fontSize: PDF_TYPE.body, color: PDF_COLORS.textMuted },
+
+  /*
+   * ── Deck- und Abschlussseite: vollflächig Navy ────────────────────────────────────────────────
+   *
+   * ⚠ AUCH HIER KEIN `lineHeight` — dieselbe Falle wie an `styles.page`. Diese zwei Seiten tragen
+   * zwar keine `fixed`-Elemente mehr (s. `Cover`/`Outro`), aber die Regel gilt für JEDE `<Page>`:
+   * wer hier später eine Fusszeile ergänzt und den Zeilenabstand oben stehen lässt, löscht sie
+   * wieder — spurlos und ohne Fehlermeldung.
+   *
+   * `backgroundColor` auf der `<Page>` färbt die volle Seite einschliesslich der Ränder; ein
+   * eingelegter View könnte das nicht (er säße im Satzspiegel und liesse einen weissen Rahmen).
+   */
+  navyPage: {
+    fontFamily: PDF_TYPE.family,
+    fontSize: PDF_TYPE.body,
+    color: PDF_COLORS.onNavy,
+    backgroundColor: PDF_COLORS.navy,
+    paddingTop: 52,
+    paddingBottom: 52,
+    paddingLeft: PDF_LAYOUT.pageHorizontal,
+    paddingRight: PDF_LAYOUT.pageHorizontal,
+  },
+
+  /*
+   * Die Wortmarke oben auf Navy — das Gegenstück zur Kopfzeile der Inhaltsseiten, nur grösser.
+   *
+   * ⚠ DAS EMBLEM SITZT AUF EINER WEISSEN KACHEL, und das ist kein Dekor: seine eigene Fläche ist
+   * gemessen `#112555` und damit fast dieselbe Farbe wie `navy` (#18336f). Direkt aufgelegt löste
+   * sich seine Kontur auf, und übrig blieben schwebende weisse Striche. Die Kachel macht daraus
+   * eine Bildmarke mit Rand.
+   */
+  navyLockup: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  navyTile: {
+    width: 64,
+    height: 64,
+    backgroundColor: PDF_COLORS.onNavy,
+    borderRadius: 12,
+    padding: 7,
+  },
+  navyMark: { width: '100%', height: '100%' },
+  navyWordmark: {
+    ...LEADING,
+    fontSize: 17,
+    fontWeight: 700,
+    color: PDF_COLORS.onNavy,
+    letterSpacing: 1.6,
+  },
+  navyWordmarkSub: {
+    ...LEADING,
+    marginTop: 3,
+    fontSize: PDF_TYPE.small,
+    color: PDF_COLORS.onNavyMuted,
+    letterSpacing: 0.6,
+  },
 
   /* Deckblatt */
-  coverBody: { flexGrow: 1, justifyContent: 'center', lineHeight: 1.45 },
+  coverBody: { flexGrow: 1, justifyContent: 'center' },
+  /** Der schmale Akzentstrich über dem Titel — die einzige Farbe neben Weiss auf dieser Seite. */
+  coverRule: { width: 54, height: 3, backgroundColor: PDF_COLORS.accentOnNavy, marginBottom: 18 },
   coverTitle: {
     fontSize: PDF_TYPE.cover,
     fontWeight: 700,
-    color: PDF_COLORS.ink,
-    lineHeight: 1.2,
+    color: PDF_COLORS.onNavy,
+    lineHeight: 1.18,
   },
   coverSubtitle: {
-    marginTop: 8,
+    marginTop: 10,
     fontSize: PDF_TYPE.coverSub,
-    color: PDF_COLORS.textMuted,
-    lineHeight: 1.4,
+    color: PDF_COLORS.onNavyMuted,
+    lineHeight: 1.35,
   },
   coverCustomer: {
-    marginTop: 30,
-    paddingLeft: 10,
+    marginTop: 34,
+    paddingLeft: 12,
     borderLeftWidth: 2,
-    borderLeftColor: PDF_COLORS.accent,
+    borderLeftColor: PDF_COLORS.accentOnNavy,
   },
   coverCustomerLabel: {
+    ...LEADING,
     fontSize: PDF_TYPE.small,
-    color: PDF_COLORS.textMuted,
-    letterSpacing: 0.8,
+    fontWeight: 600,
+    color: PDF_COLORS.accentOnNavy,
+    letterSpacing: 1.2,
   },
-  coverCompany: { marginTop: 3, fontSize: 13, fontWeight: 600, color: PDF_COLORS.ink },
-  coverName: { fontSize: PDF_TYPE.body, color: PDF_COLORS.text },
-  coverAddress: { marginTop: 3, fontSize: PDF_TYPE.body, color: PDF_COLORS.text },
+  coverCompany: {
+    ...LEADING,
+    marginTop: 5,
+    fontSize: 13,
+    fontWeight: 600,
+    color: PDF_COLORS.onNavy,
+  },
+  coverName: { ...LEADING, marginTop: 2, fontSize: PDF_TYPE.body, color: PDF_COLORS.onNavy },
+  /** Der Adressblock als GANZES bekommt den Abstand — die Zeilen darin stehen zusammen. */
+  coverAddressBlock: { marginTop: 7 },
+  coverAddress: { ...LEADING, fontSize: PDF_TYPE.body, color: PDF_COLORS.onNavyMuted },
   coverMeta: {
+    marginTop: 34,
+    paddingTop: 14,
+    borderTopWidth: 0.5,
+    borderTopColor: PDF_COLORS.onNavyMuted,
+  },
+  coverMetaRow: { flexDirection: 'row', marginBottom: 4 },
+  coverMetaLabel: { ...LEADING, width: 150, color: PDF_COLORS.onNavyMuted },
+  coverMetaValue: { ...LEADING, fontWeight: 600, color: PDF_COLORS.onNavy },
+
+  /* Abschlussseite (Outro) */
+  outroBody: { flexGrow: 1, justifyContent: 'center' },
+  outroHeadline: { fontSize: 20, fontWeight: 700, color: PDF_COLORS.onNavy, lineHeight: 1.25 },
+  outroLead: {
+    marginTop: 10,
+    fontSize: PDF_TYPE.coverSub,
+    color: PDF_COLORS.onNavyMuted,
+    lineHeight: 1.35,
+  },
+  outroContact: {
     marginTop: 30,
-    paddingTop: 12,
-    borderTopWidth: 0.5,
-    borderTopColor: PDF_COLORS.border,
+    paddingLeft: 12,
+    borderLeftWidth: 2,
+    borderLeftColor: PDF_COLORS.accentOnNavy,
   },
-  coverMetaRow: { flexDirection: 'row', marginBottom: 3 },
-  coverMetaLabel: { width: 150, color: PDF_COLORS.textMuted },
-  coverMetaValue: { fontWeight: 600, color: PDF_COLORS.ink },
-  coverDisclaimer: {
-    marginTop: 28,
-    paddingTop: 10,
-    borderTopWidth: 0.5,
-    borderTopColor: PDF_COLORS.border,
+  outroLabel: {
+    ...LEADING,
     fontSize: PDF_TYPE.small,
-    color: PDF_COLORS.textMuted,
+    fontWeight: 600,
+    color: PDF_COLORS.accentOnNavy,
+    letterSpacing: 1.2,
   },
+  outroPerson: {
+    ...LEADING,
+    marginTop: 5,
+    fontSize: 13,
+    fontWeight: 600,
+    color: PDF_COLORS.onNavy,
+  },
+  outroRole: { ...LEADING, fontSize: PDF_TYPE.body, color: PDF_COLORS.onNavyMuted },
+  /** Telefon und E-Mail stehen als BLOCK unter Name und Rolle — s. `coverAddressBlock`. */
+  outroLines: { marginTop: 7 },
+  outroLine: { ...LEADING, color: PDF_COLORS.onNavy },
+  outroFoot: {
+    marginTop: 34,
+    paddingTop: 14,
+    borderTopWidth: 0.5,
+    borderTopColor: PDF_COLORS.onNavyMuted,
+  },
+  outroFootLine: { ...LEADING, fontSize: PDF_TYPE.small, color: PDF_COLORS.onNavyMuted },
 
   /* Agenda */
   agendaList: { marginTop: 16 },
@@ -200,17 +327,17 @@ const styles = StyleSheet.create({
     borderBottomWidth: 0.5,
     borderBottomColor: PDF_COLORS.border,
   },
-  agendaChapterLabel: { flexGrow: 1, fontWeight: 600, color: PDF_COLORS.ink },
+  agendaChapterLabel: { ...LEADING, flexGrow: 1, fontWeight: 600, color: PDF_COLORS.ink },
   /* ⚠ FESTE BREITE, EINZEILIG — s. `measurementsAgree` in `page-numbers.ts`. */
-  agendaPageCell: { width: 28, textAlign: 'right', color: PDF_COLORS.textMuted },
-  agendaItem: { marginTop: 4, marginLeft: 14, color: PDF_COLORS.textMuted },
-  agendaHint: { marginTop: 20, fontSize: PDF_TYPE.small, color: PDF_COLORS.textMuted },
+  agendaPageCell: { ...LEADING, width: 28, textAlign: 'right', color: PDF_COLORS.textMuted },
+  agendaItem: { ...LEADING, marginTop: 4, marginLeft: 14, color: PDF_COLORS.textMuted },
+  agendaHint: { ...LEADING, marginTop: 20, fontSize: PDF_TYPE.small, color: PDF_COLORS.textMuted },
 
   /* Kapitel-Inhalte */
   itemList: { marginTop: 14 },
   item: { marginBottom: 11 },
-  itemTitle: { fontSize: PDF_TYPE.h3, fontWeight: 600, color: PDF_COLORS.ink },
-  itemBody: { marginTop: 1, color: PDF_COLORS.textMuted },
+  itemTitle: { ...LEADING, fontSize: PDF_TYPE.h3, fontWeight: 600, color: PDF_COLORS.ink },
+  itemBody: { ...LEADING, marginTop: 1, color: PDF_COLORS.textMuted },
   /* Kernergebnisse (B23c-1) */
   headline: {
     marginTop: 14,
@@ -222,17 +349,22 @@ const styles = StyleSheet.create({
     gap: 24,
   },
   headlineCell: { flexGrow: 1, flexBasis: 0 },
-  headlineValue: { fontSize: 22, fontWeight: 700, color: PDF_COLORS.ink },
+  headlineValue: { ...LEADING, fontSize: 22, fontWeight: 700, color: PDF_COLORS.ink },
   /* Kosten in Rot — dieselbe Farbzuordnung wie `key-metric.tsx` am Bildschirm. */
-  headlineValueCost: { fontSize: 22, fontWeight: 700, color: PDF_COLORS.negative },
-  headlineCaption: { marginTop: 2, fontSize: PDF_TYPE.small, color: PDF_COLORS.textMuted },
+  headlineValueCost: { ...LEADING, fontSize: 22, fontWeight: 700, color: PDF_COLORS.negative },
+  headlineCaption: {
+    ...LEADING,
+    marginTop: 2,
+    fontSize: PDF_TYPE.small,
+    color: PDF_COLORS.textMuted,
+  },
 
   statement: { marginTop: 14 },
-  statementTitle: { fontSize: PDF_TYPE.h3, fontWeight: 600, color: PDF_COLORS.ink },
+  statementTitle: { ...LEADING, fontSize: PDF_TYPE.h3, fontWeight: 600, color: PDF_COLORS.ink },
   statementAmountRow: { marginTop: 3, flexDirection: 'row', alignItems: 'flex-end', gap: 6 },
-  statementAmount: { fontSize: 15, fontWeight: 700 },
-  statementAmountCaption: { fontSize: PDF_TYPE.small, color: PDF_COLORS.textMuted },
-  statementBody: { marginTop: 3, color: PDF_COLORS.textMuted },
+  statementAmount: { ...LEADING, fontSize: 15, fontWeight: 700 },
+  statementAmountCaption: { ...LEADING, fontSize: PDF_TYPE.small, color: PDF_COLORS.textMuted },
+  statementBody: { ...LEADING, marginTop: 6, color: PDF_COLORS.textMuted },
 
   rowList: { marginTop: 5 },
   row: {
@@ -247,12 +379,12 @@ const styles = StyleSheet.create({
   },
   rowTotal: { borderTopWidth: 1, borderTopColor: PDF_COLORS.border },
   rowLabelCell: { flexGrow: 1, flexBasis: 0 },
-  rowLabel: { color: PDF_COLORS.textMuted },
-  rowLabelTotal: { fontWeight: 600, color: PDF_COLORS.ink },
-  rowHint: { fontSize: PDF_TYPE.small, color: PDF_COLORS.textMuted },
-  rowValue: { fontWeight: 600 },
+  rowLabel: { ...LEADING, color: PDF_COLORS.textMuted },
+  rowLabelTotal: { ...LEADING, fontWeight: 600, color: PDF_COLORS.ink },
+  rowHint: { ...LEADING, fontSize: PDF_TYPE.small, color: PDF_COLORS.textMuted },
+  rowValue: { ...LEADING, fontWeight: 600 },
 
-  statementNote: { marginTop: 2, fontSize: PDF_TYPE.small, color: PDF_COLORS.warning },
+  statementNote: { ...LEADING, marginTop: 2, fontSize: PDF_TYPE.small, color: PDF_COLORS.warning },
 
   /*
    * Vergleichstabelle (B23c-3b-2).
@@ -277,8 +409,8 @@ const styles = StyleSheet.create({
     borderBottomWidth: 0.5,
     borderBottomColor: PDF_COLORS.border,
   },
-  tableHeaderCell: { fontSize: PDF_TYPE.small, fontWeight: 600, color: PDF_COLORS.ink },
-  tableCell: { fontSize: PDF_TYPE.small, color: PDF_COLORS.text },
+  tableHeaderCell: { ...LEADING, fontSize: PDF_TYPE.small, fontWeight: 600, color: PDF_COLORS.ink },
+  tableCell: { ...LEADING, fontSize: PDF_TYPE.small, color: PDF_COLORS.text },
 
   /* Chart im Fluss (B23c-2) — bewusst KEIN Rahmen und KEIN Kasten, s. `ChartFigure`. */
   figure: { marginTop: 14 },
@@ -293,10 +425,16 @@ const styles = StyleSheet.create({
   legend: { marginTop: 5, flexDirection: 'row', flexWrap: 'wrap', gap: 14 },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   legendSwatch: { width: 8, height: 8, borderRadius: 1.5 },
-  legendLabel: { fontSize: PDF_TYPE.small, color: PDF_COLORS.textMuted },
-  figureCaption: { marginTop: 4, fontSize: PDF_TYPE.small, color: PDF_COLORS.textMuted },
-  figureStatement: { marginTop: 4, color: PDF_COLORS.text },
+  legendLabel: { ...LEADING, fontSize: PDF_TYPE.small, color: PDF_COLORS.textMuted },
+  figureCaption: {
+    ...LEADING,
+    marginTop: 4,
+    fontSize: PDF_TYPE.small,
+    color: PDF_COLORS.textMuted,
+  },
+  figureStatement: { ...LEADING, marginTop: 4, color: PDF_COLORS.text },
   figureMissing: {
+    ...LEADING,
     marginTop: 14,
     padding: 10,
     borderLeftWidth: 2,
@@ -321,11 +459,17 @@ const styles = StyleSheet.create({
     borderLeftWidth: 2,
     backgroundColor: PDF_COLORS.surfaceAlt,
   },
-  noticeTitle: { fontSize: PDF_TYPE.h3, fontWeight: 600, color: PDF_COLORS.ink },
-  noticeBody: { marginTop: 3, color: PDF_COLORS.textMuted },
-  noticeListLabel: { marginTop: 5, fontSize: PDF_TYPE.small, fontWeight: 600, color: PDF_COLORS.ink },
-  noticeListItem: { marginTop: 1, color: PDF_COLORS.text },
-  noticeHint: { marginTop: 5, color: PDF_COLORS.textMuted },
+  noticeTitle: { ...LEADING, fontSize: PDF_TYPE.h3, fontWeight: 600, color: PDF_COLORS.ink },
+  noticeBody: { ...LEADING, marginTop: 5, color: PDF_COLORS.textMuted },
+  noticeListLabel: {
+    ...LEADING,
+    marginTop: 5,
+    fontSize: PDF_TYPE.small,
+    fontWeight: 600,
+    color: PDF_COLORS.ink,
+  },
+  noticeListItem: { ...LEADING, marginTop: 1, color: PDF_COLORS.text },
+  noticeHint: { ...LEADING, marginTop: 5, color: PDF_COLORS.textMuted },
 
   /*
    * Die zwei Schlussabsätze des Reports (Tarifherkunft, Preisstand) und der Vorbehalt.
@@ -335,9 +479,10 @@ const styles = StyleSheet.create({
    * stehen trotzdem im Dokument und nicht in einer Fussnote: ohne sie ist eine später archivierte
    * Baseline nicht mehr einzuordnen.
    */
-  provenance: { marginTop: 10, fontSize: PDF_TYPE.small, color: PDF_COLORS.textMuted },
+  provenance: { ...LEADING, marginTop: 10, fontSize: PDF_TYPE.small, color: PDF_COLORS.textMuted },
 
   footnote: {
+    ...LEADING,
     marginTop: 16,
     paddingTop: 8,
     borderTopWidth: 0.5,
@@ -425,66 +570,170 @@ function PageFurniture({ sink }: { sink: PageNumberSink }) {
   )
 }
 
+/**
+ * Die Wortmarke auf den zwei navyfarbenen Seiten — Emblem auf weisser Kachel plus Schriftzug.
+ *
+ * EIN Baustein für Deck- UND Abschlussseite: zwei Fassungen derselben Marke auf zwei Seiten
+ * desselben Dokuments wären der Unterschied, den niemand beabsichtigt und jeder sieht.
+ */
+function NavyLockup() {
+  return (
+    <View style={styles.navyLockup}>
+      {/*
+        Die BESTEHENDE Emblem-Datei aus `public/brand/` — dieselbe, die Kopfzeile und CSS-Druck
+        benutzen, kein zweites Bild.
+      */}
+      <View style={styles.navyTile}>
+        <Image src="/brand/coolin-emblem.png" style={styles.navyMark} />
+      </View>
+      <View>
+        <Text style={styles.navyWordmark}>{PRINT_COMPANY.name}</Text>
+        <Text style={styles.navyWordmarkSub}>Peak Shaving &amp; Speicher-Wirtschaftlichkeit</Text>
+      </View>
+    </View>
+  )
+}
+
+/**
+ * Das Deckblatt — vollflächig Navy, weisse Typografie.
+ *
+ * ── ⚠ WARUM HIER KEINE KOPF-/FUSSZEILE STEHT ───────────────────────────────────────────────────
+ * `PageFurniture` zeichnet eine navyfarbene Wortmarke und eine graue Fusszeile auf weissem Grund;
+ * auf einer navyfarbenen Fläche wäre die Wortmarke unsichtbar und die Fusszeile ein grauer Streifen
+ * ohne Bezug. Die Seite trägt ihre eigene, grössere Marke oben.
+ *
+ * ⚠ DIE SEITENZÄHLUNG BLEIBT UNVERÄNDERT: `pageNumber` kommt von react-pdf und nicht von der
+ * Fusszeile — das Deckblatt zählt weiterhin mit („Seite 2 von N" auf der Agenda, D5-Konvention),
+ * es zeigt seine Zahl nur nicht an. `recordTotalPages` läuft über die Fusszeilen aller übrigen
+ * Seiten und ist damit unberührt.
+ *
+ * ── DER DEMODATEN-VORBEHALT STEHT HIER NICHT MEHR ──────────────────────────────────────────────
+ * Er ist nicht entfallen, sondern steht ab jetzt nur noch im Schlusskapitel „Annahmen und
+ * Datengrundlage" (`BasisChapter`, dieselbe Konstante `REPORT_DISCLAIMER`). Er gehört inhaltlich
+ * dorthin, wo das Dokument seine Grenzen benennt; auf dem Deckblatt stand er als einzige
+ * Kleinschrift unter einer sonst repräsentativen Seite. **Aus dem Dokument verschwinden darf er
+ * nicht** — §8 verlangt, dass keine ROI-Zahl als „echt" ausgegeben wird, solange nicht gegen einen
+ * echten Lastgang und eine echte Netzrechnung validiert wurde.
+ */
 function Cover({ input }: { input: PdfReportInput }) {
   const customer = input.customer
   const hasCustomer = Boolean(customer?.company || customer?.name || customer?.address)
 
   return (
-    <View style={styles.coverBody}>
-      <Text style={styles.coverTitle}>{input.title}</Text>
-      <Text style={styles.coverSubtitle}>{input.subtitle}</Text>
+    <>
+      <NavyLockup />
+      <View style={styles.coverBody}>
+        <View style={styles.coverRule} />
+        <Text style={styles.coverTitle}>{input.title}</Text>
+        <Text style={styles.coverSubtitle}>{input.subtitle}</Text>
 
-      {/*
+        {/*
         Jedes Feld nur, wenn es einen Wert hat — dasselbe Muster wie `print-cover.tsx`: ein sichtbar
         leeres Feld oder ein Platzhalterstrich auf einem Deckblatt sieht aus wie ein Fehler beim
         Ausdrucken, nicht wie eine nicht gestellte Frage.
       */}
-      {hasCustomer && (
-        <View style={styles.coverCustomer}>
-          <Text style={styles.coverCustomerLabel}>ERSTELLT FÜR</Text>
-          {customer?.company && <Text style={styles.coverCompany}>{customer.company}</Text>}
-          {customer?.name && <Text style={styles.coverName}>{customer.name}</Text>}
-          {/*
-            Mehrzeilig: die Adresse kommt als Freitext, und Zeilenumbrüche sind darin die
-            Gliederung. `\n` bricht in react-pdf um; ein einzelner Text-Knoten mit dem Rohwert
-            zeigte die Zeilen sonst hintereinander.
-          */}
-          {customer?.address &&
-            customer.address
-              .split('\n')
-              .map((line) => line.trim())
-              .filter((line) => line !== '')
-              .map((line, index) => (
-                <Text key={`${index}-${line}`} style={styles.coverAddress}>
-                  {line}
-                </Text>
-              ))}
-        </View>
-      )}
-
-      <View style={styles.coverMeta}>
-        {input.period && (
-          <View style={styles.coverMetaRow}>
-            <Text style={styles.coverMetaLabel}>Ausgewerteter Zeitraum</Text>
-            <Text style={styles.coverMetaValue}>{input.period}</Text>
+        {hasCustomer && (
+          <View style={styles.coverCustomer}>
+            <Text style={styles.coverCustomerLabel}>ERSTELLT FÜR</Text>
+            {customer?.company && <Text style={styles.coverCompany}>{customer.company}</Text>}
+            {customer?.name && <Text style={styles.coverName}>{customer.name}</Text>}
+            {/*
+              Mehrzeilig: die Adresse kommt als Freitext, und Zeilenumbrüche sind darin die
+              Gliederung. `\n` bricht in react-pdf um; ein einzelner Text-Knoten mit dem Rohwert
+              zeigte die Zeilen sonst hintereinander.
+            */}
+            {customer?.address && (
+              <View style={styles.coverAddressBlock}>
+                {customer.address
+                  .split('\n')
+                  .map((line) => line.trim())
+                  .filter((line) => line !== '')
+                  .map((line, index) => (
+                    <Text key={`${index}-${line}`} style={styles.coverAddress}>
+                      {line}
+                    </Text>
+                  ))}
+              </View>
+            )}
           </View>
         )}
-        <View style={styles.coverMetaRow}>
-          <Text style={styles.coverMetaLabel}>Erstellt am</Text>
-          <Text style={styles.coverMetaValue}>{input.printedAt}</Text>
+
+        <View style={styles.coverMeta}>
+          {input.period && (
+            <View style={styles.coverMetaRow}>
+              <Text style={styles.coverMetaLabel}>Ausgewerteter Zeitraum</Text>
+              <Text style={styles.coverMetaValue}>{input.period}</Text>
+            </View>
+          )}
+          <View style={styles.coverMetaRow}>
+            <Text style={styles.coverMetaLabel}>Erstellt am</Text>
+            <Text style={styles.coverMetaValue}>{input.printedAt}</Text>
+          </View>
         </View>
       </View>
+    </>
+  )
+}
 
-      {/*
-        Wörtlich derselbe Vorbehalt wie auf dem Deckblatt des CSS-Wegs, und aus demselben Grund an
-        dieser Stelle: wer den Report weiterreicht, soll ihn sehen, bevor er die Zahlen sieht.
+/**
+ * Die Abschlussseite — dieselbe navyfarbene Fläche wie das Deckblatt, als Klammer um das Dokument.
+ *
+ * ── WAS HIER STEHT, UND WARUM GENAU DAS ───────────────────────────────────────────────────────
+ * Ein Analyse-Report wird weitergereicht, ausgedruckt und auf einen Tisch gelegt. Die Rückseite
+ * beantwortet deshalb die eine Frage, die dann offen ist: **wen rufe ich an?** Sie trägt
+ * Ansprechperson mit Rolle, Telefonnummer, E-Mail-Adresse, Web und die Anschrift.
+ *
+ * Dazu — und das ist die zweite Aufgabe der Seite — die **Wiedererkennung des Dokuments**: Titel
+ * und ausgewerteter Zeitraum stehen unten noch einmal. Ein Blatt, das sich vom Stapel löst, ist
+ * sonst nicht mehr zuzuordnen; auf dem Deckblatt steht es, aber das liegt dann woanders.
+ *
+ * ⚠ AUSDRÜCKLICH KEINE ZAHL UND KEINE AUSSAGE ÜBER DAS ERGEBNIS. Eine Rückseite, die eine
+ * Ersparnis wiederholt, wäre ein Werbeblatt — und die Zahl stünde ohne die Vorbehalte, unter denen
+ * sie im Dokument gilt. Der Vorbehalt selbst steht im Schlusskapitel davor.
+ *
+ * ⚠ UND KEINE ECG-PFLICHTANGABEN (Firmenbuch, UID, Rechtsträger). Sie gehören ins Impressum; eine
+ * Kontaktseite ist eine Absenderangabe, und eine halbe Pflichtangabe wäre schlechter als keine —
+ * dieselbe Begründung wie im Kopf von `lib/company.ts`.
+ */
+function Outro({ input }: { input: PdfReportInput }) {
+  return (
+    <>
+      <NavyLockup />
+      <View style={styles.outroBody}>
+        <View style={styles.coverRule} />
+        <Text style={styles.outroHeadline}>Sprechen wir über Ihre Zahlen.</Text>
+        <Text style={styles.outroLead}>
+          Diese Auswertung ist der Ausgangspunkt, nicht das Angebot. Wir gehen sie mit Ihnen durch,
+          prüfen die Annahmen gegen Ihre Netzrechnung und rechnen die Auslegung auf Ihren Betrieb.
+        </Text>
 
-        ⚠ B23c-4: er steht seither in `content.ts` und nicht mehr hier ausgeschrieben — das
-        Schlusskapitel trägt ihn ein zweites Mal, und zwei Fassungen desselben Vorbehalts im selben
-        Dokument lesen sich wie zwei verschiedene Einschränkungen.
-      */}
-      <Text style={styles.coverDisclaimer}>{REPORT_DISCLAIMER}</Text>
-    </View>
+        <View style={styles.outroContact}>
+          <Text style={styles.outroLabel}>IHR ANSPRECHPARTNER</Text>
+          <Text style={styles.outroPerson}>{REPORT_CONTACT.name}</Text>
+          <Text style={styles.outroRole}>{REPORT_CONTACT.role}</Text>
+          <View style={styles.outroLines}>
+            <Text style={styles.outroLine}>{REPORT_CONTACT.phone}</Text>
+            <Text style={styles.outroLine}>{REPORT_CONTACT.email}</Text>
+          </View>
+        </View>
+
+        <View style={styles.outroFoot}>
+          <Text style={styles.outroFootLine}>
+            {PRINT_COMPANY.name} · {PRINT_COMPANY.street} · {PRINT_COMPANY.city} ·{' '}
+            {PRINT_COMPANY.web}
+          </Text>
+          {/*
+            Die Wiedererkennung des Blattes — kein Ergebnis, nur die Kennzeichnung des Dokuments.
+            `period` fehlt bei einem leeren Lastgang; dann steht die Zeile ohne Zeitraum da, statt
+            einen Gedankenstrich zu drucken (dasselbe Muster wie auf dem Deckblatt).
+          */}
+          <Text style={styles.outroFootLine}>
+            {input.title}
+            {input.period ? ` · Zeitraum ${input.period}` : ''} · Erstellt am {input.printedAt}
+          </Text>
+        </View>
+      </View>
+    </>
   )
 }
 
@@ -941,13 +1190,7 @@ function RecommendationChapter({
  * Begründung — ausgeschrieben in `detail.ts`, nicht hier: „was fehlt und warum" ist eine
  * fachliche Aussage.
  */
-function DetailChapter({
-  input,
-  charts,
-}: {
-  input: PdfReportInput
-  charts: ReportChartRasters
-}) {
+function DetailChapter({ input, charts }: { input: PdfReportInput; charts: ReportChartRasters }) {
   const chapter = buildDetailChapter(input.analysis, { flowDay: charts.flowDay })
 
   return (
@@ -1031,13 +1274,7 @@ function HeatmapLegend() {
  * Bilder aus DERSELBEN Ableitung gerastert; zwei getrennte Entscheidungen ergäben eine Legende und
  * Kennzahlen, die zu einem anderen Bild gehören als dem darüber.
  */
-function InsightChapter({
-  input,
-  charts,
-}: {
-  input: PdfReportInput
-  charts: ReportChartRasters
-}) {
+function InsightChapter({ input, charts }: { input: PdfReportInput; charts: ReportChartRasters }) {
   const chapter = buildInsightChapter(input.analysis)
 
   return (
@@ -1213,8 +1450,11 @@ export function ReportDocument({
       producer={PRINT_COMPANY.name}
       language="de-AT"
     >
-      <Page size="A4" style={styles.page}>
-        <PageFurniture sink={sink} />
+      {/*
+        ⚠ `navyPage` statt `page`, und OHNE `PageFurniture` — s. den Kopf von `Cover`. Die
+        Seitenzählung bleibt davon unberührt: sie kommt aus react-pdf, nicht aus der Fusszeile.
+      */}
+      <Page size="A4" style={styles.navyPage}>
         <Cover input={input} />
       </Page>
 
@@ -1271,6 +1511,15 @@ export function ReportDocument({
         <PageFurniture sink={sink} />
         <SectionAnchor id={BASIS_SECTION.id} sink={sink} />
         <BasisChapter input={input} />
+      </Page>
+
+      {/*
+        Die Abschlussseite — bewusst OHNE `SectionAnchor` und ohne Eintrag in der Agenda: sie ist
+        kein Kapitel, sondern die Rückseite des Dokuments. Ein Agenda-Eintrag „Kontakt" verspräche
+        einen Inhalt, den man nachschlägt; diese Seite findet man, indem man das Blatt umdreht.
+      */}
+      <Page size="A4" style={styles.navyPage}>
+        <Outro input={input} />
       </Page>
     </Document>
   )
