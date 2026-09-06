@@ -51,6 +51,27 @@ export const PDF_COLORS = {
   /** `--color-navy` — Wortmarke/Emblem-Grund. Trägt COOLiNs Marke, NICHT den White-Label-Akzent. */
   navy: '#18336f',
   onNavy: '#ffffff',
+  /**
+   * Sekundärtext auf Navy (Deck- und Abschlussseite).
+   *
+   * ⚠ KEIN Token aus `globals.css` — dort gibt es keinen, weil der Bildschirm keine vollflächig
+   * navyfarbene Fläche kennt. Der Wert ist GERECHNET und nicht gegriffen: 62 % Weissanteil über
+   * `navy` (`24+0,62·231 = 167`, `51+0,62·204 = 177`, `111+0,62·144 = 200`). Kontrast gegen
+   * `navy` **5,6:1** — über der WCAG-AA-Schwelle von 4,5:1 für Fliesstext.
+   *
+   * `textMuted` (#475569) wäre hier unbrauchbar: sein Kontrast gegen Navy liegt bei 1,5:1.
+   */
+  onNavyMuted: '#a7b1c8',
+  /**
+   * Der Akzent auf Navy.
+   *
+   * ⚠ NICHT `accent` (#0f766e): dessen Kontrast gegen `navy` beträgt gemessen **2,2:1** — auf einer
+   * navyfarbenen Fläche unlesbar. Dieser Wert ist AUS DER EMBLEM-DATEI GEMESSEN
+   * (`public/brand/coolin-emblem.png`, häufigster Ton der beiden Knotenpunkte, 911 teal-Pixel
+   * ausgezählt) und damit die eigene Akzentfarbe der Marke statt einer hier erfundenen. Kontrast
+   * gegen `navy` **5,6:1**.
+   */
+  accentOnNavy: '#2cc3c1',
   /** `--color-accent` (Teal 700). */
   accent: '#0f766e',
   /** `--color-ink` (Slate 900) — Überschriften. */
@@ -113,7 +134,25 @@ export const PDF_CONTENT_WIDTH_PT = 595 - 2 * PDF_LAYOUT.pageHorizontal
 /** Schriftgrade. Ein Report, kein Prospekt: wenige Stufen, klarer Abstand dazwischen. */
 export const PDF_TYPE = {
   family: 'Inter',
-  cover: 26,
+  /**
+   * Der Zeilenabstand des FLIESSTEXTS — eine Zahl, zwei Konsumenten (`styles.body` und
+   * `styles.coverBody` in `document.tsx`).
+   *
+   * ⚠ 1,25 und nicht mehr 1,45. Die alte Zahl war für 9,5 pt zu locker: 13,8 pt Durchschuss lassen
+   * einen Fliesstext auseinanderfallen und liessen den Report weniger nach Beratungsdokument
+   * aussehen als nach Handout. 1,25 ergibt rund 11,9 pt — der Bereich, in dem Berichte dieser Art
+   * gesetzt werden: eng genug, dass ein Absatz als Block liest, weit genug, dass die Zeilen sich
+   * nicht berühren.
+   *
+   * ⚠ WER DIESE ZAHL ÄNDERT, ÄNDERT DEN SEITENUMBRUCH DES GANZEN DOKUMENTS — und damit jede
+   * Seitenzahl in der Agenda. Das ist ungefährlich (die Zahlen werden gemessen, D5), aber es ist
+   * der Grund, warum sie nach einer Änderung neu zu prüfen sind.
+   *
+   * ⚠ UND SIE GEHÖRT NIEMALS AUF EINE `<Page>` — s. die Warnung an `styles.page` in
+   * `document.tsx`: ein geerbter `lineHeight` löscht fixierte Elemente spurlos.
+   */
+  lineHeight: 1.25,
+  cover: 30,
   coverSub: 12,
   h2: 14,
   h3: 9.5,

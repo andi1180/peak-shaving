@@ -1804,3 +1804,163 @@ stehen (`NEXT_PUBLIC_PDF_REPORT_ENGINE` 1×). Beide Bauzustände tragen 19 Chunk
 - **Safari/iOS ist unverändert ungemessen** (D10, Spike §6 (g)); der Download läuft über eine
   `blob:`-URL und einen synthetischen Klick.
 - Alle übrigen `[OFFEN]`-Punkte aus D10/D18/D19/D20 gelten fort.
+
+---
+
+## D22 — Gestaltung: navyfarbene Deck- und Abschlussseite, und der Zeilenabstand, der nie gewirkt hat
+
+Reine Gestaltung und Typografie — **keine Zahl, keine Ableitung, kein Contract-Feld ändert sich**.
+Der Auslöser ist eine Rückmeldung am fertigen Dokument: das Deckblatt sah aus wie eine Seite aus
+einem Textverarbeitungsprogramm, und der Fliesstext las sich „ziemlich unprofessionell", weil die
+Zeilen zu weit auseinanderstanden.
+
+### ⚠ Der Befund, der den Abschnitt trägt: `lineHeight` hat im Fliesstext NIE gewirkt
+
+Zwei Messungen am erzeugten PDF (pdfjs, Zeilenabstand aus den Textmatrizen gerechnet, nicht am
+Bild geschätzt):
+
+1. **`@react-pdf/renderer` 4.9.0 vererbt `lineHeight` NICHT von einem `<View>` an ein `<Text>`
+   darin.** `fontSize`, `color` und `fontFamily` erbt es sehr wohl — genau deshalb sah der seit
+   B23a bestehende `body: { lineHeight: 1.45 }` auf dem Kapitel-Wrapper aus, als täte er etwas.
+   Gemessen lagen die Zeilen eines Absatzes **22,2 pt** auseinander, bei 9,5 pt Schrift also beim
+   Faktor **2,37** — das ist der Vorgabewert aus den Metriken der eingebetteten Inter-WOFF, nicht
+   1,45. Gegenprobe im selben Dokument: `coverTitle` (`lineHeight: 1.18`, direkt am `<Text>`) misst
+   1,18; `outroLead` (1,35) misst 1,33.
+2. **Und `lineHeight` wirkt nur zusammen mit einem `fontSize` im SELBEN Style-Objekt.** Das hat den
+   ersten Anlauf zur Hälfte wirkungslos gemacht: `footnote` (eigenes `fontSize: small`) sprang
+   sofort auf 1,25, `statementBody` (Schriftgrad von der `<Page>` geerbt) blieb bei **2,37** — mit
+   identischem `lineHeight` im selben Stylesheet. react-pdf multipliziert den Faktor offenbar gegen
+   den Schriftgrad, den es im AUFGELÖSTEN Style findet; ein bloss geerbter zählt dafür nicht.
+
+Beides zusammen mit der bereits bekannten Falle aus D7 (`lineHeight` auf der `<Page>` löscht
+fixierte Elemente spurlos) lässt genau einen Weg: **eine Konstante `LEADING = { fontSize,
+lineHeight }`, die als erste Eigenschaft in JEDER Textform steht** — 46 Stück, ausgezählt. Wo ein
+anderer Grad gilt, überschreibt ihn das `fontSize` danach im selben Objekt. Kopf- und Fusszeile
+sind ausgenommen: sie sind einzeilig, und ein `lineHeight` im Teilbaum eines `fixed`-Elements mit
+`render`-Prop ist die Falle aus D7.
+
+**Der neue Wert ist 1,25** (`PDF_TYPE.lineHeight`, eine Zahl in `theme.ts`). Nach der Messung
+liegen ALLE umbrochenen Fliesstextzeilen auf exakt **1,25** — die grösseren Abstände im Messprotokoll
+sind Blockabstände (Ränder, Trennlinien), nicht Durchschuss.
+
+**Folge: der Report schrumpft von 15 auf 10 Seiten**, und darin ist die neue Abschlussseite bereits
+enthalten — die Typografie allein spart sechs Seiten. Die Agenda-Zahlen wandern dadurch alle; sie
+werden gemessen (D5) und sind unten Kapitel für Kapitel gegengeprüft.
+
+### Deck- und Abschlussseite: vollflächig Navy
+
+`backgroundColor` auf der `<Page>` (nicht auf einem eingelegten View — der säße im Satzspiegel und
+liesse einen weissen Rahmen). Beide Seiten tragen dieselbe, grössere Wortmarke oben: **ein**
+Baustein `NavyLockup` für beide, weil zwei Fassungen derselben Marke auf zwei Seiten desselben
+Dokuments der Unterschied wären, den niemand beabsichtigt und jeder sieht.
+
+- **⚠ Das Emblem sitzt auf einer weissen Kachel, und das ist kein Dekor.** Seine eigene Fläche ist
+  aus der PNG-Datei gemessen `#112555` und damit fast dieselbe Farbe wie `navy` (#18336f). Direkt
+  aufgelegt löste sich seine Kontur auf, und übrig blieben schwebende weisse Striche.
+- **Keine Kopf-/Fusszeile auf diesen zwei Seiten.** `PageFurniture` zeichnet eine navyfarbene
+  Wortmarke und eine graue Fusszeile auf weissem Grund; auf Navy wäre die Wortmarke unsichtbar.
+  ⚠ Die Seitenzählung bleibt davon unberührt — sie kommt aus react-pdf, nicht aus der Fusszeile;
+  das Deckblatt zählt weiterhin mit (D5-Konvention), es zeigt seine Zahl nur nicht an.
+  `recordTotalPages` läuft über die Fusszeilen der übrigen Seiten.
+
+### ⚠ Zwei neue Farbtokens — beide gerechnet bzw. gemessen, keines gegriffen
+
+`globals.css` kennt sie nicht, weil der Bildschirm keine vollflächig navyfarbene Fläche hat. Die
+Bestandstokens sind auf Navy unbrauchbar, und das ist nachgerechnet:
+
+| Token | Wert | Herkunft | Kontrast auf `navy` |
+| --- | --- | --- | --- |
+| `onNavyMuted` | `#a7b1c8` | **gerechnet**: 62 % Weissanteil über `navy` | **5,6 : 1** |
+| `accentOnNavy` | `#2cc3c1` | **gemessen** aus `public/brand/coolin-emblem.png` (häufigster Ton der beiden Knotenpunkte, 911 teal-Pixel ausgezählt) | **5,6 : 1** |
+| `textMuted` (#475569) | — | Bestand — **hier unbrauchbar** | 1,5 : 1 |
+| `accent` (#0f766e) | — | Bestand — **hier unbrauchbar** | 2,2 : 1 |
+
+Der Akzent auf Navy ist damit die eigene Akzentfarbe der Bildmarke und keine hier erfundene. Weiss
+auf Navy liegt bei 12,1 : 1.
+
+### Der Demodaten-Vorbehalt steht nur noch im Schlusskapitel
+
+Er ist **nicht entfallen**, sondern vom Deckblatt gestrichen. `REPORT_DISCLAIMER` bleibt dieselbe
+Konstante und steht unverändert im Kapitel „Annahmen und Datengrundlage", also dort, wo das Dokument
+seine Grenzen benennt. Auf dem Deckblatt war er die einzige Kleinschrift unter einer sonst
+repräsentativen Seite.
+
+⚠ **Aus dem Dokument verschwinden darf er nicht** — §8 verlangt, dass keine ROI-Zahl als „echt"
+ausgegeben wird, solange nicht gegen einen echten Lastgang und eine echte Netzrechnung validiert
+wurde. Gemessen steht er jetzt **genau einmal** (Seite 9 von 10). Damit ist zugleich die
+D17-Feststellung „der Vorbehalt steht zweimal und deshalb an einer Stelle" überholt: er steht
+einmal, aus derselben Konstante.
+
+### Die Abschlussseite
+
+Sie beantwortet die eine Frage, die offen ist, wenn ein ausgedruckter Report auf einem Tisch liegt:
+**wen rufe ich an?** Ansprechperson mit Rolle, Telefon, E-Mail, dazu Anschrift und Web. Zusätzlich —
+und das ist ihre zweite Aufgabe — die **Wiedererkennung des Blattes**: Titel und ausgewerteter
+Zeitraum stehen unten noch einmal, weil ein Blatt, das sich vom Stapel löst, sonst nicht mehr
+zuzuordnen ist.
+
+- **⚠ Ausdrücklich keine Zahl und keine Aussage über das Ergebnis.** Eine Rückseite, die eine
+  Ersparnis wiederholt, wäre ein Werbeblatt — und die Zahl stünde ohne die Vorbehalte, unter denen
+  sie im Dokument gilt.
+- **⚠ Und keine ECG-Pflichtangaben** (Firmenbuch, UID, Rechtsträger). Sie gehören ins Impressum;
+  eine Kontaktseite ist eine Absenderangabe, und eine halbe Pflichtangabe wäre schlechter als keine
+  — dieselbe Begründung wie im Kopf von `lib/company.ts`.
+- **Kein Agenda-Eintrag und kein `SectionAnchor`.** Sie ist kein Kapitel; ein Eintrag „Kontakt"
+  verspräche einen Inhalt, den man nachschlägt, und diese Seite findet man, indem man das Blatt
+  umdreht.
+- **⚠ Telefon und E-Mail sind ABSCHRIFTEN, keine neuen Angaben.** `+43 676 76 30456` steht kanonisch
+  als `COMPANY_LEGAL.phone`, `energy@coolin.at` als `COMPANY.email` (`apps/web/lib/nav.ts`, beide
+  dort verbatim aus Impressum und Firmenbuchdaten). Der bestehende Drift-Test
+  (`apps/web/lib/print-company-drift.test.ts`) ist um beide erweitert. Die Schreibweise der Nummer
+  folgt der kanonischen Quelle — dieselben Ziffern wie die im Auftrag genannte Fassung
+  `+43 676 7630456`, nur gruppiert wie im Impressum, damit im Repo genau EINE Schreibweise
+  existiert. Die E-Mail ist das **Firmenpostfach**: eine persönliche Adresse gibt es im Repo
+  nirgends, und eine erfundene wäre eine geratene Angabe auf einem Dokument, das der Kunde behält.
+
+### Verifikation
+
+Vier Läufe über die echte Oberfläche gegen den Production-Build, Aufbau wie D21 (Port 4930,
+`demo-baeckerei-lastgang-2025.csv`, Gate-Schreibpfad gegen einen lokalen Stub — **kein Lead in die
+Produktion**), `window.print()` je gezählt.
+
+| Prüfung | Ergebnis |
+| --- | --- |
+| Zeilenabstand im Fliesstext | **alle** umbrochenen Zeilen exakt **1,25** (vorher 2,37) |
+| Seitenzahl | **15 → 10**, Abschlussseite eingerechnet |
+| Agenda gegen die tatsächliche erste Seite jedes Kapitels | **7 von 7 korrekt** (3/4/5/6/7/8/9) |
+| Fusszeile „Seite X von 10" | auf **8 von 10** Seiten — Deck- und Abschlussseite tragen bewusst keine |
+| Demodaten-Vorbehalt | **genau 1×**, Seite 9 |
+| Deckblatt mit Dokumentfeldern | Titel `Wirtschaftlichkeitsanalyse Bäckerei Gruber`, Adressblock `Hauptstraße 12` / `2100 Korneuburg` |
+| Deckblatt ohne Dokumentfelder | Titel fällt auf `Wirtschaftlichkeitsanalyse Batteriespeicher` zurück, **kein** Adressblock |
+| Abschlussseite | Wortmarke · Überschrift · `Martin Neubauer` · `CEO` · `+43 676 76 30456` · `energy@coolin.at` · Anschrift + Web · Titel/Zeitraum/Datum |
+| Erzwungener Fehler (Lazy-Chunk abgewürgt) | Fehlerblock + „Erneut versuchen", **`window.print()` 0×, 0 Downloads**; Wiederholen führt zum Download |
+| **Flag AUS (Regression)** | Gate exakt die bisherigen fünf Beschriftungen, `window.print()` **1×**, **0 Downloads**, zweiter Klick druckt erneut ohne erneutes Gate |
+
+Deck-, Abschluss- und eine Inhaltsseite zusätzlich als Bild gegengelesen (pdfjs + Canvas), nicht nur
+als Textstrom — Farbe, Kachel und Satzspiegel sind am Bild geprüft.
+
+**Bündel:** `/rechner` First Load roh **1.926.670 → 1.926.766 (+96 Bytes)** bei Flag AUS, unverändert
+**19 Chunks**; `/pdf-report-probe` unverändert 406.840. `@react-pdf` kommt über den gesamten
+First-Load-Satz **0×** vor, `stunden-heatmap-raster` genau 1× (Positivkontrolle). Der eingeschaltete
+Bau liegt weiterhin 100 Bytes darunter (D21).
+
+⚠ **Die 96 Bytes sind `REPORT_CONTACT`**, und das ist erklärbar: `lib/company.ts` wird von
+`print-frame.tsx` auch am Bildschirm gebraucht, das Modul liegt also im Bündel. Damit stehen Name
+und Telefonnummer der Ansprechperson im ausgelieferten JavaScript. Beides sind **veröffentlichte
+Angaben** (Impressum, Team-Seite); eine zweite Identitätsdatei nur für den PDF-Weg wäre der
+schlechtere Tausch.
+
+### `[OFFEN]` nach diesem Schritt
+
+- **Alle `[OFFEN]`-Punkte aus D21 gelten unverändert** — insbesondere: der Schalter ist weiterhin
+  AUS, und das Einschalten in Produktion ist eine eigene Entscheidung.
+- **Der Zeilenabstand ist EINE Zahl** (`PDF_TYPE.lineHeight`). Wer sie ändert, ändert den
+  Seitenumbruch des ganzen Dokuments und damit jede Agenda-Zahl. Das ist ungefährlich (sie werden
+  gemessen), aber sie sind danach neu zu prüfen.
+- **Kein automatischer Wächter gegen die zwei neuen Fallen.** Wer eine Textform ohne `...LEADING`
+  ergänzt, bekommt dort still den Vorgabewert 2,37 zurück — sichtbar nur am erzeugten PDF. Dasselbe
+  gilt seit D7 für die `lineHeight`-Falle auf der `<Page>`; `apps/website` hat keinen Testlauf, und
+  ein Wächter müsste ein PDF erzeugen und vermessen.
+- **Die Kapitelseiten sind durch den engeren Satz unten leerer geworden.** Das ist die Folge von
+  „eine `<Page>` je Kapitel" (D5) und keine Regression; ob Kapitel künftig zusammenrücken sollen,
+  ist eine eigene Frage — sie hinge an der Agenda-Mechanik.
