@@ -37,7 +37,7 @@ describe('buildExistingBatteryCandidate', () => {
     expect(b.usableCapacityKwh).toBe(19.2)
     expect(b.maxPowerKw).toBe(10.6)
     expect(b.roundTripEfficiency).toBe(0.9)
-    // Keine der fünf Katalog-Kapazitäten (10/15/25/40/60) darf hier auftauchen.
+    // Keine der sechs Katalog-Kapazitäten (10/15/25/40/60/250) darf hier auftauchen.
     expect(DEMO_BATTERY_CATALOG.map((c) => c.usableCapacityKwh)).not.toContain(b.usableCapacityKwh)
   })
 
