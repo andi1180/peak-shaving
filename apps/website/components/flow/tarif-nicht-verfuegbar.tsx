@@ -186,3 +186,158 @@ export function TarifNichtVerfuegbar({
     </Alert>
   )
 }
+
+/**
+ * ════════════════════════════════════════════════════════════════════════════════════════════════
+ * B21-3d — die Meldungen des DATENBANK-Wegs (Netzebenen 3–6)
+ * ════════════════════════════════════════════════════════════════════════════════════════════════
+ *
+ * Seit dem 07.09.2026 fragt der Rechner für die Netzebenen 3–6 nicht mehr den statischen Katalog
+ * (B11), sondern die gepflegten Tarifzeilen in `public.grid_tariffs` (B21-2b). Damit ändern sich
+ * die Antworten, die es zu geben gibt — und zwar in beide Richtungen:
+ *
+ *   – Ein Preisblatt, das im Admin-Bereich eingetragen wurde, ist ab sofort SICHTBAR. Vorher stand
+ *     dort „bei uns noch kein Leistungspreis hinterlegt", obwohl der Satz eine Abfrage entfernt in
+ *     der Datenbank lag.
+ *   – Dafür gibt es zu einer fehlenden Zeile KEINEN Grund mehr. Der statische Katalog trug je
+ *     Kombination einen `reason` und einen `note` — eine Datenbankzeile, die es nicht gibt, sagt
+ *     nichts über sich selbst. Der Text darf deshalb keine Begründung erfinden, die niemand kennt.
+ *
+ * ⚠ NETZEBENE 7 LÄUFT NICHT HIER DURCH. Sie bleibt am statischen Katalog und an
+ * `TarifNichtVerfuegbar` oben — die fehlende Tarifverordnung (SNE-T-V) ist eine regulatorische
+ * Tatsache und kein Zustand unserer Datenpflege. Sie gilt auch dann noch, wenn jemand eine
+ * NE-7-Zeile in die Tabelle einträgt.
+ */
+
+/**
+ * Solange die Abfrage läuft.
+ *
+ * ⚠ Der Zustand MUSS sichtbar sein und der Knopf gesperrt: ein Formular, das während der Abfrage
+ * aussieht wie ein bedienbares, ist die gefährlichere Variante — es zeigt den Vorgabewert 90 €/kW·a
+ * aus `initial`, und wer in dieser Sekunde auf „Analyse starten" drückt, rechnet mit einer Zahl, die
+ * nie jemand für ihn nachgeschlagen hat.
+ */
+export function NetzentgeltWirdGeprueft() {
+  return (
+    <Alert data-testid="netzentgelt-wird-geprueft">
+      <Info className="h-4 w-4" />
+      <AlertTitle>Preisblatt wird geprüft …</AlertTitle>
+      <AlertDescription>
+        <p className="text-text">
+          Wir sehen gerade nach, ob für diese Kombination ein Netzentgelt-Stand hinterlegt ist. Einen
+          Moment — die Felder unten werden danach vorbelegt.
+        </p>
+      </AlertDescription>
+    </Alert>
+  )
+}
+
+/**
+ * Die Abfrage lief, es gibt für diese Kombination keine Tarifzeile.
+ *
+ * ⚠ KEINE ERFUNDENE BEGRÜNDUNG. Der statische Katalog konnte sagen, WARUM ein Satz fehlt
+ * (`awaiting_tariff_regulation` gegen `not_yet_recorded`), weil dort jemand den Grund
+ * hingeschrieben hat. Eine fehlende Datenbankzeile sagt nur, dass sie fehlt. Der Text stellt das
+ * fest und nennt den Weg weiter — mehr wäre geraten.
+ *
+ * Gesperrt wird trotzdem, und aus demselben Grund wie in B11: Ohne belegten Satz stünde im Feld der
+ * Vorgabewert aus `initial`, und der sähe aus wie eine Angabe. Der Ausweg steht im Text und ist
+ * einen Klick entfernt.
+ */
+export function NetzentgeltNichtHinterlegt({
+  netzbetreiber,
+  netzebene,
+}: {
+  netzbetreiber: NetzbetreiberId
+  netzebene: number
+}) {
+  return (
+    <Alert data-testid="netzentgelt-nicht-hinterlegt">
+      <Info className="h-4 w-4" />
+      <AlertTitle>
+        {NETZBETREIBER_LABELS[netzbetreiber]}, Netzebene {netzebene}: noch kein Tarifsatz hinterlegt
+      </AlertTitle>
+      <AlertDescription>
+        <p className="mb-3 text-text">
+          Wir tragen die Netzentgelte je Netzbetreiber aus den Preisblättern nach; für diese
+          Kombination liegt noch keiner vor. Einen Näherungswert setzen wir hier nicht ein — er sähe
+          aus wie eine Angabe.
+        </p>
+        <p className="text-text">
+          Ihr Leistungspreis steht auf Ihrer Netzrechnung. Wählen Sie oben bei „Netzbetreiber“ den
+          Eintrag „Nicht angeben — Werte aus meiner Netzrechnung“ und tragen Sie ihn direkt ein; die
+          Rechnung des Kunden ist ohnehin massgeblich.
+        </p>
+      </AlertDescription>
+    </Alert>
+  )
+}
+
+/**
+ * Die Abfrage ist gar nicht durchgekommen — ein anderer Zustand als „es gibt keinen Satz".
+ *
+ * ── ⚠ ZWEI FEHLERARTEN, ZWEI MELDUNGEN — die Delta-15-Haltung, hier auf die Netzentgelt-Seite ──
+ * `request_failed` ist VORÜBERGEHEND und liegt am Netz bzw. bei uns: ein zweiter Versuch kann ihn
+ * beheben, deshalb steht ein Knopf daneben. `not_configured` ist ein EINRICHTUNGSFEHLER auf unserer
+ * Seite: ein zweiter Versuch ändert daran nichts, und ein Wiederholen-Knopf, der nie hilft, ist eine
+ * Requisite. Zusammengelegt bekäme der Nutzer für den einen Zustand die Antwort des anderen.
+ *
+ * ── ⚠ ES WIRD NICHT STILL FREIGESCHALTET UND NICHT AUF DEN KATALOG ZURÜCKGEFALLEN ──────────────
+ * Ein Rückfall auf den statischen Katalog wäre die gefährlichste der drei Möglichkeiten: er lieferte
+ * eine Zahl, die ihren Stand nicht kennt und die niemandem als veraltet auffiele — sondern als
+ * Ergebnis. Dieselbe Begründung wie bei Delta 15 Regel C und bei Netzebene 7. Der Ausweg ist
+ * derselbe wie oben: „Nicht angeben" wählen und die Werte von der Rechnung eintragen.
+ */
+export function NetzentgeltNichtAbrufbar({
+  reason,
+  onRetry,
+}: {
+  reason: 'not_configured' | 'request_failed'
+  onRetry: () => void
+}) {
+  if (reason === 'not_configured') {
+    return (
+      <Alert variant="warning" data-testid="netzentgelt-nicht-eingerichtet">
+        <Info className="h-4 w-4" />
+        <AlertTitle>Die Netzentgelt-Daten sind gerade nicht eingerichtet</AlertTitle>
+        <AlertDescription>
+          <p className="mb-3 text-text">
+            Wir können das Preisblatt zu Ihrem Netzbetreiber im Moment nicht nachschlagen. Das liegt
+            an uns, nicht an Ihrer Eingabe — und ein zweiter Versuch ändert daran nichts. Einen
+            Vorgabewert setzen wir hier nicht ein: er sähe aus wie ein nachgeschlagener Satz.
+          </p>
+          <p className="text-text">
+            Sie kommen trotzdem weiter: Wählen Sie oben bei „Netzbetreiber“ den Eintrag „Nicht
+            angeben — Werte aus meiner Netzrechnung“ und tragen Sie Leistungspreis und
+            Abrechnungsmodell direkt von Ihrer Rechnung ein.
+          </p>
+        </AlertDescription>
+      </Alert>
+    )
+  }
+
+  return (
+    <Alert variant="warning" data-testid="netzentgelt-nicht-abrufbar">
+      <Info className="h-4 w-4" />
+      <AlertTitle>Das Preisblatt liess sich gerade nicht abrufen</AlertTitle>
+      <AlertDescription>
+        <p className="mb-3 text-text">
+          Die Abfrage ist nicht durchgekommen — das ist etwas anderes als „für diese Kombination gibt
+          es keinen Satz", und wir raten deshalb nicht. Versuchen Sie es noch einmal.
+        </p>
+        <button
+          type="button"
+          onClick={onRetry}
+          className="mb-3 inline-flex items-center gap-1 font-medium text-accent underline underline-offset-4 hover:text-accent-hover"
+          data-testid="netzentgelt-erneut-versuchen"
+        >
+          Erneut versuchen
+        </button>
+        <p className="text-text">
+          Bleibt es dabei: Wählen Sie oben bei „Netzbetreiber“ den Eintrag „Nicht angeben — Werte aus
+          meiner Netzrechnung“ und tragen Sie die Werte direkt von Ihrer Rechnung ein.
+        </p>
+      </AlertDescription>
+    </Alert>
+  )
+}
