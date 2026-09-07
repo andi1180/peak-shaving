@@ -342,7 +342,7 @@ Nahezu das gesamte Abo-Portfolio hängt an B12 (Datenanbindung Vortageswerte) �
 
 - Prüfregelwerk B7 als Fachdokument — HÄRTESTE Abhängigkeit des gesamten Plans. Was eine korrekte Netzentgelt-Abrechnung ausmacht, welche Blindarbeits-Positionen auffällig sind, wann eine vereinbarte Anschlussleistung unangemessen ist: das ist Fachwissen, nicht Code. Die Software drumherum ist vergleichsweise einfach.
 - **Branchenkennzahlen (Vollbenutzungsstunden je Branche)** — blockiert B3-3; ohne sie bleibt der Betroffenheits-Check gebaut, aber unplatziert
-- Batteriekatalog mit belastbaren Preisen
+- Batteriekatalog mit belastbaren Preisen — `[Nachtrag 07.09.2026]` im Platzhalter-Katalog des öffentlichen Rechners (`packages/shared/src/demo-battery-catalog.ts`) steht seither ein **vorläufiger Grosskunden-Kandidat** (`demo-com-c250`, Container-Klasse 250 kWh / 125 kW), weil der bis dahin grösste Eintrag (60 kWh / 30 kW) für Hotellerie-/Grosskunden-Lastgänge zu klein war, um überhaupt eine sinnvolle Kappung zu zeigen. Seine Kenndaten und Preise sind wie die des übrigen Katalogs frei erfunden und beim Eintreffen des echten Katalogs zu **ersetzen bzw. zu prüfen** — nicht stillschweigend stehen zu lassen.
 - Validierter Referenzfall mit echter Netzrechnung
 - Rechtssicherer Einwilligungstext
 - Geklärte Einbettungsbedingungen des E-Control-Widgets
