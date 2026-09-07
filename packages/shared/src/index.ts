@@ -62,6 +62,12 @@ export * from './tariff-window-rules'
 // Der Kollisions-Wächter darüber: welches bestehende Fenster würde ein NEUES in welchem
 // Teilzeitraum verdrängen, mit welcher Preisänderung? Reine Berechnung, kein Anzeigetext.
 export * from './tariff-window-collision'
+// B21-3d (07.09.2026): die Vorbelegung des Tarifformulars aus einer GEPFLEGTEN Tarifzeile. Sie
+// löst für die Netzebenen 3–6 die Katalog-Vorbelegung ab — der statische Katalog kennt die über
+// `/admin/netzbetreiber-tarife` eingetragenen Preisblätter nicht. Hier und nicht in `apps/website`,
+// weil diese App keinen Testlauf hat und die Übersetzung Grundpreis → Leistungspreis fachliche
+// Wirkung trägt (Delta 3: nur `eur_per_kw_year` IST ein Leistungspreis).
+export * from './grid-tariff-prefill'
 // B22b: PLZ → Koordinate als statisches Codemodul (Pflichtenheft §2.3). Hier und nicht in
 // `engine`, aus demselben Grund wie `tariff-catalog`: der Rechenkern bekommt die Koordinate als
 // PARAMETER und darf die Datenschicht nicht kennen. Quelle und Lizenz stehen im Kopf der Datei —

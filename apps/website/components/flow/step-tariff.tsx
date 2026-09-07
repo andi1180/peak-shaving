@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { AlertTriangle, ArrowLeft, ArrowRight, CheckCircle2 } from 'lucide-react'
-import { parsePvProfile } from 'engine'
+import { findGridTariffRow, parsePvProfile } from 'engine'
 import {
   NETZBETREIBER_IDS,
   NETZBETREIBER_LABELS,
@@ -10,12 +10,14 @@ import {
   METERING_VARIANTS,
   METERING_VARIANT_LABELS,
   financialParamsSchema,
+  gridTariffPrefill,
   hasMeteringVariant,
   lookupTariffProfile,
   pendingAcrossAllBetreiber,
   tariffParamsSchema,
-  tariffSelectionFrom,
+  type BillingModel,
   type FinancialParams,
+  type GridTariffPrefill,
   type LoadProfile,
   type MeteringVariant,
   type Netzebene,
@@ -23,7 +25,6 @@ import {
   type PendingReason,
   type TariffParams,
   type TariffPricingInputs,
-  type TariffSelection,
 } from 'shared'
 
 import {
@@ -53,11 +54,15 @@ import { Num } from '@/components/report/num'
 import { parseNum, percentHint } from '@/lib/form-utils'
 import { FileDrop } from './file-drop'
 import {
+  NetzentgeltNichtAbrufbar,
+  NetzentgeltNichtHinterlegt,
+  NetzentgeltWirdGeprueft,
   TarifMessvarianteOffen,
   TarifNichtVerfuegbar,
   TarifOhneLeistungsmessung,
 } from './tarif-nicht-verfuegbar'
 import { loadTariffPricing } from '@/lib/tariff-pricing'
+import { fetchGridTariffs } from '@/lib/tariff-data'
 import type {
   EstimatedPvResult,
   ExistingBatteryInput,
@@ -101,30 +106,28 @@ const initial = {
 type FormState = typeof initial
 
 /**
- * Die Katalog-Vorbelegung zu einer Kombination — die REINE Hälfte von `applySelection`.
+ * ⚠ B21-3d (07.09.2026) — HIER STAND `catalogPrefill`, UND DASS ES SIE NICHT MEHR GIBT, IST DER
+ * KERN DIESER ÄNDERUNG.
  *
- * Sie steht hier ausserhalb der Komponente, weil sie ZWEI Aufrufer hat: die Auswahl von Hand
- * (`applySelection`, setState-basiert) und die Vorbelegung aus einem Rechnungs-Scan
- * (`buildInitialTariffState`, läuft vor dem ersten Render). Zweimal ausgeschrieben liefen die
- * beiden Wege auseinander, sobald jemand die Regel ändert — und dann bekäme derselbe Kunde je
- * nach Einstieg einen anderen Vorgabewert.
+ * Sie belegte die drei Tariffelder aus dem statischen Katalog (`lookupTariffProfile`, B11) vor —
+ * synchron, weil ein Codemodul synchron ist. Genau daran hing der Defekt: der Katalog kennt die
+ * über `/admin/netzbetreiber-tarife` gepflegten Preisblätter NICHT (er ist ein Codemodul und
+ * ändert sich nur durch einen PR), und ein eingetragener Satz blieb im Rechner unsichtbar. Ein
+ * Kunde auf Wiener Netze NE 6 bekam „bei uns noch kein Leistungspreis hinterlegt" zu lesen, während
+ * 59,52 €/kW·a eine Abfrage entfernt in `public.grid_tariffs` standen.
+ *
+ * Für die Netzebenen 3–6 fragt der Rechner deshalb ab jetzt die DATENBANK (`fetchGridTariffs`,
+ * B21-3a) — und weil eine Abfrage nicht synchron ist, kann die Vorbelegung keine reine Funktion
+ * neben dem Render mehr sein. Sie sitzt jetzt in genau EINEM Effekt (`useEffect` in der Komponente
+ * unten); die reine, geprüfte Hälfte davon — die Übersetzung Tarifzeile → Formularfelder — liegt in
+ * `packages/shared/src/grid-tariff-prefill.ts`, weil `apps/website` keinen Testlauf hat.
+ *
+ * ── ⚠ NETZEBENE 7 IST DIE AUSDRÜCKLICHE AUSNAHME UND BLEIBT AM KATALOG ────────────────────────
+ * `lookupTariffProfile`/`pendingAcrossAllBetreiber` werden weiterhin importiert und weiterhin
+ * benutzt — aber NUR für Netzebene 7. Dort ist das Fehlen kein Pflegestand, sondern eine
+ * regulatorische Tatsache: die Tarifverordnung (SNE-T-V) ist nicht erlassen. Diese Sperre darf
+ * NICHT davon abhängen, was in der Datenbank steht; s. `REGULATION_PENDING_NETZEBENE` unten.
  */
-function catalogPrefill(
-  netzbetreiber: NetzbetreiberId,
-  netzebene: Netzebene,
-  stichtag: string,
-): { fields: Partial<FormState>; selection: TariffSelection } | null {
-  const result = lookupTariffProfile({ netzbetreiber, netzebene, on: stichtag })
-  if (result.status !== 'available') return null
-  return {
-    fields: {
-      leistungspreisEurPerKwYear: String(result.profile.leistungspreisEurPerKwYear),
-      minBillableKw: String(result.profile.minBillableKw),
-      billingModel: result.profile.billingModel,
-    },
-    selection: tariffSelectionFrom(result.set, result.profile),
-  }
-}
 
 /**
  * Delta 9b-2b — der Anfangszustand des Formulars, wenn Schritt 1 einen Rechnungs-Scan mitgibt.
@@ -135,25 +138,25 @@ function catalogPrefill(
  * Effekts überschriebe, was er inzwischen getippt hat. Ein Initialwert ist genau das, was eine
  * Vorbelegung ist — ein Startpunkt, den der Nutzer ab der ersten Tastatureingabe besitzt.
  *
- * ── ⚠ DIE REIHENFOLGE DER DREI SCHICHTEN IST DIE EIGENTLICHE FACHLICHE AUSSAGE ────────────────
- *   1. Katalog-Vorbelegung (B11) — was für diese Kombination allgemein gilt.
+ * ── ⚠ SCHICHT 1 IST MIT B21-3d VON HIER WEGGEZOGEN, DIE REIHENFOLGE GILT UNVERÄNDERT ──────────
+ *   1. Netzentgelt-Vorbelegung — steht ab jetzt im Effekt, weil sie aus der Datenbank kommt.
  *   2. „ohne Leistungsmessung" (Delta 9a) — setzt Leistungspreis und Sockel auf 0, weil dieser
- *      Anschluss den Posten nicht hat.
+ *      Anschluss den Posten nicht hat. Betrifft ausschliesslich NE 7, also NICHT den Datenbankweg.
  *   3. Die TATSÄCHLICH auf der Rechnung gelesenen Sätze — sie schlagen beides.
  *
- * Schicht 3 zuletzt, weil Prinzip 1 sagt: die Rechnung ist die Wahrheit. Stünde sie vor Schicht 2,
- * überschriebe ausgerechnet die Pauschal-Regel den abgelesenen Wert. Und weil Schicht 3 nur
- * setzt, was NICHT `null` ist, bleibt die 0 aus Schicht 2 stehen, wo die Rechnung schweigt — genau
- * richtig: ein Anschluss ohne Leistungsmessung hat keinen Leistungspreis, und dass er nicht auf
- * der Rechnung steht, ist die Bestätigung und nicht die Lücke.
+ * Schicht 3 zuletzt, weil Prinzip 1 sagt: die Rechnung ist die Wahrheit.
+ *
+ * ⚠ DASS SCHICHT 1 JETZT SPÄTER LÄUFT ALS SCHICHT 3, KEHRT DIE REIHENFOLGE NICHT UM. Der Effekt
+ * überschreibt beim ERSTEN Lauf ausdrücklich kein Feld, das der Scan geliefert hat — dafür gibt
+ * `scannedRateFields` unten die Liste, und der Effekt liest sie. Ohne diesen Schutz überschriebe
+ * ausgerechnet unsere Tabelle den abgelesenen Satz des Kunden.
  *
  * ── UND WAS DARAUS FÜR `overriddenFields` FOLGT ───────────────────────────────────────────────
  * `overriddenFields` wird nicht mitgeschrieben, sondern ABGELEITET: `buildTariffSourceRef`
- * vergleicht die gerechneten Werte gegen `selection.defaults`. Weil Schicht 1 die Vorgabewerte
- * setzt UND `selection` füllt, erscheint jeder abgelesene Satz, der davon abweicht, von selbst als
- * überschrieben — was er ja auch ist: er kommt aus der Rechnung des Kunden und nicht aus unserer
- * Tabelle. Es war dafür keine Zeile Buchführung nötig, und das ist der Grund, warum diese Funktion
- * `catalogPrefill` benutzt statt die Felder direkt zu setzen.
+ * vergleicht die gerechneten Werte gegen `selection.defaults`. Weil die Vorbelegung die
+ * Vorgabewerte setzt UND `selection` füllt, erscheint jeder abgelesene Satz, der davon abweicht,
+ * von selbst als überschrieben — was er ja auch ist: er kommt aus der Rechnung des Kunden und
+ * nicht aus unserer Tabelle.
  */
 function buildInitialTariffState(prefill: TariffPrefill | undefined) {
   const stichtag = new Date().toISOString().slice(0, 10)
@@ -186,7 +189,6 @@ function buildInitialTariffState(prefill: TariffPrefill | undefined) {
       }
     : initial
   let form: FormState = { ...blanked }
-  let selection: TariffSelection | null = null
 
   const netzbetreiber: NetzbetreiberId | typeof NOT_SET = prefill?.netzbetreiber ?? NOT_SET
   const ebene = prefill?.netzebene ?? null
@@ -201,27 +203,36 @@ function buildInitialTariffState(prefill: TariffPrefill | undefined) {
       ? prefill.meteringVariant
       : NOT_SET
 
-  // 1. Katalog
-  if (netzbetreiber !== NOT_SET && ebene != null) {
-    const catalog = catalogPrefill(netzbetreiber, ebene, stichtag)
-    if (catalog) {
-      form = { ...form, ...catalog.fields }
-      selection = catalog.selection
-    }
-  }
+  /*
+   * 1. Netzentgelt-Vorbelegung — steht seit B21-3d NICHT mehr hier. Sie kommt aus der Datenbank und
+   *    damit aus einem Effekt (s. `netzentgelt` in der Komponente). Der Effekt läuft beim Mounten,
+   *    also unmittelbar nach diesem Anfangszustand, und respektiert dabei Schicht 3.
+   */
 
   // 2. Ohne Leistungsmessung (identisch zu `applyMeteringVariant`)
   if (meteringVariant === 'ohne_leistungsmessung') {
     form = { ...form, leistungspreisEurPerKwYear: '0', minBillableKw: '0' }
   }
 
-  // 3. Die abgelesenen Sätze — nur, was tatsächlich dastand.
+  /*
+   * 3. Die abgelesenen Sätze — nur, was tatsächlich dastand.
+   *
+   * ⚠ `scannedRateFields` hält fest, WELCHE der beiden Felder aus der Rechnung stammen, die die
+   * Netzentgelt-Vorbelegung ebenfalls belegen würde. Der Effekt liest die Menge und lässt genau
+   * diese Felder beim ERSTEN Lauf unangetastet — sonst überschriebe die Tabelle den abgelesenen
+   * Satz, also Schicht 1 die Schicht 3, und das wäre Prinzip 1 auf den Kopf gestellt.
+   */
+  const scannedRateFields = new Set<'leistungspreisEurPerKwYear' | 'minBillableKw'>()
   const rates = prefill?.rates
   if (rates) {
     if (rates.leistungspreisEurPerKwYear != null) {
       form = { ...form, leistungspreisEurPerKwYear: String(rates.leistungspreisEurPerKwYear) }
+      scannedRateFields.add('leistungspreisEurPerKwYear')
     }
-    if (rates.minBillableKw != null) form = { ...form, minBillableKw: String(rates.minBillableKw) }
+    if (rates.minBillableKw != null) {
+      form = { ...form, minBillableKw: String(rates.minBillableKw) }
+      scannedRateFields.add('minBillableKw')
+    }
     if (rates.energyPriceCtPerKwh != null) {
       form = { ...form, energyPriceCtPerKwh: String(rates.energyPriceCtPerKwh) }
     }
@@ -253,7 +264,7 @@ function buildInitialTariffState(prefill: TariffPrefill | undefined) {
    */
   const useNight = rates?.energyPriceNightCtPerKwh != null
 
-  return { stichtag, form, selection, netzbetreiber, netzebene, meteringVariant, useNight }
+  return { stichtag, form, scannedRateFields, netzbetreiber, netzebene, meteringVariant, useNight }
 }
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
@@ -272,12 +283,59 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
  */
 const NOT_SET = 'none'
 
+/**
+ * Ein Betrag aus dem Preisblatt, wie ihn ein deutschsprachiger Leser erwartet.
+ *
+ * ⚠ Bewusst ohne feste Nachkommastellen: die Werte reichen von 0,109 (Netzverlust NE 3) bis 59,52
+ * (Grundpreis NE 6), und eine gerundete Anzeige machte aus einem abgelesenen Satz eine andere Zahl
+ * als die, mit der gerechnet wird. Dieselbe Lehre wie bei `formatRead` in B22c: was ABGELESEN
+ * wurde, wird ungerundet gezeigt.
+ */
+function formatCt(value: number): string {
+  return new Intl.NumberFormat('de-AT', { maximumFractionDigits: 6 }).format(value)
+}
+
 type PendingState = {
   reason: PendingReason
   netzbetreiber: NetzbetreiberId | null
   netzebene: Netzebene
   note?: string
 }
+
+/**
+ * ⚠ B21-3d — DIE HARTKODIERTE AUSNAHME, und sie ist bewusst eine Zahl und keine Ableitung.
+ *
+ * Für Netzebene 7 gibt es bis zur Tarifverordnung (SNE-T-V) keine Leistungspreise. Das ist eine
+ * REGULATORISCHE Tatsache und kein Zustand unserer Datenpflege — die Sperre darf deshalb NICHT
+ * davon abhängen, ob in `public.grid_tariffs` zufällig eine NE-7-Zeile steht. Es steht dort heute
+ * sogar eine (Wiener Netze, drei Messvarianten aus dem Preisblatt WN-EX0105): sie ist für den
+ * kleinen, bereits lastprofilgemessenen Bestand richtig und für die Zielgruppe dieses Rechners auf
+ * NE 7 die falsche Zahl — genau die Begründung, mit der `tariff-catalog.ts` sie als Vorgabewert
+ * ausschliesst.
+ *
+ * Ausdrücklich NICHT über `hasMeteringVariant()` ausgedrückt, obwohl das heute dieselbe Menge
+ * ergäbe: diese Liste beschreibt, welche Netzebenen eine Anschlussart-Dimension HABEN, nicht welche
+ * regulatorisch offen sind. Käme dort eine zweite Netzebene dazu, verschöbe sich sonst still eine
+ * Verweigerung mit.
+ */
+const REGULATION_PENDING_NETZEBENE = 7
+
+/**
+ * Der Netzentgelt-Stand zur gewählten Kombination (B21-3d) — der Zustand, der seit dem 07.09.2026
+ * an die Stelle der synchronen Katalog-Abfrage tritt.
+ *
+ * `idle` heisst „es gibt nichts nachzuschlagen": keine Netzebene gewählt, ODER kein Netzbetreiber
+ * gewählt. Der zweite Fall ist der Weg „Nicht angeben — Werte aus meiner Netzrechnung", und dort
+ * gibt es nichts zu prüfen, weil es keinen Betreiber gibt, nach dessen Preisblatt man fragen könnte.
+ */
+type NetzentgeltState =
+  | { kind: 'idle' }
+  | { kind: 'loading' }
+  | { kind: 'available'; prefill: GridTariffPrefill }
+  /** Die Abfrage lief und lieferte KEINE Zeile — eine gültige Antwort, kein Fehler (B21-1). */
+  | { kind: 'missing'; netzbetreiber: NetzbetreiberId; netzebene: Netzebene }
+  /** Die Abfrage kam gar nicht durch — ein anderer Zustand, und deshalb eine andere Meldung. */
+  | { kind: 'failed'; reason: 'not_configured' | 'request_failed' }
 
 /** Ab welcher relativen Abweichung vom Vorgabewert ein neutraler Hinweis erscheint. */
 const DEVIATION_THRESHOLD = 0.1
@@ -358,13 +416,20 @@ export function StepTariff({
   const [meteringVariant, setMeteringVariant] = useState<MeteringVariant | typeof NOT_SET>(
     init.meteringVariant,
   )
-  /** Gesetzt, sobald eine Kombination MIT Sätzen vorbelegt hat — trägt die Vorgabewerte von damals. */
-  const [selection, setSelection] = useState<TariffSelection | null>(init.selection)
   /*
    * Der Stichtag EINMAL bestimmt und danach festgehalten: `lookupTariffProfile` ist rein und
    * bekommt das Datum übergeben (dieselbe Regel wie im Rechenkern). Würde es bei jedem Render neu
    * gelesen, könnte eine Sitzung über Mitternacht hinweg still auf einen anderen Tarifsatz-Stand
    * wechseln — mitten in einer bereits vorbelegten Eingabe.
+   *
+   * ⚠ B21-3d: Er ist ab jetzt AUCH der Zeitpunkt, zu dem die Netzentgelt-Zeile gesucht wird — die
+   * Abfrage läuft mit `periodStart = periodEnd = stichtag`, also über EINEN Tag: heute. Das ist
+   * bewusst NICHT das Analysefenster aus Delta 15 Regel A, und die beiden beantworten verschiedene
+   * Fragen. Hier geht es um eine VORBELEGUNG des Formulars: welcher Leistungspreis gilt für diesen
+   * Anschluss gerade — dieselbe Frage, die der statische Katalog bisher mit demselben Stichtag
+   * beantwortet hat. Der RECHNUNG liegt weiterhin der Lastgang-Zeitraum zugrunde
+   * (`loadTariffPricing` unten, unverändert), und die kann über einen Tarifwechsel laufen und
+   * mehrere Stände tragen. Ein Formularfeld kann das nicht — es hält genau eine Zahl.
    */
   const [stichtag] = useState(init.stichtag)
 
@@ -378,16 +443,136 @@ export function StepTariff({
 
   const set = (k: keyof FormState) => (v: string) => setF((s) => ({ ...s, [k]: v }))
 
-  /**
-   * Auswahl übernehmen: bei einer Kombination MIT Sätzen die drei Felder vorbelegen, sonst die
-   * Vorbelegung wieder aufgeben.
+  /*
+   * ── B21-3d: DER NETZENTGELT-STAND, ASYNCHRON ────────────────────────────────────────────────
    *
-   * Vorbelegen heisst ÜBERSCHREIBEN — wer den Netzbetreiber wechselt, will die Werte des neuen
-   * sehen, nicht die des alten. Was der Nutzer danach eintippt, bleibt stehen; die Auswahl wird
-   * nicht erneut ausgewertet, und keine Neuberechnung im Report (§6.2) fasst diese Felder je wieder
-   * an. Genau das macht den Vorgabewert zu einer Vorbelegung und nicht zu einer Vorschrift.
+   * `queryKey` ist die Kombination, nach der gefragt wird — oder `null`, wenn es nichts zu fragen
+   * gibt. Er wird SYNCHRON im Render gebildet und mit dem Schlüssel des gespeicherten Ergebnisses
+   * verglichen (`netzentgelt` unten). Damit steht in derselben Sekunde, in der der Nutzer die
+   * Auswahl ändert, der Ladezustand da — ohne dass ein Handler dafür `setState` rufen müsste und
+   * ohne dass für einen Frame das Ergebnis der VORIGEN Kombination sichtbar wäre.
+   *
+   * ⚠ Das ersetzt zugleich jeden Wettlauf-Schutz im Effekt: eine verspätete Antwort trägt den
+   * Schlüssel, unter dem sie angefordert wurde, und wird schlicht nicht mehr angezeigt. Ein
+   * `cancelled`-Flag in der Aufräumfunktion wäre die schwächere Form derselben Sache — es kann
+   * vergessen werden, ein Schlüsselvergleich nicht.
+   */
+  const netzebeneNum = netzebene === NOT_SET ? null : (Number(netzebene) as Netzebene)
+  const isRegulationPending = netzebeneNum === REGULATION_PENDING_NETZEBENE
+  const queryKey =
+    netzebeneNum == null || isRegulationPending || netzbetreiber === NOT_SET
+      ? null
+      : `${netzbetreiber}|${netzebeneNum}`
+
+  const [fetched, setFetched] = useState<{ key: string; state: NetzentgeltState } | null>(null)
+  /** Hochgezählt vom „Erneut versuchen"-Knopf — die einzige Möglichkeit, eine Abfrage zu wiederholen. */
+  const [retryToken, setRetryToken] = useState(0)
+
+  const netzentgelt: NetzentgeltState =
+    queryKey == null
+      ? { kind: 'idle' }
+      : fetched?.key === queryKey
+        ? fetched.state
+        : { kind: 'loading' }
+
+  /**
+   * Die Herkunftsangabe wird ABGELEITET statt als eigener Zustand geführt.
+   *
+   * Vorher war sie ein `useState`, das `applySelection` mitpflegen musste. Ein abgeleiteter Wert
+   * kann nicht veralten: wechselt der Nutzer die Kombination, ist im selben Render auch die
+   * Herkunft weg — statt für einen Moment die des vorigen Netzbetreibers zu zeigen.
+   */
+  const selection = netzentgelt.kind === 'available' ? netzentgelt.prefill.selection : null
+
+  /*
+   * ⚠ Das Abrechnungsmodell reist über ein Ref in die Vorbelegung, NICHT über die Abhängigkeitsliste
+   * des Effekts. Als Abhängigkeit geführt liefe der Effekt bei jeder Änderung des Auswahlfelds neu
+   * und überschriebe dabei den Leistungspreis, den der Nutzer inzwischen von Hand korrigiert hat.
+   * Gebraucht wird der Wert ohnehin nur für einen Schnappschuss in `selection.defaults` — s. die
+   * Begründung im Kopf von `gridTariffPrefill`.
+   */
+  const billingModelRef = useRef<BillingModel>(f.billingModel as BillingModel)
+  billingModelRef.current = f.billingModel as BillingModel
+
+  /*
+   * Hat der Nutzer die Kombination selbst geändert? Solange nicht, gilt die Reihenfolge aus
+   * `buildInitialTariffState`: ein aus der Rechnung GELESENER Satz schlägt die Vorbelegung
+   * (Prinzip 1). Sobald er sie ändert, gilt wieder „Vorbelegen heisst ÜBERSCHREIBEN" — er will die
+   * Werte des neu gewählten Stands sehen, nicht die des alten.
+   */
+  const selectionTouchedRef = useRef(false)
+
+  const applyPrefillFields = useCallback((prefill: GridTariffPrefill) => {
+    const protectedFields = selectionTouchedRef.current
+      ? new Set<string>()
+      : init.scannedRateFields
+    setF((current) => ({
+      ...current,
+      ...(protectedFields.has('leistungspreisEurPerKwYear')
+        ? {}
+        : { leistungspreisEurPerKwYear: String(prefill.fields.leistungspreisEurPerKwYear) }),
+      ...(protectedFields.has('minBillableKw')
+        ? {}
+        : { minBillableKw: String(prefill.fields.minBillableKw) }),
+    }))
+  }, [init.scannedRateFields])
+
+  useEffect(() => {
+    if (queryKey == null || netzbetreiber === NOT_SET || netzebeneNum == null) return
+
+    void fetchGridTariffs(
+      netzbetreiber,
+      netzebeneNum,
+      /*
+       * ⚠ Immer `null`. Dieser Weg läuft ausschliesslich für die Netzebenen 3–6, und dort steht in
+       * der Spalte `null` — die Abfrage filtert dann ausdrücklich auf `IS NULL` (B21-1,
+       * `nulls not distinct`). Eine mitgeschickte Variante fände dort keine Zeile, und der Rechner
+       * meldete „kein Tarifsatz hinterlegt", obwohl der Satz gepflegt ist.
+       */
+      null,
+      stichtag,
+      stichtag,
+    ).then((result) => {
+      if (!result.ok) {
+        setFetched({ key: queryKey, state: { kind: 'failed', reason: result.reason } })
+        return
+      }
+      /*
+       * Die Datierungsregel wird NICHT hier nachgebaut: `findGridTariffRow` ist die massgebliche
+       * Umsetzung (`valid_until` INKLUSIV, bei mehreren Treffern gewinnt die später beginnende) und
+       * wird aus dem Rechenkern importiert. Die Abfrage filtert bereits auf den Stichtag; was
+       * bleibt, ist der Gleichstand aus einem Eingriff von Hand — und den soll die Oberfläche
+       * genauso entscheiden wie die Rechnung.
+       */
+      const row = findGridTariffRow(result.tariffs, stichtag)
+      if (!row) {
+        setFetched({
+          key: queryKey,
+          state: { kind: 'missing', netzbetreiber, netzebene: netzebeneNum },
+        })
+        return
+      }
+      const prefill = gridTariffPrefill({
+        netzbetreiber,
+        netzebene: netzebeneNum,
+        row,
+        currentBillingModel: billingModelRef.current,
+      })
+      setFetched({ key: queryKey, state: { kind: 'available', prefill } })
+      applyPrefillFields(prefill)
+    })
+  }, [queryKey, netzbetreiber, netzebeneNum, stichtag, retryToken, applyPrefillFields])
+
+  /**
+   * Auswahl übernehmen.
+   *
+   * ⚠ Sie belegt seit B21-3d KEINE Felder mehr vor — das tut der Effekt oben, sobald die Antwort da
+   * ist. Was hier bleibt, ist die Auswahl selbst und die eine Aufräumung, die nicht warten darf.
    */
   function applySelection(nextBetreiber: string, nextEbene: string) {
+    if (nextBetreiber !== netzbetreiber || nextEbene !== netzebene) {
+      selectionTouchedRef.current = true
+    }
     setNetzbetreiber(nextBetreiber as NetzbetreiberId | typeof NOT_SET)
     setNetzebene(nextEbene)
 
@@ -397,48 +582,42 @@ export function StepTariff({
      * der Nutzer könnte ihn also gar nicht mehr korrigieren.
      */
     if (nextEbene === NOT_SET || !hasMeteringVariant(Number(nextEbene))) setMeteringVariant(NOT_SET)
-
-    if (nextBetreiber === NOT_SET || nextEbene === NOT_SET) {
-      setSelection(null)
-      return
-    }
-
-    // Dieselbe reine Regel wie bei der Vorbelegung aus einem Rechnungs-Scan (9b-2b) — EIN Ort.
-    const catalog = catalogPrefill(
-      nextBetreiber as NetzbetreiberId,
-      Number(nextEbene) as Netzebene,
-      stichtag,
-    )
-
-    if (!catalog) {
-      setSelection(null)
-      return
-    }
-
-    setF((s) => ({ ...s, ...catalog.fields }))
-    setSelection(catalog.selection)
   }
 
   /*
-   * Liegt zur Auswahl kein Satz vor? Ohne Netzbetreiber wird die Frage über ALLE geführten
-   * Netzbetreiber beantwortet — Netzebene 7 steht überall aus, und diese Aussage erst nach einer
-   * zusätzlichen Auswahl zu machen wäre eine Hürde ohne Ertrag.
+   * ── ⚠ NETZEBENE 7: DIE VERWEIGERUNG BLEIBT AM STATISCHEN KATALOG ────────────────────────────
+   *
+   * Hier steht die einzige verbliebene Benutzung von `lookupTariffProfile`/`pendingAcrossAllBetreiber`
+   * in dieser Datei — und sie ist an `REGULATION_PENDING_NETZEBENE` gebunden, nicht an das Ergebnis
+   * einer Abfrage. Läge in `public.grid_tariffs` eine NE-7-Zeile (und es liegt eine dort), änderte
+   * das an dieser Sperre nichts: das Fehlen ist regulatorisch, nicht redaktionell.
+   *
+   * Ohne Netzbetreiber wird die Frage über ALLE geführten Netzbetreiber beantwortet — Netzebene 7
+   * steht überall aus, und diese Aussage erst nach einer zusätzlichen Auswahl zu machen wäre eine
+   * Hürde ohne Ertrag.
+   *
+   * ⚠ BENANNTE VERHALTENSÄNDERUNG für die Netzebenen 3–6: dort greift `pendingAcrossAllBetreiber`
+   * ab jetzt NICHT mehr. Wer nur eine Netzebene wählt und beim Netzbetreiber „Nicht angeben" stehen
+   * lässt, wird nicht mehr gesperrt. Das ist die Folge der Umstellung und keine Nachlässigkeit:
+   * gefragt wird ab jetzt nach dem Preisblatt EINES Betreibers, und wer keinen nennt, ist auf dem
+   * Weg „Werte aus meiner Netzrechnung" — dort gibt es nichts nachzuschlagen und deshalb auch
+   * nichts zu verweigern. (Bis heute sperrte diese Kombination für NE 4/5/6, weil der statische
+   * Katalog sie bei allen drei Betreibern als `not_yet_recorded` führt.)
    */
   const pending: PendingState | null = (() => {
-    if (netzebene === NOT_SET) return null
-    const ebene = Number(netzebene) as Netzebene
+    if (!isRegulationPending || netzebeneNum == null) return null
 
     if (netzbetreiber === NOT_SET) {
-      const reason = pendingAcrossAllBetreiber(ebene, stichtag)
-      return reason ? { reason, netzbetreiber: null, netzebene: ebene } : null
+      const reason = pendingAcrossAllBetreiber(netzebeneNum, stichtag)
+      return reason ? { reason, netzbetreiber: null, netzebene: netzebeneNum } : null
     }
 
-    const result = lookupTariffProfile({ netzbetreiber, netzebene: ebene, on: stichtag })
+    const result = lookupTariffProfile({ netzbetreiber, netzebene: netzebeneNum, on: stichtag })
     return result.status === 'pending_regulation'
       ? {
           reason: result.profile.reason,
           netzbetreiber,
-          netzebene: ebene,
+          netzebene: netzebeneNum,
           note: result.profile.note,
         }
       : null
@@ -464,7 +643,33 @@ export function StepTariff({
    * Leistungspreis gälte, ist ja gerade das, was hier noch offen ist.
    */
   const meteringVariantOpen = showMeteringVariant && meteringVariant === NOT_SET
-  const blocked = pending != null && !noPowerMeasurement
+
+  /*
+   * ── ⚠ WAS SPERRT, UND WARUM DER FEHLERFALL DAZUGEHÖRT ──────────────────────────────────────
+   *
+   * Der NE-7-Zweig ist unverändert (`pending` samt der Delta-9a-Aufhebung durch „ohne
+   * Leistungsmessung"). Dazu kommen drei Zustände des Datenbankwegs, und alle drei sperren:
+   *
+   *   `loading`  — solange nicht feststeht, ob ein Satz vorliegt, stünde im Feld der Vorgabewert
+   *                90 €/kW·a aus `initial`. Wer in dieser Sekunde startet, rechnet mit einer Zahl,
+   *                die nie jemand für ihn nachgeschlagen hat.
+   *   `missing`  — dieselbe Aussage wie B11 bisher: ohne belegten Satz wird nicht gerechnet.
+   *   `failed`   — ⚠ und das ist die bewusste, unbequeme Entscheidung. Ein Rückfall auf den
+   *                statischen Katalog wäre die gefährlichste Variante (eine Zahl, die ihren Stand
+   *                nicht kennt), ein stilles Freischalten die zweitgefährlichste (der Vorgabewert
+   *                90 sähe aus wie ein nachgeschlagener Satz). Es bleibt: laut sperren und den
+   *                Ausweg nennen — „Nicht angeben — Werte aus meiner Netzrechnung" ist einen Klick
+   *                entfernt und steht im Text der Meldung.
+   *
+   * Der Preis dieser Entscheidung ist benannt: fehlt die Supabase-Umgebung (lokal ohne
+   * `.env.local`), ist die Netzbetreiber-Auswahl unbenutzbar. Der Rechner selbst bleibt es nicht —
+   * über „Nicht angeben" läuft er vollständig, wie er es vor B11 tat.
+   */
+  const blocked =
+    (pending != null && !noPowerMeasurement) ||
+    netzentgelt.kind === 'loading' ||
+    netzentgelt.kind === 'missing' ||
+    netzentgelt.kind === 'failed'
 
   /**
    * Messvariante übernehmen. Bei „ohne Leistungsmessung" wird der Leistungspreis auf 0 vorbelegt —
@@ -750,37 +955,97 @@ export function StepTariff({
            * die eigene Rechnung massgeblich ist (Prinzip 1). Ein Vorgabewert ohne diesen Hinweis
            * liest sich wie eine Feststellung.
            */}
-          {selection && !pending && (
-            <p className="text-xs text-text-muted" data-testid="tarif-herkunft">
-              Vorbelegt aus „{selection.tariffSetLabel}“ (gültig ab{' '}
-              <Num>{selection.tariffSetValidFrom}</Num>). Ihre Netzrechnung schlägt diese Tabelle —
-              alle Felder unten bleiben editierbar.
-            </p>
+          {netzentgelt.kind === 'available' && (
+            <div className="flex flex-col gap-1" data-testid="tarif-herkunft">
+              <p className="text-xs text-text-muted">
+                Vorbelegt aus „{netzentgelt.prefill.operatorLabel}“, Netzebene{' '}
+                {netzentgelt.prefill.selection.netzebene} (Preisblatt-Stand gültig ab{' '}
+                <Num>{netzentgelt.prefill.validFrom}</Num>):{' '}
+                {netzentgelt.prefill.grundpreisIsLeistungspreis ? (
+                  <>
+                    Leistungspreis <Num>{formatCt(netzentgelt.prefill.grundpreisAmount)}</Num>{' '}
+                    €/kW·a
+                  </>
+                ) : (
+                  <>
+                    Grundpreis <Num>{formatCt(netzentgelt.prefill.grundpreisAmount)}</Num> €/Jahr —
+                    eine Jahrespauschale und kein Leistungspreis, deshalb steht unten 0
+                  </>
+                )}
+                . Ihre Netzrechnung schlägt diesen Stand — alle Felder unten bleiben editierbar.
+              </p>
+              {/*
+                ⚠ Netz-Arbeitspreis und Netzverlust stehen hier als ANGABE und in KEINEM Feld.
+                Das Feld „Arbeitspreis" unten ist der Preis des STROMLIEFERANTEN; eine Netz-Zahl
+                dort wäre an der falschen Stelle und ginge als Eigenverbrauchswert in jede Ersparnis
+                ein. Ihren Weg in die Rechnung nehmen die beiden bereits über den Vergleich mit den
+                Börsen-Strompreisen (Delta 4) — sie hier zusätzlich einzutragen hiesse, sie doppelt
+                zu zählen. Sie stehen trotzdem da, weil der Kunde sehen soll, mit welchem Stand
+                gerechnet wird (Prinzip 5).
+              */}
+              {netzentgelt.prefill.netzArbeitspreisCtPerKwh != null && (
+                <p className="text-xs text-text-muted">
+                  Aus demselben Stand, aber ohne eigenes Feld: Netz-Arbeitspreis{' '}
+                  <Num>{formatCt(netzentgelt.prefill.netzArbeitspreisCtPerKwh)}</Num> ct/kWh
+                  {netzentgelt.prefill.windowCount > 1
+                    ? ` (Grundfenster; der Stand trägt ${netzentgelt.prefill.windowCount} Zeitfenster)`
+                    : ''}{' '}
+                  und Netzverlustentgelt{' '}
+                  <Num>{formatCt(netzentgelt.prefill.netzverlustCtPerKwh)}</Num> ct/kWh. Beide gehen
+                  in den Vergleich mit den Börsen-Strompreisen ein, nicht in den Arbeitspreis unten.
+                </p>
+              )}
+              {/*
+                Das Abrechnungsmodell ist ausdrücklich NICHT vorbelegt: ein Preisblatt nennt Preise,
+                nicht die Regel, nach der der abgerechnete kW-Wert gebildet wird (§3.5, OP#3). Es
+                stillschweigend aus dem Preisblatt herzuleiten wäre eine Aussage, die das Preisblatt
+                nicht macht.
+              */}
+              <p className="text-xs text-text-muted">
+                Das Abrechnungsmodell steht nicht im Preisblatt — es kommt von Ihrer Netzrechnung.
+                Bitte unten prüfen.
+              </p>
+            </div>
           )}
 
           {/*
-            Delta 9a: drei Aussagen, die einander ausschliessen, in der Reihenfolge ihrer Bedingung.
+            Delta 9a + B21-3d: Aussagen, die einander ausschliessen, in der Reihenfolge ihrer Bedingung.
 
             Zuerst die offene Messvariante — solange sie fehlt, wissen wir nicht, welche der beiden
             anderen gilt, und die Regulierungslücke samt Warteliste hier vorwegzunehmen wäre für
             jeden Anschluss ohne Leistungsmessung schlicht die falsche Auskunft. Danach „ohne
             Leistungsmessung": es fehlt nichts, es gilt nur ein anderer Tarifaufbau. Zuletzt die
             Verweigerung, inhaltlich unverändert — nur der Zeitpunkt hat sich verschoben.
+
+            Die drei letzten Zweige gehören dem Datenbankweg (NE 3–6) und sind damit von den drei
+            oberen disjunkt: `pending` entsteht ausschliesslich auf Netzebene 7, und dort wird gar
+            nicht abgefragt. Die Reihenfolge ist trotzdem so, wie sie ist — eine Verweigerung aus
+            regulatorischem Grund darf niemals hinter einem Ladezustand verschwinden.
           */}
           {meteringVariantOpen ? (
             <TarifMessvarianteOffen netzebene={Number(netzebene)} />
           ) : noPowerMeasurement ? (
             <TarifOhneLeistungsmessung />
-          ) : (
-            pending && (
-              <TarifNichtVerfuegbar
-                reason={pending.reason}
-                netzbetreiber={pending.netzbetreiber}
-                netzebene={pending.netzebene}
-                note={pending.note}
-              />
-            )
-          )}
+          ) : pending ? (
+            <TarifNichtVerfuegbar
+              reason={pending.reason}
+              netzbetreiber={pending.netzbetreiber}
+              netzebene={pending.netzebene}
+              note={pending.note}
+            />
+          ) : netzentgelt.kind === 'loading' ? (
+            <NetzentgeltWirdGeprueft />
+          ) : netzentgelt.kind === 'missing' ? (
+            <NetzentgeltNichtHinterlegt
+              netzbetreiber={netzentgelt.netzbetreiber}
+              netzebene={netzentgelt.netzebene}
+            />
+          ) : netzentgelt.kind === 'failed' ? (
+            <NetzentgeltNichtAbrufbar
+              reason={netzentgelt.reason}
+              onRetry={() => setRetryToken((n) => n + 1)}
+            />
+          ) : null}
 
           {/*
             ── Delta 9a: der Tarifoptimierungs-Hebel steht JETZT HIER ──────────────────────────────
@@ -1084,7 +1349,11 @@ export function StepTariff({
            * der neben der Begründung deaktiviert ist, ist die Aussage selbst.
            */}
           <Button onClick={() => void handleSubmit()} disabled={blocked || pricingBusy}>
-            {pricingBusy ? 'Preisdaten werden geladen …' : 'Analyse starten'}
+            {pricingBusy
+              ? 'Preisdaten werden geladen …'
+              : netzentgelt.kind === 'loading'
+                ? 'Preisblatt wird geprüft …'
+                : 'Analyse starten'}
             <ArrowRight className="h-4 w-4" />
           </Button>
         </div>
