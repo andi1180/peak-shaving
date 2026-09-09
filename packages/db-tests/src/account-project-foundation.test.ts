@@ -225,7 +225,7 @@ describe('B24 — Schema und Rechtefläche', () => {
     expect(unique!.n).toBe(1)
   })
 
-  it('beide Fremdschlüssel sind ON DELETE SET NULL, nicht CASCADE', async () => {
+  it('ALLE Fremdschlüssel beider Tabellen sind ON DELETE SET NULL, nicht CASCADE', async () => {
     const rows = await sql<{ conname: string; def: string }>(
       `select conname, pg_get_constraintdef(oid) as def
          from pg_constraint
@@ -233,7 +233,16 @@ describe('B24 — Schema und Rechtefläche', () => {
           and conrelid in ('platform.accounts'::regclass, 'platform.projects'::regclass)
         order by conname`,
     )
-    expect(rows.length).toBe(2)
+    // ⚠ Die Namen sind gepinnt, nicht bloss die ANZAHL (09.09.2026 von 2 auf 3 nachgezogen, als der
+    // B24-Nachtrag `projects.created_by` ergänzte). Eine blosse Zahl hätte denselben Dienst getan
+    // und dabei verschwiegen, WELCHER Fremdschlüssel dazugekommen ist; mit den Namen wird jeder
+    // weitere zu einer bewussten Entscheidung an dieser Stelle — und genau das ist er: ob ein neuer
+    // Fremdschlüssel `set null` tragen muss, entscheidet sich beim Anlegen der Spalte, nicht später.
+    expect(rows.map((r) => r.conname)).toEqual([
+      'accounts_user_id_fkey',
+      'projects_account_id_fkey',
+      'projects_created_by_fkey',
+    ])
     for (const r of rows) expect(r.def).toContain('ON DELETE SET NULL')
   })
 })
