@@ -189,6 +189,27 @@ export type Database = {
   }
   platform: {
     Tables: {
+      accounts: {
+        Row: {
+          created_at: string
+          id: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       admin_exports: {
         Row: {
           exported_at: string
@@ -918,6 +939,38 @@ export type Database = {
         }
         Relationships: []
       }
+      projects: {
+        Row: {
+          account_id: string | null
+          created_at: string
+          customer_label: string
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          account_id?: string | null
+          created_at?: string
+          customer_label: string
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string | null
+          created_at?: string
+          customer_label?: string
+          id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "projects_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       redemption_codes: {
         Row: {
           code: string
@@ -1047,6 +1100,7 @@ export type Database = {
       }
       contract_reminder_lead_days: { Args: never; Returns: number }
       email_hash: { Args: { p_email: string }; Returns: string }
+      ensure_account: { Args: { p_user_id: string }; Returns: string }
       has_confirmed_consent: {
         Args: {
           p_lead_id: string
@@ -1464,6 +1518,10 @@ export type Database = {
         }
         Returns: Json
       }
+      admin_create_project: {
+        Args: { p_account_id?: string; p_customer_label: string }
+        Returns: Json
+      }
       admin_decide_calculator_request: {
         Args: { p_decision: string; p_id: string }
         Returns: Json
@@ -1506,6 +1564,7 @@ export type Database = {
       admin_get_analysis_source: { Args: { p_id: string }; Returns: Json }
       admin_get_lead: { Args: { p_lead_id: string }; Returns: Json }
       admin_get_partner_application: { Args: { p_id: string }; Returns: Json }
+      admin_get_project: { Args: { p_id: string }; Returns: Json }
       admin_grant_role: {
         Args: { p_role: string; p_target_user_id: string }
         Returns: Json
@@ -1586,6 +1645,10 @@ export type Database = {
         Returns: Json
       }
       admin_list_partners: { Args: never; Returns: Json }
+      admin_list_projects: {
+        Args: { p_account_id?: string; p_limit?: number; p_offset?: number }
+        Returns: Json
+      }
       admin_list_scrape_targets: { Args: never; Returns: Json }
       admin_mark_calculator_request_notified: {
         Args: { p_id: string }
@@ -1726,6 +1789,7 @@ export type Database = {
         }
         Returns: Json
       }
+      create_my_project: { Args: { p_customer_label: string }; Returns: Json }
       delete_grid_tariff: {
         Args: { p_deleted_by: string; p_tariff_id: string }
         Returns: Json
@@ -1762,6 +1826,7 @@ export type Database = {
           user_id: string
         }[]
       }
+      get_my_project: { Args: { p_id: string }; Returns: Json }
       get_my_subscription: {
         Args: { p_product: Database["platform"]["Enums"]["product_key"] }
         Returns: {
@@ -1770,12 +1835,14 @@ export type Database = {
           status: string
         }[]
       }
+      get_or_create_my_account: { Args: never; Returns: Json }
       get_pending_consent_by_token: {
         Args: { p_token_hash: string }
         Returns: Json
       }
       get_stripe_customer_id: { Args: { p_user_id: string }; Returns: string }
       is_admin: { Args: never; Returns: boolean }
+      list_my_projects: { Args: never; Returns: Json }
       process_stripe_subscription_event: {
         Args: {
           p_cancel_at_period_end?: boolean
