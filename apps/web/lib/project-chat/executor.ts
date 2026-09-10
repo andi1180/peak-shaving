@@ -11,7 +11,12 @@ import {
   type DraftValueSource,
   isChatToolName,
 } from './tools'
-import { PROJECT_SEGMENTS, type ProjectChatPorts, type ProjectSegment } from './ports'
+import {
+  INDUSTRY_KEY_PATTERN,
+  PROJECT_SEGMENTS,
+  type ProjectChatPorts,
+  type ProjectSegment,
+} from './ports'
 
 /**
  * B24 — DER WERKZEUG-AUSFÜHRER. Die eine Stelle, an der ein Werkzeugaufruf etwas bewirkt.
@@ -90,6 +95,8 @@ export async function executeChatTool(
   switch (toolName satisfies ChatToolName) {
     case 'set_segment':
       return setSegment(ports, projectId, args)
+    case 'set_industry':
+      return setIndustry(ports, projectId, args)
     case 'set_draft_field':
       return setDraft(ports, projectId, args, now)
     case 'check_draft_completeness':
@@ -131,6 +138,66 @@ async function setSegment(
   if (result.status !== 'ok') return fail(`Segment konnte nicht gesetzt werden: ${result.status}.`)
 
   return ok({ segment })
+}
+
+/*
+ * ── ⚠ DIE BRANCHE HÄNGT AM SEGMENT, UND DIE PRÜFUNG STEHT AN ZWEI ORTEN ───────────────────────
+ * Der Wrapper weist eine Branche ab, solange das Projekt nicht `betrieb` ist
+ * (`industry_requires_betrieb`) — das ist die WIRKSAME Grenze. Hier wird dasselbe noch einmal
+ * gefragt, weil das Modell einen Statuswert nicht lesen kann, wohl aber einen Satz: es soll
+ * erfahren, WAS zu tun ist (erst das Segment klären / bei einem Haushalt gar nicht erst fragen),
+ * statt einen abgelehnten Aufruf zu wiederholen.
+ *
+ * Deshalb sind es ZWEI Meldungen und nicht eine: „noch nicht bestimmt" und „ist ein Privathaushalt"
+ * verlangen entgegengesetzte Handlungen — im einen Fall fehlt ein Schritt, im anderen ist die Frage
+ * gegenstandslos.
+ */
+async function setIndustry(
+  ports: ProjectChatPorts,
+  projectId: string,
+  args: Record<string, unknown>,
+): Promise<ToolExecution> {
+  const industry = readString(args, 'industry')
+  if (industry === null) return fail('industry fehlt.')
+  if (!INDUSTRY_KEY_PATTERN.test(industry)) {
+    /*
+     * Der abgelehnte Wert steht MIT in der Meldung: „hotel" ist aus „Hotel" ableitbar, und das
+     * Modell soll die Korrektur selbst finden, statt zu raten, was gemeint war. Still
+     * kleinzuschreiben ist ausgeschlossen — was eingetragen wurde und was gespeichert ist, soll
+     * dasselbe sein (dieselbe Regel wie in der Migration).
+     */
+    return fail(
+      `„${industry}" ist kein gültiger Branchen-Schlüssel. Erlaubt sind Kleinbuchstaben, Ziffern ` +
+        'und Unterstrich, beginnend mit Buchstabe oder Ziffer — z. B. „hotel" statt „Hotel" oder ' +
+        '„kfz_werkstatt" statt „Kfz-Werkstatt".',
+    )
+  }
+
+  const project = await ports.loadProject(projectId)
+  if (project === null) return fail('Projekt nicht gefunden.')
+
+  if (project.segment === null) {
+    return fail(
+      'Das Segment ist noch nicht bestimmt. Kläre zuerst mit set_segment, ob es ein Privathaushalt ' +
+        'oder ein Betrieb ist — eine Branche gibt es nur beim Betrieb.',
+    )
+  }
+  if (project.segment !== 'betrieb') {
+    return fail(
+      'Dieses Projekt ist ein Privathaushalt. Eine Branche gibt es hier nicht — frag den Kunden ' +
+        'nicht danach.',
+    )
+  }
+
+  /*
+   * Wie bei `setSegment`: der Wrapper ERSETZT den Entwurf, der aktuelle muss also mitgeschickt
+   * werden. Ohne das Lesen davor löschte das Setzen der Branche stillschweigend alles, was bisher
+   * gesammelt wurde.
+   */
+  const result = await ports.saveProject(projectId, project.draft, undefined, industry)
+  if (result.status !== 'ok') return fail(`Branche konnte nicht gesetzt werden: ${result.status}.`)
+
+  return ok({ industry })
 }
 
 async function setDraft(

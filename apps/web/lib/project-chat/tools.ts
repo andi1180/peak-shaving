@@ -1,16 +1,16 @@
 import type Anthropic from '@anthropic-ai/sdk'
 import { tariffParamsSchema } from 'shared'
 
-import { PROJECT_SEGMENTS } from './ports'
+import { INDUSTRY_KEY_PATTERN, PROJECT_SEGMENTS } from './ports'
 import type { ChatExtractors } from './ports'
 
 /**
  * B24 — DIE WERKZEUGE DES PROJEKT-CHATS. Reine Definitionen, kein Rumpf.
  *
  * ── DIE ZWEI FAMILIEN, UND WARUM SIE SICH UNTERSCHEIDLICH VERHALTEN ────────────────────────────
- * (1) ZUSTANDS-Werkzeuge (`set_segment`, `set_draft_field`, `flag_open_question`,
+ * (1) ZUSTANDS-Werkzeuge (`set_segment`, `set_industry`, `set_draft_field`, `flag_open_question`,
  *     `check_draft_completeness`) schreiben und lesen den Projektzustand aus der Migration
- *     20260910090000. Sie sind IMMER da.
+ *     20260910090000 (bzw. 20260910150000 für die Branche). Sie sind IMMER da.
  * (2) EXTRAKTIONS-Werkzeuge (`classify_upload`, `extract_invoice`, `extract_pv_design`,
  *     `extract_battery_description`) sind dünne Adapter auf die vier bestehenden Extraktoren. Sie
  *     erscheinen NUR, wenn der zugehörige Port da ist — Begründung im Kopf von `ports.ts`. Ein
@@ -32,6 +32,7 @@ import type { ChatExtractors } from './ports'
 
 export const CHAT_TOOL_NAMES = [
   'set_segment',
+  'set_industry',
   'set_draft_field',
   'check_draft_completeness',
   'flag_open_question',
@@ -100,6 +101,46 @@ const ALL_TOOLS: Record<ChatToolName, Anthropic.Tool> = {
         },
       },
       required: ['segment'],
+    },
+  },
+
+  /*
+   * ── ⚠ FREITEXT, ABER NICHT FREIE SCHREIBWEISE ────────────────────────────────────────────────
+   * Es gibt bewusst KEIN `enum` (Delta §4.1: die Branchen-Pools sollen admin-seitig entstehen, ohne
+   * dass jemand eine Migration schreibt) — aber sehr wohl ein FORMAT. `industry` entscheidet,
+   * welcher Fragen-Pool geladen wird; ohne Format wäre `hotel` und `Hotel` zwei Pools, und der
+   * Fehler fiele erst auf, wenn ein Kunde den falschen bekommt. Das Muster steht in `ports.ts`
+   * neben dem CHECK, den es spiegelt, und wird hier NICHT ein zweites Mal ausgeschrieben.
+   */
+  set_industry: {
+    name: 'set_industry',
+    description: [
+      'Hält die Branche eines BETRIEBS fest (Delta §4.1). Davon hängt ab, welche zusätzlichen',
+      'Fragen zu diesem Fall gehören — ein Hotel wird anders gefragt als eine Tischlerei.',
+      '',
+      'Nur sinnvoll, wenn das Segment "betrieb" ist. Bei einem Privathaushalt gibt es keine Branche;',
+      'ist das Segment noch nicht bestimmt, kläre es zuerst mit set_segment.',
+      '',
+      'Es gibt KEINE feste Liste. Trag ein, was der Kunde nennt — nicht, was am nächsten dran',
+      'klingt: eine geratene Branche lädt still die falschen Fragen.',
+      '',
+      'Schreibweise: Kleinbuchstaben, Ziffern und Unterstrich, beginnend mit Buchstabe oder Ziffer',
+      '(z. B. hotel, tischlerei, kfz_werkstatt). "Hotel" oder "Kfz-Werkstatt" werden abgewiesen —',
+      'sie werden ausdrücklich nicht stillschweigend umgeschrieben.',
+      '',
+      'Eine bereits gesetzte Branche kann mit einem neuen Aufruf korrigiert werden.',
+    ].join('\n'),
+    input_schema: {
+      type: 'object',
+      properties: {
+        industry: {
+          type: 'string',
+          description:
+            'Der Branchen-Schlüssel, Kleinbuchstaben/Ziffern/Unterstrich, z. B. hotel oder tischlerei.',
+          pattern: INDUSTRY_KEY_PATTERN.source,
+        },
+      },
+      required: ['industry'],
     },
   },
 

@@ -42,6 +42,13 @@ import type { ChatExtractors } from './ports'
  * Modell innerhalb eines Turns selbst ändert, erfährt es aus seinen eigenen Werkzeug-Ergebnissen;
  * ihn je Durchlauf neu zu lesen kostete eine zusätzliche Datenbankfahrt und brächte dieselbe
  * Auskunft ein zweites Mal.
+ *
+ * ── DIE ADMIN-ERWEITERUNG WIRD ANGEHÄNGT, NIE EINGEWOBEN ──────────────────────────────────────
+ * `composeSystemPrompt` hängt den gepflegten Text (Delta §4.3) HINTER den Kern-Prompt in DENSELBEN
+ * ersten Block. Der Kern bleibt dabei byte-gleich erhalten — er trägt die vier
+ * Verhaltensanforderungen aus §3.1–§3.4, und die sind nicht zur Disposition eines Textfelds.
+ * Gibt es keine Erweiterung (der Normalzustand, solange niemand eine gepflegt hat), ist das
+ * Ergebnis BIT-IDENTISCH zu `PROJECT_CHAT_SYSTEM_PROMPT`.
  */
 export const PROJECT_CHAT_SYSTEM_PROMPT = [
   'Du führst für COOLiN ein Gespräch mit einem Kunden, der wissen möchte, ob sich ein',
@@ -104,6 +111,10 @@ export const PROJECT_CHAT_SYSTEM_PROMPT = [
   'eine Leistungsmessung und damit eine ganz andere Kostenstruktur. Rate es nicht aus dem',
   'Tonfall; frag, wenn es nicht ohnehin klar wird.',
   '',
+  'Bei einem Betrieb halte ausserdem die Branche mit set_industry fest, sobald sie im Gespräch klar',
+  'wird — davon hängt ab, welche zusätzlichen Fragen zu diesem Fall gehören. Auch hier gilt: nicht',
+  'raten. Ein Privathaushalt hat keine Branche; frag dort nicht danach.',
+  '',
   '── Wenn wir den Fall nicht abbilden ──────────────────────────────────────────────────────────',
   '',
   'Es kann sein, dass ein Betrieb eine Struktur hat, für die dieses System nicht gebaut ist — viele',
@@ -120,6 +131,40 @@ export const PROJECT_CHAT_SYSTEM_PROMPT = [
   'Erfinde keine Werte, um den Entwurf voll zu bekommen. Ein fehlendes Feld ist ein sichtbarer,',
   'lösbarer Zustand — ein erfundenes ist ein unsichtbarer Fehler.',
 ].join('\n')
+
+/**
+ * Die eine Zeile, die den Kern von der Erweiterung trennt.
+ *
+ * ⚠ Sie ist nicht Dekoration: der angehängte Text ist ADMIN-VERFASST und soll für das Modell
+ * erkennbar eine Ergänzung sein und keine Fortsetzung der Regeln darüber. Ohne die Trennlinie
+ * verschmölzen beide zu einem Fliesstext, in dem eine Zeile der Erweiterung wie ein Widerruf einer
+ * Kernregel gelesen werden könnte.
+ */
+const EXTENSION_HEADING = [
+  '',
+  '── Ergänzungen von COOLiN ─────────────────────────────────────────────────────────────────────',
+  '',
+  'Die folgenden Hinweise pflegt COOLiN selbst. Sie ERGÄNZEN die Regeln oben und heben keine davon',
+  'auf — bei einem Widerspruch gilt, was oben steht.',
+  '',
+].join('\n')
+
+/**
+ * Setzt den Anweisungs-Block dieses Turns zusammen: Kern, dann (falls vorhanden) die Erweiterung.
+ *
+ * ⚠ REIHENFOLGE IST DIE ZUSAGE. Der Kern steht IMMER zuerst und IMMER vollständig; die Erweiterung
+ * kann ihn nur verlängern, nie ersetzen oder ihm vorangehen. Deshalb ist das eine Funktion und
+ * keine Zeile am Aufrufort — dort liesse sich die Reihenfolge beim nächsten Umbau versehentlich
+ * drehen, und niemand sähe es an der Ausgabe.
+ *
+ * Ein leerer oder nur aus Leerzeichen bestehender Text zählt als „keine Erweiterung": eine
+ * Überschrift ohne Inhalt wäre eine Ankündigung, der nichts folgt.
+ */
+export function composeSystemPrompt(extension: string | null): string {
+  const text = extension?.trim() ?? ''
+  if (text === '') return PROJECT_CHAT_SYSTEM_PROMPT
+  return `${PROJECT_CHAT_SYSTEM_PROMPT}\n${EXTENSION_HEADING}${text}`
+}
 
 /**
  * Der wechselnde Teil: was zu DIESEM Projekt gerade bekannt ist.
@@ -144,6 +189,27 @@ export function buildProjectStateBlock(input: {
       ? 'Segment: noch nicht bestimmt — das ist eine deiner ersten Aufgaben.'
       : `Segment: ${project.segment}`,
   )
+
+  /*
+   * ⚠ EINE GESETZTE BRANCHE WIRD IMMER GENANNT, auch wenn sie nicht zum Segment passt.
+   *
+   * Der Fall entsteht real: die Branche wird gesetzt, solange das Projekt `betrieb` ist, und
+   * überlebt eine spätere Korrektur auf `privat` (die Datenbank nullt sie bewusst nicht — das wäre
+   * eine stille Löschung, s. Migration 20260910150000). Verschwiegen sähe der Zustand aus wie „keine
+   * Branche"; benannt und als Widerspruch gekennzeichnet kann das Modell ihn ansprechen.
+   */
+  if (project.segment === 'betrieb') {
+    lines.push(
+      project.industry === null
+        ? 'Branche: noch nicht bestimmt — mit set_industry festhalten, sobald sie im Gespräch klar wird.'
+        : `Branche: ${project.industry}`,
+    )
+  } else if (project.industry !== null) {
+    lines.push(
+      `Branche: ${project.industry} (⚠ passt nicht zum Segment ${project.segment ?? 'unbestimmt'} —` +
+        ' aus einer früheren Einordnung als Betrieb)',
+    )
+  }
 
   lines.push('', 'Entwurf:')
   const draftLines = describeDraft(project.draft, provenance)

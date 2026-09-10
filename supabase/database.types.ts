@@ -2229,7 +2229,12 @@ export type Database = {
         Returns: Json
       }
       update_project_draft: {
-        Args: { p_draft: Json; p_id: string; p_segment?: string }
+        Args: {
+          p_draft: Json
+          p_id: string
+          p_industry?: string
+          p_segment?: string
+        }
         Returns: Json
       }
       upsert_stripe_customer: {

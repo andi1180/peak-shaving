@@ -4,7 +4,7 @@ import { MAX_TOOL_CALLS_PER_TURN } from './ai-client'
 import { executeChatTool } from './executor'
 import { assistantText, splitAssistantTurn, toApiMessages } from './history'
 import type { ProjectChatPorts, StoredChatMessage } from './ports'
-import { PROJECT_CHAT_SYSTEM_PROMPT, buildProjectStateBlock } from './system-prompt'
+import { buildProjectStateBlock, composeSystemPrompt } from './system-prompt'
 import { buildChatTools } from './tools'
 
 /**
@@ -98,23 +98,47 @@ export async function runProjectChatTurn(
 
   const tools = buildChatTools(ports.extractors)
 
-  const [documents, openQuestions] = await Promise.all([
+  /*
+   * ⚠ DIE ERWEITERUNG WIRD EINMAL JE TURN GELESEN, nicht je Modellaufruf.
+   *
+   * „Vor jedem Modellaufruf" ist damit erfüllt — kein Aufruf dieses Turns geht ohne sie hinaus —,
+   * aber die Schleife liest sie nicht bei jedem Durchlauf neu: das kostete je Werkzeug-Runde eine
+   * Datenbankfahrt für dieselbe Auskunft, und eine Anweisung, die sich MITTEN in einem Turn ändert,
+   * wäre für das Modell ein Widerspruch zu dem, was es eine Runde vorher gelesen hat (und machte
+   * nebenbei den zwischengespeicherten Präfix ungültig). Dieselbe Überlegung wie beim Zustandsblock.
+   *
+   * Scheitert das Lesen, kommt `null` zurück und der Kern-Prompt trägt allein — der Port
+   * protokolliert das (s. `ports.ts`). Ein Gespräch wegen eines nicht lesbaren admin-gepflegten
+   * Textes abzubrechen wäre die falsche Richtung.
+   */
+  const [documents, openQuestions, promptExtension] = await Promise.all([
     ports.listDocuments(projectId),
     ports.listOpenQuestions(projectId),
+    ports.loadSystemPromptExtension(),
   ])
 
   /*
    * ── DIE ZWEI SYSTEM-BLÖCKE ──────────────────────────────────────────────────────────────────
-   * Der stabile Teil trägt `cache_control` und steht zuerst; der Zustandsblock wechselt und steht
-   * dahinter. Das Anfrage-Präfix (Werkzeuge, dann Block 1) bleibt damit über die Sitzung
-   * zwischenspeicherbar — stünde der Zustand voran, wäre bei jedem Turn alles danach ungültig.
+   * Der stabile Teil (Kern-Prompt plus die admin-gepflegte Erweiterung) trägt `cache_control` und
+   * steht zuerst; der Zustandsblock wechselt und steht dahinter. Das Anfrage-Präfix (Werkzeuge,
+   * dann Block 1) bleibt damit über die Sitzung zwischenspeicherbar — stünde der Zustand voran,
+   * wäre bei jedem Turn alles danach ungültig.
    *
    * Der Zustandsblock entsteht EINMAL je Nutzer-Turn. Was das Modell innerhalb des Turns selbst
    * ändert, erfährt es aus seinen eigenen Werkzeug-Ergebnissen; ihn je Durchlauf neu zu bauen
    * kostete je eine zusätzliche Fahrt zur Datenbank für dieselbe Auskunft.
    */
   const system: Anthropic.TextBlockParam[] = [
-    { type: 'text', text: PROJECT_CHAT_SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } },
+    {
+      type: 'text',
+      /*
+       * Kern + (falls gepflegt) Erweiterung in EINEM Block: beide sind über die Sitzung stabil und
+       * gehören damit vor den Cache-Haltepunkt. Der Kern steht darin immer zuerst und immer
+       * vollständig — dafür sorgt `composeSystemPrompt`, nicht diese Aufrufstelle.
+       */
+      text: composeSystemPrompt(promptExtension?.text ?? null),
+      cache_control: { type: 'ephemeral' },
+    },
     {
       type: 'text',
       text: buildProjectStateBlock({ project, documents, openQuestions, extractors: ports.extractors }),

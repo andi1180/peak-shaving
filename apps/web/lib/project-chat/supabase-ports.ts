@@ -13,6 +13,7 @@ import type {
   ProjectSegment,
   ProjectSnapshot,
   StoredChatMessage,
+  SystemPromptExtension,
   WrapperStatus,
 } from './ports'
 import type { ChatExtractors } from './ports'
@@ -69,9 +70,16 @@ export function createProjectChatPorts(extractors: Partial<ChatExtractors>): Pro
       if (project === undefined || project === null) return null
 
       const segment = project.segment
+      const industry = project.industry
       const draft = project.draft
       return {
         segment: segment === 'privat' || segment === 'betrieb' ? (segment as ProjectSegment) : null,
+        /*
+         * `industry` ist eine OFFENE Liste — hier wird deshalb nichts gegen eine Werteliste
+         * geprüft, nur die Form. Der CHECK an der Spalte garantiert das Format bereits; der
+         * Rückfall auf `null` ist reine Vorsicht gegen ein unerwartetes jsonb.
+         */
+        industry: typeof industry === 'string' && industry !== '' ? industry : null,
         // `draft` ist `not null default '{}'` mit CHECK auf Objekt — der Rückfall ist reine Vorsicht.
         draft:
           draft !== null && typeof draft === 'object' && !Array.isArray(draft)
@@ -122,17 +130,19 @@ export function createProjectChatPorts(extractors: Partial<ChatExtractors>): Pro
       return asWrapperStatus(data, error)
     },
 
-    async saveProject(projectId, draft, segment) {
+    async saveProject(projectId, draft, segment, industry) {
       /*
-       * `p_segment` wird nur mitgeschickt, wenn es einen Wert gibt: `null` heisst im Wrapper
-       * UNVERÄNDERT (Lesart `capture_lead`), und ein hier immer mitgesendetes `null` wäre dasselbe
-       * — aber der Unterschied soll am Aufruf ablesbar sein, nicht in der Wrapper-Doku nachzulesen.
+       * `p_segment` und `p_industry` werden nur mitgeschickt, wenn es einen Wert gibt: `null` heisst
+       * im Wrapper UNVERÄNDERT (Lesart `capture_lead`), und ein hier immer mitgesendetes `null`
+       * wäre dasselbe — aber der Unterschied soll am Aufruf ablesbar sein, nicht in der Wrapper-Doku
+       * nachzulesen.
        */
       const supabase = await createClient()
       const { data, error } = await supabase.rpc('update_project_draft', {
         p_id: projectId,
         p_draft: draft as Json,
         ...(segment === undefined ? {} : { p_segment: segment }),
+        ...(industry === undefined ? {} : { p_industry: industry }),
       })
       return asWrapperStatus(data, error)
     },
@@ -208,6 +218,37 @@ export function createProjectChatPorts(extractors: Partial<ChatExtractors>): Pro
          * betrifft einen Download-Weg, den es hier nicht gibt.
          */
         contentType: document.contentType,
+      }
+    },
+
+    async loadSystemPromptExtension(): Promise<SystemPromptExtension | null> {
+      /*
+       * ⚠ FAIL OPEN, ABER NICHT STILL. Scheitert der Aufruf, läuft das Gespräch mit dem
+       * Kern-Prompt weiter — der trägt das Verhalten allein (Funktionskommentar des Wrappers), und
+       * ein gescheiterter Lesevorgang eines admin-gepflegten Textes darf einem Kunden nicht den
+       * Chat nehmen. Protokolliert wird er trotzdem: sonst wäre eine dauerhaft unwirksame
+       * Erweiterung von einer nie gepflegten nicht zu unterscheiden.
+       *
+       * `{status: 'none'}` ist dagegen KEIN Fehler und wird nicht protokolliert — es ist der
+       * Normalzustand, solange niemand eine Erweiterung eingetragen hat.
+       */
+      const supabase = await createClient()
+      const { data, error } = await supabase.rpc('get_system_prompt_extension')
+      const result = asWrapperStatus(data, error)
+
+      if (result.status === 'none') return null
+      if (result.status !== 'ok') {
+        console.error('[project-chat] System-Prompt-Erweiterung nicht lesbar:', result.status, error)
+        return null
+      }
+
+      const text = result.extension_text
+      if (typeof text !== 'string' || text.trim() === '') return null
+
+      return {
+        id: String(result.id),
+        text,
+        validFrom: String(result.valid_from),
       }
     },
 
