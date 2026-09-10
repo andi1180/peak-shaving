@@ -23,6 +23,7 @@ import { PARTNER_APPLICATIONS_HREF } from './partner-applications'
 import { CALCULATOR_REQUESTS_HREF } from './calculator-requests'
 import { ADMIN_CALCULATOR_HREF } from './calculator'
 import { GRID_TARIFFS_HREF } from './grid-tariffs'
+import { OPEN_QUESTIONS_HREF } from './open-questions'
 
 export type AdminNavItem = {
   href: string
@@ -79,4 +80,17 @@ export const ADMIN_NAV_ITEMS: readonly AdminNavItem[] = [
    * gerechnet, hier stehen die Referenzdaten, gegen die gerechnet wird.
    */
   { href: GRID_TARIFFS_HREF, label: 'Netzbetreiber-Tarife' },
+  /*
+   * B24: Martins Posteingang der Kalkulator-Rückfragen. Eigener Punkt und ausdrücklich KEIN
+   * Unterpfad von „Kalkulator" — die Präfix-Regel von `AdminNav` markierte sonst beide gleichzeitig
+   * (dieselbe Überlegung wie bei „Kalkulator-Anfragen" und „Netzbetreiber-Tarife"). Fachlich sind es
+   * ohnehin zwei Dinge: dort wird gerechnet, hier wartet ein Kunde auf eine Auskunft, die der Chat
+   * nicht selbst geben konnte.
+   *
+   * ⚠ Der Punkt hat keinen Zähler. Ein „(3)" in der Navigation wäre die naheliegende Ergänzung und
+   * kostete auf JEDER Admin-Seite eine zusätzliche Abfrage — der Rahmen wird aus dem Layout
+   * gerendert, das jede Unterroute umschliesst. Wer ihn will, baut ihn dort bewusst und nicht
+   * nebenbei.
+   */
+  { href: OPEN_QUESTIONS_HREF, label: 'Rückfragen' },
 ] as const
