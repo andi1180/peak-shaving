@@ -1070,6 +1070,7 @@ export type Database = {
           customer_label: string
           draft: Json
           id: string
+          industry: string | null
           segment: string | null
           updated_at: string
         }
@@ -1080,6 +1081,7 @@ export type Database = {
           customer_label: string
           draft?: Json
           id?: string
+          industry?: string | null
           segment?: string | null
           updated_at?: string
         }
@@ -1090,6 +1092,7 @@ export type Database = {
           customer_label?: string
           draft?: Json
           id?: string
+          industry?: string | null
           segment?: string | null
           updated_at?: string
         }
@@ -1102,6 +1105,75 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      question_catalog_deletions: {
+        Row: {
+          deleted_at: string
+          deleted_by: string | null
+          deleted_by_email: string
+          entry_id: string
+          entry_snapshot: Json
+          id: string
+        }
+        Insert: {
+          deleted_at?: string
+          deleted_by?: string | null
+          deleted_by_email: string
+          entry_id: string
+          entry_snapshot: Json
+          id?: string
+        }
+        Update: {
+          deleted_at?: string
+          deleted_by?: string | null
+          deleted_by_email?: string
+          entry_id?: string
+          entry_snapshot?: Json
+          id?: string
+        }
+        Relationships: []
+      }
+      question_catalog_entries: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          industry: string | null
+          question_key: string
+          question_text: string
+          required: boolean
+          segment: string
+          updated_at: string
+          valid_from: string
+          valid_until: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          industry?: string | null
+          question_key: string
+          question_text: string
+          required?: boolean
+          segment: string
+          updated_at?: string
+          valid_from: string
+          valid_until?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          industry?: string | null
+          question_key?: string
+          question_text?: string
+          required?: boolean
+          segment?: string
+          updated_at?: string
+          valid_from?: string
+          valid_until?: string | null
+        }
+        Relationships: []
       }
       redemption_codes: {
         Row: {
@@ -1196,6 +1268,36 @@ export type Database = {
           stripe_subscription_id?: string
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      system_prompt_extensions: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          extension_text: string
+          id: string
+          updated_at: string
+          valid_from: string
+          valid_until: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          extension_text: string
+          id?: string
+          updated_at?: string
+          valid_from: string
+          valid_until?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          extension_text?: string
+          id?: string
+          updated_at?: string
+          valid_from?: string
+          valid_until?: string | null
         }
         Relationships: []
       }
@@ -1659,8 +1761,23 @@ export type Database = {
         Args: { p_account_id?: string; p_customer_label: string }
         Returns: Json
       }
+      admin_create_question_catalog_entry: {
+        Args: {
+          p_industry?: string
+          p_question_key: string
+          p_question_text: string
+          p_required?: boolean
+          p_segment: string
+          p_valid_from: string
+        }
+        Returns: Json
+      }
       admin_decide_calculator_request: {
         Args: { p_decision: string; p_id: string }
+        Returns: Json
+      }
+      admin_delete_question_catalog_entry: {
+        Args: { p_id: string }
         Returns: Json
       }
       admin_email_event_stats: { Args: { p_days?: number }; Returns: Json }
@@ -1702,6 +1819,7 @@ export type Database = {
       admin_get_lead: { Args: { p_lead_id: string }; Returns: Json }
       admin_get_partner_application: { Args: { p_id: string }; Returns: Json }
       admin_get_project: { Args: { p_id: string }; Returns: Json }
+      admin_get_system_prompt_extension: { Args: never; Returns: Json }
       admin_grant_role: {
         Args: { p_role: string; p_target_user_id: string }
         Returns: Json
@@ -1790,6 +1908,10 @@ export type Database = {
         Args: { p_account_id?: string; p_limit?: number; p_offset?: number }
         Returns: Json
       }
+      admin_list_question_catalog: {
+        Args: { p_limit?: number; p_offset?: number; p_segment?: string }
+        Returns: Json
+      }
       admin_list_scrape_targets: { Args: never; Returns: Json }
       admin_mark_calculator_request_notified: {
         Args: { p_id: string }
@@ -1818,6 +1940,10 @@ export type Database = {
       }
       admin_set_scrape_target_active: {
         Args: { p_is_active: boolean; p_target_id: string }
+        Returns: Json
+      }
+      admin_set_system_prompt_extension: {
+        Args: { p_text: string; p_valid_from?: string }
         Returns: Json
       }
       admin_suppress_lead: { Args: { p_lead_id: string }; Returns: Json }
@@ -2006,6 +2132,7 @@ export type Database = {
       get_project: { Args: { p_id: string }; Returns: Json }
       get_project_document: { Args: { p_document_id: string }; Returns: Json }
       get_stripe_customer_id: { Args: { p_user_id: string }; Returns: string }
+      get_system_prompt_extension: { Args: never; Returns: Json }
       is_admin: { Args: never; Returns: boolean }
       list_my_projects: { Args: never; Returns: Json }
       list_open_questions: {
@@ -2023,6 +2150,10 @@ export type Database = {
       }
       list_project_messages: {
         Args: { p_limit?: number; p_offset?: number; p_project_id: string }
+        Returns: Json
+      }
+      list_question_catalog: {
+        Args: { p_industry?: string; p_segment: string }
         Returns: Json
       }
       process_stripe_subscription_event: {
