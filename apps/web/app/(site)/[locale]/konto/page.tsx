@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Link } from '@/i18n/navigation'
 import { ACCOUNT_PRODUCT, ANMELDEN_HREF, KONTO_HREF } from '@/lib/auth/config'
 import { CALCULATOR_PRODUCT } from '@/lib/kalkulator/access'
+import { PROJEKTE_HREF } from '@/lib/kalkulator/projects'
 import { CALCULATOR_RUN_HREF, KONTAKT_HREF } from '@/lib/nav'
 import { signOutAction } from '@/lib/auth/actions'
 import { RedeemCodeForm } from '@/components/redemption/redeem-code-form'
@@ -201,12 +202,36 @@ export default async function Page({
             {hasCalculator ? (
               <div className="mt-4">
                 <p className="text-body font-semibold text-positive">{t('account.calculatorActive')}</p>
-                <Link
-                  href={CALCULATOR_RUN_HREF}
-                  className="mt-3 inline-block text-small font-medium text-accent underline underline-offset-4"
-                >
-                  {t('account.calculatorOpen')}
-                </Link>
+                {/*
+                  * ZWEI EINSTIEGE, ZWEI ARTEN ZU RECHNEN — und deshalb zwei Links statt einer
+                  * Auswahl (B24, achter Bauschritt):
+                  *   – „Kalkulator öffnen" führt in den Rechner (`apps/website` im iframe): der
+                  *     Formular-Weg, bei dem der Kunde seine Angaben selbst einträgt.
+                  *   – „Ihre Projekte & Chat" führt in den Projektbereich: die Dateneingabe im
+                  *     Gespräch, mit Datei-Upload (Delta §3.1).
+                  *
+                  * ⚠ Es gibt bewusst KEINE Weiche „Formular ODER Chat" beim Projektstart, obwohl
+                  * Delta §8 sie vorsieht: Der Rechner ist an das Projekt-Modell nicht angebunden —
+                  * er kennt weder `platform.projects` noch den Verlauf, und sein Ergebnis landet in
+                  * keiner Projektzeile. Zwei nebeneinanderstehende Links sagen die Wahrheit (zwei
+                  * getrennte Werkzeuge); eine Weiche im Projektstart behauptete, der Formular-Weg
+                  * fülle DIESES Projekt. Die Begründung steht ausführlich in
+                  * `lib/kalkulator/projects-actions.ts`.
+                  */}
+                <div className="mt-3 flex flex-col gap-2">
+                  <Link
+                    href={PROJEKTE_HREF}
+                    className="text-small font-medium text-accent underline underline-offset-4"
+                  >
+                    {t('account.calculatorProjects')}
+                  </Link>
+                  <Link
+                    href={CALCULATOR_RUN_HREF}
+                    className="text-small font-medium text-accent underline underline-offset-4"
+                  >
+                    {t('account.calculatorOpen')}
+                  </Link>
+                </div>
               </div>
             ) : (
               <div className="mt-4">

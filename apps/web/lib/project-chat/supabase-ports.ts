@@ -60,6 +60,64 @@ function asWrapperStatus(data: unknown, error: unknown): WrapperStatus {
   return { ...record, status: typeof record.status === 'string' ? record.status : 'rpc_error' }
 }
 
+/**
+ * Der Verlauf eines Projekts, roh — Zeilen mit Rolle und Blöcken, wie sie gespeichert sind.
+ *
+ * ⚠ Steht seit dem achten Bauschritt als EIGENE Funktion und nicht mehr nur als Port-Rumpf: die
+ * Chat-Oberfläche braucht denselben Verlauf, ohne dafür ein vollständiges Port-Objekt samt
+ * Extraktoren zu bauen. Der Port DELEGIERT hierher — ein zweiter `list_project_messages`-Aufruf
+ * daneben wäre eine zweite Auslegung derselben Antwort (die Obergrenze unten, die Rollen-Prüfung,
+ * die Behandlung kaputter Zeilen), und die Abweichung fiele erst auf, wenn die Oberfläche einen
+ * anderen Verlauf zeigt als das Modell gelesen hat.
+ *
+ * ⚠ Die Obergrenze des Wrappers liegt bei 500 Zeilen je Aufruf; hier wird EINE Seite geholt.
+ * Ein Gespräch, das darüber hinauswächst, verliert damit seinen Anfang — sichtbar dadurch,
+ * dass `total` grösser wäre als die gelieferte Liste. Das ist kein Blattwerk, das man
+ * nachrüstet: WELCHE Turns ein langes Gespräch behält, ist eine fachliche Frage (Verdichtung,
+ * §6.3-Nachbarschaft) und gehört in den Abstimmungs-Schritt, nicht in eine stille Schleife
+ * über weitere Seiten.
+ */
+export async function loadProjectMessages(projectId: string): Promise<StoredChatMessage[]> {
+  const supabase = await createClient()
+  const { data, error } = await supabase.rpc('list_project_messages', {
+    p_project_id: projectId,
+    p_limit: 500,
+    p_offset: 0,
+  })
+  const result = asWrapperStatus(data, error)
+  if (result.status !== 'ok' || !Array.isArray(result.messages)) return []
+
+  return (result.messages as Record<string, unknown>[])
+    .map((row): StoredChatMessage | null => {
+      const role = row.role
+      const content = row.content
+      if (typeof role !== 'string') return null
+      if (!Array.isArray(content)) return null
+      return {
+        role: role as ChatMessageRole,
+        content: content as Anthropic.ContentBlockParam[],
+      }
+    })
+    .filter((row): row is StoredChatMessage => row !== null)
+}
+
+/** Die Dokumente eines Projekts — Metadaten, nie Bytes. Zweiter Konsument: die Oberfläche. */
+export async function loadProjectDocuments(projectId: string): Promise<ProjectDocumentRow[]> {
+  const supabase = await createClient()
+  const { data, error } = await supabase.rpc('list_project_documents', {
+    p_project_id: projectId,
+    p_limit: 200,
+    p_offset: 0,
+  })
+  const result = asWrapperStatus(data, error)
+  if (result.status !== 'ok' || !Array.isArray(result.documents)) return []
+  return (result.documents as Record<string, unknown>[]).map((row) => ({
+    id: String(row.id),
+    original_filename: String(row.original_filename),
+    content_type: String(row.content_type),
+  }))
+}
+
 export function createProjectChatPorts(extractors: Partial<ChatExtractors>): ProjectChatPorts {
   return {
     async checkRateLimit(projectId: string): Promise<ChatRateLimitDecision> {
@@ -133,37 +191,7 @@ export function createProjectChatPorts(extractors: Partial<ChatExtractors>): Pro
       }
     },
 
-    async loadMessages(projectId: string): Promise<StoredChatMessage[]> {
-      /*
-       * ⚠ Die Obergrenze des Wrappers liegt bei 500 Zeilen je Aufruf; hier wird EINE Seite geholt.
-       * Ein Gespräch, das darüber hinauswächst, verliert damit seinen Anfang — sichtbar dadurch,
-       * dass `total` grösser wäre als die gelieferte Liste. Das ist kein Blattwerk, das man
-       * nachrüstet: WELCHE Turns ein langes Gespräch behält, ist eine fachliche Frage (Verdichtung,
-       * §6.3-Nachbarschaft) und gehört in den Abstimmungs-Schritt, nicht in eine stille Schleife
-       * über weitere Seiten.
-       */
-      const supabase = await createClient()
-      const { data, error } = await supabase.rpc('list_project_messages', {
-        p_project_id: projectId,
-        p_limit: 500,
-        p_offset: 0,
-      })
-      const result = asWrapperStatus(data, error)
-      if (result.status !== 'ok' || !Array.isArray(result.messages)) return []
-
-      return (result.messages as Record<string, unknown>[])
-        .map((row): StoredChatMessage | null => {
-          const role = row.role
-          const content = row.content
-          if (typeof role !== 'string') return null
-          if (!Array.isArray(content)) return null
-          return {
-            role: role as ChatMessageRole,
-            content: content as Anthropic.ContentBlockParam[],
-          }
-        })
-        .filter((row): row is StoredChatMessage => row !== null)
-    },
+    loadMessages: loadProjectMessages,
 
     async appendMessage(projectId, role, content) {
       const supabase = await createClient()
@@ -234,21 +262,7 @@ export function createProjectChatPorts(extractors: Partial<ChatExtractors>): Pro
       return asWrapperStatus(data, error)
     },
 
-    async listDocuments(projectId: string): Promise<ProjectDocumentRow[]> {
-      const supabase = await createClient()
-      const { data, error } = await supabase.rpc('list_project_documents', {
-        p_project_id: projectId,
-        p_limit: 200,
-        p_offset: 0,
-      })
-      const result = asWrapperStatus(data, error)
-      if (result.status !== 'ok' || !Array.isArray(result.documents)) return []
-      return (result.documents as Record<string, unknown>[]).map((row) => ({
-        id: String(row.id),
-        original_filename: String(row.original_filename),
-        content_type: String(row.content_type),
-      }))
-    },
+    listDocuments: loadProjectDocuments,
 
     async readDocument(documentId: string) {
       const document = await readProjectDocument(documentId)

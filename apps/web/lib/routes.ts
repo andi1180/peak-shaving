@@ -41,6 +41,7 @@ import { LEAD_HREFS } from './leads/config'
 import { PARTNER_ROUTE_TEMPLATE } from './leads/partner'
 import { PARTNER_BEWERBUNG_HREF } from './partner-application/config'
 import { PARTNER_AKTIVIEREN_HREF, PARTNER_PORTAL_HREF } from './partner-portal/config'
+import { PROJEKTE_HREF, PROJEKT_ROUTE_TEMPLATE } from './kalkulator/projects'
 
 export type SiteRoute = {
   /** Der Pfad OHNE Locale-Präfix — dasselbe, was `Link`/`pageAlternates` bekommen. */
@@ -183,6 +184,17 @@ export const SITE_ROUTES: SiteRoute[] = Array.from(
      * öffentlichen Index zu geben. Ohne Token zeigt sie ohnehin nur einen Erklärtext.
      */
     PARTNER_AKTIVIEREN_HREF,
+    /*
+     * B24: der kundenseitige Projektbereich des Kalkulators. Steht einzeln hier, weil er in keinem
+     * Menü hängt und in keines gehört — die Informationsarchitektur (§4.1) beschreibt die Seiten
+     * für Interessenten; dies ist der Arbeitsbereich eines Kunden, der den Zugang bereits hat.
+     * Erreichbar über den Verweis auf `/konto`.
+     *
+     * NICHT INDEXIERBAR (s. `indexable` unten): Hinter der Anmeldung UND hinter dem
+     * `calculator_pro`-Entitlement steht nichts, was jemand finden könnte. Dieselbe Lage wie beim
+     * Partner-Portal und den Auth-Routen.
+     */
+    PROJEKTE_HREF,
     ...AUTH_HREFS,
     ...LEAD_HREFS,
   ]),
@@ -206,6 +218,9 @@ export const SITE_ROUTES: SiteRoute[] = Array.from(
    *   – Die Aktivierungsseite (B18-2a, `PARTNER_AKTIVIEREN_HREF` oben): eine
    *     persönliche Einmal-Adresse aus einer E-Mail, deren Query einen einlösbaren
    *     Token trägt — derselbe, schärfere Grund wie bei den Lead-Routen.
+   *   – Der Kalkulator-Projektbereich (B24, `PROJEKTE_HREF` oben): hinter der
+   *     Anmeldung UND hinter dem `calculator_pro`-Entitlement, mit dem privaten
+   *     Arbeitsstand eines einzelnen Kunden.
    *
    * `/styleguide` ist ebenfalls `noindex`, steht aber nicht in dieser Liste: Es
    * liegt in der Route-Group `(dev)` mit eigenem Root-Layout, also außerhalb der
@@ -216,6 +231,7 @@ export const SITE_ROUTES: SiteRoute[] = Array.from(
     href !== MONITOR_GRATIS_CHECK_HREF &&
     href !== PARTNER_PORTAL_HREF &&
     href !== PARTNER_AKTIVIEREN_HREF &&
+    href !== PROJEKTE_HREF &&
     !AUTH_HREF_SET.has(href) &&
     !LEAD_HREF_SET.has(href) &&
     !PLACEHOLDER_HREFS.includes(href),
@@ -270,6 +286,13 @@ const DYNAMIC_TEMPLATES = [
    * Partner-Mail gedacht, nicht für die Suche.
    */
   PARTNER_ROUTE_TEMPLATE,
+  /*
+   * B24: `/kalkulator/projekte/[id]` — der Chat eines einzelnen Projekts. Die konkreten Adressen
+   * entstehen im laufenden Betrieb (eine je Projekt eines Kunden) und stehen in keiner Liste im
+   * Code. In eine sitemap gehören sie ohnehin nicht: hinter der Anmeldung gibt es für Suchende
+   * nichts, und die Kennung ist die private Arbeitsadresse eines Kunden.
+   */
+  PROJEKT_ROUTE_TEMPLATE,
 ]
 
 /*
