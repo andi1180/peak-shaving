@@ -12,6 +12,7 @@ import type {
   ProjectDocumentRow,
   ProjectSegment,
   ProjectSnapshot,
+  QuestionCatalogRow,
   StoredChatMessage,
   SystemPromptExtension,
   WrapperStatus,
@@ -250,6 +251,60 @@ export function createProjectChatPorts(extractors: Partial<ChatExtractors>): Pro
         text,
         validFrom: String(result.valid_from),
       }
+    },
+
+    async listQuestionCatalog(
+      segment: ProjectSegment,
+      industry: string | null,
+    ): Promise<QuestionCatalogRow[]> {
+      /*
+       * ⚠ FAIL OPEN, ABER NICHT STILL — die Abwägung steht ausführlich an der Port-Definition.
+       * Kurz: ein gescheiterter Lesevorgang eines admin-gepflegten Katalogs darf einem Kunden den
+       * Chat nicht nehmen; er verschweigt dafür aber Pflichtfragen, und das muss im Log stehen.
+       *
+       * `p_industry` wird nur mitgeschickt, wenn es eine gibt: `null` und „weggelassen" bedeuten im
+       * Wrapper dasselbe (nur die Baseline), der Unterschied soll aber am Aufruf ablesbar sein —
+       * dieselbe Schreibweise wie bei `saveProject` darüber.
+       */
+      const supabase = await createClient()
+      const { data, error } = await supabase.rpc('list_question_catalog', {
+        p_segment: segment,
+        ...(industry === null ? {} : { p_industry: industry }),
+      })
+      const result = asWrapperStatus(data, error)
+
+      if (result.status !== 'ok') {
+        console.error('[project-chat] Fragenkatalog nicht lesbar:', result.status, error)
+        return []
+      }
+      if (!Array.isArray(result.entries)) return []
+
+      /*
+       * Eine unvollständige Zeile wird VERWORFEN, nicht gerettet. Die Tabelle lässt sie gar nicht zu
+       * (`question_text` ist `not null` mit CHECK gegen den leeren String) — käme trotzdem eine an,
+       * wäre sie in `missing` ein Eintrag ohne lesbaren Wortlaut, und das Modell zeigte dem Kunden
+       * den technischen Schlüssel. Der Rückfall ist reine Vorsicht gegen ein unerwartetes jsonb.
+       */
+      return (result.entries as Record<string, unknown>[])
+        .map((row): QuestionCatalogRow | null => {
+          const questionKey = row.question_key
+          const questionText = row.question_text
+          const segmentValue = row.segment
+          if (typeof questionKey !== 'string' || questionKey === '') return null
+          if (typeof questionText !== 'string' || questionText.trim() === '') return null
+          if (segmentValue !== 'privat' && segmentValue !== 'betrieb') return null
+          return {
+            id: String(row.id),
+            segment: segmentValue,
+            industry: typeof row.industry === 'string' && row.industry !== '' ? row.industry : null,
+            question_key: questionKey,
+            question_text: questionText,
+            // Nur ein echtes `true` ist eine Pflichtfrage — alles andere wäre geraten.
+            required: row.required === true,
+            valid_from: String(row.valid_from),
+          }
+        })
+        .filter((row): row is QuestionCatalogRow => row !== null)
     },
 
     extractors,

@@ -16,6 +16,8 @@ import {
   PROJECT_SEGMENTS,
   type ProjectChatPorts,
   type ProjectSegment,
+  type ProjectSnapshot,
+  type QuestionCatalogRow,
 } from './ports'
 
 /**
@@ -112,6 +114,44 @@ export async function executeChatTool(
     case 'extract_battery_description':
       return extractBattery(ports, args)
   }
+}
+
+/**
+ * Lädt den admin-gepflegten Fragenkatalog für DIESES Projekt.
+ *
+ * ⚠ OHNE SEGMENT WIRD GAR NICHT GEFRAGT. Der Wrapper könnte darauf nur mit `invalid_segment`
+ * antworten — ein Aufruf, dessen einzige mögliche Antwort eine Ablehnung ist, ist kein Lesevorgang,
+ * sondern eine vermeidbare Runde. Ein Projekt ohne bestimmtes Segment hat schlicht noch keinen
+ * Katalog, und `[]` sagt genau das.
+ *
+ * Die Branche wird DURCHGEREICHT, nicht ausgewertet: welcher Pool zu einer Branche gehört (und dass
+ * die Baseline immer dabei ist), entscheidet der Wrapper — hier ein zweites Mal zu filtern hiesse,
+ * dieselbe Regel an zwei Orten auszulegen.
+ */
+async function loadCatalog(
+  ports: ProjectChatPorts,
+  project: ProjectSnapshot,
+): Promise<QuestionCatalogRow[]> {
+  if (project.segment === null) return []
+  return ports.listQuestionCatalog(project.segment, project.industry)
+}
+
+/**
+ * Welche Katalog-Schlüssel sind bereits beantwortet, ohne im Entwurf zu stehen?
+ *
+ * `segment` und `industry` sind eigene Spalten am Projekt und werden über `set_segment`/
+ * `set_industry` gesetzt — beide fassen den Entwurf nicht an. Fragt der Katalog danach (und das
+ * sieht der Spaltenkommentar von `question_key` ausdrücklich vor), ist die Frage mit dem Setzen
+ * beantwortet. Ausführliche Begründung am Parameter `answeredOnProject` in `draft.ts`.
+ *
+ * ⚠ Die Liste nennt die tatsächlich GESETZTEN Spalten, nicht die existierenden: ein noch nicht
+ * bestimmtes Segment ist eine offene Frage und soll in `missing` stehen.
+ */
+function answeredOnProject(project: ProjectSnapshot): string[] {
+  const answered: string[] = []
+  if (project.segment !== null) answered.push('segment')
+  if (project.industry !== null) answered.push('industry')
+  return answered
 }
 
 // ── Zustands-Werkzeuge ────────────────────────────────────────────────────────────────────────
@@ -247,24 +287,37 @@ async function setDraft(
   const result = await ports.saveProject(projectId, nextDraft)
   if (result.status !== 'ok') return fail(`Entwurf konnte nicht geschrieben werden: ${result.status}.`)
 
-  const state = checkDraftCompleteness(nextDraft)
+  /*
+   * ⚠ DER KATALOG WIRD AUCH HIER GELADEN, NICHT NUR IN `completeness`. Ohne ihn gälte ein Wert, den
+   * das Modell unter einem KATALOG-Schlüssel ablegt (also genau so, wie die admin-gepflegte Frage es
+   * verlangt), als „gehört nicht zum Eingabe-Contract" — die Rückmeldung riete dem Modell also ab,
+   * das Richtige zu tun. Kosten: ein Lesevorgang je Schreibvorgang.
+   */
+  const catalog = await loadCatalog(ports, project)
+  const state = checkDraftCompleteness(nextDraft, catalog, answeredOnProject(project))
 
   /*
    * ⚠ EIN UNBEKANNTER FELDNAME WIRD ANGENOMMEN UND BENANNT, NICHT ABGEWIESEN. Der Entwurf ist
    * bewusst offen (der Betrieb-Zuschnitt ist offener Punkt 1 des Deltas), aber ein Wert unter einem
    * erfundenen Namen fällt aus der Vollständigkeitsprüfung heraus und wäre danach unsichtbar. Das
    * Modell erfährt es hier und kann korrigieren.
+   *
+   * Das Feld heisst `known_field` und nicht mehr `known_contract_field`: bekannt ist ein Schlüssel
+   * ab jetzt aus ZWEI Quellen (Contract oder Katalog), und ein `known_contract_field: true` über
+   * einem reinen Katalog-Schlüssel wäre eine falsche Auskunft in genau der Antwort, aus der das
+   * Modell lernt.
    */
+  const isUnknown = state.unknown.includes(field)
   return ok({
     field,
     value: rawValue,
     source,
-    known_contract_field: !state.unknown.includes(field),
-    ...(state.unknown.includes(field)
+    known_field: !isUnknown,
+    ...(isUnknown
       ? {
           hinweis:
-            'Dieses Feld gehört nicht zum Eingabe-Contract. Es wird gespeichert, aber die ' +
-            'Vollständigkeitsprüfung kennt es nicht.',
+            'Dieses Feld gehört weder zum Eingabe-Contract noch zum Fragenkatalog. Es wird ' +
+            'gespeichert, aber die Vollständigkeitsprüfung kennt es nicht.',
         }
       : {}),
     still_missing: state.missing,
@@ -278,7 +331,8 @@ async function completeness(
   const project = await ports.loadProject(projectId)
   if (project === null) return fail('Projekt nicht gefunden.')
 
-  const state = checkDraftCompleteness(project.draft)
+  const catalog = await loadCatalog(ports, project)
+  const state = checkDraftCompleteness(project.draft, catalog, answeredOnProject(project))
   return ok({
     complete: state.complete,
     segment: project.segment,

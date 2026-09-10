@@ -45,7 +45,8 @@ describe('set_draft_field', () => {
       source: 'measured',
       note: 'Rechnung S. 2',
     })
-    expect(payload(result.content).still_missing).toContain('billingModel')
+    // ⚠ NACHGEZOGEN: `still_missing` trägt Einträge statt blosser Namen (Fragenkatalog).
+    expect(payload(result.content).still_missing).toContainEqual({ field: 'billingModel' })
   })
 
   it('⚠ weist eine fehlende oder erfundene Quelle ab und schreibt NICHTS (§3.2)', async () => {
@@ -85,7 +86,9 @@ describe('set_draft_field', () => {
       NOW,
     )
     expect(result.isError).toBe(false)
-    expect(payload(result.content).known_contract_field).toBe(false)
+    // ⚠ UMBENANNT: `known_field` statt `known_contract_field` — bekannt ist ein Schlüssel ab
+    // jetzt aus zwei Quellen (Contract ODER Fragenkatalog).
+    expect(payload(result.content).known_field).toBe(false)
     expect(ports.project.draft.stromkosten).toBe(1200)
   })
 
@@ -268,5 +271,132 @@ describe('Randfälle des Ausführers', () => {
     )
     expect(result.isError).toBe(true)
     expect(ports.calls.saveProject).toBeUndefined()
+  })
+})
+
+describe('Fragenkatalog in der Vollständigkeitsprüfung', () => {
+  const BASELINE = {
+    id: 'q-baseline',
+    segment: 'betrieb' as const,
+    industry: null,
+    question_key: 'industry',
+    question_text: 'In welcher Branche sind Sie tätig?',
+    required: true,
+    valid_from: '2026-09-01',
+  }
+  const HOTEL = {
+    id: 'q-hotel',
+    segment: 'betrieb' as const,
+    industry: 'hotel',
+    question_key: 'pool_vorhanden',
+    question_text: 'Gibt es einen beheizten Pool?',
+    required: true,
+    valid_from: '2026-09-01',
+  }
+
+  /**
+   * Die Lücken-Schlüssel aus `check_draft_completeness` (`missing`) bzw. `set_draft_field`
+   * (`still_missing`) — zwei Werkzeuge, zwei Feldnamen, dieselbe Liste.
+   */
+  function missingKeys(content: string, key: 'missing' | 'still_missing' = 'missing'): string[] {
+    const body = payload(content) as {
+      missing?: { field: string }[]
+      still_missing?: { field: string }[]
+    }
+    const gaps = body[key]
+    if (gaps === undefined) throw new Error(`Das Ergebnis trägt kein "${key}": ${content}`)
+    return gaps.map((gap) => gap.field)
+  }
+
+  it('⚠ eine Baseline-Pflichtfrage verschwindet aus „missing", sobald sie beantwortet ist', async () => {
+    const ports = createMemoryPorts({
+      projectId: PROJECT,
+      project: { segment: 'betrieb' },
+      questionCatalog: [BASELINE],
+    })
+
+    const before = await executeChatTool(ports, PROJECT, 'check_draft_completeness', {}, NOW)
+    expect(missingKeys(before.content)).toContain('industry')
+    // Der Wortlaut reist mit — das Modell soll die Frage stellen können, nicht den Schlüssel zeigen.
+    expect(before.content).toContain('In welcher Branche sind Sie tätig?')
+
+    await executeChatTool(ports, PROJECT, 'set_industry', { industry: 'hotel' }, NOW)
+
+    const after = await executeChatTool(ports, PROJECT, 'check_draft_completeness', {}, NOW)
+    expect(missingKeys(after.content)).not.toContain('industry')
+    // ⚠ Und zwar OHNE dass etwas im Entwurf steht — `set_industry` schreibt eine Projektspalte.
+    expect(ports.project.draft).toEqual({})
+  })
+
+  it('⚠ eine Branchenfrage erscheint NUR bei passender Branche', async () => {
+    const withoutIndustry = createMemoryPorts({
+      projectId: PROJECT,
+      project: { segment: 'betrieb' },
+      questionCatalog: [BASELINE, HOTEL],
+    })
+    const a = await executeChatTool(withoutIndustry, PROJECT, 'check_draft_completeness', {}, NOW)
+    expect(missingKeys(a.content)).not.toContain('pool_vorhanden')
+
+    const otherIndustry = createMemoryPorts({
+      projectId: PROJECT,
+      project: { segment: 'betrieb', industry: 'tischlerei' },
+      questionCatalog: [BASELINE, HOTEL],
+    })
+    const b = await executeChatTool(otherIndustry, PROJECT, 'check_draft_completeness', {}, NOW)
+    expect(missingKeys(b.content)).not.toContain('pool_vorhanden')
+
+    const hotel = createMemoryPorts({
+      projectId: PROJECT,
+      project: { segment: 'betrieb', industry: 'hotel' },
+      questionCatalog: [BASELINE, HOTEL],
+    })
+    const c = await executeChatTool(hotel, PROJECT, 'check_draft_completeness', {}, NOW)
+    expect(missingKeys(c.content)).toContain('pool_vorhanden')
+  })
+
+  it('⚠ fragt den Katalog mit Segment UND Branche des Projekts — und ohne Segment gar nicht', async () => {
+    const ready = createMemoryPorts({
+      projectId: PROJECT,
+      project: { segment: 'betrieb', industry: 'hotel' },
+      questionCatalog: [HOTEL],
+    })
+    await executeChatTool(ready, PROJECT, 'check_draft_completeness', {}, NOW)
+    expect(ready.questionCatalogCalls).toEqual([{ segment: 'betrieb', industry: 'hotel' }])
+
+    // Ohne Segment könnte der Wrapper nur `invalid_segment` antworten — also wird nicht gefragt.
+    const unknownSegment = createMemoryPorts({ projectId: PROJECT, questionCatalog: [HOTEL] })
+    await executeChatTool(unknownSegment, PROJECT, 'check_draft_completeness', {}, NOW)
+    expect(unknownSegment.questionCatalogCalls).toEqual([])
+    expect(unknownSegment.calls.listQuestionCatalog).toBeUndefined()
+  })
+
+  it('⚠ ein Wert unter einem reinen Katalog-Schlüssel gilt NICHT als vertragsfremd', async () => {
+    const ports = createMemoryPorts({
+      projectId: PROJECT,
+      project: { segment: 'betrieb', industry: 'hotel' },
+      questionCatalog: [HOTEL],
+    })
+
+    const result = await executeChatTool(
+      ports, PROJECT, 'set_draft_field',
+      { field: 'pool_vorhanden', value: true, source: 'measured' }, NOW,
+    )
+
+    const body = payload(result.content)
+    expect(body.known_field).toBe(true)
+    expect(body.hinweis).toBeUndefined()
+    expect(missingKeys(result.content, 'still_missing')).not.toContain('pool_vorhanden')
+
+    // Gegenprobe: derselbe Aufruf OHNE Katalog meldet ihn als ungeprüft.
+    const noCatalog = createMemoryPorts({
+      projectId: PROJECT,
+      project: { segment: 'betrieb', industry: 'hotel' },
+    })
+    const plain = await executeChatTool(
+      noCatalog, PROJECT, 'set_draft_field',
+      { field: 'pool_vorhanden', value: true, source: 'measured' }, NOW,
+    )
+    expect(payload(plain.content).known_field).toBe(false)
+    expect(String(payload(plain.content).hinweis)).toMatch(/Fragenkatalog/)
   })
 })

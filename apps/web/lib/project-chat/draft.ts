@@ -98,13 +98,46 @@ export function setDraftField(
   return next
 }
 
+/**
+ * Was die Vollständigkeitsprüfung von EINEM Katalog-Eintrag braucht.
+ *
+ * Bewusst ein struktureller Ausschnitt von `QuestionCatalogRow` (`ports.ts`) und kein Import: diese
+ * Datei ist reine Entwurfs-Logik und soll die Port-Schicht nicht kennen. Die Feldnamen sind
+ * ABSICHTLICH die des Wrappers — so lässt sich eine Zeile ohne Umbenennung hineingeben, und es gibt
+ * keine Zuordnung, bei der man das falsche Feld erwischen kann. Was hier fehlt (`id`, `valid_from`),
+ * gehört zum denormalisierten Katalog-Stand aus Delta §4.2 und geht die Prüfung nichts an.
+ */
+export interface DraftCatalogQuestion {
+  question_key: string
+  question_text: string
+  required: boolean
+}
+
+/**
+ * Eine Lücke im Entwurf: der Schlüssel, unter dem der Wert erwartet wird — und, wo es ihn gibt, der
+ * admin-gepflegte Wortlaut der Frage.
+ *
+ * ⚠ EINE Liste für beide Herkünfte, nicht zwei. Ein Modell, das nur `missing` liest, dürfte die
+ * Katalog-Pflichtfragen sonst still überspringen — genau der Fehler, gegen den der Katalog gebaut
+ * ist. Beide werden ausserdem gleich beantwortet: die Antwort geht über `set_draft_field` unter
+ * genau diesem Schlüssel in den Entwurf.
+ *
+ * `question` steht nur bei Katalog-Lücken. Ein Contract-Feldname ist im Werkzeugtext von
+ * `set_draft_field` beschrieben; ein Katalog-Schlüssel ist es nirgends — dort ist der Wortlaut die
+ * eigentliche Angabe, und der technische Schlüssel allein wäre für ein Gespräch wertlos.
+ */
+export interface DraftMissingEntry {
+  field: string
+  question?: string
+}
+
 export interface DraftCompleteness {
   complete: boolean
-  /** Pflichtfelder des Contracts, die im Entwurf gar nicht vorkommen. */
-  missing: string[]
+  /** Pflichtangaben, die im Entwurf gar nicht vorkommen — Contract-Felder UND Katalog-Pflichtfragen. */
+  missing: DraftMissingEntry[]
   /** Vorhandene Felder, die der Contract so nicht annimmt (Pfad + Grund). */
   invalid: { field: string; problem: string }[]
-  /** Felder, die im Entwurf stehen und im Contract nicht vorkommen — nicht falsch, aber ungeprüft. */
+  /** Felder, die weder im Contract noch im Katalog vorkommen — nicht falsch, aber ungeprüft. */
   unknown: string[]
   /** Felder ohne Herkunftsvermerk. §3.2 verlangt ihn für jeden Wert. */
   withoutSource: string[]
@@ -113,7 +146,8 @@ export interface DraftCompleteness {
 }
 
 /**
- * Prüft den Entwurf gegen `tariffParamsSchema` — read-only.
+ * Prüft den Entwurf gegen `tariffParamsSchema` UND gegen den admin-gepflegten Fragenkatalog —
+ * read-only.
  *
  * FEHLEND und UNGÜLTIG werden getrennt beantwortet, obwohl `safeParse` beides als Fehler meldet:
  * „du hast noch nicht gefragt" und „die Zahl passt nicht" sind für das Gespräch zwei verschiedene
@@ -122,13 +156,68 @@ export interface DraftCompleteness {
  * ⚠ `complete` ist NICHT allein die Schema-Prüfung. Ein Entwurf, dessen Werte ohne Herkunft
  * dastehen, ist nach §3.2 nicht fertig — die Kennzeichnung ist Teil der Zusage, nicht Beiwerk.
  * Eine ANNAHME hindert dagegen nicht: mit ihr weiterzurechnen ist ausdrücklich Weg (b).
+ *
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * ⚠ DER KATALOG BEANTWORTET ZWEI FRAGEN, UND DESHALB WIRD ER GANZ ÜBERGEBEN
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * Der Aufrufer reicht ALLE geltenden Einträge herein, nicht nur die mit `required`. Gefiltert wird
+ * hier, weil dieselbe Liste zwei verschiedene Fragen beantwortet — genau die Aufteilung, die
+ * `tools.ts` für `DRAFT_CONTRACT_FIELDS`/`DRAFT_REQUIRED_FIELDS` schon trifft („dieselbe Quelle,
+ * andere Frage"):
+ *
+ *   (a) WAS FEHLT?    → nur `required === true`.
+ *   (b) WAS IST BEKANNT? → JEDER Katalog-Schlüssel, auch der eines blossen Hinweises.
+ *
+ * Nur gefiltert übergeben liefe (b) falsch: der Admin hat die Frage ausdrücklich in den Katalog
+ * gestellt, das Modell hat sie gestellt und die Antwort abgelegt — und bekäme dafür „gehört nicht
+ * zum Eingabe-Contract" zu hören. Ein zweites Mal übergeben wäre die Alternative und damit zwei
+ * Listen, die auseinanderlaufen können.
+ *
+ * Der Vorgabewert `[]` heisst „für dieses Projekt gibt es keinen Katalog" — der heutige
+ * Normalzustand (die Kataloge sind bewusst leer, Delta §4.4) und zugleich der Fall eines Projekts
+ * ohne bestimmtes Segment.
+ *
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * ⚠ NICHT JEDE ANTWORT LANDET IM ENTWURF — `answeredOnProject`
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * Zwei Angaben leben als eigene SPALTE am Projekt und nicht im Entwurf: `segment` und `industry`.
+ * Der Kommentar an `question_catalog_entries.question_key` rechnet ausdrücklich damit, dass ein
+ * Katalog genau danach fragt („Das Segment 'betrieb' MUSS damit z. B. eine Baseline-Frage nach der
+ * Branche tragen koennen"). Beantwortet werden diese Fragen über `set_segment`/`set_industry` —
+ * beide fassen den Entwurf nicht an.
+ *
+ * Ohne diesen Parameter bliebe so eine Pflichtfrage deshalb DAUERHAFT in `missing` stehen, obwohl
+ * die Angabe längst erhoben ist: das Modell fragte den Kunden immer wieder nach seiner Branche, und
+ * `complete` wäre für jedes Betriebs-Projekt unerreichbar. Der Aufrufer nennt hier also die
+ * Schlüssel, deren Antwort er ANDERSWO stehen sieht. Bewusst als LISTE des Aufrufers und nicht als
+ * fest eingebaute Sonderbehandlung für zwei Namen: welche Spalten es am Projekt gibt, weiss der
+ * Ausführer — diese Datei kennt nur Entwürfe.
  */
-export function checkDraftCompleteness(draft: Record<string, unknown>): DraftCompleteness {
+export function checkDraftCompleteness(
+  draft: Record<string, unknown>,
+  catalog: readonly DraftCatalogQuestion[] = [],
+  answeredOnProject: readonly string[] = [],
+): DraftCompleteness {
   const provenance = readDraftProvenance(draft)
   const present = Object.keys(draft).filter((key) => key !== DRAFT_PROVENANCE_KEY)
   const contractFields = new Set(Object.keys(tariffParamsSchema.shape))
+  const catalogKeys = new Set(catalog.map((entry) => entry.question_key))
+  const answeredElsewhere = new Set(answeredOnProject)
 
-  const missing = DRAFT_REQUIRED_FIELDS.filter((key) => !(key in draft))
+  const missing: DraftMissingEntry[] = DRAFT_REQUIRED_FIELDS.filter((key) => !(key in draft)).map(
+    (field) => ({ field }),
+  )
+  for (const entry of catalog) {
+    if (!entry.required) continue
+    if (entry.question_key in draft) continue
+    if (answeredElsewhere.has(entry.question_key)) continue
+    /*
+     * Ein Katalog-Schlüssel, der zufällig ein Contract-Pflichtfeld ist, steht schon oben. Ihn ein
+     * zweites Mal zu nennen liesse dieselbe Lücke wie zwei aussehen.
+     */
+    if (missing.some((gap) => gap.field === entry.question_key)) continue
+    missing.push({ field: entry.question_key, question: entry.question_text })
+  }
 
   const parsed = tariffParamsSchema.safeParse(draft)
   const invalid = parsed.success
@@ -136,9 +225,11 @@ export function checkDraftCompleteness(draft: Record<string, unknown>): DraftCom
     : parsed.error.issues
         .map((issue) => ({ field: issue.path.join('.'), problem: issue.message }))
         // Fehlende Pflichtfelder stehen oben schon; hier bleiben die echten Typprobleme.
-        .filter((issue) => issue.field !== '' && !missing.includes(issue.field))
+        .filter(
+          (issue) => issue.field !== '' && !missing.some((gap) => gap.field === issue.field),
+        )
 
-  const unknown = present.filter((key) => !contractFields.has(key))
+  const unknown = present.filter((key) => !contractFields.has(key) && !catalogKeys.has(key))
   const withoutSource = present.filter((key) => provenance[key] === undefined)
   const assumed = present.filter((key) => provenance[key]?.source === 'assumed')
 

@@ -112,6 +112,31 @@ export interface SystemPromptExtension {
   validFrom: string
 }
 
+/**
+ * Eine Zeile aus `platform.question_catalog_entries`, so wie `list_question_catalog` sie liefert.
+ *
+ * Der Wrapper liefert ausschliesslich die HEUTE geltenden Stände (`valid_from <= current_date` und
+ * `valid_until` offen oder in der Zukunft) und mischt die Baseline des Segments mit dem Pool der
+ * übergebenen Branche — die Datierung und die Pool-Auswahl sind damit dort entschieden und nicht
+ * hier.
+ *
+ * `id` und `valid_from` beeinflussen die Vollständigkeitsprüfung NICHT und werden trotzdem
+ * mitgeführt: sie sind der denormalisiert am Projekt festzuhaltende Katalog-Stand aus Delta §4.2
+ * (Vorbild `tariffSetId`). Einen Ort, an dem er festgehalten wird, gibt es in dieser Fassung noch
+ * nicht — dieselbe Lage und dieselbe Begründung wie bei `SystemPromptExtension` darüber.
+ */
+export interface QuestionCatalogRow {
+  id: string
+  segment: ProjectSegment
+  /** `null` = Baseline des Segments, gesetzt = Zusatzfrage genau dieses Branchen-Pools. */
+  industry: string | null
+  question_key: string
+  question_text: string
+  /** Pflichtfrage (true) oder blosser Hinweis (false) — s. Spaltenkommentar der Migration. */
+  required: boolean
+  valid_from: string
+}
+
 /** Eine Zeile aus `platform.project_open_questions`, so wie `list_open_questions` sie liefert. */
 export interface OpenQuestionRow {
   id: string
@@ -227,6 +252,26 @@ export interface ProjectChatPorts {
    * darf das Gespräch eines Kunden nicht abbrechen; er wird stattdessen protokolliert.
    */
   loadSystemPromptExtension(): Promise<SystemPromptExtension | null>
+  /**
+   * `public.list_question_catalog` — die heute geltenden Pflichtfragen und Hinweise dieses Projekts.
+   *
+   * `industry` wird durchgereicht, nicht ausgewertet: der Wrapper nimmt ohne Branche NUR die
+   * Baseline des Segments — „ein Projekt ohne bestimmte Branche bekommt keinen fremden Pool"
+   * (Kommentar im Rumpf). Ein Projekt OHNE Segment hat gar keinen Katalog; der Aufrufer fragt dann
+   * bewusst nicht (`invalid_segment` wäre die einzige mögliche Antwort).
+   *
+   * ⚠ FAIL OPEN, ABER NICHT STILL — dieselbe Abwägung wie bei `loadSystemPromptExtension`. Ein
+   * gescheiterter Lesevorgang liefert `[]`, und das ist von „es ist nichts gepflegt" nicht zu
+   * unterscheiden (heute der Normalzustand: die Kataloge sind bewusst leer, Delta §4.4). Der Preis
+   * ist benannt: sobald sie befüllt sind, verschweigt ein gescheiterter Lesevorgang die
+   * Pflichtfragen, und ein Entwurf könnte als vollständig gelten, obwohl ein Pflichtpunkt offen
+   * ist. Deshalb wird er protokolliert; den Chat eines Kunden an einem admin-gepflegten Text
+   * scheitern zu lassen wäre die teurere Richtung.
+   */
+  listQuestionCatalog(
+    segment: ProjectSegment,
+    industry: string | null,
+  ): Promise<QuestionCatalogRow[]>
   /**
    * Die vier Extraktoren, EINZELN optional — s. der ⚠-Block oben. Fehlt einer, gibt es das
    * zugehörige Werkzeug nicht; es entsteht kein Rumpf, der so tut, als könnte er etwas.
