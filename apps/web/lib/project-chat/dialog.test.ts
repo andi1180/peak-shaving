@@ -310,3 +310,183 @@ describe('Fehlerpfade der Schleife', () => {
     expect(resultRow?.content[0]).toMatchObject({ type: 'tool_result', is_error: true })
   })
 })
+
+/**
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * DIE ADMIN-GEPFLEGTE SYSTEM-PROMPT-ERWEITERUNG (Delta §4.3)
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * Zwei Richtungen, und die zweite ist die wichtigere: dass eine gepflegte Erweiterung ANKOMMT, und
+ * dass der Leerfall — der Normalzustand, solange niemand eine eingetragen hat — den Prompt BIT-GENAU
+ * so lässt, wie er vorher war. Ohne die zweite Richtung bliebe der Test auch dann grün, wenn die
+ * Verdrahtung dem Prompt beiläufig eine Zeile anhängte.
+ */
+describe('System-Prompt-Erweiterung', () => {
+  /** Der Text, den das Modell im ERSTEN System-Block dieses Turns tatsächlich gesehen hat. */
+  async function coreBlockOf(ports: MemoryPorts): Promise<string> {
+    const model = scriptedModel([[assistantSays('Verstanden.')]])
+    const result = await runProjectChatTurn(PROJECT, 'Hallo.', { ports, callModel: model.call })
+    expect(result.status).toBe('ok')
+    return model.seen[0]!.system[0]!
+  }
+
+  it('⚠ ohne gepflegten Stand ist der Prompt EXAKT der bisherige (Regression)', async () => {
+    const ports = createMemoryPorts({ projectId: PROJECT })
+    const core = await coreBlockOf(ports)
+
+    // Bit-genau, nicht „enthält": eine angehängte Leerzeile wäre bereits eine Änderung an der
+    // Anweisung, die niemand entschieden hat.
+    expect(core).toBe(PROJECT_CHAT_SYSTEM_PROMPT)
+    expect(ports.calls.loadSystemPromptExtension).toBe(1)
+  })
+
+  it('hängt einen gepflegten Stand ADDITIV an — der Kern bleibt vollständig und steht zuerst', async () => {
+    const extension = 'Frag bei Hotels immer nach der Zahl der Betten.'
+    const ports = createMemoryPorts({
+      projectId: PROJECT,
+      systemPromptExtension: { id: 'ext-1', text: extension, validFrom: '2026-09-10' },
+    })
+    const core = await coreBlockOf(ports)
+
+    expect(core).toContain(extension)
+    // Der Kern ist WÖRTLICH und AM ANFANG enthalten — die Erweiterung kann ihn damit weder
+    // ersetzen noch ihm vorangehen, und das ist die eigentliche Zusage dieses Schritts.
+    expect(core.startsWith(PROJECT_CHAT_SYSTEM_PROMPT)).toBe(true)
+    expect(core.indexOf(extension)).toBeGreaterThan(PROJECT_CHAT_SYSTEM_PROMPT.length)
+    // Die vier Verhaltensanforderungen stehen weiterhin drin (§3.1–§3.4).
+    expect(core).toMatch(/Im Zweifel "assumed"/)
+    expect(core).toMatch(/BEIDE Wege vor und lass ihn wählen/)
+  })
+
+  it('ein leerer Stand zählt als kein Stand — keine Überschrift ohne Inhalt', async () => {
+    const ports = createMemoryPorts({
+      projectId: PROJECT,
+      systemPromptExtension: { id: 'ext-2', text: '   \n  ', validFrom: '2026-09-10' },
+    })
+    expect(await coreBlockOf(ports)).toBe(PROJECT_CHAT_SYSTEM_PROMPT)
+  })
+
+  it('⚠ ein Lesefehler bricht das Gespräch NICHT ab — der Kern trägt allein', async () => {
+    // `null` deckt „nicht gepflegt" UND „nicht lesbar" ab (s. ports.ts): der Aufrufer verhält sich
+    // in beiden Fällen gleich, und ein Gespräch wegen eines admin-gepflegten Textes abzubrechen
+    // wäre die falsche Richtung.
+    const ports = createMemoryPorts({ projectId: PROJECT, systemPromptExtension: null })
+    const model = scriptedModel([[assistantSays('Guten Tag.')]])
+    const result = await runProjectChatTurn(PROJECT, 'Hallo.', { ports, callModel: model.call })
+
+    expect(result.status).toBe('ok')
+    expect(model.seen[0]!.system[0]).toBe(PROJECT_CHAT_SYSTEM_PROMPT)
+  })
+
+  it('wird EINMAL je Turn gelesen, nicht je Modellaufruf', async () => {
+    // Zwei Durchläufe (ein Werkzeug, dann die Antwort) → zwei Modellaufrufe, aber nur EIN Lesen.
+    // Sonst kostete jede Werkzeug-Runde eine Datenbankfahrt für dieselbe Auskunft.
+    const ports = createMemoryPorts({ projectId: PROJECT, project: { segment: 'betrieb' } })
+    const model = scriptedModel([
+      [toolUse('tu_1', 'set_industry', { industry: 'hotel' })],
+      [assistantSays('Notiert.')],
+    ])
+
+    const result = await runProjectChatTurn(PROJECT, 'Wir sind ein Hotel.', {
+      ports,
+      callModel: model.call,
+    })
+
+    expect(result.status).toBe('ok')
+    expect(model.callCount).toBe(2)
+    expect(ports.calls.loadSystemPromptExtension).toBe(1)
+  })
+})
+
+/**
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * `set_industry` — DIE BRANCHE HÄNGT AM SEGMENT
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * Die wirksame Grenze steht in der Datenbank (`industry_requires_betrieb`, Migration
+ * 20260910150000). Hier wird gemessen, dass der Ausführer sie VORHER beantwortet — mit einem Satz,
+ * den das Modell umsetzen kann — und dass in den abgelehnten Fällen nachweislich NICHTS geschrieben
+ * wird.
+ */
+describe('set_industry', () => {
+  async function runIndustryTurn(ports: MemoryPorts, industry: unknown) {
+    const model = scriptedModel([
+      [toolUse('tu_1', 'set_industry', { industry })],
+      [assistantSays('Alles klar.')],
+    ])
+    const result = await runProjectChatTurn(PROJECT, 'Wir sind ein Hotel.', {
+      ports,
+      callModel: model.call,
+    })
+    expect(result.status).toBe('ok')
+
+    const row = ports.messages.find((entry) => entry.role === 'tool_result')!
+    const block = row.content[0] as { content: string; is_error?: boolean }
+    return { payload: JSON.parse(block.content) as Record<string, unknown>, isError: block.is_error }
+  }
+
+  it('setzt die Branche bei segment = betrieb', async () => {
+    const ports = createMemoryPorts({
+      projectId: PROJECT,
+      project: { segment: 'betrieb', draft: { energyPriceCtPerKwh: 24.4 } },
+    })
+
+    const { payload, isError } = await runIndustryTurn(ports, 'kfz_werkstatt')
+
+    expect(isError).toBeUndefined()
+    expect(payload).toEqual({ industry: 'kfz_werkstatt' })
+    expect(ports.project.industry).toBe('kfz_werkstatt')
+    // ⚠ Der Entwurf überlebt: der Wrapper ERSETZT ihn, der Ausführer muss ihn also mitschicken.
+    expect(ports.project.draft).toEqual({ energyPriceCtPerKwh: 24.4 })
+  })
+
+  it('⚠ bei segment = privat wird ABGELEHNT und nichts geschrieben', async () => {
+    const ports = createMemoryPorts({ projectId: PROJECT, project: { segment: 'privat' } })
+
+    const { payload, isError } = await runIndustryTurn(ports, 'hotel')
+
+    expect(isError).toBe(true)
+    expect(String(payload.error)).toMatch(/Privathaushalt/)
+    expect(ports.project.industry).toBeNull()
+    expect(ports.calls.saveProject).toBeUndefined()
+  })
+
+  it('⚠ ohne bestimmtes Segment wird ABGELEHNT — mit dem Weg dorthin', async () => {
+    const ports = createMemoryPorts({ projectId: PROJECT })
+
+    const { payload, isError } = await runIndustryTurn(ports, 'hotel')
+
+    expect(isError).toBe(true)
+    // Zwei verschiedene Meldungen, weil zwei verschiedene Handlungen folgen.
+    expect(String(payload.error)).toMatch(/set_segment/)
+    expect(ports.project.industry).toBeNull()
+    expect(ports.calls.saveProject).toBeUndefined()
+  })
+
+  it('⚠ „Hotel" wird abgewiesen, NICHT stillschweigend kleingeschrieben', async () => {
+    const ports = createMemoryPorts({ projectId: PROJECT, project: { segment: 'betrieb' } })
+
+    const { payload, isError } = await runIndustryTurn(ports, 'Hotel')
+
+    expect(isError).toBe(true)
+    expect(String(payload.error)).toContain('Hotel')
+    expect(ports.project.industry).toBeNull()
+    // Das Projekt wird gar nicht erst gelesen — die Form entscheidet sich vor jeder Fahrt.
+    expect(ports.calls.saveProject).toBeUndefined()
+  })
+
+  it('eine fehlende oder leere Angabe wird abgewiesen', async () => {
+    const ports = createMemoryPorts({ projectId: PROJECT, project: { segment: 'betrieb' } })
+    expect((await runIndustryTurn(ports, '  ')).isError).toBe(true)
+    expect(ports.project.industry).toBeNull()
+  })
+
+  it('die Branche steht im Zustandsblock des nächsten Turns', async () => {
+    const ports = createMemoryPorts({
+      projectId: PROJECT,
+      project: { segment: 'betrieb', industry: 'hotel' },
+    })
+    const model = scriptedModel([[assistantSays('Verstanden.')]])
+    await runProjectChatTurn(PROJECT, 'Hallo.', { ports, callModel: model.call })
+
+    expect(model.seen[0]!.system[1]).toContain('Branche: hotel')
+  })
+})

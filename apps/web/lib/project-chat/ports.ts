@@ -68,10 +68,48 @@ export interface StoredChatMessage {
 export const PROJECT_SEGMENTS = ['privat', 'betrieb'] as const
 export type ProjectSegment = (typeof PROJECT_SEGMENTS)[number]
 
+/**
+ * Das Format eines Branchen-Schlüssels — Spiegel des CHECK `projects_industry_format`.
+ *
+ * ⚠ Es ist eine OFFENE Liste (Delta §4.1: neue Branchen-Pools sollen ohne Schema-Änderung
+ * entstehen), aber KEINE offene Schreibweise: `industry` entscheidet, welcher Fragen-Pool geladen
+ * wird, und ein Identitätsfeld ohne Format hat die Falle, die B21-2b für `operator_id`
+ * ausschreibt — ein Tippfehler erzeugt keine Ablehnung, sondern eine ZWEITE Identität, die erst
+ * auffällt, wenn ein Kunde den falschen Pool bekommt. `hotel` und `Hotel` wären zwei Pools.
+ *
+ * Die Prüfung steht hier ZUSÄTZLICH und nicht STATT der Datenbank: dort ist sie die wirksame
+ * (CHECK + `invalid_industry` im Wrapper), hier erzeugt sie einen lesbaren Satz, den das Modell
+ * korrigieren kann — dieselbe Aufteilung, aus der die Werkzeuge ohne `strict: true` auskommen.
+ */
+export const INDUSTRY_KEY_PATTERN = /^[a-z0-9][a-z0-9_]*$/
+
 export interface ProjectSnapshot {
   segment: ProjectSegment | null
+  /**
+   * Die Branche eines Betriebs-Projekts (`platform.projects.industry`), `null` = nicht bestimmt.
+   *
+   * ⚠ NICHT das Enum `platform.industry` von `platform.leads` — gleicher Name, anderer Typ, andere
+   * Wertemenge, anderer Zweck (Spaltenkommentar der Migration 20260910120000).
+   */
+  industry: string | null
   /** Der laufende Entwurf (`platform.projects.draft`). Immer ein Objekt, nie `null`. */
   draft: Record<string, unknown>
+}
+
+/**
+ * Der heute geltende Stand der admin-gepflegten System-Prompt-Erweiterung (Delta §4.3).
+ *
+ * `id` und `validFrom` werden mitgeführt, obwohl sie den Modellaufruf nicht beeinflussen: der
+ * Wrapper liefert sie ausdrücklich, „damit festhaltbar ist, welche Fassung ein Gespräch bestimmt
+ * hat". Einen Ort, an dem sich das festhalten liesse, gibt es in dieser Fassung noch NICHT — das
+ * wäre der denormalisiert am Projekt mitgeführte Stand aus Delta §4.2, und der gehört zum Schritt,
+ * der auch den Fragenkatalog verdrahtet. Die zwei Felder hier zu führen kostet nichts und erspart
+ * jenem Schritt, den Weg ein zweites Mal zu legen.
+ */
+export interface SystemPromptExtension {
+  id: string
+  text: string
+  validFrom: string
 }
 
 /** Eine Zeile aus `platform.project_open_questions`, so wie `list_open_questions` sie liefert. */
@@ -147,11 +185,18 @@ export interface ProjectChatPorts {
     role: ChatMessageRole,
     content: Anthropic.ContentBlockParam[],
   ): Promise<WrapperStatus>
-  /** `public.update_project_draft` — ERSETZT den Entwurf; `segment: undefined` heisst unverändert. */
+  /**
+   * `public.update_project_draft` — ERSETZT den Entwurf.
+   *
+   * `segment` und `industry` weggelassen heissen UNVERÄNDERT, nicht „löschen" (Lesart
+   * `capture_lead`, im Wrapper begründet). Eine Branche nimmt der Wrapper nur an, wenn das nach
+   * dem Aufruf geltende Segment `betrieb` ist — sonst `industry_requires_betrieb`.
+   */
   saveProject(
     projectId: string,
     draft: Record<string, unknown>,
     segment?: ProjectSegment,
+    industry?: string,
   ): Promise<WrapperStatus>
   /** `public.list_open_questions` ohne Filter — alle Status, damit „bereits beantwortet" sichtbar ist. */
   listOpenQuestions(projectId: string): Promise<OpenQuestionRow[]>
@@ -172,6 +217,16 @@ export interface ProjectChatPorts {
   listDocuments(projectId: string): Promise<ProjectDocumentRow[]>
   /** `get_project_document` + Bytes aus dem Bucket. `null` bei fremd/unbekannt. */
   readDocument(documentId: string): Promise<ProjectDocumentContent | null>
+  /**
+   * `public.get_system_prompt_extension` — der heute geltende Stand, oder `null`.
+   *
+   * ⚠ `null` heisst hier ZWEIERLEI und bewusst ununterscheidbar: „es ist keine Erweiterung
+   * gepflegt" (der Normalzustand) ODER „der Lesevorgang ist gescheitert". Für den Aufrufer ist
+   * beides dasselbe — er läuft mit dem Kern-Prompt weiter, der das Verhalten allein trägt
+   * (Funktionskommentar des Wrappers). Ein gescheiterter Lesevorgang eines admin-gepflegten Textes
+   * darf das Gespräch eines Kunden nicht abbrechen; er wird stattdessen protokolliert.
+   */
+  loadSystemPromptExtension(): Promise<SystemPromptExtension | null>
   /**
    * Die vier Extraktoren, EINZELN optional — s. der ⚠-Block oben. Fehlt einer, gibt es das
    * zugehörige Werkzeug nicht; es entsteht kein Rumpf, der so tut, als könnte er etwas.

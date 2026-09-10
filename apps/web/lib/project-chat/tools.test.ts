@@ -24,10 +24,14 @@ function allExtractors(): Partial<ChatExtractors> {
 }
 
 describe('buildChatTools', () => {
-  it('⚠ ohne Extraktoren gibt es NUR die vier Zustands-Werkzeuge', () => {
+  it('⚠ ohne Extraktoren gibt es NUR die fünf Zustands-Werkzeuge', () => {
+    // ⚠ NACHGEZOGEN, nicht aufgeweicht: `set_industry` ist der fünfte Zustands-Werkzeug-Eintrag
+    // (Migration 20260910150000). Die Liste bleibt vollständig ausgeschrieben — sie ist die
+    // Absicherung dagegen, dass ein Werkzeug ohne Port versehentlich hier landet.
     const names = buildChatTools({}).map((tool) => tool.name)
     expect(names).toEqual([
       'set_segment',
+      'set_industry',
       'set_draft_field',
       'check_draft_completeness',
       'flag_open_question',
@@ -40,7 +44,7 @@ describe('buildChatTools', () => {
     ])
   })
 
-  it('mit allen Ports gibt es alle acht — und in FESTER Reihenfolge', () => {
+  it('mit allen Ports gibt es alle neun — und in FESTER Reihenfolge', () => {
     const names = buildChatTools(allExtractors()).map((tool) => tool.name)
     expect(names).toEqual([...CHAT_TOOL_NAMES])
     expect(missingExtractionTools(allExtractors())).toEqual([])

@@ -61,7 +61,10 @@ import {
 /** Die zwölf public-Wrapper, die dieser Bauschritt neu anlegt. */
 const WRAPPER_SIGNATURES = {
   get_project: 'public.get_project(uuid)',
-  update_project_draft: 'public.update_project_draft(uuid, jsonb, text)',
+  // ⚠ NACHGEZOGEN (Migration 20260910150000): der vierte Parameter `p_industry` ist per DROP+CREATE
+  // dazugekommen. Die exakte Signatur bleibt gepinnt — sie ist die Absicherung dagegen, dass eine
+  // zweite Überladung daneben entsteht, die ein Aufruf mit weniger Argumenten still trifft.
+  update_project_draft: 'public.update_project_draft(uuid, jsonb, text, text)',
   append_project_message: 'public.append_project_message(uuid, text, jsonb)',
   list_project_messages: 'public.list_project_messages(uuid, integer, integer)',
   append_project_document: 'public.append_project_document(uuid, uuid, text, text)',

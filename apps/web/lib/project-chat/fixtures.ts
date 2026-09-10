@@ -9,6 +9,7 @@ import type {
   ProjectSegment,
   ProjectSnapshot,
   StoredChatMessage,
+  SystemPromptExtension,
   WrapperStatus,
 } from './ports'
 
@@ -28,10 +29,14 @@ import type {
  *   2. `resolveOpenQuestion('assumed')` lässt `status` auf `open` — eine Annahme SCHLIESST DIE
  *      FRAGE NICHT (der Kern von Delta §3.3) — und verlangt eine Begründung.
  *   3. `appendMessage` weist ein leeres Blockarray ab (`empty_content`).
+ *   4. `saveProject` nimmt eine Branche NUR an, wenn das nach dem Aufruf geltende Segment
+ *      `betrieb` ist (`industry_requires_betrieb`), und schreibt sie NICHT klein
+ *      (`invalid_industry`) — Migration 20260910150000.
  */
 
 export interface MemoryProject {
   segment: ProjectSegment | null
+  industry: string | null
   draft: Record<string, unknown>
 }
 
@@ -50,6 +55,11 @@ export interface MemoryPortsOptions {
   documents?: ProjectDocumentRow[]
   documentBytes?: Record<string, { bytes: ArrayBuffer; filename: string; contentType: string }>
   extractors?: Partial<ChatExtractors>
+  /**
+   * Der geltende Stand der System-Prompt-Erweiterung. Weggelassen = keiner gepflegt (`null`) —
+   * der Normalzustand, und damit zugleich der Regressionsfall „Prompt exakt wie vorher".
+   */
+  systemPromptExtension?: SystemPromptExtension | null
   /** Simuliert einen Schreibfehler: der genannte Wrapper antwortet mit diesem Status. */
   failWrapper?: { name: string; status: string }
 }
@@ -57,6 +67,7 @@ export interface MemoryPortsOptions {
 export function createMemoryPorts(options: MemoryPortsOptions): MemoryPorts {
   const project: MemoryProject = {
     segment: options.project?.segment ?? null,
+    industry: options.project?.industry ?? null,
     draft: options.project?.draft ?? {},
   }
   const messages: StoredChatMessage[] = []
@@ -85,7 +96,11 @@ export function createMemoryPorts(options: MemoryPortsOptions): MemoryPorts {
       track('loadProject')
       if (projectId !== options.projectId) return null
       // Eine Kopie — der Aufrufer soll den Bestand nicht versehentlich an Ort und Stelle ändern.
-      return { segment: project.segment, draft: { ...project.draft } }
+      return {
+        segment: project.segment,
+        industry: project.industry,
+        draft: { ...project.draft },
+      }
     },
 
     async loadMessages(projectId: string): Promise<StoredChatMessage[]> {
@@ -112,15 +127,33 @@ export function createMemoryPorts(options: MemoryPortsOptions): MemoryPorts {
       projectId: string,
       draft: Record<string, unknown>,
       segment?: ProjectSegment,
+      industry?: string,
     ): Promise<WrapperStatus> {
       track('saveProject')
       const fail = forced('saveProject')
       if (fail) return fail
       if (projectId !== options.projectId) return { status: 'not_found' }
+
+      /*
+       * ⚠ DIE PRÜFUNGEN LAUFEN VOR JEDEM SCHREIBVORGANG, wie im Wrapper: dort kehrt der Rumpf mit
+       * einem Status zurück, BEVOR das UPDATE läuft. Würde die Attrappe erst den Entwurf schreiben
+       * und dann ablehnen, bliebe ein halb übernommener Zustand zurück, den es real nicht gibt —
+       * und ein Test darauf wäre wertlos.
+       */
+      if (industry !== undefined) {
+        if (!/^[a-z0-9][a-z0-9_]*$/.test(industry)) return { status: 'invalid_industry' }
+        // Das Segment, das NACH diesem Aufruf gilt — nicht das bestehende allein.
+        const effective = segment ?? project.segment
+        if (effective !== 'betrieb') {
+          return { status: 'industry_requires_betrieb', segment: effective }
+        }
+      }
+
       // ERSETZEN, nicht verschmelzen — wie `update_project_draft`.
       project.draft = { ...draft }
-      // `p_segment` weggelassen heisst UNVERÄNDERT (Lesart `capture_lead`).
+      // `p_segment`/`p_industry` weggelassen heisst UNVERÄNDERT (Lesart `capture_lead`).
       if (segment !== undefined) project.segment = segment
+      if (industry !== undefined) project.industry = industry
       return { status: 'ok' }
     },
 
@@ -193,6 +226,11 @@ export function createMemoryPorts(options: MemoryPortsOptions): MemoryPorts {
     async readDocument(documentId: string) {
       track('readDocument')
       return bytes[documentId] ?? null
+    },
+
+    async loadSystemPromptExtension(): Promise<SystemPromptExtension | null> {
+      track('loadSystemPromptExtension')
+      return options.systemPromptExtension ?? null
     },
   }
 
