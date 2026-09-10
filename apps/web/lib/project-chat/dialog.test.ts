@@ -254,6 +254,137 @@ describe('Eigentum', () => {
   })
 })
 
+describe('Kostenbremse (Delta §6.3)', () => {
+  /** Ein Modell, das mitzählt — und dessen Aufruf in diesem Block ausdrücklich NICHT passieren soll. */
+  function zaehlendesModell() {
+    let calls = 0
+    return {
+      get calls() {
+        return calls
+      },
+      call: async () => {
+        calls += 1
+        return { ok: true as const, content: [assistantSays('Alles klar.')] }
+      },
+    }
+  }
+
+  it('⚠ POSITIVKONTROLLE: der Zähler der Attrappe zählt wirklich — drei Turns bei max 3', async () => {
+    // Ohne diesen Test bewiese der nächste nur, dass die Schleife einen Status durchreicht. Hier
+    // wird der Zählstand an ECHTEN gespeicherten Nachrichten aufgebaut, genau wie in der Datenbank.
+    const ports = createMemoryPorts({ projectId: PROJECT, rateLimitMax: 3 })
+    const modell = zaehlendesModell()
+
+    for (const nachricht of ['Erste', 'Zweite', 'Dritte']) {
+      const result = await runProjectChatTurn(PROJECT, nachricht, {
+        ports,
+        callModel: modell.call,
+      })
+      expect(result.status, `Turn „${nachricht}"`).toBe('ok')
+    }
+
+    expect(modell.calls).toBe(3)
+    expect(ports.messages.filter((row) => row.role === 'user')).toHaveLength(3)
+  })
+
+  it('⚠ der VIERTE Turn wird abgewiesen — 0 Modellaufrufe, und die Nachricht wird NICHT gespeichert', async () => {
+    const ports = createMemoryPorts({ projectId: PROJECT, rateLimitMax: 3 })
+    const modell = zaehlendesModell()
+
+    for (const nachricht of ['Erste', 'Zweite', 'Dritte']) {
+      await runProjectChatTurn(PROJECT, nachricht, { ports, callModel: modell.call })
+    }
+    const aufrufeVorher = modell.calls
+    const zeilenVorher = ports.messages.length
+
+    const result = await runProjectChatTurn(PROJECT, 'Vierte', {
+      ports,
+      callModel: modell.call,
+    })
+
+    expect(result).toEqual({ status: 'limit_reached', used: 3, max: 3 })
+    // Kein Aufruf, keine Kosten.
+    expect(modell.calls).toBe(aufrufeVorher)
+    /*
+     * ⚠ UND KEINE ZEILE. Das ist die eigentliche Zusage: eine gespeicherte Ablehnung zählte im
+     * nächsten Fenster mit und schöbe die Sperre bei jedem Wiederholungsversuch weiter nach hinten
+     * — das Limit zöge sich selbst zu, obwohl der abgewiesene Turn nachweislich nichts gekostet hat.
+     */
+    expect(ports.messages).toHaveLength(zeilenVorher)
+    expect(ports.messages.some((row) => row.content.some((b) => JSON.stringify(b).includes('Vierte')))).toBe(false)
+  })
+
+  it('⚠ die Prüfung läuft NACH der Eigentumsfrage — ein fremdes Projekt erfährt nichts über ein Budget', async () => {
+    const ports = createMemoryPorts({ projectId: PROJECT, rateLimitMax: 1 })
+    const result = await runProjectChatTurn('99999999-8888-4777-8666-555555555555', 'Hallo?', {
+      ports,
+      callModel: async () => {
+        throw new Error('darf nicht gerufen werden')
+      },
+    })
+    expect(result).toEqual({ status: 'not_found' })
+  })
+
+  it('⚠ die Prüfung läuft VOR den drei Ladevorgängen — im abgewiesenen Fall bleiben sie ungerufen', async () => {
+    const ports = createMemoryPorts({ projectId: PROJECT, rateLimitMax: 0 })
+    // `rateLimitMax: 0` heisst „schon erschöpft" — die Attrappe zählt 0 gespeicherte Nachrichten
+    // gegen 0 und lehnt damit ab, ohne dass zuvor ein Turn gelaufen sein muss.
+    const result = await runProjectChatTurn(PROJECT, 'Hallo', {
+      ports,
+      callModel: async () => {
+        throw new Error('darf nicht gerufen werden')
+      },
+    })
+
+    expect(result.status).toBe('limit_reached')
+    expect(ports.calls.checkRateLimit).toBe(1)
+    expect(ports.calls.listDocuments).toBeUndefined()
+    expect(ports.calls.listOpenQuestions).toBeUndefined()
+    expect(ports.calls.loadSystemPromptExtension).toBeUndefined()
+    expect(ports.calls.appendMessage).toBeUndefined()
+  })
+
+  it('⚠ FAIL CLOSED: eine nicht ermittelbare Bremse löst KEINEN Modellaufruf aus …', async () => {
+    const ports = createMemoryPorts({ projectId: PROJECT, rateLimitUnavailable: true })
+    const result = await runProjectChatTurn(PROJECT, 'Hallo', {
+      ports,
+      callModel: async () => {
+        throw new Error('darf nicht gerufen werden')
+      },
+    })
+    expect(result).toEqual({ status: 'limit_unavailable' })
+    expect(ports.messages).toHaveLength(0)
+  })
+
+  it('⚠ … und sagt dabei ausdrücklich NICHT „Limit erreicht"', async () => {
+    /*
+     * Der Unterschied ist keine Feinheit: „Ihr Tageslimit ist erreicht" wäre bei einem
+     * Datenbankausfall eine Falschauskunft, und der Nutzer suchte den Fehler bei sich, statt es
+     * gleich noch einmal zu versuchen. Genau die Sorte Meldung, die dieses Repo an anderer Stelle
+     * als „ein Fehler, der wie ein Ergebnis aussieht" verwirft.
+     */
+    const ports = createMemoryPorts({ projectId: PROJECT, rateLimitUnavailable: true })
+    const result = await runProjectChatTurn(PROJECT, 'Hallo', {
+      ports,
+      callModel: async () => ({ ok: true as const, content: [assistantSays('x')] }),
+    })
+    expect(result.status).not.toBe('limit_reached')
+  })
+
+  it('ohne gesetztes Limit läuft die Schleife unverändert (der Regressionsfall)', async () => {
+    const ports = createMemoryPorts({ projectId: PROJECT })
+    const modell = zaehlendesModell()
+    for (let i = 0; i < 5; i += 1) {
+      const result = await runProjectChatTurn(PROJECT, `Nachricht ${i}`, {
+        ports,
+        callModel: modell.call,
+      })
+      expect(result.status).toBe('ok')
+    }
+    expect(modell.calls).toBe(5)
+  })
+})
+
 describe('Fehlerpfade der Schleife', () => {
   it('meldet einen fehlenden KI-Zugang als eigenen Zustand', async () => {
     const ports = createMemoryPorts({ projectId: PROJECT })

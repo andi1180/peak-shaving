@@ -3,6 +3,7 @@ import type Anthropic from '@anthropic-ai/sdk'
 import type {
   ChatExtractors,
   ChatMessageRole,
+  ChatRateLimitDecision,
   OpenQuestionRow,
   ProjectChatPorts,
   ProjectDocumentRow,
@@ -37,6 +38,12 @@ import type {
  *      übergebenen Branche (`q.industry is null or q.industry = v_industry`) — Migration
  *      20260910120000. Gäbe die Attrappe schlicht alles zurück, prüfte jeder darauf gebaute Test
  *      das Gegenteil dessen, was er behauptet.
+ *   6. `checkRateLimit` ZÄHLT wirklich — es gibt keinen Schalter, der einfach `limit_reached`
+ *      zurückgibt. Ein solcher bewiese nur, dass die Schleife einen Status durchreicht; dass die
+ *      Bremse tatsächlich an gespeicherten Nachrichten hängt, bewiese er nicht (Migration
+ *      20260910180000). ⚠ Die Attrappe kennt allerdings nur EIN Projekt — dass der Wrapper über
+ *      ALLE Projekte eines Kontos zählt, kann hier nicht nachgebildet werden und wird deshalb im
+ *      DB-Gate gemessen (`packages/db-tests/src/chat-rate-limit.test.ts`).
  */
 
 export interface MemoryProject {
@@ -76,6 +83,17 @@ export interface MemoryPortsOptions {
    * „Vollständigkeitsprüfung genau wie vorher".
    */
   questionCatalog?: QuestionCatalogRow[]
+  /**
+   * Die Kostenbremse: so viele `user`-Nachrichten darf der Bestand tragen, bevor abgelehnt wird.
+   * Weggelassen = die Bremse antwortet immer `ok` (sie ist dann nicht der Gegenstand des Tests).
+   *
+   * ⚠ Das ist NICHT die Aussage „in Produktion gibt es kein Limit" — dort ist ein Stand gesetzt,
+   * und ein fehlender wäre fail closed. Hier heisst es schlicht „diese Prüfung steht diesem Test
+   * nicht im Weg".
+   */
+  rateLimitMax?: number
+  /** Erzwingt „nicht ermittelbar" — der FAIL-CLOSED-Fall. */
+  rateLimitUnavailable?: boolean
   /** Simuliert einen Schreibfehler: der genannte Wrapper antwortet mit diesem Status. */
   failWrapper?: { name: string; status: string }
 }
@@ -110,6 +128,18 @@ export function createMemoryPorts(options: MemoryPortsOptions): MemoryPorts {
     calls,
     questionCatalogCalls,
     extractors: options.extractors ?? {},
+
+    async checkRateLimit(projectId: string): Promise<ChatRateLimitDecision> {
+      track('checkRateLimit')
+      if (options.rateLimitUnavailable === true) return { status: 'unavailable' }
+      if (projectId !== options.projectId) return { status: 'not_found' }
+      const max = options.rateLimitMax
+      if (max === undefined) return { status: 'ok' }
+      // Gezählt wird, was der Wrapper zählt: ausschliesslich `user`-Zeilen.
+      const used = messages.filter((row) => row.role === 'user').length
+      if (used >= max) return { status: 'limit_reached', used, max }
+      return { status: 'ok', used, max }
+    },
 
     async loadProject(projectId: string): Promise<ProjectSnapshot | null> {
       track('loadProject')
