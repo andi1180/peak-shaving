@@ -10,6 +10,15 @@ import {
 } from './draft'
 import { DRAFT_CONTRACT_FIELDS, DRAFT_REQUIRED_FIELDS } from './tools'
 
+/** Ein Katalogeintrag, wie ihn `list_question_catalog` liefert — nur die geprüften Felder. */
+function catalogEntry(
+  key: string,
+  text: string,
+  required = true,
+): { question_key: string; question_text: string; required: boolean } {
+  return { question_key: key, question_text: text, required }
+}
+
 /**
  * B24 — DER ENTWURF UND SEINE HERKUNFTS-VERMERKE.
  *
@@ -92,11 +101,15 @@ describe('checkDraftCompleteness', () => {
   it('nennt fehlende Pflichtfelder und trennt sie von Typfehlern', () => {
     const state = checkDraftCompleteness({ leistungspreisEurPerKwYear: 'zu viel' })
     expect(state.complete).toBe(false)
+    // ⚠ NACHGEZOGEN: `missing` trägt seit dem Fragenkatalog Einträge statt blosser Namen — ein
+    // Contract-Feld ohne `question`, eine Katalogfrage mit. Die AUSSAGE ist unverändert.
     expect(state.missing).toEqual(
-      DRAFT_REQUIRED_FIELDS.filter((f) => f !== 'leistungspreisEurPerKwYear'),
+      DRAFT_REQUIRED_FIELDS.filter((f) => f !== 'leistungspreisEurPerKwYear').map((field) => ({
+        field,
+      })),
     )
     // Der vorhandene, aber falsch getypte Wert steht NICHT unter „fehlt".
-    expect(state.missing).not.toContain('leistungspreisEurPerKwYear')
+    expect(state.missing.map((gap) => gap.field)).not.toContain('leistungspreisEurPerKwYear')
     expect(state.invalid.map((i) => i.field)).toContain('leistungspreisEurPerKwYear')
   })
 
@@ -121,5 +134,98 @@ describe('checkDraftCompleteness', () => {
   it('meldet ein erfundenes Feld als ungeprüft, statt es abzuweisen', () => {
     const draft = setDraftField(completeDraft(), 'stromkosten', 1200, 'measured', undefined, NOW)
     expect(checkDraftCompleteness(draft).unknown).toEqual(['stromkosten'])
+  })
+})
+
+describe('checkDraftCompleteness — admin-gepflegter Fragenkatalog', () => {
+  /** Ein Entwurf, der den Contract erfüllt UND jeden Wert mit Herkunft trägt. */
+  function completeWithSource(): Record<string, unknown> {
+    let draft: Record<string, unknown> = {}
+    for (const [field, value] of Object.entries(completeDraft())) {
+      draft = setDraftField(draft, field, value as number, 'measured', undefined, NOW)
+    }
+    return draft
+  }
+
+  it('⚠ eine fehlende Pflichtfrage trägt den WORTLAUT mit, nicht nur den Schlüssel', () => {
+    const state = checkDraftCompleteness(completeWithSource(), [
+      catalogEntry('pool_vorhanden', 'Gibt es einen beheizten Pool?'),
+    ])
+
+    expect(state.missing).toEqual([
+      { field: 'pool_vorhanden', question: 'Gibt es einen beheizten Pool?' },
+    ])
+    // Und sie hindert die Vollständigkeit — sonst wäre „Pflichtfrage" nur ein Etikett.
+    expect(state.complete).toBe(false)
+  })
+
+  it('⚠ ein reiner Katalog-Schlüssel gilt als BEKANNT, sobald er im Katalog steht', () => {
+    const draft = setDraftField(
+      completeWithSource(),
+      'pool_vorhanden',
+      true,
+      'measured',
+      undefined,
+      NOW,
+    )
+
+    // Ohne Katalog ist derselbe Wert „gehört nicht zum Eingabe-Contract" …
+    expect(checkDraftCompleteness(draft).unknown).toEqual(['pool_vorhanden'])
+    // … mit Katalog nicht mehr, und die Frage ist damit auch beantwortet.
+    const state = checkDraftCompleteness(draft, [
+      catalogEntry('pool_vorhanden', 'Gibt es einen beheizten Pool?'),
+    ])
+    expect(state.unknown).toEqual([])
+    expect(state.missing).toEqual([])
+    expect(state.complete).toBe(true)
+  })
+
+  it('⚠ ein blosser HINWEIS fehlt nie, gilt aber trotzdem als bekannt', () => {
+    const hint = catalogEntry('kuehlung_extern', 'Wird Kälte zugekauft?', false)
+
+    // (a) Er steht nicht in `missing` — sonst wäre `required` wirkungslos.
+    expect(checkDraftCompleteness(completeWithSource(), [hint]).complete).toBe(true)
+
+    // (b) Trägt der Entwurf trotzdem einen Wert dazu, ist er NICHT „ungeprüft": der Admin hat die
+    //     Frage bewusst in den Katalog gestellt. Genau deshalb wird der ganze Katalog übergeben
+    //     und erst hier auf `required` gefiltert.
+    const draft = setDraftField(
+      completeWithSource(),
+      'kuehlung_extern',
+      false,
+      'measured',
+      undefined,
+      NOW,
+    )
+    expect(checkDraftCompleteness(draft, [hint]).unknown).toEqual([])
+  })
+
+  it('nennt dieselbe Lücke nicht zweimal, wenn ein Katalog-Schlüssel ein Contract-Pflichtfeld ist', () => {
+    const state = checkDraftCompleteness({}, [
+      catalogEntry('billingModel', 'Wie rechnet Ihr Netzbetreiber die Leistung ab?'),
+    ])
+    expect(state.missing.filter((gap) => gap.field === 'billingModel')).toHaveLength(1)
+    // Der Contract-Eintrag gewinnt: sein Schlüssel ist im Werkzeugtext beschrieben.
+    expect(state.missing).toContainEqual({ field: 'billingModel' })
+  })
+
+  it('⚠ eine Frage, deren Antwort AM PROJEKT steht, fehlt nicht mehr (segment/industry)', () => {
+    const catalog = [catalogEntry('industry', 'In welcher Branche sind Sie tätig?')]
+
+    // Vorher: die Branche ist nicht bestimmt, die Frage steht offen.
+    expect(checkDraftCompleteness(completeWithSource(), catalog).missing).toEqual([
+      { field: 'industry', question: 'In welcher Branche sind Sie tätig?' },
+    ])
+
+    // Nachher: `set_industry` hat geschrieben — der Entwurf ist dabei UNVERÄNDERT geblieben.
+    const state = checkDraftCompleteness(completeWithSource(), catalog, ['segment', 'industry'])
+    expect(state.missing).toEqual([])
+    expect(state.complete).toBe(true)
+  })
+
+  it('ohne Katalog verhält sich die Prüfung exakt wie vorher', () => {
+    const draft = completeWithSource()
+    expect(checkDraftCompleteness(draft)).toEqual(checkDraftCompleteness(draft, []))
+    expect(checkDraftCompleteness(draft).complete).toBe(true)
   })
 })

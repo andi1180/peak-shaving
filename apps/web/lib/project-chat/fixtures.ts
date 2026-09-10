@@ -8,6 +8,7 @@ import type {
   ProjectDocumentRow,
   ProjectSegment,
   ProjectSnapshot,
+  QuestionCatalogRow,
   StoredChatMessage,
   SystemPromptExtension,
   WrapperStatus,
@@ -22,7 +23,7 @@ import type {
  * Produktionscode liegt und bewusst nicht über einen Barrel exportiert wird.
  *
  * ── ⚠ SIE BILDET DIE WRAPPER-SEMANTIK NACH, NICHT EINE BEQUEME FASSUNG DAVON ──────────────────
- * Was hier abweicht, macht jeden darauf gebauten Test wertlos. Drei Eigenschaften sind deshalb
+ * Was hier abweicht, macht jeden darauf gebauten Test wertlos. Fünf Eigenschaften sind deshalb
  * ausdrücklich nachgezogen und stehen so in der Migration 20260910090000:
  *
  *   1. `saveProject` ERSETZT den Entwurf, es verschmilzt ihn nicht.
@@ -32,6 +33,10 @@ import type {
  *   4. `saveProject` nimmt eine Branche NUR an, wenn das nach dem Aufruf geltende Segment
  *      `betrieb` ist (`industry_requires_betrieb`), und schreibt sie NICHT klein
  *      (`invalid_industry`) — Migration 20260910150000.
+ *   5. `listQuestionCatalog` liefert die Baseline des Segments IMMER und die Zusatzfragen NUR zur
+ *      übergebenen Branche (`q.industry is null or q.industry = v_industry`) — Migration
+ *      20260910120000. Gäbe die Attrappe schlicht alles zurück, prüfte jeder darauf gebaute Test
+ *      das Gegenteil dessen, was er behauptet.
  */
 
 export interface MemoryProject {
@@ -47,6 +52,11 @@ export interface MemoryPorts extends ProjectChatPorts {
   readonly openQuestions: OpenQuestionRow[]
   /** Zählt, welcher Wrapper wie oft gerufen wurde — für „das ist NICHT passiert"-Prüfungen. */
   readonly calls: Record<string, number>
+  /**
+   * Womit der Fragenkatalog abgefragt wurde. Die FILTERUNG bildet die Attrappe nach; womit der
+   * Ausführer FRAGT, ist dagegen seine eigene Entscheidung — und nur die lässt sich hier messen.
+   */
+  readonly questionCatalogCalls: { segment: ProjectSegment; industry: string | null }[]
 }
 
 export interface MemoryPortsOptions {
@@ -60,6 +70,12 @@ export interface MemoryPortsOptions {
    * der Normalzustand, und damit zugleich der Regressionsfall „Prompt exakt wie vorher".
    */
   systemPromptExtension?: SystemPromptExtension | null
+  /**
+   * Der gepflegte Fragenkatalog. Weggelassen = keiner gepflegt (`[]`) — der heutige Normalzustand
+   * (die Kataloge sind bewusst leer, Delta §4.4) und damit zugleich der Regressionsfall
+   * „Vollständigkeitsprüfung genau wie vorher".
+   */
+  questionCatalog?: QuestionCatalogRow[]
   /** Simuliert einen Schreibfehler: der genannte Wrapper antwortet mit diesem Status. */
   failWrapper?: { name: string; status: string }
 }
@@ -75,6 +91,8 @@ export function createMemoryPorts(options: MemoryPortsOptions): MemoryPorts {
   const documents = options.documents ?? []
   const bytes = options.documentBytes ?? {}
   const calls: Record<string, number> = {}
+  const questionCatalog = options.questionCatalog ?? []
+  const questionCatalogCalls: { segment: ProjectSegment; industry: string | null }[] = []
   let questionCounter = 0
 
   function track(name: string): void {
@@ -90,6 +108,7 @@ export function createMemoryPorts(options: MemoryPortsOptions): MemoryPorts {
     project,
     openQuestions,
     calls,
+    questionCatalogCalls,
     extractors: options.extractors ?? {},
 
     async loadProject(projectId: string): Promise<ProjectSnapshot | null> {
@@ -231,6 +250,22 @@ export function createMemoryPorts(options: MemoryPortsOptions): MemoryPorts {
     async loadSystemPromptExtension(): Promise<SystemPromptExtension | null> {
       track('loadSystemPromptExtension')
       return options.systemPromptExtension ?? null
+    },
+
+    async listQuestionCatalog(
+      segment: ProjectSegment,
+      industry: string | null,
+    ): Promise<QuestionCatalogRow[]> {
+      track('listQuestionCatalog')
+      questionCatalogCalls.push({ segment, industry })
+      // Baseline IMMER, Zusatzfragen nur zur übergebenen Branche — wortgleich zum Wrapper-Rumpf.
+      return questionCatalog
+        .filter((entry) => entry.segment === segment)
+        .filter(
+          (entry) =>
+            entry.industry === null || (industry !== null && entry.industry === industry),
+        )
+        .map((entry) => ({ ...entry }))
     },
   }
 
