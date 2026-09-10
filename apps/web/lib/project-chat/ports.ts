@@ -188,6 +188,26 @@ export interface ChatExtractors {
   extractBatteryText(text: string): Promise<ExtractorOutcome<BatteryTextExtraction>>
 }
 
+/**
+ * Die Antwort der Kostenbremse (Delta §6.3, `public.check_chat_rate_limit`).
+ *
+ * ⚠ VIER ZUSTÄNDE, WEIL SIE VERSCHIEDENES BEDEUTEN — und weil ein zusammengefasster „darf nicht"
+ * einem Kunden das Falsche sagte. „Ihr Tageslimit ist erreicht" ist eine Auskunft, mit der er etwas
+ * anfangen kann (morgen wieder oder beim Betreiber melden); „wir konnten es gerade nicht ermitteln"
+ * ist eine ganz andere (gleich nochmal). Beides unter einem Wert verschwiege einen Datenbankausfall
+ * als Budgetgrenze — genau die Sorte Falschauskunft, die dieses Repo an anderer Stelle als „ein
+ * Fehler, der wie ein Ergebnis aussieht" benennt.
+ */
+export type ChatRateLimitDecision =
+  /** Der Turn darf laufen. `used`/`max` fehlen bei einer Adminrolle — dort wird bewusst nicht gezählt. */
+  | { status: 'ok'; used?: number; max?: number }
+  /** Das Konto hat sein Kontingent der letzten 24 Stunden ausgeschöpft. */
+  | { status: 'limit_reached'; used: number; max: number }
+  /** Das Projekt gibt es nicht ODER es gehört jemand anderem — bewusst nicht unterscheidbar. */
+  | { status: 'not_found' }
+  /** ⚠ Die Bremse konnte nicht antworten. FAIL CLOSED: kein Modellaufruf. */
+  | { status: 'unavailable' }
+
 /** Der Rückgabewert der schreibenden Wrapper: sie antworten durchgängig mit einem `status`. */
 export type WrapperStatus = { status: string; [key: string]: unknown }
 
@@ -200,6 +220,17 @@ export type WrapperStatus = { status: string; [key: string]: unknown }
  * bewusst nicht unterscheidbar.
  */
 export interface ProjectChatPorts {
+  /**
+   * `public.check_chat_rate_limit` — die Kostenbremse (Delta §6.3).
+   *
+   * ⚠ FAIL CLOSED, und damit bewusst GEGENSÄTZLICH zu `loadSystemPromptExtension` und
+   * `listQuestionCatalog`: dort ist ein gescheiterter Lesevorgang harmlos (der Kern-Prompt trägt
+   * allein weiter, es kostet nichts), hier nicht. Wer nicht weiss, ob ein Konto sein Budget
+   * überschritten hat, darf kein abrechenbares Geld ausgeben — jeder Turn löst bis zu neun
+   * Modellaufrufe aus. Der Preis ist gering: es ist dieselbe Datenbank, die gleich darauf die
+   * Nutzer-Nachricht speichern müsste.
+   */
+  checkRateLimit(projectId: string): Promise<ChatRateLimitDecision>
   /** `public.get_project` — `null`, wenn das Projekt fehlt oder fremd ist. */
   loadProject(projectId: string): Promise<ProjectSnapshot | null>
   /** `public.list_project_messages` — ÄLTESTE ZUERST, so wie der Wrapper sortiert. */

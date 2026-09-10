@@ -362,6 +362,36 @@ export type Database = {
           },
         ]
       }
+      chat_rate_limit_settings: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          max_messages_per_account_per_day: number
+          updated_at: string
+          valid_from: string
+          valid_until: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          max_messages_per_account_per_day: number
+          updated_at?: string
+          valid_from: string
+          valid_until?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          max_messages_per_account_per_day?: number
+          updated_at?: string
+          valid_from?: string
+          valid_until?: string | null
+        }
+        Relationships: []
+      }
       code_redemptions: {
         Row: {
           code_id: string
@@ -1816,6 +1846,7 @@ export type Database = {
       }
       admin_get_analysis: { Args: { p_id: string }; Returns: Json }
       admin_get_analysis_source: { Args: { p_id: string }; Returns: Json }
+      admin_get_chat_rate_limit: { Args: never; Returns: Json }
       admin_get_lead: { Args: { p_lead_id: string }; Returns: Json }
       admin_get_partner_application: { Args: { p_id: string }; Returns: Json }
       admin_get_project: { Args: { p_id: string }; Returns: Json }
@@ -1924,6 +1955,10 @@ export type Database = {
       }
       admin_revoke_role: {
         Args: { p_role: string; p_target_user_id: string }
+        Returns: Json
+      }
+      admin_set_chat_rate_limit: {
+        Args: { p_max: number; p_valid_from?: string }
         Returns: Json
       }
       admin_set_code_active: {
@@ -2057,6 +2092,7 @@ export type Database = {
         }
         Returns: Json
       }
+      check_chat_rate_limit: { Args: { p_project_id: string }; Returns: Json }
       claim_contract_reminder: {
         Args: { p_contract_end_date: string; p_lead_id: string }
         Returns: Json

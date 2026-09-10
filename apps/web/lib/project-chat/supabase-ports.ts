@@ -7,6 +7,7 @@ import { readProjectDocument } from '@/lib/project-documents/documents'
 import { createClient } from '@/lib/supabase/server'
 import type {
   ChatMessageRole,
+  ChatRateLimitDecision,
   OpenQuestionRow,
   ProjectChatPorts,
   ProjectDocumentRow,
@@ -61,6 +62,49 @@ function asWrapperStatus(data: unknown, error: unknown): WrapperStatus {
 
 export function createProjectChatPorts(extractors: Partial<ChatExtractors>): ProjectChatPorts {
   return {
+    async checkRateLimit(projectId: string): Promise<ChatRateLimitDecision> {
+      /*
+       * ⚠ FAIL CLOSED. Alles, was nicht als bekannter Status zurückkommt — Netzfehler, fehlende
+       * Migration, unerwartetes jsonb —, wird zu `unavailable` und damit zu „kein Modellaufruf".
+       * Die Begründung steht an der Port-Definition; kurz: ein unbekanntes Budget darf kein
+       * abrechenbares Geld ausgeben. Protokolliert wird trotzdem, sonst wäre eine dauerhaft
+       * unwirksame Bremse von einem stillen Ausfall nicht zu unterscheiden.
+       */
+      const supabase = await createClient()
+      const { data, error } = await supabase.rpc('check_chat_rate_limit', {
+        p_project_id: projectId,
+      })
+      const result = asWrapperStatus(data, error)
+
+      if (result.status === 'not_found') return { status: 'not_found' }
+
+      if (result.status === 'limit_reached') {
+        /*
+         * `used`/`max` sind hier PFLICHT — sie sind die einzige konkrete Auskunft, die der Nutzer
+         * bekommt. Fehlen sie, ist die Antwort nicht die, die dieser Zweig behauptet, und der Fall
+         * gehört zu `unavailable` statt zu einer erfundenen Zahl.
+         */
+        const used = result.used
+        const max = result.max
+        if (typeof used === 'number' && typeof max === 'number') {
+          return { status: 'limit_reached', used, max }
+        }
+        console.error('[project-chat] Kostenbremse ohne Zählstand:', result)
+        return { status: 'unavailable' }
+      }
+
+      if (result.status === 'ok') {
+        // Bei einer Adminrolle wird bewusst nicht gezählt — dann fehlen beide Felder, und das ist
+        // kein Fehler, sondern die Aussage „ausgenommen".
+        const used = typeof result.used === 'number' ? result.used : undefined
+        const max = typeof result.max === 'number' ? result.max : undefined
+        return { status: 'ok', used, max }
+      }
+
+      console.error('[project-chat] Kostenbremse nicht ermittelbar:', result.status, error)
+      return { status: 'unavailable' }
+    },
+
     async loadProject(projectId: string): Promise<ProjectSnapshot | null> {
       const supabase = await createClient()
       const { data, error } = await supabase.rpc('get_project', { p_id: projectId })

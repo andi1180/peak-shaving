@@ -68,6 +68,19 @@ export type ProjectChatTurnResult =
   | { status: 'storage_error'; step: string }
   /** Die Nachricht des Nutzers war leer. */
   | { status: 'empty_message' }
+  /**
+   * Die Kostenbremse hat abgelehnt (Delta §6.3): das Konto hat sein Kontingent der letzten 24
+   * Stunden ausgeschöpft. KEIN Modellaufruf, und die Nachricht wird ausdrücklich NICHT gespeichert
+   * — eine abgelehnte Anfrage zählte sonst im nächsten Fenster mit und schöbe die Sperre bei jedem
+   * Versuch weiter nach hinten.
+   */
+  | { status: 'limit_reached'; used: number; max: number }
+  /**
+   * ⚠ Die Kostenbremse konnte nicht antworten. Bewusst ein EIGENER Status und nicht
+   * `limit_reached`: „Ihr Tageslimit ist erreicht" wäre hier eine Falschauskunft, und der Nutzer
+   * suchte den Fehler bei sich statt es gleich noch einmal zu versuchen.
+   */
+  | { status: 'limit_unavailable' }
 
 export interface RunProjectChatTurnDeps {
   ports: ProjectChatPorts
@@ -95,6 +108,33 @@ export async function runProjectChatTurn(
    */
   const project = await ports.loadProject(projectId)
   if (project === null) return { status: 'not_found' }
+
+  /*
+   * ⚠ DIE KOSTENBREMSE STEHT VOR DEM ERSTEN MODELLAUFRUF — und vor allem, was ihn vorbereitet.
+   *
+   * Delta §6.3. Sie sitzt bewusst an DIESER Stelle und nicht in der Schleife:
+   *
+   *   (1) NACH der Eigentumsfrage. Wer ein fremdes Projekt anspricht, soll `not_found` bekommen und
+   *       nicht erfahren, ob dessen Konto sein Kontingent ausgeschöpft hat — das wäre eine Auskunft
+   *       über einen fremden Betrieb.
+   *   (2) VOR `appendMessage`. Das ist die eigentliche Entscheidung: eine abgelehnte Anfrage darf
+   *       KEINE Zeile hinterlassen. Gespeichert zählte sie im nächsten Aufruf mit, und jeder
+   *       Wiederholungsversuch schöbe die Sperre weiter nach hinten — das Limit zöge sich selbst zu,
+   *       obwohl der abgelehnte Turn nachweislich nichts gekostet hat.
+   *   (3) VOR den drei parallelen Ladevorgängen. Sie bereiten ausschliesslich den Modellaufruf vor;
+   *       im abgelehnten Fall wären es drei Datenbankfahrten für ein Ergebnis, das niemand ansieht.
+   *
+   * Sie läuft EINMAL je Turn, nicht je Schleifendurchlauf. Gezählt werden Nutzer-Nachrichten, und
+   * innerhalb eines Turns kommt genau eine dazu; eine Prüfung je Werkzeug-Runde kostete eine
+   * Datenbankfahrt für dieselbe Auskunft (dieselbe Überlegung wie beim Zustandsblock und bei der
+   * Prompt-Erweiterung).
+   */
+  const rateLimit = await ports.checkRateLimit(projectId)
+  if (rateLimit.status === 'not_found') return { status: 'not_found' }
+  if (rateLimit.status === 'limit_reached') {
+    return { status: 'limit_reached', used: rateLimit.used, max: rateLimit.max }
+  }
+  if (rateLimit.status !== 'ok') return { status: 'limit_unavailable' }
 
   const tools = buildChatTools(ports.extractors)
 
