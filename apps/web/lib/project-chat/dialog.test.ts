@@ -1,0 +1,312 @@
+import { describe, expect, it, vi } from 'vitest'
+import { emptyInvoiceExtraction } from 'shared'
+
+// `server-only` wirft beim Import ausserhalb einer React-Server-Umgebung. Ersetzt wird nur dieser
+// Wächter — er schützt vor einem Import aus einer Client-Komponente, und das ist eine Eigenschaft
+// des BUILDS, keine des Moduls (Muster lib/project-documents/documents.test.ts). Er hängt hier an
+// `ai-client.ts`, aus dem die Schleife ihre Obergrenze zieht.
+vi.mock('server-only', () => ({}))
+
+import { runProjectChatTurn } from './agent'
+import { MAX_TOOL_CALLS_PER_TURN } from './ai-client'
+import { readDraftProvenance } from './draft'
+import {
+  assistantSays,
+  createMemoryPorts,
+  fakePdf,
+  scriptedModel,
+  toolUse,
+  type MemoryPorts,
+} from './fixtures'
+import { PROJECT_CHAT_SYSTEM_PROMPT } from './system-prompt'
+
+/**
+ * B24 — DER MEHRFACH-TURN-DIALOG, END-TO-END GEGEN EINEN SPEICHER-BESTAND.
+ *
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * ⚠ WAS DIESER TEST BEWEIST — UND WAS AUSDRÜCKLICH NICHT
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * Das Modell läuft hier nach DREHBUCH. Geprüft wird deshalb die MECHANIK: dass ein Widerspruch
+ * zwischen zwei Rechnungen überhaupt entsteht und benannt wird, dass beide Wege dem Modell
+ * angeboten und in der Anweisung verlangt werden, dass eine Annahme die Rückfrage OFFEN lässt, und
+ * dass der Verlauf in einer Form gespeichert wird, die sich wieder einspielen lässt.
+ *
+ * NICHT geprüft — und mit einem Drehbuch auch nicht prüfbar — ist, ob das Modell die beiden Wege
+ * tatsächlich anbietet, statt selbst zu entscheiden. Das ist eine Aussage über sein Verhalten, und
+ * eine Behauptung darüber wäre hier zirkulär: der Antworttext stammt aus diesem Test. Sie gehört in
+ * den Abstimmungs-Schritt, gemessen an einem echten Dialog gegen die echte API.
+ *
+ * Was dieser Test dagegen sehr wohl misst, ist die Voraussetzung dafür: der Widerspruch wird dem
+ * Modell mit der ausdrücklichen Weisung vorgelegt, ihn nicht allein zu entscheiden — und diese
+ * Weisung entsteht im Ausführer, nicht im Drehbuch.
+ */
+
+const PROJECT = '11111111-2222-4333-8444-555555555555'
+
+function invoiceWith(energyPriceCtPerKwh: number) {
+  const base = emptyInvoiceExtraction()
+  return { ...base, rates: { ...base.rates, energyPriceCtPerKwh } }
+}
+
+/** Zwei Rechnungen desselben Anschlusses, die sich beim Arbeitspreis WIDERSPRECHEN. */
+function portsWithTwoInvoices(): MemoryPorts {
+  let call = 0
+  return createMemoryPorts({
+    projectId: PROJECT,
+    documents: [
+      { id: 'doc-a', original_filename: 'rechnung-2024.pdf', content_type: 'application/pdf' },
+      { id: 'doc-b', original_filename: 'rechnung-2025.pdf', content_type: 'application/pdf' },
+    ],
+    documentBytes: { 'doc-a': fakePdf('rechnung-2024.pdf'), 'doc-b': fakePdf('rechnung-2025.pdf') },
+    extractors: {
+      extractInvoiceData: async () => {
+        call += 1
+        return { ok: true as const, extraction: invoiceWith(call === 1 ? 24.4 : 26.1) }
+      },
+    },
+  })
+}
+
+describe('Mehrfach-Turn-Dialog: Rechnung, Widerspruch, Annahme', () => {
+  it('führt den vollen Ablauf und hinterlässt (open, assumed)', async () => {
+    const ports = portsWithTwoInvoices()
+
+    // ── TURN 1: Segment setzen und beide Rechnungen auslesen ────────────────────────────────────
+    const turn1 = scriptedModel([
+      [
+        assistantSays('Alles klar, ich sehe mir die beiden Rechnungen an.'),
+        toolUse('tu_seg', 'set_segment', { segment: 'betrieb' }),
+        toolUse('tu_inv', 'extract_invoice', { document_ids: ['doc-a', 'doc-b'] }),
+      ],
+      [assistantSays('Die beiden Rechnungen nennen verschiedene Arbeitspreise. Wie möchten Sie vorgehen?')],
+    ])
+
+    const result1 = await runProjectChatTurn(
+      PROJECT,
+      'Wir sind eine Bäckerei. Ich habe zwei Rechnungen hochgeladen.',
+      { ports, callModel: turn1.call },
+    )
+
+    expect(result1).toMatchObject({ status: 'ok', toolCalls: 2 })
+    expect(ports.project.segment).toBe('betrieb')
+
+    // ⚠ Der Widerspruch entsteht wirklich und wird BENANNT — der Ausführer schreibt das, nicht das
+    // Drehbuch. Das ist die Voraussetzung dafür, dass das Modell überhaupt beide Wege anbieten kann.
+    const invoiceResult = ports.messages
+      .filter((row) => row.role === 'tool_result')
+      .flatMap((row) => row.content)
+      .map((block) => JSON.parse(String((block as { content: string }).content)) as Record<string, unknown>)
+      .find((body) => Array.isArray(body.conflicts) && body.conflicts.length > 0)
+
+    expect(invoiceResult).toBeDefined()
+    expect(invoiceResult?.conflicts).toEqual([
+      { field: 'energyPriceCtPerKwh', label: 'Arbeitspreis' },
+    ])
+    expect(String(invoiceResult?.hinweis)).toMatch(/beiden Wege/i)
+
+    // ── TURN 2: Der Kunde wählt die Annahme ─────────────────────────────────────────────────────
+    const turn2 = scriptedModel([
+      [
+        toolUse('tu_q', 'flag_open_question', {
+          question: 'Welcher Arbeitspreis gilt: 24,4 oder 26,1 ct/kWh?',
+          field_key: 'energyPriceCtPerKwh',
+          resolution_kind: 'assumed',
+          assumption_note: 'Die jüngere Rechnung (2025) sollte den heute gültigen Satz tragen.',
+        }),
+        toolUse('tu_set', 'set_draft_field', {
+          field: 'energyPriceCtPerKwh',
+          value: 26.1,
+          source: 'assumed',
+          note: 'Aus der jüngeren Rechnung; Martin prüft das noch.',
+        }),
+      ],
+      [assistantSays('Ich rechne vorerst mit 26,1 ct/kWh. Die Frage liegt weiterhin bei Martin.')],
+    ])
+
+    const result2 = await runProjectChatTurn(
+      PROJECT,
+      'Nimm bitte eine Annahme, ich will nicht warten.',
+      { ports, callModel: turn2.call },
+    )
+
+    expect(result2).toMatchObject({ status: 'ok', toolCalls: 2 })
+
+    // ⚠ DER KERN VON DELTA §3.3: die Frage ist OFFEN und trägt trotzdem eine Annahme.
+    expect(ports.openQuestions).toHaveLength(1)
+    expect(ports.openQuestions[0]).toMatchObject({
+      status: 'open',
+      resolution_kind: 'assumed',
+      field_key: 'energyPriceCtPerKwh',
+      assumption_note: 'Die jüngere Rechnung (2025) sollte den heute gültigen Satz tragen.',
+    })
+
+    // Und die Annahme steht als solche gekennzeichnet im Entwurf (§3.2).
+    expect(ports.project.draft.energyPriceCtPerKwh).toBe(26.1)
+    expect(readDraftProvenance(ports.project.draft).energyPriceCtPerKwh?.source).toBe('assumed')
+
+    // ── TURN 3: Der Zustand reist mit ───────────────────────────────────────────────────────────
+    const turn3 = scriptedModel([[assistantSays('Weiter geht es mit dem Leistungspreis.')]])
+    await runProjectChatTurn(PROJECT, 'Und weiter?', { ports, callModel: turn3.call })
+
+    const state = turn3.seen[0]?.system[1] ?? ''
+    // Der offene Punkt steht im Zustandsblock, und zwar im Klartext als „offen, mit Annahme".
+    expect(state).toMatch(/offen bei Martin, ihr rechnet mit einer Annahme weiter/)
+    expect(state).toMatch(/energyPriceCtPerKwh = 26\.1/)
+    expect(state).toMatch(/\[assumed/)
+    expect(state).toMatch(/Segment: betrieb/)
+    // Die hochgeladenen Dokumente stehen mit ihrer Kennung darin — sonst könnte das Modell sie
+    // gar nicht benennen.
+    expect(state).toMatch(/doc-a · rechnung-2024\.pdf/)
+
+    // ── Der Verlauf ist in einer wieder einspielbaren Form gespeichert ─────────────────────────
+    expect(ports.messages.map((row) => row.role)).toEqual([
+      'user', 'assistant', 'tool_call', 'tool_result', 'assistant',
+      'user', 'tool_call', 'tool_result', 'assistant',
+      'user', 'assistant',
+    ])
+  })
+
+  it('⚠ die Anweisung verlangt beide Wege und die Herkunfts-Kennzeichnung', () => {
+    /*
+     * Ob das MODELL sich daran hält, kann dieser Test nicht sagen (s. Kopf). Dass die vier
+     * Verhaltensanforderungen des Deltas überhaupt in der Anweisung STEHEN, sehr wohl — und ohne
+     * sie wäre jede Abstimmung am falschen Text.
+     */
+    expect(PROJECT_CHAT_SYSTEM_PROMPT).toMatch(/Führe ein Gespräch, kein Formular/)   // §3.1
+    expect(PROJECT_CHAT_SYSTEM_PROMPT).toMatch(/Im Zweifel "assumed"/)                // §3.2
+    expect(PROJECT_CHAT_SYSTEM_PROMPT).toMatch(/BEIDE Wege vor und lass ihn wählen/)  // §3.3
+    expect(PROJECT_CHAT_SYSTEM_PROMPT).toMatch(/Entscheide das NIE selbst/)           // §3.3
+    expect(PROJECT_CHAT_SYSTEM_PROMPT).toMatch(/Kläre früh, ob du mit einem Privathaushalt/) // §3.4
+    expect(PROJECT_CHAT_SYSTEM_PROMPT).toMatch(/für die dieses System nicht gebaut ist/)     // §3.5
+  })
+})
+
+describe('Deadlock-Schutz', () => {
+  it('⚠ bricht bei einer endlosen Werkzeug-Schleife SAUBER ab', async () => {
+    const ports = createMemoryPorts({ projectId: PROJECT })
+
+    // Ein Modell, das immer dasselbe Werkzeug ruft und nie zu einer Antwort kommt.
+    let calls = 0
+    const endless = async () => {
+      calls += 1
+      return {
+        ok: true as const,
+        content: [toolUse(`tu_${calls}`, 'check_draft_completeness', {})],
+      }
+    }
+
+    const result = await runProjectChatTurn(PROJECT, 'Los geht es.', {
+      ports,
+      callModel: endless,
+    })
+
+    expect(result).toEqual({ status: 'tool_limit', toolCalls: MAX_TOOL_CALLS_PER_TURN })
+    expect(calls).toBe(MAX_TOOL_CALLS_PER_TURN)
+
+    // ⚠ Der Verlauf ist trotz Abbruch GÜLTIG: zu jedem Aufruf gibt es ein Ergebnis. Sonst wäre das
+    // Projekt dauerhaft unbenutzbar — es gibt kein update und kein delete auf dieser Ablage.
+    const callRows = ports.messages.filter((row) => row.role === 'tool_call').length
+    const resultRows = ports.messages.filter((row) => row.role === 'tool_result').length
+    expect(callRows).toBe(MAX_TOOL_CALLS_PER_TURN)
+    expect(resultRows).toBe(MAX_TOOL_CALLS_PER_TURN)
+
+    // Und der nächste Turn läuft normal weiter.
+    const next = scriptedModel([[assistantSays('Entschuldigung, ich fange neu an.')]])
+    const after = await runProjectChatTurn(PROJECT, 'Bitte von vorn.', {
+      ports,
+      callModel: next.call,
+    })
+    expect(after.status).toBe('ok')
+  })
+})
+
+describe('Eigentum', () => {
+  it('⚠ ein fremdes Projekt löst KEINEN Modellaufruf aus', async () => {
+    const ports = createMemoryPorts({ projectId: PROJECT })
+    let modelCalls = 0
+    const model = async () => {
+      modelCalls += 1
+      return { ok: true as const, content: [assistantSays('sollte nie passieren')] }
+    }
+
+    const result = await runProjectChatTurn('99999999-8888-4777-8666-555555555555', 'Hallo?', {
+      ports,
+      callModel: model,
+    })
+
+    expect(result).toEqual({ status: 'not_found' })
+    // Kein Aufruf, keine Kosten — und keine Zeile im fremden Verlauf.
+    expect(modelCalls).toBe(0)
+    expect(ports.messages).toHaveLength(0)
+    expect(ports.calls.appendMessage).toBeUndefined()
+  })
+
+  it('leere Nachrichten werden abgewiesen, bevor irgendetwas geschieht', async () => {
+    const ports = createMemoryPorts({ projectId: PROJECT })
+    const result = await runProjectChatTurn(PROJECT, '   ', {
+      ports,
+      callModel: async () => {
+        throw new Error('darf nicht gerufen werden')
+      },
+    })
+    expect(result).toEqual({ status: 'empty_message' })
+    expect(ports.calls.loadProject).toBeUndefined()
+  })
+})
+
+describe('Fehlerpfade der Schleife', () => {
+  it('meldet einen fehlenden KI-Zugang als eigenen Zustand', async () => {
+    const ports = createMemoryPorts({ projectId: PROJECT })
+    const result = await runProjectChatTurn(PROJECT, 'Hallo', {
+      ports,
+      callModel: async () => ({ ok: false, reason: 'not_configured' }),
+    })
+    expect(result).toEqual({ status: 'not_configured' })
+  })
+
+  it('⚠ bricht ab, wenn eine Zeile nicht gespeichert werden kann — statt weiterzulaufen', async () => {
+    const ports = createMemoryPorts({
+      projectId: PROJECT,
+      failWrapper: { name: 'appendMessage', status: 'empty_content' },
+    })
+    let modelCalls = 0
+    const result = await runProjectChatTurn(PROJECT, 'Hallo', {
+      ports,
+      callModel: async () => {
+        modelCalls += 1
+        return { ok: true, content: [assistantSays('...')] }
+      },
+    })
+    expect(result).toEqual({ status: 'storage_error', step: 'user:empty_content' })
+    // Der Abbruch kommt VOR dem Modellaufruf: eine Nachricht, die nicht im Verlauf steht, darf
+    // auch nicht beantwortet werden.
+    expect(modelCalls).toBe(0)
+  })
+
+  it('⚠ eine abgelehnte Zusage aus einem Port wird zum Werkzeug-Ergebnis, nicht zum Absturz', async () => {
+    const ports = createMemoryPorts({
+      projectId: PROJECT,
+      documentBytes: { 'doc-a': fakePdf() },
+      extractors: {
+        extractInvoiceData: async () => {
+          throw new Error('Netz weg')
+        },
+      },
+    })
+
+    const model = scriptedModel([
+      [toolUse('tu_1', 'extract_invoice', { document_ids: ['doc-a'] })],
+      [assistantSays('Das hat leider nicht geklappt.')],
+    ])
+
+    const result = await runProjectChatTurn(PROJECT, 'Lies bitte die Rechnung.', {
+      ports,
+      callModel: model.call,
+    })
+
+    expect(result.status).toBe('ok')
+    // Die Invariante hält: zu dem einen Aufruf gibt es ein Ergebnis, und es ist als Fehler markiert.
+    const resultRow = ports.messages.find((row) => row.role === 'tool_result')
+    expect(resultRow?.content[0]).toMatchObject({ type: 'tool_result', is_error: true })
+  })
+})

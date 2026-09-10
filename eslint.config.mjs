@@ -91,6 +91,16 @@ export default tseslint.config(
                 'ihren Zugang nicht selbst bauen können). Der Schlüssel ist abrechenbar und hat ' +
                 'kein Kontingent, das ihn begrenzte.',
             },
+            {
+              name: '@/lib/project-chat/ai-client',
+              message:
+                'Der KI-Client des Projekt-Chats ist ausschließlich für den Modellaufruf der ' +
+                'Chat-Schleife gedacht: apps/web/lib/project-chat/model.ts — genau diese eine ' +
+                'Datei, nicht das Verzeichnis (daneben liegen die Schleife und der ' +
+                'Werkzeug-Ausführer, und die sollen sich ihren Zugang nicht selbst bauen können). ' +
+                'Der Schlüssel ist abrechenbar und hat kein Kontingent; ein Chat-Turn löst bis zu ' +
+                'neun Aufrufe aus.',
+            },
           ],
         },
       ],
@@ -201,6 +211,16 @@ export default tseslint.config(
                 'ihren Zugang nicht selbst bauen können). Der Schlüssel ist abrechenbar und hat ' +
                 'kein Kontingent, das ihn begrenzte.',
             },
+            {
+              name: '@/lib/project-chat/ai-client',
+              message:
+                'Der KI-Client des Projekt-Chats ist ausschließlich für den Modellaufruf der ' +
+                'Chat-Schleife gedacht: apps/web/lib/project-chat/model.ts — genau diese eine ' +
+                'Datei, nicht das Verzeichnis (daneben liegen die Schleife und der ' +
+                'Werkzeug-Ausführer, und die sollen sich ihren Zugang nicht selbst bauen können). ' +
+                'Der Schlüssel ist abrechenbar und hat kein Kontingent; ein Chat-Turn löst bis zu ' +
+                'neun Aufrufe aus.',
+            },
           ],
         },
       ],
@@ -231,6 +251,57 @@ export default tseslint.config(
                 'Der Tarifblatt-Scan liest nur — er legt keinen Tarifstand an. Der Schreibweg ist ' +
                 'lib/admin/grid-tariffs-actions.ts, und er beginnt bei einem Menschen, der die ' +
                 'gelesenen Werte bestätigt hat.',
+            },
+            {
+              name: '@/lib/project-chat/ai-client',
+              message:
+                'Das ist der KI-Client des Projekt-Chats, nicht der des Tarifblatt-Scans. Jede ' +
+                'Anbindung hat ihren eigenen — die Allowlists tauschen die Regel, sie schalten ' +
+                'sie nicht ab.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    /*
+     * B24: die Allowlist des Chat-KI-Clients — GENAU EINE Datei, nicht das Verzeichnis.
+     * `apps/web/lib/project-chat/model.ts` macht den einen Modellaufruf und gibt den Client nie
+     * zurück, nur Werte; daneben liegen die Schleife (`agent.ts`) und der Werkzeug-Ausführer
+     * (`executor.ts`), und die sollen sich ihren Zugang nicht selbst bauen können. Dieselbe engste
+     * Form wie bei `lib/admin/tariff-scan/extract.ts` und `apps/website/lib/invoice-scan/extract.ts`.
+     *
+     * ⚠ Der service_role-Client bleibt hier gesperrt, und das ist der Kern des Aufbaus: der Chat
+     * läuft AUSSCHLIESSLICH als das angemeldete Konto, weil der gesamte Zugriffsschutz der zwölf
+     * Wrapper an `auth.uid()` hängt (`platform.project_accessible`). Könnte diese Datei RLS
+     * umgehen, wäre die Eigentumsprüfung jedes Projekts umgehbar — der eine Fehler, aus dem ein
+     * Leck über Kundengrenzen würde. Die Bytes der Dokumente laufen weiterhin über
+     * `lib/project-documents/documents.ts`, das die Datenbank VORHER zustimmen lässt.
+     *
+     * Der Tarifblatt-Scan-Client bleibt ebenfalls gesperrt: er trägt einen anderen System-Prompt
+     * für eine andere Aufgabe, und zwei Anbindungen, die sich gegenseitig bedienen, wären der
+     * Anfang genau der unkontrollierten Fläche, die die sechs bestehenden Module vermeiden.
+     */
+    files: ['apps/web/lib/project-chat/model.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: '@/lib/supabase/service-role',
+              message:
+                'Der Projekt-Chat läuft ausschließlich als das angemeldete Konto — der ' +
+                'Zugriffsschutz aller Projekt-Wrapper hängt an auth.uid(). Für Bytes aus dem ' +
+                'Bucket gibt es lib/project-documents/documents.ts, das die Datenbank vorher ' +
+                'zustimmen lässt.',
+            },
+            {
+              name: '@/lib/admin/tariff-scan/ai-client',
+              message:
+                'Das ist der KI-Client des Tarifblatt-Scans, nicht der des Projekt-Chats. Jede ' +
+                'Anbindung hat ihren eigenen.',
             },
           ],
         },
