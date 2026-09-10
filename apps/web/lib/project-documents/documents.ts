@@ -21,17 +21,26 @@
  * Pfad NUR, wenn das Projekt dem Aufrufer gehört oder er Admin ist), danach die Bytes.
  *
  * ── ZWEI KONSUMENTEN, EIN MODUL ────────────────────────────────────────────────────────────────
- * Der Kunde lädt im Chat hoch (`apps/website`, künftiger Schritt); Martin liest im Admin-Bereich
+ * Der Kunde lädt im Chat hoch (`apps/web`, Route `/kalkulator/projekte/[id]` — die Vermutung im
+ * zweiten Bauschritt, das geschehe in `apps/website`, war falsch: der Chat MUSS hier liegen, weil
+ * der Zugriffsschutz aller Projekt-Wrapper an `auth.uid()` hängt und eine angemeldete Sitzung nur
+ * diese App hat); Martin liest im Admin-Bereich
  * mit, wenn er eine Rückfrage aus `admin_list_open_questions` beantworten soll — ohne die Rechnung,
  * die der Kunde hochgeladen hat, kann er das nicht. Beide Wege stellen dieselbe Frage an dieselben
  * Wrapper; die Verzweigung „eigenes Projekt oder Adminrolle" steckt in `platform.project_accessible`
  * und nicht hier.
  *
- * ── ES GIBT HIER (NOCH) KEIN `'use server'` ────────────────────────────────────────────────────
- * Bewusst, und aus derselben Regel, die TEIL 9 der Migration für die Datenbank-Wrapper anwendet: ein
- * Endpunkt ohne Aufrufer ist Angriffsfläche ohne Nutzen. Eine Server Action ist über ihre Kennung
- * aufrufbar, auch ohne dass eine Oberfläche sie benutzt. Dieses Modul ist die Funktion, die die
- * Action des nächsten Schritts in einer Zeile aufruft — und bis dahin ohne HTTP-Rand.
+ * ── ⚠ DER HTTP-RAND LIEGT NEBENAN, NICHT HIER ─────────────────────────────────────────────────
+ * Seit dem achten Bauschritt gibt es ihn: `lib/project-documents/actions.ts` trägt `'use server'`
+ * und ruft `uploadProjectDocument` in einer Zeile auf. Diese Datei behält bewusst KEINE Direktive.
+ *
+ * Der Grund ist nicht Gewohnheit, sondern eine gemessene Falle: Eine `'use server'`-Datei darf
+ * ausschliesslich async Funktionen exportieren — ein daneben exportierter Typ oder Wert bricht erst
+ * zur LAUFZEIT (HTTP 500), während Build, Typecheck und Lint grün bleiben (in B18-4 real
+ * passiert). Dieses Modul exportiert `UploadResult`/`ReadResult`. Und `readProjectDocument` hat mit
+ * `supabase-ports.ts` einen zweiten Konsumenten, der gar keinen Endpunkt braucht: Die Direktive
+ * hier hätte einen für den LESEPFAD miterzeugt, den niemand anfordert — genau die Angriffsfläche
+ * ohne Nutzen, die TEIL 9 der Migration für die Datenbank-Wrapper ausschliesst.
  */
 import 'server-only'
 

@@ -1683,7 +1683,8 @@
       "calculatorOpen": "Kalkulator öffnen",
       "calculatorInactive": "Nicht freigeschaltet",
       "calculatorInactiveHint": "Den Zugang vergeben wir auf Anfrage. Mit einem Gutscheincode schalten Sie ihn unten selbst frei.",
-      "calculatorRequest": "Zugang anfragen"
+      "calculatorRequest": "Zugang anfragen",
+      "calculatorProjects": "Ihre Projekte & Chat"
     },
     "redeem": {
       "title": "Gutscheincode einlösen",
@@ -2371,5 +2372,79 @@
     ],
     "lastUpdatedLabel": "Stand",
     "lastUpdated": "22. Juli 2026"
+  },
+  "Projekte": {
+    "//": "B24 — ARBEITSSTAND. Die Oberflaeche des kundenseitigen Projektbereichs (Chat mit dem KI-Assistenten). Endgueltige Formulierungen von Andreas/Martin. BINDENDE LEITPLANKEN: keine Zusage ueber Antwortzeiten oder Bearbeitungsdauer; keine Ersparnis-, Preis- oder Ergebniszusage; kein Versprechen, dass jede Frage beantwortet werden kann (der Assistent legt bei Fachfragen bewusst beide Wege vor und fragt nach, Delta 3.3). Der Hinweis, dass hochgeladene Dokumente ausgelesen werden, darf nicht entfallen.",
+    "list": {
+      "metaTitle": "Ihre Projekte",
+      "eyebrow": "Peak-Shaving Kalkulator",
+      "title": "Ihre Projekte",
+      "lead": "Jedes Projekt ist ein eigenes Gespräch mit unserem Assistenten: Sie beschreiben Ihren Betrieb, laden Ihre Unterlagen hoch, und wir sammeln daraus die Angaben für Ihre Wirtschaftlichkeitsrechnung.",
+      "empty": "Sie haben noch kein Projekt.",
+      "emptyHint": "Legen Sie eines an — Sie brauchen dafür nichts vorzubereiten. Alles Weitere klären wir im Gespräch.",
+      "loadError": "Ihre Projekte lassen sich gerade nicht abrufen. Bitte laden Sie die Seite in einem Moment neu.",
+      "open": "Projekt öffnen",
+      "createdLabel": "Angelegt am",
+      "updatedLabel": "Zuletzt geändert am",
+      "backToAccount": "Zurück zum Konto"
+    },
+    "new": {
+      "title": "Neues Projekt starten",
+      "lead": "Geben Sie dem Projekt einen Namen, unter dem Sie es wiederfinden — zum Beispiel den Standort oder den Betrieb.",
+      "label": "Bezeichnung",
+      "placeholder": "z. B. Bäckerei Gruber, Filiale Korneuburg",
+      "submit": "Projekt anlegen",
+      "submitting": "Wird angelegt …",
+      "errors": {
+        "labelRequired": "Bitte geben Sie eine Bezeichnung ein.",
+        "labelTooLong": "Bitte kürzer fassen — höchstens 120 Zeichen.",
+        "notSignedIn": "Ihre Sitzung ist abgelaufen. Bitte melden Sie sich erneut an.",
+        "generic": "Das Projekt konnte gerade nicht angelegt werden. Bitte versuchen Sie es noch einmal."
+      }
+    },
+    "chat": {
+      "metaTitle": "Projekt",
+      "back": "Alle Projekte",
+      "intro": "Beschreiben Sie Ihren Betrieb in eigenen Worten. Was Sie schon an Unterlagen haben — Stromrechnung, Lastgang, PV-Auslegung —, können Sie hier hochladen; wir lesen die Angaben daraus aus.",
+      "emptyTranscript": "Noch keine Nachrichten. Schreiben Sie einfach los.",
+      "you": "Sie",
+      "assistant": "COOLiN Assistent",
+      "inputLabel": "Ihre Nachricht",
+      "placeholder": "Nachricht schreiben …",
+      "send": "Senden",
+      "sending": "Antwort wird erstellt …",
+      "sendingHint": "Das kann einen Moment dauern — der Assistent liest dabei auch Ihre Unterlagen.",
+      "elapsed": "{seconds} s",
+      "hint": "Der Assistent kennzeichnet Annahmen als Annahmen. Bei Fachfragen legt er Ihnen beide Wege vor, statt selbst zu entscheiden."
+    },
+    "upload": {
+      "title": "Unterlagen",
+      "lead": "Beliebige Dateien — Stromrechnung, Lastgang, Angebot, Planungsunterlage.",
+      "button": "Datei hochladen",
+      "uploading": "Wird hochgeladen …",
+      "attachedHint": "Wird mit Ihrer nächsten Nachricht übergeben.",
+      "empty": "Noch keine Unterlagen hochgeladen.",
+      "privacy": "Ihre Unterlagen werden zum Auslesen an Anthropic übertragen und dort nicht gespeichert. Sie bleiben in Ihrem Projekt hinterlegt.",
+      "errors": {
+        "too_large": "Die Datei ist zu groß (höchstens 20 MB).",
+        "invalid_file": "Diese Datei lässt sich nicht hochladen. Bitte prüfen Sie sie und versuchen Sie es erneut.",
+        "not_found": "Dieses Projekt gibt es nicht mehr.",
+        "storage_failed": "Der Upload ist fehlgeschlagen. Bitte versuchen Sie es noch einmal.",
+        "record_failed": "Der Upload ist fehlgeschlagen. Bitte versuchen Sie es noch einmal.",
+        "network": "Der Upload ist fehlgeschlagen. Bitte versuchen Sie es noch einmal."
+      }
+    },
+    "status": {
+      "limit_reached": "Tageslimit erreicht. Sie haben in den letzten 24 Stunden {used} von {max} Nachrichten verbraucht. Morgen geht es weiter — oder melden Sie sich bei uns, wenn Sie mehr brauchen.",
+      "limit_unavailable": "Ihre Nachricht konnte gerade nicht angenommen werden. Bitte versuchen Sie es gleich noch einmal.",
+      "not_found": "Dieses Projekt gibt es nicht mehr.",
+      "not_configured": "Der Assistent ist gerade nicht verfügbar. Bitte melden Sie sich bei uns.",
+      "model_error": "Der Assistent hat nicht geantwortet. Bitte versuchen Sie es noch einmal.",
+      "storage_error": "Ihre Nachricht konnte nicht gespeichert werden. Bitte versuchen Sie es noch einmal.",
+      "empty_message": "Bitte schreiben Sie etwas, bevor Sie senden.",
+      "tool_limit": "Der Assistent hat für diesen Schritt sehr viel nachgesehen und ist noch nicht fertig. Schreiben Sie ihm kurz, woran er weitermachen soll.",
+      "invalid_attachments": "Ihre Unterlagen konnten nicht übergeben werden. Bitte laden Sie die Seite neu.",
+      "network": "Verbindung unterbrochen. Bitte versuchen Sie es noch einmal."
+    }
   }
 }

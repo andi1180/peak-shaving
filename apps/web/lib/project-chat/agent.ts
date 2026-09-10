@@ -3,7 +3,7 @@ import type Anthropic from '@anthropic-ai/sdk'
 import { MAX_TOOL_CALLS_PER_TURN } from './ai-client'
 import { executeChatTool } from './executor'
 import { assistantText, splitAssistantTurn, toApiMessages } from './history'
-import type { ProjectChatPorts, StoredChatMessage } from './ports'
+import type { ProjectChatPorts, ProjectDocumentRow, StoredChatMessage } from './ports'
 import { buildProjectStateBlock, composeSystemPrompt } from './system-prompt'
 import { buildChatTools } from './tools'
 
@@ -88,10 +88,70 @@ export interface RunProjectChatTurnDeps {
   now?: () => Date
 }
 
+/**
+ * Der Anhang-Vermerk: was der Kunde in GENAU DIESEM Turn hochgeladen hat.
+ *
+ * ── WARUM ES IHN BRAUCHT, OBWOHL DER ZUSTANDSBLOCK ALLE DOKUMENTE LISTET ──────────────────────
+ * `buildProjectStateBlock` nennt jedes Dokument des Projekts mit Kennung und Namen — das Modell
+ * WEISS also, dass die Datei da ist. Was es daraus nicht erfährt, ist das Entscheidende: welche
+ * davon gerade eben dazugekommen ist. Nach der dritten Rechnung stünden dort drei ununterscheidbare
+ * Zeilen, und der naheliegende Fehler wäre, die alte noch einmal auszulesen statt der neuen. Der
+ * Vermerk steht deshalb im Turn selbst, an der Stelle, an der der Kunde „hier ist sie" sagt.
+ *
+ * ── ⚠ DIE KENNUNGEN KOMMEN AUS DER DATENBANK, NICHT AUS DEM BROWSER ───────────────────────────
+ * Gemeldet wird ausschliesslich, was `ports.listDocuments(projectId)` für DIESES Projekt liefert —
+ * die Liste ist ohnehin schon geladen, es entsteht also keine zweite Datenbankfahrt. Eine
+ * übergebene Kennung, die dort nicht vorkommt, verschwindet still: sie gehört zu einem fremden
+ * Projekt oder es gibt sie nicht, und in beiden Fällen wäre der Vermerk eine Behauptung über eine
+ * Datei, die dieses Gespräch nichts angeht. Der Dateiname kommt aus derselben Quelle und nie aus
+ * dem, was der Client geschickt hat — sonst stünde im dauerhaft gespeicherten Verlauf ein Name,
+ * den sich jemand ausgedacht hat.
+ *
+ * Das Format ist bewusst dasselbe wie im Zustandsblock (`id · name (typ)`): das Modell liest
+ * dieselbe Zeilenform an zwei Stellen und muss keine zweite Schreibweise verstehen.
+ */
+function buildAttachmentNote(
+  attachedIds: readonly string[],
+  documents: readonly ProjectDocumentRow[],
+): string | null {
+  if (attachedIds.length === 0) return null
+
+  const byId = new Map(documents.map((doc) => [doc.id, doc]))
+  const seen = new Set<string>()
+  const lines: string[] = []
+
+  for (const id of attachedIds) {
+    if (seen.has(id)) continue
+    seen.add(id)
+    const doc = byId.get(id)
+    if (doc === undefined) continue
+    lines.push(`  - ${doc.id} · ${doc.original_filename} (${doc.content_type})`)
+  }
+
+  if (lines.length === 0) return null
+
+  return [
+    '[Neu hochgeladen in diesem Turn]',
+    ...lines,
+    '',
+    'Diese Dateien sind gerade eben dazugekommen. Ältere Dokumente des Projekts stehen unverändert',
+    'im Zustandsblock — lies sie nicht erneut aus, nur weil hier etwas Neues steht.',
+  ].join('\n')
+}
+
+/**
+ * @param attachedDocumentIds Kennungen der Dokumente, die der Kunde zu DIESEM Turn hochgeladen hat.
+ *
+ * ⚠ Der Parameter steht bewusst NACH `deps` und nicht in ihm: `deps` trägt die Aussenwelt (Ports,
+ * Modellaufruf, Uhr), nicht den Inhalt eines Turns. Ihn in `deps` zu legen wäre die kleinere
+ * Signaturänderung gewesen und hätte die zwei Dinge vermischt, die diese Funktion sauber trennt.
+ * Aufrufe mit drei Argumenten bleiben gültig.
+ */
 export async function runProjectChatTurn(
   projectId: string,
   userMessage: string,
   deps: RunProjectChatTurnDeps,
+  attachedDocumentIds: readonly string[] = [],
 ): Promise<ProjectChatTurnResult> {
   const { ports, callModel } = deps
   const now = deps.now ?? (() => new Date())
@@ -187,7 +247,24 @@ export async function runProjectChatTurn(
 
   const history: StoredChatMessage[] = [...(await ports.loadMessages(projectId))]
 
-  const userRow: StoredChatMessage = { role: 'user', content: [{ type: 'text', text }] }
+  /*
+   * ⚠ DER VERTRAG, AUF DEN SICH DIE OBERFLÄCHE VERLÄSST: Block 0 sind die Worte des Menschen,
+   * jeder weitere Block ist maschinell angehängter Kontext dieses Turns. Nutzer-Zeilen entstehen
+   * NUR hier — das ist die einzige Stelle, an der er hergestellt wird, und `transcript.ts` zeigt
+   * deshalb ausschliesslich Block 0. Wer hier je einen zweiten menschlichen Block ergänzt, muss
+   * jene Datei mit ändern; ihr Test hält den Vertrag fest.
+   */
+  const attachmentNote = buildAttachmentNote(attachedDocumentIds, documents)
+  const userRow: StoredChatMessage = {
+    role: 'user',
+    content:
+      attachmentNote === null
+        ? [{ type: 'text', text }]
+        : [
+            { type: 'text', text },
+            { type: 'text', text: attachmentNote },
+          ],
+  }
   const appendedUser = await ports.appendMessage(projectId, 'user', userRow.content)
   if (appendedUser.status !== 'ok') {
     return { status: 'storage_error', step: `user:${appendedUser.status}` }

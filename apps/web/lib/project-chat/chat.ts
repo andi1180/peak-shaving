@@ -9,6 +9,19 @@ import {
   extractPvDesign,
 } from 'extractors'
 
+/*
+ * ⚠ `PROJECT_ID_PATTERN` stand bis zum achten Bauschritt als eigene Konstante `UUID` in dieser
+ * Datei. Es liegt jetzt in `lib/kalkulator/projects.ts` (rein, ohne Abhängigkeiten) und wird von
+ * dort geholt: dieselbe Prüfung braucht seither auch das dynamische Routensegment und der
+ * Upload-Rand, und drei ausgeschriebene Fassungen desselben Musters laufen beim nächsten Umbau
+ * auseinander. Der Grund für die Prüfung ist unverändert — ein Nicht-UUID-Wert liefe als Parameter
+ * in einen rohen Postgres-Fehler (22P02) statt in ein sauberes „gibt es nicht".
+ */
+import {
+  MAX_ATTACHED_DOCUMENTS_PER_TURN,
+  PROJECT_ID_PATTERN,
+} from '@/lib/kalkulator/projects'
+
 import { runProjectChatTurn, type ProjectChatTurnResult } from './agent'
 import { callProjectChatModel } from './model'
 import type { ChatExtractors } from './ports'
@@ -73,31 +86,64 @@ const DEFAULT_EXTRACTORS: ChatExtractors = {
 }
 
 /**
- * Ein Projekt wird ausschliesslich über eine UUID angesprochen. Die Prüfung ist kein
- * Schönheitswettbewerb: ein Nicht-UUID-Wert liefe als Parameter in einen rohen Postgres-Fehler
- * (22P02), und der käme als `rpc_error` und damit als `not_found` zurück — dasselbe Ergebnis, nur
- * mit einer Datenbankfahrt und einem Eintrag im Fehlerlog für etwas, das hier in einer Zeile
- * feststeht.
+ * ⚠ Die Kennungen der in diesem Turn hochgeladenen Dokumente sind eine ANGABE des Clients, kein
+ * Beweis. Sie werden hier auf ihre FORM geprüft und in `agent.ts` gegen den tatsächlichen
+ * Dokumentbestand des Projekts gehalten — was dort nicht vorkommt, verschwindet still. Es gibt
+ * damit keinen Weg, über diesen Parameter eine fremde Datei in ein Gespräch zu heben: die Liste,
+ * gegen die geprüft wird, kommt aus der Datenbank und ist bereits auf das Projekt eingeschränkt.
+ *
+ * Eine unbrauchbare Liste (kein Array, zu viele Einträge, ein Nicht-UUID-Eintrag) wird NICHT
+ * stillschweigend geleert: der Turn wird abgewiesen. Der Kunde hat gerade etwas hochgeladen und
+ * würde sonst eine Antwort bekommen, die seine Datei nachweislich nicht kennt — und das sähe aus
+ * wie ein Fehler des Modells statt wie einer der Übergabe.
  */
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+function attachedIdsAreValid(value: unknown): value is readonly string[] {
+  if (!Array.isArray(value)) return false
+  if (value.length > MAX_ATTACHED_DOCUMENTS_PER_TURN) return false
+  return value.every((id) => typeof id === 'string' && PROJECT_ID_PATTERN.test(id))
+}
+
+/**
+ * Was dieser Endpunkt antworten kann: alles, was die Schleife antworten kann — PLUS einen Zustand,
+ * den nur der Rand kennt.
+ *
+ * ⚠ `invalid_attachments` steht bewusst NICHT in `ProjectChatTurnResult`: jene Union beschreibt,
+ * was die Schleife hervorbringen kann, und sie kann diesen Fall nicht hervorbringen (bis dorthin
+ * ist die Liste geprüft). Ein Status in einer Union, den ihr Erzeuger nie liefert, ist eine
+ * Requisite — der nächste Leser sucht die Stelle, die ihn erzeugt, und findet keine.
+ */
+export type SendProjectChatMessageResult =
+  | ProjectChatTurnResult
+  | { status: 'invalid_attachments' }
 
 export async function sendProjectChatMessage(
   projectId: string,
   userMessage: string,
-): Promise<ProjectChatTurnResult> {
+  documentIds?: readonly string[],
+): Promise<SendProjectChatMessageResult> {
   /*
    * ⚠ Die zwei Prüfungen antworten mit den BESTEHENDEN Turn-Zuständen, nicht mit neuen. Eine
    * unbrauchbare Projektkennung ist für den Aufrufer dasselbe wie ein fremdes Projekt („gibt es
    * nicht ODER gehört jemand anderem" — die durchgängige Nicht-Unterscheidbarkeit dieses Schemas),
    * und ein Nicht-String ist so leer wie ein leerer String.
    */
-  if (typeof projectId !== 'string' || !UUID.test(projectId)) return { status: 'not_found' }
+  if (typeof projectId !== 'string' || !PROJECT_ID_PATTERN.test(projectId)) {
+    return { status: 'not_found' }
+  }
   if (typeof userMessage !== 'string') return { status: 'empty_message' }
 
-  return runProjectChatTurn(projectId, userMessage, {
-    ports: createProjectChatPorts(DEFAULT_EXTRACTORS),
-    callModel: callProjectChatModel,
-  })
+  const attached = documentIds === undefined ? [] : documentIds
+  if (!attachedIdsAreValid(attached)) return { status: 'invalid_attachments' }
+
+  return runProjectChatTurn(
+    projectId,
+    userMessage,
+    {
+      ports: createProjectChatPorts(DEFAULT_EXTRACTORS),
+      callModel: callProjectChatModel,
+    },
+    attached,
+  )
 }
 
 export type { ProjectChatTurnResult }
