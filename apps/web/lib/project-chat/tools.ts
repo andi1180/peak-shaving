@@ -1,0 +1,306 @@
+import type Anthropic from '@anthropic-ai/sdk'
+import { tariffParamsSchema } from 'shared'
+
+import { PROJECT_SEGMENTS } from './ports'
+import type { ChatExtractors } from './ports'
+
+/**
+ * B24 — DIE WERKZEUGE DES PROJEKT-CHATS. Reine Definitionen, kein Rumpf.
+ *
+ * ── DIE ZWEI FAMILIEN, UND WARUM SIE SICH UNTERSCHEIDLICH VERHALTEN ────────────────────────────
+ * (1) ZUSTANDS-Werkzeuge (`set_segment`, `set_draft_field`, `flag_open_question`,
+ *     `check_draft_completeness`) schreiben und lesen den Projektzustand aus der Migration
+ *     20260910090000. Sie sind IMMER da.
+ * (2) EXTRAKTIONS-Werkzeuge (`classify_upload`, `extract_invoice`, `extract_pv_design`,
+ *     `extract_battery_description`) sind dünne Adapter auf die vier bestehenden Extraktoren. Sie
+ *     erscheinen NUR, wenn der zugehörige Port da ist — Begründung im Kopf von `ports.ts`. Ein
+ *     angebotenes Werkzeug ohne Rumpf wäre eine Requisite, und der Kunde bekäme „ich lese Ihre
+ *     Rechnung" zu hören, wo nichts gelesen wird.
+ *
+ * ── ⚠ KEIN `strict: true` IN DIESER ERSTEN FASSUNG ────────────────────────────────────────────
+ * `strict: true` verlangt `additionalProperties: false` PLUS eine vollständige `required`-Liste —
+ * ein optionaler Parameter muss dort also mitstehen und dafür nullbar werden, und `set_draft_field`
+ * bräuchte zusätzlich eine Typ-Union für seinen Wert. Die Kombination Typ-Union + Schema-Zwang ist
+ * in diesem Repo schon einmal teuer geworden (Delta 9b-2a: nach JSON Schema gültig, von der API mit
+ * HTTP 400 abgewiesen, VOR dem Modellaufruf — der Rechnungs-Scan war dadurch in Produktion
+ * vollständig funktionslos), und für WERKZEUG-Schemata ist sie hier gegen die echte API nicht
+ * gemessen. Was `strict` leisten würde, leistet der Ausführer ohnehin: er prüft jede Eingabe selbst
+ * und antwortet bei einem Fehler mit einem lesbaren `tool_result`, das das Modell korrigieren kann
+ * — geprüft in `executor.test.ts`. `strict` nachzurüsten ist Sache des Abstimmungs-Schritts, mit
+ * einer Messung gegen die echte API davor.
+ */
+
+export const CHAT_TOOL_NAMES = [
+  'set_segment',
+  'set_draft_field',
+  'check_draft_completeness',
+  'flag_open_question',
+  'classify_upload',
+  'extract_invoice',
+  'extract_pv_design',
+  'extract_battery_description',
+] as const
+export type ChatToolName = (typeof CHAT_TOOL_NAMES)[number]
+
+/**
+ * Welches Werkzeug hängt an welchem Port? Ein Werkzeug ohne Eintrag ist immer verfügbar.
+ *
+ * Der Schlüssel ist der PORT-Name, nicht der Werkzeugname: so ist im Typsystem festgehalten, dass
+ * jedes Extraktions-Werkzeug genau einen der vier Extraktoren braucht — ein Tippfehler ist ein
+ * Übersetzungsfehler und keine stille Fehlanzeige zur Laufzeit.
+ */
+const TOOL_REQUIRES_EXTRACTOR: Partial<Record<ChatToolName, keyof ChatExtractors>> = {
+  classify_upload: 'classifyDocument',
+  extract_invoice: 'extractInvoiceData',
+  extract_pv_design: 'extractPvDesign',
+  extract_battery_description: 'extractBatteryText',
+}
+
+/**
+ * Die Feldnamen des Eingabe-Contracts — AUS `tariffParamsSchema` gelesen, nicht abgeschrieben.
+ *
+ * ⚠ Eine zweite Liste hier wäre genau die Drift, die dieses Repo sonst überall vermeidet: käme in
+ * `packages/shared/src/tariff.ts` ein Feld dazu (der Betrieb-Zuschnitt ist offener Punkt 1 des
+ * Deltas), nennte der Werkzeugtext es nicht, das Modell schriebe unter einem erfundenen Namen, und
+ * `check_draft_completeness` fände es nie wieder.
+ */
+export const DRAFT_CONTRACT_FIELDS = Object.keys(tariffParamsSchema.shape).sort()
+
+/**
+ * Die PFLICHTFELDER des Contracts — dieselbe Quelle, andere Frage.
+ *
+ * `isOptional()` fragt das zod-Schema selbst; eine zweite Liste liefe beim nächsten optionalen Feld
+ * auseinander und `check_draft_completeness` verlangte etwas, das die Engine gar nicht braucht.
+ */
+export const DRAFT_REQUIRED_FIELDS = DRAFT_CONTRACT_FIELDS.filter((key) => {
+  const field = tariffParamsSchema.shape[key as keyof typeof tariffParamsSchema.shape]
+  return !field.isOptional()
+})
+
+/** Woher ein Wert stammt (Delta §3.2) — durchgehend bis in den Report sichtbar zu halten. */
+export const DRAFT_VALUE_SOURCES = ['measured', 'assumed'] as const
+export type DraftValueSource = (typeof DRAFT_VALUE_SOURCES)[number]
+
+const ALL_TOOLS: Record<ChatToolName, Anthropic.Tool> = {
+  set_segment: {
+    name: 'set_segment',
+    description: [
+      'Legt fest, ob es sich um einen Privathaushalt oder einen Betrieb handelt (Delta §3.4).',
+      'Setze das, sobald es aus dem Gespräch hervorgeht — die Verzweigung entscheidet, welche',
+      'weiteren Angaben überhaupt gebraucht werden. Rate es nicht; frag lieber nach.',
+      'Ein bereits gesetztes Segment kann mit einem neuen Aufruf korrigiert werden.',
+    ].join(' '),
+    input_schema: {
+      type: 'object',
+      properties: {
+        segment: {
+          type: 'string',
+          enum: [...PROJECT_SEGMENTS],
+          description: 'privat = Haushalt, betrieb = Gewerbe/Industrie.',
+        },
+      },
+      required: ['segment'],
+    },
+  },
+
+  set_draft_field: {
+    name: 'set_draft_field',
+    description: [
+      'Trägt EINEN Wert in den Entwurf der Eingabedaten ein. Der Entwurf ist das Zielobjekt, das am',
+      'Ende die Berechnung füttert.',
+      '',
+      'source ist Pflicht und die wichtigste Angabe dieses Werkzeugs:',
+      '- "measured" = der Wert steht so auf einem Dokument des Kunden oder er hat ihn ausdrücklich',
+      '  so genannt.',
+      '- "assumed" = du hast ihn erschlossen, geschätzt oder aus einem Erfahrungswert eingesetzt.',
+      'Im Zweifel "assumed". Eine als Messwert eingetragene Schätzung ist der teuerste Fehler, den',
+      'du hier machen kannst — sie sieht später aus wie eine abgelesene Zahl.',
+      '',
+      'note begründet den Wert, kurz. Bei "assumed" ist sie faktisch Pflicht: eine unbegründete',
+      'Annahme ist im Nachhinein nicht mehr prüfbar.',
+      '',
+      `Bekannte Felder des Contracts: ${DRAFT_CONTRACT_FIELDS.join(', ')}.`,
+      'Andere Feldnamen werden angenommen, aber die Vollständigkeitsprüfung kennt sie nicht —',
+      'benutze sie nur, wenn wirklich keines der bekannten Felder passt.',
+    ].join('\n'),
+    input_schema: {
+      type: 'object',
+      properties: {
+        field: {
+          type: 'string',
+          description: 'Der Feldname im Entwurf, z. B. energyPriceCtPerKwh.',
+        },
+        value: {
+          type: ['number', 'string', 'boolean'],
+          description: 'Der Wert. Zahlen als Zahl, nicht als Zeichenkette.',
+        },
+        source: {
+          type: 'string',
+          enum: [...DRAFT_VALUE_SOURCES],
+          description: 'measured = abgelesen/genannt, assumed = erschlossen oder geschätzt.',
+        },
+        note: {
+          type: 'string',
+          description: 'Kurze Begründung. Bei assumed unverzichtbar.',
+        },
+      },
+      required: ['field', 'value', 'source'],
+    },
+  },
+
+  check_draft_completeness: {
+    name: 'check_draft_completeness',
+    description: [
+      'Prüft den Entwurf gegen den typisierten Eingabe-Contract und nennt, was noch fehlt oder',
+      'nicht passt. Ändert nichts. Benutze es, bevor du dem Kunden sagst, dass ihr fertig seid —',
+      'und gern zwischendurch, um zu sehen, worauf du als Nächstes hinarbeiten solltest.',
+    ].join(' '),
+    input_schema: { type: 'object', properties: {}, required: [] },
+  },
+
+  flag_open_question: {
+    name: 'flag_open_question',
+    description: [
+      'Stellt eine fachliche Rückfrage an Martin (unseren Fachmann) und hält sie am Projekt fest.',
+      '',
+      'resolution_kind entscheidet, wie es weitergeht — und der Kunde entscheidet das, nicht du:',
+      '- weglassen  = Weg (a): ihr wartet auf Martins Antwort. Der Rest des Gesprächs kann',
+      '  weiterlaufen.',
+      '- "assumed"  = Weg (b): du rechnest mit einer begründeten Annahme weiter. assumption_note',
+      '  ist dann Pflicht.',
+      '',
+      'Wichtig: Weg (b) LÖSCHT DIE FRAGE NICHT. Sie bleibt offen bei Martin stehen, damit er sie',
+      'nachträglich prüfen kann. Sag dem Kunden genau das, wenn er sich für die Annahme entscheidet.',
+      '',
+      'Die Annahme selbst gehört zusätzlich über set_draft_field mit source "assumed" in den',
+      'Entwurf — dieses Werkzeug protokolliert die Frage, es rechnet nicht.',
+      '',
+      'field_key nennt das betroffene Entwurfsfeld, falls es eines gibt. Lass es weg, wenn die Frage',
+      'zu keinem einzelnen Feld gehört (etwa bei einer Betriebsstruktur, die wir nicht abbilden).',
+    ].join('\n'),
+    input_schema: {
+      type: 'object',
+      properties: {
+        question: {
+          type: 'string',
+          description: 'Die Frage an Martin, als vollständiger Satz und ohne Kontextwissen aus dem Chat.',
+        },
+        field_key: {
+          type: 'string',
+          description: 'Betroffenes Entwurfsfeld, falls vorhanden.',
+        },
+        resolution_kind: {
+          type: 'string',
+          enum: ['assumed'],
+          description: 'Nur "assumed" für Weg (b). Für Weg (a) weglassen.',
+        },
+        assumption_note: {
+          type: 'string',
+          description: 'Begründung der Annahme. Bei resolution_kind "assumed" Pflicht.',
+        },
+      },
+      required: ['question'],
+    },
+  },
+
+  classify_upload: {
+    name: 'classify_upload',
+    description: [
+      'Ordnet ein hochgeladenes PDF einer Dokumentart zu: Stromrechnung, Lastgang, Tarifblatt oder',
+      'unbekannt. Benutze es, wenn du aus Dateiname und Gespräch nicht sicher bist, was du vor dir',
+      'hast — es ersetzt kein Nachfragen, aber es erspart es oft.',
+      '"unbekannt" ist ein reguläres Ergebnis und kein Fehler; frag dann den Kunden.',
+    ].join(' '),
+    input_schema: {
+      type: 'object',
+      properties: {
+        document_id: { type: 'string', description: 'Die Kennung des hochgeladenen Dokuments.' },
+      },
+      required: ['document_id'],
+    },
+  },
+
+  extract_invoice: {
+    name: 'extract_invoice',
+    description: [
+      'Liest Tarif- und Verbrauchsangaben aus einer oder mehreren Stromrechnungen (PDF).',
+      '',
+      'Mehrere Rechnungen gehören in EINEN Aufruf: sie werden dann zusammengeführt. Wo alle',
+      'Rechnungen dasselbe sagen, wird der Wert übernommen; wo sie sich WIDERSPRECHEN, bleibt das',
+      'Feld leer und der Widerspruch wird dir benannt. Genau dann darfst du nicht selbst',
+      'entscheiden — leg dem Kunden die beiden Wege aus flag_open_question vor.',
+      '',
+      'Die gelesenen Werte landen NICHT automatisch im Entwurf. Übernimm sie einzeln mit',
+      'set_draft_field und source "measured".',
+    ].join('\n'),
+    input_schema: {
+      type: 'object',
+      properties: {
+        document_ids: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Eine oder mehrere Dokumentkennungen desselben Anschlusses.',
+        },
+      },
+      required: ['document_ids'],
+    },
+  },
+
+  extract_pv_design: {
+    name: 'extract_pv_design',
+    description: [
+      'Liest die Auslegung einer PV-Anlage aus einem Planungsdokument (PDF): Modulflächen, Leistung,',
+      'Neigung, Ausrichtung. Die gelesenen Werte sind eine PLANUNG, keine Messung — übernimm sie',
+      'entsprechend gekennzeichnet.',
+    ].join(' '),
+    input_schema: {
+      type: 'object',
+      properties: {
+        document_id: { type: 'string', description: 'Die Kennung des hochgeladenen Dokuments.' },
+      },
+      required: ['document_id'],
+    },
+  },
+
+  extract_battery_description: {
+    name: 'extract_battery_description',
+    description: [
+      'Liest aus einem frei formulierten Satz des Kunden über seinen VORHANDENEN Batteriespeicher',
+      'die technischen Angaben heraus (Kapazität, Leistung, Wirkungsgrad, Preis).',
+      'Übergib den Satz so, wie der Kunde ihn geschrieben hat — deute ihn nicht vor.',
+    ].join(' '),
+    input_schema: {
+      type: 'object',
+      properties: {
+        text: { type: 'string', description: 'Die Angabe des Kunden, wörtlich.' },
+      },
+      required: ['text'],
+    },
+  },
+}
+
+/**
+ * Die Werkzeuge, die dieser Lauf tatsächlich anbieten kann.
+ *
+ * Die Reihenfolge ist FEST (`CHAT_TOOL_NAMES`) und nicht die des Port-Objekts: die Werkzeugliste
+ * steht im Anfrage-Präfix VOR dem System-Prompt, und eine wechselnde Reihenfolge macht jeden
+ * Cache-Treffer zunichte (`shared/prompt-caching.md`: „unsorted JSON, varying tool set").
+ */
+export function buildChatTools(extractors: Partial<ChatExtractors>): Anthropic.Tool[] {
+  return CHAT_TOOL_NAMES.filter((name) => {
+    const required = TOOL_REQUIRES_EXTRACTOR[name]
+    return required === undefined || typeof extractors[required] === 'function'
+  }).map((name) => ALL_TOOLS[name])
+}
+
+/** Welche Extraktions-Werkzeuge fehlen? Der System-Prompt sagt es dem Modell im Klartext. */
+export function missingExtractionTools(extractors: Partial<ChatExtractors>): ChatToolName[] {
+  return CHAT_TOOL_NAMES.filter((name) => {
+    const required = TOOL_REQUIRES_EXTRACTOR[name]
+    return required !== undefined && typeof extractors[required] !== 'function'
+  })
+}
+
+export function isChatToolName(value: unknown): value is ChatToolName {
+  return typeof value === 'string' && (CHAT_TOOL_NAMES as readonly string[]).includes(value)
+}
