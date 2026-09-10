@@ -12,7 +12,18 @@ const nextConfig = {
   // Analyse-Bündels und die Archiv-Funktionen (gzip/SHA-256) — dieselben, die der Rechner beim
   // Export benutzt. Eine eigene Kopie hier wäre die zweite Beschreibung desselben Formats, und die
   // Abweichung fiele erst beim Hochladen auf, also nachdem die Analyse gerechnet ist.
-  transpilePackages: ['tariff-monitor', 'shared'],
+  //
+  // `extractors` kommt mit der B24-Konsolidierung dazu und ist der Grund, warum der Projekt-Chat
+  // überhaupt Dokumente lesen kann: die vier KI-Extraktoren lagen bis dahin in `apps/website` und
+  // waren von hier aus nicht erreichbar (der Chat MUSS hier liegen, weil der Zugriffsschutz aller
+  // Projekt-Wrapper an `auth.uid()` hängt, und die zwei Apps importieren einander nie). Sie
+  // abzuschreiben schied aus — zwei Fassungen derselben Ableseregel laufen auseinander, und dann
+  // liest derselbe Kunde je nach Einstieg eine andere Zahl von derselben Rechnung.
+  //
+  // ⚠ Es ist server-only (`import 'server-only'` in jedem KI-Client). Es darf deshalb NIE aus einer
+  // Client-Komponente erreichbar werden; der Import bräche den Build hart, und genau so ist es
+  // gemeint.
+  transpilePackages: ['tariff-monitor', 'shared', 'extractors'],
 
   experimental: {
     /*

@@ -5,6 +5,11 @@ import Anthropic from '@anthropic-ai/sdk'
 /**
  * Delta 9b-2a — SERVER-ONLY Anthropic-Client. Die ERSTE KI-Anbindung des gesamten Repos.
  *
+ * ⚠ SEIT DER KONSOLIDIERUNG (B24) LIEGT DIESE DATEI IN `packages/extractors` UND NICHT MEHR IN
+ * `apps/website`. Der Grund steht im Kopf von `../index.ts`: der Projekt-Chat in `apps/web`
+ * braucht dieselbe Ableselogik, die zwei Apps importieren einander nie, und zwei Fassungen
+ * desselben Prompts liefen beim nächsten Umbau auseinander. Am Verhalten ändert der Umzug nichts.
+ *
  * ── WAS HIER NEU IST ───────────────────────────────────────────────────────────────────────────
  * Bis hierher gab es im Projekt keine Zeile KI-Anbindung (repo-weit gemessen: kein SDK, kein
  * Schlüssel, kein Aufruf). Diese Datei ist der einzige Ort, an dem ein Client entsteht — und der
@@ -18,8 +23,14 @@ import Anthropic from '@anthropic-ai/sdk'
  *
  *   1. `import 'server-only'` — ein Import aus einer Client-Komponente bricht den Build HART.
  *   2. ESLint `no-restricted-imports` (root `eslint.config.mjs`) erlaubt den Import dieses Moduls
- *      in GENAU EINER Datei: `apps/website/lib/invoice-scan/extract.ts`. Nicht das Verzeichnis —
- *      dort liegt auch die Server Action, und die soll den Client nicht selbst bauen können.
+ *      in GENAU EINER Datei: `packages/extractors/src/invoice-scan/extract.ts`. Nicht das
+ *      Verzeichnis, und ausdrücklich AUCH RELATIV (`./ai-client`) — daneben liegt der Barrel-Weg
+ *      des Pakets, und der soll sich den Client nicht selbst bauen können.
+ *   4. Und seit der Konsolidierung eine vierte, härtere Sperre, die keine Regel ist, sondern die
+ *      Auflösung: dieses Paket exportiert AUSSCHLIESSLICH `.` (`exports` in `package.json`). Ein
+ *      `import … from 'extractors/src/invoice-scan/ai-client'` löst weder in TypeScript
+ *      (`moduleResolution: Bundler`) noch in webpack auf — von ausserhalb des Pakets ist der
+ *      Client nicht erreichbar, nicht einmal versehentlich.
  *   3. Zugriff auf die Env erst BEI GEBRAUCH (unten), nie als Modul-Konstante. Ohne den Schlüssel
  *      läuft der Rechner unverändert weiter; er wird ausschliesslich beim Rechnungs-Scan gebraucht.
  *
@@ -31,6 +42,10 @@ import Anthropic from '@anthropic-ai/sdk'
  * der Wert im Browser gebraucht wird. Hier ist das Gegenteil der Fall.
  *
  * Einrichtung und Rotationshinweis: `DEPLOYMENT.md` §1-Website-c.
+ *
+ * ⚠ DIE GRÖSSENGRENZE STEHT NICHT MEHR HIER, sondern in `./limits.ts` — dort ist begründet,
+ * warum die Auslagerung mit diesem Schritt keine Aufräumarbeit war, sondern die Bedingung dafür,
+ * dass Sperre 2 am neuen Ort überhaupt halten kann.
  */
 
 /**
@@ -47,17 +62,6 @@ import Anthropic from '@anthropic-ai/sdk'
  * ⚠ Die Kennung ist vollständig — KEIN Datums-Suffix anhängen.
  */
 export const INVOICE_SCAN_MODEL = 'claude-sonnet-5'
-
-/**
- * Obergrenze der hochgeladenen Datei in Bytes.
- *
- * Die API nimmt Anfragen bis 32 MB; base64 bläht eine Datei um rund ein Drittel auf. Eine
- * Netzrechnung ist ein bis wenige Seiten — 6 MB ist dafür grosszügig und hält die Anfrage weit
- * unter jeder Plattformgrenze. Der Wert ist die FACHLICHE Grenze; das `bodySizeLimit` in
- * `next.config.mjs` liegt bewusst etwas darüber, damit die Anwendung ablehnt und mit einem Satz
- * antwortet, statt dass die Plattform die Anfrage vorher abschneidet (Muster aus B14-2).
- */
-export const MAX_INVOICE_FILE_BYTES = 6 * 1024 * 1024
 
 function requireEnv(name: string): string {
   const value = process.env[name]

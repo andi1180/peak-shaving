@@ -2,8 +2,7 @@
 
 import type { InvoiceExtraction } from 'shared'
 
-import { MAX_INVOICE_FILE_BYTES } from './ai-client'
-import { extractInvoiceData } from './extract'
+import { MAX_INVOICE_FILE_BYTES, extractInvoiceData } from 'extractors'
 
 /**
  * Delta 9b-2a — DIE SERVER ACTION DES RECHNUNGS-SCANS. Reine Verdrahtung.

@@ -9,8 +9,9 @@ import Anthropic from '@anthropic-ai/sdk'
  * Dieselbe Begründung wie bei den vier Anbindungen davor: eine geteilte Client-Datei hätte
  * mehrere erlaubte Orte und damit keine Bremse mehr, und die Anbindungen sollen sich unabhängig
  * voneinander abschalten lassen. Der ESLint-Eintrag nennt deshalb GENAU EINE Datei
- * (`lib/pv-design-scan/extract.ts`), und alle bestehenden Ausnahmeblöcke sind um diesen Client
- * erweitert — die Regel wird getauscht, nicht abgeschaltet (die Korrektur aus Delta 9b-2a).
+ * (`packages/extractors/src/pv-design-scan/extract.ts`) — und ausdrücklich auch relativ. Über
+ * allem steht seit der Konsolidierung die Paketgrenze selbst: `exports` gibt nur `.` frei, ein
+ * Deep-Import auf diese Datei löst von ausserhalb gar nicht erst auf.
  *
  * ── DER SCHLÜSSEL IST EIN GEHEIMNIS AUF DER EBENE DES SERVICE-ROLE-SCHLÜSSELS ─────────────────
  * Er ist auf die Rechnung des Kontos abrechenbar und hat kein Kontingent, das ihn begrenzte. Ein
@@ -26,16 +27,16 @@ import Anthropic from '@anthropic-ai/sdk'
  * setzte Next den Wert zur Bauzeit TEXTUELL ins Client-Bündel ein. Einrichtung und
  * Rotationshinweis: `DEPLOYMENT.md` §1-Website-c.
  *
- * ── ⚠ KEIN `limits.ts` — bewusst nach dem Muster des RECHNUNGS-Scans, nicht dem der drei jüngeren ─
- * `lib/battery-text` und `lib/report-request` halten ihre Grenzen in einem eigenen `limits.ts`,
- * damit die Server Action daneben keinen Grund hat, das Client-Modul zu importieren, und ein
- * ESLint-Muster auch die RELATIVE Schreibweise (`./ai-client`) sperren kann. Hier steht die Grenze
- * inline wie in `lib/invoice-scan/ai-client.ts`, und die Folge ist offengelegt: `actions.ts` zieht
- * `MAX_PV_DESIGN_FILE_BYTES` relativ aus dieser Datei, ein Verzeichnis-Muster gegen die relative
- * Schreibweise ist deshalb NICHT gesetzt, und die in Delta 17 gemessene Lücke besteht für dieses
- * Verzeichnis genauso fort wie für `lib/invoice-scan`. Sie zu schliessen heisst, die Konstante in
- * ein eigenes Modul ohne Schlüsselzugriff zu lösen — für beide Verzeichnisse gemeinsam, in einem
- * eigenen Schritt (s. CLAUDE.md, Delta 17).
+ * ── ⚠ DIE LÜCKE AUS DELTA 17 IST MIT DER KONSOLIDIERUNG GESCHLOSSEN ──────────────────────────
+ * Bis hierher stand die Grössengrenze inline in dieser Datei, und die Folge war offengelegt: die
+ * Server Action zog `MAX_PV_DESIGN_FILE_BYTES` RELATIV (`./ai-client`), ein Verzeichnis-Muster
+ * gegen diese Schreibweise war deshalb nicht setzbar, und die in Delta 17 Teil 1 gemessene Lücke
+ * bestand fort. Der Vorsatz lautete, die Konstante „für beide Verzeichnisse gemeinsam, in einem
+ * eigenen Schritt" herauszulösen.
+ *
+ * Das ist geschehen (`./limits.ts`) — und nicht als Aufräumarbeit: der Barrel dieses Pakets muss
+ * die Grenze exportieren, und läge sie hier, wäre er ein zweiter Importeur des Clients. Die
+ * Sperre unten ist damit am neuen Ort erstmals lückenlos, auch relativ.
  */
 
 /**
@@ -52,21 +53,6 @@ import Anthropic from '@anthropic-ai/sdk'
  * ⚠ Die Kennung ist vollständig — KEIN Datums-Suffix anhängen.
  */
 export const PV_DESIGN_SCAN_MODEL = 'claude-sonnet-5'
-
-/**
- * Obergrenze der hochgeladenen Datei in Bytes.
- *
- * ⚠ Grösser als beim Rechnungs-Scan (6 MB), und der Grund ist die Dokumentart: eine Rechnung ist
- * ein bis wenige Seiten, ein PV-Exposé sind zwei Dutzend mit Diagrammen und Fotos (das
- * vorliegende: 19 Seiten, 18 Bild-XObjects, 1,1 MB). 8 MB ist dafür grosszügig und hält die
- * Anfrage weit unter der API-Grenze von 32 MB, auch nach der base64-Aufblähung um rund ein
- * Drittel.
- *
- * Der Wert ist die FACHLICHE Grenze; das `bodySizeLimit` in `next.config.mjs` liegt bewusst etwas
- * darüber, damit die Anwendung ablehnt und mit einem Satz antwortet, statt dass die Plattform die
- * Anfrage vorher abschneidet (Muster aus B14-2).
- */
-export const MAX_PV_DESIGN_FILE_BYTES = 8 * 1024 * 1024
 
 function requireEnv(name: string): string {
   const value = process.env[name]

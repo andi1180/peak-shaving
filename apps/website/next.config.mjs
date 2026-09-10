@@ -3,7 +3,14 @@ const nextConfig = {
   // Workspace-Pakete `shared` (zod-Schemata + Contract-Typen) und `engine`
   // (Parser, §3.2/§3.3) werden aus dem TS-Source transpiliert — kein
   // Build-Order-Zwang zwischen Paketen.
-  transpilePackages: ['shared', 'engine'],
+  //
+  // `extractors` kommt mit der B24-Konsolidierung dazu: die vier KI-Extraktoren lagen bis dahin in
+  // `lib/{invoice-scan,pv-design-scan,battery-text,upload-classification}` und liegen jetzt in
+  // EINEM server-only-Paket, weil der Projekt-Chat in `apps/web` dieselbe Ableselogik braucht und
+  // die zwei Apps einander nie importieren. Es ist ein reiner Umzug: dieselben Prompts, dieselben
+  // Schemata, dieselben Ausgänge — die vier `lib/*/actions.ts` sind hier geblieben und ziehen ihre
+  // Funktion jetzt von dort. Begründung ausführlich im Kopf von `packages/extractors/src/index.ts`.
+  transpilePackages: ['shared', 'engine', 'extractors'],
 
   /*
    * B14-2: der Commit, mit dem diese Fassung gebaut wurde, als BAU-KONSTANTE.

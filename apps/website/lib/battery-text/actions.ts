@@ -2,8 +2,7 @@
 
 import type { BatteryTextExtraction } from 'shared'
 
-import { extractBatteryText } from './extract'
-import { MAX_BATTERY_TEXT_CHARS } from './limits'
+import { MAX_BATTERY_TEXT_CHARS, extractBatteryText } from 'extractors'
 
 /**
  * Delta 17 Teil 2 — DIE SERVER ACTION DER BATTERIE-FREITEXTERFASSUNG. Reine Verdrahtung.

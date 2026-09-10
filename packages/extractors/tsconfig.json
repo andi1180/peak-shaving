@@ -1,0 +1,19 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "verbatimModuleSyntax": true,
+    /*
+     * `noEmit` und KEIN `build`-Script — anders als `shared`/`engine`.
+     *
+     * Beide Apps ziehen dieses Paket über `transpilePackages` aus dem TS-Source; ein `dist` würde
+     * von niemandem gelesen und wäre eine zweite, veraltbare Fassung derselben Prompts. Geprüft
+     * wird das Paket trotzdem: `pnpm typecheck` läuft hier, und `pnpm test` fasst es bewusst nicht
+     * an (was hier zu prüfen ist, ist der Weg DURCH die Extraktoren, und der wird in `apps/web`
+     * gegen einen HTTP-Stub gemessen — s. `apps/web/lib/project-chat/extraction-chain.test.ts`).
+     */
+    "noEmit": true,
+    "types": ["node"]
+  },
+  "include": ["src"],
+  "exclude": ["node_modules"]
+}
