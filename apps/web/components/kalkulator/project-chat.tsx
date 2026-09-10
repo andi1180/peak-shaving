@@ -34,6 +34,7 @@ import * as React from 'react'
 import { Loader2, Paperclip } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
+import { ChatMarkdown } from '@/components/kalkulator/chat-markdown'
 import { Button } from '@/components/ui/button'
 import { Label, Textarea } from '@/components/ui/input'
 import { sendProjectChatMessage } from '@/lib/project-chat/chat'
@@ -227,10 +228,28 @@ export function ProjectChat({
                   <p className="text-caption font-medium uppercase text-text-muted">
                     {entry.role === 'user' ? t('you') : t('assistant')}
                   </p>
-                  {/* `whitespace-pre-wrap`: Absätze und Aufzählungen des Modells bleiben erhalten. */}
-                  <p className="mt-1 whitespace-pre-wrap break-words text-body text-ink">
-                    {entry.text}
-                  </p>
+                  {/*
+                    * ⚠ ZWEI DARSTELLUNGEN, UND DAS IST KEINE KOSMETIK.
+                    *
+                    * Die Antwort des Modells ist Markdown (es formatiert von sich aus — der
+                    * System-Prompt sagt dazu nichts) und wird als solches gerendert; bis zum
+                    * neunten Bauschritt standen `**` und Listenpunkte wörtlich in der Blase.
+                    *
+                    * Die Nachricht des Kunden bleibt Plaintext mit `whitespace-pre-wrap`. Er
+                    * schreibt kein Markdown; seine eigenen Zeichen — ein `*` in „3*5 kWh", eine
+                    * Zeile, die mit „1." beginnt — würden seinen Satz sonst umformatieren, und
+                    * seine Absätze gingen dabei verloren. Was er getippt hat, muss dastehen, wie
+                    * er es getippt hat.
+                    */}
+                  {entry.role === 'user' ? (
+                    <p className="mt-1 whitespace-pre-wrap break-words text-body text-ink">
+                      {entry.text}
+                    </p>
+                  ) : (
+                    <div className="mt-1">
+                      <ChatMarkdown text={entry.text} />
+                    </div>
+                  )}
                 </div>
               </li>
             ))}
