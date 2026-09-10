@@ -232,7 +232,22 @@ Bleibt technisch bestehen — die Prüfung selbst (Sitzung + Entitlement) änder
    **Was aus diesem Punkt bewusst NICHT mitgelöst wurde:** der Chat hat weiterhin keinen
    HTTP-Rand (`'use server'` fehlt), keine Oberfläche und keine Kostenbremse.
 8. **Bleiben Gutscheincode und Partner-Anfrage neben der automatischen `calculator_pro`-Vergabe bestehen?** (§6.2) — Vorschlag gemacht, nicht entschieden; Umsetzung selbst nicht Teil dieses Schritts.
-9. **`deleted_questions`-Protokoll für den Fragenkatalog** (§4.2) — dass es eins geben sollte, ist entschieden; der genaue Zuschnitt und die Tabelle selbst gehören zum künftigen Fragenkatalog-Bauschritt, nicht zu diesem.
+9. ~~**`deleted_questions`-Protokoll für den Fragenkatalog** (§4.2) — dass es eins geben sollte, ist
+   entschieden; der genaue Zuschnitt und die Tabelle selbst gehören zum künftigen
+   Fragenkatalog-Bauschritt, nicht zu diesem.~~
+   **ERLEDIGT (10.09.2026, fünfter Bauschritt):** `platform.question_catalog_deletions` — ein
+   vollständiger Abzug der gelöschten Zeile (`to_jsonb`, also spaltenvollständig auch für
+   künftige Spalten), ohne Fremdschlüssel auf die Katalogtabelle (die referenzierte Zeile gibt
+   es danach nicht mehr), und mit der Urheber-Adresse **zusätzlich als Abzug** neben der
+   Konto-Verknüpfung — eine UUID, deren Zeile gelöscht wurde, sagt 2028 niemandem, wer den
+   Stand entfernt hat. **Der Name ist `question_catalog_deletions`, nicht `deleted_questions`**
+   (Vorbild `grid_tariff_deletions`).
+   ⚠ **Neu daraus entstanden und ausdrücklich offen:** es gibt keinen Weg, einen Fragen-Stand zu
+   SCHLIESSEN, ohne einen neuen anzulegen — „diese Frage galt bis zum 30.09. und danach nicht
+   mehr“ lässt sich derzeit nur ausdrücken, indem man den Stand über den Löschweg opfert. Ein
+   `admin_retire_question_catalog_entry(p_id, p_valid_until)` wäre die saubere Ergänzung; der
+   Auftrag des Bauschritts zählte die Wrapper abschliessend auf, ein vierter wäre eine stille
+   Erweiterung gewesen.
 10. **`impact_note` hat eine Spalte, einen Schreibweg — und keinen Erzeuger** (§3.3). Der Hinweis
     „ändert das Ergebnis stark/kaum" soll aus einem **Sensitivitätslauf gegen `recommendBattery`**
     entstehen, nicht aus einer Vermutung des Modells: eine vom Modell erfundene Einschätzung wäre
@@ -256,8 +271,11 @@ Bleibt technisch bestehen — die Prüfung selbst (Sitzung + Entitlement) änder
 
 ## 10 — Baustand
 
-**Stand 10.09.2026.** Vier Bauschritte gebaut und gemergt (PR #169–#173). Der Chat rechnet noch
-nichts und hat keine Oberfläche — was steht, ist der Weg vom Konto bis zum ausgelesenen Dokument.
+**Stand 10.09.2026.** Sechs Bauschritte gebaut (fünf davon gemergt, PR #169–#173). Der Chat rechnet
+noch nichts und hat keine Oberfläche — was steht, ist der Weg vom Konto bis zum ausgelesenen
+Dokument, dazu die Ablage für die admin-gepflegten Pflichtfragen. ⚠ **Schritt 6 ist bewusst nur
+die Ablage:** der Chat liest den Katalog noch nicht, und `platform.projects.industry` hat noch
+keinen Schreibweg — beide Enden stehen, das Stück dazwischen ist die Verdrahtung.
 
 | # | Schritt | PR | Stand |
 |---|---|---|---|
@@ -266,6 +284,7 @@ nichts und hat keine Oberfläche — was steht, ist der Weg vom Konto bis zum au
 | 3 | **Mechanik des Chats** — Tool-Use-Schleife, Werkzeug-Ausführer, Verlaufs-Wiedereinspielung, Entwurfs-Werkzeuge, **erster System-Prompt** | #171 | **gebaut, nicht feinabgestimmt** |
 | 4 | **Extraktoren-Konsolidierung** — die vier kundenrelevanten Extraktoren nach `packages/extractors` (server-only, Barrel als einziger Ausgang), die vier Wizard-`actions.ts` umgestellt; **kein Verhaltensunterschied** | #172 | **gebaut** |
 | 5 | **Chat liest Dokumente** — `DEFAULT_EXTRACTORS` in `chat.ts`; die vier Werkzeuge werden dem Modell erstmals wirklich angeboten | #173 | **gebaut, live verifiziert** |
+| 6 | **Fragenkatalog-FUNDAMENT** (§4) — `platform.question_catalog_entries` (Baseline + Branchen-Pools in einer Tabelle, datierte Stände, `unique nulls not distinct`), `platform.question_catalog_deletions`, `platform.system_prompt_extensions`, `platform.projects.industry` (offene Liste, NICHT das Lead-Enum), sieben Wrapper | — | **gebaut, ohne UI und ohne Verdrahtung** |
 
 ### Was Schritt 3 ausdrücklich NICHT ist
 
@@ -300,7 +319,8 @@ Feinschliff.
 | **2b — Agent-Feinschliff** | Gesprächsführung gegen echte Dialoge abstimmen; `impact_note`-Erzeuger (§9 Punkt 10); `strict: true` gegen die echte API messen (§9 Punkt 11) | keine |
 | **Oberfläche** | Chat-UI; bringt `'use server'` mit | — |
 | **Kostenbremse** (§6.3) | **gekoppelt an die Oberfläche**, nicht danach: `chat.ts` trägt bewusst kein `'use server'`, weil jeder Turn bis zu neun ABRECHENBARE Modellaufrufe auslöst und die Obergrenze im Agenten EINEN Turn begrenzt, nicht die Zahl der Turns. Einen offenen, abrechenbaren Endpunkt zu veröffentlichen, bevor es die Bremse gibt, wäre die Reihenfolge genau falsch herum. | Oberfläche |
-| **Fragenkatalog** (§4) | admin-pflegbare Guidelines je Segment; Inhalte sind Fachwissen (§9 Punkt 2) | Owner Andreas/Martin |
+| **Fragenkatalog — VERDRAHTUNG** (§4) | das Fundament steht (Schritt 6). Offen: `update_project_draft` um `p_industry` erweitern (⚠ DROP+CREATE, kein `create or replace` — ein zusätzlicher Parameter ändert die Signatur), `get_project` um die Spalte, den Chat `list_question_catalog` lesen lassen, `get_system_prompt_extension` in den STABILEN System-Block hängen (nicht hinter den Zustandsblock — sonst ist der Cache-Vorteil weg), Katalog-Stand am Projekt denormalisieren (§4.2) | Oberfläche/Chat |
+| **Fragenkatalog — INHALTE** (§4.4) | welche Fragen ein Segment und ein Branchen-Pool tragen; die Kataloge sind leer | Owner Andreas/Martin |
 | Zählpunkt + Rollup-Schicht | §2.3/2.4 | — |
 | Report-Baukasten | §5 | — |
 | Automatische Entitlement-Vergabe | §6.2 (§9 Punkt 8 offen) | — |
