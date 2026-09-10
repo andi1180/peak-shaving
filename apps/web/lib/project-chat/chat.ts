@@ -1,5 +1,12 @@
 import 'server-only'
 
+import {
+  classifyDocument,
+  extractBatteryText,
+  extractInvoiceData,
+  extractPvDesign,
+} from 'extractors'
+
 import { runProjectChatTurn, type ProjectChatTurnResult } from './agent'
 import { callProjectChatModel } from './model'
 import type { ChatExtractors } from './ports'
@@ -28,18 +35,32 @@ import { createProjectChatPorts } from './supabase-ports'
  * Wer die Oberfläche baut, setzt `'use server'` an den Anfang dieser Datei — und bringt die
  * Kostenbremse mit.
  *
- * ── DIE VIER EXTRAKTOREN SIND EIN PARAMETER ───────────────────────────────────────────────────
- * Sie liegen in `apps/website` und sind von dieser App aus nicht erreichbar; die drei gemessenen
- * Gründe stehen im Kopf von `ports.ts`. Der Aufrufer reicht herein, was er hat — heute nichts, und
- * dann fehlen genau die vier Dokument-Werkzeuge, sichtbar und benannt.
+ * ── DIE VIER EXTRAKTOREN SIND VERDRAHTET, BLEIBEN ABER EIN PARAMETER ──────────────────────────
+ * Sie kamen aus `apps/website` und waren von dieser App aus nicht erreichbar; die drei gemessenen
+ * Gründe stehen im Kopf von `packages/extractors/src/index.ts`. Seit der Konsolidierung in jenes
+ * server-only-Paket hängen BEIDE Apps daran, und der Vorgabewert ist ab hier der echte Satz: der
+ * Chat kann Rechnungen, PV-Auslegungen, Batterie-Freitext und Dokumentarten tatsächlich auslesen,
+ * statt die vier Werkzeuge dem Modell gar nicht erst anzubieten.
+ *
+ * ⚠ Es bleibt ein PARAMETER und wird kein fester Import im Rumpf: `ProjectChatPorts.extractors`
+ * ist der Vertrag, gegen den die Schleife geprüft wird, und ein Test muss einen Extraktor durch
+ * einen Prüfstand ersetzen können, ohne einen abrechenbaren Modellaufruf auszulösen. Ein
+ * übergebenes `Partial` überschreibt einzeln — was es nicht nennt, bleibt die echte Funktion.
  */
+const DEFAULT_EXTRACTORS: ChatExtractors = {
+  classifyDocument,
+  extractInvoiceData,
+  extractPvDesign,
+  extractBatteryText,
+}
+
 export async function sendProjectChatMessage(
   projectId: string,
   userMessage: string,
   extractors: Partial<ChatExtractors> = {},
 ): Promise<ProjectChatTurnResult> {
   return runProjectChatTurn(projectId, userMessage, {
-    ports: createProjectChatPorts(extractors),
+    ports: createProjectChatPorts({ ...DEFAULT_EXTRACTORS, ...extractors }),
     callModel: callProjectChatModel,
   })
 }
