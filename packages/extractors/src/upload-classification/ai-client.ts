@@ -5,7 +5,7 @@ import Anthropic from '@anthropic-ai/sdk'
 /**
  * Delta 17 — SERVER-ONLY Anthropic-Client der Dokument-Zuordnung. Die DRITTE KI-Anbindung des Repos.
  *
- * Strukturell derselbe Fall wie `apps/website/lib/invoice-scan/ai-client.ts` (Delta 9b-2a) und
+ * Strukturell derselbe Fall wie `../invoice-scan/ai-client.ts` (Delta 9b-2a) und
  * `apps/web/lib/admin/tariff-scan/ai-client.ts` — und bewusst wieder eine EIGENE Datei statt eines
  * geteilten Moduls. Die Begründung ist dieselbe wie beim zweiten Mal und hier zusätzlich messbar:
  * die ESLint-Bremse unten ist app-lokal und benennt GENAU EINE erlaubte Datei; ein geteilter Client
@@ -16,6 +16,12 @@ import Anthropic from '@anthropic-ai/sdk'
  * ⚠ Der Rechnungs-Scan und der Tarifblatt-Scan sind in diesem Bauabschnitt mit 0 Zeilen Diff
  * unangetastet.
  *
+ * ⚠ SEIT DER KONSOLIDIERUNG (B24) LIEGT DIESE DATEI IN `packages/extractors` UND NICHT MEHR IN
+ * `apps/website`. Grund und Tragweite stehen im Kopf von `../index.ts`. Über der ESLint-Sperre
+ * steht dort seither eine härtere, die keine Regel ist: `exports` in der `package.json` gibt
+ * ausschliesslich `.` frei — ein Deep-Import auf diese Datei löst von ausserhalb des Pakets weder
+ * in TypeScript (`moduleResolution: Bundler`) noch in webpack auf.
+ *
  * ── DER SCHLÜSSEL IST EIN GEHEIMNIS AUF DER EBENE DES SERVICE-ROLE-SCHLÜSSELS ─────────────────
  * Er ist auf die Rechnung des Kontos abrechenbar und hat kein Kontingent, das ihn begrenzte. Ein
  * Schlüssel im Browser-Bündel wäre also nicht bloss eine Datenschutzfrage, sondern eine offene
@@ -23,7 +29,7 @@ import Anthropic from '@anthropic-ai/sdk'
  *
  *   1. `import 'server-only'` — ein Import aus einer Client-Komponente bricht den Build HART.
  *   2. ESLint `no-restricted-imports` (root `eslint.config.mjs`) erlaubt den Import dieses Moduls
- *      in GENAU EINER Datei: `apps/website/lib/upload-classification/extract.ts`. Nicht das
+ *      in GENAU EINER Datei: `packages/extractors/src/upload-classification/extract.ts`. Nicht das
  *      Verzeichnis — dort liegt auch die Server Action, und die soll den Client nicht selbst bauen
  *      können. Die beiden bestehenden Ausnahmedateien behalten die Sperre auf DIESES Modul (die
  *      Regel wird getauscht, nicht abgeschaltet — die Korrektur aus Delta 9b-2a).

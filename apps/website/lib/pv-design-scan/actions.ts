@@ -2,8 +2,7 @@
 
 import type { PvDesignExtraction } from 'shared'
 
-import { MAX_PV_DESIGN_FILE_BYTES } from './ai-client'
-import { extractPvDesign } from './extract'
+import { MAX_PV_DESIGN_FILE_BYTES, extractPvDesign } from 'extractors'
 
 /**
  * B22c — DIE SERVER ACTION DES PV-AUSLEGUNGS-SCANS. Reine Verdrahtung.

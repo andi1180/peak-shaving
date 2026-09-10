@@ -2,8 +2,11 @@
 
 import type { UploadDocumentType } from 'shared'
 
-import { MAX_UPLOAD_CLASSIFICATION_FILE_BYTES, MAX_UPLOAD_LABEL_CHARS } from './limits'
-import { classifyDocument } from './extract'
+import {
+  MAX_UPLOAD_CLASSIFICATION_FILE_BYTES,
+  MAX_UPLOAD_LABEL_CHARS,
+  classifyDocument,
+} from 'extractors'
 
 /**
  * Delta 17 — DIE SERVER ACTION DER DOKUMENT-ZUORDNUNG. Reine Verdrahtung.

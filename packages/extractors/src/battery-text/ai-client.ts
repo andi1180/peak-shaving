@@ -14,13 +14,19 @@ import Anthropic from '@anthropic-ai/sdk'
  * ⚠ Die drei bestehenden Scan-/Zuordnungsmodule sind in diesem Bauabschnitt mit 0 Zeilen Diff
  * unangetastet.
  *
+ * ⚠ SEIT DER KONSOLIDIERUNG (B24) LIEGT DIESE DATEI IN `packages/extractors` UND NICHT MEHR IN
+ * `apps/website`. Grund und Tragweite stehen im Kopf von `../index.ts`. Über der ESLint-Sperre
+ * steht dort seither eine härtere, die keine Regel ist: `exports` in der `package.json` gibt
+ * ausschliesslich `.` frei — ein Deep-Import auf diese Datei löst von ausserhalb des Pakets weder
+ * in TypeScript (`moduleResolution: Bundler`) noch in webpack auf.
+ *
  * ── DER SCHLÜSSEL IST EIN GEHEIMNIS AUF DER EBENE DES SERVICE-ROLE-SCHLÜSSELS ─────────────────
  * Er ist auf die Rechnung des Kontos abrechenbar und hat kein Kontingent, das ihn begrenzte.
  * Deshalb dieselben DREI SPERREN wie bei den drei bestehenden Anbindungen:
  *
  *   1. `import 'server-only'` — ein Import aus einer Client-Komponente bricht den Build HART.
  *   2. ESLint `no-restricted-imports` (root `eslint.config.mjs`) erlaubt den Import dieses Moduls
- *      in GENAU EINER Datei: `apps/website/lib/battery-text/extract.ts`. **Und zwar auch RELATIV**
+ *      in GENAU EINER Datei: `packages/extractors/src/battery-text/extract.ts`. **Und auch RELATIV**
  *      — das Muster gegen `./ai-client` ist hier von Anfang an gesetzt, statt wie in Teil 1 erst
  *      nach einer Messung nachgezogen zu werden. Die Grössen-/Längengrenze liegt dafür in
  *      `limits.ts`, damit die Server Action keinen Grund hat, dieses Modul anzufassen.
