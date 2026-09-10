@@ -939,13 +939,138 @@ export type Database = {
         }
         Relationships: []
       }
+      project_documents: {
+        Row: {
+          content_type: string
+          id: string
+          original_filename: string
+          project_id: string
+          storage_path: string
+          uploaded_at: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          content_type: string
+          id: string
+          original_filename: string
+          project_id: string
+          storage_path: string
+          uploaded_at?: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          content_type?: string
+          id?: string
+          original_filename?: string
+          project_id?: string
+          storage_path?: string
+          uploaded_at?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_documents_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_messages: {
+        Row: {
+          content: Json
+          created_at: string
+          id: string
+          project_id: string
+          role: string
+        }
+        Insert: {
+          content: Json
+          created_at?: string
+          id?: string
+          project_id: string
+          role: string
+        }
+        Update: {
+          content?: Json
+          created_at?: string
+          id?: string
+          project_id?: string
+          role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_messages_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_open_questions: {
+        Row: {
+          answered_at: string | null
+          answered_by: string | null
+          assumption_note: string | null
+          created_at: string
+          field_key: string | null
+          id: string
+          impact_note: string | null
+          project_id: string
+          question: string
+          resolution_kind: string | null
+          resolution_value: string | null
+          status: string
+        }
+        Insert: {
+          answered_at?: string | null
+          answered_by?: string | null
+          assumption_note?: string | null
+          created_at?: string
+          field_key?: string | null
+          id?: string
+          impact_note?: string | null
+          project_id: string
+          question: string
+          resolution_kind?: string | null
+          resolution_value?: string | null
+          status?: string
+        }
+        Update: {
+          answered_at?: string | null
+          answered_by?: string | null
+          assumption_note?: string | null
+          created_at?: string
+          field_key?: string | null
+          id?: string
+          impact_note?: string | null
+          project_id?: string
+          question?: string
+          resolution_kind?: string | null
+          resolution_value?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_open_questions_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       projects: {
         Row: {
           account_id: string | null
           created_at: string
           created_by: string | null
           customer_label: string
+          draft: Json
           id: string
+          segment: string | null
           updated_at: string
         }
         Insert: {
@@ -953,7 +1078,9 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           customer_label: string
+          draft?: Json
           id?: string
+          segment?: string | null
           updated_at?: string
         }
         Update: {
@@ -961,7 +1088,9 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           customer_label?: string
+          draft?: Json
           id?: string
+          segment?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -1260,6 +1389,7 @@ export type Database = {
       like_pattern: { Args: { p_input: string }; Returns: string }
       marketing_consent_state: { Args: { p_lead_id: string }; Returns: string }
       normalize_email: { Args: { p_email: string }; Returns: string }
+      project_accessible: { Args: { p_project_id: string }; Returns: boolean }
       purpose_requires_double_opt_in: {
         Args: { p_purpose: Database["platform"]["Enums"]["consent_purpose"] }
         Returns: boolean
@@ -1469,6 +1599,10 @@ export type Database = {
         Returns: Json
       }
       admin_anonymize_lead: { Args: { p_lead_id: string }; Returns: Json }
+      admin_answer_open_question: {
+        Args: { p_answer: string; p_question_id: string }
+        Returns: Json
+      }
       admin_approve_partner_application: {
         Args: { p_id: string; p_slug: string }
         Returns: Json
@@ -1643,6 +1777,10 @@ export type Database = {
         Returns: Json
       }
       admin_list_mentioned_businesses: { Args: never; Returns: Json }
+      admin_list_open_questions: {
+        Args: { p_limit?: number; p_offset?: number; p_status?: string }
+        Returns: Json
+      }
       admin_list_partner_applications: {
         Args: { p_limit?: number; p_offset?: number; p_status?: string }
         Returns: Json
@@ -1728,6 +1866,28 @@ export type Database = {
           p_lead_id: string
           p_purpose: Database["platform"]["Enums"]["consent_purpose"]
         }
+        Returns: Json
+      }
+      append_open_question: {
+        Args: {
+          p_field_key?: string
+          p_impact_note?: string
+          p_project_id: string
+          p_question: string
+        }
+        Returns: Json
+      }
+      append_project_document: {
+        Args: {
+          p_content_type: string
+          p_document_id: string
+          p_original_filename: string
+          p_project_id: string
+        }
+        Returns: Json
+      }
+      append_project_message: {
+        Args: { p_content: Json; p_project_id: string; p_role: string }
         Returns: Json
       }
       backfill_grid_tariff: {
@@ -1843,9 +2003,28 @@ export type Database = {
         Args: { p_token_hash: string }
         Returns: Json
       }
+      get_project: { Args: { p_id: string }; Returns: Json }
+      get_project_document: { Args: { p_document_id: string }; Returns: Json }
       get_stripe_customer_id: { Args: { p_user_id: string }; Returns: string }
       is_admin: { Args: never; Returns: boolean }
       list_my_projects: { Args: never; Returns: Json }
+      list_open_questions: {
+        Args: {
+          p_limit?: number
+          p_offset?: number
+          p_project_id: string
+          p_status?: string
+        }
+        Returns: Json
+      }
+      list_project_documents: {
+        Args: { p_limit?: number; p_offset?: number; p_project_id: string }
+        Returns: Json
+      }
+      list_project_messages: {
+        Args: { p_limit?: number; p_offset?: number; p_project_id: string }
+        Returns: Json
+      }
       process_stripe_subscription_event: {
         Args: {
           p_cancel_at_period_end?: boolean
@@ -1883,6 +2062,15 @@ export type Database = {
         Returns: Json
       }
       redeem_code: { Args: { p_code: string }; Returns: string }
+      resolve_open_question: {
+        Args: {
+          p_assumption_note?: string
+          p_question_id: string
+          p_resolution_kind: string
+          p_resolution_value?: string
+        }
+        Returns: Json
+      }
       run_lead_retention_job: {
         Args: { p_max_batch?: number; p_refuse_above?: number }
         Returns: Json
@@ -1907,6 +2095,10 @@ export type Database = {
       }
       suppress_email_and_withdraw_all: {
         Args: { p_lead_id: string }
+        Returns: Json
+      }
+      update_project_draft: {
+        Args: { p_draft: Json; p_id: string; p_segment?: string }
         Returns: Json
       }
       upsert_stripe_customer: {

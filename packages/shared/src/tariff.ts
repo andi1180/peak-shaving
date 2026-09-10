@@ -1,5 +1,7 @@
 import { z } from 'zod'
 
+import { METERING_VARIANTS } from './tariff-pricing'
+
 /**
  * Abrechnungsmodell (§3.5) — bestimmt, welcher kW-Wert abgerechnet wird.
  * Kein hartkodierter „Jahreshöchstwert"; die Strategie ist austauschbar.
@@ -75,6 +77,38 @@ export const tariffParamsSchema = z.object({
    * aWATTar-Vorteil damit kleiner, nicht grösser.
    */
   supplierBaseFeeEurPerMonth: z.number().nonnegative().optional(),
+  /**
+   * Leistungsmessungs-Variante des Anschlusses (B24, Delta §3.4).
+   *
+   * ── ⚠ WARUM DAS FELD ERST JETZT ENTSTEHT ──────────────────────────────────────────────────────
+   * Die Variante gab es im Rechner immer schon — aber nur als UI-Zustand in `step-tariff.tsx` und
+   * als Abfrage-Dimension der Netzentgelt-Seite (`METERING_VARIANTS`, `tariff-pricing.ts`). In den
+   * typisierten Eingabe-Contract war sie NIE gehoben; gemessen in
+   * `KI-Interface_Kalkulator_Bestandsaufnahme.md`, Befund A, und im Delta §3.4 als Korrektur
+   * festgehalten („wer den Betrieb-Contract entwirft, muss die Leistungsmessungs-Variante NEU ins
+   * Contract heben, nicht nur eine bestehende UI-Option wiederverwenden").
+   *
+   * Warum das für den Chat den Unterschied macht: ein Formular kann eine Angabe im Bildschirmzustand
+   * halten, weil der Bildschirm die ganze Zeit da ist. Ein Gespräch kann das nicht — was der Chat
+   * erfährt, muss in den Entwurf, sonst ist es beim nächsten Turn weg. Für einen Betrieb ist die
+   * Variante zudem die Weiche zwischen zwei verschiedenen Rechnungen: „ohne Leistungsmessung" heisst
+   * Leistungspreis 0 und damit gar keine Spitzenkappung (Delta 3 der Tarifoptimierung).
+   *
+   * ── OPTIONAL, UND `undefined` HEISST „NICHT ANGEGEBEN" ────────────────────────────────────────
+   * Nicht „ohne Leistungsmessung" — das ist eine ANGABE mit eigener Rechenfolge. Optional ausserdem,
+   * weil es sie auf den Netzebenen 3–6 gar nicht gibt (`NETZEBENEN_MIT_MESSVARIANTE`, heute nur
+   * NE 7) und weil ein vor B24 exportiertes Analyse-Bündel sie nicht trägt — dieselbe
+   * „undefined heisst: gab es damals noch nicht"-Regel wie bei jedem anderen additiven Contract-Feld
+   * dieses Repos.
+   *
+   * ── EINE QUELLE, KEINE ZWEITE LISTE ───────────────────────────────────────────────────────────
+   * Die Werte kommen aus `METERING_VARIANTS` (`./tariff-pricing`) und werden hier NICHT ein zweites
+   * Mal ausgeschrieben: die harte Grenze ist der CHECK der Datenbank (B21-1), und eine hier
+   * abweichende Liste liesse einen Wert zu, den die Abfrage der Netzentgelt-Seite nie findet.
+   * Der Import ist unkritisch: `tariff-pricing.ts` importiert von hier ausschliesslich `import type`
+   * — der wird beim Übersetzen entfernt, zur Laufzeit gibt es also keinen Zirkel.
+   */
+  meteringVariant: z.enum(METERING_VARIANTS).optional(),
   netzebene: z.string().optional(), // Metadatum
   benutzungsdauerModel: benutzungsdauerModelSchema.optional(),
 })

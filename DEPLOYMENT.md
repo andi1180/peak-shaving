@@ -1797,6 +1797,91 @@ Es gibt dafür weder Tabelle noch Wrapper noch UI.
 
 ---
 
+## 3d. Der Storage-Bucket `project-documents` (B24) — die ERSTE Storage-Nutzung des Repos
+
+Seit **10.09.2026** legt der Kalkulator Kundendokumente in Supabase Storage ab. Migration:
+`supabase/migrations/20260910090000_create_project_chat_state.sql`, TEIL 7. **Der Bucket entsteht
+über die Migration** (`insert into storage.buckets … on conflict do nothing`) — bewusst NICHT über
+`supabase/config.toml` (`[storage.buckets.*]` wirkt nur lokal; zwei Quellen liefen auseinander, und
+die lokale wäre die, die niemand in der Cloud sieht) und **nicht von Hand im Dashboard**.
+
+| | |
+|---|---|
+| Bucket-Id | `project-documents` |
+| Öffentlich | **nein** |
+| Grössengrenze | **20 MB** je Datei (`file_size_limit`) |
+| Erlaubte Typen | **alle** (`allowed_mime_types = null`) — Delta §3.2 verlangt „beliebige Dokumenttypen" |
+| Pfadschema | `<project_id>/<document_id>` — per CHECK auf `platform.project_documents` festgelegt |
+| Konstante im Code | `PROJECT_DOCUMENTS_BUCKET` in `packages/shared/src/project-documents.ts` |
+
+### ⚠️ Der Bucket ist nur EINFACH gesichert — und das ist gemessen, nicht vermutet
+
+Im `platform`-Schema schützen zwei unabhängige Schichten: RLS ohne Policy **und** kein Tabellen-Grant.
+Auf `storage.objects` gibt es diese zweite Schicht **nicht**. Gegen den lokalen Stack und gegen die
+Produktion gemessen:
+
+- `storage.objects` und `storage.buckets` haben RLS aktiv und **0 Policies**.
+- `anon` UND `authenticated` haben dort die **vollen Tabellenrechte** (SELECT, INSERT, UPDATE, DELETE…)
+  — von Supabase selbst vergeben, nicht von uns, und nicht sinnvoll entziehbar (sie gehören dem
+  Storage-Dienst).
+- `service_role` trägt `rolbypassrls` und ist damit der **einzige** Weg an die Bytes.
+
+**Daraus folgt die Betriebsregel: eine später ergänzte, permissive Policy auf `storage.objects` OHNE
+`bucket_id`-Bedingung öffnet diesen Bucket mit.** Wer je eine Storage-Policy für einen ANDEREN Bucket
+anlegt, schränkt sie auf dessen `bucket_id` ein. Das DB-Gate
+(`packages/db-tests/src/project-chat-state.test.ts`) prüft deshalb nicht die Policy-Zahl — ein solcher
+Test bliebe grün — sondern das **Verhalten**: `anon` und `authenticated` versuchen echt zu lesen und zu
+schreiben, mit `service_role` als Positivkontrolle.
+
+### ⚠️ Beim Nachprüfen: den RUMPF lesen, nicht den Statuscode
+
+Am 10.09.2026 gegen die Produktion mit dem echten `anon`-Schlüssel gemessen:
+
+| Aufruf | Antwort |
+|---|---|
+| `GET /storage/v1/bucket/project-documents` | HTTP **400** |
+| `GET /storage/v1/object/public/project-documents/…` | HTTP **400** |
+| `POST /storage/v1/object/project-documents/…` (Upload) | **403** `new row violates row-level security policy` |
+| `POST /rest/v1/rpc/get_project` | **42501** `permission denied for function` |
+| `POST /storage/v1/object/list/project-documents` | ⚠️ **HTTP 200** — Rumpf aber `[]` |
+
+Die letzte Zeile ist die Falle: RLS **filtert** beim Auflisten, statt abzulehnen. Wer nur den
+Statuscode prüft, hält das für ein Leck (oder übersieht später ein echtes) — und die Positivkontrolle
+als `service_role` liefert ebenfalls 200. **Aussagekräftig ist allein der Rumpf.**
+
+### Der Zugriffsweg — der `service_role`-Schlüssel entscheidet nichts
+
+Hochladen: (1) `public.get_project` als **angemeldetes Konto** — die Eigentumsfrage beantwortet die
+Datenbank gegen `auth.uid()`; (2) Bytes schreiben mit `service_role`; (3)
+`public.append_project_document` als angemeldetes Konto, das ein zweites Mal prüft und den Pfad selbst
+bildet. Herunterladen: `public.get_project_document` (angemeldet) liefert den Pfad, danach die Bytes.
+
+Der Code dafür liegt in `apps/web/lib/project-documents/` — `storage.ts` (der einzige Ort mit dem
+service_role-Client, in der ESLint-Allowlist als **Datei**, nicht als Verzeichnis) und `documents.ts`
+(die Eigentumsfrage und die Reihenfolge). **Ein Wrapper, der eine Konto-Kennung entgegennähme und ihr
+glaubte, gibt es bewusst nicht** — er wäre die eine Stelle, an der ein Fehler im Anwendungscode zu
+einem Leck über Kundengrenzen würde.
+
+### ⚠️ Auflage an den Download-Weg (noch nicht gebaut)
+
+Die Auslieferung **muss einen Anhang erzwingen** (`Content-Disposition: attachment`) und darf sich
+**nicht** auf das gespeicherte `content_type` verlassen: das ist eine **Angabe des Kunden** (der
+Browser meldet sie, wir schreiben sie auf), und der Bucket nimmt bewusst jeden Dokumenttyp an.
+
+### Es gibt keinen Löschweg
+
+Weder für die Zeile (`platform.project_documents` hat keinen `delete`-Wrapper) noch für das Objekt —
+ausser dem Aufräumen eines gescheiterten Uploads (`removeProjectDocumentBytes`). Ein Objekt zu
+entfernen, dessen Zeile stehen bleibt, erzeugte einen Bestand, der eine Datei behauptet, die es nicht
+gibt. Der Löschweg kommt zusammen mit dem Storage-Aufräumweg, in einem eigenen Schritt.
+
+**Aufbewahrungsfrist: KEINE.** `platform.run_lead_retention` (B4-1) fasst diese Tabellen nicht an.
+Ein Gespräch und die dazu hochgeladenen Dokumente tragen Kundendaten und fallen damit unter dieselbe
+offene juristische Frage wie `platform.partner_applications` (§7) — **sie ist mit B24 grösser
+geworden.**
+
+---
+
 ## 4. Anhang — DB-Verbindung für Tooling (DB-Gate gegen die Cloud, einmalig)
 
 Rein operativ, für den seltenen Fall, dass das DB-Gate (`packages/db-tests`) noch einmal gegen die Cloud

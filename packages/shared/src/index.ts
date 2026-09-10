@@ -86,3 +86,7 @@ export * from './pv-design-scan'
 // „Wert der Ladesteuerung". Hier und nicht in `apps/website`, weil die App keinen Testlauf hat und
 // die Zusage „die beiden Teile ergeben bit-genau die Kopfzahl" nur als Test etwas wert ist.
 export * from './real-saving'
+
+// B24: Bucket-Name, Grössengrenze und Pfadschema der Projekt-Dokumente. In `shared`, weil sie von
+// `apps/web` (heute) und `apps/website` (mit dem Chat-Schritt) gemeinsam gebraucht werden.
+export * from './project-documents'

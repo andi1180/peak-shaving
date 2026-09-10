@@ -209,7 +209,14 @@ Bleibt technisch bestehen — die Prüfung selbst (Sitzung + Entitlement) änder
 4. **Genaue Zahl der Kostenbremse** (§6.3) — "anfangs grosszügig", kein Startwert festgelegt; Umsetzung selbst nicht Teil dieses Schritts.
 5. **Baukasten-Inhalt für Teil 3** (§5.1) — welche zusätzlichen Grafik-/Abschnitts-Typen über die bestehenden sieben hinaus, konkret.
 6. **Benachrichtigung nach Martin-Korrektur** (§3.3) — empfohlen, nicht entschieden.
-7. **Wie entsteht der Chat-Zustand technisch** (§2.2) — eigener, künftiger Bauschritt.
+7. ~~**Wie entsteht der Chat-Zustand technisch** (§2.2) — eigener, künftiger Bauschritt.~~
+   **ERLEDIGT (10.09.2026, zweiter Bauschritt):** `platform.project_messages` (Verlauf),
+   `platform.project_documents` + privater Storage-Bucket (Dateien),
+   `platform.project_open_questions` (Weg a/b) und `platform.projects.draft`/`segment` (der
+   laufende Entwurf), dazu zwölf Wrapper. **Die Zusage aus §3.3 — eine Annahme schliesst die
+   Rückfrage NICHT — ist dabei zu einer Datenbank-Eigenschaft geworden** (zwei CHECKs, im
+   DB-Gate direkt angegriffen), nicht zu einer Konvention des Anwendungscodes. Was weiterhin
+   fehlt, ist die Chat-LOGIK selbst (Modellaufruf, Tool-Use, System-Prompt) — s. §10.
 8. **Bleiben Gutscheincode und Partner-Anfrage neben der automatischen `calculator_pro`-Vergabe bestehen?** (§6.2) — Vorschlag gemacht, nicht entschieden; Umsetzung selbst nicht Teil dieses Schritts.
 9. **`deleted_questions`-Protokoll für den Fragenkatalog** (§4.2) — dass es eins geben sollte, ist entschieden; der genaue Zuschnitt und die Tabelle selbst gehören zum künftigen Fragenkatalog-Bauschritt, nicht zu diesem.
 
@@ -217,6 +224,13 @@ Bleibt technisch bestehen — die Prüfung selbst (Sitzung + Entitlement) änder
 
 ## 10 — Baustand
 
-**Gebaut (dieser Schritt):** Account/Projekt-Fundament — `platform.accounts`, `platform.projects`, Besitz- und Admin-Wrapper. Siehe Handover-Log für Details.
+**Gebaut, erster Schritt (09.09.2026):** Account/Projekt-Fundament — `platform.accounts`, `platform.projects`, Besitz- und Admin-Wrapper (nachgetragen: `projects.created_by`).
 
-**Nächste Schritte, je eigene Session:** Chat-Infrastruktur (§2.2, §3), Zählpunkt + Rollup-Schicht (§2.3/2.4), Fragenkatalog (§4), Report-Baukasten (§5), Kostenbremse (§6.3), automatische Entitlement-Vergabe (§6.2).
+**Gebaut, zweiter Schritt (10.09.2026):** der ZUSTAND des Chats — drei Tabellen (`project_messages`, `project_documents`, `project_open_questions`), zwei Spalten an `platform.projects` (`draft`, `segment`), der erste private Storage-Bucket des Repos und zwölf Wrapper. Dazu die erste Contract-Erweiterung, die dieses Delta ausgelöst hat: `TariffParams.meteringVariant` (§3.4 / Bestandsaufnahme A). Siehe Handover-Log für Details.
+
+Drei Entscheidungen dieses Schritts, die über ihn hinaus tragen:
+- **§3.3 ist eine Datenbank-Eigenschaft geworden, keine Konvention.** `status` und `resolution_kind` sind zwei Spalten, und zwei CHECKs verbieten die widersprüchlichen Kombinationen. Der Zustand `(open, assumed)` — „der Chat rechnet mit einer Annahme UND die Frage liegt weiterhin bei Martin" — ist damit erzwungen, nicht bloss beabsichtigt.
+- **Der Storage-Bucket ist nur EINFACH gesichert, und das ist gemessen.** Auf `storage.objects` haben `anon` und `authenticated` die vollen Tabellenrechte (von Supabase vergeben); die Abwesenheit einer Policy ist das Einzige, was den Bucket verschliesst. Eine später ergänzte, permissive Policy ohne `bucket_id`-Bedingung öffnet ihn mit. Das DB-Gate prüft deshalb das VERHALTEN, nicht die Policy-Zahl.
+- **Der `service_role`-Schlüssel entscheidet im Datei-Weg nichts.** Er trägt nur Bytes; jede Ja/Nein-Frage fällt vorher in der Datenbank gegen `auth.uid()`. Die naheliegende Abkürzung — ein Wrapper, der eine Konto-Kennung entgegennimmt und ihr glaubt — gibt es bewusst nicht.
+
+**Nächste Schritte, je eigene Session:** Chat-LOGIK (§3 — Modellaufruf, Tool-Use, System-Prompt, Platzhalter-Prüfung gegen den Fragenkatalog), Zählpunkt + Rollup-Schicht (§2.3/2.4), Fragenkatalog (§4), Report-Baukasten (§5), Kostenbremse (§6.3), automatische Entitlement-Vergabe (§6.2).

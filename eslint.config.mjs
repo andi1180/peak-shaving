@@ -78,7 +78,8 @@ export default tseslint.config(
                 'Resend-Webhook (app/api/resend/**, B2-2), die Partner-Bewerbung ' +
                 '(lib/partner-application/**, B16-3), die GoTrue-Admin-API ' +
                 '(lib/auth/admin-api.ts, B18-2a) und den Tarif-Pflegeweg ' +
-                '(lib/admin/grid-tariffs-actions.ts, B21-2b) — die letzten beiden je genau diese ' +
+                '(lib/admin/grid-tariffs-actions.ts, B21-2b) und den Byte-Transport der Projekt-Dokumente ' +
+                '(lib/project-documents/storage.ts, B24) — die letzten drei je genau diese ' +
                 'eine Datei. Für Nutzer-Reads den RLS-gebundenen lib/supabase/server.ts verwenden.',
             },
             {
@@ -153,6 +154,21 @@ export default tseslint.config(
      * Datei und in Migration 20260828090000. Die Freigabe ist genau deshalb auf die eine Datei
      * begrenzt: `lib/admin/**` insgesamt zu öffnen gäbe den erhöhten Zugriff dem gesamten
      * Admin-Bereich, der ihn nirgends sonst braucht.
+     *
+     * B24 ERWEITERT sie ein siebtes Mal, und zum dritten Mal um eine DATEI:
+     * `lib/project-documents/storage.ts`. Der Fall ist wieder ein anderer: hier geht es weder um
+     * einen `public`-Wrapper noch um eine Admin-API, sondern um SUPABASE STORAGE. Der Bucket
+     * `project-documents` ist privat und hat KEINE Policy — gemessen (Migration
+     * 20260910090000, TEIL 7) haben `anon` und `authenticated` auf `storage.objects` zwar die vollen
+     * Tabellenrechte, sehen aber ohne Policy nichts; `service_role` trägt `rolbypassrls` und ist
+     * damit der EINZIGE Weg an die Bytes. Eine zweite Tür gibt es nicht.
+     *
+     * ⚠ Und genau deshalb ist die Freigabe hier so eng wie möglich: `lib/project-documents/**`
+     * insgesamt zu öffnen hiesse, sie auch `documents.ts` zu geben — und das ist die Datei, welche
+     * die EIGENTUMSFRAGE stellt. Sie soll sich ihren RLS-freien Zugang nicht selbst bauen können,
+     * sondern ausschliesslich Bytes durch `storage.ts` schieben, nachdem die Datenbank gegen
+     * `auth.uid()` zugestimmt hat. `storage.ts` gibt den Client nie zurück, nur Werte — sonst wäre
+     * die Beschränkung auf eine Datei Kosmetik (wortgleiche Auflage wie bei `lib/auth/admin-api.ts`).
      */
     files: [
       'apps/web/app/api/stripe/**/*.ts',
@@ -163,9 +179,10 @@ export default tseslint.config(
       'apps/web/lib/partner-application/**/*.ts',
       'apps/web/lib/auth/admin-api.ts',
       'apps/web/lib/admin/grid-tariffs-actions.ts',
+      'apps/web/lib/project-documents/storage.ts',
     ],
     /*
-     * ⚠ NICHT `'no-restricted-imports': 'off'` — s. die Begründung im Block darüber. Diese acht
+     * ⚠ NICHT `'no-restricted-imports': 'off'` — s. die Begründung im Block darüber. Diese neun
      * Pfade dürfen den service_role-Client ziehen und den KI-Client ausdrücklich NICHT: keiner von
      * ihnen befragt ein Sprachmodell, und ein abrechenbarer Schlüssel hat im Stripe-Webhook oder im
      * Lead-Pfad nichts zu suchen.
