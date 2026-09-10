@@ -203,34 +203,119 @@ Bleibt technisch bestehen — die Prüfung selbst (Sitzung + Entitlement) änder
 
 ## 9 — Offene Punkte (ehrlich gesammelt)
 
-1. **Konkreter Feldzuschnitt Betrieb-Contract** (§3.4) — welche Felder genau; Leistungsmessungs-Variante muss dabei neu ins Contract gehoben werden (Bestandsaufnahme A), nicht nur aus der UI übernommen.
+1. ~~**Konkreter Feldzuschnitt Betrieb-Contract** (§3.4) — welche Felder genau; Leistungsmessungs-Variante muss dabei neu ins Contract gehoben werden (Bestandsaufnahme A), nicht nur aus der UI übernommen.~~
+   **ERLEDIGT (10.09.2026, zweiter Bauschritt).** Das Ergebnis ist kleiner als die Frage: **genau EIN
+   Feld war neu zu heben** — `TariffParams.meteringVariant` (optional; `undefined` heisst „nicht
+   angegeben", NICHT „ohne Leistungsmessung" — das ist eine Angabe mit eigener Rechenfolge, Delta 3
+   des Tarifoptimierungs-Deltas: Leistungspreis 0 und damit gar keine Spitzenkappung). Die Werte
+   kommen aus `METERING_VARIANTS` und werden nicht ein zweites Mal ausgeschrieben.
+   **Der in §3.4 mitgenannte Vorsteuerabzug entfällt ersatzlos** und bekommt kein Feld: gerechnet
+   wird durchgängig netto (Delta 6 des Tarifoptimierungs-Deltas), und die Brutto-Frage ist eine
+   reine ANZEIGE-Frage des Reports, keine Eingangsgrösse der Engine. Ein Feld dafür wäre eine
+   Requisite — es hätte auf keine einzige Zahl Wirkung.
+   **Was der Punkt NICHT umfasste und weiterhin offen ist:** mehrere Zählpunkte (§2.3/2.4) sind ein
+   eigener Bauschritt, kein Contract-Feld.
 2. **Fragenkatalog-Inhalte** (§4.4) — Fachwissen, Owner Andreas/Martin, kein Architekturpunkt.
 3. **Erkennungslogik "Struktur, die wir nicht abbilden"** (§3.5) — dass es diese Anforderung gibt, ist entschieden; wie der Chat das konkret erkennt, nicht.
 4. **Genaue Zahl der Kostenbremse** (§6.3) — "anfangs grosszügig", kein Startwert festgelegt; Umsetzung selbst nicht Teil dieses Schritts.
 5. **Baukasten-Inhalt für Teil 3** (§5.1) — welche zusätzlichen Grafik-/Abschnitts-Typen über die bestehenden sieben hinaus, konkret.
 6. **Benachrichtigung nach Martin-Korrektur** (§3.3) — empfohlen, nicht entschieden.
 7. ~~**Wie entsteht der Chat-Zustand technisch** (§2.2) — eigener, künftiger Bauschritt.~~
-   **ERLEDIGT (10.09.2026, zweiter Bauschritt):** `platform.project_messages` (Verlauf),
-   `platform.project_documents` + privater Storage-Bucket (Dateien),
+   **ERLEDIGT (10.09.2026, zweiter und dritter/vierter Bauschritt):** `platform.project_messages`
+   (Verlauf), `platform.project_documents` + privater Storage-Bucket (Dateien),
    `platform.project_open_questions` (Weg a/b) und `platform.projects.draft`/`segment` (der
    laufende Entwurf), dazu zwölf Wrapper. **Die Zusage aus §3.3 — eine Annahme schliesst die
    Rückfrage NICHT — ist dabei zu einer Datenbank-Eigenschaft geworden** (zwei CHECKs, im
-   DB-Gate direkt angegriffen), nicht zu einer Konvention des Anwendungscodes. Was weiterhin
-   fehlt, ist die Chat-LOGIK selbst (Modellaufruf, Tool-Use, System-Prompt) — s. §10.
+   DB-Gate direkt angegriffen), nicht zu einer Konvention des Anwendungscodes. Darauf aufgesetzt
+   ist inzwischen auch die **Chat-LOGIK** (Tool-Use-Schleife, Werkzeug-Ausführer, erster
+   System-Prompt) sowie das **Dokumentenlesen** über `packages/extractors` — s. §10.
+   **Was aus diesem Punkt bewusst NICHT mitgelöst wurde:** der Chat hat weiterhin keinen
+   HTTP-Rand (`'use server'` fehlt), keine Oberfläche und keine Kostenbremse.
 8. **Bleiben Gutscheincode und Partner-Anfrage neben der automatischen `calculator_pro`-Vergabe bestehen?** (§6.2) — Vorschlag gemacht, nicht entschieden; Umsetzung selbst nicht Teil dieses Schritts.
 9. **`deleted_questions`-Protokoll für den Fragenkatalog** (§4.2) — dass es eins geben sollte, ist entschieden; der genaue Zuschnitt und die Tabelle selbst gehören zum künftigen Fragenkatalog-Bauschritt, nicht zu diesem.
+10. **`impact_note` hat eine Spalte, einen Schreibweg — und keinen Erzeuger** (§3.3). Der Hinweis
+    „ändert das Ergebnis stark/kaum" soll aus einem **Sensitivitätslauf gegen `recommendBattery`**
+    entstehen, nicht aus einer Vermutung des Modells: eine vom Modell erfundene Einschätzung wäre
+    genau die „erfundene Zahl mit seriösem Etikett", die dieses Projekt sonst überall ablehnt.
+    Der Lauf braucht einen Lastgang, den der Chat in seiner heutigen Fassung gar nicht hat.
+    `append_open_question` wird deshalb ohne `p_impact_note` gerufen, und die Spalte bleibt leer,
+    bis es die Rechnung dazu gibt. **Gehört in den Agent-Feinschliff (Schritt 2b, §10).**
+11. **`strict: true` auf den Werkzeug-Schemata ist zurückgehalten, nicht vergessen** (§3.1). `strict`
+    verlangt `additionalProperties: false` PLUS eine vollständige `required`-Liste; ein optionaler
+    Parameter müsste dort mitstehen und dafür nullbar werden, und `set_draft_field` bräuchte
+    zusätzlich eine Typ-Union für seinen Wert. **Die Kombination Typ-Union + Schema-Zwang ist in
+    diesem Repo schon einmal teuer geworden** (Delta 9b-2a des Tarifoptimierungs-Deltas: nach JSON
+    Schema gültig, von der API mit HTTP 400 VOR dem Modellaufruf abgewiesen — der Rechnungs-Scan
+    war in Produktion vollständig funktionslos, und ein Stub konnte das nicht fangen). Für
+    WERKZEUG-Schemata ist die Kombination gegen die echte API **nicht gemessen**. Was `strict`
+    leisten würde, leistet vorläufig der Ausführer: er prüft jede Eingabe selbst und antwortet bei
+    einem Fehler mit einem lesbaren `tool_result`, das das Modell korrigieren kann.
+    **Wer `strict` nachrüstet, misst vorher gegen die echte API — ebenfalls Schritt 2b.**
 
 ---
 
 ## 10 — Baustand
 
-**Gebaut, erster Schritt (09.09.2026):** Account/Projekt-Fundament — `platform.accounts`, `platform.projects`, Besitz- und Admin-Wrapper (nachgetragen: `projects.created_by`).
+**Stand 10.09.2026.** Vier Bauschritte gebaut und gemergt (PR #169–#173). Der Chat rechnet noch
+nichts und hat keine Oberfläche — was steht, ist der Weg vom Konto bis zum ausgelesenen Dokument.
 
-**Gebaut, zweiter Schritt (10.09.2026):** der ZUSTAND des Chats — drei Tabellen (`project_messages`, `project_documents`, `project_open_questions`), zwei Spalten an `platform.projects` (`draft`, `segment`), der erste private Storage-Bucket des Repos und zwölf Wrapper. Dazu die erste Contract-Erweiterung, die dieses Delta ausgelöst hat: `TariffParams.meteringVariant` (§3.4 / Bestandsaufnahme A). Siehe Handover-Log für Details.
+| # | Schritt | PR | Stand |
+|---|---|---|---|
+| 1 | **Account/Projekt-Fundament** — `platform.accounts`, `platform.projects`, sieben Wrapper, `platform.ensure_account`; nachgetragen `projects.created_by` samt Adress-Auflösung im Wrapper | #169, #170 | **gebaut** |
+| 2 | **Zustand des Chats** — `project_messages`, `project_documents`, `project_open_questions`, `projects.draft`/`segment`, der erste private Storage-Bucket des Repos, zwölf Wrapper; dazu die Contract-Erweiterung `TariffParams.meteringVariant` (§3.4, s. §9 Punkt 1) | #171 (Migration in a87246a) | **gebaut** |
+| 3 | **Mechanik des Chats** — Tool-Use-Schleife, Werkzeug-Ausführer, Verlaufs-Wiedereinspielung, Entwurfs-Werkzeuge, **erster System-Prompt** | #171 | **gebaut, nicht feinabgestimmt** |
+| 4 | **Extraktoren-Konsolidierung** — die vier kundenrelevanten Extraktoren nach `packages/extractors` (server-only, Barrel als einziger Ausgang), die vier Wizard-`actions.ts` umgestellt; **kein Verhaltensunterschied** | #172 | **gebaut** |
+| 5 | **Chat liest Dokumente** — `DEFAULT_EXTRACTORS` in `chat.ts`; die vier Werkzeuge werden dem Modell erstmals wirklich angeboten | #173 | **gebaut, live verifiziert** |
 
-Drei Entscheidungen dieses Schritts, die über ihn hinaus tragen:
+### Was Schritt 3 ausdrücklich NICHT ist
+
+Der System-Prompt deckt die vier Verhaltensanforderungen dieses Deltas ab (§3.1 freies Gespräch ·
+§3.2 Annahme/Messwert bei jedem Wert · §3.3 IMMER beide Wege aktiv anbieten, nie einseitig
+entscheiden · §3.4 Segment früh klären) plus §3.5 (nicht abbildbare Struktur → an Martin), und
+sonst nichts. **Ton, Gesprächsführung, Reihenfolge der Fragen, Antwortlänge und der Feinschliff
+gegen einen echten Vergleichsfall sind kein Teil davon** — wer daran arbeitet, misst gegen einen
+realen Dialog gegen die echte API und nicht gegen den Kommentar in der Datei.
+
+### Was Schritt 5 gemessen hat — und was er nicht sagt
+
+Verifiziert **gegen die echte Anthropic-API** mit dem **Urbanz-Referenzfall** (echte
+Kundenrechnung, kein Fixture): `classify_upload` ordnet das Dokument als `rechnung` ein,
+`extract_invoice` liest die Tarifwerte aus, und sie landen im Entwurf mit `source: 'measured'` —
+die Herkunftskennzeichnung aus §3.2 trägt also durch die ganze Kette. Gegenprobe:
+`missingExtractionTools()` liefert mit dem neuen Vorgabewert `[]`, mit `{}` alle vier Namen.
+
+**Dabei bestätigt, und das ist der erste nicht-zirkuläre Verhaltensbefund dieses Bogens:** das
+Modell **fragt das Segment nach, statt es zu raten** (§3.4). Der Mehrfach-Turn-Test aus Schritt 3
+konnte das strukturell nicht zeigen — dort lief das Modell nach Drehbuch, der Antworttext stammte
+aus dem Test, und die Behauptung wäre zirkulär gewesen.
+
+⚠ **Ein Lauf ist keine Prüfreihe.** Ob das Modell die beiden Wege aus §3.3 auch dann verlässlich
+beide anbietet, wenn eine Annahme naheliegt, ist damit **nicht** gemessen — das gehört in den
+Feinschliff.
+
+### Nächste Schritte, je eigene Session
+
+| Schritt | Inhalt | Abhängigkeit |
+|---|---|---|
+| **2b — Agent-Feinschliff** | Gesprächsführung gegen echte Dialoge abstimmen; `impact_note`-Erzeuger (§9 Punkt 10); `strict: true` gegen die echte API messen (§9 Punkt 11) | keine |
+| **Oberfläche** | Chat-UI; bringt `'use server'` mit | — |
+| **Kostenbremse** (§6.3) | **gekoppelt an die Oberfläche**, nicht danach: `chat.ts` trägt bewusst kein `'use server'`, weil jeder Turn bis zu neun ABRECHENBARE Modellaufrufe auslöst und die Obergrenze im Agenten EINEN Turn begrenzt, nicht die Zahl der Turns. Einen offenen, abrechenbaren Endpunkt zu veröffentlichen, bevor es die Bremse gibt, wäre die Reihenfolge genau falsch herum. | Oberfläche |
+| **Fragenkatalog** (§4) | admin-pflegbare Guidelines je Segment; Inhalte sind Fachwissen (§9 Punkt 2) | Owner Andreas/Martin |
+| Zählpunkt + Rollup-Schicht | §2.3/2.4 | — |
+| Report-Baukasten | §5 | — |
+| Automatische Entitlement-Vergabe | §6.2 (§9 Punkt 8 offen) | — |
+
+### Drei Entscheidungen aus Schritt 2, die über ihn hinaus tragen
+
 - **§3.3 ist eine Datenbank-Eigenschaft geworden, keine Konvention.** `status` und `resolution_kind` sind zwei Spalten, und zwei CHECKs verbieten die widersprüchlichen Kombinationen. Der Zustand `(open, assumed)` — „der Chat rechnet mit einer Annahme UND die Frage liegt weiterhin bei Martin" — ist damit erzwungen, nicht bloss beabsichtigt.
 - **Der Storage-Bucket ist nur EINFACH gesichert, und das ist gemessen.** Auf `storage.objects` haben `anon` und `authenticated` die vollen Tabellenrechte (von Supabase vergeben); die Abwesenheit einer Policy ist das Einzige, was den Bucket verschliesst. Eine später ergänzte, permissive Policy ohne `bucket_id`-Bedingung öffnet ihn mit. Das DB-Gate prüft deshalb das VERHALTEN, nicht die Policy-Zahl.
 - **Der `service_role`-Schlüssel entscheidet im Datei-Weg nichts.** Er trägt nur Bytes; jede Ja/Nein-Frage fällt vorher in der Datenbank gegen `auth.uid()`. Die naheliegende Abkürzung — ein Wrapper, der eine Konto-Kennung entgegennimmt und ihr glaubt — gibt es bewusst nicht.
 
-**Nächste Schritte, je eigene Session:** Chat-LOGIK (§3 — Modellaufruf, Tool-Use, System-Prompt, Platzhalter-Prüfung gegen den Fragenkatalog), Zählpunkt + Rollup-Schicht (§2.3/2.4), Fragenkatalog (§4), Report-Baukasten (§5), Kostenbremse (§6.3), automatische Entitlement-Vergabe (§6.2).
+### Und eine aus Schritt 4, die den Ablageort betrifft
+
+**Die vier kundenrelevanten Extraktoren liegen seit der Konsolidierung in `packages/extractors`,
+nicht mehr in `apps/website/lib/*`.** Dort geblieben sind ausschliesslich die vier
+`'use server'`-Actions des Wizards — sie importieren jetzt aus dem Paket. `apps/web/lib/project-chat`
+benutzt **dasselbe** Paket. Der Barrel ist der einzige Ausgang (`exports` gibt nur `.` frei), die
+vier KI-Clients sind von aussen nicht auflösbar — eine härtere Sperre als eine ESLint-Regel, weil
+sie niemand pflegen muss.
