@@ -271,20 +271,35 @@ Bleibt technisch bestehen — die Prüfung selbst (Sitzung + Entitlement) änder
 
 ## 10 — Baustand
 
-**Stand 10.09.2026.** Sechs Bauschritte gebaut (fünf davon gemergt, PR #169–#173). Der Chat rechnet
-noch nichts und hat keine Oberfläche — was steht, ist der Weg vom Konto bis zum ausgelesenen
-Dokument, dazu die Ablage für die admin-gepflegten Pflichtfragen. ⚠ **Schritt 6 ist bewusst nur
-die Ablage:** der Chat liest den Katalog noch nicht, und `platform.projects.industry` hat noch
-keinen Schreibweg — beide Enden stehen, das Stück dazwischen ist die Verdrahtung.
+**Stand 10.09.2026.** Zehn Bauschritte gebaut und gemergt (PR #169–#181). **Teil 1 ist bedienbar:**
+ein Kunde legt ein Projekt an, führt das Gespräch, lädt Dokumente hoch und bekommt sie ausgelesen;
+Martin sieht die offenen Rückfragen im Admin-Bereich und beantwortet sie dort. **Teil 2 ist als
+Mechanik gebaut und verdrahtet** — die Kataloge selbst sind leer (§4.4, Fachwissen). **Teil 3 ist
+unangetastet.**
+
+⚠ **Was der Chat weiterhin NICHT tut: er rechnet nichts.** Er füllt `platform.projects.draft` und
+prüft ihn gegen `tariffParamsSchema` plus die Katalog-Pflichtfragen — der Weg vom fertigen Entwurf
+in `recommendBattery` existiert nicht, und ein CSV/XLSX-Lastgang lässt sich im Chat nicht einlesen
+(der Klassifizierer kennt die Dokumentart `lastgang`, ein Leseweg dafür fehlt).
+
+⚠ **Die Schritt-Nummern dieser Tabelle zählen seit dem 10.09.2026 wie §9 und die Root-`CLAUDE.md`.**
+Eine frühere Fassung zählte die Extraktoren-Konsolidierung (#172) und ihre Verdrahtung (#173) als
+zwei Schritte und kam dadurch auf eine um eins höhere Nummer ab dem Fragenkatalog. Wer einen älteren
+Handover-Text liest, in dem das Fragenkatalog-Fundament „Schritt 6" heisst, meint Schritt 5 dieser
+Tabelle.
 
 | # | Schritt | PR | Stand |
 |---|---|---|---|
 | 1 | **Account/Projekt-Fundament** — `platform.accounts`, `platform.projects`, sieben Wrapper, `platform.ensure_account`; nachgetragen `projects.created_by` samt Adress-Auflösung im Wrapper | #169, #170 | **gebaut** |
 | 2 | **Zustand des Chats** — `project_messages`, `project_documents`, `project_open_questions`, `projects.draft`/`segment`, der erste private Storage-Bucket des Repos, zwölf Wrapper; dazu die Contract-Erweiterung `TariffParams.meteringVariant` (§3.4, s. §9 Punkt 1) | #171 (Migration in a87246a) | **gebaut** |
 | 3 | **Mechanik des Chats** — Tool-Use-Schleife, Werkzeug-Ausführer, Verlaufs-Wiedereinspielung, Entwurfs-Werkzeuge, **erster System-Prompt** | #171 | **gebaut, nicht feinabgestimmt** |
-| 4 | **Extraktoren-Konsolidierung** — die vier kundenrelevanten Extraktoren nach `packages/extractors` (server-only, Barrel als einziger Ausgang), die vier Wizard-`actions.ts` umgestellt; **kein Verhaltensunterschied** | #172 | **gebaut** |
-| 5 | **Chat liest Dokumente** — `DEFAULT_EXTRACTORS` in `chat.ts`; die vier Werkzeuge werden dem Modell erstmals wirklich angeboten | #173 | **gebaut, live verifiziert** |
-| 6 | **Fragenkatalog-FUNDAMENT** (§4) — `platform.question_catalog_entries` (Baseline + Branchen-Pools in einer Tabelle, datierte Stände, `unique nulls not distinct`), `platform.question_catalog_deletions`, `platform.system_prompt_extensions`, `platform.projects.industry` (offene Liste, NICHT das Lead-Enum), sieben Wrapper | — | **gebaut, ohne UI und ohne Verdrahtung** |
+| 4 | **Extraktoren-Konsolidierung und Verdrahtung** — die vier kundenrelevanten Extraktoren nach `packages/extractors` (server-only, Barrel als einziger Ausgang), die vier Wizard-`actions.ts` umgestellt (**kein Verhaltensunterschied**), danach `DEFAULT_EXTRACTORS` in `chat.ts`: die vier Werkzeuge werden dem Modell erstmals wirklich angeboten | #172, #173 | **gebaut, live verifiziert** |
+| 5 | **Fragenkatalog-FUNDAMENT** (§4) — `platform.question_catalog_entries` (Baseline + Branchen-Pools in einer Tabelle, datierte Stände, `unique nulls not distinct`), `platform.question_catalog_deletions`, `platform.system_prompt_extensions`, `platform.projects.industry` (offene Liste, NICHT das Lead-Enum), sieben Wrapper | #175 | **gebaut, ohne UI** |
+| 6 | **Fragenkatalog-VERDRAHTUNG** (§4) — `composeSystemPrompt()` hängt die admin-gepflegte Erweiterung ADDITIV hinter den Kern-Prompt (kein Stand ⇒ bit-identisch, als Test gepinnt); `set_industry` als Schreibweg samt `update_project_draft`/`get_project`-Erweiterung (DROP+CREATE); die Katalog-Pflichtfragen fliessen additiv in `check_draft_completeness` ein und tragen den admin-gepflegten Wortlaut mit | #176, #177 | **gebaut** |
+| 7 | **Kostenbremse und `'use server'`** (§6.3) — ein admin-editierbares Limit je Konto über **rollierende 24 Stunden** (nicht Kalendertag), Admin ausgenommen, **fail closed**: ist die Bremse nicht ermittelbar, wird der Turn abgewiesen. Erst damit durfte `chat.ts` einen HTTP-Rand bekommen | #178 | **gebaut** |
+| 8 | **Chat-Oberfläche** — `/kalkulator/projekte` (Liste, Anlegen) und `/kalkulator/projekte/[id]` (Chat-Schirm, Datei-Upload), hinter **derselben** Zugangsfrage wie der Rechner (`getCalculatorAccess`, `calculator_pro`); `transcript.ts` entscheidet serverseitig, was ein Kunde sieht | #179 | **gebaut** |
+| 9 | **Markdown im Verlauf** — `react-markdown` mit Erlaubnisliste, ohne `rehype-raw` und ohne `dangerouslySetInnerHTML`; **reine Anzeige**, Agent/Werkzeuge/System-Prompt mit 0 Zeilen Diff | #180 | **gebaut** |
+| 10 | **Admin-Oberfläche für offene Rückfragen** (§3.3) — `/admin/rueckfragen` (Warteschlange über alle Projekte, **älteste zuerst**) und `/admin/rueckfragen/[projectId]` (Antwortfeld plus read-only Gesprächsverlauf als Kontext). **Keine Migration** — die Wrapper stehen seit Schritt 2 und hatten null Aufrufer | #181 | **gebaut, live verifiziert** |
 
 ### Was Schritt 3 ausdrücklich NICHT ist
 
@@ -293,9 +308,11 @@ Der System-Prompt deckt die vier Verhaltensanforderungen dieses Deltas ab (§3.1
 entscheiden · §3.4 Segment früh klären) plus §3.5 (nicht abbildbare Struktur → an Martin), und
 sonst nichts. **Ton, Gesprächsführung, Reihenfolge der Fragen, Antwortlänge und der Feinschliff
 gegen einen echten Vergleichsfall sind kein Teil davon** — wer daran arbeitet, misst gegen einen
-realen Dialog gegen die echte API und nicht gegen den Kommentar in der Datei.
+realen Dialog gegen die echte API und nicht gegen den Kommentar in der Datei. Seit Schritt 6 kommt
+die admin-gepflegte Erweiterung dazu; sie hebt die Regeln des Kern-Prompts ausdrücklich **nicht**
+auf (eine Trennlinie sagt dem Modell genau das).
 
-### Was Schritt 5 gemessen hat — und was er nicht sagt
+### Was Schritt 4 gemessen hat — und was er nicht sagt
 
 Verifiziert **gegen die echte Anthropic-API** mit dem **Urbanz-Referenzfall** (echte
 Kundenrechnung, kein Fixture): `classify_upload` ordnet das Dokument als `rechnung` ein,
@@ -312,18 +329,32 @@ aus dem Test, und die Behauptung wäre zirkulär gewesen.
 beide anbietet, wenn eine Annahme naheliegt, ist damit **nicht** gemessen — das gehört in den
 Feinschliff.
 
+### Was die Schritte 8–10 sichtbar gemacht haben
+
+- **Weg (b) ist erstmals als eigener Zustand zu sehen.** `resolve_open_question('assumed')` lässt
+  `status` auf `open` STEHEN; solche Fragen bleiben in der Warteschlange, tragen eine eigene
+  Markierung und zeigen Annahme samt Begründung. Die Datenbank-Eigenschaft aus Schritt 2 hat damit
+  eine Oberfläche, die sie auch abbildet — statt sie zu „erledigt" zu verkürzen.
+- **Martin sieht genau das, was der Kunde sieht.** Der Admin-Verlauf importiert `visibleTranscript`
+  und `ChatMarkdown`, statt sie nachzubauen: die Erlaubnisliste (nur `user`/`assistant`, daraus nur
+  `text`) hat damit genau EINEN Ort, und `tool_call`/`tool_result`, Denk-Blöcke und der
+  Anhang-Vermerk mit roher Kennung kommen in keiner der beiden Oberflächen vor.
+- ⚠ **Der Kunde wird nach einer Antwort NICHT benachrichtigt**, und das Antwortformular sagt das im
+  Klartext, bevor abgesendet wird. §9 Punkt 6 ist dadurch nicht gelöst, sondern konkret geworden.
+
 ### Nächste Schritte, je eigene Session
 
 | Schritt | Inhalt | Abhängigkeit |
 |---|---|---|
-| **2b — Agent-Feinschliff** | Gesprächsführung gegen echte Dialoge abstimmen; `impact_note`-Erzeuger (§9 Punkt 10); `strict: true` gegen die echte API messen (§9 Punkt 11) | keine |
-| **Oberfläche** | Chat-UI; bringt `'use server'` mit | — |
-| **Kostenbremse** (§6.3) | **gekoppelt an die Oberfläche**, nicht danach: `chat.ts` trägt bewusst kein `'use server'`, weil jeder Turn bis zu neun ABRECHENBARE Modellaufrufe auslöst und die Obergrenze im Agenten EINEN Turn begrenzt, nicht die Zahl der Turns. Einen offenen, abrechenbaren Endpunkt zu veröffentlichen, bevor es die Bremse gibt, wäre die Reihenfolge genau falsch herum. | Oberfläche |
-| **Fragenkatalog — VERDRAHTUNG** (§4) | das Fundament steht (Schritt 6). Offen: `update_project_draft` um `p_industry` erweitern (⚠ DROP+CREATE, kein `create or replace` — ein zusätzlicher Parameter ändert die Signatur), `get_project` um die Spalte, den Chat `list_question_catalog` lesen lassen, `get_system_prompt_extension` in den STABILEN System-Block hängen (nicht hinter den Zustandsblock — sonst ist der Cache-Vorteil weg), Katalog-Stand am Projekt denormalisieren (§4.2) | Oberfläche/Chat |
+| **2b — Agent-Feinschliff** | Gesprächsführung gegen echte Dialoge abstimmen; `impact_note`-Erzeuger (§9 Punkt 10); `strict: true` gegen die echte API messen (§9 Punkt 11) | Engine-Anbindung (für `impact_note`) |
+| **Engine-Anbindung des Entwurfs** | Der Weg vom fertigen `draft` in `recommendBattery` — und davor das Einlesen eines CSV/XLSX-Lastgangs IM Chat. ⚠ Ohne Lastgang gibt es auch den Sensitivitätslauf für `impact_note` nicht (§9 Punkt 10) | keine |
 | **Fragenkatalog — INHALTE** (§4.4) | welche Fragen ein Segment und ein Branchen-Pool tragen; die Kataloge sind leer | Owner Andreas/Martin |
+| **Fragenkatalog — ADMIN-UI** (§4) | die fünf `admin_*`-Wrapper aus Schritt 5 haben null Aufrufer im Anwendungscode; gepflegt wird bis dahin im SQL-Editor. Dazu die in §9 Punkt 9 benannte Lücke: ein `admin_retire_question_catalog_entry(p_id, p_valid_until)`, damit ein Stand geschlossen werden kann, ohne ihn über den Löschweg zu opfern | keine |
+| **Admin-UI für das Nachrichtenlimit** (§6.3) | `admin_get_chat_rate_limit`/`admin_set_chat_rate_limit` stehen seit Schritt 7 und haben null Aufrufer; der Startwert (100) ist als solcher gekennzeichnet und in einer Zeile ersetzbar. §9 Punkt 4 bleibt damit offen — entschieden ist die Mechanik, nicht die Zahl | keine |
+| **Benachrichtigung nach Martin-Korrektur** (§3.3, §9 Punkt 6) | mit Schritt 10 konkret geworden, s. oben | keine |
 | Zählpunkt + Rollup-Schicht | §2.3/2.4 | — |
 | Report-Baukasten | §5 | — |
-| Automatische Entitlement-Vergabe | §6.2 (§9 Punkt 8 offen) | — |
+| Automatische Entitlement-Vergabe | §6.2 (§9 Punkt 8 offen). ⚠ **Der Zugang zum Chat hängt seit Schritt 8 an `calculator_pro`** — also weiterhin an Gutscheincode oder genehmigter Partner-Anfrage. Der „offene Zugang" aus §0 ist entschieden, aber nicht gebaut | — |
 
 ### Drei Entscheidungen aus Schritt 2, die über ihn hinaus tragen
 
@@ -339,3 +370,19 @@ nicht mehr in `apps/website/lib/*`.** Dort geblieben sind ausschliesslich die vi
 benutzt **dasselbe** Paket. Der Barrel ist der einzige Ausgang (`exports` gibt nur `.` frei), die
 vier KI-Clients sind von aussen nicht auflösbar — eine härtere Sperre als eine ESLint-Regel, weil
 sie niemand pflegen muss.
+
+### Und drei aus den Schritten 6–9, die beim nächsten Anfassen zählen
+
+- **Fail closed und fail open stehen bewusst nebeneinander.** `loadSystemPromptExtension` und
+  `listQuestionCatalog` fallen bei einem Lesefehler auf „nichts gefunden" zurück und lassen den Turn
+  laufen — ein fehlender Admin-Text darf kein Gespräch abbrechen. Die Kostenbremse ist das
+  Gegenteil. Der Grund ist die Asymmetrie der Kosten, und beide Haltungen stehen an ihrem Fundort
+  begründet, damit sie niemand „vereinheitlicht".
+- **`'use server'` allein erzeugt keinen Endpunkt.** Gemessen am
+  `server-reference-manifest.json`: ohne Importeur stand aus `chat.ts` NULL darin. Scharf wurde der
+  Endpunkt erst mit Schritt 8, also mit der Oberfläche. Wer eine weitere Server Action anlegt,
+  sollte wissen, wann sie tatsächlich registriert wird.
+- **Was der Kunde sieht, entscheidet eine Erlaubnisliste — zweistufig und serverseitig.** Erst die
+  Rolle (`user`/`assistant`), dann der Blocktyp (`text`). Eine fünfte Rolle oder ein neuer Blocktyp
+  erscheint dadurch **nicht von selbst** im Verlauf; mit einer Sperrliste täte er das, und niemand
+  merkte es beim Hinzufügen.
