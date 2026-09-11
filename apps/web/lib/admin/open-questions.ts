@@ -37,6 +37,18 @@
  * Die Warteschlange verlinkt deshalb auf das Projekt und springt per Anker an die Frage.
  */
 
+/*
+ * ⚠ DER PROJEKTKOPF WIRD NICHT MEHR HIER GELESEN.
+ *
+ * `AdminProjectHead` und `readAdminProject` standen bis zum Bau der Admin-Projektliste in dieser
+ * Datei — sie waren damals ihr einziger Konsument. Sie lesen `public.admin_get_project`, und dieser
+ * Wrapper hat mit `20260911090000` zwei Felder dazubekommen (`segment`, `industry`). Zwei Fassungen
+ * desselben Lesers nebeneinander liefen beim nächsten Umbau auseinander, und eine der beiden
+ * Ansichten zeigte dann eine Angabe nicht, die vorhanden ist. Sie liegen deshalb jetzt in
+ * `lib/admin/projects.ts` — dem Modul, dem der Begriff „Projekt im Admin-Bereich" gehört — und
+ * werden von beiden Bereichen von dort importiert.
+ */
+
 /** Basispfad des Abschnitts — ohne Locale-Präfix, wie der ganze Admin-Bereich. */
 export const OPEN_QUESTIONS_HREF = '/admin/rueckfragen'
 
@@ -138,16 +150,6 @@ export type ProjectQuestionList = {
   questions: ProjectQuestionRow[]
 }
 
-/** Der Projektkopf aus `public.admin_get_project`. */
-export type AdminProjectHead = {
-  id: string
-  account_id: string | null
-  customer_label: string
-  created_by_email: string | null
-  created_at: string
-  updated_at: string
-}
-
 function asObject(data: unknown): Record<string, unknown> | null {
   return typeof data === 'object' && data !== null ? (data as Record<string, unknown>) : null
 }
@@ -191,16 +193,6 @@ export function readProjectQuestions(
     total: typeof obj.total === 'number' ? obj.total : 0,
     questions: Array.isArray(obj.questions) ? (obj.questions as ProjectQuestionRow[]) : [],
   }
-}
-
-/** `null` = nicht gelesen; `'not_found'` = es gibt das Projekt nicht. */
-export function readAdminProject(data: unknown): AdminProjectHead | 'not_found' | null {
-  const obj = asObject(data)
-  if (!obj) return null
-  if (obj.status === 'not_found') return 'not_found'
-  if (obj.status !== 'ok') return null
-  const project = asObject(obj.project)
-  return project ? (project as AdminProjectHead) : null
 }
 
 /**

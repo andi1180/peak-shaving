@@ -12,11 +12,13 @@ import {
   OPEN_QUESTION_STATUS_LABEL,
   QUESTION_ANCHOR,
   hasStandingAssumption,
-  readAdminProject,
   readProjectMessages,
   readProjectQuestions,
   type ProjectQuestionRow,
 } from '@/lib/admin/open-questions'
+// Der Projektkopf wird seit der Admin-Projektliste aus `projects.ts` gelesen — eine Definition
+// dieses Lesers, zwei Bereiche (Begründung im Kopf von `lib/admin/open-questions.ts`).
+import { readAdminProject } from '@/lib/admin/projects'
 
 /*
  * `/admin/rueckfragen/[projectId]` — die Rückfragen EINES Projekts, im Gesprächsverlauf (B24).
