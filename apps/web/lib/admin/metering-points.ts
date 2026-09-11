@@ -40,7 +40,7 @@ export type MeteringPointGapRange = {
 /**
  * Was der Wizard von einem Zählpunkt braucht.
  *
- * ── ⚠ DIE LASTGANG-METADATEN STEHEN SEIT DEM LASTGANG-SCHRITT HIER, `draft` WEITERHIN NICHT ────
+ * ── ⚠ DIE LASTGANG-METADATEN STEHEN SEIT DEM LASTGANG-SCHRITT HIER, `draft` SEIT DEM ZWEITEN ────
  * Der ursprüngliche Zuschnitt liess alle vier Metadaten-Felder bewusst weg, mit der Begründung
  * „Felder ohne Leser". Für `interval_minutes`, `covered_from`/`covered_to` und `gaps` gilt sie
  * nicht mehr: die Lastgang-Station ZEIGT genau diese vier — sie sind das Einzige, woran ein Mensch
@@ -48,21 +48,37 @@ export type MeteringPointGapRange = {
  * nehmen statt aus der Datenbank wäre die schlechtere Wahl: nach einem Neuladen stünde die Station
  * dann ohne Zusammenfassung da, obwohl gespeichert ist.
  *
- * `draft` bleibt draussen — der Entwurf gehört den Schritten, die es noch nicht gibt (Rechnung,
- * Batterie, PV, Tarif), und der Chat legt ihn anders aus, als ein Formular es täte.
+ * ⚠ `draft` STAND HIER BIS ZUM STANDARDPROFIL-ZWEIG BEWUSST NICHT, mit derselben Begründung, und
+ * dieselbe Begründung fällt jetzt weg: der Jahresverbrauch, aus dem ein erzeugtes Profil entstanden
+ * ist, steht IM Entwurf (`annualConsumptionKwh` samt Herkunftsvermerk) — ihn nicht zu zeigen hiesse,
+ * einen Zeitraum auszuweisen, dessen Grundlage der Admin nirgends sehen kann. Er bleibt ein rohes
+ * `Record`: wie er AUSGELEGT wird, entscheidet `lib/admin/standard-profile.ts` für das eine Feld,
+ * um das es hier geht; die übrigen gehören den Schritten, die es noch nicht gibt (Rechnung,
+ * Batterie, PV, Tarif), und der Chat legt sie anders aus, als ein Formular es täte.
  */
 export type MeteringPointSummary = {
   id: string
   /**
-   * `source_document_id` gesetzt. Das ist die Angabe, an der
-   * `admin_set_metering_point_count` ein Verkleinern verweigert (`has_load_profile`) — die
-   * Oberfläche kann damit sagen, warum, bevor jemand es versucht.
+   * WOHER die Verbrauchsgrundlage dieses Zählpunkts stammt — `null`, solange es keine gibt.
    *
-   * ⚠ Sie ist zugleich der Diskriminator der Lastgang-Metadaten: `set_metering_point_load_profile`
-   * ERSETZT alle vier Angaben gemeinsam und verlangt ein Dokument (`invalid_document`), es gibt
-   * also keinen Stand, in dem ein Zeitraum ohne Quelle dasteht.
+   * ⚠ DAS WAR BIS ZUM STANDARDPROFIL-ZWEIG EIN BOOLEAN (`hasLoadProfile`) AN `source_document_id`,
+   * und genau das ging mit dem zweiten Weg kaputt: `set_metering_point_standard_profile` setzt die
+   * Quelle ausdrücklich auf `null` (ein erzeugtes Profil hat keine Datei und soll keine
+   * vortäuschen) und füllt trotzdem Intervall und Zeitraum. Ein Flag an der Quelle hätte danach
+   * „kein Lastgang" gemeldet, während der Zählpunkt einen vollständigen Zeitraum trägt — die
+   * Station stellte ihre Ja/Nein-Frage erneut, und die Übersicht zählte den Zählpunkt als leer.
+   *
+   * Es ist deshalb kein zweites Flag daneben geworden, sondern die HERKUNFT als eigene Aussage:
+   * „gibt es eine Grundlage?" ist `profileSource !== null`, „kommt sie aus einer Datei?" ist
+   * `=== 'upload'`. Zwei Flags nebeneinander liessen den vierten Zustand („beides") entstehen, den
+   * es in der Datenbank nicht geben kann.
+   *
+   * ⚠ `'upload'` ist zugleich die Angabe, an der `admin_set_metering_point_count` ein Verkleinern
+   * verweigert (`has_load_profile` prüft `source_document_id`) — ein Zählpunkt mit erzeugtem
+   * Standardprofil lässt sich also sehr wohl wegkürzen. Das ist beabsichtigt: dabei geht eine Zahl
+   * verloren, die neu eingetragen werden kann, keine hochgeladene Datei.
    */
-  hasLoadProfile: boolean
+  profileSource: 'upload' | 'standard' | null
   /** 15 oder 60, sobald ein Lastgang eingelesen wurde — sonst `null`. */
   intervalMinutes: number | null
   /** Beginn des ersten Intervalls mit Messwert, ISO/UTC — sonst `null`. */
@@ -78,9 +94,19 @@ export type MeteringPointSummary = {
   /**
    * Die gespeicherten Lücken, in zeitlicher Reihenfolge. Leer = keine über der Toleranzschwelle
    * (`GAP_TOLERANCE_INTERVALS` in der Engine) — ausdrücklich NICHT „keine Angabe": ohne Lastgang
-   * gibt es gar keine Zeile dazu, und das steht in `hasLoadProfile`.
+   * gibt es gar keine Zeile dazu, und das steht in `profileSource`.
+   *
+   * ⚠ Bei `profileSource === 'standard'` ist die Liste IMMER leer, und zwar per Konstruktion: ein
+   * erzeugtes Profil ist lückenlos, und der Wrapper nimmt `gaps` gar nicht erst als Parameter.
    */
   gaps: MeteringPointGapRange[]
+  /**
+   * Der rohe Entwurf des Zählpunkts (`platform.metering_points.draft`), leer wenn keiner dasteht.
+   *
+   * Roh und nicht ausgelegt — s. Kopf. Der einzige heutige Leser ist die Lastgang-Station, und die
+   * fragt über `readStandardProfileConsumption` nach genau EINEM Feld.
+   */
+  draft: Record<string, unknown>
 }
 
 function asObject(data: unknown): Record<string, unknown> | null {
@@ -107,14 +133,45 @@ export function readMeteringPointList(data: unknown): MeteringPointSummary[] | n
     if (typeof id !== 'string' || id === '') continue
     rows.push({
       id,
-      hasLoadProfile: typeof row?.source_document_id === 'string',
+      profileSource: readProfileSource(row),
       intervalMinutes: typeof row?.interval_minutes === 'number' ? row.interval_minutes : null,
       coveredFrom: typeof row?.covered_from === 'string' ? row.covered_from : null,
       coveredTo: typeof row?.covered_to === 'string' ? row.covered_to : null,
       gaps: readGaps(row?.gaps),
+      draft: readDraft(row?.draft),
     })
   }
   return rows
+}
+
+/**
+ * Die Herkunft der Verbrauchsgrundlage aus einer rohen Zeile.
+ *
+ * ⚠ DIE REIHENFOLGE DER ZWEI PRÜFUNGEN IST DIE AUSSAGE. Eine gesetzte Quelle entscheidet ZUERST:
+ * nur `set_metering_point_load_profile` schreibt eine, und die Funktion verlangt sie (der Fall
+ * „Dokument gesetzt, Zeitraum leer" kann also nicht entstehen). Erst danach zählt der Zeitraum,
+ * und dann kann er nur aus dem Erzeuger stammen.
+ *
+ * Gelesen wird `covered_from`, nicht `interval_minutes`: der CHECK der Tabelle verlangt die zwei
+ * Zeitgrenzen gemeinsam oder gar nicht, das Intervall steht ohne eigene Bedingung daneben.
+ */
+/**
+ * Der rohe Entwurf, defensiv wie der Rest dieses Lesers.
+ *
+ * ⚠ NICHT `asObject`: das lässt ein ARRAY durch (`typeof [] === 'object'`), und `jsonb` kann eines
+ * tragen. Der einzige Leser ruft `readStandardProfileConsumption(point.draft)` ohne Guard — bei
+ * einem Array käme dort still `undefined` heraus, also „keine Angabe" statt „dieser Entwurf ist
+ * kaputt". Ein leeres Objekt ist die ehrlichere Antwort und die einzige, die der Typ zusagt.
+ */
+function readDraft(value: unknown): Record<string, unknown> {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return {}
+  return value as Record<string, unknown>
+}
+
+function readProfileSource(row: Record<string, unknown> | null): 'upload' | 'standard' | null {
+  if (typeof row?.source_document_id === 'string') return 'upload'
+  if (typeof row?.covered_from === 'string') return 'standard'
+  return null
 }
 
 /**

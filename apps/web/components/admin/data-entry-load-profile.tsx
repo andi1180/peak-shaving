@@ -55,14 +55,23 @@ import { Button } from '@/components/ui/button'
 import { FieldHint, Label } from '@/components/ui/input'
 import {
   removeMeteringPointLoadProfileAction,
+  saveMeteringPointStandardProfileAction,
   uploadMeteringPointLoadProfileAction,
 } from '@/lib/admin/data-entry-actions'
-import { ADMIN_INITIAL_STATE } from '@/lib/admin/schema'
+import { ADMIN_INITIAL_STATE, type AdminState } from '@/lib/admin/schema'
 import type { MeteringPointSummary } from '@/lib/admin/metering-points'
-import { formatDateTime } from '@/lib/admin/format'
-import { AdminError, AdminSuccess } from './ui'
+import { formatDateTime, formatKwh } from '@/lib/admin/format'
+import {
+  MAX_HOUSEHOLD_PERSONS,
+  hasStandardProfileCurve,
+  readStandardProfileConsumption,
+} from '@/lib/admin/standard-profile'
+import type { ProjectSegment } from '@/lib/admin/projects'
+import { AdminError, AdminField, AdminSuccess } from './ui'
 
 const FIELD_ID = 'dateneingabe-lastgang-datei'
+const ANNUAL_FIELD_ID = 'dateneingabe-jahresverbrauch'
+const PERSONS_FIELD_ID = 'dateneingabe-personen'
 
 /**
  * Die Rückfrage nennt alle drei Folgen — was am Zählpunkt verschwindet, was aus der Ablage
@@ -74,6 +83,23 @@ const REMOVE_CONFIRM =
   'Ablage des Projekts entfernt. Das lässt sich nicht rückgängig machen — Sie können danach eine ' +
   'neue Datei hochladen.'
 
+/**
+ * ⚠ EIN EIGENER TEXT FÜR DAS ERZEUGTE PROFIL, und er ist nicht bloss höflicher formuliert: die
+ * mittlere der drei Folgen gibt es hier gar nicht. Ein Standardprofil hat keine Datei in der
+ * Ablage (`set_metering_point_standard_profile` setzt die Quelle ausdrücklich auf `null`), und der
+ * Datei-Text behauptete eine Löschung, die nicht stattfindet — beim ersten Mal beunruhigend, beim
+ * zweiten Mal ein Grund, der Rückfrage nicht mehr zu glauben.
+ *
+ * Er nennt dafür die Folge, die es NUR hier gibt: der Jahresverbrauch bleibt im Entwurf stehen.
+ * `admin_reset_metering_point_load_profile` fasst ihn nicht an (die Begründung steht in TEIL 3 der
+ * Migration 20260911200000), und wer ihn für gelöscht hielte, trüge ihn ein zweites Mal ein.
+ */
+const REMOVE_STANDARD_CONFIRM =
+  'Standardprofil wirklich entfernen?\n\n' +
+  'Zeitraum und Intervall werden vom Zählpunkt gelöscht. Der eingetragene Jahresverbrauch bleibt ' +
+  'erhalten — Sie können das Profil daraus neu erzeugen oder stattdessen einen gemessenen ' +
+  'Lastgang hochladen.'
+
 /** Die drei Zustände der Frage. `null` = noch nicht beantwortet. */
 type Answer = 'ja' | 'nein' | null
 
@@ -83,6 +109,7 @@ export function DataEntryLoadProfile({
   meteringPointNumber,
   maxBytes,
   nextHref,
+  segment,
 }: {
   projectId: string
   meteringPoint: MeteringPointSummary
@@ -92,6 +119,16 @@ export function DataEntryLoadProfile({
   maxBytes: number
   /** Die nächste Station, oder `null` am Ende der Liste. */
   nextHref: string | null
+  /**
+   * Das Segment des PROJEKTS — es entscheidet, welche Verbrauchskurve für ein erzeugtes
+   * Standardprofil gilt.
+   *
+   * ⚠ Hereingereicht statt hier gelesen: es gehört dem Projekt, nicht dem Zählpunkt, und die
+   * Server-Komponente hat es ohnehin schon (sie rendert damit die Segment-Station). Es als
+   * verstecktes Formularfeld mitzuschicken wäre die schlechtere Wahl — die ACTION liest es
+   * deshalb ein zweites Mal aus der Datenbank; hier steuert es nur, ob überhaupt gefragt wird.
+   */
+  segment: ProjectSegment | null
 }) {
   const [answer, setAnswer] = React.useState<Answer>(null)
   const [state, formAction, isPending] = useActionState(
@@ -107,17 +144,34 @@ export function DataEntryLoadProfile({
     removeMeteringPointLoadProfileAction,
     ADMIN_INITIAL_STATE,
   )
+  /*
+   * ⚠ DRITTER Zustand, und er hängt aus demselben Grund an der KOMPONENTE wie der zweite: ein
+   * erfolgreiches Erzeugen wechselt die Station in den Zusammenfassungs-Zweig, und ein
+   * `useActionState` IM Formular verschwände mitsamt seiner Meldung.
+   */
+  const [standardState, standardAction, isGenerating] = useActionState(
+    saveMeteringPointStandardProfileAction,
+    ADMIN_INITIAL_STATE,
+  )
   const error = state.fieldErrors?.file
 
   React.useEffect(() => {
     if (error) document.getElementById(FIELD_ID)?.focus()
   }, [error])
 
-  // ── Schon eingelesen: die Zusammenfassung IST die Station ────────────────────────────────────
-  if (meteringPoint.hasLoadProfile) {
+  /*
+   * ── Schon vorhanden: die Zusammenfassung IST die Station ────────────────────────────────────
+   *
+   * ⚠ `profileSource !== null`, NICHT mehr ein Flag an der Quelle. Beide Wege — hochgeladen und
+   * erzeugt — füllen dieselben Spalten; an der Quelle allein gemessen stellte die Station nach
+   * einem erzeugten Profil ihre Ja/Nein-Frage erneut, obwohl der Zeitraum gespeichert ist.
+   */
+  if (meteringPoint.profileSource !== null) {
+    const isStandard = meteringPoint.profileSource === 'standard'
     return (
       <div className="flex flex-col gap-6">
         {state.success && <AdminSuccess>{state.success}</AdminSuccess>}
+        {standardState.success && <AdminSuccess>{standardState.success}</AdminSuccess>}
         {removeState.formError && <AdminError>{removeState.formError}</AdminError>}
         <LoadProfileSummary point={meteringPoint} number={meteringPointNumber} />
 
@@ -137,16 +191,28 @@ export function DataEntryLoadProfile({
                * sie zwar noch auf seinem Rechner, aber im System ist sie danach weg (dieselbe
                * Zurückhaltung wie beim Rollen-Entzug, T4-4 — nicht bei An/Aus-Schaltern).
                */
-              if (!window.confirm(REMOVE_CONFIRM)) e.preventDefault()
+              const prompt = isStandard ? REMOVE_STANDARD_CONFIRM : REMOVE_CONFIRM
+              if (!window.confirm(prompt)) e.preventDefault()
             }}
           >
             <input type="hidden" name="projectId" value={projectId} />
             <input type="hidden" name="meteringPointId" value={meteringPoint.id} />
+            {/*
+              ⚠ DIESELBE ACTION FÜR BEIDE HERKÜNFTE, nur mit anderer Beschriftung:
+              `admin_reset_metering_point_load_profile` setzt auch dann zurück, wenn keine Quelle
+              dasteht, und deckt den erzeugten Fall damit ausdrücklich mit ab (TEIL 3 der Migration
+              20260911200000). Eine zweite Entfernen-Action wäre eine zweite Stelle für dieselbe
+              Entscheidung — und die erste, die beim nächsten Umbau auseinanderliefe.
+            */}
             <Button type="submit" variant="ghost" size="md" disabled={isRemoving}>
               {isRemoving && (
                 <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2} aria-hidden="true" />
               )}
-              {isRemoving ? 'Wird entfernt …' : 'Lastgang entfernen'}
+              {isRemoving
+                ? 'Wird entfernt …'
+                : isStandard
+                  ? 'Standardprofil entfernen'
+                  : 'Lastgang entfernen'}
             </Button>
             <span role="status" aria-live="polite" className="sr-only">
               {isRemoving ? 'Wird entfernt …' : ''}
@@ -199,23 +265,15 @@ export function DataEntryLoadProfile({
       </div>
 
       {answer === 'nein' && (
-        <div className="border-t border-line pt-6">
-          {/*
-            Derselbe Platzhalter-Stil wie die vier übrigen Stationen je Zählpunkt: Er sagt im
-            Klartext, dass hier noch nichts ist. Ein Standardprofil aus dem Jahresverbrauch zu
-            erzeugen ist ein eigener Schritt — und ein Formular, das danach fragt und nichts damit
-            täte, wäre eine Requisite.
-          */}
-          <p className="max-w-prose text-small text-text-muted">
-            Standardprofil — folgt als eigener Schritt.{' '}
-            <span className="text-text-muted">
-              Ohne gemessenen Lastgang wird der Verbrauch später aus dem Jahresverbrauch geschätzt.
-            </span>
-          </p>
-          <div className="mt-6">
-            <Continue nextHref={nextHref} />
-          </div>
-        </div>
+        <StandardProfileForm
+          projectId={projectId}
+          meteringPoint={meteringPoint}
+          state={standardState}
+          action={standardAction}
+          isPending={isGenerating}
+          segment={segment}
+          nextHref={nextHref}
+        />
       )}
 
       {answer === 'ja' && (
@@ -276,6 +334,18 @@ export function DataEntryLoadProfile({
  * verkleinern: Das wäre eine zweite Zahl über dieselbe Reihe, und sie stünde in keiner Zeile der
  * Datenbank.
  */
+/**
+ * Die Zusammenfassung, GEMEINSAM für beide Herkünfte.
+ *
+ * ── ⚠ DIE HERKUNFT IST DIE ERSTE ZEILE, NICHT EINE FUSSNOTE ───────────────────────────────────
+ * Beide Wege füllen dieselben vier Spalten, und ein Zeitraum sieht in beiden Fällen gleich aus.
+ * Was sich unterscheidet, ist, was die Zahlen dahinter WERT sind: ein gemessener Lastgang trägt die
+ * echten Lastspitzen des Betriebs, ein erzeugtes Profil eine Durchschnittskurve, die sie per
+ * Konstruktion nicht kennen kann. Wer das verwechselt, hält die Spitzenkappungs-Ersparnis einer
+ * Schätzung für eine Messung — und genau dagegen sperrt die Engine die Spitzenkappung bei
+ * `source: 'standard_profile'` ab (§3.6, `peakShavingBlockers`). Die Oberfläche muss denselben
+ * Unterschied sichtbar machen, sonst erklärt niemand die € 0 im Report.
+ */
 function LoadProfileSummary({
   point,
   number,
@@ -283,10 +353,14 @@ function LoadProfileSummary({
   point: MeteringPointSummary
   number: number
 }) {
+  const isStandard = point.profileSource === 'standard'
+  const consumption = readStandardProfileConsumption(point.draft)
   return (
     <div>
       <p className="text-small font-medium text-ink">
-        Lastgang für Zählpunkt {number} ist eingelesen.
+        {isStandard
+          ? `Standardprofil für Zählpunkt ${number} ist erzeugt.`
+          : `Lastgang für Zählpunkt ${number} ist eingelesen.`}
       </p>
 
       <dl className="mt-4 grid gap-x-8 gap-y-3 sm:grid-cols-[auto_1fr]">
@@ -301,11 +375,41 @@ function LoadProfileSummary({
           {point.intervalMinutes === null ? '—' : `${point.intervalMinutes} Minuten`}
         </dd>
 
-        <dt className="text-caption text-text-muted">Lücken</dt>
-        <dd className="text-small tabular-nums text-ink">
-          {point.gaps.length === 0 ? 'keine' : `${point.gaps.length}`}
-        </dd>
+        {/*
+          ⚠ „Lücken" NUR beim gelesenen Lastgang. Bei einem erzeugten Profil ist die Liste per
+          Konstruktion leer (der Wrapper nimmt `gaps` nicht einmal als Parameter) — „Lücken: keine"
+          läse sich dort wie ein Befund über die Datenqualität, wo gar nichts gemessen wurde.
+        */}
+        {!isStandard && (
+          <>
+            <dt className="text-caption text-text-muted">Lücken</dt>
+            <dd className="text-small tabular-nums text-ink">
+              {point.gaps.length === 0 ? 'keine' : `${point.gaps.length}`}
+            </dd>
+          </>
+        )}
+
+        {isStandard && consumption && (
+          <>
+            <dt className="text-caption text-text-muted">Jahresverbrauch</dt>
+            <dd className="text-small tabular-nums text-ink">
+              {formatKwh(consumption.annualConsumptionKwh)}
+              {consumption.source === 'assumed' && (
+                <span className="ml-2 text-caption tabular-nums text-text-muted">geschätzt</span>
+              )}
+            </dd>
+          </>
+        )}
       </dl>
+
+      {/*
+        Die Begründung einer Schätzung im Klartext („2.000 kWh Grundbedarf + 3 × 1.000 kWh"). Sie
+        steht im Entwurf, weil die Action sie dort hinterlegt — sie hier zu wiederholen hiesse, die
+        Formel ein zweites Mal auszuschreiben, und die zwei liefen beim nächsten Wert auseinander.
+      */}
+      {isStandard && consumption?.note && (
+        <p className="mt-3 max-w-prose text-caption text-text-muted">{consumption.note}</p>
+      )}
 
       {point.gaps.length > 0 && (
         <div className="mt-4">
@@ -321,9 +425,15 @@ function LoadProfileSummary({
       )}
 
       <p className="mt-4 max-w-prose text-caption text-text-muted">
-        Gespeichert sind nur diese Angaben über die Reihe — die Messwerte bleiben in der
-        hochgeladenen Datei. Um eine andere Datei zu verwenden, entfernen Sie den Lastgang und laden
-        die neue hoch.
+        {isStandard
+          ? 'Gespeichert sind nur diese Angaben — die Verbrauchskurve wird bei jeder Rechnung neu ' +
+            'aus dem Jahresverbrauch erzeugt. Sie bildet einen typischen Verlauf ab und kennt die ' +
+            'tatsächlichen Lastspitzen dieses Anschlusses nicht; eine Spitzenkappungs-Ersparnis ' +
+            'wird daraus deshalb nicht gerechnet. Ein gemessener Lastgang vom Netzbetreiber ' +
+            'ergibt ein deutlich belastbareres Ergebnis.'
+          : 'Gespeichert sind nur diese Angaben über die Reihe — die Messwerte bleiben in der ' +
+            'hochgeladenen Datei. Um eine andere Datei zu verwenden, entfernen Sie den Lastgang ' +
+            'und laden die neue hoch.'}
       </p>
     </div>
   )
@@ -356,5 +466,182 @@ function ContinueLink({ nextHref }: { nextHref: string | null }) {
     <Button asChild variant="primary" size="md">
       <Link href={nextHref}>Weiter</Link>
     </Button>
+  )
+}
+
+/**
+ * Der „Nein"-Zweig: ein Standardlastprofil aus dem Jahresverbrauch erzeugen.
+ *
+ * ── ⚠ ZWEI WEGE ZU EINER ZAHL, UND DER ZWEITE IST AUSDRÜCKLICH EINE SCHÄTZUNG ─────────────────
+ * Der Jahresverbrauch steht auf jeder Stromrechnung — das ist der Regelfall und das erste Feld.
+ * Wer ihn gerade nicht zur Hand hat, kommt über die Zahl der Personen im Haushalt zu einer
+ * Grössenordnung. Beide führen in dieselbe Action; was sie unterscheidet, ist der
+ * HERKUNFTSVERMERK, den sie im Entwurf hinterlassen (`measured` gegen `assumed` samt Begründung).
+ *
+ * Ihn wegzulassen wäre der teuerste Fehler dieser Station: eine geschätzte Zahl sieht in jeder
+ * späteren Rechnung genauso aus wie eine abgelesene, und der Unterschied fiele erst auf, wenn
+ * jemand fragt, woher die Ersparnis kommt. Delta §3.2 verlangt die Unterscheidung durchgehend bis
+ * in den Report — sie beginnt hier.
+ *
+ * ── ⚠ DER UMSCHALTER IST EIN `useState`, KEINE ZWEITE STATION ─────────────────────────────────
+ * Dieselbe Begründung wie bei der Ja/Nein-Frage darüber: „ich habe die Rechnung gerade nicht da"
+ * ist eine Aussage über diesen Bearbeitungsmoment, keine über den Betrieb. Als Spalte gespeichert
+ * stünde sie später neben einem eingetragenen Jahresverbrauch und widerspräche ihm.
+ *
+ * ── ⚠ ES WIRD NUR EIN FELD ABGESCHICKT, UND `mode` SAGT WELCHES ───────────────────────────────
+ * Beide Felder stehen im selben `<form>`; welches gilt, entscheidet das versteckte `mode`-Feld.
+ * Das inaktive ist bewusst gar nicht gerendert statt `disabled` — ein deaktiviertes Feld gäbe es
+ * weiterhin, und der nächste Umbau schickte seinen Wert mit. Die Action verzweigt ohnehin an
+ * `mode`; dass daneben keine zweite Zahl liegt, ist die Zusage dieser Seite.
+ */
+function StandardProfileForm({
+  projectId,
+  meteringPoint,
+  segment,
+  state,
+  action,
+  isPending,
+  nextHref,
+}: {
+  projectId: string
+  meteringPoint: MeteringPointSummary
+  segment: ProjectSegment | null
+  state: AdminState
+  action: (formData: FormData) => void
+  isPending: boolean
+  nextHref: string | null
+}) {
+  const [mode, setMode] = React.useState<'direct' | 'persons'>('direct')
+
+  /*
+   * ⚠ EIN BEREITS EINGETRAGENER JAHRESVERBRAUCH IST DIE VORBELEGUNG, nicht ein leeres Feld.
+   * Erreichbar, sobald jemand ein erzeugtes Profil entfernt: der Reset nullt den Zeitraum, den
+   * Entwurf aber ausdrücklich nicht (TEIL 3 der Migration 20260911200000). Ihn nicht zu zeigen
+   * hiesse, eine gespeicherte Angabe des Kunden zu verstecken und ein zweites Eintippen zu
+   * verlangen — und der Admin könnte nicht sehen, dass sie überhaupt noch dasteht.
+   */
+  const stored = readStandardProfileConsumption(meteringPoint.draft)
+
+  // ── Für Betriebe gibt es (noch) keine Kurve — dann wird gar nicht erst gefragt ───────────────
+  if (!hasStandardProfileCurve(segment)) {
+    return (
+      <div className="border-t border-line pt-6">
+        {/*
+          ⚠ EINE FACHLICHE FEHLANZEIGE, KEINE TECHNISCHE LÜCKE, und sie steht deshalb im Klartext
+          da statt als ausgegrautes Formular: Delta 8 lässt offen, welches G-Profil in Österreich
+          üblich ist, und eine aus dem Haushaltsprofil abgeleitete Gewerbekurve wäre eine erfundene
+          Zahlenreihe mit seriösem Etikett. Ein Formular, das garantiert in eine Ablehnung läuft,
+          wäre die unehrlichere Form derselben Auskunft.
+        */}
+        <p className="max-w-prose text-small text-text-muted">
+          {segment === null
+            ? 'Für dieses Projekt ist noch nicht festgelegt, ob es ein Privathaushalt oder ein ' +
+              'Betrieb ist. Ohne diese Angabe steht nicht fest, welche Verbrauchskurve gilt.'
+            : 'Für Betriebe ist noch keine Standard-Verbrauchskurve hinterlegt — der Verbrauch ' +
+              'eines Gewerbebetriebs hängt zu stark von der Branche ab, als dass ein einzelnes ' +
+              'Profil ihn abbilden könnte. Bitte fordern Sie den Lastgang beim Netzbetreiber an; ' +
+              'er stellt ihn kostenlos bereit.'}
+        </p>
+        <div className="mt-6">
+          <Continue nextHref={nextHref} />
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <form action={action} noValidate className="flex flex-col gap-4 border-t border-line pt-6">
+      {state.formError && <AdminError>{state.formError}</AdminError>}
+      <input type="hidden" name="projectId" value={projectId} />
+      <input type="hidden" name="meteringPointId" value={meteringPoint.id} />
+      <input type="hidden" name="mode" value={mode} />
+
+      <div>
+        <p className="max-w-prose text-body text-ink">
+          Dann rechnen wir mit einem Standard-Verbrauchsprofil für Privathaushalte.
+        </p>
+        <p className="mt-2 max-w-prose text-small text-text-muted">
+          Es bildet den typischen Tages- und Jahresverlauf ab und wird auf Ihren Jahresverbrauch
+          skaliert. Einzelne Lastspitzen kann es nicht zeigen — dafür braucht es gemessene Werte.
+        </p>
+      </div>
+
+      {mode === 'direct' ? (
+        <div className="max-w-xs">
+          <AdminField
+            id={ANNUAL_FIELD_ID}
+            name="annualKwh"
+            label="Jahresverbrauch (kWh)"
+            inputMode="numeric"
+            defaultValue={
+              state.values?.annualKwh ??
+              (stored ? String(Math.round(stored.annualConsumptionKwh)) : '')
+            }
+            error={state.fieldErrors?.annualKwh}
+            hint={'Steht auf Ihrer Jahresabrechnung, meist als „Verbrauch" oder „Energiemenge".'}
+          />
+          {stored && (
+            /*
+             * Was schon dasteht, und woher es stammt. Ohne den Vermerk sähe eine Schätzung aus
+             * wie eine abgelesene Zahl — genau die Verwechslung, die dieser Schritt vermeidet.
+             */
+            <p className="mt-2 text-caption text-text-muted">
+              {stored.source === 'assumed'
+                ? `Bereits gespeichert: ${formatKwh(stored.annualConsumptionKwh)} (geschätzt).`
+                : `Bereits gespeichert: ${formatKwh(stored.annualConsumptionKwh)}.`}
+            </p>
+          )}
+          <button
+            type="button"
+            onClick={() => setMode('persons')}
+            className="mt-3 text-small text-accent underline decoration-accent underline-offset-[3px]"
+          >
+            Weiss ich nicht
+          </button>
+        </div>
+      ) : (
+        <div className="max-w-xs">
+          <AdminField
+            id={PERSONS_FIELD_ID}
+            name="persons"
+            label="Personen im Haushalt"
+            inputMode="numeric"
+            defaultValue={state.values?.persons ?? ''}
+            error={state.fieldErrors?.persons}
+            hint={`Eine ganze Zahl zwischen 1 und ${MAX_HOUSEHOLD_PERSONS}.`}
+          />
+          {/*
+            ⚠ DIE KENNZEICHNUNG STEHT VOR DEM ABSENDEN, nicht erst in der Erfolgsmeldung. Wer
+            schätzt, soll vorher wissen, dass die Zahl als Schätzung gespeichert wird und die
+            Rechnung entsprechend ungenau ausfällt — hinterher ist es eine Mitteilung, vorher eine
+            Entscheidung.
+          */}
+          <p className="mt-2 max-w-prose text-caption text-text-muted">
+            Daraus schätzen wir den Jahresverbrauch. Die Zahl wird als Schätzung gekennzeichnet und
+            bleibt im Report als solche erkennbar — ein Blick auf die Stromrechnung ergibt ein
+            deutlich belastbareres Ergebnis.
+          </p>
+          <button
+            type="button"
+            onClick={() => setMode('direct')}
+            className="mt-3 text-small text-accent underline decoration-accent underline-offset-[3px]"
+          >
+            Jahresverbrauch doch eintragen
+          </button>
+        </div>
+      )}
+
+      <div className="flex items-center gap-3">
+        <Button type="submit" variant="primary" size="md" disabled={isPending}>
+          {isPending && (
+            <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2} aria-hidden="true" />
+          )}
+          {isPending ? 'Wird erzeugt …' : 'Standardprofil erzeugen'}
+        </Button>
+        <span role="status" aria-live="polite" className="sr-only">
+          {isPending ? 'Standardprofil wird erzeugt …' : ''}
+        </span>
+      </div>
+    </form>
   )
 }

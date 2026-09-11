@@ -11,3 +11,11 @@ export type {
   StandardProfileInput,
   StandardProfileOutcome,
 } from './h0'
+
+/*
+ * Die METADATEN eines erzeugten Profils — Zeitpunkte und Zahlen über die Reihe, nie die Reihe
+ * selbst. Getrennt von `h0.ts`, weil es eine andere Frage beantwortet: jenes erzeugt die Kurve,
+ * dieses sagt, was davon an einen Zählpunkt geschrieben wird (B24, Teil 1).
+ */
+export { standardProfileMetadata } from './metadata'
+export type { StandardProfileMetadata, StandardProfileMetadataOutcome } from './metadata'

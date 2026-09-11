@@ -3,23 +3,33 @@
 /**
  * Die Server Actions des Dateneingabe-Wizards (B24, Teil 1).
  *
- * ── ⚠ ES WAREN GENAU ZWEI, JETZT SIND ES VIER ──────────────────────────────────────────────────
+ * ── ⚠ ES WAREN GENAU ZWEI, JETZT SIND ES FÜNF ─────────────────────────────────────────────────
  * Der ursprüngliche Zuschnitt nannte die Zahl ausdrücklich und begründete sie: die fünf Stationen
  * je Zählpunkt waren Platzhalter, und eine Action ohne Wirkung wäre ein Endpunkt, den man aufrufen
  * kann und der nichts tut. Genau diese Begründung fällt für den ERSTEN der fünf mit dem
- * Lastgang-Schritt weg — er lädt eine Datei ab, liest sie und schreibt die gelesenen Metadaten an
- * den Zählpunkt; die vierte Action nimmt genau das wieder zurück. Die vier übrigen Stationen
+ * Lastgang-Schritt weg, und zwar für BEIDE Zweige seiner Frage: der „Ja"-Zweig lädt eine Datei ab,
+ * liest sie und schreibt die gelesenen Metadaten an den Zählpunkt (die vierte Action nimmt genau
+ * das wieder zurück), der „Nein"-Zweig ERZEUGT stattdessen ein Standardlastprofil aus dem
+ * Jahresverbrauch und schreibt dessen Metadaten an dieselben Spalten. Die vier übrigen Stationen
  * (Rechnung, Batterie, PV, Tarif) bleiben Platzhalter und haben weiterhin bewusst KEINE Action;
  * jede bekommt ihren eigenen Auftrag.
  *
  * ── KEIN service_role, wie in jeder Admin-Action dieses Bereichs ────────────────────────────────
- * Alle fünf Wrapper sind `authenticated`-only und prüfen selbst:
+ * Alle NEUN Wrapper sind `authenticated`-only und prüfen selbst:
  *   `public.update_project_segment_industry`          über `platform.project_accessible`
  *                                                     (eigenes Projekt ODER Adminrolle),
  *   `public.admin_set_metering_point_count`           über `platform.is_admin()` (WIRFT 42501),
  *   `public.set_metering_point_load_profile`          über `platform.project_accessible`,
  *   `public.admin_reset_metering_point_load_profile`  über `platform.is_admin()` (WIRFT 42501),
- *   `public.admin_delete_metering_point_document`     über `platform.is_admin()` (WIRFT 42501).
+ *   `public.admin_delete_metering_point_document`     über `platform.is_admin()` (WIRFT 42501),
+ *   `public.admin_get_project`                        über `platform.is_admin()` (WIRFT 42501),
+ *   `public.list_metering_points`                     über `platform.project_accessible`,
+ *   `public.update_metering_point_draft`              über `platform.project_accessible`,
+ *   `public.set_metering_point_standard_profile`      über `platform.project_accessible`.
+ * Die letzten vier gehören dem Standardprofil-Zweig: er braucht als einziger vier Aufrufe, weil er
+ * drei Dinge nacheinander tun muss, die keine gemeinsame Funktion hat (Segment lesen, Entwurf
+ * lesen und ersetzen, Metadaten schreiben) — die Reihenfolge und ihre Begründung stehen im Kopf
+ * von `saveMeteringPointStandardProfileAction`.
  * Die Autorisierung hängt damit nicht an dieser Datei. Die `no-restricted-imports`-Erlaubnisliste
  * wurde für diesen Pfad NICHT erweitert: der `service_role`-Schlüssel bleibt in
  * `lib/project-documents/storage.ts` eingeschlossen, und diese Datei importiert ihn nirgends.
@@ -33,7 +43,7 @@
  * nur reicht sie das Ergebnis als Wert heraus, statt den Aufruf zu kapseln.
  *
  * ══════════════════════════════════════════════════════════════════════════════════════════════
- * ⚠ ZWEI ACTIONS LEITEN IM ERFOLGSFALL UM, DIE ZWEI ÜBRIGEN NICHT — und das ist der Unterschied
+ * ⚠ ZWEI ACTIONS LEITEN IM ERFOLGSFALL UM, DIE DREI ÜBRIGEN NICHT — und das ist der Unterschied
  * ══════════════════════════════════════════════════════════════════════════════════════════════
  * Bei Segment und Zählpunkt-Zahl sind „gespeichert" und „einen Schritt weiter" derselbe Vorgang:
  * die Position des Wizards steht in der URL (`lib/admin/data-entry-stations.ts`), die Weiterleitung
@@ -49,7 +59,10 @@
  * Rückgabewert dieser Action — nach einem Neuladen stünde sie sonst leer da, obwohl gespeichert ist.
  *
  * Dasselbe gilt fürs ENTFERNEN: die Station muss danach die ursprüngliche Ja/Nein-Frage zeigen, und
- * dass sie das tut, erkennt ein Mensch nur, wenn er auf der Station bleibt.
+ * dass sie das tut, erkennt ein Mensch nur, wenn er auf der Station bleibt. Und dasselbe für das
+ * ERZEUGTE Standardprofil — dort ist es sogar die schärfere Form derselben Überlegung: an einem
+ * hochgeladenen Lastgang kann ein Mensch die Datei erkennen, an einem erzeugten Profil ist der
+ * ausgewiesene Zeitraum samt Jahresverbrauch das EINZIGE, was ihm überhaupt zur Prüfung bleibt.
  *
  * ⚠ `redirect()` WIRFT. Die beiden Aufrufe stehen deshalb am ENDE und ausserhalb jedes `try` — in
  * einem `catch` gefangen sähe die Weiterleitung wie ein Fehlschlag aus, und der Wizard bliebe
@@ -58,19 +71,37 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
-import { readLoadProfile } from 'extractors'
-import { MAX_PROJECT_DOCUMENT_BYTES } from 'shared'
+import { generateStandardProfileMetadata, readLoadProfile } from 'extractors'
+import { MAX_PROJECT_DOCUMENT_BYTES, standardProfileYear } from 'shared'
 
 import { uploadProjectDocument } from '@/lib/project-documents/documents'
 import { removeProjectDocumentBytes } from '@/lib/project-documents/storage'
+import { setDraftField } from '@/lib/project-chat/draft'
 import { createClient } from '@/lib/supabase/server'
 import {
   stationAfterMeteringPointCount,
   stationAfterSegment,
   stationHref,
 } from './data-entry-stations'
-import { PROJECT_SEGMENTS, projectDataEntryHref, type ProjectSegment } from './projects'
+import { formatKwh } from './format'
+import { readMeteringPointList } from './metering-points'
+import {
+  PROJECT_SEGMENTS,
+  projectDataEntryHref,
+  readAdminProject,
+  type ProjectSegment,
+} from './projects'
+import {
+  ANNUAL_CONSUMPTION_KWH_KEY,
+  MAX_HOUSEHOLD_PERSONS,
+  MAX_STANDARD_PROFILE_ANNUAL_KWH,
+  customerClassForSegment,
+  estimateHouseholdConsumptionKwh,
+  householdEstimateNote,
+  parseAnnualConsumptionKwh,
+} from './standard-profile'
 import type { AdminState } from './schema'
+import type { Json } from '@/db-types'
 
 const FORBIDDEN = 'Keine Berechtigung. Bitte laden Sie die Seite neu.'
 const GENERIC = 'Das hat nicht geklappt. Bitte versuchen Sie es erneut.'
@@ -564,4 +595,280 @@ export async function removeMeteringPointLoadProfileAction(
 /** Dateigrösse in MB mit einer Nachkommastelle — nur für die Meldung am Feld. */
 function formatMegabytes(bytes: number): string {
   return (bytes / (1024 * 1024)).toFixed(1).replace('.', ',')
+}
+
+// ── Standardprofil ───────────────────────────────────────────────────────────────────────────────
+/**
+ * Erzeugt ein synthetisches Standardlastprofil aus dem Jahresverbrauch und schreibt seine
+ * Metadaten an einen Zählpunkt — der „Nein"-Zweig der Lastgang-Station.
+ *
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * ⚠ DIESELBE REIHENFOLGE WIE BEIM UPLOAD: ERST ERZEUGEN, DANN SCHREIBEN
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ *   1. Eingabe prüfen (rein) und, wo nötig, aus der Haushaltsgrösse schätzen
+ *   2. `generateStandardProfileMetadata` — DETERMINISTISCH, kein Netz, kein Nebeneffekt
+ *   3. den Jahresverbrauch samt Herkunftsvermerk in den Entwurf des Zählpunkts
+ *   4. `set_metering_point_standard_profile`
+ *
+ * Schritt 2 lehnt eine unbrauchbare Eingabe ab, bevor irgendetwas geschrieben ist — wortgleich zur
+ * Begründung beim Datei-Upload. Dass es hier billiger wäre, falsch herum zu laufen (es gibt keine
+ * Datei, die liegen bliebe), ändert daran nichts: ein Entwurf, der einen Jahresverbrauch trägt, zu
+ * dem kein Profil existiert, wäre für den nächsten Schritt nicht von einem gültigen zu
+ * unterscheiden.
+ *
+ * ⚠ SCHRITT 3 STEHT VOR SCHRITT 4, UND NICHT UMGEKEHRT. Bricht es dazwischen ab, steht die EINGABE
+ * ohne den daraus erzeugten Zeitraum — der Admin sieht die Frage erneut, trägt dieselbe Zahl ein
+ * und ist am Ziel. Umgekehrt stünde ein Zeitraum da, dessen Grundlage nirgends steht: die Station
+ * zeigte ein Standardprofil ohne Jahresverbrauch, und woraus es entstand, wüsste niemand mehr.
+ *
+ * ⚠ ES WIRD NICHT UMGELEITET, aus demselben Grund wie beim Upload: Zeitraum und Jahresverbrauch
+ * sind das Einzige, woran ein Mensch erkennt, womit gerechnet werden wird.
+ *
+ * ── ⚠ DAS SEGMENT KOMMT AUS DER DATENBANK, NICHT AUS DEM FORMULAR ──────────────────────────────
+ * Es entscheidet, WELCHE Kurve gilt — und damit über den Verbrauchsverlauf eines ganzen Jahres.
+ * Als verstecktes Feld mitgeschickt wäre es eine Behauptung des Browsers über den Serverzustand,
+ * und ein veralteter Tab (Segment inzwischen gewechselt) erzeugte ein Profil nach der falschen
+ * Kurve, ohne dass irgendetwas fehlschlüge. Der zusätzliche Roundtrip ist der Preis dafür, dass
+ * diese eine Angabe nicht geraten wird.
+ */
+export async function saveMeteringPointStandardProfileAction(
+  _prev: AdminState,
+  formData: FormData,
+): Promise<AdminState> {
+  const projectId = readProjectId(formData)
+  if (projectId === null) return { formError: UNKNOWN_PROJECT }
+
+  const meteringPointId = String(formData.get('meteringPointId') ?? '')
+  if (!UUID.test(meteringPointId)) {
+    // Kommt wie die Projekt-Kennung als verstecktes Feld aus unserer eigenen Seite.
+    return { formError: GENERIC }
+  }
+
+  const rawAnnual = String(formData.get('annualKwh') ?? '')
+  const rawPersons = String(formData.get('persons') ?? '')
+  const mode = String(formData.get('mode') ?? 'direct')
+  const values = { annualKwh: rawAnnual, persons: rawPersons }
+
+  const supabase = await createClient()
+
+  // ── Das Segment, und damit die Kurve ──────────────────────────────────────────────────────────
+  const projectRes = await supabase.rpc('admin_get_project', { p_id: projectId })
+  if (projectRes.error) {
+    if (isForbidden(projectRes.error)) return { formError: FORBIDDEN, values }
+    console.error('[admin/dateneingabe] admin_get_project (Standardprofil):', projectRes.error)
+    return { formError: GENERIC, values }
+  }
+
+  const project = readAdminProject(projectRes.data)
+  if (project === null || project === 'not_found') return { formError: UNKNOWN_PROJECT, values }
+
+  const segment = (PROJECT_SEGMENTS as readonly string[]).includes(project.segment ?? '')
+    ? (project.segment as ProjectSegment)
+    : null
+  const customerClass = customerClassForSegment(segment)
+  if (customerClass === null) {
+    /*
+     * Über den Wizard nicht erreichbar: ohne Segment gibt es genau EINE Station, und das ist die
+     * Segment-Frage. Beantwortet statt ignoriert, weil eine Server Action ein Endpunkt ist.
+     */
+    return {
+      formError:
+        'Für dieses Projekt ist noch nicht festgelegt, ob es ein Privathaushalt oder ein Betrieb ' +
+        'ist. Ohne diese Angabe steht nicht fest, welche Verbrauchskurve gilt.',
+      values,
+    }
+  }
+
+  // ── Die Zahl: eingetragen oder geschätzt ──────────────────────────────────────────────────────
+  let annualConsumptionKwh: number
+  let source: 'measured' | 'assumed'
+  let note: string | undefined
+
+  if (mode === 'persons') {
+    const persons = Number(rawPersons.trim())
+    const estimate = estimateHouseholdConsumptionKwh(persons)
+    if (estimate === null) {
+      return {
+        fieldErrors: {
+          persons: `Bitte eine ganze Zahl zwischen 1 und ${MAX_HOUSEHOLD_PERSONS} angeben.`,
+        },
+        values,
+      }
+    }
+    annualConsumptionKwh = estimate
+    source = 'assumed'
+    note = householdEstimateNote(persons)
+  } else {
+    const parsed = parseAnnualConsumptionKwh(rawAnnual)
+    if (!parsed.ok) {
+      return { fieldErrors: { annualKwh: annualConsumptionMessage(parsed.reason) }, values }
+    }
+    annualConsumptionKwh = parsed.value
+    source = 'measured'
+  }
+
+  // ── Schritt 2: erzeugen. Rein, deterministisch, ohne Nebeneffekt — s. Kopf.
+  const year = standardProfileYear(new Date())
+  const generated = generateStandardProfileMetadata({
+    annualConsumptionKwh,
+    customerClass,
+    year,
+    timeZone: STANDARD_PROFILE_TIME_ZONE,
+  })
+
+  if (!generated.ok) {
+    switch (generated.reason) {
+      case 'no_profile_for_class':
+        /*
+         * Für Betriebe gibt es (noch) keine Profilkurve — Delta 8 lässt offen, welches G-Profil in
+         * Österreich üblich ist. Die Oberfläche fragt deshalb gar nicht erst; der Satz steht hier
+         * als Tiefenstaffelung, damit ein Aufruf daneben eine Auskunft bekommt statt eines
+         * allgemeinen Fehlers (dieselbe Zurückhaltung wie beim Abweisungsgrund in
+         * `admin_approve_partner_application`, der durch eine spätere Sperre unerreichbar wurde).
+         */
+        return {
+          formError:
+            'Für Betriebe ist noch keine Standard-Verbrauchskurve hinterlegt. Ein aus dem ' +
+            'Haushaltsprofil abgeleiteter Verlauf wäre geraten — bitte laden Sie einen echten ' +
+            'Lastgang hoch.',
+          values,
+        }
+      case 'invalid_consumption':
+        return {
+          fieldErrors: { annualKwh: annualConsumptionMessage('invalid') },
+          values,
+        }
+      default:
+        // `invalid_year` und `empty_profile`: beide beschreiben einen Widerspruch im Generator, an
+        // dem der Admin nichts ändern kann. Die Ursache gehört ins Log.
+        console.error('[admin/dateneingabe] Standardprofil nicht erzeugbar:', generated.reason)
+        return { formError: GENERIC, values }
+    }
+  }
+
+  const metadata = generated.metadata
+
+  // ── Schritt 3: die EINGABE in den Entwurf des Zählpunkts ─────────────────────────────────────
+  /*
+   * ⚠ DER ENTWURF WIRD FRISCH GELESEN, NICHT AUS EINER PROP ÜBERNOMMEN.
+   * `update_metering_point_draft` ERSETZT ihn, er verschmilzt ihn nicht (bewusst: eine flache
+   * Verschmelzung könnte einen Schlüssel nie wieder entfernen). Wer einen veralteten Stand
+   * hineingibt, macht damit jede Angabe rückgängig, die seit dem Rendern dazugekommen ist —
+   * derselbe Grund, aus dem der Chat-Ausführer vor jedem Schreibvorgang neu liest.
+   */
+  const listRes = await supabase.rpc('list_metering_points', { p_project_id: projectId })
+  if (listRes.error) {
+    if (isForbidden(listRes.error)) return { formError: FORBIDDEN, values }
+    console.error('[admin/dateneingabe] list_metering_points (Standardprofil):', listRes.error)
+    return { formError: GENERIC, values }
+  }
+
+  const points = readMeteringPointList(listRes.data)
+  const point = points?.find((candidate) => candidate.id === meteringPointId)
+  if (!point) {
+    return { formError: 'Diesen Zählpunkt gibt es nicht (mehr). Bitte laden Sie die Seite neu.', values }
+  }
+
+  const nextDraft = setDraftField(
+    point.draft,
+    ANNUAL_CONSUMPTION_KWH_KEY,
+    annualConsumptionKwh,
+    source,
+    note,
+    new Date(),
+  )
+
+  const draftRes = await supabase.rpc('update_metering_point_draft', {
+    p_metering_point_id: meteringPointId,
+    /*
+     * ⚠ Die Zusicherung ist nötig und harmlos: `setDraftField` liefert ein
+     * `Record<string, unknown>`, der generierte Parametertyp ist `Json`. Die beiden sind zur
+     * Laufzeit dasselbe (der Entwurf kam als `jsonb` aus derselben Datenbank und geht unverändert
+     * zurück) — TypeScript kann das nur nicht wissen, weil `unknown` auch Nicht-JSON zuliesse.
+     */
+    p_draft: nextDraft as Json,
+  })
+
+  if (draftRes.error) {
+    if (isForbidden(draftRes.error)) return { formError: FORBIDDEN, values }
+    console.error('[admin/dateneingabe] update_metering_point_draft:', draftRes.error)
+    return { formError: GENERIC, values }
+  }
+  if (statusOf(draftRes.data) !== 'ok') {
+    console.error('[admin/dateneingabe] unerwartete Antwort (Entwurf):', draftRes.data)
+    return { formError: GENERIC, values }
+  }
+
+  // ── Schritt 4: die Metadaten des erzeugten Profils an den Zählpunkt ──────────────────────────
+  /*
+   * ⚠ EIN ANDERER WRAPPER ALS BEIM UPLOAD, und das ist keine Bequemlichkeit:
+   * `set_metering_point_load_profile` weist `p_source_document_id => null` mit `invalid_document`
+   * ab. Ein Standardprofil hat keine Quelldatei und soll keine vortäuschen — die Begründung steht
+   * im Kopf der Migration 20260911200000. Gemeinsam ist den beiden, dass sie dieselben Spalten
+   * füllen: der KI-Check muss später nicht unterscheiden, woher der Zeitraum stammt.
+   */
+  const { data, error } = await supabase.rpc('set_metering_point_standard_profile', {
+    p_metering_point_id: meteringPointId,
+    p_interval_minutes: metadata.intervalMinutes,
+    p_covered_from: metadata.coveredFrom,
+    p_covered_to: metadata.coveredTo,
+  })
+
+  if (error) {
+    if (isForbidden(error)) return { formError: FORBIDDEN, values }
+    console.error('[admin/dateneingabe] set_metering_point_standard_profile:', error)
+    return { formError: GENERIC, values }
+  }
+
+  switch (statusOf(data)) {
+    case 'ok':
+      break
+    case 'not_found':
+      return {
+        formError:
+          'Diesen Zählpunkt gibt es nicht (mehr). Der Jahresverbrauch ist gespeichert, das Profil ' +
+          'konnte aber nicht zugeordnet werden. Bitte laden Sie die Seite neu.',
+        values,
+      }
+    default:
+      // `invalid_interval`, `invalid_range` — ein Widerspruch zwischen dem, was der Generator
+      // geliefert hat, und dem, was die Datenbank zulässt. Für den Admin nichts zu tun.
+      console.error('[admin/dateneingabe] unerwartete Antwort (Standardprofil):', data)
+      return { formError: GENERIC, values }
+  }
+
+  // ⚠ Ohne das bliebe die Zusammenfassung unsichtbar — s. die Begründung beim Upload.
+  revalidatePath(projectDataEntryHref(projectId))
+
+  return {
+    success: `Standardprofil für ${year} erzeugt, gerechnet mit ${formatKwh(annualConsumptionKwh)} im Jahr.`,
+  }
+}
+
+/**
+ * Die Zeitzone der Tagesform eines erzeugten Profils.
+ *
+ * ⚠ Ein Pflichtparameter der Engine, ohne Vorgabewert — „eine stillschweigend angenommene wäre eine
+ * zweite Wahrheit". Hier ist sie gesetzt statt erfragt: der Wizard ist der Admin-Weg für
+ * österreichische Kunden, und eine Auswahl daneben wäre ein Feld, das in jedem realen Fall denselben
+ * Wert trägt. ⚠ Dieselbe Zahl steht als `STANDARD_PROFILE_TIMEZONE` in
+ * `apps/website/lib/constants.ts` — sie zusammenzulegen hiesse, den öffentlichen Rechner
+ * anzufassen; laufen sie je auseinander, erzeugen die zwei Wege verschiedene Tagesverläufe.
+ */
+const STANDARD_PROFILE_TIME_ZONE = 'Europe/Vienna'
+
+/** Die drei Ablehnungsgründe einer Jahresverbrauchs-Eingabe, jeder mit eigener Auskunft. */
+function annualConsumptionMessage(reason: 'missing' | 'invalid' | 'too_large'): string {
+  switch (reason) {
+    case 'missing':
+      return 'Bitte den Jahresverbrauch in kWh eintragen — er steht auf der Stromrechnung.'
+    case 'too_large':
+      return (
+        `Über ${formatKwh(MAX_STANDARD_PROFILE_ANNUAL_KWH)} im Jahr ist ein ` +
+        'Haushalts-Standardprofil keine belastbare Grundlage mehr. Für diese Grössenordnung bitte ' +
+        'einen echten Lastgang hochladen.'
+      )
+    default:
+      return 'Bitte eine Zahl grösser als 0 eintragen.'
+  }
 }

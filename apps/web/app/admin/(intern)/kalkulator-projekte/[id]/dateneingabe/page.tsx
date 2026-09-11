@@ -253,7 +253,16 @@ export default async function AdminProjectDataEntryPage({
             <DataEntryCountForm
               projectId={project.id}
               current={meteringPoints.length}
-              withLoadProfile={meteringPoints.filter((point) => point.hasLoadProfile).length}
+              /*
+                ⚠ `=== 'upload'`, NICHT `!== null`: die Zahl speist einen Satz über die
+                Verkleinerungs-Sperre, und `admin_set_metering_point_count` prüft dafür
+                `source_document_id`. Ein Zählpunkt mit ERZEUGTEM Standardprofil trägt keine und
+                lässt sich sehr wohl wegkürzen — ihn mitzuzählen behauptete eine Sperre, die es
+                nicht gibt.
+              */
+              withLoadProfile={
+                meteringPoints.filter((point) => point.profileSource === 'upload').length
+              }
             />
           )}
 
@@ -269,6 +278,7 @@ export default async function AdminProjectDataEntryPage({
                 meteringPointNumber={lastgang.number}
                 maxBytes={MAX_PROJECT_DOCUMENT_BYTES}
                 nextHref={next ? stationHref(project.id, next.id) : null}
+                segment={currentSegment}
               />
             ))}
 

@@ -679,6 +679,85 @@ describe('B24 admin_set_metering_point_count', () => {
       expect(after[0]!.source_document_id).toBe(documentId)
     })())
 
+  it('⚠ DIE ZWEITE POSITIV-KONTROLLE: ein STANDARDPROFIL sperrt genauso — auch ohne Dokument', async () => {
+    /*
+     * Der Fall, für den diese Migration da ist. `set_metering_point_standard_profile` setzt
+     * `source_document_id` ausdrücklich auf null — an der alten Bedingung lief ein erzeugtes
+     * Profil deshalb durch die Sperre hindurch, und das Verkleinern meldete `ok`, während es
+     * einen vollständigen Zeitraum mitnahm. Geprüft wird BEIDES: der Status UND dass wirklich
+     * nichts verschwunden ist.
+     */
+    const admin = await newUser()
+    await makeAdmin(admin)
+    const kunde = await newUser()
+    const projectId = await createProjectFor(kunde, `B24 Sperre Standardprofil ${randomUUID()}`)
+
+    await callAs(admin, 'public.admin_set_metering_point_count($1, $2)', [projectId, 3])
+    const points = await meteringPointsOf(projectId)
+    expect(points).toHaveLength(3)
+
+    // Auf dem JÜNGSTEN — also genau auf dem, den ein Verkleinern zuerst nähme.
+    expect(
+      await callAs<{ status: string }>(
+        kunde,
+        'public.set_metering_point_standard_profile($1, $2, $3, $4)',
+        [points[2]!.id, 15, '2024-12-31T23:00:00.000Z', '2025-12-31T23:00:00.000Z'],
+      ),
+    ).toMatchObject({ status: 'ok' })
+
+    // ⚠ Die Voraussetzung des Tests, nicht bloss Beiwerk: OHNE Dokument, MIT Zeitraum. Trüge die
+    // Zeile eine Quelle, prüfte der Test unten nur die alte Bedingung noch einmal.
+    const [, , armed] = await meteringPointsOf(projectId)
+    expect(armed!.source_document_id).toBeNull()
+    expect(armed!.covered_from).not.toBeNull()
+
+    expect(
+      await callAs(admin, 'public.admin_set_metering_point_count($1, $2)', [projectId, 1]),
+    ).toEqual({ status: 'has_load_profile', count: 3, blocked: 1 })
+
+    const after = await meteringPointsOf(projectId)
+    expect(after).toHaveLength(3)
+    expect(after.map((r) => r.id)).toEqual(points.map((r) => r.id))
+    expect(after[2]!.covered_from).not.toBeNull()
+  })
+
+  it('⚠ GEGENPROBE zur Ausweitung: ein LEERER Zählpunkt bleibt verkleinerbar', async () => {
+    /*
+     * Ohne diese Richtung bliebe der Test darüber auch dann grün, wenn die Bedingung versehentlich
+     * jedes Verkleinern abwiese. Geprüft wird zusätzlich der Zaehlpunkt mit blossem ENTWURF: er
+     * setzt `covered_from` NICHT und darf deshalb weiterhin fallen — die Sperre hängt an der
+     * Datenlage des Zeitraums, nicht am Entwurf.
+     */
+    const admin = await newUser()
+    await makeAdmin(admin)
+    const kunde = await newUser()
+    const projectId = await createProjectFor(kunde, `B24 Leer bleibt frei ${randomUUID()}`)
+
+    await callAs(admin, 'public.admin_set_metering_point_count($1, $2)', [projectId, 3])
+    const points = await meteringPointsOf(projectId)
+
+    // Der jüngste trägt einen Entwurf, aber keinen Zeitraum.
+    expect(
+      await callAs<{ status: string }>(
+        kunde,
+        'public.update_metering_point_draft($1, $2::jsonb)',
+        [points[2]!.id, JSON.stringify({ annualConsumptionKwh: 4000, source: 'assumed' })],
+      ),
+    ).toMatchObject({ status: 'ok' })
+
+    const [, , withDraft] = await meteringPointsOf(projectId)
+    expect(withDraft!.source_document_id).toBeNull()
+    expect(withDraft!.covered_from).toBeNull()
+
+    expect(
+      await callAs(admin, 'public.admin_set_metering_point_count($1, $2)', [projectId, 1]),
+    ).toEqual({ status: 'ok', count: 1, created: 0, removed: 2 })
+
+    const after = await meteringPointsOf(projectId)
+    expect(after).toHaveLength(1)
+    expect(after[0]!.id).toBe(points[0]!.id)
+  })
+
   it('weist 0, negative Zahlen und die Tippfehler-Grenze ab — ohne eine Zeile anzulegen', async () => {
     const admin = await newUser()
     await makeAdmin(admin)
@@ -1333,6 +1412,262 @@ describe('B24 Lastgang entfernen — Grants der zwei neuen Wrapper', () => {
          from information_schema.role_table_grants
         where table_schema = 'platform' and table_name = 'project_documents'
           and grantee in ('anon', 'authenticated', 'service_role', 'PUBLIC')`,
+    )
+    expect(rows).toEqual([])
+  })
+})
+
+// ═════════════════════════════════════════════════════════════════════════════════════════════════
+describe('B24 set_metering_point_standard_profile', () => {
+  /** Projekt und EIN Zählpunkt — ohne Dokument, denn genau darum geht es hier. */
+  async function fixture(label: string) {
+    const admin = await newUser()
+    await makeAdmin(admin)
+    const kunde = await newUser()
+    const projectId = await createProjectFor(kunde, `${label} ${randomUUID()}`)
+    await callAs(admin, 'public.admin_set_metering_point_count($1, $2)', [projectId, 1])
+    const [point] = await meteringPointsOf(projectId)
+    return { admin, kunde, projectId, pointId: point!.id }
+  }
+
+  const FROM = '2024-12-31T23:00:00.000Z'
+  const TO = '2025-12-31T23:00:00.000Z'
+
+  async function save(user: TestUser, pointId: string, from = FROM, to = TO, interval = 15) {
+    return callAs<{ status: string }>(
+      user,
+      'public.set_metering_point_standard_profile($1, $2, $3, $4)',
+      [pointId, interval, from, to],
+    )
+  }
+
+  it('schreibt Intervall und Zeitraum — echt aufgerufen, nicht introspiziert', async () => {
+    const { kunde, projectId, pointId } = await fixture('B24 Standardprofil')
+
+    expect(await save(kunde, pointId)).toMatchObject({ status: 'ok' })
+
+    const [row] = await meteringPointsOf(projectId)
+    expect(row!.interval_minutes).toBe(15)
+    expect(new Date(row!.covered_from!).toISOString()).toBe(FROM)
+    expect(new Date(row!.covered_to!).toISOString()).toBe(TO)
+    // ⚠ `gaps` ist KEIN Parameter — ein synthetisches Profil ist per Konstruktion lückenlos.
+    expect(row!.gaps).toEqual([])
+    /*
+     * ⚠ Dass die Quelle hier `null` IST, ist an diesem Zählpunkt trivial — er hatte nie eine.
+     * Die Zusage „setzt sie ausdrücklich auf null" prüft der Test darunter, an einem Zählpunkt mit
+     * einem tatsächlich gesetzten Dokument. Gemessen: nimmt man die Zeile aus dem Wrapper, bleibt
+     * DIESER Test grün und nur jener wird rot.
+     */
+    expect(row!.source_document_id).toBeNull()
+  })
+
+  it('⚠ ein gelesener Lastgang wird dabei ERSETZT, nicht ergänzt', async () => {
+    /*
+     * Der Zählpunkt trägt GENAU EINE Verbrauchsgrundlage. Bliebe die alte Quelle stehen, stünde ein
+     * Zeitraum aus dem Generator neben einem Dokument, aus dem er nicht stammt — und die Herkunft
+     * wäre für niemanden mehr auflösbar.
+     */
+    const { admin, kunde, projectId, pointId } = await fixture('B24 Ersetzt')
+    const documentId = await createDocumentFor(kunde, projectId, 'lastgang.csv')
+    await callAs(admin, 'public.set_metering_point_load_profile($1, $2, $3, $4, $5, $6)', [
+      pointId,
+      documentId,
+      60,
+      '2023-01-01T00:00:00Z',
+      '2023-02-01T00:00:00Z',
+      JSON.stringify([{ from: '2023-01-05T00:00:00Z', to: '2023-01-06T00:00:00Z' }]),
+    ])
+    const [before] = await meteringPointsOf(projectId)
+    expect(before!.source_document_id).toBe(documentId)
+    expect(before!.gaps).toHaveLength(1)
+
+    expect(await save(kunde, pointId)).toMatchObject({ status: 'ok' })
+
+    const [after] = await meteringPointsOf(projectId)
+    expect(after!.source_document_id).toBeNull()
+    expect(after!.interval_minutes).toBe(15)
+    expect(after!.gaps).toEqual([])
+  })
+
+  it('⚠ das Dokument selbst bleibt in der Ablage stehen', async () => {
+    /*
+     * Der Wrapper löst nur den VERWEIS. Die Zeile in `project_documents` zu entfernen wäre ein
+     * zweiter, unumkehrbarer Vorgang, den niemand ausgelöst hat — dafür gibt es den ausdrücklichen
+     * Rückweg (`admin_delete_metering_point_document`).
+     */
+    const { admin, kunde, projectId, pointId } = await fixture('B24 Dokument bleibt')
+    const documentId = await createDocumentFor(kunde, projectId, 'lastgang.csv')
+    await callAs(admin, 'public.set_metering_point_load_profile($1, $2, $3, $4, $5, $6)', [
+      pointId,
+      documentId,
+      15,
+      FROM,
+      TO,
+      JSON.stringify([]),
+    ])
+
+    await save(kunde, pointId)
+
+    const rows = await sql(`select id from platform.project_documents where id = $1`, [documentId])
+    expect(rows).toHaveLength(1)
+  })
+
+  it.each([
+    ['unbekannter Zählpunkt', () => randomUUID()],
+  ])('%s → not_found', async (_name, id) => {
+    const { kunde } = await fixture('B24 Unbekannt')
+    expect(await save(kunde, id())).toEqual({ status: 'not_found' })
+  })
+
+  it('⚠ ein FREMDER Zählpunkt liefert denselben Status wie ein unbekannter', async () => {
+    // Ein eigener Status verriete, dass die Kennung existiert.
+    const { pointId } = await fixture('B24 Fremd')
+    const fremder = await newUser()
+    expect(await save(fremder, pointId)).toEqual({ status: 'not_found' })
+  })
+
+  it('ein Admin darf schreiben — project_accessible trägt beide', async () => {
+    const { admin, pointId } = await fixture('B24 Adminschreibweg')
+    expect(await save(admin, pointId)).toMatchObject({ status: 'ok' })
+  })
+
+  it.each([0, 1, 5, 30, 45, 61, -15])('Intervall %p → invalid_interval', async (interval) => {
+    const { kunde, projectId, pointId } = await fixture('B24 Intervall')
+    expect(await save(kunde, pointId, FROM, TO, interval)).toEqual({ status: 'invalid_interval' })
+    // Nichts geschrieben — eine abgewiesene Angabe darf keinen halben Stand hinterlassen.
+    expect((await meteringPointsOf(projectId))[0]!.covered_from).toBeNull()
+  })
+
+  it('60 Minuten sind zulässig — der CHECK der Tabelle kennt zwei Werte', async () => {
+    const { kunde, pointId } = await fixture('B24 Stundenwerte')
+    expect(await save(kunde, pointId, FROM, TO, 60)).toMatchObject({ status: 'ok' })
+  })
+
+  it('⚠ Ende vor oder auf dem Beginn → invalid_range', async () => {
+    const { kunde, projectId, pointId } = await fixture('B24 Zeitraum')
+    expect(await save(kunde, pointId, TO, FROM)).toEqual({ status: 'invalid_range' })
+    expect(await save(kunde, pointId, FROM, FROM)).toEqual({ status: 'invalid_range' })
+    expect((await meteringPointsOf(projectId))[0]!.covered_from).toBeNull()
+  })
+
+  it('⚠ die Zugriffsfrage kommt VOR der Form der Argumente', async () => {
+    /*
+     * Sonst verriete eine Argument-Fehlermeldung, dass die Kennung existiert — dieselbe Reihenfolge
+     * wie überall in diesem Schema.
+     */
+    const fremder = await newUser()
+    const { pointId } = await fixture('B24 Reihenfolge')
+    expect(await save(fremder, pointId, TO, FROM, 7)).toEqual({ status: 'not_found' })
+  })
+})
+
+// ═════════════════════════════════════════════════════════════════════════════════════════════════
+describe('B24 list_metering_points liefert den Entwurf mit', () => {
+  it('⚠ der Entwurf reist mit — sonst stünde ein Zeitraum ohne seine Grundlage da', async () => {
+    /*
+     * Ein erzeugtes Standardprofil weist einen ZEITRAUM aus; die Zahl, aus der er entstand
+     * (`annualConsumptionKwh` samt Herkunftsvermerk), steht ausschliesslich im Entwurf. Ohne sie
+     * könnte die Station eine Schätzung nicht von einer abgelesenen Rechnungszahl unterscheiden.
+     */
+    const admin = await newUser()
+    await makeAdmin(admin)
+    const kunde = await newUser()
+    const projectId = await createProjectFor(kunde, `B24 Entwurf ${randomUUID()}`)
+    await callAs(admin, 'public.admin_set_metering_point_count($1, $2)', [projectId, 1])
+    const [point] = await meteringPointsOf(projectId)
+
+    const draft = {
+      annualConsumptionKwh: 3650,
+      _provenance: { annualConsumptionKwh: { source: 'assumed', note: 'Geschätzt aus 2 Personen' } },
+    }
+    await callAs(kunde, 'public.update_metering_point_draft($1, $2)', [
+      point!.id,
+      JSON.stringify(draft),
+    ])
+
+    const out = await readAs<{
+      status: string
+      metering_points: { draft: Record<string, unknown> }[]
+    }>(kunde, 'public.list_metering_points($1)', [projectId])
+
+    expect(out.status).toBe('ok')
+    expect(out.metering_points[0]!.draft).toEqual(draft)
+  })
+
+  it('ein leerer Entwurf kommt als leeres Objekt, nicht als null', async () => {
+    const admin = await newUser()
+    await makeAdmin(admin)
+    const kunde = await newUser()
+    const projectId = await createProjectFor(kunde, `B24 Leerer Entwurf ${randomUUID()}`)
+    await callAs(admin, 'public.admin_set_metering_point_count($1, $2)', [projectId, 1])
+
+    const out = await readAs<{ metering_points: { draft: unknown }[] }>(
+      kunde,
+      'public.list_metering_points($1)',
+      [projectId],
+    )
+    expect(out.metering_points[0]!.draft).toEqual({})
+  })
+})
+
+// ═════════════════════════════════════════════════════════════════════════════════════════════════
+describe('B24 Standardprofil — Grants und Form des neuen Wrappers', () => {
+  const FN = 'public.set_metering_point_standard_profile(uuid, integer, timestamptz, timestamptz)'
+
+  it('⚠ nur authenticated — anon und service_role bekommen KEIN EXECUTE', async () => {
+    // Arbeitsregel 5: has_function_privilege statt eines Aufrufs als Rolle ohne Grant.
+    const [row] = await sql<{ anon: boolean; auth: boolean; svc: boolean }>(
+      `select has_function_privilege('anon',          $1, 'execute') as anon,
+              has_function_privilege('authenticated', $1, 'execute') as auth,
+              has_function_privilege('service_role',  $1, 'execute') as svc`,
+      [FN],
+    )
+    expect(row).toEqual({ anon: false, auth: true, svc: false })
+  })
+
+  it('SECURITY DEFINER mit leerem search_path', async () => {
+    const [row] = await sql<{ prosecdef: boolean; config: string[] | null }>(
+      `select p.prosecdef, p.proconfig as config
+         from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+        where n.nspname = 'public' and p.proname = 'set_metering_point_standard_profile'`,
+    )
+    expect(row!.prosecdef).toBe(true)
+    expect(row!.config?.join('|')).toContain('search_path=')
+  })
+
+  it('⚠ es gibt GENAU EINE Fassung — kein DROP+CREATE hat eine Überladung hinterlassen', async () => {
+    const rows = await sql(
+      `select p.oid from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+        where n.nspname = 'public' and p.proname = 'set_metering_point_standard_profile'`,
+    )
+    expect(rows).toHaveLength(1)
+  })
+
+  it('⚠ list_metering_points liefert `draft` im WIRKSAMEN Rumpf — nicht bloss in einer Migration', async () => {
+    /*
+     * Die Station zeigt den Jahresverbrauch aus dem Entwurf; ohne `draft` im Wrapper stünde dort ein
+     * Zeitraum ohne seine Grundlage. Beim Bauen wurde die Spaltenliste in der ÄLTESTEN der drei
+     * Migrationen nachgesehen (20260911120000, ohne `draft`) — und die Erweiterung beinahe ein
+     * zweites Mal geschrieben, als `create or replace`, das eine neuere Fassung mit einer älteren
+     * überschrieben hätte.
+     *
+     * Der Test fragt deshalb den TATSÄCHLICHEN Rumpf, nicht eine Datei: dieselbe Lehre wie
+     * Arbeitsregel 1 (plpgsql prüft Rümpfe nicht beim Anlegen), nur eine Ebene früher.
+     */
+    const [row] = await sql<{ def: string }>(
+      `select pg_get_functiondef(p.oid) as def
+         from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+        where n.nspname = 'public' and p.proname = 'list_metering_points'`,
+    )
+    expect(row!.def).toContain('mp.draft')
+  })
+
+  it('⚠ die Tabellen-Rechtefläche bleibt leer — der Schreibweg läuft NUR über die Wrapper', async () => {
+    const rows = await sql(
+      `select grantee, privilege_type
+         from information_schema.role_table_grants
+        where table_schema = 'platform' and table_name = 'metering_points'
+          and grantee in ('anon', 'authenticated', 'service_role')`,
     )
     expect(rows).toEqual([])
   })
