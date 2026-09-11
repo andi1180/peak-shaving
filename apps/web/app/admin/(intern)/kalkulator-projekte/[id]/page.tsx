@@ -4,7 +4,12 @@ import { createClient } from '@/lib/supabase/server'
 import { isCurrentUserAdmin } from '@/lib/admin/guard'
 import { Container } from '@/components/ui/layout'
 import { AdminError, AdminPanel, AdminSection, Pill, formatDateTime } from '@/components/admin/ui'
-import { PROJECTS_HREF, projectSegmentLabel, readAdminProject } from '@/lib/admin/projects'
+import {
+  PROJECTS_HREF,
+  projectDataEntryHref,
+  projectSegmentLabel,
+  readAdminProject,
+} from '@/lib/admin/projects'
 import { OPEN_QUESTIONS_PROJECT_HREF } from '@/lib/admin/open-questions'
 
 /*
@@ -154,20 +159,31 @@ export default async function AdminProjectDetailPage({
       </AdminSection>
 
       {/*
-        ⚠ ZWEI PLATZHALTER, SICHTBAR UND FOLGENLOS. Sie sagen, was hier hinkommt und warum es noch
-        nicht da ist — sie zeigen keine Zahl, keinen Zustand und keinen Fortschritt. Ein „0 von 3
-        erfasst" wäre eine Angabe über einen Vorgang, den es nicht gibt.
+        ⚠ VON DEN ZWEI PLATZHALTERN IST NOCH EINER ÜBRIG. Die Dateneingabe führt seit B24 Teil 1 an
+        ihr Ziel — das Gespräch, in dem die Angaben des Projekts entstehen; der Report darunter
+        wartet weiter. Der Unterschied soll am Aussehen ablesbar sein: Link gegen gestrichelten
+        Kasten. Was BEIDE weiterhin nicht tun: eine Zahl, einen Zustand oder einen Fortschritt
+        behaupten — ein „0 von 3 erfasst" wäre eine Angabe über einen Vorgang, den es nicht gibt.
       */}
       <AdminSection
         id="dateneingabe"
         title="Dateneingabe"
-        description="Noch nicht gebaut — folgt als eigener Schritt."
+        description="Das Gespräch, in dem die Angaben des Projekts entstehen."
       >
-        <Platzhalter>
-          Hier entstehen die Zählpunkte des Projekts und ihre Angaben: Lastgang, Tarifwerte,
-          Netzebene. Die Beziehung Projekt&nbsp;→&nbsp;Zählpunkt steht bereits in der Datenbank; was
-          ein Zählpunkt trägt, entscheidet dieser Schritt.
-        </Platzhalter>
+        <AdminPanel>
+          <p className="max-w-prose text-small text-text-muted">
+            Zählpunkte, Lastgang und Tarifwerte werden im Gespräch erfasst. Gerechnet wird hier noch
+            nichts — das ist ein eigener Schritt.
+          </p>
+          <p className="mt-4">
+            <Link
+              href={projectDataEntryHref(project.id)}
+              className="text-small text-accent underline decoration-accent underline-offset-[3px]"
+            >
+              Dateneingabe öffnen
+            </Link>
+          </p>
+        </AdminPanel>
       </AdminSection>
 
       <AdminSection
