@@ -33,16 +33,22 @@ function allExtractors(): Partial<ChatExtractors> {
 }
 
 describe('buildChatTools', () => {
-  it('⚠ ohne Extraktoren gibt es NUR die fünf Zustands-Werkzeuge', () => {
+  it('⚠ ohne Extraktoren gibt es NUR die sechs Zustands-Werkzeuge', () => {
     // ⚠ NACHGEZOGEN, nicht aufgeweicht: `set_industry` ist der fünfte Zustands-Werkzeug-Eintrag
-    // (Migration 20260910150000). Die Liste bleibt vollständig ausgeschrieben — sie ist die
-    // Absicherung dagegen, dass ein Werkzeug ohne Port versehentlich hier landet.
+    // (Migration 20260910150000), `check_data_consistency` der sechste (B24, Teil 1). Die Liste
+    // bleibt vollständig ausgeschrieben — sie ist die Absicherung dagegen, dass ein Werkzeug ohne
+    // Port versehentlich hier landet.
+    //
+    // ⚠ `check_data_consistency` hängt bewusst an KEINEM Port: es vergleicht zwei Zeiträume, die
+    // beide bereits am Zählpunkt stehen. Es ist damit — wie `check_draft_completeness` — immer da,
+    // auch in einem Lauf ganz ohne Extraktoren.
     const names = buildChatTools({}).map((tool) => tool.name)
     expect(names).toEqual([
       'set_segment',
       'set_industry',
       'set_draft_field',
       'check_draft_completeness',
+      'check_data_consistency',
       'flag_open_question',
     ])
     // ⚠ ERNEUT NACHGEZOGEN (B24, Teil 1): `extract_load_profile` ist der fünfte Leser — der
@@ -58,7 +64,7 @@ describe('buildChatTools', () => {
     ])
   })
 
-  it('mit allen Ports gibt es alle zehn — und in FESTER Reihenfolge', () => {
+  it('mit allen Ports gibt es alle elf — und in FESTER Reihenfolge', () => {
     const names = buildChatTools(allExtractors()).map((tool) => tool.name)
     expect(names).toEqual([...CHAT_TOOL_NAMES])
     expect(missingExtractionTools(allExtractors())).toEqual([])
@@ -95,6 +101,21 @@ describe('buildChatTools', () => {
       'source',
     ])
     expect(tool?.description).toMatch(/Im Zweifel "assumed"/)
+  })
+
+  it('⚠ check_data_consistency sagt im Werkzeugtext, dass das Modell NICHT selbst entscheidet', () => {
+    const tool = buildChatTools({}).find((entry) => entry.name === 'check_data_consistency')
+    /*
+     * Die drei Aussagen, ohne die das Werkzeug schadet statt zu helfen: der Kunde entscheidet
+     * (nicht das Modell), es gibt ZWEI Wege, und „keine Befunde" ist ohne gelaufenen Abgleich
+     * keine Entwarnung.
+     */
+    expect(tool?.description).toMatch(/NICHT selbst entscheiden/)
+    expect(tool?.description).toMatch(/BEIDE Wege/)
+    expect(tool?.description).toMatch(/flag_open_question/)
+    expect(tool?.description).toMatch(/nicht "alles passt"/)
+    // `metering_point_id` ist optional — dieselbe Form wie check_draft_completeness.
+    expect(tool?.input_schema.required).toEqual([])
   })
 
   it('⚠ flag_open_question sagt im Werkzeugtext, dass Weg (b) die Frage NICHT schliesst', () => {

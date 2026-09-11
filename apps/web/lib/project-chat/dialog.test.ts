@@ -190,6 +190,14 @@ describe('Mehrfach-Turn-Dialog: Rechnung, Widerspruch, Annahme', () => {
     expect(PROJECT_CHAT_SYSTEM_PROMPT).toMatch(/Entscheide das NIE selbst/)           // §3.3
     expect(PROJECT_CHAT_SYSTEM_PROMPT).toMatch(/Kläre früh, ob du mit einem Privathaushalt/) // §3.4
     expect(PROJECT_CHAT_SYSTEM_PROMPT).toMatch(/für die dieses System nicht gebaut ist/)     // §3.5
+    /*
+     * ⚠ Die Anweisung MUSS beide Hälften tragen: WANN geprüft wird (sobald beides vorliegt, und vor
+     * „fertig") und WAS aus einem Befund folgt (Fachfrage, nicht selbst entscheiden). Ohne die
+     * zweite Hälfte ruft das Modell das Werkzeug und trifft die Entscheidung anschliessend allein.
+     */
+    expect(PROJECT_CHAT_SYSTEM_PROMPT).toMatch(/check_data_consistency/)
+    expect(PROJECT_CHAT_SYSTEM_PROMPT).toMatch(/nicht dasselbe wie ein stimmiger/)
+    expect(PROJECT_CHAT_SYSTEM_PROMPT).toMatch(/wie jede andere\n?Fachfrage/)
   })
 })
 

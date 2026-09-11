@@ -1,6 +1,11 @@
 import type Anthropic from '@anthropic-ai/sdk'
 import { tariffParamsSchema } from 'shared'
 
+import {
+  COVERAGE_GAP_TOLERANCE_DAYS,
+  INVOICE_PERIOD_FROM_KEY,
+  INVOICE_PERIOD_TO_KEY,
+} from './consistency'
 import { INDUSTRY_KEY_PATTERN, PROJECT_SEGMENTS } from './ports'
 import type { ChatExtractors } from './ports'
 
@@ -9,8 +14,11 @@ import type { ChatExtractors } from './ports'
  *
  * ── DIE ZWEI FAMILIEN, UND WARUM SIE SICH UNTERSCHEIDLICH VERHALTEN ────────────────────────────
  * (1) ZUSTANDS-Werkzeuge (`set_segment`, `set_industry`, `set_draft_field`, `flag_open_question`,
- *     `check_draft_completeness`) schreiben und lesen den Projektzustand aus der Migration
- *     20260910090000 (bzw. 20260910150000 für die Branche). Sie sind IMMER da.
+ *     `check_draft_completeness`, `check_data_consistency`) schreiben und lesen den Projektzustand
+ *     aus der Migration 20260910090000 (bzw. 20260910150000 für die Branche). Sie sind IMMER da.
+ *
+ *     ⚠ Die zwei `check_*` sind reine PRÜFUNGEN: sie ändern nichts und lösen nichts auf. Was aus
+ *     einem Befund folgt, entscheidet der Kunde über `flag_open_question`/`set_draft_field`.
  * (2) EXTRAKTIONS-Werkzeuge (`classify_upload`, `extract_invoice`, `extract_pv_design`,
  *     `extract_battery_description`, `extract_load_profile`) sind dünne Adapter auf die Leser in
  *     `packages/extractors`. Sie erscheinen NUR, wenn der zugehörige Port da ist — Begründung im
@@ -39,6 +47,7 @@ export const CHAT_TOOL_NAMES = [
   'set_industry',
   'set_draft_field',
   'check_draft_completeness',
+  'check_data_consistency',
   'flag_open_question',
   'classify_upload',
   'extract_invoice',
@@ -241,6 +250,65 @@ const ALL_TOOLS: Record<ChatToolName, Anthropic.Tool> = {
     },
   },
 
+  /*
+   * ── ⚠ WARUM DAS EIN EIGENES WERKZEUG IST UND KEIN TEIL VON `check_draft_completeness` ─────────
+   * Die zwei beantworten verschiedene Fragen und haben verschiedene Folgen. Vollständigkeit ist
+   * FELDWEISE und wird durch FRAGEN behoben („was fehlt noch?"). Stimmigkeit ist ZEITLICH und lässt
+   * sich gar nicht beheben, sondern nur entscheiden: liegen Rechnung und Lastgang in verschiedenen
+   * Jahren, ist keine weitere Frage offen — es ist offen, ob die Tarifwerte für den gerechneten
+   * Zeitraum überhaupt gelten. In einen gemeinsamen Befund gepackt stünde diese Entscheidung
+   * zwischen Feldnamen und liefe Gefahr, als „noch eine Lücke" abgearbeitet zu werden.
+   */
+  check_data_consistency: {
+    name: 'check_data_consistency',
+    description: [
+      'Vergleicht je Zählpunkt, welchen Zeitraum der LASTGANG abdeckt und welchen die RECHNUNG —',
+      'und meldet, wo im Lastgang Messwerte fehlen. Ändert nichts.',
+      '',
+      'Benutze es, sobald für einen Zählpunkt beides vorliegt, und jedenfalls bevor du dem Kunden',
+      'sagst, dass die Angaben zu diesem Zählpunkt stehen. Ein vollständiger Entwurf ist nicht',
+      'dasselbe wie ein stimmiger: jedes Feld kann gefüllt sein, während der Arbeitspreis aus einem',
+      'anderen Jahr stammt als der Verbrauch, mit dem gerechnet wird.',
+      '',
+      'Ohne metering_point_id bekommst du alle Zählpunkte, je mit eigener Kennung; mit ihr nur den',
+      'einen.',
+      '',
+      'Was du zurückbekommst:',
+      '- zeitraum_vergleich sagt, ob der Abgleich überhaupt möglich war. Steht dort nicht',
+      '  "geprueft", fehlt eine der beiden Seiten — dann ist NICHTS verglichen worden, und',
+      '  "keine Befunde" heisst hier nicht "alles passt".',
+      `- zeitraum_luecke erscheint erst ab ${COVERAGE_GAP_TOLERANCE_DAYS} Tagen Abstand. Eine kleinere`,
+      '  Verschiebung ist der normale Lauf eines Abrechnungszyklus und kein Befund.',
+      '- luecken sind Bereiche OHNE Messwerte innerhalb des Lastgangs.',
+      '',
+      '── Was du mit einer zeitraum_luecke machst ──',
+      '',
+      'NICHT selbst entscheiden. Dass die Tarifwerte einer Rechnung von 2024 für einen Lastgang aus',
+      '2026 gelten, ist eine Annahme — sie kann stimmen, aber sie ist deine, nicht seine. Leg dem',
+      'Kunden wie bei jeder Fachfrage BEIDE Wege vor:',
+      '  (a) Warten: Martin sieht sich an, ob die Werte für den Lastgang-Zeitraum tragen. Oder der',
+      '      Kunde reicht eine Rechnung nach, die diesen Zeitraum abdeckt.',
+      '  (b) Weitermachen: wir rechnen den Lastgang mit den Tarifwerten der vorliegenden Rechnung,',
+      '      als Annahme gekennzeichnet.',
+      'Hat er gewählt, halte es fest — mit flag_open_question (ohne resolution_kind für (a), mit',
+      '"assumed" und Begründung für (b)); die Werte selbst trägst du bei (b) mit set_draft_field und',
+      'source "assumed" ein, damit im Ergebnis sichtbar bleibt, worauf sie beruhen.',
+      '',
+      'Sag ihm dabei konkret, worum es geht: Strompreise ändern sich zwischen zwei Jahren, und eine',
+      'Ersparnis, die auf dem älteren Preis beruht, fällt entsprechend anders aus.',
+    ].join('\n'),
+    input_schema: {
+      type: 'object',
+      properties: {
+        metering_point_id: {
+          type: 'string',
+          description: 'Optional: nur diesen Zählpunkt prüfen. Weggelassen = alle.',
+        },
+      },
+      required: [],
+    },
+  },
+
   flag_open_question: {
     name: 'flag_open_question',
     description: [
@@ -318,8 +386,9 @@ const ALL_TOOLS: Record<ChatToolName, Anthropic.Tool> = {
       '',
       'periods nennt dir den Abrechnungszeitraum JE Rechnung, in der Reihenfolge der Dokumente.',
       'Bilde daraus den GESAMT-Zeitraum — das früheste from und das späteste to — und trag ihn mit',
-      'set_draft_field als zwei Felder ein: invoicePeriodFrom und invoicePeriodTo, je als Datum im',
-      'Format JJJJ-MM-TT.',
+      `set_draft_field als zwei Felder ein: ${INVOICE_PERIOD_FROM_KEY} und ${INVOICE_PERIOD_TO_KEY},`,
+      'je als Datum im Format JJJJ-MM-TT. check_data_consistency vergleicht sie später gegen den',
+      'Zeitraum des Lastgangs — unter einem anderen Namen abgelegt findet es sie nicht.',
       '',
       'Für source gilt dabei der Eintrag, aus dem die jeweilige Grenze stammt:',
       '- assumed false heisst, der Zeitraum steht auf der Rechnung — dann source "measured".',

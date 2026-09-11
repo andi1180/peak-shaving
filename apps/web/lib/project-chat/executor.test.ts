@@ -331,6 +331,248 @@ describe('check_draft_completeness', () => {
   })
 })
 
+describe('check_data_consistency', () => {
+  /*
+   * ⚠ DER REFERENZFALL, und er ist der Grund für dieses Werkzeug: Rechnung aus dem Abrechnungsjahr
+   * 2024/2025, Lastgang ab Februar 2026. Jede Quelle für sich ist einwandfrei — zusammen stellen
+   * sie einen Arbeitspreis aus einem anderen Jahr neben den Verbrauch, mit dem gerechnet wird.
+   */
+  const URBANZ = {
+    interval_minutes: 15,
+    covered_from: '2026-01-31T23:00:00.000Z',
+    covered_to: '2026-08-31T22:00:00.000Z',
+    source_document_id: 'dddddddd-4444-4444-8444-dddddddddddd',
+    draft: { invoicePeriodFrom: '2024-08-01', invoicePeriodTo: '2025-07-31' },
+  }
+
+  /** Ein stimmiger Zählpunkt: Rechnung und Lastgang liegen im selben Zeitraum. */
+  const STIMMIG = {
+    interval_minutes: 15,
+    covered_from: '2025-01-01T00:00:00.000Z',
+    covered_to: '2026-01-01T00:00:00.000Z',
+    source_document_id: 'eeeeeeee-5555-4555-8555-eeeeeeeeeeee',
+    draft: { invoicePeriodFrom: '2025-01-01', invoicePeriodTo: '2025-12-31' },
+  }
+
+  it('⚠ meldet den Referenzfall mit beiden Zeiträumen und dem Abstand in Tagen', async () => {
+    const ports = createMemoryPorts({
+      projectId: PROJECT,
+      meteringPoints: [fakeMeteringPoint(MP_A, URBANZ)],
+    })
+
+    const result = await executeChatTool(
+      ports, PROJECT, 'check_data_consistency', { metering_point_id: MP_A }, NOW,
+    )
+    const body = payload(result.content)
+
+    expect(result.isError).toBe(false)
+    expect(body.metering_point_id).toBe(MP_A)
+    expect(body.befunde).toBe(1)
+    expect(body.zeitraum_vergleich).toBe('geprueft')
+    expect(body.zeitraum_luecke).toEqual({
+      rechnung_von: '2024-08-01',
+      rechnung_bis: '2025-07-31',
+      lastgang_von: '2026-01-31T23:00:00.000Z',
+      lastgang_bis: '2026-08-31T22:00:00.000Z',
+      abstand_tage: 184,
+    })
+    expect(body.luecken_gesamt).toBe(0)
+    // Ein geprüfter Abgleich braucht keinen Hinweis, was zu tun wäre.
+    expect(body.hinweis).toBeUndefined()
+  })
+
+  it('⚠ meldet bei einem normalen Zyklus-Versatz NICHTS', async () => {
+    const ports = createMemoryPorts({
+      projectId: PROJECT,
+      meteringPoints: [fakeMeteringPoint(MP_A, STIMMIG)],
+    })
+
+    const result = await executeChatTool(
+      ports, PROJECT, 'check_data_consistency', { metering_point_id: MP_A }, NOW,
+    )
+    const body = payload(result.content)
+
+    expect(body.befunde).toBe(0)
+    expect(body.zeitraum_vergleich).toBe('geprueft')
+    expect(body.zeitraum_luecke).toBeUndefined()
+  })
+
+  /*
+   * ⚠ DER TEUERSTE FEHLER WÄRE, „0 Befunde" ohne Rechnungszeitraum wie eine Entwarnung aussehen zu
+   * lassen. Verglichen wurde dann NICHTS — und das muss in der Antwort stehen.
+   */
+  it('⚠ sagt es, wenn eine der zwei Seiten fehlt — „keine Befunde" ist dann keine Entwarnung', async () => {
+    const ports = createMemoryPorts({
+      projectId: PROJECT,
+      meteringPoints: [
+        fakeMeteringPoint(MP_A, { ...URBANZ, draft: {} }),
+        fakeMeteringPoint(MP_B, { draft: URBANZ.draft }),
+      ],
+    })
+
+    const ohneRechnung = payload(
+      (await executeChatTool(
+        ports, PROJECT, 'check_data_consistency', { metering_point_id: MP_A }, NOW,
+      )).content,
+    )
+    const ohneLastgang = payload(
+      (await executeChatTool(
+        ports, PROJECT, 'check_data_consistency', { metering_point_id: MP_B }, NOW,
+      )).content,
+    )
+
+    expect(ohneRechnung.befunde).toBe(0)
+    expect(ohneRechnung.zeitraum_vergleich).toBe('kein_rechnungszeitraum')
+    expect(ohneRechnung.rechnungs_zeitraum).toBeNull()
+    expect(ohneRechnung.lastgang_zeitraum).toEqual({
+      von: URBANZ.covered_from,
+      bis: URBANZ.covered_to,
+    })
+    expect(ohneRechnung.hinweis).toContain('NICHTS')
+    expect(ohneRechnung.hinweis).toContain('extract_invoice')
+
+    expect(ohneLastgang.befunde).toBe(0)
+    expect(ohneLastgang.zeitraum_vergleich).toBe('kein_lastgang')
+    expect(ohneLastgang.lastgang_zeitraum).toBeNull()
+    expect(ohneLastgang.hinweis).toContain('extract_load_profile')
+  })
+
+  it('nennt bei einem frischen Zählpunkt beide fehlenden Seiten', async () => {
+    const ports = createMemoryPorts({
+      projectId: PROJECT,
+      meteringPoints: [fakeMeteringPoint(MP_A)],
+    })
+
+    const body = payload(
+      (await executeChatTool(
+        ports, PROJECT, 'check_data_consistency', { metering_point_id: MP_A }, NOW,
+      )).content,
+    )
+
+    expect(body.zeitraum_vergleich).toBe('beides_fehlt')
+    expect(body.hinweis).toContain('extract_load_profile')
+    expect(body.hinweis).toContain('extract_invoice')
+  })
+
+  it('⚠ reicht die Lücken des Lastgangs unverändert durch', async () => {
+    const gaps = [
+      { from: '2026-03-01T00:00:00.000Z', to: '2026-03-01T01:00:00.000Z' },
+      { from: '2026-05-17T08:00:00.000Z', to: '2026-05-17T09:30:00.000Z' },
+    ]
+    const ports = createMemoryPorts({
+      projectId: PROJECT,
+      meteringPoints: [fakeMeteringPoint(MP_A, { ...STIMMIG, gaps })],
+    })
+
+    const body = payload(
+      (await executeChatTool(
+        ports, PROJECT, 'check_data_consistency', { metering_point_id: MP_A }, NOW,
+      )).content,
+    )
+
+    expect(body.befunde).toBe(2)
+    expect(body.luecken_gesamt).toBe(2)
+    // Dieselben Grenzen, die am Zählpunkt gespeichert sind — kein zweites Lücken-Format.
+    expect(body.luecken).toEqual(gaps)
+    expect(body.luecken_hinweis).toBeUndefined()
+  })
+
+  /*
+   * Dieselbe Obergrenze wie in `extract_load_profile`: die ANTWORT wird gekürzt, die Gesamtzahl
+   * steht daneben. Und die Zeitraum-Lücke steht in einem eigenen Feld — sie kann der Kürzung
+   * strukturell nicht zum Opfer fallen.
+   */
+  it('⚠ kürzt viele Lücken in der Antwort und lässt den Zeitraum-Befund stehen', async () => {
+    const gaps = Array.from({ length: 14 }, (_, index) => ({
+      from: `2026-03-${String(index + 1).padStart(2, '0')}T00:00:00.000Z`,
+      to: `2026-03-${String(index + 1).padStart(2, '0')}T02:00:00.000Z`,
+    }))
+    const ports = createMemoryPorts({
+      projectId: PROJECT,
+      meteringPoints: [fakeMeteringPoint(MP_A, { ...URBANZ, gaps })],
+    })
+
+    const body = payload(
+      (await executeChatTool(
+        ports, PROJECT, 'check_data_consistency', { metering_point_id: MP_A }, NOW,
+      )).content,
+    )
+
+    expect(body.befunde).toBe(15)
+    expect(body.luecken_gesamt).toBe(14)
+    expect(body.luecken).toHaveLength(10)
+    expect(body.luecken_hinweis).toContain('14')
+    expect(body.zeitraum_luecke).toMatchObject({ abstand_tage: 184 })
+  })
+
+  /*
+   * ⚠ OHNE KENNUNG WIRD ÜBER ALLE ZÄHLPUNKTE GEPRÜFT, und jeder trägt SEINE Kennung. Ohne die
+   * Trennung läse das Modell „Zeitraum-Lücke: 184 Tage" ohne zu wissen, für welchen Anschluss.
+   */
+  it('⚠ trennt ohne Kennung sauber nach Zählpunkt', async () => {
+    const ports = createMemoryPorts({
+      projectId: PROJECT,
+      meteringPoints: [
+        fakeMeteringPoint(MP_A, URBANZ),
+        fakeMeteringPoint(MP_B, STIMMIG),
+      ],
+    })
+
+    const body = payload(
+      (await executeChatTool(ports, PROJECT, 'check_data_consistency', {}, NOW)).content,
+    )
+    const points = body.metering_points as Record<string, unknown>[]
+
+    expect(points).toHaveLength(2)
+    expect(points[0]).toMatchObject({ nummer: 1, metering_point_id: MP_A, befunde: 1 })
+    expect(points[0]!.zeitraum_luecke).toMatchObject({ abstand_tage: 184 })
+    expect(points[1]).toMatchObject({ nummer: 2, metering_point_id: MP_B, befunde: 0 })
+    expect(points[1]!.zeitraum_luecke).toBeUndefined()
+    expect(body.befunde_gesamt).toBe(1)
+  })
+
+  it('weist einen fremden Zählpunkt ab, statt ihn als stimmig auszuweisen', async () => {
+    const ports = createMemoryPorts({
+      projectId: PROJECT,
+      meteringPoints: [fakeMeteringPoint(MP_A, URBANZ)],
+    })
+
+    const result = await executeChatTool(
+      ports, PROJECT, 'check_data_consistency', { metering_point_id: MP_FREMD }, NOW,
+    )
+
+    expect(result.isError).toBe(true)
+    expect(payload(result.content).metering_points).toHaveLength(1)
+  })
+
+  it('⚠ ist ohne Zählpunkt kein Fehlschlag — und ausdrücklich keine Entwarnung', async () => {
+    const ports = createMemoryPorts({ projectId: PROJECT })
+
+    const result = await executeChatTool(ports, PROJECT, 'check_data_consistency', {}, NOW)
+    const body = payload(result.content)
+
+    expect(result.isError).toBe(false)
+    expect(body.metering_points).toEqual([])
+    expect(body.befunde_gesamt).toBe(0)
+    expect(body.hinweis).toContain('NICHT die Auskunft, dass alles stimmt')
+  })
+
+  it('ändert nichts — die Prüfung ist read-only', async () => {
+    const ports = createMemoryPorts({
+      projectId: PROJECT,
+      meteringPoints: [fakeMeteringPoint(MP_A, URBANZ)],
+    })
+    const before = JSON.stringify(ports.meteringPoints)
+
+    await executeChatTool(ports, PROJECT, 'check_data_consistency', {}, NOW)
+
+    expect(JSON.stringify(ports.meteringPoints)).toBe(before)
+    expect(ports.calls.saveMeteringPointDraft).toBeUndefined()
+    expect(ports.calls.setMeteringPointLoadProfile).toBeUndefined()
+    expect(ports.calls.appendOpenQuestion).toBeUndefined()
+  })
+})
+
 describe('set_segment', () => {
   /*
    * ⚠ FRÜHER PRÜFTE DIESER TEST, DASS DAS SETZEN DES SEGMENTS DEN ENTWURF NICHT LÖSCHT. Die Gefahr
