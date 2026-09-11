@@ -94,6 +94,23 @@ export { extractBatteryText, type BatteryTextOutcome } from './battery-text/extr
 export { MAX_LOAD_PROFILE_FILE_BYTES } from './load-profile/limits'
 export { readLoadProfile, type LoadProfileOutcome } from './load-profile/extract'
 
+/*
+ * ── Standardprofil-Erzeuger (B24, Teil 1 — der „Nein"-Zweig des Lastgang-Schritts) ────────────
+ * ⚠ DIE ZWEITE benannte Ausweitung des Zuschnitts, und sie braucht eine EIGENE Begruendung: der
+ * Lastgang-Leser darueber ist damit gerechtfertigt, dass EIN Ausgang fuer alles gilt, was ein
+ * KUNDENDOKUMENT liest — hier wird gar kein Dokument angefasst, sondern eine Kurve erzeugt.
+ *
+ * Was traegt, steht ausfuehrlich im Kopf des Moduls und in einem Satz hier: `apps/web` haengt
+ * bewusst nicht an `packages/engine`, und heraus kommen NUR Metadaten — die 35.040 erzeugten
+ * Messwerte bleiben hinter dieser Paketgrenze, genau wie beim Leser nebenan die gelesenen.
+ */
+export {
+  generateStandardProfileMetadata,
+  type StandardProfileMetadata,
+  type StandardProfileMetadataOutcome,
+  type StandardProfileCustomerClass,
+} from './standard-profile/generate'
+
 // ── Dokument-Zuordnung (Delta 17 Teil 1) ──────────────────────────────────────────────────────
 export {
   MAX_UPLOAD_CLASSIFICATION_FILE_BYTES,

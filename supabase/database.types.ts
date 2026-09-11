@@ -2314,6 +2314,15 @@ export type Database = {
         }
         Returns: Json
       }
+      set_metering_point_standard_profile: {
+        Args: {
+          p_covered_from: string
+          p_covered_to: string
+          p_interval_minutes: number
+          p_metering_point_id: string
+        }
+        Returns: Json
+      }
       start_contract_reminder_run: {
         Args: { p_max_batch?: number }
         Returns: Json

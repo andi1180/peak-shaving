@@ -374,3 +374,139 @@ describe('B24 — der Lastgang-Rückweg', () => {
     expect(hook).toBeLessThan(form)
   })
 })
+
+describe('B24 — der Standardprofil-Zweig', () => {
+  const actions = read(path.resolve(import.meta.dirname, 'data-entry-actions.ts'))
+  const station = read(path.join(COMPONENTS_DIR, 'admin', 'data-entry-load-profile.tsx'))
+
+  /** Nur der Rumpf der Standardprofil-Action — die Reihenfolgen darin sind die eigentliche Zusage. */
+  const saveAction = actions.slice(actions.indexOf('saveMeteringPointStandardProfileAction('))
+
+  it('⚠ der „Nein"-Zweig ist kein Platzhalter mehr', () => {
+    /*
+     * Bis zu diesem Schritt stand dort „Standardprofil — folgt als eigener Schritt.". Ein
+     * Platzhalter, der neben einem funktionierenden Formular stehen bleibt, behauptet, es gebe den
+     * Weg nicht — und der Admin sucht ihn woanders.
+     */
+    expect(station).not.toContain('folgt als eigener Schritt')
+    expect(station).toContain('saveMeteringPointStandardProfileAction')
+  })
+
+  it('⚠ schreibt die EINGABE in den Entwurf, BEVOR es die Metadaten schreibt', () => {
+    /*
+     * Bricht es dazwischen ab, steht die Eingabe ohne den daraus erzeugten Zeitraum — der Admin
+     * sieht die Frage erneut, trägt dieselbe Zahl ein und ist am Ziel. Umgekehrt stünde ein
+     * Zeitraum da, dessen Grundlage nirgends steht.
+     */
+    const draft = saveAction.indexOf("rpc('update_metering_point_draft'")
+    const metadata = saveAction.indexOf("rpc('set_metering_point_standard_profile'")
+    expect(draft).toBeGreaterThan(-1)
+    expect(metadata).toBeGreaterThan(-1)
+    expect(draft).toBeLessThan(metadata)
+  })
+
+  it('⚠ liest das Segment aus der DATENBANK, nicht aus dem Formular', () => {
+    /*
+     * Es entscheidet, WELCHE Kurve gilt. Als verstecktes Feld mitgeschickt wäre es eine Behauptung
+     * des Browsers über den Serverzustand, und ein veralteter Tab erzeugte ein Profil nach der
+     * falschen Kurve, ohne dass irgendetwas fehlschlüge.
+     */
+    expect(saveAction).toContain("rpc('admin_get_project'")
+    expect(saveAction).not.toContain("formData.get('segment')")
+  })
+
+  it('⚠ liest den Entwurf FRISCH, statt ihn aus einer Prop zu übernehmen', () => {
+    // `update_metering_point_draft` ERSETZT ihn. Wer einen veralteten Stand hineingibt, macht jede
+    // Angabe rückgängig, die seit dem Rendern dazugekommen ist.
+    const list = saveAction.indexOf("rpc('list_metering_points'")
+    const draft = saveAction.indexOf("rpc('update_metering_point_draft'")
+    expect(list).toBeGreaterThan(-1)
+    expect(list).toBeLessThan(draft)
+  })
+
+  it('⚠ benutzt den EIGENEN Wrapper, nicht den des Uploads', () => {
+    /*
+     * `set_metering_point_load_profile` weist `p_source_document_id => null` mit `invalid_document`
+     * ab — ein Standardprofil hat keine Quelldatei und soll keine vortäuschen.
+     */
+    expect(saveAction).toContain("rpc('set_metering_point_standard_profile'")
+    expect(saveAction).not.toContain("rpc('set_metering_point_load_profile'")
+  })
+
+  it('⚠ leitet NICHT um — der Zeitraum ist das Einzige, was ein Mensch prüfen kann', () => {
+    expect(saveAction).toContain('revalidatePath')
+    expect(saveAction).not.toContain('redirect(')
+  })
+
+  it('kennzeichnet eine Schätzung als solche, bevor sie gespeichert wird', () => {
+    // ⚠ Die fachliche Zusage des Zweigs (Delta §3.2). Ohne den Vermerk sähe die geschätzte Zahl in
+    // jeder späteren Rechnung aus wie eine abgelesene.
+    expect(saveAction).toContain("'assumed'")
+    expect(saveAction).toContain("'measured'")
+    expect(saveAction).toContain('householdEstimateNote')
+  })
+
+  it('⚠ fragt Betriebe gar nicht erst — es gibt keine G-Kurve, und es wird keine erfunden', () => {
+    expect(station).toContain('hasStandardProfileCurve')
+  })
+
+  it('⚠ hält den Zustand des Erzeugens ausserhalb seines Formulars', () => {
+    // Dieselbe Beobachtung wie beim Entfernen: ein erfolgreiches Erzeugen wechselt die Station in
+    // den Zusammenfassungs-Zweig, und ein `useActionState` IM Formular verschwände mit ihm.
+    const hook = station.indexOf('useActionState(\n    saveMeteringPointStandardProfileAction')
+    const form = station.indexOf('function StandardProfileForm')
+    expect(hook).toBeGreaterThan(-1)
+    expect(hook).toBeLessThan(form)
+  })
+
+  it('⚠ das inaktive Eingabefeld wird GAR NICHT gerendert, statt deaktiviert zu werden', () => {
+    /*
+     * Ein deaktiviertes Feld gäbe es weiterhin, und der nächste Umbau schickte seinen Wert mit —
+     * dann läge neben der geltenden Zahl eine zweite im selben Formular.
+     */
+    expect(station).toContain("name=\"mode\"")
+    expect(station).not.toContain('disabled={mode')
+  })
+})
+
+describe('B24 — die Station unterscheidet die Herkunft der Verbrauchsgrundlage', () => {
+  const station = read(path.join(COMPONENTS_DIR, 'admin', 'data-entry-load-profile.tsx'))
+  const page = read(DATA_ENTRY_PAGE)
+
+  it('⚠ die Zusammenfassung hängt an `profileSource`, nicht an einem Quellen-Flag', () => {
+    /*
+     * `hasLoadProfile` hing an `source_document_id`; ein erzeugtes Standardprofil setzt die auf
+     * `null` und füllt trotzdem den Zeitraum. An der Quelle gemessen stellte die Station ihre
+     * Ja/Nein-Frage danach erneut, obwohl gespeichert ist.
+     */
+    expect(station).toContain("meteringPoint.profileSource !== null")
+    expect(station).not.toContain('hasLoadProfile')
+  })
+
+  it('⚠ die Verkleinerungs-Sperre zählt NUR hochgeladene Lastgänge', () => {
+    /*
+     * `admin_set_metering_point_count` prüft `source_document_id`. Ein Zählpunkt mit erzeugtem
+     * Profil lässt sich sehr wohl wegkürzen — ihn mitzuzählen behauptete eine Sperre, die es nicht
+     * gibt.
+     */
+    expect(page).toContain("point.profileSource === 'upload'")
+  })
+
+  it('⚠ die Rückfrage vor dem Entfernen nennt bei einem erzeugten Profil KEINE Datei', () => {
+    /*
+     * Ein Standardprofil hat keine in der Ablage. Der Datei-Text behauptete eine Löschung, die
+     * nicht stattfindet — beim zweiten Mal ein Grund, der Rückfrage nicht mehr zu glauben.
+     */
+    const standard = station.slice(station.indexOf('REMOVE_STANDARD_CONFIRM ='))
+    const text = standard.slice(0, standard.indexOf('\n\n'))
+    expect(text).not.toContain('Ablage')
+    expect(text).toContain('Jahresverbrauch bleibt')
+  })
+
+  it('beide Herkünfte teilen sich EINE Entfernen-Action', () => {
+    // `admin_reset_metering_point_load_profile` setzt auch dann zurück, wenn keine Quelle dasteht.
+    // Eine zweite Action wäre eine zweite Stelle für dieselbe Entscheidung.
+    expect(station.split('removeMeteringPointLoadProfileAction').length - 1).toBeGreaterThanOrEqual(2)
+    expect(station).not.toContain('removeMeteringPointStandardProfileAction')
+  })
+})
