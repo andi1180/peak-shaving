@@ -79,6 +79,21 @@ export { extractPvDesign, type PvDesignScanOutcome } from './pv-design-scan/extr
 export { MAX_BATTERY_TEXT_CHARS } from './battery-text/limits'
 export { extractBatteryText, type BatteryTextOutcome } from './battery-text/extract'
 
+/*
+ * ── Lastgang-Leser (B24, Teil 1 Baustein 1) ───────────────────────────────────────────────────
+ * ⚠ DER EINZIGE EXTRAKTOR DIESES PAKETS OHNE MODELLAUFRUF, und damit eine benannte Ausweitung
+ * seines Zuschnitts: die Ueberschrift lautete „server-only KI-Extraktoren". Der Grund ist die
+ * ZWEITE Haelfte jener Ueberschrift, die weiterhin gilt — EIN Ausgang fuer alles, was ein
+ * Kundendokument liest, damit die Apps ihn ueber denselben Weg bekommen.
+ *
+ * Die LESE-Logik liegt trotzdem nicht hier, sondern in `packages/engine/src/parser/metadata.ts`:
+ * sie ist isomorph und muss es bleiben (der oeffentliche Rechner liest den Lastgang im Browser,
+ * Prinzip 4), und hinter `import 'server-only'` waere sie fuer jenen Weg unerreichbar. Was hier
+ * steht, ist der duenne server-only Adapter samt Groessengrenze.
+ */
+export { MAX_LOAD_PROFILE_FILE_BYTES } from './load-profile/limits'
+export { readLoadProfile, type LoadProfileOutcome } from './load-profile/extract'
+
 // ── Dokument-Zuordnung (Delta 17 Teil 1) ──────────────────────────────────────────────────────
 export {
   MAX_UPLOAD_CLASSIFICATION_FILE_BYTES,

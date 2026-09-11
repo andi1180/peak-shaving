@@ -21,8 +21,15 @@ function round3(n: number): number {
   return Math.round(n * 1000) / 1000
 }
 
-/** Häufigste positive Differenz (Minuten) zwischen aufeinanderfolgenden Zeitstempeln. */
-function detectIntervalMinutes(sortedMs: number[]): number {
+/**
+ * Häufigste positive Differenz (Minuten) zwischen aufeinanderfolgenden Zeitstempeln.
+ *
+ * ⚠ EXPORTIERT, weil der Metadaten-Leser (`metadata.ts`) dieselbe Frage beantworten muss — und
+ * dieselbe Antwort geben muss. Zweimal ausgeschrieben könnte dieselbe Datei hier als 15-min und
+ * dort als 60-min gelten; der Widerspruch fiele erst auf, wenn ein Zählpunkt ein Intervall trüge,
+ * mit dem der Rechenkern nicht rechnet.
+ */
+export function detectIntervalMinutes(sortedMs: number[]): number {
   const counts = new Map<number, number>()
   for (let i = 1; i < sortedMs.length; i++) {
     const diff = sortedMs[i]! - sortedMs[i - 1]!

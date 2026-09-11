@@ -296,6 +296,9 @@ importers:
       '@anthropic-ai/sdk':
         specifier: ^0.122.0
         version: 0.122.0(zod@3.25.76)
+      engine:
+        specifier: workspace:*
+        version: link:../engine
       server-only:
         specifier: ^0.0.1
         version: 0.0.1

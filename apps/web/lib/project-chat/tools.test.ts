@@ -20,6 +20,15 @@ function allExtractors(): Partial<ChatExtractors> {
     extractInvoiceData: noop as ChatExtractors['extractInvoiceData'],
     extractPvDesign: noop as ChatExtractors['extractPvDesign'],
     extractBatteryText: noop as ChatExtractors['extractBatteryText'],
+    // ⚠ SYNCHRON, anders als die vier darüber — deterministisches Parsen ohne Netz und ohne
+    // Abrechnung (Begründung an der Port-Definition). Die Attrappe muss das nachbilden, sonst
+    // prüfte der Test eine Signatur, die es nicht gibt.
+    readLoadProfile: (() => ({
+      ok: false,
+      reason: 'too_large',
+      sizeBytes: 0,
+      maxBytes: 0,
+    })) as unknown as ChatExtractors['readLoadProfile'],
   }
 }
 
@@ -36,15 +45,20 @@ describe('buildChatTools', () => {
       'check_draft_completeness',
       'flag_open_question',
     ])
+    // ⚠ ERNEUT NACHGEZOGEN (B24, Teil 1): `extract_load_profile` ist der fünfte Leser — der
+    // einzige OHNE Modellaufruf, und trotzdem an einen Port gebunden (`extractors` ist
+    // `server-only`, s. ports.ts). Ohne Port darf er genauso wenig angeboten werden wie die
+    // anderen vier: er SCHREIBT, und eine Zusage ohne Rumpf wäre hier teurer als anderswo.
     expect(missingExtractionTools({})).toEqual([
       'classify_upload',
       'extract_invoice',
       'extract_pv_design',
       'extract_battery_description',
+      'extract_load_profile',
     ])
   })
 
-  it('mit allen Ports gibt es alle neun — und in FESTER Reihenfolge', () => {
+  it('mit allen Ports gibt es alle zehn — und in FESTER Reihenfolge', () => {
     const names = buildChatTools(allExtractors()).map((tool) => tool.name)
     expect(names).toEqual([...CHAT_TOOL_NAMES])
     expect(missingExtractionTools(allExtractors())).toEqual([])

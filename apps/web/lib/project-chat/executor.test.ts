@@ -3,7 +3,8 @@ import { emptyInvoiceExtraction } from 'shared'
 
 import { readDraftProvenance } from './draft'
 import { executeChatTool } from './executor'
-import { createMemoryPorts, fakePdf } from './fixtures'
+import { createMemoryPorts, fakeLoadProfileFile, fakePdf } from './fixtures'
+import type { ChatExtractors } from './ports'
 
 /**
  * B24 — DER WERKZEUG-AUSFÜHRER.
@@ -398,5 +399,295 @@ describe('Fragenkatalog in der Vollständigkeitsprüfung', () => {
     )
     expect(payload(plain.content).known_field).toBe(false)
     expect(String(payload(plain.content).hinweis)).toMatch(/Fragenkatalog/)
+  })
+})
+
+/**
+ * B24, Teil 1 — `extract_load_profile`.
+ *
+ * Das einzige Werkzeug, das SELBST schreibt, und das einzige, das an den ZÄHLPUNKT schreibt statt
+ * in den Entwurf. Geprüft werden genau die Eigenschaften, an denen dieser Schritt richtig oder
+ * falsch ist:
+ *
+ *   (1) Das Ergebnis landet am Zählpunkt und NICHT im Entwurf — im Entwurf gälte es fürs ganze
+ *       Projekt, und der zweite Zählpunkt überschriebe die Aussage des ersten.
+ *   (2) Es wird NICHT geraten, welcher Zählpunkt gemeint ist — auch dann nicht, wenn es nur einen
+ *       gibt. Bei zwei Zählpunkten fiele genau dieser Griff niemandem auf.
+ *   (3) Eine Datei mit mehreren Messreihen speichert NICHTS und fragt zurück.
+ *   (4) Gespeichert werden ALLE Lücken, aufgezählt nur die ersten — ein gekürzter Datensatz
+ *       behauptete eine Abdeckung, die es nicht gibt.
+ *
+ * ⚠ Das ECHTE Lesen einer Datei wird hier NICHT geprüft, und das ist Absicht: es liegt in
+ * `packages/engine/src/parser/metadata.ts` und ist dort gegen echte Exporte gemessen (Lücken,
+ * 60-min-Intervall, Mehrspalten-Erkennung). `extractors` ist `server-only` und in dieser App als
+ * WERT gar nicht ladbar; was hier zu prüfen ist, ist die Orchestrierung darüber.
+ */
+describe('extract_load_profile', () => {
+  const MP_A = 'aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa'
+  const MP_B = 'bbbbbbbb-2222-4222-8222-bbbbbbbbbbbb'
+
+  function meteringPoint(id: string, withProfile = false) {
+    return {
+      id,
+      interval_minutes: withProfile ? 15 : null,
+      covered_from: withProfile ? '2024-01-01T00:00:00.000Z' : null,
+      covered_to: withProfile ? '2024-12-31T23:00:00.000Z' : null,
+      gaps: [],
+      source_document_id: withProfile ? 'alt' : null,
+    }
+  }
+
+  function scanOk(gaps: { from: string; to: string }[] = []) {
+    return {
+      ok: true as const,
+      needsMapping: false as const,
+      intervalMinutes: 15,
+      coveredFrom: '2025-01-01T00:00:00.000Z',
+      coveredTo: '2026-01-01T00:00:00.000Z',
+      gaps,
+      rowCount: 35_040 - gaps.length,
+      coveredMonths: 12,
+    }
+  }
+
+  function readingPorts(
+    outcome: unknown,
+    options: { meteringPoints?: ReturnType<typeof meteringPoint>[]; failWrapper?: boolean } = {},
+  ) {
+    return createMemoryPorts({
+      projectId: PROJECT,
+      meteringPoints: options.meteringPoints ?? [meteringPoint(MP_A)],
+      documentBytes: { doc: fakeLoadProfileFile() },
+      extractors: {
+        readLoadProfile: (() => outcome) as unknown as ChatExtractors['readLoadProfile'],
+      },
+      ...(options.failWrapper === true
+        ? { failWrapper: { name: 'setMeteringPointLoadProfile', status: 'not_found' } }
+        : {}),
+    })
+  }
+
+  it('⚠ schreibt an den ZÄHLPUNKT und NICHT in den Entwurf', async () => {
+    const ports = readingPorts({ ok: true, scan: scanOk() })
+
+    const result = await executeChatTool(
+      ports,
+      PROJECT,
+      'extract_load_profile',
+      { document_id: 'doc', metering_point_id: MP_A },
+      NOW,
+    )
+
+    expect(result.isError).toBe(false)
+    const row = (await ports.listMeteringPoints(PROJECT))[0]!
+    expect(row).toMatchObject({
+      interval_minutes: 15,
+      covered_from: '2025-01-01T00:00:00.000Z',
+      covered_to: '2026-01-01T00:00:00.000Z',
+      source_document_id: 'doc',
+    })
+    // Der Entwurf bleibt unberührt — kein Feld, keine Herkunft, nichts.
+    expect(ports.project.draft).toEqual({})
+    expect(payload(result.content)).toMatchObject({
+      metering_point_id: MP_A,
+      intervall_minuten: 15,
+      belegte_monate: 12,
+      luecken_gesamt: 0,
+    })
+  })
+
+  it('⚠ rät NICHT, welcher Zählpunkt gemeint ist — auch nicht bei genau einem', async () => {
+    const ports = readingPorts({ ok: true, scan: scanOk() })
+
+    for (const args of [
+      { document_id: 'doc' },
+      { document_id: 'doc', metering_point_id: '   ' },
+      { document_id: 'doc', metering_point_id: MP_B },
+    ]) {
+      const result = await executeChatTool(ports, PROJECT, 'extract_load_profile', args, NOW)
+      expect(result.isError, JSON.stringify(args)).toBe(true)
+    }
+
+    // Nichts geschrieben — und die Datei wurde für den fremden Zählpunkt gar nicht erst gelesen.
+    expect((await ports.listMeteringPoints(PROJECT))[0]!.source_document_id).toBeNull()
+    expect(ports.calls.setMeteringPointLoadProfile).toBeUndefined()
+    expect(ports.calls.readDocument).toBeUndefined()
+  })
+
+  it('nennt bei falscher Kennung die vorhandenen Zählpunkte, damit das Modell fragen kann', async () => {
+    const ports = readingPorts({ ok: true, scan: scanOk() }, {
+      meteringPoints: [meteringPoint(MP_A, true), meteringPoint(MP_B)],
+    })
+
+    const result = await executeChatTool(
+      ports,
+      PROJECT,
+      'extract_load_profile',
+      { document_id: 'doc', metering_point_id: 'cccccccc-3333-4333-8333-cccccccccccc' },
+      NOW,
+    )
+
+    const body = payload(result.content) as {
+      metering_points: { nummer: number; metering_point_id: string; lastgang_vorhanden: boolean }[]
+    }
+    expect(result.isError).toBe(true)
+    // ÄLTESTE ZUERST, durchnummeriert — die einzige Ordnung, die ein Mensch wiedererkennt
+    // (es gibt bewusst keine Zählpunktnummer, s. Migration TEIL 6).
+    expect(body.metering_points).toEqual([
+      expect.objectContaining({ nummer: 1, metering_point_id: MP_A, lastgang_vorhanden: true }),
+      expect.objectContaining({ nummer: 2, metering_point_id: MP_B, lastgang_vorhanden: false }),
+    ])
+  })
+
+  it('⚠ legt KEINEN Zählpunkt an, wenn es keinen gibt — es gibt dafür gar keinen Port', async () => {
+    const ports = readingPorts({ ok: true, scan: scanOk() }, { meteringPoints: [] })
+
+    const result = await executeChatTool(
+      ports,
+      PROJECT,
+      'extract_load_profile',
+      { document_id: 'doc', metering_point_id: MP_A },
+      NOW,
+    )
+
+    expect(result.isError).toBe(true)
+    expect(payload(result.content).metering_points).toEqual([])
+    expect(await ports.listMeteringPoints(PROJECT)).toEqual([])
+    expect(ports.calls.readDocument).toBeUndefined()
+  })
+
+  it('⚠ speichert NICHTS, wenn die Datei mehrere Messreihen enthält — und fragt zurück', async () => {
+    const ports = readingPorts({
+      ok: true,
+      scan: {
+        ok: true,
+        needsMapping: true,
+        ambiguousColumns: [
+          {
+            index: 1,
+            header: 'AT0010000000000000000000000010111 Verbrauch',
+            meteringPointId: 'AT0010000000000000000000000010111',
+            unit: 'kWh',
+            suggestedRole: 'consumption',
+            eegAccounting: false,
+          },
+          {
+            index: 2,
+            header: 'Restüberschuss EEG',
+            meteringPointId: null,
+            unit: 'kWh',
+            suggestedRole: 'ignore',
+            eegAccounting: true,
+          },
+        ],
+      },
+    })
+
+    const result = await executeChatTool(
+      ports,
+      PROJECT,
+      'extract_load_profile',
+      { document_id: 'doc', metering_point_id: MP_A },
+      NOW,
+    )
+
+    // Kein Fehlschlag: das LESEN ist gelungen, offen ist die ZUORDNUNG (Muster classify_upload).
+    expect(result.isError).toBe(false)
+    const body = payload(result.content) as {
+      gespeichert: boolean
+      spalten: { eeg_verrechnung: boolean }[]
+    }
+    expect(body.gespeichert).toBe(false)
+    expect(body.spalten).toHaveLength(2)
+    // Die EEG-Kennzeichnung reist mit — ohne sie fragte das Modell nach einer Zuordnung für eine
+    // Verrechnungsspalte, zu der es gar keinen zweiten Zählpunkt gibt.
+    expect(body.spalten[1]!.eeg_verrechnung).toBe(true)
+    expect(ports.calls.setMeteringPointLoadProfile).toBeUndefined()
+    expect((await ports.listMeteringPoints(PROJECT))[0]!.source_document_id).toBeNull()
+  })
+
+  it('⚠ speichert ALLE Lücken, zählt aber nur die ersten auf', async () => {
+    const gaps = Array.from({ length: 14 }, (_, index) => ({
+      from: `2025-0${(index % 9) + 1}-01T00:00:00.000Z`,
+      to: `2025-0${(index % 9) + 1}-02T00:00:00.000Z`,
+    }))
+    const ports = readingPorts({ ok: true, scan: scanOk(gaps) })
+
+    const result = await executeChatTool(
+      ports,
+      PROJECT,
+      'extract_load_profile',
+      { document_id: 'doc', metering_point_id: MP_A },
+      NOW,
+    )
+
+    const body = payload(result.content) as {
+      luecken_gesamt: number
+      luecken: unknown[]
+      luecken_hinweis?: string
+    }
+    expect(body.luecken_gesamt).toBe(14)
+    expect(body.luecken).toHaveLength(10)
+    expect(body.luecken_hinweis).toContain('14')
+    // ⚠ Der Datensatz ist VOLLSTÄNDIG — gekürzt gespeichert behauptete er eine Abdeckung,
+    // die es nicht gibt.
+    expect((await ports.listMeteringPoints(PROJECT))[0]!.gaps).toHaveLength(14)
+  })
+
+  it('weist eine PDF benannt ab, statt sie dem Parser zu überlassen', async () => {
+    const ports = createMemoryPorts({
+      projectId: PROJECT,
+      meteringPoints: [meteringPoint(MP_A)],
+      documentBytes: { doc: fakePdf() },
+      extractors: {
+        readLoadProfile: (() => {
+          throw new Error('darf nicht gerufen werden')
+        }) as unknown as ChatExtractors['readLoadProfile'],
+      },
+    })
+
+    const result = await executeChatTool(
+      ports,
+      PROJECT,
+      'extract_load_profile',
+      { document_id: 'doc', metering_point_id: MP_A },
+      NOW,
+    )
+
+    expect(result.isError).toBe(true)
+    expect(payload(result.content).error).toContain('extract_invoice')
+  })
+
+  it('reicht einen Lesefehler und eine abgelehnte Zusage der Datenbank lesbar durch', async () => {
+    const unreadable = readingPorts({
+      ok: true,
+      scan: {
+        ok: false,
+        needsMapping: false,
+        error: { code: 'not_a_load_profile', message: 'Kein Netz-Lastgang.' },
+      },
+    })
+    const first = await executeChatTool(
+      unreadable, PROJECT, 'extract_load_profile',
+      { document_id: 'doc', metering_point_id: MP_A }, NOW,
+    )
+    expect(first.isError).toBe(true)
+    expect(payload(first.content).code).toBe('not_a_load_profile')
+    expect(unreadable.calls.setMeteringPointLoadProfile).toBeUndefined()
+
+    const refused = readingPorts({ ok: true, scan: scanOk() }, { failWrapper: true })
+    const second = await executeChatTool(
+      refused, PROJECT, 'extract_load_profile',
+      { document_id: 'doc', metering_point_id: MP_A }, NOW,
+    )
+    expect(second.isError).toBe(true)
+    expect(payload(second.content).error).toContain('not_found')
+
+    const missingPort = createMemoryPorts({ projectId: PROJECT, meteringPoints: [meteringPoint(MP_A)] })
+    const third = await executeChatTool(
+      missingPort, PROJECT, 'extract_load_profile',
+      { document_id: 'doc', metering_point_id: MP_A }, NOW,
+    )
+    expect(third.isError).toBe(true)
   })
 })

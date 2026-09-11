@@ -4,6 +4,8 @@ import type {
   ChatExtractors,
   ChatMessageRole,
   ChatRateLimitDecision,
+  MeteringPointGap,
+  MeteringPointRow,
   OpenQuestionRow,
   ProjectChatPorts,
   ProjectDocumentRow,
@@ -71,6 +73,12 @@ export interface MemoryPortsOptions {
   project?: Partial<MemoryProject>
   documents?: ProjectDocumentRow[]
   documentBytes?: Record<string, { bytes: ArrayBuffer; filename: string; contentType: string }>
+  /**
+   * Die Zählpunkte des Projekts. Weggelassen = KEINE — und das ist der Regelfall, nicht die
+   * Ausnahme: sie entstehen ausschliesslich über `admin_set_metering_point_count`, also durch
+   * einen Menschen. Ein Test, der den Schreibweg messen will, muss sie ausdrücklich stellen.
+   */
+  meteringPoints?: MeteringPointRow[]
   extractors?: Partial<ChatExtractors>
   /**
    * Der geltende Stand der System-Prompt-Erweiterung. Weggelassen = keiner gepflegt (`null`) —
@@ -108,6 +116,10 @@ export function createMemoryPorts(options: MemoryPortsOptions): MemoryPorts {
   const openQuestions: OpenQuestionRow[] = []
   const documents = options.documents ?? []
   const bytes = options.documentBytes ?? {}
+  const meteringPoints: MeteringPointRow[] = (options.meteringPoints ?? []).map((row) => ({
+    ...row,
+    gaps: [...row.gaps],
+  }))
   const calls: Record<string, number> = {}
   const questionCatalog = options.questionCatalog ?? []
   const questionCatalogCalls: { segment: ProjectSegment; industry: string | null }[] = []
@@ -277,6 +289,42 @@ export function createMemoryPorts(options: MemoryPortsOptions): MemoryPorts {
       return bytes[documentId] ?? null
     },
 
+    async listMeteringPoints(projectId: string): Promise<MeteringPointRow[]> {
+      track('listMeteringPoints')
+      if (projectId !== options.projectId) return []
+      // Kopien, damit ein Test eine zurückgegebene Zeile nicht versehentlich zum Bestand macht.
+      return meteringPoints.map((row) => ({ ...row, gaps: [...row.gaps] }))
+    },
+
+    async setMeteringPointLoadProfile(
+      meteringPointId: string,
+      documentId: string,
+      intervalMinutes: number,
+      coveredFrom: string,
+      coveredTo: string,
+      gaps: MeteringPointGap[],
+    ): Promise<WrapperStatus> {
+      track('setMeteringPointLoadProfile')
+      const forcedStatus = forced('setMeteringPointLoadProfile')
+      if (forcedStatus) return forcedStatus
+
+      /*
+       * ⚠ DIE ATTRAPPE BILDET DIE ZUGRIFFSPRÜFUNG DES WRAPPERS NACH, statt blind zu schreiben:
+       * `set_metering_point_load_profile` antwortet auf einen fremden Zählpunkt mit `not_found`,
+       * und ein Test, dessen Attrappe alles annimmt, bewiese über den Ausführer nichts.
+       */
+      const row = meteringPoints.find((entry) => entry.id === meteringPointId)
+      if (row === undefined) return { status: 'not_found' }
+
+      // ERSETZT alle vier Angaben gemeinsam — wortgleich zum Wrapper.
+      row.source_document_id = documentId
+      row.interval_minutes = intervalMinutes
+      row.covered_from = coveredFrom
+      row.covered_to = coveredTo
+      row.gaps = [...gaps]
+      return { status: 'ok', metering_point_id: meteringPointId }
+    },
+
     async loadSystemPromptExtension(): Promise<SystemPromptExtension | null> {
       track('loadSystemPromptExtension')
       return options.systemPromptExtension ?? null
@@ -305,6 +353,18 @@ export function createMemoryPorts(options: MemoryPortsOptions): MemoryPorts {
 /** Eine PDF-Attrappe: der Inhalt spielt keine Rolle, der Medientyp schon. */
 export function fakePdf(filename = 'Jahresrechnung 2025.pdf') {
   return { bytes: new ArrayBuffer(16), filename, contentType: 'application/pdf' }
+}
+
+/**
+ * Ein Lastgang-Dokument, wie es im Bucket liegt.
+ *
+ * ⚠ `text/csv` ist eine ANGABE des Kunden (Spaltenkommentar `project_documents.content_type`) —
+ * der Browser meldet für CSV regelmässig `application/vnd.ms-excel`. Der Ausführer verzweigt
+ * daran deshalb NICHT; er weist allein PDF ab. Die Bytes sind hier bedeutungslos: gelesen wird
+ * über den Port, und das ECHTE Lesen ist in `packages/engine` gegen echte Exporte geprüft.
+ */
+export function fakeLoadProfileFile(filename = 'lastgang-2025.csv', contentType = 'text/csv') {
+  return { bytes: new ArrayBuffer(32), filename, contentType }
 }
 
 /**

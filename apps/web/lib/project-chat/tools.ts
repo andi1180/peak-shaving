@@ -12,10 +12,14 @@ import type { ChatExtractors } from './ports'
  *     `check_draft_completeness`) schreiben und lesen den Projektzustand aus der Migration
  *     20260910090000 (bzw. 20260910150000 für die Branche). Sie sind IMMER da.
  * (2) EXTRAKTIONS-Werkzeuge (`classify_upload`, `extract_invoice`, `extract_pv_design`,
- *     `extract_battery_description`) sind dünne Adapter auf die vier bestehenden Extraktoren. Sie
- *     erscheinen NUR, wenn der zugehörige Port da ist — Begründung im Kopf von `ports.ts`. Ein
- *     angebotenes Werkzeug ohne Rumpf wäre eine Requisite, und der Kunde bekäme „ich lese Ihre
- *     Rechnung" zu hören, wo nichts gelesen wird.
+ *     `extract_battery_description`, `extract_load_profile`) sind dünne Adapter auf die Leser in
+ *     `packages/extractors`. Sie erscheinen NUR, wenn der zugehörige Port da ist — Begründung im
+ *     Kopf von `ports.ts`. Ein angebotenes Werkzeug ohne Rumpf wäre eine Requisite, und der Kunde
+ *     bekäme „ich lese Ihre Rechnung" zu hören, wo nichts gelesen wird.
+ *
+ *     ⚠ `extract_load_profile` fällt in dieser Familie zweifach aus dem Rahmen: es löst KEINEN
+ *     Modellaufruf aus (deterministisches Parsen), und es SCHREIBT selbst — an den Zählpunkt, nicht
+ *     in den Entwurf. Beides steht an seiner Definition unten begründet.
  *
  * ── ⚠ KEIN `strict: true` IN DIESER ERSTEN FASSUNG ────────────────────────────────────────────
  * `strict: true` verlangt `additionalProperties: false` PLUS eine vollständige `required`-Liste —
@@ -40,6 +44,7 @@ export const CHAT_TOOL_NAMES = [
   'extract_invoice',
   'extract_pv_design',
   'extract_battery_description',
+  'extract_load_profile',
 ] as const
 export type ChatToolName = (typeof CHAT_TOOL_NAMES)[number]
 
@@ -55,6 +60,7 @@ const TOOL_REQUIRES_EXTRACTOR: Partial<Record<ChatToolName, keyof ChatExtractors
   extract_invoice: 'extractInvoiceData',
   extract_pv_design: 'extractPvDesign',
   extract_battery_description: 'extractBatteryText',
+  extract_load_profile: 'readLoadProfile',
 }
 
 /**
@@ -312,6 +318,54 @@ const ALL_TOOLS: Record<ChatToolName, Anthropic.Tool> = {
         document_id: { type: 'string', description: 'Die Kennung des hochgeladenen Dokuments.' },
       },
       required: ['document_id'],
+    },
+  },
+
+  /*
+   * ── ⚠ DAS EINZIGE WERKZEUG, DAS NICHT IN DEN ENTWURF SCHREIBT ────────────────────────────────
+   * Alle anderen Extraktions-Werkzeuge liefern Werte, die das Modell anschliessend mit
+   * `set_draft_field` übernimmt. Dieses hier schreibt SELBST — und zwar an den ZÄHLPUNKT, nicht an
+   * das Projekt. Der Grund ist die Ebene: ein Betrieb kann mehrere Zählpunkte tragen (Delta §2.3),
+   * und „der Lastgang deckt 2025 ab" ist eine Aussage über EINEN davon. Im Entwurf abgelegt gälte
+   * sie für das ganze Projekt, und beim zweiten Zählpunkt überschriebe sie die erste.
+   *
+   * Deshalb ist `metering_point_id` ein PFLICHTPARAMETER. Kennt das Modell die Kennung nicht,
+   * bekommt es sie in der Fehlerantwort genannt — der Ausführer listet die vorhandenen auf, statt
+   * sich einen auszusuchen.
+   */
+  extract_load_profile: {
+    name: 'extract_load_profile',
+    description: [
+      'Liest einen hochgeladenen Lastgang (CSV oder XLSX) und hält fest, WAS er abdeckt: das',
+      'Messintervall (15 oder 60 Minuten), den Zeitraum und die Lücken darin.',
+      '',
+      'Das Ergebnis wird direkt am angegebenen Zählpunkt gespeichert — anders als die anderen',
+      'Lese-Werkzeuge musst du hier nichts mit set_draft_field übernehmen. Der Grund: ein Betrieb',
+      'kann mehrere Zählpunkte haben, und ein Lastgang gehört immer zu genau einem davon.',
+      '',
+      'metering_point_id ist Pflicht. Kennst du die Kennung nicht oder passt sie nicht, nennt dir',
+      'die Antwort die vorhandenen Zählpunkte — such dir dann NICHT selbst einen aus, wenn es',
+      'mehrere gibt, sondern frag den Kunden, zu welchem Zählpunkt die Datei gehört.',
+      '',
+      'Gibt es für das Projekt noch gar keine Zählpunkte, kannst du sie NICHT selbst anlegen. Sag',
+      'dem Kunden, dass wir das intern einrichten müssen, und halte es mit flag_open_question fest.',
+      '',
+      'Es kann sein, dass die Datei mehrere Zählpunkte nebeneinander enthält (mehrere Spalten mit',
+      'je einer Zählpunktnummer). Dann wird NICHTS gespeichert und du bekommst die Spalten',
+      'aufgelistet — frag in dem Fall den Kunden, welche Spalte zu welchem Zählpunkt gehört.',
+      '',
+      'Die Messwerte selbst werden nirgends gespeichert; die Datei bleibt die Quelle.',
+    ].join('\n'),
+    input_schema: {
+      type: 'object',
+      properties: {
+        document_id: { type: 'string', description: 'Die Kennung des hochgeladenen Lastgangs.' },
+        metering_point_id: {
+          type: 'string',
+          description: 'Der Zählpunkt, zu dem dieser Lastgang gehört.',
+        },
+      },
+      required: ['document_id', 'metering_point_id'],
     },
   },
 

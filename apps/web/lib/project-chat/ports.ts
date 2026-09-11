@@ -1,4 +1,10 @@
 import type Anthropic from '@anthropic-ai/sdk'
+/*
+ * ⚠ NUR ALS TYP. `extractors` ist `server-only`; ein Wert-Import machte diese Datei — und damit
+ * `executor.ts` und jeden darauf gebauten Test — server-gebunden. `import type` wird von TypeScript
+ * restlos entfernt, es bleibt zur Laufzeit nichts übrig.
+ */
+import type { LoadProfileOutcome } from 'extractors'
 import type {
   BatteryTextExtraction,
   InvoiceExtraction,
@@ -155,6 +161,33 @@ export interface ProjectDocumentRow {
   content_type: string
 }
 
+/**
+ * Ein Bereich ohne Messwerte, so wie er in `platform.metering_points.gaps` steht.
+ *
+ * Halboffen (`[from, to)`) und ISO/UTC — dieselbe Konvention wie `covered_from`/`covered_to`.
+ */
+export interface MeteringPointGap {
+  from: string
+  to: string
+}
+
+/**
+ * Ein Zählpunkt, so wie `list_metering_points` ihn liefert.
+ *
+ * ⚠ `interval_minutes === null` heisst „es wurde noch KEIN Lastgang eingelesen" — nicht „kein
+ * Intervall". `gaps` ist dagegen NIE null (Spalten-Default `[]`): ein leeres Array heisst
+ * „keine Lücke über der Toleranzschwelle gemessen", und das ist eine andere Aussage als „nichts
+ * gemessen". Die zwei auseinanderzuhalten ist der ganze Zweck dieser zwei Felder.
+ */
+export interface MeteringPointRow {
+  id: string
+  interval_minutes: number | null
+  covered_from: string | null
+  covered_to: string | null
+  gaps: MeteringPointGap[]
+  source_document_id: string | null
+}
+
 /** Die Bytes eines Dokuments, nachdem die DATENBANK dem Zugriff zugestimmt hat. */
 export interface ProjectDocumentContent {
   bytes: ArrayBuffer
@@ -186,6 +219,23 @@ export interface ChatExtractors {
   extractPvDesign(pdfBase64: string): Promise<ExtractorOutcome<PvDesignExtraction>>
   /** `apps/website/lib/battery-text/extract.ts` */
   extractBatteryText(text: string): Promise<ExtractorOutcome<BatteryTextExtraction>>
+  /**
+   * `packages/extractors/src/load-profile/extract.ts` — der EINZIGE Leser ohne Modellaufruf.
+   *
+   * ⚠ SYNCHRON, anders als die vier darüber, und das ist keine Nachlässigkeit: das Lesen ist
+   * deterministisches Parsen im selben Prozess, es gibt kein Netz und keine Abrechnung. Ihn als
+   * `Promise` zu deklarieren behauptete eine Aussenwelt, die es nicht gibt.
+   *
+   * Er steht trotzdem als PORT und nicht als Import in `executor.ts`: `extractors` ist
+   * `server-only`, und ein Wert-Import dort machte `executor.test.ts` unlauffähig (das Paket wirft
+   * ausserhalb einer Server-Umgebung). Dass die Logik selbst rein und isomorph ist, ändert daran
+   * nichts — sie liegt hinter einer server-only Paketgrenze.
+   *
+   * ⚠ Und ein zweiter Grund, der bleibt: das Parsen einer 25-MB-Datei blockiert die Ereignisschleife
+   * für die Dauer des Laufs. Das ist in einer Funktion, die ohnehin einen Turn bedient, vertretbar
+   * — aber es ist der Grund, aus dem dieser Aufruf nicht beiläufig irgendwo sonst stehen sollte.
+   */
+  readLoadProfile(bytes: ArrayBuffer, fileName: string): LoadProfileOutcome
 }
 
 /**
@@ -273,6 +323,30 @@ export interface ProjectChatPorts {
   listDocuments(projectId: string): Promise<ProjectDocumentRow[]>
   /** `get_project_document` + Bytes aus dem Bucket. `null` bei fremd/unbekannt. */
   readDocument(documentId: string): Promise<ProjectDocumentContent | null>
+  /**
+   * `public.list_metering_points` — die Zählpunkte des Projekts, ÄLTESTE ZUERST.
+   *
+   * ⚠ Eine leere Liste heisst „es gibt noch keine" UND „das Projekt gehört jemand anderem" — der
+   * Wrapper unterscheidet beides bewusst nicht. Für den Ausführer ist das kein Problem: er kennt
+   * das Projekt bereits aus `loadProject`, und ohne Zählpunkte kann er ohnehin nichts schreiben.
+   */
+  listMeteringPoints(projectId: string): Promise<MeteringPointRow[]>
+  /**
+   * `public.set_metering_point_load_profile` — schreibt die GELESENEN Metadaten an einen Zählpunkt.
+   *
+   * ⚠ Es gibt hier bewusst KEIN Gegenstück zum Anlegen eines Zählpunkts. Die Zahl der Zählpunkte
+   * ist eine fachliche Frage, die der Fragenkatalog stellen soll; bis dahin legt ein Mensch sie über
+   * `admin_set_metering_point_count` an. Ein Port dafür machte das Modell zum Entscheider über die
+   * Struktur eines Betriebs, bevor jemand entschieden hat, wie danach gefragt wird.
+   */
+  setMeteringPointLoadProfile(
+    meteringPointId: string,
+    documentId: string,
+    intervalMinutes: number,
+    coveredFrom: string,
+    coveredTo: string,
+    gaps: MeteringPointGap[],
+  ): Promise<WrapperStatus>
   /**
    * `public.get_system_prompt_extension` — der heute geltende Stand, oder `null`.
    *

@@ -855,19 +855,34 @@ export type Database = {
       }
       metering_points: {
         Row: {
+          covered_from: string | null
+          covered_to: string | null
           created_at: string
+          gaps: Json
           id: string
+          interval_minutes: number | null
           project_id: string
+          source_document_id: string | null
         }
         Insert: {
+          covered_from?: string | null
+          covered_to?: string | null
           created_at?: string
+          gaps?: Json
           id?: string
+          interval_minutes?: number | null
           project_id: string
+          source_document_id?: string | null
         }
         Update: {
+          covered_from?: string | null
+          covered_to?: string | null
           created_at?: string
+          gaps?: Json
           id?: string
+          interval_minutes?: number | null
           project_id?: string
+          source_document_id?: string | null
         }
         Relationships: [
           {
@@ -875,6 +890,13 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "metering_points_source_document_id_fkey"
+            columns: ["source_document_id"]
+            isOneToOne: false
+            referencedRelation: "project_documents"
             referencedColumns: ["id"]
           },
         ]
@@ -1995,6 +2017,10 @@ export type Database = {
         Args: { p_lead_id: string; p_status: string }
         Returns: Json
       }
+      admin_set_metering_point_count: {
+        Args: { p_count: number; p_project_id: string }
+        Returns: Json
+      }
       admin_set_partner_active: {
         Args: { p_is_active: boolean; p_slug: string }
         Returns: Json
@@ -2196,6 +2222,7 @@ export type Database = {
       get_stripe_customer_id: { Args: { p_user_id: string }; Returns: string }
       get_system_prompt_extension: { Args: never; Returns: Json }
       is_admin: { Args: never; Returns: boolean }
+      list_metering_points: { Args: { p_project_id: string }; Returns: Json }
       list_my_projects: { Args: never; Returns: Json }
       list_open_questions: {
         Args: {
@@ -2266,6 +2293,17 @@ export type Database = {
       }
       run_lead_retention_job: {
         Args: { p_max_batch?: number; p_refuse_above?: number }
+        Returns: Json
+      }
+      set_metering_point_load_profile: {
+        Args: {
+          p_covered_from: string
+          p_covered_to: string
+          p_gaps?: Json
+          p_interval_minutes: number
+          p_metering_point_id: string
+          p_source_document_id: string
+        }
         Returns: Json
       }
       start_contract_reminder_run: {

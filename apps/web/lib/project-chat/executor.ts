@@ -14,6 +14,7 @@ import {
 import {
   INDUSTRY_KEY_PATTERN,
   PROJECT_SEGMENTS,
+  type MeteringPointRow,
   type ProjectChatPorts,
   type ProjectSegment,
   type ProjectSnapshot,
@@ -113,6 +114,8 @@ export async function executeChatTool(
       return extractPvDesign(ports, args)
     case 'extract_battery_description':
       return extractBattery(ports, args)
+    case 'extract_load_profile':
+      return extractLoadProfile(ports, projectId, args)
   }
 }
 
@@ -562,4 +565,197 @@ async function extractBattery(
   if (!outcome.ok) return fail(`Angabe konnte nicht ausgewertet werden: ${outcome.reason}.`)
 
   return ok({ extraction: outcome.extraction })
+}
+
+/**
+ * Wie viele Lücken die ANTWORT an das Modell höchstens aufzählt.
+ *
+ * ⚠ Das begrenzt AUSSCHLIESSLICH die Antwort, NICHT den Schreibvorgang: an den Zählpunkt gehen
+ * IMMER alle Lücken (`platform.metering_points.gaps` ist der Datensatz, und ein gekürzter Datensatz
+ * behauptete eine Abdeckung, die es nicht gibt). Ein Export mit hunderten Einzelausfällen erzeugte
+ * sonst ein `tool_result`, das den halben Turn füllt und dem Modell nichts sagt, was die ersten
+ * zehn plus die Gesamtzahl nicht schon sagen.
+ */
+const MAX_REPORTED_GAPS = 10
+
+/**
+ * Beschreibt einen Zählpunkt so, wie ihn ein Mensch im Gespräch wiedererkennt.
+ *
+ * ⚠ Es gibt bewusst KEINE Zählpunktnummer und keine Bezeichnung (Migration 20260911120000, TEIL 6:
+ * sie stehen nicht in einer Lastgang-Datei, und eine Spalte dafür entschiede den offenen Punkt 1
+ * des Deltas still mit). Was bleibt, ist die REIHENFOLGE der Anlage — `list_metering_points`
+ * sortiert ÄLTESTE ZUERST, und „der erste, den wir angelegt haben" ist genau die Ordnung, die ein
+ * Mensch wiedererkennt. Die Kennung fährt trotzdem mit: das Modell braucht sie für den nächsten
+ * Aufruf, der Kunde liest sie nie.
+ */
+function describeMeteringPoint(row: MeteringPointRow, index: number): Record<string, unknown> {
+  return {
+    nummer: index + 1,
+    metering_point_id: row.id,
+    lastgang_vorhanden: row.source_document_id !== null,
+    ...(row.interval_minutes === null
+      ? {}
+      : {
+          intervall_minuten: row.interval_minutes,
+          zeitraum_von: row.covered_from,
+          zeitraum_bis: row.covered_to,
+          luecken: row.gaps.length,
+        }),
+  }
+}
+
+/**
+ * ── ⚠ DAS EINZIGE WERKZEUG, DAS SELBST SCHREIBT — und zwar an den ZÄHLPUNKT, nicht in den Entwurf.
+ *
+ * Der Grund ist die Ebene: ein Betrieb kann mehrere Zählpunkte tragen (Delta §2.3), und „der
+ * Lastgang deckt 2025 ab" ist eine Aussage über GENAU EINEN davon. Im Entwurf abgelegt gälte sie
+ * für das ganze Projekt, und der zweite Zählpunkt überschriebe die Aussage des ersten — ohne dass
+ * irgendetwas fehlschlüge.
+ *
+ * ── ⚠ ES WIRD NICHT GERATEN, WELCHER ZÄHLPUNKT GEMEINT IST ────────────────────────────────────
+ * `metering_point_id` ist Pflicht. Passt sie nicht, bekommt das Modell die vorhandenen Zählpunkte
+ * AUFGEZÄHLT und muss den Kunden fragen. Sich bei genau einem Zählpunkt „den einen" auszusuchen
+ * wäre die bequeme Abkürzung und genau der Fehler, der bei zwei Zählpunkten niemandem auffällt:
+ * der Zeitraum stünde dann an der falschen Zeile, und die Rechnung daraus sähe vollständig aus.
+ *
+ * ── ES ENTSTEHT KEIN ZÄHLPUNKT ────────────────────────────────────────────────────────────────
+ * Gibt es für das Projekt keinen, wird das benannt und NICHT behoben. Wie viele Zählpunkte ein
+ * Betrieb hat, ist eine fachliche Frage, die der Fragenkatalog stellen soll (Delta §4); bis dahin
+ * legt ein Mensch sie über `admin_set_metering_point_count` an. Ein Port dafür machte das Modell
+ * zum Entscheider über die Struktur eines Betriebs, bevor jemand entschieden hat, wie danach
+ * gefragt wird.
+ */
+async function extractLoadProfile(
+  ports: ProjectChatPorts,
+  projectId: string,
+  args: Record<string, unknown>,
+): Promise<ToolExecution> {
+  const read = ports.extractors.readLoadProfile
+  if (read === undefined) return fail('Das Auslesen von Lastgängen ist in diesem Lauf nicht verfügbar.')
+
+  const documentId = readString(args, 'document_id')
+  if (documentId === null) return fail('document_id fehlt.')
+  const meteringPointId = readString(args, 'metering_point_id')
+  if (meteringPointId === null) return fail('metering_point_id fehlt.')
+
+  /*
+   * Die Zählpunkte werden VOR dem Lesen der Datei geholt: ein 25-MB-Export zu parsen, um ihn
+   * anschliessend nirgends ablegen zu können, ist verschenkte Zeit — und die Ereignisschleife
+   * steht währenddessen (s. die Warnung an `readLoadProfile` in `ports.ts`).
+   */
+  const meteringPoints = await ports.listMeteringPoints(projectId)
+  if (meteringPoints.length === 0) {
+    return fail(
+      'Für dieses Projekt sind noch keine Zählpunkte angelegt. Du kannst das nicht selbst ' +
+        'nachholen — sag dem Kunden, dass wir das intern einrichten müssen, und halte es mit ' +
+        'flag_open_question fest.',
+      { metering_points: [] },
+    )
+  }
+
+  const target = meteringPoints.find((row) => row.id === meteringPointId)
+  if (target === undefined) {
+    return fail(
+      'Diesen Zählpunkt gibt es in diesem Projekt nicht. Such dir keinen aus — frag den Kunden, ' +
+        'zu welchem Zählpunkt die Datei gehört.',
+      { metering_points: meteringPoints.map(describeMeteringPoint) },
+    )
+  }
+
+  const document = await ports.readDocument(documentId)
+  if (document === null) return fail(`Dokument ${documentId} nicht gefunden.`)
+
+  /*
+   * ⚠ Eine PDF wird BENANNT abgewiesen und nicht dem Parser überlassen. Der Bucket nimmt bewusst
+   * jeden Dokumenttyp an (Delta §3.2); als Text dekodiert ergäbe eine PDF hier eine unverständliche
+   * Formatmeldung, und das Modell suchte den Fehler bei der Datei statt beim Werkzeug. Es ist
+   * ausserdem der wahrscheinlichste Griff daneben: Rechnung und Lastgang kommen im selben Turn.
+   */
+  if (document.contentType === PDF_MEDIA_TYPE) {
+    return fail(
+      `${document.filename} ist eine PDF. Dieses Werkzeug liest Lastgänge als CSV- oder ` +
+        'XLSX-Datei; für eine Rechnung nimm extract_invoice.',
+    )
+  }
+
+  const outcome = read(document.bytes, document.filename)
+  if (!outcome.ok) {
+    return fail(
+      `${document.filename} ist zu gross (${outcome.sizeBytes} Bytes, erlaubt sind ${outcome.maxBytes}).`,
+    )
+  }
+
+  const scan = outcome.scan
+  if (!scan.ok) {
+    return fail(`${document.filename} konnte nicht gelesen werden: ${scan.error.message}`, {
+      code: scan.error.code,
+    })
+  }
+
+  /*
+   * ⚠ MEHRERE ZÄHLPUNKTE IN EINER DATEI SIND KEIN FEHLER, ABER AUCH KEIN ERGEBNIS. Ein
+   * EDA-Export führt regelmässig zwei Verbrauchs-, zwei Einspeise- und vier EEG-Spalten
+   * nebeneinander (OP#4). Welche Spalte zu welchem Zählpunkt gehört, entscheidet ein Mensch —
+   * hier wird deshalb NICHTS gespeichert und NICHTS geraten.
+   *
+   * Als `ok` zurückgegeben (nicht als Fehler): das Lesen ist gelungen, die Zuordnung ist offen.
+   * Dieselbe Form wie `classify_upload` mit `type: 'unbekannt'`.
+   */
+  if (scan.needsMapping) {
+    return ok({
+      document_id: documentId,
+      gespeichert: false,
+      grund: 'mehrere_spalten',
+      hinweis:
+        'Die Datei enthält mehrere Messreihen nebeneinander. Frag den Kunden, welche Spalte zu ' +
+        'welchem Zählpunkt gehört — gespeichert wurde nichts.',
+      spalten: scan.ambiguousColumns.map((column) => ({
+        bezeichnung: column.header,
+        zaehlpunkt: column.meteringPointId,
+        einheit: column.unit,
+        vorschlag: column.suggestedRole,
+        // Überschuss-/Restüberschuss-Spalten einer Energiegemeinschaft — Verrechnungsartefakt,
+        // kein zweiter Zählpunkt. Ohne die Kennzeichnung fragte das Modell den Kunden nach
+        // einer Zuordnung, die es gar nicht gibt.
+        eeg_verrechnung: column.eegAccounting,
+      })),
+    })
+  }
+
+  const result = await ports.setMeteringPointLoadProfile(
+    target.id,
+    documentId,
+    scan.intervalMinutes,
+    scan.coveredFrom,
+    scan.coveredTo,
+    scan.gaps,
+  )
+  if (result.status !== 'ok') {
+    return fail(`Der Lastgang konnte nicht gespeichert werden: ${result.status}.`)
+  }
+
+  return ok({
+    document_id: documentId,
+    metering_point_id: target.id,
+    intervall_minuten: scan.intervalMinutes,
+    zeitraum_von: scan.coveredFrom,
+    zeitraum_bis: scan.coveredTo,
+    messwerte: scan.rowCount,
+    belegte_monate: scan.coveredMonths,
+    luecken_gesamt: scan.gaps.length,
+    luecken: scan.gaps.slice(0, MAX_REPORTED_GAPS),
+    ...(scan.gaps.length > MAX_REPORTED_GAPS
+      ? {
+          luecken_hinweis:
+            `Nur die ersten ${MAX_REPORTED_GAPS} Lücken sind hier aufgeführt; gespeichert sind alle ` +
+            `${scan.gaps.length}.`,
+        }
+      : {}),
+    ...(target.source_document_id === null
+      ? {}
+      : {
+          hinweis:
+            'An diesem Zählpunkt war bereits ein Lastgang hinterlegt — er wurde durch diesen ersetzt.',
+        }),
+  })
 }
