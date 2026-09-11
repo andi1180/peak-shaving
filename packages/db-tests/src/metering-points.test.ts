@@ -339,7 +339,7 @@ describe('B24 Admin-Leser — segment und industry kommen wirklich an', () => {
 
     const label = `B24 Segmenttest ${randomUUID()}`
     const projectId = await createProjectFor(kunde, label)
-    await callAs(kunde, 'public.update_project_draft($1, $2, $3)', [projectId, 'betrieb', 'hotel'])
+    await callAs(kunde, 'public.update_project_segment_industry($1, $2, $3)', [projectId, 'betrieb', 'hotel'])
 
     const detail = await readAs<{
       status: string

@@ -62,15 +62,18 @@ import {
 const WRAPPER_SIGNATURES = {
   get_project: 'public.get_project(uuid)',
   /*
-   * ⚠ ZWEIMAL NACHGEZOGEN, und beim zweiten Mal BRECHEND:
+   * ⚠ DREIMAL NACHGEZOGEN, zweimal davon BRECHEND:
    *   - 20260910150000: `p_industry` kam per DROP+CREATE dazu.
    *   - 20260911150000: `p_draft` ist per DROP+CREATE WEGGEFALLEN — der Entwurf liegt seither am
-   *     ZÄHLPUNKT (`update_metering_point_draft`). Der NAME ist historisch geblieben.
+   *     ZÄHLPUNKT (`update_metering_point_draft`).
+   *   - 20260911170000: UMBENANNT von `update_project_draft` — der alte Name behauptete nach dem
+   *     Entwurfs-Umzug das Gegenteil dessen, was die Funktion tut. Signatur und Verhalten
+   *     unverändert.
    * Die exakte Signatur bleibt gepinnt: sie ist die Absicherung dagegen, dass eine zweite
    * Überladung daneben entsteht, die ein Aufruf mit weniger Argumenten still trifft — bei einem
    * DROP+CREATE mit geänderter Parameterliste ist das die reale Gefahr.
    */
-  update_project_draft: 'public.update_project_draft(uuid, text, text)',
+  update_project_segment_industry: 'public.update_project_segment_industry(uuid, text, text)',
   append_project_message: 'public.append_project_message(uuid, text, jsonb)',
   list_project_messages: 'public.list_project_messages(uuid, integer, integer)',
   append_project_document: 'public.append_project_document(uuid, uuid, text, text)',
@@ -285,7 +288,17 @@ describe('B24 Chat-Zustand — Schema und Rechtefläche', () => {
     expect(rows).toEqual([])
   })
 
-  it('platform.projects trägt segment (nullable) und draft (not null, default {})', async () => {
+  /*
+   * ⚠ `draft` steht hier NICHT MEHR, und das ist die Aussage dieses Tests. Die Spalte ist mit der
+   * Migration 20260911160000 gefallen, nachdem der eine reale Bestand in Produktion (ein
+   * bestätigter Testlauf) entfernt war — der Entwurf liegt seit 20260911150000 am ZÄHLPUNKT
+   * (`platform.metering_points.draft`, gemessen in `metering-points.test.ts`).
+   *
+   * Die Spalte wird ausdrücklich MITGEPRÜFT statt bloss weggelassen: ein Test, der nur `segment`
+   * abfragt, bliebe auch dann grün, wenn jemand `draft` wieder anlegte — und dann gäbe es zwei
+   * Entwürfe nebeneinander, von denen der Aufrufweg entschiede, welcher gilt.
+   */
+  it('platform.projects trägt segment (nullable) und KEIN draft mehr', async () => {
     const cols = await sql<{ column_name: string; is_nullable: string; column_default: string | null }>(
       `select column_name, is_nullable, column_default
          from information_schema.columns
@@ -293,10 +306,7 @@ describe('B24 Chat-Zustand — Schema und Rechtefläche', () => {
           and column_name in ('segment', 'draft')
         order by column_name`,
     )
-    expect(cols).toEqual([
-      { column_name: 'draft', is_nullable: 'NO', column_default: `'{}'::jsonb` },
-      { column_name: 'segment', is_nullable: 'YES', column_default: null },
-    ])
+    expect(cols).toEqual([{ column_name: 'segment', is_nullable: 'YES', column_default: null }])
   })
 })
 
@@ -412,7 +422,8 @@ describe('B24 Chat-Zustand — Eigentum und Fremdzugriff', () => {
     // Kundensicht: die Kennung eines internen Kontos hat hier nichts verloren (Vorgabe des
     // Fundaments am Spaltenkommentar von created_by).
     expect(Object.keys(ok.project)).not.toContain('created_by')
-    expect(ok.project.draft).toEqual({})
+    // Seit 20260911160000 ebenfalls nicht mehr dabei: der Entwurf liegt am Zählpunkt.
+    expect(Object.keys(ok.project)).not.toContain('draft')
     expect(ok.project.segment).toBeNull()
 
     expect(await readAs(stranger, 'public.get_project($1)', [projectId])).toEqual({
@@ -444,7 +455,7 @@ describe('B24 Chat-Zustand — Eigentum und Fremdzugriff', () => {
 
     const calls: [string, unknown[]][] = [
       ['public.get_project($1)', [projectId]],
-      ['public.update_project_draft($1, $2)', [projectId, 'betrieb']],
+      ['public.update_project_segment_industry($1, $2)', [projectId, 'betrieb']],
       ['public.append_project_message($1, $2, $3)', [projectId, 'user', JSON.stringify([{ type: 'text' }])]],
       ['public.list_project_messages($1)', [projectId]],
       ['public.append_project_document($1, $2, $3, $4)', [projectId, randomUUID(), 'x.pdf', 'application/pdf']],
@@ -598,9 +609,9 @@ describe('B24 Chat-Zustand — Verlauf und Entwurf', () => {
     const user = await newUser()
     const { projectId } = await createProjectFor(user)
 
-    await callAs(user, 'public.update_project_draft($1, $2)', [projectId, 'betrieb'])
+    await callAs(user, 'public.update_project_segment_industry($1, $2)', [projectId, 'betrieb'])
     // Ein Aufruf, der das Segment gar nicht nennt — er darf es nicht leeren.
-    await callAs(user, 'public.update_project_draft($1)', [projectId])
+    await callAs(user, 'public.update_project_segment_industry($1)', [projectId])
 
     const out = await readAs<{ project: { segment: string | null } }>(
       user,
@@ -618,7 +629,7 @@ describe('B24 Chat-Zustand — Verlauf und Entwurf', () => {
 
     // Ein roher 23514 aus dem CHECK trüge keinen Feldbezug, den eine Oberfläche anzeigen könnte.
     expect(
-      await readAs(user, 'public.update_project_draft($1, $2)', [projectId, 'hotel']),
+      await readAs(user, 'public.update_project_segment_industry($1, $2)', [projectId, 'hotel']),
     ).toEqual({ status: 'invalid_segment' })
 
     const [row] = await sql<{ segment: string | null }>(
@@ -629,34 +640,32 @@ describe('B24 Chat-Zustand — Verlauf und Entwurf', () => {
   })
 
   /*
-   * ⚠ DIE EINGEFRORENE SPALTE: `platform.projects.draft` steht noch, wird aber von KEINEM Wrapper
-   * mehr geschrieben (Migration 20260911150000 TEIL 5 — in Produktion liegt ein realer Bestand
-   * darin, für den es kein Ziel gibt). Ohne diesen Test fiele erst im Betrieb auf, wenn jemand die
-   * Kopplung wieder einzöge: es gäbe dann zwei Entwürfe nebeneinander, und welcher gilt, entschiede
-   * der Zufall des Aufrufwegs.
+   * ⚠ DIE GEGENPROBE ZUM DROP: Bis zur Migration 20260911160000 stand `platform.projects.draft`
+   * eingefroren daneben, und dieser Test mass, dass der Wrapper sie nicht mehr anfasst. Seit dem
+   * Drop ist das strukturell wahr — nicht anfassbar ist, was es nicht gibt. Der Test misst deshalb
+   * die ANDERE Richtung: ein Schreibversuch auf die Spalte scheitert wirklich (Positivkontrolle,
+   * dass der Drop griff und nicht nur eine Spaltenliste gekürzt wurde), und der Wrapper setzt
+   * Segment und Branche unverändert weiter.
    */
-  it('⚠ update_project_draft fasst platform.projects.draft NICHT mehr an', async () => {
+  it('⚠ platform.projects.draft ist WEG — und der Wrapper setzt Segment und Branche weiter', async () => {
     const user = await newUser()
     const { projectId } = await createProjectFor(user)
 
-    // Ein Bestand, wie ihn die Produktion trägt — von Hand gesetzt, weil es keinen Wrapper gibt.
-    await sql(`update platform.projects set draft = $2::jsonb where id = $1`, [
+    await expect(
+      sql(`update platform.projects set draft = '{}'::jsonb where id = $1`, [projectId]),
+    ).rejects.toThrow(/draft/)
+
+    await callAs(user, 'public.update_project_segment_industry($1, $2, $3)', [
       projectId,
-      JSON.stringify({ energyPriceCtPerKwh: 25 }),
+      'betrieb',
+      'hotel',
     ])
 
-    await callAs(user, 'public.update_project_draft($1, $2, $3)', [projectId, 'betrieb', 'hotel'])
-
-    const [row] = await sql<{ draft: Record<string, unknown>; segment: string; industry: string }>(
-      `select draft, segment, industry from platform.projects where id = $1`,
+    const [row] = await sql<{ segment: string; industry: string }>(
+      `select segment, industry from platform.projects where id = $1`,
       [projectId],
     )
-    // Segment und Branche sind gesetzt — und der Archivstand ist unberührt.
-    expect(row).toEqual({
-      draft: { energyPriceCtPerKwh: 25 },
-      segment: 'betrieb',
-      industry: 'hotel',
-    })
+    expect(row).toEqual({ segment: 'betrieb', industry: 'hotel' })
   })
 })
 

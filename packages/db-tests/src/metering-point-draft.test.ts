@@ -29,10 +29,9 @@
 //     Projekte; der Zählpunkt muss zuerst auf sein Projekt aufgelöst werden. Ohne das schriebe ein
 //     Fremder in den Zählpunkt eines anderen Kunden — ein echtes Leck über Kundengrenzen.
 //
-//   * DIE EINGEFRORENE ALTE SPALTE WIRD WIEDER ANGEFASST. `platform.projects.draft` steht noch (in
-//     Produktion liegt ein realer Bestand darin, für den es kein Ziel gibt). Schriebe irgendetwas
-//     wieder hinein, gäbe es zwei Entwürfe nebeneinander, und welcher gilt, entschiede der
-//     Aufrufweg.
+//   * DIE ALTE SPALTE WIRD WIEDER ANGELEGT. `platform.projects.draft` ist mit der Migration
+//     20260911160000 gefallen. Käme sie zurück und schriebe irgendetwas hinein, gäbe es zwei
+//     Entwürfe nebeneinander, und welcher gilt, entschiede der Aufrufweg.
 //
 // ── WIE AUFGERÄUMT WIRD ────────────────────────────────────────────────────────────────────────
 // vitest fährt Testdateien parallel gegen dieselbe Datenbank. Jede Assertion filtert auf die
@@ -351,15 +350,21 @@ describe('B24 Zählpunkt-Entwurf — die Grenzen', () => {
   })
 
   /*
-   * ⚠ DIE EINGEFRORENE SPALTE. `platform.projects.draft` steht noch, wird aber von keinem Wrapper
-   * mehr geschrieben (Migration 20260911150000 TEIL 5). Schriebe der neue Weg dorthin, gäbe es zwei
-   * Entwürfe nebeneinander, und welcher gilt, entschiede der Aufrufweg.
+   * ⚠ DIE ALTE SPALTE IST WEG, UND SIE SOLL WEG BLEIBEN. Bis zur Migration 20260911160000 stand
+   * `platform.projects.draft` eingefroren daneben, und dieser Test mass, dass der neue Weg nicht
+   * dorthin schreibt. Seit dem Drop ist das strukturell wahr; gemessen wird deshalb, dass es die
+   * Spalte wirklich nicht mehr gibt — käme sie zurück, gäbe es wieder zwei Entwürfe nebeneinander,
+   * und welcher gilt, entschiede der Aufrufweg.
+   *
+   * Der Test steht hier UND in `project-chat-state.test.ts` (dort von der Wrapper-Seite aus). Das
+   * ist kein Duplikat: die eine Datei misst, dass der ZÄHLPUNKT-Weg nicht zurückschreibt, die
+   * andere, dass der PROJEKT-Weg es nicht tut.
    */
-  it('⚠ der Zählpunkt-Entwurf landet NICHT in platform.projects.draft', async () => {
+  it('⚠ platform.projects.draft existiert nicht mehr — der Zählpunkt-Entwurf steht am Zählpunkt', async () => {
     const admin = await newUser()
     await makeAdmin(admin)
     const kunde = await newUser()
-    const projectId = await createProjectFor(kunde, 'B24 alte Spalte unberührt')
+    const projectId = await createProjectFor(kunde, 'B24 alte Spalte gedroppt')
     const [mp] = await meteringPointsFor(admin, projectId, 1)
 
     await callAs(kunde, 'public.update_metering_point_draft($1, $2)', [
@@ -367,10 +372,16 @@ describe('B24 Zählpunkt-Entwurf — die Grenzen', () => {
       JSON.stringify({ energyPriceCtPerKwh: 24.4 }),
     ])
 
-    const [row] = await sql<{ draft: Record<string, unknown> }>(
-      `select draft from platform.projects where id = $1`,
-      [projectId],
+    const cols = await sql<{ column_name: string }>(
+      `select column_name from information_schema.columns
+        where table_schema = 'platform' and table_name = 'projects' and column_name = 'draft'`,
     )
-    expect(row!.draft).toEqual({})
+    expect(cols).toEqual([])
+
+    const [row] = await sql<{ draft: Record<string, unknown> }>(
+      `select draft from platform.metering_points where id = $1`,
+      [mp],
+    )
+    expect(row!.draft).toEqual({ energyPriceCtPerKwh: 24.4 })
   })
 })

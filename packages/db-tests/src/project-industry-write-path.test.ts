@@ -28,7 +28,7 @@
 //   (5) ES WIRD NICHTS STILL KLEINGESCHRIEBEN — „Hotel" ist `invalid_industry`, kein `hotel`.
 //
 // ── JEDER GEÄNDERTE WRAPPER WIRD TATSÄCHLICH AUFGERUFEN ────────────────────────────────────────
-// Arbeitsregel 2: plpgsql prüft Funktionsrümpfe nicht beim Anlegen. Beide (`update_project_draft`
+// Arbeitsregel 2: plpgsql prüft Funktionsrümpfe nicht beim Anlegen. Beide (`update_project_segment_industry`
 // und das per `create or replace` nachgezogene `get_project`) laufen hier echt, der schreibende auch
 // auf seinen Abweisungspfaden.
 //
@@ -121,7 +121,7 @@ describe('B24 Branche — Signatur und Rechtefläche', () => {
     const rows = await sql<{ args: string; names: string[] }>(
       `select pg_get_function_identity_arguments(p.oid) as args, p.proargnames as names
          from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-        where n.nspname = 'public' and p.proname = 'update_project_draft'`,
+        where n.nspname = 'public' and p.proname = 'update_project_segment_industry'`,
     )
     /*
      * ⚠ ZWEI ZEILEN HIER WÄREN DER TEURE FALL: `p_draft` ist per DROP+CREATE WEGGEFALLEN
@@ -141,7 +141,7 @@ describe('B24 Branche — Signatur und Rechtefläche', () => {
       `select has_function_privilege('anon',          $1, 'execute') as anon,
               has_function_privilege('authenticated', $1, 'execute') as auth,
               has_function_privilege('service_role',  $1, 'execute') as svc`,
-      ['public.update_project_draft(uuid, text, text)'],
+      ['public.update_project_segment_industry(uuid, text, text)'],
     )
     expect(row).toEqual({ anon: false, auth: true, svc: false })
   })
@@ -169,9 +169,9 @@ describe('B24 Branche — schreiben und lesen', () => {
     const user = await newUser()
     const projectId = await createProjectFor(user)
 
-    await callAs(user, 'public.update_project_draft($1, $2)', [projectId, 'betrieb'])
+    await callAs(user, 'public.update_project_segment_industry($1, $2)', [projectId, 'betrieb'])
     expect(
-      await callAs(user, 'public.update_project_draft($1, $2, $3)', [projectId, null, 'hotel']),
+      await callAs(user, 'public.update_project_segment_industry($1, $2, $3)', [projectId, null, 'hotel']),
     ).toEqual({ status: 'ok' })
 
     expect((await projectRow(projectId)).industry).toBe('hotel')
@@ -193,7 +193,7 @@ describe('B24 Branche — schreiben und lesen', () => {
 
     // Gegen das BESTEHENDE Segment allein geprüft scheiterte genau dieser legitime Fall.
     expect(
-      await callAs(user, 'public.update_project_draft($1, $2, $3)', [
+      await callAs(user, 'public.update_project_segment_industry($1, $2, $3)', [
         projectId,
         'betrieb',
         'tischlerei',
@@ -210,9 +210,9 @@ describe('B24 Branche — schreiben und lesen', () => {
     const user = await newUser()
     const projectId = await createProjectFor(user)
 
-    await callAs(user, 'public.update_project_draft($1, $2, $3)', [projectId, 'betrieb', 'hotel'])
+    await callAs(user, 'public.update_project_segment_industry($1, $2, $3)', [projectId, 'betrieb', 'hotel'])
     // Ein Aufruf, der die Branche gar nicht nennt — er darf sie nicht leeren.
-    await callAs(user, 'public.update_project_draft($1)', [projectId])
+    await callAs(user, 'public.update_project_segment_industry($1)', [projectId])
 
     expect((await projectRow(projectId)).industry).toBe('hotel')
   })
@@ -221,8 +221,8 @@ describe('B24 Branche — schreiben und lesen', () => {
     const user = await newUser()
     const projectId = await createProjectFor(user)
 
-    await callAs(user, 'public.update_project_draft($1, $2, $3)', [projectId, 'betrieb', 'hotel'])
-    await callAs(user, 'public.update_project_draft($1, $2, $3)', [projectId, null, 'pension'])
+    await callAs(user, 'public.update_project_segment_industry($1, $2, $3)', [projectId, 'betrieb', 'hotel'])
+    await callAs(user, 'public.update_project_segment_industry($1, $2, $3)', [projectId, null, 'pension'])
 
     expect((await projectRow(projectId)).industry).toBe('pension')
   })
@@ -231,7 +231,7 @@ describe('B24 Branche — schreiben und lesen', () => {
     const user = await newUser()
     const projectId = await createProjectFor(user)
 
-    await callAs(user, 'public.update_project_draft($1, $2, $3)', [
+    await callAs(user, 'public.update_project_segment_industry($1, $2, $3)', [
       projectId,
       'betrieb',
       '  hotel  ',
@@ -239,7 +239,7 @@ describe('B24 Branche — schreiben und lesen', () => {
     expect((await projectRow(projectId)).industry).toBe('hotel')
 
     // Ein leer abgesendetes Feld darf nichts löschen (dieselbe Lesart wie p_segment).
-    await callAs(user, 'public.update_project_draft($1, $2, $3)', [projectId, null, '   '])
+    await callAs(user, 'public.update_project_segment_industry($1, $2, $3)', [projectId, null, '   '])
     expect((await projectRow(projectId)).industry).toBe('hotel')
   })
 })
@@ -249,11 +249,11 @@ describe('B24 Branche — die Grenzen', () => {
   it('⚠ eine Branche am Privathaushalt wird ABGEWIESEN, ohne etwas zu schreiben', async () => {
     const user = await newUser()
     const projectId = await createProjectFor(user)
-    await callAs(user, 'public.update_project_draft($1, $2)', [projectId, 'privat'])
+    await callAs(user, 'public.update_project_segment_industry($1, $2)', [projectId, 'privat'])
 
     const out = await readAs<{ status: string; segment: string | null }>(
       user,
-      'public.update_project_draft($1, $2, $3)',
+      'public.update_project_segment_industry($1, $2, $3)',
       [projectId, null, 'hotel'],
     )
     expect(out.status).toBe('industry_requires_betrieb')
@@ -269,7 +269,7 @@ describe('B24 Branche — die Grenzen', () => {
 
     const out = await readAs<{ status: string; segment: string | null }>(
       user,
-      'public.update_project_draft($1, $2, $3)',
+      'public.update_project_segment_industry($1, $2, $3)',
       [projectId, null, 'hotel'],
     )
     expect(out.status).toBe('industry_requires_betrieb')
@@ -280,12 +280,12 @@ describe('B24 Branche — die Grenzen', () => {
   it('⚠ „Hotel" wird als invalid_industry abgewiesen, NICHT kleingeschrieben', async () => {
     const user = await newUser()
     const projectId = await createProjectFor(user)
-    await callAs(user, 'public.update_project_draft($1, $2)', [projectId, 'betrieb'])
+    await callAs(user, 'public.update_project_segment_industry($1, $2)', [projectId, 'betrieb'])
 
     // Was der Aufrufer eingetragen hat und was gespeichert wurde, soll dasselbe sein.
     for (const bad of ['Hotel', 'kfz-werkstatt', '_hotel', 'hotel!', 'hôtel']) {
       expect(
-        await readAs(user, 'public.update_project_draft($1, $2, $3)', [projectId, null, bad]),
+        await readAs(user, 'public.update_project_segment_industry($1, $2, $3)', [projectId, null, bad]),
       ).toEqual({ status: 'invalid_industry' })
     }
     expect((await projectRow(projectId)).industry).toBeNull()
@@ -296,7 +296,7 @@ describe('B24 Branche — die Grenzen', () => {
     const projectId = await createProjectFor(user)
 
     expect(
-      await readAs(user, 'public.update_project_draft($1, $2, $3)', [projectId, 'hotel', 'hotel']),
+      await readAs(user, 'public.update_project_segment_industry($1, $2, $3)', [projectId, 'hotel', 'hotel']),
     ).toEqual({ status: 'invalid_segment' })
     expect((await projectRow(projectId)).industry).toBeNull()
   })
@@ -305,10 +305,10 @@ describe('B24 Branche — die Grenzen', () => {
     const owner = await newUser()
     const stranger = await newUser()
     const projectId = await createProjectFor(owner)
-    await callAs(owner, 'public.update_project_draft($1, $2)', [projectId, 'betrieb'])
+    await callAs(owner, 'public.update_project_segment_industry($1, $2)', [projectId, 'betrieb'])
 
     expect(
-      await readAs(stranger, 'public.update_project_draft($1, $2, $3)', [projectId, null, 'hotel']),
+      await readAs(stranger, 'public.update_project_segment_industry($1, $2, $3)', [projectId, null, 'hotel']),
     ).toEqual({ status: 'not_found' })
     expect((await projectRow(projectId)).industry).toBeNull()
   })
@@ -316,13 +316,13 @@ describe('B24 Branche — die Grenzen', () => {
   it('⚠ OFFENGELEGT: eine gesetzte Branche überlebt einen Segmentwechsel auf privat', async () => {
     const user = await newUser()
     const projectId = await createProjectFor(user)
-    await callAs(user, 'public.update_project_draft($1, $2, $3)', [projectId, 'betrieb', 'hotel'])
+    await callAs(user, 'public.update_project_segment_industry($1, $2, $3)', [projectId, 'betrieb', 'hotel'])
 
     // set_segment muss weiterhin durchlaufen: ein Tabellen-CHECK machte daraus einen rohen 23514,
     // und das Modell hätte keinen Weg, ihn zu beheben. Die Branche zu nullen wäre eine stille
     // Löschung einer Angabe des Kunden — beides ist in der Migration begründet.
     expect(
-      await callAs(user, 'public.update_project_draft($1, $2)', [projectId, 'privat']),
+      await callAs(user, 'public.update_project_segment_industry($1, $2)', [projectId, 'privat']),
     ).toEqual({ status: 'ok' })
 
     const row = await projectRow(projectId)

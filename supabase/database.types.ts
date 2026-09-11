@@ -1149,7 +1149,6 @@ export type Database = {
           created_at: string
           created_by: string | null
           customer_label: string
-          draft: Json
           id: string
           industry: string | null
           segment: string | null
@@ -1160,7 +1159,6 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           customer_label: string
-          draft?: Json
           id?: string
           industry?: string | null
           segment?: string | null
@@ -1171,7 +1169,6 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           customer_label?: string
-          draft?: Json
           id?: string
           industry?: string | null
           segment?: string | null
@@ -2335,7 +2332,7 @@ export type Database = {
         Args: { p_draft: Json; p_metering_point_id: string }
         Returns: Json
       }
-      update_project_draft: {
+      update_project_segment_industry: {
         Args: { p_id: string; p_industry?: string; p_segment?: string }
         Returns: Json
       }

@@ -315,11 +315,7 @@ export interface ProjectChatPorts {
     content: Anthropic.ContentBlockParam[],
   ): Promise<WrapperStatus>
   /**
-   * `public.update_project_draft` — setzt Segment und Branche.
-   *
-   * ⚠ DER WRAPPER-NAME IST HISTORISCH: seit der Migration 20260911150000 fasst er den Entwurf
-   * NICHT MEHR an (der liegt am Zählpunkt, s. `saveMeteringPointDraft`). Der Port heisst deshalb
-   * weiterhin `saveProject` und nicht `saveDraft` — er beschreibt, WAS er schreibt.
+   * `public.update_project_segment_industry` — setzt Segment und Branche.
    *
    * `segment` und `industry` weggelassen heissen UNVERÄNDERT, nicht „löschen" (Lesart
    * `capture_lead`, im Wrapper begründet). Eine Branche nimmt der Wrapper nur an, wenn das nach
