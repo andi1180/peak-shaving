@@ -1,73 +1,76 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { redirect } from 'next/navigation'
 
-import { ProjectChat } from '@/components/kalkulator/project-chat'
-import { AdminError, AdminSection, Pill } from '@/components/admin/ui'
+import { AdminError, AdminPanel, AdminSection, Pill } from '@/components/admin/ui'
+import { DataEntryCountForm } from '@/components/admin/data-entry-count-form'
+import { DataEntrySegmentForm } from '@/components/admin/data-entry-segment-form'
+import { Button } from '@/components/ui/button'
 import { Container } from '@/components/ui/layout'
 import { isCurrentUserAdmin } from '@/lib/admin/guard'
-import { PROJECTS_HREF, projectHref, projectSegmentLabel, readAdminProject } from '@/lib/admin/projects'
-import { loadProjectDocuments, loadProjectMessages } from '@/lib/project-chat/supabase-ports'
-import { visibleTranscript } from '@/lib/project-chat/transcript'
+import {
+  STATION_PARAM,
+  buildStations,
+  firstParamValue,
+  resolveStation,
+  stationHref,
+} from '@/lib/admin/data-entry-stations'
+import { readMeteringPointList } from '@/lib/admin/metering-points'
+import {
+  PROJECTS_HREF,
+  PROJECT_SEGMENTS,
+  projectHref,
+  projectSegmentLabel,
+  readAdminProject,
+  type ProjectSegment,
+} from '@/lib/admin/projects'
 import { createClient } from '@/lib/supabase/server'
 
 /*
- * `/admin/kalkulator-projekte/[id]/dateneingabe` — der Projekt-Chat im Admin-Bereich (B24, Teil 1).
+ * `/admin/kalkulator-projekte/[id]/dateneingabe` — der Dateneingabe-Wizard (B24, Teil 1).
  *
  * ══════════════════════════════════════════════════════════════════════════════════════════════
- * ⚠ DIES IST DIE ERSTE ADMIN-SEITE, DIE IN EIN PROJEKT-GESPRÄCH SCHREIBT
+ * ⚠ DIESE ROUTE IST UMGEWIDMET: SIE TRUG BIS PR #188 DEN PROJEKT-CHAT
  * ══════════════════════════════════════════════════════════════════════════════════════════════
- * Bis hierher war jede Admin-Ansicht eines Gesprächs read-only, und `components/admin/chat-transcript.tsx`
- * nennt den Grund im Klartext: „ein Admin, der versehentlich in ein fremdes Gespräch schreibt, wäre
- * die teuerste denkbare Nebenwirkung dieser Seite." Das galt und gilt für den RÜCKFRAGEN-Bereich —
- * dort beantwortet Martin eine Frage und hat im Gespräch selbst nichts verloren.
+ * Der Chat ist damit aus dem ADMIN-Bereich verschwunden — für den Kunden bleibt er unverändert
+ * unter `/kalkulator/projekte/[id]`, und der Rückfragen-Bereich zeigt den Verlauf weiterhin
+ * (read-only, `components/admin/chat-transcript.tsx`). Was hier an seine Stelle tritt, ist der
+ * geführte Weg durch dieselben Angaben: Segment, Zählpunkte, und je Zählpunkt fünf Schritte.
  *
- * Diese Seite hat einen anderen Zweck, und er steht im Datenmodell: ein Projekt darf `account_id
- * = null` tragen, also admin-geführt sein (B24, erster Bauschritt — „eigenes COOLiN-Projekt oder
- * stellvertretend für einen Kunden ohne Konto"). Für genau diese Projekte gibt es sonst überhaupt
- * keinen Weg in den Chat: die Kundenroute verlangt ein EIGENTUM (`get_my_project`), und ein
- * admin-geführtes Projekt hat keinen Eigentümer. Die Dateneingabe wäre damit für den Fall
- * unerreichbar, für den sie gebaut wurde.
+ * ── ⚠ WAS IN DIESEM SCHRITT ECHT IST UND WAS NICHT ─────────────────────────────────────────────
+ * ECHT (schreibt in die Datenbank): das Segment und die Zahl der Zählpunkte.
+ * PLATZHALTER (Überschrift, ein Satz, Weiter): die fünf Stationen je Zählpunkt, der KI-Check und
+ * die Abbruchprüfung. Ziel dieses Bauschritts ist die durchklickbare REIHENFOLGE, nicht der Inhalt
+ * — jede der Platzhalter-Stationen bekommt ihren eigenen Auftrag. Es gibt deshalb hier bewusst
+ * keinen Upload, keine Klassifizierung und keinen Fragenkatalog.
  *
- * ⚠ DIE NEBENWIRKUNG IST DAMIT NICHT VERSCHWUNDEN, SONDERN SICHTBAR GEMACHT. Gemessen am Schema:
- * `platform.project_messages` trägt Rolle, Blöcke und Zeitstempel — und KEINE Urheber-Spalte. Was
- * ein Admin hier schreibt, steht als `role = 'user'` im Verlauf und ist von einer Nachricht des
- * Kunden nicht unterscheidbar; in dessen eigener Ansicht erscheint sie unter „Sie". Für ein
- * admin-geführtes Projekt ist das richtig (es gibt keinen zweiten Menschen). Für ein Projekt MIT
- * Kundenkonto ist es eine Folge, die man kennen muss, bevor man tippt — deshalb steht sie genau
- * dort als Hinweis auf der Seite und nicht nur in diesem Kommentar.
+ * ── DIE POSITION STEHT IN DER URL, DIE REIHENFOLGE IM DATENBANKSTAND ───────────────────────────
+ * `?station=…`. Weiter und Zurück sind gewöhnliche Links; die Seite wird bei jedem Schritt neu
+ * gerendert und leitet die Liste der Stationen aus zwei echten Angaben ab (Segment gesetzt? wie
+ * viele Zählpunkte?). Damit gibt es keinen zweiten Ort, an dem ein Fortschritt behauptet werden
+ * könnte, der nicht in den Daten steht. Die Regeln stehen in `lib/admin/data-entry-stations.ts`.
+ *
+ * ── ⚠ EIN NICHT LESBARER ZÄHLPUNKT-STAND SPERRT DEN WIZARD ─────────────────────────────────────
+ * `readMeteringPointList` liefert `null`, wenn der Wrapper nicht `ok` gemeldet hat — ausdrücklich
+ * unterschieden von „keine Zählpunkte". Die Verwechslung wäre hier teuer: bei 0 zeigt der Wizard
+ * das Zählpunkt-Formular, und das kann eine bestehende Zahl VERKLEINERN. Ein Lesefehler brächte
+ * einen Admin damit dazu, eine Zahl einzutragen, die einen vorhandenen Zählpunkt entfernt.
+ * Ausführlich im Kopf von `lib/admin/metering-points.ts`.
  *
  * ── ZUGANG: DIE ADMINROLLE, UND SONST NICHTS ───────────────────────────────────────────────────
- * Wortgleich zu `/admin/kalkulator` (B18-4): ein Entitlement ist die Erlaubnis eines KUNDEN, ein
- * verkauftes Produkt zu benutzen — ein Admin ist kein Kunde seines eigenen Werkzeugs. Prüfte diese
- * Seite `calculator_pro`, müsste sich Andreas einen Gutscheincode ausstellen, um ein Projekt zu
- * bearbeiten, das er selbst angelegt hat. `lib/admin/project-chat-ui.test.ts` pinnt das, weil ein
- * später „zur Vereinheitlichung" ergänzter Aufruf in keinem Build sichtbar wäre.
+ * Wortgleich zu `/admin/kalkulator` (B18-4) und unverändert gegenüber PR #188: ein Entitlement ist
+ * die Erlaubnis eines KUNDEN, ein verkauftes Produkt zu benutzen — ein Admin ist kein Kunde seines
+ * eigenen Werkzeugs. `lib/admin/data-entry-ui.test.ts` pinnt das, weil ein später „zur
+ * Vereinheitlichung" ergänzter Aufruf in keinem Build sichtbar wäre.
  *
  * ── DREI WRAPPER, KEIN NEUER, KEINE MIGRATION ──────────────────────────────────────────────────
- *   `public.admin_get_project`      — der Projektkopf (`is_admin()`-geprüft).
- *   `public.list_project_messages`  — der Verlauf.
- *   `public.list_project_documents` — die Unterlagen.
- * Die beiden letzten sind keine `admin_*`-Funktionen und trotzdem richtig: sie entscheiden über
- * `platform.project_accessible`, und die trägt seit dem zweiten Bauschritt `or platform.is_admin()`.
- * Dasselbe gilt für alles, was der Chat von hier aus auslöst — `get_project`, `append_project_message`,
- * `check_chat_rate_limit` (dort ist ein Admin ausgenommen und wird auch nicht gezählt). Es war
- * deshalb KEINE Zeile Datenbank zu ändern; die Sperre sass ausschliesslich auf Seitenebene.
- *
- * ── ⚠ DER INTL-KONTEXT KOMMT VON AUSSEN — GEMESSEN, NICHT ANGENOMMEN ───────────────────────────
- * `ProjectChat` ist eine Client-Komponente und ruft `useTranslations('Projekte.chat'|'…status'|'…upload')`.
- * `/admin` liegt ausserhalb von `app/(site)/[locale]` und hat trotzdem einen Provider:
- * `components/admin/root-shell.tsx` umschliesst beide Admin-Root-Layouts mit `<NextIntlClientProvider>`
- * OHNE `messages`-Prop, und die Server-Variante löst das zu `await getMessages()` auf — also zum
- * vollständigen `messages/de.json`. Am laufenden Server gegengeprüft (anonym auf `/admin/anmelden`,
- * derselben Hülle): `inputLabel`, `emptyTranscript`, `attachedHint` und `limit_unavailable` stehen
- * je einmal im ausgelieferten Flight-Payload, eine Positivkontrolle auf ein nicht vorhandenes Wort
- * liefert 0.
- *
- * Deshalb steht hier KEIN zweiter, lokaler Provider: er schriebe dieselben Namespaces ein zweites
- * Mal in einen Payload, der sie ohnehin schon vollständig trägt. Was stattdessen nötig ist, ist ein
- * WÄCHTER — diese Route hängt jetzt an einer Eigenschaft von `root-shell.tsx`, die dort aus einem
- * ANDEREN Grund steht (die locale-bewussten UI-Primitives). Wer den Provider dort entfernt, bricht
- * diesen Chat, und zwar erst zur Laufzeit. `lib/admin/project-chat-ui.test.ts` hält es fest.
+ *   `public.admin_get_project`                — der Projektkopf samt Segment (`is_admin()`-geprüft).
+ *   `public.list_metering_points`             — die Zählpunkte (`project_accessible`, und die trägt
+ *                                               seit dem Chat-Zustand `or platform.is_admin()`).
+ *   `public.update_project_segment_industry`  ┐ die beiden Schreibwege, aufgerufen aus
+ *   `public.admin_set_metering_point_count`   ┘ `lib/admin/data-entry-actions.ts`.
+ * `admin_get_project` ist als Zählpunkt-Leser ausdrücklich KEINE Alternative: es liefert nur den
+ * Projektkopf und kennt die Zählpunkte gar nicht (Migration 20260911090000, TEIL 3).
  */
 
 /** Rolle live gelesen, ein Entzug greift sofort (I10) — wie in jeder Admin-Route. */
@@ -79,19 +82,60 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 }
 
+/** Rahmen für die Fälle, in denen es keinen Wizard zu zeigen gibt. */
+function DataEntryProblem({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <Container className="py-10 sm:py-14">
+      <header className="border-b border-line pb-6">
+        <h1 className="text-h2 text-ink">Dateneingabe</h1>
+      </header>
+      <AdminSection id="projekt" title={title}>
+        <AdminError>{children}</AdminError>
+        <p className="mt-4">
+          <Link
+            href={PROJECTS_HREF}
+            className="text-small text-accent underline decoration-accent underline-offset-[3px]"
+          >
+            Zurück zur Projektliste
+          </Link>
+        </p>
+      </AdminSection>
+    </Container>
+  )
+}
+
+/**
+ * Eine Station, die es in diesem Bauschritt noch nicht gibt.
+ *
+ * Sie sagt im Klartext, dass sie leer IST — ein Platzhalter, der so aussieht wie ein fertiger
+ * Schritt, sähe aus wie etwas Kaputtes. Dieselbe Haltung wie bei der Report-Kachel auf der
+ * Projekt-Detailseite.
+ */
+function StationPlaceholder({ note }: { note: string }) {
+  return (
+    <p className="max-w-prose text-small text-text-muted">
+      Folgt als eigener Schritt. <span className="text-text-muted">{note}</span>
+    </p>
+  )
+}
+
 export default async function AdminProjectDataEntryPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>
+  searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
   if (!(await isCurrentUserAdmin())) return null
 
   const { id } = await params
+  const query = await searchParams
   const supabase = await createClient()
-  const res = await supabase.rpc('admin_get_project', { p_id: id })
-  if (res.error) console.error('[admin/projects] admin_get_project:', res.error)
 
-  const project = readAdminProject(res.data)
+  const projectRes = await supabase.rpc('admin_get_project', { p_id: id })
+  if (projectRes.error) console.error('[admin/dateneingabe] admin_get_project:', projectRes.error)
+
+  const project = readAdminProject(projectRes.data)
 
   /*
    * Dieselben zwei Ausgänge wie auf der Detailseite und aus demselben Grund: „gibt es nicht" und
@@ -100,44 +144,47 @@ export default async function AdminProjectDataEntryPage({
    */
   if (project === null || project === 'not_found') {
     return (
-      <Container className="py-10 sm:py-14">
-        <header className="border-b border-line pb-6">
-          <h1 className="text-h2 text-ink">Dateneingabe</h1>
-        </header>
-        <AdminSection id="projekt" title="Nicht verfügbar">
-          <AdminError>
-            {project === 'not_found'
-              ? 'Dieses Projekt gibt es nicht (mehr).'
-              : 'Das Projekt konnte nicht geladen werden. Das ist NICHT dasselbe wie „gibt es nicht" — bitte die Seite neu laden.'}
-          </AdminError>
-          <p className="mt-4">
-            <Link
-              href={PROJECTS_HREF}
-              className="text-small text-accent underline decoration-accent underline-offset-[3px]"
-            >
-              Zurück zur Projektliste
-            </Link>
-          </p>
-        </AdminSection>
-      </Container>
+      <DataEntryProblem title="Nicht verfügbar">
+        {project === 'not_found'
+          ? 'Dieses Projekt gibt es nicht (mehr).'
+          : 'Das Projekt konnte nicht geladen werden. Das ist NICHT dasselbe wie „gibt es nicht" — bitte die Seite neu laden.'}
+      </DataEntryProblem>
     )
   }
 
-  /*
-   * Verlauf und Unterlagen parallel — beide hängen an derselben Zugangsentscheidung, die die
-   * Datenbank in jedem der beiden Wrapper ohnehin noch einmal selbst trifft.
-   *
-   * ⚠ Beide Leser kommen aus `lib/project-chat/supabase-ports.ts`, also aus derselben Datei, aus
-   * der die Kundenroute sie holt. Ein eigener Admin-Leser daneben wäre eine zweite Auslegung
-   * derselben Antwort (Obergrenze, kaputte Zeilen, Rollen-Prüfung), und die Abweichung fiele erst
-   * auf, wenn Martin einen anderen Verlauf sieht als der Kunde.
-   */
-  const [messages, documents] = await Promise.all([
-    loadProjectMessages(project.id),
-    loadProjectDocuments(project.id),
-  ])
+  const meteringRes = await supabase.rpc('list_metering_points', { p_project_id: project.id })
+  if (meteringRes.error)
+    console.error('[admin/dateneingabe] list_metering_points:', meteringRes.error)
 
-  const segment = projectSegmentLabel(project.segment)
+  const meteringPoints = readMeteringPointList(meteringRes.data)
+
+  // ⚠ Fail closed — s. Kopf. `null` ist NICHT „keine Zählpunkte".
+  if (meteringPoints === null) {
+    return (
+      <DataEntryProblem title="Zählpunkte nicht lesbar">
+        Die Zählpunkte dieses Projekts konnten nicht gelesen werden. Der Wizard wird deshalb gar
+        nicht erst angezeigt: seine Reihenfolge hängt an ihrer Anzahl, und das Zählpunkt-Formular
+        könnte eine bestehende Zahl verkleinern. Bitte die Seite neu laden.
+      </DataEntryProblem>
+    )
+  }
+
+  const segmentSet = project.segment !== null && project.segment !== ''
+  const stations = buildStations({ segmentSet, meteringPointCount: meteringPoints.length })
+
+  const requested = firstParamValue(query[STATION_PARAM])
+  const { station, index, redirectRequired } = resolveStation(stations, requested)
+  // Die Adresse nannte eine Station, die es für dieses Projekt nicht gibt — Umleitung statt Fehler,
+  // damit die URL nicht weiter etwas Falsches behauptet.
+  if (redirectRequired) redirect(stationHref(project.id, station.id))
+
+  const previous = stations[index - 1] ?? null
+  const next = stations[index + 1] ?? null
+
+  const segmentLabel = projectSegmentLabel(project.segment)
+  const currentSegment = (PROJECT_SEGMENTS as readonly string[]).includes(project.segment ?? '')
+    ? (project.segment as ProjectSegment)
+    : null
 
   return (
     <Container className="py-10 sm:py-14">
@@ -152,58 +199,76 @@ export default async function AdminProjectDataEntryPage({
         </p>
         <h1 className="mt-2 text-h2 text-ink">Dateneingabe</h1>
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          {segment && <Pill tone="neutral">{segment}</Pill>}
+          {segmentLabel && <Pill tone="neutral">{segmentLabel}</Pill>}
           {project.industry && <Pill tone="neutral">{project.industry}</Pill>}
           {project.account_id === null && <Pill tone="neutral">ohne Kundenkonto</Pill>}
         </div>
         <p className="mt-4 max-w-prose text-small text-text-muted">
-          Das Gespräch sammelt die Angaben des Projekts — Zählpunkte, Lastgang, Tarifwerte. Es ist
-          derselbe Verlauf, den der Kunde in seinem Konto sieht; gerechnet wird hier noch nichts.
+          Schritt für Schritt durch die Angaben des Projekts. Gerechnet wird hier noch nichts.
         </p>
       </header>
 
-      {/*
-        ⚠ NUR BEI EINEM PROJEKT MIT KUNDENKONTO. Bei einem admin-geführten Projekt gibt es keinen
-        zweiten Menschen, dem etwas erscheinen könnte — der Hinweis wäre dort eine Warnung ohne
-        Gegenüber und stünde bald als Möbelstück da. Die Aussage ist eine Tatsache über das Schema
-        (`project_messages` hat keine Urheber-Spalte), keine Vermutung; s. Kopf dieser Datei.
-      */}
-      {project.account_id !== null && (
-        <div
-          role="note"
-          className="mt-8 rounded-md border border-warning-border bg-warning-subtle p-4"
-        >
-          <p className="max-w-prose text-small text-ink">
-            <strong className="font-medium">Dieses Projekt gehört einem Kundenkonto.</strong> Was
-            Sie hier schreiben, erscheint im Chat des Kunden — und dort als seine eigene Nachricht:
-            der Verlauf führt keine Urheber. Für eine Rückfrage an den Kunden gibt es den Bereich{' '}
-            <Link
-              href="/admin/rueckfragen"
-              className="text-accent underline decoration-accent underline-offset-[3px]"
-            >
-              Rückfragen
-            </Link>
-            .
-          </p>
-        </div>
-      )}
+      <AdminSection id="station" title={station.title}>
+        {/*
+          Die Zählung nennt die Gesamtzahl mit, weil sie nicht feststeht: sie wächst mit jedem
+          Zählpunkt um fünf. „Schritt 4" allein sagte nicht, wie weit es noch ist.
+        */}
+        <p className="text-caption text-text-muted">
+          Schritt {index + 1} von {stations.length}
+        </p>
 
-      <AdminSection id="gespraech" title="Gespräch">
-        <div className="max-w-3xl">
-          <ProjectChat
-            projectId={project.id}
-            /*
-             * Die Auswahl trifft `visibleTranscript` — SERVERSEITIG und an genau einer Stelle,
-             * dieselbe Funktion wie auf der Kundenroute und im Rückfragen-Bereich.
-             * `tool_call`/`tool_result` erreichen den Browser damit gar nicht erst; sie stehen
-             * weder im Markup noch im Flight-Payload.
-             */
-            initialTranscript={visibleTranscript(messages)}
-            initialDocuments={documents.map((document) => ({
-              id: document.id,
-              filename: document.original_filename,
-            }))}
-          />
+        <AdminPanel className="mt-4">
+          {station.kind === 'segment' && (
+            <DataEntrySegmentForm projectId={project.id} current={currentSegment} />
+          )}
+
+          {station.kind === 'zaehlpunkte' && (
+            <DataEntryCountForm
+              projectId={project.id}
+              current={meteringPoints.length}
+              withLoadProfile={meteringPoints.filter((point) => point.hasLoadProfile).length}
+            />
+          )}
+
+          {station.kind === 'zaehlpunkt-schritt' && (
+            <StationPlaceholder
+              note={`Hier wird später der Schritt „${station.title}" ausgefüllt.`}
+            />
+          )}
+
+          {station.kind === 'ki-check' && (
+            <StationPlaceholder note="Hier prüft später die KI die gesammelten Angaben auf Widersprüche." />
+          )}
+
+          {station.kind === 'abbruchpruefung' && (
+            <StationPlaceholder note="Hier wird später entschieden, ob die Datenlage für eine Rechnung reicht." />
+          )}
+
+          {station.kind === 'ende' && (
+            <p className="max-w-prose text-small text-text-muted">
+              Alle Stationen dieses Teils sind durchlaufen.{' '}
+              <span className="text-text-muted">Weiter zu Teil 2 — folgt als eigener Schritt.</span>
+            </p>
+          )}
+        </AdminPanel>
+
+        {/*
+          ⚠ EIN „WEITER" GIBT ES NUR AUF DEN PLATZHALTER-STATIONEN. Auf den beiden echten Schritten
+          IST der Speichern-Knopf der Weg nach vorn; ein Link daneben wäre ein zweiter, der die
+          Angabe überspringt — genau das, was auf einer Station, die etwas erhebt, nicht passieren
+          soll. Zurück gibt es dagegen überall ausser auf der allerersten Station: es schreibt nichts.
+        */}
+        <div className="mt-6 flex flex-wrap items-center gap-3">
+          {previous && (
+            <Button asChild variant="secondary" size="md">
+              <Link href={stationHref(project.id, previous.id)}>Zurück: {previous.title}</Link>
+            </Button>
+          )}
+          {next && station.kind !== 'segment' && station.kind !== 'zaehlpunkte' && (
+            <Button asChild variant="primary" size="md">
+              <Link href={stationHref(project.id, next.id)}>Weiter: {next.title}</Link>
+            </Button>
+          )}
         </div>
       </AdminSection>
     </Container>
