@@ -146,3 +146,24 @@ export function readAdminProject(data: unknown): AdminProjectHead | 'not_found' 
   const project = asObject(obj.project)
   return project ? (project as AdminProjectHead) : null
 }
+
+/**
+ * Pfad der Dateneingabe eines Projekts — der Projekt-Chat im Admin-Bereich (B24, Teil 1).
+ *
+ * ⚠ NICHT zu verwechseln mit `projectChatHref` aus `lib/kalkulator/projects.ts`. Die beiden zeigen
+ * auf DENSELBEN Gesprächsverlauf und sind trotzdem zwei verschiedene Adressen, weil sie zwei
+ * verschiedene Fragen beantworten:
+ *
+ *   `/kalkulator/projekte/[id]`                   — der KUNDE in seinem eigenen Projekt. Zugang über
+ *                                                   `get_my_project` (EIGENTUM) plus `calculator_pro`.
+ *   `/admin/kalkulator-projekte/[id]/dateneingabe` — der ADMIN in JEDEM Projekt. Zugang über die
+ *                                                   Adminrolle, kein Entitlement.
+ *
+ * Sie zusammenzulegen hiesse, eine der beiden Zugangsentscheidungen aufzugeben — und die
+ * Kundenroute darf ausdrücklich nicht auf `project_accessible` umgestellt werden (Begründung im
+ * Kopf von `lib/kalkulator/projects-server.ts`: ein Admin schriebe dann in der KUNDEN-Oberfläche
+ * unter dem Konto des Kunden in dessen Gespräch, ohne dass die Seite das sagt).
+ */
+export function projectDataEntryHref(id: string): string {
+  return `${projectHref(id)}/dateneingabe`
+}
