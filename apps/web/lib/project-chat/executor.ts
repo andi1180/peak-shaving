@@ -6,6 +6,12 @@ import {
 } from 'shared'
 
 import {
+  checkMeteringPointConsistency,
+  readInvoicePeriod,
+  readLoadProfilePeriod,
+  type ConsistencyIssue,
+} from './consistency'
+import {
   checkDraftCompleteness,
   setDraftField,
   type DraftCompleteness,
@@ -110,6 +116,8 @@ export async function executeChatTool(
       return setDraft(ports, projectId, args, now)
     case 'check_draft_completeness':
       return completeness(ports, projectId, args)
+    case 'check_data_consistency':
+      return dataConsistency(ports, projectId, args)
     case 'flag_open_question':
       return flagOpenQuestion(ports, projectId, args)
     case 'classify_upload':
@@ -449,6 +457,168 @@ function describeCompleteness(state: DraftCompleteness): Record<string, unknown>
     unknown_fields: state.unknown,
     without_source: state.withoutSource,
     assumed_fields: state.assumed,
+  }
+}
+
+/**
+ * ── ⚠ ES GIBT KEIN „STIMMT"-FLAG, UND DAS IST DIE TRAGENDE ENTSCHEIDUNG DIESER ANTWORT ────────
+ * `check_draft_completeness` liefert ein `complete`; hier gibt es bewusst kein Gegenstück. Der
+ * Grund ist, dass der Abgleich AUSFALLEN kann, ohne dass etwas falsch wäre: fehlt der
+ * Rechnungszeitraum, ist nichts verglichen worden. Ein `stimmig: true` hiesse dann „geprüft, alles
+ * passt" über eine Prüfung, die nie gelaufen ist — genau die teure Falschaussage, die
+ * `completeness` bei einem Projekt ohne Zählpunkt vermeidet.
+ *
+ * An seiner Stelle stehen ZWEI Angaben, die zusammen eindeutig sind: `zeitraum_vergleich` (ist der
+ * Abgleich gelaufen?) und `befunde` (was kam heraus?). Ein `befunde: 0` neben einem
+ * `zeitraum_vergleich: "kein_rechnungszeitraum"` ist damit nicht mehr als Entwarnung lesbar.
+ *
+ * ── DAS PROJEKT WIRD NICHT GELESEN ────────────────────────────────────────────────────────────
+ * Anders als `completeness` braucht dieser Weg weder Segment noch Katalog — er vergleicht zwei
+ * Zeiträume. `extract_load_profile` verzichtet aus demselben Grund auf den Lesevorgang.
+ */
+async function dataConsistency(
+  ports: ProjectChatPorts,
+  projectId: string,
+  args: Record<string, unknown>,
+): Promise<ToolExecution> {
+  const meteringPointId = readString(args, 'metering_point_id')
+
+  // ── EIN benannter Zählpunkt ───────────────────────────────────────────────────────────────────
+  if (meteringPointId !== null) {
+    const resolved = await resolveMeteringPoint(ports, projectId, meteringPointId, 'diese Prüfung')
+    if ('error' in resolved) return resolved.error
+    return ok(describeConsistency(resolved.target))
+  }
+
+  // ── ALLE Zählpunkte ───────────────────────────────────────────────────────────────────────────
+  const meteringPoints = await ports.listMeteringPoints(projectId)
+  if (meteringPoints.length === 0) {
+    /*
+     * Wortgleiche Lage wie in `completeness`: kein Fehlschlag, sondern ein Projekt, das noch nicht
+     * eingerichtet ist — und das Modell kann es nicht nachholen (es gibt keinen Port, der einen
+     * Zählpunkt anlegt).
+     */
+    return ok({
+      metering_points: [],
+      befunde_gesamt: 0,
+      hinweis:
+        'Für dieses Projekt sind noch keine Zählpunkte angelegt — es gibt also auch keinen ' +
+        'Zeitraum, den man vergleichen könnte. Das ist NICHT die Auskunft, dass alles stimmt. Du ' +
+        'kannst es nicht selbst nachholen: sag dem Kunden, dass wir das intern einrichten müssen, ' +
+        'und halte es mit flag_open_question fest.',
+    })
+  }
+
+  const perPoint = meteringPoints.map((row, index) => describeConsistency(row, index))
+
+  return ok({
+    metering_points: perPoint,
+    befunde_gesamt: perPoint.reduce((sum, entry) => sum + (entry.befunde as number), 0),
+  })
+}
+
+/**
+ * Der Befund EINES Zählpunkts, in der Form, in der er an das Modell geht.
+ *
+ * ── ⚠ DIE ZWEI BEFUNDARTEN BEKOMMEN ZWEI FELDER, KEINE GEMEINSAME LISTE ───────────────────────
+ * `checkMeteringPointConsistency` liefert eine flache Liste — richtig für eine Prüffunktion („das
+ * habe ich gefunden"). Für die ANTWORT ist sie es nicht: die zwei Arten ziehen verschiedene
+ * Handlungen nach sich (eine Entscheidung des Kunden gegen eine Nachfrage beim Netzbetreiber), und
+ * nur eine von beiden wird gekürzt. Als ein Feld mit `kind`-Unterscheidung müsste das Modell erst
+ * filtern, und die Kürzung träfe beide Arten gemeinsam.
+ *
+ * ── DIE ZEITRÄUME STEHEN DA, AUCH WENN ES KEINEN BEFUND GIBT ──────────────────────────────────
+ * Sie sind die Begründung der Antwort. Ohne sie könnte das Modell „keine Befunde" nicht von „nichts
+ * zu vergleichen" unterscheiden — und genau das ist hier der häufigste Zustand, solange der Kunde
+ * erst eine der zwei Quellen geliefert hat.
+ */
+function describeConsistency(row: MeteringPointRow, index?: number): Record<string, unknown> {
+  const issues = checkMeteringPointConsistency(row)
+  const load = readLoadProfilePeriod(row)
+  const invoice = readInvoicePeriod(row.draft)
+
+  const coverage = issues.find(
+    (issue): issue is Extract<ConsistencyIssue, { kind: 'coverage_gap' }> =>
+      issue.kind === 'coverage_gap',
+  )
+  const gaps = issues.filter(
+    (issue): issue is Extract<ConsistencyIssue, { kind: 'internal_gap' }> =>
+      issue.kind === 'internal_gap',
+  )
+
+  return {
+    ...(index === undefined ? {} : { nummer: index + 1 }),
+    metering_point_id: row.id,
+    befunde: issues.length,
+    zeitraum_vergleich: comparisonState(load !== null, invoice !== null),
+    lastgang_zeitraum: load === null ? null : { von: load.from, bis: load.to },
+    rechnungs_zeitraum: invoice === null ? null : { von: invoice.from, bis: invoice.to },
+    ...(coverage === undefined
+      ? {}
+      : {
+          zeitraum_luecke: {
+            rechnung_von: coverage.invoiceFrom,
+            rechnung_bis: coverage.invoiceTo,
+            lastgang_von: coverage.loadProfileFrom,
+            lastgang_bis: coverage.loadProfileTo,
+            abstand_tage: coverage.gapDays,
+          },
+        }),
+    luecken_gesamt: gaps.length,
+    /*
+     * Dieselbe Obergrenze wie in `extract_load_profile`, und aus demselben Grund: ein Export mit
+     * hunderten Einzelausfällen füllte sonst den halben Turn. Die GESAMTZAHL steht daneben, die
+     * Zeitraum-Lücke ist von der Kürzung strukturell nicht betroffen (sie steht in einem eigenen
+     * Feld).
+     */
+    ...(gaps.length === 0
+      ? {}
+      : { luecken: gaps.slice(0, MAX_REPORTED_GAPS).map(({ from, to }) => ({ from, to })) }),
+    ...(gaps.length > MAX_REPORTED_GAPS
+      ? {
+          luecken_hinweis:
+            `Nur die ersten ${MAX_REPORTED_GAPS} Lücken sind hier aufgeführt; gespeichert sind alle ` +
+            `${gaps.length}.`,
+        }
+      : {}),
+    ...comparisonHint(load !== null, invoice !== null),
+  }
+}
+
+/** Ist der Zeitraum-Abgleich gelaufen — und wenn nicht, welche Seite fehlte? */
+function comparisonState(hasLoad: boolean, hasInvoice: boolean): string {
+  if (hasLoad && hasInvoice) return 'geprueft'
+  if (hasLoad) return 'kein_rechnungszeitraum'
+  if (hasInvoice) return 'kein_lastgang'
+  return 'beides_fehlt'
+}
+
+/**
+ * ⚠ Der Hinweis sagt, WAS ZU TUN IST, und nicht nur, was fehlt. Ohne ihn läse das Modell ein
+ * `befunde: 0` und ginge weiter — die Prüfung, für die es das Werkzeug gerufen hat, hätte dann
+ * schlicht nicht stattgefunden, ohne dass es das merkt.
+ */
+function comparisonHint(hasLoad: boolean, hasInvoice: boolean): Record<string, unknown> {
+  if (hasLoad && hasInvoice) return {}
+
+  const missing: string[] = []
+  if (!hasLoad) {
+    missing.push(
+      'der Zeitraum des Lastgangs (eine Lastgang-Datei zu diesem Zählpunkt mit ' +
+        'extract_load_profile einlesen)',
+    )
+  }
+  if (!hasInvoice) {
+    missing.push(
+      'der Abrechnungszeitraum der Rechnung (aus extract_invoice übernehmen oder den Kunden ' +
+        'fragen, welchen Zeitraum seine Rechnung abdeckt)',
+    )
+  }
+
+  return {
+    hinweis:
+      `Für diesen Zählpunkt fehlt ${missing.join(' und ')}. Solange das so ist, wurde NICHTS ` +
+      'verglichen — das ist nicht dasselbe wie "die Zeiträume passen zusammen".',
   }
 }
 
