@@ -1854,6 +1854,10 @@ export type Database = {
         Args: { p_decision: string; p_id: string }
         Returns: Json
       }
+      admin_delete_metering_point_document: {
+        Args: { p_document_id: string; p_metering_point_id: string }
+        Returns: Json
+      }
       admin_delete_question_catalog_entry: {
         Args: { p_id: string }
         Returns: Json
@@ -1999,6 +2003,10 @@ export type Database = {
       admin_mark_partner_notified: { Args: { p_slug: string }; Returns: Json }
       admin_reject_partner_application: {
         Args: { p_id: string }
+        Returns: Json
+      }
+      admin_reset_metering_point_load_profile: {
+        Args: { p_metering_point_id: string }
         Returns: Json
       }
       admin_revoke_role: {

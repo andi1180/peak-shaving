@@ -275,10 +275,15 @@ describe('B24 — die Server Action des Lastgang-Schritts', () => {
 
   it('⚠ LIEST die Datei, BEVOR sie sie hochlädt', () => {
     /*
-     * Die naheliegende Reihenfolge wäre „hochladen, dann lesen". Sie ist hier falsch: es gibt
-     * KEINEN Weg, ein eingetragenes Dokument wieder zu entfernen (kein Wrapper, kein Grant — TEIL 9
-     * der Migration 20260910090000). Eine unlesbare oder uneindeutige Datei hinterliesse damit
-     * dauerhaft eine Zeile in `project_documents`, die niemand mehr los wird.
+     * Die naheliegende Reihenfolge wäre „hochladen, dann lesen". Sie ist hier falsch: eine
+     * unlesbare oder uneindeutige Datei hinterliesse eine Zeile in `project_documents`, die zu
+     * keinem Zählpunkt gehört.
+     *
+     * ⚠ DIE URSPRÜNGLICHE BEGRÜNDUNG IST ÜBERHOLT, DIE REGEL NICHT. Sie lautete: „es gibt KEINEN
+     * Weg, ein eingetragenes Dokument wieder zu entfernen (TEIL 9 der Migration 20260910090000)".
+     * Seit `20260911180000` gibt es ihn — aber ZÄHLPUNKT-GEBUNDEN. Für ein Dokument, das nie an
+     * einem Zählpunkt hing, ist der Rückweg damit gerade nicht der vorgesehene, und die Reihenfolge
+     * bleibt die einzige Stelle, an der so eine Zeile erst gar nicht entsteht.
      */
     expect(source.indexOf('readLoadProfile')).toBeGreaterThan(-1)
     expect(source.indexOf('uploadProjectDocument')).toBeGreaterThan(-1)
@@ -293,5 +298,79 @@ describe('B24 — die Server Action des Lastgang-Schritts', () => {
 
   it('⚠ rät bei uneindeutigen Spalten NICHT — es wird nichts gespeichert', () => {
     expect(source).toContain('needsMapping')
+  })
+})
+
+describe('B24 — der Lastgang-Rückweg', () => {
+  const actions = read(path.resolve(import.meta.dirname, 'data-entry-actions.ts'))
+  const station = read(path.join(COMPONENTS_DIR, 'admin', 'data-entry-load-profile.tsx'))
+
+  /** Nur der Rumpf der Entfernen-Action — die Reihenfolgen darin sind die eigentliche Zusage. */
+  const removeAction = actions.slice(actions.indexOf('removeMeteringPointLoadProfileAction('))
+
+  it('⚠ entfernt ERST die Datei, DANN die Datenbank-Zeile', () => {
+    /*
+     * Bricht es dazwischen ab, ist eine DB-Zeile ohne Datei sichtbar und beim nächsten Anlauf
+     * löschbar; ein Bucket-Objekt ohne Zeile wäre unsichtbar und von niemandem mehr adressierbar.
+     * Die umgekehrte Reihenfolge sähe im Code völlig unauffällig aus — deshalb steht sie hier.
+     */
+    const storage = removeAction.indexOf('removeProjectDocumentBytes')
+    const row = removeAction.indexOf('admin_delete_metering_point_document')
+    expect(storage).toBeGreaterThan(-1)
+    expect(row).toBeGreaterThan(-1)
+    expect(storage).toBeLessThan(row)
+  })
+
+  it('⚠ lässt die Datenbank-Zeile stehen, wenn das Löschen der Datei scheitert', () => {
+    /*
+     * Ohne diesen Abbruch entstünde genau der unsichtbare Rest, den die Reihenfolge vermeiden soll.
+     *
+     * ⚠ Geprüft wird das VERLASSEN der Funktion, nicht die blosse Anwesenheit der Bedingung: ein
+     * `if (!removed.ok)`, das nur protokolliert und weiterläuft, liesse einen Test auf die Zeile
+     * selbst grün — gemessen. Das eigentliche Verhalten misst
+     * `data-entry-actions.test.ts` mit einem simulierten Fehlschlag; hier steht die Form daneben,
+     * weil sie im Quelltext unauffällig verschwindet.
+     */
+    const guard = removeAction.indexOf('if (!removed.ok)')
+    const row = removeAction.indexOf('admin_delete_metering_point_document')
+    expect(guard).toBeGreaterThan(-1)
+    expect(guard).toBeLessThan(row)
+    expect(removeAction.slice(guard, row)).toContain('return {')
+  })
+
+  it('⚠ lässt die Station in JEDEM Ausgang neu rendern, sobald zurückgesetzt wurde', () => {
+    /*
+     * Schritt 1 ist dann bereits geschehen. Ohne `revalidatePath` vor den Verzweigungen zeigte der
+     * Browser weiter die Zusammenfassung eines Lastgangs, den es nicht mehr gibt — und der Admin
+     * hielte einen Fehlertext für „nichts passiert".
+     */
+    const revalidate = removeAction.indexOf('revalidatePath')
+    const storage = removeAction.indexOf('removeProjectDocumentBytes')
+    expect(revalidate).toBeGreaterThan(-1)
+    expect(revalidate).toBeLessThan(storage)
+  })
+
+  it('⚠ zeigt den Fehlertext des Entfernens in BEIDEN Zweigen der Station', () => {
+    /*
+     * Ein gescheiterter Schritt 2 oder 3 hinterlässt einen zurückgesetzten Zählpunkt — die Station
+     * steht danach im Frage-Zweig. Stünde die Meldung nur an der Zusammenfassung, verschwände
+     * ausgerechnet die wichtigste mit ihrem eigenen Auslöser (die Beobachtung aus B16-4b).
+     */
+    /*
+     * ⚠ Gezählt werden die RENDER-STELLEN, nicht die Vorkommen des Feldnamens: der steht je Stelle
+     * zweimal (Bedingung und Inhalt), und ein Test auf den blossen Namen bliebe nach dem Entfernen
+     * einer der beiden Stellen grün — gemessen.
+     */
+    const site = '<AdminError>{removeState.formError}</AdminError>'
+    expect(station.split(site).length - 1).toBeGreaterThanOrEqual(2)
+  })
+
+  it('⚠ hält den Zustand des Entfernens ausserhalb seines Formulars', () => {
+    // `useActionState` im Formular selbst verschwände mit dem Formular — s. Test darüber.
+    const hook = station.indexOf('useActionState(\n    removeMeteringPointLoadProfileAction')
+    const form = station.indexOf('action={removeAction}')
+    expect(hook).toBeGreaterThan(-1)
+    expect(form).toBeGreaterThan(-1)
+    expect(hook).toBeLessThan(form)
   })
 })
