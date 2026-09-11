@@ -16,7 +16,8 @@ Sitzung entschieden, aufgelöst.
 > | **Ist** | Der Entscheidungsstand einer Advisor-Sitzung: durchgesprochene und getroffene Architektur- und Produktentscheidungen zu B24, fachlich formuliert, für Claude Code lesbar. **Gegen `KI-Interface_Kalkulator_Bestandsaufnahme.md` (09.09.2026, Stand `26b33af`) reconciled** — vier Annahmen hielten der Messung nicht stand und sind unten korrigiert, jeweils mit Verweis auf den Befund. |
 > | **Ist nicht** | Ein vollwertiges Pflichtenheft. Die Bestandsaufnahme deckt acht der hier verwendeten Annahmen ab (A, B, C, D, E, F, G, H) — sie ist reine Messung, keine Bewertung; die Korrekturen unten sind trotzdem Entscheidungen, keine Messwerte. |
 > | **Was korrigiert wurde** | §3.2 (H — Grundgebühr existiert bereits), §3.4 (A — `TariffParams` trägt kein Leistungsmessungs-Feld), §4.2 (F — `grid_tariffs` ist nicht append-only im Grant-Sinn, sondern function-gated mit Advisory-Lock), §6.2 (G — zwei bestehende Vergabewege, kein genereller Grant-Wrapper vorhanden), §7 (Prinzip 4 — Eigentümerschafts-RLS hat im Repo keinen Präzedenzfall). |
-> | **Was hier NICHT absichtlich offen ist** | Alles unten als entschieden Markierte ist eine echte Entscheidung dieser Sitzung, keine Vermutung. §10 listet, was tatsächlich noch offen ist. |
+> | **⚠ Was seither REVIDIERT wurde** | **§3.1 (11.09.2026): das Grundprinzip „freies Multi-Turn-Gespräch" ist verworfen** — die Dateneingabe ist ein geführter Wizard, der Chat bleibt nur für die Klärung des KI-Checks. Der Abschnitt steht als überholt gekennzeichnet da, statt gelöscht zu sein. Unberührt: der typisierte Eingabe-Contract als Zielgrösse, §3.2, §3.3, §3.5. |
+| **Was hier NICHT absichtlich offen ist** | Alles unten als entschieden Markierte ist eine echte Entscheidung dieser Sitzung, keine Vermutung. §10 listet, was tatsächlich noch offen ist. |
 
 ---
 
@@ -81,9 +82,35 @@ Account (nullable Verknüpfung zu Login/Auth)
 
 ---
 
-## 3 — Teil 1: Eingabe als freier Chat
+## 3 — Teil 1: Eingabe (⚠ am 11.09.2026 von „freier Chat" auf „geführter Wizard" revidiert — s. §3.1)
 
 ### 3.1 Grundprinzip — Variante B
+
+> **⚠ REVIDIERT AM 11.09.2026 — DIESER ABSCHNITT BESCHREIBT NICHT MEHR DEN GELTENDEN STAND.**
+> Das hier entschiedene Grundprinzip („echtes freies Multi-Turn-Gespräch", Variante B, „keine
+> Inputfelder mehr") ist **verworfen**. Die primäre Oberfläche der Dateneingabe ist seit dem
+> 11.09.2026 ein **geführter Wizard**: Segment (Privat/Betrieb) → Anzahl Zählpunkte → je Zählpunkt
+> fünf Schritte in fachlicher Reihenfolge (Lastgang · Rechnung · Batterie · PV · Tarif). **Der Chat
+> ist nicht gestrichen, er wechselt die Rolle:** er bleibt für die Klärung des KI-Checks am Ende
+> vorgesehen und ist kein Eingabeweg mehr.
+>
+> **Der Text unten bleibt ABSICHTLICH stehen** — er ist die Begründung, die am 09.09.2026 getragen
+> hat (Variablenvielfalt der Betriebe, volle Flexibilität), und wer die Kurskorrektur einordnen
+> will, muss sie lesen können. Gelöscht wäre sie unauffindbar.
+>
+> **Was aus diesem Abschnitt UNVERÄNDERT weiter gilt** — und zwar unabhängig von der Oberfläche:
+> die Klarstellung im zweiten Absatz. „Kein Formular mehr" hiess nie, dass die Engine ihren
+> typisierten Eingabe-Contract verliert; **der Contract bleibt die Zielgrösse**, und der Wizard
+> füllt exakt dasselbe Zielobjekt, das der Chat füllen sollte. Genau deshalb ist der Wechsel eine
+> Frage der Front-Tür und kein zweites Backend (s. auch §3.4 „Contract-first, nicht
+> Conversation-first" und die Bemerkung in §5: beide Wege füllen dasselbe typisierte Zielobjekt).
+>
+> **Mit betroffen, aber NICHT gegenstandslos:** §3.2 (die Pflichtfragen-Baseline gilt weiter — sie
+> wird im Wizard zur Stationsfolge statt zum Hintergrund-Check), §3.3 (Weg a/b bleibt vollständig
+> gültig, er hängt nicht an der Gesprächsform) und §3.5 (nicht abbildbare Struktur → an Martin).
+> Der Baustand je Schritt steht in `CLAUDE.md` (`[GEBAUT: B24 …]`); **§10 dieses Dokuments endet
+> bei Schritt 10 und deckt den Wizard-Strang nicht ab.**
+
 Echtes freies Multi-Turn-Gespräch mit Datei-Upload, nicht ein regelgesteuerter Ablauf mit KI nur zur Extraktion. Begründung (Andreas): die Variablenvielfalt der Betriebe ist zu hoch für starre Eingabepfade; volle Flexibilität ist nötig.
 
 **Klarstellung, die für Claude Code wichtig ist:** "keine Inputfelder mehr" heisst, der Mensch sieht kein Formular mehr — **nicht**, dass die Engine ihren typisierten Eingabe-Contract verliert. Der Chat muss am Ende dasselbe Zielobjekt füllen, das heute Schritt 2 des Formulars füllt (Pendant zu `TariffParams`, je nach Segment erweitert, s. §3.4) — sonst weiss die KI-Schicht nicht, wann sie fertig ist. Der Contract bleibt die Zielgrösse, auch wenn der Weg dorthin frei ist.
@@ -287,6 +314,15 @@ Eine frühere Fassung zählte die Extraktoren-Konsolidierung (#172) und ihre Ver
 zwei Schritte und kam dadurch auf eine um eins höhere Nummer ab dem Fragenkatalog. Wer einen älteren
 Handover-Text liest, in dem das Fragenkatalog-Fundament „Schritt 6" heisst, meint Schritt 5 dieser
 Tabelle.
+
+**⚠ DIESE TABELLE ENDET BEI SCHRITT 10 (PR #181, 10.09.2026) UND IST SEITHER NICHT FORTGESCHRIEBEN.**
+Der WIZARD-Strang vom 11.09.2026 (PR #183–#195 — Admin-Projektliste, Lastgang-Leser am Zählpunkt
+samt Umzug des Entwurfs auf die Zählpunkt-Ebene, `check_data_consistency`, Wizard-Gerüst, die
+vollständige Lastgang-Station) steht **nicht** darin. Einzelnachweis je Schritt sind die
+`[GEBAUT: B24 …]`-Absätze in `CLAUDE.md`; für Reihenfolge und Einordnung `Fahrplan_2026.md`.
+**⚠ Und: die Schritte 2–10 beschreiben den Stand VOR der Kurskorrektur** — was dort als
+Chat-Oberfläche und Chat-Eingabeweg geführt ist, ist als Eingabeweg durch den Wizard abgelöst
+(s. den Revisionsvermerk in §3.1). Die gebauten Bausteine selbst bestehen unverändert fort.
 
 | # | Schritt | PR | Stand |
 |---|---|---|---|
