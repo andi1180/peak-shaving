@@ -70,6 +70,12 @@ describe('JSON-Schema', () => {
       'meteringVariant',
       'rates',
       'annualConsumptionKwh',
+      // Abrechnungszeitraum (B24, 11.09.2026) — der Vergleich bleibt EXAKT: die Liste ist die
+      // Absicherung dagegen, dass ein Feld unbemerkt optional wird und „weggelassen" ein zweiter
+      // Weg zu null ist.
+      'billingPeriodFrom',
+      'billingPeriodTo',
+      'billingPeriodAssumed',
     ])
 
     const props = INVOICE_SCAN_JSON_SCHEMA.properties as Record<string, Record<string, unknown>>
@@ -166,6 +172,9 @@ describe('parseInvoiceExtraction — der Gutfall', () => {
         supplierBaseFeeEurPerMonth: 3.5,
       },
       annualConsumptionKwh: 88426.4,
+      billingPeriodFrom: null,
+      billingPeriodTo: null,
+      billingPeriodAssumed: null,
     })
   })
 
@@ -260,6 +269,9 @@ describe('parseInvoiceExtraction — fail closed, Feld für Feld', () => {
     })
     expect(Object.keys(parsed).sort()).toEqual([
       'annualConsumptionKwh',
+      'billingPeriodAssumed',
+      'billingPeriodFrom',
+      'billingPeriodTo',
       'meteringVariant',
       'netzbetreiber',
       'netzebene',
@@ -357,5 +369,162 @@ describe('invoiceExtractionIsEmpty', () => {
     const withZero = emptyInvoiceExtraction()
     withZero.rates.minBillableKw = 0
     expect(invoiceExtractionIsEmpty(withZero)).toBe(false)
+  })
+})
+
+/* ─────────────────────────────────────────────────────────────────────────────────────────────
+ * Der Abrechnungszeitraum (B24, 11.09.2026).
+ *
+ * ⚠ Er ist das EINZIGE Feld dieses Schemas, das erschlossen werden darf (Zwölf-Monats-Regel im
+ * System-Prompt). Die Tests hier messen deshalb nicht nur, ob die Daten ankommen, sondern vor
+ * allem die Richtung, in die das Modul bei Unsicherheit irrt: lieber „erschlossen" als
+ * „abgelesen", und lieber gar kein Zeitraum als ein widersprüchlicher.
+ * ────────────────────────────────────────────────────────────────────────────────────────────── */
+
+describe('Abrechnungszeitraum — Schema', () => {
+  it('verlangt alle drei Felder und lässt für jedes null zu', () => {
+    const required = INVOICE_SCAN_JSON_SCHEMA.required as string[]
+    expect(required).toContain('billingPeriodFrom')
+    expect(required).toContain('billingPeriodTo')
+    expect(required).toContain('billingPeriodAssumed')
+
+    const props = INVOICE_SCAN_JSON_SCHEMA.properties as Record<string, Record<string, unknown>>
+    expect(props.billingPeriodFrom.type).toEqual(['string', 'null'])
+    expect(props.billingPeriodTo.type).toEqual(['string', 'null'])
+    expect(props.billingPeriodAssumed.type).toEqual(['boolean', 'null'])
+  })
+
+  it('nennt die Schreibweise im Beschreibungstext, statt sie über format zu erzwingen', () => {
+    /*
+     * `format: 'date'` wäre die naheliegende Ergänzung und ist bewusst NICHT gesetzt: eine
+     * Schema-Konstruktion, die nie gegen die echte API gemessen wurde, hat den Scan schon einmal
+     * vollständig funktionslos gemacht (31.08.2026). Die Anforderung steht deshalb im Text — der
+     * geht ohnehin an das Modell — und `parseInvoiceExtraction` setzt sie durch.
+     */
+    const props = INVOICE_SCAN_JSON_SCHEMA.properties as Record<string, Record<string, unknown>>
+    expect(props.billingPeriodFrom.format).toBeUndefined()
+    expect(props.billingPeriodTo.format).toBeUndefined()
+    expect(props.billingPeriodFrom.description).toContain('JJJJ-MM-TT')
+    expect(props.billingPeriodTo.description).toContain('JJJJ-MM-TT')
+  })
+})
+
+describe('Abrechnungszeitraum — parseInvoiceExtraction', () => {
+  it('übernimmt einen abgelesenen Zeitraum unverändert und merkt ihn als NICHT erschlossen', () => {
+    const parsed = parseInvoiceExtraction({
+      ...completeRaw(),
+      billingPeriodFrom: '2024-01-01',
+      billingPeriodTo: '2024-12-31',
+      billingPeriodAssumed: false,
+    })
+    expect(parsed.billingPeriodFrom).toBe('2024-01-01')
+    expect(parsed.billingPeriodTo).toBe('2024-12-31')
+    expect(parsed.billingPeriodAssumed).toBe(false)
+  })
+
+  it('behält einen erschlossenen Zeitraum als erschlossen', () => {
+    const parsed = parseInvoiceExtraction({
+      ...completeRaw(),
+      billingPeriodFrom: '2023-03-15',
+      billingPeriodTo: '2024-03-15',
+      billingPeriodAssumed: true,
+    })
+    expect(parsed.billingPeriodAssumed).toBe(true)
+  })
+
+  it('⚠ wertet einen Zeitraum OHNE Herkunftsvermerk als erschlossen — nicht als abgelesen', () => {
+    /*
+     * Die Unsymmetrie ist Absicht: `true` kostet im schlechtesten Fall einen Vermerk, der
+     * strenger ist als nötig; `false` kostet im schlechtesten Fall eine Schätzung, die im
+     * Entwurf als Messwert steht und später wie eine abgelesene Zahl aussieht.
+     */
+    for (const stated of [undefined, null, 'ja', 1, {}]) {
+      const parsed = parseInvoiceExtraction({
+        ...completeRaw(),
+        billingPeriodFrom: '2024-01-01',
+        billingPeriodTo: '2024-12-31',
+        billingPeriodAssumed: stated,
+      })
+      expect(parsed.billingPeriodAssumed).toBe(true)
+    }
+  })
+
+  it('hält ein halbes Paar — eine halbe Angabe ist kein Widerspruch', () => {
+    const onlyFrom = parseInvoiceExtraction({ ...completeRaw(), billingPeriodFrom: '2024-01-01' })
+    expect(onlyFrom.billingPeriodFrom).toBe('2024-01-01')
+    expect(onlyFrom.billingPeriodTo).toBeNull()
+    expect(onlyFrom.billingPeriodAssumed).toBe(true)
+
+    const onlyTo = parseInvoiceExtraction({
+      ...completeRaw(),
+      billingPeriodTo: '2024-12-31',
+      billingPeriodAssumed: false,
+    })
+    expect(onlyTo.billingPeriodFrom).toBeNull()
+    expect(onlyTo.billingPeriodTo).toBe('2024-12-31')
+    expect(onlyTo.billingPeriodAssumed).toBe(false)
+  })
+
+  it('⚠ verwirft ein umgekehrtes Paar VOLLSTÄNDIG — welches Datum falsch ist, steht nirgends', () => {
+    const parsed = parseInvoiceExtraction({
+      ...completeRaw(),
+      billingPeriodFrom: '2024-12-31',
+      billingPeriodTo: '2024-01-01',
+      billingPeriodAssumed: false,
+    })
+    expect(parsed.billingPeriodFrom).toBeNull()
+    expect(parsed.billingPeriodTo).toBeNull()
+    expect(parsed.billingPeriodAssumed).toBeNull()
+    // Der Rest der Antwort bleibt erhalten — ein Feld fällt aus, nicht das Ergebnis.
+    expect(parsed.rates.energyPriceCtPerKwh).toBe(25)
+  })
+
+  it('lässt Beginn und Ende am selben Tag zu — eine Tagesabrechnung ist kein Widerspruch', () => {
+    const parsed = parseInvoiceExtraction({
+      ...completeRaw(),
+      billingPeriodFrom: '2024-06-01',
+      billingPeriodTo: '2024-06-01',
+      billingPeriodAssumed: false,
+    })
+    expect(parsed.billingPeriodFrom).toBe('2024-06-01')
+    expect(parsed.billingPeriodTo).toBe('2024-06-01')
+  })
+
+  it('⚠ weist ein Datum ab, das dem Muster entspricht und kein Tag ist', () => {
+    // `2026-02-31` besteht jede Musterprüfung. Gefangen wird es über den Rückweg.
+    for (const junk of ['2026-02-31', '2024-13-01', '2024-00-10', '01.01.2024', '2024-1-1', '', 42, null]) {
+      const parsed = parseInvoiceExtraction({ ...completeRaw(), billingPeriodFrom: junk })
+      expect(parsed.billingPeriodFrom).toBeNull()
+    }
+  })
+
+  it('erkennt den Schalttag — der Rückweg darf nicht mehr abweisen als nötig', () => {
+    const parsed = parseInvoiceExtraction({ ...completeRaw(), billingPeriodFrom: '2024-02-29' })
+    expect(parsed.billingPeriodFrom).toBe('2024-02-29')
+  })
+
+  it('liefert für eine Antwort ohne Zeitraum drei saubere null-Werte', () => {
+    const parsed = parseInvoiceExtraction(completeRaw())
+    expect(parsed.billingPeriodFrom).toBeNull()
+    expect(parsed.billingPeriodTo).toBeNull()
+    expect(parsed.billingPeriodAssumed).toBeNull()
+  })
+})
+
+describe('Abrechnungszeitraum — invoiceExtractionIsEmpty', () => {
+  it('⚠ zählt einen Zeitraum NICHT als Fund — sonst gilt eine unlesbare PDF als gelesen', () => {
+    /*
+     * Der Zeitraum ist das einzige Feld, das erschlossen werden darf. Zählte er mit, käme eine
+     * PDF, in der das Modell nichts als ein Datum zu erkennen glaubt, als `ok` mit sonst leerem
+     * Ergebnis zurück — und die Oberfläche legte ein leeres Formular vor, als hätte der Scan
+     * funktioniert. Genau dafür gibt es den Ausgang `unreadable`.
+     */
+    const parsed = parseInvoiceExtraction({
+      billingPeriodFrom: '2024-01-01',
+      billingPeriodTo: '2024-12-31',
+      billingPeriodAssumed: false,
+    })
+    expect(parsed.billingPeriodFrom).toBe('2024-01-01')
+    expect(invoiceExtractionIsEmpty(parsed)).toBe(true)
   })
 })

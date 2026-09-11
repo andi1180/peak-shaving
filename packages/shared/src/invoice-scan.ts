@@ -105,6 +105,41 @@ export interface InvoiceExtraction {
   rates: InvoiceScanRates
   /** Jahresverbrauch in kWh (Delta 9b: der Eingang in den Standardprofil-Generator, 9b-1). */
   annualConsumptionKwh: number | null
+  /**
+   * Der ABRECHNUNGSZEITRAUM dieser Rechnung als ISO-Datum (`YYYY-MM-DD`), Beginn und Ende.
+   *
+   * ── WAS DAS IST UND WAS NICHT ─────────────────────────────────────────────────────────────
+   * Der Zeitraum, für den die Sätze auf DIESER Rechnung gelten — ausdrücklich NICHT das
+   * Ausstellungs-, Rechnungs- oder Zahlungsdatum. Die Unterscheidung trägt den ganzen Nutzen:
+   * eine Rechnung vom 14.02. kann einen Zeitraum abrechnen, der am 31.12. endet, und nur der
+   * Zeitraum sagt, WORAUF sich der abgelesene Arbeitspreis bezieht.
+   *
+   * Beide Felder stehen einzeln für sich: eine Rechnung, die nur einen Beginn nennt, füllt nur
+   * `billingPeriodFrom`. Ein halber Zeitraum ist eine halbe Angabe, kein Grund, die ganze
+   * wegzuwerfen.
+   */
+  billingPeriodFrom: string | null
+  billingPeriodTo: string | null
+  /**
+   * ⚠ DAS EINZIGE HERKUNFTSFELD DIESES SCHEMAS — und der Grund, warum es eines braucht.
+   *
+   * Jedes andere Feld hier ist abgelesen oder `null`; der System-Prompt nennt das Modell
+   * ausdrücklich ein „Ablesegerät, kein Schätzer". Der Zeitraum ist die EINE Ausnahme: eine
+   * erkennbare Jahresrechnung ohne ausgeschriebenes Datumspaar darf auf zwölf Monate bis zum
+   * Ausstellungsdatum geschlossen werden (Regel im System-Prompt). Damit steht hier zum ersten
+   * Mal ein Wert, der NICHT auf dem Papier steht.
+   *
+   * Ohne diesen Vermerk wäre das nicht mehr erkennbar — und zwar nirgends mehr: das Chat-Modell,
+   * das den Wert später mit `set_draft_field` einträgt, sieht die Rechnung nie, sondern nur das
+   * Werkzeug-Ergebnis. Es müsste `source: "measured"` gegen `"assumed"` also RATEN, und genau
+   * das nennt die Beschreibung von `set_draft_field` „der teuerste Fehler, den du hier machen
+   * kannst — eine als Messwert eingetragene Schätzung sieht später aus wie eine abgelesene Zahl".
+   *
+   * `true` = abgeleitet, `false` = auf der Rechnung ausgeschrieben, `null` = es gibt keinen
+   * Zeitraum. ⚠ Fehlt der Vermerk bei vorhandenem Zeitraum, wertet `parseInvoiceExtraction` ihn
+   * als `true` aus — s. dort: die Richtung ist bewusst unsymmetrisch.
+   */
+  billingPeriodAssumed: boolean | null
 }
 
 /** Die Namen der Zahlenfelder, in fester Reihenfolge — von Schema, Auswertung und Test geteilt. */
@@ -134,6 +169,9 @@ export function emptyInvoiceExtraction(): InvoiceExtraction {
       supplierBaseFeeEurPerMonth: null,
     },
     annualConsumptionKwh: null,
+    billingPeriodFrom: null,
+    billingPeriodTo: null,
+    billingPeriodAssumed: null,
   }
 }
 
@@ -148,6 +186,23 @@ export function emptyInvoiceExtraction(): InvoiceExtraction {
 
 function nullableNumber(description: string) {
   return { type: ['number', 'null'], description } as const
+}
+
+/*
+ * Zeitraum und Herkunftsvermerk stehen bewusst als blosse Typ-Union OHNE `enum` da — genau die
+ * Schreibweise, die am 31.08.2026 gegen die echte API als zulässig gemessen wurde (s. der Block
+ * unter `nullableEnum`). Ein `format: 'date'` ist ausdrücklich NICHT ergänzt: es wäre eine
+ * Schema-Konstruktion, die in diesem Repo nie gegen die echte API gemessen wurde, und dieselbe
+ * Sorte unbelegter Annahme hat den Scan schon einmal vollständig funktionslos gemacht. Die
+ * geforderte Schreibweise steht deshalb im BESCHREIBUNGSTEXT, der ohnehin an das Modell geht,
+ * und `parseInvoiceExtraction` weist alles ab, was ihr nicht entspricht.
+ */
+function nullableString(description: string) {
+  return { type: ['string', 'null'], description } as const
+}
+
+function nullableBoolean(description: string) {
+  return { type: ['boolean', 'null'], description } as const
 }
 
 /**
@@ -187,7 +242,16 @@ function nullableEnum<T extends string | number>(
 export const INVOICE_SCAN_JSON_SCHEMA: { [key: string]: unknown } = {
   type: 'object',
   additionalProperties: false,
-  required: ['netzbetreiber', 'netzebene', 'meteringVariant', 'rates', 'annualConsumptionKwh'],
+  required: [
+    'netzbetreiber',
+    'netzebene',
+    'meteringVariant',
+    'rates',
+    'annualConsumptionKwh',
+    'billingPeriodFrom',
+    'billingPeriodTo',
+    'billingPeriodAssumed',
+  ],
   properties: {
     netzbetreiber: nullableEnum(
       'string',
@@ -265,6 +329,23 @@ export const INVOICE_SCAN_JSON_SCHEMA: { [key: string]: unknown } = {
       'Jahresverbrauch in kWh. Nur, wenn die Rechnung einen Jahreswert ausweist — einen ' +
         'Monats- oder Teilzeitraum NICHT hochrechnen.',
     ),
+    billingPeriodFrom: nullableString(
+      'Beginn des Abrechnungszeitraums dieser Rechnung als ISO-Datum im Format JJJJ-MM-TT, ' +
+        'also etwa "2024-01-01". Ausdrücklich NICHT das Ausstellungs- oder Rechnungsdatum. ' +
+        'null, wenn sich der Zeitraum weder ablesen noch nach der Jahresrechnungs-Regel des ' +
+        'Systemtexts erschliessen lässt.',
+    ),
+    billingPeriodTo: nullableString(
+      'Ende des Abrechnungszeitraums dieser Rechnung als ISO-Datum im Format JJJJ-MM-TT. Der ' +
+        'letzte Tag GEHÖRT dazu (eine Jahresrechnung für 2024 endet am "2024-12-31", nicht am ' +
+        '"2025-01-01"). null unter denselben Bedingungen wie billingPeriodFrom.',
+    ),
+    billingPeriodAssumed: nullableBoolean(
+      'Woher der Zeitraum stammt: false, wenn er auf der Rechnung ausgeschrieben steht; true, ' +
+        'wenn du ihn nach der Jahresrechnungs-Regel des Systemtexts erschlossen hast. null, ' +
+        'wenn beide Datumsfelder null sind. Dieses Feld ist Pflicht, sobald ein Datum dasteht — ' +
+        'ein Zeitraum ohne Herkunft wird als erschlossen behandelt.',
+    ),
   },
 }
 
@@ -286,6 +367,60 @@ function finiteNonNegative(value: unknown): number | null {
 
 function oneOf<T extends string | number>(value: unknown, allowed: readonly T[]): T | null {
   return allowed.includes(value as T) ? (value as T) : null
+}
+
+/**
+ * Ein ISO-Datum `JJJJ-MM-TT` — oder `null`.
+ *
+ * ⚠ Das Muster allein genügt NICHT: `"2026-02-31"` passt darauf und ist kein Tag. Geprüft wird
+ * deshalb über den Rückweg — dieselbe Technik wie im Tarifblatt-Scan. Eine Zeichenkette, die den
+ * Rückweg nicht übersteht, ist keine Fehlermeldung wert: sie ist schlicht kein Datum und damit
+ * `null`, wie jedes andere nicht erkannte Feld.
+ */
+function isoDate(value: unknown): string | null {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null
+  const parsed = new Date(`${value}T00:00:00Z`)
+  return Number.isFinite(parsed.getTime()) && parsed.toISOString().startsWith(value) ? value : null
+}
+
+/**
+ * Wertet Zeitraum und Herkunftsvermerk als EINE Einheit aus.
+ *
+ * ── ⚠ ZWEI REGELN, DIE BEIDE IN DIESELBE RICHTUNG IRREN ──────────────────────────────────────
+ * (1) EIN UMGEKEHRTES PAAR IST KEIN ZEITRAUM. Endet die Rechnung vor ihrem eigenen Beginn, ist
+ *     mindestens eines der beiden Daten falsch gelesen — und welches, steht nirgends. Beide
+ *     fallen deshalb auf `null`. Ein halbes Paar (nur Beginn oder nur Ende) bleibt dagegen
+ *     stehen: das ist eine halbe Angabe, kein Widerspruch.
+ * (2) EIN ZEITRAUM OHNE VERMERK GILT ALS ERSCHLOSSEN. Liefert das Modell ein Datum, aber keinen
+ *     brauchbaren `billingPeriodAssumed`, wäre `false` die bequeme Lesart — und die teure: der
+ *     Wert liefe als „measured" in den Entwurf und sähe dort aus wie abgelesen. `true` kostet
+ *     im schlechtesten Fall einen Herkunftsvermerk, der strenger ist als nötig; `false` kostet
+ *     im schlechtesten Fall eine Schätzung, die als Messung im Archiv steht. Die Unsymmetrie
+ *     ist Absicht.
+ */
+function billingPeriod(root: Record<string, unknown>): {
+  billingPeriodFrom: string | null
+  billingPeriodTo: string | null
+  billingPeriodAssumed: boolean | null
+} {
+  let from = isoDate(root.billingPeriodFrom)
+  let to = isoDate(root.billingPeriodTo)
+
+  if (from !== null && to !== null && from > to) {
+    from = null
+    to = null
+  }
+
+  if (from === null && to === null) {
+    return { billingPeriodFrom: null, billingPeriodTo: null, billingPeriodAssumed: null }
+  }
+
+  const stated = root.billingPeriodAssumed
+  return {
+    billingPeriodFrom: from,
+    billingPeriodTo: to,
+    billingPeriodAssumed: typeof stated === 'boolean' ? stated : true,
+  }
 }
 
 function record(value: unknown): Record<string, unknown> {
@@ -318,10 +453,21 @@ export function parseInvoiceExtraction(raw: unknown): InvoiceExtraction {
     meteringVariant: oneOf(root.meteringVariant, INVOICE_SCAN_METERING_VARIANTS),
     rates,
     annualConsumptionKwh: finiteNonNegative(root.annualConsumptionKwh),
+    ...billingPeriod(root),
   }
 }
 
-/** Hat die Extraktion überhaupt etwas gefunden? Für die Oberfläche (9b-2b), hier schon geprüft. */
+/**
+ * Hat die Extraktion überhaupt etwas gefunden? Für die Oberfläche (9b-2b), hier schon geprüft.
+ *
+ * ── ⚠ DER ABRECHNUNGSZEITRAUM ZÄHLT HIER BEWUSST NICHT MIT ───────────────────────────────────
+ * Er ist die einzige Angabe dieses Schemas, die das Modell auch ERSCHLIESSEN darf. Zählte er mit,
+ * käme eine unlesbare oder gar nicht zur Sache gehörige PDF, in der das Modell nichts als ein
+ * Datum zu erkennen glaubt, als `ok` mit sonst leerem Ergebnis zurück — und die Oberfläche legte
+ * dem Kunden ein leeres Formular vor und täte so, als hätte der Scan funktioniert. Genau dafür
+ * gibt es den Ausgang `unreadable` (s. `extractInvoiceData`). Ein Zeitraum allein füllt kein
+ * einziges Feld in Schritt 2; als Fund taugt er nicht.
+ */
 export function invoiceExtractionIsEmpty(extraction: InvoiceExtraction): boolean {
   return (
     extraction.netzbetreiber === null &&

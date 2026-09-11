@@ -15,12 +15,25 @@
  * Der letzte Fall ist der eigentliche Grund für dieses Modul. Drei naheliegende Alternativen sind
  * ausdrücklich verworfen:
  *
- *   „Die neueste gewinnt."   NICHT MÖGLICH, und das ist gemessen und nicht abgeleitet:
- *                            `InvoiceExtraction` trägt KEIN Datum und keinen Zeitraum. Der
- *                            Rechnungs-Scan liest bewusst nur Beträge; welche von zwei Rechnungen
- *                            die jüngere ist, steht nirgends im Ergebnis. Die Regel liesse sich
- *                            also nur über den Dateinamen oder die Bezeichnung raten — über Text
- *                            also, den ein Mensch getippt hat.
+ *   „Die neueste gewinnt."   VERWORFEN — und die Begründung dafür hat sich am 11.09.2026 geändert,
+ *                            die Entscheidung nicht. Bis dahin stand hier „nicht möglich":
+ *                            `InvoiceExtraction` trug kein Datum, welche von zwei Rechnungen die
+ *                            jüngere ist, stand nirgends im Ergebnis. Seit dem Abrechnungszeitraum
+ *                            (`billingPeriodFrom`/`billingPeriodTo`) stünde es dort sehr wohl —
+ *                            die Regel WÄRE also baubar. Sie bleibt trotzdem draussen, aus zwei
+ *                            Gründen, die beide schwerer wiegen als die frühere Unmöglichkeit:
+ *                              (a) Ein Widerspruch ist eine FACHLICHE Frage, und Delta §3.3 legt
+ *                                  sie dem Kunden vor („warten oder begründete Annahme"). Die
+ *                                  jüngere Rechnung still gewinnen zu lassen entschiede sie im
+ *                                  Verborgenen — und zwar falsch, sobald zwei Rechnungen gar nicht
+ *                                  dasselbe meinen (zwei Zählpunkte, Bezug neben Einspeisung).
+ *                              (b) Der Zeitraum passt nicht zum Satz. Er ist die ÄUSSERE Spanne
+ *                                  der ganzen Rechnung, der Betrag dagegen der des zuletzt
+ *                                  endenden Abschnitts (System-Prompt des Scans). Aus „Rechnung B
+ *                                  endet später" folgt also nicht, dass ihr Arbeitspreis der
+ *                                  jüngere ist. Dazu darf der Zeitraum ERSCHLOSSEN sein
+ *                                  (`billingPeriodAssumed`) — eine Reihenfolge daraus wäre eine
+ *                                  Entscheidung über echte Beträge auf Basis einer Näherung.
  *   „Die erste gewinnt."     Das wäre die Reihenfolge im Formular, also ein Zufall der Bedienung.
  *   „Mittelwert."            Eine gerechnete Zahl, die auf keiner der Rechnungen steht — genau das,
  *                            was schon der System-Prompt des Rechnungs-Scans für mehrere Zeiträume
@@ -40,7 +53,21 @@ import {
   type InvoiceExtraction,
 } from './invoice-scan'
 
-/** Die Felder, über die ein Widerspruch überhaupt entstehen kann — Kopffelder plus Beträge. */
+/**
+ * Die Felder, über die ein Widerspruch überhaupt entstehen kann — Kopffelder plus Beträge.
+ *
+ * ── ⚠ DER ABRECHNUNGSZEITRAUM STEHT HIER BEWUSST NICHT ───────────────────────────────────────
+ * Zwei Rechnungen mit verschiedenen Zeiträumen sind der REGELFALL dieses Einstiegs, nicht sein
+ * Fehlerfall: wer zwölf Monatsrechnungen ablegt, legt zwölf verschiedene Zeiträume ab. Hier
+ * aufgeführt meldete das Modul also bei jedem einzelnen dieser Uploads einen „Widerspruch",
+ * verlangte vom Kunden eine Entscheidung und drängte den Chat zu einer Rückfrage, die es nicht
+ * gibt — die Meldung verlöre genau dort ihre Bedeutung, wo sie gebraucht wird.
+ *
+ * `mergeInvoiceExtractions` baut sein Ergebnis auf `emptyInvoiceExtraction()` auf und setzt
+ * ausschliesslich die hier genannten Felder; die drei Zeitraum-Felder bleiben im zusammengeführten
+ * Stand deshalb von selbst `null`. Die einzelnen Zeiträume gehen dem Modell nicht verloren: der
+ * Ausführer reicht sie neben dem Merge als eigene Liste heraus (`periods`, `executor.ts`).
+ */
 export const INVOICE_MERGE_FIELD_KEYS = [
   'netzbetreiber',
   'netzebene',
