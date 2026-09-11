@@ -31,8 +31,7 @@ import type {
  *
  *   1. `saveMeteringPointDraft` ERSETZT den Entwurf, es verschmilzt ihn nicht — und er hängt am
  *      ZÄHLPUNKT, nicht am Projekt (Migration 20260911150000). `saveProject` fasst ihn gar nicht
- *      mehr an; es setzt Segment und Branche, auch wenn der Wrapper weiterhin
- *      `update_project_draft` heisst.
+ *      mehr an; es setzt Segment und Branche (`update_project_segment_industry`).
  *   2. `resolveOpenQuestion('assumed')` lässt `status` auf `open` — eine Annahme SCHLIESST DIE
  *      FRAGE NICHT (der Kern von Delta §3.3) — und verlangt eine Begründung.
  *   3. `appendMessage` weist ein leeres Blockarray ab (`empty_content`).

@@ -177,10 +177,9 @@ export function createProjectChatPorts(extractors: Partial<ChatExtractors>): Pro
       const segment = project.segment
       const industry = project.industry
       /*
-       * ⚠ `project.draft` wird BEWUSST NICHT MEHR GELESEN. Der Wrapper liefert die Spalte weiterhin
-       * (sie ist eingefroren, nicht gedroppt — Migration 20260911150000 TEIL 4), der Entwurf liegt
-       * aber seit dort am ZÄHLPUNKT. Ihn hier weiter durchzureichen hiesse, einen zweiten,
-       * veralteten Entwurf neben dem echten zu führen.
+       * ⚠ Es gibt hier kein `project.draft` mehr. Der Entwurf liegt seit der Migration
+       * 20260911150000 am ZÄHLPUNKT, und die alte Spalte ist mit 20260911160000 gefallen —
+       * `get_project` liefert sie seither nicht mehr mit.
        */
       return {
         segment: segment === 'privat' || segment === 'betrieb' ? (segment as ProjectSegment) : null,
@@ -211,12 +210,9 @@ export function createProjectChatPorts(extractors: Partial<ChatExtractors>): Pro
        * im Wrapper UNVERÄNDERT (Lesart `capture_lead`), und ein hier immer mitgesendetes `null`
        * wäre dasselbe — aber der Unterschied soll am Aufruf ablesbar sein, nicht in der Wrapper-Doku
        * nachzulesen.
-       *
-       * ⚠ `p_draft` gibt es hier nicht mehr (Migration 20260911150000): der Wrapper heisst weiter
-       * `update_project_draft`, fasst den Entwurf aber nicht mehr an.
        */
       const supabase = await createClient()
-      const { data, error } = await supabase.rpc('update_project_draft', {
+      const { data, error } = await supabase.rpc('update_project_segment_industry', {
         p_id: projectId,
         ...(segment === undefined ? {} : { p_segment: segment }),
         ...(industry === undefined ? {} : { p_industry: industry }),

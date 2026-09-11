@@ -25,7 +25,7 @@
  *     Kontoauswahl gibt, und die gibt es im Admin-Bereich nicht.
  *   * SEGMENT UND BRANCHE werden hier ausdrücklich NICHT gefragt. Sie entstehen im Gespräch über
  *     die bestehenden Werkzeuge `set_segment`/`set_industry` (dritter bzw. sechster Bauschritt) und
- *     landen über `update_project_draft` am Projekt. Sie hier ein zweites Mal zu erfassen hiesse,
+ *     landen über `update_project_segment_industry` am Projekt. Sie hier ein zweites Mal zu erfassen hiesse,
  *     zwei Schreibwege für dieselbe Angabe zu haben — und der eine wüsste nicht, was der andere
  *     getan hat. `admin_create_project` kennt die zwei Felder ohnehin nicht.
  */

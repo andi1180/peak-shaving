@@ -70,7 +70,7 @@ export function readDraftProvenance(draft: Record<string, unknown>): DraftProven
 /**
  * Setzt EIN Feld und seinen Vermerk. Reine Funktion — sie gibt einen neuen Entwurf zurück.
  *
- * ⚠ Der Wrapper `update_project_draft` ERSETZT den Entwurf, er verschmilzt ihn nicht (bewusst: eine
+ * ⚠ Der Wrapper `update_metering_point_draft` ERSETZT den Entwurf, er verschmilzt ihn nicht (bewusst: eine
  * flache Verschmelzung könnte einen Schlüssel nie wieder entfernen). Der Aufrufer muss also den
  * vollständigen, frisch gelesenen Entwurf hineingeben — deshalb liest der Ausführer vor jedem
  * Schreibvorgang neu, statt eine Kopie über den Turn zu tragen.

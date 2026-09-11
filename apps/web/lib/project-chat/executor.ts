@@ -47,7 +47,7 @@ import {
  * es kann den Aufruf dann korrigieren, statt dass der Turn stirbt.
  *
  * ── LESEN, ÄNDERN, SCHREIBEN — JE AUFRUF NEU ──────────────────────────────────────────────────
- * `update_project_draft` ERSETZT den Entwurf (die Migration begründet das: eine flache
+ * `update_metering_point_draft` ERSETZT den Entwurf (die Migration begründet das: eine flache
  * Verschmelzung könnte einen Schlüssel nie wieder entfernen). Jeder schreibende Aufruf liest den
  * Entwurf deshalb frisch, ändert ein Feld und schreibt das Ganze zurück. Eine über den Turn
  * getragene Kopie wäre billiger und würde bei zwei parallelen Werkzeugaufrufen im selben Turn den
