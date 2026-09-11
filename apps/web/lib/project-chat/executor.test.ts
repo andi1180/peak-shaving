@@ -483,6 +483,89 @@ describe('extract_invoice', () => {
     expect(result.isError).toBe(true)
     expect(String(payload(result.content).error)).toMatch(/nicht verfügbar/i)
   })
+
+  /* ───────────────────────────────────────────────────────────────────────────────────────────
+   * Abrechnungszeitraum (B24, 11.09.2026).
+   *
+   * ⚠ Die Zeiträume laufen am Merge VORBEI: sie stehen bewusst nicht in
+   * `INVOICE_MERGE_FIELD_KEYS`, weil verschiedene Zeiträume bei mehreren Rechnungen der
+   * REGELFALL sind und kein Widerspruch. Genau das messen die zwei Tests unten.
+   * ─────────────────────────────────────────────────────────────────────────────────────────── */
+
+  const withPeriod = (energy: number, from: string, to: string, assumed: boolean) => ({
+    ...rates(energy),
+    billingPeriodFrom: from,
+    billingPeriodTo: to,
+    billingPeriodAssumed: assumed,
+  })
+
+  it('nennt bei EINER Rechnung ihren Zeitraum samt Herkunft', async () => {
+    const ports = createMemoryPorts({
+      projectId: PROJECT,
+      documentBytes: { a: fakePdf('rechnung.pdf') },
+      extractors: {
+        extractInvoiceData: async () => ({
+          ok: true,
+          extraction: withPeriod(24.4, '2024-01-01', '2024-12-31', false),
+        }),
+      },
+    })
+
+    const result = await executeChatTool(
+      ports, PROJECT, 'extract_invoice', { document_ids: ['a'] }, NOW,
+    )
+
+    const body = payload(result.content) as {
+      periods: { from: string | null; to: string | null; assumed: boolean | null }[]
+    }
+    expect(body.periods).toEqual([{ from: '2024-01-01', to: '2024-12-31', assumed: false }])
+  })
+
+  it('⚠ zeigt bei MEHREREN Rechnungen jeden Zeitraum EINZELN — und meldet dabei KEINEN Widerspruch', async () => {
+    /*
+     * Zwei Monatsrechnungen desselben Anschlusses: gleicher Arbeitspreis, verschiedene Zeiträume.
+     * Zusammengeführt wären die Zeiträume entweder ein gemeldeter „Widerspruch" (und der Chat
+     * legte dem Kunden eine Entscheidung vor, die es nicht gibt) oder ein einzelner Zeitraum —
+     * und die Frage, die das Modell beantworten soll (welcher Verbrauchszeitraum ist insgesamt
+     * abgedeckt), liesse sich aus beidem nicht mehr stellen.
+     */
+    const ports = createMemoryPorts({
+      projectId: PROJECT,
+      documentBytes: { a: fakePdf('jaenner.pdf'), b: fakePdf('feber.pdf') },
+      extractors: {
+        extractInvoiceData: async () => ({
+          ok: true,
+          extraction:
+            seen++ === 0
+              ? withPeriod(24.4, '2024-01-01', '2024-01-31', false)
+              : withPeriod(24.4, '2024-02-01', '2024-02-29', true),
+        }),
+      },
+    })
+    let seen = 0
+
+    const result = await executeChatTool(
+      ports, PROJECT, 'extract_invoice', { document_ids: ['a', 'b'] }, NOW,
+    )
+
+    const body = payload(result.content) as {
+      extraction: { rates: Record<string, unknown>; billingPeriodFrom: string | null }
+      periods: { from: string | null; to: string | null; assumed: boolean | null }[]
+      conflicts: { field: string }[]
+    }
+
+    // Beide Zeiträume stehen einzeln da, in der Reihenfolge der Dokumente.
+    expect(body.periods).toEqual([
+      { from: '2024-01-01', to: '2024-01-31', assumed: false },
+      { from: '2024-02-01', to: '2024-02-29', assumed: true },
+    ])
+    // Der übereinstimmende Arbeitspreis wird übernommen — die Merge-Regel ist unverändert.
+    expect(body.extraction.rates.energyPriceCtPerKwh).toBe(24.4)
+    // Und die abweichenden Zeiträume sind KEIN Widerspruch.
+    expect(body.conflicts).toEqual([])
+    // Im zusammengeführten Stand bleibt der Zeitraum leer — er wird gar nicht zusammengeführt.
+    expect(body.extraction.billingPeriodFrom).toBeNull()
+  })
 })
 
 describe('Randfälle des Ausführers', () => {

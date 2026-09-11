@@ -121,6 +121,29 @@ export type InvoiceScanOutcome =
  * `null` bleibt ausdrücklich erlaubt und ist die richtige Antwort, wo sich der Posten nicht sicher
  * zuordnen lässt: das Formularfeld steht auf 0, und 0 ist die konservative Richtung (§3.7.3 — sie
  * lässt den heutigen Tarif billiger aussehen und den Wechselvorteil kleiner, nicht grösser).
+ *
+ * ── ⚠ DER ABSCHNITT ZUM ABRECHNUNGSZEITRAUM (11.09.2026) IST DIE EINE STELLE, AN DER DIESER ────
+ * ── PROMPT DAS ERSCHLIESSEN ERLAUBT — und deshalb steht er so eng gefasst da ──────────────────
+ * Jeder andere Abschnitt sagt „lieber nichts als geraten"; der erste Satz des Prompts nennt das
+ * Modell ein „Ablesegerät, kein Schätzer". Hier gilt das für den Regelfall weiter (steht ein
+ * Zeitraum da, wird er ABGELESEN), aber für die erkennbare Jahresrechnung ohne ausgeschriebenes
+ * Datumspaar ist der Schluss auf zwölf Monate bis zum Ausstellungsdatum zugelassen.
+ *
+ * Das ist keine Aufweichung, sondern eine ausdrücklich MARKIERTE Ausnahme: der Schluss wird im
+ * Ergebnis als solcher ausgewiesen (`billingPeriodAssumed`), reist von dort bis in den Entwurf und
+ * landet dort als `source: "assumed"` samt Begründung. Ohne diesen Vermerk wäre die Ausnahme das,
+ * was dieser Prompt sonst überall verhindert — eine geschätzte Angabe, die später wie eine
+ * abgelesene aussieht. Wer die Regel erweitert, erweitert den Vermerk mit.
+ *
+ * ⚠ ZWEI ABGRENZUNGEN, die der Abschnitt ausdrücklich zieht, weil beide naheliegend falsch sind:
+ *   1. Das Ausstellungs-, Fälligkeits- oder Ablesedatum ist KEIN Abrechnungszeitraum. Ein einzelnes
+ *      Datum darf keinen Zeitraum erzeugen; nur die erkennbare Jahresrechnung darf das.
+ *   2. Rechnet eine Rechnung MEHRERE Zeitabschnitte ab (Tarifwechsel, s. der Abschnitt darüber),
+ *      ist ihr Zeitraum die ÄUSSERE Spanne über alle Abschnitte — nicht der letzte Abschnitt.
+ *      Das ist bewusst eine andere Regel als bei den Zahlenfeldern, und beide sind richtig: der
+ *      zuletzt gültige SATZ ist der heutige, der abgerechnete ZEITRAUM ist trotzdem der ganze.
+ *      Downstream fragt niemand „seit wann gilt dieser Preis", sondern „welcher Verbrauchszeitraum
+ *      ist durch Rechnungen abgedeckt" — und darauf antwortet nur die äussere Spanne.
  */
 const SYSTEM_PROMPT = [
   'Du liest eine österreichische Strom- oder Netzrechnung und trägst die darin ausgewiesenen',
@@ -161,6 +184,37 @@ const SYSTEM_PROMPT = [
   '  Feld null. Nur dann.',
   '- Das gilt für alle Zahlenfelder gleichermassen, insbesondere für Arbeitspreis, Netz-Arbeitspreis,',
   '  Einspeisevergütung und die Grundgebühr des Lieferanten.',
+  '',
+  'billingPeriodFrom / billingPeriodTo / billingPeriodAssumed — der Abrechnungszeitraum:',
+  'Gemeint ist der Zeitraum, den diese Rechnung abrechnet — NICHT das Ausstellungs-, Rechnungs-,',
+  'Fälligkeits- oder Ablesedatum. Schreibe beide Daten als JJJJ-MM-TT; österreichische Rechnungen',
+  'schreiben TT.MM.JJJJ, „01.01.2024 - 31.12.2024" wird also zu "2024-01-01" und "2024-12-31".',
+  'Der letzte Tag gehört dazu.',
+  '',
+  'ZUERST: Steht der Zeitraum auf der Rechnung, lies ihn ab. Er hat immer Vorrang.',
+  '  Typische Bezeichnungen: „Abrechnungszeitraum", „Verbrauchszeitraum", „Lieferzeitraum",',
+  '  „Zeitraum", „Abrechnung für den Zeitraum", oder eine Von-/Bis-Spalte an der Verbrauchs-',
+  '  position. In diesem Fall ist billingPeriodAssumed false.',
+  '  Rechnet die Rechnung mehrere Zeitabschnitte ab (Tarifwechsel, siehe oben), gilt als ihr',
+  '  Zeitraum die ÄUSSERE Spanne: der früheste Beginn und das späteste Ende über alle Abschnitte.',
+  '  Das ist ausdrücklich eine andere Regel als bei den Zahlenfeldern — dort gilt der ZULETZT',
+  '  endende Abschnitt, hier der ganze abgerechnete Zeitraum.',
+  '',
+  'NUR WENN kein Datumspaar dasteht, die Rechnung aber erkennbar eine JAHRESrechnung ist',
+  '(„Jahresabrechnung", „Jahresrechnung", „Jahresverbrauchsabrechnung", eine Abrechnung über',
+  'zwölf Monate) und ein Ausstellungs- oder Rechnungsdatum dasteht: nimm zwölf Monate bis zu',
+  'diesem Datum — billingPeriodTo ist das Ausstellungsdatum, billingPeriodFrom derselbe Tag ein',
+  'Jahr davor. Setze billingPeriodAssumed dann auf true. Das ist ein Näherungswert und darf nur',
+  'so gekennzeichnet herauskommen.',
+  '',
+  'SONST sind beide Datumsfelder null und billingPeriodAssumed ebenfalls null. Insbesondere:',
+  '- Ein einzelnes Datum erzeugt KEINEN Zeitraum. Weder Ausstellungs- noch Fälligkeits- noch',
+  '  Ablese- oder Zahlungsdatum darf für sich zu einem Zeitraum ausgebaut werden.',
+  '- Eine Monats-, Teil- oder Abschlagsrechnung wird NICHT auf zwölf Monate gestreckt. Die',
+  '  Zwölf-Monats-Regel gilt ausschliesslich für eine erkennbare Jahresrechnung.',
+  '- Der Zeitraum eines EINSPEISE-Zählpunkts zählt, wenn die Rechnung auch Bezug abrechnet,',
+  '  nicht gesondert; rechnet sie nur Einspeisung ab, ist es ihr Zeitraum.',
+  '- Rate kein Kalenderjahr, nur weil es plausibel wäre.',
   '',
   'Vorzeichen: Gutschriften stehen auf Rechnungen mit einem Minuszeichen (die Einspeisevergütung',
   'etwa als „-9,90 ct/kWh", weil sie dem Kunden gutgeschrieben wird). Trage trotzdem den Betrag',
@@ -262,11 +316,20 @@ const SYSTEM_PROMPT = [
  * Widerspruch zu ihr: mehrere Sätze für denselben Posten sind ja gerade nicht „eindeutig", und die
  * beiden Anweisungen hätten einander aufgehoben — die Unbestimmtheit wäre nur verschoben gewesen.
  * Massgeblich ist jetzt „steht nicht darauf", und für das Mehrfach-Vorkommen gilt die Regel oben.
+ *
+ * ⚠ Am 11.09.2026 trat dieselbe Falle ein zweites Mal auf, und zwar durch den Abrechnungszeitraum:
+ * die Zwölf-Monats-Regel lässt einen Wert entstehen, der auf dem Dokument gerade NICHT steht —
+ * „Lass jedes Feld null, das auf dem Dokument nicht steht" hätte sie also wieder aufgehoben. Der
+ * Satz nennt die Ausnahme deshalb ausdrücklich. Wer hier je eine zweite Erschliessungs-Regel
+ * ergänzt, ergänzt sie an dieser Stelle mit, sonst heben die zwei Anweisungen einander auf und das
+ * Ergebnis wechselt wieder von Lauf zu Lauf.
  */
 const USER_PROMPT =
   'Lies aus dieser Rechnung die Angaben nach Schema aus. Lass jedes Feld null, das auf dem ' +
   'Dokument nicht steht. Steht ein Posten mehrfach für verschiedene Zeitabschnitte, gilt der ' +
-  'Wert des zuletzt endenden Abschnitts.'
+  'Wert des zuletzt endenden Abschnitts. Einzige Ausnahme vom Ablesen ist der ' +
+  'Abrechnungszeitraum einer erkennbaren Jahresrechnung — dort gilt die Regel des Systemtexts, ' +
+  'und das Ergebnis ist als erschlossen zu kennzeichnen.'
 
 /**
  * Extrahiert die Tarif- und Verbrauchsangaben aus einer Rechnung.

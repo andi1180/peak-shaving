@@ -1,5 +1,6 @@
 import {
   INVOICE_MERGE_FIELD_LABELS,
+  type InvoiceExtraction,
   type InvoiceMergeFieldKey,
   mergeInvoiceExtractions,
 } from 'shared'
@@ -574,6 +575,31 @@ async function classifyUpload(
   })
 }
 
+/**
+ * Die Abrechnungszeiträume der gelesenen Rechnungen — EIN Eintrag je Rechnung, in Upload-Reihenfolge.
+ *
+ * ── WARUM EINE LISTE UND KEIN ZUSAMMENGEFÜHRTER ZEITRAUM ─────────────────────────────────────
+ * Die Gesamt-Spanne (frühestes `from`, spätestes `to`) bildet das MODELL, nicht diese Funktion —
+ * so steht es in der Werkzeug-Beschreibung. Der Grund ist die Lücke: aus zwei Zeiträumen
+ * 01–06/2024 und 01–06/2025 wäre eine hier gerechnete Spanne „2024-01 bis 2025-06" und behauptete
+ * eine Abdeckung von achtzehn Monaten, von denen sechs fehlen. Die Einzelzeiträume zeigen das
+ * Loch; eine Spanne verdeckt es. Was das Modell daraus macht, ist eine fachliche Entscheidung und
+ * gehört nicht in eine stille Reduktion.
+ *
+ * `assumed` reist mit, weil die Antwort sonst nicht entscheidbar wäre: das Modell sieht die PDF
+ * nie und könnte `source: "measured"` gegen `"assumed"` nur raten (s. `billingPeriodAssumed` in
+ * `packages/shared/src/invoice-scan.ts`).
+ */
+function invoicePeriods(
+  extractions: readonly InvoiceExtraction[],
+): { from: string | null; to: string | null; assumed: boolean | null }[] {
+  return extractions.map((extraction) => ({
+    from: extraction.billingPeriodFrom,
+    to: extraction.billingPeriodTo,
+    assumed: extraction.billingPeriodAssumed,
+  }))
+}
+
 async function extractInvoice(
   ports: ProjectChatPorts,
   args: Record<string, unknown>,
@@ -601,21 +627,36 @@ async function extractInvoice(
   }
 
   if (extractions.length === 1) {
-    return ok({ documents: documentIds.length, extraction: extractions[0], conflicts: [] })
+    return ok({
+      documents: documentIds.length,
+      extraction: extractions[0],
+      conflicts: [],
+      periods: invoicePeriods(extractions),
+    })
   }
 
   /*
    * ⚠ MEHRERE RECHNUNGEN LAUFEN DURCH `mergeInvoiceExtractions` — nicht durch eine hier gebaute
    * Zusammenführung. Die Regel („Einigkeit übernimmt, Widerspruch bleibt leer und wird benannt")
    * steht seit Delta 17 in `packages/shared` und ist dort geprüft; ein zweiter Reducer hier ergäbe
-   * zwei Antworten auf dieselbe Frage. Insbesondere gibt es KEINE „die neueste gewinnt"-Regel:
-   * `InvoiceExtraction` trägt gar kein Datum (dort gemessen).
+   * zwei Antworten auf dieselbe Frage. Insbesondere gibt es weiterhin KEINE „die neueste
+   * gewinnt"-Regel — seit dem Abrechnungszeitraum (11.09.2026) nicht mehr mangels Datum, sondern
+   * weil ein Widerspruch eine fachliche Frage ist, die dem Kunden vorgelegt wird; die vollständige
+   * Begründung steht im Kopf von `invoice-merge.ts`.
+   *
+   * ⚠ Die Zeiträume laufen DARAN VORBEI. `merged.merged` trägt sie nicht (sie stehen bewusst nicht
+   * in `INVOICE_MERGE_FIELD_KEYS` — verschiedene Zeiträume sind hier der Regelfall, kein
+   * Widerspruch), sie kommen deshalb aus den EINZEL-Ergebnissen von vor dem Merge. Zusammengeführt
+   * wären sie wertlos: aus zwölf Monatsrechnungen würde entweder ein gemeldeter Widerspruch oder
+   * ein einzelner Zeitraum, und die Frage, die das Modell damit beantworten soll — welcher
+   * Verbrauchszeitraum ist insgesamt abgedeckt —, liesse sich aus beidem nicht mehr stellen.
    */
   const merged = mergeInvoiceExtractions(extractions)
 
   return ok({
     documents: documentIds.length,
     extraction: merged.merged,
+    periods: invoicePeriods(extractions),
     conflicts: merged.conflicts.map((key: InvoiceMergeFieldKey) => ({
       field: key,
       label: INVOICE_MERGE_FIELD_LABELS[key],
