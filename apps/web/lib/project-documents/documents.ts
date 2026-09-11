@@ -104,6 +104,12 @@ export async function uploadProjectDocument(
   if (recordError || (recorded as WrapperResult | null)?.status !== 'ok') {
     // Die eben geschriebenen Bytes aufräumen: eine Datei ohne Eintrag ist zwar harmlos (sie steht in
     // keiner Liste), aber sie kostet Platz und niemand käme je wieder an sie heran.
+    //
+    // ⚠ DER RÜCKGABEWERT WIRD HIER BEWUSST IGNORIERT — anders als beim Lastgang-Rückweg
+    // (`lib/admin/data-entry-actions.ts`), wo er darüber entscheidet, ob die Datenbank-Zeile fallen
+    // darf. Hier gibt es keine Zeile: der Aufrufer bekommt ohnehin `record_failed`, und ein
+    // gescheitertes Aufräumen hinterlässt genau das, was ohne den Versuch auch dastünde. Es wäre
+    // also eine zweite Fehlermeldung über denselben einen Fehlschlag.
     await removeProjectDocumentBytes(storagePath)
     return { ok: false, reason: 'record_failed' }
   }

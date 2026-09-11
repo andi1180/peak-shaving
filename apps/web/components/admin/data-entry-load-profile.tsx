@@ -26,12 +26,25 @@
  * einen zweiten Weg, der die Angabe überspringt (dieselbe Regel wie bei den beiden echten Schritten
  * davor, nur mit einer Ausnahme für den „Nein"-Zweig, der nichts zu speichern hat).
  *
- * ── ES GIBT KEINEN WEG, EINE HOCHGELADENE DATEI ZU ERSETZEN ODER ZU ENTFERNEN ─────────────────
- * Weder hier noch in der Datenbank: `set_metering_point_load_profile` würde die Metadaten zwar
- * ersetzen, aber für das abgelegte Dokument gibt es keinen Löschweg (TEIL 9 der Migration
- * 20260910090000). Ein „Datei austauschen"-Knopf liesse also bei jedem Versuch eine verwaiste Zeile
- * zurück. Das ist ein eigener, späterer Punkt; bis dahin sagt die Station im Klartext, dass der
- * Stand bleibt.
+ * ── ⚠ DIESER KOPF HAT BIS ZUM LASTGANG-RÜCKWEG DAS GEGENTEIL BEHAUPTET ────────────────────────
+ * Er lautete: „Es gibt keinen Weg, eine hochgeladene Datei zu ersetzen oder zu entfernen — weder
+ * hier noch in der Datenbank." Das stimmt seit der Migration `20260911180000` nicht mehr: Sie legt
+ * mit `admin_reset_metering_point_load_profile` und `admin_delete_metering_point_document` genau
+ * die zwei Wrapper an, die damals fehlten. Der Satz ist ERSETZT statt stehen gelassen — ein
+ * Kommentar, der eine Regel behauptet, die es nicht mehr gibt, ist teurer als keiner.
+ *
+ * Die Zusammenfassung trägt deshalb einen „Lastgang entfernen"-Knopf. Ein AUSTAUSCHEN-Knopf gibt es
+ * bewusst trotzdem nicht: Er wäre entfernen und hochladen in einem Klick, und scheitert dabei der
+ * zweite Teil, stünde der Zählpunkt leer da, ohne dass jemand das wollte. Entfernen und neu
+ * hochladen sind zwei Handlungen, und die Station zeigt sie als zwei.
+ *
+ * ── ⚠ DIE RÜCKMELDUNG DES ENTFERNENS LEBT AUF KOMPONENTENEBENE, NICHT IM FORMULAR ─────────────
+ * Ein erfolgreiches Entfernen wechselt die Station in den Frage-Zweig — und nähme ein Formular mit
+ * eigenem `useActionState` samt seiner Meldung mit (dieselbe Beobachtung wie bei der
+ * Partner-Genehmigung, B16-4b). Genau die Meldung, die dann zählt, wäre weg: Scheitert das Löschen
+ * der Datei, IST der Zählpunkt bereits zurückgesetzt, und der Admin muss erfahren, dass ein Rest
+ * stehen geblieben ist. Der Zustand hängt deshalb an der Komponente, und der Fehlertext wird in
+ * BEIDEN Zweigen gerendert.
  */
 import * as React from 'react'
 import { useActionState } from 'react'
@@ -40,13 +53,26 @@ import { Loader2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { FieldHint, Label } from '@/components/ui/input'
-import { uploadMeteringPointLoadProfileAction } from '@/lib/admin/data-entry-actions'
+import {
+  removeMeteringPointLoadProfileAction,
+  uploadMeteringPointLoadProfileAction,
+} from '@/lib/admin/data-entry-actions'
 import { ADMIN_INITIAL_STATE } from '@/lib/admin/schema'
 import type { MeteringPointSummary } from '@/lib/admin/metering-points'
 import { formatDateTime } from '@/lib/admin/format'
 import { AdminError, AdminSuccess } from './ui'
 
 const FIELD_ID = 'dateneingabe-lastgang-datei'
+
+/**
+ * Die Rückfrage nennt alle drei Folgen — was am Zählpunkt verschwindet, was aus der Ablage
+ * verschwindet, und dass es keinen Rückweg gibt. „Wirklich entfernen?" sagte nichts davon.
+ */
+const REMOVE_CONFIRM =
+  'Lastgang wirklich entfernen?\n\n' +
+  'Zeitraum, Intervall und Lücken werden vom Zählpunkt gelöscht, die hochgeladene Datei aus der ' +
+  'Ablage des Projekts entfernt. Das lässt sich nicht rückgängig machen — Sie können danach eine ' +
+  'neue Datei hochladen.'
 
 /** Die drei Zustände der Frage. `null` = noch nicht beantwortet. */
 type Answer = 'ja' | 'nein' | null
@@ -72,6 +98,15 @@ export function DataEntryLoadProfile({
     uploadMeteringPointLoadProfileAction,
     ADMIN_INITIAL_STATE,
   )
+  /*
+   * ⚠ ZWEITER Zustand, absichtlich HIER und nicht im Entfernen-Formular — s. Kopf: das Formular
+   * verschwindet mit seinem eigenen Erfolg, und mit ihm die Meldung, die im Fehlerfall die
+   * wichtigste der Station ist.
+   */
+  const [removeState, removeAction, isRemoving] = useActionState(
+    removeMeteringPointLoadProfileAction,
+    ADMIN_INITIAL_STATE,
+  )
   const error = state.fieldErrors?.file
 
   React.useEffect(() => {
@@ -83,8 +118,41 @@ export function DataEntryLoadProfile({
     return (
       <div className="flex flex-col gap-6">
         {state.success && <AdminSuccess>{state.success}</AdminSuccess>}
+        {removeState.formError && <AdminError>{removeState.formError}</AdminError>}
         <LoadProfileSummary point={meteringPoint} number={meteringPointNumber} />
-        <Continue nextHref={nextHref} />
+
+        {/*
+          Weiter ist der Weg nach vorn und bleibt primär; das Entfernen steht daneben und textnah
+          (`ghost`). Es ist der Ausweg für den Fall, dass die falsche Datei hochgeladen wurde — kein
+          Schritt, den der Wizard nahelegt.
+        */}
+        <div className="flex flex-wrap items-center gap-3">
+          <ContinueLink nextHref={nextHref} />
+          <form
+            action={removeAction}
+            onSubmit={(e) => {
+              /*
+               * Eine Rückfrage, keine Prüfung — die Autorisierung liegt in der Datenbank. Sie steht
+               * hier, weil der Vorgang die DATEI unwiderruflich aus der Ablage nimmt: der Admin hat
+               * sie zwar noch auf seinem Rechner, aber im System ist sie danach weg (dieselbe
+               * Zurückhaltung wie beim Rollen-Entzug, T4-4 — nicht bei An/Aus-Schaltern).
+               */
+              if (!window.confirm(REMOVE_CONFIRM)) e.preventDefault()
+            }}
+          >
+            <input type="hidden" name="projectId" value={projectId} />
+            <input type="hidden" name="meteringPointId" value={meteringPoint.id} />
+            <Button type="submit" variant="ghost" size="md" disabled={isRemoving}>
+              {isRemoving && (
+                <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2} aria-hidden="true" />
+              )}
+              {isRemoving ? 'Wird entfernt …' : 'Lastgang entfernen'}
+            </Button>
+            <span role="status" aria-live="polite" className="sr-only">
+              {isRemoving ? 'Wird entfernt …' : ''}
+            </span>
+          </form>
+        </div>
       </div>
     )
   }
@@ -92,6 +160,14 @@ export function DataEntryLoadProfile({
   // ── Die Frage ────────────────────────────────────────────────────────────────────────────────
   return (
     <div className="flex flex-col gap-6">
+      {/*
+        Beide Meldungen des Entfernens stehen AUCH hier, und das ist keine Doppelung: Nach einem
+        erfolgreichen Entfernen — und nach einem gescheiterten Schritt 2 oder 3 — ist der Zählpunkt
+        bereits zurückgesetzt, die Station steht also in diesem Zweig. Ohne sie wäre die Frage
+        wortlos wieder da, und niemand wüsste, ob der Klick gewirkt hat.
+      */}
+      {removeState.success && <AdminSuccess>{removeState.success}</AdminSuccess>}
+      {removeState.formError && <AdminError>{removeState.formError}</AdminError>}
       <div>
         <p className="max-w-prose text-body text-ink">
           Haben Sie Lastgangsdaten (Viertelstunden- oder Stundenwerte) für Zählpunkt{' '}
@@ -246,7 +322,8 @@ function LoadProfileSummary({
 
       <p className="mt-4 max-w-prose text-caption text-text-muted">
         Gespeichert sind nur diese Angaben über die Reihe — die Messwerte bleiben in der
-        hochgeladenen Datei. Ein Austauschen der Datei ist in diesem Schritt nicht vorgesehen.
+        hochgeladenen Datei. Um eine andere Datei zu verwenden, entfernen Sie den Lastgang und laden
+        die neue hoch.
       </p>
     </div>
   )
@@ -263,9 +340,21 @@ function Continue({ nextHref }: { nextHref: string | null }) {
   if (nextHref === null) return null
   return (
     <div>
-      <Button asChild variant="primary" size="md">
-        <Link href={nextHref}>Weiter</Link>
-      </Button>
+      <ContinueLink nextHref={nextHref} />
     </div>
+  )
+}
+
+/**
+ * Derselbe Knopf ohne eigenen Kasten — die Zusammenfassung stellt ihn in eine Reihe mit dem
+ * Entfernen. Getrennt, damit die Reihe auch dann steht, wenn es keine nächste Station gibt
+ * (`Continue` liefert dann nichts, und das Entfernen muss trotzdem erreichbar bleiben).
+ */
+function ContinueLink({ nextHref }: { nextHref: string | null }) {
+  if (nextHref === null) return null
+  return (
+    <Button asChild variant="primary" size="md">
+      <Link href={nextHref}>Weiter</Link>
+    </Button>
   )
 }

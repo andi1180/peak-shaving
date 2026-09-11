@@ -3,28 +3,37 @@
 /**
  * Die Server Actions des Dateneingabe-Wizards (B24, Teil 1).
  *
- * ── ⚠ ES WAREN GENAU ZWEI, JETZT SIND ES DREI ──────────────────────────────────────────────────
+ * ── ⚠ ES WAREN GENAU ZWEI, JETZT SIND ES VIER ──────────────────────────────────────────────────
  * Der ursprüngliche Zuschnitt nannte die Zahl ausdrücklich und begründete sie: die fünf Stationen
  * je Zählpunkt waren Platzhalter, und eine Action ohne Wirkung wäre ein Endpunkt, den man aufrufen
  * kann und der nichts tut. Genau diese Begründung fällt für den ERSTEN der fünf mit dem
  * Lastgang-Schritt weg — er lädt eine Datei ab, liest sie und schreibt die gelesenen Metadaten an
- * den Zählpunkt. Die vier übrigen (Rechnung, Batterie, PV, Tarif) bleiben Platzhalter und haben
- * weiterhin bewusst KEINE Action; jeder bekommt seinen eigenen Auftrag.
+ * den Zählpunkt; die vierte Action nimmt genau das wieder zurück. Die vier übrigen Stationen
+ * (Rechnung, Batterie, PV, Tarif) bleiben Platzhalter und haben weiterhin bewusst KEINE Action;
+ * jede bekommt ihren eigenen Auftrag.
  *
  * ── KEIN service_role, wie in jeder Admin-Action dieses Bereichs ────────────────────────────────
- * Alle drei Wrapper sind `authenticated`-only und prüfen selbst:
- *   `public.update_project_segment_industry`     über `platform.project_accessible`
- *                                                (eigenes Projekt ODER Adminrolle),
- *   `public.admin_set_metering_point_count`      über `platform.is_admin()` (WIRFT 42501),
- *   `public.set_metering_point_load_profile`     über `platform.project_accessible`.
+ * Alle fünf Wrapper sind `authenticated`-only und prüfen selbst:
+ *   `public.update_project_segment_industry`          über `platform.project_accessible`
+ *                                                     (eigenes Projekt ODER Adminrolle),
+ *   `public.admin_set_metering_point_count`           über `platform.is_admin()` (WIRFT 42501),
+ *   `public.set_metering_point_load_profile`          über `platform.project_accessible`,
+ *   `public.admin_reset_metering_point_load_profile`  über `platform.is_admin()` (WIRFT 42501),
+ *   `public.admin_delete_metering_point_document`     über `platform.is_admin()` (WIRFT 42501).
  * Die Autorisierung hängt damit nicht an dieser Datei. Die `no-restricted-imports`-Erlaubnisliste
- * wurde für diesen Pfad NICHT erweitert — auch nicht für den Lastgang-Upload: der Byte-Transport
- * (`lib/project-documents/storage.ts`) trägt den `service_role`-Schlüssel, wird hier aber nur
- * MITTELBAR über `uploadProjectDocument` erreicht, und das fragt die Eigentumsfrage vorher an die
- * Datenbank.
+ * wurde für diesen Pfad NICHT erweitert: der `service_role`-Schlüssel bleibt in
+ * `lib/project-documents/storage.ts` eingeschlossen, und diese Datei importiert ihn nirgends.
+ *
+ * ⚠ EINE ABWEICHUNG IST BENANNT, NICHT ÜBERSEHEN: der Lastgang-Upload erreicht den Byte-Transport
+ * MITTELBAR über `uploadProjectDocument` (das die Eigentumsfrage selbst an die Datenbank stellt),
+ * sein Gegenstück dagegen UNMITTELBAR über `removeProjectDocumentBytes`. Das ist zulässig, weil der
+ * Pfad, den es löscht, nicht aus dieser Datei stammt: er kommt aus der Antwort von
+ * `admin_reset_metering_point_load_profile`, also aus einem Wrapper, der vorher die Adminrolle
+ * geprüft und den Pfad am ZÄHLPUNKT aufgelöst hat. Die Datenbank hat auch hier zuerst entschieden —
+ * nur reicht sie das Ergebnis als Wert heraus, statt den Aufruf zu kapseln.
  *
  * ══════════════════════════════════════════════════════════════════════════════════════════════
- * ⚠ ZWEI ACTIONS LEITEN IM ERFOLGSFALL UM, DIE DRITTE NICHT — und das ist der Unterschied
+ * ⚠ ZWEI ACTIONS LEITEN IM ERFOLGSFALL UM, DIE ZWEI ÜBRIGEN NICHT — und das ist der Unterschied
  * ══════════════════════════════════════════════════════════════════════════════════════════════
  * Bei Segment und Zählpunkt-Zahl sind „gespeichert" und „einen Schritt weiter" derselbe Vorgang:
  * die Position des Wizards steht in der URL (`lib/admin/data-entry-stations.ts`), die Weiterleitung
@@ -39,6 +48,9 @@
  * Zusammenfassung selbst kommt aus der DATENBANK (`readMeteringPointList`) und nicht aus dem
  * Rückgabewert dieser Action — nach einem Neuladen stünde sie sonst leer da, obwohl gespeichert ist.
  *
+ * Dasselbe gilt fürs ENTFERNEN: die Station muss danach die ursprüngliche Ja/Nein-Frage zeigen, und
+ * dass sie das tut, erkennt ein Mensch nur, wenn er auf der Station bleibt.
+ *
  * ⚠ `redirect()` WIRFT. Die beiden Aufrufe stehen deshalb am ENDE und ausserhalb jedes `try` — in
  * einem `catch` gefangen sähe die Weiterleitung wie ein Fehlschlag aus, und der Wizard bliebe
  * stehen, obwohl geschrieben wurde.
@@ -50,6 +62,7 @@ import { readLoadProfile } from 'extractors'
 import { MAX_PROJECT_DOCUMENT_BYTES } from 'shared'
 
 import { uploadProjectDocument } from '@/lib/project-documents/documents'
+import { removeProjectDocumentBytes } from '@/lib/project-documents/storage'
 import { createClient } from '@/lib/supabase/server'
 import {
   stationAfterMeteringPointCount,
@@ -414,6 +427,138 @@ export async function uploadMeteringPointLoadProfileAction(
   revalidatePath(projectDataEntryHref(projectId))
 
   return { success: 'Lastgang eingelesen und gespeichert.' }
+}
+
+// ── Lastgang entfernen ───────────────────────────────────────────────────────────────────────────
+/**
+ * Nimmt den eingelesenen Lastgang eines Zählpunkts vollständig zurück: Metadaten am Zählpunkt,
+ * Datei im Bucket, Zeile in `platform.project_documents`.
+ *
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * ⚠ DREI SCHRITTE, UND EINER DAVON KANN SQL NICHT — deshalb orchestriert diese Action
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ *   1. `admin_reset_metering_point_load_profile` — nullt Intervall, Zeitraum und Quelle am
+ *      Zählpunkt, setzt `gaps` auf `[]` und LIEFERT DIE DOKUMENT-KENNUNG SAMT PFAD ZURÜCK, bevor
+ *      sie genullt wird. Ohne diese Rückgabe wüsste hier niemand mehr, welche Datei gemeint war.
+ *   2. Das Objekt im Bucket entfernen (`removeProjectDocumentBytes`) — der Schritt, den eine
+ *      Datenbankfunktion nicht ausführen kann. Genau deshalb gibt es bis heute keinen allgemeinen
+ *      `delete_project_document`-Wrapper (TEIL 9 der Migration `20260910090000`).
+ *   3. `admin_delete_metering_point_document` — die Zeile in `platform.project_documents`.
+ *
+ * ⚠ DIE REIHENFOLGE IST DIE ENTSCHEIDUNG, NICHT DIE BEQUEMLICHKEIT: erst Storage, dann DB-Zeile.
+ * Bricht es dazwischen ab, bleibt eine DB-Zeile ohne Datei — sichtbar in
+ * `list_project_documents`, benennbar, und beim nächsten Anlauf löschbar (die Storage-API meldet
+ * für einen unbekannten Pfad keinen Fehler, s. Kopf von `removeProjectDocumentBytes`). Umgekehrt
+ * bliebe ein Objekt im Bucket, auf das nichts mehr zeigt: unsichtbar in jeder Liste, von niemandem
+ * mehr adressierbar und nur noch über den Speicherverbrauch auffindbar. Ein sichtbarer Rest ist
+ * billiger als ein unsichtbarer.
+ *
+ * ⚠ SCHRITT 1 IST SCHON GESCHEHEN, WENN SCHRITT 2 SCHEITERT — und das ist der Grund, warum diese
+ * Action auch dann `revalidatePath` ruft und einen FEHLERTEXT liefert statt einfach abzubrechen:
+ * der Zählpunkt ist bereits zurückgesetzt, die Station zeigt wieder die Ja/Nein-Frage, ein neuer
+ * Upload ist also möglich. Wer nur „das hat nicht geklappt" läse, hielte den Zustand für
+ * unverändert und versuchte es ein zweites Mal — mit demselben Ergebnis.
+ *
+ * ⚠ ES WIRD NICHT UMGELEITET, aus demselben Grund wie beim Upload (s. Kopf dieser Datei): die
+ * Station muss danach die ursprüngliche Frage zeigen, und dass sie das tut, sieht nur, wer auf ihr
+ * bleibt.
+ */
+export async function removeMeteringPointLoadProfileAction(
+  _prev: AdminState,
+  formData: FormData,
+): Promise<AdminState> {
+  const projectId = readProjectId(formData)
+  if (projectId === null) return { formError: UNKNOWN_PROJECT }
+
+  const meteringPointId = String(formData.get('meteringPointId') ?? '')
+  if (!UUID.test(meteringPointId)) {
+    // Kommt wie die Projekt-Kennung als verstecktes Feld aus unserer eigenen Seite.
+    return { formError: GENERIC }
+  }
+
+  const supabase = await createClient()
+
+  // ── Schritt 1: zurücksetzen. Liefert die noch gültige Dokument-Kennung mit.
+  const { data: reset, error: resetError } = await supabase.rpc(
+    'admin_reset_metering_point_load_profile',
+    { p_metering_point_id: meteringPointId },
+  )
+
+  if (resetError) {
+    if (isForbidden(resetError)) return { formError: FORBIDDEN }
+    console.error('[admin/dateneingabe] admin_reset_metering_point_load_profile:', resetError)
+    return { formError: GENERIC }
+  }
+
+  const resetResult = (reset ?? {}) as Record<string, unknown>
+  if (resetResult.status === 'not_found') {
+    return { formError: 'Diesen Zählpunkt gibt es nicht (mehr). Bitte laden Sie die Seite neu.' }
+  }
+  if (resetResult.status !== 'ok') {
+    console.error('[admin/dateneingabe] unerwartete Antwort (Lastgang zurücksetzen):', reset)
+    return { formError: GENERIC }
+  }
+
+  /*
+   * ⚠ AB HIER IST DER ZÄHLPUNKT ZURÜCKGESETZT. Jeder weitere Ausgang dieser Funktion muss die
+   * Station neu rendern lassen — sonst zeigte der Browser weiter die Zusammenfassung eines
+   * Lastgangs, den es nicht mehr gibt.
+   */
+  revalidatePath(projectDataEntryHref(projectId))
+
+  const documentId = typeof resetResult.document_id === 'string' ? resetResult.document_id : null
+  const storagePath = typeof resetResult.storage_path === 'string' ? resetResult.storage_path : null
+
+  if (documentId === null) {
+    /*
+     * Der Zählpunkt trug keine Quelle. Erreichbar, wenn jemand zweimal hintereinander klickt oder
+     * ein zweiter Tab schneller war — dann ist das Ziel bereits hergestellt, und genau das wird
+     * gemeldet statt eines Fehlers über einen Zustand, den der Klickende wollte.
+     */
+    return { success: 'Es war kein Lastgang hinterlegt. Der Zählpunkt ist leer.' }
+  }
+
+  // ── Schritt 2: die Bytes. Scheitert das, bleibt die DB-Zeile ABSICHTLICH stehen — s. Kopf.
+  if (storagePath !== null) {
+    const removed = await removeProjectDocumentBytes(storagePath)
+    if (!removed.ok) {
+      console.error('[admin/dateneingabe] removeProjectDocumentBytes:', removed.message)
+      return {
+        formError:
+          'Der Lastgang ist vom Zählpunkt entfernt — Sie können jetzt eine neue Datei hochladen. ' +
+          'Die alte Datei liess sich allerdings nicht aus der Ablage löschen; ihr Eintrag bleibt ' +
+          'deshalb bewusst sichtbar stehen, statt still zu verschwinden.',
+      }
+    }
+  }
+
+  // ── Schritt 3: die Zeile. Der Wrapper prüft, dass kein Zählpunkt mehr auf sie zeigt (`in_use`).
+  const { data: deleted, error: deleteError } = await supabase.rpc(
+    'admin_delete_metering_point_document',
+    { p_metering_point_id: meteringPointId, p_document_id: documentId },
+  )
+
+  const leftoverRow =
+    'Der Lastgang ist vom Zählpunkt entfernt — Sie können jetzt eine neue Datei hochladen. Der ' +
+    'Eintrag der alten Datei liess sich allerdings nicht löschen und bleibt in der Dokumentenliste ' +
+    'des Projekts stehen.'
+
+  if (deleteError) {
+    if (isForbidden(deleteError)) return { formError: FORBIDDEN }
+    console.error('[admin/dateneingabe] admin_delete_metering_point_document:', deleteError)
+    return { formError: leftoverRow }
+  }
+
+  if (statusOf(deleted) !== 'ok') {
+    /*
+     * `not_found`, `unknown_document`, `in_use` — für den Admin gibt es daran nichts zu tun, und
+     * der Zählpunkt ist in allen drei Fällen bereits frei. Die Ursache gehört ins Log.
+     */
+    console.error('[admin/dateneingabe] unerwartete Antwort (Dokument löschen):', deleted)
+    return { formError: leftoverRow }
+  }
+
+  return { success: 'Lastgang entfernt. Sie können eine neue Datei hochladen.' }
 }
 
 /** Dateigrösse in MB mit einer Nachkommastelle — nur für die Meldung am Feld. */

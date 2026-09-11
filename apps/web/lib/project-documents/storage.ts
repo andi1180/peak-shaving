@@ -68,14 +68,36 @@ export async function getProjectDocumentBytes(
 }
 
 /**
- * Entfernt ein Objekt — ausschliesslich als AUFRÄUMEN eines gescheiterten Uploads.
+ * Entfernt ein Objekt aus dem Bucket. ZWEI Aufrufer, und sie meinen Verschiedenes.
  *
- * ⚠ Es gibt bewusst KEINEN Weg, ein eingetragenes Dokument zu löschen: dafür fehlt der
- * Datenbank-Wrapper (TEIL 9 der Migration), und ein Objekt zu entfernen, dessen Zeile stehen bleibt,
- * erzeugte genau den lügenden Bestand, den die Upload-Reihenfolge vermeidet. Diese Funktion räumt
- * nur den umgekehrten Fall auf: Bytes geschrieben, Eintragen gescheitert.
+ * ── ⚠ DER KOPF DIESER FUNKTION HAT BIS ZUM LASTGANG-RÜCKWEG DAS GEGENTEIL BEHAUPTET ────────────
+ * Er lautete: „Es gibt bewusst KEINEN Weg, ein eingetragenes Dokument zu löschen: dafür fehlt der
+ * Datenbank-Wrapper (TEIL 9 der Migration)." Das stimmt seit der Migration `20260911180000` nicht
+ * mehr — `public.admin_delete_metering_point_document` ist genau dieser Wrapper, eng an den
+ * Zählpunkt gebunden. Der Satz ist ersetzt statt stehen gelassen: ein Kommentar, der eine Regel
+ * behauptet, die es nicht mehr gibt, ist teurer als keiner.
+ *
+ *   (1) AUFRÄUMEN eines gescheiterten Uploads (`documents.ts`): Bytes geschrieben, Eintragen
+ *       gescheitert. Der Rückgabewert interessiert dort nicht — die Datei steht in keiner Liste,
+ *       und der Aufrufer meldet ohnehin bereits einen Fehlschlag.
+ *   (2) ENTFERNEN eines eingetragenen Lastgang-Dokuments (`lib/admin/data-entry-actions.ts`). Dort
+ *       ist der Rückgabewert tragend: schlägt er fehl, darf die Datenbank-Zeile NICHT gelöscht
+ *       werden — sonst bliebe ein Objekt im Bucket, auf das nichts mehr zeigt. Ein sichtbarer Rest
+ *       (Zeile ohne Datei) ist billiger als ein unsichtbarer (Datei ohne Zeile).
+ *
+ * ⚠ Deshalb gibt sie ein ERGEBNIS zurück und kein `void`. Vorher verschluckte sie jeden Fehler, und
+ * Aufrufer (2) hätte gar nicht erfahren können, dass nichts geschehen ist.
+ *
+ * ⚠ EIN BEREITS FEHLENDES OBJEKT IST KEIN FEHLSCHLAG: die Storage-API meldet für einen unbekannten
+ * Pfad keinen Fehler. Das ist hier die richtige Lesart — ein zweiter Anlauf nach einem Abbruch
+ * zwischen den Schritten soll durchlaufen, nicht an dem scheitern, was beim ersten schon gelang.
  */
-export async function removeProjectDocumentBytes(storagePath: string): Promise<void> {
+export async function removeProjectDocumentBytes(
+  storagePath: string,
+): Promise<{ ok: true } | { ok: false; message: string }> {
   const client = createServiceRoleClient()
-  await client.storage.from(PROJECT_DOCUMENTS_BUCKET).remove([storagePath])
+  const { error } = await client.storage.from(PROJECT_DOCUMENTS_BUCKET).remove([storagePath])
+
+  if (error) return { ok: false, message: error.message }
+  return { ok: true }
 }

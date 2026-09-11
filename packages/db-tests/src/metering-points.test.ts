@@ -964,3 +964,376 @@ describe('B24 Lastgang-Bezug — Grants der drei neuen Wrapper', () => {
     expect(rows).toEqual([])
   })
 })
+
+// ═════════════════════════════════════════════════════════════════════════════════════════════════
+// B24 Teil 1 — der RUECKWEG (Migration 20260911180000): einen eingelesenen Lastgang entfernen.
+//
+// ── WAS HIER SCHIEFGEHEN KANN, OHNE DASS ES AUFFAELLT ───────────────────────────────────────────
+//
+//   * DIE ANTWORT NENNT DAS DOKUMENT NICHT (MEHR). `admin_reset_metering_point_load_profile`
+//     vernichtet mit demselben Aufruf den einzigen Weg vom Zaehlpunkt zu seiner Quelle. Liest die
+//     Funktion den Verweis erst NACH dem UPDATE, kommt `document_id: null` zurueck — und der
+//     Aufrufer haelt das fuer „da war nichts", raeumt nichts auf und hinterlaesst bei JEDEM
+//     Entfernen ein Dokument samt Datei. Der Zaehlpunkt saehe dabei vollkommen richtig aus.
+//
+//   * DIE SPERRE GEGEN EIN NOCH BENUTZTES DOKUMENT FEHLT. `source_document_id` traegt
+//     `on delete set null` — ein DELETE laeuft also anstandslos durch und nimmt dem verweisenden
+//     Zaehlpunkt still seine Quelle. Der `in_use`-Guard wird deshalb PROVOZIERT, nicht
+//     introspiziert.
+//
+//   * DAS ZURUECKSETZEN LAESST EINE DER FUENF SPALTEN STEHEN. Ein uebersehenes `gaps` hinge an der
+//     naechsten hochgeladenen Datei — und `set_metering_point_load_profile` ueberschriebe es zwar,
+//     aber im Zustand DAZWISCHEN stuende eine Luecke ohne Zeitraum. Geprueft wird der Bestand,
+//     nicht der Status.
+//
+//   * DER ZAEHLPUNKT SELBST VERSCHWINDET. Entfernt wird der LASTGANG, nicht die Struktur, die ein
+//     Mensch von Hand angelegt hat.
+// ═════════════════════════════════════════════════════════════════════════════════════════════════
+describe('B24 Lastgang entfernen — admin_reset_metering_point_load_profile', () => {
+  /** Projekt mit einem Zaehlpunkt, der einen eingelesenen Lastgang traegt. */
+  async function eingelesen(label: string) {
+    const admin = await newUser()
+    await makeAdmin(admin)
+    const kunde = await newUser()
+    const projectId = await createProjectFor(kunde, `${label} ${randomUUID()}`)
+    const documentId = await createDocumentFor(kunde, projectId, 'lastgang.csv')
+    await callAs(admin, 'public.admin_set_metering_point_count($1, $2)', [projectId, 1])
+    const [point] = await meteringPointsOf(projectId)
+
+    const out = await callAs<{ status: string }>(
+      kunde,
+      'public.set_metering_point_load_profile($1, $2, $3, $4::timestamptz, $5::timestamptz, $6::jsonb)',
+      [
+        point!.id,
+        documentId,
+        15,
+        '2025-01-01T00:00:00Z',
+        '2026-01-01T00:00:00Z',
+        JSON.stringify([{ from: '2025-06-03T22:00:00.000Z', to: '2025-06-06T22:00:00.000Z' }]),
+      ],
+    )
+    expect(out.status).toBe('ok')
+    return { admin, kunde, projectId, documentId, pointId: point!.id }
+  }
+
+  async function documentsOf(projectId: string) {
+    return sql<{ id: string; storage_path: string }>(
+      `select id, storage_path from platform.project_documents where project_id = $1`,
+      [projectId],
+    )
+  }
+
+  it('⚠ nennt das Dokument samt Pfad UND setzt alle fuenf Spalten zurueck', async () => {
+    const f = await eingelesen('B24 Zuruecksetzen')
+
+    const out = await callAs<{
+      status: string
+      metering_point_id: string
+      project_id: string
+      document_id: string | null
+      storage_path: string | null
+    }>(f.admin, 'public.admin_reset_metering_point_load_profile($1)', [f.pointId])
+
+    expect(out).toEqual({
+      status: 'ok',
+      metering_point_id: f.pointId,
+      project_id: f.projectId,
+      document_id: f.documentId,
+      // ⚠ Der Pfad kommt aus der ZEILE, nicht aus einer zweiten Ableitung — der CHECK
+      // project_documents_storage_path_derived haelt ihn auf <project_id>/<id> fest.
+      storage_path: `${f.projectId}/${f.documentId}`,
+    })
+
+    // ⚠ Der Bestand, nicht der Status: alle fuenf gemeinsam, sonst stuende eine Luecke ohne Zeitraum.
+    const [row] = await meteringPointsOf(f.projectId)
+    expect(row, 'der Zaehlpunkt existiert noch').toBeDefined()
+    expect(row!.source_document_id).toBeNull()
+    expect(row!.interval_minutes).toBeNull()
+    expect(row!.covered_from).toBeNull()
+    expect(row!.covered_to).toBeNull()
+    expect(row!.gaps).toEqual([])
+
+    // Das Dokument ist damit NICHT weg — das ist Schritt (3) und ein eigener Aufruf.
+    expect(await documentsOf(f.projectId)).toHaveLength(1)
+  })
+
+  it('⚠ DIE GEFORDERTE POSITIV-KONTROLLE: danach laesst sich erneut einlesen — keine Altlast', async () => {
+    const f = await eingelesen('B24 Neu einlesen')
+    await callAs(f.admin, 'public.admin_reset_metering_point_load_profile($1)', [f.pointId])
+    await callAs(f.admin, 'public.admin_delete_metering_point_document($1, $2)', [
+      f.pointId,
+      f.documentId,
+    ])
+    expect(await documentsOf(f.projectId)).toHaveLength(0)
+
+    // Eine ZWEITE Datei, wie nach einem echten Neu-Upload.
+    const zweites = await createDocumentFor(f.kunde, f.projectId, 'lastgang-neu.csv')
+    const out = await callAs<{ status: string }>(
+      f.kunde,
+      'public.set_metering_point_load_profile($1, $2, $3, $4::timestamptz, $5::timestamptz, $6::jsonb)',
+      [f.pointId, zweites, 60, '2024-01-01T00:00:00Z', '2025-01-01T00:00:00Z', JSON.stringify([])],
+    )
+    expect(out.status).toBe('ok')
+
+    const [row] = await meteringPointsOf(f.projectId)
+    expect(row!.source_document_id).toBe(zweites)
+    expect(row!.interval_minutes).toBe(60)
+    // ⚠ Und zwar OHNE die Luecke des ersten Laufs — sie gehoerte zu einer Datei, die es nicht gibt.
+    expect(row!.gaps).toEqual([])
+  })
+
+  it('raeumt auch den Rest auf, den on-delete-set-null hinterlaesst', async () => {
+    /*
+     * Der reale Stand aus TEIL 1 der Migration 20260911120000: das Dokument ist direkt entfernt
+     * worden, der Verweis ist genullt, die abgeleiteten Angaben stehen als „letzte Aussage". Ohne
+     * diesen Fall bliebe ein Zaehlpunkt mit Zeitraum und ohne Quelle dauerhaft stehen.
+     */
+    const f = await eingelesen('B24 Rest')
+    await sql(`delete from platform.project_documents where id = $1`, [f.documentId])
+
+    const [vorher] = await meteringPointsOf(f.projectId)
+    expect(vorher!.source_document_id).toBeNull()
+    expect(vorher!.interval_minutes, 'die Angaben stehen noch da').toBe(15)
+
+    const out = await callAs<{ status: string; document_id: string | null }>(
+      f.admin,
+      'public.admin_reset_metering_point_load_profile($1)',
+      [f.pointId],
+    )
+    // `document_id: null` heisst „es gab nichts zu loeschen" — eine andere Aussage als ein Fehler.
+    expect(out).toMatchObject({ status: 'ok', document_id: null })
+
+    const [nachher] = await meteringPointsOf(f.projectId)
+    expect(nachher!.interval_minutes).toBeNull()
+    expect(nachher!.covered_from).toBeNull()
+  })
+
+  it('ein unbekannter Zaehlpunkt liefert not_found', async () => {
+    const admin = await newUser()
+    await makeAdmin(admin)
+    expect(
+      await callAs(admin, 'public.admin_reset_metering_point_load_profile($1)', [randomUUID()]),
+    ).toEqual({ status: 'not_found' })
+  })
+
+  it('⚠ ein NICHT-Admin wird abgewiesen — auch der Eigentuemer des Projekts', async () => {
+    /*
+     * Die bewusste Abweichung vom Schreibweg daneben: `set_metering_point_load_profile` prueft
+     * `project_accessible` und liesse den Kunden durch. Das Entfernen tut es nicht — ob ein KUNDE
+     * eine abgelegte Datei wieder entfernen darf, hat niemand entschieden.
+     */
+    const f = await eingelesen('B24 Kein Admin')
+    await expect(
+      callAs(f.kunde, 'public.admin_reset_metering_point_load_profile($1)', [f.pointId]),
+    ).rejects.toMatchObject({ code: '42501' })
+
+    const fremder = await newUser()
+    await expect(
+      callAs(fremder, 'public.admin_reset_metering_point_load_profile($1)', [f.pointId]),
+    ).rejects.toMatchObject({ code: '42501' })
+
+    // Und es ist nichts geschehen.
+    const [row] = await meteringPointsOf(f.projectId)
+    expect(row!.source_document_id).toBe(f.documentId)
+    expect(row!.interval_minutes).toBe(15)
+  })
+
+  it('⚠ nach dem Entfernen laesst sich wieder verkleinern — der Nebeneffekt, der gewollt ist', async () => {
+    const f = await eingelesen('B24 Verkleinern wieder moeglich')
+    // Ein zweiter Zaehlpunkt, damit es ueberhaupt etwas zu verkleinern gibt; der Lastgang liegt auf
+    // dem AELTESTEN, ein Verkleinern auf 1 nimmt also den juengeren.
+    await callAs(f.admin, 'public.admin_set_metering_point_count($1, $2)', [f.projectId, 2])
+    const points = await meteringPointsOf(f.projectId)
+    expect(points[0]!.id).toBe(f.pointId)
+
+    // Lastgang auf den JUENGSTEN umhaengen, damit das Verkleinern blockiert.
+    const zweites = await createDocumentFor(f.kunde, f.projectId, 'zweiter.csv')
+    await callAs(
+      f.kunde,
+      'public.set_metering_point_load_profile($1, $2, $3, $4::timestamptz, $5::timestamptz, $6::jsonb)',
+      [points[1]!.id, zweites, 15, '2025-01-01T00:00:00Z', '2026-01-01T00:00:00Z', JSON.stringify([])],
+    )
+    expect(
+      await callAs(f.admin, 'public.admin_set_metering_point_count($1, $2)', [f.projectId, 1]),
+    ).toMatchObject({ status: 'has_load_profile' })
+
+    await callAs(f.admin, 'public.admin_reset_metering_point_load_profile($1)', [points[1]!.id])
+
+    expect(
+      await callAs(f.admin, 'public.admin_set_metering_point_count($1, $2)', [f.projectId, 1]),
+    ).toMatchObject({ status: 'ok', removed: 1 })
+  })
+})
+
+// ═════════════════════════════════════════════════════════════════════════════════════════════════
+describe('B24 Lastgang entfernen — admin_delete_metering_point_document', () => {
+  async function eingelesen(label: string) {
+    const admin = await newUser()
+    await makeAdmin(admin)
+    const kunde = await newUser()
+    const projectId = await createProjectFor(kunde, `${label} ${randomUUID()}`)
+    const documentId = await createDocumentFor(kunde, projectId, 'lastgang.csv')
+    await callAs(admin, 'public.admin_set_metering_point_count($1, $2)', [projectId, 1])
+    const [point] = await meteringPointsOf(projectId)
+    await callAs(
+      kunde,
+      'public.set_metering_point_load_profile($1, $2, $3, $4::timestamptz, $5::timestamptz, $6::jsonb)',
+      [point!.id, documentId, 15, '2025-01-01T00:00:00Z', '2026-01-01T00:00:00Z', JSON.stringify([])],
+    )
+    return { admin, kunde, projectId, documentId, pointId: point!.id }
+  }
+
+  async function documentCount(projectId: string): Promise<number> {
+    const rows = await sql<{ n: string }>(
+      `select count(*) as n from platform.project_documents where project_id = $1`,
+      [projectId],
+    )
+    return Number(rows[0]!.n)
+  }
+
+  it('entfernt die Zeile, nachdem der Zaehlpunkt sie losgelassen hat', async () => {
+    const f = await eingelesen('B24 Zeile weg')
+    await callAs(f.admin, 'public.admin_reset_metering_point_load_profile($1)', [f.pointId])
+
+    expect(
+      await callAs(f.admin, 'public.admin_delete_metering_point_document($1, $2)', [
+        f.pointId,
+        f.documentId,
+      ]),
+    ).toEqual({ status: 'ok', document_id: f.documentId, project_id: f.projectId })
+
+    expect(await documentCount(f.projectId)).toBe(0)
+    // Der Zaehlpunkt ist geblieben — entfernt wird der LASTGANG, nicht die Struktur.
+    expect(await meteringPointsOf(f.projectId)).toHaveLength(1)
+  })
+
+  it('⚠ DIE GEFORDERTE POSITIV-KONTROLLE: ein noch verwiesenes Dokument wird abgewiesen', async () => {
+    /*
+     * Ohne den Guard liefe das DELETE durch — `on delete set null` nimmt dem Zaehlpunkt still die
+     * Quelle und laesst Zeitraum und Luecken als Aussage ueber eine Datei stehen, die es nicht mehr
+     * gibt. Geprueft wird BEIDES: der Status UND dass wirklich nichts verschwunden ist.
+     */
+    const f = await eingelesen('B24 In Benutzung')
+
+    expect(
+      await callAs(f.admin, 'public.admin_delete_metering_point_document($1, $2)', [
+        f.pointId,
+        f.documentId,
+      ]),
+    ).toEqual({ status: 'in_use' })
+
+    expect(await documentCount(f.projectId)).toBe(1)
+    const [row] = await meteringPointsOf(f.projectId)
+    expect(row!.source_document_id).toBe(f.documentId)
+    expect(row!.interval_minutes).toBe(15)
+  })
+
+  it('⚠ ein Dokument aus einem ANDEREN Projekt wird abgewiesen — der Fremdschluessel sagt das nicht', async () => {
+    const f = await eingelesen('B24 Fremddokument loeschen')
+    await callAs(f.admin, 'public.admin_reset_metering_point_load_profile($1)', [f.pointId])
+
+    // Zweites Projekt DESSELBEN Kunden: kein Zugriffsproblem, aber eine falsche Zugehoerigkeit.
+    const anderes = await createProjectFor(f.kunde, `B24 Anderes ${randomUUID()}`)
+    const fremdesDokument = await createDocumentFor(f.kunde, anderes, 'fremd.csv')
+
+    expect(
+      await callAs(f.admin, 'public.admin_delete_metering_point_document($1, $2)', [
+        f.pointId,
+        fremdesDokument,
+      ]),
+    ).toEqual({ status: 'unknown_document' })
+    expect(await documentCount(anderes)).toBe(1)
+
+    // Ein gar nicht existierendes Dokument liefert denselben Status.
+    expect(
+      await callAs(f.admin, 'public.admin_delete_metering_point_document($1, $2)', [
+        f.pointId,
+        randomUUID(),
+      ]),
+    ).toEqual({ status: 'unknown_document' })
+  })
+
+  it('ein unbekannter Zaehlpunkt liefert not_found — VOR der Dokumentpruefung', async () => {
+    const f = await eingelesen('B24 Unbekannter Zaehlpunkt')
+    expect(
+      await callAs(f.admin, 'public.admin_delete_metering_point_document($1, $2)', [
+        randomUUID(),
+        f.documentId,
+      ]),
+    ).toEqual({ status: 'not_found' })
+    expect(await documentCount(f.projectId)).toBe(1)
+  })
+
+  it('⚠ ein NICHT-Admin wird abgewiesen — auch der Eigentuemer des Projekts', async () => {
+    const f = await eingelesen('B24 Loeschen kein Admin')
+    await callAs(f.admin, 'public.admin_reset_metering_point_load_profile($1)', [f.pointId])
+
+    await expect(
+      callAs(f.kunde, 'public.admin_delete_metering_point_document($1, $2)', [
+        f.pointId,
+        f.documentId,
+      ]),
+    ).rejects.toMatchObject({ code: '42501' })
+    expect(await documentCount(f.projectId)).toBe(1)
+  })
+})
+
+// ═════════════════════════════════════════════════════════════════════════════════════════════════
+describe('B24 Lastgang entfernen — Grants der zwei neuen Wrapper', () => {
+  it('⚠ nur authenticated — anon und service_role bekommen NIRGENDS ein EXECUTE', async () => {
+    // Arbeitsregel 5: has_function_privilege statt eines Aufrufs als Rolle ohne Grant.
+    for (const fn of [
+      'public.admin_reset_metering_point_load_profile(uuid)',
+      'public.admin_delete_metering_point_document(uuid, uuid)',
+    ]) {
+      const [row] = await sql<{ anon: boolean; auth: boolean; svc: boolean }>(
+        `select has_function_privilege('anon',          $1, 'execute') as anon,
+                has_function_privilege('authenticated', $1, 'execute') as auth,
+                has_function_privilege('service_role',  $1, 'execute') as svc`,
+        [fn],
+      )
+      expect(row, fn).toEqual({ anon: false, auth: true, svc: false })
+    }
+  })
+
+  it('beide sind SECURITY DEFINER mit leerem search_path', async () => {
+    const rows = await sql<{ proname: string; prosecdef: boolean; config: string[] | null }>(
+      `select p.proname, p.prosecdef, p.proconfig as config
+         from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+        where n.nspname = 'public'
+          and p.proname in ('admin_reset_metering_point_load_profile',
+                            'admin_delete_metering_point_document')
+        order by p.proname`,
+    )
+    expect(rows).toHaveLength(2)
+    for (const row of rows) {
+      expect(row.prosecdef, row.proname).toBe(true)
+      expect(row.config?.join('|'), row.proname).toContain('search_path=')
+    }
+  })
+
+  it('⚠ es entsteht KEIN allgemeiner delete_project_document', async () => {
+    /*
+     * TEIL 9 der Migration 20260910090000 haelt fest, dass es ihn bewusst nicht gibt — der Weg hier
+     * ist an den Zaehlpunkt gebunden. Ein spaeter „zur Vereinfachung" danebengestellter allgemeiner
+     * Wrapper waere in keinem Build sichtbar.
+     */
+    const rows = await sql(
+      `select p.proname from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+        where n.nspname = 'public' and p.proname = 'delete_project_document'`,
+    )
+    expect(rows).toEqual([])
+  })
+
+  it('⚠ die Tabellen-Rechteflaeche von project_documents bleibt leer', async () => {
+    // Der Loeschweg laeuft ausschliesslich ueber den Wrapper — kein Grant, auch nicht fuer
+    // service_role (deren Weg zu den Dateien ist die Storage-API).
+    const rows = await sql(
+      `select grantee, privilege_type
+         from information_schema.role_table_grants
+        where table_schema = 'platform' and table_name = 'project_documents'
+          and grantee in ('anon', 'authenticated', 'service_role', 'PUBLIC')`,
+    )
+    expect(rows).toEqual([])
+  })
+})
