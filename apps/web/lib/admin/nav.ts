@@ -24,6 +24,7 @@ import { CALCULATOR_REQUESTS_HREF } from './calculator-requests'
 import { ADMIN_CALCULATOR_HREF } from './calculator'
 import { GRID_TARIFFS_HREF } from './grid-tariffs'
 import { OPEN_QUESTIONS_HREF } from './open-questions'
+import { PROJECTS_HREF } from './projects'
 
 export type AdminNavItem = {
   href: string
@@ -93,4 +94,18 @@ export const ADMIN_NAV_ITEMS: readonly AdminNavItem[] = [
    * nebenbei.
    */
   { href: OPEN_QUESTIONS_HREF, label: 'Rückfragen' },
+  /*
+   * B24 (Teil 1 Schritt 1): die Projekte des Kalkulators — Container für einen Kundenfall.
+   *
+   * ⚠ DIE ADRESSE IST `/admin/kalkulator-projekte` UND AUSDRÜCKLICH KEIN UNTERPFAD VON
+   * `/admin/kalkulator`. Die Aktiv-Markierung unten vergleicht `pathname === href` ODER
+   * `pathname.startsWith(`${href}/`)` — `/admin/kalkulator/projekte` fiele damit zusätzlich unter
+   * „Kalkulator", und zwei Punkte stünden gleichzeitig aktiv. Dieselbe Falle und dieselbe Auflösung
+   * wie bei „Kalkulator-Anfragen" (B18-4), „Netzbetreiber-Tarife" (B21-2b) und „Rückfragen" (B24);
+   * die Präfix-Probe über ALLE Punkte (`lib/admin/calculator-requests-ui.test.ts`) fasst sie mit.
+   *
+   * Fachlich sind es ohnehin zwei Dinge: unter „Kalkulator" wird gerechnet, hier stehen die
+   * Kundenfälle, für die gerechnet wird.
+   */
+  { href: PROJECTS_HREF, label: 'Kalkulator-Projekte' },
 ] as const

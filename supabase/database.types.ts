@@ -853,6 +853,32 @@ export type Database = {
         }
         Relationships: []
       }
+      metering_points: {
+        Row: {
+          created_at: string
+          id: string
+          project_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          project_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          project_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "metering_points_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       partner_applications: {
         Row: {
           company: string

@@ -8,7 +8,6 @@ import {
   QUESTION_ANCHOR,
   hasStandingAssumption,
   questionAgeInDays,
-  readAdminProject,
   readOpenQuestionQueue,
   readProjectMessages,
   readProjectQuestions,
@@ -66,23 +65,13 @@ describe('B24 — Leser des Rückfragen-Eingangs', () => {
     expect(queue.questions.map((q) => q.id)).toEqual(['alt', 'mittel', 'neu'])
   })
 
-  it('trennt „gibt es nicht" von „nicht geladen" bei Projekt, Fragen und Verlauf', () => {
-    expect(readAdminProject({ status: 'not_found' })).toBe('not_found')
-    expect(readAdminProject({ status: 'boom' })).toBeNull()
+  it('trennt „gibt es nicht" von „nicht geladen" bei Fragen und Verlauf', () => {
+    // Der Projektkopf-Leser ist mit der Admin-Projektliste nach `projects.ts` gewandert und wird
+    // dort geprüft (`projects.test.ts`) — eine Definition, ein Testort.
     expect(readProjectQuestions({ status: 'not_found' })).toBe('not_found')
     expect(readProjectQuestions({ status: 'boom' })).toBeNull()
     expect(readProjectMessages({ status: 'not_found' })).toBe('not_found')
     expect(readProjectMessages({ status: 'boom' })).toBeNull()
-  })
-
-  it('liest den Projektkopf aus dem verschachtelten Feld', () => {
-    const head = readAdminProject({
-      status: 'ok',
-      project: { id: 'p1', customer_label: 'Hotel Alpenblick', account_id: null },
-    })
-    expect(head).not.toBeNull()
-    if (head === null || head === 'not_found') return
-    expect(head.customer_label).toBe('Hotel Alpenblick')
   })
 })
 
