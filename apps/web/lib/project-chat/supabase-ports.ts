@@ -8,6 +8,8 @@ import { createClient } from '@/lib/supabase/server'
 import type {
   ChatMessageRole,
   ChatRateLimitDecision,
+  MeteringPointGap,
+  MeteringPointRow,
   OpenQuestionRow,
   ProjectChatPorts,
   ProjectDocumentRow,
@@ -174,7 +176,12 @@ export function createProjectChatPorts(extractors: Partial<ChatExtractors>): Pro
 
       const segment = project.segment
       const industry = project.industry
-      const draft = project.draft
+      /*
+       * ⚠ `project.draft` wird BEWUSST NICHT MEHR GELESEN. Der Wrapper liefert die Spalte weiterhin
+       * (sie ist eingefroren, nicht gedroppt — Migration 20260911150000 TEIL 4), der Entwurf liegt
+       * aber seit dort am ZÄHLPUNKT. Ihn hier weiter durchzureichen hiesse, einen zweiten,
+       * veralteten Entwurf neben dem echten zu führen.
+       */
       return {
         segment: segment === 'privat' || segment === 'betrieb' ? (segment as ProjectSegment) : null,
         /*
@@ -183,11 +190,6 @@ export function createProjectChatPorts(extractors: Partial<ChatExtractors>): Pro
          * Rückfall auf `null` ist reine Vorsicht gegen ein unerwartetes jsonb.
          */
         industry: typeof industry === 'string' && industry !== '' ? industry : null,
-        // `draft` ist `not null default '{}'` mit CHECK auf Objekt — der Rückfall ist reine Vorsicht.
-        draft:
-          draft !== null && typeof draft === 'object' && !Array.isArray(draft)
-            ? (draft as Record<string, unknown>)
-            : {},
       }
     },
 
@@ -203,19 +205,30 @@ export function createProjectChatPorts(extractors: Partial<ChatExtractors>): Pro
       return asWrapperStatus(data, error)
     },
 
-    async saveProject(projectId, draft, segment, industry) {
+    async saveProject(projectId, segment, industry) {
       /*
        * `p_segment` und `p_industry` werden nur mitgeschickt, wenn es einen Wert gibt: `null` heisst
        * im Wrapper UNVERÄNDERT (Lesart `capture_lead`), und ein hier immer mitgesendetes `null`
        * wäre dasselbe — aber der Unterschied soll am Aufruf ablesbar sein, nicht in der Wrapper-Doku
        * nachzulesen.
+       *
+       * ⚠ `p_draft` gibt es hier nicht mehr (Migration 20260911150000): der Wrapper heisst weiter
+       * `update_project_draft`, fasst den Entwurf aber nicht mehr an.
        */
       const supabase = await createClient()
       const { data, error } = await supabase.rpc('update_project_draft', {
         p_id: projectId,
-        p_draft: draft as Json,
         ...(segment === undefined ? {} : { p_segment: segment }),
         ...(industry === undefined ? {} : { p_industry: industry }),
+      })
+      return asWrapperStatus(data, error)
+    },
+
+    async saveMeteringPointDraft(meteringPointId, draft) {
+      const supabase = await createClient()
+      const { data, error } = await supabase.rpc('update_metering_point_draft', {
+        p_metering_point_id: meteringPointId,
+        p_draft: draft as Json,
       })
       return asWrapperStatus(data, error)
     },
@@ -278,6 +291,93 @@ export function createProjectChatPorts(extractors: Partial<ChatExtractors>): Pro
          */
         contentType: document.contentType,
       }
+    },
+
+    async listMeteringPoints(projectId: string): Promise<MeteringPointRow[]> {
+      /*
+       * ⚠ FAIL CLOSED IM SINN DIESES WERKZEUGS: eine leere Liste heisst für den Ausführer „es gibt
+       * keinen Zählpunkt, an den ich schreiben könnte" — und genau das ist bei einem Lesefehler die
+       * richtige Folge. Sie deckt sich mit der Antwort des Wrappers auf ein fremdes Projekt
+       * (`not_found`), der beides bewusst nicht unterscheidet. Protokolliert wird trotzdem: ein
+       * dauerhaft unlesbarer Zählpunkt-Bestand ist von „noch keiner angelegt" sonst nicht zu
+       * unterscheiden, und der Kunde bekäme jedes Mal denselben Satz über eine interne Einrichtung.
+       */
+      const supabase = await createClient()
+      const { data, error } = await supabase.rpc('list_metering_points', {
+        p_project_id: projectId,
+      })
+      const result = asWrapperStatus(data, error)
+
+      if (result.status !== 'ok') {
+        console.error('[project-chat] Zählpunkte nicht lesbar:', result.status, error)
+        return []
+      }
+      if (!Array.isArray(result.metering_points)) return []
+
+      return (result.metering_points as Record<string, unknown>[])
+        .map((row): MeteringPointRow | null => {
+          const id = row.id
+          if (typeof id !== 'string' || id === '') return null
+          return {
+            id,
+            /*
+             * ⚠ `null` und „kein Lastgang eingelesen" sind DIESELBE Aussage und müssen es bleiben.
+             * Ein Rückfall auf 15 wäre die naheliegende Bequemlichkeit und behauptete ein
+             * Messintervall, das niemand gemessen hat — die Spalte trägt genau deshalb keinen
+             * Default (Migration 20260911120000, TEIL 1).
+             */
+            interval_minutes: typeof row.interval_minutes === 'number' ? row.interval_minutes : null,
+            covered_from: typeof row.covered_from === 'string' ? row.covered_from : null,
+            covered_to: typeof row.covered_to === 'string' ? row.covered_to : null,
+            // `gaps` ist in der Datenbank NOT NULL mit Default `[]`; ein Nicht-Array kann nur aus
+            // einem unerwarteten jsonb stammen und wird zur leeren Liste — „keine gemessene Lücke"
+            // ist die vorsichtigere der beiden möglichen Falschaussagen.
+            gaps: Array.isArray(row.gaps) ? (row.gaps as MeteringPointGap[]) : [],
+            source_document_id:
+              typeof row.source_document_id === 'string' ? row.source_document_id : null,
+            /*
+             * `draft` ist `not null default '{}'` mit CHECK auf ein Objekt — der Rückfall ist reine
+             * Vorsicht gegen ein unerwartetes jsonb. ⚠ Ein leeres Objekt ist dabei die richtige
+             * Notlösung und kein Informationsverlust: „noch nichts erhoben" ist genau das, was ein
+             * unlesbarer Entwurf für den Aufrufer bedeuten soll — die Vollständigkeitsprüfung
+             * meldet dann alles als fehlend statt eine Angabe zu behaupten.
+             */
+            draft:
+              row.draft !== null && typeof row.draft === 'object' && !Array.isArray(row.draft)
+                ? (row.draft as Record<string, unknown>)
+                : {},
+          }
+        })
+        .filter((row): row is MeteringPointRow => row !== null)
+    },
+
+    async setMeteringPointLoadProfile(
+      meteringPointId,
+      documentId,
+      intervalMinutes,
+      coveredFrom,
+      coveredTo,
+      gaps,
+    ) {
+      /*
+       * Die vier Angaben gehen GEMEINSAM hinaus, weil der Wrapper sie gemeinsam ersetzt: ein
+       * Zählpunkt trägt genau EINEN gelesenen Zeitraum, und ein feldweises Nachziehen erzeugte
+       * Zwischenstände, in denen `gaps` zu einem anderen Dokument gehörte als `covered_from`.
+       *
+       * ⚠ `p_gaps` wird IMMER mitgeschickt, auch als leeres Array: der Vorgabewert des Wrappers
+       * (`'[]'`) ist derselbe Wert, aber weggelassen sähe „keine Lücke gemessen" wie „dazu wurde
+       * nichts gesagt" aus — und der Unterschied ist der ganze Zweck des Feldes.
+       */
+      const supabase = await createClient()
+      const { data, error } = await supabase.rpc('set_metering_point_load_profile', {
+        p_metering_point_id: meteringPointId,
+        p_source_document_id: documentId,
+        p_interval_minutes: intervalMinutes,
+        p_covered_from: coveredFrom,
+        p_covered_to: coveredTo,
+        p_gaps: gaps as unknown as Json,
+      })
+      return asWrapperStatus(data, error)
     },
 
     async loadSystemPromptExtension(): Promise<SystemPromptExtension | null> {

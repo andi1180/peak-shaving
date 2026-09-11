@@ -1,4 +1,10 @@
 import type Anthropic from '@anthropic-ai/sdk'
+/*
+ * ⚠ NUR ALS TYP. `extractors` ist `server-only`; ein Wert-Import machte diese Datei — und damit
+ * `executor.ts` und jeden darauf gebauten Test — server-gebunden. `import type` wird von TypeScript
+ * restlos entfernt, es bleibt zur Laufzeit nichts übrig.
+ */
+import type { LoadProfileOutcome } from 'extractors'
 import type {
   BatteryTextExtraction,
   InvoiceExtraction,
@@ -83,6 +89,22 @@ export type ProjectSegment = (typeof PROJECT_SEGMENTS)[number]
  */
 export const INDUSTRY_KEY_PATTERN = /^[a-z0-9][a-z0-9_]*$/
 
+/**
+ * Was am PROJEKT steht — und ausdrücklich NICHT der Entwurf.
+ *
+ * ⚠ `draft` ist hier seit der Migration 20260911150000 WEG. Er liegt am ZÄHLPUNKT
+ * (`MeteringPointRow.draft`), weil jedes Feld von `tariffParamsSchema` eine Tarif-/Vertragsangabe
+ * ist und ein Vertrag je Zählpunkt geschlossen wird — am Projekt abgelegt überschriebe der zweite
+ * Zählpunkt still die Angaben des ersten.
+ *
+ * Was bleibt, ist das Gegenbeispiel und belegt die Regel: „Privathaushalt oder Betrieb" und „Hotel
+ * oder Tischlerei" sind Eigenschaften des KUNDEN, nicht eines Anschlusses.
+ *
+ * ⚠ `get_project` LIEFERT `draft` WEITERHIN MIT (die Spalte ist eingefroren, nicht gedroppt — in
+ * Produktion liegt ein realer Bestand darin, und es gibt kein Ziel, an das er gehörte). Dass er
+ * hier nicht mehr steht, ist die Entscheidung des Anwendungscodes: was dieser Typ nicht trägt, kann
+ * kein Aufrufer versehentlich als „den Entwurf" lesen.
+ */
 export interface ProjectSnapshot {
   segment: ProjectSegment | null
   /**
@@ -92,8 +114,6 @@ export interface ProjectSnapshot {
    * Wertemenge, anderer Zweck (Spaltenkommentar der Migration 20260910120000).
    */
   industry: string | null
-  /** Der laufende Entwurf (`platform.projects.draft`). Immer ein Objekt, nie `null`. */
-  draft: Record<string, unknown>
 }
 
 /**
@@ -155,6 +175,42 @@ export interface ProjectDocumentRow {
   content_type: string
 }
 
+/**
+ * Ein Bereich ohne Messwerte, so wie er in `platform.metering_points.gaps` steht.
+ *
+ * Halboffen (`[from, to)`) und ISO/UTC — dieselbe Konvention wie `covered_from`/`covered_to`.
+ */
+export interface MeteringPointGap {
+  from: string
+  to: string
+}
+
+/**
+ * Ein Zählpunkt, so wie `list_metering_points` ihn liefert.
+ *
+ * ⚠ `interval_minutes === null` heisst „es wurde noch KEIN Lastgang eingelesen" — nicht „kein
+ * Intervall". `gaps` ist dagegen NIE null (Spalten-Default `[]`): ein leeres Array heisst
+ * „keine Lücke über der Toleranzschwelle gemessen", und das ist eine andere Aussage als „nichts
+ * gemessen". Die zwei auseinanderzuhalten ist der ganze Zweck dieser zwei Felder.
+ */
+export interface MeteringPointRow {
+  id: string
+  interval_minutes: number | null
+  covered_from: string | null
+  covered_to: string | null
+  gaps: MeteringPointGap[]
+  source_document_id: string | null
+  /**
+   * Der laufende Entwurf DIESES Zählpunkts (`platform.metering_points.draft`). Immer ein Objekt,
+   * nie `null` — die Spalte trägt `not null default '{}'`.
+   *
+   * ⚠ Ein leeres Objekt heisst „zu diesem Zählpunkt wurde noch nichts erhoben", nicht „es gibt
+   * nichts zu erheben". Dieselbe Unterscheidung wie bei `gaps` eine Zeile darüber, nur in die
+   * andere Richtung.
+   */
+  draft: Record<string, unknown>
+}
+
 /** Die Bytes eines Dokuments, nachdem die DATENBANK dem Zugriff zugestimmt hat. */
 export interface ProjectDocumentContent {
   bytes: ArrayBuffer
@@ -186,6 +242,23 @@ export interface ChatExtractors {
   extractPvDesign(pdfBase64: string): Promise<ExtractorOutcome<PvDesignExtraction>>
   /** `apps/website/lib/battery-text/extract.ts` */
   extractBatteryText(text: string): Promise<ExtractorOutcome<BatteryTextExtraction>>
+  /**
+   * `packages/extractors/src/load-profile/extract.ts` — der EINZIGE Leser ohne Modellaufruf.
+   *
+   * ⚠ SYNCHRON, anders als die vier darüber, und das ist keine Nachlässigkeit: das Lesen ist
+   * deterministisches Parsen im selben Prozess, es gibt kein Netz und keine Abrechnung. Ihn als
+   * `Promise` zu deklarieren behauptete eine Aussenwelt, die es nicht gibt.
+   *
+   * Er steht trotzdem als PORT und nicht als Import in `executor.ts`: `extractors` ist
+   * `server-only`, und ein Wert-Import dort machte `executor.test.ts` unlauffähig (das Paket wirft
+   * ausserhalb einer Server-Umgebung). Dass die Logik selbst rein und isomorph ist, ändert daran
+   * nichts — sie liegt hinter einer server-only Paketgrenze.
+   *
+   * ⚠ Und ein zweiter Grund, der bleibt: das Parsen einer 25-MB-Datei blockiert die Ereignisschleife
+   * für die Dauer des Laufs. Das ist in einer Funktion, die ohnehin einen Turn bedient, vertretbar
+   * — aber es ist der Grund, aus dem dieser Aufruf nicht beiläufig irgendwo sonst stehen sollte.
+   */
+  readLoadProfile(bytes: ArrayBuffer, fileName: string): LoadProfileOutcome
 }
 
 /**
@@ -242,7 +315,11 @@ export interface ProjectChatPorts {
     content: Anthropic.ContentBlockParam[],
   ): Promise<WrapperStatus>
   /**
-   * `public.update_project_draft` — ERSETZT den Entwurf.
+   * `public.update_project_draft` — setzt Segment und Branche.
+   *
+   * ⚠ DER WRAPPER-NAME IST HISTORISCH: seit der Migration 20260911150000 fasst er den Entwurf
+   * NICHT MEHR an (der liegt am Zählpunkt, s. `saveMeteringPointDraft`). Der Port heisst deshalb
+   * weiterhin `saveProject` und nicht `saveDraft` — er beschreibt, WAS er schreibt.
    *
    * `segment` und `industry` weggelassen heissen UNVERÄNDERT, nicht „löschen" (Lesart
    * `capture_lead`, im Wrapper begründet). Eine Branche nimmt der Wrapper nur an, wenn das nach
@@ -250,9 +327,23 @@ export interface ProjectChatPorts {
    */
   saveProject(
     projectId: string,
-    draft: Record<string, unknown>,
     segment?: ProjectSegment,
     industry?: string,
+  ): Promise<WrapperStatus>
+  /**
+   * `public.update_metering_point_draft` — ERSETZT den Entwurf EINES Zählpunkts.
+   *
+   * ⚠ ERSETZEN, nicht verschmelzen: eine flache Verschmelzung könnte einen Schlüssel nie wieder
+   * ENTFERNEN, und genau das löst eine Korrektur im Gespräch aus („doch keine Leistungsmessung").
+   * Der Aufrufer muss deshalb den vollständigen, frisch gelesenen Entwurf hineingeben — dieselbe
+   * Auflage, die `setDraftField` in `draft.ts` an ihrem Kopf trägt.
+   *
+   * `not_found` heisst wie überall: „gibt es nicht ODER gehört jemand anderem" — der Wrapper prüft
+   * `platform.project_accessible` über das Projekt des Zählpunkts.
+   */
+  saveMeteringPointDraft(
+    meteringPointId: string,
+    draft: Record<string, unknown>,
   ): Promise<WrapperStatus>
   /** `public.list_open_questions` ohne Filter — alle Status, damit „bereits beantwortet" sichtbar ist. */
   listOpenQuestions(projectId: string): Promise<OpenQuestionRow[]>
@@ -273,6 +364,30 @@ export interface ProjectChatPorts {
   listDocuments(projectId: string): Promise<ProjectDocumentRow[]>
   /** `get_project_document` + Bytes aus dem Bucket. `null` bei fremd/unbekannt. */
   readDocument(documentId: string): Promise<ProjectDocumentContent | null>
+  /**
+   * `public.list_metering_points` — die Zählpunkte des Projekts, ÄLTESTE ZUERST.
+   *
+   * ⚠ Eine leere Liste heisst „es gibt noch keine" UND „das Projekt gehört jemand anderem" — der
+   * Wrapper unterscheidet beides bewusst nicht. Für den Ausführer ist das kein Problem: er kennt
+   * das Projekt bereits aus `loadProject`, und ohne Zählpunkte kann er ohnehin nichts schreiben.
+   */
+  listMeteringPoints(projectId: string): Promise<MeteringPointRow[]>
+  /**
+   * `public.set_metering_point_load_profile` — schreibt die GELESENEN Metadaten an einen Zählpunkt.
+   *
+   * ⚠ Es gibt hier bewusst KEIN Gegenstück zum Anlegen eines Zählpunkts. Die Zahl der Zählpunkte
+   * ist eine fachliche Frage, die der Fragenkatalog stellen soll; bis dahin legt ein Mensch sie über
+   * `admin_set_metering_point_count` an. Ein Port dafür machte das Modell zum Entscheider über die
+   * Struktur eines Betriebs, bevor jemand entschieden hat, wie danach gefragt wird.
+   */
+  setMeteringPointLoadProfile(
+    meteringPointId: string,
+    documentId: string,
+    intervalMinutes: number,
+    coveredFrom: string,
+    coveredTo: string,
+    gaps: MeteringPointGap[],
+  ): Promise<WrapperStatus>
   /**
    * `public.get_system_prompt_extension` — der heute geltende Stand, oder `null`.
    *

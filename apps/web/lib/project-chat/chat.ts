@@ -7,6 +7,7 @@ import {
   extractBatteryText,
   extractInvoiceData,
   extractPvDesign,
+  readLoadProfile,
 } from 'extractors'
 
 /*
@@ -83,6 +84,9 @@ const DEFAULT_EXTRACTORS: ChatExtractors = {
   extractInvoiceData,
   extractPvDesign,
   extractBatteryText,
+  // ⚠ Der einzige ohne Modellaufruf: deterministisches Parsen im selben Prozess, synchron, ohne
+  // Abrechnung. Begründung an der Port-Definition in `ports.ts`.
+  readLoadProfile,
 }
 
 /**

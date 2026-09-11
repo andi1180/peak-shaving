@@ -13,6 +13,7 @@ import { readDraftProvenance } from './draft'
 import {
   assistantSays,
   createMemoryPorts,
+  fakeMeteringPoint,
   fakePdf,
   scriptedModel,
   toolUse,
@@ -42,6 +43,8 @@ import { PROJECT_CHAT_SYSTEM_PROMPT } from './system-prompt'
  */
 
 const PROJECT = '11111111-2222-4333-8444-555555555555'
+/** Der Zählpunkt, an dem der Entwurf dieses Projekts hängt (Migration 20260911150000). */
+const MP = 'aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa'
 
 function invoiceWith(energyPriceCtPerKwh: number) {
   const base = emptyInvoiceExtraction()
@@ -53,6 +56,13 @@ function portsWithTwoInvoices(): MemoryPorts {
   let call = 0
   return createMemoryPorts({
     projectId: PROJECT,
+    /*
+     * ⚠ EIN ZÄHLPUNKT IST SEIT DER MIGRATION 20260911150000 VORAUSSETZUNG DIESES DIALOGS: der
+     * Entwurf hängt an ihm, und `set_draft_field` verlangt seine Kennung. Ohne ihn führte das
+     * Drehbuch unten ins Leere — nicht weil die Schleife falsch liefe, sondern weil es nichts gäbe,
+     * worin ein Wert stehen könnte.
+     */
+    meteringPoints: [fakeMeteringPoint(MP)],
     documents: [
       { id: 'doc-a', original_filename: 'rechnung-2024.pdf', content_type: 'application/pdf' },
       { id: 'doc-b', original_filename: 'rechnung-2025.pdf', content_type: 'application/pdf' },
@@ -114,6 +124,7 @@ describe('Mehrfach-Turn-Dialog: Rechnung, Widerspruch, Annahme', () => {
           assumption_note: 'Die jüngere Rechnung (2025) sollte den heute gültigen Satz tragen.',
         }),
         toolUse('tu_set', 'set_draft_field', {
+          metering_point_id: MP,
           field: 'energyPriceCtPerKwh',
           value: 26.1,
           source: 'assumed',
@@ -140,9 +151,10 @@ describe('Mehrfach-Turn-Dialog: Rechnung, Widerspruch, Annahme', () => {
       assumption_note: 'Die jüngere Rechnung (2025) sollte den heute gültigen Satz tragen.',
     })
 
-    // Und die Annahme steht als solche gekennzeichnet im Entwurf (§3.2).
-    expect(ports.project.draft.energyPriceCtPerKwh).toBe(26.1)
-    expect(readDraftProvenance(ports.project.draft).energyPriceCtPerKwh?.source).toBe('assumed')
+    // Und die Annahme steht als solche gekennzeichnet im Entwurf DES ZÄHLPUNKTS (§3.2).
+    const draft = ports.meteringPoints[0]!.draft
+    expect(draft.energyPriceCtPerKwh).toBe(26.1)
+    expect(readDraftProvenance(draft).energyPriceCtPerKwh?.source).toBe('assumed')
 
     // ── TURN 3: Der Zustand reist mit ───────────────────────────────────────────────────────────
     const turn3 = scriptedModel([[assistantSays('Weiter geht es mit dem Leistungspreis.')]])
@@ -557,7 +569,8 @@ describe('set_industry', () => {
   it('setzt die Branche bei segment = betrieb', async () => {
     const ports = createMemoryPorts({
       projectId: PROJECT,
-      project: { segment: 'betrieb', draft: { energyPriceCtPerKwh: 24.4 } },
+      project: { segment: 'betrieb' },
+      meteringPoints: [fakeMeteringPoint(MP, { draft: { energyPriceCtPerKwh: 24.4 } })],
     })
 
     const { payload, isError } = await runIndustryTurn(ports, 'kfz_werkstatt')
@@ -565,8 +578,14 @@ describe('set_industry', () => {
     expect(isError).toBeUndefined()
     expect(payload).toEqual({ industry: 'kfz_werkstatt' })
     expect(ports.project.industry).toBe('kfz_werkstatt')
-    // ⚠ Der Entwurf überlebt: der Wrapper ERSETZT ihn, der Ausführer muss ihn also mitschicken.
-    expect(ports.project.draft).toEqual({ energyPriceCtPerKwh: 24.4 })
+    /*
+     * ⚠ Der Entwurf überlebt — und zwar ab jetzt STRUKTURELL statt durch Sorgfalt: `set_industry`
+     * schreibt eine Projektspalte, der Entwurf hängt am Zählpunkt, die beiden können einander gar
+     * nicht mehr erreichen. Bis zur Migration 20260911150000 musste der Ausführer den Entwurf
+     * mitschicken, weil der Wrapper ihn sonst ERSETZT hätte.
+     */
+    expect(ports.meteringPoints[0]!.draft).toEqual({ energyPriceCtPerKwh: 24.4 })
+    expect(ports.calls.saveMeteringPointDraft).toBeUndefined()
   })
 
   it('⚠ bei segment = privat wird ABGELEHNT und nichts geschrieben', async () => {

@@ -3,7 +3,12 @@ import {
   type DraftProvenance,
   readDraftProvenance,
 } from './draft'
-import type { OpenQuestionRow, ProjectDocumentRow, ProjectSnapshot } from './ports'
+import type {
+  MeteringPointRow,
+  OpenQuestionRow,
+  ProjectDocumentRow,
+  ProjectSnapshot,
+} from './ports'
 import { missingExtractionTools } from './tools'
 import type { ChatExtractors } from './ports'
 
@@ -175,12 +180,12 @@ export function composeSystemPrompt(extension: string | null): string {
  */
 export function buildProjectStateBlock(input: {
   project: ProjectSnapshot
+  meteringPoints: readonly MeteringPointRow[]
   documents: readonly ProjectDocumentRow[]
   openQuestions: readonly OpenQuestionRow[]
   extractors: Partial<ChatExtractors>
 }): string {
-  const { project, documents, openQuestions, extractors } = input
-  const provenance = readDraftProvenance(project.draft)
+  const { project, meteringPoints, documents, openQuestions, extractors } = input
 
   const lines: string[] = ['── Stand dieses Projekts ──']
 
@@ -211,9 +216,44 @@ export function buildProjectStateBlock(input: {
     )
   }
 
-  lines.push('', 'Entwurf:')
-  const draftLines = describeDraft(project.draft, provenance)
-  lines.push(...(draftLines.length > 0 ? draftLines : ['  (noch leer)']))
+  /*
+   * ══════════════════════════════════════════════════════════════════════════════════════════════
+   * ⚠ DER ENTWURF STEHT JE ZÄHLPUNKT, NICHT EINMAL FÜRS PROJEKT
+   * ══════════════════════════════════════════════════════════════════════════════════════════════
+   * Seit der Migration 20260911150000 hat jeder Zählpunkt seinen eigenen Entwurf — Tarif und
+   * Vertrag hängen am Anschluss, nicht am Betrieb. Hier zu EINEM Block zusammengefasst sähe das
+   * Modell einen Entwurf, den es so nirgends schreiben kann: `set_draft_field` verlangt eine
+   * `metering_point_id`, und zwei Anschlüsse mit zwei Arbeitspreisen ergäben in einer Liste zwei
+   * einander widersprechende Zeilen ohne Hinweis darauf, dass beide stimmen.
+   *
+   * Die Kennung steht deshalb an JEDER Überschrift: sie ist das Argument, das der nächste Aufruf
+   * braucht, und ohne sie müsste das Modell erst `check_draft_completeness` rufen, um sie zu
+   * erfahren.
+   */
+  lines.push('', 'Zählpunkte und ihre Entwürfe:')
+  if (meteringPoints.length === 0) {
+    /*
+     * ⚠ Der Satz sagt ausdrücklich, dass das Modell das NICHT beheben kann. Es gibt kein Werkzeug,
+     * das einen Zählpunkt anlegt (die Zahl der Zählpunkte entscheidet ein Mensch,
+     * `admin_set_metering_point_count`) — ohne diesen Hinweis versuchte das Modell es und sagte dem
+     * Kunden etwas zu, was es nicht einlösen kann.
+     */
+    lines.push(
+      '  (noch keine angelegt — ohne Zählpunkt gibt es keinen Entwurf, den du füllen könntest.',
+      '   Du kannst selbst keinen anlegen: sag es dem Kunden und halte es mit flag_open_question fest.)',
+    )
+  } else {
+    meteringPoints.forEach((row, index) => {
+      const coverage =
+        row.interval_minutes === null
+          ? 'noch kein Lastgang eingelesen'
+          : `${row.interval_minutes}-min-Werte, ${row.covered_from} bis ${row.covered_to}` +
+            `, ${row.gaps.length} Lücke(n)`
+      lines.push(`  Zählpunkt ${index + 1} (${row.id}) — ${coverage}`)
+      const draftLines = describeDraft(row.draft, readDraftProvenance(row.draft))
+      lines.push(...(draftLines.length > 0 ? draftLines.map((line) => `  ${line}`) : ['    (noch leer)']))
+    })
+  }
 
   lines.push('', 'Hochgeladene Dokumente:')
   lines.push(

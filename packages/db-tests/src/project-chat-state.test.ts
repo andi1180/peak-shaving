@@ -61,10 +61,16 @@ import {
 /** Die zwölf public-Wrapper, die dieser Bauschritt neu anlegt. */
 const WRAPPER_SIGNATURES = {
   get_project: 'public.get_project(uuid)',
-  // ⚠ NACHGEZOGEN (Migration 20260910150000): der vierte Parameter `p_industry` ist per DROP+CREATE
-  // dazugekommen. Die exakte Signatur bleibt gepinnt — sie ist die Absicherung dagegen, dass eine
-  // zweite Überladung daneben entsteht, die ein Aufruf mit weniger Argumenten still trifft.
-  update_project_draft: 'public.update_project_draft(uuid, jsonb, text, text)',
+  /*
+   * ⚠ ZWEIMAL NACHGEZOGEN, und beim zweiten Mal BRECHEND:
+   *   - 20260910150000: `p_industry` kam per DROP+CREATE dazu.
+   *   - 20260911150000: `p_draft` ist per DROP+CREATE WEGGEFALLEN — der Entwurf liegt seither am
+   *     ZÄHLPUNKT (`update_metering_point_draft`). Der NAME ist historisch geblieben.
+   * Die exakte Signatur bleibt gepinnt: sie ist die Absicherung dagegen, dass eine zweite
+   * Überladung daneben entsteht, die ein Aufruf mit weniger Argumenten still trifft — bei einem
+   * DROP+CREATE mit geänderter Parameterliste ist das die reale Gefahr.
+   */
+  update_project_draft: 'public.update_project_draft(uuid, text, text)',
   append_project_message: 'public.append_project_message(uuid, text, jsonb)',
   list_project_messages: 'public.list_project_messages(uuid, integer, integer)',
   append_project_document: 'public.append_project_document(uuid, uuid, text, text)',
@@ -438,7 +444,7 @@ describe('B24 Chat-Zustand — Eigentum und Fremdzugriff', () => {
 
     const calls: [string, unknown[]][] = [
       ['public.get_project($1)', [projectId]],
-      ['public.update_project_draft($1, $2)', [projectId, JSON.stringify({ x: 1 })]],
+      ['public.update_project_draft($1, $2)', [projectId, 'betrieb']],
       ['public.append_project_message($1, $2, $3)', [projectId, 'user', JSON.stringify([{ type: 'text' }])]],
       ['public.list_project_messages($1)', [projectId]],
       ['public.append_project_document($1, $2, $3, $4)', [projectId, randomUUID(), 'x.pdf', 'application/pdf']],
@@ -582,40 +588,19 @@ describe('B24 Chat-Zustand — Verlauf und Entwurf', () => {
     expect(typeof out.total).toBe('number')
   })
 
-  it('update_project_draft ERSETZT den Entwurf, statt ihn zu verschmelzen', async () => {
-    const user = await newUser()
-    const { projectId } = await createProjectFor(user)
-
-    await callAs(user, 'public.update_project_draft($1, $2)', [
-      projectId,
-      JSON.stringify({ energyPriceCtPerKwh: 25, meteringVariant: 'mit_leistungsmessung' }),
-    ])
-    let out = await readAs<{ project: { draft: Record<string, unknown> } }>(
-      user,
-      'public.get_project($1)',
-      [projectId],
-    )
-    expect(out.project.draft).toEqual({
-      energyPriceCtPerKwh: 25,
-      meteringVariant: 'mit_leistungsmessung',
-    })
-
-    // Der eigentliche Nachweis: ein Schlüssel VERSCHWINDET wieder. Eine flache Verschmelzung könnte
-    // das nicht — und genau diese Bewegung löst eine Korrektur im Gespräch aus.
-    await callAs(user, 'public.update_project_draft($1, $2)', [
-      projectId,
-      JSON.stringify({ energyPriceCtPerKwh: 30 }),
-    ])
-    out = await readAs(user, 'public.get_project($1)', [projectId])
-    expect(out.project.draft).toEqual({ energyPriceCtPerKwh: 30 })
-  })
-
+  /*
+   * ⚠ DER ENTWURFS-TEIL DIESER FUNKTION IST AN DEN ZÄHLPUNKT GEWANDERT (Migration 20260911150000).
+   * Der Nachweis „ERSETZT statt verschmilzt" steht deshalb ab jetzt in
+   * `metering-point-draft.test.ts` — er ist nicht entfallen, er misst nur die richtige Ebene.
+   * Was hier bleibt, ist alles, was diese Funktion NOCH tut.
+   */
   it('p_segment null heisst UNVERÄNDERT, nicht löschen', async () => {
     const user = await newUser()
     const { projectId } = await createProjectFor(user)
 
-    await callAs(user, 'public.update_project_draft($1, $2, $3)', [projectId, '{}', 'betrieb'])
-    await callAs(user, 'public.update_project_draft($1, $2)', [projectId, JSON.stringify({ a: 1 })])
+    await callAs(user, 'public.update_project_draft($1, $2)', [projectId, 'betrieb'])
+    // Ein Aufruf, der das Segment gar nicht nennt — er darf es nicht leeren.
+    await callAs(user, 'public.update_project_draft($1)', [projectId])
 
     const out = await readAs<{ project: { segment: string | null } }>(
       user,
@@ -627,23 +612,51 @@ describe('B24 Chat-Zustand — Verlauf und Entwurf', () => {
     expect(out.project.segment).toBe('betrieb')
   })
 
-  it('ungültiger Entwurf und ungültiges Segment werden als STATUS abgewiesen', async () => {
+  it('ein ungültiges Segment wird als STATUS abgewiesen', async () => {
     const user = await newUser()
     const { projectId } = await createProjectFor(user)
 
     // Ein roher 23514 aus dem CHECK trüge keinen Feldbezug, den eine Oberfläche anzeigen könnte.
     expect(
-      await readAs(user, 'public.update_project_draft($1, $2)', [projectId, JSON.stringify([1, 2])]),
-    ).toEqual({ status: 'invalid_draft' })
-    expect(
-      await readAs(user, 'public.update_project_draft($1, $2, $3)', [projectId, '{}', 'hotel']),
+      await readAs(user, 'public.update_project_draft($1, $2)', [projectId, 'hotel']),
     ).toEqual({ status: 'invalid_segment' })
 
-    const [row] = await sql<{ draft: unknown; segment: string | null }>(
-      `select draft, segment from platform.projects where id = $1`,
+    const [row] = await sql<{ segment: string | null }>(
+      `select segment from platform.projects where id = $1`,
       [projectId],
     )
-    expect(row).toEqual({ draft: {}, segment: null })
+    expect(row).toEqual({ segment: null })
+  })
+
+  /*
+   * ⚠ DIE EINGEFRORENE SPALTE: `platform.projects.draft` steht noch, wird aber von KEINEM Wrapper
+   * mehr geschrieben (Migration 20260911150000 TEIL 5 — in Produktion liegt ein realer Bestand
+   * darin, für den es kein Ziel gibt). Ohne diesen Test fiele erst im Betrieb auf, wenn jemand die
+   * Kopplung wieder einzöge: es gäbe dann zwei Entwürfe nebeneinander, und welcher gilt, entschiede
+   * der Zufall des Aufrufwegs.
+   */
+  it('⚠ update_project_draft fasst platform.projects.draft NICHT mehr an', async () => {
+    const user = await newUser()
+    const { projectId } = await createProjectFor(user)
+
+    // Ein Bestand, wie ihn die Produktion trägt — von Hand gesetzt, weil es keinen Wrapper gibt.
+    await sql(`update platform.projects set draft = $2::jsonb where id = $1`, [
+      projectId,
+      JSON.stringify({ energyPriceCtPerKwh: 25 }),
+    ])
+
+    await callAs(user, 'public.update_project_draft($1, $2, $3)', [projectId, 'betrieb', 'hotel'])
+
+    const [row] = await sql<{ draft: Record<string, unknown>; segment: string; industry: string }>(
+      `select draft, segment, industry from platform.projects where id = $1`,
+      [projectId],
+    )
+    // Segment und Branche sind gesetzt — und der Archivstand ist unberührt.
+    expect(row).toEqual({
+      draft: { energyPriceCtPerKwh: 25 },
+      segment: 'betrieb',
+      industry: 'hotel',
+    })
   })
 })
 
