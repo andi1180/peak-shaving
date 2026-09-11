@@ -28,6 +28,60 @@
 > rechtlich beim Betreiber liegt, nicht bei COOLiN oder dem Installateur
 > direkt.
 >
+> **v4 — Stand: 12.08.2026.** Aus der Diskussion zum Nutzungsfluss (wer legt
+> Nutzer an, wie finden Installateure das richtige Objekt, wie bleibt das bei
+> vielen Installateuren/Objekten sauber) und zu Martins
+> Netzwerk-Topologie-Grafik. Gegenüber v3: Betreiber wird eigene Entität statt
+> einer Referenz unklarer Form (§6.2) — nötig, damit mehrere Zugriffsobjekte
+> eines Kunden gruppiert werden können und eine spätere Betreiber-Anmeldung
+> sauber andockt. Zweite Zuweisungsebene „Freigabe" (Person↔Objekt) ergänzt
+> die bestehende „Zuweisung" (Firma↔Objekt) — setzt den bereits in v3
+> formulierten Rollentext („Techniker greift nur auf ihm/ihr zugewiesene
+> Objekte zu") erstmals tatsächlich im Datenmodell um (§6.2). Zwei
+> Ablaufregeln empfohlen, Bestätigung von Martin ausständig: nur Firmenadmin
+> legt Objekte an, erster Firmenadmin je Firma COOLiN-vermittelt (§6.2).
+> Login-Ablauf für §6.1 konkretisiert: Passwort und TOTP immer beide, nie
+> TOTP allein, plus empfohlene erneute TOTP-Bestätigung beim tatsächlichen
+> Auslösen einer Zugriffssitzung, nicht nur beim Login. Neuer Abschnitt §7.5
+> „Risiko & Antwort": geprüft, ob Wechselrichter-Hersteller das Kernproblem
+> selbst lösen könnten (SMA unverändert wie in §1 beschrieben, Fronius nur
+> auf der Monitoring-Ebene bewegt, nicht auf der sicherheitsrelevanten
+> Konfigurationsebene) — Huawei/Growatt/Sungrow weiterhin ungeprüft, s. §9.
+> SIM-Datentarif-Bedarf (§7.3/§9) präzisiert: muss auch die laufende
+> Telemetrie des Wechselrichters zum eigenen Hersteller mit abdecken, nicht
+> nur COOLiN-Servicesitzungen. Fünf konkrete Fragen an Martin konsolidiert
+> und per E-Mail gestellt, in §9 nachgeführt. Netzwerk-Topologie aus Martins
+> Grafik geprüft: keine Änderung an §4.1/§4.3 — RUT200 war bereits als
+> isolierte, in Reihe geschaltete Lösung mit eigener SIM spezifiziert, eine
+> anfängliche Verwechslung dazu wurde im Gespräch selbst aufgeklärt.
+>
+> **v5 — Stand: 12.08.2026, später.** Aus der genauen Durchsprache, wo RUT200
+> physisch sitzt und was mit den Verbindungen passiert, die es ersetzt bzw.
+> nicht ersetzt. Klargestellt: RUT200 übernimmt für den Wechselrichter Switch-,
+> Router- und Firewall-Funktion in einem, bestehende Kundeninfrastruktur bleibt
+> unberührt (kein Tausch, keine Mitbenutzung — Begründung dazu ergänzt, warum
+> Mitbenutzung des Kundenrouters technisch nicht ausreicht und auch nicht
+> gewollt ist). Klargestellt, was nach dem Umbau ausschließlich über das
+> COOLiN-Portal läuft (Fernzugriff) und was bewusst getrennt bleibt (Vor-Ort-
+> Zugriff direkt an RUT200, Betreiber-Zugang beim Hersteller unverändert).
+> Neu erkannt und dokumentiert: die laufende Meldung des Wechselrichters an
+> seinen eigenen Hersteller hängt nach dem Umbau an RUT200 — bei
+> IP-Konfiguration ggf. einmalig anzupassen (§6.3), bei SIM-Ausfall
+> mitbetroffen, aufgefangen durch den ohnehin schon vorgesehenen
+> Ethernet/WLAN-Failover (§4.1, Konsequenz jetzt explizit benannt statt nur
+> implizit). Neue, vom eigenen Zugriffstest unabhängige Verifikationszeile für
+> Baustein 5 ergänzt (§6.3). Proaktives Konnektivitäts-Monitoring als spätere,
+> nicht MVP-blockierende Idee vorgemerkt (§9).
+>
+> **v6 — Stand: 12.08.2026, noch später.** Ersterfassungs-Mechanismus für den
+> ersten Firmenadmin präzisiert, während auf Martins Antwort gewartet wird —
+> weiterhin als Empfehlung markiert, nicht als Entscheidung: Registrierungs-
+> anfrage über das Portal, COOLiN prüft und schaltet frei (statt der bisher
+> offen gelassenen Frage, wie „COOLiN-vermittelt" genau abläuft). Konsequenz
+> für Baustein 3 jetzt explizit gemacht: braucht eine echte Anfrage-Funktion
+> plus Freigabe-Ansicht (§6.2, §6.6), kein bloßer Datenbank-Eintrag wie beim
+> ersten Kalkulator-Admin.
+>
 > Sprache: Deutsch (Projektsprache). **Technischer Weg: Teltonika only** als
 > konkrete Anbindung — das Datenmodell selbst ist bewusst anbieteroffen
 > gehalten, s. §8. Ewon/Talk2M wurde geprüft, verglichen, bewusst nicht
@@ -277,6 +331,21 @@ Box hängt nicht im Netzwerk Ihres Kunden").
   „Basic"-Stufe explizit mit Kundennetz-Anbindung, klar kommuniziert als
   „im Kundennetz, kein isolierter Zugang", neben der vollwertigen SIM-Variante.
 
+**Warum der Failover trotzdem wichtig ist, nicht nur ein Nice-to-have
+(neu, August 2026):** Der Wechselrichter meldet seine eigenen Daten
+weiterhin laufend an seinen Hersteller (Fronius Solar.web, SMA Sunny
+Portal etc., s. §6.3) — das läuft über denselben RUT200-Uplink wie unser
+eigener Zugriff. Fällt die SIM aus, verliert also nicht nur COOLiN den
+Zugriff, sondern auch der Betreiber seine gewohnte Ertragsübersicht beim
+Hersteller. Genau dafür ist der Failover da: Springt RUT200 bei
+SIM-Ausfall automatisch auf Ethernet/WLAN um, bleibt zumindest diese
+Meldung erhalten — nur während eines tatsächlichen Ausfalls, mit dem
+entsprechend kleinen, zeitlich begrenzten Kompromiss bei der Isolation.
+Kein neues Risiko gegenüber heute: Der Betreiber hängt schon jetzt an
+seinem eigenen Internetanschluss für dieselbe Sicht — die Abhängigkeit
+verschiebt sich nur von seinem Router zu unserer SIM, sie entsteht nicht
+neu.
+
 ### 4.2 Cloud-Schicht: Teltonika RMS — NICHT self-hosted
 
 - **RMS läuft bei Teltonika selbst auf AWS** (offiziell bestätigt: „RMS is
@@ -410,17 +479,38 @@ Supabase-Auth wird nur verdrahtet) zusammen mit 6.6 (Dashboard-Skeleton gegen
 Testdaten) als zweiter Prompt. 6.5 (Stripe) als dritter. 6.3/6.4 erst, sobald
 ein Gerät real registriert ist.
 
-### 6.1 Login + MFA
+### 6.1 Login + MFA (konkretisiert, August 2026)
+
 **Kein Neubau.** Gleiche Auth-Schicht wie für Pro-Kalkulator und Haushalts-Monitor
-geplant (Supabase Auth). Ein System für alle COOLiN-Produkte.
+geplant (Supabase Auth). Ein System für alle COOLiN-Produkte. Supabase Auth
+bringt TOTP-MFA bereits fertig mit (kostenlos, standardmäßig aktiv) — kein
+Grund, hier etwas Eigenes zu bauen.
+
+**Ablauf, damit hier keine Unklarheit bleibt:** Passwort und TOTP-Code sind
+immer beide nötig, nie TOTP allein — Supabase unterscheidet intern zwischen
+einer Sitzung nur mit Passwort („AAL1") und einer mit zusätzlich bestätigtem
+TOTP-Faktor („AAL2"); nur Letzteres gilt hier als vollständig angemeldet.
+TOTP ist app-unabhängig (Google Authenticator, Authy, jede andere
+TOTP-App) — keine Bindung an ein bestimmtes Produkt.
+
+**Empfehlung, noch nicht umgesetzt:** Zusätzliche TOTP-Bestätigung genau in
+dem Moment, in dem eine Person eine Zugriffssitzung auf ein konkretes
+Zugriffsobjekt auslöst (§6.3) — nicht nur beim Login. Technisch nur ein
+weiterer Aufruf der Supabase-„Reauthentication"-API, kein Sonderbau.
+Schließt die Lücke „Gerät bleibt eingeloggt liegen" genau am
+sicherheitsrelevantesten Punkt — dem tatsächlichen Zugriff, nicht nur dem
+Login.
 
 ### 6.2 Datenmodell (überarbeitet, August 2026)
 
-**Kern, generalisiert:** `Installateur` (Firma) → `Person` (Nutzer, gehört
-zu einem Installateur, trägt genau eine Rolle) → `Zugriffsobjekt`
-(Objekttyp + Anbieter + anbieterseitige Referenz; gehört dem **Betreiber**,
-nicht dem Installateur) → zeitlich befristete **Zuweisung** zwischen
-Installateur und Zugriffsobjekt (nicht fix).
+**Kern, generalisiert (erweitert, August 2026):** `Betreiber` (eigene
+Entität, s. u.) besitzt ein oder mehrere `Zugriffsobjekt` (Objekttyp +
+Anbieter + anbieterseitige Referenz). `Installateur` (Firma) beschäftigt
+`Person` (Nutzer, trägt genau eine Rolle). Zwei getrennte
+Verbindungsebenen: zeitlich befristete **Zuweisung** zwischen Installateur
+und Zugriffsobjekt (Firmenebene, wie in v3), und **Freigabe** zwischen
+einer einzelnen Person und einem Zugriffsobjekt (Personenebene, neu —
+Details unten).
 
 **Warum generalisiert statt „Anlage mit RUT200-ID":** Absehbar, dass künftig
 andere Hardware oder andere Zugriffsarten dasselbe Grundproblem haben
@@ -443,6 +533,16 @@ nicht der Zugang selbst. Ohne verpflichtende Betreiber-Referenz kann die
 Plattform genau diesen Nachweis nicht liefern und wäre technisch nur eine
 Oberfläche über RMS — das Verkaufsargument aus §7.4 würde entfallen.
 
+**Betreiber als eigene Tabelle, nicht als Textfeld** (Präzisierung
+gegenüber v3, dort blieb offen, ob „Pflichtfeld" einen Text oder eine
+Referenz meint — jetzt: Referenz auf einen echten Datensatz). Begründung:
+Ein Betreiber hat oft mehrere Zugriffsobjekte (mehrere Dachflächen, mehrere
+Gebäude). Als Text würde derselbe Kunde je nach Tippweise mehrfach und
+uneinheitlich auftauchen. Als eigene Entität lassen sich alle Objekte eines
+Kunden gruppiert anzeigen, und eine spätere Betreiber-Anmeldung (s.
+Prüfer-Rolle unten) hätte von Anfang an einen sauberen Datensatz zum
+Andocken, statt ihn nachträglich aus Freitext rekonstruieren zu müssen.
+
 **Objekt-Zuordnung zeitlich befristet, nicht fix:** Ein Zugriffsobjekt
 gehört dauerhaft dem Betreiber; die Zuweisung an einen Installateur trägt
 einen Gültigkeitszeitraum. Grund: Installateurwechsel beim Endkunden kommt
@@ -451,6 +551,27 @@ seine Aussagekraft verlieren, in dem sie am wichtigsten wäre — und die
 Nachweispflicht des Betreibers (§2.6) liefe ins Leere. Jede Neu- oder
 Umzuweisung ist ein Eintrag im Berechtigungsprotokoll (§6.4), kein bloß
 geändertes Feld.
+
+**Neu: zweite Zuweisungsebene „Freigabe" (Person↔Objekt), zusätzlich zur
+„Zuweisung" (Firma↔Objekt).** Der Rollentext unten sagte schon in v3
+„Techniker greift ausschließlich auf ihm/ihr zugewiesene Objekte zu" — ohne
+eigene Tabelle dafür wäre das nicht durchsetzbar gewesen, jeder Techniker
+hätte faktisch auf alle Objekte seiner Firma zugreifen können, sobald die
+Firma zugewiesen ist. Jetzt zwei getrennte Ebenen:
+
+- **Zuweisung** (Firma↔Objekt, befristet) — welches Installateur-Unternehmen
+  trägt gerade die Verantwortung für ein Objekt. Grundlage für Abrechnung
+  (§6.5) und den Betreiber-Bezug.
+- **Freigabe** (Person↔Objekt) — welche einzelne Person bei dieser Firma
+  tatsächlich Zugriffssitzungen auf dieses Objekt auslösen darf. Kann nur
+  auf Objekte verweisen, für die die eigene Firma gerade eine gültige
+  Zuweisung hat.
+
+Ein Techniker sieht im eigenen Dashboard ausschließlich, wofür eine
+Freigabe existiert — gruppiert nach Betreiber. Das ist die Antwort auf
+„wie findet der Installateur den richtigen Wechselrichter": nicht durch
+Suchen in einer langen Liste, sondern weil die eigene Liste durch die
+Freigaben von vornherein klein und relevant ist.
 
 **Rollenmodell (neu, ersetzt die bisherige Einzel-Rolle „Techniker"):**
 Rechtlich hergeleitet aus dem NISG-Katalog (§2.4: „Rollen, Verantwortlich-
@@ -472,13 +593,52 @@ anderen Ebene neu schafft.
   Anlage zugegriffen hat" ist das eigentliche Produktversprechen aus §7.4,
   nicht nur ein Zusatz-Feature.
 
+**Offen, hängt an einer noch ungeklärten Frage an Martin (§9):** Ob der
+Betreiber selbst jemals einen eigenen Login bei COOLiN bekommt (dann
+bräuchte die Prüfer-Rolle oben eine echte Betreiber-Variante), oder ob mit
+„Betreiber-Zugang" nur der bestehende Login beim Wechselrichter-Hersteller
+gemeint ist, der uns nichts angeht. Für den MVP gilt bis zur Klärung: kein
+Betreiber-Login, nur der Datensatz.
+
 Rechte hängen an der Person über ihre Rolle, nicht an einem geteilten
 Geheimnis — löst das Kernproblem aus §1 strukturell, unverändert aus v2.
+
+**Zwei Ablaufregeln, empfohlen, Bestätigung von Martin ausständig (§9):**
+- Ein neues Zugriffsobjekt (inkl. Betreiber-Zuordnung) anzulegen ist
+  ausschließlich Firmenadmin-Sache — auch wenn ein Techniker das Gerät
+  technisch vor Ort registriert hat. Meldet dieser Techniker die
+  Registrierung auf normalem Weg zurück (Anruf, intern), trägt der
+  Firmenadmin sie nach. Verhindert, dass die Rollentrennung genau an der
+  Stelle verwässert, an der sie am meisten zählt. Keine eigene
+  Antragsfunktion dafür im MVP nötig.
+- Der erste Firmenadmin einer neuen Installateur-Firma stellt über das
+  Portal eine Registrierungsanfrage (Firmendaten, Kontaktperson); COOLiN
+  prüft und schaltet frei — nicht per offener Selbstregistrierung ohne
+  Prüfung, aber auch nicht rein manuell wie der erste Kalkulator-Admin
+  (§6.4). Passt zum Vertriebsmodell aus §7.1 (kein offener Selbstlauf),
+  reduziert aber den manuellen Aufwand gegenüber einer rein COOLiN-
+  initiierten Anlage. **Konsequenz für den Bau:** braucht eine echte
+  Anfrage-Funktion im Portal plus eine Freigabe-Ansicht für COOLiN
+  (Baustein 3, s. §6.6) — kein bloßer Datenbank-Eintrag mehr, anders als
+  ursprünglich in v4 skizziert. Jede weitere Person danach: normale
+  Einladung durch den eigenen Firmenadmin, unverändert.
 
 ### 6.3 RMS-API-Integration
 - Zugriffsanfrage → MFA-Prüfung bestanden → Rechteprüfung (diese Person, diese
   Anlage, jetzt) → RMS-API: Connect-Link erzeugen → an Techniker durchreichen
 - Neue Anlage angelegt → RMS-API: Lizenz zuweisen (automatisiert statt manuell)
+- Bei Inbetriebnahme prüfen: Netzwerkkonfiguration des Wechselrichters (feste
+  IP oder DHCP) mit dem RUT200-internen Adressbereich abgleichen — bei fester
+  IP ggf. einmalig anpassen, sonst findet der Wechselrichter RUT200 unter
+  Umständen nicht
+
+**Eigene Verifikationszeile für Baustein 5, zusätzlich zum eigenen Zugriffstest
+(neu, August 2026):** Getrennt prüfen, dass die eigene Meldung des
+Wechselrichters an seinen Hersteller (Fronius/SMA-Portal) nach dem Umbau
+weiterhin ankommt — unabhängig davon, ob COOLiNs eigener Zugriff funktioniert.
+Beide Tests laufen unabhängig voneinander, keiner ersetzt den anderen; sonst
+funktioniert im schlechtesten Fall unser Zugriff einwandfrei, während der
+Betreiber beim Hersteller keine Daten mehr sieht, ohne dass es auffällt.
 
 ### 6.4 Protokollierung (erweitert, August 2026 — direkt aus §2.6 abgeleitet)
 
@@ -529,9 +689,15 @@ Kostenzuordnung pro Zugriffsobjekt von Anfang an** (reale ~80 € RMS-Lizenz
 Dashboard. Durchsetzung/Nachfassen bei Überschreitung bleibt vorerst
 manuell (Martin).
 
-### 6.6 Dashboard
+### 6.6 Dashboard (erweitert, August 2026)
 - **Installateur-Sicht:** eigene Anlagen, Techniker verwalten, Zugriff auslösen
-- **COOLiN-intern:** Kundenübersicht, Anlagenbestand, Support
+- **Registrierungsanfrage (neu):** öffentlich erreichbares Formular für eine
+  neue Installateur-Firma (Firmendaten, Kontaktperson) — kein Login nötig,
+  um die Anfrage zu stellen. Empfohlen, Bestätigung von Martin ausständig
+  (§6.2, §9).
+- **COOLiN-intern:** Kundenübersicht, Anlagenbestand, Support, und (neu)
+  eine Warteschlange offener Registrierungsanfragen mit Freischalt-Funktion
+  — Gegenstück zur Anfrage oben.
 
 ---
 
@@ -576,6 +742,15 @@ SIM-Datentarif (Mobilfunkanbieter-Vertrag für die physische Internetverbindung)
 sind **zwei unterschiedliche Kostenquellen** — nicht zu verwechseln. Ersteres
 ist jetzt beziffert, Letzteres weiterhin offen.
 
+**Präzisiert, August 2026:** Der SIM-Datentarif muss nicht nur
+COOLiN-Servicesitzungen abdecken, sondern auch die laufende Telemetrie des
+Wechselrichters zu seinem eigenen Hersteller (Fronius-App, SMA-Portal
+etc.) — die läuft nach dem Einbau von RUT200 ebenfalls über dessen SIM,
+nicht mehr über den bisherigen Kundenanschluss (Netzisolation, §4.1). Wie
+viel Datenvolumen das über Monate tatsächlich braucht, lässt sich erst am
+ersten echten Gerät messen — ändert nichts an der Architektur, nur am
+Zuschnitt des einzuholenden Angebots.
+
 **Offen, vor erstem Kundengespräch zu klären:** Wer zahlt Hardware/Lizenz/SIM in
 der Praxis — Installateur (legt es auf seinen Servicevertrag um) oder direkt der
 Betreiber?
@@ -600,6 +775,48 @@ sondern „wir liefern die geprüfte Nachweisführung, die NISG von Ihnen verlan
 Mit §2.4–§2.6 jetzt konkret unterlegt: Rollen-/Zugriffskontrollkonzept, MFA,
 Lieferketten-Hebel, Nachweispflicht — kein pauschales Argument mehr, sondern
 punktgenau auf den Gesetzestext gemünzt.
+
+### 7.5 Risiko & Antwort: Was, wenn ein Hersteller das selbst löst? (neu, August 2026)
+
+**Die Frage, ernst genommen, nicht abgetan:** Wenn ein Wechselrichter-Hersteller
+selbst personengebundene Logins mit MFA einbaut, wird unsere Lösung dann
+überflüssig? Nachrecherchiert statt vermutet, Stand August 2026:
+
+**SMA — unverändert.** Direkt aus SMAs aktuellem Handbuch: alle Geräte mit
+demselben Installateur-Passwort und derselben NetID bilden ein System, das
+Installateur-Passwort ist zugleich das System-Passwort. Kein Hinweis auf
+MFA an dieser Stelle. Der in §1 beschriebene Mechanismus besteht
+unverändert.
+
+**Fronius — bewegt, aber nur auf der harmlosen Ebene.** Auf der
+Cloud-Monitoring-Seite (Solar.web) gibt es mittlerweile persönliche Konten
+mit optionaler MFA — das betrifft das Ansehen von Ertragsdaten. Die
+tiefere, sicherheitsrelevante Konfigurationsebene (Parameter verstellen,
+netzrelevante Einstellungen — die Ebene, um die es in §1 und den
+Forescout-/RDI-Funden tatsächlich geht) läuft nach vorliegenden, wenn auch
+weniger belastbaren Quellen weiterhin über ein separates, gerätegebundenes
+Passwort.
+
+**Huawei, Growatt, Sungrow: noch nicht geprüft.** Bevor dieser Abschnitt in
+Vertriebsunterlagen verwendet wird, sollten diese drei ebenfalls kurz
+gegengecheckt werden (s. §9).
+
+**Warum das Geschäftsmodell trotzdem trägt, selbst im ungünstigsten Fall
+(alle Hersteller lösen es morgen perfekt):**
+1. **Netzisolation ist ein anderes Problem als Login.** Ein Gerät mit
+   MFA-geschütztem Login, das trotzdem am offenen Internet hängt, bleibt
+   das Problem, das Forescout und die RDI gefunden haben. RUT200 nimmt das
+   Gerät vom Netz — das hat mit dem Login des Herstellers nichts zu tun.
+2. **Konsolidierung über Hersteller hinweg.** Ein Installateur mit Fronius,
+   SMA und Huawei hätte selbst im besten Fall drei getrennte MFA-Konten,
+   kein gemeinsames Protokoll, keinen zentralen Entzugsknopf.
+3. **NISG-Nachweisführung** ist eine österreichische Spezialanforderung, an
+   einen Betreiber-Datensatz gebunden (§2.6) — kein globaler Hersteller
+   wird das in seine Firmware einbauen.
+
+Unser technischer Ansatz (LAN-Tunnel statt Hersteller-Portal-Integration,
+§8) hängt an keinem Hersteller-Feature — er funktioniert identisch, egal
+was ein einzelner Hersteller morgen baut.
 
 ---
 
@@ -651,7 +868,7 @@ ein zweiter Anbieter real ansteht, mit echten Datenpunkten statt geratenen.
 
 ---
 
-## 9. Offene Punkte (Checkliste, Stand v3)
+## 9. Offene Punkte (Checkliste, Stand v6)
 
 - [x] ~~Volle RMS-API-Endpoint-Dokumentation einsehen~~ → bewusst Aufgabe der
       Bau-Session, nicht mehr Blocker für den Start
@@ -680,7 +897,20 @@ ein zweiter Anbieter real ansteht, mit echten Datenpunkten statt geratenen.
       (Andreas hat mündlich bestätigt, dass sie existiert — für
       Vertriebsunterlagen noch zitierfähig zu machen)
 - [ ] SIM-/Datentarif-Anbieter anfragen, echten Preis einholen — **weiterhin
-      offen, unverändert seit v1**
+      offen seit v1, Zuschnitt jetzt präzisiert (§7.3): muss auch die
+      laufende Hersteller-Telemetrie des Wechselrichters mit abdecken,
+      nicht nur COOLiN-Servicesitzungen**
+- [ ] **Neu:** Fünf Fragen an Martin — Betreiber-Zugang (bestehender
+      Herstellerlogin oder neues COOLiN-Portal?), wer legt den ersten
+      Firmenadmin an, wer darf Zugriffsobjekte anlegen, was meint
+      „Google Auth" bei Variante 3, wer trägt die Kosten für
+      Hardware/Lizenz/SIM. Per E-Mail gestellt, 12.08.2026, Antwort
+      ausständig. Bei Klärung: §6.2 (Rollen-Ablaufregeln,
+      Betreiber-Login-Umfang) und §7.3 (Kostenträger) entsprechend
+      nachziehen.
+- [ ] **Neu:** Huawei, Growatt, Sungrow auf dieselbe Frage prüfen wie
+      SMA/Fronius (§7.5) — bevor der Abschnitt in Vertriebsunterlagen
+      verwendet wird
 - [~] **Rechtlich/kommerziell prüfen: Reseller-Konditionen bei Capestone** —
       **IN BEARBEITUNG.** Anfrage als Reseller (nicht nur Endkunde) bereits
       gestellt, inkl. grober 12-Monats-Rollout-Schätzung (20–150 Geräte).
@@ -695,6 +925,12 @@ ein zweiter Anbieter real ansteht, mit echten Datenpunkten statt geratenen.
 - [ ] Entscheiden: zahlt Installateur oder Betreiber Hardware/Lizenz/SIM (§7.3)
 - [ ] Produktname festlegen (aktuell nur Arbeitstitel), finaler Subdomain-Name
       bestätigen (`access.coolin.at` vorläufig)
+- [ ] **Neu:** Proaktives Konnektivitäts-Monitoring für RUT200 selbst als
+      spätere Funktion erwägen (nicht MVP-blockierend) — COOLiN erfährt von
+      einem SIM-/Verbindungsausfall, bevor der Betreiber sich wegen
+      fehlender Ertragsdaten beim Installateur meldet. Passt inhaltlich zu
+      §7.4 (Wert liegt in Disziplin, nicht nur im Zugang), aber ein
+      Ausbauschritt, kein Bestandteil des MVP
 
 **Stand Hardware/Bestellung:** RUT200 bestellt. Registrierung im RMS-Portal
 bewusst noch **nicht** vorgenommen — erfolgt planmäßig erst, sobald die
