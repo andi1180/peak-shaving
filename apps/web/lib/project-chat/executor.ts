@@ -4,7 +4,12 @@ import {
   mergeInvoiceExtractions,
 } from 'shared'
 
-import { checkDraftCompleteness, setDraftField, type DraftValue } from './draft'
+import {
+  checkDraftCompleteness,
+  setDraftField,
+  type DraftCompleteness,
+  type DraftValue,
+} from './draft'
 import {
   DRAFT_VALUE_SOURCES,
   type ChatToolName,
@@ -103,7 +108,7 @@ export async function executeChatTool(
     case 'set_draft_field':
       return setDraft(ports, projectId, args, now)
     case 'check_draft_completeness':
-      return completeness(ports, projectId)
+      return completeness(ports, projectId, args)
     case 'flag_open_question':
       return flagOpenQuestion(ports, projectId, args)
     case 'classify_upload':
@@ -170,14 +175,18 @@ async function setSegment(
   }
 
   /*
-   * Der Wrapper nimmt Entwurf UND Segment gemeinsam entgegen und ERSETZT den Entwurf — der
-   * aktuelle muss also mitgeschickt werden. Ohne das Lesen davor löschte ein Segmentwechsel
-   * stillschweigend alles, was bisher gesammelt wurde.
+   * ⚠ HIER WIRD KEIN ENTWURF MEHR MITGESCHICKT. Bis zur Migration 20260911150000 nahm der Wrapper
+   * Entwurf UND Segment gemeinsam entgegen und ERSETZTE den Entwurf — ohne ein Lesen davor löschte
+   * ein Segmentwechsel deshalb still alles, was bisher gesammelt war. Diese Kopplung gibt es nicht
+   * mehr: der Entwurf liegt am Zählpunkt, und ein Segmentwechsel kann ihn gar nicht mehr berühren.
+   *
+   * Gelesen wird trotzdem — aber aus dem anderen Grund: „Projekt nicht gefunden" soll als Satz
+   * ankommen und nicht als Wrapper-Status.
    */
   const project = await ports.loadProject(projectId)
   if (project === null) return fail('Projekt nicht gefunden.')
 
-  const result = await ports.saveProject(projectId, project.draft, segment as ProjectSegment)
+  const result = await ports.saveProject(projectId, segment as ProjectSegment)
   if (result.status !== 'ok') return fail(`Segment konnte nicht gesetzt werden: ${result.status}.`)
 
   return ok({ segment })
@@ -232,12 +241,8 @@ async function setIndustry(
     )
   }
 
-  /*
-   * Wie bei `setSegment`: der Wrapper ERSETZT den Entwurf, der aktuelle muss also mitgeschickt
-   * werden. Ohne das Lesen davor löschte das Setzen der Branche stillschweigend alles, was bisher
-   * gesammelt wurde.
-   */
-  const result = await ports.saveProject(projectId, project.draft, undefined, industry)
+  // Wie bei `setSegment`: der Entwurf ist hier nicht mehr im Spiel (s. dort).
+  const result = await ports.saveProject(projectId, undefined, industry)
   if (result.status !== 'ok') return fail(`Branche konnte nicht gesetzt werden: ${result.status}.`)
 
   return ok({ industry })
@@ -275,11 +280,24 @@ async function setDraft(
 
   const note = readString(args, 'note') ?? undefined
 
+  const meteringPointId = readString(args, 'metering_point_id')
+  if (meteringPointId === null) return fail('metering_point_id fehlt.')
+
   const project = await ports.loadProject(projectId)
   if (project === null) return fail('Projekt nicht gefunden.')
 
+  const resolved = await resolveMeteringPoint(ports, projectId, meteringPointId, 'diese Angabe')
+  if ('error' in resolved) return resolved.error
+  const { target } = resolved
+
+  /*
+   * Gelesen wird der Entwurf DIESES Zählpunkts, geschrieben wird er als Ganzes zurück — der Wrapper
+   * ERSETZT ihn (s. `saveMeteringPointDraft` in `ports.ts`). Die Liste wurde eben frisch geholt;
+   * eine über den Turn getragene Kopie würde bei zwei Werkzeugaufrufen im selben Turn den jeweils
+   * anderen Schreibvorgang verwerfen.
+   */
   const nextDraft = setDraftField(
-    project.draft,
+    target.draft,
     field,
     rawValue as DraftValue,
     source as DraftValueSource,
@@ -287,7 +305,7 @@ async function setDraft(
     now,
   )
 
-  const result = await ports.saveProject(projectId, nextDraft)
+  const result = await ports.saveMeteringPointDraft(target.id, nextDraft)
   if (result.status !== 'ok') return fail(`Entwurf konnte nicht geschrieben werden: ${result.status}.`)
 
   /*
@@ -312,6 +330,7 @@ async function setDraft(
    */
   const isUnknown = state.unknown.includes(field)
   return ok({
+    metering_point_id: target.id,
     field,
     value: rawValue,
     source,
@@ -323,31 +342,113 @@ async function setDraft(
             'gespeichert, aber die Vollständigkeitsprüfung kennt es nicht.',
         }
       : {}),
+    /*
+     * ⚠ Die Lücken beziehen sich auf GENAU DIESEN Zählpunkt. Bei mehreren Zählpunkten ist das eine
+     * andere Liste je Zeile — deshalb steht die Kennung oben mit in der Antwort, sonst läse das
+     * Modell „noch offen: energyPriceCtPerKwh" ohne zu wissen, für welchen Anschluss.
+     */
     still_missing: state.missing,
   })
 }
 
+/**
+ * ── ⚠ `metering_point_id` IST HIER OPTIONAL, BEI `set_draft_field` DAGEGEN PFLICHT ────────────
+ *
+ * Der Unterschied ist nicht Bequemlichkeit, sondern die Richtung des Fehlers. SCHREIBEN an den
+ * falschen Zählpunkt legt eine Zahl an einer Zeile ab, an die sie nicht gehört — sichtbar wird das
+ * erst in einer Rechnung, die vollständig aussieht. LESEN über alle Zählpunkte kann nichts kaputt
+ * machen; es ist genau die Frage, die ein Modell vor „sind wir fertig?" stellen will, und sie ohne
+ * Kennung stellen zu dürfen erspart ihm, erst die Liste zu holen.
+ *
+ * Ohne Kennung wird deshalb über ALLE Zählpunkte iteriert und je einer ein eigener Status geliefert.
+ * `complete` ist dann die Aussage über den BETRIEB: alle Zählpunkte fertig. Ein einzelner fertiger
+ * Zählpunkt neben einem leeren ergibt `false` — und genau das ist die Wahrheit, die eine über alle
+ * Zeilen gemittelte oder „mindestens einer"-Antwort verschwiege.
+ */
 async function completeness(
   ports: ProjectChatPorts,
   projectId: string,
+  args: Record<string, unknown>,
 ): Promise<ToolExecution> {
   const project = await ports.loadProject(projectId)
   if (project === null) return fail('Projekt nicht gefunden.')
 
   const catalog = await loadCatalog(ports, project)
-  const state = checkDraftCompleteness(project.draft, catalog, answeredOnProject(project))
+  const answered = answeredOnProject(project)
+  const segmentHint =
+    project.segment === null
+      ? { hinweis: 'Das Segment ist noch nicht bestimmt (set_segment).' }
+      : {}
+
+  const meteringPointId = readString(args, 'metering_point_id')
+
+  // ── EIN benannter Zählpunkt ───────────────────────────────────────────────────────────────────
+  if (meteringPointId !== null) {
+    const resolved = await resolveMeteringPoint(ports, projectId, meteringPointId, 'diese Frage')
+    if ('error' in resolved) return resolved.error
+    const { target } = resolved
+
+    const state = checkDraftCompleteness(target.draft, catalog, answered)
+    return ok({
+      complete: state.complete,
+      segment: project.segment,
+      metering_point_id: target.id,
+      ...describeCompleteness(state),
+      ...segmentHint,
+    })
+  }
+
+  // ── ALLE Zählpunkte ───────────────────────────────────────────────────────────────────────────
+  const meteringPoints = await ports.listMeteringPoints(projectId)
+  if (meteringPoints.length === 0) {
+    /*
+     * ⚠ `complete: false` UND KEIN FEHLSCHLAG. Ein Projekt ohne Zählpunkt ist nicht falsch bedient
+     * — es ist noch nicht eingerichtet, und das kann das Modell nicht beheben (es gibt keinen Port,
+     * der einen Zählpunkt anlegt; die Zahl der Zählpunkte entscheidet ein Mensch). `complete: true`
+     * wäre hier die teure Falschaussage: „nichts fehlt", weil es nichts gibt, worin etwas fehlen
+     * könnte.
+     */
+    return ok({
+      complete: false,
+      segment: project.segment,
+      metering_points: [],
+      hinweis:
+        'Für dieses Projekt sind noch keine Zählpunkte angelegt — ohne Zählpunkt gibt es keinen ' +
+        'Entwurf, den man füllen könnte. Du kannst das nicht selbst nachholen: sag dem Kunden, ' +
+        'dass wir das intern einrichten müssen, und halte es mit flag_open_question fest.',
+    })
+  }
+
+  const perPoint = meteringPoints.map((row, index) => {
+    const state = checkDraftCompleteness(row.draft, catalog, answered)
+    return {
+      nummer: index + 1,
+      metering_point_id: row.id,
+      lastgang_vorhanden: row.source_document_id !== null,
+      complete: state.complete,
+      ...describeCompleteness(state),
+    }
+  })
+
   return ok({
-    complete: state.complete,
+    // Alle fertig — nicht „mindestens einer". Ein Betrieb ist erst vollständig erhoben, wenn es
+    // jeder seiner Anschlüsse ist.
+    complete: perPoint.every((entry) => entry.complete),
     segment: project.segment,
+    metering_points: perPoint,
+    ...segmentHint,
+  })
+}
+
+/** Die fünf Befunde einer Prüfung, in der Form, in der sie an das Modell gehen. */
+function describeCompleteness(state: DraftCompleteness): Record<string, unknown> {
+  return {
     missing: state.missing,
     invalid: state.invalid,
     unknown_fields: state.unknown,
     without_source: state.withoutSource,
     assumed_fields: state.assumed,
-    ...(project.segment === null
-      ? { hinweis: 'Das Segment ist noch nicht bestimmt (set_segment).' }
-      : {}),
-  })
+  }
 }
 
 async function flagOpenQuestion(
@@ -605,6 +706,57 @@ function describeMeteringPoint(row: MeteringPointRow, index: number): Record<str
 }
 
 /**
+ * Löst eine `metering_point_id` gegen die Zählpunkte des Projekts auf — oder liefert das
+ * `tool_result`, das dem Modell sagt, was stattdessen zu tun ist.
+ *
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * ⚠ ES WIRD NICHT GERATEN, WELCHER ZÄHLPUNKT GEMEINT IST — AUCH NICHT BEI GENAU EINEM
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * Sich „den einen" auszusuchen wäre die bequeme Abkürzung und genau der Fehler, der bei zwei
+ * Zählpunkten niemandem auffällt: der Wert stünde an der falschen Zeile, und die Rechnung daraus
+ * sähe vollständig aus. Passt die Kennung nicht, bekommt das Modell die vorhandenen Zählpunkte
+ * AUFGEZÄHLT und muss den Kunden fragen.
+ *
+ * EINE Stelle für beide Aufrufer (`set_draft_field`, `extract_load_profile`): zweimal ausgeschrieben
+ * liefen die zwei Ablehnungen beim nächsten Umbau auseinander, und derselbe Fehlgriff bekäme je
+ * nach Werkzeug eine andere Anweisung.
+ *
+ * `subject` benennt, WORUM es geht („die Datei" / „diese Angabe") — die Frage an den Kunden lautet
+ * sonst nach einem Gegenstand, den es im gerade laufenden Schritt gar nicht gibt.
+ */
+async function resolveMeteringPoint(
+  ports: ProjectChatPorts,
+  projectId: string,
+  meteringPointId: string,
+  subject: string,
+): Promise<{ target: MeteringPointRow } | { error: ToolExecution }> {
+  const meteringPoints = await ports.listMeteringPoints(projectId)
+  if (meteringPoints.length === 0) {
+    return {
+      error: fail(
+        'Für dieses Projekt sind noch keine Zählpunkte angelegt. Du kannst das nicht selbst ' +
+          'nachholen — sag dem Kunden, dass wir das intern einrichten müssen, und halte es mit ' +
+          'flag_open_question fest.',
+        { metering_points: [] },
+      ),
+    }
+  }
+
+  const target = meteringPoints.find((row) => row.id === meteringPointId)
+  if (target === undefined) {
+    return {
+      error: fail(
+        'Diesen Zählpunkt gibt es in diesem Projekt nicht. Such dir keinen aus — frag den Kunden, ' +
+          `zu welchem Zählpunkt ${subject} gehört.`,
+        { metering_points: meteringPoints.map(describeMeteringPoint) },
+      ),
+    }
+  }
+
+  return { target }
+}
+
+/**
  * ── ⚠ DAS EINZIGE WERKZEUG, DAS SELBST SCHREIBT — und zwar an den ZÄHLPUNKT, nicht in den Entwurf.
  *
  * Der Grund ist die Ebene: ein Betrieb kann mehrere Zählpunkte tragen (Delta §2.3), und „der
@@ -639,28 +791,13 @@ async function extractLoadProfile(
   if (meteringPointId === null) return fail('metering_point_id fehlt.')
 
   /*
-   * Die Zählpunkte werden VOR dem Lesen der Datei geholt: ein 25-MB-Export zu parsen, um ihn
+   * Der Zählpunkt wird VOR dem Lesen der Datei aufgelöst: ein 25-MB-Export zu parsen, um ihn
    * anschliessend nirgends ablegen zu können, ist verschenkte Zeit — und die Ereignisschleife
    * steht währenddessen (s. die Warnung an `readLoadProfile` in `ports.ts`).
    */
-  const meteringPoints = await ports.listMeteringPoints(projectId)
-  if (meteringPoints.length === 0) {
-    return fail(
-      'Für dieses Projekt sind noch keine Zählpunkte angelegt. Du kannst das nicht selbst ' +
-        'nachholen — sag dem Kunden, dass wir das intern einrichten müssen, und halte es mit ' +
-        'flag_open_question fest.',
-      { metering_points: [] },
-    )
-  }
-
-  const target = meteringPoints.find((row) => row.id === meteringPointId)
-  if (target === undefined) {
-    return fail(
-      'Diesen Zählpunkt gibt es in diesem Projekt nicht. Such dir keinen aus — frag den Kunden, ' +
-        'zu welchem Zählpunkt die Datei gehört.',
-      { metering_points: meteringPoints.map(describeMeteringPoint) },
-    )
-  }
+  const resolved = await resolveMeteringPoint(ports, projectId, meteringPointId, 'die Datei')
+  if ('error' in resolved) return resolved.error
+  const { target } = resolved
 
   const document = await ports.readDocument(documentId)
   if (document === null) return fail(`Dokument ${documentId} nicht gefunden.`)

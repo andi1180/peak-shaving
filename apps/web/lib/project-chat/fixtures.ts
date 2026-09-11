@@ -29,7 +29,10 @@ import type {
  * Was hier abweicht, macht jeden darauf gebauten Test wertlos. Fünf Eigenschaften sind deshalb
  * ausdrücklich nachgezogen und stehen so in der Migration 20260910090000:
  *
- *   1. `saveProject` ERSETZT den Entwurf, es verschmilzt ihn nicht.
+ *   1. `saveMeteringPointDraft` ERSETZT den Entwurf, es verschmilzt ihn nicht — und er hängt am
+ *      ZÄHLPUNKT, nicht am Projekt (Migration 20260911150000). `saveProject` fasst ihn gar nicht
+ *      mehr an; es setzt Segment und Branche, auch wenn der Wrapper weiterhin
+ *      `update_project_draft` heisst.
  *   2. `resolveOpenQuestion('assumed')` lässt `status` auf `open` — eine Annahme SCHLIESST DIE
  *      FRAGE NICHT (der Kern von Delta §3.3) — und verlangt eine Begründung.
  *   3. `appendMessage` weist ein leeres Blockarray ab (`empty_content`).
@@ -51,13 +54,18 @@ import type {
 export interface MemoryProject {
   segment: ProjectSegment | null
   industry: string | null
-  draft: Record<string, unknown>
 }
 
 export interface MemoryPorts extends ProjectChatPorts {
   /** Der gespeicherte Verlauf, so wie ihn `list_project_messages` liefern würde. */
   readonly messages: StoredChatMessage[]
   readonly project: MemoryProject
+  /**
+   * Die Zählpunkte samt ihrem Entwurf — der Bestand, gegen den ein Test prüft, was GESCHRIEBEN
+   * wurde. Bewusst der lebende Bestand und keine Kopie: `listMeteringPoints` gibt Kopien heraus,
+   * damit ein Aufrufer nichts versehentlich zum Bestand macht, ein Test soll aber genau ihn sehen.
+   */
+  readonly meteringPoints: MeteringPointRow[]
   readonly openQuestions: OpenQuestionRow[]
   /** Zählt, welcher Wrapper wie oft gerufen wurde — für „das ist NICHT passiert"-Prüfungen. */
   readonly calls: Record<string, number>
@@ -110,7 +118,6 @@ export function createMemoryPorts(options: MemoryPortsOptions): MemoryPorts {
   const project: MemoryProject = {
     segment: options.project?.segment ?? null,
     industry: options.project?.industry ?? null,
-    draft: options.project?.draft ?? {},
   }
   const messages: StoredChatMessage[] = []
   const openQuestions: OpenQuestionRow[] = []
@@ -119,6 +126,7 @@ export function createMemoryPorts(options: MemoryPortsOptions): MemoryPorts {
   const meteringPoints: MeteringPointRow[] = (options.meteringPoints ?? []).map((row) => ({
     ...row,
     gaps: [...row.gaps],
+    draft: { ...row.draft },
   }))
   const calls: Record<string, number> = {}
   const questionCatalog = options.questionCatalog ?? []
@@ -136,6 +144,7 @@ export function createMemoryPorts(options: MemoryPortsOptions): MemoryPorts {
   const ports: MemoryPorts = {
     messages,
     project,
+    meteringPoints,
     openQuestions,
     calls,
     questionCatalogCalls,
@@ -160,7 +169,6 @@ export function createMemoryPorts(options: MemoryPortsOptions): MemoryPorts {
       return {
         segment: project.segment,
         industry: project.industry,
-        draft: { ...project.draft },
       }
     },
 
@@ -186,7 +194,6 @@ export function createMemoryPorts(options: MemoryPortsOptions): MemoryPorts {
 
     async saveProject(
       projectId: string,
-      draft: Record<string, unknown>,
       segment?: ProjectSegment,
       industry?: string,
     ): Promise<WrapperStatus> {
@@ -210,12 +217,31 @@ export function createMemoryPorts(options: MemoryPortsOptions): MemoryPorts {
         }
       }
 
-      // ERSETZEN, nicht verschmelzen — wie `update_project_draft`.
-      project.draft = { ...draft }
       // `p_segment`/`p_industry` weggelassen heisst UNVERÄNDERT (Lesart `capture_lead`).
       if (segment !== undefined) project.segment = segment
       if (industry !== undefined) project.industry = industry
       return { status: 'ok' }
+    },
+
+    async saveMeteringPointDraft(
+      meteringPointId: string,
+      draft: Record<string, unknown>,
+    ): Promise<WrapperStatus> {
+      track('saveMeteringPointDraft')
+      const fail = forced('saveMeteringPointDraft')
+      if (fail) return fail
+
+      /*
+       * ⚠ WIE DER WRAPPER: ein fremder oder unbekannter Zählpunkt antwortet `not_found`. Eine
+       * Attrappe, die alles annimmt, bewiese über den Ausführer nichts — genau derselbe Grund wie
+       * bei `setMeteringPointLoadProfile` weiter unten.
+       */
+      const row = meteringPoints.find((entry) => entry.id === meteringPointId)
+      if (row === undefined) return { status: 'not_found' }
+
+      // ERSETZEN, nicht verschmelzen — wie `update_metering_point_draft`.
+      row.draft = { ...draft }
+      return { status: 'ok', metering_point_id: meteringPointId }
     },
 
     async listOpenQuestions(projectId: string): Promise<OpenQuestionRow[]> {
@@ -293,7 +319,7 @@ export function createMemoryPorts(options: MemoryPortsOptions): MemoryPorts {
       track('listMeteringPoints')
       if (projectId !== options.projectId) return []
       // Kopien, damit ein Test eine zurückgegebene Zeile nicht versehentlich zum Bestand macht.
-      return meteringPoints.map((row) => ({ ...row, gaps: [...row.gaps] }))
+      return meteringPoints.map((row) => ({ ...row, gaps: [...row.gaps], draft: { ...row.draft } }))
     },
 
     async setMeteringPointLoadProfile(
@@ -365,6 +391,30 @@ export function fakePdf(filename = 'Jahresrechnung 2025.pdf') {
  */
 export function fakeLoadProfileFile(filename = 'lastgang-2025.csv', contentType = 'text/csv') {
   return { bytes: new ArrayBuffer(32), filename, contentType }
+}
+
+/**
+ * Ein Zählpunkt, wie `list_metering_points` ihn liefert — mit leerem Entwurf und ohne Lastgang.
+ *
+ * Zählpunkte entstehen real ausschliesslich durch einen Menschen (`admin_set_metering_point_count`);
+ * ein Test, der einen Schreibweg messen will, muss sie deshalb ausdrücklich stellen. Dieser Helfer
+ * steht hier und nicht in einer Testdatei, weil ihn inzwischen mehrere brauchen — und weil eine
+ * zweite, um ein Feld ärmere Fassung beim nächsten Spaltenzuwachs still auseinanderliefe.
+ */
+export function fakeMeteringPoint(
+  id: string,
+  overrides: Partial<Omit<MeteringPointRow, 'id'>> = {},
+): MeteringPointRow {
+  return {
+    id,
+    interval_minutes: null,
+    covered_from: null,
+    covered_to: null,
+    gaps: [],
+    source_document_id: null,
+    draft: {},
+    ...overrides,
+  }
 }
 
 /**

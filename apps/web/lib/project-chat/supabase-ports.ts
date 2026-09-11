@@ -176,7 +176,12 @@ export function createProjectChatPorts(extractors: Partial<ChatExtractors>): Pro
 
       const segment = project.segment
       const industry = project.industry
-      const draft = project.draft
+      /*
+       * ⚠ `project.draft` wird BEWUSST NICHT MEHR GELESEN. Der Wrapper liefert die Spalte weiterhin
+       * (sie ist eingefroren, nicht gedroppt — Migration 20260911150000 TEIL 4), der Entwurf liegt
+       * aber seit dort am ZÄHLPUNKT. Ihn hier weiter durchzureichen hiesse, einen zweiten,
+       * veralteten Entwurf neben dem echten zu führen.
+       */
       return {
         segment: segment === 'privat' || segment === 'betrieb' ? (segment as ProjectSegment) : null,
         /*
@@ -185,11 +190,6 @@ export function createProjectChatPorts(extractors: Partial<ChatExtractors>): Pro
          * Rückfall auf `null` ist reine Vorsicht gegen ein unerwartetes jsonb.
          */
         industry: typeof industry === 'string' && industry !== '' ? industry : null,
-        // `draft` ist `not null default '{}'` mit CHECK auf Objekt — der Rückfall ist reine Vorsicht.
-        draft:
-          draft !== null && typeof draft === 'object' && !Array.isArray(draft)
-            ? (draft as Record<string, unknown>)
-            : {},
       }
     },
 
@@ -205,19 +205,30 @@ export function createProjectChatPorts(extractors: Partial<ChatExtractors>): Pro
       return asWrapperStatus(data, error)
     },
 
-    async saveProject(projectId, draft, segment, industry) {
+    async saveProject(projectId, segment, industry) {
       /*
        * `p_segment` und `p_industry` werden nur mitgeschickt, wenn es einen Wert gibt: `null` heisst
        * im Wrapper UNVERÄNDERT (Lesart `capture_lead`), und ein hier immer mitgesendetes `null`
        * wäre dasselbe — aber der Unterschied soll am Aufruf ablesbar sein, nicht in der Wrapper-Doku
        * nachzulesen.
+       *
+       * ⚠ `p_draft` gibt es hier nicht mehr (Migration 20260911150000): der Wrapper heisst weiter
+       * `update_project_draft`, fasst den Entwurf aber nicht mehr an.
        */
       const supabase = await createClient()
       const { data, error } = await supabase.rpc('update_project_draft', {
         p_id: projectId,
-        p_draft: draft as Json,
         ...(segment === undefined ? {} : { p_segment: segment }),
         ...(industry === undefined ? {} : { p_industry: industry }),
+      })
+      return asWrapperStatus(data, error)
+    },
+
+    async saveMeteringPointDraft(meteringPointId, draft) {
+      const supabase = await createClient()
+      const { data, error } = await supabase.rpc('update_metering_point_draft', {
+        p_metering_point_id: meteringPointId,
+        p_draft: draft as Json,
       })
       return asWrapperStatus(data, error)
     },
@@ -324,6 +335,17 @@ export function createProjectChatPorts(extractors: Partial<ChatExtractors>): Pro
             gaps: Array.isArray(row.gaps) ? (row.gaps as MeteringPointGap[]) : [],
             source_document_id:
               typeof row.source_document_id === 'string' ? row.source_document_id : null,
+            /*
+             * `draft` ist `not null default '{}'` mit CHECK auf ein Objekt — der Rückfall ist reine
+             * Vorsicht gegen ein unerwartetes jsonb. ⚠ Ein leeres Objekt ist dabei die richtige
+             * Notlösung und kein Informationsverlust: „noch nichts erhoben" ist genau das, was ein
+             * unlesbarer Entwurf für den Aufrufer bedeuten soll — die Vollständigkeitsprüfung
+             * meldet dann alles als fehlend statt eine Angabe zu behaupten.
+             */
+            draft:
+              row.draft !== null && typeof row.draft === 'object' && !Array.isArray(row.draft)
+                ? (row.draft as Record<string, unknown>)
+                : {},
           }
         })
         .filter((row): row is MeteringPointRow => row !== null)

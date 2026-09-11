@@ -126,6 +126,13 @@ describe('B24 Zählpunkt-Gerüst — Schnitt der Tabelle', () => {
      *
      * Geprüft wird die VOLLSTÄNDIGE Liste in Reihenfolge, nicht „enthält": nur so wird der Test
      * rot, wenn jemand etwas ANHÄNGT.
+     *
+     * ⚠ NACHGEZOGEN (Migration 20260911150000): `draft` ist dazugekommen — der laufende Entwurf ist
+     * vom Projekt an den Zählpunkt gewandert, weil jedes Feld von `tariffParamsSchema` eine
+     * Tarif-/Vertragsangabe ist und ein Vertrag je Zählpunkt geschlossen wird. Das ist KEINE
+     * Aufweichung des Punktes oben: Zählpunktnummer, Netzebene und Messvariante als eigene SPALTEN
+     * bleiben ausgeschlossen — eine Messvariante steht im Entwurf (offen, jsonb, korrigierbar) und
+     * nicht im Schema (fest, typisiert, eine Entscheidung über den Betrieb-Zuschnitt).
      */
     const rows = await sql<{ column_name: string; data_type: string; is_nullable: string }>(
       `select column_name, data_type, is_nullable
@@ -142,6 +149,7 @@ describe('B24 Zählpunkt-Gerüst — Schnitt der Tabelle', () => {
       'covered_to',
       'gaps',
       'source_document_id',
+      'draft',
     ])
     // ⚠ `gaps` ist NOT NULL mit Default `[]` — „keine Lücken gemessen" und „noch nichts gelesen"
     // unterscheidet `interval_minutes IS NULL`, nicht ein NULL-Array.
@@ -154,6 +162,7 @@ describe('B24 Zählpunkt-Gerüst — Schnitt der Tabelle', () => {
       'YES',
       'NO',
       'YES',
+      'NO',
     ])
     expect(rows.map((r) => r.data_type)).toEqual([
       'uuid',
@@ -164,6 +173,7 @@ describe('B24 Zählpunkt-Gerüst — Schnitt der Tabelle', () => {
       'timestamp with time zone',
       'jsonb',
       'uuid',
+      'jsonb',
     ])
   })
 
@@ -329,12 +339,7 @@ describe('B24 Admin-Leser — segment und industry kommen wirklich an', () => {
 
     const label = `B24 Segmenttest ${randomUUID()}`
     const projectId = await createProjectFor(kunde, label)
-    await callAs(kunde, 'public.update_project_draft($1, $2, $3, $4)', [
-      projectId,
-      '{}',
-      'betrieb',
-      'hotel',
-    ])
+    await callAs(kunde, 'public.update_project_draft($1, $2, $3)', [projectId, 'betrieb', 'hotel'])
 
     const detail = await readAs<{
       status: string

@@ -858,6 +858,7 @@ export type Database = {
           covered_from: string | null
           covered_to: string | null
           created_at: string
+          draft: Json
           gaps: Json
           id: string
           interval_minutes: number | null
@@ -868,6 +869,7 @@ export type Database = {
           covered_from?: string | null
           covered_to?: string | null
           created_at?: string
+          draft?: Json
           gaps?: Json
           id?: string
           interval_minutes?: number | null
@@ -878,6 +880,7 @@ export type Database = {
           covered_from?: string | null
           covered_to?: string | null
           created_at?: string
+          draft?: Json
           gaps?: Json
           id?: string
           interval_minutes?: number | null
@@ -2328,13 +2331,12 @@ export type Database = {
         Args: { p_lead_id: string }
         Returns: Json
       }
+      update_metering_point_draft: {
+        Args: { p_draft: Json; p_metering_point_id: string }
+        Returns: Json
+      }
       update_project_draft: {
-        Args: {
-          p_draft: Json
-          p_id: string
-          p_industry?: string
-          p_segment?: string
-        }
+        Args: { p_id: string; p_industry?: string; p_segment?: string }
         Returns: Json
       }
       upsert_stripe_customer: {

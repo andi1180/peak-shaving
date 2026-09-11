@@ -211,7 +211,14 @@ export async function runProjectChatTurn(
    * protokolliert das (s. `ports.ts`). Ein Gespräch wegen eines nicht lesbaren admin-gepflegten
    * Textes abzubrechen wäre die falsche Richtung.
    */
-  const [documents, openQuestions, promptExtension] = await Promise.all([
+  /*
+   * ⚠ DIE ZÄHLPUNKTE GEHÖREN IN DENSELBEN PARALLELEN LADEVORGANG. Seit der Migration
+   * 20260911150000 tragen sie den Entwurf, und ohne sie wäre der Zustandsblock um genau die
+   * Angaben ärmer, für die dieses Gespräch geführt wird. Nacheinander geladen kostete es eine
+   * zusätzliche Runde je Turn — die vier Lesevorgänge hängen nicht voneinander ab.
+   */
+  const [meteringPoints, documents, openQuestions, promptExtension] = await Promise.all([
+    ports.listMeteringPoints(projectId),
     ports.listDocuments(projectId),
     ports.listOpenQuestions(projectId),
     ports.loadSystemPromptExtension(),
@@ -241,7 +248,13 @@ export async function runProjectChatTurn(
     },
     {
       type: 'text',
-      text: buildProjectStateBlock({ project, documents, openQuestions, extractors: ports.extractors }),
+      text: buildProjectStateBlock({
+        project,
+        meteringPoints,
+        documents,
+        openQuestions,
+        extractors: ports.extractors,
+      }),
     },
   ]
 

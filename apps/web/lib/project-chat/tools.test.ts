@@ -82,7 +82,18 @@ describe('buildChatTools', () => {
 
   it('⚠ set_draft_field verlangt source — sonst wäre §3.2 eine Bitte statt einer Regel', () => {
     const tool = buildChatTools({}).find((entry) => entry.name === 'set_draft_field')
-    expect(tool?.input_schema.required).toEqual(['field', 'value', 'source'])
+    /*
+     * ⚠ `metering_point_id` STEHT MIT IN DER PFLICHTLISTE, und das ist keine Formalie: der Entwurf
+     * hängt seit der Migration 20260911150000 am ZÄHLPUNKT. Ohne die Kennung müsste der Ausführer
+     * sich einen aussuchen — bei zwei Anschlüssen mit zwei Verträgen landete der Wert dann an der
+     * falschen Zeile, und die Rechnung daraus sähe vollständig aus.
+     */
+    expect(tool?.input_schema.required).toEqual([
+      'metering_point_id',
+      'field',
+      'value',
+      'source',
+    ])
     expect(tool?.description).toMatch(/Im Zweifel "assumed"/)
   })
 

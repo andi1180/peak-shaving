@@ -153,8 +153,14 @@ const ALL_TOOLS: Record<ChatToolName, Anthropic.Tool> = {
   set_draft_field: {
     name: 'set_draft_field',
     description: [
-      'Trägt EINEN Wert in den Entwurf der Eingabedaten ein. Der Entwurf ist das Zielobjekt, das am',
-      'Ende die Berechnung füttert.',
+      'Trägt EINEN Wert in den Entwurf der Eingabedaten EINES ZÄHLPUNKTS ein. Der Entwurf ist das',
+      'Zielobjekt, das am Ende die Berechnung füttert.',
+      '',
+      'metering_point_id ist Pflicht, und zwar auch dann, wenn es nur einen Zählpunkt gibt: Tarif',
+      'und Vertrag hängen am Zählpunkt, nicht am Betrieb — ein Betrieb kann zwei Anschlüsse mit',
+      'zwei verschiedenen Arbeitspreisen haben. Kennst du die Kennung nicht oder passt sie nicht,',
+      'nennt dir die Antwort die vorhandenen Zählpunkte; such dir dann NICHT selbst einen aus,',
+      'sondern frag den Kunden, zu welchem Zählpunkt die Angabe gehört.',
       '',
       'source ist Pflicht und die wichtigste Angabe dieses Werkzeugs:',
       '- "measured" = der Wert steht so auf einem Dokument des Kunden oder er hat ihn ausdrücklich',
@@ -175,6 +181,10 @@ const ALL_TOOLS: Record<ChatToolName, Anthropic.Tool> = {
     input_schema: {
       type: 'object',
       properties: {
+        metering_point_id: {
+          type: 'string',
+          description: 'Der Zählpunkt, zu dem dieser Wert gehört.',
+        },
         field: {
           type: 'string',
           description: 'Der Feldname im Entwurf, z. B. energyPriceCtPerKwh.',
@@ -193,17 +203,22 @@ const ALL_TOOLS: Record<ChatToolName, Anthropic.Tool> = {
           description: 'Kurze Begründung. Bei assumed unverzichtbar.',
         },
       },
-      required: ['field', 'value', 'source'],
+      required: ['metering_point_id', 'field', 'value', 'source'],
     },
   },
 
   check_draft_completeness: {
     name: 'check_draft_completeness',
     description: [
-      'Prüft den Entwurf gegen den typisierten Eingabe-Contract UND gegen die admin-gepflegten',
+      'Prüft die Entwürfe gegen den typisierten Eingabe-Contract UND gegen die admin-gepflegten',
       'Pflichtfragen für das Segment und die Branche dieses Projekts. Ändert nichts. Benutze es,',
       'bevor du dem Kunden sagst, dass ihr fertig seid — und gern zwischendurch, um zu sehen,',
       'worauf du als Nächstes hinarbeiten solltest.',
+      '',
+      'Jeder Zählpunkt hat seinen EIGENEN Entwurf. Ohne metering_point_id bekommst du alle',
+      'Zählpunkte mit je eigenem Befund, und "complete" gilt dann für den ganzen Betrieb: es ist',
+      'erst true, wenn JEDER Zählpunkt vollständig ist. Mit metering_point_id bekommst du nur',
+      'diesen einen.',
       '',
       'In "missing" steht je Eintrag der Schlüssel, unter dem der Wert erwartet wird. Trägt ein',
       'Eintrag zusätzlich ein Feld "question", stammt er aus dem Fragenkatalog: dann ist dieser',
@@ -214,7 +229,16 @@ const ALL_TOOLS: Record<ChatToolName, Anthropic.Tool> = {
       'Die Katalogfragen sind Mindestangaben, keine Reihenfolge: WANN du welche stellst,',
       'entscheidest du im Gesprächsverlauf.',
     ].join('\n'),
-    input_schema: { type: 'object', properties: {}, required: [] },
+    input_schema: {
+      type: 'object',
+      properties: {
+        metering_point_id: {
+          type: 'string',
+          description: 'Optional: nur diesen Zählpunkt prüfen. Weggelassen = alle.',
+        },
+      },
+      required: [],
+    },
   },
 
   flag_open_question: {
