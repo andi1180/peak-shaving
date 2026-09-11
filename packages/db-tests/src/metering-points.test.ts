@@ -679,6 +679,85 @@ describe('B24 admin_set_metering_point_count', () => {
       expect(after[0]!.source_document_id).toBe(documentId)
     })())
 
+  it('⚠ DIE ZWEITE POSITIV-KONTROLLE: ein STANDARDPROFIL sperrt genauso — auch ohne Dokument', async () => {
+    /*
+     * Der Fall, für den diese Migration da ist. `set_metering_point_standard_profile` setzt
+     * `source_document_id` ausdrücklich auf null — an der alten Bedingung lief ein erzeugtes
+     * Profil deshalb durch die Sperre hindurch, und das Verkleinern meldete `ok`, während es
+     * einen vollständigen Zeitraum mitnahm. Geprüft wird BEIDES: der Status UND dass wirklich
+     * nichts verschwunden ist.
+     */
+    const admin = await newUser()
+    await makeAdmin(admin)
+    const kunde = await newUser()
+    const projectId = await createProjectFor(kunde, `B24 Sperre Standardprofil ${randomUUID()}`)
+
+    await callAs(admin, 'public.admin_set_metering_point_count($1, $2)', [projectId, 3])
+    const points = await meteringPointsOf(projectId)
+    expect(points).toHaveLength(3)
+
+    // Auf dem JÜNGSTEN — also genau auf dem, den ein Verkleinern zuerst nähme.
+    expect(
+      await callAs<{ status: string }>(
+        kunde,
+        'public.set_metering_point_standard_profile($1, $2, $3, $4)',
+        [points[2]!.id, 15, '2024-12-31T23:00:00.000Z', '2025-12-31T23:00:00.000Z'],
+      ),
+    ).toMatchObject({ status: 'ok' })
+
+    // ⚠ Die Voraussetzung des Tests, nicht bloss Beiwerk: OHNE Dokument, MIT Zeitraum. Trüge die
+    // Zeile eine Quelle, prüfte der Test unten nur die alte Bedingung noch einmal.
+    const [, , armed] = await meteringPointsOf(projectId)
+    expect(armed!.source_document_id).toBeNull()
+    expect(armed!.covered_from).not.toBeNull()
+
+    expect(
+      await callAs(admin, 'public.admin_set_metering_point_count($1, $2)', [projectId, 1]),
+    ).toEqual({ status: 'has_load_profile', count: 3, blocked: 1 })
+
+    const after = await meteringPointsOf(projectId)
+    expect(after).toHaveLength(3)
+    expect(after.map((r) => r.id)).toEqual(points.map((r) => r.id))
+    expect(after[2]!.covered_from).not.toBeNull()
+  })
+
+  it('⚠ GEGENPROBE zur Ausweitung: ein LEERER Zählpunkt bleibt verkleinerbar', async () => {
+    /*
+     * Ohne diese Richtung bliebe der Test darüber auch dann grün, wenn die Bedingung versehentlich
+     * jedes Verkleinern abwiese. Geprüft wird zusätzlich der Zaehlpunkt mit blossem ENTWURF: er
+     * setzt `covered_from` NICHT und darf deshalb weiterhin fallen — die Sperre hängt an der
+     * Datenlage des Zeitraums, nicht am Entwurf.
+     */
+    const admin = await newUser()
+    await makeAdmin(admin)
+    const kunde = await newUser()
+    const projectId = await createProjectFor(kunde, `B24 Leer bleibt frei ${randomUUID()}`)
+
+    await callAs(admin, 'public.admin_set_metering_point_count($1, $2)', [projectId, 3])
+    const points = await meteringPointsOf(projectId)
+
+    // Der jüngste trägt einen Entwurf, aber keinen Zeitraum.
+    expect(
+      await callAs<{ status: string }>(
+        kunde,
+        'public.update_metering_point_draft($1, $2::jsonb)',
+        [points[2]!.id, JSON.stringify({ annualConsumptionKwh: 4000, source: 'assumed' })],
+      ),
+    ).toMatchObject({ status: 'ok' })
+
+    const [, , withDraft] = await meteringPointsOf(projectId)
+    expect(withDraft!.source_document_id).toBeNull()
+    expect(withDraft!.covered_from).toBeNull()
+
+    expect(
+      await callAs(admin, 'public.admin_set_metering_point_count($1, $2)', [projectId, 1]),
+    ).toEqual({ status: 'ok', count: 1, created: 0, removed: 2 })
+
+    const after = await meteringPointsOf(projectId)
+    expect(after).toHaveLength(1)
+    expect(after[0]!.id).toBe(points[0]!.id)
+  })
+
   it('weist 0, negative Zahlen und die Tippfehler-Grenze ab — ohne eine Zeile anzulegen', async () => {
     const admin = await newUser()
     await makeAdmin(admin)
