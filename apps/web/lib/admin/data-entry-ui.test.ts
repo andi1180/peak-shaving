@@ -218,3 +218,80 @@ describe('B24 — Verlinkung und Abgrenzung', () => {
     expect(source).not.toContain('readAdminProject')
   })
 })
+
+describe('B24 — der Lastgang-Schritt ist echt, die vier übrigen bleiben Platzhalter', () => {
+  const source = read(DATA_ENTRY_PAGE)
+
+  it('⚠ erkennt die Station an der SCHRITT-KENNUNG, nicht am Titel oder an der Position', () => {
+    /*
+     * Der Titel ist ein Anzeigetext und die Position eine Zahl, die mit jedem weiteren Schritt
+     * wandert. Beides als Merkmal genommen zeigte die Lastgang-Oberfläche eines Tages auf der
+     * Rechnungs-Station — und dort nähme sie eine Datei entgegen und schriebe sie als Lastgang an
+     * den Zählpunkt. Die Kennung ist der einzige stabile Bezug.
+     */
+    expect(source).toContain("'lastgang'")
+    expect(source).toContain('station.meteringPoint')
+    expect(source).toContain('DataEntryLoadProfile')
+    // Ein Titelvergleich wäre der naheliegende Griff daneben — die Überschrift ist Anzeigetext.
+    expect(source).not.toContain('station.title ===')
+  })
+
+  it('⚠ löst den Zählpunkt über die 1-basierte Nummer auf', () => {
+    // Die Nummer ist eine POSITION in der nach Alter sortierten Liste (Migration 20260911120000
+    // TEIL 3). Ein vergessenes `- 1` zeigte die Metadaten des NÄCHSTEN Zählpunkts — und nichts
+    // daran sähe kaputt aus: es stünde ein plausibler Zeitraum an der falschen Zeile.
+    expect(source).toContain('step.number - 1')
+  })
+
+  it('⚠ nennt die Grenze der ABLAGE (20 MB), nicht die des Lesers (25 MB)', () => {
+    /*
+     * Zwei Grenzen sind im Spiel, und die kleinere gewinnt: der Wrapper VERLANGT ein Dokument,
+     * eine 22-MB-Datei würde also vollständig eingelesen und erst beim Hochladen abgewiesen. Die
+     * Oberfläche, die 25 MB verspricht, schickt genau diesen Nutzer in einen Fehlschlag, den sie
+     * selbst angekündigt hat.
+     */
+    expect(source).toContain('MAX_PROJECT_DOCUMENT_BYTES')
+    expect(source).not.toContain('MAX_LOAD_PROFILE_FILE_BYTES')
+  })
+
+  it('lässt die vier übrigen Zählpunkt-Schritte unverändert Platzhalter', () => {
+    expect(source).toContain('StationPlaceholder')
+  })
+
+  it('⚠ unterdrückt den generischen Weiter-Link für die Lastgang-Station', () => {
+    /*
+     * Sie rendert ihren Weiter-Knopf selbst (im „Nein"-Zweig sofort, im „Ja"-Zweig erst nach dem
+     * Einlesen). Bliebe der generische Link daneben stehen, gäbe es einen zweiten Weg nach vorn —
+     * einen, der die Angabe überspringt, genau das, was auf einer erhebenden Station nicht
+     * passieren darf.
+     */
+    const weiter = source.slice(source.indexOf('{previous &&'))
+    expect(weiter).toContain('lastgang === null')
+  })
+})
+
+describe('B24 — die Server Action des Lastgang-Schritts', () => {
+  const source = read(path.resolve(import.meta.dirname, 'data-entry-actions.ts'))
+
+  it('⚠ LIEST die Datei, BEVOR sie sie hochlädt', () => {
+    /*
+     * Die naheliegende Reihenfolge wäre „hochladen, dann lesen". Sie ist hier falsch: es gibt
+     * KEINEN Weg, ein eingetragenes Dokument wieder zu entfernen (kein Wrapper, kein Grant — TEIL 9
+     * der Migration 20260910090000). Eine unlesbare oder uneindeutige Datei hinterliesse damit
+     * dauerhaft eine Zeile in `project_documents`, die niemand mehr los wird.
+     */
+    expect(source.indexOf('readLoadProfile')).toBeGreaterThan(-1)
+    expect(source.indexOf('uploadProjectDocument')).toBeGreaterThan(-1)
+    expect(source.indexOf('readLoadProfile')).toBeLessThan(source.indexOf('uploadProjectDocument'))
+  })
+
+  it('⚠ schickt die Lücken IMMER mit, auch die leere Liste', () => {
+    // `set_metering_point_load_profile` ERSETZT alle vier Angaben gemeinsam. Ein weggelassenes
+    // `p_gaps` liesse die Lücken eines früheren Laufs an einer neuen Datei stehen.
+    expect(source).toContain('p_gaps: scan.gaps')
+  })
+
+  it('⚠ rät bei uneindeutigen Spalten NICHT — es wird nichts gespeichert', () => {
+    expect(source).toContain('needsMapping')
+  })
+})

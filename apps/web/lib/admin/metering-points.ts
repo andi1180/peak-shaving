@@ -29,13 +29,27 @@
  * eigenen `admin_*`-Zwilling bräuchte.
  */
 
+/** Ein Bereich ohne Messwerte, wie ihn `platform.metering_points.gaps` trägt. Halboffen: `[from, to)`. */
+export type MeteringPointGapRange = {
+  /** Erster Zeitpunkt OHNE Messwert, ISO/UTC. */
+  from: string
+  /** Erster Zeitpunkt, zu dem wieder ein Messwert vorliegt, ISO/UTC. */
+  to: string
+}
+
 /**
  * Was der Wizard von einem Zählpunkt braucht.
  *
- * Bewusst KEIN Abbild der ganzen Zeile: `interval_minutes`, `covered_from`/`covered_to`, `gaps` und
- * `draft` gehören zu den Schritten, die es in diesem Bauabschnitt noch nicht gibt. Sie hier schon
- * mitzulesen erzeugte Felder ohne Leser — und beim Füllen der Stationen nähme sich der nächste
- * Schritt die Freiheit, sie anders auszulegen als der Chat es tut.
+ * ── ⚠ DIE LASTGANG-METADATEN STEHEN SEIT DEM LASTGANG-SCHRITT HIER, `draft` WEITERHIN NICHT ────
+ * Der ursprüngliche Zuschnitt liess alle vier Metadaten-Felder bewusst weg, mit der Begründung
+ * „Felder ohne Leser". Für `interval_minutes`, `covered_from`/`covered_to` und `gaps` gilt sie
+ * nicht mehr: die Lastgang-Station ZEIGT genau diese vier — sie sind das Einzige, woran ein Mensch
+ * erkennt, ob die hochgeladene Datei die richtige war. Sie aus dem Rückgabewert der Action zu
+ * nehmen statt aus der Datenbank wäre die schlechtere Wahl: nach einem Neuladen stünde die Station
+ * dann ohne Zusammenfassung da, obwohl gespeichert ist.
+ *
+ * `draft` bleibt draussen — der Entwurf gehört den Schritten, die es noch nicht gibt (Rechnung,
+ * Batterie, PV, Tarif), und der Chat legt ihn anders aus, als ein Formular es täte.
  */
 export type MeteringPointSummary = {
   id: string
@@ -43,8 +57,30 @@ export type MeteringPointSummary = {
    * `source_document_id` gesetzt. Das ist die Angabe, an der
    * `admin_set_metering_point_count` ein Verkleinern verweigert (`has_load_profile`) — die
    * Oberfläche kann damit sagen, warum, bevor jemand es versucht.
+   *
+   * ⚠ Sie ist zugleich der Diskriminator der Lastgang-Metadaten: `set_metering_point_load_profile`
+   * ERSETZT alle vier Angaben gemeinsam und verlangt ein Dokument (`invalid_document`), es gibt
+   * also keinen Stand, in dem ein Zeitraum ohne Quelle dasteht.
    */
   hasLoadProfile: boolean
+  /** 15 oder 60, sobald ein Lastgang eingelesen wurde — sonst `null`. */
+  intervalMinutes: number | null
+  /** Beginn des ersten Intervalls mit Messwert, ISO/UTC — sonst `null`. */
+  coveredFrom: string | null
+  /**
+   * ENDE des letzten Intervalls mit Messwert, ISO/UTC — sonst `null`.
+   *
+   * ⚠ OBERE KANTE EINES HALBOFFENEN BEREICHS (`[coveredFrom, coveredTo)`), nicht der letzte
+   * Zeitstempel. Ein Jahreslastgang endet damit am 1. Jänner des FOLGEjahres um 00:00, und wer das
+   * für einen Messwert hält, liest ein Intervall zu viel. Die Anzeige muss es benennen.
+   */
+  coveredTo: string | null
+  /**
+   * Die gespeicherten Lücken, in zeitlicher Reihenfolge. Leer = keine über der Toleranzschwelle
+   * (`GAP_TOLERANCE_INTERVALS` in der Engine) — ausdrücklich NICHT „keine Angabe": ohne Lastgang
+   * gibt es gar keine Zeile dazu, und das steht in `hasLoadProfile`.
+   */
+  gaps: MeteringPointGapRange[]
 }
 
 function asObject(data: unknown): Record<string, unknown> | null {
@@ -69,7 +105,34 @@ export function readMeteringPointList(data: unknown): MeteringPointSummary[] | n
     const id = row?.id
     // Eine Zeile ohne Kennung ist keine — sie zu zählen erzeugte eine Station ohne Gegenstück.
     if (typeof id !== 'string' || id === '') continue
-    rows.push({ id, hasLoadProfile: typeof row?.source_document_id === 'string' })
+    rows.push({
+      id,
+      hasLoadProfile: typeof row?.source_document_id === 'string',
+      intervalMinutes: typeof row?.interval_minutes === 'number' ? row.interval_minutes : null,
+      coveredFrom: typeof row?.covered_from === 'string' ? row.covered_from : null,
+      coveredTo: typeof row?.covered_to === 'string' ? row.covered_to : null,
+      gaps: readGaps(row?.gaps),
+    })
   }
   return rows
+}
+
+/**
+ * Die Lücken einer Zeile.
+ *
+ * Defensiv wie der Rest dieses Lesers: `gaps` ist `jsonb`, der Typ ist eine Behauptung über die
+ * Migration. Ein Eintrag ohne beide Grenzen wird ÜBERSPRUNGEN und nicht mit einem Platzhalter
+ * gefüllt — eine Lücke „von — bis —" sähe aus wie eine gemessene und wäre keine. Fehlt der
+ * gesamte Wert, ist die Liste leer; das ist derselbe Zustand wie „keine Lücke", und mehr sagt die
+ * Datenbank an dieser Stelle auch nicht (`gaps` hat den Default `'[]'`).
+ */
+function readGaps(value: unknown): MeteringPointGapRange[] {
+  if (!Array.isArray(value)) return []
+  const out: MeteringPointGapRange[] = []
+  for (const raw of value) {
+    const gap = asObject(raw)
+    if (typeof gap?.from !== 'string' || typeof gap?.to !== 'string') continue
+    out.push({ from: gap.from, to: gap.to })
+  }
+  return out
 }

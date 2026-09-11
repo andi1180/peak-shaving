@@ -38,6 +38,22 @@ const nextConfig = {
      * Die fachliche Grenze bleibt die in `lib/admin/analysis-upload.ts`.
      */
     serverActions: { bodySizeLimit: '24mb' },
+
+    /*
+     * ⚠ ZWEITE, UNABHÄNGIGE RUMPFGRENZE — und sie greift FRÜHER als `bodySizeLimit`.
+     *
+     * Gemessen mit einer 21-MB-Datei am Lastgang-Upload (B24): Next schneidet den Rumpf einer
+     * Anfrage, die durch die MIDDLEWARE läuft, standardmässig bei 10 MB ab — der gesamte
+     * `/admin`-Bereich tut das. Die Server Action bekam daraufhin ein halbes Formular und warf
+     * „Unexpected end of form"; der Nutzer sah einen Absturz statt der Meldung, die die Anwendung
+     * für genau diesen Fall bereithält.
+     *
+     * `bodySizeLimit` allein reicht also NICHT: es begrenzt, was die Action annimmt, nicht was die
+     * Middleware durchlässt. Der Wert liegt aus demselben Grund wie dort ETWAS über der fachlichen
+     * Obergrenze (20 MB, `MAX_PROJECT_DOCUMENT_BYTES` bzw. `MAX_SOURCE_FILE_BYTES`): die Anwendung
+     * soll ablehnen und den Grund nennen, nicht die Plattform stumm abschneiden.
+     */
+    middlewareClientMaxBodySize: '24mb',
   },
   /**
    * 301-Redirects der alten `.html`-Pfade (Pflichtenheft §6.4).

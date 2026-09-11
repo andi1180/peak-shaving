@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 
 import { AdminError, AdminPanel, AdminSection, Pill } from '@/components/admin/ui'
 import { DataEntryCountForm } from '@/components/admin/data-entry-count-form'
+import { DataEntryLoadProfile } from '@/components/admin/data-entry-load-profile'
 import { DataEntrySegmentForm } from '@/components/admin/data-entry-segment-form'
 import { Button } from '@/components/ui/button'
 import { Container } from '@/components/ui/layout'
@@ -25,6 +26,7 @@ import {
   type ProjectSegment,
 } from '@/lib/admin/projects'
 import { createClient } from '@/lib/supabase/server'
+import { MAX_PROJECT_DOCUMENT_BYTES } from 'shared'
 
 /*
  * `/admin/kalkulator-projekte/[id]/dateneingabe` — der Dateneingabe-Wizard (B24, Teil 1).
@@ -37,12 +39,17 @@ import { createClient } from '@/lib/supabase/server'
  * (read-only, `components/admin/chat-transcript.tsx`). Was hier an seine Stelle tritt, ist der
  * geführte Weg durch dieselben Angaben: Segment, Zählpunkte, und je Zählpunkt fünf Schritte.
  *
- * ── ⚠ WAS IN DIESEM SCHRITT ECHT IST UND WAS NICHT ─────────────────────────────────────────────
- * ECHT (schreibt in die Datenbank): das Segment und die Zahl der Zählpunkte.
- * PLATZHALTER (Überschrift, ein Satz, Weiter): die fünf Stationen je Zählpunkt, der KI-Check und
- * die Abbruchprüfung. Ziel dieses Bauschritts ist die durchklickbare REIHENFOLGE, nicht der Inhalt
- * — jede der Platzhalter-Stationen bekommt ihren eigenen Auftrag. Es gibt deshalb hier bewusst
- * keinen Upload, keine Klassifizierung und keinen Fragenkatalog.
+ * ── ⚠ WAS ECHT IST UND WAS NICHT ───────────────────────────────────────────────────────────────
+ * ECHT (schreibt in die Datenbank): das Segment, die Zahl der Zählpunkte und — seit dem
+ * Lastgang-Schritt — der LASTGANG je Zählpunkt (Datei ablegen, deterministisch einlesen, Zeitraum/
+ * Intervall/Lücken am Zählpunkt speichern).
+ * PLATZHALTER (Überschrift, ein Satz, Weiter): die vier übrigen Stationen je Zählpunkt (Rechnung,
+ * Batterie, PV, Tarif), der KI-Check und die Abbruchprüfung. Jede bekommt ihren eigenen Auftrag;
+ * es gibt hier weiterhin bewusst keine Klassifizierung und keinen Fragenkatalog.
+ *
+ * ⚠ AUCH IM LASTGANG-SCHRITT UNGEBAUT: der „Nein"-Zweig (Standardprofil aus dem Jahresverbrauch)
+ * ist dort ein Platzhalter, und eine Spalten-Zuordnungs-UI für mehrdeutige Netzbetreiber-Exporte
+ * gibt es bewusst nicht — solche Dateien werden benannt abgewiesen, statt geraten zu werden.
  *
  * ── DIE POSITION STEHT IN DER URL, DIE REIHENFOLGE IM DATENBANKSTAND ───────────────────────────
  * `?station=…`. Weiter und Zurück sind gewöhnliche Links; die Seite wird bei jedem Schritt neu
@@ -181,6 +188,26 @@ export default async function AdminProjectDataEntryPage({
   const previous = stations[index - 1] ?? null
   const next = stations[index + 1] ?? null
 
+  /*
+   * ⚠ DIE ZÄHLPUNKT-NUMMER IST EINE POSITION, KEINE KENNUNG. `list_metering_points` sortiert
+   * „älteste zuerst" (Migration 20260911120000 TEIL 3), und `buildStations` nummeriert in genau
+   * dieser Reihenfolge durch — der Zählpunkt zur Station `zp2-lastgang` ist also der ZWEITE
+   * Eintrag der Liste. Es gibt bewusst keine Zählpunktnummer in der Datenbank (TEIL 6 der
+   * Migration 20260911090000); wer hier eine stabile Kennung braucht, löst sie so auf und behandelt
+   * die Nummer nicht als eine.
+   *
+   * `null` heisst „diese Station ist (noch) ein Platzhalter" — entweder ein anderer der fünf
+   * Schritte oder, rein defensiv, ein Zählpunkt, den die Liste nicht trägt (kann nicht eintreten:
+   * die Stationen entstehen aus ihrer Länge).
+   */
+  const lastgang = (() => {
+    if (station.kind !== 'zaehlpunkt-schritt') return null
+    const step = station.meteringPoint
+    if (!step || step.step !== 'lastgang') return null
+    const point = meteringPoints[step.number - 1]
+    return point ? { point, number: step.number } : null
+  })()
+
   const segmentLabel = projectSegmentLabel(project.segment)
   const currentSegment = (PROJECT_SEGMENTS as readonly string[]).includes(project.segment ?? '')
     ? (project.segment as ProjectSegment)
@@ -230,11 +257,20 @@ export default async function AdminProjectDataEntryPage({
             />
           )}
 
-          {station.kind === 'zaehlpunkt-schritt' && (
-            <StationPlaceholder
-              note={`Hier wird später der Schritt „${station.title}" ausgefüllt.`}
-            />
-          )}
+          {station.kind === 'zaehlpunkt-schritt' &&
+            (lastgang === null ? (
+              <StationPlaceholder
+                note={`Hier wird später der Schritt „${station.title}" ausgefüllt.`}
+              />
+            ) : (
+              <DataEntryLoadProfile
+                projectId={project.id}
+                meteringPoint={lastgang.point}
+                meteringPointNumber={lastgang.number}
+                maxBytes={MAX_PROJECT_DOCUMENT_BYTES}
+                nextHref={next ? stationHref(project.id, next.id) : null}
+              />
+            ))}
 
           {station.kind === 'ki-check' && (
             <StationPlaceholder note="Hier prüft später die KI die gesammelten Angaben auf Widersprüche." />
@@ -253,10 +289,15 @@ export default async function AdminProjectDataEntryPage({
         </AdminPanel>
 
         {/*
-          ⚠ EIN „WEITER" GIBT ES NUR AUF DEN PLATZHALTER-STATIONEN. Auf den beiden echten Schritten
-          IST der Speichern-Knopf der Weg nach vorn; ein Link daneben wäre ein zweiter, der die
-          Angabe überspringt — genau das, was auf einer Station, die etwas erhebt, nicht passieren
-          soll. Zurück gibt es dagegen überall ausser auf der allerersten Station: es schreibt nichts.
+          ⚠ EIN „WEITER" GIBT ES NUR AUF DEN PLATZHALTER-STATIONEN. Auf den echten Schritten IST der
+          Speichern-Knopf der Weg nach vorn; ein Link daneben wäre ein zweiter, der die Angabe
+          überspringt — genau das, was auf einer Station, die etwas erhebt, nicht passieren soll.
+          Zurück gibt es dagegen überall ausser auf der allerersten Station: es schreibt nichts.
+
+          ⚠ DIE LASTGANG-STATION IST HIER AUSGENOMMEN und rendert ihren Weiter-Knopf SELBST. Sie ist
+          kein reiner Platzhalter mehr, aber auch kein reiner Speichern-Schritt: Im „Nein"-Zweig gibt
+          es nichts zu speichern und der Weg muss trotzdem weitergehen, im „Ja"-Zweig erst nach dem
+          Einlesen. Diese Unterscheidung kennt nur die Komponente, die den Zustand hält.
         */}
         <div className="mt-6 flex flex-wrap items-center gap-3">
           {previous && (
@@ -264,11 +305,14 @@ export default async function AdminProjectDataEntryPage({
               <Link href={stationHref(project.id, previous.id)}>Zurück: {previous.title}</Link>
             </Button>
           )}
-          {next && station.kind !== 'segment' && station.kind !== 'zaehlpunkte' && (
-            <Button asChild variant="primary" size="md">
-              <Link href={stationHref(project.id, next.id)}>Weiter: {next.title}</Link>
-            </Button>
-          )}
+          {next &&
+            station.kind !== 'segment' &&
+            station.kind !== 'zaehlpunkte' &&
+            lastgang === null && (
+              <Button asChild variant="primary" size="md">
+                <Link href={stationHref(project.id, next.id)}>Weiter: {next.title}</Link>
+              </Button>
+            )}
         </div>
       </AdminSection>
     </Container>
