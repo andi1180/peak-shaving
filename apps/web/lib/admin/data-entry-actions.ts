@@ -102,6 +102,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
 import {
+  MAX_BATTERY_LOOKUP_INPUT_CHARS,
   MAX_BATTERY_SPEC_FILE_BYTES,
   MAX_BATTERY_TEXT_CHARS,
   MAX_INVOICE_FILE_BYTES,
@@ -109,6 +110,7 @@ import {
   extractBatteryText,
   extractInvoiceData,
   generateStandardProfileMetadata,
+  lookupBatterySpec,
   readLoadProfile,
 } from 'extractors'
 import {
@@ -118,6 +120,7 @@ import {
   hasMeteringVariant,
   mergeInvoiceExtractions,
   standardProfileYear,
+  type BatteryLookupNotFoundReason,
   type InvoiceMergeFieldKey,
 } from 'shared'
 
@@ -2227,5 +2230,198 @@ export async function scanBatterySpecAction(
   values.extraction = 'ok'
   values.found = String(found)
   values.label = label
+  return { values }
+}
+
+/**
+ * B24, Teil 1 — der DRITTE Weg zu denselben vier Kenndaten: Marke und Typ im Web nachschlagen.
+ *
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * ⚠ SIE SPEIST IN DENSELBEN MECHANISMUS, SIE ERSETZT IHN NICHT
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * Der Extraktor liefert die vier Zahlenfelder unter EXAKT denselben Namen wie Freitexterfassung
+ * und Datenblatt-Scan (`BATTERY_LOOKUP_NUMBER_KEYS` ist per `satisfies` an
+ * `BATTERY_TEXT_NUMBER_KEYS` gebunden, `packages/shared`). Diese Action läuft deshalb über
+ * dieselbe `BATTERY_VALUE_FIELDS`, füllt dieselben Formularfelder und übergibt an denselben
+ * „Speichern"-Knopf (`saveMeteringPointBatteryAction`) — an `battery-draft.ts` und am Schreibweg
+ * ist KEINE Zeile geändert. Es gibt damit weiterhin nur EINEN Ort, an dem eine Batterie-Angabe in
+ * den Entwurf gelangt.
+ *
+ * ⚠ SIE SCHREIBT NICHTS. Zwischen dem Gefundenen und dem Gespeicherten steht ein zweiter, eigener
+ * Klick — wortgleich zu den beiden Wegen daneben. Hier wiegt das am schwersten von allen dreien:
+ * beim Satz hat der Eintragende die Zahlen selbst formuliert, beim Datenblatt hat er das Papier
+ * vor sich, hier hat er WEDER das eine NOCH das andere. Was ihm bleibt, ist die Quellenangabe —
+ * und genau deshalb wird sie angezeigt, bevor irgendetwas gespeichert wird.
+ *
+ * ── DIE PRÜFKETTE LÄUFT VOR JEDEM EXTERNEN KONTAKT ────────────────────────────────────────────
+ * Leer, zu lang — beides ist rein und kostet nichts. Eine Server Action ist über ihre Kennung
+ * aufrufbar, und was dahinter liegt, ist teurer als bei jeder Anbindung davor: neben dem
+ * Modellaufruf bezahlt jede Suche, und die Treffer landen als Eingabe-Tokens im Kontext (gemessen:
+ * rund 57.000 für EINEN Vorschlag). Die Prüfungen sind deshalb eine echte Sperre, keine
+ * Bedienhilfe — das `maxlength` der zwei Textfelder ist eine Angabe des Browsers.
+ *
+ * ── ⚠ ES WIRD KEINE DATEI ABGELEGT UND KEINE QUELLE GESPEICHERT ───────────────────────────────
+ * Die gefundenen Adressen reisen als Anzeigewerte in der Antwort mit und haben keinen
+ * Entwurfs-Schlüssel. Sie sind eine Auskunft über DIESEN Vorschlag, kein Beleg am Zählpunkt: was
+ * gespeichert wird, sind die vier Zahlen, die ein Mensch danach bestätigt hat — ab dann sind es
+ * seine Angaben, nicht die einer Website. (Dieselbe Behandlung wie `netzbetreiber` beim
+ * Rechnungs-Scan und Hersteller/Modell beim Datenblatt-Scan.)
+ */
+
+/** Warum eine Recherche nichts ergeben hat — die Zustände des Extraktors, in einem Satz. */
+const BATTERY_LOOKUP_FAILURE_TEXT: Record<'not_configured' | 'api_error' | 'unreadable', string> = {
+  not_configured:
+    'Die Marke/Typ-Recherche ist auf diesem Server nicht eingerichtet. Die vier Felder lassen sich trotzdem von Hand ausfüllen.',
+  api_error:
+    'Die Recherche ist fehlgeschlagen. Bitte später noch einmal versuchen — oder die vier Felder von Hand ausfüllen.',
+  unreadable:
+    'Zu dieser Angabe war nichts zu finden. Bitte Hersteller und Typbezeichnung prüfen — oder die vier Felder von Hand ausfüllen.',
+}
+
+/**
+ * Warum ein gefundenes Produkt keine Kennzahlen geliefert hat.
+ *
+ * ── ⚠ DIE SÄTZE STEHEN HIER, DER GRUND KOMMT ALS SCHLÜSSEL ────────────────────────────────────
+ * Der Extraktor gibt eine geschlossene Liste zurück und keinen Satz — „kein Freitextfeld in der
+ * Rückgabe" gilt in allen sechs Anbindungen. Eine Begründung des Modells über die eigene
+ * Sicherheit würde hier als Auskunft des Rechners erscheinen; formuliert wird deshalb bei uns.
+ *
+ * ⚠ `no_evidence` ist der einzige Grund, den NICHT das Modell vergibt, sondern die Belegprüfung
+ * (`parseBatteryLookupExtraction`): es gab Zahlen, aber keine nachweisbare Quelle dafür. Sein Satz
+ * sagt das im Klartext, statt es als Suchmisserfolg zu tarnen — der Unterschied ist für den
+ * Eintragenden wesentlich, weil er hier NICHT durch eine bessere Eingabe zu beheben ist.
+ */
+const BATTERY_LOOKUP_REASON_TEXT: Record<BatteryLookupNotFoundReason, string> = {
+  not_identified:
+    'Unter dieser Bezeichnung war kein Speicher zu finden. Bitte Schreibweise von Hersteller und Typ prüfen.',
+  ambiguous:
+    'Die Bezeichnung passt auf mehrere Varianten, und welche gemeint ist, steht in keiner Quelle. Bitte die genaue Typbezeichnung angeben (sie steht meist auf dem Typenschild) — oder die Werte von Hand eintragen.',
+  no_specs:
+    'Das Produkt ist gefunden, verlässliche Kenndaten waren dazu aber nicht auffindbar. Bitte die Werte von Hand eintragen.',
+  no_evidence:
+    'Es liess sich keine Quelle belegen, auf der die Werte stehen. Ungeprüfte Zahlen werden hier bewusst nicht vorgeschlagen — bitte die Werte von Hand eintragen.',
+}
+
+/**
+ * Sucht die Kenndaten zu Hersteller und Modell und gibt sie als Formularwerte zurück.
+ *
+ * ── ⚠ „GEFUNDEN, ABER KEINE KENNZAHL" IST EIN EIGENER, HÄUFIGER FALL ─────────────────────────
+ * Der Extraktor meldet `unreadable` nur, wenn ALLE Felder leer sind — Hersteller und Modell
+ * eingeschlossen. Eine Bezeichnung, die auf eine ganze Produktfamilie passt, liefert deshalb ein
+ * `ok` mit Typbezeichnung und OHNE eine einzige Zahl, und das ist die richtige Antwort (welche
+ * Variante der Kunde hat, steht nirgends).
+ *
+ * Als Erfolg durchgereicht leerte es die vier Felder und behauptete dabei, es habe Kenndaten
+ * gefunden. Es bekommt deshalb einen eigenen Satz je Grund (s. oben) — und die Felder bleiben, wie
+ * sie sind. Dieselbe Stelle wie in den beiden Wegen daneben, nur mit einer konkreteren Auskunft:
+ * dort kann man nichts weiter tun, hier führt eine genauere Typbezeichnung oft zum Ziel.
+ */
+export async function lookupBatterySpecByModelAction(
+  _prev: AdminState,
+  formData: FormData,
+): Promise<AdminState> {
+  const manufacturer = String(formData.get('batteryManufacturer') ?? '').trim()
+  const model = String(formData.get('batteryModel') ?? '').trim()
+
+  /*
+   * ⚠ BEIDE ANGABEN SIND PFLICHT, und das ist eine Kostenentscheidung: eine Typbezeichnung ohne
+   * Hersteller („HVS 10.2") passt im offenen Web auf beliebig viele Produkte, und eine Marke ohne
+   * Typ auf das ganze Sortiment. Beides führte in eine Suche, die teuer ist und deren Ergebnis
+   * anschliessend als `ambiguous` abgelehnt wird — die Ablehnung steht besser hier, bevor sie Geld
+   * kostet.
+   */
+  if (manufacturer === '') {
+    return {
+      fieldErrors: {
+        batteryManufacturer: 'Bitte den Hersteller angeben — oder die Felder von Hand ausfüllen.',
+      },
+    }
+  }
+  if (model === '') {
+    return {
+      fieldErrors: {
+        batteryModel:
+          'Bitte die Modell-/Typbezeichnung angeben — oder die Felder von Hand ausfüllen.',
+      },
+    }
+  }
+  if (
+    manufacturer.length > MAX_BATTERY_LOOKUP_INPUT_CHARS ||
+    model.length > MAX_BATTERY_LOOKUP_INPUT_CHARS
+  ) {
+    /*
+     * ⚠ ABGEWIESEN UND NICHT GEKÜRZT. Bei einem Satz wäre Kürzen richtig (es bleibt derselbe Satz,
+     * nur kürzer); eine halbierte Typbezeichnung ist dagegen eine ANDERE Bezeichnung, und die
+     * Recherche suchte dann nach einem Produkt, das niemand genannt hat.
+     */
+    return {
+      fieldErrors: {
+        batteryModel:
+          `Hersteller und Typ dürfen je höchstens ${MAX_BATTERY_LOOKUP_INPUT_CHARS} Zeichen haben. ` +
+          'Gemeint ist die Bezeichnung vom Typenschild, kein ganzer Satz.',
+      },
+    }
+  }
+
+  const outcome = await lookupBatterySpec(manufacturer, model)
+  if (!outcome.ok) return { formError: BATTERY_LOOKUP_FAILURE_TEXT[outcome.reason] }
+
+  /*
+   * ⚠ ALLE VIER FELDER WERDEN GESETZT, auch die nicht gefundenen (als Leerstring).
+   *
+   * Ein nicht gefundenes Feld stehen zu lassen hiesse, einen Wert aus einer FRÜHEREN Ablesung
+   * neben frischen stehen zu haben, ohne dass man die beiden unterscheiden kann. Was hier
+   * erscheint, ist das Ergebnis GENAU DIESER Recherche. Der Preis ist derselbe wie bei den beiden
+   * Wegen daneben und in der Oberfläche ausgeschrieben: eine von Hand eingetippte Zahl verliert
+   * man mit einer zweiten Suche.
+   */
+  const values: Record<string, string> = {}
+  let found = 0
+  for (const field of BATTERY_VALUE_FIELDS) {
+    const value = outcome.extraction[field.form]
+    if (value === null) {
+      values[field.form] = ''
+      continue
+    }
+    values[field.form] = formatBatteryNumber(value)
+    found += 1
+  }
+
+  const label = [outcome.extraction.manufacturer, outcome.extraction.model]
+    .filter((part): part is string => part !== null)
+    .join(' ')
+
+  if (found === 0) {
+    /*
+     * Der Grund des Extraktors, falls er einen hat — sonst der allgemeine „gefunden, aber nichts
+     * Belastbares"-Satz. Der Produktname steht davor, wo es einen gibt: er ist die Auskunft
+     * darüber, WORAN es lag (eine Familie statt einer Variante sieht man erst an ihm).
+     */
+    const reason = outcome.extraction.notFound
+      ? BATTERY_LOOKUP_REASON_TEXT[outcome.extraction.notFound]
+      : BATTERY_LOOKUP_REASON_TEXT.no_specs
+    return {
+      formError: label === '' ? reason : `Gefunden wurde „${label}". ${reason}`,
+    }
+  }
+
+  /*
+   * Der Marker unterscheidet „eben gesucht" von „noch nie gelaufen" — der Zustand aus
+   * `useActionState` ist beim ersten Render leer, und ein leeres `values` sähe genauso aus.
+   * ⚠ Er heisst GENAUSO wie in den beiden Wegen daneben (`extraction: 'ok'`), und das ist Absicht:
+   * alle drei füllen dieselben Felder, und die Oberfläche wendet auf alle drei dieselbe Übernahme
+   * an.
+   */
+  values.extraction = 'ok'
+  values.found = String(found)
+  values.label = label
+  /*
+   * ⚠ DIE QUELLEN REISEN ALS EINE ZEILE MIT, nicht als Liste — `AdminState.values` ist ein flaches
+   * `Record<string, string>` (es kommt aus einem Formular-Zustand). Getrennt wird mit einem
+   * Leerzeichen: eine URL enthält keines, und die Aufteilung in der Oberfläche ist damit eindeutig.
+   * Die Liste ist bereits geprüft und auf `MAX_BATTERY_LOOKUP_SOURCE_URLS` begrenzt
+   * (`packages/shared`); hier wird nichts mehr gefiltert.
+   */
+  values.sourceUrls = outcome.extraction.sourceUrls.join(' ')
   return { values }
 }
