@@ -270,6 +270,7 @@ export function AdminSelect({
   error,
   hint,
   children,
+  value,
   onValueChange,
 }: {
   id: string
@@ -280,6 +281,22 @@ export function AdminSelect({
   hint?: React.ReactNode
   children: React.ReactNode
   /**
+   * Kontrollierter Wert — optional und additiv, wortgleiche Form wie `AdminField.value` oben (die
+   * bestehenden Verwendungen bleiben unkontrolliert und unverändert: ohne `value` wird weiterhin
+   * ausschliesslich `defaultValue` gesetzt).
+   *
+   * ⚠ GEBRAUCHT DORT, WO EIN FORMULAR MEHR ALS EINE ACTION HAT. React setzt UNKONTROLLIERTE
+   * Formularfelder nach JEDER abgeschlossenen Action auf diesem Formular zurück — nicht nur nach
+   * der, die der Mensch gerade gemeint hat. In der Rechnung-Station (B24, Teil 1) trägt EIN
+   * Formular zwei Actions (speichern und „Werte vorschlagen"); der Vorschlag ist ausdrücklich ein
+   * LESENDER Aufruf, und er löschte trotzdem Netzbetreiber, Netzebene und Messvariante — also
+   * genau die drei Angaben, aus denen er gebildet wurde. Ein `defaultValue` kann das nicht
+   * verhindern: es ist der Anfangswert, nicht der aktuelle.
+   *
+   * Der Beobachter `onValueChange` allein genügt dafür NICHT — er liest mit, er hält nicht.
+   */
+  value?: string
+  /**
    * Zusätzlicher Beobachter der Auswahl — optional und additiv (B19; die bestehenden Verwendungen
    * bleiben unverändert und brauchen ihn nicht).
    *
@@ -287,6 +304,8 @@ export function AdminSelect({
    * ist die Partner-Freigabe erst ankreuzbar, wenn ein Fachbetrieb zugeordnet ist. Das Feld bleibt
    * dabei UNKONTROLLIERT (`defaultValue`), damit die Wiederanzeige nach einer beanstandeten Eingabe
    * weiter über den Formularzustand läuft — der Beobachter liest nur mit, er übernimmt nicht.
+   *
+   * ZUSAMMEN mit `value` ist er der Setzer des kontrollierten Werts (Muster `AdminField`).
    */
   onValueChange?: (value: string) => void
 }) {
@@ -299,8 +318,19 @@ export function AdminSelect({
         <Select
           id={id}
           name={name}
-          defaultValue={defaultValue}
-          onChange={onValueChange ? (e) => onValueChange(e.currentTarget.value) : undefined}
+          {...(value === undefined
+            ? {
+                defaultValue,
+                onChange: onValueChange
+                  ? (e: React.ChangeEvent<HTMLSelectElement>) =>
+                      onValueChange(e.currentTarget.value)
+                  : undefined,
+              }
+            : {
+                value,
+                onChange: (e: React.ChangeEvent<HTMLSelectElement>) =>
+                  onValueChange?.(e.currentTarget.value),
+              })}
           aria-invalid={error ? true : undefined}
           aria-describedby={showHint ? hintId : undefined}
         >
