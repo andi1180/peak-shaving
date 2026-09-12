@@ -813,18 +813,20 @@ describe('B24 — die PV-Station', () => {
     expect(source).toContain('PV-Planung')
   })
 
-  it('⚠ erhebt NICHTS über die Erzeugung — kein Upload, kein PVGIS, kein Extraktor', () => {
+  it('⚠ der Ja-Zweig NIMMT eine Erzeugungsdatei entgegen — und weiterhin keinen PVGIS-Abruf', () => {
     /*
-     * Der Ja-Zweig ist ein benannter Platzhalter. Ein Dateifeld oder ein Abruf hier wäre eine
-     * Aussage über eine Kurve, die niemand hochgeladen hat — und der Platzhalter sagt das im
-     * Klartext, statt wie ein fertiger Schritt auszusehen.
+     * ⚠ NACHGEZOGEN, NICHT GESTRICHEN: bis zum Erzeugungsprofil-Upload verlangte dieser Test das
+     * Gegenteil („kein Dateifeld, kein `maxBytes`") — der Ja-Zweig war ein benannter Platzhalter.
+     * Diese Zusage ist mit dem Upload gefallen. Was BLEIBT, ist ihre zweite Hälfte, und sie ist
+     * fachlich die wichtigere: ein PVGIS-Abruf (B22, der Weg für eine Anlage OHNE gemessene
+     * Erzeugung) gehört weiterhin nicht hierher — eine erzeugte Kurve ist keine gemessene.
      */
-    expect(source).not.toContain("type=\"file\"")
-    expect(source).not.toContain('pvgis')
-    expect(source).not.toContain('PvProfile')
-    expect(source).not.toContain('maxBytes')
     const ja = source.slice(source.indexOf('{hasPv === true &&'))
-    expect(ja.slice(0, ja.indexOf('</div>'))).toContain('eigener\n            Bauabschnitt')
+    const branch = ja.slice(0, ja.indexOf('{hasPv === false &&'))
+    expect(branch).toContain('PvProfileUploadForm')
+    expect(branch).toContain('maxBytes={maxBytes}')
+    expect(source).toContain('type="file"')
+    expect(source).not.toContain('pvgis')
   })
 
   it('⚠ das Entwurfs-Modul ist rein — die Client-Komponente importiert davon', () => {
@@ -843,13 +845,22 @@ describe('B24 — die PV-Station', () => {
     expect(placeholderCondition(page)).toContain('pv === null')
   })
 
-  it('⚠ reicht `customerLabel` herein und KEINE Grössengrenze', () => {
+  it('⚠ reicht `customerLabel` UND die kleinere der zwei Grössengrenzen herein', () => {
     const branch = page.slice(page.indexOf('<DataEntryPv'))
     const close = branch.slice(0, branch.indexOf('/>'))
     // Der Betreff der PV-Anfrage nennt das Projekt; die Station kennt nur den Zählpunkt.
     expect(close).toContain('customerLabel={project.customer_label}')
-    // Eine Grenze wäre eine Zusage auf einen Upload-Weg, den es hier nicht gibt.
-    expect(close).not.toContain('maxBytes')
+    /*
+     * ⚠ NACHGEZOGEN: dieser Test verlangte bis zum Erzeugungsprofil-Upload ausdrücklich KEIN
+     * `maxBytes` — es gab keinen Weg, auf den sich eine Grenze hätte beziehen können. Jetzt gibt es
+     * ihn, und geprüft wird nicht bloss, DASS eine Grenze hereinkommt, sondern WELCHE: es gilt die
+     * kleinere von beiden. Die Ablage (`MAX_PROJECT_DOCUMENT_BYTES`, 20 MB) ist enger als der Leser
+     * (`MAX_PV_PROFILE_FILE_BYTES`, 25 MB); mit der Leser-Grenze beschriftet liefe eine 22-MB-Datei
+     * vollständig durch das Einlesen und scheiterte erst beim Hochladen — ein Fehlschlag, den die
+     * Oberfläche selbst angekündigt hätte. Dieselbe Regel wie bei Lastgang, Rechnung und Batterie.
+     */
+    expect(close).toContain('maxBytes={MAX_PROJECT_DOCUMENT_BYTES}')
+    expect(close).not.toContain('MAX_PV_PROFILE_FILE_BYTES')
   })
 
   it('⚠ die Action schreibt GENAU EIN Feld und leitet NICHT um', () => {

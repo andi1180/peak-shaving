@@ -3,7 +3,7 @@ import { detectStructure, isInverterExport } from './detect'
 import { byteSize, resolveLimits } from './limits'
 import { detectIntervalMinutes } from './prepare'
 import { matchAdapter } from './adapters'
-import { normalizeLoad } from './normalize'
+import { normalizeLoad, normalizeSingleValue } from './normalize'
 import { extractTable } from './table'
 import type {
   ColumnMapping,
@@ -352,4 +352,215 @@ export function readLoadProfileMetadata(
     rowCount: stamps.length,
     coveredMonths: countCoveredMonths(stamps, timezone),
   }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════════════════════════
+// B24, Teil 1 — DER METADATEN-LESER EINER PV-ERZEUGUNGSREIHE
+// ═════════════════════════════════════════════════════════════════════════════════════════════════
+/**
+ * Das PV-Gegenstück zu `readLoadProfileMetadata` — und es steht aus denselben zwei Gründen hier und
+ * nicht in `packages/extractors`: die Format-Kenntnis liegt in diesem Verzeichnis, und ein
+ * PV-Leser muss browser-fähig bleiben (der öffentliche Rechner liest ein PV-Profil client-seitig,
+ * Prinzip 4). Der Kopf dieser Datei führt beides aus.
+ *
+ * ── ⚠ WARUM ES NICHT `parsePvProfile` TUT — dieselbe Aufteilung wie beim Lastgang ─────────────
+ * `parsePvProfile` (`parse.ts`) gibt die VOLLE Zeitreihe zurück (`PvProfile.readings`), baut dafür
+ * ein lückenloses 15-min-Gitter und INTERPOLIERT kleine Lücken weg. Für die Rechnung ist das
+ * richtig; für eine Metadaten-Aussage ist es das Gegenteil dessen, was gebraucht wird — eine
+ * interpolierte Lücke ist keine Abdeckung, sondern eine geglättete Fehlanzeige, und die BEREICHE
+ * kennt `dataQuality` ohnehin nicht (nur `gapsInterpolated`/`largestGapSlots` als Zahlen).
+ *
+ * ── ⚠ EIN WECHSELRICHTER-EXPORT WIRD HIER AUSDRÜCKLICH NICHT ABGELEHNT ────────────────────────
+ * `readLoadProfileMetadata` weist ihn über `isInverterExport` ab, weil ein ESS-Log kein NETZ-Lastgang
+ * ist. Für die Erzeugungsseite gilt das Gegenteil, und es ist gemessen (OP#4, Format B): die
+ * Eingangsleistung eines Wechselrichters IST die Brutto-PV-Kurve. `parsePvProfile` prüft aus genau
+ * diesem Grund nicht darauf, und dieser Leser folgt ihm. Wer die Prüfung hier ergänzt, sperrt den
+ * häufigsten realen PV-Export aus.
+ *
+ * ── ⚠ ES GIBT KEINEN `needs_mapping`-AUSGANG, anders als beim Lastgang ────────────────────────
+ * Dort ist die Rückfrage nötig, weil ein Netzbetreiber-Export MEHRERE Zählpunkte in einer Datei
+ * führt und die Zuordnung Spalte→Zählpunkt ein Mensch trifft. Eine Erzeugungsreihe hat diesen Fall
+ * nicht: ein PV-Export beschreibt EINE Anlage. Wo doch mehrere Wert-Spalten dastehen (der
+ * ESS-Export oben), gilt `valueCols[0]` — dieselbe Wahl, die `parsePvProfile` trifft, und das ist
+ * der eigentliche Grund für sie: die Metadaten sollen die Spalte beschreiben, die der Rechenkern
+ * später auch liest. Auf die ZAHLEN wirkt die Wahl ohnehin fast nicht — alle Spalten teilen sich
+ * die Zeitstempel, unterscheiden können sie sich nur dort, wo eine Zelle leer ist und die andere
+ * nicht.
+ *
+ * ── ⚠ KEIN ADAPTER-ABGLEICH, ebenfalls anders als beim Lastgang ──────────────────────────────
+ * `matchAdapter` beschreibt NETZBETREIBER-Layouts; seine Hinweise (`source`, `columns`,
+ * `signConvention`) sind für eine Erzeugungsreihe entweder bedeutungslos oder falsch. `parsePvProfile`
+ * setzt deshalb `adapterId: 'generic'`, und dieser Leser fragt die Registry gar nicht erst.
+ *
+ * ── ⚠ ES KOMMT KEIN EINZIGER MESSWERT HERAUS ──────────────────────────────────────────────────
+ * Wortgleich zum Lastgang-Leser: zurück kommen Zeitpunkte und Zahlen ÜBER die Reihe, nie die Reihe
+ * selbst. Das ist die Bedingung dafür, dass das Ergebnis im Entwurf eines Zählpunkts gespeichert
+ * werden darf, ohne einen zweiten Speicherort für dieselben Erzeugungsdaten zu schaffen — die
+ * Rohdatei bleibt in `project_documents`/Storage.
+ */
+
+/**
+ * Ein Bereich ohne Erzeugungswerte. Halboffen `[from, to)`.
+ *
+ * ⚠ EIN ALIAS UND KEINE KOPIE. Es ist derselbe Begriff („ein Zeitbereich, für den kein Messwert
+ * vorliegt"), und beide Seiten werden im Entwurf eines Zählpunkts gleich gelesen und gleich
+ * geschrieben. Ein strukturgleicher Zwilling daneben wäre die Einladung, die zwei beim nächsten
+ * Umbau auseinanderlaufen zu lassen; der Aliasname steht trotzdem da, damit an der Aufrufstelle
+ * nicht „LoadProfile" für eine PV-Reihe steht.
+ */
+export type PvProfileGap = LoadProfileGap
+
+/** Was eine PV-Erzeugungsreihe über sich verrät. Feldweise dieselbe Aussage wie beim Lastgang. */
+export type PvProfileMetadata = {
+  /** Aus den Zeitstempeln erkannt, nicht angenommen — s. `SUPPORTED_INTERVAL_MINUTES`. */
+  intervalMinutes: number
+  /** Beginn des ERSTEN Intervalls mit Messwert, ISO/UTC. */
+  coveredFrom: string
+  /**
+   * ENDE des LETZTEN Intervalls mit Messwert, ISO/UTC — letzter Zeitstempel + `intervalMinutes`.
+   *
+   * ⚠ OBERE KANTE EINES HALBOFFENEN BEREICHS, dieselbe Konvention (und dieselbe Falle) wie bei
+   * `LoadProfileMetadata.coveredTo`: ein Jahresprofil endet damit am 1. Jänner des FOLGEjahres um
+   * 00:00, nicht am 31.12. um 23:45. Wer es für den letzten Messwert hält, verliert ein Intervall.
+   */
+  coveredTo: string
+  /** Die Lücken über der Toleranzschwelle (`GAP_TOLERANCE_INTERVALS`), in zeitlicher Reihenfolge. */
+  gaps: PvProfileGap[]
+  /** Zahl der Intervalle MIT Messwert (nach Deduplizierung), nicht die Zahl der Dateizeilen. */
+  rowCount: number
+  /** Belegte Kalendermonate (lokal) — dieselbe Ableitung wie `DataQuality.coveredMonths`. */
+  coveredMonths: number
+}
+
+/**
+ * ⚠ NUR ZWEI ZWEIGE, und der fehlende dritte ist Absicht: es gibt keinen `needsMapping`-Ausgang
+ * (s. o.). Ein Feld `needsMapping: false` mitzuführen, nur damit die Form der des Lastgangs
+ * gleicht, wäre eine Requisite — ein Wert, an dem nie etwas hängt.
+ */
+export type PvProfileScan = ({ ok: true } & PvProfileMetadata) | { ok: false; error: ParseError }
+
+function pvErr(code: ParseError['code'], message: string): PvProfileScan {
+  return { ok: false, error: { code, message } }
+}
+
+/**
+ * Aus einer aufsteigend sortierten, DEDUPLIZIERTEN Zeitstempel-Liste die Metadaten ableiten.
+ *
+ * ⚠ `readLoadProfileMetadata` trägt dieselbe Ableitung heute noch INLINE, und dieser Schritt fasst
+ * sie ausdrücklich nicht an: jene Funktion ist live geprüft (PR #192, gegen echte Exporte und den
+ * Tag der Zeitumstellung), und eine mechanische Umstellung dort hiesse, die Lastgang-Station danach
+ * neu zu messen. Die Doppelung ist damit benannt statt übersehen — wer sie zusammenlegt, tut es als
+ * eigenen, messbaren Schritt.
+ */
+function pvMetadataFromStamps(stamps: number[], timezone: string): PvProfileScan {
+  const intervalMinutes = detectIntervalMinutes(stamps)
+  if (!(SUPPORTED_INTERVAL_MINUTES as readonly number[]).includes(intervalMinutes))
+    return pvErr(
+      'wrong_interval',
+      `Nur ${SUPPORTED_INTERVAL_MINUTES.join('- oder ')}-min-Intervall unterstuetzt ` +
+        `(erkannt: ${intervalMinutes} min).`,
+    )
+
+  const stepMs = intervalMinutes * 60_000
+  const gaps: PvProfileGap[] = []
+  for (let i = 1; i < stamps.length; i++) {
+    const previous = stamps[i - 1]!
+    const current = stamps[i]!
+    const missing = Math.round((current - previous) / stepMs) - 1
+    if (missing < GAP_TOLERANCE_INTERVALS) continue
+    gaps.push({ from: toIsoUtc(previous + stepMs), to: toIsoUtc(current) })
+  }
+
+  const first = stamps[0]!
+  const last = stamps[stamps.length - 1]!
+
+  return {
+    ok: true,
+    intervalMinutes,
+    coveredFrom: toIsoUtc(first),
+    coveredTo: toIsoUtc(last + stepMs),
+    gaps,
+    rowCount: stamps.length,
+    coveredMonths: countCoveredMonths(stamps, timezone),
+  }
+}
+
+/**
+ * Liest Zeitraum, Intervall und Lücken einer PV-Erzeugungsreihe. Kein Datei-I/O, kein Netz, kein
+ * Modellaufruf — deterministisch und damit ohne abrechenbare Kosten.
+ *
+ * @param input Roher Datei-Inhalt (CSV als String, XLSX als ArrayBuffer/Uint8Array).
+ * @param options Wie bei `parsePvProfile`; `columns` setzt die Spaltenwahl ausdrücklich fest.
+ */
+export function readPvProfileMetadata(
+  input: { content: string | ArrayBuffer | Uint8Array; fileName?: string; format?: 'csv' | 'xlsx' },
+  options: ParseOptions = {},
+): PvProfileScan {
+  const limits = resolveLimits(options.limits)
+
+  const size = byteSize(input.content)
+  if (size === 0) return pvErr('empty', 'Die Datei ist leer.')
+  if (size > limits.maxBytes)
+    return pvErr('too_large', `Datei zu gross (${size} > ${limits.maxBytes} Bytes).`)
+
+  const table = extractTable(input, options.delimiter)
+  if (table.matrix.length === 0) return pvErr('empty', 'Keine Datenzeilen gefunden.')
+  if (table.matrix.length > limits.maxRows)
+    return pvErr('too_many_rows', `Zu viele Zeilen (${table.matrix.length} > ${limits.maxRows}).`)
+
+  const fallbackDecimal = table.delimiter === ';' ? ',' : '.'
+  const draft = detectStructure(table.matrix, options.decimal ?? fallbackDecimal)
+
+  const dateFormat = (options.dateFormat as DateFormat | undefined) ?? draft.dateFormat
+  const decimal = options.decimal ?? draft.decimal
+  const timezone = options.timezone ?? DEFAULT_TZ
+
+  if (draft.timestampCol == null || dateFormat == null)
+    return pvErr('no_timestamp_column', 'Keine Zeitstempel-Spalte erkannt.')
+
+  const valueCol = options.columns?.value ?? draft.valueCols[0]
+  if (valueCol == null) return pvErr('no_value_column', 'Keine Wert-Spalte erkannt.')
+
+  const timeColumn = options.columns?.timeColumn ?? draft.timeColumn
+  const columns: ColumnMapping = {
+    timestamp: options.columns?.timestamp ?? draft.timestampCol,
+    ...(timeColumn != null ? { timeColumn } : {}),
+    value: valueCol,
+  }
+
+  /*
+   * ⚠ DIE EINHEIT IST HIER OHNE WIRKUNG, wortgleich zum Lastgang-Leser: `parsePvProfile` fragt bei
+   * `unknown` zurück (dort entscheidet kW gegen kWh über den Faktor 4 und damit über jeden
+   * Erzeugungswert). Diese Funktion gibt keinen einzigen Wert zurück — die Einheit steuert nur eine
+   * Multiplikation, die niemand liest. Eine Rückfrage dafür wäre eine Hürde ohne Ertrag.
+   */
+  const unit: Unit = options.unit ?? (draft.unit === 'unknown' ? 'kW' : draft.unit)
+
+  const norm = normalizeSingleValue(draft.dataRows, {
+    columns,
+    dateFormat,
+    decimal,
+    unit,
+    timezone,
+  })
+  if (norm.parsedRows === 0)
+    return pvErr('unparsable_timestamps', 'Keine Zeile mit gueltigem Zeitstempel und Wert.')
+  if (norm.parsedRows < 2) return pvErr('insufficient_rows', 'Zu wenige gueltige Datenzeilen.')
+
+  /*
+   * Sortieren und deduplizieren wie beim Lastgang-Leser: die Stunde der Zeitumstellung im Herbst
+   * liefert denselben UTC-Zeitpunkt zweimal, und ein Abstand von 0 verfälschte die
+   * Intervall-Bestimmung. Der dort beschriebene Artefakt (eine gemeldete Lücke von einer Stunde am
+   * Rückfall-Tag) gilt hier unverändert — bei einer PV-Reihe fällt er auf eine Nachtstunde und
+   * damit auf Erzeugungswerte von 0.
+   */
+  const sorted = [...norm.readings].sort((a, b) => a.ms - b.ms)
+  const stamps: number[] = []
+  for (const reading of sorted) {
+    if (stamps[stamps.length - 1] === reading.ms) continue
+    stamps.push(reading.ms)
+  }
+  if (stamps.length < 2) return pvErr('insufficient_rows', 'Zu wenige unterschiedliche Zeitstempel.')
+
+  return pvMetadataFromStamps(stamps, timezone)
 }
