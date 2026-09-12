@@ -145,6 +145,7 @@ export function AdminField({
   hint,
   required,
   inputMode,
+  maxLength,
   readOnly,
   value,
   onValueChange,
@@ -159,6 +160,14 @@ export function AdminField({
   hint?: React.ReactNode
   required?: boolean
   inputMode?: 'text' | 'numeric'
+  /**
+   * Zeichen-Obergrenze des Feldes — optional und additiv.
+   *
+   * ⚠ EINE BEDIENHILFE DES BROWSERS, KEINE PRÜFUNG. Sie hindert am Weitertippen, ist aber von
+   * aussen aushebelbar (Einfügen per Skript, ein Aufruf der Server Action ohne Formular). Die
+   * WIRKSAME Grenze steht in der Action; wer hier eine setzt, setzt sie dort ebenfalls.
+   */
+  maxLength?: number
   /**
    * Kontrollierter Wert — optional und additiv (B16-4a; die bestehenden Verwendungen bleiben
    * unkontrolliert und unverändert).
@@ -193,6 +202,7 @@ export function AdminField({
           placeholder={placeholder}
           required={required}
           inputMode={inputMode}
+          maxLength={maxLength}
           readOnly={readOnly}
           className={readOnly ? 'bg-surface-sunken text-text-muted' : undefined}
           aria-invalid={error ? true : undefined}

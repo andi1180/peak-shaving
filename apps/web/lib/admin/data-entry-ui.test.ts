@@ -627,10 +627,20 @@ describe('B24 — die Batterie-Station', () => {
   })
 
   it('⚠ rendert die nicht gewählte Quelle GAR NICHT, statt sie auszublenden', () => {
-    // Beide Wege schicken DASSELBE Formular ab. Ein verstecktes Dateifeld reiste beim Klick auf
+    // Alle drei Wege schicken DASSELBE Formular ab. Ein verstecktes Dateifeld reiste beim Klick auf
     // „Auslesen" des Freitext-Wegs trotzdem mit (und umgekehrt) — die Action bekäme eine Eingabe,
     // die niemand gemacht hat. Der Umschalter ist eine Weiche, keine Sichtbarkeitsfrage.
-    expect(source).toContain("{source === 'text' ? (")
+    /*
+     * ⚠ DREI EIGENSTÄNDIGE `&&`-BLÖCKE, KEIN TERNARY MEHR — der Wächter ist damit SCHÄRFER, nicht
+     * nachgiebig. Bis zum Recherche-Weg genügte `{source === 'text' ? ( … ) : ( … )}`, weil es nur
+     * zwei Quellen gab; mit der dritten prüft er jede EINZELN. Ein Ternary liesse den dritten Zweig
+     * gar nicht zu, ohne eine der beiden bestehenden Quellen zu verschachteln.
+     */
+    for (const branch of ['text', 'datenblatt', 'recherche']) {
+      expect(source).toContain(`{source === '${branch}' && (`)
+    }
+    // Und keine der drei darf über ein Ternary an einer anderen hängen.
+    expect(source).not.toContain("{source === 'text' ? (")
     /*
      * ⚠ ZWEI FORMEN SIND LEGITIM UND AUSGENOMMEN: die versteckten Formularfelder (`type="hidden"`)
      * und die dekorativen Icons (`aria-hidden`). Gemeint ist ausschliesslich eine Tailwind-
@@ -639,7 +649,7 @@ describe('B24 — die Batterie-Station', () => {
      */
     const visibility = source.replaceAll('type="hidden"', '').replaceAll('aria-hidden', '')
     expect(visibility).not.toContain('hidden')
-    // Die zwei Umschalt-Knöpfe stehen IM Speichern-Formular und dürfen es nicht absenden.
+    // Die drei Umschalt-Knöpfe stehen IM Speichern-Formular und dürfen es nicht absenden.
     const group = source.slice(source.indexOf('aria-label="Quelle der Kenndaten"'))
     expect(group.slice(0, group.indexOf('</div>'))).not.toContain('type="submit"')
   })

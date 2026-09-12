@@ -102,6 +102,30 @@ export { MAX_BATTERY_SPEC_FILE_BYTES } from './battery-spec-scan/limits'
 export { extractBatterySpec, type BatterySpecScanOutcome } from './battery-spec-scan/extract'
 
 /*
+ * ── Marke/Typ-RECHERCHE (B24, Teil 1) ─────────────────────────────────────────────────────────
+ * Der DRITTE Weg zu denselben vier Kenndaten und die ERSTE Anbindung dieses Pakets mit echtem
+ * Web-Zugriff. Die zwei darüber setzen voraus, dass der Kunde die Zahlen kennt oder das Papier zur
+ * Hand hat; der häufigste reale Zustand ist ein anderer — er weiss, WAS dasteht („ein Sungrow
+ * SBR128"), und sonst nichts.
+ *
+ * ⚠ SIE IST DIE EINZIGE, DIE NEBEN DEM MODELLAUFRUF ZUSÄTZLICH SUCHKOSTEN VERURSACHT, und die
+ * einzige, deren Quelle nicht vorgelegt, sondern gesucht wird. Daraus folgt eine Fehlerart, die es
+ * in den fünf Anbindungen davor nicht gab: eine Zahl aus dem Trainingswissen, die wie eine
+ * recherchierte aussieht. Dagegen steht keine Bitte an das Modell, sondern eine PRÜFUNG — jede
+ * genannte Quelle wird gegen die tatsächlich gelieferten Suchtreffer gehalten, und ohne Beleg
+ * fallen alle vier Zahlen weg (`shared/battery-lookup.ts`).
+ *
+ * Was sie mit den beiden Wegen darüber verbindet, ist die Rückgabe: dieselben vier Zahlenfelder
+ * unter denselben Namen, per `satisfies` aneinander gebunden. Sie speisen deshalb in dieselben
+ * Formularfelder und über `battery-draft.ts` in denselben Entwurf.
+ */
+export {
+  MAX_BATTERY_LOOKUP_INPUT_CHARS,
+  MAX_BATTERY_LOOKUP_SEARCHES,
+} from './battery-lookup/limits'
+export { lookupBatterySpec, type BatteryLookupOutcome } from './battery-lookup/extract'
+
+/*
  * ── Lastgang-Leser (B24, Teil 1 Baustein 1) ───────────────────────────────────────────────────
  * ⚠ DER EINZIGE EXTRAKTOR DIESES PAKETS OHNE MODELLAUFRUF, und damit eine benannte Ausweitung
  * seines Zuschnitts: die Ueberschrift lautete „server-only KI-Extraktoren". Der Grund ist die

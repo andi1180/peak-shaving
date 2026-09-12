@@ -33,23 +33,31 @@
  * `onValueChange`, der `AdminField`-Prop aus B16-4a). Wer hier ein weiteres Feld ergänzt, das
  * BEIDE Wege brauchen, denkt das mit.
  *
- * ── ⚠ ZWEI QUELLEN, EIN FORMULAR, EIN „SPEICHERN" ────────────────────────────────────────────
- * Seit B24 gibt es im Ja-Zweig zwei Wege zu denselben vier Feldern: den Satz in eigenen Worten und
- * ein hochgeladenes DATENBLATT. Sie stehen als Umschalter nebeneinander und münden ausdrücklich in
- * DIESELBEN Eingabefelder und denselben Absendeknopf — die vier Werte haben in beiden Extraktoren
- * denselben Namen (per `satisfies` gebunden, `packages/shared/src/battery-spec-scan.ts`), und
- * `battery-draft.ts` musste dafür keine Zeile ändern.
+ * ── ⚠ DREI QUELLEN, EIN FORMULAR, EIN „SPEICHERN" ────────────────────────────────────────────
+ * Seit B24 gibt es im Ja-Zweig drei Wege zu denselben vier Feldern: den Satz in eigenen Worten, ein
+ * hochgeladenes DATENBLATT und die RECHERCHE nach Marke und Typ. Sie stehen als Umschalter
+ * nebeneinander und münden ausdrücklich in DIESELBEN Eingabefelder und denselben Absendeknopf —
+ * die vier Werte haben in allen drei Extraktoren denselben Namen (per `satisfies` gebunden,
+ * `packages/shared/src/battery-lookup.ts`), und `battery-draft.ts` musste dafür keine Zeile
+ * ändern.
  *
  * ⚠ DIE NICHT AKTIVE QUELLE WIRD GAR NICHT GERENDERT, nicht bloss versteckt. Ein verborgenes
  * Dateifeld gäbe es weiterhin, und der nächste Umbau schickte seinen Inhalt mit — dann liefe ein
- * Klick auf „Auslesen" gegen ein Datenblatt, das niemand mehr im Blick hat, oder umgekehrt. Der
- * getippte SATZ überlebt den Wechsel trotzdem: er lebt in `useState`, nicht im DOM.
+ * Klick auf „Auslesen" gegen ein Datenblatt, das niemand mehr im Blick hat, oder umgekehrt. Die
+ * getippten TEXTE überleben den Wechsel trotzdem: sie leben in `useState`, nicht im DOM.
+ *
+ * ── ⚠ DIE RECHERCHE IST DIE EINZIGE QUELLE OHNE VORGELEGTEN BELEG ────────────────────────────
+ * Satz und Datenblatt kommen vom Kunden; die Recherche holt sich ihre Quelle selbst. Was sie
+ * vorschlägt, kann der Eintragende deshalb weder aus dem Gespräch noch vom Papier gegenprüfen —
+ * einzig an den QUELLEN, die daneben stehen. Sie sind kein Beiwerk, sondern der Grund, warum
+ * dieser Weg überhaupt vor dem „Speichern" verantwortbar ist, und werden als anklickbare Links
+ * gezeigt. (Dass eine genannte Quelle auch wirklich in einem Suchergebnis stand, prüft der
+ * Extraktor selbst — `packages/shared/src/battery-lookup.ts`.)
  *
  * ── ⚠ WAS DIESE STATION NICHT TUT ────────────────────────────────────────────────────────────
  * Sie ordnet die genannte Kapazität KEINEM Katalog-Gerät zu (Delta 17 Teil 2, 01.09.2026: die
- * bestehende Anlage wird mit ihren exakten Werten gerechnet). Sie recherchiert KEINE Marke — kein
- * Werkzeug-Aufruf, kein Web-Zugang; was gelesen wird, steht im vorgelegten Dokument (eigener
- * Auftrag). Und sie zeigt keine Investition und keine Amortisation: die Anlage ist bezahlt.
+ * bestehende Anlage wird mit ihren exakten Werten gerechnet). Und sie zeigt keine Investition und
+ * keine Amortisation: die Anlage ist bezahlt.
  */
 import * as React from 'react'
 import { useActionState } from 'react'
@@ -66,6 +74,7 @@ import {
 } from '@/lib/admin/battery-draft'
 import {
   extractBatteryTextFromAction,
+  lookupBatterySpecByModelAction,
   saveMeteringPointBatteryAction,
   saveMeteringPointBatteryChoiceAction,
   scanBatterySpecAction,
@@ -79,9 +88,22 @@ type Answer = 'ja' | 'nein' | null
 
 const TEXT_ID = 'dateneingabe-batterie-text'
 const SPEC_ID = 'dateneingabe-batterie-datenblatt'
+const MAKE_ID = 'dateneingabe-batterie-hersteller'
+const MODEL_ID = 'dateneingabe-batterie-modell'
 
-/** Die zwei Quellen, aus denen die vier Kenndaten kommen können. */
-type Source = 'text' | 'datenblatt'
+/** Die drei Quellen, aus denen die vier Kenndaten kommen können. */
+type Source = 'text' | 'datenblatt' | 'recherche'
+
+/**
+ * Die Obergrenze von Hersteller und Typ in Zeichen.
+ *
+ * ⚠ ABGESCHRIEBEN UND NICHT IMPORTIERT — derselbe Grund wie bei `TEXT_MAX_CHARS` darunter:
+ * `MAX_BATTERY_LOOKUP_INPUT_CHARS` liegt in `packages/extractors`, und dessen Barrel ist
+ * `server-only`; hier importiert bräche er den Client-Build. Es ist hier nur das `maxlength` eines
+ * Textfelds, also eine Bedienhilfe des Browsers — die WIRKSAME Grenze steht in der Server Action,
+ * und sie WEIST AB statt zu kürzen (eine halbierte Typbezeichnung wäre eine andere Bezeichnung).
+ */
+const LOOKUP_MAX_CHARS = 120
 
 /**
  * Die Obergrenze des Freitexts in Zeichen.
@@ -149,6 +171,16 @@ export function DataEntryBattery({
     scanBatterySpecAction,
     ADMIN_INITIAL_STATE,
   )
+  /*
+   * ⚠ EIN DRITTES EIGENES `useActionState`, aus denselben zwei Gründen wie beim Datenblatt-Weg:
+   * eine geteilte Meldung überschriebe die des anderen Wegs, und die Übernahme unten hängt an der
+   * OBJEKTIDENTITÄT des Ergebnisses — mit einem geteilten Zustand liesse sich nicht mehr sagen,
+   * WELCHER Lauf gerade ein neues Objekt geliefert hat.
+   */
+  const [lookupState, lookupAction, isLookingUp] = useActionState(
+    lookupBatterySpecByModelAction,
+    ADMIN_INITIAL_STATE,
+  )
 
   /*
    * ⚠ ALLE FÜNF EINGABEN SIND KONTROLLIERT — s. Kopf. Drei Actions auf einem Formular setzen
@@ -162,6 +194,14 @@ export function DataEntryBattery({
    */
   const [source, setSource] = React.useState<Source>('text')
   const [text, setText] = React.useState('')
+  /*
+   * ⚠ AUCH DIESE ZWEI SIND KONTROLLIERT — s. Kopf. Es sind jetzt VIER Actions auf einem Formular,
+   * und React setzt unkontrollierte Felder nach JEDER davon zurück: ohne `value`/`onChange` löschte
+   * ein Klick auf „Suchen" genau die Angaben, aus denen die Suche gebildet wird (der gemessene
+   * Defekt der Rechnungs-Station, PR #200).
+   */
+  const [manufacturer, setManufacturer] = React.useState('')
+  const [model, setModel] = React.useState('')
   const [fields, setFields] = React.useState<Record<string, string>>({})
 
   /**
@@ -179,6 +219,14 @@ export function DataEntryBattery({
 
   const extracted = readState.values?.extraction === 'ok' ? readState.values : null
   const scanned = specState.values?.extraction === 'ok' ? specState.values : null
+  const researched = lookupState.values?.extraction === 'ok' ? lookupState.values : null
+
+  /*
+   * Die geprüften Quellen kommen als EINE Zeile zurück (`AdminState.values` ist flach) und werden
+   * hier am Leerzeichen wieder aufgeteilt — eine URL enthält keines. Die Liste ist bereits im
+   * Extraktor geprüft und begrenzt; hier wird nichts mehr gefiltert.
+   */
+  const sourceUrls = researched?.sourceUrls ? researched.sourceUrls.split(' ').filter(Boolean) : []
 
   /*
    * ⚠ ZWEI EFFEKTE, NICHT EINER MIT WEICHE. Jeder hängt an der Objektidentität SEINES Ergebnisses:
@@ -194,6 +242,10 @@ export function DataEntryBattery({
   React.useEffect(() => {
     if (scanned) applyExtraction(scanned)
   }, [scanned, applyExtraction])
+
+  React.useEffect(() => {
+    if (researched) applyExtraction(researched)
+  }, [researched, applyExtraction])
 
   const summary = readBatteryDraft(meteringPoint.draft)
   const hasSummary = !batteryDraftIsEmpty(summary)
@@ -211,6 +263,7 @@ export function DataEntryBattery({
       {saveState.formError && <AdminError>{saveState.formError}</AdminError>}
       {readState.formError && <AdminError>{readState.formError}</AdminError>}
       {specState.formError && <AdminError>{specState.formError}</AdminError>}
+      {lookupState.formError && <AdminError>{lookupState.formError}</AdminError>}
 
       {hasSummary && <BatterySummary number={meteringPointNumber} summary={summary} />}
 
@@ -309,7 +362,7 @@ export function DataEntryBattery({
               verstecktes Dateifeld reiste bei einem Klick auf „Auslesen" des Freitext-Wegs
               trotzdem mit, und ein verstecktes Textfeld beim Datenblatt-Weg — die Action bekäme
               eine Eingabe, die niemand gemacht hat. Der Umschalter ist deshalb eine Weiche, keine
-              Sichtbarkeitsfrage. `type="button"`: die zwei Knöpfe stehen im Speichern-Formular und
+              Sichtbarkeitsfrage. `type="button"`: die drei Knöpfe stehen im Speichern-Formular und
               dürfen es nicht absenden.
             */}
             <div role="group" aria-label="Quelle der Kenndaten" className="flex flex-wrap gap-2">
@@ -331,9 +384,18 @@ export function DataEntryBattery({
               >
                 Datenblatt hochladen
               </Button>
+              <Button
+                type="button"
+                variant={source === 'recherche' ? 'secondary' : 'ghost'}
+                size="sm"
+                aria-pressed={source === 'recherche'}
+                onClick={() => setSource('recherche')}
+              >
+                Marke/Typ suchen
+              </Button>
             </div>
 
-            {source === 'text' ? (
+            {source === 'text' && (
               <>
               <div className="max-w-2xl">
                 <Label htmlFor={TEXT_ID}>Beschreibung des Speichers (optional)</Label>
@@ -391,7 +453,9 @@ export function DataEntryBattery({
                 </span>
               </div>
               </>
-            ) : (
+            )}
+
+            {source === 'datenblatt' && (
               <>
                 <div className="max-w-2xl">
                   <Label htmlFor={SPEC_ID}>Datenblatt des Speichers (optional)</Label>
@@ -451,6 +515,78 @@ export function DataEntryBattery({
                         : ''}
                   </span>
                 </div>
+              </>
+            )}
+
+            {source === 'recherche' && (
+              <>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <AdminField
+                    id={MAKE_ID}
+                    name="batteryManufacturer"
+                    label="Hersteller"
+                    maxLength={LOOKUP_MAX_CHARS}
+                    value={manufacturer}
+                    onValueChange={setManufacturer}
+                    error={lookupState.fieldErrors?.batteryManufacturer}
+                  />
+                  <AdminField
+                    id={MODEL_ID}
+                    name="batteryModel"
+                    label="Modell / Typ"
+                    maxLength={LOOKUP_MAX_CHARS}
+                    value={model}
+                    onValueChange={setModel}
+                    error={lookupState.fieldErrors?.batteryModel}
+                    hint="Die Bezeichnung vom Typenschild, kein ganzer Satz."
+                  />
+                </div>
+
+                <div className="flex flex-wrap items-center gap-3">
+                  <Button
+                    type="submit"
+                    formAction={lookupAction}
+                    variant="secondary"
+                    size="md"
+                    disabled={isLookingUp || isSaving}
+                  >
+                    {isLookingUp ? (
+                      <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2} aria-hidden="true" />
+                    ) : (
+                      <Sparkles className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
+                    )}
+                    {isLookingUp ? 'Wird gesucht …' : 'Suchen'}
+                  </Button>
+                  <span role="status" aria-live="polite" className="text-small text-text-muted">
+                    {isLookingUp
+                      ? 'Wird gesucht …'
+                      : researched
+                        ? (researched.label ? `„${researched.label}" — ` : '') +
+                          `${researched.found} von 4 Angaben gefunden. Was nicht belegt war, ` +
+                          'bleibt leer; alle Felder sind frei änderbar.'
+                        : ''}
+                  </span>
+                </div>
+
+                {sourceUrls.length > 0 && (
+                  <div className="max-w-2xl rounded-md border border-line bg-surface-sunken p-3">
+                    <p className="text-caption text-text-muted">Gefunden auf:</p>
+                    <ul className="mt-1 flex flex-col gap-1">
+                      {sourceUrls.map((url) => (
+                        <li key={url}>
+                          <a
+                            href={url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="break-all text-small text-accent underline decoration-accent underline-offset-[3px]"
+                          >
+                            {url}
+                          </a>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </>
             )}
           </div>

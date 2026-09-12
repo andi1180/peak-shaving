@@ -49,6 +49,7 @@ export * from './battery-text'
 // heissen dort namensgleich und sind per `satisfies` daran gebunden — der zweite Weg speist in
 // dieselben Formularfelder und denselben Entwurf, statt einen eigenen Mechanismus zu erfinden.
 export * from './battery-spec-scan'
+export * from './battery-lookup'
 // Der Speicher des Kunden mit seinen EXAKTEN Werten (kein Katalog-Ersatz) und der virtuelle
 // Speicher „Bestand + ein Zusatzgerät". Begründung im Kopf der Datei.
 export * from './battery-combination'
