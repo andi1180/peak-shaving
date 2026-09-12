@@ -34,6 +34,11 @@
  * Formular an eine andere Action. Zwei getrennte Formulare nebeneinander hiessen, Netzbetreiber und
  * Netzebene zweimal zu erheben; zwei Werte für dieselbe Frage wären ein Zustand, der auseinander
  * laufen kann.
+ *
+ * ⚠ DER PREIS DIESER ENTSCHEIDUNG, und er ist bezahlt: React setzt UNKONTROLLIERTE Formularfelder
+ * nach JEDER abgeschlossenen Action auf diesem Formular zurück, nicht nur nach der gemeinten. Die
+ * drei Anschluss-Felder sind deshalb kontrolliert (Absatz bei `operatorId`). Wer hier ein weiteres
+ * Feld ergänzt, das BEIDE Wege brauchen, denkt das mit.
  */
 import * as React from 'react'
 import { useActionState } from 'react'
@@ -98,18 +103,43 @@ export function DataEntryInvoiceManual({
   )
 
   /*
-   * Die Netzebene steuert ein ANDERES Feld: nur auf Netzebenen mit Varianten (heute NE 7) gibt es
-   * überhaupt eine Messvariante. Das Auswahlfeld bleibt dabei UNKONTROLLIERT — der Beobachter liest
-   * mit, er übernimmt nicht (Muster `AdminSelect.onValueChange`, B19).
+   * ⚠ DIE DREI ANSCHLUSS-FELDER SIND KONTROLLIERT, UND ZWAR WEGEN DER ZWEITEN ACTION.
+   *
+   * React setzt UNKONTROLLIERTE Formularfelder nach JEDER abgeschlossenen Action auf diesem
+   * Formular zurück — auch nach der, die nur nachschlägt. Der Vorschlagen-Knopf löschte damit
+   * ausgerechnet die drei Angaben, aus denen der Vorschlag gebildet wurde: Netzbetreiber,
+   * Netzebene und Messvariante standen danach wieder auf „— bitte wählen —", während die
+   * vorgeschlagenen Zahlen darunter erschienen. Für den Admin sah das aus wie ein Formular, das
+   * seine Eingabe verliert; ein zweiter Vorschlag war ohne erneutes Auswählen nicht möglich.
+   *
+   * Ein blosser Beobachter (`onValueChange`, B19) genügt dafür nicht — er liest mit, er hält
+   * nicht; der Zustand überlebte, das FELD nicht. Die übrigen Felder bleiben dagegen bewusst
+   * unkontrolliert (s. der Absatz bei `leistungspreis`).
    */
+  const [operatorId, setOperatorId] = React.useState('')
   const [netzebene, setNetzebene] = React.useState('')
+  /*
+   * Die Netzebene steuert ein ANDERES Feld: nur auf Netzebenen mit Varianten (heute NE 7) gibt es
+   * überhaupt eine Messvariante.
+   *
+   * ⚠ FOLGE DES HOCHGEZOGENEN ZUSTANDS: Wechselt die Netzebene auf NE 3–6, verschwindet das Feld,
+   * der Wert bleibt aber im Zustand stehen und erscheint bei einer Rückkehr auf NE 7 wieder. Das
+   * ist gewollt — es ist die zuletzt gegebene Antwort desselben Menschen auf dieselbe Frage.
+   * Mitgeschickt wird er in der Zwischenzeit NICHT: was nicht gerendert ist, steht in keiner
+   * FormData, und auf NE 3–6 gehört in der Spalte `null` (B21-1, `unique nulls not distinct`).
+   */
   const variantApplies = netzebene !== '' && hasMeteringVariant(Number(netzebene))
+  const [meteringVariant, setMeteringVariant] = React.useState('')
 
   /*
-   * ⚠ NUR DIESE ZWEI FELDER SIND KONTROLLIERT — genau die, die der Vorschlag befüllt. Die übrigen
-   * bleiben unkontrolliert, damit eine beanstandete Eingabe wie überall sonst über den
-   * Formularzustand des Browsers wiederangezeigt wird und nicht über React-State, den ein Rerender
-   * zurücksetzen könnte.
+   * ⚠ DIESE ZWEI TARIFFELDER SIND KONTROLLIERT, WEIL DER VORSCHLAG SIE BEFÜLLT — ein anderer Grund
+   * als bei den drei Anschluss-Feldern darüber, und deshalb ein eigener Absatz.
+   *
+   * Die ÜBRIGEN Tarifwerte bleiben unkontrolliert: eine beanstandete Eingabe wird dort wie überall
+   * sonst über den Formularzustand des Browsers wiederangezeigt. Das trägt, weil das SPEICHERN die
+   * Action ist, die sie beanstandet — nach ihr ist ein Zurücksetzen die richtige Antwort auf einen
+   * Fehler in genau diesem Feld. Die drei Anschluss-Felder darüber trifft dagegen auch die
+   * LESENDE Action, die über ihren Inhalt gar nicht urteilt.
    */
   const [leistungspreis, setLeistungspreis] = React.useState('')
   const [minBillableKw, setMinBillableKw] = React.useState('')
@@ -160,6 +190,8 @@ export function DataEntryInvoiceManual({
             label="Netzbetreiber"
             error={fieldError('operatorId')}
             hint="Wird nicht gespeichert — er dient nur dem Vorschlag."
+            value={operatorId}
+            onValueChange={setOperatorId}
           >
             <option value="">— bitte wählen —</option>
             {NETZBETREIBER_IDS.map((id) => (
@@ -174,6 +206,7 @@ export function DataEntryInvoiceManual({
             name="netzebene"
             label={INVOICE_MERGE_FIELD_LABELS.netzebene}
             error={fieldError('netzebene')}
+            value={netzebene}
             onValueChange={setNetzebene}
           >
             <option value="">— bitte wählen —</option>
@@ -200,6 +233,8 @@ export function DataEntryInvoiceManual({
               label={INVOICE_MERGE_FIELD_LABELS.meteringVariant}
               error={fieldError('meteringVariant')}
               hint="Auf Netzebene 7 hängt der Leistungspreis daran."
+              value={meteringVariant}
+              onValueChange={setMeteringVariant}
             >
               <option value="">— bitte wählen —</option>
               {METERING_VARIANTS.map((variant) => (
