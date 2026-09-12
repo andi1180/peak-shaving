@@ -28,7 +28,7 @@ import {
   type ProjectSegment,
 } from '@/lib/admin/projects'
 import { createClient } from '@/lib/supabase/server'
-import { MAX_INVOICE_FILE_BYTES } from 'extractors'
+import { MAX_BATTERY_SPEC_FILE_BYTES, MAX_INVOICE_FILE_BYTES } from 'extractors'
 import { MAX_PROJECT_DOCUMENT_BYTES } from 'shared'
 
 /*
@@ -348,12 +348,15 @@ export default async function AdminProjectDataEntryPage({
 
           {station.kind === 'zaehlpunkt-schritt' && batterie !== null && (
             /*
-              ⚠ KEINE Grössengrenze als Prop, anders als bei den beiden Stationen davor: diese
-              Station nimmt gar keine Datei entgegen. Was hinausgeht, ist ein Satz, den der Admin
-              unmittelbar davor selbst getippt hat — die Grenze dafür ist eine Zeichenzahl und sitzt
-              in der Server Action (`MAX_BATTERY_TEXT_CHARS`).
+              ⚠ `MAX_BATTERY_SPEC_FILE_BYTES` und NICHT `MAX_PROJECT_DOCUMENT_BYTES`: ein Datenblatt
+              wird ausgelesen und ausdrücklich NICHT im Projekt abgelegt (s. `scanBatterySpecAction`)
+              — die Grenze der Ablage gälte hier also für einen Weg, den es nicht gibt, und wäre
+              ausserdem mehr, als der Scan annimmt. Für den zweiten Weg dieser Station (ein Satz in
+              eigenen Worten) ist die Grenze eine Zeichenzahl und sitzt in der Server Action
+              (`MAX_BATTERY_TEXT_CHARS`) — sie braucht kein Prop.
             */
             <DataEntryBattery
+              maxBytes={MAX_BATTERY_SPEC_FILE_BYTES}
               projectId={project.id}
               meteringPoint={batterie.point}
               meteringPointNumber={batterie.number}

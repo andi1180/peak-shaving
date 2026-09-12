@@ -608,9 +608,57 @@ describe('B24 — die Batterie-Station', () => {
     expect(page).toContain('batterie === null && (')
   })
 
-  it('⚠ reicht KEINE Grössengrenze herein — diese Station nimmt keine Datei entgegen', () => {
+  /*
+   * ⚠ DIESER WÄCHTER HAT SEIN VORZEICHEN GEWECHSELT, und das ist kein Nachgeben.
+   *
+   * Er verlangte bis zum Datenblatt-Weg das Gegenteil („reicht KEINE Grössengrenze herein — diese
+   * Station nimmt keine Datei entgegen"). Seit die Station ein Datenblatt entgegennimmt, ist das
+   * eine falsche Behauptung. Ersetzt statt gestrichen, und zwar durch die SCHÄRFERE Aussage: nicht
+   * bloss „ein Prop ist da", sondern die RICHTIGE Konstante — die Verwechslung mit der Grenze der
+   * Dokumentablage ist der teure Fall, weil sie erst am abgewiesenen Scan auffiele.
+   */
+  it('⚠ reicht die Scan-Grenze herein, NICHT die der Dokumentablage', () => {
     const branch = page.slice(page.indexOf('<DataEntryBattery'))
     const close = branch.slice(0, branch.indexOf('/>'))
-    expect(close).not.toContain('maxBytes')
+    expect(close).toContain('maxBytes={MAX_BATTERY_SPEC_FILE_BYTES}')
+    // Ein Datenblatt wird ausgelesen und ausdrücklich NICHT abgelegt — 20 MB gälten hier für einen
+    // Weg, den es nicht gibt, und wären mehr, als der Scan annimmt.
+    expect(close).not.toContain('MAX_PROJECT_DOCUMENT_BYTES')
+  })
+
+  it('⚠ rendert die nicht gewählte Quelle GAR NICHT, statt sie auszublenden', () => {
+    // Beide Wege schicken DASSELBE Formular ab. Ein verstecktes Dateifeld reiste beim Klick auf
+    // „Auslesen" des Freitext-Wegs trotzdem mit (und umgekehrt) — die Action bekäme eine Eingabe,
+    // die niemand gemacht hat. Der Umschalter ist eine Weiche, keine Sichtbarkeitsfrage.
+    expect(source).toContain("{source === 'text' ? (")
+    /*
+     * ⚠ ZWEI FORMEN SIND LEGITIM UND AUSGENOMMEN: die versteckten Formularfelder (`type="hidden"`)
+     * und die dekorativen Icons (`aria-hidden`). Gemeint ist ausschliesslich eine Tailwind-
+     * Sichtbarkeitsklasse auf einer der beiden Quellen-Sektionen — jedes WEITERE `hidden` schlägt
+     * an, und genau das soll es.
+     */
+    const visibility = source.replaceAll('type="hidden"', '').replaceAll('aria-hidden', '')
+    expect(visibility).not.toContain('hidden')
+    // Die zwei Umschalt-Knöpfe stehen IM Speichern-Formular und dürfen es nicht absenden.
+    const group = source.slice(source.indexOf('aria-label="Quelle der Kenndaten"'))
+    expect(group.slice(0, group.indexOf('</div>'))).not.toContain('type="submit"')
+  })
+
+  it('⚠ der Datenblatt-Weg hat ein EIGENES useActionState, nicht das des Freitexts', () => {
+    // Zusammengelegt überschriebe das Ergebnis des einen Wegs die Meldung des anderen, und die
+    // zwei Ladezustände wären nicht mehr auseinanderzuhalten.
+    expect(source).toContain('formAction={specAction}')
+    expect(source).toContain('scanBatterySpecAction')
+    expect(source).toContain('disabled={isScanning || isSaving}')
+    expect(source).toContain('name="batterySpec"')
+  })
+
+  it('⚠ verspricht NICHT, dass das Datenblatt im Projekt abgelegt wird', () => {
+    // Es wird gelesen und weggeworfen (`scanBatterySpecAction` legt nichts ab). Der Satz der
+    // Rechnungs-Station („wird im Projekt abgelegt und ausgelesen") wäre hier unwahr.
+    const hint = source.slice(source.indexOf('${SPEC_ID}-hint`}'))
+    const text = hint.slice(0, hint.indexOf('</FieldHint>'))
+    expect(text).toContain('im Projekt abgelegt wird es')
+    expect(text).toContain('nicht gespeichert')
   })
 })

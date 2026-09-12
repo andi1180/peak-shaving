@@ -37,10 +37,17 @@
  * KI-Clients sind von ausserhalb des Pakets nicht erreichbar, auch nicht versehentlich, und dafür
  * braucht es keine Regel, die jemand pflegen müsste.
  *
- * Was ESLint weiterhin durchsetzt, ist die Grenze INNERHALB des Pakets: einen KI-Client darf
- * ausschliesslich das `extract.ts` seines eigenen Verzeichnisses importieren — auch relativ
- * (`./ai-client`), denn genau diese Schreibweise erfasst eine Pfad-Sperre nicht (in Delta 17
- * Teil 1 als Probe nachgewiesen). Die Blöcke stehen in der root-`eslint.config.mjs`.
+ * Was ESLint durchsetzt, ist die Grenze INNERHALB des Pakets: einen KI-Client darf ausschliesslich
+ * das `extract.ts` seines eigenen Verzeichnisses importieren — auch relativ (`./ai-client`), denn
+ * genau diese Schreibweise erfasst eine Pfad-Sperre nicht (in Delta 17 Teil 1 als Probe
+ * nachgewiesen). Die Blöcke stehen in der root-`eslint.config.mjs`.
+ *
+ * ⚠ DIESER ABSATZ STAND HIER, BEVOR ES DIE BLÖCKE GAB — beim Anlegen der fünften Anbindung (B24,
+ * Batterie-Datenblatt-Scan) als Probe gemessen: die ESLint-Regeln sind sämtlich auf `apps/**`
+ * beschränkt und haben dieses Paket seit dem Umzug NIE erreicht; ein `./ai-client`-Import in einer
+ * beliebigen Nachbardatei lief sauber durch. Die Blöcke für `packages/extractors/src/**` sind mit
+ * jenem Schritt nachgezogen und in drei Richtungen belegt (Nachbardatei · Barrel · fremder
+ * Extraktor). Der Satz oben ist damit wahr geworden, statt wahr zu klingen.
  *
  * ⚠ Deshalb steht in diesem Barrel KEIN Import auf ein `ai-client.ts`. Die Grössen- und
  * Längengrenzen, die die Server Actions prüfen, liegen ausnahmslos in `limits.ts` — für
@@ -78,6 +85,21 @@ export { extractPvDesign, type PvDesignScanOutcome } from './pv-design-scan/extr
 // ── Batterie-Freitexterfassung (Delta 17 Teil 2) ──────────────────────────────────────────────
 export { MAX_BATTERY_TEXT_CHARS } from './battery-text/limits'
 export { extractBatteryText, type BatteryTextOutcome } from './battery-text/extract'
+
+/*
+ * ── Batterie-DATENBLATT-Scan (B24, Teil 1) ────────────────────────────────────────────────────
+ * Derselbe Gegenstand wie die Freitexterfassung darüber, aus einer anderen Quelle: der Wizard
+ * nimmt neben dem Satz in eigenen Worten ein PDF-Datenblatt entgegen. Es ist bewusst ein ZWEITER
+ * Extraktor und keine Erweiterung des ersten — die Ableseregeln haben fast nichts gemeinsam (ein
+ * Satz erfindet zu wenig Zahlen, ein Datenblatt bietet zu viele falsche an), und die vier
+ * bestehenden Anbindungen sollen sich unabhängig voneinander abschalten lassen.
+ *
+ * Was die beiden verbindet, ist die Rückgabe: dieselben vier Zahlenfelder unter denselben Namen,
+ * per `satisfies` aneinander gebunden (`shared/battery-spec-scan.ts`). Sie speisen deshalb in
+ * dieselben Formularfelder und über `battery-draft.ts` in denselben Entwurf.
+ */
+export { MAX_BATTERY_SPEC_FILE_BYTES } from './battery-spec-scan/limits'
+export { extractBatterySpec, type BatterySpecScanOutcome } from './battery-spec-scan/extract'
 
 /*
  * ── Lastgang-Leser (B24, Teil 1 Baustein 1) ───────────────────────────────────────────────────

@@ -1066,5 +1066,78 @@ export default tseslint.config(
       ],
     },
   },
+  {
+    /*
+     * ══════════════════════════════════════════════════════════════════════════════════════════
+     * ⚠ DIE ERSTE SPERRE, DIE `packages/extractors` ÜBERHAUPT ERREICHT — und sie war fällig
+     * ══════════════════════════════════════════════════════════════════════════════════════════
+     * Beim Anlegen des Batterie-Datenblatt-Scans (B24, fünfte KI-Anbindung) als Probe GEMESSEN:
+     * ein `import { INVOICE_SCAN_MODEL } from './ai-client'` in einer beliebigen Nachbardatei von
+     * `packages/extractors/src/invoice-scan/` läuft durch `pnpm lint` OHNE Beanstandung. Alle
+     * Blöcke darüber sind auf `apps/**` beschränkt und haben die vier Extraktoren seit ihrem Umzug
+     * (B24-Konsolidierung) nicht mehr erfasst — der Kopf von `packages/extractors/src/index.ts`
+     * behauptete trotzdem, ESLint setze „die Grenze INNERHALB des Pakets" weiterhin durch.
+     *
+     * ⚠ DIE HÄRTERE SPERRE HAT DURCHGEHEND GEHALTEN und hält weiter: `exports` in der
+     * `package.json` gibt ausschliesslich `.` frei, ein Deep-Import von AUSSERHALB löst gar nicht
+     * auf. Was fehlte, ist genau die Grenze INNERHALB — und die ist keine Formalie: neben jedem
+     * `ai-client.ts` liegt ein `limits.ts`, dessen einziger Zweck es ist, dass Barrel und Server
+     * Action keinen Grund haben, das schlüsselführende Modul anzufassen. Ohne Regel ist das eine
+     * Konvention, die der nächste Umbau kostenlos bricht.
+     *
+     * Gesperrt ist die RELATIVE Schreibweise auf `./ai-client` und der Griff in das `ai-client`
+     * eines FREMDEN Extraktor-Verzeichnisses. Die Alias-Form gibt es hier nicht — `packages` kennt
+     * kein `@/`.
+     */
+    files: ['packages/extractors/src/**/*.ts'],
+    ignores: ['packages/extractors/src/*/extract.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              /*
+                ⚠ DREI Formen, und die dritte ist beim Bau als LÜCKE gemessen worden: mit nur den
+                ersten beiden lief ein `export … from './battery-spec-scan/ai-client'` IM BARREL
+                sauber durch — also ausgerechnet der Fall, für den es die limits.ts-Aufteilung
+                überhaupt gibt (der Kopf von index.ts nennt ihn: „läge eine dieser Konstanten
+                weiterhin im Client-Modul, wäre dieser Barrel ein zweiter Importeur").
+              */
+              group: ['./ai-client', './*/ai-client', '../*/ai-client'],
+              message:
+                'Der KI-Client eines Extraktors gehört ausschließlich in das extract.ts seines ' +
+                'eigenen Verzeichnisses — auch relativ, und auch aus dem Barrel heraus. Wer nur ' +
+                'eine Grössen-/Längengrenze braucht, nimmt sie aus dem limits.ts daneben; genau ' +
+                'dafür gibt es das.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    /*
+     * Die Ausnahme, und sie ist eng: `extract.ts` darf den Client SEINES Verzeichnisses ziehen —
+     * und weiterhin nicht den eines fremden Extraktors. Fünf Anbindungen sollen sich unabhängig
+     * voneinander abschalten lassen; ein quergezogener Client machte aus fünf Schaltern einen.
+     */
+    files: ['packages/extractors/src/*/extract.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['../*/ai-client'],
+              message:
+                'Jeder Extraktor hat seinen eigenen KI-Client. Der eines anderen Verzeichnisses ' +
+                'gehört ausschließlich in dessen eigenes extract.ts.',
+            },
+          ],
+        },
+      ],
+    },
+  },
   prettier,
 )
