@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 
 import { AdminError, AdminPanel, AdminSection, Pill } from '@/components/admin/ui'
 import { DataEntryCountForm } from '@/components/admin/data-entry-count-form'
+import { DataEntryInvoice } from '@/components/admin/data-entry-invoice'
 import { DataEntryLoadProfile } from '@/components/admin/data-entry-load-profile'
 import { DataEntrySegmentForm } from '@/components/admin/data-entry-segment-form'
 import { Button } from '@/components/ui/button'
@@ -26,6 +27,7 @@ import {
   type ProjectSegment,
 } from '@/lib/admin/projects'
 import { createClient } from '@/lib/supabase/server'
+import { MAX_INVOICE_FILE_BYTES } from 'extractors'
 import { MAX_PROJECT_DOCUMENT_BYTES } from 'shared'
 
 /*
@@ -40,16 +42,18 @@ import { MAX_PROJECT_DOCUMENT_BYTES } from 'shared'
  * geführte Weg durch dieselben Angaben: Segment, Zählpunkte, und je Zählpunkt fünf Schritte.
  *
  * ── ⚠ WAS ECHT IST UND WAS NICHT ───────────────────────────────────────────────────────────────
- * ECHT (schreibt in die Datenbank): das Segment, die Zahl der Zählpunkte und — seit dem
- * Lastgang-Schritt — der LASTGANG je Zählpunkt (Datei ablegen, deterministisch einlesen, Zeitraum/
- * Intervall/Lücken am Zählpunkt speichern).
- * PLATZHALTER (Überschrift, ein Satz, Weiter): die vier übrigen Stationen je Zählpunkt (Rechnung,
- * Batterie, PV, Tarif), der KI-Check und die Abbruchprüfung. Jede bekommt ihren eigenen Auftrag;
- * es gibt hier weiterhin bewusst keine Klassifizierung und keinen Fragenkatalog.
+ * ECHT (schreibt in die Datenbank): das Segment, die Zahl der Zählpunkte, der LASTGANG je Zählpunkt
+ * (Datei ablegen ODER Standardprofil aus dem Jahresverbrauch erzeugen — beide Zweige der Frage) und
+ * seit der Rechnungs-Station die RECHNUNGEN je Zählpunkt (PDFs ablegen, auslesen, den
+ * zusammengeführten Stand in den Entwurf schreiben).
+ * PLATZHALTER (Überschrift, ein Satz, Weiter): die drei übrigen Stationen je Zählpunkt (Batterie,
+ * PV, Tarif), der KI-Check und die Abbruchprüfung. Jede bekommt ihren eigenen Auftrag; es gibt hier
+ * weiterhin bewusst keine Klassifizierung und keinen Fragenkatalog.
  *
- * ⚠ AUCH IM LASTGANG-SCHRITT UNGEBAUT: der „Nein"-Zweig (Standardprofil aus dem Jahresverbrauch)
- * ist dort ein Platzhalter, und eine Spalten-Zuordnungs-UI für mehrdeutige Netzbetreiber-Exporte
- * gibt es bewusst nicht — solche Dateien werden benannt abgewiesen, statt geraten zu werden.
+ * ⚠ WAS AUCH IN DEN ZWEI ECHTEN SCHRITTEN UNGEBAUT BLEIBT: eine Spalten-Zuordnungs-UI für
+ * mehrdeutige Netzbetreiber-Exporte (solche Dateien werden benannt abgewiesen, statt geraten zu
+ * werden), ein G-Profil für Kleingewerbe (Delta 8, auf Martin blockiert), ein Pfad „keine Rechnung
+ * vorhanden" samt manueller Eingabe und ein Rückweg für eine EINZELNE hochgeladene Rechnung.
  *
  * ── DIE POSITION STEHT IN DER URL, DIE REIHENFOLGE IM DATENBANKSTAND ───────────────────────────
  * `?station=…`. Weiter und Zurück sind gewöhnliche Links; die Seite wird bei jedem Schritt neu
@@ -70,18 +74,33 @@ import { MAX_PROJECT_DOCUMENT_BYTES } from 'shared'
  * eigenen Werkzeugs. `lib/admin/data-entry-ui.test.ts` pinnt das, weil ein später „zur
  * Vereinheitlichung" ergänzter Aufruf in keinem Build sichtbar wäre.
  *
- * ── DREI WRAPPER, KEIN NEUER, KEINE MIGRATION ──────────────────────────────────────────────────
- *   `public.admin_get_project`                — der Projektkopf samt Segment (`is_admin()`-geprüft).
- *   `public.list_metering_points`             — die Zählpunkte (`project_accessible`, und die trägt
- *                                               seit dem Chat-Zustand `or platform.is_admin()`).
- *   `public.update_project_segment_industry`  ┐ die beiden Schreibwege, aufgerufen aus
- *   `public.admin_set_metering_point_count`   ┘ `lib/admin/data-entry-actions.ts`.
+ * ── ZWEI WRAPPER AUF DIESER SEITE, KEIN NEUER, KEINE MIGRATION ────────────────────────────────
+ *   `public.admin_get_project`    — der Projektkopf samt Segment (`is_admin()`-geprüft).
+ *   `public.list_metering_points` — die Zählpunkte samt Entwurf (`project_accessible`, und die
+ *                                   trägt seit dem Chat-Zustand `or platform.is_admin()`).
+ * Die Schreibwege stehen in `lib/admin/data-entry-actions.ts` und sind dort aufgezählt; die
+ * Rechnungs-Station kommt ohne einen neuen aus (sie schreibt ausschliesslich in den Entwurf).
  * `admin_get_project` ist als Zählpunkt-Leser ausdrücklich KEINE Alternative: es liefert nur den
  * Projektkopf und kennt die Zählpunkte gar nicht (Migration 20260911090000, TEIL 3).
  */
 
 /** Rolle live gelesen, ein Entzug greift sofort (I10) — wie in jeder Admin-Route. */
 export const dynamic = 'force-dynamic'
+
+/**
+ * ⚠ WEGEN DER RECHNUNGS-STATION, und sie ist die einzige, die ihn braucht.
+ *
+ * Ihr Upload löst bis zu zwölf Modellaufrufe aus. Sie laufen nebenläufig (s. dort), die Wanduhr-Zeit
+ * ist also die eines einzelnen Scans — die liegt aber je nach Seitenzahl deutlich über den
+ * Vorgabewerten der Plattform, und ein abgeschnittener Aufruf sähe für den Admin wie ein Ausfall
+ * aus, während die Dateien längst abgelegt und bezahlt sind.
+ *
+ * ⚠ ER MUSS IN DIESER DATEI STEHEN. Next liest `maxDuration` aus den Exporten einer SEITEN-/
+ * Route-Datei; in einem `'use server'`-Modul wird der Export kommentarlos ignoriert, und der Build
+ * bleibt grün (an `apps/website/app/rechner/page.tsx` gemessen und dort ausführlich vermerkt).
+ * 60 Sekunden, weil das die Obergrenze ist, die jeder Vercel-Tarif zulässt.
+ */
+export const maxDuration = 60
 
 /** Neutral wie im Layout: der Tab-Titel darf nicht verraten, dass es hier etwas zu holen gibt. */
 export const metadata: Metadata = {
@@ -208,6 +227,22 @@ export default async function AdminProjectDataEntryPage({
     return point ? { point, number: step.number } : null
   })()
 
+  /*
+   * Dieselbe Auflösung für die Rechnungs-Station — bewusst eine ZWEITE Ableitung und nicht eine
+   * verallgemeinerte: welcher Schritt gemeint ist, entscheidet die SCHRITT-KENNUNG, und die steht
+   * damit je Station im Klartext da. Ein gemeinsamer Helfer mit der Kennung als Parameter spart
+   * vier Zeilen und macht aus der Zuordnung eine Zeichenkette, die man beim Lesen der Seite nicht
+   * mehr sieht — bei einer Station, die eine Datei entgegennimmt und an einen Zählpunkt schreibt,
+   * ist das die falsche Sparsamkeit.
+   */
+  const rechnung = (() => {
+    if (station.kind !== 'zaehlpunkt-schritt') return null
+    const step = station.meteringPoint
+    if (!step || step.step !== 'rechnung') return null
+    const point = meteringPoints[step.number - 1]
+    return point ? { point, number: step.number } : null
+  })()
+
   const segmentLabel = projectSegmentLabel(project.segment)
   const currentSegment = (PROJECT_SEGMENTS as readonly string[]).includes(project.segment ?? '')
     ? (project.segment as ProjectSegment)
@@ -266,21 +301,40 @@ export default async function AdminProjectDataEntryPage({
             />
           )}
 
-          {station.kind === 'zaehlpunkt-schritt' &&
-            (lastgang === null ? (
-              <StationPlaceholder
-                note={`Hier wird später der Schritt „${station.title}" ausgefüllt.`}
-              />
-            ) : (
-              <DataEntryLoadProfile
-                projectId={project.id}
-                meteringPoint={lastgang.point}
-                meteringPointNumber={lastgang.number}
-                maxBytes={MAX_PROJECT_DOCUMENT_BYTES}
-                nextHref={next ? stationHref(project.id, next.id) : null}
-                segment={currentSegment}
-              />
-            ))}
+          {station.kind === 'zaehlpunkt-schritt' && lastgang !== null && (
+            <DataEntryLoadProfile
+              projectId={project.id}
+              meteringPoint={lastgang.point}
+              meteringPointNumber={lastgang.number}
+              maxBytes={MAX_PROJECT_DOCUMENT_BYTES}
+              nextHref={next ? stationHref(project.id, next.id) : null}
+              segment={currentSegment}
+            />
+          )}
+
+          {station.kind === 'zaehlpunkt-schritt' && rechnung !== null && (
+            /*
+              ⚠ `MAX_INVOICE_FILE_BYTES` (6 MB), NICHT `MAX_PROJECT_DOCUMENT_BYTES` (20 MB) wie
+              beim Lastgang — und hier gewinnt ausnahmsweise die Grenze des LESERS. Der
+              Rechnungs-Scan schickt die Datei base64-kodiert an die API und wird oberhalb von
+              6 MB abgewiesen; eine 20 MB genannte Grenze schickte den Admin in einen Fehlschlag,
+              den die Oberfläche selbst angekündigt hat. Beim Lastgang ist es umgekehrt (dort ist
+              die ABLAGE die engere), und es ist dieselbe Regel: es gilt die kleinere von beiden.
+            */
+            <DataEntryInvoice
+              projectId={project.id}
+              meteringPoint={rechnung.point}
+              meteringPointNumber={rechnung.number}
+              maxBytes={MAX_INVOICE_FILE_BYTES}
+              nextHref={next ? stationHref(project.id, next.id) : null}
+            />
+          )}
+
+          {station.kind === 'zaehlpunkt-schritt' && lastgang === null && rechnung === null && (
+            <StationPlaceholder
+              note={`Hier wird später der Schritt „${station.title}" ausgefüllt.`}
+            />
+          )}
 
           {station.kind === 'ki-check' && (
             <StationPlaceholder note="Hier prüft später die KI die gesammelten Angaben auf Widersprüche." />
@@ -304,10 +358,12 @@ export default async function AdminProjectDataEntryPage({
           überspringt — genau das, was auf einer Station, die etwas erhebt, nicht passieren soll.
           Zurück gibt es dagegen überall ausser auf der allerersten Station: es schreibt nichts.
 
-          ⚠ DIE LASTGANG-STATION IST HIER AUSGENOMMEN und rendert ihren Weiter-Knopf SELBST. Sie ist
-          kein reiner Platzhalter mehr, aber auch kein reiner Speichern-Schritt: Im „Nein"-Zweig gibt
-          es nichts zu speichern und der Weg muss trotzdem weitergehen, im „Ja"-Zweig erst nach dem
-          Einlesen. Diese Unterscheidung kennt nur die Komponente, die den Zustand hält.
+          ⚠ LASTGANG UND RECHNUNG SIND HIER AUSGENOMMEN und rendern ihren Weiter-Knopf SELBST. Beide
+          sind kein reiner Platzhalter mehr, aber auch kein reiner Speichern-Schritt: beim Lastgang
+          gibt es im „Nein"-Zweig nichts zu speichern und der Weg muss trotzdem weitergehen, im
+          „Ja"-Zweig erst nach dem Einlesen; die Rechnungs-Station nimmt beliebig viele Dateien
+          NACHEINANDER entgegen und darf deshalb nach jedem Vorgang weiterhin dastehen. Diese
+          Unterscheidung kennt nur die Komponente, die den Zustand hält.
         */}
         <div className="mt-6 flex flex-wrap items-center gap-3">
           {previous && (
@@ -318,7 +374,8 @@ export default async function AdminProjectDataEntryPage({
           {next &&
             station.kind !== 'segment' &&
             station.kind !== 'zaehlpunkte' &&
-            lastgang === null && (
+            lastgang === null &&
+            rechnung === null && (
               <Button asChild variant="primary" size="md">
                 <Link href={stationHref(project.id, next.id)}>Weiter: {next.title}</Link>
               </Button>

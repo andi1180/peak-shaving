@@ -3,19 +3,27 @@
 /**
  * Die Server Actions des Dateneingabe-Wizards (B24, Teil 1).
  *
- * ── ⚠ ES WAREN GENAU ZWEI, JETZT SIND ES FÜNF ─────────────────────────────────────────────────
+ * ── ⚠ ES WAREN GENAU ZWEI, JETZT SIND ES SECHS ────────────────────────────────────────────────
  * Der ursprüngliche Zuschnitt nannte die Zahl ausdrücklich und begründete sie: die fünf Stationen
  * je Zählpunkt waren Platzhalter, und eine Action ohne Wirkung wäre ein Endpunkt, den man aufrufen
- * kann und der nichts tut. Genau diese Begründung fällt für den ERSTEN der fünf mit dem
- * Lastgang-Schritt weg, und zwar für BEIDE Zweige seiner Frage: der „Ja"-Zweig lädt eine Datei ab,
- * liest sie und schreibt die gelesenen Metadaten an den Zählpunkt (die vierte Action nimmt genau
- * das wieder zurück), der „Nein"-Zweig ERZEUGT stattdessen ein Standardlastprofil aus dem
- * Jahresverbrauch und schreibt dessen Metadaten an dieselben Spalten. Die vier übrigen Stationen
- * (Rechnung, Batterie, PV, Tarif) bleiben Platzhalter und haben weiterhin bewusst KEINE Action;
- * jede bekommt ihren eigenen Auftrag.
+ * kann und der nichts tut. Genau diese Begründung fällt Station für Station weg.
+ *
+ * Für den LASTGANG gilt sie für BEIDE Zweige seiner Frage nicht mehr: der „Ja"-Zweig lädt eine
+ * Datei ab, liest sie und schreibt die gelesenen Metadaten an den Zählpunkt (die vierte Action
+ * nimmt genau das wieder zurück), der „Nein"-Zweig ERZEUGT stattdessen ein Standardlastprofil aus
+ * dem Jahresverbrauch und schreibt dessen Metadaten an dieselben Spalten.
+ *
+ * Für die RECHNUNG seit der sechsten Action: sie nimmt beliebig viele PDF-Rechnungen entgegen,
+ * legt sie im Projekt ab, liest sie aus und schreibt den ZUSAMMENGEFÜHRTEN Stand in den Entwurf des
+ * Zählpunkts. Sie ist die einzige der sechs, die einen abrechenbaren Modellaufruf auslöst — und die
+ * einzige, die wiederholt aufgerufen werden soll (sie ergänzt, sie ersetzt nicht).
+ *
+ * Die drei übrigen Stationen (Batterie, PV, Tarif) bleiben Platzhalter und haben weiterhin bewusst
+ * KEINE Action; jede bekommt ihren eigenen Auftrag.
  *
  * ── KEIN service_role, wie in jeder Admin-Action dieses Bereichs ────────────────────────────────
- * Alle NEUN Wrapper sind `authenticated`-only und prüfen selbst:
+ * Alle NEUN Wrapper sind `authenticated`-only und prüfen selbst (die Rechnungs-Action kommt mit den
+ * letzten beiden aus und bringt keinen neuen mit — es gibt für sie weder Migration noch Wrapper):
  *   `public.update_project_segment_industry`          über `platform.project_accessible`
  *                                                     (eigenes Projekt ODER Adminrolle),
  *   `public.admin_set_metering_point_count`           über `platform.is_admin()` (WIRFT 42501),
@@ -43,7 +51,7 @@
  * nur reicht sie das Ergebnis als Wert heraus, statt den Aufruf zu kapseln.
  *
  * ══════════════════════════════════════════════════════════════════════════════════════════════
- * ⚠ ZWEI ACTIONS LEITEN IM ERFOLGSFALL UM, DIE DREI ÜBRIGEN NICHT — und das ist der Unterschied
+ * ⚠ ZWEI ACTIONS LEITEN IM ERFOLGSFALL UM, DIE VIER ÜBRIGEN NICHT — und das ist der Unterschied
  * ══════════════════════════════════════════════════════════════════════════════════════════════
  * Bei Segment und Zählpunkt-Zahl sind „gespeichert" und „einen Schritt weiter" derselbe Vorgang:
  * die Position des Wizards steht in der URL (`lib/admin/data-entry-stations.ts`), die Weiterleitung
@@ -63,6 +71,9 @@
  * ERZEUGTE Standardprofil — dort ist es sogar die schärfere Form derselben Überlegung: an einem
  * hochgeladenen Lastgang kann ein Mensch die Datei erkennen, an einem erzeugten Profil ist der
  * ausgewiesene Zeitraum samt Jahresverbrauch das EINZIGE, was ihm überhaupt zur Prüfung bleibt.
+ * Und dasselbe für die RECHNUNGEN: die zusammengeführten Werte — und vor allem ein gemeldeter
+ * WIDERSPRUCH zwischen zwei Belegen — sind das, weswegen jemand die Dateien überhaupt hochgeladen
+ * hat; eine Weiterleitung nähme sie ihm ungesehen weg.
  *
  * ⚠ `redirect()` WIRFT. Die beiden Aufrufe stehen deshalb am ENDE und ausserhalb jedes `try` — in
  * einem `catch` gefangen sähe die Weiterleitung wie ein Fehlschlag aus, und der Wizard bliebe
@@ -71,8 +82,17 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
-import { generateStandardProfileMetadata, readLoadProfile } from 'extractors'
-import { MAX_PROJECT_DOCUMENT_BYTES, standardProfileYear } from 'shared'
+import {
+  MAX_INVOICE_FILE_BYTES,
+  extractInvoiceData,
+  generateStandardProfileMetadata,
+  readLoadProfile,
+} from 'extractors'
+import {
+  MAX_PROJECT_DOCUMENT_BYTES,
+  mergeInvoiceExtractions,
+  standardProfileYear,
+} from 'shared'
 
 import { uploadProjectDocument } from '@/lib/project-documents/documents'
 import { removeProjectDocumentBytes } from '@/lib/project-documents/storage'
@@ -84,6 +104,13 @@ import {
   stationHref,
 } from './data-entry-stations'
 import { formatKwh } from './format'
+import {
+  MAX_INVOICES_PER_UPLOAD,
+  invoiceDraftValues,
+  readStoredInvoiceExtractions,
+  withStoredInvoiceExtractions,
+  type StoredInvoiceExtraction,
+} from './invoice-extractions'
 import { readMeteringPointList } from './metering-points'
 import {
   PROJECT_SEGMENTS,
@@ -870,5 +897,315 @@ function annualConsumptionMessage(reason: 'missing' | 'invalid' | 'too_large'): 
       )
     default:
       return 'Bitte eine Zahl grösser als 0 eintragen.'
+  }
+}
+
+// ── Rechnungen ───────────────────────────────────────────────────────────────────────────────────
+
+/** Nur PDF — die API erwartet den `document`-Block mit genau diesem Medientyp. */
+const PDF_MEDIA_TYPE = 'application/pdf'
+
+/**
+ * Warum eine einzelne Datei nicht gelesen werden konnte.
+ *
+ * ── ⚠ DIE FÜNF ERSTEN SIND WORTWÖRTLICH DIE ZUSTÄNDE DES ÖFFENTLICHEN RECHNUNGS-SCANS ─────────
+ * `apps/website/components/flow/invoice-scan-panel.tsx` führt dieselbe Liste (`ERROR_TEXT`), und
+ * sie wird hier bewusst nicht erweitert oder umbenannt: es ist derselbe Extraktor, dieselben
+ * Ausgänge, und zwei Vokabulare für dieselben Zustände liefen beim nächsten Umbau auseinander.
+ *
+ * ⚠ `upload_failed` IST NEU, und das ist eine benannte Ausweitung. Den Zustand gibt es im
+ * öffentlichen Rechner gar nicht — dort wird die Rechnung NIRGENDS abgelegt (Prinzip 4: sie geht an
+ * genau einen Empfänger und kommt als Felder zurück). Hier wird sie dem Projekt hinzugefügt, und
+ * dieser Schritt kann für sich scheitern. Ihn unter `unavailable` zu führen wäre die bequemere
+ * Wahl und eine Falschauskunft: „wir konnten die Rechnung nicht auslesen" schickte den Admin die
+ * Datei prüfen, obwohl das Auslesen gar nicht stattgefunden hat.
+ */
+type InvoiceFileFailure = 'no_file' | 'wrong_type' | 'too_large' | 'not_configured' | 'unreadable' | 'unavailable' | 'upload_failed'
+
+/**
+ * Der Grund je Datei, in einem Satz.
+ *
+ * ── ⚠ KÜRZER ALS IM ÖFFENTLICHEN RECHNER, UND ZWEIMAL AUCH ANDERS ─────────────────────────────
+ * Dort steht je Zustand ein eigener Absatz unter der Dropzone — hier stehen bis zu zwölf Gründe
+ * nebeneinander in EINER Zeile, und ein Absatz je Datei wäre unlesbar. Die Aussage ist dieselbe,
+ * der Satzbau knapper.
+ *
+ * Zwei Texte weichen inhaltlich ab, und beide, weil der dortige eine Oberfläche nennt, die es hier
+ * nicht gibt: `wrong_type` und `unreadable` verweisen im Rechner auf „einen der anderen beiden
+ * Einstiege". Im Wizard gibt es die nicht; der Verweis wäre eine Anweisung ins Leere.
+ */
+const INVOICE_FAILURE_TEXT: Record<InvoiceFileFailure, string> = {
+  no_file: 'Die Datei scheint leer zu sein.',
+  wrong_type:
+    'Nur PDF — ein Foto oder Screenshot der Rechnung lässt sich nicht auslesen.',
+  too_large: `Grösser als ${Math.floor(MAX_INVOICE_FILE_BYTES / (1024 * 1024))} MB. Eine Rechnung von ein bis wenigen Seiten liegt normalerweise weit darunter.`,
+  not_configured: 'Das Auslesen von Rechnungen ist auf diesem Server nicht eingerichtet.',
+  unreadable:
+    'Auf diesem Dokument war keine der gesuchten Angaben zu finden — das kann an der Bildqualität liegen, aber auch daran, dass es keine Strom- oder Netzrechnung ist.',
+  unavailable: 'Das Auslesen ist fehlgeschlagen. Bitte später noch einmal versuchen.',
+  upload_failed:
+    'Die Datei liess sich nicht in der Ablage des Projekts speichern; sie wurde deshalb gar nicht erst ausgelesen.',
+}
+
+/** Das Ergebnis einer einzelnen Datei — gelesen, oder benannt gescheitert. */
+type InvoiceFileResult =
+  | { ok: true; entry: StoredInvoiceExtraction }
+  | { ok: false; filename: string; reason: InvoiceFileFailure }
+  /** Das Projekt gibt es nicht (mehr) — kein Fall EINER Datei, sondern das Ende des Vorgangs. */
+  | { ok: false; filename: string; reason: 'project_gone' }
+
+/**
+ * Liest beliebig viele Rechnungen ein und schreibt den zusammengeführten Stand in den Entwurf.
+ *
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * ⚠ DER AUFRUF IST WIEDERHOLBAR — ER ERGÄNZT, ER ERSETZT NICHT
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * Bereits gelesene Rechnungen bleiben stehen; die neuen kommen dazu, und zusammengeführt wird über
+ * ALLE. Ausgelesen (und damit bezahlt) werden ausschliesslich die Dateien DIESES Vorgangs — die
+ * bestehenden Extraktionen liegen fertig im Entwurf und werden von dort gelesen.
+ *
+ * Das ist der Unterschied zur Lastgang-Station nebenan: dort trägt ein Zählpunkt genau EINEN
+ * Lastgang, und eine zweite Datei ersetzt die erste (über den ausdrücklichen Rückweg). Eine
+ * Rechnung ist dagegen ein Beleg unter mehreren, und zwölf Monatsrechnungen sind zwölf gleichwertige
+ * Belege desselben Anschlusses.
+ *
+ * ── ⚠ DIE REIHENFOLGE IST UMGEKEHRT ZUM LASTGANG: ERST ABLEGEN, DANN LESEN ────────────────────
+ *   1. Typ und Grösse prüfen (rein, kein Netz, kein Geld)
+ *   2. `uploadProjectDocument` — Bytes + Zeile in `platform.project_documents`
+ *   3. `extractInvoiceData` — der abrechenbare Modellaufruf
+ *
+ * Beim Lastgang gilt ausdrücklich das Gegenteil („erst lesen, dann ablegen"), und die Abweichung
+ * ist bewusst: dort ist eine unlesbare Datei WERTLOS — sie hinterliesse nur eine Zeile in der
+ * Dokumentenliste, die zu keinem Zählpunkt gehört. Eine Rechnung, die der Scan nicht lesen konnte,
+ * ist dagegen nicht wertlos: es ist die echte Rechnung des Kunden, ein Mensch kann sie lesen, und
+ * der KI-Check (Schritt 3) sieht die Dokumente des Projekts. Sie gehört also ohnehin ins Projekt.
+ * Dazu kommt der praktische Grund: der Eintrag im Entwurf trägt die Dokument-Kennung, und die gibt
+ * es erst nach dem Ablegen.
+ *
+ * ⚠ WAS DABEI STEHEN BLEIBEN KANN, ist deshalb ein ABGELEGTES Dokument ohne Eintrag im Entwurf —
+ * bei einem gescheiterten Scan, und ebenso, wenn der Schreibvorgang am Ende scheitert. Das ist die
+ * harmlose Richtung: eine Rechnung zu viel in der Dokumentenliste, nicht eine Angabe im Entwurf,
+ * die auf nichts zeigt.
+ *
+ * ── EINE GESCHEITERTE DATEI BRICHT DEN VORGANG NICHT AB ───────────────────────────────────────
+ * Wer zwölf Rechnungen ablegt und bei der siebten einen Scan-Fehler bekommt, soll nicht die
+ * übrigen elf noch einmal hochladen (und noch einmal bezahlen). Die lesbaren werden verarbeitet,
+ * die gescheiterte wird NAMENTLICH mit ihrem Grund gemeldet.
+ *
+ * ── ⚠ DIE DATEIEN LAUFEN NEBENLÄUFIG ──────────────────────────────────────────────────────────
+ * Nacheinander wäre die Wanduhr-Zeit die SUMME der Scans (zwölf mal rund zehn Sekunden), und der
+ * Vorgang liefe in die Zeitgrenze der Plattform, bevor er fertig ist (`maxDuration` der Seite: 60 s).
+ * Es gibt hier auch nichts zu serialisieren: jede Datei ist unabhängig, und der Entwurf wird
+ * EINMAL am Ende geschrieben — anders als im Chat-Ausführer, wo zwei nebenläufige
+ * `set_draft_field` einander überschrieben (dort ausführlich begründet).
+ * Der Preis ist ein Stoss von bis zu zwölf gleichzeitigen Modellaufrufen; läuft einer davon in
+ * eine Frequenzgrenze, wird er als `unavailable` gemeldet und lässt sich einzeln nachreichen.
+ *
+ * ⚠ ES WIRD NICHT UMGELEITET, aus demselben Grund wie beim Lastgang: die zusammengeführten Werte
+ * und ein etwaiger Widerspruch sind das Einzige, woran ein Mensch erkennt, ob die richtigen
+ * Rechnungen gelesen wurden.
+ */
+export async function uploadMeteringPointInvoicesAction(
+  _prev: AdminState,
+  formData: FormData,
+): Promise<AdminState> {
+  const projectId = readProjectId(formData)
+  if (projectId === null) return { formError: UNKNOWN_PROJECT }
+
+  const meteringPointId = String(formData.get('meteringPointId') ?? '')
+  if (!UUID.test(meteringPointId)) {
+    // Kommt wie die Projekt-Kennung als verstecktes Feld aus unserer eigenen Seite.
+    return { formError: GENERIC }
+  }
+
+  /*
+   * ⚠ Ein leeres Mehrfach-Dateifeld schickt dennoch EINEN Eintrag mit leerem Namen und Grösse 0.
+   * Ohne diesen Filter liefe der Vorgang mit „einer" Datei los und meldete `no_file` als
+   * Teilfehlschlag, statt zu sagen, dass gar nichts ausgewählt wurde.
+   */
+  const files = formData
+    .getAll('files')
+    .filter((value): value is File => value instanceof File && value.size > 0)
+
+  if (files.length === 0) {
+    return { fieldErrors: { files: 'Bitte mindestens eine PDF-Rechnung auswählen.' } }
+  }
+  if (files.length > MAX_INVOICES_PER_UPLOAD) {
+    return {
+      fieldErrors: {
+        files:
+          `Höchstens ${MAX_INVOICES_PER_UPLOAD} Rechnungen pro Vorgang — ausgewählt waren ` +
+          `${files.length}. Es wurde nichts hochgeladen und nichts gespeichert; die übrigen ` +
+          `können Sie anschliessend in einem zweiten Vorgang hinzufügen.`,
+      },
+    }
+  }
+
+  const results = await Promise.all(files.map((file) => readOneInvoice(projectId, file)))
+
+  /*
+   * Das Projekt ist weg — dann kann keine der Dateien angekommen sein, und ein Teilerfolg wäre
+   * eine Behauptung. Ein eigener Ausgang statt eines Datei-Grundes: es ist kein Problem DIESER
+   * Datei.
+   */
+  if (results.some((result) => !result.ok && result.reason === 'project_gone')) {
+    return { formError: UNKNOWN_PROJECT }
+  }
+
+  const read = results.filter((result): result is Extract<InvoiceFileResult, { ok: true }> => result.ok)
+  const failed = results.filter((result) => !result.ok)
+
+  const failureText =
+    failed.length === 0
+      ? null
+      : failed
+          .map((result) =>
+            result.ok
+              ? ''
+              : `„${result.filename}": ${INVOICE_FAILURE_TEXT[result.reason as InvoiceFileFailure]}`,
+          )
+          .join(' · ')
+
+  if (read.length === 0) {
+    // Nichts zu speichern. Der Entwurf wird gar nicht erst gelesen — es gäbe nichts zu ändern.
+    return { fieldErrors: { files: failureText ?? GENERIC } }
+  }
+
+  /*
+   * ⚠ DER ENTWURF WIRD FRISCH GELESEN, NICHT AUS EINER PROP ÜBERNOMMEN — und zwar HIER, nach den
+   * Scans: `update_metering_point_draft` ERSETZT ihn, und ein Stand von vor mehreren Sekunden
+   * Modellaufruf machte jede Angabe rückgängig, die inzwischen dazugekommen ist (wortgleiche
+   * Begründung wie beim Standardprofil-Zweig).
+   */
+  const supabase = await createClient()
+  const listRes = await supabase.rpc('list_metering_points', { p_project_id: projectId })
+  if (listRes.error) {
+    if (isForbidden(listRes.error)) return { formError: FORBIDDEN }
+    console.error('[admin/dateneingabe] list_metering_points (Rechnungen):', listRes.error)
+    return { formError: GENERIC }
+  }
+
+  const points = readMeteringPointList(listRes.data)
+  const point = points?.find((candidate) => candidate.id === meteringPointId)
+  if (!point) {
+    return {
+      formError:
+        'Diesen Zählpunkt gibt es nicht (mehr). Die Rechnungen sind im Projekt abgelegt, aber ' +
+        'keinem Zählpunkt zugeordnet. Bitte laden Sie die Seite neu.',
+    }
+  }
+
+  const stored = readStoredInvoiceExtractions(point.draft)
+  const all = [...stored, ...read.map((result) => result.entry)]
+  const { merged, conflicts } = mergeInvoiceExtractions(all.map((entry) => entry.extraction))
+
+  /*
+   * ⚠ EIN EINZIGER SCHREIBVORGANG. Der Seiteneintrag und die übernommenen Werte gehören zusammen:
+   * die Werte sind die Auswertung genau dieser Liste. Getrennt geschrieben gäbe es einen Zustand,
+   * in dem der Entwurf Werte trägt, deren Belege fehlen (oder umgekehrt) — und `update_metering_point_draft`
+   * ERSETZT ohnehin, ein zweiter Aufruf müsste also den ersten mitführen.
+   */
+  let nextDraft = withStoredInvoiceExtractions(point.draft, all)
+  const now = new Date()
+  for (const { field, value } of invoiceDraftValues(merged)) {
+    /*
+     * `measured`: jeder dieser Werte steht auf einer Rechnung, und zwar übereinstimmend auf allen,
+     * die etwas dazu sagen. Widersprüchliche Felder kommen hier gar nicht an (`mergeInvoiceExtractions`
+     * setzt sie auf `null`) — s. `invoiceDraftValues`. Eine Notiz gibt es nicht: sie ist für
+     * SCHÄTZUNGEN da („geschätzt aus 3 Personen"), und eine Ablesung braucht keine Begründung.
+     */
+    nextDraft = setDraftField(nextDraft, field, value, 'measured', undefined, now)
+  }
+
+  const draftRes = await supabase.rpc('update_metering_point_draft', {
+    p_metering_point_id: meteringPointId,
+    // Zusicherung wie im Standardprofil-Zweig: zur Laufzeit dasselbe, TypeScript kann es nur nicht wissen.
+    p_draft: nextDraft as Json,
+  })
+
+  if (draftRes.error) {
+    if (isForbidden(draftRes.error)) return { formError: FORBIDDEN }
+    console.error('[admin/dateneingabe] update_metering_point_draft (Rechnungen):', draftRes.error)
+    return { formError: GENERIC }
+  }
+  if (statusOf(draftRes.data) !== 'ok') {
+    console.error('[admin/dateneingabe] unerwartete Antwort (Rechnungen):', draftRes.data)
+    return { formError: GENERIC }
+  }
+
+  // ⚠ Ohne das bliebe die Zusammenfassung unsichtbar — s. die Begründung beim Lastgang-Upload.
+  revalidatePath(projectDataEntryHref(projectId))
+
+  const gelesen =
+    read.length === 1 ? 'Eine Rechnung gelesen' : `${read.length} Rechnungen gelesen`
+  const gesamt =
+    all.length === 1
+      ? 'Es liegt jetzt eine Rechnung an diesem Zählpunkt.'
+      : `Es liegen jetzt ${all.length} Rechnungen an diesem Zählpunkt.`
+  const widerspruch =
+    conflicts.length === 0
+      ? ''
+      : ' Einzelne Angaben widersprechen einander — sie stehen unten und wurden NICHT übernommen.'
+
+  return {
+    success: `${gelesen}. ${gesamt}${widerspruch}`,
+    ...(failureText ? { fieldErrors: { files: failureText } } : {}),
+  }
+}
+
+/**
+ * Eine einzelne Datei: prüfen, ablegen, auslesen.
+ *
+ * Wirft nie — jeder Ausgang ist ein benanntes Ergebnis. Ein Wurf aus einer der zwölf nebenläufigen
+ * Ketten liesse `Promise.all` scheitern und nähme die anderen elf mit, obwohl sie längst gelesen
+ * (und bezahlt) sind.
+ */
+async function readOneInvoice(projectId: string, file: File): Promise<InvoiceFileResult> {
+  const filename = file.name.trim() === '' ? 'Unbenannte Datei' : file.name
+
+  // ── Schritt 1: prüfen. Rein, vor jedem Netzweg und vor jedem abrechenbaren Aufruf.
+  if (file.size === 0) return { ok: false, filename, reason: 'no_file' }
+  /*
+   * Der Medientyp kommt vom Browser und ist kein Beweis — die eigentliche Sperre ist, dass die API
+   * den `document`-Block mit genau diesem Typ erwartet. Diese Prüfung fängt den ehrlichen Irrtum
+   * ab, bevor er Geld kostet (wortgleich zur Begründung in `apps/website/lib/invoice-scan/actions.ts`).
+   */
+  if (file.type !== PDF_MEDIA_TYPE) return { ok: false, filename, reason: 'wrong_type' }
+  if (file.size > MAX_INVOICE_FILE_BYTES) return { ok: false, filename, reason: 'too_large' }
+
+  const bytes = await file.arrayBuffer()
+
+  // ── Schritt 2: ablegen. Die Eigentumsfrage beantwortet dabei die DATENBANK (`get_project`).
+  const upload = await uploadProjectDocument(projectId, {
+    name: file.name,
+    // Hier steht der Typ fest — die Prüfung oben lässt nur PDF durch.
+    type: PDF_MEDIA_TYPE,
+    bytes,
+  })
+
+  if (!upload.ok) {
+    if (upload.reason === 'not_found') return { ok: false, filename, reason: 'project_gone' }
+    console.error('[admin/dateneingabe] uploadProjectDocument (Rechnung):', upload.reason)
+    return { ok: false, filename, reason: 'upload_failed' }
+  }
+
+  // ── Schritt 3: auslesen. Der einzige abrechenbare Aufruf dieser Kette.
+  const outcome = await extractInvoiceData(Buffer.from(bytes).toString('base64'))
+
+  if (!outcome.ok) {
+    /*
+     * `not_configured` und `unreadable` reisen als eigene Zustände weiter — „noch nicht
+     * eingerichtet" ist kein Fehler der Datei, „darauf war nichts zu finden" keiner der Technik.
+     * `api_error` wird zu `unavailable`: was genau schiefging, gehört ins Log, nicht in die
+     * Oberfläche.
+     */
+    if (outcome.reason === 'not_configured') return { ok: false, filename, reason: 'not_configured' }
+    if (outcome.reason === 'unreadable') return { ok: false, filename, reason: 'unreadable' }
+    return { ok: false, filename, reason: 'unavailable' }
+  }
+
+  return {
+    ok: true,
+    entry: { documentId: upload.documentId, filename, extraction: outcome.extraction },
   }
 }
