@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
 import { AdminError, AdminPanel, AdminSection, Pill } from '@/components/admin/ui'
+import { DataEntryBattery } from '@/components/admin/data-entry-battery'
 import { DataEntryCountForm } from '@/components/admin/data-entry-count-form'
 import { DataEntryInvoice } from '@/components/admin/data-entry-invoice'
 import { DataEntryLoadProfile } from '@/components/admin/data-entry-load-profile'
@@ -43,17 +44,19 @@ import { MAX_PROJECT_DOCUMENT_BYTES } from 'shared'
  *
  * ── ⚠ WAS ECHT IST UND WAS NICHT ───────────────────────────────────────────────────────────────
  * ECHT (schreibt in die Datenbank): das Segment, die Zahl der Zählpunkte, der LASTGANG je Zählpunkt
- * (Datei ablegen ODER Standardprofil aus dem Jahresverbrauch erzeugen — beide Zweige der Frage) und
- * seit der Rechnungs-Station die RECHNUNGEN je Zählpunkt (PDFs ablegen, auslesen, den
- * zusammengeführten Stand in den Entwurf schreiben).
- * PLATZHALTER (Überschrift, ein Satz, Weiter): die drei übrigen Stationen je Zählpunkt (Batterie,
- * PV, Tarif), der KI-Check und die Abbruchprüfung. Jede bekommt ihren eigenen Auftrag; es gibt hier
- * weiterhin bewusst keine Klassifizierung und keinen Fragenkatalog.
+ * (Datei ablegen ODER Standardprofil aus dem Jahresverbrauch erzeugen — beide Zweige der Frage),
+ * die RECHNUNGEN je Zählpunkt (PDFs ablegen, auslesen, den zusammengeführten Stand in den Entwurf
+ * schreiben, oder die Werte von Hand eintragen) und seit der Batterie-Station die BESTEHENDE
+ * ANLAGE je Zählpunkt (Freitext auslesen, Kenndaten in den Entwurf — oder die Frage nach einem
+ * Speichervorschlag beantworten).
+ * PLATZHALTER (Überschrift, ein Satz, Weiter): die zwei übrigen Stationen je Zählpunkt (PV, Tarif),
+ * der KI-Check und die Abbruchprüfung. Jede bekommt ihren eigenen Auftrag; es gibt hier weiterhin
+ * bewusst keine Klassifizierung und keinen Fragenkatalog.
  *
- * ⚠ WAS AUCH IN DEN ZWEI ECHTEN SCHRITTEN UNGEBAUT BLEIBT: eine Spalten-Zuordnungs-UI für
+ * ⚠ WAS AUCH IN DEN DREI ECHTEN SCHRITTEN UNGEBAUT BLEIBT: eine Spalten-Zuordnungs-UI für
  * mehrdeutige Netzbetreiber-Exporte (solche Dateien werden benannt abgewiesen, statt geraten zu
- * werden), ein G-Profil für Kleingewerbe (Delta 8, auf Martin blockiert), ein Pfad „keine Rechnung
- * vorhanden" samt manueller Eingabe und ein Rückweg für eine EINZELNE hochgeladene Rechnung.
+ * werden), ein G-Profil für Kleingewerbe (Delta 8, auf Martin blockiert), ein Datenblatt-Upload für
+ * die bestehende Batterie und eine Recherche nach Marke/Typ.
  *
  * ── DIE POSITION STEHT IN DER URL, DIE REIHENFOLGE IM DATENBANKSTAND ───────────────────────────
  * `?station=…`. Weiter und Zurück sind gewöhnliche Links; die Seite wird bei jedem Schritt neu
@@ -243,6 +246,19 @@ export default async function AdminProjectDataEntryPage({
     return point ? { point, number: step.number } : null
   })()
 
+  /*
+   * Und dieselbe für die Batterie-Station — die DRITTE Ableitung derselben Form, und weiterhin
+   * bewusst keine verallgemeinerte: welcher Schritt gemeint ist, entscheidet die SCHRITT-KENNUNG,
+   * und die steht damit je Station im Klartext da (ausführlich bei `rechnung`).
+   */
+  const batterie = (() => {
+    if (station.kind !== 'zaehlpunkt-schritt') return null
+    const step = station.meteringPoint
+    if (!step || step.step !== 'batterie') return null
+    const point = meteringPoints[step.number - 1]
+    return point ? { point, number: step.number } : null
+  })()
+
   const segmentLabel = projectSegmentLabel(project.segment)
   const currentSegment = (PROJECT_SEGMENTS as readonly string[]).includes(project.segment ?? '')
     ? (project.segment as ProjectSegment)
@@ -330,11 +346,29 @@ export default async function AdminProjectDataEntryPage({
             />
           )}
 
-          {station.kind === 'zaehlpunkt-schritt' && lastgang === null && rechnung === null && (
-            <StationPlaceholder
-              note={`Hier wird später der Schritt „${station.title}" ausgefüllt.`}
+          {station.kind === 'zaehlpunkt-schritt' && batterie !== null && (
+            /*
+              ⚠ KEINE Grössengrenze als Prop, anders als bei den beiden Stationen davor: diese
+              Station nimmt gar keine Datei entgegen. Was hinausgeht, ist ein Satz, den der Admin
+              unmittelbar davor selbst getippt hat — die Grenze dafür ist eine Zeichenzahl und sitzt
+              in der Server Action (`MAX_BATTERY_TEXT_CHARS`).
+            */
+            <DataEntryBattery
+              projectId={project.id}
+              meteringPoint={batterie.point}
+              meteringPointNumber={batterie.number}
+              nextHref={next ? stationHref(project.id, next.id) : null}
             />
           )}
+
+          {station.kind === 'zaehlpunkt-schritt' &&
+            lastgang === null &&
+            rechnung === null &&
+            batterie === null && (
+              <StationPlaceholder
+                note={`Hier wird später der Schritt „${station.title}" ausgefüllt.`}
+              />
+            )}
 
           {station.kind === 'ki-check' && (
             <StationPlaceholder note="Hier prüft später die KI die gesammelten Angaben auf Widersprüche." />
@@ -375,7 +409,8 @@ export default async function AdminProjectDataEntryPage({
             station.kind !== 'segment' &&
             station.kind !== 'zaehlpunkte' &&
             lastgang === null &&
-            rechnung === null && (
+            rechnung === null &&
+            batterie === null && (
               <Button asChild variant="primary" size="md">
                 <Link href={stationHref(project.id, next.id)}>Weiter: {next.title}</Link>
               </Button>

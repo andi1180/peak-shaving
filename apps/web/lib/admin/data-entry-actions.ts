@@ -3,7 +3,7 @@
 /**
  * Die Server Actions des Dateneingabe-Wizards (B24, Teil 1).
  *
- * ── ⚠ ES WAREN GENAU ZWEI, JETZT SIND ES SIEBEN ───────────────────────────────────────────────
+ * ── ⚠ ES WAREN GENAU ZWEI, JETZT SIND ES ZEHN ─────────────────────────────────────────────────
  * Der ursprüngliche Zuschnitt nannte die Zahl ausdrücklich und begründete sie: die fünf Stationen
  * je Zählpunkt waren Platzhalter, und eine Action ohne Wirkung wäre ein Endpunkt, den man aufrufen
  * kann und der nichts tut. Genau diese Begründung fällt Station für Station weg.
@@ -23,8 +23,13 @@
  * zwei aus wie die sechste (`list_metering_points`, `update_metering_point_draft`) und löst keinen
  * abrechenbaren Aufruf aus: die verbliebenen Extraktionen liegen fertig im Entwurf.
  *
- * Die drei übrigen Stationen (Batterie, PV, Tarif) bleiben Platzhalter und haben weiterhin bewusst
- * KEINE Action; jede bekommt ihren eigenen Auftrag.
+ * ⚠ ES SIND INZWISCHEN ZEHN. Die manuelle Tarifeingabe brachte zwei dazu (Preisblatt nachschlagen,
+ * Werte übernehmen), die BATTERIE-Station drei — und damit gilt die Begründung auch für sie nicht
+ * mehr. Ihre dritte (`extractBatteryTextFromAction`) ist nach der Rechnungs-Action die zweite, die
+ * einen abrechenbaren Modellaufruf auslöst, und die einzige, die dabei GAR NICHTS schreibt.
+ *
+ * Die zwei übrigen Stationen (PV, Tarif) bleiben Platzhalter und haben weiterhin bewusst KEINE
+ * Action; jede bekommt ihren eigenen Auftrag.
  *
  * ── KEIN service_role, wie in jeder Admin-Action dieses Bereichs ────────────────────────────────
  * Alle NEUN Wrapper sind `authenticated`-only und prüfen selbst (die Rechnungs-Action kommt mit den
@@ -90,7 +95,9 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
 import {
+  MAX_BATTERY_TEXT_CHARS,
   MAX_INVOICE_FILE_BYTES,
+  extractBatteryText,
   extractInvoiceData,
   generateStandardProfileMetadata,
   readLoadProfile,
@@ -107,8 +114,15 @@ import {
 
 import { uploadProjectDocument } from '@/lib/project-documents/documents'
 import { removeProjectDocumentBytes } from '@/lib/project-documents/storage'
-import { setDraftField } from '@/lib/project-chat/draft'
+import { setDraftField, type DraftValue } from '@/lib/project-chat/draft'
 import { createClient } from '@/lib/supabase/server'
+import {
+  BATTERY_PRESENT_KEY,
+  BATTERY_RECOMMENDATION_KEY,
+  BATTERY_VALUE_FIELDS,
+  formatBatteryNumber,
+  parseBatteryNumber,
+} from './battery-draft'
 import {
   stationAfterMeteringPointCount,
   stationAfterSegment,
@@ -1747,5 +1761,304 @@ export async function saveMeteringPointManualTariffAction(
     success:
       `${count} übernommen. Leer gelassene Felder bleiben unverändert — ein bereits ` +
       'eingetragener Wert wird dadurch nicht gelöscht.',
+  }
+}
+
+// ── Batterie ─────────────────────────────────────────────────────────────────────────────────────
+/**
+ * B24, Teil 1 — die Batterie-Station.
+ *
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * ⚠ DREI ACTIONS, UND NUR ZWEI DAVON SCHREIBEN
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ *   `saveMeteringPointBatteryChoiceAction`  der Nein-Zweig: „Soll die Analyse einen
+ *                                           Speichervorschlag enthalten?" — EIN Feld, EIN Aufruf.
+ *   `extractBatteryTextFromAction`          liest den Freitext aus und schreibt NICHTS. Sie ist
+ *                                           die einzige Action dieser Station, die einen
+ *                                           abrechenbaren Modellaufruf auslöst.
+ *   `saveMeteringPointBatteryAction`        der Ja-Zweig: die vier — ggf. von Hand korrigierten —
+ *                                           Kenndaten in den Entwurf.
+ *
+ * ── ⚠ DIE FRAGE OBEN IST EINE WEICHE, KEINE GESPEICHERTE ANTWORT ──────────────────────────────
+ * „Haben Sie bereits einen Batteriespeicher?" lebt wie bei der Lastgang-Station in `useState` und
+ * erreicht keine dieser Actions als eigenes Feld. Gespeichert wird, was die ZWEIGE erheben:
+ * `hasBattery: true` gehört zu den Kenndaten („diese Werte gehören zu einer vorhandenen Anlage")
+ * und entsteht deshalb ausschliesslich beim Speichern des Ja-Zweigs.
+ *
+ * ⚠ `hasBattery: false` WIRD AUSDRÜCKLICH NICHT GESCHRIEBEN, und das ist eine Entscheidung:
+ * Der Nein-Zweig erhebt eine andere Frage (den Speichervorschlag), und ein aus ihr abgeleitetes
+ * „keine Batterie vorhanden" wäre ein zweites Signal neben `wantsBatteryRecommendation`, das ihm
+ * widersprechen kann. Ein Zählpunkt ohne `hasBattery` im Entwurf heisst damit „dazu ist nichts
+ * erfasst" — ob „ausdrücklich keine" ein eigenes Feld braucht, entscheidet der Schritt, der den
+ * Entwurf verbraucht (Teil 2), nicht diese Station.
+ *
+ * ── ⚠ ES GIBT KEINE KATALOG-ZUORDNUNG, und das ist seit dem 01.09.2026 so ─────────────────────
+ * Eine genannte Kapazität wird NICHT auf den nächstliegenden Katalog-Kandidaten gerundet
+ * (Delta 17 Teil 2): für die bereits installierte Anlage weist der Report gar keinen Preis aus, und
+ * übrig bliebe eine Ersparnis, die zu einem Gerät gehört, das der Kunde nicht besitzt. Gespeichert
+ * werden ausschliesslich die vier Rohwerte; `battery-combination.ts` kommt hier nicht vor.
+ *
+ * ── ⚠ `hasExistingBattery` AUS DER EXTRAKTION WIRD VERWORFEN ──────────────────────────────────
+ * Der Extraktor liest es mit (der öffentliche Rechner braucht es, weil dort die Frage NUR im Satz
+ * steht). Im Wizard steht sie als Weiche darüber und ist bereits beantwortet — ein zweites,
+ * womöglich widersprüchliches Signal aus dem Fliesstext wäre verwirrend, nicht hilfreich. Es
+ * erreicht deshalb weder ein Feld noch den Entwurf.
+ */
+
+/**
+ * Der gemeinsame Schreibweg beider Batterie-Actions: Entwurf frisch lesen, Werte hineinfalten,
+ * EINMAL schreiben.
+ *
+ * ⚠ FRISCH LESEN IST PFLICHT, nicht Vorsicht: `update_metering_point_draft` ERSETZT den Entwurf
+ * (bewusst — eine flache Verschmelzung könnte einen Schlüssel nie wieder entfernen). Wer einen
+ * Stand aus der Zeit des Seitenaufbaus hineingibt, macht jede Angabe rückgängig, die seither
+ * dazugekommen ist — etwa eine in einem zweiten Tab hochgeladene Rechnung.
+ *
+ * `measured` für alle: der Admin trägt ein, was der Kunde über SEINE Anlage sagt. Als Annahme
+ * gekennzeichnet trüge die Angabe dauerhaft den Vorbehalt einer Schätzung, und der Report wiese
+ * sie bis zum Schluss als unsicher aus (Delta §3.2).
+ *
+ * @returns `null`, wenn geschrieben wurde — sonst der Fehlerzustand für das Formular.
+ */
+async function writeBatteryDraft(
+  projectId: string,
+  meteringPointId: string,
+  values: { field: string; value: DraftValue }[],
+  context: string,
+): Promise<AdminState | null> {
+  const supabase = await createClient()
+
+  const listRes = await supabase.rpc('list_metering_points', { p_project_id: projectId })
+  if (listRes.error) {
+    if (isForbidden(listRes.error)) return { formError: FORBIDDEN }
+    console.error(`[admin/dateneingabe] list_metering_points (${context}):`, listRes.error)
+    return { formError: GENERIC }
+  }
+
+  const point = readMeteringPointList(listRes.data)?.find(
+    (candidate) => candidate.id === meteringPointId,
+  )
+  if (!point) {
+    return { formError: 'Diesen Zählpunkt gibt es nicht (mehr). Bitte laden Sie die Seite neu.' }
+  }
+
+  let nextDraft = point.draft
+  const now = new Date()
+  for (const { field, value } of values) {
+    nextDraft = setDraftField(nextDraft, field, value, 'measured', undefined, now)
+  }
+
+  const draftRes = await supabase.rpc('update_metering_point_draft', {
+    p_metering_point_id: meteringPointId,
+    // Zusicherung wie in den übrigen Entwurf-Schreibwegen: zur Laufzeit dasselbe.
+    p_draft: nextDraft as Json,
+  })
+
+  if (draftRes.error) {
+    if (isForbidden(draftRes.error)) return { formError: FORBIDDEN }
+    console.error(`[admin/dateneingabe] update_metering_point_draft (${context}):`, draftRes.error)
+    return { formError: GENERIC }
+  }
+  if (statusOf(draftRes.data) !== 'ok') {
+    console.error(`[admin/dateneingabe] unerwartete Antwort (${context}):`, draftRes.data)
+    return { formError: GENERIC }
+  }
+
+  // Die Station zeigt den erfassten Stand aus der DATENBANK — s. Kopf dieser Datei.
+  revalidatePath(projectDataEntryHref(projectId))
+  return null
+}
+
+/**
+ * Der Nein-Zweig: „Soll die Analyse einen Speichervorschlag enthalten?"
+ *
+ * ⚠ SIE SCHREIBT GENAU EIN FELD — `wantsBatteryRecommendation`. Keines der vier Kenndaten-Felder
+ * und auch kein `hasBattery` (Begründung im Kopf dieses Abschnitts). Der Wert ist ein echter
+ * Wahrheitswert, kein Vorhandensein eines Schlüssels: „nein, ausdrücklich kein Vorschlag" ist eine
+ * Angabe und muss von „dazu wurde nichts gefragt" unterscheidbar bleiben.
+ */
+export async function saveMeteringPointBatteryChoiceAction(
+  _prev: AdminState,
+  formData: FormData,
+): Promise<AdminState> {
+  const projectId = readProjectId(formData)
+  if (projectId === null) return { formError: UNKNOWN_PROJECT }
+
+  const meteringPointId = String(formData.get('meteringPointId') ?? '')
+  if (!UUID.test(meteringPointId)) return { formError: GENERIC }
+
+  const answer = String(formData.get('wantsRecommendation') ?? '')
+  if (answer !== 'ja' && answer !== 'nein') {
+    // Erreichbar nur an den zwei Knöpfen vorbei — die schicken feste Werte.
+    return { formError: GENERIC }
+  }
+  const wants = answer === 'ja'
+
+  const failure = await writeBatteryDraft(
+    projectId,
+    meteringPointId,
+    [{ field: BATTERY_RECOMMENDATION_KEY, value: wants }],
+    'Speichervorschlag',
+  )
+  if (failure) return failure
+
+  return {
+    success: wants
+      ? 'Vermerkt: Die Analyse soll einen Speichervorschlag enthalten.'
+      : 'Vermerkt: Es wird kein Speicher vorgeschlagen.',
+  }
+}
+
+/**
+ * Warum ein Freitext nicht ausgelesen werden konnte — die Zustände des Extraktors, in einem Satz.
+ *
+ * Dieselbe Liste wie im öffentlichen Rechner (`battery-text-panel.tsx`), nur knapper: dort steht je
+ * Zustand ein eigener Absatz, hier eine Zeile über dem Formular. `api_error` heisst nach aussen
+ * „fehlgeschlagen" — was genau schiefging, geht den Eintragenden nichts an.
+ */
+const BATTERY_TEXT_FAILURE_TEXT: Record<'not_configured' | 'api_error' | 'unreadable', string> = {
+  not_configured: 'Das Auslesen freier Angaben ist auf diesem Server nicht eingerichtet. Die vier Felder lassen sich trotzdem von Hand ausfüllen.',
+  api_error:
+    'Das Auslesen ist fehlgeschlagen. Bitte später noch einmal versuchen — oder die vier Felder von Hand ausfüllen.',
+  unreadable:
+    'Aus dieser Angabe liessen sich keine Kenndaten lesen. Nötig sind die nutzbare Kapazität in kWh und die Lade-/Entladeleistung in kW; hilfreich ist zusätzlich der Wirkungsgrad.',
+}
+
+/**
+ * Liest die Kenndaten aus einem frei formulierten Satz und gibt sie als Formularwerte zurück.
+ *
+ * ⚠ SIE SCHREIBT NICHTS. Zwischen dem Gelesenen und dem Gespeicherten steht ein zweiter, eigener
+ * Klick — dasselbe Muster wie beim Preisblatt-Vorschlag der Rechnungs-Station und wie im
+ * öffentlichen Rechner: der Vorschlag ist eine ANGEFORDERTE Auskunft, was damit geschieht,
+ * entscheidet ein Mensch.
+ *
+ * ⚠ DIE PRÜFUNG LÄUFT VOR JEDEM EXTERNEN KONTAKT. Eine Server Action ist über ihre Kennung
+ * aufrufbar, und jeder Aufruf ist abrechenbar — die Kürzung auf `MAX_BATTERY_TEXT_CHARS` und die
+ * Leerprüfung sind deshalb eine echte Sperre, keine Bedienhilfe (das `maxlength` des Textfelds ist
+ * eine Angabe des Browsers).
+ *
+ * ── ⚠ „GELESEN, ABER KEINE ZAHL" WIRD WIE „NICHTS GELESEN" BEHANDELT ──────────────────────────
+ * Der Extraktor meldet `unreadable` nur, wenn ALLE fünf Felder leer sind — `hasExistingBattery`
+ * eingeschlossen. Ein Satz wie „ja, wir haben einen Speicher" liefert damit ein `ok` ohne eine
+ * einzige Zahl. Würde das als Erfolg durchgereicht, leerte es die vier Felder und behauptete
+ * dabei, es habe etwas gelesen. Es bekommt deshalb denselben Satz — und die Felder bleiben, wie
+ * sie sind.
+ */
+export async function extractBatteryTextFromAction(
+  _prev: AdminState,
+  formData: FormData,
+): Promise<AdminState> {
+  const text = String(formData.get('batteryText') ?? '').trim()
+  if (text === '') {
+    return {
+      fieldErrors: {
+        batteryText: 'Bitte den Speicher kurz beschreiben — oder die Felder von Hand ausfüllen.',
+      },
+    }
+  }
+
+  const outcome = await extractBatteryText(text.slice(0, MAX_BATTERY_TEXT_CHARS))
+  if (!outcome.ok) return { formError: BATTERY_TEXT_FAILURE_TEXT[outcome.reason] }
+
+  /*
+   * ⚠ ALLE VIER FELDER WERDEN GESETZT, auch die nicht gelesenen (als Leerstring).
+   *
+   * Ein nicht gelesenes Feld stehen zu lassen hiesse, einen Wert aus einer FRÜHEREN Ablesung neben
+   * frischen stehen zu haben, ohne dass man die beiden unterscheiden kann. Was hier erscheint, ist
+   * die Aussage GENAU DIESES Satzes — nicht mehr und nicht weniger. Der Preis ist benannt und in
+   * der Oberfläche ausgeschrieben: eine von Hand eingetippte Zahl verliert man mit einem zweiten
+   * Klick auf „Auslesen".
+   */
+  const values: Record<string, string> = {}
+  let found = 0
+  for (const entry of BATTERY_VALUE_FIELDS) {
+    const value = outcome.extraction[entry.form]
+    if (value === null) {
+      values[entry.form] = ''
+      continue
+    }
+    values[entry.form] = formatBatteryNumber(value)
+    found += 1
+  }
+
+  if (found === 0) return { formError: BATTERY_TEXT_FAILURE_TEXT.unreadable }
+
+  /*
+   * Der Marker unterscheidet „eben gelesen" von „noch nie gelaufen" — der Zustand aus
+   * `useActionState` ist beim ersten Render leer, und ein leeres `values` sähe genauso aus.
+   * Dieselbe Form wie `lookup === 'ok'` bei der manuellen Tarifeingabe.
+   */
+  values.extraction = 'ok'
+  values.found = String(found)
+  return { values }
+}
+
+/**
+ * Der Ja-Zweig: die vier Kenndaten in den Entwurf.
+ *
+ * ── DIE REIHENFOLGE ────────────────────────────────────────────────────────────────────────────
+ *   1. alle gefüllten Felder prüfen (ein Fehler bricht VOR jedem Schreibvorgang ab — ein halb
+ *      übernommenes Formular wäre der Zustand, den niemand nachvollziehen kann)
+ *   2. Entwurf frisch lesen, Werte hineinfalten, EINMAL schreiben (`writeBatteryDraft`)
+ *
+ * ── ⚠ `hasBattery: true` WIRD IMMER GESCHRIEBEN, AUCH OHNE EINE EINZIGE ZAHL ──────────────────
+ * „Es gibt einen Speicher, die Kenndaten fehlen noch" ist eine Angabe und nicht dasselbe wie „dazu
+ * ist nichts erfasst": das eine ist eine Lücke, die der KI-Check benennen kann, das andere eine
+ * Frage, die niemand gestellt hat. Deshalb hier ausdrücklich KEINE Sperre „mindestens ein Wert",
+ * anders als bei der manuellen Tarifeingabe — dort gäbe es ohne Eingabe wirklich nichts zu
+ * schreiben.
+ *
+ * ── EIN LEERES FELD IST KEINE ANGABE ──────────────────────────────────────────────────────────
+ * Es wird übersprungen, nicht als `null` geschrieben: ein zuvor erfasster Wert bleibt dadurch
+ * stehen, statt von einem leeren Formularfeld gelöscht zu werden. Dieselbe schonende Richtung wie
+ * bei der manuellen Tarifeingabe und beim Widerspruch zweier Rechnungen.
+ */
+export async function saveMeteringPointBatteryAction(
+  _prev: AdminState,
+  formData: FormData,
+): Promise<AdminState> {
+  const projectId = readProjectId(formData)
+  if (projectId === null) return { formError: UNKNOWN_PROJECT }
+
+  const meteringPointId = String(formData.get('meteringPointId') ?? '')
+  if (!UUID.test(meteringPointId)) return { formError: GENERIC }
+
+  const fieldErrors: Record<string, string> = {}
+  const values: { field: string; value: DraftValue }[] = [
+    { field: BATTERY_PRESENT_KEY, value: true },
+  ]
+
+  for (const entry of BATTERY_VALUE_FIELDS) {
+    const parsed = parseBatteryNumber(String(formData.get(entry.form) ?? ''), entry.max)
+    if (parsed === undefined) continue
+    if (parsed === null) {
+      fieldErrors[entry.form] =
+        entry.max === undefined
+          ? 'Bitte eine Zahl grösser als 0 eintragen, z. B. 19,2.'
+          : `Bitte eine Zahl zwischen 0 und ${entry.max} eintragen, z. B. 90.`
+      continue
+    }
+    values.push({ field: entry.field, value: parsed })
+  }
+
+  if (Object.keys(fieldErrors).length > 0) return { fieldErrors }
+
+  const failure = await writeBatteryDraft(
+    projectId,
+    meteringPointId,
+    values,
+    'Batterie',
+  )
+  if (failure) return failure
+
+  // `values` trägt immer `hasBattery` — gezählt werden die Kenndaten daneben.
+  const count = values.length - 1
+  return {
+    success:
+      count === 0
+        ? 'Vermerkt: Es ist bereits ein Speicher vorhanden. Kenndaten wurden keine erfasst — sie lassen sich hier jederzeit nachtragen.'
+        : count === 1
+          ? 'Eine Angabe zum vorhandenen Speicher wurde übernommen. Leer gelassene Felder bleiben unverändert.'
+          : `${count} Angaben zum vorhandenen Speicher wurden übernommen. Leer gelassene Felder bleiben unverändert.`,
   }
 }

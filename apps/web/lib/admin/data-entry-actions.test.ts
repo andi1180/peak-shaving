@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
  * 6 MB selbst behauptet, bliebe grün, wenn die Anwendung gegen andere Werte prüft — und misst dann
  * eine Grenze, die es in Produktion nicht gibt.
  */
-import { MAX_INVOICE_FILE_BYTES } from 'extractors'
+import { MAX_BATTERY_TEXT_CHARS, MAX_INVOICE_FILE_BYTES } from 'extractors'
 import { MAX_INVOICES_PER_UPLOAD } from './invoice-extractions'
 
 /**
@@ -40,6 +40,7 @@ const removeProjectDocumentBytes = vi.fn()
 const revalidatePath = vi.fn()
 const uploadProjectDocument = vi.fn()
 const extractInvoiceData = vi.fn()
+const extractBatteryText = vi.fn()
 
 vi.mock('server-only', () => ({}))
 vi.mock('@/lib/supabase/server', () => ({ createClient: () => createClient() }))
@@ -67,6 +68,7 @@ vi.mock('extractors', async () => ({
   ...(await vi.importActual<typeof import('extractors')>('extractors')),
   readLoadProfile: vi.fn(),
   extractInvoiceData: (base64: string) => extractInvoiceData(base64),
+  extractBatteryText: (text: string) => extractBatteryText(text),
 }))
 vi.mock('@/lib/project-documents/documents', () => ({
   uploadProjectDocument: (projectId: string, file: unknown) =>
@@ -77,8 +79,11 @@ vi.mock('@/lib/project-documents/storage', () => ({
 }))
 
 const {
+  extractBatteryTextFromAction,
   removeMeteringPointInvoiceAction,
   removeMeteringPointLoadProfileAction,
+  saveMeteringPointBatteryAction,
+  saveMeteringPointBatteryChoiceAction,
   saveMeteringPointManualTariffAction,
   uploadMeteringPointInvoicesAction,
 } = await import('./data-entry-actions')
@@ -122,6 +127,7 @@ beforeEach(() => {
   removeProjectDocumentBytes.mockResolvedValue({ ok: true })
   uploadProjectDocument.mockReset()
   extractInvoiceData.mockReset()
+  extractBatteryText.mockReset()
   withWrappers()
 })
 
@@ -829,5 +835,277 @@ describe('saveMeteringPointManualTariffAction — zwei von sieben Feldern', () =
     // Zustand, den niemand nachvollziehen kann.
     expect(rpc).not.toHaveBeenCalled()
     expect(draft).toEqual(EXISTING)
+  })
+})
+
+/**
+ * B24, Teil 1 — die BATTERIE-Station.
+ *
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * ⚠ DIE EIGENSCHAFT, DIE SICH NUR HIER PRÜFEN LÄSST: ZWEI ACTIONS AUF EINEM FORMULAR
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * Der Ja-Zweig trägt „Auslesen" und „Speichern" auf DEMSELBEN Formular. Genau diese Konstruktion
+ * ist bei der Rechnungs-Station ein gemessener Defekt gewesen (PR #200): React setzt
+ * UNKONTROLLIERTE Formularfelder nach JEDER abgeschlossenen Action zurück, nicht nur nach der
+ * gemeinten — der Vorschlagen-Knopf löschte die Angaben, aus denen der Vorschlag gebildet wurde.
+ *
+ * Die Felder sind deshalb hier von Anfang an kontrolliert. Was ein Unit-Test davon messen kann, ist
+ * nicht das React-Verhalten (`apps/web` hat kein Renderer-Setup), sondern die Bedingung, unter der
+ * die Oberfläche es überhaupt halten kann: die LESE-Action darf nichts schreiben, und die
+ * SPEICHER-Action muss genau die Werte übernehmen, die nach ihr im Formular stehen. Der Test fährt
+ * beide NACHEINANDER auf demselben Wertesatz — der Durchstich, den die Aufgabenstellung als
+ * Positiv-Kontrolle gegen jenen Defekt verlangt.
+ *
+ * Die zweite Eigenschaft, die nur hier messbar ist: der NEIN-Zweig schreibt GENAU EIN Feld. Fiele
+ * dort ein Batteriefeld mit hinein, wäre das eine Angabe über eine Anlage, die es nicht gibt.
+ */
+describe('Batterie-Station', () => {
+  /** Ein bereits gelesener Stand, wie ihn die Rechnungs-Station hinterlässt. */
+  const EXISTING = {
+    energyPriceCtPerKwh: 24.5,
+    _provenance: {
+      energyPriceCtPerKwh: { source: 'measured', at: '2026-09-01T10:00:00.000Z' },
+    },
+  }
+
+  /** Genau das, was das Formular sendet: alle vier Felder, die meisten davon leer. */
+  function batteryForm(fields: Record<string, string> = {}): FormData {
+    const fd = new FormData()
+    fd.set('projectId', PROJECT_ID)
+    fd.set('meteringPointId', POINT_ID)
+    fd.set('batteryText', '')
+    for (const key of ['capacityKwh', 'maxPowerKw', 'roundTripEfficiencyPercent', 'pricePerKwh']) {
+      fd.set(key, '')
+    }
+    for (const [key, value] of Object.entries(fields)) fd.set(key, value)
+    return fd
+  }
+
+  beforeEach(() => {
+    draft = { ...EXISTING }
+    withInvoiceWrappers()
+  })
+
+  it('⚠ Auslesen und Speichern nacheinander: die gelesenen Werte überstehen den zweiten Aufruf', async () => {
+    extractBatteryText.mockResolvedValue({
+      ok: true,
+      extraction: {
+        // ⚠ Wird bewusst VERWORFEN: die Wizard-Frage oben ist bereits die Antwort.
+        hasExistingBattery: true,
+        capacityKwh: 19.2,
+        maxPowerKw: 10.6,
+        roundTripEfficiencyPercent: 90,
+        // Nicht genannt — das Feld muss danach LEER sein, nicht „irgendein alter Wert".
+        pricePerKwh: null,
+      },
+    })
+
+    // ── Schritt 1: auslesen ──────────────────────────────────────────────────────────────────
+    const read = await extractBatteryTextFromAction(
+      {},
+      batteryForm({ batteryText: 'Sungrow, 19,2 kWh nutzbar, 10,6 kW, rund 90 %' }),
+    )
+
+    expect(read.formError).toBeUndefined()
+    expect(read.fieldErrors).toBeUndefined()
+    // ⚠ DIE LESE-ACTION SCHREIBT NICHTS — kein Wrapper, kein Neurendern.
+    expect(rpc).not.toHaveBeenCalled()
+    expect(revalidatePath).not.toHaveBeenCalled()
+    expect(draft).toEqual(EXISTING)
+
+    // Deutsches Dezimalkomma, damit der eigene Zahlenleser den Vorschlag auch annimmt.
+    expect(read.values?.capacityKwh).toBe('19,2')
+    expect(read.values?.maxPowerKw).toBe('10,6')
+    expect(read.values?.roundTripEfficiencyPercent).toBe('90')
+    // Nicht gelesen ⇒ ausdrücklich leer, nicht abwesend.
+    expect(read.values?.pricePerKwh).toBe('')
+    expect(read.values?.found).toBe('3')
+    // `hasExistingBattery` erreicht kein Feld — es steht nirgends in der Antwort.
+    expect(JSON.stringify(read.values)).not.toContain('hasExistingBattery')
+
+    // ── Schritt 2: DIESELBEN Werte speichern (so, wie sie danach im Formular stehen) ─────────
+    const save = await saveMeteringPointBatteryAction(
+      {},
+      batteryForm({
+        batteryText: 'Sungrow, 19,2 kWh nutzbar, 10,6 kW, rund 90 %',
+        capacityKwh: read.values?.capacityKwh ?? '',
+        maxPowerKw: read.values?.maxPowerKw ?? '',
+        roundTripEfficiencyPercent: read.values?.roundTripEfficiencyPercent ?? '',
+        pricePerKwh: read.values?.pricePerKwh ?? '',
+      }),
+    )
+
+    expect(save.formError).toBeUndefined()
+    expect(save.fieldErrors).toBeUndefined()
+    expect(save.success).toContain('3 Angaben')
+
+    // ⚠ POSITIV-KONTROLLE gegen den PR-#200-Defekt: die drei gelesenen Zahlen kommen als ZAHLEN an.
+    expect(draft.existingBatteryCapacityKwh).toBe(19.2)
+    expect(draft.existingBatteryMaxPowerKw).toBe(10.6)
+    expect(draft.existingBatteryRoundTripEfficiencyPercent).toBe(90)
+    // Der nicht gelesene Preis bleibt leer und wird NICHT als `null` geschrieben.
+    expect(draft).not.toHaveProperty('existingBatteryPricePerKwh')
+
+    expect(draft.hasBattery).toBe(true)
+    // Der Bestand der Rechnungs-Station bleibt unberührt.
+    expect(draft.energyPriceCtPerKwh).toBe(EXISTING.energyPriceCtPerKwh)
+
+    // GENAU EIN Schreibvorgang — der Wrapper ERSETZT, zwei Aufrufe nähmen einander die Arbeit weg.
+    const writes = rpc.mock.calls.filter(([fn]) => fn === 'update_metering_point_draft')
+    expect(writes).toHaveLength(1)
+    expect(revalidatePath).toHaveBeenCalledTimes(1)
+
+    // Abgetippt ist dieselbe Herkunft wie abgelesen (Delta §3.2).
+    const provenance = draft._provenance as Record<string, { source: string }>
+    expect(provenance.existingBatteryCapacityKwh?.source).toBe('measured')
+    expect(provenance.hasBattery?.source).toBe('measured')
+  })
+
+  it('⚠ Nein-Zweig: schreibt AUSSCHLIESSLICH `wantsBatteryRecommendation`', async () => {
+    const before = JSON.parse(JSON.stringify(draft))
+    const keysBefore = Object.keys(draft)
+
+    const fd = new FormData()
+    fd.set('projectId', PROJECT_ID)
+    fd.set('meteringPointId', POINT_ID)
+    fd.set('wantsRecommendation', 'ja')
+
+    const state = await saveMeteringPointBatteryChoiceAction({}, fd)
+
+    expect(state.formError).toBeUndefined()
+    expect(state.success).toContain('Speichervorschlag')
+
+    expect(draft.wantsBatteryRecommendation).toBe(true)
+
+    // ⚠ KEINES der vier Batteriefelder — und auch kein `hasBattery`: der Nein-Zweig beantwortet
+    // eine ANDERE Frage, und ein daraus abgeleitetes „keine Batterie" wäre ein zweites Signal.
+    expect(draft).not.toHaveProperty('existingBatteryCapacityKwh')
+    expect(draft).not.toHaveProperty('existingBatteryMaxPowerKw')
+    expect(draft).not.toHaveProperty('existingBatteryRoundTripEfficiencyPercent')
+    expect(draft).not.toHaveProperty('existingBatteryPricePerKwh')
+    expect(draft).not.toHaveProperty('hasBattery')
+
+    // Gezählt statt aufgezählt: GENAU EIN neuer Schlüssel neben `_provenance`.
+    const added = Object.keys(draft).filter((key) => !keysBefore.includes(key))
+    expect(added).toEqual(['wantsBatteryRecommendation'])
+
+    // Der Bestand bleibt unberührt, und es wird genau einmal geschrieben.
+    expect(draft.energyPriceCtPerKwh).toBe(before.energyPriceCtPerKwh)
+    expect(rpc.mock.calls.filter(([fn]) => fn === 'update_metering_point_draft')).toHaveLength(1)
+    // Kein abrechenbarer Aufruf — der Nein-Zweig liest keinen Freitext.
+    expect(extractBatteryText).not.toHaveBeenCalled()
+  })
+
+  it('⚠ Nein-Zweig: „nein" ist eine ANGABE, kein fehlender Schlüssel', async () => {
+    const fd = new FormData()
+    fd.set('projectId', PROJECT_ID)
+    fd.set('meteringPointId', POINT_ID)
+    fd.set('wantsRecommendation', 'nein')
+
+    await saveMeteringPointBatteryChoiceAction({}, fd)
+
+    // `false`, nicht `undefined`: „ausdrücklich kein Vorschlag" muss von „nicht gefragt"
+    // unterscheidbar bleiben.
+    expect(draft.wantsBatteryRecommendation).toBe(false)
+    expect(draft).toHaveProperty('wantsBatteryRecommendation')
+  })
+
+  it('speichert „es gibt einen Speicher" auch ohne eine einzige Kennzahl', async () => {
+    const state = await saveMeteringPointBatteryAction({}, batteryForm())
+
+    expect(state.formError).toBeUndefined()
+    expect(state.success).toContain('Kenndaten wurden keine erfasst')
+    // ⚠ Anders als bei der manuellen Tarifeingabe: „es gibt einen Speicher" IST eine Angabe, und
+    // eine Lücke, die der KI-Check benennen kann, ist nicht dasselbe wie eine ungestellte Frage.
+    expect(draft.hasBattery).toBe(true)
+    expect(rpc.mock.calls.filter(([fn]) => fn === 'update_metering_point_draft')).toHaveLength(1)
+  })
+
+  it('bricht VOR jedem Schreibvorgang ab, wenn eine Eingabe unbrauchbar ist', async () => {
+    const state = await saveMeteringPointBatteryAction(
+      {},
+      // 120 % Wirkungsgrad ist physikalisch unmöglich — die Kapazität daneben ist gültig.
+      batteryForm({ capacityKwh: '19,2', roundTripEfficiencyPercent: '120' }),
+    )
+
+    expect(state.fieldErrors?.roundTripEfficiencyPercent).toBeDefined()
+    expect(state.fieldErrors?.capacityKwh).toBeUndefined()
+    // Auch der gültige Wert bleibt liegen — und `hasBattery` ebenfalls.
+    expect(rpc).not.toHaveBeenCalled()
+    expect(draft).toEqual(EXISTING)
+  })
+
+  it('⚠ eine Ablesung ohne Zahl leert die Felder NICHT, sondern wird als solche gemeldet', async () => {
+    /*
+     * Der Extraktor meldet `unreadable` nur, wenn ALLE FÜNF Felder leer sind — `hasExistingBattery`
+     * eingeschlossen. „Ja, wir haben einen Speicher" liefert damit ein `ok` ohne eine einzige Zahl.
+     * Durchgereicht leerte es die vier Felder und behauptete dabei, es habe etwas gelesen.
+     */
+    extractBatteryText.mockResolvedValue({
+      ok: true,
+      extraction: {
+        hasExistingBattery: true,
+        capacityKwh: null,
+        maxPowerKw: null,
+        roundTripEfficiencyPercent: null,
+        pricePerKwh: null,
+      },
+    })
+
+    const state = await extractBatteryTextFromAction(
+      {},
+      batteryForm({ batteryText: 'Ja, wir haben einen Speicher.' }),
+    )
+
+    expect(state.formError).toContain('keine Kenndaten')
+    // Keine Werte ⇒ die Oberfläche fasst die Felder nicht an.
+    expect(state.values).toBeUndefined()
+    expect(rpc).not.toHaveBeenCalled()
+  })
+
+  it('fragt gar nicht erst, wenn nichts eingetragen ist — jeder Aufruf ist abrechenbar', async () => {
+    const state = await extractBatteryTextFromAction({}, batteryForm({ batteryText: '   ' }))
+
+    expect(state.fieldErrors?.batteryText).toBeDefined()
+    expect(extractBatteryText).not.toHaveBeenCalled()
+    expect(rpc).not.toHaveBeenCalled()
+  })
+
+  it('⚠ kürzt den Freitext VOR dem externen Kontakt, nicht erst im Modell', async () => {
+    extractBatteryText.mockResolvedValue({ ok: false, reason: 'unreadable' })
+
+    await extractBatteryTextFromAction(
+      {},
+      // Das `maxlength` des Textfelds ist eine Angabe des Browsers; die Sperre sitzt hier.
+      batteryForm({ batteryText: 'x'.repeat(MAX_BATTERY_TEXT_CHARS + 500) }),
+    )
+
+    expect(extractBatteryText).toHaveBeenCalledTimes(1)
+    expect(extractBatteryText.mock.calls[0]?.[0]).toHaveLength(MAX_BATTERY_TEXT_CHARS)
+  })
+
+  it('nennt jeden Ausfall des Extraktors beim Namen und schreibt nichts', async () => {
+    for (const reason of ['not_configured', 'api_error', 'unreadable'] as const) {
+      extractBatteryText.mockResolvedValue({ ok: false, reason })
+      const state = await extractBatteryTextFromAction({}, batteryForm({ batteryText: 'irgendwas' }))
+      expect(state.formError, reason).toBeDefined()
+      expect(state.values, reason).toBeUndefined()
+    }
+    expect(rpc).not.toHaveBeenCalled()
+    expect(draft).toEqual(EXISTING)
+  })
+
+  it('weist eine fehlende oder formverletzende Kennung ab, ohne die Datenbank zu fragen', async () => {
+    const bad = new FormData()
+    bad.set('projectId', 'kein-uuid')
+    bad.set('meteringPointId', POINT_ID)
+    bad.set('wantsRecommendation', 'ja')
+    expect((await saveMeteringPointBatteryChoiceAction({}, bad)).formError).toBeDefined()
+
+    const badPoint = batteryForm()
+    badPoint.set('meteringPointId', 'kein-uuid')
+    expect((await saveMeteringPointBatteryAction({}, badPoint)).formError).toBeDefined()
+
+    expect(rpc).not.toHaveBeenCalled()
   })
 })
