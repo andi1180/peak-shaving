@@ -6,6 +6,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
  * eine Grenze, die es in Produktion nicht gibt.
  */
 import { MAX_BATTERY_TEXT_CHARS, MAX_INVOICE_FILE_BYTES } from 'extractors'
+/*
+ * Dieselbe Regel für die PV-Grenze: `MAX_PV_PROFILE_BYTES` der Action IST
+ * `MAX_PROJECT_DOCUMENT_BYTES` (die ABLAGE ist die kleinere von zwei Grenzen). Hier steht
+ * deshalb die Quelle und keine zweite Zahl.
+ */
+import { MAX_PROJECT_DOCUMENT_BYTES } from 'shared'
 import { MAX_INVOICES_PER_UPLOAD } from './invoice-extractions'
 
 /**
@@ -87,6 +93,7 @@ const {
   saveMeteringPointManualTariffAction,
   saveMeteringPointPvChoiceAction,
   uploadMeteringPointInvoicesAction,
+  uploadMeteringPointPvProfileAction,
 } = await import('./data-entry-actions')
 
 const PROJECT_ID = '11111111-2222-4333-8444-555555555555'
@@ -1217,6 +1224,256 @@ describe('PV-Station', () => {
     badPoint.set('meteringPointId', 'kein-uuid')
     expect((await saveMeteringPointPvChoiceAction({}, badPoint)).formError).toBeDefined()
 
+    expect(rpc).not.toHaveBeenCalled()
+  })
+})
+
+// ═════════════════════════════════════════════════════════════════════════════════════════════════
+describe('uploadMeteringPointPvProfileAction — die Erzeugungsreihe', () => {
+  /**
+   * ⚠ DER LESER IST HIER ECHT, NICHT ERSETZT.
+   *
+   * `readPvProfile` ist deterministisch und macht keinen Netzweg und keinen Modellaufruf — anders
+   * als `extractInvoiceData` nebenan, das ein Modell fragt und deshalb eine Attrappe braucht. Mit
+   * einem Stub prüfte dieser Block seine eigene Vorbereitung: er reichte ein Metadaten-Objekt
+   * hinein, das er selbst geschrieben hat, und bekäme es im Entwurf wieder heraus. Dieselbe
+   * Überlegung, mit der der Konflikt-Fall der Rechnungs-Station über das ECHTE
+   * `mergeInvoiceExtractions` läuft.
+   *
+   * Gemessen wird damit die ganze Kette Bytes → Leser → Entwurf. Die Erwartungen sind trotzdem
+   * HANDGERECHNET (im Juni gilt CEST = UTC+2) — was der Leser aus echten Netzbetreiber- und
+   * Wechselrichter-Dateien macht, misst `packages/engine/src/parser/metadata.test.ts`.
+   */
+
+  /** Ein bereits gelesener Stand, wie ihn die Rechnungs-Station hinterlässt. */
+  const EXISTING = { energyPriceCtPerKwh: 24.5 }
+
+  /**
+   * Ein Viertelstunden-PV-CSV in LOKALER Schreibweise — dasselbe Format wie die Demo-Fixtures
+   * (`;` als Trenner, Dezimalkomma). `skipDays` lässt ganze Kalendertage weg.
+   */
+  function pvCsvText(options: { days: number; skipDays?: number[]; intervalMinutes?: number }) {
+    const step = options.intervalMinutes ?? 15
+    const perDay = (24 * 60) / step
+    const skip = new Set(options.skipDays ?? [])
+    const two = (n: number) => String(n).padStart(2, '0')
+
+    const lines = ['Zeitstempel;PV-Erzeugung (kW)']
+    for (let day = 1; day <= options.days; day++) {
+      if (skip.has(day)) continue
+      for (let slot = 0; slot < perDay; slot++) {
+        const m = slot * step
+        const value = ((slot % 9) * 0.5).toFixed(2).replace('.', ',')
+        lines.push(`${two(day)}.06.2025 ${two(Math.floor(m / 60))}:${two(m % 60)};${value}`)
+      }
+    }
+    return lines.join('\n')
+  }
+
+  function pvFile(text: string, name = 'erzeugung.csv', type = 'text/csv'): File {
+    return new File([new TextEncoder().encode(text)], name, { type })
+  }
+
+  function pvForm(file: File): FormData {
+    const fd = form()
+    fd.set('file', file)
+    return fd
+  }
+
+  /** Die Vermerke aus dem zuletzt geschriebenen Entwurf. */
+  function provenanceOf(field: string): { source?: string } {
+    const raw = draft._provenance as Record<string, { source?: string }> | undefined
+    return raw?.[field] ?? {}
+  }
+
+  beforeEach(() => {
+    draft = { ...EXISTING }
+    withInvoiceWrappers()
+    uploadProjectDocument.mockResolvedValue({
+      ok: true,
+      documentId: DOCUMENT_ID,
+      storagePath: STORAGE_PATH,
+    })
+  })
+
+  it('⚠ legt die Datei ab und schreibt Zeitraum, Intervall UND Lücken in den Entwurf', async () => {
+    /*
+     * Drei Junitage, der zweite fehlt vollständig. Handgerechnet (CEST = UTC+2):
+     *   Beginn   01.06. 00:00 Ortszeit → 2025-05-31T22:00:00.000Z
+     *   Ende     03.06. 23:45 + 15 min = 04.06. 00:00 Ortszeit → 2025-06-03T22:00:00.000Z
+     *   Lücke    02.06. 00:00 bis 03.06. 00:00 Ortszeit → 2025-06-01T22:00Z … 2025-06-02T22:00Z
+     */
+    const state = await uploadMeteringPointPvProfileAction(
+      {},
+      pvForm(pvFile(pvCsvText({ days: 3, skipDays: [2] }), 'pv-juni.csv')),
+    )
+
+    expect(state.success).toBe('Erzeugungsprofil eingelesen und gespeichert.')
+    expect(state.fieldErrors).toBeUndefined()
+    expect(state.formError).toBeUndefined()
+
+    // Die Datei liegt im PROJEKT — die Eigentumsfrage beantwortet dabei die Datenbank.
+    expect(uploadProjectDocument).toHaveBeenCalledTimes(1)
+    expect(uploadProjectDocument).toHaveBeenCalledWith(
+      PROJECT_ID,
+      expect.objectContaining({ name: 'pv-juni.csv', type: 'text/csv' }),
+    )
+
+    expect(draft.pvIntervalMinutes).toBe(15)
+    expect(draft.pvCoveredFrom).toBe('2025-05-31T22:00:00.000Z')
+    expect(draft.pvCoveredTo).toBe('2025-06-03T22:00:00.000Z')
+    // ⚠ Ohne die Kennung wüsste später niemand mehr, welche Datei das war.
+    expect(draft.pvSourceDocumentId).toBe(DOCUMENT_ID)
+    expect(draft._pvProfileGaps).toEqual([
+      { from: '2025-06-01T22:00:00.000Z', to: '2025-06-02T22:00:00.000Z' },
+    ])
+
+    // Eine Ablesung ist ein Messwert, keine Annahme (Delta §3.2).
+    expect(provenanceOf('pvCoveredFrom').source).toBe('measured')
+    expect(provenanceOf('pvIntervalMinutes').source).toBe('measured')
+
+    // Der Bestand der Rechnungs-Station überlebt — der Wrapper ERSETZT den Entwurf.
+    expect(draft.energyPriceCtPerKwh).toBe(EXISTING.energyPriceCtPerKwh)
+
+    /*
+     * ⚠ EIN Schreibvorgang, nicht zwei: Zeitraum und Lücken sind die Auswertung DERSELBEN Datei.
+     * Getrennt geschrieben gäbe es einen Zustand, in dem der eine zu einer anderen Datei gehört
+     * als die anderen.
+     */
+    expect(rpc.mock.calls.filter(([fn]) => fn === 'update_metering_point_draft')).toHaveLength(1)
+    expect(revalidatePath).toHaveBeenCalledWith(
+      `/admin/kalkulator-projekte/${PROJECT_ID}/dateneingabe`,
+    )
+  })
+
+  it('eine lückenlose Datei schreibt eine LEERE Lückenliste, keinen fehlenden Schlüssel', async () => {
+    // „Keine Lücke" ist eine Aussage über die Datei und muss sich von „nie eingelesen"
+    // unterscheiden lassen — die Station liest genau diesen Unterschied.
+    await uploadMeteringPointPvProfileAction({}, pvForm(pvFile(pvCsvText({ days: 3 }))))
+
+    expect(draft._pvProfileGaps).toEqual([])
+    expect(draft).toHaveProperty('_pvProfileGaps')
+    expect(draft.pvCoveredTo).toBe('2025-06-03T22:00:00.000Z')
+  })
+
+  it('⚠ ein leerer Medientyp wird ersetzt, statt die Ablage scheitern zu lassen', async () => {
+    // Kommt real vor; `uploadProjectDocument` wiese ihn als `invalid_file` ab, und der Admin läse
+    // einen Ablagefehler über einer Datei, die vollständig lesbar ist.
+    await uploadMeteringPointPvProfileAction(
+      {},
+      pvForm(pvFile(pvCsvText({ days: 2 }), 'ohne-typ.csv', '')),
+    )
+
+    expect(uploadProjectDocument).toHaveBeenCalledWith(
+      PROJECT_ID,
+      expect.objectContaining({ type: 'application/octet-stream' }),
+    )
+  })
+
+  // ── Die drei Ausgänge, die NICHTS hinterlassen dürfen ────────────────────────────────────────
+  it('⚠ weist eine zu grosse Datei ab — ohne Upload und ohne den Entwurf anzufassen', async () => {
+    const zuGross = new File([new Uint8Array(MAX_PROJECT_DOCUMENT_BYTES + 1)], 'gross.csv', {
+      type: 'text/csv',
+    })
+
+    const state = await uploadMeteringPointPvProfileAction({}, pvForm(zuGross))
+
+    expect(state.fieldErrors?.file).toContain('zu gross')
+    expect(state.fieldErrors?.file).toContain('nichts hochgeladen und nichts gespeichert')
+    expect(state.success).toBeUndefined()
+
+    // Die Prüfung läuft VOR jedem Netzweg — der Entwurf wird gar nicht erst gelesen.
+    expect(uploadProjectDocument).not.toHaveBeenCalled()
+    expect(rpc).not.toHaveBeenCalled()
+    expect(revalidatePath).not.toHaveBeenCalled()
+    expect(draft).toEqual(EXISTING)
+  })
+
+  it('⚠ reicht die Meldung DES LESERS durch, statt sie durch einen eigenen Satz zu ersetzen', async () => {
+    /*
+     * Ein Wechselrichter-Export im 5-Minuten-Raster — der häufigste reale Ablehnungsgrund. Die
+     * Meldung des Lesers nennt das ERKANNTE Intervall, und das ist die einzige Auskunft, die dem
+     * Admin sagt, WAS an seiner Datei nicht stimmt. Ein eigener Satz („Datei konnte nicht gelesen
+     * werden") nähme sie ihm, ohne dass irgendetwas fehlschlüge.
+     *
+     * Gemessen wird deshalb an einer Zahl, die NUR der Leser kennt: die „5 min" stehen nirgends in
+     * dieser Action und in keinem Text, den sie selbst formulieren könnte.
+     */
+    const state = await uploadMeteringPointPvProfileAction(
+      {},
+      pvForm(pvFile(pvCsvText({ days: 1, intervalMinutes: 5 }))),
+    )
+
+    expect(state.fieldErrors?.file).toContain('5 min')
+    expect(state.fieldErrors?.file).toContain('Intervall')
+    // Der eigene Zusatz kommt HINTEN dran und ersetzt nichts.
+    expect(state.fieldErrors?.file).toContain('Es wurde nichts hochgeladen und nichts gespeichert.')
+
+    // Abgelehnt heisst abgelehnt: die Datei landet nicht in der Ablage.
+    expect(uploadProjectDocument).not.toHaveBeenCalled()
+    expect(rpc).not.toHaveBeenCalled()
+    expect(draft).toEqual(EXISTING)
+  })
+
+  it('reicht auch die Meldung zu einer unlesbaren Datei durch', async () => {
+    const state = await uploadMeteringPointPvProfileAction(
+      {},
+      pvForm(pvFile('Hallo Welt\nDies ist keine Tabelle', 'notiz.csv')),
+    )
+
+    expect(state.fieldErrors?.file).toContain('Zeitstempel-Spalte')
+    expect(uploadProjectDocument).not.toHaveBeenCalled()
+    expect(rpc).not.toHaveBeenCalled()
+  })
+
+  it('verlangt überhaupt eine Datei', async () => {
+    const state = await uploadMeteringPointPvProfileAction({}, form())
+    expect(state.fieldErrors?.file).toBe('Bitte eine Datei auswählen.')
+    expect(uploadProjectDocument).not.toHaveBeenCalled()
+    expect(rpc).not.toHaveBeenCalled()
+  })
+
+  // ── Der Teilausfall ──────────────────────────────────────────────────────────────────────────
+  it('⚠ ein verschwundener Zählpunkt: die Datei ist ABGELEGT, und die Meldung sagt das', async () => {
+    /*
+     * Der Zählpunkt ist zwischen Seitenaufbau und Absenden weggefallen (zweiter Tab, verkleinerte
+     * Zählpunkt-Zahl). Die Datei liegt zu diesem Zeitpunkt bereits im Projekt — sie ist bezahlt und
+     * lässt sich hier nicht mehr zurücknehmen. Eine Meldung, die das verschweigt, schickt den Admin
+     * dieselbe Datei ein zweites Mal hochladen.
+     */
+    rpc.mockImplementation(async (fn: string) => {
+      if (fn === 'list_metering_points') {
+        // Ein anderer Zählpunkt steht noch da — die Antwort ist gültig, unsere Zeile fehlt nur.
+        return { data: { status: 'ok', metering_points: [{ id: DOCUMENT_ID, draft: {} }] }, error: null }
+      }
+      throw new Error(`unerwarteter Wrapper: ${fn}`)
+    })
+
+    const state = await uploadMeteringPointPvProfileAction(
+      {},
+      pvForm(pvFile(pvCsvText({ days: 2 }))),
+    )
+
+    expect(state.formError).toContain('Zählpunkt gibt es nicht (mehr)')
+    expect(state.formError).toContain('im Projekt abgelegt')
+    expect(state.success).toBeUndefined()
+
+    // Hochgeladen wurde sehr wohl — geschrieben nichts.
+    expect(uploadProjectDocument).toHaveBeenCalledTimes(1)
+    expect(rpc.mock.calls.filter(([fn]) => fn === 'update_metering_point_draft')).toHaveLength(0)
+    expect(draft).toEqual(EXISTING)
+  })
+
+  it('weist eine formverletzende Kennung ab, ohne Datei und ohne Datenbank', async () => {
+    const badProject = pvForm(pvFile(pvCsvText({ days: 2 })))
+    badProject.set('projectId', 'kein-uuid')
+    expect((await uploadMeteringPointPvProfileAction({}, badProject)).formError).toBeDefined()
+
+    const badPoint = pvForm(pvFile(pvCsvText({ days: 2 })))
+    badPoint.set('meteringPointId', 'kein-uuid')
+    expect((await uploadMeteringPointPvProfileAction({}, badPoint)).formError).toBeDefined()
+
+    expect(uploadProjectDocument).not.toHaveBeenCalled()
     expect(rpc).not.toHaveBeenCalled()
   })
 })
