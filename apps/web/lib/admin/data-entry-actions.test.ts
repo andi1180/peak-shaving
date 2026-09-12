@@ -85,6 +85,7 @@ const {
   saveMeteringPointBatteryAction,
   saveMeteringPointBatteryChoiceAction,
   saveMeteringPointManualTariffAction,
+  saveMeteringPointPvChoiceAction,
   uploadMeteringPointInvoicesAction,
 } = await import('./data-entry-actions')
 
@@ -1105,6 +1106,116 @@ describe('Batterie-Station', () => {
     const badPoint = batteryForm()
     badPoint.set('meteringPointId', 'kein-uuid')
     expect((await saveMeteringPointBatteryAction({}, badPoint)).formError).toBeDefined()
+
+    expect(rpc).not.toHaveBeenCalled()
+  })
+})
+
+describe('PV-Station', () => {
+  /** Ein bereits gelesener Stand, wie ihn die Rechnungs-Station hinterlässt. */
+  const EXISTING = {
+    energyPriceCtPerKwh: 24.5,
+    _provenance: {
+      energyPriceCtPerKwh: { source: 'measured', at: '2026-09-01T10:00:00.000Z' },
+    },
+  }
+
+  /** Genau das, was die zwei Absendeknöpfe schicken: die zwei Kennungen und die Antwort. */
+  function pvForm(answer: string): FormData {
+    const fd = new FormData()
+    fd.set('projectId', PROJECT_ID)
+    fd.set('meteringPointId', POINT_ID)
+    fd.set('hasPv', answer)
+    return fd
+  }
+
+  beforeEach(() => {
+    draft = { ...EXISTING }
+    withInvoiceWrappers()
+  })
+
+  it('⚠ „nein" ist eine ANGABE, kein fehlender Schlüssel', async () => {
+    const keysBefore = Object.keys(draft)
+
+    const state = await saveMeteringPointPvChoiceAction({}, pvForm('nein'))
+
+    expect(state.formError).toBeUndefined()
+    expect(state.success).toBe('Vermerkt: Es gibt keine PV-Anlage.')
+
+    /*
+     * ⚠ DIE ZUSAGE DIESES SCHRITTS: `false`, nicht `undefined`. Wäre der Nein-Zweig ein fehlender
+     * Schlüssel (wie `hasBattery` es bewusst ist), stellte die Station ihre Frage nach jedem
+     * Neuladen erneut — und zwar dem, der sie gerade beantwortet hat.
+     */
+    expect(draft.hasPv).toBe(false)
+    expect(draft).toHaveProperty('hasPv')
+
+    // Gezählt statt aufgezählt: GENAU EIN neuer Schlüssel neben `_provenance`.
+    const added = Object.keys(draft).filter((key) => !keysBefore.includes(key))
+    expect(added).toEqual(['hasPv'])
+
+    // Der Bestand der Rechnungs-Station bleibt unberührt, und es wird genau einmal geschrieben.
+    expect(draft.energyPriceCtPerKwh).toBe(EXISTING.energyPriceCtPerKwh)
+    expect(rpc.mock.calls.filter(([fn]) => fn === 'update_metering_point_draft')).toHaveLength(1)
+    expect(revalidatePath).toHaveBeenCalledTimes(1)
+
+    // Die Angabe des Kunden ist ein Messwert, keine Annahme (Delta §3.2).
+    const provenance = draft._provenance as Record<string, { source: string }>
+    expect(provenance.hasPv?.source).toBe('measured')
+  })
+
+  it('speichert „ja" und schreibt sonst nichts', async () => {
+    const keysBefore = Object.keys(draft)
+
+    const state = await saveMeteringPointPvChoiceAction({}, pvForm('ja'))
+
+    expect(state.formError).toBeUndefined()
+    expect(state.success).toBe('Vermerkt: Es gibt bereits eine PV-Anlage.')
+    expect(draft.hasPv).toBe(true)
+
+    /*
+     * ⚠ Der Ja-Zweig erhebt in diesem Bauschritt NICHTS über die Erzeugung. Ein hier nebenbei
+     * geschriebenes Profil-Feld wäre eine Aussage über eine Kurve, die niemand hochgeladen hat.
+     */
+    const added = Object.keys(draft).filter((key) => !keysBefore.includes(key))
+    expect(added).toEqual(['hasPv'])
+    expect(rpc.mock.calls.filter(([fn]) => fn === 'update_metering_point_draft')).toHaveLength(1)
+  })
+
+  it('⚠ eine geänderte Antwort ÜBERSCHREIBT die frühere', async () => {
+    // Es gibt für diese Angabe keinen Entfernen-Weg — wer sich vertippt, muss die andere Antwort
+    // nachlegen können, und danach darf genau EIN Wert dastehen.
+    await saveMeteringPointPvChoiceAction({}, pvForm('ja'))
+    expect(draft.hasPv).toBe(true)
+
+    await saveMeteringPointPvChoiceAction({}, pvForm('nein'))
+    expect(draft.hasPv).toBe(false)
+
+    // Der Wrapper ERSETZT den Entwurf — die Angabe der Rechnungs-Station muss beide Läufe
+    // überstehen, sonst hätte der zweite Klick sie mitgenommen.
+    expect(draft.energyPriceCtPerKwh).toBe(EXISTING.energyPriceCtPerKwh)
+  })
+
+  it('weist eine unbekannte Antwort ab, ohne die Datenbank zu fragen', async () => {
+    /*
+     * Über die zwei Knöpfe unerreichbar (sie schicken feste Werte) — erreichbar an ihnen vorbei.
+     * Still verworfen stünde danach eine Erfolgsmeldung über einem unveränderten Entwurf.
+     */
+    for (const answer of ['', 'vielleicht', 'true']) {
+      expect((await saveMeteringPointPvChoiceAction({}, pvForm(answer))).formError).toBeDefined()
+    }
+    expect(rpc).not.toHaveBeenCalled()
+    expect(draft).toEqual(EXISTING)
+  })
+
+  it('weist eine formverletzende Kennung ab, ohne die Datenbank zu fragen', async () => {
+    const badProject = pvForm('ja')
+    badProject.set('projectId', 'kein-uuid')
+    expect((await saveMeteringPointPvChoiceAction({}, badProject)).formError).toBeDefined()
+
+    const badPoint = pvForm('ja')
+    badPoint.set('meteringPointId', 'kein-uuid')
+    expect((await saveMeteringPointPvChoiceAction({}, badPoint)).formError).toBeDefined()
 
     expect(rpc).not.toHaveBeenCalled()
   })
