@@ -45,6 +45,10 @@ export * from './invoice-merge'
 // Delta 17 Teil 2: die Batterie-Freitexterfassung — Zielschema und Auswertung einer freien Angabe
 // über den eigenen Speicher.
 export * from './battery-text'
+// B24, Teil 1: derselbe Gegenstand aus einem DATENBLATT statt aus einem Satz. Die vier Zahlenfelder
+// heissen dort namensgleich und sind per `satisfies` daran gebunden — der zweite Weg speist in
+// dieselben Formularfelder und denselben Entwurf, statt einen eigenen Mechanismus zu erfinden.
+export * from './battery-spec-scan'
 // Der Speicher des Kunden mit seinen EXAKTEN Werten (kein Katalog-Ersatz) und der virtuelle
 // Speicher „Bestand + ein Zusatzgerät". Begründung im Kopf der Datei.
 export * from './battery-combination'

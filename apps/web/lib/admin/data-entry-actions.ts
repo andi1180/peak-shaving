@@ -3,7 +3,7 @@
 /**
  * Die Server Actions des Dateneingabe-Wizards (B24, Teil 1).
  *
- * ── ⚠ ES WAREN GENAU ZWEI, JETZT SIND ES ZEHN ─────────────────────────────────────────────────
+ * ── ⚠ ES WAREN GENAU ZWEI, JETZT SIND ES DREIZEHN ─────────────────────────────────────────────
  * Der ursprüngliche Zuschnitt nannte die Zahl ausdrücklich und begründete sie: die fünf Stationen
  * je Zählpunkt waren Platzhalter, und eine Action ohne Wirkung wäre ein Endpunkt, den man aufrufen
  * kann und der nichts tut. Genau diese Begründung fällt Station für Station weg.
@@ -23,10 +23,17 @@
  * zwei aus wie die sechste (`list_metering_points`, `update_metering_point_draft`) und löst keinen
  * abrechenbaren Aufruf aus: die verbliebenen Extraktionen liegen fertig im Entwurf.
  *
- * ⚠ ES SIND INZWISCHEN ZEHN. Die manuelle Tarifeingabe brachte zwei dazu (Preisblatt nachschlagen,
- * Werte übernehmen), die BATTERIE-Station drei — und damit gilt die Begründung auch für sie nicht
- * mehr. Ihre dritte (`extractBatteryTextFromAction`) ist nach der Rechnungs-Action die zweite, die
- * einen abrechenbaren Modellaufruf auslöst, und die einzige, die dabei GAR NICHTS schreibt.
+ * ⚠ ES SIND INZWISCHEN DREIZEHN (ausgezählt, nicht fortgeschrieben — der Satz stand bis zum
+ * 12.09.2026 auf „zehn" und war da bereits um zwei überholt). Die manuelle Tarifeingabe brachte
+ * zwei dazu (Preisblatt nachschlagen, Werte übernehmen), die BATTERIE-Station VIER — und damit
+ * gilt die Begründung auch für sie nicht mehr.
+ *
+ * ⚠ ZWEI DER DREIZEHN SCHREIBEN NICHTS UND LÖSEN TROTZDEM EINEN ABRECHENBAREN AUFRUF AUS:
+ * `extractBatteryTextFromAction` (ein Satz in eigenen Worten) und `scanBatterySpecAction` (ein
+ * PDF-Datenblatt). Sie sind ZWEI Actions und nicht eine mit Weiche, weil sie verschiedene Eingaben
+ * prüfen (Zeichenzahl gegen Medientyp und Dateigrösse) und verschiedene Extraktoren rufen — was
+ * sie teilen, ist allein die Rückgabe: dieselben vier Formularwerte, die derselbe „Speichern"-Knopf
+ * entgegennimmt.
  *
  * Die zwei übrigen Stationen (PV, Tarif) bleiben Platzhalter und haben weiterhin bewusst KEINE
  * Action; jede bekommt ihren eigenen Auftrag.
@@ -95,8 +102,10 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
 import {
+  MAX_BATTERY_SPEC_FILE_BYTES,
   MAX_BATTERY_TEXT_CHARS,
   MAX_INVOICE_FILE_BYTES,
+  extractBatterySpec,
   extractBatteryText,
   extractInvoiceData,
   generateStandardProfileMetadata,
@@ -2061,4 +2070,162 @@ export async function saveMeteringPointBatteryAction(
           ? 'Eine Angabe zum vorhandenen Speicher wurde übernommen. Leer gelassene Felder bleiben unverändert.'
           : `${count} Angaben zum vorhandenen Speicher wurden übernommen. Leer gelassene Felder bleiben unverändert.`,
   }
+}
+
+/**
+ * B24, Teil 1 — der ZWEITE Weg zu denselben vier Kenndaten: ein PDF-Datenblatt.
+ *
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * ⚠ SIE SPEIST IN DENSELBEN MECHANISMUS, SIE ERSETZT IHN NICHT
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * Der Extraktor liefert die vier Zahlenfelder unter EXAKT denselben Namen wie die
+ * Freitexterfassung (`BATTERY_SPEC_NUMBER_KEYS` ist per `satisfies` an `BATTERY_TEXT_NUMBER_KEYS`
+ * gebunden, `packages/shared`). Diese Action läuft deshalb über dieselbe `BATTERY_VALUE_FIELDS`,
+ * füllt dieselben Formularfelder und übergibt an denselben „Speichern"-Knopf
+ * (`saveMeteringPointBatteryAction`) — an `battery-draft.ts` und am Schreibweg ist KEINE Zeile
+ * geändert. Es gibt damit auch weiterhin nur EINEN Ort, an dem eine Batterie-Angabe in den Entwurf
+ * gelangt.
+ *
+ * ⚠ SIE SCHREIBT NICHTS. Zwischen dem Gelesenen und dem Gespeicherten steht ein zweiter, eigener
+ * Klick — wortgleich zur Freitext-Action daneben und zum Preisblatt-Vorschlag der
+ * Rechnungs-Station: der Vorschlag ist eine ANGEFORDERTE Auskunft, was damit geschieht,
+ * entscheidet ein Mensch. Bei einem Datenblatt wiegt das schwerer als beim Satz: der Eintragende
+ * hat die vier Zahlen dort nicht selbst formuliert und kann nur am Ergebnis prüfen, ob die
+ * richtige Spalte gelesen wurde.
+ *
+ * ── DIE PRÜFKETTE LÄUFT VOR JEDEM EXTERNEN KONTAKT ────────────────────────────────────────────
+ * Leer, kein PDF, zu gross — alles drei ist rein und kostet nichts. Eine Server Action ist über
+ * ihre Kennung aufrufbar, und jeder Aufruf dahinter ist abrechenbar; die Prüfungen sind deshalb
+ * eine echte Sperre und keine Bedienhilfe (das `accept` des Dateifelds ist eine Angabe des
+ * Browsers).
+ *
+ * ── ⚠ DIE DATEI WIRD NICHT ABGELEGT, UND DAS IST DER UNTERSCHIED ZUR RECHNUNGS-STATION ────────
+ * Dort landet jede PDF in `platform.project_documents`, weil sie ein BELEG des Kunden ist: ein
+ * Mensch kann sie lesen, der KI-Check sieht sie, und sie gehört zum Projekt. Ein Datenblatt ist
+ * das Gegenteil — ein öffentlich verfügbares Herstellerdokument, das über den Kunden nichts
+ * aussagt. Es abzulegen brächte eine Zeile in die Dokumentenliste, die dort niemandem hilft, und
+ * einen Löschweg, den es für Projekt-Dokumente ohnehin nicht gibt. Gelesen wird es, gespeichert
+ * werden die vier Zahlen.
+ *
+ * ── ⚠ HERSTELLER UND MODELL WERDEN GELESEN, GEZEIGT UND NICHT GESCHRIEBEN ─────────────────────
+ * Dieselbe Behandlung wie `netzbetreiber` beim Rechnungs-Scan: sie reisen als Anzeigewerte in der
+ * Antwort mit, haben aber keinen Entwurfs-Schlüssel. Sie zu verschweigen wäre die schlechtere
+ * Wahl — „Sungrow SBR128" neben den vier Zahlen ist das Einzige, woran ein Mensch erkennt, ob das
+ * RICHTIGE Datenblatt gelesen wurde, und bei einer Produktfamilie ist genau das die Frage.
+ */
+
+/** Warum ein Datenblatt nicht gelesen werden konnte — die Zustände des Extraktors, in einem Satz. */
+const BATTERY_SPEC_FAILURE_TEXT: Record<'not_configured' | 'api_error' | 'unreadable', string> = {
+  not_configured:
+    'Das Auslesen von Datenblättern ist auf diesem Server nicht eingerichtet. Die vier Felder lassen sich trotzdem von Hand ausfüllen.',
+  api_error:
+    'Das Auslesen ist fehlgeschlagen. Bitte später noch einmal versuchen — oder die vier Felder von Hand ausfüllen.',
+  unreadable:
+    'Auf diesem Dokument war nichts zu finden — das kann an der Bildqualität liegen, aber auch daran, dass es kein Batterie-Datenblatt ist.',
+}
+
+/**
+ * Liest die Kenndaten aus einem Datenblatt und gibt sie als Formularwerte zurück.
+ *
+ * ── ⚠ „GELESEN, ABER KEINE KENNZAHL" IST EIN EIGENER, HÄUFIGER FALL ──────────────────────────
+ * Der Extraktor meldet `unreadable` nur, wenn ALLE SECHS Felder leer sind — Hersteller und Modell
+ * eingeschlossen. Ein Blatt, das eine ganze Produktfamilie beschreibt, ohne eine Variante
+ * hervorzuheben, liefert deshalb ein `ok` mit Typbezeichnung und OHNE eine einzige Zahl, und das
+ * ist die richtige Antwort des Extraktors (welche Variante der Kunde hat, steht dort nicht).
+ *
+ * Als Erfolg durchgereicht leerte es die vier Felder und behauptete dabei, es habe Kenndaten
+ * gelesen. Es bekommt deshalb einen EIGENEN Satz, der das Gelesene benennt und sagt, was zu tun
+ * ist — und die Felder bleiben, wie sie sind. Dieselbe Stelle wie im Freitext-Weg, nur mit einer
+ * anderen, konkreteren Auskunft: dort kann man nichts weiter tun, hier schon.
+ */
+export async function scanBatterySpecAction(
+  _prev: AdminState,
+  formData: FormData,
+): Promise<AdminState> {
+  const entry = formData.get('batterySpec')
+  const file = entry instanceof File ? entry : null
+
+  if (!file || file.size === 0) {
+    return {
+      fieldErrors: {
+        batterySpec: 'Bitte ein Datenblatt als PDF wählen — oder die Felder von Hand ausfüllen.',
+      },
+    }
+  }
+  /*
+   * Der Medientyp kommt vom Browser und ist kein Beweis — die eigentliche Sperre ist, dass die API
+   * den `document`-Block mit genau diesem Typ erwartet. Diese Prüfung fängt den ehrlichen Irrtum
+   * ab, bevor er Geld kostet (wortgleich zur Rechnungs-Station).
+   */
+  if (file.type !== PDF_MEDIA_TYPE) {
+    return {
+      fieldErrors: {
+        batterySpec: 'Nur PDF — ein Foto oder Screenshot des Datenblatts lässt sich nicht auslesen.',
+      },
+    }
+  }
+  if (file.size > MAX_BATTERY_SPEC_FILE_BYTES) {
+    return {
+      fieldErrors: {
+        batterySpec:
+          `Diese Datei ist zu gross (${formatMegabytes(file.size)} MB). Mehr als ` +
+          `${Math.floor(MAX_BATTERY_SPEC_FILE_BYTES / (1024 * 1024))} MB nimmt der Scan nicht an.`,
+      },
+    }
+  }
+
+  const bytes = await file.arrayBuffer()
+  const outcome = await extractBatterySpec(Buffer.from(bytes).toString('base64'))
+  if (!outcome.ok) return { formError: BATTERY_SPEC_FAILURE_TEXT[outcome.reason] }
+
+  /*
+   * ⚠ ALLE VIER FELDER WERDEN GESETZT, auch die nicht gelesenen (als Leerstring).
+   *
+   * Ein nicht gelesenes Feld stehen zu lassen hiesse, einen Wert aus einer FRÜHEREN Ablesung neben
+   * frischen stehen zu haben, ohne dass man die beiden unterscheiden kann. Was hier erscheint, ist
+   * die Aussage GENAU DIESES Dokuments. Der Preis ist derselbe wie beim Freitext-Weg und in der
+   * Oberfläche ausgeschrieben: eine von Hand eingetippte Zahl verliert man mit einem zweiten Scan.
+   */
+  const values: Record<string, string> = {}
+  let found = 0
+  for (const field of BATTERY_VALUE_FIELDS) {
+    const value = outcome.extraction[field.form]
+    if (value === null) {
+      values[field.form] = ''
+      continue
+    }
+    values[field.form] = formatBatteryNumber(value)
+    found += 1
+  }
+
+  /*
+   * Hersteller und Modell NUR zur Anzeige — sie tragen keinen Entwurfs-Schlüssel und füllen kein
+   * Feld (s. Kopf). Ein Leerstring statt `undefined`, damit die Oberfläche „nicht gelesen" nicht
+   * von „gar nicht gefragt" unterscheiden muss.
+   */
+  const label = [outcome.extraction.manufacturer, outcome.extraction.model]
+    .filter((part): part is string => part !== null)
+    .join(' ')
+
+  if (found === 0) {
+    return {
+      formError:
+        label === ''
+          ? BATTERY_SPEC_FAILURE_TEXT.unreadable
+          : `Gelesen wurde „${label}", aber keine einzige Kennzahl. Beschreibt das Datenblatt ` +
+            'mehrere Varianten einer Produktfamilie, steht dort nicht, welche gemeint ist — bitte ' +
+            'die Werte der richtigen Variante von Hand eintragen.',
+    }
+  }
+
+  /*
+   * Der Marker unterscheidet „eben gelesen" von „noch nie gelaufen" — der Zustand aus
+   * `useActionState` ist beim ersten Render leer, und ein leeres `values` sähe genauso aus.
+   * ⚠ Er heisst GENAUSO wie im Freitext-Weg (`extraction: 'ok'`), und das ist Absicht: beide
+   * Wege füllen dieselben Felder, und die Oberfläche wendet auf beide dieselbe Übernahme an.
+   */
+  values.extraction = 'ok'
+  values.found = String(found)
+  values.label = label
+  return { values }
 }
