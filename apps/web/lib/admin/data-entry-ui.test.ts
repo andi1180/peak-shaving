@@ -531,9 +531,23 @@ describe('B24 — die Station unterscheidet die Herkunft der Verbrauchsgrundlage
  * nicht das Zurücksetzen selbst.
  */
 const BATTERY_STATION = path.join(COMPONENTS_DIR, 'admin', 'data-entry-battery.tsx')
+/*
+ * ⚠ SEIT DER AUFTEILUNG LIEGT JEDE QUELLE IN EINER EIGENEN DATEI. Die Station hält weiterhin die
+ * drei `useActionState`, die Fehlermeldungen und den `fields`-Zustand; was eine Quelle RENDERT,
+ * steht in ihrer Datei. Die Prüfungen zeigen deshalb ab hier gezielt auf den Fundort — und die
+ * VERBOTE (`not.toContain`) laufen über ALLE VIER Dateien, sonst liesse sich ein untersagter
+ * Griff einfach eine Datei weiter unterbringen.
+ */
+const BATTERY_TEXT = path.join(COMPONENTS_DIR, 'admin', 'data-entry-battery-text.tsx')
+const BATTERY_SPEC = path.join(COMPONENTS_DIR, 'admin', 'data-entry-battery-spec.tsx')
+const BATTERY_LOOKUP = path.join(COMPONENTS_DIR, 'admin', 'data-entry-battery-lookup.tsx')
 
 describe('B24 — die Batterie-Station', () => {
   const source = read(BATTERY_STATION)
+  const textSource = read(BATTERY_TEXT)
+  const specSource = read(BATTERY_SPEC)
+  const lookupSource = read(BATTERY_LOOKUP)
+  const allSources = [source, textSource, specSource, lookupSource].join('\n')
   const page = read(DATA_ENTRY_PAGE)
 
   it('⚠ hält ALLE fünf Eingaben kontrolliert — sonst löscht „Auslesen" das Formular', () => {
@@ -541,16 +555,32 @@ describe('B24 — die Batterie-Station', () => {
     expect(source).toContain('value={fields[entry.form]')
     expect(source).toContain('onValueChange={(value) =>')
     // Der Freitext ebenso — er steht im selben Formular und träfe dieselbe Rücksetzung.
-    expect(source).toContain('value={text}')
+    expect(textSource).toContain('value={text}')
     // ⚠ Der Griff daneben: ein `defaultValue` irgendwo in diesem Formular bringt den Defekt zurück.
-    expect(source).not.toContain('defaultValue')
+    expect(allSources).not.toContain('defaultValue')
   })
 
   it('⚠ schickt DASSELBE Formular an die Lese-Action, statt ein zweites daneben zu stellen', () => {
     // Verschachtelte Formulare gibt es in HTML nicht, und beide Wege brauchen dieselben Felder —
     // zwei Formulare hiessen, die vier Zahlen zweimal zu erheben.
-    expect(source).toContain('formAction={readAction}')
+    /*
+     * ⚠ DIE VERDRAHTUNG HAT JETZT ZWEI ENDEN und wird an beiden geprüft: die Station gibt GENAU
+     * die Lese-Action an GENAU die Freitext-Quelle, und die schickt das umgebende Formular
+     * daran. Nur ein Ende geprüft liesse offen, ob dort die Action einer anderen Quelle ankommt.
+     */
+    const textCall = source.slice(source.indexOf('<DataEntryBatteryText'))
+    expect(textCall.slice(0, textCall.indexOf('/>'))).toContain('action={readAction}')
+    expect(textSource).toContain('formAction={action}')
     expect(source).toContain('extractBatteryTextFromAction')
+    /*
+     * ⚠ NACH DER AUFTEILUNG HÄNGT „DASSELBE FORMULAR" GENAU HIER: ein `formAction` in einer
+     * Quellen-Datei beweist für sich nur noch, dass irgendein Formular angesprochen wird. Keine
+     * der drei Quellen darf ein eigenes mitbringen — sonst stünden die vier Zahlenfelder
+     * ausserhalb des abgeschickten Formulars und kämen bei der Lese-Action gar nicht an.
+     */
+    for (const child of [textSource, specSource, lookupSource]) {
+      expect(child).not.toContain('<form')
+    }
   })
 
   it('⚠ verwirft `hasExistingBattery` aus der Extraktion', () => {
@@ -559,7 +589,7 @@ describe('B24 — die Batterie-Station', () => {
      * Satz steht). Im Wizard steht sie als Weiche darüber — ein zweites, womöglich
      * widersprüchliches Signal aus dem Fliesstext wäre verwirrend, nicht hilfreich.
      */
-    expect(source).not.toContain('hasExistingBattery')
+    expect(allSources).not.toContain('hasExistingBattery')
   })
 
   it('⚠ ordnet die genannte Kapazität KEINEM Katalog-Gerät zu', () => {
@@ -569,15 +599,15 @@ describe('B24 — die Batterie-Station', () => {
      * gehört, das der Kunde nicht besitzt — und ein benannter Abstand macht eine falsche Zahl
      * nicht richtig, er macht sie nur erklärt.
      */
-    expect(source).not.toContain('battery-combination')
-    expect(source).not.toContain('matchCatalogByCapacity')
-    expect(source).not.toContain('buildExistingBatteryCandidate')
-    expect(source).not.toContain('DEMO_BATTERY_CATALOG')
+    expect(allSources).not.toContain('battery-combination')
+    expect(allSources).not.toContain('matchCatalogByCapacity')
+    expect(allSources).not.toContain('buildExistingBatteryCandidate')
+    expect(allSources).not.toContain('DEMO_BATTERY_CATALOG')
   })
 
   it('⚠ zeigt weder Investition noch Amortisation — die Anlage ist bezahlt', () => {
-    expect(source).not.toContain('Amortisation')
-    expect(source).not.toContain('Investition')
+    expect(allSources).not.toContain('Amortisation')
+    expect(allSources).not.toContain('Investition')
   })
 
   it('⚠ stellt die Frage auch dann, wenn schon etwas erfasst ist', () => {
@@ -647,7 +677,7 @@ describe('B24 — die Batterie-Station', () => {
      * Sichtbarkeitsklasse auf einer der beiden Quellen-Sektionen — jedes WEITERE `hidden` schlägt
      * an, und genau das soll es.
      */
-    const visibility = source.replaceAll('type="hidden"', '').replaceAll('aria-hidden', '')
+    const visibility = allSources.replaceAll('type="hidden"', '').replaceAll('aria-hidden', '')
     expect(visibility).not.toContain('hidden')
     // Die drei Umschalt-Knöpfe stehen IM Speichern-Formular und dürfen es nicht absenden.
     const group = source.slice(source.indexOf('aria-label="Quelle der Kenndaten"'))
@@ -657,16 +687,18 @@ describe('B24 — die Batterie-Station', () => {
   it('⚠ der Datenblatt-Weg hat ein EIGENES useActionState, nicht das des Freitexts', () => {
     // Zusammengelegt überschriebe das Ergebnis des einen Wegs die Meldung des anderen, und die
     // zwei Ladezustände wären nicht mehr auseinanderzuhalten.
-    expect(source).toContain('formAction={specAction}')
+    const specCall = source.slice(source.indexOf('<DataEntryBatterySpec'))
+    expect(specCall.slice(0, specCall.indexOf('/>'))).toContain('action={specAction}')
+    expect(specSource).toContain('formAction={action}')
     expect(source).toContain('scanBatterySpecAction')
-    expect(source).toContain('disabled={isScanning || isSaving}')
-    expect(source).toContain('name="batterySpec"')
+    expect(specSource).toContain('disabled={isScanning || isSaving}')
+    expect(specSource).toContain('name="batterySpec"')
   })
 
   it('⚠ verspricht NICHT, dass das Datenblatt im Projekt abgelegt wird', () => {
     // Es wird gelesen und weggeworfen (`scanBatterySpecAction` legt nichts ab). Der Satz der
     // Rechnungs-Station („wird im Projekt abgelegt und ausgelesen") wäre hier unwahr.
-    const hint = source.slice(source.indexOf('${SPEC_ID}-hint`}'))
+    const hint = specSource.slice(specSource.indexOf('${SPEC_ID}-hint`}'))
     const text = hint.slice(0, hint.indexOf('</FieldHint>'))
     expect(text).toContain('im Projekt abgelegt wird es')
     expect(text).toContain('nicht gespeichert')

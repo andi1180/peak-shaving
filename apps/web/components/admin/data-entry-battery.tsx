@@ -34,6 +34,16 @@
  * BEIDE Wege brauchen, denkt das mit.
  *
  * ── ⚠ DREI QUELLEN, EIN FORMULAR, EIN „SPEICHERN" ────────────────────────────────────────────
+ * Jede Quelle liegt als eigene Datei daneben (`data-entry-battery-{text,spec,lookup}.tsx`) und
+ * rendert NUR ihre eigene Eingabe samt Knopf und Statuszeile. Was sie NICHT besitzen: die drei
+ * `useActionState`, die Fehlermeldungen und den `fields`-Zustand.
+ *
+ * ⚠ DIE DREI `useActionState` BLEIBEN HIER UND WERDEN ALS PROPS HEREINGEREICHT — genau EIN
+ * Aufrufer je Action. In die Kind-Komponenten verschoben verlören sie bei jedem Quellenwechsel
+ * ihren Stand (die nicht gewählte Quelle wird gar nicht gerendert, s. unten), und mit ihm die
+ * Fehlermeldung, die Statuszeile und die Quellen-Liste der Recherche — die heute alle drei
+ * überdauern. Der Zustand muss also dort liegen, wo er den Wechsel übersteht.
+ *
  * Seit B24 gibt es im Ja-Zweig drei Wege zu denselben vier Feldern: den Satz in eigenen Worten, ein
  * hochgeladenes DATENBLATT und die RECHERCHE nach Marke und Typ. Sie stehen als Umschalter
  * nebeneinander und münden ausdrücklich in DIESELBEN Eingabefelder und denselben Absendeknopf —
@@ -62,10 +72,9 @@
 import * as React from 'react'
 import { useActionState } from 'react'
 import Link from 'next/link'
-import { Loader2, Sparkles } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
-import { FieldHint, Label, Textarea } from '@/components/ui/input'
 import {
   BATTERY_VALUE_FIELDS,
   batteryDraftIsEmpty,
@@ -82,41 +91,15 @@ import {
 import { ADMIN_INITIAL_STATE } from '@/lib/admin/schema'
 import type { MeteringPointSummary } from '@/lib/admin/metering-points'
 import { AdminError, AdminField, AdminSuccess } from './ui'
+import { DataEntryBatteryLookup } from './data-entry-battery-lookup'
+import { DataEntryBatterySpec } from './data-entry-battery-spec'
+import { DataEntryBatteryText } from './data-entry-battery-text'
 
 /** Die Weiche der Station. `null` = noch nicht beantwortet. */
 type Answer = 'ja' | 'nein' | null
 
-const TEXT_ID = 'dateneingabe-batterie-text'
-const SPEC_ID = 'dateneingabe-batterie-datenblatt'
-const MAKE_ID = 'dateneingabe-batterie-hersteller'
-const MODEL_ID = 'dateneingabe-batterie-modell'
-
 /** Die drei Quellen, aus denen die vier Kenndaten kommen können. */
 type Source = 'text' | 'datenblatt' | 'recherche'
-
-/**
- * Die Obergrenze von Hersteller und Typ in Zeichen.
- *
- * ⚠ ABGESCHRIEBEN UND NICHT IMPORTIERT — derselbe Grund wie bei `TEXT_MAX_CHARS` darunter:
- * `MAX_BATTERY_LOOKUP_INPUT_CHARS` liegt in `packages/extractors`, und dessen Barrel ist
- * `server-only`; hier importiert bräche er den Client-Build. Es ist hier nur das `maxlength` eines
- * Textfelds, also eine Bedienhilfe des Browsers — die WIRKSAME Grenze steht in der Server Action,
- * und sie WEIST AB statt zu kürzen (eine halbierte Typbezeichnung wäre eine andere Bezeichnung).
- */
-const LOOKUP_MAX_CHARS = 120
-
-/**
- * Die Obergrenze des Freitexts in Zeichen.
- *
- * ⚠ ABGESCHRIEBEN UND NICHT IMPORTIERT — und das ist kein Versehen: `MAX_BATTERY_TEXT_CHARS` liegt
- * in `packages/extractors`, und dessen Barrel ist `server-only`; hier importiert bräche er den
- * Client-Build (dieselbe Lage wie `MAX_INVOICE_FILE_BYTES` bei der Rechnungs-Station, die den Wert
- * deshalb als Prop bekommt). Es ist hier nur das `maxlength` eines Textfelds, also eine Bedienhilfe
- * des Browsers — die WIRKSAME Grenze steht in der Server Action, die den Text vor jedem externen
- * Kontakt kürzt. Laufen die beiden auseinander, wird bloss serverseitig gekürzt statt schon beim
- * Tippen.
- */
-const TEXT_MAX_CHARS = 400
 
 export function DataEntryBattery({
   projectId,
@@ -183,31 +166,25 @@ export function DataEntryBattery({
   )
 
   /*
-   * ⚠ ALLE FÜNF EINGABEN SIND KONTROLLIERT — s. Kopf. Drei Actions auf einem Formular setzen
-   * unkontrollierte Felder nach JEDER von ihnen zurück, auch nach denen, die bloss lesen.
+   * ⚠ DIE EINGABEFELDER DER DREI QUELLEN LEBEN IN IHREN KIND-DATEIEN, nicht hier — hier steht nur,
+   * WELCHE Quelle gerade sichtbar ist. Dass sie kontrolliert sein MÜSSEN (drei Actions auf einem
+   * Formular setzen unkontrollierte Felder nach JEDER von ihnen zurück, auch nach denen, die bloss
+   * lesen), ist dort an ihrem Fundort begründet.
    *
-   * ⚠ DAS DATEIFELD IST DIE EINE AUSNAHME, UND ES KANN KEINE ANDERE SEIN: eine Dateiauswahl lässt
-   * sich in React nicht kontrollieren (ein `value` auf `<input type="file">` ist verboten). Es wird
-   * nach jeder Action geleert — hier ohne Schaden: was aus dem Datenblatt zu holen war, steht dann
-   * in den vier Feldern darunter, und ein zweiter Scan derselben Datei wäre ein zweiter
-   * abrechenbarer Aufruf.
+   * ⚠ DIE GETIPPTEN TEXTE ÜBERLEBEN EINEN QUELLENWECHSEL NICHT, und das ist unverändert so: die
+   * nicht gewählte Quelle wird gar nicht gerendert (s. Kopf), ihr `useState` verschwindet mit ihr.
    */
   const [source, setSource] = React.useState<Source>('text')
-  const [text, setText] = React.useState('')
-  /*
-   * ⚠ AUCH DIESE ZWEI SIND KONTROLLIERT — s. Kopf. Es sind jetzt VIER Actions auf einem Formular,
-   * und React setzt unkontrollierte Felder nach JEDER davon zurück: ohne `value`/`onChange` löschte
-   * ein Klick auf „Suchen" genau die Angaben, aus denen die Suche gebildet wird (der gemessene
-   * Defekt der Rechnungs-Station, PR #200).
-   */
-  const [manufacturer, setManufacturer] = React.useState('')
-  const [model, setModel] = React.useState('')
   const [fields, setFields] = React.useState<Record<string, string>>({})
 
   /**
-   * Die vier Felder aus einem Leseergebnis füllen — für BEIDE Quellen dieselbe Zuweisung.
+   * Die vier Felder aus einem Leseergebnis füllen — für ALLE DREI Quellen dieselbe Zuweisung.
    *
-   * Alle vier auf einmal, auch die nicht gelesenen (beide Actions schicken für sie einen
+   * ⚠ DIES IST DER EINZIGE ORT, DER IN `fields` SCHREIBT. Die drei Quellen-Komponenten rendern
+   * nur ihre eigene Eingabe und melden nichts zurück; was aus einem Leseergebnis wird,
+   * entscheidet die Station. Zwei schreibende Stellen liefen beim nächsten Umbau auseinander.
+   *
+   * Alle vier auf einmal, auch die nicht gelesenen (alle drei Actions schicken für sie einen
    * Leerstring). Was hier steht, ist die Aussage GENAU DIESER Quelle; ein Wert aus einer früheren
    * Ablesung daneben wäre von einem frischen nicht zu unterscheiden.
    */
@@ -220,13 +197,6 @@ export function DataEntryBattery({
   const extracted = readState.values?.extraction === 'ok' ? readState.values : null
   const scanned = specState.values?.extraction === 'ok' ? specState.values : null
   const researched = lookupState.values?.extraction === 'ok' ? lookupState.values : null
-
-  /*
-   * Die geprüften Quellen kommen als EINE Zeile zurück (`AdminState.values` ist flach) und werden
-   * hier am Leerzeichen wieder aufgeteilt — eine URL enthält keines. Die Liste ist bereits im
-   * Extraktor geprüft und begrenzt; hier wird nichts mehr gefiltert.
-   */
-  const sourceUrls = researched?.sourceUrls ? researched.sourceUrls.split(' ').filter(Boolean) : []
 
   /*
    * ⚠ ZWEI EFFEKTE, NICHT EINER MIT WEICHE. Jeder hängt an der Objektidentität SEINES Ergebnisses:
@@ -396,198 +366,31 @@ export function DataEntryBattery({
             </div>
 
             {source === 'text' && (
-              <>
-              <div className="max-w-2xl">
-                <Label htmlFor={TEXT_ID}>Beschreibung des Speichers (optional)</Label>
-                <div className="mt-1.5">
-                  <Textarea
-                    id={TEXT_ID}
-                    name="batteryText"
-                    rows={3}
-                    maxLength={TEXT_MAX_CHARS}
-                    value={text}
-                    onChange={(event) => setText(event.currentTarget.value)}
-                    placeholder="z. B. Sungrow, 19,2 kWh nutzbar, 10,6 kW, Wirkungsgrad rund 90 %"
-                    aria-invalid={readState.fieldErrors?.batteryText ? true : undefined}
-                    aria-describedby={`${TEXT_ID}-hint`}
-                  />
-                </div>
-                <FieldHint
-                  id={`${TEXT_ID}-hint`}
-                  tone={readState.fieldErrors?.batteryText ? 'error' : 'muted'}
-                >
-                  {readState.fieldErrors?.batteryText ??
-                    'In eigenen Worten — „Auslesen" trägt die genannten Zahlen unten ein. Der Satz wird ' +
-                      'dafür an Anthropic übertragen und dort nicht gespeichert. Die Felder lassen sich ' +
-                      'auch ohne diesen Schritt von Hand ausfüllen.'}
-                </FieldHint>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-3">
-                {/*
-                  `formAction` schickt DIESES Formular an die Lese-Action — kein Speichern, kein
-                  Schreibvorgang. `type="submit"` ist dafür nötig; ein Knopf ohne Absendetyp löst gar
-                  nichts aus.
-                */}
-                <Button
-                  type="submit"
-                  formAction={readAction}
-                  variant="secondary"
-                  size="md"
-                  disabled={isReading || isSaving}
-                >
-                  {isReading ? (
-                    <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2} aria-hidden="true" />
-                  ) : (
-                    <Sparkles className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
-                  )}
-                  {isReading ? 'Wird ausgelesen …' : 'Auslesen'}
-                </Button>
-                <span role="status" aria-live="polite" className="text-small text-text-muted">
-                  {isReading
-                    ? 'Wird ausgelesen …'
-                    : extracted
-                      ? `${extracted.found} von 4 Angaben aus dem Satz übernommen. Was er nicht nennt, ` +
-                        'bleibt leer; alle Felder sind frei änderbar.'
-                      : ''}
-                </span>
-              </div>
-              </>
+              <DataEntryBatteryText
+                state={readState}
+                action={readAction}
+                isReading={isReading}
+                isSaving={isSaving}
+              />
             )}
 
             {source === 'datenblatt' && (
-              <>
-                <div className="max-w-2xl">
-                  <Label htmlFor={SPEC_ID}>Datenblatt des Speichers (optional)</Label>
-                  <div className="mt-1.5">
-                    {/*
-                      `accept` ist eine Bedienhilfe des Browsers, keine Sperre — die Action prüft
-                      den Medientyp selbst. PDF ist hier die einzige Form, die das Auslesen annimmt
-                      (die API erwartet einen `document`-Block mit genau diesem Typ); ein
-                      Dateidialog, der ein Foto anbietet, führt zuverlässig in eine Ablehnung, die
-                      er selbst verursacht hat.
-                    */}
-                    <input
-                      id={SPEC_ID}
-                      name="batterySpec"
-                      type="file"
-                      accept="application/pdf"
-                      aria-invalid={specState.fieldErrors?.batterySpec ? true : undefined}
-                      aria-describedby={`${SPEC_ID}-hint`}
-                      className="block w-full text-small text-ink file:mr-3 file:rounded-md file:border file:border-line file:bg-surface-sunken file:px-3 file:py-1.5 file:text-small file:text-ink hover:file:bg-surface-alt"
-                    />
-                  </div>
-                  <FieldHint
-                    id={`${SPEC_ID}-hint`}
-                    tone={specState.fieldErrors?.batterySpec ? 'error' : 'muted'}
-                  >
-                    {specState.fieldErrors?.batterySpec ??
-                      `PDF bis ${Math.floor(maxBytes / (1024 * 1024))} MB. „Auslesen" trägt die ` +
-                        'gefundenen Kennzahlen unten ein. Das Datenblatt wird dafür an Anthropic ' +
-                        'übertragen und dort nicht gespeichert; im Projekt abgelegt wird es ' +
-                        'ebenfalls nicht. Die Felder lassen sich auch ohne diesen Schritt von ' +
-                        'Hand ausfüllen.'}
-                  </FieldHint>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-3">
-                  <Button
-                    type="submit"
-                    formAction={specAction}
-                    variant="secondary"
-                    size="md"
-                    disabled={isScanning || isSaving}
-                  >
-                    {isScanning ? (
-                      <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2} aria-hidden="true" />
-                    ) : (
-                      <Sparkles className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
-                    )}
-                    {isScanning ? 'Wird ausgelesen …' : 'Auslesen'}
-                  </Button>
-                  <span role="status" aria-live="polite" className="text-small text-text-muted">
-                    {isScanning
-                      ? 'Wird ausgelesen …'
-                      : scanned
-                        ? (scanned.label ? `„${scanned.label}" — ` : '') +
-                          `${scanned.found} von 4 Angaben aus dem Datenblatt übernommen. Was es ` +
-                          'nicht nennt, bleibt leer; alle Felder sind frei änderbar.'
-                        : ''}
-                  </span>
-                </div>
-              </>
+              <DataEntryBatterySpec
+                state={specState}
+                action={specAction}
+                isScanning={isScanning}
+                isSaving={isSaving}
+                maxBytes={maxBytes}
+              />
             )}
 
             {source === 'recherche' && (
-              <>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <AdminField
-                    id={MAKE_ID}
-                    name="batteryManufacturer"
-                    label="Hersteller"
-                    maxLength={LOOKUP_MAX_CHARS}
-                    value={manufacturer}
-                    onValueChange={setManufacturer}
-                    error={lookupState.fieldErrors?.batteryManufacturer}
-                  />
-                  <AdminField
-                    id={MODEL_ID}
-                    name="batteryModel"
-                    label="Modell / Typ"
-                    maxLength={LOOKUP_MAX_CHARS}
-                    value={model}
-                    onValueChange={setModel}
-                    error={lookupState.fieldErrors?.batteryModel}
-                    hint="Die Bezeichnung vom Typenschild, kein ganzer Satz."
-                  />
-                </div>
-
-                <div className="flex flex-wrap items-center gap-3">
-                  <Button
-                    type="submit"
-                    formAction={lookupAction}
-                    variant="secondary"
-                    size="md"
-                    disabled={isLookingUp || isSaving}
-                  >
-                    {isLookingUp ? (
-                      <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2} aria-hidden="true" />
-                    ) : (
-                      <Sparkles className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
-                    )}
-                    {isLookingUp ? 'Wird gesucht …' : 'Suchen'}
-                  </Button>
-                  <span role="status" aria-live="polite" className="text-small text-text-muted">
-                    {isLookingUp
-                      ? 'Wird gesucht …'
-                      : researched
-                        ? (researched.label ? `„${researched.label}" — ` : '') +
-                          `${researched.found} von 4 Angaben gefunden. Was nicht belegt war, ` +
-                          'bleibt leer; alle Felder sind frei änderbar.'
-                        : ''}
-                  </span>
-                </div>
-
-                {sourceUrls.length > 0 && (
-                  <div className="max-w-2xl rounded-md border border-line bg-surface-sunken p-3">
-                    <p className="text-caption text-text-muted">Gefunden auf:</p>
-                    <ul className="mt-1 flex flex-col gap-1">
-                      {sourceUrls.map((url) => (
-                        <li key={url}>
-                          <a
-                            href={url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="break-all text-small text-accent underline decoration-accent underline-offset-[3px]"
-                          >
-                            {url}
-                          </a>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </>
+              <DataEntryBatteryLookup
+                state={lookupState}
+                action={lookupAction}
+                isLookingUp={isLookingUp}
+                isSaving={isSaving}
+              />
             )}
           </div>
 
