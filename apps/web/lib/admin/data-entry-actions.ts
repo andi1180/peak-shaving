@@ -97,8 +97,12 @@ import {
 } from 'extractors'
 import {
   MAX_PROJECT_DOCUMENT_BYTES,
+  METERING_VARIANTS,
+  NETZEBENEN,
+  hasMeteringVariant,
   mergeInvoiceExtractions,
   standardProfileYear,
+  type InvoiceMergeFieldKey,
 } from 'shared'
 
 import { uploadProjectDocument } from '@/lib/project-documents/documents'
@@ -111,9 +115,12 @@ import {
   stationHref,
 } from './data-entry-stations'
 import { formatKwh } from './format'
+import { lookupGridTariffDefaults } from './grid-tariff-lookup'
 import {
   MAX_INVOICES_PER_UPLOAD,
+  draftFieldFor,
   invoiceDraftValues,
+  netzebeneDraftValue,
   readStoredInvoiceExtractions,
   withStoredInvoiceExtractions,
   type StoredInvoiceExtraction,
@@ -889,7 +896,17 @@ export async function saveMeteringPointStandardProfileAction(
  * `apps/website/lib/constants.ts` — sie zusammenzulegen hiesse, den öffentlichen Rechner
  * anzufassen; laufen sie je auseinander, erzeugen die zwei Wege verschiedene Tagesverläufe.
  */
-const STANDARD_PROFILE_TIME_ZONE = 'Europe/Vienna'
+/**
+ * Die Zeitzone, in der dieses Werkzeug rechnet — EIN Fundort für den Wert.
+ *
+ * Sie hat zwei Konsumenten mit verschiedenen Fragen: das Standardprofil braucht sie als
+ * Engine-Parameter (s. den Kommentar direkt darunter), der Tarif-Lookup als Grundlage des
+ * KALENDERTAGS, gegen den eine effektiv datierte Preisblatt-Zeile ausgewählt wird. Zwei Literale
+ * liefen beim ersten Umbau auseinander, und die Abweichung wäre an beiden Stellen still.
+ */
+const AUSTRIA_TIME_ZONE = 'Europe/Vienna'
+
+const STANDARD_PROFILE_TIME_ZONE = AUSTRIA_TIME_ZONE
 
 /** Die drei Ablehnungsgründe einer Jahresverbrauchs-Eingabe, jeder mit eigener Auskunft. */
 function annualConsumptionMessage(reason: 'missing' | 'invalid' | 'too_large'): string {
@@ -1381,5 +1398,354 @@ export async function removeMeteringPointInvoiceAction(
       `„${removed.filename}" wird für diesen Zählpunkt nicht mehr ausgewertet. ${rest}` +
       `${widerspruch} Bereits übernommene Angaben bleiben stehen, und die Datei bleibt in der ` +
       'Dokumentenliste des Projekts.',
+  }
+}
+
+// ── Rechnung: Tarifwerte von Hand ────────────────────────────────────────────────────────────────
+/**
+ * ⚠ ES SIND JETZT NEUN ACTIONS — und die zwei letzten gehören demselben Formular.
+ *
+ * Die Rechnung-Station beantwortet bislang genau eine Frage: „PDF da? Dann lese ich sie aus." Der
+ * reale Fall daneben ist der Kunde, der am Telefon vorliest — dann gibt es nichts hochzuladen, und
+ * die Station endete bisher in einer Sackgasse. Die zwei Actions schliessen sie:
+ *
+ *   `lookupGridTariffDefaultsAction`      SCHLÄGT VOR  — liest das Preisblatt, schreibt NICHTS
+ *   `saveMeteringPointManualTariffAction` SPEICHERT    — faltet die eingetippten Werte in den Entwurf
+ *
+ * ⚠ DIE TRENNUNG IST DER ENTWURF, NICHT SEINE ZERLEGUNG. Ein Vorschlag, der selbst schriebe, wäre
+ * im Entwurf von einer abgelesenen Angabe nicht mehr zu unterscheiden — er trüge dieselbe Herkunft
+ * (`measured`) und denselben Zeitstempel. Der Leistungspreis aus unserer Tabelle ist aber kein
+ * Messwert des Kunden, sondern der gepflegte Satz seines Netzbetreibers; er landet deshalb als
+ * FELDINHALT im Formular, und ob er in den Entwurf geht, entscheidet derselbe Klick wie bei jedem
+ * anderen Feld. Prinzip 1 bleibt damit unangetastet: die Rechnung schlägt die Tabelle.
+ */
+
+/** Der Kalendertag in Ortszeit als 'YYYY-MM-DD' — `en-CA` liefert genau dieses Format. */
+function austriaCalendarDate(value: Date): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: AUSTRIA_TIME_ZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(value)
+}
+
+/**
+ * Der Stichtag, gegen den die effektiv datierte Preisblatt-Zeile ausgewählt wird.
+ *
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * ⚠ ORTSZEIT, NICHT UTC — sonst trifft der Lookup am Jahreswechsel das falsche Preisblatt
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * `coveredFrom` ist ein ISO/UTC-Zeitstempel, und ein österreichischer Kalenderjahr-Lastgang beginnt
+ * bei `2024-12-31T23:00:00Z` — das ist der 1. Jänner 2025 in Wien. Als UTC-Datum gelesen ergäbe das
+ * `2024-12-31`, also den letzten Tag des VORJAHRES: `findGridTariffRow` wählte die alte Tarifzeile,
+ * und der vorgeschlagene Leistungspreis wäre der des Vorjahrs. Nichts daran sähe nach einem Fehler
+ * aus — es stünde eine plausible Zahl im Feld. Dieselbe Fehlerklasse, die `analysis-window.ts`
+ * (Regel B) für den Rechner beschreibt.
+ *
+ * Ohne Lastgang-Zeitraum gilt HEUTE. Das ist die ehrlichere Annahme als ein erfundenes Datum: wer
+ * ohne Verbrauchsgrundlage Tarifwerte einträgt, meint den heute gültigen Stand.
+ */
+function tariffStichtag(coveredFrom: string | null, now: Date): string {
+  if (coveredFrom !== null) {
+    const parsed = new Date(coveredFrom)
+    if (!Number.isNaN(parsed.getTime())) return austriaCalendarDate(parsed)
+  }
+  return austriaCalendarDate(now)
+}
+
+/**
+ * Liest den Netzebenen-Wert eines Auswahlfelds — `null`, wenn er keine geführte Netzebene ist.
+ * Der Wert kommt aus einem `<select>` mit genau diesen Optionen; die Prüfung fängt den Aufruf
+ * daneben ab, damit die Datenbank nicht mit einer erfundenen Zahl befragt wird.
+ */
+function readNetzebene(formData: FormData, field: string): number | null {
+  const raw = String(formData.get(field) ?? '').trim()
+  if (raw === '') return null
+  const value = Number(raw)
+  return (NETZEBENEN as readonly number[]).includes(value) ? value : null
+}
+
+/**
+ * Liest die Messvariante — `null` heisst „keine angegeben", was auf NE 3–6 der RICHTIGE Wert ist
+ * (`unique nulls not distinct`, B21-1). Ein unbekannter Wert wird ebenfalls zu `null`; er kann nur
+ * von einem Aufruf neben dem Auswahlfeld stammen, und geraten wird nicht.
+ */
+function readMeteringVariant(formData: FormData, field: string): string | null {
+  const raw = String(formData.get(field) ?? '').trim()
+  if (raw === '') return null
+  return (METERING_VARIANTS as readonly string[]).includes(raw) ? raw : null
+}
+
+const MANUAL_TARIFF_NOT_FOUND =
+  'Diesen Zählpunkt gibt es nicht (mehr). Bitte laden Sie die Seite neu.'
+
+/**
+ * Schlägt Leistungspreis und Mindest-kW aus dem gepflegten Preisblatt vor.
+ *
+ * ⚠ SCHREIBT NICHTS. Die Antwort geht als `values` an das Formular zurück — derselbe Slot, über den
+ * jede Admin-Action ihre „zur Wiederanzeige mitgeführten Eingabewerte" zurückgibt (`AdminState`).
+ * Ein eigener Rückgabetyp wäre ein zweites Zustandsformat für denselben Zweck.
+ *
+ * `values.lookup` trägt den Ausgang (`ok` / `none`), damit das Formular „noch nicht gefragt" von
+ * „gefragt, nichts hinterlegt" unterscheiden kann. Ohne diesen Marker wären beide Zustände ein
+ * leeres `values` — und die Oberfläche müsste schweigen, wo sie eine Auskunft schuldet.
+ *
+ * ⚠ EIN LEERES ERGEBNIS IST KEIN FEHLER. „Für diese Kombination ist kein Preisblatt hinterlegt" ist
+ * eine zulässige Antwort (B21-1: der Bestand ist gepflegt, nicht vollständig); als `formError`
+ * gemeldet sähe ein Pflegestand wie ein Defekt aus, und der Admin suchte den Fehler bei sich.
+ */
+export async function lookupGridTariffDefaultsAction(
+  _prev: AdminState,
+  formData: FormData,
+): Promise<AdminState> {
+  const projectId = readProjectId(formData)
+  if (projectId === null) return { formError: UNKNOWN_PROJECT }
+
+  const meteringPointId = String(formData.get('meteringPointId') ?? '')
+  if (!UUID.test(meteringPointId)) return { formError: GENERIC }
+
+  /*
+   * ⚠ KEINE Prüfung gegen eine feste Betreiberliste. `grid_tariffs.operator_id` ist bewusst ohne
+   * Fremdschlüssel und ohne CHECK gebaut (B21-1), und die gepflegten Kennungen wachsen mit dem
+   * Bestand — eine hier ausgeschriebene Liste wäre ein zweiter Ort, an dem ein neuer Netzbetreiber
+   * nachzutragen wäre, und ihn zu vergessen sähe aus wie ein fehlendes Preisblatt. Eine unbekannte
+   * Kennung liefert schlicht keine Zeile, also dieselbe ehrliche Antwort wie eine ungepflegte.
+   */
+  const operatorId = String(formData.get('operatorId') ?? '').trim()
+  if (operatorId === '') {
+    return { fieldErrors: { operatorId: 'Bitte den Netzbetreiber wählen.' } }
+  }
+
+  const netzebene = readNetzebene(formData, 'netzebene')
+  if (netzebene === null) {
+    return { fieldErrors: { netzebene: 'Bitte die Netzebene wählen.' } }
+  }
+
+  /*
+   * ⚠ Auf Netzebene 7 ist die Variante PFLICHT, sonst gibt es sie gar nicht. Das Preisblatt führt
+   * dort DREI Zeilen (mit Leistungsmessung · ohne · unterbrechbar) mit sehr verschiedenen Sätzen —
+   * ohne Angabe kämen alle drei zurück, und welcher Wert vorgeschlagen wird, entschiede die
+   * Sortierreihenfolge der Abfrage. Auf NE 3–6 wird eine mitgeschickte Variante dagegen VERWORFEN:
+   * dort gehört `null` in die Spalte, und ein Wert daneben fände die gepflegte Zeile nie.
+   */
+  const variantApplies = hasMeteringVariant(netzebene)
+  const meteringVariant = variantApplies ? readMeteringVariant(formData, 'meteringVariant') : null
+  if (variantApplies && meteringVariant === null) {
+    return {
+      fieldErrors: {
+        meteringVariant: 'Auf Netzebene 7 hängt der Leistungspreis an der Messvariante.',
+      },
+    }
+  }
+
+  const supabase = await createClient()
+  const listRes = await supabase.rpc('list_metering_points', { p_project_id: projectId })
+  if (listRes.error) {
+    if (isForbidden(listRes.error)) return { formError: FORBIDDEN }
+    console.error('[admin/dateneingabe] list_metering_points (Tarif-Lookup):', listRes.error)
+    return { formError: GENERIC }
+  }
+
+  const point = readMeteringPointList(listRes.data)?.find(
+    (candidate) => candidate.id === meteringPointId,
+  )
+  if (!point) return { formError: MANUAL_TARIFF_NOT_FOUND }
+
+  const stichtag = tariffStichtag(point.coveredFrom, new Date())
+
+  let defaults
+  try {
+    defaults = await lookupGridTariffDefaults(supabase, {
+      operatorId,
+      netzebene,
+      meteringVariant,
+      stichtag,
+    })
+  } catch (error) {
+    /*
+     * `lookupGridTariffDefaults` wirft ausschliesslich bei einem Datenbankfehler — „wir konnten
+     * nicht nachsehen" ist eine andere Aussage als „es ist nichts hinterlegt" und wird deshalb
+     * auch anders gemeldet. Als leeres Ergebnis durchgereicht behauptete ein Ausfall eine
+     * Fehlanzeige im Preisblatt, und jemand trüge Werte von Hand nach, die längst gepflegt sind.
+     */
+    if (isForbidden(error)) return { formError: FORBIDDEN }
+    console.error('[admin/dateneingabe] grid_tariffs (Tarif-Lookup):', error)
+    return { formError: GENERIC }
+  }
+
+  if (defaults === null) {
+    return { values: { lookup: 'none', stichtag } }
+  }
+
+  return {
+    values: {
+      lookup: 'ok',
+      stichtag,
+      leistungspreisEurPerKwYear: String(defaults.leistungspreisEurPerKwYear),
+      minBillableKw: String(defaults.minBillableKw),
+    },
+  }
+}
+
+/** Die Felder, die als nicht-negative Zahl in den Entwurf gehen — Reihenfolge = Anzeigereihenfolge. */
+const MANUAL_TARIFF_NUMBER_FIELDS = [
+  'energyPriceCtPerKwh',
+  'energyPriceNightCtPerKwh',
+  'einspeiseverguetungCtPerKwh',
+  'supplierBaseFeeEurPerMonth',
+  'leistungspreisEurPerKwYear',
+  'minBillableKw',
+  'annualConsumptionKwh',
+] as const satisfies readonly InvoiceMergeFieldKey[]
+
+/**
+ * Liest eine eingetippte Zahl.
+ *
+ * `undefined` = Feld leer (keine Angabe, kein Fehler) · `null` = eingetippt, aber unbrauchbar.
+ * Das DEZIMALKOMMA wird angenommen: das Formular ist deutschsprachig, und „24,5" abzuweisen wäre
+ * eine Hürde ohne Gegenwert. Eine Zahl mit Tausenderpunkt wird dagegen NICHT geraten — „1.234"
+ * ist als 1234 oder als 1,234 lesbar, und eine der beiden Lesarten wäre um den Faktor 1000 falsch.
+ */
+function readManualNumber(formData: FormData, field: string): number | null | undefined {
+  const raw = String(formData.get(field) ?? '').trim()
+  if (raw === '') return undefined
+  const value = Number(raw.replace(',', '.'))
+  if (!Number.isFinite(value) || value < 0) return null
+  return value
+}
+
+/**
+ * Trägt die von Hand eingegebenen Tarifwerte in den Entwurf des Zählpunkts ein.
+ *
+ * ── DIE REIHENFOLGE ────────────────────────────────────────────────────────────────────────────
+ *   1. alle gefüllten Felder prüfen (ein Fehler bricht VOR jedem Schreibvorgang ab)
+ *   2. Entwurf FRISCH lesen (`update_metering_point_draft` ERSETZT ihn — ein Stand aus der Zeit des
+ *      Seitenaufbaus machte jede Angabe rückgängig, die inzwischen dazugekommen ist, etwa eine in
+ *      einem zweiten Tab hochgeladene Rechnung)
+ *   3. die Werte hineinfalten
+ *   4. EIN `update_metering_point_draft`
+ *
+ * ── WAS BEWUSST NICHT GESCHRIEBEN WIRD ─────────────────────────────────────────────────────────
+ * ⚠ `netzbetreiber` — obwohl das Formular danach fragt. Er ist hier ausschliesslich der AUSLÖSER
+ * für „Werte vorschlagen"; im Entwurf wäre er kein `tariffParamsSchema`-Feld und würde beim
+ * nächsten Auswerten stillschweigend entfernt (dieselbe Feststellung, aus der
+ * `INVOICE_DRAFT_FIELD_KEYS` ihn ausschliesst). Ein Wert, der im Entwurf steht und auf dem Weg zur
+ * Engine verschwindet, ist schlimmer als einer, der gar nicht erst dort steht.
+ *
+ * ── EIN LEERES FELD IST KEINE ANGABE ──────────────────────────────────────────────────────────
+ * Es wird übersprungen, nicht als `null` geschrieben. Der Entwurf ist eine Sammlung von Angaben;
+ * ein bereits übernommener Wert (etwa aus einer zuvor gelesenen Rechnung) bleibt dadurch stehen,
+ * statt von einem leeren Formularfeld gelöscht zu werden. Dieselbe schonende Richtung wie beim
+ * Widerspruch zweier Rechnungen (`invoiceDraftValues`).
+ */
+export async function saveMeteringPointManualTariffAction(
+  _prev: AdminState,
+  formData: FormData,
+): Promise<AdminState> {
+  const projectId = readProjectId(formData)
+  if (projectId === null) return { formError: UNKNOWN_PROJECT }
+
+  const meteringPointId = String(formData.get('meteringPointId') ?? '')
+  if (!UUID.test(meteringPointId)) return { formError: GENERIC }
+
+  const fieldErrors: Record<string, string> = {}
+  const values: { field: string; value: string | number }[] = []
+
+  for (const key of MANUAL_TARIFF_NUMBER_FIELDS) {
+    const value = readManualNumber(formData, key)
+    if (value === undefined) continue
+    if (value === null) {
+      fieldErrors[key] = 'Bitte eine Zahl ab 0 eintragen, z. B. 24,5.'
+      continue
+    }
+    // ⚠ Über `draftFieldFor`, nicht über den rohen Schlüssel: der Jahresverbrauch heisst im Entwurf
+    // anders, und der Standardprofil-Zweig schreibt ihn unter genau diesem Namen.
+    values.push({ field: draftFieldFor(key), value })
+  }
+
+  /*
+   * ⚠ Die Netzebene wird UMGEFORMT. `tariffParamsSchema.netzebene` ist `z.string()`; eine Zahl dort
+   * ist ein Schema-Verstoss, den `checkDraftCompleteness` dauerhaft als `invalid` meldet, während
+   * der Wert gespeichert aussieht. `netzebeneDraftValue` ist der eine Ort dieser Regel.
+   */
+  const netzebeneRaw = String(formData.get('netzebene') ?? '').trim()
+  if (netzebeneRaw !== '') {
+    const netzebene = readNetzebene(formData, 'netzebene')
+    if (netzebene === null) {
+      fieldErrors.netzebene = 'Diese Netzebene kennen wir nicht.'
+    } else {
+      values.push({ field: 'netzebene', value: netzebeneDraftValue(netzebene) })
+    }
+  }
+
+  const variantRaw = String(formData.get('meteringVariant') ?? '').trim()
+  if (variantRaw !== '') {
+    const meteringVariant = readMeteringVariant(formData, 'meteringVariant')
+    if (meteringVariant === null) {
+      fieldErrors.meteringVariant = 'Diese Messvariante kennen wir nicht.'
+    } else {
+      values.push({ field: 'meteringVariant', value: meteringVariant })
+    }
+  }
+
+  if (Object.keys(fieldErrors).length > 0) return { fieldErrors }
+  if (values.length === 0) {
+    return {
+      formError:
+        'Bitte mindestens einen Wert eintragen — leere Felder lassen den bisherigen Stand unberührt.',
+    }
+  }
+
+  const supabase = await createClient()
+  const listRes = await supabase.rpc('list_metering_points', { p_project_id: projectId })
+  if (listRes.error) {
+    if (isForbidden(listRes.error)) return { formError: FORBIDDEN }
+    console.error('[admin/dateneingabe] list_metering_points (Tarif von Hand):', listRes.error)
+    return { formError: GENERIC }
+  }
+
+  const point = readMeteringPointList(listRes.data)?.find(
+    (candidate) => candidate.id === meteringPointId,
+  )
+  if (!point) return { formError: MANUAL_TARIFF_NOT_FOUND }
+
+  /*
+   * `measured`, nicht `assumed`: der Admin tippt ab, was auf der Rechnung des Kunden steht — die
+   * Erfassungsform ist eine andere, die Herkunft der Zahl ist dieselbe wie beim Rechnungs-Scan.
+   * Als Annahme gekennzeichnet trüge eine abgelesene Angabe dauerhaft den Vorbehalt einer
+   * Schätzung, und der Report wiese sie bis zum Schluss als unsicher aus (Delta §3.2).
+   */
+  let nextDraft = point.draft
+  const now = new Date()
+  for (const { field, value } of values) {
+    nextDraft = setDraftField(nextDraft, field, value, 'measured', undefined, now)
+  }
+
+  const draftRes = await supabase.rpc('update_metering_point_draft', {
+    p_metering_point_id: meteringPointId,
+    // Zusicherung wie in den übrigen Entwurf-Schreibwegen: zur Laufzeit dasselbe.
+    p_draft: nextDraft as Json,
+  })
+
+  if (draftRes.error) {
+    if (isForbidden(draftRes.error)) return { formError: FORBIDDEN }
+    console.error('[admin/dateneingabe] update_metering_point_draft (Tarif von Hand):', draftRes.error)
+    return { formError: GENERIC }
+  }
+  if (statusOf(draftRes.data) !== 'ok') {
+    console.error('[admin/dateneingabe] unerwartete Antwort (Tarif von Hand):', draftRes.data)
+    return { formError: GENERIC }
+  }
+
+  // Die Station zeigt den übernommenen Stand aus der DATENBANK — s. Kopf dieser Datei.
+  revalidatePath(projectDataEntryHref(projectId))
+
+  const count =
+    values.length === 1 ? 'Eine Angabe wurde' : `${values.length} Angaben wurden`
+  return {
+    success:
+      `${count} übernommen. Leer gelassene Felder bleiben unverändert — ein bereits ` +
+      'eingetragener Wert wird dadurch nicht gelöscht.',
   }
 }

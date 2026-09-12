@@ -1,5 +1,5 @@
 import type { GridTariffRowInput, GridTariffWindowInput } from 'shared'
-import { selectRateWindow } from 'shared'
+import { findGridTariffRow, selectRateWindow } from 'shared'
 
 /**
  * Netzentgelt-Seite des kombinierten Intervallpreises (Delta 4/Delta 5): welche Tarifzeile gilt an
@@ -18,35 +18,21 @@ import { selectRateWindow } from 'shared'
  * zwei Regeln, die auseinanderlaufen können; die Warnung sagte dann etwas, das die Rechnung nicht
  * einhält. Begründung in voller Länge im Kopf der Datei dort.
  *
- * Die DATIERUNG der Tarifzeile (`findGridTariffRow`, unten) ist davon unberührt und bleibt hier:
- * sie beantwortet eine andere Frage (welcher Stand gilt an einem Datum) und hat ausserhalb des
- * Rechenkerns keinen Konsumenten.
+ * ── ⚠ DIE DATIERUNG DER TARIFZEILE IST SEIT DEM 12.09.2026 EBENFALLS IN `shared` ──────────────
+ * Dieser Absatz lautete bis dahin: „Die DATIERUNG der Tarifzeile (`findGridTariffRow`, unten) ist
+ * davon unberührt und bleibt hier: sie beantwortet eine andere Frage (welcher Stand gilt an einem
+ * Datum) und hat ausserhalb des Rechenkerns keinen Konsumenten." Der letzte Halbsatz stimmt nicht
+ * mehr — die manuelle Tarif-Eingabe der Rechnungs-Station in `apps/web` schlägt Leistungspreis und
+ * Mindestbemessung aus einer gepflegten Preisblatt-Zeile vor und muss dieselbe Zeile auswählen, mit
+ * der die Engine später rechnet. `apps/web` kennt `engine` aber nicht (und soll es nicht: der
+ * Admin- und Chat-Teil zieht den Rechenkern nicht mit).
+ *
+ * `findGridTariffRow` liegt deshalb in `packages/shared/src/grid-tariff-row.ts` — dieselbe Bewegung
+ * und dieselbe Begründung wie bei der Fensterregel darüber. Sie wird hier UNVERÄNDERT
+ * re-exportiert: für den Rechenkern und `apps/website` ändert sich keine Zeile.
  */
 
-/**
- * Die Tarifzeile, die einen Kalendertag abdeckt — `null`, wenn keine ihn abdeckt.
- *
- * ⚠ `validUntil` ist INKLUSIV (B21-2b: `public.create_grid_tariff` schliesst die Vorgängerin mit
- * `valid_from - 1`, die Kette lautet `… → 2026-12-31` / `2027-01-01 → offen`). Halboffen gelesen
- * verlöre jeder Stand seinen letzten Tag, und bei einem Lastgang, der am 31.12. endet, wäre das der
- * ganze Treffer.
- *
- * Decken mehrere Zeilen denselben Tag ab (ein Zustand, den der Unique-Constraint aus B21-1 nicht
- * entstehen lässt, ein Eingriff von Hand aber schon), gewinnt die SPÄTER beginnende: sie ist der
- * neuere Stand derselben Kombination.
- */
-export function findGridTariffRow(
-  rows: GridTariffRowInput[],
-  localDate: string,
-): GridTariffRowInput | null {
-  let best: GridTariffRowInput | null = null
-  for (const row of rows) {
-    if (row.validFrom > localDate) continue
-    if (row.validUntil != null && row.validUntil < localDate) continue
-    if (best === null || row.validFrom > best.validFrom) best = row
-  }
-  return best
-}
+export { findGridTariffRow }
 
 /**
  * Das Zeitfenster einer Tarifzeile, das den Zeitpunkt abdeckt — `null`, wenn keins passt.
