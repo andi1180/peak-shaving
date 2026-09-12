@@ -79,6 +79,7 @@ vi.mock('@/lib/project-documents/storage', () => ({
 const {
   removeMeteringPointInvoiceAction,
   removeMeteringPointLoadProfileAction,
+  saveMeteringPointManualTariffAction,
   uploadMeteringPointInvoicesAction,
 } = await import('./data-entry-actions')
 
@@ -698,5 +699,135 @@ describe('removeMeteringPointInvoiceAction', () => {
 
     expect(rpc).not.toHaveBeenCalled()
     expect(revalidatePath).not.toHaveBeenCalled()
+  })
+})
+
+/**
+ * B24, Teil 1 — die MANUELLE Tarifeingabe.
+ *
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * ⚠ DIE EIGENSCHAFT, DIE SICH NUR HIER PRÜFEN LÄSST: EIN LEERES FELD IST KEINE ANGABE
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * `update_metering_point_draft` ERSETZT den Entwurf. Wer die sieben Formularfelder unbesehen
+ * hineinfaltet, schreibt für jedes leer gelassene ein `null` — und löscht damit genau die Angaben,
+ * die eine zuvor gelesene Rechnung beigesteuert hat. Der Aufruf meldete dabei Erfolg, die Station
+ * zeigte anschliessend eine leere Zeile, und niemand könnte sagen, wodurch sie leer wurde.
+ *
+ * Der Fall ist der REGELFALL dieses Formulars, nicht sein Randfall: Wer am Telefon vorliest, hat
+ * selten alle sieben Zahlen vor sich. Der Test füllt deshalb ZWEI von sieben und misst beides —
+ * dass die zwei ankommen UND dass die fünf übrigen den Bestand unberührt lassen.
+ *
+ * Der Entwurf ist derselbe zustandsbehaftete Nachbau wie oben (`withInvoiceWrappers`): ein Mock,
+ * der immer einen leeren Entwurf liefert, könnte „bleibt unverändert" gar nicht messen.
+ */
+describe('saveMeteringPointManualTariffAction — zwei von sieben Feldern', () => {
+  /** Ein bereits gelesener Stand, wie ihn der Rechnungs-Upload hinterlässt. */
+  const EXISTING = {
+    energyPriceCtPerKwh: 24.5,
+    einspeiseverguetungCtPerKwh: 8,
+    annualConsumptionKwh: 88426,
+    netzebene: 'NE 5',
+    _provenance: {
+      energyPriceCtPerKwh: { source: 'measured', at: '2026-09-01T10:00:00.000Z' },
+      einspeiseverguetungCtPerKwh: { source: 'measured', at: '2026-09-01T10:00:00.000Z' },
+      annualConsumptionKwh: { source: 'measured', at: '2026-09-01T10:00:00.000Z' },
+      netzebene: { source: 'measured', at: '2026-09-01T10:00:00.000Z' },
+    },
+  }
+
+  function manualForm(fields: Record<string, string>): FormData {
+    const fd = new FormData()
+    fd.set('projectId', PROJECT_ID)
+    fd.set('meteringPointId', POINT_ID)
+    // Genau das, was das Formular sendet: ALLE Felder, die meisten davon leer.
+    fd.set('operatorId', 'wiener_netze')
+    fd.set('netzebene', '')
+    fd.set('meteringVariant', '')
+    for (const key of [
+      'energyPriceCtPerKwh',
+      'energyPriceNightCtPerKwh',
+      'einspeiseverguetungCtPerKwh',
+      'supplierBaseFeeEurPerMonth',
+      'leistungspreisEurPerKwYear',
+      'minBillableKw',
+      'annualConsumptionKwh',
+    ]) {
+      fd.set(key, '')
+    }
+    for (const [key, value] of Object.entries(fields)) fd.set(key, value)
+    return fd
+  }
+
+  beforeEach(() => {
+    draft = { ...EXISTING }
+    withInvoiceWrappers()
+  })
+
+  it('⚠ schreibt GENAU die zwei gefüllten Felder und lässt die übrigen unverändert', async () => {
+    const before = JSON.parse(JSON.stringify(draft))
+
+    const state = await saveMeteringPointManualTariffAction(
+      {},
+      // Dezimalkomma, wie ein deutschsprachiges Formular es liefert.
+      manualForm({ leistungspreisEurPerKwYear: '38,52', minBillableKw: '0' }),
+    )
+
+    expect(state.formError).toBeUndefined()
+    expect(state.fieldErrors).toBeUndefined()
+    expect(state.success).toContain('2 Angaben wurden übernommen')
+
+    // GENAU EIN Schreibvorgang — der Wrapper ERSETZT, zwei Aufrufe nähmen einander die Arbeit weg.
+    const writes = rpc.mock.calls.filter(([fn]) => fn === 'update_metering_point_draft')
+    expect(writes).toHaveLength(1)
+
+    // Die zwei eingetippten Werte stehen da, als ZAHL (nicht als Zeichenkette).
+    expect(draft.leistungspreisEurPerKwYear).toBe(38.52)
+    expect(draft.minBillableKw).toBe(0)
+
+    // ⚠ Die fünf leer gelassenen Felder sind NICHT als `null` geschrieben worden — sie kommen im
+    // Entwurf überhaupt nicht vor bzw. tragen unverändert ihren alten Wert.
+    expect(draft).not.toHaveProperty('energyPriceNightCtPerKwh')
+    expect(draft).not.toHaveProperty('supplierBaseFeeEurPerMonth')
+    expect(draft.energyPriceCtPerKwh).toBe(before.energyPriceCtPerKwh)
+    expect(draft.einspeiseverguetungCtPerKwh).toBe(before.einspeiseverguetungCtPerKwh)
+    expect(draft.annualConsumptionKwh).toBe(before.annualConsumptionKwh)
+    expect(draft.netzebene).toBe(before.netzebene)
+
+    // Auch die Herkunftsvermerke der Bestandsfelder bleiben, wie sie waren — ein neu gesetzter
+    // Zeitstempel behauptete, die Angabe sei gerade erst abgelesen worden.
+    const provenance = draft._provenance as Record<string, { source: string; at: string }>
+    expect(provenance.energyPriceCtPerKwh).toEqual(before._provenance.energyPriceCtPerKwh)
+    expect(provenance.annualConsumptionKwh).toEqual(before._provenance.annualConsumptionKwh)
+
+    // Die zwei neuen tragen `measured`: abgetippt ist dieselbe Herkunft wie abgelesen (Delta §3.2).
+    expect(provenance.leistungspreisEurPerKwYear?.source).toBe('measured')
+    expect(provenance.minBillableKw?.source).toBe('measured')
+
+    // ⚠ `netzbetreiber` wird NICHT geschrieben, obwohl das Formular danach fragt: er ist kein
+    // `tariffParamsSchema`-Feld und verschwände beim nächsten Auswerten stillschweigend.
+    expect(draft).not.toHaveProperty('netzbetreiber')
+    expect(JSON.stringify(draft)).not.toContain('wiener_netze')
+  })
+
+  it('schreibt GAR NICHTS, wenn kein einziges Feld gefüllt ist', async () => {
+    const state = await saveMeteringPointManualTariffAction({}, manualForm({}))
+
+    expect(state.formError).toContain('mindestens einen Wert')
+    // Nicht einmal gelesen: ohne Angabe gibt es nichts zu tun.
+    expect(rpc).not.toHaveBeenCalled()
+    expect(draft).toEqual(EXISTING)
+  })
+
+  it('bricht VOR jedem Schreibvorgang ab, wenn eine Eingabe unbrauchbar ist', async () => {
+    const state = await saveMeteringPointManualTariffAction(
+      {},
+      manualForm({ leistungspreisEurPerKwYear: '38,52', minBillableKw: '-3' }),
+    )
+
+    expect(state.fieldErrors?.minBillableKw).toBeDefined()
+    // Auch der gültige zweite Wert bleibt liegen — ein halb übernommenes Formular wäre der
+    // Zustand, den niemand nachvollziehen kann.
+    expect(rpc).not.toHaveBeenCalled()
+    expect(draft).toEqual(EXISTING)
   })
 })

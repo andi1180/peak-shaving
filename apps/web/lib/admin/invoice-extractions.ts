@@ -167,7 +167,7 @@ export type InvoiceDraftValue = { field: string; value: DraftValue }
  * beiden Wege füllen dasselbe Feld, und ein Auseinanderlaufen wäre still — die Station zeigte
  * dauerhaft „kein Jahresverbrauch hinterlegt", während der Wert daneben im Entwurf steht.
  */
-function draftFieldFor(key: InvoiceMergeFieldKey): string {
+export function draftFieldFor(key: InvoiceMergeFieldKey): string {
   return key === 'annualConsumptionKwh' ? ANNUAL_CONSUMPTION_KWH_KEY : key
 }
 
@@ -191,7 +191,7 @@ function draftFieldFor(key: InvoiceMergeFieldKey): string {
  * die Doppelung, die dieses Repo sonst vermeidet — und das Feld wird nirgends zurückgelesen
  * (gemessen: `packages/engine` kennt es gar nicht, der Rechner zeigt es nur an).
  */
-function netzebeneDraftValue(value: string | number): string {
+export function netzebeneDraftValue(value: string | number): string {
   return `NE ${value}`
 }
 

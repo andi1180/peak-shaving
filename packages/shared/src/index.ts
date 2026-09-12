@@ -59,6 +59,7 @@ export * from './supplier-tariffs'
 // verschiedenen Paketen hat: den Rechenkern (Intervallpreis, Delta 4) und den Admin-Pflegeweg in
 // `apps/web`, der `engine` nicht kennt. Eine Definition, zwei Konsumenten.
 export * from './tariff-window-rules'
+export * from './grid-tariff-row'
 // Der Kollisions-Wächter darüber: welches bestehende Fenster würde ein NEUES in welchem
 // Teilzeitraum verdrängen, mit welcher Preisänderung? Reine Berechnung, kein Anzeigetext.
 export * from './tariff-window-collision'

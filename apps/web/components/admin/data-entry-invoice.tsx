@@ -86,10 +86,12 @@ import {
   readStoredInvoiceExtractions,
 } from '@/lib/admin/invoice-extractions'
 import { ADMIN_INITIAL_STATE } from '@/lib/admin/schema'
+import { DataEntryInvoiceManual } from './data-entry-invoice-manual'
 import type { MeteringPointSummary } from '@/lib/admin/metering-points'
 import { AdminError, AdminSuccess } from './ui'
 
 const FIELD_ID = 'dateneingabe-rechnungen'
+const MANUAL_ID = 'dateneingabe-rechnung-manuell'
 
 export function DataEntryInvoice({
   projectId,
@@ -128,6 +130,7 @@ export function DataEntryInvoice({
     ADMIN_INITIAL_STATE,
   )
   const error = state.fieldErrors?.files
+  const [manualOpen, setManualOpen] = React.useState(false)
 
   React.useEffect(() => {
     if (error) document.getElementById(FIELD_ID)?.focus()
@@ -227,13 +230,50 @@ export function DataEntryInvoice({
         generischen „Weiter"-Link deshalb für diese Station; stünde er daneben, gäbe es zwei Wege
         nach vorn.
 
-        ⚠ ER ERSCHEINT AUCH OHNE RECHNUNG, nur zurückhaltender. Anders als beim Lastgang gibt es
-        hier KEINEN zweiten Zweig, der die Station beantwortet (ein Pfad „keine Rechnung vorhanden"
-        samt manueller Eingabe ist ein eigener Auftrag) — der Weiter-Knopf nur nach einem
-        erfolgreichen Upload wäre damit eine Sackgasse für jeden Zählpunkt, zu dem gerade keine
-        Rechnung vorliegt. Die PROMINENZ folgt trotzdem dem Zustand: primär, sobald etwas gelesen
-        wurde, sonst sekundär.
+        ⚠ ER ERSCHEINT AUCH OHNE RECHNUNG, nur zurückhaltender. Den zweiten Zweig gibt es
+        inzwischen („Keine Rechnung vorhanden — Werte selbst eintragen", darüber) — anders als beim
+        Lastgang ist er aber KEINE Weiche: die Station bleibt dieselbe, und beide Wege füllen
+        denselben Entwurf. Der Weiter-Knopf nur nach einem erfolgreichen Upload wäre damit
+        weiterhin eine Sackgasse für jeden Zählpunkt, zu dem gerade keine Rechnung vorliegt. Die
+        PROMINENZ folgt dem Zustand: primär, sobald etwas gelesen wurde, sonst sekundär.
       */}
+      {/*
+        ⚠ DER ZWEITE WEG STEHT NEBEN DEM UPLOAD, NICHT STATT SEINER — und er ist zugeklappt.
+
+        Er ist der Ausweg für den Zählpunkt ohne Rechnung (Kunde liest am Telefon vor, Rechnung
+        liegt beim Steuerberater, Anschluss ist neu). Ausgeklappt danebenstehend wäre er eine
+        Einladung, das Auslesen zu überspringen und Zahlen abzutippen, die eine Datei genauer und
+        nachvollziehbarer liefert — die Rechnung ist die Wahrheit, und der Weg dorthin soll der
+        erste bleiben.
+
+        ⚠ AUSSERHALB DES UPLOAD-FORMULARS: der zweite Weg trägt selbst ein `<form>` mit zwei
+        eigenen Actions, und verschachtelte Formulare gibt es in HTML nicht.
+      */}
+      <div className="border-t border-line pt-6">
+        <button
+          type="button"
+          onClick={() => setManualOpen((open) => !open)}
+          aria-expanded={manualOpen}
+          aria-controls={MANUAL_ID}
+          className="text-small font-medium text-accent underline underline-offset-2 hover:text-accent-hover"
+        >
+          {manualOpen
+            ? 'Manuelle Eingabe schliessen'
+            : 'Keine Rechnung vorhanden — Werte selbst eintragen'}
+        </button>
+
+        {/*
+          Erst nach dem Aufklappen gerendert, nicht bloss verborgen: ein verborgenes Formular
+          schickte seine leeren Felder beim nächsten Umbau mit, und leere Felder sind hier eine
+          Aussage („unverändert lassen"), die niemand getroffen hat.
+        */}
+        {manualOpen && (
+          <div id={MANUAL_ID} className="mt-6">
+            <DataEntryInvoiceManual projectId={projectId} meteringPointId={meteringPoint.id} />
+          </div>
+        )}
+      </div>
+
       {nextHref !== null && (
         <div>
           <Button asChild variant={stored.length > 0 ? 'primary' : 'secondary'} size="md">
