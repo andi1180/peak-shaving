@@ -510,3 +510,107 @@ describe('B24 — die Station unterscheidet die Herkunft der Verbrauchsgrundlage
     expect(station).not.toContain('removeMeteringPointStandardProfileAction')
   })
 })
+
+/**
+ * B24, Teil 1 — die BATTERIE-Station.
+ *
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * ⚠ DER EIGENTLICHE GEGENSTAND: ZWEI ACTIONS AUF EINEM FORMULAR VERLANGEN KONTROLLIERTE FELDER
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * React setzt UNKONTROLLIERTE Formularfelder nach JEDER abgeschlossenen Action auf demselben
+ * Formular zurück, nicht nur nach der gemeinten. Bei der Rechnungs-Station war das ein gemessener
+ * Defekt (PR #200): der Vorschlagen-Knopf löschte ausgerechnet die drei Angaben, aus denen der
+ * Vorschlag gebildet wurde.
+ *
+ * Die Batterie-Station hat dieselbe Konstruktion („Auslesen" und „Speichern" auf einem Formular)
+ * und ist deshalb von Anfang an kontrolliert. Prüfen lässt sich das hier nur am QUELLTEXT —
+ * `apps/web` hat kein Renderer-Setup (`vitest.config.ts` schliesst `components/**` aus), und was
+ * React mit einem `defaultValue` tut, kann ein Unit-Test nicht messen. Der Durchstich
+ * „Auslesen → Speichern" liegt als Verhaltenstest in `data-entry-actions.test.ts`; er misst die
+ * Bedingung dafür (die Lese-Action schreibt nichts, die Speicher-Action nimmt dieselben Werte),
+ * nicht das Zurücksetzen selbst.
+ */
+const BATTERY_STATION = path.join(COMPONENTS_DIR, 'admin', 'data-entry-battery.tsx')
+
+describe('B24 — die Batterie-Station', () => {
+  const source = read(BATTERY_STATION)
+  const page = read(DATA_ENTRY_PAGE)
+
+  it('⚠ hält ALLE fünf Eingaben kontrolliert — sonst löscht „Auslesen" das Formular', () => {
+    // Die vier Zahlenfelder laufen über `BATTERY_VALUE_FIELDS.map` und teilen sich eine Zuweisung.
+    expect(source).toContain('value={fields[entry.form]')
+    expect(source).toContain('onValueChange={(value) =>')
+    // Der Freitext ebenso — er steht im selben Formular und träfe dieselbe Rücksetzung.
+    expect(source).toContain('value={text}')
+    // ⚠ Der Griff daneben: ein `defaultValue` irgendwo in diesem Formular bringt den Defekt zurück.
+    expect(source).not.toContain('defaultValue')
+  })
+
+  it('⚠ schickt DASSELBE Formular an die Lese-Action, statt ein zweites daneben zu stellen', () => {
+    // Verschachtelte Formulare gibt es in HTML nicht, und beide Wege brauchen dieselben Felder —
+    // zwei Formulare hiessen, die vier Zahlen zweimal zu erheben.
+    expect(source).toContain('formAction={readAction}')
+    expect(source).toContain('extractBatteryTextFromAction')
+  })
+
+  it('⚠ verwirft `hasExistingBattery` aus der Extraktion', () => {
+    /*
+     * Der Extraktor liest es mit (der öffentliche Rechner braucht es, weil dort die Frage NUR im
+     * Satz steht). Im Wizard steht sie als Weiche darüber — ein zweites, womöglich
+     * widersprüchliches Signal aus dem Fliesstext wäre verwirrend, nicht hilfreich.
+     */
+    expect(source).not.toContain('hasExistingBattery')
+  })
+
+  it('⚠ ordnet die genannte Kapazität KEINEM Katalog-Gerät zu', () => {
+    /*
+     * Delta 17 Teil 2 (01.09.2026): die bestehende Anlage wird mit ihren EXAKTEN Werten gerechnet.
+     * Ein Runden auf den nächstliegenden Kandidaten ergäbe eine Ersparnis, die zu einem Gerät
+     * gehört, das der Kunde nicht besitzt — und ein benannter Abstand macht eine falsche Zahl
+     * nicht richtig, er macht sie nur erklärt.
+     */
+    expect(source).not.toContain('battery-combination')
+    expect(source).not.toContain('matchCatalogByCapacity')
+    expect(source).not.toContain('buildExistingBatteryCandidate')
+    expect(source).not.toContain('DEMO_BATTERY_CATALOG')
+  })
+
+  it('⚠ zeigt weder Investition noch Amortisation — die Anlage ist bezahlt', () => {
+    expect(source).not.toContain('Amortisation')
+    expect(source).not.toContain('Investition')
+  })
+
+  it('⚠ stellt die Frage auch dann, wenn schon etwas erfasst ist', () => {
+    /*
+     * Anders als beim Lastgang: dort gibt es einen ausdrücklichen Entfernen-Weg, hier nicht. Wer
+     * sich vertippt oder die Antwort wechselt, muss sie neu geben können — eine Frage, die nach
+     * dem ersten Speichern verschwindet, wäre eine Sackgasse.
+     */
+    const question = source.indexOf('Haben Sie bereits einen Batteriespeicher')
+    expect(question).toBeGreaterThan(-1)
+    // Die Zusammenfassung steht DARÜBER und ersetzt die Frage nicht.
+    expect(source.indexOf('hasSummary && <BatterySummary')).toBeLessThan(question)
+  })
+
+  it('⚠ die Weiche lebt in `useState` und erreicht keine Action', () => {
+    // „Haben Sie eine Batterie?" ist eine Weiche innerhalb der Station, keine gespeicherte Angabe —
+    // dieselbe Entscheidung wie beim Lastgang. Gespeichert wird, was die ZWEIGE erheben.
+    expect(source).toContain("React.useState<Answer>(null)")
+    expect(source).not.toContain('name="hasBattery"')
+  })
+
+  it('⚠ die Seite erkennt die Station an der SCHRITT-KENNUNG und unterdrückt ihren Weiter-Link', () => {
+    expect(page).toContain("step.step !== 'batterie'")
+    expect(page).toContain('DataEntryBattery')
+    const weiter = page.slice(page.indexOf('{previous &&'))
+    expect(weiter).toContain('batterie === null')
+    // Der Platzhalter-Zweig darf die Station nicht mehr mit abdecken.
+    expect(page).toContain('batterie === null && (')
+  })
+
+  it('⚠ reicht KEINE Grössengrenze herein — diese Station nimmt keine Datei entgegen', () => {
+    const branch = page.slice(page.indexOf('<DataEntryBattery'))
+    const close = branch.slice(0, branch.indexOf('/>'))
+    expect(close).not.toContain('maxBytes')
+  })
+})
