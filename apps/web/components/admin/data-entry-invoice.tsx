@@ -41,8 +41,30 @@
  * `check_data_consistency` bzw. der KI-Check (Station 6). Eine zweite Prüfung daneben wäre eine
  * zweite Wahrheit über dieselbe Frage.
  *
- * Und sie nimmt eine einzelne hochgeladene Rechnung nicht wieder zurück: ein Rückweg wie beim
- * Lastgang (PR #194) ist ein eigener Auftrag.
+ * ── ⚠ DER RÜCKWEG NIMMT DIE AUSWERTUNG ZURÜCK, NICHT DIE DATEI ───────────────────────────────
+ * Der Kopf dieser Datei lautete bis hierher: „Und sie nimmt eine einzelne hochgeladene Rechnung
+ * nicht wieder zurück: ein Rückweg wie beim Lastgang (PR #194) ist ein eigener Auftrag." Das stimmt
+ * nicht mehr — jeder Dateiname trägt einen „Entfernen"-Link. Der Satz ist ERSETZT statt stehen
+ * gelassen; ein Kommentar, der eine Regel behauptet, die es nicht mehr gibt, ist teurer als keiner.
+ *
+ * Anders als beim Lastgang verschwindet dabei KEINE Datei: sie bleibt in der Dokumentenliste des
+ * Projekts, und zurückgenommen wird allein die Aussage „aus diesem Beleg wurde für diesen Zählpunkt
+ * gelesen" (Begründung in `removeMeteringPointInvoiceAction`). Der Link ist deshalb klein und
+ * textnah und nicht der Gegenspieler des primären Knopfes.
+ *
+ * ── ⚠ DER ZUSTAND DES ENTFERNENS HÄNGT AN DIESER KOMPONENTE, NICHT AM EINZELNEN FORMULAR ──────
+ * Zwei Gründe, und beide sind bereits einmal bezahlt worden (B16-4b, dann die Lastgang-Station):
+ *
+ *   1. Wird die LETZTE Rechnung entfernt, verschwindet `InvoiceSummary` samt allem darin — ein
+ *      `useActionState` dort nähme seine Meldung mit, und zwar genau im Moment ihres Entstehens.
+ *   2. Es gibt N Formulare (eines je Datei) und nur EINEN laufenden Vorgang. Ein gemeinsamer
+ *      Zustand sperrt deshalb während des Entfernens ALLE Links — und das ist keine Einschränkung,
+ *      sondern der Schutz: zwei gleichzeitige Vorgänge läsen denselben Entwurf, und der zweite
+ *      schriebe den Eintrag zurück, den der erste gerade gestrichen hat.
+ *
+ * ⚠ UND ES IST EIN EIGENER Zustand neben dem des Uploads, nicht derselbe: ein Fehler beim Entfernen
+ * überschriebe sonst die Meldung eines gerade gelaufenen Uploads und umgekehrt — beide sind wahr
+ * und sagen Verschiedenes.
  */
 import * as React from 'react'
 import { useActionState } from 'react'
@@ -53,7 +75,10 @@ import { mergeInvoiceExtractions } from 'shared'
 
 import { Button } from '@/components/ui/button'
 import { FieldHint, Label } from '@/components/ui/input'
-import { uploadMeteringPointInvoicesAction } from '@/lib/admin/data-entry-actions'
+import {
+  removeMeteringPointInvoiceAction,
+  uploadMeteringPointInvoicesAction,
+} from '@/lib/admin/data-entry-actions'
 import {
   MAX_INVOICES_PER_UPLOAD,
   invoiceConflictLabels,
@@ -93,6 +118,15 @@ export function DataEntryInvoice({
     uploadMeteringPointInvoicesAction,
     ADMIN_INITIAL_STATE,
   )
+  /*
+   * ⚠ ZWEITER Zustand, absichtlich HIER und nicht im einzelnen Entfernen-Formular — s. Kopf: mit
+   * der letzten Rechnung verschwindet die Zusammenfassung, und mit ihr nähme ein Zustand darin
+   * seine eigene Erfolgsmeldung mit.
+   */
+  const [removeState, removeAction, isRemoving] = useActionState(
+    removeMeteringPointInvoiceAction,
+    ADMIN_INITIAL_STATE,
+  )
   const error = state.fieldErrors?.files
 
   React.useEffect(() => {
@@ -108,13 +142,27 @@ export function DataEntryInvoice({
     <div className="flex flex-col gap-6">
       {state.success && <AdminSuccess>{state.success}</AdminSuccess>}
       {state.formError && <AdminError>{state.formError}</AdminError>}
+      {/*
+        Beide Meldungen des Entfernens stehen HIER und nicht in der Zusammenfassung: die gibt es
+        nach dem Entfernen der letzten Rechnung nicht mehr, und dann wäre ausgerechnet die Meldung
+        weg, die sagt, was gerade geschehen ist.
+      */}
+      {removeState.success && <AdminSuccess>{removeState.success}</AdminSuccess>}
+      {removeState.formError && <AdminError>{removeState.formError}</AdminError>}
 
       {stored.length > 0 && (
         <InvoiceSummary
           number={meteringPointNumber}
-          filenames={stored.map((entry) => entry.filename)}
+          projectId={projectId}
+          meteringPointId={meteringPoint.id}
+          entries={stored.map((entry) => ({
+            documentId: entry.documentId,
+            filename: entry.filename,
+          }))}
           rows={rows}
           conflictLabels={conflictLabels}
+          removeAction={removeAction}
+          isRemoving={isRemoving}
         />
       )}
 
@@ -207,31 +255,95 @@ export function DataEntryInvoice({
  */
 function InvoiceSummary({
   number,
-  filenames,
+  projectId,
+  meteringPointId,
+  entries,
   rows,
   conflictLabels,
+  removeAction,
+  isRemoving,
 }: {
   number: number
-  filenames: readonly string[]
+  projectId: string
+  meteringPointId: string
+  entries: readonly { documentId: string; filename: string }[]
   rows: readonly { key: string; label: string; text: string }[]
   conflictLabels: readonly string[]
+  /*
+   * ⚠ Action und Wartezustand kommen VON AUSSEN — s. Kopf. Der Zustand gehört der Komponente
+   * darüber, weil diese hier mit der letzten Rechnung verschwindet.
+   */
+  removeAction: (formData: FormData) => void
+  isRemoving: boolean
 }) {
   return (
     <div>
       <p className="text-small font-medium text-ink">
-        {filenames.length === 1
+        {entries.length === 1
           ? `Eine Rechnung für Zählpunkt ${number} gelesen.`
-          : `${filenames.length} Rechnungen für Zählpunkt ${number} gelesen.`}
+          : `${entries.length} Rechnungen für Zählpunkt ${number} gelesen.`}
       </p>
 
       <ul className="mt-3 flex flex-col gap-1">
-        {filenames.map((name, index) => (
-          // Der Dateiname allein ist nicht eindeutig — jemand kann zweimal „rechnung.pdf" ablegen.
-          <li key={`${index}-${name}`} className="text-small text-text-muted">
-            {name}
+        {entries.map((entry) => (
+          /*
+           * ⚠ SCHLÜSSEL IST DIE DOKUMENT-KENNUNG, nicht mehr Index+Name: der Dateiname ist nicht
+           * eindeutig (zweimal „rechnung.pdf" ist der Regelfall), und der Index wandert, sobald
+           * ein Eintrag aus der Mitte entfernt wird — React setzte den Listeneintrag dann auf
+           * einer FREMDEN Zeile wieder zusammen.
+           */
+          <li
+            key={entry.documentId}
+            className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-small text-text-muted"
+          >
+            <span>{entry.filename}</span>
+            {/*
+              ⚠ EIN EIGENES `<form>` JE ZEILE, und ausdrücklich NICHT das Upload-Formular darüber:
+              verschachtelte Formulare gibt es in HTML nicht, und selbst wenn — ein Fehler beim
+              Entfernen überschriebe sonst die Meldung eines gerade gelaufenen Uploads und
+              umgekehrt. Beide sind wahr und sagen Verschiedenes.
+            */}
+            <form
+              action={removeAction}
+              onSubmit={(e) => {
+                /*
+                 * Eine Rückfrage an einen Menschen, KEINE Prüfung — die Autorisierung liegt in der
+                 * Datenbank. Sie steht hier, weil der Link klein und textnah neben einem
+                 * Dateinamen sitzt und ein Fehlgriff plausibel ist; sie ist bewusst LEICHTER als
+                 * die der Lastgang-Station (dort verschwindet die DATEI unwiderruflich aus der
+                 * Ablage — hier bleibt sie im Projekt liegen).
+                 */
+                const prompt =
+                  `„${entry.filename}" wird für diesen Zählpunkt nicht mehr ausgewertet.\n\n` +
+                  'Die übrigen Rechnungen werden neu zusammengeführt. Bereits übernommene Angaben ' +
+                  'bleiben stehen, und die Datei bleibt in der Dokumentenliste des Projekts. ' +
+                  'Erneut auswerten lässt sie sich nur durch einen neuen Upload.'
+                if (!window.confirm(prompt)) e.preventDefault()
+              }}
+            >
+              <input type="hidden" name="projectId" value={projectId} />
+              <input type="hidden" name="meteringPointId" value={meteringPointId} />
+              <input type="hidden" name="documentId" value={entry.documentId} />
+              {/*
+                ⚠ ALLE Entfernen-Links teilen sich EINEN Wartezustand und sind währenddessen
+                gesperrt. Das ist keine Einschränkung, sondern der Schutz: zwei gleichzeitige
+                Vorgänge läsen denselben Entwurf, und der zweite schriebe den Eintrag zurück, den
+                der erste gerade gestrichen hat.
+              */}
+              <Button type="submit" variant="ghost" size="sm" disabled={isRemoving}>
+                {isRemoving && (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2} aria-hidden="true" />
+                )}
+                Entfernen
+                <span className="sr-only"> — {entry.filename}</span>
+              </Button>
+            </form>
           </li>
         ))}
       </ul>
+      <span role="status" aria-live="polite" className="sr-only">
+        {isRemoving ? 'Rechnung wird entfernt …' : ''}
+      </span>
 
       {rows.length === 0 ? (
         <p className="mt-4 max-w-prose text-small text-text-muted">

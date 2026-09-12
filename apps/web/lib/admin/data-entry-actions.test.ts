@@ -76,9 +76,11 @@ vi.mock('@/lib/project-documents/storage', () => ({
   removeProjectDocumentBytes: (path: string) => removeProjectDocumentBytes(path),
 }))
 
-const { removeMeteringPointLoadProfileAction, uploadMeteringPointInvoicesAction } = await import(
-  './data-entry-actions'
-)
+const {
+  removeMeteringPointInvoiceAction,
+  removeMeteringPointLoadProfileAction,
+  uploadMeteringPointInvoicesAction,
+} = await import('./data-entry-actions')
 
 const PROJECT_ID = '11111111-2222-4333-8444-555555555555'
 const POINT_ID = '66666666-7777-4888-8999-aaaaaaaaaaaa'
@@ -547,5 +549,154 @@ describe('uploadMeteringPointInvoicesAction', () => {
     expect(state.formError).toBeDefined()
     expect(uploadProjectDocument).not.toHaveBeenCalled()
     expect(rpc).not.toHaveBeenCalled()
+  })
+})
+
+/**
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * B24, Teil 1 — EINE gelesene Rechnung zurücknehmen
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * Drei Eigenschaften, und keine davon ist am Rückgabewert allein erkennbar:
+ *
+ *   1. DIE ZUSAMMENFÜHRUNG LÄUFT ÜBER DIE VERBLIEBENEN, nicht über die alte Liste. Sichtbar wird
+ *      das nur, wenn das Entfernen einen WIDERSPRUCH auflöst: dann — und nur dann — ändert sich
+ *      ein Wert im Entwurf. Ein Test über zwei einige Rechnungen bliebe grün, auch wenn die
+ *      Zusammenführung gar nicht erneut liefe.
+ *   2. ES WIRD NICHTS AUFGERÄUMT. Ein Feld, dessen einzige Stütze die entfernte Rechnung war,
+ *      bleibt STEHEN (dieselbe schonende Richtung wie bei einem Widerspruch). Das ist eine
+ *      Entscheidung, keine Nachlässigkeit — der Test hält sie fest, damit sie niemand „repariert".
+ *   3. EIN UNBEKANNTER EINTRAG SCHREIBT NICHTS. Zweiter Klick, zweiter Tab: das Ziel ist bereits
+ *      hergestellt, und ein Schreibvorgang über eine unveränderte Liste wäre eine Änderung, die
+ *      keine ist.
+ */
+describe('removeMeteringPointInvoiceAction', () => {
+  beforeEach(() => {
+    draft = {}
+    withInvoiceWrappers()
+    uploadProjectDocument.mockImplementation(async (_projectId: string, file: { name: string }) => ({
+      ok: true,
+      documentId: `doc-${file.name}`,
+      storagePath: `${PROJECT_ID}/doc-${file.name}`,
+    }))
+    extractInvoiceData.mockImplementation(async () => extraction())
+  })
+
+  /** Legt drei gelesene Rechnungen an — nacheinander, wie es real geschieht. */
+  async function seedThree(): Promise<void> {
+    // Die erste setzt beide Werte: Arbeitspreis 24,5 und einen Leistungspreis, den nur SIE trägt.
+    extractInvoiceData.mockResolvedValue(
+      extraction({ energyPriceCtPerKwh: 24.5, leistungspreisEurPerKwYear: 38.52 }),
+    )
+    await uploadMeteringPointInvoicesAction({}, invoiceForm([pdf('a.pdf')]))
+
+    // Die zweite und dritte widersprechen ihr beim Arbeitspreis — und sind sich untereinander einig.
+    extractInvoiceData.mockResolvedValue(extraction({ energyPriceCtPerKwh: 26.9 }))
+    await uploadMeteringPointInvoicesAction({}, invoiceForm([pdf('b.pdf')]))
+    await uploadMeteringPointInvoicesAction({}, invoiceForm([pdf('c.pdf')]))
+  }
+
+  function removeForm(documentId: string): FormData {
+    const fd = new FormData()
+    fd.set('projectId', PROJECT_ID)
+    fd.set('meteringPointId', POINT_ID)
+    fd.set('documentId', documentId)
+    return fd
+  }
+
+  it('⚠ führt NUR die verbliebenen Rechnungen zusammen — ein aufgelöster Widerspruch wirkt', async () => {
+    await seedThree()
+
+    // Ausgangslage: der Widerspruch hat den zuerst übernommenen Wert stehen lassen.
+    expect(storedEntries()).toHaveLength(3)
+    expect(draft.energyPriceCtPerKwh).toBe(24.5)
+    expect(draft.leistungspreisEurPerKwYear).toBe(38.52)
+
+    rpc.mockClear()
+    revalidatePath.mockClear()
+
+    const state = await removeMeteringPointInvoiceAction({}, removeForm('doc-a.pdf'))
+
+    expect(state.formError).toBeUndefined()
+    expect(state.success).toContain('a.pdf')
+    expect(state.success).toContain('Es liegen jetzt 2 Rechnungen')
+    expect(state.success).toContain('bleibt in der Dokumentenliste')
+
+    expect(storedEntries().map((entry) => entry.filename)).toEqual(['b.pdf', 'c.pdf'])
+
+    /*
+     * ⚠ DER KERN: b und c sind sich einig, der Widerspruch ist mit a verschwunden — der Wert
+     * wechselt auf 26,9. Liefe die Zusammenführung noch über alle drei, stünde hier weiterhin 24,5.
+     */
+    expect(draft.energyPriceCtPerKwh).toBe(26.9)
+
+    /*
+     * ⚠ POSITIV-KONTROLLE zur bewussten Nicht-Bereinigung: den Leistungspreis trug AUSSCHLIESSLICH
+     * die entfernte Rechnung. Er steht unverändert im Entwurf.
+     */
+    expect(draft.leistungspreisEurPerKwYear).toBe(38.52)
+
+    // EIN Schreibvorgang — die gekürzte Liste und die neuen Werte gehören zusammen.
+    const writes = rpc.mock.calls.filter(([fn]) => fn === 'update_metering_point_draft')
+    expect(writes).toHaveLength(1)
+    expect(revalidatePath).toHaveBeenCalledWith(
+      `/admin/kalkulator-projekte/${PROJECT_ID}/dateneingabe`,
+    )
+  })
+
+  it('⚠ lässt beim Entfernen der LETZTEN Rechnung die übernommenen Angaben stehen', async () => {
+    extractInvoiceData.mockResolvedValue(extraction({ energyPriceCtPerKwh: 24.5 }))
+    await uploadMeteringPointInvoicesAction({}, invoiceForm([pdf('einzige.pdf')]))
+    expect(draft.energyPriceCtPerKwh).toBe(24.5)
+
+    const state = await removeMeteringPointInvoiceAction({}, removeForm('doc-einzige.pdf'))
+
+    expect(state.success).toContain('keine gelesene Rechnung mehr')
+    expect(storedEntries()).toHaveLength(0)
+    // Der Wert bleibt — er kann inzwischen von Hand geprüft worden sein.
+    expect(draft.energyPriceCtPerKwh).toBe(24.5)
+    expect(draft.netzebene).toBe('NE 5')
+  })
+
+  it('⚠ schreibt NICHTS, wenn der Eintrag schon weg ist — rendert die Station aber neu', async () => {
+    await seedThree()
+    const before = JSON.stringify(draft)
+
+    rpc.mockClear()
+    revalidatePath.mockClear()
+
+    const state = await removeMeteringPointInvoiceAction({}, removeForm('doc-gibt-es-nicht.pdf'))
+
+    expect(state.success).toBeUndefined()
+    expect(state.formError).toContain('nicht (mehr) an diesem Zählpunkt')
+    expect(rpc).not.toHaveBeenCalledWith('update_metering_point_draft', expect.anything())
+    expect(JSON.stringify(draft)).toBe(before)
+
+    // Die angezeigte Liste ist veraltet — ohne Neurendern liefe derselbe Klick beliebig oft hierher.
+    expect(revalidatePath).toHaveBeenCalledTimes(1)
+  })
+
+  it('gibt eine entzogene Rolle als solche zurück, ohne den Entwurf anzufassen', async () => {
+    rpc.mockResolvedValue({ data: null, error: { code: '42501', message: 'denied' } })
+
+    const state = await removeMeteringPointInvoiceAction({}, removeForm('doc-a.pdf'))
+
+    expect(state.formError).toBe('Keine Berechtigung. Bitte laden Sie die Seite neu.')
+    expect(revalidatePath).not.toHaveBeenCalled()
+  })
+
+  it('fragt die Datenbank gar nicht erst, wenn eine Kennung fehlt', async () => {
+    const badPoint = removeForm('doc-a.pdf')
+    badPoint.set('meteringPointId', 'x')
+    expect((await removeMeteringPointInvoiceAction({}, badPoint)).formError).toBeDefined()
+
+    const badProject = removeForm('doc-a.pdf')
+    badProject.set('projectId', 'x')
+    expect((await removeMeteringPointInvoiceAction({}, badProject)).formError).toBeDefined()
+
+    const noDocument = removeForm('   ')
+    expect((await removeMeteringPointInvoiceAction({}, noDocument)).formError).toBeDefined()
+
+    expect(rpc).not.toHaveBeenCalled()
+    expect(revalidatePath).not.toHaveBeenCalled()
   })
 })

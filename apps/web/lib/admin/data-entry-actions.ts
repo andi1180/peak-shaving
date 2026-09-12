@@ -3,7 +3,7 @@
 /**
  * Die Server Actions des Dateneingabe-Wizards (B24, Teil 1).
  *
- * ── ⚠ ES WAREN GENAU ZWEI, JETZT SIND ES SECHS ────────────────────────────────────────────────
+ * ── ⚠ ES WAREN GENAU ZWEI, JETZT SIND ES SIEBEN ───────────────────────────────────────────────
  * Der ursprüngliche Zuschnitt nannte die Zahl ausdrücklich und begründete sie: die fünf Stationen
  * je Zählpunkt waren Platzhalter, und eine Action ohne Wirkung wäre ein Endpunkt, den man aufrufen
  * kann und der nichts tut. Genau diese Begründung fällt Station für Station weg.
@@ -15,8 +15,13 @@
  *
  * Für die RECHNUNG seit der sechsten Action: sie nimmt beliebig viele PDF-Rechnungen entgegen,
  * legt sie im Projekt ab, liest sie aus und schreibt den ZUSAMMENGEFÜHRTEN Stand in den Entwurf des
- * Zählpunkts. Sie ist die einzige der sechs, die einen abrechenbaren Modellaufruf auslöst — und die
+ * Zählpunkts. Sie ist die einzige der sieben, die einen abrechenbaren Modellaufruf auslöst — und die
  * einzige, die wiederholt aufgerufen werden soll (sie ergänzt, sie ersetzt nicht).
+ *
+ * Die SIEBTE nimmt genau EINE davon wieder zurück: sie streicht den Beleg aus dem Entwurf und führt
+ * die verbliebenen erneut zusammen. Sie bringt KEINEN neuen Wrapper mit — sie kommt mit denselben
+ * zwei aus wie die sechste (`list_metering_points`, `update_metering_point_draft`) und löst keinen
+ * abrechenbaren Aufruf aus: die verbliebenen Extraktionen liegen fertig im Entwurf.
  *
  * Die drei übrigen Stationen (Batterie, PV, Tarif) bleiben Platzhalter und haben weiterhin bewusst
  * KEINE Action; jede bekommt ihren eigenen Auftrag.
@@ -51,7 +56,7 @@
  * nur reicht sie das Ergebnis als Wert heraus, statt den Aufruf zu kapseln.
  *
  * ══════════════════════════════════════════════════════════════════════════════════════════════
- * ⚠ ZWEI ACTIONS LEITEN IM ERFOLGSFALL UM, DIE VIER ÜBRIGEN NICHT — und das ist der Unterschied
+ * ⚠ ZWEI ACTIONS LEITEN IM ERFOLGSFALL UM, DIE FÜNF ÜBRIGEN NICHT — und das ist der Unterschied
  * ══════════════════════════════════════════════════════════════════════════════════════════════
  * Bei Segment und Zählpunkt-Zahl sind „gespeichert" und „einen Schritt weiter" derselbe Vorgang:
  * die Position des Wizards steht in der URL (`lib/admin/data-entry-stations.ts`), die Weiterleitung
@@ -73,7 +78,9 @@
  * ausgewiesene Zeitraum samt Jahresverbrauch das EINZIGE, was ihm überhaupt zur Prüfung bleibt.
  * Und dasselbe für die RECHNUNGEN: die zusammengeführten Werte — und vor allem ein gemeldeter
  * WIDERSPRUCH zwischen zwei Belegen — sind das, weswegen jemand die Dateien überhaupt hochgeladen
- * hat; eine Weiterleitung nähme sie ihm ungesehen weg.
+ * hat; eine Weiterleitung nähme sie ihm ungesehen weg. Und erst recht für das ENTFERNEN einer
+ * einzelnen Rechnung: ob damit ein Widerspruch verschwunden ist, steht in genau der
+ * Zusammenfassung, die eine Weiterleitung überspränge.
  *
  * ⚠ `redirect()` WIRFT. Die beiden Aufrufe stehen deshalb am ENDE und ausserhalb jedes `try` — in
  * einem `catch` gefangen sähe die Weiterleitung wie ein Fehlschlag aus, und der Wizard bliebe
@@ -1207,5 +1214,172 @@ async function readOneInvoice(projectId: string, file: File): Promise<InvoiceFil
   return {
     ok: true,
     entry: { documentId: upload.documentId, filename, extraction: outcome.extraction },
+  }
+}
+
+/**
+ * Nimmt EINE gelesene Rechnung von einem Zählpunkt zurück und führt die verbliebenen neu zusammen.
+ *
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * ⚠ ES WIRD WEDER DIE DATEI NOCH IHRE ZEILE GELÖSCHT — nur der Bezug im Entwurf entfällt
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * Das ist der Unterschied zum Lastgang-Rückweg nebenan, und er ist bewusst: dort trägt der
+ * ZÄHLPUNKT die Quelle (`source_document_id`), ein zurückgesetzter Zählpunkt liesse das Dokument
+ * also an nichts mehr hängen — deshalb räumt er Bytes und Zeile mit ab. Eine Rechnung dagegen
+ * gehört dem PROJEKT: sie ist die echte Rechnung des Kunden, ein Mensch kann sie lesen, und der
+ * KI-Check (Station 6) sieht die Dokumente des Projekts. Was hier zurückgenommen wird, ist
+ * ausschliesslich die Aussage „aus diesem Beleg wurde für diesen Zählpunkt gelesen".
+ *
+ * Folge, die der Klickende erfahren muss und die deshalb in der Erfolgsmeldung steht: die Datei
+ * bleibt in der Dokumentenliste des Projekts stehen. Ein Löschweg für Projekt-Dokumente ist ein
+ * eigener Auftrag — der bestehende (`admin_delete_metering_point_document`) ist an den ZÄHLPUNKT
+ * gebunden und verlangt, dass keiner mehr auf das Dokument zeigt.
+ *
+ * ── ⚠ ES WIRD NICHTS AUFGERÄUMT, WAS AUF DER ENTFERNTEN RECHNUNG BERUHTE ──────────────────────
+ * Ein Entwurfsfeld, dessen einzige Stütze dieser Beleg war, bleibt STEHEN. Das ist exakt dieselbe
+ * Richtung wie bei einem Widerspruch (s. `invoiceDraftValues`) und aus demselben Grund: der Wert
+ * kann inzwischen von Hand geprüft oder korrigiert worden sein, und ihn beim Entfernen eines
+ * Belegs still zu leeren nähme eine Angabe weg, die niemand weggenommen haben wollte. Die
+ * schonendere Richtung ist, ihn stehen zu lassen — sichtbar in der Zusammenfassung, überschreibbar
+ * im Tarif-Schritt.
+ *
+ * ⚠ WAS SICH SEHR WOHL ÄNDERN KANN, ist ein Feld, das VORHER WIDERSPRÜCHLICH war: fällt der
+ * abweichende Beleg weg, sind sich die verbliebenen einig, und der Wert wird jetzt übernommen.
+ * Genau dafür läuft die Zusammenführung überhaupt erneut — ohne sie bliebe ein aufgelöster
+ * Widerspruch für immer ungelöst.
+ *
+ * ── DER ABLAUF, und er ist absichtlich kürzer als der des Uploads ─────────────────────────────
+ *   1. Entwurf FRISCH lesen (`list_metering_points`) — `update_metering_point_draft` ERSETZT ihn
+ *   2. den Eintrag mit dieser Dokument-Kennung herausfiltern
+ *   3. `mergeInvoiceExtractions` über die VERBLIEBENEN
+ *   4. EIN `update_metering_point_draft` mit der gekürzten Liste UND den neu gefalteten Werten
+ *
+ * Es gibt hier keinen Netzweg und keinen Modellaufruf: die verbliebenen Extraktionen liegen fertig
+ * im Entwurf. Der eine Schreibvorgang trägt beides zusammen, aus demselben Grund wie beim Upload —
+ * getrennt geschrieben gäbe es einen Zustand, in dem die Werte zu einer anderen Belegliste gehören
+ * als die, die danebensteht.
+ */
+export async function removeMeteringPointInvoiceAction(
+  _prev: AdminState,
+  formData: FormData,
+): Promise<AdminState> {
+  const projectId = readProjectId(formData)
+  if (projectId === null) return { formError: UNKNOWN_PROJECT }
+
+  const meteringPointId = String(formData.get('meteringPointId') ?? '')
+  if (!UUID.test(meteringPointId)) {
+    // Kommt wie die Projekt-Kennung als verstecktes Feld aus unserer eigenen Seite.
+    return { formError: GENERIC }
+  }
+
+  /*
+   * ⚠ ABSICHTLICH KEINE UUID-PRÜFUNG. Die Kennung wird nicht an die Datenbank gereicht, sondern
+   * ausschliesslich gegen die gespeicherte Liste gehalten — sie kommt aus genau dieser Liste, in
+   * die die Oberfläche sie gerendert hat. Ein Format-Filter wäre hier keine zusätzliche Sicherheit,
+   * sondern eine Sperre: ein von Hand verändertes `jsonb` mit einer unbrauchbaren Kennung liesse
+   * sich dann gar nicht mehr aufräumen. Das Tor ist der Abgleich unten, nicht die Form.
+   */
+  const documentId = String(formData.get('documentId') ?? '').trim()
+  if (documentId === '') return { formError: GENERIC }
+
+  /*
+   * ⚠ FRISCH GELESEN, nicht aus einer Prop übernommen — wortgleiche Begründung wie beim Upload und
+   * beim Standardprofil-Zweig: der Wrapper ERSETZT den Entwurf, und ein Stand aus der Zeit des
+   * Seitenaufbaus machte jede Angabe rückgängig, die inzwischen dazugekommen ist. Hier trifft das
+   * besonders wahrscheinlich zu: zwischen dem Rendern der Liste und dem Klick kann in einem zweiten
+   * Tab eine weitere Rechnung hochgeladen worden sein.
+   */
+  const supabase = await createClient()
+  const listRes = await supabase.rpc('list_metering_points', { p_project_id: projectId })
+  if (listRes.error) {
+    if (isForbidden(listRes.error)) return { formError: FORBIDDEN }
+    console.error('[admin/dateneingabe] list_metering_points (Rechnung entfernen):', listRes.error)
+    return { formError: GENERIC }
+  }
+
+  const points = readMeteringPointList(listRes.data)
+  const point = points?.find((candidate) => candidate.id === meteringPointId)
+  if (!point) {
+    return { formError: 'Diesen Zählpunkt gibt es nicht (mehr). Bitte laden Sie die Seite neu.' }
+  }
+
+  const stored = readStoredInvoiceExtractions(point.draft)
+  const removed = stored.find((entry) => entry.documentId === documentId)
+  if (!removed) {
+    /*
+     * Der Eintrag ist bereits weg — zweiter Klick, zweiter Tab. Es wird NICHTS geschrieben: das
+     * Ziel ist hergestellt, und ein Schreibvorgang über eine unveränderte Liste wäre eine
+     * Änderung, die keine ist.
+     *
+     * ⚠ Die Station wird trotzdem NEU GERENDERT, und das weicht bewusst vom `not_found`-Zweig des
+     * Lastgang-Rückwegs ab: dort ist der ganze Zählpunkt weg und die Station ohnehin hinfällig.
+     * Hier ist allein die angezeigte LISTE veraltet — sie zeigt einen Beleg, den es nicht mehr
+     * gibt. Ohne das Neurendern bliebe sie stehen, und derselbe Klick liefe beliebig oft in
+     * dieselbe Meldung. Behauptet wird damit nichts: gerendert wird der Stand der Datenbank.
+     */
+    revalidatePath(projectDataEntryHref(projectId))
+    return {
+      formError:
+        'Diese Rechnung liegt nicht (mehr) an diesem Zählpunkt — möglicherweise wurde sie bereits ' +
+        'entfernt. Die Liste ist jetzt auf dem aktuellen Stand.',
+    }
+  }
+
+  const remaining = stored.filter((entry) => entry.documentId !== documentId)
+  const { merged, conflicts } = mergeInvoiceExtractions(remaining.map((entry) => entry.extraction))
+
+  /*
+   * ⚠ Die Werte werden NEU GEFALTET, nicht bloss die Liste gekürzt. Für ein unverändertes Feld ist
+   * das ein Schreibvorgang mit demselben Wert (nur der Herkunftsvermerk trägt einen neuen
+   * Zeitstempel — er sagt „zuletzt so gesetzt", und das stimmt dann auch); für ein zuvor
+   * widersprüchliches Feld ist es die eigentliche Wirkung dieses Aufrufs.
+   *
+   * `measured` und ohne Notiz, wortgleich zum Upload: jeder dieser Werte steht übereinstimmend auf
+   * den verbliebenen Rechnungen, und eine Ablesung braucht keine Begründung.
+   */
+  let nextDraft = withStoredInvoiceExtractions(point.draft, remaining)
+  const now = new Date()
+  for (const { field, value } of invoiceDraftValues(merged)) {
+    nextDraft = setDraftField(nextDraft, field, value, 'measured', undefined, now)
+  }
+
+  const draftRes = await supabase.rpc('update_metering_point_draft', {
+    p_metering_point_id: meteringPointId,
+    // Zusicherung wie im Upload-Zweig: zur Laufzeit dasselbe, TypeScript kann es nur nicht wissen.
+    p_draft: nextDraft as Json,
+  })
+
+  if (draftRes.error) {
+    if (isForbidden(draftRes.error)) return { formError: FORBIDDEN }
+    console.error(
+      '[admin/dateneingabe] update_metering_point_draft (Rechnung entfernen):',
+      draftRes.error,
+    )
+    return { formError: GENERIC }
+  }
+  if (statusOf(draftRes.data) !== 'ok') {
+    console.error('[admin/dateneingabe] unerwartete Antwort (Rechnung entfernen):', draftRes.data)
+    return { formError: GENERIC }
+  }
+
+  // ⚠ Ohne das bliebe die entfernte Rechnung in der Liste stehen — s. Begründung beim Upload.
+  revalidatePath(projectDataEntryHref(projectId))
+
+  const rest =
+    remaining.length === 0
+      ? 'An diesem Zählpunkt liegt jetzt keine gelesene Rechnung mehr.'
+      : remaining.length === 1
+        ? 'Es liegt jetzt eine Rechnung an diesem Zählpunkt.'
+        : `Es liegen jetzt ${remaining.length} Rechnungen an diesem Zählpunkt.`
+  const widerspruch =
+    conflicts.length === 0
+      ? ''
+      : ' Einzelne Angaben widersprechen einander weiterhin — sie stehen unten.'
+
+  return {
+    success:
+      `„${removed.filename}" wird für diesen Zählpunkt nicht mehr ausgewertet. ${rest}` +
+      `${widerspruch} Bereits übernommene Angaben bleiben stehen, und die Datei bleibt in der ` +
+      'Dokumentenliste des Projekts.',
   }
 }
