@@ -8,6 +8,9 @@ export {
   SUPPORTED_INTERVAL_MINUTES,
 } from './metadata'
 export type { LoadProfileGap, LoadProfileMetadata, LoadProfileScan } from './metadata'
+// B24, Teil 1: das PV-Gegenstück — dieselbe Aufteilung, dieselben Gründe (s. Kopf von `metadata.ts`).
+export { readPvProfileMetadata } from './metadata'
+export type { PvProfileGap, PvProfileMetadata, PvProfileScan } from './metadata'
 export { adapters, matchAdapter } from './adapters'
 export type { FormatAdapter, AdapterContext, AdapterHints } from './adapters'
 export type {

@@ -382,18 +382,20 @@ export default async function AdminProjectDataEntryPage({
 
           {station.kind === 'zaehlpunkt-schritt' && pv !== null && (
             /*
-              ⚠ SIE BEKOMMT KEINE GRÖSSENGRENZE, und das ist kein Vergessen: diese Station nimmt
-              gar keine Datei entgegen. Der Ja-Zweig (das Erzeugungsprofil) ist ein eigener
-              Bauabschnitt; eine hier schon hereingereichte Grenze wäre eine Zusage auf einen Weg,
-              den es nicht gibt.
+              ⚠ `MAX_PROJECT_DOCUMENT_BYTES` (20 MB) und NICHT `MAX_PV_PROFILE_FILE_BYTES` (25 MB,
+              `packages/extractors`) — dieselbe Lage wie beim Lastgang und dieselbe Regel wie bei
+              Rechnung und Batterie: es gilt die kleinere von beiden. Ein Erzeugungsprofil wird
+              ausgelesen UND abgelegt; eine mit 25 MB genannte Grenze liesse eine Datei vollständig
+              einlesen und erst beim Hochladen abweisen.
 
-              `customerLabel` dagegen braucht sie: der Nein-Zweig bietet eine PV-Anfrage an, und
-              deren Betreff nennt das Projekt. Die Station kennt nur den Zählpunkt.
+              `customerLabel` braucht die Station für den Nein-Zweig: er bietet eine PV-Anfrage an,
+              und deren Betreff nennt das Projekt. Sie kennt sonst nur den Zählpunkt.
             */
             <DataEntryPv
               projectId={project.id}
               meteringPoint={pv.point}
               meteringPointNumber={pv.number}
+              maxBytes={MAX_PROJECT_DOCUMENT_BYTES}
               customerLabel={project.customer_label}
               nextHref={next ? stationHref(project.id, next.id) : null}
             />

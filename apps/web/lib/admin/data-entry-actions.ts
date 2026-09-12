@@ -115,6 +115,7 @@ import {
   generateStandardProfileMetadata,
   lookupBatterySpec,
   readLoadProfile,
+  readPvProfile,
 } from 'extractors'
 import {
   MAX_PROJECT_DOCUMENT_BYTES,
@@ -156,6 +157,7 @@ import {
 } from './invoice-extractions'
 import { readMeteringPointList } from './metering-points'
 import { PV_PRESENT_KEY } from './pv-draft'
+import { pvProfileDraftValues, withPvProfileGaps } from './pv-profile-draft'
 import {
   PROJECT_SEGMENTS,
   projectDataEntryHref,
@@ -2489,4 +2491,204 @@ export async function saveMeteringPointPvChoiceAction(
       ? 'Vermerkt: Es gibt bereits eine PV-Anlage.'
       : 'Vermerkt: Es gibt keine PV-Anlage.',
   }
+}
+
+// ── PV-Erzeugungsreihe ───────────────────────────────────────────────────────────────────────────
+/**
+ * Die WIRKSAME Grössengrenze für eine PV-Erzeugungsdatei in diesem Wizard.
+ *
+ * ⚠ ES SIND ZWEI ZAHLEN IM SPIEL, UND DIE KLEINERE GEWINNT — wortgleich zum Lastgang-Schritt:
+ * `MAX_PV_PROFILE_FILE_BYTES` (25 MB, `packages/extractors`) begrenzt, was der LESER verarbeitet;
+ * `MAX_PROJECT_DOCUMENT_BYTES` (20 MB, `packages/shared`) begrenzt, was die ABLAGE annimmt. Die
+ * Datei wird abgelegt, bevor ihre Metadaten in den Entwurf gehen — wirksam ist damit immer die
+ * Ablage-Grenze, und nur die darf dem Admin genannt werden: 22 MB liefen sonst durch die Prüfung,
+ * würden 22 MB lang geparst und scheiterten erst danach am Upload.
+ */
+const MAX_PV_PROFILE_BYTES = MAX_PROJECT_DOCUMENT_BYTES
+
+/** Für die Meldung am Feld — ganze Megabyte, weil die Grenze eine ganze Zahl ist. */
+const MAX_PV_PROFILE_MB = Math.floor(MAX_PV_PROFILE_BYTES / (1024 * 1024))
+
+/**
+ * Liest eine PV-Erzeugungsdatei ein und schreibt die gelesenen Metadaten in den Entwurf des
+ * Zählpunkts.
+ *
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * ⚠ DIESELBE REIHENFOLGE WIE BEIM LASTGANG: ERST LESEN, DANN ABLEGEN
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ *   1. Grösse prüfen (rein, kein Netz)
+ *   2. `readPvProfile` — DETERMINISTISCH, kein Modellaufruf, kein Nebeneffekt
+ *   3. erst jetzt `uploadProjectDocument` (Bytes + Zeile in `platform.project_documents`)
+ *   4. Entwurf FRISCH lesen, Lücken + Skalare hineinfalten, EINMAL schreiben
+ *
+ * Die naheliegende Reihenfolge wäre „hochladen, dann lesen". Sie ist hier falsch, und der Grund ist
+ * derselbe wie beim Lastgang: **es gibt keinen Weg, ein eingetragenes Dokument wieder zu
+ * entfernen** (kein Wrapper, kein Grant — TEIL 9 der Migration `20260910090000`; der Lastgang-Rückweg
+ * ist ausdrücklich an den ZÄHLPUNKT gebunden und deckt diesen Fall nicht ab). Eine unlesbare Datei
+ * hinterliesse damit dauerhaft eine Zeile in der Dokumentenliste, die zu nichts gehört. Gelesen
+ * wird sie ohnehin vollständig im Speicher — das Ablegen davor spart nichts.
+ *
+ * ⚠ WAS ZWISCHEN SCHRITT 3 UND 4 SCHIEFGEHEN KANN, BLEIBT STEHEN: ein abgelegtes Dokument ohne
+ * Zuordnung. Der bewusst in Kauf genommene Rest, dieselbe Klasse wie beim Lastgang und im Chat —
+ * eine Datei zu viel im Projekt ist die harmlose Richtung.
+ *
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * ⚠ SIE BENUTZT `writeMeteringPointDraftFields` NICHT, und das ist eine Entscheidung
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * Der geteilte Schreibweg faltet eine Liste SKALARER Felder (`DraftValue` = number|string|boolean).
+ * Hier kommt eine LISTE dazu (die Lücken), und beides muss in EINEN Schreibvorgang: Zeitraum und
+ * Lücken sind die Auswertung derselben Datei, und getrennt geschrieben gäbe es einen Zustand, in
+ * dem die eine Angabe zu einer anderen Datei gehört als die andere. Dazu kommt die Meldung für
+ * „Zählpunkt weg": nach einem erfolgten Upload muss sie sagen, dass die Datei abgelegt IST — der
+ * allgemeine Satz des Helfers verschwiege genau das. Denselben Weg geht der Rechnungs-Upload
+ * nebenan, aus denselben zwei Gründen.
+ *
+ * ⚠ SIE SCHREIBT KEIN `hasPv`. Die Frage „Gibt es eine PV-Anlage?" wird an genau EINER Stelle
+ * beantwortet (`saveMeteringPointPvChoiceAction`), und der Upload erscheint ohnehin nur in deren
+ * Ja-Zweig. Sie hier ein zweites Mal zu beantworten wäre ein zweites Signal für dieselbe Aussage —
+ * und das erste, das beim nächsten Umbau dem anderen widerspricht.
+ *
+ * ⚠ ES WIRD NICHT UMGELEITET — Regel dieser Datei (s. Kopf): Zeitraum, Intervall und Lücken sind
+ * das Einzige, woran ein Mensch erkennt, ob die richtige Datei hochgeladen wurde.
+ */
+export async function uploadMeteringPointPvProfileAction(
+  _prev: AdminState,
+  formData: FormData,
+): Promise<AdminState> {
+  const projectId = readProjectId(formData)
+  if (projectId === null) return { formError: UNKNOWN_PROJECT }
+
+  const meteringPointId = String(formData.get('meteringPointId') ?? '')
+  // Kommt wie die Projekt-Kennung als verstecktes Feld aus unserer eigenen Seite.
+  if (!UUID.test(meteringPointId)) return { formError: GENERIC }
+
+  const file = formData.get('file')
+  if (!(file instanceof File) || file.size === 0) {
+    return { fieldErrors: { file: 'Bitte eine Datei auswählen.' } }
+  }
+  if (file.size > MAX_PV_PROFILE_BYTES) {
+    return {
+      fieldErrors: {
+        file:
+          `Diese Datei ist zu gross (${formatMegabytes(file.size)} MB). ` +
+          `Mehr als ${MAX_PV_PROFILE_MB} MB nimmt der Wizard nicht an. ` +
+          `Es wurde nichts hochgeladen und nichts gespeichert.`,
+      },
+    }
+  }
+
+  const bytes = await file.arrayBuffer()
+
+  // ── Schritt 2: lesen. Rein, deterministisch, ohne Nebeneffekt — s. Kopf.
+  const outcome = readPvProfile(bytes, file.name)
+
+  if (!outcome.ok) {
+    /*
+     * Unerreichbar, solange `MAX_PV_PROFILE_BYTES <= MAX_PV_PROFILE_FILE_BYTES` gilt (die Prüfung
+     * oben greift vorher). Trotzdem behandelt statt ignoriert: die zwei Konstanten liegen in zwei
+     * Paketen, und wer die eine hebt, soll hier keine unbeantwortete Antwort vorfinden.
+     */
+    return {
+      fieldErrors: {
+        file:
+          `Diese Datei ist zu gross. Mehr als ${MAX_PV_PROFILE_MB} MB nimmt der Wizard nicht an. ` +
+          `Es wurde nichts hochgeladen und nichts gespeichert.`,
+      },
+    }
+  }
+
+  const scan = outcome.scan
+  if (!scan.ok) {
+    /*
+     * Der Leser hat die Datei abgelehnt — leer, kein erkennbarer Zeitstempel, keine Wert-Spalte,
+     * falsches Intervall. Seine Meldung ist deutsch und fertig formuliert; sie hier durch einen
+     * eigenen Satz zu ersetzen nähme dem Admin genau die Auskunft, die sagt, WAS an der Datei
+     * nicht stimmt.
+     */
+    return {
+      fieldErrors: {
+        file: `${scan.error.message} Es wurde nichts hochgeladen und nichts gespeichert.`,
+      },
+    }
+  }
+
+  // ── Schritt 3: ablegen. Die Eigentumsfrage beantwortet dabei die DATENBANK (`get_project`).
+  const upload = await uploadProjectDocument(projectId, {
+    name: file.name,
+    /*
+     * ⚠ `content_type` ist eine ANGABE des Browsers, kein Beweis — und für CSV meldet er
+     * regelmässig `application/vnd.ms-excel`. Der Leser oben hat deshalb am DATEINAMEN entschieden,
+     * nicht hieran. Ein leerer Typ kommt real vor und würde von `uploadProjectDocument` als
+     * `invalid_file` abgewiesen; derselbe neutrale Rückfall wie beim Lastgang.
+     */
+    type: file.type.trim() === '' ? 'application/octet-stream' : file.type,
+    bytes,
+  })
+
+  if (!upload.ok) {
+    if (upload.reason === 'not_found') return { formError: UNKNOWN_PROJECT }
+    console.error('[admin/dateneingabe] uploadProjectDocument (PV-Profil):', upload.reason)
+    return { formError: GENERIC }
+  }
+
+  /*
+   * ── Schritt 4: Entwurf FRISCH lesen und EINMAL schreiben ────────────────────────────────────
+   * `update_metering_point_draft` ERSETZT den Entwurf (bewusst — eine flache Verschmelzung könnte
+   * einen Schlüssel nie wieder entfernen). Ein Stand aus der Zeit des Seitenaufbaus machte jede
+   * Angabe rückgängig, die seither dazugekommen ist, etwa eine in einem zweiten Tab hochgeladene
+   * Rechnung.
+   */
+  const supabase = await createClient()
+  const listRes = await supabase.rpc('list_metering_points', { p_project_id: projectId })
+  if (listRes.error) {
+    if (isForbidden(listRes.error)) return { formError: FORBIDDEN }
+    console.error('[admin/dateneingabe] list_metering_points (PV-Profil):', listRes.error)
+    return { formError: GENERIC }
+  }
+
+  const point = readMeteringPointList(listRes.data)?.find(
+    (candidate) => candidate.id === meteringPointId,
+  )
+  if (!point) {
+    return {
+      formError:
+        'Diesen Zählpunkt gibt es nicht (mehr). Die Datei ist im Projekt abgelegt, aber keinem ' +
+        'Zählpunkt zugeordnet. Bitte laden Sie die Seite neu.',
+    }
+  }
+
+  /*
+   * Die Lücken als Seiteneintrag, die vier Skalare über `setDraftField` — beides in EINEM Objekt
+   * und damit in EINEM Schreibvorgang (s. Kopf).
+   *
+   * `measured`: jede dieser Angaben ist aus der Datei GELESEN, nicht geschätzt. Eine Notiz gibt es
+   * nicht — sie ist für Schätzungen da („geschätzt aus 3 Personen"), und eine Ablesung braucht
+   * keine Begründung.
+   */
+  let nextDraft = withPvProfileGaps(point.draft, scan.gaps)
+  const now = new Date()
+  for (const { field, value } of pvProfileDraftValues(scan, upload.documentId)) {
+    nextDraft = setDraftField(nextDraft, field, value, 'measured', undefined, now)
+  }
+
+  const draftRes = await supabase.rpc('update_metering_point_draft', {
+    p_metering_point_id: meteringPointId,
+    // Zusicherung wie in den übrigen Entwurf-Schreibwegen: zur Laufzeit dasselbe.
+    p_draft: nextDraft as Json,
+  })
+
+  if (draftRes.error) {
+    if (isForbidden(draftRes.error)) return { formError: FORBIDDEN }
+    console.error('[admin/dateneingabe] update_metering_point_draft (PV-Profil):', draftRes.error)
+    return { formError: GENERIC }
+  }
+  if (statusOf(draftRes.data) !== 'ok') {
+    console.error('[admin/dateneingabe] unerwartete Antwort (PV-Profil):', draftRes.data)
+    return { formError: GENERIC }
+  }
+
+  // ⚠ Ohne das bliebe die Zusammenfassung unsichtbar — s. die Begründung beim Lastgang-Upload.
+  revalidatePath(projectDataEntryHref(projectId))
+
+  return { success: 'Erzeugungsprofil eingelesen und gespeichert.' }
 }

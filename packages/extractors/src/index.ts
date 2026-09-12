@@ -141,6 +141,16 @@ export { MAX_LOAD_PROFILE_FILE_BYTES } from './load-profile/limits'
 export { readLoadProfile, type LoadProfileOutcome } from './load-profile/extract'
 
 /*
+ * ── PV-Erzeugungs-Leser (B24, Teil 1 — der Ja-Zweig der PV-Station) ───────────────────────────
+ * Der ZWEITE Extraktor ohne Modellaufruf und aus denselben Gruenden wie der Lastgang-Leser
+ * darueber: EIN Ausgang fuer alles, was ein Kundendokument liest — die LESE-Logik bleibt in
+ * `packages/engine/src/parser/metadata.ts`, weil sie isomorph bleiben muss (der oeffentliche
+ * Rechner liest ein PV-Profil im Browser, Prinzip 4).
+ */
+export { MAX_PV_PROFILE_FILE_BYTES } from './pv-profile/limits'
+export { readPvProfile, type PvProfileOutcome } from './pv-profile/extract'
+
+/*
  * ── Standardprofil-Erzeuger (B24, Teil 1 — der „Nein"-Zweig des Lastgang-Schritts) ────────────
  * ⚠ DIE ZWEITE benannte Ausweitung des Zuschnitts, und sie braucht eine EIGENE Begruendung: der
  * Lastgang-Leser darueber ist damit gerechtfertigt, dass EIN Ausgang fuer alles gilt, was ein
