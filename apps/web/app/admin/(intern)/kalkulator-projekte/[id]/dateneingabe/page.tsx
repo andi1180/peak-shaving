@@ -7,6 +7,7 @@ import { DataEntryBattery } from '@/components/admin/data-entry-battery'
 import { DataEntryCountForm } from '@/components/admin/data-entry-count-form'
 import { DataEntryInvoice } from '@/components/admin/data-entry-invoice'
 import { DataEntryLoadProfile } from '@/components/admin/data-entry-load-profile'
+import { DataEntryPv } from '@/components/admin/data-entry-pv'
 import { DataEntrySegmentForm } from '@/components/admin/data-entry-segment-form'
 import { Button } from '@/components/ui/button'
 import { Container } from '@/components/ui/layout'
@@ -47,16 +48,18 @@ import { MAX_PROJECT_DOCUMENT_BYTES } from 'shared'
  * (Datei ablegen ODER Standardprofil aus dem Jahresverbrauch erzeugen — beide Zweige der Frage),
  * die RECHNUNGEN je Zählpunkt (PDFs ablegen, auslesen, den zusammengeführten Stand in den Entwurf
  * schreiben, oder die Werte von Hand eintragen) und seit der Batterie-Station die BESTEHENDE
- * ANLAGE je Zählpunkt (Freitext auslesen, Kenndaten in den Entwurf — oder die Frage nach einem
- * Speichervorschlag beantworten).
- * PLATZHALTER (Überschrift, ein Satz, Weiter): die zwei übrigen Stationen je Zählpunkt (PV, Tarif),
- * der KI-Check und die Abbruchprüfung. Jede bekommt ihren eigenen Auftrag; es gibt hier weiterhin
+ * ANLAGE je Zählpunkt (Freitext, Datenblatt oder Recherche auslesen, Kenndaten in den Entwurf —
+ * oder die Frage nach einem Speichervorschlag beantworten) und seit der PV-Station die ANTWORT auf
+ * „Gibt es bereits eine PV-Anlage?" (`hasPv`, beide Antworten werden gespeichert).
+ * PLATZHALTER (Überschrift, ein Satz, Weiter): die eine übrige Station je Zählpunkt (Tarif), der
+ * KI-Check und die Abbruchprüfung. Jede bekommt ihren eigenen Auftrag; es gibt hier weiterhin
  * bewusst keine Klassifizierung und keinen Fragenkatalog.
  *
- * ⚠ WAS AUCH IN DEN DREI ECHTEN SCHRITTEN UNGEBAUT BLEIBT: eine Spalten-Zuordnungs-UI für
+ * ⚠ WAS AUCH IN DEN VIER ECHTEN SCHRITTEN UNGEBAUT BLEIBT: eine Spalten-Zuordnungs-UI für
  * mehrdeutige Netzbetreiber-Exporte (solche Dateien werden benannt abgewiesen, statt geraten zu
- * werden), ein G-Profil für Kleingewerbe (Delta 8, auf Martin blockiert), ein Datenblatt-Upload für
- * die bestehende Batterie und eine Recherche nach Marke/Typ.
+ * werden), ein G-Profil für Kleingewerbe (Delta 8, auf Martin blockiert) — und der gesamte
+ * JA-ZWEIG der PV-Station: welches Erzeugungsprofil vorliegt, ob es gemessen oder geschätzt werden
+ * muss (PVGIS, B22), steht dort als Platzhalter.
  *
  * ── DIE POSITION STEHT IN DER URL, DIE REIHENFOLGE IM DATENBANKSTAND ───────────────────────────
  * `?station=…`. Weiter und Zurück sind gewöhnliche Links; die Seite wird bei jedem Schritt neu
@@ -259,6 +262,19 @@ export default async function AdminProjectDataEntryPage({
     return point ? { point, number: step.number } : null
   })()
 
+  /*
+   * Und dieselbe für die PV-Station — die VIERTE Ableitung derselben Form, und weiterhin bewusst
+   * keine verallgemeinerte: welcher Schritt gemeint ist, entscheidet die SCHRITT-KENNUNG, und die
+   * steht damit je Station im Klartext da (ausführlich bei `rechnung`).
+   */
+  const pv = (() => {
+    if (station.kind !== 'zaehlpunkt-schritt') return null
+    const step = station.meteringPoint
+    if (!step || step.step !== 'pv') return null
+    const point = meteringPoints[step.number - 1]
+    return point ? { point, number: step.number } : null
+  })()
+
   const segmentLabel = projectSegmentLabel(project.segment)
   const currentSegment = (PROJECT_SEGMENTS as readonly string[]).includes(project.segment ?? '')
     ? (project.segment as ProjectSegment)
@@ -364,10 +380,30 @@ export default async function AdminProjectDataEntryPage({
             />
           )}
 
+          {station.kind === 'zaehlpunkt-schritt' && pv !== null && (
+            /*
+              ⚠ SIE BEKOMMT KEINE GRÖSSENGRENZE, und das ist kein Vergessen: diese Station nimmt
+              gar keine Datei entgegen. Der Ja-Zweig (das Erzeugungsprofil) ist ein eigener
+              Bauabschnitt; eine hier schon hereingereichte Grenze wäre eine Zusage auf einen Weg,
+              den es nicht gibt.
+
+              `customerLabel` dagegen braucht sie: der Nein-Zweig bietet eine PV-Anfrage an, und
+              deren Betreff nennt das Projekt. Die Station kennt nur den Zählpunkt.
+            */
+            <DataEntryPv
+              projectId={project.id}
+              meteringPoint={pv.point}
+              meteringPointNumber={pv.number}
+              customerLabel={project.customer_label}
+              nextHref={next ? stationHref(project.id, next.id) : null}
+            />
+          )}
+
           {station.kind === 'zaehlpunkt-schritt' &&
             lastgang === null &&
             rechnung === null &&
-            batterie === null && (
+            batterie === null &&
+            pv === null && (
               <StationPlaceholder
                 note={`Hier wird später der Schritt „${station.title}" ausgefüllt.`}
               />
@@ -413,7 +449,8 @@ export default async function AdminProjectDataEntryPage({
             station.kind !== 'zaehlpunkte' &&
             lastgang === null &&
             rechnung === null &&
-            batterie === null && (
+            batterie === null &&
+            pv === null && (
               <Button asChild variant="primary" size="md">
                 <Link href={stationHref(project.id, next.id)}>Weiter: {next.title}</Link>
               </Button>

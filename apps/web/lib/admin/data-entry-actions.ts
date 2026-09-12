@@ -3,7 +3,7 @@
 /**
  * Die Server Actions des Dateneingabe-Wizards (B24, Teil 1).
  *
- * ── ⚠ ES WAREN GENAU ZWEI, JETZT SIND ES DREIZEHN ─────────────────────────────────────────────
+ * ── ⚠ ES WAREN GENAU ZWEI, JETZT SIND ES FÜNFZEHN ─────────────────────────────────────────────
  * Der ursprüngliche Zuschnitt nannte die Zahl ausdrücklich und begründete sie: die fünf Stationen
  * je Zählpunkt waren Platzhalter, und eine Action ohne Wirkung wäre ein Endpunkt, den man aufrufen
  * kann und der nichts tut. Genau diese Begründung fällt Station für Station weg.
@@ -23,20 +23,23 @@
  * zwei aus wie die sechste (`list_metering_points`, `update_metering_point_draft`) und löst keinen
  * abrechenbaren Aufruf aus: die verbliebenen Extraktionen liegen fertig im Entwurf.
  *
- * ⚠ ES SIND INZWISCHEN DREIZEHN (ausgezählt, nicht fortgeschrieben — der Satz stand bis zum
+ * ⚠ ES SIND INZWISCHEN FÜNFZEHN (ausgezählt, nicht fortgeschrieben — der Satz stand bis zum
  * 12.09.2026 auf „zehn" und war da bereits um zwei überholt). Die manuelle Tarifeingabe brachte
- * zwei dazu (Preisblatt nachschlagen, Werte übernehmen), die BATTERIE-Station VIER — und damit
- * gilt die Begründung auch für sie nicht mehr.
+ * zwei dazu (Preisblatt nachschlagen, Werte übernehmen), die BATTERIE-Station VIER, die
+ * PV-Station EINE — und damit gilt die Begründung auch für sie nicht mehr.
  *
- * ⚠ ZWEI DER DREIZEHN SCHREIBEN NICHTS UND LÖSEN TROTZDEM EINEN ABRECHENBAREN AUFRUF AUS:
+ * ⚠ ZWEI DER FÜNFZEHN SCHREIBEN NICHTS UND LÖSEN TROTZDEM EINEN ABRECHENBAREN AUFRUF AUS:
  * `extractBatteryTextFromAction` (ein Satz in eigenen Worten) und `scanBatterySpecAction` (ein
  * PDF-Datenblatt). Sie sind ZWEI Actions und nicht eine mit Weiche, weil sie verschiedene Eingaben
  * prüfen (Zeichenzahl gegen Medientyp und Dateigrösse) und verschiedene Extraktoren rufen — was
  * sie teilen, ist allein die Rückgabe: dieselben vier Formularwerte, die derselbe „Speichern"-Knopf
  * entgegennimmt.
  *
- * Die zwei übrigen Stationen (PV, Tarif) bleiben Platzhalter und haben weiterhin bewusst KEINE
- * Action; jede bekommt ihren eigenen Auftrag.
+ * ⚠ DIE PV-STATION IST DIE EINZIGE MIT GENAU EINER ACTION, und sie schreibt genau EIN Feld: die
+ * Ja/Nein-Antwort selbst. Was im Ja-Zweig folgt (das Erzeugungsprofil), ist ein eigener Auftrag.
+ * ⚠ Die eine übrige Station (Tarif) bleibt Platzhalter und hat weiterhin bewusst KEINE Action —
+ * die zwei `…Tariff…`-Actions gehören der RECHNUNGS-Station (ihrem Zweig für die Eingabe von Hand),
+ * nicht ihr.
  *
  * ── KEIN service_role, wie in jeder Admin-Action dieses Bereichs ────────────────────────────────
  * Alle NEUN Wrapper sind `authenticated`-only und prüfen selbst (die Rechnungs-Action kommt mit den
@@ -152,6 +155,7 @@ import {
   type StoredInvoiceExtraction,
 } from './invoice-extractions'
 import { readMeteringPointList } from './metering-points'
+import { PV_PRESENT_KEY } from './pv-draft'
 import {
   PROJECT_SEGMENTS,
   projectDataEntryHref,
@@ -1818,8 +1822,13 @@ export async function saveMeteringPointManualTariffAction(
  */
 
 /**
- * Der gemeinsame Schreibweg beider Batterie-Actions: Entwurf frisch lesen, Werte hineinfalten,
+ * Der gemeinsame Schreibweg in den Entwurf eines Zählpunkts: frisch lesen, Werte hineinfalten,
  * EINMAL schreiben.
+ *
+ * ⚠ ER HIESS BIS ZUR PV-STATION `writeBatteryDraft`, und der Name war schon damals zu eng: der
+ * Rumpf kennt keine Batterie, er faltet eine Liste von Feldern in den Entwurf. Mit der PV-Station
+ * hat er einen dritten Aufrufer, der mit Batterien nichts zu tun hat — umbenannt statt von dort
+ * aus einen `…BatteryDraft` zu rufen, was jeden Leser über die Zuständigkeit täuschte.
  *
  * ⚠ FRISCH LESEN IST PFLICHT, nicht Vorsicht: `update_metering_point_draft` ERSETZT den Entwurf
  * (bewusst — eine flache Verschmelzung könnte einen Schlüssel nie wieder entfernen). Wer einen
@@ -1832,7 +1841,7 @@ export async function saveMeteringPointManualTariffAction(
  *
  * @returns `null`, wenn geschrieben wurde — sonst der Fehlerzustand für das Formular.
  */
-async function writeBatteryDraft(
+async function writeMeteringPointDraftFields(
   projectId: string,
   meteringPointId: string,
   values: { field: string; value: DraftValue }[],
@@ -1906,7 +1915,7 @@ export async function saveMeteringPointBatteryChoiceAction(
   }
   const wants = answer === 'ja'
 
-  const failure = await writeBatteryDraft(
+  const failure = await writeMeteringPointDraftFields(
     projectId,
     meteringPointId,
     [{ field: BATTERY_RECOMMENDATION_KEY, value: wants }],
@@ -2011,7 +2020,7 @@ export async function extractBatteryTextFromAction(
  * ── DIE REIHENFOLGE ────────────────────────────────────────────────────────────────────────────
  *   1. alle gefüllten Felder prüfen (ein Fehler bricht VOR jedem Schreibvorgang ab — ein halb
  *      übernommenes Formular wäre der Zustand, den niemand nachvollziehen kann)
- *   2. Entwurf frisch lesen, Werte hineinfalten, EINMAL schreiben (`writeBatteryDraft`)
+ *   2. Entwurf frisch lesen, Werte hineinfalten, EINMAL schreiben (`writeMeteringPointDraftFields`)
  *
  * ── ⚠ `hasBattery: true` WIRD IMMER GESCHRIEBEN, AUCH OHNE EINE EINZIGE ZAHL ──────────────────
  * „Es gibt einen Speicher, die Kenndaten fehlen noch" ist eine Angabe und nicht dasselbe wie „dazu
@@ -2055,7 +2064,7 @@ export async function saveMeteringPointBatteryAction(
 
   if (Object.keys(fieldErrors).length > 0) return { fieldErrors }
 
-  const failure = await writeBatteryDraft(
+  const failure = await writeMeteringPointDraftFields(
     projectId,
     meteringPointId,
     values,
@@ -2424,4 +2433,60 @@ export async function lookupBatterySpecByModelAction(
    */
   values.sourceUrls = outcome.extraction.sourceUrls.join(' ')
   return { values }
+}
+
+/**
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * B24, Teil 1 — die PV-STATION: eine Frage, ein Feld, ein Schreibvorgang
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * „Haben Sie bereits eine PV-Anlage?" — und mehr tut dieser Schritt nicht. Was im Ja-Zweig folgt
+ * (welches Erzeugungsprofil vorliegt, ob es gemessen oder geschätzt werden muss), ist ein eigener
+ * Bauabschnitt; es gibt hier keinen Upload, keinen PVGIS-Aufruf und keinen Extraktor.
+ *
+ * ⚠ BEIDE ANTWORTEN WERDEN GESPEICHERT, und das ist der Unterschied zur Batterie-Station. Dort
+ * ist die Ja/Nein-Frage eine reine WEICHE in `useState` und erreicht keine Action; gespeichert
+ * wird, was die Zweige DAHINTER erheben. Hier gibt es dahinter (noch) nichts zu erheben — die
+ * Antwort selbst IST die Angabe. Als blosse Weiche geführt wäre sie nach jedem Neuladen weg, und
+ * die Station stellte dieselbe Frage erneut, obwohl sie beantwortet ist.
+ *
+ * ⚠ DESHALB IST `false` EIN ECHTER WERT UND KEIN FEHLENDER SCHLÜSSEL. „Nein, keine PV-Anlage" ist
+ * eine Aussage über den Betrieb und muss von „dazu wurde nichts gefragt" unterscheidbar bleiben —
+ * derselbe Grund wie bei `wantsBatteryRecommendation`.
+ *
+ * KEIN `redirect`: der Zustand soll sichtbar bleiben (Regel dieser Datei, s. Kopf) — der Weg nach
+ * vorn ist der „Weiter"-Knopf, den die Station selbst rendert.
+ *
+ * KEIN NEUER WRAPPER, KEINE MIGRATION: sie kommt mit denselben zweien aus wie die Batterie-Station
+ * (`list_metering_points`, `update_metering_point_draft`) und löst keinen abrechenbaren Aufruf aus.
+ */
+export async function saveMeteringPointPvChoiceAction(
+  _prev: AdminState,
+  formData: FormData,
+): Promise<AdminState> {
+  const projectId = readProjectId(formData)
+  if (projectId === null) return { formError: UNKNOWN_PROJECT }
+
+  const meteringPointId = String(formData.get('meteringPointId') ?? '')
+  if (!UUID.test(meteringPointId)) return { formError: GENERIC }
+
+  const answer = String(formData.get(PV_PRESENT_KEY) ?? '')
+  if (answer !== 'ja' && answer !== 'nein') {
+    // Erreichbar nur an den zwei Knöpfen vorbei — die schicken feste Werte.
+    return { formError: GENERIC }
+  }
+  const has = answer === 'ja'
+
+  const failure = await writeMeteringPointDraftFields(
+    projectId,
+    meteringPointId,
+    [{ field: PV_PRESENT_KEY, value: has }],
+    'PV-Anlage',
+  )
+  if (failure) return failure
+
+  return {
+    success: has
+      ? 'Vermerkt: Es gibt bereits eine PV-Anlage.'
+      : 'Vermerkt: Es gibt keine PV-Anlage.',
+  }
 }

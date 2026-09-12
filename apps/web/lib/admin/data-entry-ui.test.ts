@@ -219,7 +219,7 @@ describe('B24 — Verlinkung und Abgrenzung', () => {
   })
 })
 
-describe('B24 — der Lastgang-Schritt ist echt, die vier übrigen bleiben Platzhalter', () => {
+describe('B24 — der Lastgang-Schritt ist echt, der Tarif-Schritt bleibt Platzhalter', () => {
   const source = read(DATA_ENTRY_PAGE)
 
   it('⚠ erkennt die Station an der SCHRITT-KENNUNG, nicht am Titel oder an der Position', () => {
@@ -254,7 +254,16 @@ describe('B24 — der Lastgang-Schritt ist echt, die vier übrigen bleiben Platz
     expect(source).not.toContain('MAX_LOAD_PROFILE_FILE_BYTES')
   })
 
-  it('lässt die vier übrigen Zählpunkt-Schritte unverändert Platzhalter', () => {
+  it('lässt den übrigen Zählpunkt-Schritt unverändert Platzhalter', () => {
+    /*
+     * ⚠ DIE ZAHL IM NAMEN DIESES WÄCHTERS IST GEWANDERT: beim Lastgang-Schritt waren es VIER
+     * übrige, seit der PV-Station ist es EINER (der Tarif). Die Prüfung selbst bleibt dieselbe —
+     * sie hält fest, dass der Platzhalter-Zweig überhaupt noch existiert; welche Stationen er
+     * abdeckt, prüfen die Wächter der jeweiligen Station (je ein `… === null` in seiner
+     * Bedingung). Ein Name, der vier Platzhalter behauptet, wo einer steht, ist schlimmer als
+     * keiner: er lässt den nächsten Leser drei Stationen suchen, die es als Platzhalter nicht
+     * mehr gibt.
+     */
     expect(source).toContain('StationPlaceholder')
   })
 
@@ -530,6 +539,20 @@ describe('B24 — die Station unterscheidet die Herkunft der Verbrauchsgrundlage
  * Bedingung dafür (die Lese-Action schreibt nichts, die Speicher-Action nimmt dieselben Werte),
  * nicht das Zurücksetzen selbst.
  */
+/**
+ * Die Bedingung, unter der der Platzhalter-Zweig der Zählpunkt-Stationen rendert.
+ *
+ * ⚠ AUSGESCHNITTEN STATT WÖRTLICH VERGLICHEN, und das ist eine Lehre aus dem PV-Schritt: die
+ * Wächter prüften bis dahin `'batterie === null && ('` — also die Bedingung MITSAMT ihrer Stellung
+ * als letzte. Mit der PV-Station rückte eine weitere dahinter, und der Test wurde rot, obwohl die
+ * Aussage („dieser Zweig deckt die Station nicht mehr mit ab") unverändert stimmte. Geprüft wird
+ * deshalb, ob der Ausschluss IN der Bedingung steht, nicht wo.
+ */
+function placeholderCondition(page: string): string {
+  const start = page.indexOf("{station.kind === 'zaehlpunkt-schritt' &&")
+  return page.slice(start, page.indexOf('<StationPlaceholder', start))
+}
+
 const BATTERY_STATION = path.join(COMPONENTS_DIR, 'admin', 'data-entry-battery.tsx')
 /*
  * ⚠ SEIT DER AUFTEILUNG LIEGT JEDE QUELLE IN EINER EIGENEN DATEI. Die Station hält weiterhin die
@@ -635,7 +658,7 @@ describe('B24 — die Batterie-Station', () => {
     const weiter = page.slice(page.indexOf('{previous &&'))
     expect(weiter).toContain('batterie === null')
     // Der Platzhalter-Zweig darf die Station nicht mehr mit abdecken.
-    expect(page).toContain('batterie === null && (')
+    expect(placeholderCondition(page)).toContain('batterie === null')
   })
 
   /*
@@ -702,5 +725,142 @@ describe('B24 — die Batterie-Station', () => {
     const text = hint.slice(0, hint.indexOf('</FieldHint>'))
     expect(text).toContain('im Projekt abgelegt wird es')
     expect(text).toContain('nicht gespeichert')
+  })
+})
+
+/**
+ * B24, Teil 1 — die PV-Station.
+ *
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * ⚠ DER GEGENSTAND: DIE ANTWORT IST EINE ANGABE, KEINE WEICHE
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * Die drei Stationen davor tragen ihre Ja/Nein-Frage in `useState` — dort steht hinter jedem Zweig
+ * etwas, das erhoben wird, und die Frage ist bloss der Weg dorthin. Hier gibt es hinter dem
+ * Nein-Zweig nichts zu erheben: bliebe die Antwort im lokalen Zustand, wäre sie nach jedem
+ * Neuladen weg, und die Station stellte dieselbe Frage erneut.
+ *
+ * Der Griff daneben ist deshalb ein `useState` für die Antwort ODER ein lokaler Zustand NEBEN dem
+ * Entwurf. Beides sähe im Browser zunächst richtig aus — der Unterschied zeigt sich erst beim
+ * Neuladen bzw. dann, wenn der Schreibvorgang scheitert.
+ *
+ * Reine Quelltextprüfung: `apps/web` hat kein Renderer-Setup (`vitest.config.ts` schliesst
+ * `components/**` aus). Der Durchstich „Nein speichern → Nein-Zweig" liegt als Verhaltenstest in
+ * `data-entry-actions.test.ts` (die Action schreibt `hasPv: false`) und in `pv-draft.test.ts` (der
+ * Leser macht daraus den Nein-Zweig); hier steht die Verdrahtung dazwischen.
+ */
+const PV_STATION = path.join(COMPONENTS_DIR, 'admin', 'data-entry-pv.tsx')
+
+describe('B24 — die PV-Station', () => {
+  const source = read(PV_STATION)
+  const page = read(DATA_ENTRY_PAGE)
+  const draftModule = read(path.resolve(import.meta.dirname, 'pv-draft.ts'))
+  const actions = read(path.resolve(import.meta.dirname, 'data-entry-actions.ts'))
+
+  it('⚠ leitet den Zweig AUSSCHLIESSLICH aus dem Entwurf ab, nicht aus lokalem Zustand', () => {
+    /*
+     * Ein `useState` daneben (etwa als optimistische Vorwegnahme) könnte von dem abweichen, was
+     * wirklich gespeichert ist — genau dann, wenn der Schreibvorgang scheitert: die Oberfläche
+     * zeigte einen beantworteten Zweig, und im Entwurf stünde nichts.
+     */
+    expect(source).toContain('readPvDraft(meteringPoint.draft)')
+    expect(source).not.toContain('useState')
+  })
+
+  it('⚠ beide Antworten werden GESPEICHERT — die Frage ist keine Weiche', () => {
+    // Zwei Absendeknöpfe mit `name`/`value` statt einer Ankreuzmöglichkeit: „nein" muss von
+    // „dazu wurde nichts gefragt" unterscheidbar bleiben, und nicht angehakt hiesse beides.
+    expect(source).toContain('name={PV_PRESENT_KEY}')
+    expect(source).toContain("value=\"ja\"")
+    expect(source).toContain("value=\"nein\"")
+    expect(source).not.toContain('type="checkbox"')
+    expect(source).not.toContain('type="radio"')
+    // Und der Feldname kommt aus dem Entwurfs-Modul, nicht als getippte Zeichenkette.
+    expect(source).not.toContain("name=\"hasPv\"")
+  })
+
+  it('⚠ die Frage bleibt stehen, auch wenn sie beantwortet ist', () => {
+    /*
+     * Es gibt für diese Angabe KEINEN Entfernen-Weg. Wer versehentlich „Ja" trifft, muss „Nein"
+     * nachlegen können — eine Frage, die nach der ersten Antwort verschwindet, wäre eine
+     * Sackgasse. Welche Antwort gilt, steht an den Knöpfen (`aria-pressed`).
+     */
+    const question = source.indexOf('Haben Sie bereits eine PV-Anlage')
+    expect(question).toBeGreaterThan(-1)
+    // Die Frage steht VOR beiden Zweigen, hängt also an keiner Bedingung.
+    expect(question).toBeLessThan(source.indexOf('{hasPv === true &&'))
+    expect(source).toContain('aria-pressed={hasPv === true}')
+    expect(source).toContain('aria-pressed={hasPv === false}')
+  })
+
+  it('⚠ der Weiter-Knopf erscheint, sobald IRGENDEINE Antwort vorliegt', () => {
+    /*
+     * Nicht nur bei „ja": auch „es gibt keine PV-Anlage" ist eine vollständige Antwort auf diese
+     * Station. Hinge er an `hasPv === true`, käme ein Kunde ohne PV hier nicht weiter — und die
+     * Station wäre ausgerechnet für den Regelfall eine Sackgasse.
+     */
+    const weiter = source.slice(source.indexOf('{nextHref !== null &&'))
+    expect(weiter).toContain("variant={hasPv === null ? 'secondary' : 'primary'}")
+    expect(weiter).not.toContain('hasPv === true')
+  })
+
+  it('⚠ der Nein-Zweig nennt die Adresse aus COMPANY, nicht als getippte Zweitfassung', () => {
+    // `lib/nav.ts` ist der EINE Fundort der Kontaktdaten — eine hier getippte Adresse zeigte nach
+    // einem Postfachwechsel still ins alte Postfach.
+    expect(source).toContain('COMPANY.email')
+    expect(source).not.toContain('@coolin.at')
+    // Der Betreff nennt das Projekt und wird kodiert (ein Projektname darf Sonderzeichen tragen).
+    expect(source).toContain('encodeURIComponent')
+    expect(source).toContain('PV-Planung')
+  })
+
+  it('⚠ erhebt NICHTS über die Erzeugung — kein Upload, kein PVGIS, kein Extraktor', () => {
+    /*
+     * Der Ja-Zweig ist ein benannter Platzhalter. Ein Dateifeld oder ein Abruf hier wäre eine
+     * Aussage über eine Kurve, die niemand hochgeladen hat — und der Platzhalter sagt das im
+     * Klartext, statt wie ein fertiger Schritt auszusehen.
+     */
+    expect(source).not.toContain("type=\"file\"")
+    expect(source).not.toContain('pvgis')
+    expect(source).not.toContain('PvProfile')
+    expect(source).not.toContain('maxBytes')
+    const ja = source.slice(source.indexOf('{hasPv === true &&'))
+    expect(ja.slice(0, ja.indexOf('</div>'))).toContain('eigener\n            Bauabschnitt')
+  })
+
+  it('⚠ das Entwurfs-Modul ist rein — die Client-Komponente importiert davon', () => {
+    // Ein `server-only` oder ein Supabase-Client dort bräche den Build der Station.
+    expect(draftModule).not.toContain("'server-only'")
+    expect(draftModule).not.toContain('@/lib/supabase')
+    expect(draftModule).not.toContain('next/')
+  })
+
+  it('⚠ die Seite erkennt die Station an der SCHRITT-KENNUNG und unterdrückt ihren Weiter-Link', () => {
+    expect(page).toContain("step.step !== 'pv'")
+    expect(page).toContain('DataEntryPv')
+    const weiter = page.slice(page.indexOf('{previous &&'))
+    expect(weiter).toContain('pv === null')
+    // Der Platzhalter-Zweig darf die Station nicht mehr mit abdecken.
+    expect(placeholderCondition(page)).toContain('pv === null')
+  })
+
+  it('⚠ reicht `customerLabel` herein und KEINE Grössengrenze', () => {
+    const branch = page.slice(page.indexOf('<DataEntryPv'))
+    const close = branch.slice(0, branch.indexOf('/>'))
+    // Der Betreff der PV-Anfrage nennt das Projekt; die Station kennt nur den Zählpunkt.
+    expect(close).toContain('customerLabel={project.customer_label}')
+    // Eine Grenze wäre eine Zusage auf einen Upload-Weg, den es hier nicht gibt.
+    expect(close).not.toContain('maxBytes')
+  })
+
+  it('⚠ die Action schreibt GENAU EIN Feld und leitet NICHT um', () => {
+    const action = actions.slice(actions.indexOf('export async function saveMeteringPointPvChoiceAction'))
+    const body = action.slice(0, action.indexOf('\n}\n'))
+    // Ein Feld, ein Schreibvorgang — der Wrapper ERSETZT den Entwurf.
+    expect(body).toContain('[{ field: PV_PRESENT_KEY, value: has }]')
+    /*
+     * Kein `redirect`: der gespeicherte Stand ist das Einzige, was ein Mensch hier prüfen kann.
+     * Eine Weiterleitung nähme ihm genau die Bestätigung, die er gerade ausgelöst hat.
+     */
+    expect(body).not.toContain('redirect(')
   })
 })
