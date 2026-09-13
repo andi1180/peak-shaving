@@ -91,6 +91,7 @@ const {
   saveMeteringPointBatteryAction,
   saveMeteringPointBatteryChoiceAction,
   saveMeteringPointManualTariffAction,
+  saveMeteringPointPvArrayAction,
   saveMeteringPointPvChoiceAction,
   uploadMeteringPointInvoicesAction,
   uploadMeteringPointPvProfileAction,
@@ -1474,6 +1475,137 @@ describe('uploadMeteringPointPvProfileAction — die Erzeugungsreihe', () => {
     expect((await uploadMeteringPointPvProfileAction({}, badPoint)).formError).toBeDefined()
 
     expect(uploadProjectDocument).not.toHaveBeenCalled()
+    expect(rpc).not.toHaveBeenCalled()
+  })
+})
+
+
+describe('saveMeteringPointPvArrayAction — die Modulflächen sind eine LISTE', () => {
+  /** Ein bereits gelesener Stand, wie ihn die Rechnungs-Station hinterlässt. */
+  const EXISTING = {
+    energyPriceCtPerKwh: 24.5,
+    _provenance: {
+      energyPriceCtPerKwh: { source: 'measured', at: '2026-09-01T10:00:00.000Z' },
+    },
+  }
+
+  /** Genau das, was das Formular sendet: alle drei Felder, auch die leeren. */
+  function arrayForm(fields: Record<string, string> = {}): FormData {
+    const fd = new FormData()
+    fd.set('projectId', PROJECT_ID)
+    fd.set('meteringPointId', POINT_ID)
+    for (const key of ['peakPowerKwp', 'slopeDeg', 'direction']) fd.set(key, '')
+    for (const [key, value] of Object.entries(fields)) fd.set(key, value)
+    return fd
+  }
+
+  /** Die gespeicherten Flächen aus dem zuletzt geschriebenen Entwurf — roh, nicht über den Leser. */
+  function storedArrays(): Record<string, unknown>[] {
+    const raw = draft._pvArrays
+    return Array.isArray(raw) ? (raw as Record<string, unknown>[]) : []
+  }
+
+  beforeEach(() => {
+    draft = { ...EXISTING }
+    withInvoiceWrappers()
+  })
+
+  it('⚠ DIE ZUSAGE DIESES SCHRITTS: der zweite Klick HÄNGT AN, er überschreibt nicht', async () => {
+    const first = await saveMeteringPointPvArrayAction(
+      {},
+      arrayForm({ peakPowerKwp: '4,25', slopeDeg: '30', direction: 'SO' }),
+    )
+
+    expect(first.formError).toBeUndefined()
+    expect(first.fieldErrors).toBeUndefined()
+    expect(first.success).toContain('eine Fläche')
+    expect(storedArrays()).toEqual([
+      { peakPowerKwp: 4.25, direction: 'SO', slopeDeg: 30 },
+    ])
+
+    const second = await saveMeteringPointPvArrayAction(
+      {},
+      arrayForm({ peakPowerKwp: '5,95', slopeDeg: '35', direction: 'SW' }),
+    )
+
+    expect(second.formError).toBeUndefined()
+    expect(second.success).toContain('2 Flächen')
+
+    /*
+     * ⚠ DER EIGENTLICHE WÄCHTER. Im vorigen, skalaren Stand stand hier nach dem zweiten Klick
+     * GENAU EIN Wert — der zweite hatte den ersten überschrieben, und die geschätzte Erzeugung
+     * fiele um die erste Fläche zu niedrig aus, ohne dass eine Zahl deswegen falsch aussähe.
+     */
+    expect(storedArrays()).toEqual([
+      { peakPowerKwp: 4.25, direction: 'SO', slopeDeg: 30 },
+      { peakPowerKwp: 5.95, direction: 'SW', slopeDeg: 35 },
+    ])
+
+    // Die alten Skalar-Schlüssel entstehen nicht mehr — sonst stünden zwei Wahrheiten nebeneinander.
+    expect(draft).not.toHaveProperty('pvArrayPeakPowerKwp')
+    expect(draft).not.toHaveProperty('pvArrayDirection')
+    expect(draft).not.toHaveProperty('pvArraySlopeDeg')
+
+    // Der Bestand der Rechnungs-Station bleibt unberührt.
+    expect(draft.energyPriceCtPerKwh).toBe(EXISTING.energyPriceCtPerKwh)
+
+    // Je Klick GENAU EIN Schreibvorgang — der Wrapper ERSETZT, zwei nähmen einander die Arbeit weg.
+    expect(rpc.mock.calls.filter(([fn]) => fn === 'update_metering_point_draft')).toHaveLength(2)
+    expect(revalidatePath).toHaveBeenCalledTimes(2)
+  })
+
+  it('ein leeres Feld fehlt DIESER Fläche — es wird als `null` geführt, nicht weggelassen', async () => {
+    const state = await saveMeteringPointPvArrayAction({}, arrayForm({ peakPowerKwp: '9,8' }))
+
+    expect(state.formError).toBeUndefined()
+    /*
+     * ⚠ Bewusst anders als im skalaren Stand: dort liess ein leeres Feld einen bereits erfassten
+     * Wert stehen. Hier entsteht ein NEUER Eintrag, für den es nichts zu schonen gibt — die Fläche
+     * gibt es, diese eine Angabe zu ihr fehlt.
+     */
+    expect(storedArrays()).toEqual([{ peakPowerKwp: 9.8, direction: null, slopeDeg: null }])
+  })
+
+  it('ohne eine einzige Angabe wird NICHTS angehängt und nichts geschrieben', async () => {
+    const state = await saveMeteringPointPvArrayAction({}, arrayForm())
+
+    expect(state.formError).toBe('Bitte mindestens eine Angabe eintragen.')
+    expect(rpc).not.toHaveBeenCalled()
+    expect(draft).toEqual(EXISTING)
+  })
+
+  it('ein unbrauchbarer Wert bricht VOR dem Schreiben ab — und lässt die Liste unberührt', async () => {
+    await saveMeteringPointPvArrayAction({}, arrayForm({ peakPowerKwp: '4,25' }))
+    const before = JSON.parse(JSON.stringify(storedArrays()))
+    rpc.mockClear()
+
+    const state = await saveMeteringPointPvArrayAction(
+      {},
+      arrayForm({ peakPowerKwp: '5,95', slopeDeg: '999' }),
+    )
+
+    expect(state.fieldErrors?.slopeDeg).toBeDefined()
+    expect(state.success).toBeUndefined()
+    expect(rpc).not.toHaveBeenCalled()
+    expect(storedArrays()).toEqual(before)
+  })
+
+  it('eine unbekannte Himmelsrichtung wird BENANNT, nicht still verworfen', async () => {
+    const state = await saveMeteringPointPvArrayAction(
+      {},
+      arrayForm({ peakPowerKwp: '4,25', direction: 'nord-nord-ost' }),
+    )
+
+    expect(state.fieldErrors?.direction).toBe('Diese Himmelsrichtung kennen wir nicht.')
+    expect(rpc).not.toHaveBeenCalled()
+    expect(draft).toEqual(EXISTING)
+  })
+
+  it('weist eine formverletzende Kennung ab, ohne die Datenbank zu fragen', async () => {
+    const bad = arrayForm({ peakPowerKwp: '4,25' })
+    bad.set('meteringPointId', 'kein-uuid')
+
+    expect((await saveMeteringPointPvArrayAction({}, bad)).formError).toBeDefined()
     expect(rpc).not.toHaveBeenCalled()
   })
 })

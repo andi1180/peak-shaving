@@ -1,12 +1,25 @@
 /**
- * Die PV-ANLAGENDATEN im Entwurf eines Zählpunkts (B24, Teil 1).
+ * Die PV-ANLAGENDATEN im Entwurf eines Zählpunkts (B24, Teil 1) — als LISTE von Flächen.
+ *
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * ⚠ SEIT DIESEM SCHRITT EINE LISTE, VORHER DREI SKALARE FELDER
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * Eine Anlage hat oft mehrere Modulflächen (Ost/West, Vorbau, ein nachträglich belegter Nebendach),
+ * und der Generator (B22) rechnet PRO Fläche und summiert — eine einzige erfasste Fläche
+ * unterschätzte die Erzeugung systematisch, und zwar still: die Zahl im Report sähe deswegen nicht
+ * falsch aus. Genau deshalb war die bisherige Fassung (drei Skalarfelder, jeder zweite Klick
+ * überschreibt den ersten) der gefährlichere Zustand.
+ *
+ * Der Seiteneintrag `_pvArrays` folgt demselben Muster wie `_invoiceExtractions` (Rechnung-Station):
+ * eine Liste gehört nicht über `setDraftField` (das kennt nur `number | string | boolean`), sondern
+ * per direkter Objektzuweisung — hier über `withPvArrays`.
  *
  * ── ⚠ WARUM DAS EIN EIGENES MODUL IST ─────────────────────────────────────────────────────────
  * Dieselben zwei Konsumenten mit entgegengesetzter Richtung wie bei `battery-draft.ts`,
- * `pv-draft.ts` und `pv-profile-draft.ts`: die Server Action SCHREIBT die Felder, die Station LIEST
- * sie für ihre Zusammenfassung. Zweimal ausgeschrieben liefe eine Umbenennung an einer der beiden
- * vorbei — und zwar still: gespeichert würde unter dem neuen Namen, angezeigt der alte, und die
- * Station behauptete, es sei nichts erfasst.
+ * `pv-draft.ts` und `pv-profile-draft.ts`: die Server Action SCHREIBT, die Station LIEST für ihre
+ * Zusammenfassung. Zweimal ausgeschrieben liefe eine Umbenennung an einer der beiden vorbei — und
+ * zwar still: gespeichert würde unter dem neuen Namen, angezeigt der alte, und die Station
+ * behauptete, es sei nichts erfasst.
  *
  * ── ⚠ ES IST NICHT `pv-draft.ts`, UND DAS IST EINE ABGRENZUNG ────────────────────────────────
  * Dort steht GENAU EINE Angabe: „gibt es überhaupt eine PV-Anlage?" — die Antwort auf die Frage der
@@ -18,13 +31,14 @@
  * `packages/extractors` (das ist `server-only` und bräche den Build der Client-Komponente). Die
  * Client-Komponente importiert von hier.
  *
- * ── ⚠ KEINES DIESER FELDER IST EIN `tariffParamsSchema`-FELD, UND DAS IST IN ORDNUNG ──────────
- * Wortgleich zu den drei Entwurfs-Modulen daneben: der Entwurf ist eine Sammlung von Angaben, nicht
- * das Contract-Objekt selbst; `tariffParamsSchema` ist ein gewöhnliches `z.object` OHNE `.strict()`,
- * zod entfernt unbekannte Schlüssel beim Auswerten und meldet keinen Fehler (in `draft.test.ts`
- * gemessen). ⚠ Folge: `check_draft_completeness` führt sie als `unknown_fields` — sie zählen nicht
- * zur Vollständigkeit des Tarif-Contracts. Die PV-Seite läuft ohnehin ausserhalb von `TariffParams`
- * (`PvProfile` in `packages/shared`).
+ * ── ⚠ DER SEITENEINTRAG IST KEIN `tariffParamsSchema`-FELD, UND DAS IST IN ORDNUNG ────────────
+ * Wortgleich zu `_invoiceExtractions` und `_provenance`: der Entwurf wird gegen `tariffParamsSchema`
+ * geprüft, sobald er die Engine erreicht; das ist ein gewöhnliches `z.object` OHNE `.strict()`, zod
+ * entfernt unbekannte Schlüssel beim Auswerten und meldet keinen Fehler (in `draft.test.ts`
+ * gemessen, nicht angenommen). ⚠ AUFLAGE, wortgleich zur dortigen: der Schlüssel darf nie zu einem
+ * Contract-Feldnamen werden — `pvArraysKeyCollidesWithContract()` macht daraus eine Prüfung statt
+ * einer Hoffnung. Die PV-Seite läuft ohnehin ausserhalb von `TariffParams` (`PvProfile` in
+ * `packages/shared`).
  *
  * ── ⚠ WAS HIER NICHT STEHT: DIE GRADZAHL ─────────────────────────────────────────────────────
  * `pvDesignArrayPrefill` (`packages/shared`) liefert neben den drei Werten auch `compassDeg`,
@@ -42,26 +56,29 @@ import {
   COMPASS_DIRECTIONS,
   MAX_ARRAY_PEAK_POWER_KWP,
   MAX_PV_ARRAY_SLOPE_DEG,
+  tariffParamsSchema,
   type CompassDirection,
   type PvArrayTextExtraction,
   type PvDesignArrayPrefill,
 } from 'shared'
 
-/** Nennleistung der Modulfläche in kWp. */
-export const PV_ARRAY_PEAK_POWER_KWP_KEY = 'pvArrayPeakPowerKwp'
+/** Der Seiteneintrag mit den erfassten Flächen — eine Liste, deshalb nicht über `setDraftField`. */
+export const PV_ARRAYS_KEY = '_pvArrays'
 
-/** Himmelsrichtung der Modulfläche — eine der acht Kennungen aus `COMPASS_DIRECTIONS`. */
-export const PV_ARRAY_DIRECTION_KEY = 'pvArrayDirection'
-
-/** Neigung gegen die Horizontale in Grad. */
-export const PV_ARRAY_SLOPE_DEG_KEY = 'pvArraySlopeDeg'
+/** Eine erfasste Modulfläche, wie sie im Entwurf steht. */
+export type PvArrayEntry = {
+  peakPowerKwp: number | null
+  direction: CompassDirection | null
+  slopeDeg: number | null
+}
 
 /**
- * Die zwei ZAHLEN-Kenndaten — Entwurfs-Schlüssel, Formularfeld und Beschriftung an EINEM Ort.
+ * Die zwei ZAHLEN-Kenndaten — Formularfeld-Name und Beschriftung an EINEM Ort.
  *
- * ⚠ `field` trägt die Vorsilbe `pvArray`, `form` nicht: im FORMULAR ist der Zusammenhang durch die
- * Überschrift gegeben, im ENTWURF steht die Angabe neben Tarif-, Lastgang- und Batteriefeldern und
- * muss für sich sprechen (dieselbe Aufteilung wie in `battery-draft.ts`).
+ * ⚠ SIE BESCHREIBEN AB JETZT EIN FORMULARFELD, NICHT MEHR EINEN ENTWURFS-SCHLÜSSEL. Den gibt es
+ * pro Feld nicht mehr: die Werte leben in einem Listen-Eintrag (`PvArrayEntry`), und dessen
+ * Schlüssel sind genau diese Formularnamen. Das frühere `field` (`pvArrayPeakPowerKwp` &c.) ist
+ * damit ersatzlos entfallen.
  *
  * ⚠ DIE SCHRANKE AUF `form` BINDET DAS FELD AN BEIDE QUELLEN: `PvArrayTextExtraction` (der Satz in
  * eigenen Worten) UND `PvDesignArrayPrefill` (das ausgelesene Datenblatt). Wer in einem der beiden
@@ -73,7 +90,6 @@ export const PV_ARRAY_SLOPE_DEG_KEY = 'pvArraySlopeDeg'
  */
 export const PV_ARRAY_NUMBER_FIELDS = [
   {
-    field: PV_ARRAY_PEAK_POWER_KWP_KEY,
     form: 'peakPowerKwp',
     label: 'Nennleistung',
     unit: 'kWp',
@@ -82,7 +98,6 @@ export const PV_ARRAY_NUMBER_FIELDS = [
     hint: 'Die Leistung der MODULE, nicht die des Wechselrichters und nicht der Jahresertrag.',
   },
   {
-    field: PV_ARRAY_SLOPE_DEG_KEY,
     form: 'slopeDeg',
     label: 'Neigung',
     unit: '°',
@@ -92,8 +107,7 @@ export const PV_ARRAY_NUMBER_FIELDS = [
     hint: 'In Grad gegen die Waagrechte (0 = flach, 90 = senkrecht). Eine Dachneigung in Prozent ist eine andere Zahl.',
   },
 ] as const satisfies readonly {
-  field: string
-  form: keyof PvArrayTextExtraction & keyof PvDesignArrayPrefill
+  form: keyof PvArrayTextExtraction & keyof PvDesignArrayPrefill & keyof PvArrayEntry
   label: string
   unit: string
   /** Untergrenze, wo 0 eine Angabe ist — sonst `undefined` („grösser als 0"). */
@@ -111,7 +125,8 @@ export type PvArrayNumberField = (typeof PV_ARRAY_NUMBER_FIELDS)[number]
  * nur nicht in ihrer Tabelle, weil er kein Zahlenfeld ist und über keine Zahlenprüfung laufen darf.
  */
 export const PV_ARRAY_DIRECTION_FORM_FIELD = 'direction' satisfies keyof PvArrayTextExtraction &
-  keyof PvDesignArrayPrefill
+  keyof PvDesignArrayPrefill &
+  keyof PvArrayEntry
 
 /** Ist dies eine der acht bekannten Himmelsrichtungen? Für Formular UND Entwurfs-Leser. */
 export function isCompassDirection(value: unknown): value is CompassDirection {
@@ -151,31 +166,71 @@ export function parsePvArrayNumber(
   return value
 }
 
-/** Was im Entwurf eines Zählpunkts an PV-Anlagendaten steht. */
-export type PvArrayDraftSummary = {
-  /** Die erfassten Zahlen, in der Reihenfolge von `PV_ARRAY_NUMBER_FIELDS`. */
-  values: { field: string; label: string; unit: string; value: number }[]
-  /** Die erfasste Himmelsrichtung, oder `null`. */
-  direction: CompassDirection | null
-}
+/**
+ * Die Flächen aus dem Seiteneintrag.
+ *
+ * ⚠ DEFENSIV WIE JEDER `jsonb`-LESER DIESES REPOS. Der Typ ist eine Behauptung über das, was die
+ * Action einmal geschrieben hat; die Spalte nimmt alles an. Ein Wert, der keine endliche Zahl bzw.
+ * keine bekannte Himmelsrichtung ist, wird zu `null` — damit kann ein von Hand verändertes `jsonb`
+ * hier keine Angabe erfinden.
+ *
+ * ⚠ Eine Zeile, in der ALLE DREI Werte fehlen, wird ÜBERSPRUNGEN: sie wäre keine Fläche, sondern
+ * ein leerer Eintrag, der nie hätte entstehen dürfen — in der Zusammenfassung erschiene sie als
+ * „Fläche 2" ohne eine einzige Angabe und sähe aus wie ein Datenverlust.
+ */
+export function readPvArraysDraft(draft: Record<string, unknown>): PvArrayEntry[] {
+  const raw = draft[PV_ARRAYS_KEY]
+  if (!Array.isArray(raw)) return []
 
-export function readPvArrayDraft(draft: Record<string, unknown>): PvArrayDraftSummary {
-  const values: PvArrayDraftSummary['values'] = []
-  for (const entry of PV_ARRAY_NUMBER_FIELDS) {
-    const value = draft[entry.field]
-    if (typeof value !== 'number' || !Number.isFinite(value)) continue
-    values.push({ field: entry.field, label: entry.label, unit: entry.unit, value })
+  const out: PvArrayEntry[] = []
+  for (const entry of raw) {
+    if (typeof entry !== 'object' || entry === null || Array.isArray(entry)) continue
+    const row = entry as Record<string, unknown>
+    const peakPowerKwp =
+      typeof row.peakPowerKwp === 'number' && Number.isFinite(row.peakPowerKwp)
+        ? row.peakPowerKwp
+        : null
+    const direction = isCompassDirection(row.direction) ? row.direction : null
+    const slopeDeg =
+      typeof row.slopeDeg === 'number' && Number.isFinite(row.slopeDeg) ? row.slopeDeg : null
+    if (peakPowerKwp === null && direction === null && slopeDeg === null) continue
+    out.push({ peakPowerKwp, direction, slopeDeg })
   }
-  const direction = draft[PV_ARRAY_DIRECTION_KEY]
-  return { values, direction: isCompassDirection(direction) ? direction : null }
+  return out
 }
 
-/** Steht überhaupt etwas zur Anlage im Entwurf? Für die Station: Zusammenfassung zeigen oder nicht. */
-export function pvArrayDraftIsEmpty(summary: PvArrayDraftSummary): boolean {
-  return summary.values.length === 0 && summary.direction === null
+/**
+ * Setzt den Seiteneintrag. Reine Funktion — sie gibt einen neuen Entwurf zurück.
+ *
+ * ⚠ Der Wrapper `update_metering_point_draft` ERSETZT den Entwurf, er verschmilzt ihn nicht. Der
+ * Aufrufer muss also den vollständigen, FRISCH gelesenen Entwurf hineingeben; dieselbe Auflage wie
+ * bei `withStoredInvoiceExtractions`, und aus demselben Grund (eine flache Verschmelzung könnte
+ * einen Schlüssel nie wieder entfernen).
+ */
+export function withPvArrays(
+  draft: Record<string, unknown>,
+  arrays: readonly PvArrayEntry[],
+): Record<string, unknown> {
+  return { ...draft, [PV_ARRAYS_KEY]: arrays }
+}
+
+/** Steht überhaupt eine Fläche im Entwurf? Für die Station: Zusammenfassung zeigen oder nicht. */
+export function pvArraysDraftIsEmpty(arrays: readonly PvArrayEntry[]): boolean {
+  return arrays.length === 0
 }
 
 /** Der ausgeschriebene Name einer Himmelsrichtung — aus dem EINEN Fundort, nicht abgetippt. */
 export function compassDirectionLabel(key: CompassDirection): string {
   return COMPASS_DIRECTIONS.find((entry) => entry.key === key)?.label ?? key
+}
+
+/**
+ * Die Auflage aus dem Kopf, als Prüfung: der Seiteneintrag darf kein Contract-Feld verdecken.
+ *
+ * Wortgleich zu `invoiceExtractionsKeyCollidesWithContract()`. Träfe der Schlüssel je einen
+ * `tariffParamsSchema`-Feldnamen, stünde eine Liste dort, wo die Engine einen Tarifwert erwartet —
+ * und zod verwürfe sie beim Auswerten, ohne dass irgendetwas fehlschlüge.
+ */
+export function pvArraysKeyCollidesWithContract(): boolean {
+  return PV_ARRAYS_KEY in tariffParamsSchema.shape
 }
