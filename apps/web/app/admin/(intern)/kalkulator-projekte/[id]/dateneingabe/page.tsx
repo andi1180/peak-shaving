@@ -409,6 +409,7 @@ export default async function AdminProjectDataEntryPage({
               maxBytes={MAX_PROJECT_DOCUMENT_BYTES}
               designMaxBytes={MAX_PV_DESIGN_FILE_BYTES}
               customerLabel={project.customer_label}
+              postalCode={project.postal_code}
               nextHref={next ? stationHref(project.id, next.id) : null}
             />
           )}

@@ -128,6 +128,7 @@ import {
   hasMeteringVariant,
   mergeInvoiceExtractions,
   pvDesignArrayPrefill,
+  lookupPostalCodeCentroid,
   standardProfileYear,
   type BatteryLookupNotFoundReason,
   type CompassDirection,
@@ -3347,4 +3348,57 @@ export async function addPvArraysFromScanAction(
       : `Es sind jetzt ${arrays.length} Flächen erfasst.`
 
   return { success: `${addedText} ${totalText}` }
+}
+
+// ── Standort ─────────────────────────────────────────────────────────────────────────────────────
+/**
+ * B24, Teil 1 — die PLZ des Projekts, Grundlage für den PVGIS-Generator (eigener, folgender
+ * Auftrag). Projektweit, deshalb ein Wrapper auf `platform.projects` — Vorbild:
+ * `setProjectSegmentAction`.
+ *
+ * ⚠ DIE SEMANTISCHE PRÜFUNG LIEGT HIER, NICHT IM WRAPPER: `lookupPostalCodeCentroid` ist eine
+ * TypeScript-Funktion über einer generierten Tabelle, in SQL nicht verfügbar. Der Wrapper prüft nur
+ * das Format (vier Ziffern); ob die PLZ eine ECHTE österreichische ist, entscheidet diese Action —
+ * „wir raten keine Koordinate", dieselbe Haltung wie auf der Website.
+ */
+export async function saveProjectPostalCodeAction(
+  _prev: AdminState,
+  formData: FormData,
+): Promise<AdminState> {
+  const projectId = readProjectId(formData)
+  if (projectId === null) return { formError: UNKNOWN_PROJECT }
+
+  const raw = String(formData.get('postalCode') ?? '').trim()
+  if (raw === '') {
+    return { fieldErrors: { postalCode: 'Bitte eine Postleitzahl eintragen.' } }
+  }
+
+  const centroid = lookupPostalCodeCentroid(raw)
+  if (!centroid) {
+    return {
+      fieldErrors: { postalCode: 'Diese Postleitzahl kennen wir nicht — bitte prüfen.' },
+    }
+  }
+
+  const supabase = await createClient()
+  const { data, error } = await supabase.rpc('update_project_postal_code', {
+    p_id: projectId,
+    p_postal_code: centroid.postalCode,
+  })
+
+  if (error) {
+    if (isForbidden(error)) return { formError: FORBIDDEN }
+    console.error('[admin/dateneingabe] update_project_postal_code:', error)
+    return { formError: GENERIC }
+  }
+
+  const status = statusOf(data)
+  if (status === 'not_found') return { formError: UNKNOWN_PROJECT }
+  if (status !== 'ok') {
+    console.error('[admin/dateneingabe] unerwartete Antwort (PLZ):', data)
+    return { formError: GENERIC }
+  }
+
+  revalidatePath(projectDataEntryHref(projectId))
+  return { success: `Standort gespeichert: ${centroid.name} (${centroid.postalCode}).` }
 }

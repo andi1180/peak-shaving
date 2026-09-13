@@ -53,6 +53,7 @@ import { Button } from '@/components/ui/button'
 import { FieldHint, Label } from '@/components/ui/input'
 import {
   saveMeteringPointPvChoiceAction,
+  saveProjectPostalCodeAction,
   uploadMeteringPointPvProfileAction,
 } from '@/lib/admin/data-entry-actions'
 import { formatDateTime } from '@/lib/admin/format'
@@ -63,9 +64,9 @@ import {
   readPvProfileDraft,
   type PvProfileDraftSummary,
 } from '@/lib/admin/pv-profile-draft'
-import { ADMIN_INITIAL_STATE } from '@/lib/admin/schema'
+import { ADMIN_INITIAL_STATE, type AdminState } from '@/lib/admin/schema'
 import { COMPANY } from '@/lib/nav'
-import { AdminError, AdminSuccess } from './ui'
+import { AdminError, AdminField, AdminSuccess } from './ui'
 import { DataEntryPvArray } from './data-entry-pv-array'
 
 const FIELD_ID = 'dateneingabe-pv-erzeugung-datei'
@@ -77,6 +78,7 @@ export function DataEntryPv({
   maxBytes,
   designMaxBytes,
   customerLabel,
+  postalCode,
   nextHref,
 }: {
   projectId: string
@@ -102,6 +104,15 @@ export function DataEntryPv({
    * — und ein zweiter Leser für denselben Namen wäre eine zweite Stelle, an der er abweichen kann.
    */
   customerLabel: string
+  /**
+   * Die PLZ des Projekts, oder `null`, solange keine eingetragen ist.
+   *
+   * ⚠ PROJEKTWEIT, nicht je Zählpunkt — sie steht auf `platform.projects`. Sie erscheint hier,
+   * weil der PVGIS-Generator sie braucht und dies die Station ist, an der über die PV-Anlage
+   * gesprochen wird; sie gehört aber NICHT zu `meteringPoint` und ist deshalb nicht an
+   * `meteringPointNumber` geknüpft.
+   */
+  postalCode: string | null
   /** Die nächste Station, oder `null` am Ende der Liste. */
   nextHref: string | null
 }) {
@@ -119,6 +130,27 @@ export function DataEntryPv({
     uploadMeteringPointPvProfileAction,
     ADMIN_INITIAL_STATE,
   )
+
+  /*
+   * ⚠ DRITTER Zustand, und er gehört einer ANDEREN Ebene: die PLZ hängt am PROJEKT, nicht am
+   * Zählpunkt. Eigener `useActionState` statt eines geteilten — eine Meldung zum Standort
+   * überschriebe sonst die eines laufenden Uploads und umgekehrt (dieselbe Lehre wie beim
+   * Entfernen-Weg der Rechnung-Station).
+   */
+  const [postalState, postalAction, isSavingPostal] = useActionState(
+    saveProjectPostalCodeAction,
+    ADMIN_INITIAL_STATE,
+  )
+  /*
+   * Rein lokale Weiche „ich will die gespeicherte PLZ ändern" — sie ist keine Angabe über das
+   * Projekt und hat deshalb bewusst keine Spalte (dieselbe Überlegung wie bei der Ja/Nein-Frage
+   * der Lastgang-Station). Nach erfolgreichem Speichern schliesst sie sich selbst: der Server
+   * liefert den neuen Wert, das Formular hätte danach nichts mehr zu tun.
+   */
+  const [isEditingPostal, setIsEditingPostal] = React.useState(false)
+  React.useEffect(() => {
+    if (postalState.success) setIsEditingPostal(false)
+  }, [postalState.success])
 
   const { hasPv } = readPvDraft(meteringPoint.draft)
   const pvProfile = readPvProfileDraft(meteringPoint.draft)
@@ -213,12 +245,24 @@ export function DataEntryPv({
             mehr erkennbar. Wer trotzdem beides erfassen will, entfernt zuerst das Profil.
           */}
           {!hasPvProfile(pvProfile) && (
-            <DataEntryPvArray
-              projectId={projectId}
-              meteringPoint={meteringPoint}
-              meteringPointNumber={meteringPointNumber}
-              maxBytes={designMaxBytes}
-            />
+            <>
+              <DataEntryPvArray
+                projectId={projectId}
+                meteringPoint={meteringPoint}
+                meteringPointNumber={meteringPointNumber}
+                maxBytes={designMaxBytes}
+              />
+
+              <ProjectPostalCode
+                projectId={projectId}
+                postalCode={postalCode}
+                action={postalAction}
+                state={postalState}
+                isPending={isSavingPostal}
+                isEditing={isEditingPostal}
+                onEdit={() => setIsEditingPostal(true)}
+              />
+            </>
           )}
         </div>
       )}
@@ -413,6 +457,91 @@ function PvProfileSummary({
         Ein Entfernen gibt es in diesem Schritt noch nicht. Wurde die falsche Datei eingelesen, hilft
         ein erneuter Upload — er ersetzt die Angaben.
       </p>
+    </div>
+  )
+}
+
+/**
+ * Der Standort des PROJEKTS — die Grundlage, aus der sich die Erzeugung einer Anlage schätzen
+ * liesse (PVGIS; eigener, folgender Auftrag).
+ *
+ * ⚠ ZWEI ZUSTÄNDE, KEIN DRITTER: ist keine PLZ hinterlegt, steht hier ein Eingabefeld; ist eine
+ * hinterlegt, steht sie als Angabe da und lässt sich über „Ändern" wieder öffnen. Ein dauerhaft
+ * sichtbares, vorbelegtes Feld wäre die dritte Möglichkeit und die schlechteste: eine geprüfte
+ * Angabe sähe aus wie ein Entwurf, den noch jemand bestätigen muss.
+ */
+function ProjectPostalCode({
+  projectId,
+  postalCode,
+  action,
+  state,
+  isPending,
+  isEditing,
+  onEdit,
+}: {
+  projectId: string
+  postalCode: string | null
+  action: (formData: FormData) => void
+  state: AdminState
+  isPending: boolean
+  isEditing: boolean
+  onEdit: () => void
+}) {
+  const showForm = postalCode === null || isEditing
+
+  return (
+    <div className="flex flex-col gap-3 border-t border-line pt-6">
+      <h3 className="text-small font-semibold text-ink">Standort</h3>
+
+      {state.success && <AdminSuccess>{state.success}</AdminSuccess>}
+      {state.formError && <AdminError>{state.formError}</AdminError>}
+
+      {showForm ? (
+        <form action={action} className="flex flex-col gap-3">
+          <input type="hidden" name="projectId" value={projectId} />
+
+          <div className="max-w-xs">
+            <AdminField
+              id="dateneingabe-projekt-plz"
+              name="postalCode"
+              label="Postleitzahl"
+              inputMode="numeric"
+              maxLength={4}
+              defaultValue={postalCode ?? ''}
+              error={state.fieldErrors?.postalCode}
+              hint="Vier Ziffern, österreichisch — z. B. 1100. Sie gilt für das ganze Projekt."
+            />
+          </div>
+
+          <div className="flex items-center gap-3">
+            <Button type="submit" size="sm" disabled={isPending}>
+              {isPending && <Loader2 className="size-4 animate-spin" aria-hidden />}
+              Standort speichern
+            </Button>
+            <span role="status" aria-live="polite" className="sr-only">
+              {isPending ? 'Wird gespeichert …' : ''}
+            </span>
+          </div>
+        </form>
+      ) : (
+        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <p className="text-body text-ink">
+            Postleitzahl: <span className="font-medium tabular-nums">{postalCode}</span>
+          </p>
+          <button
+            type="button"
+            onClick={onEdit}
+            className="text-small text-accent underline underline-offset-2 hover:text-accent-hover"
+          >
+            Ändern
+          </button>
+        </div>
+      )}
+
+      <FieldHint>
+        Aus der Postleitzahl entsteht später die Erzeugungsschätzung für eine geplante Anlage. Ein
+        hochgeladenes Erzeugungsprofil schlägt sie in jedem Fall — es ist gemessen.
+      </FieldHint>
     </div>
   )
 }
