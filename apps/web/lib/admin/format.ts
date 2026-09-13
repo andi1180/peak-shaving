@@ -49,3 +49,22 @@ const INTEGER = new Intl.NumberFormat('de-AT', { maximumFractionDigits: 0 })
 export function formatKwh(value: number | null | undefined): string {
   return typeof value === 'number' ? `${INTEGER.format(value)} kWh` : '—'
 }
+
+/**
+ * Eine Prozentangabe mit EINER Nachkommastelle, de-AT.
+ *
+ * ⚠ EINE NACHKOMMASTELLE UND NICHT KEINE: der einzige Konsument ist heute die Streuung einer
+ * PVGIS-Schätzung („± 5,8 %"), und auf ganze Prozent gerundet stünde dort „± 6 %" — eine gröbere
+ * Angabe, als die Messung hergibt, ausgerechnet an der Zahl, die den Vorbehalt ausdrückt.
+ *
+ * ⚠ Das Prozentzeichen gehört dazu, wie die Einheit bei `formatKwh`: eine nackte Zahl daneben
+ * lädt dazu ein, sie an der nächsten Stelle mit einer anderen Einheit zu versehen.
+ */
+const PERCENT = new Intl.NumberFormat('de-AT', {
+  minimumFractionDigits: 1,
+  maximumFractionDigits: 1,
+})
+
+export function formatPercent(value: number | null | undefined): string {
+  return typeof value === 'number' ? `${PERCENT.format(value)} %` : '—'
+}

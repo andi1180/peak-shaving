@@ -7,6 +7,7 @@ import {
   PV_COVERED_TO_KEY,
   PV_INTERVAL_MINUTES_KEY,
   PV_PROFILE_GAPS_KEY,
+  PV_PROFILE_SOURCE_KEY,
   PV_SOURCE_DOCUMENT_ID_KEY,
   hasPvProfile,
   pvProfileDraftValues,
@@ -90,17 +91,24 @@ describe('pvProfileDraftValues — die Zuordnung gelesener Wert → Schlüssel',
     expect(byField[PV_COVERED_FROM_KEY]).not.toBe(byField[PV_COVERED_TO_KEY])
   })
 
-  it('⚠ liefert GENAU diese vier Felder — die Lücken sind NICHT dabei', () => {
+  it('⚠ liefert GENAU diese fünf Felder — die Lücken sind NICHT dabei', () => {
     /*
      * Sie sind eine LISTE, und `setDraftField` nimmt ausdrücklich nur `number | string | boolean`.
-     * Käme hier ein fünfter Eintrag mit dem Lücken-Array, landete es als Wert in einem Skalarfeld
+     * Käme hier ein weiterer Eintrag mit dem Lücken-Array, landete es als Wert in einem Skalarfeld
      * — gespeichert würde es trotzdem, und `readPvProfileDraft` fände dort nie wieder eine Lücke.
+     *
+     * ⚠ DIE HERKUNFT IST DAS FÜNFTE FELD, seit es neben der hochgeladenen auch eine GESCHÄTZTE
+     * Reihe gibt. Sie wird ausdrücklich mitgeschrieben statt aus der Dokument-Kennung erschlossen:
+     * die Kennung kann legitim fehlen (`on delete set null`), und ohne eigenes Feld hiesse ein
+     * solcher Entwurf still „geschätzt" — die teuerste Verwechslung dieses Bereichs, weil eine
+     * gemessene Reihe damit den Vorbehalt einer Schätzung trüge oder umgekehrt.
      */
     expect(pvProfileDraftValues(SCAN, DOCUMENT_ID).map((entry) => entry.field)).toEqual([
       PV_INTERVAL_MINUTES_KEY,
       PV_COVERED_FROM_KEY,
       PV_COVERED_TO_KEY,
       PV_SOURCE_DOCUMENT_ID_KEY,
+      PV_PROFILE_SOURCE_KEY,
     ])
     expect(
       pvProfileDraftValues(SCAN, DOCUMENT_ID).some(
@@ -158,7 +166,10 @@ describe('readPvProfileDraft — defensiv wie jeder jsonb-Leser', () => {
       intervalMinutes: null,
       coveredFrom: null,
       coveredTo: null,
+      // `null` heisst hier „es gibt keine Reihe" — nicht „hochgeladen" und nicht „geschätzt".
+      source: null,
       sourceDocumentId: null,
+      estimate: null,
       gaps: [],
     })
   })
@@ -168,7 +179,11 @@ describe('readPvProfileDraft — defensiv wie jeder jsonb-Leser', () => {
       intervalMinutes: 15,
       coveredFrom: '2024-12-31T23:00:00.000Z',
       coveredTo: '2025-12-31T23:00:00.000Z',
+      source: 'upload',
       sourceDocumentId: DOCUMENT_ID,
+      // ⚠ Bei einer HOCHGELADENEN Reihe sind die PVGIS-Kennzahlen `null` — und zwar auch dann,
+      // wenn im Entwurf welche stünden. Eine gemessene Reihe hat keine geschätzte Streuung.
+      estimate: null,
       gaps: GAPS,
     })
   })
@@ -257,7 +272,7 @@ describe('hasPvProfile — woran „es liegt eine Reihe vor" gemessen wird', () 
 
 // ═════════════════════════════════════════════════════════════════════════════════════════════════
 describe('kein Schlüssel verdeckt ein Contract-Feld', () => {
-  it('keiner der fünf Schlüssel steht in `tariffParamsSchema`', () => {
+  it('keiner der Schlüssel steht in `tariffParamsSchema`', () => {
     expect(pvProfileKeysCollideWithContract()).toEqual([])
   })
 
