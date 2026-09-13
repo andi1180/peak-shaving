@@ -762,8 +762,21 @@ describe('B24 — die PV-Station', () => {
      * wirklich gespeichert ist — genau dann, wenn der Schreibvorgang scheitert: die Oberfläche
      * zeigte einen beantworteten Zweig, und im Entwurf stünde nichts.
      */
-    expect(source).toContain('readPvDraft(meteringPoint.draft)')
-    expect(source).not.toContain('useState')
+    expect(source).toContain('const { hasPv } = readPvDraft(meteringPoint.draft)')
+
+    /*
+     * ⚠ NACHGEZOGEN, NICHT GELOCKERT (PLZ-Schritt): Die Prüfung lautete `not.toContain('useState')`
+     * und traf damit AUCH Zustände, die gar keine Angabe über das Projekt sind. Sie zählt jetzt die
+     * `useState`-Aufrufe NAMENTLICH auf — ein `useState` für `hasPv` (der Fehler, gegen den dieser
+     * Wächter gebaut ist) liesse die Liste wachsen und macht den Test weiterhin rot.
+     *
+     * Erlaubt ist genau einer: die rein lokale Weiche „ich will die gespeicherte PLZ ändern". Sie
+     * beantwortet keine Frage über das Projekt und wird nirgends gespeichert.
+     */
+    const localStates = [...source.matchAll(/const \[(\w+), set\w+\] = React\.useState/g)].map(
+      (match) => match[1],
+    )
+    expect(localStates).toEqual(['isEditingPostal'])
   })
 
   it('⚠ beide Antworten werden GESPEICHERT — die Frage ist keine Weiche', () => {

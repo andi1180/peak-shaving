@@ -27,6 +27,12 @@
  * die Grants bleiben, ein DROP hätte sie mitgenommen). Das DB-Gate
  * (`packages/db-tests/src/metering-points.test.ts`) misst beides: genau eine Überladung, Grants
  * unverändert, und beide Felder kommen bei einem ECHTEN Aufruf wirklich an.
+ *
+ * ⚠ SEIT 20260913090000 LIEFERT `admin_get_project` ZUSÄTZLICH `postal_code` — und `admin_list_projects`
+ * ausdrücklich NICHT. Dieselbe Falle wie oben, nur an einer Stelle gelöst: die ausgeschriebene
+ * Spaltenliste nimmt eine neue Spalte nicht von selbst auf, und ohne den Nachtrag stünde die PLZ in
+ * der Datenbank und wäre über keinen Wrapper wieder lesbar. Warum die Liste sie nicht trägt, steht
+ * an `AdminProjectHead`.
  */
 
 /** Basispfad des Abschnitts — ohne Locale-Präfix, wie der ganze Admin-Bereich. */
@@ -98,8 +104,29 @@ export type AdminProjectRow = {
   updated_at: string
 }
 
-/** Der Projektkopf aus `public.admin_get_project` — dieselben Felder, eine Zeile. */
-export type AdminProjectHead = AdminProjectRow
+/**
+ * Der Projektkopf aus `public.admin_get_project` — dieselben Felder wie eine Listenzeile UND die
+ * Postleitzahl.
+ *
+ * ⚠ SIE STEHT BEWUSST NICHT IN `AdminProjectRow`. `admin_list_projects` liefert sie nicht: eine
+ * Liste beantwortet „welche Projekte gibt es", und der Standort gehört zu keiner dieser Antworten.
+ * Sie dort mitzuführen hiesse, die Spaltenliste eines Wrappers zu erweitern, der sie an keiner
+ * Stelle braucht. Der Typ ist eine BEHAUPTUNG über die Migration (s. `AdminProjectRow`) — und eine
+ * Behauptung, die eine Listenzeile trüge, wäre eine falsche: der Wert wäre dort schlicht
+ * `undefined`, und ein Leser bekäme „keine PLZ erhoben" zu sehen, wo in Wahrheit niemand gefragt
+ * hat.
+ */
+export type AdminProjectHead = AdminProjectRow & {
+  /**
+   * Österreichische PLZ des Projektstandorts, vier Ziffern — oder `null`.
+   *
+   * ⚠ `null` HEISST „NOCH NICHT ERHOBEN", NICHT „UNBEKANNTER ORT". Der Spaltenkommentar in der
+   * Migration sagt genau das. Die Angabe ist der Eingang in `lookupPostalCodeCentroid`
+   * (`packages/shared`, B22b) und damit in die PVGIS-Koordinate; sie ist ausdrücklich KEINE
+   * Adresse — weder Strasse noch Hausnummer, und es wird nichts geokodiert.
+   */
+  postal_code: string | null
+}
 
 export type AdminProjectList = {
   total: number
