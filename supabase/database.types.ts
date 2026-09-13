@@ -1733,6 +1733,54 @@ export type Database = {
         }
         Relationships: []
       }
+      retail_tariffs: {
+        Row: {
+          base_fee_eur_per_month: number
+          checked_at: string
+          created_at: string
+          created_by: string
+          energy_price_ct_per_kwh: number
+          id: string
+          price_basis: string
+          provider_id: string
+          provider_name: string
+          segment: string
+          source_url: string
+          valid_from: string
+          valid_until: string | null
+        }
+        Insert: {
+          base_fee_eur_per_month: number
+          checked_at?: string
+          created_at?: string
+          created_by: string
+          energy_price_ct_per_kwh: number
+          id?: string
+          price_basis: string
+          provider_id: string
+          provider_name: string
+          segment: string
+          source_url: string
+          valid_from: string
+          valid_until?: string | null
+        }
+        Update: {
+          base_fee_eur_per_month?: number
+          checked_at?: string
+          created_at?: string
+          created_by?: string
+          energy_price_ct_per_kwh?: number
+          id?: string
+          price_basis?: string
+          provider_id?: string
+          provider_name?: string
+          segment?: string
+          source_url?: string
+          valid_from?: string
+          valid_until?: string | null
+        }
+        Relationships: []
+      }
       spot_prices: {
         Row: {
           ct_per_kwh: number
@@ -2178,6 +2226,20 @@ export type Database = {
         Returns: Json
       }
       create_my_project: { Args: { p_customer_label: string }; Returns: Json }
+      create_retail_tariff: {
+        Args: {
+          p_base_fee_eur_per_month: number
+          p_created_by: string
+          p_energy_price_ct_per_kwh: number
+          p_price_basis: string
+          p_provider_id: string
+          p_provider_name: string
+          p_segment: string
+          p_source_url: string
+          p_valid_from: string
+        }
+        Returns: Json
+      }
       delete_grid_tariff: {
         Args: { p_deleted_by: string; p_tariff_id: string }
         Returns: Json
