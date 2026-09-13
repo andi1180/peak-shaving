@@ -109,9 +109,13 @@ import {
   MAX_BATTERY_SPEC_FILE_BYTES,
   MAX_BATTERY_TEXT_CHARS,
   MAX_INVOICE_FILE_BYTES,
+  MAX_PV_ARRAY_TEXT_CHARS,
+  MAX_PV_DESIGN_FILE_BYTES,
   extractBatterySpec,
   extractBatteryText,
   extractInvoiceData,
+  extractPvArrayText,
+  extractPvDesign,
   generateStandardProfileMetadata,
   lookupBatterySpec,
   readLoadProfile,
@@ -123,8 +127,10 @@ import {
   NETZEBENEN,
   hasMeteringVariant,
   mergeInvoiceExtractions,
+  pvDesignArrayPrefill,
   standardProfileYear,
   type BatteryLookupNotFoundReason,
+  type CompassDirection,
   type InvoiceMergeFieldKey,
 } from 'shared'
 
@@ -156,6 +162,15 @@ import {
   type StoredInvoiceExtraction,
 } from './invoice-extractions'
 import { readMeteringPointList } from './metering-points'
+import {
+  PV_ARRAY_DIRECTION_FORM_FIELD,
+  PV_ARRAY_DIRECTION_KEY,
+  PV_ARRAY_NUMBER_FIELDS,
+  compassDirectionLabel,
+  formatPvArrayNumber,
+  isCompassDirection,
+  parsePvArrayNumber,
+} from './pv-array-draft'
 import { PV_PRESENT_KEY } from './pv-draft'
 import { pvProfileDraftValues, withPvProfileGaps } from './pv-profile-draft'
 import {
@@ -2691,4 +2706,364 @@ export async function uploadMeteringPointPvProfileAction(
   revalidatePath(projectDataEntryHref(projectId))
 
   return { success: 'Erzeugungsprofil eingelesen und gespeichert.' }
+}
+
+// ── PV-Anlagendaten ──────────────────────────────────────────────────────────────────────────────
+/**
+ * B24, Teil 1 — die ANLAGENDATEN einer vorhandenen PV-Anlage: Nennleistung, Ausrichtung, Neigung.
+ *
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * ⚠ WOZU — UND WARUM ES NICHT DAS ERZEUGUNGSPROFIL ERSETZT
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * Der Ja-Zweig der PV-Station nimmt eine gemessene Erzeugungsreihe entgegen. Die gibt es aber nur,
+ * wo ein Wechselrichter-Portal sie hergibt — der häufigere Fall ist: die Anlage existiert, eine
+ * Zeitreihe existiert nicht. Dafür braucht das PVGIS-Verfahren (B22) genau drei Angaben neben dem
+ * Standort: kWp, Ausrichtung, Neigung.
+ *
+ * ⚠ SIE ERSCHEINEN DESHALB NUR, SOLANGE KEIN EIGENES PROFIL VORLIEGT (`hasPvProfile`, s. die
+ * Station). Wer gemessene Werte hat, braucht keine geschätzte Kurve — und zwei Erzeugungsquellen
+ * nebeneinander wären zwei Wahrheiten über dieselbe Anlage.
+ *
+ * ⚠ ES WIRD IN DIESEM SCHRITT NICHTS GERECHNET: kein PVGIS-Abruf, keine erzeugte Kurve. Die drei
+ * Angaben landen im Entwurf, mehr nicht. Der Generator ist ein eigener Bauabschnitt.
+ *
+ * ── DREI ACTIONS, UND NUR EINE DAVON SCHREIBT ─────────────────────────────────────────────────
+ * `extractPvArrayTextAction` (ein Satz in eigenen Worten) und `scanPvDesignAction` (ein
+ * PDF-Datenblatt) lesen und geben Formularwerte zurück; `saveMeteringPointPvArrayAction` schreibt.
+ * Zwischen dem Gelesenen und dem Gespeicherten steht damit ein zweiter, eigener Klick — dasselbe
+ * Muster wie bei der Batterie-Station und aus demselben Grund: der Vorschlag ist eine ANGEFORDERTE
+ * Auskunft, was damit geschieht, entscheidet ein Mensch.
+ *
+ * ⚠ BEIDE LESE-WEGE LIEFERN DIESELBEN DREI FELDNAMEN (`peakPowerKwp`, `direction`, `slopeDeg`) —
+ * per Typ aneinander gebunden in `pv-array-draft.ts`. Sie füllen deshalb dieselben Formularfelder
+ * und übergeben an denselben „Speichern"-Knopf; es gibt genau EINEN Ort, an dem eine
+ * PV-Anlagenangabe in den Entwurf gelangt.
+ */
+
+/** Warum ein Freitext nicht ausgelesen werden konnte — die Zustände des Extraktors, in einem Satz. */
+const PV_ARRAY_TEXT_FAILURE_TEXT: Record<'not_configured' | 'api_error' | 'unreadable', string> = {
+  not_configured:
+    'Das Auslesen freier Angaben ist auf diesem Server nicht eingerichtet. Die drei Felder lassen sich trotzdem von Hand ausfüllen.',
+  api_error:
+    'Das Auslesen ist fehlgeschlagen. Bitte später noch einmal versuchen — oder die drei Felder von Hand ausfüllen.',
+  unreadable:
+    'Aus dieser Angabe liessen sich keine Anlagendaten lesen. Nötig sind die Nennleistung in kWp, die Himmelsrichtung als Wort und die Dachneigung in Grad.',
+}
+
+/**
+ * Liest die drei Anlagendaten aus einem frei formulierten Satz und gibt sie als Formularwerte zurück.
+ *
+ * ⚠ SIE SCHREIBT NICHTS — s. Kopf dieses Abschnitts.
+ *
+ * ⚠ DIE PRÜFUNG LÄUFT VOR JEDEM EXTERNEN KONTAKT. Eine Server Action ist über ihre Kennung
+ * aufrufbar, und jeder Aufruf ist abrechenbar — die Kürzung auf `MAX_PV_ARRAY_TEXT_CHARS` und die
+ * Leerprüfung sind deshalb eine echte Sperre, keine Bedienhilfe (das `maxlength` des Textfelds ist
+ * eine Angabe des Browsers).
+ */
+export async function extractPvArrayTextAction(
+  _prev: AdminState,
+  formData: FormData,
+): Promise<AdminState> {
+  const text = String(formData.get('pvArrayText') ?? '').trim()
+  if (text === '') {
+    return {
+      fieldErrors: {
+        pvArrayText: 'Bitte die Anlage kurz beschreiben — oder die Felder von Hand ausfüllen.',
+      },
+    }
+  }
+
+  const outcome = await extractPvArrayText(text.slice(0, MAX_PV_ARRAY_TEXT_CHARS))
+  if (!outcome.ok) return { formError: PV_ARRAY_TEXT_FAILURE_TEXT[outcome.reason] }
+
+  const values = pvArrayFormValues(outcome.extraction)
+  /*
+   * ⚠ TIEFENSTAFFELUNG, heute unerreichbar — und als solche benannt statt als Prüfung getarnt.
+   * Der Extraktor meldet `unreadable`, sobald alle drei Felder leer sind, und es sind GENAU die
+   * drei, die hier gezählt werden. Erreichbar würde der Zweig, sobald die Extraktion um ein Feld
+   * wächst, das kein Formularfeld ist (bei der Batterie ist `hasExistingBattery` genau dieser
+   * Fall). Dann leerte ein `ok` ohne Zahl die Felder und behauptete dabei, es habe etwas gelesen.
+   */
+  if (values.found === 0) return { formError: PV_ARRAY_TEXT_FAILURE_TEXT.unreadable }
+
+  return { values: { ...values.fields, extraction: 'ok', found: String(values.found) } }
+}
+
+/**
+ * Die drei Formularwerte aus einer gelesenen Fläche — für BEIDE Lese-Wege dieselbe Zuweisung.
+ *
+ * ⚠ ALLE DREI FELDER WERDEN GESETZT, auch die nicht gelesenen (als Leerstring). Ein nicht gelesenes
+ * Feld stehen zu lassen hiesse, einen Wert aus einer FRÜHEREN Ablesung neben frischen stehen zu
+ * haben, ohne dass man die beiden unterscheiden kann. Was hier erscheint, ist die Aussage GENAU
+ * DIESER Quelle. Der Preis ist benannt und in der Oberfläche ausgeschrieben: eine von Hand
+ * eingetippte Zahl verliert man mit einem zweiten Klick auf „Auslesen".
+ *
+ * ⚠ Der Parameter ist STRUKTURELL getypt und nicht auf eine der beiden Quellen festgelegt:
+ * `PvArrayTextExtraction` und `PvDesignArrayPrefill` erfüllen beide diese Form — genau das ist der
+ * Zuschnitt (ein Formular, zwei Quellen). Eine zweite Zuweisung daneben liefe beim nächsten Umbau
+ * auseinander.
+ */
+function pvArrayFormValues(source: {
+  peakPowerKwp: number | null
+  direction: CompassDirection | null
+  slopeDeg: number | null
+}): { fields: Record<string, string>; found: number } {
+  const fields: Record<string, string> = {}
+  let found = 0
+
+  for (const entry of PV_ARRAY_NUMBER_FIELDS) {
+    const value = source[entry.form]
+    if (value === null) {
+      fields[entry.form] = ''
+      continue
+    }
+    fields[entry.form] = formatPvArrayNumber(value)
+    found += 1
+  }
+
+  fields[PV_ARRAY_DIRECTION_FORM_FIELD] = source.direction ?? ''
+  if (source.direction !== null) found += 1
+
+  return { fields, found }
+}
+
+/** Warum ein Datenblatt nicht gelesen werden konnte — die Zustände des Extraktors, in einem Satz. */
+const PV_DESIGN_FAILURE_TEXT: Record<'not_configured' | 'api_error' | 'unreadable', string> = {
+  not_configured:
+    'Das Auslesen von Auslegungen ist auf diesem Server nicht eingerichtet. Die drei Felder lassen sich trotzdem von Hand ausfüllen.',
+  api_error:
+    'Das Auslesen ist fehlgeschlagen. Bitte später noch einmal versuchen — oder die drei Felder von Hand ausfüllen.',
+  unreadable:
+    'Auf diesem Dokument war keine Modulfläche zu finden — das kann an der Bildqualität liegen, aber auch daran, dass es keine PV-Auslegung ist.',
+}
+
+/**
+ * Liest die Anlagendaten aus einem Auslegungsdokument (PV*SOL, PVsyst, Hersteller-Konfigurator).
+ *
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * ⚠ HIER SITZT DIE TEUERSTE VERWECHSLUNG DES GANZEN ABSCHNITTS — UND SIE IST NICHT HIER GELÖST
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * PV*SOL zählt den Azimut vom NORDEN, PVGIS vom SÜDEN. „Ausrichtung Südosten 133 °" ist als
+ * PVGIS-Wert −47; ungeprüft übernommen zeigt die Anlage nach Nordwesten, und die
+ * Eigenverbrauchs-Ersparnis fällt gemessen um 56 % — bei einer Zahl, die völlig plausibel aussieht.
+ *
+ * Aufgelöst wird das NICHT in dieser Action, sondern in `pvDesignArrayPrefill`
+ * (`packages/shared/src/pv-design-scan.ts`), und zwar nach einer Regel, die keine der beiden
+ * Angaben bevorzugt: widersprechen sich gedruckte Gradzahl und genannte Himmelsrichtung, wird die
+ * RICHTUNG vorbelegt (sie ist ein Wort und über alle Zählweisen hinweg eindeutig) und die ZAHL
+ * nicht. Diese Action zeigt den Widerspruch dann im Klartext — mit beiden Werten, damit ein Mensch
+ * entscheiden kann.
+ *
+ * ⚠ DIE GRADZAHL ERREICHT DEN ENTWURF NIE. Weder die passende noch die widersprüchliche: es gibt
+ * für sie kein Entwurfs-Feld (s. Kopf von `pv-array-draft.ts`). Gespeichert wird ausschliesslich
+ * die Himmelsrichtung.
+ *
+ * ── ⚠ ES WIRD NUR DIE ERSTE MODULFLÄCHE ÜBERNOMMEN ───────────────────────────────────────────
+ * Ein Exposé führt regelmässig mehrere (das bekannte Prüfdokument zwei, mit 4,25 und 5,95 kWp).
+ * Dieses Formular beschreibt genau EINE; mehrere zusammenzurechnen ist ein eigener Auftrag —
+ * „10,2 kWp bei mittlerer Ausrichtung" wäre eine gerechnete Zahl, die nirgends im Dokument steht,
+ * und bei zwei verschieden ausgerichteten Flächen ist die Tagesform der Summe eine andere als die
+ * der gemittelten Fläche.
+ *
+ * ⚠ DASS ES MEHRERE WAREN, WIRD TROTZDEM GESAGT. Nicht die weiteren Flächen — nur ihre ZAHL. Ein
+ * stilles Weglassen wäre genau der Fehler, gegen den dieser Abschnitt sonst überall gebaut ist:
+ * aus 10,2 kWp würden 4,25, und keine Zahl im Report sähe deswegen falsch aus.
+ *
+ * ── DIE PRÜFKETTE LÄUFT VOR JEDEM EXTERNEN KONTAKT ────────────────────────────────────────────
+ * Leer, kein PDF, zu gross — alles drei ist rein und kostet nichts. Jeder Aufruf dahinter ist
+ * abrechenbar; die Prüfungen sind eine echte Sperre und keine Bedienhilfe (das `accept` des
+ * Dateifelds ist eine Angabe des Browsers).
+ *
+ * ── ⚠ DIE DATEI WIRD NICHT ABGELEGT ──────────────────────────────────────────────────────────
+ * Dieselbe Entscheidung und dieselbe Begründung wie beim Batterie-Datenblatt: eine Auslegung ist ein
+ * Planungsdokument, kein Beleg über den Verbrauch des Kunden. Gelesen wird es, gespeichert werden
+ * die drei Angaben.
+ */
+export async function scanPvDesignAction(
+  _prev: AdminState,
+  formData: FormData,
+): Promise<AdminState> {
+  const entry = formData.get('pvDesign')
+  const file = entry instanceof File ? entry : null
+
+  if (!file || file.size === 0) {
+    return {
+      fieldErrors: {
+        pvDesign: 'Bitte eine Auslegung als PDF wählen — oder die Felder von Hand ausfüllen.',
+      },
+    }
+  }
+  /*
+   * Der Medientyp kommt vom Browser und ist kein Beweis — die eigentliche Sperre ist, dass die API
+   * den `document`-Block mit genau diesem Typ erwartet. Diese Prüfung fängt den ehrlichen Irrtum
+   * ab, bevor er Geld kostet.
+   */
+  if (file.type !== PDF_MEDIA_TYPE) {
+    return {
+      fieldErrors: {
+        pvDesign: 'Nur PDF — ein Foto oder Screenshot der Auslegung lässt sich nicht auslesen.',
+      },
+    }
+  }
+  if (file.size > MAX_PV_DESIGN_FILE_BYTES) {
+    return {
+      fieldErrors: {
+        pvDesign:
+          `Diese Datei ist zu gross (${formatMegabytes(file.size)} MB). Mehr als ` +
+          `${Math.floor(MAX_PV_DESIGN_FILE_BYTES / (1024 * 1024))} MB nimmt der Scan nicht an.`,
+      },
+    }
+  }
+
+  const bytes = await file.arrayBuffer()
+  const outcome = await extractPvDesign(Buffer.from(bytes).toString('base64'))
+  if (!outcome.ok) return { formError: PV_DESIGN_FAILURE_TEXT[outcome.reason] }
+
+  const [first] = outcome.extraction.arrays
+  /*
+   * ⚠ TIEFENSTAFFELUNG: der Extraktor meldet `unreadable`, sobald die Liste leer ist
+   * (`pvDesignExtractionIsEmpty` misst genau das). Der Zweig ist damit heute unerreichbar und steht
+   * trotzdem — ohne ihn wäre `first` ein `undefined`, das `pvDesignArrayPrefill` erst bei der
+   * Feldzuweisung zur Strecke brächte.
+   */
+  if (!first) return { formError: PV_DESIGN_FAILURE_TEXT.unreadable }
+
+  const prefill = pvDesignArrayPrefill(first, outcome.extraction.azimuthConvention)
+  const values = pvArrayFormValues(prefill)
+
+  const fields: Record<string, string> = {
+    ...values.fields,
+    extraction: 'ok',
+    found: String(values.found),
+    arrayCount: String(outcome.extraction.arrays.length),
+  }
+
+  /*
+   * Der Widerspruchs-Hinweis. ⚠ ER WIRD HIER FORMULIERT UND NICHT VOM MODELL GELIEFERT — „kein
+   * Freitextfeld in der Rückgabe" gilt in allen Anbindungen; eine Begründung des Modells über die
+   * eigene Sicherheit erschiene als Auskunft des Rechners.
+   *
+   * Er nennt BEIDE Werte, weil ein Mensch nur damit entscheiden kann, welcher der richtige ist: die
+   * gedruckte Zahl, was sie als Kompassrichtung bedeutete, und die Richtung, die das Dokument
+   * daneben ausschreibt.
+   */
+  if (prefill.degreeConflict) {
+    const { printedDeg, candidateCompassDeg, direction } = prefill.degreeConflict
+    fields.degreeNote =
+      `Das Dokument nennt ${formatPvArrayNumber(printedDeg)}° und zugleich die Richtung ` +
+      `„${compassDirectionLabel(direction)}". Gelesen als Kompassgrad wären ` +
+      `${formatPvArrayNumber(candidateCompassDeg)}° — das passt nicht zusammen. Übernommen ist ` +
+      'die Himmelsrichtung (sie ist eindeutig, eine Gradzahl hängt an der Zählweise des ' +
+      'Programms); die Zahl wurde bewusst nicht übernommen. Bitte die Ausrichtung prüfen.'
+  } else if (prefill.unverifiedDeg !== null) {
+    fields.degreeNote =
+      `Das Dokument nennt ${formatPvArrayNumber(prefill.unverifiedDeg)}° als Ausrichtung, aber ` +
+      'keine Himmelsrichtung dazu. Ob die Zahl vom Norden oder vom Süden gezählt ist, steht nicht ' +
+      'darin — die beiden Lesarten liegen 180° auseinander. Sie wurde deshalb nicht übernommen; ' +
+      'bitte die Himmelsrichtung selbst wählen.'
+  }
+
+  /*
+   * Ungewöhnlich steile Neigung. Der Anlass ist gemessen und nicht erfunden: das bekannte
+   * Prüfdokument nennt `Neigung 90 °` bei gleichzeitig `Einbausituation: Dachparallel`. Der
+   * Widerspruch ist aus dem Dokument nicht auflösbar — der Wert wird übernommen (er kann echt sein,
+   * eine Fassadenanlage) und sichtbar markiert. Er sperrt nichts.
+   */
+  if (prefill.steepSlope) fields.steepSlope = '1'
+
+  if (values.found === 0) {
+    return {
+      formError:
+        'Aus diesem Dokument liessen sich keine Anlagendaten übernehmen. Bitte Nennleistung, ' +
+        'Ausrichtung und Neigung von Hand eintragen.',
+    }
+  }
+
+  return { values: fields }
+}
+
+/**
+ * Der Speichern-Weg: die drei — ggf. von Hand angepassten — Angaben in den Entwurf.
+ *
+ * ── DIE REIHENFOLGE ────────────────────────────────────────────────────────────────────────────
+ *   1. alle gefüllten Felder prüfen (ein Fehler bricht VOR jedem Schreibvorgang ab — ein halb
+ *      übernommenes Formular wäre der Zustand, den niemand nachvollziehen kann)
+ *   2. Entwurf frisch lesen, Werte hineinfalten, EINMAL schreiben (`writeMeteringPointDraftFields`)
+ *
+ * ── EIN LEERES FELD IST KEINE ANGABE ──────────────────────────────────────────────────────────
+ * Es wird übersprungen, nicht als `null` geschrieben: ein zuvor erfasster Wert bleibt dadurch
+ * stehen, statt von einem leeren Formularfeld gelöscht zu werden. Dieselbe schonende Richtung wie
+ * bei der manuellen Tarifeingabe und bei der Batterie-Station.
+ *
+ * ⚠ OHNE EINE EINZIGE ANGABE WIRD NICHTS GESCHRIEBEN — anders als bei der Batterie-Station, und
+ * der Unterschied ist begründet: dort ist „es gibt einen Speicher" selbst eine Angabe und wird
+ * mitgeschrieben. Hier ist die entsprechende Frage („gibt es eine PV-Anlage?") bereits an anderer
+ * Stelle beantwortet (`saveMeteringPointPvChoiceAction`, `hasPv`); ein leeres Formular hätte hier
+ * wirklich nichts zu sagen, und eine Erfolgsmeldung darüber wäre eine Zusage ohne Inhalt.
+ *
+ * ⚠ ES WIRD NICHT UMGELEITET — Regel dieser Datei (s. Kopf): der übernommene Stand ist das
+ * Einzige, woran ein Mensch erkennt, ob die richtigen Werte angekommen sind.
+ */
+export async function saveMeteringPointPvArrayAction(
+  _prev: AdminState,
+  formData: FormData,
+): Promise<AdminState> {
+  const projectId = readProjectId(formData)
+  if (projectId === null) return { formError: UNKNOWN_PROJECT }
+
+  const meteringPointId = String(formData.get('meteringPointId') ?? '')
+  if (!UUID.test(meteringPointId)) return { formError: GENERIC }
+
+  const fieldErrors: Record<string, string> = {}
+  const values: { field: string; value: DraftValue }[] = []
+
+  for (const entry of PV_ARRAY_NUMBER_FIELDS) {
+    const parsed = parsePvArrayNumber(String(formData.get(entry.form) ?? ''), entry)
+    if (parsed === undefined) continue
+    if (parsed === null) {
+      fieldErrors[entry.form] =
+        entry.min === undefined
+          ? `Bitte eine Zahl grösser als 0 und höchstens ${entry.max} eintragen, z. B. 9,8.`
+          : `Bitte eine Zahl zwischen ${entry.min} und ${entry.max} eintragen, z. B. 30.`
+      continue
+    }
+    values.push({ field: entry.field, value: parsed })
+  }
+
+  /*
+   * Die Himmelsrichtung. Ein leeres Feld heisst „keine Angabe" (die Auswahl trägt dafür einen
+   * eigenen, leeren Eintrag) — ein UNBEKANNTER Wert dagegen kann nur an der Auswahl vorbei
+   * entstehen und wird benannt, statt still verworfen zu werden.
+   */
+  const directionRaw = String(formData.get(PV_ARRAY_DIRECTION_FORM_FIELD) ?? '').trim()
+  if (directionRaw !== '') {
+    if (!isCompassDirection(directionRaw)) {
+      fieldErrors[PV_ARRAY_DIRECTION_FORM_FIELD] = 'Diese Himmelsrichtung kennen wir nicht.'
+    } else {
+      values.push({ field: PV_ARRAY_DIRECTION_KEY, value: directionRaw })
+    }
+  }
+
+  if (Object.keys(fieldErrors).length > 0) return { fieldErrors }
+  if (values.length === 0) {
+    return {
+      formError:
+        'Bitte mindestens eine Angabe eintragen — leere Felder lassen den bisherigen Stand unberührt.',
+    }
+  }
+
+  const failure = await writeMeteringPointDraftFields(
+    projectId,
+    meteringPointId,
+    values,
+    'PV-Anlagendaten',
+  )
+  if (failure) return failure
+
+  const count = values.length === 1 ? 'Eine Angabe wurde' : `${values.length} Angaben wurden`
+  return {
+    success:
+      `${count} zur PV-Anlage übernommen. Leer gelassene Felder bleiben unverändert — ein bereits ` +
+      'eingetragener Wert wird dadurch nicht gelöscht.',
+  }
 }

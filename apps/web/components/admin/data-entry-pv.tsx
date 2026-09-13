@@ -66,6 +66,7 @@ import {
 import { ADMIN_INITIAL_STATE } from '@/lib/admin/schema'
 import { COMPANY } from '@/lib/nav'
 import { AdminError, AdminSuccess } from './ui'
+import { DataEntryPvArray } from './data-entry-pv-array'
 
 const FIELD_ID = 'dateneingabe-pv-erzeugung-datei'
 
@@ -74,6 +75,7 @@ export function DataEntryPv({
   meteringPoint,
   meteringPointNumber,
   maxBytes,
+  designMaxBytes,
   customerLabel,
   nextHref,
 }: {
@@ -83,6 +85,16 @@ export function DataEntryPv({
   meteringPointNumber: number
   /** Die wirksame Grössengrenze, aus der Server-Komponente hereingereicht (eine Konstante, ein Ort). */
   maxBytes: number
+  /**
+   * Die Grössengrenze des DATENBLATTS der Anlagendaten — eine ANDERE Zahl als `maxBytes` darüber.
+   *
+   * ⚠ Zwei Grenzen, weil es zwei Dateien mit zwei Wegen sind: das ERZEUGUNGSPROFIL wird ausgelesen
+   * UND im Projekt abgelegt (dort gilt die kleinere von Ablage- und Lesegrenze), das DATENBLATT
+   * wird ausschliesslich ausgelesen und ausdrücklich NICHT abgelegt (s. `scanPvDesignAction`) — die
+   * Grenze der Ablage gälte dort für einen Weg, den es nicht gibt. Beide Zahlen liegen in
+   * `packages/extractors` bzw. `shared` und müssen deshalb Props sein, nicht Importe.
+   */
+  designMaxBytes: number
   /**
    * Der Projektname für den Betreff der PV-Anfrage.
    *
@@ -188,6 +200,24 @@ export function DataEntryPv({
               action={uploadAction}
               isPending={isUploading}
               error={uploadError}
+            />
+          )}
+
+          {/*
+            ⚠ DIE ANLAGENDATEN ERSCHEINEN NUR, SOLANGE KEIN ERZEUGUNGSPROFIL VORLIEGT.
+
+            Ein hochgeladenes Profil IST die Erzeugung dieser Anlage, viertelstündlich und gemessen.
+            Nennleistung, Ausrichtung und Neigung sind die Grundlage, aus der sich eine Erzeugung
+            SCHÄTZEN liesse — daneben gestellt wären sie eine zweite, schwächere Aussage über
+            dieselbe Sache, und welche von beiden die Rechnung nimmt, wäre für den Ablesenden nicht
+            mehr erkennbar. Wer trotzdem beides erfassen will, entfernt zuerst das Profil.
+          */}
+          {!hasPvProfile(pvProfile) && (
+            <DataEntryPvArray
+              projectId={projectId}
+              meteringPoint={meteringPoint}
+              meteringPointNumber={meteringPointNumber}
+              maxBytes={designMaxBytes}
             />
           )}
         </div>

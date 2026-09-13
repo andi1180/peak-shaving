@@ -29,7 +29,11 @@ import {
   type ProjectSegment,
 } from '@/lib/admin/projects'
 import { createClient } from '@/lib/supabase/server'
-import { MAX_BATTERY_SPEC_FILE_BYTES, MAX_INVOICE_FILE_BYTES } from 'extractors'
+import {
+  MAX_BATTERY_SPEC_FILE_BYTES,
+  MAX_INVOICE_FILE_BYTES,
+  MAX_PV_DESIGN_FILE_BYTES,
+} from 'extractors'
 import { MAX_PROJECT_DOCUMENT_BYTES } from 'shared'
 
 /*
@@ -388,6 +392,13 @@ export default async function AdminProjectDataEntryPage({
               ausgelesen UND abgelegt; eine mit 25 MB genannte Grenze liesse eine Datei vollständig
               einlesen und erst beim Hochladen abweisen.
 
+              ⚠ `designMaxBytes` ist eine ZWEITE, andere Grenze: `MAX_PV_DESIGN_FILE_BYTES` (8 MB)
+              für das Datenblatt der Anlagendaten. Dieselbe Lage wie beim Batterie-Datenblatt — es
+              wird ausgelesen und ausdrücklich NICHT im Projekt abgelegt (s. `scanPvDesignAction`),
+              die Ablage-Grenze gälte dort also für einen Weg, den es nicht gibt. Für den zweiten
+              Weg jener Erfassung (ein Satz in eigenen Worten) ist die Grenze eine Zeichenzahl und
+              sitzt in der Server Action (`MAX_PV_ARRAY_TEXT_CHARS`) — sie braucht kein Prop.
+
               `customerLabel` braucht die Station für den Nein-Zweig: er bietet eine PV-Anfrage an,
               und deren Betreff nennt das Projekt. Sie kennt sonst nur den Zählpunkt.
             */
@@ -396,6 +407,7 @@ export default async function AdminProjectDataEntryPage({
               meteringPoint={pv.point}
               meteringPointNumber={pv.number}
               maxBytes={MAX_PROJECT_DOCUMENT_BYTES}
+              designMaxBytes={MAX_PV_DESIGN_FILE_BYTES}
               customerLabel={project.customer_label}
               nextHref={next ? stationHref(project.id, next.id) : null}
             />
