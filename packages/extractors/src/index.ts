@@ -187,6 +187,51 @@ export {
   type StandardProfileCustomerClass,
 } from './standard-profile/generate'
 
+/*
+ * ── PV-REFERENZ: Anbietbarkeit + PVGIS-Abruf (B24, Teil 1 — Phase A) ──────────────────────────
+ * Der DRITTE und VIERTE Extraktor ohne Modellaufruf, und der erste dieses Pakets mit einem eigenen
+ * NETZWEG. Er beantwortet den „Nein"-Zweig der PV-Station: der Kunde HAT eine Anlage, aber keine
+ * gemessene Erzeugungsreihe — dann wird sie aus Standort und Auslegung geschätzt (B22).
+ *
+ * ⚠ ZWEI FUNKTIONEN, ZWEI VERSCHIEDENE ZUSAGEN, UND BEIDE SIND DER GRUND FÜR DEN ORT:
+ *
+ *   `checkPvGeneratorEligibility` erzeugt den VOLLEN Lastgang (bis zu 35.040 Messwerte), weil die
+ *   Frage nur an ihm zu beantworten ist — und lässt ausschliesslich ein Ja/Nein mit höchstens einem
+ *   Grund heraus. Der Metadaten-Leser nebenan könnte es strukturell nicht: er trägt keine
+ *   Messwerte, und die zweite der beiden Prüfungen braucht jeden einzelnen davon.
+ *
+ *   `fetchPvArrayReferenceProfile` holt die zehn Wetterjahre EINER Modulfläche und lässt
+ *   ausschliesslich Kennzahlen heraus — die 8.760 Stundenwerte bleiben hier, genau wie beim
+ *   Standardprofil-Erzeuger die 35.040 erzeugten. Was der Wizard SPEICHERT, sind Eingaben; die
+ *   Kurve entsteht zur Rechenzeit neu.
+ *
+ * ⚠ `apps/website/lib/pvgis/client.ts` TUT DASSELBE UND BLEIBT UNANGETASTET. Die Doppelung ist
+ * benannt statt still: jenes Modul ist die live gemessene Fassung des öffentlichen Rechners, und
+ * ein Umbau daran gehört in einen eigenen Schritt mit eigener Messung. Geteilt ist, worauf es
+ * ankommt — die REGELN (Anfrageprüfung, Antwortauswertung, Mittelung) liegen in `packages/engine`
+ * und existieren nur EINMAL.
+ *
+ * ⚠ DIE FREQUENZBREMSE IST EIGEN UND PROZESSLOKAL. Ein geteilter Zähler wäre zwischen zwei
+ * getrennten Vercel-Projekten gar nicht herstellbar, wohl aber behauptbar — s. der Kopf von
+ * `pv-reference/limits.ts`.
+ */
+export {
+  PVGIS_TIMEOUT_MS,
+  PV_REFERENCE_RATE_LIMIT_MAX_CALLS,
+  PV_REFERENCE_RATE_LIMIT_WINDOW_MS,
+  /** Nur für Tests/Diagnose — kein Aufrufer im Produktionspfad (s. dortiger Kommentar). */
+  resetPvReferenceRateLimit,
+} from './pv-reference/limits'
+export {
+  checkPvGeneratorEligibility,
+  type PvGeneratorEligibilityOutcome,
+} from './pv-reference/eligibility'
+export {
+  fetchPvArrayReferenceProfile,
+  type PvArrayReferenceOutcome,
+  type PvArrayReferenceSummary,
+} from './pv-reference/fetch'
+
 // ── Dokument-Zuordnung (Delta 17 Teil 1) ──────────────────────────────────────────────────────
 export {
   MAX_UPLOAD_CLASSIFICATION_FILE_BYTES,
