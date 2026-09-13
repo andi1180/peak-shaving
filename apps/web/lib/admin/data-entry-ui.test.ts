@@ -280,7 +280,14 @@ describe('B24 — der Lastgang-Schritt ist echt, der Tarif-Schritt bleibt Platzh
 })
 
 describe('B24 — die Server Action des Lastgang-Schritts', () => {
-  const source = read(path.resolve(import.meta.dirname, 'data-entry-actions.ts'))
+  /*
+   * ⚠ NACHGEZOGEN, NICHT GELOCKERT: `data-entry-actions.ts` ist seit der Aufteilung ein reiner
+   * Barrel; der Rumpf steht stationsweise in `data-entry-actions-<station>.ts`. Der Zuschnitt ist
+   * dadurch ENGER als vorher — die Reihenfolge-Zusagen unten messen jetzt nur noch die Datei, um
+   * die es geht, statt auf ein gleichlautendes Vorkommen in einer fremden Station treffen zu
+   * können.
+   */
+  const source = read(path.resolve(import.meta.dirname, 'data-entry-actions-lastgang.ts'))
 
   it('⚠ LIEST die Datei, BEVOR sie sie hochlädt', () => {
     /*
@@ -311,7 +318,14 @@ describe('B24 — die Server Action des Lastgang-Schritts', () => {
 })
 
 describe('B24 — der Lastgang-Rückweg', () => {
-  const actions = read(path.resolve(import.meta.dirname, 'data-entry-actions.ts'))
+  /*
+   * ⚠ NACHGEZOGEN, NICHT GELOCKERT: `data-entry-actions.ts` ist seit der Aufteilung ein reiner
+   * Barrel; der Rumpf steht stationsweise in `data-entry-actions-<station>.ts`. Der Zuschnitt ist
+   * dadurch ENGER als vorher — die Reihenfolge-Zusagen unten messen jetzt nur noch die Datei, um
+   * die es geht, statt auf ein gleichlautendes Vorkommen in einer fremden Station treffen zu
+   * können.
+   */
+  const actions = read(path.resolve(import.meta.dirname, 'data-entry-actions-lastgang.ts'))
   const station = read(path.join(COMPONENTS_DIR, 'admin', 'data-entry-load-profile.tsx'))
 
   /** Nur der Rumpf der Entfernen-Action — die Reihenfolgen darin sind die eigentliche Zusage. */
@@ -385,7 +399,14 @@ describe('B24 — der Lastgang-Rückweg', () => {
 })
 
 describe('B24 — der Standardprofil-Zweig', () => {
-  const actions = read(path.resolve(import.meta.dirname, 'data-entry-actions.ts'))
+  /*
+   * ⚠ NACHGEZOGEN, NICHT GELOCKERT: `data-entry-actions.ts` ist seit der Aufteilung ein reiner
+   * Barrel; der Rumpf steht stationsweise in `data-entry-actions-<station>.ts`. Der Zuschnitt ist
+   * dadurch ENGER als vorher — die Reihenfolge-Zusagen unten messen jetzt nur noch die Datei, um
+   * die es geht, statt auf ein gleichlautendes Vorkommen in einer fremden Station treffen zu
+   * können.
+   */
+  const actions = read(path.resolve(import.meta.dirname, 'data-entry-actions-lastgang.ts'))
   const station = read(path.join(COMPONENTS_DIR, 'admin', 'data-entry-load-profile.tsx'))
 
   /** Nur der Rumpf der Standardprofil-Action — die Reihenfolgen darin sind die eigentliche Zusage. */
@@ -754,7 +775,14 @@ describe('B24 — die PV-Station', () => {
   const source = read(PV_STATION)
   const page = read(DATA_ENTRY_PAGE)
   const draftModule = read(path.resolve(import.meta.dirname, 'pv-draft.ts'))
-  const actions = read(path.resolve(import.meta.dirname, 'data-entry-actions.ts'))
+  /*
+   * ⚠ NACHGEZOGEN, NICHT GELOCKERT: `data-entry-actions.ts` ist seit der Aufteilung ein reiner
+   * Barrel; der Rumpf steht stationsweise in `data-entry-actions-<station>.ts`. Der Zuschnitt ist
+   * dadurch ENGER als vorher — die Reihenfolge-Zusagen unten messen jetzt nur noch die Datei, um
+   * die es geht, statt auf ein gleichlautendes Vorkommen in einer fremden Station treffen zu
+   * können.
+   */
+  const actions = read(path.resolve(import.meta.dirname, 'data-entry-actions-pv.ts'))
 
   it('⚠ leitet den Zweig AUSSCHLIESSLICH aus dem Entwurf ab, nicht aus lokalem Zustand', () => {
     /*
