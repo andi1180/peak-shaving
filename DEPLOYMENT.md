@@ -1792,8 +1792,12 @@ Mangel (§3b) — und **für einen Zeitraum VOR dem ältesten erfassten Stand is
 nachträglich behebbar**, ohne SQL-Editor.
 
 **Stromanbieter-Tarife (`retail_tariffs`) sind NICHT Teil von B21-2b** — Delta 5 nennt beide Seiten
-gemeinsam, für diesen Bauabschnitt ist ausdrücklich entschieden, nur die Netzbetreiber-Seite zu bauen.
-Es gibt dafür weder Tabelle noch Wrapper noch UI.
+gemeinsam, für jenen Bauabschnitt war ausdrücklich entschieden, nur die Netzbetreiber-Seite zu bauen.
+
+> ⚠️ **Nachgezogen am 13.09.2026:** Der frühere Zusatz „Es gibt dafür weder Tabelle noch Wrapper noch
+> UI" stimmt nur noch zur Hälfte. **Tabelle und Schreibfunktion existieren seit dem 13.09.2026** und
+> stehen in der Cloud — was fehlt, ist das UI. Der eigene Abschnitt dazu ist **§3e**; dieser Absatz
+> bleibt stehen, weil er für B21-2b weiterhin richtig ist.
 
 ---
 
@@ -1879,6 +1883,96 @@ gibt. Der Löschweg kommt zusammen mit dem Storage-Aufräumweg, in einem eigenen
 Ein Gespräch und die dazu hochgeladenen Dokumente tragen Kundendaten und fallen damit unter dieselbe
 offene juristische Frage wie `platform.partner_applications` (§7) — **sie ist mit B24 grösser
 geworden.**
+
+---
+
+## 3e. Lieferanten-Tarife pflegen (`public.retail_tariffs`) — Schema + Schreibweg, noch KEIN UI
+
+Seit **13.09.2026** gibt es die Lieferanten-Seite neben den Netzentgelten aus §3b/§3c. Migrationen:
+
+- `20260913120000_create_retail_tariffs.sql` — die Tabelle, nur-lesbar
+- `20260913120100_create_retail_tariff_write_path.sql` — `public.create_retail_tariff` + die Grants
+
+### Im Dashboard ist NICHTS zu tun ✅
+
+`public` ist über die Data API bereits per Default exponiert (anders als seinerzeit `monitor`, §2a).
+
+### Was es heute gibt — und was noch nicht ⚠️
+
+| | Stand 13.09.2026 |
+|---|---|
+| Tabelle, RLS, Lesezugang für `anon`/`authenticated` | **da** |
+| Schreibfunktion `public.create_retail_tariff` | **da** (service_role-only) |
+| Admin-UI | **fehlt** — nächster Schritt, zusammen mit KI-Websuche-Lookup und Abweichungs-Warnung |
+| Inhalt | **leer** (0 Zeilen; die Migration legt keine an) |
+
+Bis das UI steht, ist der einzige Weg ein RPC-Aufruf mit dem service_role-Schlüssel. **Kein
+Tabellen-INSERT von Hand** — er umginge die Effektiv-Datierung und liesse zwei gleichzeitig gültige
+Stände desselben Anbieters entstehen.
+
+### Was der Weg kann — und was ausdrücklich nicht
+
+Wie bei den Netzbetreiber-Tarifen: **nur Anhängen.** Ein neuer Preis schliesst die bisher offene
+Zeile derselben Kombination (`provider_id`, `segment`) auf `valid_from - 1` und legt eine neue an —
+lückenlos und überlappungsfrei. Ein Stand mit einem Beginn, der **nicht nach** dem der offenen Zeile
+liegt, wird abgewiesen (`invalid_valid_from`), ohne etwas zu verändern.
+
+**Kein Bearbeiten, kein Löschen, für keine Rolle** — es gibt weder `delete`-Grant noch Funktion.
+Anders als bei den Netzbetreiber-Tarifen (§3c) gibt es hier auch **keinen protokollierten Löschweg**:
+eine falsch eingetragene Zeile bleibt stehen und wird durch einen neuen Stand abgelöst.
+
+### Die Rechtefläche — gemessen, nicht abgeleitet ⚠️
+
+| Rolle | `public.retail_tariffs` |
+|---|---|
+| `anon` / `authenticated` | `SELECT` |
+| `service_role` | `INSERT, SELECT, UPDATE` |
+
+Stufe für Stufe gemessen (PostgreSQL 17.6, zurückgerollte Transaktionen, die Funktion mit einer
+bereits offenen Vorgängerzeile **echt aufgerufen**) — und anders als bei §3c steht die Messung nicht
+nur als Notiz hier, sondern als **laufender Test** in
+`packages/db-tests/src/retail-tariff-write-path.test.ts`:
+
+| Stufe (Aufruf als `service_role`) | Ergebnis |
+|---|---|
+| kein Grant | 42501 `retail_tariffs` |
+| `insert` | 42501 |
+| `insert + select` (ohne UPDATE) | 42501 |
+| `insert + update` (ohne SELECT) | 42501 |
+| `select + update` (ohne INSERT) | 42501 |
+| `insert + select + update` | **OK**, `closed_count 1` |
+| **zusätzlich** `delete` | OK, **kein Unterschied** |
+
+> ⚠️ **Nebenbefund, der die Begründung schärft: UPDATE hängt am `for update`, nicht nur am
+> Schliessen.** Auch OHNE offene Vorgängerzeile — also auf einem Weg, der gar keine UPDATE-Anweisung
+> ausführt — scheitert `insert + select` mit 42501. Isoliert nachgemessen: derselbe SELECT läuft
+> **ohne** `for update` durch und scheitert **mit**. PostgreSQL verlangt für eine Zeilensperre das
+> Schreibrecht, auch wenn nichts geschrieben wird.
+
+### ⚠️ Auflage an den nächsten Schritt: `checked_at` nur über eine eigene Funktion
+
+`checked_at` („zuletzt bestätigt") ist die Grundlage der Staleness-/Abweichungs-Anzeige und **nicht**
+dasselbe wie `valid_from`. Einen Weg, sie fortzuschreiben, gibt es heute nicht: der Schreibweg legt
+ausschliesslich neue Stände an, und für einen neuen ist der Default `now()` die Wahrheit.
+
+`service_role` hat allerdings UPDATE auf der Tabelle (s. o.) — damit liesse sich über PostgREST
+**jede** Spalte überschreiben, auch der Preis selbst. Wer die Neuprüfung eines unveränderten Stands
+baut, baut sie deshalb als **eigene Funktion, die nichts anfasst ausser `checked_at`** — nicht als
+`.update()` aus dem Anwendungscode. Sonst wäre „nie in-place überschrieben" eine Konvention statt
+einer Regel.
+
+### Die Autorisierung liegt auch hier im Anwendungscode
+
+`public.create_retail_tariff` ist **SECURITY INVOKER** und läuft als `service_role` — dieselbe eine
+Ausnahme, die §3c für die Netzbetreiber-Tarife ausführlich begründet. Es entsteht **keine zweite Art**
+von Ausnahme: derselbe Aufruferkreis, dieselbe eng geführte ESLint-Erlaubnisliste für den
+service_role-Client. Wer das UI baut, prüft `isCurrentUserAdmin()` **vor** dem Anlegen des Clients,
+fail closed.
+
+### Aufbewahrungsfrist: keine nötig
+
+Die Tabelle trägt veröffentlichte Anbieterpreise und die Adresse des Admins, der sie eingetragen hat
+— keine Kundendaten. Die offene juristische Frage aus §7 wächst dadurch **nicht**.
 
 ---
 
