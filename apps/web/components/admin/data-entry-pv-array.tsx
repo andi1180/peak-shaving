@@ -40,9 +40,9 @@ import {
   compassDirectionLabel,
   PV_ARRAY_DIRECTION_FORM_FIELD,
   PV_ARRAY_NUMBER_FIELDS,
-  pvArrayDraftIsEmpty,
-  readPvArrayDraft,
-  type PvArrayDraftSummary,
+  pvArraysDraftIsEmpty,
+  readPvArraysDraft,
+  type PvArrayEntry,
 } from '@/lib/admin/pv-array-draft'
 import { ADMIN_INITIAL_STATE } from '@/lib/admin/schema'
 import { COMPASS_DIRECTIONS } from 'shared'
@@ -128,8 +128,26 @@ export function DataEntryPvArray({
     if (scanned) applyExtraction(scanned)
   }, [scanned, applyExtraction])
 
-  const summary = readPvArrayDraft(meteringPoint.draft)
-  const hasSummary = !pvArrayDraftIsEmpty(summary)
+  /*
+   * ⚠ NACH DEM ANHÄNGEN WIRD DAS FORMULAR GELEERT — anders als im vorigen, skalaren Stand, wo der
+   * gespeicherte Stand stehen blieb und sich beim nächsten Klick selbst überschrieb. Jetzt legt
+   * jeder Klick eine WEITERE Fläche an: blieben die Werte stehen, wäre der naheliegende zweite
+   * Klick ein versehentliches Duplikat derselben Fläche — und in der Zusammenfassung sähe es aus
+   * wie zwei echte.
+   *
+   * ⚠ ABHÄNGIG VON DER OBJEKTIDENTITÄT des Ergebnisses, nicht vom Meldungstext: `useActionState`
+   * liefert bei jedem Lauf ein neues Objekt und bei jedem anderen Rerender dasselbe. Am Text
+   * gehängt feuerte der Effekt bei zwei gleichlautenden Erfolgen nicht erneut — und die Meldung
+   * lautet nur deshalb je Lauf anders, weil die Zahl der Flächen steigt; darauf darf sich das
+   * Leeren nicht verlassen.
+   */
+  const saved = saveState.success ? saveState : null
+  React.useEffect(() => {
+    if (saved) setFields({})
+  }, [saved])
+
+  const arrays = readPvArraysDraft(meteringPoint.draft)
+  const hasArrays = !pvArraysDraftIsEmpty(arrays)
 
   return (
     <div className="flex flex-col gap-6 border-t border-line pt-6">
@@ -138,7 +156,7 @@ export function DataEntryPvArray({
       {readState.formError && <AdminError>{readState.formError}</AdminError>}
       {scanState.formError && <AdminError>{scanState.formError}</AdminError>}
 
-      {hasSummary && <PvArraySummary number={meteringPointNumber} summary={summary} />}
+      {hasArrays && <PvArraySummary number={meteringPointNumber} arrays={arrays} />}
 
       <form action={saveAction} noValidate className="flex flex-col gap-6">
         <input type="hidden" name="projectId" value={projectId} />
@@ -191,10 +209,17 @@ export function DataEntryPvArray({
         </div>
 
         <fieldset className="flex flex-col gap-4 border-t border-line pt-6">
-          <legend className="text-small font-medium text-ink">Anlagendaten</legend>
+          <legend className="text-small font-medium text-ink">Eine Modulfläche</legend>
+          {/*
+            ⚠ DER TEXT SAGT DAS ANHÄNGEN IM KLARTEXT. Vorher hiess es hier „ein bereits erfasster
+            Wert bleibt unverändert stehen" — das beschrieb den Skalar-Stand und wäre jetzt eine
+            Falschauskunft: es entsteht ein NEUER Eintrag, und ein leeres Feld fehlt genau dieser
+            Fläche. Wer mehrere Flächen hat, trägt sie nacheinander ein.
+          */}
           <p className="max-w-2xl text-small text-text-muted">
-            Alle Felder sind freiwillig. Was leer bleibt, wird nicht gespeichert — ein bereits
-            erfasster Wert bleibt dann unverändert stehen.
+            Hat die Anlage mehrere Flächen (etwa Ost und West), tragen Sie sie nacheinander ein —
+            jeder Klick auf „Fläche hinzufügen" legt eine weitere an. Was leer bleibt, fehlt dieser
+            einen Fläche; die bereits erfassten bleiben unberührt.
           </p>
 
           <div className="grid gap-4 sm:grid-cols-2">
@@ -254,7 +279,7 @@ export function DataEntryPvArray({
             {isSaving && (
               <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2} aria-hidden="true" />
             )}
-            {isSaving ? 'Wird gespeichert …' : 'Angaben übernehmen'}
+            {isSaving ? 'Wird gespeichert …' : 'Fläche hinzufügen'}
           </Button>
           <span role="status" aria-live="polite" className="sr-only">
             {isSaving ? 'Wird gespeichert …' : ''}
@@ -272,27 +297,54 @@ export function DataEntryPvArray({
  * Neigung liesse sich eine Erzeugungsmenge schätzen; sie stünde hier neben abgelesenen Angaben und
  * wäre von ihnen nicht zu unterscheiden. Die Schätzung ist Sache der Rechnung, nicht der Erfassung.
  */
-function PvArraySummary({ number, summary }: { number: number; summary: PvArrayDraftSummary }) {
+function PvArraySummary({ number, arrays }: { number: number; arrays: readonly PvArrayEntry[] }) {
   return (
     <div className="rounded-lg border border-line bg-surface-sunken p-4">
-      <p className="text-small font-medium text-ink">Erfasst für Zählpunkt {number}</p>
+      <p className="text-small font-medium text-ink">
+        {arrays.length === 1
+          ? `Eine Modulfläche für Zählpunkt ${number} erfasst.`
+          : `${arrays.length} Modulflächen für Zählpunkt ${number} erfasst.`}
+      </p>
 
-      <dl className="mt-3 grid gap-x-6 gap-y-2 sm:grid-cols-2">
-        {summary.values.map((entry) => (
-          <Row
-            key={entry.field}
-            label={entry.label}
-            /*
-              ⚠ Deutsche Schreibweise, damit die Anzeige nicht von der Eingabe abweicht: das
-              Formular nimmt „9,8" entgegen, und „9.8" daneben sähe nach einer anderen Zahl aus.
-            */
-            value={`${entry.value.toLocaleString('de-AT', { maximumFractionDigits: 2 })} ${entry.unit}`}
-          />
+      {/*
+        ⚠ JEDE FLÄCHE EINZELN, NICHT ZU EINER ZAHL ZUSAMMENGEZOGEN. „10,2 kWp" über zwei
+        verschieden ausgerichtete Flächen wäre eine gerechnete Zahl, die so nirgends erhoben wurde
+        — und die Tagesform der Summe ist eine andere als die der gemittelten Fläche. Der Generator
+        rechnet PRO Fläche; hier steht, womit er rechnen wird.
+
+        ⚠ SCHLÜSSEL IST DER INDEX, und das ist hier vertretbar: die Liste wächst ausschliesslich am
+        Ende (es gibt keinen Weg, eine Fläche aus der Mitte zu entfernen), und ein Eintrag trägt
+        keine eigene Kennung. Kommt ein Entfernen-Weg dazu, braucht er eine — sonst setzte React
+        die Zeile auf einer FREMDEN Fläche wieder zusammen (die Lehre aus der Rechnung-Station).
+      */}
+      <ol className="mt-3 flex flex-col gap-3">
+        {arrays.map((array, index) => (
+          <li key={index} className="border-t border-line pt-3 first:border-t-0 first:pt-0">
+            <p className="text-caption font-medium text-ink">Fläche {index + 1}</p>
+            <dl className="mt-1.5 grid gap-x-6 gap-y-2 sm:grid-cols-3">
+              {PV_ARRAY_NUMBER_FIELDS.map((entry) => {
+                const value = array[entry.form]
+                if (value === null) return null
+                return (
+                  <Row
+                    key={entry.form}
+                    label={entry.label}
+                    /*
+                      ⚠ Deutsche Schreibweise, damit die Anzeige nicht von der Eingabe abweicht: das
+                      Formular nimmt „9,8" entgegen, und „9.8" daneben sähe nach einer anderen Zahl
+                      aus.
+                    */
+                    value={`${value.toLocaleString('de-AT', { maximumFractionDigits: 2 })} ${entry.unit}`}
+                  />
+                )
+              })}
+              {array.direction !== null && (
+                <Row label="Ausrichtung" value={compassDirectionLabel(array.direction)} />
+              )}
+            </dl>
+          </li>
         ))}
-        {summary.direction !== null && (
-          <Row label="Ausrichtung" value={compassDirectionLabel(summary.direction)} />
-        )}
-      </dl>
+      </ol>
     </div>
   )
 }

@@ -164,12 +164,14 @@ import {
 import { readMeteringPointList } from './metering-points'
 import {
   PV_ARRAY_DIRECTION_FORM_FIELD,
-  PV_ARRAY_DIRECTION_KEY,
   PV_ARRAY_NUMBER_FIELDS,
   compassDirectionLabel,
   formatPvArrayNumber,
   isCompassDirection,
   parsePvArrayNumber,
+  readPvArraysDraft,
+  withPvArrays,
+  type PvArrayEntry,
 } from './pv-array-draft'
 import { PV_PRESENT_KEY } from './pv-draft'
 import { pvProfileDraftValues, withPvProfileGaps } from './pv-profile-draft'
@@ -2983,23 +2985,37 @@ export async function scanPvDesignAction(
 }
 
 /**
- * Der Speichern-Weg: die drei — ggf. von Hand angepassten — Angaben in den Entwurf.
+ * Der Speichern-Weg: EINE — ggf. von Hand angepasste — Modulfläche ZUR LISTE HINZUFÜGEN.
+ *
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * ⚠ SIE HÄNGT AN, SIE ÜBERSCHREIBT NICHT
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * Bis hierher schrieb dieselbe Action drei Skalarfelder, und ein zweiter Klick nahm den ersten
+ * zurück. Eine Anlage hat aber regelmässig mehrere Flächen (Ost/West, Vorbau), und der Generator
+ * rechnet PRO Fläche und summiert — mit nur einer erfassten Fläche fiele die geschätzte Erzeugung
+ * systematisch zu niedrig aus, ohne dass irgendeine Zahl deswegen falsch aussähe. Die Flächen
+ * stehen deshalb als LISTE im Entwurf (`_pvArrays`, s. `pv-array-draft.ts`).
  *
  * ── DIE REIHENFOLGE ────────────────────────────────────────────────────────────────────────────
- *   1. alle gefüllten Felder prüfen (ein Fehler bricht VOR jedem Schreibvorgang ab — ein halb
- *      übernommenes Formular wäre der Zustand, den niemand nachvollziehen kann)
- *   2. Entwurf frisch lesen, Werte hineinfalten, EINMAL schreiben (`writeMeteringPointDraftFields`)
+ *   1. alle gefüllten Felder prüfen (ein Fehler bricht VOR jedem Schreibvorgang ab — eine halb
+ *      übernommene Fläche wäre der Zustand, den niemand nachvollziehen kann)
+ *   2. Entwurf FRISCH lesen (`list_metering_points`) — `update_metering_point_draft` ERSETZT ihn,
+ *      und ein Stand aus der Zeit des Seitenaufbaus machte jede Angabe rückgängig, die inzwischen
+ *      dazugekommen ist (auch die Fläche, die ein zweiter Tab gerade angehängt hat)
+ *   3. die neue Fläche ANHÄNGEN und EINMAL schreiben
  *
- * ── EIN LEERES FELD IST KEINE ANGABE ──────────────────────────────────────────────────────────
- * Es wird übersprungen, nicht als `null` geschrieben: ein zuvor erfasster Wert bleibt dadurch
- * stehen, statt von einem leeren Formularfeld gelöscht zu werden. Dieselbe schonende Richtung wie
- * bei der manuellen Tarifeingabe und bei der Batterie-Station.
+ * ── EIN LEERES FELD IST KEINE ANGABE, ABER ES VERHINDERT DIE FLÄCHE NICHT ─────────────────────
+ * Es wird als `null` im Eintrag geführt: die Fläche gibt es, diese eine Angabe zu ihr fehlt. Das
+ * ist etwas anderes als beim vorigen Skalar-Stand, wo ein leeres Feld einen bereits erfassten Wert
+ * unberührt liess — hier entsteht ein NEUER Eintrag, es gibt für ihn nichts zu schonen.
  *
- * ⚠ OHNE EINE EINZIGE ANGABE WIRD NICHTS GESCHRIEBEN — anders als bei der Batterie-Station, und
- * der Unterschied ist begründet: dort ist „es gibt einen Speicher" selbst eine Angabe und wird
- * mitgeschrieben. Hier ist die entsprechende Frage („gibt es eine PV-Anlage?") bereits an anderer
- * Stelle beantwortet (`saveMeteringPointPvChoiceAction`, `hasPv`); ein leeres Formular hätte hier
- * wirklich nichts zu sagen, und eine Erfolgsmeldung darüber wäre eine Zusage ohne Inhalt.
+ * ⚠ OHNE EINE EINZIGE ANGABE WIRD NICHTS ANGEHÄNGT. Ein Eintrag aus drei `null` wäre keine Fläche,
+ * sondern eine Zeile in der Zusammenfassung ohne jeden Inhalt — `readPvArraysDraft` überspränge ihn
+ * ohnehin, und eine Erfolgsmeldung darüber wäre eine Zusage ohne Inhalt.
+ *
+ * ⚠ ES GIBT (NOCH) KEINEN WEG, EINE EINZELNE FLÄCHE WIEDER ZU ENTFERNEN — eigener Auftrag,
+ * benannt statt verschwiegen. Bis dahin ist ein Fehlgriff nur über einen Eingriff am `jsonb`
+ * zurückzunehmen.
  *
  * ⚠ ES WIRD NICHT UMGELEITET — Regel dieser Datei (s. Kopf): der übernommene Stand ist das
  * Einzige, woran ein Mensch erkennt, ob die richtigen Werte angekommen sind.
@@ -3015,7 +3031,8 @@ export async function saveMeteringPointPvArrayAction(
   if (!UUID.test(meteringPointId)) return { formError: GENERIC }
 
   const fieldErrors: Record<string, string> = {}
-  const values: { field: string; value: DraftValue }[] = []
+  const numbers: Partial<Record<'peakPowerKwp' | 'slopeDeg', number>> = {}
+  let found = 0
 
   for (const entry of PV_ARRAY_NUMBER_FIELDS) {
     const parsed = parsePvArrayNumber(String(formData.get(entry.form) ?? ''), entry)
@@ -3027,7 +3044,8 @@ export async function saveMeteringPointPvArrayAction(
           : `Bitte eine Zahl zwischen ${entry.min} und ${entry.max} eintragen, z. B. 30.`
       continue
     }
-    values.push({ field: entry.field, value: parsed })
+    numbers[entry.form] = parsed
+    found += 1
   }
 
   /*
@@ -3035,35 +3053,73 @@ export async function saveMeteringPointPvArrayAction(
    * eigenen, leeren Eintrag) — ein UNBEKANNTER Wert dagegen kann nur an der Auswahl vorbei
    * entstehen und wird benannt, statt still verworfen zu werden.
    */
+  let direction: CompassDirection | null = null
   const directionRaw = String(formData.get(PV_ARRAY_DIRECTION_FORM_FIELD) ?? '').trim()
   if (directionRaw !== '') {
     if (!isCompassDirection(directionRaw)) {
       fieldErrors[PV_ARRAY_DIRECTION_FORM_FIELD] = 'Diese Himmelsrichtung kennen wir nicht.'
     } else {
-      values.push({ field: PV_ARRAY_DIRECTION_KEY, value: directionRaw })
+      direction = directionRaw
+      found += 1
     }
   }
 
   if (Object.keys(fieldErrors).length > 0) return { fieldErrors }
-  if (values.length === 0) {
+  if (found === 0) {
     return {
-      formError:
-        'Bitte mindestens eine Angabe eintragen — leere Felder lassen den bisherigen Stand unberührt.',
+      formError: 'Bitte mindestens eine Angabe eintragen.',
     }
   }
 
-  const failure = await writeMeteringPointDraftFields(
-    projectId,
-    meteringPointId,
-    values,
-    'PV-Anlagendaten',
-  )
-  if (failure) return failure
+  const added: PvArrayEntry = {
+    peakPowerKwp: numbers.peakPowerKwp ?? null,
+    direction,
+    slopeDeg: numbers.slopeDeg ?? null,
+  }
 
-  const count = values.length === 1 ? 'Eine Angabe wurde' : `${values.length} Angaben wurden`
+  const supabase = await createClient()
+  const listRes = await supabase.rpc('list_metering_points', { p_project_id: projectId })
+  if (listRes.error) {
+    if (isForbidden(listRes.error)) return { formError: FORBIDDEN }
+    console.error('[admin/dateneingabe] list_metering_points (PV-Anlagendaten):', listRes.error)
+    return { formError: GENERIC }
+  }
+
+  const points = readMeteringPointList(listRes.data)
+  const point = points?.find((candidate) => candidate.id === meteringPointId)
+  if (!point) {
+    return { formError: 'Diesen Zählpunkt gibt es nicht (mehr). Bitte laden Sie die Seite neu.' }
+  }
+
+  const arrays = [...readPvArraysDraft(point.draft), added]
+
+  const draftRes = await supabase.rpc('update_metering_point_draft', {
+    p_metering_point_id: meteringPointId,
+    // Zusicherung wie in den übrigen Listen-Schreibwegen: zur Laufzeit dasselbe, TypeScript kann
+    // es nur nicht wissen.
+    p_draft: withPvArrays(point.draft, arrays) as Json,
+  })
+
+  if (draftRes.error) {
+    if (isForbidden(draftRes.error)) return { formError: FORBIDDEN }
+    console.error(
+      '[admin/dateneingabe] update_metering_point_draft (PV-Anlagendaten):',
+      draftRes.error,
+    )
+    return { formError: GENERIC }
+  }
+  if (statusOf(draftRes.data) !== 'ok') {
+    console.error('[admin/dateneingabe] unerwartete Antwort (PV-Anlagendaten):', draftRes.data)
+    return { formError: GENERIC }
+  }
+
+  // ⚠ Ohne das bliebe die angehängte Fläche unsichtbar — s. die Begründung beim Lastgang-Upload.
+  revalidatePath(projectDataEntryHref(projectId))
+
   return {
     success:
-      `${count} zur PV-Anlage übernommen. Leer gelassene Felder bleiben unverändert — ein bereits ` +
-      'eingetragener Wert wird dadurch nicht gelöscht.',
+      arrays.length === 1
+        ? 'Fläche hinzugefügt. Es ist jetzt eine Fläche erfasst.'
+        : `Fläche hinzugefügt. Es sind jetzt ${arrays.length} Flächen erfasst.`,
   }
 }
