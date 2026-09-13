@@ -52,13 +52,16 @@ import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { FieldHint, Label } from '@/components/ui/input'
 import {
+  generatePvProfileAction,
   saveMeteringPointPvChoiceAction,
   saveProjectPostalCodeAction,
   uploadMeteringPointPvProfileAction,
 } from '@/lib/admin/data-entry-actions'
-import { formatDateTime } from '@/lib/admin/format'
+import { formatDateTime, formatKwh, formatPercent } from '@/lib/admin/format'
 import type { MeteringPointSummary } from '@/lib/admin/metering-points'
+import { readPvArraysDraft } from '@/lib/admin/pv-array-draft'
 import { PV_PRESENT_KEY, readPvDraft } from '@/lib/admin/pv-draft'
+import { splitPvArrayDesigns } from '@/lib/admin/pv-estimate'
 import {
   hasPvProfile,
   readPvProfileDraft,
@@ -147,6 +150,18 @@ export function DataEntryPv({
    * der Lastgang-Station). Nach erfolgreichem Speichern schliesst sie sich selbst: der Server
    * liefert den neuen Wert, das Formular hätte danach nichts mehr zu tun.
    */
+  /*
+   * ⚠ VIERTER Zustand, und wieder ein eigener. Ein Fehlschlag der Schätzung (etwa eine
+   * unvollständig erfasste Fläche) überschriebe sonst die Meldung eines laufenden Uploads —
+   * dieselbe Lehre wie beim Entfernen-Weg der Rechnung-Station. Er sitzt ausserdem auf
+   * KOMPONENTEN-Ebene und nicht im Formular: ein erfolgreicher Lauf ersetzt den Knopf durch die
+   * Zusammenfassung, und ein `useActionState` im Formular verschwände mitsamt seiner Meldung.
+   */
+  const [estimateState, estimateAction, isEstimating] = useActionState(
+    generatePvProfileAction,
+    ADMIN_INITIAL_STATE,
+  )
+
   const [isEditingPostal, setIsEditingPostal] = React.useState(false)
   React.useEffect(() => {
     if (postalState.success) setIsEditingPostal(false)
@@ -155,6 +170,27 @@ export function DataEntryPv({
   const { hasPv } = readPvDraft(meteringPoint.draft)
   const pvProfile = readPvProfileDraft(meteringPoint.draft)
   const uploadError = uploadState.fieldErrors?.file
+
+  /*
+   * ⚠ DIE ANBIETBARKEIT WIRD HIER NUR SO WEIT BEANTWORTET, WIE ES OHNE DIE DATEI GEHT.
+   *
+   * Ob der Lastgang eine GEMESSENE Einspeisung enthält, lässt sich nur an seinen einzelnen
+   * Messwerten erkennen — und die liegen in der Datei, nicht im Entwurf. Diese Komponente rendert
+   * auf dem Server, könnte sie also öffnen; sie tut es bewusst nicht: eine bis zu 20 MB grosse
+   * Datei bei JEDEM Seitenaufbau zu lesen, nur um einen Knopf zu zeigen oder zu verstecken, wäre
+   * ein hoher Preis für eine Anzeige. Die Prüfung läuft deshalb in der Action, und der Knopf kann
+   * in eine begründete Ablehnung führen (§2.4) — das ist der bewusst in Kauf genommene Rest.
+   *
+   * Was hier geprüft wird, sind die Vorbedingungen, die der Entwurf selbst beantwortet: Standort,
+   * Flächen, Lastgang-Zeitraum. Sie fehlen sichtbar auf DIESER Seite, und ein Knopf, der nur
+   * darauf hinweisen kann, ist keine Hilfe.
+   */
+  const pvArrays = readPvArraysDraft(meteringPoint.draft)
+  const { designs, incompleteNumbers } = splitPvArrayDesigns(pvArrays)
+  const hasLoadPeriod = meteringPoint.coveredFrom !== null && meteringPoint.coveredTo !== null
+  const hasPostalCode = postalCode !== null && postalCode.trim() !== ''
+  const canEstimate =
+    hasLoadPeriod && hasPostalCode && designs.length > 0 && incompleteNumbers.length === 0
 
   React.useEffect(() => {
     if (uploadError) document.getElementById(FIELD_ID)?.focus()
@@ -261,6 +297,27 @@ export function DataEntryPv({
                 isPending={isSavingPostal}
                 isEditing={isEditingPostal}
                 onEdit={() => setIsEditingPostal(true)}
+              />
+
+              {/*
+                ⚠ DER SCHÄTZ-KNOPF STEHT ZULETZT, und das ist keine Anordnungsfrage: er setzt
+                Flächen UND Standort voraus, und beide werden direkt darüber erfasst. Weiter oben
+                stünde er über seinen eigenen Vorbedingungen und wäre im Regelfall — beim ersten
+                Betreten der Station — ein unbenutzbarer Knopf.
+              */}
+              <PvEstimateForm
+                projectId={projectId}
+                meteringPointId={meteringPoint.id}
+                meteringPointNumber={meteringPointNumber}
+                action={estimateAction}
+                state={estimateState}
+                isPending={isEstimating}
+                canEstimate={canEstimate}
+                arrayCount={designs.length}
+                incompleteNumbers={incompleteNumbers}
+                hasArrays={pvArrays.length > 0}
+                hasPostalCode={hasPostalCode}
+                hasLoadPeriod={hasLoadPeriod}
               />
             </>
           )}
@@ -412,10 +469,22 @@ function PvProfileSummary({
   profile: PvProfileDraftSummary
   number: number
 }) {
+  /*
+   * ⚠ DIE HERKUNFT KOMMT AUS `source`, NICHT AUS DER ANWESENHEIT DER KENNZAHLEN. Beides ergäbe
+   * heute dasselbe (`readPvProfileDraft` liefert `estimate` nur für `'generated'`), aber die
+   * Aussage ist eine andere: `source` sagt, WOHER die Reihe stammt, `estimate` ist eine Folge
+   * davon. Über das Vorhandensein der Zahlen entschieden, hiesse ein künftiger Entwurf ohne
+   * Kennzahlen still „hochgeladen" — dieselbe Verwechslung, die `profileSource` auf der
+   * Lastgang-Seite behoben hat (dort war `hasLoadProfile` an der Dokument-Kennung festgemacht).
+   */
+  const isGenerated = profile.source === 'generated'
+
   return (
     <div>
       <p className="text-small font-medium text-ink">
-        Erzeugungsprofil für Zählpunkt {number} ist eingelesen.
+        {isGenerated
+          ? `Erzeugungsprofil für Zählpunkt ${number} ist geschätzt.`
+          : `Erzeugungsprofil für Zählpunkt ${number} ist eingelesen.`}
       </p>
 
       <dl className="mt-4 grid gap-x-8 gap-y-3 sm:grid-cols-[auto_1fr]">
@@ -430,10 +499,38 @@ function PvProfileSummary({
           {profile.intervalMinutes === null ? '—' : `${profile.intervalMinutes} Minuten`}
         </dd>
 
-        <dt className="text-caption text-text-muted">Lücken</dt>
-        <dd className="text-small tabular-nums text-ink">
-          {profile.gaps.length === 0 ? 'keine' : `${profile.gaps.length}`}
-        </dd>
+        {/*
+          ⚠ ERTRAG UND STREUUNG STEHEN NEBENEINANDER ODER GAR NICHT. Eine geschätzte Jahreszahl
+          ohne ihre Streuung liest sich wie eine gemessene — genau der Grund, aus dem
+          `PvProfileEstimate` ein Block ist und nicht vier flache Felder.
+        */}
+        {profile.estimate && (
+          <>
+            <dt className="text-caption text-text-muted">Jahresertrag (geschätzt)</dt>
+            <dd className="text-small tabular-nums text-ink">
+              {formatKwh(profile.estimate.annualKwh)} ± {formatPercent(profile.estimate.spreadPercent)}
+            </dd>
+
+            <dt className="text-caption text-text-muted">Wetterjahre</dt>
+            <dd className="text-small tabular-nums text-ink">
+              {profile.estimate.weatherYears.from}–{profile.estimate.weatherYears.to}
+            </dd>
+          </>
+        )}
+
+        {/*
+          ⚠ BEI EINER GESCHÄTZTEN REIHE WIRD DIE LÜCKEN-ZEILE GAR NICHT GERENDERT. „keine" wäre
+          dort ein Befund über eine Messung, die nie stattgefunden hat — dieselbe Entscheidung wie
+          in der Zusammenfassung des erzeugten Standardlastprofils.
+        */}
+        {!isGenerated && (
+          <>
+            <dt className="text-caption text-text-muted">Lücken</dt>
+            <dd className="text-small tabular-nums text-ink">
+              {profile.gaps.length === 0 ? 'keine' : `${profile.gaps.length}`}
+            </dd>
+          </>
+        )}
       </dl>
 
       {profile.gaps.length > 0 && (
@@ -449,14 +546,35 @@ function PvProfileSummary({
         </div>
       )}
 
-      <p className="mt-4 max-w-prose text-small text-text-muted">
-        Gespeichert sind ausschliesslich diese Angaben über die Reihe — keine Messwerte. Die Datei
-        selbst liegt in der Dokumentenliste des Projekts.
-      </p>
-      <p className="mt-2 max-w-prose text-small text-text-muted">
-        Ein Entfernen gibt es in diesem Schritt noch nicht. Wurde die falsche Datei eingelesen, hilft
-        ein erneuter Upload — er ersetzt die Angaben.
-      </p>
+      {isGenerated ? (
+        <>
+          <p className="mt-4 max-w-prose text-small text-text-muted">
+            Diese Erzeugung ist <strong className="font-medium text-ink">geschätzt</strong>, nicht
+            gemessen: gerechnet aus den erfassten Modulflächen am Standort des Projekts, gemittelt
+            über zehn Wetterjahre. Sie ist im Entwurf als Annahme gekennzeichnet und bleibt es bis
+            in den Report.
+          </p>
+          <p className="mt-2 max-w-prose text-small text-text-muted">
+            Die „±"-Angabe ist die Schwankung zwischen bestem und schlechtestem Wetterjahr. Über sie
+            hinaus fällt eine gemittelte Kurve etwas günstiger aus als jedes einzelne Jahr, weil sie
+            glatter ist — die Schätzung ist damit leicht optimistisch.
+          </p>
+          <p className="mt-2 max-w-prose text-small text-text-muted">
+            Liegt später eine gemessene Reihe vor, ersetzt ein Upload diese Angaben.
+          </p>
+        </>
+      ) : (
+        <>
+          <p className="mt-4 max-w-prose text-small text-text-muted">
+            Gespeichert sind ausschliesslich diese Angaben über die Reihe — keine Messwerte. Die
+            Datei selbst liegt in der Dokumentenliste des Projekts.
+          </p>
+          <p className="mt-2 max-w-prose text-small text-text-muted">
+            Ein Entfernen gibt es in diesem Schritt noch nicht. Wurde die falsche Datei eingelesen,
+            hilft ein erneuter Upload — er ersetzt die Angaben.
+          </p>
+        </>
+      )}
     </div>
   )
 }
@@ -542,6 +660,133 @@ function ProjectPostalCode({
         Aus der Postleitzahl entsteht später die Erzeugungsschätzung für eine geplante Anlage. Ein
         hochgeladenes Erzeugungsprofil schlägt sie in jedem Fall — es ist gemessen.
       </FieldHint>
+    </div>
+  )
+}
+
+/**
+ * Der Anstoss der PVGIS-Schätzung — ein Knopf, und daneben der Grund, wenn er nicht benutzbar ist.
+ *
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * ⚠ EIN GESPERRTER KNOPF OHNE GRUND IST SCHLECHTER ALS KEIN KNOPF
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * Die Schätzung hat drei Vorbedingungen, die alle auf ANDEREN Schritten liegen (Lastgang,
+ * Modulflächen, Standort). Wer hier vor einem stumpfen Knopf steht, sucht den Fehler bei sich.
+ * Deshalb steht unter dem Knopf in jedem Sperrfall genau der Satz, der sagt, was fehlt und wo es
+ * nachzutragen ist — und es sind mehrere Sätze gleichzeitig möglich, weil beim ersten Betreten der
+ * Station regelmässig alle drei Angaben fehlen.
+ *
+ * ⚠ DER KNOPF WIRD GESPERRT, NICHT VERSTECKT. Ein versteckter Knopf sähe aus, als gäbe es den Weg
+ * gar nicht — und die Station böte dann für einen Kunden ohne gemessene Erzeugung überhaupt keine
+ * Fortsetzung an. Sichtbar und begründet gesperrt ist er zugleich der Hinweis, dass es ihn gibt.
+ *
+ * ⚠ UNVOLLSTÄNDIGE FLÄCHEN SPERREN, sie werden nicht übersprungen — dieselbe Regel wie in der
+ * Action, und aus demselben Grund: eine Schätzung über die übrigen Flächen ergäbe einen zu
+ * niedrigen Ertrag, dem man das nicht ansieht. Die beiden Orte lesen dafür DIESELBE Funktion
+ * (`splitPvArrayDesigns`); zweimal ausgeschrieben böte die Oberfläche einen Weg an, der nur
+ * scheitern kann.
+ *
+ * ⚠ KEINE RÜCKFRAGE VOR DEM KLICK. Der Vorgang legt nichts an, was sich nicht durch einen zweiten
+ * Lauf oder einen Upload ersetzen liesse, und er vernichtet nichts — anders als beim Entfernen
+ * eines Lastgangs gibt es hier nichts zu bestätigen. Was er kostet, ist Wartezeit, und die steht
+ * als Hinweis am Knopf.
+ */
+function PvEstimateForm({
+  projectId,
+  meteringPointId,
+  meteringPointNumber,
+  action,
+  state,
+  isPending,
+  canEstimate,
+  arrayCount,
+  incompleteNumbers,
+  hasArrays,
+  hasPostalCode,
+  hasLoadPeriod,
+}: {
+  projectId: string
+  meteringPointId: string
+  meteringPointNumber: number
+  action: (formData: FormData) => void
+  state: AdminState
+  isPending: boolean
+  canEstimate: boolean
+  /** Die Zahl der VOLLSTÄNDIG erfassten Flächen — sie gehen in den Abruf. */
+  arrayCount: number
+  /** 1-basierte Nummern der unvollständigen Flächen, wie sie in der Zusammenfassung stehen. */
+  incompleteNumbers: number[]
+  hasArrays: boolean
+  hasPostalCode: boolean
+  hasLoadPeriod: boolean
+}) {
+  return (
+    <div className="border-t border-line pt-6">
+      {state.success && <AdminSuccess>{state.success}</AdminSuccess>}
+      {state.formError && <AdminError>{state.formError}</AdminError>}
+
+      <p className="max-w-prose text-body text-ink">
+        Keine gemessene Erzeugungsreihe? Dann lässt sie sich schätzen.
+      </p>
+      <p className="mt-2 max-w-prose text-small text-text-muted">
+        Aus den erfassten Modulflächen und dem Standort des Projekts wird über den europäischen
+        Erzeugungs-Dienst PVGIS eine Erzeugung gerechnet, gemittelt über zehn Wetterjahre. Das
+        Ergebnis ist eine <strong className="font-medium text-ink">Annahme</strong> und wird auch so
+        gespeichert — es ersetzt keine gemessene Reihe.
+      </p>
+
+      <form action={action} noValidate className="mt-4">
+        <input type="hidden" name="projectId" value={projectId} />
+        <input type="hidden" name="meteringPointId" value={meteringPointId} />
+
+        <Button type="submit" variant="secondary" size="md" disabled={!canEstimate || isPending}>
+          {isPending && (
+            <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2} aria-hidden="true" />
+          )}
+          Erzeugung schätzen
+        </Button>
+
+        <span role="status" aria-live="polite" className="sr-only">
+          {isPending ? 'Die Erzeugung wird geschätzt …' : ''}
+        </span>
+      </form>
+
+      {canEstimate ? (
+        <p className="mt-2 max-w-prose text-caption text-text-muted">
+          Gerechnet wird mit{' '}
+          {arrayCount === 1 ? 'einer Modulfläche' : `${arrayCount} Modulflächen`} für den Zeitraum
+          des Lastgangs von Zählpunkt {meteringPointNumber}. Der Abruf dauert einige Sekunden je
+          Fläche.
+        </p>
+      ) : (
+        <ul className="mt-2 flex max-w-prose flex-col gap-1">
+          {!hasLoadPeriod && (
+            <li className="text-caption text-text-muted">
+              Es fehlt der Lastgang dieses Zählpunkts — die geschätzte Erzeugung deckt genau dessen
+              Zeitraum ab.
+            </li>
+          )}
+          {!hasArrays && (
+            <li className="text-caption text-text-muted">
+              Es ist noch keine Modulfläche erfasst (Nennleistung, Ausrichtung, Neigung).
+            </li>
+          )}
+          {incompleteNumbers.length > 0 && (
+            <li className="text-caption text-text-muted">
+              {incompleteNumbers.length === 1
+                ? `Fläche ${incompleteNumbers[0]} ist unvollständig erfasst.`
+                : `Die Flächen ${incompleteNumbers.join(', ')} sind unvollständig erfasst.`}{' '}
+              Es wird alles oder nichts gerechnet: eine Schätzung über die übrigen Flächen ergäbe
+              einen zu niedrigen Ertrag, dem man das nicht ansieht.
+            </li>
+          )}
+          {!hasPostalCode && (
+            <li className="text-caption text-text-muted">
+              Es fehlt die Postleitzahl des Projekts — sie steht direkt darüber.
+            </li>
+          )}
+        </ul>
+      )}
     </div>
   )
 }

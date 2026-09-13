@@ -79,6 +79,22 @@ export type MeteringPointSummary = {
    * verloren, die neu eingetragen werden kann, keine hochgeladene Datei.
    */
   profileSource: 'upload' | 'standard' | null
+  /**
+   * Die Kennung der hochgeladenen LASTGANG-Datei in `platform.project_documents` — `null` bei einem
+   * erzeugten Standardprofil und ohne Lastgang.
+   *
+   * ⚠ SIE STEHT NEBEN `profileSource` UND IST NICHT DASSELBE, obwohl das eine aus dem anderen
+   * abgeleitet ist (`profileSource === 'upload'` heisst genau: diese Kennung ist gesetzt). Die
+   * Herkunft ist die AUSSAGE, die Kennung der ZEIGER — und den braucht genau ein Leser: die
+   * Anbietbarkeits-Prüfung des PVGIS-Generators muss die Datei noch einmal öffnen, weil sich
+   * Einspeisung nur an den einzelnen Messwerten erkennen lässt (`checkPvGeneratorEligibility`, und
+   * der Metadaten-Leser kann die Frage strukturell nicht beantworten).
+   *
+   * ⚠ SIE IST KEIN ZWEITES FLAG. Wer „gibt es einen Lastgang?" fragt, fragt weiterhin
+   * `profileSource !== null`; diese Kennung zu prüfen ergäbe für ein Standardprofil die falsche
+   * Antwort — genau der Fehler, den `profileSource` behoben hat.
+   */
+  sourceDocumentId: string | null
   /** 15 oder 60, sobald ein Lastgang eingelesen wurde — sonst `null`. */
   intervalMinutes: number | null
   /** Beginn des ersten Intervalls mit Messwert, ISO/UTC — sonst `null`. */
@@ -134,6 +150,7 @@ export function readMeteringPointList(data: unknown): MeteringPointSummary[] | n
     rows.push({
       id,
       profileSource: readProfileSource(row),
+      sourceDocumentId: typeof row?.source_document_id === 'string' ? row.source_document_id : null,
       intervalMinutes: typeof row?.interval_minutes === 'number' ? row.interval_minutes : null,
       coveredFrom: typeof row?.covered_from === 'string' ? row.covered_from : null,
       coveredTo: typeof row?.covered_to === 'string' ? row.covered_to : null,

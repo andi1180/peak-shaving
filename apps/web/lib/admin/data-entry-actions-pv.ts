@@ -4,9 +4,12 @@ import { revalidatePath } from 'next/cache'
 import {
   MAX_PV_ARRAY_TEXT_CHARS,
   MAX_PV_DESIGN_FILE_BYTES,
+  checkPvGeneratorEligibility,
   extractPvArrayText,
   extractPvDesign,
+  fetchPvArrayReferenceProfile,
   readPvProfile,
+  type PvGeneratorEligibilityOutcome,
 } from 'extractors'
 import {
   MAX_PROJECT_DOCUMENT_BYTES,
@@ -15,7 +18,7 @@ import {
   type CompassDirection,
   type PvDesignArrayPrefill,
 } from 'shared'
-import { uploadProjectDocument } from '@/lib/project-documents/documents'
+import { readProjectDocument, uploadProjectDocument } from '@/lib/project-documents/documents'
 import { setDraftField } from '@/lib/project-chat/draft'
 import { createClient } from '@/lib/supabase/server'
 import { readMeteringPointList } from './metering-points'
@@ -26,13 +29,22 @@ import {
   formatPvArrayNumber,
   isCompassDirection,
   parsePvArrayNumber,
+  pvArraysDraftIsEmpty,
   readPvArraysDraft,
   withPvArrays,
   type PvArrayEntry,
 } from './pv-array-draft'
+import { formatKwh, formatPercent } from './format'
 import { PV_PRESENT_KEY } from './pv-draft'
-import { pvProfileDraftValues, withPvProfileGaps } from './pv-profile-draft'
-import { projectDataEntryHref } from './projects'
+import { combinePvArrayYields, splitPvArrayDesigns } from './pv-estimate'
+import {
+  hasPvProfile,
+  pvGeneratedProfileDraftValues,
+  pvProfileDraftValues,
+  readPvProfileDraft,
+  withPvProfileGaps,
+} from './pv-profile-draft'
+import { projectDataEntryHref, readAdminProject } from './projects'
 import type { AdminState } from './schema'
 import type { Json } from '@/db-types'
 import {
@@ -993,4 +1005,429 @@ export async function saveProjectPostalCodeAction(
 
   revalidatePath(projectDataEntryHref(projectId))
   return { success: `Standort gespeichert: ${centroid.name} (${centroid.postalCode}).` }
+}
+
+// ── PV-Erzeugung schätzen (PVGIS) ────────────────────────────────────────────────────────────────
+/**
+ * B24, Teil 1 — der PV-GENERATOR: aus Standort und Modulflächen wird eine geschätzte Erzeugung
+ * (Phase B; Phase A hat die zwei Bausteine geliefert, die hier zusammenkommen).
+ *
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * ⚠ WAS HIER ENTSTEHT, IST EINE SCHÄTZUNG — UND SIE WIRD AUCH SO GESPEICHERT
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * Der Entwurf bekommt die Kennzahlen mit `source: 'assumed'` und einer Begründung, nicht mit
+ * `'measured'`. Das ist der GANZE Unterschied zum Upload-Weg zwei Funktionen weiter oben, und er
+ * ist der Grund, warum diese Action ihren Schreibvorgang selbst führt statt
+ * `writeMeteringPointDraftFields` zu rufen: jener Helfer schreibt ausdrücklich `'measured'`, mit
+ * einer eigenen Begründung („der Admin trägt ein, was der Kunde über SEINE Anlage sagt"). Sie
+ * trifft hier nicht zu — niemand hat diese Erzeugung gesehen, sie ist aus zehn Wetterjahren
+ * gerechnet. Als Messwert gekennzeichnet stünde sie im Report ununterscheidbar neben einer
+ * ausgelesenen Wechselrichter-Reihe (Delta §3.2), und der Vorbehalt, um den es geht, wäre genau
+ * dort verschwunden, wo er hingehört.
+ *
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * ⚠ ALLES ODER NICHTS: EINE UNVOLLSTÄNDIGE FLÄCHE BRICHT DEN GANZEN LAUF AB
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * `splitPvArrayDesigns` trennt vollständige von unvollständigen Flächen, und die naheliegende
+ * Verwendung wäre, die vollständigen zu rechnen und die übrigen zu benennen. Das ist hier FALSCH,
+ * und der Fehler wäre still: eine Anlage mit drei Flächen, von denen eine unvollständig erfasst
+ * ist, ergäbe den Ertrag von zwei Flächen — eine Zahl in völlig plausibler Grössenordnung, der
+ * niemand ansieht, dass ihr ein Drittel der Anlage fehlt. Sie landet als `pvEstimatedAnnualKwh` im
+ * Entwurf, von dort in der Rechnung, und der einzige Hinweis wäre ein Satz in einer
+ * Erfolgsmeldung, den nach dem nächsten Neuladen niemand mehr sieht.
+ *
+ * Ein Abbruch dagegen ist laut, sofort behebbar (die fehlende Angabe steht eine Station höher) und
+ * kostet nichts ausser einem zweiten Klick. Der Kopf von `pv-estimate.ts` hat diese Richtung schon
+ * benannt: die beiden Konsumenten von `splitPvArrayDesigns` sind „die Station, um den Knopf gar
+ * nicht erst anzubieten, und die Action, um ABZUBRECHEN".
+ *
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * ⚠ DIE ANBIETBARKEIT WIRD HIER ERNEUT GEPRÜFT, obwohl die Station den Knopf schon versteckt
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * „Wird nicht angeboten" ist der Zustand einer ANSICHT, keine Regel. Zwischen dem Rendern und dem
+ * Klick kann in einem zweiten Tab ein Lastgang MIT gemessener Einspeisung hochgeladen worden sein
+ * — und dann addierte dieser Lauf eine geschätzte Erzeugung auf eine bereits gemessene. Das
+ * Ergebnis sähe nicht falsch aus, sondern nur besser (§2.4). Die Prüfung liest die Datei dafür
+ * erneut: Einspeisung erkennt man nur an den einzelnen Messwerten, der Metadaten-Leser kann die
+ * Frage strukturell nicht beantworten.
+ *
+ * Ein ERZEUGTES Standardprofil ist davon ausgenommen — es hat keine Datei, und es hat per
+ * Konstruktion keine Einspeisung (es ist eine reine Verbrauchskurve). Dort gibt es nichts zu
+ * öffnen und nichts zu prüfen.
+ *
+ * ── DIE REIHENFOLGE: ERST ALLE PRÜFUNGEN, DANN DER EXTERNE ABRUF, DANN EIN SCHREIBVORGANG ─────
+ * Jeder Abbruchgrund liegt VOR dem ersten PVGIS-Aufruf. Ein Lauf, der an einer fehlenden Neigung
+ * scheitert, soll einen fremden, kostenlosen Dienst nicht mit N Anfragen belasten — und die
+ * Frequenzgrenze des Abrufs (`takePvReferenceRateLimitSlot`) ist knapp bemessen.
+ *
+ * ⚠ EIN FEHLSCHLAG EINER EINZIGEN FLÄCHE BRICHT ALLES AB, und nichts wird gespeichert. Aus
+ * demselben Grund wie oben: die Summe über die übrigen Flächen wäre eine plausible Zahl mit
+ * fehlendem Anteil. `Promise.all` tut genau das — es lehnt ab, sobald eine Zusage ablehnt; hier
+ * werfen die Abrufe allerdings nicht, sie liefern ein `ok: false`, also wird danach ausgewertet.
+ *
+ * ⚠ DER ENTWURF WIRD NACH DEM ABRUF FRISCH GELESEN, nicht der Stand von vor den Prüfungen
+ * verwendet. Zwischen beiden liegen mehrere Sekunden echter Wartezeit (ein Abruf misst rund acht
+ * Sekunden, und es sind N davon) — mehr als genug, damit in einem zweiten Tab eine Rechnung
+ * ausgelesen wird. `update_metering_point_draft` ERSETZT den Entwurf; ein veralteter Stand machte
+ * jede solche Angabe rückgängig.
+ *
+ * KEIN NEUER WRAPPER, KEINE MIGRATION: derselbe Lesepfad wie die übrigen Stationen
+ * (`list_metering_points`, `admin_get_project`) und derselbe Schreibpfad
+ * (`update_metering_point_draft`).
+ */
+export async function generatePvProfileAction(
+  _prev: AdminState,
+  formData: FormData,
+): Promise<AdminState> {
+  const projectId = readProjectId(formData)
+  if (projectId === null) return { formError: UNKNOWN_PROJECT }
+
+  const meteringPointId = String(formData.get('meteringPointId') ?? '')
+  // Kommt wie die Projekt-Kennung als verstecktes Feld aus unserer eigenen Seite.
+  if (!UUID.test(meteringPointId)) return { formError: GENERIC }
+
+  const supabase = await createClient()
+
+  // ── Schritt 1: Zählpunkt und Projekt lesen. Beides wird gebraucht: die Flächen und der
+  //    Lastgang-Zeitraum hängen am ZÄHLPUNKT, der Standort am PROJEKT.
+  const listRes = await supabase.rpc('list_metering_points', { p_project_id: projectId })
+  if (listRes.error) {
+    if (isForbidden(listRes.error)) return { formError: FORBIDDEN }
+    console.error('[admin/dateneingabe] list_metering_points (PV-Schätzung):', listRes.error)
+    return { formError: GENERIC }
+  }
+
+  const point = readMeteringPointList(listRes.data)?.find(
+    (candidate) => candidate.id === meteringPointId,
+  )
+  if (!point) {
+    return { formError: 'Diesen Zählpunkt gibt es nicht (mehr). Bitte laden Sie die Seite neu.' }
+  }
+
+  const projectRes = await supabase.rpc('admin_get_project', { p_id: projectId })
+  if (projectRes.error) {
+    if (isForbidden(projectRes.error)) return { formError: FORBIDDEN }
+    console.error('[admin/dateneingabe] admin_get_project (PV-Schätzung):', projectRes.error)
+    return { formError: GENERIC }
+  }
+  const project = readAdminProject(projectRes.data)
+  if (project === 'not_found') return { formError: UNKNOWN_PROJECT }
+  if (project === null) {
+    console.error('[admin/dateneingabe] unerwartete Antwort (PV-Schätzung, Projekt)')
+    return { formError: GENERIC }
+  }
+
+  // ── Schritt 2: Vorbedingungen. Jede bekommt einen eigenen Satz — „geht nicht" ohne Grund
+  //    schickt den Admin auf die Suche nach einem Fehler, den es nicht gibt.
+  if (hasPvProfile(readPvProfileDraft(point.draft))) {
+    return {
+      formError:
+        'Für diesen Zählpunkt liegt bereits ein Erzeugungsprofil vor. Eine Schätzung daneben ' +
+        'wäre eine zweite Aussage über dieselbe Anlage.',
+    }
+  }
+
+  /*
+   * ⚠ OHNE LASTGANG KEIN ZEITRAUM — und ohne Zeitraum keine Erzeugungsreihe. Das erzeugte Profil
+   * deckt genau den Zeitraum ab, für den es einen Verbrauch gibt (s. `pvGeneratedProfileDraftValues`);
+   * es gibt hier nichts zu erfinden, und ein Vorgabezeitraum wäre eine Erzeugung in Jahren, in
+   * denen der Kunde gar nicht gemessen wurde.
+   */
+  if (point.coveredFrom === null || point.coveredTo === null || point.intervalMinutes === null) {
+    return {
+      formError:
+        'Für diesen Zählpunkt liegt noch kein Lastgang vor. Die geschätzte Erzeugung deckt genau ' +
+        'dessen Zeitraum ab — bitte zuerst den Lastgang-Schritt abschliessen.',
+    }
+  }
+
+  const postalCode = project.postal_code
+  if (postalCode === null || postalCode.trim() === '') {
+    return {
+      formError:
+        'Für dieses Projekt ist noch keine Postleitzahl hinterlegt. Ohne Standort lässt sich die ' +
+        'Erzeugung nicht schätzen.',
+    }
+  }
+
+  /*
+   * ⚠ Die Koordinate kommt aus der statischen Tabelle und wird NICHT geraten (B22b): eine
+   * unbekannte PLZ liefert `null`, und daraus eine Ersatzkoordinate zu bilden verschöbe den
+   * Standort, ohne dass die Zahl falsch aussähe. Erreichbar ist der Zweig kaum — gespeichert wird
+   * die Postleitzahl nur, wenn sie beim Eintragen aufgelöst werden konnte —, aber die Tabelle und
+   * die gespeicherte Angabe liegen an zwei Orten.
+   */
+  const centroid = lookupPostalCodeCentroid(postalCode)
+  if (!centroid) {
+    return {
+      formError:
+        `Die hinterlegte Postleitzahl (${postalCode}) lässt sich keinem Ort zuordnen. Bitte den ` +
+        'Standort erneut eintragen.',
+    }
+  }
+
+  const arrays = readPvArraysDraft(point.draft)
+  if (pvArraysDraftIsEmpty(arrays)) {
+    return {
+      formError:
+        'Für diesen Zählpunkt ist noch keine Modulfläche erfasst. Nennleistung, Ausrichtung und ' +
+        'Neigung sind die Grundlage der Schätzung.',
+    }
+  }
+
+  const { designs, incompleteNumbers } = splitPvArrayDesigns(arrays)
+  if (incompleteNumbers.length > 0) {
+    // Alles oder nichts — s. Kopf. Die Nummern sind das, woran ein Mensch die Zeile wiedererkennt.
+    const list = incompleteNumbers.join(', ')
+    return {
+      formError:
+        `${incompleteNumbers.length === 1 ? `Fläche ${list} ist` : `Die Flächen ${list} sind`} ` +
+        'unvollständig erfasst — es fehlt Nennleistung, Ausrichtung oder Neigung. Es wurde nichts ' +
+        'gerechnet und nichts gespeichert: eine Schätzung über die übrigen Flächen ergäbe einen ' +
+        'zu niedrigen Ertrag, dem man das nicht ansieht.',
+    }
+  }
+
+  /*
+   * ── Schritt 3: Anbietbarkeit ────────────────────────────────────────────────────────────────
+   *
+   * ⚠ DIE VERZWEIGUNG HÄNGT AN DER DOKUMENT-KENNUNG, NICHT AN `profileSource` — und der
+   * Unterschied ist nicht kosmetisch. `readProfileSource` leitet `'standard'` daraus ab, dass eine
+   * Kennung FEHLT (`metering-points.ts`); ein hochgeladener Lastgang, der seinen Zeiger über
+   * `on delete set null` verloren hat, erscheint dort also als Standardprofil. An `profileSource`
+   * geprüft überspränge dieser Lauf für ihn die Einspeise-Prüfung — und addierte womöglich eine
+   * geschätzte Erzeugung auf eine gemessene. Am Zeiger geprüft ist die Frage die richtige: „gibt es
+   * eine Datei, die ich öffnen kann?"
+   *
+   * ⚠ OFFENGELEGTER REST: Ein solcher verwaister Upload ist danach von einem echten Standardprofil
+   * NICHT mehr zu unterscheiden — beide haben einen Zeitraum und keine Datei. Dieser Lauf behandelt
+   * ihn wie ein Standardprofil und prüft nicht. Der Rest ist klein und nachprüfbar: der einzige
+   * Löschweg für ein Lastgang-Dokument (`admin_delete_metering_point_document`) weist ab, solange
+   * ein Zählpunkt es noch als Quelle führt (`in_use`), und der Reset nullt Kennung und Zeitraum
+   * GEMEINSAM. Über die gebauten Wege entsteht der Zustand also nicht. Wer ihn ganz ausschliessen
+   * will, braucht eine eigene Spalte für die Herkunft des LASTGANGS — dieselbe Unterscheidung, die
+   * die PV-Seite seit `PV_PROFILE_SOURCE_KEY` ausdrücklich führt, statt sie abzuleiten.
+   *
+   * Ein echtes Standardprofil hat nichts zu prüfen: es ist eine synthetische Verbrauchskurve und
+   * trägt per Konstruktion keine Einspeisung.
+   */
+  if (point.sourceDocumentId !== null) {
+    const document = await readProjectDocument(point.sourceDocumentId)
+    if (!document.ok) {
+      return {
+        formError:
+          'Die Lastgang-Datei dieses Zählpunkts liess sich nicht öffnen. Ohne sie lässt sich ' +
+          'nicht prüfen, ob bereits eine gemessene Einspeisung vorliegt — es wurde nichts ' +
+          'gerechnet und nichts gespeichert.',
+      }
+    }
+
+    const eligibility = checkPvGeneratorEligibility(document.bytes, document.filename)
+    if (!eligibility.offered) {
+      return { formError: pvGeneratorRefusalText(eligibility) }
+    }
+  }
+
+  // ── Schritt 4: PVGIS. Je Fläche ein Abruf — zwei verschieden ausgerichtete Flächen haben eine
+  //    andere Tagesform als eine gemittelte (s. Kopf von `pv-estimate.ts`).
+  const outcomes = await Promise.all(
+    designs.map((design) =>
+      fetchPvArrayReferenceProfile({
+        ...design,
+        latitudeDeg: centroid.lat,
+        longitudeDeg: centroid.lon,
+      }),
+    ),
+  )
+
+  const summaries = []
+  for (const [index, outcome] of outcomes.entries()) {
+    if (!outcome.ok) {
+      console.error(
+        `[admin/dateneingabe] fetchPvArrayReferenceProfile (Fläche ${index + 1}):`,
+        outcome.reason,
+        outcome.reason === 'invalid_request' ? outcome.rejection : '',
+      )
+      return { formError: pvReferenceFailureText(outcome.reason, index + 1) }
+    }
+    summaries.push(outcome.summary)
+  }
+
+  /*
+   * ⚠ ERST JE WETTERJAHR SUMMIEREN, DANN ZUSAMMENFASSEN — die tragende Regel von `pv-estimate.ts`.
+   * Die Streuungen der Einzelflächen zu mitteln ergäbe eine „± x %"-Angabe, die zu gross ist und
+   * eine Eigenschaft beschreibt, die die Anlage gar nicht hat.
+   */
+  const combined = combinePvArrayYields(summaries.map((summary) => summary.annualYields))
+  if (!combined) {
+    console.error('[admin/dateneingabe] combinePvArrayYields lieferte null (PV-Schätzung)')
+    return { formError: GENERIC }
+  }
+
+  /*
+   * Die Wetterjahre der ERSTEN Fläche — sie gelten für alle. Dass die Jahressätze übereinstimmen,
+   * hat `combinePvArrayYields` bereits geprüft (sonst stünde hier `null`); es ist also keine
+   * Annahme, sondern eine bereits durchgesetzte Bedingung.
+   */
+  const weatherYears = summaries[0]!.weatherYears
+
+  // ── Schritt 5: schreiben. Entwurf FRISCH lesen — zwischen Schritt 1 und hier liegen Sekunden.
+  const freshRes = await supabase.rpc('list_metering_points', { p_project_id: projectId })
+  if (freshRes.error) {
+    if (isForbidden(freshRes.error)) return { formError: FORBIDDEN }
+    console.error('[admin/dateneingabe] list_metering_points (PV-Schätzung, frisch):', freshRes.error)
+    return { formError: GENERIC }
+  }
+  const fresh = readMeteringPointList(freshRes.data)?.find(
+    (candidate) => candidate.id === meteringPointId,
+  )
+  if (!fresh) {
+    return { formError: 'Diesen Zählpunkt gibt es nicht (mehr). Bitte laden Sie die Seite neu.' }
+  }
+
+  /*
+   * ⚠ DIE LÜCKEN WERDEN AUSDRÜCKLICH GELEERT, nicht ausgelassen. Eine erzeugte Reihe ist per
+   * Konstruktion lückenlos — dieselbe Aussage, die `set_metering_point_standard_profile` auf der
+   * Lastgang-Seite als Literal `'[]'` schreibt. Ausgelassen bliebe ein Eintrag aus einem früheren
+   * Upload stehen und behauptete Lücken in einer Reihe, die es so nie gab.
+   */
+  let nextDraft = withPvProfileGaps(fresh.draft, [])
+  const now = new Date()
+  const note = pvEstimateNote(designs.length, weatherYears, centroid.name, centroid.postalCode)
+  for (const { field, value } of pvGeneratedProfileDraftValues({
+    intervalMinutes: point.intervalMinutes,
+    coveredFrom: point.coveredFrom,
+    coveredTo: point.coveredTo,
+    estimate: {
+      annualKwh: combined.spread.meanKwh,
+      spreadPercent: combined.spread.spreadPercent,
+      weatherYears,
+    },
+  })) {
+    // `assumed` samt Begründung — s. Kopf. Der Vorbehalt gehört an die Zahl, nicht in eine Meldung.
+    nextDraft = setDraftField(nextDraft, field, value, 'assumed', note, now)
+  }
+
+  const draftRes = await supabase.rpc('update_metering_point_draft', {
+    p_metering_point_id: meteringPointId,
+    // Zusicherung wie in den übrigen Entwurf-Schreibwegen: zur Laufzeit dasselbe.
+    p_draft: nextDraft as Json,
+  })
+
+  if (draftRes.error) {
+    if (isForbidden(draftRes.error)) return { formError: FORBIDDEN }
+    console.error('[admin/dateneingabe] update_metering_point_draft (PV-Schätzung):', draftRes.error)
+    return { formError: GENERIC }
+  }
+  if (statusOf(draftRes.data) !== 'ok') {
+    console.error('[admin/dateneingabe] unerwartete Antwort (PV-Schätzung):', draftRes.data)
+    return { formError: GENERIC }
+  }
+
+  // ⚠ Ohne das bliebe die Zusammenfassung unsichtbar — s. die Begründung beim PV-Upload.
+  revalidatePath(projectDataEntryHref(projectId))
+
+  return {
+    success:
+      `Erzeugung geschätzt: rund ${formatKwh(combined.spread.meanKwh)} im Jahr ` +
+      `(± ${formatPercent(combined.spread.spreadPercent)} über die Wetterjahre ` +
+      `${weatherYears.from}–${weatherYears.to}), aus ` +
+      `${designs.length === 1 ? 'einer Modulfläche' : `${designs.length} Modulflächen`}.`,
+  }
+}
+
+/**
+ * Warum der Generator NICHT angeboten wird — ein Satz je Grund.
+ *
+ * ⚠ `measured_feed_in` ist die einzige FACHLICHE Antwort unter den vieren und bekommt deshalb eine
+ * Begründung statt einer Fehlermeldung: es ist kein Versagen, sondern der richtige Zustand. Die
+ * übrigen drei beschreiben, dass die Prüfung nicht durchgeführt werden konnte — und fail closed
+ * heisst hier, sie wie eine Ablehnung zu behandeln (s. Kopf von `checkPvGeneratorEligibility`).
+ */
+function pvGeneratorRefusalText(
+  outcome: Exclude<PvGeneratorEligibilityOutcome, { offered: true }>,
+): string {
+  const tail = ' Es wurde nichts gerechnet und nichts gespeichert.'
+  switch (outcome.reason) {
+    case 'measured_feed_in':
+      return (
+        'Der Lastgang dieses Zählpunkts enthält bereits eine gemessene Einspeisung. Eine ' +
+        'geschätzte Erzeugung daneben zöge dieselbe Energie ein zweites Mal ab.' +
+        tail
+      )
+    case 'too_large':
+      return (
+        `Die Lastgang-Datei ist zu gross (${formatMegabytes(outcome.sizeBytes)} MB), um erneut ` +
+        'geprüft zu werden — und ohne diese Prüfung lässt sich nicht ausschliessen, dass bereits ' +
+        'eine Einspeisung gemessen vorliegt.' +
+        tail
+      )
+    case 'ambiguous_columns':
+      return (
+        'Die Lastgang-Datei führt mehrere Wert-Spalten, die sich nicht eindeutig zuordnen lassen ' +
+        '— unter ihnen könnte eine Einspeise-Spalte sein.' +
+        tail
+      )
+    case 'unreadable':
+      return (
+        'Die Lastgang-Datei liess sich nicht mehr lesen, obwohl sie beim Hochladen gelesen wurde. ' +
+        'Damit lässt sich nicht prüfen, ob bereits eine Einspeisung vorliegt.' +
+        tail
+      )
+  }
+}
+
+/**
+ * Warum ein PVGIS-Abruf fehlgeschlagen ist — und für welche Fläche.
+ *
+ * ⚠ `invalid_request` UND `rate_limited` bedeuten: es ist NICHTS hinausgegangen. Sie als Ausfall
+ * des Dienstes zu melden hiesse, PVGIS etwas anzulasten, das bei uns liegt — dieselbe Trennung,
+ * die der Abruf selbst in seinen drei Ausgängen trifft.
+ */
+function pvReferenceFailureText(
+  reason: 'invalid_request' | 'rate_limited' | 'pvgis_error',
+  arrayNumber: number,
+): string {
+  const tail = ' Es wurde nichts gespeichert.'
+  switch (reason) {
+    case 'invalid_request':
+      return (
+        `Die Angaben zu Fläche ${arrayNumber} liegen ausserhalb des Bereichs, den der ` +
+        'Erzeugungs-Dienst annimmt — bitte Nennleistung, Ausrichtung und Neigung prüfen.' +
+        tail
+      )
+    case 'rate_limited':
+      return (
+        'Es wurden gerade zu viele Schätzungen angefordert. Der Erzeugungs-Dienst ist kostenlos ' +
+        'und wird deshalb sparsam befragt — bitte in ein paar Minuten erneut versuchen.' +
+        tail
+      )
+    case 'pvgis_error':
+      return (
+        `Der Erzeugungs-Dienst hat auf die Anfrage für Fläche ${arrayNumber} nicht verwertbar ` +
+        'geantwortet. Das ist meist vorübergehend — bitte später erneut versuchen.' +
+        tail
+      )
+  }
+}
+
+/**
+ * Die Begründung, die an JEDER geschätzten Angabe im Entwurf steht.
+ *
+ * ⚠ SIE NENNT DIE VIER GRÖSSEN, AUS DENEN DIE ZAHL ENTSTANDEN IST (Verfahren, Standort, Flächen,
+ * Wetterjahre) — nicht „PVGIS-Schätzung". Wer 2028 im Entwurf steht und die Zahl nicht mehr
+ * einordnen kann, soll ihr ansehen, worauf sie beruht; dieselbe Form wie beim Standardprofil
+ * („Geschätzt aus 3 Personen im Haushalt: 2 000 kWh + 2 × 1 000 kWh").
+ */
+function pvEstimateNote(
+  arrayCount: number,
+  weatherYears: { from: number; to: number },
+  placeName: string,
+  postalCode: string,
+): string {
+  const arrays = arrayCount === 1 ? '1 Modulfläche' : `${arrayCount} Modulflächen`
+  return (
+    `Geschätzt aus ${arrays} am Standort ${postalCode} ${placeName}, ` +
+    `Mittel der Wetterjahre ${weatherYears.from}–${weatherYears.to} (PVGIS).`
+  )
 }
