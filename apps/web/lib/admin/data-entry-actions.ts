@@ -132,6 +132,7 @@ import {
   type BatteryLookupNotFoundReason,
   type CompassDirection,
   type InvoiceMergeFieldKey,
+  type PvDesignArrayPrefill,
 } from 'shared'
 
 import { uploadProjectDocument } from '@/lib/project-documents/documents'
@@ -2829,6 +2830,26 @@ function pvArrayFormValues(source: {
   return { fields, found }
 }
 
+/**
+ * Wie viele Modulflächen aus EINEM Dokument höchstens zur Auswahl gestellt werden.
+ *
+ * ⚠ SIE IST LOKAL UND WIRD NICHT EXPORTIERT — diese Datei trägt `'use server'`, und dort darf
+ * ausschliesslich Asynchrones exportiert werden. Ein Test kann die Zahl deshalb nicht importieren
+ * und misst stattdessen das VERHALTEN (die Obergrenze greift, `truncated` wird gesetzt, ein
+ * kleineres Dokument bleibt unbeschnitten) — s. `data-entry-actions.test.ts`.
+ *
+ * ⚠ DIESELBE ZAHL FÜHRT DER ÖFFENTLICHE RECHNER (`apps/website`, `MAX_ARRAYS`) — dort ebenfalls
+ * lokal und nicht importierbar. Die zwei sind bewusst NICHT aneinander gebunden: die beiden Apps
+ * importieren einander nirgends, und eine gemeinsame Konstante allein für diese Zahl wäre die erste
+ * Abhängigkeit zwischen ihnen. Laufen sie je auseinander, kostet das eine Fläche mehr oder weniger
+ * in der Auswahl — keine Zahl in einer Rechnung.
+ *
+ * Sechs, weil das die Grössenordnung eines realen Daches ist (Ost/West, Vorbau, Nebendach). Mehr
+ * Flächen sind kein Fehler; sie werden nur nicht alle auf einmal angeboten, und dass es mehr waren,
+ * steht im Klartext daneben.
+ */
+const MAX_PV_DESIGN_CANDIDATES = 6
+
 /** Warum ein Datenblatt nicht gelesen werden konnte — die Zustände des Extraktors, in einem Satz. */
 const PV_DESIGN_FAILURE_TEXT: Record<'not_configured' | 'api_error' | 'unreadable', string> = {
   not_configured:
@@ -2860,16 +2881,24 @@ const PV_DESIGN_FAILURE_TEXT: Record<'not_configured' | 'api_error' | 'unreadabl
  * für sie kein Entwurfs-Feld (s. Kopf von `pv-array-draft.ts`). Gespeichert wird ausschliesslich
  * die Himmelsrichtung.
  *
- * ── ⚠ ES WIRD NUR DIE ERSTE MODULFLÄCHE ÜBERNOMMEN ───────────────────────────────────────────
+ * ── ⚠ SIE LIEFERT ALLE GEFUNDENEN FLÄCHEN, NICHT MEHR NUR DIE ERSTE ─────────────────────────
  * Ein Exposé führt regelmässig mehrere (das bekannte Prüfdokument zwei, mit 4,25 und 5,95 kWp).
- * Dieses Formular beschreibt genau EINE; mehrere zusammenzurechnen ist ein eigener Auftrag —
- * „10,2 kWp bei mittlerer Ausrichtung" wäre eine gerechnete Zahl, die nirgends im Dokument steht,
- * und bei zwei verschieden ausgerichteten Flächen ist die Tagesform der Summe eine andere als die
- * der gemittelten Fläche.
+ * Bis hierher wurde davon GENAU EINE angeboten — und die geschätzte Erzeugung fiele damit um jede
+ * weitere Fläche zu niedrig aus, still: aus 10,2 kWp würden 4,25, und keine Zahl im Report sähe
+ * deswegen falsch aus. Der Generator (B22) rechnet PRO Fläche und summiert; der Entwurf führt sie
+ * seit dem vorigen Schritt als LISTE (`_pvArrays`). Was fehlte, war der Weg von einem Dokument mit
+ * mehreren Flächen in diese Liste.
  *
- * ⚠ DASS ES MEHRERE WAREN, WIRD TROTZDEM GESAGT. Nicht die weiteren Flächen — nur ihre ZAHL. Ein
- * stilles Weglassen wäre genau der Fehler, gegen den dieser Abschnitt sonst überall gebaut ist:
- * aus 10,2 kWp würden 4,25, und keine Zahl im Report sähe deswegen falsch aus.
+ * ⚠ SIE WERDEN TROTZDEM NICHT ZUSAMMENGERECHNET. „10,2 kWp bei mittlerer Ausrichtung" wäre eine
+ * gerechnete Zahl, die nirgends im Dokument steht — und bei zwei verschieden ausgerichteten
+ * Flächen ist die Tagesform der Summe eine andere als die der gemittelten Fläche. Jede Fläche
+ * bleibt ein eigener Kandidat und wird ein eigener Eintrag.
+ *
+ * ⚠ SIE ÜBERNIMMT NICHTS — auch jetzt nicht. Sie gibt Kandidaten zurück; welche davon in die Liste
+ * wandern, entscheidet ein Mensch über Ankreuzfelder, und geschrieben wird ausschliesslich in
+ * `addPvArraysFromScanAction`. Dieselbe Trennung wie vorher, nur mit einer Auswahl dazwischen.
+ *
+ * ⚠ HÖCHSTENS `MAX_PV_DESIGN_CANDIDATES` — und was darüber liegt, wird BENANNT (`truncated`).
  *
  * ── DIE PRÜFKETTE LÄUFT VOR JEDEM EXTERNEN KONTAKT ────────────────────────────────────────────
  * Leer, kein PDF, zu gross — alles drei ist rein und kostet nichts. Jeder Aufruf dahinter ist
@@ -2921,67 +2950,102 @@ export async function scanPvDesignAction(
   const outcome = await extractPvDesign(Buffer.from(bytes).toString('base64'))
   if (!outcome.ok) return { formError: PV_DESIGN_FAILURE_TEXT[outcome.reason] }
 
-  const [first] = outcome.extraction.arrays
+  const all = outcome.extraction.arrays
+  const candidates = all.slice(0, MAX_PV_DESIGN_CANDIDATES)
   /*
    * ⚠ TIEFENSTAFFELUNG: der Extraktor meldet `unreadable`, sobald die Liste leer ist
    * (`pvDesignExtractionIsEmpty` misst genau das). Der Zweig ist damit heute unerreichbar und steht
-   * trotzdem — ohne ihn wäre `first` ein `undefined`, das `pvDesignArrayPrefill` erst bei der
-   * Feldzuweisung zur Strecke brächte.
+   * trotzdem — ohne ihn käme eine Antwort mit `candidateCount: '0'` heraus, und die Oberfläche
+   * behauptete eine gelungene Ablesung ohne eine einzige Fläche.
    */
-  if (!first) return { formError: PV_DESIGN_FAILURE_TEXT.unreadable }
-
-  const prefill = pvDesignArrayPrefill(first, outcome.extraction.azimuthConvention)
-  const values = pvArrayFormValues(prefill)
+  if (candidates.length === 0) return { formError: PV_DESIGN_FAILURE_TEXT.unreadable }
 
   const fields: Record<string, string> = {
-    ...values.fields,
     extraction: 'ok',
-    found: String(values.found),
-    arrayCount: String(outcome.extraction.arrays.length),
+    candidateCount: String(candidates.length),
+    arrayCount: String(all.length),
   }
+  let found = 0
+
+  candidates.forEach((array, index) => {
+    const prefill = pvDesignArrayPrefill(array, outcome.extraction.azimuthConvention)
+    const values = pvArrayFormValues(prefill)
+    found += values.found
+
+    /*
+     * ⚠ DER INDEX STEHT IM SCHLÜSSEL, UND ER TRENNT DURCH EINEN PUNKT. `AdminState.values` ist eine
+     * flache `Record<string, string>` — mehrere Flächen passen dort nur nebeneinander, wenn jede
+     * ihren eigenen Präfix trägt. Der Punkt macht eine Kollision mit den drei Kopf-Schlüsseln
+     * (`extraction`, `candidateCount`, `arrayCount`, `truncated`) strukturell unmöglich.
+     */
+    for (const [key, value] of Object.entries(values.fields)) fields[`${index}.${key}`] = value
+
+    const note = pvDesignDegreeNote(prefill)
+    if (note !== null) fields[`${index}.degreeNote`] = note
+
+    /*
+     * Ungewöhnlich steile Neigung. Der Anlass ist gemessen und nicht erfunden: das bekannte
+     * Prüfdokument nennt `Neigung 90 °` bei gleichzeitig `Einbausituation: Dachparallel`. Der
+     * Widerspruch ist aus dem Dokument nicht auflösbar — der Wert wird angeboten (er kann echt
+     * sein, eine Fassadenanlage) und sichtbar markiert. Er sperrt nichts.
+     */
+    if (prefill.steepSlope) fields[`${index}.steepSlope`] = '1'
+  })
 
   /*
-   * Der Widerspruchs-Hinweis. ⚠ ER WIRD HIER FORMULIERT UND NICHT VOM MODELL GELIEFERT — „kein
-   * Freitextfeld in der Rückgabe" gilt in allen Anbindungen; eine Begründung des Modells über die
-   * eigene Sicherheit erschiene als Auskunft des Rechners.
-   *
-   * Er nennt BEIDE Werte, weil ein Mensch nur damit entscheiden kann, welcher der richtige ist: die
-   * gedruckte Zahl, was sie als Kompassrichtung bedeutete, und die Richtung, die das Dokument
-   * daneben ausschreibt.
+   * ⚠ DASS ES MEHR WAREN, WIRD GESAGT — nicht verschwiegen. Die Oberfläche bildet daraus einen Satz
+   * mit der Zahl der NICHT gezeigten Flächen (`arrayCount` minus `candidateCount`); ein stilles
+   * Abschneiden wäre genau der Fehler, gegen den dieser Abschnitt sonst überall gebaut ist — aus
+   * zehn Flächen würden sechs, und keine Zahl im Report sähe deswegen falsch aus.
    */
+  if (all.length > candidates.length) fields.truncated = '1'
+
+  if (found === 0) {
+    return {
+      formError:
+        'Aus diesem Dokument liessen sich zu keiner der gefundenen Flächen Anlagendaten ' +
+        'übernehmen. Bitte Nennleistung, Ausrichtung und Neigung von Hand eintragen.',
+    }
+  }
+
+  return { values: fields }
+}
+
+/**
+ * Der Hinweis zur gedruckten Gradzahl — oder `null`, wenn es nichts zu sagen gibt.
+ *
+ * ⚠ ER WIRD HIER FORMULIERT UND NICHT VOM MODELL GELIEFERT — „kein Freitextfeld in der Rückgabe"
+ * gilt in allen Anbindungen; eine Begründung des Modells über die eigene Sicherheit erschiene als
+ * Auskunft des Rechners.
+ *
+ * Er nennt BEIDE Werte, weil ein Mensch nur damit entscheiden kann, welcher der richtige ist: die
+ * gedruckte Zahl, was sie als Kompassrichtung bedeutete, und die Richtung, die das Dokument
+ * daneben ausschreibt.
+ *
+ * ⚠ EIGENE FUNKTION, SEIT ES MEHRERE FLÄCHEN SIND: der Hinweis gilt JE FLÄCHE. Im Rumpf der
+ * Schleife ausgeschrieben stünde er zwischen Feldzuweisung und Zählung und wäre als Ganzes nicht
+ * mehr lesbar; der Wortlaut selbst ist unverändert.
+ */
+function pvDesignDegreeNote(prefill: PvDesignArrayPrefill): string | null {
   if (prefill.degreeConflict) {
     const { printedDeg, candidateCompassDeg, direction } = prefill.degreeConflict
-    fields.degreeNote =
+    return (
       `Das Dokument nennt ${formatPvArrayNumber(printedDeg)}° und zugleich die Richtung ` +
       `„${compassDirectionLabel(direction)}". Gelesen als Kompassgrad wären ` +
       `${formatPvArrayNumber(candidateCompassDeg)}° — das passt nicht zusammen. Übernommen ist ` +
       'die Himmelsrichtung (sie ist eindeutig, eine Gradzahl hängt an der Zählweise des ' +
       'Programms); die Zahl wurde bewusst nicht übernommen. Bitte die Ausrichtung prüfen.'
-  } else if (prefill.unverifiedDeg !== null) {
-    fields.degreeNote =
+    )
+  }
+  if (prefill.unverifiedDeg !== null) {
+    return (
       `Das Dokument nennt ${formatPvArrayNumber(prefill.unverifiedDeg)}° als Ausrichtung, aber ` +
       'keine Himmelsrichtung dazu. Ob die Zahl vom Norden oder vom Süden gezählt ist, steht nicht ' +
       'darin — die beiden Lesarten liegen 180° auseinander. Sie wurde deshalb nicht übernommen; ' +
       'bitte die Himmelsrichtung selbst wählen.'
+    )
   }
-
-  /*
-   * Ungewöhnlich steile Neigung. Der Anlass ist gemessen und nicht erfunden: das bekannte
-   * Prüfdokument nennt `Neigung 90 °` bei gleichzeitig `Einbausituation: Dachparallel`. Der
-   * Widerspruch ist aus dem Dokument nicht auflösbar — der Wert wird übernommen (er kann echt sein,
-   * eine Fassadenanlage) und sichtbar markiert. Er sperrt nichts.
-   */
-  if (prefill.steepSlope) fields.steepSlope = '1'
-
-  if (values.found === 0) {
-    return {
-      formError:
-        'Aus diesem Dokument liessen sich keine Anlagendaten übernehmen. Bitte Nennleistung, ' +
-        'Ausrichtung und Neigung von Hand eintragen.',
-    }
-  }
-
-  return { values: fields }
+  return null
 }
 
 /**
@@ -3122,4 +3186,165 @@ export async function saveMeteringPointPvArrayAction(
         ? 'Fläche hinzugefügt. Es ist jetzt eine Fläche erfasst.'
         : `Fläche hinzugefügt. Es sind jetzt ${arrays.length} Flächen erfasst.`,
   }
+}
+
+/**
+ * Der Datenblatt-Weg: die AUSGEWÄHLTEN gelesenen Modulflächen GEMEINSAM zur Liste hinzufügen.
+ *
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * ⚠ SIE IST DAS GEGENSTÜCK ZU `scanPvDesignAction` — DIE LESENDE SEITE SCHREIBT NICHT
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * Der Scan gibt Kandidaten zurück, diese Action schreibt sie. Zwischen beidem steht ein Mensch mit
+ * Ankreuzfeldern: ein Exposé führt regelmässig Flächen, die zu dieser Anlage gar nicht gehören
+ * (eine geplante Erweiterung, eine Variante, das Nachbargebäude im selben Projekt). Sie alle
+ * ungefragt anzuhängen wäre dieselbe stille Verfälschung wie das frühere Abschneiden auf die erste
+ * — nur mit umgekehrtem Vorzeichen.
+ *
+ * ── ⚠ DIE WERTE KOMMEN AUS DEM BROWSER UND WERDEN DESHALB ERNEUT GEPRÜFT ──────────────────────
+ * Sie stammen zwar aus unserer eigenen Ablesung, reisen aber als versteckte Felder durch das
+ * Formular — eine Server Action ist über ihre Kennung aufrufbar, und was hereinkommt, ist eine
+ * BEHAUPTUNG. Geprüft wird mit denselben Helfern wie beim Hand-Weg (`parsePvArrayNumber`,
+ * `isCompassDirection`), damit es für eine gespeicherte Fläche genau eine Gültigkeitsregel gibt.
+ *
+ * ⚠ EIN UNBRAUCHBARER WERT WIRD HIER ZU `null` UND NICHT ZU EINEM FELDFEHLER — bewusst anders als
+ * im Hand-Weg. Dort tippt ein Mensch, kann die Meldung lesen und den Wert richtigstellen; hier
+ * gehört das Feld zu einer Zeile, die er gar nicht bearbeiten kann. Ein Feldfehler auf einem
+ * versteckten Eingabefeld wäre eine Aufforderung ohne Adressaten. Die Vorschau zeigt vor dem Klick
+ * im Klartext, was übernommen wird; die Zusammenfassung danach, was angekommen ist.
+ *
+ * ⚠ EINE AUSGEWÄHLTE FLÄCHE OHNE EINE EINZIGE ANGABE WIRD ÜBERSPRUNGEN. Ein Eintrag aus drei `null`
+ * wäre keine Fläche, sondern eine Zeile in der Zusammenfassung ohne jeden Inhalt — `readPvArraysDraft`
+ * überspränge ihn ohnehin. Bleibt dadurch GAR NICHTS übrig, wird das gesagt und nicht als Erfolg
+ * gemeldet.
+ *
+ * ── DIE REIHENFOLGE, WORTGLEICH ZUM HAND-WEG ─────────────────────────────────────────────────
+ *   1. die Auswahl zu Einträgen machen (nichts Gültiges ⇒ Abbruch VOR jedem Schreibvorgang)
+ *   2. Entwurf FRISCH lesen — `update_metering_point_draft` ERSETZT ihn, und ein Stand aus der Zeit
+ *      des Seitenaufbaus machte jede Angabe rückgängig, die inzwischen dazugekommen ist
+ *   3. ALLE gewählten Flächen ANHÄNGEN und EINMAL schreiben
+ *
+ * ⚠ EIN SCHREIBVORGANG FÜR ALLE, nicht einer je Fläche. Der Wrapper ERSETZT den Entwurf; bei
+ * mehreren Aufrufen nacheinander liest jeder den Stand des vorigen, und bricht einer davon ab,
+ * stünde die Hälfte der Flächen in der Liste und die andere nicht — ein Teilstand, den niemand
+ * nachvollziehen kann.
+ *
+ * ⚠ ES WIRD NICHT UMGELEITET — Regel dieser Datei (s. Kopf): der übernommene Stand ist das Einzige,
+ * woran ein Mensch erkennt, ob die richtigen Flächen angekommen sind.
+ */
+export async function addPvArraysFromScanAction(
+  _prev: AdminState,
+  formData: FormData,
+): Promise<AdminState> {
+  const projectId = readProjectId(formData)
+  if (projectId === null) return { formError: UNKNOWN_PROJECT }
+
+  const meteringPointId = String(formData.get('meteringPointId') ?? '')
+  if (!UUID.test(meteringPointId)) return { formError: GENERIC }
+
+  /*
+   * Die Zahl der Kandidaten begrenzt die Schleife — sie kommt aus dem Formular und wird deshalb
+   * gegen dieselbe Obergrenze gehalten, die der Scan setzt. Ohne die Schranke bestimmte eine
+   * beliebige Zahl aus dem Browser, wie oft hier gelesen wird.
+   */
+  const count = Number(String(formData.get('candidateCount') ?? ''))
+  if (!Number.isInteger(count) || count < 1 || count > MAX_PV_DESIGN_CANDIDATES) {
+    return { formError: GENERIC }
+  }
+
+  let selected = 0
+  const added: PvArrayEntry[] = []
+
+  for (let index = 0; index < count; index += 1) {
+    // Ein nicht angehaktes Ankreuzfeld sendet gar nichts — „nicht da" IST hier die Abwahl.
+    if (String(formData.get(`include-${index}`) ?? '') !== 'on') continue
+    selected += 1
+
+    const numbers: Partial<Record<'peakPowerKwp' | 'slopeDeg', number>> = {}
+    let found = 0
+
+    for (const entry of PV_ARRAY_NUMBER_FIELDS) {
+      const parsed = parsePvArrayNumber(
+        String(formData.get(`${index}.${entry.form}`) ?? ''),
+        entry,
+      )
+      // `undefined` = nicht gelesen, `null` = unbrauchbar — hier dasselbe: diese eine Angabe fehlt.
+      if (parsed === undefined || parsed === null) continue
+      numbers[entry.form] = parsed
+      found += 1
+    }
+
+    const directionRaw = String(
+      formData.get(`${index}.${PV_ARRAY_DIRECTION_FORM_FIELD}`) ?? '',
+    ).trim()
+    const direction = isCompassDirection(directionRaw) ? directionRaw : null
+    if (direction !== null) found += 1
+
+    if (found === 0) continue
+    added.push({
+      peakPowerKwp: numbers.peakPowerKwp ?? null,
+      direction,
+      slopeDeg: numbers.slopeDeg ?? null,
+    })
+  }
+
+  if (selected === 0) return { formError: 'Bitte mindestens eine Fläche auswählen.' }
+  if (added.length === 0) {
+    return {
+      formError:
+        'Zu den gewählten Flächen liegt keine einzige Angabe vor — es wurde nichts hinzugefügt.',
+    }
+  }
+
+  const supabase = await createClient()
+  const listRes = await supabase.rpc('list_metering_points', { p_project_id: projectId })
+  if (listRes.error) {
+    if (isForbidden(listRes.error)) return { formError: FORBIDDEN }
+    console.error('[admin/dateneingabe] list_metering_points (PV-Flächen aus Scan):', listRes.error)
+    return { formError: GENERIC }
+  }
+
+  const points = readMeteringPointList(listRes.data)
+  const point = points?.find((candidate) => candidate.id === meteringPointId)
+  if (!point) {
+    return { formError: 'Diesen Zählpunkt gibt es nicht (mehr). Bitte laden Sie die Seite neu.' }
+  }
+
+  const arrays = [...readPvArraysDraft(point.draft), ...added]
+
+  const draftRes = await supabase.rpc('update_metering_point_draft', {
+    p_metering_point_id: meteringPointId,
+    // Zusicherung wie in den übrigen Listen-Schreibwegen: zur Laufzeit dasselbe, TypeScript kann
+    // es nur nicht wissen.
+    p_draft: withPvArrays(point.draft, arrays) as Json,
+  })
+
+  if (draftRes.error) {
+    if (isForbidden(draftRes.error)) return { formError: FORBIDDEN }
+    console.error(
+      '[admin/dateneingabe] update_metering_point_draft (PV-Flächen aus Scan):',
+      draftRes.error,
+    )
+    return { formError: GENERIC }
+  }
+  if (statusOf(draftRes.data) !== 'ok') {
+    console.error('[admin/dateneingabe] unerwartete Antwort (PV-Flächen aus Scan):', draftRes.data)
+    return { formError: GENERIC }
+  }
+
+  // ⚠ Ohne das blieben die angehängten Flächen unsichtbar — s. die Begründung beim Lastgang-Upload.
+  revalidatePath(projectDataEntryHref(projectId))
+
+  /*
+   * ⚠ DIE MELDUNG NENNT BEIDE ZAHLEN. Wie viele hinzugekommen sind, ist die Antwort auf den Klick;
+   * wie viele es jetzt sind, ist die Antwort auf „habe ich das schon einmal gemacht?". Eine der
+   * beiden allein liesse ein versehentliches Duplikat unbemerkt.
+   */
+  const addedText =
+    added.length === 1 ? 'Eine Fläche hinzugefügt.' : `${added.length} Flächen hinzugefügt.`
+  const totalText =
+    arrays.length === 1
+      ? 'Es ist jetzt eine Fläche erfasst.'
+      : `Es sind jetzt ${arrays.length} Flächen erfasst.`
+
+  return { success: `${addedText} ${totalText}` }
 }

@@ -47,6 +47,7 @@ const revalidatePath = vi.fn()
 const uploadProjectDocument = vi.fn()
 const extractInvoiceData = vi.fn()
 const extractBatteryText = vi.fn()
+const extractPvDesign = vi.fn()
 
 vi.mock('server-only', () => ({}))
 vi.mock('@/lib/supabase/server', () => ({ createClient: () => createClient() }))
@@ -75,6 +76,7 @@ vi.mock('extractors', async () => ({
   readLoadProfile: vi.fn(),
   extractInvoiceData: (base64: string) => extractInvoiceData(base64),
   extractBatteryText: (text: string) => extractBatteryText(text),
+  extractPvDesign: (base64: string) => extractPvDesign(base64),
 }))
 vi.mock('@/lib/project-documents/documents', () => ({
   uploadProjectDocument: (projectId: string, file: unknown) =>
@@ -85,6 +87,7 @@ vi.mock('@/lib/project-documents/storage', () => ({
 }))
 
 const {
+  addPvArraysFromScanAction,
   extractBatteryTextFromAction,
   removeMeteringPointInvoiceAction,
   removeMeteringPointLoadProfileAction,
@@ -93,6 +96,7 @@ const {
   saveMeteringPointManualTariffAction,
   saveMeteringPointPvArrayAction,
   saveMeteringPointPvChoiceAction,
+  scanPvDesignAction,
   uploadMeteringPointInvoicesAction,
   uploadMeteringPointPvProfileAction,
 } = await import('./data-entry-actions')
@@ -137,6 +141,7 @@ beforeEach(() => {
   uploadProjectDocument.mockReset()
   extractInvoiceData.mockReset()
   extractBatteryText.mockReset()
+  extractPvDesign.mockReset()
   withWrappers()
 })
 
@@ -1607,5 +1612,185 @@ describe('saveMeteringPointPvArrayAction — die Modulflächen sind eine LISTE',
 
     expect((await saveMeteringPointPvArrayAction({}, bad)).formError).toBeDefined()
     expect(rpc).not.toHaveBeenCalled()
+  })
+})
+
+describe('scanPvDesignAction + addPvArraysFromScanAction — mehrere Flächen aus EINEM Dokument', () => {
+  /**
+   * ⚠ WARUM DIESE ZWEI ACTIONS GEMEINSAM GEMESSEN WERDEN.
+   *
+   * Sie sind über eine KODIERUNG gekoppelt, die nirgends sonst geprüft werden kann: der Scan legt
+   * seine Kandidaten unter indizierten Schlüsseln (`0.peakPowerKwp`, `1.direction`, …) in das
+   * flache `values`-Feld von `AdminState`, die Übernahme liest sie unter denselben Schlüsseln
+   * wieder heraus. Getrennt gemessen bliebe beides grün, während der eine Index schreibt und die
+   * andere daneben liest — und der Fehler sähe nicht nach einem Fehler aus, sondern nach einem
+   * Dokument mit weniger Flächen.
+   *
+   * Der Test füttert die Übernahme deshalb mit GENAU DEM, was der Scan geliefert hat, statt mit
+   * einem von Hand gebauten Formular.
+   */
+
+  /** Eine gelesene Modulfläche — vollständig, sofern der Test nichts anderes sagt. */
+  function scanned(overrides: Record<string, unknown> = {}) {
+    return {
+      peakPowerKwp: 4.25,
+      slopeDeg: 30,
+      direction: 'SO',
+      azimuthDeg: null,
+      moduleCount: 10,
+      ...overrides,
+    }
+  }
+
+  /** Das Ergebnis des Extraktors mit N Flächen, jede an ihrer Nennleistung erkennbar. */
+  function outcome(count: number) {
+    return {
+      ok: true,
+      extraction: {
+        arrays: Array.from({ length: count }, (_, i) => scanned({ peakPowerKwp: i + 1 })),
+        azimuthConvention: null,
+        locationText: null,
+      },
+    }
+  }
+
+  function designForm(): FormData {
+    const fd = new FormData()
+    fd.set('projectId', PROJECT_ID)
+    fd.set('meteringPointId', POINT_ID)
+    fd.set('pvDesign', new File([new Uint8Array(1024)], 'auslegung.pdf', {
+      type: 'application/pdf',
+    }))
+    return fd
+  }
+
+  /**
+   * Baut das Übernahme-Formular AUS der Scan-Antwort — genau wie die Oberfläche: alle Kandidaten
+   * mit ihren Werten als versteckte Felder, angekreuzt nur die genannten.
+   */
+  function takeoverForm(values: Record<string, string>, checked: number[]): FormData {
+    const fd = new FormData()
+    fd.set('projectId', PROJECT_ID)
+    fd.set('meteringPointId', POINT_ID)
+    const count = values.candidateCount ?? '0'
+    fd.set('candidateCount', count)
+    for (let i = 0; i < Number(count); i += 1) {
+      for (const key of ['peakPowerKwp', 'slopeDeg', 'direction']) {
+        fd.set(`${i}.${key}`, values[`${i}.${key}`] ?? '')
+      }
+      if (checked.includes(i)) fd.set(`include-${i}`, 'on')
+    }
+    return fd
+  }
+
+  /** Die gespeicherten Flächen aus dem zuletzt geschriebenen Entwurf — roh, nicht über den Leser. */
+  function storedArrays(): Record<string, unknown>[] {
+    const raw = draft._pvArrays
+    return Array.isArray(raw) ? (raw as Record<string, unknown>[]) : []
+  }
+
+  beforeEach(() => {
+    draft = {}
+    withInvoiceWrappers()
+  })
+
+  it('drei Flächen gelesen, ZWEI angekreuzt — genau die zwei landen in der Liste', async () => {
+    extractPvDesign.mockResolvedValue({
+      ok: true,
+      extraction: {
+        arrays: [
+          scanned({ peakPowerKwp: 4.25, slopeDeg: 30, direction: 'SO' }),
+          scanned({ peakPowerKwp: 5.95, slopeDeg: 35, direction: 'SW' }),
+          scanned({ peakPowerKwp: 3.1, slopeDeg: 15, direction: 'O' }),
+        ],
+        azimuthConvention: null,
+        locationText: null,
+      },
+    })
+
+    const scan = await scanPvDesignAction({}, designForm())
+    const values = scan.values ?? {}
+
+    expect(scan.formError).toBeUndefined()
+    expect(values.extraction).toBe('ok')
+    expect(values.candidateCount).toBe('3')
+    expect(values.truncated).toBeUndefined()
+
+    /*
+     * ⚠ POSITIV-KONTROLLE, und sie trägt den ganzen Test: die dritte Fläche wurde nachweislich
+     * GELESEN und stand vollständig zur Übernahme bereit. Ohne diese drei Zusicherungen bliebe der
+     * Test unten auch dann grün, wenn der Scan die dritte gar nicht erst geliefert hätte — er
+     * misst dann nicht mehr die AUSWAHL, sondern eine Lücke im Lesen.
+     */
+    expect(values['2.peakPowerKwp']).toBe('3,1')
+    expect(values['2.slopeDeg']).toBe('15')
+    expect(values['2.direction']).toBe('O')
+
+    const state = await addPvArraysFromScanAction({}, takeoverForm(values, [0, 1]))
+
+    expect(state.formError).toBeUndefined()
+    expect(state.success).toContain('2 Flächen')
+
+    expect(storedArrays()).toEqual([
+      { peakPowerKwp: 4.25, direction: 'SO', slopeDeg: 30 },
+      { peakPowerKwp: 5.95, direction: 'SW', slopeDeg: 35 },
+    ])
+
+    // Die dritte ist NICHT dabei — weder als Eintrag noch als Wert irgendwo im Entwurf.
+    expect(storedArrays().some((a) => a.peakPowerKwp === 3.1)).toBe(false)
+
+    // Beide zusammen in EINEM Schreibvorgang: der Wrapper ERSETZT, zwei nähmen einander die Arbeit weg.
+    expect(rpc.mock.calls.filter(([fn]) => fn === 'update_metering_point_draft')).toHaveLength(1)
+    expect(revalidatePath).toHaveBeenCalledTimes(1)
+  })
+
+  it('⚠ mehr Flächen als die Obergrenze: es wird GEKAPPT und die Kappung BENANNT', async () => {
+    /*
+     * ⚠ DIE ZAHL STEHT HIER BEWUSST NICHT. `MAX_PV_DESIGN_CANDIDATES` ist modul-lokal und nicht
+     * exportierbar (die Datei trägt `'use server'`). Ein abgetippter Wert wäre eine zweite
+     * Behauptung über dieselbe Grenze und bliebe grün, wenn die Anwendung gegen eine andere prüft.
+     * Gemessen wird deshalb das VERHALTEN: es kommen weniger Kandidaten heraus als das Dokument
+     * führt, die letzte gelieferte trägt einen Wert, die erste NICHT gelieferte keinen — und die
+     * Gesamtzahl des Dokuments bleibt nennbar.
+     */
+    const IN_DOCUMENT = 20
+    extractPvDesign.mockResolvedValue(outcome(IN_DOCUMENT))
+
+    const scan = await scanPvDesignAction({}, designForm())
+    const values = scan.values ?? {}
+    const count = Number(values.candidateCount)
+
+    expect(scan.formError).toBeUndefined()
+    expect(values.truncated).toBe('1')
+    expect(values.arrayCount).toBe(String(IN_DOCUMENT))
+    expect(count).toBeGreaterThan(0)
+    expect(count).toBeLessThan(IN_DOCUMENT)
+
+    // Die Grenze liegt GENAU dort, wo `candidateCount` sie behauptet — nicht daneben.
+    expect(values[`${count - 1}.peakPowerKwp`]).toBe(String(count))
+    expect(values[`${count}.peakPowerKwp`]).toBeUndefined()
+
+    /*
+     * ⚠ GEGENPROBE — ohne sie wäre „truncated" auch dann grün, wenn die Action es IMMER setzt:
+     * ein Dokument unterhalb der Grenze wird nicht gekappt und meldet es auch nicht.
+     */
+    extractPvDesign.mockResolvedValue(outcome(3))
+    const small = await scanPvDesignAction({}, designForm())
+
+    expect(small.values?.candidateCount).toBe('3')
+    expect(small.values?.arrayCount).toBe('3')
+    expect(small.values?.truncated).toBeUndefined()
+  })
+
+  it('ohne ein einziges Häkchen wird NICHTS geschrieben', async () => {
+    extractPvDesign.mockResolvedValue(outcome(2))
+    const scan = await scanPvDesignAction({}, designForm())
+
+    const state = await addPvArraysFromScanAction({}, takeoverForm(scan.values ?? {}, []))
+
+    expect(state.formError).toBe('Bitte mindestens eine Fläche auswählen.')
+    expect(state.success).toBeUndefined()
+    expect(rpc).not.toHaveBeenCalled()
+    expect(draft).toEqual({})
   })
 })

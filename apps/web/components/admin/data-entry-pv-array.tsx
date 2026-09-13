@@ -8,18 +8,32 @@
  * ein gemessenes Profil IST die Erzeugung, drei geschätzte Kenndaten daneben wären eine zweite,
  * schwächere Aussage über dieselbe Sache.
  *
- * ⚠ DIE DREI `useActionState` BLEIBEN HIER UND WERDEN ALS PROPS HEREINGEREICHT — genau EIN
- * Formular trägt drei Actions (zweimal lesen, einmal speichern), und nur diese Komponente sieht
- * alle drei. Wortgleiche Aufteilung wie in der Batterie-Station; die dortigen zwei Auflagen
- * gelten hier unverändert:
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * ⚠ DIE ZWEI QUELLEN SIND SEIT DIESEM SCHRITT NICHT MEHR GLEICH GEBAUT
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * Der FREITEXT-Weg beschreibt genau EINE Fläche und belegt deshalb weiterhin die drei Felder des
+ * Speichern-Formulars vor — seine Action liest, dieser hier speichert. Das DATENBLATT führt
+ * regelmässig MEHRERE Flächen; sie in dieselben drei Felder zu drängen hiesse, alle bis auf eine
+ * wegzuwerfen (genau der Zustand bis zum vorigen Schritt, und er kostete still Erzeugung). Der
+ * Datenblatt-Weg ist deshalb eine eigenständige Komponente mit eigener Vorschau, eigener Auswahl
+ * und eigenem Schreibweg (`addPvArraysFromScanAction`); von hier bekommt er nur die zwei Kennungen
+ * und die Grössengrenze.
  *
- *   (a) Die EINGABEFELDER der beiden Quellen müssen KONTROLLIERT sein. React setzt unkontrollierte
- *       Felder nach JEDER abgeschlossenen Action auf diesem Formular zurück — auch nach denen, die
- *       bloss lesen (PR #200). Das ist an ihrem jeweiligen Fundort begründet, nicht hier.
- *   (b) Die NICHT gewählte Quelle wird GAR NICHT gerendert, nicht bloss ausgeblendet. Beide Wege
- *       senden DASSELBE Formular ab (`formAction` am jeweiligen Knopf); ein verstecktes Dateifeld
- *       reiste bei einem Klick auf „Auslesen" des Freitext-Wegs mit, und ein verstecktes Textfeld
- *       beim Datenblatt-Weg — die Action bekäme eine Eingabe, die niemand gemacht hat.
+ * ⚠ ER LIEGT DESHALB AUSSERHALB DES SPEICHERN-FORMULARS. Er trägt eigene `<form>`, und Formulare
+ * lassen sich nicht schachteln — im Speichern-Formular gerendert wäre sein Markup ungültig, und der
+ * Browser zöge seine Knöpfe stillschweigend an das äussere Formular.
+ *
+ * ⚠ DIE ZWEI `useActionState` DES HAND-WEGS BLEIBEN HIER UND WERDEN ALS PROPS HEREINGEREICHT —
+ * genau EIN Formular trägt sie beide (einmal lesen, einmal speichern), und nur diese Komponente
+ * sieht beide. Wortgleiche Aufteilung wie in der Batterie-Station; die dortigen zwei Auflagen
+ * gelten für diesen Weg unverändert:
+ *
+ *   (a) Die EINGABEFELDER müssen KONTROLLIERT sein. React setzt unkontrollierte Felder nach JEDER
+ *       abgeschlossenen Action auf diesem Formular zurück — auch nach denen, die bloss lesen
+ *       (PR #200). Das ist an ihrem jeweiligen Fundort begründet, nicht hier.
+ *   (b) Die NICHT gewählte Quelle wird GAR NICHT gerendert, nicht bloss ausgeblendet. Ein
+ *       verstecktes Textfeld reiste sonst bei jedem Klick auf diesem Formular mit, und die Action
+ *       bekäme eine Eingabe, die niemand gemacht hat.
  *
  * ⚠ ES GIBT KEINEN „WEITER"-KNOPF. Den rendert die PV-Station, und zwar genau einmal; zwei Wege
  * nach vorn auf derselben Seite wären zwei Antworten auf dieselbe Frage.
@@ -33,7 +47,6 @@ import { Button } from '@/components/ui/button'
 import {
   extractPvArrayTextAction,
   saveMeteringPointPvArrayAction,
-  scanPvDesignAction,
 } from '@/lib/admin/data-entry-actions'
 import type { MeteringPointSummary } from '@/lib/admin/metering-points'
 import {
@@ -80,28 +93,23 @@ export function DataEntryPvArray({
     extractPvArrayTextAction,
     ADMIN_INITIAL_STATE,
   )
-  /*
-   * ⚠ EIN EIGENES `useActionState` FÜR DEN DATENBLATT-WEG, nicht das des Freitexts mitbenutzt.
-   *
-   * Gemeinsam geführt überschriebe die Meldung des einen Wegs die des anderen — und schlimmer:
-   * die Übernahme unten hängt an der OBJEKTIDENTITÄT des Ergebnisses, und mit einem geteilten
-   * Zustand liesse sich nicht mehr sagen, WELCHER Lauf gerade ein neues Objekt geliefert hat.
-   */
-  const [scanState, scanAction, isScanning] = useActionState(scanPvDesignAction, ADMIN_INITIAL_STATE)
-
   const [source, setSource] = React.useState<Source>('text')
   const [fields, setFields] = React.useState<Record<string, string>>({})
 
   /**
-   * Die drei Felder aus einem Leseergebnis füllen — für BEIDE Quellen dieselbe Zuweisung.
+   * Die drei Felder aus dem Leseergebnis des FREITEXT-Wegs füllen.
    *
-   * ⚠ DIES IST DER EINZIGE ORT, DER IN `fields` SCHREIBT. Die zwei Quellen-Komponenten rendern nur
-   * ihre eigene Eingabe und melden nichts zurück; was aus einem Leseergebnis wird, entscheidet die
+   * ⚠ DIES IST DER EINZIGE ORT, DER IN `fields` SCHREIBT. Die Freitext-Komponente rendert nur ihre
+   * eigene Eingabe und meldet nichts zurück; was aus einem Leseergebnis wird, entscheidet die
    * Station. Zwei schreibende Stellen liefen beim nächsten Umbau auseinander.
    *
-   * Alle drei auf einmal, auch die nicht gelesenen (beide Actions schicken für sie einen
-   * Leerstring). Was hier steht, ist die Aussage GENAU DIESER Quelle; ein Wert aus einer früheren
-   * Ablesung daneben wäre von einem frischen nicht zu unterscheiden.
+   * ⚠ DER DATENBLATT-WEG SCHREIBT HIER NICHT MEHR HINEIN — er hat seit diesem Schritt eine eigene
+   * Vorschau und einen eigenen Schreibweg (s. Kopf). Täte er es weiterhin, bliebe von mehreren
+   * gelesenen Flächen genau eine übrig.
+   *
+   * Alle drei auf einmal, auch die nicht gelesenen (die Action schickt für sie einen Leerstring).
+   * Was hier steht, ist die Aussage GENAU DIESER Ablesung; ein Wert aus einer früheren daneben
+   * wäre von einem frischen nicht zu unterscheiden.
    */
   const applyExtraction = React.useCallback((values: Record<string, string>) => {
     const next: Record<string, string> = {}
@@ -111,22 +119,15 @@ export function DataEntryPvArray({
   }, [])
 
   const extracted = readState.values?.extraction === 'ok' ? readState.values : null
-  const scanned = scanState.values?.extraction === 'ok' ? scanState.values : null
 
   /*
-   * ⚠ ZWEI EFFEKTE, NICHT EINER MIT WEICHE. Jeder hängt an der Objektidentität SEINES Ergebnisses:
-   * `useActionState` liefert bei jedem Lauf ein neues Objekt, bei jedem anderen Rerender dasselbe —
-   * ein getippter Wert wird dadurch nicht beim nächsten Tastendruck wieder überschrieben. Ein
-   * zusammengelegter Effekt mit `extracted ?? scanned` feuerte dagegen auch dann, wenn der ANDERE
-   * Weg gelaufen ist, und schriebe ein altes Ergebnis über ein frisches.
+   * ⚠ ABHÄNGIG VON DER OBJEKTIDENTITÄT des Ergebnisses, nicht von seinem Inhalt: `useActionState`
+   * liefert bei jedem Lauf ein neues Objekt, bei jedem anderen Rerender dasselbe — ein getippter
+   * Wert wird dadurch nicht beim nächsten Tastendruck wieder überschrieben.
    */
   React.useEffect(() => {
     if (extracted) applyExtraction(extracted)
   }, [extracted, applyExtraction])
-
-  React.useEffect(() => {
-    if (scanned) applyExtraction(scanned)
-  }, [scanned, applyExtraction])
 
   /*
    * ⚠ NACH DEM ANHÄNGEN WIRD DAS FORMULAR GELEERT — anders als im vorigen, skalaren Stand, wo der
@@ -154,59 +155,63 @@ export function DataEntryPvArray({
       {saveState.success && <AdminSuccess>{saveState.success}</AdminSuccess>}
       {saveState.formError && <AdminError>{saveState.formError}</AdminError>}
       {readState.formError && <AdminError>{readState.formError}</AdminError>}
-      {scanState.formError && <AdminError>{scanState.formError}</AdminError>}
 
       {hasArrays && <PvArraySummary number={meteringPointNumber} arrays={arrays} />}
+
+      {/*
+        ⚠ DIE UMSCHALTUNG STEHT AUSSERHALB DES SPEICHERN-FORMULARS, weil einer ihrer zwei Zweige
+        es ebenfalls tut: der Datenblatt-Weg trägt eigene `<form>`, und Formulare lassen sich nicht
+        schachteln. Der Freitext-Weg dagegen MUSS drinnen bleiben — sein Knopf trägt ein
+        `formAction` und gehört damit zum Speichern-Formular. Warum die nicht gewählte Quelle gar
+        nicht gerendert wird, steht im Kopf.
+
+        `type="button"` an den zwei Knöpfen bleibt: sie stehen zwar nicht mehr im Formular, aber
+        die Vorgabe eines Knopfes ist `submit` — im nächsten Umbau stünden sie sonst wieder darin
+        und schickten es bei jedem Wechsel der Quelle ab.
+      */}
+      <div className="flex flex-col gap-3">
+        <div role="group" aria-label="Quelle der Anlagendaten" className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            variant={source === 'text' ? 'secondary' : 'ghost'}
+            size="sm"
+            aria-pressed={source === 'text'}
+            onClick={() => setSource('text')}
+          >
+            Freitext beschreiben
+          </Button>
+          <Button
+            type="button"
+            variant={source === 'datenblatt' ? 'secondary' : 'ghost'}
+            size="sm"
+            aria-pressed={source === 'datenblatt'}
+            onClick={() => setSource('datenblatt')}
+          >
+            Datenblatt hochladen
+          </Button>
+        </div>
+
+        {source === 'datenblatt' && (
+          <DataEntryPvArrayUpload
+            projectId={projectId}
+            meteringPointId={meteringPoint.id}
+            maxBytes={maxBytes}
+          />
+        )}
+      </div>
 
       <form action={saveAction} noValidate className="flex flex-col gap-6">
         <input type="hidden" name="projectId" value={projectId} />
         <input type="hidden" name="meteringPointId" value={meteringPoint.id} />
 
-        <div className="flex flex-col gap-3">
-          {/*
-            `type="button"`: die zwei Knöpfe stehen im Speichern-Formular und dürfen es nicht
-            absenden. Warum die nicht gewählte Quelle gar nicht gerendert wird, steht im Kopf.
-          */}
-          <div role="group" aria-label="Quelle der Anlagendaten" className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              variant={source === 'text' ? 'secondary' : 'ghost'}
-              size="sm"
-              aria-pressed={source === 'text'}
-              onClick={() => setSource('text')}
-            >
-              Freitext beschreiben
-            </Button>
-            <Button
-              type="button"
-              variant={source === 'datenblatt' ? 'secondary' : 'ghost'}
-              size="sm"
-              aria-pressed={source === 'datenblatt'}
-              onClick={() => setSource('datenblatt')}
-            >
-              Datenblatt hochladen
-            </Button>
-          </div>
-
-          {source === 'text' && (
-            <DataEntryPvArrayText
-              state={readState}
-              action={readAction}
-              isReading={isReading}
-              isSaving={isSaving}
-            />
-          )}
-
-          {source === 'datenblatt' && (
-            <DataEntryPvArrayUpload
-              state={scanState}
-              action={scanAction}
-              isScanning={isScanning}
-              isSaving={isSaving}
-              maxBytes={maxBytes}
-            />
-          )}
-        </div>
+        {source === 'text' && (
+          <DataEntryPvArrayText
+            state={readState}
+            action={readAction}
+            isReading={isReading}
+            isSaving={isSaving}
+          />
+        )}
 
         <fieldset className="flex flex-col gap-4 border-t border-line pt-6">
           <legend className="text-small font-medium text-ink">Eine Modulfläche</legend>
@@ -274,7 +279,7 @@ export function DataEntryPvArray({
             type="submit"
             variant="primary"
             size="md"
-            disabled={isSaving || isReading || isScanning}
+            disabled={isSaving || isReading}
           >
             {isSaving && (
               <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2} aria-hidden="true" />
