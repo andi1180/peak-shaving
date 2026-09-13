@@ -88,6 +88,11 @@ export * from './pv-design'
 // demselben Grund wie `invoice-scan`: die App hat keinen Testlauf, und der Fang der
 // Azimut-Konventions-Falle ist die Zusage, die geprüft sein muss.
 export * from './pv-design-scan'
+// B24, Teil 1: derselbe Gegenstand aus einem SATZ in eigenen Worten statt aus einem Dokument. Die
+// drei Felder heissen dort namensgleich (`peakPowerKwp`, `direction`, `slopeDeg`) und speisen in
+// dieselbe Formular-Vorbelegung — der zweite Weg erfindet keinen eigenen Mechanismus. Ohne
+// Gradzahl und ohne Zählweise: die gibt es nur auf gedrucktem Papier, s. Kopf der Datei.
+export * from './pv-array-text'
 // 02.09.2026: der reale Vorteil eines aWATTar-Wechsels, aufgeteilt in „reiner Tarifwechsel" und
 // „Wert der Ladesteuerung". Hier und nicht in `apps/website`, weil die App keinen Testlauf hat und
 // die Zusage „die beiden Teile ergeben bit-genau die Kopfzahl" nur als Test etwas wert ist.

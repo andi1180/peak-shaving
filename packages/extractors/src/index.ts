@@ -87,6 +87,26 @@ export { MAX_BATTERY_TEXT_CHARS } from './battery-text/limits'
 export { extractBatteryText, type BatteryTextOutcome } from './battery-text/extract'
 
 /*
+ * ── PV-ANLAGEN-Freitexterfassung (B24, Teil 1) ────────────────────────────────────────────────
+ * Derselbe Zuschnitt wie die Batterie-Freitexterfassung darüber, für einen anderen Gegenstand: ein
+ * Kunde HAT eine PV-Anlage, aber keine gemessene Erzeugungsreihe — er weiss, wie gross sie ist,
+ * wohin sie zeigt und wie steil das Dach ist. Genau diese drei Angaben sind die Eingabe des
+ * PVGIS-Verfahrens (B22).
+ *
+ * ⚠ SIE IST DIE ZWEITE QUELLE DERSELBEN DREI FELDER — die erste ist der PV-Auslegungs-Scan
+ * (`pv-design-scan` oben), der sie aus einem Planungsdokument liest. Beide liefern
+ * `peakPowerKwp`, `direction` und `slopeDeg` unter denselben Namen und speisen deshalb in dieselben
+ * Formularfelder und denselben Entwurf, statt einen eigenen Mechanismus zu erfinden.
+ *
+ * ⚠ EIN UNTERSCHIED IST WESENTLICH: dieser Weg kennt KEINE Gradzahl und keine Azimut-Zählweise.
+ * Ein gedrucktes Dokument nennt eine Zahl, deren Zählweise man ihm nicht ansieht (PV*SOL vom
+ * Norden, PVGIS vom Süden — 56 % Ersparnis Unterschied); ein Mensch sagt „nach Südwesten", und das
+ * ist eindeutig. Eine blosse Gradzahl im Freitext wird ausdrücklich NICHT übernommen.
+ */
+export { MAX_PV_ARRAY_TEXT_CHARS } from './pv-array-text/limits'
+export { extractPvArrayText, type PvArrayTextOutcome } from './pv-array-text/extract'
+
+/*
  * ── Batterie-DATENBLATT-Scan (B24, Teil 1) ────────────────────────────────────────────────────
  * Derselbe Gegenstand wie die Freitexterfassung darüber, aus einer anderen Quelle: der Wizard
  * nimmt neben dem Satz in eigenen Worten ein PDF-Datenblatt entgegen. Es ist bewusst ein ZWEITER
