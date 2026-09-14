@@ -30,6 +30,22 @@ const PREFERENCE_LABEL: Record<TariffPreference, string> = {
 }
 
 /**
+ * Beträge der Vergleichsliste, de-AT — Komma als Dezimaltrennzeichen, IMMER zwei Nachkommastellen.
+ *
+ * ⚠ Zwei Nachkommastellen auch dort, wo die Zahl keine braucht: „24,50" und „24,5" untereinander
+ * lesen sich als zwei verschiedene Genauigkeiten, obwohl beide derselbe Preis sind — und diese
+ * Liste ist zum Danebenhalten da, also zum spaltenweisen Vergleichen (`tabular-nums`).
+ *
+ * ⚠ EIN FUNDORT für alle drei Zahlen dieser Karte, wie `formatDay` im Lieferanten-Schreibweg: drei
+ * inline ausgeschriebene Formatierungen liefen beim nächsten Umbau auseinander, und dann stünden in
+ * DERSELBEN Karte zwei Schreibweisen desselben Preises.
+ */
+const AMOUNT = new Intl.NumberFormat('de-AT', {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+})
+
+/**
  * Der gespeicherte Wunsch, oder `null`.
  *
  * ⚠ Geprüft wird gegen die zwei bekannten Werte und nicht auf „irgendeine Zeichenkette": `draft`
@@ -159,7 +175,8 @@ export function DataEntryTarif({
               >
                 <span className="text-text">{row.provider_name}</span>
                 <span className="tabular-nums text-text-muted">
-                  {row.energy_price_ct_per_kwh} ct/kWh · {row.base_fee_eur_per_month} EUR/Monat ·{' '}
+                  {AMOUNT.format(row.energy_price_ct_per_kwh)} ct/kWh ·{' '}
+                  {AMOUNT.format(row.base_fee_eur_per_month)} EUR/Monat ·{' '}
                   {retailPriceBasisLabel(row.price_basis)}
                 </span>
               </li>
@@ -170,7 +187,9 @@ export function DataEntryTarif({
         {awattarAverageCtPerKwh !== null && (
           <p className="mt-4 border-t border-line pt-3 text-small text-text-muted">
             aWATTar, Ø letzte 30 Tage:{' '}
-            <span className="tabular-nums text-text">{awattarAverageCtPerKwh.toFixed(2)}</span>{' '}
+            <span className="tabular-nums text-text">
+              {AMOUNT.format(awattarAverageCtPerKwh)}
+            </span>{' '}
             ct/kWh
           </p>
         )}
