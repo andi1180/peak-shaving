@@ -9,7 +9,7 @@
  * erreichbar, obwohl ihn ausserhalb dieses Verzeichnisses niemand braucht.
  *
  * ⚠ KEIN `'use server'`. Die Direktive gehört in die Datei, in der eine Action DEFINIERT wird —
- * die fünf Stations-Dateien tragen sie je selbst. Hier stünde sie über einem `export *`, das Next
+ * die sechs Stations-Dateien tragen sie je selbst. Hier stünde sie über einem `export *`, das Next
  * nicht statisch als „ausschliesslich asynchrone Exporte" prüfen kann.
  */
 export * from './data-entry-actions-segment'
@@ -17,3 +17,4 @@ export * from './data-entry-actions-lastgang'
 export * from './data-entry-actions-rechnung'
 export * from './data-entry-actions-batterie'
 export * from './data-entry-actions-pv'
+export * from './data-entry-actions-tarif'
