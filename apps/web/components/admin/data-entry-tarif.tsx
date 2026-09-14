@@ -117,15 +117,14 @@ export function DataEntryTarif({
         vier Stationen davor: wer den Zustand kennt, rendert ihn. Die Seite unterdrückt ihren
         generischen „Weiter"-Link für diese Station; stünde er daneben, gäbe es zwei Wege nach vorn.
 
-        ⚠ ER ERSCHEINT HIER ERST NACH EINER ANTWORT — und das ist die EINE bewusste Abweichung von
-        den vier Stationen davor, die ihn immer zeigen und nur seine PROMINENZ an den Zustand
-        hängen („die Station ist keine Sackgasse", s. `data-entry-battery.tsx`). Der Preis ist
-        benannt: solange niemand geantwortet hat, führt von dieser Station kein Weg weiter, und sie
-        ist die LETZTE je Zählpunkt — bei mehreren Zählpunkten hängt damit auch der nächste daran.
-        Tragbar, weil die Frage anders als bei Batterie oder PV keine Recherche verlangt: beide
-        Antworten stehen als Knopf da und sind ohne Rückfrage beim Kunden nicht zu verfehlen.
+        ⚠ ER HÄNGT NICHT AN DER ANTWORT — „Weiter" ist Navigation, keine Vollständigkeitsprüfung.
+        Bis zum 14.09.2026 stand hier zusätzlich `saved !== null`; das machte ausgerechnet die
+        LETZTE Station je Zählpunkt zur Sackgasse, solange niemand geantwortet hatte — bei mehreren
+        Zählpunkten hing daran auch der nächste. Eine fehlende Tarif-Wahl gehört dort abgefangen,
+        wo über die Vollständigkeit entschieden wird (KI-Check, Abbruchprüfung), nicht an einem
+        Link. Damit verhält sich die Station wie die vier davor.
       */}
-      {nextHref !== null && saved !== null && (
+      {nextHref !== null && (
         <div>
           <Button asChild variant="primary" size="md">
             <Link href={nextHref}>Weiter</Link>
