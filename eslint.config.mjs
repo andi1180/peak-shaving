@@ -77,9 +77,10 @@ export default tseslint.config(
                 '(lib/leads/**, B1-2), die Cron-Endpunkte (app/api/cron/**, B4-1), den ' +
                 'Resend-Webhook (app/api/resend/**, B2-2), die Partner-Bewerbung ' +
                 '(lib/partner-application/**, B16-3), die GoTrue-Admin-API ' +
-                '(lib/auth/admin-api.ts, B18-2a) und den Tarif-Pflegeweg ' +
-                '(lib/admin/grid-tariffs-actions.ts, B21-2b) und den Byte-Transport der Projekt-Dokumente ' +
-                '(lib/project-documents/storage.ts, B24) — die letzten drei je genau diese ' +
+                '(lib/auth/admin-api.ts, B18-2a), die beiden Tarif-Pflegewege ' +
+                '(lib/admin/grid-tariffs-actions.ts, B21-2b; lib/admin/retail-tariffs-actions.ts) ' +
+                'und den Byte-Transport der Projekt-Dokumente ' +
+                '(lib/project-documents/storage.ts, B24) — die letzten vier je genau diese ' +
                 'eine Datei. Für Nutzer-Reads den RLS-gebundenen lib/supabase/server.ts verwenden.',
             },
             {
@@ -173,6 +174,14 @@ export default tseslint.config(
      * Tabellenrechte, sehen aber ohne Policy nichts; `service_role` trägt `rolbypassrls` und ist
      * damit der EINZIGE Weg an die Bytes. Eine zweite Tür gibt es nicht.
      *
+     * Der Lieferanten-Tarif-Pflegeweg (`lib/admin/retail-tariffs-actions.ts`) ERWEITERT sie ein
+     * achtes Mal, und zwar als exakter Zwilling des sechsten: dieselbe Lage, dieselbe Begründung,
+     * dieselbe engste Form. `public.retail_tariffs` ist ebenfalls eine `public`-Referenzdatentabelle
+     * ohne Wrapper-Muster (veröffentlichte Listenpreise, kein Personenbezug, direkter RLS-Select);
+     * `authenticated` hat dort nur `select`, und ein Schreib-Grant für diese Rolle gälte für JEDES
+     * angemeldete Konto. Die Rollenprüfung liegt deshalb im Anwendungscode — begründet im Kopf der
+     * Datei und in den Migrationen 20260913120100/20260913130000.
+     *
      * ⚠ Und genau deshalb ist die Freigabe hier so eng wie möglich: `lib/project-documents/**`
      * insgesamt zu öffnen hiesse, sie auch `documents.ts` zu geben — und das ist die Datei, welche
      * die EIGENTUMSFRAGE stellt. Sie soll sich ihren RLS-freien Zugang nicht selbst bauen können,
@@ -189,10 +198,11 @@ export default tseslint.config(
       'apps/web/lib/partner-application/**/*.ts',
       'apps/web/lib/auth/admin-api.ts',
       'apps/web/lib/admin/grid-tariffs-actions.ts',
+      'apps/web/lib/admin/retail-tariffs-actions.ts',
       'apps/web/lib/project-documents/storage.ts',
     ],
     /*
-     * ⚠ NICHT `'no-restricted-imports': 'off'` — s. die Begründung im Block darüber. Diese neun
+     * ⚠ NICHT `'no-restricted-imports': 'off'` — s. die Begründung im Block darüber. Diese zehn
      * Pfade dürfen den service_role-Client ziehen und den KI-Client ausdrücklich NICHT: keiner von
      * ihnen befragt ein Sprachmodell, und ein abrechenbarer Schlüssel hat im Stripe-Webhook oder im
      * Lead-Pfad nichts zu suchen.

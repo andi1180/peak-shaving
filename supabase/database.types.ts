@@ -2209,6 +2209,7 @@ export type Database = {
         Returns: Json
       }
       confirm_consent: { Args: { p_token_hash: string }; Returns: Json }
+      confirm_retail_tariff: { Args: { p_id: string }; Returns: Json }
       create_grid_tariff: {
         Args: {
           p_created_by: string

@@ -23,6 +23,7 @@ import { PARTNER_APPLICATIONS_HREF } from './partner-applications'
 import { CALCULATOR_REQUESTS_HREF } from './calculator-requests'
 import { ADMIN_CALCULATOR_HREF } from './calculator'
 import { GRID_TARIFFS_HREF } from './grid-tariffs'
+import { RETAIL_TARIFFS_HREF } from './retail-tariffs'
 import { OPEN_QUESTIONS_HREF } from './open-questions'
 import { PROJECTS_HREF } from './projects'
 
@@ -81,6 +82,18 @@ export const ADMIN_NAV_ITEMS: readonly AdminNavItem[] = [
    * gerechnet, hier stehen die Referenzdaten, gegen die gerechnet wird.
    */
   { href: GRID_TARIFFS_HREF, label: 'Netzbetreiber-Tarife' },
+  /*
+   * Die zweite Hälfte von Delta 5: die Listenpreise der Stromanbieter. Eigener Punkt neben
+   * „Netzbetreiber-Tarife" und ausdrücklich KEIN gemeinsamer Bereich mit Unterpfaden — die
+   * Präfix-Regel von `AdminNav` markierte sonst beide gleichzeitig (dieselbe Falle wie bei
+   * „Kalkulator-Anfragen").
+   *
+   * Fachlich sind es ohnehin zwei Gegenstände: Netzentgelt und Lieferantenpreis sind zwei
+   * verschiedene VERTRÄGE desselben Kunden, ohne gemeinsame Auswahl-Dimension (Netzebene gibt es
+   * beim Lieferanten nicht, die Kundengruppe beim Netzbetreiber nicht) — genau der Grund, aus dem
+   * sie auch in zwei Tabellen stehen.
+   */
+  { href: RETAIL_TARIFFS_HREF, label: 'Lieferanten-Tarife' },
   /*
    * B24: Martins Posteingang der Kalkulator-Rückfragen. Eigener Punkt und ausdrücklich KEIN
    * Unterpfad von „Kalkulator" — die Präfix-Regel von `AdminNav` markierte sonst beide gleichzeitig
