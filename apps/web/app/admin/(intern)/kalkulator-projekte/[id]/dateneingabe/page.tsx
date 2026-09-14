@@ -9,6 +9,7 @@ import { DataEntryInvoice } from '@/components/admin/data-entry-invoice'
 import { DataEntryLoadProfile } from '@/components/admin/data-entry-load-profile'
 import { DataEntryPv } from '@/components/admin/data-entry-pv'
 import { DataEntrySegmentForm } from '@/components/admin/data-entry-segment-form'
+import { DataEntryTarif } from '@/components/admin/data-entry-tarif'
 import { Button } from '@/components/ui/button'
 import { Container } from '@/components/ui/layout'
 import { isCurrentUserAdmin } from '@/lib/admin/guard'
@@ -279,6 +280,19 @@ export default async function AdminProjectDataEntryPage({
     return point ? { point, number: step.number } : null
   })()
 
+  /*
+   * Und dieselbe für die TARIF-Station — die FÜNFTE und letzte Ableitung derselben Form. Weiterhin
+   * bewusst keine verallgemeinerte: welcher Schritt gemeint ist, entscheidet die SCHRITT-KENNUNG,
+   * und die steht damit je Station im Klartext da (ausführlich bei `rechnung`).
+   */
+  const tarif = (() => {
+    if (station.kind !== 'zaehlpunkt-schritt') return null
+    const step = station.meteringPoint
+    if (!step || step.step !== 'tarif') return null
+    const point = meteringPoints[step.number - 1]
+    return point ? { point, number: step.number } : null
+  })()
+
   const segmentLabel = projectSegmentLabel(project.segment)
   const currentSegment = (PROJECT_SEGMENTS as readonly string[]).includes(project.segment ?? '')
     ? (project.segment as ProjectSegment)
@@ -414,11 +428,25 @@ export default async function AdminProjectDataEntryPage({
             />
           )}
 
+          {station.kind === 'zaehlpunkt-schritt' && tarif !== null && (
+            /*
+              Die schmalste Station des Wizards: kein Upload, keine Grösse, kein Modellaufruf — sie
+              hält einen Wunsch fest und braucht deshalb als einzige der fünf keine Grenz-Prop.
+            */
+            <DataEntryTarif
+              projectId={project.id}
+              meteringPoint={tarif.point}
+              meteringPointNumber={tarif.number}
+              nextHref={next ? stationHref(project.id, next.id) : null}
+            />
+          )}
+
           {station.kind === 'zaehlpunkt-schritt' &&
             lastgang === null &&
             rechnung === null &&
             batterie === null &&
-            pv === null && (
+            pv === null &&
+            tarif === null && (
               <StationPlaceholder
                 note={`Hier wird später der Schritt „${station.title}" ausgefüllt.`}
               />
@@ -465,7 +493,8 @@ export default async function AdminProjectDataEntryPage({
             lastgang === null &&
             rechnung === null &&
             batterie === null &&
-            pv === null && (
+            pv === null &&
+            tarif === null && (
               <Button asChild variant="primary" size="md">
                 <Link href={stationHref(project.id, next.id)}>Weiter: {next.title}</Link>
               </Button>
