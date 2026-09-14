@@ -8,6 +8,7 @@ import { saveMeteringPointTariffPreferenceAction } from '@/lib/admin/data-entry-
 import { ADMIN_INITIAL_STATE } from '@/lib/admin/schema'
 import { TARIFF_PREFERENCE_KEY, type TariffPreference } from '@/lib/admin/tariff-draft'
 import type { MeteringPointSummary } from '@/lib/admin/metering-points'
+import { retailPriceBasisLabel, type RetailTariffRow } from '@/lib/admin/retail-tariffs'
 import { AdminError, AdminPanel, AdminSuccess } from './ui'
 
 /**
@@ -44,6 +45,8 @@ export function DataEntryTarif({
   projectId,
   meteringPoint,
   nextHref,
+  retailTariffs,
+  awattarAverageCtPerKwh,
 }: {
   projectId: string
   meteringPoint: MeteringPointSummary
@@ -57,6 +60,14 @@ export function DataEntryTarif({
   meteringPointNumber: number
   /** Die nächste Station, oder `null` am Ende der Liste. */
   nextHref: string | null
+  /**
+   * Die offenen Lieferanten-Tarife des Projekt-Segments, aufsteigend nach Arbeitspreis, höchstens
+   * fünf — gelesen in der Seite. Leer heisst „keiner hinterlegt" ODER „Lesezugriff gescheitert";
+   * die Anzeige unterscheidet das bewusst nicht (s. u.).
+   */
+  retailTariffs: readonly RetailTariffRow[]
+  /** Der aWATTar-Durchschnitt der letzten 30 Tage in ct/kWh, oder `null` ohne Preisdaten. */
+  awattarAverageCtPerKwh: number | null
 }) {
   const [state, formAction, isPending] = useActionState(
     saveMeteringPointTariffPreferenceAction,
@@ -110,6 +121,59 @@ export function DataEntryTarif({
             Optimalen Tarif vorschlagen lassen
           </Button>
         </form>
+      </AdminPanel>
+
+      {/*
+        ⚠ REINE ANZEIGE — keine Berechnung, keine Empfehlung, kein Ranking.
+
+        Die Liste steht UNGERANKT da und hebt kein Angebot hervor: was für diesen Betrieb der
+        günstigere Tarif ist, hängt an seinem Lastgang und seinem Verbrauch, nicht am blossen
+        Arbeitspreis — eine Hervorhebung behauptete eine Rechnung, die hier niemand angestellt hat.
+        Sie ist damit dieselbe Sorte Referenzliste wie der Preisblatt-Vorschlag der Rechnung-Station:
+        etwas zum Danebenhalten, nicht zum Übernehmen. Die Sortierung nach Arbeitspreis ist eine
+        Lesehilfe und sagt nichts über die Eignung.
+
+        ⚠ LEER IST KEIN FEHLER, und deshalb steht hier auch keine Fehlermeldung. `retail_tariffs`
+        ist heute dünn befüllt (es gibt kein Admin-UI, der Katalog wächst erst) — „noch keiner
+        hinterlegt" ist der NORMALZUSTAND, kein Defekt. Aus demselben Grund unterscheidet die
+        Anzeige das nicht von einem gescheiterten Lesezugriff: beide Male gibt es nichts zu
+        vergleichen, die Wahl oben funktioniert unverändert, und ein roter Kasten über einer
+        Zusatzinfo lenkte von der einen Handlung ab, um die es auf dieser Station geht.
+      */}
+      <AdminPanel>
+        <h3 className="text-h4 text-ink">Zum Vergleich</h3>
+        <p className="mt-1 text-caption text-text-muted">
+          Reine Einordnungshilfe für die Wahl oben — keine Berechnung, keine Empfehlung.
+        </p>
+
+        {retailTariffs.length === 0 ? (
+          <p className="mt-4 text-small text-text-muted">
+            Für dieses Segment ist noch kein Lieferanten-Tarif hinterlegt.
+          </p>
+        ) : (
+          <ul className="mt-4 flex flex-col gap-2">
+            {retailTariffs.map((row) => (
+              <li
+                key={row.id}
+                className="flex flex-wrap items-baseline justify-between gap-x-4 text-small"
+              >
+                <span className="text-text">{row.provider_name}</span>
+                <span className="tabular-nums text-text-muted">
+                  {row.energy_price_ct_per_kwh} ct/kWh · {row.base_fee_eur_per_month} EUR/Monat ·{' '}
+                  {retailPriceBasisLabel(row.price_basis)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {awattarAverageCtPerKwh !== null && (
+          <p className="mt-4 border-t border-line pt-3 text-small text-text-muted">
+            aWATTar, Ø letzte 30 Tage:{' '}
+            <span className="tabular-nums text-text">{awattarAverageCtPerKwh.toFixed(2)}</span>{' '}
+            ct/kWh
+          </p>
+        )}
       </AdminPanel>
 
       {/*
