@@ -90,6 +90,7 @@ const {
   addPvArraysFromScanAction,
   deleteMeteringPointBatteryAction,
   deleteMeteringPointPvAction,
+  deleteMeteringPointPvArrayAction,
   extractBatteryTextFromAction,
   removeMeteringPointInvoiceAction,
   removeMeteringPointLoadProfileAction,
@@ -1973,6 +1974,148 @@ describe('saveMeteringPointPvArrayAction — die Modulflächen sind eine LISTE',
 
     expect((await saveMeteringPointPvArrayAction({}, bad)).formError).toBeDefined()
     expect(rpc).not.toHaveBeenCalled()
+  })
+})
+
+describe('deleteMeteringPointPvArrayAction — GENAU EINE Fläche aus der Mitte', () => {
+  /** Ein bereits gelesener Stand, wie ihn die Rechnungs-Station hinterlässt. */
+  const EXISTING = {
+    energyPriceCtPerKwh: 24.5,
+    _provenance: {
+      energyPriceCtPerKwh: { source: 'measured', at: '2026-09-01T10:00:00.000Z' },
+    },
+  }
+
+  /*
+   * ⚠ DREI Flächen, und jede trägt UNTERSCHIEDLICHE Werte — das ist die Positiv-Kontrolle dieses
+   * Blocks. Mit zwei Einträgen liesse sich „die richtige entfernt" von „eine entfernt" nicht
+   * trennen, und mit gleichen Werten nicht „die Nachbarn stehen unverändert" von „es sind halt
+   * noch zwei da". Geprüft wird deshalb der INHALT, nicht die Länge.
+   */
+  const THREE = [
+    { peakPowerKwp: 4.25, direction: 'SO', slopeDeg: 30 },
+    { peakPowerKwp: 5.95, direction: 'SW', slopeDeg: 35 },
+    { peakPowerKwp: 7.1, direction: 'S', slopeDeg: 15 },
+  ]
+
+  function deleteForm(index: string): FormData {
+    const fd = new FormData()
+    fd.set('projectId', PROJECT_ID)
+    fd.set('meteringPointId', POINT_ID)
+    fd.set('arrayIndex', index)
+    return fd
+  }
+
+  /** Die gespeicherten Flächen aus dem zuletzt geschriebenen Entwurf — roh, nicht über den Leser. */
+  function storedArrays(): Record<string, unknown>[] {
+    const raw = draft._pvArrays
+    return Array.isArray(raw) ? (raw as Record<string, unknown>[]) : []
+  }
+
+  function updateCalls(): unknown[][] {
+    return rpc.mock.calls.filter(([fn]) => fn === 'update_metering_point_draft')
+  }
+
+  beforeEach(() => {
+    draft = { ...EXISTING, _pvArrays: THREE.map((entry) => ({ ...entry })) }
+    withInvoiceWrappers()
+  })
+
+  it('⚠ DIE ZUSAGE: es verschwindet GENAU der genannte Eintrag, die Nachbarn bleiben inhaltlich gleich', async () => {
+    const state = await deleteMeteringPointPvArrayAction({}, deleteForm('1'))
+
+    expect(state.formError).toBeUndefined()
+    expect(state.success).toBe('Modulfläche gelöscht.')
+
+    /*
+     * ⚠ DER EIGENTLICHE WÄCHTER: der mittlere Eintrag ist weg, und die zwei übrigen tragen
+     * UNVERÄNDERT ihre eigenen Werte. Ein Filter, der den falschen Index trifft, hinterliesse
+     * ebenfalls zwei Einträge — nur eben die falschen, und an der Zahl allein wäre das nicht zu
+     * sehen.
+     */
+    expect(storedArrays()).toEqual([
+      { peakPowerKwp: 4.25, direction: 'SO', slopeDeg: 30 },
+      { peakPowerKwp: 7.1, direction: 'S', slopeDeg: 15 },
+    ])
+
+    // Der Bestand der Rechnungs-Station bleibt unberührt — gelöscht wird eine Fläche, kein Entwurf.
+    expect(draft.energyPriceCtPerKwh).toBe(EXISTING.energyPriceCtPerKwh)
+    expect(draft._provenance).toEqual(EXISTING._provenance)
+
+    // GENAU EIN Schreibvorgang — der Wrapper ERSETZT, zwei nähmen einander die Arbeit weg.
+    expect(updateCalls()).toHaveLength(1)
+    expect(revalidatePath).toHaveBeenCalledTimes(1)
+  })
+
+  it('die erste und die letzte Fläche lassen sich ebenso entfernen', async () => {
+    expect((await deleteMeteringPointPvArrayAction({}, deleteForm('0'))).success).toBeDefined()
+    expect(storedArrays()).toEqual([
+      { peakPowerKwp: 5.95, direction: 'SW', slopeDeg: 35 },
+      { peakPowerKwp: 7.1, direction: 'S', slopeDeg: 15 },
+    ])
+
+    expect((await deleteMeteringPointPvArrayAction({}, deleteForm('1'))).success).toBeDefined()
+    expect(storedArrays()).toEqual([{ peakPowerKwp: 5.95, direction: 'SW', slopeDeg: 35 }])
+  })
+
+  it('ein Index ÜBER der Liste wird benannt — und es wird NICHTS geschrieben', async () => {
+    const before = JSON.parse(JSON.stringify(draft))
+
+    const state = await deleteMeteringPointPvArrayAction({}, deleteForm('3'))
+
+    expect(state.formError).toBe('Das hat nicht geklappt. Bitte versuchen Sie es erneut.')
+    expect(state.success).toBeUndefined()
+    /*
+     * ⚠ Die Prüfung kann erst NACH dem Lesen fallen — wie lang die Liste ist, weiss nur der frisch
+     * gelesene Entwurf. Gelesen werden darf also; geschrieben nicht.
+     */
+    expect(updateCalls()).toHaveLength(0)
+    expect(revalidatePath).not.toHaveBeenCalled()
+    expect(draft).toEqual(before)
+  })
+
+  it('⚠ EIN FEHLENDES ODER LEERES FELD LÖSCHT NICHT DIE ERSTE FLÄCHE', async () => {
+    const before = JSON.parse(JSON.stringify(draft))
+
+    /*
+     * `Number('')` ist 0 und `Number(' ')` ebenso — beide liefen durch eine blosse
+     * `Number.isInteger(x) && x >= 0`-Prüfung und entfernten den Eintrag an Position 0, ohne dass
+     * irgendetwas nach einem Fehler aussähe. Geprüft wird deshalb die Zeichenkette.
+     */
+    for (const raw of ['', ' ', '1,5', '1.0', '-1', '+1', '1e0', '0x1', ' 1 ']) {
+      const state = await deleteMeteringPointPvArrayAction({}, deleteForm(raw))
+      expect(state.formError).toBe('Das hat nicht geklappt. Bitte versuchen Sie es erneut.')
+    }
+
+    const missing = deleteForm('0')
+    missing.delete('arrayIndex')
+    expect((await deleteMeteringPointPvArrayAction({}, missing)).formError).toBeDefined()
+
+    // Kein einziger Datenbankaufruf — die Prüfung liegt VOR dem Lesen.
+    expect(rpc).not.toHaveBeenCalled()
+    expect(draft).toEqual(before)
+  })
+
+  it('weist eine formverletzende Kennung ab, ohne die Datenbank zu fragen', async () => {
+    const badProject = deleteForm('0')
+    badProject.set('projectId', 'kein-uuid')
+    expect((await deleteMeteringPointPvArrayAction({}, badProject)).formError).toBeDefined()
+
+    const badPoint = deleteForm('0')
+    badPoint.set('meteringPointId', 'kein-uuid')
+    expect((await deleteMeteringPointPvArrayAction({}, badPoint)).formError).toBeDefined()
+
+    expect(rpc).not.toHaveBeenCalled()
+  })
+
+  it('ein Zählpunkt, den es nicht (mehr) gibt, wird benannt statt still ignoriert', async () => {
+    const other = deleteForm('0')
+    other.set('meteringPointId', '99999999-8888-4777-8666-555555555555')
+
+    const state = await deleteMeteringPointPvArrayAction({}, other)
+
+    expect(state.formError).toContain('Zählpunkt')
+    expect(updateCalls()).toHaveLength(0)
   })
 })
 

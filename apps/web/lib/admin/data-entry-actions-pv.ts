@@ -1013,6 +1013,129 @@ export async function addPvArraysFromScanAction(
   return { success: `${addedText} ${totalText}` }
 }
 
+/**
+ * EINE Modulfläche wieder aus der Liste nehmen.
+ *
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * ⚠ SIE IST NICHT `clearMeteringPointDraftFields` — UND DAS IST DER GANZE GRUND FÜR DIESE ACTION
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * Jener Helfer entfernt BENANNTE Schlüssel aus dem Entwurf (`delete next[field]`) und ist für die
+ * skalaren Angaben gebaut — für „gibt es eine PV-Anlage?" oder die zehn Profil-Schlüssel. Eine
+ * Modulfläche hat keinen eigenen Schlüssel: sie ist ein EINTRAG in der Liste unter `_pvArrays`, und
+ * die lässt sich weder über `setDraftField` schreiben noch über `delete` kürzen (die Begründung
+ * steht im Kopf von `withPvArrays`). Gekürzt wird deshalb die gelesene Liste, und der Entwurf
+ * bekommt die gekürzte Fassung zurück — derselbe Rahmen wie bei den zwei anhängenden Wegen
+ * darüber, nur mit `filter` statt `[...alt, neu]`.
+ *
+ * ── ⚠ ADRESSIERT WIRD ÜBER DEN INDEX, UND ZWAR ÜBER DEN DER GELESENEN LISTE ───────────────────
+ * Ein Eintrag trägt keine eigene Kennung — es gibt nichts Stabileres, worüber der Browser die
+ * gemeinte Zeile benennen könnte. Massgeblich ist deshalb die Position in `readPvArraysDraft()`,
+ * NICHT die im rohen `jsonb`: der Leser überspringt Einträge ohne eine einzige Angabe, und die
+ * Zusammenfassung zählt genau seine Ausgabe durch. Über den Rohbestand gezählt träfe der Klick bei
+ * einem solchen Rest eine andere Fläche als die angezeigte.
+ *
+ * ⚠ DIE VERBLEIBENDE GRENZE IST BENANNT UND NICHT BEHOBEN: ein Index ist nur so gültig wie der
+ * Stand, aus dem die Seite gebaut wurde. Hat ein zweiter Tab inzwischen eine Fläche entfernt, zeigt
+ * derselbe Index auf eine andere — die Datenbank kann das nicht merken, weil die Zeile keine
+ * Identität hat. Was dagegen steht: die Oberfläche sperrt während eines laufenden Vorgangs ALLE
+ * Löschknöpfe (der realistische Fall — zwei Klicks hintereinander auf derselben Seite), und ein
+ * Index oberhalb der Liste wird hier abgewiesen statt zu einem stillen Kürzen am Ende.
+ *
+ * ── DIE REIHENFOLGE, WORTGLEICH ZU DEN ANHÄNGENDEN WEGEN ─────────────────────────────────────
+ *   1. Kennungen und Index der FORM nach prüfen (ohne die Datenbank zu fragen)
+ *   2. Entwurf FRISCH lesen — `update_metering_point_draft` ERSETZT ihn; ein Stand aus der Zeit des
+ *      Seitenaufbaus machte jede Angabe rückgängig, die seither dazugekommen ist
+ *   3. Index gegen die TATSÄCHLICHE Listenlänge halten, dann EINMAL schreiben
+ *
+ * ⚠ DIE INDIZES DER FOLGENDEN FLÄCHEN VERSCHIEBEN SICH, und das ist beabsichtigt: „Fläche 2" ist
+ * eine Position in einer Liste, keine Kennung — dieselbe Lesart wie bei der Zählpunkt-Nummer der
+ * Station. Umsortiert oder aufgefüllt wird nichts.
+ *
+ * ── ES GIBT KEIN PROTOKOLL ────────────────────────────────────────────────────────────────────
+ * Wortgleich zu den übrigen Löschwegen dieser Station: zurückgenommen wird eine Angabe zu EINEM
+ * Zählpunkt EINES Projekts, die derselbe Mensch selbst eingetragen hat.
+ */
+export async function deleteMeteringPointPvArrayAction(
+  _prev: AdminState,
+  formData: FormData,
+): Promise<AdminState> {
+  const projectId = readProjectId(formData)
+  if (projectId === null) return { formError: UNKNOWN_PROJECT }
+
+  const meteringPointId = String(formData.get('meteringPointId') ?? '')
+  if (!UUID.test(meteringPointId)) return { formError: GENERIC }
+
+  /*
+   * Der Index kommt als verstecktes Feld aus unserer eigenen Seite — eine Server Action ist über
+   * ihre Kennung aufrufbar, was hereinkommt ist also eine BEHAUPTUNG.
+   *
+   * ⚠ GEPRÜFT WIRD DIE ZEICHENKETTE, NICHT DIE ZAHL. `Number('')` ist **0**, `Number(' ')` ebenso,
+   * und beide laufen anschliessend fehlerfrei durch `Number.isInteger(x) && x >= 0` — ein
+   * fehlendes oder leeres Feld löschte damit die ERSTE Fläche, ohne dass irgendetwas nach einem
+   * Fehler aussähe. Dasselbe gilt für Schreibweisen, die hier niemand meint (`'1e0'`, `'0x1'`,
+   * `' 1 '`): sie sind gültige Zahlen und keine gültigen Indizes. `^\d+$` lässt genau die Form
+   * durch, die das versteckte Feld erzeugt — und das ausdrücklich VOR jedem Datenbankaufruf.
+   *
+   * Die Obergrenze kann hier noch nicht fallen: wie lang die Liste ist, weiss erst der frisch
+   * gelesene Entwurf.
+   */
+  const rawIndex = String(formData.get('arrayIndex') ?? '')
+  if (!/^\d+$/.test(rawIndex)) return { formError: GENERIC }
+  const arrayIndex = Number(rawIndex)
+
+  const supabase = await createClient()
+  const listRes = await supabase.rpc('list_metering_points', { p_project_id: projectId })
+  if (listRes.error) {
+    if (isForbidden(listRes.error)) return { formError: FORBIDDEN }
+    console.error('[admin/dateneingabe] list_metering_points (PV-Fläche löschen):', listRes.error)
+    return { formError: GENERIC }
+  }
+
+  const points = readMeteringPointList(listRes.data)
+  const point = points?.find((candidate) => candidate.id === meteringPointId)
+  if (!point) {
+    return { formError: 'Diesen Zählpunkt gibt es nicht (mehr). Bitte laden Sie die Seite neu.' }
+  }
+
+  const arrays = readPvArraysDraft(point.draft)
+  /*
+   * ⚠ ERST HIER KANN DIE OBERGRENZE FALLEN — und sie muss: ohne die Prüfung liefe `filter` über
+   * eine Liste, in der der Index gar nicht vorkommt, entfernte NICHTS und meldete trotzdem Erfolg.
+   * Eine gelöschte Fläche, die noch dasteht, ist die teurere der beiden Falschauskünfte.
+   */
+  if (arrayIndex >= arrays.length) return { formError: GENERIC }
+
+  const remaining = arrays.filter((_, index) => index !== arrayIndex)
+
+  const draftRes = await supabase.rpc('update_metering_point_draft', {
+    p_metering_point_id: meteringPointId,
+    // Zusicherung wie in den übrigen Listen-Schreibwegen: zur Laufzeit dasselbe, TypeScript kann
+    // es nur nicht wissen.
+    p_draft: withPvArrays(point.draft, remaining) as Json,
+  })
+
+  if (draftRes.error) {
+    if (isForbidden(draftRes.error)) return { formError: FORBIDDEN }
+    console.error(
+      '[admin/dateneingabe] update_metering_point_draft (PV-Fläche löschen):',
+      draftRes.error,
+    )
+    return { formError: GENERIC }
+  }
+  if (statusOf(draftRes.data) !== 'ok') {
+    console.error('[admin/dateneingabe] unerwartete Antwort (PV-Fläche löschen):', draftRes.data)
+    return { formError: GENERIC }
+  }
+
+  /*
+   * ⚠ Ohne das stünde die gelöschte Fläche weiter in der Zusammenfassung — sie kommt aus der
+   * DATENBANK, nicht aus dem Zustand des Formulars.
+   */
+  revalidatePath(projectDataEntryHref(projectId))
+
+  return { success: 'Modulfläche gelöscht.' }
+}
+
 // ── Standort ─────────────────────────────────────────────────────────────────────────────────────
 /**
  * B24, Teil 1 — die PLZ des Projekts, Grundlage für den PVGIS-Generator (eigener, folgender
