@@ -89,6 +89,7 @@ vi.mock('@/lib/project-documents/storage', () => ({
 const {
   addPvArraysFromScanAction,
   deleteMeteringPointBatteryAction,
+  deleteMeteringPointPvAction,
   extractBatteryTextFromAction,
   removeMeteringPointInvoiceAction,
   removeMeteringPointLoadProfileAction,
@@ -119,6 +120,16 @@ const { clearMeteringPointDraftFields } = await import('./data-entry-actions-sha
  */
 const { BATTERY_DRAFT_KEYS, BATTERY_VALUE_FIELDS, readBatteryDraft, batteryDraftIsEmpty } =
   await import('./battery-draft')
+
+/*
+ * Dieselbe Regel für die PV-Seite — und hier wiegt sie schwerer, weil die Liste über DREI Module
+ * verteilt entsteht (`hasPv` · die Modulflächen · die zehn Profil-Schlüssel). Abgetippt bliebe der
+ * Test grün, während der Löschweg genau die Hälfte stehen liesse.
+ */
+const { PV_DRAFT_KEYS, PV_PRESENT_KEY, readPvDraft } = await import('./pv-draft')
+const { PV_ARRAYS_KEY, readPvArraysDraft, pvArraysDraftIsEmpty } = await import('./pv-array-draft')
+const { PV_PROFILE_DRAFT_KEYS, readPvProfileDraft, hasPvProfile } =
+  await import('./pv-profile-draft')
 
 const PROJECT_ID = '11111111-2222-4333-8444-555555555555'
 const POINT_ID = '66666666-7777-4888-8999-aaaaaaaaaaaa'
@@ -2142,5 +2153,160 @@ describe('scanPvDesignAction + addPvArraysFromScanAction — mehrere Flächen au
     expect(state.success).toBeUndefined()
     expect(rpc).not.toHaveBeenCalled()
     expect(draft).toEqual({})
+  })
+})
+
+describe('deleteMeteringPointPvAction', () => {
+  /**
+   * Ein VOLLSTÄNDIG erfasster PV-Zählpunkt — alle drei Zweige gleichzeitig belegt.
+   *
+   * ⚠ Das ist der Kern dieser Fixture: Die Antwort allein zu löschen sähe an der Station wie ein
+   * gelungener Rückweg aus (die Frage erscheint wieder), und die Modulflächen samt Erzeugungsprofil
+   * stünden unsichtbar weiter im Entwurf. Genau diesen Zustand beschreibt der Kopf von
+   * `data-entry-pv.tsx` — er muss hier messbar sein, sonst prüft der Test die halbe Zusage.
+   */
+  const EXISTING = {
+    hasPv: true,
+    _pvArrays: [{ peakPowerKwp: 4.25, direction: 'southeast', slopeDeg: 90 }],
+    pvIntervalMinutes: 15,
+    pvCoveredFrom: '2025-01-01T00:00:00.000Z',
+    pvCoveredTo: '2026-01-01T00:00:00.000Z',
+    pvSourceDocumentId: DOCUMENT_ID,
+    _pvProfileGaps: [{ from: '2025-07-04T10:00:00.000Z', to: '2025-07-04T13:00:00.000Z' }],
+    pvProfileSource: 'upload',
+    pvEstimatedAnnualKwh: 9741,
+    pvEstimatedSpreadPercent: 4.9,
+    pvEstimatedWeatherYearFrom: 2014,
+    pvEstimatedWeatherYearTo: 2023,
+    energyPriceCtPerKwh: 24.5,
+    _provenance: {
+      hasPv: { source: 'measured', at: '2026-09-14T08:00:00.000Z' },
+      pvIntervalMinutes: { source: 'measured', at: '2026-09-14T08:00:00.000Z' },
+      pvCoveredFrom: { source: 'measured', at: '2026-09-14T08:00:00.000Z' },
+      pvCoveredTo: { source: 'measured', at: '2026-09-14T08:00:00.000Z' },
+      pvSourceDocumentId: { source: 'measured', at: '2026-09-14T08:00:00.000Z' },
+      pvProfileSource: { source: 'measured', at: '2026-09-14T08:00:00.000Z' },
+      pvEstimatedAnnualKwh: { source: 'assumed', at: '2026-09-14T08:00:00.000Z' },
+      pvEstimatedSpreadPercent: { source: 'assumed', at: '2026-09-14T08:00:00.000Z' },
+      pvEstimatedWeatherYearFrom: { source: 'assumed', at: '2026-09-14T08:00:00.000Z' },
+      pvEstimatedWeatherYearTo: { source: 'assumed', at: '2026-09-14T08:00:00.000Z' },
+      energyPriceCtPerKwh: { source: 'measured', at: '2026-09-01T10:00:00.000Z' },
+    },
+  }
+
+  function deleteForm(overrides: Record<string, string> = {}): FormData {
+    const fd = new FormData()
+    fd.set('projectId', PROJECT_ID)
+    fd.set('meteringPointId', POINT_ID)
+    for (const [key, value] of Object.entries(overrides)) fd.set(key, value)
+    return fd
+  }
+
+  beforeEach(() => {
+    draft = JSON.parse(JSON.stringify(EXISTING))
+    withInvoiceWrappers()
+  })
+
+  it('⚠ DIE LISTE IST ABGELEITET, NICHT ABGESCHRIEBEN', () => {
+    /*
+     * Derselbe Wächter wie bei der Batterie, mit einem schärferen Anlass: `PV_DRAFT_KEYS` ist die
+     * Klammer über DREI Module. Wer `pv-profile-draft.ts` um einen elften Schlüssel erweitert,
+     * erweitert damit automatisch den Löschweg — eine von Hand gepflegte zweite Liste liesse ihn
+     * stehen, und der Entwurf trüge danach ein einzelnes Profil-Feld ohne alles, was es erklärt.
+     */
+    expect(PV_DRAFT_KEYS).toContain(PV_PRESENT_KEY)
+    expect(PV_DRAFT_KEYS).toContain(PV_ARRAYS_KEY)
+    for (const key of PV_PROFILE_DRAFT_KEYS) {
+      expect(PV_DRAFT_KEYS, key).toContain(key)
+    }
+    // Die Antwort plus die Flächen plus die Profil-Schlüssel — und sonst nichts.
+    expect(PV_DRAFT_KEYS).toHaveLength(PV_PROFILE_DRAFT_KEYS.length + 2)
+  })
+
+  it('⚠ löscht ALLE PV-Schlüssel samt Vermerken — nicht nur `hasPv`', async () => {
+    // ⚠ POSITIV-KONTROLLE vorher: beide Zweige tragen nachweislich etwas.
+    expect(pvArraysDraftIsEmpty(readPvArraysDraft(draft))).toBe(false)
+    expect(hasPvProfile(readPvProfileDraft(draft))).toBe(true)
+
+    const state = await deleteMeteringPointPvAction({}, deleteForm())
+
+    expect(state.formError).toBeUndefined()
+    expect(state.success).toBe('PV-Angaben vollständig gelöscht.')
+
+    // Gezählt statt aufgezählt: kein einziger der zwölf Schlüssel ist übrig.
+    for (const key of PV_DRAFT_KEYS) {
+      expect(draft, key).not.toHaveProperty(key)
+    }
+    const provenance = draft._provenance as Record<string, unknown>
+    for (const key of PV_DRAFT_KEYS) {
+      expect(provenance, key).not.toHaveProperty(key)
+    }
+
+    // ⚠ POSITIV-KONTROLLE: die Rechnungs-Station ist unberührt, samt ihrem Vermerk.
+    expect(draft.energyPriceCtPerKwh).toBe(24.5)
+    expect(provenance.energyPriceCtPerKwh).toEqual({
+      source: 'measured',
+      at: '2026-09-01T10:00:00.000Z',
+    })
+    // Und es bleibt wirklich nur das eine Feld plus sein Vermerk übrig.
+    expect(Object.keys(draft).sort()).toEqual(['_provenance', 'energyPriceCtPerKwh'])
+
+    expect(rpc.mock.calls.filter(([fn]) => fn === 'update_metering_point_draft')).toHaveLength(1)
+    expect(revalidatePath).toHaveBeenCalledWith(
+      `/admin/kalkulator-projekte/${PROJECT_ID}/dateneingabe`,
+    )
+  })
+
+  it('⚠ danach ist BEIDES weg — die Frage erscheint wieder, Flächen und Profil sind leer', async () => {
+    await deleteMeteringPointPvAction({}, deleteForm())
+
+    /*
+     * ⚠ `null`, NICHT `false`. Ein fehlender Schlüssel heisst „dazu steht nichts im Entwurf";
+     * `false` wäre die ANGABE „ausdrücklich keine PV-Anlage" — und die liesse die Frage gerade
+     * NICHT wieder erscheinen. Genau diese Unterscheidung trägt der Löschweg.
+     */
+    expect(readPvDraft(draft).hasPv).toBeNull()
+    expect(pvArraysDraftIsEmpty(readPvArraysDraft(draft))).toBe(true)
+    expect(hasPvProfile(readPvProfileDraft(draft))).toBe(false)
+  })
+
+  it('ein „nein"-Zweig allein wird ebenso vollständig entfernt', async () => {
+    // Der reale zweite Zustand: nur die Antwort steht im Entwurf, keine Fläche, kein Profil.
+    draft = {
+      hasPv: false,
+      energyPriceCtPerKwh: 24.5,
+      _provenance: {
+        hasPv: { source: 'measured', at: '2026-09-14T08:00:00.000Z' },
+        energyPriceCtPerKwh: { source: 'measured', at: '2026-09-01T10:00:00.000Z' },
+      },
+    }
+
+    const state = await deleteMeteringPointPvAction({}, deleteForm())
+
+    expect(state.success).toBe('PV-Angaben vollständig gelöscht.')
+    expect(draft).not.toHaveProperty('hasPv')
+    expect(draft.energyPriceCtPerKwh).toBe(24.5)
+  })
+
+  it('meldet eine entzogene Rolle, ohne den Entwurf anzufassen', async () => {
+    rpc.mockResolvedValue({ data: null, error: { code: '42501', message: 'denied' } })
+
+    const state = await deleteMeteringPointPvAction({}, deleteForm())
+
+    expect(state.formError).toBe('Keine Berechtigung. Bitte laden Sie die Seite neu.')
+    expect(state.success).toBeUndefined()
+    expect(draft).toEqual(EXISTING)
+    expect(revalidatePath).not.toHaveBeenCalled()
+  })
+
+  it('fragt die Datenbank bei einer formverletzenden Kennung gar nicht erst', async () => {
+    const badProject = deleteForm({ projectId: 'kein-uuid' })
+    expect((await deleteMeteringPointPvAction({}, badProject)).formError).toBeDefined()
+
+    const badPoint = deleteForm({ meteringPointId: 'kein-uuid' })
+    expect((await deleteMeteringPointPvAction({}, badPoint)).formError).toBeDefined()
+
+    expect(rpc).not.toHaveBeenCalled()
+    expect(draft).toEqual(EXISTING)
   })
 })

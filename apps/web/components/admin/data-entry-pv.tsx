@@ -20,29 +20,36 @@
  * und im Entwurf stünde nichts. Was hier zu sehen ist, IST der gespeicherte Stand; das kostet den
  * Roundtrip bis zum `revalidatePath` der Action, und dafür gibt es den Ladezustand am Knopf.
  *
- * ── ⚠ DIE FRAGE BLEIBT STEHEN, AUCH WENN SIE BEANTWORTET IST ─────────────────────────────────
- * Dieselbe Entscheidung und derselbe Grund wie bei der Batterie-Station: es gibt für diese Angabe
- * KEINEN Entfernen-Weg. Wer versehentlich „Ja" trifft, muss „Nein" nachlegen können — eine Frage,
- * die nach der ersten Antwort verschwindet, wäre eine Sackgasse. Welche Antwort gilt, steht an den
- * zwei Knöpfen (`aria-pressed`), nicht in ihrem Verschwinden.
+ * ── ⚠ DIE FRAGE VERSCHWINDET, SOBALD SIE BEANTWORTET IST — UND DIESER KOPF HAT DAS GEGENTEIL
+ * BEHAUPTET ──────────────────────────────────────────────────────────────────────────────────
+ * Er lautete: „DIE FRAGE BLEIBT STEHEN, AUCH WENN SIE BEANTWORTET IST … es gibt für diese Angabe
+ * KEINEN Entfernen-Weg. Wer versehentlich ‚Ja' trifft, muss ‚Nein' nachlegen können — eine Frage,
+ * die nach der ersten Antwort verschwindet, wäre eine Sackgasse."
  *
- * ── ⚠ DIESER KOPF HAT BIS ZUM ERZEUGUNGSPROFIL DAS GEGENTEIL BEHAUPTET ───────────────────────
- * Er lautete: „Kein Upload eines Erzeugungsprofils, kein PVGIS-Abruf (B22), kein Extraktor und kein
- * Modellaufruf." Die erste Hälfte stimmt nicht mehr — der Ja-Zweig nimmt seit diesem Schritt eine
- * Erzeugungsdatei entgegen und liest Zeitraum, Intervall und Lücken daraus. Der Satz ist ERSETZT
- * statt stehen gelassen: ein Kommentar, der eine Regel behauptet, die es nicht mehr gibt, ist
- * teurer als keiner.
+ * Die Begründung war richtig und ist mit `deleteMeteringPointPvAction` entfallen: Wer versehentlich
+ * „Ja" trifft, löscht jetzt und antwortet neu. Der Satz ist ERSETZT statt stehen gelassen — ein
+ * Kommentar, der eine Regel behauptet, die es nicht mehr gibt, ist teurer als keiner.
+ *
+ * ⚠ Die stehengebliebene Frage war nicht neutral: sie las sich wie eine offene Aufgabe, und ein
+ * zweiter Klick auf „Ja" hätte alles überschrieben, was darunter bereits erfasst war. An ihrer
+ * Stelle steht jetzt eine Zeile, die die gespeicherte Antwort NENNT, und darunter der Löschweg.
+ *
+ * ── ⚠ DIESER KOPF HAT BIS ZUM ERZEUGUNGSPROFIL EIN ZWEITES MAL DAS GEGENTEIL BEHAUPTET ───────
+ * Er lautete einmal: „Kein Upload eines Erzeugungsprofils, kein PVGIS-Abruf (B22), kein Extraktor
+ * und kein Modellaufruf." Davon stimmt heute nichts mehr — der Ja-Zweig nimmt eine Erzeugungsdatei
+ * entgegen, liest Anlagendaten aus Freitext und Datenblatt (Modellaufruf) und schätzt bei Bedarf
+ * über PVGIS. Auch dieser Satz ist ersetzt, aus demselben Grund.
  *
  * ── ⚠ WAS DIESE STATION WEITERHIN NICHT TUT ──────────────────────────────────────────────────
- * Kein PVGIS-Abruf und kein Generator (B22 — der Weg für eine Anlage OHNE gemessene Erzeugung ist
- * ein eigener Bauabschnitt), kein Modellaufruf (das Lesen ist deterministisch und findet im selben
- * Prozess statt) und KEIN Entfernen: eine hochgeladene Erzeugungsdatei lässt sich in diesem Schritt
- * nicht zurücknehmen. Beim Lastgang gibt es das seit PR #194; hier ist es ein eigener Auftrag, und
- * bis dahin ist der Ausweg eine zweite Datei — die überschreibt die Angaben.
+ * Es gibt KEINEN Weg, EINE EINZELNE Modulfläche oder NUR das Erzeugungsprofil zu entfernen. Der
+ * Löschweg nimmt die PV-Angabe des Zählpunkts als GANZES zurück (Antwort, Flächen, Profil) — das
+ * ist der Weg für „das war falsch", nicht für „diese eine Zeile war falsch". Beides sind eigene,
+ * kleinere Aufträge; bis dahin ist der Ausweg für ein falsches Profil eine zweite Datei (sie
+ * überschreibt die Angaben) und für eine falsche Fläche das Löschen und erneute Erfassen.
  *
- * ⚠ OFFENGELEGTE FOLGE: Wer nachträglich von „Ja" auf „Nein" wechselt, sieht die eingelesenen
- * Angaben nicht mehr — im Entwurf stehen sie trotzdem weiter. Das ist kein stiller Datenverlust
- * (nichts wird gelöscht), aber ein Zustand, den der Entfernen-Weg mit auflösen muss.
+ * ⚠ Ebenfalls unverändert: die hochgeladene DATEI bleibt beim Löschen in der Dokumentenliste des
+ * Projekts stehen — entfernt wird der Verweis, nicht das Dokument (Begründung an der Action). Die
+ * Rückfrage sagt das im Klartext, statt eine Löschung zu behaupten, die nicht stattfindet.
  */
 import * as React from 'react'
 import { useActionState } from 'react'
@@ -52,6 +59,7 @@ import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { FieldHint, Label } from '@/components/ui/input'
 import {
+  deleteMeteringPointPvAction,
   generatePvProfileAction,
   saveMeteringPointPvChoiceAction,
   saveProjectPostalCodeAction,
@@ -73,6 +81,37 @@ import { AdminError, AdminField, AdminSuccess } from './ui'
 import { DataEntryPvArray } from './data-entry-pv-array'
 
 const FIELD_ID = 'dateneingabe-pv-erzeugung-datei'
+
+/**
+ * Die Rückfrage vor dem Löschen.
+ *
+ * ⚠ SIE IST EINE RÜCKFRAGE AN EINEN MENSCHEN, KEINE PRÜFUNG — dieselbe Einordnung wie beim
+ * Lastgang-Rückweg und bei der Batterie-Station: die Berechtigung entscheidet die Datenbank, hier
+ * wird ein unbeabsichtigter Klick abgefangen.
+ *
+ * ⚠ SIE NENNT AUSDRÜCKLICH MEHR ALS DIE JA/NEIN-ANTWORT. Wer den Knopf unter „Vermerkt: PV-Anlage
+ * vorhanden" sieht, erwartet, dass genau dieser Vermerk verschwindet — gelöscht werden aber auch
+ * die erfassten Modulflächen und ein hochgeladenes oder geschätztes Erzeugungsprofil. Diese zwei
+ * Folgen ungenannt zu lassen wäre der teuerste Satz, den dieser Dialog nicht sagt: die Arbeit
+ * mehrerer Minuten hinge an einem Klick, der nach einer einzeiligen Korrektur aussieht.
+ *
+ * Genannt wird ausserdem der Zählpunkt (auf einer Seite mit mehreren sieht ein „wirklich löschen?"
+ * ohne Nummer für alle gleich aus) und dass die Frage danach erneut erscheint — ohne diesen Satz
+ * liest sich das Löschen wie eine Sackgasse, und genau das Gegenteil ist der Zweck dieses Wegs.
+ *
+ * ⚠ DIE DATEI SELBST WIRD NICHT GELÖSCHT, und das steht ebenfalls dort: sie bleibt in der
+ * Dokumentenliste des Projekts (s. `deleteMeteringPointPvAction`). Ein Dialog, der eine Löschung
+ * aus der Ablage BEHAUPTET, die nicht stattfindet, wäre schlimmer als einer, der schweigt.
+ */
+function deleteConfirmText(number: number): string {
+  return (
+    `PV-Angaben für Zählpunkt ${number} wirklich löschen?\n\n` +
+    'Entfernt werden die Antwort auf „Haben Sie bereits eine PV-Anlage?", alle erfassten ' +
+    'Modulflächen und ein hochgeladenes oder geschätztes Erzeugungsprofil. Eine hochgeladene ' +
+    'Datei bleibt in der Dokumentenliste des Projekts. Die Frage erscheint danach erneut — Sie ' +
+    'können sie neu beantworten.'
+  )
+}
 
 export function DataEntryPv({
   projectId,
@@ -162,6 +201,18 @@ export function DataEntryPv({
     ADMIN_INITIAL_STATE,
   )
 
+  /*
+   * ⚠ FÜNFTER Zustand, und er gehört wie die vier davor auf KOMPONENTEN-Ebene: ein erfolgreiches
+   * Löschen ersetzt die Zusammenfassung samt Löschknopf durch die Frage — ein `useActionState` IM
+   * Löschformular verschwände mitsamt seiner Meldung, und die Bestätigung erschiene nie. Eigener
+   * Zustand statt eines geteilten, aus demselben Grund wie oben: ein Fehlschlag beim Löschen
+   * überschriebe sonst die Meldung eines laufenden Uploads und umgekehrt.
+   */
+  const [deleteState, deleteAction, isDeleting] = useActionState(
+    deleteMeteringPointPvAction,
+    ADMIN_INITIAL_STATE,
+  )
+
   const [isEditingPostal, setIsEditingPostal] = React.useState(false)
   React.useEffect(() => {
     if (postalState.success) setIsEditingPostal(false)
@@ -198,59 +249,141 @@ export function DataEntryPv({
 
   return (
     <div className="flex flex-col gap-6">
-      {state.success && <AdminSuccess>{state.success}</AdminSuccess>}
-      {state.formError && <AdminError>{state.formError}</AdminError>}
+      {/*
+        ⚠ DIE ERFOLGSMELDUNGEN HÄNGEN AM ZUSTAND DES ENTWURFS, NICHT NUR AM LETZTEN LAUF.
 
+        Antworten und Löschen sind gegenläufig, und beide `useActionState` behalten ihren Stand
+        über den jeweils anderen Lauf hinweg. Ohne die Bedingung stünden nach einem Löschen
+        „Vermerkt: Es gibt bereits eine PV-Anlage." und „PV-Angaben vollständig gelöscht."
+        untereinander — zwei Meldungen, die einander widersprechen, und der Leser müsste raten,
+        welche gilt.
+
+        Die Regel ist deshalb der ZUSTAND: die Meldung über die Antwort erscheint, solange eine
+        Antwort gespeichert ist; die Meldung über das Löschen, solange keine gespeichert ist.
+        FEHLERmeldungen stehen unbedingt da — sie handeln von einem Versuch, nicht vom Ergebnis.
+        Wortgleich zur Batterie-Station.
+      */}
+      {hasPv !== null && state.success && <AdminSuccess>{state.success}</AdminSuccess>}
+      {state.formError && <AdminError>{state.formError}</AdminError>}
+      {hasPv === null && deleteState.success && (
+        <AdminSuccess>{deleteState.success}</AdminSuccess>
+      )}
+      {deleteState.formError && <AdminError>{deleteState.formError}</AdminError>}
+
+      {/*
+        ⚠ DIE FRAGE ERSCHEINT NUR, SOLANGE SIE UNBEANTWORTET IST — und der Löschweg darunter ist
+        die Voraussetzung dafür.
+
+        Bis hierher blieb sie stehen, mit genau einer Begründung (s. Kopf): es gab keinen
+        Entfernen-Weg, sie war also die einzige Möglichkeit, in den anderen Zweig zu kommen. Den
+        gibt es jetzt, und damit entfällt der Grund. Eine beantwortete Frage weiter zu stellen ist
+        nicht neutral — sie liest sich wie eine offene Aufgabe und lädt zu einem zweiten Klick ein,
+        der stillschweigend alles überschreibt, was darunter erfasst wurde.
+      */}
       {/*
         ⚠ ZWEI KNÖPFE IN EINEM FORMULAR, unterschieden über `name`/`value` des Absendeknopfes —
         kein `<select>` und keine Ankreuzmöglichkeit. Die Frage hat genau zwei Antworten, und beide
         sind eine ANGABE: „nein, keine PV-Anlage" muss von „dazu wurde nichts gefragt"
         unterscheidbar bleiben. Eine Ankreuzmöglichkeit könnte das nicht — nicht angehakt hiesse
         beides zugleich.
+
+        ⚠ KEIN `aria-pressed` MEHR, und das ist die Folge des Absatzes darüber: der Block rendert
+        ausschliesslich bei `hasPv === null`, beide Knöpfe wären also dauerhaft „nicht gedrückt".
+        Ein Umschalt-Zustand, der nie eintreten kann, sagt einem Screenreader etwas Falsches —
+        welche Antwort gilt, steht ab jetzt in der Zeile darunter, nicht in einem Knopf.
       */}
-      <form action={action} noValidate>
-        <input type="hidden" name="projectId" value={projectId} />
-        <input type="hidden" name="meteringPointId" value={meteringPoint.id} />
+      {hasPv === null && (
+        <form action={action} noValidate>
+          <input type="hidden" name="projectId" value={projectId} />
+          <input type="hidden" name="meteringPointId" value={meteringPoint.id} />
 
-        <p className="max-w-prose text-body text-ink">
-          Haben Sie bereits eine PV-Anlage für Zählpunkt {meteringPointNumber}?
-        </p>
-        <p className="mt-2 max-w-prose text-small text-text-muted">
-          Gemeint ist eine bereits errichtete oder fest bestellte Anlage — unabhängig davon, ob ihre
-          Erzeugung gemessen vorliegt.
-        </p>
+          <p className="max-w-prose text-body text-ink">
+            Haben Sie bereits eine PV-Anlage für Zählpunkt {meteringPointNumber}?
+          </p>
+          <p className="mt-2 max-w-prose text-small text-text-muted">
+            Gemeint ist eine bereits errichtete oder fest bestellte Anlage — unabhängig davon, ob ihre
+            Erzeugung gemessen vorliegt.
+          </p>
 
-        <div className="mt-4 flex flex-wrap items-center gap-3">
-          <Button
-            type="submit"
-            name={PV_PRESENT_KEY}
-            value="ja"
-            variant={hasPv === true ? 'primary' : 'secondary'}
-            size="md"
-            aria-pressed={hasPv === true}
-            disabled={isSaving}
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <Button
+              type="submit"
+              name={PV_PRESENT_KEY}
+              value="ja"
+              variant="secondary"
+              size="md"
+              disabled={isSaving}
+            >
+              {isSaving && (
+                <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2} aria-hidden="true" />
+              )}
+              Ja
+            </Button>
+            <Button
+              type="submit"
+              name={PV_PRESENT_KEY}
+              value="nein"
+              variant="secondary"
+              size="md"
+              disabled={isSaving}
+            >
+              Nein
+            </Button>
+            <span role="status" aria-live="polite" className="sr-only">
+              {isSaving ? 'Wird gespeichert …' : ''}
+            </span>
+          </div>
+        </form>
+      )}
+
+      {/*
+        ⚠ DIE ANTWORT SELBST IST DIE ZUSAMMENFASSUNG — anders als bei der Batterie-Station.
+
+        Dort steht hinter jedem Zweig etwas, das erhoben wird, und die Zusammenfassung zeigt DAS.
+        Hier ist die Antwort die Angabe (s. Kopf): „keine PV-Anlage" hat keine Kenndaten, über die
+        sich eine Zusammenfassung bilden liesse, und muss trotzdem als beantwortet erkennbar sein.
+        Deshalb eine Zeile für BEIDE Antworten, nicht nur für „Ja".
+      */}
+      {hasPv !== null && (
+        <div className="flex flex-col gap-3">
+          <p className="max-w-prose text-body text-ink">
+            <span className="font-medium">
+              {hasPv ? 'Vermerkt: PV-Anlage vorhanden' : 'Vermerkt: keine PV-Anlage vorhanden'}
+            </span>{' '}
+            <span className="text-text-muted">(Zählpunkt {meteringPointNumber})</span>
+          </p>
+
+          {/*
+            ⚠ DER LÖSCHWEG STEHT DIREKT UNTER DER ANTWORT, nicht am Fuss der ganzen Station: bei
+            „Ja" folgt darunter der gesamte Ja-Zweig (Upload, Modulflächen, Standort, Schätzung),
+            und ein Knopf hinter alledem wäre von den Aktionen dieses Zweigs nicht mehr zu
+            unterscheiden. Er gehört zu der Zeile, die er zurücknimmt.
+
+            `ghost`, weil er der Ausweg für den falsch beantworteten Zählpunkt ist und kein Schritt,
+            den die Station nahelegt — dieselbe Einordnung wie beim Lastgang-Rückweg.
+          */}
+          <form
+            action={deleteAction}
+            noValidate
+            className="flex flex-wrap items-center gap-3"
+            onSubmit={(e) => {
+              if (!window.confirm(deleteConfirmText(meteringPointNumber))) e.preventDefault()
+            }}
           >
-            {isSaving && (
-              <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2} aria-hidden="true" />
-            )}
-            Ja
-          </Button>
-          <Button
-            type="submit"
-            name={PV_PRESENT_KEY}
-            value="nein"
-            variant={hasPv === false ? 'primary' : 'secondary'}
-            size="md"
-            aria-pressed={hasPv === false}
-            disabled={isSaving}
-          >
-            Nein
-          </Button>
-          <span role="status" aria-live="polite" className="sr-only">
-            {isSaving ? 'Wird gespeichert …' : ''}
-          </span>
+            <input type="hidden" name="projectId" value={projectId} />
+            <input type="hidden" name="meteringPointId" value={meteringPoint.id} />
+            <Button type="submit" variant="ghost" size="md" disabled={isDeleting}>
+              {isDeleting && (
+                <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2} aria-hidden="true" />
+              )}
+              {isDeleting ? 'Wird gelöscht …' : 'PV-Angaben löschen'}
+            </Button>
+            <span role="status" aria-live="polite" className="sr-only">
+              {isDeleting ? 'Wird gelöscht …' : ''}
+            </span>
+          </form>
         </div>
-      </form>
+      )}
 
       {hasPv === true && (
         <div className="flex flex-col gap-4 border-t border-line pt-6">
