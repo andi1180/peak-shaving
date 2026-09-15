@@ -108,6 +108,21 @@ export const BATTERY_VALUE_FIELDS = [
 export type BatteryValueField = (typeof BATTERY_VALUE_FIELDS)[number]
 
 /**
+ * ALLE Entwurfs-Schlüssel dieser Station — die vier Kenndaten plus die zwei Ja/Nein-Felder.
+ *
+ * ⚠ ABGELEITET, NICHT ABGESCHRIEBEN. Eine zweite, von Hand gepflegte Liste liefe beim ersten
+ * zusätzlichen Kenndatenfeld auseinander — und zwar still: der Löschweg liesse das neue Feld
+ * stehen, die Station zeigte danach eine Zusammenfassung mit genau einem Wert darin, und niemand
+ * könnte sagen, woher er kommt. Wer `BATTERY_VALUE_FIELDS` erweitert, erweitert diese Liste
+ * dadurch automatisch mit.
+ */
+export const BATTERY_DRAFT_KEYS: readonly string[] = [
+  ...BATTERY_VALUE_FIELDS.map((entry) => entry.field),
+  BATTERY_PRESENT_KEY,
+  BATTERY_RECOMMENDATION_KEY,
+]
+
+/**
  * Zahl → Formularwert. Deutsches Dezimalkomma, KEIN Tausendertrennzeichen.
  *
  * ⚠ Bewusst nicht über `Intl.NumberFormat('de-AT')`: das setzt ab 1000 ein schmales geschütztes

@@ -4,17 +4,27 @@
  * Die Batterie-Station des Dateneingabe-Wizards (B24, Teil 1).
  *
  * ══════════════════════════════════════════════════════════════════════════════════════════════
- * ⚠ EINE FRAGE, ZWEI ZWEIGE — UND DIE FRAGE BLEIBT STEHEN, AUCH WENN SIE BEANTWORTET IST
+ * ⚠ EINE FRAGE, ZWEI ZWEIGE — UND DIE FRAGE VERSCHWINDET, SOBALD SIE BEANTWORTET IST
  * ══════════════════════════════════════════════════════════════════════════════════════════════
  * „Haben Sie bereits einen Batteriespeicher?" ist eine WEICHE innerhalb der Station und lebt wie
  * bei der Lastgang-Station in `useState` — es gibt dafür keine Spalte, und dieser Schritt legt
  * auch keine an.
  *
- * ⚠ ANDERS ALS BEIM LASTGANG VERSCHWINDET SIE NICHT, wenn schon etwas gespeichert ist. Dort trägt
- * ein Zählpunkt genau EINEN Lastgang, und für den Rückweg gibt es einen eigenen, ausdrücklichen
- * Knopf. Hier landet die Antwort als Feld im ENTWURF, und es gibt keinen Entfernen-Weg: Wer sich
- * vertippt hat oder die Antwort wechselt, muss sie neu geben können. Die Frage steht deshalb
- * immer da, und was bereits erfasst ist, steht als Zusammenfassung DARÜBER.
+ * ⚠ DIESE ZUSAGE STAND HIER BIS ZUM LÖSCHWEG WÖRTLICH ANDERSHERUM, und der Wechsel ist kein
+ * Sinneswandel, sondern die Folge einer weggefallenen Voraussetzung. Die Begründung lautete: Die
+ * Antwort landet als Feld im ENTWURF, es gibt keinen Entfernen-Weg, und wer sich vertippt hat,
+ * muss sie neu geben können — die Frage MUSSTE also stehen bleiben, weil sie der einzige Rückweg
+ * war. Der Preis dafür war hoch: den anderen Zweig erneut zu speichern nahm den ersten nicht
+ * zurück, beide Antworten standen danach nebeneinander im Entwurf.
+ *
+ * Seit es „Batterie-Angaben löschen" gibt (am Fuss der Zusammenfassung), ist der Rückweg
+ * ausdrücklich — und die Frage erscheint nur noch, solange NICHTS erfasst ist. Ist etwas erfasst,
+ * stehen Zusammenfassung und Löschknopf an ihrer Stelle. Der Lastgang-Station steht sie damit
+ * näher als zuvor, aber aus einem eigenen Grund: dort ersetzt ein Rückweg eine Datei, hier
+ * mehrere Felder EINES Entwurfs.
+ *
+ * ⚠ DIE BEIDEN ZWEIGE HÄNGEN AN DERSELBEN BEDINGUNG, nicht nur die Frage — `answer` lebt in
+ * `useState` und überlebt jeden Schreibvorgang.
  *
  * ── ⚠ DIE ZUSAMMENFASSUNG KOMMT AUS DER DATENBANK, NICHT AUS DEM RÜCKGABEWERT DER ACTION ──────
  * Wortgleich zu den beiden Stationen davor und aus demselben Grund: nach einem Neuladen stünde sie
@@ -82,6 +92,7 @@ import {
   type BatteryDraftSummary,
 } from '@/lib/admin/battery-draft'
 import {
+  deleteMeteringPointBatteryAction,
   extractBatteryTextFromAction,
   lookupBatterySpecByModelAction,
   saveMeteringPointBatteryAction,
@@ -94,6 +105,27 @@ import { AdminError, AdminField, AdminSuccess } from './ui'
 import { DataEntryBatteryLookup } from './data-entry-battery-lookup'
 import { DataEntryBatterySpec } from './data-entry-battery-spec'
 import { DataEntryBatteryText } from './data-entry-battery-text'
+
+/**
+ * Die Rückfrage vor dem Löschen.
+ *
+ * ⚠ SIE IST EINE RÜCKFRAGE AN EINEN MENSCHEN, KEINE PRÜFUNG — dieselbe Einordnung wie beim
+ * Lastgang-Rückweg: die Berechtigung entscheidet die Datenbank, hier wird ein unbeabsichtigter
+ * Klick abgefangen.
+ *
+ * Sie nennt den Zählpunkt (auf einer Seite mit mehreren sieht ein „wirklich löschen?" ohne Nummer
+ * für alle gleich aus) und BEIDE Folgen: was verschwindet, und dass die Ja/Nein-Frage danach
+ * wiederkommt. Der zweite Satz ist nicht Höflichkeit — ohne ihn liest sich das Löschen wie eine
+ * Sackgasse, und genau das Gegenteil ist der Zweck dieses Wegs.
+ */
+function deleteConfirmText(number: number): string {
+  return (
+    `Batterie-Angaben für Zählpunkt ${number} wirklich löschen?\n\n` +
+    'Alle erfassten Kenndaten werden aus dem Entwurf entfernt, ebenso die Antworten auf „Haben Sie ' +
+    'bereits einen Batteriespeicher?" und „Soll die Analyse einen Speichervorschlag enthalten?". ' +
+    'Die Frage erscheint danach erneut — Sie können sie neu beantworten.'
+  )
+}
 
 /** Die Weiche der Station. `null` = noch nicht beantwortet. */
 type Answer = 'ja' | 'nein' | null
@@ -164,6 +196,18 @@ export function DataEntryBattery({
     lookupBatterySpecByModelAction,
     ADMIN_INITIAL_STATE,
   )
+  /*
+   * ⚠ EIN EIGENES `useActionState` FÜR DEN LÖSCHWEG, aus demselben Grund wie bei den drei
+   * Quellen — und hier zusätzlich aus einem vierten: er steht in einem Block, der nach seinem
+   * eigenen Erfolg VERSCHWINDET (die Zusammenfassung ist dann leer). Gemeinsam mit dem Speichern
+   * geführt nähme der Löschweg dessen Erfolgsmeldung mit, und umgekehrt überschriebe ein
+   * gescheitertes Löschen die Meldung eines eben gelungenen Speicherns. Die Meldungen stehen
+   * deshalb GANZ OBEN, ausserhalb beider Blöcke (s. unten).
+   */
+  const [deleteState, deleteAction, isDeleting] = useActionState(
+    deleteMeteringPointBatteryAction,
+    ADMIN_INITIAL_STATE,
+  )
 
   /*
    * ⚠ DIE EINGABEFELDER DER DREI QUELLEN LEBEN IN IHREN KIND-DATEIEN, nicht hier — hier steht nur,
@@ -217,6 +261,25 @@ export function DataEntryBattery({
     if (researched) applyExtraction(researched)
   }, [researched, applyExtraction])
 
+  /*
+   * ⚠ NACH EINEM ERFOLGREICHEN LÖSCHEN MUSS DIE WEICHE ZURÜCK — sonst wäre der Zustand in sich
+   * widersprüchlich: `revalidatePath` macht `hasSummary` wieder falsch, die Frage erscheint also
+   * erneut, aber `answer` stünde weiter auf dem zuletzt gewählten Zweig. Darunter hinge ein
+   * ausgefülltes Formular an einem Entwurf, aus dem gerade alles entfernt wurde — die vier Zahlen
+   * darin gehören zu Angaben, die es nicht mehr gibt. `fields` wird aus demselben Grund geleert.
+   *
+   * ⚠ AN DER OBJEKTIDENTITÄT VON `deleteState`, nicht an `hasSummary`: `useActionState` liefert je
+   * Lauf ein neues Objekt und bei jedem anderen Rerender dasselbe. An `hasSummary` gehängt feuerte
+   * der Effekt AUCH dann, wenn die Zusammenfassung aus einem ganz anderen Grund leer wird, und
+   * setzte eine gerade getroffene Auswahl zurück. Dieselbe Technik wie bei den drei Übernahmen.
+   */
+  React.useEffect(() => {
+    if (deleteState.success) {
+      setAnswer(null)
+      setFields({})
+    }
+  }, [deleteState])
+
   const summary = readBatteryDraft(meteringPoint.draft)
   const hasSummary = !batteryDraftIsEmpty(summary)
 
@@ -227,47 +290,109 @@ export function DataEntryBattery({
         nicht nach dem Speichern (die Frage bleibt stehen, s. Kopf), aber die Weiche kann gewechselt
         werden — eine Meldung im Zweig nähme sich damit selbst weg.
       */}
-      {choiceState.success && <AdminSuccess>{choiceState.success}</AdminSuccess>}
+      {/*
+        ⚠ DIE ERFOLGSMELDUNGEN HÄNGEN AM ZUSTAND DES ENTWURFS, NICHT NUR AM LETZTEN LAUF.
+
+        Speichern und Löschen sind gegenläufig, und beide `useActionState` behalten ihren Stand
+        über den jeweils anderen Lauf hinweg. Ohne die Bedingung stünden nach einem Löschen
+        „3 Angaben wurden übernommen" und „Batterie-Angaben gelöscht." untereinander — zwei
+        Meldungen, die einander widersprechen, und der Leser müsste raten, welche gilt.
+
+        Die Regel ist deshalb der ZUSTAND: Meldungen über Erfasstes erscheinen, solange etwas
+        erfasst ist; die Meldung über das Löschen, solange nichts erfasst ist. FEHLERmeldungen
+        stehen unbedingt da — sie handeln von einem Versuch, nicht vom Ergebnis.
+      */}
+      {hasSummary && choiceState.success && <AdminSuccess>{choiceState.success}</AdminSuccess>}
       {choiceState.formError && <AdminError>{choiceState.formError}</AdminError>}
-      {saveState.success && <AdminSuccess>{saveState.success}</AdminSuccess>}
+      {hasSummary && saveState.success && <AdminSuccess>{saveState.success}</AdminSuccess>}
       {saveState.formError && <AdminError>{saveState.formError}</AdminError>}
+      {!hasSummary && deleteState.success && <AdminSuccess>{deleteState.success}</AdminSuccess>}
+      {deleteState.formError && <AdminError>{deleteState.formError}</AdminError>}
       {readState.formError && <AdminError>{readState.formError}</AdminError>}
       {specState.formError && <AdminError>{specState.formError}</AdminError>}
       {lookupState.formError && <AdminError>{lookupState.formError}</AdminError>}
 
-      {hasSummary && <BatterySummary number={meteringPointNumber} summary={summary} />}
+      {hasSummary && (
+        <div className="flex flex-col gap-3">
+          <BatterySummary number={meteringPointNumber} summary={summary} />
 
-      <div className={hasSummary ? 'border-t border-line pt-6' : undefined}>
-        <p className="max-w-prose text-body text-ink">
-          Haben Sie bereits einen Batteriespeicher für Zählpunkt {meteringPointNumber}?
-        </p>
-        <p className="mt-2 max-w-prose text-small text-text-muted">
-          Gemeint ist eine bereits installierte oder fest bestellte Anlage. Sie wird mit ihren
-          eigenen Kenndaten gerechnet — nicht mit einem Gerät aus unserem Katalog.
-        </p>
-        <div className="mt-4 flex flex-wrap gap-3">
-          <Button
-            type="button"
-            variant={answer === 'ja' ? 'primary' : 'secondary'}
-            size="md"
-            onClick={() => setAnswer('ja')}
-            aria-pressed={answer === 'ja'}
+          {/*
+            ⚠ DER LÖSCHWEG STEHT AM FUSS DER ZUSAMMENFASSUNG, nicht daneben und nicht darüber:
+            Wer ihn drückt, soll vorher gelesen haben, WAS verschwindet. `ghost`, weil er der
+            Ausweg für den falsch beantworteten Zählpunkt ist und kein Schritt, den die Station
+            nahelegt — dieselbe Einordnung wie beim Lastgang-Rückweg.
+          */}
+          <form
+            action={deleteAction}
+            noValidate
+            className="flex flex-wrap items-center gap-3"
+            onSubmit={(e) => {
+              if (!window.confirm(deleteConfirmText(meteringPointNumber))) e.preventDefault()
+            }}
           >
-            Ja
-          </Button>
-          <Button
-            type="button"
-            variant={answer === 'nein' ? 'primary' : 'secondary'}
-            size="md"
-            onClick={() => setAnswer('nein')}
-            aria-pressed={answer === 'nein'}
-          >
-            Nein
-          </Button>
+            <input type="hidden" name="projectId" value={projectId} />
+            <input type="hidden" name="meteringPointId" value={meteringPoint.id} />
+            <Button type="submit" variant="ghost" size="md" disabled={isDeleting}>
+              {isDeleting && (
+                <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2} aria-hidden="true" />
+              )}
+              {isDeleting ? 'Wird gelöscht …' : 'Batterie-Angaben löschen'}
+            </Button>
+            <span role="status" aria-live="polite" className="sr-only">
+              {isDeleting ? 'Wird gelöscht …' : ''}
+            </span>
+          </form>
         </div>
-      </div>
+      )}
 
-      {answer === 'nein' && (
+      {/*
+        ⚠ DIE FRAGE ERSCHEINT NUR, SOLANGE NICHTS ERFASST IST — und das ist die Änderung, für die
+        der Löschweg daneben die Voraussetzung ist.
+
+        Bis hierher stand sie IMMER da, mit ausdrücklicher Begründung: sie war der einzige Weg
+        zurück. Wer sich vertippt oder die Antwort gewechselt hatte, konnte sie nur dadurch
+        korrigieren, dass er den anderen Zweig erneut speicherte — mit der Folge, dass beide
+        Antworten nebeneinander im Entwurf standen. Mit dem Löschknopf gibt es den Rückweg
+        ausdrücklich, und die Frage kann verschwinden, sobald sie beantwortet ist.
+
+        ⚠ BEIDE ZWEIGE HÄNGEN EBENFALLS DARAN, nicht nur die Frage: `answer` lebt in `useState`
+        und überlebt einen Schreibvorgang. Ohne die Bedingung stünde nach dem Speichern weiterhin
+        das ausgefüllte Formular unter der frischen Zusammenfassung — zweimal dieselben Werte, und
+        der zweite Platz wäre der, an dem man sie versehentlich ändert.
+      */}
+      {!hasSummary && (
+        <div>
+          <p className="max-w-prose text-body text-ink">
+            Haben Sie bereits einen Batteriespeicher für Zählpunkt {meteringPointNumber}?
+          </p>
+          <p className="mt-2 max-w-prose text-small text-text-muted">
+            Gemeint ist eine bereits installierte oder fest bestellte Anlage. Sie wird mit ihren
+            eigenen Kenndaten gerechnet — nicht mit einem Gerät aus unserem Katalog.
+          </p>
+          <div className="mt-4 flex flex-wrap gap-3">
+            <Button
+              type="button"
+              variant={answer === 'ja' ? 'primary' : 'secondary'}
+              size="md"
+              onClick={() => setAnswer('ja')}
+              aria-pressed={answer === 'ja'}
+            >
+              Ja
+            </Button>
+            <Button
+              type="button"
+              variant={answer === 'nein' ? 'primary' : 'secondary'}
+              size="md"
+              onClick={() => setAnswer('nein')}
+              aria-pressed={answer === 'nein'}
+            >
+              Nein
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {!hasSummary && answer === 'nein' && (
         /*
           ⚠ ZWEI KNÖPFE IN EINEM FORMULAR, unterschieden über `name`/`value` des Absendeknopfes —
           kein `<select>` und keine Ankreuzmöglichkeit. Die Frage hat genau zwei Antworten, und
@@ -320,7 +445,7 @@ export function DataEntryBattery({
         </form>
       )}
 
-      {answer === 'ja' && (
+      {!hasSummary && answer === 'ja' && (
         <form action={saveAction} noValidate className="flex flex-col gap-6 border-t border-line pt-6">
           <input type="hidden" name="projectId" value={projectId} />
           <input type="hidden" name="meteringPointId" value={meteringPoint.id} />

@@ -11,6 +11,7 @@ import {
 import { type BatteryLookupNotFoundReason } from 'shared'
 import { type DraftValue } from '@/lib/project-chat/draft'
 import {
+  BATTERY_DRAFT_KEYS,
   BATTERY_PRESENT_KEY,
   BATTERY_RECOMMENDATION_KEY,
   BATTERY_VALUE_FIELDS,
@@ -23,6 +24,7 @@ import {
   PDF_MEDIA_TYPE,
   UNKNOWN_PROJECT,
   UUID,
+  clearMeteringPointDraftFields,
   formatMegabytes,
   readProjectId,
   writeMeteringPointDraftFields,
@@ -262,6 +264,56 @@ export async function saveMeteringPointBatteryAction(
           ? 'Eine Angabe zum vorhandenen Speicher wurde übernommen. Leer gelassene Felder bleiben unverändert.'
           : `${count} Angaben zum vorhandenen Speicher wurden übernommen. Leer gelassene Felder bleiben unverändert.`,
   }
+}
+
+/**
+ * Der Rückweg: ALLE Batterie-Angaben eines Zählpunkts entfernen.
+ *
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * ⚠ WARUM ES DIESEN WEG ÜBERHAUPT GIBT
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * Bis hierher war jede Batterie-Angabe eine Einbahnstrasse: wer den Ja-Zweig gespeichert hatte,
+ * konnte einzelne Zahlen korrigieren (leere Felder lassen den Bestand stehen, s. oben) — aber
+ * nicht mehr sagen „das war falsch, der Zählpunkt hat gar keinen Speicher". Genau deshalb stellte
+ * die Station ihre Ja/Nein-Frage auch dann noch, wenn längst etwas erfasst war: sie war die
+ * einzige verbliebene Möglichkeit, den anderen Zweig zu erreichen. Mit diesem Weg entfällt der
+ * Grund, und die Frage verschwindet, sobald etwas erfasst ist.
+ *
+ * ── ⚠ ALLE SECHS SCHLÜSSEL, NICHT NUR DIE VIER KENNDATEN ──────────────────────────────────────
+ * Gelöscht werden die vier Kenndaten UND `hasBattery` UND `wantsBatteryRecommendation`
+ * (`BATTERY_DRAFT_KEYS`, aus `battery-draft.ts` abgeleitet — hier steht bewusst keine zweite
+ * Liste). Die zwei Ja/Nein-Felder stehen zu lassen wäre der teurere Fehler: der Zählpunkt trüge
+ * danach ein `hasBattery: true` ohne eine einzige Zahl daneben — für jeden späteren Leser die
+ * Aussage „es gibt einen Speicher, die Kenndaten fehlen noch", also genau der Zustand, den der
+ * Ja-Zweig ohne Eingabe absichtlich herstellt. Gelöscht heisst: die Station ist wieder unbeantwortet.
+ *
+ * ── ES GIBT KEIN PROTOKOLL ────────────────────────────────────────────────────────────────────
+ * Anders als `delete_grid_tariff` (B21-2c) hinterlässt dieser Weg keinen Abzug. Dort wird eine
+ * Preisgrundlage entfernt, die in JEDE künftige Analyse dieser Netzebene eingeht; hier wird eine
+ * Angabe zu EINEM Zählpunkt EINES Projekts zurückgenommen, die derselbe Mensch eine Minute zuvor
+ * selbst eingetragen hat. Ein Protokoll dafür wäre eine Spur, die niemand liest.
+ *
+ * @returns Immer ein Zustand für das Formular — geschrieben wird über den geteilten Rahmen.
+ */
+export async function deleteMeteringPointBatteryAction(
+  _prev: AdminState,
+  formData: FormData,
+): Promise<AdminState> {
+  const projectId = readProjectId(formData)
+  if (projectId === null) return { formError: UNKNOWN_PROJECT }
+
+  const meteringPointId = String(formData.get('meteringPointId') ?? '')
+  if (!UUID.test(meteringPointId)) return { formError: GENERIC }
+
+  const failure = await clearMeteringPointDraftFields(
+    projectId,
+    meteringPointId,
+    BATTERY_DRAFT_KEYS,
+    'Batterie löschen',
+  )
+  if (failure) return failure
+
+  return { success: 'Batterie-Angaben gelöscht.' }
 }
 
 /**
