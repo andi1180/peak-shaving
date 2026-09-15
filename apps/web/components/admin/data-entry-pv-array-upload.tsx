@@ -91,6 +91,7 @@ export function DataEntryPvArrayUpload({
   const candidates = React.useMemo(() => readCandidates(scanned), [scanned])
 
   const [selected, setSelected] = React.useState<ReadonlySet<number>>(NOTHING_SELECTED)
+  const [appliedForThisScan, setAppliedForThisScan] = React.useState(false)
 
   /*
    * ⚠ EINE NEUE ABLESUNG HAKT ALLES AN. Abhängig von der OBJEKTIDENTITÄT des Ergebnisses, nicht von
@@ -101,19 +102,23 @@ export function DataEntryPvArrayUpload({
   React.useEffect(() => {
     if (!scanned) return
     setSelected(new Set(readCandidates(scanned).map((candidate) => candidate.index)))
+    setAppliedForThisScan(false)
   }, [scanned])
 
   /*
-   * ⚠ NACH DER ÜBERNAHME IST NICHTS MEHR ANGEHAKT — und die Liste bleibt trotzdem stehen.
+   * ⚠ NACH DER ÜBERNAHME VERSCHWINDET DIE VORSCHAU — und nichts ist mehr angehakt.
    *
-   * Sie zu verwerfen wäre die naheliegende Alternative und die teurere: eine Fläche, die der
-   * Eintragende zunächst abgewählt hat, wäre dann nur über eine zweite (abrechenbare) Ablesung
-   * derselben Datei wieder erreichbar. So bleibt sie sichtbar und ist ein Häkchen entfernt — und
-   * ein versehentliches Duplikat braucht einen bewussten zweiten Klick auf ein Feld, das leer ist.
+   * Beides zusammen, nicht nur eines: das Abwählen allein liesse die Liste als leere Hülle stehen.
+   * Warum die Liste weichen muss, steht an der Bedingung, die sie rendert. Der Zustand wird
+   * trotzdem zurückgesetzt, weil die Ankreuzfelder kontrolliert sind — sonst begönne eine spätere
+   * Ablesung mit Häkchen aus einem vergangenen Lauf.
    */
   const addSucceeded = addState.success ? addState : null
   React.useEffect(() => {
-    if (addSucceeded) setSelected(NOTHING_SELECTED)
+    if (addSucceeded) {
+      setSelected(NOTHING_SELECTED)
+      setAppliedForThisScan(true)
+    }
   }, [addSucceeded])
 
   const arrayCount = Number(scanned?.arrayCount ?? '0')
@@ -173,7 +178,16 @@ export function DataEntryPvArrayUpload({
         </div>
       </form>
 
-      {candidates.length > 0 && (
+      {/*
+        ⚠ DIE VORSCHAU IST NACH EINER ÜBERNAHME WEG — das nimmt die frühere Entscheidung „die
+        Liste bleibt stehen" bewusst zurück. Sie sollte eine zunächst abgewählte Fläche ohne eine
+        zweite (abrechenbare) Ablesung derselben Datei erreichbar halten. In der echten Nutzung war
+        die doppelte Anzeige teurer als dieser Komfort: die eben übernommenen Flächen stehen ja
+        bereits in der gespeicherten Liste darunter, und daneben eine zweite, gleich aussehende
+        Aufzählung liess offen, welche davon nun gilt. Wer weitere Flächen aus demselben Dokument
+        braucht, liest erneut aus.
+      */}
+      {candidates.length > 0 && !appliedForThisScan && (
         <form action={addAction} noValidate className="flex flex-col gap-4">
           <input type="hidden" name="projectId" value={projectId} />
           <input type="hidden" name="meteringPointId" value={meteringPointId} />
