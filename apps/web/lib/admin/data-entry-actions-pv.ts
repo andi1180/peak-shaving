@@ -35,7 +35,7 @@ import {
   type PvArrayEntry,
 } from './pv-array-draft'
 import { formatKwh, formatPercent } from './format'
-import { PV_PRESENT_KEY } from './pv-draft'
+import { PV_DRAFT_KEYS, PV_PRESENT_KEY } from './pv-draft'
 import { combinePvArrayYields, splitPvArrayDesigns } from './pv-estimate'
 import {
   hasPvProfile,
@@ -53,6 +53,7 @@ import {
   PDF_MEDIA_TYPE,
   UNKNOWN_PROJECT,
   UUID,
+  clearMeteringPointDraftFields,
   formatMegabytes,
   isForbidden,
   readProjectId,
@@ -114,6 +115,64 @@ export async function saveMeteringPointPvChoiceAction(
       ? 'Vermerkt: Es gibt bereits eine PV-Anlage.'
       : 'Vermerkt: Es gibt keine PV-Anlage.',
   }
+}
+
+/**
+ * Der Rückweg: ALLE PV-Angaben eines Zählpunkts entfernen.
+ *
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * ⚠ WARUM ES DIESEN WEG ÜBERHAUPT GIBT
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * Der Kopf von `data-entry-pv.tsx` benennt den Zustand, den es aufzulösen gilt, im Klartext: „Wer
+ * nachträglich von Ja auf Nein wechselt, sieht die eingelesenen Angaben nicht mehr — im Entwurf
+ * stehen sie trotzdem weiter." Genau dieser Weg IST der dort angekündigte Entfernen-Weg. Damit
+ * entfällt zugleich der Grund, aus dem die Ja/Nein-Frage bisher auch nach ihrer Beantwortung
+ * stehenblieb: sie war die einzige verbliebene Möglichkeit, in den anderen Zweig zu kommen.
+ *
+ * ── ⚠ ALLE PV-SCHLÜSSEL, NICHT NUR `hasPv` ────────────────────────────────────────────────────
+ * Gelöscht wird `PV_DRAFT_KEYS` (aus `pv-draft.ts` abgeleitet — hier steht bewusst keine zweite
+ * Liste): die Antwort auf die Frage, die Modulflächen UND alle zehn Schlüssel des
+ * Erzeugungsprofils. Nur `hasPv` zu entfernen wäre der teuerste Halbschritt: der Zählpunkt trüge
+ * danach einen Zeitraum, ein Intervall, eine geschätzte Jahreserzeugung samt Streuung und eine
+ * Liste von Modulflächen — zu einer Anlage, von der er selbst nicht mehr behauptet, dass es sie
+ * gibt. Die Station stellte ihre Frage erneut, und jede Angabe darunter wäre für jeden späteren
+ * Leser eine Aussage ohne Gegenstand. Gelöscht heisst: die Station ist wieder unbeantwortet.
+ *
+ * ── ⚠ DIE HOCHGELADENE DATEI BLEIBT IN DER ABLAGE ─────────────────────────────────────────────
+ * Entfernt wird der VERWEIS (`pvSourceDocumentId`), nicht das Dokument. Dieselbe Entscheidung und
+ * dieselbe Begründung wie beim Entfernen einer einzelnen Rechnung: ein Löschweg für ein
+ * Projekt-Dokument ist an den Zählpunkt gebunden und an den LASTGANG (`admin_delete_metering_point_document`
+ * verlangt, dass kein Zählpunkt das Dokument mehr als Quelle führt) — ihn hier mitzuziehen hiesse,
+ * einen zweiten, PV-eigenen Storage-Aufräumweg zu bauen, samt der Reihenfolge-Entscheidung
+ * „erst die Datei, dann die Zeile" ein zweites Mal. Die Datei bleibt damit in der Dokumentenliste
+ * des Projekts sichtbar; ein neuer Upload legt sie ohnehin neu an.
+ *
+ * ── ES GIBT KEIN PROTOKOLL ────────────────────────────────────────────────────────────────────
+ * Wortgleich zur Batterie-Station: zurückgenommen wird eine Angabe zu EINEM Zählpunkt EINES
+ * Projekts, die derselbe Mensch selbst eingetragen hat. Ein Abzug dafür wäre eine Spur, die
+ * niemand liest.
+ *
+ * @returns Immer ein Zustand für das Formular — geschrieben wird über den geteilten Rahmen.
+ */
+export async function deleteMeteringPointPvAction(
+  _prev: AdminState,
+  formData: FormData,
+): Promise<AdminState> {
+  const projectId = readProjectId(formData)
+  if (projectId === null) return { formError: UNKNOWN_PROJECT }
+
+  const meteringPointId = String(formData.get('meteringPointId') ?? '')
+  if (!UUID.test(meteringPointId)) return { formError: GENERIC }
+
+  const failure = await clearMeteringPointDraftFields(
+    projectId,
+    meteringPointId,
+    PV_DRAFT_KEYS,
+    'PV löschen',
+  )
+  if (failure) return failure
+
+  return { success: 'PV-Angaben vollständig gelöscht.' }
 }
 
 // ── PV-Erzeugungsreihe ───────────────────────────────────────────────────────────────────────────

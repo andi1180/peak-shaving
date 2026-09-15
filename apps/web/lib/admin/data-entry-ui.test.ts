@@ -867,18 +867,63 @@ describe('B24 — die PV-Station', () => {
     expect(source).not.toContain("name=\"hasPv\"")
   })
 
-  it('⚠ die Frage bleibt stehen, auch wenn sie beantwortet ist', () => {
+  /*
+   * ⚠ DIESER WÄCHTER HAT SEIN VORZEICHEN GEWECHSELT, und das ist kein Nachgeben.
+   *
+   * Er verlangte bis zum PV-Löschweg das Gegenteil („die Frage bleibt stehen, auch wenn sie
+   * beantwortet ist"), mit der Begründung: „es gibt für diese Angabe KEINEN Entfernen-Weg". Genau
+   * diese Voraussetzung ist entfallen. Ersetzt statt gestrichen, weil die Stelle abgesichert
+   * bleiben muss: eine Frage, die nach der ersten Antwort verschwindet, WÄRE eine Sackgasse,
+   * solange kein Rückweg daneben steht. Der Wächter misst deshalb BEIDES zusammen.
+   *
+   * Dieselbe Bewegung wie bei der Batterie-Station — mit EINEM Unterschied, der hier gepinnt ist:
+   * dort verschwindet die Frage, sobald eine ZUSAMMENFASSUNG vorliegt; hier, sobald die Antwort
+   * selbst vorliegt. Die Antwort IST bei dieser Station bereits das Datum, auch das „nein".
+   */
+  it('⚠ stellt die Frage NUR, solange sie unbeantwortet ist — und hat dafür einen Löschweg', () => {
     /*
-     * Es gibt für diese Angabe KEINEN Entfernen-Weg. Wer versehentlich „Ja" trifft, muss „Nein"
-     * nachlegen können — eine Frage, die nach der ersten Antwort verschwindet, wäre eine
-     * Sackgasse. Welche Antwort gilt, steht an den Knöpfen (`aria-pressed`).
+     * ⚠ Die GERENDERTE Frage, nicht die im Rückfragetext zitierte — der steht im Modul WEITER OBEN
+     * und wäre der erste Treffer auf die blosse Zeichenkette. Der Wächter wäre dann grün, sobald
+     * die Bedingung irgendwo NACH dem Rückfragetext auftaucht, also faktisch immer.
      */
-    const question = source.indexOf('Haben Sie bereits eine PV-Anlage')
+    const question = source.indexOf('Haben Sie bereits eine PV-Anlage für Zählpunkt')
     expect(question).toBeGreaterThan(-1)
-    // Die Frage steht VOR beiden Zweigen, hängt also an keiner Bedingung.
-    expect(question).toBeLessThan(source.indexOf('{hasPv === true &&'))
-    expect(source).toContain('aria-pressed={hasPv === true}')
-    expect(source).toContain('aria-pressed={hasPv === false}')
+    // Die Frage hängt an `hasPv === null` — und die Bedingung steht VOR ihr, umschliesst sie also.
+    const gate = source.indexOf('{hasPv === null && (')
+    expect(gate).toBeGreaterThan(-1)
+    expect(gate).toBeLessThan(question)
+
+    /*
+     * ⚠ `aria-pressed` ist ERSATZLOS entfallen, und das ist die Folge derselben Bedingung: der
+     * Block rendert nur noch bei `hasPv === null`, ein Umschaltzustand könnte dort nie `true`
+     * werden. Stehen geblieben wäre er eine Aussage an Screenreader, die nie zutrifft.
+     */
+    expect(source).not.toContain('aria-pressed')
+
+    // An seiner Stelle sagt eine Zeile im Klartext, was vermerkt ist — für BEIDE Antworten.
+    expect(source).toContain('Vermerkt: PV-Anlage vorhanden')
+    expect(source).toContain('Vermerkt: keine PV-Anlage vorhanden')
+
+    // Und der Rückweg, ohne den das Verschwinden eine Sackgasse wäre.
+    expect(source).toContain('deleteMeteringPointPvAction')
+    expect(source).toContain('PV-Angaben löschen')
+    expect(source).toContain('window.confirm(deleteConfirmText(meteringPointNumber))')
+  })
+
+  it('⚠ die Rückfrage nennt MEHR als die Ja/Nein-Antwort', () => {
+    /*
+     * Der teuerste Griff daneben wäre ein Text, der nur von der Antwort spricht: der Klick löscht
+     * zusätzlich alle Modulflächen und ein hochgeladenes oder geschätztes Erzeugungsprofil, und es
+     * gibt dafür keinen Rückweg. Wer das nicht liest, verliert eine Arbeitsstunde Erfassung.
+     */
+    const confirm = source.slice(source.indexOf('function deleteConfirmText'))
+    const body = confirm.slice(0, confirm.indexOf('\n}'))
+    expect(body).toContain('Modulflächen')
+    expect(body).toContain('Erzeugungsprofil')
+    // Und die eine Folge, die NICHT eintritt — sonst sucht jemand die Datei in der Ablage.
+    expect(body).toContain('Dokumentenliste')
+    // Der Zählpunkt steht drin, nicht bloss „dieser Zählpunkt".
+    expect(body).toContain('${number}')
   })
 
   it('⚠ der Weiter-Knopf erscheint, sobald IRGENDEINE Antwort vorliegt', () => {

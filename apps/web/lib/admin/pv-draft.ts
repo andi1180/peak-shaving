@@ -8,9 +8,11 @@
  * zwar still: gespeichert würde unter dem neuen Namen, gelesen der alte, und die Station stellte
  * ihre Frage erneut, obwohl sie beantwortet ist.
  *
- * Dass es heute GENAU EIN Feld ist, ist der Stand dieses Bauschritts und nicht der Zuschnitt: der
- * Ja-Zweig (welches Erzeugungsprofil vorliegt) legt hier weitere Felder ab, und die Aufteilung ist
- * dann nicht nachzuziehen.
+ * ⚠ DASS HIER GENAU EIN FELD STEHT, IST DER AUSGANG EINER ENTSCHEIDUNG, NICHT EINE LÜCKE. Der
+ * Ja-Zweig hat seine Felder NICHT hier abgelegt, sondern in zwei eigenen Modulen (`pv-array-draft.ts`
+ * für die Modulflächen, `pv-profile-draft.ts` für das Erzeugungsprofil) — jedes mit seinen eigenen
+ * Lesern und Kollisionsprüfungen. Was dieses Modul dadurch zusätzlich trägt, ist die Klammer über
+ * alle drei: `PV_DRAFT_KEYS` (s. u.).
  *
  * REIN: kein `server-only`, kein `next/*`, kein Supabase-Client — die Client-Komponente importiert
  * von hier, und eine Server-Abhängigkeit bräche ihren Build.
@@ -29,6 +31,9 @@
  * „es gibt eine Anlage", nicht „ihre Erzeugung ist erfasst".
  */
 
+import { PV_ARRAYS_KEY } from './pv-array-draft'
+import { PV_PROFILE_DRAFT_KEYS } from './pv-profile-draft'
+
 /**
  * „Es gibt bereits eine PV-Anlage" — geschrieben von BEIDEN Zweigen der Frage.
  *
@@ -40,6 +45,31 @@
  * unterscheidbar bleiben — sonst stellte die Station sie nach jedem Neuladen erneut.
  */
 export const PV_PRESENT_KEY = 'hasPv'
+
+/**
+ * ALLE Entwurfs-Schlüssel, die zur PV-Angabe dieses Zählpunkts gehören — die Antwort auf die
+ * Frage, die Modulflächen und das Erzeugungsprofil.
+ *
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * ⚠ WARUM DIESES MODUL DAFÜR SEINE ZWEI GESCHWISTER IMPORTIERT
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * `pv-draft.ts` ist die WURZEL des PV-Zweigs: `hasPv` entscheidet, ob es die Modulflächen und das
+ * Erzeugungsprofil überhaupt gibt. Der Entfernen-Weg muss deshalb von hier aus vollständig sein —
+ * er löst genau den Zustand auf, den der Kopf von `data-entry-pv.tsx` beschreibt: wer von Ja auf
+ * Nein wechselt, sieht die eingelesenen Angaben nicht mehr, im Entwurf stehen sie trotzdem weiter.
+ *
+ * ⚠ ABGELEITET, NICHT ABGESCHRIEBEN (Muster `BATTERY_DRAFT_KEYS`). Eine von Hand gepflegte
+ * Zweitliste liefe beim nächsten zusätzlichen Profil-Feld auseinander — und zwar still: der
+ * Löschweg liesse es stehen, der Zählpunkt trüge danach etwa einen geschätzten Jahresertrag ohne
+ * die Anlage, zu der er gehört, und die Station zeigte ihre Frage wieder an, als sei nichts
+ * erfasst. Die zwei Geschwister importieren `pv-draft.ts` NICHT (geprüft) — es entsteht kein Zirkel,
+ * und beide sind wie dieses Modul rein (die Client-Komponente zieht ohnehin alle drei).
+ */
+export const PV_DRAFT_KEYS: readonly string[] = [
+  PV_PRESENT_KEY,
+  PV_ARRAYS_KEY,
+  ...PV_PROFILE_DRAFT_KEYS,
+]
 
 /** Was im Entwurf eines Zählpunkts an PV-Angaben steht. */
 export type PvDraftSummary = {

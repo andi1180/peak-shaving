@@ -137,6 +137,36 @@ export const PV_ESTIMATED_WEATHER_YEAR_FROM_KEY = 'pvEstimatedWeatherYearFrom'
 export const PV_ESTIMATED_WEATHER_YEAR_TO_KEY = 'pvEstimatedWeatherYearTo'
 
 /**
+ * ALLE Entwurfs-Schlüssel dieses Moduls — die vier Zeitraum-/Quell-Angaben, die Herkunft, der
+ * Lücken-Seiteneintrag und die vier PVGIS-Kennzahlen.
+ *
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * ⚠ SIE STAND BIS ZUM PV-LÖSCHWEG NUR IM RUMPF VON `pvProfileKeysCollideWithContract()`
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * Dort war sie eine LOKALE Aufzählung für genau eine Prüfung. Mit dem Löschweg bekommt sie einen
+ * zweiten Konsumenten, und der ist der gefährlichere: er ENTFERNT, was hier steht. Zweimal
+ * ausgeschrieben liefen die beiden beim nächsten zusätzlichen Feld auseinander — und zwar still:
+ * die Kollisionsprüfung deckte das neue Feld ab, der Löschweg liesse es stehen, und der Zählpunkt
+ * trüge danach etwa einen geschätzten Jahresertrag ohne den Zeitraum, zu dem er gehört. Eine Zahl,
+ * der niemand ansieht, dass ihre Grundlage verworfen wurde.
+ *
+ * ⚠ WER HIER EINEN SCHLÜSSEL ERGÄNZT, TRÄGT IHN IN DIESE LISTE NACH — ein Test hält beides
+ * zusammen (er liest die exportierten Zeichenketten dieses Moduls und verlangt sie hier).
+ */
+export const PV_PROFILE_DRAFT_KEYS: readonly string[] = [
+  PV_INTERVAL_MINUTES_KEY,
+  PV_COVERED_FROM_KEY,
+  PV_COVERED_TO_KEY,
+  PV_SOURCE_DOCUMENT_ID_KEY,
+  PV_PROFILE_GAPS_KEY,
+  PV_PROFILE_SOURCE_KEY,
+  PV_ESTIMATED_ANNUAL_KWH_KEY,
+  PV_ESTIMATED_SPREAD_PERCENT_KEY,
+  PV_ESTIMATED_WEATHER_YEAR_FROM_KEY,
+  PV_ESTIMATED_WEATHER_YEAR_TO_KEY,
+]
+
+/**
  * Ein Bereich ohne Erzeugungswerte, wie er im Entwurf steht. Halboffen: `[from, to)`.
  *
  * ⚠ EIGENER TYP UND KEIN IMPORT VON `MeteringPointGapRange`: jener beschreibt eine SPALTE
@@ -410,17 +440,6 @@ export function withPvProfileGaps(
  * @returns Die kollidierenden Schlüssel. Leer heisst: alles frei.
  */
 export function pvProfileKeysCollideWithContract(): string[] {
-  const keys = [
-    PV_INTERVAL_MINUTES_KEY,
-    PV_COVERED_FROM_KEY,
-    PV_COVERED_TO_KEY,
-    PV_SOURCE_DOCUMENT_ID_KEY,
-    PV_PROFILE_GAPS_KEY,
-    PV_PROFILE_SOURCE_KEY,
-    PV_ESTIMATED_ANNUAL_KWH_KEY,
-    PV_ESTIMATED_SPREAD_PERCENT_KEY,
-    PV_ESTIMATED_WEATHER_YEAR_FROM_KEY,
-    PV_ESTIMATED_WEATHER_YEAR_TO_KEY,
-  ]
-  return keys.filter((key) => key in tariffParamsSchema.shape)
+  // Aus `PV_PROFILE_DRAFT_KEYS` — die frühere zweite Aufzählung an dieser Stelle ist entfallen.
+  return PV_PROFILE_DRAFT_KEYS.filter((key) => key in tariffParamsSchema.shape)
 }
