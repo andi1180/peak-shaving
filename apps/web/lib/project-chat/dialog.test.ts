@@ -19,7 +19,8 @@ import {
   toolUse,
   type MemoryPorts,
 } from './fixtures'
-import { PROJECT_CHAT_SYSTEM_PROMPT } from './system-prompt'
+import { ENERGY_ADVISOR_SYSTEM_PROMPT, PROJECT_CHAT_SYSTEM_PROMPT } from './system-prompt'
+import { ENERGY_ADVISOR_TOOL_NAMES, buildEnergyAdvisorTools } from './tools'
 
 /**
  * B24 — DER MEHRFACH-TURN-DIALOG, END-TO-END GEGEN EINEN SPEICHER-BESTAND.
@@ -545,6 +546,69 @@ describe('System-Prompt-Erweiterung', () => {
     expect(result.status).toBe('ok')
     expect(model.callCount).toBe(2)
     expect(ports.calls.loadSystemPromptExtension).toBe(1)
+  })
+})
+
+/**
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * EIGENER SYSTEM-PROMPT UND EIGENE WERKZEUGE (B24, Station 6 — Grundlage für den Energieberater)
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * ⚠ DIE EIGENTLICHE PRÜFUNG DIESES SCHRITTS IST DIE BESTEHENDE SUITE: ein Aufruf OHNE die zwei
+ * neuen Felder verhält sich Byte für Byte wie vorher. Die zwei Tests hier messen die Gegenrichtung
+ * — dass eine ÜBERGEBENE Angabe tatsächlich hinausgeht statt still von der Vorgabe überschrieben zu
+ * werden. Ohne sie liefe der Energieberater mit dem Kunden-Prompt und der Kunden-Werkzeugliste, und
+ * nichts daran sähe nach einem Fehler aus.
+ */
+describe('eigener System-Prompt und eigene Werkzeuge', () => {
+  it('⚠ ein übergebenes systemPromptText ERSETZT den Kern-Prompt — und die Kette wird gar nicht erst gelesen', async () => {
+    /*
+     * Die zweite Hälfte ist der Korrektheitsteil, nicht Sparsamkeit: wer seinen Prompt selbst
+     * mitbringt, hat die zu ihm gehörende Erweiterungs-Kette bereits gelesen. Ein Aufruf hier holte
+     * den Stand der ANDEREN Kette — und würfe ihn danach weg.
+     */
+    const ports = createMemoryPorts({
+      projectId: PROJECT,
+      systemPromptExtension: { id: 'ext-kunde', text: 'Nur für den Kunden-Chat.', validFrom: '2026-09-10' },
+    })
+    const model = scriptedModel([[assistantSays('Verstanden.')]])
+
+    const result = await runProjectChatTurn(PROJECT, 'Hallo.', {
+      ports,
+      callModel: model.call,
+      systemPromptText: ENERGY_ADVISOR_SYSTEM_PROMPT,
+    })
+
+    expect(result.status).toBe('ok')
+    expect(model.seen[0]!.system[0]).toBe(ENERGY_ADVISOR_SYSTEM_PROMPT)
+    // Weder der Kern-Prompt noch die gepflegte Erweiterung der ANDEREN Kette fahren mit.
+    expect(model.seen[0]!.system[0]).not.toContain(PROJECT_CHAT_SYSTEM_PROMPT)
+    expect(model.seen[0]!.system[0]).not.toContain('Nur für den Kunden-Chat.')
+    expect(ports.calls.loadSystemPromptExtension).toBeUndefined()
+    // ⚠ Der ZUSTANDSBLOCK bleibt davon unberührt — er wird weiterhin hier gebaut.
+    expect(model.seen[0]!.system).toHaveLength(2)
+  })
+
+  it('⚠ eine übergebene Werkzeugliste ERSETZT die Vorgabe — mit Gegenprobe am selben Bestand', async () => {
+    const ports = createMemoryPorts({ projectId: PROJECT })
+
+    const eigene = scriptedModel([[assistantSays('Verstanden.')]])
+    const mitEigenen = await runProjectChatTurn(PROJECT, 'Hallo.', {
+      ports,
+      callModel: eigene.call,
+      tools: buildEnergyAdvisorTools(),
+    })
+    expect(mitEigenen.status).toBe('ok')
+    expect(eigene.seen[0]!.toolNames).toEqual([...ENERGY_ADVISOR_TOOL_NAMES])
+
+    /*
+     * Die Gegenprobe ist der Teil, der den Test überhaupt aussagekräftig macht: ohne sie bliebe er
+     * auch dann grün, wenn die Vorgabe zufällig dieselbe Liste ergäbe.
+     */
+    const vorgabe = scriptedModel([[assistantSays('Verstanden.')]])
+    await runProjectChatTurn(PROJECT, 'Hallo noch einmal.', { ports, callModel: vorgabe.call })
+    expect(vorgabe.seen[0]!.toolNames).not.toEqual(eigene.seen[0]!.toolNames)
+    expect(vorgabe.seen[0]!.toolNames).toContain('set_segment')
+    expect(eigene.seen[0]!.toolNames).not.toContain('set_segment')
   })
 })
 

@@ -65,8 +65,13 @@ function asWrapperStatus(data: unknown, error: unknown): WrapperStatus {
 }
 
 /**
- * `p_kind` für die zwei Verlaufs-Wrapper — und zwar NUR, wenn es etwas anderes als der Vorgabewert
- * ist.
+ * `p_kind` für die drei `kind`-fähigen Wrapper — und zwar NUR, wenn es etwas anderes als der
+ * Vorgabewert ist.
+ *
+ * Es sind die zwei Verlaufs-Wrapper (`list_project_messages`, `append_project_message`) und der
+ * Prompt-Leser (`get_system_prompt_extension`). Sie stellen dieselbe Frage („welche Kette?") und
+ * tragen denselben Vorgabewert — EIN Helfer, damit die drei Aufrufstellen nicht auseinanderlaufen
+ * können.
  *
  * ⚠ DAS WEGLASSEN IST DIE EIGENTLICHE AUSSAGE. `kunde` ist in beiden Wrappern der Vorgabewert; ein
  * hier immer mitgesendetes `p_kind: 'kunde'` wäre fachlich dasselbe — aber der Kunden-Chat
@@ -398,7 +403,9 @@ export function createProjectChatPorts(extractors: Partial<ChatExtractors>): Pro
       return asWrapperStatus(data, error)
     },
 
-    async loadSystemPromptExtension(): Promise<SystemPromptExtension | null> {
+    async loadSystemPromptExtension(
+      kind: ChatKind = DEFAULT_CHAT_KIND,
+    ): Promise<SystemPromptExtension | null> {
       /*
        * ⚠ FAIL OPEN, ABER NICHT STILL. Scheitert der Aufruf, läuft das Gespräch mit dem
        * Kern-Prompt weiter — der trägt das Verhalten allein (Funktionskommentar des Wrappers), und
@@ -410,12 +417,19 @@ export function createProjectChatPorts(extractors: Partial<ChatExtractors>): Pro
        * Normalzustand, solange niemand eine Erweiterung eingetragen hat.
        */
       const supabase = await createClient()
-      const { data, error } = await supabase.rpc('get_system_prompt_extension')
+      const { data, error } = await supabase.rpc('get_system_prompt_extension', chatKindArg(kind))
       const result = asWrapperStatus(data, error)
 
       if (result.status === 'none') return null
       if (result.status !== 'ok') {
-        console.error('[project-chat] System-Prompt-Erweiterung nicht lesbar:', result.status, error)
+        // ⚠ Die Kette steht mit im Log: seit es zwei gibt, wäre „nicht lesbar" ohne sie eine
+        // Meldung, aus der niemand ablesen kann, WELCHER Prompt gerade unwirksam ist.
+        console.error(
+          '[project-chat] System-Prompt-Erweiterung nicht lesbar:',
+          kind,
+          result.status,
+          error,
+        )
         return null
       }
 
