@@ -45,9 +45,10 @@
 //
 // ── WIE AUFGERÄUMT WIRD (vitest fährt Testdateien PARALLEL gegen dieselbe Datenbank) ────────────
 // Jede Zähl-Assertion filtert auf die eigenen Zeilen; `question_key` trägt dafür ein zufälliges
-// Suffix. `platform.system_prompt_extensions` hat allerdings nur EINE globale Kette und keinen
-// Identitäts-Schlüssel — sie wird ausschliesslich von dieser Datei angefasst (gemessen), und
-// aufgeräumt wird über die gemerkten Kennungen.
+// Suffix. `platform.system_prompt_extensions` hat dagegen keinen frei waehlbaren
+// Identitäts-Schlüssel — seit Station 6 nur zwei feste Ketten (`kind`: kunde / ki_check). Sie wird
+// ausschliesslich von dieser Datei angefasst (gemessen), und aufgeräumt wird über die gemerkten
+// Kennungen.
 
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { randomUUID } from 'node:crypto'
@@ -69,9 +70,9 @@ const WRAPPER_SIGNATURES = {
   admin_delete_question_catalog_entry: 'public.admin_delete_question_catalog_entry(uuid)',
   admin_list_question_catalog: 'public.admin_list_question_catalog(text, integer, integer)',
   list_question_catalog: 'public.list_question_catalog(text, text)',
-  admin_set_system_prompt_extension: 'public.admin_set_system_prompt_extension(text, date)',
-  admin_get_system_prompt_extension: 'public.admin_get_system_prompt_extension()',
-  get_system_prompt_extension: 'public.get_system_prompt_extension()',
+  admin_set_system_prompt_extension: 'public.admin_set_system_prompt_extension(text, date, text)',
+  admin_get_system_prompt_extension: 'public.admin_get_system_prompt_extension(text)',
+  get_system_prompt_extension: 'public.get_system_prompt_extension(text)',
 } as const
 
 /** Die fünf, die bei fehlender Adminrolle WERFEN müssen — mit einem gültigen Beispielaufruf. */
@@ -794,26 +795,49 @@ describe('B24 Fragenkatalog — list_question_catalog', () => {
 
 // ═════════════════════════════════════════════════════════════════════════════════════════════════
 describe('B24 — System-Prompt-Erweiterung', () => {
-  /** Setzt einen Stand und merkt sich die Kennung fürs Aufräumen. */
-  async function setExtension(admin: TestUser, text: string, validFrom?: string) {
+  /**
+   * Setzt einen Stand und merkt sich die Kennung fürs Aufräumen.
+   *
+   * ⚠ OHNE `kind` wird der Wrapper mit GENAU SO VIELEN Argumenten gerufen wie vor der
+   * Station-6-Migration — das ist die Abwärtskompatibilitäts-Probe und kein Zufall der Bequemlichkeit.
+   */
+  async function setExtension(admin: TestUser, text: string, validFrom?: string, kind?: string) {
+    const call = kind
+      ? 'public.admin_set_system_prompt_extension($1, $2::date, $3)'
+      : validFrom
+        ? 'public.admin_set_system_prompt_extension($1, $2::date)'
+        : 'public.admin_set_system_prompt_extension($1)'
+    const params = kind ? [text, validFrom, kind] : validFrom ? [text, validFrom] : [text]
     const out = await callAs<{ status: string; id: string; closed_count: number }>(
       admin,
-      validFrom
-        ? 'public.admin_set_system_prompt_extension($1, $2::date)'
-        : 'public.admin_set_system_prompt_extension($1)',
-      validFrom ? [text, validFrom] : [text],
+      call,
+      params,
     )
     if (out.id) createdExtensions.push(out.id)
     return out
+  }
+
+  /** Die Stände EINER Kette, direkt aus der Tabelle. */
+  async function chainOfKind(kind: string) {
+    return sql<{ id: string; valid_from: string; valid_until: string | null; text: string }>(
+      `select id, valid_from::text, valid_until::text, extension_text as text
+         from platform.system_prompt_extensions
+        where kind = $1 and id = any($2::uuid[])
+        order by valid_from`,
+      [kind, createdExtensions],
+    )
   }
 
   it('ohne gepflegte Erweiterung: {status: none} und KEIN Fehler', async () => {
     const admin = await newAdmin()
     // Der Kern-Prompt trägt das Verhalten auch allein — „es gibt keine Erweiterung" ist der
     // Normalzustand und darf im Anwendungscode nicht wie ein Problem aussehen.
+    // Der Aufruf unten geht ohne Argument und trifft damit die KUNDEN-Kette — die Vorbedingung
+    // muss auf dieselbe filtern, sonst machte ein Energieberater-Stand diesen Test stumm.
     const active = await sql<{ n: number }>(
       `select count(*)::int as n from platform.system_prompt_extensions
-        where valid_from <= current_date and (valid_until is null or valid_until >= current_date)`,
+        where kind = 'kunde'
+          and valid_from <= current_date and (valid_until is null or valid_until >= current_date)`,
     )
     if (active[0]!.n === 0) {
       const out = await readAs<{ status: string }>(admin, 'public.get_system_prompt_extension()')
@@ -901,6 +925,254 @@ describe('B24 — System-Prompt-Erweiterung', () => {
     expect(out.status).toBe('invalid_text')
     const read = await readAs<{ id: string }>(admin, 'public.get_system_prompt_extension()')
     expect(read.id).toBe(before.id)
+  })
+
+  // ═══════════════════════════════════════════════════════════════════════════════════════════════
+  // Station 6: zwei unabhängige Ketten (`kind`)
+  // ═══════════════════════════════════════════════════════════════════════════════════════════════
+  // Drei Dinge wurden in der Migration 20260915120000 kind-abhängig: der Unique-Constraint, der
+  // Advisory-Lock-Schlüssel und die Suche nach dem offenen Vorgänger. Bliebe eine davon global, wäre
+  // die Wirkung je verschieden und in JEDEM Fall beim Klicken unsichtbar — deshalb misst jeder Test
+  // hier genau eine davon, und die Kollisionsprobe misst zwei auf einmal.
+
+  it('die Spalte und der Identitäts-Constraint tragen kind', async () => {
+    const [col] = await sql<{ data_type: string; is_nullable: string; column_default: string }>(
+      `select data_type, is_nullable, column_default
+         from information_schema.columns
+        where table_schema = 'platform'
+          and table_name = 'system_prompt_extensions'
+          and column_name = 'kind'`,
+    )
+    expect(col).toBeDefined()
+    expect(col!.data_type).toBe('text')
+    expect(col!.is_nullable).toBe('NO')
+    // Der Vorgabewert erledigt den Bestand beim Anlegen der Spalte vollständig — ohne ihn gäbe es
+    // einen Zustand „unbekannter Art", und ein nachträgliches UPDATE wäre nötig gewesen.
+    expect(col!.column_default).toContain("'kunde'")
+
+    const [unique] = await sql<{ def: string }>(
+      `select pg_get_constraintdef(c.oid) as def
+         from pg_constraint c
+         join pg_class t on t.oid = c.conrelid
+         join pg_namespace n on n.oid = t.relnamespace
+        where n.nspname = 'platform'
+          and t.relname = 'system_prompt_extensions'
+          and c.conname = 'system_prompt_extensions_unique_stand'`,
+    )
+    // ⚠ Der ALTE Constraint lautete `UNIQUE (valid_from)` und wiese einen am selben Tag begonnenen
+    // Energieberater-Stand als Duplikat ab (s. die Kollisionsprobe unten).
+    expect(unique?.def).toBe('UNIQUE (kind, valid_from)')
+
+    const [check] = await sql<{ def: string }>(
+      `select pg_get_constraintdef(c.oid) as def
+         from pg_constraint c
+         join pg_class t on t.oid = c.conrelid
+         join pg_namespace n on n.oid = t.relnamespace
+        where n.nspname = 'platform'
+          and t.relname = 'system_prompt_extensions'
+          and c.conname = 'system_prompt_extensions_kind_check'`,
+    )
+    expect(check?.def).toContain('ki_check')
+  })
+
+  it('⚠ WÄCHTER: kunde und ki_check am SELBEN Tag kollidieren nicht — beide unabhängig lesbar', async () => {
+    const admin = await newAdmin()
+    const from = await dbDate(-3)
+
+    const kunde = await setExtension(admin, 'Ton fuer den Kunden.', from)
+    expect(kunde.status).toBe('created')
+
+    // Diese eine Zeile fängt BEIDE Fehlrichtungen auf einmal:
+    //   * mit dem alten `unique (valid_from)` käme hier `duplicate_valid_from`;
+    //   * ohne `and x.kind = v_kind` in der Vorgänger-Suche käme `replaced` — und der Kundentext
+    //     wäre dabei überschrieben, ohne dass irgendetwas danach aussähe.
+    const kiCheck = await setExtension(admin, 'Ton fuer den Energieberater.', from, 'ki_check')
+    expect(kiCheck.status).toBe('created')
+    expect(kiCheck.id).not.toBe(kunde.id)
+    expect(kiCheck.closed_count).toBe(0)
+
+    // Positiv-Kontrolle: beide stehen, beide mit IHREM Text, beide offen.
+    const kundeChain = await chainOfKind('kunde')
+    const kiChain = await chainOfKind('ki_check')
+    expect(kundeChain.map((r) => r.text)).toEqual(['Ton fuer den Kunden.'])
+    expect(kiChain.map((r) => r.text)).toEqual(['Ton fuer den Energieberater.'])
+    expect(kundeChain[0]!.valid_until).toBeNull()
+    expect(kiChain[0]!.valid_until).toBeNull()
+
+    // Und beide Lesewege liefern je den eigenen Stand — argumentlos weiterhin den des Kunden.
+    const chatKunde = await readAs<{ id: string; extension_text: string }>(
+      admin,
+      'public.get_system_prompt_extension()',
+    )
+    const chatKi = await readAs<{ id: string; extension_text: string }>(
+      admin,
+      "public.get_system_prompt_extension('ki_check')",
+    )
+    expect(chatKunde.id).toBe(kunde.id)
+    expect(chatKi.id).toBe(kiCheck.id)
+
+    const adminKunde = await readAs<{ extension: { id: string; kind: string } }>(
+      admin,
+      'public.admin_get_system_prompt_extension()',
+    )
+    const adminKi = await readAs<{ extension: { id: string; kind: string } }>(
+      admin,
+      "public.admin_get_system_prompt_extension('ki_check')",
+    )
+    expect(adminKunde.extension.id).toBe(kunde.id)
+    expect(adminKunde.extension.kind).toBe('kunde')
+    expect(adminKi.extension.id).toBe(kiCheck.id)
+    expect(adminKi.extension.kind).toBe('ki_check')
+  })
+
+  it('⚠ WÄCHTER: die Ordnungsregel gilt JE KIND — und NUR je Kind', async () => {
+    const admin = await newAdmin()
+    const kundeFrom = await dbDate(-2)
+    const kunde = await setExtension(admin, 'Kunde, offen seit vorgestern.', kundeFrom)
+    expect(kunde.status).toBe('created')
+
+    // (a) Ein ki_check-Stand, der VOR dem offenen KUNDEN-Stand beginnt, ist keine
+    //     Ordnungsverletzung — die Ketten wissen nichts voneinander. Ohne `and x.kind = v_kind`
+    //     käme hier `invalid_valid_from`, also eine Ablehnung wegen eines fremden Gesprächs.
+    const kiFrom = await dbDate(-9)
+    const ki = await setExtension(admin, 'Energieberater, aelter.', kiFrom, 'ki_check')
+    expect(ki.status).toBe('created')
+    expect(ki.closed_count).toBe(0)
+    // Der Kunden-Stand ist dabei unangetastet geblieben.
+    expect((await chainOfKind('kunde'))[0]!.valid_until).toBeNull()
+
+    // (b) INNERHALB der ki_check-Kette gilt sie dann genauso wie bei 'kunde'.
+    const tooEarly = await callAs<{ status: string; open_valid_from: string }>(
+      admin,
+      'public.admin_set_system_prompt_extension($1, $2::date, $3)',
+      ['Zu frueh.', await dbDate(-10), 'ki_check'],
+    )
+    expect(tooEarly.status).toBe('invalid_valid_from')
+    expect(tooEarly.open_valid_from).toBe(kiFrom)
+
+    // (c) Korrektur am selben Tag: in place, KEIN zweiter Stand (diese Tabelle hat keinen Löschweg).
+    const replaced = await setExtension(admin, 'Energieberater, korrigiert.', kiFrom, 'ki_check')
+    expect(replaced.status).toBe('replaced')
+    expect(replaced.id).toBe(ki.id)
+
+    // (d) Ein späterer Stand schliesst den ki_check-Vorgänger am Vortag — und NUR ihn.
+    const laterFrom = await dbDate(-1)
+    const later = await setExtension(admin, 'Energieberater, neu.', laterFrom, 'ki_check')
+    expect(later.status).toBe('created')
+    expect(later.closed_count).toBe(1)
+
+    const kiChain = await chainOfKind('ki_check')
+    expect(kiChain).toHaveLength(2)
+    expect(kiChain.filter((r) => r.valid_until === null)).toHaveLength(1)
+    expect(daysBetween(kiChain[0]!.valid_until!, kiChain[1]!.valid_from)).toBe(1)
+    // ⚠ Die Kunden-Kette hat sich über alle vier Schritte NICHT bewegt.
+    const kundeChain = await chainOfKind('kunde')
+    expect(kundeChain).toHaveLength(1)
+    expect(kundeChain[0]!.valid_until).toBeNull()
+    expect(kundeChain[0]!.text).toBe('Kunde, offen seit vorgestern.')
+  })
+
+  it('⚠ WÄCHTER: der Sperrschlüssel trägt das Kind — zwei Ketten blockieren einander nicht', async () => {
+    const admin = await newAdmin()
+    const from = await dbDate(-3)
+
+    // Verbindung A hält ihre Transaktion OFFEN: der Aufruf hat den Sperrschlüssel der ki_check-Kette
+    // genommen und gibt ihn erst beim Transaktionsende frei.
+    const a = await pool.connect()
+    try {
+      await a.query('begin')
+      await a.query("select set_config('request.jwt.claims', $1, true)", [
+        JSON.stringify({ sub: admin.id, role: 'authenticated', aud: 'authenticated' }),
+      ])
+      await a.query('set local role authenticated')
+      const { rows } = await a.query<{ out: { status: string } }>(
+        `select public.admin_set_system_prompt_extension($1, $2::date, 'ki_check') as out`,
+        ['Energieberater-Ton.', from],
+      )
+      expect(rows[0]!.out.status).toBe('created')
+
+      // Verbindung B, eigene Transaktion. `try` blockiert NICHT — die Messung ist damit
+      // deterministisch und kann nicht hängen.
+      const locks = await runAs({ role: 'postgres' }, async (c) => {
+        const { rows: r } = await c.query<{ same: boolean; other: boolean }>(
+          `select pg_try_advisory_xact_lock(hashtext('system_prompt_extension:ki_check')) as same,
+                  pg_try_advisory_xact_lock(hashtext('system_prompt_extension:kunde'))    as other`,
+        )
+        return r[0]!
+      })
+      // Der ki_check-Schlüssel ist belegt — der Beweis, dass die Funktion überhaupt einen
+      // kind-abhängigen Schlüssel nimmt (mit dem alten, konstanten wäre `same` true).
+      expect(locks.same).toBe(false)
+      // Der Kunden-Schlüssel ist frei: ein Kunden-Schreibvorgang wartet nicht auf einen
+      // Energieberater-Lauf (mit dem alten, konstanten wäre `other` false).
+      expect(locks.other).toBe(true)
+    } finally {
+      // Rollback: der Stand aus Verbindung A ist damit nie entstanden und braucht kein Aufräumen.
+      await a.query('rollback').catch(() => undefined)
+      a.release()
+    }
+  })
+
+  it('ein Aufruf OHNE p_kind verhält sich exakt wie vor der Migration', async () => {
+    const admin = await newAdmin()
+    const created = await setExtension(admin, 'Ohne Argument gesetzt.')
+    expect(created.status).toBe('created')
+
+    const [row] = await sql<{ kind: string }>(
+      `select kind from platform.system_prompt_extensions where id = $1`,
+      [created.id],
+    )
+    expect(row!.kind).toBe('kunde')
+
+    // Beide argumentlosen Lesewege sehen ihn, der Energieberater-Leseweg NICHT.
+    const chat = await readAs<{ id: string }>(admin, 'public.get_system_prompt_extension()')
+    expect(chat.id).toBe(created.id)
+    const adminView = await readAs<{ extension: { id: string } }>(
+      admin,
+      'public.admin_get_system_prompt_extension()',
+    )
+    expect(adminView.extension.id).toBe(created.id)
+    const foreign = await readAs<{ status: string }>(
+      admin,
+      "public.get_system_prompt_extension('ki_check')",
+    )
+    expect(foreign.status).toBe('none')
+  })
+
+  it('eine unbekannte Art: die admin_*-Wrapper weisen ab, der Lesepfad antwortet none', async () => {
+    const admin = await newAdmin()
+    const before = await setExtension(admin, 'Bleibt stehen.')
+
+    // Als STATUS, nicht als roher 23514 aus dem CHECK: ein Constraint-Fehler trägt keinen
+    // Feldbezug, den eine Oberfläche anzeigen könnte.
+    const written = await readAs<{ status: string }>(
+      admin,
+      "public.admin_set_system_prompt_extension('x', current_date, 'bogus')",
+    )
+    expect(written.status).toBe('invalid_kind')
+    const read = await readAs<{ status: string }>(
+      admin,
+      "public.admin_get_system_prompt_extension('bogus')",
+    )
+    expect(read.status).toBe('invalid_kind')
+
+    // ⚠ Der CHAT-Lesepfad weist bewusst NICHT ab, sondern filtert ins Leere: seine Art ist im
+    // Anwendungscode fest verdrahtet und keine Nutzereingabe, und jeder Aufrufer behandelt
+    // {status: none} bereits als Normalzustand (fail open, s. supabase-ports.ts).
+    const chat = await readAs<{ status: string }>(
+      admin,
+      "public.get_system_prompt_extension('bogus')",
+    )
+    expect(chat.status).toBe('none')
+
+    // Und die abgewiesenen Aufrufe haben nichts geschrieben.
+    const rows = await sql<{ n: number }>(
+      `select count(*)::int as n from platform.system_prompt_extensions where id = any($1::uuid[])`,
+      [createdExtensions],
+    )
+    expect(rows[0]!.n).toBe(1)
+    const still = await readAs<{ id: string }>(admin, 'public.get_system_prompt_extension()')
+    expect(still.id).toBe(before.id)
   })
 
   it('⚠ admin_get liest den OFFENEN Stand, get_ den HEUTE geltenden — bei Zukunftsdatum verschieden', async () => {

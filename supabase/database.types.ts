@@ -1361,6 +1361,7 @@ export type Database = {
           created_by: string | null
           extension_text: string
           id: string
+          kind: string
           updated_at: string
           valid_from: string
           valid_until: string | null
@@ -1370,6 +1371,7 @@ export type Database = {
           created_by?: string | null
           extension_text: string
           id?: string
+          kind?: string
           updated_at?: string
           valid_from: string
           valid_until?: string | null
@@ -1379,6 +1381,7 @@ export type Database = {
           created_by?: string | null
           extension_text?: string
           id?: string
+          kind?: string
           updated_at?: string
           valid_from?: string
           valid_until?: string | null
@@ -1956,7 +1959,10 @@ export type Database = {
       admin_get_lead: { Args: { p_lead_id: string }; Returns: Json }
       admin_get_partner_application: { Args: { p_id: string }; Returns: Json }
       admin_get_project: { Args: { p_id: string }; Returns: Json }
-      admin_get_system_prompt_extension: { Args: never; Returns: Json }
+      admin_get_system_prompt_extension: {
+        Args: { p_kind?: string }
+        Returns: Json
+      }
       admin_grant_role: {
         Args: { p_role: string; p_target_user_id: string }
         Returns: Json
@@ -2092,7 +2098,7 @@ export type Database = {
         Returns: Json
       }
       admin_set_system_prompt_extension: {
-        Args: { p_text: string; p_valid_from?: string }
+        Args: { p_kind?: string; p_text: string; p_valid_from?: string }
         Returns: Json
       }
       admin_suppress_lead: { Args: { p_lead_id: string }; Returns: Json }
@@ -2302,7 +2308,7 @@ export type Database = {
       get_project: { Args: { p_id: string }; Returns: Json }
       get_project_document: { Args: { p_document_id: string }; Returns: Json }
       get_stripe_customer_id: { Args: { p_user_id: string }; Returns: string }
-      get_system_prompt_extension: { Args: never; Returns: Json }
+      get_system_prompt_extension: { Args: { p_kind?: string }; Returns: Json }
       is_admin: { Args: never; Returns: boolean }
       list_metering_points: { Args: { p_project_id: string }; Returns: Json }
       list_my_projects: { Args: never; Returns: Json }
