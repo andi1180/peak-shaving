@@ -1063,6 +1063,7 @@ export type Database = {
           content: Json
           created_at: string
           id: string
+          kind: string
           project_id: string
           role: string
         }
@@ -1070,6 +1071,7 @@ export type Database = {
           content: Json
           created_at?: string
           id?: string
+          kind?: string
           project_id: string
           role: string
         }
@@ -1077,6 +1079,7 @@ export type Database = {
           content?: Json
           created_at?: string
           id?: string
+          kind?: string
           project_id?: string
           role?: string
         }
@@ -2159,7 +2162,12 @@ export type Database = {
         Returns: Json
       }
       append_project_message: {
-        Args: { p_content: Json; p_project_id: string; p_role: string }
+        Args: {
+          p_content: Json
+          p_kind?: string
+          p_project_id: string
+          p_role: string
+        }
         Returns: Json
       }
       backfill_grid_tariff: {
@@ -2312,7 +2320,12 @@ export type Database = {
         Returns: Json
       }
       list_project_messages: {
-        Args: { p_limit?: number; p_offset?: number; p_project_id: string }
+        Args: {
+          p_kind?: string
+          p_limit?: number
+          p_offset?: number
+          p_project_id: string
+        }
         Returns: Json
       }
       list_question_catalog: {

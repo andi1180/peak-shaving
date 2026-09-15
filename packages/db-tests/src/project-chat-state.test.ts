@@ -74,8 +74,14 @@ const WRAPPER_SIGNATURES = {
    * DROP+CREATE mit geänderter Parameterliste ist das die reale Gefahr.
    */
   update_project_segment_industry: 'public.update_project_segment_industry(uuid, text, text)',
-  append_project_message: 'public.append_project_message(uuid, text, jsonb)',
-  list_project_messages: 'public.list_project_messages(uuid, integer, integer)',
+  /*
+   * ⚠ BEIDE NACHGEZOGEN (20260915090000, B24 Station 6): `p_kind text default 'kunde'` kam per
+   * DROP+CREATE ans ENDE der Parameterliste — `create or replace` hätte eine zweite Überladung
+   * daneben gelegt, und ein Aufruf mit den bisherigen Argumenten wäre danach mehrdeutig gewesen.
+   * Genau dagegen ist die exakte Signatur hier gepinnt.
+   */
+  append_project_message: 'public.append_project_message(uuid, text, jsonb, text)',
+  list_project_messages: 'public.list_project_messages(uuid, integer, integer, text)',
   append_project_document: 'public.append_project_document(uuid, uuid, text, text)',
   list_project_documents: 'public.list_project_documents(uuid, integer, integer)',
   get_project_document: 'public.get_project_document(uuid)',
@@ -597,6 +603,105 @@ describe('B24 Chat-Zustand — Verlauf und Entwurf', () => {
     // Ein durchgereichtes Limit machte die Obergrenze zur Empfehlung; hier ist sie eine Zusage.
     expect(out.messages.length).toBeLessThanOrEqual(500)
     expect(typeof out.total).toBe('number')
+  })
+
+  /*
+   * ── B24 Station 6: der Energieberater-Chat teilt sich die Tabelle mit dem Kunden-Gespräch ──────
+   * Die Trennung ist EINE Spalte, kein zweites Schema. Gemessen wird deshalb genau das, was eine
+   * Spalten-Lösung gefährlich machen könnte: dass der Vorgabewert für bestehende Aufrufer trägt,
+   * dass der Filter WIRKLICH filtert (und zwar auch in `total`, nicht nur in der Seite), und dass
+   * ein unbekannter Wert benannt abgewiesen wird statt als roher CHECK-Fehler.
+   */
+  it('⚠ ein Drei-Argument-Aufruf landet als kunde — die Abwärtskompatibilität, nicht behauptet', async () => {
+    const user = await newUser()
+    const { projectId } = await createProjectFor(user)
+
+    // Exakt die Form, die `apps/web/lib/project-chat/supabase-ports.ts` heute aufruft: drei
+    // Argumente, kein p_kind. Ohne den Vorgabewert wäre das ab dieser Migration ein Fehler.
+    const out = await callAs<{ status: string; message_id: string }>(
+      user,
+      'public.append_project_message($1, $2, $3)',
+      [projectId, 'user', JSON.stringify([{ type: 'text', text: 'alt' }])],
+    )
+    expect(out.status).toBe('ok')
+
+    const [row] = await sql<{ kind: string }>(
+      `select kind from platform.project_messages where id = $1`,
+      [out.message_id],
+    )
+    expect(row!.kind).toBe('kunde')
+  })
+
+  it('⚠ p_kind trennt die zwei Gespräche — in der Zeile UND in total', async () => {
+    const user = await newUser()
+    const { projectId } = await createProjectFor(user)
+
+    for (const text of ['k1', 'k2']) {
+      await callAs(user, 'public.append_project_message($1, $2, $3, $4)', [
+        projectId,
+        'user',
+        JSON.stringify([{ type: 'text', text }]),
+        'kunde',
+      ])
+    }
+    const check = await callAs<{ status: string; message_id: string }>(
+      user,
+      'public.append_project_message($1, $2, $3, $4)',
+      [projectId, 'user', JSON.stringify([{ type: 'text', text: 'c1' }]), 'ki_check'],
+    )
+    expect(check.status).toBe('ok')
+
+    const [row] = await sql<{ kind: string }>(
+      `select kind from platform.project_messages where id = $1`,
+      [check.message_id],
+    )
+    expect(row!.kind).toBe('ki_check')
+
+    // Der Filter liefert NUR die eigene Art — und `total` zählt ebenfalls nur sie. Zählte total
+    // beide zusammen, liefe die „letzte n Turns"-Rechnung des Aufrufers (Versatz aus total) ins
+    // Leere, obwohl die Seite richtig aussieht.
+    const kiCheck = await readAs<{
+      status: string
+      total: number
+      messages: { content: { text: string }[]; kind: string }[]
+    }>(user, 'public.list_project_messages($1, $2, $3, $4)', [projectId, 200, 0, 'ki_check'])
+    expect(kiCheck.status).toBe('ok')
+    expect(kiCheck.total).toBe(1)
+    expect(kiCheck.messages.map((m) => m.content[0]!.text)).toEqual(['c1'])
+    expect(kiCheck.messages.map((m) => m.kind)).toEqual(['ki_check'])
+
+    // POSITIV-KONTROLLE: derselbe Bestand über den Bestandsaufruf OHNE p_kind — er sieht exakt die
+    // zwei Kunden-Zeilen und die ki_check-Zeile NICHT. Ohne diese Richtung bliebe der Test auch
+    // dann grün, wenn der Filter schlicht alles wegwürfe.
+    const kunde = await readAs<{
+      total: number
+      messages: { content: { text: string }[] }[]
+    }>(user, 'public.list_project_messages($1)', [projectId])
+    expect(kunde.total).toBe(2)
+    expect(kunde.messages.map((m) => m.content[0]!.text)).toEqual(['k1', 'k2'])
+  })
+
+  it('ein unbekanntes p_kind wird als STATUS abgewiesen und legt NICHTS an', async () => {
+    const user = await newUser()
+    const { projectId } = await createProjectFor(user)
+
+    for (const kind of ['berater', 'KUNDE', '']) {
+      expect({
+        kind,
+        out: await readAs(user, 'public.append_project_message($1, $2, $3, $4)', [
+          projectId,
+          'user',
+          JSON.stringify([{ type: 'text', text: 'x' }]),
+          kind,
+        ]),
+      }).toEqual({ kind, out: { status: 'invalid_kind' } })
+    }
+
+    const [n] = await sql<{ n: number }>(
+      `select count(*)::int as n from platform.project_messages where project_id = $1`,
+      [projectId],
+    )
+    expect(n!.n).toBe(0)
   })
 
   /*
