@@ -550,7 +550,7 @@ export async function removeMeteringPointInvoiceAction(
  * Aufruf erneut. Die ausführliche Begründung samt Gegenüberstellung steht bei `INVOICE_SKIPPED_KEY`
  * (`invoice-extractions.ts`); hier steht nur, was daraus für den Schreibweg folgt.
  *
- * Der Rahmen ist der der Nachbar-Actions (`saveMeteringPointTariffPreferenceAction`,
+ * Der Rahmen ist der der Nachbar-Actions (`saveMeteringPointTariffComparisonAction`,
  * `saveMeteringPointBatteryAction`): Kennungen prüfen, `writeMeteringPointDraftFields`, fertig.
  * Ein eigener `list_metering_points` → `setDraftField` → `update_metering_point_draft`-Rahmen wie
  * oben wäre hier ein Nachbau ohne Anlass — der Helfer deckt genau diesen Fall ab (ein Feld, keine

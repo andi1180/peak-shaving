@@ -1,13 +1,12 @@
 'use client'
 
-import { useActionState, useId } from 'react'
+import { useActionState, useId, useState } from 'react'
 import Link from 'next/link'
 import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   deleteMeteringPointTariffComparisonAction,
   saveMeteringPointTariffComparisonAction,
-  saveMeteringPointTariffPreferenceAction,
 } from '@/lib/admin/data-entry-actions'
 import { ADMIN_INITIAL_STATE } from '@/lib/admin/schema'
 import {
@@ -16,9 +15,7 @@ import {
   TARIFF_COMPARISON_PRICE_BASES,
   TARIFF_COMPARISON_PRICE_BASIS_KEY,
   TARIFF_COMPARISON_PROVIDER_NAME_KEY,
-  TARIFF_PREFERENCE_KEY,
   type TariffComparisonPriceBasis,
-  type TariffPreference,
 } from '@/lib/admin/tariff-draft'
 import type { MeteringPointSummary } from '@/lib/admin/metering-points'
 import type { ProjectSegment } from '@/lib/admin/projects'
@@ -27,17 +24,24 @@ import { AdminError, AdminField, AdminPanel, AdminSelect, AdminSuccess } from '.
 /**
  * B24, Teil 1 — die TARIF-Station: die fünfte und letzte je Zählpunkt.
  *
- * Zwei Knöpfe, ein Feld — und im Zweig „optimieren" zusätzlich der selbst gefundene
- * Vergleichstarif. Was hier entsteht, ist ein WUNSCH („behalten" oder „optimieren") plus eine
- * ANGABE des Kunden, kein Katalog; die Begründungen dazu stehen in `data-entry-actions-tarif.ts`
- * und im Kopf von `lib/admin/tariff-draft.ts`.
+ * Was hier entsteht, ist eine einzige ANGABE des Kunden — ein selbst gefundener Vergleichstarif —
+ * und sonst nichts. Kein Katalog, kein Vorschlag, keine Wahl.
  *
- * ── ⚠ DIE ANTWORT WIRD GESPEICHERT UND AUS DER DATENBANK GELESEN ──────────────────────────────
- * `saved` kommt aus `meteringPoint.draft`, nicht aus dem Rückgabewert der Action. Aus der Antwort
- * gezeigt stünde die Station nach einem Neuladen ohne Zusammenfassung da, obwohl gespeichert ist —
- * dieselbe Regel wie bei der Lastgang-Station. Der Schreibweg ruft `revalidatePath`, die Seite
- * rendert also nach dem Klick mit dem frischen Stand neu. **Dasselbe gilt für den Vergleichstarif:
- * seine Zusammenfassung entsteht aus dem Entwurf, nicht aus `state.success`.**
+ * ── ⚠ ES GIBT KEINE TARIF-WAHL MEHR (Fachentscheidung 15.09.2026) ─────────────────────────────
+ * Bis hierher stand hier ein WUNSCH („aktuellen Tarif behalten" gegen „optimalen Tarif vorschlagen
+ * lassen"), festgehalten als Entwurfsfeld. Er ist ERSATZLOS entfernt: der Vergleich mit aWATTar ist
+ * ab jetzt AUTOMATISCH und keine Kundenentscheidung, die die Dateneingabe abfragen müsste.
+ *
+ * Zwei Gründe tragen das: der Vergleich KOSTET NICHTS — er ist reine Anzeige, keine Berechnung, die
+ * ein Mensch anfordern müsste; und OB der Kunde tatsächlich wechselt, ist seine eigene, spätere
+ * Entscheidung — nichts, das die Dateneingabe schon wissen muss. Ein gespeicherter Wunsch wäre eine
+ * Anweisung an eine Analyse, die ohnehin immer gegen die stündlichen Spotpreise rechnet.
+ *
+ * ── ⚠ DIE ANGABE WIRD GESPEICHERT UND AUS DER DATENBANK GELESEN ───────────────────────────────
+ * Die Zusammenfassung des Vergleichstarifs entsteht aus `meteringPoint.draft`, nicht aus
+ * `comparisonState.success`. Aus der Antwort gezeigt stünde die Station nach einem Neuladen ohne
+ * Zusammenfassung da, obwohl gespeichert ist — dieselbe Regel wie bei der Lastgang-Station. Der
+ * Schreibweg ruft `revalidatePath`, die Seite rendert also nach dem Klick mit dem frischen Stand neu.
  *
  * ── ⚠ ES GIBT KEINEN KATALOG MEHR AN DIESER STATION ───────────────────────────────────────────
  * Bis zum 15.09.2026 stand hier eine Liste der offenen `retail_tariffs` des Segments. Sie ist
@@ -45,11 +49,6 @@ import { AdminError, AdminField, AdminPanel, AdminSelect, AdminSuccess } from '.
  * trägt GENAU EINEN gefundenen Tarif ein. Der Katalog selbst (`public.retail_tariffs`, sein
  * Formular und seine Admin-Seite) bleibt unangetastet — er wird von HIER nur nicht mehr gelesen.
  */
-
-const PREFERENCE_LABEL: Record<TariffPreference, string> = {
-  behalten: 'Aktuellen Stromtarif behalten',
-  optimieren: 'Optimalen Tarif vorschlagen lassen',
-}
 
 /**
  * Beschriftung der Preisbasis — WORTGLEICH zum Lieferanten-Tarife-Formular, bewusst als eigene
@@ -88,18 +87,6 @@ const AMOUNT = new Intl.NumberFormat('de-AT', {
   minimumFractionDigits: 2,
   maximumFractionDigits: 2,
 })
-
-/**
- * Der gespeicherte Wunsch, oder `null`.
- *
- * ⚠ Geprüft wird gegen die zwei bekannten Werte und nicht auf „irgendeine Zeichenkette": `draft`
- * ist ein `Record<string, unknown>` aus jsonb, und ein von Hand verunstalteter Eintrag würde sonst
- * als Wunsch angezeigt, den `PREFERENCE_LABEL` gar nicht beschriften kann.
- */
-function currentPreference(point: MeteringPointSummary): TariffPreference | null {
-  const value = point.draft[TARIFF_PREFERENCE_KEY]
-  return value === 'behalten' || value === 'optimieren' ? value : null
-}
 
 type TariffComparison = {
   providerName: string
@@ -188,9 +175,13 @@ export function DataEntryTarif({
   segment: ProjectSegment | null
   /**
    * Steht für diesen Zählpunkt überhaupt ein Tarif fest — aus einer gelesenen Rechnung ODER von
-   * Hand eingetragen? Nur dann gibt es etwas zu „behalten".
+   * Hand eingetragen?
    *
-   * ⚠ Die Frage gilt für BEIDE Wege der Rechnung-Station gleich (Upload und Handeingabe schreiben
+   * ⚠ Die Prop BLEIBT, ihre Verwendung hat gewechselt: Sie blendet seit dem 15.09.2026 KEINEN Knopf
+   * mehr aus (den gibt es nicht mehr), sondern entscheidet allein die FORMULIERUNG des
+   * aWATTar-Absatzes — „wird verglichen" gegen „wird verglichen, sobald einer bekannt ist".
+   *
+   * Die Frage gilt für BEIDE Wege der Rechnung-Station gleich (Upload und Handeingabe schreiben
    * denselben Feldvorrat), und sie wird SERVERSEITIG beantwortet — welche Felder dafür zählen und
    * warum `annualConsumptionKwh` ausgenommen ist, steht in `lib/admin/known-tariff.ts`.
    */
@@ -198,10 +189,6 @@ export function DataEntryTarif({
   /** Der aWATTar-Durchschnitt der letzten 30 Tage in ct/kWh, oder `null` ohne Preisdaten. */
   awattarAverageCtPerKwh: number | null
 }) {
-  const [state, formAction, isPending] = useActionState(
-    saveMeteringPointTariffPreferenceAction,
-    ADMIN_INITIAL_STATE,
-  )
   const [comparisonState, comparisonAction, isSavingComparison] = useActionState(
     saveMeteringPointTariffComparisonAction,
     ADMIN_INITIAL_STATE,
@@ -217,125 +204,91 @@ export function DataEntryTarif({
   )
 
   const formId = useId()
-  const saved = currentPreference(meteringPoint)
   const comparison = currentComparison(meteringPoint)
+
+  /*
+   * ⚠ REIN LOKALER AUFKLAPP-ZUSTAND, bewusst NICHT im Entwurf gespeichert (Muster `manualOpen` in
+   * `data-entry-invoice.tsx`): „ich will gerade etwas eintragen" ist eine Aussage über DIESEN
+   * Bearbeitungsmoment, keine Angabe über den Zählpunkt. Gespeichert stünde sie später neben einem
+   * eingetragenen Vergleichstarif und behauptete etwas über einen Vorgang, der längst abgeschlossen
+   * ist. Liegt bereits ein Vergleich vor, ist der Zustand ohnehin bedeutungslos — die
+   * Zusammenfassung steht dann unabhängig davon da.
+   */
+  const [comparisonOpen, setComparisonOpen] = useState(false)
 
   return (
     <div className="flex flex-col gap-6">
-      <AdminPanel>
-        {saved && (
-          <p className="mb-4 text-small text-text">
-            Aktuell vermerkt:{' '}
-            <span className="font-medium text-ink">{PREFERENCE_LABEL[saved]}</span>
-          </p>
-        )}
-        {state.formError && <AdminError>{state.formError}</AdminError>}
-        {state.success && <AdminSuccess>{state.success}</AdminSuccess>}
-
-        {/*
-          ⚠ OHNE BEKANNTEN TARIF GIBT ES NICHTS ZU BEHALTEN — der Satz nennt den Grund, statt einen
-          Knopf ohne Erklärung verschwinden zu lassen. Er sagt zugleich, dass dadurch nichts fehlt:
-          die Rechnung ist für die Tarif-OPTIMIERUNG keine Voraussetzung, weil ohnehin gegen
-          aWATTar gerechnet wird.
-        */}
-        {!hasKnownTariff && (
-          <p className="mb-3 text-caption text-text-muted">
-            Für diesen Zählpunkt ist kein Tarif aus Rechnung oder Handeingabe bekannt — die Analyse
-            rechnet ohnehin auf Basis von aWATTar.
-          </p>
-        )}
-
-        {/*
-          ⚠ BEIDE SUBMIT-KNÖPFE TRAGEN `name="preference"`: der Browser sendet ausschliesslich den
-          Wert des GEKLICKTEN mit. Ein Auswahlfeld plus Speichern-Knopf wären zwei Handlungen für
-          eine Entscheidung; hier ist der Klick die Antwort.
-
-          ⚠ „Tarif behalten" erscheint nur mit bekanntem Tarif — er wird GAR NICHT gerendert und
-          nicht ausgegraut: ein gesperrter Knopf ohne Erklärung lässt jemanden raten, was ihn löst,
-          und „behalten" ist ohne bekannten Tarif keine Handlung, die auch nur als Möglichkeit
-          danebenstehen sollte (dieselbe Zurückhaltung wie beim Überspringen-Knopf der
-          Rechnung-Station).
-
-          ⚠ EINE BEREITS GESPEICHERTE „behalten"-WAHL BLEIBT SICHTBAR — die Zusammenfassungszeile
-          oben hängt ausdrücklich NICHT an `hasKnownTariff`. Sie ist eine Aussage darüber, was
-          jemand entschieden hat; sie rückwirkend zu verstecken (oder gar zu löschen), weil die
-          Rechnung inzwischen entfernt wurde, machte aus einer Entscheidung eine Lücke. Verschwunden
-          ist nur der Weg, sie ERNEUT zu wählen.
-        */}
-        <form action={formAction} className="flex flex-wrap gap-3">
-          <input type="hidden" name="projectId" value={projectId} />
-          <input type="hidden" name="meteringPointId" value={meteringPoint.id} />
-          {hasKnownTariff && (
-            <Button
-              type="submit"
-              name="preference"
-              value="behalten"
-              variant="secondary"
-              size="sm"
-              disabled={isPending}
-            >
-              {isPending && (
-                <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2} aria-hidden="true" />
-              )}
-              Tarif behalten
-            </Button>
-          )}
-          <Button
-            type="submit"
-            name="preference"
-            value="optimieren"
-            variant="primary"
-            size="sm"
-            disabled={isPending}
-          >
-            {isPending && (
-              <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2} aria-hidden="true" />
-            )}
-            Optimalen Tarif vorschlagen lassen
-          </Button>
-        </form>
-      </AdminPanel>
-
       {/*
         ⚠ IMMER SICHTBAR, AUCH OHNE PREISDATEN — und bewusst KEIN eigenes Panel.
 
-        Der Absatz sagt zuerst, WOMIT gerechnet wird (aWATTar, weil nur stündliche Preise eine
+        Der Absatz sagt, WOMIT gerechnet wird (aWATTar, weil nur stündliche Preise eine
         Batteriesteuerung tragen); nur die ZAHL daneben ist Einordnung und entfällt ohne Preisdaten.
         An `awattarAverageCtPerKwh !== null` als Gesamtbedingung gehängt verschwände mit der Zahl
-        auch die Erklärung — und der Vergleichstarif darunter stünde ohne den Bezug da, gegen den
-        er verglichen wird. Er beantwortet eine einzige Frage und braucht dafür keine Fläche mit
+        auch die Erklärung. Er beantwortet eine einzige Frage und braucht dafür keine Fläche mit
         eigener Überschrift.
-        Bis zum 15.09.2026 stand er im Fuss des Katalog-Panels; mit dessen Entfernung wäre eine
-        eigene Karte für einen Satz übriggeblieben.
+
+        ⚠ `hasKnownTariff` ENTSCHEIDET NUR DIE FORMULIERUNG, nicht ob der Absatz erscheint: ohne
+        bekannten Tarif gibt es nichts zu vergleichen, ABER die Analyse rechnet trotzdem — und genau
+        das muss dastehen, sonst liest sich das Fehlen wie eine Lücke in der Berechnung.
       */}
-      <p className="text-small text-text-muted">
-        aWATTar ist die Grundlage jeder Berechnung — die Analyse rechnet immer mit den stündlichen
-        Spotpreisen, weil nur sie eine Batteriesteuerung ermöglichen.
-        {awattarAverageCtPerKwh !== null && (
-          <>
-            {' '}
-            Ø letzte 30 Tage:{' '}
-            <span className="tabular-nums text-text">
-              {AMOUNT.format(awattarAverageCtPerKwh)}
-            </span>{' '}
-            ct/kWh.
-          </>
-        )}{' '}
-        Zusätzlich lässt sich unten ein einzelner, selbst gefundener Tarif zum Vergleich
-        heranziehen.
-      </p>
+      {hasKnownTariff ? (
+        <p className="text-small text-text-muted">
+          Der aus Rechnung oder Handeingabe bekannte Tarif wird automatisch mit aWATTar verglichen —
+          den stündlichen Spotpreisen, der Grundlage jeder Berechnung, weil nur sie eine
+          Batteriesteuerung ermöglichen.
+          {awattarAverageCtPerKwh !== null && (
+            <>
+              {' '}
+              Ø letzte 30 Tage:{' '}
+              <span className="tabular-nums text-text">
+                {AMOUNT.format(awattarAverageCtPerKwh)}
+              </span>{' '}
+              ct/kWh.
+            </>
+          )}
+        </p>
+      ) : (
+        <p className="text-small text-text-muted">
+          Sobald für diesen Zählpunkt ein Tarif aus Rechnung oder Handeingabe bekannt ist, wird er
+          automatisch mit aWATTar verglichen. Bis dahin rechnet die Analyse nur mit den stündlichen
+          Spotpreisen von aWATTar.
+          {awattarAverageCtPerKwh !== null && (
+            <>
+              {' '}
+              Ø letzte 30 Tage:{' '}
+              <span className="tabular-nums text-text">
+                {AMOUNT.format(awattarAverageCtPerKwh)}
+              </span>{' '}
+              ct/kWh.
+            </>
+          )}
+        </p>
+      )}
 
       {/*
-        ⚠ NUR IM ZWEIG „OPTIMIEREN" — und dort FREIWILLIG.
+        ⚠ DER VERGLEICHSTARIF IST FREIWILLIG — und deshalb steht er hinter einem Knopf.
 
-        Wer seinen Tarif behalten will, sucht keinen Vergleichstarif; das Formular wäre dort eine
-        Aufforderung zu einer Arbeit, die niemand angefordert hat. Und selbst im Zweig „optimieren"
-        blockiert ein leeres Formular nichts: „Weiter" hängt seit dem 14.09.2026 ausdrücklich nicht
-        an der Vollständigkeit dieser Station (s. der Absatz beim Weiter-Knopf unten).
+        Ein dauerhaft offenes Formular wäre eine Aufforderung zu einer Recherche, die niemand
+        angefordert hat; „Weiter" hängt seit dem 14.09.2026 ausdrücklich nicht an der
+        Vollständigkeit dieser Station (s. der Absatz beim Weiter-Knopf unten). Bis zum 15.09.2026
+        hing das Formular am Zweig „optimieren" einer Tarif-WAHL — die es nicht mehr gibt.
       */}
-      {saved === 'optimieren' && (
+      {comparison === null && !comparisonOpen && (
+        <div>
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={() => setComparisonOpen(true)}
+          >
+            Zweiten Vergleichstarif hinzufügen
+          </Button>
+        </div>
+      )}
+
+      {(comparison !== null || comparisonOpen) && (
         <AdminPanel>
-          <h3 className="text-h4 text-ink">Vergleichstarif (optional)</h3>
+          <h3 className="text-h4 text-ink">Vergleichstarif</h3>
           <p className="mt-1 text-caption text-text-muted">{searchHint(segment)}</p>
 
           {comparison && (
@@ -478,12 +431,12 @@ export function DataEntryTarif({
         vier Stationen davor: wer den Zustand kennt, rendert ihn. Die Seite unterdrückt ihren
         generischen „Weiter"-Link für diese Station; stünde er daneben, gäbe es zwei Wege nach vorn.
 
-        ⚠ ER HÄNGT NICHT AN DER ANTWORT — „Weiter" ist Navigation, keine Vollständigkeitsprüfung.
-        Bis zum 14.09.2026 stand hier zusätzlich `saved !== null`; das machte ausgerechnet die
-        LETZTE Station je Zählpunkt zur Sackgasse, solange niemand geantwortet hatte — bei mehreren
-        Zählpunkten hing daran auch der nächste. Eine fehlende Tarif-Wahl gehört dort abgefangen,
-        wo über die Vollständigkeit entschieden wird (KI-Check, Abbruchprüfung), nicht an einem
-        Link. Dasselbe gilt für den Vergleichstarif: er ist ausdrücklich optional.
+        ⚠ ER HÄNGT AN KEINER ANGABE — „Weiter" ist Navigation, keine Vollständigkeitsprüfung.
+        Bis zum 14.09.2026 stand hier zusätzlich eine Bedingung auf die damalige Tarif-Wahl; das
+        machte ausgerechnet die LETZTE Station je Zählpunkt zur Sackgasse, solange niemand
+        geantwortet hatte — bei mehreren Zählpunkten hing daran auch der nächste. Was hier fehlt,
+        gehört dort abgefangen, wo über die Vollständigkeit entschieden wird (KI-Check,
+        Abbruchprüfung), nicht an einem Link. Der Vergleichstarif ist ohnehin ausdrücklich optional.
       */}
       {nextHref !== null && (
         <div>
