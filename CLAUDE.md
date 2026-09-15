@@ -79,6 +79,14 @@ Ein Kalkulator, der aus dem Viertelstunden-Lastgang eines Gewerbebetriebs die Be
 7. **Keine Datei unter `apps/web/lib/admin/**` oder `apps/web/components/admin/**` soll über ~1000 Zeilen wachsen — rechtzeitig aufteilen, nicht erst wenn ein Absturz zwingt.** `data-entry-actions.ts` wuchs unbemerkt auf 3404 Zeilen (jede neue Stations-Action einfach angehängt) und hat dabei DREIMAL denselben Absturz ausgelöst, bis sie stationsweise aufgeteilt wurde (PR #212). Dasselbe traf zuvor `data-entry-battery.tsx` (PR #204).
 8. **PRs werden STAND 13.09.2026 sofort gemergt, ohne vorheriges Klick-Testen auf einer Vorschau-URL — solange es keine Live-Kunden im Admin-Bereich gibt.** Sobald reale Kunden aktiv sind, gilt wieder: erst Andreas testet selbst (Vorschau-URL oder coolin.at, je nach Lage), dann mergen — Abschluss-Ketten dann wieder ohne `gh pr merge` enden lassen, bis er bestätigt hat.
 
+### Regel 9 — Sparsam bauen und berichten (ab 15.09.2026, nach einem 2-Mio-Token-Vorfall an einer Zwei-Zeilen-Änderung)
+
+Kommentare: ein Satz pro nicht offensichtlicher Entscheidung. Keine Historie, keine verworfenen Alternativen, keine Testzahlen-Erzählung im Code.
+
+Tests: 1–3 pro Änderung — Erfolgsfall plus das, was wirklich brechen könnte. Keine Wächter-Proben (Code absichtlich kaputt machen und zurücksetzen), keine A/B-Läufe gegen `git stash`, ausser die Änderung selbst ist riskant oder schwer auf andere Weise zu verifizieren — dann kurz benennen, warum diese Ausnahme hier gilt.
+
+Abschlussbericht an Andreas: was geändert wurde, in wenigen Zeilen. Keine Testzahlen-Choreografie, keine Schritt-für-Schritt-Erzählung des Prüflaufs.
+
 ---
 
 ## Offene Abhängigkeiten (blockieren Validierung, nicht den Bau)
