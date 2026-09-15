@@ -39,3 +39,26 @@ export const TARIFF_PREFERENCE_KEY = 'tariffPreference'
 export const TARIFF_PREFERENCES = ['behalten', 'optimieren'] as const
 
 export type TariffPreference = (typeof TARIFF_PREFERENCES)[number]
+
+/**
+ * Der selbst gefundene Vergleichstarif — nur relevant im Zweig „optimieren", und dort optional.
+ *
+ * ⚠ EIN EINZIGER, KEINE LISTE: der Nutzer sucht selbst auf einem Vergleichsportal (tarife.at o.ä.)
+ * und trägt GENAU EINEN gefundenen Tarif ein — kein Katalog, keine Mehrfachauswahl. Begründung:
+ * eine Batterie kann nur gegen ein PREISSIGNAL steuern, das sich über den Tag bewegt (aWATTar);
+ * ein einzelner Fixtarif eines Mitbewerbers hat diese Bewegung nicht und ist für die Batterie
+ * irrelevant — er ist ein separater, von der Batterie unabhängiger Ersparnis-Hebel, den der
+ * Report nennen soll, kein Optimierungsgegenstand.
+ */
+export const TARIFF_COMPARISON_PROVIDER_NAME_KEY = 'tariffComparisonProviderName'
+export const TARIFF_COMPARISON_ENERGY_PRICE_KEY = 'tariffComparisonEnergyPriceCtPerKwh'
+export const TARIFF_COMPARISON_BASE_FEE_KEY = 'tariffComparisonBaseFeeEurPerMonth'
+export const TARIFF_COMPARISON_PRICE_BASIS_KEY = 'tariffComparisonPriceBasis'
+
+/**
+ * Eigene, gleichlautende Konstante statt Import aus `retail-tariffs.ts` — dieselbe Entscheidung
+ * dort im eigenen Kopf begründet: ein Import zöge das ganze Modul für zwei Zeichenketten in ein
+ * Bündel, das damit nichts zu tun hat.
+ */
+export const TARIFF_COMPARISON_PRICE_BASES = ['net', 'gross'] as const
+export type TariffComparisonPriceBasis = (typeof TARIFF_COMPARISON_PRICE_BASES)[number]
