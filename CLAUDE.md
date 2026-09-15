@@ -87,6 +87,14 @@ Tests: 1–3 pro Änderung — Erfolgsfall plus das, was wirklich brechen könnt
 
 Abschlussbericht an Andreas: was geändert wurde, in wenigen Zeilen. Keine Testzahlen-Choreografie, keine Schritt-für-Schritt-Erzählung des Prüflaufs.
 
+### Regel 10 — Vor jedem Merge-Versuch frisch mit main abgleichen
+
+`git fetch && git rebase origin/main` unmittelbar vor jedem `gh pr merge`-Versuch, als fester
+Schritt der Abschluss-Kette — nicht erst als Reaktion auf einen abgelehnten Merge. Grund: an einem
+Tag mit vielen PRs wächst `main` auch NACH dem Abzweigen eines Branches weiter; „von frischem main
+abzweigen" allein verhindert die Divergenz deshalb nicht zuverlässig (zweimal aufgetreten,
+15.09.2026).
+
 ---
 
 ## Offene Abhängigkeiten (blockieren Validierung, nicht den Bau)
