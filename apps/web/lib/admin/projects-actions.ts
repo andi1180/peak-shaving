@@ -30,7 +30,10 @@
  *     getan hat. `admin_create_project` kennt die zwei Felder ohnehin nicht.
  */
 import { revalidatePath } from 'next/cache'
+import { projectDocumentPath } from 'shared'
 import { createClient } from '@/lib/supabase/server'
+import { loadProjectDocuments } from '@/lib/project-chat/supabase-ports'
+import { removeProjectDocumentBytes } from '@/lib/project-documents/storage'
 import type { AdminState } from './schema'
 import { PROJECTS_HREF } from './projects'
 
@@ -106,4 +109,54 @@ export async function createAdminProjectAction(
       console.error('[admin/projects] unerwartete Antwort:', data)
       return { formError: GENERIC, values }
   }
+}
+
+/**
+ * Löscht ein Projekt endgültig — erst die Storage-Bytes seiner Dokumente, dann die Datenbankzeile.
+ *
+ * Die Reihenfolge ist bewusst: `platform.projects` kaskadiert bereits auf alle vier Kindtabellen
+ * (s. Migration), aber SQL kann den Bucket nicht anfassen. Ein Fehlschlag beim Entfernen EINER Datei
+ * bricht die Löschung nicht ab — sonst wäre ein Projekt unlöschbar, nur weil eine seiner Dateien im
+ * Bucket bereits fehlt.
+ */
+export async function deleteAdminProjectAction(
+  _prev: AdminState,
+  formData: FormData,
+): Promise<AdminState> {
+  const projectId = String(formData.get('projectId') ?? '')
+  if (projectId.trim() === '') return { formError: GENERIC }
+
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { formError: FORBIDDEN }
+
+  const documents = await loadProjectDocuments(projectId)
+  for (const document of documents) {
+    const removed = await removeProjectDocumentBytes(projectDocumentPath(projectId, document.id))
+    if (!removed.ok) {
+      console.error('[admin/projects] removeProjectDocumentBytes:', document.id, removed.message)
+    }
+  }
+
+  const { data, error } = await supabase.rpc('admin_delete_project', { p_project_id: projectId })
+
+  if (error) {
+    if (isForbidden(error)) return { formError: FORBIDDEN }
+    console.error('[admin/projects] admin_delete_project:', error)
+    return { formError: GENERIC }
+  }
+
+  const status = (data as { status?: unknown } | null)?.status
+  if (status === 'not_found') {
+    return { formError: 'Dieses Projekt gibt es nicht mehr. Bitte laden Sie die Seite neu.' }
+  }
+  if (status !== 'ok') {
+    console.error('[admin/projects] unerwartete Antwort:', data)
+    return { formError: GENERIC }
+  }
+
+  revalidatePath(PROJECTS_HREF)
+  return { success: 'Projekt gelöscht.' }
 }
