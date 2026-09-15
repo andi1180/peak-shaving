@@ -29,7 +29,6 @@ import {
   readAdminProject,
   type ProjectSegment,
 } from '@/lib/admin/projects'
-import type { RetailTariffRow } from '@/lib/admin/retail-tariffs'
 import { AWATTAR_PROVIDER } from '@/lib/spot-prices/sync'
 import { createClient } from '@/lib/supabase/server'
 import {
@@ -301,60 +300,49 @@ export default async function AdminProjectDataEntryPage({
     : null
 
   /*
-   * Das Vergleichsmaterial der TARIF-Station: die offenen Lieferanten-Tarife dieses Segments und
-   * der Börsenpreis-Durchschnitt der letzten 30 Tage. Reine Einordnungshilfe neben der Wahl — sie
+   * Der aWATTar-Durchschnitt der letzten 30 Tage — reine Einordnungshilfe neben der Tarifwahl, sie
    * wird angezeigt und nirgends verrechnet.
+   *
+   * ── ⚠ DIE KATALOG-ABFRAGE IST ERSATZLOS ENTFERNT (15.09.2026) ──────────────────────────────
+   * Bis PR #220 stand hier zusätzlich eine Abfrage auf `public.retail_tariffs` (die offenen
+   * Lieferanten-Tarife des Segments). Sie ist eine Fachentscheidung später wieder entfallen: der
+   * Nutzer sucht selbst auf einem Vergleichsportal und trägt GENAU EINEN gefundenen Tarif ein
+   * (s. `lib/admin/tariff-draft.ts`). Die Tabelle, ihr Formular und ihre Admin-Seite bleiben
+   * unangetastet — sie werden von HIER nur nicht mehr gelesen.
    *
    * ── ⚠ NUR AUF DIESER EINEN STATION GELESEN ─────────────────────────────────────────────────
    * `tarif !== null` ist die Bedingung, nicht ein `if` im Rumpf: auf den vier anderen Stationen
-   * je Zählpunkt (und auf Segment, Zählpunkt-Zahl, KI-Check, Abbruchprüfung) wäre das zweimal
-   * Datenbank für etwas, das dort niemand rendert. `currentSegment` muss ebenfalls stehen — ohne
-   * Segment gibt es keine Teilmenge, nach der zu filtern wäre, und die Station ist ohne Segment
-   * ohnehin nicht erreichbar (`buildStations` bricht davor ab).
+   * je Zählpunkt (und auf Segment, Zählpunkt-Zahl, KI-Check, Abbruchprüfung) wäre das Datenbank
+   * für etwas, das dort niemand rendert. `currentSegment` steht hier NICHT mehr in der Bedingung —
+   * der Durchschnitt hängt nicht am Segment, und mit der Katalog-Abfrage ist der einzige Grund
+   * entfallen, ohne Segment gar nicht erst zu fragen.
    *
    * ── ⚠ EIN LESEFEHLER SPERRT DIE STATION NICHT ──────────────────────────────────────────────
    * Bewusst ANDERS als bei der Rechnung-Station: dort schliesst ein Ladefehler das Formular, weil
    * der bereits gelesene Rechnungsbestand die Voraussetzung dafür ist, ihn korrekt fortzuschreiben
    * (ein veralteter Stand machte beim Schreiben Angaben rückgängig). Hier hängt am Ergebnis GAR
-   * NICHTS — die Wahl wird ohne diese Zahlen gespeichert. Der Fehler wandert deshalb ins Log, und
-   * die Anzeige fällt auf „nichts hinterlegt" zurück, statt einen Weg zu versperren, der offen ist.
+   * NICHTS — die Wahl wird ohne diese Zahl gespeichert. Der Fehler wandert deshalb ins Log, und
+   * die Zeile entfällt, statt einen Weg zu versperren, der offen ist.
    *
    * Die 30-Tage-Abfrage liegt mit 720 Stundenwerten sicher unter der 1000-Zeilen-Deckelung, die
    * PostgREST ohne `range()` setzt (in B21-3a gemessen) — es braucht hier also keinen
    * Seitenwechsel. Wer das Fenster verlängert, braucht einen.
    */
-  const tariffComparison =
-    tarif !== null && currentSegment !== null
+  const awattarAverageCtPerKwh =
+    tarif !== null
       ? await (async () => {
-          const [retailRes, spotRes] = await Promise.all([
-            supabase
-              .from('retail_tariffs')
-              .select('*')
-              .eq('segment', currentSegment)
-              .is('valid_until', null)
-              .order('energy_price_ct_per_kwh', { ascending: true })
-              .limit(5),
-            supabase
-              .from('spot_prices')
-              .select('ct_per_kwh')
-              .eq('provider', AWATTAR_PROVIDER)
-              .gte('ts_start', new Date(Date.now() - 30 * 86_400_000).toISOString()),
-          ])
+          const spotRes = await supabase
+            .from('spot_prices')
+            .select('ct_per_kwh')
+            .eq('provider', AWATTAR_PROVIDER)
+            .gte('ts_start', new Date(Date.now() - 30 * 86_400_000).toISOString())
 
-          if (retailRes.error)
-            console.error('[admin/dateneingabe] retail_tariffs:', retailRes.error)
           if (spotRes.error) console.error('[admin/dateneingabe] spot_prices:', spotRes.error)
 
           const spotRows = spotRes.data ?? []
-          const awattarAverageCtPerKwh =
-            spotRows.length > 0
-              ? spotRows.reduce((sum, row) => sum + Number(row.ct_per_kwh), 0) / spotRows.length
-              : null
-
-          return {
-            retailTariffs: (retailRes.data ?? []) as RetailTariffRow[],
-            awattarAverageCtPerKwh,
-          }
+          return spotRows.length > 0
+            ? spotRows.reduce((sum, row) => sum + Number(row.ct_per_kwh), 0) / spotRows.length
+            : null
         })()
       : null
 
@@ -493,17 +481,21 @@ export default async function AdminProjectDataEntryPage({
               Die schmalste Station des Wizards: kein Upload, keine Grösse, kein Modellaufruf — sie
               hält einen Wunsch fest und braucht deshalb als einzige der fünf keine Grenz-Prop.
 
-              Die zwei Vergleichs-Props sind reine Anzeige (s. `tariffComparison` oben). Sie fallen
-              auf „leer" zurück, wenn die Station gar nicht gemeint war oder der Lesezugriff
-              scheiterte — die Wahl oben funktioniert in beiden Fällen unverändert.
+              `awattarAverageCtPerKwh` ist reine Anzeige (s. oben) und fällt auf `null` zurück,
+              wenn der Lesezugriff scheitert — die Wahl funktioniert dann unverändert.
+
+              `segment` entscheidet ausschliesslich den Wortlaut des Suchauftrags im Zweig
+              „optimieren" und ist bewusst NULLBAR: `platform.projects.segment` ist nullable, und
+              `null` heisst dort „noch nicht bestimmt", nicht „privat" (s. `projectSegmentLabel`).
+              Die Station bekommt dafür einen eigenen, segmentneutralen Satz.
             */
             <DataEntryTarif
               projectId={project.id}
               meteringPoint={tarif.point}
               meteringPointNumber={tarif.number}
               nextHref={next ? stationHref(project.id, next.id) : null}
-              retailTariffs={tariffComparison?.retailTariffs ?? []}
-              awattarAverageCtPerKwh={tariffComparison?.awattarAverageCtPerKwh ?? null}
+              segment={currentSegment}
+              awattarAverageCtPerKwh={awattarAverageCtPerKwh}
             />
           )}
 
