@@ -45,6 +45,7 @@ import { Loader2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import {
+  deleteMeteringPointPvArrayAction,
   extractPvArrayTextAction,
   saveMeteringPointPvArrayAction,
 } from '@/lib/admin/data-entry-actions'
@@ -156,7 +157,14 @@ export function DataEntryPvArray({
       {saveState.formError && <AdminError>{saveState.formError}</AdminError>}
       {readState.formError && <AdminError>{readState.formError}</AdminError>}
 
-      {hasArrays && <PvArraySummary number={meteringPointNumber} arrays={arrays} />}
+      {hasArrays && (
+        <PvArraySummary
+          number={meteringPointNumber}
+          arrays={arrays}
+          projectId={projectId}
+          meteringPointId={meteringPoint.id}
+        />
+      )}
 
       {/*
         ⚠ DIE UMSCHALTUNG STEHT AUSSERHALB DES SPEICHERN-FORMULARS, weil einer ihrer zwei Zweige
@@ -302,9 +310,40 @@ export function DataEntryPvArray({
  * Neigung liesse sich eine Erzeugungsmenge schätzen; sie stünde hier neben abgelesenen Angaben und
  * wäre von ihnen nicht zu unterscheiden. Die Schätzung ist Sache der Rechnung, nicht der Erfassung.
  */
-function PvArraySummary({ number, arrays }: { number: number; arrays: readonly PvArrayEntry[] }) {
+function PvArraySummary({
+  number,
+  arrays,
+  projectId,
+  meteringPointId,
+}: {
+  number: number
+  arrays: readonly PvArrayEntry[]
+  projectId: string
+  meteringPointId: string
+}) {
+  /*
+   * ⚠ GENAU EIN `useActionState` FÜR ALLE ZEILEN — nicht eines je Fläche, und das ist keine
+   * Sparsamkeit, sondern der Schutz vor einem stillen Datenverlust: `update_metering_point_draft`
+   * ERSETZT den Entwurf. Zwei gleichzeitig laufende Löschungen läsen BEIDE denselben Stand, und
+   * der zweite Schreibvorgang nähme die Entfernung des ersten zurück — beide Klicks meldeten
+   * Erfolg, und eine Fläche stünde wieder da. Das geteilte `isDeleting` sperrt deshalb ALLE
+   * Knöpfe, solange einer läuft (dieselbe Lehre wie beim Entfernen einer Rechnung).
+   *
+   * ⚠ ER LIEGT HIER UND NICHT IM FORMULAR: mit der letzten Fläche verschwindet diese
+   * Zusammenfassung — und mit ihr jede Meldung, die IN ihr hängt. Für den Erfolg ist das
+   * verschmerzlich (das Verschwinden IST die Rückmeldung), für den FEHLER nicht: dort bleibt die
+   * Zusammenfassung stehen, weil sich nichts geändert hat, und die Meldung mit ihr.
+   */
+  const [deleteState, deleteAction, isDeleting] = useActionState(
+    deleteMeteringPointPvArrayAction,
+    ADMIN_INITIAL_STATE,
+  )
+
   return (
-    <div className="rounded-lg border border-line bg-surface-sunken p-4">
+    <div className="flex flex-col gap-3 rounded-lg border border-line bg-surface-sunken p-4">
+      {deleteState.formError && <AdminError>{deleteState.formError}</AdminError>}
+      {deleteState.success && <AdminSuccess>{deleteState.success}</AdminSuccess>}
+
       <p className="text-small font-medium text-ink">
         {arrays.length === 1
           ? `Eine Modulfläche für Zählpunkt ${number} erfasst.`
@@ -317,15 +356,54 @@ function PvArraySummary({ number, arrays }: { number: number; arrays: readonly P
         — und die Tagesform der Summe ist eine andere als die der gemittelten Fläche. Der Generator
         rechnet PRO Fläche; hier steht, womit er rechnen wird.
 
-        ⚠ SCHLÜSSEL IST DER INDEX, und das ist hier vertretbar: die Liste wächst ausschliesslich am
-        Ende (es gibt keinen Weg, eine Fläche aus der Mitte zu entfernen), und ein Eintrag trägt
-        keine eigene Kennung. Kommt ein Entfernen-Weg dazu, braucht er eine — sonst setzte React
-        die Zeile auf einer FREMDEN Fläche wieder zusammen (die Lehre aus der Rechnung-Station).
+        ⚠ SCHLÜSSEL IST DER INDEX, und seit dem Löschweg ist die frühere Begründung („die Liste
+        wächst ausschliesslich am Ende") FALSCH: eine mittlere Fläche lässt sich entfernen, die
+        folgenden rücken dabei nach. Tragfähig ist er aus einem anderen Grund — diese Zeilen haben
+        KEINEN eigenen Zustand: sie sind reine Anzeige, und das einzige Formular darin trägt seine
+        Werte als versteckte Felder aus den Props. Was React beim Nachrücken „wiederverwendet",
+        wird im selben Render vollständig aus den neuen Props gefüllt. Der Fall der
+        Rechnung-Station (dort ist der Schlüssel die Dokument-Kennung) unterscheidet sich genau
+        darin: eine Zeile mit eigenem Zustand — ein Eingabefeld, ein eigener Action-Zustand — nähme
+        ihn beim Nachrücken auf eine FREMDE Fläche mit. Wer hier je einen solchen Zustand ergänzt,
+        braucht vorher eine eigene Kennung je Eintrag; der Entwurf trägt heute keine.
+
+        ⚠ DASS DIE FOLGENDEN INDIZES NACHRÜCKEN, IST BEABSICHTIGT und kein Fehler — dieselbe
+        Erwartung wie bei jeder Array-Filterung. „Fläche 2" ist eine Position in dieser Liste,
+        keine Kennung der Anlage.
       */}
-      <ol className="mt-3 flex flex-col gap-3">
+      <ol className="flex flex-col gap-3">
         {arrays.map((array, index) => (
           <li key={index} className="border-t border-line pt-3 first:border-t-0 first:pt-0">
-            <p className="text-caption font-medium text-ink">Fläche {index + 1}</p>
+            <div className="flex items-start justify-between gap-3">
+              <p className="text-caption font-medium text-ink">Fläche {index + 1}</p>
+
+              {/*
+                ⚠ EIN EIGENES `<form>` JE ZEILE, alle auf DIESELBE Action — nur so kann der Knopf
+                seinen Index als verstecktes Feld mitschicken. Sie liegen ausserhalb des
+                Speichern-Formulars (die Zusammenfassung steht darüber); geschachtelt wären sie
+                ungültiges Markup, und der Browser zöge ihre Knöpfe an das äussere Formular.
+              */}
+              <form
+                action={deleteAction}
+                /*
+                  ⚠ DIE RÜCKFRAGE IST EINE FRAGE AN EINEN MENSCHEN, KEINE PRÜFUNG. Wer darf,
+                  entscheidet die Datenbank; hier geht es allein darum, dass ein Klick daneben
+                  nicht unbemerkt eine erfasste Angabe entfernt. Sie nennt die POSITION, weil genau
+                  die auf dem Knopf steht — eine Kennung trägt der Eintrag nicht.
+                */
+                onSubmit={(event) => {
+                  if (!window.confirm(`Modulfläche ${index + 1} löschen?`)) event.preventDefault()
+                }}
+              >
+                <input type="hidden" name="projectId" value={projectId} />
+                <input type="hidden" name="meteringPointId" value={meteringPointId} />
+                <input type="hidden" name="arrayIndex" value={index} />
+                <Button type="submit" variant="ghost" size="sm" disabled={isDeleting}>
+                  {isDeleting && <Loader2 className="size-4 animate-spin" aria-hidden />}
+                  Löschen
+                </Button>
+              </form>
+            </div>
             <dl className="mt-1.5 grid gap-x-6 gap-y-2 sm:grid-cols-3">
               {PV_ARRAY_NUMBER_FIELDS.map((entry) => {
                 const value = array[entry.form]
