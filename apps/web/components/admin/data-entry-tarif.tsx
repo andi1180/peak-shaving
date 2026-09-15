@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
+  deleteMeteringPointTariffComparisonAction,
   saveMeteringPointTariffComparisonAction,
   saveMeteringPointTariffPreferenceAction,
 } from '@/lib/admin/data-entry-actions'
@@ -159,6 +160,7 @@ export function DataEntryTarif({
   meteringPoint,
   nextHref,
   segment,
+  hasKnownTariff,
   awattarAverageCtPerKwh,
 }: {
   projectId: string
@@ -184,6 +186,15 @@ export function DataEntryTarif({
    * Segment gesetzt ist. Präzedenz: `data-entry-load-profile.tsx` führt dieselbe Prop ebenso.
    */
   segment: ProjectSegment | null
+  /**
+   * Steht für diesen Zählpunkt überhaupt ein Tarif fest — aus einer gelesenen Rechnung ODER von
+   * Hand eingetragen? Nur dann gibt es etwas zu „behalten".
+   *
+   * ⚠ Die Frage gilt für BEIDE Wege der Rechnung-Station gleich (Upload und Handeingabe schreiben
+   * denselben Feldvorrat), und sie wird SERVERSEITIG beantwortet — welche Felder dafür zählen und
+   * warum `annualConsumptionKwh` ausgenommen ist, steht in `lib/admin/known-tariff.ts`.
+   */
+  hasKnownTariff: boolean
   /** Der aWATTar-Durchschnitt der letzten 30 Tage in ct/kWh, oder `null` ohne Preisdaten. */
   awattarAverageCtPerKwh: number | null
 }) {
@@ -193,6 +204,15 @@ export function DataEntryTarif({
   )
   const [comparisonState, comparisonAction, isSavingComparison] = useActionState(
     saveMeteringPointTariffComparisonAction,
+    ADMIN_INITIAL_STATE,
+  )
+  /*
+   * ⚠ EIGENER Zustand neben dem des Speicherns — gemeinsam benutzt überschriebe ein Fehler beim
+   * Löschen die Meldung des Speicherns und umgekehrt. Dieselbe Trennung wie beim Entfernen einer
+   * Rechnung (PR #197).
+   */
+  const [deleteComparisonState, deleteComparisonAction, isDeletingComparison] = useActionState(
+    deleteMeteringPointTariffComparisonAction,
     ADMIN_INITIAL_STATE,
   )
 
@@ -205,33 +225,61 @@ export function DataEntryTarif({
       <AdminPanel>
         {saved && (
           <p className="mb-4 text-small text-text">
-            Aktuell vermerkt: <span className="font-medium text-ink">{PREFERENCE_LABEL[saved]}</span>
+            Aktuell vermerkt:{' '}
+            <span className="font-medium text-ink">{PREFERENCE_LABEL[saved]}</span>
           </p>
         )}
         {state.formError && <AdminError>{state.formError}</AdminError>}
         {state.success && <AdminSuccess>{state.success}</AdminSuccess>}
 
         {/*
-          ⚠ ZWEI SUBMIT-KNÖPFE AUF EINEM FORMULAR, beide mit `name="preference"`: der Browser sendet
-          ausschliesslich den Wert des GEKLICKTEN mit. Ein Auswahlfeld plus Speichern-Knopf wären
-          zwei Handlungen für eine Entscheidung; hier ist der Klick die Antwort.
+          ⚠ OHNE BEKANNTEN TARIF GIBT ES NICHTS ZU BEHALTEN — der Satz nennt den Grund, statt einen
+          Knopf ohne Erklärung verschwinden zu lassen. Er sagt zugleich, dass dadurch nichts fehlt:
+          die Rechnung ist für die Tarif-OPTIMIERUNG keine Voraussetzung, weil ohnehin gegen
+          aWATTar gerechnet wird.
+        */}
+        {!hasKnownTariff && (
+          <p className="mb-3 text-caption text-text-muted">
+            Für diesen Zählpunkt ist kein Tarif aus Rechnung oder Handeingabe bekannt — die Analyse
+            rechnet ohnehin auf Basis von aWATTar.
+          </p>
+        )}
+
+        {/*
+          ⚠ BEIDE SUBMIT-KNÖPFE TRAGEN `name="preference"`: der Browser sendet ausschliesslich den
+          Wert des GEKLICKTEN mit. Ein Auswahlfeld plus Speichern-Knopf wären zwei Handlungen für
+          eine Entscheidung; hier ist der Klick die Antwort.
+
+          ⚠ „Tarif behalten" erscheint nur mit bekanntem Tarif — er wird GAR NICHT gerendert und
+          nicht ausgegraut: ein gesperrter Knopf ohne Erklärung lässt jemanden raten, was ihn löst,
+          und „behalten" ist ohne bekannten Tarif keine Handlung, die auch nur als Möglichkeit
+          danebenstehen sollte (dieselbe Zurückhaltung wie beim Überspringen-Knopf der
+          Rechnung-Station).
+
+          ⚠ EINE BEREITS GESPEICHERTE „behalten"-WAHL BLEIBT SICHTBAR — die Zusammenfassungszeile
+          oben hängt ausdrücklich NICHT an `hasKnownTariff`. Sie ist eine Aussage darüber, was
+          jemand entschieden hat; sie rückwirkend zu verstecken (oder gar zu löschen), weil die
+          Rechnung inzwischen entfernt wurde, machte aus einer Entscheidung eine Lücke. Verschwunden
+          ist nur der Weg, sie ERNEUT zu wählen.
         */}
         <form action={formAction} className="flex flex-wrap gap-3">
           <input type="hidden" name="projectId" value={projectId} />
           <input type="hidden" name="meteringPointId" value={meteringPoint.id} />
-          <Button
-            type="submit"
-            name="preference"
-            value="behalten"
-            variant="secondary"
-            size="sm"
-            disabled={isPending}
-          >
-            {isPending && (
-              <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2} aria-hidden="true" />
-            )}
-            Tarif behalten
-          </Button>
+          {hasKnownTariff && (
+            <Button
+              type="submit"
+              name="preference"
+              value="behalten"
+              variant="secondary"
+              size="sm"
+              disabled={isPending}
+            >
+              {isPending && (
+                <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2} aria-hidden="true" />
+              )}
+              Tarif behalten
+            </Button>
+          )}
           <Button
             type="submit"
             name="preference"
@@ -249,20 +297,33 @@ export function DataEntryTarif({
       </AdminPanel>
 
       {/*
-        ⚠ REINE EINORDNUNG, keine Berechnung und keine Empfehlung — und bewusst KEIN eigenes Panel.
+        ⚠ IMMER SICHTBAR, AUCH OHNE PREISDATEN — und bewusst KEIN eigenes Panel.
 
-        Der Börsenpreis-Durchschnitt beantwortet eine einzige Frage („in welcher Grössenordnung
-        bewegt sich der Markt gerade?") und braucht dafür keine Fläche mit eigener Überschrift.
+        Der Absatz sagt zuerst, WOMIT gerechnet wird (aWATTar, weil nur stündliche Preise eine
+        Batteriesteuerung tragen); nur die ZAHL daneben ist Einordnung und entfällt ohne Preisdaten.
+        An `awattarAverageCtPerKwh !== null` als Gesamtbedingung gehängt verschwände mit der Zahl
+        auch die Erklärung — und der Vergleichstarif darunter stünde ohne den Bezug da, gegen den
+        er verglichen wird. Er beantwortet eine einzige Frage und braucht dafür keine Fläche mit
+        eigener Überschrift.
         Bis zum 15.09.2026 stand er im Fuss des Katalog-Panels; mit dessen Entfernung wäre eine
         eigene Karte für einen Satz übriggeblieben.
       */}
-      {awattarAverageCtPerKwh !== null && (
-        <p className="text-small text-text-muted">
-          aWATTar, Ø letzte 30 Tage:{' '}
-          <span className="tabular-nums text-text">{AMOUNT.format(awattarAverageCtPerKwh)}</span>{' '}
-          ct/kWh
-        </p>
-      )}
+      <p className="text-small text-text-muted">
+        aWATTar ist die Grundlage jeder Berechnung — die Analyse rechnet immer mit den stündlichen
+        Spotpreisen, weil nur sie eine Batteriesteuerung ermöglichen.
+        {awattarAverageCtPerKwh !== null && (
+          <>
+            {' '}
+            Ø letzte 30 Tage:{' '}
+            <span className="tabular-nums text-text">
+              {AMOUNT.format(awattarAverageCtPerKwh)}
+            </span>{' '}
+            ct/kWh.
+          </>
+        )}{' '}
+        Zusätzlich lässt sich unten ein einzelner, selbst gefundener Tarif zum Vergleich
+        heranziehen.
+      </p>
 
       {/*
         ⚠ NUR IM ZWEIG „OPTIMIEREN" — und dort FREIWILLIG.
@@ -278,56 +339,105 @@ export function DataEntryTarif({
           <p className="mt-1 text-caption text-text-muted">{searchHint(segment)}</p>
 
           {comparison && (
-            <p className="mt-4 text-small text-text">
-              Aktuell vermerkt:{' '}
-              <span className="font-medium text-ink">{comparison.providerName}</span> ·{' '}
-              <span className="tabular-nums">
-                {AMOUNT.format(comparison.energyPriceCtPerKwh)} ct/kWh
-              </span>{' '}
-              ·{' '}
-              <span className="tabular-nums">
-                {AMOUNT.format(comparison.baseFeeEurPerMonth)} EUR/Monat
-              </span>{' '}
-              · {PRICE_BASIS_LABEL[comparison.priceBasis]}
-            </p>
+            <>
+              <p className="mt-4 text-small text-text">
+                Aktuell vermerkt:{' '}
+                <span className="font-medium text-ink">{comparison.providerName}</span> ·{' '}
+                <span className="tabular-nums">
+                  {AMOUNT.format(comparison.energyPriceCtPerKwh)} ct/kWh
+                </span>{' '}
+                ·{' '}
+                <span className="tabular-nums">
+                  {AMOUNT.format(comparison.baseFeeEurPerMonth)} EUR/Monat
+                </span>{' '}
+                · {PRICE_BASIS_LABEL[comparison.priceBasis]}
+              </p>
+
+              {/*
+                ⚠ RÜCKFRAGE AN EINEN MENSCHEN, KEINE PRÜFUNG — die Autorisierung liegt in der
+                Datenbank (Muster `ActionButton`/T4-4). Sie steht hier, weil der Klick vier Felder
+                gemeinsam entfernt und es dafür keinen Rückweg gibt ausser dem erneuten Eintragen.
+
+                ⚠ `ghost`, klein, UNTER der Zusammenfassung: er ist der Ausweg, nicht der Weg —
+                dieselbe Zurückhaltung wie beim „Lastgang entfernen" der ersten Station.
+              */}
+              <form
+                action={deleteComparisonAction}
+                onSubmit={(e) => {
+                  if (!window.confirm(`Vergleichstarif „${comparison.providerName}" löschen?`))
+                    e.preventDefault()
+                }}
+                className="mt-3"
+              >
+                <input type="hidden" name="projectId" value={projectId} />
+                <input type="hidden" name="meteringPointId" value={meteringPoint.id} />
+                <Button type="submit" variant="ghost" size="sm" disabled={isDeletingComparison}>
+                  {isDeletingComparison && (
+                    <Loader2
+                      className="h-3.5 w-3.5 animate-spin"
+                      strokeWidth={2}
+                      aria-hidden="true"
+                    />
+                  )}
+                  Vergleichstarif löschen
+                </Button>
+              </form>
+              {deleteComparisonState.formError && (
+                <AdminError>{deleteComparisonState.formError}</AdminError>
+              )}
+            </>
           )}
 
           {comparisonState.formError && <AdminError>{comparisonState.formError}</AdminError>}
           {comparisonState.success && <AdminSuccess>{comparisonState.success}</AdminSuccess>}
 
-          <form action={comparisonAction} className="mt-4 flex flex-col gap-4">
-            <input type="hidden" name="projectId" value={projectId} />
-            <input type="hidden" name="meteringPointId" value={meteringPoint.id} />
+          {/*
+            ⚠ LIEGT EIN VERGLEICH VOR, GIBT ES DAS FORMULAR NICHT — es entsteht GENAU EINER je
+            Zählpunkt (`currentComparison` liest genau einen Satz Felder). Danebenstehend lud es
+            dazu ein, einen zweiten einzutragen, der den ersten still ersetzt. Korrigiert wird über
+            löschen und neu eintragen — derselbe Weg wie bei einer PV-Modulfläche (PR #226).
+          */}
+          {comparison === null && (
+            <form action={comparisonAction} className="mt-4 flex flex-col gap-4">
+              <input type="hidden" name="projectId" value={projectId} />
+              <input type="hidden" name="meteringPointId" value={meteringPoint.id} />
 
-            <AdminField
-              id={`${formId}-providerName`}
-              name="providerName"
-              label="Anbieter"
-              placeholder="Name des gefundenen Anbieters"
-              error={comparisonState.fieldErrors?.providerName}
-              defaultValue={comparisonState.values?.providerName ?? comparison?.providerName}
-            />
-
-            <div className="grid gap-4 sm:grid-cols-2">
               <AdminField
-                id={`${formId}-energyPriceCtPerKwh`}
-                name="energyPriceCtPerKwh"
-                label="Arbeitspreis (ct/kWh)"
-                inputMode="numeric"
-                placeholder={AMOUNT_PLACEHOLDER}
-                error={comparisonState.fieldErrors?.energyPriceCtPerKwh}
+                id={`${formId}-providerName`}
+                name="providerName"
+                label="Anbieter"
+                placeholder="Name des gefundenen Anbieters"
+                error={comparisonState.fieldErrors?.providerName}
+                /*
+                ⚠ KEINE VORBELEGUNG AUS DEM GESPEICHERTEN VERGLEICH MEHR — sie wäre ab jetzt toter
+                Code: das Formular erscheint ausschliesslich, wenn KEINER gespeichert ist
+                (TypeScript engt `comparison` hier auf `null` ein). Vorbelegt wird nur noch, was
+                der Absender selbst getippt hat und was die Action wegen eines Feldfehlers
+                zurückgegeben hat.
+              */
+                defaultValue={comparisonState.values?.providerName}
               />
-              <AdminField
-                id={`${formId}-baseFeeEurPerMonth`}
-                name="baseFeeEurPerMonth"
-                label="Grundgebühr (EUR/Monat)"
-                inputMode="numeric"
-                placeholder={AMOUNT_PLACEHOLDER}
-                error={comparisonState.fieldErrors?.baseFeeEurPerMonth}
-              />
-            </div>
 
-            {/*
+              <div className="grid gap-4 sm:grid-cols-2">
+                <AdminField
+                  id={`${formId}-energyPriceCtPerKwh`}
+                  name="energyPriceCtPerKwh"
+                  label="Arbeitspreis (ct/kWh)"
+                  inputMode="numeric"
+                  placeholder={AMOUNT_PLACEHOLDER}
+                  error={comparisonState.fieldErrors?.energyPriceCtPerKwh}
+                />
+                <AdminField
+                  id={`${formId}-baseFeeEurPerMonth`}
+                  name="baseFeeEurPerMonth"
+                  label="Grundgebühr (EUR/Monat)"
+                  inputMode="numeric"
+                  placeholder={AMOUNT_PLACEHOLDER}
+                  error={comparisonState.fieldErrors?.baseFeeEurPerMonth}
+                />
+              </div>
+
+              {/*
               ⚠ KEINE VORAUSWAHL — dieselbe Begründung wie bei den Lieferanten-Tarifen
               (`RETAIL_SELECT_UNSET`): Anbieter bewerben gegenüber Haushalten üblicherweise brutto,
               gegenüber Betrieben netto. Ein Vorgabewert wäre eine Vermutung, die im Formular
@@ -335,30 +445,31 @@ export function DataEntryTarif({
               macht den Vergleich um den Steuersatz falsch, in einer Richtung, die niemandem als
               Fehler auffiele.
             */}
-            <AdminSelect
-              id={`${formId}-priceBasis`}
-              name="priceBasis"
-              label="Preisbasis"
-              defaultValue={comparisonState.values?.priceBasis ?? comparison?.priceBasis ?? ''}
-              error={comparisonState.fieldErrors?.priceBasis}
-            >
-              <option value="">— bitte wählen —</option>
-              {TARIFF_COMPARISON_PRICE_BASES.map((basis) => (
-                <option key={basis} value={basis}>
-                  {PRICE_BASIS_LABEL[basis]}
-                </option>
-              ))}
-            </AdminSelect>
+              <AdminSelect
+                id={`${formId}-priceBasis`}
+                name="priceBasis"
+                label="Preisbasis"
+                defaultValue={comparisonState.values?.priceBasis ?? ''}
+                error={comparisonState.fieldErrors?.priceBasis}
+              >
+                <option value="">— bitte wählen —</option>
+                {TARIFF_COMPARISON_PRICE_BASES.map((basis) => (
+                  <option key={basis} value={basis}>
+                    {PRICE_BASIS_LABEL[basis]}
+                  </option>
+                ))}
+              </AdminSelect>
 
-            <div>
-              <Button type="submit" variant="secondary" size="sm" disabled={isSavingComparison}>
-                {isSavingComparison && (
-                  <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2} aria-hidden="true" />
-                )}
-                Vergleich speichern
-              </Button>
-            </div>
-          </form>
+              <div>
+                <Button type="submit" variant="secondary" size="sm" disabled={isSavingComparison}>
+                  {isSavingComparison && (
+                    <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2} aria-hidden="true" />
+                  )}
+                  Vergleich speichern
+                </Button>
+              </div>
+            </form>
+          )}
         </AdminPanel>
       )}
 

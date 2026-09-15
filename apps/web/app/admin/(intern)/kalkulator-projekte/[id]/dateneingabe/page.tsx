@@ -13,6 +13,7 @@ import { DataEntryTarif } from '@/components/admin/data-entry-tarif'
 import { Button } from '@/components/ui/button'
 import { Container } from '@/components/ui/layout'
 import { isCurrentUserAdmin } from '@/lib/admin/guard'
+import { hasKnownTariffInDraft } from '@/lib/admin/known-tariff'
 import {
   STATION_PARAM,
   buildStations,
@@ -300,6 +301,17 @@ export default async function AdminProjectDataEntryPage({
     : null
 
   /*
+   * Gibt es für DIESEN Zählpunkt überhaupt einen bekannten Tarif — aus einer gelesenen Rechnung
+   * oder von Hand eingetragen? Die Tarif-Station bietet „Tarif behalten" nur dann an; ohne
+   * Grundlage wäre es die Wahl, einen Tarif zu behalten, den niemand kennt.
+   *
+   * ⚠ Die Antwort steht im Entwurf und wird hier SERVERSEITIG gebildet: das Prüfmodul liest die
+   * Feldliste der Rechnung-Station, und die gehört nicht in das Bündel der Tarif-Station
+   * (Begründung im Kopf von `known-tariff.ts`).
+   */
+  const hasKnownTariff = tarif !== null && hasKnownTariffInDraft(tarif.point.draft)
+
+  /*
    * Der aWATTar-Durchschnitt der letzten 30 Tage — reine Einordnungshilfe neben der Tarifwahl, sie
    * wird angezeigt und nirgends verrechnet.
    *
@@ -495,6 +507,7 @@ export default async function AdminProjectDataEntryPage({
               meteringPointNumber={tarif.number}
               nextHref={next ? stationHref(project.id, next.id) : null}
               segment={currentSegment}
+              hasKnownTariff={hasKnownTariff}
               awattarAverageCtPerKwh={awattarAverageCtPerKwh}
             />
           )}

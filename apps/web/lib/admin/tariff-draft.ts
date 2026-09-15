@@ -62,3 +62,19 @@ export const TARIFF_COMPARISON_PRICE_BASIS_KEY = 'tariffComparisonPriceBasis'
  */
 export const TARIFF_COMPARISON_PRICE_BASES = ['net', 'gross'] as const
 export type TariffComparisonPriceBasis = (typeof TARIFF_COMPARISON_PRICE_BASES)[number]
+
+/**
+ * ALLE vier Schlüssel des Vergleichstarifs — der Löschweg entfernt sie gemeinsam.
+ *
+ * ⚠ ABGELEITET, NICHT ABGESCHRIEBEN, und hier wiegt das schwerer als anderswo: `currentComparison`
+ * (die Leseseite) gibt `null` zurück, sobald EINES der vier fehlt. Bliebe beim Löschen eines
+ * stehen, verschwände die Zusammenfassung trotzdem — und mit ihr der Löschknopf, der das übrige
+ * Feld noch hätte entfernen können. Der Zählpunkt trüge danach dauerhaft einen halben Vergleich,
+ * den keine Oberfläche mehr anzeigt und kein Weg mehr erreicht.
+ */
+export const TARIFF_COMPARISON_DRAFT_KEYS: readonly string[] = [
+  TARIFF_COMPARISON_PROVIDER_NAME_KEY,
+  TARIFF_COMPARISON_ENERGY_PRICE_KEY,
+  TARIFF_COMPARISON_BASE_FEE_KEY,
+  TARIFF_COMPARISON_PRICE_BASIS_KEY,
+]
