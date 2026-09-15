@@ -70,6 +70,30 @@ export interface StoredChatMessage {
   content: Anthropic.ContentBlockParam[]
 }
 
+/**
+ * WELCHES Gespräch eine Verlaufszeile gehört — Spiegel des CHECK `project_messages_kind_check`
+ * (Migration 20260915090000, B24 Station 6).
+ *
+ * `kunde` ist der Chat des Kunden (Delta §3.1), `ki_check` das admin-interne
+ * Energieberater-Gespräch. Beide liegen in DERSELBEN Tabelle und laufen über DIESELBEN zwei
+ * Wrapper — was sie trennt, ist wer sie führt und was sie behandeln, nicht ihre Form; die Migration
+ * begründet das ausführlich. Für die Ports heisst das: eine Spalte, kein zweites Portpaar.
+ *
+ * ⚠ BEWUSST NICHT `PromptExtensionKind` AUS `lib/admin/system-prompt-extensions.ts` WIEDERVERWENDET,
+ * obwohl beide heute dieselben zwei Werte tragen. Das sind zwei CHECKs auf zwei Tabellen: der eine
+ * sagt, zu welcher Kette ein PROMPT-Stand gehört, der andere, zu welchem Gespräch eine NACHRICHT
+ * gehört. Ein geteilter Typ machte aus der heutigen Übereinstimmung eine Zusage, und der Import
+ * hängte diesen bewusst abhängigkeitsarmen Vertrag (nur Typ-Importe) an den Admin-Bereich.
+ */
+export const CHAT_KINDS = ['kunde', 'ki_check'] as const
+export type ChatKind = (typeof CHAT_KINDS)[number]
+
+/**
+ * Der Vorgabewert — derselbe wie in der Datenbank (`default 'kunde'` an Spalte und an beiden
+ * Wrappern). Er steht an EINER Stelle, damit die zwei Seiten nicht auseinanderlaufen können.
+ */
+export const DEFAULT_CHAT_KIND: ChatKind = 'kunde'
+
 /** Das Segment eines Projekts (CHECK `projects_segment_check`). `null` = noch nicht bestimmt. */
 export const PROJECT_SEGMENTS = ['privat', 'betrieb'] as const
 export type ProjectSegment = (typeof PROJECT_SEGMENTS)[number]
@@ -306,13 +330,28 @@ export interface ProjectChatPorts {
   checkRateLimit(projectId: string): Promise<ChatRateLimitDecision>
   /** `public.get_project` — `null`, wenn das Projekt fehlt oder fremd ist. */
   loadProject(projectId: string): Promise<ProjectSnapshot | null>
-  /** `public.list_project_messages` — ÄLTESTE ZUERST, so wie der Wrapper sortiert. */
-  loadMessages(projectId: string): Promise<StoredChatMessage[]>
-  /** `public.append_project_message` — der einzige Schreibweg auf den Verlauf. */
+  /**
+   * `public.list_project_messages` — ÄLTESTE ZUERST, so wie der Wrapper sortiert.
+   *
+   * `kind` weggelassen heisst `kunde` (s. `DEFAULT_CHAT_KIND`) und liefert damit GENAU den Verlauf,
+   * den jeder Aufrufer vor B24 Station 6 bekommen hat. Die zwei Gespräche eines Projekts sind
+   * strikt getrennt: ein Aufruf sieht immer nur EINE Art, nie beide gemischt — ein gemischter
+   * Verlauf wäre kein Gespräch mehr, sondern zwei ineinandergeschobene.
+   */
+  loadMessages(projectId: string, kind?: ChatKind): Promise<StoredChatMessage[]>
+  /**
+   * `public.append_project_message` — der einzige Schreibweg auf den Verlauf.
+   *
+   * ⚠ `kind` steht am ENDE und hat einen Vorgabewert, genau wie `p_kind` im Wrapper: ein Aufruf mit
+   * drei Argumenten bleibt gültig UND bedeutet unverändert dasselbe. Wer hier schreibt, muss mit
+   * derselben Art lesen — eine Antwort, die in der einen Art landet, während die Frage in der
+   * anderen steht, wäre im nächsten Turn unsichtbar.
+   */
   appendMessage(
     projectId: string,
     role: ChatMessageRole,
     content: Anthropic.ContentBlockParam[],
+    kind?: ChatKind,
   ): Promise<WrapperStatus>
   /**
    * `public.update_project_segment_industry` — setzt Segment und Branche.

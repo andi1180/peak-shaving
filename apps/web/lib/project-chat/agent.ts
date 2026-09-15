@@ -3,7 +3,8 @@ import type Anthropic from '@anthropic-ai/sdk'
 import { MAX_TOOL_CALLS_PER_TURN } from './ai-client'
 import { executeChatTool } from './executor'
 import { assistantText, splitAssistantTurn, toApiMessages } from './history'
-import type { ProjectChatPorts, ProjectDocumentRow, StoredChatMessage } from './ports'
+import { DEFAULT_CHAT_KIND } from './ports'
+import type { ChatKind, ProjectChatPorts, ProjectDocumentRow, StoredChatMessage } from './ports'
 import { buildProjectStateBlock, composeSystemPrompt } from './system-prompt'
 import { buildChatTools } from './tools'
 
@@ -141,17 +142,26 @@ function buildAttachmentNote(
 
 /**
  * @param attachedDocumentIds Kennungen der Dokumente, die der Kunde zu DIESEM Turn hochgeladen hat.
+ * @param kind WELCHES Gespräch dieser Turn führt — `kunde` (Vorgabe) oder `ki_check`.
  *
- * ⚠ Der Parameter steht bewusst NACH `deps` und nicht in ihm: `deps` trägt die Aussenwelt (Ports,
- * Modellaufruf, Uhr), nicht den Inhalt eines Turns. Ihn in `deps` zu legen wäre die kleinere
- * Signaturänderung gewesen und hätte die zwei Dinge vermischt, die diese Funktion sauber trennt.
- * Aufrufe mit drei Argumenten bleiben gültig.
+ * ⚠ Beide Parameter stehen bewusst NACH `deps` und nicht in ihm: `deps` trägt die Aussenwelt
+ * (Ports, Modellaufruf, Uhr), nicht den Inhalt eines Turns. Sie in `deps` zu legen wäre die
+ * kleinere Signaturänderung gewesen und hätte die zwei Dinge vermischt, die diese Funktion sauber
+ * trennt. Aufrufe mit drei bzw. vier Argumenten bleiben gültig.
+ *
+ * ⚠ `kind` WIRD DURCHGEREICHT, NICHT AUSGEWERTET. Die Schleife verzweigt an keiner Stelle daran:
+ * sie liest den Verlauf EINER Art und schreibt in DIESELBE. Das ist die eigentliche Invariante —
+ * läsen und schrieben die beiden Aufrufe verschiedene Arten, stünde die Antwort des Modells in
+ * einem Gespräch, das die Frage nicht enthält, und der nächste Turn sähe sie nie wieder. Was die
+ * zwei Gespräche sonst unterscheidet (System-Prompt, Werkzeugliste, Zugang), entscheidet der
+ * Aufrufer über `deps` — und der Energieberater-Endpunkt ist ein eigener, späterer Schritt.
  */
 export async function runProjectChatTurn(
   projectId: string,
   userMessage: string,
   deps: RunProjectChatTurnDeps,
   attachedDocumentIds: readonly string[] = [],
+  kind: ChatKind = DEFAULT_CHAT_KIND,
 ): Promise<ProjectChatTurnResult> {
   const { ports, callModel } = deps
   const now = deps.now ?? (() => new Date())
@@ -258,7 +268,7 @@ export async function runProjectChatTurn(
     },
   ]
 
-  const history: StoredChatMessage[] = [...(await ports.loadMessages(projectId))]
+  const history: StoredChatMessage[] = [...(await ports.loadMessages(projectId, kind))]
 
   /*
    * ⚠ DER VERTRAG, AUF DEN SICH DIE OBERFLÄCHE VERLÄSST: Block 0 sind die Worte des Menschen,
@@ -278,7 +288,7 @@ export async function runProjectChatTurn(
             { type: 'text', text: attachmentNote },
           ],
   }
-  const appendedUser = await ports.appendMessage(projectId, 'user', userRow.content)
+  const appendedUser = await ports.appendMessage(projectId, 'user', userRow.content, kind)
   if (appendedUser.status !== 'ok') {
     return { status: 'storage_error', step: `user:${appendedUser.status}` }
   }
@@ -300,7 +310,7 @@ export async function runProjectChatTurn(
 
     // Schritt 1 — der Text des Modells. Er steht chronologisch vor den Aufrufen.
     for (const row of textRows) {
-      const appended = await ports.appendMessage(projectId, row.role, row.content)
+      const appended = await ports.appendMessage(projectId, row.role, row.content, kind)
       if (appended.status !== 'ok') {
         return { status: 'storage_error', step: `assistant:${appended.status}` }
       }
@@ -350,14 +360,14 @@ export async function runProjectChatTurn(
 
     // Schritt 3 + 4 — Aufruf und Ergebnis, unmittelbar nacheinander.
     for (const row of callRows) {
-      const appended = await ports.appendMessage(projectId, row.role, row.content)
+      const appended = await ports.appendMessage(projectId, row.role, row.content, kind)
       if (appended.status !== 'ok') {
         return { status: 'storage_error', step: `tool_call:${appended.status}` }
       }
       history.push(row)
     }
 
-    const appendedResults = await ports.appendMessage(projectId, 'tool_result', resultBlocks)
+    const appendedResults = await ports.appendMessage(projectId, 'tool_result', resultBlocks, kind)
     if (appendedResults.status !== 'ok') {
       return { status: 'storage_error', step: `tool_result:${appendedResults.status}` }
     }

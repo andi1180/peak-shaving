@@ -5,7 +5,9 @@ import type Anthropic from '@anthropic-ai/sdk'
 import type { Json } from '@/db-types'
 import { readProjectDocument } from '@/lib/project-documents/documents'
 import { createClient } from '@/lib/supabase/server'
+import { DEFAULT_CHAT_KIND } from './ports'
 import type {
+  ChatKind,
   ChatMessageRole,
   ChatRateLimitDecision,
   MeteringPointGap,
@@ -63,6 +65,21 @@ function asWrapperStatus(data: unknown, error: unknown): WrapperStatus {
 }
 
 /**
+ * `p_kind` für die zwei Verlaufs-Wrapper — und zwar NUR, wenn es etwas anderes als der Vorgabewert
+ * ist.
+ *
+ * ⚠ DAS WEGLASSEN IST DIE EIGENTLICHE AUSSAGE. `kunde` ist in beiden Wrappern der Vorgabewert; ein
+ * hier immer mitgesendetes `p_kind: 'kunde'` wäre fachlich dasselbe — aber der Kunden-Chat
+ * schickte ab diesem Schritt eine Nutzlast, die er vorher nicht geschickt hat. Er ist der aktive
+ * Weg, und „er bleibt unverändert" soll eine Eigenschaft des Aufrufs sein und keine Behauptung über
+ * einen Datenbank-Vorgabewert, die jemand nachlesen müsste. Dieselbe Haltung wie bei `saveProject`
+ * unten, wo ein weggelassenes Argument ebenfalls am Aufruf ablesbar sein soll.
+ */
+function chatKindArg(kind: ChatKind): { p_kind?: ChatKind } {
+  return kind === DEFAULT_CHAT_KIND ? {} : { p_kind: kind }
+}
+
+/**
  * Der Verlauf eines Projekts, roh — Zeilen mit Rolle und Blöcken, wie sie gespeichert sind.
  *
  * ⚠ Steht seit dem achten Bauschritt als EIGENE Funktion und nicht mehr nur als Port-Rumpf: die
@@ -79,12 +96,16 @@ function asWrapperStatus(data: unknown, error: unknown): WrapperStatus {
  * §6.3-Nachbarschaft) und gehört in den Abstimmungs-Schritt, nicht in eine stille Schleife
  * über weitere Seiten.
  */
-export async function loadProjectMessages(projectId: string): Promise<StoredChatMessage[]> {
+export async function loadProjectMessages(
+  projectId: string,
+  kind: ChatKind = DEFAULT_CHAT_KIND,
+): Promise<StoredChatMessage[]> {
   const supabase = await createClient()
   const { data, error } = await supabase.rpc('list_project_messages', {
     p_project_id: projectId,
     p_limit: 500,
     p_offset: 0,
+    ...chatKindArg(kind),
   })
   const result = asWrapperStatus(data, error)
   if (result.status !== 'ok' || !Array.isArray(result.messages)) return []
@@ -194,12 +215,13 @@ export function createProjectChatPorts(extractors: Partial<ChatExtractors>): Pro
 
     loadMessages: loadProjectMessages,
 
-    async appendMessage(projectId, role, content) {
+    async appendMessage(projectId, role, content, kind = DEFAULT_CHAT_KIND) {
       const supabase = await createClient()
       const { data, error } = await supabase.rpc('append_project_message', {
         p_project_id: projectId,
         p_role: role,
         p_content: content as unknown as Json,
+        ...chatKindArg(kind),
       })
       return asWrapperStatus(data, error)
     },
