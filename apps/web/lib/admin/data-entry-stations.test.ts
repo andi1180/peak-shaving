@@ -57,8 +57,8 @@ describe('B24 — die Liste bricht ab, wo die Angaben aufhören', () => {
   it('⚠ zwei Zählpunkte ergeben zehn Platzhalter-Stationen in der richtigen Reihenfolge', () => {
     const stations = buildStations({ segmentSet: true, meteringPointCount: 2 })
 
-    // 1 Segment + 1 Zählpunkt-Zahl + 2×5 Schritte + KI-Check + Abbruchprüfung + Ende
-    expect(stations).toHaveLength(15)
+    // 1 Segment + 1 Zählpunkt-Zahl + 2×5 Schritte + Ende
+    expect(stations).toHaveLength(13)
     expect(walk(stations)).toEqual([
       'segment',
       'zaehlpunkte',
@@ -72,10 +72,16 @@ describe('B24 — die Liste bricht ab, wo die Angaben aufhören', () => {
       'zp2-batterie',
       'zp2-pv',
       'zp2-tarif',
-      'ki-check',
-      'abbruchpruefung',
       'ende',
     ])
+  })
+
+  it('⚠ die Liste kennt die früheren Platzhalter „ki-check"/„abbruchpruefung" nicht mehr', () => {
+    // Der Energieberater lebt als Popup auf der Projektseite, eine Abbruchregel gibt es nicht mehr.
+    const stations = buildStations({ segmentSet: true, meteringPointCount: 2 })
+    const ids = walk(stations)
+    expect(ids).not.toContain('ki-check')
+    expect(ids).not.toContain('abbruchpruefung')
   })
 
   it('die fünf Schritte stehen JE ZÄHLPUNKT beisammen, nicht je Schritt über alle Zählpunkte', () => {
@@ -111,10 +117,10 @@ describe('B24 — die Liste bricht ab, wo die Angaben aufhören', () => {
     expect(new Set(stations.map((station) => station.id)).size).toBe(stations.length)
   })
 
-  it('die drei Abschluss-Stationen stehen HINTER allen Zählpunkten, nicht je Zählpunkt', () => {
-    // Sie beurteilen die Gesamtheit; je Zählpunkt wiederholt wären sie eine andere Aussage.
+  it('die Abschluss-Station steht HINTER allen Zählpunkten, nicht je Zählpunkt', () => {
+    // Sie beurteilt die Gesamtheit; je Zählpunkt wiederholt wäre sie eine andere Aussage.
     const stations = buildStations({ segmentSet: true, meteringPointCount: 3 })
-    expect(walk(stations).slice(-3)).toEqual(['ki-check', 'abbruchpruefung', 'ende'])
+    expect(walk(stations).slice(-1)).toEqual(['ende'])
   })
 })
 
@@ -158,7 +164,7 @@ describe('B24 — eine unbekannte Station leitet um, statt zu scheitern', () => 
 
   it('ohne Segment klemmt JEDE Anfrage auf die Segment-Station', () => {
     const stations = buildStations({ segmentSet: false, meteringPointCount: 0 })
-    for (const requested of ['zaehlpunkte', 'zp1-lastgang', 'ende', 'ki-check']) {
+    for (const requested of ['zaehlpunkte', 'zp1-lastgang', 'ende', 'quatsch']) {
       const { station, redirectRequired } = resolveStation(stations, requested)
       expect(redirectRequired).toBe(true)
       expect(station.id).toBe(SEGMENT_STATION_ID)
@@ -206,8 +212,8 @@ describe('B24 — Zurück und Weiter tragen durch die ganze Kette', () => {
       seen.push(stations[index]?.id)
     }
     expect(seen[seen.length - 1]).toBe('ende')
-    // Vom Startpunkt (erster Zählpunkt-Schritt) bis zum Ende sind es 13 Stationen.
-    expect(seen).toHaveLength(13)
+    // Vom Startpunkt (erster Zählpunkt-Schritt) bis zum Ende sind es 11 Stationen.
+    expect(seen).toHaveLength(11)
   })
 
   it('rückwärts vom Ende führt bis zur Segment-Station', () => {

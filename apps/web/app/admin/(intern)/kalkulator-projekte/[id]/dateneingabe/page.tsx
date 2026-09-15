@@ -324,8 +324,8 @@ export default async function AdminProjectDataEntryPage({
    *
    * ── ⚠ NUR AUF DIESER EINEN STATION GELESEN ─────────────────────────────────────────────────
    * `tarif !== null` ist die Bedingung, nicht ein `if` im Rumpf: auf den vier anderen Stationen
-   * je Zählpunkt (und auf Segment, Zählpunkt-Zahl, KI-Check, Abbruchprüfung) wäre das Datenbank
-   * für etwas, das dort niemand rendert. `currentSegment` steht hier NICHT mehr in der Bedingung —
+   * je Zählpunkt (und auf Segment, Zählpunkt-Zahl, Ende) wäre das Datenbank für etwas, das dort
+   * niemand rendert. `currentSegment` steht hier NICHT mehr in der Bedingung —
    * der Durchschnitt hängt nicht am Segment, und mit der Katalog-Abfrage ist der einzige Grund
    * entfallen, ohne Segment gar nicht erst zu fragen.
    *
@@ -523,19 +523,21 @@ export default async function AdminProjectDataEntryPage({
               />
             )}
 
-          {station.kind === 'ki-check' && (
-            <StationPlaceholder note="Hier prüft später die KI die gesammelten Angaben auf Widersprüche." />
-          )}
-
-          {station.kind === 'abbruchpruefung' && (
-            <StationPlaceholder note="Hier wird später entschieden, ob die Datenlage für eine Rechnung reicht." />
-          )}
-
           {station.kind === 'ende' && (
-            <p className="max-w-prose text-small text-text-muted">
-              Alle Stationen dieses Teils sind durchlaufen.{' '}
-              <span className="text-text-muted">Weiter zu Teil 2 — folgt als eigener Schritt.</span>
-            </p>
+            <div className="max-w-prose">
+              <p className="text-small text-text-muted">
+                Dateneingabe fertig. Als Nächstes: die KI-Energieprüfung auf der Projektseite — sie
+                prüft die gesammelten Angaben und klärt Rückfragen im Gespräch.
+              </p>
+              <p className="mt-4">
+                <Link
+                  href={projectHref(project.id)}
+                  className="text-small text-accent underline decoration-accent underline-offset-[3px]"
+                >
+                  Zurück zur Projektseite
+                </Link>
+              </p>
+            </div>
           )}
         </AdminPanel>
 
