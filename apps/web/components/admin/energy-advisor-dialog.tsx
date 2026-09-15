@@ -30,6 +30,9 @@ import type { TranscriptEntry } from '@/lib/project-chat/transcript'
  */
 const ROLLBACK_STATUSES = new Set(['not_found', 'empty_message', 'limit_reached', 'limit_unavailable', 'network'])
 
+/** Fester Text des automatischen Erstaufrufs — kein Nutzer-Eingabefeld beteiligt. */
+const AUTO_START_MESSAGE = 'Bitte prüfen Sie alle Angaben dieses Projekts.'
+
 function statusMessage(status: string, extra?: { used: number; max: number }): string {
   switch (status) {
     case 'not_found':
@@ -69,10 +72,54 @@ export function EnergyAdvisorDialog({
   const [statusText, setStatusText] = React.useState<string | null>(null)
   const bottomRef = React.useRef<HTMLDivElement>(null)
   const inputId = React.useId()
+  const autoStartTriggeredRef = React.useRef(false)
 
   React.useEffect(() => {
     bottomRef.current?.scrollIntoView({ block: 'end' })
   }, [entries, pending])
+
+  // Nur beim allerersten Öffnen ohne Verlauf; ein Wiederöffnen mit bestehendem Verlauf löst nichts aus.
+  React.useEffect(() => {
+    if (!open) {
+      autoStartTriggeredRef.current = false
+      return
+    }
+    if (autoStartTriggeredRef.current || entries.length > 0) return
+    autoStartTriggeredRef.current = true
+
+    const text = AUTO_START_MESSAGE
+    setStatusText(null)
+    setEntries((prev) => [...prev, { role: 'user', text }])
+    setPending(true)
+
+    void (async () => {
+      try {
+        const result = await sendEnergyAdvisorMessage(projectId, text)
+
+        if (result.status === 'ok') {
+          if (result.reply.trim() !== '') {
+            setEntries((prev) => [...prev, { role: 'assistant', text: result.reply }])
+          } else {
+            setStatusText(statusMessage('tool_limit'))
+          }
+          return
+        }
+
+        setStatusText(
+          statusMessage(result.status, result.status === 'limit_reached' ? result : undefined),
+        )
+        if (ROLLBACK_STATUSES.has(result.status)) {
+          setEntries((prev) => prev.slice(0, -1))
+        }
+      } catch (error) {
+        console.error('[energy-advisor-dialog] sendEnergyAdvisorMessage:', error)
+        setStatusText(statusMessage('network'))
+        setEntries((prev) => prev.slice(0, -1))
+      } finally {
+        setPending(false)
+      }
+    })()
+  }, [open, entries.length, projectId])
 
   async function handleSend() {
     const text = draft.trim()
