@@ -99,4 +99,8 @@ describe('ENERGY_ADVISOR_SYSTEM_PROMPT', () => {
     expect(ENERGY_ADVISOR_SYSTEM_PROMPT).toMatch(/nie entscheidest du selbst/)
     expect(ENERGY_ADVISOR_SYSTEM_PROMPT).toMatch(/"assumed"/)
   })
+
+  it('weist auf kundenfreundliche Sprache statt interner Bezeichner hin', () => {
+    expect(ENERGY_ADVISOR_SYSTEM_PROMPT).toMatch(/nicht wie ein Entwickler/)
+  })
 })
