@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
-import { CHAT_TOOL_NAMES, buildChatTools, missingExtractionTools } from './tools'
+import {
+  CHAT_TOOL_NAMES,
+  buildChatTools,
+  buildEnergyAdvisorTools,
+  missingExtractionTools,
+} from './tools'
 import type { ChatExtractors } from './ports'
 
 /**
@@ -121,5 +126,58 @@ describe('buildChatTools', () => {
   it('⚠ flag_open_question sagt im Werkzeugtext, dass Weg (b) die Frage NICHT schliesst', () => {
     const tool = buildChatTools({}).find((entry) => entry.name === 'flag_open_question')
     expect(tool?.description).toMatch(/LÖSCHT DIE FRAGE NICHT/)
+  })
+})
+
+describe('buildEnergyAdvisorTools', () => {
+  it('⚠ liefert GENAU die drei Werkzeuge der Prüfung, in fester Reihenfolge', () => {
+    expect(buildEnergyAdvisorTools().map((tool) => tool.name)).toEqual([
+      'check_data_consistency',
+      'flag_open_question',
+      'set_draft_field',
+    ])
+  })
+
+  it('⚠ bietet KEIN Extraktions-Werkzeug an — auch nicht mit allen Ports', () => {
+    /*
+     * Die Funktion nimmt gar keine Ports entgegen; der Test misst die FOLGE davon. Der
+     * Energieberater liest keine Dokumente — er prüft einen Stand, den der Wizard bereits erfasst
+     * hat. Ein angebotener Leser wäre eine Zusage ohne Rumpf (Kopf von `ports.ts`).
+     */
+    const names = buildEnergyAdvisorTools().map((tool) => tool.name)
+    for (const leser of [
+      'classify_upload',
+      'extract_invoice',
+      'extract_pv_design',
+      'extract_battery_description',
+      'extract_load_profile',
+    ]) {
+      expect(names).not.toContain(leser)
+    }
+  })
+
+  it('⚠ lässt die drei ERSTERFASSUNGS-Werkzeuge bewusst weg', () => {
+    /*
+     * `set_segment`/`set_industry`/`check_draft_completeness` gehören zur Erhebung. Für eine
+     * Prüfung bereits vollständig erfasster Daten sind sie falsch angeboten: das Modell böte an,
+     * das Segment zu setzen, wo es längst gesetzt ist. Der Gegenbeweis daneben: `buildChatTools`
+     * führt sie unverändert — weggelassen ist hier etwas, nicht insgesamt.
+     */
+    const names = buildEnergyAdvisorTools().map((tool) => tool.name)
+    expect(names).not.toContain('set_segment')
+    expect(names).not.toContain('set_industry')
+    expect(names).not.toContain('check_draft_completeness')
+
+    const kunde = buildChatTools({}).map((tool) => tool.name)
+    expect(kunde).toContain('set_segment')
+    expect(kunde).toContain('set_industry')
+    expect(kunde).toContain('check_draft_completeness')
+  })
+
+  it('jedes der drei ist ein echtes Werkzeug, kein Platzhalter', () => {
+    for (const tool of buildEnergyAdvisorTools()) {
+      expect(tool.description && tool.description.length > 0).toBe(true)
+      expect(tool.input_schema.type).toBe('object')
+    }
   })
 })

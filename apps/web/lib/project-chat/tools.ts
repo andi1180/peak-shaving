@@ -512,6 +512,30 @@ export function buildChatTools(extractors: Partial<ChatExtractors>): Anthropic.T
   }).map((name) => ALL_TOOLS[name])
 }
 
+/**
+ * Die Werkzeugliste des Energieberaters (B24, Station 6 — der KI-Check).
+ *
+ * Anders als `buildChatTools` KEIN Filter nach Ports: die drei Werkzeuge brauchen keinen Extraktor
+ * — der Energieberater liest keine Dokumente, er prüft einen bereits erfassten Stand.
+ *
+ * ⚠ DIE DREI FEHLENDEN ZUSTANDS-WERKZEUGE SIND EINE ENTSCHEIDUNG, KEINE AUSLASSUNG. `set_segment`,
+ * `set_industry` und `check_draft_completeness` gehören zur ERSTERFASSUNG. Für eine Prüfung bereits
+ * vollständig erfasster Daten sind sie falsch angeboten: das Modell böte an, das Segment zu setzen,
+ * wo es längst gesetzt ist, und liefe damit einem Zustand hinterher, den der Wizard schon
+ * hergestellt hat.
+ *
+ * Die Reihenfolge ist FEST — dieselbe Cache-Überlegung wie bei `buildChatTools`.
+ */
+export const ENERGY_ADVISOR_TOOL_NAMES = [
+  'check_data_consistency',
+  'flag_open_question',
+  'set_draft_field',
+] as const satisfies readonly ChatToolName[]
+
+export function buildEnergyAdvisorTools(): Anthropic.Tool[] {
+  return ENERGY_ADVISOR_TOOL_NAMES.map((name) => ALL_TOOLS[name])
+}
+
 /** Welche Extraktions-Werkzeuge fehlen? Der System-Prompt sagt es dem Modell im Klartext. */
 export function missingExtractionTools(extractors: Partial<ChatExtractors>): ChatToolName[] {
   return CHAT_TOOL_NAMES.filter((name) => {
