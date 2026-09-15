@@ -12,7 +12,7 @@ import { MAX_BATTERY_TEXT_CHARS, MAX_INVOICE_FILE_BYTES } from 'extractors'
  * deshalb die Quelle und keine zweite Zahl.
  */
 import { MAX_PROJECT_DOCUMENT_BYTES } from 'shared'
-import { MAX_INVOICES_PER_UPLOAD } from './invoice-extractions'
+import { INVOICE_SKIPPED_KEY, MAX_INVOICES_PER_UPLOAD } from './invoice-extractions'
 
 /**
  * B24, Teil 1 — die Server Actions, deren Zusage in der ORCHESTRIERUNG steckt.
@@ -100,6 +100,7 @@ const {
   saveMeteringPointPvArrayAction,
   saveMeteringPointPvChoiceAction,
   scanPvDesignAction,
+  skipMeteringPointInvoiceAction,
   uploadMeteringPointInvoicesAction,
   uploadMeteringPointPvProfileAction,
 } = await import('./data-entry-actions')
@@ -750,6 +751,167 @@ describe('removeMeteringPointInvoiceAction', () => {
 
     expect(rpc).not.toHaveBeenCalled()
     expect(revalidatePath).not.toHaveBeenCalled()
+  })
+})
+
+/**
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * B24, Teil 1 — „bewusst ohne Rechnungsdaten": das DRITTE Signal
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * Die Station kannte bis hierher zwei Signale (eine gelesene Rechnung, eine Angabe von Hand) und
+ * konnte deshalb „es gibt hier bewusst keine Tarifangabe" nicht von „die Station wurde noch nicht
+ * besucht" unterscheiden. `INVOICE_SKIPPED_KEY` ist genau diese dritte Aussage.
+ *
+ * Was ein Unit-Test davon messen kann, ist NICHT die Oberfläche (`apps/web` hat kein
+ * Renderer-Setup), sondern die zwei Eigenschaften, an denen der Entwurf hängt:
+ *
+ *   1. DER VERMERK ENTSTEHT ALS `true`, nicht als blosses Vorhandensein eines Schlüssels. Der
+ *      Leser prüft strikt (`=== true`, Muster `readPvDraft`); ein wahrheitsähnlicher Wert wäre
+ *      dort keine Aussage.
+ *   2. ⚠ EIN SPÄTERER ECHTER UPLOAD ODER EINE MANUELLE EINGABE SETZT IHN AUF `false` ZURÜCK.
+ *      Das ist die Eigenschaft, die ohne Test still verlorengeht: beide Wege schreiben den Entwurf
+ *      ohnehin, und ein vergessenes Zurücksetzen fiele NIRGENDS auf — beide Aussagen stünden
+ *      gleichzeitig im Entwurf, und eine spätere Prüfung (Tarif-Station, Report) müsste raten,
+ *      welche gilt. Gemessen wird deshalb der VOLLE Weg (erst überspringen, dann hochladen bzw.
+ *      eintragen) samt Positiv-Kontrolle auf den Zwischenstand — ein Test, der nur das Endergebnis
+ *      prüft, bliebe auch grün, wenn der Vermerk nie entstanden wäre.
+ */
+describe('skipMeteringPointInvoiceAction', () => {
+  beforeEach(() => {
+    draft = {}
+    withInvoiceWrappers()
+  })
+
+  function skipForm(): FormData {
+    const fd = new FormData()
+    fd.set('projectId', PROJECT_ID)
+    fd.set('meteringPointId', POINT_ID)
+    return fd
+  }
+
+  it('⚠ vermerkt den Verzicht als `true` und lässt den übrigen Entwurf unangetastet', async () => {
+    draft = { annualConsumptionKwh: 88426 }
+
+    const state = await skipMeteringPointInvoiceAction({}, skipForm())
+
+    expect(state.formError).toBeUndefined()
+    expect(state.success).toContain('ohne Rechnungsdaten fortgefahren')
+
+    // Strikt `true` — `readPvDraft`/`readBatteryDraft` lesen dieselbe Form, ein `'true'` wäre dort
+    // keine Aussage, sondern eine Zeichenkette, die zufällig wahrheitsähnlich aussieht.
+    expect(draft[INVOICE_SKIPPED_KEY]).toBe(true)
+
+    // GENAU EIN Schreibvorgang — der Wrapper ERSETZT den Entwurf.
+    const writes = rpc.mock.calls.filter(([fn]) => fn === 'update_metering_point_draft')
+    expect(writes).toHaveLength(1)
+
+    // Was vorher dastand, steht weiter da: der Vermerk ist eine Ergänzung, keine Korrektur.
+    expect(draft.annualConsumptionKwh).toBe(88426)
+
+    // Herkunft `measured`: „es gibt keine Rechnung" ist eine Auskunft des Kunden, keine Schätzung.
+    const provenance = draft._provenance as Record<string, { source: string }>
+    expect(provenance[INVOICE_SKIPPED_KEY]?.source).toBe('measured')
+
+    expect(revalidatePath).toHaveBeenCalledTimes(1)
+  })
+
+  it('ist wiederholbar: ein zweiter Klick schreibt denselben Wert', async () => {
+    await skipMeteringPointInvoiceAction({}, skipForm())
+    const state = await skipMeteringPointInvoiceAction({}, skipForm())
+
+    expect(state.formError).toBeUndefined()
+    expect(draft[INVOICE_SKIPPED_KEY]).toBe(true)
+  })
+
+  it('gibt eine entzogene Rolle als solche zurück, ohne den Entwurf anzufassen', async () => {
+    rpc.mockResolvedValue({ data: null, error: { code: '42501', message: 'denied' } })
+
+    const state = await skipMeteringPointInvoiceAction({}, skipForm())
+
+    expect(state.formError).toBe('Keine Berechtigung. Bitte laden Sie die Seite neu.')
+    expect(draft).toEqual({})
+    expect(revalidatePath).not.toHaveBeenCalled()
+  })
+
+  it('fragt die Datenbank gar nicht erst, wenn eine Kennung fehlt', async () => {
+    const badPoint = skipForm()
+    badPoint.set('meteringPointId', 'x')
+    expect((await skipMeteringPointInvoiceAction({}, badPoint)).formError).toBeDefined()
+
+    const badProject = skipForm()
+    badProject.set('projectId', 'x')
+    expect((await skipMeteringPointInvoiceAction({}, badProject)).formError).toBeDefined()
+
+    const noPoint = skipForm()
+    noPoint.delete('meteringPointId')
+    expect((await skipMeteringPointInvoiceAction({}, noPoint)).formError).toBeDefined()
+
+    expect(rpc).not.toHaveBeenCalled()
+    expect(draft).toEqual({})
+    expect(revalidatePath).not.toHaveBeenCalled()
+  })
+
+  /*
+   * ⚠ DIE POSITIV-KONTROLLE: der Vermerk überlebt den nächsten echten Weg NICHT.
+   *
+   * Beide Tests fahren denselben Ablauf, den ein Admin real fährt — erst „ohne Rechnung
+   * fortfahren", dann doch noch eine Rechnung. Der Zwischenstand wird ausdrücklich gemessen:
+   * ohne ihn liefe der Test auch dann grün, wenn `skipMeteringPointInvoiceAction` gar nichts
+   * geschrieben hätte.
+   */
+  it('⚠ ein späterer Upload setzt den Vermerk auf `false` zurück', async () => {
+    uploadProjectDocument.mockImplementation(async (_projectId: string, file: { name: string }) => ({
+      ok: true,
+      documentId: `doc-${file.name}`,
+      storagePath: `${PROJECT_ID}/doc-${file.name}`,
+    }))
+    extractInvoiceData.mockResolvedValue(extraction({ energyPriceCtPerKwh: 24.5 }))
+
+    await skipMeteringPointInvoiceAction({}, skipForm())
+    // Positiv-Kontrolle: der Vermerk steht wirklich, bevor er widerlegt wird.
+    expect(draft[INVOICE_SKIPPED_KEY]).toBe(true)
+
+    const state = await uploadMeteringPointInvoicesAction({}, invoiceForm([pdf('a.pdf')]))
+
+    expect(state.formError).toBeUndefined()
+    expect(storedEntries()).toHaveLength(1)
+    expect(draft.energyPriceCtPerKwh).toBe(24.5)
+
+    // ⚠ `false`, NICHT gelöscht: „es wurde einmal ohne fortgefahren, gilt aber nicht mehr" bleibt
+    // dadurch von „dazu wurde nie etwas gesagt" unterscheidbar.
+    expect(draft[INVOICE_SKIPPED_KEY]).toBe(false)
+  })
+
+  it('⚠ eine spätere Eingabe von Hand setzt den Vermerk auf `false` zurück', async () => {
+    await skipMeteringPointInvoiceAction({}, skipForm())
+    expect(draft[INVOICE_SKIPPED_KEY]).toBe(true)
+
+    const fd = new FormData()
+    fd.set('projectId', PROJECT_ID)
+    fd.set('meteringPointId', POINT_ID)
+    fd.set('operatorId', 'wiener_netze')
+    fd.set('netzebene', '')
+    fd.set('meteringVariant', '')
+    for (const key of [
+      'energyPriceCtPerKwh',
+      'energyPriceNightCtPerKwh',
+      'einspeiseverguetungCtPerKwh',
+      'supplierBaseFeeEurPerMonth',
+      'leistungspreisEurPerKwYear',
+      'minBillableKw',
+      'annualConsumptionKwh',
+    ]) {
+      fd.set(key, '')
+    }
+    fd.set('leistungspreisEurPerKwYear', '38,52')
+
+    const state = await saveMeteringPointManualTariffAction({}, fd)
+
+    expect(state.formError).toBeUndefined()
+    // ⚠ Der Vermerk zählt NICHT als Angabe des Kunden: die Meldung nennt weiterhin EINE.
+    expect(state.success).toContain('Eine Angabe wurde übernommen')
+    expect(draft.leistungspreisEurPerKwYear).toBe(38.52)
+    expect(draft[INVOICE_SKIPPED_KEY]).toBe(false)
   })
 })
 

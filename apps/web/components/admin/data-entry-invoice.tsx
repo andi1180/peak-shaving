@@ -65,6 +65,15 @@
  * ⚠ UND ES IST EIN EIGENER Zustand neben dem des Uploads, nicht derselbe: ein Fehler beim Entfernen
  * überschriebe sonst die Meldung eines gerade gelaufenen Uploads und umgekehrt — beide sind wahr
  * und sagen Verschiedenes.
+ *
+ * ── ⚠ DER DRITTE WEG: „OHNE RECHNUNG FORTFAHREN" ──────────────────────────────────────────────
+ * Seit diesem Schritt hat die Station drei gleichrangige Wege statt zwei: hochladen, von Hand
+ * eintragen — oder ausdrücklich vermerken, dass es für diesen Zählpunkt bewusst keine Tarifdaten
+ * gibt. Der dritte ist KEINE Weiche (der Weiter-Link war schon vorher rechnungsunabhängig, s. u.),
+ * sondern ein SIGNAL: ohne ihn ist „bewusst ohne" von „noch nicht besucht" nicht zu unterscheiden.
+ *
+ * ⚠ Er bekommt aus demselben Grund wie das Entfernen einen EIGENEN `useActionState` — drei Wege,
+ * drei Meldungen, und keine darf die andere überschreiben.
  */
 import * as React from 'react'
 import { useActionState } from 'react'
@@ -77,9 +86,11 @@ import { Button } from '@/components/ui/button'
 import { FieldHint, Label } from '@/components/ui/input'
 import {
   removeMeteringPointInvoiceAction,
+  skipMeteringPointInvoiceAction,
   uploadMeteringPointInvoicesAction,
 } from '@/lib/admin/data-entry-actions'
 import {
+  INVOICE_SKIPPED_KEY,
   MAX_INVOICES_PER_UPLOAD,
   invoiceConflictLabels,
   invoiceMergeDisplayRows,
@@ -129,6 +140,15 @@ export function DataEntryInvoice({
     removeMeteringPointInvoiceAction,
     ADMIN_INITIAL_STATE,
   )
+  /*
+   * ⚠ DRITTER Zustand. Er gehört nicht zum Upload (dessen Meldung nennt gelesene Rechnungen) und
+   * nicht zum Entfernen (dessen Meldung nennt eine zurückgenommene Auswertung) — hier wird eine
+   * ENTSCHEIDUNG quittiert, und alle drei können nebeneinander wahr sein.
+   */
+  const [skipState, skipAction, isSkipping] = useActionState(
+    skipMeteringPointInvoiceAction,
+    ADMIN_INITIAL_STATE,
+  )
   const error = state.fieldErrors?.files
   const [manualOpen, setManualOpen] = React.useState(false)
 
@@ -137,6 +157,13 @@ export function DataEntryInvoice({
   }, [error])
 
   const stored = readStoredInvoiceExtractions(meteringPoint.draft)
+  /*
+   * ⚠ STRIKT `=== true`, nicht truthy: `'true'` und `1` sähen wie eine Aussage aus und sind keine
+   * (dieselbe Lesart wie `readBatteryDraft`/`readPvDraft`). Und der Wert kommt aus der DATENBANK,
+   * nicht aus dem Rückgabewert der Action — s. Kopf: nach einem Neuladen stünde der Vermerk sonst
+   * nicht mehr da, obwohl er gespeichert ist.
+   */
+  const skipped = meteringPoint.draft[INVOICE_SKIPPED_KEY] === true
   const { merged, conflicts } = mergeInvoiceExtractions(stored.map((entry) => entry.extraction))
   const rows = invoiceMergeDisplayRows(merged)
   const conflictLabels = invoiceConflictLabels(conflicts)
@@ -152,6 +179,13 @@ export function DataEntryInvoice({
       */}
       {removeState.success && <AdminSuccess>{removeState.success}</AdminSuccess>}
       {removeState.formError && <AdminError>{removeState.formError}</AdminError>}
+      {/*
+        ⚠ Die Erfolgsmeldung des dritten Wegs ist FLÜCHTIG (der nächste Seitenaufruf hat sie nicht
+        mehr) — die dauerhafte Aussage ist die Vermerk-Zeile darunter, die aus dem Entwurf kommt.
+        Beides ist nötig: die Meldung quittiert den Klick, die Zeile überdauert ihn.
+      */}
+      {skipState.success && <AdminSuccess>{skipState.success}</AdminSuccess>}
+      {skipState.formError && <AdminError>{skipState.formError}</AdminError>}
 
       {stored.length > 0 && (
         <InvoiceSummary
@@ -169,10 +203,38 @@ export function DataEntryInvoice({
         />
       )}
 
+      {/*
+        ⚠ NUR OHNE GELESENE RECHNUNG. Liegt eine vor, hat der Upload das Signal ohnehin auf `false`
+        zurückgesetzt (s. `uploadMeteringPointInvoicesAction`) — die Bedingung `stored.length === 0`
+        ist damit die zweite Schicht derselben Aussage, nicht ihre einzige: sie hält auch dann,
+        wenn ein Entwurf aus einem älteren Stand beides zugleich trägt.
+
+        Eigener Block statt einer Zeile in `InvoiceSummary`: die gibt es in genau diesem Fall nicht
+        (sie hängt an `stored.length > 0`). Gestaltung wie deren Kopfzeile — es ist dieselbe Sorte
+        Aussage: „das ist der erfasste Stand dieses Zählpunkts".
+      */}
+      {skipped && stored.length === 0 && (
+        <div>
+          <p className="text-small font-medium text-ink">
+            Vermerkt: ohne Rechnungsdaten fortgefahren.
+          </p>
+          <p className="mt-2 max-w-prose text-small text-text-muted">
+            Die Analyse rechnet für diesen Zählpunkt auf Basis des Lastgangs und ohne
+            Kostenvergleich. Eine später hochgeladene oder von Hand eingetragene Rechnung hebt den
+            Vermerk wieder auf.
+          </p>
+        </div>
+      )}
+
       <form
         action={formAction}
         noValidate
-        className={stored.length > 0 ? 'flex flex-col gap-4 border-t border-line pt-6' : 'flex flex-col gap-4'}
+        className={
+          /* Der Strich trennt vom Stand darüber — und der ist entweder die Zusammenfassung ODER der Vermerk. */
+          stored.length > 0 || skipped
+            ? 'flex flex-col gap-4 border-t border-line pt-6'
+            : 'flex flex-col gap-4'
+        }
       >
         <input type="hidden" name="projectId" value={projectId} />
         <input type="hidden" name="meteringPointId" value={meteringPoint.id} />
@@ -261,6 +323,58 @@ export function DataEntryInvoice({
             ? 'Manuelle Eingabe schliessen'
             : 'Keine Rechnung vorhanden — Werte selbst eintragen'}
         </button>
+
+        {/*
+          ⚠ DER DRITTE WEG — und er verschwindet, sobald eine Rechnung vorliegt.
+
+          Nicht ausgegraut, sondern GAR NICHT gerendert: ein gesperrter Knopf ohne Erklärung lässt
+          jemanden raten, was ihn löst; und „ohne Rechnungsdaten fortfahren" ist neben einer
+          gelesenen Rechnung keine Handlung, die auch nur als Möglichkeit danebenstehen sollte.
+
+          UNTER dem Umschalter und nicht daneben, weil er die Reihenfolge der Wege spiegelt:
+          hochladen (primär, oben) → selbst eintragen → bewusst ohne. Bewusst KEIN primärer Knopf
+          (`ghost`, klein): er ist der Ausweg, nicht der Weg — dieselbe Zurückhaltung wie beim
+          „Lastgang entfernen" der Nachbarstation.
+
+          Und ein EIGENES `<form>`: das Formular der manuellen Eingabe steht darunter im
+          aufgeklappten Block, verschachtelte Formulare gibt es in HTML nicht.
+
+          ⚠ Die Bedingung ist AUSSCHLIESSLICH `stored.length === 0` — der Knopf bleibt also stehen,
+          wenn der Vermerk bereits gesetzt ist, und seine Beschriftung ändert sich dabei nicht. Ein
+          zweiter Klick schreibt denselben Wert und ist folgenlos; ihn nach dem ersten Mal
+          auszublenden hiesse, den Weg an einen Zustand zu koppeln, den der Admin in diesem Moment
+          gerade selbst hergestellt hat — und der einzige Ausweg daraus wäre ein Upload.
+        */}
+        {stored.length === 0 && (
+          <form
+            action={skipAction}
+            className="mt-3"
+            onSubmit={(e) => {
+              /*
+               * Eine Rückfrage an einen Menschen, KEINE Prüfung — die Autorisierung liegt in der
+               * Datenbank. Sie steht hier, weil der Klick eine ENTSCHEIDUNG festhält, die die
+               * spätere Analyse sichtbar verändert (kein Kostenvergleich) — anders als beim
+               * Aufklappen der manuellen Eingabe daneben, das nichts schreibt.
+               */
+              const prompt =
+                'Ohne Rechnungsdaten fortfahren? Die Analyse rechnet dann ohne Kostenvergleich ' +
+                '— nur auf Basis des Lastgangs und der Batterie-/Tarifoptimierung.'
+              if (!window.confirm(prompt)) e.preventDefault()
+            }}
+          >
+            <input type="hidden" name="projectId" value={projectId} />
+            <input type="hidden" name="meteringPointId" value={meteringPoint.id} />
+            <Button type="submit" variant="ghost" size="sm" disabled={isSkipping}>
+              {isSkipping && (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2} aria-hidden="true" />
+              )}
+              Ohne Rechnung fortfahren
+            </Button>
+            <span role="status" aria-live="polite" className="sr-only">
+              {isSkipping ? 'Wird vermerkt …' : ''}
+            </span>
+          </form>
+        )}
 
         {/*
           Erst nach dem Aufklappen gerendert, nicht bloss verborgen: ein verborgenes Formular

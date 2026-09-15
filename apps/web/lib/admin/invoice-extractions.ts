@@ -74,6 +74,44 @@ export const DRAFT_INVOICE_EXTRACTIONS_KEY = '_invoiceExtractions'
  */
 export const MAX_INVOICES_PER_UPLOAD = 12
 
+/**
+ * „Für diesen Zählpunkt gibt es bewusst keine Tarifangabe."
+ *
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * ⚠ EIN DRITTES SIGNAL NEBEN UPLOAD UND HANDEINGABE — und es beantwortet eine andere Frage
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * Bis hierher kannte diese Station genau zwei Zustände, und beide sind AUSSAGEN über Werte: es
+ * wurden Rechnungen gelesen (`DRAFT_INVOICE_EXTRACTIONS_KEY` + die übernommenen Felder), oder es
+ * wurden welche von Hand eingetippt. Was fehlte, ist die dritte, ebenso legitime Antwort: „wir
+ * haben keine und bekommen keine" — der Anschluss ist neu, die Rechnung liegt beim Steuerberater,
+ * oder der Kunde will sie schlicht nicht herausgeben.
+ *
+ * Ohne dieses Feld ist dieser Fall von „die Station wurde noch nicht besucht" NICHT zu
+ * unterscheiden: beide sehen im Entwurf identisch aus (kein Eintrag, keine Tarifwerte). Genau
+ * diese Unterscheidung ist aber die, auf die es später ankommt — ein fehlender Tarif ist eine
+ * LÜCKE, die der KI-Check benennen muss; ein ausdrücklich übersprungener ist eine ENTSCHEIDUNG,
+ * die er nicht erneut aufwerfen soll. Dieselbe Trennlinie, die `hasPv`/`hasBattery` für ihre
+ * Stationen ziehen (`pv-draft.ts`, `battery-draft.ts`).
+ *
+ * ⚠ BOOLEAN, und das ist hier ausnahmsweise die unproblematische Wahl: bei den Beträgen ist
+ * `Number('')` gleich `0` und damit ein still erfundener Wert (s. `readManualNumber`); `false` ist
+ * dagegen eindeutig und entsteht nie versehentlich — es steht im Entwurf ausschliesslich dort, wo
+ * es ein Schreibweg ausdrücklich hingeschrieben hat.
+ *
+ * ── ⚠ ES IST KEIN `tariffParamsSchema`-FELD, UND DAS IST IN ORDNUNG ───────────────────────────
+ * Wortgleich zu `hasPv`: der Entwurf ist eine Sammlung von Angaben, nicht das Contract-Objekt
+ * selbst; `tariffParamsSchema` ist ein `z.object` OHNE `.strict()`, zod entfernt unbekannte
+ * Schlüssel beim Auswerten und meldet keinen Fehler. Folge: `check_draft_completeness` führt das
+ * Feld als `unknown_field` — es zählt nicht zur Vollständigkeit des Tarif-Contracts, und das ist
+ * richtig: es IST keine Tarifangabe, es ist die Aussage, dass keine kommt.
+ *
+ * ── ⚠ ES WIRD VON BEIDEN RICHTUNGEN GESCHRIEBEN ──────────────────────────────────────────────
+ * `true` vom Überspringen-Weg, `false` von jedem erfolgreichen Upload UND von der Handeingabe (s.
+ * dort). Ein späterer echter Beleg WIDERLEGT die frühere Entscheidung; ohne das Zurücksetzen
+ * stünden beide Angaben gleichzeitig im Entwurf, und ein späterer Leser müsste raten, welche gilt.
+ */
+export const INVOICE_SKIPPED_KEY = 'invoiceSkipped'
+
 /** Eine gelesene Rechnung: das abgelegte Dokument, sein Name und das, was daraus gelesen wurde. */
 export type StoredInvoiceExtraction = {
   /** Die Kennung in `platform.project_documents` — der Bezug zur abgelegten Datei. */
