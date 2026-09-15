@@ -36,8 +36,9 @@ export function ActionButton({
   action: AdminAction
   /** Verborgene Formularwerte (z. B. `{ id, isActive: 'false' }`). */
   fields: Record<string, string>
-  label: string
-  pendingLabel: string
+  /** Meist ein Text; ein Icon-Knopf gibt hier Icon + sr-only-Text (der Button braucht einen Namen). */
+  label: React.ReactNode
+  pendingLabel: React.ReactNode
   variant?: 'primary' | 'secondary' | 'ghost'
   /**
    * Rückfrage vor dem Absenden. Bewusst nur dort gesetzt, wo ein Fehlklick jemandem den Zugang

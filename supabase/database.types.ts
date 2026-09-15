@@ -1915,6 +1915,7 @@ export type Database = {
         Args: { p_document_id: string; p_metering_point_id: string }
         Returns: Json
       }
+      admin_delete_project: { Args: { p_project_id: string }; Returns: Json }
       admin_delete_question_catalog_entry: {
         Args: { p_id: string }
         Returns: Json

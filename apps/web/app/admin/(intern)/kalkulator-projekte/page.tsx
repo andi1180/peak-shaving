@@ -1,10 +1,13 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { Loader2, Trash2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { isCurrentUserAdmin } from '@/lib/admin/guard'
 import { Container } from '@/components/ui/layout'
 import { AdminError, AdminPanel, AdminSection, Pill, formatDateTime } from '@/components/admin/ui'
+import { ActionButton } from '@/components/admin/action-button'
 import { NewProjectForm } from '@/components/admin/new-project-form'
+import { deleteAdminProjectAction } from '@/lib/admin/projects-actions'
 import {
   PROJECTS_HREF,
   projectHref,
@@ -196,6 +199,27 @@ function ProjectCard({ row }: { row: AdminProjectRow }) {
           {segment && <Pill tone="neutral">{segment}</Pill>}
           {row.industry && <Pill tone="neutral">{row.industry}</Pill>}
           {row.account_id === null && <Pill tone="neutral">ohne Kundenkonto</Pill>}
+          <ActionButton
+            action={deleteAdminProjectAction}
+            fields={{ projectId: row.id }}
+            variant="ghost"
+            confirm={
+              `Projekt „${row.customer_label}" endgültig löschen? Gespräch, Dokumente, offene ` +
+              'Rückfragen und Zählpunkte werden mitgelöscht — das lässt sich nicht rückgängig machen.'
+            }
+            label={
+              <>
+                <Trash2 className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
+                <span className="sr-only">Projekt „{row.customer_label}" löschen</span>
+              </>
+            }
+            pendingLabel={
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2} aria-hidden="true" />
+                <span className="sr-only">Wird gelöscht …</span>
+              </>
+            }
+          />
         </div>
       </div>
     </AdminPanel>
