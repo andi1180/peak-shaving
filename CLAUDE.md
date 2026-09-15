@@ -114,7 +114,7 @@ Details und der vollständige Stand: siehe `./Pflichtenheft_Kalkulator_MVP.md`, 
 
 > Lebendiger Handover-Anker. Neueste offene Punkte, die den Bau der Engine/Simulation berühren. Erledigtes wandert raus.
 
-### B24 Teil 1 — Dateneingabe-Wizard (aktueller Stand, 15.09.2026)
+### B24 Teil 1 — Dateneingabe-Wizard (aktueller Stand, 15.09.2026, Live-geprüft)
 
 Admin-geführter Wizard unter `/admin/kalkulator-projekte/[id]/dateneingabe`: Segment (Privat/Betrieb) → Anzahl Zählpunkte → je Zählpunkt fünf Stationen. Alle fünf vollständig, in allen Wegen:
 
@@ -124,10 +124,16 @@ Admin-geführter Wizard unter `/admin/kalkulator-projekte/[id]/dateneingabe`: Se
 - **PV**: Erzeugungsprofil hochladen, Anlagendaten (Freitext/Datenblatt, mehrflächig) oder PVGIS-Generator aus Standort+Anlagendaten; einzelne Modulfläche UND die ganze PV-Angabe löschbar.
 - **Tarif**: kein "Tarif behalten" mehr — der Vergleich mit aWATTar läuft immer automatisch; optional ein selbst gefundener zweiter Vergleichstarif, löschbar.
 
-Die früheren Platzhalter-Schritte "KI-Check" und "Abbruchprüfung" im Wizard sind entfernt — der Energieberater lebt als eigenes Popup auf der Projektseite, die Abbruchregel entfiel mit "Tarif behalten".
+Nach der Tarif-Station des letzten Zählpunkts: ein "Fertig"-Abschluss mit Hinweis auf die KI-Energieprüfung + Link zurück zur Projektseite — die früheren Platzhalter "KI-Check"/"Abbruchprüfung" sind vollständig entfernt.
 
 `retail_tariffs` (Lieferanten-Tarifkatalog, Betrieb+Privat, Admin-Pflege unter `/admin/lieferanten-tarife`) existiert als Schema+UI, wird von der Tarif-Station aber NICHT gelesen — bewusste Entscheidung gegen einen Katalog-Vergleich, nur der eine selbst gefundene Tarif zählt.
 
-**Der Energieberater** (Kachel "KI-Prüfung" auf der Projekt-Übersichtsseite, Popup): eigenständiges Gespräch (`kind: 'ki_check'`, getrennt vom Kunden-Chat, eigener System-Prompt über `/admin/ki-prompts` admin-pflegbar). Startet automatisch beim ersten Öffnen. Prüft `check_data_consistency` (Zeitraum-Abgleich Rechnung/Lastgang, interne Lücken) plus eigene fachliche Einschätzung der Plausibilität (Batterie-/PV-Grösse, Tarifwerte, Auffälligkeiten), arbeitet Befunde im Dialog ab — offene Rückfrage oder ausdrückliche Annahme — bis alles geklärt ist. Spricht verständlich, keine internen Bezeichner.
+**Der Energieberater** (Kachel "KI-Prüfung" auf der Projekt-Übersichtsseite, Popup): eigenständiges Gespräch (`kind: 'ki_check'`, getrennt vom Kunden-Chat, eigener System-Prompt über `/admin/ki-prompts` admin-pflegbar). Startet automatisch beim ersten Öffnen. Prüft `check_data_consistency` (Zeitraum-Abgleich, interne Lücken) plus eigene fachliche Einschätzung der Plausibilität (Batterie-/PV-Grösse, Tarifwerte, Auffälligkeiten). Spricht in Sie-Form, nennt keine internen Bezeichner und keine Personennamen. Bestätigungen ohne Datenänderung werden genauso festgehalten wie Annahmen (über `flag_open_question`) — ein späterer Lauf fragt nicht erneut nach bereits geklärten Punkten.
 
-**Weiterhin nicht gebaut:** Engine-Anbindung des Wizard-Entwurfs (rechnet nichts), Rollup-Schicht über mehrere Zählpunkte, Report-Baukasten für den neuen Entwurf, Fragenkatalog-Inhalte, eigene Kostenbremse für den Energieberater-Endpunkt (teilt sich die des Kunden-Chats), ein Erzeugungsprofil zu ersetzen/entfernen (nur einzelne Fläche geht), echter PVGIS-Aufruf nur gemockt verifiziert, echter Batteriekatalog (auf Analyse-Phase verschoben).
+**Projekte sind vom Admin löschbar** (Papierkorb auf der Projektkarte, `admin_delete_project` — kaskadiert auf Nachrichten/Dokumente/Rückfragen/Zählpunkte, Storage-Bytes werden vorher einzeln entfernt).
+
+⚠ **Ein loser Faden:** die Migration zu `admin_delete_project` wurde mangels funktionierendem CLI-Zugang direkt über den Supabase-SQL-Editor in der Cloud angelegt, NICHT über `supabase db push`. Sie fehlt deshalb in Supabase's eigener Migrations-Historie. Der nächste `supabase db push` könnte auf dieser einen Datei mit "existiert bereits" scheitern — dann die Datei einmalig überspringen oder die Historie von Hand nachtragen, nicht neu anlegen.
+
+**Nächster grosser Schritt: der Report-Baukasten (Teil 3)** — bislang unangetastet, nichts davon existiert für den neuen Wizard-Entwurf.
+
+**Weiterhin nicht gebaut:** Engine-Anbindung des Wizard-Entwurfs (rechnet nichts), Rollup-Schicht über mehrere Zählpunkte, Fragenkatalog-Inhalte, eigene Kostenbremse für den Energieberater-Endpunkt (teilt sich die des Kunden-Chats), ein Erzeugungsprofil zu ersetzen/entfernen (nur einzelne Fläche geht), echter PVGIS-Aufruf nur gemockt verifiziert, echter Batteriekatalog (auf Analyse-Phase verschoben), ein Lauf über die echte Oberfläche für die meisten B24-Schritte (durchgängig nur Typen/Logik/Wächter bzw. jsdom-Harness geprüft, kein Playwright).
