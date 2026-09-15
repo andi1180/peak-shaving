@@ -119,6 +119,11 @@ export interface RunProjectChatTurnDeps {
    * dort mit (`buildProjectStateBlock`, `includeMissingToolsNote`) und nicht hier.
    */
   tools?: Anthropic.Tool[]
+  /**
+   * Ob der Zustandsblock den Absatz über fehlende Extraktions-Werkzeuge zeigt. Vorgabe true (Kunden-Chat
+   * unverändert) — der Energieberater setzt false, weil er selbst keine Dokumente liest.
+   */
+  includeMissingToolsNote?: boolean
 }
 
 /**
@@ -313,6 +318,7 @@ export async function runProjectChatTurn(
         documents,
         openQuestions,
         extractors: ports.extractors,
+        includeMissingToolsNote: deps.includeMissingToolsNote ?? true,
       }),
     },
   ]
