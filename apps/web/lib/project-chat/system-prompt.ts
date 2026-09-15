@@ -190,12 +190,12 @@ export function composeSystemPrompt(extension: string | null): string {
  * misst gegen einen realen Dialog und nicht gegen dieses Kommentarfeld — dieselbe Auflage wie beim
  * Kunden-Prompt darüber.
  *
- * ── ⚠ KEIN ERWEITERUNGSMECHANISMUS, BEWUSST ───────────────────────────────────────────────────
- * Der Kunden-Prompt lässt sich über `get_system_prompt_extension` admin-seitig ergänzen
- * (`composeSystemPrompt`). Dieser hier NICHT: er bleibt vorerst ein fester Text. Das ist ein
- * eigener, späterer Bedarf und kein vorgezogener Baustein — ein zweiter Erweiterungsweg ohne
- * Pflege-Oberfläche wäre heute eine Requisite, und welcher gepflegte Text für WELCHE der beiden
- * Rollen gilt, ist eine Frage, die niemand gestellt hat.
+ * ── ERWEITERUNGSMECHANISMUS, SEIT B24 STATION 6 NACHGEZOGEN ───────────────────────────────────
+ * Der Absatz stand hier lange als „bewusst nicht gebaut" — überholt, seit `system_prompt_extensions`
+ * eine `kind`-Spalte trägt und die Admin-Oberfläche beide Rollen pflegt (`ki_check` neben `kunde`).
+ * `composeEnergyAdvisorSystemPrompt` ist der Zwilling von `composeSystemPrompt`, nur mit diesem
+ * Basistext statt `PROJECT_CHAT_SYSTEM_PROMPT` — welcher gepflegte Text für welche Rolle gilt,
+ * entscheidet der Aufrufer über den `kind`, mit dem er die Erweiterung liest.
  *
  * ── DIE ROLLE IST EINE ANDERE, UND DAS TRÄGT DEN GANZEN TEXT ──────────────────────────────────
  * Der Kunden-Chat ERHEBT (freies Gespräch, Segment klären, Werte eintragen). Dieser hier PRÜFT
@@ -247,6 +247,13 @@ export const ENERGY_ADVISOR_SYSTEM_PROMPT = [
   'Grundlagenerklärungen, die niemand angefordert hat, aber auch keine Verkürzung, die eine echte',
   'fachliche Einschätzung verschweigt.',
 ].join('\n')
+
+/** Zwilling von `composeSystemPrompt`, nur mit `ENERGY_ADVISOR_SYSTEM_PROMPT` als Basistext. */
+export function composeEnergyAdvisorSystemPrompt(extension: string | null): string {
+  const text = extension?.trim() ?? ''
+  if (text === '') return ENERGY_ADVISOR_SYSTEM_PROMPT
+  return `${ENERGY_ADVISOR_SYSTEM_PROMPT}\n${EXTENSION_HEADING}${text}`
+}
 
 /**
  * Der wechselnde Teil: was zu DIESEM Projekt gerade bekannt ist.
