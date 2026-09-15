@@ -431,8 +431,20 @@ export interface ProjectChatPorts {
    * beides dasselbe — er läuft mit dem Kern-Prompt weiter, der das Verhalten allein trägt
    * (Funktionskommentar des Wrappers). Ein gescheiterter Lesevorgang eines admin-gepflegten Textes
    * darf das Gespräch eines Kunden nicht abbrechen; er wird stattdessen protokolliert.
+   *
+   * ⚠ `kind` WÄHLT DIE KETTE, NICHT DIE TABELLE. `platform.system_prompt_extensions` führt beide
+   * Stände nebeneinander (Migration 20260915120000), und `kunde` ist dort wie hier der Vorgabewert:
+   * ein Aufruf OHNE Argument liefert unverändert genau den Text, den er vor B24 Station 6 geliefert
+   * hat. Wer den Energieberater-Prompt braucht, fragt danach — er bekommt ihn nicht dadurch, dass er
+   * einen `ki_check`-Verlauf liest.
+   *
+   * ⚠ Bewusst `ChatKind` und nicht `PromptExtensionKind` aus `lib/admin/system-prompt-extensions.ts`
+   * — aus demselben Grund, aus dem die zwei Typen überhaupt getrennt sind (s. der Kommentar an
+   * `ChatKind`): dieser Vertrag trägt ausser Typ-Importen nichts, und ein Import aus dem
+   * Admin-Bereich hängte ihn daran. Dass die zwei Wertemengen heute übereinstimmen, ist ein
+   * Zustand und keine Zusage.
    */
-  loadSystemPromptExtension(): Promise<SystemPromptExtension | null>
+  loadSystemPromptExtension(kind?: ChatKind): Promise<SystemPromptExtension | null>
   /**
    * `public.list_question_catalog` — die heute geltenden Pflichtfragen und Hinweise dieses Projekts.
    *

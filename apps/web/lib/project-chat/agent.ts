@@ -87,6 +87,38 @@ export interface RunProjectChatTurnDeps {
   ports: ProjectChatPorts
   callModel: ChatModelCall
   now?: () => Date
+  /**
+   * Der STABILE Teil des System-Prompts — Block 1, der den Cache-Haltepunkt trägt.
+   *
+   * Weggelassen gilt unverändert `composeSystemPrompt(<heute geltende Erweiterung>)`, also Zeichen
+   * für Zeichen das, was der Kunden-Chat bisher geschickt hat. Gesetzt ERSETZT der Text jene
+   * Berechnung vollständig; er wird nicht an den Kern-Prompt angehängt und nicht um eine
+   * Erweiterung ergänzt.
+   *
+   * ⚠ IST ER GESETZT, WIRD `loadSystemPromptExtension` GAR NICHT ERST GERUFEN. Das ist kein
+   * Sparsamkeitsargument, sondern eine Korrektheitsfrage: der Aufrufer, der seinen Prompt selbst
+   * mitbringt, hat die zu ihm gehörende Kette bereits gelesen — ein Aufruf hier holte den Stand der
+   * ANDEREN und würfe ihn weg.
+   *
+   * ⚠ Der ZUSTANDSBLOCK (Block 2) bleibt davon unberührt und wird weiterhin hier gebaut. Er
+   * beschreibt das Projekt, nicht die Rolle; ihn mit zu überschreiben hiesse, dem Modell die
+   * Zählpunkte, Dokumente und offenen Rückfragen wegzunehmen, für die dieses Gespräch geführt wird.
+   */
+  systemPromptText?: string
+  /**
+   * Die Werkzeugliste dieses Gesprächs.
+   *
+   * Weggelassen gilt unverändert `buildChatTools(ports.extractors)` — also die Liste, in der ein
+   * Werkzeug ohne Port GAR NICHT vorkommt (s. der ⚠-Block in `ports.ts`). Gesetzt ersetzt sie jene
+   * Berechnung vollständig.
+   *
+   * ⚠ WER SIE ÜBERSCHREIBT, ÜBERSCHREIBT NICHT DEN ZUSTANDSBLOCK. Der nennt weiterhin die aus
+   * `ports.extractors` FEHLENDEN Extraktionswerkzeuge — eine Liste, die mit einer eigenen
+   * Werkzeugmenge nichts mehr zu tun hat. Solange der Aufrufer dieselben Extraktoren übergibt, die
+   * seine Werkzeuge brauchen, stimmen beide überein; wer davon abweicht, richtet den Zustandsblock
+   * dort mit (`buildProjectStateBlock`, `includeMissingToolsNote`) und nicht hier.
+   */
+  tools?: Anthropic.Tool[]
 }
 
 /**
@@ -206,7 +238,12 @@ export async function runProjectChatTurn(
   }
   if (rateLimit.status !== 'ok') return { status: 'limit_unavailable' }
 
-  const tools = buildChatTools(ports.extractors)
+  /*
+   * ⚠ DIE VORGABE IST DIE HEUTIGE BERECHNUNG, WORT FÜR WORT. Ein Aufruf ohne `deps.tools` schickt
+   * dieselbe Liste hinaus wie vor diesem Schritt — das ist der Massstab, an dem diese Änderung
+   * gemessen wird, und nicht die neue Möglichkeit.
+   */
+  const tools = deps.tools ?? buildChatTools(ports.extractors)
 
   /*
    * ⚠ DIE ERWEITERUNG WIRD EINMAL JE TURN GELESEN, nicht je Modellaufruf.
@@ -231,7 +268,14 @@ export async function runProjectChatTurn(
     ports.listMeteringPoints(projectId),
     ports.listDocuments(projectId),
     ports.listOpenQuestions(projectId),
-    ports.loadSystemPromptExtension(),
+    /*
+     * ⚠ NUR, WENN DER AUFRUFER KEINEN EIGENEN PROMPT MITBRINGT. Sonst wäre es eine Datenbankfahrt
+     * für einen Text, der gleich verworfen wird — und zwar für den Stand der FALSCHEN Kette: wer
+     * `systemPromptText` setzt, hat die zu ihm gehörende bereits gelesen (s. `deps`).
+     */
+    deps.systemPromptText === undefined
+      ? ports.loadSystemPromptExtension()
+      : Promise.resolve(null),
   ])
 
   /*
@@ -253,7 +297,12 @@ export async function runProjectChatTurn(
        * gehören damit vor den Cache-Haltepunkt. Der Kern steht darin immer zuerst und immer
        * vollständig — dafür sorgt `composeSystemPrompt`, nicht diese Aufrufstelle.
        */
-      text: composeSystemPrompt(promptExtension?.text ?? null),
+      /*
+       * ⚠ DIE VORGABE IST DIE HEUTIGE BERECHNUNG, WORT FÜR WORT — dasselbe wie bei den Werkzeugen
+       * oben. Ohne `deps.systemPromptText` steht hier Zeichen für Zeichen der Text, den der
+       * Kunden-Chat vor diesem Schritt geschickt hat.
+       */
+      text: deps.systemPromptText ?? composeSystemPrompt(promptExtension?.text ?? null),
       cache_control: { type: 'ephemeral' },
     },
     {

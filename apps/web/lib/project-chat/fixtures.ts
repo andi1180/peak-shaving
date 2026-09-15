@@ -423,7 +423,13 @@ export function fakeMeteringPoint(
  * Modells. Ein Test gegen die echte API prüfte beides zugleich und wäre bei jedem Lauf ein anderer.
  */
 export function scriptedModel(turns: Anthropic.ContentBlock[][]) {
-  const seen: { system: string[]; messageCount: number }[] = []
+  /*
+   * ⚠ `toolNames` HÄLT FEST, WAS DEM MODELL TATSÄCHLICH ANGEBOTEN WURDE. Die Werkzeugliste ist seit
+   * B24 Station 6 überschreibbar (`runProjectChatTurn`-Deps), und ob eine übergebene Liste wirklich
+   * hinausgeht, ist von aussen sonst nicht sichtbar — der Lauf verhielte sich mit der Vorgabe und
+   * mit einer eigenen Liste identisch, solange das Drehbuch kein Werkzeug ruft.
+   */
+  const seen: { system: string[]; messageCount: number; toolNames: string[] }[] = []
   let index = 0
 
   const call = async (input: {
@@ -434,6 +440,7 @@ export function scriptedModel(turns: Anthropic.ContentBlock[][]) {
     seen.push({
       system: input.system.map((block) => block.text),
       messageCount: input.messages.length,
+      toolNames: input.tools.map((tool) => tool.name),
     })
     const turn = turns[index]
     index += 1
