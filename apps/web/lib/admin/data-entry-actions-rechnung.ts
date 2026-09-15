@@ -14,6 +14,7 @@ import { setDraftField } from '@/lib/project-chat/draft'
 import { createClient } from '@/lib/supabase/server'
 import { lookupGridTariffDefaults } from './grid-tariff-lookup'
 import {
+  INVOICE_SKIPPED_KEY,
   MAX_INVOICES_PER_UPLOAD,
   draftFieldFor,
   invoiceDraftValues,
@@ -36,6 +37,7 @@ import {
   isForbidden,
   readProjectId,
   statusOf,
+  writeMeteringPointDraftFields,
 } from './data-entry-actions-shared'
 
 // ── Rechnungen ───────────────────────────────────────────────────────────────────────────────────
@@ -252,6 +254,27 @@ export async function uploadMeteringPointInvoicesAction(
      */
     nextDraft = setDraftField(nextDraft, field, value, 'measured', undefined, now)
   }
+
+  /*
+   * ⚠ EIN ECHTER UPLOAD WIDERLEGT EIN FRÜHERES „ohne Rechnungsdaten fortgefahren" — deshalb wird
+   * das Signal hier ausdrücklich auf `false` gesetzt und nicht bloss stehen gelassen.
+   *
+   * Ohne diese Zeile stünden ZWEI Aussagen gleichzeitig im Entwurf: „es gibt bewusst keine
+   * Tarifangabe für diesen Zählpunkt" und eine gelesene Rechnung mit genau diesen Angaben. Ein
+   * späterer Leser (Tarif-Station, Report) müsste raten, welche gilt — und die falsche Antwort
+   * wäre die teure: eine Analyse, die den Kostenvergleich weglässt, obwohl die Werte vorliegen.
+   *
+   * ⚠ Es steht IM SELBEN Schreibvorgang, nicht daneben: `update_metering_point_draft` ERSETZT den
+   * Entwurf; ein zweiter Aufruf gäbe es ein Fenster, in dem genau der widersprüchliche Stand von
+   * oben gespeichert ist.
+   *
+   * ⚠ ABWEICHUNG VON DER AUFTRAGSFORMULIERUNG, offengelegt: der Auftrag nannte
+   * `writeMeteringPointDraftFields`. Diese Action ruft den Helfer NICHT — sie liest den Entwurf
+   * selbst, weil sie zusätzlich `withStoredInvoiceExtractions` anwenden muss (den Seiteneintrag
+   * kann der Helfer nicht schreiben). Die Sache ist dieselbe: EIN Schreibvorgang, dieselbe
+   * Herkunft `measured`, derselbe Zeitstempel.
+   */
+  nextDraft = setDraftField(nextDraft, INVOICE_SKIPPED_KEY, false, 'measured', undefined, now)
 
   const draftRes = await supabase.rpc('update_metering_point_draft', {
     p_metering_point_id: meteringPointId,
@@ -513,9 +536,63 @@ export async function removeMeteringPointInvoiceAction(
   }
 }
 
+// ── Rechnung: bewusst ohne ─────────────────────────────────────────────────────────────────────
+/**
+ * „Ohne Rechnung fortfahren" — der DRITTE Weg der Station, neben Upload und Eintippen.
+ *
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * ⚠ WARUM ES DAFÜR EINE EIGENE ACTION BRAUCHT, OBWOHL SIE NICHTS ERFASST
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * Sie schreibt genau EIN Feld, und der Wert dieses Feldes ist eine ENTSCHEIDUNG, keine Angabe:
+ * „für diesen Zählpunkt gibt es bewusst keine Tarifdaten". Ohne sie ist dieser Fall von „die
+ * Station wurde noch nicht besucht" nicht zu unterscheiden — beide sähen im Entwurf identisch aus
+ * (kein `_invoiceExtractions`, keine Tarifwerte), und der Wizard stellte dieselbe Frage bei jedem
+ * Aufruf erneut. Die ausführliche Begründung samt Gegenüberstellung steht bei `INVOICE_SKIPPED_KEY`
+ * (`invoice-extractions.ts`); hier steht nur, was daraus für den Schreibweg folgt.
+ *
+ * Der Rahmen ist der der Nachbar-Actions (`saveMeteringPointTariffPreferenceAction`,
+ * `saveMeteringPointBatteryAction`): Kennungen prüfen, `writeMeteringPointDraftFields`, fertig.
+ * Ein eigener `list_metering_points` → `setDraftField` → `update_metering_point_draft`-Rahmen wie
+ * oben wäre hier ein Nachbau ohne Anlass — der Helfer deckt genau diesen Fall ab (ein Feld, keine
+ * Seiteneinträge), und sein Rahmen ist derselbe: frisch lesen, EINMAL schreiben, neu rendern.
+ */
+export async function skipMeteringPointInvoiceAction(
+  _prev: AdminState,
+  formData: FormData,
+): Promise<AdminState> {
+  const projectId = readProjectId(formData)
+  if (projectId === null) return { formError: UNKNOWN_PROJECT }
+
+  const meteringPointId = String(formData.get('meteringPointId') ?? '')
+  if (!UUID.test(meteringPointId)) return { formError: GENERIC }
+
+  /*
+   * `true`, nicht das Fehlen des Feldes: die Aussage ist positiv gemeint. `writeMeteringPointDraftFields`
+   * vermerkt sie als `measured` — dieselbe Herkunft wie jede andere Angabe des Kunden, denn „es gibt
+   * keine Rechnung" ist eine Auskunft und keine Schätzung von uns.
+   */
+  const failure = await writeMeteringPointDraftFields(
+    projectId,
+    meteringPointId,
+    [{ field: INVOICE_SKIPPED_KEY, value: true }],
+    'Rechnung übersprungen',
+  )
+  if (failure) return failure
+
+  return {
+    success:
+      'Vermerkt: ohne Rechnungsdaten fortgefahren. Die Analyse rechnet auf Basis des Lastgangs ' +
+      'und ohne Kostenvergleich.',
+  }
+}
+
 // ── Rechnung: Tarifwerte von Hand ────────────────────────────────────────────────────────────────
 /**
- * ⚠ ES SIND JETZT NEUN ACTIONS — und die zwei letzten gehören demselben Formular.
+ * ⚠ DIE ZWEI FOLGENDEN ACTIONS GEHÖREN DEMSELBEN FORMULAR.
+ *
+ * (Hier stand eine Gesamtzahl der Actions. Sie war beim Schreiben richtig und ist es seit dem
+ * dritten weiteren Bauschritt nicht mehr — eine Zahl, die bei jeder neuen Station nachzuziehen
+ * wäre, sagt weniger als das, worauf es ankommt: welche Actions zusammengehören.)
  *
  * Die Rechnung-Station beantwortet bislang genau eine Frage: „PDF da? Dann lese ich sie aus." Der
  * reale Fall daneben ist der Kunde, der am Telefon vorliest — dann gibt es nichts hochzuladen, und
@@ -833,6 +910,19 @@ export async function saveMeteringPointManualTariffAction(
   for (const { field, value } of values) {
     nextDraft = setDraftField(nextDraft, field, value, 'measured', undefined, now)
   }
+
+  /*
+   * ⚠ WIE BEIM UPLOAD: eine von Hand eingetragene Tarifangabe widerlegt ein früheres „ohne
+   * Rechnungsdaten fortgefahren". Ohne diese Zeile stünden beide Aussagen zugleich im Entwurf,
+   * und ein späterer Leser müsste raten, welche gilt — die vollständige Begründung steht in
+   * `uploadMeteringPointInvoicesAction`.
+   *
+   * ⚠ Es geht BEWUSST NICHT über `values`: dort zählt jeder Eintrag als „Angabe des Kunden" (die
+   * Erfolgsmeldung nennt die Zahl, und `values.length === 0` weist ein leeres Formular ab). Das
+   * Signal ist eine Eigenschaft der Station, keine abgetippte Tarifzahl — mitgezählt meldete das
+   * Formular bei einem einzigen eingetippten Wert „2 Angaben wurden übernommen".
+   */
+  nextDraft = setDraftField(nextDraft, INVOICE_SKIPPED_KEY, false, 'measured', undefined, now)
 
   const draftRes = await supabase.rpc('update_metering_point_draft', {
     p_metering_point_id: meteringPointId,
