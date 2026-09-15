@@ -654,16 +654,64 @@ describe('B24 — die Batterie-Station', () => {
     expect(allSources).not.toContain('Investition')
   })
 
-  it('⚠ stellt die Frage auch dann, wenn schon etwas erfasst ist', () => {
+  /*
+   * ⚠ DIESER WÄCHTER HAT SEIN VORZEICHEN GEWECHSELT, und das ist kein Nachgeben.
+   *
+   * Er verlangte bis zum Löschweg das Gegenteil („stellt die Frage AUCH dann, wenn schon etwas
+   * erfasst ist"), mit der Begründung: „dort gibt es einen ausdrücklichen Entfernen-Weg, hier
+   * nicht". Genau diese Voraussetzung ist entfallen — es gibt ihn jetzt. Ersetzt statt gestrichen,
+   * weil die Stelle abgesichert bleiben muss: eine Frage, die nach dem Speichern verschwindet,
+   * WÄRE eine Sackgasse, solange kein Rückweg daneben steht. Der Wächter misst deshalb BEIDES
+   * zusammen — die Frage verschwindet, UND der Löschknopf ist an ihre Stelle getreten.
+   */
+  it('⚠ stellt die Frage NUR, solange nichts erfasst ist — und hat dafür einen Löschweg', () => {
+    // Die Frage selbst, ihre beiden Zweige und die Weiche hängen an derselben Bedingung: `answer`
+    // lebt in `useState` und überlebt den Schreibvorgang — ohne sie stünde das ausgefüllte
+    // Formular weiter unter der frischen Zusammenfassung.
+    expect(source).toContain('Haben Sie bereits einen Batteriespeicher')
+    expect(source).toContain('{!hasSummary && (')
+    expect(source).toContain("{!hasSummary && answer === 'ja' && (")
+    expect(source).toContain("{!hasSummary && answer === 'nein' && (")
+    // ⚠ Der Griff daneben: die Zweige NICHT mitgezogen. Dann wäre die Frage weg und das Formular
+    // stünde weiter da — ein zweiter Ort für dieselben Werte, und der gefährlichere.
+    expect(source).not.toContain("{answer === 'ja' && (")
+    expect(source).not.toContain("{answer === 'nein' && (")
+
+    // Und der Rückweg, ohne den das Verschwinden eine Sackgasse wäre.
+    expect(source).toContain('deleteMeteringPointBatteryAction')
+    expect(source).toContain('Batterie-Angaben löschen')
+    expect(source).toContain('window.confirm(deleteConfirmText(meteringPointNumber))')
+  })
+
+  it('⚠ setzt Weiche und Felder nach dem Löschen zurück', () => {
     /*
-     * Anders als beim Lastgang: dort gibt es einen ausdrücklichen Entfernen-Weg, hier nicht. Wer
-     * sich vertippt oder die Antwort wechselt, muss sie neu geben können — eine Frage, die nach
-     * dem ersten Speichern verschwindet, wäre eine Sackgasse.
+     * `revalidatePath` macht `hasSummary` wieder falsch, die Frage erscheint also erneut — `answer`
+     * stünde ohne das hier weiter auf dem zuletzt gewählten Zweig, und darunter hinge ein
+     * Formular voller Zahlen, die es im Entwurf nicht mehr gibt.
+     *
+     * ⚠ An der OBJEKTIDENTITÄT von `deleteState`, nicht an `hasSummary`: an Letzterem gehängt
+     * feuerte der Effekt auch dann, wenn die Zusammenfassung aus einem anderen Grund leer wird.
      */
-    const question = source.indexOf('Haben Sie bereits einen Batteriespeicher')
-    expect(question).toBeGreaterThan(-1)
-    // Die Zusammenfassung steht DARÜBER und ersetzt die Frage nicht.
-    expect(source.indexOf('hasSummary && <BatterySummary')).toBeLessThan(question)
+    const effect = source.slice(source.indexOf('if (deleteState.success)'))
+    const body = effect.slice(0, effect.indexOf('}, ['))
+    expect(body).toContain('setAnswer(null)')
+    expect(body).toContain('setFields({})')
+    expect(effect).toContain('}, [deleteState])')
+  })
+
+  it('⚠ zeigt „gelöscht" und „übernommen" nie zugleich', () => {
+    /*
+     * Speichern und Löschen sind gegenläufig, und beide `useActionState` behalten ihren Stand über
+     * den jeweils anderen Lauf hinweg. Ohne die Zustandsbedingung stünden nach einem Löschen zwei
+     * Meldungen untereinander, die einander widersprechen.
+     *
+     * FEHLERmeldungen sind ausgenommen und stehen unbedingt da — sie handeln von einem Versuch,
+     * nicht vom Ergebnis; die Gegenprobe darauf steht gleich mit.
+     */
+    expect(source).toContain('{hasSummary && saveState.success &&')
+    expect(source).toContain('{hasSummary && choiceState.success &&')
+    expect(source).toContain('{!hasSummary && deleteState.success &&')
+    expect(source).toContain('{deleteState.formError && <AdminError>')
   })
 
   it('⚠ die Weiche lebt in `useState` und erreicht keine Action', () => {

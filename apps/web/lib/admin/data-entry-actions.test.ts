@@ -88,6 +88,7 @@ vi.mock('@/lib/project-documents/storage', () => ({
 
 const {
   addPvArraysFromScanAction,
+  deleteMeteringPointBatteryAction,
   extractBatteryTextFromAction,
   removeMeteringPointInvoiceAction,
   removeMeteringPointLoadProfileAction,
@@ -100,6 +101,24 @@ const {
   uploadMeteringPointInvoicesAction,
   uploadMeteringPointPvProfileAction,
 } = await import('./data-entry-actions')
+
+/*
+ * ⚠ AUS DEM MODUL, NICHT AUS DEM BARREL — und das ist kein Umweg, sondern die Zusage selbst:
+ * `data-entry-actions.ts` re-exportiert `./data-entry-actions-shared` bewusst NICHT (dort stünde
+ * jeder Helfer über den Barrel erreichbar, obwohl ihn ausserhalb dieses Verzeichnisses niemand
+ * braucht). Ein Test, der ihn über den Barrel zöge, wäre grün — und hätte dabei genau die Grenze
+ * aufgeweicht, die er misst.
+ */
+const { clearMeteringPointDraftFields } = await import('./data-entry-actions-shared')
+
+/*
+ * Die Schlüsselliste kommt aus ihrem Fundort, NICHT abgetippt. Eine zweite Liste im Test liefe
+ * beim ersten zusätzlichen Kenndatenfeld auseinander — und zwar in die harmlose Richtung: der
+ * Test bliebe grün, während der Löschweg das neue Feld stehen liesse. Der Wächter dagegen steht
+ * weiter unten und misst die ABLEITUNG selbst.
+ */
+const { BATTERY_DRAFT_KEYS, BATTERY_VALUE_FIELDS, readBatteryDraft, batteryDraftIsEmpty } =
+  await import('./battery-draft')
 
 const PROJECT_ID = '11111111-2222-4333-8444-555555555555'
 const POINT_ID = '66666666-7777-4888-8999-aaaaaaaaaaaa'
@@ -1121,6 +1140,337 @@ describe('Batterie-Station', () => {
     expect((await saveMeteringPointBatteryAction({}, badPoint)).formError).toBeDefined()
 
     expect(rpc).not.toHaveBeenCalled()
+  })
+})
+
+/**
+ * B24, Teil 1 — der LÖSCHWEG des Entwurfs (`clearMeteringPointDraftFields`).
+ *
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * ⚠ DIE EIGENSCHAFT, DIE SICH NUR HIER PRÜFEN LÄSST: „GELÖSCHT" HEISST, DER SCHLÜSSEL IST WEG
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * Der naheliegende Weg wäre `setDraftField(…, null)` gewesen. Er löscht nichts: der Schlüssel
+ * stünde weiterhin im Entwurf, sein Vermerk weiterhin in `_provenance` — und für jeden Leser ist
+ * das eine ANGABE, keine Fehlanzeige (`readBatteryDraft` unterscheidet „ausdrücklich keine
+ * Anlage" von „dazu ist nichts erfasst", `check_draft_completeness` zählt einen vorhandenen
+ * Schlüssel mit). Genau diese Unterscheidung ist gegen ein GLEICHARTIGES Nachbarfeld messbar:
+ * verschwindet zu viel, fällt es an ihm auf; verschwindet zu wenig, an den Batterie-Schlüsseln.
+ *
+ * Die zweite Eigenschaft ist der geteilte RAHMEN: frisch lesen, EINMAL schreiben, neu rendern.
+ * Er ist seit dem Löschweg herausgelöst und trägt beide Umformungen — die Fehlerfälle gelten
+ * damit für den Schreibweg mit, und ein Rückbau an einer Kopie fiele hier auf.
+ */
+describe('clearMeteringPointDraftFields — Felder wirklich entfernen', () => {
+  /*
+   * ⚠ ZWEI GLEICHARTIGE FELDER MIT VERMERK. Das zweite ist die Positiv-Kontrolle: ohne ein
+   * Nachbarfeld, das denselben Weg genommen hat, bewiese „der Entwurf ist danach leer" nur, dass
+   * überhaupt etwas passiert ist — nicht, dass genau das Genannte verschwindet.
+   */
+  const EXISTING = {
+    existingBatteryCapacityKwh: 19.2,
+    energyPriceCtPerKwh: 24.5,
+    _provenance: {
+      existingBatteryCapacityKwh: { source: 'measured', at: '2026-09-02T08:00:00.000Z' },
+      energyPriceCtPerKwh: { source: 'measured', at: '2026-09-01T10:00:00.000Z' },
+    },
+  }
+
+  beforeEach(() => {
+    draft = JSON.parse(JSON.stringify(EXISTING))
+    withInvoiceWrappers()
+  })
+
+  it('⚠ entfernt Feld UND Vermerk — und lässt das Nachbarfeld nachweislich stehen', async () => {
+    const failure = await clearMeteringPointDraftFields(
+      PROJECT_ID,
+      POINT_ID,
+      ['existingBatteryCapacityKwh'],
+      'Test',
+    )
+
+    expect(failure).toBeNull()
+
+    // Der Schlüssel EXISTIERT nicht mehr — `toBeUndefined` allein liesse ein `{key: undefined}`
+    // durchgehen, und genau das ist der Zustand, den dieser Weg vermeiden soll.
+    expect(draft).not.toHaveProperty('existingBatteryCapacityKwh')
+    const provenance = draft._provenance as Record<string, unknown>
+    expect(provenance).not.toHaveProperty('existingBatteryCapacityKwh')
+
+    // ⚠ POSITIV-KONTROLLE: das gleichartige Nachbarfeld steht unverändert da, mit seinem Vermerk.
+    expect(draft.energyPriceCtPerKwh).toBe(24.5)
+    expect(provenance.energyPriceCtPerKwh).toEqual({
+      source: 'measured',
+      at: '2026-09-01T10:00:00.000Z',
+    })
+
+    // GENAU EIN Schreibvorgang — der Wrapper ERSETZT, zwei Aufrufe nähmen einander die Arbeit weg.
+    expect(rpc.mock.calls.filter(([fn]) => fn === 'update_metering_point_draft')).toHaveLength(1)
+    expect(revalidatePath).toHaveBeenCalledWith(
+      `/admin/kalkulator-projekte/${PROJECT_ID}/dateneingabe`,
+    )
+  })
+
+  it('entfernt `_provenance` selbst, sobald der letzte Vermerk fällt', async () => {
+    await clearMeteringPointDraftFields(
+      PROJECT_ID,
+      POINT_ID,
+      ['existingBatteryCapacityKwh', 'energyPriceCtPerKwh'],
+      'Test',
+    )
+
+    // Ein Seiteneintrag ohne Einträge ist keine Herkunftsangabe — er sieht nur so aus.
+    expect(draft).not.toHaveProperty('_provenance')
+    expect(draft).toEqual({})
+  })
+
+  it('ein Feld ohne Vermerk und ein gar nicht vorhandenes sind kein Fehler', async () => {
+    draft = { existingBatteryCapacityKwh: 19.2, energyPriceCtPerKwh: 24.5 }
+
+    const failure = await clearMeteringPointDraftFields(
+      PROJECT_ID,
+      POINT_ID,
+      // Das erste ist da (ohne Vermerk), das zweite war nie da.
+      ['existingBatteryCapacityKwh', 'existingBatteryPricePerKwh'],
+      'Test',
+    )
+
+    expect(failure).toBeNull()
+    expect(draft).toEqual({ energyPriceCtPerKwh: 24.5 })
+    // Ein Entwurf ohne `_provenance` bekommt auch keines angehängt.
+    expect(draft).not.toHaveProperty('_provenance')
+  })
+
+  it('liest FRISCH statt den Stand des Seitenaufbaus zurückzuschreiben', async () => {
+    /*
+     * `update_metering_point_draft` ERSETZT. Käme der Entwurf aus der Zeit des Renderns, machte
+     * jeder Löschklick jede Angabe rückgängig, die seither dazugekommen ist — etwa eine in einem
+     * zweiten Tab hochgeladene Rechnung. Gemessen an der Reihenfolge der Wrapper-Aufrufe.
+     */
+    await clearMeteringPointDraftFields(PROJECT_ID, POINT_ID, ['existingBatteryCapacityKwh'], 'Test')
+
+    expect(rpc.mock.calls.map(([fn]) => fn)).toEqual([
+      'list_metering_points',
+      'update_metering_point_draft',
+    ])
+  })
+
+  it('meldet eine entzogene Rolle beim Namen — beim Lesen wie beim Schreiben', async () => {
+    // (a) schon das Lesen scheitert
+    rpc.mockResolvedValue({ data: null, error: { code: '42501', message: 'denied' } })
+    const onRead = await clearMeteringPointDraftFields(PROJECT_ID, POINT_ID, ['x'], 'Test')
+    expect(onRead?.formError).toBe('Keine Berechtigung. Bitte laden Sie die Seite neu.')
+
+    // (b) gelesen wird, geschrieben nicht — der Entwurf bleibt dabei unangetastet.
+    rpc.mockReset()
+    rpc.mockImplementation(async (fn: string) => {
+      if (fn === 'list_metering_points') {
+        return { data: { status: 'ok', metering_points: [{ id: POINT_ID, draft }] }, error: null }
+      }
+      return { data: null, error: { code: '42501', message: 'denied' } }
+    })
+    const onWrite = await clearMeteringPointDraftFields(
+      PROJECT_ID,
+      POINT_ID,
+      ['existingBatteryCapacityKwh'],
+      'Test',
+    )
+
+    expect(onWrite?.formError).toBe('Keine Berechtigung. Bitte laden Sie die Seite neu.')
+    expect(draft).toEqual(EXISTING)
+    expect(revalidatePath).not.toHaveBeenCalled()
+  })
+
+  it('weist einen unbekannten Zählpunkt ab, ohne etwas zu schreiben', async () => {
+    const failure = await clearMeteringPointDraftFields(
+      PROJECT_ID,
+      // Formal gültig, in der Liste nicht enthalten.
+      '99999999-8888-4777-8666-555555555555',
+      ['existingBatteryCapacityKwh'],
+      'Test',
+    )
+
+    expect(failure?.formError).toContain('Diesen Zählpunkt gibt es nicht')
+    expect(rpc.mock.calls.filter(([fn]) => fn === 'update_metering_point_draft')).toHaveLength(0)
+    expect(draft).toEqual(EXISTING)
+    expect(revalidatePath).not.toHaveBeenCalled()
+  })
+
+  it('behandelt eine unerwartete Wrapper-Antwort als Fehlschlag, nicht als Erfolg', async () => {
+    rpc.mockImplementation(async (fn: string) => {
+      if (fn === 'list_metering_points') {
+        return { data: { status: 'ok', metering_points: [{ id: POINT_ID, draft }] }, error: null }
+      }
+      // Kein `error`, aber auch kein `ok` — ohne die Statusprüfung liefe das als Erfolg durch.
+      return { data: { status: 'not_found' }, error: null }
+    })
+
+    const failure = await clearMeteringPointDraftFields(
+      PROJECT_ID,
+      POINT_ID,
+      ['existingBatteryCapacityKwh'],
+      'Test',
+    )
+
+    expect(failure?.formError).toBe('Das hat nicht geklappt. Bitte versuchen Sie es erneut.')
+    expect(revalidatePath).not.toHaveBeenCalled()
+  })
+})
+
+/**
+ * B24, Teil 1 — die Batterie-Angaben wieder ENTFERNEN.
+ *
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * ⚠ ALLE SECHS SCHLÜSSEL, NICHT NUR DIE VIER KENNDATEN
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * Bliebe `hasBattery: true` stehen, läse der Entwurf danach als „es GIBT einen Speicher, die
+ * Kenndaten sind nur noch nicht erfasst" — eine positive Aussage über eine Anlage, zu der nichts
+ * mehr dasteht, und die teurere der zwei möglichen Fehlrichtungen: `check_draft_completeness`
+ * meldete eine Lücke, die es gar nicht gibt, und die Station stellte ihre Frage nicht erneut.
+ *
+ * Die zweite Eigenschaft ist der Durchstich bis zur ANZEIGE: nach dem Löschen muss
+ * `readBatteryDraft` „nichts erfasst" melden — genau daran hängt, dass die Ja/Nein-Frage der
+ * Station wieder erscheint.
+ */
+describe('deleteMeteringPointBatteryAction', () => {
+  /** Ein vollständig erfasster Speicher neben einer Angabe der Rechnungs-Station. */
+  const EXISTING = {
+    hasBattery: true,
+    wantsBatteryRecommendation: false,
+    existingBatteryCapacityKwh: 19.2,
+    existingBatteryMaxPowerKw: 10.6,
+    existingBatteryRoundTripEfficiencyPercent: 90,
+    existingBatteryPricePerKwh: 640,
+    energyPriceCtPerKwh: 24.5,
+    _provenance: {
+      hasBattery: { source: 'measured', at: '2026-09-02T08:00:00.000Z' },
+      wantsBatteryRecommendation: { source: 'measured', at: '2026-09-02T08:00:00.000Z' },
+      existingBatteryCapacityKwh: { source: 'measured', at: '2026-09-02T08:00:00.000Z' },
+      existingBatteryMaxPowerKw: { source: 'measured', at: '2026-09-02T08:00:00.000Z' },
+      existingBatteryRoundTripEfficiencyPercent: {
+        source: 'measured',
+        at: '2026-09-02T08:00:00.000Z',
+      },
+      existingBatteryPricePerKwh: { source: 'measured', at: '2026-09-02T08:00:00.000Z' },
+      energyPriceCtPerKwh: { source: 'measured', at: '2026-09-01T10:00:00.000Z' },
+    },
+  }
+
+  function deleteForm(overrides: Record<string, string> = {}): FormData {
+    const fd = new FormData()
+    fd.set('projectId', PROJECT_ID)
+    fd.set('meteringPointId', POINT_ID)
+    for (const [key, value] of Object.entries(overrides)) fd.set(key, value)
+    return fd
+  }
+
+  beforeEach(() => {
+    draft = JSON.parse(JSON.stringify(EXISTING))
+    withInvoiceWrappers()
+  })
+
+  it('⚠ DIE LISTE IST ABGELEITET, NICHT ABGESCHRIEBEN', () => {
+    /*
+     * Der Wächter gegen die eine Änderung, die sonst still danebenginge: wer `BATTERY_VALUE_FIELDS`
+     * um ein fünftes Kenndatenfeld erweitert, erweitert damit AUTOMATISCH den Löschweg. Eine von
+     * Hand gepflegte zweite Liste liesse das neue Feld stehen — die Station zeigte danach eine
+     * Zusammenfassung mit genau einem Wert darin, und niemand könnte sagen, woher er kommt.
+     */
+    for (const entry of BATTERY_VALUE_FIELDS) {
+      expect(BATTERY_DRAFT_KEYS, entry.field).toContain(entry.field)
+    }
+    // Die zwei Ja/Nein-Felder kommen dazu — und sonst nichts.
+    expect(BATTERY_DRAFT_KEYS).toHaveLength(BATTERY_VALUE_FIELDS.length + 2)
+    expect(BATTERY_DRAFT_KEYS).toContain('hasBattery')
+    expect(BATTERY_DRAFT_KEYS).toContain('wantsBatteryRecommendation')
+  })
+
+  it('⚠ löscht ALLE sechs Batterie-Schlüssel samt Vermerken — und nur die', async () => {
+    const state = await deleteMeteringPointBatteryAction({}, deleteForm())
+
+    expect(state.formError).toBeUndefined()
+    expect(state.success).toBe('Batterie-Angaben gelöscht.')
+
+    // Gezählt statt aufgezählt: kein einziger der sechs Schlüssel ist übrig.
+    for (const key of BATTERY_DRAFT_KEYS) {
+      expect(draft, key).not.toHaveProperty(key)
+    }
+    const provenance = draft._provenance as Record<string, unknown>
+    for (const key of BATTERY_DRAFT_KEYS) {
+      expect(provenance, key).not.toHaveProperty(key)
+    }
+
+    // ⚠ POSITIV-KONTROLLE: die Rechnungs-Station ist unberührt, samt ihrem Vermerk.
+    expect(draft.energyPriceCtPerKwh).toBe(24.5)
+    expect(provenance.energyPriceCtPerKwh).toEqual({
+      source: 'measured',
+      at: '2026-09-01T10:00:00.000Z',
+    })
+    // Und es bleibt wirklich nur das eine Feld plus sein Vermerk übrig.
+    expect(Object.keys(draft).sort()).toEqual(['_provenance', 'energyPriceCtPerKwh'])
+
+    expect(rpc.mock.calls.filter(([fn]) => fn === 'update_metering_point_draft')).toHaveLength(1)
+    expect(revalidatePath).toHaveBeenCalledWith(
+      `/admin/kalkulator-projekte/${PROJECT_ID}/dateneingabe`,
+    )
+  })
+
+  it('⚠ danach meldet die Zusammenfassung „nichts erfasst" — die Frage erscheint wieder', async () => {
+    // Vorher trägt sie nachweislich etwas — ohne diese Zeile bewiese die Gegenprobe nichts.
+    expect(batteryDraftIsEmpty(readBatteryDraft(draft))).toBe(false)
+
+    await deleteMeteringPointBatteryAction({}, deleteForm())
+
+    const summary = readBatteryDraft(draft)
+    expect(batteryDraftIsEmpty(summary)).toBe(true)
+    /*
+     * ⚠ `null`, NICHT `false`. Die Zusammenfassung normalisiert einen fehlenden Schlüssel auf
+     * `null` = „dazu steht nichts im Entwurf"; `false` hiesse „ausdrücklich keine Anlage" bzw.
+     * „ausdrücklich kein Vorschlag" — eine ANGABE, und damit ein Stand, der die Frage gerade NICHT
+     * wieder erscheinen liesse. Genau diese Unterscheidung trägt der Löschweg, und sie ist nur
+     * deshalb hier messbar, weil der Ausgangsstand ein echtes `false` enthielt.
+     */
+    expect(summary.hasBattery).toBeNull()
+    expect(summary.wantsRecommendation).toBeNull()
+  })
+
+  it('ein „nein"-Zweig allein wird ebenso vollständig entfernt', async () => {
+    // Der reale zweite Zustand: nur die Empfehlungs-Antwort steht im Entwurf.
+    draft = {
+      wantsBatteryRecommendation: true,
+      energyPriceCtPerKwh: 24.5,
+      _provenance: {
+        wantsBatteryRecommendation: { source: 'measured', at: '2026-09-02T08:00:00.000Z' },
+        energyPriceCtPerKwh: { source: 'measured', at: '2026-09-01T10:00:00.000Z' },
+      },
+    }
+
+    const state = await deleteMeteringPointBatteryAction({}, deleteForm())
+
+    expect(state.success).toBe('Batterie-Angaben gelöscht.')
+    expect(draft).not.toHaveProperty('wantsBatteryRecommendation')
+    expect(draft.energyPriceCtPerKwh).toBe(24.5)
+  })
+
+  it('meldet eine entzogene Rolle, ohne den Entwurf anzufassen', async () => {
+    rpc.mockResolvedValue({ data: null, error: { code: '42501', message: 'denied' } })
+
+    const state = await deleteMeteringPointBatteryAction({}, deleteForm())
+
+    expect(state.formError).toBe('Keine Berechtigung. Bitte laden Sie die Seite neu.')
+    expect(state.success).toBeUndefined()
+    expect(draft).toEqual(EXISTING)
+    expect(revalidatePath).not.toHaveBeenCalled()
+  })
+
+  it('fragt die Datenbank bei einer formverletzenden Kennung gar nicht erst', async () => {
+    const badProject = deleteForm({ projectId: 'kein-uuid' })
+    expect((await deleteMeteringPointBatteryAction({}, badProject)).formError).toBeDefined()
+
+    const badPoint = deleteForm({ meteringPointId: 'kein-uuid' })
+    expect((await deleteMeteringPointBatteryAction({}, badPoint)).formError).toBeDefined()
+
+    expect(rpc).not.toHaveBeenCalled()
+    expect(draft).toEqual(EXISTING)
   })
 })
 

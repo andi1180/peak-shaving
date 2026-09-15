@@ -8,7 +8,12 @@
  */
 
 import { revalidatePath } from 'next/cache'
-import { setDraftField, type DraftValue } from '@/lib/project-chat/draft'
+import {
+  DRAFT_PROVENANCE_KEY,
+  readDraftProvenance,
+  setDraftField,
+  type DraftValue,
+} from '@/lib/project-chat/draft'
 import { createClient } from '@/lib/supabase/server'
 import { readMeteringPointList } from './metering-points'
 import { projectDataEntryHref } from './projects'
@@ -74,30 +79,29 @@ export const AUSTRIA_TIME_ZONE = 'Europe/Vienna'
 /** Nur PDF — die API erwartet den `document`-Block mit genau diesem Medientyp. */
 export const PDF_MEDIA_TYPE = 'application/pdf'
 
+
 /**
- * Der gemeinsame Schreibweg in den Entwurf eines Zählpunkts: frisch lesen, Werte hineinfalten,
- * EINMAL schreiben.
+ * Der gemeinsame RAHMEN beider Entwurfs-Wege: frisch lesen, umformen, EINMAL schreiben, die
+ * Station neu rendern lassen.
  *
- * ⚠ ER HIESS BIS ZUR PV-STATION `writeBatteryDraft`, und der Name war schon damals zu eng: der
- * Rumpf kennt keine Batterie, er faltet eine Liste von Feldern in den Entwurf. Mit der PV-Station
- * hat er einen dritten Aufrufer, der mit Batterien nichts zu tun hat — umbenannt statt von dort
- * aus einen `…BatteryDraft` zu rufen, was jeden Leser über die Zuständigkeit täuschte.
+ * ⚠ ER IST HERAUSGELÖST, WEIL ES SEIT DEM BATTERIE-LÖSCHWEG ZWEI UMFORMUNGEN GIBT — Felder
+ * hineinfalten und Felder entfernen. Der Rahmen ist für beide Wort für Wort derselbe (dieselbe
+ * Fehlerbehandlung, dieselbe Zählpunkt-Prüfung, derselbe `revalidatePath`); zweimal ausgeschrieben
+ * liefe er beim ersten Umbau auseinander, und zwar an der unauffälligsten Stelle: eine der beiden
+ * Kopien vergässe das Neurendern, und die Station zeigte weiter einen Stand, den es nicht mehr
+ * gibt. Was sich unterscheidet, ist ausschliesslich `transform`.
  *
  * ⚠ FRISCH LESEN IST PFLICHT, nicht Vorsicht: `update_metering_point_draft` ERSETZT den Entwurf
  * (bewusst — eine flache Verschmelzung könnte einen Schlüssel nie wieder entfernen). Wer einen
  * Stand aus der Zeit des Seitenaufbaus hineingibt, macht jede Angabe rückgängig, die seither
  * dazugekommen ist — etwa eine in einem zweiten Tab hochgeladene Rechnung.
  *
- * `measured` für alle: der Admin trägt ein, was der Kunde über SEINE Anlage sagt. Als Annahme
- * gekennzeichnet trüge die Angabe dauerhaft den Vorbehalt einer Schätzung, und der Report wiese
- * sie bis zum Schluss als unsicher aus (Delta §3.2).
- *
  * @returns `null`, wenn geschrieben wurde — sonst der Fehlerzustand für das Formular.
  */
-export async function writeMeteringPointDraftFields(
+async function updateMeteringPointDraft(
   projectId: string,
   meteringPointId: string,
-  values: { field: string; value: DraftValue }[],
+  transform: (draft: Record<string, unknown>) => Record<string, unknown>,
   context: string,
 ): Promise<AdminState | null> {
   const supabase = await createClient()
@@ -116,16 +120,10 @@ export async function writeMeteringPointDraftFields(
     return { formError: 'Diesen Zählpunkt gibt es nicht (mehr). Bitte laden Sie die Seite neu.' }
   }
 
-  let nextDraft = point.draft
-  const now = new Date()
-  for (const { field, value } of values) {
-    nextDraft = setDraftField(nextDraft, field, value, 'measured', undefined, now)
-  }
-
   const draftRes = await supabase.rpc('update_metering_point_draft', {
     p_metering_point_id: meteringPointId,
     // Zusicherung wie in den übrigen Entwurf-Schreibwegen: zur Laufzeit dasselbe.
-    p_draft: nextDraft as Json,
+    p_draft: transform(point.draft) as Json,
   })
 
   if (draftRes.error) {
@@ -141,4 +139,93 @@ export async function writeMeteringPointDraftFields(
   // Die Station zeigt den erfassten Stand aus der DATENBANK — s. Kopf dieser Datei.
   revalidatePath(projectDataEntryHref(projectId))
   return null
+}
+
+/**
+ * Werte in den Entwurf eines Zählpunkts falten.
+ *
+ * ⚠ ER HIESS BIS ZUR PV-STATION `writeBatteryDraft`, und der Name war schon damals zu eng: der
+ * Rumpf kennt keine Batterie, er faltet eine Liste von Feldern in den Entwurf. Mit der PV-Station
+ * hat er einen dritten Aufrufer, der mit Batterien nichts zu tun hat — umbenannt statt von dort
+ * aus einen `…BatteryDraft` zu rufen, was jeden Leser über die Zuständigkeit täuschte.
+ *
+ * `measured` für alle: der Admin trägt ein, was der Kunde über SEINE Anlage sagt. Als Annahme
+ * gekennzeichnet trüge die Angabe dauerhaft den Vorbehalt einer Schätzung, und der Report wiese
+ * sie bis zum Schluss als unsicher aus (Delta §3.2).
+ *
+ * @returns `null`, wenn geschrieben wurde — sonst der Fehlerzustand für das Formular.
+ */
+export async function writeMeteringPointDraftFields(
+  projectId: string,
+  meteringPointId: string,
+  values: { field: string; value: DraftValue }[],
+  context: string,
+): Promise<AdminState | null> {
+  const now = new Date()
+  return updateMeteringPointDraft(
+    projectId,
+    meteringPointId,
+    (draft) => {
+      let next = draft
+      for (const { field, value } of values) {
+        next = setDraftField(next, field, value, 'measured', undefined, now)
+      }
+      return next
+    },
+    context,
+  )
+}
+
+/**
+ * Felder aus dem Entwurf eines Zählpunkts ENTFERNEN — samt ihrer Herkunfts-Vermerke.
+ *
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * ⚠ WARUM DAS KEIN `setDraftField(…, null)` SEIN DARF
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * Der naheliegende Weg wäre, den Wert auf `null` zu setzen und alles Übrige gleich zu lassen. Das
+ * löscht nichts: der SCHLÜSSEL stünde weiterhin im Entwurf, und sein Vermerk stünde weiterhin in
+ * `_provenance` — nur mit leerem Inhalt. Für jeden Leser ist das eine ANGABE, keine Fehlanzeige.
+ *
+ * Es geht dabei nicht um Kosmetik, sondern um genau die Unterscheidung, die dieser Entwurf überall
+ * sonst mit Sorgfalt trägt: `readBatteryDraft` liest `hasBattery === false` als „ausdrücklich keine
+ * Anlage" und ein fehlendes Feld als „dazu ist nichts erfasst" (`battery-draft.ts`), und
+ * `check_draft_completeness` zählt einen vorhandenen Schlüssel mit. Ein genulltes Feld landete
+ * damit im schlechtesten aller Zustände — gelöscht gemeint, als Aussage gelesen. Deshalb: `delete`,
+ * und „gelöscht" heisst, der Schlüssel existiert nicht mehr.
+ *
+ * ⚠ `DraftValue` KANN `null` GAR NICHT TRAGEN (`number | string | boolean`) — der falsche Weg wäre
+ * also ohnehin eine Aufweichung dieses Typs gewesen, und die hätte JEDEN Schreibweg betroffen.
+ *
+ * Ein leer gewordenes `_provenance` wird selbst entfernt, aus demselben Grund: ein Seiteneintrag
+ * ohne Einträge ist keine Herkunftsangabe, er sieht nur so aus.
+ *
+ * @returns `null`, wenn geschrieben wurde — sonst der Fehlerzustand für das Formular.
+ */
+export async function clearMeteringPointDraftFields(
+  projectId: string,
+  meteringPointId: string,
+  fields: readonly string[],
+  context: string,
+): Promise<AdminState | null> {
+  return updateMeteringPointDraft(
+    projectId,
+    meteringPointId,
+    (draft) => {
+      const next: Record<string, unknown> = { ...draft }
+      /*
+       * Gelesen und normalisiert wie in `setDraftField` — die Vermerke der ÜBRIGEN Felder wandern
+       * dadurch in derselben Form zurück, in der jeder Schreibweg sie hinterlässt. Sie bleiben
+       * nachweislich stehen; entfernt wird ausschliesslich, was `fields` nennt.
+       */
+      const provenance = readDraftProvenance(draft)
+      for (const field of fields) {
+        delete next[field]
+        delete provenance[field]
+      }
+      if (Object.keys(provenance).length > 0) next[DRAFT_PROVENANCE_KEY] = provenance
+      else delete next[DRAFT_PROVENANCE_KEY]
+      return next
+    },
+    context,
+  )
 }
