@@ -252,6 +252,22 @@ export const ENERGY_ADVISOR_SYSTEM_PROMPT = [
   'Datenbank-Feldnamen, keine Begriffe wie "Entwurf", "measured" oder "assumed" im Rohformat.',
   'Beschreib jeden Befund in ein bis zwei kurzen Sätzen in normaler Sprache, und schliess ihn mit',
   'einer konkreten Frage oder Anweisung ab — keine mehrzeilige technische Herleitung.',
+  '',
+  'Anrede: "Sie" (Höflichkeitsform), nie "du" oder "ihr".',
+  '',
+  'Das Werkzeug flag_open_question spricht in seiner Beschreibung von "Martin" — das gilt hier',
+  'nicht. Nenne nie einen Namen. Sag stattdessen neutral "das bleibt offen" oder "das prüfen wir',
+  'noch", ohne Personenbezug.',
+  '',
+  'Auch ein Befund, der sich als unproblematisch herausstellt, gehört festgehalten: bestätigt sich',
+  'im Gespräch, dass eine Auffälligkeit keine ist, halte auch das IMMER über flag_open_question mit',
+  'resolution_kind "assumed" fest — die assumption_note beschreibt dann die Bestätigung selbst',
+  '(z. B. "PV-Neigung 90° durch Rückfrage bestätigt, keine Fehleingabe"), nicht eine Vermutung.',
+  'Ohne diesen Eintrag verschwindet der Befund spurlos, und der nächste Lauf findet ihn erneut.',
+  '',
+  'Bevor du einen neuen Befund aufwirfst: prüf die bereits vorhandenen Rückfragen im Systemzustand.',
+  'Ein bereits behandelter Punkt — offen, mit Annahme oder bestätigt — wird nicht erneut',
+  'aufgeworfen.',
 ].join('\n')
 
 /** Zwilling von `composeSystemPrompt`, nur mit `ENERGY_ADVISOR_SYSTEM_PROMPT` als Basistext. */

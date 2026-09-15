@@ -103,4 +103,11 @@ describe('ENERGY_ADVISOR_SYSTEM_PROMPT', () => {
   it('weist auf kundenfreundliche Sprache statt interner Bezeichner hin', () => {
     expect(ENERGY_ADVISOR_SYSTEM_PROMPT).toMatch(/nicht wie ein Entwickler/)
   })
+
+  it('siezt, nennt nie den Namen aus flag_open_question, speichert Bestätigungen und meidet Doppelfragen', () => {
+    expect(ENERGY_ADVISOR_SYSTEM_PROMPT).toMatch(/"Sie" \(Höflichkeitsform\)/)
+    expect(ENERGY_ADVISOR_SYSTEM_PROMPT).toMatch(/Nenne nie einen Namen/)
+    expect(ENERGY_ADVISOR_SYSTEM_PROMPT).toMatch(/auch das IMMER über flag_open_question mit/)
+    expect(ENERGY_ADVISOR_SYSTEM_PROMPT).toMatch(/bereits vorhandenen Rückfragen im Systemzustand/)
+  })
 })

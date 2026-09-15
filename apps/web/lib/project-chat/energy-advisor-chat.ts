@@ -42,6 +42,7 @@ export async function sendEnergyAdvisorMessage(
       callModel: callProjectChatModel,
       systemPromptText: composeEnergyAdvisorSystemPrompt(extension?.text ?? null),
       tools: buildEnergyAdvisorTools(),
+      includeMissingToolsNote: false,
     },
     [],
     'ki_check',

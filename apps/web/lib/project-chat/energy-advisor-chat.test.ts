@@ -61,4 +61,11 @@ describe('als Admin', () => {
     expect(attached).toEqual([])
     expect(kind).toBe('ki_check')
   })
+
+  it('⚠ setzt includeMissingToolsNote auf false — der Kunden-Chat-Aufruf (chat.ts) setzt es gar nicht', async () => {
+    await sendEnergyAdvisorMessage(PROJECT, 'Wie steht der Datenstand?')
+
+    const [, , deps] = runProjectChatTurn.mock.calls[0]!
+    expect(deps.includeMissingToolsNote).toBe(false)
+  })
 })
