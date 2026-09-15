@@ -2,6 +2,7 @@
 
 import {
   TARIFF_COMPARISON_BASE_FEE_KEY,
+  TARIFF_COMPARISON_DRAFT_KEYS,
   TARIFF_COMPARISON_ENERGY_PRICE_KEY,
   TARIFF_COMPARISON_PRICE_BASES,
   TARIFF_COMPARISON_PRICE_BASIS_KEY,
@@ -15,6 +16,7 @@ import {
   GENERIC,
   UNKNOWN_PROJECT,
   UUID,
+  clearMeteringPointDraftFields,
   readProjectId,
   writeMeteringPointDraftFields,
 } from './data-entry-actions-shared'
@@ -153,4 +155,39 @@ export async function saveMeteringPointTariffComparisonAction(
   if (failure) return failure
 
   return { success: `Vermerkt: Vergleich mit ${providerName}.` }
+}
+
+/**
+ * Den eingetragenen Vergleichstarif wieder entfernen — ALLE VIER Felder gemeinsam.
+ *
+ * ⚠ WARUM DIE VIER NICHT EINZELN LÖSCHBAR SIND: `currentComparison` (die Leseseite) gibt `null`
+ * zurück, sobald EINES der vier fehlt. Bliebe eines stehen, verschwände die Zusammenfassung
+ * trotzdem — und mit ihr der Löschknopf, der das übrige Feld noch hätte entfernen können. Der
+ * Zählpunkt trüge danach dauerhaft einen halben Vergleich, den keine Oberfläche mehr anzeigt und
+ * kein Weg mehr erreicht. Die Liste steht deshalb als EINE Konstante neben den vier Schlüsseln
+ * (`TARIFF_COMPARISON_DRAFT_KEYS`), nicht hier abgeschrieben.
+ *
+ * Kein neuer Löschhelfer: `clearMeteringPointDraftFields` (PR #223) entfernt benannte Schlüssel
+ * samt ihrer `_provenance`-Vermerke und liest den Entwurf dafür frisch — genau der Rahmen, den der
+ * Löschweg der Batterie- und der PV-Station schon benutzt.
+ */
+export async function deleteMeteringPointTariffComparisonAction(
+  _prev: AdminState,
+  formData: FormData,
+): Promise<AdminState> {
+  const projectId = readProjectId(formData)
+  if (projectId === null) return { formError: UNKNOWN_PROJECT }
+
+  const meteringPointId = String(formData.get('meteringPointId') ?? '')
+  if (!UUID.test(meteringPointId)) return { formError: GENERIC }
+
+  const failure = await clearMeteringPointDraftFields(
+    projectId,
+    meteringPointId,
+    TARIFF_COMPARISON_DRAFT_KEYS,
+    'Vergleichstarif löschen',
+  )
+  if (failure) return failure
+
+  return { success: 'Vergleichstarif gelöscht.' }
 }
