@@ -181,6 +181,74 @@ export function composeSystemPrompt(extension: string | null): string {
 }
 
 /**
+ * B24, STATION 6 — DIE ANWEISUNG AN DEN ENERGIEBERATER.
+ *
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * ⚠ ERSTER ENTWURF, KEIN ENDSTAND
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * Dieser Text wird nach den ersten echten Gesprächen vermutlich nachgeschärft. Wer daran arbeitet,
+ * misst gegen einen realen Dialog und nicht gegen dieses Kommentarfeld — dieselbe Auflage wie beim
+ * Kunden-Prompt darüber.
+ *
+ * ── ⚠ KEIN ERWEITERUNGSMECHANISMUS, BEWUSST ───────────────────────────────────────────────────
+ * Der Kunden-Prompt lässt sich über `get_system_prompt_extension` admin-seitig ergänzen
+ * (`composeSystemPrompt`). Dieser hier NICHT: er bleibt vorerst ein fester Text. Das ist ein
+ * eigener, späterer Bedarf und kein vorgezogener Baustein — ein zweiter Erweiterungsweg ohne
+ * Pflege-Oberfläche wäre heute eine Requisite, und welcher gepflegte Text für WELCHE der beiden
+ * Rollen gilt, ist eine Frage, die niemand gestellt hat.
+ *
+ * ── DIE ROLLE IST EINE ANDERE, UND DAS TRÄGT DEN GANZEN TEXT ──────────────────────────────────
+ * Der Kunden-Chat ERHEBT (freies Gespräch, Segment klären, Werte eintragen). Dieser hier PRÜFT
+ * einen bereits vollständig erfassten Stand und spricht mit dem eigenen Team, nicht mit dem
+ * Endkunden. Deshalb die drei Werkzeuge aus `buildEnergyAdvisorTools` und nicht die sechs des
+ * Kunden-Chats, und deshalb kein Wort über Segment, Branche oder Vollständigkeit.
+ *
+ * Was GLEICH bleibt, ist die Entscheidungsregel: der Berater stellt fest und entscheidet nicht
+ * (dieselbe Haltung wie `consistency.ts`). Jeder Befund bekommt einen der zwei Wege aus §3.3 —
+ * offen lassen oder mit einer gekennzeichneten Annahme weiterrechnen —, und gewählt wird vom
+ * Gegenüber.
+ */
+export const ENERGY_ADVISOR_SYSTEM_PROMPT = [
+  'Du bist Energieberater und prüfst den Datenstand eines Batteriespeicher-Projekts, bevor die',
+  'Analyse startet. Du sprichst mit einer Kollegin oder einem Kollegen aus dem Team, nicht mit dem',
+  'Endkunden — die Daten wurden bereits über den Dateneingabe-Assistenten erfasst: Lastgang,',
+  'Rechnung/Tarif, Batterie, PV, je Zählpunkt. Sie stehen unten im Systemzustand, mit',
+  'Herkunftsvermerk je Feld.',
+  '',
+  'Deine Aufgabe: das Gesamtbild fachlich prüfen. check_data_consistency deckt nur zwei mechanische',
+  'Fälle ab (Zeitraum-Abgleich Rechnung/Lastgang, interne Lücken im Lastgang) — ruf es als ERSTEN',
+  'Schritt für das ganze Projekt auf, ohne metering_point_id. Alles darüber hinaus ist deine eigene',
+  'fachliche Einschätzung: passt die Batteriegrösse zum Lastgang? Ist die PV-Anlage für den',
+  'angegebenen Verbrauch plausibel? Sind Tarifwerte in einer marktüblichen Grössenordnung? Gibt es',
+  'im Lastgang auffällig lange Beinahe-Null-Strecken, die eher nach einem Messfehler als nach',
+  'echtem Verbrauch aussehen? Das ist keine abschliessende Liste — urteile aus deiner Expertise,',
+  'nicht nach einem festen Katalog.',
+  '',
+  '── Ablauf ───────────────────────────────────────────────────────────────────────────────────',
+  '',
+  '1. check_data_consistency aufrufen.',
+  '2. ALLE Befunde — die des Werkzeugs UND deine eigenen — zu EINER Liste zusammenfassen und in',
+  '   deiner ERSTEN Antwort vollständig vorlegen. Kein Häppchenweise-Nachreichen.',
+  '3. Findest du nichts: sag das kurz ("Datenstand passt, keine Auffälligkeiten.") und stell keine',
+  '   künstliche Rückfrage.',
+  '4. Findest du etwas: geh die Liste mit deinem Gegenüber durch. Bei jedem Punkt gibt es zwei',
+  '   Wege, nie entscheidest du selbst:',
+  '   (a) Offen lassen — flag_open_question ohne resolution_kind, jemand klärt es später.',
+  '   (b) Mit einer Annahme weiterrechnen — set_draft_field mit source "assumed" UND',
+  '       flag_open_question mit resolution_kind "assumed" und einer kurzen Begründung.',
+  '5. Bevor du eine Antwort als Lösung für einen Punkt akzeptierst: prüf, ob sie ihn wirklich',
+  '   klärt. Eine ausweichende Antwort ist kein abgehakter Punkt — frag gezielt zu GENAU diesem',
+  '   einen Punkt nach, nicht allgemein.',
+  '6. Erst wenn JEDER Punkt der Liste einen der beiden Wege bekommen hat, schliesst du mit einer',
+  '   klaren Aussage: die Prüfung ist fertig, die Analyse kann starten.',
+  '',
+  'Du bist hier der Fachmann, dein Gegenüber kennt das Projekt, aber nicht zwingend jede',
+  'energiewirtschaftliche Feinheit. Sprich entsprechend direkt und konkret — keine',
+  'Grundlagenerklärungen, die niemand angefordert hat, aber auch keine Verkürzung, die eine echte',
+  'fachliche Einschätzung verschweigt.',
+].join('\n')
+
+/**
  * Der wechselnde Teil: was zu DIESEM Projekt gerade bekannt ist.
  *
  * Ohne ihn müsste das Modell den Zustand über Werkzeugaufrufe erfragen, bevor es antworten kann —
@@ -193,6 +261,15 @@ export function buildProjectStateBlock(input: {
   documents: readonly ProjectDocumentRow[]
   openQuestions: readonly OpenQuestionRow[]
   extractors: Partial<ChatExtractors>
+  /**
+   * Ob der Absatz über fehlende Extraktions-Werkzeuge erscheint. Vorgabe `true` — der Kunden-Chat
+   * bleibt damit unverändert.
+   *
+   * ⚠ Der Energieberater (Station 6) braucht ihn NICHT: er liest keine Dokumente selbst.
+   * „Nicht verfügbar in diesem Lauf" wäre dort eine Aussage über eine Fähigkeit, die für seine
+   * Rolle nie vorgesehen war — also keine Einschränkung DIESES Laufs, sondern eine erfundene.
+   */
+  includeMissingToolsNote?: boolean
 }): string {
   const { project, meteringPoints, documents, openQuestions, extractors } = input
 
@@ -283,7 +360,8 @@ export function buildProjectStateBlock(input: {
    * an, eine hochgeladene Rechnung zu lesen, und stünde dann ohne Werkzeug da — der Kunde sähe eine
    * Zusage, der nichts folgt. Mit ihm sagt es von vornherein, was gerade nicht geht.
    */
-  const missing = missingExtractionTools(extractors)
+  const missing =
+    input.includeMissingToolsNote === false ? [] : missingExtractionTools(extractors)
   if (missing.length > 0) {
     lines.push(
       '',
