@@ -26,6 +26,7 @@ import { GRID_TARIFFS_HREF } from './grid-tariffs'
 import { RETAIL_TARIFFS_HREF } from './retail-tariffs'
 import { OPEN_QUESTIONS_HREF } from './open-questions'
 import { PROJECTS_HREF } from './projects'
+import { SYSTEM_PROMPT_EXTENSIONS_HREF } from './system-prompt-extensions'
 
 export type AdminNavItem = {
   href: string
@@ -121,4 +122,15 @@ export const ADMIN_NAV_ITEMS: readonly AdminNavItem[] = [
    * Kundenfälle, für die gerechnet wird.
    */
   { href: PROJECTS_HREF, label: 'Kalkulator-Projekte' },
+  /*
+   * B24 (Station 6): die admin-pflegbaren Ergänzungen der System-Prompts — Kunden-Chat und
+   * Energieberater. Eigener Punkt und ausdrücklich KEIN Unterpfad von „Kalkulator": die
+   * Präfix-Regel der Aktiv-Markierung markierte sonst beide gleichzeitig (dieselbe Falle wie bei
+   * „Kalkulator-Anfragen", B18-4, und bei „Netzbetreiber-Tarife", B21-2b).
+   *
+   * Fachlich sind es ohnehin zwei Dinge: dort wird gerechnet, hier steht der Text, der ein
+   * Gespräch führt. Und er gehört auch nicht unter „Kalkulator-Projekte" — er gilt für ALLE
+   * Projekte, nicht für eines.
+   */
+  { href: SYSTEM_PROMPT_EXTENSIONS_HREF, label: 'KI-Prompts' },
 ] as const
