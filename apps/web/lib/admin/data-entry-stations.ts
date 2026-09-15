@@ -62,13 +62,7 @@ export type MeteringPointStepId = (typeof METERING_POINT_STEPS)[number]['id']
 export const SEGMENT_STATION_ID = 'segment'
 export const METERING_POINT_COUNT_STATION_ID = 'zaehlpunkte'
 
-export type StationKind =
-  | 'segment'
-  | 'zaehlpunkte'
-  | 'zaehlpunkt-schritt'
-  | 'ki-check'
-  | 'abbruchpruefung'
-  | 'ende'
+export type StationKind = 'segment' | 'zaehlpunkte' | 'zaehlpunkt-schritt' | 'ende'
 
 export type Station = {
   /** Der Wert, der in `?station=` steht. */
@@ -150,14 +144,11 @@ export function buildStations({
   }
 
   /*
-   * Die drei Abschluss-Stationen hängen an der GESAMTHEIT der Zählpunkte, nicht an einem einzelnen
-   * — deshalb stehen sie hinter der Schleife und nicht darin. Der Auftrag nennt die erste
-   * „AI-Check"; sie heisst hier `ki-check`, weil jede andere Kennung dieses Wizards deutsch ist
-   * (`zaehlpunkte`, `abbruchpruefung`) und eine einzelne englische Ausnahme beim Lesen der URL
-   * jedes Mal stolpern liesse. Gemeint ist dieselbe Station.
+   * Die Abschluss-Station hängt an der GESAMTHEIT der Zählpunkte, nicht an einem einzelnen —
+   * deshalb steht sie hinter der Schleife und nicht darin. Der Energieberater lebt als eigenes
+   * Popup auf der Projektseite (nicht mehr als Wizard-Schritt); eine Abbruchregel gibt es seit dem
+   * Wegfall von „Tarif behalten" nicht mehr.
    */
-  stations.push({ id: 'ki-check', kind: 'ki-check', title: 'KI-Check' })
-  stations.push({ id: 'abbruchpruefung', kind: 'abbruchpruefung', title: 'Abbruchprüfung' })
   stations.push({ id: 'ende', kind: 'ende', title: 'Fertig' })
 
   return stations
