@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { isCurrentUserAdmin } from '@/lib/admin/guard'
 import { Container } from '@/components/ui/layout'
 import { AdminError, AdminPanel, AdminSection, Pill, formatDateTime } from '@/components/admin/ui'
+import { EnergyAdvisorDialog } from '@/components/admin/energy-advisor-dialog'
 import {
   PROJECTS_HREF,
   projectDataEntryHref,
@@ -11,6 +12,8 @@ import {
   readAdminProject,
 } from '@/lib/admin/projects'
 import { OPEN_QUESTIONS_PROJECT_HREF } from '@/lib/admin/open-questions'
+import { loadProjectMessages } from '@/lib/project-chat/supabase-ports'
+import { visibleTranscript } from '@/lib/project-chat/transcript'
 
 /*
  * `/admin/kalkulator-projekte/[id]` — der Projektkopf (B24, Teil 1 Schritt 1).
@@ -88,6 +91,8 @@ export default async function AdminProjectDetailPage({
   }
 
   const segment = projectSegmentLabel(project.segment)
+  const kiCheckMessages = await loadProjectMessages(project.id, 'ki_check')
+  const kiCheckTranscript = visibleTranscript(kiCheckMessages)
 
   return (
     <Container className="py-10 sm:py-14">
@@ -183,6 +188,22 @@ export default async function AdminProjectDetailPage({
               Dateneingabe öffnen
             </Link>
           </p>
+        </AdminPanel>
+      </AdminSection>
+
+      <AdminSection
+        id="ki-pruefung"
+        title="KI-Prüfung"
+        description="Der Energieberater prüft die erfassten Angaben dieses Projekts gegen den Lastgang."
+      >
+        <AdminPanel>
+          <p className="max-w-prose text-small text-text-muted">
+            Läuft unabhängig vom Stand der Zählpunkte — die Prüfung öffnet sich auch dann, wenn die
+            Dateneingabe noch nicht vollständig ist.
+          </p>
+          <div className="mt-4">
+            <EnergyAdvisorDialog projectId={project.id} initialTranscript={kiCheckTranscript} />
+          </div>
         </AdminPanel>
       </AdminSection>
 
