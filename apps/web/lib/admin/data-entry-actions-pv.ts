@@ -7,7 +7,7 @@ import {
   checkPvGeneratorEligibility,
   extractPvArrayText,
   extractPvDesign,
-  fetchPvArrayReferenceProfile,
+  generateEstimatedPvSeries,
   readPvProfile,
   type PvGeneratorEligibilityOutcome,
 } from 'extractors'
@@ -1198,7 +1198,9 @@ export async function saveProjectPostalCodeAction(
  * ⚠ WAS HIER ENTSTEHT, IST EINE SCHÄTZUNG — UND SIE WIRD AUCH SO GESPEICHERT
  * ══════════════════════════════════════════════════════════════════════════════════════════════
  * Der Entwurf bekommt die Kennzahlen mit `source: 'assumed'` und einer Begründung, nicht mit
- * `'measured'`. Das ist der GANZE Unterschied zum Upload-Weg zwei Funktionen weiter oben, und er
+ * `'measured'`. Die Erzeugungsreihe selbst wird als Dokument ABGELEGT (`pvGeneratedDocumentId`) —
+ * einmal gerechnet, nicht bei jeder Analyse neu geholt: ein zweiter PVGIS-Abruf könnte andere
+ * Wetterjahre tragen und schriebe eine bereits abgegebene Auslegung still um (B14-1 Regel a). Das ist der GANZE Unterschied zum Upload-Weg zwei Funktionen weiter oben, und er
  * ist der Grund, warum diese Action ihren Schreibvorgang selbst führt statt
  * `writeMeteringPointDraftFields` zu rufen: jener Helfer schreibt ausdrücklich `'measured'`, mit
  * einer eigenen Begründung („der Admin trägt ein, was der Kunde über SEINE Anlage sagt"). Sie
@@ -1237,10 +1239,13 @@ export async function saveProjectPostalCodeAction(
  * Konstruktion keine Einspeisung (es ist eine reine Verbrauchskurve). Dort gibt es nichts zu
  * öffnen und nichts zu prüfen.
  *
- * ── DIE REIHENFOLGE: ERST ALLE PRÜFUNGEN, DANN DER EXTERNE ABRUF, DANN EIN SCHREIBVORGANG ─────
+ * ── DIE REIHENFOLGE: ERST ALLE PRÜFUNGEN, DANN DER EXTERNE ABRUF, DANN DIE SCHREIBVORGÄNGE ────
  * Jeder Abbruchgrund liegt VOR dem ersten PVGIS-Aufruf. Ein Lauf, der an einer fehlenden Neigung
  * scheitert, soll einen fremden, kostenlosen Dienst nicht mit N Anfragen belasten — und die
  * Frequenzgrenze des Abrufs (`takePvReferenceRateLimitSlot`) ist knapp bemessen.
+ *
+ * ⚠ ES SIND SEIT DER ABLAGE DER REIHE ZWEI SCHREIBVORGÄNGE: erst die Datei, dann der Entwurf, der
+ * auf sie zeigt (s. Schritt 5). Scheitert der erste, wird auch der zweite nicht ausgeführt.
  *
  * ⚠ EIN FEHLSCHLAG EINER EINZIGEN FLÄCHE BRICHT ALLES AB, und nichts wird gespeichert. Aus
  * demselben Grund wie oben: die Summe über die übrigen Flächen wäre eine plausible Zahl mit
@@ -1393,6 +1398,13 @@ export async function generatePvProfileAction(
    * Ein echtes Standardprofil hat nichts zu prüfen: es ist eine synthetische Verbrauchskurve und
    * trägt per Konstruktion keine Einspeisung.
    */
+  /*
+   * ⚠ DIE DATEI WIRD HIER GELESEN UND WEITERGEREICHT, nicht zweimal geholt. Sie beantwortet zwei
+   * verschiedene Fragen: „liegt bereits eine gemessene Einspeisung vor?" (jetzt) und „auf welche
+   * Zeitstempel wird die geschätzte Reihe gelegt?" (in Schritt 4). Ein zweiter
+   * `readProjectDocument`-Aufruf lüde bis zu 20 MB ein zweites Mal aus der Ablage.
+   */
+  let loadProfileFile: { bytes: ArrayBuffer; fileName: string } | null = null
   if (point.sourceDocumentId !== null) {
     const document = await readProjectDocument(point.sourceDocumentId)
     if (!document.ok) {
@@ -1408,32 +1420,47 @@ export async function generatePvProfileAction(
     if (!eligibility.offered) {
       return { formError: pvGeneratorRefusalText(eligibility) }
     }
+
+    loadProfileFile = { bytes: document.bytes, fileName: document.filename }
   }
 
-  // ── Schritt 4: PVGIS. Je Fläche ein Abruf — zwei verschieden ausgerichtete Flächen haben eine
-  //    andere Tagesform als eine gemittelte (s. Kopf von `pv-estimate.ts`).
-  const outcomes = await Promise.all(
-    designs.map((design) =>
-      fetchPvArrayReferenceProfile({
-        ...design,
-        latitudeDeg: centroid.lat,
-        longitudeDeg: centroid.lon,
-      }),
-    ),
-  )
+  /*
+   * ── Schritt 4: PVGIS + die abzulegende Reihe ────────────────────────────────────────────────
+   * EIN Aufruf für alle Flächen: er fragt PVGIS je Fläche einzeln (zwei verschieden ausgerichtete
+   * Flächen haben eine andere Tagesform als eine gemittelte, s. Kopf von `pv-estimate.ts`),
+   * summiert die Stundenreihen und legt die Summe auf die ECHTEN Zeitstempel des Lastgangs.
+   *
+   * ⚠ DIE 8.760 STUNDENWERTE JE FLÄCHE BLEIBEN DABEI IM PAKET. Heraus kommen die Kennzahlen für
+   * den Entwurf und EINE fertig serialisierte Datei für die Ablage.
+   */
+  const seriesOutcome = await generateEstimatedPvSeries({
+    designs: designs.map((design) => ({
+      ...design,
+      latitudeDeg: centroid.lat,
+      longitudeDeg: centroid.lon,
+    })),
+    loadProfile: loadProfileFile,
+  })
 
-  const summaries = []
-  for (const [index, outcome] of outcomes.entries()) {
-    if (!outcome.ok) {
-      console.error(
-        `[admin/dateneingabe] fetchPvArrayReferenceProfile (Fläche ${index + 1}):`,
-        outcome.reason,
-        outcome.reason === 'invalid_request' ? outcome.rejection : '',
-      )
-      return { formError: pvReferenceFailureText(outcome.reason, index + 1) }
+  if (!seriesOutcome.ok) {
+    if (seriesOutcome.reason === 'load_profile_unreadable') {
+      console.error('[admin/dateneingabe] Lastgang nicht lesbar (PV-Schätzung)')
+      return {
+        formError:
+          'Die Lastgang-Datei dieses Zählpunkts liess sich nicht auswerten, obwohl sie beim ' +
+          'Hochladen gelesen wurde. Ohne ihre Zeitstempel lässt sich keine Erzeugungsreihe ' +
+          'ablegen — es wurde nichts gerechnet und nichts gespeichert.',
+      }
     }
-    summaries.push(outcome.summary)
+    console.error(
+      `[admin/dateneingabe] generateEstimatedPvSeries (Fläche ${seriesOutcome.arrayNumber}):`,
+      seriesOutcome.reason,
+      seriesOutcome.reason === 'invalid_request' ? seriesOutcome.rejection : '',
+    )
+    return { formError: pvReferenceFailureText(seriesOutcome.reason, seriesOutcome.arrayNumber) }
   }
+
+  const summaries = seriesOutcome.summaries
 
   /*
    * ⚠ ERST JE WETTERJAHR SUMMIEREN, DANN ZUSAMMENFASSEN — die tragende Regel von `pv-estimate.ts`.
@@ -1453,7 +1480,44 @@ export async function generatePvProfileAction(
    */
   const weatherYears = summaries[0]!.weatherYears
 
-  // ── Schritt 5: schreiben. Entwurf FRISCH lesen — zwischen Schritt 1 und hier liegen Sekunden.
+  /*
+   * ── Schritt 5: die Reihe ablegen ────────────────────────────────────────────────────────────
+   * ⚠ ZUERST DIE DATEI, DANN DER ZEIGER IM ENTWURF — dieselbe Reihenfolge und dieselbe Begründung
+   * wie in `uploadProjectDocument` (dort ausführlich): der schlimmste Rest ist eine Datei, auf die
+   * niemand verweist; andersherum stünde eine Kennung im Entwurf, zu der es nichts zu holen gibt.
+   *
+   * ⚠ SCHEITERT DIE ABLAGE, WIRD NICHTS GESPEICHERT — auch nicht die Kennzahlen. Ein Entwurf mit
+   * geschätztem Jahresertrag ohne die Reihe dahinter sähe vollständig aus, und der nächste Schritt
+   * (die Analyse) fände die Erzeugung nicht, auf die die Zahl sich beruft. Die PVGIS-Abrufe sind
+   * dann vergeblich gewesen; das ist der kleinere Schaden.
+   *
+   * ⚠ OHNE HOCHGELADENEN LASTGANG ENTSTEHT KEINE DATEI (Standardprofil-Zweig, s.
+   * `generateEstimatedPvSeries`): dort fehlen die echten Zeitstempel. Die Kennzahlen entstehen
+   * trotzdem — der Zustand ist derselbe wie vor diesem Schritt.
+   */
+  let generatedDocumentId: string | null = null
+  if (seriesOutcome.file !== null) {
+    const bytes = new TextEncoder().encode(seriesOutcome.file.text)
+    const upload = await uploadProjectDocument(projectId, {
+      name: seriesOutcome.file.filename,
+      type: seriesOutcome.file.contentType,
+      bytes: bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer,
+    })
+
+    if (!upload.ok) {
+      if (upload.reason === 'not_found') return { formError: UNKNOWN_PROJECT }
+      console.error('[admin/dateneingabe] uploadProjectDocument (PV-Schätzung):', upload.reason)
+      return {
+        formError:
+          'Die geschätzte Erzeugungsreihe liess sich nicht ablegen. Es wurde nichts gespeichert — ' +
+          'bitte erneut versuchen.',
+      }
+    }
+
+    generatedDocumentId = upload.documentId
+  }
+
+  // ── Schritt 6: schreiben. Entwurf FRISCH lesen — zwischen Schritt 1 und hier liegen Sekunden.
   const freshRes = await supabase.rpc('list_metering_points', { p_project_id: projectId })
   if (freshRes.error) {
     if (isForbidden(freshRes.error)) return { formError: FORBIDDEN }
@@ -1485,6 +1549,7 @@ export async function generatePvProfileAction(
       spreadPercent: combined.spread.spreadPercent,
       weatherYears,
     },
+    documentId: generatedDocumentId,
   })) {
     // `assumed` samt Begründung — s. Kopf. Der Vorbehalt gehört an die Zahl, nicht in eine Meldung.
     nextDraft = setDraftField(nextDraft, field, value, 'assumed', note, now)
@@ -1514,7 +1579,11 @@ export async function generatePvProfileAction(
       `Erzeugung geschätzt: rund ${formatKwh(combined.spread.meanKwh)} im Jahr ` +
       `(± ${formatPercent(combined.spread.spreadPercent)} über die Wetterjahre ` +
       `${weatherYears.from}–${weatherYears.to}), aus ` +
-      `${designs.length === 1 ? 'einer Modulfläche' : `${designs.length} Modulflächen`}.`,
+      `${designs.length === 1 ? 'einer Modulfläche' : `${designs.length} Modulflächen`}.` +
+      (seriesOutcome.file === null
+        ? ' Die Erzeugungsreihe selbst wurde nicht abgelegt: dafür braucht es einen hochgeladenen ' +
+          'Lastgang mit echten Zeitstempeln.'
+        : ` Die Erzeugungsreihe ist abgelegt (${seriesOutcome.file.readingCount.toLocaleString('de-AT')} Werte).`),
   }
 }
 
