@@ -2,14 +2,17 @@
 
 import { useState } from 'react'
 import { AlertTriangle, BatteryCharging, CheckCircle2, Loader2, Sparkles } from 'lucide-react'
-import { buildExistingBatteryCandidate, type BatteryTextExtraction } from 'shared'
+import {
+  ASSUMED_EXISTING_ROUND_TRIP_EFFICIENCY,
+  buildExistingBatteryCandidate,
+  type BatteryTextExtraction,
+} from 'shared'
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { readBatteryText, type BatteryTextResponse } from '@/lib/battery-text/actions'
-import { ASSUMED_EXISTING_ROUND_TRIP_EFFICIENCY } from '@/lib/constants'
 import type { ExistingBatteryInput } from './types'
 
 /**

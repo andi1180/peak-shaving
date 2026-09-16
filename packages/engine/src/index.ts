@@ -27,3 +27,6 @@ export type {
   ParsedPv,
   TariffResult,
 } from './compute-analysis'
+// D3 Baustein 2 (16.09.2026): die Bestandsbatterie des Wizard-Entwurfs wird zu
+// `ExistingBatteryInput` — Gegenstück zu `mapDraftToTariffParams`, ebenso rein.
+export { mapDraftToExistingBatteryInput } from './battery-draft-mapping'

@@ -2,15 +2,20 @@ import 'server-only'
 
 import {
   computeAnalysis,
+  mapDraftToExistingBatteryInput,
   mapDraftToTariffParams,
   parseLoadProfile,
+  parsePvProfile,
   type CalculatorPayload,
   type DraftTariffMappingOptions,
+  type ParsedPv,
 } from 'engine'
 import {
   DEMO_BATTERY_CATALOG,
   DRAFT_ANALYSIS_HORIZON_YEARS,
   findUnsupportedAnalysisDraftKeys,
+  PV_GENERATED_PROFILE_SOURCE,
+  PV_UPLOAD_DRAFT_KEYS,
   type AnalysisResult,
 } from 'shared'
 
@@ -99,6 +104,10 @@ export class MeteringPointAnalysisError extends Error {
       | 'file_too_large'
       | 'load_profile_needs_mapping'
       | 'load_profile_unreadable'
+      | 'pv_document_not_found'
+      | 'pv_file_too_large'
+      | 'pv_profile_needs_mapping'
+      | 'pv_profile_unreadable'
       | 'unsupported_draft',
     message: string,
   ) {
@@ -108,18 +117,18 @@ export class MeteringPointAnalysisError extends Error {
 }
 
 /**
- * Rechnet einen Zählpunkt durch: Entwurf holen, Lastgang-Datei holen und parsen, Tarifparameter
- * abbilden, `computeAnalysis` aufrufen.
+ * Rechnet einen Zählpunkt durch: Entwurf holen, Lastgang- und (falls vorhanden) PV-Datei holen und
+ * parsen, Tarif- und Bestandsbatterie-Angaben abbilden, `computeAnalysis` aufrufen.
  *
- * ── ⚠ WAS DIESER BAUSTEIN NOCH NICHT KANN, UND WARUM ER DARAN ABBRICHT ────────────────────────
- * PV und Bestandsbatterie werden NICHT verarbeitet. Sie einfach wegzulassen wäre die gefährlichere
- * Variante: das Ergebnis sähe vollständig aus und kennte die halbe Anlage des Kunden nicht — eine
- * bestehende Batterie hat ihre Ersparnis bereits im Lastgang, eine geschätzte PV-Erzeugung
- * verschiebt jeden einzelnen Netzbezugswert. Stehen solche Angaben im Entwurf, bricht der Lauf mit
- * den betroffenen Feldern ab (`findUnsupportedAnalysisDraftKeys`, `shared`).
+ * ── ⚠ WAS DIESER WEG NOCH NICHT KANN, UND WARUM ER DARAN ABBRICHT ─────────────────────────────
+ * Eine GESCHÄTZTE PV-Erzeugung (PVGIS, `pvProfileSource: 'generated'`) wird NICHT verarbeitet: sie
+ * hat keine Datei, die sich lesen liesse, und ihre Kurve entstünde zur Rechenzeit neu. Sie
+ * wegzulassen wäre die gefährlichere Variante — das Ergebnis sähe vollständig aus und kennte die
+ * Erzeugung des Kunden nicht, obwohl sie jeden einzelnen Netzbezugswert verschiebt. Steht sie im
+ * Entwurf, bricht der Lauf mit den betroffenen Feldern ab (`findUnsupportedAnalysisDraftKeys`).
  *
- * ⚠ AUCH DAS ERZEUGTE STANDARDPROFIL IST NOCH KEIN EINGANG: es hat keine Datei, und die Kurve
- * entstünde aus dem Jahresverbrauch im Entwurf neu. Das ist ein eigener Weg mit eigener
+ * ⚠ AUCH DAS ERZEUGTE STANDARDPROFIL IST NOCH KEIN EINGANG: es hat ebenfalls keine Datei, und die
+ * Kurve entstünde aus dem Jahresverbrauch im Entwurf neu. Das ist ein eigener Weg mit eigener
  * Kennzeichnung im Report, kein Sonderfall dieses hier.
  */
 export async function runAnalysisFromMeteringPointDraft(
@@ -144,7 +153,7 @@ export async function runAnalysisFromMeteringPointDraft(
   if (unsupported.length > 0) {
     throw new MeteringPointAnalysisError(
       'unsupported_draft',
-      'PV-/Bestandsbatterie-Angaben im Entwurf vorhanden, von diesem Baustein noch nicht ' +
+      'Geschätzte PV-Erzeugung im Entwurf vorhanden, von diesem Weg noch nicht ' +
         `unterstützt: ${unsupported.join(', ')}. Die Analyse wird deshalb NICHT gerechnet — ` +
         'ohne diese Angaben wäre sie unvollständig und sähe vollständig aus.',
     )
@@ -158,33 +167,13 @@ export async function runAnalysisFromMeteringPointDraft(
     )
   }
 
-  const document = await ports.readDocument(point.sourceDocumentId)
-  if (document === null) {
-    throw new MeteringPointAnalysisError(
-      'document_not_found',
-      `Die Lastgang-Datei (${point.sourceDocumentId}) ist nicht (mehr) lesbar.`,
-    )
-  }
-
-  if (document.bytes.byteLength > MAX_LOAD_PROFILE_FILE_BYTES) {
-    throw new MeteringPointAnalysisError(
-      'file_too_large',
-      `Die Lastgang-Datei ist grösser als ${MAX_LOAD_PROFILE_FILE_BYTES} Bytes.`,
-    )
-  }
-
-  /*
-   * ⚠ CSV MUSS ALS TEXT HEREINKOMMEN, XLSX ALS BYTES — dieselbe Regel wie im Lastgang-Leser und in
-   * der Anbietbarkeits-Prüfung nebenan, dort ausführlich begründet: `extractTable` entscheidet
-   * daran, welchen Weg es nimmt, und die Unterscheidung fällt am DATEINAMEN, weil der
-   * `content_type` eines Dokuments eine Angabe des Browsers ist.
-   */
-  const isXlsx = /\.xlsx?$/i.test(document.filename.trim())
-  const parsed = parseLoadProfile({
-    content: isXlsx ? document.bytes : new TextDecoder().decode(document.bytes),
-    fileName: document.filename,
-    format: isXlsx ? 'xlsx' : 'csv',
+  const document = await readParsableDocument(ports, point.sourceDocumentId, {
+    label: 'Lastgang-Datei',
+    notFound: 'document_not_found',
+    tooLarge: 'file_too_large',
   })
+
+  const parsed = parseLoadProfile(document)
 
   if (!parsed.ok) {
     /*
@@ -208,11 +197,11 @@ export async function runAnalysisFromMeteringPointDraft(
   }
 
   /*
-   * ⚠ DIE NICHT GESETZTEN FELDER SIND DIE AUSSAGE DIESES BAUSTEINS. `pv: null` heisst „keine
-   * Brutto-PV in der Rechnung"; `existingBattery`, `financial`, `tariffPricing` und `estimatedPv`
-   * bleiben `undefined` und damit bei dem Verhalten, das `computeAnalysis` für „nicht angefordert"
-   * vorsieht (keine Förderrechnung, kein Tarifoptimierungs-Hebel, kein Bestandsblock). Ein
-   * Platzhalter an einer dieser Stellen wäre eine Behauptung über etwas, das nie erhoben wurde.
+   * ⚠ DIE NICHT GESETZTEN FELDER SIND DIE AUSSAGE DIESES WEGS. `financial`, `tariffPricing` und
+   * `estimatedPv` bleiben `undefined` und damit bei dem Verhalten, das `computeAnalysis` für „nicht
+   * angefordert" vorsieht (keine Förderrechnung, kein Tarifoptimierungs-Hebel, keine geschätzte
+   * Erzeugung). Ein Platzhalter an einer dieser Stellen wäre eine Behauptung über etwas, das nie
+   * erhoben wurde. `pv: null` heisst dasselbe für die Brutto-PV: keine Datei, keine Reihe.
    *
    * ⚠ `sourceBytes` reist bewusst NICHT mit: es dient allein der Prüfsumme des Analyse-Bündels
    * (B14-2), und dieser Weg exportiert keines. Mitgeführt hielte es die volle Datei zusätzlich zum
@@ -221,11 +210,12 @@ export async function runAnalysisFromMeteringPointDraft(
   const payload: CalculatorPayload = {
     tariff: mapDraftToTariffParams(point.draft, options),
     load: {
-      fileName: document.filename,
+      fileName: document.fileName,
       profile: parsed.profile,
       dataQuality: parsed.dataQuality,
     },
-    pv: null,
+    pv: await readPvProfileFromDraft(point.draft, ports),
+    existingBattery: mapDraftToExistingBatteryInput(point.draft),
   }
 
   return computeAnalysis(
@@ -233,4 +223,100 @@ export async function runAnalysisFromMeteringPointDraft(
     options.horizonYears ?? DRAFT_ANALYSIS_HORIZON_YEARS,
     DEMO_BATTERY_CATALOG,
   )
+}
+
+/**
+ * Eine Datei aus der Ablage, fertig für einen Parser der Engine.
+ *
+ * ⚠ CSV MUSS ALS TEXT HEREINKOMMEN, XLSX ALS BYTES — dieselbe Regel wie im Lastgang-Leser und in
+ * der Anbietbarkeits-Prüfung nebenan, dort ausführlich begründet: `extractTable` entscheidet daran,
+ * welchen Weg es nimmt, und die Unterscheidung fällt am DATEINAMEN, weil der `content_type` eines
+ * Dokuments eine Angabe des Browsers ist.
+ *
+ * ⚠ EINE FUNKTION FÜR BEIDE DATEIEN, und die Abbrüche kommen als Parameter herein: Lastgang und
+ * PV-Reihe werden identisch geholt und identisch vorbereitet, aber ein Aufrufer muss auseinander
+ * halten können, WELCHE der beiden fehlt. Zweimal ausgeschrieben liefe die Format-Entscheidung
+ * auseinander — und eine PV-XLSX-Datei käme als Text an, wo sie als Bytes gehört.
+ */
+async function readParsableDocument(
+  ports: MeteringPointAnalysisPorts,
+  documentId: string,
+  labels: {
+    label: string
+    notFound: MeteringPointAnalysisError['reason']
+    tooLarge: MeteringPointAnalysisError['reason']
+  },
+): Promise<{ content: string | ArrayBuffer; fileName: string; format: 'csv' | 'xlsx' }> {
+  const document = await ports.readDocument(documentId)
+  if (document === null) {
+    throw new MeteringPointAnalysisError(
+      labels.notFound,
+      `Die ${labels.label} (${documentId}) ist nicht (mehr) lesbar.`,
+    )
+  }
+
+  if (document.bytes.byteLength > MAX_LOAD_PROFILE_FILE_BYTES) {
+    throw new MeteringPointAnalysisError(
+      labels.tooLarge,
+      `Die ${labels.label} ist grösser als ${MAX_LOAD_PROFILE_FILE_BYTES} Bytes.`,
+    )
+  }
+
+  const isXlsx = /\.xlsx?$/i.test(document.filename.trim())
+  return {
+    content: isXlsx ? document.bytes : new TextDecoder().decode(document.bytes),
+    fileName: document.filename,
+    format: isXlsx ? 'xlsx' : 'csv',
+  }
+}
+
+/**
+ * Die HOCHGELADENE Brutto-PV-Erzeugung eines Zählpunkts — `null` heisst „keine Reihe in dieser
+ * Rechnung".
+ *
+ * ── ⚠ DREI BEDINGUNGEN, UND JEDE EINZELNE IST EIN ECHTER ZUSTAND DER STATION ──────────────────
+ * `hasPv` muss beantwortet und bejaht sein; die Herkunft darf nicht `'generated'` lauten (die
+ * sperrt den Lauf schon weiter oben, hier steht sie als zweites Netz); und es muss eine
+ * Dokument-Kennung geben. Fehlt allein die Kennung, ist die Frage mit „ja" beantwortet und die
+ * Datei noch nicht eingelesen — dann wird OHNE Brutto-PV gerechnet, wie im öffentlichen Rechner
+ * ohne PV-Upload. Die Modulflächen (`_pvArrays`) allein ergeben keine Erzeugungsreihe.
+ *
+ * ⚠ EIN LESE- ODER PARSE-FEHLER BRICHT AB, statt wie im Rechner als `pvError` weitergereicht zu
+ * werden. Dort steht ein Mensch davor, der die Meldung sieht und weiterklicken darf; hier läuft die
+ * Rechnung ohne Aufsicht, und eine still übergangene Erzeugungsreihe ergäbe genau das Ergebnis, das
+ * vollständig aussieht und die halbe Anlage nicht kennt.
+ */
+async function readPvProfileFromDraft(
+  draft: Record<string, unknown>,
+  ports: MeteringPointAnalysisPorts,
+): Promise<ParsedPv | null> {
+  if (draft[PV_UPLOAD_DRAFT_KEYS.present] !== true) return null
+  if (draft[PV_UPLOAD_DRAFT_KEYS.profileSource] === PV_GENERATED_PROFILE_SOURCE) return null
+
+  const documentId = draft[PV_UPLOAD_DRAFT_KEYS.sourceDocumentId]
+  if (typeof documentId !== 'string' || documentId.trim() === '') return null
+
+  const document = await readParsableDocument(ports, documentId, {
+    label: 'PV-Erzeugungsdatei',
+    notFound: 'pv_document_not_found',
+    tooLarge: 'pv_file_too_large',
+  })
+
+  const parsed = parsePvProfile(document)
+  if (!parsed.ok) {
+    // Dieselbe Zweiteilung wie beim Lastgang: „nicht eindeutig" ist etwas anderes als „nicht lesbar".
+    if (parsed.kind === 'needs_mapping') {
+      const issues = parsed.issues.map((issue) => issue.message).join(' · ')
+      throw new MeteringPointAnalysisError(
+        'pv_profile_needs_mapping',
+        `Die PV-Erzeugungsdatei ist nicht eindeutig lesbar und braucht eine bestätigte Zuordnung: ${issues}`,
+      )
+    }
+    throw new MeteringPointAnalysisError(
+      'pv_profile_unreadable',
+      `Die PV-Erzeugungsdatei konnte nicht gelesen werden (${parsed.error.code}): ${parsed.error.message}`,
+    )
+  }
+
+  return { fileName: document.fileName, profile: parsed.profile, dataQuality: parsed.dataQuality }
 }

@@ -49,53 +49,65 @@ export const NETZBETREIBER_DRAFT_KEY = 'netzbetreiber'
 export const DRAFT_ANALYSIS_HORIZON_YEARS = 10
 
 /**
- * Die Entwurfs-Schlüssel, die eine BESTEHENDE Batterie beschreiben (`battery-draft.ts`).
+ * Die Entwurfs-Schlüssel der BESTEHENDEN Batterie, die der Analyse-Lauf liest
+ * (`battery-draft.ts` in `apps/web`).
  *
- * ⚠ `wantsBatteryRecommendation` steht hier NICHT. Es beantwortet eine andere Frage („soll die
- * Analyse einen Speicher vorschlagen?") und ist der Regelfall jeder Analyse — mit aufgeführt
- * sperrte es genau die Läufe, für die dieser Weg gebaut ist.
+ * ⚠ SIE STANDEN BIS ZUM 16.09.2026 IN DER SPERRE UNTEN. Seit D3 Baustein 2 werden sie verarbeitet
+ * (`mapDraftToExistingBatteryInput`, `packages/engine`) — aus gesperrten Namen sind gelesene
+ * geworden, und genau deshalb bleiben sie hier benannt: eine Umbenennung in `apps/web` liefe sonst
+ * still an der Abbildung vorbei, und der Speicher des Kunden verschwände aus der Rechnung, ohne
+ * dass das Ergebnis unvollständig AUSSÄHE.
+ *
+ * ⚠ ZWEI SCHLÜSSEL DER STATION FEHLEN HIER ABSICHTLICH: `existingBatteryPricePerKwh` (eine
+ * installierte Anlage ist bezahlt — sie bekommt ihre Investitionsfelder ausschliesslich über
+ * `NO_INVESTMENT_FIELDS`) und `wantsBatteryRecommendation` (`computeAnalysis` rechnet `perBattery`
+ * ohnehin immer über den vollen Katalog).
  */
-const EXISTING_BATTERY_DRAFT_KEYS = [
-  'hasBattery',
-  'existingBatteryCapacityKwh',
-  'existingBatteryMaxPowerKw',
-  'existingBatteryRoundTripEfficiencyPercent',
-  'existingBatteryPricePerKwh',
-] as const
+export const EXISTING_BATTERY_DRAFT_KEYS = {
+  present: 'hasBattery',
+  capacityKwh: 'existingBatteryCapacityKwh',
+  maxPowerKw: 'existingBatteryMaxPowerKw',
+  roundTripEfficiencyPercent: 'existingBatteryRoundTripEfficiencyPercent',
+} as const
 
-/** Die Entwurfs-Schlüssel der PV-Station — Antwort, Modulflächen und Erzeugungsprofil. */
-const PV_DRAFT_KEYS = [
-  'hasPv',
-  '_pvArrays',
-  'pvIntervalMinutes',
-  'pvCoveredFrom',
-  'pvCoveredTo',
-  'pvSourceDocumentId',
-  '_pvProfileGaps',
-  'pvProfileSource',
+/**
+ * Die Entwurfs-Schlüssel der PV-Station, die der Analyse-Lauf für eine HOCHGELADENE Erzeugungsreihe
+ * liest (`pv-draft.ts`/`pv-profile-draft.ts` in `apps/web`).
+ *
+ * ⚠ `profileSource` steht in BEIDEN Rollen da: `'upload'` ist der Weg, den dieser Lauf geht,
+ * `'generated'` sperrt ihn (s. `findUnsupportedAnalysisDraftKeys`). Der Schlüssel entscheidet also
+ * über den Zweig und ist nicht bloss eine Angabe neben anderen.
+ */
+export const PV_UPLOAD_DRAFT_KEYS = {
+  present: 'hasPv',
+  sourceDocumentId: 'pvSourceDocumentId',
+  profileSource: 'pvProfileSource',
+} as const
+
+/** Der Wert von `pvProfileSource`, der eine GESCHÄTZTE (PVGIS-)Reihe bezeichnet. */
+export const PV_GENERATED_PROFILE_SOURCE = 'generated'
+
+/**
+ * Alles, was der Analyse-Lauf aus dem Entwurf noch NICHT verarbeitet — heute allein die GESCHÄTZTE
+ * PV-Erzeugung (`pvEstimated*`, `pv-profile-draft.ts`).
+ *
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * ⚠ SIE IST EINE SPERRE, KEINE AUSLASSUNG — UND SIE IST AM 16.09.2026 GESCHRUMPFT
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * Bestandsbatterie und hochgeladene PV-Reihe werden seit D3 Baustein 2 gerechnet und sind deshalb
+ * heraus. Die geschätzte Reihe bleibt: sie hat KEINE Datei, die sich lesen liesse — die Kurve
+ * entstünde zur Rechenzeit aus einem PVGIS-Aufruf neu. Weggelassen käme eine Analyse heraus, die
+ * vollständig AUSSIEHT und die Erzeugung des Kunden nicht kennt, obwohl jeder einzelne
+ * Netzbezugswert davon abhängt; das ist teurer als ein Abbruch mit Begründung.
+ */
+const PV_GENERATED_DRAFT_KEYS = [
   'pvEstimatedAnnualKwh',
   'pvEstimatedSpreadPercent',
   'pvEstimatedWeatherYearFrom',
   'pvEstimatedWeatherYearTo',
 ] as const
 
-/**
- * Alles, was der Analyse-Lauf aus dem Entwurf (D3, Baustein 1) noch NICHT verarbeitet.
- *
- * ⚠ SIE IST EINE SPERRE, KEINE AUSLASSUNG. PV und Bestandsbatterie verschieben jede Zahl des
- * Ergebnisses — die Ersparnis einer bestehenden Anlage steht bereits im Lastgang, und eine
- * geschätzte Erzeugung ändert den Netzbezug jeder Viertelstunde. Weggelassen käme eine Analyse
- * heraus, die vollständig AUSSIEHT und einen Teil der Anlage des Kunden nicht kennt; das ist
- * teurer als ein Abbruch mit Begründung.
- *
- * ⚠ DIE NAMEN SIND DIE DER SCHREIBWEGE IN `apps/web` (`battery-draft.ts`, `pv-draft.ts`,
- * `pv-profile-draft.ts`, `pv-array-draft.ts`). Ein Test dort hält beide Seiten zusammen — er liest
- * die dortigen Listen und verlangt jeden ihrer Schlüssel hier.
- */
-export const UNSUPPORTED_ANALYSIS_DRAFT_KEYS: readonly string[] = [
-  ...EXISTING_BATTERY_DRAFT_KEYS,
-  ...PV_DRAFT_KEYS,
-]
+export const UNSUPPORTED_ANALYSIS_DRAFT_KEYS: readonly string[] = [...PV_GENERATED_DRAFT_KEYS]
 
 /**
  * Trägt der Wert eine AUSSAGE? `hasPv: false` ist eine beantwortete Frage ohne PV-Anlage und darf
@@ -112,9 +124,18 @@ function statesSomething(value: unknown): boolean {
  * Welche der gesperrten Angaben dieser Entwurf tatsächlich trägt — leer heisst „verarbeitbar".
  * Die Namen gehen in die Fehlermeldung des Aufrufers: „PV vorhanden" ohne das Feld wäre für den
  * Admin, der es wieder entfernen soll, keine brauchbare Auskunft.
+ *
+ * ⚠ `pvProfileSource` SPERRT AM WERT, NICHT AN SEINER ANWESENHEIT — als einziger Schlüssel. Auf
+ * `'upload'` ist er die Voraussetzung des PV-Wegs, auf `'generated'` sein Ausschlussgrund. Er wird
+ * ZUERST genannt, weil er den Fall benennt; die vier Kennzahlen daneben sind seine Folge und ein
+ * Entwurf kann sie aus einem überschriebenen Lauf auch ohne ihn tragen.
  */
 export function findUnsupportedAnalysisDraftKeys(draft: Record<string, unknown>): string[] {
-  return UNSUPPORTED_ANALYSIS_DRAFT_KEYS.filter((key) => statesSomething(draft[key]))
+  const generatedSource = draft[PV_UPLOAD_DRAFT_KEYS.profileSource] === PV_GENERATED_PROFILE_SOURCE
+  return [
+    ...(generatedSource ? [PV_UPLOAD_DRAFT_KEYS.profileSource] : []),
+    ...UNSUPPORTED_ANALYSIS_DRAFT_KEYS.filter((key) => statesSomething(draft[key])),
+  ]
 }
 
 /**
