@@ -28,9 +28,9 @@ import { visibleTranscript } from '@/lib/project-chat/transcript'
  *
  * ── ⚠ DER REPORT-BEREICH RECHNET SEIT D12 TEIL 2 TATSÄCHLICH ──────────────────────────────────
  * Je Zählpunkt ein Auslöser: er lässt die Engine laufen und legt aus dem Ergebnis eine kurzlebige
- * Übergabe an (`platform.report_render_requests`). Was danach dasteht, ist ihre Kennung — die
- * Ansicht dazu in `apps/website` gibt es noch nicht, und es steht KEIN Link daneben, der eine
- * Route behauptete, die es nicht gibt.
+ * Übergabe an (`platform.report_render_requests`). Seit dem D12-Abschluss steht daneben der Link
+ * auf die Leseseite in `apps/website`, die daraus das PDF erzeugt — im Browser des Admins, wie im
+ * Rechner selbst.
  *
  * ⚠ GENAU EIN ZÄHLPUNKT JE AUSLÖSER (D13). Es gibt bewusst keinen Knopf „alle rechnen": eine
  * zusammengefasste Sicht über mehrere Zählpunkte ist eine eigene Rechnung, kein Stapellauf.
@@ -224,8 +224,8 @@ export default async function AdminProjectDetailPage({
       >
         <AdminPanel>
           <p className="max-w-prose text-small text-text-muted">
-            Gerechnet wird unverändert in der Engine. Die Übergabe läuft nach 24 Stunden ab; die
-            Ansicht dazu folgt als eigener Schritt — die Kennung ist vorerst das Ergebnis.
+            Gerechnet wird unverändert in der Engine. Die Übergabe läuft nach 24 Stunden ab — der
+            Link daneben öffnet sie und erzeugt das PDF.
           </p>
           {meteringPoints === null ? (
             <AdminError>
