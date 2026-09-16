@@ -100,12 +100,17 @@ von App-spezifischem I/O bleibt — dem bestehenden Muster des Pakets entspreche
 | `billingModel` | Pflichtfeld, von keiner Station geschrieben | **gelöst** — Standard `monthly_max_sum` (E-Control-SNE-V-Regelfall, Martin 16.09.2026), Admin-Override statt Pflichtfrage. NICHT `monthly_max_average` (das war nur der Default des alten, abgeschalteten Rechners) |
 | `loadProfile.readings` | fehlt komplett in der DB | **gelöst** — wird zur Laufzeit aus Storage nachgeladen und geparst |
 
-**Stand nach PR #248–#251:** `computeAnalysis` liegt in `packages/engine` (PR #248, bit-identisch
+**Stand nach PR #248–#258:** `computeAnalysis` liegt in `packages/engine` (PR #248, bit-identisch
 verschoben). `runAnalysisFromMeteringPointDraft` (`packages/extractors`) rechnet vollständig für
-Tarif+Lastgang, Bestandsbatterie und PV-Upload (PR #249–#251); PV-Ausfall-Erkennung (D5) und
-PVGIS-geschätzte PV (zur Laufzeit) bleiben offen — Letzteres bewusst vertagt, eigener, späterer
-Schritt (Netzaufruf, Timeout, Rate-Limit sind eigene Entscheidungen). Bei `hasBattery: true` ohne
-Kerndaten: sichtbare Warnung in `dataQuality.warnings` statt stiller Auslassung (PR #251).
+Tarif+Lastgang, Bestandsbatterie, PV-Upload UND PV-generated (PR #249–#258) — die geschätzte
+Erzeugungsreihe wird beim Generieren jetzt als eigenes Dokument abgelegt (nicht mehr zur Laufzeit neu
+bei PVGIS geholt, Entscheidung revidiert gegenüber der ursprünglichen Annahme) und beim Analyse-Lauf
+mit dem Lastgang gekoppelt (`pvSource: 'estimated'`, löst den `estimated_pv`-Blocker korrekt aus).
+Metadaten (`smoothingOptimismPercent`, `weatherYears`) reisen als Geschwister von `AnalysisResult`
+mit, nicht darin — vorgesehen für D9. Ältere, vor PR #256 generierte PV-Entwürfe (ohne Dokument-
+Kennung, darunter der bestehende Urbanz-Testfall) bleiben bewusst gesperrt. Offen bleiben
+ausschliesslich D5 (PV-Ausfall-Erkennung) und D6 (Jahres-Hochrechnung) als eigene Bausteine. Bei
+`hasBattery: true` ohne Kerndaten: sichtbare Warnung in `dataQuality.warnings` (PR #251).
 
 **NICHT-TUN:** `computeAnalysis` selbst wird nicht verändert oder verdoppelt. Die zwei Felder mit
 direkter Namensgleichheit (`energyPriceCtPerKwh`, `einspeiseverguetungCtPerKwh`) werden 1:1

@@ -203,6 +203,38 @@ describe('set_draft_field', () => {
     expect(drafts(ports).a).toEqual({})
   })
 
+  /*
+   * ── ⚠ DIE TYPPRÜFUNG IST FELDTYP-BEWUSST, NICHT „ALLES IST EINE ZAHL" ────────────────────────
+   * Die drei Fälle in EINEM Test, weil sie zusammen erst die Aussage ergeben: eine Zahl als
+   * Zeichenkette wird nach der Regel der Handeingabe gelesen, eine mehrdeutige abgewiesen — und
+   * ein Enum-Feld nimmt seine Zeichenkette weiterhin an, wird also nicht pauschal mitgefangen.
+   */
+  it('⚠ liest „7,4" als Zahl, weist eine mehrdeutige ab und lässt billingModel als Wort durch', async () => {
+    const ports = draftPorts()
+
+    const komma = await executeChatTool(
+      ports, PROJECT, 'set_draft_field',
+      { metering_point_id: MP_A, field: 'minBillableKw', value: '7,4', source: 'measured' }, NOW,
+    )
+    expect(komma.isError).toBe(false)
+    expect(drafts(ports).a.minBillableKw).toBe(7.4)
+
+    const mehrdeutig = await executeChatTool(
+      ports, PROJECT, 'set_draft_field',
+      { metering_point_id: MP_A, field: 'energyPriceCtPerKwh', value: '1.234,56', source: 'measured' }, NOW,
+    )
+    expect(mehrdeutig.isError).toBe(true)
+    expect(String(payload(mehrdeutig.content).error)).toMatch(/Tausendertrenner/)
+    expect('energyPriceCtPerKwh' in drafts(ports).a).toBe(false)
+
+    const modell = await executeChatTool(
+      ports, PROJECT, 'set_draft_field',
+      { metering_point_id: MP_A, field: 'billingModel', value: 'monthly_max_sum', source: 'measured' }, NOW,
+    )
+    expect(modell.isError).toBe(false)
+    expect(drafts(ports).a.billingModel).toBe('monthly_max_sum')
+  })
+
   it('nimmt ein unbekanntes Feld an, benennt es aber als ungeprüft', async () => {
     const ports = draftPorts()
     const result = await executeChatTool(

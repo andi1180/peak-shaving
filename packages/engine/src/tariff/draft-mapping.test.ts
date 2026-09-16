@@ -39,6 +39,25 @@ describe('mapDraftToTariffParams', () => {
     expect(DEFAULT_DRAFT_BILLING_MODEL).toBe('monthly_max_sum')
   })
 
+  /*
+   * ⚠ BEIDE RICHTUNGEN IN EINEM TEST: die Lücke wird gefüllt, ein vorhandener Wert NICHT
+   * überschrieben. Nur die erste Hälfte bliebe auch dann grün, wenn die Ableitung jeden Wert auf 0
+   * setzte — und das wäre die stille Korrektur einer erhobenen Zahl.
+   */
+  it('⚠ leitet ohne Leistungsmessung einen Leistungspreis von 0 ab — füllt aber nur die Lücke', () => {
+    const { leistungspreisEurPerKwYear: _weg, ...ohnePreis } = DRAFT
+
+    expect(
+      mapDraftToTariffParams({ ...ohnePreis, meteringVariant: 'ohne_leistungsmessung' })
+        .leistungspreisEurPerKwYear,
+    ).toBe(0)
+
+    expect(
+      mapDraftToTariffParams({ ...DRAFT, meteringVariant: 'ohne_leistungsmessung' })
+        .leistungspreisEurPerKwYear,
+    ).toBe(82.92)
+  })
+
   it('übernimmt einen ausdrücklichen Override und wirft, wenn ein Pflichtfeld fehlt', () => {
     const { leistungspreisEurPerKwYear: _weg, ...ohneLeistungspreis } = DRAFT
     expect(

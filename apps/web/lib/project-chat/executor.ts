@@ -15,8 +15,8 @@ import {
   checkDraftCompleteness,
   setDraftField,
   type DraftCompleteness,
-  type DraftValue,
 } from './draft'
+import { coerceDraftValue } from './draft-value'
 import {
   DRAFT_VALUE_SOURCES,
   type ChatToolName,
@@ -266,18 +266,13 @@ async function setDraft(
   const field = readString(args, 'field')
   if (field === null) return fail('field fehlt.')
 
-  const rawValue = args.value
-  if (typeof rawValue !== 'number' && typeof rawValue !== 'string' && typeof rawValue !== 'boolean') {
-    return fail('value muss eine Zahl, eine Zeichenkette oder ein Wahrheitswert sein.')
-  }
   /*
-   * ⚠ NaN und Infinity sind in JavaScript `typeof 'number'`. Ohne diese Prüfung liefe NaN als
-   * gültiger Tarifsatz durch und vergiftete danach jede Rechnung lautlos — dieselbe Sperre wie in
-   * den bestehenden Extraktions-Auswertungen (Delta 9b-2a).
+   * ⚠ DER WERT WIRD GEGEN DEN TATSÄCHLICHEN FELDTYP GEPRÜFT, nicht bloss auf „irgendein Skalar".
+   * Die Regeln stehen in `draft-value.ts`; abgelehnt heisst hier wie dort: NICHTS geschrieben.
    */
-  if (typeof rawValue === 'number' && !Number.isFinite(rawValue)) {
-    return fail('value ist keine endliche Zahl.')
-  }
+  const checked = coerceDraftValue(field, args.value)
+  if (!checked.ok) return fail(checked.error)
+  const value = checked.value
 
   const source = readString(args, 'source')
   if (source === null || !(DRAFT_VALUE_SOURCES as readonly string[]).includes(source)) {
@@ -308,7 +303,7 @@ async function setDraft(
   const nextDraft = setDraftField(
     target.draft,
     field,
-    rawValue as DraftValue,
+    value,
     source as DraftValueSource,
     note,
     now,
@@ -341,7 +336,7 @@ async function setDraft(
   return ok({
     metering_point_id: target.id,
     field,
-    value: rawValue,
+    value,
     source,
     known_field: !isUnknown,
     ...(isUnknown

@@ -19,6 +19,9 @@ import { tariffParamsSchema, type BillingModel, type TariffParams } from 'shared
  * das Ergebnis, nicht der Fehlerfall — geprüft wird gegen `tariffParamsSchema` selbst, damit hier
  * keine zweite, abweichende Auslegung desselben Contracts entsteht.
  *
+ * ⚠ EINE einzige Ausnahme steht unten im Rumpf: „ohne Leistungsmessung" LEITET einen Leistungspreis
+ * von 0 ab. Das ist kein Ersatzwert, sondern die Rechenfolge der Variante selbst — Begründung dort.
+ *
  * ── ⚠ WAS NICHT MITKOMMT, UND WARUM ES KEIN PLATZHALTER WIRD ──────────────────────────────────
  * `timeOfUseWindows`, `dynamicPriceProfile` und `benutzungsdauerModel` sind im Contract OPTIONAL
  * und werden vom Wizard heute von keiner Station erhoben. Sie bleiben deshalb WEG statt auf einen
@@ -102,6 +105,27 @@ export function mapDraftToTariffParams(
     // optionalen Feld als Typfehler auf — gemeint ist „keine Angabe".
     if (value === undefined || value === null) continue
     candidate[key] = value
+  }
+
+  /*
+   * ══════════════════════════════════════════════════════════════════════════════════════════════
+   * ⚠ DIE EINZIGE ABLEITUNG DIESER FUNKTION — UND SIE FÜLLT NUR EINE LÜCKE
+   * ══════════════════════════════════════════════════════════════════════════════════════════════
+   * „Ohne Leistungsmessung" heisst: der Netzbetreiber rechnet gar keinen Leistungspreis ab (Delta 3
+   * der Tarifoptimierung). Die 0 ist hier deshalb kein Ersatzwert für eine fehlende Angabe, sondern
+   * die Angabe selbst — die Rechnung des Kunden weist die Zeile nicht aus, weil es sie nicht gibt.
+   * Ohne sie bräche die Abbildung an einem Pflichtfeld ab, das für diesen Anschluss nie erhoben
+   * werden kann.
+   *
+   * ⚠ NUR WENN DER WERT FEHLT. Steht er im Entwurf, bleibt er unangetastet — auch ein
+   * widersprüchlicher. Ihn auf 0 zu korrigieren hiesse, eine erhobene Zahl still zu überschreiben;
+   * der Widerspruch gehört benannt (Energieberater/Rückfrage), nicht weggerechnet.
+   */
+  if (
+    candidate.meteringVariant === 'ohne_leistungsmessung' &&
+    !('leistungspreisEurPerKwYear' in candidate)
+  ) {
+    candidate.leistungspreisEurPerKwYear = 0
   }
 
   const parsed = tariffParamsSchema.safeParse(candidate)
