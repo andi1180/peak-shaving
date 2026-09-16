@@ -180,7 +180,8 @@ export function DataEntryInvoiceManual({
         <legend className="text-small font-medium text-ink">Netzanschluss</legend>
         <p className="max-w-2xl text-small text-text-muted">
           Netzbetreiber und Netzebene stehen auf der Netzrechnung. Aus ihnen schlagen wir den
-          hinterlegten Leistungspreis vor — gespeichert wird nur, was darunter in den Feldern steht.
+          hinterlegten Leistungspreis vor; die Preisfelder darunter bleiben dabei editierbar und
+          werden erst mit dem Speichern übernommen.
         </p>
 
         <div className="grid gap-4 sm:grid-cols-2">
@@ -189,7 +190,7 @@ export function DataEntryInvoiceManual({
             name="operatorId"
             label="Netzbetreiber"
             error={fieldError('operatorId')}
-            hint="Wird nicht gespeichert — er dient nur dem Vorschlag."
+            hint="Löst den Vorschlag aus und wird mitgespeichert."
             value={operatorId}
             onValueChange={setOperatorId}
           >

@@ -7,3 +7,7 @@ export {
   tariffStrategies,
   getTariffStrategy,
 } from './strategy'
+// D3 (16.09.2026): der Wizard-Entwurf eines Zählpunkts wird zu `TariffParams` — rein, ohne
+// Nachschlagen, und bei fehlenden Pflichtangaben mit Abbruch statt Vorgabewert.
+export { mapDraftToTariffParams, DEFAULT_DRAFT_BILLING_MODEL } from './draft-mapping'
+export type { DraftTariffMappingOptions } from './draft-mapping'
