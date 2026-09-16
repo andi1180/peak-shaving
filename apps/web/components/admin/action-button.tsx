@@ -79,6 +79,24 @@ export function ActionButton({
       {showSuccess && state.success && (
         <p role="status" className="mt-1.5 max-w-xs text-caption text-text-muted">
           {state.success}
+          {/*
+            Das Ziel, das erst durch den Erfolg entsteht (D12). `target="_blank"`, weil die Seite in
+            einer ANDEREN App liegt: der Admin bleibt auf dem Projekt stehen und kann weitere
+            Zählpunkte rechnen, ohne zurücknavigieren zu müssen.
+          */}
+          {state.successHref && (
+            <>
+              {' '}
+              <a
+                href={state.successHref}
+                target="_blank"
+                rel="noreferrer"
+                className="underline underline-offset-2"
+              >
+                Report öffnen
+              </a>
+            </>
+          )}
         </p>
       )}
     </form>

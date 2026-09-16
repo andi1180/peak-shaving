@@ -3,6 +3,7 @@
 import { MeteringPointAnalysisError, runAnalysisFromMeteringPointDraft } from 'extractors'
 import { NETZBETREIBER_DRAFT_KEY } from 'shared'
 
+import { externalReportUrl } from '@/lib/config'
 import { createClient } from '@/lib/supabase/server'
 import { readProjectDocument } from '@/lib/project-documents/documents'
 import { readMeteringPointList } from './metering-points'
@@ -31,10 +32,10 @@ import type { Json } from '@/db-types'
  * Rechnung; eine zusammengefasste Sicht über mehrere Zählpunkte ist eine eigene Rechnung mit
  * eigenen Fragen (Welche Spitze ist die des Betriebs? Welcher Tarif gilt?) und kein Sonderfall.
  *
- * ── ⚠ DIE ID FÜHRT HEUTE INS LEERE, UND DAS IST DER ERWARTETE ZUSTAND ─────────────────────────
- * Die Leseseite in `apps/website` gibt es noch nicht. Die Aktion legt die Übergabe trotzdem an und
- * zeigt ihre Kennung: sie ist das Einzige, woran sich der nächste Schritt verdrahten lässt, und
- * eine erfundene URL daneben behauptete eine Route, die es nicht gibt.
+ * ── DIE ID FÜHRT SEIT DEM D12-ABSCHLUSS AUF EINE ECHTE SEITE ──────────────────────────────────
+ * `apps/website` liest die Übergabe unter `/report/<id>` und erzeugt das PDF im Browser. Die Aktion
+ * gibt die Adresse deshalb als Ziel neben der Meldung zurück (`successHref`) und nicht als Text:
+ * eine von Hand übertragene Kennung mit Tippfehler sähe aus wie eine abgelaufene Übergabe.
  *
  * ── ⚠ WARUM `(prev, formData)` UND NICHT `(meteringPointId)` ──────────────────────────────────
  * Der Auftrag nannte den engeren Zuschnitt. Die Kachel braucht aber eine Rückmeldung — die Kennung
@@ -187,8 +188,7 @@ export async function createReportRenderRequestAction(
   }
 
   return {
-    success:
-      `Report-Übergabe angelegt: ${created.data} — sie läuft in 24 Stunden ab. ` +
-      'Die Ansicht dazu in apps/website folgt als eigener Schritt.',
+    success: `Report-Übergabe angelegt — sie läuft in 24 Stunden ab.`,
+    successHref: externalReportUrl(created.data),
   }
 }

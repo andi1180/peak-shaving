@@ -52,3 +52,16 @@ export const CALCULATOR_FRAME_STYLE = {
   height: 'calc(100dvh - var(--header-h))',
   minHeight: '40rem',
 } as const
+
+/**
+ * Die Leseseite einer Report-Übergabe in `apps/website` (D12 Abschluss).
+ *
+ * Sie liegt in derselben fremden App wie der Rechner und teilt deshalb dessen Basis-URL — ein
+ * zweiter, danebengeschriebener Host wäre beim Umzug in Phase 2 (§8.1) die Zeile, die man übersieht.
+ *
+ * `new URL(relativ, basis)` statt String-Verkettung, aus demselben Grund wie oben: die Konstante
+ * endet auf „/", eine Verkettung ergäbe `…vercel.app//report/…`.
+ */
+export function externalReportUrl(requestId: string): string {
+  return new URL(`report/${requestId}`, EXTERNAL_CALCULATOR_URL).toString()
+}

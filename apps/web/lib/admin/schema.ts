@@ -21,6 +21,16 @@ import { CODE_PRODUCT_KEYS, ROLES } from './config'
 export type AdminState = {
   /** Fertige Erfolgsmeldung, z. B. „Ziel ‚wien-energie' angelegt." */
   success?: string
+  /**
+   * Ein Ziel, das erst DURCH den Erfolg entsteht (D12: die Leseseite der angelegten
+   * Report-Übergabe). Wird neben der Erfolgsmeldung als Link angezeigt — nur dort, wo das Formular
+   * die Meldung überhaupt zeigt (`showSuccess`).
+   *
+   * ⚠ Als eigenes Feld und nicht im Meldungstext: eine URL im Fliesstext ist nicht anklickbar, und
+   * eine Kennung von Hand in die Adresszeile zu übertragen ist genau der Schritt, an dem ein
+   * Tippfehler wie eine abgelaufene Übergabe aussieht.
+   */
+  successHref?: string
   /** Formular-weiter Fehler (fertiger Text). */
   formError?: string
   /** Feld-Fehler (fertiger Text), Schlüssel = `name` des Feldes. */

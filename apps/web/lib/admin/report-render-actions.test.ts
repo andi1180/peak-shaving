@@ -95,7 +95,13 @@ describe('createReportRenderRequestAction', () => {
 
     const state = await createReportRenderRequestAction({}, form())
     expect(state.formError).toBeUndefined()
-    expect(state.success).toContain(REQUEST_ID)
+    /*
+     * ⚠ Die Kennung steht seit dem D12-Abschluss im ZIEL, nicht im Meldungstext: sie führt auf die
+     * Leseseite in `apps/website`, und eine von Hand übertragene Kennung mit Tippfehler sähe aus wie
+     * eine abgelaufene Übergabe.
+     */
+    expect(state.successHref).toContain(REQUEST_ID)
+    expect(state.successHref).toContain('/report/')
 
     const call = rpc.mock.calls.find(([fn]) => fn === 'create_report_render_request')
     expect(call).toBeDefined()
