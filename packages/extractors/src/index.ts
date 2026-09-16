@@ -254,6 +254,18 @@ export {
   type GeneratedPvSeriesFile,
 } from './pv-reference/generated-series'
 
+/*
+ * ── DIESELBE REIHE, ZURÜCKGELESEN UND AN DEN LASTGANG GEKOPPELT ───────────────────────────────
+ * Eigenständig und noch unverdrahtet: `run-from-draft.ts` sperrt den geschätzten Weg weiterhin.
+ * Gekoppelt wird über die unveränderten Engine-Funktionen — hier entsteht keine zweite Rechnung.
+ */
+export {
+  readGeneratedPvSeries,
+  coupleGeneratedPvSeries,
+  GeneratedPvSeriesError,
+  type CoupledGeneratedPvSeries,
+} from './pv-reference/generated-series-read'
+
 // ── Dokument-Zuordnung (Delta 17 Teil 1) ──────────────────────────────────────────────────────
 export {
   MAX_UPLOAD_CLASSIFICATION_FILE_BYTES,

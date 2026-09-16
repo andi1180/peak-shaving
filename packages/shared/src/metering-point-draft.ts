@@ -88,6 +88,27 @@ export const PV_UPLOAD_DRAFT_KEYS = {
 export const PV_GENERATED_PROFILE_SOURCE = 'generated'
 
 /**
+ * Die Entwurfs-Schlüssel der GESCHÄTZTEN (PVGIS-)PV-Erzeugung — geschrieben in
+ * `pv-profile-draft.ts` (`apps/web`), gelesen in `packages/extractors`.
+ */
+export const PV_GENERATED_DRAFT_KEYS = {
+  /**
+   * Die Kennung des Dokuments mit der GESCHÄTZTEN Erzeugungsreihe (`PV_GENERATED_DOCUMENT_ID_KEY`
+   * in `apps/web`) — der Weg ZUR Reihe, während die vier Kennzahlen daneben Angaben ÜBER sie sind.
+   *
+   * ⚠ SIE STEHT BEWUSST NICHT IN DER SPERRE UNTEN, und das ist kein Vergessen: gesperrt wird der
+   * geschätzte Weg am `pvProfileSource` und an den Kennzahlen. Die Kennung ist die Voraussetzung
+   * des künftigen Zweigs (wie `sourceDocumentId` beim Upload) und benannt, damit Leser und Sperre
+   * denselben Namen benutzen — eine Umbenennung in `apps/web` liefe sonst still an beiden vorbei.
+   */
+  documentId: 'pvGeneratedDocumentId',
+  estimatedAnnualKwh: 'pvEstimatedAnnualKwh',
+  estimatedSpreadPercent: 'pvEstimatedSpreadPercent',
+  weatherYearFrom: 'pvEstimatedWeatherYearFrom',
+  weatherYearTo: 'pvEstimatedWeatherYearTo',
+} as const
+
+/**
  * Alles, was der Analyse-Lauf aus dem Entwurf noch NICHT verarbeitet — heute allein die GESCHÄTZTE
  * PV-Erzeugung (`pvEstimated*`, `pv-profile-draft.ts`).
  *
@@ -95,19 +116,19 @@ export const PV_GENERATED_PROFILE_SOURCE = 'generated'
  * ⚠ SIE IST EINE SPERRE, KEINE AUSLASSUNG — UND SIE IST AM 16.09.2026 GESCHRUMPFT
  * ══════════════════════════════════════════════════════════════════════════════════════════════
  * Bestandsbatterie und hochgeladene PV-Reihe werden seit D3 Baustein 2 gerechnet und sind deshalb
- * heraus. Die geschätzte Reihe bleibt: sie hat KEINE Datei, die sich lesen liesse — die Kurve
- * entstünde zur Rechenzeit aus einem PVGIS-Aufruf neu. Weggelassen käme eine Analyse heraus, die
- * vollständig AUSSIEHT und die Erzeugung des Kunden nicht kennt, obwohl jeder einzelne
+ * heraus. Die geschätzte Reihe bleibt: ihr Leser (`readGeneratedPvSeries`/`coupleGeneratedPvSeries`,
+ * `packages/extractors`) ist gebaut, aber an keinen Lauf verdrahtet — weggelassen käme eine Analyse
+ * heraus, die vollständig AUSSIEHT und die Erzeugung des Kunden nicht kennt, obwohl jeder einzelne
  * Netzbezugswert davon abhängt; das ist teurer als ein Abbruch mit Begründung.
+ *
+ * ⚠ Die Dokument-Kennung daneben sperrt NICHT (s. `PV_GENERATED_DRAFT_KEYS.documentId`).
  */
-const PV_GENERATED_DRAFT_KEYS = [
-  'pvEstimatedAnnualKwh',
-  'pvEstimatedSpreadPercent',
-  'pvEstimatedWeatherYearFrom',
-  'pvEstimatedWeatherYearTo',
-] as const
-
-export const UNSUPPORTED_ANALYSIS_DRAFT_KEYS: readonly string[] = [...PV_GENERATED_DRAFT_KEYS]
+export const UNSUPPORTED_ANALYSIS_DRAFT_KEYS: readonly string[] = [
+  PV_GENERATED_DRAFT_KEYS.estimatedAnnualKwh,
+  PV_GENERATED_DRAFT_KEYS.estimatedSpreadPercent,
+  PV_GENERATED_DRAFT_KEYS.weatherYearFrom,
+  PV_GENERATED_DRAFT_KEYS.weatherYearTo,
+]
 
 /**
  * Trägt der Wert eine AUSSAGE? `hasPv: false` ist eine beantwortete Frage ohne PV-Anlage und darf
