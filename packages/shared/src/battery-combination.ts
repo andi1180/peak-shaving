@@ -52,6 +52,26 @@ const NO_INVESTMENT_FIELDS = {
   inverterIncluded: true,
 } as const
 
+/**
+ * ⚠ [ANNAHME] Wirkungsgrad einer bestehenden Kundenanlage, wenn die Angabe keinen nennt.
+ *
+ * Eine Simulation braucht ihn zwingend (§3.6: die Physik rechnet mit Leistung, Energie UND
+ * Wirkungsgrad) — anders als Kapazität und Leistung lässt er sich also nicht einfach weglassen,
+ * ohne den ganzen Bestandsblock aufzugeben. 0,90 liegt in der Mitte dessen, was der Katalog führt
+ * (0,88–0,91), und ist ein branchenüblicher Rundwert für einen Lithium-Speicher inklusive
+ * Wechselrichter-Verlusten.
+ *
+ * Er ist damit die EINZIGE Zahl des Bestandsblocks, die nicht vom Kunden stammt — und genau
+ * deshalb wird sie als „angenommen" ausgewiesen und nicht als seine Angabe getarnt
+ * (`ExistingBatteryInput.efficiencyAssumed`). Nennt der Kunde einen Wert, gilt seiner.
+ *
+ * ⚠ ER STAND BIS ZUM 16.09.2026 IN `apps/website/lib/constants.ts`. Seit D3 hat er einen ZWEITEN
+ * Aufrufer (`mapDraftToExistingBatteryInput`, `packages/engine`), der die App nicht importieren
+ * darf. Zwei Kopien liefen still auseinander: derselbe Speicher ergäbe im Rechner und im Wizard
+ * verschiedene Ersparnisse, und keine der beiden Zahlen sähe falsch aus.
+ */
+export const ASSUMED_EXISTING_ROUND_TRIP_EFFICIENCY = 0.9
+
 /** Kennung der bestehenden Kundenanlage — kollisionsfrei gegen jede Katalog-Kennung (Doppelpunkt). */
 export const EXISTING_BATTERY_ID = 'existing:kundenanlage'
 
