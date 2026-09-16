@@ -22,6 +22,16 @@ describe('hasKnownTariffInDraft', () => {
     expect(KNOWN_TARIFF_DRAFT_FIELDS).not.toContain(ANNUAL_CONSUMPTION_KWH_KEY)
   })
 
+  it('⚠ der NETZBETREIBER allein ist ebenfalls KEIN bekannter Tarif', () => {
+    /*
+     * Seit dem 16.09.2026 schreibt ihn auch der Rechnungs-Scan in den Entwurf. Mitgezählt böte die
+     * Tarif-Station „aktuellen Tarif behalten" an, sobald eine Rechnung nichts weiter hergab als
+     * den Namen des Netzbetreibers — er geht in keine Rechnung ein.
+     */
+    expect(hasKnownTariffInDraft({ netzbetreiber: 'wiener_netze' })).toBe(false)
+    expect(KNOWN_TARIFF_DRAFT_FIELDS).not.toContain('netzbetreiber')
+  })
+
   it('ein echtes Tarif-Feld genügt', () => {
     expect(hasKnownTariffInDraft({ energyPriceCtPerKwh: 24.5 })).toBe(true)
   })

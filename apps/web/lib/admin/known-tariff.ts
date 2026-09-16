@@ -1,3 +1,5 @@
+import type { InvoiceMergeFieldKey } from 'shared'
+
 import { INVOICE_DRAFT_FIELD_KEYS, draftFieldFor } from './invoice-extractions'
 
 /**
@@ -32,10 +34,10 @@ import { INVOICE_DRAFT_FIELD_KEYS, draftFieldFor } from './invoice-extractions'
  * Felder ohnehin leer bleiben.
  *
  * ══════════════════════════════════════════════════════════════════════════════════════════════
- * ⚠ `annualConsumptionKwh` IST AUSGENOMMEN, UND OHNE DIESE AUSNAHME WÄRE DIE PRÜFUNG WERTLOS
+ * ⚠ ZWEI FELDER SIND AUSGENOMMEN, UND OHNE DIE ERSTE AUSNAHME WÄRE DIE PRÜFUNG WERTLOS
  * ══════════════════════════════════════════════════════════════════════════════════════════════
- * Es steht in `INVOICE_DRAFT_FIELD_KEYS`, weil der Rechnungs-Scan es MITLESEN kann — es ist aber
- * kein Tarifwert, sondern die EINGABE, aus der ein Standardprofil entsteht. Und genau so wird es
+ * `annualConsumptionKwh` steht in `INVOICE_DRAFT_FIELD_KEYS`, weil der Rechnungs-Scan es MITLESEN
+ * kann — es ist aber kein Tarifwert, sondern die EINGABE, aus der ein Standardprofil entsteht. Und genau so wird es
  * auch geschrieben: `saveMeteringPointStandardProfileAction` (Lastgang-Station, Nein-Zweig) legt
  * es unter demselben Schlüssel ab (`ANNUAL_CONSUMPTION_KWH_KEY` — ein Fundort für beide Wege, s.
  * dort).
@@ -46,8 +48,20 @@ import { INVOICE_DRAFT_FIELD_KEYS, draftFieldFor } from './invoice-extractions'
  * aktuellen Tarif zu behalten" — einen Tarif, den niemand kennt. Der Fehlschlag wäre still: es
  * stünde eine plausible Schaltfläche da, und was fehlt, sieht man ihr nicht an.
  */
+export const NOT_A_TARIFF_VALUE: readonly InvoiceMergeFieldKey[] = [
+  'annualConsumptionKwh',
+  /*
+   * ⚠ `netzbetreiber` STEHT SEIT DEM 16.09.2026 IN `INVOICE_DRAFT_FIELD_KEYS` (der Scan schreibt
+   * ihn jetzt, wie die Handeingabe schon vorher) — er ist aber genauso wenig ein Tarifwert wie der
+   * Jahresverbrauch: er geht in keine Rechnung ein (`TariffParams` hat kein Feld dafür). Ohne diese
+   * Ausnahme böte die Tarif-Station „aktuellen Tarif behalten" an, sobald eine Rechnung nichts
+   * weiter hergab als den Namen des Netzbetreibers — derselbe stille Fehlschlag wie oben.
+   */
+  'netzbetreiber',
+]
+
 export const KNOWN_TARIFF_DRAFT_FIELDS: readonly string[] = INVOICE_DRAFT_FIELD_KEYS.filter(
-  (key) => key !== 'annualConsumptionKwh',
+  (key) => !NOT_A_TARIFF_VALUE.includes(key),
 ).map(draftFieldFor)
 
 /**

@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   INVOICE_MERGE_FIELD_KEYS,
   INVOICE_MERGE_FIELD_LABELS,
+  NETZBETREIBER_DRAFT_KEY,
   NETZBETREIBER_LABELS,
   emptyInvoiceExtraction,
   mergeInvoiceExtractions,
@@ -167,14 +168,28 @@ describe('invoiceDraftValues — was in den Entwurf geht und in welcher Form', (
     expect(feld.safeParse(5).success).toBe(false)
   })
 
-  it('⚠ trägt `netzbetreiber` NICHT ein — es ist kein Contract-Feld', () => {
+  /*
+   * ⚠ SEIT DEM 16.09.2026 UMGEDREHT: hier stand „trägt `netzbetreiber` NICHT ein", begründet damit,
+   * dass er kein Contract-Feld sei. Das war der Fehler — der Entwurf wird seit D3 feldweise gelesen,
+   * und `report-render-actions.ts` erwartet den Wert unter genau diesem Schlüssel.
+   */
+  it('⚠ trägt einen erkannten `netzbetreiber` unter dem geteilten Entwurfs-Schlüssel ein', () => {
     const values = invoiceDraftValues(extraction())
+    const betreiber = values.find((value) => value.field === NETZBETREIBER_DRAFT_KEY)
 
-    expect(values.some((value) => value.field === 'netzbetreiber')).toBe(false)
-    expect(INVOICE_DRAFT_FIELD_KEYS).not.toContain('netzbetreiber')
-    // Gegenprobe: es ist das EINZIGE ausgelassene Feld, nicht eines von vielen.
-    expect(INVOICE_DRAFT_FIELD_KEYS).toHaveLength(INVOICE_MERGE_FIELD_KEYS.length - 1)
+    expect(betreiber?.value).toBe('wiener_netze')
+    expect(INVOICE_DRAFT_FIELD_KEYS).toHaveLength(INVOICE_MERGE_FIELD_KEYS.length)
+    // Er bleibt dabei ein Feld NEBEN dem Contract — die Abbildung liest ihn benannt.
     expect('netzbetreiber' in tariffParamsSchema.shape).toBe(false)
+  })
+
+  it('⚠ trägt einen UNBEKANNTEN Betreiber NICHT ein — es wird nichts zugeordnet', () => {
+    const fremd = invoiceDraftValues(extraction({ netzbetreiber: 'Elektrizitätswerke Mustertal' as never }))
+    expect(fremd.some((value) => value.field === NETZBETREIBER_DRAFT_KEY)).toBe(false)
+
+    // Und ohne jede Angabe bleibt der Schlüssel ebenfalls weg (kein Ersatzwert).
+    const ohne = invoiceDraftValues(extraction({ netzbetreiber: null }))
+    expect(ohne.some((value) => value.field === NETZBETREIBER_DRAFT_KEY)).toBe(false)
   })
 
   it('⚠ legt den Jahresverbrauch unter denselben Schlüssel wie der Standardprofil-Zweig', () => {

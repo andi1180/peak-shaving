@@ -10,6 +10,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
  * vollständig aussieht. Der Test greift deshalb die Argumente des Wrappers ab.
  */
 
+import { emptyInvoiceExtraction, type InvoiceExtraction } from 'shared'
+
+import { setDraftField } from '@/lib/project-chat/draft'
+import { invoiceDraftValues } from './invoice-extractions'
+
 const rpc = vi.fn()
 const readProjectDocument = vi.fn()
 
@@ -126,6 +131,40 @@ describe('createReportRenderRequestAction', () => {
       projectId: PROJECT_ID,
     })
     expect(args.p_ttl_hours).toBe(24)
+  })
+
+  /*
+   * ⚠ DER FALL, DER DEN FEHLER VOM 16.09.2026 SICHTBAR MACHT. Der Entwurf entsteht hier NICHT von
+   * Hand, sondern genau so, wie die Rechnung-Station ihn nach einem reinen Scan hinterlässt — über
+   * `invoiceDraftValues`. Ein von Hand gesetztes `netzbetreiber` im Fixture prüfte nur die Fixture.
+   */
+  it('⚠ trägt den Netzbetreiber auch nach einem REINEN Rechnungs-Scan in die Übergabe', async () => {
+    const gelesen: InvoiceExtraction = {
+      ...emptyInvoiceExtraction(),
+      netzbetreiber: 'wiener_netze',
+      netzebene: 7,
+      meteringVariant: 'mit_leistungsmessung',
+      rates: {
+        ...emptyInvoiceExtraction().rates,
+        leistungspreisEurPerKwYear: 82.92,
+        minBillableKw: 0,
+        energyPriceCtPerKwh: 24.5,
+        einspeiseverguetungCtPerKwh: 7.2,
+      },
+    }
+
+    let draft: Record<string, unknown> = {}
+    for (const { field, value } of invoiceDraftValues(gelesen)) {
+      draft = setDraftField(draft, field, value, 'measured', undefined, new Date('2026-09-16T08:00:00Z'))
+    }
+    withWrappers(draft)
+
+    const state = await createReportRenderRequestAction({}, form())
+    expect(state.formError).toBeUndefined()
+
+    const call = rpc.mock.calls.find(([fn]) => fn === 'create_report_render_request')
+    const meta = call![1].p_report_input_meta as Record<string, unknown>
+    expect(meta.netzbetreiber).toBe('wiener_netze')
   })
 
   it('ohne Grundgebühr im Entwurf steht `null` — nicht 0', async () => {

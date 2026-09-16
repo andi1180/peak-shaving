@@ -428,8 +428,9 @@ describe('uploadMeteringPointInvoicesAction', () => {
     expect(draft.energyPriceCtPerKwh).toBe(24.5)
     // ⚠ Die Netzebene als „NE X", nicht als Zahl — sonst wäre der Entwurf dauerhaft ungültig.
     expect(draft.netzebene).toBe('NE 5')
-    // `netzbetreiber` ist kein Contract-Feld und steht deshalb NICHT im Entwurf.
-    expect(draft.netzbetreiber).toBeUndefined()
+    // ⚠ UMGEDREHT am 16.09.2026: der erkannte Netzbetreiber steht jetzt im Entwurf — unter
+    // demselben Schlüssel, den die Handeingabe schreibt und `report-render-actions.ts` liest.
+    expect(draft.netzbetreiber).toBe('wiener_netze')
 
     expect(revalidatePath).toHaveBeenCalledWith(
       `/admin/kalkulator-projekte/${PROJECT_ID}/dateneingabe`,
