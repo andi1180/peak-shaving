@@ -908,8 +908,11 @@ describe('skipMeteringPointInvoiceAction', () => {
     const state = await saveMeteringPointManualTariffAction({}, fd)
 
     expect(state.formError).toBeUndefined()
-    // ⚠ Der Vermerk zählt NICHT als Angabe des Kunden: die Meldung nennt weiterhin EINE.
-    expect(state.success).toContain('Eine Angabe wurde übernommen')
+    /*
+     * ⚠ Der Vermerk zählt NICHT als Angabe des Kunden. Gezählt werden die ZWEI gesendeten Werte:
+     * der Leistungspreis und der Netzbetreiber (seit D3 ein Entwurfsfeld, s. dort).
+     */
+    expect(state.success).toContain('2 Angaben wurden übernommen')
     expect(draft.leistungspreisEurPerKwYear).toBe(38.52)
     expect(draft[INVOICE_SKIPPED_KEY]).toBe(false)
   })
@@ -987,7 +990,8 @@ describe('saveMeteringPointManualTariffAction — zwei von sieben Feldern', () =
 
     expect(state.formError).toBeUndefined()
     expect(state.fieldErrors).toBeUndefined()
-    expect(state.success).toContain('2 Angaben wurden übernommen')
+    // Die zwei eingetippten Werte plus den Netzbetreiber des Auswahlfelds (seit D3).
+    expect(state.success).toContain('3 Angaben wurden übernommen')
 
     // GENAU EIN Schreibvorgang — der Wrapper ERSETZT, zwei Aufrufe nähmen einander die Arbeit weg.
     const writes = rpc.mock.calls.filter(([fn]) => fn === 'update_metering_point_draft')
@@ -1016,14 +1020,20 @@ describe('saveMeteringPointManualTariffAction — zwei von sieben Feldern', () =
     expect(provenance.leistungspreisEurPerKwYear?.source).toBe('measured')
     expect(provenance.minBillableKw?.source).toBe('measured')
 
-    // ⚠ `netzbetreiber` wird NICHT geschrieben, obwohl das Formular danach fragt: er ist kein
-    // `tariffParamsSchema`-Feld und verschwände beim nächsten Auswerten stillschweigend.
-    expect(draft).not.toHaveProperty('netzbetreiber')
-    expect(JSON.stringify(draft)).not.toContain('wiener_netze')
+    /*
+     * ⚠ SEIT D3 WIRD `netzbetreiber` GESCHRIEBEN — hier stand das Gegenteil, mit der Begründung, er
+     * sei kein `tariffParamsSchema`-Feld und verschwände beim nächsten Auswerten. Seit es eine
+     * benannte Abbildung Entwurf → `TariffParams` gibt, liest ihn niemand mehr blind mit; ohne den
+     * Eintrag stünde die Zuständigkeit nur im Formularzustand.
+     */
+    expect(draft.netzbetreiber).toBe('wiener_netze')
+    expect(provenance.netzbetreiber?.source).toBe('measured')
   })
 
   it('schreibt GAR NICHTS, wenn kein einziges Feld gefüllt ist', async () => {
-    const state = await saveMeteringPointManualTariffAction({}, manualForm({}))
+    // Auch das Netzbetreiber-Auswahlfeld leer — es hat eine „bitte wählen"-Option und ist seit D3
+    // selbst eine Angabe; mit Wert gäbe es sehr wohl etwas zu speichern.
+    const state = await saveMeteringPointManualTariffAction({}, manualForm({ operatorId: '' }))
 
     expect(state.formError).toContain('mindestens einen Wert')
     // Nicht einmal gelesen: ohne Angabe gibt es nichts zu tun.

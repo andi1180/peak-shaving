@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { MAX_INVOICE_FILE_BYTES, extractInvoiceData } from 'extractors'
 import {
   METERING_VARIANTS,
+  NETZBETREIBER_DRAFT_KEY,
   NETZEBENEN,
   hasMeteringVariant,
   mergeInvoiceExtractions,
@@ -815,12 +816,16 @@ function readManualNumber(formData: FormData, field: string): number | null | un
  *   3. die Werte hineinfalten
  *   4. EIN `update_metering_point_draft`
  *
- * ── WAS BEWUSST NICHT GESCHRIEBEN WIRD ─────────────────────────────────────────────────────────
- * ⚠ `netzbetreiber` — obwohl das Formular danach fragt. Er ist hier ausschliesslich der AUSLÖSER
- * für „Werte vorschlagen"; im Entwurf wäre er kein `tariffParamsSchema`-Feld und würde beim
- * nächsten Auswerten stillschweigend entfernt (dieselbe Feststellung, aus der
- * `INVOICE_DRAFT_FIELD_KEYS` ihn ausschliesst). Ein Wert, der im Entwurf steht und auf dem Weg zur
- * Engine verschwindet, ist schlimmer als einer, der gar nicht erst dort steht.
+ * ── ⚠ `netzbetreiber` WIRD SEIT D3 (16.09.2026) GESCHRIEBEN ───────────────────────────────────
+ * Hier stand bis dahin die Begründung, warum nicht: er sei kein `tariffParamsSchema`-Feld und
+ * würde beim nächsten Auswerten stillschweigend entfernt. Das galt, solange der Entwurf nur als
+ * GANZES gegen den Contract geprüft wurde; seit D3 liest ihn eine benannte Abbildung unter einem
+ * benannten Schlüssel (`NETZBETREIBER_DRAFT_KEY`, `shared`). Die Zuständigkeit stünde sonst
+ * ausschliesslich im Formularzustand eines Bildschirms, der beim Neuladen weg ist.
+ *
+ * ⚠ ER BLEIBT DER AUSLÖSER DES VORSCHLAGS — und wird trotzdem hier und nicht dort geschrieben:
+ * `lookupGridTariffDefaultsAction` schreibt weiterhin NICHTS (s. Kopf des Abschnitts). Was in den
+ * Entwurf geht, entscheidet derselbe Klick wie bei jedem anderen Feld.
  *
  * ── EIN LEERES FELD IST KEINE ANGABE ──────────────────────────────────────────────────────────
  * Es wird übersprungen, nicht als `null` geschrieben. Der Entwurf ist eine Sammlung von Angaben;
@@ -866,6 +871,18 @@ export async function saveMeteringPointManualTariffAction(
     } else {
       values.push({ field: 'netzebene', value: netzebeneDraftValue(netzebene) })
     }
+  }
+
+  /*
+   * ⚠ KEINE Prüfung gegen eine feste Betreiberliste — wortgleich zu `lookupGridTariffDefaultsAction`
+   * und aus demselben Grund: `grid_tariffs.operator_id` ist ohne Fremdschlüssel und ohne CHECK
+   * gebaut (B21-1), und die gepflegten Kennungen wachsen mit dem Bestand. Eine Liste, die der
+   * Vorschlag NICHT anlegt, die Speicherung aber verlangte, liesse einen neu gepflegten
+   * Netzbetreiber vorschlagen und nicht speichern — und das sähe wie ein Defekt aus.
+   */
+  const operatorRaw = String(formData.get('operatorId') ?? '').trim()
+  if (operatorRaw !== '') {
+    values.push({ field: NETZBETREIBER_DRAFT_KEY, value: operatorRaw })
   }
 
   const variantRaw = String(formData.get('meteringVariant') ?? '').trim()

@@ -238,3 +238,25 @@ export {
   MAX_UPLOAD_LABEL_CHARS,
 } from './upload-classification/limits'
 export { classifyDocument, type UploadClassificationOutcome } from './upload-classification/extract'
+
+/*
+ * ── ANALYSE-LAUF AUS DEM WIZARD-ENTWURF (D3, Baustein 1) ──────────────────────────────────────
+ * Die DRITTE benannte Ausweitung des Paket-Zuschnitts, und sie liest wieder ein Kundendokument —
+ * nur bis zum Ende: aus dem Entwurf eines Zählpunkts und seiner hochgeladenen Lastgang-Datei
+ * entsteht ein vollständiges `AnalysisResult`.
+ *
+ * ⚠ SIE LIEGT HIER UND NICHT IN `packages/engine`, obwohl sie fast nur Engine-Aufrufe verkettet:
+ * der künftige Aufrufer ist `apps/web`, und diese App hängt bewusst NICHT an `engine` (dieselbe
+ * Feststellung, aus der der Standardprofil-Erzeuger hier liegt). Die Aussenwelt kommt als PORTS
+ * herein — ein Paket importiert keine App.
+ *
+ * ⚠ Gerechnet wird mit dem UNVERÄNDERTEN `computeAnalysis`. Es gibt keine zweite Rechenkette.
+ */
+export {
+  runAnalysisFromMeteringPointDraft,
+  MeteringPointAnalysisError,
+  type MeteringPointAnalysisPorts,
+  type MeteringPointAnalysisSource,
+  type ProjectDocumentFile,
+  type RunAnalysisFromDraftOptions,
+} from './analysis/run-from-draft'

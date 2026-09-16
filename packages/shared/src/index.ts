@@ -101,3 +101,9 @@ export * from './real-saving'
 // B24: Bucket-Name, Grössengrenze und Pfadschema der Projekt-Dokumente. In `shared`, weil sie von
 // `apps/web` (heute) und `apps/website` (mit dem Chat-Schritt) gemeinsam gebraucht werden.
 export * from './project-documents'
+
+// D3 (16.09.2026): die zwei Entwurfs-Angaben des Wizards, die der Contract nicht kennt (der
+// Netzbetreiber, der Horizont des Laufs) und die Sperre gegen einen Entwurf, den der heutige
+// Analyse-Weg nur zur Hälfte verarbeiten könnte. Hier, weil `apps/web` sie SCHREIBT und
+// `packages/extractors` sie LIEST — s. Kopf der Datei.
+export * from './metering-point-draft'
