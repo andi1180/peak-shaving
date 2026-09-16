@@ -1,4 +1,9 @@
-import type { AnalysisResult, LoadProfile } from 'shared'
+import {
+  NETZBETREIBER_IDS,
+  type AnalysisResult,
+  type LoadProfile,
+  type NetzbetreiberId,
+} from 'shared'
 
 import {
   defaultReportTitle,
@@ -29,14 +34,22 @@ import type { PdfReportAnalysis, PdfReportInput } from './types'
  * Die Felder aus `report_input_meta`, die dieser Weg LIEST.
  *
  * ⚠ Der schreibende Schritt legt fünf ab (`apps/web/lib/admin/report-render-actions.ts`). Hier
- * stehen zwei — und die drei übrigen fehlen nicht versehentlich: `netzbetreiber` geht in keine
- * Rechnung ein und würde auf diesem Weg eine Tarifherkunft BEHAUPTEN, die es nicht gibt (s.
- * `tariffSource` unten); `meteringPointId`/`projectId` sind Rückverfolgung für den Admin-Bereich
- * und haben auf einem Kundendokument nichts zu suchen.
+ * stehen drei — und die zwei übrigen fehlen nicht versehentlich: `meteringPointId`/`projectId` sind
+ * Rückverfolgung für den Admin-Bereich und haben auf einem Kundendokument nichts zu suchen.
+ *
+ * ⚠ `netzbetreiber` STAND BIS ZUM D9-VORGRIFF NICHT HIER, mit der Begründung, er würde eine
+ * Tarifherkunft BEHAUPTEN, die es nicht gibt. Die Sorge war richtig, der Schluss zu weit: er reist
+ * als blosse ANGABE mit und benennt weder einen Tarifstand noch die Frage, die
+ * `TARIFF_SOURCE_UNTRACKED` offen lässt (s. `basis.ts`).
  */
 export type ReportRenderMeta = {
   /** Die Kundenbezeichnung fürs Deckblatt. `null` = keine hinterlegt. */
   customerLabel: string | null
+  /**
+   * Der Netzbetreiber des Zählpunkts. `null` = keiner hinterlegt ODER eine Kennung, die dieses Repo
+   * nicht kennt — beides führt zu demselben Report ohne Namen (s. `readMeta`).
+   */
+  netzbetreiber: NetzbetreiberId | null
   /**
    * Die Grundgebühr des Lieferanten. `null` heisst „keine Angabe" und ist NICHT 0 — gelesen wird
    * sie für GENAU einen Satz (`tariffVintageNote`), s. unten.
@@ -123,8 +136,22 @@ function readMeta(value: unknown): ReportRenderMeta {
   const baseFee = meta.supplierBaseFeeEurPerMonth
   return {
     customerLabel: typeof label === 'string' && label !== '' ? label : null,
+    netzbetreiber: readNetzbetreiber(meta.netzbetreiber),
     supplierBaseFeeEurPerMonth: typeof baseFee === 'number' ? baseFee : null,
   }
+}
+
+/**
+ * ⚠ GEGEN DIE BEKANNTEN KENNUNGEN GEPRÜFT, und eine unbekannte fällt auf `null`. Die Schreibseite
+ * prüft bewusst NICHT gegen eine feste Liste (`grid_tariffs.operator_id` wächst mit dem Bestand) —
+ * für die Anzeige ist das die falsche Freiheit: ohne Eintrag in `NETZBETREIBER_LABELS` gäbe es
+ * keinen Namen, sondern nur die rohe Kennung, und `wiener_netze` auf einem Kundendokument sähe wie
+ * ein Fehler aus. Ein fehlender Name ist die bessere Auskunft als ein technischer.
+ */
+function readNetzbetreiber(value: unknown): NetzbetreiberId | null {
+  return (NETZBETREIBER_IDS as readonly string[]).includes(value as string)
+    ? (value as NetzbetreiberId)
+    : null
 }
 
 /**
@@ -159,6 +186,8 @@ export function buildReportInputFromRenderRequest(
      * `TariffSourceRef` eine geprüfte Katalog-Herkunft — beides wäre unbelegt (s. `types.ts`).
      */
     tariffSource: TARIFF_SOURCE_UNTRACKED,
+    /* Ohne bekannten Netzbetreiber gar keine Angabe — der Satz steht dann wortgleich wie zuvor. */
+    netzbetreiber: meta.netzbetreiber ?? undefined,
     tariffVintage: tariffVintageNote(
       loadProfile,
       /* Ohne Angabe nennt der Satz die Grundgebühr nicht — die konservative Fassung. */

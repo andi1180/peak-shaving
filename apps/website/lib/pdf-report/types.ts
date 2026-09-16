@@ -1,4 +1,10 @@
-import type { AnalysisResult, EstimatedPvSummary, LoadProfile, TariffSourceRef } from 'shared'
+import type {
+  AnalysisResult,
+  EstimatedPvSummary,
+  LoadProfile,
+  NetzbetreiberId,
+  TariffSourceRef,
+} from 'shared'
 
 /**
  * B23a/B23c-1 — Eingangsgrössen des react-pdf-Reports.
@@ -209,6 +215,19 @@ export type PdfReportInput = {
    * nicht mehr unterscheiden.
    */
   tariffSource: PdfReportTariffSource
+  /**
+   * D9-Vorgriff — der Netzbetreiber als ANGABE, wenn der Weg ihn kennt. `undefined` = keine Angabe;
+   * dann steht der Tarifquellen-Satz wortgleich wie zuvor, ohne Platzhalter.
+   *
+   * ⚠ ER IST KEINE TARIFHERKUNFT und macht aus `TARIFF_SOURCE_UNTRACKED` keine: welcher Stand
+   * gerechnet wurde, bleibt unbekannt (s. dort). Der Name beantwortet nur die Frage, WESSEN Netz
+   * der Zählpunkt hängt — die auf einem weitergereichten Blatt sonst niemand beantworten kann.
+   *
+   * ⚠ GETYPT ALS `NetzbetreiberId` UND NICHT ALS FREITEXT: die Beschriftung entsteht daraus über
+   * `NETZBETREIBER_LABELS` (`basis.ts`). Ein freier String liesse eine rohe Kennung wie
+   * `wiener_netze` auf ein Kundendokument durchschlagen, wo sie wie ein Fehler aussähe.
+   */
+  netzbetreiber?: NetzbetreiberId
   /**
    * B23c-4 — auf welchem Preisstand Arbeitspreis und Grundgebühr beruhen. `null` = kein Hinweis.
    *

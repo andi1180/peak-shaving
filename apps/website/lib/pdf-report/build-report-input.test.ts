@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { AnalysisResult, LoadProfile } from 'shared'
 
+import { buildBasisChapter } from './basis'
 import {
   REPORT_UNAVAILABLE,
   buildReportInputFromRenderRequest,
@@ -91,6 +92,10 @@ describe('buildReportInputFromRenderRequest', () => {
     expect(input.tariffSource).toBe(TARIFF_SOURCE_UNTRACKED)
     expect(input.estimatedPv).toBeUndefined()
 
+    /* D9-Vorgriff: der Netzbetreiber reist als Angabe mit und steht im Tarifquellen-Satz. */
+    expect(input.netzbetreiber).toBe('wiener_netze')
+    expect(buildBasisChapter(input).tariffSource).toContain('(Netzbetreiber: Wiener Netze)')
+
     /* Der Preisstand-Satz nennt die Grundgebühr, weil die Übergabe eine trägt. */
     expect(input.tariffVintage).toContain('Arbeitspreis und Grundgebühr basieren')
 
@@ -119,6 +124,24 @@ describe('buildReportInputFromRenderRequest', () => {
     expect(input.tariffVintage).toContain('Der Arbeitspreis basiert')
     /* Ohne Bezeichnung gar kein Kundenblock statt eines leeren Feldes auf dem Deckblatt. */
     expect(input.customer).toBeUndefined()
+  })
+
+  /**
+   * ⚠ EINE UNBEKANNTE KENNUNG IST DERSELBE FALL WIE „keine Angabe". Die Schreibseite prüft bewusst
+   * nicht gegen eine feste Liste; ohne diese Prüfung stünde `linz_netz` als Name auf dem Blatt.
+   */
+  it('lässt einen unbekannten Netzbetreiber weg und den Satz damit unverändert', () => {
+    const readout = readRenderRequest({
+      data: [{ ...ROW, report_input_meta: { ...ROW.report_input_meta, netzbetreiber: 'linz_netz' } }],
+      error: null,
+    })
+    if (readout.status !== 'ok') throw new Error('Übergabe sollte lesbar sein')
+
+    const input = buildReportInputFromRenderRequest(readout.request, NOW)
+
+    expect(input.netzbetreiber).toBeUndefined()
+    expect(buildBasisChapter(input).tariffSource).not.toContain('Netzbetreiber:')
+    expect(buildBasisChapter(input).tariffSource).not.toContain('linz_netz')
   })
 })
 
