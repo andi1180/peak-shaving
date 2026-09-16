@@ -2242,6 +2242,15 @@ export type Database = {
         Returns: Json
       }
       create_my_project: { Args: { p_customer_label: string }; Returns: Json }
+      create_report_render_request: {
+        Args: {
+          p_analysis_result: Json
+          p_load_profile: Json
+          p_report_input_meta?: Json
+          p_ttl_hours?: number
+        }
+        Returns: string
+      }
       create_retail_tariff: {
         Args: {
           p_base_fee_eur_per_month: number
@@ -2308,6 +2317,10 @@ export type Database = {
       }
       get_project: { Args: { p_id: string }; Returns: Json }
       get_project_document: { Args: { p_document_id: string }; Returns: Json }
+      get_report_render_request: {
+        Args: { p_id: string }
+        Returns: { analysis_result: Json; load_profile: Json; report_input_meta: Json }[]
+      }
       get_stripe_customer_id: { Args: { p_user_id: string }; Returns: string }
       get_system_prompt_extension: { Args: { p_kind?: string }; Returns: Json }
       is_admin: { Args: never; Returns: boolean }

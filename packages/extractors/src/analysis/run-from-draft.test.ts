@@ -65,7 +65,11 @@ beforeEach(() => {
 
 describe('runAnalysisFromMeteringPointDraft', () => {
   it('rechnet die volle Kette vom Entwurf bis zum AnalysisResult', async () => {
-    const result = await runAnalysisFromMeteringPointDraft('mp-1', ports())
+    const { result, loadProfile } = await runAnalysisFromMeteringPointDraft('mp-1', ports())
+
+    // Der Lastgang reist neben dem Ergebnis heraus — dieselbe Reihe, die gerechnet wurde.
+    expect(loadProfile.readings).toHaveLength(96)
+    expect(loadProfile.intervalMinutes).toBe(15)
 
     expect(result.current.billedKw).toBeCloseTo(48, 6)
     expect(result.assumptions.billingModel).toBe('monthly_max_sum')
@@ -78,7 +82,7 @@ describe('runAnalysisFromMeteringPointDraft', () => {
   })
 
   it('rechnet die hochgeladene PV-Reihe und die Bestandsbatterie mit', async () => {
-    const result = await runAnalysisFromMeteringPointDraft(
+    const { result } = await runAnalysisFromMeteringPointDraft(
       'mp-1',
       ports({
         readMeteringPoint: async () => ({
@@ -116,7 +120,7 @@ describe('runAnalysisFromMeteringPointDraft', () => {
   })
 
   it('warnt sichtbar, wenn eine Batterie bejaht ist, aber ihre Kerndaten fehlen', async () => {
-    const result = await runAnalysisFromMeteringPointDraft(
+    const { result } = await runAnalysisFromMeteringPointDraft(
       'mp-1',
       ports({
         readMeteringPoint: async () => ({

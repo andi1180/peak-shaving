@@ -17,6 +17,7 @@ import {
   PV_GENERATED_PROFILE_SOURCE,
   PV_UPLOAD_DRAFT_KEYS,
   type AnalysisResult,
+  type LoadProfile,
 } from 'shared'
 
 import { MAX_LOAD_PROFILE_FILE_BYTES } from '../load-profile/limits'
@@ -89,6 +90,20 @@ export type MeteringPointAnalysisPorts = {
   readDocument: (documentId: string) => Promise<ProjectDocumentFile | null>
 }
 
+/**
+ * Was ein Lauf hinterlässt.
+ *
+ * ⚠ DER LASTGANG STEHT NEBEN DEM ERGEBNIS, WEIL ER NICHT DARIN VORKOMMT. `AnalysisResult` führt
+ * keine Rohreihe (`DispatchTrace` zeigt nur repräsentative Tage) — wer die Report-Charts zeichnen
+ * will, bräuchte die Datei sonst ein zweites Mal aus der Ablage und ein zweites Mal geparst, und
+ * genau dann könnte das Gezeichnete von dem abweichen, was gerechnet wurde. Es ist DIESELBE
+ * Referenz, die in den Payload ging — keine zweite Auswertung.
+ */
+export type MeteringPointAnalysisRun = {
+  result: AnalysisResult
+  loadProfile: LoadProfile
+}
+
 export type RunAnalysisFromDraftOptions = DraftTariffMappingOptions & {
   /** Betrachtungszeitraum in Jahren. Vorgabe: `DRAFT_ANALYSIS_HORIZON_YEARS` (`shared`). */
   horizonYears?: number
@@ -135,7 +150,7 @@ export async function runAnalysisFromMeteringPointDraft(
   meteringPointId: string,
   ports: MeteringPointAnalysisPorts,
   options: RunAnalysisFromDraftOptions = {},
-): Promise<AnalysisResult> {
+): Promise<MeteringPointAnalysisRun> {
   const point = await ports.readMeteringPoint(meteringPointId)
   if (point === null) {
     throw new MeteringPointAnalysisError(
@@ -231,11 +246,14 @@ export async function runAnalysisFromMeteringPointDraft(
     existingBattery: existingBattery.input,
   }
 
-  return computeAnalysis(
-    payload,
-    options.horizonYears ?? DRAFT_ANALYSIS_HORIZON_YEARS,
-    DEMO_BATTERY_CATALOG,
-  )
+  return {
+    result: computeAnalysis(
+      payload,
+      options.horizonYears ?? DRAFT_ANALYSIS_HORIZON_YEARS,
+      DEMO_BATTERY_CATALOG,
+    ),
+    loadProfile: payload.load.profile,
+  }
 }
 
 /**

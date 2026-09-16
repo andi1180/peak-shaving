@@ -201,10 +201,16 @@ describe('B24 — Verlinkung und Abgrenzung', () => {
     expect(source).not.toContain("'/admin/kalkulator-projekte/")
   })
 
-  it('lässt die Report-Kachel ein Platzhalter', () => {
+  it('⚠ die Report-Kachel löst seit D12 Teil 2 einen echten Lauf aus — je Zählpunkt einen', () => {
     const source = read(DETAIL_PAGE)
     const report = source.slice(source.indexOf('id="report"'))
-    expect(report).toContain('Platzhalter')
+    expect(report).toContain('createReportRenderRequestAction')
+    // Der Auslöser hängt am einzelnen Zählpunkt (D13) — kein Stapellauf über das ganze Projekt.
+    expect(report).toContain('meteringPointId: point.id')
+    /*
+     * ⚠ WEITERHIN KEIN `href`, und jetzt aus einem schärferen Grund als vorher: die Leseseite in
+     * `apps/website` gibt es nicht. Ein Link daneben behauptete eine Route, die ins Leere führt.
+     */
     expect(report).not.toContain('href')
   })
 
