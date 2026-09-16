@@ -96,9 +96,16 @@ von App-spezifischem I/O bleibt — dem bestehenden Muster des Pakets entspreche
 | `title` | fehlt im Entwurf | wird wie heute im Gate-Dialog erhoben, nicht aus dem Entwurf |
 | `customer.address` | keine Spalte irgendwo | `[OFFEN]` — neues Feld nötig, falls Adresse gewünscht (D9) |
 | `printedAt` | fehlt (Klickzeitpunkt) | zur Laufzeit gesetzt, keine Entwurfs-Abhängigkeit |
-| `tariffSource` (7 Felder) | fast vollständig fehlend, `netzbetreiber` **ausdrücklich ausgeschlossen** | `[MARTIN]` — muss die Rechnung-Station künftig erfassen? Eigene Entscheidung, nicht hier getroffen |
-| `billingModel` | Pflichtfeld, von keiner Station geschrieben | `[OFFEN]` — muss eine Station es setzen, oder bleibt es Rückfrage-Feld des Energieberaters? |
-| `loadProfile.readings` | fehlt komplett in der DB | wird zur Laufzeit aus Storage nachgeladen (s. oben) |
+| `tariffSource` (7 Felder) | Netzbetreiber jetzt im Entwurf gespeichert (PR #249) | **gelöst** — kein Contract-Feld, aber für D9-Zitate verfügbar. Restliche 6 Felder weiterhin nicht erfasst, ausserhalb des Rechenbedarfs |
+| `billingModel` | Pflichtfeld, von keiner Station geschrieben | **gelöst** — Standard `monthly_max_sum` (E-Control-SNE-V-Regelfall, Martin 16.09.2026), Admin-Override statt Pflichtfrage. NICHT `monthly_max_average` (das war nur der Default des alten, abgeschalteten Rechners) |
+| `loadProfile.readings` | fehlt komplett in der DB | **gelöst** — wird zur Laufzeit aus Storage nachgeladen und geparst |
+
+**Stand nach PR #248–#251:** `computeAnalysis` liegt in `packages/engine` (PR #248, bit-identisch
+verschoben). `runAnalysisFromMeteringPointDraft` (`packages/extractors`) rechnet vollständig für
+Tarif+Lastgang, Bestandsbatterie und PV-Upload (PR #249–#251); PV-Ausfall-Erkennung (D5) und
+PVGIS-geschätzte PV (zur Laufzeit) bleiben offen — Letzteres bewusst vertagt, eigener, späterer
+Schritt (Netzaufruf, Timeout, Rate-Limit sind eigene Entscheidungen). Bei `hasBattery: true` ohne
+Kerndaten: sichtbare Warnung in `dataQuality.warnings` statt stiller Auslassung (PR #251).
 
 **NICHT-TUN:** `computeAnalysis` selbst wird nicht verändert oder verdoppelt. Die zwei Felder mit
 direkter Namensgleichheit (`energyPriceCtPerKwh`, `einspeiseverguetungCtPerKwh`) werden 1:1
@@ -266,21 +273,53 @@ verlinkt**, denselben bestehenden Regeln folgend, die für diese Tabelle bereits
 nachrechnen, keine Fremdschlüssel auf veränderliche Konfiguration, enge Append-only-Ausnahme,
 `CLAUDE.md`).
 
+**Neue Abhängigkeit aus D12, `[OFFEN]`:** Das Rendering läuft laut D12 im Browser des Admins über
+`apps/website` — einer App ganz ohne Anmeldung. Die eigentliche Archiv-Schreibung nach
+`platform.analyses` (verlangt `is_admin()`, §10.7) kann dort also nicht direkt passieren. Zwei Wege,
+hier nicht entschieden: (a) `apps/website` reicht den fertigen Output an eine `apps/web`-Aktion
+zurück, die schreibt, oder (b) die Archivierung bleibt vorerst aus, bis dieser Rückweg feststeht.
+Bei D11 selbst zu klären, nicht vorab.
+
 ---
 
 ## D12 — Baustein 10: Der Weg vom Wizard zum Report
 
-Bestandsaufnahme §10.4: **keiner** der gebauten Report-Bausteine ist von der Wizard-Seite aus
-erreichbar. `apps/web` hat keine Report-Route, führt weder `engine` noch `@react-pdf/renderer`
-direkt; alle Bausteine liegen app-lokal in `apps/website`.
+**Korrigiert gegenüber der ersten Fassung dieses Abschnitts** (die (a) serverseitig in `apps/web`
+empfahl — das war zu kurz gedacht, s. u.).
 
-**`[OFFEN]`, architekturrelevant:** wird der Report (a) serverseitig in `apps/web` über den neuen
-Engine-Einstiegspunkt (D3) direkt gerendert, oder (b) bleibt das Rendering in `apps/website` und
-`apps/web` reicht nur einen Trigger/eine Analyse-ID durch? **Empfehlung `[ANNAHME]`:** (a), weil der
-Report admin-seitig ausgelöst wird (kein Kunden-Browser im Spiel) und react-pdf ohnehin
-browsergebunden ist (§3.4) — ein serverseitiger Rendering-Pfad in `apps/web` selbst umgeht das
-DOM-Mount-Problem gleich mit. Das ist aber eine echte Architekturentscheidung, kein Detail — vor dem
-CC-Prompt zu bestätigen.
+Bestandsaufnahme §10.4: **keiner** der gebauten Report-Bausteine ist von der Wizard-Seite aus
+erreichbar. Zusätzlich geprüft (16.09.2026): `chart-capture.ts`/`chart-raster.ts` brauchen
+strukturell einen echten Browser — echtes Layout (`getBoundingClientRect`), `ResizeObserver`, Canvas,
+echte CSS-Auflösung, ein Frame-Takt. jsdom scheidet aus (5 unabhängige Fehlerstellen, teils still —
+unbemaltes Bild statt Fehler). Ein Headless-Browser (Playwright/Puppeteer) ist **nirgends im Repo**
+vorhanden. **Beide** serverseitigen Optionen — (a) direkt in `apps/web`, (b) HTTP-Aufruf an eine neue
+`apps/website`-Route — bräuchten denselben Headless-Browser als neue Abhängigkeit; (b) zusätzlich den
+**ersten** Programm-Aufrufweg zwischen den Apps überhaupt (heute: 0 — bewusst so, `next.config.mjs`:
+„die zwei Apps einander nie importieren") und eine neue Vertrauensgrenze ohne bestehendes
+Auth-Muster.
+
+**Entscheidung `[ANNAHME]`, ersetzt die vorige Empfehlung:** die PDF-Erzeugung bleibt, wo sie heute
+schon funktioniert — im Browser. Nicht im Kunden-, sondern im **Admin**-Browser: `apps/web` bindet
+`apps/website` bereits produktiv per `<iframe>` ein (drei Stellen). Neue Infrastruktur, minimal:
+
+1. **Neue, kurzlebige Tabelle** (Arbeitstitel `platform.report_render_requests`) — nicht
+   `platform.analyses` (das ist bewusst ein Archiv betreuter, dauerhafter Analysen, B14-1; ein
+   Zwischenspeicher für jeden Rechnerlauf unterliefe genau den Zweck, für den es gebaut wurde, s. auch
+   D11). Zufalls-`id`, `created_by`, `expires_at` (Stunden, nicht dauerhaft), Referenz auf das bereits
+   berechnete `AnalysisResult` + die Ursprungsdatei-Referenz (für `loadProfile`).
+2. **Geschrieben von `apps/web`** (authentifiziert, admin-seitige Aktion), sobald
+   `runAnalysisFromMeteringPointDraft` (D3) gelaufen ist.
+3. **Gelesen von `apps/website`** über eine neue, bewusst schmale SECURITY-DEFINER-Funktion — nur
+   nicht abgelaufene, exakt passende IDs, kein allgemeiner `anon`-Zugriff auf `platform`.
+4. **Neue Route in `apps/website`** (`apps/website` hat heute 0 Route-Dateien, nur vier Seiten) —
+   nimmt die Request-ID, baut `PdfReportInput` über die bereits produktiven, vom Prüfstand
+   verwendeten Ableitungsfunktionen (`derive.ts`), ruft die **bestehende, unveränderte**
+   `downloadReportPdf`-Kette auf.
+
+**Bewusste Einschränkung dieses Bausteins:** trägt nur, was D3 heute rechnen kann — Tarif+Lastgang,
+Bestandsbatterie, PV-Upload. Bei PVGIS-geschätzter PV ist der Lastgang aus der Ursprungsdatei allein
+nicht rekonstruierbar (dieselbe Grenze wie in D3, hier nur an einer zweiten Stelle sichtbar) — dieser
+Fall bleibt gesperrt, bis PVGIS-zur-Rechenzeit (D3, vertagt) steht.
 
 ---
 
@@ -327,7 +366,8 @@ Kopf-/Fusszeilen.
 ## Baureihenfolge, empfohlen
 
 1. **D3 — Engine-Einstiegspunkt.** Alles andere braucht ihn.
-2. **D12 — Weg Wizard → Report**, zusammen mit D3 (dieselbe Architekturentscheidung).
+2. **D12 — Weg Wizard → Report** (neue kurzlebige Tabelle + schmaler Lesezugriff + neue
+   `apps/website`-Route; Rendering bleibt im Admin-Browser — s. korrigierte Fassung).
 3. **D8 — Ein-Spanne-Regel** als Contract-Konvention, bevor neue Bausteine entstehen, die sie sonst
    erneut verletzen könnten.
 4. **D4 + D10 — Konditional-Matrix und Baukasten-Ausbau**, die eigentliche Arbeit von Teil 3.
@@ -344,11 +384,11 @@ Kopf-/Fusszeilen.
 
 | # | Punkt | Baustein | Typ |
 |---|---|---|---|
-| 1 | Erfasst die Rechnung-Station künftig `netzbetreiber`/volle `tariffSource`? | D3 | `[MARTIN]` |
-| 2 | Wer setzt `billingModel` (Pflichtfeld, heute von keiner Station geschrieben)? | D3 | `[OFFEN]` |
+| 1 | ~~Erfasst die Rechnung-Station künftig `netzbetreiber`?~~ | D3 | **gelöst** (PR #249) |
+| 2 | ~~Wer setzt `billingModel`?~~ | D3 | **gelöst** — Standard `monthly_max_sum` + Override |
 | 3 | Schwelle für „lange Nahe-Null-Strecke" (PV-Ausfall) | D5 | `[MARTIN]` |
 | 4 | Drei-Balken- vs. Fünf-Balken-Kostenvergleich; Verhältnis zum Monitor-Produkt; LP-Optimum-Validierung | D7 | `[MARTIN]` `[OFFEN]` |
-| 5 | Serverseitiges Rendering in `apps/web` vs. Trigger nach `apps/website` | D12 | `[ANNAHME]`, zu bestätigen |
+| 5 | Rückweg für die Archivierung (`apps/website` → `platform.analyses` ohne eigene Anmeldung) | D11/D12 | `[OFFEN]` |
 | 6 | Anschrift auf dem Deckblatt — gewünscht? | D9 | `[OFFEN]` |
 | 7 | Rollup-Scope: MVP nur Ein-Zählpunkt-Report | D13 | `[ANNAHME]`, zu bestätigen |
 | 8 | Cutover-Zeitpunkt: nach D4–D8 | D14 | `[ANNAHME]`, zu bestätigen |

@@ -5,6 +5,9 @@ import { isCurrentUserAdmin } from '@/lib/admin/guard'
 import { Container } from '@/components/ui/layout'
 import { AdminError, AdminPanel, AdminSection, Pill, formatDateTime } from '@/components/admin/ui'
 import { EnergyAdvisorDialog } from '@/components/admin/energy-advisor-dialog'
+import { ActionButton } from '@/components/admin/action-button'
+import { createReportRenderRequestAction } from '@/lib/admin/report-render-actions'
+import { readMeteringPointList } from '@/lib/admin/metering-points'
 import {
   PROJECTS_HREF,
   projectDataEntryHref,
@@ -20,18 +23,22 @@ import { visibleTranscript } from '@/lib/project-chat/transcript'
  *
  * ── WAS DIESE SEITE IST ─────────────────────────────────────────────────────────────────────────
  * Die Grundstruktur, an der die nächsten Schritte andocken: Kundenbezeichnung, Segment und Branche
- * (falls das Gespräch sie bestimmt hat), Zeitstempel — und zwei ausdrücklich als solche
- * gekennzeichnete Platzhalter für Dateneingabe und Report.
+ * (falls das Gespräch sie bestimmt hat), Zeitstempel, die Dateneingabe, die KI-Prüfung — und seit
+ * D12 Teil 2 der Report-Bereich, der nicht mehr Platzhalter ist.
  *
- * ── ⚠ DIE PLATZHALTER SIND SICHTBAR UND NICHT FUNKTIONAL, UND DAS IST ABSICHT ──────────────────
- * Sie zu verstecken, bis es sie gibt, wäre die naheliegende Alternative und die schlechtere: der
- * Projektkopf sähe dann aus wie ein fertiger Bereich, dem etwas fehlt, statt wie einer, der auf
- * zwei benannte Schritte wartet. Dieselbe Haltung wie beim gesperrten „Kleingewerbe" im
- * Standardprofil-Einstieg (Delta 9b-1): was unfertig ist, steht sichtbar da und sagt, warum.
+ * ── ⚠ DER REPORT-BEREICH RECHNET SEIT D12 TEIL 2 TATSÄCHLICH ──────────────────────────────────
+ * Je Zählpunkt ein Auslöser: er lässt die Engine laufen und legt aus dem Ergebnis eine kurzlebige
+ * Übergabe an (`platform.report_render_requests`). Was danach dasteht, ist ihre Kennung — die
+ * Ansicht dazu in `apps/website` gibt es noch nicht, und es steht KEIN Link daneben, der eine
+ * Route behauptete, die es nicht gibt.
  *
- * Was sie NICHT tun: sie behaupten keine Zahl, keinen Zustand und keinen Fortschritt. Ein leerer
- * Fortschrittsbalken oder ein „0 Zählpunkte erfasst" wäre eine Angabe über einen Vorgang, den es
- * noch nicht gibt.
+ * ⚠ GENAU EIN ZÄHLPUNKT JE AUSLÖSER (D13). Es gibt bewusst keinen Knopf „alle rechnen": eine
+ * zusammengefasste Sicht über mehrere Zählpunkte ist eine eigene Rechnung, kein Stapellauf.
+ *
+ * ── ⚠ OHNE ZÄHLPUNKTE STEHT DA EIN SATZ, KEIN KNOPF ───────────────────────────────────────────
+ * Dieselbe Haltung wie bisher beim Platzhalter: was nicht geht, steht sichtbar da und sagt, warum.
+ * `readMeteringPointList` liefert `null`, wenn der Wrapper NICHT `ok` gemeldet hat — das ist nicht
+ * dasselbe wie „keine Zählpunkte", und die beiden Fälle sagen hier deshalb Verschiedenes.
  *
  * ── EIN WRAPPER, EIN ROUNDTRIP ──────────────────────────────────────────────────────────────────
  * Gelesen wird ausschliesslich `public.admin_get_project`. Es liefert seit 20260911090000 auch
@@ -93,6 +100,11 @@ export default async function AdminProjectDetailPage({
   const segment = projectSegmentLabel(project.segment)
   const kiCheckMessages = await loadProjectMessages(project.id, 'ki_check')
   const kiCheckTranscript = visibleTranscript(kiCheckMessages)
+
+  // `null` heisst „nicht gelesen", nicht „keine Zählpunkte" — s. Kopf von `lib/admin/metering-points.ts`.
+  const pointsRes = await supabase.rpc('list_metering_points', { p_project_id: project.id })
+  if (pointsRes.error) console.error('[admin/projects] list_metering_points:', pointsRes.error)
+  const meteringPoints = readMeteringPointList(pointsRes.data)
 
   return (
     <Container className="py-10 sm:py-14">
@@ -164,11 +176,9 @@ export default async function AdminProjectDetailPage({
       </AdminSection>
 
       {/*
-        ⚠ VON DEN ZWEI PLATZHALTERN IST NOCH EINER ÜBRIG. Die Dateneingabe führt seit B24 Teil 1 an
-        ihr Ziel — das Gespräch, in dem die Angaben des Projekts entstehen; der Report darunter
-        wartet weiter. Der Unterschied soll am Aussehen ablesbar sein: Link gegen gestrichelten
-        Kasten. Was BEIDE weiterhin nicht tun: eine Zahl, einen Zustand oder einen Fortschritt
-        behaupten — ein „0 von 3 erfasst" wäre eine Angabe über einen Vorgang, den es nicht gibt.
+        ⚠ KEIN PLATZHALTER MEHR ÜBRIG. Dateneingabe, KI-Prüfung und Report führen alle drei an ihr
+        Ziel. Was keiner von ihnen tut: eine Zahl, einen Zustand oder einen Fortschritt behaupten —
+        ein „0 von 3 erfasst" wäre eine Angabe über einen Vorgang, den es nicht gibt.
       */}
       <AdminSection
         id="dateneingabe"
@@ -210,12 +220,45 @@ export default async function AdminProjectDetailPage({
       <AdminSection
         id="report"
         title="Report"
-        description="Noch nicht gebaut — folgt als eigener Schritt."
+        description="Rechnet einen Zählpunkt durch und legt daraus eine Übergabe für den Report-Renderer an."
       >
-        <Platzhalter>
-          Hier entsteht die Auswertung über alle Zählpunkte des Projekts. Gerechnet wird
-          unverändert in der Engine; dieser Bereich wählt aus, was davon im Report steht.
-        </Platzhalter>
+        <AdminPanel>
+          <p className="max-w-prose text-small text-text-muted">
+            Gerechnet wird unverändert in der Engine. Die Übergabe läuft nach 24 Stunden ab; die
+            Ansicht dazu folgt als eigener Schritt — die Kennung ist vorerst das Ergebnis.
+          </p>
+          {meteringPoints === null ? (
+            <AdminError>
+              Die Zählpunkte konnten nicht geladen werden. Das ist NICHT dasselbe wie „es gibt
+              keine" — bitte die Seite neu laden.
+            </AdminError>
+          ) : meteringPoints.length === 0 ? (
+            <p className="mt-4 text-small text-text-muted">
+              Dieses Projekt hat noch keinen Zählpunkt. Gerechnet wird je Zählpunkt — erfasst
+              werden sie in der Dateneingabe.
+            </p>
+          ) : (
+            <ul className="mt-4 flex flex-col gap-4">
+              {meteringPoints.map((point, index) => (
+                <li key={point.id} className="flex flex-col gap-2">
+                  <p className="text-small text-text">
+                    Zählpunkt {index + 1}
+                    {point.profileSource === null && (
+                      <span className="text-text-muted"> — ohne Lastgang</span>
+                    )}
+                  </p>
+                  <ActionButton
+                    action={createReportRenderRequestAction}
+                    fields={{ projectId: project.id, meteringPointId: point.id }}
+                    label={`Zählpunkt ${index + 1} rechnen`}
+                    pendingLabel="Wird gerechnet …"
+                    showSuccess
+                  />
+                </li>
+              ))}
+            </ul>
+          )}
+        </AdminPanel>
       </AdminSection>
     </Container>
   )
@@ -235,14 +278,6 @@ function Angabe({
       <dt className="text-caption text-text-muted">{label}</dt>
       <dd className="mt-0.5 text-small text-text">{children}</dd>
       {hint && <p className="mt-0.5 text-caption text-text-muted">{hint}</p>}
-    </div>
-  )
-}
-
-function Platzhalter({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="rounded-lg border border-dashed border-line bg-surface-sunken p-4 sm:p-6">
-      <p className="max-w-prose text-small text-text-muted">{children}</p>
     </div>
   )
 }

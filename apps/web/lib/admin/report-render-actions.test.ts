@@ -1,0 +1,133 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+/**
+ * D12 Teil 2 — die Admin-Aktion, die einen Zählpunkt durchrechnet und daraus eine Übergabe für den
+ * Report-Renderer anlegt.
+ *
+ * ⚠ GEMESSEN WIRD DER INHALT DER ÜBERGABE, NICHT NUR IHR ZUSTANDEKOMMEN. `create_report_render_request`
+ * nimmt zwei beliebige `jsonb` entgegen und kennt kein Vokabular für Analysen: eine leere oder
+ * vertauschte Nutzlast liefe dort widerspruchslos durch, und der Renderer bekäme eine Übergabe, die
+ * vollständig aussieht. Der Test greift deshalb die Argumente des Wrappers ab.
+ */
+
+const rpc = vi.fn()
+const readProjectDocument = vi.fn()
+
+vi.mock('server-only', () => ({}))
+vi.mock('@/lib/supabase/server', () => ({ createClient: async () => ({ rpc }) }))
+vi.mock('@/lib/project-documents/documents', () => ({
+  readProjectDocument: (id: string) => readProjectDocument(id),
+}))
+
+const { createReportRenderRequestAction } = await import('./report-render-actions')
+
+const PROJECT_ID = '11111111-2222-4333-8444-555555555555'
+const POINT_ID = '66666666-7777-4888-8999-aaaaaaaaaaaa'
+const REQUEST_ID = 'bbbbbbbb-cccc-4ddd-8eee-ffffffffffff'
+const DOCUMENT_ID = 'cccccccc-dddd-4eee-8fff-000000000000'
+
+/** Ein vollständiger Tarif-Entwurf, wie ihn die Rechnung-Station hinterlässt. */
+const DRAFT: Record<string, unknown> = {
+  netzebene: 'NE 7',
+  meteringVariant: 'mit_leistungsmessung',
+  leistungspreisEurPerKwYear: 82.92,
+  minBillableKw: 0,
+  energyPriceCtPerKwh: 24.5,
+  einspeiseverguetungCtPerKwh: 7.2,
+  netzbetreiber: 'wiener_netze',
+}
+
+/** Ein Tag mit Morgenspitze — 96 Viertelstunden, ISO-Zeitstempel, Semikolon/Dezimalkomma. */
+function loadProfileCsv(): string {
+  const rows: string[] = ['Zeitstempel;Bezug (kW)']
+  for (let i = 0; i < 96; i += 1) {
+    const at = new Date(Date.UTC(2025, 2, 17, 0, 0) + i * 15 * 60_000)
+    const hour = at.getUTCHours()
+    const kw = hour >= 5 && hour < 8 ? 48 : hour >= 8 && hour < 18 ? 22 : 9
+    rows.push(`${at.toISOString().slice(0, 16)};${String(kw).replace('.', ',')}`)
+  }
+  return rows.join('\n')
+}
+
+function form(): FormData {
+  const fd = new FormData()
+  fd.set('projectId', PROJECT_ID)
+  fd.set('meteringPointId', POINT_ID)
+  return fd
+}
+
+function withWrappers(draft: Record<string, unknown>) {
+  rpc.mockImplementation(async (fn: string) => {
+    if (fn === 'admin_get_project') {
+      return { data: { status: 'ok', project: { id: PROJECT_ID, customer_label: 'Bäckerei Gruber' } }, error: null }
+    }
+    if (fn === 'list_metering_points') {
+      return {
+        data: {
+          status: 'ok',
+          metering_points: [
+            { id: POINT_ID, draft, source_document_id: DOCUMENT_ID },
+          ],
+        },
+        error: null,
+      }
+    }
+    if (fn === 'create_report_render_request') return { data: REQUEST_ID, error: null }
+    throw new Error(`unerwarteter Wrapper: ${fn}`)
+  })
+}
+
+beforeEach(() => {
+  rpc.mockReset()
+  readProjectDocument.mockReset()
+  readProjectDocument.mockResolvedValue({
+    ok: true,
+    bytes: new TextEncoder().encode(loadProfileCsv()).buffer,
+    filename: 'lastgang-2025.csv',
+    contentType: 'text/csv',
+  })
+})
+
+describe('createReportRenderRequestAction', () => {
+  it('legt aus einem vollständigen Entwurf eine Übergabe an — mit Ergebnis UND Lastgang', async () => {
+    withWrappers(DRAFT)
+
+    const state = await createReportRenderRequestAction({}, form())
+    expect(state.formError).toBeUndefined()
+    expect(state.success).toContain(REQUEST_ID)
+
+    const call = rpc.mock.calls.find(([fn]) => fn === 'create_report_render_request')
+    expect(call).toBeDefined()
+    const args = call![1] as Record<string, unknown>
+
+    // Das Ergebnis ist gerechnet, nicht leer durchgereicht.
+    const result = args.p_analysis_result as { current: { billedKw: number }; perBattery: unknown[] }
+    expect(result.current.billedKw).toBeCloseTo(48, 6)
+    expect(result.perBattery.length).toBeGreaterThan(0)
+
+    // Der Lastgang steht daneben — er kommt im AnalysisResult nicht vor.
+    const loadProfile = args.p_load_profile as { readings: unknown[]; intervalMinutes: number }
+    expect(loadProfile.readings).toHaveLength(96)
+    expect(loadProfile.intervalMinutes).toBe(15)
+
+    // Genau vier Felder, als WERTE — kein Verweis auf den veränderlichen Entwurf.
+    expect(args.p_report_input_meta).toEqual({
+      customerLabel: 'Bäckerei Gruber',
+      netzbetreiber: 'wiener_netze',
+      meteringPointId: POINT_ID,
+      projectId: PROJECT_ID,
+    })
+    expect(args.p_ttl_hours).toBe(24)
+  })
+
+  it('⚠ bei gesperrtem Entwurf (geschätzte PV) entsteht GAR KEINE Zeile', async () => {
+    withWrappers({ ...DRAFT, hasPv: true, pvProfileSource: 'generated', pvEstimatedAnnualKwh: 12_000 })
+
+    const state = await createReportRenderRequestAction({}, form())
+
+    // Die Meldung des Laufs kommt unverändert an — sie nennt die betroffenen Felder.
+    expect(state.success).toBeUndefined()
+    expect(state.formError).toContain('pvProfileSource')
+    expect(rpc.mock.calls.some(([fn]) => fn === 'create_report_render_request')).toBe(false)
+  })
+})

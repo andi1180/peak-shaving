@@ -256,6 +256,7 @@ export {
   runAnalysisFromMeteringPointDraft,
   MeteringPointAnalysisError,
   type MeteringPointAnalysisPorts,
+  type MeteringPointAnalysisRun,
   type MeteringPointAnalysisSource,
   type ProjectDocumentFile,
   type RunAnalysisFromDraftOptions,
