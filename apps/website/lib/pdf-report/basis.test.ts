@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { LoadProfile, TariffSourceRef } from 'shared'
+import type { LoadProfile, NetzbetreiberId, TariffSourceRef } from 'shared'
 
 import { buildBasisChapter } from './basis'
 import { TARIFF_SOURCE_UNTRACKED } from './types'
@@ -57,7 +57,7 @@ const REAL_REF: TariffSourceRef = {
   overriddenFields: [],
 }
 
-function chapterFor(tariffSource: PdfReportTariffSource) {
+function chapterFor(tariffSource: PdfReportTariffSource, netzbetreiber?: NetzbetreiberId) {
   const input: PdfReportInput = {
     title: 'Wirtschaftlichkeitsanalyse Batteriespeicher',
     subtitle: 'Auf Basis Ihres Viertelstunden-Lastgangs',
@@ -66,6 +66,7 @@ function chapterFor(tariffSource: PdfReportTariffSource) {
     analysis: ANALYSIS,
     loadProfile: LOAD_PROFILE,
     tariffSource,
+    netzbetreiber,
     tariffVintage: null,
   }
   return buildBasisChapter(input)
@@ -91,6 +92,30 @@ describe('buildBasisChapter — Herkunft der Tarifsätze', () => {
     expect(chapterFor(REAL_REF).tariffSource).toBe(
       'Tarifsätze: Wiener Netze, Netzebene 6 · Stand „Wiener Netze 2026", gültig ab 2026-01-01. ' +
         'Die Vorgabewerte wurden unverändert übernommen.',
+    )
+  })
+
+  /**
+   * D9-Vorgriff — der Netzbetreiber als ANGABE im dritten Satz. Geprüft wird beides zusammen: dass
+   * der Name erscheint UND dass der Rest des Satzes wortgleich bleibt; ein Zweig, der nur den Namen
+   * anhängt und dabei die Unkenntnis verschweigt, bestünde die erste Hälfte allein.
+   */
+  it('nennt den Netzbetreiber, wenn der Weg ihn kennt — ohne eine Herkunft zu behaupten', () => {
+    const { tariffSource } = chapterFor(TARIFF_SOURCE_UNTRACKED, 'wiener_netze')
+
+    expect(tariffSource).toContain('(Netzbetreiber: Wiener Netze)')
+    expect(tariffSource).toContain('nicht im Einzelnen nachverfolgt')
+    expect(tariffSource).toContain('hält dieser Report nicht fest')
+    // Die rohe Kennung darf nicht als Beschriftung durchschlagen.
+    expect(tariffSource).not.toContain('wiener_netze')
+  })
+
+  it('lässt den Satz ohne Netzbetreiber unverändert — kein Platzhalter', () => {
+    expect(chapterFor(TARIFF_SOURCE_UNTRACKED).tariffSource).toBe(
+      'Tarifsätze: Herkunft für diese Auswertung nicht im Einzelnen nachverfolgt — gerechnet ' +
+        'wurde mit den Leistungspreis-, Abrechnungs- und Mindestleistungswerten, die zu diesem ' +
+        'Zählpunkt hinterlegt sind. Ob sie aus einer Netzrechnung oder aus einem hinterlegten ' +
+        'Tarifstand stammen, hält dieser Report nicht fest.',
     )
   })
 

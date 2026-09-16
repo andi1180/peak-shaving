@@ -3,6 +3,7 @@ import {
   type BatteryRoiEntry,
   type BillingModel,
   type LoadProfile,
+  type NetzbetreiberId,
   type TariffPriceRange,
   type TariffSourceRef,
 } from 'shared'
@@ -295,8 +296,21 @@ const TARIFF_FIELD_LABEL: Record<TariffSourceRef['overriddenFields'][number], st
  * Eingabe" noch einen Tarifstand, weil beides zuträfe oder nicht, ohne dass es jemand wüsste. Eine
  * offen ausgewiesene Unkenntnis ist beim Wirkungsnachweis 2027 brauchbar; eine der beiden anderen
  * Antworten, auf gut Glück gesetzt, wäre es nicht.
+ *
+ * ── ⚠ D9-VORGRIFF: DER NETZBETREIBER STEHT IM DRITTEN SATZ, UND NUR DORT ──────────────────────
+ * Die anderen beiden Sätze nennen ihn bereits oder brauchen ihn nicht: der `TariffSourceRef`-Satz
+ * führt ihn samt Netzebene und Stand, der `null`-Satz sagt, dass die Werte aus der Rechnung des
+ * Kunden stammen — auf der der Betreiber steht. Nur der dritte Satz liess bisher offen, um wessen
+ * Netz es überhaupt geht, und das ist auf einem weitergereichten Blatt nicht mehr zu klären.
+ *
+ * ⚠ ER MACHT AUS DER UNKENNTNIS KEINE HERKUNFT: welcher Stand gerechnet wurde, bleibt unbenannt,
+ * und der Rest des Satzes ist wortgleich. Fehlt der Name, steht er gar nicht da — ein
+ * „(Netzbetreiber: unbekannt)" wäre eine Angabe, die nichts bezeichnet.
  */
-function buildTariffSource(source: PdfReportTariffSource): string {
+function buildTariffSource(
+  source: PdfReportTariffSource,
+  netzbetreiber: NetzbetreiberId | undefined,
+): string {
   /*
    * ⚠ ZUERST UND ALS GLEICHHEIT GEPRÜFT, NICHT ÜBER `!source`. Der dritte Zustand ist eine
    * nichtleere Zeichenkette und damit WAHRHEITSWERTIG — eine `!source`-Prüfung liesse ihn stillos
@@ -304,11 +318,12 @@ function buildTariffSource(source: PdfReportTariffSource): string {
    * drei Antworten werden deshalb einzeln und benannt unterschieden (s. `types.ts`).
    */
   if (source === TARIFF_SOURCE_UNTRACKED) {
+    const operator = netzbetreiber ? ` (Netzbetreiber: ${NETZBETREIBER_LABELS[netzbetreiber]})` : ''
     return (
       'Tarifsätze: Herkunft für diese Auswertung nicht im Einzelnen nachverfolgt — gerechnet wurde ' +
       'mit den Leistungspreis-, Abrechnungs- und Mindestleistungswerten, die zu diesem Zählpunkt ' +
-      'hinterlegt sind. Ob sie aus einer Netzrechnung oder aus einem hinterlegten Tarifstand ' +
-      'stammen, hält dieser Report nicht fest.'
+      `hinterlegt sind${operator}. Ob sie aus einer Netzrechnung oder aus einem hinterlegten ` +
+      'Tarifstand stammen, hält dieser Report nicht fest.'
     )
   }
 
@@ -353,7 +368,7 @@ export function buildBasisChapter(input: PdfReportInput): BasisChapter {
     assumptions: buildAssumptions(input.analysis),
     dataQuality: buildDataQuality(input.analysis),
     blocker: buildBlocker(input.analysis, timeZoneOf(input.loadProfile)),
-    tariffSource: buildTariffSource(input.tariffSource),
+    tariffSource: buildTariffSource(input.tariffSource, input.netzbetreiber),
     tariffVintage: input.tariffVintage,
   }
 }
