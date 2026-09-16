@@ -232,6 +232,28 @@ export {
   type PvArrayReferenceSummary,
 } from './pv-reference/fetch'
 
+/*
+ * ── DIE GESCHÄTZTE ERZEUGUNGSREIHE, FERTIG ZUM ABLEGEN ────────────────────────────────────────
+ * ⚠ HIER KIPPT EINE ZUSAGE DES ABRUFS DARÜBER, und zwar absichtlich: `fetchPvArrayReferenceProfile`
+ * lässt keine Reihe heraus, `generateEstimatedPvSeries` sehr wohl — aber nicht als Zahlenreihe für
+ * einen Entwurf, sondern als fertig serialisierte DATEI. Der Grund ist B14-1 Regel a: eine zur
+ * Rechenzeit neu geholte Kurve wäre ein zweiter PVGIS-Abruf mit womöglich anderen Wetterjahren und
+ * damit ein stilles Nachrechnen einer bereits abgegebenen Auslegung.
+ *
+ * Die 8.760 Stundenwerte je Fläche bleiben trotzdem hinter dieser Grenze: summiert und auf die
+ * Zeitstempel des Lastgangs gelegt wird INNERHALB des Pakets.
+ */
+export {
+  generateEstimatedPvSeries,
+  type EstimatedPvSeriesLoadProfile,
+  type EstimatedPvSeriesOutcome,
+} from './pv-reference/fetch'
+export {
+  GENERATED_PV_SERIES_FORMAT,
+  type GeneratedPvSeriesDocument,
+  type GeneratedPvSeriesFile,
+} from './pv-reference/generated-series'
+
 // ── Dokument-Zuordnung (Delta 17 Teil 1) ──────────────────────────────────────────────────────
 export {
   MAX_UPLOAD_CLASSIFICATION_FILE_BYTES,

@@ -4,6 +4,7 @@ import {
   PVGIS_WEATHER_YEARS,
   buildPvReferenceProfile,
   checkPvgisRequest,
+  parseLoadProfile,
   parsePvgisSeries,
   pvgisSeriesCalcParams,
   type AnnualYield,
@@ -22,6 +23,7 @@ import {
   PVGIS_TIMEOUT_MS,
   takePvReferenceRateLimitSlot,
 } from './limits'
+import { buildGeneratedPvSeriesFile, type GeneratedPvSeriesFile } from './generated-series'
 
 /**
  * B24, Teil 1 — DER PVGIS-ABRUF DES ADMIN-WIZARDS (Phase A). EIN Array, EIN Aufruf.
@@ -51,18 +53,20 @@ import {
  * Schritt mit eigener Messung. Solange beide bestehen, ist die Doppelung BENANNT statt still.
  *
  * ══════════════════════════════════════════════════════════════════════════════════════════════
- * ⚠ ES KOMMT KEINE ERZEUGUNGSREIHE HERAUS — dieselbe Zusage wie bei `readPvProfileMetadata`
+ * ⚠ AUS DEM ABRUF KOMMEN KENNZAHLEN — DIE REIHE VERLÄSST DIESES PAKET NUR ALS FERTIGE DATEI
  * ══════════════════════════════════════════════════════════════════════════════════════════════
- * `PvReferenceProfile.hourlyKw` trägt 8.760 Werte. Sie bleiben hinter dieser Paketgrenze; heraus
- * kommen Kennzahlen ÜBER die Reihe. Zwei Gründe, und der zweite ist der wichtigere:
+ * `PvReferenceProfile.hourlyKw` trägt 8.760 Werte. `fetchPvArrayReferenceProfile` lässt sie nicht
+ * heraus: 8.760 Zahlen je Fläche durch eine Server Action und in einen `jsonb`-Entwurf zu reichen
+ * wäre eine Fracht, die niemand angefordert hat — und der erste Aufrufer, der sie dort vorfindet,
+ * speichert sie in den Entwurf.
  *
- *   1. Was der Wizard SPEICHERT, sind Eingaben (PLZ, kWp, Neigung, Richtung), nicht Ergebnisse —
- *      genau wie beim Standardprofil-Zweig, dessen 35.040 erzeugte Messwerte ebenfalls hier
- *      bleiben. Die Kurve entsteht zur Rechenzeit neu aus denselben Eingaben; sie zusätzlich
- *      abzulegen schüfe einen zweiten Speicherort für dieselbe Aussage.
- *   2. 8.760 Zahlen durch eine Server Action und in einen `jsonb`-Entwurf zu reichen wäre eine
- *      Fracht, die niemand angefordert hat — und der erste Aufrufer, der sie dort vorfindet,
- *      speichert sie.
+ * ⚠ DER ZWEITE GRUND, DER HIER STAND, IST GEFALLEN: „was der Wizard speichert, sind Eingaben; die
+ * Kurve entsteht zur Rechenzeit neu." Das trägt nicht mehr. Eine zur Rechenzeit neu geholte Kurve
+ * wäre ein zweiter PVGIS-Abruf mit womöglich anderen Wetterjahren — die Analyse eines Kunden hinge
+ * damit an der Tagesform eines fremden Dienstes, und eine einmal abgegebene Auslegung würde still
+ * nachgerechnet (B14-1 Regel a). Die geschätzte Reihe wird deshalb EINMAL gebaut und abgelegt;
+ * `generateEstimatedPvSeries` weiter unten ist der Weg dorthin, und heraus kommt eine fertig
+ * serialisierte Datei, keine Zahlenreihe im Entwurf.
  *
  * ── WAS HINAUSGEHT (Prinzip 4) ────────────────────────────────────────────────────────────────
  * Koordinate, Neigung, Ausrichtung, kWp und der Wetterjahr-Zeitraum. **Kein Lastgang, kein
@@ -156,6 +160,29 @@ export type PvArrayReferenceOutcome =
 export async function fetchPvArrayReferenceProfile(
   design: PvgisArrayDesign,
 ): Promise<PvArrayReferenceOutcome> {
+  const outcome = await fetchPvArrayReference(design)
+  // Die 8.760 Stundenwerte enden an dieser Zeile — s. Kopf.
+  return outcome.ok ? { ok: true, summary: outcome.summary } : outcome
+}
+
+/**
+ * Derselbe Abruf, MIT der Stundenreihe — paketintern und ausdrücklich NICHT im Barrel.
+ *
+ * ⚠ DIE ZUSAGE DES KOPFES BLEIBT DAMIT BESTEHEN, sie wird nur genauer: die 8.760 Werte verlassen
+ * dieses PAKET nicht (`package.json` gibt unter `exports` allein `.` frei, ein Deep-Import löst
+ * gar nicht auf). Innerhalb des Pakets braucht sie genau ein Aufrufer —
+ * `generateEstimatedPvSeries` weiter unten, der aus ihnen die abzulegende Reihe baut. Ohne diesen
+ * Zwischenschritt müsste entweder die Reihe durch eine Server Action wandern oder der Abruf ein
+ * zweites Mal geschehen.
+ */
+async function fetchPvArrayReference(
+  design: PvgisArrayDesign,
+): Promise<
+  | { ok: true; summary: PvArrayReferenceSummary; hourlyKw: readonly number[] }
+  | { ok: false; reason: 'invalid_request'; rejection: PvgisRequestRejection }
+  | { ok: false; reason: 'rate_limited' }
+  | { ok: false; reason: 'pvgis_error' }
+> {
   /*
    * DIE PRÜFUNG LÄUFT VOR JEDEM EXTERNEN KONTAKT. Scheitert sie, entsteht kein Aufruf — nicht
    * „PVGIS lehnt ab", sondern der Dienst wird gar nicht erst befragt. Dieselbe Haltung wie in
@@ -215,13 +242,9 @@ export async function fetchPvArrayReferenceProfile(
     return { ok: false, reason: 'pvgis_error' }
   }
 
-  /*
-   * ⚠ HIER WIRD `profile.profile.hourlyKw` BEWUSST NICHT WEITERGEREICHT. Die 8.760 Werte enden an
-   * dieser Zeile — s. Kopf. Wer sie später doch braucht, holt sie zur RECHENZEIT aus denselben
-   * Eingaben, statt sie durch einen Entwurf zu schleifen.
-   */
   return {
     ok: true,
+    hourlyKw: profile.profile.hourlyKw,
     summary: {
       weatherYears: profile.profile.weatherYears,
       annualYields: profile.profile.annualYields,
@@ -230,4 +253,129 @@ export async function fetchPvArrayReferenceProfile(
       echoed: profile.profile.inputs,
     },
   }
+}
+
+/**
+ * Die Lastgang-Datei, aus der die ECHTEN Zeitstempel stammen.
+ *
+ * ⚠ SIE KOMMT ALS BYTES HEREIN UND NICHT ALS DOKUMENT-KENNUNG — dieselbe Aufteilung wie bei
+ * `checkPvGeneratorEligibility` nebenan und aus demselben Grund: `readProjectDocument` zieht
+ * `@supabase/ssr` und `next/headers`, und ein Paket importiert keine App. Die App liest das
+ * Dokument, dieses Paket liest die Datei.
+ */
+export type EstimatedPvSeriesLoadProfile = { bytes: ArrayBuffer; fileName: string }
+
+export type EstimatedPvSeriesOutcome =
+  | {
+      ok: true
+      /** Je Fläche eine Zusammenfassung, in der Reihenfolge der übergebenen Auslegungen. */
+      summaries: PvArrayReferenceSummary[]
+      /**
+       * Die abzulegende Reihe — `null`, wenn kein Lastgang übergeben wurde.
+       *
+       * ⚠ DAS IST HEUTE DER STANDARDPROFIL-ZWEIG, und die Lücke ist benannt statt still: ein
+       * erzeugtes Standardprofil hat keine Datei, aus der sich Zeitstempel lesen liessen, und aus
+       * `coveredFrom` + Intervall rekonstruiert wären sie an jedem Sommerzeit-Tag falsch. Die
+       * Kennzahlen entstehen trotzdem — nur die Reihe nicht. Solange der Analyse-Lauf ein
+       * Standardprofil ohnehin ablehnt (`run-from-draft.ts`, `no_uploaded_load_profile`), fehlt
+       * dadurch nichts, was sonst gerechnet würde.
+       */
+      file: GeneratedPvSeriesFile | null
+    }
+  /** Die übergebene Lastgang-Datei liess sich nicht lesen. Es ist NICHTS hinausgegangen. */
+  | { ok: false; reason: 'load_profile_unreadable' }
+  | {
+      ok: false
+      reason: 'invalid_request' | 'rate_limited' | 'pvgis_error'
+      /** 1-basiert, in der Reihenfolge der übergebenen Flächen — die Nummer der Oberfläche. */
+      arrayNumber: number
+      rejection?: PvgisRequestRejection
+    }
+
+/**
+ * Holt ALLE Modulflächen, summiert ihre Stundenreihen und legt die Summe auf die Zeitstempel des
+ * Lastgangs — heraus kommt die Datei, die der Wizard ablegt, plus die Kennzahlen je Fläche.
+ *
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * ⚠ ALLES ODER NICHTS. Scheitert EINE Fläche, ist das Ergebnis ein Fehlschlag — nicht die Summe
+ * der übrigen. Eine Anlage mit drei Flächen, von denen eine fehlt, ergäbe eine Zahl in völlig
+ * plausibler Grössenordnung, der niemand ansieht, dass ihr ein Drittel fehlt (dieselbe Regel, die
+ * `generatePvProfileAction` schon für unvollständig erfasste Flächen durchsetzt).
+ *
+ * ⚠ DER LASTGANG WIRD ZUERST GELESEN, VOR DEM ERSTEN EXTERNEN KONTAKT. Eine unlesbare Datei soll
+ * PVGIS nicht N Anfragen kosten — dieselbe Reihenfolge wie bei der Anfrageprüfung im Abruf selbst.
+ *
+ * ⚠ ER WIRD DABEI EIN ZWEITES MAL GEPARST (die Anbietbarkeits-Prüfung hat es schon getan), und das
+ * ist Absicht: die beiden Prüfungen haben verschiedene Aufgaben und verschiedene Zeitpunkte —
+ * „darf überhaupt geschätzt werden?" fällt VOR dem Abruf, „auf welche Zeitstempel?" gehört zum
+ * Ergebnis. Zusammengelegt käme die Anbietbarkeit nach den PVGIS-Aufrufen zu stehen und eine
+ * abgelehnte Schätzung kostete sie trotzdem.
+ */
+export async function generateEstimatedPvSeries(input: {
+  designs: readonly PvgisArrayDesign[]
+  /** `null` = kein hochgeladener Lastgang (Standardprofil) — dann entsteht keine Reihe, s. oben. */
+  loadProfile: EstimatedPvSeriesLoadProfile | null
+}): Promise<EstimatedPvSeriesOutcome> {
+  let timestamps: string[] | null = null
+  if (input.loadProfile !== null) {
+    timestamps = readLoadProfileTimestamps(input.loadProfile)
+    if (timestamps === null) return { ok: false, reason: 'load_profile_unreadable' }
+  }
+
+  const outcomes = await Promise.all(input.designs.map((design) => fetchPvArrayReference(design)))
+
+  const summaries: PvArrayReferenceSummary[] = []
+  const hourlySeries: (readonly number[])[] = []
+  for (const [index, outcome] of outcomes.entries()) {
+    if (!outcome.ok) {
+      return outcome.reason === 'invalid_request'
+        ? { ok: false, reason: outcome.reason, arrayNumber: index + 1, rejection: outcome.rejection }
+        : { ok: false, reason: outcome.reason, arrayNumber: index + 1 }
+    }
+    summaries.push(outcome.summary)
+    hourlySeries.push(outcome.hourlyKw)
+  }
+
+  const first = summaries[0]
+  if (timestamps === null || first === undefined) return { ok: true, summaries, file: null }
+
+  return {
+    ok: true,
+    summaries,
+    file: buildGeneratedPvSeriesFile({
+      hourlySeries,
+      timestamps,
+      /*
+       * Die Wetterjahre der ERSTEN Fläche — sie gelten für alle: angefordert wird für jede derselbe
+       * Satz, und `buildPvReferenceProfile` weist eine Antwort ab, die nicht genau ihn trägt. Der
+       * Glättungs-Aufschlag ist eine Eigenschaft des VERFAHRENS und damit ohnehin für alle gleich.
+       */
+      weatherYears: first.weatherYears,
+      smoothingOptimismPercent: first.smoothingOptimismPercent,
+    }),
+  }
+}
+
+/**
+ * Die Zeitstempel des Lastgangs, in seiner Reihenfolge — `null`, wenn die Datei nicht eindeutig
+ * lesbar ist.
+ *
+ * ⚠ ES IST DERSELBE PARSER, DEN DER ANALYSE-LAUF SPÄTER AUF DIESELBE DATEI ANWENDET
+ * (`run-from-draft.ts`). Nur deshalb ist die Zuordnung Erzeugung ↔ Verbrauch per Konstruktion
+ * vollständig: beide Seiten tragen dieselben Zeichenketten, und `alignPvGrossToLoad` vergleicht
+ * exakt (s. Kopf von `pv-generation/couple.ts`). Eine eigene, „leichtere" Zeitstempel-Lesung wäre
+ * eine zweite Fassung derselben Regel und die erste, die auseinanderliefe.
+ *
+ * ⚠ CSV ALS TEXT, XLSX ALS BYTES — die Unterscheidung fällt am DATEINAMEN; ausführlich begründet
+ * im Kopf von `eligibility.ts` nebenan (der `content_type` ist eine Angabe des Browsers).
+ */
+function readLoadProfileTimestamps(file: EstimatedPvSeriesLoadProfile): string[] | null {
+  const isXlsx = /\.xlsx?$/i.test(file.fileName.trim())
+  const parsed = parseLoadProfile({
+    content: isXlsx ? file.bytes : new TextDecoder().decode(file.bytes),
+    fileName: file.fileName,
+    format: isXlsx ? 'xlsx' : 'csv',
+  })
+  if (!parsed.ok) return null
+  return parsed.profile.readings.map((reading) => reading.ts)
 }

@@ -254,7 +254,14 @@ export function buildPvReferenceProfile(
  *                   hat dieselbe Länge und dieselbe Reihenfolge.
  */
 export function expandReferenceToTimestamps(
-  profile: PvReferenceProfile,
+  /*
+   * ⚠ NUR `hourlyKw` WIRD GELESEN, und der Typ sagt das seit der Ablage der geschätzten Reihe auch:
+   * dort wird die SUMME mehrerer Modulflächen aufgelegt, und die hat keine eigenen Jahreserträge
+   * und keine zurückgespiegelten PVGIS-Eingaben (die gehören je EINER Fläche). Ein voller
+   * `PvReferenceProfile` liesse sich dafür nur zusammenbauen, indem man die Angaben der ersten
+   * Fläche danebenstellt — eine Behauptung über die Summe, die niemand geprüft hat.
+   */
+  profile: Pick<PvReferenceProfile, 'hourlyKw'>,
   timestamps: readonly string[],
 ): number[] {
   return timestamps.map((ts) => {

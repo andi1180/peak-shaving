@@ -169,6 +169,7 @@ describe('readPvProfileDraft — defensiv wie jeder jsonb-Leser', () => {
       // `null` heisst hier „es gibt keine Reihe" — nicht „hochgeladen" und nicht „geschätzt".
       source: null,
       sourceDocumentId: null,
+      generatedDocumentId: null,
       estimate: null,
       gaps: [],
     })
@@ -181,6 +182,9 @@ describe('readPvProfileDraft — defensiv wie jeder jsonb-Leser', () => {
       coveredTo: '2025-12-31T23:00:00.000Z',
       source: 'upload',
       sourceDocumentId: DOCUMENT_ID,
+      // ⚠ Die Kennung der GESCHÄTZTEN Reihe bleibt bei einer hochgeladenen `null` — dieselbe
+      // Filterung wie bei den Kennzahlen darunter.
+      generatedDocumentId: null,
       // ⚠ Bei einer HOCHGELADENEN Reihe sind die PVGIS-Kennzahlen `null` — und zwar auch dann,
       // wenn im Entwurf welche stünden. Eine gemessene Reihe hat keine geschätzte Streuung.
       estimate: null,

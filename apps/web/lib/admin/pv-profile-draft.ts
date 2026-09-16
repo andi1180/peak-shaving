@@ -7,9 +7,13 @@ import type { DraftValue } from '@/lib/project-chat/draft'
  *
  * ⚠ DIESER KOPF HAT BIS ZUM PVGIS-GENERATOR NUR EINEN WEG GEKANNT. Er beschrieb ausschliesslich
  * die aus einer Datei GELESENE Reihe; seit Phase B gibt es einen zweiten, der dieselben vier
- * Zeitraum-Felder füllt und dabei ausdrücklich KEINE Datei hat. Was die zwei trennt, ist
- * `PV_PROFILE_SOURCE_KEY` — und es ist ein eigener Wert geworden statt einer Erschliessung aus der
- * Dokument-Kennung, weil genau diese Erschliessung beim Lastgang schon einmal gebrochen ist.
+ * Zeitraum-Felder füllt. Was die zwei trennt, ist `PV_PROFILE_SOURCE_KEY` — und es ist ein eigener
+ * Wert geworden statt einer Erschliessung aus der Dokument-Kennung, weil genau diese Erschliessung
+ * beim Lastgang schon einmal gebrochen ist.
+ *
+ * ⚠ „DIE GESCHÄTZTE REIHE HAT KEINE DATEI" GILT NICHT MEHR. Sie wird seit der Ablage der
+ * Erzeugungsreihe mitgespeichert — unter einem EIGENEN Schlüssel
+ * (`PV_GENERATED_DOCUMENT_ID_KEY`), nicht unter dem der hochgeladenen.
  *
  * ══════════════════════════════════════════════════════════════════════════════════════════════
  * ⚠ SIE LIEGT IM ENTWURF UND NICHT IN EIGENEN SPALTEN — der Unterschied zum Lastgang
@@ -87,6 +91,18 @@ export const PV_COVERED_TO_KEY = 'pvCoveredTo'
  */
 export const PV_SOURCE_DOCUMENT_ID_KEY = 'pvSourceDocumentId'
 
+/**
+ * Die Kennung des Dokuments mit der GESCHÄTZTEN Erzeugungsreihe.
+ *
+ * ⚠ EIN EIGENER SCHLÜSSEL UND NICHT `PV_SOURCE_DOCUMENT_ID_KEY`, obwohl beide auf ein Dokument in
+ * `platform.project_documents` zeigen. Die zwei Dateien sind nicht dasselbe: die eine hat der Kunde
+ * gemessen und hochgeladen, die andere haben WIR aus zehn Wetterjahren gerechnet. Unter einem
+ * Schlüssel geführt wäre die Herkunft nur noch am `pvProfileSource` daneben zu erkennen — und genau
+ * diese Ableitung ist beim Lastgang schon einmal gebrochen (s. `PV_PROFILE_SOURCE_KEY`). Getrennt
+ * kann kein Leser die geschätzte Reihe versehentlich als Messung ausweisen.
+ */
+export const PV_GENERATED_DOCUMENT_ID_KEY = 'pvGeneratedDocumentId'
+
 /** Der Seiteneintrag mit den Lücken — eine Liste, und deshalb nicht über `setDraftField`. */
 export const PV_PROFILE_GAPS_KEY = '_pvProfileGaps'
 
@@ -158,6 +174,7 @@ export const PV_PROFILE_DRAFT_KEYS: readonly string[] = [
   PV_COVERED_FROM_KEY,
   PV_COVERED_TO_KEY,
   PV_SOURCE_DOCUMENT_ID_KEY,
+  PV_GENERATED_DOCUMENT_ID_KEY,
   PV_PROFILE_GAPS_KEY,
   PV_PROFILE_SOURCE_KEY,
   PV_ESTIMATED_ANNUAL_KWH_KEY,
@@ -232,6 +249,15 @@ export type PvProfileDraftSummary = {
   source: PvProfileSource | null
   /** Die Kennung der hochgeladenen Datei — bei `'generated'` immer `null`, s. Kopf von `readPvProfileDraft`. */
   sourceDocumentId: string | null
+  /**
+   * Die Kennung der ABGELEGTEN geschätzten Reihe — bei `'upload'` immer `null`, aus demselben
+   * Grund wie die Kennzahlen daneben (s. Kopf von `readPvProfileDraft`).
+   *
+   * ⚠ Sie kann auch bei `'generated'` fehlen: ein Zählpunkt mit erzeugtem STANDARDPROFIL hat keine
+   * Lastgang-Datei und damit keine echten Zeitstempel, auf die sich eine Reihe legen liesse — dort
+   * entstehen die Kennzahlen, aber keine Datei (`generateEstimatedPvSeries`).
+   */
+  generatedDocumentId: string | null
   /** Die PVGIS-Kennzahlen — bei `'upload'` immer `null`, s. Kopf von `readPvProfileDraft`. */
   estimate: PvProfileEstimate | null
   /** Leer = keine Lücke über der Toleranzschwelle — nicht „keine Angabe" (das sagt `coveredFrom`). */
@@ -323,6 +349,8 @@ export function readPvProfileDraft(draft: Record<string, unknown>): PvProfileDra
     coveredTo: readText(draft, PV_COVERED_TO_KEY),
     source,
     sourceDocumentId: source === 'generated' ? null : documentId,
+    generatedDocumentId:
+      source === 'generated' ? readText(draft, PV_GENERATED_DOCUMENT_ID_KEY) : null,
     estimate: source === 'generated' ? readEstimate(draft) : null,
     gaps: readGaps(draft[PV_PROFILE_GAPS_KEY]),
   }
@@ -378,19 +406,27 @@ export type PvGeneratedProfile = {
   coveredFrom: string
   coveredTo: string
   estimate: PvProfileEstimate
+  /**
+   * Die Kennung der abgelegten Reihe — `null`, wenn keine entstehen konnte (Standardprofil-Zweig,
+   * s. `PV_GENERATED_DOCUMENT_ID_KEY`).
+   */
+  documentId: string | null
 }
 
 /**
  * Die skalaren Felder einer GESCHÄTZTEN Reihe, fertig für `setDraftField`.
  *
  * ══════════════════════════════════════════════════════════════════════════════════════════════
- * ⚠ ES IST KEINE DOKUMENT-KENNUNG DABEI, UND DAS IST DER GANZE UNTERSCHIED ZUM UPLOAD-WEG
+ * ⚠ DIE KENNUNG DER HOCHGELADENEN DATEI IST NICHT DABEI — sie gehört dem Upload-Weg
  * ══════════════════════════════════════════════════════════════════════════════════════════════
- * Eine geschätzte Reihe hat keine Datei. `setDraftField` nimmt ausdrücklich nur
- * `number | string | boolean` — ein `null` ist dort gar nicht schreibbar, und ein leerer String
- * wäre schlimmer als die Abwesenheit: er sähe aus wie eine Kennung, die verloren gegangen ist. Der
- * Schlüssel bleibt deshalb schlicht aus; `readPvProfileDraft` liefert für `'generated'` ohnehin
- * `null` (s. dortiger Kopf).
+ * Eine geschätzte Reihe hat keine hochgeladene Datei. Seit sie ABGELEGT wird, hat sie sehr wohl
+ * eine eigene, und die steht unter einem eigenen Schlüssel (`PV_GENERATED_DOCUMENT_ID_KEY`) — eine
+ * gerechnete Reihe unter dem Schlüssel einer Messung wäre genau die Verwechslung, gegen die
+ * `readPvProfileDraft` filtert.
+ *
+ * ⚠ FEHLT SIE, BLEIBT DER SCHLÜSSEL SCHLICHT AUS. `setDraftField` nimmt ausdrücklich nur
+ * `number | string | boolean`; ein leerer String wäre schlimmer als die Abwesenheit — er sähe aus
+ * wie eine Kennung, die verloren gegangen ist.
  *
  * ⚠ `coveredFrom`/`coveredTo` SIND DER ZEITRAUM DES LASTGANGS, NICHT DIE WETTERJAHRE. Das
  * erzeugte Profil deckt genau den Zeitraum ab, für den es einen Verbrauch gibt — nur seine
@@ -411,6 +447,9 @@ export function pvGeneratedProfileDraftValues(
     { field: PV_ESTIMATED_SPREAD_PERCENT_KEY, value: profile.estimate.spreadPercent },
     { field: PV_ESTIMATED_WEATHER_YEAR_FROM_KEY, value: profile.estimate.weatherYears.from },
     { field: PV_ESTIMATED_WEATHER_YEAR_TO_KEY, value: profile.estimate.weatherYears.to },
+    ...(profile.documentId === null
+      ? []
+      : [{ field: PV_GENERATED_DOCUMENT_ID_KEY, value: profile.documentId }]),
   ]
 }
 
