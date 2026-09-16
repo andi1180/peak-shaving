@@ -7,6 +7,7 @@ import {
   parseLoadProfile,
   parsePvProfile,
   type CalculatorPayload,
+  type DataQuality,
   type DraftTariffMappingOptions,
   type ParsedPv,
 } from 'engine'
@@ -14,6 +15,7 @@ import {
   DEMO_BATTERY_CATALOG,
   DRAFT_ANALYSIS_HORIZON_YEARS,
   findUnsupportedAnalysisDraftKeys,
+  PV_GENERATED_DRAFT_KEYS,
   PV_GENERATED_PROFILE_SOURCE,
   PV_UPLOAD_DRAFT_KEYS,
   type AnalysisResult,
@@ -21,6 +23,10 @@ import {
 } from 'shared'
 
 import { MAX_LOAD_PROFILE_FILE_BYTES } from '../load-profile/limits'
+import {
+  coupleGeneratedPvSeries,
+  readGeneratedPvSeries,
+} from '../pv-reference/generated-series-read'
 
 /**
  * D3, Baustein 1 — DER ERSTE ENGINE-LAUF AUS DEM WIZARD-ENTWURF.
@@ -102,6 +108,20 @@ export type MeteringPointAnalysisPorts = {
 export type MeteringPointAnalysisRun = {
   result: AnalysisResult
   loadProfile: LoadProfile
+  /**
+   * Die Herkunft der GESCHÄTZTEN Erzeugungsreihe — gesetzt genau dann, wenn mit einer gerechnet
+   * wurde. Beides sind Angaben ÜBER die Reihe und keine gerechneten Grössen; im `AnalysisResult`
+   * gibt es dafür kein Feld (`payload.estimatedPv` liest `computeAnalysis` nirgends), und ohne sie
+   * stünde im Report eine Schätzung, der niemand mehr ansieht, auf welchem Jahrzehnt sie beruht
+   * und dass sie systematisch leicht optimistisch ist.
+   */
+  estimatedPvMetadata?: EstimatedPvSeriesMetadata
+}
+
+/** Was die abgelegte Schätzreihe über sich selbst aussagt (s. `GeneratedPvSeriesDocument`). */
+export type EstimatedPvSeriesMetadata = {
+  smoothingOptimismPercent: number
+  weatherYears: { from: number; to: number }
 }
 
 export type RunAnalysisFromDraftOptions = DraftTariffMappingOptions & {
@@ -123,6 +143,8 @@ export class MeteringPointAnalysisError extends Error {
       | 'pv_file_too_large'
       | 'pv_profile_needs_mapping'
       | 'pv_profile_unreadable'
+      | 'generated_pv_document_not_found'
+      | 'generated_pv_file_too_large'
       | 'unsupported_draft',
     message: string,
   ) {
@@ -135,12 +157,17 @@ export class MeteringPointAnalysisError extends Error {
  * Rechnet einen Zählpunkt durch: Entwurf holen, Lastgang- und (falls vorhanden) PV-Datei holen und
  * parsen, Tarif- und Bestandsbatterie-Angaben abbilden, `computeAnalysis` aufrufen.
  *
- * ── ⚠ WAS DIESER WEG NOCH NICHT KANN, UND WARUM ER DARAN ABBRICHT ─────────────────────────────
- * Eine GESCHÄTZTE PV-Erzeugung (PVGIS, `pvProfileSource: 'generated'`) wird NICHT verarbeitet: sie
- * hat keine Datei, die sich lesen liesse, und ihre Kurve entstünde zur Rechenzeit neu. Sie
- * wegzulassen wäre die gefährlichere Variante — das Ergebnis sähe vollständig aus und kennte die
- * Erzeugung des Kunden nicht, obwohl sie jeden einzelnen Netzbezugswert verschiebt. Steht sie im
- * Entwurf, bricht der Lauf mit den betroffenen Feldern ab (`findUnsupportedAnalysisDraftKeys`).
+ * ── ⚠ DIE GESCHÄTZTE PV: SEIT D3 (ABSCHLUSS) ZWEI VERSCHIEDENE ZUSTÄNDE ───────────────────────
+ * Eine GESCHÄTZTE PV-Erzeugung (PVGIS, `pvProfileSource: 'generated'`) hat seit PR #256 eine
+ * ABGELEGTE Reihe, und die wird gerechnet: der Entwurf benennt sie über
+ * `PV_GENERATED_DRAFT_KEYS.documentId`, der Lauf liest sie und koppelt sie an den Lastgang.
+ *
+ * ⚠ OHNE diese Kennung bleibt die Sperre unverändert bestehen — und das ist kein Rest, sondern der
+ * Fall „Entwurf von vor PR #256": die Reihe wurde damals nicht abgelegt und existiert nirgends.
+ * Sie zur Rechenzeit neu zu holen wäre ein zweiter PVGIS-Abruf mit möglicherweise anderen
+ * Wetterjahren; sie wegzulassen ergäbe ein Ergebnis, das vollständig aussieht und die Erzeugung
+ * des Kunden nicht kennt, obwohl sie jeden einzelnen Netzbezugswert verschiebt. Es wird deshalb
+ * weiterhin nicht geraten, sondern abgebrochen (`findUnsupportedAnalysisDraftKeys`).
  *
  * ⚠ AUCH DAS ERZEUGTE STANDARDPROFIL IST NOCH KEIN EINGANG: es hat ebenfalls keine Datei, und die
  * Kurve entstünde aus dem Jahresverbrauch im Entwurf neu. Das ist ein eigener Weg mit eigener
@@ -160,18 +187,26 @@ export async function runAnalysisFromMeteringPointDraft(
   }
 
   /*
-   * ⚠ ZUERST DIE SPERRE, VOR JEDEM LESEVORGANG. Ein Entwurf mit PV führt hier ohnehin zum Abbruch;
-   * die Datei erst zu holen und zu parsen (bis zu 35.040 Werte) wäre Arbeit für ein Ergebnis, das
-   * schon feststeht.
+   * ⚠ ZUERST DIE SPERRE, VOR JEDEM LESEVORGANG. Ein Entwurf, der hier ohnehin zum Abbruch führt,
+   * soll nicht vorher eine Datei holen und bis zu 35.040 Werte parsen.
+   *
+   * ⚠ SIE WIRD ÜBERSPRUNGEN, SOBALD DIE ABGELEGTE SCHÄTZREIHE BENANNT IST — und nur dann. Die
+   * Sperre schlägt an `pvProfileSource: 'generated'` und an den vier Kennzahlen daneben an; mit
+   * Kennung ist beides kein Hindernis mehr, sondern die Beschreibung dessen, was gleich gelesen
+   * wird. Ohne Kennung bleibt sie Wort für Wort die bisherige.
    */
-  const unsupported = findUnsupportedAnalysisDraftKeys(point.draft)
-  if (unsupported.length > 0) {
-    throw new MeteringPointAnalysisError(
-      'unsupported_draft',
-      'Geschätzte PV-Erzeugung im Entwurf vorhanden, von diesem Weg noch nicht ' +
-        `unterstützt: ${unsupported.join(', ')}. Die Analyse wird deshalb NICHT gerechnet — ` +
-        'ohne diese Angaben wäre sie unvollständig und sähe vollständig aus.',
-    )
+  const generatedSeriesDocumentId = readGeneratedSeriesDocumentId(point.draft)
+  if (generatedSeriesDocumentId === null) {
+    const unsupported = findUnsupportedAnalysisDraftKeys(point.draft)
+    if (unsupported.length > 0) {
+      throw new MeteringPointAnalysisError(
+        'unsupported_draft',
+        'Geschätzte PV-Erzeugung im Entwurf vorhanden, aber ohne abgelegte Erzeugungsreihe ' +
+          `(${PV_GENERATED_DRAFT_KEYS.documentId} fehlt): ${unsupported.join(', ')}. Die Analyse ` +
+          'wird deshalb NICHT gerechnet — ohne diese Angaben wäre sie unvollständig und sähe ' +
+          'vollständig aus.',
+      )
+    }
   }
 
   if (point.sourceDocumentId === null) {
@@ -230,11 +265,25 @@ export async function runAnalysisFromMeteringPointDraft(
    */
   const existingBattery = mapDraftToExistingBatteryInput(point.draft)
 
+  /*
+   * ⚠ DIE KOPPLUNG STEHT VOR DEM PAYLOAD-BAU, nicht darin — wortgleiche Reihenfolge wie im
+   * öffentlichen Rechner (`apps/website/components/flow/calculator.tsx:62-63`): der gekoppelte
+   * Lastgang ERSETZT `load.profile`, bevor der Payload entsteht. Als nachträgliche Änderung am
+   * fertigen Payload gäbe es einen Moment, in dem beide Fassungen nebeneinander existieren, und
+   * die Frage „welche ist gerechnet worden?" hinge an der Zeilenreihenfolge.
+   */
+  const estimatedPv =
+    generatedSeriesDocumentId === null
+      ? null
+      : await readCoupledGeneratedPvSeries(ports, generatedSeriesDocumentId, parsed)
+
   const payload: CalculatorPayload = {
     tariff: mapDraftToTariffParams(point.draft, options),
     load: {
       fileName: document.fileName,
-      profile: parsed.profile,
+      // ⚠ Die `dataQuality` bleibt die des URSPRUNGSLASTGANGS: die Kopplung legt Werte auf
+      // dieselben Zeitstempel, sie verändert weder Abdeckung noch Lücken.
+      profile: estimatedPv?.profile ?? parsed.profile,
       dataQuality: existingBattery.warning
         ? {
             ...parsed.dataQuality,
@@ -242,7 +291,7 @@ export async function runAnalysisFromMeteringPointDraft(
           }
         : parsed.dataQuality,
     },
-    pv: await readPvProfileFromDraft(point.draft, ports),
+    pv: estimatedPv?.pv ?? (await readPvProfileFromDraft(point.draft, ports)),
     existingBattery: existingBattery.input,
   }
 
@@ -253,6 +302,70 @@ export async function runAnalysisFromMeteringPointDraft(
       DEMO_BATTERY_CATALOG,
     ),
     loadProfile: payload.load.profile,
+    ...(estimatedPv === null ? {} : { estimatedPvMetadata: estimatedPv.metadata }),
+  }
+}
+
+/**
+ * Die Kennung der ABGELEGTEN Schätzreihe — `null` heisst „dieser Entwurf geht den Weg nicht".
+ *
+ * Zwei Bedingungen, und beide sind nötig: die Herkunft muss `'generated'` lauten (bei `'upload'`
+ * gehört eine liegengebliebene Kennung nicht in die Rechnung), und die Kennung muss dastehen. Ein
+ * Entwurf von vor PR #256 erfüllt die zweite nicht — für ihn bleibt die Sperre.
+ */
+function readGeneratedSeriesDocumentId(draft: Record<string, unknown>): string | null {
+  if (draft[PV_UPLOAD_DRAFT_KEYS.profileSource] !== PV_GENERATED_PROFILE_SOURCE) return null
+  const documentId = draft[PV_GENERATED_DRAFT_KEYS.documentId]
+  if (typeof documentId !== 'string' || documentId.trim() === '') return null
+  return documentId
+}
+
+/**
+ * Holt die abgelegte Schätzreihe und koppelt sie an den geparsten Lastgang.
+ *
+ * ⚠ EIN ZEITSTEMPEL-KONFLIKT GEHT UNVERÄNDERT NACH OBEN DURCH (`GeneratedPvSeriesError`, Grund
+ * `timestamp_mismatch`) und wird hier weder abgefangen noch in eine Warnung umgeformt: er heisst,
+ * dass die Reihe zu einem ANDEREN Lastgang gehört — typisch nach einer ersetzten Lastgang-Datei.
+ * Als Warnung neben einem Ergebnis stünde eine um Stunden verschobene Erzeugung in jeder Zahl.
+ */
+async function readCoupledGeneratedPvSeries(
+  ports: MeteringPointAnalysisPorts,
+  documentId: string,
+  consumption: { profile: LoadProfile; dataQuality: DataQuality },
+): Promise<{ profile: LoadProfile; pv: ParsedPv; metadata: EstimatedPvSeriesMetadata }> {
+  const file = await readParsableDocument(ports, documentId, {
+    label: 'geschätzte PV-Erzeugungsreihe',
+    notFound: 'generated_pv_document_not_found',
+    tooLarge: 'generated_pv_file_too_large',
+  })
+
+  // Unsere eigene JSON-Datei — der Umweg über `readParsableDocument` bringt Grenze und Abbrüche mit.
+  const text =
+    typeof file.content === 'string' ? file.content : new TextDecoder().decode(file.content)
+  const coupled = coupleGeneratedPvSeries(consumption.profile, readGeneratedPvSeries(text))
+
+  return {
+    profile: coupled.profile,
+    pv: {
+      fileName: `Geschätzt · PVGIS ${coupled.weatherYears.from}–${coupled.weatherYears.to}`,
+      profile: coupled.pv,
+      /*
+       * Die erzeugte Reihe trägt DIESELBEN Zeitstempel wie der Lastgang — sie deckt genau dessen
+       * Zeitraum ab, hat keine Lücke und braucht keine eigene Warnung. Wortgleich zum Rechner
+       * (`pv-design-panel.tsx`).
+       */
+      dataQuality: {
+        coveredDays: consumption.dataQuality.coveredDays,
+        coveredMonths: consumption.dataQuality.coveredMonths,
+        gapsInterpolated: 0,
+        largestGapSlots: 0,
+        warnings: [],
+      },
+    },
+    metadata: {
+      smoothingOptimismPercent: coupled.smoothingOptimismPercent,
+      weatherYears: coupled.weatherYears,
+    },
   }
 }
 

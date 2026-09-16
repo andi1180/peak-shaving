@@ -78,6 +78,8 @@ describe('coupleGeneratedPvSeries', () => {
     expect(coupled.profile).toEqual(applyEstimatedPv(CONSUMPTION, pvGenerationKw))
     expect(coupled.pv).toEqual(buildEstimatedPvProfile(CONSUMPTION, pvGenerationKw))
     expect(coupled.smoothingOptimismPercent).toBe(4.9)
+    // Aufschlag und Wetterjahre reisen zusammen — ein Aufschlag ohne sein Jahrzehnt sagt nichts.
+    expect(coupled.weatherYears).toEqual({ from: 2014, to: 2023 })
   })
 
   it('bricht ab, wenn die Reihe zu einem anderen Lastgang gehört', () => {
