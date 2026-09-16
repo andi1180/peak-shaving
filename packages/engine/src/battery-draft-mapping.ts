@@ -37,15 +37,31 @@ function readPositiveNumber(draft: Record<string, unknown>, key: string): number
 }
 
 /**
+ * Das Ergebnis der Abbildung: der Bestandsblock — und der Grund, falls es keinen gibt, obwohl die
+ * Station mit „ja" beantwortet wurde.
+ *
+ * ⚠ ZWEI FELDER STATT EINES RÜCKGABEWERTS, weil `undefined` allein zwei Dinge heissen kann: „keine
+ * Bestandsanlage" und „eine Bestandsanlage, deren Kenndaten fehlen". Der zweite Fall verschob die
+ * Rechnung still — der Aufrufer muss ihn sichtbar machen können.
+ */
+export type DraftExistingBatteryMapping = {
+  /** `undefined` heisst „kein Bestandsblock" — die Rechnung läuft dann ohne bestehende Anlage. */
+  input: ExistingBatteryInput | undefined
+  /**
+   * Report-fertige `dataQuality`-Warnung, `null` wenn es nichts zu melden gibt. Form und Zuschnitt
+   * wie `pvCoverageWarning`/`pvConsistencyWarning` (`simulation/pv.ts`): fertig formulierter Satz,
+   * den der Aufrufer nur noch anhängt.
+   */
+  warning: string | null
+}
+
+/**
  * Bildet die Bestandsbatterie eines Zählpunkt-Entwurfs auf `ExistingBatteryInput` ab.
  *
- * `undefined` heisst „kein Bestandsblock" — dann verhält sich die Rechnung wie ohne bestehende
- * Anlage (voller Katalog, Empfehlung, Amortisation).
- *
- * ⚠ OFFENE KANTE, BEWUSST SO: `hasBattery: true` OHNE Kapazität oder Leistung ergibt ebenfalls
- * `undefined`. Der Zustand ist real (die Station wurde mit „ja" beantwortet, die Kenndaten stehen
+ * ⚠ OFFENE KANTE, BEWUSST SO: `hasBattery: true` OHNE Kapazität oder Leistung ergibt `input:
+ * undefined`. Der Zustand ist real (die Station wurde mit „ja" beantwortet, die Kenndaten stehen
  * noch aus), und eine Simulation ohne diese zwei Grössen gibt es nicht (§3.6). Der Lauf rechnet
- * dann ohne den Speicher — wer das enger fassen will, tut es hier, nicht beim Aufrufer.
+ * dann ohne den Speicher — aber nicht mehr stumm: `warning` benennt die fehlenden Felder.
  *
  * @throws wenn ein Wirkungsgrad DASTEHT, aber kein brauchbarer Prozentwert ist. Er sagt dann etwas
  *         aus, das sich nicht einlösen lässt; ihn auf die Annahme zurückfallen zu lassen ersetzte
@@ -53,12 +69,26 @@ function readPositiveNumber(draft: Record<string, unknown>, key: string): number
  */
 export function mapDraftToExistingBatteryInput(
   draft: Record<string, unknown>,
-): ExistingBatteryInput | undefined {
-  if (draft[EXISTING_BATTERY_DRAFT_KEYS.present] !== true) return undefined
+): DraftExistingBatteryMapping {
+  if (draft[EXISTING_BATTERY_DRAFT_KEYS.present] !== true) return { input: undefined, warning: null }
 
   const usableCapacityKwh = readPositiveNumber(draft, EXISTING_BATTERY_DRAFT_KEYS.capacityKwh)
   const maxPowerKw = readPositiveNumber(draft, EXISTING_BATTERY_DRAFT_KEYS.maxPowerKw)
-  if (usableCapacityKwh === undefined || maxPowerKw === undefined) return undefined
+  if (usableCapacityKwh === undefined || maxPowerKw === undefined) {
+    const missing = [
+      ...(usableCapacityKwh === undefined ? [EXISTING_BATTERY_DRAFT_KEYS.capacityKwh] : []),
+      ...(maxPowerKw === undefined ? [EXISTING_BATTERY_DRAFT_KEYS.maxPowerKw] : []),
+    ]
+    return {
+      input: undefined,
+      warning:
+        'Für diesen Zählpunkt ist ein bereits installierter Speicher angegeben, aber seine ' +
+        `Kenndaten fehlen (${missing.join(', ')}) — ohne nutzbare Kapazität UND Lade-/` +
+        'Entladeleistung lässt sich kein Fahrplan simulieren. Die Analyse wurde deshalb OHNE den ' +
+        'vorhandenen Speicher gerechnet; Ersparnis und Empfehlung beziehen sich auf einen Betrieb ' +
+        'ohne ihn. Bitte die Kenndaten in der Batterie-Station nachtragen.',
+    }
+  }
 
   const rawEfficiency = draft[EXISTING_BATTERY_DRAFT_KEYS.roundTripEfficiencyPercent]
   const efficiencyAssumed = rawEfficiency === undefined || rawEfficiency === null
@@ -77,14 +107,17 @@ export function mapDraftToExistingBatteryInput(
   }
 
   return {
-    battery: buildExistingBatteryCandidate({
-      usableCapacityKwh,
-      maxPowerKw,
-      // ⚠ Prozent → Bruchteil. Die Station erfasst 90, die Simulation rechnet mit 0,9.
-      roundTripEfficiency: efficiencyAssumed
-        ? ASSUMED_EXISTING_ROUND_TRIP_EFFICIENCY
-        : (rawEfficiency as number) / 100,
-    }),
-    efficiencyAssumed,
+    input: {
+      battery: buildExistingBatteryCandidate({
+        usableCapacityKwh,
+        maxPowerKw,
+        // ⚠ Prozent → Bruchteil. Die Station erfasst 90, die Simulation rechnet mit 0,9.
+        roundTripEfficiency: efficiencyAssumed
+          ? ASSUMED_EXISTING_ROUND_TRIP_EFFICIENCY
+          : (rawEfficiency as number) / 100,
+      }),
+      efficiencyAssumed,
+    },
+    warning: null,
   }
 }

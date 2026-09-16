@@ -115,6 +115,25 @@ describe('runAnalysisFromMeteringPointDraft', () => {
     expect(result.perBattery.length).toBeGreaterThan(0)
   })
 
+  it('warnt sichtbar, wenn eine Batterie bejaht ist, aber ihre Kerndaten fehlen', async () => {
+    const result = await runAnalysisFromMeteringPointDraft(
+      'mp-1',
+      ports({
+        readMeteringPoint: async () => ({
+          draft: { ...DRAFT, hasBattery: true },
+          sourceDocumentId: 'doc-1',
+        }),
+      }),
+    )
+
+    // Gerechnet wird weiter — nur eben ohne den Speicher, und das steht jetzt im Ergebnis.
+    expect(result.existingBatteryAnalysis).toBeUndefined()
+    expect(result.perBattery.length).toBeGreaterThan(0)
+    expect(
+      result.dataQuality.warnings.some((warning) => warning.includes('existingBatteryCapacityKwh')),
+    ).toBe(true)
+  })
+
   it('bricht bei einer GESCHÄTZTEN PV-Reihe ab — und rechnet dann gar nicht', async () => {
     const readDocument = vi.fn()
     const call = runAnalysisFromMeteringPointDraft(
