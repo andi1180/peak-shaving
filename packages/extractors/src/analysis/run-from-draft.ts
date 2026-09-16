@@ -207,15 +207,28 @@ export async function runAnalysisFromMeteringPointDraft(
    * (B14-2), und dieser Weg exportiert keines. Mitgeführt hielte es die volle Datei zusätzlich zum
    * geparsten Profil im Speicher.
    */
+  /*
+   * ⚠ „Batterie vorhanden" OHNE Kapazität/Leistung ergibt keinen Bestandsblock (§3.6) — und das
+   * darf nicht still geschehen: der Report zeigte sonst eine Empfehlung für einen Betrieb ohne
+   * Speicher, obwohl einer dasteht. Der Hinweis reist über denselben Kanal wie der PV-Lese-Fehler
+   * in `computeAnalysis`: angehängt an `dataQuality.warnings`, ohne neues Ergebnisfeld.
+   */
+  const existingBattery = mapDraftToExistingBatteryInput(point.draft)
+
   const payload: CalculatorPayload = {
     tariff: mapDraftToTariffParams(point.draft, options),
     load: {
       fileName: document.fileName,
       profile: parsed.profile,
-      dataQuality: parsed.dataQuality,
+      dataQuality: existingBattery.warning
+        ? {
+            ...parsed.dataQuality,
+            warnings: [...parsed.dataQuality.warnings, existingBattery.warning],
+          }
+        : parsed.dataQuality,
     },
     pv: await readPvProfileFromDraft(point.draft, ports),
-    existingBattery: mapDraftToExistingBatteryInput(point.draft),
+    existingBattery: existingBattery.input,
   }
 
   return computeAnalysis(

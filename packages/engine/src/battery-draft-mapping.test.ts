@@ -13,7 +13,7 @@ const FULL: Record<string, unknown> = {
 
 describe('mapDraftToExistingBatteryInput', () => {
   it('übernimmt den genannten Wirkungsgrad als BRUCHTEIL und weist ihn nicht als Annahme aus', () => {
-    const input = mapDraftToExistingBatteryInput(FULL)
+    const { input } = mapDraftToExistingBatteryInput(FULL)
 
     expect(input?.efficiencyAssumed).toBe(false)
     expect(input?.battery.roundTripEfficiency).toBeCloseTo(0.92, 10)
@@ -26,15 +26,26 @@ describe('mapDraftToExistingBatteryInput', () => {
 
   it('fällt ohne Wirkungsgrad auf die dokumentierte Annahme zurück und kennzeichnet sie', () => {
     const { existingBatteryRoundTripEfficiencyPercent: _drop, ...draft } = FULL
-    const input = mapDraftToExistingBatteryInput(draft)
+    const { input } = mapDraftToExistingBatteryInput(draft)
 
     expect(input?.efficiencyAssumed).toBe(true)
     expect(input?.battery.roundTripEfficiency).toBe(ASSUMED_EXISTING_ROUND_TRIP_EFFICIENCY)
   })
 
-  it('ergibt undefined ohne bejahte Batterie und ohne die zwei Kernwerte', () => {
-    expect(mapDraftToExistingBatteryInput({ ...FULL, hasBattery: false })).toBeUndefined()
+  it('ergibt undefined ohne bejahte Batterie — und dann stumm, es gibt nichts zu melden', () => {
+    expect(mapDraftToExistingBatteryInput({ ...FULL, hasBattery: false })).toEqual({
+      input: undefined,
+      warning: null,
+    })
+  })
+
+  it('benennt bei bejahter Batterie ohne Kernwerte die fehlenden Felder, statt still zu schweigen', () => {
     const { existingBatteryMaxPowerKw: _drop, ...noPower } = FULL
-    expect(mapDraftToExistingBatteryInput(noPower)).toBeUndefined()
+    const mapped = mapDraftToExistingBatteryInput(noPower)
+
+    expect(mapped.input).toBeUndefined()
+    expect(mapped.warning).toContain('existingBatteryMaxPowerKw')
+    // Die vorhandene Kapazität darf nicht als fehlend gemeldet werden.
+    expect(mapped.warning).not.toContain('existingBatteryCapacityKwh')
   })
 })
