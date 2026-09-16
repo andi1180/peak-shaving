@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   EXISTING_BATTERY_DRAFT_KEYS,
+  PV_GENERATED_DRAFT_KEYS,
   PV_UPLOAD_DRAFT_KEYS,
   UNSUPPORTED_ANALYSIS_DRAFT_KEYS,
 } from 'shared'
@@ -9,6 +10,7 @@ import { BATTERY_DRAFT_KEYS, BATTERY_RECOMMENDATION_KEY } from './battery-draft'
 import { PV_DRAFT_KEYS } from './pv-draft'
 import {
   PV_ESTIMATED_ANNUAL_KWH_KEY,
+  PV_GENERATED_DOCUMENT_ID_KEY,
   PV_ESTIMATED_SPREAD_PERCENT_KEY,
   PV_ESTIMATED_WEATHER_YEAR_FROM_KEY,
   PV_ESTIMATED_WEATHER_YEAR_TO_KEY,
@@ -36,6 +38,11 @@ describe('Entwurfs-Schlüssel des Analyse-Laufs (D3)', () => {
     for (const key of Object.values(PV_UPLOAD_DRAFT_KEYS)) {
       expect(written.has(key)).toBe(true)
     }
+  })
+
+  it('benennt die Kennung der geschätzten Reihe so, wie die Station sie schreibt', () => {
+    // Sie ist NICHT gesperrt, sondern der Weg zur abgelegten Datei (`readGeneratedPvSeries`).
+    expect(PV_GENERATED_DRAFT_KEYS.documentId).toBe(PV_GENERATED_DOCUMENT_ID_KEY)
   })
 
   it('sperrt genau die vier PVGIS-Kennzahlen — und keinen Schlüssel eines verarbeiteten Wegs', () => {
