@@ -130,20 +130,36 @@ export async function createReportRenderRequestAction(
   }
 
   /*
-   * ⚠ VIER FELDER, UND KEINES MEHR. `report_input_meta` ist in der Migration bewusst ohne Struktur
+   * ⚠ FÜNF FELDER, UND KEINES MEHR. `report_input_meta` ist in der Migration bewusst ohne Struktur
    * — die legt der SCHREIBENDE Schritt fest, und was hier hineinwandert, ist ab dann die Form, an
    * die sich der Renderer bindet. Deshalb nur, was ein Report ausser Ergebnis und Lastgang
    * nachweislich braucht: die Bezeichnung fürs Deckblatt, der Netzbetreiber als ANGABE (er geht in
-   * keine Rechnung ein, s. `NETZBETREIBER_DRAFT_KEY`) und die zwei Kennungen, über die sich der
-   * Lauf zurückverfolgen lässt.
+   * keine Rechnung ein, s. `NETZBETREIBER_DRAFT_KEY`), die Grundgebühr (s. unten) und die zwei
+   * Kennungen, über die sich der Lauf zurückverfolgen lässt.
+   *
+   * ⚠ DIE GRUNDGEBÜHR IST DER EINZIGE TARIFWERT HIER, UND SIE STEHT NICHT ALS RECHENGRÖSSE DA.
+   * Sie kommt im `AnalysisResult` an keiner Stelle vor — `assumptions` führt Arbeitspreis und
+   * Einspeisevergütung, aber keine Grundgebühr. Der Report braucht sie trotzdem, für GENAU einen
+   * Satz: `tariffVintageNote` (`apps/website/lib/pdf-report/derive.ts`) entscheidet an ihr, ob der
+   * Preisstand-Hinweis „Arbeitspreis und Grundgebühr basieren…" oder „Der Arbeitspreis basiert…"
+   * lautet. Ohne sie müsste die Leseseite raten — und ein Report, der eine Grundgebühr nennt, die
+   * der Kunde nie eingetragen hat, behauptet eine Grundlage, die in seiner Rechnung nicht vorkommt.
    *
    * ⚠ ALS WERTE, NICHT ALS VERWEISE — dieselbe Regel wie bei `platform.analyses` (B14-1 Regel b):
    * ein später geänderter Entwurf darf eine bereits übergebene Rechnung nicht still umschreiben.
    */
   const netzbetreiber = point.draft[NETZBETREIBER_DRAFT_KEY]
+  const supplierBaseFee = point.draft.supplierBaseFeeEurPerMonth
   const reportInputMeta = {
     customerLabel: project.customer_label,
     netzbetreiber: typeof netzbetreiber === 'string' ? netzbetreiber : null,
+    /*
+     * `null` heisst „keine Angabe" und ist NICHT dasselbe wie 0 — im Contract ist das Feld optional
+     * (Delta 19), und `tariffVintageNote` behandelt beide ohnehin gleich. Ein aus einem von Hand
+     * veränderten `jsonb` stammender Nicht-Zahlenwert fällt hier ebenfalls auf `null`, statt als
+     * fremder Typ in die Übergabe zu wandern.
+     */
+    supplierBaseFeeEurPerMonth: typeof supplierBaseFee === 'number' ? supplierBaseFee : null,
     meteringPointId,
     projectId,
   }

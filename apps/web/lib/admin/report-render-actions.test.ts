@@ -34,6 +34,7 @@ const DRAFT: Record<string, unknown> = {
   minBillableKw: 0,
   energyPriceCtPerKwh: 24.5,
   einspeiseverguetungCtPerKwh: 7.2,
+  supplierBaseFeeEurPerMonth: 14.9,
   netzbetreiber: 'wiener_netze',
 }
 
@@ -110,14 +111,28 @@ describe('createReportRenderRequestAction', () => {
     expect(loadProfile.readings).toHaveLength(96)
     expect(loadProfile.intervalMinutes).toBe(15)
 
-    // Genau vier Felder, als WERTE — kein Verweis auf den veränderlichen Entwurf.
+    // Genau fünf Felder, als WERTE — kein Verweis auf den veränderlichen Entwurf.
     expect(args.p_report_input_meta).toEqual({
       customerLabel: 'Bäckerei Gruber',
       netzbetreiber: 'wiener_netze',
+      supplierBaseFeeEurPerMonth: 14.9,
       meteringPointId: POINT_ID,
       projectId: PROJECT_ID,
     })
     expect(args.p_ttl_hours).toBe(24)
+  })
+
+  it('ohne Grundgebühr im Entwurf steht `null` — nicht 0', async () => {
+    const { supplierBaseFeeEurPerMonth: _weg, ...ohneGrundgebuehr } = DRAFT
+    withWrappers(ohneGrundgebuehr)
+
+    const state = await createReportRenderRequestAction({}, form())
+    expect(state.formError).toBeUndefined()
+
+    const call = rpc.mock.calls.find(([fn]) => fn === 'create_report_render_request')
+    const meta = call![1].p_report_input_meta as Record<string, unknown>
+    // 0 hiesse „keine Grundgebühr vereinbart" — eine Angabe, die niemand gemacht hat.
+    expect(meta.supplierBaseFeeEurPerMonth).toBeNull()
   })
 
   it('⚠ bei gesperrtem Entwurf (geschätzte PV) entsteht GAR KEINE Zeile', async () => {
