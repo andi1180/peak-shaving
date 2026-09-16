@@ -2,6 +2,8 @@ import {
   INVOICE_MERGE_FIELD_KEYS,
   INVOICE_MERGE_FIELD_LABELS,
   METERING_VARIANT_LABELS,
+  NETZBETREIBER_DRAFT_KEY,
+  NETZBETREIBER_IDS,
   NETZBETREIBER_LABELS,
   parseInvoiceExtraction,
   tariffParamsSchema,
@@ -183,15 +185,28 @@ export function withStoredInvoiceExtractions(
 }
 
 /**
- * Die Merge-Felder, die in den Entwurf geschrieben werden — alle ausser `netzbetreiber`.
+ * Die Merge-Felder, die in den Entwurf geschrieben werden — seit dem 16.09.2026 ALLE.
  *
- * ⚠ `netzbetreiber` IST KEIN `tariffParamsSchema`-FELD und wird deshalb NICHT eingetragen. Es
- * bleibt in den einzelnen Einträgen sichtbar (und in der Zusammenfassung der Station), geht aber
- * nicht in den Entwurf: dort stünde es unter `unknown_fields` und behauptete eine Angabe, die der
- * Contract gar nicht kennt. Welcher Netzbetreiber zuständig ist, entscheidet der Tarif-Schritt.
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * ⚠ `netzbetreiber` STAND HIER BIS DAHIN AUSDRÜCKLICH NICHT DRIN, UND DIE BEGRÜNDUNG WAR DER FEHLER
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * Sie lautete: er sei kein `tariffParamsSchema`-Feld und stünde im Entwurf nur als ungeprüfter
+ * Schlüssel. Das galt, solange der Entwurf ausschliesslich als GANZES gegen den Contract geprüft
+ * wurde. Seit D3 liest ihn eine benannte Abbildung unter einem benannten Schlüssel
+ * (`NETZBETREIBER_DRAFT_KEY`, `shared`), die Handeingabe schreibt ihn seither, und
+ * `report-render-actions.ts` liest genau diesen Schlüssel.
+ *
+ * Die Folge der alten Regel war still und genau die teure Sorte: die Station ZEIGTE „Wiener Netze"
+ * (die Anzeige führt den Wert seit jeher, s. `invoiceMergeDisplayRows`), der Entwurf trug ihn
+ * nicht, und ein Report nach einem reinen Rechnungs-Scan ging mit `netzbetreiber: null` heraus —
+ * ohne dass irgendwo etwas fehlschlug.
  */
-export const INVOICE_DRAFT_FIELD_KEYS: readonly InvoiceMergeFieldKey[] =
-  INVOICE_MERGE_FIELD_KEYS.filter((key) => key !== 'netzbetreiber')
+export const INVOICE_DRAFT_FIELD_KEYS: readonly InvoiceMergeFieldKey[] = INVOICE_MERGE_FIELD_KEYS
+
+/** Ist der gelesene Betreiber eine der Kennungen, die auch die Handeingabe zur Auswahl stellt? */
+function isKnownNetzbetreiber(value: string | number): boolean {
+  return (NETZBETREIBER_IDS as readonly string[]).includes(String(value))
+}
 
 /** Ein Wert, fertig für `setDraftField` — Feldname im Entwurf und der Wert in Contract-Form. */
 export type InvoiceDraftValue = { field: string; value: DraftValue }
@@ -206,7 +221,11 @@ export type InvoiceDraftValue = { field: string; value: DraftValue }
  * dauerhaft „kein Jahresverbrauch hinterlegt", während der Wert daneben im Entwurf steht.
  */
 export function draftFieldFor(key: InvoiceMergeFieldKey): string {
-  return key === 'annualConsumptionKwh' ? ANNUAL_CONSUMPTION_KWH_KEY : key
+  if (key === 'annualConsumptionKwh') return ANNUAL_CONSUMPTION_KWH_KEY
+  // Heute dieselbe Zeichenkette — über die Konstante, damit es das auch nach einer Umbenennung in
+  // `shared` bleibt. Denselben Schlüssel schreibt die Handeingabe und liest der Report.
+  if (key === 'netzbetreiber') return NETZBETREIBER_DRAFT_KEY
+  return key
 }
 
 /**
@@ -250,6 +269,15 @@ export function invoiceDraftValues(merged: InvoiceExtraction): InvoiceDraftValue
   for (const key of INVOICE_DRAFT_FIELD_KEYS) {
     const raw = mergeFieldValue(merged, key)
     if (raw === null) continue
+    /*
+     * ⚠ NUR EINE BEKANNTE KENNUNG WIRD ÜBERNOMMEN, und es wird NICHTS zugeordnet. Der Scan liefert
+     * den Betreiber bereits als Aufzählungswert (`parseInvoiceExtraction` → `oneOf`), diese Prüfung
+     * ist die zweite, örtliche Absicherung derselben Zusage: was der Handeingabe-Auswahl nicht
+     * entspricht, bleibt weg. Einen Freitextnamen auf eine der drei Kennungen zu raten wäre eine
+     * eigene Entscheidung — und eine falsch geratene Zuständigkeit sähe im Report aus wie eine
+     * abgelesene.
+     */
+    if (key === 'netzbetreiber' && !isKnownNetzbetreiber(raw)) continue
     values.push({
       field: draftFieldFor(key),
       value: key === 'netzebene' ? netzebeneDraftValue(raw) : raw,
@@ -298,9 +326,9 @@ export type InvoiceMergeDisplayRow = { key: InvoiceMergeFieldKey; label: string;
  * Felder ohne Wert erscheinen NICHT. Eine Liste mit zehn „—" sähe aus, als wäre der Scan
  * gescheitert; tatsächlich sagt eine Rechnung typischerweise zu drei oder vier Feldern etwas.
  *
- * ⚠ `netzbetreiber` IST dabei — anders als beim Schreiben. Er wurde gelesen, und ihn zu verschweigen
- * nur weil der Contract ihn nicht kennt, machte die Anzeige zu einer Aussage über unseren
- * Datentyp statt über die Rechnung.
+ * ⚠ `netzbetreiber` IST dabei — seit dem 16.09.2026 genau wie beim Schreiben. Bis dahin zeigte
+ * diese Liste ihn als einziges Feld, das der Entwurf nicht bekam; das war der Fehler, nicht die
+ * Anzeige (s. `INVOICE_DRAFT_FIELD_KEYS`).
  */
 export function invoiceMergeDisplayRows(merged: InvoiceExtraction): InvoiceMergeDisplayRow[] {
   const rows: InvoiceMergeDisplayRow[] = []

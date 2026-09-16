@@ -11,12 +11,11 @@
  * vor einem Dateifeld und einem „Weiter", das die Angaben ungefragt überspringt. Der Kopf der
  * Station hat diesen Weg als „eigenen Auftrag" benannt; das hier ist er.
  *
- * ── ⚠ DER NETZBETREIBER IST HIER EIN AUSLÖSER, KEIN ENTWURFSFELD ──────────────────────────────
+ * ── ⚠ DER NETZBETREIBER IST HIER AUSLÖSER UND ENTWURFSFELD ZUGLEICH ───────────────────────────
  * Er steht im Formular, WEIL der Leistungspreis ohne ihn nicht nachschlagbar ist — und er wird
- * ausdrücklich NICHT in den Entwurf geschrieben: `tariffParamsSchema` kennt das Feld nicht, zod
- * entfernte es beim nächsten Auswerten stillschweigend (dieselbe Feststellung, aus der
- * `INVOICE_DRAFT_FIELD_KEYS` ihn ausschliesst). Welcher Netzbetreiber zuständig ist, entscheidet
- * der Tarif-Schritt; hier beantwortet er genau eine Frage, und zwar vor dem Speichern.
+ * seit D3 zusätzlich in den Entwurf geschrieben (`NETZBETREIBER_DRAFT_KEY`), seit dem 16.09.2026
+ * auch vom Rechnungs-Scan (`INVOICE_DRAFT_FIELD_KEYS`). Hier stand bis dahin das Gegenteil, mit
+ * der überholten Begründung, `tariffParamsSchema` kenne das Feld nicht.
  *
  * ── ⚠ „WERTE VORSCHLAGEN" IST EIN EIGENER KLICK, KEIN AUTOMATISMUS ────────────────────────────
  * Ein Nachladen bei jeder Auswahländerung wäre bequemer und in zwei Richtungen falsch: es löste
