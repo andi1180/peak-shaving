@@ -1,127 +1,37 @@
-import type { DataQuality } from 'engine'
 import type {
-  BatteryCandidate,
-  EstimatedPvSummary,
+  CalculatorPayload as EngineCalculatorPayload,
+  TariffResult as EngineTariffResult,
+} from 'engine'
+import type {
   FinancialParams,
   InvoiceExtraction,
-  LoadProfile,
-  PvProfile,
   TariffParams,
-  TariffPricingInputs,
   TariffSelection,
 } from 'shared'
 import type { BatteryOverride } from '@/lib/analysis-protocol'
 
-// Vom Tarif-Schritt nach oben gereichtes Ergebnis. `pv` ist optional (§3.1/§5 Schritt 2) — liegt es
-// vor, trägt es die Brutto-PV in Engine/Trace (echter 4. Strom + Konsistenzprüfung).
-export type TariffResult = {
-  tariff: TariffParams
-  financial?: FinancialParams
-  pv: ParsedPv | null
-  /**
-   * B11: welcher Tarifsatz-Stand die Werte vorbelegt hat, samt der Vorgabewerte von damals.
-   * `undefined`, wenn kein Netzbetreiber gewählt wurde — dann kommen die Werte direkt aus der
-   * Netzrechnung, und genau das soll später unterscheidbar bleiben.
-   *
-   * Reist NICHT in die Engine (sie kennt die Datenschicht nicht, TEIL 2), sondern in den Report und
-   * in das Analyse-Bündel.
-   */
-  tariffSelection?: TariffSelection
-  // Eine PV-Datei wurde hochgeladen, konnte aber NICHT gelesen werden (parsePvProfile → error/
-  // needs_mapping) → `pv` bleibt null. Die Meldung wandert in den Report (dataQuality), damit der
-  // Upload nicht still verpufft (§3.1). Nur gesetzt, wenn tatsächlich eine Datei abgelehnt wurde.
-  pvError?: string
-  /**
-   * B21-3b (Delta 4): die beiden Preisseiten für den kombinierten Intervallpreis — Netzbetreiber-
-   * Tarifzeilen und Marktpreis-Reihe, geholt für den Zeitraum des Lastgangs (Delta 15 Regel A).
-   *
-   * `undefined` heisst: der Tarifoptimierungs-Hebel wurde NICHT angefordert. Dann gibt es keinen
-   * Netzwerkaufruf und die Engine rechnet unverändert wie vor B21 — das ist kein Fehlerfall.
-   * Ist es gesetzt, wurde angefordert; ein `null` DARIN heisst „angefordert, aber nicht lesbar" und
-   * führt zur ausdrücklichen Kennzeichnung „nicht berechenbar" statt zu einem stillen Rückfall.
-   */
-  tariffPricing?: TariffPricingInputs
-  /**
-   * Delta 17 Teil 2: der vom Nutzer BESTÄTIGTE Speicher, den er bereits besitzt.
-   *
-   * `undefined` heisst „keine Angabe oder nicht übernommen" — dann verhält sich der Rechner Zeile
-   * für Zeile wie vorher: voller Katalog, Empfehlung, Investition, Amortisation.
-   */
-  existingBattery?: ExistingBatteryInput
-  /**
-   * B22b: die geschätzte PV-Erzeugung — der GEKOPPELTE Lastgang und was der Report darüber sagen
-   * muss. `undefined` heisst „nicht geschätzt"; dann verhält sich der Rechner Zeile für Zeile wie
-   * vor B22.
-   *
-   * ⚠ Er trägt den fertigen Lastgang und nicht die Erzeugungsreihe: die Kopplung geschieht GENAU
-   * EINMAL (im Panel, mit den Zeitstempeln des Lastgangs), und ein zweites Mal aufaddieren ist
-   * damit strukturell ausgeschlossen. Wer stattdessen die Reihe weiterreichte, müsste an jeder
-   * späteren Stelle wissen, ob sie schon abgezogen wurde.
-   */
-  estimatedPv?: EstimatedPvResult
-}
+/*
+ * D3 (16.09.2026): die Nutzlast-Typen des Rechners wohnen seit dem Umzug von `computeAnalysis`
+ * in `packages/engine` — sie beschreiben, was die Rechenkette entgegennimmt, und gehören deshalb
+ * zu ihr. Sie werden hier weiter-exportiert, damit jede bestehende Importstelle in `apps/website`
+ * unverändert bleibt; eine zweite Definition daneben liefe beim nächsten Contract-Umbau
+ * auseinander.
+ */
+export type { EstimatedPvResult, ExistingBatteryInput, ParsedLoad, ParsedPv } from 'engine'
 
 /**
- * B22b — das Ergebnis des PV-Zeitreihengenerators, wie es Schritt 2 verlässt.
+ * B11: welcher Tarifsatz-Stand die Werte vorbelegt hat, samt der Vorgabewerte von damals.
+ * `undefined`, wenn kein Netzbetreiber gewählt wurde — dann kommen die Werte direkt aus der
+ * Netzrechnung, und genau das soll später unterscheidbar bleiben.
  *
- * `profile` ist der signierte Netz-Lastgang (Verbrauch − geschätzte Erzeugung) mit
- * `pvSource: 'estimated'`; er ERSETZT den Lastgang aus Schritt 1 für die Rechnung. `pv` ist das
- * zugehörige Brutto-PV-Profil und ausdrücklich BEIWERK DER ANZEIGE (Energiefluss-Chart) — es
- * ändert keine Ersparnis-Zahl (B22a, `couple.ts`). `summary` ist das, was der Report über die
- * Herkunft sagen können muss.
+ * ⚠ Genau dieses eine Feld bleibt app-lokal und wird an die Engine-Typen ANGEHÄNGT: es reist in den
+ * Report und ins Analyse-Bündel, nie in die Rechnung — und sein Typ gehört der Tarifsatz-
+ * Datenschicht, die `packages/engine` nicht kennen darf (`tariff/no-catalog-dependency.test.ts`).
  */
-export type EstimatedPvResult = {
-  profile: LoadProfile
-  pv: ParsedPv
-  summary: EstimatedPvSummary
-}
+type WithTariffSelection = { tariffSelection?: TariffSelection }
 
-/**
- * Der bereits installierte Speicher des Kunden, mit seinen EXAKTEN Werten.
- *
- * ── ⚠ SEIT DEM 01.09.2026 KEIN `BatteryOverride` MEHR ─────────────────────────────────────────
- * Bis dahin war dies ein Alias von `BatteryOverride`: die Angabe wurde auf den nächstliegenden
- * KATALOG-Kandidaten abgebildet und nur Wirkungsgrad und Preis übernommen. Wer 19,2 kWh besass,
- * bekam die Ersparnis von 15 kWh zu sehen. Jetzt reist ein fertiger, aus seinen Angaben gebauter
- * Kandidat mit (`buildExistingBatteryCandidate`), der ausserhalb von `perBattery` simuliert wird.
- *
- * ⚠ Er darf NIE in `calculateRoi` gelangen: seine Investitionsfelder sind Platzhalter (die
- * Anschaffung ist bezahlt), s. Kopf von `battery-combination.ts`.
- *
- * ── WARUM DAS DEN VERLUST-DEFEKT VON DELTA 17 TEIL 2 STRUKTURELL BEENDET ───────────────────────
- * Der bestätigte Speicher war als `batteryPreset` ein Override und musste bei jeder
- * Neuberechnung eigens gegen einen ausdrücklichen Override aufgelöst werden — vergass ein
- * Aufrufer das, verschwand die Angabe des Kunden lautlos (gemessener Defekt, 01.09.2026). Als
- * Feld des `CalculatorPayload` reist er jetzt bei JEDER Nachricht unverändert mit: beide
- * Worker-Handler bekommen den vollen Payload, es gibt nichts mehr aufzulösen.
- */
-export type ExistingBatteryInput = {
-  /** Der simulierbare Kandidat — Kapazität, Leistung und Wirkungsgrad wie angegeben. */
-  battery: BatteryCandidate
-  /**
-   * `true` = der Freitext nannte KEINEN Wirkungsgrad, es gilt die dokumentierte Annahme
-   * (`ASSUMED_EXISTING_ROUND_TRIP_EFFICIENCY`). Reist mit, damit der Report die einzige Zahl des
-   * Bestandsblocks, die nicht vom Kunden stammt, als solche ausweisen kann — und nicht als seine.
-   */
-  efficiencyAssumed: boolean
-}
-
-// Ergebnis von Schritt 1 (parseLoadProfile, §3.2/§3.3) — die echte, getypte Nutzlast.
-export type ParsedLoad = {
-  fileName: string
-  profile: LoadProfile
-  dataQuality: DataQuality
-  /**
-   * B14-2: die ROHEN Bytes der hochgeladenen Datei — genau die, die geparst wurden, nicht eine
-   * daraus abgeleitete Fassung. Sie werden nirgends verschickt (Prinzip 4) und dienen allein der
-   * Prüfsumme des Analyse-Bündels: sie ist das Einzige, was Bündel und Ursprungsdatei beim
-   * Archivieren aneinanderbindet.
-   *
-   * Optional, damit der Fall „liegt nicht mehr vor" ein echter Zustand ist und nicht ein
-   * unmöglicher: ohne Bytes wird KEIN Bündel erzeugt (`buildAnalysisBundle` wirft).
-   */
-  sourceBytes?: Uint8Array
-}
+export type TariffResult = EngineTariffResult & WithTariffSelection
+export type CalculatorPayload = EngineCalculatorPayload & WithTariffSelection
 
 /**
  * Delta 8 / 9b-2b — was ein Rechnungs-Scan aus Schritt 1 in Schritt 2 mitnimmt.
@@ -150,20 +60,6 @@ export type TariffPrefill = Pick<
   InvoiceExtraction,
   'netzbetreiber' | 'netzebene' | 'meteringVariant' | 'rates'
 >
-
-// Ergebnis der optionalen PV-Datei (parsePvProfile, §3.1) — Brutto-PV-Erzeugung.
-export type ParsedPv = {
-  fileName: string
-  profile: PvProfile
-  dataQuality: DataQuality
-}
-
-// Was der Worker/Engine bekommt. Seit Prompt 4 (abgeschlossen) berechnet der Worker das
-// komplette `AnalysisResult` echt daraus — `current`/`peaks` (§3.4/§3.5) und
-// `perBattery`/`recommendation` (§3.6-3.8, gegen den `DEMO_BATTERY_CATALOG`).
-export type CalculatorPayload = TariffResult & {
-  load: ParsedLoad
-}
 
 // Vom editierbaren Annahmen-Panel (§6.2) nach oben gereichte, vollständige Eingabe für eine
 // Live-Neuberechnung — `tariff`/`financial` sind bereits mit den editierten Feldern gemergte
