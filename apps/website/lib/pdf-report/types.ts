@@ -119,6 +119,42 @@ export type PdfReportCustomer = {
   address?: string
 }
 
+/**
+ * D12 — DER DRITTE ZUSTAND DER TARIFHERKUNFT: „nicht im Einzelnen nachverfolgt".
+ *
+ * Bis hierher kannte das Dokument genau zwei Antworten auf die Frage, woher Leistungspreis,
+ * Abrechnungsmodell und Mindestleistung stammen: ein `TariffSourceRef` (aus einem geprüften Stand
+ * der Tarifschicht, mit Netzbetreiber, Netzebene und der Liste der überschriebenen Felder) oder
+ * `null`. Und `null` ist KEINE Leerstelle, sondern eine Aussage — der Kunde hat die Werte aus
+ * seiner eigenen Netzrechnung eingetragen, und das ist die BESSERE Grundlage (Prinzip 1). Genau so
+ * steht es auch im Report (`basis.ts`).
+ *
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * ⚠ DER WIZARD-WEG PASST IN KEINE DER BEIDEN ANTWORTEN
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * Ein Zählpunkt-Entwurf trägt die Tarifwerte als blanke Zahlen. Sie können aus einer eingelesenen
+ * Netzrechnung stammen, aus einer Handeingabe, oder aus dem Preisblatt-Vorschlag des
+ * Netzbetreibers — der Entwurf hält nicht fest, welches davon. `null` dafür zu setzen behauptete
+ * die erste Herkunft („stammen unverändert aus Ihrer Eingabe") und wäre in zwei von drei Fällen
+ * schlicht falsch; ein erfundener `TariffSourceRef` behauptete die zweite und wäre in allen drei
+ * falsch. Die ehrliche Antwort ist die dritte, und sie muss es als eigener Wert geben.
+ *
+ * ⚠ EIN STRING-LITERAL UND KEIN `undefined`/LEEROBJEKT: er ist von `null` und von jedem
+ * `TariffSourceRef` STRUKTURELL unterscheidbar (`typeof === 'string'`), und eine bestehende
+ * `null`-Prüfung kann ihn nicht versehentlich mit einer der beiden anderen Antworten verwechseln.
+ * Ein `undefined` dagegen liesse „nicht nachverfolgt" und „Feld vergessen" wieder zusammenfallen —
+ * genau die Verwechslung, wegen der `tariffSource` oben schon Pflicht und nicht optional ist.
+ *
+ * ⚠ ER IST AUSDRÜCKLICH NICHT „AUS GEPRÜFTEM TARIFKATALOG". Sobald der Wizard-Weg eine echte
+ * Katalog-Verknüpfung trägt (offener Schritt, `grid-tariff-lookup.ts`), gehört dort ein
+ * vollständiger `TariffSourceRef` hin — dieser Wert ist die Antwort für die Zeit davor und für
+ * jeden Entwurf, der die Verknüpfung auch danach nicht hat.
+ */
+export const TARIFF_SOURCE_UNTRACKED = 'untracked' as const
+
+/** Die drei Antworten auf „woher stammen die Tarifsätze?" — s. `TARIFF_SOURCE_UNTRACKED`. */
+export type PdfReportTariffSource = TariffSourceRef | typeof TARIFF_SOURCE_UNTRACKED | null
+
 export type PdfReportInput = {
   /** Vom Nutzer editierbar, vorbelegt aus `defaultReportTitle` (`derive.ts`). */
   title: string
@@ -159,7 +195,7 @@ export type PdfReportInput = {
   loadProfile: LoadProfile
   /**
    * B23c-4 — welcher Tarifsatz-Stand dieser Rechnung zugrunde lag (B11). `null` = kein
-   * hinterlegter Stand gewählt.
+   * hinterlegter Stand gewählt, `TARIFF_SOURCE_UNTRACKED` = Herkunft nicht nachverfolgt (s. dort).
    *
    * ── ⚠ WARUM ER NICHT AUS `analysis` KOMMT ────────────────────────────────────────────────────
    * Er steht nicht im `AnalysisResult`: die Engine rechnet mit TARIFWERTEN und nicht mit ihrer
@@ -172,7 +208,7 @@ export type PdfReportInput = {
    * etwas anderes als „diese Angabe wurde vergessen". Optional gemacht liessen sich die beiden
    * nicht mehr unterscheiden.
    */
-  tariffSource: TariffSourceRef | null
+  tariffSource: PdfReportTariffSource
   /**
    * B23c-4 — auf welchem Preisstand Arbeitspreis und Grundgebühr beruhen. `null` = kein Hinweis.
    *

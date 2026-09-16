@@ -9,7 +9,8 @@ import {
 
 import { formatEur, formatEur2, formatPercent } from '@/lib/format'
 import type { ReportNotice, ReportRow, ReportStatement } from './statement'
-import type { PdfReportAnalysis, PdfReportInput } from './types'
+import { TARIFF_SOURCE_UNTRACKED } from './types'
+import type { PdfReportAnalysis, PdfReportInput, PdfReportTariffSource } from './types'
 
 /**
  * B23c-4 — das Kapitel „Annahmen und Datengrundlage": womit gerechnet wurde, woher die Tarifwerte
@@ -287,9 +288,31 @@ const TARIFF_FIELD_LABEL: Record<TariffSourceRef['overriddenFields'][number], st
  * ⚠ Ohne diese Angabe ist eine später archivierte Baseline nicht einzuordnen: 2027 liesse sich
  * sonst nicht mehr sagen, ob die Zahlen auf unserer Tabelle oder auf der echten Netzrechnung des
  * Kunden beruhten — und das ist beim Wirkungsnachweis genau die Frage, die zuerst gestellt wird.
+ *
+ * ── ⚠ D12: UND GENAU DESHALB GIBT ES EINEN DRITTEN SATZ ───────────────────────────────────────
+ * Der Wizard-Weg weiss die Antwort auf dieselbe Frage nicht (`TARIFF_SOURCE_UNTRACKED`, s.
+ * `types.ts`). Der Satz dafür sagt das und behauptet nichts weiter — er nennt weder „Ihre
+ * Eingabe" noch einen Tarifstand, weil beides zuträfe oder nicht, ohne dass es jemand wüsste. Eine
+ * offen ausgewiesene Unkenntnis ist beim Wirkungsnachweis 2027 brauchbar; eine der beiden anderen
+ * Antworten, auf gut Glück gesetzt, wäre es nicht.
  */
-function buildTariffSource(source: TariffSourceRef | null): string {
-  if (!source) {
+function buildTariffSource(source: PdfReportTariffSource): string {
+  /*
+   * ⚠ ZUERST UND ALS GLEICHHEIT GEPRÜFT, NICHT ÜBER `!source`. Der dritte Zustand ist eine
+   * nichtleere Zeichenkette und damit WAHRHEITSWERTIG — eine `!source`-Prüfung liesse ihn stillos
+   * in den `TariffSourceRef`-Zweig laufen, wo die erste Zeile `source.overriddenFields` läse. Die
+   * drei Antworten werden deshalb einzeln und benannt unterschieden (s. `types.ts`).
+   */
+  if (source === TARIFF_SOURCE_UNTRACKED) {
+    return (
+      'Tarifsätze: Herkunft für diese Auswertung nicht im Einzelnen nachverfolgt — gerechnet wurde ' +
+      'mit den Leistungspreis-, Abrechnungs- und Mindestleistungswerten, die zu diesem Zählpunkt ' +
+      'hinterlegt sind. Ob sie aus einer Netzrechnung oder aus einem hinterlegten Tarifstand ' +
+      'stammen, hält dieser Report nicht fest.'
+    )
+  }
+
+  if (source === null) {
     return (
       'Tarifsätze: kein hinterlegter Stand gewählt — Leistungspreis, Abrechnungsmodell und ' +
       'Mindestleistung stammen unverändert aus Ihrer Eingabe.'

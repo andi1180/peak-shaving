@@ -1,0 +1,105 @@
+import { describe, expect, it } from 'vitest'
+import type { LoadProfile, TariffSourceRef } from 'shared'
+
+import { buildBasisChapter } from './basis'
+import { TARIFF_SOURCE_UNTRACKED } from './types'
+import type { PdfReportAnalysis, PdfReportInput, PdfReportTariffSource } from './types'
+
+/**
+ * D12 — der dritte Tarifquellen-Zustand im Kapitel „Annahmen und Datengrundlage".
+ *
+ * ⚠ GEPRÜFT WIRD ÜBER `buildBasisChapter`, NICHT ÜBER EINEN INTERNEN HELFER. Der dritte Zustand ist
+ * eine nichtleere Zeichenkette und damit wahrheitswertig; der Fehler, der hier drohte, ist nicht
+ * „falscher Satz", sondern ein `!source`-Zweig, der ihn als `TariffSourceRef` behandelt und beim
+ * ersten Feldzugriff wirft. Das zeigt nur der gesamte Kapitel-Aufbau.
+ */
+
+/** Das Minimum, das der Kapitel-Aufbau liest — leerer Katalog, keine Warnungen, kein Blocker. */
+const ANALYSIS: PdfReportAnalysis = {
+  current: {
+    annualPeakKw: 48,
+    monthlyPeaksKw: [48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48],
+    billedKw: 48,
+    leistungspreisCostPerYear: 3980.16,
+  },
+  perBattery: [],
+  recommendation: { batteryId: 'keiner', rationale: 'leerer Katalog' },
+  assumptions: {
+    roundTripEfficiency: 0.9,
+    horizonYears: 10,
+    energyPriceCtPerKwh: 24.5,
+    einspeiseverguetungCtPerKwh: 7.2,
+    billingModel: 'monthly_max_sum',
+  },
+  dataQuality: {
+    coveredDays: 365,
+    coveredMonths: 12,
+    gapsInterpolated: 0,
+    largestGapSlots: 0,
+    warnings: [],
+  },
+}
+
+const LOAD_PROFILE: LoadProfile = {
+  readings: [{ ts: '2025-03-17T00:00:00.000Z', gridPowerKw: 9 }],
+  intervalMinutes: 15,
+  timezoneMeta: 'Europe/Vienna',
+  source: 'net_signed',
+}
+
+const REAL_REF: TariffSourceRef = {
+  tariffSetId: 'wn-2026',
+  tariffSetLabel: 'Wiener Netze 2026',
+  tariffSetValidFrom: '2026-01-01',
+  tariffProfileKey: 'wiener_netze:6',
+  netzbetreiber: 'wiener_netze',
+  netzebene: 6,
+  overriddenFields: [],
+}
+
+function chapterFor(tariffSource: PdfReportTariffSource) {
+  const input: PdfReportInput = {
+    title: 'Wirtschaftlichkeitsanalyse Batteriespeicher',
+    subtitle: 'Auf Basis Ihres Viertelstunden-Lastgangs',
+    period: '17.03.2025 – 17.03.2025',
+    printedAt: '16.09.2026',
+    analysis: ANALYSIS,
+    loadProfile: LOAD_PROFILE,
+    tariffSource,
+    tariffVintage: null,
+  }
+  return buildBasisChapter(input)
+}
+
+describe('buildBasisChapter — Herkunft der Tarifsätze', () => {
+  it('nennt beim dritten Zustand die Unkenntnis und behauptet keine Herkunft', () => {
+    const { tariffSource } = chapterFor(TARIFF_SOURCE_UNTRACKED)
+
+    expect(tariffSource).toContain('nicht im Einzelnen nachverfolgt')
+    // Weder die `null`-Aussage („aus Ihrer Eingabe") noch ein Tarifstand werden behauptet.
+    expect(tariffSource).not.toContain('kein hinterlegter Stand gewählt')
+    expect(tariffSource).not.toContain('Netzebene')
+    // Der rohe Wert darf nicht als Beschriftung durchschlagen.
+    expect(tariffSource).not.toContain(TARIFF_SOURCE_UNTRACKED)
+  })
+
+  it('lässt den `null`-Fall und einen echten TariffSourceRef unverändert', () => {
+    expect(chapterFor(null).tariffSource).toBe(
+      'Tarifsätze: kein hinterlegter Stand gewählt — Leistungspreis, Abrechnungsmodell und ' +
+        'Mindestleistung stammen unverändert aus Ihrer Eingabe.',
+    )
+    expect(chapterFor(REAL_REF).tariffSource).toBe(
+      'Tarifsätze: Wiener Netze, Netzebene 6 · Stand „Wiener Netze 2026", gültig ab 2026-01-01. ' +
+        'Die Vorgabewerte wurden unverändert übernommen.',
+    )
+  })
+
+  it('baut in allen drei Zuständen dasselbe übrige Kapitel', () => {
+    const untracked = chapterFor(TARIFF_SOURCE_UNTRACKED)
+    const empty = chapterFor(null)
+
+    expect(untracked.assumptions).toEqual(empty.assumptions)
+    expect(untracked.dataQuality).toBeNull()
+    expect(untracked.blocker).toBeNull()
+  })
+})
