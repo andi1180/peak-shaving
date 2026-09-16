@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ASSUMED_EXISTING_ROUND_TRIP_EFFICIENCY } from 'shared'
 
+import { buildGeneratedPvSeriesFile } from '../pv-reference/generated-series'
+
 // `server-only` wirft beim Import ausserhalb einer React-Server-Umgebung.
 vi.mock('server-only', () => ({}))
 
@@ -57,6 +59,42 @@ function ports(overrides: Partial<Ports> = {}): Ports {
         : file(loadProfileCsv(), 'lastgang-2025.csv'),
     ...overrides,
   }
+}
+
+/**
+ * Die abgelegte Schätzreihe zu GENAU diesen Zeitstempeln — gebaut mit derselben Funktion, die sie
+ * ablegt. Eine von Hand geschriebene Datei prüfte den Leser gegen eine zweite Wahrheit.
+ */
+function generatedSeriesJson(timestamps: readonly string[]): string {
+  return buildGeneratedPvSeriesFile({
+    // Mittagsglocke über das ganze Referenzjahr — 9 bis 16 Uhr 12 kW, sonst nichts.
+    hourlySeries: [Array.from({ length: 8760 }, (_, i) => (i % 24 >= 9 && i % 24 < 16 ? 12 : 0))],
+    timestamps,
+    weatherYears: { from: 2014, to: 2023 },
+    smoothingOptimismPercent: 4.9,
+  }).text
+}
+
+const GENERATED_DRAFT: Record<string, unknown> = {
+  ...DRAFT,
+  hasPv: true,
+  pvProfileSource: 'generated',
+  pvGeneratedDocumentId: 'pv-gen-1',
+  // Die Kennzahlen daneben sperren nicht mehr, sobald die Reihe selbst benannt ist.
+  pvEstimatedAnnualKwh: 12_000,
+  pvEstimatedWeatherYearFrom: 2014,
+  pvEstimatedWeatherYearTo: 2023,
+}
+
+/** Ports, deren `pv-gen-1` die übergebene Reihe liefert. */
+function generatedPorts(seriesJson: string, draft: Record<string, unknown> = GENERATED_DRAFT): Ports {
+  return ports({
+    readMeteringPoint: async () => ({ draft, sourceDocumentId: 'doc-1' }),
+    readDocument: async (id) =>
+      id === 'pv-gen-1'
+        ? file(seriesJson, 'pv-erzeugung-geschaetzt.json')
+        : file(loadProfileCsv(), 'lastgang-2025.csv'),
+  })
 }
 
 beforeEach(() => {
@@ -138,7 +176,40 @@ describe('runAnalysisFromMeteringPointDraft', () => {
     ).toBe(true)
   })
 
-  it('bricht bei einer GESCHÄTZTEN PV-Reihe ab — und rechnet dann gar nicht', async () => {
+  it('rechnet die abgelegte GESCHÄTZTE Reihe mit — und die Spitzenkappung fällt dabei weg', async () => {
+    // Erst der Lauf ohne Schätzreihe: er liefert die Zeitstempel für die Datei UND den Gegenbeweis.
+    const ohne = await runAnalysisFromMeteringPointDraft('mp-1', ports())
+    expect(ohne.estimatedPvMetadata).toBeUndefined()
+    expect(ohne.result.perBattery.some((e) => e.leistungspreisSavingPerYear > 0)).toBe(true)
+
+    const seriesJson = generatedSeriesJson(ohne.loadProfile.readings.map((r) => r.ts))
+    const { result, loadProfile, estimatedPvMetadata } = await runAnalysisFromMeteringPointDraft(
+      'mp-1',
+      generatedPorts(seriesJson),
+    )
+
+    // Gerechnet wurde der GEKOPPELTE Lastgang — daran hängt der Blocker `estimated_pv`.
+    expect(loadProfile.pvSource).toBe('estimated')
+    expect(result.perBattery.every((e) => e.leistungspreisSavingPerYear === 0)).toBe(true)
+    expect(estimatedPvMetadata).toEqual({
+      smoothingOptimismPercent: 4.9,
+      weatherYears: { from: 2014, to: 2023 },
+    })
+  })
+
+  it('bricht ab, wenn die abgelegte Reihe zu einem anderen Lastgang gehört', async () => {
+    const ohne = await runAnalysisFromMeteringPointDraft('mp-1', ports())
+    // Ein um einen Tag verschobener Zeitstempel: positionsweise addiert fiele das nirgends auf.
+    const verschoben = ohne.loadProfile.readings.map((r, i) =>
+      i === 5 ? new Date(Date.parse(r.ts) + 86_400_000).toISOString() : r.ts,
+    )
+
+    await expect(
+      runAnalysisFromMeteringPointDraft('mp-1', generatedPorts(generatedSeriesJson(verschoben))),
+    ).rejects.toMatchObject({ name: 'GeneratedPvSeriesError', reason: 'timestamp_mismatch' })
+  })
+
+  it('bricht bei einer GESCHÄTZTEN PV-Reihe OHNE abgelegte Datei ab — und rechnet dann gar nicht', async () => {
     const readDocument = vi.fn()
     const call = runAnalysisFromMeteringPointDraft(
       'mp-1',

@@ -5,7 +5,8 @@ import { GENERATED_PV_SERIES_FORMAT, type GeneratedPvSeriesDocument } from './ge
 
 /**
  * DIE GEGENRICHTUNG ZU `generated-series.ts`: die abgelegte Schätzreihe wieder einlesen und an den
- * Lastgang koppeln. Eigenständig und (noch) unverdrahtet — `run-from-draft.ts` ruft nichts davon.
+ * Lastgang koppeln. Verdrahtet seit D3 (Abschluss): `run-from-draft.ts` geht diesen Weg, sobald der
+ * Entwurf eine abgelegte Schätzreihe benennt.
  *
  * ══════════════════════════════════════════════════════════════════════════════════════════════
  * ⚠ WAS AN DER GESCHÄTZTEN PV TATSÄCHLICH RECHENWIRKSAM IST — gemessen, nicht angenommen
@@ -118,9 +119,11 @@ export function readGeneratedPvSeries(text: string): GeneratedPvSeriesDocument {
 /**
  * Der gekoppelte Zustand, so wie ihn ein Analyse-Lauf braucht.
  *
- * ⚠ `smoothingOptimismPercent` reist als GESCHWISTER neben dem Ergebnis und nicht darin: es ist
- * eine Aussage über die Herkunft der Reihe, keine gerechnete Grösse — dieselbe Trennung wie beim
- * Lastgang neben dem `AnalysisResult` in `MeteringPointAnalysisRun`.
+ * ⚠ `smoothingOptimismPercent` und `weatherYears` reisen als GESCHWISTER neben dem Ergebnis und
+ * nicht darin: sie sind Aussagen über die Herkunft der Reihe, keine gerechneten Grössen — dieselbe
+ * Trennung wie beim Lastgang neben dem `AnalysisResult` in `MeteringPointAnalysisRun`. Die beiden
+ * gehen immer gemeinsam heraus: ein Aufschlag ohne das Jahrzehnt, auf das er sich bezieht, ist als
+ * Angabe im Report nicht einzuordnen.
  */
 export type CoupledGeneratedPvSeries = {
   /** Verbrauch − geschätzte Erzeugung, signiert, mit `pvSource: 'estimated'` — DER Rechen-Lastgang. */
@@ -128,6 +131,8 @@ export type CoupledGeneratedPvSeries = {
   /** Die Brutto-Erzeugung für Trace und Anzeige (`payload.pv`) — ohne Wirkung auf eine Ersparnis. */
   pv: PvProfile
   smoothingOptimismPercent: number
+  /** Die gemittelten Wetterjahre der Reihe — zusammen mit dem Aufschlag, nie ohne ihn (s. o.). */
+  weatherYears: { from: number; to: number }
 }
 
 /**
@@ -167,5 +172,6 @@ export function coupleGeneratedPvSeries(
     profile: applyEstimatedPv(consumption, pvGenerationKw),
     pv: buildEstimatedPvProfile(consumption, pvGenerationKw),
     smoothingOptimismPercent: document.smoothingOptimismPercent,
+    weatherYears: document.weatherYears,
   }
 }

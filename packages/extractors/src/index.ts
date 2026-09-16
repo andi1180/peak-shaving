@@ -256,7 +256,8 @@ export {
 
 /*
  * ── DIESELBE REIHE, ZURÜCKGELESEN UND AN DEN LASTGANG GEKOPPELT ───────────────────────────────
- * Eigenständig und noch unverdrahtet: `run-from-draft.ts` sperrt den geschätzten Weg weiterhin.
+ * Verdrahtet seit D3 (Abschluss): `run-from-draft.ts` geht diesen Weg, sobald der Entwurf eine
+ * abgelegte Reihe benennt — ohne Kennung (Entwürfe von vor PR #256) bleibt die Sperre.
  * Gekoppelt wird über die unveränderten Engine-Funktionen — hier entsteht keine zweite Rechnung.
  */
 export {
@@ -289,6 +290,7 @@ export { classifyDocument, type UploadClassificationOutcome } from './upload-cla
 export {
   runAnalysisFromMeteringPointDraft,
   MeteringPointAnalysisError,
+  type EstimatedPvSeriesMetadata,
   type MeteringPointAnalysisPorts,
   type MeteringPointAnalysisRun,
   type MeteringPointAnalysisSource,
