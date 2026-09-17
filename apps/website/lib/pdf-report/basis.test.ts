@@ -174,3 +174,141 @@ describe('buildBasisChapter — Monate ohne erkennbaren PV-Beitrag (D5)', () => 
     expect(pvChapterFor(true, undefined).pvOutage).toBeNull()
   })
 })
+
+/**
+ * D9 — die Datenquellen-Tabelle.
+ *
+ * ⚠ Geprüft wird über `buildBasisChapter` und an den ZELLEN, nicht an einem internen Helfer: der
+ * Fehler, der hier droht, ist eine Zeile, die eine Quelle NENNT, ohne eine zu haben — und der ist
+ * nur am zusammengesetzten Text sichtbar.
+ */
+const BATTERY_ANALYSIS: PdfReportAnalysis = {
+  ...ANALYSIS,
+  perBattery: [
+    {
+      battery: {
+        id: 'ps-c60',
+        name: 'PeakStore C60',
+        manufacturer: 'Demo Energy',
+        class: 'commercial',
+        usableCapacityKwh: 60,
+        maxPowerKw: 30,
+        roundTripEfficiency: 0.9,
+        pricePerKwh: 420,
+        inverterIncluded: true,
+        requiresFoundation: false,
+        controlType: 'dynamic',
+      },
+      newBilledKw: 36,
+      leistungspreisSavingPerYear: 995,
+      selfConsumptionSavingPerYear: 0,
+      loadShiftSavingPerYear: 0,
+      selfConsumptionSavingOverCoveredPeriod: 0,
+      loadShiftSavingOverCoveredPeriod: 0,
+      annualizationFactor: 1,
+      coveredDays: 365,
+      totalSavingPerYear: 995,
+      warnings: [],
+      totalInvestment: 25200,
+      subsidyAmount: 0,
+      taxBenefit: 0,
+      taxEffectsIncluded: false,
+      netInvestment: 25200,
+      amortizationYears: 25.3,
+      netSavingOverHorizon: 0,
+    },
+  ],
+  recommendation: { batteryId: 'ps-c60', rationale: 'bester ROI' },
+}
+
+function dataSourcesFor(provenance: PdfReportInput['tariffProvenance']) {
+  const input: PdfReportInput = {
+    title: 'Wirtschaftlichkeitsanalyse Batteriespeicher',
+    subtitle: 'Auf Basis Ihres Viertelstunden-Lastgangs',
+    period: '01.01.2025 – 31.12.2025',
+    printedAt: '17.09.2026',
+    analysis: BATTERY_ANALYSIS,
+    loadProfile: LOAD_PROFILE,
+    tariffSource: TARIFF_SOURCE_UNTRACKED,
+    tariffVintage: null,
+    tariffProvenance: provenance,
+  }
+  return buildBasisChapter(input).dataSources
+}
+
+/** Die dritte Spalte („Zeitraum / Stand") einer Zeile — dort steht jede Herkunftsangabe. */
+function vintageOf(table: ReturnType<typeof dataSourcesFor>, key: string): string {
+  return table.rows.find((row) => row.key === key)?.cells[2] ?? ''
+}
+
+describe('buildBasisChapter — Datenquellen-Tabelle (D9)', () => {
+  it('füllt alle drei Zeilengruppen und nennt den echten Stand der Preisblatt-Zeile', () => {
+    const table = dataSourcesFor({
+      gridTariffValidFrom: ['2026-01-01'],
+      invoicePeriods: [{ from: '2025-01-01', to: '2025-12-31', assumed: false }],
+    })
+
+    expect(table.rows.filter((row) => row.heading).map((row) => row.cells[0])).toEqual([
+      'Lastgang',
+      'Tarif',
+      'Batterie',
+    ])
+    expect(vintageOf(table, 'load_readings')).toContain('01.01.2025 – 31.12.2025')
+    expect(vintageOf(table, 'load_readings')).toContain('365 abgedeckte Tage')
+    // D8: die gezeigte Abdeckungszahl ist benannt und steht nicht neben einer zweiten.
+    expect(vintageOf(table, 'load_readings')).toContain('Slot-Zählung')
+
+    // Der echte Gültigkeitsbeginn tritt an die Stelle von „nicht nachverfolgt".
+    expect(vintageOf(table, 'tariff_grid')).toContain('gültig ab 01.01.2026')
+    expect(vintageOf(table, 'tariff_grid')).not.toContain('nicht nachverfolgt')
+    expect(vintageOf(table, 'tariff_supplier')).toContain('01.01.2025 – 31.12.2025')
+    expect(vintageOf(table, 'tariff_supplier')).toContain('ausgeschrieben')
+
+    expect(table.rows.find((row) => row.key === 'battery_device')?.cells[0]).toBe(
+      'Demo Energy PeakStore C60',
+    )
+  })
+
+  it('behält „nicht nachverfolgt", solange keine Preisblatt-Zeile vorliegt', () => {
+    const table = dataSourcesFor({ gridTariffValidFrom: [], invoicePeriods: [] })
+
+    expect(vintageOf(table, 'tariff_grid')).toContain('nicht nachverfolgt')
+    expect(vintageOf(table, 'tariff_grid')).not.toContain('gültig ab')
+  })
+
+  it('fällt ohne Rechnungs-Extraktion auf die Fundstelle des Vergleichstarifs zurück', () => {
+    const table = dataSourcesFor({ gridTariffValidFrom: ['2026-01-01'], invoicePeriods: [] })
+
+    expect(vintageOf(table, 'tariff_supplier')).toContain('Kundenrechnung: nicht erfasst')
+    expect(vintageOf(table, 'tariff_supplier')).toContain('aWATTar')
+  })
+
+  /**
+   * ⚠ Ohne diesen Zusatz sähe ein Gerätename zwischen Zeilen mit echten Fundstellen aus wie eine
+   * geprüfte Quelle — er muss deshalb auch dort stehen, wo gar kein Gerät ausgewiesen ist.
+   */
+  it('weist die fehlende Geräte-Herkunft in jedem Fall aus', () => {
+    const withDevice = dataSourcesFor({ gridTariffValidFrom: [], invoicePeriods: [] })
+    expect(vintageOf(withDevice, 'battery_device')).toContain('keine Herkunfts- oder Preisquelle')
+
+    const withoutCatalog = buildBasisChapter({
+      title: 'Wirtschaftlichkeitsanalyse Batteriespeicher',
+      subtitle: 'Auf Basis Ihres Viertelstunden-Lastgangs',
+      period: null,
+      printedAt: '17.09.2026',
+      analysis: ANALYSIS,
+      loadProfile: LOAD_PROFILE,
+      tariffSource: TARIFF_SOURCE_UNTRACKED,
+      tariffVintage: null,
+    }).dataSources
+
+    expect(vintageOf(withoutCatalog, 'battery_device')).toContain(
+      'keine Herkunfts- oder Preisquelle',
+    )
+    expect(withoutCatalog.rows.find((row) => row.key === 'battery_device')?.cells[0]).toBe(
+      'kein Gerät ausgewiesen',
+    )
+    // Ohne Lastgang-Zeitraum steht die Leerstelle ausgeschrieben da, kein Strich.
+    expect(vintageOf(withoutCatalog, 'load_readings')).toContain('nicht erfasst')
+  })
+})

@@ -137,7 +137,7 @@ describe('createReportRenderRequestAction', () => {
     expect(loadProfile.readings).toHaveLength(96)
     expect(loadProfile.intervalMinutes).toBe(15)
 
-    // Genau sieben Felder, als WERTE — kein Verweis auf den veränderlichen Entwurf.
+    // Genau neun Felder, als WERTE — kein Verweis auf den veränderlichen Entwurf.
     expect(args.p_report_input_meta).toEqual({
       customerLabel: 'Bäckerei Gruber',
       netzbetreiber: 'wiener_netze',
@@ -149,6 +149,13 @@ describe('createReportRenderRequestAction', () => {
        */
       hasPv: null,
       pvOutageMonths: [],
+      /*
+       * D9 — beide leer: dieser Entwurf hat keinen Netzbetreiber-Preisblatt-Treffer (der Port ist
+       * im Prüfstand nicht gesetzt) und keine gelesene Rechnung. Leer heisst in der
+       * Datenquellen-Tabelle „nicht nachverfolgt"/„nicht erfasst" — nie ein erfundener Stand.
+       */
+      gridTariffValidFrom: [],
+      invoicePeriods: [],
       meteringPointId: POINT_ID,
       projectId: PROJECT_ID,
     })

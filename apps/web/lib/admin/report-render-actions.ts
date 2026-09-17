@@ -1,12 +1,13 @@
 'use server'
 
 import { MeteringPointAnalysisError, runAnalysisFromMeteringPointDraft } from 'extractors'
-import { NETZBETREIBER_DRAFT_KEY } from 'shared'
+import { NETZBETREIBER_DRAFT_KEY, type GridTariffRowInput } from 'shared'
 
 import { externalReportUrl } from '@/lib/config'
 import { createClient } from '@/lib/supabase/server'
 import { readProjectDocument } from '@/lib/project-documents/documents'
 import { readTariffPricingForAnalysis } from './analysis-tariff-inputs'
+import { readStoredInvoiceExtractions } from './invoice-extractions'
 import { readMeteringPointList } from './metering-points'
 import { readPvDraft } from './pv-draft'
 import { readAdminProject } from './projects'
@@ -102,6 +103,18 @@ export async function createReportRenderRequestAction(
   }
 
   /*
+   * D9 — DIE GELESENEN PREISBLATT-ZEILEN WERDEN IM VORBEIGEHEN FESTGEHALTEN.
+   *
+   * Der Analyse-Lauf gibt sie nicht zurück (`MeteringPointAnalysisRun` führt Ergebnis, Lastgang,
+   * PV-Befund — keine Preisseiten), und `AnalysisResult` trägt nur die gerechneten WERTE, nie deren
+   * Gültigkeit. Ein zweiter Lesevorgang derselben Tabelle wäre die Alternative gewesen und die
+   * schlechtere: er liefe gegen einen womöglich inzwischen geänderten Pflegestand, und der Report
+   * nennte dann einen Stand, mit dem nicht gerechnet wurde. Was hier durchgereicht wird, ist
+   * dieselbe Antwort, die in die Rechnung ging.
+   */
+  let gridTariffRows: GridTariffRowInput[] | null = null
+
+  /*
    * ⚠ DER ZÄHLPUNKT IST SCHON GELESEN, BEVOR DIE PORTS ENTSTEHEN. Der Lauf verlangt für beide
    * Ports „`null` heisst gibt es nicht, ein LESEFEHLER gehört geworfen" — und ein aus dem Port
    * geworfener Wrapper-Fehler käme unten als Text beim Admin an, statt als `FORBIDDEN`/`GENERIC`
@@ -133,7 +146,11 @@ export async function createReportRenderRequestAction(
        * Peak Shaving und Eigenverbrauch hingen dann an einer Vergleichsseite, von der sie nicht
        * abhängen.
        */
-      fetchTariffPricing: (request) => readTariffPricingForAnalysis(supabase, request),
+      fetchTariffPricing: async (request) => {
+        const pricing = await readTariffPricingForAnalysis(supabase, request)
+        gridTariffRows = pricing.gridTariffRows
+        return pricing
+      },
     })
   } catch (error) {
     if (error instanceof MeteringPointAnalysisError || error instanceof Error) {
@@ -145,7 +162,7 @@ export async function createReportRenderRequestAction(
   }
 
   /*
-   * ⚠ SIEBEN FELDER, UND KEINES MEHR. `report_input_meta` ist in der Migration bewusst ohne Struktur
+   * ⚠ NEUN FELDER, UND KEINES MEHR. `report_input_meta` ist in der Migration bewusst ohne Struktur
    * — die legt der SCHREIBENDE Schritt fest, und was hier hineinwandert, ist ab dann die Form, an
    * die sich der Renderer bindet. Deshalb nur, was ein Report ausser Ergebnis und Lastgang
    * nachweislich braucht: die Bezeichnung fürs Deckblatt, der Netzbetreiber als ANGABE (er geht in
@@ -193,6 +210,22 @@ export async function createReportRenderRequestAction(
      */
     hasPv: readPvDraft(point.draft).hasPv,
     pvOutageMonths: run.pvOutageMonths,
+    /*
+     * D9 — DIE ZWEI ROHEN HERKUNFTSANGABEN DER TARIFSEITE.
+     *
+     * Beide sind BELEGT und reisten bis D9 nicht mit: der Gültigkeitsbeginn der Preisblatt-Zeile
+     * stammt aus derselben Abfrage, die in die Rechnung ging, der Abrechnungszeitraum aus den
+     * gelesenen Kundenrechnungen des Entwurfs. Der Report braucht sie für die Datenquellen-Tabelle
+     * und für nichts sonst.
+     *
+     * ⚠ SIE SIND KEINE TARIFHERKUNFT. Welcher Leistungspreis am Ende gerechnet wurde — Vorschlag
+     * aus dem Preisblatt, abgelesene Netzrechnung oder Handeingabe —, hält der Wizard-Entwurf
+     * weiterhin nicht fest; `tariffSource` bleibt deshalb unten der dritte Zustand.
+     *
+     * ⚠ ALS WERTE, NICHT ALS VERWEISE — dieselbe Regel wie bei den übrigen Feldern.
+     */
+    gridTariffValidFrom: readGridTariffValidFrom(gridTariffRows),
+    invoicePeriods: readInvoicePeriods(point.draft),
     meteringPointId,
     projectId,
   }
@@ -223,4 +256,41 @@ export async function createReportRenderRequestAction(
     success: `Report-Übergabe angelegt — sie läuft in 24 Stunden ab.`,
     successHref: externalReportUrl(created.data),
   }
+}
+
+/**
+ * D9 — die Gültigkeitsbeginne der Preisblatt-Zeilen, aufsteigend und ohne Dubletten.
+ *
+ * ⚠ `null` (die Netzentgelt-Seite war nicht lesbar ODER wurde gar nicht gefragt) und eine leere
+ * Liste („für diese Kombination ist nichts gepflegt") führen beide zu `[]`. Die Unterscheidung
+ * bliebe ohne Anzeige: der Report sagt in beiden Fällen „nicht nachverfolgt", und ein zweiter,
+ * nirgends sichtbarer Zustand wäre eine Unterscheidung ohne Unterschied.
+ */
+function readGridTariffValidFrom(rows: GridTariffRowInput[] | null): string[] {
+  if (rows === null) return []
+  const seen = new Set<string>()
+  for (const row of rows) {
+    if (typeof row.validFrom === 'string' && row.validFrom !== '') seen.add(row.validFrom)
+  }
+  return [...seen].sort()
+}
+
+/**
+ * D9 — die Abrechnungszeiträume der gelesenen Kundenrechnungen.
+ *
+ * ⚠ Eine Rechnung OHNE Zeitraum fällt heraus, statt als leerer Eintrag mitzufahren: in der Tabelle
+ * wäre sie eine Zeile, die eine Quelle nennt und nichts belegt. `billingPeriodAssumed` reist mit,
+ * weil ein abgeleiteter Zeitraum eine Annahme ist und nicht wie eine abgelesene Angabe dastehen darf
+ * (s. `InvoiceExtraction.billingPeriodAssumed`).
+ */
+function readInvoicePeriods(
+  draft: Record<string, unknown>,
+): { from: string | null; to: string | null; assumed: boolean | null }[] {
+  return readStoredInvoiceExtractions(draft)
+    .map(({ extraction }) => ({
+      from: extraction.billingPeriodFrom,
+      to: extraction.billingPeriodTo,
+      assumed: extraction.billingPeriodAssumed,
+    }))
+    .filter((period) => period.from !== null || period.to !== null)
 }

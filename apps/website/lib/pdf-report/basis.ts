@@ -1,18 +1,35 @@
 import type { PvOutageMonth } from 'engine'
 import {
+  AWATTAR_BASE_FEE,
   NETZBETREIBER_LABELS,
+  TARIFF_SETS,
   type BatteryRoiEntry,
   type BillingModel,
+  type EstimatedPvSummary,
   type LoadProfile,
+  type LoadSource,
   type NetzbetreiberId,
   type TariffPriceRange,
   type TariffSourceRef,
 } from 'shared'
 
 import { formatEur, formatEur2, formatPercent } from '@/lib/format'
-import type { ReportNotice, ReportRow, ReportStatement } from './statement'
+import type {
+  ReportNotice,
+  ReportRow,
+  ReportStatement,
+  ReportTable,
+  ReportTableRow,
+} from './statement'
+import { primaryEntryOf } from './summary'
 import { TARIFF_SOURCE_UNTRACKED } from './types'
-import type { PdfReportAnalysis, PdfReportInput, PdfReportTariffSource } from './types'
+import type {
+  PdfReportAnalysis,
+  PdfReportInput,
+  PdfReportInvoicePeriod,
+  PdfReportTariffProvenance,
+  PdfReportTariffSource,
+} from './types'
 
 /**
  * B23c-4 — das Kapitel „Annahmen und Datengrundlage": womit gerechnet wurde, woher die Tarifwerte
@@ -432,6 +449,315 @@ function buildTariffSource(
 }
 
 /* ────────────────────────────────────────────────────────────────────────────────────────────────
+ * 5 — die Datenquellen-Tabelle (D9 Punkt 1)
+ * ──────────────────────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * D9 — „Quelle · was daraus verwendet wurde · Zeitraum/Stand", nach dem Vorbild des
+ * Urbanz-Anhangs „Methodik im Detail".
+ *
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * ⚠ DIE TABELLE BELEGT ODER SIE SAGT, DASS SIE NICHTS ZU BELEGEN HAT — EIN DRITTES GIBT ES NICHT
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * Eine Datenquellen-Tabelle ist die eine Stelle des Reports, an der eine plausibel aussehende
+ * Lücke teurer ist als anderswo: wer hier liest, prüft gerade, wie belastbar die Zahlen sind. Eine
+ * Zeile, die eine Quelle NENNT, ohne eine zu haben, nimmt genau diese Prüfung vorweg und beantwortet
+ * sie falsch. Deshalb gilt für jede Zelle: entweder ein belegter Wert, oder ausgeschrieben
+ * „nicht erfasst"/„nicht nachverfolgt" — nie ein Strich, nie eine leere Zelle, nie eine Formulierung,
+ * die offen lässt, ob niemand nachgesehen hat oder ob es nichts gibt.
+ *
+ * ── ⚠ D8: GENAU EINE ABDECKUNGSZAHL, UND SIE IST BENANNT ──────────────────────────────────────
+ * Es gibt im Contract ZWEI Zählungen abgedeckter Tage, und sie weichen regelmässig um eins ab:
+ * `dataQuality.coveredDays` = `round(Intervalle / 96)` (Slot-Zählung), gegenüber
+ * `MonthlyFixedCosts.coveredDays` = die tatsächlich BERÜHRTEN Kalendertage in Ortszeit, an dem ein
+ * am Vormittag endender Lastgang einen Tag mehr belegt (gemessen: 209 gegen 210). Die Tabelle zeigt
+ * die Slot-Zählung — dieselbe, die der Datenqualitäts-Kasten eine Sektion weiter oben führt — und
+ * schreibt in derselben Zelle dazu, WELCHE es ist. Beide nebeneinander wären zwei Zahlen ohne
+ * Zuordnung, und genau das schliesst D8 aus.
+ */
+
+/** Wie eine hochgeladene Datei die Netzleistung darstellt — die vier Werte von `LoadSource`. */
+const LOAD_SOURCE_LABEL: Record<LoadSource, string> = {
+  net_signed: 'hochgeladener Lastgang, vorzeichenbehaftete Netzleistung',
+  import_export_split: 'hochgeladener Lastgang, getrennte Bezugs- und Einspeisespalten',
+  import_only: 'hochgeladener Lastgang, nur Bezug',
+  standard_profile: 'synthetisches Standardprofil aus dem Jahresverbrauch (kein Messwert)',
+}
+
+/** Die Antwort, wo es keine Angabe gibt — ausgeschrieben statt weggelassen, s. Kopf. */
+const NOT_RECORDED = 'nicht erfasst'
+
+/** ISO `YYYY-MM-DD` → `TT.MM.JJJJ`. Ein unbrauchbarer Wert ergibt `null` statt `Invalid Date`. */
+function formatIsoDate(value: string): string | null {
+  const ms = Date.parse(value)
+  if (!Number.isFinite(ms)) return null
+  return new Intl.DateTimeFormat('de-AT', {
+    timeZone: 'UTC',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).format(ms)
+}
+
+function dataRow(key: string, cells: [string, string, string]): ReportTableRow {
+  return { key, cells }
+}
+
+/** Eine Gruppenüberschrift. Die übrigen Zellen bleiben leer — s. `ReportTableRow.heading`. */
+function groupRow(key: string, label: string): ReportTableRow {
+  return { key, cells: [label, '', ''], heading: true }
+}
+
+/**
+ * Gruppe 1 — der Lastgang.
+ *
+ * ⚠ Die Dateizeile steht da, OBWOHL sie nichts nennt. Dateiname und Upload-Zeitpunkt existieren im
+ * Admin-Bereich, reisen aber nicht mit der Report-Übergabe (`MeteringPointAnalysisRun` führt sie
+ * nicht). Sie wegzulassen hiesse, eine Lücke unsichtbar zu machen, die ein Leser sonst für eine
+ * nicht gestellte Frage hält; benannt ist sie eine Angabe über den Weg und kein Mangel an den Zahlen.
+ */
+function loadProfileRows(
+  loadProfile: LoadProfile,
+  period: string | null,
+  coveredDays: number,
+  estimatedPv: EstimatedPvSummary | undefined,
+): ReportTableRow[] {
+  const rows: ReportTableRow[] = [
+    groupRow('group_load', 'Lastgang'),
+    dataRow('load_readings', [
+      'Viertelstundenwerte des Netzbezugs',
+      `Grundlage aller Zahlen dieses Reports. Herkunft: ${LOAD_SOURCE_LABEL[loadProfile.source]}. ` +
+        `Monats- und Tagesgrenzen in Ortszeit ${loadProfile.timezoneMeta}.`,
+      `${period ?? NOT_RECORDED} · ${coveredDays} abgedeckte Tage ` +
+        '(Slot-Zählung: Messwerte ÷ 96, wie im Datenqualitäts-Hinweis oben)',
+    ]),
+  ]
+
+  /*
+   * ⚠ GEMESSEN AN `pvSource` UND NICHT AN `estimatedPv`: das Feld am Lastgang ist die Aussage, DASS
+   * die PV-Hälfte geschätzt ist (gesetzt allein von `applyEstimatedPv`), und sie gilt auch dort, wo
+   * die Zusammenfassung mit ihren Wetterjahren diesen Weg nicht mitgereist ist. Umgekehrt gelesen
+   * fiele die Zeile genau in dem Fall weg, in dem sie am nötigsten ist.
+   */
+  if (loadProfile.pvSource === 'estimated') {
+    const weather = estimatedPv
+      ? `PVGIS, gemittelte Wetterjahre ${estimatedPv.weatherYears.from}–${estimatedPv.weatherYears.to}`
+      : NOT_RECORDED
+    rows.push(
+      dataRow('load_pv', [
+        'Geschätzte PV-Erzeugung',
+        'Die PV-Hälfte dieses Lastgangs ist NICHT gemessen, sondern aus Standort und Anlagendaten ' +
+          'gerechnet und in den Netzbezug eingerechnet.',
+        weather,
+      ]),
+    )
+  }
+
+  rows.push(
+    dataRow('load_file', [
+      'Quelldatei',
+      'Dateiname und Upload-Zeitpunkt des Lastgangs.',
+      `${NOT_RECORDED} (beides reist nicht mit der Report-Übergabe)`,
+    ]),
+  )
+  return rows
+}
+
+/**
+ * Gruppe 2 — die Tarifseite.
+ *
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * ⚠ ZWEI GETRENNTE ZEILEN, WEIL ES ZWEI GETRENNTE QUELLEN SIND
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * Das Netzbetreiber-Preisblatt trägt die Netzseite (Leistungspreis, Netz-Arbeitspreis), der
+ * Lieferanten-Tarif die Energieseite (Arbeitspreis, Grundgebühr). Sie in eine Zeile zu ziehen
+ * hiesse, einen Stand zu nennen, der für die halbe Rechnung nicht gilt.
+ *
+ * ── ⚠ DER STAND KOMMT AUS DER ECHTEN PREISBLATT-ZEILE, NICHT AUS EINER KONSTANTE ──────────────
+ * Bis D9 stand hier für den Wizard-Weg zwangsläufig „nicht nachverfolgt": der Report bekam die
+ * Tarifwerte als blanke Zahlen und den dritten Zustand `TARIFF_SOURCE_UNTRACKED` dazu. Der
+ * Gültigkeitsbeginn der Preisblatt-Zeile, die für diesen Zählpunkt gepflegt ist, ist aber belegt —
+ * er ist in derselben Rechnung gelesen worden (`readGridTariffRowsForAnalysis`) und reist seit D9
+ * als Wert mit. „Nicht nachverfolgt" bleibt deshalb genau dort stehen, wo es zutrifft: wenn es
+ * keine Zeile gibt.
+ *
+ * ⚠ ER MACHT AUS DER UNKENNTNIS TROTZDEM KEINE HERKUNFT. Der Satz über `tariffSource` daneben
+ * bleibt unverändert: WELCHER Wert am Ende gerechnet wurde — der Vorschlag aus dem Preisblatt, eine
+ * abgelesene Netzrechnung oder eine Handeingabe — hält der Wizard-Entwurf nicht fest, und ein
+ * Gültigkeitsdatum beantwortet diese Frage nicht. Die Zelle nennt deshalb den STAND, nicht die
+ * Herkunft des gerechneten Werts.
+ */
+function tariffRows(
+  source: PdfReportTariffSource,
+  provenance: PdfReportTariffProvenance | undefined,
+): ReportTableRow[] {
+  return [
+    groupRow('group_tariff', 'Tarif'),
+    dataRow('tariff_grid', [
+      'Netzbetreiber-Preisblatt',
+      gridTariffUsage(source),
+      gridTariffVintage(source, provenance),
+    ]),
+    dataRow('tariff_supplier', [
+      'Lieferanten-Tarif',
+      'Arbeitspreis, Grundgebühr und Einspeisevergütung der Energieseite.',
+      supplierVintage(provenance),
+    ]),
+  ]
+}
+
+function gridTariffUsage(source: PdfReportTariffSource): string {
+  const base =
+    'Leistungspreis, Abrechnungsmodell und Mindestleistung; bei berechenbarem Vergleich zusätzlich ' +
+    'die Netz-Arbeitspreise je Zeitfenster.'
+  if (typeof source === 'object' && source !== null) {
+    return `${base} Netzebene ${source.netzebene}.`
+  }
+  return base
+}
+
+/**
+ * ⚠ DREI WEGE, UND SIE SIND NACH BELEGKRAFT GEORDNET.
+ *
+ * Ein geprüfter Stand der B11-Tarifschicht (`TariffSourceRef`) nennt Label, Gültigkeit UND
+ * Fundstelle — die `sourceNote` ist eine statische, versionierte Zeichenkette in `tariff-catalog.ts`
+ * und wird hier über die Kennung des Stands nachgeschlagen, nicht mitgespeichert (eine gespeicherte
+ * Kopie liefe beim nächsten Preisblatt-Nachtrag von ihr weg). Fehlt der Stand im Katalog — eine
+ * archivierte Kennung, die es heute nicht mehr gibt —, entfällt genau die Fundstelle und nicht die
+ * Zeile.
+ *
+ * Sonst zählt die gepflegte Preisblatt-Zeile aus `public.grid_tariffs`: ihr Gültigkeitsbeginn ist
+ * belegt, Name, Version und Fundstelle des Blatts sind es NICHT (die Tabelle führt dafür keine
+ * Spalte) — und das steht ausgeschrieben da.
+ *
+ * ⚠ MEHRERE ZEILEN WERDEN ALLE GENANNT: ein Zwölf-Monats-Lastgang kann einen Tarifwechsel
+ * überqueren, und dann gingen zwei Stände in dieselbe Rechnung ein.
+ */
+function gridTariffVintage(
+  source: PdfReportTariffSource,
+  provenance: PdfReportTariffProvenance | undefined,
+): string {
+  if (typeof source === 'object' && source !== null) {
+    const validFrom = formatIsoDate(source.tariffSetValidFrom) ?? source.tariffSetValidFrom
+    const note = TARIFF_SETS.find((set) => set.id === source.tariffSetId)?.sourceNote
+    const head = `Stand „${source.tariffSetLabel}", gültig ab ${validFrom}.`
+    return note ? `${head} Fundstelle: ${note}` : head
+  }
+
+  const dates = (provenance?.gridTariffValidFrom ?? [])
+    .map((iso) => formatIsoDate(iso))
+    .filter((value): value is string => value !== null)
+
+  if (dates.length === 0) {
+    return 'nicht nachverfolgt — für diesen Zählpunkt ist keine Preisblatt-Zeile hinterlegt.'
+  }
+
+  const head =
+    dates.length === 1
+      ? `Preisblatt-Zeile, gültig ab ${dates[0]}.`
+      : `Zwei Preisblatt-Stände im Auswertungszeitraum, gültig ab ${dates.join(' bzw. ')}.`
+  return `${head} Name, Version und Fundstelle des Blatts: ${NOT_RECORDED}.`
+}
+
+/**
+ * ⚠ DIE KUNDENRECHNUNG SCHLÄGT DEN VERGLEICHSTARIF (Prinzip 1).
+ *
+ * Liegt ein gelesener Abrechnungszeitraum vor, ist er die Angabe, auf die es ankommt: er sagt,
+ * WORAUF sich der abgelesene Arbeitspreis bezieht. Ob er auf dem Papier stand oder aus einer
+ * Jahresrechnung abgeleitet wurde, steht dabei — ein abgeleiteter Zeitraum ist eine Annahme und
+ * darf nicht wie eine abgelesene Angabe dastehen (`billingPeriodAssumed`).
+ *
+ * Ohne Rechnung bleibt die Fundstelle des VERGLEICHSTARIFS, und die ist statisch und versioniert
+ * (`AWATTAR_BASE_FEE.sourceNote`). Sie steht als Fundstelle der Grundgebühr da und behauptet nicht,
+ * der Kunde habe diesen Tarif — deshalb der Zusatz „Vergleichstarif".
+ */
+function supplierVintage(provenance: PdfReportTariffProvenance | undefined): string {
+  const period = (provenance?.invoicePeriods ?? []).find(
+    (entry) => entry.from !== null || entry.to !== null,
+  )
+  if (period) return formatInvoicePeriod(period)
+
+  return (
+    `Kundenrechnung: ${NOT_RECORDED}. Vergleichstarif ${AWATTAR_BASE_FEE.supplier}, ` +
+    `gültig ab ${formatIsoDate(AWATTAR_BASE_FEE.validFrom) ?? AWATTAR_BASE_FEE.validFrom} — ` +
+    `Fundstelle: ${AWATTAR_BASE_FEE.sourceNote}`
+  )
+}
+
+function formatInvoicePeriod(period: PdfReportInvoicePeriod): string {
+  const from = period.from ? (formatIsoDate(period.from) ?? period.from) : NOT_RECORDED
+  const to = period.to ? (formatIsoDate(period.to) ?? period.to) : NOT_RECORDED
+  const origin = period.assumed
+    ? ' (aus einer Jahresrechnung abgeleitet, nicht ausgeschrieben)'
+    : ' (auf der Rechnung ausgeschrieben)'
+  return `Kundenrechnung, Abrechnungszeitraum ${from} – ${to}${origin}`
+}
+
+/**
+ * Gruppe 3 — das Gerät.
+ *
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * ⚠ DIE ZEILE STEHT IMMER, UND SIE NENNT IMMER DIE LÜCKE
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * `BatteryCandidate` führt Hersteller und Bezeichnung, aber KEIN Herkunfts- und kein Preisfeld: es
+ * gibt keine Datenblatt-Fundstelle, kein Abrufdatum und keinen Preisstand (§8: der echte
+ * Batteriekatalog steht noch aus, gerechnet wird mit `DEMO_BATTERY_CATALOG`). Ein Gerätename ohne
+ * diesen Zusatz sähe in einer Datenquellen-Tabelle aus wie eine geprüfte Quelle — daneben stehen
+ * Zeilen, die echte Fundstellen nennen, und genau davon lebt die Täuschung. Der Zusatz steht
+ * deshalb in JEDEM Fall da, auch dann, wenn gar kein Gerät ausgewiesen ist.
+ *
+ * ⚠ GEZEIGT WIRD DER PRIMÄRE BLOCK (`primaryEntryOf`) und nicht die Katalog-Empfehlung: die Frage
+ * dieser Tabelle ist, woher die Angaben zu dem Gerät stammen, ÜBER das der Report spricht — im
+ * Bestandsfall ist das die Anlage des Kunden. Die Annahmen-Tabelle oben wählt aus einem anderen
+ * Grund anders (dort geht es um Preis und Investition, die es nur für ein Katalog-Gerät gibt).
+ */
+function batteryRowsForSources(analysis: PdfReportAnalysis): ReportTableRow[] {
+  const entry = primaryEntryOf(analysis)
+  const device = entry
+    ? `${entry.battery.manufacturer} ${entry.battery.name}`
+    : 'kein Gerät ausgewiesen'
+  const usage = entry
+    ? 'Nutzbare Kapazität, Lade-/Entladeleistung, Wirkungsgrad und Preis je kWh.'
+    : 'Es steht kein Kandidat zur Verfügung (leerer Katalog) — es wurde nichts daraus verwendet.'
+
+  return [
+    groupRow('group_battery', 'Batterie'),
+    dataRow('battery_device', [
+      device,
+      usage,
+      'keine Herkunfts- oder Preisquelle hinterlegt — der Katalog führt weder Datenblatt-Fundstelle ' +
+        'noch Abrufdatum noch Preisstand.',
+    ]),
+  ]
+}
+
+/** Die Tabelle. Sie steht IMMER — es gibt keinen Report ohne Lastgang, Tarif und Gerätefrage. */
+function buildDataSources(input: PdfReportInput): ReportTable {
+  return {
+    /*
+     * ⚠ Die Gewichte sind ein VERHÄLTNIS und keine pt-Angaben (s. `ReportTableColumn.width`). Die
+     * mittlere und die rechte Spalte tragen ganze Sätze und bekommen deshalb mehr als die linke,
+     * in der nur Bezeichnungen stehen.
+     */
+    columns: [
+      { label: 'Quelle', width: 2 },
+      { label: 'Was daraus verwendet wurde', width: 3 },
+      { label: 'Zeitraum / Stand', width: 3 },
+    ],
+    rows: [
+      ...loadProfileRows(
+        input.loadProfile,
+        input.period,
+        input.analysis.dataQuality.coveredDays,
+        input.estimatedPv,
+      ),
+      ...tariffRows(input.tariffSource, input.tariffProvenance),
+      ...batteryRowsForSources(input.analysis),
+    ],
+  }
+}
+
+/* ────────────────────────────────────────────────────────────────────────────────────────────────
  * Das Kapitel
  * ──────────────────────────────────────────────────────────────────────────────────────────── */
 
@@ -448,6 +774,8 @@ export type BasisChapter = {
   tariffSource: string
   /** Der Preisstand-Hinweis, hereingereicht (`derive.ts`). `null` = kein Hinweis. */
   tariffVintage: string | null
+  /** D9 — die Datenquellen-Tabelle. Steht immer; wo nichts belegt ist, sagt sie das. */
+  dataSources: ReportTable
 }
 
 export function buildBasisChapter(input: PdfReportInput): BasisChapter {
@@ -458,6 +786,7 @@ export function buildBasisChapter(input: PdfReportInput): BasisChapter {
     pvOutage: buildPvOutage(input.hasPv, input.pvOutageMonths),
     tariffSource: buildTariffSource(input.tariffSource, input.netzbetreiber),
     tariffVintage: input.tariffVintage,
+    dataSources: buildDataSources(input),
   }
 }
 

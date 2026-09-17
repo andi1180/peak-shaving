@@ -162,6 +162,56 @@ export const TARIFF_SOURCE_UNTRACKED = 'untracked' as const
 /** Die drei Antworten auf „woher stammen die Tarifsätze?" — s. `TARIFF_SOURCE_UNTRACKED`. */
 export type PdfReportTariffSource = TariffSourceRef | typeof TARIFF_SOURCE_UNTRACKED | null
 
+/** Der Abrechnungszeitraum EINER gelesenen Kundenrechnung (`InvoiceExtraction`, Teilmenge). */
+export type PdfReportInvoicePeriod = {
+  /** ISO-Datum `YYYY-MM-DD`. `null` = die Rechnung nennt keinen Beginn. */
+  from: string | null
+  /** ISO-Datum `YYYY-MM-DD`. `null` = die Rechnung nennt kein Ende. */
+  to: string | null
+  /**
+   * `true` = aus einer Jahresrechnung ABGELEITET, `false` = auf dem Papier ausgeschrieben,
+   * `null` = es gibt keinen Zeitraum. ⚠ Die Unterscheidung fährt mit, weil sie den Wert der Angabe
+   * bestimmt: ein abgeleiteter Zeitraum ist eine Annahme und darf in der Datenquellen-Tabelle nicht
+   * wie eine abgelesene Angabe dastehen (s. `InvoiceExtraction.billingPeriodAssumed`).
+   */
+  assumed: boolean | null
+}
+
+/**
+ * D9 — die ROHEN Herkunftsangaben der Tarifseite, für die Datenquellen-Tabelle.
+ *
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * ⚠ SIE SIND KEINE ANTWORT AUF `tariffSource` UND MACHEN AUS `TARIFF_SOURCE_UNTRACKED` KEINE
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * `tariffSource` beantwortet, WOHER Leistungspreis, Abrechnungsmodell und Mindestleistung stammen —
+ * aus der Netzrechnung des Kunden, aus einem geprüften Stand der B11-Tarifschicht, oder unbekannt.
+ * Das hier sind zwei andere Fragen: WELCHE Preisblatt-Zeile der Datenbank für diesen Zählpunkt
+ * gepflegt war, und WELCHEN Zeitraum die gelesenen Rechnungen abdecken. Beide sind belegt, beide
+ * gehören in eine Datenquellen-Tabelle — und keine von beiden sagt, welcher Wert am Ende gerechnet
+ * wurde. Sie in `tariffSource` hineinzurechnen hiesse, eine Vorbelegung zur Messung zu erklären
+ * (dieselbe Grenze, die `grid-tariff-lookup.ts` zieht: „die Funktion schlägt nur vor").
+ *
+ * ⚠ ALLES DARIN SIND WERTE UND KEINE VERWEISE — dieselbe Regel wie bei `platform.analyses`
+ * (B14-1 Regel b): ein später gepflegtes Preisblatt darf eine bereits erzeugte Rechnung nicht still
+ * umschreiben.
+ */
+export type PdfReportTariffProvenance = {
+  /**
+   * Die Gültigkeitsbeginne (ISO `YYYY-MM-DD`) ALLER Preisblatt-Zeilen aus `public.grid_tariffs`,
+   * die in diese Rechnung eingingen — aufsteigend.
+   *
+   * ⚠ EINE LISTE UND KEIN EINZELWERT: ein Zwölf-Monats-Lastgang kann einen Tarifwechsel überqueren,
+   * und dann gingen ZWEI Stände ein (s. `readGridTariffRowsForAnalysis`: „alle und nicht eine").
+   * Nur den ersten zu nennen wäre eine Angabe, die für den halben Zeitraum nicht stimmt.
+   *
+   * ⚠ LEER heisst „für diese Kombination ist nichts gepflegt ODER es wurde nicht nachgesehen" —
+   * beides führt in der Tabelle zu „nicht nachverfolgt", und keines davon behauptet einen Stand.
+   */
+  gridTariffValidFrom: string[]
+  /** Die Abrechnungszeiträume der gelesenen Kundenrechnungen. Leer = keine Rechnung gelesen. */
+  invoicePeriods: PdfReportInvoicePeriod[]
+}
+
 export type PdfReportInput = {
   /** Vom Nutzer editierbar, vorbelegt aus `defaultReportTitle` (`derive.ts`). */
   title: string
@@ -229,6 +279,15 @@ export type PdfReportInput = {
    * `wiener_netze` auf ein Kundendokument durchschlagen, wo sie wie ein Fehler aussähe.
    */
   netzbetreiber?: NetzbetreiberId
+  /**
+   * D9 — die rohen Herkunftsangaben der Tarifseite (s. `PdfReportTariffProvenance`).
+   *
+   * ⚠ OPTIONAL und nicht `null`-fähig: „dieser Weg führt die Angaben nicht" (der Chart-Prüfstand,
+   * eine Übergabe aus einer Fassung vor D9) ist dasselbe wie „es gibt nichts zu sagen" — in beiden
+   * Fällen steht in der Tabelle die ehrliche Leerstelle. Ein zweiter, davon unterscheidbarer
+   * Zustand hätte keine eigene Anzeige und wäre damit eine Unterscheidung ohne Unterschied.
+   */
+  tariffProvenance?: PdfReportTariffProvenance
   /**
    * B23c-4 — auf welchem Preisstand Arbeitspreis und Grundgebühr beruhen. `null` = kein Hinweis.
    *
