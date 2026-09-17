@@ -1,3 +1,4 @@
+import type { PvOutageMonth } from 'engine'
 import type {
   AnalysisResult,
   EstimatedPvSummary,
@@ -266,4 +267,34 @@ export type PdfReportInput = {
    * Abwesenheit einer Frage). Ein Aufrufer, der nichts geschätzt hat, lässt das Feld weg.
    */
   estimatedPv?: EstimatedPvSummary
+  /**
+   * D5 — die ANGABE, ob es an diesem Zählpunkt eine PV-Anlage gibt.
+   *
+   * `undefined` heisst „die Frage wurde nie beantwortet" und ausdrücklich NICHT `false`: der
+   * Wizard-Entwurf kennt beide Zustände getrennt (`readPvDraft`), und auf `false` gerundet stünde
+   * im Report eine Aussage über den Kunden, die niemand gemacht hat. Beide führen dazu, dass der
+   * PV-Befund unten unterbleibt — aber aus verschiedenen Gründen.
+   */
+  hasPv?: boolean
+  /**
+   * D5 — Monate, in denen im Lastgang KEIN Mittagseinbruch messbar war (`detectPvOutageMonths`).
+   *
+   * ── ⚠ WARUM DER BEFUND HEREINGEREICHT WIRD, STATT HIER GERECHNET ZU WERDEN ────────────────────
+   * Die Engine-Funktion ist rein und bekäme in `loadProfile` alles, was sie braucht — der Aufruf
+   * stünde technisch eine Zeile weit weg. Er zöge aber `engine` in den Lazy-Chunk dieses Dokuments,
+   * und über den Paket-Index damit den ganzen PARSER samt `papaparse` und `xlsx`. Der Report-Weg
+   * liest nie eine Datei; er bekäme eine Tabellenkalkulations-Bibliothek in den Browser für eine
+   * Funktion, die 40 Zeilen umfasst. Dieselbe Auflage, unter der diese Dateien schon `react-pdf`
+   * und Recharts nicht anfassen dürfen (s. Kopf von `basis.ts`).
+   *
+   * Gerechnet wird deshalb dort, wo der Rechenkern ohnehin läuft: im Analyse-Lauf
+   * (`packages/extractors`), und der Befund reist als WERT mit der Übergabe — wie das Ergebnis und
+   * der Lastgang selbst. `import type` ist dabei zur Laufzeit nichts: der Typ wird beim Bauen
+   * gelöscht, das Paket also nicht angefasst.
+   *
+   * ⚠ Leere Liste = „nichts gefunden"; `undefined` = „dieser Weg führt den Befund nicht" (etwa eine
+   * Übergabe aus einer älteren Fassung). Beide führen zu keinem Hinweis, und keiner der beiden
+   * behauptet, die Anlage sei in Ordnung.
+   */
+  pvOutageMonths?: PvOutageMonth[]
 }

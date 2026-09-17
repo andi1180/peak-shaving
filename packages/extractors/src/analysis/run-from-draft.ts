@@ -2,6 +2,7 @@ import 'server-only'
 
 import {
   computeAnalysis,
+  detectPvOutageMonths,
   mapDraftToExistingBatteryInput,
   mapDraftToTariffParams,
   parseLoadProfile,
@@ -10,6 +11,7 @@ import {
   type DataQuality,
   type DraftTariffMappingOptions,
   type ParsedPv,
+  type PvOutageMonth,
 } from 'engine'
 import {
   analysisWindow,
@@ -158,6 +160,18 @@ export type MeteringPointAnalysisRun = {
    * und dass sie systematisch leicht optimistisch ist.
    */
   estimatedPvMetadata?: EstimatedPvSeriesMetadata
+  /**
+   * D5 — Monate des Lastgangs, in denen KEIN Mittagseinbruch messbar war (`detectPvOutageMonths`).
+   *
+   * ⚠ IMMER GERECHNET, AUCH OHNE PV-ANGABE. Die Engine-Funktion nimmt kein `hasPv` entgegen (s.
+   * dort): ob der Befund etwas bedeutet, entscheidet, wer die Anlage kennt — hier fällt diese
+   * Entscheidung nicht. Ein Zählpunkt ohne PV liefert deshalb eine gefüllte Liste, und das ist die
+   * richtige Antwort auf eine Frage, die für ihn niemand stellen wird.
+   *
+   * ⚠ ER STEHT NICHT IM `AnalysisResult`: das ist eine Beobachtung AM LASTGANG und keine gerechnete
+   * Grösse — dieselbe Lage wie bei `estimatedPvMetadata` darüber.
+   */
+  pvOutageMonths: PvOutageMonth[]
 }
 
 /** Was die abgelegte Schätzreihe über sich selbst aussagt (s. `GeneratedPvSeriesDocument`). */
@@ -363,6 +377,8 @@ export async function runAnalysisFromMeteringPointDraft(
       DEMO_BATTERY_CATALOG,
     ),
     loadProfile: payload.load.profile,
+    /* ⚠ Auf DEM Lastgang, mit dem gerechnet wurde — also nach der PV-Kopplung, nicht auf `parsed`. */
+    pvOutageMonths: detectPvOutageMonths(payload.load.profile),
     ...(estimatedPv === null ? {} : { estimatedPvMetadata: estimatedPv.metadata }),
   }
 }

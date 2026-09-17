@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase/server'
 import { readProjectDocument } from '@/lib/project-documents/documents'
 import { readTariffPricingForAnalysis } from './analysis-tariff-inputs'
 import { readMeteringPointList } from './metering-points'
+import { readPvDraft } from './pv-draft'
 import { readAdminProject } from './projects'
 import {
   FORBIDDEN,
@@ -144,12 +145,12 @@ export async function createReportRenderRequestAction(
   }
 
   /*
-   * ⚠ FÜNF FELDER, UND KEINES MEHR. `report_input_meta` ist in der Migration bewusst ohne Struktur
+   * ⚠ SIEBEN FELDER, UND KEINES MEHR. `report_input_meta` ist in der Migration bewusst ohne Struktur
    * — die legt der SCHREIBENDE Schritt fest, und was hier hineinwandert, ist ab dann die Form, an
    * die sich der Renderer bindet. Deshalb nur, was ein Report ausser Ergebnis und Lastgang
    * nachweislich braucht: die Bezeichnung fürs Deckblatt, der Netzbetreiber als ANGABE (er geht in
-   * keine Rechnung ein, s. `NETZBETREIBER_DRAFT_KEY`), die Grundgebühr (s. unten) und die zwei
-   * Kennungen, über die sich der Lauf zurückverfolgen lässt.
+   * keine Rechnung ein, s. `NETZBETREIBER_DRAFT_KEY`), die Grundgebühr (s. unten), die zwei
+   * D5-Felder (s. unten) und die zwei Kennungen, über die sich der Lauf zurückverfolgen lässt.
    *
    * ⚠ DIE GRUNDGEBÜHR IST DER EINZIGE TARIFWERT HIER, UND SIE STEHT NICHT ALS RECHENGRÖSSE DA.
    * Sie kommt im `AnalysisResult` an keiner Stelle vor — `assumptions` führt Arbeitspreis und
@@ -174,6 +175,24 @@ export async function createReportRenderRequestAction(
      * fremder Typ in die Übergabe zu wandern.
      */
     supplierBaseFeeEurPerMonth: typeof supplierBaseFee === 'number' ? supplierBaseFee : null,
+    /*
+     * D5 — die zwei Hälften des PV-Ausfall-Hinweises, und sie sind bewusst GETRENNT.
+     *
+     * `pvOutageMonths` ist die BEOBACHTUNG am Lastgang (gerechnet im Lauf, `detectPvOutageMonths`),
+     * `hasPv` die ANGABE des Kunden aus dem Entwurf. Erst beide zusammen ergeben eine Aussage: ohne
+     * Anlage ist ein fehlender Mittagseinbruch kein Befund, sondern der Normalzustand. Die
+     * Verknüpfung fällt im Report (`basis.ts`) und nicht hier — dieselbe Trennlinie wie in B16-1
+     * zwischen Beobachtung und Urteil.
+     *
+     * ⚠ `null` heisst „die Frage wurde nie beantwortet" und ist NICHT `false` (s. `readPvDraft`).
+     * Auf `false` gerundet stünde im Report, der Kunde habe keine Anlage — eine Aussage, die der
+     * Entwurf nicht trägt. Der Hinweis unterbleibt in beiden Fällen, aber aus verschiedenen Gründen.
+     *
+     * ⚠ ALS WERTE, NICHT ALS VERWEISE — dieselbe Regel wie bei den übrigen Feldern: ein später
+     * geänderter Entwurf darf eine bereits übergebene Rechnung nicht still umschreiben.
+     */
+    hasPv: readPvDraft(point.draft).hasPv,
+    pvOutageMonths: run.pvOutageMonths,
     meteringPointId,
     projectId,
   }

@@ -137,11 +137,18 @@ describe('createReportRenderRequestAction', () => {
     expect(loadProfile.readings).toHaveLength(96)
     expect(loadProfile.intervalMinutes).toBe(15)
 
-    // Genau fünf Felder, als WERTE — kein Verweis auf den veränderlichen Entwurf.
+    // Genau sieben Felder, als WERTE — kein Verweis auf den veränderlichen Entwurf.
     expect(args.p_report_input_meta).toEqual({
       customerLabel: 'Bäckerei Gruber',
       netzbetreiber: 'wiener_netze',
       supplierBaseFeeEurPerMonth: 14.9,
+      /*
+       * D5 — `null` heisst „die PV-Frage wurde nie beantwortet" (dieser Entwurf stellt sie nicht),
+       * und der Befund ist leer, weil ein Tageslastgang die Mindest-Tageszahl je Monat nicht
+       * erreicht und deshalb gar nicht erst bewertet wird.
+       */
+      hasPv: null,
+      pvOutageMonths: [],
       meteringPointId: POINT_ID,
       projectId: PROJECT_ID,
     })

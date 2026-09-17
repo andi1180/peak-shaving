@@ -1,3 +1,4 @@
+import type { PvOutageMonth } from 'engine'
 import {
   NETZBETREIBER_LABELS,
   type BatteryRoiEntry,
@@ -268,6 +269,90 @@ function buildBlocker(
 }
 
 /* ────────────────────────────────────────────────────────────────────────────────────────────────
+ * 3a — was die PV-Anlage im Lastgang gezeigt hat (D5)
+ * ──────────────────────────────────────────────────────────────────────────────────────────── */
+
+const MONTH_NAMES = [
+  'Januar',
+  'Februar',
+  'März',
+  'April',
+  'Mai',
+  'Juni',
+  'Juli',
+  'August',
+  'September',
+  'Oktober',
+  'November',
+  'Dezember',
+]
+
+/** „Februar 2025" — mit Jahr, weil ein Lastgang über einen Jahreswechsel laufen kann. */
+function formatOutageMonth(entry: PvOutageMonth): string {
+  return `${MONTH_NAMES[entry.month - 1] ?? String(entry.month)} ${entry.year}`
+}
+
+/**
+ * D5 — Monate, in denen die vorhandene PV-Anlage im Lastgang keinen Mittagseinbruch zeigte.
+ *
+ * ── ⚠ ZWEI BEDINGUNGEN, UND BEIDE SIND NÖTIG (D4-Matrix, Zeile „PV vorhanden") ────────────────
+ * Ohne die Angabe einer Anlage ist ein fehlender Mittagseinbruch kein Befund, sondern der
+ * Normalzustand jedes Betriebs ohne PV — der Hinweis stünde dann als Vorwurf an eine Anlage da, die
+ * es nicht gibt. Und ohne erkannten Monat gibt es nichts zu melden: ein „alles unauffällig" wäre
+ * eine Unbedenklichkeitsbescheinigung, die diese Auswertung nicht ausstellen kann (s. die
+ * Referenzbedingung in `detectPvOutageMonths`).
+ *
+ * ── ⚠ EINE BEOBACHTUNG ÜBER DEN ZEITRAUM, KEINE AUSSAGE ÜBER DIE ANLAGE VON HEUTE ─────────────
+ * Der Lastgang ist Vergangenheit, oft ein Jahr und mehr. Was er zeigt, ist, dass in diesen Monaten
+ * nichts zu sehen war — nicht, dass die Anlage jetzt steht, und auch nicht, WARUM sie es tat
+ * (Ausfall, Verschattung, Schnee, ein Zähler, eine Anlage, die damals noch nicht lief). Der Text
+ * sagt deshalb, was gemessen wurde, und stellt die Deutung als FRAGE an den Kunden, der seine
+ * Anlage kennt. Ton wie die „Einordnung" im Urbanz-Report: benennen, einordnen, nicht diagnostizieren.
+ *
+ * ⚠ HIER STEHT KEIN ENTGANGENER ERTRAG IN EURO. Was die Ausfallzeit gekostet hat, ist die
+ * PV-Gegenrechnung — ein eigener Baustein, der ein Erzeugungsmodell braucht. Eine hier
+ * hingeschriebene Hausnummer wäre genau die Zahl aus anderer Grundlage, vor der Delta 15 warnt:
+ * sie fällt niemandem als Fehler auf, sondern als Ergebnis.
+ */
+function buildPvOutage(
+  hasPv: boolean | undefined,
+  months: PvOutageMonth[] | undefined,
+): ReportNotice | null {
+  if (hasPv !== true) return null
+  if (!months || months.length === 0) return null
+
+  const plural = months.length > 1
+
+  return {
+    id: 'pv_outage',
+    tone: 'warning',
+    title: plural
+      ? 'Monate ohne erkennbaren PV-Beitrag'
+      : 'Ein Monat ohne erkennbaren PV-Beitrag',
+    body:
+      'Eine arbeitende PV-Anlage drückt den Netzbezug um die Mittagszeit gegen null und, sobald sie ' +
+      `mehr erzeugt als gerade gebraucht wird, darunter. In ${plural ? 'diesen Monaten' : 'diesem Monat'} ` +
+      'Ihres Lastgangs ist dieser Mittagseinbruch an keinem einzigen Tag aufgetreten — in den übrigen ' +
+      'Monaten desselben Zeitraums schon.',
+    list: {
+      label: plural ? 'Betroffene Monate' : 'Betroffener Monat',
+      items: months.map(formatOutageMonth),
+    },
+    hints: [
+      'Das ist eine Beobachtung an den Messwerten des ausgewerteten Zeitraums und keine Aussage ' +
+        'über den heutigen Zustand Ihrer Anlage. Sie sagt auch nicht, woran es lag: ein Stillstand ' +
+        'kommt dafür ebenso in Frage wie Verschattung, Schnee, eine Zählerumstellung oder eine ' +
+        'Anlage, die damals noch nicht in Betrieb war.',
+      'Wenn Sie wissen, was in diesen Monaten war, ist die Frage damit beantwortet. Wenn nicht, ' +
+        'lohnt ein Blick in die Ertragsdaten Ihres Wechselrichters für genau diesen Zeitraum.',
+      'Alle Zahlen dieses Reports beruhen auf dem Lastgang so, wie er gemessen wurde — der Befund ' +
+        'ändert an ihnen nichts. Er sagt, dass Ihr Verbrauch in diesen Monaten ohne PV-Beitrag ' +
+        'zustande kam.',
+    ],
+  }
+}
+
+/* ────────────────────────────────────────────────────────────────────────────────────────────────
  * 4 — die Herkunft der Tarifsätze
  * ──────────────────────────────────────────────────────────────────────────────────────────── */
 
@@ -357,6 +442,8 @@ export type BasisChapter = {
   dataQuality: ReportNotice | null
   /** Warum der Börsenpreis-Vergleich nicht berechenbar war. `null` = er war es (oder war nicht gefragt). */
   blocker: ReportNotice | null
+  /** D5 — Monate ohne erkennbaren PV-Beitrag. `null` = keine PV angegeben ODER nichts gefunden. */
+  pvOutage: ReportNotice | null
   /** Die Herkunft der Tarifsätze. Steht immer, auch ohne gewählten Stand. */
   tariffSource: string
   /** Der Preisstand-Hinweis, hereingereicht (`derive.ts`). `null` = kein Hinweis. */
@@ -368,6 +455,7 @@ export function buildBasisChapter(input: PdfReportInput): BasisChapter {
     assumptions: buildAssumptions(input.analysis),
     dataQuality: buildDataQuality(input.analysis),
     blocker: buildBlocker(input.analysis, timeZoneOf(input.loadProfile)),
+    pvOutage: buildPvOutage(input.hasPv, input.pvOutageMonths),
     tariffSource: buildTariffSource(input.tariffSource, input.netzbetreiber),
     tariffVintage: input.tariffVintage,
   }

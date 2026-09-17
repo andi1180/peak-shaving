@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import type { PvOutageMonth } from 'engine'
 import type { LoadProfile, NetzbetreiberId, TariffSourceRef } from 'shared'
 
 import { buildBasisChapter } from './basis'
@@ -126,5 +127,50 @@ describe('buildBasisChapter — Herkunft der Tarifsätze', () => {
     expect(untracked.assumptions).toEqual(empty.assumptions)
     expect(untracked.dataQuality).toBeNull()
     expect(untracked.blocker).toBeNull()
+  })
+})
+
+/**
+ * D5 — der PV-Befund hängt an ZWEI Bedingungen, und der Fehler, der hier droht, ist ein Hinweis, der
+ * bei einem Betrieb ohne PV-Anlage steht: dort ist ein fehlender Mittagseinbruch der Normalzustand
+ * und kein Befund.
+ */
+const OUTAGE_MONTHS: PvOutageMonth[] = [
+  { year: 2025, month: 2, daysWithDayWindowData: 28, minDayWindowKw: 21 },
+  { year: 2025, month: 3, daysWithDayWindowData: 31, minDayWindowKw: 18.4 },
+]
+
+function pvChapterFor(hasPv: boolean | undefined, pvOutageMonths: PvOutageMonth[] | undefined) {
+  const input: PdfReportInput = {
+    title: 'Wirtschaftlichkeitsanalyse Batteriespeicher',
+    subtitle: 'Auf Basis Ihres Viertelstunden-Lastgangs',
+    period: '01.01.2025 – 31.12.2025',
+    printedAt: '17.09.2026',
+    analysis: ANALYSIS,
+    loadProfile: LOAD_PROFILE,
+    tariffSource: TARIFF_SOURCE_UNTRACKED,
+    tariffVintage: null,
+    hasPv,
+    pvOutageMonths,
+  }
+  return buildBasisChapter(input)
+}
+
+describe('buildBasisChapter — Monate ohne erkennbaren PV-Beitrag (D5)', () => {
+  it('nennt die betroffenen Monate, wenn eine Anlage angegeben ist und Monate erkannt wurden', () => {
+    const { pvOutage } = pvChapterFor(true, OUTAGE_MONTHS)
+
+    expect(pvOutage?.id).toBe('pv_outage')
+    expect(pvOutage?.list?.items).toEqual(['Februar 2025', 'März 2025'])
+    // Beobachtung über den Zeitraum — ausdrücklich keine Aussage über die Anlage von heute.
+    expect(pvOutage?.hints.join(' ')).toContain('keine Aussage über den heutigen Zustand')
+  })
+
+  it('schweigt ohne PV-Angabe und ohne erkannte Monate', () => {
+    // Beide Male derselbe Zustand im Kapitel, und beide Male aus einem anderen Grund.
+    expect(pvChapterFor(false, OUTAGE_MONTHS).pvOutage).toBeNull()
+    expect(pvChapterFor(undefined, OUTAGE_MONTHS).pvOutage).toBeNull()
+    expect(pvChapterFor(true, []).pvOutage).toBeNull()
+    expect(pvChapterFor(true, undefined).pvOutage).toBeNull()
   })
 })
