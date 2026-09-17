@@ -338,6 +338,10 @@ const styles = StyleSheet.create({
   /* Kapitel-Inhalte */
   itemList: { marginTop: 14 },
   item: { marginBottom: 11 },
+  /* D9 — dieselben Bausteine eine Ebene tiefer: die Liste steht INNERHALB eines Blocks mit
+     eigener Überschrift und braucht deshalb weniger Luft nach oben als ein Kapitel-Aufmacher. */
+  methodList: { marginTop: 6 },
+  methodItem: { marginBottom: 8 },
   itemTitle: { ...LEADING, fontSize: PDF_TYPE.h3, fontWeight: 600, color: PDF_COLORS.ink },
   itemBody: { ...LEADING, marginTop: 1, color: PDF_COLORS.textMuted },
   /* Kernergebnisse (B23c-1) */
@@ -1449,6 +1453,11 @@ function MethodologyChapter() {
  * gerechnet werden konnte (Blocker), dann die Herkunft der Tarifwerte und ihr Preisstand, zuletzt
  * der Vorbehalt. Vom Bekannten zum Fehlenden — wer bis hierher liest, sucht die Grenzen.
  *
+ * ⚠ D9 SETZT ZWEI ABSCHNITTE ANS ENDE DIESER FOLGE, NICHT DAZWISCHEN: erst die Methodik je
+ * Kennzahl (wie die Zahlen davor entstanden sind), dann die bekannten Einschränkungen (was in
+ * ihnen nicht steckt), dann der Vorbehalt. Vor die Tabellen gezogen stünden beide vor den Werten,
+ * über die sie sprechen.
+ *
  * ⚠ Das Kapitel ist eine eigene `<Page>` (D5, Regel 1) und ausdrücklich KEIN drittes bedingtes
  * Kapitel: Annahmen, Tarifherkunft und Vorbehalt gibt es in jedem Report.
  */
@@ -1486,6 +1495,29 @@ function BasisChapter({ input }: { input: PdfReportInput }) {
         <Text style={styles.statementTitle}>Datenquellen</Text>
         <StatementTable table={chapter.dataSources} allowPageBreak />
       </View>
+
+      {/* D9 — wie die einzelnen Zahlen zustande kamen. Die Überschrift hängt an der Liste und nicht
+          daneben: ohne einen einzigen erreichbaren Absatz stünde sie über einer Leerstelle. Welche
+          Kennzahl einen Absatz bekommt, entscheidet `basis.ts`. */}
+      {chapter.methodPerMetric.length > 0 && (
+        <View style={styles.statement}>
+          <Text style={styles.statementTitle}>Berechnungsmethodik je Kennzahl</Text>
+          <View style={styles.methodList}>
+            {chapter.methodPerMetric.map((item) => (
+              <View key={item.id} style={styles.methodItem} wrap={false}>
+                <Text style={styles.itemTitle}>{item.title}</Text>
+                <Text style={styles.itemBody}>{item.body}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+      )}
+
+      {/* D9 — was die Rechnung selbst nicht enthält. UNBEDINGT und als letzter der vier Hinweise
+          dieses Kapitels: die drei darüber melden Eigenschaften DIESES Datensatzes und schweigen
+          ohne Befund, dieser gilt für jeden Report. Er steht hinter der Methodik, weil er die
+          Grenzen genau der Rechnung benennt, die eine Zeile davor erklärt wurde. */}
+      <Notice notice={chapter.limitations} />
 
       {/*
         ⚠ Derselbe Vorbehalt wie auf dem Deckblatt, aus DERSELBEN Konstante — s. `REPORT_DISCLAIMER`

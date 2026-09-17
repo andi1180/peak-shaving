@@ -469,3 +469,97 @@ describe('buildBasisChapter — Tarifkomponenten-Tabelle (D9)', () => {
     expect(chapter.assumptions.rows.map((row) => row.label)).toEqual(['Betrachtungshorizont'])
   })
 })
+
+/**
+ * D9 — Berechnungsmethodik je Kennzahl und die bekannten Einschränkungen.
+ *
+ * ⚠ Geprüft wird an der ZUSAMMENSETZUNG der Liste und nicht an einem Wortlaut: der Fehler, der hier
+ * droht, ist ein Absatz zu einer Kennzahl, die dieser Report gar nicht zeigt — eine Methodik ohne
+ * Zahl schickt den Leser auf die Suche nach etwas, das es nicht gibt.
+ */
+const PROJECTION: NonNullable<PdfReportAnalysis['annualProjection']> = {
+  currentTariffEur: { measuredEur: 9000, projectedEur: 4000, totalEur: 13000 },
+  spotWithoutControlEur: { measuredEur: 8200, projectedEur: 3600, totalEur: 11800 },
+  windowFromDate: '2025-01-01',
+  windowToDate: '2025-12-31',
+  measuredDays: 209,
+  projectedDays: 156,
+  consumption: {
+    method: 'winter_reference',
+    missingDays: 156,
+    referenceRateKwhPerDay: 480,
+    referenceSegments: [],
+    estimatedAnnualConsumptionKwh: 175000,
+  },
+  marketPrices: {
+    coverage: [],
+    hoursByOrigin: { database: 0, fetched: 0, assumed: 0 },
+    missingRanges: [],
+  },
+}
+
+function basisFor(analysis: PdfReportAnalysis, pv?: Pick<PdfReportInput, 'hasPv' | 'pvOutageMonths'>) {
+  return buildBasisChapter({
+    title: 'Wirtschaftlichkeitsanalyse Batteriespeicher',
+    subtitle: 'Auf Basis Ihres Viertelstunden-Lastgangs',
+    period: '01.01.2025 – 31.12.2025',
+    printedAt: '17.09.2026',
+    analysis,
+    loadProfile: LOAD_PROFILE,
+    tariffSource: TARIFF_SOURCE_UNTRACKED,
+    tariffVintage: null,
+    ...pv,
+  })
+}
+
+/** Tarifvergleich berechenbar UND ein durchgerechneter Speicher — der volle Fall. */
+const FULL_WITH_BATTERY: PdfReportAnalysis = {
+  ...FULL_ANALYSIS,
+  perBattery: BATTERY_ANALYSIS.perBattery,
+  recommendation: BATTERY_ANALYSIS.recommendation,
+}
+
+describe('buildBasisChapter — Berechnungsmethodik je Kennzahl (D9)', () => {
+  it('führt jede erreichbare Kennzahl, mit Batterie und PV-Befund alle vier', () => {
+    const chapter = basisFor(FULL_WITH_BATTERY, { hasPv: true, pvOutageMonths: OUTAGE_MONTHS })
+
+    expect(chapter.methodPerMetric.map((item) => item.id)).toEqual([
+      'method_current_tariff',
+      'method_spot_uncontrolled',
+      'method_load_control',
+      'method_pv_outage',
+    ])
+    // Die Schwelle ist das MITTEL des jeweiligen Kalendertags — nicht die des ganzen Zeitraums.
+    const loadControl = chapter.methodPerMetric.find((i) => i.id === 'method_load_control')?.body
+    expect(loadControl).toContain('arithmetischen Mittel')
+    expect(loadControl).toContain('ihres eigenen Kalendertags')
+  })
+
+  it('lässt weg, was dieser Report nicht zeigt — bis hin zur leeren Liste', () => {
+    // Tarifvergleich berechenbar, aber kein Speicher und keine PV: nur die beiden Tarifabsätze.
+    expect(basisFor(FULL_ANALYSIS).methodPerMetric.map((item) => item.id)).toEqual([
+      'method_current_tariff',
+      'method_spot_uncontrolled',
+    ])
+    // Ohne berechenbaren Vergleich bleibt nichts übrig — dann entfällt auch die Überschrift.
+    expect(basisFor(BATTERY_ANALYSIS).methodPerMetric).toEqual([])
+  })
+})
+
+describe('buildBasisChapter — Bekannte Einschränkungen (D9)', () => {
+  it('steht in jedem Report und nennt die Hochrechnung nur, wo es eine gibt', () => {
+    for (const analysis of [ANALYSIS, FULL_ANALYSIS, FULL_WITH_BATTERY]) {
+      const { limitations } = basisFor(analysis)
+      expect(limitations.id).toBe('limitations')
+      expect(limitations.tone).toBe('neutral')
+      expect(limitations.hints[0]).toContain('netto')
+      expect(limitations.hints.join(' ')).toContain('Tarifkomponenten')
+      // Unverdrahtet (D4/D10): der mittlere Punkt erscheint heute in keinem Report.
+      expect(limitations.hints.join(' ')).not.toContain('Jahres-Hochrechnung')
+    }
+
+    const projected = basisFor({ ...FULL_WITH_BATTERY, annualProjection: PROJECTION }).limitations
+    expect(projected.hints).toHaveLength(3)
+    expect(projected.hints[1]).toContain('kältesten verfügbaren Zeitraum')
+  })
+})
