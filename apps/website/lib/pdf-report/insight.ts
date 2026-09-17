@@ -1,6 +1,7 @@
 import type { BatteryResultEntry, MonthlyChargePrice } from 'shared'
 
 import { formatKwh1 } from '@/lib/format'
+import type { ReportBuildContext } from './context'
 import type { ReportFigure, ReportRow, ReportStatement } from './statement'
 import { primaryEntryOf } from './summary'
 import type { PdfReportAnalysis } from './types'
@@ -415,8 +416,12 @@ const CHARGE_PRICE_MISSING =
   'jedem Monat denselben Wert und behauptete damit, die Ladesteuerung bringe nichts — sie ist ' +
   'hier schlicht nicht bewertbar.'
 
-export function buildInsightChapter(analysis: PdfReportAnalysis): InsightChapter {
-  const plan = insightChartPlan(analysis)
+export function buildInsightChapter(
+  analysis: PdfReportAnalysis,
+  /* Report-Baukasten B1 — s. `buildReportSummary`. Ohne ihn wird wie bisher selbst abgeleitet. */
+  context?: ReportBuildContext,
+): InsightChapter {
+  const plan = context ? context.insightPlan : insightChartPlan(analysis)
   const hourFlow = plan.hourFlow ? buildHourFlow(plan.hourFlow) : null
   const chargePrice = plan.chargePrice ? buildChargePrice(plan.chargePrice.price) : null
 

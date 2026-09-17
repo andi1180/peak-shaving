@@ -3,6 +3,7 @@ import {
   buildRealSavingBreakdown,
   sumCovered,
   type BatteryResultEntry,
+  type BatteryRoiEntry,
   type BillingModel,
   type EstimatedPvSummary,
   type LoadProfile,
@@ -19,6 +20,7 @@ import {
   formatYears,
 } from '@/lib/format'
 import { HINDSIGHT_NOTE } from '@/lib/report-copy'
+import type { ReportBuildContext } from './context'
 import type { ReportNotice, ReportRow, ReportStatement, ReportTone } from './statement'
 import type { PdfReportAnalysis } from './types'
 
@@ -117,6 +119,26 @@ function savingRow(label: string, eur: number): SummaryRow {
  */
 export function primaryEntryOf(analysis: PdfReportAnalysis): BatteryResultEntry | undefined {
   if (analysis.existingBatteryAnalysis) return analysis.existingBatteryAnalysis.entry
+  return (
+    analysis.perBattery.find((p) => p.battery.id === analysis.recommendation.batteryId) ??
+    analysis.perBattery[0]
+  )
+}
+
+/**
+ * Das empfohlene KATALOG-Gerät — ausdrücklich nicht `primaryEntryOf`.
+ *
+ * ⚠ Der Unterschied ist fachlich: `primaryEntryOf` liefert im Bestandsfall die Anlage des Kunden,
+ * und für die gibt es keine Kaufentscheidung mehr (sie ist bezahlt). Empfohlen wird immer ein
+ * Gerät aus dem Katalog.
+ *
+ * ⚠ Die Ableitung stand bis zum Report-Baukasten B1 DREIMAL fast wortgleich im Katalog
+ * (`recommendation.ts`, `detail.ts` und inline in `basis.ts`) — drei Fassungen derselben
+ * Rückfallkette, von denen der nächste Umbau zwei anfasst und eine vergisst. Sie steht deshalb
+ * jetzt neben `primaryEntryOf`: die beiden sind die zwei Antworten auf dieselbe Frage („welches
+ * Gerät meint dieser Absatz"), und sie gehören nebeneinander gelesen.
+ */
+export function recommendedEntryOf(analysis: PdfReportAnalysis): BatteryRoiEntry | undefined {
   return (
     analysis.perBattery.find((p) => p.battery.id === analysis.recommendation.batteryId) ??
     analysis.perBattery[0]
@@ -741,10 +763,18 @@ export function buildReportSummary(
    * `buildEstimatedPvNotice`). Sie steht bewusst NICHT in `analysis`: die Engine kennt sie nicht.
    */
   estimatedPv?: EstimatedPvSummary,
+  /*
+   * Report-Baukasten B1 — die report-weit EINMAL gebildeten Zwischenwerte. Fehlt er (Tests, der
+   * Prüfstand), bildet diese Funktion sie wie bisher selbst; das Ergebnis ist dasselbe, es
+   * entsteht nur an einem anderen Ort. Weitergereicht wird er ausdrücklich NICHT in die
+   * Baustein-Erzeuger — die behalten ihre engen Signaturen und bekommen die WERTE.
+   */
+  context?: ReportBuildContext,
 ): ReportSummary {
   const headline = buildHeadline(analysis.current)
   const notices = buildNotices(analysis, loadProfile, estimatedPv)
-  const entry = primaryEntryOf(analysis)
+  /* ⚠ `context ? … : …` statt `??` — `primaryEntry` ist selbst gültig `undefined`. */
+  const entry = context ? context.primaryEntry : primaryEntryOf(analysis)
 
   /*
    * Ohne einen einzigen durchgerechneten Kandidaten bleibt die Kern-Kennzahl — sie hängt allein am
@@ -762,10 +792,18 @@ export function buildReportSummary(
    */
   const savings = buildSavings(analysis, entry)
 
+  /*
+   * ⚠ Derselbe Wert wie `savings.isRealComparison` — `buildSavings` verzweigt an genau dieser
+   * Ableitung (`isRealSavingsComparison`), und ihr `true`-Fall schliesst den fehlenden Vergleich
+   * bereits ein. Aus dem Kontext gelesen ist er report-weit derselbe wie der, an dem
+   * `recommendation.ts` seinen Abgleichsatz aufhängt.
+   */
+  const isRealComparison = context ? context.isRealSavingsComparison : savings.isRealComparison
+
   const statements = [
     savings.statement,
-    buildPeakShaving(analysis, entry, savings.isRealComparison),
-    buildLoadShift(analysis, entry, savings.isRealComparison),
+    buildPeakShaving(analysis, entry, isRealComparison),
+    buildLoadShift(analysis, entry, isRealComparison),
     buildAddon(analysis),
   ].filter((s): s is SummaryStatement => s !== null)
 

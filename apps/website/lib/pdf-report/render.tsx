@@ -7,6 +7,7 @@ import {
   type ReportChartRasters,
 } from './charts'
 import { fitRasterToWidth, type ChartRaster } from './chart-raster'
+import { buildReportContext, type ReportBuildContext } from './context'
 import { ReportDocument } from './document'
 import { registerReportFonts } from './fonts'
 import {
@@ -77,12 +78,19 @@ type Pass = { blob: Blob; sink: PageNumberSink; ms: number }
 async function renderPass(
   input: PdfReportInput,
   charts: ReportChartRasters,
+  context: ReportBuildContext,
   agenda: AgendaPageNumbers,
 ): Promise<Pass> {
   const started = performance.now()
   const sink = createPageNumberSink()
   const blob = await pdf(
-    <ReportDocument input={input} charts={charts} agenda={agenda} sink={sink} />,
+    <ReportDocument
+      input={input}
+      charts={charts}
+      context={context}
+      agenda={agenda}
+      sink={sink}
+    />,
   ).toBlob()
   return { blob, sink, ms: performance.now() - started }
 }
@@ -189,11 +197,20 @@ export async function renderReportPdf(input: PdfReportInput): Promise<RenderRepo
     comparison: embed(charts.comparison),
   }
 
+  /*
+   * Report-Baukasten B1 — die Zwischenwerte: EINMAL, nach den Bildern und vor allen Durchläufen.
+   *
+   * ⚠ Derselbe Zeitpunkt und dieselbe Zusage wie bei `buildReportCharts` eine Zeile darüber: was
+   * hier entsteht, ist EINGABE aller Durchläufe und nicht ihr Erzeugnis. Gebildet wurden diese
+   * Werte bisher innerhalb des Dokumentbaums und damit je Durchlauf neu — s. `context.ts`.
+   */
+  const context = buildReportContext(input)
+
   // 1. Durchlauf: messen. Das erzeugte PDF trägt eine leere Zahlenspalte und wird verworfen.
-  const measure = await renderPass(input, charts, null)
+  const measure = await renderPass(input, charts, context, null)
 
   // 2. Durchlauf: mit den gemessenen Zahlen — und dabei erneut messen.
-  const withPages = await renderPass(input, charts, measure.sink.pages)
+  const withPages = await renderPass(input, charts, context, measure.sink.pages)
 
   if (measurementsAgree(measure.sink, withPages.sink)) {
     return {
@@ -219,7 +236,7 @@ export async function renderReportPdf(input: PdfReportInput): Promise<RenderRepo
     '[pdf-report] Die Seitenverweise der Agenda wurden verworfen: die beiden Renderdurchläufe ' +
       'haben verschiedene Seitenzahlen gemessen. Ausgeliefert wird die Agenda ohne Zahlen.',
   )
-  const withoutPages = await renderPass(input, charts, null)
+  const withoutPages = await renderPass(input, charts, context, null)
   return {
     blob: withoutPages.blob,
     agendaPages: null,

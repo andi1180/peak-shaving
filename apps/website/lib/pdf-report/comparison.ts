@@ -1,6 +1,7 @@
 import type { BatteryResultEntry, BatteryRoiSummary } from 'shared'
 
 import { formatEur, formatKw, formatKwh1, formatYears } from '@/lib/format'
+import type { ReportBuildContext } from './context'
 import type { ReportFigure, ReportRow, ReportStatement, ReportTable } from './statement'
 import type { PdfReportAnalysis } from './types'
 
@@ -336,8 +337,13 @@ function buildTableStatement(
   }
 }
 
-export function buildComparisonChapter(analysis: PdfReportAnalysis): ComparisonChapter {
-  const plan = comparisonChartPlan(analysis)
+export function buildComparisonChapter(
+  analysis: PdfReportAnalysis,
+  /* Report-Baukasten B1 — s. `buildReportSummary`. Ohne ihn wird wie bisher selbst abgeleitet. */
+  context?: ReportBuildContext,
+): ComparisonChapter {
+  /* ⚠ `context ? … : …` statt `??` — `comparisonPlan` ist selbst gültig `null`. */
+  const plan = context ? context.comparisonPlan : comparisonChartPlan(analysis)
   const { variant, candidates } = candidatesOf(analysis)
   const horizonYears = analysis.assumptions.horizonYears
 

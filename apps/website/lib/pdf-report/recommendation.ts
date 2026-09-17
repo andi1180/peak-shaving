@@ -1,8 +1,9 @@
 import type { BatteryResultEntry, BatteryRoiEntry } from 'shared'
 
 import { formatEur, formatKw, formatKwh1, formatYears } from '@/lib/format'
+import type { ReportBuildContext } from './context'
 import type { ReportRow, ReportStatement } from './statement'
-import { isRealSavingsComparison, primaryEntryOf } from './summary'
+import { isRealSavingsComparison, primaryEntryOf, recommendedEntryOf } from './summary'
 import type { PdfReportAnalysis } from './types'
 
 /**
@@ -72,21 +73,6 @@ export type ChartLegend = {
    * Linie liesse den Leser nach einem Druckfehler suchen.
    */
   noCapNote: string | null
-}
-
-/**
- * Das empfohlene KATALOG-Gerät — ausdrücklich nicht `primaryEntryOf`.
- *
- * ⚠ Der Unterschied ist die halbe Aussage dieses Kapitels: `primaryEntryOf` liefert im
- * Bestandsfall die Anlage des Kunden, und für die gibt es keine Kaufentscheidung mehr (sie ist
- * bezahlt — s. `recommendation-card.tsx`, Variante `existing`). Empfohlen wird immer ein Gerät aus
- * dem Katalog; die Rückfallkette ist dieselbe wie dort und in `report.tsx`.
- */
-function recommendedEntryOf(analysis: PdfReportAnalysis): BatteryRoiEntry | undefined {
-  return (
-    analysis.perBattery.find((p) => p.battery.id === analysis.recommendation.batteryId) ??
-    analysis.perBattery[0]
-  )
 }
 
 function neutralRow(label: string, value: string): ReportRow {
@@ -318,9 +304,14 @@ function buildLoadControl(
   }
 }
 
-export function buildRecommendationChapter(analysis: PdfReportAnalysis): RecommendationChapter {
-  const recommended = recommendedEntryOf(analysis)
-  const primary = primaryEntryOf(analysis)
+export function buildRecommendationChapter(
+  analysis: PdfReportAnalysis,
+  /* Report-Baukasten B1 — s. `buildReportSummary`. Ohne ihn wird wie bisher selbst abgeleitet. */
+  context?: ReportBuildContext,
+): RecommendationChapter {
+  /* ⚠ `context ? … : …` statt `??` — beide Einträge sind selbst gültig `undefined`. */
+  const recommended = context ? context.recommendedEntry : recommendedEntryOf(analysis)
+  const primary = context ? context.primaryEntry : primaryEntryOf(analysis)
 
   return {
     recommendation: recommended ? buildRecommendation(analysis, recommended) : null,
