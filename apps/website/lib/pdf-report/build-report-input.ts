@@ -14,7 +14,12 @@ import {
   tariffVintageNote,
 } from './derive'
 import { TARIFF_SOURCE_UNTRACKED } from './types'
-import type { PdfReportAnalysis, PdfReportInput } from './types'
+import type {
+  PdfReportAnalysis,
+  PdfReportInput,
+  PdfReportInvoicePeriod,
+  PdfReportTariffProvenance,
+} from './types'
 
 /**
  * D12 Abschluss — aus einer Report-Übergabe (`platform.report_render_requests`) die Eingangsgrössen
@@ -34,9 +39,9 @@ import type { PdfReportAnalysis, PdfReportInput } from './types'
 /**
  * Die Felder aus `report_input_meta`, die dieser Weg LIEST.
  *
- * ⚠ Der schreibende Schritt legt sieben ab (`apps/web/lib/admin/report-render-actions.ts`). Hier
- * stehen fünf — und die zwei übrigen fehlen nicht versehentlich: `meteringPointId`/`projectId` sind
- * Rückverfolgung für den Admin-Bereich und haben auf einem Kundendokument nichts zu suchen.
+ * ⚠ Der schreibende Schritt legt neun ab (`apps/web/lib/admin/report-render-actions.ts`). Hier
+ * stehen sieben — und die zwei übrigen fehlen nicht versehentlich: `meteringPointId`/`projectId`
+ * sind Rückverfolgung für den Admin-Bereich und haben auf einem Kundendokument nichts zu suchen.
  *
  * ⚠ `netzbetreiber` STAND BIS ZUM D9-VORGRIFF NICHT HIER, mit der Begründung, er würde eine
  * Tarifherkunft BEHAUPTEN, die es nicht gibt. Die Sorge war richtig, der Schluss zu weit: er reist
@@ -67,6 +72,14 @@ export type ReportRenderMeta = {
    * führen zu keinem Hinweis, und keiner der beiden behauptet, die Anlage sei in Ordnung.
    */
   pvOutageMonths: PvOutageMonth[]
+  /**
+   * D9 — die rohen Herkunftsangaben der Tarifseite (s. `PdfReportTariffProvenance`).
+   *
+   * ⚠ Leere Listen heissen „es gibt nichts zu belegen" UND „eine Übergabe aus einer Fassung vor D9
+   * führt die Angaben nicht" — beide führen in der Tabelle zur ausgeschriebenen Leerstelle, und
+   * keine von beiden behauptet einen Preisblatt-Stand.
+   */
+  tariffProvenance: PdfReportTariffProvenance
 }
 
 /** Eine gelesene, nicht abgelaufene Übergabe. */
@@ -154,7 +167,46 @@ function readMeta(value: unknown): ReportRenderMeta {
     /* Strikt `true`/`false` — `'true'` oder `1` sähen wie eine Antwort aus und sind keine. */
     hasPv: hasPv === true ? true : hasPv === false ? false : null,
     pvOutageMonths: readPvOutageMonths(meta.pvOutageMonths),
+    tariffProvenance: {
+      gridTariffValidFrom: readIsoDates(meta.gridTariffValidFrom),
+      invoicePeriods: readInvoicePeriods(meta.invoicePeriods),
+    },
   }
+}
+
+/**
+ * ⚠ JEDER EINTRAG EINZELN GEPRÜFT, und ein unbrauchbarer lässt die ganze Liste fallen — dieselbe
+ * Strenge und derselbe Grund wie bei `readPvOutageMonths`: was hier durchrutscht, steht als
+ * Gültigkeitsdatum auf einem Kundendokument, und ein `Invalid Date` in der Datenquellen-Tabelle
+ * wäre schlimmer als die ausgeschriebene Leerstelle.
+ */
+function readIsoDates(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+  const dates: string[] = []
+  for (const entry of value) {
+    if (typeof entry !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(entry)) return []
+    dates.push(entry)
+  }
+  return dates
+}
+
+/**
+ * ⚠ EIN EINTRAG OHNE JEDE ZEITANGABE WIRD ÜBERSPRUNGEN, nicht mit Platzhaltern gefüllt — er
+ * belegte nichts und stünde trotzdem als Quelle da. `assumed` wird strikt auf `true`/`false`
+ * geprüft; alles andere fällt auf `null` („es gibt keinen Zeitraum-Vermerk") statt auf `true`.
+ */
+function readInvoicePeriods(value: unknown): PdfReportInvoicePeriod[] {
+  if (!Array.isArray(value)) return []
+  const periods: PdfReportInvoicePeriod[] = []
+  for (const entry of value) {
+    if (!isRecord(entry)) return []
+    const from = typeof entry.from === 'string' && entry.from !== '' ? entry.from : null
+    const to = typeof entry.to === 'string' && entry.to !== '' ? entry.to : null
+    if (from === null && to === null) continue
+    const assumed = entry.assumed
+    periods.push({ from, to, assumed: assumed === true ? true : assumed === false ? false : null })
+  }
+  return periods
 }
 
 /**
@@ -244,6 +296,8 @@ export function buildReportInputFromRenderRequest(
     /* D5 — beide Hälften bleiben getrennt; verknüpft werden sie im Kapitel (`basis.ts`). */
     hasPv: meta.hasPv ?? undefined,
     pvOutageMonths: meta.pvOutageMonths,
+    /* D9 — die rohen Herkunftsangaben der Tarifseite; ausgewertet wird im Kapitel (`basis.ts`). */
+    tariffProvenance: meta.tariffProvenance,
   }
 }
 

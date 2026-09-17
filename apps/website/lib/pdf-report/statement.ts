@@ -105,6 +105,18 @@ export type ReportTableRow = {
   key: string
   /** Genau so viele Einträge wie `columns`, in derselben Reihenfolge. */
   cells: string[]
+  /**
+   * D9 — eine ZWISCHENÜBERSCHRIFT statt einer Datenzeile (halbfett, ohne Trennlinie darunter).
+   *
+   * ⚠ Sie steht hier und nicht als zweiter Tabellentyp daneben: die Datenquellen-Tabelle zerfällt
+   * in drei Gruppen (Lastgang, Tarif, Batterie), und ohne deren Namen läse sich eine Liste aus
+   * neun Zeilen als eine einzige. Ein eigener Typ dafür wäre genau das „zweite Typsystem daneben",
+   * das D10 ausschliesst — der Renderer ist derselbe, nur diese eine Zeile sieht anders aus.
+   *
+   * Fehlt das Feld, ist die Zeile eine gewöhnliche Datenzeile. Die übrigen Zellen bleiben leer;
+   * gefüllt stünden sie unter einer Überschrift, die sie nicht beschreibt.
+   */
+  heading?: boolean
 }
 
 export type ReportTable = {

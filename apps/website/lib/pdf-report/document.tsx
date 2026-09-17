@@ -413,6 +413,14 @@ const styles = StyleSheet.create({
   },
   tableHeaderCell: { ...LEADING, fontSize: PDF_TYPE.small, fontWeight: 600, color: PDF_COLORS.ink },
   tableCell: { ...LEADING, fontSize: PDF_TYPE.small, color: PDF_COLORS.text },
+  /* D9 — Gruppenüberschrift in der Datenquellen-Tabelle: abgesetzt, ohne Zeilentrenner darunter. */
+  tableGroupRow: { paddingTop: 6, paddingBottom: 2 },
+  tableGroupLabel: {
+    ...LEADING,
+    fontSize: PDF_TYPE.small,
+    fontWeight: 600,
+    color: PDF_COLORS.ink,
+  },
 
   /* Chart im Fluss (B23c-2) — bewusst KEIN Rahmen und KEIN Kasten, s. `ChartFigure`. */
   figure: { marginTop: 14 },
@@ -926,9 +934,29 @@ function Statement({ statement }: { statement: ReportStatement }) {
  * kleiner als der Satzspiegel — die Gefahr eines abgeschnittenen `wrap={false}`-Blocks besteht
  * hier nicht.
  */
-function StatementTable({ table }: { table: ReportTable }) {
+function StatementTable({
+  table,
+  allowPageBreak = false,
+}: {
+  table: ReportTable
+  /**
+   * D9 — DIESE EINE TABELLE DARF UMBRECHEN.
+   *
+   * Die Vergleichstabelle trägt höchstens fünf einzeilige Zeilen und ist damit nachweislich kleiner
+   * als der Satzspiegel; die Datenquellen-Tabelle trägt bis zu neun Zeilen mit ganzen Sätzen darin,
+   * und wie hoch sie wird, entscheidet die Länge einer Fundstelle. Ein `wrap={false}`-Block, der die
+   * Seite sprengt, wird von react-pdf ABGESCHNITTEN statt umgebrochen — ausgerechnet in der Tabelle,
+   * die sagt, worauf die Zahlen beruhen, wäre das ein stiller Inhaltsverlust. Dieselbe Abwägung wie
+   * bei `Notice`: eine unschöne Seite ist besser als ein Block, den niemand mehr ganz sieht.
+   *
+   * ⚠ Der Preis ist eine Kopfzeile, die nach einem Umbruch nicht wiederkehrt. `fixed` wäre der
+   * naheliegende Griff und hier der falsche: es wiederholte die Zeile auf JEDER Folgeseite des
+   * Dokuments, nicht nur auf denen der Tabelle.
+   */
+  allowPageBreak?: boolean
+}) {
   return (
-    <View style={styles.table} wrap={false}>
+    <View style={styles.table} wrap={allowPageBreak}>
       <View style={styles.tableHeader}>
         {table.columns.map((column) => (
           <Text
@@ -943,25 +971,33 @@ function StatementTable({ table }: { table: ReportTable }) {
           </Text>
         ))}
       </View>
-      {table.rows.map((row) => (
-        <View key={row.key} style={styles.tableRow}>
-          {row.cells.map((cell, index) => {
-            const column = table.columns[index]
-            return (
-              <Text
-                key={column?.label ?? String(index)}
-                style={[
-                  styles.tableCell,
-                  { flexGrow: column?.width ?? 1, flexBasis: 0 },
-                  column?.align === 'right' ? { textAlign: 'right' } : {},
-                ]}
-              >
-                {cell}
-              </Text>
-            )
-          })}
-        </View>
-      ))}
+      {table.rows.map((row) =>
+        /* D9 — eine Gruppenüberschrift ist EINE Zelle über die volle Breite: die leeren Zellen
+           daneben mitzurendern ergäbe Spaltenlinien unter einer Überschrift, die sie nicht führt. */
+        row.heading ? (
+          <View key={row.key} style={styles.tableGroupRow}>
+            <Text style={styles.tableGroupLabel}>{row.cells[0]}</Text>
+          </View>
+        ) : (
+          <View key={row.key} style={styles.tableRow}>
+            {row.cells.map((cell, index) => {
+              const column = table.columns[index]
+              return (
+                <Text
+                  key={column?.label ?? String(index)}
+                  style={[
+                    styles.tableCell,
+                    { flexGrow: column?.width ?? 1, flexBasis: 0 },
+                    column?.align === 'right' ? { textAlign: 'right' } : {},
+                  ]}
+                >
+                  {cell}
+                </Text>
+              )
+            })}
+          </View>
+        ),
+      )}
     </View>
   )
 }
@@ -1434,6 +1470,14 @@ function BasisChapter({ input }: { input: PdfReportInput }) {
 
       <Text style={styles.provenance}>{chapter.tariffSource}</Text>
       {chapter.tariffVintage && <Text style={styles.provenance}>{chapter.tariffVintage}</Text>}
+
+      {/* D9 — woher die Angaben stammen, Zeile für Zeile. Sie steht NACH den beiden
+          Herkunftssätzen und vor dem Vorbehalt: die Sätze sagen, welcher Tarifstand gerechnet
+          wurde, die Tabelle belegt ihn und alles daneben. */}
+      <View style={styles.statement}>
+        <Text style={styles.statementTitle}>Datenquellen</Text>
+        <StatementTable table={chapter.dataSources} allowPageBreak />
+      </View>
 
       {/*
         ⚠ Derselbe Vorbehalt wie auf dem Deckblatt, aus DERSELBEN Konstante — s. `REPORT_DISCLAIMER`
