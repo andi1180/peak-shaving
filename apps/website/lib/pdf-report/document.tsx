@@ -1471,6 +1471,14 @@ function BasisChapter({ input }: { input: PdfReportInput }) {
       <Text style={styles.provenance}>{chapter.tariffSource}</Text>
       {chapter.tariffVintage && <Text style={styles.provenance}>{chapter.tariffVintage}</Text>}
 
+      {/* D9 — die Tarifgrössen im Einzelnen. Sie steht direkt unter den beiden Herkunftssätzen,
+          weil ihre Status-Spalte genau deren Aussage Feld für Feld wiederholt: erst der Satz über
+          den Stand, dann die Zeilen, für die er gilt. */}
+      <View style={styles.statement}>
+        <Text style={styles.statementTitle}>Tarifkomponenten</Text>
+        <StatementTable table={chapter.tariffComponents} allowPageBreak />
+      </View>
+
       {/* D9 — woher die Angaben stammen, Zeile für Zeile. Sie steht NACH den beiden
           Herkunftssätzen und vor dem Vorbehalt: die Sätze sagen, welcher Tarifstand gerechnet
           wurde, die Tabelle belegt ihn und alles daneben. */}

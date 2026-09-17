@@ -312,3 +312,160 @@ describe('buildBasisChapter — Datenquellen-Tabelle (D9)', () => {
     expect(vintageOf(withoutCatalog, 'load_readings')).toContain('nicht erfasst')
   })
 })
+
+/**
+ * D9 — die Tarifkomponenten-Tabelle.
+ *
+ * Geprüft wird an den ZELLEN über `buildBasisChapter`: der Fehler, der hier droht, ist eine 0, die
+ * als Wert dasteht, wo nichts angegeben wurde — und der ist nur am fertigen Text sichtbar.
+ */
+function analysisWithSupplierFee(supplierFeeEurPerMonth: number): PdfReportAnalysis {
+  return {
+    ...ANALYSIS,
+    tariffOptimization: {
+      computable: true,
+      monthlyComparison: {
+        currentTariffEur: Array(12).fill(100),
+        spotWithoutControlEur: Array(12).fill(90),
+        spotWithBatteryEur: Array(12).fill(85),
+        coveredMonths: 12,
+        fixedCosts: {
+          networkBaseFeeEur: 240,
+          supplierBaseFeeEur: supplierFeeEurPerMonth * 12,
+          awattarBaseFeeEur: 65.88,
+          supplierFeeEurPerMonth,
+          awattarFeeEurPerMonth: 5.49,
+          coveredDays: 365,
+        },
+      },
+    },
+  }
+}
+
+/** Möglichst viele gesetzte Felder: Monatsvergleich mit Grundgebühr, dazu eine Tarifauswahl. */
+const FULL_ANALYSIS: PdfReportAnalysis = analysisWithSupplierFee(5.99)
+
+function componentsFor(analysis: PdfReportAnalysis, tariffSource: PdfReportTariffSource) {
+  return buildBasisChapter({
+    title: 'Wirtschaftlichkeitsanalyse Batteriespeicher',
+    subtitle: 'Auf Basis Ihres Viertelstunden-Lastgangs',
+    period: '01.01.2025 – 31.12.2025',
+    printedAt: '17.09.2026',
+    analysis,
+    loadProfile: LOAD_PROFILE,
+    tariffSource,
+    tariffVintage: null,
+  }).tariffComponents
+}
+
+/** Eine Zeile als `[Position, Wert, Status]` — oder `undefined`, wenn sie fehlt. */
+function componentRow(
+  table: ReturnType<typeof componentsFor>,
+  key: string,
+): string[] | undefined {
+  return table.rows.find((row) => row.key === key)?.cells
+}
+
+describe('buildBasisChapter — Tarifkomponenten-Tabelle (D9)', () => {
+  it('führt jedes erreichbare Feld als eigene Zeile, mit Wert und Herkunft', () => {
+    const table = componentsFor(FULL_ANALYSIS, REAL_REF)
+
+    expect(table.columns.map((column) => column.label)).toEqual(['Position', 'Wert', 'Status'])
+    expect(table.rows.map((row) => row.key)).toEqual([
+      'tariff_leistungspreis',
+      'tariff_billing_model',
+      'tariff_energy_price',
+      'tariff_einspeiseverguetung',
+      'tariff_supplier_fee',
+      'tariff_netzebene',
+    ])
+
+    // 3980,16 € ÷ 48 kW = 82,92 €/kW·a — zurückgerechnet, nicht geraten.
+    expect(componentRow(table, 'tariff_leistungspreis')?.[1]).toBe('€ 82,92 / kW·a')
+    expect(componentRow(table, 'tariff_leistungspreis')?.[2]).toBe(
+      'Vorgabewert aus Stand „Wiener Netze 2026"',
+    )
+    // Menschenlesbar, über die bestehende Übersetzung — keine rohe Kennung im Kundendokument.
+    expect(componentRow(table, 'tariff_billing_model')?.[1]).toBe('Summe der 12 Monatshöchstwerte')
+    expect(componentRow(table, 'tariff_supplier_fee')?.[1]).toBe('€ 5,99 / Monat')
+    expect(componentRow(table, 'tariff_netzebene')).toEqual([
+      'Netzebene',
+      '6',
+      'aus der Tarifauswahl (Wiener Netze)',
+    ])
+  })
+
+  it('nennt die Herkunft je Feld und markiert ein überschriebenes als selbst eingetragen', () => {
+    const table = componentsFor(FULL_ANALYSIS, {
+      ...REAL_REF,
+      overriddenFields: ['leistungspreisEurPerKwYear'],
+    })
+
+    expect(componentRow(table, 'tariff_leistungspreis')?.[2]).toBe(
+      'selbst eingetragen — abweichend vom Stand „Wiener Netze 2026"',
+    )
+    expect(componentRow(table, 'tariff_billing_model')?.[2]).toBe(
+      'Vorgabewert aus Stand „Wiener Netze 2026"',
+    )
+    expect(componentsFor(FULL_ANALYSIS, null).rows[0]?.cells[2]).toBe(
+      'unverändert aus Ihrer Eingabe (Netzrechnung)',
+    )
+    expect(componentsFor(FULL_ANALYSIS, TARIFF_SOURCE_UNTRACKED).rows[0]?.cells[2]).toBe(
+      'Herkunft nicht im Einzelnen nachverfolgt',
+    )
+  })
+
+  /**
+   * Der eigentliche Punkt der Übung (§3.9): eine nicht erfasste Grundgebühr wird intern als 0
+   * gerechnet — als Wert gedruckt behauptete die 0 einen Tarif ohne Grundgebühr.
+   */
+  it('schreibt „keine Angabe" statt einer 0 und lässt nicht erreichte Felder ganz weg', () => {
+    const table = componentsFor(analysisWithSupplierFee(0), REAL_REF)
+    const fee = componentRow(table, 'tariff_supplier_fee')
+    expect(fee?.[1]).toBe('keine Angabe')
+    expect(fee?.[1]).not.toContain('0')
+    expect(fee?.[2]).toBe('nicht erfasst — im Tarifvergleich mit 0 gerechnet')
+
+    // Nur die fünf Pflichtfelder: kein Monatsvergleich, keine Tarifauswahl → beide Zeilen fehlen,
+    // und zwar ohne Ersatz-„keine Angabe" — sie haben diesen Render-Lauf nie erreicht.
+    const bare = componentsFor(ANALYSIS, TARIFF_SOURCE_UNTRACKED)
+    expect(bare.rows.map((row) => row.key)).toEqual([
+      'tariff_leistungspreis',
+      'tariff_billing_model',
+      'tariff_energy_price',
+      'tariff_einspeiseverguetung',
+    ])
+    expect(bare.rows.flatMap((row) => row.cells)).not.toContain('keine Angabe')
+  })
+
+  /**
+   * Die drei Zeilen, die es vor D9 schon gab, sind ZEICHENGLEICH umgezogen — und sie stehen nicht
+   * zusätzlich weiter oben in der Annahmen-Tabelle.
+   */
+  it('trägt die drei bestehenden Werte unverändert und genau einmal', () => {
+    const chapter = buildBasisChapter({
+      title: 'Wirtschaftlichkeitsanalyse Batteriespeicher',
+      subtitle: 'Auf Basis Ihres Viertelstunden-Lastgangs',
+      period: '01.01.2025 – 31.12.2025',
+      printedAt: '17.09.2026',
+      analysis: ANALYSIS,
+      loadProfile: LOAD_PROFILE,
+      tariffSource: TARIFF_SOURCE_UNTRACKED,
+      tariffVintage: null,
+    })
+
+    expect(componentRow(chapter.tariffComponents, 'tariff_billing_model')?.slice(0, 2)).toEqual([
+      'Abrechnungsmodell',
+      'Summe der 12 Monatshöchstwerte',
+    ])
+    expect(componentRow(chapter.tariffComponents, 'tariff_energy_price')?.slice(0, 2)).toEqual([
+      'Arbeitspreis',
+      '€ 0,25 / kWh',
+    ])
+    expect(
+      componentRow(chapter.tariffComponents, 'tariff_einspeiseverguetung')?.slice(0, 2),
+    ).toEqual(['Einspeisevergütung', '€ 0,07 / kWh'])
+
+    expect(chapter.assumptions.rows.map((row) => row.label)).toEqual(['Betrachtungshorizont'])
+  })
+})

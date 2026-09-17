@@ -98,8 +98,15 @@ function neutralRow(label: string, value: string): ReportRow {
  * Grund `recommended` liest.
  *
  * ⚠ Fehlt die Empfehlung (leerer Katalog), entfallen GENAU die vier gerätebezogenen Zeilen und
- * nicht die Tabelle — Abrechnungsmodell, Horizont und die beiden Energiepreise hängen an keinem
- * Gerät. Dasselbe Muster wie am Bildschirm (`{recommended && …}`).
+ * nicht die Tabelle — der Betrachtungshorizont hängt an keinem Gerät. Dasselbe Muster wie am
+ * Bildschirm (`{recommended && …}`).
+ *
+ * ── ⚠ D9: DIE DREI TARIFZEILEN SIND HIER RAUS UND STEHEN JETZT IN DER TARIFKOMPONENTEN-TABELLE ─
+ * Abrechnungsmodell, Arbeitspreis und Einspeisevergütung sind `TariffParams`-Felder und gehören zu
+ * den übrigen Tarifgrössen, nicht zwischen Horizont und Batteriepreis. Sie SIND dabei
+ * zeichengleich umgezogen (dieselben Beschriftungen, dieselbe Formatierung) — stehen gelassen
+ * hätten sie dieselbe Zahl zweimal auf einer Seite getragen, und die zweite Fassung liefe beim
+ * nächsten Umbau von der ersten weg.
  */
 function buildAssumptions(analysis: PdfReportAnalysis): ReportStatement {
   const a = analysis.assumptions
@@ -108,10 +115,7 @@ function buildAssumptions(analysis: PdfReportAnalysis): ReportStatement {
     analysis.perBattery[0]
 
   const rows: ReportRow[] = [
-    neutralRow('Abrechnungsmodell', BILLING_MODEL_LABEL[a.billingModel]),
     neutralRow('Betrachtungshorizont', `${a.horizonYears} Jahre`),
-    neutralRow('Arbeitspreis', `${formatEur2(a.energyPriceCtPerKwh / 100)} / kWh`),
-    neutralRow('Einspeisevergütung', `${formatEur2(a.einspeiseverguetungCtPerKwh / 100)} / kWh`),
     ...batteryRows(recommended, a.roundTripEfficiency),
   ]
 
@@ -123,9 +127,10 @@ function buildAssumptions(analysis: PdfReportAnalysis): ReportStatement {
     rows,
     body:
       'Das sind die Werte, mit denen dieser Report gerechnet wurde — zum Zeitpunkt seiner ' +
-      'Erstellung. Entladetiefe, Arbeitspreis und Einspeisevergütung sind dabei fest und gehen ' +
-      'unverändert aus Ihren Angaben ein; die übrigen Grössen lassen sich im Rechner ändern, und ' +
-      'ein danach erzeugter Report trägt dann andere Zahlen als dieser.',
+      'Erstellung. Die Entladetiefe ist dabei fest und geht unverändert aus Ihren Angaben ein; ' +
+      'die übrigen Grössen lassen sich im Rechner ändern, und ein danach erzeugter Report trägt ' +
+      'dann andere Zahlen als dieser. Die Tarifgrössen selbst stehen weiter unten in der Tabelle ' +
+      '„Tarifkomponenten", mit ihrer Herkunft daneben.',
   }
 }
 
@@ -758,6 +763,163 @@ function buildDataSources(input: PdfReportInput): ReportTable {
 }
 
 /* ────────────────────────────────────────────────────────────────────────────────────────────────
+ * 6 — die Tarifkomponenten-Tabelle (D9 Punkt 2)
+ * ──────────────────────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * D9 — „Position · Wert · Status" für die Tarifgrössen, nach dem Vorbild der Urbanz-Referenztabelle.
+ *
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * ⚠ EINE ZEILE GIBT ES NUR FÜR EIN FELD, DAS DIESEN RENDER-LAUF TATSÄCHLICH ERREICHT
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * `TariffParams` führt dreizehn Felder; der Report-Eingang trägt sie NICHT als Ganzes (`types.ts`:
+ * „Deshalb steht hier auch KEIN `tariff`-Feld"). Erreichbar sind vier über `assumptions` bzw. den
+ * Monatsvergleich, einer über die Ist-Kosten und einer über die Tarifauswahl — mehr nicht.
+ *
+ * ⚠ UND DIE ÜBRIGEN BEKOMMEN AUSDRÜCKLICH KEINE „keine Angabe"-ZEILE. Mindestleistung,
+ * Netz-Arbeitspreis, Nachttarif, HT/NT-Fenster, Messvariante und Benutzungsdauer-Modell wurden in
+ * der Rechnung sehr wohl verwendet — sie reisen bloss nicht bis hierher. „Keine Angabe" hiesse
+ * „nicht angegeben" und wäre für die Mindestleistung schlicht falsch: sie ist ein Pflichtfeld des
+ * Schemas. Eine Lücke im Weg als Lücke in der Rechnung auszuweisen ist die teurere der beiden
+ * Unwahrheiten — deshalb steht dort gar nichts.
+ *
+ * „keine Angabe" bleibt damit genau den Feldern vorbehalten, die HIER ankommen und OPTIONAL leer
+ * sind — heute die Lieferanten-Grundgebühr. Nie eine 0, auch wo intern mit 0 gerechnet wird:
+ * dieselbe Regel wie bei `taxEffectsIncluded`/`subsidyAmount` (§3.9, s. `batteryRows`).
+ */
+
+/** Die Antwort in der Wert-Spalte, wo ein erreichbares Feld leer ist — nie eine 0. */
+const NOT_SPECIFIED = 'keine Angabe'
+
+/**
+ * Die Status-Spalte der NETZSEITE — sie wiederholt nur, was der Tarifquellen-Satz darüber ohnehin
+ * sagt, Feld für Feld. Keine zweite Herkunftsermittlung: die drei Antworten und die Liste der
+ * überschriebenen Felder stehen fertig im `PdfReportTariffSource` (s. `buildTariffSource`).
+ */
+function gridFieldStatus(
+  source: PdfReportTariffSource,
+  field: TariffSourceRef['overriddenFields'][number],
+): string {
+  /* ⚠ Als Gleichheit geprüft und nicht über `!source` — s. `buildTariffSource`. */
+  if (source === TARIFF_SOURCE_UNTRACKED) return 'Herkunft nicht im Einzelnen nachverfolgt'
+  if (source === null) return 'unverändert aus Ihrer Eingabe (Netzrechnung)'
+  return source.overriddenFields.includes(field)
+    ? `selbst eingetragen — abweichend vom Stand „${source.tariffSetLabel}"`
+    : `Vorgabewert aus Stand „${source.tariffSetLabel}"`
+}
+
+/** Die Status-Spalte der ENERGIESEITE — die Zeile „Lieferanten-Tarif" der Datenquellen daneben. */
+const SUPPLIER_STATUS = 'aus Ihren Angaben (Energieseite)'
+
+/**
+ * Der Leistungspreis-Satz.
+ *
+ * ⚠ [ABGELEITET, keine Contract-Zahl] — `leistungspreisCostPerYear / billedKw`, wortgleich zu
+ * `charts.tsx` und `report.tsx`: `analyzeCurrentPeaks` setzt Ersteres als Satz × `billedKw`, die
+ * Division gibt also exakt den €/kW·a-Satz zurück, unabhängig vom Abrechnungsmodell.
+ *
+ * ⚠ Bei `billedKw = 0` (leeres oder rein einspeisendes Profil) entfällt die ZEILE und es steht
+ * nicht „keine Angabe": der Satz ist angegeben, nur nicht zurückrechenbar — s. Kopf.
+ */
+function leistungspreisRow(
+  analysis: PdfReportAnalysis,
+  source: PdfReportTariffSource,
+): ReportTableRow[] {
+  if (!(analysis.current.billedKw > 0)) return []
+  const rate = analysis.current.leistungspreisCostPerYear / analysis.current.billedKw
+  return [
+    dataRow('tariff_leistungspreis', [
+      'Leistungspreis',
+      `${formatEur2(rate)} / kW·a`,
+      gridFieldStatus(source, 'leistungspreisEurPerKwYear'),
+    ]),
+  ]
+}
+
+/**
+ * Die monatliche Grundgebühr des heutigen Lieferanten (Delta 19).
+ *
+ * ⚠ SIE IST DAS EINE ERREICHBARE FELD, DAS „keine Angabe" BRAUCHT. Der Contract sagt es
+ * ausdrücklich (`MonthlyFixedCosts.supplierFeeEurPerMonth`: „0 = keine Angabe"), und intern wird
+ * mit dieser 0 gerechnet. Genau das darf hier nicht als Wert stehen: eine Grundgebühr von 0 €
+ * behauptete einen Tarif ohne Grundgebühr, und der Leser prüfte die Zahl nicht nach.
+ *
+ * ⚠ Ohne Monatsvergleich (Hebel aus, oder nicht berechenbar) entfällt die Zeile — dann hat die
+ * Angabe diesen Render-Lauf gar nicht erreicht, s. Kopf.
+ */
+function supplierFeeRow(analysis: PdfReportAnalysis): ReportTableRow[] {
+  const comparison =
+    analysis.tariffOptimization?.computable === true
+      ? analysis.tariffOptimization.monthlyComparison
+      : undefined
+  if (!comparison) return []
+
+  const fee = comparison.fixedCosts.supplierFeeEurPerMonth
+  return [
+    dataRow(
+      'tariff_supplier_fee',
+      fee > 0
+        ? ['Grundgebühr Lieferant', `${formatEur2(fee)} / Monat`, SUPPLIER_STATUS]
+        : [
+            'Grundgebühr Lieferant',
+            NOT_SPECIFIED,
+            'nicht erfasst — im Tarifvergleich mit 0 gerechnet',
+          ],
+    ),
+  ]
+}
+
+/** Die Netzebene — ein Metadatum, und nur die Tarifauswahl trägt es bis hierher. */
+function netzebeneRow(source: PdfReportTariffSource): ReportTableRow[] {
+  if (typeof source !== 'object' || source === null) return []
+  return [
+    dataRow('tariff_netzebene', [
+      'Netzebene',
+      `${source.netzebene}`,
+      `aus der Tarifauswahl (${NETZBETREIBER_LABELS[source.netzbetreiber]})`,
+    ]),
+  ]
+}
+
+/** Die Tabelle. Sie steht IMMER — ohne Abrechnungsmodell und Arbeitspreis gibt es keine Rechnung. */
+function buildTariffComponents(input: PdfReportInput): ReportTable {
+  const a = input.analysis.assumptions
+  const source = input.tariffSource
+
+  return {
+    /* ⚠ Gewichte als VERHÄLTNIS, keine pt-Angaben — s. `buildDataSources`. Der Status trägt ganze
+       Halbsätze und bekommt deshalb mehr als die beiden schmalen Spalten links. */
+    columns: [
+      { label: 'Position', width: 2 },
+      { label: 'Wert', width: 2 },
+      { label: 'Status', width: 3 },
+    ],
+    /* Die Reihenfolge ist die des Schemas (`tariffParamsSchema`): Netzseite, dann Energieseite,
+       dann die Metadaten. Wer das Schema neben den Report legt, liest beide in derselben Folge. */
+    rows: [
+      ...leistungspreisRow(input.analysis, source),
+      dataRow('tariff_billing_model', [
+        'Abrechnungsmodell',
+        BILLING_MODEL_LABEL[a.billingModel],
+        gridFieldStatus(source, 'billingModel'),
+      ]),
+      dataRow('tariff_energy_price', [
+        'Arbeitspreis',
+        `${formatEur2(a.energyPriceCtPerKwh / 100)} / kWh`,
+        SUPPLIER_STATUS,
+      ]),
+      dataRow('tariff_einspeiseverguetung', [
+        'Einspeisevergütung',
+        `${formatEur2(a.einspeiseverguetungCtPerKwh / 100)} / kWh`,
+        SUPPLIER_STATUS,
+      ]),
+      ...supplierFeeRow(input.analysis),
+      ...netzebeneRow(source),
+    ],
+  }
+}
+
+/* ────────────────────────────────────────────────────────────────────────────────────────────────
  * Das Kapitel
  * ──────────────────────────────────────────────────────────────────────────────────────────── */
 
@@ -774,6 +936,11 @@ export type BasisChapter = {
   tariffSource: string
   /** Der Preisstand-Hinweis, hereingereicht (`derive.ts`). `null` = kein Hinweis. */
   tariffVintage: string | null
+  /**
+   * D9 — die Tarifgrössen im Einzelnen. Steht immer; eine Zeile gibt es je Feld, das diesen
+   * Render-Lauf erreicht (s. `buildTariffComponents`).
+   */
+  tariffComponents: ReportTable
   /** D9 — die Datenquellen-Tabelle. Steht immer; wo nichts belegt ist, sagt sie das. */
   dataSources: ReportTable
 }
@@ -786,6 +953,7 @@ export function buildBasisChapter(input: PdfReportInput): BasisChapter {
     pvOutage: buildPvOutage(input.hasPv, input.pvOutageMonths),
     tariffSource: buildTariffSource(input.tariffSource, input.netzbetreiber),
     tariffVintage: input.tariffVintage,
+    tariffComponents: buildTariffComponents(input),
     dataSources: buildDataSources(input),
   }
 }
