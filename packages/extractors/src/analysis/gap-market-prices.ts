@@ -1,4 +1,11 @@
-import type { SpotPricePointInput, SpotPriceSeriesInput, TariffPriceRange } from 'shared'
+import type {
+  MarketPriceCoverage,
+  MarketPriceHoursByOrigin,
+  MarketPriceOrigin,
+  SpotPricePointInput,
+  SpotPriceSeriesInput,
+  TariffPriceRange,
+} from 'shared'
 
 /**
  * D6 Teil 2a — MARKTPREISE FÜR EINEN ANALYSEZEITRAUM, LÜCKEN EINGESCHLOSSEN.
@@ -51,22 +58,12 @@ export type MarketPriceWindowReader = (
 export type SpotPriceRangeReader = (fromIso: string, toIso: string) => Promise<SpotPriceSeriesInput>
 
 /**
- * Woher ein Stück der Preisreihe stammt.
- *
- * `assumed` ist die einzige NICHT gemessene Herkunft und trägt deshalb als einzige eine Begründung
- * mit (s. `MarketPriceCoverage.assumption`).
+ * ⚠ `MarketPriceOrigin` UND `MarketPriceCoverage` LIEGEN SEIT D6 TEIL 2b IN `shared`
+ * (`annual-projection.ts`): die Jahres-Hochrechnung reicht die Herkunft bis in
+ * `AnalysisResult.annualProjection` durch, und `shared` ist die unterste Schicht. Beide stehen hier
+ * unter unverändertem Namen weiter zur Verfügung — es gibt weiterhin GENAU EINE Definition je Typ.
  */
-export type MarketPriceOrigin = 'database' | 'fetched' | 'assumed'
-
-/** Ein zusammenhängendes Stück des Zeitraums mit EINER Herkunft. */
-export type MarketPriceCoverage = {
-  origin: MarketPriceOrigin
-  fromIso: string
-  toIso: string
-  hours: number
-  /** Nur bei `assumed`: welcher Monat die Näherung getragen hat und mit welchem Durchschnitt. */
-  assumption?: { year: number; month: number; ctPerKwh: number }
-}
+export type { MarketPriceCoverage, MarketPriceOrigin } from 'shared'
 
 /**
  * Die aufgefüllte Reihe samt Herkunftsnachweis.
@@ -82,7 +79,7 @@ export type ResolvedMarketPrices = {
   /** Was auch nach Nachladen und Rückfallregel offen blieb — leer, wenn `complete`. */
   missingRanges: TariffPriceRange[]
   coverage: MarketPriceCoverage[]
-  hoursByOrigin: { database: number; fetched: number; assumed: number }
+  hoursByOrigin: MarketPriceHoursByOrigin
 }
 
 const HOUR_MS = 60 * 60 * 1000

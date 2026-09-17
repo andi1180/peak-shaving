@@ -1,3 +1,4 @@
+import type { AnnualTariffProjection } from './annual-projection'
 import type { BatteryCandidate } from './battery'
 import type { BillingModel } from './tariff'
 import type { TariffOptimizationStatus } from './tariff-pricing'
@@ -318,6 +319,20 @@ export type AnalysisResult = {
    * `tariffOptimization` erzwingt das keinen `bundleVersion`-Sprung (B14-2).
    */
   existingBatteryAnalysis?: ExistingBatteryAnalysis
+  /**
+   * D6 Teil 2b (17.09.2026): die auf ein volles Jahr hochgerechneten Kosten der beiden Tarifwege
+   * „Ihr Tarif heute" und „aWATTar ungesteuert", je aufgeteilt in gemessenen und geschätzten Anteil.
+   *
+   * `undefined` heisst: nicht angefordert — der Lastgang deckte ein volles Jahr ab, oder der
+   * Aufrufer hat die Hochrechnung schlicht nicht ausgeführt. Kein Fehlerfall, und wie bei
+   * `tariffOptimization`/`existingBatteryAnalysis` darüber KEIN `bundleVersion`-Sprung (B14-2).
+   *
+   * ⚠ Es ist ein PARALLELER Weg neben `tariffOptimization`, kein Ersatz: dort gilt der
+   * `complete === false`-Blocker für den echten Zeitraum unverändert (Delta 15 Regel C), hier wird
+   * für den FEHLENDEN Zeitraum nachgeladen und jede Näherung benannt. Die beiden Zahlen antworten
+   * auf verschiedene Fragen und dürfen nicht gegeneinander ausgetauscht werden.
+   */
+  annualProjection?: AnnualTariffProjection
   dataQuality: {
     coveredDays: number
     /** Anzahl der 12 Kalendermonate (lokal) mit ≥ 1 Messwert. < 12 = Teiljahres-Datensatz (§3.5) —

@@ -29,6 +29,11 @@ export * from './analysis-window'
 // Marktpreis-Reihe. Aus demselben Grund hier wie `tariff-catalog`: der Rechenkern bekommt sie als
 // PARAMETER und darf die Datenschicht nicht kennen (Wächter in `engine/src/tariff/`).
 export * from './tariff-pricing'
+// D6 (17.09.2026): die Jahres-Hochrechnung als Contract — Herkunft der Referenzrate (Teil 1),
+// Herkunft der Marktpreise (Teil 2a) und die daraus gebildeten Jahres-Kostenzeilen (Teil 2b).
+// Hier und nicht in `engine`/`extractors`, weil `AnalysisResult.annualProjection` sie trägt und
+// `shared` die unterste Schicht ist; gerechnet wird unverändert dort, wo es bisher gerechnet wurde.
+export * from './annual-projection'
 // Delta 16b: das Name/Firma-Gate vor dem Report-Download — Herkunftsschlüssel, Einwilligungszweck
 // und die EINE Prüfregel für Formular (Rückmeldung), Server Action (Wahrheit) und DB-Gate
 // (Abgleich mit `platform.lead_sources`). Bewusst importfrei; Begründung im Kopf der Datei.
