@@ -1,4 +1,8 @@
-import type { MonthlyTariffComparison } from 'shared'
+import {
+  reportSectionEnabled,
+  type MonthlyTariffComparison,
+  type ReportOptionalSection,
+} from 'shared'
 
 import { BatteryFlowHeatmap } from '@/components/report/battery-flow-heatmap'
 import { ChargePriceChart } from '@/components/report/charge-price-chart'
@@ -305,6 +309,23 @@ export async function buildReportCharts(input: PdfReportInput): Promise<ReportCh
   const insight = insightChartPlan(analysis)
 
   /*
+   * Report-Baukasten C — ein abgewählter Baustein wird gar nicht erst gerastert.
+   *
+   * ⚠ DIE AUSWAHL FÄLLT NICHT MIT `insightChartPlan` ZUSAMMEN, und das ist der Punkt: `plan === null`
+   * heisst „für diesen Fall gibt es das Bild nicht", und das Dokument SAGT das dann auch
+   * (`hourFlowMissing`/`chargePriceMissing` nennen den fachlichen Grund). Eine abgewählte Grafik hat
+   * keinen fachlichen Grund — der Satz wäre dort eine Behauptung über die Daten, die nicht stimmt.
+   * Das Dokument lässt sie deshalb samt Bildunterschrift ganz weg (`document.tsx`), und hier
+   * entfällt nur die Rasterung, die niemand mehr ansieht: ein Lauf von rund zwei Sekunden je Bild.
+   *
+   * ⚠ Entschieden wird trotzdem ZWEIMAL — hier und im Dokument. Auseinanderlaufen kann das nicht
+   * gefährlich: was das Dokument nicht zeigt, zeigt es auch mit Bild nicht, und was es zeigt, ohne
+   * dass hier gerastert wurde, bekäme den `missing`-Satz. Die Auswahl ist beide Male derselbe Wert
+   * aus derselben Übergabe.
+   */
+  const shows = (id: ReportOptionalSection) => reportSectionEnabled(input.optionalSections, id)
+
+  /*
    * [ABGELEITET, keine Contract-Zahl] Roher Leistungspreis-Satz (€/kW·a) aus den Ist-Kosten —
    * wortgleich zu `report.tsx`. `null` bei `billedKw = 0` (leeres oder rein einspeisendes Profil);
    * dann zeigt das Chart die kontrafaktische Kostengrösse je Spitze nicht, was im PDF ohnehin
@@ -434,7 +455,7 @@ export async function buildReportCharts(input: PdfReportInput): Promise<ReportCh
    * Sekunden in die Zeitüberschreitung, und an der Stelle einer Aussage stünde eine technische
    * Meldung. Die Aussage steht im Dokument (`insight.ts`, `hourFlowMissing`).
    */
-  const hourFlowPlan = insight.hourFlow
+  const hourFlowPlan = shows('hour_flow') ? insight.hourFlow : null
   const hourFlow: Attempt =
     hourFlowPlan === null
       ? NOT_RASTERIZED
@@ -454,7 +475,7 @@ export async function buildReportCharts(input: PdfReportInput): Promise<ReportCh
    * ⚠ Wieder nur der Zeichenbereich: die Legende der Komponente (mengengewichteter Gesamtpreis,
    * Zahl der Monate unter dem Durchschnitt) liegt ausserhalb und steht im PDF als Zeilen daneben.
    */
-  const chargePricePlan = insight.chargePrice
+  const chargePricePlan = shows('charge_price') ? insight.chargePrice : null
   const chargePrice: Attempt =
     chargePricePlan === null
       ? NOT_RASTERIZED

@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { Document, Image, Page, StyleSheet, Text, View } from '@react-pdf/renderer'
+import { reportSectionEnabled, type ReportOptionalSection } from 'shared'
 
 import { PRINT_COMPANY, REPORT_CONTACT } from '@/lib/company'
 import type { ReportChartRasters } from './charts'
@@ -33,6 +34,7 @@ import type { ReportBuildContext } from './context'
 import { buildDetailChapter, buildMonthlyChapter } from './detail'
 import { buildInsightChapter } from './insight'
 import { buildRecommendationChapter } from './recommendation'
+import type { ReportBaukastenRegistry } from './registry'
 import {
   recordSectionPage,
   recordTotalPages,
@@ -1356,6 +1358,46 @@ function HeatmapLegend() {
   )
 }
 
+/* ────────────────────────────────────────────────────────────────────────────────────────────────
+ * Report-Baukasten C — die vier abwählbaren Bausteine
+ * ──────────────────────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * Ein Baustein aus dem KATALOG, sofern die Admin-Auswahl ihn zeigt.
+ *
+ * ── ⚠ DIE EINZIGEN VIER STELLEN, AN DENEN DAS DOKUMENT ÜBER DIE REGISTRY GEHT ─────────────────
+ * Die übrigen 24 Bausteine kommen weiterhin aus ihrer Kapitel-Fassade. Das ist kein halber Umbau,
+ * sondern der Zuschnitt dieses Schritts: `document.tsx` ganz auf den Katalog umzustellen ist ein
+ * eigener Weg mit eigenem Nachweis (`registry.ts`: „Die Umstellung des Renderers ist ein eigener
+ * Schritt"), und er hat mit der Auswahl nichts zu tun.
+ *
+ * ── ⚠ WARUM DER `form`-VERGLEICH DASTEHT ──────────────────────────────────────────────────────
+ * Er verengt den Rückgabetyp von `build()` — ohne ihn liefert der Eintrag die Union aller vier
+ * Formen, und `<Statement>` bekäme womöglich eine Tabelle. Träte der Fall je ein (eine Kennung
+ * wechselt die Form), fällt der Baustein hier still weg statt das Dokument zu kosten; gemessen
+ * wird die Zuordnung in `registry.test.ts`.
+ */
+function selectedStatement(
+  registry: ReportBaukastenRegistry,
+  input: PdfReportInput,
+  id: ReportOptionalSection,
+): ReportStatement | null {
+  if (!reportSectionEnabled(input.optionalSections, id)) return null
+  const entry = registry.get(id)
+  return entry.form === 'statement' ? entry.build() : null
+}
+
+/** Wie `selectedStatement`, für die zwei Hinweise des Schlusskapitels. */
+function selectedNotice(
+  registry: ReportBaukastenRegistry,
+  input: PdfReportInput,
+  id: ReportOptionalSection,
+): ReportNotice | null {
+  if (!reportSectionEnabled(input.optionalSections, id)) return null
+  const entry = registry.get(id)
+  return entry.form === 'notice' ? entry.build() : null
+}
+
 /**
  * B23c-3b-1 — das Ladeverhalten: Stunden-Heatmap und Ø-Ladepreis.
  *
@@ -1374,35 +1416,53 @@ function InsightChapter({
   input,
   charts,
   context,
+  registry,
 }: {
   input: PdfReportInput
   charts: ReportChartRasters
   context: ReportBuildContext
+  registry: ReportBaukastenRegistry
 }) {
   const chapter = buildInsightChapter(input.analysis, context)
+
+  /*
+   * ⚠ Report-Baukasten C: BILD UND AUSSAGE FALLEN GEMEINSAM. Nur den `<Statement>` abzuschalten
+   * liesse die `<ChartFigure>` stehen — und die rendert ohne Raster ihren `missing`-Satz, der den
+   * fachlichen Grund für ein fehlendes Bild nennt. Bei einer ABGEWÄHLTEN Grafik gibt es keinen
+   * fachlichen Grund; der Satz behauptete dann etwas über die Daten, das nicht stimmt. Gerastert
+   * wird sie deshalb auch gar nicht erst (`charts.tsx`).
+   */
+  const showHourFlow = reportSectionEnabled(input.optionalSections, 'hour_flow')
+  const showChargePrice = reportSectionEnabled(input.optionalSections, 'charge_price')
+  const hourFlow = selectedStatement(registry, input, 'hour_flow')
+  const chargePrice = selectedStatement(registry, input, 'charge_price')
 
   return (
     <View style={styles.body}>
       <Text style={styles.h2}>{INSIGHT_SECTION.title}</Text>
       <Text style={styles.lead}>{INSIGHT_INTRO}</Text>
 
-      <ChartFigure
-        raster={charts.hourFlow}
-        caption={chapter.hourFlow?.figure.caption ?? ''}
-        legend={<HeatmapLegend />}
-        /* `hourFlowMissing` steht, wenn es für diesen Fall gar kein Raster gibt; sonst ist ein
-           fehlendes Bild ein Fehlschlag der Rasterung und bekommt den Fehlschlag-Satz. */
-        missing={chapter.hourFlowMissing ?? figureMissingText('Die Stunden-Heatmap')}
-      />
-      {chapter.hourFlow && <Statement statement={chapter.hourFlow.statement} />}
+      {showHourFlow && (
+        <ChartFigure
+          raster={charts.hourFlow}
+          caption={chapter.hourFlow?.figure.caption ?? ''}
+          legend={<HeatmapLegend />}
+          /* `hourFlowMissing` steht, wenn es für diesen Fall gar kein Raster gibt; sonst ist ein
+             fehlendes Bild ein Fehlschlag der Rasterung und bekommt den Fehlschlag-Satz. */
+          missing={chapter.hourFlowMissing ?? figureMissingText('Die Stunden-Heatmap')}
+        />
+      )}
+      {hourFlow && <Statement statement={hourFlow} />}
 
-      <ChartFigure
-        raster={charts.chargePrice}
-        caption={chapter.chargePrice?.figure.caption ?? ''}
-        note={chapter.chargePrice?.figure.note}
-        missing={chapter.chargePriceMissing ?? figureMissingText('Der Ø-Ladepreis')}
-      />
-      {chapter.chargePrice && <Statement statement={chapter.chargePrice.statement} />}
+      {showChargePrice && (
+        <ChartFigure
+          raster={charts.chargePrice}
+          caption={chapter.chargePrice?.figure.caption ?? ''}
+          note={chapter.chargePrice?.figure.note}
+          missing={chapter.chargePriceMissing ?? figureMissingText('Der Ø-Ladepreis')}
+        />
+      )}
+      {chargePrice && <Statement statement={chargePrice} />}
     </View>
   )
 }
@@ -1497,11 +1557,24 @@ function MethodologyChapter() {
 function BasisChapter({
   input,
   context,
+  registry,
 }: {
   input: PdfReportInput
   context: ReportBuildContext
+  registry: ReportBaukastenRegistry
 }) {
   const chapter = buildBasisChapter(input, context)
+
+  /*
+   * ⚠ Report-Baukasten C: DIE AUSWAHL HAT HIER SCHON GEGRIFFEN, BEVOR SIE GELESEN WIRD. Beide
+   * Hinweise entstehen im Kontext (`context.ts` → `dataQualityNoticeOf`/`pvOutageNoticeOf`), und
+   * daran hängen zwei Abhängige, die im JSX gar nicht vorkommen: der Verweis „wie im
+   * Datenqualitäts-Hinweis oben" in der Datenquellen-Tabelle und der Methodik-Absatz
+   * `method_pv_outage`. Erst hier abgeschaltet blieben beide stehen und verwiesen auf einen
+   * Hinweis, den dieses Dokument nicht zeigt.
+   */
+  const dataQuality = selectedNotice(registry, input, 'data_quality')
+  const pvOutage = selectedNotice(registry, input, 'pv_outage')
 
   return (
     <View style={styles.body}>
@@ -1509,12 +1582,12 @@ function BasisChapter({
       <Text style={styles.lead}>{BASIS_INTRO}</Text>
 
       <Statement statement={chapter.assumptions} />
-      {chapter.dataQuality && <Notice notice={chapter.dataQuality} />}
+      {dataQuality && <Notice notice={dataQuality} />}
       {chapter.blocker && <Notice notice={chapter.blocker} />}
       {/* D5 — was die PV-Anlage im Lastgang gezeigt hat. Auch das eine Feststellung ÜBER die
           Datengrundlage und keine Zahl: sie steht deshalb bei den anderen beiden und nicht in
           einem eigenen Kapitel. Ob sie erscheint, entscheidet `basis.ts`. */}
-      {chapter.pvOutage && <Notice notice={chapter.pvOutage} />}
+      {pvOutage && <Notice notice={pvOutage} />}
 
       <Text style={styles.provenance}>{chapter.tariffSource}</Text>
       {chapter.tariffVintage && <Text style={styles.provenance}>{chapter.tariffVintage}</Text>}
@@ -1581,6 +1654,7 @@ export function ReportDocument({
   input,
   charts,
   context,
+  registry,
   agenda,
   sink,
 }: {
@@ -1596,6 +1670,12 @@ export function ReportDocument({
    * alle Durchläufe rechnen mit bit-identischen Werten.
    */
   context: ReportBuildContext
+  /**
+   * Report-Baukasten B2/C — der Katalog, EINMAL je Dokument gebildet (`render.tsx` →
+   * `registry.ts`). Gelesen werden daraus genau die vier abwählbaren Bausteine; die übrigen 24
+   * kommen weiterhin aus ihrer Kapitel-Fassade (s. `selectedStatement`).
+   */
+  registry: ReportBaukastenRegistry
   agenda: AgendaPageNumbers
   sink: PageNumberSink
 }) {
@@ -1608,7 +1688,18 @@ export function ReportDocument({
    * ⚠ B1: entschieden wird jetzt im KONTEXT, einmal je Dokument statt einmal je Durchlauf. Diese
    * Funktion läuft zwei- bis dreimal (`render.tsx`) — sie LIEST die Antwort nur noch.
    */
-  const { hasMonthly, hasInsight, hasComparison } = context
+  const { hasMonthly, hasComparison } = context
+
+  /*
+   * ⚠ Report-Baukasten C: KAPITEL 5 FÄLLT MIT SEINEN BEIDEN BAUSTEINEN. Sind beide abgewählt,
+   * bliebe sonst eine Seite mit Überschrift, Vorspann und nichts darunter — samt Agenda-Eintrag,
+   * der genau dorthin verweist (D14: „Ein Kapitel, das nur sagt, dass es leer ist"). Die Grösse
+   * wird weiterhin GENAU EINMAL gebildet und von Agenda und Seitenbaum gemeinsam gelesen.
+   */
+  const hasInsight =
+    context.hasInsight &&
+    (reportSectionEnabled(input.optionalSections, 'hour_flow') ||
+      reportSectionEnabled(input.optionalSections, 'charge_price'))
 
   return (
     <Document
@@ -1670,7 +1761,7 @@ export function ReportDocument({
         <Page size="A4" style={styles.page}>
           <PageFurniture sink={sink} />
           <SectionAnchor id={INSIGHT_SECTION.id} sink={sink} />
-          <InsightChapter input={input} charts={charts} context={context} />
+          <InsightChapter input={input} charts={charts} context={context} registry={registry} />
         </Page>
       )}
 
@@ -1691,7 +1782,7 @@ export function ReportDocument({
       <Page size="A4" style={styles.page}>
         <PageFurniture sink={sink} />
         <SectionAnchor id={BASIS_SECTION.id} sink={sink} />
-        <BasisChapter input={input} context={context} />
+        <BasisChapter input={input} context={context} registry={registry} />
       </Page>
 
       {/*

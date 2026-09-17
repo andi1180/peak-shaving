@@ -1,6 +1,6 @@
 import type { BatteryResultEntry, BatteryRoiEntry } from 'shared'
 
-import { buildPvOutage } from './basis'
+import { dataQualityNoticeOf, pvOutageNoticeOf } from './basis'
 import { comparisonChartPlan, hasComparisonChapter, type ComparisonChartPlan } from './comparison'
 import { detailChartPlan, hasMonthlyChapter, type DetailChartPlan } from './detail'
 import { insightChartPlan, type InsightChartPlan } from './insight'
@@ -50,8 +50,20 @@ export type ReportBuildContext = {
   insightPlan: InsightChartPlan
   /** Die Grenznutzen-Kurve, oder `null` bei weniger als zwei zeichenbaren Punkten (Kapitel 6). */
   comparisonPlan: ComparisonChartPlan | null
-  /** D5 — der PV-Befund des Schlusskapitels; `null` heisst „keine PV oder nichts gefunden". */
+  /**
+   * D5 — der PV-Befund des Schlusskapitels; `null` heisst „keine PV, nichts gefunden ODER vom
+   * Admin abgewählt" (Baukasten C). An ihm hängt der Methodik-Absatz `method_pv_outage`.
+   */
   pvOutage: ReportNotice | null
+  /**
+   * Der Datenqualitäts-Hinweis des Schlusskapitels; `null` heisst „keine Warnung ODER vom Admin
+   * abgewählt". An ihm hängt der Verweis in der Datenquellen-Tabelle.
+   *
+   * ⚠ Er steht seit Baukasten C hier und nicht mehr nur in der Kapitel-Fassade, aus demselben
+   * Grund wie `pvOutage`: die Registry und das Kapitel müssen DIESELBE Antwort bekommen, sonst
+   * zeigt der Katalog einen Baustein, den das Dokument weglässt.
+   */
+  dataQuality: ReportNotice | null
   /** Kapitel 4 — Monatsvergleich als eigenes Kapitel. */
   hasMonthly: boolean
   /** Kapitel 5 — Ladeverhalten. */
@@ -80,7 +92,8 @@ export function buildReportContext(input: PdfReportInput): ReportBuildContext {
     detailPlan: detailChartPlan(analysis),
     insightPlan,
     comparisonPlan: comparisonChartPlan(analysis),
-    pvOutage: buildPvOutage(input.hasPv, input.pvOutageMonths),
+    pvOutage: pvOutageNoticeOf(input),
+    dataQuality: dataQualityNoticeOf(input),
     hasMonthly: hasMonthlyChapter(analysis),
     hasInsight: insightPlan.hourFlow !== null || insightPlan.chargePrice !== null,
     hasComparison: hasComparisonChapter(analysis),

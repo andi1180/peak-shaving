@@ -4,6 +4,7 @@ import type {
   EstimatedPvSummary,
   LoadProfile,
   NetzbetreiberId,
+  ReportSectionSelection,
   TariffSourceRef,
 } from 'shared'
 
@@ -370,4 +371,20 @@ export type PdfReportInput = {
    * behauptet, die Anlage sei in Ordnung.
    */
   pvOutageMonths?: PvOutageMonth[]
+  /**
+   * Report-Baukasten C — welche der vier abwählbaren Bausteine dieser Report zeigt
+   * (`REPORT_OPTIONAL_SECTIONS`). `undefined` heisst ALLE VIER.
+   *
+   * ⚠ OPTIONAL UND NICHT `null`-FÄHIG, und die Abwesenheit hat hier eine schärfere Bedeutung als
+   * bei den Feldern darüber: eine Übergabe lebt 24 Stunden, es liegen zum Zeitpunkt jedes
+   * Deployments also Zeilen ohne dieses Feld in `platform.report_render_requests`. Fiele die
+   * Abwesenheit auf „nichts zeigen", verlöre ein bereits verschickter Report beim Öffnen vier
+   * Bausteine. Die leere Liste ist davon unterschieden: sie ist die AUSGEÜBTE Wahl, alle vier
+   * abzuwählen.
+   *
+   * ⚠ SIE STEUERT NUR DIESE VIER. Die übrigen 24 Bausteine sind von ihr unerreichbar — zwei davon
+   * (`addon`, `table_candidates`) ausdrücklich, weil andere Absätze auf sie verweisen
+   * (`Report_Baukasten_Auswahlschicht_Verifikation.md` §2.2).
+   */
+  optionalSections?: ReportSectionSelection
 }

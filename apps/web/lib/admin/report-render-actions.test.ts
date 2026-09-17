@@ -10,7 +10,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
  * vollständig aussieht. Der Test greift deshalb die Argumente des Wrappers ab.
  */
 
-import { emptyInvoiceExtraction, type InvoiceExtraction } from 'shared'
+import {
+  REPORT_OPTIONAL_SECTIONS_FIELD,
+  REPORT_OPTIONAL_SECTIONS_MARKER,
+  emptyInvoiceExtraction,
+  type InvoiceExtraction,
+} from 'shared'
 
 import { setDraftField } from '@/lib/project-chat/draft'
 import { invoiceDraftValues } from './invoice-extractions'
@@ -137,7 +142,13 @@ describe('createReportRenderRequestAction', () => {
     expect(loadProfile.readings).toHaveLength(96)
     expect(loadProfile.intervalMinutes).toBe(15)
 
-    // Genau neun Felder, als WERTE — kein Verweis auf den veränderlichen Entwurf.
+    /*
+     * Neun Felder, als WERTE — kein Verweis auf den veränderlichen Entwurf.
+     *
+     * ⚠ `optionalSections` FEHLT hier, und das ist die Zusage: dieses Formular führt die Auswahl
+     * nicht, und ein fehlendes Feld heisst auf der Leseseite ALLE VIER (Report-Baukasten C). Eine
+     * leere Liste hiesse das Gegenteil — s. den Marker-Test unten.
+     */
     expect(args.p_report_input_meta).toEqual({
       customerLabel: 'Bäckerei Gruber',
       netzbetreiber: 'wiener_netze',
@@ -207,6 +218,40 @@ describe('createReportRenderRequestAction', () => {
     const meta = call![1].p_report_input_meta as Record<string, unknown>
     // 0 hiesse „keine Grundgebühr vereinbart" — eine Angabe, die niemand gemacht hat.
     expect(meta.supplierBaseFeeEurPerMonth).toBeNull()
+  })
+
+  it('Report-Baukasten C: die Auswahl reist nur MIT dem Marker, und dann auch leer', async () => {
+    withWrappers(DRAFT)
+
+    const gewaehlt = form()
+    gewaehlt.set(REPORT_OPTIONAL_SECTIONS_MARKER, '1')
+    gewaehlt.append(REPORT_OPTIONAL_SECTIONS_FIELD, 'pv_outage')
+    gewaehlt.append(REPORT_OPTIONAL_SECTIONS_FIELD, 'hour_flow')
+    gewaehlt.append(REPORT_OPTIONAL_SECTIONS_FIELD, 'erfunden')
+
+    expect((await createReportRenderRequestAction({}, gewaehlt)).formError).toBeUndefined()
+    const gewaehltMeta = rpc.mock.calls.find(
+      ([fn]) => fn === 'create_report_render_request',
+    )![1].p_report_input_meta as Record<string, unknown>
+    /* Reihenfolge aus der Konstante, unbekannter Wert verworfen — was aus einem Formular kommt,
+       kommt aus einem Browser. */
+    expect(gewaehltMeta.optionalSections).toEqual(['hour_flow', 'pv_outage'])
+
+    /*
+     * ⚠ ALLE VIER ABGEWÄHLT ist eine AUSGEÜBTE Wahl und muss als leere Liste ankommen — nicht als
+     * fehlendes Feld. Ohne den Marker sähen beide Fälle im `FormData` gleich aus, und sie bedeuten
+     * das Gegenteil voneinander.
+     */
+    rpc.mockClear()
+    withWrappers(DRAFT)
+    const keine = form()
+    keine.set(REPORT_OPTIONAL_SECTIONS_MARKER, '1')
+
+    expect((await createReportRenderRequestAction({}, keine)).formError).toBeUndefined()
+    const keineMeta = rpc.mock.calls.find(
+      ([fn]) => fn === 'create_report_render_request',
+    )![1].p_report_input_meta as Record<string, unknown>
+    expect(keineMeta.optionalSections).toEqual([])
   })
 
   it('⚠ bei gesperrtem Entwurf (geschätzte PV) entsteht GAR KEINE Zeile', async () => {
