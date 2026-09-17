@@ -17,9 +17,9 @@
  * eine der beiden Regeln ändert, ändert sie an BEIDEN Stellen — sonst rechnen Rechner und
  * Admin-Lauf mit verschiedenen Lückenbefunden über denselben Daten.
  *
- * ── NOCH NICHT VERDRAHTET ──────────────────────────────────────────────────────────────────────
- * `packages/extractors/src/analysis/run-from-draft.ts` lässt `tariffPricing` weiterhin bewusst
- * `undefined` („nicht angefordert"). Dieses Modul ist die Vorbereitung darauf, nicht der Anschluss.
+ * ── VERDRAHTET SEIT DEM DREI-WEGE-VERGLEICH ────────────────────────────────────────────────────
+ * `readTariffPricingForAnalysis` (unten) ist die Implementierung des `fetchTariffPricing`-Ports von
+ * `runAnalysisFromMeteringPointDraft`; eingehängt wird sie in `report-render-actions.ts`.
  */
 import 'server-only'
 
@@ -28,6 +28,7 @@ import type {
   SpotPricePointInput,
   SpotPriceSeriesInput,
   TariffPriceRange,
+  TariffPricingInputs,
 } from 'shared'
 
 import type { createClient } from '@/lib/supabase/server'
@@ -263,4 +264,60 @@ export function findMissingRanges(
 
 function iso(ms: number): string {
   return new Date(ms).toISOString()
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════════════════════
+// Beide Seiten zusammen — der Port des Analyse-Laufs
+// ═══════════════════════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Beide Preisseiten für einen Analyse-Lauf holen — die Implementierung des `fetchTariffPricing`-
+ * Ports aus `packages/extractors`.
+ *
+ * ── ⚠ JEDE SEITE SCHEITERT FÜR SICH ───────────────────────────────────────────────────────────
+ * `Promise.allSettled` und nicht `Promise.all`: ein `all` liesse den Fehler der einen Seite die
+ * andere mitreissen, und ein unlesbarer Spotpreis-Bestand brächte dann eine komplette Analyse zu
+ * Fall — samt Peak Shaving und Eigenverbrauch, die von den Vergleichspreisen gar nicht abhängen.
+ * Wo eine Seite scheitert, steht `null`, und die Engine kennzeichnet den Hebel als nicht
+ * berechenbar (Delta 15 Regel C). Kein Rückfall, keine Ersatzwerte — dieselbe Arbeitsteilung wie
+ * `loadTariffPricing` im öffentlichen Rechner (`apps/website/lib/tariff-pricing.ts`).
+ *
+ * ⚠ DER GRUND WIRD PROTOKOLLIERT. `null` erreicht den Report als „nicht berechenbar"; WARUM nicht,
+ * steht dann nur noch hier — ohne die Zeile im Log sähe ein abgelaufener Zugriff genauso aus wie
+ * ein leerer Pflegestand.
+ *
+ * Ohne Netzbetreiber oder Netzebene wird die Netzentgelt-Seite gar nicht erst angefragt: eine
+ * Abfrage mit erfundenen Parametern lieferte entweder nichts oder die Zeile eines fremden
+ * Betreibers.
+ */
+export async function readTariffPricingForAnalysis(
+  supabase: AdminClient,
+  request: {
+    operatorId: string | null
+    netzebene: number | null
+    meteringVariant: string | null
+    window: AnalysisPeriod
+    intervalMinutes: number
+  },
+): Promise<TariffPricingInputs> {
+  const { operatorId, netzebene, meteringVariant, window, intervalMinutes } = request
+
+  const [grid, spot] = await Promise.allSettled([
+    operatorId !== null && netzebene !== null
+      ? readGridTariffRowsForAnalysis(supabase, { operatorId, netzebene, meteringVariant, window })
+      : Promise.resolve(null),
+    readSpotPricesForAnalysis(supabase, window, intervalMinutes),
+  ])
+
+  if (grid.status === 'rejected') {
+    console.error('[admin/analysis] Netzentgelte nicht lesbar:', grid.reason)
+  }
+  if (spot.status === 'rejected') {
+    console.error('[admin/analysis] Börsen-Strompreise nicht lesbar:', spot.reason)
+  }
+
+  return {
+    gridTariffRows: grid.status === 'fulfilled' ? grid.value : null,
+    spotPrices: spot.status === 'fulfilled' ? spot.value : null,
+  }
 }

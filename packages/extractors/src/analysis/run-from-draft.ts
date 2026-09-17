@@ -12,14 +12,20 @@ import {
   type ParsedPv,
 } from 'engine'
 import {
+  analysisWindow,
   DEMO_BATTERY_CATALOG,
   DRAFT_ANALYSIS_HORIZON_YEARS,
   findUnsupportedAnalysisDraftKeys,
+  hasMeteringVariant,
+  NETZBETREIBER_DRAFT_KEY,
+  parseNetzebeneDraftValue,
   PV_GENERATED_DRAFT_KEYS,
   PV_GENERATED_PROFILE_SOURCE,
   PV_UPLOAD_DRAFT_KEYS,
   type AnalysisResult,
+  type AnalysisWindow,
   type LoadProfile,
+  type TariffPricingInputs,
 } from 'shared'
 
 import { MAX_LOAD_PROFILE_FILE_BYTES } from '../load-profile/limits'
@@ -94,6 +100,42 @@ export type ProjectDocumentFile = {
 export type MeteringPointAnalysisPorts = {
   readMeteringPoint: (meteringPointId: string) => Promise<MeteringPointAnalysisSource | null>
   readDocument: (documentId: string) => Promise<ProjectDocumentFile | null>
+  /**
+   * Die zwei Preisseiten des Drei-Wege-Vergleichs (Delta 4/15) — OPTIONAL, und das ist die Aussage.
+   *
+   * ── ⚠ NICHT GESETZT HEISST „NICHT ANGEFORDERT", NICHT „NICHT LESBAR" ────────────────────────
+   * Ohne diesen Port bleibt `payload.tariffPricing` `undefined`, und `computeAnalysis` rechnet
+   * unverändert mit dem statischen Fenster-Schema (s. `TariffPricingInputs`: das Vorhandensein des
+   * Objekts IST die Anforderung). Ein leeres Objekt statt `undefined` einzusetzen wäre etwas
+   * anderes — es hiesse „angefordert, aber beide Seiten nicht lesbar" und kennzeichnete den Hebel
+   * im Report als nicht berechenbar, obwohl ihn niemand verlangt hat. Bestehende Aufrufer ohne
+   * diesen Port (Prüfstand, Tests) behalten damit Wort für Wort ihr bisheriges Verhalten.
+   *
+   * ⚠ DER PORT WIRFT NICHT FÜR EINE EINZELNE SEITE. Scheitert eine der beiden Abfragen, gehört an
+   * ihre Stelle `null` — der Hebel ist dann nicht berechenbar, Peak Shaving und Eigenverbrauch
+   * sind es weiterhin. Ein geworfener Fehler brächte die ganze Analyse zu Fall, weil eine
+   * Vergleichsseite fehlt.
+   */
+  fetchTariffPricing?: (request: TariffPricingRequest) => Promise<TariffPricingInputs>
+}
+
+/**
+ * Wonach der Lauf die Preisseiten fragt — alles aus dem Entwurf und dem GERECHNETEN Lastgang
+ * abgeleitet, damit der Port selbst nichts mehr zu entscheiden hat.
+ *
+ * `operatorId`/`netzebene` sind `null`, solange der Entwurf sie nicht (brauchbar) trägt: ohne
+ * Netzbetreiber gibt es keine Tarifzeile, und eine Abfrage mit erfundenen Parametern lieferte
+ * entweder nichts oder — schlimmer — die Zeile eines fremden Betreibers.
+ */
+export type TariffPricingRequest = {
+  operatorId: string | null
+  netzebene: number | null
+  /** `null` bei Netzebenen ohne Varianten (NE 3–6) — dort wird auf `IS NULL` gefiltert. */
+  meteringVariant: string | null
+  /** Der Zeitraum des Lastgangs (Delta 15 Regel A), beide Grenzen inklusiv. */
+  window: AnalysisWindow
+  /** Für den Aufschlag auf das Abfrage-Ende der Marktpreise — s. `readSpotPricesForAnalysis`. */
+  intervalMinutes: number
 }
 
 /**
@@ -172,6 +214,12 @@ export class MeteringPointAnalysisError extends Error {
  * ⚠ AUCH DAS ERZEUGTE STANDARDPROFIL IST NOCH KEIN EINGANG: es hat ebenfalls keine Datei, und die
  * Kurve entstünde aus dem Jahresverbrauch im Entwurf neu. Das ist ein eigener Weg mit eigener
  * Kennzeichnung im Report, kein Sonderfall dieses hier.
+ *
+ * ── DER DREI-WEGE-VERGLEICH HÄNGT AM DRITTEN PORT ─────────────────────────────────────────────
+ * Ist `fetchTariffPricing` gesetzt, werden Netzentgelte und Marktpreise für GENAU den Zeitraum des
+ * gerechneten Lastgangs geholt und als `payload.tariffPricing` übergeben. Es gibt dafür keinen
+ * Nutzer-Haken: im Wizard-Pfad wird der Hebel immer versucht, und ob er berechenbar ist, entscheidet
+ * der Datenbestand — nicht eine Voreinstellung.
  */
 export async function runAnalysisFromMeteringPointDraft(
   meteringPointId: string,
@@ -247,11 +295,14 @@ export async function runAnalysisFromMeteringPointDraft(
   }
 
   /*
-   * ⚠ DIE NICHT GESETZTEN FELDER SIND DIE AUSSAGE DIESES WEGS. `financial`, `tariffPricing` und
-   * `estimatedPv` bleiben `undefined` und damit bei dem Verhalten, das `computeAnalysis` für „nicht
-   * angefordert" vorsieht (keine Förderrechnung, kein Tarifoptimierungs-Hebel, keine geschätzte
-   * Erzeugung). Ein Platzhalter an einer dieser Stellen wäre eine Behauptung über etwas, das nie
-   * erhoben wurde. `pv: null` heisst dasselbe für die Brutto-PV: keine Datei, keine Reihe.
+   * ⚠ DIE NICHT GESETZTEN FELDER SIND DIE AUSSAGE DIESES WEGS. `financial` und `estimatedPv` bleiben
+   * `undefined` und damit bei dem Verhalten, das `computeAnalysis` für „nicht angefordert" vorsieht
+   * (keine Förderrechnung, keine geschätzte Erzeugung). Ein Platzhalter an einer dieser Stellen wäre
+   * eine Behauptung über etwas, das nie erhoben wurde. `pv: null` heisst dasselbe für die Brutto-PV:
+   * keine Datei, keine Reihe.
+   *
+   * ⚠ `tariffPricing` STEHT SEIT DEM DREI-WEGE-VERGLEICH NICHT MEHR IN DIESER LISTE — es entsteht
+   * genau dann, wenn der Aufrufer den `fetchTariffPricing`-Port mitgibt, und fehlt sonst weiterhin.
    *
    * ⚠ `sourceBytes` reist bewusst NICHT mit: es dient allein der Prüfsumme des Analyse-Bündels
    * (B14-2), und dieser Weg exportiert keines. Mitgeführt hielte es die volle Datei zusätzlich zum
@@ -277,13 +328,22 @@ export async function runAnalysisFromMeteringPointDraft(
       ? null
       : await readCoupledGeneratedPvSeries(ports, generatedSeriesDocumentId, parsed)
 
+  /*
+   * ⚠ EINE EINZIGE ABLEITUNG DES GERECHNETEN LASTGANGS, und alles Weitere hängt an dieser Variablen
+   * — der Payload, das Preis-Zeitfenster und der Rückgabewert. Ein zweites `estimatedPv?.profile ??
+   * parsed.profile` an der Stelle, an der das Fenster entsteht, wäre heute dieselbe Reihe und beim
+   * nächsten Umbau vielleicht nicht mehr: die Preise lägen dann auf einem anderen Zeitraum als die
+   * Messwerte, und das Ergebnis sähe vollständig aus.
+   */
+  const loadProfile = estimatedPv?.profile ?? parsed.profile
+
   const payload: CalculatorPayload = {
     tariff: mapDraftToTariffParams(point.draft, options),
     load: {
       fileName: document.fileName,
       // ⚠ Die `dataQuality` bleibt die des URSPRUNGSLASTGANGS: die Kopplung legt Werte auf
       // dieselben Zeitstempel, sie verändert weder Abdeckung noch Lücken.
-      profile: estimatedPv?.profile ?? parsed.profile,
+      profile: loadProfile,
       dataQuality: existingBattery.warning
         ? {
             ...parsed.dataQuality,
@@ -293,6 +353,7 @@ export async function runAnalysisFromMeteringPointDraft(
     },
     pv: estimatedPv?.pv ?? (await readPvProfileFromDraft(point.draft, ports)),
     existingBattery: existingBattery.input,
+    ...(await readTariffPricing(ports.fetchTariffPricing, point.draft, loadProfile)),
   }
 
   return {
@@ -318,6 +379,52 @@ function readGeneratedSeriesDocumentId(draft: Record<string, unknown>): string |
   const documentId = draft[PV_GENERATED_DRAFT_KEYS.documentId]
   if (typeof documentId !== 'string' || documentId.trim() === '') return null
   return documentId
+}
+
+/**
+ * Die zwei Preisseiten holen — oder gar nicht erst fragen.
+ *
+ * Das Ergebnis ist ein PAYLOAD-AUSSCHNITT (`{}` oder `{ tariffPricing }`) und kein Wert, der
+ * `undefined` sein kann: `tariffPricing: undefined` ausdrücklich in den Payload zu schreiben ist für
+ * `computeAnalysis` dasselbe wie es wegzulassen, aber beim Lesen sieht es aus wie eine gescheiterte
+ * Abfrage. Weggelassen ist es eine nicht gestellte Frage.
+ *
+ * ── ⚠ DIE MESSVARIANTE WIRD HIER ENTSCHIEDEN, NICHT DURCHGEREICHT ─────────────────────────────
+ * Bei NE 3–6 steht in `grid_tariffs.metering_variant` `null`, und die Abfrage filtert dort auf
+ * `IS NULL` (B21-1, `nulls not distinct`). Ein aus dem Entwurf mitgeschickter Wert fände dort
+ * KEINE Zeile — der Hebel fiele mit „keine Netzentgelt-Daten" aus, obwohl sie gepflegt ist. Die
+ * Regel ist `hasMeteringVariant` (`shared`) und ausdrücklich dieselbe, die die Oberfläche des
+ * öffentlichen Rechners benutzt; ein eigenes Kriterium hier liefe beim nächsten Preisblatt
+ * auseinander.
+ */
+async function readTariffPricing(
+  fetchTariffPricing: MeteringPointAnalysisPorts['fetchTariffPricing'],
+  draft: Record<string, unknown>,
+  loadProfile: LoadProfile,
+): Promise<{ tariffPricing?: TariffPricingInputs }> {
+  if (fetchTariffPricing === undefined) return {}
+
+  // Ohne Messwerte gibt es kein Fenster (Delta 15 Regel A) — und ein erfundenes wäre schlimmer als
+  // keins. Der Lauf rechnet dann wie ohne Port; `computeAnalysis` scheitert ohnehin an anderem.
+  const window = analysisWindow(loadProfile)
+  if (window === null) return {}
+
+  const operator = draft[NETZBETREIBER_DRAFT_KEY]
+  const netzebene = parseNetzebeneDraftValue(draft.netzebene)
+  const meteringVariant = draft.meteringVariant
+
+  return {
+    tariffPricing: await fetchTariffPricing({
+      operatorId: typeof operator === 'string' && operator.trim() !== '' ? operator : null,
+      netzebene,
+      meteringVariant:
+        netzebene !== null && hasMeteringVariant(netzebene) && typeof meteringVariant === 'string'
+          ? meteringVariant
+          : null,
+      window,
+      intervalMinutes: loadProfile.intervalMinutes,
+    }),
+  }
 }
 
 /**
