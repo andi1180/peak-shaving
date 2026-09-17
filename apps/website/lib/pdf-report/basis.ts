@@ -920,6 +920,212 @@ function buildTariffComponents(input: PdfReportInput): ReportTable {
 }
 
 /* ────────────────────────────────────────────────────────────────────────────────────────────────
+ * 7 — die Berechnungsmethodik je Kennzahl (D9 Punkt 3)
+ * ──────────────────────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * D9 — ein Absatz je Kennzahl: welche Formel und welche Annahme dahinterstehen.
+ *
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * ⚠ DIE SÄTZE SIND AUS DEM CODE ABGELEITET, NICHT AUS DEM URBANZ-ANHANG ÜBERNOMMEN
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * Das Referenz-PDF beschreibt an mehreren Stellen ein anderes oder ein inzwischen geändertes
+ * Verfahren (die Preisschwelle etwa ist seit 02.09.2026 das Tages- und nicht mehr das
+ * Perioden-Mittel, `tou.ts`). Eine abgeschriebene Methodik wäre die gefährlichste Sorte Fehler in
+ * diesem Kapitel: sie sähe wie eine Erklärung aus und beschriebe eine Rechnung, die nicht
+ * stattgefunden hat. Fundstellen je Absatz stehen deshalb im Kommentar darüber.
+ *
+ * ── ⚠ EIN ABSATZ ENTSTEHT NUR, WO DIE KENNZAHL DIESEN REPORT AUCH ERREICHT ────────────────────
+ * Die beiden Tarifzeilen gibt es genau dann, wenn der Vergleich berechenbar war; die Ladesteuerung
+ * zusätzlich nur mit einem durchgerechneten Speicher, der PV-Befund nur dort, wo er oben steht.
+ * Eine Methodik zu einer Zahl, die im Dokument nirgends vorkommt, beantwortete eine Frage, die
+ * niemand stellt — und liesse den Leser die Zahl suchen.
+ */
+export type BasisMethodItem = {
+  /** Stabil — zur Wiedererkennung in Prüfläufen, nicht im Dokument sichtbar. */
+  id: string
+  /** Die Kennzahl, so benannt wie an der Stelle, an der sie im Report steht. */
+  title: string
+  body: string
+}
+
+/**
+ * Die zwei Tarifzeilen — Fundstelle `buildMonthlyTariffComparison` (`monthly-tariff-comparison.ts`).
+ *
+ * ⚠ Beide Zeilen entstehen aus DERSELBEN Funktion mit unterschiedlicher Energiepreis-Eingabe; die
+ * Netzseite ist bit-genau dieselbe. Genau das sagen die beiden Absätze auch, und in dieser
+ * Reihenfolge: der zweite verweist auf den ersten, statt die Formel ein zweites Mal auszuschreiben.
+ */
+function tariffMethodItems(): BasisMethodItem[] {
+  return [
+    {
+      id: 'method_current_tariff',
+      title: 'Ihr Tarif heute',
+      body:
+        'Viertelstunde für Viertelstunde: Ihr Netzbezug multipliziert mit dem Preis dieser ' +
+        'Viertelstunde — Ihr Arbeitspreis plus das Netzentgelt des Zeitfensters, in das sie fällt, ' +
+        'plus der Netzverlustaufschlag. Dazu die verbrauchsunabhängigen Gebühren: die Grundgebühr ' +
+        'Ihres Lieferanten und der Netz-Grundpreis, beide tagesanteilig nach den tatsächlich ' +
+        'belegten Kalendertagen und nie als voller Monatsbetrag. Eingespeiste Viertelstunden werden ' +
+        'mit Ihrer Einspeisevergütung gegengerechnet. Der Leistungspreis steht bewusst nicht darin — ' +
+        'er ist die eigene Jahreszahl weiter vorne und würde hier ein zweites Mal zählen.',
+    },
+    {
+      id: 'method_spot_uncontrolled',
+      title: 'aWATTar ohne Steuerung',
+      body:
+        'Dieselbe Rechnung über dieselben Viertelstunden, nur tritt an die Stelle Ihres festen ' +
+        'Arbeitspreises der Börsenpreis der jeweiligen Stunde. Netzentgelt, Netzverlustaufschlag ' +
+        'und Netz-Grundpreis sind identisch — sie hängen an Ihrem Anschluss und nicht an Ihrem ' +
+        'Lieferanten; statt der Grundgebühr Ihres Lieferanten steht die von aWATTar. Gerechnet wird ' +
+        'auf dem rohen Lastgang: es wird nichts verschoben und nichts gespeichert.',
+    },
+  ]
+}
+
+/**
+ * Die Ladesteuerung — Fundstellen `cheapAgainstDailyMean` (`tou.ts`), `dailyPriceOrder`
+ * (`daily-price-order.ts`) und `runCombinedDispatch` (`dispatch.ts`).
+ *
+ * ── ⚠ „MITTEL" UND NICHT „MEDIAN", UND DAS IST DER SATZ, AUF DEN ES ANKOMMT ───────────────────
+ * Die Schwelle ist das arithmetische Mittel der Intervallpreise des jeweiligen lokalen
+ * Kalendertags. Ein Median stünde bei einer schiefen Preiskurve an einer anderen Stelle und
+ * markierte andere Stunden als günstig — eine hier hingeschriebene Verwechslung beschriebe eine
+ * Steuerung, die so nie gefahren wurde.
+ *
+ * ⚠ ES WIRD KEIN VERFAHREN ERWÄHNT, GEGEN DAS DIESE REGEL SICH ABGRENZEN LIESSE. Der Absatz sagt,
+ * WAS gerechnet wurde, und benennt es als Heuristik. Ein Hinweis auf ein rechnerisch bestmögliches
+ * Gegenstück wäre eine Aussage über eine Zahl, die dieser Report nicht enthält (Prinzip 5: jede
+ * Kernzahl nachvollziehbar — nicht jede denkbare Zahl erwähnt).
+ */
+function loadControlMethodItem(): BasisMethodItem {
+  return {
+    id: 'method_load_control',
+    title: 'Mit Ladesteuerung',
+    body:
+      'Eine Viertelstunde gilt als günstig, wenn ihr Preis unter dem arithmetischen Mittel aller ' +
+      'Viertelstundenpreise ihres eigenen Kalendertags liegt — das Mittel wird für jeden Tag nach ' +
+      'Ortszeit neu gebildet, nicht einmal über den ganzen Zeitraum. In diesen Viertelstunden lädt ' +
+      'der Speicher aus dem Netz. Zwei zusätzliche Schranken gelten dabei jeweils bis zum Tagesende: ' +
+      'Kapazität, die eine später am selben Tag noch günstigere Stunde braucht, bleibt frei, und ' +
+      'Energie, die eine später noch teurere Stunde nutzt, bleibt liegen. Daraus entsteht ein ' +
+      'einziger, chronologischer Fahrplan über den gesamten Zeitraum, mit mitgeführtem Ladezustand ' +
+      'und Wirkungsgradverlust; der Schutz Ihrer Lastspitzen hat darin immer Vorrang vor dem Preis. ' +
+      'Das ist eine Faustregel (Heuristik), die je Viertelstunde entscheidet, und keine Zusicherung ' +
+      'für den einzelnen Tag.',
+  }
+}
+
+/**
+ * Der PV-Befund — Fundstelle `detectPvOutageMonths` (`pv-anomaly/outage-months.ts`).
+ *
+ * ⚠ EIN Satz, und er nennt das Signal in der Richtung, in der es gemessen wird: gesucht ist das
+ * FEHLEN des erwarteten Mittagseinbruchs, nicht eine lange Strecke nahe null. Die Verwechslung
+ * liegt nahe (beides heisst umgangssprachlich „da ist nichts") und führt beim Leser zur falschen
+ * Gegenprobe — er sähe in seinen Daten nach etwas, das der Befund gar nicht gezählt hat.
+ */
+function pvOutageMethodItem(): BasisMethodItem {
+  return {
+    id: 'method_pv_outage',
+    title: 'Monate ohne erkennbaren PV-Beitrag',
+    body:
+      'Der Befund misst eine Abwesenheit: gemeldet wird ein Monat, in dem Ihr Netzbezug im ' +
+      'Mittagsfenster an keinem einzigen Tag gegen null geht, obwohl eine PV-Anlage angegeben ist ' +
+      'und andere Monate desselben Lastgangs diesen Einbruch sehr wohl zeigen — nicht etwa eine ' +
+      'lange Strecke nahe null, die für sich genommen nichts über die Anlage aussagt.',
+  }
+}
+
+/** Die Liste. Leer heisst: keine der vier Kennzahlen hat diesen Report erreicht — s. Kopf. */
+function buildMethodPerMetric(
+  analysis: PdfReportAnalysis,
+  pvOutage: ReportNotice | null,
+): BasisMethodItem[] {
+  const items: BasisMethodItem[] = []
+
+  /*
+   * ⚠ Dieselbe Bedingung wie überall sonst im Dokument (`detail.ts`, `summary.ts`, `supplierFeeRow`
+   * eine Sektion weiter oben): erst `computable === true` gibt es den Monatsvergleich, und nur mit
+   * ihm stehen die beiden Tarifzeilen irgendwo im Report.
+   */
+  const comparable = analysis.tariffOptimization?.computable === true
+  if (comparable) items.push(...tariffMethodItems())
+
+  /*
+   * ⚠ ZWEI Bedingungen, und die zweite ist die leicht zu übersehende: die Tages-Preisschwelle und
+   * die Tages-Rangfolge entstehen ausschliesslich im Zweig mit echter Preiskurve
+   * (`simulate.ts`: `rates.tariffOptimization?.computable === true`). Beim statischen HT/NT-Fenster
+   * wird gegen den Standardpreis gemessen und gar keine Rangfolge gebildet — der Absatz beschriebe
+   * dort eine Steuerung, die so nicht gelaufen ist.
+   */
+  if (comparable && primaryEntryOf(analysis)) items.push(loadControlMethodItem())
+
+  /* Am HINWEIS gemessen und nicht an `hasPv`/`pvOutageMonths`: eine Bedingung, ein Ort. */
+  if (pvOutage) items.push(pvOutageMethodItem())
+
+  return items
+}
+
+/* ────────────────────────────────────────────────────────────────────────────────────────────────
+ * 8 — die bekannten Einschränkungen (D9)
+ * ──────────────────────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * D9 — was in diesen Zahlen nicht steckt, in der Form, in der ein Leser es braucht.
+ *
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * ⚠ ER STEHT IN JEDEM REPORT, UND DAS IST DER UNTERSCHIED ZU DEN DREI HINWEISEN DARÜBER
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * Datenqualität, Blocker-Befund und PV-Hinweis melden eine Eigenschaft DIESES Datensatzes und
+ * schweigen, wo es nichts zu melden gibt (s. dort). Die Einschränkungen hier sind Eigenschaften
+ * der RECHNUNG selbst: sie gelten unabhängig davon, was hochgeladen wurde, und sind genau dann am
+ * teuersten, wenn niemand sie erwähnt — ein Report ohne den Netto-Satz lässt den Leser seine
+ * Jahresrechnung gegen eine Zahl halten, die etwas anderes zählt.
+ *
+ * ⚠ `tone: 'neutral'` und nicht `warning`: hier ist nichts schiefgegangen. Ein gelber Kasten neben
+ * einer korrekt gerechneten Nettozahl läse sich wie ein Mangel des Datensatzes.
+ *
+ * ── ⚠ DER MITTLERE PUNKT IST BEDINGT UND ERSCHEINT HEUTE IN KEINEM REPORT ─────────────────────
+ * `AnalysisResult.annualProjection` (D6 Teil 2b) ist gerechnet, aber von keinem Weg in eine
+ * Übergabe an dieses Dokument verdrahtet — das ist D4/D10 und ausdrücklich nicht dieser Schritt.
+ * Die Bedingung steht trotzdem hier und nicht als Kommentar „später ergänzen": am Tag der
+ * Verdrahtung entsteht der Satz von selbst, und niemand muss daran denken. Umgekehrt darf er nicht
+ * unbedingt stehen — eine Hochrechnung zu erwähnen, die der Report nicht zeigt, schickte den Leser
+ * nach einer Zahl suchen, die es nicht gibt.
+ */
+function buildLimitations(analysis: PdfReportAnalysis): ReportNotice {
+  const hints: string[] = [
+    'Gerechnet wird durchgängig netto. Verbrauchsabgaben — Elektrizitätsabgabe, ' +
+      'EAG-Förderbeitrag und, wo sie anfällt, die Gebrauchsabgabe — sind in keiner Zahl dieses ' +
+      'Reports enthalten; Ihr tatsächlicher Rechnungsbetrag liegt entsprechend höher.',
+  ]
+
+  if (analysis.annualProjection) {
+    hints.push(
+      'Die Jahres-Hochrechnung bewertet die nicht gemessenen Tage mit einer bewusst konservativen ' +
+        'oberen Schranke aus dem kältesten verfügbaren Zeitraum (Dezember, Jänner, Februar; ' +
+        'ersatzweise dem verbrauchsstärksten Monat) — nicht mit einem Jahresmittelwert. Sie ist ' +
+        'damit eher zu hoch als zu niedrig angesetzt.',
+    )
+  }
+
+  hints.push(
+    'Die Tabelle „Tarifkomponenten" zeigt die erfassten Parameter, nicht alle in der Rechnung ' +
+      'verwendeten: einzelne Grössen fliessen ein, ohne eine eigene Zeile zu tragen — die ' +
+      'Mindestleistung etwa, die den abgerechneten Leistungswert nach unten begrenzt.',
+  )
+
+  return {
+    id: 'limitations',
+    tone: 'neutral',
+    title: 'Bekannte Einschränkungen',
+    body: 'Damit die Zahlen dieses Reports richtig gelesen werden, gehört Folgendes dazugesagt.',
+    list: null,
+    hints,
+  }
+}
+
+/* ────────────────────────────────────────────────────────────────────────────────────────────────
  * Das Kapitel
  * ──────────────────────────────────────────────────────────────────────────────────────────── */
 
@@ -943,18 +1149,34 @@ export type BasisChapter = {
   tariffComponents: ReportTable
   /** D9 — die Datenquellen-Tabelle. Steht immer; wo nichts belegt ist, sagt sie das. */
   dataSources: ReportTable
+  /**
+   * D9 — ein Absatz je Kennzahl, die diesen Report tatsächlich erreicht. Leere Liste = keine; dann
+   * entfällt auch die Überschrift (`document.tsx`), statt über einer Leerstelle zu stehen.
+   */
+  methodPerMetric: BasisMethodItem[]
+  /** D9 — was die Rechnung selbst nicht enthält. Steht IMMER, unabhängig vom Datensatz. */
+  limitations: ReportNotice
 }
 
 export function buildBasisChapter(input: PdfReportInput): BasisChapter {
+  /*
+   * ⚠ EINMAL GEBAUT, ZWEIMAL GELESEN: der Methodik-Absatz zum PV-Befund hängt am HINWEIS und nicht
+   * an dessen Vorbedingungen. Zwei getrennte Auswertungen derselben zwei Bedingungen liefen beim
+   * nächsten Umbau auseinander — und dann stünde eine Methodik zu einem Befund, der fehlt.
+   */
+  const pvOutage = buildPvOutage(input.hasPv, input.pvOutageMonths)
+
   return {
     assumptions: buildAssumptions(input.analysis),
     dataQuality: buildDataQuality(input.analysis),
     blocker: buildBlocker(input.analysis, timeZoneOf(input.loadProfile)),
-    pvOutage: buildPvOutage(input.hasPv, input.pvOutageMonths),
+    pvOutage,
     tariffSource: buildTariffSource(input.tariffSource, input.netzbetreiber),
     tariffVintage: input.tariffVintage,
     tariffComponents: buildTariffComponents(input),
     dataSources: buildDataSources(input),
+    methodPerMetric: buildMethodPerMetric(input.analysis, pvOutage),
+    limitations: buildLimitations(input.analysis),
   }
 }
 

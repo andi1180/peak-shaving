@@ -96,6 +96,19 @@ import type {
  *
  * Nur `dataQuality` fehlte; die übrigen fünf standen bereits hier. Der vierte Hinweis dieser Seite
  * — das Standardprofil — hängt an `loadProfile.source` und damit nicht am Ergebnis, s. unten.
+ *
+ * ── D9: DER TYP WÄCHST UM GENAU EIN FELD — `annualProjection`, AUSGEZÄHLT ────────────────────
+ * Der Einschränkungs-Hinweis des Schlusskapitels (`basis.ts`, `buildLimitations`) trägt einen
+ * bedingten Punkt über die Jahres-Hochrechnung, und die Bedingung IST dieses Feld. Alles Übrige,
+ * was die beiden neuen D9-Abschnitte lesen, stand bereits hier: `tariffOptimization` (ob der
+ * Tarifvergleich berechenbar war), `perBattery`/`recommendation`/`existingBatteryAnalysis` (ob ein
+ * Speicher durchgerechnet wurde). Der PV-Befund hängt an `hasPv`/`pvOutageMonths` und damit nicht
+ * am Ergebnis.
+ *
+ * ⚠ HEUTE SETZT ES KEIN AUFRUFER. Die Hochrechnung ist gerechnet (D6 Teil 2b), aber von keinem Weg
+ * in eine Übergabe an dieses Dokument verdrahtet — das ist D4/D10. Das Feld steht trotzdem hier und
+ * nicht als Kommentar „später ergänzen": es ist die Bedingung, unter der der Satz von selbst
+ * entsteht, sobald die Verdrahtung kommt.
  */
 export type PdfReportAnalysis = Pick<
   AnalysisResult,
@@ -105,6 +118,7 @@ export type PdfReportAnalysis = Pick<
   | 'assumptions'
   | 'tariffOptimization'
   | 'existingBatteryAnalysis'
+  | 'annualProjection'
   | 'dataQuality'
 >
 
