@@ -23,7 +23,33 @@ import { buildDispatchTrace } from '../simulation/trace'
  * ungeeignete Kandidaten (z. B. zu schwach) bekommen eine echte Simulation samt erklärender
  * Warnung — Transparenz statt stilles Weglassen (Prinzip 5).
  */
-export type RecommendationResult = Pick<AnalysisResult, 'perBattery' | 'recommendation'>
+export type RecommendationResult = Pick<AnalysisResult, 'perBattery' | 'recommendation'> & {
+  /**
+   * Netzbezug nach dem Dispatch des EMPFOHLENEN Kandidaten (signiert, + = Bezug) — die
+   * Eingangsgrösse der Monatsreihe „aWATTar mit der empfohlenen Batterie" (D7).
+   *
+   * ⚠ Rückgabewert und ausdrücklich KEIN Contract-Feld, exakt wie `ExistingBatteryOutcome`
+   * (`compute-analysis.ts`) es für die bestehende Anlage vormacht: eine Rohreihe mit bis zu 35.040
+   * Werten im `AnalysisResult` wäre eine zweite, ungenutzte Kopie des Dispatchs — derselbe Grund,
+   * aus dem `DispatchTrace` den Lastgang nicht dupliziert.
+   *
+   * ⚠ Nur der EINE bestgereihte Kandidat. Die Reihen der übrigen Katalog-Geräte entstehen im
+   * selben Lauf (sie fallen bei jeder Simulation ohnehin an) und werden nach der Sortierung
+   * verworfen; sie wandern nicht mit heraus.
+   */
+  recommendedGridAfterKw: number[]
+}
+
+/**
+ * Ein Katalog-Kandidat, wie ihn dieses Modul intern führt: der Contract-Eintrag und die Reihe, die
+ * nicht in den Contract darf. Sortiert wird über die Paare, nicht über die Einträge — sonst wäre
+ * nach dem Sortieren nicht mehr auffindbar, welche Reihe zum Sieger gehört, und ein zweiter Lauf
+ * nur für sie wäre eine zweite Simulation derselben Batterie.
+ */
+type PerBatteryOutcome = {
+  entry: AnalysisResult['perBattery'][number]
+  gridAfterKw: number[]
+}
 
 /** Toleranz für den "Leistung reicht nicht"-Heuristikvergleich (kW) — s. `isPowerLimited`. */
 const POWER_LIMIT_TOLERANCE_KW = 1e-2
@@ -86,7 +112,7 @@ function buildPerBatteryEntry(
   topPeaks: Array<{ ts: string; kw: number }>,
   pvProfile: PvProfile | undefined,
   pricing: TariffPricingInputs | undefined,
-): AnalysisResult['perBattery'][number] {
+): PerBatteryOutcome {
   // PvProfile ändert Dispatch/Ersparnis NICHT (s. `simulateBattery`) — es reichert nur den Trace um die
   // echte Brutto-PV an. `computeBatterySavings` nutzt denselben `sim` (dessen Dispatch pv-unabhängig ist).
   //
@@ -99,7 +125,7 @@ function buildPerBatteryEntry(
   const roi = calculateRoi(battery, savings.totalSavingPerYear, horizonYears, financialParams)
   const powerLimited = isPowerLimited(loadProfile, battery, tariffParams, sim.capKwByPeriod)
 
-  return {
+  const entry = {
     battery,
     newBilledKw: savings.newBilledKw,
     leistungspreisSavingPerYear: savings.leistungspreisSavingPerYear,
@@ -116,6 +142,10 @@ function buildPerBatteryEntry(
     // profil- (nicht batterie-)abhängig → in `recommendBattery` einmal gerechnet, hier injiziert.
     dispatchTrace: buildDispatchTrace(loadProfile, tariffParams, sim, topPeaks),
   }
+
+  // Die Reihe stammt aus DEMSELBEN `sim`-Lauf wie der Eintrag darüber (kein zweiter Dispatch) und
+  // reist ausserhalb des Contracts mit — s. `RecommendationResult.recommendedGridAfterKw`.
+  return { entry, gridAfterKw: sim.dispatch.gridAfterKw }
 }
 
 function formatAmortization(amortizationYears: number): string {
@@ -159,20 +189,25 @@ export function recommendBattery(
   // Top-Peaks (§3.4) sind profil-, nicht batterieabhängig — einmal für den ganzen Katalog rechnen und
   // je Kandidat in `buildDispatchTrace` injizieren (dieselbe Menge, die `AnalysisResult.peaks.top` zeigt).
   const topPeaks = topPeaksKw(loadProfile)
-  const perBattery = catalog.map((battery) =>
+  const outcomes = catalog.map((battery) =>
     buildPerBatteryEntry(loadProfile, battery, tariffParams, horizonYears, financialParams, topPeaks, pvProfile, pricing),
   )
 
-  perBattery.sort((a, b) =>
-    b.netSavingOverHorizon !== a.netSavingOverHorizon
-      ? b.netSavingOverHorizon - a.netSavingOverHorizon
-      : a.amortizationYears - b.amortizationYears,
+  // Unveränderte Regel, nur auf dem Paar statt auf dem Eintrag — s. `PerBatteryOutcome`.
+  outcomes.sort((a, b) =>
+    b.entry.netSavingOverHorizon !== a.entry.netSavingOverHorizon
+      ? b.entry.netSavingOverHorizon - a.entry.netSavingOverHorizon
+      : a.entry.amortizationYears - b.entry.amortizationYears,
   )
 
   // Invariante: ein leerer Katalog kann keine Empfehlung erzeugen — `recommendBattery` setzt
   // (wie der §3.8-Prompt) mindestens einen Kandidaten voraus.
-  const top = perBattery[0]!
-  const recommendation = { batteryId: top.battery.id, rationale: buildRationale(top, horizonYears) }
+  const top = outcomes[0]!
+  const perBattery = outcomes.map((o) => o.entry)
+  const recommendation = {
+    batteryId: top.entry.battery.id,
+    rationale: buildRationale(top.entry, horizonYears),
+  }
 
-  return { perBattery, recommendation }
+  return { perBattery, recommendation, recommendedGridAfterKw: top.gridAfterKw }
 }

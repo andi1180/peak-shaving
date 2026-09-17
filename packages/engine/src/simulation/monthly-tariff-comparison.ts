@@ -126,7 +126,9 @@ function annualFlatNetworkFeeEur(row: GridTariffRowInput | null): number {
  * Preisseiten den ganzen Zeitraum abdecken. Der Zweig steht trotzdem — er ist die Zusage, dass
  * hier NIE eine halbe Reihe entsteht, falls ein künftiger Aufrufer die Reihenfolge ändert.
  *
- * @param gridAfterKw Netzbezug nach dem Dispatch der bestehenden Anlage (signiert, + = Bezug).
+ * @param gridAfterKw Netzbezug nach dem Dispatch eines Speichers (signiert, + = Bezug) — der
+ *                     bestehenden Anlage, sonst der empfohlenen Katalog-Batterie (D7). Welcher der
+ *                     beiden, entscheidet der Aufrufer; diese Funktion rechnet für beide gleich.
  */
 export function buildMonthlyTariffComparison(
   loadProfile: LoadProfile,

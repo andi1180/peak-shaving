@@ -141,11 +141,12 @@ function buildHeadline(current: PdfReportAnalysis['current']): SummaryHeadline {
 /**
  * Die Ersparnis — in der Fassung, die zum Fall passt.
  *
- * ⚠ DIE BEDINGUNG DER REALEN FASSUNG IST DAS VORHANDENSEIN VON `monthlyComparison`, sonst nichts.
- * Der Worker setzt es ausschliesslich, wenn der Delta-4-Hebel berechenbar ist UND eine
- * Bestandsanlage vorliegt — exakt die zwei Voraussetzungen dieser Darstellung. Eine hier
- * nachgebaute Zweitprüfung könnte davon abweichen; die Frage „darf ich diese Zahlen zeigen" hat
- * einen Ort (dieselbe Regel wie in `recommendation-card.tsx`).
+ * ⚠ DIE REALE FASSUNG BRAUCHT BEIDES: `monthlyComparison` UND eine Bestandsanlage.
+ * Bis D7 folgte das zweite aus dem ersten — die Engine setzte den Vergleich nur im Bestandsfall.
+ * Seit D7 entsteht er auch aus dem Dispatch der empfohlenen Katalog-Batterie, und dann sind diese
+ * Zeilen die falsche Darstellung: sie verrechnen den Ist-Tarif gegen einen Speicher, den der Kunde
+ * noch gar nicht hat. Die Prüfung auf `existingBatteryAnalysis` unten ist deshalb ab jetzt
+ * tragend und nicht mehr bloss belegend (dieselbe Regel wie in `recommendation-card.tsx`).
  */
 function buildSavings(
   analysis: PdfReportAnalysis,
