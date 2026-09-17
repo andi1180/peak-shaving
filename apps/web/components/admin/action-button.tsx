@@ -32,6 +32,7 @@ export function ActionButton({
   variant = 'secondary',
   confirm,
   showSuccess = false,
+  children,
 }: {
   action: AdminAction
   /** Verborgene Formularwerte (z. B. `{ id, isActive: 'false' }`). */
@@ -54,6 +55,14 @@ export function ActionButton({
    * Landingpage ab sofort 404 antwortet und ein bereits verschickter Link damit ins Leere führt.
    */
   showSuccess?: boolean
+  /**
+   * Zusätzliche Eingaben IM SELBEN Formular, über dem Knopf (Report-Baukasten C).
+   *
+   * ⚠ SIE MÜSSEN HIER STEHEN UND NICHT DANEBEN: was der Knopf auslöst, muss genau das sein, was
+   * der Admin angekreuzt hat. Ein zweites Formular daneben hätte zwei Zustände (angekreuzt /
+   * gerechnet), die auseinanderlaufen können — und die Abweichung sähe man der Übergabe nicht an.
+   */
+  children?: React.ReactNode
 }) {
   const [state, formAction, isPending] = useActionState(action, ADMIN_INITIAL_STATE)
 
@@ -68,6 +77,7 @@ export function ActionButton({
       {Object.entries(fields).map(([name, value]) => (
         <input key={name} type="hidden" name={name} value={value} />
       ))}
+      {children}
       <Button type="submit" variant={variant} size="sm" disabled={isPending}>
         {isPending ? pendingLabel : label}
       </Button>

@@ -1,9 +1,10 @@
+import type { ReportOptionalSection } from 'shared'
+
 import {
   DATA_SOURCES_TABLE_ID,
   TARIFF_COMPONENTS_TABLE_ID,
   buildAssumptions,
   buildBlocker,
-  buildDataQuality,
   buildDataSources,
   buildLimitations,
   buildTariffComponents,
@@ -290,13 +291,14 @@ export function buildReportRegistry(
 
     /* ── Kapitel 8 ─────────────────────────────────────────────────────────────────────────── */
     statement('assumptions', () => buildAssumptions(analysis)),
-    notice('data_quality', () => buildDataQuality(analysis)),
+    /* ⚠ Aus dem Kontext und NICHT neu gebaut: die Datenquellen-Tabelle unten hängt am HINWEIS. */
+    notice('data_quality', () => context.dataQuality),
     notice('tariff_blocker', () => buildBlocker(analysis, timeZoneOf(input.loadProfile))),
     /* ⚠ Aus dem Kontext und NICHT neu gebaut: der PV-Methodik-Absatz unten hängt am HINWEIS. */
     notice('pv_outage', () => context.pvOutage),
     notice('limitations', () => buildLimitations(analysis)),
     table(TARIFF_COMPONENTS_TABLE_ID, () => buildTariffComponents(input)),
-    table(DATA_SOURCES_TABLE_ID, () => buildDataSources(input)),
+    table(DATA_SOURCES_TABLE_ID, () => buildDataSources(input, context.dataQuality !== null)),
 
     /*
      * ⚠ Die beiden Tarif-Absätze entstehen gemeinsam (eine Funktion, zwei Elemente) und werden
@@ -382,3 +384,14 @@ const _idsAreExhaustive: Exclude<ReportBaukastenId, (typeof REPORT_BAUKASTEN_IDS
   ? true
   : never = true
 void _idsAreExhaustive
+
+/*
+ * ⚠ Report-Baukasten C — die vier abwählbaren Bausteine sind eine TEILMENGE dieses Katalogs, und
+ * das steht hier, weil `packages/shared` den Katalog nicht kennen darf (die Liste hat zwei
+ * Konsumenten in zwei Apps, s. `report-sections.ts`). Eine dort umbenannte Kennung ist damit ein
+ * Compile-Fehler und nicht ein Baustein, der sich stillschweigend nicht mehr abwählen lässt.
+ */
+const _optionalSectionsAreKnown: Exclude<ReportOptionalSection, ReportBaukastenId> extends never
+  ? true
+  : never = true
+void _optionalSectionsAreKnown

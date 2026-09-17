@@ -1,9 +1,11 @@
 import type { PvOutageMonth } from 'engine'
 import {
   NETZBETREIBER_IDS,
+  readReportSectionSelection,
   type AnalysisResult,
   type LoadProfile,
   type NetzbetreiberId,
+  type ReportSectionSelection,
 } from 'shared'
 
 import {
@@ -39,8 +41,8 @@ import type {
 /**
  * Die Felder aus `report_input_meta`, die dieser Weg LIEST.
  *
- * ⚠ Der schreibende Schritt legt neun ab (`apps/web/lib/admin/report-render-actions.ts`). Hier
- * stehen sieben — und die zwei übrigen fehlen nicht versehentlich: `meteringPointId`/`projectId`
+ * ⚠ Der schreibende Schritt legt zehn ab (`apps/web/lib/admin/report-render-actions.ts`). Hier
+ * stehen acht — und die zwei übrigen fehlen nicht versehentlich: `meteringPointId`/`projectId`
  * sind Rückverfolgung für den Admin-Bereich und haben auf einem Kundendokument nichts zu suchen.
  *
  * ⚠ `netzbetreiber` STAND BIS ZUM D9-VORGRIFF NICHT HIER, mit der Begründung, er würde eine
@@ -80,6 +82,16 @@ export type ReportRenderMeta = {
    * keine von beiden behauptet einen Preisblatt-Stand.
    */
   tariffProvenance: PdfReportTariffProvenance
+  /**
+   * Report-Baukasten C — welche der vier abwählbaren Bausteine der Admin stehen lassen wollte.
+   *
+   * ⚠ `undefined` heisst ALLE VIER und ist hier nicht bloss Vorsicht: eine Übergabe lebt 24
+   * Stunden, es liegen zum Zeitpunkt jedes Deployments also Zeilen ohne das Feld in der Tabelle.
+   * Fiele die Abwesenheit auf „nichts zeigen", verlöre ein bereits verschickter Report beim Öffnen
+   * vier Bausteine — und niemand sähe, warum. Die leere Liste ist davon unterschieden: sie ist die
+   * ausgeübte Wahl.
+   */
+  optionalSections: ReportSectionSelection
 }
 
 /** Eine gelesene, nicht abgelaufene Übergabe. */
@@ -171,6 +183,7 @@ function readMeta(value: unknown): ReportRenderMeta {
       gridTariffValidFrom: readIsoDates(meta.gridTariffValidFrom),
       invoicePeriods: readInvoicePeriods(meta.invoicePeriods),
     },
+    optionalSections: readReportSectionSelection(meta.optionalSections),
   }
 }
 
@@ -298,6 +311,8 @@ export function buildReportInputFromRenderRequest(
     pvOutageMonths: meta.pvOutageMonths,
     /* D9 — die rohen Herkunftsangaben der Tarifseite; ausgewertet wird im Kapitel (`basis.ts`). */
     tariffProvenance: meta.tariffProvenance,
+    /* Report-Baukasten C — die Admin-Auswahl; `undefined` heisst alle vier (s. `ReportRenderMeta`). */
+    optionalSections: meta.optionalSections,
   }
 }
 

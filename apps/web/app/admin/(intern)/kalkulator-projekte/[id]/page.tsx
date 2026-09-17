@@ -7,6 +7,11 @@ import { AdminError, AdminPanel, AdminSection, Pill, formatDateTime } from '@/co
 import { EnergyAdvisorDialog } from '@/components/admin/energy-advisor-dialog'
 import { ActionButton } from '@/components/admin/action-button'
 import { createReportRenderRequestAction } from '@/lib/admin/report-render-actions'
+import {
+  REPORT_OPTIONAL_SECTIONS_FIELD,
+  REPORT_OPTIONAL_SECTIONS_MARKER,
+  type ReportOptionalSection,
+} from 'shared'
 import { readMeteringPointList } from '@/lib/admin/metering-points'
 import {
   PROJECTS_HREF,
@@ -225,7 +230,8 @@ export default async function AdminProjectDetailPage({
         <AdminPanel>
           <p className="max-w-prose text-small text-text-muted">
             Gerechnet wird unverändert in der Engine. Die Übergabe läuft nach 24 Stunden ab — der
-            Link daneben öffnet sie und erzeugt das PDF.
+            Link daneben öffnet sie und erzeugt das PDF. Die vier Abschnitte unten sind optional;
+            alles Übrige steht in jedem Report.
           </p>
           {meteringPoints === null ? (
             <AdminError>
@@ -253,7 +259,9 @@ export default async function AdminProjectDetailPage({
                     label={`Zählpunkt ${index + 1} rechnen`}
                     pendingLabel="Wird gerechnet …"
                     showSuccess
-                  />
+                  >
+                    <OptionalSections meteringPointId={point.id} />
+                  </ActionButton>
                 </li>
               ))}
             </ul>
@@ -279,5 +287,71 @@ function Angabe({
       <dd className="mt-0.5 text-small text-text">{children}</dd>
       {hint && <p className="mt-0.5 text-caption text-text-muted">{hint}</p>}
     </div>
+  )
+}
+
+/**
+ * Report-Baukasten C — die vier abwählbaren Bausteine, je Zählpunkt.
+ *
+ * ⚠ DIE BESCHRIFTUNGEN SIND NICHT DIE INTERNEN KENNUNGEN. `hour_flow` sagt einem Vertriebler
+ * nichts; „Stunden-Heatmap" beschreibt, was auf dem Blatt steht. Die Kennung reist trotzdem als
+ * Wert mit — sie ist es, die der Report auswertet.
+ *
+ * ⚠ STANDARDMÄSSIG ALLE VIER AKTIV: der Report ist damit derselbe wie vor diesem Schritt, und wer
+ * nichts anfasst, bekommt nichts Unerwartetes.
+ */
+const OPTIONAL_SECTION_LABELS: { id: ReportOptionalSection; label: string; hint: string }[] = [
+  {
+    id: 'hour_flow',
+    label: 'Stunden-Heatmap',
+    hint: 'Wann der Speicher über das Jahr lädt und entlädt.',
+  },
+  {
+    id: 'charge_price',
+    label: 'Ø-Ladepreis je Monat',
+    hint: 'Was der Strom im Schnitt kostet, wenn geladen wird.',
+  },
+  {
+    id: 'data_quality',
+    label: 'Datenqualitäts-Hinweis',
+    hint: 'Meldet Lücken und Auffälligkeiten im Lastgang.',
+  },
+  {
+    id: 'pv_outage',
+    label: 'PV-Auffälligkeit',
+    hint: 'Monate, in denen die PV-Anlage keinen Beitrag gezeigt hat.',
+  },
+]
+
+function OptionalSections({ meteringPointId }: { meteringPointId: string }) {
+  return (
+    <fieldset className="mb-3 border-0 p-0">
+      <legend className="text-caption text-text-muted">Optionale Abschnitte</legend>
+      {/*
+        ⚠ Der Marker unterscheidet „alle vier abgewählt" von „dieses Formular führt die Auswahl
+        gar nicht" — ein unangekreuztes Kontrollkästchen sendet nichts (s. `readOptionalSections`).
+      */}
+      <input type="hidden" name={REPORT_OPTIONAL_SECTIONS_MARKER} value="1" />
+      <ul className="mt-1.5 flex flex-col gap-1">
+        {OPTIONAL_SECTION_LABELS.map(({ id, label, hint }) => {
+          const inputId = `${REPORT_OPTIONAL_SECTIONS_FIELD}-${meteringPointId}-${id}`
+          return (
+            <li key={id} className="flex items-start gap-2">
+              <input
+                id={inputId}
+                type="checkbox"
+                name={REPORT_OPTIONAL_SECTIONS_FIELD}
+                value={id}
+                defaultChecked
+                className="mt-0.5 accent-accent"
+              />
+              <label htmlFor={inputId} className="text-small text-text">
+                {label} <span className="text-caption text-text-muted">— {hint}</span>
+              </label>
+            </li>
+          )
+        })}
+      </ul>
+    </fieldset>
   )
 }

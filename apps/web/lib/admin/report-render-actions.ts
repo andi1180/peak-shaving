@@ -1,7 +1,14 @@
 'use server'
 
 import { MeteringPointAnalysisError, runAnalysisFromMeteringPointDraft } from 'extractors'
-import { NETZBETREIBER_DRAFT_KEY, type GridTariffRowInput } from 'shared'
+import {
+  NETZBETREIBER_DRAFT_KEY,
+  REPORT_OPTIONAL_SECTIONS,
+  REPORT_OPTIONAL_SECTIONS_FIELD,
+  REPORT_OPTIONAL_SECTIONS_MARKER,
+  type GridTariffRowInput,
+  type ReportOptionalSection,
+} from 'shared'
 
 import { externalReportUrl } from '@/lib/config'
 import { createClient } from '@/lib/supabase/server'
@@ -162,7 +169,7 @@ export async function createReportRenderRequestAction(
   }
 
   /*
-   * ⚠ NEUN FELDER, UND KEINES MEHR. `report_input_meta` ist in der Migration bewusst ohne Struktur
+   * ⚠ ZEHN FELDER, UND KEINES MEHR. `report_input_meta` ist in der Migration bewusst ohne Struktur
    * — die legt der SCHREIBENDE Schritt fest, und was hier hineinwandert, ist ab dann die Form, an
    * die sich der Renderer bindet. Deshalb nur, was ein Report ausser Ergebnis und Lastgang
    * nachweislich braucht: die Bezeichnung fürs Deckblatt, der Netzbetreiber als ANGABE (er geht in
@@ -226,6 +233,20 @@ export async function createReportRenderRequestAction(
      */
     gridTariffValidFrom: readGridTariffValidFrom(gridTariffRows),
     invoicePeriods: readInvoicePeriods(point.draft),
+    /*
+     * Report-Baukasten C — die vier Bausteine, die der Admin an der Kachel stehen lassen wollte.
+     *
+     * ⚠ DAS FELD WIRD WEGGELASSEN, WENN DAS FORMULAR DIE AUSWAHL GAR NICHT FÜHRT, und das ist
+     * nicht dasselbe wie eine leere Auswahl: „Feld nicht vorhanden" heisst auf der Leseseite ALLE
+     * VIER, `[]` heisst KEINEN. Ein unangekreuztes Kontrollkästchen sendet nichts, beide Fälle
+     * sähen im `FormData` also gleich aus — der Marker unterscheidet sie (s.
+     * `readOptionalSections`).
+     *
+     * ⚠ ALS WERTE, NICHT ALS VERWEISE — dieselbe Regel wie bei den übrigen Feldern: es gibt
+     * bewusst keine gespeicherte Vorlage, auf die hier gezeigt würde. Sie könnte eine bereits
+     * übergebene Rechnung still umschreiben.
+     */
+    ...readOptionalSections(formData),
     meteringPointId,
     projectId,
   }
@@ -293,4 +314,26 @@ function readInvoicePeriods(
       assumed: extraction.billingPeriodAssumed,
     }))
     .filter((period) => period.from !== null || period.to !== null)
+}
+
+
+/**
+ * Report-Baukasten C — die Auswahl aus dem Formular, oder gar kein Feld.
+ *
+ * ⚠ DER MARKER IST DER GANZE PUNKT. `formData.getAll('optionalSections')` ist leer, wenn der Admin
+ * alle vier abgewählt hat UND wenn das Formular die Kontrollkästchen überhaupt nicht führt (eine
+ * Fassung vor diesem Schritt). Die beiden Fälle sind gegensätzlich — „keinen zeigen" gegen „alle
+ * zeigen" —, und eine Auswahl, die über das verborgene Feld abgeschickt wurde, ist die einzige
+ * Auskunft darüber, welcher davon gilt.
+ *
+ * ⚠ GEFILTERT ÜBER DIE KONSTANTE und nicht bloss durchgereicht: was aus einem Formular kommt, kommt
+ * aus einem Browser. Ein fremder Wert liefe sonst als Kennung in `report_input_meta`, wo ihn die
+ * Leseseite ohnehin verwürfe — nur dass er dort bereits in der eingefrorenen Übergabe stünde.
+ */
+function readOptionalSections(
+  formData: FormData,
+): { optionalSections: ReportOptionalSection[] } | Record<string, never> {
+  if (formData.get(REPORT_OPTIONAL_SECTIONS_MARKER) !== '1') return {}
+  const chosen = formData.getAll(REPORT_OPTIONAL_SECTIONS_FIELD)
+  return { optionalSections: REPORT_OPTIONAL_SECTIONS.filter((id) => chosen.includes(id)) }
 }

@@ -10,6 +10,7 @@ import {
   type LoadProfile,
   type LoadSource,
   type NetzbetreiberId,
+  reportSectionEnabled,
   type TariffPriceRange,
   type TariffSourceRef,
 } from 'shared'
@@ -385,6 +386,36 @@ export function buildPvOutage(
 }
 
 /* ────────────────────────────────────────────────────────────────────────────────────────────────
+ * 3b — Report-Baukasten C: die Admin-Auswahl, für die zwei Bausteine dieses Kapitels
+ * ──────────────────────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * ⚠ DIE AUSWAHL GREIFT AN DER QUELLE DES HINWEISES UND NICHT ERST IM JSX — und das ist der ganze
+ * Grund, warum diese zwei Funktionen existieren.
+ *
+ * Beide Hinweise dieses Kapitels haben je einen ABHÄNGIGEN, der schon heute „am HINWEIS gemessen"
+ * ist und nicht an dessen Vorbedingungen:
+ *   • `data_quality` → die Zelle „Zeitraum / Stand" der Lastgang-Zeile in der Datenquellen-Tabelle
+ *     verweist auf ihn („wie im Datenqualitäts-Hinweis oben", s. `loadProfileRows`);
+ *   • `pv_outage`   → der Methodik-Absatz `method_pv_outage` (s. `buildMethodPerMetric`).
+ *
+ * Erst im Dokument abgeschaltet blieben beide Abhängigen stehen, und dann verwiese ein Satz auf
+ * einen Hinweis, den der Report nicht zeigt — bei der Datenquellen-Tabelle wäre das genau der
+ * Fehler, den PR #273 behoben hat, nur durch die Auswahl reaktiviert. Hier gefiltert tragen die
+ * bestehenden Kopplungen von selbst: eine Bedingung, ein Ort.
+ */
+export function dataQualityNoticeOf(input: PdfReportInput): ReportNotice | null {
+  if (!reportSectionEnabled(input.optionalSections, 'data_quality')) return null
+  return buildDataQuality(input.analysis)
+}
+
+/** Der PV-Befund, wie ihn das Dokument zeigt — Auswahl inbegriffen. S. `dataQualityNoticeOf`. */
+export function pvOutageNoticeOf(input: PdfReportInput): ReportNotice | null {
+  if (!reportSectionEnabled(input.optionalSections, 'pv_outage')) return null
+  return buildPvOutage(input.hasPv, input.pvOutageMonths)
+}
+
+/* ────────────────────────────────────────────────────────────────────────────────────────────────
  * 4 — die Herkunft der Tarifsätze
  * ──────────────────────────────────────────────────────────────────────────────────────────── */
 
@@ -537,9 +568,13 @@ function loadProfileRows(
   coveredDays: number,
   estimatedPv: EstimatedPvSummary | undefined,
   /*
-   * ⚠ DIESELBE BEDINGUNG WIE `buildDataQuality` (`dq.warnings.length > 0`) — der Verweis „wie im
-   * Datenqualitäts-Hinweis oben" gilt nur, wo dieser Hinweis auch steht. Ohne Warnungen entfällt
-   * die Box ganz (s. dort), und der Verweis zeigte auf nichts.
+   * ⚠ AM HINWEIS GEMESSEN, NICHT AN SEINEN VORBEDINGUNGEN — der Verweis „wie im
+   * Datenqualitäts-Hinweis oben" gilt nur, wo dieser Hinweis auch steht.
+   *
+   * ⚠ Bis Baukasten C war das hier `dq.warnings.length > 0`, also eine NACHBILDUNG der Bedingung
+   * von `buildDataQuality`. Seit der Admin den Hinweis abwählen kann, ist die Nachbildung falsch:
+   * sie stellte genau den mit PR #273 behobenen Fehler wieder her, nur über die Auswahl. Der
+   * Aufrufer reicht deshalb durch, OB der Hinweis im Dokument steht (`dataQualityNoticeOf`).
    */
   hasDataQualityNotice: boolean,
 ): ReportTableRow[] {
@@ -757,8 +792,18 @@ function batteryRowsForSources(analysis: PdfReportAnalysis): ReportTableRow[] {
 /** Report-Baukasten B2 — die stabile Kennung dieser Tabelle (s. `CANDIDATE_TABLE_ID`). */
 export const DATA_SOURCES_TABLE_ID = 'table_data_sources'
 
-/** Die Tabelle. Sie steht IMMER — es gibt keinen Report ohne Lastgang, Tarif und Gerätefrage. */
-export function buildDataSources(input: PdfReportInput): ReportTable {
+/**
+ * Die Tabelle. Sie steht IMMER — es gibt keinen Report ohne Lastgang, Tarif und Gerätefrage.
+ *
+ * ⚠ `hasDataQualityNotice` ist der einzige Eingang, der NICHT aus `input` stammt, und das ist
+ * Absicht: gemeint ist „steht der Datenqualitäts-Hinweis in DIESEM Dokument", und darüber
+ * entscheidet seit Baukasten C auch die Admin-Auswahl. Hier ein zweites Mal abgeleitet liefe die
+ * Zelle beim nächsten Umbau gegen den Hinweis daneben aus (s. `loadProfileRows`).
+ */
+export function buildDataSources(
+  input: PdfReportInput,
+  hasDataQualityNotice: boolean,
+): ReportTable {
   return {
     /*
      * ⚠ Die Gewichte sind ein VERHÄLTNIS und keine pt-Angaben (s. `ReportTableColumn.width`). Die
@@ -776,7 +821,7 @@ export function buildDataSources(input: PdfReportInput): ReportTable {
         input.period,
         input.analysis.dataQuality.coveredDays,
         input.estimatedPv,
-        input.analysis.dataQuality.warnings.length > 0,
+        hasDataQualityNotice,
       ),
       ...tariffRows(input.tariffSource, input.tariffProvenance),
       ...batteryRowsForSources(input.analysis),
@@ -1199,18 +1244,26 @@ export function buildBasisChapter(
    * ⚠ `context ? … : …` statt `??` — `pvOutage` ist selbst gültig `null`, und mit `??` entstünde
    * der Hinweis in genau dem Fall ein zweites Mal, in dem es ihn gar nicht gibt.
    */
-  const pvOutage = context ? context.pvOutage : buildPvOutage(input.hasPv, input.pvOutageMonths)
+  const pvOutage = context ? context.pvOutage : pvOutageNoticeOf(input)
   const primaryEntry = context ? context.primaryEntry : primaryEntryOf(input.analysis)
+
+  /*
+   * ⚠ Report-Baukasten C: EINMAL GEBILDET, ZWEIMAL GELESEN — genau wie `pvOutage` darüber und aus
+   * demselben Grund. Die Datenquellen-Tabelle verweist auf diesen Hinweis; zwei getrennte
+   * Auswertungen derselben Bedingung liefen beim nächsten Umbau auseinander, und dann stünde der
+   * Verweis über einer Leerstelle (s. `loadProfileRows`).
+   */
+  const dataQuality = context ? context.dataQuality : dataQualityNoticeOf(input)
 
   return {
     assumptions: buildAssumptions(input.analysis),
-    dataQuality: buildDataQuality(input.analysis),
+    dataQuality,
     blocker: buildBlocker(input.analysis, timeZoneOf(input.loadProfile)),
     pvOutage,
     tariffSource: buildTariffSource(input.tariffSource, input.netzbetreiber),
     tariffVintage: input.tariffVintage,
     tariffComponents: buildTariffComponents(input),
-    dataSources: buildDataSources(input),
+    dataSources: buildDataSources(input, dataQuality !== null),
     methodPerMetric: buildMethodPerMetric(
       input.analysis,
       pvOutage,

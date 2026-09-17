@@ -13,12 +13,23 @@ import { defineConfig } from 'vitest/config'
  *
  * `include` ist deshalb eng gefasst: ein versehentlich hier abgelegter Komponententest soll nicht
  * still mitlaufen und dann an fehlendem jsdom scheitern.
+ *
+ * ── ⚠ EINE AUSNAHME, UND SIE BRAUCHT KEIN DOM: `optional-sections.test.ts` ────────────────────
+ * Sie erzeugt ein echtes PDF (`renderToBuffer` aus `@react-pdf/renderer`). Das ist kein
+ * Renderer-Setup im obigen Sinn — react-pdf schreibt in einen Buffer und fasst weder `document`
+ * noch `window` an; jsdom und Testing Library bleiben weiterhin uneingerichtet. Gemessen wird
+ * dort, was ein Test gegen die Ableitungsschicht nicht sehen kann: ob sich das BLATT ändert.
+ *
+ * `esbuild.jsx` steht dafür auf `automatic`: `tsconfig.json` hält `jsx: "preserve"` (Next
+ * übersetzt selbst), esbuild fiele sonst auf die klassische Form zurück und `document.tsx` bräche
+ * zur Laufzeit mit „React is not defined".
  */
 export default defineConfig({
   // Der `@/`-Alias aus `tsconfig.json` — `basis.ts` zieht darüber `@/lib/format`.
   resolve: {
     alias: { '@': path.resolve(import.meta.dirname, '.') },
   },
+  esbuild: { jsx: 'automatic' },
   test: {
     include: ['lib/pdf-report/*.test.ts'],
   },
