@@ -56,8 +56,9 @@ import type { PdfReportInput } from './types'
  *
  * Gemessen wird das über `reportChartBuildCount()`: `chartBuilds` im Ergebnis ist die Zahl der
  * Rasterungen, die für DIESE Erzeugung tatsächlich gelaufen sind. Seit B23c-3b-2 sind es bis zu
- * SECHS (Lastgang, Kostenvergleich, Tages-Energiefluss, Stunden-Heatmap, Ø-Ladepreis und
- * Grenznutzen-Kurve) — die Zahl folgt also den BILDERN, die das Dokument zeigt, und ausdrücklich
+ * SIEBEN (Lastgang, Kostenvergleich, Monatsvergleich, Tages-Energiefluss, Stunden-Heatmap,
+ * Ø-Ladepreis und Grenznutzen-Kurve; die ersten beiden schliessen einander nie aus, der
+ * Monatsvergleich und der Kostenvergleich in seiner Monatsfassung sehr wohl — s. `detail.ts`) — die Zahl folgt also den BILDERN, die das Dokument zeigt, und ausdrücklich
  * nicht der Zahl der Durchläufe.
  * Der Zähler sitzt an der Rasterung selbst (`charts.tsx`) und nicht hier: zöge jemand den Aufruf in
  * einen Durchlauf, verdoppelte oder verdreifachte er sich.
@@ -127,7 +128,7 @@ export type RenderReportResult = {
   /**
    * Zahl der Chart-Rasterungen, die für DIESE Erzeugung gelaufen sind.
    *
-   * ⚠ Muss der Zahl der Bilder entsprechen, die das Dokument zeigt (höchstens sechs), und
+   * ⚠ Muss der Zahl der Bilder entsprechen, die das Dokument zeigt (höchstens sieben, seit D7), und
    * ausdrücklich NICHT mit `passes` skalieren — s. den Kopf dieser Datei. Ein Diagnosewert: die
    * Zusage „je Bild einmal pro Dokument" ist der architektonische Kern dieses Schritts, und eine
    * Zusage, die niemand messen kann, ist eine Behauptung.

@@ -406,11 +406,15 @@ export function Report({
    * vorhanden); eine hier nachgebaute Zweitprüfung an `status.computable` könnte davon abweichen,
    * und die Frage „darf ich diese Zahlen zeigen" hat einen Ort.
    *
-   * ⚠ SEIT D7 SETZT DIE ENGINE DAS FELD AUCH OHNE BESTANDSANLAGE (dritte Reihe aus dem Dispatch
-   * der empfohlenen Katalog-Batterie). Der Kasten steht am Bildschirm trotzdem weiterhin NUR im
-   * Bestandsfall — er wird unten ausschliesslich im `isExisting`-Zweig gerendert. Wo er im
-   * Katalog-Fall hingehört und ob er den Kostenvergleich dort ergänzt oder ersetzt, ist eine
-   * Layout-Entscheidung und hier bewusst nicht getroffen.
+   * ⚠ SEIT D7 STEHT DER KASTEN IN BEIDEN ZWEIGEN — und die Bedingung dafür bleibt trotzdem die
+   * EINE oben. Ohne Bestandsanlage setzt die Engine `monthlyComparison` ausschliesslich, wenn sich
+   * die Katalog-Empfehlung im Betrachtungszeitraum rechnet (`netSavingOverHorizon > 0`,
+   * `compute-analysis.ts`). Das Vorhandensein des Feldes TRÄGT diese Entscheidung also bereits;
+   * sie hier ein zweites Mal zu prüfen wäre genau die Zweitprüfung, die auseinanderlaufen kann.
+   *
+   * ⚠ Im Katalog-Zweig ERSETZT er den Kostenvergleich NICHT: dort ist die Kauffrage offen, und der
+   * Kostenverlauf ist das Bild dazu. Er steht über beiden Kästen, weil er die volle Breite braucht
+   * (s. unten) — dieselbe Stellung wie im Bestandsfall.
    */
   const monthlyComparison =
     result.tariffOptimization?.computable === true
@@ -433,7 +437,7 @@ export function Report({
    */
   const monthlyTariffBox = monthlyComparison ? (
     <div className="sm:col-span-2 print:col-span-1">
-      <MonthlyTariffChart comparison={monthlyComparison} />
+      <MonthlyTariffChart comparison={monthlyComparison} isExisting={isExisting} />
     </div>
   ) : null
 
@@ -823,7 +827,15 @@ export function Report({
                 {nextStepBox}
               </>
             ) : (
+              /*
+                D7: derselbe Kasten über die volle Breite, DARÜBER statt anstelle — der
+                Kostenvergleich bleibt, weil für diesen Leser die Kauffrage offen ist. Gibt es den
+                Vergleich nicht (Hebel nicht berechenbar, oder die Empfehlung rechnet sich nicht),
+                rendert `monthlyTariffBox` `null` und übrig bleibt Zeile für Zeile die bisherige
+                Zweiteilung.
+              */
               <>
+                {monthlyTariffBox}
                 {costChartBox}
                 <div className="flex flex-col gap-6">
                   {energyFlowBox}

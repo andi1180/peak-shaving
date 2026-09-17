@@ -17,6 +17,8 @@ import {
   METHODOLOGY_INTRO,
   METHODOLOGY_ITEMS,
   METHODOLOGY_SECTION,
+  MONTHLY_INTRO,
+  MONTHLY_SECTION,
   RECOMMENDATION_INTRO,
   RECOMMENDATION_SECTION,
   REPORT_DISCLAIMER,
@@ -27,7 +29,7 @@ import {
 } from './content'
 import { buildBasisChapter } from './basis'
 import { buildComparisonChapter, hasComparisonChapter } from './comparison'
-import { buildDetailChapter } from './detail'
+import { buildDetailChapter, buildMonthlyChapter, hasMonthlyChapter } from './detail'
 import { buildInsightChapter, hasInsightChapter } from './insight'
 import { buildRecommendationChapter } from './recommendation'
 import {
@@ -1219,6 +1221,37 @@ function DetailChapter({ input, charts }: { input: PdfReportInput; charts: Repor
 }
 
 /**
+ * D7 — der Monatsvergleich als eigenes Kapitel.
+ *
+ * ── ⚠ ES GIBT DIESES KAPITEL NICHT IN JEDEM DOKUMENT ──────────────────────────────────────────
+ * Nur ohne Bestandsanlage (`hasMonthlyChapter`); mit einer steht derselbe Vergleich im
+ * Detail-Kapitel an der Stelle des Kostenverlaufs. Der Aufrufer entscheidet das EINMAL und lässt
+ * die `<Page>` sonst ganz weg — samt Agenda-Eintrag, wie beim „Ladeverhalten".
+ *
+ * ⚠ Bildunterschrift und Zeilen kommen aus DERSELBEN Ableitung wie im Bestandsfall
+ * (`buildMonthly`), nur mit dem anderen Wortlaut für die dritte Reihe. Zwei Fassungen liefen beim
+ * nächsten Umformulieren auseinander.
+ */
+function MonthlyChapter({ input, charts }: { input: PdfReportInput; charts: ReportChartRasters }) {
+  const chapter = buildMonthlyChapter(input.analysis)
+
+  return (
+    <View style={styles.body}>
+      <Text style={styles.h2}>{MONTHLY_SECTION.title}</Text>
+      <Text style={styles.lead}>{MONTHLY_INTRO}</Text>
+
+      <ChartFigure
+        raster={charts.monthly}
+        caption={chapter?.figure.caption ?? ''}
+        note={chapter?.figure.note}
+        missing={figureMissingText('Der Monatsvergleich')}
+      />
+      {chapter && <Statement statement={chapter.statement} />}
+    </View>
+  )
+}
+
+/**
  * Die Legende der Stunden-Heatmap — drei Farbmuster, nativ.
  *
  * ── ⚠ SIE IST NICHT TEIL DES BILDES, UND DAS IST DER PUNKT DIESES SCHRITTS ────────────────────
@@ -1438,6 +1471,7 @@ export function ReportDocument({
    * Eintrag mit dauerhaft leerer Zahlenspalte (kein Sentinel meldet je) oder ein Kapitel, das die
    * Agenda verschweigt — beides sähe man dem Dokument nicht an.
    */
+  const hasMonthly = hasMonthlyChapter(input.analysis)
   const hasInsight = hasInsightChapter(input.analysis)
   const hasComparison = hasComparisonChapter(input.analysis)
 
@@ -1462,7 +1496,11 @@ export function ReportDocument({
         <PageFurniture sink={sink} />
         <SectionAnchor id="agenda" sink={sink} />
         <Agenda
-          sections={buildReportAgenda({ insight: hasInsight, comparison: hasComparison })}
+          sections={buildReportAgenda({
+            monthly: hasMonthly,
+            insight: hasInsight,
+            comparison: hasComparison,
+          })}
           pages={agenda}
         />
       </Page>
@@ -1484,6 +1522,14 @@ export function ReportDocument({
         <SectionAnchor id={DETAIL_SECTION.id} sink={sink} />
         <DetailChapter input={input} charts={charts} />
       </Page>
+
+      {hasMonthly && (
+        <Page size="A4" style={styles.page}>
+          <PageFurniture sink={sink} />
+          <SectionAnchor id={MONTHLY_SECTION.id} sink={sink} />
+          <MonthlyChapter input={input} charts={charts} />
+        </Page>
+      )}
 
       {hasInsight && (
         <Page size="A4" style={styles.page}>

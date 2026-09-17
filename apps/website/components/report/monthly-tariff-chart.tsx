@@ -4,6 +4,7 @@ import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxi
 import { sumCovered, type MonthlyTariffComparison } from 'shared'
 
 import { formatEur, formatEur2 } from '@/lib/format'
+import { monthlyBatteryRef } from '@/lib/report-copy'
 import { Num } from './num'
 
 /**
@@ -57,23 +58,29 @@ const MONTH_LABELS = [
  * `color-mix()` leitet die Zwischenstufe live vom Akzentton ab, ein White-Label-Wechsel zieht sie
  * automatisch mit. Grün/Rot bleiben für Ersparnis/Kosten reserviert (DESIGN.md).
  */
-const SERIES = [
-  {
-    key: 'currentTariffEur',
-    label: 'Ihr Tarif heute',
-    color: 'var(--color-text-muted)',
-  },
-  {
-    key: 'spotWithoutControlEur',
-    label: 'aWATTar ohne Steuerung',
-    color: 'color-mix(in srgb, var(--color-accent) 50%, var(--color-surface))',
-  },
-  {
-    key: 'spotWithBatteryEur',
-    label: 'aWATTar mit Ihrem Speicher (Ladung optimiert)',
-    color: 'var(--color-accent)',
-  },
-] as const
+/**
+ * Die drei Reihen. Die dritte trägt ihre Beschriftung als Funktion des Falls: seit D7 fährt sie
+ * ohne Bestandsanlage die empfohlene Katalog-Batterie, und „Ihrem Speicher" wäre dort eine Aussage
+ * über ein Gerät, das der Kunde nicht besitzt (`monthlyBatteryRef` — ein Wortlaut, ein Ort).
+ */
+const seriesFor = (isExisting: boolean) =>
+  [
+    {
+      key: 'currentTariffEur',
+      label: 'Ihr Tarif heute',
+      color: 'var(--color-text-muted)',
+    },
+    {
+      key: 'spotWithoutControlEur',
+      label: 'aWATTar ohne Steuerung',
+      color: 'color-mix(in srgb, var(--color-accent) 50%, var(--color-surface))',
+    },
+    {
+      key: 'spotWithBatteryEur',
+      label: `aWATTar mit ${monthlyBatteryRef(isExisting)} (Ladung optimiert)`,
+      color: 'var(--color-accent)',
+    },
+  ] as const
 
 type Row = {
   month: string
@@ -82,20 +89,27 @@ type Row = {
   spotWithBatteryEur: number | null
 }
 
+/**
+ * ⚠ Die Reihen kommen HEREIN und werden nicht neben dem Chart ein zweites Mal gebildet: seit D7
+ * hängt die dritte Beschriftung am Fall (s. `seriesFor`), und eine eigene Liste im Tooltip zeigte
+ * beim nächsten Umformulieren eine andere Beschriftung als die Legende daneben.
+ */
 function MonthTooltip({
   active,
   payload,
   label,
+  series,
 }: {
   active?: boolean
   payload?: Array<{ dataKey?: string; value?: number | null }>
   label?: string
+  series?: ReturnType<typeof seriesFor>
 }) {
-  if (!active || !payload || payload.length === 0) return null
+  if (!active || !payload || payload.length === 0 || !series) return null
   return (
     <div className="rounded-md border border-border bg-surface px-3 py-2 text-xs shadow-sm">
       <p className="mb-1 font-medium text-ink">{label}</p>
-      {SERIES.map((s) => {
+      {series.map((s) => {
         const value = payload.find((p) => p.dataKey === s.key)?.value
         if (value == null) return null
         return (
@@ -124,7 +138,16 @@ function MonthTooltip({
  */
 export { sumCovered }
 
-export function MonthlyTariffChart({ comparison }: { comparison: MonthlyTariffComparison }) {
+export function MonthlyTariffChart({
+  comparison,
+  isExisting,
+}: {
+  comparison: MonthlyTariffComparison
+  /** Fährt die dritte Reihe die Anlage des Kunden oder die Empfehlung? Entscheidet nur den Wortlaut. */
+  isExisting: boolean
+}) {
+  const SERIES = seriesFor(isExisting)
+  const whose = monthlyBatteryRef(isExisting)
   const fixed = comparison.fixedCosts
   const rows: Row[] = MONTH_LABELS.map((month, i) => ({
     month,
@@ -149,7 +172,7 @@ export function MonthlyTariffChart({ comparison }: { comparison: MonthlyTariffCo
       <p className="mb-1 text-sm font-medium text-ink">Das zahlen Sie jetzt vs. mit aWATTar</p>
       <p className="mb-3 text-xs text-text-muted">
         Energie- und Netzkosten je Monat, inklusive Grundgebühren — Ihr Tarif, aWATTar ohne
-        Steuerung und aWATTar mit Ihrem Speicher (Ladung optimiert). Alle Beträge exkl. MwSt.
+        Steuerung und aWATTar mit {whose} (Ladung optimiert). Alle Beträge exkl. MwSt.
       </p>
 
       <div className="h-64 w-full">
@@ -168,7 +191,7 @@ export function MonthlyTariffChart({ comparison }: { comparison: MonthlyTariffCo
               tick={{ fontSize: 11 }}
               width={64}
             />
-            <Tooltip content={<MonthTooltip />} isAnimationActive={false} cursor={false} />
+            <Tooltip content={<MonthTooltip series={SERIES} />} isAnimationActive={false} cursor={false} />
             {SERIES.map((s) => (
               <Bar
                 key={s.key}
@@ -232,8 +255,7 @@ export function MonthlyTariffChart({ comparison }: { comparison: MonthlyTariffCo
           </li>
           <li>
             <strong>Ladeverluste</strong> des Speichers: um eine Kilowattstunde einzuspeichern,
-            muss mehr als eine bezogen werden. Die Reihe „mit Ihrem Speicher" trägt diesen
-            Mehrbezug.
+            muss mehr als eine bezogen werden. Die Reihe „mit {whose}" trägt diesen Mehrbezug.
           </li>
           {fixed.networkBaseFeeEur > 0 && (
             <li>
