@@ -3,6 +3,7 @@ import {
   AWATTAR_BASE_FEE,
   NETZBETREIBER_LABELS,
   TARIFF_SETS,
+  type BatteryResultEntry,
   type BatteryRoiEntry,
   type BillingModel,
   type EstimatedPvSummary,
@@ -14,6 +15,7 @@ import {
 } from 'shared'
 
 import { formatEur, formatEur2, formatPercent } from '@/lib/format'
+import type { ReportBuildContext } from './context'
 import type {
   ReportNotice,
   ReportRow,
@@ -21,7 +23,7 @@ import type {
   ReportTable,
   ReportTableRow,
 } from './statement'
-import { primaryEntryOf } from './summary'
+import { primaryEntryOf, recommendedEntryOf } from './summary'
 import { TARIFF_SOURCE_UNTRACKED } from './types'
 import type {
   PdfReportAnalysis,
@@ -110,9 +112,8 @@ function neutralRow(label: string, value: string): ReportRow {
  */
 function buildAssumptions(analysis: PdfReportAnalysis): ReportStatement {
   const a = analysis.assumptions
-  const recommended =
-    analysis.perBattery.find((p) => p.battery.id === analysis.recommendation.batteryId) ??
-    analysis.perBattery[0]
+  /* Report-Baukasten B1: dieselbe Rückfallkette wie überall sonst, jetzt aus EINER Funktion. */
+  const recommended = recommendedEntryOf(analysis)
 
   const rows: ReportRow[] = [
     neutralRow('Betrachtungshorizont', `${a.horizonYears} Jahre`),
@@ -347,7 +348,7 @@ function pvOutageTitle(months: PvOutageMonth[]): string {
     : 'Ein Monat ohne erkennbaren PV-Beitrag'
 }
 
-function buildPvOutage(
+export function buildPvOutage(
   hasPv: boolean | undefined,
   months: PvOutageMonth[] | undefined,
 ): ReportNotice | null {
@@ -1059,6 +1060,8 @@ function buildMethodPerMetric(
   analysis: PdfReportAnalysis,
   pvOutage: ReportNotice | null,
   pvOutageMonths: PvOutageMonth[] | undefined,
+  /* Der primäre Block — hereingereicht, nicht hier ein zweites Mal abgeleitet (B1). */
+  primaryEntry: BatteryResultEntry | undefined,
 ): BasisMethodItem[] {
   const items: BasisMethodItem[] = []
 
@@ -1077,7 +1080,7 @@ function buildMethodPerMetric(
    * wird gegen den Standardpreis gemessen und gar keine Rangfolge gebildet — der Absatz beschriebe
    * dort eine Steuerung, die so nicht gelaufen ist.
    */
-  if (comparable && primaryEntryOf(analysis)) items.push(loadControlMethodItem())
+  if (comparable && primaryEntry) items.push(loadControlMethodItem())
 
   /* Am HINWEIS gemessen und nicht an `hasPv`/`pvOutageMonths`: eine Bedingung, ein Ort. */
   if (pvOutage && pvOutageMonths) items.push(pvOutageMethodItem(pvOutageMonths))
@@ -1177,13 +1180,21 @@ export type BasisChapter = {
   limitations: ReportNotice
 }
 
-export function buildBasisChapter(input: PdfReportInput): BasisChapter {
+export function buildBasisChapter(
+  input: PdfReportInput,
+  /* Report-Baukasten B1 — s. `buildReportSummary`. Ohne ihn wird wie bisher selbst abgeleitet. */
+  context?: ReportBuildContext,
+): BasisChapter {
   /*
    * ⚠ EINMAL GEBAUT, ZWEIMAL GELESEN: der Methodik-Absatz zum PV-Befund hängt am HINWEIS und nicht
    * an dessen Vorbedingungen. Zwei getrennte Auswertungen derselben zwei Bedingungen liefen beim
    * nächsten Umbau auseinander — und dann stünde eine Methodik zu einem Befund, der fehlt.
+   *
+   * ⚠ `context ? … : …` statt `??` — `pvOutage` ist selbst gültig `null`, und mit `??` entstünde
+   * der Hinweis in genau dem Fall ein zweites Mal, in dem es ihn gar nicht gibt.
    */
-  const pvOutage = buildPvOutage(input.hasPv, input.pvOutageMonths)
+  const pvOutage = context ? context.pvOutage : buildPvOutage(input.hasPv, input.pvOutageMonths)
+  const primaryEntry = context ? context.primaryEntry : primaryEntryOf(input.analysis)
 
   return {
     assumptions: buildAssumptions(input.analysis),
@@ -1194,7 +1205,12 @@ export function buildBasisChapter(input: PdfReportInput): BasisChapter {
     tariffVintage: input.tariffVintage,
     tariffComponents: buildTariffComponents(input),
     dataSources: buildDataSources(input),
-    methodPerMetric: buildMethodPerMetric(input.analysis, pvOutage, input.pvOutageMonths),
+    methodPerMetric: buildMethodPerMetric(
+      input.analysis,
+      pvOutage,
+      input.pvOutageMonths,
+      primaryEntry,
+    ),
     limitations: buildLimitations(input.analysis),
   }
 }

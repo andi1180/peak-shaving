@@ -28,9 +28,10 @@ import {
   type ReportSection,
 } from './content'
 import { buildBasisChapter } from './basis'
-import { buildComparisonChapter, hasComparisonChapter } from './comparison'
-import { buildDetailChapter, buildMonthlyChapter, hasMonthlyChapter } from './detail'
-import { buildInsightChapter, hasInsightChapter } from './insight'
+import { buildComparisonChapter } from './comparison'
+import type { ReportBuildContext } from './context'
+import { buildDetailChapter, buildMonthlyChapter } from './detail'
+import { buildInsightChapter } from './insight'
 import { buildRecommendationChapter } from './recommendation'
 import {
   recordSectionPage,
@@ -1033,8 +1034,19 @@ function StatementTable({
  * Charts in dieses Kapitel und ändern den Umbruch ohnehin — dann ist am erzeugten PDF neu zu
  * messen, ob eine Seite allein mit dieser Fussnote dasteht.
  */
-function ResultsChapter({ input }: { input: PdfReportInput }) {
-  const summary = buildReportSummary(input.analysis, input.loadProfile, input.estimatedPv)
+function ResultsChapter({
+  input,
+  context,
+}: {
+  input: PdfReportInput
+  context: ReportBuildContext
+}) {
+  const summary = buildReportSummary(
+    input.analysis,
+    input.loadProfile,
+    input.estimatedPv,
+    context,
+  )
 
   return (
     <View style={styles.body}>
@@ -1190,11 +1202,13 @@ function figureMissingText(what: string): string {
 function RecommendationChapter({
   input,
   charts,
+  context,
 }: {
   input: PdfReportInput
   charts: ReportChartRasters
+  context: ReportBuildContext
 }) {
-  const chapter = buildRecommendationChapter(input.analysis)
+  const chapter = buildRecommendationChapter(input.analysis, context)
 
   return (
     <View style={styles.body}>
@@ -1232,8 +1246,17 @@ function RecommendationChapter({
  * Begründung — ausgeschrieben in `detail.ts`, nicht hier: „was fehlt und warum" ist eine
  * fachliche Aussage.
  */
-function DetailChapter({ input, charts }: { input: PdfReportInput; charts: ReportChartRasters }) {
-  const chapter = buildDetailChapter(input.analysis, { flowDay: charts.flowDay })
+function DetailChapter({
+  input,
+  charts,
+  context,
+}: {
+  input: PdfReportInput
+  charts: ReportChartRasters
+  context: ReportBuildContext
+}) {
+  /* ⚠ `flowDay` kommt weiterhin aus der RASTERUNG und nicht aus dem Kontext — s. `context.ts`. */
+  const chapter = buildDetailChapter(input.analysis, { flowDay: charts.flowDay }, context)
 
   return (
     <View style={styles.body}>
@@ -1347,8 +1370,16 @@ function HeatmapLegend() {
  * Bilder aus DERSELBEN Ableitung gerastert; zwei getrennte Entscheidungen ergäben eine Legende und
  * Kennzahlen, die zu einem anderen Bild gehören als dem darüber.
  */
-function InsightChapter({ input, charts }: { input: PdfReportInput; charts: ReportChartRasters }) {
-  const chapter = buildInsightChapter(input.analysis)
+function InsightChapter({
+  input,
+  charts,
+  context,
+}: {
+  input: PdfReportInput
+  charts: ReportChartRasters
+  context: ReportBuildContext
+}) {
+  const chapter = buildInsightChapter(input.analysis, context)
 
   return (
     <View style={styles.body}>
@@ -1396,11 +1427,13 @@ function InsightChapter({ input, charts }: { input: PdfReportInput; charts: Repo
 function ComparisonChapter({
   input,
   charts,
+  context,
 }: {
   input: PdfReportInput
   charts: ReportChartRasters
+  context: ReportBuildContext
 }) {
-  const chapter = buildComparisonChapter(input.analysis)
+  const chapter = buildComparisonChapter(input.analysis, context)
 
   return (
     <View style={styles.body}>
@@ -1461,8 +1494,14 @@ function MethodologyChapter() {
  * ⚠ Das Kapitel ist eine eigene `<Page>` (D5, Regel 1) und ausdrücklich KEIN drittes bedingtes
  * Kapitel: Annahmen, Tarifherkunft und Vorbehalt gibt es in jedem Report.
  */
-function BasisChapter({ input }: { input: PdfReportInput }) {
-  const chapter = buildBasisChapter(input)
+function BasisChapter({
+  input,
+  context,
+}: {
+  input: PdfReportInput
+  context: ReportBuildContext
+}) {
+  const chapter = buildBasisChapter(input, context)
 
   return (
     <View style={styles.body}>
@@ -1541,6 +1580,7 @@ function BasisChapter({ input }: { input: PdfReportInput }) {
 export function ReportDocument({
   input,
   charts,
+  context,
   agenda,
   sink,
 }: {
@@ -1550,6 +1590,12 @@ export function ReportDocument({
    * Durchlauf. Bit-identisch über alle Durchläufe und damit derselbe Umbruch; s. `ChartFigure`.
    */
   charts: ReportChartRasters
+  /**
+   * Report-Baukasten B1 — die Zwischenwerte, EINMAL je Dokument gebildet (`render.tsx` →
+   * `context.ts`), nicht je Durchlauf. Dieselbe Zusage und derselbe Zeitpunkt wie bei `charts`:
+   * alle Durchläufe rechnen mit bit-identischen Werten.
+   */
+  context: ReportBuildContext
   agenda: AgendaPageNumbers
   sink: PageNumberSink
 }) {
@@ -1558,10 +1604,11 @@ export function ReportDocument({
    * wenn die `<Page>` darunter entsteht. Zwei getrennte Auswertungen ergäben entweder einen
    * Eintrag mit dauerhaft leerer Zahlenspalte (kein Sentinel meldet je) oder ein Kapitel, das die
    * Agenda verschweigt — beides sähe man dem Dokument nicht an.
+   *
+   * ⚠ B1: entschieden wird jetzt im KONTEXT, einmal je Dokument statt einmal je Durchlauf. Diese
+   * Funktion läuft zwei- bis dreimal (`render.tsx`) — sie LIEST die Antwort nur noch.
    */
-  const hasMonthly = hasMonthlyChapter(input.analysis)
-  const hasInsight = hasInsightChapter(input.analysis)
-  const hasComparison = hasComparisonChapter(input.analysis)
+  const { hasMonthly, hasInsight, hasComparison } = context
 
   return (
     <Document
@@ -1596,19 +1643,19 @@ export function ReportDocument({
       <Page size="A4" style={styles.page}>
         <PageFurniture sink={sink} />
         <SectionAnchor id={RESULTS_SECTION.id} sink={sink} />
-        <ResultsChapter input={input} />
+        <ResultsChapter input={input} context={context} />
       </Page>
 
       <Page size="A4" style={styles.page}>
         <PageFurniture sink={sink} />
         <SectionAnchor id={RECOMMENDATION_SECTION.id} sink={sink} />
-        <RecommendationChapter input={input} charts={charts} />
+        <RecommendationChapter input={input} charts={charts} context={context} />
       </Page>
 
       <Page size="A4" style={styles.page}>
         <PageFurniture sink={sink} />
         <SectionAnchor id={DETAIL_SECTION.id} sink={sink} />
-        <DetailChapter input={input} charts={charts} />
+        <DetailChapter input={input} charts={charts} context={context} />
       </Page>
 
       {hasMonthly && (
@@ -1623,7 +1670,7 @@ export function ReportDocument({
         <Page size="A4" style={styles.page}>
           <PageFurniture sink={sink} />
           <SectionAnchor id={INSIGHT_SECTION.id} sink={sink} />
-          <InsightChapter input={input} charts={charts} />
+          <InsightChapter input={input} charts={charts} context={context} />
         </Page>
       )}
 
@@ -1631,7 +1678,7 @@ export function ReportDocument({
         <Page size="A4" style={styles.page}>
           <PageFurniture sink={sink} />
           <SectionAnchor id={COMPARISON_SECTION.id} sink={sink} />
-          <ComparisonChapter input={input} charts={charts} />
+          <ComparisonChapter input={input} charts={charts} context={context} />
         </Page>
       )}
 
@@ -1644,7 +1691,7 @@ export function ReportDocument({
       <Page size="A4" style={styles.page}>
         <PageFurniture sink={sink} />
         <SectionAnchor id={BASIS_SECTION.id} sink={sink} />
-        <BasisChapter input={input} />
+        <BasisChapter input={input} context={context} />
       </Page>
 
       {/*

@@ -7,7 +7,9 @@ import { sumCovered } from 'shared'
 
 import { formatEur, formatYears } from '@/lib/format'
 import { monthlyBatteryRef } from '@/lib/report-copy'
+import type { ReportBuildContext } from './context'
 import type { ReportFigure, ReportRow, ReportStatement } from './statement'
+import { recommendedEntryOf } from './summary'
 import type { PdfReportAnalysis } from './types'
 
 /**
@@ -92,14 +94,6 @@ export type DetailFlowPlan = {
 export type DetailChartPlan = {
   cost: DetailCostPlan | null
   flow: DetailFlowPlan | null
-}
-
-/** Das empfohlene KATALOG-Gerät — dieselbe Rückfallkette wie `recommendation.ts` und `report.tsx`. */
-function recommendedEntryOf(analysis: PdfReportAnalysis): BatteryRoiEntry | undefined {
-  return (
-    analysis.perBattery.find((p) => p.battery.id === analysis.recommendation.batteryId) ??
-    analysis.perBattery[0]
-  )
 }
 
 /**
@@ -374,8 +368,16 @@ function flowMissingNote(entry: BatteryResultEntry | undefined): string {
 export function buildDetailChapter(
   analysis: PdfReportAnalysis,
   measured: { flowDay: string | null } = { flowDay: null },
+  /* Report-Baukasten B1 — s. `buildReportSummary`. Ohne ihn wird wie bisher selbst abgeleitet. */
+  context?: ReportBuildContext,
 ): DetailChapter {
-  const plan = detailChartPlan(analysis)
+  /*
+   * ⚠ `measured.flowDay` kommt WEITERHIN aus dem Ergebnis von `buildReportCharts` und ausdrücklich
+   * NICHT aus dem Kontext: es ist kein abgeleiteter Wert, sondern die Beschriftung, die die
+   * Komponente beim RASTERN getragen hat. An den Kontext gehängt wäre es eine Behauptung über ein
+   * Bild, statt einer Ablesung an ihm.
+   */
+  const plan = context ? context.detailPlan : detailChartPlan(analysis)
 
   const cost =
     plan.cost === null
@@ -388,7 +390,8 @@ export function buildDetailChapter(
   const flowEntry = plan.flow
     ? undefined
     : /* Nur für die Begründung gebraucht: WELCHER Speicher keinen Tag hergibt. */
-      (analysis.existingBatteryAnalysis?.entry ?? recommendedEntryOf(analysis))
+      (analysis.existingBatteryAnalysis?.entry ??
+        (context ? context.recommendedEntry : recommendedEntryOf(analysis)))
 
   return {
     cost,
