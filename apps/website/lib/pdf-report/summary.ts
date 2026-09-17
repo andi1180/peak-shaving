@@ -184,7 +184,7 @@ export function isRealSavingsComparison(analysis: PdfReportAnalysis): boolean {
   return analysis.existingBatteryAnalysis != null && comparison != null
 }
 
-function buildSavings(
+export function buildSavings(
   analysis: PdfReportAnalysis,
   entry: BatteryResultEntry,
 ): { statement: SummaryStatement; isRealComparison: boolean } {
@@ -307,7 +307,7 @@ function buildSavings(
  * Leistungsmessung hat den Posten überhaupt nicht (Delta 3). Eine Zeile „Spitzenkappung € 0" wäre
  * dort keine Auskunft, sondern eine Einladung, nach einem Fehler zu suchen.
  */
-function buildPeakShaving(
+export function buildPeakShaving(
   analysis: PdfReportAnalysis,
   entry: BatteryResultEntry,
   savingsIsRealComparison: boolean,
@@ -361,7 +361,7 @@ function buildPeakShaving(
  * `undefined` (Hebel gar nicht angefordert) und ein Blocker führen zum selben Ergebnis: keine
  * Zeile. Das ist Absicht — für die Seite ist beides „diese Zahl gibt es hier nicht".
  */
-function buildLoadShift(
+export function buildLoadShift(
   analysis: PdfReportAnalysis,
   entry: BatteryResultEntry,
   savingsIsRealComparison: boolean,
@@ -437,7 +437,7 @@ function buildLoadShift(
  * Amortisation 250 bis 410 Jahre). Erfunden ist hier keine Schwelle: `netSavingOverHorizon` steht
  * im Contract, und der Betrachtungszeitraum ist eine Angabe des Nutzers.
  */
-function buildAddon(analysis: PdfReportAnalysis): SummaryStatement | null {
+export function buildAddon(analysis: PdfReportAnalysis): SummaryStatement | null {
   const existing = analysis.existingBatteryAnalysis
   if (!existing) return null
 
@@ -564,7 +564,7 @@ const BILLING_MODEL_LABEL: Record<BillingModel, string> = {
  * eine tote Anweisung. Die Handlung steht deshalb als Aussage da — sie ist ohnehin der Inhalt des
  * Knopfes, nicht seine Beschriftung.
  */
-function buildPartialYearNotice(analysis: PdfReportAnalysis): ReportNotice | null {
+export function buildPartialYearNotice(analysis: PdfReportAnalysis): ReportNotice | null {
   const { billingModel } = analysis.assumptions
   const { coveredMonths } = analysis.dataQuality
   if (!billingModel.startsWith('monthly') || coveredMonths >= 12) return null
@@ -594,7 +594,7 @@ function buildPartialYearNotice(analysis: PdfReportAnalysis): ReportNotice | nul
  * ⚠ Ein älteres archiviertes Ergebnis trägt das Feld nicht; `undefined > Schwelle` ist `false`, und
  * dann steht hier kein Hinweis statt eines Fehlers (wortgleiche Überlegung wie in `report.tsx`).
  */
-function buildLargeGapNotice(analysis: PdfReportAnalysis): ReportNotice | null {
+export function buildLargeGapNotice(analysis: PdfReportAnalysis): ReportNotice | null {
   const slots = analysis.dataQuality.largestGapSlots
   if (!(slots > LARGE_GAP_SLOTS_THRESHOLD)) return null
 
@@ -631,7 +631,7 @@ function buildLargeGapNotice(analysis: PdfReportAnalysis): ReportNotice | null {
  * Rolle wie der Engine-Warnsatz an der Batterie (`peakShavingBlockers`), nur an der Stelle, an der
  * die 0 steht.
  */
-function buildStandardProfileNotice(
+export function buildStandardProfileNotice(
   loadProfile: Pick<LoadProfile, 'source'>,
 ): ReportNotice | null {
   if (loadProfile.source !== 'standard_profile') return null
@@ -689,7 +689,7 @@ function buildStandardProfileNotice(
  * sondern eine andere Art von Grundlage — und der einzige Weg für einen Kunden, dessen Lastgang
  * gar keine Einspeisung führt (Delta 9b-1/B22b, der wichtigste Anwendungsfall des Generators).
  */
-function buildEstimatedPvNotice(summary: EstimatedPvSummary | undefined): ReportNotice | null {
+export function buildEstimatedPvNotice(summary: EstimatedPvSummary | undefined): ReportNotice | null {
   if (!summary) return null
 
   const spread = summary.spread

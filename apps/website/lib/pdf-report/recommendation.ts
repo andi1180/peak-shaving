@@ -88,7 +88,7 @@ function neutralRow(label: string, value: string): ReportRow {
  * und die Zahl sähe aus wie aus einer anderen Rechnung. Dieselben Grössen stehen hier als Zeilen;
  * die Aussage geht nicht verloren, nur ihre Formatierung ist die des Dokuments.
  */
-function buildRecommendation(
+export function buildRecommendation(
   analysis: PdfReportAnalysis,
   entry: BatteryRoiEntry,
 ): ReportStatement {
@@ -251,7 +251,7 @@ function buildChartLegend(
  * Datenqualität und Warnungen (B23c-4) — nicht hierher, wo er unter einer Überschrift stünde, die
  * einen Wert ankündigt.
  */
-function buildLoadControl(
+export function buildLoadControl(
   analysis: PdfReportAnalysis,
   primary: BatteryResultEntry | undefined,
 ): ReportStatement | null {

@@ -187,7 +187,7 @@ function neutralRow(label: string, value: string): ReportRow {
  * Bildschirm und die Executive Summary ihre Summen bilden (`packages/shared/src/real-saving.ts`).
  * Ein zweiter Reducer ergäbe im selben Report anders gebildete Summen derselben drei Reihen.
  */
-function buildMonthly(
+export function buildMonthly(
   comparison: MonthlyTariffComparison,
   isExisting: boolean,
 ): {
