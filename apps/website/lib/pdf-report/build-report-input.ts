@@ -1,3 +1,4 @@
+import type { PvOutageMonth } from 'engine'
 import {
   NETZBETREIBER_IDS,
   type AnalysisResult,
@@ -33,8 +34,8 @@ import type { PdfReportAnalysis, PdfReportInput } from './types'
 /**
  * Die Felder aus `report_input_meta`, die dieser Weg LIEST.
  *
- * ⚠ Der schreibende Schritt legt fünf ab (`apps/web/lib/admin/report-render-actions.ts`). Hier
- * stehen drei — und die zwei übrigen fehlen nicht versehentlich: `meteringPointId`/`projectId` sind
+ * ⚠ Der schreibende Schritt legt sieben ab (`apps/web/lib/admin/report-render-actions.ts`). Hier
+ * stehen fünf — und die zwei übrigen fehlen nicht versehentlich: `meteringPointId`/`projectId` sind
  * Rückverfolgung für den Admin-Bereich und haben auf einem Kundendokument nichts zu suchen.
  *
  * ⚠ `netzbetreiber` STAND BIS ZUM D9-VORGRIFF NICHT HIER, mit der Begründung, er würde eine
@@ -55,6 +56,17 @@ export type ReportRenderMeta = {
    * sie für GENAU einen Satz (`tariffVintageNote`), s. unten.
    */
   supplierBaseFeeEurPerMonth: number | null
+  /**
+   * D5 — ob es an diesem Zählpunkt eine PV-Anlage gibt. `null` = die Frage wurde nie beantwortet,
+   * und das ist NICHT `false` (s. `readPvDraft` auf der Schreibseite).
+   */
+  hasPv: boolean | null
+  /**
+   * D5 — Monate ohne erkennbaren Mittagseinbruch, gerechnet im Analyse-Lauf. Leer heisst „nichts
+   * gefunden" UND „eine Übergabe aus einer Fassung, die den Befund noch nicht führte" — beide
+   * führen zu keinem Hinweis, und keiner der beiden behauptet, die Anlage sei in Ordnung.
+   */
+  pvOutageMonths: PvOutageMonth[]
 }
 
 /** Eine gelesene, nicht abgelaufene Übergabe. */
@@ -134,11 +146,39 @@ function readMeta(value: unknown): ReportRenderMeta {
   const meta = isRecord(value) ? value : {}
   const label = meta.customerLabel
   const baseFee = meta.supplierBaseFeeEurPerMonth
+  const hasPv = meta.hasPv
   return {
     customerLabel: typeof label === 'string' && label !== '' ? label : null,
     netzbetreiber: readNetzbetreiber(meta.netzbetreiber),
     supplierBaseFeeEurPerMonth: typeof baseFee === 'number' ? baseFee : null,
+    /* Strikt `true`/`false` — `'true'` oder `1` sähen wie eine Antwort aus und sind keine. */
+    hasPv: hasPv === true ? true : hasPv === false ? false : null,
+    pvOutageMonths: readPvOutageMonths(meta.pvOutageMonths),
   }
+}
+
+/**
+ * ⚠ JEDER EINTRAG WIRD EINZELN GEPRÜFT, und ein unbrauchbarer lässt die ganze Liste fallen.
+ *
+ * Anders als bei den zwei jsonb-Spalten der Übergabe (s. `readRenderRequest`) ist das hier keine
+ * Übervorsicht: `report_input_meta` ist in der Migration ohne Struktur, und eine Übergabe aus einer
+ * Fassung vor D5 trägt das Feld gar nicht. Was daraus wird, sind Monatsnamen auf einem
+ * Kundendokument — ein `undefined 2025` in der Aufzählung wäre schlimmer als ein fehlender Hinweis.
+ */
+function readPvOutageMonths(value: unknown): PvOutageMonth[] {
+  if (!Array.isArray(value)) return []
+
+  const months: PvOutageMonth[] = []
+  for (const entry of value) {
+    if (!isRecord(entry)) return []
+    const { year, month, daysWithDayWindowData, minDayWindowKw } = entry
+    if (typeof year !== 'number' || !Number.isFinite(year)) return []
+    if (typeof month !== 'number' || month < 1 || month > 12) return []
+    if (typeof daysWithDayWindowData !== 'number') return []
+    if (typeof minDayWindowKw !== 'number') return []
+    months.push({ year, month, daysWithDayWindowData, minDayWindowKw })
+  }
+  return months
 }
 
 /**
@@ -201,6 +241,9 @@ export function buildReportInputFromRenderRequest(
      * nichts bezeichnet.
      */
     estimatedPv: undefined,
+    /* D5 — beide Hälften bleiben getrennt; verknüpft werden sie im Kapitel (`basis.ts`). */
+    hasPv: meta.hasPv ?? undefined,
+    pvOutageMonths: meta.pvOutageMonths,
   }
 }
 

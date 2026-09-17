@@ -1427,6 +1427,10 @@ function BasisChapter({ input }: { input: PdfReportInput }) {
       <Statement statement={chapter.assumptions} />
       {chapter.dataQuality && <Notice notice={chapter.dataQuality} />}
       {chapter.blocker && <Notice notice={chapter.blocker} />}
+      {/* D5 — was die PV-Anlage im Lastgang gezeigt hat. Auch das eine Feststellung ÜBER die
+          Datengrundlage und keine Zahl: sie steht deshalb bei den anderen beiden und nicht in
+          einem eigenen Kapitel. Ob sie erscheint, entscheidet `basis.ts`. */}
+      {chapter.pvOutage && <Notice notice={chapter.pvOutage} />}
 
       <Text style={styles.provenance}>{chapter.tariffSource}</Text>
       {chapter.tariffVintage && <Text style={styles.provenance}>{chapter.tariffVintage}</Text>}
