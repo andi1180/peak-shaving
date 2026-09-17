@@ -13,3 +13,6 @@ export type {
   AnnualConsumptionMethod,
   ReferenceSegment,
 } from './annual-consumption'
+// D6 Teil 2a: flache Stundenverteilung einer Tagesmenge — der Eingang, mit dem eine
+// hochgerechnete Menge gegen Stundenpreise bewertet werden kann.
+export { spreadDailyConsumptionHourly } from './hourly-spread'

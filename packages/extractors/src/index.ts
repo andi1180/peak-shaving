@@ -299,3 +299,21 @@ export {
 } from './analysis/run-from-draft'
 /* D5 — der Befundtyp reist mit dem Lauf; `apps/web` kennt `engine` nicht und käme sonst nicht daran. */
 export type { PvOutageMonth } from 'engine'
+
+/*
+ * ── MARKTPREISE MIT LÜCKENFÜLLUNG (D6 Teil 2a) ────────────────────────────────────────────────
+ * Liest den gepflegten Bestand, lädt gemeldete Lücken bei aWATTar nach und näht den Rest mit dem
+ * Schnitt des nächstgelegenen Monats — jeder Anteil im Rückgabewert benannt. Beide Leser kommen
+ * als PORTS herein (D3-Muster); geschrieben wird nichts, auch nicht nach erfolgreichem Nachladen.
+ *
+ * Noch nicht verdrahtet: die Kosten-Zahl daraus ist Teil 2b.
+ */
+export {
+  resolveGapMarketPrices,
+  type MarketPriceCoverage,
+  type MarketPriceOrigin,
+  type MarketPriceWindowEntry,
+  type MarketPriceWindowReader,
+  type ResolvedMarketPrices,
+  type SpotPriceRangeReader,
+} from './analysis/gap-market-prices'
