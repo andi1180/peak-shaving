@@ -34,3 +34,8 @@ export type {
   PvParseOutcome,
 } from './types'
 export { DEFAULT_LIMITS } from './limits'
+// D6 Teil 2b: die Zeitzonen-Umrechnung in BEIDE Richtungen. Der synthetische Lückenausschnitt der
+// Jahres-Hochrechnung entsteht an echten Kalendertagen und muss dafür lokale Mitternacht in einen
+// UTC-Instant übersetzen — bisher paketintern, `packages/extractors` kam sonst nicht daran.
+export { toIsoUtc, utcMsToLocalFields, zonedWallToUtcMs } from './datetime'
+export type { LocalFields } from './datetime'

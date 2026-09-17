@@ -317,3 +317,17 @@ export {
   type ResolvedMarketPrices,
   type SpotPriceRangeReader,
 } from './analysis/gap-market-prices'
+
+/*
+ * ── JAHRES-KOSTEN-HOCHRECHNUNG (D6 Teil 2b) ───────────────────────────────────────────────────
+ * Führt Teil 1 (Referenzrate) und Teil 2a (Marktpreise der Lücke) zu zwei Jahreszahlen zusammen:
+ * „Ihr Tarif heute" und „aWATTar ungesteuert", je aufgeteilt in gemessenen und geschätzten Anteil.
+ * Gerechnet wird mit dem unveränderten `buildMonthlyTariffComparison` — es entsteht keine zweite
+ * Preislogik, und die bestehende `tariffOptimization`-Pipeline wird nicht angefasst.
+ *
+ * Noch nicht verdrahtet: die Anzeige im Report ist D9.
+ */
+export {
+  projectAnnualTariffComparison,
+  type AnnualTariffProjectionOptions,
+} from './analysis/annual-projection'

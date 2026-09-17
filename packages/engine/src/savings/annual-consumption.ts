@@ -1,4 +1,9 @@
-import type { LoadProfile } from 'shared'
+import type {
+  AnnualConsumptionEstimate,
+  AnnualConsumptionMethod,
+  LoadProfile,
+  ReferenceSegment,
+} from 'shared'
 
 import { utcMsToLocalFields } from '../parser/datetime'
 import { DAYS_PER_YEAR, coveredDaysOf } from './annualization'
@@ -52,61 +57,17 @@ import { DAYS_PER_YEAR, coveredDaysOf } from './annualization'
 export const WINTER_REFERENCE_MONTHS: readonly number[] = [12, 1, 2]
 
 /**
- * Wie die Jahresmenge zustande kam. Ein eigenes Feld und ausdrücklich KEIN Sonderwert in einer der
- * Zahlen: ein `null`-Datum oder eine Rate von 0 als Kennzeichen liesse „nicht hochgerechnet" und
- * „hochgerechnet mit 0" zusammenfallen.
+ * ⚠ DIE DREI ERGEBNISTYPEN LIEGEN SEIT D6 TEIL 2b IN `shared` (`annual-projection.ts`) — sie sind
+ * Teil des Contracts geworden (`AnalysisResult.annualProjection` trägt sie weiter), und `shared`
+ * ist die unterste Schicht. Hier stehen sie unter unveränderten Namen weiter zur Verfügung; es
+ * gibt weiterhin GENAU EINE Definition je Typ, und der Paket-Index (`savings/index.ts`) exportiert
+ * sie unverändert.
  */
-export type AnnualConsumptionMethod =
-  /** Der Lastgang deckt ein volles Jahr (oder mehr) ab — es wird NICHT hochgerechnet, und auch nicht nach unten skaliert. */
-  | 'full_period'
-  /** Synthetisches Standardprofil — es trägt seinen Jahresverbrauch bereits als Eingabe (s. unten). */
-  | 'synthetic_profile'
-  /** Leerer oder unbrauchbarer Lastgang — es gibt nichts zu schätzen. */
-  | 'no_data'
-  /** Der Regelfall: Rate aus den abgedeckten Dezember-/Januar-/Februar-Tagen. */
-  | 'winter_reference'
-  /** Die Rückfallregel: kein Wintertag abgedeckt — Rate aus dem Monat mit dem höchsten Tagesdurchschnitt. */
-  | 'month_maximum'
-
-/** Ein Kalendermonat, der die Referenzrate mitgetragen hat — je Monat EIN Eintrag, mit seiner Spanne. */
-export type ReferenceSegment = {
-  year: number
-  /** 1–12, Ortszeit des Lastgangs. */
-  month: number
-  /**
-   * Abgedeckte Tage dieses Monats, als BRUCHZAHL (Intervalle ÷ Intervalle-pro-Tag).
-   *
-   * ⚠ Kein ganzzahliges Zählen belegter Kalendertage: ein Lastgang, der am 26. Jänner mittags
-   * beginnt, hätte sonst einen halben Tag als ganzen gezählt und die Rate dieses Tages halbiert.
-   */
-  days: number
-  /** Zeitstempel des ERSTEN Intervalls dieses Monats im Lastgang (UTC-ISO, Intervall-Start). */
-  fromIso: string
-  /** Zeitstempel des LETZTEN Intervalls dieses Monats im Lastgang (UTC-ISO, Intervall-Start). */
-  toIso: string
-  /** Bezugsenergie dieses Monats in kWh — nur die Bezugs-Komponente, s. `consumptionKwhOf`. */
-  consumptionKwh: number
-}
-
-export type AnnualConsumptionEstimate = {
-  method: AnnualConsumptionMethod
-  /** Abgedeckte Tage des Lastgangs — dieselbe Ableitung wie in `annualizationFactor` (`coveredDaysOf`). */
-  coveredDays: number
-  /** Tatsächlich gemessene Bezugsenergie über den abgedeckten Zeitraum, in kWh. */
-  measuredConsumptionKwh: number
-  /** `365 − coveredDays`, nie negativ. `0` heisst: es wurde nichts hochgerechnet. */
-  missingDays: number
-  /**
-   * Die Rate, mit der die fehlenden Tage bewertet wurden, in kWh/Tag. `null` in allen Fällen, in
-   * denen nicht hochgerechnet wurde — dort gibt es keine Rate, und eine 0 stünde als gerechneter
-   * Wert da.
-   */
-  referenceRateKwhPerDay: number | null
-  /** Die Monate hinter der Rate, chronologisch. Leer, wenn nicht hochgerechnet wurde. */
-  referenceSegments: ReferenceSegment[]
-  /** `measuredConsumptionKwh + referenceRateKwhPerDay × missingDays`. */
-  estimatedAnnualConsumptionKwh: number
-}
+export type {
+  AnnualConsumptionEstimate,
+  AnnualConsumptionMethod,
+  ReferenceSegment,
+} from 'shared'
 
 type MonthTally = {
   year: number
