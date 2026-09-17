@@ -269,7 +269,7 @@ function formatCtPerKwh(value: number): string {
  * gestrichelten Zellen bedeuten — am Bildschirm steht das teils in der Legende, teils im Text
  * darüber.
  */
-function buildHourFlow(
+export function buildHourFlow(
   plan: InsightHourFlowPlan,
 ): { figure: ReportFigure; statement: ReportStatement } {
   const summary = summarizeHourFlow(plan.grid)
@@ -331,7 +331,7 @@ function buildHourFlow(
  * unbeschriftete Balkenpaare und eine gestrichelte Linie, deren Bedeutung nirgends im Dokument
  * steht.
  */
-function buildChargePrice(
+export function buildChargePrice(
   price: MonthlyChargePrice,
 ): { figure: ReportFigure; statement: ReportStatement } {
   const summary = summarizeChargePrice(price)

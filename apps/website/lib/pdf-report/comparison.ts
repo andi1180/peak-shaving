@@ -151,6 +151,16 @@ function alternativesOf(analysis: PdfReportAnalysis): ComparisonCandidate[] {
  * ──────────────────────────────────────────────────────────────────────────────────────────── */
 
 /**
+ * Report-Baukasten B2 — die stabile Kennung dieser Tabelle.
+ *
+ * ⚠ SIE STEHT NEBEN DEM ERZEUGER UND NICHT IM RÜCKGABEWERT: `ReportTable` ist eine reine
+ * DARSTELLUNGS-Form (`statement.ts`) und trägt bewusst kein `id`-Feld — eines zu ergänzen hiesse,
+ * jeden bestehenden Tabellen-Vergleich um ein Feld zu erweitern, das der Renderer nie liest. Die
+ * Kennung ist eine Eigenschaft des BAUSTEINS (wofür die Registry ihn adressiert), nicht des Werts.
+ */
+export const CANDIDATE_TABLE_ID = 'table_candidates'
+
+/**
  * Die kompakte Kandidatentabelle.
  *
  * ── ⚠ EINE FUNKTION FÜR BEIDE FÄLLE, UND DIE SPALTEN SIND IDENTISCH ───────────────────────────
@@ -258,7 +268,7 @@ const FIGURE_MISSING =
  * vollständig, weil hier die Kurve daneben liegt, die sie belegt. Zwei verschieden formulierte
  * Fassungen desselben Befunds im selben Dokument sähen wie zwei Befunde aus.
  */
-function buildVerdict(horizonYears: number): ReportStatement {
+export function buildVerdict(horizonYears: number): ReportStatement {
   return {
     id: 'addon_none',
     title: 'Ein zusätzlicher Speicher lohnt sich derzeit nicht',
@@ -289,7 +299,7 @@ function buildVerdict(horizonYears: number): ReportStatement {
  * Ersparnis-Zahlen Differenzen sind. Ohne die dritte Zeile liest sich die Spalte
  * „Ersparnis/Jahr" als Bruttozahl des gemeinsamen Speichers.
  */
-function buildTableStatement(
+export function buildTableStatement(
   variant: ComparisonVariant,
   considered: ComparisonCandidate[],
   horizonYears: number,
@@ -337,15 +347,25 @@ function buildTableStatement(
   }
 }
 
-export function buildComparisonChapter(
-  analysis: PdfReportAnalysis,
-  /* Report-Baukasten B1 — s. `buildReportSummary`. Ohne ihn wird wie bisher selbst abgeleitet. */
-  context?: ReportBuildContext,
-): ComparisonChapter {
-  /* ⚠ `context ? … : …` statt `??` — `comparisonPlan` ist selbst gültig `null`. */
-  const plan = context ? context.comparisonPlan : comparisonChartPlan(analysis)
+/**
+ * Wer in diesem Kapitel worüber redet — Report-Baukasten B2.
+ *
+ * ⚠ HERAUSGEZOGEN UND NICHT ZWEITMAL GESCHRIEBEN: `buildComparisonChapter` und die Registry
+ * brauchen dieselbe Auswahl, und zwei Fassungen der Schwelle `netSavingOverHorizon > 0` liefen
+ * beim nächsten Umbau auseinander — dann stünde in der Registry ein anderer Baustein als im
+ * Dokument. Eine Bedingung, ein Ort.
+ */
+export type ComparisonSelection = {
+  variant: ComparisonVariant
+  /** ALLE betrachteten Geräte — die Grundlage der zwei Zeilen über der Tabelle. */
+  considered: ComparisonCandidate[]
+  /** Die Zeilen der Tabelle. Leer heisst: statt der Tabelle steht der Klarsatz. */
+  shown: ComparisonCandidate[]
+  horizonYears: number
+}
+
+export function comparisonSelection(analysis: PdfReportAnalysis): ComparisonSelection {
   const { variant, candidates } = candidatesOf(analysis)
-  const horizonYears = analysis.assumptions.horizonYears
 
   /*
    * ⚠ DIE SCHWELLE IST `netSavingOverHorizon > 0` — dieselbe wie am Bildschirm und in
@@ -358,13 +378,24 @@ export function buildComparisonChapter(
       ? candidates.filter((c) => c.netSavingOverHorizon > 0)
       : alternativesOf(analysis)
 
+  return { variant, considered: candidates, shown, horizonYears: analysis.assumptions.horizonYears }
+}
+
+export function buildComparisonChapter(
+  analysis: PdfReportAnalysis,
+  /* Report-Baukasten B1 — s. `buildReportSummary`. Ohne ihn wird wie bisher selbst abgeleitet. */
+  context?: ReportBuildContext,
+): ComparisonChapter {
+  /* ⚠ `context ? … : …` statt `??` — `comparisonPlan` ist selbst gültig `null`. */
+  const plan = context ? context.comparisonPlan : comparisonChartPlan(analysis)
+  const { variant, considered, shown, horizonYears } = comparisonSelection(analysis)
   const hasTable = shown.length > 0
 
   return {
     figure: plan ? buildFigure(plan) : null,
     figureMissing: plan ? null : FIGURE_MISSING,
     statement: hasTable
-      ? buildTableStatement(variant, candidates, horizonYears)
+      ? buildTableStatement(variant, considered, horizonYears)
       : buildVerdict(horizonYears),
     table: hasTable ? buildCandidateTable(shown, horizonYears) : null,
   }

@@ -110,7 +110,7 @@ function neutralRow(label: string, value: string): ReportRow {
  * hätten sie dieselbe Zahl zweimal auf einer Seite getragen, und die zweite Fassung liefe beim
  * nächsten Umbau von der ersten weg.
  */
-function buildAssumptions(analysis: PdfReportAnalysis): ReportStatement {
+export function buildAssumptions(analysis: PdfReportAnalysis): ReportStatement {
   const a = analysis.assumptions
   /* Report-Baukasten B1: dieselbe Rückfallkette wie überall sonst, jetzt aus EINER Funktion. */
   const recommended = recommendedEntryOf(analysis)
@@ -184,7 +184,7 @@ function batteryRows(
  * eigenen Schwelle). Dann steht die Zahl in keinem Kasten — und das ist richtig: die grosse Lücke
  * hat ihren eigenen Hinweis bei der Kern-Kennzahl, wo sie die Zahl qualifiziert.
  */
-function buildDataQuality(analysis: PdfReportAnalysis): ReportNotice | null {
+export function buildDataQuality(analysis: PdfReportAnalysis): ReportNotice | null {
   const dq = analysis.dataQuality
   if (dq.warnings.length === 0) return null
 
@@ -263,7 +263,7 @@ function formatRange(range: TariffPriceRange, timeZone: string): string {
  * gilt unverändert", und ein „nebenan" gibt es auf einem Blatt nicht. Die Aussage — die
  * Spitzenkappung hängt am Leistungspreis und nicht an den Börsenpreisen — bleibt wortgleich.
  */
-function buildBlocker(
+export function buildBlocker(
   analysis: PdfReportAnalysis,
   timeZone: string,
 ): ReportNotice | null {
@@ -754,8 +754,11 @@ function batteryRowsForSources(analysis: PdfReportAnalysis): ReportTableRow[] {
   ]
 }
 
+/** Report-Baukasten B2 — die stabile Kennung dieser Tabelle (s. `CANDIDATE_TABLE_ID`). */
+export const DATA_SOURCES_TABLE_ID = 'table_data_sources'
+
 /** Die Tabelle. Sie steht IMMER — es gibt keinen Report ohne Lastgang, Tarif und Gerätefrage. */
-function buildDataSources(input: PdfReportInput): ReportTable {
+export function buildDataSources(input: PdfReportInput): ReportTable {
   return {
     /*
      * ⚠ Die Gewichte sind ein VERHÄLTNIS und keine pt-Angaben (s. `ReportTableColumn.width`). Die
@@ -900,8 +903,11 @@ function netzebeneRow(source: PdfReportTariffSource): ReportTableRow[] {
   ]
 }
 
+/** Report-Baukasten B2 — die stabile Kennung dieser Tabelle (s. `CANDIDATE_TABLE_ID`). */
+export const TARIFF_COMPONENTS_TABLE_ID = 'table_tariff_components'
+
 /** Die Tabelle. Sie steht IMMER — ohne Abrechnungsmodell und Arbeitspreis gibt es keine Rechnung. */
-function buildTariffComponents(input: PdfReportInput): ReportTable {
+export function buildTariffComponents(input: PdfReportInput): ReportTable {
   const a = input.analysis.assumptions
   const source = input.tariffSource
 
@@ -975,7 +981,7 @@ export type BasisMethodItem = {
  * Netzseite ist bit-genau dieselbe. Genau das sagen die beiden Absätze auch, und in dieser
  * Reihenfolge: der zweite verweist auf den ersten, statt die Formel ein zweites Mal auszuschreiben.
  */
-function tariffMethodItems(): BasisMethodItem[] {
+export function tariffMethodItems(): BasisMethodItem[] {
   return [
     {
       id: 'method_current_tariff',
@@ -1017,7 +1023,7 @@ function tariffMethodItems(): BasisMethodItem[] {
  * Gegenstück wäre eine Aussage über eine Zahl, die dieser Report nicht enthält (Prinzip 5: jede
  * Kernzahl nachvollziehbar — nicht jede denkbare Zahl erwähnt).
  */
-function loadControlMethodItem(): BasisMethodItem {
+export function loadControlMethodItem(): BasisMethodItem {
   return {
     id: 'method_load_control',
     title: 'Mit Ladesteuerung',
@@ -1043,7 +1049,7 @@ function loadControlMethodItem(): BasisMethodItem {
  * liegt nahe (beides heisst umgangssprachlich „da ist nichts") und führt beim Leser zur falschen
  * Gegenprobe — er sähe in seinen Daten nach etwas, das der Befund gar nicht gezählt hat.
  */
-function pvOutageMethodItem(months: PvOutageMonth[]): BasisMethodItem {
+export function pvOutageMethodItem(months: PvOutageMonth[]): BasisMethodItem {
   return {
     id: 'method_pv_outage',
     title: pvOutageTitle(months),
@@ -1115,7 +1121,7 @@ function buildMethodPerMetric(
  * unbedingt stehen — eine Hochrechnung zu erwähnen, die der Report nicht zeigt, schickte den Leser
  * nach einer Zahl suchen, die es nicht gibt.
  */
-function buildLimitations(analysis: PdfReportAnalysis): ReportNotice {
+export function buildLimitations(analysis: PdfReportAnalysis): ReportNotice {
   const hints: string[] = [
     'Gerechnet wird durchgängig netto. Verbrauchsabgaben — Elektrizitätsabgabe, ' +
       'EAG-Förderbeitrag und, wo sie anfällt, die Gebrauchsabgabe — sind in keiner Zahl dieses ' +
@@ -1221,6 +1227,6 @@ export function buildBasisChapter(
  * Zeitzone erzeugt wird, muss dieselben Stunden nennen. Dieselbe Quelle wie am Bildschirm
  * (`report.tsx` reicht `loadProfile.timezoneMeta` an die Karte).
  */
-function timeZoneOf(loadProfile: Pick<LoadProfile, 'timezoneMeta'>): string {
+export function timeZoneOf(loadProfile: Pick<LoadProfile, 'timezoneMeta'>): string {
   return loadProfile.timezoneMeta
 }
