@@ -18,9 +18,8 @@ import { describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
 
-const { readGridTariffRowsForAnalysis, readSpotPricesForAnalysis } = await import(
-  './analysis-tariff-inputs'
-)
+const { readGridTariffRowsForAnalysis, readSpotPricesForAnalysis, readTariffPricingForAnalysis } =
+  await import('./analysis-tariff-inputs')
 
 type Call = { method: string; args: unknown[] }
 
@@ -216,5 +215,50 @@ describe('readSpotPricesForAnalysis', () => {
     // Der Aufschlag der Intervalldauer: ohne ihn endete die Abfrage um 07:45 und die letzte Stunde
     // (07:00–08:00) gälte als nicht abgedeckt — für JEDEN vollständigen Lastgang eine Lücke.
     expect(series.prices).toHaveLength(6)
+  })
+})
+
+describe('readTariffPricingForAnalysis', () => {
+  it('⚠ lässt jede Preisseite für sich scheitern, statt die ganze Analyse abzubrechen', async () => {
+    // Erste Abfrage: Netzentgelte → Fehler. Danach zwei volle Spotpreis-Seiten.
+    const { supabase } = stubClient([
+      { data: null, error: { message: 'connection reset' } },
+      { data: hourlyRows('2026-01-01T00:00:00.000Z', 24), error: null },
+    ])
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const pricing = await readTariffPricingForAnalysis(supabase, {
+      operatorId: 'wiener_netze',
+      netzebene: 7,
+      meteringVariant: 'mit_leistungsmessung',
+      window: { startIso: '2026-01-01T00:00:00.000Z', endIso: '2026-01-01T23:45:00.000Z' },
+      intervalMinutes: 15,
+    })
+
+    // Die eine Seite fällt aus (⇒ Hebel nicht berechenbar), die andere steht — kein Wurf.
+    expect(pricing.gridTariffRows).toBeNull()
+    expect(pricing.spotPrices?.prices).toHaveLength(24)
+    expect(pricing.spotPrices?.complete).toBe(true)
+    // Ohne die Logzeile stünde nirgends, WARUM die Seite fehlt.
+    expect(logged).toHaveBeenCalled()
+    logged.mockRestore()
+  })
+
+  it('fragt die Netzentgelt-Seite ohne Netzbetreiber gar nicht erst an', async () => {
+    const { supabase, calls } = stubClient([
+      { data: hourlyRows('2026-01-01T00:00:00.000Z', 24), error: null },
+    ])
+
+    const pricing = await readTariffPricingForAnalysis(supabase, {
+      operatorId: null,
+      netzebene: null,
+      meteringVariant: null,
+      window: { startIso: '2026-01-01T00:00:00.000Z', endIso: '2026-01-01T23:45:00.000Z' },
+      intervalMinutes: 15,
+    })
+
+    expect(pricing.gridTariffRows).toBeNull()
+    expect(pricing.spotPrices).not.toBeNull()
+    expect(calls).not.toContainEqual({ method: 'from', args: ['grid_tariffs'] })
   })
 })

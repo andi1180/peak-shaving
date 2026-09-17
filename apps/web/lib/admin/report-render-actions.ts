@@ -6,6 +6,7 @@ import { NETZBETREIBER_DRAFT_KEY } from 'shared'
 import { externalReportUrl } from '@/lib/config'
 import { createClient } from '@/lib/supabase/server'
 import { readProjectDocument } from '@/lib/project-documents/documents'
+import { readTariffPricingForAnalysis } from './analysis-tariff-inputs'
 import { readMeteringPointList } from './metering-points'
 import { readAdminProject } from './projects'
 import {
@@ -120,6 +121,18 @@ export async function createReportRenderRequestAction(
         if (document.reason === 'not_found') return null
         throw new Error(`readProjectDocument (${documentId}): ${document.reason}`)
       },
+      /*
+       * ⚠ DER DRITTE PORT IST GESETZT, UND DAMIT WIRD DER DREI-WEGE-VERGLEICH IMMER VERSUCHT. Es
+       * gibt dafür keinen Haken in der Oberfläche: ob der Hebel berechenbar ist, entscheidet der
+       * Datenbestand (Netzentgelt-Zeile gepflegt? Spotpreise lückenlos?), und die Antwort darauf
+       * steht als Begründung im Ergebnis. Ein Schalter daneben könnte ihr nur widersprechen.
+       *
+       * ⚠ DER PORT WIRFT NICHT: `readTariffPricingForAnalysis` setzt für eine gescheiterte
+       * Preisseite `null` ein. Geworfen käme der Fehler oben als Abbruch der GANZEN Analyse an —
+       * Peak Shaving und Eigenverbrauch hingen dann an einer Vergleichsseite, von der sie nicht
+       * abhängen.
+       */
+      fetchTariffPricing: (request) => readTariffPricingForAnalysis(supabase, request),
     })
   } catch (error) {
     if (error instanceof MeteringPointAnalysisError || error instanceof Error) {

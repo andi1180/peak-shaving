@@ -37,6 +37,37 @@ import { tariffParamsSchema } from './tariff'
 export const NETZBETREIBER_DRAFT_KEY = 'netzbetreiber'
 
 /**
+ * Die Netzebene aus dem Entwurf zurück als ZAHL — `null` heisst „keine brauchbare Angabe".
+ *
+ * ── ⚠ WARUM ES DIE RÜCKUMFORMUNG ÜBERHAUPT BRAUCHT ────────────────────────────────────────────
+ * Im Entwurf steht die Netzebene als TEXT (`NE 5`, s. `netzebeneDraftValue` in
+ * `apps/web/lib/admin/invoice-extractions.ts`) — `tariffParamsSchema.netzebene` ist ein String, und
+ * eine Zahl dort wäre ein Schema-Verstoss. Die Netzentgelt-Abfrage braucht sie dagegen als Zahl
+ * (`grid_tariffs.netzebene` ist `integer`). Genau eine Stelle formt deshalb zurück.
+ *
+ * ⚠ SIE STEHT IN `shared` UND NICHT IN EINER DER BEIDEN APPS: `apps/web` liest sie für die Abfrage,
+ * `packages/extractors` für die Entscheidung über die Messvariante. Zweimal geschrieben liefen die
+ * beiden beim nächsten Schreibformat auseinander — und der Fehlschlag wäre still: die Abfrage fände
+ * keine Zeile, und der Hebel fiele mit „keine Netzentgelt-Daten" aus, obwohl sie gepflegt ist.
+ *
+ * ── WAS SIE ANNIMMT ───────────────────────────────────────────────────────────────────────────
+ * `NE 5`, `NE5`, `5` und die blanke Zahl `5`. Die Form ohne Präfix ist kein Zugeständnis an
+ * Bequemlichkeit, sondern der reale Bestand: ein Entwurf kann von Hand oder über das Chat-Werkzeug
+ * (`set_draft_field`) geschrieben sein, und dort schreibt niemand ein Präfix. Alles andere ergibt
+ * `null` — geworfen wird NIE: ein von Hand veränderter `jsonb` darf einen Analyse-Lauf nicht mit
+ * einem Ausnahmefehler abbrechen, er darf ihn nur ohne Netzentgelt-Seite rechnen lassen.
+ *
+ * Die Grenze 3–7 ist der CHECK der Tabelle. Ein Wert ausserhalb ist in der Datenbank nicht
+ * auffindbar; ihn durchzureichen ergäbe eine Abfrage, die garantiert leer antwortet.
+ */
+export function parseNetzebeneDraftValue(raw: unknown): number | null {
+  const text = typeof raw === 'number' ? String(raw) : typeof raw === 'string' ? raw : null
+  if (text === null) return null
+  const match = /^(?:NE\s*)?([3-7])$/i.exec(text.trim())
+  return match === null ? null : Number(match[1])
+}
+
+/**
  * Der Betrachtungshorizont (Jahre) eines Analyse-Laufs aus dem Wizard-Entwurf.
  *
  * ⚠ EIGENER WERT NEBEN `DEFAULT_HORIZON_YEARS` (`apps/website/lib/constants.ts`), NICHT DESSEN

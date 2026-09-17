@@ -18,8 +18,23 @@ import { invoiceDraftValues } from './invoice-extractions'
 const rpc = vi.fn()
 const readProjectDocument = vi.fn()
 
+/*
+ * Der Drei-Wege-Vergleich fragt seit dem `fetchTariffPricing`-Port zwei Tabellen ab. Hier ist nichts
+ * gepflegt — die Abfragen antworten leer, der Hebel ist damit nicht berechenbar, und genau das ist
+ * der Punkt: die Analyse läuft trotzdem durch. Ohne diesen Stub wäre der Lauf zwar ebenfalls grün
+ * (jede Seite scheitert für sich), aber mit zwei Fehler-Protokollzeilen in einem passenden Test.
+ */
+const emptyQuery: Record<string, unknown> = {
+  then: (resolve: (value: unknown) => unknown) => Promise.resolve({ data: [], error: null }).then(resolve),
+}
+for (const method of ['select', 'eq', 'is', 'or', 'lte', 'gte', 'lt', 'order', 'range']) {
+  emptyQuery[method] = () => emptyQuery
+}
+
 vi.mock('server-only', () => ({}))
-vi.mock('@/lib/supabase/server', () => ({ createClient: async () => ({ rpc }) }))
+vi.mock('@/lib/supabase/server', () => ({
+  createClient: async () => ({ rpc, from: () => emptyQuery }),
+}))
 vi.mock('@/lib/project-documents/documents', () => ({
   readProjectDocument: (id: string) => readProjectDocument(id),
 }))

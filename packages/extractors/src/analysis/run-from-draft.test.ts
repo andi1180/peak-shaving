@@ -241,3 +241,110 @@ describe('runAnalysisFromMeteringPointDraft', () => {
     ).rejects.toMatchObject({ reason: 'no_uploaded_load_profile' })
   })
 })
+
+/*
+ * Der Drei-Wege-Vergleich: der dritte, OPTIONALE Port. Geprüft wird, was nur hier falsch werden
+ * kann — dass die Abfrage aus DEMSELBEN Profil gebildet wird, das gerechnet wird, dass die
+ * Messvariante bei NE 3–6 auf `null` gezwungen wird (sonst findet `.is(metering_variant, null)` nie
+ * eine Zeile), und dass ein Aufrufer ohne diesen Port unverändert weiterläuft.
+ */
+describe('runAnalysisFromMeteringPointDraft — tariffPricing', () => {
+  /** Eine Netzentgelt-Zeile, die den ganzen Demo-Tag abdeckt. Netto, ein ganztägiges Fenster. */
+  const GRID_ROWS = [
+    {
+      validFrom: '2025-01-01',
+      validUntil: null,
+      netzverlustCtPerKwh: 0.91,
+      priceBasis: 'net',
+      windows: [
+        {
+          label: 'normal',
+          monthDayFrom: null,
+          monthDayTo: null,
+          timeFrom: '00:00:00',
+          timeTo: '24:00:00',
+          ctPerKwh: 1.23,
+        },
+      ],
+    },
+  ]
+
+  /** Lückenlose Stundenpreise über das Fenster plus die Dauer der letzten Viertelstunde. */
+  function spotSeries(window: { startIso: string; endIso: string }, intervalMinutes: number) {
+    const startMs = Date.parse(window.startIso)
+    const endMs = Date.parse(window.endIso) + intervalMinutes * 60_000
+    const prices = []
+    for (let ms = startMs; ms < endMs; ms += 3_600_000) {
+      prices.push({
+        tsStart: new Date(ms).toISOString(),
+        tsEnd: new Date(ms + 3_600_000).toISOString(),
+        ctPerKwh: 8.5,
+        priceBasis: 'net',
+      })
+    }
+    return { prices, complete: true, missingRanges: [] }
+  }
+
+  it('füllt payload.tariffPricing und macht die Tarifoptimierung berechenbar', async () => {
+    const fetchTariffPricing = vi.fn(async (request: { window: { startIso: string; endIso: string }; intervalMinutes: number }) => ({
+      gridTariffRows: GRID_ROWS,
+      spotPrices: spotSeries(request.window, request.intervalMinutes),
+    }))
+
+    const { result, loadProfile } = await runAnalysisFromMeteringPointDraft(
+      'mp-1',
+      ports({ fetchTariffPricing }),
+    )
+
+    expect(fetchTariffPricing).toHaveBeenCalledTimes(1)
+    const request = fetchTariffPricing.mock.calls[0]![0] as {
+      operatorId: string | null
+      netzebene: number | null
+      meteringVariant: string | null
+      window: { startIso: string; endIso: string }
+      intervalMinutes: number
+    }
+    expect(request.operatorId).toBe('wiener_netze')
+    expect(request.netzebene).toBe(7)
+    expect(request.meteringVariant).toBe('mit_leistungsmessung')
+    expect(request.intervalMinutes).toBe(15)
+    // Das Fenster stammt aus DEMSELBEN Profil, das gerechnet wurde — nicht aus einer zweiten Ableitung.
+    expect(request.window.startIso).toBe(loadProfile.readings[0]!.ts)
+    expect(request.window.endIso).toBe(loadProfile.readings.at(-1)!.ts)
+
+    expect(result.tariffOptimization).toEqual({ computable: true })
+  })
+
+  it('zwingt die Messvariante bei NE 3–6 auf null, unabhängig vom Entwurfswert', async () => {
+    const fetchTariffPricing = vi.fn(
+      async (request: { netzebene: number | null; meteringVariant: string | null }) => {
+        void request
+        return { gridTariffRows: null, spotPrices: null }
+      },
+    )
+
+    await runAnalysisFromMeteringPointDraft(
+      'mp-1',
+      ports({
+        readMeteringPoint: async () => ({
+          // NE 5 bietet keine Variante an — der stehengebliebene Wert darf nicht mitfahren.
+          draft: { ...DRAFT, netzebene: 'NE 5', meteringVariant: 'mit_leistungsmessung' },
+          sourceDocumentId: 'doc-1',
+        }),
+        fetchTariffPricing,
+      }),
+    )
+
+    expect(fetchTariffPricing.mock.calls[0]![0]).toMatchObject({
+      netzebene: 5,
+      meteringVariant: null,
+    })
+  })
+
+  it('lässt tariffPricing ohne den Port unangetastet — bestehende Aufrufer rechnen wie bisher', async () => {
+    const { result } = await runAnalysisFromMeteringPointDraft('mp-1', ports())
+
+    // `undefined` heisst „nicht angefordert": kein Hebel, aber auch kein Blocker-Befund.
+    expect(result.tariffOptimization).toBeUndefined()
+  })
+})
