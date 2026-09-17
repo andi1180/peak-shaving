@@ -2,7 +2,7 @@ import type { BatteryResultEntry, BatteryRoiEntry } from 'shared'
 
 import { formatEur, formatKw, formatKwh1, formatYears } from '@/lib/format'
 import type { ReportRow, ReportStatement } from './statement'
-import { primaryEntryOf } from './summary'
+import { isRealSavingsComparison, primaryEntryOf } from './summary'
 import type { PdfReportAnalysis } from './types'
 
 /**
@@ -272,12 +272,30 @@ function buildLoadControl(
   if (analysis.tariffOptimization?.computable !== true) return null
   if (!primary) return null
 
+  const savingsIsRealComparison = isRealSavingsComparison(analysis)
+
   const annualized =
     primary.annualizationFactor > 1
       ? ` Ihr Lastgang deckt ${primary.coveredDays} von 365 Tagen ab; die Zahl auf der ` +
         'Kernergebnis-Seite ist von diesem Zeitraum auf ein Jahr hochgerechnet — gemessen wurden ' +
         `${formatEur(primary.loadShiftSavingOverCoveredPeriod)}.`
       : ''
+
+  /*
+   * ⚠ DIESELBE FALLE WIE IN `summary.ts`: „tarifbewusstes Laden" ist eine Zeile der
+   * §3.7-Aufschlüsselung und existiert in der Kassen-Fassung (Monatsvergleich) nicht — dort steht
+   * der Effekt bereits in „Wert der Ladesteuerung" mit drin.
+   */
+  const embeddedNote = savingsIsRealComparison
+    ? 'Er steckt in der Zeile „Wert der Ladesteuerung" in der Aufschlüsselung der ' +
+      'Kernergebnis-Seite bereits mit drin und kommt nicht zusätzlich obendrauf'
+    : 'Er steckt in der Gesamtersparnis bereits als „tarifbewusstes Laden" und kommt nicht ' +
+      'zusätzlich obendrauf'
+
+  const selfConsumptionNote = savingsIsRealComparison
+    ? 'was Ihre PV-Erzeugung über den Speicher einspart, steckt in derselben Zeile mit drin'
+    : 'was Ihre PV-Erzeugung über den Speicher einspart, steht als eigener Anteil ' +
+      '(„Eigenverbrauch") daneben'
 
   return {
     id: 'load_control',
@@ -293,11 +311,9 @@ function buildLoadControl(
       'Netzentgelt Ihres Netzbetreibers angesetzt, statt eines festen Arbeitspreises. Der ' +
       'Speicher lädt in den günstigen Viertelstunden und entlädt in den teuren; die Differenz ist ' +
       'der ausgewiesene Wert. Er ist ein RÜCKBLICK auf die tatsächlichen Marktpreise Ihres ' +
-      'Zeitraums und kein Versprechen für die Zukunft — die Preise von morgen kennt niemand. Er ' +
-      'steckt in der Gesamtersparnis bereits als „tarifbewusstes Laden" und kommt nicht zusätzlich ' +
-      'obendrauf, und er zeigt ausschliesslich den Gewinn aus den Preisunterschieden: was Ihre ' +
-      'PV-Erzeugung über den Speicher einspart, steht als eigener Anteil („Eigenverbrauch") ' +
-      'daneben.' +
+      'Zeitraums und kein Versprechen für die Zukunft — die Preise von morgen kennt niemand. ' +
+      `${embeddedNote}, und er zeigt ausschliesslich den Gewinn aus den Preisunterschieden: ` +
+      `${selfConsumptionNote}.` +
       annualized,
   }
 }

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { MonthlyTariffComparison } from 'shared'
 
-import { buildMonthlyChapter, detailChartPlan, hasMonthlyChapter } from './detail'
+import { buildDetailChapter, buildMonthlyChapter, detailChartPlan, hasMonthlyChapter } from './detail'
 import type { PdfReportAnalysis } from './types'
 
 /**
@@ -99,6 +99,14 @@ describe('Monatsvergleich als eigenes Kapitel (D7)', () => {
     const text = [chapter.figure.caption, ...chapter.statement.rows.map((r) => r.label)].join(' | ')
     expect(text).toContain('der empfohlenen Batterie')
     expect(text).not.toContain('Ihrem Speicher')
+
+    /*
+     * Ohne Bestandsanlage steht auf der Kernergebnis-Seite kein Vergleich dieser drei Summen,
+     * sondern „Wert der Ladesteuerung" — ein anderer Rechenweg. Der Satz „Die Kernergebnis-Seite
+     * zeigt die DIFFERENZEN zwischen diesen drei Summen" war hier bisher trotzdem falsch stehend.
+     */
+    expect(chapter.statement.body).not.toContain('DIFFERENZEN zwischen diesen drei Summen')
+    expect(chapter.statement.body).toContain('Wert der Ladesteuerung')
   })
 
   it('mit Bestandsanlage: KEIN eigenes Kapitel — der Vergleich steht im Detail-Kapitel', () => {
@@ -107,6 +115,11 @@ describe('Monatsvergleich als eigenes Kapitel (D7)', () => {
     expect(hasMonthlyChapter(analysis)).toBe(false)
     expect(buildMonthlyChapter(analysis)).toBeNull()
     expect(detailChartPlan(analysis).cost?.kind).toBe('monthly')
+
+    // Regression: im Bestandsfall bleibt der bisher schon richtige Satz unverändert.
+    expect(buildDetailChapter(analysis).cost?.statement?.body).toContain(
+      'DIFFERENZEN zwischen diesen drei Summen',
+    )
   })
 
   it('ohne berechenbaren Hebel gibt es das Kapitel nicht', () => {

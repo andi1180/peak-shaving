@@ -336,6 +336,17 @@ function formatOutageMonth(entry: PvOutageMonth): string {
  * hingeschriebene Hausnummer wäre genau die Zahl aus anderer Grundlage, vor der Delta 15 warnt:
  * sie fällt niemandem als Fehler auf, sondern als Ergebnis.
  */
+/**
+ * Titel des PV-Befunds — Singular/Plural EINZIG aus `months.length` abgeleitet, für den Hinweis
+ * (`buildPvOutage`) UND den Methodik-Absatz (`pvOutageMethodItem`, `:947-948` verlangt
+ * Gleichnamigkeit) — eine Quelle statt zwei getrennt gepflegter Titel.
+ */
+function pvOutageTitle(months: PvOutageMonth[]): string {
+  return months.length > 1
+    ? 'Monate ohne erkennbaren PV-Beitrag'
+    : 'Ein Monat ohne erkennbaren PV-Beitrag'
+}
+
 function buildPvOutage(
   hasPv: boolean | undefined,
   months: PvOutageMonth[] | undefined,
@@ -348,9 +359,7 @@ function buildPvOutage(
   return {
     id: 'pv_outage',
     tone: 'warning',
-    title: plural
-      ? 'Monate ohne erkennbaren PV-Beitrag'
-      : 'Ein Monat ohne erkennbaren PV-Beitrag',
+    title: pvOutageTitle(months),
     body:
       'Eine arbeitende PV-Anlage drückt den Netzbezug um die Mittagszeit gegen null und, sobald sie ' +
       `mehr erzeugt als gerade gebraucht wird, darunter. In ${plural ? 'diesen Monaten' : 'diesem Monat'} ` +
@@ -526,6 +535,12 @@ function loadProfileRows(
   period: string | null,
   coveredDays: number,
   estimatedPv: EstimatedPvSummary | undefined,
+  /*
+   * ⚠ DIESELBE BEDINGUNG WIE `buildDataQuality` (`dq.warnings.length > 0`) — der Verweis „wie im
+   * Datenqualitäts-Hinweis oben" gilt nur, wo dieser Hinweis auch steht. Ohne Warnungen entfällt
+   * die Box ganz (s. dort), und der Verweis zeigte auf nichts.
+   */
+  hasDataQualityNotice: boolean,
 ): ReportTableRow[] {
   const rows: ReportTableRow[] = [
     groupRow('group_load', 'Lastgang'),
@@ -534,7 +549,9 @@ function loadProfileRows(
       `Grundlage aller Zahlen dieses Reports. Herkunft: ${LOAD_SOURCE_LABEL[loadProfile.source]}. ` +
         `Monats- und Tagesgrenzen in Ortszeit ${loadProfile.timezoneMeta}.`,
       `${period ?? NOT_RECORDED} · ${coveredDays} abgedeckte Tage ` +
-        '(Slot-Zählung: Messwerte ÷ 96, wie im Datenqualitäts-Hinweis oben)',
+        (hasDataQualityNotice
+          ? '(Slot-Zählung: Messwerte ÷ 96, wie im Datenqualitäts-Hinweis oben)'
+          : '(Slot-Zählung: Messwerte ÷ 96)'),
     ]),
   ]
 
@@ -755,6 +772,7 @@ function buildDataSources(input: PdfReportInput): ReportTable {
         input.period,
         input.analysis.dataQuality.coveredDays,
         input.estimatedPv,
+        input.analysis.dataQuality.warnings.length > 0,
       ),
       ...tariffRows(input.tariffSource, input.tariffProvenance),
       ...batteryRowsForSources(input.analysis),
@@ -1024,10 +1042,10 @@ function loadControlMethodItem(): BasisMethodItem {
  * liegt nahe (beides heisst umgangssprachlich „da ist nichts") und führt beim Leser zur falschen
  * Gegenprobe — er sähe in seinen Daten nach etwas, das der Befund gar nicht gezählt hat.
  */
-function pvOutageMethodItem(): BasisMethodItem {
+function pvOutageMethodItem(months: PvOutageMonth[]): BasisMethodItem {
   return {
     id: 'method_pv_outage',
-    title: 'Monate ohne erkennbaren PV-Beitrag',
+    title: pvOutageTitle(months),
     body:
       'Der Befund misst eine Abwesenheit: gemeldet wird ein Monat, in dem Ihr Netzbezug im ' +
       'Mittagsfenster an keinem einzigen Tag gegen null geht, obwohl eine PV-Anlage angegeben ist ' +
@@ -1040,6 +1058,7 @@ function pvOutageMethodItem(): BasisMethodItem {
 function buildMethodPerMetric(
   analysis: PdfReportAnalysis,
   pvOutage: ReportNotice | null,
+  pvOutageMonths: PvOutageMonth[] | undefined,
 ): BasisMethodItem[] {
   const items: BasisMethodItem[] = []
 
@@ -1061,7 +1080,7 @@ function buildMethodPerMetric(
   if (comparable && primaryEntryOf(analysis)) items.push(loadControlMethodItem())
 
   /* Am HINWEIS gemessen und nicht an `hasPv`/`pvOutageMonths`: eine Bedingung, ein Ort. */
-  if (pvOutage) items.push(pvOutageMethodItem())
+  if (pvOutage && pvOutageMonths) items.push(pvOutageMethodItem(pvOutageMonths))
 
   return items
 }
@@ -1175,7 +1194,7 @@ export function buildBasisChapter(input: PdfReportInput): BasisChapter {
     tariffVintage: input.tariffVintage,
     tariffComponents: buildTariffComponents(input),
     dataSources: buildDataSources(input),
-    methodPerMetric: buildMethodPerMetric(input.analysis, pvOutage),
+    methodPerMetric: buildMethodPerMetric(input.analysis, pvOutage, input.pvOutageMonths),
     limitations: buildLimitations(input.analysis),
   }
 }

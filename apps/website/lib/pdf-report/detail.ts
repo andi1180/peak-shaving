@@ -220,6 +220,20 @@ function buildMonthly(
   }
   fees.push(`aWATTar ${formatEur(fixed.awattarFeeEurPerMonth)}/Monat`)
 
+  /*
+   * ⚠ NUR IM BESTANDSFALL ZEIGT DIE KERNERGEBNIS-SEITE DIESE DREI SUMMEN ALS DIFFERENZ. Ohne
+   * Bestandsanlage (Kapitel 4, Katalog-Fassung) steht dort stattdessen „Wert der Ladesteuerung"
+   * (`load_shift`, s. `summary.ts`) — ein ANDERER Rechenweg auf denselben Zeitraum, der einzelne
+   * Kilowattstunden zuordnet statt Monatssummen zu vergleichen, und deshalb zu einer leicht
+   * abweichenden Zahl führt.
+   */
+  const closing = isExisting
+    ? 'Die Kernergebnis-Seite zeigt die DIFFERENZEN zwischen diesen drei Summen; hier stehen sie ' +
+      'absolut.'
+    : 'Der „Wert der Ladesteuerung" auf der Kernergebnis-Seite ist NICHT aus diesen drei Summen ' +
+      'gebildet, sondern aus der Zuordnung einzelner Kilowattstunden — ein anderer Rechenweg auf ' +
+      'denselben Zeitraum, der zu einer leicht abweichenden Zahl führt.'
+
   return {
     figure: {
       caption:
@@ -245,8 +259,7 @@ function buildMonthly(
         'Enthalten sind Arbeitspreis, Netz-Arbeitspreis und die anteiligen Grundgebühren ' +
         `(${fees.join(' · ')}). NICHT enthalten ist der Leistungspreis — er steht als Jahreszahl ` +
         'auf der Kernergebnis-Seite; ihn auf Monate zu verteilen verlangte eine Aufteilungsregel, ' +
-        'die es nicht gibt. Die Kernergebnis-Seite zeigt die DIFFERENZEN zwischen diesen drei ' +
-        'Summen; hier stehen sie absolut.',
+        `die es nicht gibt. ${closing}`,
     },
   }
 }
