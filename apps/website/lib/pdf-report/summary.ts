@@ -148,6 +148,20 @@ function buildHeadline(current: PdfReportAnalysis['current']): SummaryHeadline {
  * noch gar nicht hat. Die Prüfung auf `existingBatteryAnalysis` unten ist deshalb ab jetzt
  * tragend und nicht mehr bloss belegend (dieselbe Regel wie in `recommendation-card.tsx`).
  */
+/**
+ * Ob `savings` in der Kassen-Fassung steht (Bestandsanlage + rechenbarer Monatsvergleich) statt der
+ * §3.7-Aufschlüsselung — reine Ableitung aus `analysis`, von `buildSavings` UND von
+ * `recommendation.ts` für dieselbe Verzweigung an anderer Stelle gebraucht (dort gibt es kein
+ * `entry`, an dem sich das sonst ablesen liesse).
+ */
+export function isRealSavingsComparison(analysis: PdfReportAnalysis): boolean {
+  const comparison =
+    analysis.tariffOptimization?.computable === true
+      ? analysis.tariffOptimization.monthlyComparison
+      : undefined
+  return analysis.existingBatteryAnalysis != null && comparison != null
+}
+
 function buildSavings(
   analysis: PdfReportAnalysis,
   entry: BatteryResultEntry,
@@ -157,7 +171,7 @@ function buildSavings(
       ? analysis.tariffOptimization.monthlyComparison
       : undefined
 
-  if (analysis.existingBatteryAnalysis && comparison) {
+  if (isRealSavingsComparison(analysis) && comparison) {
     const real = buildRealSavingBreakdown({
       currentTariffEur: sumCovered(comparison.currentTariffEur),
       spotWithoutControlEur: sumCovered(comparison.spotWithoutControlEur),
@@ -357,6 +371,18 @@ function buildLoadShift(
       'Rechenfehler, sondern der Abstand zwischen einer Kassen- und einer Zuordnungsgrösse.'
     : ''
 
+  /*
+   * ⚠ „EIGENVERBRAUCH" GIBT ES NUR IN DER §3.7-AUFSCHLÜSSELUNG. Steht oben die Kassen-Fassung
+   * (Monatsvergleich), trägt sie keine eigene Eigenverbrauchs-Zeile — der Effekt steckt dort
+   * bereits in „Wert der Ladesteuerung" mit drin, weil diese Zeile aus dem tatsächlichen
+   * Netzbezug gebildet ist und jeden Effekt des Speichers auf die Kassenzahlen abbildet.
+   */
+  const selfConsumptionNote = savingsIsRealComparison
+    ? 'was Ihre PV-Erzeugung über den Speicher zusätzlich einspart, steckt in der Zeile „Wert der ' +
+      'Ladesteuerung" in der Aufschlüsselung oben mit drin'
+    : 'was Ihre PV-Erzeugung über den Speicher zusätzlich einspart, steht als eigener Anteil ' +
+      '(„Eigenverbrauch") daneben'
+
   return {
     id: 'load_shift',
     title: 'Wert der Ladesteuerung unter aWATTar',
@@ -371,8 +397,7 @@ function buildLoadShift(
       'Netzentgelt Ihres Netzbetreibers angesetzt, statt eines festen Arbeitspreises. Die Zahl ' +
       'sagt damit: so viel wäre in diesem Zeitraum möglich gewesen — sie ist kein Versprechen für ' +
       'die Zukunft, denn die Marktpreise von morgen kennt niemand. Sie zeigt ausschliesslich den ' +
-      'Gewinn aus den Preisunterschieden; was Ihre PV-Erzeugung über den Speicher zusätzlich ' +
-      'einspart, steht als eigener Anteil („Eigenverbrauch") daneben.' +
+      `Gewinn aus den Preisunterschieden; ${selfConsumptionNote}.` +
       annualized +
       reconcile,
   }

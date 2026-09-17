@@ -269,6 +269,33 @@ describe('buildBasisChapter — Datenquellen-Tabelle (D9)', () => {
     )
   })
 
+  /**
+   * Der Verweis „wie im Datenqualitäts-Hinweis oben" zeigt nur dann auf etwas — die Box steht nur
+   * bei `dataQuality.warnings.length > 0` (`buildDataQuality`), dieselbe Bedingung wie hier.
+   */
+  it('verweist auf den Datenqualitäts-Hinweis nur, wenn er auch steht', () => {
+    // ANALYSIS/BATTERY_ANALYSIS tragen `warnings: []` — bisher stand der Verweis trotzdem da.
+    const withoutWarnings = dataSourcesFor({ gridTariffValidFrom: [], invoicePeriods: [] })
+    expect(vintageOf(withoutWarnings, 'load_readings')).not.toContain('Datenqualitäts-Hinweis')
+    expect(vintageOf(withoutWarnings, 'load_readings')).toContain('Slot-Zählung')
+
+    const table = buildBasisChapter({
+      title: 'Wirtschaftlichkeitsanalyse Batteriespeicher',
+      subtitle: 'Auf Basis Ihres Viertelstunden-Lastgangs',
+      period: '01.01.2025 – 31.12.2025',
+      printedAt: '17.09.2026',
+      analysis: {
+        ...BATTERY_ANALYSIS,
+        dataQuality: { ...BATTERY_ANALYSIS.dataQuality, warnings: ['grosse Lücke im Mai'] },
+      },
+      loadProfile: LOAD_PROFILE,
+      tariffSource: TARIFF_SOURCE_UNTRACKED,
+      tariffVintage: null,
+      tariffProvenance: { gridTariffValidFrom: [], invoicePeriods: [] },
+    }).dataSources
+    expect(vintageOf(table, 'load_readings')).toContain('wie im Datenqualitäts-Hinweis oben')
+  })
+
   it('behält „nicht nachverfolgt", solange keine Preisblatt-Zeile vorliegt', () => {
     const table = dataSourcesFor({ gridTariffValidFrom: [], invoicePeriods: [] })
 
@@ -533,6 +560,22 @@ describe('buildBasisChapter — Berechnungsmethodik je Kennzahl (D9)', () => {
     const loadControl = chapter.methodPerMetric.find((i) => i.id === 'method_load_control')?.body
     expect(loadControl).toContain('arithmetischen Mittel')
     expect(loadControl).toContain('ihres eigenen Kalendertags')
+  })
+
+  /**
+   * Der Titel des Methodik-Absatzes folgt derselben Singular/Plural-Regel wie der Hinweis selbst
+   * (`pvOutageTitle`, beide aus `months.length`) — bisher stand hier immer der Plural.
+   */
+  it('folgt bei einem einzelnen Ausfallmonat derselben Singular-Fassung wie der Hinweis', () => {
+    const chapter = basisFor(FULL_WITH_BATTERY, {
+      hasPv: true,
+      pvOutageMonths: OUTAGE_MONTHS.slice(0, 1),
+    })
+
+    expect(chapter.pvOutage?.title).toBe('Ein Monat ohne erkennbaren PV-Beitrag')
+    expect(chapter.methodPerMetric.find((i) => i.id === 'method_pv_outage')?.title).toBe(
+      'Ein Monat ohne erkennbaren PV-Beitrag',
+    )
   })
 
   it('lässt weg, was dieser Report nicht zeigt — bis hin zur leeren Liste', () => {
