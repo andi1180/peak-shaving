@@ -356,37 +356,15 @@ export function computeAnalysis(
    */
   const existing = buildExistingBatteryAnalysis(payload, horizonYears, catalog)
 
-  /*
-   * --- Monatsvergleich „Ist vs. aWATTar ohne Steuerung vs. aWATTar mit Ihrem Speicher" ---
-   *
-   * ⚠ ER HÄNGT AN GENAU ZWEI BEDINGUNGEN, UND BEIDE SIND HART:
-   *   1. `computable === true` — sonst ist die Preisreihe des Hebels bewusst durchgehend mit dem
-   *      Standard-Arbeitspreis gefüllt (s. `intervalTariffRates`), und eine daraus gebildete
-   *      Aggregation zeigte „aWATTar = Ist" statt „nicht berechenbar". Ein Balkenpaar, das
-   *      Gleichstand behauptet, ist der stille Rückfall, vor dem Delta 15 warnt.
-   *   2. Eine BESTEHENDE Anlage — die dritte Reihe ist ihr Dispatch. Ohne sie gäbe es zwei von
-   *      drei Reihen, und der Vergleich hiesse etwas anderes als das, was die Überschrift sagt.
-   * Fehlt eine der beiden, entsteht KEINE der drei Reihen (kein Teilzustand) und die Sektion im
-   * Report entfällt vollständig.
-   */
-  const monthlyComparison =
-    baseTariffOptimization?.computable === true && existing && payload.tariffPricing
-      ? buildMonthlyTariffComparison(
-          loadProfile,
-          payload.tariff,
-          payload.tariffPricing,
-          existing.gridAfterKw,
-        )
-      : undefined
-  const tariffOptimization: TariffOptimizationStatus | undefined = monthlyComparison
-    ? { computable: true, monthlyComparison }
-    : baseTariffOptimization
-
   // --- perBattery/recommendation: ECHTER Engine-Aufruf (§3.6–§3.8) ---
   // `financial` ist bereits vollständig optional gebaut (§3.9) — fehlt es (Formular sammelt es
   // noch nicht immer), reicht `undefined` einfach durch: `taxEffectsIncluded=false`, `taxBenefit=0`.
   // `pvProfile` (optional) reichert nur den Trace um die echte Brutto-PV an (Dispatch/Ersparnis unverändert).
-  const { perBattery, recommendation } = recommendBattery(
+  //
+  // ⚠ Steht seit D7 VOR dem Monatsvergleich und nicht mehr dahinter: dessen dritte Reihe kann jetzt
+  // aus dem Dispatch der empfohlenen Batterie entstehen. Der Aufruf selbst ist unverändert — er
+  // hängt an nichts, was dazwischen berechnet wird.
+  const { perBattery, recommendation, recommendedGridAfterKw } = recommendBattery(
     loadProfile,
     payload.tariff,
     catalog,
@@ -395,6 +373,50 @@ export function computeAnalysis(
     pvProfile,
     payload.tariffPricing,
   )
+
+  /*
+   * --- Monatsvergleich „Ist vs. aWATTar ohne Steuerung vs. aWATTar mit einem Speicher" ---
+   *
+   * ⚠ ER HÄNGT AN GENAU ZWEI BEDINGUNGEN, UND BEIDE SIND HART:
+   *   1. `computable === true` — sonst ist die Preisreihe des Hebels bewusst durchgehend mit dem
+   *      Standard-Arbeitspreis gefüllt (s. `intervalTariffRates`), und eine daraus gebildete
+   *      Aggregation zeigte „aWATTar = Ist" statt „nicht berechenbar". Ein Balkenpaar, das
+   *      Gleichstand behauptet, ist der stille Rückfall, vor dem Delta 15 warnt.
+   *   2. Ein Dispatch, den die dritte Reihe zeigen kann. Ohne ihn gäbe es zwei von drei Reihen,
+   *      und der Vergleich hiesse etwas anderes als das, was die Überschrift sagt.
+   * Fehlt eine der beiden, entsteht KEINE der drei Reihen (kein Teilzustand) und die Sektion im
+   * Report entfällt vollständig.
+   *
+   * ── ⚠ D7: WESSEN DISPATCH DAS IST ────────────────────────────────────────────────────────────
+   * Bis D7 ausschliesslich die BESTEHENDE Anlage — ein Interessent ohne Speicher sah die Sektion
+   * deshalb nie, obwohl der Vergleich gerade für ihn die Kauffrage beantwortet. Zweite Quelle ist
+   * jetzt die empfohlene Katalog-Batterie, und zwar NUR, wenn sie sich im Betrachtungszeitraum
+   * überhaupt rechnet: `netSavingOverHorizon > 0` — dieselbe Schwelle, an der der Report heute
+   * schon entscheidet, ob ein Gerät gezeigt wird (`report.tsx`, `pdf-report/summary.ts`,
+   * `pdf-report/comparison.ts`, 01.09.2026), und hier bewusst keine eigene. Ohne sie zeigte der
+   * Vergleich die Ersparnis eines Speichers, von dem derselbe Report abrät.
+   *
+   * ⚠ DER BESTAND HAT VORRANG. Er ist der Speicher, den der Kunde tatsächlich fährt; die
+   * Katalog-Reihe daneben beantwortete eine Frage, die sich für ihn nicht stellt. Beides zugleich
+   * kann es heute nicht geben (ohne Bestandsanlage ist `existing` undefined) — die Reihenfolge
+   * steht trotzdem im Code und nicht nur in diesem Absatz.
+   */
+  const recommendedDispatchKw =
+    perBattery[0]!.netSavingOverHorizon > 0 ? recommendedGridAfterKw : undefined
+  const comparisonDispatchKw = existing?.gridAfterKw ?? recommendedDispatchKw
+
+  const monthlyComparison =
+    baseTariffOptimization?.computable === true && comparisonDispatchKw && payload.tariffPricing
+      ? buildMonthlyTariffComparison(
+          loadProfile,
+          payload.tariff,
+          payload.tariffPricing,
+          comparisonDispatchKw,
+        )
+      : undefined
+  const tariffOptimization: TariffOptimizationStatus | undefined = monthlyComparison
+    ? { computable: true, monthlyComparison }
+    : baseTariffOptimization
 
   return {
     current,

@@ -201,12 +201,23 @@ selbst abfedert, nicht ein im Code durchgesetztes Prinzip. Ein Report-Baukasten,
 automatisch für jeden Kunden zeigt, bräuchte entweder dieselbe Validierung, die das Prinzip verlangt,
 oder eine bewusste Ausnahme davon.
 
-**Zwei Wege, hier nicht entschieden:**
-1. **MVP-Scope: drei Balken** (heute, aWATTar ungesteuert, aWATTar einfach gesteuert) — sofort
-   baubar, keine neue Engine-Arbeit, keine Prinzip-5-Spannung.
+**Zwei Wege, ursprünglich hier nicht entschieden:**
+1. **MVP-Scope: drei Balken** (heute, aWATTar ungesteuert, aWATTar einfach gesteuert) — keine
+   Prinzip-5-Spannung.
 2. **Fünf Balken wie Urbanz** — braucht (a) den einfachen Tarifwechsel-Vergleich in den
    Kalkulator-Pfad geholt oder dupliziert (Verhältnis zum Monitor-Produkt zu klären, `[MARTIN]`),
    (b) eine Entscheidung zur LP-Optimum-Validierungsfrage.
+
+**Entschieden (Andreas, 16.09.2026, nach dem ersten Live-Test): Variante 1, drei Balken.**
+
+**Korrektur nach dem Live-Test:** „sofort baubar, keine neue Engine-Arbeit" war zu optimistisch.
+`runAnalysisFromMeteringPointDraft` (D3) setzt `payload.tariffPricing` nirgends — ohne dieses Feld
+bleibt `tariffOptimization` in jedem Wizard-Lauf `undefined` („nicht angefordert"), unabhängig vom
+Tarif des Kunden. Der erste End-zu-Ende-Report (Zählpunkt Urbanz, 16.09.2026) zeigt entsprechend
+keinen Tarifvergleich. Zu bauen, bevor die drei Balken erscheinen können: `TariffPricingInputs`
+(Netzbetreiber-Tarifzeilen + aWATTar-Marktpreisreihe für den Lastgang-Zeitraum) im neuen
+Engine-Einstiegspunkt zusammenstellen — eigener Baustein, eigene Bestandsaufnahme vor dem Bau
+(`grid-tariff-lookup.ts`, `TariffPricingInputs`, B21-3b-Kommentare zur Herkunft).
 
 `[MARTIN]` `[OFFEN]` — bitte vor dem CC-Prompt zu diesem Baustein entscheiden.
 

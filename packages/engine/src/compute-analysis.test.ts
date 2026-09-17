@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { BatteryCandidate } from 'shared'
+import type { BatteryCandidate, MonthlyTariffComparison, TariffPricingInputs } from 'shared'
 
 import { computeAnalysis, type CalculatorPayload } from './compute-analysis'
 import type { DataQuality } from './parser'
@@ -7,8 +7,10 @@ import {
   basisWithPvLoadProfile,
   flatTariff,
   GATE_CATALOG,
+  GATE_DYNAMIC_BATTERY,
   GATE_HORIZON_YEARS,
   inconsistentPvProfile,
+  N_DAYS,
 } from './fixtures/profiles'
 
 /*
@@ -39,8 +41,9 @@ const EXISTING_BATTERY: BatteryCandidate = {
   controlType: 'dynamic',
 }
 
-function buildPayload(withExisting: boolean): CalculatorPayload {
+function buildPayload(withExisting: boolean, tariffPricing?: TariffPricingInputs): CalculatorPayload {
   return {
+    ...(tariffPricing ? { tariffPricing } : {}),
     load: { fileName: 'baeckerei.csv', profile: basisWithPvLoadProfile(), dataQuality },
     tariff: flatTariff('annual_max'),
     financial: { fixedSubsidyEur: 2000, taxRatePercent: 25, depreciationYears: 10 },
@@ -94,5 +97,112 @@ describe('computeAnalysis', () => {
     // Ausgewiesen wird die DIFFERENZ zum Bestand, nicht die Bruttozahl der Kombination.
     expect(existing.addonScenarios[0]!.totalSavingPerYear).toBeCloseTo(-302.5528455329634, 9)
     expect(existing.addonScenarios[0]!.netSavingOverHorizon).toBeCloseTo(-16775.528455329633, 8)
+  })
+})
+
+/*
+ * D7: die dritte Reihe des Monatsvergleichs entsteht auch OHNE Bestandsspeicher — aus dem Dispatch
+ * der empfohlenen Katalog-Batterie, und nur wenn die sich im Betrachtungszeitraum rechnet.
+ */
+
+const ONE_HOUR_MS = 60 * 60 * 1000
+
+/**
+ * Billiger Nachtstrom, teurer Tag. Ein flacher Preis machte die dritte Reihe zur zweiten und die
+ * Prüfung damit blind: sie bliebe auch dann grün, wenn gar kein Dispatch eingeflossen wäre.
+ */
+function pricingInputs(): TariffPricingInputs {
+  const t0 = Date.parse('2024-02-01T00:00:00Z')
+  return {
+    gridTariffRows: [
+      {
+        validFrom: '2024-01-01',
+        validUntil: null,
+        netzverlustCtPerKwh: 0.7,
+        priceBasis: 'net',
+        windows: [
+          {
+            label: 'normal',
+            monthDayFrom: null,
+            monthDayTo: null,
+            timeFrom: '00:00:00',
+            timeTo: '24:00:00',
+            ctPerKwh: 6.98,
+          },
+        ],
+      },
+    ],
+    spotPrices: {
+      prices: Array.from({ length: N_DAYS * 24 }, (_, h) => ({
+        tsStart: new Date(t0 + h * ONE_HOUR_MS).toISOString(),
+        tsEnd: new Date(t0 + (h + 1) * ONE_HOUR_MS).toISOString(),
+        ctPerKwh: h % 24 < 6 ? 2 : 20,
+        priceBasis: 'net',
+      })),
+      complete: true,
+      missingRanges: [],
+    },
+  }
+}
+
+function comparisonOf(payload: CalculatorPayload): MonthlyTariffComparison | undefined {
+  const status = computeAnalysis(payload, GATE_HORIZON_YEARS, GATE_CATALOG).tariffOptimization
+  expect(status?.computable).toBe(true)
+  return status?.computable === true ? status.monthlyComparison : undefined
+}
+
+describe('Monatsvergleich ohne Bestandsspeicher (D7)', () => {
+  /** Der Lastgang deckt einen einzigen Kalendermonat ab (Februar 2024) — Index 1. */
+  const FEB = 1
+
+  it('rechnet die dritte Reihe aus der empfohlenen Katalog-Batterie', () => {
+    const payload = buildPayload(false, pricingInputs())
+    const result = computeAnalysis(payload, GATE_HORIZON_YEARS, GATE_CATALOG)
+
+    // Die Voraussetzung, an der die neue Quelle hängt — sonst prüft der Rest den falschen Zweig.
+    expect(result.existingBatteryAnalysis).toBeUndefined()
+    expect(result.perBattery[0]!.netSavingOverHorizon).toBeGreaterThan(0)
+
+    const comparison = comparisonOf(payload)!
+    expect(comparison.coveredMonths).toBe(1)
+    for (const series of [
+      comparison.currentTariffEur,
+      comparison.spotWithoutControlEur,
+      comparison.spotWithBatteryEur,
+    ]) {
+      expect(series[FEB]).not.toBeNull()
+    }
+    // Der Dispatch ist tatsächlich eingeflossen: die dritte Reihe steht nicht auf der zweiten.
+    expect(comparison.spotWithBatteryEur[FEB]).not.toBeCloseTo(
+      comparison.spotWithoutControlEur[FEB]!,
+      6,
+    )
+  })
+
+  it('lässt die dritte Reihe weg, wenn sich das empfohlene Gerät nicht rechnet', () => {
+    // Identische Physik, nur unbezahlbar — damit die Ersparnis dieselbe bleibt und allein
+    // `netSavingOverHorizon` kippt.
+    const unaffordable = [{ ...GATE_DYNAMIC_BATTERY, id: 'zu-teuer', pricePerKwh: 5000 }]
+    const result = computeAnalysis(
+      buildPayload(false, pricingInputs()),
+      GATE_HORIZON_YEARS,
+      unaffordable,
+    )
+
+    expect(result.perBattery[0]!.netSavingOverHorizon).toBeLessThan(0)
+    // Der Hebel bleibt berechenbar — es fehlt der Dispatch, nicht der Preis. Der Unterschied ist
+    // die Aussage: „nicht empfehlenswert" ist nicht „nicht berechenbar".
+    expect(result.tariffOptimization).toEqual({ computable: true })
+  })
+
+  it('der Bestandsspeicher hat Vorrang vor der Katalog-Batterie', () => {
+    const ohne = comparisonOf(buildPayload(false, pricingInputs()))!
+    const mit = comparisonOf(buildPayload(true, pricingInputs()))!
+
+    // Die ersten beiden Reihen hängen am rohen Lastgang und sind in beiden Läufen dieselben …
+    expect(mit.currentTariffEur[FEB]).toBeCloseTo(ohne.currentTariffEur[FEB]!, 9)
+    expect(mit.spotWithoutControlEur[FEB]).toBeCloseTo(ohne.spotWithoutControlEur[FEB]!, 9)
+    // … die dritte nicht: 19,2 kWh Bestand gegen 60 kWh Katalog-Empfehlung.
+    expect(mit.spotWithBatteryEur[FEB]).not.toBeCloseTo(ohne.spotWithBatteryEur[FEB]!, 3)
   })
 })

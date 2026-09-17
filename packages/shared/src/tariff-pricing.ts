@@ -175,7 +175,14 @@ export type MonthlyTariffComparison = {
   currentTariffEur: (number | null)[]
   /** aWATTar-Preise auf den ROHEN, unveränderten Lastgang — ohne jeden Dispatch. */
   spotWithoutControlEur: (number | null)[]
-  /** aWATTar-Preise auf den Netzbezug NACH dem Dispatch der bestehenden Anlage. */
+  /**
+   * aWATTar-Preise auf den Netzbezug NACH dem Dispatch eines Speichers.
+   *
+   * ⚠ WESSEN Speicher, steht nicht in diesem Feld: die bestehende Anlage des Kunden, und seit D7
+   * ersatzweise die empfohlene Katalog-Batterie. Die Unterscheidung ist am vorhandenen Contract
+   * ablesbar (`existingBatteryAnalysis != null`) — ein eigenes Feld dafür wäre eine zweite Quelle
+   * derselben Aussage. Die Beschriftungen des Reports verzweigen genau daran.
+   */
   spotWithBatteryEur: (number | null)[]
   /** Zahl der belegten Kalendermonate — die Bezugsgrösse des Hinweistexts im Report. */
   coveredMonths: number

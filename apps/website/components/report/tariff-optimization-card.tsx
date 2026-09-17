@@ -4,6 +4,7 @@ import type { BatteryResultEntry, TariffOptimizationStatus, TariffPriceRange } f
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { InfoHint } from '@/components/ui/info-hint'
 import { formatEur } from '@/lib/format'
+import { monthlyBatteryRef } from '@/lib/report-copy'
 import { sumCovered } from './monthly-tariff-chart'
 import { Num } from './num'
 
@@ -73,6 +74,7 @@ export function TariffOptimizationCard({
   status,
   recommended,
   timeZone,
+  isExisting,
 }: {
   /** `undefined` = Hebel nicht angefordert; dann rendert die Karte nichts. */
   status: TariffOptimizationStatus | undefined
@@ -85,6 +87,14 @@ export function TariffOptimizationCard({
    */
   recommended: BatteryResultEntry | undefined
   timeZone: string
+  /**
+   * Fährt der Kunde eine eigene Anlage? Entscheidet allein den WORTLAUT, nicht die Zahlen.
+   *
+   * ⚠ Seit D7 kann der Monatsvergleich auch aus dem Dispatch der empfohlenen Katalog-Batterie
+   * entstehen. „mit Ihrem Speicher" wäre dann eine Aussage über einen Speicher, den der Kunde nicht
+   * hat — dieselbe Unterscheidung, die `report.tsx` schon an der Kapp-Linie trifft.
+   */
+  isExisting: boolean
 }) {
   if (!status) return null
 
@@ -162,7 +172,7 @@ export function TariffOptimizationCard({
           <p className="text-text">
             Über die <Num>{totals!.months}</Num> gemessenen Monate:{' '}
             <Num className="font-medium text-ink">{formatEur(totals!.withBattery)}</Num> mit aWATTar
-            und Ihrem Speicher gegenüber{' '}
+            und {monthlyBatteryRef(isExisting)} gegenüber{' '}
             <Num className="font-medium text-ink">{formatEur(totals!.current)}</Num> mit Ihrem
             heutigen Tarif — also <Num className="font-medium text-ink">{formatEur(surcharge)}</Num>{' '}
             mehr. Alle Beträge exkl. MwSt.

@@ -21,3 +21,16 @@
 export const HINDSIGHT_NOTE =
   'Eigenverbrauch & tarifbewusstes Laden sind mit vollem Rückblick auf das Jahresprofil ' +
   'gerechnet (Bestmarke). Der Spitzenschutz-Anteil ist davon nicht betroffen.'
+
+/**
+ * Wessen Speicher die dritte Reihe des Monatsvergleichs fährt — Dativ, für „aWATTar mit …".
+ *
+ * ⚠ Seit D7 entsteht diese Reihe auch OHNE Bestandsanlage, aus dem Dispatch der empfohlenen
+ * Katalog-Batterie (`compute-analysis.ts`). „Ihrem Speicher" wäre dort eine Behauptung über ein
+ * Gerät, das der Kunde nicht besitzt. Die Fallunterscheidung ist dieselbe wie bei der Kapp-Linie
+ * (`report.tsx`, `pdf-report/recommendation.ts`); der Wortlaut steht hier, damit die Stellen, die
+ * sie treffen, nicht auseinanderlaufen.
+ */
+export function monthlyBatteryRef(isExisting: boolean): string {
+  return isExisting ? 'Ihrem Speicher' : 'der empfohlenen Batterie'
+}

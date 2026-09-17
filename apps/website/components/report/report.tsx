@@ -403,9 +403,14 @@ export function Report({
    *
    * ⚠ `null`, WENN DER HEBEL NICHT BERECHENBAR IST — und dann entfällt die Sektion ERSATZLOS,
    * nicht als leere Box mit Überschrift. Die Bedingung ist genau eine (`monthlyComparison`
-   * vorhanden), und der Worker setzt sie ausschliesslich bei `computable === true` UND
-   * vorhandener Bestandsanlage. Eine hier nachgebaute Zweitprüfung an `status.computable`
-   * könnte davon abweichen; die Frage „darf ich diese Zahlen zeigen" hat einen Ort.
+   * vorhanden); eine hier nachgebaute Zweitprüfung an `status.computable` könnte davon abweichen,
+   * und die Frage „darf ich diese Zahlen zeigen" hat einen Ort.
+   *
+   * ⚠ SEIT D7 SETZT DIE ENGINE DAS FELD AUCH OHNE BESTANDSANLAGE (dritte Reihe aus dem Dispatch
+   * der empfohlenen Katalog-Batterie). Der Kasten steht am Bildschirm trotzdem weiterhin NUR im
+   * Bestandsfall — er wird unten ausschliesslich im `isExisting`-Zweig gerendert. Wo er im
+   * Katalog-Fall hingehört und ob er den Kostenvergleich dort ergänzt oder ersetzt, ist eine
+   * Layout-Entscheidung und hier bewusst nicht getroffen.
    */
   const monthlyComparison =
     result.tariffOptimization?.computable === true
@@ -776,6 +781,7 @@ export function Report({
             status={result.tariffOptimization}
             recommended={primaryEntry}
             timeZone={loadProfile.timezoneMeta}
+            isExisting={isExisting}
           />
         </div>
         <div className="flex flex-col gap-6 lg:col-span-2">

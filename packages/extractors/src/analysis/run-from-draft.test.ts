@@ -312,7 +312,22 @@ describe('runAnalysisFromMeteringPointDraft — tariffPricing', () => {
     expect(request.window.startIso).toBe(loadProfile.readings[0]!.ts)
     expect(request.window.endIso).toBe(loadProfile.readings.at(-1)!.ts)
 
-    expect(result.tariffOptimization).toEqual({ computable: true })
+    /*
+     * Seit D7 trägt der Status zusätzlich den Monatsvergleich: der Entwurf kennt keine
+     * Bestandsanlage, die dritte Reihe kommt deshalb aus dem Dispatch der empfohlenen
+     * Katalog-Batterie. Geprüft wird beides — dass der Hebel berechenbar ist UND dass die Reihe
+     * wirklich aus einem Dispatch stammt und nicht bloss die ungesteuerte Reihe wiederholt.
+     */
+    const status = result.tariffOptimization
+    expect(status?.computable).toBe(true)
+    const monthly = status?.computable === true ? status.monthlyComparison : undefined
+    expect(monthly).toBeDefined()
+    const month = monthly!.currentTariffEur.findIndex((v) => v != null)
+    expect(month).toBeGreaterThanOrEqual(0)
+    expect(monthly!.spotWithBatteryEur[month]).not.toBeCloseTo(
+      monthly!.spotWithoutControlEur[month]!,
+      6,
+    )
   })
 
   it('zwingt die Messvariante bei NE 3–6 auf null, unabhängig vom Entwurfswert', async () => {

@@ -20,12 +20,18 @@ import type { PdfReportAnalysis } from './types'
  * zwei Konsumenten. Zweimal ausgeschrieben stünde im Dokument eine Bildunterschrift, die ein
  * anderes Bild beschreibt als das darüber, und man sähe es der Seite nicht an.
  *
- * ── ⚠ DIE EINE BEDINGUNG: `monthlyComparison` VORHANDEN ODER NICHT ────────────────────────────
- * Ist der Monatsvergleich gerechnet, steht er; sonst steht der Kostenvergleich. Ausdrücklich KEINE
- * zweite Prüfung an `tariffOptimization.computable` — der Worker setzt `monthlyComparison`
- * ausschliesslich bei `computable === true` UND vorhandener Bestandsanlage, und eine hier
- * nachgebaute Zweitprüfung könnte davon abweichen (dieselbe Regel wie in `report.tsx` und
- * `summary.ts`: die Frage „darf ich diese Zahlen zeigen" hat einen Ort).
+ * ── ⚠ DIE BEDINGUNG: MONATSVERGLEICH UND BESTANDSANLAGE ───────────────────────────────────────
+ * Ist der Monatsvergleich für die Anlage des KUNDEN gerechnet, steht er; sonst steht der
+ * Kostenvergleich. Weiterhin ausdrücklich KEINE Prüfung an `tariffOptimization.computable` — die
+ * Frage „darf ich diese Zahlen zeigen" hat einen Ort.
+ *
+ * ⚠ Die zweite Hälfte der Bedingung ist seit D7 nötig und war es vorher nicht: bis dahin setzte die
+ * Engine `monthlyComparison` ausschliesslich im Bestandsfall, seither auch aus dem Dispatch der
+ * empfohlenen Katalog-Batterie. Ohne die Prüfung verdrängte der Monatsvergleich dort den
+ * Kostenverlauf — das BILD zur Kaufaussage, die dieses Kapitel im Katalog-Fall trägt — und seine
+ * Beschriftungen sprächen vom Speicher des Kunden, den es in diesem Fall nicht gibt. Welcher der
+ * beiden Charts dem Interessenten künftig gezeigt wird, ist eine eigene Entscheidung und hier
+ * bewusst nicht getroffen.
  *
  * ── ⚠ BENANNTE, BEWUSSTE ABWEICHUNG VOM BILDSCHIRM-REPORT — GEMESSEN, NICHT ÜBERSEHEN ─────────
  * `report.tsx` verzweigt an `isExisting`: im Bestandsfall steht der Monatsvergleich (oder, wenn er
@@ -116,7 +122,7 @@ export function detailChartPlan(analysis: PdfReportAnalysis): DetailChartPlan {
   const recommended = recommendedEntryOf(analysis)
 
   let cost: DetailCostPlan | null = null
-  if (comparison) {
+  if (comparison && existing) {
     cost = { kind: 'monthly', comparison }
   } else if (recommended) {
     cost = {
