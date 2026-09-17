@@ -104,6 +104,7 @@ export const SECTION_ID = {
   results: 'kernergebnisse',
   recommendation: 'empfehlung',
   detail: 'kostenverlauf',
+  monthly: 'monatsvergleich',
   insight: 'ladeverhalten',
   comparison: 'geraetewahl',
   methodology: 'methodik',
@@ -171,6 +172,36 @@ export const DETAIL_SECTION: ReportSection = {
 /** Steht unter der Kapitelüberschrift. Sagt, worum es geht, nicht was auf der Seite steht. */
 export const DETAIL_INTRO =
   'Wie sich die Zahlen über die Zeit auswirken — und wie ein einzelner Tag damit aussieht.'
+
+/**
+ * D7 — der Monatsvergleich „Ist-Tarif vs. aWATTar", als eigenes Kapitel.
+ *
+ * ── ⚠ EIGENES KAPITEL UND NICHT ANSTELLE DES KOSTENVERLAUFS ───────────────────────────────────
+ * Im BESTANDSFALL steht der Monatsvergleich unverändert IM Detail-Kapitel und ersetzt dort den
+ * kumulierten Kostenverlauf — für einen Kunden mit Anlage ist die Kauffrage beantwortet, und die
+ * offene lautet „was zahle ich am Netz". Ohne Bestandsanlage ist sie NICHT beantwortet: der
+ * Kostenverlauf ist dort das Bild zur Kaufaussage und darf nicht weichen. Der Monatsvergleich
+ * beantwortet daneben eine zweite Frage („und was zahlte ich mit einem anderen Stromvertrag") und
+ * bekommt dafür eine eigene Seite, statt einer der beiden zu verdrängen.
+ *
+ * ── ⚠ ES GIBT DIESES KAPITEL NUR OHNE BESTANDSANLAGE ──────────────────────────────────────────
+ * Zweites bedingtes Kapitel nach dem „Ladeverhalten" (B23c-3b-1) und nach derselben Mechanik: der
+ * Aufrufer entscheidet EINMAL (`hasMonthlyChapter`) und gibt die Antwort an Agenda UND Seitenbaum.
+ * Im Bestandsfall entsteht es nicht — der Vergleich steht dort schon im Detail-Kapitel, und zweimal
+ * dieselben drei Balken im selben Dokument wären eine Wiederholung, die wie zwei Rechnungen aussieht.
+ *
+ * ⚠ Eigene `<Page>` (D5, Regel 1). Als `<View break>` im Detail-Kapitel bekäme es in der Agenda die
+ * Seitenzahl JENES Kapitels — plausibel aussehend und falsch.
+ */
+export const MONTHLY_SECTION: ReportSection = {
+  id: SECTION_ID.monthly,
+  level: 1,
+  title: 'Ihr Stromtarif im Monatsvergleich',
+}
+
+/** Steht unter der Kapitelüberschrift. Sagt, worum es geht, nicht was auf der Seite steht. */
+export const MONTHLY_INTRO =
+  'Was Sie heute zahlen — und was es mit einem Börsenpreis-Tarif gewesen wäre.'
 
 /**
  * B23c-3b-1 — das Kapitel mit der Stunden-Heatmap und dem Ø-Ladepreis.
@@ -290,6 +321,11 @@ export const REPORT_DISCLAIMER =
 
 /** Welche BEDINGTEN Kapitel dieses Dokument trägt. */
 export type ReportChapterPresence = {
+  /**
+   * `true` = der Monatsvergleich steht als eigenes Kapitel — s. `hasMonthlyChapter` (`detail.ts`).
+   * Im Bestandsfall `false`: dort steht er im Detail-Kapitel an der Stelle des Kostenverlaufs.
+   */
+  monthly: boolean
   /** `false` = weder Heatmap noch Ø-Ladepreis entstehen — s. `insight.ts`. */
   insight: boolean
   /**
@@ -320,6 +356,7 @@ export function buildReportAgenda(
     RESULTS_SECTION,
     RECOMMENDATION_SECTION,
     DETAIL_SECTION,
+    ...(presence.monthly ? [MONTHLY_SECTION] : []),
     ...(presence.insight ? [INSIGHT_SECTION] : []),
     ...(presence.comparison ? [COMPARISON_SECTION] : []),
     METHODOLOGY_SECTION,

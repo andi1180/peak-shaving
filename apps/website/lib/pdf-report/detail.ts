@@ -6,6 +6,7 @@ import type {
 import { sumCovered } from 'shared'
 
 import { formatEur, formatYears } from '@/lib/format'
+import { monthlyBatteryRef } from '@/lib/report-copy'
 import type { ReportFigure, ReportRow, ReportStatement } from './statement'
 import type { PdfReportAnalysis } from './types'
 
@@ -192,18 +193,20 @@ function neutralRow(label: string, value: string): ReportRow {
  * Bildschirm und die Executive Summary ihre Summen bilden (`packages/shared/src/real-saving.ts`).
  * Ein zweiter Reducer ergäbe im selben Report anders gebildete Summen derselben drei Reihen.
  */
-function buildMonthly(comparison: MonthlyTariffComparison): {
+function buildMonthly(
+  comparison: MonthlyTariffComparison,
+  isExisting: boolean,
+): {
   figure: DetailFigure
   statement: ReportStatement
 } {
   const fixed = comparison.fixedCosts
+  /* Seit D7 fährt die dritte Reihe auch die empfohlene Katalog-Batterie — ein Wortlaut, ein Ort. */
+  const whose = monthlyBatteryRef(isExisting)
   const rows: ReportRow[] = [
     neutralRow('Ihr Tarif heute', formatEur(sumCovered(comparison.currentTariffEur))),
     neutralRow('aWATTar ohne Steuerung', formatEur(sumCovered(comparison.spotWithoutControlEur))),
-    neutralRow(
-      'aWATTar mit Ihrem Speicher',
-      formatEur(sumCovered(comparison.spotWithBatteryEur)),
-    ),
+    neutralRow(`aWATTar mit ${whose}`, formatEur(sumCovered(comparison.spotWithBatteryEur))),
   ]
 
   /*
@@ -222,7 +225,7 @@ function buildMonthly(comparison: MonthlyTariffComparison): {
       caption:
         'Energie- und Netzkosten je Kalendermonat. Die drei Balken eines Monats stehen in ' +
         'derselben Reihenfolge wie die Zeilen darunter: grau Ihr heutiger Tarif, hell aWATTar ohne ' +
-        'Steuerung, kräftig aWATTar mit Ihrem Speicher. Monate ohne Messwert bleiben leer.',
+        `Steuerung, kräftig aWATTar mit ${whose}. Monate ohne Messwert bleiben leer.`,
       note: null,
     },
     statement: {
@@ -365,7 +368,8 @@ export function buildDetailChapter(
     plan.cost === null
       ? null
       : plan.cost.kind === 'monthly'
-        ? buildMonthly(plan.cost.comparison)
+        ? /* `detailChartPlan` wählt `monthly` ausschliesslich im Bestandsfall — s. dort. */
+          buildMonthly(plan.cost.comparison, true)
         : buildCumulative(plan.cost)
 
   const flowEntry = plan.flow
@@ -383,4 +387,49 @@ export function buildDetailChapter(
     flow: plan.flow ? buildFlow(measured.flowDay) : null,
     flowMissing: plan.flow ? null : flowMissingNote(flowEntry),
   }
+}
+
+/* ────────────────────────────────────────────────────────────────────────────────────────────────
+ * D7 — der Monatsvergleich als eigenes Kapitel (nur ohne Bestandsanlage)
+ * ──────────────────────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * Der Monatsvergleich für einen Interessenten OHNE eigene Anlage.
+ *
+ * ⚠ Er steht hier und nicht im Detail-Kapitel, weil dort der kumulierte Kostenverlauf steht und
+ * bleiben muss: er ist das Bild zur Kaufaussage, und die ist für diesen Leser gerade die offene
+ * Frage (`MONTHLY_SECTION`). Gebaut wird er aus DERSELBEN Funktion wie im Bestandsfall — eine
+ * Ableitung, zwei Kapitel; zwei Fassungen liefen beim nächsten Umformulieren auseinander.
+ */
+export type MonthlyChapter = {
+  figure: DetailFigure
+  statement: ReportStatement
+}
+
+/**
+ * Gibt es dieses Kapitel in diesem Dokument?
+ *
+ * ⚠ Die Bedingung ist „Vergleich gerechnet UND keine Bestandsanlage" — und die zweite Hälfte ist
+ * keine Vorsicht, sondern die Abgrenzung: mit Bestandsanlage steht derselbe Vergleich bereits im
+ * Detail-Kapitel (`detailChartPlan`). Ohne diese Hälfte stünde er in jenem Fall zweimal im selben
+ * Dokument.
+ *
+ * Der Aufrufer (`document.tsx`) wertet das EINMAL aus und gibt die Antwort an Agenda UND
+ * Seitenbaum — dieselbe Regel wie bei `hasInsightChapter`/`hasComparisonChapter`.
+ */
+export function hasMonthlyChapter(analysis: PdfReportAnalysis): boolean {
+  return monthlyComparisonOf(analysis) !== undefined
+}
+
+export function buildMonthlyChapter(analysis: PdfReportAnalysis): MonthlyChapter | null {
+  const comparison = monthlyComparisonOf(analysis)
+  return comparison ? buildMonthly(comparison, false) : null
+}
+
+/** Der Vergleich, SOFERN er diesem Kapitel gehört — eine Bedingung, ein Ort. */
+function monthlyComparisonOf(analysis: PdfReportAnalysis): MonthlyTariffComparison | undefined {
+  if (analysis.existingBatteryAnalysis) return undefined
+  return analysis.tariffOptimization?.computable === true
+    ? analysis.tariffOptimization.monthlyComparison
+    : undefined
 }

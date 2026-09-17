@@ -1,3 +1,5 @@
+import type { MonthlyTariffComparison } from 'shared'
+
 import { BatteryFlowHeatmap } from '@/components/report/battery-flow-heatmap'
 import { ChargePriceChart } from '@/components/report/charge-price-chart'
 import { CostChart } from '@/components/report/cost-chart'
@@ -8,7 +10,7 @@ import { MonthlyTariffChart } from '@/components/report/monthly-tariff-chart'
 import { captureChart, selectHeatmapGrid, selectRechartsSurface } from './chart-capture'
 import type { ChartRaster } from './chart-raster'
 import { comparisonChartPlan } from './comparison'
-import { detailChartPlan } from './detail'
+import { detailChartPlan, hasMonthlyChapter } from './detail'
 import { insightChartPlan } from './insight'
 import { primaryEntryOf } from './summary'
 import type { PdfReportInput } from './types'
@@ -89,6 +91,17 @@ export type ReportChartRasters = {
    */
   costKind: 'monthly' | 'cumulative' | null
 
+  /**
+   * D7 — der Monatsvergleich als EIGENES Kapitel. `null`, wenn es das Kapitel in diesem Dokument
+   * nicht gibt (`hasMonthlyChapter`: nur ohne Bestandsanlage).
+   *
+   * ⚠ Nicht dasselbe wie `cost` mit `costKind: 'monthly'`: dort ERSETZT der Vergleich im
+   * Bestandsfall den Kostenverlauf, hier steht er daneben. Zwei Bilder, weil es zwei Stellen im
+   * Dokument sind — dasselbe Bild an beiden Stellen gäbe es in keinem Dokument zugleich.
+   */
+  monthly: ChartRaster | null
+  monthlyError: string | null
+
   /** Tages-Energiefluss. `null`, wenn die Komponente für diesen Fall keinen Tag hergibt. */
   flow: ChartRaster | null
   flowError: string | null
@@ -144,6 +157,7 @@ export type ReportChartRasters = {
 export type ReportChartFigureMs = {
   load: number | null
   cost: number | null
+  monthly: number | null
   flow: number | null
   hourFlow: number | null
   chargePrice: number | null
@@ -350,7 +364,8 @@ export async function buildReportCharts(input: PdfReportInput): Promise<ReportCh
       : await attempt(() =>
           captureChart(
             costPlan.kind === 'monthly' ? (
-              <MonthlyTariffChart comparison={costPlan.comparison} />
+              /* `costPlan.kind === 'monthly'` gibt es nur im Bestandsfall — s. `detailChartPlan`. */
+              <MonthlyTariffChart comparison={costPlan.comparison} isExisting />
             ) : (
               <CostChart
                 entry={costPlan.entry}
@@ -451,6 +466,22 @@ export async function buildReportCharts(input: PdfReportInput): Promise<ReportCh
         )
 
   /*
+   * D7 — der Monatsvergleich des eigenen Kapitels. Derselbe Chart wie oben, anderer Ort im
+   * Dokument: `hasMonthlyChapter` und `detailChartPlan` schliessen einander aus, es wird also nie
+   * zweimal dasselbe gerastert.
+   */
+  const monthlyChapterComparison = monthlyChapterComparisonOf(analysis)
+  const monthly: Attempt =
+    monthlyChapterComparison === null
+      ? NOT_RASTERIZED
+      : await attempt(() =>
+          captureChart(
+            <MonthlyTariffChart comparison={monthlyChapterComparison} isExisting={false} />,
+            { width: DETAIL_CHART_WIDTH_PX, select: selectRechartsSurface },
+          ),
+        )
+
+  /*
    * Die Grenznutzen-Kurve.
    *
    * ⚠ `comparisonPlan === null` heisst: weniger als zwei zeichenbare Punkte, und dann rendert
@@ -483,6 +514,8 @@ export async function buildReportCharts(input: PdfReportInput): Promise<ReportCh
     cost: cost.raster,
     costError: cost.error,
     costKind: plan.cost?.kind ?? null,
+    monthly: monthly.raster,
+    monthlyError: monthly.error,
     flow: flow.raster,
     flowError: flow.error,
     flowDay: flow.raster ? measured.flowDay : null,
@@ -497,10 +530,26 @@ export async function buildReportCharts(input: PdfReportInput): Promise<ReportCh
     figureMs: {
       load: load.ms,
       cost: cost.ms,
+      monthly: monthly.ms,
       flow: flow.ms,
       hourFlow: hourFlow.ms,
       chargePrice: chargePrice.ms,
       comparison: comparison.ms,
     },
   }
+}
+
+/**
+ * Der Vergleich, der dem eigenen Kapitel gehört — oder `null`.
+ *
+ * ⚠ Die ENTSCHEIDUNG liegt in `detail.ts` (`hasMonthlyChapter`), hier wird sie nur gelesen: eine
+ * zweite Bedingung neben ihr ergäbe ein Bild ohne Kapitel oder ein Kapitel ohne Bild.
+ */
+function monthlyChapterComparisonOf(
+  analysis: PdfReportInput['analysis'],
+): MonthlyTariffComparison | null {
+  if (!hasMonthlyChapter(analysis)) return null
+  return analysis.tariffOptimization?.computable === true
+    ? (analysis.tariffOptimization.monthlyComparison ?? null)
+    : null
 }

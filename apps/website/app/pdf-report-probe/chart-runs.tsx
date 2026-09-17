@@ -407,7 +407,7 @@ export async function runChartProbe(
   const started = performance.now()
 
   if (kind === 'monthly') {
-    const raster = await captureChart(<MonthlyTariffChart comparison={MONTHLY_COMPARISON_FIXTURE} />, {
+    const raster = await captureChart(<MonthlyTariffChart comparison={MONTHLY_COMPARISON_FIXTURE} isExisting />, {
       width: 760,
       /* Der Zeichenbereich, nicht die Karte — ausdrücklich, s. die Warnung an `CaptureOptions.select`. */
       select: selectRechartsSurface,
