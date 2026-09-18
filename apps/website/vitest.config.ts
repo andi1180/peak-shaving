@@ -14,8 +14,9 @@ import { defineConfig } from 'vitest/config'
  * `include` ist deshalb eng gefasst: ein versehentlich hier abgelegter Komponententest soll nicht
  * still mitlaufen und dann an fehlendem jsdom scheitern.
  *
- * ── ⚠ EINE AUSNAHME, UND SIE BRAUCHT KEIN DOM: `optional-sections.test.ts` ────────────────────
- * Sie erzeugt ein echtes PDF (`renderToBuffer` aus `@react-pdf/renderer`). Das ist kein
+ * ── ⚠ ZWEI AUSNAHMEN, UND SIE BRAUCHEN KEIN DOM ──────────────────────────────────────────────
+ * `optional-sections.test.ts` (Katalog-Fall) und `existing-case.test.ts` (Bestandsfall) erzeugen
+ * ein echtes PDF (`renderToBuffer` aus `@react-pdf/renderer`). Das ist kein
  * Renderer-Setup im obigen Sinn — react-pdf schreibt in einen Buffer und fasst weder `document`
  * noch `window` an; jsdom und Testing Library bleiben weiterhin uneingerichtet. Gemessen wird
  * dort, was ein Test gegen die Ableitungsschicht nicht sehen kann: ob sich das BLATT ändert.
