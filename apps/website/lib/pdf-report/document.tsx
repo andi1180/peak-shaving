@@ -51,7 +51,7 @@ import type {
   ReportTable,
   ReportTone,
 } from './statement'
-import { buildReportSummary } from './summary'
+import { ADDON_ID, buildReportSummary } from './summary'
 import { chartCellColor, PDF_COLORS, PDF_CONTENT_WIDTH_PT, PDF_LAYOUT, PDF_TYPE } from './theme'
 import type { PdfReportInput } from './types'
 
@@ -415,6 +415,23 @@ const styles = StyleSheet.create({
   },
 
   statement: { marginTop: 14 },
+  /**
+   * Der erledigte Nebenstrang (B3-2b) — dieselbe Kastenform wie `notice`, in Teal.
+   *
+   * ⚠ ES IST DIE FORM DES HINWEISKASTENS UND KEINE ZWEITE DANEBEN: Fläche plus 2,6 pt Kante
+   * links, gemessen am Zielbild (S. 2/6/8: `#f0fdfa`, Kante `#0f766e`). Eine eigene Kastenform
+   * für dieselbe Rolle liesse den Leser einen Unterschied vermuten, den es nicht gibt — dieselbe
+   * Überlegung, aus der `figureMissing` und `notice` sich die Form teilen.
+   *
+   * ⚠ `marginTop` bleibt das der Aussage (14): der Kasten steht in der Reihe der Kernaussagen und
+   * nicht als Anhang darunter.
+   */
+  statementAside: {
+    padding: 10,
+    borderLeftWidth: 2.6,
+    borderLeftColor: PDF_COLORS.accent,
+    backgroundColor: PDF_COLORS.accentSubtle,
+  },
   statementTitle: { ...LEADING, fontSize: PDF_TYPE.h3, fontWeight: 600, color: PDF_COLORS.ink },
   /**
    * Das Verdikt (B3-2a) — Frage und Antwort, beide einen Grad über ihrer sonstigen Form.
@@ -1088,9 +1105,20 @@ function Statement({ statement, layout }: { statement: ReportStatement; layout: 
    */
   const verdict = statement.amount?.tone === 'negative' ? statement.amount : null
 
+  /*
+   * B3-2b — der erledigte Nebenstrang steht im teal Kasten, und sein Titel eine Stufe kleiner:
+   * er ist eine Bemerkung zum Kapitel und kein neunter Abschnitt darin (`PDF_TYPE.noticeTitle`
+   * ist aus genau diesem Grund schon da). Auch das entscheidet die Ableitung, nicht eine Kennung.
+   */
+  const aside = statement.aside === true
+
   return (
-    <View style={styles.statement} wrap={false}>
-      <Text style={verdict ? styles.verdictTitle : styles.statementTitle}>{statement.title}</Text>
+    <View style={aside ? [styles.statement, styles.statementAside] : styles.statement} wrap={false}>
+      <Text
+        style={verdict ? styles.verdictTitle : aside ? styles.noticeTitle : styles.statementTitle}
+      >
+        {statement.title}
+      </Text>
       {/* Keine Kopfzahl, wo es keine gibt (der Zusatzspeicher-Klarsatz) — s. `summary.ts`. */}
       {verdict ? (
         /* Ohne Bezugsgrösse: sie steht als Satz im Fliesstext darunter (s. `buildVerdict`). */
@@ -1332,9 +1360,18 @@ function ResultsChapter({
         <Notice key={notice.id} notice={notice} />
       ))}
 
-      {summary.statements.map((statement) => (
-        <Statement key={statement.id} statement={statement} layout={layout} />
-      ))}
+      {/*
+        Report-Baukasten C (B3-2b) — `addon` ist seit B3-2b abwählbar, und die Auswahl greift HIER
+        und nicht in der Ableitung: `buildReportLayout` bildet seine Beschreibung aus derselben
+        Bedingung, und die zwei Wege müssen dieselbe Antwort geben (s. `reportBlockSelected`).
+        Fällt der Zeiger, fällt mit ihm der Satz im Empfehlungs-Kapitel, der auf ihn zeigt — er
+        trägt dafür seine leere Ersatzfassung (`recommendation.ts`, Kante E).
+      */}
+      {summary.statements
+        .filter((s) => s.id !== ADDON_ID || reportSectionEnabled(input.optionalSections, ADDON_ID))
+        .map((statement) => (
+          <Statement key={statement.id} statement={statement} layout={layout} />
+        ))}
 
       <Text style={styles.footnote}>{RESULTS_FOOTNOTE}</Text>
     </View>

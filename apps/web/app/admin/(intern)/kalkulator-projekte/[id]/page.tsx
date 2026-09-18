@@ -305,6 +305,11 @@ function Angabe({
  */
 const OPTIONAL_SECTION_LABELS: { id: ReportOptionalSection; label: string; hint: string }[] = [
   {
+    id: 'addon',
+    label: 'Zusatzspeicher-Hinweis',
+    hint: 'Der teal Kasten auf der Kernergebnis-Seite — nur im Bestandsfall.',
+  },
+  {
     id: 'hour_flow',
     label: 'Stunden-Heatmap',
     hint: 'Wann der Speicher über das Jahr lädt und entlädt.',

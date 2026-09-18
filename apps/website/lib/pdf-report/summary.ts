@@ -10,18 +10,10 @@ import {
 } from 'shared'
 
 import { LARGE_GAP_SLOTS_THRESHOLD } from '@/lib/constants'
-import {
-  formatEur,
-  formatKw,
-  formatKwh,
-  formatKwh1,
-  formatKwp,
-  formatPercent,
-  formatYears,
-} from '@/lib/format'
+import { formatEur, formatKw, formatKwh, formatKwh1, formatKwp, formatPercent } from '@/lib/format'
 import { HINDSIGHT_NOTE } from '@/lib/report-copy'
 import type { ReportBuildContext } from './context'
-import { amount, ref, row, t, REF_LABEL, REF_PLACE, type ReportText } from './report-text'
+import { amount, block, ref, row, t, REF_LABEL, REF_PLACE, type ReportText } from './report-text'
 import type { ReportNotice, ReportRow, ReportStatement, ReportTone } from './statement'
 import type { PdfReportAnalysis } from './types'
 
@@ -489,74 +481,62 @@ export function buildLoadShift(
   }
 }
 
+/** Stufe D — die stabile Kennung des Zusatzspeicher-Zeigers (s. `CANDIDATE_TABLE_ID`). */
+export const ADDON_ID = 'addon'
+
 /**
  * Lohnt sich ein ZUSÄTZLICHER Speicher?
  *
  * ⚠ NUR IM BESTANDSFALL. Ohne bestehende Anlage gibt es diese Frage nicht — dort ist der Kauf
  * EINES Speichers offen, und dazu sagt diese Seite bewusst nichts (s. Modulkopf).
  *
+ * ── ⚠ SEIT B3-2b EIN ZEIGER UND KEINE ZWEITE FASSUNG ──────────────────────────────────────────
+ * Bis hierher stand die Antwort ZWEIMAL im Dokument: hier mit Kopfzahl und vier Zeilen bzw. mit
+ * drei Sätzen, und im Kapitel „Speichergrösse und Gerätewahl" noch einmal — dort drei davon
+ * wortgleich. Das Zielbild (S. 2, gemessen) löscht keine der beiden, es STAFFELT sie: die
+ * Kernergebnis-Seite sagt, dass die Frage geklärt ist, die Antwort steht dort, wo ihre Begründung
+ * liegt (Kurve, Tabelle bzw. Verdikt). Ein Satz, ein teal Kasten, ein Verweis.
+ *
+ * ⚠ DIE ZAHL DES POSITIVEN ZWEIGS BLEIBT IM SATZ. Das Vergleichs-Kapitel trägt ausdrücklich KEINE
+ * Kopfzahl (`comparison.ts`: sie wäre bit-identisch mit der hier und lüde dazu ein, beide zu
+ * addieren) — fiele sie hier ersatzlos, nennte der Report den Ertrag eines Zusatzgeräts nirgends
+ * mehr im Fliesstext. Investition, Amortisation und Netto stehen dafür in der Kandidatentabelle.
+ *
  * ⚠ Die Schwelle ist `netSavingOverHorizon > 0` und ausdrücklich NICHT `totalSavingPerYear > 0` —
- * dieselbe Bedingung wie im Bildschirm-Report (01.09.2026). Die schwächere Fassung liess an einem
- * realen Fall alle fünf Geräte als „positiv" durchgehen (€ 22–32 im Jahr bei € 6.750 Investition,
- * Amortisation 250 bis 410 Jahre). Erfunden ist hier keine Schwelle: `netSavingOverHorizon` steht
- * im Contract, und der Betrachtungszeitraum ist eine Angabe des Nutzers.
+ * dieselbe Bedingung wie im Bildschirm-Report (01.09.2026) und wie in `comparisonSelection`. Die
+ * schwächere Fassung liess an einem realen Fall alle fünf Geräte als „positiv" durchgehen
+ * (€ 22–32 im Jahr bei € 6.750 Investition, Amortisation 250 bis 410 Jahre). Sie ist zugleich die
+ * Weiche zwischen den zwei Verweiszielen: dieselbe Bedingung entscheidet in `comparison.ts`, ob
+ * dort die Tabellen-Einleitung oder das Verdikt steht.
  */
 export function buildAddon(analysis: PdfReportAnalysis): SummaryStatement | null {
   const existing = analysis.existingBatteryAnalysis
   if (!existing) return null
 
-  const horizonYears = analysis.assumptions.horizonYears
-  const positive = existing.addonScenarios.filter((s) => s.netSavingOverHorizon > 0)
-  const best = positive[0]
-
-  if (!best) {
-    return {
-      id: 'addon',
-      title: 'Ein zusätzlicher Speicher lohnt sich derzeit nicht',
-      amount: null,
-      rows: [],
-      body:
-        'Keines der Geräte aus unserem Katalog verdient neben Ihrer bestehenden Anlage seine ' +
-        `Anschaffung innerhalb von ${horizonYears} Jahren wieder ein. Eine zusätzliche Ersparnis ` +
-        'kann dabei durchaus herauskommen — über den Betrachtungszeitraum gerechnet bleibt sie ' +
-        'nur unter dem, was das Gerät kostet. Das ist eine Aussage über diesen Lastgang, diese ' +
-        `Tarifangaben und einen Betrachtungszeitraum von ${horizonYears} Jahren.`,
-    }
-  }
+  const best = existing.addonScenarios.filter((s) => s.netSavingOverHorizon > 0)[0]
 
   return {
-    id: 'addon',
-    title: 'Ein zusätzlicher Speicher rechnet sich',
-    amount: {
-      value: formatEur(best.totalSavingPerYear),
-      caption: 'zusätzlich pro Jahr, exkl. MwSt.',
-      tone: 'positive',
-    },
-    rows: [
-      { label: 'Gerät', value: best.battery.name, tone: 'neutral' },
-      {
-        label: 'Investition (nur das Zusatzgerät)',
-        value: formatEur(best.totalInvestment),
-        tone: 'neutral',
-      },
-      { label: 'Amortisation', value: formatYears(best.amortizationYears), tone: 'neutral' },
-      {
-        label: `Netto über ${horizonYears} Jahre`,
-        value: formatEur(best.netSavingOverHorizon),
-        tone: 'positive',
-        total: true,
-      },
-    ],
-    body:
-      'Gerechnet als EIN gemeinsamer Speicher aus Ihrer Anlage und diesem Gerät ' +
-      `(${formatKwh1(best.combined.usableCapacityKwh)} / ${formatKw(best.combined.maxPowerKw)}). ` +
-      'Alle Beträge hier sind das, was über Ihre bestehende Anlage hinaus herauskommt — nicht die ' +
-      'Ersparnis des gemeinsamen Speichers. Bezahlt wird ausschliesslich das neue Gerät; Ihre ' +
-      'bestehende Anlage geht in keine dieser Zahlen ein.' +
-      (positive.length > 1
-        ? ` ${positive.length} der Katalog-Geräte verdienen ihre Anschaffung im ` +
-          `Betrachtungszeitraum wieder ein; hier steht das bestgereihte.`
-        : ''),
+    id: ADDON_ID,
+    /* Der Titel des Zielbildes — und ausdrücklich nicht mehr der von Kapitel 6: zwei gleich
+       lautende Überschriften über zwei verschieden langen Fassungen sahen wie zwei Befunde aus. */
+    title: 'Ausserdem schon geklärt',
+    /* Kein Betrag, keine Aufschlüsselung: beide stünden in einem Kasten, der auf sie verweist. */
+    amount: null,
+    rows: [],
+    aside: true,
+    body: best
+      ? t`Ein zusätzlicher Batteriespeicher rechnet sich für Sie: das bestgereihte Gerät bringt ${formatEur(
+          best.totalSavingPerYear,
+        )} im Jahr zusätzlich${ref(
+          block('addon_table'),
+          `, und ${REF_PLACE} steht, welches Gerät das ist und was es kostet`,
+          '',
+        )}.`
+      : t`Ein zusätzlicher Batteriespeicher lohnt sich für Sie derzeit nicht${ref(
+          block('addon_none'),
+          ` — woran das liegt, steht ${REF_PLACE}`,
+          '',
+        )}.`,
   }
 }
 
