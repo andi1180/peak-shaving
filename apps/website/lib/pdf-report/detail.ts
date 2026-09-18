@@ -1,13 +1,10 @@
-import type {
-  BatteryResultEntry,
-  BatteryRoiEntry,
-  MonthlyTariffComparison,
-} from 'shared'
+import type { BatteryResultEntry, BatteryRoiEntry, MonthlyTariffComparison } from 'shared'
 import { sumCovered } from 'shared'
 
 import { formatEur, formatYears } from '@/lib/format'
 import { monthlyBatteryRef } from '@/lib/report-copy'
 import type { ReportBuildContext } from './context'
+import { block, ref, t, type ReportText } from './report-text'
 import type { ReportFigure, ReportRow, ReportStatement } from './statement'
 import { recommendedEntryOf } from './summary'
 import type { PdfReportAnalysis } from './types'
@@ -132,8 +129,7 @@ export function detailChartPlan(analysis: PdfReportAnalysis): DetailChartPlan {
      wortgleich zu `report.tsx`. */
   const flowEntries: BatteryResultEntry[] = existing ? [existing.entry] : analysis.perBattery
   const flowSelected = existing ? existing.entry.battery.id : analysis.recommendation.batteryId
-  const flowEntry =
-    flowEntries.find((e) => e.battery.id === flowSelected) ?? flowEntries[0]
+  const flowEntry = flowEntries.find((e) => e.battery.id === flowSelected) ?? flowEntries[0]
 
   return {
     cost,
@@ -221,12 +217,25 @@ export function buildMonthly(
    * Kilowattstunden zuordnet statt Monatssummen zu vergleichen, und deshalb zu einer leicht
    * abweichenden Zahl führt.
    */
-  const closing = isExisting
-    ? 'Die Kernergebnis-Seite zeigt die DIFFERENZEN zwischen diesen drei Summen; hier stehen sie ' +
-      'absolut.'
-    : 'Der „Wert der Ladesteuerung" auf der Kernergebnis-Seite ist NICHT aus diesen drei Summen ' +
-      'gebildet, sondern aus der Zuordnung einzelner Kilowattstunden — ein anderer Rechenweg auf ' +
-      'denselben Zeitraum, der zu einer leicht abweichenden Zahl führt.'
+  /*
+   * ── ⚠ STUFE D: BEIDE FASSUNGEN ZEIGEN AUF EINEN BAUSTEIN DES KERNERGEBNIS-KAPITELS ──────────
+   * Der Verweis umfasst jeweils den GANZEN Satz, denn ohne sein Ziel bleibt kein sinnvoller Rest:
+   * „hier stehen sie absolut" beantwortet eine Frage, die niemand gestellt hat, wenn die
+   * Differenzen nirgends stehen.
+   *
+   * ⚠ OFFENGELEGTE GRENZE: „Kernergebnis-Seite" bleibt geschrieben — s. `recommendation.ts`.
+   */
+  const closing: ReportText = isExisting
+    ? t`${ref(
+        block('savings'),
+        'Die Kernergebnis-Seite zeigt die DIFFERENZEN zwischen diesen drei Summen; hier stehen sie absolut.',
+        'Hier stehen die drei Summen absolut.',
+      )}`
+    : t`${ref(
+        block('load_shift'),
+        'Der „Wert der Ladesteuerung" auf der Kernergebnis-Seite ist NICHT aus diesen drei Summen gebildet, sondern aus der Zuordnung einzelner Kilowattstunden — ein anderer Rechenweg auf denselben Zeitraum, der zu einer leicht abweichenden Zahl führt.',
+        'Die drei Summen stehen hier absolut.',
+      )}`
 
   return {
     figure: {
@@ -247,13 +256,7 @@ export function buildMonthly(
        */
       amount: null,
       rows,
-      body:
-        `Summen über die ${comparison.coveredMonths} gemessenen Monate — ausdrücklich NICHT auf ein ` +
-        'Jahr hochgerechnet: die fehlenden Monate liegen nicht gleichverteilt über das Jahr. ' +
-        'Enthalten sind Arbeitspreis, Netz-Arbeitspreis und die anteiligen Grundgebühren ' +
-        `(${fees.join(' · ')}). NICHT enthalten ist der Leistungspreis — er steht als Jahreszahl ` +
-        'auf der Kernergebnis-Seite; ihn auf Monate zu verteilen verlangte eine Aufteilungsregel, ' +
-        `die es nicht gibt. ${closing}`,
+      body: t`Summen über die ${String(comparison.coveredMonths)} gemessenen Monate — ausdrücklich NICHT auf ein Jahr hochgerechnet: die fehlenden Monate liegen nicht gleichverteilt über das Jahr. Enthalten sind Arbeitspreis, Netz-Arbeitspreis und die anteiligen Grundgebühren (${fees.join(' · ')}). NICHT enthalten ist der Leistungspreis — er steht als Jahreszahl auf der Kernergebnis-Seite; ihn auf Monate zu verteilen verlangte eine Aufteilungsregel, die es nicht gibt. ${closing}`,
     },
   }
 }
@@ -277,7 +280,8 @@ function buildCumulative(plan: Extract<DetailCostPlan, { kind: 'cumulative' }>):
   statement: null
 } {
   const { entry, horizonYears } = plan
-  const amortizes = Number.isFinite(entry.amortizationYears) && entry.amortizationYears <= horizonYears
+  const amortizes =
+    Number.isFinite(entry.amortizationYears) && entry.amortizationYears <= horizonYears
 
   /*
    * ⚠ Die Farbe der Fläche wird nur beschrieben, wie sie im Bild TATSÄCHLICH vorkommt. Schneiden
@@ -391,7 +395,7 @@ export function buildDetailChapter(
     ? undefined
     : /* Nur für die Begründung gebraucht: WELCHER Speicher keinen Tag hergibt. */
       (analysis.existingBatteryAnalysis?.entry ??
-        (context ? context.recommendedEntry : recommendedEntryOf(analysis)))
+      (context ? context.recommendedEntry : recommendedEntryOf(analysis)))
 
   return {
     cost,

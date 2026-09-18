@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import type { MonthlyTariffComparison } from 'shared'
 
+import { SECTION_ID } from './content'
+import { reportLayoutOf } from './layout'
 import { buildRecommendationChapter } from './recommendation'
+import { resolveReportText } from './report-text'
+import { buildReportSummary } from './summary'
 import type { PdfReportAnalysis } from './types'
 
 /**
@@ -78,25 +82,59 @@ function analysisFor(withExisting: boolean): PdfReportAnalysis {
       einspeiseverguetungCtPerKwh: 7.2,
       billingModel: 'monthly_max_sum',
     },
-    dataQuality: { coveredDays: 365, coveredMonths: 12, gapsInterpolated: 0, largestGapSlots: 0, warnings: [] },
+    dataQuality: {
+      coveredDays: 365,
+      coveredMonths: 12,
+      gapsInterpolated: 0,
+      largestGapSlots: 0,
+      warnings: [],
+    },
     tariffOptimization: { computable: true, monthlyComparison: COMPARISON },
     ...(withExisting ? { existingBatteryAnalysis: { entry: ENTRY, addonScenarios: [] } } : {}),
   }
 }
 
+/**
+ * Stufe D — die Beschreibung von Kapitel 1, aus der gebauten Zusammenfassung selbst gebildet.
+ * Gegen sie lösen sich die Verweise auf, die dieser Baustein trägt.
+ */
+function resultsLayout(analysis: PdfReportAnalysis) {
+  const summary = buildReportSummary(analysis, { source: 'net_signed' })
+  return reportLayoutOf(
+    summary.statements.map((statement) => ({
+      id: statement.id,
+      section: SECTION_ID.results,
+      title: statement.title,
+      amount: statement.amount ? statement.amount.caption : null,
+      rows: Object.fromEntries(
+        statement.rows.flatMap((r) => (r.key ? [[r.key, r.label] as const] : [])),
+      ),
+    })),
+  )
+}
+
+function loadControlBody(withExisting: boolean): string {
+  const analysis = analysisFor(withExisting)
+  return resolveReportText(
+    buildRecommendationChapter(analysis).loadControl?.body ?? '',
+    resultsLayout(analysis),
+    'load_control',
+  )
+}
+
 describe('load_control — Verweis auf „tarifbewusstes Laden" und „Eigenverbrauch"', () => {
   it('verweist in der Kassen-Fassung auf die Zeile „Wert der Ladesteuerung" statt auf beide Zeilen der §3.7-Aufschlüsselung', () => {
-    const chapter = buildRecommendationChapter(analysisFor(true))
+    const body = loadControlBody(true)
 
-    expect(chapter.loadControl?.body).not.toContain('tarifbewusstes Laden')
-    expect(chapter.loadControl?.body).not.toContain('eigener Anteil („Eigenverbrauch")')
-    expect(chapter.loadControl?.body).toContain('Wert der Ladesteuerung" in der Aufschlüsselung')
+    expect(body).not.toContain('tarifbewusstes Laden')
+    expect(body).not.toContain('eigener Anteil („Eigenverbrauch")')
+    expect(body).toContain('Wert der Ladesteuerung" in der Aufschlüsselung')
   })
 
   it('bleibt in der §3.7-Fassung unverändert bei „tarifbewusstes Laden" und „Eigenverbrauch"', () => {
-    const chapter = buildRecommendationChapter(analysisFor(false))
+    const body = loadControlBody(false)
 
-    expect(chapter.loadControl?.body).toContain('tarifbewusstes Laden')
-    expect(chapter.loadControl?.body).toContain('eigener Anteil („Eigenverbrauch")')
+    expect(body).toContain('tarifbewusstes Laden')
+    expect(body).toContain('eigener Anteil („Eigenverbrauch")')
   })
 })

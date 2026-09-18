@@ -441,12 +441,13 @@ export function buildLoadShift(
    * der beiden Zahlen wegzulassen — weglassen hiesse, die Frage „was zahle ich real" oder die Frage
    * „was ist die Steuerung wert" unbeantwortet zu lassen.
    */
-  const reconcile =
+  const reconcile: ReportText =
     placement === 'cash'
-      ? ' Die Zeile „Wert der Ladesteuerung" in der Aufschlüsselung oben beantwortet dieselbe Frage ' +
-        'aus der Kassensicht des Monatsvergleichs; diese Zahl hier stammt aus der Zuordnung der ' +
-        'einzelnen Kilowattstunden. Die beiden Wege unterscheiden sich um wenige Euro — das ist kein ' +
-        'Rechenfehler, sondern der Abstand zwischen einer Kassen- und einer Zuordnungsgrösse.'
+      ? t` ${ref(
+          row('savings', 'control_value'),
+          `Die Zeile „${REF_LABEL}" in der Aufschlüsselung ${REF_PLACE}`,
+          'Die Kassenzahl dieses Reports',
+        )} beantwortet dieselbe Frage aus der Kassensicht des Monatsvergleichs; diese Zahl hier stammt aus der Zuordnung der einzelnen Kilowattstunden. Die beiden Wege unterscheiden sich um wenige Euro — das ist kein Rechenfehler, sondern der Abstand zwischen einer Kassen- und einer Zuordnungsgrösse.`
       : ''
 
   /*

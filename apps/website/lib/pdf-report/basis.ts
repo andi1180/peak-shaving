@@ -128,12 +128,21 @@ export function buildAssumptions(analysis: PdfReportAnalysis): ReportStatement {
     /* Keine Kopfzahl: eine Annahmen-Liste hat keine „eine grosse Zahl". */
     amount: null,
     rows,
-    body:
-      'Das sind die Werte, mit denen dieser Report gerechnet wurde — zum Zeitpunkt seiner ' +
-      'Erstellung. Die Entladetiefe ist dabei fest und geht unverändert aus Ihren Angaben ein; ' +
-      'die übrigen Grössen lassen sich im Rechner ändern, und ein danach erzeugter Report trägt ' +
-      'dann andere Zahlen als dieser. Die Tarifgrössen selbst stehen weiter unten in der Tabelle ' +
-      '„Tarifkomponenten", mit ihrer Herkunft daneben.',
+    /*
+     * ── ⚠ STUFE D: DIE RICHTUNG IST DER GANZE PUNKT (Kante L, Plan §1.6) ────────────────────────
+     * „weiter unten" gilt, solange die Annahmen VOR der Tarifkomponenten-Tabelle stehen. Block 3
+     * Nr. 21 zieht die Anlagedaten auf eine Voraussetzungs-Seite nach VORNE — dann dreht sich die
+     * Richtung, und ein geschriebenes „weiter unten" wäre still falsch. Der Resolver bildet sie
+     * aus der Leseordnung (`layout.ts`); heute ergibt das wortgleich „weiter unten".
+     *
+     * ⚠ Der NAME der Tabelle bleibt geschrieben: eine `ReportTable` trägt keinen Titel, ihre
+     * Überschrift steht als Literal im JSX (s. `ReportTable`).
+     */
+    body: t`Das sind die Werte, mit denen dieser Report gerechnet wurde — zum Zeitpunkt seiner Erstellung. Die Entladetiefe ist dabei fest und geht unverändert aus Ihren Angaben ein; die übrigen Grössen lassen sich im Rechner ändern, und ein danach erzeugter Report trägt dann andere Zahlen als dieser. Die Tarifgrössen selbst stehen ${ref(
+      block(TARIFF_COMPONENTS_TABLE_ID),
+      `${REF_PLACE} in der Tabelle „Tarifkomponenten"`,
+      'in der Tabelle „Tarifkomponenten"',
+    )}, mit ihrer Herkunft daneben.`,
   }
 }
 

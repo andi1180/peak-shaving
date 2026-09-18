@@ -109,6 +109,11 @@ export type ReportTableColumn = {
    * mehr Platz als eine Jahreszahl.
    */
   width: number
+  /**
+   * Stufe D — die stabile Kennung dieser Spalte, über die ein FREMDER Baustein auf sie zeigt
+   * (`ReportRefTarget`). Optional, weil die meisten Spalten niemand adressiert.
+   */
+  key?: string
   /** Zahlen rechtsbündig — sonst stehen die Beträge einer Spalte nicht untereinander. */
   align?: 'right'
 }

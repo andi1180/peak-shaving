@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import type { BatteryRoiEntry, MonthlyTariffComparison } from 'shared'
 
-import { buildComparisonChapter } from './comparison'
+import { buildAssumptions, TARIFF_COMPONENTS_TABLE_ID } from './basis'
+import { buildComparisonChapter, CANDIDATE_TABLE_ID } from './comparison'
 import { SECTION_ID } from './content'
 import { reportLayoutOf, type ReportPlacement } from './layout'
 import { buildRecommendationChapter } from './recommendation'
@@ -115,7 +116,21 @@ function analysisFor(withExisting: boolean): PdfReportAnalysis {
       warnings: [],
     },
     tariffOptimization: { computable: true, monthlyComparison: COMPARISON },
-    ...(withExisting ? { existingBatteryAnalysis: { entry: ENTRY, addonScenarios: [] } } : {}),
+    ...(withExisting
+      ? {
+          existingBatteryAnalysis: {
+            entry: ENTRY,
+            /* Ein Zusatzgerät, das sich rechnet — sonst steht statt der Tabelle der Klarsatz. */
+            addonScenarios: [
+              {
+                ...ZWEITES,
+                netSavingOverHorizon: 4200,
+                combined: { ...BATTERY, usableCapacityKwh: 120, maxPowerKw: 40 },
+              },
+            ],
+          },
+        }
+      : {}),
   }
 }
 
@@ -321,5 +336,113 @@ describe('resolveReportText', () => {
     expect(resolveReportText('Ein fertiger Satz.', LAYOUT, 'peak_shaving')).toBe(
       'Ein fertiger Satz.',
     )
+  })
+})
+
+/* ────────────────────────────────────────────────────────────────────────────────────────────────
+ * 5 — Kante L: dieselbe Aussage in zwei Leseordnungen
+ * ──────────────────────────────────────────────────────────────────────────────────────────── */
+
+describe('assumptions — Verweis auf die Tarifkomponenten-Tabelle (Kante L)', () => {
+  const statement = buildAssumptions(analysisFor(false))
+  const tabelle: ReportPlacement = {
+    id: TARIFF_COMPONENTS_TABLE_ID,
+    section: SECTION_ID.basis,
+    title: '',
+    amount: null,
+    rows: {},
+  }
+  const annahmen: ReportPlacement = {
+    id: 'assumptions',
+    section: SECTION_ID.basis,
+    title: statement.title,
+    amount: null,
+    rows: {},
+  }
+  const body = (composition: ReportPlacement[]) =>
+    resolveReportText(statement.body, reportLayoutOf(composition), 'assumptions')
+
+  /**
+   * ⚠ DAS IST DIE STELLE, AN DER BLOCK 3 Nr. 21 ANSETZT: die Voraussetzungs-Seite zieht die
+   * Anlagedaten nach VORNE, und dann steht die Tarifkomponenten-Tabelle nicht mehr „weiter unten".
+   * Vor Stufe D war die Richtung ein Literal und hätte den Umzug stumm überlebt.
+   */
+  it('liest „weiter unten", solange die Annahmen vor der Tabelle stehen', () => {
+    expect(body([annahmen, tabelle])).toContain(
+      'stehen weiter unten in der Tabelle „Tarifkomponenten"',
+    )
+  })
+
+  it('liest „oben", sobald die Tabelle vor den Annahmen steht', () => {
+    const text = body([tabelle, annahmen])
+    expect(text).toContain('stehen oben in der Tabelle „Tarifkomponenten"')
+    expect(text).not.toContain('weiter unten')
+  })
+
+  it('nennt ohne Tabelle gar keine Richtung mehr', () => {
+    const text = body([annahmen])
+    expect(text).toContain('stehen in der Tabelle „Tarifkomponenten"')
+    expect(text).not.toContain('weiter unten')
+    expect(text).not.toContain('oben')
+  })
+})
+
+/* ────────────────────────────────────────────────────────────────────────────────────────────────
+ * 6 — Die zwei Bausteine, die Stufe C ausdrücklich NICHT freigeben konnte
+ * ──────────────────────────────────────────────────────────────────────────────────────────── */
+
+describe('Stufe-C-Sperren: `addon` und `table_candidates`', () => {
+  /**
+   * `Report_Baukasten_Auswahlschicht_Verifikation.md` §2.2: beide waren gesperrt, weil ein Satz
+   * anderswo auf sie zeigt. Nach der Migration verschwindet der Satz mit seinem Ziel.
+   */
+  it('`addon` abgewählt: der Satz im Empfehlungs-Kapitel verschwindet mit', () => {
+    const analysis = analysisFor(true)
+    const chapter = buildRecommendationChapter(analysis)
+    const summary = buildReportSummary(analysis, { source: 'net_signed' })
+
+    const mit = resolveReportText(
+      chapter.recommendation!.body,
+      reportLayoutOf(summaryPlacements(summary)),
+      'recommendation',
+    )
+    expect(mit).toContain('steht in den Kernergebnissen')
+
+    const ohne = resolveReportText(
+      chapter.recommendation!.body,
+      reportLayoutOf(summaryPlacements(summary).filter((p) => p.id !== 'addon')),
+      'recommendation',
+    )
+    expect(ohne).not.toContain('Kernergebnissen')
+    expect(ohne).toContain('wenn ich Ihre Anlage durch ein neues Gerät ersetzte?".')
+  })
+
+  it('`table_candidates` abgewählt: der Klarsatz nennt keine Spalten mehr', () => {
+    const analysis = analysisFor(true)
+    const chapter = buildComparisonChapter(analysis)
+    const eintrag = placementOf(chapter.statement, SECTION_ID.comparison)
+
+    const mit = resolveReportText(
+      chapter.statement.body,
+      reportLayoutOf([
+        eintrag,
+        {
+          id: CANDIDATE_TABLE_ID,
+          section: SECTION_ID.comparison,
+          title: '',
+          amount: null,
+          rows: {},
+          columns: Object.fromEntries(
+            chapter.table!.columns.flatMap((c) => (c.key ? [[c.key, c.label] as const] : [])),
+          ),
+        },
+      ]),
+      'addon_table',
+    )
+    expect(mit).toContain('die Spalten „Ersparnis/Jahr" und „Netto" sind also Differenzen')
+
+    const ohne = resolveReportText(chapter.statement.body, reportLayoutOf([eintrag]), 'addon_table')
+    expect(ohne).toContain('die ausgewiesenen Beträge sind also Differenzen')
+    expect(ohne).not.toContain('Spalten')
   })
 })

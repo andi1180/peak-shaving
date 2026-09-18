@@ -279,15 +279,24 @@ export function buildReportRegistry(
   const hasTable = comparison.shown.length > 0
 
   const entries: ReportBaukastenEntry[] = [
-    /* ── Kapitel 1 ─────────────────────────────────────────────────────────────────────────── */
-    statement('savings', () => (entry ? buildSavings(analysis, entry).statement : null)),
-    statement('peak_shaving', () => (entry ? buildPeakShaving(analysis, entry, placement) : null)),
-    statement('load_shift', () => (entry ? buildLoadShift(analysis, entry, placement) : null)),
-    statement('addon', () => (entry ? buildAddon(analysis) : null)),
+    /*
+     * ── Kapitel 1 ─────────────────────────────────────────────────────────────────────────────
+     *
+     * ⚠ DIE VIER HINWEISE STEHEN VOR DEN VIER AUSSAGEN, weil sie im Dokument davor stehen:
+     * `ResultsChapter` rendert Kopfzahl → Hinweise → Aussagen, denn die Hinweise QUALIFIZIEREN die
+     * Kopfzahl und wären drei Seiten weiter hinten wertlos (s. `buildNotices` in `summary.ts`).
+     * Bis Stufe D standen sie hier hinter den Aussagen; das fiel nicht auf, weil `entries` nur eine
+     * Ordnungshilfe war. Seit `layout.ts` daraus die LESEORDNUNG liest, wäre es ein Verweis, der
+     * „weiter unten" sagt, wo „oben" richtig ist — derselbe stille Fehler wie bei `limitations`.
+     */
     notice('standard_profile', () => buildStandardProfileNotice(input.loadProfile)),
     notice('estimated_pv', () => buildEstimatedPvNotice(input.estimatedPv)),
     notice('partial_year', () => buildPartialYearNotice(analysis)),
     notice('large_gap', () => buildLargeGapNotice(analysis)),
+    statement('savings', () => (entry ? buildSavings(analysis, entry).statement : null)),
+    statement('peak_shaving', () => (entry ? buildPeakShaving(analysis, entry, placement) : null)),
+    statement('load_shift', () => (entry ? buildLoadShift(analysis, entry, placement) : null)),
+    statement('addon', () => (entry ? buildAddon(analysis) : null)),
 
     /* ── Kapitel 2 ─────────────────────────────────────────────────────────────────────────── */
     statement('recommendation', () => {

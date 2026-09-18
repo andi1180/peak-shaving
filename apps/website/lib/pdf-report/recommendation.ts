@@ -2,6 +2,7 @@ import type { BatteryResultEntry, BatteryRoiEntry } from 'shared'
 
 import { formatEur, formatKw, formatKwh1, formatYears } from '@/lib/format'
 import type { ReportBuildContext } from './context'
+import { block, ref, row, t, REF_LABEL, type ReportText } from './report-text'
 import type { ReportRow, ReportStatement } from './statement'
 import {
   primaryEntryOf,
@@ -141,11 +142,23 @@ export function buildRecommendation(
    */
   const amortizesWithinHorizon = entry.amortizationYears <= horizonYears
 
-  const framing = isExisting
-    ? 'Sie haben bereits einen Speicher — diese Aussage beantwortet deshalb nicht „soll ich ' +
-      'überhaupt?", sondern „was bekäme ich, wenn ich Ihre Anlage durch ein neues Gerät ersetzte?". ' +
-      'Ob sich ein ZUSÄTZLICHES Gerät neben Ihrer Anlage lohnt, steht in den Kernergebnissen; die ' +
-      'dortigen Beträge sind Differenzen und nicht mit den Zahlen hier vergleichbar.'
+  /*
+   * ── ⚠ STUFE D: DER ZWEITE SATZ HÄNGT AN `addon` UND FÄLLT MIT IHM ───────────────────────────
+   * Er ist der Grund, aus dem `addon` bis heute NICHT abwählbar ist
+   * (`Report_Baukasten_Auswahlschicht_Verifikation.md` §2.2). Der Verweis umfasst deshalb den
+   * GANZEN Satz: ohne den Zusatzspeicher-Baustein gibt es nichts, worauf er zeigen könnte, und ein
+   * Rest wie „die dortigen Beträge" zeigte ins Leere.
+   *
+   * ⚠ OFFENGELEGTE GRENZE: „in den Kernergebnissen" bleibt geschrieben. Der Resolver kennt für ein
+   * fremdes Kapitel genau EINE Form („im Kapitel „X""), und die ist hier ein anderer Wortlaut. Der
+   * Satz überlebt damit ein Abwählen von `addon`, aber nicht sein Verschieben (Block 3 Nr. 18).
+   */
+  const framing: ReportText = isExisting
+    ? t`Sie haben bereits einen Speicher — diese Aussage beantwortet deshalb nicht „soll ich überhaupt?", sondern „was bekäme ich, wenn ich Ihre Anlage durch ein neues Gerät ersetzte?".${ref(
+        block('addon'),
+        ' Ob sich ein ZUSÄTZLICHES Gerät neben Ihrer Anlage lohnt, steht in den Kernergebnissen; die dortigen Beträge sind Differenzen und nicht mit den Zahlen hier vergleichbar.',
+        '',
+      )}`
     : `Aus dem Katalog schneidet dieses Gerät über ${horizonYears} Jahre am besten ab — gereiht ` +
       'wird nach der Netto-Ersparnis über den Betrachtungszeitraum, nicht nach der Jahresersparnis: ' +
       'ein grösserer Speicher spart fast immer mehr und kostet auch mehr.'
@@ -166,7 +179,7 @@ export function buildRecommendation(
       tone: amortizesWithinHorizon ? 'positive' : 'warning',
     },
     rows,
-    body: framing + taxes,
+    body: t`${framing}${taxes}`,
     /*
      * Die §3.8-Warnungen des Kandidaten, unverändert. Sie stehen NEBEN der Investition und nicht
      * hinter ihr: „Betonsockel nötig (+€1800)" ist eine Kostenaussage, und sie ist in
@@ -270,11 +283,14 @@ export function buildLoadControl(
   if (analysis.tariffOptimization?.computable !== true) return null
   if (!primary) return null
 
-  const annualized =
+  /* ⚠ Der Verweis deckt nur die BENENNUNG der fremden Zahl; zum Ortswort s. `framing`. */
+  const annualized: ReportText =
     primary.annualizationFactor > 1
-      ? ` Ihr Lastgang deckt ${primary.coveredDays} von 365 Tagen ab; die Zahl auf der ` +
-        'Kernergebnis-Seite ist von diesem Zeitraum auf ein Jahr hochgerechnet — gemessen wurden ' +
-        `${formatEur(primary.loadShiftSavingOverCoveredPeriod)}.`
+      ? t` Ihr Lastgang deckt ${String(primary.coveredDays)} von 365 Tagen ab; ${ref(
+          block('load_shift'),
+          'die Zahl auf der Kernergebnis-Seite ist',
+          'der ausgewiesene Wert ist',
+        )} von diesem Zeitraum auf ein Jahr hochgerechnet — gemessen wurden ${formatEur(primary.loadShiftSavingOverCoveredPeriod)}.`
       : ''
 
   /*
@@ -282,18 +298,32 @@ export function buildLoadControl(
    * §3.7-Aufschlüsselung und existiert in der Kassen-Fassung (Monatsvergleich) nicht — dort steht
    * der Effekt bereits in „Wert der Ladesteuerung" mit drin.
    */
-  const embeddedNote =
+  const embeddedNote: ReportText =
     placement === 'cash'
-      ? 'Er steckt in der Zeile „Wert der Ladesteuerung" in der Aufschlüsselung der ' +
-        'Kernergebnis-Seite bereits mit drin und kommt nicht zusätzlich obendrauf'
-      : 'Er steckt in der Gesamtersparnis bereits als „tarifbewusstes Laden" und kommt nicht ' +
-        'zusätzlich obendrauf'
+      ? t`${ref(
+          row('savings', 'control_value'),
+          `Er steckt in der Zeile „${REF_LABEL}" in der Aufschlüsselung der Kernergebnis-Seite bereits mit drin`,
+          'Er steckt in der Gesamtersparnis bereits mit drin',
+        )} und kommt nicht zusätzlich obendrauf`
+      : /*
+         * ⚠ Die Beschriftung bleibt HIER geschrieben, und zwar wegen der Gross-/Kleinschreibung:
+         * die Zeile heisst „Tarifbewusstes Laden", im Satz steht sie klein. `${REF_LABEL}` würde
+         * den Wortlaut ändern — der Verweis trägt deshalb nur die Existenz.
+         */
+        t`${ref(
+          row('savings', 'load_shift'),
+          'Er steckt in der Gesamtersparnis bereits als „tarifbewusstes Laden"',
+          'Er steckt in der Gesamtersparnis bereits mit drin',
+        )} und kommt nicht zusätzlich obendrauf`
 
-  const selfConsumptionNote =
+  const selfConsumptionNote: ReportText =
     placement === 'cash'
       ? 'was Ihre PV-Erzeugung über den Speicher einspart, steckt in derselben Zeile mit drin'
-      : 'was Ihre PV-Erzeugung über den Speicher einspart, steht als eigener Anteil ' +
-        '(„Eigenverbrauch") daneben'
+      : t`was Ihre PV-Erzeugung über den Speicher einspart, ${ref(
+          row('savings', 'self_consumption'),
+          `steht als eigener Anteil („${REF_LABEL}") daneben`,
+          'steckt in der Gesamtersparnis mit drin',
+        )}`
 
   return {
     id: 'load_control',
@@ -304,15 +334,7 @@ export function buildLoadControl(
      */
     amount: null,
     rows: [],
-    body:
-      'Für jede Viertelstunde Ihres Lastgangs ist der echte Börsenpreis jener Stunde plus das ' +
-      'Netzentgelt Ihres Netzbetreibers angesetzt, statt eines festen Arbeitspreises. Der ' +
-      'Speicher lädt in den günstigen Viertelstunden und entlädt in den teuren; die Differenz ist ' +
-      'der ausgewiesene Wert. Er ist ein RÜCKBLICK auf die tatsächlichen Marktpreise Ihres ' +
-      'Zeitraums und kein Versprechen für die Zukunft — die Preise von morgen kennt niemand. ' +
-      `${embeddedNote}, und er zeigt ausschliesslich den Gewinn aus den Preisunterschieden: ` +
-      `${selfConsumptionNote}.` +
-      annualized,
+    body: t`Für jede Viertelstunde Ihres Lastgangs ist der echte Börsenpreis jener Stunde plus das Netzentgelt Ihres Netzbetreibers angesetzt, statt eines festen Arbeitspreises. Der Speicher lädt in den günstigen Viertelstunden und entlädt in den teuren; die Differenz ist der ausgewiesene Wert. Er ist ein RÜCKBLICK auf die tatsächlichen Marktpreise Ihres Zeitraums und kein Versprechen für die Zukunft — die Preise von morgen kennt niemand. ${embeddedNote}, und er zeigt ausschliesslich den Gewinn aus den Preisunterschieden: ${selfConsumptionNote}.${annualized}`,
   }
 }
 

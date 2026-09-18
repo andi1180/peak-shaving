@@ -3,7 +3,7 @@ import type { BatteryResultEntry, BatteryRoiSummary } from 'shared'
 import { formatEur, formatKw, formatKwh1, formatYears } from '@/lib/format'
 import type { ReportBuildContext } from './context'
 import type { ReportFigure, ReportRow, ReportStatement, ReportTable } from './statement'
-import { block, ref, t, REF_PLACE } from './report-text'
+import { block, column, ref, t, REF_LABEL, REF_PLACE } from './report-text'
 import type { PdfReportAnalysis } from './types'
 
 /**
@@ -188,9 +188,14 @@ export function buildCandidateTable(
       { label: 'Gerät', width: 3 },
       { label: 'Grösse', width: 2.4 },
       { label: 'Investition', width: 1.7, align: 'right' },
-      { label: 'Ersparnis/Jahr', width: 1.7, align: 'right' },
+      { key: 'saving_per_year', label: 'Ersparnis/Jahr', width: 1.7, align: 'right' },
       { label: 'Amortisation', width: 1.6, align: 'right' },
-      { label: `Netto über ${horizonYears} Jahre`, width: 2, align: 'right' },
+      {
+        key: 'net_over_horizon',
+        label: `Netto über ${horizonYears} Jahre`,
+        width: 2,
+        align: 'right',
+      },
     ],
     rows: candidates.map((c) => ({
       key: c.battery.id,
@@ -329,14 +334,21 @@ export function buildTableStatement(
     amount: null,
     rows,
     body: isAddon
-      ? 'Gerechnet ist je Zeile EIN gemeinsamer Speicher aus Ihrer bestehenden Anlage und diesem ' +
-        'Gerät (Kapazität und Leistung addiert, Wirkungsgrad kapazitätsgewichtet). Ausgewiesen ist ' +
-        'davon ausschliesslich, was ÜBER Ihre bestehende Anlage hinaus herauskommt — die Spalten ' +
-        '„Ersparnis/Jahr" und „Netto" sind also Differenzen und nicht die Ersparnis des ' +
-        'gemeinsamen Speichers. Bezahlt wird allein das neue Gerät; Ihre bestehende Anlage geht in ' +
-        'keine dieser Zahlen ein. Gezeigt sind die Geräte, die ihre Anschaffung im ' +
-        'Betrachtungszeitraum wieder einspielen; die übrigen stehen als Punkte in der Kurve ' +
-        'darüber.'
+      ? /*
+         * ── ⚠ STUFE D: DER SATZ HÄNGT AN EINER SPALTE DER TABELLE NEBENAN ────────────────────
+         * Er ist der Grund, aus dem `table_candidates` bis heute NICHT abwählbar ist
+         * (`Report_Baukasten_Auswahlschicht_Verifikation.md` §2.2): abgeschaltet beschriebe er
+         * Spalten, die es nicht gibt. Der Verweis trägt jetzt beides — die Beschriftung der
+         * Spalte und die Fassung ohne Tabelle.
+         *
+         * ⚠ „Netto" bleibt als Kurzform im Satz stehen: die Spalte heisst „Netto über 10 Jahre",
+         * und der volle Kopf mitten im Fliesstext läse sich als zweite Zahl statt als Spaltenname.
+         */
+        t`Gerechnet ist je Zeile EIN gemeinsamer Speicher aus Ihrer bestehenden Anlage und diesem Gerät (Kapazität und Leistung addiert, Wirkungsgrad kapazitätsgewichtet). Ausgewiesen ist davon ausschliesslich, was ÜBER Ihre bestehende Anlage hinaus herauskommt — ${ref(
+          column(CANDIDATE_TABLE_ID, 'saving_per_year'),
+          `die Spalten „${REF_LABEL}" und „Netto" sind also Differenzen und nicht die Ersparnis des gemeinsamen Speichers`,
+          'die ausgewiesenen Beträge sind also Differenzen und nicht die Ersparnis des gemeinsamen Speichers',
+        )}. Bezahlt wird allein das neue Gerät; Ihre bestehende Anlage geht in keine dieser Zahlen ein. Gezeigt sind die Geräte, die ihre Anschaffung im Betrachtungszeitraum wieder einspielen; die übrigen stehen als Punkte in der Kurve darüber.`
       : /*
          * ── ⚠ STUFE D: DER KAPITELNAME WIRD NICHT MEHR AUSGESCHRIEBEN ────────────────────────
          * „im Kapitel „Empfehlung und Lastverlauf"" war die EINZIGE Stelle im ganzen Katalog, die
@@ -350,7 +362,10 @@ export function buildTableStatement(
          * Empfehlung eines Tages in diesem Kapitel, wird aus beiden „oben" bzw. „weiter unten" —
          * ohne dass jemand den Satz anfasst.
          */
-        t`Gereiht ist nach der Netto-Ersparnis über den Betrachtungszeitraum — derselben Grösse wie die Kurve darüber und wie die Empfehlung ${recommendationRef(REF_PLACE, 'dieses Reports')}. Das empfohlene Gerät steht deshalb hier nicht noch einmal: es ist ${recommendationRef('dort', 'beim empfohlenen Gerät')} vollständig aufgeschlüsselt. Diese Tabelle sagt, was die Alternativen dagegen leisten — und um welchen Betrag die Empfehlung besser ist. Die §3.8-Hinweise eines Geräts (Betonsockel, separater Wechselrichter, zu geringe Leistung für alle Spitzen) sind in der Investition bereits enthalten, stehen hier aber nicht je Zeile — sie stehen beim empfohlenen Gerät.`,
+        t`Gereiht ist nach der Netto-Ersparnis über den Betrachtungszeitraum — derselben Grösse wie die Kurve darüber und wie die Empfehlung ${recommendationRef(REF_PLACE, 'dieses Reports')}. Das empfohlene Gerät steht deshalb hier nicht noch einmal: es ist ${recommendationRef('dort', 'beim empfohlenen Gerät')} vollständig aufgeschlüsselt. Diese Tabelle sagt, was die Alternativen dagegen leisten — und um welchen Betrag die Empfehlung besser ist. Die §3.8-Hinweise eines Geräts (Betonsockel, separater Wechselrichter, zu geringe Leistung für alle Spitzen) sind in der Investition bereits enthalten, stehen hier aber nicht je Zeile${recommendationRef(
+          ' — sie stehen beim empfohlenen Gerät',
+          '',
+        )}.`,
   }
 }
 
