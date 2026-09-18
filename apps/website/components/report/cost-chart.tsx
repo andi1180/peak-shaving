@@ -19,6 +19,7 @@ import type { AnalysisResult } from 'shared'
 
 import { formatEur } from '@/lib/format'
 import { Num } from './num'
+import { CHART_COLORS } from '@/lib/pdf-report/theme'
 
 type Entry = AnalysisResult['perBattery'][number]
 
@@ -85,10 +86,14 @@ function CostTooltip({
 
 // Ein einziger Akzentton, drei monotone Helligkeitsstufen (DESIGN.md: kein erfundenes
 // drittes Kategorie-Farbschema, Grün/Rot/Bernstein bleiben für Ersparnis/Kosten/Warnung
-// reserviert). `color-mix()` leitet die Stufen live von `--color-accent` ab, damit ein
-// White-Label-Wechsel des Akzenttons automatisch beide Stufen mitzieht (kein Hex im Code).
-// Reihenfolge/Helligkeit gegen den Skill-Validator geprüft (OKLCH-Lightness-Band, ΔL≥0,06
-// je Nachbarpaar, Hellstufe ≥2:1 Kontrast auf `--color-surface`) — nicht frei gegriffen.
+// reserviert). Reihenfolge/Helligkeit gegen den Skill-Validator geprüft (OKLCH-Lightness-Band,
+// ΔL≥0,06 je Nachbarpaar, Hellstufe ≥2:1 Kontrast auf `--color-surface`) — nicht frei gegriffen.
+//
+// ⚠ D15 Block 2: die beiden Stufen kommen aus `CHART_COLORS` und werden nicht mehr hier per
+// `color-mix()` gebildet. Die Werte sind die bisherigen 85 % und 65 % in sRGB (auf eine Stufe je
+// Kanal genau, s. Kopf von `CHART_COLORS`) — was sich ändert, ist der ORT: vier Dateien rechneten
+// bis hierher in vier Verhältnissen.
+// Zum Preis dafür (White-Label) s. den Kopf von `CHART_COLORS`.
 const BREAKDOWN = [
   {
     key: 'leistungspreisSavingPerYear',
@@ -99,13 +104,13 @@ const BREAKDOWN = [
   {
     key: 'selfConsumptionSavingPerYear',
     label: 'Eigenverbrauch',
-    color: 'color-mix(in srgb, var(--color-accent) 85%, var(--color-surface))',
+    color: CHART_COLORS.seriesStrong,
     textColor: 'var(--color-ink)',
   },
   {
     key: 'loadShiftSavingPerYear',
     label: 'Tarifbewusstes Laden',
-    color: 'color-mix(in srgb, var(--color-accent) 65%, var(--color-surface))',
+    color: CHART_COLORS.seriesMid,
     textColor: 'var(--color-ink)',
   },
 ] as const
