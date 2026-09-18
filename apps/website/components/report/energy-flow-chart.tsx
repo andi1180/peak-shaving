@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useId, useMemo, useState } from 'react'
 import {
   Area,
   CartesianGrid,
@@ -24,6 +24,7 @@ import {
 import { formatKw, formatKwh } from '@/lib/format'
 import { formatDayLabel, formatTimeLabel } from '@/lib/local-time'
 import { Num } from './num'
+import { CHART_COLORS } from '@/lib/pdf-report/theme'
 
 /**
  * Absichtlich `BatteryResultEntry` und nicht `AnalysisResult['perBattery'][number]`: dieser Chart
@@ -101,7 +102,13 @@ const LEGEND = [
   { key: 'verbrauch', label: 'Verbrauch', color: 'var(--color-ink)' },
   { key: 'netz', label: 'Netzbezug', color: 'var(--color-text-muted)' },
   { key: 'pv', label: 'PV-Erzeugung', color: 'var(--color-accent)' },
-  { key: 'batterie', label: 'Batterie (+laden/−entladen)', color: 'var(--color-accent-hover)' },
+  {
+    key: 'batterie',
+    label: 'Batterie (+laden/−entladen)',
+    color: CHART_COLORS.chargeEnd,
+    /* Zweite Farbe in der Legende: die Reihe wechselt an der Nulllinie, s. `batteryGradientId`. */
+    colorBelow: CHART_COLORS.dischargeEnd,
+  },
 ] as const
 
 /**
@@ -182,6 +189,31 @@ export function EnergyFlowChart({
   /* Leeres Objekt im Bildschirmfall: dort wird nachweislich kein zusätzlicher Prop gereicht. */
   const animationProps = disableAnimation ? ({ isAnimationActive: false } as const) : {}
 
+  /*
+   * D15 Block 2, Punkt 13 — die Batteriereihe wird nach RICHTUNG eingefärbt: über der Nulllinie
+   * Akzent (lädt), darunter Bernstein (entlädt). Bis hierher trug sie eine einzige Farbe für
+   * beide Richtungen, und der Leser musste am Vorzeichen der Achse ablesen, was gerade passiert —
+   * genau die Unterscheidung, um die es in diesem Chart geht.
+   *
+   * ⚠ Gerechnet wird der Nullpunkt aus den TATSÄCHLICH gezeichneten Werten und nicht aus der
+   * Achse: recharts wählt sein Y-Domain selbst, und ein fest angenommener Nullpunkt läge an einem
+   * Tag ohne Entladung an der falschen Stelle. Fehlt eine der beiden Richtungen, liegt der Stopp
+   * am Rand und die Reihe ist durchgehend einfarbig — richtig, denn dann gibt es nur eine.
+   *
+   * ⚠ NICHT gebaut ist der zweite Teil von Punkt 13, die Preislinie auf einer zweiten Achse:
+   * `DispatchTrace.representativeDays[].intervals` führt keinen Preis (nur `gridPowerKw`,
+   * `pvGenerationKw`, `batteryPowerKw`, `socKwh`). Das wäre eine Contract-Erweiterung und damit
+   * ein eigener Bauabschnitt, kein Optik-Schritt.
+   */
+  const batteryGradientId = useId()
+  const batteryZeroOffset = useMemo(() => {
+    const values = points.map((point) => point.batterie).filter((v): v is number => v != null)
+    if (values.length === 0) return 1
+    const max = Math.max(0, ...values)
+    const min = Math.min(0, ...values)
+    return max - min === 0 ? 1 : max / (max - min)
+  }, [points])
+
   return (
     <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-6 print:break-inside-avoid">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -252,6 +284,12 @@ export function EnergyFlowChart({
           <div key={activeDay.date} className="h-64 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <ComposedChart data={points} margin={{ top: 8, right: 12, bottom: 0, left: 0 }}>
+                <defs>
+                  <linearGradient id={batteryGradientId} x1="0" y1="0" x2="0" y2="1">
+                    <stop offset={batteryZeroOffset} stopColor={CHART_COLORS.chargeEnd} />
+                    <stop offset={batteryZeroOffset} stopColor={CHART_COLORS.dischargeEnd} />
+                  </linearGradient>
+                </defs>
                 <CartesianGrid
                   stroke="var(--color-border)"
                   strokeDasharray="3 3"
@@ -311,7 +349,7 @@ export function EnergyFlowChart({
                   name="Batterie"
                   type="monotone"
                   dot={false}
-                  stroke="var(--color-accent-hover)"
+                  stroke={`url(#${batteryGradientId})`}
                   strokeWidth={2}
                 />
               </ComposedChart>
@@ -320,10 +358,16 @@ export function EnergyFlowChart({
           <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-text-muted">
             {LEGEND.map((l) => (
               <span key={l.key} className="flex items-center gap-1.5">
+                {/* Die Batteriereihe wechselt an der Nulllinie die Farbe — die Legende zeigt
+                    deshalb beide Hälften nebeneinander statt einer, die nur halb stimmt. */}
                 <span
                   className="inline-block h-0.5 w-4"
                   aria-hidden
-                  style={{ backgroundColor: l.color }}
+                  style={
+                    'colorBelow' in l
+                      ? { backgroundImage: `linear-gradient(90deg, ${l.color} 0 50%, ${l.colorBelow} 50% 100%)` }
+                      : { backgroundColor: l.color }
+                  }
                 />
                 {l.label}
               </span>

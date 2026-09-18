@@ -44,7 +44,7 @@ import {
 } from './page-numbers'
 import type { ReportNotice, ReportRow, ReportStatement, ReportTable, ReportTone } from './statement'
 import { buildReportSummary } from './summary'
-import { PDF_COLORS, PDF_CONTENT_WIDTH_PT, PDF_LAYOUT, PDF_TYPE } from './theme'
+import { chartCellColor, PDF_COLORS, PDF_CONTENT_WIDTH_PT, PDF_LAYOUT, PDF_TYPE } from './theme'
 import type { PdfReportInput } from './types'
 
 /**
@@ -509,6 +509,11 @@ const styles = StyleSheet.create({
   legend: { marginTop: 5, flexDirection: 'row', flexWrap: 'wrap', gap: 14 },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   legendSwatch: { width: 8, height: 8, borderRadius: 1.5 },
+  /* Die Farbleiste der Heatmap — eine Zeile, Enden beschriftet, Null in der Mitte. */
+  scale: { flexDirection: 'row', alignItems: 'center', gap: 5, width: '100%' },
+  scaleEnd: { ...LEADING, fontSize: PDF_TYPE.small, color: PDF_COLORS.textMuted },
+  scaleBar: { flexDirection: 'row', flexGrow: 1, height: 6 },
+  scaleStep: { flexGrow: 1, flexBasis: 0, height: 6 },
   legendLabel: { ...LEADING, fontSize: PDF_TYPE.small, color: PDF_COLORS.textMuted },
   figureCaption: {
     ...LEADING,
@@ -941,6 +946,7 @@ const NOTICE_EDGE: Record<ReportNotice['tone'], string> = {
 function StatementRow({ row, zebra }: { row: ReportRow; zebra: boolean }) {
   return (
     <View
+      wrap={false}
       style={[styles.row, zebra ? styles.rowZebra : {}, row.total ? styles.rowTotal : {}]}
     >
       <View style={styles.rowLabelCell}>
@@ -1096,7 +1102,14 @@ function StatementTable({
 }) {
   return (
     <View style={styles.table} wrap={allowPageBreak}>
-      <View style={styles.tableHeader}>
+      {/*
+        ⚠ `wrap={false}` — seit die Kopfzeile eine gefüllte Fläche trägt (D15 Block 1, Punkt 4),
+        darf sie nicht mehr über einen Seitenumbruch laufen. Gemessen in D15 Block 2: die schmalere
+        Textspalte (Punkt 9) schob den Umbruch mitten in den Kopf, und auf der Folgeseite stand ein
+        3,5 pt hoher navyfarbener Streifen ohne Text — der Rest seines Innenabstands. Vorher fiel
+        das nicht auf, weil eine Kopfzeile ohne Fläche beim Brechen nichts hinterlässt.
+      */}
+      <View style={styles.tableHeader} wrap={false}>
         {table.columns.map((column) => (
           <Text
             key={column.label}
@@ -1128,6 +1141,9 @@ function StatementTable({
         ) : (
           <View
             key={row.key}
+            /* Dieselbe Überlegung wie am Kopf: eine gebrochene Zeile hinterlässt ihren Zebra-Ton
+               als Streifen auf der Folgeseite. Eine Tabellenzeile gehört ohnehin auf ein Blatt. */
+            wrap={false}
             style={[styles.tableRow, (dataRow += 1) % 2 === 1 ? styles.tableRowZebra : {}]}
           >
             {row.cells.map((cell, index) => {
@@ -1474,17 +1490,41 @@ function MonthlyChapter({ input, charts }: { input: PdfReportInput; charts: Repo
  * Unterschied zu einer gemessenen Null (hellste Stufe der Skala) ist bei einem Teiljahres-Lastgang
  * die halbe Grafik; eine Legende, die ihn nicht führt, liesse den Leser beides für dasselbe halten.
  */
+/**
+ * Die Farbleiste der Heatmap (D15 Block 2, Punkt 12).
+ *
+ * ── ⚠ WARUM SIE HIER STEHT UND NICHT IM BILD (Punkt 17 ausdrücklich NICHT umgesetzt) ───────────
+ * Die Bestandsaufnahme notiert unter Punkt 17 „Legende ins Bild statt als react-pdf-Block
+ * darunter", weil das Zielbild sie im Bild führt. Das wäre hier ein RÜCKSCHRITT: der Rasteranker
+ * `stunden-heatmap-raster` schneidet Titel, Beschreibung und Legende bewusst AUS dem Bild heraus
+ * (B23c-3b-1, D11), damit dieser Text im PDF durchsuchbar und kopierbar bleibt statt als
+ * Bildpunkte dazuliegen. Das Zielbild ist ein von Hand gesetztes PDF und kannte diese Trennung
+ * nicht. Was Punkt 12 wirklich verlangt — eine BESCHRIFTETE Skala statt zweier Farbtupfer —
+ * lässt sich nativ genauso haben, und genau das steht hier.
+ */
+function HeatmapScale() {
+  /* Sieben Stufen: die beiden Enden, die Null in der Mitte, dazwischen je zwei Zwischenstufen. */
+  const steps = [-1, -0.66, -0.33, 0, 0.33, 0.66, 1]
+  return (
+    <View style={styles.scale}>
+      <Text style={styles.scaleEnd}>mehr entladen</Text>
+      <View style={styles.scaleBar}>
+        {steps.map((step) => (
+          <View
+            key={step}
+            style={[styles.scaleStep, { backgroundColor: chartCellColor(step, 1) }]}
+          />
+        ))}
+      </View>
+      <Text style={styles.scaleEnd}>mehr geladen</Text>
+    </View>
+  )
+}
+
 function HeatmapLegend() {
   return (
     <View style={styles.legend}>
-      <View style={styles.legendItem}>
-        <View style={[styles.legendSwatch, { backgroundColor: PDF_COLORS.accent }]} />
-        <Text style={styles.legendLabel}>netto geladen</Text>
-      </View>
-      <View style={styles.legendItem}>
-        <View style={[styles.legendSwatch, { backgroundColor: PDF_COLORS.ink }]} />
-        <Text style={styles.legendLabel}>netto entladen</Text>
-      </View>
+      <HeatmapScale />
       <View style={styles.legendItem}>
         <View
           style={[

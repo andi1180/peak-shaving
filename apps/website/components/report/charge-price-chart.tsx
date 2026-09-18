@@ -14,6 +14,7 @@ import type { MonthlyChargePrice } from 'shared'
 
 import { formatKwh1 } from '@/lib/format'
 import { Num } from './num'
+import { CHART_COLORS } from '@/lib/pdf-report/theme'
 
 /**
  * Ø-Ladepreis je Monat — hat die Ladesteuerung die günstigen Stunden getroffen? (02.09.2026)
@@ -51,7 +52,7 @@ const MONTH_LABELS = [
 ] as const
 
 const CHARGE_COLOR = 'var(--color-accent)'
-const DISCHARGE_COLOR = 'color-mix(in srgb, var(--color-accent) 45%, var(--color-surface))'
+const DISCHARGE_COLOR = CHART_COLORS.seriesFaint
 const AVERAGE_COLOR = 'var(--color-text-muted)'
 
 type Row = {

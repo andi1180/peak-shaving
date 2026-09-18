@@ -2,6 +2,7 @@
 
 import { formatKwh1 } from '@/lib/format'
 import { Num } from './num'
+import { CHART_COLORS, chartCellColor } from '@/lib/pdf-report/theme'
 
 /**
  * Stunden-Heatmap: wann im Tag lädt und entlädt der Speicher — und wie das über die Monate wandert.
@@ -12,10 +13,18 @@ import { Num } from './num'
  * Bibliotheks-Akrobatik für etwas, das `div`s besser können.
  *
  * ── ⚠ ZWEI RICHTUNGEN, ZWEI FARBEN — UND KEINE DAVON IST GRÜN ODER ROT ────────────────────────
- * Laden trägt den Akzentton, Entladen den neutralen Textton, die Sättigung die Menge. Grün/Rot
- * bleiben im ganzen Report für Ersparnis/Kosten reserviert (DESIGN.md „Farbe ist Information"):
- * Laden ist weder gut noch schlecht, es ist eine Richtung. `color-mix()` statt Hex, damit ein
- * White-Label-Akzent die Skala automatisch mitzieht.
+ * Grün/Rot bleiben im ganzen Report für Ersparnis/Kosten reserviert (DESIGN.md Zeile 51: „Nicht
+ * als Dekor verwenden, sonst verlieren sie ihre Signalwirkung"): Laden ist weder gut noch
+ * schlecht, es ist eine Richtung. Das Urbanz-Zielbild zeigt hier Grün/Rot — dieser Report folgt
+ * ihm bewusst NICHT, weil im selben Dokument sonst Grün zugleich „Ersparnis" (Kernergebnisse) und
+ * „geladen" (hier) hiesse.
+ *
+ * ── ⚠ D15 Block 2, Punkt 12: DIVERGIEREND STATT ZWEIFARBIG ────────────────────────────────────
+ * Bis hierher trug Laden den Akzentton und Entladen den INK-Ton — zwei Farben, aber keine Skala:
+ * der Nullpunkt lag nirgends sichtbar, und eine schwach geladene Zelle sah aus wie eine schwach
+ * entladene. Jetzt läuft die Skala durchgehend Bernstein ↔ Weiss ↔ Akzent, mit der Null in der
+ * Mitte. Gerechnet wird an genau einer Stelle (`chartCellColor` in `lib/pdf-report/theme.ts`),
+ * nicht mehr per `color-mix()` in dieser Datei.
  *
  * ── ⚠ LEERE ZELLE ≠ RUHENDER SPEICHER ──────────────────────────────────────────────────────────
  * `null` (kein Messwert in dieser Stunde dieses Monats) wird als schraffurfreie, leere Zelle mit
@@ -58,17 +67,12 @@ const MONTH_FULL = [
   'Dezember',
 ] as const
 
-/** Farbe einer Zelle: Akzent für Laden, neutraler Textton für Entladen, Sättigung = Anteil am Maximum. */
+/** Farbe einer Zelle auf der divergierenden Skala; `null` bleibt die leere Zelle mit Strichrand. */
 function cellStyle(value: number | null, maxAbs: number): React.CSSProperties {
   if (value == null) {
     return { backgroundColor: 'transparent', border: '1px dashed var(--color-border)' }
   }
-  const share = maxAbs > 0 ? Math.min(1, Math.abs(value) / maxAbs) : 0
-  // Untergrenze 4 %, damit eine echte 0 als hellste Stufe sichtbar bleibt und nicht mit einer
-  // fehlenden Zelle verschwimmt.
-  const pct = Math.round(4 + share * 96)
-  const base = value >= 0 ? 'var(--color-accent)' : 'var(--color-ink)'
-  return { backgroundColor: `color-mix(in srgb, ${base} ${pct}%, var(--color-surface))` }
+  return { backgroundColor: chartCellColor(value, maxAbs) }
 }
 
 export function BatteryFlowHeatmap({
@@ -103,7 +107,7 @@ export function BatteryFlowHeatmap({
     >
       <p className="mb-1 text-sm font-medium text-ink">Wann lädt und entlädt Ihr Speicher?</p>
       <p className="mb-4 text-xs text-text-muted">
-        Netto geladene (Akzentfarbe) und entladene (dunkel) Energie je Stunde und Kalendermonat, in
+        Netto geladene (Akzentfarbe) und entladene (Bernstein) Energie je Stunde und Kalendermonat, in
         Ortszeit — gerechnet für {batteryName}. Gezählt ist die Menge am Netz, also das, was bezogen
         bzw. eingespart wurde.
       </p>
@@ -172,7 +176,7 @@ export function BatteryFlowHeatmap({
         <span className="flex items-center gap-1.5">
           <span
             className="inline-block h-2.5 w-2.5 shrink-0 rounded-sm"
-            style={{ backgroundColor: 'var(--color-accent)' }}
+            style={{ backgroundColor: CHART_COLORS.chargeEnd }}
             aria-hidden
           />
           geladen
@@ -180,7 +184,7 @@ export function BatteryFlowHeatmap({
         <span className="flex items-center gap-1.5">
           <span
             className="inline-block h-2.5 w-2.5 shrink-0 rounded-sm"
-            style={{ backgroundColor: 'var(--color-ink)' }}
+            style={{ backgroundColor: CHART_COLORS.dischargeEnd }}
             aria-hidden
           />
           entladen

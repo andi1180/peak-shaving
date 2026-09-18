@@ -6,6 +6,8 @@ import { sumCovered, type MonthlyTariffComparison } from 'shared'
 import { formatEur, formatEur2 } from '@/lib/format'
 import { monthlyBatteryRef } from '@/lib/report-copy'
 import { Num } from './num'
+import { CHART_COLORS } from '@/lib/pdf-report/theme'
+import { useId } from 'react'
 
 /**
  * Monatsvergleich „Das zahlen Sie jetzt vs. mit aWATTar" (01.09.2026).
@@ -54,9 +56,9 @@ const MONTH_LABELS = [
 /*
  * Ein neutraler Grundton für den Ist-Zustand und zwei zunehmend kräftige Akzentstufen für die
  * beiden aWATTar-Fälle — die Leserichtung „so ist es heute → so wäre es dort → so wäre es dort mit
- * Ihrem Speicher" steckt damit schon in der Helligkeit. Wie in `cost-chart.tsx` kein Hex im Code:
- * `color-mix()` leitet die Zwischenstufe live vom Akzentton ab, ein White-Label-Wechsel zieht sie
- * automatisch mit. Grün/Rot bleiben für Ersparnis/Kosten reserviert (DESIGN.md).
+ * Ihrem Speicher" steckt damit schon in der Helligkeit. Die Zwischenstufe kommt wie in
+ * `cost-chart.tsx` aus `CHART_COLORS` (D15 Block 2) und wird nicht mehr hier gerechnet.
+ * Grün/Rot bleiben für Ersparnis/Kosten reserviert (DESIGN.md Zeile 51).
  */
 /**
  * Die drei Reihen. Die dritte trägt ihre Beschriftung als Funktion des Falls: seit D7 fährt sie
@@ -73,12 +75,24 @@ const seriesFor = (isExisting: boolean) =>
     {
       key: 'spotWithoutControlEur',
       label: 'aWATTar ohne Steuerung',
-      color: 'color-mix(in srgb, var(--color-accent) 50%, var(--color-surface))',
+      color: CHART_COLORS.seriesSoft,
     },
     {
       key: 'spotWithBatteryEur',
       label: `aWATTar mit ${monthlyBatteryRef(isExisting)} (Ladung optimiert)`,
-      color: 'var(--color-accent)',
+      color: CHART_COLORS.series,
+      /*
+       * D15 Block 2, Punkt 14 — die einzige MODELLIERTE der drei Reihen: sie unterstellt eine
+       * Ladesteuerung, die so noch nicht läuft. Die Schraffur trägt diese Einschränkung IM BILD,
+       * statt sie nur im Text daneben zu behaupten; das Zielbild macht es an seiner Säule
+       * „rechnerisches Optimum" genauso.
+       *
+       * ⚠ Die Fläche bleibt der volle Akzent und wird NICHT aufgehellt. Die drei Reihen lesen
+       * sich über zunehmende Helligkeit als „heute → dort → dort mit Speicher" (s. Kopf); ein
+       * heller Modellton kehrte diese Leiter an ihrem Ende um. Die Schraffur kommt dazu, sie
+       * ersetzt nichts.
+       */
+      model: true,
     },
   ] as const
 
@@ -147,6 +161,8 @@ export function MonthlyTariffChart({
   isExisting: boolean
 }) {
   const SERIES = seriesFor(isExisting)
+  /* Eigene Kennung je Instanz — zwei Charts auf einem Blatt teilten sonst ein `<pattern>`. */
+  const modelPatternId = useId()
   const whose = monthlyBatteryRef(isExisting)
   const fixed = comparison.fixedCosts
   const rows: Row[] = MONTH_LABELS.map((month, i) => ({
@@ -178,6 +194,18 @@ export function MonthlyTariffChart({
       <div className="h-64 w-full">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={rows} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
+            <defs>
+              {/*
+                Die Schraffur der Modell-Reihe. `patternUnits="userSpaceOnUse"` statt
+                `objectBoundingBox`: die Streifen sollen über alle zwölf Balken DENSELBE Neigung
+                und Breite haben — an der Balkenhöhe ausgerichtet liefe ein niedriger Monat mit
+                anderem Muster als ein hoher, und das Muster sähe aus wie eine zweite Aussage.
+              */}
+              <pattern id={modelPatternId} width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+                <rect width="5" height="5" fill={CHART_COLORS.series} />
+                <line x1="0" y1="0" x2="0" y2="5" stroke={CHART_COLORS.modelTint} strokeWidth="2" />
+              </pattern>
+            </defs>
             <CartesianGrid stroke="var(--color-border)" strokeDasharray="3 3" vertical={false} />
             <XAxis
               dataKey="month"
@@ -197,7 +225,7 @@ export function MonthlyTariffChart({
                 key={s.key}
                 dataKey={s.key}
                 name={s.label}
-                fill={s.color}
+                fill={'model' in s && s.model ? `url(#${modelPatternId})` : s.color}
                 isAnimationActive={false}
               />
             ))}
@@ -213,7 +241,14 @@ export function MonthlyTariffChart({
           <span key={s.key} className="flex items-center gap-1.5">
             <span
               className="inline-block h-2.5 w-2.5 shrink-0 rounded-sm"
-              style={{ backgroundColor: s.color }}
+              style={
+                'model' in s && s.model
+                  ? {
+                      backgroundColor: s.color,
+                      backgroundImage: `repeating-linear-gradient(45deg, ${CHART_COLORS.modelTint} 0 2px, transparent 2px 5px)`,
+                    }
+                  : { backgroundColor: s.color }
+              }
               aria-hidden
             />
             {s.label}:{' '}

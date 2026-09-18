@@ -150,7 +150,16 @@ export const PDF_COLORS = {
  * Einheit ist überall pt (react-pdf rechnet in pt; A4 = 595 × 842 pt).
  */
 export const PDF_LAYOUT = {
-  pageHorizontal: 48,
+  /**
+   * ⚠ D15 Block 2, Punkt 9: 48 → 56,69 pt (= 20 mm). Der Satzspiegel war damit 499 pt breit und
+   * die Zeilen entsprechend lang; das Zielbild setzt 481,9 pt (Bestandsaufnahme §2.3).
+   *
+   * ⚠ DAS ZIEHT DIE CHART-RASTERBREITE MIT — `PDF_CONTENT_WIDTH_PT` ist von diesem Wert
+   * ABGELEITET und nicht daneben notiert, und `fitRasterToWidth` skaliert jedes eingebettete
+   * Bild darauf. Die Rasterung selbst ändert sich nicht (dieselben Bildpunkte), nur die Breite,
+   * in der sie im Blatt landet.
+   */
+  pageHorizontal: 56.69,
   /** Muss > `headerTop + headerHeight` sein. */
   pageTop: 78,
   /** Muss > `footerBottom + footerHeight` sein. */
@@ -175,6 +184,92 @@ export const PDF_LAYOUT = {
  * Einbettung, die es im Report so nicht gibt. `chart-probe.tsx` exportiert den Namen weiter.
  */
 export const PDF_CONTENT_WIDTH_PT = 595 - 2 * PDF_LAYOUT.pageHorizontal
+
+/**
+ * D15 Block 2 — der gemeinsame Farbsatz der sieben Report-DIAGRAMME.
+ *
+ * ── ⚠ WARUM DIE WERTE JETZT STATISCH SIND UND NICHT MEHR `color-mix()` ─────────────────────────
+ * Bis hierher rechnete sich JEDE Chart-Datei ihre Aufhellung selbst, und zwar in vier
+ * verschiedenen Verhältnissen: 85 % und 65 % (`cost-chart`), 50 % (`monthly-tariff-chart`), 45 %
+ * (`charge-price-chart`). Gemessen lagen die letzten beiden 6 von 255 Stufen auseinander — ein
+ * Unterschied, den niemand sieht, der aber zwei verschiedene Reihen in zwei Diagrammen desselben
+ * Reports verschieden aussehen liess. Vier Dateien, vier Wahrheiten, keine benannt.
+ *
+ * Jetzt steht die Leiter EINMAL hier, und die Dateien lesen sie. `color-mix()` kommt in keiner
+ * Chart-Datei mehr vor.
+ *
+ * ⚠ Die Werte sind die bisherigen Mischungen in sRGB, kaufmännisch gerundet — also **dieselbe
+ * Farbe auf höchstens eine Stufe je Kanal genau**, nicht bit-genau. Zwei der vier Mischungen
+ * fallen rechnerisch auf eine halbe Stufe (50 %: 186,5 und 182,5), und dort rundet Chromium nicht
+ * einheitlich; eine Behauptung „identisch" wäre an genau diesen Stellen falsch. Dieselbe Toleranz
+ * gilt seit B23b für jede Farbstichprobe auf einen gemischten Ton.
+ *
+ * ── ⚠ WAS DAS KOSTET, UND WARUM ES TROTZDEM RICHTIG IST ────────────────────────────────────────
+ * Statische Werte folgen einem überschriebenen `--color-accent` NICHT mehr. Für die Aufhellungen
+ * war White-Label damit schon durch die Anforderung „statisch" entschieden — mit einem
+ * gerechneten Zwischenton liesse er sich halten, aber eben nur um den Preis der vier
+ * auseinanderlaufenden Verhältnisse. Die Grundfarbe der Reihen (`series`) bleibt der Akzent;
+ * ändert ihn ein Mandant, stehen die Stufen daneben nicht mehr in seiner Familie. **Das ist der
+ * offene Preis dieses Schritts**, und er gehört auf den Tisch, bevor White-Label real wird
+ * (MVP §7, heute `[v2]`).
+ *
+ * ── ⚠ GRÜN UND ROT STEHEN HIER NICHT ───────────────────────────────────────────────────────────
+ * DESIGN.md Zeile 51: „Grün/Rot/Bernstein sind reserviert für Ersparnis / Kosten / Warnung. Nicht
+ * als Dekor verwenden, sonst verlieren sie ihre Signalwirkung." Laden und Entladen sind eine
+ * RICHTUNG und keine Wertung — die divergierende Skala läuft deshalb Akzent ↔ Bernstein und nicht
+ * Grün ↔ Rot, obwohl das Zielbild Letzteres zeigt.
+ */
+export const CHART_COLORS = {
+  /** Die volle Stufe — identisch mit `PDF_COLORS.accent`. */
+  series: '#0f766e',
+  /** War `color-mix(… accent 85 %, surface)` — `cost-chart`, Segment „Eigenverbrauch". */
+  seriesStrong: '#338b84',
+  /** War `color-mix(… accent 65 %, surface)` — `cost-chart`, Segment „Tarifbewusstes Laden". */
+  seriesMid: '#63a6a1',
+  /** War `color-mix(… accent 50 %, surface)` — `monthly-tariff-chart`, mittlere Reihe. */
+  seriesSoft: '#87bbb7',
+  /** War `color-mix(… accent 45 %, surface)` — `charge-price-chart`, Reihe „Entladen zu". */
+  seriesFaint: '#93c1be',
+
+  /**
+   * Die beiden Enden der divergierenden Skala (Heatmap, Tages-Batteriereihe).
+   * Null liegt in der Mitte und ist `surface` — eine echte 0 ist damit sichtbar hell und nicht
+   * weiss wie eine fehlende Zelle (die trägt weiterhin den gestrichelten Rand).
+   */
+  chargeEnd: '#0f766e',
+  dischargeEnd: '#b45309',
+  neutralEnd: '#ffffff',
+
+  /**
+   * Die Fläche eines MODELLwerts (D15 Block 2, Punkt 14) — im Zielbild die schraffierte Säule
+   * „rechnerisches Optimum". Sie trägt die Aussage „Obergrenze, keine Prognose" im Bild selbst,
+   * statt sie nur im Text daneben zu behaupten.
+   */
+  modelTint: '#99d8d3',
+} as const
+
+/**
+ * Die Farbe einer Heatmap-Zelle auf der divergierenden Skala.
+ *
+ * ⚠ DIE EINZIGE STELLE, DIE NOCH RECHNET — und sie muss es: eine Heatmap ist eine stufenlose
+ * Skala, ein Token je Zelle gäbe es nicht. Sie rechnet dafür an EINEM Ort statt in der Komponente,
+ * und sie rechnet in sRGB wie `color-mix(in srgb, …)` es tat, damit der Wechsel die Farben nicht
+ * nebenbei verschiebt.
+ *
+ * Untergrenze 4 %: eine echte 0 bleibt als hellste Stufe sichtbar und verschwimmt nicht mit einer
+ * Zelle ohne Messwert.
+ */
+export function chartCellColor(value: number, maxAbs: number): string {
+  const share = maxAbs > 0 ? Math.min(1, Math.abs(value) / maxAbs) : 0
+  const p = (4 + share * 96) / 100
+  const end = value >= 0 ? CHART_COLORS.chargeEnd : CHART_COLORS.dischargeEnd
+  const mix = (from: number, to: number) => Math.round(from * p + to * (1 - p))
+  const channel = (hex: string, i: number) => parseInt(hex.slice(1 + i * 2, 3 + i * 2), 16)
+  const parts = [0, 1, 2].map((i) =>
+    mix(channel(end, i), channel(CHART_COLORS.neutralEnd, i)).toString(16).padStart(2, '0'),
+  )
+  return `#${parts.join('')}`
+}
 
 /** Schriftgrade. Ein Report, kein Prospekt: wenige Stufen, klarer Abstand dazwischen. */
 export const PDF_TYPE = {
