@@ -2,7 +2,7 @@ import type { BatteryResultEntry, BatteryRoiEntry } from 'shared'
 
 import { formatEur, formatKw, formatKwh1, formatYears } from '@/lib/format'
 import type { ReportBuildContext } from './context'
-import { block, ref, row, t, REF_LABEL, type ReportText } from './report-text'
+import { block, ref, row, t, REF_LABEL, REF_SECTION, type ReportText } from './report-text'
 import type { ReportRow, ReportStatement } from './statement'
 import {
   primaryEntryOf,
@@ -156,7 +156,7 @@ export function buildRecommendation(
   const framing: ReportText = isExisting
     ? t`Sie haben bereits einen Speicher — diese Aussage beantwortet deshalb nicht „soll ich überhaupt?", sondern „was bekäme ich, wenn ich Ihre Anlage durch ein neues Gerät ersetzte?".${ref(
         block('addon'),
-        ' Ob sich ein ZUSÄTZLICHES Gerät neben Ihrer Anlage lohnt, steht in den Kernergebnissen; die dortigen Beträge sind Differenzen und nicht mit den Zahlen hier vergleichbar.',
+        ` Ob sich ein ZUSÄTZLICHES Gerät neben Ihrer Anlage lohnt, steht auf der ${REF_SECTION}; die dortigen Beträge sind Differenzen und nicht mit den Zahlen hier vergleichbar.`,
         '',
       )}`
     : `Aus dem Katalog schneidet dieses Gerät über ${horizonYears} Jahre am besten ab — gereiht ` +
@@ -288,7 +288,7 @@ export function buildLoadControl(
     primary.annualizationFactor > 1
       ? t` Ihr Lastgang deckt ${String(primary.coveredDays)} von 365 Tagen ab; ${ref(
           block('load_shift'),
-          'die Zahl auf der Kernergebnis-Seite ist',
+          `die Zahl auf der ${REF_SECTION} ist`,
           'der ausgewiesene Wert ist',
         )} von diesem Zeitraum auf ein Jahr hochgerechnet — gemessen wurden ${formatEur(primary.loadShiftSavingOverCoveredPeriod)}.`
       : ''
@@ -302,7 +302,7 @@ export function buildLoadControl(
     placement === 'cash'
       ? t`${ref(
           row('savings', 'control_value'),
-          `Er steckt in der Zeile „${REF_LABEL}" in der Aufschlüsselung der Kernergebnis-Seite bereits mit drin`,
+          `Er steckt in der Zeile „${REF_LABEL}" in der Aufschlüsselung der ${REF_SECTION} bereits mit drin`,
           'Er steckt in der Gesamtersparnis bereits mit drin',
         )} und kommt nicht zusätzlich obendrauf`
       : /*

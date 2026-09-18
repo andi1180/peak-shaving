@@ -63,6 +63,21 @@ export type ReportRefTarget =
 export const REF_PLACE = '{place}'
 export const REF_LABEL = '{label}'
 
+/**
+ * Der Verweisname des Kapitels, in dem das Ziel steht — heute nur Kapitel 1
+ * (`ReportSection.reference`, `content.ts`).
+ *
+ * ⚠ ER IST KEINE ORTSANGABE, SONDERN EIN NOMEN: der Artikel steht im Satz, weil die fünf
+ * Verwendungen Nominativ, Genitiv und Dativ brauchen.
+ *
+ * ⚠ UND ER IST AN EINE BEDINGUNG GEKNÜPFT: trägt das Kapitel des Ziels keinen Verweisnamen, nimmt
+ * der Verweis seine ERSATZFORMULIERUNG — als stünde das Ziel gar nicht da. Ohne diese Regel
+ * entstünde beim Umzug eines Ziels „auf der Kapitel „Ladeverhalten"": ein Satz, der grammatisch
+ * falsch ist und den niemand mehr als Verweisfehler erkennt. Ein Kapitel, das nicht in jedem
+ * Report steht, bekommt deshalb bewusst keinen Namen (s. `content.ts`).
+ */
+export const REF_SECTION = '{section}'
+
 export type ReportRef = {
   target: ReportRefTarget
   /**
@@ -142,6 +157,11 @@ export type ReportLayout = {
   present: (target: ReportRefTarget) => boolean
   /** Die Ortsangabe, aus Sicht des verweisenden Bausteins `from`. */
   place: (from: string, target: ReportRefTarget) => string
+  /**
+   * Der Verweisname des Kapitels, in dem das Ziel steht — `null`, wenn es keinen trägt. S.
+   * `REF_SECTION`.
+   */
+  section: (target: ReportRefTarget) => string | null
   /** Wie das Ziel heisst. Leer, wo es keinen Namen trägt. */
   label: (target: ReportRefTarget) => string
 }
@@ -161,7 +181,15 @@ export function resolveReportText(text: ReportText, layout: ReportLayout, from: 
       out += part
       continue
     }
-    if (!layout.present(part.target)) {
+    /*
+     * ⚠ ZWEI GRÜNDE FÜR DIE ERSATZFORMULIERUNG, UND DER ZWEITE IST DER LEISERE: das Ziel steht
+     * nicht im Dokument — oder es steht da, aber nicht mehr in einem Kapitel, das der Satz beim
+     * Namen nennen darf. Beides macht denselben Satz falsch, und beides führt deshalb zur selben
+     * Ausweichfassung (s. `REF_SECTION`).
+     */
+    const named = layout.section(part.target)
+    const nameable = !part.present.includes(REF_SECTION) || named !== null
+    if (!layout.present(part.target) || !nameable) {
       /* `null` heisst: ohne dieses Ziel gibt es den ganzen Text nicht — s. Kopf. */
       if (part.absent === null) return ''
       out += part.absent
@@ -172,6 +200,8 @@ export function resolveReportText(text: ReportText, layout: ReportLayout, from: 
       .join(layout.place(from, part.target))
       .split(REF_LABEL)
       .join(layout.label(part.target))
+      .split(REF_SECTION)
+      .join(named ?? '')
   }
   return out
 }

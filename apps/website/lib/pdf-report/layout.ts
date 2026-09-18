@@ -77,6 +77,10 @@ export function reportLayoutOf(composition: ReportComposition): ReportLayout {
       return true
     },
     label: labelOf,
+    section: (target) => {
+      const to = byId.get(target.id)
+      return to ? (REPORT_SECTIONS[to.section].reference ?? null) : null
+    },
     place: (from, target) => {
       const to = byId.get(target.id)
       if (!to) return ''

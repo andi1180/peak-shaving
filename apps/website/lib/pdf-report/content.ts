@@ -23,6 +23,30 @@ import { HINDSIGHT_NOTE } from '@/lib/report-copy'
 
 /** Ein Eintrag der Agenda UND zugleich ein Abschnitt im Dokument. */
 export type ReportSection = {
+  /**
+   * Stufe D — wie ein FREMDER Baustein dieses Kapitel benennt, als blosses Nomen („Kernergebnis-Seite").
+   *
+   * ══════════════════════════════════════════════════════════════════════════════════════════
+   * ⚠ ES HAT IHN GENAU EIN KAPITEL, UND DER GRUND IST SEINE UNBEDINGTE ERSTSTELLUNG
+   * ══════════════════════════════════════════════════════════════════════════════════════════
+   * Der Resolver bildet eine Ortsangabe sonst aus der Leseordnung („oben", „weiter unten") oder
+   * benennt das fremde Kapitel generisch („im Kapitel „X""). Für Kapitel 1 braucht es beides
+   * nicht: es steht in JEDEM Report, und es steht immer als Erstes — ein Verweis darauf muss
+   * nichts berechnen. Der Report sagt dafür seit jeher „Kernergebnis-Seite", und diese Fassung
+   * bleibt damit erhalten, statt in die generische Form zu fallen.
+   *
+   * ⚠ KEIN BEDINGTES KAPITEL DARF IHN BEKOMMEN. Kapitel 4, 5 und 6 entstehen nur, wenn ihre Daten
+   * es hergeben; ein Satz, der sie beim Namen nennt, zeigte in den übrigen Fällen ins Leere. Und
+   * kein Kapitel ausser dem ersten steht an fester Stelle — für die übrigen ist die berechnete
+   * Ortsangabe die richtige Antwort, gerade weil Block 3 sie verschiebt.
+   *
+   * ⚠ DER ARTIKEL STEHT IM SATZ, nicht hier: die fünf Verwendungen brauchen Nominativ („Die
+   * Kernergebnis-Seite zeigt"), Genitiv („der Aufschlüsselung der Kernergebnis-Seite") und Dativ
+   * („auf der Kernergebnis-Seite"). Ein fertiges Satzstück passte in keinen davon. Damit daraus
+   * beim Umzug eines Ziels kein grammatischer Unsinn wird („auf der Kapitel „X""), verlangt der
+   * Resolver diesen Namen: fehlt er, nimmt der Verweis seine Ersatzformulierung (s. `report-text.ts`).
+   */
+  reference?: string
   /** Stabil — der Schlüssel, unter dem die gemessene Seitenzahl abgelegt wird. */
   id: string
   title: string
@@ -115,6 +139,7 @@ export const RESULTS_SECTION: ReportSection = {
   id: SECTION_ID.results,
   level: 1,
   title: 'Kernergebnisse',
+  reference: 'Kernergebnis-Seite',
 }
 
 /**

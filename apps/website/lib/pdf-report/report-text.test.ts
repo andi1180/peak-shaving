@@ -3,7 +3,8 @@ import type { BatteryRoiEntry, MonthlyTariffComparison } from 'shared'
 
 import { buildAssumptions, TARIFF_COMPONENTS_TABLE_ID } from './basis'
 import { buildComparisonChapter, CANDIDATE_TABLE_ID } from './comparison'
-import { SECTION_ID } from './content'
+import { buildDetailChapter, buildMonthlyChapter } from './detail'
+import { REPORT_SECTIONS, SECTION_ID } from './content'
 import { reportLayoutOf, type ReportPlacement } from './layout'
 import { buildRecommendationChapter } from './recommendation'
 import {
@@ -406,14 +407,14 @@ describe('Stufe-C-Sperren: `addon` und `table_candidates`', () => {
       reportLayoutOf(summaryPlacements(summary)),
       'recommendation',
     )
-    expect(mit).toContain('steht in den Kernergebnissen')
+    expect(mit).toContain('steht auf der Kernergebnis-Seite')
 
     const ohne = resolveReportText(
       chapter.recommendation!.body,
       reportLayoutOf(summaryPlacements(summary).filter((p) => p.id !== 'addon')),
       'recommendation',
     )
-    expect(ohne).not.toContain('Kernergebnissen')
+    expect(ohne).not.toContain('Kernergebnis-Seite')
     expect(ohne).toContain('wenn ich Ihre Anlage durch ein neues Gerät ersetzte?".')
   })
 
@@ -444,5 +445,112 @@ describe('Stufe-C-Sperren: `addon` und `table_candidates`', () => {
     const ohne = resolveReportText(chapter.statement.body, reportLayoutOf([eintrag]), 'addon_table')
     expect(ohne).toContain('die ausgewiesenen Beträge sind also Differenzen')
     expect(ohne).not.toContain('Spalten')
+  })
+})
+
+/* ────────────────────────────────────────────────────────────────────────────────────────────────
+ * 7 — Die Kapitel-1-Sonderform
+ * ──────────────────────────────────────────────────────────────────────────────────────────── */
+
+describe('Verweisname eines Kapitels (`REF_SECTION`)', () => {
+  /**
+   * ⚠ NUR KAPITEL 1 TRÄGT EINEN NAMEN, und das ist die ganze Begründung der Sonderform: es steht in
+   * jedem Report und immer als Erstes. Ein bedingtes Kapitel beim Namen zu nennen hiesse, in den
+   * Fällen ohne es auf nichts zu zeigen.
+   */
+  it('haben nur unbedingte Kapitel — die drei bedingten ausdrücklich nicht', () => {
+    expect(REPORT_SECTIONS[SECTION_ID.results].reference).toBe('Kernergebnis-Seite')
+
+    for (const key of [SECTION_ID.monthly, SECTION_ID.insight, SECTION_ID.comparison]) {
+      expect(REPORT_SECTIONS[key].reference).toBeUndefined()
+    }
+  })
+
+  const analysis = analysisFor(true)
+  const chapter = buildRecommendationChapter(analysis)
+
+  /* Die Hochrechnungs-Aussage entsteht nur bei einem Teilzeitraum — sonst fehlt der Satz ganz. */
+  const teiljahr: PdfReportAnalysis = {
+    ...analysis,
+    perBattery: [{ ...ENTRY, annualizationFactor: 2, coveredDays: 180 }, ZWEITES],
+    existingBatteryAnalysis: {
+      entry: { ...ENTRY, annualizationFactor: 2, coveredDays: 180 },
+      addonScenarios: [],
+    },
+  }
+
+  /** Die fünf migrierten Sätze, je mit dem Baustein, der sie trägt, und seinem Ziel. */
+  const SAETZE = [
+    {
+      name: 'recommendation → addon',
+      body: chapter.recommendation!.body,
+      from: 'recommendation',
+      ziel: 'addon' as const,
+      mit: 'steht auf der Kernergebnis-Seite',
+      ohne: 'ersetzte?".',
+    },
+    {
+      name: 'load_control → load_shift (Hochrechnung)',
+      body: buildRecommendationChapter(teiljahr).loadControl!.body,
+      from: 'load_control',
+      ziel: 'load_shift' as const,
+      mit: 'die Zahl auf der Kernergebnis-Seite ist',
+      ohne: 'der ausgewiesene Wert ist',
+    },
+    {
+      name: 'load_control → Zeile von savings',
+      body: chapter.loadControl!.body,
+      from: 'load_control',
+      ziel: 'savings' as const,
+      mit: 'in der Aufschlüsselung der Kernergebnis-Seite',
+      ohne: 'Er steckt in der Gesamtersparnis bereits mit drin',
+    },
+    {
+      name: 'monthly_comparison → savings',
+      body: buildDetailChapter(analysis).cost!.statement!.body,
+      from: 'monthly_comparison',
+      ziel: 'savings' as const,
+      mit: 'Die Kernergebnis-Seite zeigt die DIFFERENZEN',
+      ohne: 'Hier stehen die drei Summen absolut.',
+    },
+    {
+      name: 'monthly_comparison → load_shift',
+      body: buildMonthlyChapter(analysisFor(false))!.statement.body,
+      from: 'monthly_comparison',
+      ziel: 'load_shift' as const,
+      mit: 'auf der Kernergebnis-Seite ist NICHT aus diesen drei Summen',
+      ohne: 'Die drei Summen stehen hier absolut.',
+    },
+  ]
+
+  /*
+   * Die Zusammenstellung, die das Dokument heute hat. Beide Fassungen von `savings` sind vertreten,
+   * damit jeder der fünf Sätze sein Ziel findet — sie schliessen einander im Dokument aus, hier
+   * geht es allein um die Kapitelzuordnung.
+   */
+  const inKapitel1 = summaryPlacements(
+    buildReportSummary(analysisFor(false), { source: 'net_signed' }),
+  ).concat(summaryPlacements(buildReportSummary(analysis, { source: 'net_signed' })))
+
+  it.each(SAETZE)('$name: nennt Kapitel 1 beim Namen, solange das Ziel dort steht', (satz) => {
+    expect(resolveReportText(satz.body, reportLayoutOf(inKapitel1), satz.from)).toContain(satz.mit)
+  })
+
+  /**
+   * ⚠ DIE ZWEITE REIHENFOLGE: dasselbe Ziel, aber in einem Kapitel OHNE Verweisnamen — genau das
+   * tut Block 3 Nr. 18 mit `addon`. Der Name darf dann nicht generisch ersetzt werden („auf der
+   * Kapitel „Ladeverhalten"" wäre grammatisch falsch und als Verweisfehler unkenntlich); der Satz
+   * weicht auf seine Ersatzfassung aus.
+   */
+  it.each(SAETZE)('$name: weicht aus, sobald das Ziel ein anderes Kapitel bezieht', (satz) => {
+    const verschoben = inKapitel1.map((p) =>
+      p.id === satz.ziel ? { ...p, section: SECTION_ID.insight } : p,
+    )
+    const text = resolveReportText(satz.body, reportLayoutOf(verschoben), satz.from)
+
+    expect(text).not.toContain(satz.mit)
+    /* ⚠ Und ausdrücklich AUCH NICHT generisch ersetzt — das ergäbe „auf der Kapitel „…"". */
+    expect(text).not.toContain('Kapitel „')
+    expect(text).toContain(satz.ohne)
   })
 })
