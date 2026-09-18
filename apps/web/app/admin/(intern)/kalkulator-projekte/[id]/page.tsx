@@ -291,14 +291,17 @@ function Angabe({
 }
 
 /**
- * Report-Baukasten C — die vier abwählbaren Bausteine, je Zählpunkt.
+ * Report-Baukasten C — die abwählbaren Bausteine, je Zählpunkt.
  *
  * ⚠ DIE BESCHRIFTUNGEN SIND NICHT DIE INTERNEN KENNUNGEN. `hour_flow` sagt einem Vertriebler
  * nichts; „Stunden-Heatmap" beschreibt, was auf dem Blatt steht. Die Kennung reist trotzdem als
  * Wert mit — sie ist es, die der Report auswertet.
  *
- * ⚠ STANDARDMÄSSIG ALLE VIER AKTIV: der Report ist damit derselbe wie vor diesem Schritt, und wer
+ * ⚠ STANDARDMÄSSIG ALLE AKTIV: der Report ist damit derselbe wie vor diesem Schritt, und wer
  * nichts anfasst, bekommt nichts Unerwartetes.
+ *
+ * ⚠ DIE REIHENFOLGE IST DIE DES DOKUMENTS (`REPORT_OPTIONAL_SECTIONS`) und nicht die des Katalogs:
+ * wer die Liste durchgeht, geht damit den Report von vorne nach hinten durch.
  */
 const OPTIONAL_SECTION_LABELS: { id: ReportOptionalSection; label: string; hint: string }[] = [
   {
@@ -310,6 +313,11 @@ const OPTIONAL_SECTION_LABELS: { id: ReportOptionalSection; label: string; hint:
     id: 'charge_price',
     label: 'Ø-Ladepreis je Monat',
     hint: 'Was der Strom im Schnitt kostet, wenn geladen wird.',
+  },
+  {
+    id: 'table_candidates',
+    label: 'Gerätevergleichs-Tabelle',
+    hint: 'Die Kandidaten Zeile für Zeile — Grösse, Investition, Ersparnis, Amortisation.',
   },
   {
     id: 'data_quality',

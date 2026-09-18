@@ -470,7 +470,7 @@ const _idsAreExhaustive: Exclude<
 void _idsAreExhaustive
 
 /*
- * ⚠ Report-Baukasten C — die vier abwählbaren Bausteine sind eine TEILMENGE dieses Katalogs, und
+ * ⚠ Report-Baukasten C — die abwählbaren Bausteine sind eine TEILMENGE dieses Katalogs, und
  * das steht hier, weil `packages/shared` den Katalog nicht kennen darf (die Liste hat zwei
  * Konsumenten in zwei Apps, s. `report-sections.ts`). Eine dort umbenannte Kennung ist damit ein
  * Compile-Fehler und nicht ein Baustein, der sich stillschweigend nicht mehr abwählen lässt.
