@@ -3,6 +3,7 @@ import type { BatteryResultEntry, BatteryRoiSummary } from 'shared'
 import { formatEur, formatKw, formatKwh1, formatYears } from '@/lib/format'
 import type { ReportBuildContext } from './context'
 import type { ReportFigure, ReportRow, ReportStatement, ReportTable } from './statement'
+import { block, ref, t, REF_PLACE } from './report-text'
 import type { PdfReportAnalysis } from './types'
 
 /**
@@ -97,8 +98,7 @@ function candidatesOf(analysis: PdfReportAnalysis): {
  */
 function drawablePoints(candidates: ComparisonCandidate[]): ComparisonCandidate[] {
   return candidates.filter(
-    (c) =>
-      Number.isFinite(c.netSavingOverHorizon) && Number.isFinite(c.battery.usableCapacityKwh),
+    (c) => Number.isFinite(c.netSavingOverHorizon) && Number.isFinite(c.battery.usableCapacityKwh),
   )
 }
 
@@ -337,14 +337,32 @@ export function buildTableStatement(
         'keine dieser Zahlen ein. Gezeigt sind die Geräte, die ihre Anschaffung im ' +
         'Betrachtungszeitraum wieder einspielen; die übrigen stehen als Punkte in der Kurve ' +
         'darüber.'
-      : 'Gereiht ist nach der Netto-Ersparnis über den Betrachtungszeitraum — derselben Grösse wie ' +
-        'die Kurve darüber und wie die Empfehlung im Kapitel „Empfehlung und Lastverlauf". Das ' +
-        'empfohlene Gerät steht deshalb hier nicht noch einmal: es ist dort vollständig ' +
-        'aufgeschlüsselt. Diese Tabelle sagt, was die Alternativen dagegen leisten — und um ' +
-        'welchen Betrag die Empfehlung besser ist. Die §3.8-Hinweise eines Geräts (Betonsockel, ' +
-        'separater Wechselrichter, zu geringe Leistung für alle Spitzen) sind in der Investition ' +
-        'bereits enthalten, stehen hier aber nicht je Zeile — sie stehen beim empfohlenen Gerät.',
+      : /*
+         * ── ⚠ STUFE D: DER KAPITELNAME WIRD NICHT MEHR AUSGESCHRIEBEN ────────────────────────
+         * „im Kapitel „Empfehlung und Lastverlauf"" war die EINZIGE Stelle im ganzen Katalog, die
+         * einen fremden Kapiteltitel als Literal trug — eine Umbenennung des Kapitels hätte hier
+         * einen Verweis auf ein Kapitel hinterlassen, das es nicht mehr gibt. Die Ortsangabe kommt
+         * jetzt aus der Leseordnung und der Titel aus `REPORT_SECTIONS` (`layout.ts`), also nach
+         * demselben Muster, mit dem `RESULTS_FOOTNOTE` seinen Kapitelnamen schon immer gebildet
+         * hat: `METHODOLOGY_SECTION.title` statt eines Literals (`content.ts`).
+         *
+         * ⚠ Zwei Verweise auf dasselbe Ziel: die Ortsangabe und das „dort" danach. Steht die
+         * Empfehlung eines Tages in diesem Kapitel, wird aus beiden „oben" bzw. „weiter unten" —
+         * ohne dass jemand den Satz anfasst.
+         */
+        t`Gereiht ist nach der Netto-Ersparnis über den Betrachtungszeitraum — derselben Grösse wie die Kurve darüber und wie die Empfehlung ${recommendationRef(REF_PLACE, 'dieses Reports')}. Das empfohlene Gerät steht deshalb hier nicht noch einmal: es ist ${recommendationRef('dort', 'beim empfohlenen Gerät')} vollständig aufgeschlüsselt. Diese Tabelle sagt, was die Alternativen dagegen leisten — und um welchen Betrag die Empfehlung besser ist. Die §3.8-Hinweise eines Geräts (Betonsockel, separater Wechselrichter, zu geringe Leistung für alle Spitzen) sind in der Investition bereits enthalten, stehen hier aber nicht je Zeile — sie stehen beim empfohlenen Gerät.`,
   }
+}
+
+/**
+ * Der Verweis auf die Empfehlung.
+ *
+ * ⚠ Die Ersatzformulierung ist keine Kür: der Klarsatz nennt die Empfehlung als Massstab der
+ * Reihung, und ohne sie im Dokument wäre „es ist dort vollständig aufgeschlüsselt" eine Ansage auf
+ * eine Stelle, die es nicht gibt. `recommendation` entfällt bei leerem Katalog (`recommendation.ts`).
+ */
+function recommendationRef(say: string, absent: string) {
+  return ref(block('recommendation'), say, absent)
 }
 
 /**

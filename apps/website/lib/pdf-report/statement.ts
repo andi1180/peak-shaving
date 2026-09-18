@@ -14,6 +14,8 @@
  * Stelle, und nicht verstreut im JSX.
  */
 
+import type { ReportText } from './report-text'
+
 /** Farbe ist Information, kein Dekor (DESIGN.md) — s. `PDF_COLORS` in `theme.ts`. */
 export type ReportTone = 'positive' | 'warning' | 'neutral'
 
@@ -35,6 +37,16 @@ export type ReportFigure = {
 
 /** Eine Zeile einer Aufschlüsselung. */
 export type ReportRow = {
+  /**
+   * Stufe D — die stabile Kennung dieser Zeile, über die ein FREMDER Baustein auf sie zeigt
+   * (`ReportRefTarget`, `report-text.ts`).
+   *
+   * ⚠ Optional, weil die meisten Zeilen niemand adressiert. Sie ist ausdrücklich NICHT die
+   * Beschriftung: zehn der 29 Querverweise nennen heute eine Zeile über ihren Text („die Zeile
+   * „Wert der Ladesteuerung""), und eine Umformulierung der Beschriftung drehte den Verweis
+   * still ins Leere.
+   */
+  key?: string
   label: string
   /** Zweite, kleinere Zeile unter der Beschriftung. Fehlt, wo die Beschriftung für sich steht. */
   hint?: string
@@ -58,7 +70,8 @@ export type ReportStatement = {
   title: string
   amount: { value: string; caption: string; tone: Exclude<ReportTone, 'neutral'> } | null
   rows: ReportRow[]
-  body: string
+  /** Stufe D — darf einen Querverweis tragen; aufgelöst wird in `document.tsx`. */
+  body: ReportText
   /**
    * Kurze Zusatzsätze unter dem Fliesstext — je Eintrag eine Zeile.
    *
@@ -103,8 +116,15 @@ export type ReportTableColumn = {
 export type ReportTableRow = {
   /** Stabil (die Batterie-Kennung) — Reihenfolge und Wiedererkennung in Prüfläufen. */
   key: string
-  /** Genau so viele Einträge wie `columns`, in derselben Reihenfolge. */
-  cells: string[]
+  /**
+   * Genau so viele Einträge wie `columns`, in derselben Reihenfolge.
+   *
+   * ⚠ Stufe D: `ReportText` und nicht `string` — eine Zelle kann einen Querverweis tragen. Die
+   * Datenquellen-Tabelle tut das („wie im Datenqualitäts-Hinweis oben", `basis.ts`), und sie ist
+   * die EINZIGE Fundstelle ausserhalb eines `body`/`hints`/`caption`. Ein Mechanismus, der nur
+   * `body` kennt, übersähe ausgerechnet die Stelle, die schon einmal ins Leere zeigte (PR #273).
+   */
+  cells: ReportText[]
   /**
    * D9 — eine ZWISCHENÜBERSCHRIFT statt einer Datenzeile (halbfett, ohne Trennlinie darunter).
    *

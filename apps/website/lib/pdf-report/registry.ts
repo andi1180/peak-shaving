@@ -21,6 +21,7 @@ import {
   buildVerdict,
   comparisonSelection,
 } from './comparison'
+import { SECTION_ID, type ReportSectionKey } from './content'
 import type { ReportBuildContext } from './context'
 import { buildMonthly, buildMonthlyChapter } from './detail'
 import { buildChargePrice, buildHourFlow } from './insight'
@@ -145,30 +146,98 @@ export type ReportBaukastenId =
  * anderen Werten zu bauen als den, den das Dokument zeigt.
  */
 export type ReportBaukastenEntry =
-  | { id: ReportBaukastenId; form: 'statement'; build: () => ReportStatement | null }
-  | { id: ReportBaukastenId; form: 'notice'; build: () => ReportNotice | null }
-  | { id: ReportBaukastenId; form: 'table'; build: () => ReportTable | null }
-  | { id: ReportBaukastenId; form: 'method'; build: () => BasisMethodItem | null }
+  | {
+      id: ReportBaukastenId
+      section: ReportSectionKey
+      form: 'statement'
+      build: () => ReportStatement | null
+    }
+  | {
+      id: ReportBaukastenId
+      section: ReportSectionKey
+      form: 'notice'
+      build: () => ReportNotice | null
+    }
+  | {
+      id: ReportBaukastenId
+      section: ReportSectionKey
+      form: 'table'
+      build: () => ReportTable | null
+    }
+  | {
+      id: ReportBaukastenId
+      section: ReportSectionKey
+      form: 'method'
+      build: () => BasisMethodItem | null
+    }
 
 export type ReportBaukastenRegistry = {
-  /** Alle 28 Einträge, in Kapitel- und Leserichtung. */
+  /**
+   * Alle 28 Einträge, in Kapitel- und Leserichtung.
+   *
+   * ⚠ Stufe D LIEST diese Reihenfolge als die Leseordnung des Dokuments (`layout.ts`) — bis dahin
+   * war sie eine Ordnungshilfe. Sie muss deshalb der Folge im JSX entsprechen; `limitations` stand
+   * bis Stufe D vor den beiden Tabellen und steht im Dokument hinter ihnen.
+   */
   entries: readonly ReportBaukastenEntry[]
   /** ⚠ Total: die Kennungen sind ein geschlossener Union, es gibt kein `undefined`. */
   get: (id: ReportBaukastenId) => ReportBaukastenEntry
 }
 
+/**
+ * In welchem Kapitel ein Baustein steht.
+ *
+ * ⚠ EINE TABELLE UND KEIN ARGUMENT JE EINTRAG: die Zuordnung ist eine Eigenschaft der Kennung und
+ * gehört neben den Union, nicht 28-mal in die Einträge. `monthly_comparison` ist die Ausnahme —
+ * ein Erzeuger, zwei einander ausschliessende Kapitel — und bekommt seins beim Bauen übergeben.
+ */
+const SECTION_OF: Record<ReportBaukastenId, ReportSectionKey> = {
+  savings: SECTION_ID.results,
+  peak_shaving: SECTION_ID.results,
+  load_shift: SECTION_ID.results,
+  addon: SECTION_ID.results,
+  standard_profile: SECTION_ID.results,
+  estimated_pv: SECTION_ID.results,
+  partial_year: SECTION_ID.results,
+  large_gap: SECTION_ID.results,
+  recommendation: SECTION_ID.recommendation,
+  load_control: SECTION_ID.recommendation,
+  monthly_comparison: SECTION_ID.detail,
+  hour_flow: SECTION_ID.insight,
+  charge_price: SECTION_ID.insight,
+  addon_none: SECTION_ID.comparison,
+  addon_table: SECTION_ID.comparison,
+  catalog_alternatives: SECTION_ID.comparison,
+  table_candidates: SECTION_ID.comparison,
+  assumptions: SECTION_ID.basis,
+  data_quality: SECTION_ID.basis,
+  tariff_blocker: SECTION_ID.basis,
+  pv_outage: SECTION_ID.basis,
+  limitations: SECTION_ID.basis,
+  table_tariff_components: SECTION_ID.basis,
+  table_data_sources: SECTION_ID.basis,
+  method_current_tariff: SECTION_ID.basis,
+  method_spot_uncontrolled: SECTION_ID.basis,
+  method_load_control: SECTION_ID.basis,
+  method_pv_outage: SECTION_ID.basis,
+}
+
 const statement = (
   id: ReportBaukastenId,
   build: () => ReportStatement | null,
-): ReportBaukastenEntry => ({ id, form: 'statement', build })
+  section: ReportSectionKey = SECTION_OF[id],
+): ReportBaukastenEntry => ({ id, section, form: 'statement', build })
 
-const notice = (
-  id: ReportBaukastenId,
-  build: () => ReportNotice | null,
-): ReportBaukastenEntry => ({ id, form: 'notice', build })
+const notice = (id: ReportBaukastenId, build: () => ReportNotice | null): ReportBaukastenEntry => ({
+  id,
+  section: SECTION_OF[id],
+  form: 'notice',
+  build,
+})
 
 const table = (id: ReportBaukastenId, build: () => ReportTable | null): ReportBaukastenEntry => ({
   id,
+  section: SECTION_OF[id],
   form: 'table',
   build,
 })
@@ -176,7 +245,7 @@ const table = (id: ReportBaukastenId, build: () => ReportTable | null): ReportBa
 const method = (
   id: ReportBaukastenId,
   build: () => BasisMethodItem | null,
-): ReportBaukastenEntry => ({ id, form: 'method', build })
+): ReportBaukastenEntry => ({ id, section: SECTION_OF[id], form: 'method', build })
 
 /**
  * Bildet die Registry. EINMAL je Erzeugung aufrufen, unmittelbar nach `buildReportContext` —
@@ -204,7 +273,7 @@ export function buildReportRegistry(
    * und eine Abweichung „die heute nichts ausmacht" ist genau die Sorte, die morgen etwas ausmacht.
    */
   const entry = context.primaryEntry
-  const isReal = context.isRealSavingsComparison
+  const placement = context.savingsPlacement
 
   const comparison = comparisonSelection(analysis)
   const hasTable = comparison.shown.length > 0
@@ -212,8 +281,8 @@ export function buildReportRegistry(
   const entries: ReportBaukastenEntry[] = [
     /* ── Kapitel 1 ─────────────────────────────────────────────────────────────────────────── */
     statement('savings', () => (entry ? buildSavings(analysis, entry).statement : null)),
-    statement('peak_shaving', () => (entry ? buildPeakShaving(analysis, entry, isReal) : null)),
-    statement('load_shift', () => (entry ? buildLoadShift(analysis, entry, isReal) : null)),
+    statement('peak_shaving', () => (entry ? buildPeakShaving(analysis, entry, placement) : null)),
+    statement('load_shift', () => (entry ? buildLoadShift(analysis, entry, placement) : null)),
     statement('addon', () => (entry ? buildAddon(analysis) : null)),
     notice('standard_profile', () => buildStandardProfileNotice(input.loadProfile)),
     notice('estimated_pv', () => buildEstimatedPvNotice(input.estimatedPv)),
@@ -225,7 +294,7 @@ export function buildReportRegistry(
       const recommended = context.recommendedEntry
       return recommended ? buildRecommendation(analysis, recommended) : null
     }),
-    statement('load_control', () => buildLoadControl(analysis, context.primaryEntry)),
+    statement('load_control', () => buildLoadControl(analysis, context.primaryEntry, placement)),
 
     /*
      * ── Kapitel 3 ODER 4: EIN Eintrag, zwei Quellen ───────────────────────────────────────────
@@ -240,13 +309,17 @@ export function buildReportRegistry(
      * ausschliesslich ohne ihn. Der `isExisting`-Parameter des Erzeugers folgt daraus und wird
      * nicht ein zweites Mal abgeleitet.
      */
-    statement('monthly_comparison', () => {
-      if (analysis.existingBatteryAnalysis) {
-        const cost = context.detailPlan.cost
-        return cost?.kind === 'monthly' ? buildMonthly(cost.comparison, true).statement : null
-      }
-      return buildMonthlyChapter(analysis)?.statement ?? null
-    }),
+    statement(
+      'monthly_comparison',
+      () => {
+        if (analysis.existingBatteryAnalysis) {
+          const cost = context.detailPlan.cost
+          return cost?.kind === 'monthly' ? buildMonthly(cost.comparison, true).statement : null
+        }
+        return buildMonthlyChapter(analysis)?.statement ?? null
+      },
+      analysis.existingBatteryAnalysis ? SECTION_ID.detail : SECTION_ID.monthly,
+    ),
 
     /* ── Kapitel 5 ─────────────────────────────────────────────────────────────────────────── */
     statement('hour_flow', () => {
@@ -296,9 +369,8 @@ export function buildReportRegistry(
     notice('tariff_blocker', () => buildBlocker(analysis, timeZoneOf(input.loadProfile))),
     /* ⚠ Aus dem Kontext und NICHT neu gebaut: der PV-Methodik-Absatz unten hängt am HINWEIS. */
     notice('pv_outage', () => context.pvOutage),
-    notice('limitations', () => buildLimitations(analysis)),
     table(TARIFF_COMPONENTS_TABLE_ID, () => buildTariffComponents(input)),
-    table(DATA_SOURCES_TABLE_ID, () => buildDataSources(input, context.dataQuality !== null)),
+    table(DATA_SOURCES_TABLE_ID, () => buildDataSources(input)),
 
     /*
      * ⚠ Die beiden Tarif-Absätze entstehen gemeinsam (eine Funktion, zwei Elemente) und werden
@@ -313,10 +385,10 @@ export function buildReportRegistry(
         : null,
     ),
     method('method_pv_outage', () =>
-      context.pvOutage && input.pvOutageMonths
-        ? pvOutageMethodItem(input.pvOutageMonths)
-        : null,
+      context.pvOutage && input.pvOutageMonths ? pvOutageMethodItem(input.pvOutageMonths) : null,
     ),
+    /* ⚠ ZULETZT, weil er im Dokument zuletzt steht — s. `entries` im Kopf dieser Datei. */
+    notice('limitations', () => buildLimitations(analysis)),
   ]
 
   function tariffMethodItemById(id: string): BasisMethodItem | null {
@@ -380,7 +452,10 @@ export const REPORT_BAUKASTEN_IDS = [
  * Leere. Eine Kennung, die dem Union zugefügt und in der Liste vergessen wird, ist damit ein
  * Compile-Fehler; dass die EINTRÄGE die Liste decken, misst `registry.test.ts` zur Laufzeit.
  */
-const _idsAreExhaustive: Exclude<ReportBaukastenId, (typeof REPORT_BAUKASTEN_IDS)[number]> extends never
+const _idsAreExhaustive: Exclude<
+  ReportBaukastenId,
+  (typeof REPORT_BAUKASTEN_IDS)[number]
+> extends never
   ? true
   : never = true
 void _idsAreExhaustive
