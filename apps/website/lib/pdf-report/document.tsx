@@ -35,7 +35,7 @@ import { buildDetailChapter, buildMonthlyChapter } from './detail'
 import { buildInsightChapter } from './insight'
 import { buildRecommendationChapter } from './recommendation'
 import type { ReportBaukastenId, ReportBaukastenRegistry } from './registry'
-import { resolveReportText, type ReportLayout } from './report-text'
+import { resolveReportSegments, resolveReportText, type ReportLayout } from './report-text'
 import {
   recordSectionPage,
   recordTotalPages,
@@ -43,7 +43,14 @@ import {
   type AgendaPageNumbers,
   type PageNumberSink,
 } from './page-numbers'
-import type { ReportNotice, ReportRow, ReportStatement, ReportTable, ReportTone } from './statement'
+import type {
+  ReportAmountTone,
+  ReportNotice,
+  ReportRow,
+  ReportStatement,
+  ReportTable,
+  ReportTone,
+} from './statement'
 import { buildReportSummary } from './summary'
 import { chartCellColor, PDF_COLORS, PDF_CONTENT_WIDTH_PT, PDF_LAYOUT, PDF_TYPE } from './theme'
 import type { PdfReportInput } from './types'
@@ -409,6 +416,25 @@ const styles = StyleSheet.create({
 
   statement: { marginTop: 14 },
   statementTitle: { ...LEADING, fontSize: PDF_TYPE.h3, fontWeight: 600, color: PDF_COLORS.ink },
+  /**
+   * Das Verdikt (B3-2a) — Frage und Antwort, beide einen Grad über ihrer sonstigen Form.
+   *
+   * ⚠ Die ÜBERSCHRIFT steht auf `h2` und nicht auf `h3`: sie ist die FRAGE, auf die das Wort
+   * darunter antwortet, und auf Bausteingrösse gesetzt läse sie sich als eine Zwischenüberschrift
+   * von acht. Das Zielbild setzt sie mit 14 pt fett (S. 10, gemessen).
+   *
+   * ⚠ Das WORT nimmt den Grad der Kopfzahlen (27 pt, wie `headlineValue`) und ihre Kostenfarbe.
+   * Es ist kein zweiter Grad daneben — die Antwort auf die Kernfrage eines Kapitels wiegt so viel
+   * wie eine Kernzahl, und genau das sagt der gemeinsame Grad.
+   */
+  verdictTitle: { ...LEADING, fontSize: PDF_TYPE.h2, fontWeight: 700, color: PDF_COLORS.ink },
+  verdictWord: {
+    ...LEADING,
+    marginTop: 6,
+    fontSize: 27,
+    fontWeight: 700,
+    color: PDF_COLORS.negative,
+  },
   statementAmountRow: { marginTop: 3, flexDirection: 'row', alignItems: 'flex-end', gap: 6 },
   statementAmount: { ...LEADING, fontSize: 15, fontWeight: 700 },
   statementAmountCaption: { ...LEADING, fontSize: PDF_TYPE.small, color: PDF_COLORS.textMuted },
@@ -917,6 +943,20 @@ const TONE_COLOR: Record<ReportTone, string> = {
 }
 
 /**
+ * Die Farbe der EINEN grossen Zahl einer Aussage — B3-2a.
+ *
+ * ⚠ SIE STEHT NEBEN `TONE_COLOR` UND ERWEITERT ES NICHT, aus demselben Grund wie
+ * `NOTICE_SURFACE` darunter: `TONE_COLOR` färbt auch jeden ZEILENWERT einer Aufschlüsselung, und
+ * dort gibt es `negative` nicht (eine Kostenzeile ist `warning`). Ein gemeinsames Objekt hätte den
+ * vierten Wert an beide Stellen gegeben — s. `ReportAmountTone` in `statement.ts`.
+ */
+const AMOUNT_COLOR: Record<ReportAmountTone, string> = {
+  positive: PDF_COLORS.positive,
+  warning: PDF_COLORS.warning,
+  negative: PDF_COLORS.negative,
+}
+
+/**
  * Fläche und Kante eines HINWEISKASTENS je Ton (D15 Block 1, Punkt 3).
  *
  * ── ⚠ WARUM DAS NICHT `TONE_COLOR` ERWEITERT, SONDERN DANEBEN STEHT ────────────────────────────
@@ -927,13 +967,20 @@ const TONE_COLOR: Record<ReportTone, string> = {
  * Unterschied nur um den Preis verstecken können, dass eine Änderung an einer Stelle zwei andere
  * mitnimmt.
  *
- * ── ⚠ WARUM `neutral` KEINE TEAL FLÄCHE BEKOMMT ────────────────────────────────────────────────
- * Das Zielbild kennt nur teal und amber (Bestandsaufnahme §4.4). Teal steht dort aber für eine
- * GUTE Nachricht — und ein `ReportNotice` kann gar keine sein: sein Ton ist
- * `Exclude<ReportTone, 'positive'>` (`statement.ts`), weil ein Hinweis feststellt und sich nicht
- * freut. „PV-Erzeugung geschätzt" oder „Datenqualität" teal zu hinterlegen hiesse, vier
- * Einschränkungen wie Erfolge aussehen zu lassen. `neutral` bleibt deshalb auf `surfaceAlt`;
- * `accentSubtle` steht im Theme und wartet auf einen Baustein, der ihn ehrlich tragen kann.
+ * ── ⚠ WARUM `neutral` KEINE TEAL FLÄCHE BEKOMMT ──────────────────────────────────
+ * Das Zielbild kennt nur teal und amber (Bestandsaufnahme §4.4).
+ *
+ * ⚠ BERICHTIGT MIT B3-2a: hier stand, teal bedeute dort eine GUTE Nachricht. Nachgemessen stimmt
+ * das nicht — alle drei teal Kästen des Zielbildes tragen einen Vorbehalt, und einer TRÄGT DIE
+ * ABSAGE SELBST („Ausserdem schon geklärt": „Ein zusätzlicher Batteriespeicher lohnt sich für Sie
+ * derzeit nicht", S. 2). Teal markiert dort einen ERLEDIGTEN NEBENSTRANG — eine Bemerkung, die zum
+ * Kapitel gehört, aber nicht in seiner Hauptlinie steht — und keine Wertung.
+ *
+ * ⚠ DIE ENTSCHEIDUNG BLEIBT TROTZDEM, mit dem richtigen Grund: ein `ReportNotice` ist kein
+ * Nebenstrang, sondern eine Feststellung ÜBER DIE DATENGRUNDLAGE der Zahlen daneben
+ * (`statement.ts`). „PV-Erzeugung geschätzt" oder „Datenqualität" als erledigt zu markieren wäre
+ * dieselbe Verwechslung in der anderen Richtung. `neutral` bleibt deshalb auf `surfaceAlt`; die
+ * teal Kästen des Zielbildes sind `ReportStatement`s, und dort gehört `accentSubtle` hin (B3-2b).
  */
 const NOTICE_SURFACE: Record<ReportNotice['tone'], string> = {
   warning: PDF_COLORS.warningSubtle,
@@ -1034,17 +1081,29 @@ function Notice({ notice }: { notice: ReportNotice }) {
  * der Resolver muss wissen, wer spricht.
  */
 function Statement({ statement, layout }: { statement: ReportStatement; layout: ReportLayout }) {
+  /*
+   * B3-2a — das VERDIKT ist die einzige Aussage, deren Kopfzahl ein Wort ist: die Antwort auf
+   * eine Frage als Überschrift, im Kostenton (`ReportAmountTone`, `statement.ts`). Es steht am
+   * Ton und nicht an einer Kennung — was diese Form bekommt, entscheidet die Ableitung.
+   */
+  const verdict = statement.amount?.tone === 'negative' ? statement.amount : null
+
   return (
     <View style={styles.statement} wrap={false}>
-      <Text style={styles.statementTitle}>{statement.title}</Text>
+      <Text style={verdict ? styles.verdictTitle : styles.statementTitle}>{statement.title}</Text>
       {/* Keine Kopfzahl, wo es keine gibt (der Zusatzspeicher-Klarsatz) — s. `summary.ts`. */}
-      {statement.amount && (
-        <View style={styles.statementAmountRow}>
-          <Text style={[styles.statementAmount, { color: TONE_COLOR[statement.amount.tone] }]}>
-            {statement.amount.value}
-          </Text>
-          <Text style={styles.statementAmountCaption}>{statement.amount.caption}</Text>
-        </View>
+      {verdict ? (
+        /* Ohne Bezugsgrösse: sie steht als Satz im Fliesstext darunter (s. `buildVerdict`). */
+        <Text style={styles.verdictWord}>{verdict.value}</Text>
+      ) : (
+        statement.amount && (
+          <View style={styles.statementAmountRow}>
+            <Text style={[styles.statementAmount, { color: AMOUNT_COLOR[statement.amount.tone] }]}>
+              {statement.amount.value}
+            </Text>
+            <Text style={styles.statementAmountCaption}>{statement.amount.caption}</Text>
+          </View>
+        )
       )}
       {statement.rows.length > 0 && (
         <View style={styles.rowList}>
@@ -1053,8 +1112,22 @@ function Statement({ statement, layout }: { statement: ReportStatement; layout: 
           ))}
         </View>
       )}
+      {/*
+        B3-2a — der Körper kommt in STÜCKEN und nicht als eine Zeichenkette: eines davon darf
+        AUSGEZEICHNET sein (`ReportAccent`, `report-text.ts`). Die Farbe dazu ist die der Kopfzahl
+        — ein Betrag, der die Aussage belegt, trägt ihren Ton; ohne Kopfzahl gibt es keinen, und
+        das Stück läuft im Fliesstext mit.
+      */}
       <Text style={styles.statementBody}>
-        {resolveReportText(statement.body, layout, statement.id)}
+        {resolveReportSegments(statement.body, layout, statement.id).map((segment, index) =>
+          segment.accent && statement.amount ? (
+            <Text key={index} style={{ color: AMOUNT_COLOR[statement.amount.tone] }}>
+              {segment.text}
+            </Text>
+          ) : (
+            segment.text
+          ),
+        )}
       </Text>
       {/*
         Die §3.8-Warnungen, je eine Zeile. Sie stehen NEBEN der Investition und nicht in ihr:
@@ -1714,9 +1787,12 @@ function InsightChapter({
  * diesem JSX. Insbesondere ob unter der Kurve eine TABELLE oder der KLARSATZ steht, ist dort
  * entschieden; `charts.tsx` hat das Bild aus DERSELBEN Ableitung gerastert.
  *
- * ⚠ Die Kurve steht ÜBER der Aussage und nicht darunter: rechnet sich keines der Geräte, ist sie
- * die Begründung des Klarsatzes, und eine Begründung, die man erst nach der Feststellung sieht,
- * liest sich wie ein Nachtrag. Dieselbe Reihenfolge wie am Bildschirm.
+ * ⚠ Die Kurve steht ÜBER der Aussage — ausser im Klarsatz-Fall, wo sie darunter rückt (B3-2a).
+ * Die Einleitung einer Tabelle nach der Tabelle zu lesen wäre ein Nachtrag; das VERDIKT dagegen
+ * ist die Antwort auf die Kapitelfrage, und eine Antwort gehört vor ihren Beleg. Die Kurve bleibt
+ * genau deshalb stehen: sie zeigt, dass die Linie über alle Grössen unter der Nulllinie bleibt
+ * (`comparison.ts`) — das Zielbild lässt sie auf seiner Verdikt-Seite weg und hat den Beleg dann
+ * nirgends.
  */
 function ComparisonChapter({
   input,
@@ -1736,11 +1812,18 @@ function ComparisonChapter({
      — beides lebt in `StatementTable` und nicht daneben. Die Klarsätze darüber bleiben und nennen
      sie dann nicht mehr (`comparison.ts`, `tableRef`). */
   const table = selectedTable(registry, input, CANDIDATE_TABLE_ID)
+  /* B3-2a — das Verdikt führt die Seite an, die Einleitung einer Tabelle nicht. Die Bedingung ist
+     die dokumentierte Invariante aus `comparison.ts`: `table === null` GENAU DANN, wenn die Aussage
+     der Klarsatz ist — und ausdrücklich NICHT `selectedTable` daneben, die auch die ABWAHL der
+     Tabelle trifft (dann bleibt die Einleitung eine Einleitung und steht weiter unter der Kurve). */
+  const verdictLeads = chapter.table === null
 
   return (
     <View style={styles.body}>
       <Text style={styles.h2}>{COMPARISON_SECTION.title}</Text>
       <Text style={styles.lead}>{COMPARISON_INTRO}</Text>
+
+      {verdictLeads && <Statement statement={chapter.statement} layout={layout} />}
 
       <ChartFigure
         raster={charts.comparison}
@@ -1751,7 +1834,7 @@ function ComparisonChapter({
         missing={chapter.figureMissing ?? figureMissingText('Die Grenznutzen-Kurve')}
       />
 
-      <Statement statement={chapter.statement} layout={layout} />
+      {!verdictLeads && <Statement statement={chapter.statement} layout={layout} />}
       {table && <StatementTable table={table} from={CANDIDATE_TABLE_ID} layout={layout} />}
     </View>
   )

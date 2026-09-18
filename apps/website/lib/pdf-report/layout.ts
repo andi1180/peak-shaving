@@ -136,7 +136,9 @@ export function buildReportLayout(
         id: entry.id,
         section: entry.section,
         title: built.title,
-        amount: built.amount ? built.amount.caption : null,
+        /* Leere Bezugsgrösse = keine (das Verdikt „Nein“ trägt keine, s. `statement.ts`):
+           sonst löste ein Verweis darauf zu „die Zahl „““ auf. */
+        amount: built.amount && built.amount.caption !== '' ? built.amount.caption : null,
         rows: Object.fromEntries(
           built.rows.flatMap((r) => (r.key ? [[r.key, r.label] as const] : [])),
         ),

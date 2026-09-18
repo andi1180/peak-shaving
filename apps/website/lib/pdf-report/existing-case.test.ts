@@ -236,6 +236,28 @@ const OHNE_BESTAND: PdfReportInput = {
   analysis: { ...ANALYSIS, existingBatteryAnalysis: undefined },
 }
 
+/**
+ * Dieselbe Fixture mit BEIDEN Zusatzgeräten unter der Schwelle — der Klarsatz-Fall (B3-2a).
+ *
+ * ⚠ ER HAT BIS HIERHER GEFEHLT: `registry.test.ts` belegt den Zweig auf `not.toBeNull()`, aber
+ * kein Prüflauf hat ihn je DURCHS DOKUMENT geführt. Das Verdikt wäre damit gebaut und nie
+ * gerendert — und es ist der einzige Baustein mit eigener Überschriftsgrösse, eigenem Kopfwort
+ * und einer Auszeichnung im Fliesstext.
+ *
+ * ⚠ Die Reihung ist absteigend (§3.8) und die Fixture hält sie ein: −5.388 vor −12.000. Das
+ * bestgereihte Gerät ist damit das erste, und sein Fehlbetrag ist die Zahl im Satz.
+ */
+const KLARSATZ_FALL: PdfReportInput = {
+  ...BESTANDSFALL,
+  analysis: {
+    ...ANALYSIS,
+    existingBatteryAnalysis: {
+      entry: roiEntry(BESTAND),
+      addonScenarios: [addonScenario(KAT1, -5388), addonScenario(KAT2, -12000)],
+    },
+  },
+}
+
 /** Kein Bild — das Dokument setzt an ihre Stelle den `missing`-Satz und rendert weiter. */
 const CHARTS: ReportChartRasters = {
   load: null,
@@ -375,6 +397,27 @@ describe('Stufe D — der Bestandsfall als zweite Render-Fixture', () => {
     /* 20 — `addon_table` → Spalte „Ersparnis/Jahr" der Kandidatentabelle. */
     expect(text).toContain('die Spalten „Ersparnis/Jahr" und „Netto" sind also Differenzen')
   })
+
+  it('rendert den Klarsatz-Fall als Verdikt, mit Anzahl und Fehlbetrag', async () => {
+    const text = reportText(KLARSATZ_FALL)
+
+    /* Beide Zahlen des Verdikts — die Anzahl geprüfter Geräte und der Fehlbetrag des besten. */
+    expect(text).toContain(
+      'Keines der 2 geprüften Batteriegeräte würde sich neben Ihrer bestehenden Anlage ' +
+        'innerhalb von 10 Jahren finanziell rechnen.',
+    )
+    /* `\u00a0` ist das schmale Leerzeichen aus `formatEur` (Intl, de-AT) — ausgeschrieben, weil es
+       im Quelltext von einem gewöhnlichen Leerzeichen nicht zu unterscheiden wäre. */
+    expect(text).toContain(
+      'Das am besten abschneidende Gerät bliebe über 10 Jahre gerechnet €\u00a05.388 im Minus.',
+    )
+    /* Die Tabellen-Einleitung des positiven Zweigs darf hier nicht mitkommen. */
+    expect(text).not.toContain('Gerechnet als EIN gemeinsamer Speicher')
+
+    /* Und er geht durchs Dokument — der Zweig war bis B3-2a nie gerendert worden. */
+    const pdf = await pdfFor(KLARSATZ_FALL)
+    expect(Number(pdf.toString('latin1').match(/\/Count (\d+)/)?.[1])).toBeGreaterThan(5)
+  }, 60_000)
 
   it('den Verweis aus Nr. 10 gibt es nur mit Bestandsanlage', () => {
     /*

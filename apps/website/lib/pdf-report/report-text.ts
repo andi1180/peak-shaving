@@ -89,8 +89,27 @@ export type ReportRef = {
   absent: string | null
 }
 
+/**
+ * B3-2a — ein Textstück, das im Dokument farblich ausgezeichnet wird.
+ *
+ * ⚠ ES TRÄGT KEINE FARBE, NUR DIE AUSZEICHNUNG. Welche daraus wird, entscheidet `document.tsx` am
+ * Ton der Aussage — eine Palette in der Ableitung wäre die Trennung, die `statement.ts` im Kopf
+ * beschreibt, von der falschen Seite her aufgehoben.
+ *
+ * ⚠ UND ES IST EIN GETIPPTES TEIL UND KEINE MARKE IM TEXT (s. Kopf): die naheliegende Fassung
+ * wäre ein Teilstring, den der Renderer im aufgelösten Satz sucht — ein Tippfehler darin bliebe
+ * dann eine stumme Nicht-Auszeichnung statt eines Übersetzungsfehlers.
+ */
+export type ReportAccent = { readonly accent: string }
+
+export function accent(text: string): ReportAccent {
+  return { accent: text }
+}
+
 /** Ein Text, der noch Verweise enthält. */
-export type ReportTextParts = { readonly reportText: readonly (string | ReportRef)[] }
+export type ReportTextParts = {
+  readonly reportText: readonly (string | ReportRef | ReportAccent)[]
+}
 
 /**
  * Ein Textfeld des Baukastens.
@@ -111,14 +130,14 @@ export type ReportText = string | ReportTextParts
  */
 export function t(
   strings: TemplateStringsArray,
-  ...values: (string | ReportRef | ReportTextParts)[]
+  ...values: (string | ReportRef | ReportAccent | ReportTextParts)[]
 ): ReportTextParts {
-  const parts: (string | ReportRef)[] = []
+  const parts: (string | ReportRef | ReportAccent)[] = []
   strings.forEach((literal, index) => {
     if (literal !== '') parts.push(literal)
     const value = values[index]
     if (value === undefined || value === '') return
-    if (typeof value === 'string' || 'target' in value) parts.push(value)
+    if (typeof value === 'string' || 'target' in value || 'accent' in value) parts.push(value)
     else parts.push(...value.reportText)
   })
   return { reportText: parts }
@@ -167,18 +186,43 @@ export type ReportLayout = {
 }
 
 /**
- * Löst einen Text gegen die Beschreibung auf.
+ * Ein Stück aufgelösten Texts — B3-2a.
+ *
+ * ⚠ `accent` ist eine AUSZEICHNUNG und keine Farbe: was daraus wird, entscheidet der Renderer
+ * (s. `ReportAccent`).
+ */
+export type ReportTextSegment = { text: string; accent: boolean }
+
+/**
+ * Löst einen Text gegen die Beschreibung auf und behält dabei die Auszeichnungen.
  *
  * ⚠ `from` ist der Baustein, in dem der Text STEHT — ohne ihn gibt es kein „oben": eine
- * Ortsangabe ist eine Aussage über zwei Bausteine, nicht über einen.
+ * Ortsangabe ist eine Aussage über ZWEI Bausteine, nicht über einen.
  */
-export function resolveReportText(text: ReportText, layout: ReportLayout, from: string): string {
-  if (typeof text === 'string') return text
+export function resolveReportSegments(
+  text: ReportText,
+  layout: ReportLayout,
+  from: string,
+): ReportTextSegment[] {
+  if (typeof text === 'string') return text === '' ? [] : [{ text, accent: false }]
 
-  let out = ''
+  const out: ReportTextSegment[] = []
+  /* Angrenzende Stücke gleicher Auszeichnung wachsen zusammen: sonst zerfiele ein Satz in so
+     viele `<Text>` wie er Verweise hat, und react-pdf umbricht an jeder dieser Grenzen. */
+  const push = (piece: string, marked: boolean) => {
+    if (piece === '') return
+    const last = out.at(-1)
+    if (last && last.accent === marked) last.text += piece
+    else out.push({ text: piece, accent: marked })
+  }
+
   for (const part of text.reportText) {
     if (typeof part === 'string') {
-      out += part
+      push(part, false)
+      continue
+    }
+    if ('accent' in part) {
+      push(part.accent, true)
       continue
     }
     /*
@@ -191,17 +235,33 @@ export function resolveReportText(text: ReportText, layout: ReportLayout, from: 
     const nameable = !part.present.includes(REF_SECTION) || named !== null
     if (!layout.present(part.target) || !nameable) {
       /* `null` heisst: ohne dieses Ziel gibt es den ganzen Text nicht — s. Kopf. */
-      if (part.absent === null) return ''
-      out += part.absent
+      if (part.absent === null) return []
+      push(part.absent, false)
       continue
     }
-    out += part.present
-      .split(REF_PLACE)
-      .join(layout.place(from, part.target))
-      .split(REF_LABEL)
-      .join(layout.label(part.target))
-      .split(REF_SECTION)
-      .join(named ?? '')
+    push(
+      part.present
+        .split(REF_PLACE)
+        .join(layout.place(from, part.target))
+        .split(REF_LABEL)
+        .join(layout.label(part.target))
+        .split(REF_SECTION)
+        .join(named ?? ''),
+      false,
+    )
   }
   return out
+}
+
+/**
+ * Derselbe Text als eine Zeichenkette — für alles, was ihn misst, vergleicht oder prüft.
+ *
+ * ⚠ Er läuft über dieselbe Auflösung und nicht über eine zweite daneben: zwei Fassungen liefen
+ * beim nächsten Nachtrag auseinander, und die Abweichung fiele ausgerechnet dort auf, wo ein
+ * Prüflauf grün bliebe und das Dokument anders aussähe.
+ */
+export function resolveReportText(text: ReportText, layout: ReportLayout, from: string): string {
+  return resolveReportSegments(text, layout, from)
+    .map((segment) => segment.text)
+    .join('')
 }

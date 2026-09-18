@@ -3,7 +3,7 @@ import type { BatteryResultEntry, BatteryRoiSummary } from 'shared'
 import { formatEur, formatKw, formatKwh1, formatYears } from '@/lib/format'
 import type { ReportBuildContext } from './context'
 import type { ReportFigure, ReportRow, ReportStatement, ReportTable } from './statement'
-import { block, column, ref, t, REF_LABEL, REF_PLACE } from './report-text'
+import { accent, block, column, ref, t, REF_LABEL, REF_PLACE } from './report-text'
 import type { PdfReportAnalysis } from './types'
 
 /**
@@ -266,33 +266,99 @@ const FIGURE_MISSING =
   'Abbildung.'
 
 /**
+ * Der bestgereihte Kandidat, sofern sein Fehlbetrag eine nennbare Zahl ist — B3-2a.
+ *
+ * ⚠ DIESELBE VORBEDINGUNG WIE `drawablePoints`, AN DERSELBEN DATENLAGE: `considered` ist
+ * ungefiltert, und ein nicht-endlicher `netSavingOverHorizon` ergäbe „€ ∞ im Minus". Gesucht ist
+ * deshalb das erste ENDLICHE Element — die Reihung ist absteigend (§3.8), das erste endliche ist
+ * damit das beste, ohne hier neu zu sortieren.
+ *
+ * ⚠ Und er muss echt unter null liegen: „bliebe € 0 im Minus" wäre ein Satz, der nichts belegt.
+ * Genau 0 ist in diesem Zweig möglich (die Schwelle der Tabelle ist `> 0`) und dann entfällt der
+ * Satz, statt eine Null als Fehlbetrag auszuweisen.
+ */
+function shortfallOf(considered: ComparisonCandidate[]): number | null {
+  const best = considered.find((c) => Number.isFinite(c.netSavingOverHorizon))
+  return best !== undefined && best.netSavingOverHorizon < 0 ? -best.netSavingOverHorizon : null
+}
+
+/**
+ * Was der Klarsatz über seine eigene Reichweite sagt — wortgleich zum Bildschirm.
+ *
+ * ⚠ Steht neben der Funktion und nicht in ihrem Template: der Satzkörper besteht aus einem
+ * gerechneten Teil (Anzahl, Fehlbetrag) und einem festen; ineinandergeschoben wäre beim nächsten
+ * Nachtrag nicht mehr zu sehen, welcher Teil aus dem Ergebnis stammt.
+ */
+function tragweite(horizonYears: number): string {
+  return (
+    ' Eine zusätzliche Ersparnis kann dabei durchaus herauskommen — über den Betrachtungszeitraum ' +
+    'gerechnet bleibt sie nur unter dem, was das Gerät kostet. Ihr Speicher deckt bei diesem ' +
+    'Verbrauch bereits ab, was sich wirtschaftlich holen lässt; mehr Kapazität stünde einen ' +
+    'grossen Teil der Zeit ungenutzt da. Das ist eine Aussage über diesen Lastgang, diese ' +
+    `Tarifangaben und einen Betrachtungszeitraum von ${horizonYears} Jahren. Wächst Ihr ` +
+    'Verbrauch, ändert sich Ihr Tarif, kommt PV dazu oder rechnen Sie über einen längeren ' +
+    'Zeitraum, kann die Antwort eine andere sein.'
+  )
+}
+
+/**
  * Der Klarsatz: kein Zusatzgerät rechnet sich.
  *
- * ⚠ WORTGLEICH ZUM BILDSCHIRM (`report.tsx`, `zusatzspeicher-lohnt-nicht`), samt beider Absätze.
- * Die Kernergebnis-Seite trägt eine gekürzte Fassung derselben Feststellung; hier steht sie
- * vollständig, weil hier die Kurve daneben liegt, die sie belegt. Zwei verschieden formulierte
- * Fassungen desselben Befunds im selben Dokument sähen wie zwei Befunde aus.
+ * ── ⚠ ER IST SEIT B3-2a EIN VERDIKT UND KEINE FESTSTELLUNG ────────────────────────────────────
+ * Überschrift und Kopfzahl sind die des Zielbildes (S. 10, gemessen): die Frage „Lohnt sich ein
+ * zusätzlicher Speicher?" und darunter das Wort „Nein" im Kostenton. Eine Feststellung als
+ * Überschrift („… lohnt sich derzeit nicht") beantwortet eine Frage, die der Leser an dieser
+ * Stelle noch gar nicht gestellt bekommen hat; die Frage-Antwort-Form stellt sie zuerst.
+ *
+ * ⚠ ZWEI ZAHLEN BELEGEN DAS VERDIKT, UND BEIDE STEHEN IM FLIESSTEXT: wie viele Geräte geprüft
+ * wurden, und um wie viel das beste davon danebenliegt. Eine Tabelle der gescheiterten Kandidaten
+ * steht hier ausdrücklich NICHT — gereiht nach Netto-Ersparnis lüde sie dazu ein, sich das „am
+ * wenigsten schlechte" auszusuchen, auf einem Blatt, dessen Kernaussage lautet, dass keines davon
+ * sich rechnet. Die Kurve darunter führt die Kandidaten bereits als Punkte.
+ *
+ * ⚠ WORTGLEICH ZUM BILDSCHIRM (`report.tsx`, `zusatzspeicher-lohnt-nicht`) bleiben die vier
+ * einordnenden Sätze. Die Kernergebnis-Seite trägt eine gekürzte Fassung derselben Feststellung;
+ * hier steht sie vollständig, weil hier die Kurve daneben liegt, die sie belegt. Zwei verschieden
+ * formulierte Fassungen desselben Befunds im selben Dokument sähen wie zwei Befunde aus.
  */
-export function buildVerdict(horizonYears: number): ReportStatement {
+export function buildVerdict(
+  considered: ComparisonCandidate[],
+  horizonYears: number,
+): ReportStatement {
+  const shortfall = shortfallOf(considered)
+  /* Ein Gerät braucht die Einzahl — „Keines der 1 geprüften Geräte" wäre ein Satzfehler im
+     Kundendokument, und der Fall entsteht real (ein einziges Zusatzszenario unter der Schwelle). */
+  const opening =
+    considered.length === 1
+      ? 'Das eine geprüfte Batteriegerät würde sich neben Ihrer bestehenden Anlage innerhalb von '
+      : `Keines der ${considered.length} geprüften Batteriegeräte würde sich neben Ihrer ` +
+        'bestehenden Anlage innerhalb von '
+
+  /* Der Betrag ist AUSGEZEICHNET und nicht bloss genannt: er ist die eine Zahl dieser Seite, und
+     das Zielbild setzt genau diese Wortgruppe in die Farbe des Verdikts. */
+  const beleg =
+    shortfall === null
+      ? ''
+      : t` Das am besten abschneidende Gerät bliebe über ${String(
+          horizonYears,
+        )} Jahre gerechnet ${accent(`${formatEur(shortfall)} im Minus`)}.`
+
   return {
     id: 'addon_none',
-    title: 'Ein zusätzlicher Speicher lohnt sich derzeit nicht',
+    title: 'Lohnt sich ein zusätzlicher Speicher?',
     /*
-     * ⚠ KEINE KOPFZAHL — es gibt keine. Eine erfundene 0 an dieser Stelle wäre eine Zahl, die
-     * etwas anderes behauptet als der Satz darunter (s. `ReportStatement.amount`).
+     * ⚠ DIE „ZAHL" IST HIER EIN WORT, und das ist der Grund für `ReportAmountTone` (`statement.ts`):
+     * die Antwort auf die Überschrift, im Kostenton und im Grad der Kopfzahlen. Eine erfundene 0
+     * stünde an dieser Stelle für etwas anderes als der Satz darunter.
+     *
+     * ⚠ OHNE BEZUGSGRÖSSE: das Zielbild setzt neben „Nein" nichts. Der Beleg ist der Fliesstext,
+     * und dort steht er als Satz und nicht als Beschriftung eines Worts.
      */
-    amount: null,
+    amount: { value: 'Nein', caption: '', tone: 'negative' },
     rows: [],
-    body:
-      'Keines der Geräte aus unserem Katalog verdient neben Ihrer bestehenden Anlage seine ' +
-      `Anschaffung innerhalb von ${horizonYears} Jahren wieder ein. Eine zusätzliche Ersparnis ` +
-      'kann dabei durchaus herauskommen — über den Betrachtungszeitraum gerechnet bleibt sie nur ' +
-      'unter dem, was das Gerät kostet. Ihr Speicher deckt bei diesem Verbrauch bereits ab, was ' +
-      'sich wirtschaftlich holen lässt; mehr Kapazität stünde einen grossen Teil der Zeit ' +
-      'ungenutzt da. Das ist eine Aussage über diesen Lastgang, diese Tarifangaben und einen ' +
-      `Betrachtungszeitraum von ${horizonYears} Jahren. Wächst Ihr Verbrauch, ändert sich Ihr ` +
-      'Tarif, kommt PV dazu oder rechnen Sie über einen längeren Zeitraum, kann die Antwort eine ' +
-      'andere sein.',
+    body: t`${opening}${String(horizonYears)} Jahren finanziell rechnen.${beleg}${tragweite(
+      horizonYears,
+    )}`,
   }
 }
 
@@ -453,7 +519,7 @@ export function buildComparisonChapter(
     figureMissing: plan ? null : FIGURE_MISSING,
     statement: hasTable
       ? buildTableStatement(variant, considered, horizonYears)
-      : buildVerdict(horizonYears),
+      : buildVerdict(considered, horizonYears),
     table: hasTable ? buildCandidateTable(shown, horizonYears) : null,
   }
 }
