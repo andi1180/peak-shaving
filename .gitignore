@@ -29,10 +29,20 @@ coverage/
 /Viertelstundenwerte-*.csv
 /081_*.xlsx
 /193_*.xlsx
-# Das Urbanz-Zielbild (Report_Baukasten_Optik_Bestandsaufnahme.md §1.1) — eine echte
-# Kundenanalyse mit Namen und Beträgen. Sie liegt zum Vergleichen im Arbeitsverzeichnis und
-# gehört nicht ins Repo; bis 18.09.2026 hing sie unversioniert daneben und wäre bei jedem
-# `git add -A` mitgegangen. Archiv: ~/Documents/…/COOLiN/Kunden/Markus Urbanz/.
-/Urbanz_Wirtschaftlichkeitsanalyse*.pdf
+# Kein PDF im Repo-Wurzelverzeichnis. Was dort an PDFs auftaucht, ist ein KUNDENDOKUMENT zum
+# Vergleichen (Netzrechnung, fremde Wirtschaftlichkeitsanalyse, Datenblatt) — der Anlass war das
+# Urbanz-Zielbild (Report_Baukasten_Optik_Bestandsaufnahme.md §1.1), das bis 18.09.2026
+# unversioniert danebenlag und bei jedem `git add -A` mitgegangen wäre.
+#
+# Als Klasse ausgeschlossen und nicht Datei für Datei: der nächste Fall heisst anders, und eine
+# namentliche Regel schützt dann nicht mehr. Kostenlos ist das, weil alle Repo-Dokumente `.md`
+# sind (README_Doku-Struktur.md) und über 483 Commits nie ein PDF versioniert wurde — die Regel
+# nimmt also nichts weg, was es gibt.
+#
+# ⚠ BEWUSST NICHT REKURSIV: `/*.pdf` und nicht `**/*.pdf`. Ein Testbeleg oder ein Musterexport,
+# den ein Paket künftig braucht, liegt in seinem Ordner und soll weiterhin committet werden
+# können; ein rekursives Muster verböte ihn still. Gefährlich ist die WURZEL — dorthin legt man
+# ab, was man gerade ansieht.
+/*.pdf
 
 .vercel
