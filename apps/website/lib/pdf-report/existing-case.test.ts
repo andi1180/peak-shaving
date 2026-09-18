@@ -443,6 +443,30 @@ describe('Stufe D — der Bestandsfall als zweite Render-Fixture', () => {
   })
 
   /**
+   * B3-2c — die Zahl des positiven Zeigers hängt an der Kandidatentabelle.
+   *
+   * ⚠ IHR EINZIGER BELEG STEHT DORT: welches Gerät, was es kostet, was netto bleibt. Ohne die
+   * Tabelle bliebe sonst ein Betrag stehen, den das Dokument nirgends aufschlüsselt — und gemessen
+   * wird das am tatsächlichen Dastehen der Tabelle, nicht an einer zweiten Bedingung daneben.
+   */
+  it('`table_candidates` abgewählt: der positive Zeiger verliert Zahl und Verweis', () => {
+    const ohneTabelle: PdfReportInput = {
+      ...BESTANDSFALL,
+      optionalSections: ['addon', 'hour_flow', 'charge_price', 'data_quality'],
+    }
+    const text = reportText(ohneTabelle)
+
+    expect(text).toContain('Ein zusätzlicher Batteriespeicher rechnet sich für Sie.')
+    expect(text).not.toContain('das bestgereihte Gerät bringt')
+    expect(text).not.toContain('€\u00a01.499')
+
+    /* Gegenprobe im Klarsatz-Fall: dessen Zeiger zeigt auf das Verdikt und bleibt unberührt. */
+    expect(
+      reportText({ ...KLARSATZ_FALL, optionalSections: ohneTabelle.optionalSections }),
+    ).toContain('lohnt sich für Sie derzeit nicht — woran das liegt, steht im Kapitel')
+  })
+
+  /**
    * B3-2b, Kante E — `addon` ist jetzt abwählbar, und der Satz im Empfehlungs-Kapitel zeigt auf
    * ihn („steht auf der Kernergebnis-Seite"). Er fällt auf seine leere Ersatzfassung; was
    * zurückbliebe, wäre sonst ein Verweis auf eine Seite ohne das Genannte — und dem Blatt sieht
