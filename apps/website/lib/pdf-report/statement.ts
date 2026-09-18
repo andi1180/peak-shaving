@@ -131,7 +131,26 @@ export type ReportStatement = {
    * steht, weiss erst die Auflösung. Ein Punkt ohne Ziel entfällt GANZ — mit einer hier
    * vergebenen Nummer klaffte danach eine Lücke in der Zählung. S. `statementPoints`.
    */
-  points?: ReportText[]
+  points?: ReportPoint[]
+}
+
+/**
+ * B3-4 — ein Punkt trägt seinen Titel SELBST und nicht in einer zweiten Liste daneben.
+ *
+ * ⚠ Der Grund ist derselbe, aus dem die Nummern nicht in der Ableitung stehen: ein Punkt ohne
+ * Verweisziel entfällt GANZ (`statementPoints`). Zwei parallele Listen liefen dabei auseinander,
+ * und der übriggebliebene Titel stünde über dem Text des nächsten Punkts.
+ */
+export type ReportPoint = {
+  /** Die fette Leadzeile über dem Fliesstext des Punkts. */
+  title: string
+  text: ReportText
+}
+
+/** Ein aufgelöster Punkt — Titel und Textstücke, in der Form, in der `document.tsx` ihn setzt. */
+export type ResolvedReportPoint = {
+  title: string
+  segments: ReportTextSegment[]
 }
 
 /**
@@ -141,10 +160,13 @@ export type ReportStatement = {
 export function statementPoints(
   statement: ReportStatement,
   layout: ReportLayout,
-): ReportTextSegment[][] {
+): ResolvedReportPoint[] {
   return (statement.points ?? [])
-    .map((text) => resolveReportSegments(text, layout, statement.id))
-    .filter((segments) => segments.length > 0)
+    .map((point) => ({
+      title: point.title,
+      segments: resolveReportSegments(point.text, layout, statement.id),
+    }))
+    .filter((point) => point.segments.length > 0)
 }
 
 /**
@@ -155,7 +177,7 @@ export function statementPoints(
  * dessen halben Text — und bliebe grün.
  */
 export function statementTexts(statement: ReportStatement): ReportText[] {
-  return [statement.body, ...(statement.points ?? [])]
+  return [statement.body, ...(statement.points ?? []).map((point) => point.text)]
 }
 
 /**
