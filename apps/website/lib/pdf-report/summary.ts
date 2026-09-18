@@ -12,6 +12,7 @@ import {
 import { LARGE_GAP_SLOTS_THRESHOLD } from '@/lib/constants'
 import { formatEur, formatKw, formatKwh, formatKwh1, formatKwp, formatPercent } from '@/lib/format'
 import { HINDSIGHT_NOTE } from '@/lib/report-copy'
+import { CANDIDATE_TABLE_ID } from './comparison'
 import type { ReportBuildContext } from './context'
 import { amount, block, ref, row, t, REF_LABEL, REF_PLACE, type ReportText } from './report-text'
 import type { ReportNotice, ReportRow, ReportStatement, ReportTone } from './statement'
@@ -497,17 +498,21 @@ export const ADDON_ID = 'addon'
  * Kernergebnis-Seite sagt, dass die Frage geklärt ist, die Antwort steht dort, wo ihre Begründung
  * liegt (Kurve, Tabelle bzw. Verdikt). Ein Satz, ein teal Kasten, ein Verweis.
  *
- * ⚠ DIE ZAHL DES POSITIVEN ZWEIGS BLEIBT IM SATZ. Das Vergleichs-Kapitel trägt ausdrücklich KEINE
- * Kopfzahl (`comparison.ts`: sie wäre bit-identisch mit der hier und lüde dazu ein, beide zu
- * addieren) — fiele sie hier ersatzlos, nennte der Report den Ertrag eines Zusatzgeräts nirgends
- * mehr im Fliesstext. Investition, Amortisation und Netto stehen dafür in der Kandidatentabelle.
+ * ⚠ DIE ZAHL DES POSITIVEN ZWEIGS HÄNGT AN DER KANDIDATENTABELLE, und zwar an ihrem tatsächlichen
+ * Dastehen — nicht an einer hier nachgebauten Bedingung (`Report_Baukasten_Auswahlschicht_Verifikation.md`
+ * §3.1: „am Hinweis selbst gemessen"). Sie ist eine Jahresersparnis, deren Beleg — welches Gerät,
+ * was es kostet, was netto bleibt — AUSSCHLIESSLICH in `table_candidates` steht; das
+ * Vergleichs-Kapitel trägt ausdrücklich keine Kopfzahl (`comparison.ts`). Ist die Tabelle
+ * abgewählt (B3-1), stünde hier sonst ein Betrag, den das Dokument nirgends aufschlüsselt.
+ * Deshalb liegt der ganze Halbsatz IM Verweis: mit Tabelle steht er wie bisher, ohne sie bleibt
+ * die Aussage „rechnet sich" und die Zahl fällt mit ihrem Beleg.
  *
  * ⚠ Die Schwelle ist `netSavingOverHorizon > 0` und ausdrücklich NICHT `totalSavingPerYear > 0` —
  * dieselbe Bedingung wie im Bildschirm-Report (01.09.2026) und wie in `comparisonSelection`. Die
  * schwächere Fassung liess an einem realen Fall alle fünf Geräte als „positiv" durchgehen
  * (€ 22–32 im Jahr bei € 6.750 Investition, Amortisation 250 bis 410 Jahre). Sie ist zugleich die
  * Weiche zwischen den zwei Verweiszielen: dieselbe Bedingung entscheidet in `comparison.ts`, ob
- * dort die Tabellen-Einleitung oder das Verdikt steht.
+ * Kapitel 6 die Kandidatentabelle trägt oder das Verdikt.
  */
 export function buildAddon(analysis: PdfReportAnalysis): SummaryStatement | null {
   const existing = analysis.existingBatteryAnalysis
@@ -525,11 +530,11 @@ export function buildAddon(analysis: PdfReportAnalysis): SummaryStatement | null
     rows: [],
     aside: true,
     body: best
-      ? t`Ein zusätzlicher Batteriespeicher rechnet sich für Sie: das bestgereihte Gerät bringt ${formatEur(
-          best.totalSavingPerYear,
-        )} im Jahr zusätzlich${ref(
-          block('addon_table'),
-          `, und ${REF_PLACE} steht, welches Gerät das ist und was es kostet`,
+      ? t`Ein zusätzlicher Batteriespeicher rechnet sich für Sie${ref(
+          block(CANDIDATE_TABLE_ID),
+          `: das bestgereihte Gerät bringt ${formatEur(
+            best.totalSavingPerYear,
+          )} im Jahr zusätzlich, und ${REF_PLACE} steht, welches Gerät das ist und was es kostet`,
           '',
         )}.`
       : t`Ein zusätzlicher Batteriespeicher lohnt sich für Sie derzeit nicht${ref(
