@@ -12,20 +12,21 @@ import type {
 } from 'shared'
 
 import { buildBasisChapter, DATA_SOURCES_TABLE_ID } from './basis'
+import { buildComparisonChapter, CANDIDATE_TABLE_ID } from './comparison'
 import { SECTION_ID } from './content'
 import type { ChartRaster } from './chart-raster'
 import { buildReportContext } from './context'
 import { ReportDocument } from './document'
 import { createPageNumberSink } from './page-numbers'
 import { buildReportLayout, reportLayoutOf } from './layout'
-import { resolveReportText } from './report-text'
+import { block, column, resolveReportText } from './report-text'
 import { buildReportRegistry } from './registry'
 import { TARIFF_SOURCE_UNTRACKED } from './types'
 import type { PdfReportAnalysis, PdfReportInput } from './types'
 import type { ReportChartRasters } from './charts'
 
 /**
- * Report-Baukasten C — die vier abwählbaren Bausteine.
+ * Report-Baukasten C — die abwählbaren Bausteine.
  *
  * ── ⚠ GEMESSEN WIRD AM ERZEUGTEN PDF, NICHT AN DER ABLEITUNG ──────────────────────────────────
  * Die Auswahl greift an vier verschiedenen Orten (Kontext, Kapitel, Dokument, Rasterung). Ein Test
@@ -50,7 +51,7 @@ Font.register({
 Font.registerHyphenationCallback((word) => [word])
 
 /* ────────────────────────────────────────────────────────────────────────────────────────────────
- * Der Prüffall: er trägt ALLE VIER abwählbaren Bausteine gleichzeitig
+ * Der Prüffall: er trägt ALLE abwählbaren Bausteine gleichzeitig
  * ──────────────────────────────────────────────────────────────────────────────────────────── */
 
 /** Genug Spur für Heatmap UND Ø-Ladepreis — beide hängen allein hieran (s. `insight.ts`). */
@@ -270,25 +271,31 @@ function hasImageWidth(pdf: Buffer, widthPx: number): boolean {
   return pdf.toString('latin1').includes(`/Width ${widthPx}\n`)
 }
 
-const ALL_FOUR: ReportOptionalSection[] = ['hour_flow', 'charge_price', 'data_quality', 'pv_outage']
+const ALL_OPTIONAL: ReportOptionalSection[] = [
+  'hour_flow',
+  'charge_price',
+  'table_candidates',
+  'data_quality',
+  'pv_outage',
+]
 
 describe('Report-Baukasten C — die Admin-Auswahl am erzeugten PDF', () => {
-  it('ohne Auswahl entsteht Blatt für Blatt dasselbe Dokument wie mit allen vieren', async () => {
-    const [ohneFeld, alleVier] = await Promise.all([pdfFor(undefined), pdfFor(ALL_FOUR)])
+  it('ohne Auswahl entsteht Blatt für Blatt dasselbe Dokument wie mit allen', async () => {
+    const [ohneFeld, alle] = await Promise.all([pdfFor(undefined), pdfFor(ALL_OPTIONAL)])
 
     /*
      * ⚠ DAS IST DIE RÜCKWÄRTSKOMPATIBILITÄT, und sie ist nicht bloss eine Feinheit: eine Übergabe
      * lebt 24 Stunden, es liegen zum Zeitpunkt jedes Deployments also Zeilen ohne das Feld in
      * `platform.report_render_requests`. Fiele die Abwesenheit auf „nichts zeigen", verlöre ein
-     * bereits verschickter Report beim Öffnen vier Bausteine.
+     * bereits verschickter Report beim Öffnen jeden davon.
      */
-    expect(withoutRunSpecifics(ohneFeld)).toBe(withoutRunSpecifics(alleVier))
+    expect(withoutRunSpecifics(ohneFeld)).toBe(withoutRunSpecifics(alle))
   }, 60_000)
 
   it('hour_flow abgewählt: das Bild verschwindet mit, der Ø-Ladepreis bleibt', async () => {
     const [alle, ohneHourFlow] = await Promise.all([
-      pdfFor(ALL_FOUR),
-      pdfFor(['charge_price', 'data_quality', 'pv_outage']),
+      pdfFor(ALL_OPTIONAL),
+      pdfFor(['charge_price', 'table_candidates', 'data_quality', 'pv_outage']),
     ])
 
     expect(hasImageWidth(alle, 7)).toBe(true)
@@ -302,8 +309,8 @@ describe('Report-Baukasten C — die Admin-Auswahl am erzeugten PDF', () => {
 
   it('beide Ladeverhalten-Bausteine abgewählt: das Kapitel entfällt samt seiner Seite', async () => {
     const [alle, ohneKapitel] = await Promise.all([
-      pdfFor(ALL_FOUR),
-      pdfFor(['data_quality', 'pv_outage']),
+      pdfFor(ALL_OPTIONAL),
+      pdfFor(['table_candidates', 'data_quality', 'pv_outage']),
     ])
 
     /*
@@ -317,6 +324,39 @@ describe('Report-Baukasten C — die Admin-Auswahl am erzeugten PDF', () => {
     expect(pageCount(ohneKapitel)).toBeLessThan(pageCount(alle))
     expect(hasImageWidth(ohneKapitel, 7)).toBe(false)
     expect(hasImageWidth(ohneKapitel, 11)).toBe(false)
+  }, 60_000)
+
+  /**
+   * B3-1 — die Stichprobe zur Freigabe der Kandidatentabelle. Sie misst BEIDES in einem Lauf: dass
+   * das Blatt die Tabelle nicht mehr trägt (und damit auch nicht ihre Navy-Kopfzeile und ihr
+   * Zebra — beide leben in `StatementTable`), und dass der Klarsatz daneben sie nicht mehr beim
+   * Namen nennt. Das Zweite ist der eigentliche Fund von `Report_Baukasten_Block3_Plan.md` §1.5:
+   * eine Tabelle wegzulassen ist leicht, einen Satz über sie stehen zu lassen der Fehler.
+   */
+  it('table_candidates abgewählt: die Tabelle verschwindet, und kein Satz nennt sie mehr', async () => {
+    const ohneAuswahl: ReportOptionalSection[] = [
+      'hour_flow',
+      'charge_price',
+      'data_quality',
+      'pv_outage',
+    ]
+    const input = inputFor(ohneAuswahl)
+    const context = buildReportContext(input)
+    const registry = buildReportRegistry(input, context)
+    const layout = buildReportLayout(input, context, registry)
+
+    /* Gegen DIESE Beschreibung löst jeder Verweis auf — nicht gegen eine von Hand gebaute. */
+    expect(layout.present(block(CANDIDATE_TABLE_ID))).toBe(false)
+    expect(layout.present(column(CANDIDATE_TABLE_ID, 'saving_per_year'))).toBe(false)
+
+    const statement = buildComparisonChapter(input.analysis, context).statement
+    const text = resolveReportText(statement.body, layout, statement.id)
+    expect(text).not.toContain('Tabelle')
+    expect(text).not.toContain('je Zeile')
+    expect(text).toContain('Verglichen wird nach der Netto-Ersparnis')
+
+    const [alle, ohneTabelle] = await Promise.all([pdfFor(ALL_OPTIONAL), pdfFor(ohneAuswahl)])
+    expect(ohneTabelle.length).toBeLessThan(alle.length)
   }, 60_000)
 })
 
@@ -351,7 +391,7 @@ describe('Report-Baukasten C — die zwei Abhängigen des Schlusskapitels', () =
   }
 
   it('data_quality abgewählt: die Datenquellen-Tabelle verweist NICHT mehr auf den Hinweis', () => {
-    const mit = buildBasisChapter(inputFor(ALL_FOUR))
+    const mit = buildBasisChapter(inputFor(ALL_OPTIONAL))
     expect(mit.dataQuality).not.toBeNull()
     expect(dataSourcesText(mit)).toContain(DATA_QUALITY_REFERENCE)
 
@@ -367,7 +407,7 @@ describe('Report-Baukasten C — die zwei Abhängigen des Schlusskapitels', () =
   })
 
   it('pv_outage abgewählt: method_pv_outage verschwindet über die bestehende Kopplung mit', () => {
-    const mit = buildBasisChapter(inputFor(ALL_FOUR))
+    const mit = buildBasisChapter(inputFor(ALL_OPTIONAL))
     expect(mit.pvOutage).not.toBeNull()
     expect(mit.methodPerMetric.map((item) => item.id)).toContain('method_pv_outage')
 
@@ -386,30 +426,30 @@ describe('Report-Baukasten C — die zwei Abhängigen des Schlusskapitels', () =
 
 describe('Report-Baukasten C — was die Auswahl nicht erreicht', () => {
   it('die Registry liefert die übrigen Bausteine unabhängig von der Auswahl', () => {
-    const mit = inputFor(ALL_FOUR)
+    const mit = inputFor(ALL_OPTIONAL)
     const ohne = inputFor([])
     const a = buildReportRegistry(mit, buildReportContext(mit))
     const b = buildReportRegistry(ohne, buildReportContext(ohne))
 
     /*
-     * ⚠ `addon` und `table_candidates` sind ausdrücklich NICHT abwählbar: auf beide verweisen
-     * andere Absätze (`recommendation.ts` bzw. `comparison.ts`), und ein Verweis auf einen
-     * fehlenden Baustein ist genau der Fehler, den PR #273 behoben hat.
+     * ⚠ `addon` ist ausdrücklich NICHT abwählbar: das Empfehlungs-Kapitel verweist darauf, und
+     * seine Kennung kann in Block 3 Nr. 18 wechseln (`Report_Baukasten_Block3_Plan.md` §1.5).
      */
     expect(b.get('addon').build()).toEqual(a.get('addon').build())
-    expect(b.get('table_candidates').build()).toEqual(a.get('table_candidates').build())
     expect(b.get('assumptions').build()).toEqual(a.get('assumptions').build())
     expect(b.get('limitations').build()).toEqual(a.get('limitations').build())
 
     /*
-     * Gegenprobe — und sie umfasst bewusst nur ZWEI der vier: `data_quality` und `pv_outage`
+     * Gegenprobe — und sie umfasst bewusst nur ZWEI der fünf: `data_quality` und `pv_outage`
      * entstehen im KONTEXT (dort hängen ihre zwei Abhängigen daran), die Registry gibt deshalb
-     * bereits `null`. `hour_flow`/`charge_price` gehören weiterhin zum Katalog — bei ihnen heisst
-     * `null` „für diesen Fall gibt es das Bild nicht", und das Dokument SAGT das dann auch; eine
-     * abgewählte Grafik hat diesen Grund nicht und wird im Dokument weggelassen (s. `charts.tsx`).
+     * bereits `null`. `hour_flow`/`charge_price`/`table_candidates` gehören weiterhin zum Katalog
+     * — bei ihnen heisst `null` „für diesen Fall gibt es das nicht", und das Dokument SAGT das
+     * dann auch; ein abgewählter Baustein hat diesen Grund nicht und wird im Dokument
+     * weggelassen (s. `charts.tsx`, `selectedTable`).
      */
     expect(b.get('data_quality').build()).toBeNull()
     expect(b.get('pv_outage').build()).toBeNull()
     expect(b.get('hour_flow').build()).toEqual(a.get('hour_flow').build())
+    expect(b.get('table_candidates').build()).toEqual(a.get('table_candidates').build())
   })
 })

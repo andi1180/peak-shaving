@@ -17,7 +17,7 @@ import {
   t,
   type ReportLayout,
 } from './report-text'
-import type { ReportStatement } from './statement'
+import type { ReportStatement, ReportTable } from './statement'
 import { buildReportSummary, type ReportSummary } from './summary'
 import type { PdfReportAnalysis } from './types'
 
@@ -151,6 +151,20 @@ function placementOf(
   }
 }
 
+/** Die Kandidatentabelle als Beschreibung: sie trägt keinen Titel, nur Spalten (`ReportTable`). */
+function tablePlacementOf(table: ReportTable): ReportPlacement {
+  return {
+    id: CANDIDATE_TABLE_ID,
+    section: SECTION_ID.comparison,
+    title: '',
+    amount: null,
+    rows: {},
+    columns: Object.fromEntries(
+      table.columns.flatMap((c) => (c.key ? [[c.key, c.label] as const] : [])),
+    ),
+  }
+}
+
 function summaryPlacements(summary: ReportSummary): ReportPlacement[] {
   return summary.statements.map((s) => placementOf(s, SECTION_ID.results))
 }
@@ -250,6 +264,7 @@ describe('catalog_alternatives — Verweis auf das Empfehlungs-Kapitel', () => {
     return [
       placementOf(recommendation!, SECTION_ID.recommendation),
       placementOf(comparison.statement, SECTION_ID.comparison),
+      tablePlacementOf(comparison.table!),
     ]
   }
 
@@ -425,19 +440,7 @@ describe('Stufe-C-Sperren: `addon` und `table_candidates`', () => {
 
     const mit = resolveReportText(
       chapter.statement.body,
-      reportLayoutOf([
-        eintrag,
-        {
-          id: CANDIDATE_TABLE_ID,
-          section: SECTION_ID.comparison,
-          title: '',
-          amount: null,
-          rows: {},
-          columns: Object.fromEntries(
-            chapter.table!.columns.flatMap((c) => (c.key ? [[c.key, c.label] as const] : [])),
-          ),
-        },
-      ]),
+      reportLayoutOf([eintrag, tablePlacementOf(chapter.table!)]),
       'addon_table',
     )
     expect(mit).toContain('die Spalten „Ersparnis/Jahr" und „Netto" sind also Differenzen')
@@ -445,6 +448,57 @@ describe('Stufe-C-Sperren: `addon` und `table_candidates`', () => {
     const ohne = resolveReportText(chapter.statement.body, reportLayoutOf([eintrag]), 'addon_table')
     expect(ohne).toContain('die ausgewiesenen Beträge sind also Differenzen')
     expect(ohne).not.toContain('Spalten')
+  })
+
+  /**
+   * B3-1 — der Spaltenverweis war nur EINER der Sätze über die Tabelle. „je Zeile" und „Gezeigt
+   * sind die Geräte …" nennen sie ebenso und trugen bis B3-1 keinen Verweis; der bestehende
+   * Prüflauf darüber bliebe grün (`Report_Baukasten_Block3_Plan.md` §1.5).
+   */
+  it('`table_candidates` abgewählt: der Zusatz-Klarsatz redet nicht mehr von Zeilen', () => {
+    const chapter = buildComparisonChapter(analysisFor(true))
+    const eintrag = placementOf(chapter.statement, SECTION_ID.comparison)
+
+    const mit = resolveReportText(
+      chapter.statement.body,
+      reportLayoutOf([eintrag, tablePlacementOf(chapter.table!)]),
+      'addon_table',
+    )
+    expect(mit).toContain('Gerechnet ist je Zeile EIN gemeinsamer Speicher')
+    expect(mit).toContain(
+      'Gezeigt sind die Geräte, die ihre Anschaffung im Betrachtungszeitraum wieder einspielen; ' +
+        'die übrigen stehen als Punkte in der Kurve darüber.',
+    )
+
+    const ohne = resolveReportText(chapter.statement.body, reportLayoutOf([eintrag]), 'addon_table')
+    expect(ohne).toContain('Gerechnet ist je Gerät EIN gemeinsamer Speicher')
+    expect(ohne).toContain('Alle betrachteten Geräte stehen als Punkte in der Kurve darüber.')
+    expect(ohne).not.toContain('Zeile')
+    expect(ohne).not.toContain('Gezeigt sind')
+  })
+
+  it('`table_candidates` abgewählt: der Katalog-Klarsatz nennt keine Tabelle mehr', () => {
+    const chapter = buildComparisonChapter(analysisFor(false))
+    const eintrag = placementOf(chapter.statement, SECTION_ID.comparison)
+    const empfehlung = placementOf(
+      buildRecommendationChapter(analysisFor(false)).recommendation!,
+      SECTION_ID.recommendation,
+    )
+
+    const ohne = resolveReportText(
+      chapter.statement.body,
+      reportLayoutOf([empfehlung, eintrag]),
+      'catalog_alternatives',
+    )
+    expect(ohne).toBe(
+      'Verglichen wird nach der Netto-Ersparnis über den Betrachtungszeitraum — derselben Grösse ' +
+        'wie die Kurve darüber und wie die Empfehlung im Kapitel „Empfehlung und Lastverlauf". ' +
+        'Das empfohlene Gerät selbst ist dort vollständig aufgeschlüsselt. Die §3.8-Hinweise ' +
+        'eines Geräts (Betonsockel, separater Wechselrichter, zu geringe Leistung für alle ' +
+        'Spitzen) sind in der Investition bereits enthalten — sie stehen beim empfohlenen Gerät.',
+    )
+    expect(ohne).not.toContain('Tabelle')
+    expect(ohne).not.toContain('je Zeile')
   })
 })
 

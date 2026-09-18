@@ -234,11 +234,11 @@ export async function createReportRenderRequestAction(
     gridTariffValidFrom: readGridTariffValidFrom(gridTariffRows),
     invoicePeriods: readInvoicePeriods(point.draft),
     /*
-     * Report-Baukasten C — die vier Bausteine, die der Admin an der Kachel stehen lassen wollte.
+     * Report-Baukasten C — die Bausteine, die der Admin an der Kachel stehen lassen wollte.
      *
      * ⚠ DAS FELD WIRD WEGGELASSEN, WENN DAS FORMULAR DIE AUSWAHL GAR NICHT FÜHRT, und das ist
-     * nicht dasselbe wie eine leere Auswahl: „Feld nicht vorhanden" heisst auf der Leseseite ALLE
-     * VIER, `[]` heisst KEINEN. Ein unangekreuztes Kontrollkästchen sendet nichts, beide Fälle
+     * nicht dasselbe wie eine leere Auswahl: „Feld nicht vorhanden" heisst auf der Leseseite ALLE,
+     * `[]` heisst KEINEN. Ein unangekreuztes Kontrollkästchen sendet nichts, beide Fälle
      * sähen im `FormData` also gleich aus — der Marker unterscheidet sie (s.
      * `readOptionalSections`).
      *
@@ -321,7 +321,7 @@ function readInvoicePeriods(
  * Report-Baukasten C — die Auswahl aus dem Formular, oder gar kein Feld.
  *
  * ⚠ DER MARKER IST DER GANZE PUNKT. `formData.getAll('optionalSections')` ist leer, wenn der Admin
- * alle vier abgewählt hat UND wenn das Formular die Kontrollkästchen überhaupt nicht führt (eine
+ * alle abgewählt hat UND wenn das Formular die Kontrollkästchen überhaupt nicht führt (eine
  * Fassung vor diesem Schritt). Die beiden Fälle sind gegensätzlich — „keinen zeigen" gegen „alle
  * zeigen" —, und eine Auswahl, die über das verborgene Feld abgeschickt wurde, ist die einzige
  * Auskunft darüber, welcher davon gilt.

@@ -1573,14 +1573,14 @@ function HeatmapLegend() {
 }
 
 /* ────────────────────────────────────────────────────────────────────────────────────────────────
- * Report-Baukasten C — die vier abwählbaren Bausteine
+ * Report-Baukasten C — die abwählbaren Bausteine
  * ──────────────────────────────────────────────────────────────────────────────────────────── */
 
 /**
  * Ein Baustein aus dem KATALOG, sofern die Admin-Auswahl ihn zeigt.
  *
- * ── ⚠ DIE EINZIGEN VIER STELLEN, AN DENEN DAS DOKUMENT ÜBER DIE REGISTRY GEHT ─────────────────
- * Die übrigen 24 Bausteine kommen weiterhin aus ihrer Kapitel-Fassade. Das ist kein halber Umbau,
+ * ── ⚠ DIE EINZIGEN STELLEN, AN DENEN DAS DOKUMENT ÜBER DIE REGISTRY GEHT ──────────────────────
+ * Die übrigen Bausteine kommen weiterhin aus ihrer Kapitel-Fassade. Das ist kein halber Umbau,
  * sondern der Zuschnitt dieses Schritts: `document.tsx` ganz auf den Katalog umzustellen ist ein
  * eigener Weg mit eigenem Nachweis (`registry.ts`: „Die Umstellung des Renderers ist ein eigener
  * Schritt"), und er hat mit der Auswahl nichts zu tun.
@@ -1610,6 +1610,24 @@ function selectedNotice(
   if (!reportSectionEnabled(input.optionalSections, id)) return null
   const entry = registry.get(id)
   return entry.form === 'notice' ? entry.build() : null
+}
+
+/**
+ * Wie `selectedStatement`, für die Kandidatentabelle (B3-1).
+ *
+ * ⚠ ÜBER DIE REGISTRY UND NICHT ÜBER `chapter.table`: `layout.ts` bildet die Beschreibung aus
+ * derselben Registry, und die zwei Wege müssen dieselbe Antwort geben — sonst löst ein Satz
+ * seinen Verweis gegen eine Tabelle auf, die das Blatt nicht zeigt. Dass beide Wege denselben
+ * Wert liefern, misst `registry.test.ts`.
+ */
+function selectedTable(
+  registry: ReportBaukastenRegistry,
+  input: PdfReportInput,
+  id: ReportOptionalSection,
+): ReportTable | null {
+  if (!reportSectionEnabled(input.optionalSections, id)) return null
+  const entry = registry.get(id)
+  return entry.form === 'table' ? entry.build() : null
 }
 
 /**
@@ -1704,14 +1722,20 @@ function ComparisonChapter({
   input,
   charts,
   context,
+  registry,
   layout,
 }: {
   input: PdfReportInput
   charts: ReportChartRasters
   context: ReportBuildContext
+  registry: ReportBaukastenRegistry
   layout: ReportLayout
 }) {
   const chapter = buildComparisonChapter(input.analysis, context)
+  /* Report-Baukasten C: abgewählt fällt mit der Tabelle auch die Navy-Kopfzeile und das Zebra weg
+     — beides lebt in `StatementTable` und nicht daneben. Die Klarsätze darüber bleiben und nennen
+     sie dann nicht mehr (`comparison.ts`, `tableRef`). */
+  const table = selectedTable(registry, input, CANDIDATE_TABLE_ID)
 
   return (
     <View style={styles.body}>
@@ -1728,9 +1752,7 @@ function ComparisonChapter({
       />
 
       <Statement statement={chapter.statement} layout={layout} />
-      {chapter.table && (
-        <StatementTable table={chapter.table} from={CANDIDATE_TABLE_ID} layout={layout} />
-      )}
+      {table && <StatementTable table={table} from={CANDIDATE_TABLE_ID} layout={layout} />}
     </View>
   )
 }
@@ -2021,7 +2043,13 @@ export function ReportDocument({
         <Page size="A4" style={styles.page}>
           <PageFurniture sink={sink} docLabel={docLabel} />
           <SectionAnchor id={COMPARISON_SECTION.id} sink={sink} />
-          <ComparisonChapter input={input} charts={charts} context={context} layout={layout} />
+          <ComparisonChapter
+            input={input}
+            charts={charts}
+            context={context}
+            registry={registry}
+            layout={layout}
+          />
         </Page>
       )}
 
