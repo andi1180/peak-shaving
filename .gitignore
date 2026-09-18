@@ -29,4 +29,10 @@ coverage/
 /Viertelstundenwerte-*.csv
 /081_*.xlsx
 /193_*.xlsx
+# Das Urbanz-Zielbild (Report_Baukasten_Optik_Bestandsaufnahme.md §1.1) — eine echte
+# Kundenanalyse mit Namen und Beträgen. Sie liegt zum Vergleichen im Arbeitsverzeichnis und
+# gehört nicht ins Repo; bis 18.09.2026 hing sie unversioniert daneben und wäre bei jedem
+# `git add -A` mitgegangen. Archiv: ~/Documents/…/COOLiN/Kunden/Markus Urbanz/.
+/Urbanz_Wirtschaftlichkeitsanalyse*.pdf
+
 .vercel
