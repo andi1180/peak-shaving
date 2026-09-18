@@ -142,7 +142,24 @@ const styles = StyleSheet.create({
     left: PDF_LAYOUT.pageHorizontal,
     right: PDF_LAYOUT.pageHorizontal,
   },
-  headerRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  headerRow: { flexDirection: 'row', alignItems: 'center' },
+  headerMarkSpacer: { width: 5 },
+  /* Die zweite Hälfte der Wortmarke. Ein eigener `Text`, weil react-pdf keine Teilfärbung
+     innerhalb eines Knotens kennt — der Zeilenfluss trägt die beiden trotzdem zusammen. */
+  headerWordmarkAccent: {
+    fontSize: PDF_TYPE.small,
+    fontWeight: 600,
+    color: PDF_COLORS.accent,
+    letterSpacing: 0.6,
+  },
+  /* Dokumenttitel am rechten Kopfzeilenrand — was der Leser in der Hand hält, auf jedem Blatt. */
+  headerDoc: {
+    ...LEADING,
+    flexGrow: 1,
+    textAlign: 'right',
+    fontSize: PDF_TYPE.small,
+    color: PDF_COLORS.textMuted,
+  },
   headerMark: { width: 13, height: 13 },
   headerWordmark: {
     fontSize: PDF_TYPE.small,
@@ -150,7 +167,11 @@ const styles = StyleSheet.create({
     color: PDF_COLORS.navy,
     letterSpacing: 0.6,
   },
-  headerBar: { marginTop: 4, height: 2, backgroundColor: PDF_COLORS.navy },
+  /**
+   * ⚠ D15 Block 1, Punkt 7: 2 pt Navy → 1,6 pt Akzent. Der Navy-Balken war so schwer wie die
+   * Wortmarke darüber und las sich als Rahmen des Blattes statt als deren Unterkante.
+   */
+  headerBar: { marginTop: 4, height: 1.6, backgroundColor: PDF_COLORS.accent },
 
   /* Fusszeile — im unteren Seitenrand, auf JEDER Seite. */
   footer: {
@@ -158,7 +179,7 @@ const styles = StyleSheet.create({
     bottom: PDF_LAYOUT.footerBottom,
     left: PDF_LAYOUT.pageHorizontal,
     right: PDF_LAYOUT.pageHorizontal,
-    borderTopWidth: 0.5,
+    borderTopWidth: 0.7,
     borderTopColor: PDF_COLORS.border,
     paddingTop: 4,
     flexDirection: 'row',
@@ -174,7 +195,7 @@ const styles = StyleSheet.create({
    */
   body: {},
 
-  h2: { ...LEADING, fontSize: PDF_TYPE.h2, fontWeight: 600, color: PDF_COLORS.ink },
+  h2: { ...LEADING, fontSize: PDF_TYPE.h2, fontWeight: 700, color: PDF_COLORS.ink },
   lead: { ...LEADING, marginTop: 3, fontSize: PDF_TYPE.body, color: PDF_COLORS.textMuted },
 
   /*
@@ -271,11 +292,21 @@ const styles = StyleSheet.create({
   /** Der Adressblock als GANZES bekommt den Abstand — die Zeilen darin stehen zusammen. */
   coverAddressBlock: { marginTop: 7 },
   coverAddress: { ...LEADING, fontSize: PDF_TYPE.body, color: PDF_COLORS.onNavyMuted },
+  /**
+   * ⚠ D15 Block 1, Punkt 2: die Trennlinie der navyfarbenen Seiten ist `navyRule` und nicht mehr
+   * `onNavyMuted`. Sie hatte damit exakt die Farbe des Textes, den sie trennt — eine Linie, die so
+   * laut ist wie ihr Inhalt, trennt nichts, sie kommt dazu. `navyRule` ist aufgehelltes Navy und
+   * bleibt hinter beiden Textfarben zurück.
+   *
+   * Gilt für BEIDE navyfarbenen Seiten (hier und `outroFoot`): es ist dasselbe Element an
+   * derselben Stelle, und zwei Fassungen davon wären der Unterschied, den niemand beabsichtigt
+   * und jeder sieht (s. `NavyLockup`).
+   */
   coverMeta: {
     marginTop: 34,
     paddingTop: 14,
     borderTopWidth: 0.5,
-    borderTopColor: PDF_COLORS.onNavyMuted,
+    borderTopColor: PDF_COLORS.navyRule,
   },
   coverMetaRow: { flexDirection: 'row', marginBottom: 4 },
   coverMetaLabel: { ...LEADING, width: 150, color: PDF_COLORS.onNavyMuted },
@@ -314,11 +345,12 @@ const styles = StyleSheet.create({
   /** Telefon und E-Mail stehen als BLOCK unter Name und Rolle — s. `coverAddressBlock`. */
   outroLines: { marginTop: 7 },
   outroLine: { ...LEADING, color: PDF_COLORS.onNavy },
+  /* Dieselbe Trennlinie wie `coverMeta` — s. die Begründung dort. */
   outroFoot: {
     marginTop: 34,
     paddingTop: 14,
     borderTopWidth: 0.5,
-    borderTopColor: PDF_COLORS.onNavyMuted,
+    borderTopColor: PDF_COLORS.navyRule,
   },
   outroFootLine: { ...LEADING, fontSize: PDF_TYPE.small, color: PDF_COLORS.onNavyMuted },
 
@@ -346,21 +378,27 @@ const styles = StyleSheet.create({
   methodList: { marginTop: 6 },
   methodItem: { marginBottom: 8 },
   itemTitle: { ...LEADING, fontSize: PDF_TYPE.h3, fontWeight: 600, color: PDF_COLORS.ink },
-  itemBody: { ...LEADING, marginTop: 1, color: PDF_COLORS.textMuted },
-  /* Kernergebnisse (B23c-1) */
+  itemBody: { ...LEADING, marginTop: 1, color: PDF_COLORS.text },
+  /**
+   * Kernergebnisse (B23c-1).
+   *
+   * ⚠ D15 Block 1, Punkt 6: Kasten und Rahmen sind weg, die Zahl steht frei und trägt statt
+   * dessen eine Hairline unter sich. Ein Kasten um die wichtigste Zahl des Dokuments macht sie
+   * zu einer Notiz am Rand; die grösste Zahl auf dem Blatt braucht keine Umrandung, um gefunden
+   * zu werden.
+   */
   headline: {
     marginTop: 14,
-    padding: 14,
-    backgroundColor: PDF_COLORS.surfaceAlt,
-    borderWidth: 0.5,
-    borderColor: PDF_COLORS.border,
+    paddingBottom: 12,
+    borderBottomWidth: 0.8,
+    borderBottomColor: PDF_COLORS.border,
     flexDirection: 'row',
     gap: 24,
   },
   headlineCell: { flexGrow: 1, flexBasis: 0 },
-  headlineValue: { ...LEADING, fontSize: 22, fontWeight: 700, color: PDF_COLORS.ink },
+  headlineValue: { ...LEADING, fontSize: 27, fontWeight: 700, color: PDF_COLORS.ink },
   /* Kosten in Rot — dieselbe Farbzuordnung wie `key-metric.tsx` am Bildschirm. */
-  headlineValueCost: { ...LEADING, fontSize: 22, fontWeight: 700, color: PDF_COLORS.negative },
+  headlineValueCost: { ...LEADING, fontSize: 27, fontWeight: 700, color: PDF_COLORS.negative },
   headlineCaption: {
     ...LEADING,
     marginTop: 2,
@@ -373,22 +411,35 @@ const styles = StyleSheet.create({
   statementAmountRow: { marginTop: 3, flexDirection: 'row', alignItems: 'flex-end', gap: 6 },
   statementAmount: { ...LEADING, fontSize: 15, fontWeight: 700 },
   statementAmountCaption: { ...LEADING, fontSize: PDF_TYPE.small, color: PDF_COLORS.textMuted },
-  statementBody: { ...LEADING, marginTop: 6, color: PDF_COLORS.textMuted },
+  statementBody: { ...LEADING, marginTop: 6, color: PDF_COLORS.text },
 
   rowList: { marginTop: 5 },
+  /**
+   * Eine Zeile der Aufschlüsselung.
+   *
+   * ⚠ D15 Block 1, Punkt 5: Zebra und eine Mindesthöhe. Ohne beides zerfiel ein Streifen aus
+   * fünf Zeilen optisch in fünf einzelne Absätze — die Hairline allein bindet sie nicht. Die
+   * Mindesthöhe ist bewusst eine UNTERgrenze und keine feste Höhe: eine Zeile mit
+   * Hinweis-Unterzeile muss weiterhin wachsen dürfen.
+   */
   row: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
     gap: 12,
-    paddingTop: 2.5,
-    paddingBottom: 2.5,
+    minHeight: 18,
+    paddingTop: 3.5,
+    paddingBottom: 3.5,
+    paddingLeft: 6,
+    paddingRight: 6,
     borderTopWidth: 0.5,
     borderTopColor: PDF_COLORS.border,
   },
+  /* Jede zweite Zeile. Derselbe Ton wie bei den Tabellen — ein Streifenmuster im Blatt. */
+  rowZebra: { backgroundColor: PDF_COLORS.surfaceAlt },
   rowTotal: { borderTopWidth: 1, borderTopColor: PDF_COLORS.border },
   rowLabelCell: { flexGrow: 1, flexBasis: 0 },
-  rowLabel: { ...LEADING, color: PDF_COLORS.textMuted },
+  rowLabel: { ...LEADING, color: PDF_COLORS.text },
   rowLabelTotal: { ...LEADING, fontWeight: 600, color: PDF_COLORS.ink },
   rowHint: { ...LEADING, fontSize: PDF_TYPE.small, color: PDF_COLORS.textMuted },
   rowValue: { ...LEADING, fontWeight: 600 },
@@ -403,25 +454,41 @@ const styles = StyleSheet.create({
    * wird, ist keine Tabelle mehr. Der Fliesstext daneben bleibt unverändert.
    */
   table: { marginTop: 8 },
+  /**
+   * ⚠ D15 Block 1, Punkt 4: der Kopf ist eine gefüllte Navy-Fläche mit weisser Schrift statt
+   * einer Zeile mit Unterstrich. Bei acht Zeilen und drei Spalten war vorher nicht auf einen
+   * Blick zu sehen, wo die Tabelle anfängt — die Kopfzeile sah aus wie ihre erste Datenzeile.
+   */
   tableHeader: {
     flexDirection: 'row',
     gap: 6,
-    paddingBottom: 2.5,
-    borderBottomWidth: 1,
-    borderBottomColor: PDF_COLORS.border,
+    backgroundColor: PDF_COLORS.ink,
+    paddingTop: 3.5,
+    paddingBottom: 3.5,
+    paddingLeft: 6,
+    paddingRight: 6,
   },
   tableRow: {
     flexDirection: 'row',
     gap: 6,
-    paddingTop: 2.5,
-    paddingBottom: 2.5,
+    paddingTop: 3,
+    paddingBottom: 3,
+    paddingLeft: 6,
+    paddingRight: 6,
     borderBottomWidth: 0.5,
     borderBottomColor: PDF_COLORS.border,
   },
-  tableHeaderCell: { ...LEADING, fontSize: PDF_TYPE.small, fontWeight: 600, color: PDF_COLORS.ink },
+  /* Jede zweite DATENzeile — Gruppenzeilen zählen nicht mit, s. `StatementTable`. */
+  tableRowZebra: { backgroundColor: PDF_COLORS.surfaceAlt },
+  tableHeaderCell: {
+    ...LEADING,
+    fontSize: PDF_TYPE.small,
+    fontWeight: 600,
+    color: PDF_COLORS.onNavy,
+  },
   tableCell: { ...LEADING, fontSize: PDF_TYPE.small, color: PDF_COLORS.text },
   /* D9 — Gruppenüberschrift in der Datenquellen-Tabelle: abgesetzt, ohne Zeilentrenner darunter. */
-  tableGroupRow: { paddingTop: 6, paddingBottom: 2 },
+  tableGroupRow: { paddingTop: 6, paddingBottom: 2, paddingLeft: 6, paddingRight: 6 },
   tableGroupLabel: {
     ...LEADING,
     fontSize: PDF_TYPE.small,
@@ -470,14 +537,27 @@ const styles = StyleSheet.create({
    * Mangel an der Datengrundlage, `neutral` = eine Eigenschaft, die man kennen muss) — Farbe ist
    * Information, kein Dekor (DESIGN.md).
    */
+  /**
+   * Der Hinweiskasten.
+   *
+   * ⚠ D15 Block 1, Punkt 3: die Fläche hängt jetzt am Ton (`NOTICE_SURFACE`) und ist nicht mehr
+   * für alle gleich, die Kante ist von 2 auf 2,6 pt gewachsen. Vorher trugen Warnung und
+   * Feststellung dieselbe graue Fläche und unterschieden sich allein in einer 2 pt breiten
+   * Kante — auf einem Blatt mit vier Kästen war der warnende nicht als solcher zu finden.
+   * `backgroundColor` steht deshalb NICHT mehr hier, sondern wird je Kasten gesetzt.
+   */
   notice: {
     marginTop: 12,
     padding: 10,
-    borderLeftWidth: 2,
-    backgroundColor: PDF_COLORS.surfaceAlt,
+    borderLeftWidth: 2.6,
   },
-  noticeTitle: { ...LEADING, fontSize: PDF_TYPE.h3, fontWeight: 600, color: PDF_COLORS.ink },
-  noticeBody: { ...LEADING, marginTop: 5, color: PDF_COLORS.textMuted },
+  noticeTitle: {
+    ...LEADING,
+    fontSize: PDF_TYPE.noticeTitle,
+    fontWeight: 600,
+    color: PDF_COLORS.ink,
+  },
+  noticeBody: { ...LEADING, marginTop: 5, color: PDF_COLORS.text },
   noticeListLabel: {
     ...LEADING,
     marginTop: 5,
@@ -486,7 +566,7 @@ const styles = StyleSheet.create({
     color: PDF_COLORS.ink,
   },
   noticeListItem: { ...LEADING, marginTop: 1, color: PDF_COLORS.text },
-  noticeHint: { ...LEADING, marginTop: 5, color: PDF_COLORS.textMuted },
+  noticeHint: { ...LEADING, marginTop: 5, color: PDF_COLORS.text },
 
   /*
    * Die zwei Schlussabsätze des Reports (Tarifherkunft, Preisstand) und der Vorbehalt.
@@ -533,7 +613,7 @@ function SectionAnchor({ id, sink }: { id: string; sink: PageNumberSink }) {
 }
 
 /** Kopf- und Fusszeile. Auf JEDER Seite, das Deckblatt eingeschlossen. */
-function PageFurniture({ sink }: { sink: PageNumberSink }) {
+function PageFurniture({ sink, docLabel }: { sink: PageNumberSink; docLabel: string | null }) {
   return (
     <>
       <View style={styles.header} fixed>
@@ -544,7 +624,24 @@ function PageFurniture({ sink }: { sink: PageNumberSink }) {
             Herkunft; danach liegt sie im Cache (gemessen, s. Handover).
           */}
           <Image src="/brand/coolin-emblem.png" style={styles.headerMark} />
-          <Text style={styles.headerWordmark}>{PRINT_COMPANY.name}</Text>
+          <View style={styles.headerMarkSpacer} />
+          {/*
+            ⚠ D15 Block 1, Punkt 7: die Wortmarke ist zweifarbig. `PRINT_COMPANY.name` bleibt die
+            EINE Quelle des Wortlauts und wird hier nur an seinem Leerzeichen geteilt — ein zweites
+            Mal ausgeschrieben liefen die beiden Hälften beim nächsten Umbenennen auseinander, und
+            der Drift-Test in `apps/web` prüft den Wortlaut, nicht seine Darstellung.
+          */}
+          <Text style={styles.headerWordmark}>{PRINT_COMPANY.name.split(' ')[0]}</Text>
+          <Text style={styles.headerWordmarkAccent}>
+            {PRINT_COMPANY.name.split(' ').slice(1).join(' ')}
+          </Text>
+          {/*
+            Wessen Report das ist — auf jedem Blatt. Der TITEL steht bewusst nicht hier: er ist
+            editierbar und im Realfall zu lang für eine Kopfzeile (der Urbanz-Titel misst 54
+            Zeichen), und er steht ohnehin gross auf dem Deckblatt. Was ein weitergereichtes Blatt
+            nicht mehr hergibt, ist die Zuordnung zum Kunden.
+          */}
+          {docLabel && <Text style={styles.headerDoc}>{docLabel}</Text>}
         </View>
         <View style={styles.headerBar} />
       </View>
@@ -813,9 +910,39 @@ const TONE_COLOR: Record<ReportTone, string> = {
   neutral: PDF_COLORS.text,
 }
 
-function StatementRow({ row }: { row: ReportRow }) {
+/**
+ * Fläche und Kante eines HINWEISKASTENS je Ton (D15 Block 1, Punkt 3).
+ *
+ * ── ⚠ WARUM DAS NICHT `TONE_COLOR` ERWEITERT, SONDERN DANEBEN STEHT ────────────────────────────
+ * `TONE_COLOR` färbt drei verschiedene Dinge: den Wert einer Zeile, den Betrag einer Aussage und
+ * bisher auch die Kante eines Kastens. Für die ersten beiden ist `neutral` = `text` richtig — ein
+ * Betrag ohne Wertung ist schwarz. Für eine 2,6 pt breite Kante ist derselbe Wert zu laut: sie
+ * behauptete dann Dringlichkeit, wo nichts Dringendes steht. Ein gemeinsames Objekt hätte diesen
+ * Unterschied nur um den Preis verstecken können, dass eine Änderung an einer Stelle zwei andere
+ * mitnimmt.
+ *
+ * ── ⚠ WARUM `neutral` KEINE TEAL FLÄCHE BEKOMMT ────────────────────────────────────────────────
+ * Das Zielbild kennt nur teal und amber (Bestandsaufnahme §4.4). Teal steht dort aber für eine
+ * GUTE Nachricht — und ein `ReportNotice` kann gar keine sein: sein Ton ist
+ * `Exclude<ReportTone, 'positive'>` (`statement.ts`), weil ein Hinweis feststellt und sich nicht
+ * freut. „PV-Erzeugung geschätzt" oder „Datenqualität" teal zu hinterlegen hiesse, vier
+ * Einschränkungen wie Erfolge aussehen zu lassen. `neutral` bleibt deshalb auf `surfaceAlt`;
+ * `accentSubtle` steht im Theme und wartet auf einen Baustein, der ihn ehrlich tragen kann.
+ */
+const NOTICE_SURFACE: Record<ReportNotice['tone'], string> = {
+  warning: PDF_COLORS.warningSubtle,
+  neutral: PDF_COLORS.surfaceAlt,
+}
+const NOTICE_EDGE: Record<ReportNotice['tone'], string> = {
+  warning: PDF_COLORS.warning,
+  neutral: PDF_COLORS.textMuted,
+}
+
+function StatementRow({ row, zebra }: { row: ReportRow; zebra: boolean }) {
   return (
-    <View style={row.total ? [styles.row, styles.rowTotal] : styles.row}>
+    <View
+      style={[styles.row, zebra ? styles.rowZebra : {}, row.total ? styles.rowTotal : {}]}
+    >
       <View style={styles.rowLabelCell}>
         <Text style={row.total ? styles.rowLabelTotal : styles.rowLabel}>{row.label}</Text>
         {/* Der Hinweis steht NUR, wo es einen gibt — eine leere zweite Zeile wäre ein Loch. */}
@@ -852,7 +979,12 @@ function StatementRow({ row }: { row: ReportRow }) {
  */
 function Notice({ notice }: { notice: ReportNotice }) {
   return (
-    <View style={[styles.notice, { borderLeftColor: TONE_COLOR[notice.tone] }]}>
+    <View
+      style={[
+        styles.notice,
+        { backgroundColor: NOTICE_SURFACE[notice.tone], borderLeftColor: NOTICE_EDGE[notice.tone] },
+      ]}
+    >
       <Text style={styles.noticeTitle}>{notice.title}</Text>
       <Text style={styles.noticeBody}>{notice.body}</Text>
       {notice.list && (
@@ -902,8 +1034,8 @@ function Statement({ statement }: { statement: ReportStatement }) {
       )}
       {statement.rows.length > 0 && (
         <View style={styles.rowList}>
-          {statement.rows.map((row) => (
-            <StatementRow key={row.label} row={row} />
+          {statement.rows.map((row, index) => (
+            <StatementRow key={row.label} row={row} zebra={index % 2 === 1} />
           ))}
         </View>
       )}
@@ -978,7 +1110,15 @@ function StatementTable({
           </Text>
         ))}
       </View>
-      {table.rows.map((row) =>
+      {/*
+        ⚠ Der Zebra-Zähler läuft über die DATENzeilen und nicht über den Index der Schleife:
+        eine Gruppenzeile (D9, `heading`) trägt keine Fläche und darf deshalb auch keinen Streifen
+        verbrauchen — sonst kippte das Muster hinter jeder Gruppe, und die Tabelle sähe aus, als
+        fehlte dort eine Zeile.
+      */}
+      {(() => {
+        let dataRow = -1
+        return table.rows.map((row) =>
         /* D9 — eine Gruppenüberschrift ist EINE Zelle über die volle Breite: die leeren Zellen
            daneben mitzurendern ergäbe Spaltenlinien unter einer Überschrift, die sie nicht führt. */
         row.heading ? (
@@ -986,7 +1126,10 @@ function StatementTable({
             <Text style={styles.tableGroupLabel}>{row.cells[0]}</Text>
           </View>
         ) : (
-          <View key={row.key} style={styles.tableRow}>
+          <View
+            key={row.key}
+            style={[styles.tableRow, (dataRow += 1) % 2 === 1 ? styles.tableRowZebra : {}]}
+          >
             {row.cells.map((cell, index) => {
               const column = table.columns[index]
               return (
@@ -1004,7 +1147,8 @@ function StatementTable({
             })}
           </View>
         ),
-      )}
+        )
+      })()}
     </View>
   )
 }
@@ -1701,6 +1845,13 @@ export function ReportDocument({
     (reportSectionEnabled(input.optionalSections, 'hour_flow') ||
       reportSectionEnabled(input.optionalSections, 'charge_price'))
 
+  /*
+   * Die Zuordnung in der Kopfzeile (D15 Block 1, Punkt 7). `null`, wenn kein Kunde erfasst ist —
+   * ein Platzhalterstrich auf jedem Blatt sähe aus wie ein Fehler beim Erzeugen, dieselbe
+   * Überlegung wie auf dem Deckblatt.
+   */
+  const docLabel = input.customer?.company || input.customer?.name || null
+
   return (
     <Document
       title={input.title}
@@ -1719,7 +1870,7 @@ export function ReportDocument({
       </Page>
 
       <Page size="A4" style={styles.page}>
-        <PageFurniture sink={sink} />
+        <PageFurniture sink={sink} docLabel={docLabel} />
         <SectionAnchor id="agenda" sink={sink} />
         <Agenda
           sections={buildReportAgenda({
@@ -1732,26 +1883,26 @@ export function ReportDocument({
       </Page>
 
       <Page size="A4" style={styles.page}>
-        <PageFurniture sink={sink} />
+        <PageFurniture sink={sink} docLabel={docLabel} />
         <SectionAnchor id={RESULTS_SECTION.id} sink={sink} />
         <ResultsChapter input={input} context={context} />
       </Page>
 
       <Page size="A4" style={styles.page}>
-        <PageFurniture sink={sink} />
+        <PageFurniture sink={sink} docLabel={docLabel} />
         <SectionAnchor id={RECOMMENDATION_SECTION.id} sink={sink} />
         <RecommendationChapter input={input} charts={charts} context={context} />
       </Page>
 
       <Page size="A4" style={styles.page}>
-        <PageFurniture sink={sink} />
+        <PageFurniture sink={sink} docLabel={docLabel} />
         <SectionAnchor id={DETAIL_SECTION.id} sink={sink} />
         <DetailChapter input={input} charts={charts} context={context} />
       </Page>
 
       {hasMonthly && (
         <Page size="A4" style={styles.page}>
-          <PageFurniture sink={sink} />
+          <PageFurniture sink={sink} docLabel={docLabel} />
           <SectionAnchor id={MONTHLY_SECTION.id} sink={sink} />
           <MonthlyChapter input={input} charts={charts} />
         </Page>
@@ -1759,7 +1910,7 @@ export function ReportDocument({
 
       {hasInsight && (
         <Page size="A4" style={styles.page}>
-          <PageFurniture sink={sink} />
+          <PageFurniture sink={sink} docLabel={docLabel} />
           <SectionAnchor id={INSIGHT_SECTION.id} sink={sink} />
           <InsightChapter input={input} charts={charts} context={context} registry={registry} />
         </Page>
@@ -1767,20 +1918,20 @@ export function ReportDocument({
 
       {hasComparison && (
         <Page size="A4" style={styles.page}>
-          <PageFurniture sink={sink} />
+          <PageFurniture sink={sink} docLabel={docLabel} />
           <SectionAnchor id={COMPARISON_SECTION.id} sink={sink} />
           <ComparisonChapter input={input} charts={charts} context={context} />
         </Page>
       )}
 
       <Page size="A4" style={styles.page}>
-        <PageFurniture sink={sink} />
+        <PageFurniture sink={sink} docLabel={docLabel} />
         <SectionAnchor id={METHODOLOGY_SECTION.id} sink={sink} />
         <MethodologyChapter />
       </Page>
 
       <Page size="A4" style={styles.page}>
-        <PageFurniture sink={sink} />
+        <PageFurniture sink={sink} docLabel={docLabel} />
         <SectionAnchor id={BASIS_SECTION.id} sink={sink} />
         <BasisChapter input={input} context={context} registry={registry} />
       </Page>

@@ -95,6 +95,51 @@ export const PDF_COLORS = {
   positive: '#15803d',
   negative: '#b91c1c',
   warning: '#b45309',
+
+  /* ── D15 Block 1: vier Werte aus dem Urbanz-Zielbild ─────────────────────────────────────────
+   * Gemessen in `Report_Baukasten_Optik_Bestandsaufnahme.md` §2.1 — dort ist auch belegt, dass
+   * das Zielbild ansonsten EXAKT die Palette oben benutzt. Diese vier sind alles, was fehlte.
+   */
+
+  /**
+   * `--color-accent-subtle` (Teal 50) — die Fläche, auf der der Akzent als Callout liegt.
+   *
+   * ⚠ HEUTE OHNE KONSUMENT IM PDF, und das ist kein Versehen. Am Bildschirm trägt dieser Ton die
+   * positiven Hinweisflächen; im Report kann er das nicht, weil `ReportNotice.tone` ausdrücklich
+   * `Exclude<ReportTone, 'positive'>` ist (`statement.ts`) — ein Hinweis stellt fest, er freut
+   * sich nicht. Die teal Kästen des Zielbildes sind dort `ReportStatement`s, und die tragen im
+   * Report keine Fläche. Der Wert steht hier, weil er zur Palette gehört und sonst beim nächsten
+   * Bedarf ein zweites Mal erfunden würde; verwendet wird er erst, wenn es einen Baustein gibt,
+   * der ihn ehrlich tragen kann.
+   */
+  accentSubtle: '#f0fdfa',
+  /**
+   * Die Fläche des Warnhinweises (Amber 50) — das Gegenstück zu `accentSubtle`.
+   *
+   * ⚠ KEIN Token aus `globals.css`: dort gibt es `--color-accent-subtle`, aber kein
+   * `--color-warning-subtle`. Der Wert ist damit PDF-eigen wie `onNavyMuted` und `accentOnNavy`.
+   * Kontrast von `text` (#1e293b) darauf: 14,9:1.
+   */
+  warningSubtle: '#fffbeb',
+  /**
+   * Die Trennlinie auf der navyfarbenen Abschlussseite.
+   *
+   * ⚠ `border` (#e2e8f0) wäre dort ein heller Strich auf dunklem Grund und damit lauter als der
+   * Text darüber; `onNavyMuted` war es bisher und ist dieselbe Farbe wie die Fusszeile selbst —
+   * eine Linie soll leiser sein als das, was sie trennt. Dieser Wert ist Navy, um 26 % aufgehellt.
+   */
+  navyRule: '#2a4180',
+  /**
+   * Der helle Akzent-Ton der DIAGRAMME (Zielbild: „rechnerisches Optimum", „ohne PV").
+   *
+   * ⚠ HEUTE OHNE KONSUMENT, und er wird hier auch keinen bekommen: die Chart-Komponenten lesen
+   * ihre Farben aus `globals.css` (CSS-Variablen), nicht aus diesem Objekt — sie werden als
+   * Rasterbild eingebettet, nicht von react-pdf gezeichnet. Der Wert steht hier als ERGEBNIS der
+   * Messung (Bestandsaufnahme §2.1: die Diagramme des Zielbildes benutzen genau EINEN Tint, der
+   * heutige Chart-Satz vier ungleiche `color-mix()`-Aufhellungen). Wer den Chart-Strang baut,
+   * legt ihn in `globals.css` an und räumt ihn hier weg.
+   */
+  chartTint: '#99d8d3',
 } as const
 
 /**
@@ -155,8 +200,27 @@ export const PDF_TYPE = {
   cover: 30,
   coverSub: 12,
   h2: 14,
-  h3: 9.5,
+  /**
+   * Zwischenüberschrift eines Bausteins (`statementTitle`, `itemTitle`).
+   *
+   * ⚠ D15 Block 1, Punkt 8: 9,5 → 11,5. Bei 9,5 pt war die Überschrift eines Bausteins
+   * zeichengleich mit seinem Fliesstext und unterschied sich allein im Gewicht — auf einem
+   * Blatt mit acht Bausteinen je Seite trägt das die Gliederung nicht. Das Zielbild setzt sie
+   * mit 11,5 pt (Bestandsaufnahme §2.2).
+   */
+  h3: 11.5,
+  /**
+   * Der Titel eines Hinweiskastens — bewusst EIN Grad unter `h3`.
+   *
+   * ⚠ Ein Hinweis ist eine Feststellung ÜBER die Zahlen, kein eigener Abschnitt; auf 11,5 pt
+   * gesetzt zöge er mehr Aufmerksamkeit als die Aussage, zu der er gehört. Zielbild: 10,3 pt.
+   */
+  noticeTitle: 10.3,
   body: 9.5,
   small: 8.5,
-  footer: 7,
+  /**
+   * ⚠ D15 Block 1, Punkt 10: 7 → 7,6. 7 pt lag unter dem, was auf Papier im Seitenrand noch
+   * sicher lesbar ist; das Zielbild setzt die Fusszeile mit 7,6 pt.
+   */
+  footer: 7.6,
 } as const
