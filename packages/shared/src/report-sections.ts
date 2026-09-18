@@ -7,25 +7,29 @@
  * der Report wertet sie aus). Zwei Listen liefen auseinander — und der Fehler wäre still: eine
  * Kennung mit Tippfehler käme als „abgewählt" an, weil sie in der Auswahl fehlt.
  *
- * ── ⚠ ES SIND FÜNF UND NICHT 28 ───────────────────────────────────────────────────────────────
+ * ── ⚠ ES SIND SECHS UND NICHT 28 ──────────────────────────────────────────────────────────────
  * Der Katalog kennt 28 Bausteine (`apps/website/lib/pdf-report/registry.ts`). Freigegeben ist, wer
  * ohne eingehenden Verweis dasteht ODER wessen eingehende Verweise ihre Fassung OHNE ihn
  * mittragen — `table_candidates` ist mit B3-1 der erste Fall dieser zweiten Art (Stufe D).
  *
- * Nicht dabei und ausdrücklich nicht vergessen: `addon` — Kapitel 2 verweist darauf („steht auf
- * der Kernergebnis-Seite", `recommendation.ts`). Der Verweis ist zwar migriert, aber sein Ziel
- * kann in Block 3 Nr. 18 die Kennung wechseln; freigegeben wird er erst danach.
+ * `addon` ist mit B3-2b der zweite und war die letzte Stufe-C-Sperre: Kapitel 2 verweist darauf
+ * („steht auf der Kernergebnis-Seite", `recommendation.ts`). Der Verweis umfasst den GANZEN Satz
+ * und trägt eine leere Ersatzfassung — abgewählt verschwindet der Satz, statt ins Leere zu zeigen.
+ * Die Sorge, sein Ziel könne in Block 3 Nr. 18 die Kennung wechseln, ist damit erledigt: `addon`
+ * bleibt in Kapitel 1 und behält seine Kennung, es ist nur noch ein Zeiger statt einer zweiten
+ * Fassung (`Report_Baukasten_B3-2_Plan.md` §4.1/§4.2).
  * Fundstellen und Messung: `Report_Baukasten_Auswahlschicht_Verifikation.md` §2,
  * `Report_Baukasten_Block3_Plan.md` §1.5.
  */
 
 /**
- * Die Kennungen, in Dokumentreihenfolge (Kapitel 5 vor Kapitel 6 vor Kapitel 8).
+ * Die Kennungen, in Dokumentreihenfolge (Kapitel 1 vor Kapitel 5 vor Kapitel 6 vor Kapitel 8).
  *
  * ⚠ Sie sind wörtlich die `ReportBaukastenId`-Werte des Katalogs; dass sie eine TEILMENGE davon
  * sind, wird in `registry.ts` typseitig erzwungen — dieses Paket kennt den Katalog nicht.
  */
 export const REPORT_OPTIONAL_SECTIONS = [
+  'addon',
   'hour_flow',
   'charge_price',
   'table_candidates',

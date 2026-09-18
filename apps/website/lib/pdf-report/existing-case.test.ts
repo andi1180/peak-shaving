@@ -365,7 +365,7 @@ describe('Stufe D — der Bestandsfall als zweite Render-Fixture', () => {
 
     const text = reportText(BESTANDSFALL)
     /* Der Klarsatz-Zweig („lohnt sich derzeit nicht") trüge diesen Satz NICHT. */
-    expect(text).toContain('Gerechnet als EIN gemeinsamer Speicher aus Ihrer Anlage und diesem')
+    expect(text).toContain('Ein zusätzlicher Batteriespeicher rechnet sich für Sie')
   }, 60_000)
 
   it('löst die acht Querverweise auf, die der Katalog-Fall nicht erreicht', () => {
@@ -411,13 +411,57 @@ describe('Stufe D — der Bestandsfall als zweite Render-Fixture', () => {
     expect(text).toContain(
       'Das am besten abschneidende Gerät bliebe über 10 Jahre gerechnet €\u00a05.388 im Minus.',
     )
-    /* Die Tabellen-Einleitung des positiven Zweigs darf hier nicht mitkommen. */
-    expect(text).not.toContain('Gerechnet als EIN gemeinsamer Speicher')
+    /* Der positive Zweig des Kapitel-1-Zeigers darf hier nicht mitkommen. */
+    expect(text).not.toContain('Ein zusätzlicher Batteriespeicher rechnet sich für Sie')
 
     /* Und er geht durchs Dokument — der Zweig war bis B3-2a nie gerendert worden. */
     const pdf = await pdfFor(KLARSATZ_FALL)
     expect(Number(pdf.toString('latin1').match(/\/Count (\d+)/)?.[1])).toBeGreaterThan(5)
   }, 60_000)
+
+  /**
+   * B3-2b — die Kapitel-1-Fassung von `addon` ist ein ZEIGER, in beiden Fällen.
+   *
+   * ⚠ Gemessen wird der AUFGELÖSTE Satz und nicht das Template: die Ortsangabe entsteht erst
+   * gegen die Leseordnung (`layout.ts`), und genau sie ist der Unterschied zur alten Fassung, die
+   * ihren Nachbarn wortgleich wiederholte statt auf ihn zu zeigen.
+   */
+  it('zeigt aus Kapitel 1 auf Kapitel 6 — mit Gerät wie ohne', () => {
+    const positiv = reportText(BESTANDSFALL)
+    expect(positiv).toContain(
+      'Ein zusätzlicher Batteriespeicher rechnet sich für Sie: das bestgereihte Gerät bringt ' +
+        '€\u00a01.499 im Jahr zusätzlich, und im Kapitel „Speichergrösse und Gerätewahl" steht, ' +
+        'welches Gerät das ist und was es kostet.',
+    )
+    /* Die drei Sätze der alten Fassung standen wortgleich auch in Kapitel 6 — genau das nicht. */
+    expect(positiv).not.toContain('Gerechnet als EIN gemeinsamer Speicher aus Ihrer Anlage')
+
+    expect(reportText(KLARSATZ_FALL)).toContain(
+      'Ein zusätzlicher Batteriespeicher lohnt sich für Sie derzeit nicht — woran das liegt, ' +
+        'steht im Kapitel „Speichergrösse und Gerätewahl".',
+    )
+  })
+
+  /**
+   * B3-2b, Kante E — `addon` ist jetzt abwählbar, und der Satz im Empfehlungs-Kapitel zeigt auf
+   * ihn („steht auf der Kernergebnis-Seite"). Er fällt auf seine leere Ersatzfassung; was
+   * zurückbliebe, wäre sonst ein Verweis auf eine Seite ohne das Genannte — und dem Blatt sieht
+   * man das nicht an, es fehlt nichts, wo etwas fehlen würde.
+   */
+  it('`addon` abgewählt: der Zeiger fällt, und mit ihm der Satz aus Kapitel 2', () => {
+    const ohneAddon: PdfReportInput = {
+      ...BESTANDSFALL,
+      optionalSections: ['hour_flow', 'charge_price', 'table_candidates', 'data_quality'],
+    }
+    const text = reportText(ohneAddon)
+
+    expect(text).not.toContain('Ein zusätzlicher Batteriespeicher')
+    expect(text).not.toContain('steht auf der Kernergebnis-Seite')
+    /* Der Rest des Satzes bleibt — der Verweis umfasst genau seinen zweiten Halbsatz. */
+    expect(text).toContain('wenn ich Ihre Anlage durch ein neues Gerät ersetzte?".')
+    /* Und das Vergleichs-Kapitel, auf das er zeigte, steht unverändert. */
+    expect(text).toContain('Gerechnet ist je Zeile EIN gemeinsamer Speicher')
+  })
 
   it('den Verweis aus Nr. 10 gibt es nur mit Bestandsanlage', () => {
     /*

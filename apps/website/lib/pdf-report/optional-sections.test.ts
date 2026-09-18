@@ -272,6 +272,9 @@ function hasImageWidth(pdf: Buffer, widthPx: number): boolean {
 }
 
 const ALL_OPTIONAL: ReportOptionalSection[] = [
+  /* ⚠ `addon` steht in dieser Liste, entsteht in DIESEM Prüffall aber gar nicht: er hat keine
+     Bestandsanlage. Gemessen wird er im Bestandsfall (`existing-case.test.ts`, B3-2b). */
+  'addon',
   'hour_flow',
   'charge_price',
   'table_candidates',
@@ -431,11 +434,6 @@ describe('Report-Baukasten C — was die Auswahl nicht erreicht', () => {
     const a = buildReportRegistry(mit, buildReportContext(mit))
     const b = buildReportRegistry(ohne, buildReportContext(ohne))
 
-    /*
-     * ⚠ `addon` ist ausdrücklich NICHT abwählbar: das Empfehlungs-Kapitel verweist darauf, und
-     * seine Kennung kann in Block 3 Nr. 18 wechseln (`Report_Baukasten_Block3_Plan.md` §1.5).
-     */
-    expect(b.get('addon').build()).toEqual(a.get('addon').build())
     expect(b.get('assumptions').build()).toEqual(a.get('assumptions').build())
     expect(b.get('limitations').build()).toEqual(a.get('limitations').build())
 
@@ -451,5 +449,8 @@ describe('Report-Baukasten C — was die Auswahl nicht erreicht', () => {
     expect(b.get('pv_outage').build()).toBeNull()
     expect(b.get('hour_flow').build()).toEqual(a.get('hour_flow').build())
     expect(b.get('table_candidates').build()).toEqual(a.get('table_candidates').build())
+    /* `addon` ist seit B3-2b abwählbar und verhält sich wie die drei darüber: die Registry baut
+       ihn unabhängig von der Auswahl, weggelassen wird er im Dokument (`ResultsChapter`). */
+    expect(b.get('addon').build()).toEqual(a.get('addon').build())
   })
 })

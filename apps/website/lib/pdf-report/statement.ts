@@ -95,6 +95,20 @@ export type ReportStatement = {
   /** Stufe D — darf einen Querverweis tragen; aufgelöst wird in `document.tsx`. */
   body: ReportText
   /**
+   * B3-2b — dieser Baustein ist ein ERLEDIGTER NEBENSTRANG und wird als teal Kasten gesetzt.
+   *
+   * ⚠ EINE EIGENSCHAFT DER AUSSAGE UND KEINE FARBE: was daraus wird, entscheidet `document.tsx`
+   * (`accentSubtle` als Fläche, der Akzent als linke Kante) — dieselbe Trennung wie bei
+   * `ReportAccent`. Gemessen trägt das Zielbild drei solcher Kästen, und keiner davon ist eine
+   * gute Nachricht: teal markiert dort eine Bemerkung, die zum Kapitel gehört, aber nicht in
+   * seiner Hauptlinie steht (s. `NOTICE_SURFACE` in `document.tsx`).
+   *
+   * ⚠ NICHT `ReportNotice`, obwohl es wie ein Hinweis aussieht: ein Hinweis stellt etwas über die
+   * DATENGRUNDLAGE fest, sein Ton kennt kein Teal, und sein Körper ist `string` und könnte den
+   * Verweis nicht tragen, der diesen Kasten überhaupt zum Zeiger macht.
+   */
+  aside?: boolean
+  /**
    * Kurze Zusatzsätze unter dem Fliesstext — je Eintrag eine Zeile.
    *
    * ⚠ Dafür da, dass die §3.8-WARNUNGEN eines Kandidaten (Betonsockel, separater Wechselrichter,

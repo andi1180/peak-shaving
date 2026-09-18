@@ -381,9 +381,9 @@ export type PdfReportInput = {
    * Abwesenheit auf „nichts zeigen", verlöre ein bereits verschickter Report beim Öffnen jeden
    * davon. Die leere Liste ist davon unterschieden: sie ist die AUSGEÜBTE Wahl, alle abzuwählen.
    *
-   * ⚠ SIE STEUERT NUR DIESE. Die übrigen Bausteine sind von ihr unerreichbar — `addon`
-   * ausdrücklich, weil das Empfehlungs-Kapitel darauf verweist und sein Ziel in Block 3 Nr. 18
-   * die Kennung wechseln kann (`Report_Baukasten_Block3_Plan.md` §1.5).
+   * ⚠ SIE STEUERT NUR DIESE. Die übrigen Bausteine sind von ihr unerreichbar. `addon` gehört seit
+   * B3-2b dazu: der Satz im Empfehlungs-Kapitel, der darauf verweist, trägt eine leere
+   * Ersatzfassung und verschwindet mit ihm (`Report_Baukasten_B3-2_Plan.md` §4.2).
    */
   optionalSections?: ReportSectionSelection
 }
