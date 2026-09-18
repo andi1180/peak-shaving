@@ -17,7 +17,7 @@ import {
   t,
   type ReportLayout,
 } from './report-text'
-import type { ReportStatement, ReportTable } from './statement'
+import { statementTexts, type ReportStatement, type ReportTable } from './statement'
 import { buildReportSummary, type ReportSummary } from './summary'
 import type { PdfReportAnalysis } from './types'
 
@@ -172,6 +172,18 @@ function summaryPlacements(summary: ReportSummary): ReportPlacement[] {
 function bodyOf(summary: ReportSummary, id: string, layout: ReportLayout): string {
   const statement = summary.statements.find((s) => s.id === id)
   return resolveReportText(statement?.body ?? '', layout, id)
+}
+
+/**
+ * Der ganze Fliesstext einer Aussage, aufgelöst — Körper ODER Listenpunkte (B3-3). Die Punkte
+ * werden mit einem Leerzeichen verbunden: genau so hingen die Sätze im Absatz aneinander, bevor
+ * `recommendation` auf die Listenform wechselte.
+ */
+function statementText(statement: ReportStatement, layout: ReportLayout, from: string): string {
+  return statementTexts(statement)
+    .map((text) => resolveReportText(text, layout, from))
+    .filter((part) => part !== '')
+    .join(' ')
 }
 
 /* ────────────────────────────────────────────────────────────────────────────────────────────────
@@ -417,15 +429,15 @@ describe('Stufe-C-Sperren: `addon` und `table_candidates`', () => {
     const chapter = buildRecommendationChapter(analysis)
     const summary = buildReportSummary(analysis, { source: 'net_signed' })
 
-    const mit = resolveReportText(
-      chapter.recommendation!.body,
+    const mit = statementText(
+      chapter.recommendation!,
       reportLayoutOf(summaryPlacements(summary)),
       'recommendation',
     )
     expect(mit).toContain('steht auf der Kernergebnis-Seite')
 
-    const ohne = resolveReportText(
-      chapter.recommendation!.body,
+    const ohne = statementText(
+      chapter.recommendation!,
       reportLayoutOf(summaryPlacements(summary).filter((p) => p.id !== 'addon')),
       'recommendation',
     )
@@ -537,7 +549,7 @@ describe('Verweisname eines Kapitels (`REF_SECTION`)', () => {
   const SAETZE = [
     {
       name: 'recommendation → addon',
-      body: chapter.recommendation!.body,
+      statement: chapter.recommendation!,
       from: 'recommendation',
       ziel: 'addon' as const,
       mit: 'steht auf der Kernergebnis-Seite',
@@ -545,7 +557,7 @@ describe('Verweisname eines Kapitels (`REF_SECTION`)', () => {
     },
     {
       name: 'load_control → load_shift (Hochrechnung)',
-      body: buildRecommendationChapter(teiljahr).loadControl!.body,
+      statement: buildRecommendationChapter(teiljahr).loadControl!,
       from: 'load_control',
       ziel: 'load_shift' as const,
       mit: 'die Zahl auf der Kernergebnis-Seite ist',
@@ -553,7 +565,7 @@ describe('Verweisname eines Kapitels (`REF_SECTION`)', () => {
     },
     {
       name: 'load_control → Zeile von savings',
-      body: chapter.loadControl!.body,
+      statement: chapter.loadControl!,
       from: 'load_control',
       ziel: 'savings' as const,
       mit: 'in der Aufschlüsselung der Kernergebnis-Seite',
@@ -561,7 +573,7 @@ describe('Verweisname eines Kapitels (`REF_SECTION`)', () => {
     },
     {
       name: 'monthly_comparison → savings',
-      body: buildDetailChapter(analysis).cost!.statement!.body,
+      statement: buildDetailChapter(analysis).cost!.statement!,
       from: 'monthly_comparison',
       ziel: 'savings' as const,
       mit: 'Die Kernergebnis-Seite zeigt die DIFFERENZEN',
@@ -569,7 +581,7 @@ describe('Verweisname eines Kapitels (`REF_SECTION`)', () => {
     },
     {
       name: 'monthly_comparison → load_shift',
-      body: buildMonthlyChapter(analysisFor(false))!.statement.body,
+      statement: buildMonthlyChapter(analysisFor(false))!.statement,
       from: 'monthly_comparison',
       ziel: 'load_shift' as const,
       mit: 'auf der Kernergebnis-Seite ist NICHT aus diesen drei Summen',
@@ -587,7 +599,7 @@ describe('Verweisname eines Kapitels (`REF_SECTION`)', () => {
   ).concat(summaryPlacements(buildReportSummary(analysis, { source: 'net_signed' })))
 
   it.each(SAETZE)('$name: nennt Kapitel 1 beim Namen, solange das Ziel dort steht', (satz) => {
-    expect(resolveReportText(satz.body, reportLayoutOf(inKapitel1), satz.from)).toContain(satz.mit)
+    expect(statementText(satz.statement, reportLayoutOf(inKapitel1), satz.from)).toContain(satz.mit)
   })
 
   /**
@@ -600,7 +612,7 @@ describe('Verweisname eines Kapitels (`REF_SECTION`)', () => {
     const verschoben = inKapitel1.map((p) =>
       p.id === satz.ziel ? { ...p, section: SECTION_ID.insight } : p,
     )
-    const text = resolveReportText(satz.body, reportLayoutOf(verschoben), satz.from)
+    const text = statementText(satz.statement, reportLayoutOf(verschoben), satz.from)
 
     expect(text).not.toContain(satz.mit)
     /* ⚠ Und ausdrücklich AUCH NICHT generisch ersetzt — das ergäbe „auf der Kapitel „…"". */

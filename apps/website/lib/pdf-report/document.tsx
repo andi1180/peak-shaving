@@ -35,7 +35,12 @@ import { buildDetailChapter, buildMonthlyChapter } from './detail'
 import { buildInsightChapter } from './insight'
 import { buildRecommendationChapter } from './recommendation'
 import type { ReportBaukastenId, ReportBaukastenRegistry } from './registry'
-import { resolveReportSegments, resolveReportText, type ReportLayout } from './report-text'
+import {
+  resolveReportSegments,
+  resolveReportText,
+  type ReportLayout,
+  type ReportTextSegment,
+} from './report-text'
 import {
   recordSectionPage,
   recordTotalPages,
@@ -43,13 +48,14 @@ import {
   type AgendaPageNumbers,
   type PageNumberSink,
 } from './page-numbers'
-import type {
-  ReportAmountTone,
-  ReportNotice,
-  ReportRow,
-  ReportStatement,
-  ReportTable,
-  ReportTone,
+import {
+  statementPoints,
+  type ReportAmountTone,
+  type ReportNotice,
+  type ReportRow,
+  type ReportStatement,
+  type ReportTable,
+  type ReportTone,
 } from './statement'
 import { ADDON_ID, buildReportSummary } from './summary'
 import { chartCellColor, PDF_COLORS, PDF_CONTENT_WIDTH_PT, PDF_LAYOUT, PDF_TYPE } from './theme'
@@ -489,6 +495,30 @@ const styles = StyleSheet.create({
   rowValue: { ...LEADING, fontWeight: 600 },
 
   statementNote: { ...LEADING, marginTop: 2, fontSize: PDF_TYPE.small, color: PDF_COLORS.warning },
+
+  /*
+   * B3-3 (20a) — die nummerierte Liste. Am Zielbild gemessen (S. 11): Ziffer in `accent` und fett
+   * am linken Satzrand, der Text 25,5 pt weiter rechts, zwischen zwei Punkten 11,9 pt Luft. Die
+   * 13 pt der Ziffer sind ihr eigener Grad und keiner der Textstufen — sie ist eine Marke am Rand
+   * und keine Überschrift.
+   */
+  pointList: { marginTop: 6 },
+  point: { flexDirection: 'row' },
+  /*
+   * Der Abstand zum Punkt davor. Das Zielbild setzt 11,9 pt auf einen Durchschuss von 14,4 pt
+   * (0,83 Zeilen); bei unseren engeren 11,9 pt Zeilenhöhe sind das 9,9.
+   */
+  pointGap: { marginTop: 10 },
+  pointNumber: {
+    width: 25.5,
+    fontSize: 13,
+    /* Der Durchschuss des Fliesstexts statt des eigenen: sonst steht die Ziffer in einer 16,3 pt
+       hohen Zeile und ihre Grundlinie 3 pt unter der ersten Textzeile daneben. */
+    lineHeight: (PDF_TYPE.body * PDF_TYPE.lineHeight) / 13,
+    fontWeight: 700,
+    color: PDF_COLORS.accent,
+  },
+  pointText: { ...LEADING, flexGrow: 1, flexBasis: 0, color: PDF_COLORS.text },
 
   /*
    * Vergleichstabelle (B23c-3b-2).
@@ -1112,6 +1142,24 @@ function Statement({ statement, layout }: { statement: ReportStatement; layout: 
    */
   const aside = statement.aside === true
 
+  const body = resolveReportSegments(statement.body, layout, statement.id)
+  /* B3-3 — aufgelöst und nicht in der Ableitung gezählt: s. `statementPoints`. */
+  const points = statementPoints(statement, layout)
+  /* Ein einzelner Punkt ist keine Liste — s. unten. */
+  const lonePoint = points.length === 1 ? points[0] : undefined
+
+  /* Ein ausgezeichnetes Stück trägt den Ton der Kopfzahl — ohne Kopfzahl läuft es im Text mit. */
+  const marked = (segments: ReportTextSegment[]) =>
+    segments.map((segment, index) =>
+      segment.accent && statement.amount ? (
+        <Text key={index} style={{ color: AMOUNT_COLOR[statement.amount.tone] }}>
+          {segment.text}
+        </Text>
+      ) : (
+        segment.text
+      ),
+    )
+
   return (
     <View style={aside ? [styles.statement, styles.statementAside] : styles.statement} wrap={false}>
       <Text
@@ -1145,18 +1193,26 @@ function Statement({ statement, layout }: { statement: ReportStatement; layout: 
         AUSGEZEICHNET sein (`ReportAccent`, `report-text.ts`). Die Farbe dazu ist die der Kopfzahl
         — ein Betrag, der die Aussage belegt, trägt ihren Ton; ohne Kopfzahl gibt es keinen, und
         das Stück läuft im Fliesstext mit.
+
+        ⚠ Nur, wo es einen gibt: eine Aussage in Listenform (B3-3) lässt `body` leer, und ein
+        leerer Absatz stünde dort als Loch zwischen Aufschlüsselung und Liste.
       */}
-      <Text style={styles.statementBody}>
-        {resolveReportSegments(statement.body, layout, statement.id).map((segment, index) =>
-          segment.accent && statement.amount ? (
-            <Text key={index} style={{ color: AMOUNT_COLOR[statement.amount.tone] }}>
-              {segment.text}
-            </Text>
-          ) : (
-            segment.text
-          ),
-        )}
-      </Text>
+      {body.length > 0 && <Text style={styles.statementBody}>{marked(body)}</Text>}
+      {/*
+        B3-3 (20a) — die nummerierte Liste. Ein einzelner Punkt bekommt KEINE Ziffer: eine „1"
+        ohne „2" behauptet eine Aufzählung, von der etwas fehlt.
+      */}
+      {lonePoint && <Text style={styles.statementBody}>{marked(lonePoint)}</Text>}
+      {points.length > 1 && (
+        <View style={styles.pointList}>
+          {points.map((segments, index) => (
+            <View key={index} style={index === 0 ? styles.point : [styles.point, styles.pointGap]}>
+              <Text style={styles.pointNumber}>{index + 1}</Text>
+              <Text style={styles.pointText}>{marked(segments)}</Text>
+            </View>
+          ))}
+        </View>
+      )}
       {/*
         Die §3.8-Warnungen, je eine Zeile. Sie stehen NEBEN der Investition und nicht in ihr:
         „Betonsockel nötig (+€1800)" ist bereits in der Gesamtsumme enthalten — wer den Satz

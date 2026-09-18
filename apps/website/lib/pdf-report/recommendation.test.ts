@@ -5,6 +5,7 @@ import { SECTION_ID } from './content'
 import { reportLayoutOf } from './layout'
 import { buildRecommendationChapter } from './recommendation'
 import { resolveReportText } from './report-text'
+import { statementPoints } from './statement'
 import { buildReportSummary } from './summary'
 import type { PdfReportAnalysis } from './types'
 
@@ -136,5 +137,55 @@ describe('load_control — Verweis auf „tarifbewusstes Laden" und „Eigenverb
 
     expect(body).toContain('tarifbewusstes Laden')
     expect(body).toContain('eigener Anteil („Eigenverbrauch")')
+  })
+})
+
+/**
+ * B3-3 (20a) — die Empfehlung steht als NUMMERIERTE LISTE statt als Absatz. Gemessen wurde die
+ * Umstellung gegen den Stand davor (`4fd2426`): in allen acht Kombinationen aus Bestands-/
+ * Katalog-Fall, Steuerangabe und vorhandenem `addon` ergeben die verbundenen Punkte zeichengleich
+ * den früheren Absatz. Was hier steht, ist derselbe Wortlaut je Punkt.
+ */
+const RECOMMENDATION_PLACEMENT = {
+  id: 'recommendation',
+  section: SECTION_ID.recommendation,
+  title: 'Falls Sie stattdessen neu kaufen würden: Katalog 1',
+  amount: null,
+  rows: {},
+}
+const ADDON_PLACEMENT = {
+  id: 'addon',
+  section: SECTION_ID.results,
+  title: 'Ein zusätzlicher Speicher',
+  amount: null,
+  rows: {},
+}
+
+function recommendationPoints(placements: (typeof RECOMMENDATION_PLACEMENT)[]): string[] {
+  const statement = buildRecommendationChapter(analysisFor(true)).recommendation!
+  return statementPoints(statement, reportLayoutOf(placements)).map((segments) =>
+    segments.map((segment) => segment.text).join(''),
+  )
+}
+
+describe('recommendation — Listenform', () => {
+  it('setzt den Bestandsfall als drei Punkte, im Wortlaut des früheren Absatzes', () => {
+    expect(recommendationPoints([ADDON_PLACEMENT, RECOMMENDATION_PLACEMENT])).toEqual([
+      'Sie haben bereits einen Speicher — diese Aussage beantwortet deshalb nicht „soll ich ' +
+        'überhaupt?", sondern „was bekäme ich, wenn ich Ihre Anlage durch ein neues Gerät ersetzte?".',
+      'Ob sich ein ZUSÄTZLICHES Gerät neben Ihrer Anlage lohnt, steht auf der Kernergebnis-Seite; ' +
+        'die dortigen Beträge sind Differenzen und nicht mit den Zahlen hier vergleichbar.',
+      'Förderung und Steuervorteil sind nicht angegeben und deshalb in keiner dieser Zahlen ' +
+        'enthalten — mit ihnen fiele die Investition niedriger aus.',
+    ])
+  })
+
+  /* Kante E: ohne `addon` entfällt der Punkt GANZ — der Steuersatz rückt auf Nummer 2 nach. */
+  it('`addon` abgewählt: der zweite Punkt fällt weg, die Zählung schliesst sich', () => {
+    const ohne = recommendationPoints([RECOMMENDATION_PLACEMENT])
+
+    expect(ohne).toHaveLength(2)
+    expect(ohne[0]).toContain('ersetzte?".')
+    expect(ohne[1]).toContain('Förderung und Steuervorteil')
   })
 })

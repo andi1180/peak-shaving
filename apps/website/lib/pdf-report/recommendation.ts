@@ -143,30 +143,39 @@ export function buildRecommendation(
   const amortizesWithinHorizon = entry.amortizationYears <= horizonYears
 
   /*
-   * ── ⚠ STUFE D: DER ZWEITE SATZ HÄNGT AN `addon` UND FÄLLT MIT IHM ───────────────────────────
-   * Er ist der Grund, aus dem `addon` bis heute NICHT abwählbar ist
+   * ── ⚠ STUFE D: DER ZWEITE PUNKT HÄNGT AN `addon` UND FÄLLT MIT IHM ──────────────────────────
+   * Er war der Grund, aus dem `addon` bis B3-2b nicht abwählbar war
    * (`Report_Baukasten_Auswahlschicht_Verifikation.md` §2.2). Der Verweis umfasst deshalb den
    * GANZEN Satz: ohne den Zusatzspeicher-Baustein gibt es nichts, worauf er zeigen könnte, und ein
-   * Rest wie „die dortigen Beträge" zeigte ins Leere.
+   * Rest wie „die dortigen Beträge" zeigte ins Leere. Als eigener Listenpunkt (B3-3) entfällt mit
+   * ihm auch seine Nummer — die Zählung schliesst sich, s. `statementPoints`.
    *
    * ⚠ OFFENGELEGTE GRENZE: „in den Kernergebnissen" bleibt geschrieben. Der Resolver kennt für ein
    * fremdes Kapitel genau EINE Form („im Kapitel „X""), und die ist hier ein anderer Wortlaut. Der
    * Satz überlebt damit ein Abwählen von `addon`, aber nicht sein Verschieben (Block 3 Nr. 18).
    */
-  const framing: ReportText = isExisting
-    ? t`Sie haben bereits einen Speicher — diese Aussage beantwortet deshalb nicht „soll ich überhaupt?", sondern „was bekäme ich, wenn ich Ihre Anlage durch ein neues Gerät ersetzte?".${ref(
-        block('addon'),
-        ` Ob sich ein ZUSÄTZLICHES Gerät neben Ihrer Anlage lohnt, steht auf der ${REF_SECTION}; die dortigen Beträge sind Differenzen und nicht mit den Zahlen hier vergleichbar.`,
-        '',
-      )}`
-    : `Aus dem Katalog schneidet dieses Gerät über ${horizonYears} Jahre am besten ab — gereiht ` +
-      'wird nach der Netto-Ersparnis über den Betrachtungszeitraum, nicht nach der Jahresersparnis: ' +
-      'ein grösserer Speicher spart fast immer mehr und kostet auch mehr.'
+  const framing: ReportText[] = isExisting
+    ? [
+        'Sie haben bereits einen Speicher — diese Aussage beantwortet deshalb nicht „soll ich ' +
+          'überhaupt?", sondern „was bekäme ich, wenn ich Ihre Anlage durch ein neues Gerät ersetzte?".',
+        t`${ref(
+          block('addon'),
+          `Ob sich ein ZUSÄTZLICHES Gerät neben Ihrer Anlage lohnt, steht auf der ${REF_SECTION}; die dortigen Beträge sind Differenzen und nicht mit den Zahlen hier vergleichbar.`,
+          '',
+        )}`,
+      ]
+    : [
+        `Aus dem Katalog schneidet dieses Gerät über ${horizonYears} Jahre am besten ab — gereiht ` +
+          'wird nach der Netto-Ersparnis über den Betrachtungszeitraum, nicht nach der Jahresersparnis: ' +
+          'ein grösserer Speicher spart fast immer mehr und kostet auch mehr.',
+      ]
 
   const taxes = entry.taxEffectsIncluded
-    ? ''
-    : ' Förderung und Steuervorteil sind nicht angegeben und deshalb in keiner dieser Zahlen ' +
-      'enthalten — mit ihnen fiele die Investition niedriger aus.'
+    ? []
+    : [
+        'Förderung und Steuervorteil sind nicht angegeben und deshalb in keiner dieser Zahlen ' +
+          'enthalten — mit ihnen fiele die Investition niedriger aus.',
+      ]
 
   return {
     id: 'recommendation',
@@ -179,7 +188,13 @@ export function buildRecommendation(
       tone: amortizesWithinHorizon ? 'positive' : 'warning',
     },
     rows,
-    body: t`${framing}${taxes}`,
+    /*
+     * B3-3 (20a) — die Aussage steht als nummerierte Liste und nicht als Absatz; das Zielbild
+     * setzt sie so (S. 11). Der Wortlaut ist derselbe, ein Punkt je Satz: weggefallen sind allein
+     * die Leerzeichen, mit denen die Sätze im Absatz aneinanderhingen.
+     */
+    body: '',
+    points: [...framing, ...taxes],
     /*
      * Die §3.8-Warnungen des Kandidaten, unverändert. Sie stehen NEBEN der Investition und nicht
      * hinter ihr: „Betonsockel nötig (+€1800)" ist eine Kostenaussage, und sie ist in
