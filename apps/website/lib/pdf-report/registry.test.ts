@@ -16,7 +16,10 @@ import { buildReportContext } from './context'
 import { buildDetailChapter, buildMonthlyChapter } from './detail'
 import { buildInsightChapter } from './insight'
 import { buildRecommendationChapter } from './recommendation'
+import { SECTION_ID } from './content'
+import { buildReportLayout } from './layout'
 import { buildReportRegistry, REPORT_BAUKASTEN_IDS, type ReportBaukastenId } from './registry'
+import { resolveReportText, type ReportText } from './report-text'
 import { buildReportSummary } from './summary'
 import type { PdfReportAnalysis, PdfReportInput } from './types'
 
@@ -86,10 +89,7 @@ const TRACE: DispatchTrace = {
   },
 }
 
-function roiEntry(
-  battery: BatteryCandidate,
-  over: Partial<BatteryRoiEntry> = {},
-): BatteryRoiEntry {
+function roiEntry(battery: BatteryCandidate, over: Partial<BatteryRoiEntry> = {}): BatteryRoiEntry {
   return {
     battery,
     newBilledKw: 40,
@@ -120,7 +120,10 @@ function addonScenario(
 ): AddonBatteryScenario {
   return {
     ...roiEntry(battery, { netSavingOverHorizon }),
-    combined: { ...BESTAND, usableCapacityKwh: BESTAND.usableCapacityKwh + battery.usableCapacityKwh },
+    combined: {
+      ...BESTAND,
+      usableCapacityKwh: BESTAND.usableCapacityKwh + battery.usableCapacityKwh,
+    },
   }
 }
 
@@ -396,8 +399,14 @@ describe('Report-Baukasten-Registry (B2)', () => {
     expect(mitBestand).not.toBeNull()
     expect(ohneBestand).not.toBeNull()
     /* Die Fallunterscheidung des Erzeugers (`isExisting`) schlägt im Wortlaut durch. */
-    expect((mitBestand as { body: string }).body).toContain('DIFFERENZEN zwischen diesen drei Summen')
-    expect((ohneBestand as { body: string }).body).toContain('Wert der Ladesteuerung')
+    const textOf = (built: unknown, input: PdfReportInput) =>
+      resolveReportText(
+        (built as { body: ReportText }).body,
+        buildReportLayout(input, buildReportContext(input), registryFor(input)),
+        'monthly_comparison',
+      )
+    expect(textOf(mitBestand, BESTAND_FALL)).toContain('DIFFERENZEN zwischen diesen drei Summen')
+    expect(textOf(ohneBestand, KATALOG_POSITIV)).toContain('Wert der Ladesteuerung')
 
     /* Ohne rechenbaren Hebel gibt es ihn an keiner der beiden Stellen. */
     expect(registryFor(BLOCKER_FALL).get('monthly_comparison').build()).toBeNull()
@@ -429,5 +438,90 @@ describe('Report-Baukasten-Registry (B2)', () => {
     ])
     /* Der dritte Zweig desselben Kapitels: ohne wirtschaftliches Zusatzgerät der Klarsatz. */
     expect(registryFor(BLOCKER_FALL).get('addon_none').build()).not.toBeNull()
+  })
+})
+
+/* ────────────────────────────────────────────────────────────────────────────────────────────────
+ * Stufe D — die Leseordnung
+ * ──────────────────────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * ⚠ DIE RICHTUNG WIRD GEGEN DIE ECHTE `entries`-FOLGE GEMESSEN, NICHT GEGEN DEN WORTLAUT.
+ *
+ * Ein Wortlaut-Vergleich sagt nur, dass heute dasselbe herauskommt — er sagt nicht, ob es aus dem
+ * RICHTIGEN Grund herauskommt. Der Fall `limitations` war genau das: der Eintrag stand in `entries`
+ * vor den beiden Tabellen und im Dokument dahinter, und weil niemand auf ihn zeigte, fiel es nicht
+ * auf. Hier wird deshalb die Ortsangabe selbst geprüft, Baustein gegen Baustein.
+ */
+describe('Stufe D — `entries` ist die Leseordnung des Dokuments', () => {
+  const layoutFor = (input: PdfReportInput) =>
+    buildReportLayout(input, buildReportContext(input), registryFor(input))
+
+  it('Kapitel 1: die Hinweise stehen in `entries` VOR den Aussagen — wie im JSX', () => {
+    const ids = registryFor(BESTAND_FALL)
+      .entries.filter((e) => e.section === SECTION_ID.results)
+      .map((e) => e.id)
+
+    expect(ids).toEqual([
+      'standard_profile',
+      'estimated_pv',
+      'partial_year',
+      'large_gap',
+      'savings',
+      'peak_shaving',
+      'load_shift',
+      'addon',
+    ])
+  })
+
+  it('Kapitel 1: die zwei migrierten Verweise zeigen zurück auf `savings`', () => {
+    const layout = layoutFor(BESTAND_FALL)
+
+    expect(layout.place('peak_shaving', { kind: 'amount', id: 'savings' })).toBe('oben')
+    expect(layout.place('load_shift', { kind: 'row', id: 'savings', row: 'control_value' })).toBe(
+      'oben',
+    )
+    /* Gegenprobe: umgekehrt gelesen dreht sich die Richtung. */
+    expect(layout.place('savings', { kind: 'block', id: 'load_shift' })).toBe('weiter unten')
+  })
+
+  it('Kapitel 8: `entries` folgt dem JSX, `limitations` steht zuletzt', () => {
+    const ids = registryFor(BESTAND_FALL)
+      .entries.filter((e) => e.section === SECTION_ID.basis)
+      .map((e) => e.id)
+
+    expect(ids).toEqual([
+      'assumptions',
+      'data_quality',
+      'tariff_blocker',
+      'pv_outage',
+      'table_tariff_components',
+      'table_data_sources',
+      'method_current_tariff',
+      'method_spot_uncontrolled',
+      'method_load_control',
+      'method_pv_outage',
+      'limitations',
+    ])
+  })
+
+  it('Kante L: `assumptions` liest die Tarifkomponenten-Tabelle als „weiter unten"', () => {
+    const layout = layoutFor(BESTAND_FALL)
+
+    expect(layout.place('assumptions', { kind: 'block', id: 'table_tariff_components' })).toBe(
+      'weiter unten',
+    )
+    /* Und `limitations`, das dahinter steht, liest dieselbe Tabelle als „oben". */
+    expect(layout.place('limitations', { kind: 'block', id: 'table_tariff_components' })).toBe(
+      'oben',
+    )
+  })
+
+  it('über Kapitelgrenzen hinweg nennt die Ortsangabe das Kapitel statt einer Richtung', () => {
+    const layout = layoutFor(KATALOG_POSITIV)
+
+    expect(layout.place('catalog_alternatives', { kind: 'block', id: 'recommendation' })).toBe(
+      'im Kapitel „Empfehlung und Lastverlauf"',
+    )
   })
 })

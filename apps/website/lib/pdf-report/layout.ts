@@ -36,6 +36,8 @@ export type ReportPlacement = {
   amount: string | null
   /** Die Beschriftungen seiner Zeilen, über deren stabilen Schlüssel (`ReportRow.key`). */
   rows: Readonly<Record<string, string>>
+  /** Die Beschriftungen seiner Spalten (nur Tabellen), über `ReportTableColumn.key`. */
+  columns?: Readonly<Record<string, string>>
 }
 
 /** Die Bausteine dieses Dokuments in LESEORDNUNG. Was nicht dasteht, steht auch nicht drin. */
@@ -61,6 +63,7 @@ export function reportLayoutOf(composition: ReportComposition): ReportLayout {
     if (!to) return ''
     if (target.kind === 'amount') return to.amount ?? ''
     if (target.kind === 'row') return to.rows[target.row] ?? ''
+    if (target.kind === 'column') return to.columns?.[target.column] ?? ''
     return to.title
   }
 
@@ -70,6 +73,7 @@ export function reportLayoutOf(composition: ReportComposition): ReportLayout {
       if (!to) return false
       if (target.kind === 'amount') return to.amount !== null
       if (target.kind === 'row') return to.rows[target.row] !== undefined
+      if (target.kind === 'column') return to.columns?.[target.column] !== undefined
       return true
     },
     label: labelOf,
@@ -150,8 +154,18 @@ export function buildReportLayout(
     }
 
     /* Tabellen: ihre Überschrift steht als Literal im JSX und nicht im Objekt — s. `ReportTable`. */
-    if (entry.build() === null) continue
-    composition.push({ id: entry.id, section: entry.section, title: '', amount: null, rows: {} })
+    const built = entry.build()
+    if (built === null) continue
+    composition.push({
+      id: entry.id,
+      section: entry.section,
+      title: '',
+      amount: null,
+      rows: {},
+      columns: Object.fromEntries(
+        built.columns.flatMap((c) => (c.key ? [[c.key, c.label] as const] : [])),
+      ),
+    })
   }
 
   return reportLayoutOf(composition)

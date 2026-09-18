@@ -48,6 +48,8 @@ export type ReportRefTarget =
   | { kind: 'amount'; id: ReportBaukastenId }
   /** Eine Zeile seiner Aufschlüsselung, über ihren stabilen Schlüssel (`ReportRow.key`). */
   | { kind: 'row'; id: ReportBaukastenId; row: string }
+  /** Eine SPALTE einer Tabelle, über ihren stabilen Schlüssel (`ReportTableColumn.key`). */
+  | { kind: 'column'; id: ReportBaukastenId; column: string }
 
 /**
  * Die zwei Platzhalter, die ein Verweis-Wortlaut kennt.
@@ -117,6 +119,10 @@ export function amount(id: ReportBaukastenId): ReportRefTarget {
 
 export function row(id: ReportBaukastenId, key: string): ReportRefTarget {
   return { kind: 'row', id, row: key }
+}
+
+export function column(id: ReportBaukastenId, key: string): ReportRefTarget {
+  return { kind: 'column', id, column: key }
 }
 
 export function ref(target: ReportRefTarget, present: string, absent: string | null): ReportRef {

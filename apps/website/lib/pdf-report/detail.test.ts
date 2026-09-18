@@ -1,7 +1,16 @@
 import { describe, expect, it } from 'vitest'
 import type { MonthlyTariffComparison } from 'shared'
 
-import { buildDetailChapter, buildMonthlyChapter, detailChartPlan, hasMonthlyChapter } from './detail'
+import { SECTION_ID } from './content'
+import {
+  buildDetailChapter,
+  buildMonthlyChapter,
+  detailChartPlan,
+  hasMonthlyChapter,
+} from './detail'
+import { reportLayoutOf } from './layout'
+import { resolveReportText } from './report-text'
+import { buildReportSummary } from './summary'
 import type { PdfReportAnalysis } from './types'
 
 /**
@@ -79,12 +88,35 @@ function analysisFor(withExisting: boolean): PdfReportAnalysis {
       einspeiseverguetungCtPerKwh: 7.2,
       billingModel: 'monthly_max_sum',
     },
-    dataQuality: { coveredDays: 365, coveredMonths: 12, gapsInterpolated: 0, largestGapSlots: 0, warnings: [] },
+    dataQuality: {
+      coveredDays: 365,
+      coveredMonths: 12,
+      gapsInterpolated: 0,
+      largestGapSlots: 0,
+      warnings: [],
+    },
     tariffOptimization: { computable: true, monthlyComparison: COMPARISON },
-    ...(withExisting
-      ? { existingBatteryAnalysis: { entry: ENTRY, addonScenarios: [] } }
-      : {}),
+    ...(withExisting ? { existingBatteryAnalysis: { entry: ENTRY, addonScenarios: [] } } : {}),
   }
+}
+
+/**
+ * Stufe D — die Beschreibung von Kapitel 1, aus der gebauten Zusammenfassung selbst gebildet.
+ * Gegen sie lösen sich die Verweise auf, die dieser Baustein trägt.
+ */
+function resultsLayout(analysis: PdfReportAnalysis) {
+  const summary = buildReportSummary(analysis, { source: 'net_signed' })
+  return reportLayoutOf(
+    summary.statements.map((statement) => ({
+      id: statement.id,
+      section: SECTION_ID.results,
+      title: statement.title,
+      amount: statement.amount ? statement.amount.caption : null,
+      rows: Object.fromEntries(
+        statement.rows.flatMap((r) => (r.key ? [[r.key, r.label] as const] : [])),
+      ),
+    })),
+  )
 }
 
 describe('Monatsvergleich als eigenes Kapitel (D7)', () => {
@@ -105,8 +137,13 @@ describe('Monatsvergleich als eigenes Kapitel (D7)', () => {
      * sondern „Wert der Ladesteuerung" — ein anderer Rechenweg. Der Satz „Die Kernergebnis-Seite
      * zeigt die DIFFERENZEN zwischen diesen drei Summen" war hier bisher trotzdem falsch stehend.
      */
-    expect(chapter.statement.body).not.toContain('DIFFERENZEN zwischen diesen drei Summen')
-    expect(chapter.statement.body).toContain('Wert der Ladesteuerung')
+    const body = resolveReportText(
+      chapter.statement.body,
+      resultsLayout(analysis),
+      'monthly_comparison',
+    )
+    expect(body).not.toContain('DIFFERENZEN zwischen diesen drei Summen')
+    expect(body).toContain('Wert der Ladesteuerung')
   })
 
   it('mit Bestandsanlage: KEIN eigenes Kapitel — der Vergleich steht im Detail-Kapitel', () => {
@@ -117,9 +154,13 @@ describe('Monatsvergleich als eigenes Kapitel (D7)', () => {
     expect(detailChartPlan(analysis).cost?.kind).toBe('monthly')
 
     // Regression: im Bestandsfall bleibt der bisher schon richtige Satz unverändert.
-    expect(buildDetailChapter(analysis).cost?.statement?.body).toContain(
-      'DIFFERENZEN zwischen diesen drei Summen',
-    )
+    expect(
+      resolveReportText(
+        buildDetailChapter(analysis).cost?.statement?.body ?? '',
+        resultsLayout(analysis),
+        'monthly_comparison',
+      ),
+    ).toContain('DIFFERENZEN zwischen diesen drei Summen')
   })
 
   it('ohne berechenbaren Hebel gibt es das Kapitel nicht', () => {
