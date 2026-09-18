@@ -14,7 +14,12 @@
  * Stelle, und nicht verstreut im JSX.
  */
 
-import type { ReportText } from './report-text'
+import {
+  resolveReportSegments,
+  type ReportLayout,
+  type ReportText,
+  type ReportTextSegment,
+} from './report-text'
 
 /** Farbe ist Information, kein Dekor (DESIGN.md) — s. `PDF_COLORS` in `theme.ts`. */
 export type ReportTone = 'positive' | 'warning' | 'neutral'
@@ -117,6 +122,40 @@ export type ReportStatement = {
    * hinter sie. Leer oder fehlend heisst: es gibt keine — nicht „wir zeigen sie hier nicht".
    */
   notes?: string[]
+  /**
+   * B3-3 (20a) — derselbe Fliesstext als NUMMERIERTE LISTE, ein Eintrag je Punkt. Ein Baustein
+   * trägt das eine oder das andere; wo diese Liste steht, bleibt `body` leer.
+   *
+   * ⚠ DIE NUMMERN STEHEN NICHT HIER, UND SIE KÖNNEN ES NICHT: ein Punkt darf einen Querverweis
+   * tragen (die Zusatzspeicher-Aussage der Empfehlung tut es), und ob dessen Ziel im Dokument
+   * steht, weiss erst die Auflösung. Ein Punkt ohne Ziel entfällt GANZ — mit einer hier
+   * vergebenen Nummer klaffte danach eine Lücke in der Zählung. S. `statementPoints`.
+   */
+  points?: ReportText[]
+}
+
+/**
+ * Die Punkte einer Aussage, aufgelöst und um die leeren gekürzt — die Zählung ist ihre
+ * Reihenfolge und schliesst sich damit von selbst.
+ */
+export function statementPoints(
+  statement: ReportStatement,
+  layout: ReportLayout,
+): ReportTextSegment[][] {
+  return (statement.points ?? [])
+    .map((text) => resolveReportSegments(text, layout, statement.id))
+    .filter((segments) => segments.length > 0)
+}
+
+/**
+ * Der ganze Fliesstext einer Aussage in Leserichtung — Körper UND Listenpunkte, unaufgelöst.
+ *
+ * ⚠ Für alles, was „den Text des Reports" einsammelt (`existing-case.test.ts`). Ohne diese eine
+ * Stelle verlöre ein solcher Durchlauf beim Wechsel eines Bausteins auf die Listenform still
+ * dessen halben Text — und bliebe grün.
+ */
+export function statementTexts(statement: ReportStatement): ReportText[] {
+  return [statement.body, ...(statement.points ?? [])]
 }
 
 /**

@@ -19,6 +19,7 @@ import { buildReportLayout, reportBlockSelected } from './layout'
 import { createPageNumberSink } from './page-numbers'
 import { buildReportRegistry } from './registry'
 import { resolveReportText } from './report-text'
+import { statementTexts } from './statement'
 import { TARIFF_SOURCE_UNTRACKED } from './types'
 import type { PdfReportAnalysis, PdfReportInput } from './types'
 
@@ -318,7 +319,11 @@ function reportText(input: PdfReportInput): string {
 
     if (entry.form === 'statement') {
       const built = entry.build()
-      if (built) parts.push(resolveReportText(built.body, layout, entry.id))
+      /* B3-3: Körper UND Listenpunkte — ein Baustein in Listenform hat keinen Körper mehr. */
+      if (built) {
+        for (const text of statementTexts(built))
+          parts.push(resolveReportText(text, layout, entry.id))
+      }
     } else if (entry.form === 'table') {
       const built = entry.build()
       if (built) {
@@ -481,7 +486,7 @@ describe('Stufe D — der Bestandsfall als zweite Render-Fixture', () => {
 
     expect(text).not.toContain('Ein zusätzlicher Batteriespeicher')
     expect(text).not.toContain('steht auf der Kernergebnis-Seite')
-    /* Der Rest des Satzes bleibt — der Verweis umfasst genau seinen zweiten Halbsatz. */
+    /* Der erste Punkt bleibt — der Verweis umfasst genau den zweiten (B3-3). */
     expect(text).toContain('wenn ich Ihre Anlage durch ein neues Gerät ersetzte?".')
     /* Und das Vergleichs-Kapitel, auf das er zeigte, steht unverändert. */
     expect(text).toContain('Gerechnet ist je Zeile EIN gemeinsamer Speicher')
