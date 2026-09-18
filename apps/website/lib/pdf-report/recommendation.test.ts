@@ -162,10 +162,14 @@ const ADDON_PLACEMENT = {
 }
 
 function recommendationPoints(placements: (typeof RECOMMENDATION_PLACEMENT)[]): string[] {
-  const statement = buildRecommendationChapter(analysisFor(true)).recommendation!
-  return statementPoints(statement, reportLayoutOf(placements)).map((segments) =>
-    segments.map((segment) => segment.text).join(''),
+  return resolvedPoints(placements).map((point) =>
+    point.segments.map((segment) => segment.text).join(''),
   )
+}
+
+function resolvedPoints(placements: (typeof RECOMMENDATION_PLACEMENT)[]) {
+  const statement = buildRecommendationChapter(analysisFor(true)).recommendation!
+  return statementPoints(statement, reportLayoutOf(placements))
 }
 
 describe('recommendation — Listenform', () => {
@@ -187,5 +191,18 @@ describe('recommendation — Listenform', () => {
     expect(ohne).toHaveLength(2)
     expect(ohne[0]).toContain('ersetzte?".')
     expect(ohne[1]).toContain('Förderung und Steuervorteil')
+  })
+
+  /* B3-4: der Titel gehört zum Punkt — mit `addon` fällt er ganz weg, nicht als Leadzeile übrig. */
+  it('jeder Punkt trägt seinen festen Titel, und der Zusatzspeicher-Titel fällt mit ihm', () => {
+    expect(resolvedPoints([ADDON_PLACEMENT, RECOMMENDATION_PLACEMENT]).map((p) => p.title)).toEqual([
+      'Ersatz Ihrer bestehenden Anlage',
+      'Zusätzlicher Speicher',
+      'Ohne Steuervorteil gerechnet',
+    ])
+    expect(resolvedPoints([RECOMMENDATION_PLACEMENT]).map((p) => p.title)).toEqual([
+      'Ersatz Ihrer bestehenden Anlage',
+      'Ohne Steuervorteil gerechnet',
+    ])
   })
 })

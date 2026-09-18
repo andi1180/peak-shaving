@@ -518,7 +518,15 @@ const styles = StyleSheet.create({
     fontWeight: 700,
     color: PDF_COLORS.accent,
   },
-  pointText: { ...LEADING, flexGrow: 1, flexBasis: 0, color: PDF_COLORS.text },
+  pointBody: { flexGrow: 1, flexBasis: 0 },
+  /*
+   * B3-4 — die Leadzeile eines Punkts. Sie nimmt `PDF_TYPE.h3` und ist damit grad- und
+   * gewichtsgleich mit `statementTitle`: ein Punkt ist eine Gliederungsstufe des Bausteins, und
+   * ein eigener Grad daneben wäre eine vierte Stufe für dieselbe Aufgabe. Ein neuer Token ist
+   * deshalb nicht angelegt.
+   */
+  pointTitle: { ...LEADING, fontSize: PDF_TYPE.h3, fontWeight: 600, color: PDF_COLORS.ink },
+  pointText: { ...LEADING, color: PDF_COLORS.text },
 
   /*
    * Vergleichstabelle (B23c-3b-2).
@@ -1202,13 +1210,21 @@ function Statement({ statement, layout }: { statement: ReportStatement; layout: 
         B3-3 (20a) — die nummerierte Liste. Ein einzelner Punkt bekommt KEINE Ziffer: eine „1"
         ohne „2" behauptet eine Aufzählung, von der etwas fehlt.
       */}
-      {lonePoint && <Text style={styles.statementBody}>{marked(lonePoint)}</Text>}
+      {lonePoint && (
+        <View style={styles.pointList}>
+          <Text style={styles.pointTitle}>{lonePoint.title}</Text>
+          <Text style={styles.pointText}>{marked(lonePoint.segments)}</Text>
+        </View>
+      )}
       {points.length > 1 && (
         <View style={styles.pointList}>
-          {points.map((segments, index) => (
+          {points.map((point, index) => (
             <View key={index} style={index === 0 ? styles.point : [styles.point, styles.pointGap]}>
               <Text style={styles.pointNumber}>{index + 1}</Text>
-              <Text style={styles.pointText}>{marked(segments)}</Text>
+              <View style={styles.pointBody}>
+                <Text style={styles.pointTitle}>{point.title}</Text>
+                <Text style={styles.pointText}>{marked(point.segments)}</Text>
+              </View>
             </View>
           ))}
         </View>

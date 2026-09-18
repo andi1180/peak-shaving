@@ -3,7 +3,7 @@ import type { BatteryResultEntry, BatteryRoiEntry } from 'shared'
 import { formatEur, formatKw, formatKwh1, formatYears } from '@/lib/format'
 import type { ReportBuildContext } from './context'
 import { block, ref, row, t, REF_LABEL, REF_SECTION, type ReportText } from './report-text'
-import type { ReportRow, ReportStatement } from './statement'
+import type { ReportPoint, ReportRow, ReportStatement } from './statement'
 import {
   primaryEntryOf,
   recommendedEntryOf,
@@ -154,27 +154,48 @@ export function buildRecommendation(
    * fremdes Kapitel genau EINE Form („im Kapitel „X""), und die ist hier ein anderer Wortlaut. Der
    * Satz überlebt damit ein Abwählen von `addon`, aber nicht sein Verschieben (Block 3 Nr. 18).
    */
-  const framing: ReportText[] = isExisting
+  /*
+   * B3-4 — jeder Punkt trägt eine feste Leadzeile. Die beiden Rahmungen schliessen einander aus,
+   * tragen aber bewusst VERSCHIEDENE Titel: im Bestandsfall beantwortet die Aussage „was bekäme
+   * ich statt meiner Anlage?", im Katalogfall „welches Gerät soll ich nehmen?" — ein gemeinsamer
+   * Titel müsste so allgemein ausfallen, dass er in beiden Fällen nichts mehr sagt.
+   */
+  const framing: ReportPoint[] = isExisting
     ? [
-        'Sie haben bereits einen Speicher — diese Aussage beantwortet deshalb nicht „soll ich ' +
-          'überhaupt?", sondern „was bekäme ich, wenn ich Ihre Anlage durch ein neues Gerät ersetzte?".',
-        t`${ref(
-          block('addon'),
-          `Ob sich ein ZUSÄTZLICHES Gerät neben Ihrer Anlage lohnt, steht auf der ${REF_SECTION}; die dortigen Beträge sind Differenzen und nicht mit den Zahlen hier vergleichbar.`,
-          '',
-        )}`,
+        {
+          title: 'Ersatz Ihrer bestehenden Anlage',
+          text:
+            'Sie haben bereits einen Speicher — diese Aussage beantwortet deshalb nicht „soll ich ' +
+            'überhaupt?", sondern „was bekäme ich, wenn ich Ihre Anlage durch ein neues Gerät ersetzte?".',
+        },
+        {
+          title: 'Zusätzlicher Speicher',
+          text: t`${ref(
+            block('addon'),
+            `Ob sich ein ZUSÄTZLICHES Gerät neben Ihrer Anlage lohnt, steht auf der ${REF_SECTION}; die dortigen Beträge sind Differenzen und nicht mit den Zahlen hier vergleichbar.`,
+            '',
+          )}`,
+        },
       ]
     : [
-        `Aus dem Katalog schneidet dieses Gerät über ${horizonYears} Jahre am besten ab — gereiht ` +
-          'wird nach der Netto-Ersparnis über den Betrachtungszeitraum, nicht nach der Jahresersparnis: ' +
-          'ein grösserer Speicher spart fast immer mehr und kostet auch mehr.',
+        {
+          title: 'Die wirtschaftlichste Option',
+          text:
+            `Aus dem Katalog schneidet dieses Gerät über ${horizonYears} Jahre am besten ab — gereiht ` +
+            'wird nach der Netto-Ersparnis über den Betrachtungszeitraum, nicht nach der Jahresersparnis: ' +
+            'ein grösserer Speicher spart fast immer mehr und kostet auch mehr.',
+        },
       ]
 
-  const taxes = entry.taxEffectsIncluded
+  const taxes: ReportPoint[] = entry.taxEffectsIncluded
     ? []
     : [
-        'Förderung und Steuervorteil sind nicht angegeben und deshalb in keiner dieser Zahlen ' +
-          'enthalten — mit ihnen fiele die Investition niedriger aus.',
+        {
+          title: 'Ohne Steuervorteil gerechnet',
+          text:
+            'Förderung und Steuervorteil sind nicht angegeben und deshalb in keiner dieser Zahlen ' +
+            'enthalten — mit ihnen fiele die Investition niedriger aus.',
+        },
       ]
 
   return {
