@@ -11,11 +11,14 @@ import type {
   ReportOptionalSection,
 } from 'shared'
 
-import { buildBasisChapter } from './basis'
+import { buildBasisChapter, DATA_SOURCES_TABLE_ID } from './basis'
+import { SECTION_ID } from './content'
 import type { ChartRaster } from './chart-raster'
 import { buildReportContext } from './context'
 import { ReportDocument } from './document'
 import { createPageNumberSink } from './page-numbers'
+import { buildReportLayout, reportLayoutOf } from './layout'
+import { resolveReportText } from './report-text'
 import { buildReportRegistry } from './registry'
 import { TARIFF_SOURCE_UNTRACKED } from './types'
 import type { PdfReportAnalysis, PdfReportInput } from './types'
@@ -238,6 +241,7 @@ async function pdfFor(optionalSections?: readonly ReportOptionalSection[]): Prom
       charts: CHARTS,
       context,
       registry,
+      layout: buildReportLayout(input, context, registry),
       agenda: null,
       sink: createPageNumberSink(),
     }) as never,
@@ -266,12 +270,7 @@ function hasImageWidth(pdf: Buffer, widthPx: number): boolean {
   return pdf.toString('latin1').includes(`/Width ${widthPx}\n`)
 }
 
-const ALL_FOUR: ReportOptionalSection[] = [
-  'hour_flow',
-  'charge_price',
-  'data_quality',
-  'pv_outage',
-]
+const ALL_FOUR: ReportOptionalSection[] = ['hour_flow', 'charge_price', 'data_quality', 'pv_outage']
 
 describe('Report-Baukasten C — die Admin-Auswahl am erzeugten PDF', () => {
   it('ohne Auswahl entsteht Blatt für Blatt dasselbe Dokument wie mit allen vieren', async () => {
@@ -324,8 +323,31 @@ describe('Report-Baukasten C — die Admin-Auswahl am erzeugten PDF', () => {
 describe('Report-Baukasten C — die zwei Abhängigen des Schlusskapitels', () => {
   const DATA_QUALITY_REFERENCE = 'wie im Datenqualitäts-Hinweis oben'
 
+  /**
+   * Die Tabelle als Text — mit Stufe D AUFGELÖST, denn der Verweis steht jetzt als `ReportRef` in
+   * der Zelle und nicht mehr als fertiger Satz. Die Beschreibung trägt genau das, worauf es
+   * ankommt: steht der Datenqualitäts-Hinweis über der Tabelle oder nicht?
+   */
   function dataSourcesText(chapter: ReturnType<typeof buildBasisChapter>): string {
-    return chapter.dataSources.rows.flatMap((row) => row.cells).join(' | ')
+    const layout = reportLayoutOf([
+      ...(chapter.dataQuality
+        ? [
+            {
+              id: 'data_quality' as const,
+              section: SECTION_ID.basis,
+              title: chapter.dataQuality.title,
+              amount: null,
+              rows: {},
+            },
+          ]
+        : []),
+      { id: DATA_SOURCES_TABLE_ID, section: SECTION_ID.basis, title: '', amount: null, rows: {} },
+    ])
+    return chapter.dataSources.rows
+      .flatMap((row) =>
+        row.cells.map((cell) => resolveReportText(cell, layout, DATA_SOURCES_TABLE_ID)),
+      )
+      .join(' | ')
   }
 
   it('data_quality abgewählt: die Datenquellen-Tabelle verweist NICHT mehr auf den Hinweis', () => {

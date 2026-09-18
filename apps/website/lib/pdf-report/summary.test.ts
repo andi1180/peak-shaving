@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import type { MonthlyTariffComparison } from 'shared'
 
-import { buildReportSummary } from './summary'
+import { SECTION_ID } from './content'
+import { reportLayoutOf } from './layout'
+import { resolveReportText } from './report-text'
+import { buildReportSummary, type ReportSummary } from './summary'
 import type { PdfReportAnalysis } from './types'
 
 /**
@@ -79,25 +82,52 @@ function analysisFor(withExisting: boolean): PdfReportAnalysis {
       einspeiseverguetungCtPerKwh: 7.2,
       billingModel: 'monthly_max_sum',
     },
-    dataQuality: { coveredDays: 365, coveredMonths: 12, gapsInterpolated: 0, largestGapSlots: 0, warnings: [] },
+    dataQuality: {
+      coveredDays: 365,
+      coveredMonths: 12,
+      gapsInterpolated: 0,
+      largestGapSlots: 0,
+      warnings: [],
+    },
     tariffOptimization: { computable: true, monthlyComparison: COMPARISON },
     ...(withExisting ? { existingBatteryAnalysis: { entry: ENTRY, addonScenarios: [] } } : {}),
   }
 }
 
+/**
+ * Stufe D — die Beschreibung von Kapitel 1, aus dem gebauten Kapitel selbst gebildet: dieselbe
+ * Reihenfolge, dieselben Zeilen. Von Hand hingeschrieben wäre sie eine zweite Behauptung darüber,
+ * was auf der Seite steht.
+ */
+function layoutFor(summary: ReportSummary) {
+  return reportLayoutOf(
+    summary.statements.map((statement) => ({
+      id: statement.id,
+      section: SECTION_ID.results,
+      title: statement.title,
+      amount: statement.amount ? statement.amount.caption : null,
+      rows: Object.fromEntries(
+        statement.rows.flatMap((r) => (r.key ? [[r.key, r.label] as const] : [])),
+      ),
+    })),
+  )
+}
+
+function loadShiftBody(withExisting: boolean): string {
+  const summary = buildReportSummary(analysisFor(withExisting), { source: 'net_signed' })
+  const loadShift = summary.statements.find((s) => s.id === 'load_shift')
+  return resolveReportText(loadShift?.body ?? '', layoutFor(summary), 'load_shift')
+}
+
 describe('load_shift — Verweis auf die Eigenverbrauchs-Zeile', () => {
   it('verweist in der Kassen-Fassung auf „Wert der Ladesteuerung" statt auf „Eigenverbrauch"', () => {
-    const summary = buildReportSummary(analysisFor(true), { source: 'net_signed' })
-    const loadShift = summary.statements.find((s) => s.id === 'load_shift')
+    const body = loadShiftBody(true)
 
-    expect(loadShift?.body).not.toContain('eigener Anteil („Eigenverbrauch")')
-    expect(loadShift?.body).toContain('Wert der Ladesteuerung" in der Aufschlüsselung oben')
+    expect(body).not.toContain('eigener Anteil („Eigenverbrauch")')
+    expect(body).toContain('Wert der Ladesteuerung" in der Aufschlüsselung oben')
   })
 
   it('bleibt in der §3.7-Fassung unverändert bei „Eigenverbrauch"', () => {
-    const summary = buildReportSummary(analysisFor(false), { source: 'net_signed' })
-    const loadShift = summary.statements.find((s) => s.id === 'load_shift')
-
-    expect(loadShift?.body).toContain('eigener Anteil („Eigenverbrauch")')
+    expect(loadShiftBody(false)).toContain('eigener Anteil („Eigenverbrauch")')
   })
 })

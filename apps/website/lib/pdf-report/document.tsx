@@ -28,13 +28,14 @@ import {
   RESULTS_SECTION,
   type ReportSection,
 } from './content'
-import { buildBasisChapter } from './basis'
-import { buildComparisonChapter } from './comparison'
+import { buildBasisChapter, DATA_SOURCES_TABLE_ID, TARIFF_COMPONENTS_TABLE_ID } from './basis'
+import { buildComparisonChapter, CANDIDATE_TABLE_ID } from './comparison'
 import type { ReportBuildContext } from './context'
 import { buildDetailChapter, buildMonthlyChapter } from './detail'
 import { buildInsightChapter } from './insight'
 import { buildRecommendationChapter } from './recommendation'
-import type { ReportBaukastenRegistry } from './registry'
+import type { ReportBaukastenId, ReportBaukastenRegistry } from './registry'
+import { resolveReportText, type ReportLayout } from './report-text'
 import {
   recordSectionPage,
   recordTotalPages,
@@ -1025,7 +1026,14 @@ function Notice({ notice }: { notice: ReportNotice }) {
  * einen Schutz behauptet, den sie nicht leistet, ist schlimmer als kein Schutz. Die Folge ist als
  * offener Punkt benannt (s. `ResultsChapter`).
  */
-function Statement({ statement }: { statement: ReportStatement }) {
+/**
+ * Stufe D — der Körper wird HIER aufgelöst und nicht in der Ableitung.
+ *
+ * ⚠ `statement.id` ist der Ursprung des Verweises, und ohne ihn gibt es kein „oben": eine
+ * Ortsangabe ist eine Aussage über ZWEI Bausteine. Deshalb reicht es nicht, den Text zu ersetzen —
+ * der Resolver muss wissen, wer spricht.
+ */
+function Statement({ statement, layout }: { statement: ReportStatement; layout: ReportLayout }) {
   return (
     <View style={styles.statement} wrap={false}>
       <Text style={styles.statementTitle}>{statement.title}</Text>
@@ -1045,7 +1053,9 @@ function Statement({ statement }: { statement: ReportStatement }) {
           ))}
         </View>
       )}
-      <Text style={styles.statementBody}>{statement.body}</Text>
+      <Text style={styles.statementBody}>
+        {resolveReportText(statement.body, layout, statement.id)}
+      </Text>
       {/*
         Die §3.8-Warnungen, je eine Zeile. Sie stehen NEBEN der Investition und nicht in ihr:
         „Betonsockel nötig (+€1800)" ist bereits in der Gesamtsumme enthalten — wer den Satz
@@ -1081,9 +1091,18 @@ function Statement({ statement }: { statement: ReportStatement }) {
  */
 function StatementTable({
   table,
+  from,
+  layout,
   allowPageBreak = false,
 }: {
   table: ReportTable
+  /**
+   * Stufe D — die Kennung DIESER Tabelle. Sie steht nicht im `ReportTable` (die drei Tabellen
+   * tragen ihre Überschrift ebenfalls im JSX, s. `ReportTable`), wird aber gebraucht: eine Zelle
+   * kann auf einen anderen Baustein zeigen, und „oben" ist eine Aussage über zwei.
+   */
+  from: ReportBaukastenId
+  layout: ReportLayout
   /**
    * D9 — DIESE EINE TABELLE DARF UMBRECHEN.
    *
@@ -1132,37 +1151,39 @@ function StatementTable({
       {(() => {
         let dataRow = -1
         return table.rows.map((row) =>
-        /* D9 — eine Gruppenüberschrift ist EINE Zelle über die volle Breite: die leeren Zellen
+          /* D9 — eine Gruppenüberschrift ist EINE Zelle über die volle Breite: die leeren Zellen
            daneben mitzurendern ergäbe Spaltenlinien unter einer Überschrift, die sie nicht führt. */
-        row.heading ? (
-          <View key={row.key} style={styles.tableGroupRow}>
-            <Text style={styles.tableGroupLabel}>{row.cells[0]}</Text>
-          </View>
-        ) : (
-          <View
-            key={row.key}
-            /* Dieselbe Überlegung wie am Kopf: eine gebrochene Zeile hinterlässt ihren Zebra-Ton
+          row.heading ? (
+            <View key={row.key} style={styles.tableGroupRow}>
+              <Text style={styles.tableGroupLabel}>
+                {resolveReportText(row.cells[0] ?? '', layout, from)}
+              </Text>
+            </View>
+          ) : (
+            <View
+              key={row.key}
+              /* Dieselbe Überlegung wie am Kopf: eine gebrochene Zeile hinterlässt ihren Zebra-Ton
                als Streifen auf der Folgeseite. Eine Tabellenzeile gehört ohnehin auf ein Blatt. */
-            wrap={false}
-            style={[styles.tableRow, (dataRow += 1) % 2 === 1 ? styles.tableRowZebra : {}]}
-          >
-            {row.cells.map((cell, index) => {
-              const column = table.columns[index]
-              return (
-                <Text
-                  key={column?.label ?? String(index)}
-                  style={[
-                    styles.tableCell,
-                    { flexGrow: column?.width ?? 1, flexBasis: 0 },
-                    column?.align === 'right' ? { textAlign: 'right' } : {},
-                  ]}
-                >
-                  {cell}
-                </Text>
-              )
-            })}
-          </View>
-        ),
+              wrap={false}
+              style={[styles.tableRow, (dataRow += 1) % 2 === 1 ? styles.tableRowZebra : {}]}
+            >
+              {row.cells.map((cell, index) => {
+                const column = table.columns[index]
+                return (
+                  <Text
+                    key={column?.label ?? String(index)}
+                    style={[
+                      styles.tableCell,
+                      { flexGrow: column?.width ?? 1, flexBasis: 0 },
+                      column?.align === 'right' ? { textAlign: 'right' } : {},
+                    ]}
+                  >
+                    {resolveReportText(cell, layout, from)}
+                  </Text>
+                )
+              })}
+            </View>
+          ),
         )
       })()}
     </View>
@@ -1199,16 +1220,13 @@ function StatementTable({
 function ResultsChapter({
   input,
   context,
+  layout,
 }: {
   input: PdfReportInput
   context: ReportBuildContext
+  layout: ReportLayout
 }) {
-  const summary = buildReportSummary(
-    input.analysis,
-    input.loadProfile,
-    input.estimatedPv,
-    context,
-  )
+  const summary = buildReportSummary(input.analysis, input.loadProfile, input.estimatedPv, context)
 
   return (
     <View style={styles.body}>
@@ -1242,7 +1260,7 @@ function ResultsChapter({
       ))}
 
       {summary.statements.map((statement) => (
-        <Statement key={statement.id} statement={statement} />
+        <Statement key={statement.id} statement={statement} layout={layout} />
       ))}
 
       <Text style={styles.footnote}>{RESULTS_FOOTNOTE}</Text>
@@ -1365,10 +1383,12 @@ function RecommendationChapter({
   input,
   charts,
   context,
+  layout,
 }: {
   input: PdfReportInput
   charts: ReportChartRasters
   context: ReportBuildContext
+  layout: ReportLayout
 }) {
   const chapter = buildRecommendationChapter(input.analysis, context)
 
@@ -1377,7 +1397,7 @@ function RecommendationChapter({
       <Text style={styles.h2}>{RECOMMENDATION_SECTION.title}</Text>
       <Text style={styles.lead}>{RECOMMENDATION_INTRO}</Text>
 
-      {chapter.recommendation && <Statement statement={chapter.recommendation} />}
+      {chapter.recommendation && <Statement statement={chapter.recommendation} layout={layout} />}
 
       <ChartFigure
         raster={charts.load}
@@ -1387,7 +1407,7 @@ function RecommendationChapter({
         missing={figureMissingText('Das Lastgang-Diagramm')}
       />
 
-      {chapter.loadControl && <Statement statement={chapter.loadControl} />}
+      {chapter.loadControl && <Statement statement={chapter.loadControl} layout={layout} />}
     </View>
   )
 }
@@ -1412,10 +1432,12 @@ function DetailChapter({
   input,
   charts,
   context,
+  layout,
 }: {
   input: PdfReportInput
   charts: ReportChartRasters
   context: ReportBuildContext
+  layout: ReportLayout
 }) {
   /* ⚠ `flowDay` kommt weiterhin aus der RASTERUNG und nicht aus dem Kontext — s. `context.ts`. */
   const chapter = buildDetailChapter(input.analysis, { flowDay: charts.flowDay }, context)
@@ -1433,7 +1455,7 @@ function DetailChapter({
            Bild ein Fehlschlag der Rasterung, und der bekommt den Fehlschlag-Satz. */
         missing={chapter.costMissing ?? figureMissingText('Der Kostenvergleich')}
       />
-      {chapter.cost?.statement && <Statement statement={chapter.cost.statement} />}
+      {chapter.cost?.statement && <Statement statement={chapter.cost.statement} layout={layout} />}
 
       <ChartFigure
         raster={charts.flow}
@@ -1457,7 +1479,15 @@ function DetailChapter({
  * (`buildMonthly`), nur mit dem anderen Wortlaut für die dritte Reihe. Zwei Fassungen liefen beim
  * nächsten Umformulieren auseinander.
  */
-function MonthlyChapter({ input, charts }: { input: PdfReportInput; charts: ReportChartRasters }) {
+function MonthlyChapter({
+  input,
+  charts,
+  layout,
+}: {
+  input: PdfReportInput
+  charts: ReportChartRasters
+  layout: ReportLayout
+}) {
   const chapter = buildMonthlyChapter(input.analysis)
 
   return (
@@ -1471,7 +1501,7 @@ function MonthlyChapter({ input, charts }: { input: PdfReportInput; charts: Repo
         note={chapter?.figure.note}
         missing={figureMissingText('Der Monatsvergleich')}
       />
-      {chapter && <Statement statement={chapter.statement} />}
+      {chapter && <Statement statement={chapter.statement} layout={layout} />}
     </View>
   )
 }
@@ -1601,11 +1631,13 @@ function InsightChapter({
   charts,
   context,
   registry,
+  layout,
 }: {
   input: PdfReportInput
   charts: ReportChartRasters
   context: ReportBuildContext
   registry: ReportBaukastenRegistry
+  layout: ReportLayout
 }) {
   const chapter = buildInsightChapter(input.analysis, context)
 
@@ -1636,7 +1668,7 @@ function InsightChapter({
           missing={chapter.hourFlowMissing ?? figureMissingText('Die Stunden-Heatmap')}
         />
       )}
-      {hourFlow && <Statement statement={hourFlow} />}
+      {hourFlow && <Statement statement={hourFlow} layout={layout} />}
 
       {showChargePrice && (
         <ChartFigure
@@ -1646,7 +1678,7 @@ function InsightChapter({
           missing={chapter.chargePriceMissing ?? figureMissingText('Der Ø-Ladepreis')}
         />
       )}
-      {chargePrice && <Statement statement={chargePrice} />}
+      {chargePrice && <Statement statement={chargePrice} layout={layout} />}
     </View>
   )
 }
@@ -1672,10 +1704,12 @@ function ComparisonChapter({
   input,
   charts,
   context,
+  layout,
 }: {
   input: PdfReportInput
   charts: ReportChartRasters
   context: ReportBuildContext
+  layout: ReportLayout
 }) {
   const chapter = buildComparisonChapter(input.analysis, context)
 
@@ -1693,8 +1727,10 @@ function ComparisonChapter({
         missing={chapter.figureMissing ?? figureMissingText('Die Grenznutzen-Kurve')}
       />
 
-      <Statement statement={chapter.statement} />
-      {chapter.table && <StatementTable table={chapter.table} />}
+      <Statement statement={chapter.statement} layout={layout} />
+      {chapter.table && (
+        <StatementTable table={chapter.table} from={CANDIDATE_TABLE_ID} layout={layout} />
+      )}
     </View>
   )
 }
@@ -1742,10 +1778,12 @@ function BasisChapter({
   input,
   context,
   registry,
+  layout,
 }: {
   input: PdfReportInput
   context: ReportBuildContext
   registry: ReportBaukastenRegistry
+  layout: ReportLayout
 }) {
   const chapter = buildBasisChapter(input, context)
 
@@ -1765,7 +1803,7 @@ function BasisChapter({
       <Text style={styles.h2}>{BASIS_SECTION.title}</Text>
       <Text style={styles.lead}>{BASIS_INTRO}</Text>
 
-      <Statement statement={chapter.assumptions} />
+      <Statement statement={chapter.assumptions} layout={layout} />
       {dataQuality && <Notice notice={dataQuality} />}
       {chapter.blocker && <Notice notice={chapter.blocker} />}
       {/* D5 — was die PV-Anlage im Lastgang gezeigt hat. Auch das eine Feststellung ÜBER die
@@ -1781,7 +1819,12 @@ function BasisChapter({
           den Stand, dann die Zeilen, für die er gilt. */}
       <View style={styles.statement}>
         <Text style={styles.statementTitle}>Tarifkomponenten</Text>
-        <StatementTable table={chapter.tariffComponents} allowPageBreak />
+        <StatementTable
+          table={chapter.tariffComponents}
+          from={TARIFF_COMPONENTS_TABLE_ID}
+          layout={layout}
+          allowPageBreak
+        />
       </View>
 
       {/* D9 — woher die Angaben stammen, Zeile für Zeile. Sie steht NACH den beiden
@@ -1789,7 +1832,12 @@ function BasisChapter({
           wurde, die Tabelle belegt ihn und alles daneben. */}
       <View style={styles.statement}>
         <Text style={styles.statementTitle}>Datenquellen</Text>
-        <StatementTable table={chapter.dataSources} allowPageBreak />
+        <StatementTable
+          table={chapter.dataSources}
+          from={DATA_SOURCES_TABLE_ID}
+          layout={layout}
+          allowPageBreak
+        />
       </View>
 
       {/* D9 — wie die einzelnen Zahlen zustande kamen. Die Überschrift hängt an der Liste und nicht
@@ -1839,6 +1887,7 @@ export function ReportDocument({
   charts,
   context,
   registry,
+  layout,
   agenda,
   sink,
 }: {
@@ -1860,6 +1909,12 @@ export function ReportDocument({
    * kommen weiterhin aus ihrer Kapitel-Fassade (s. `selectedStatement`).
    */
   registry: ReportBaukastenRegistry
+  /**
+   * Stufe D — die Beschreibung des zusammengestellten Dokuments, EINMAL je Erzeugung gebildet
+   * (`render.tsx` → `layout.ts`). Gegen sie lösen `Statement` und `StatementTable` ihre
+   * Querverweise auf; dieselbe Zusage und derselbe Zeitpunkt wie bei `context` und `registry`.
+   */
+  layout: ReportLayout
   agenda: AgendaPageNumbers
   sink: PageNumberSink
 }) {
@@ -1925,26 +1980,26 @@ export function ReportDocument({
       <Page size="A4" style={styles.page}>
         <PageFurniture sink={sink} docLabel={docLabel} />
         <SectionAnchor id={RESULTS_SECTION.id} sink={sink} />
-        <ResultsChapter input={input} context={context} />
+        <ResultsChapter input={input} context={context} layout={layout} />
       </Page>
 
       <Page size="A4" style={styles.page}>
         <PageFurniture sink={sink} docLabel={docLabel} />
         <SectionAnchor id={RECOMMENDATION_SECTION.id} sink={sink} />
-        <RecommendationChapter input={input} charts={charts} context={context} />
+        <RecommendationChapter input={input} charts={charts} context={context} layout={layout} />
       </Page>
 
       <Page size="A4" style={styles.page}>
         <PageFurniture sink={sink} docLabel={docLabel} />
         <SectionAnchor id={DETAIL_SECTION.id} sink={sink} />
-        <DetailChapter input={input} charts={charts} context={context} />
+        <DetailChapter input={input} charts={charts} context={context} layout={layout} />
       </Page>
 
       {hasMonthly && (
         <Page size="A4" style={styles.page}>
           <PageFurniture sink={sink} docLabel={docLabel} />
           <SectionAnchor id={MONTHLY_SECTION.id} sink={sink} />
-          <MonthlyChapter input={input} charts={charts} />
+          <MonthlyChapter input={input} charts={charts} layout={layout} />
         </Page>
       )}
 
@@ -1952,7 +2007,13 @@ export function ReportDocument({
         <Page size="A4" style={styles.page}>
           <PageFurniture sink={sink} docLabel={docLabel} />
           <SectionAnchor id={INSIGHT_SECTION.id} sink={sink} />
-          <InsightChapter input={input} charts={charts} context={context} registry={registry} />
+          <InsightChapter
+            input={input}
+            charts={charts}
+            context={context}
+            registry={registry}
+            layout={layout}
+          />
         </Page>
       )}
 
@@ -1960,7 +2021,7 @@ export function ReportDocument({
         <Page size="A4" style={styles.page}>
           <PageFurniture sink={sink} docLabel={docLabel} />
           <SectionAnchor id={COMPARISON_SECTION.id} sink={sink} />
-          <ComparisonChapter input={input} charts={charts} context={context} />
+          <ComparisonChapter input={input} charts={charts} context={context} layout={layout} />
         </Page>
       )}
 
@@ -1973,7 +2034,7 @@ export function ReportDocument({
       <Page size="A4" style={styles.page}>
         <PageFurniture sink={sink} docLabel={docLabel} />
         <SectionAnchor id={BASIS_SECTION.id} sink={sink} />
-        <BasisChapter input={input} context={context} registry={registry} />
+        <BasisChapter input={input} context={context} registry={registry} layout={layout} />
       </Page>
 
       {/*

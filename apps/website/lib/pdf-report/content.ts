@@ -261,8 +261,7 @@ export const COMPARISON_INTRO =
   'abschneiden.'
 
 /** Steht unter der Kapitelüberschrift — wörtlich wie im CSS-Weg (`print-methodology.tsx`). */
-export const METHODOLOGY_INTRO =
-  'Wie diese Zahlen entstanden sind — und wo ihre Grenzen liegen.'
+export const METHODOLOGY_INTRO = 'Wie diese Zahlen entstanden sind — und wo ihre Grenzen liegen.'
 
 export const METHODOLOGY_SECTION: ReportSection = {
   id: SECTION_ID.methodology,
@@ -293,6 +292,28 @@ export const BASIS_SECTION: ReportSection = {
   id: SECTION_ID.basis,
   level: 1,
   title: 'Annahmen und Datengrundlage',
+}
+
+/** Die Kennung eines Kapitels — die Werte von `SECTION_ID`. */
+export type ReportSectionKey = (typeof SECTION_ID)[keyof typeof SECTION_ID]
+
+/**
+ * Die acht Kapitel, über ihre Kennung erreichbar.
+ *
+ * ⚠ Stufe D bildet daraus die Ortsangabe „im Kapitel „X"" (`layout.ts`) — und zwar nach DEMSELBEN
+ * Muster, mit dem `RESULTS_FOOTNOTE` schon heute seinen Kapitelnamen bildet (`${METHODOLOGY_SECTION.title}`
+ * statt eines Literals). Das war bis Stufe D der EINZIGE aufgelöste Kapitelverweis im ganzen
+ * Dokument; die Bausteine schrieben den Titel aus (`comparison.ts`, „Empfehlung und Lastverlauf").
+ */
+export const REPORT_SECTIONS: Record<ReportSectionKey, ReportSection> = {
+  [SECTION_ID.results]: RESULTS_SECTION,
+  [SECTION_ID.recommendation]: RECOMMENDATION_SECTION,
+  [SECTION_ID.detail]: DETAIL_SECTION,
+  [SECTION_ID.monthly]: MONTHLY_SECTION,
+  [SECTION_ID.insight]: INSIGHT_SECTION,
+  [SECTION_ID.comparison]: COMPARISON_SECTION,
+  [SECTION_ID.methodology]: METHODOLOGY_SECTION,
+  [SECTION_ID.basis]: BASIS_SECTION,
 }
 
 /** Steht unter der Kapitelüberschrift. Sagt, worum es geht, nicht was auf der Seite steht. */
@@ -349,9 +370,7 @@ export type ReportChapterPresence = {
  * (`document.tsx`) bildet die Entscheidung EINMAL und gibt sie an Agenda UND Seitenbaum; zwei
  * getrennte Auswertungen ergäben einen Eintrag ohne Kapitel oder ein Kapitel ohne Eintrag.
  */
-export function buildReportAgenda(
-  presence: ReportChapterPresence,
-): readonly ReportSection[] {
+export function buildReportAgenda(presence: ReportChapterPresence): readonly ReportSection[] {
   return [
     RESULTS_SECTION,
     RECOMMENDATION_SECTION,

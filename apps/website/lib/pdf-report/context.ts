@@ -5,7 +5,12 @@ import { comparisonChartPlan, hasComparisonChapter, type ComparisonChartPlan } f
 import { detailChartPlan, hasMonthlyChapter, type DetailChartPlan } from './detail'
 import { insightChartPlan, type InsightChartPlan } from './insight'
 import type { ReportNotice } from './statement'
-import { isRealSavingsComparison, primaryEntryOf, recommendedEntryOf } from './summary'
+import {
+  primaryEntryOf,
+  recommendedEntryOf,
+  savingsPlacementOf,
+  type SavingsPlacement,
+} from './summary'
 import type { PdfReportInput } from './types'
 
 /**
@@ -42,8 +47,14 @@ export type ReportBuildContext = {
   primaryEntry: BatteryResultEntry | undefined
   /** Das empfohlene KATALOG-Gerät — im Bestandsfall ein anderes als `primaryEntry`. */
   recommendedEntry: BatteryRoiEntry | undefined
-  /** Ob `savings` in der Kassen-Fassung steht — die Verzweigung dreier Bausteine. */
-  isRealSavingsComparison: boolean
+  /**
+   * WELCHE Fassung von `savings` im Dokument steht — die Verzweigung dreier Bausteine.
+   *
+   * ⚠ Stufe D: ein `boolean` konnte den dritten Zustand („steht gar nicht") nicht ausdrücken und
+   * liess den `false`-Zweig auf §3.7-Zeilen zeigen, die es dann ebenso wenig gibt. S.
+   * `SavingsPlacement` in `summary.ts`.
+   */
+  savingsPlacement: SavingsPlacement
   /** Welcher Kosten-Chart und welcher Energiefluss-Tag (Kapitel 3). */
   detailPlan: DetailChartPlan
   /** Welche der beiden Ladeverhalten-Grafiken entstehen (Kapitel 5). */
@@ -84,11 +95,12 @@ export type ReportBuildContext = {
 export function buildReportContext(input: PdfReportInput): ReportBuildContext {
   const analysis = input.analysis
   const insightPlan = insightChartPlan(analysis)
+  const primaryEntry = primaryEntryOf(analysis)
 
   return {
-    primaryEntry: primaryEntryOf(analysis),
+    primaryEntry,
     recommendedEntry: recommendedEntryOf(analysis),
-    isRealSavingsComparison: isRealSavingsComparison(analysis),
+    savingsPlacement: savingsPlacementOf(analysis, primaryEntry),
     detailPlan: detailChartPlan(analysis),
     insightPlan,
     comparisonPlan: comparisonChartPlan(analysis),

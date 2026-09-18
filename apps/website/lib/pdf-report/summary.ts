@@ -21,6 +21,7 @@ import {
 } from '@/lib/format'
 import { HINDSIGHT_NOTE } from '@/lib/report-copy'
 import type { ReportBuildContext } from './context'
+import { amount, ref, row, t, REF_LABEL, REF_PLACE, type ReportText } from './report-text'
 import type { ReportNotice, ReportRow, ReportStatement, ReportTone } from './statement'
 import type { PdfReportAnalysis } from './types'
 
@@ -101,13 +102,19 @@ export type ReportSummary = {
   statements: SummaryStatement[]
 }
 
-/** Vorzeichenbewusst: ein Minus bleibt in der Zahl stehen, die Farbe folgt ihm. */
-function deltaRow(label: string, hint: string, eur: number): SummaryRow {
-  return { label, hint, value: formatEur(eur), tone: eur < 0 ? 'warning' : 'positive' }
+/**
+ * Vorzeichenbewusst: ein Minus bleibt in der Zahl stehen, die Farbe folgt ihm.
+ *
+ * ⚠ Stufe D — der SCHLÜSSEL steht vorn und ist nicht die Beschriftung: fremde Bausteine zeigen auf
+ * diese Zeilen („die Zeile „Wert der Ladesteuerung""), und über ihren Text adressiert drehte eine
+ * Umformulierung den Verweis still ins Leere (s. `ReportRow.key`).
+ */
+function deltaRow(key: string, label: string, hint: string, eur: number): SummaryRow {
+  return { key, label, hint, value: formatEur(eur), tone: eur < 0 ? 'warning' : 'positive' }
 }
 
-function savingRow(label: string, eur: number): SummaryRow {
-  return { label, value: formatEur(eur), tone: 'positive' }
+function savingRow(key: string, label: string, eur: number): SummaryRow {
+  return { key, label, value: formatEur(eur), tone: 'positive' }
 }
 
 /**
@@ -176,6 +183,32 @@ function buildHeadline(current: PdfReportAnalysis['current']): SummaryHeadline {
  * `recommendation.ts` für dieselbe Verzweigung an anderer Stelle gebraucht (dort gibt es kein
  * `entry`, an dem sich das sonst ablesen liesse).
  */
+/**
+ * Stufe D — WELCHE Fassung von `savings` in diesem Dokument steht.
+ *
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * ⚠ DREI ZUSTÄNDE, WEIL ES DREI GIBT — und der dritte ist der Grund für diesen Typ
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * Bis Stufe D reiste hier ein `boolean`. Er beantwortete EINE Frage („Kassen-Fassung oder
+ * §3.7-Aufschlüsselung?") und wurde für DREI benutzt: ob der Leistungspreis in der Kopfzahl schon
+ * steckt (fachlich), und ob es eine Zeile „Wert der Ladesteuerung" bzw. „Eigenverbrauch" gibt, auf
+ * die ein Satz zeigen kann (eine EXISTENZfrage). Sobald eine Auswahl `savings` ganz entfernen
+ * kann, ist `false` für die beiden letzten falsch: sein Zweig zeigt auf die §3.7-Zeilen, die es
+ * dann ebenso wenig gibt.
+ *
+ * ⚠ `absent` entsteht heute schon: ohne durchgerechneten Kandidaten lässt Kapitel 1 ALLE vier
+ * Aussagen weg (`buildReportSummary`). Der Zustand war bloss nicht benennbar.
+ */
+export type SavingsPlacement = 'cash' | 'attribution' | 'absent'
+
+export function savingsPlacementOf(
+  analysis: PdfReportAnalysis,
+  entry: BatteryResultEntry | undefined,
+): SavingsPlacement {
+  if (!entry) return 'absent'
+  return isRealSavingsComparison(analysis) ? 'cash' : 'attribution'
+}
+
 export function isRealSavingsComparison(analysis: PdfReportAnalysis): boolean {
   const comparison =
     analysis.tariffOptimization?.computable === true
@@ -220,16 +253,19 @@ export function buildSavings(
       },
       rows: [
         deltaRow(
+          'tariff_switch',
           'Reiner Tarifwechsel',
           'Ihr Tarif heute gegenüber aWATTar ohne jede Steuerung',
           real.tariffSwitchEur,
         ),
         deltaRow(
+          'control_value',
           'Wert der Ladesteuerung',
           'aWATTar ohne Steuerung gegenüber aWATTar mit Ihrem Speicher',
           real.controlValueEur,
         ),
         {
+          key: 'total',
           label: 'Gesamt',
           value: formatEur(real.totalEur),
           tone: cheaper ? 'positive' : 'warning',
@@ -249,10 +285,11 @@ export function buildSavings(
 
   const isExisting = analysis.existingBatteryAnalysis != null
   const rows: SummaryRow[] = [
-    savingRow('Spitzenkappung (Leistungspreis)', entry.leistungspreisSavingPerYear),
-    savingRow('Eigenverbrauch', entry.selfConsumptionSavingPerYear),
-    savingRow('Tarifbewusstes Laden', entry.loadShiftSavingPerYear),
+    savingRow('peak', 'Spitzenkappung (Leistungspreis)', entry.leistungspreisSavingPerYear),
+    savingRow('self_consumption', 'Eigenverbrauch', entry.selfConsumptionSavingPerYear),
+    savingRow('load_shift', 'Tarifbewusstes Laden', entry.loadShiftSavingPerYear),
     {
+      key: 'total',
       label: 'Gesamt',
       value: formatEur(entry.totalSavingPerYear),
       tone: 'positive',
@@ -310,24 +347,29 @@ export function buildSavings(
 export function buildPeakShaving(
   analysis: PdfReportAnalysis,
   entry: BatteryResultEntry,
-  savingsIsRealComparison: boolean,
+  placement: SavingsPlacement,
 ): SummaryStatement | null {
   if (entry.leistungspreisSavingPerYear <= 0) return null
 
   /*
-   * ⚠ ZWEI VERSCHIEDENE WAHRHEITEN, JE NACHDEM WELCHE KOPFZAHL OBEN STEHT — und beide müssen
-   * dastehen, sonst rechnet jemand falsch zusammen. Steht oben die KASSEN-Grösse aus dem
-   * Monatsvergleich, ist der Leistungspreis darin NICHT enthalten (der Vergleich führt
+   * ⚠ ZWEI VERSCHIEDENE WAHRHEITEN, JE NACHDEM WELCHE FASSUNG VON `savings` IM DOKUMENT STEHT —
+   * und beide müssen dastehen, sonst rechnet jemand falsch zusammen. Steht die KASSEN-Grösse aus
+   * dem Monatsvergleich, ist der Leistungspreis darin NICHT enthalten (der Vergleich führt
    * ausschliesslich Arbeits- und Netz-Arbeitspreis samt Grundgebühren) — er kommt hinzu, darf aber
-   * nicht addiert werden, weil er eine Jahresgrösse ist und die Zahl oben ein Zeitraumbetrag.
-   * Steht oben die §3.7-Aufschlüsselung, ist er dort bereits die erste Zeile.
+   * nicht addiert werden, weil er eine Jahresgrösse ist und jene Zahl ein Zeitraumbetrag. Steht die
+   * §3.7-Aufschlüsselung, ist er dort bereits die erste Zeile.
+   *
+   * ── ⚠ STUFE D: „OBEN" WIRD NICHT MEHR GESCHRIEBEN, SONDERN ERRECHNET ─────────────────────────
+   * Der Verweis zeigt auf die KOPFZAHL von `savings` (`amount`), nicht auf den Baustein: „die Zahl"
+   * ist genau sie. Wo `savings` steht, entscheidet die Leseordnung (`layout.ts`); in der heutigen
+   * Anordnung ergibt das wortgleich „der Zahl oben".
    */
-  const relation = savingsIsRealComparison
-    ? 'Dieser Betrag steckt NICHT in der Zahl oben: der Monatsvergleich führt nur Arbeits- und ' +
-      'Netz-Arbeitspreis samt Grundgebühren. Er kommt hinzu — addieren lässt er sich trotzdem ' +
-      'nicht, weil er eine Jahresgrösse ist und die Zahl oben ein Zeitraumbetrag.'
-    : 'Dieser Betrag ist in der Gesamtersparnis oben bereits als erste Zeile enthalten und kommt ' +
-      'nicht zusätzlich obendrauf.'
+  const relation: ReportText =
+    placement === 'cash'
+      ? t`Dieser Betrag steckt NICHT in ${savingsAmount(`der Zahl ${REF_PLACE}`)}: der Monatsvergleich führt nur Arbeits- und Netz-Arbeitspreis samt Grundgebühren. Er kommt hinzu — addieren lässt er sich trotzdem nicht, weil er eine Jahresgrösse ist und ${savingsAmount(`die Zahl ${REF_PLACE}`)} ein Zeitraumbetrag.`
+      : placement === 'attribution'
+        ? t`Dieser Betrag ist in ${savingsAmount(`der Gesamtersparnis ${REF_PLACE}`)} bereits als erste Zeile enthalten und kommt nicht zusätzlich obendrauf.`
+        : /* `savings` steht nicht im Dokument — dann gibt es auch nichts zu verrechnen. */ ''
 
   return {
     id: 'peak_shaving',
@@ -338,14 +380,27 @@ export function buildPeakShaving(
       tone: 'positive',
     },
     rows: [
-      { label: 'Abgerechneter Leistungswert heute', value: formatKw(analysis.current.billedKw), tone: 'neutral' },
+      {
+        label: 'Abgerechneter Leistungswert heute',
+        value: formatKw(analysis.current.billedKw),
+        tone: 'neutral',
+      },
       { label: 'Mit dem Speicher', value: formatKw(entry.newBilledKw), tone: 'neutral' },
     ],
-    body:
-      'Der Leistungspreis hängt an Ihrem Netzbetreiber und nicht an Ihrem Stromvertrag — dieser ' +
-      'Anteil bleibt auch dann bestehen, wenn Sie den Lieferanten wechseln. ' +
-      relation,
+    body: t`Der Leistungspreis hängt an Ihrem Netzbetreiber und nicht an Ihrem Stromvertrag — dieser Anteil bleibt auch dann bestehen, wenn Sie den Lieferanten wechseln. ${relation}`,
   }
+}
+
+/**
+ * Der Verweis auf die Kopfzahl von `savings`, in der Formulierung des jeweiligen Satzes.
+ *
+ * ⚠ DIE ERSATZFORMULIERUNG IST HEUTE UNERREICHBAR und steht trotzdem da: beide Aufrufer verzweigen
+ * bereits an `SavingsPlacement`, und `absent` schliesst `savings` aus. Sie ist die Zusage für den
+ * Tag, an dem eine Auswahl den Baustein entfernen kann — ohne sie bliebe ein Satz stehen, der auf
+ * eine Zahl zeigt, die das Dokument nicht zeigt.
+ */
+function savingsAmount(say: string) {
+  return ref(amount('savings'), say, 'der Gesamtersparnis dieses Reports')
 }
 
 /**
@@ -364,7 +419,7 @@ export function buildPeakShaving(
 export function buildLoadShift(
   analysis: PdfReportAnalysis,
   entry: BatteryResultEntry,
-  savingsIsRealComparison: boolean,
+  placement: SavingsPlacement,
 ): SummaryStatement | null {
   if (analysis.tariffOptimization?.computable !== true) return null
 
@@ -386,12 +441,13 @@ export function buildLoadShift(
    * der beiden Zahlen wegzulassen — weglassen hiesse, die Frage „was zahle ich real" oder die Frage
    * „was ist die Steuerung wert" unbeantwortet zu lassen.
    */
-  const reconcile = savingsIsRealComparison
-    ? ' Die Zeile „Wert der Ladesteuerung" in der Aufschlüsselung oben beantwortet dieselbe Frage ' +
-      'aus der Kassensicht des Monatsvergleichs; diese Zahl hier stammt aus der Zuordnung der ' +
-      'einzelnen Kilowattstunden. Die beiden Wege unterscheiden sich um wenige Euro — das ist kein ' +
-      'Rechenfehler, sondern der Abstand zwischen einer Kassen- und einer Zuordnungsgrösse.'
-    : ''
+  const reconcile =
+    placement === 'cash'
+      ? ' Die Zeile „Wert der Ladesteuerung" in der Aufschlüsselung oben beantwortet dieselbe Frage ' +
+        'aus der Kassensicht des Monatsvergleichs; diese Zahl hier stammt aus der Zuordnung der ' +
+        'einzelnen Kilowattstunden. Die beiden Wege unterscheiden sich um wenige Euro — das ist kein ' +
+        'Rechenfehler, sondern der Abstand zwischen einer Kassen- und einer Zuordnungsgrösse.'
+      : ''
 
   /*
    * ⚠ „EIGENVERBRAUCH" GIBT ES NUR IN DER §3.7-AUFSCHLÜSSELUNG. Steht oben die Kassen-Fassung
@@ -399,11 +455,25 @@ export function buildLoadShift(
    * bereits in „Wert der Ladesteuerung" mit drin, weil diese Zeile aus dem tatsächlichen
    * Netzbezug gebildet ist und jeden Effekt des Speichers auf die Kassenzahlen abbildet.
    */
-  const selfConsumptionNote = savingsIsRealComparison
-    ? 'was Ihre PV-Erzeugung über den Speicher zusätzlich einspart, steckt in der Zeile „Wert der ' +
-      'Ladesteuerung" in der Aufschlüsselung oben mit drin'
-    : 'was Ihre PV-Erzeugung über den Speicher zusätzlich einspart, steht als eigener Anteil ' +
-      '(„Eigenverbrauch") daneben'
+  /*
+   * ── ⚠ STUFE D: DIE ZEILE WIRD ÜBER IHREN SCHLÜSSEL BENANNT, NICHT ÜBER IHREN TEXT ────────────
+   * Beide Fassungen zeigen auf eine Zeile von `savings`, und WELCHE es gibt, ist genau der
+   * Unterschied zwischen ihnen: die Kassen-Fassung führt `control_value`, die §3.7-Fassung
+   * `self_consumption`. Die Beschriftung kommt aus der Zeile selbst — eine dort umformulierte
+   * Zeile zieht den Satz hier mit, statt ihn ins Leere zeigen zu lassen.
+   */
+  const selfConsumptionNote: ReportText =
+    placement === 'cash'
+      ? t`was Ihre PV-Erzeugung über den Speicher zusätzlich einspart, ${ref(
+          row('savings', 'control_value'),
+          `steckt in der Zeile „${REF_LABEL}" in der Aufschlüsselung ${REF_PLACE} mit drin`,
+          'steckt in der Gesamtersparnis mit drin',
+        )}`
+      : t`was Ihre PV-Erzeugung über den Speicher zusätzlich einspart, ${ref(
+          row('savings', 'self_consumption'),
+          `steht als eigener Anteil („${REF_LABEL}") daneben`,
+          'steckt in der Gesamtersparnis mit drin',
+        )}`
 
   return {
     id: 'load_shift',
@@ -414,14 +484,7 @@ export function buildLoadShift(
       tone: 'positive',
     },
     rows: [],
-    body:
-      'Für jede Viertelstunde Ihres Lastgangs ist der echte Börsenpreis jener Stunde plus das ' +
-      'Netzentgelt Ihres Netzbetreibers angesetzt, statt eines festen Arbeitspreises. Die Zahl ' +
-      'sagt damit: so viel wäre in diesem Zeitraum möglich gewesen — sie ist kein Versprechen für ' +
-      'die Zukunft, denn die Marktpreise von morgen kennt niemand. Sie zeigt ausschliesslich den ' +
-      `Gewinn aus den Preisunterschieden; ${selfConsumptionNote}.` +
-      annualized +
-      reconcile,
+    body: t`Für jede Viertelstunde Ihres Lastgangs ist der echte Börsenpreis jener Stunde plus das Netzentgelt Ihres Netzbetreibers angesetzt, statt eines festen Arbeitspreises. Die Zahl sagt damit: so viel wäre in diesem Zeitraum möglich gewesen — sie ist kein Versprechen für die Zukunft, denn die Marktpreise von morgen kennt niemand. Sie zeigt ausschliesslich den Gewinn aus den Preisunterschieden; ${selfConsumptionNote}.${annualized}${reconcile}`,
   }
 }
 
@@ -689,12 +752,13 @@ export function buildStandardProfileNotice(
  * sondern eine andere Art von Grundlage — und der einzige Weg für einen Kunden, dessen Lastgang
  * gar keine Einspeisung führt (Delta 9b-1/B22b, der wichtigste Anwendungsfall des Generators).
  */
-export function buildEstimatedPvNotice(summary: EstimatedPvSummary | undefined): ReportNotice | null {
+export function buildEstimatedPvNotice(
+  summary: EstimatedPvSummary | undefined,
+): ReportNotice | null {
   if (!summary) return null
 
   const spread = summary.spread
-  const arrays =
-    summary.arrayCount > 1 ? `, aufgeteilt auf ${summary.arrayCount} Modulflächen` : ''
+  const arrays = summary.arrayCount > 1 ? `, aufgeteilt auf ${summary.arrayCount} Modulflächen` : ''
 
   return {
     id: 'estimated_pv',
@@ -798,12 +862,12 @@ export function buildReportSummary(
    * bereits ein. Aus dem Kontext gelesen ist er report-weit derselbe wie der, an dem
    * `recommendation.ts` seinen Abgleichsatz aufhängt.
    */
-  const isRealComparison = context ? context.isRealSavingsComparison : savings.isRealComparison
+  const placement = context ? context.savingsPlacement : savingsPlacementOf(analysis, entry)
 
   const statements = [
     savings.statement,
-    buildPeakShaving(analysis, entry, isRealComparison),
-    buildLoadShift(analysis, entry, isRealComparison),
+    buildPeakShaving(analysis, entry, placement),
+    buildLoadShift(analysis, entry, placement),
     buildAddon(analysis),
   ].filter((s): s is SummaryStatement => s !== null)
 

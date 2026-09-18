@@ -17,6 +17,7 @@ import {
 
 import { formatEur, formatEur2, formatPercent } from '@/lib/format'
 import type { ReportBuildContext } from './context'
+import { block, ref, t, REF_PLACE, type ReportText } from './report-text'
 import type {
   ReportNotice,
   ReportRow,
@@ -264,10 +265,7 @@ function formatRange(range: TariffPriceRange, timeZone: string): string {
  * gilt unverändert", und ein „nebenan" gibt es auf einem Blatt nicht. Die Aussage — die
  * Spitzenkappung hängt am Leistungspreis und nicht an den Börsenpreisen — bleibt wortgleich.
  */
-export function buildBlocker(
-  analysis: PdfReportAnalysis,
-  timeZone: string,
-): ReportNotice | null {
+export function buildBlocker(analysis: PdfReportAnalysis, timeZone: string): ReportNotice | null {
   const status = analysis.tariffOptimization
   if (!status || status.computable) return null
 
@@ -545,7 +543,7 @@ function formatIsoDate(value: string): string | null {
   }).format(ms)
 }
 
-function dataRow(key: string, cells: [string, string, string]): ReportTableRow {
+function dataRow(key: string, cells: [ReportText, ReportText, ReportText]): ReportTableRow {
   return { key, cells }
 }
 
@@ -567,16 +565,6 @@ function loadProfileRows(
   period: string | null,
   coveredDays: number,
   estimatedPv: EstimatedPvSummary | undefined,
-  /*
-   * ⚠ AM HINWEIS GEMESSEN, NICHT AN SEINEN VORBEDINGUNGEN — der Verweis „wie im
-   * Datenqualitäts-Hinweis oben" gilt nur, wo dieser Hinweis auch steht.
-   *
-   * ⚠ Bis Baukasten C war das hier `dq.warnings.length > 0`, also eine NACHBILDUNG der Bedingung
-   * von `buildDataQuality`. Seit der Admin den Hinweis abwählen kann, ist die Nachbildung falsch:
-   * sie stellte genau den mit PR #273 behobenen Fehler wieder her, nur über die Auswahl. Der
-   * Aufrufer reicht deshalb durch, OB der Hinweis im Dokument steht (`dataQualityNoticeOf`).
-   */
-  hasDataQualityNotice: boolean,
 ): ReportTableRow[] {
   const rows: ReportTableRow[] = [
     groupRow('group_load', 'Lastgang'),
@@ -584,10 +572,19 @@ function loadProfileRows(
       'Viertelstundenwerte des Netzbezugs',
       `Grundlage aller Zahlen dieses Reports. Herkunft: ${LOAD_SOURCE_LABEL[loadProfile.source]}. ` +
         `Monats- und Tagesgrenzen in Ortszeit ${loadProfile.timezoneMeta}.`,
-      `${period ?? NOT_RECORDED} · ${coveredDays} abgedeckte Tage ` +
-        (hasDataQualityNotice
-          ? '(Slot-Zählung: Messwerte ÷ 96, wie im Datenqualitäts-Hinweis oben)'
-          : '(Slot-Zählung: Messwerte ÷ 96)'),
+      /*
+       * ── ⚠ STUFE D: DIE EINZIGE TABELLENZELLE MIT EINEM QUERVERWEIS ──────────────────────────
+       * Bis Baukasten C war die Bedingung hier `dq.warnings.length > 0`, also eine NACHBILDUNG der
+       * Bedingung von `buildDataQuality` — im warnungsfreien Report zeigte der Verweis ins Leere
+       * (behoben mit PR #273). Baukasten C ersetzte sie durch einen durchgereichten `boolean`, den
+       * der Aufrufer richtig setzen MUSSTE. Jetzt fragt der Verweis selbst: steht der Hinweis in
+       * diesem Dokument? Es gibt keine zweite Bedingung mehr, die jemand falsch setzen kann.
+       */
+      t`${`${period ?? NOT_RECORDED} · ${coveredDays} abgedeckte Tage `}(Slot-Zählung: Messwerte ÷ 96${ref(
+        block('data_quality'),
+        `, wie im Datenqualitäts-Hinweis ${REF_PLACE}`,
+        '',
+      )})`,
     ]),
   ]
 
@@ -795,15 +792,12 @@ export const DATA_SOURCES_TABLE_ID = 'table_data_sources'
 /**
  * Die Tabelle. Sie steht IMMER — es gibt keinen Report ohne Lastgang, Tarif und Gerätefrage.
  *
- * ⚠ `hasDataQualityNotice` ist der einzige Eingang, der NICHT aus `input` stammt, und das ist
- * Absicht: gemeint ist „steht der Datenqualitäts-Hinweis in DIESEM Dokument", und darüber
- * entscheidet seit Baukasten C auch die Admin-Auswahl. Hier ein zweites Mal abgeleitet liefe die
- * Zelle beim nächsten Umbau gegen den Hinweis daneben aus (s. `loadProfileRows`).
+ * ⚠ Sie nimmt seit Stufe D nur noch `input`: die Frage „steht der Datenqualitäts-Hinweis in DIESEM
+ * Dokument" beantwortet der Verweis in der Zelle selbst, gegen die Beschreibung des
+ * zusammengestellten Dokuments (`layout.ts`). Der durchgereichte `boolean` war die letzte Stelle,
+ * an der ein Aufrufer sie falsch beantworten konnte.
  */
-export function buildDataSources(
-  input: PdfReportInput,
-  hasDataQualityNotice: boolean,
-): ReportTable {
+export function buildDataSources(input: PdfReportInput): ReportTable {
   return {
     /*
      * ⚠ Die Gewichte sind ein VERHÄLTNIS und keine pt-Angaben (s. `ReportTableColumn.width`). Die
@@ -821,7 +815,6 @@ export function buildDataSources(
         input.period,
         input.analysis.dataQuality.coveredDays,
         input.estimatedPv,
-        hasDataQualityNotice,
       ),
       ...tariffRows(input.tariffSource, input.tariffProvenance),
       ...batteryRowsForSources(input.analysis),
@@ -1263,7 +1256,7 @@ export function buildBasisChapter(
     tariffSource: buildTariffSource(input.tariffSource, input.netzbetreiber),
     tariffVintage: input.tariffVintage,
     tariffComponents: buildTariffComponents(input),
-    dataSources: buildDataSources(input, dataQuality !== null),
+    dataSources: buildDataSources(input),
     methodPerMetric: buildMethodPerMetric(
       input.analysis,
       pvOutage,

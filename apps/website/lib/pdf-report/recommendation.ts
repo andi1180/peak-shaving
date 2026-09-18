@@ -3,7 +3,12 @@ import type { BatteryResultEntry, BatteryRoiEntry } from 'shared'
 import { formatEur, formatKw, formatKwh1, formatYears } from '@/lib/format'
 import type { ReportBuildContext } from './context'
 import type { ReportRow, ReportStatement } from './statement'
-import { isRealSavingsComparison, primaryEntryOf, recommendedEntryOf } from './summary'
+import {
+  primaryEntryOf,
+  recommendedEntryOf,
+  savingsPlacementOf,
+  type SavingsPlacement,
+} from './summary'
 import type { PdfReportAnalysis } from './types'
 
 /**
@@ -254,11 +259,16 @@ function buildChartLegend(
 export function buildLoadControl(
   analysis: PdfReportAnalysis,
   primary: BatteryResultEntry | undefined,
+  /*
+   * ⚠ Stufe D: HEREINGEREICHT und nicht mehr hier abgeleitet. Die eigene Ableitung
+   * (`isRealSavingsComparison(analysis)`) beantwortete die Frage aus `analysis` — sie sagte also
+   * „Kassen-Fassung", auch wenn das Dokument `savings` gar nicht zeigt. Der Wert kommt aus dem
+   * Kontext, wie jede andere report-weite Grösse (B1).
+   */
+  placement: SavingsPlacement,
 ): ReportStatement | null {
   if (analysis.tariffOptimization?.computable !== true) return null
   if (!primary) return null
-
-  const savingsIsRealComparison = isRealSavingsComparison(analysis)
 
   const annualized =
     primary.annualizationFactor > 1
@@ -272,16 +282,18 @@ export function buildLoadControl(
    * §3.7-Aufschlüsselung und existiert in der Kassen-Fassung (Monatsvergleich) nicht — dort steht
    * der Effekt bereits in „Wert der Ladesteuerung" mit drin.
    */
-  const embeddedNote = savingsIsRealComparison
-    ? 'Er steckt in der Zeile „Wert der Ladesteuerung" in der Aufschlüsselung der ' +
-      'Kernergebnis-Seite bereits mit drin und kommt nicht zusätzlich obendrauf'
-    : 'Er steckt in der Gesamtersparnis bereits als „tarifbewusstes Laden" und kommt nicht ' +
-      'zusätzlich obendrauf'
+  const embeddedNote =
+    placement === 'cash'
+      ? 'Er steckt in der Zeile „Wert der Ladesteuerung" in der Aufschlüsselung der ' +
+        'Kernergebnis-Seite bereits mit drin und kommt nicht zusätzlich obendrauf'
+      : 'Er steckt in der Gesamtersparnis bereits als „tarifbewusstes Laden" und kommt nicht ' +
+        'zusätzlich obendrauf'
 
-  const selfConsumptionNote = savingsIsRealComparison
-    ? 'was Ihre PV-Erzeugung über den Speicher einspart, steckt in derselben Zeile mit drin'
-    : 'was Ihre PV-Erzeugung über den Speicher einspart, steht als eigener Anteil ' +
-      '(„Eigenverbrauch") daneben'
+  const selfConsumptionNote =
+    placement === 'cash'
+      ? 'was Ihre PV-Erzeugung über den Speicher einspart, steckt in derselben Zeile mit drin'
+      : 'was Ihre PV-Erzeugung über den Speicher einspart, steht als eigener Anteil ' +
+        '(„Eigenverbrauch") daneben'
 
   return {
     id: 'load_control',
@@ -312,10 +324,11 @@ export function buildRecommendationChapter(
   /* ⚠ `context ? … : …` statt `??` — beide Einträge sind selbst gültig `undefined`. */
   const recommended = context ? context.recommendedEntry : recommendedEntryOf(analysis)
   const primary = context ? context.primaryEntry : primaryEntryOf(analysis)
+  const placement = context ? context.savingsPlacement : savingsPlacementOf(analysis, primary)
 
   return {
     recommendation: recommended ? buildRecommendation(analysis, recommended) : null,
     chart: buildChartLegend(analysis, primary),
-    loadControl: buildLoadControl(analysis, primary),
+    loadControl: buildLoadControl(analysis, primary, placement),
   }
 }

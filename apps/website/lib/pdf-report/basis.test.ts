@@ -2,7 +2,11 @@ import { describe, expect, it } from 'vitest'
 import type { PvOutageMonth } from 'engine'
 import type { LoadProfile, NetzbetreiberId, TariffSourceRef } from 'shared'
 
-import { buildBasisChapter } from './basis'
+import { buildBasisChapter, DATA_SOURCES_TABLE_ID } from './basis'
+import { SECTION_ID } from './content'
+import { reportLayoutOf } from './layout'
+import { resolveReportText, type ReportText } from './report-text'
+import type { ReportNotice } from './statement'
 import { TARIFF_SOURCE_UNTRACKED } from './types'
 import type { PdfReportAnalysis, PdfReportInput, PdfReportTariffSource } from './types'
 
@@ -236,9 +240,41 @@ function dataSourcesFor(provenance: PdfReportInput['tariffProvenance']) {
   return buildBasisChapter(input).dataSources
 }
 
-/** Die dritte Spalte („Zeitraum / Stand") einer Zeile — dort steht jede Herkunftsangabe. */
-function vintageOf(table: ReturnType<typeof dataSourcesFor>, key: string): string {
-  return table.rows.find((row) => row.key === key)?.cells[2] ?? ''
+/**
+ * Die Beschreibung des Schlusskapitels, so weit die Datenquellen-Tabelle sie braucht: steht der
+ * Datenqualitäts-Hinweis über ihr oder nicht? Stufe D löst den Verweis in der Zelle dagegen auf.
+ */
+function layoutFor(dataQuality: ReportNotice | null) {
+  return reportLayoutOf([
+    ...(dataQuality
+      ? [
+          {
+            id: 'data_quality' as const,
+            section: SECTION_ID.basis,
+            title: dataQuality.title,
+            amount: null,
+            rows: {},
+          },
+        ]
+      : []),
+    {
+      id: DATA_SOURCES_TABLE_ID,
+      section: SECTION_ID.basis,
+      title: '',
+      amount: null,
+      rows: {},
+    },
+  ])
+}
+
+/** Die dritte Spalte („Zeitraum / Stand") einer Zeile — aufgelöst wie im Dokument. */
+function vintageOf(
+  table: ReturnType<typeof dataSourcesFor>,
+  key: string,
+  dataQuality: ReportNotice | null = null,
+): string {
+  const cell = table.rows.find((row) => row.key === key)?.cells[2] ?? ''
+  return resolveReportText(cell, layoutFor(dataQuality), DATA_SOURCES_TABLE_ID)
 }
 
 describe('buildBasisChapter — Datenquellen-Tabelle (D9)', () => {
@@ -279,7 +315,7 @@ describe('buildBasisChapter — Datenquellen-Tabelle (D9)', () => {
     expect(vintageOf(withoutWarnings, 'load_readings')).not.toContain('Datenqualitäts-Hinweis')
     expect(vintageOf(withoutWarnings, 'load_readings')).toContain('Slot-Zählung')
 
-    const table = buildBasisChapter({
+    const chapter = buildBasisChapter({
       title: 'Wirtschaftlichkeitsanalyse Batteriespeicher',
       subtitle: 'Auf Basis Ihres Viertelstunden-Lastgangs',
       period: '01.01.2025 – 31.12.2025',
@@ -292,8 +328,10 @@ describe('buildBasisChapter — Datenquellen-Tabelle (D9)', () => {
       tariffSource: TARIFF_SOURCE_UNTRACKED,
       tariffVintage: null,
       tariffProvenance: { gridTariffValidFrom: [], invoicePeriods: [] },
-    }).dataSources
-    expect(vintageOf(table, 'load_readings')).toContain('wie im Datenqualitäts-Hinweis oben')
+    })
+    expect(vintageOf(chapter.dataSources, 'load_readings', chapter.dataQuality)).toContain(
+      'wie im Datenqualitäts-Hinweis oben',
+    )
   })
 
   it('behält „nicht nachverfolgt", solange keine Preisblatt-Zeile vorliegt', () => {
@@ -389,7 +427,7 @@ function componentsFor(analysis: PdfReportAnalysis, tariffSource: PdfReportTarif
 function componentRow(
   table: ReturnType<typeof componentsFor>,
   key: string,
-): string[] | undefined {
+): ReportText[] | undefined {
   return table.rows.find((row) => row.key === key)?.cells
 }
 
@@ -525,7 +563,10 @@ const PROJECTION: NonNullable<PdfReportAnalysis['annualProjection']> = {
   },
 }
 
-function basisFor(analysis: PdfReportAnalysis, pv?: Pick<PdfReportInput, 'hasPv' | 'pvOutageMonths'>) {
+function basisFor(
+  analysis: PdfReportAnalysis,
+  pv?: Pick<PdfReportInput, 'hasPv' | 'pvOutageMonths'>,
+) {
   return buildBasisChapter({
     title: 'Wirtschaftlichkeitsanalyse Batteriespeicher',
     subtitle: 'Auf Basis Ihres Viertelstunden-Lastgangs',
