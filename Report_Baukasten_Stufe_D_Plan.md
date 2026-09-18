@@ -98,7 +98,7 @@ gezählt, dokumentieren aber dieselbe Kopplung und sind beim Umbau mit nachzuzie
 |---|---|---|---|---|---|
 | 15 | 225–226 | `monthly_comparison`, `closing` (Bestand) | „Die **Kernergebnis-Seite** zeigt die DIFFERENZEN zwischen diesen drei Summen; **hier** stehen sie absolut." | `savings` (Kassen-Fassung) | N |
 | 16 | 227–229 | `monthly_comparison`, `closing` (Katalog) | „Der **„Wert der Ladesteuerung"** auf der **Kernergebnis-Seite** ist NICHT aus diesen drei Summen gebildet…" | `load_shift` bzw. `savings`-Zeile | N + Z |
-| 17 | 254–256 | `monthly_comparison`, `body` | „NICHT enthalten ist der Leistungspreis — er steht als Jahreszahl auf der **Kernergebnis-Seite**" | `peak_shaving` | N |
+| 17 | 254–256 | `monthly_comparison`, `body` | „NICHT enthalten ist der Leistungspreis — er steht als Jahreszahl auf der **Kernergebnis-Seite**" | ⚠ **Kopfzahl**, nicht `peak_shaving` — s. §1.7 | N |
 | 18 | 234–236 | `monthly_comparison`, `figure.caption` | „Die drei Balken eines Monats stehen in derselben Reihenfolge wie **die Zeilen darunter**" | die `rows` DESSELBEN Bausteins | P |
 | 19 | 301–303 | Kostenverlauf, `figure.note` | „Der Schnittpunkt liegt bei … — dieselbe Zahl wie **im Kapitel davor**, **hier** als Verlauf." | `recommendation` (Kap. 2) | P |
 
@@ -155,7 +155,7 @@ Bildgeometrie.
 | 24 | 133–135 | `assumptions`, `body` | „Die Tarifgrössen selbst stehen **weiter unten** in der **Tabelle „Tarifkomponenten"**, mit ihrer Herkunft daneben." | `table_tariff_components` | P + N |
 | 25 | 288–290 | `tariff_blocker`, `hints[1]` | „Die Empfehlung und **alle Zahlen der vorigen Kapitel** gelten unverändert." | Kapitel 1–7 pauschal | P |
 | 26 | 589 | `table_data_sources`, Zelle „Zeitraum / Stand" | „(Slot-Zählung: Messwerte ÷ 96, **wie im Datenqualitäts-Hinweis oben**)" | `data_quality` | P + N |
-| 27 | 1039–1041 | `method_current_tariff`, `body` | „Der Leistungspreis steht bewusst nicht darin — er ist die eigene Jahreszahl **weiter vorne** und würde hier ein zweites Mal zählen." | `peak_shaving` (Kap. 1) | P |
+| 27 | 1039–1041 | `method_current_tariff`, `body` | „Der Leistungspreis steht bewusst nicht darin — er ist die eigene Jahreszahl **weiter vorne** und würde hier ein zweites Mal zählen." | ⚠ **Kopfzahl**, nicht `peak_shaving` — s. §1.7 | P |
 | 28 | 1046–1047 | `method_spot_uncontrolled`, `body` | „**Dieselbe Rechnung** über dieselben Viertelstunden, nur tritt an die Stelle …" | `method_current_tariff` | P (ohne Ortswort) |
 | 29 | 1186–1188 | `limitations`, `hints[letzter]` | „Die **Tabelle „Tarifkomponenten"** zeigt die erfassten Parameter…" | `table_tariff_components` | N |
 
@@ -176,7 +176,27 @@ ist der Sorte-N-Fall in seiner billigsten Form und braucht keine Registry.
 **Stand**ort und Anlagendaten"; `:1051` „es wird nichts versch**oben**". Vier Treffer des
 Suchmusters, null Verweise.
 
-### 1.7 Zusammenfassung
+### 1.7 Korrektur, gemessen am 18.09.2026 (nach PR #280)
+
+**Die Fundstellen 17 und 27 zeigen auf die KOPFZAHL und nicht auf `peak_shaving`.** Beide sagen
+„der Leistungspreis … als Jahreszahl", und das ist `SummaryHeadline.costValue`
+(„Leistungspreis-Kosten pro Jahr", `summary.ts`) — nicht der Ersparnis-Baustein, der eine andere
+Grösse trägt.
+
+Der Unterschied ist nicht akademisch: die Kopfzahl steht **unbedingt**, `peak_shaving` entfällt,
+sobald der Speicher den abgerechneten Leistungswert nicht senkt. An `peak_shaving` gehängt
+verschwänden beide Sätze ausgerechnet in den Fällen, in denen die Zahl, auf die sie zeigen, sehr
+wohl dasteht — eine Migration „nach Plan" hätte hier einen Fehler eingebaut statt einen behoben.
+
+Damit hängen **fünf statt drei** Fundstellen an der offenen Entscheidung aus §2.2 Punkt 3 (die
+Kopfzahl ist kein Baustein): 6, 7, 8 — und zusätzlich 17 und 27.
+
+⚠ Zugleich ist 27 die einzige verbliebene Fundstelle mit einer echten RELATIVEN Kapitelangabe
+(„weiter vorne"), 19 („im Kapitel davor") die zweite. Eine Relativform im Resolver hätte damit
+heute **keinen erreichbaren Aufrufer**: 27 braucht vorher die Kopfzahl-Kennung, 19 braucht
+`ReportFigure` als Textträger. Sie wird deshalb erst mit ihrem ersten Satz gebaut.
+
+### 1.8 Zusammenfassung
 
 | Datei | Fundstellen | davon P | N | Z | A |
 |---|---:|---:|---:|---:|---:|
@@ -188,12 +208,14 @@ Suchmusters, null Verweise.
 | `basis.ts` | 6 | 5 | 3 | – | – |
 | **gesamt** | **29** | **21** | **11** | **10** | **2** |
 
-(Mehrfachzählung: eine Fundstelle kann mehrere Sorten tragen.)
+(Mehrfachzählung: eine Fundstelle kann mehrere Sorten tragen. Die Ziel-Zuordnung von 17 und 27 ist
+in §1.7 korrigiert.)
 
 **Ziel-Verteilung:** 13 der 29 zeigen auf `savings` oder eine seiner Zeilen, 5 auf
-`recommendation`, 3 auf die Kopfzahl, 3 auf `table_tariff_components`, je 1 auf `addon`,
-`load_shift`, `peak_shaving`, `data_quality`, `method_current_tariff`, die Kandidatentabelle, die
-Grenznutzen-Kurve (2×) und „alle vorigen Kapitel".
+`recommendation`, **5 auf die Kopfzahl** (6, 7, 8, 17, 27 — s. §1.7), 3 auf
+`table_tariff_components`, je 1 auf `addon`, `load_shift`, `data_quality`,
+`method_current_tariff`, die Kandidatentabelle, die Grenznutzen-Kurve (2×) und „alle vorigen
+Kapitel".
 
 ---
 
@@ -277,6 +299,7 @@ Daraus bildet der Resolver je Verweis die Formulierung:
 | Ziel im selben Kapitel, **nach** dem Verweis | „weiter unten" |
 | Ziel in einem **früheren** Kapitel | „im Kapitel „<Titel>"" (Titel aus `content.ts`, nie als Literal) |
 | Ziel in einem **späteren** Kapitel | „im Kapitel „<Titel>"" — dieselbe Form, damit kein „weiter hinten" entsteht, das eine Seitenzahl suggeriert |
+| Ziel in **Kapitel 1** (nachgetragen, PR #281) | der Verweisname des Kapitels („Kernergebnis-Seite", `ReportSection.reference`) statt einer Richtung: Kapitel 1 steht unbedingt und immer als Erstes, da ist nichts zu berechnen. ⚠ Trägt das Kapitel des Ziels keinen Verweisnamen, weicht der Verweis auf seine Ersatzfassung aus, statt generisch zu ersetzen — „auf der Kapitel „X"" wäre grammatisch falsch und als Verweisfehler unkenntlich. |
 | Ziel ist eine **Zeile/Spalte** | „die Zeile „<Beschriftung>"" + die Ortsangabe des tragenden Bausteins |
 | Ziel **nicht vorhanden** | s. 2.4 |
 

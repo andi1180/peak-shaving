@@ -4,7 +4,7 @@ import { sumCovered } from 'shared'
 import { formatEur, formatYears } from '@/lib/format'
 import { monthlyBatteryRef } from '@/lib/report-copy'
 import type { ReportBuildContext } from './context'
-import { block, ref, t, type ReportText } from './report-text'
+import { block, ref, t, REF_SECTION, type ReportText } from './report-text'
 import type { ReportFigure, ReportRow, ReportStatement } from './statement'
 import { recommendedEntryOf } from './summary'
 import type { PdfReportAnalysis } from './types'
@@ -228,12 +228,12 @@ export function buildMonthly(
   const closing: ReportText = isExisting
     ? t`${ref(
         block('savings'),
-        'Die Kernergebnis-Seite zeigt die DIFFERENZEN zwischen diesen drei Summen; hier stehen sie absolut.',
+        `Die ${REF_SECTION} zeigt die DIFFERENZEN zwischen diesen drei Summen; hier stehen sie absolut.`,
         'Hier stehen die drei Summen absolut.',
       )}`
     : t`${ref(
         block('load_shift'),
-        'Der „Wert der Ladesteuerung" auf der Kernergebnis-Seite ist NICHT aus diesen drei Summen gebildet, sondern aus der Zuordnung einzelner Kilowattstunden — ein anderer Rechenweg auf denselben Zeitraum, der zu einer leicht abweichenden Zahl führt.',
+        `Der „Wert der Ladesteuerung" auf der ${REF_SECTION} ist NICHT aus diesen drei Summen gebildet, sondern aus der Zuordnung einzelner Kilowattstunden — ein anderer Rechenweg auf denselben Zeitraum, der zu einer leicht abweichenden Zahl führt.`,
         'Die drei Summen stehen hier absolut.',
       )}`
 
