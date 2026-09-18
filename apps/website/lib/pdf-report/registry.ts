@@ -355,7 +355,9 @@ export function buildReportRegistry(
      * Tabelle zieht `hasComparison` in beiden Varianten nach sich.
      */
     statement('addon_none', () =>
-      context.hasComparison && !hasTable ? buildVerdict(comparison.horizonYears) : null,
+      context.hasComparison && !hasTable
+        ? buildVerdict(comparison.considered, comparison.horizonYears)
+        : null,
     ),
     statement('addon_table', () =>
       hasTable && comparison.variant === 'addon'

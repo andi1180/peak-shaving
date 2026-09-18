@@ -20,6 +20,22 @@ import type { ReportText } from './report-text'
 export type ReportTone = 'positive' | 'warning' | 'neutral'
 
 /**
+ * Der Ton der EINEN grossen Zahl einer Aussage — B3-2a.
+ *
+ * ── ⚠ WARUM `negative` HIER STEHT UND NICHT IN `ReportTone` ───────────────────────────────────
+ * Ein vierter Wert im Grundtyp wäre eine pauschale Freigabe: `ReportRow.tone` bekäme ihn
+ * (`TONE_COLOR` färbt damit jeden Zeilenwert), und `ReportNotice.tone` ist `Exclude<…, 'positive'>`
+ * — ein roter Hinweiskasten entstünde also allein daraus, dass jemand den Grundtyp erweitert hat.
+ * Gebraucht wird er an GENAU EINER Stelle: dem Verdikt „Nein" des Zusatzspeicher-Klarsatzes
+ * (`buildVerdict`, `comparison.ts`), wo die Zahl keine Zahl ist, sondern eine Absage.
+ *
+ * ⚠ `warning` taugt dafür nicht: es steht für einen Betrag, der in die falsche Richtung zeigt
+ * (`theme.ts`), und ist Amber. Das Zielbild setzt das Verdikt in `#b91c1c` — dieselbe Farbe, mit
+ * der der Report Kosten ausweist.
+ */
+export type ReportAmountTone = Exclude<ReportTone, 'neutral'> | 'negative'
+
+/**
  * Was unter einem Bild steht: die Bildunterschrift und, wo es etwas zu sagen gibt, ein leiserer
  * Zusatz.
  *
@@ -68,7 +84,13 @@ export type ReportStatement = {
   /** Stabil — zur Wiedererkennung in Prüfläufen, nicht im Dokument sichtbar. */
   id: string
   title: string
-  amount: { value: string; caption: string; tone: Exclude<ReportTone, 'neutral'> } | null
+  /**
+   * ⚠ `caption` ist die BEZUGSGRÖSSE der Zahl und darf nur dort leer bleiben, wo es keine gibt —
+   * beim Verdikt „Nein", das für sich steht. Leer heisst „es gibt keine", nicht „wir zeigen sie
+   * hier nicht": `layout.ts` behandelt sie dann als abwesend, damit kein Verweis auf „die Zahl
+   * „"" auflösen kann.
+   */
+  amount: { value: string; caption: string; tone: ReportAmountTone } | null
   rows: ReportRow[]
   /** Stufe D — darf einen Querverweis tragen; aufgelöst wird in `document.tsx`. */
   body: ReportText

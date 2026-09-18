@@ -439,6 +439,25 @@ describe('Report-Baukasten-Registry (B2)', () => {
     /* Der dritte Zweig desselben Kapitels: ohne wirtschaftliches Zusatzgerät der Klarsatz. */
     expect(registryFor(BLOCKER_FALL).get('addon_none').build()).not.toBeNull()
   })
+
+  /*
+   * B3-2a — `ReportAmountTone` ist um `negative` erweitert worden, und zwar für GENAU EINE
+   * Aussage. Geprüft wird das über alle Fälle und alle Bausteine: eine Erweiterung, die sich
+   * still auch an `savings` oder der Empfehlung einnistet, färbte dort einen Betrag rot, den der
+   * Report bisher als Ersparnis ausweist.
+   */
+  it('der Kostenton der Kopfzahl entsteht nur beim Verdikt', () => {
+    const rot: string[] = []
+    for (const [label, input] of FAELLE) {
+      const registry = registryFor(input)
+      for (const entry of registry.entries) {
+        if (entry.form !== 'statement') continue
+        const built = entry.build()
+        if (built?.amount?.tone === 'negative') rot.push(`${label}/${entry.id}`)
+      }
+    }
+    expect(rot).toEqual(['Blocker/addon_none'])
+  })
 })
 
 /* ────────────────────────────────────────────────────────────────────────────────────────────────
