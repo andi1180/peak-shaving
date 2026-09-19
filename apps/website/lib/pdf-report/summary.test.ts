@@ -167,3 +167,46 @@ describe('Leistungspreis-Block', () => {
     expect(summary.notices.map((n) => n.id)).not.toContain('partial_year')
   })
 })
+
+/**
+ * Beide Hinweise hängen strukturell NUR an der Datenqualität (Lückenlänge bzw. Herkunft des
+ * Lastgangs) und nicht am Tarif — ohne Leistungspreis feuern sie also weiterhin, und ihr Verweis
+ * auf „oben" zeigte bis hierher auf einen Kasten, den `buildHeadline` gar nicht mehr liefert.
+ */
+function analysisWithGap(withLeistungspreis: boolean): PdfReportAnalysis {
+  const base = analysisFor(false)
+  return {
+    ...base,
+    current: {
+      ...base.current,
+      leistungspreisCostPerYear: withLeistungspreis ? base.current.leistungspreisCostPerYear : 0,
+    },
+    /* Über `LARGE_GAP_SLOTS_THRESHOLD` (4 Wochen à 96 Slots) — 30 Tage am Stück. */
+    dataQuality: { ...base.dataQuality, largestGapSlots: 2880 },
+  }
+}
+
+describe('Datenqualitäts-Hinweise ohne Leistungspreis', () => {
+  const bodiesFor = (withLeistungspreis: boolean) =>
+    buildReportSummary(analysisWithGap(withLeistungspreis), { source: 'standard_profile' }).notices
+
+  it('feuern beide auch ohne Leistungspreis — aber ohne Verweis auf den Kasten', () => {
+    const notices = bodiesFor(false)
+
+    expect(notices.map((n) => n.id)).toEqual(['standard_profile', 'large_gap'])
+    for (const notice of notices) {
+      expect(`${notice.body} ${notice.hints.join(' ')}`).not.toContain('oben')
+    }
+  })
+
+  it('behalten den Verweis, wo es den Kasten gibt', () => {
+    const notices = bodiesFor(true)
+
+    expect(notices.find((n) => n.id === 'large_gap')?.body).toContain(
+      'der abgerechnete Leistungswert oben',
+    )
+    expect(notices.find((n) => n.id === 'standard_profile')?.body).toContain(
+      'Die oben gezeigten Leistungswerte',
+    )
+  })
+})
