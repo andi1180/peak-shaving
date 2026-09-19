@@ -31,16 +31,13 @@ import {
   buildAddon,
   buildEstimatedPvNotice,
   buildLargeGapNotice,
-  buildLoadShift,
   buildPartialYearNotice,
-  buildPeakShaving,
-  buildSavings,
   buildStandardProfileNotice,
 } from './summary'
 import type { PdfReportInput } from './types'
 
 /**
- * Report-Baukasten B2 — der KATALOG: alle 28 Bausteine eines Reports, über ihre stabile `id`
+ * Report-Baukasten B2 — der KATALOG: alle 25 Bausteine eines Reports, über ihre stabile `id`
  * ansprechbar.
  *
  * ══════════════════════════════════════════════════════════════════════════════════════════════
@@ -62,7 +59,7 @@ import type { PdfReportInput } from './types'
  *
  * ── ⚠ EIGNUNG BLEIBT AM ERZEUGER: `build()` LIEFERT `null` ────────────────────────────────────
  * Es gibt bewusst KEINE vorgelagerte Prüfung „ist dieser Baustein für diesen Fall zulässig". Für
- * 25 der 28 Bausteine existiert ein solches Prädikat nirgends — die Bedingung lebt als frühes
+ * 22 der 25 Bausteine existiert ein solches Prädikat nirgends — die Bedingung lebt als frühes
  * `return null` im Erzeuger, und `basis.ts` benennt das ausdrücklich als Regel („am HINWEIS
  * gemessen, nicht an seinen Vorbedingungen: eine Bedingung, ein Ort"). Sie zu verdoppeln hiesse,
  * 25 Bedingungen an zwei Orten zu führen, von denen der nächste Umbau einen anfasst. Eine
@@ -89,21 +86,22 @@ import type { PdfReportInput } from './types'
 export type ReportBaukastenForm = 'statement' | 'notice' | 'table' | 'method'
 
 /**
- * Die 28 stabilen Kennungen.
+ * Die 25 stabilen Kennungen.
  *
  * ⚠ EIN LITERAL-UNION UND KEIN `string` — dieselbe Überlegung wie bei `SummaryStatement['id']`
  * (`summary.ts`): ein Tippfehler in einer Kennung ist damit ein Compile-Fehler und nicht ein
  * Baustein, den niemand wiederfindet.
  *
- * ⚠ 28 Kennungen auf 25 Erzeuger: `savings` und `addon` haben je zwei Erzeugungsstellen INNERHALB
- * einer Funktion, `addon_table`/`catalog_alternatives` teilen sich eine (s. dort), und die drei
- * Tabellen hatten bis B2 gar keine.
+ * ⚠ `addon` hat zwei Erzeugungsstellen INNERHALB einer Funktion, `addon_table`/
+ * `catalog_alternatives` teilen sich eine (s. dort), und die drei Tabellen hatten bis B2 gar keine.
+ *
+ * ⚠ DIE ZWEI TEXTBLÖCKE DER ZUSAMMENFASSUNG STEHEN NICHT HIER, und das ist dieselbe Grenze wie bei
+ * den zwei Kopfzahlen: sie tragen weder Titel noch Betrag noch Zeilen und sind damit keine der vier
+ * Formen, die `document.tsx` rendert. Ein Katalog-Eintrag für sie wäre eine Auswahl-Zusage, die die
+ * Seite nicht einlösen kann — der Fliesstext ist die Seite, nicht ein Baustein darauf.
  */
 export type ReportBaukastenId =
-  /* Kapitel 1 — Kernergebnisse */
-  | 'savings'
-  | 'peak_shaving'
-  | 'load_shift'
+  /* Kapitel 1 — Zusammenfassung */
   | 'addon'
   | 'standard_profile'
   | 'estimated_pv'
@@ -173,7 +171,7 @@ export type ReportBaukastenEntry =
 
 export type ReportBaukastenRegistry = {
   /**
-   * Alle 28 Einträge, in Kapitel- und Leserichtung.
+   * Alle 25 Einträge, in Kapitel- und Leserichtung.
    *
    * ⚠ Stufe D LIEST diese Reihenfolge als die Leseordnung des Dokuments (`layout.ts`) — bis dahin
    * war sie eine Ordnungshilfe. Sie muss deshalb der Folge im JSX entsprechen; `limitations` stand
@@ -188,13 +186,10 @@ export type ReportBaukastenRegistry = {
  * In welchem Kapitel ein Baustein steht.
  *
  * ⚠ EINE TABELLE UND KEIN ARGUMENT JE EINTRAG: die Zuordnung ist eine Eigenschaft der Kennung und
- * gehört neben den Union, nicht 28-mal in die Einträge. `monthly_comparison` ist die Ausnahme —
+ * gehört neben den Union, nicht 25-mal in die Einträge. `monthly_comparison` ist die Ausnahme —
  * ein Erzeuger, zwei einander ausschliessende Kapitel — und bekommt seins beim Bauen übergeben.
  */
 const SECTION_OF: Record<ReportBaukastenId, ReportSectionKey> = {
-  savings: SECTION_ID.results,
-  peak_shaving: SECTION_ID.results,
-  load_shift: SECTION_ID.results,
   addon: SECTION_ID.results,
   standard_profile: SECTION_ID.results,
   estimated_pv: SECTION_ID.results,
@@ -253,7 +248,7 @@ const method = (
  *
  * ── ⚠ WARUM SIE `input` UND KONTEXT NIMMT UND NICHT NUR DEN KONTEXT ───────────────────────────
  * `ReportBuildContext` führt ausschliesslich ABGELEITETE Zwischenwerte und ausdrücklich nicht die
- * Eingabe (s. `context.ts`) — sieben der 28 Bausteine lesen aber direkt am Eingang: der Lastgang
+ * Eingabe (s. `context.ts`) — sieben der 25 Bausteine lesen aber direkt am Eingang: der Lastgang
  * (`standard_profile`), die geschätzte PV (`estimated_pv`), die Zeitzone (`tariff_blocker`), die
  * PV-Monate (`method_pv_outage`) und die beiden Tabellen des Schlusskapitels. Den Eingang in den
  * Kontext zu heben wäre eine Erweiterung von B1 für eine Frage, die B1 nicht stellt; an der
@@ -266,14 +261,13 @@ export function buildReportRegistry(
   const analysis = input.analysis
 
   /*
-   * ⚠ Die Fassade von Kapitel 1 lässt ALLE vier Aussagen weg, wenn es keinen primären Block gibt
-   * (leerer Katalog) — nicht nur die drei, die `entry` brauchen. Für `addon` ist die Bedingung
-   * beweisbar folgenlos (ohne Bestandsanlage gibt es keinen primären Block, und ohne primären
-   * Block gibt es keine Bestandsanlage), sie steht hier trotzdem: geprüft wird gegen die Fassade,
-   * und eine Abweichung „die heute nichts ausmacht" ist genau die Sorte, die morgen etwas ausmacht.
+   * ⚠ Die Fassade von Kapitel 1 lässt `addon` weg, wenn es keinen primären Block gibt (leerer
+   * Katalog). Die Bedingung ist beweisbar folgenlos (ohne Bestandsanlage gibt es keinen primären
+   * Block, und ohne primären Block gibt es keine Bestandsanlage), sie steht hier trotzdem: geprüft
+   * wird gegen die Fassade, und eine Abweichung „die heute nichts ausmacht" ist genau die Sorte,
+   * die morgen etwas ausmacht.
    */
   const entry = context.primaryEntry
-  const placement = context.savingsPlacement
 
   const comparison = comparisonSelection(analysis)
   const hasTable = comparison.shown.length > 0
@@ -282,12 +276,10 @@ export function buildReportRegistry(
     /*
      * ── Kapitel 1 ─────────────────────────────────────────────────────────────────────────────
      *
-     * ⚠ DIE VIER HINWEISE STEHEN VOR DEN VIER AUSSAGEN, weil sie im Dokument davor stehen:
-     * `ResultsChapter` rendert Kopfzahl → Hinweise → Aussagen, denn die Hinweise QUALIFIZIEREN die
-     * Kopfzahl und wären drei Seiten weiter hinten wertlos (s. `buildNotices` in `summary.ts`).
-     * Bis Stufe D standen sie hier hinter den Aussagen; das fiel nicht auf, weil `entries` nur eine
-     * Ordnungshilfe war. Seit `layout.ts` daraus die LESEORDNUNG liest, wäre es ein Verweis, der
-     * „weiter unten" sagt, wo „oben" richtig ist — derselbe stille Fehler wie bei `limitations`.
+     * ⚠ DIE VIER HINWEISE STEHEN VOR `addon`, weil sie im Dokument davor stehen: `ResultsChapter`
+     * rendert Kopfzahlen → Hinweise → Fliesstext → Kasten. Seit `layout.ts` aus dieser Liste die
+     * LESEORDNUNG liest, wäre eine andere Reihenfolge ein Verweis, der „weiter unten" sagt, wo
+     * „oben" richtig ist — derselbe stille Fehler wie bei `limitations`.
      */
     notice('standard_profile', () =>
       buildStandardProfileNotice(input.loadProfile, analysis.current),
@@ -295,9 +287,6 @@ export function buildReportRegistry(
     notice('estimated_pv', () => buildEstimatedPvNotice(input.estimatedPv)),
     notice('partial_year', () => buildPartialYearNotice(analysis)),
     notice('large_gap', () => buildLargeGapNotice(analysis)),
-    statement('savings', () => (entry ? buildSavings(analysis, entry).statement : null)),
-    statement('peak_shaving', () => (entry ? buildPeakShaving(analysis, entry, placement) : null)),
-    statement('load_shift', () => (entry ? buildLoadShift(analysis, entry, placement) : null)),
     statement('addon', () => (entry ? buildAddon(analysis) : null)),
 
     /* ── Kapitel 2 ─────────────────────────────────────────────────────────────────────────── */
@@ -305,7 +294,7 @@ export function buildReportRegistry(
       const recommended = context.recommendedEntry
       return recommended ? buildRecommendation(analysis, recommended) : null
     }),
-    statement('load_control', () => buildLoadControl(analysis, context.primaryEntry, placement)),
+    statement('load_control', () => buildLoadControl(analysis, context.primaryEntry)),
 
     /*
      * ── Kapitel 3 ODER 4: EIN Eintrag, zwei Quellen ───────────────────────────────────────────
@@ -422,16 +411,13 @@ export function buildReportRegistry(
 }
 
 /**
- * Die 28 Kennungen als Laufzeitliste.
+ * Die 25 Kennungen als Laufzeitliste.
  *
  * ⚠ Sie steht hier und nicht in der Registry: ein Prüflauf, der die Vollständigkeit der Registry
  * aus der Registry selbst läse, prüfte sie gegen sich. Der Typ `ReportBaukastenId` und diese Liste
  * werden getrennt geführt und gegeneinander gemessen — ein fehlender Eintrag fällt damit auf.
  */
 export const REPORT_BAUKASTEN_IDS = [
-  'savings',
-  'peak_shaving',
-  'load_shift',
   'addon',
   'standard_profile',
   'estimated_pv',

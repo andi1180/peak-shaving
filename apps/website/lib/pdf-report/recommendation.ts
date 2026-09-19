@@ -2,14 +2,9 @@ import type { BatteryResultEntry, BatteryRoiEntry } from 'shared'
 
 import { formatEur, formatKw, formatKwh1, formatYears } from '@/lib/format'
 import type { ReportBuildContext } from './context'
-import { block, ref, row, t, REF_LABEL, REF_SECTION, type ReportText } from './report-text'
+import { block, ref, t, REF_SECTION } from './report-text'
 import type { ReportPoint, ReportRow, ReportStatement } from './statement'
-import {
-  primaryEntryOf,
-  recommendedEntryOf,
-  savingsPlacementOf,
-  type SavingsPlacement,
-} from './summary'
+import { primaryEntryOf, recommendedEntryOf } from './summary'
 import type { PdfReportAnalysis } from './types'
 
 /**
@@ -31,25 +26,16 @@ import type { PdfReportAnalysis } from './types'
  *   • die **Ladesteuerungs-Aussage** entfällt vollständig bei
  *     `tariffOptimization?.computable !== true` (Delta 15 Regel C).
  *
- * ── ⚠ WAS DIESES KAPITEL BEWUSST NICHT WIEDERHOLT ─────────────────────────────────────────────
- * Die Kernergebnis-Seite (B23c-1) trägt bereits die Ersparnis-Zahlen samt Aufschlüsselung, den
- * Wert der Ladesteuerung und — im Bestandsfall — die reale Gegenüberstellung zum heutigen Tarif.
- * Was hier NEU ist, ist die Kaufentscheidung (Investition, Amortisation, Netto über den Horizont,
- * die §3.8-Warnungen) und die Erklärung, wie die Ladesteuerung zu ihrer Zahl kommt.
+ * ── ⚠ DIE LADESTEUERUNGS-AUSSAGE TRÄGT SEIT DEM ZUSAMMENFASSUNGS-UMBAU WIEDER IHRE KOPFZAHL ───
+ * Sie hatte bis dahin bewusst keine: der Betrag stand bit-identisch auf der Kernergebnis-Seite, und
+ * zwei gleich grosse Beträge unter zwei ähnlichen Überschriften laden dazu ein, sie zu addieren.
+ * Jene Seite trägt seit dem Umbau nur noch EINE Ersparnis-Aussage, und zwar als Spanne über die
+ * Tarifwege (Ein-Spanne-Regel D8) — der Ladesteuerungs-Betrag steht dort nicht mehr. Ohne Kopfzahl
+ * erklärte dieser Abschnitt danach die Herkunft einer Zahl, die im ganzen Dokument nicht vorkommt.
  *
- * Die Ladesteuerungs-Aussage trägt deshalb ausdrücklich KEINE Kopfzahl: sie wäre bit-identisch mit
- * der auf der Kernergebnis-Seite (dasselbe Feld, dieselbe Formatierung), und zwei gleich grosse
- * Beträge unter zwei ähnlichen Überschriften laden dazu ein, sie zu addieren. Aus demselben Grund
- * fehlt hier die Warnung „aWATTar wäre derzeit teurer": sie ist rechnerisch dieselbe Aussage wie
- * die Kernergebnis-Zeile „Was aWATTar Sie zusätzlich kosten würde" (`surcharge = −totalEur`,
- * dieselben drei Summen) — zweimal gedruckt sähe sie wie zwei verschiedene Befunde aus.
- *
- * ── DER KATALOG-FALL BEKOMMT HIER SEINE KAUFAUSSAGE ───────────────────────────────────────────
- * D10 führte als offenen Punkt, dass die Kernergebnis-Seite im Katalog-Fall nichts zur
- * Kaufentscheidung sagt. Dieses Kapitel schliesst das: die Empfehlungs-Aussage steht in BEIDEN
- * Fällen, im Bestandsfall in der Rahmung des Bildschirm-Reports („Falls Sie stattdessen neu kaufen
- * würden") — wortgleich zur dortigen Sektionsüberschrift, damit derselbe Kunde in beiden
- * Dokumenten dieselbe Frage beantwortet bekommt.
+ * Was hier NEU bleibt, ist die Kaufentscheidung (Investition, Amortisation, Netto über den
+ * Horizont, die §3.8-Warnungen). Die Empfehlungs-Aussage steht in BEIDEN Fällen, im Bestandsfall in
+ * der Rahmung des Bildschirm-Reports („Falls Sie stattdessen neu kaufen würden").
  */
 
 /** Was das Kapitel hergibt. Jedes `null` heisst: diese Aussage entsteht in diesem Fall nicht. */
@@ -136,8 +122,8 @@ export function buildRecommendation(
   })
 
   /*
-   * ⚠ Die Amortisation ist die Kopfzahl und nicht die Ersparnis: Letztere steht bereits auf der
-   * Kernergebnis-Seite, die Amortisation nirgends. `formatYears(Infinity)` liefert „∞ Jahre" —
+   * ⚠ Die Amortisation ist die Kopfzahl und nicht die Ersparnis: Letztere steht als Zeile in der
+   * Aufschlüsselung darunter, die Amortisation nirgends sonst. `formatYears(Infinity)` liefert „∞ Jahre" —
    * der Fall entsteht bei einer Ersparnis von 0 (`roi.ts`) und ist eine Antwort, keine Lücke.
    */
   const amortizesWithinHorizon = entry.amortizationYears <= horizonYears
@@ -150,9 +136,8 @@ export function buildRecommendation(
    * Rest wie „die dortigen Beträge" zeigte ins Leere. Als eigener Listenpunkt (B3-3) entfällt mit
    * ihm auch seine Nummer — die Zählung schliesst sich, s. `statementPoints`.
    *
-   * ⚠ OFFENGELEGTE GRENZE: „in den Kernergebnissen" bleibt geschrieben. Der Resolver kennt für ein
-   * fremdes Kapitel genau EINE Form („im Kapitel „X""), und die ist hier ein anderer Wortlaut. Der
-   * Satz überlebt damit ein Abwählen von `addon`, aber nicht sein Verschieben (Block 3 Nr. 18).
+   * ⚠ Der Satz überlebt ein Abwählen von `addon` (leere Ersatzfassung), aber nicht sein
+   * Verschieben in ein Kapitel ohne Verweisnamen — dann fällt er ebenfalls auf die leere Fassung.
    */
   /*
    * B3-4 — jeder Punkt trägt eine feste Leadzeile. Die beiden Rahmungen schliessen einander aus,
@@ -308,69 +293,48 @@ function buildChartLegend(
 export function buildLoadControl(
   analysis: PdfReportAnalysis,
   primary: BatteryResultEntry | undefined,
-  /*
-   * ⚠ Stufe D: HEREINGEREICHT und nicht mehr hier abgeleitet. Die eigene Ableitung
-   * (`isRealSavingsComparison(analysis)`) beantwortete die Frage aus `analysis` — sie sagte also
-   * „Kassen-Fassung", auch wenn das Dokument `savings` gar nicht zeigt. Der Wert kommt aus dem
-   * Kontext, wie jede andere report-weite Grösse (B1).
-   */
-  placement: SavingsPlacement,
 ): ReportStatement | null {
   if (analysis.tariffOptimization?.computable !== true) return null
   if (!primary) return null
 
-  /* ⚠ Der Verweis deckt nur die BENENNUNG der fremden Zahl; zum Ortswort s. `framing`. */
-  const annualized: ReportText =
+  /* ⚠ Er zeigt auf die EIGENE Kopfzahl darüber — seit dem Zusammenfassungs-Umbau gibt es die Zahl
+     nur noch hier, und ein Verweis auf ein fremdes Kapitel liefe ins Leere. */
+  const annualized =
     primary.annualizationFactor > 1
-      ? t` Ihr Lastgang deckt ${String(primary.coveredDays)} von 365 Tagen ab; ${ref(
-          block('load_shift'),
-          `die Zahl auf der ${REF_SECTION} ist`,
-          'der ausgewiesene Wert ist',
-        )} von diesem Zeitraum auf ein Jahr hochgerechnet — gemessen wurden ${formatEur(primary.loadShiftSavingOverCoveredPeriod)}.`
+      ? ` Ihr Lastgang deckt ${primary.coveredDays} von 365 Tagen ab; der Betrag oben ist von ` +
+        'diesem Zeitraum auf ein Jahr hochgerechnet — gemessen wurden ' +
+        `${formatEur(primary.loadShiftSavingOverCoveredPeriod)}.`
       : ''
 
   /*
-   * ⚠ DIESELBE FALLE WIE IN `summary.ts`: „tarifbewusstes Laden" ist eine Zeile der
-   * §3.7-Aufschlüsselung und existiert in der Kassen-Fassung (Monatsvergleich) nicht — dort steht
-   * der Effekt bereits in „Wert der Ladesteuerung" mit drin.
+   * ⚠ DER SATZ GEGEN DAS DOPPELTZÄHLEN BLEIBT, SEIN VERWEIS FÄLLT. Er zeigte bis zum
+   * Zusammenfassungs-Umbau auf eine Zeile der Ersparnis-Aufschlüsselung („Wert der Ladesteuerung"
+   * bzw. „tarifbewusstes Laden"); die gibt es nicht mehr. Was er sagt, gilt unverändert: der Betrag
+   * ist einer der drei Anteile DERSELBEN Simulation und kommt nicht obendrauf. Es ist wörtlich die
+   * Ersatzfassung, die der Verweis ohne sein Ziel ohnehin genommen hätte.
    */
-  const embeddedNote: ReportText =
-    placement === 'cash'
-      ? t`${ref(
-          row('savings', 'control_value'),
-          `Er steckt in der Zeile „${REF_LABEL}" in der Aufschlüsselung der ${REF_SECTION} bereits mit drin`,
-          'Er steckt in der Gesamtersparnis bereits mit drin',
-        )} und kommt nicht zusätzlich obendrauf`
-      : /*
-         * ⚠ Die Beschriftung bleibt HIER geschrieben, und zwar wegen der Gross-/Kleinschreibung:
-         * die Zeile heisst „Tarifbewusstes Laden", im Satz steht sie klein. `${REF_LABEL}` würde
-         * den Wortlaut ändern — der Verweis trägt deshalb nur die Existenz.
-         */
-        t`${ref(
-          row('savings', 'load_shift'),
-          'Er steckt in der Gesamtersparnis bereits als „tarifbewusstes Laden"',
-          'Er steckt in der Gesamtersparnis bereits mit drin',
-        )} und kommt nicht zusätzlich obendrauf`
-
-  const selfConsumptionNote: ReportText =
-    placement === 'cash'
-      ? 'was Ihre PV-Erzeugung über den Speicher einspart, steckt in derselben Zeile mit drin'
-      : t`was Ihre PV-Erzeugung über den Speicher einspart, ${ref(
-          row('savings', 'self_consumption'),
-          `steht als eigener Anteil („${REF_LABEL}") daneben`,
-          'steckt in der Gesamtersparnis mit drin',
-        )}`
+  const embeddedNote = 'Er steckt in der Gesamtersparnis dieses Speichers bereits mit drin'
+  const selfConsumptionNote =
+    'was Ihre PV-Erzeugung über den Speicher einspart, steckt dort als eigener Anteil daneben'
 
   return {
     id: 'load_control',
-    title: 'Woher der Wert der Ladesteuerung kommt',
-    /*
-     * ⚠ KEINE KOPFZAHL — s. Modulkopf. Der Betrag steht auf der Kernergebnis-Seite; hier stünde er
-     * bit-identisch ein zweites Mal und lüde dazu ein, ihn zu addieren.
-     */
-    amount: null,
+    title: 'Wert der Ladesteuerung unter aWATTar',
+    /* ⚠ SEIT DEM ZUSAMMENFASSUNGS-UMBAU DER EINZIGE ORT DIESES BETRAGS — s. Modulkopf. */
+    amount: {
+      value: formatEur(primary.loadShiftSavingPerYear),
+      caption: 'pro Jahr, exkl. MwSt.',
+      tone: 'positive',
+    },
     rows: [],
-    body: t`Für jede Viertelstunde Ihres Lastgangs ist der echte Börsenpreis jener Stunde plus das Netzentgelt Ihres Netzbetreibers angesetzt, statt eines festen Arbeitspreises. Der Speicher lädt in den günstigen Viertelstunden und entlädt in den teuren; die Differenz ist der ausgewiesene Wert. Er ist ein RÜCKBLICK auf die tatsächlichen Marktpreise Ihres Zeitraums und kein Versprechen für die Zukunft — die Preise von morgen kennt niemand. ${embeddedNote}, und er zeigt ausschliesslich den Gewinn aus den Preisunterschieden: ${selfConsumptionNote}.${annualized}`,
+    body:
+      'Für jede Viertelstunde Ihres Lastgangs ist der echte Börsenpreis jener Stunde plus das ' +
+      'Netzentgelt Ihres Netzbetreibers angesetzt, statt eines festen Arbeitspreises. Der Speicher ' +
+      'lädt in den günstigen Viertelstunden und entlädt in den teuren; die Differenz ist der ' +
+      'ausgewiesene Wert. Er ist ein RÜCKBLICK auf die tatsächlichen Marktpreise Ihres Zeitraums ' +
+      'und kein Versprechen für die Zukunft — die Preise von morgen kennt niemand. ' +
+      `${embeddedNote}, und er zeigt ausschliesslich den Gewinn aus den Preisunterschieden: ` +
+      `${selfConsumptionNote}.${annualized}`,
   }
 }
 
@@ -382,11 +346,10 @@ export function buildRecommendationChapter(
   /* ⚠ `context ? … : …` statt `??` — beide Einträge sind selbst gültig `undefined`. */
   const recommended = context ? context.recommendedEntry : recommendedEntryOf(analysis)
   const primary = context ? context.primaryEntry : primaryEntryOf(analysis)
-  const placement = context ? context.savingsPlacement : savingsPlacementOf(analysis, primary)
 
   return {
     recommendation: recommended ? buildRecommendation(analysis, recommended) : null,
     chart: buildChartLegend(analysis, primary),
-    loadControl: buildLoadControl(analysis, primary, placement),
+    loadControl: buildLoadControl(analysis, primary),
   }
 }

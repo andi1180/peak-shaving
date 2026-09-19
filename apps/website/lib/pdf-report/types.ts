@@ -351,6 +351,25 @@ export type PdfReportInput = {
    */
   hasPv?: boolean
   /**
+   * Die erfasste Nennleistung der PV-Anlage in kWp — die SUMME über alle Modulflächen des
+   * Zählpunkt-Entwurfs.
+   *
+   * ⚠ SIE IST EINE ANGABE UND KEINE RECHENGRÖSSE. Die Engine bekommt einen Lastgang, in dem die
+   * Erzeugung bereits steckt; wie gross die Anlage ist, erfährt sie nie und braucht es nicht. Der
+   * Report braucht die Zahl für GENAU einen Halbsatz — „eine PV-Anlage (10,2 kWp)" in der
+   * Zusammenfassung.
+   *
+   * ⚠ OPTIONAL und nicht `null`-fähig: „dieser Weg führt die Angabe nicht" (der Chart-Prüfstand,
+   * eine ältere Übergabe) und „es wurde keine Nennleistung erfasst" führen beide dazu, dass der
+   * Halbsatz ohne Klammerwert steht. Ein zweiter, davon unterscheidbarer Zustand hätte keine
+   * eigene Anzeige.
+   *
+   * ⚠ SIE IST NICHT `estimatedPv.totalPeakPowerKwp`: jene Zahl gehört zu einer GESCHÄTZTEN
+   * Erzeugungskurve und steht mit ihrer Herkunft im PV-Hinweis; diese hier ist die Anlage, die der
+   * Kunde tatsächlich hat.
+   */
+  pvPeakPowerKwp?: number
+  /**
    * D5 — Monate, in denen im Lastgang KEIN Mittagseinbruch messbar war (`detectPvOutageMonths`).
    *
    * ── ⚠ WARUM DER BEFUND HEREINGEREICHT WIRD, STATT HIER GERECHNET ZU WERDEN ────────────────────

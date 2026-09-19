@@ -27,14 +27,12 @@ import type { PdfReportAnalysis, PdfReportInput } from './types'
  * Stufe D — die ZWEITE Render-Fixture: ein Report mit Bestandsanlage.
  *
  * ── ⚠ WARUM ES SIE BRAUCHT ────────────────────────────────────────────────────────────────────
- * `optional-sections.test.ts` rendert einen KATALOG-Fall (keine Bestandsanlage). Von den 17
- * Fundstellen, die #279–#281 auf `ReportRef` umgestellt haben, löst er neun auf; die übrigen acht
- * liegen in Zweigen, die dieser Fall nie betritt — die Kassen-Fassung von `savings`
- * (`SavingsPlacement === 'cash'`, sie setzt eine Bestandsanlage voraus), die Bestandsrahmung der
- * Empfehlung, der Monatsvergleich im Detail-Kapitel und die Zusatzgeräte-Tabelle. Sie waren bis hierher allein über `report-text.test.ts` gegen von Hand
- * hingeschriebene Zusammenstellungen belegt. Was dort NICHT gemessen werden kann, ist, ob der Fall
- * im echten Dokument überhaupt entsteht: ein Verweis, dessen Zweig kein Report je betritt, ist
- * grün und trotzdem tot.
+ * `optional-sections.test.ts` rendert einen KATALOG-Fall (keine Bestandsanlage). Was dieser Fall
+ * zusätzlich erreicht, sind die Zweige, die eine Bestandsanlage voraussetzen: die Bestandsrahmung
+ * der Empfehlung samt Zusatzspeicher-Zeiger, der Monatsvergleich im Detail-Kapitel und die
+ * Zusatzgeräte-Tabelle. Was in `report-text.test.ts` gegen von Hand hingeschriebene
+ * Zusammenstellungen belegt ist, lässt sich dort NICHT messen: ob der Fall im echten Dokument
+ * überhaupt entsteht — ein Verweis, dessen Zweig kein Report je betritt, ist grün und trotzdem tot.
  *
  * ── DIE FALLGESTALT ───────────────────────────────────────────────────────────────────────────
  * Rekonstruiert aus dem Drei-Fälle-Harness der Optik-Bestandsaufnahme
@@ -43,9 +41,8 @@ import type { PdfReportAnalysis, PdfReportInput } from './types'
  * dem sich rechnenden Zusatzgerät aus Fall C.
  *
  * ⚠ EINE BENANNTE ABWEICHUNG VON FALL A: der Leistungspreis ist hier > 0. Der Urbanz-Anschluss
- * hängt auf Netzebene 7 ohne Leistungsmessung und hat den Posten gar nicht — dann entfällt
- * `peak_shaving` vollständig (`summary.ts`), und mit ihm der erste der acht Verweise. Die
- * Fallgestalt ist übernommen, nicht die Netzebene.
+ * hängt auf Netzebene 7 ohne Leistungsmessung und hat den Posten gar nicht. Die Fallgestalt ist
+ * übernommen, nicht die Netzebene.
  *
  * ⚠ DIE SCHRIFT WIRD AUS DEM DATEISYSTEM REGISTRIERT — s. `optional-sections.test.ts`.
  */
@@ -178,9 +175,9 @@ const PV_OUTAGE_MONTHS: PvOutageMonth[] = [
 
 /**
  * ⚠ `existingBatteryAnalysis` UND ein rechenbarer `tariffOptimization` — erst beide zusammen
- * ergeben die Kassen-Fassung von `savings` (`isRealSavingsComparison`), an der fünf der acht
- * Verweise hängen. Und `addonScenarios` trägt genau EIN Gerät über der Schwelle
- * `netSavingOverHorizon > 0`: das ist der positive `addon`-Zweig samt Zusatzgeräte-Tabelle.
+ * ergeben den Monatsvergleich im Detail-Kapitel. Und `addonScenarios` trägt genau EIN Gerät über
+ * der Schwelle `netSavingOverHorizon > 0`: das ist der positive `addon`-Zweig samt
+ * Zusatzgeräte-Tabelle.
  */
 const ANALYSIS: PdfReportAnalysis = {
   current: {
@@ -373,34 +370,26 @@ describe('Stufe D — der Bestandsfall als zweite Render-Fixture', () => {
     expect(text).toContain('Ein zusätzlicher Batteriespeicher rechnet sich für Sie')
   }, 60_000)
 
-  it('löst die acht Querverweise auf, die der Katalog-Fall nicht erreicht', () => {
+  /**
+   * ⚠ VON DEN ACHT VERWEISEN, DIE NUR DER BESTANDSFALL ERREICHTE, SIND ZWEI ÜBRIG. Die sechs
+   * übrigen zeigten auf `savings`/`load_shift` — beide Bausteine sind mit der Zusammenfassung
+   * entfallen (Ein-Spanne-Regel D8). Gemessen wird deshalb BEIDES: dass die zwei überlebenden
+   * auflösen, und dass von den sechs kein Rest im Dokument stehengeblieben ist.
+   */
+  it('löst die zwei verbliebenen Querverweise auf, die der Katalog-Fall nicht erreicht', () => {
     const text = reportText(BESTANDSFALL)
 
-    /* 1 — `peak_shaving` → Kopfzahl von `savings`, Kassen-Zweig. */
-    expect(text).toContain('Dieser Betrag steckt NICHT in der Zahl oben')
-    /* 3 — `load_shift`, Abgleich mit der Kassen-Zeile. */
-    expect(text).toContain('Die Zeile „Wert der Ladesteuerung" in der Aufschlüsselung oben')
-    /* 4 — `load_shift`, Eigenverbrauch im Kassen-Zweig. */
-    expect(text).toContain(
-      'steckt in der Zeile „Wert der Ladesteuerung" in der Aufschlüsselung oben mit drin',
-    )
     /* 10 — `recommendation` → `addon`, über den Verweisnamen von Kapitel 1. */
     expect(text).toContain(
-      'Ob sich ein ZUSÄTZLICHES Gerät neben Ihrer Anlage lohnt, steht auf der Kernergebnis-Seite',
-    )
-    /* 11 — `load_control` → `load_shift`, Hochrechnungssatz (209 von 365 Tagen). */
-    expect(text).toContain('die Zahl auf der Kernergebnis-Seite ist')
-    /* 12 — `load_control` → Kassen-Zeile von `savings`. */
-    expect(text).toContain(
-      'Er steckt in der Zeile „Wert der Ladesteuerung" in der Aufschlüsselung der ' +
-        'Kernergebnis-Seite bereits mit drin',
-    )
-    /* 15 — `monthly_comparison` (Bestandsfassung, Kapitel 3) → `savings`. */
-    expect(text).toContain(
-      'Die Kernergebnis-Seite zeigt die DIFFERENZEN zwischen diesen drei Summen',
+      'Ob sich ein ZUSÄTZLICHES Gerät neben Ihrer Anlage lohnt, steht auf der Zusammenfassung',
     )
     /* 20 — `addon_table` → Spalte „Ersparnis/Jahr" der Kandidatentabelle. */
     expect(text).toContain('die Spalten „Ersparnis/Jahr" und „Netto" sind also Differenzen')
+
+    /* Und kein Satz nennt mehr eine Zeile oder eine Seite, die es nicht gibt. */
+    expect(text).not.toContain('Kernergebnis')
+    expect(text).not.toContain('Wert der Ladesteuerung" in der Aufschlüsselung')
+    expect(text).not.toContain('Dieser Betrag steckt NICHT in der Zahl')
   })
 
   it('rendert den Klarsatz-Fall als Verdikt, mit Anzahl und Fehlbetrag', async () => {

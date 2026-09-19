@@ -41,8 +41,8 @@ import type {
 /**
  * Die Felder aus `report_input_meta`, die dieser Weg LIEST.
  *
- * ⚠ Der schreibende Schritt legt zehn ab (`apps/web/lib/admin/report-render-actions.ts`). Hier
- * stehen acht — und die zwei übrigen fehlen nicht versehentlich: `meteringPointId`/`projectId`
+ * ⚠ Der schreibende Schritt legt elf ab (`apps/web/lib/admin/report-render-actions.ts`). Hier
+ * stehen neun — und die zwei übrigen fehlen nicht versehentlich: `meteringPointId`/`projectId`
  * sind Rückverfolgung für den Admin-Bereich und haben auf einem Kundendokument nichts zu suchen.
  *
  * ⚠ `netzbetreiber` STAND BIS ZUM D9-VORGRIFF NICHT HIER, mit der Begründung, er würde eine
@@ -68,6 +68,12 @@ export type ReportRenderMeta = {
    * und das ist NICHT `false` (s. `readPvDraft` auf der Schreibseite).
    */
   hasPv: boolean | null
+  /**
+   * Die erfasste Nennleistung der PV-Anlage in kWp (Summe über alle Modulflächen). `null` = keine
+   * erfasst ODER eine Übergabe aus einer Fassung, die sie noch nicht führte — beide führen zu
+   * demselben Satz ohne Klammerwert (s. `PdfReportInput.pvPeakPowerKwp`).
+   */
+  pvPeakPowerKwp: number | null
   /**
    * D5 — Monate ohne erkennbaren Mittagseinbruch, gerechnet im Analyse-Lauf. Leer heisst „nichts
    * gefunden" UND „eine Übergabe aus einer Fassung, die den Befund noch nicht führte" — beide
@@ -172,12 +178,16 @@ function readMeta(value: unknown): ReportRenderMeta {
   const label = meta.customerLabel
   const baseFee = meta.supplierBaseFeeEurPerMonth
   const hasPv = meta.hasPv
+  const pvKwp = meta.pvPeakPowerKwp
   return {
     customerLabel: typeof label === 'string' && label !== '' ? label : null,
     netzbetreiber: readNetzbetreiber(meta.netzbetreiber),
     supplierBaseFeeEurPerMonth: typeof baseFee === 'number' ? baseFee : null,
     /* Strikt `true`/`false` — `'true'` oder `1` sähen wie eine Antwort aus und sind keine. */
     hasPv: hasPv === true ? true : hasPv === false ? false : null,
+    /* ⚠ `> 0` und nicht bloss „ist eine Zahl": eine 0-kWp-Anlage wäre keine, und `NaN` aus einem
+       von Hand veränderten `jsonb` stünde sonst als „(NaN kWp)" auf einem Kundendokument. */
+    pvPeakPowerKwp: typeof pvKwp === 'number' && Number.isFinite(pvKwp) && pvKwp > 0 ? pvKwp : null,
     pvOutageMonths: readPvOutageMonths(meta.pvOutageMonths),
     tariffProvenance: {
       gridTariffValidFrom: readIsoDates(meta.gridTariffValidFrom),
@@ -308,6 +318,8 @@ export function buildReportInputFromRenderRequest(
     estimatedPv: undefined,
     /* D5 — beide Hälften bleiben getrennt; verknüpft werden sie im Kapitel (`basis.ts`). */
     hasPv: meta.hasPv ?? undefined,
+    /* Ohne erfasste Nennleistung steht der Satz der Zusammenfassung ohne Klammerwert. */
+    pvPeakPowerKwp: meta.pvPeakPowerKwp ?? undefined,
     pvOutageMonths: meta.pvOutageMonths,
     /* D9 — die rohen Herkunftsangaben der Tarifseite; ausgewertet wird im Kapitel (`basis.ts`). */
     tariffProvenance: meta.tariffProvenance,

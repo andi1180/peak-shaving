@@ -24,7 +24,7 @@ import { HINDSIGHT_NOTE } from '@/lib/report-copy'
 /** Ein Eintrag der Agenda UND zugleich ein Abschnitt im Dokument. */
 export type ReportSection = {
   /**
-   * Stufe D — wie ein FREMDER Baustein dieses Kapitel benennt, als blosses Nomen („Kernergebnis-Seite").
+   * Stufe D — wie ein FREMDER Baustein dieses Kapitel benennt, als blosses Nomen („Zusammenfassung").
    *
    * ══════════════════════════════════════════════════════════════════════════════════════════
    * ⚠ ES HAT IHN GENAU EIN KAPITEL, UND DER GRUND IST SEINE UNBEDINGTE ERSTSTELLUNG
@@ -32,17 +32,17 @@ export type ReportSection = {
    * Der Resolver bildet eine Ortsangabe sonst aus der Leseordnung („oben", „weiter unten") oder
    * benennt das fremde Kapitel generisch („im Kapitel „X""). Für Kapitel 1 braucht es beides
    * nicht: es steht in JEDEM Report, und es steht immer als Erstes — ein Verweis darauf muss
-   * nichts berechnen. Der Report sagt dafür seit jeher „Kernergebnis-Seite", und diese Fassung
-   * bleibt damit erhalten, statt in die generische Form zu fallen.
+   * nichts berechnen. Der Report benennt es deshalb bei seinem Namen, statt in die generische Form
+   * zu fallen.
    *
    * ⚠ KEIN BEDINGTES KAPITEL DARF IHN BEKOMMEN. Kapitel 4, 5 und 6 entstehen nur, wenn ihre Daten
    * es hergeben; ein Satz, der sie beim Namen nennt, zeigte in den übrigen Fällen ins Leere. Und
    * kein Kapitel ausser dem ersten steht an fester Stelle — für die übrigen ist die berechnete
    * Ortsangabe die richtige Antwort, gerade weil Block 3 sie verschiebt.
    *
-   * ⚠ DER ARTIKEL STEHT IM SATZ, nicht hier: die fünf Verwendungen brauchen Nominativ („Die
-   * Kernergebnis-Seite zeigt"), Genitiv („der Aufschlüsselung der Kernergebnis-Seite") und Dativ
-   * („auf der Kernergebnis-Seite"). Ein fertiges Satzstück passte in keinen davon. Damit daraus
+   * ⚠ DER ARTIKEL STEHT IM SATZ, nicht hier: die Verwendungen brauchen Nominativ („Die
+   * Zusammenfassung zeigt"), Genitiv („der Zusammenfassung") und Dativ („auf der
+   * Zusammenfassung"). Ein fertiges Satzstück passte in keinen davon. Damit daraus
    * beim Umzug eines Ziels kein grammatischer Unsinn wird („auf der Kapitel „X""), verlangt der
    * Resolver diesen Namen: fehlt er, nimmt der Verweis seine Ersatzformulierung (s. `report-text.ts`).
    */
@@ -125,7 +125,7 @@ export const METHODOLOGY_ITEMS: readonly MethodologyItem[] = [
 
 /** Kapitel-Kennungen, damit die Dokument-Bausteine sie nicht als Zeichenkette ausschreiben. */
 export const SECTION_ID = {
-  results: 'kernergebnisse',
+  results: 'zusammenfassung',
   recommendation: 'empfehlung',
   detail: 'kostenverlauf',
   monthly: 'monatsvergleich',
@@ -138,8 +138,8 @@ export const SECTION_ID = {
 export const RESULTS_SECTION: ReportSection = {
   id: SECTION_ID.results,
   level: 1,
-  title: 'Kernergebnisse',
-  reference: 'Kernergebnis-Seite',
+  title: 'Zusammenfassung',
+  reference: 'Zusammenfassung',
 }
 
 /**
@@ -152,7 +152,7 @@ export const RESULTS_SECTION: ReportSection = {
  * beiden Texten wäre es ein Anhang. Die Agenda führt deshalb EINEN Eintrag — der Titel nennt
  * beides, damit ein Leser, der die Agenda überfliegt, weiss, wo die Empfehlung steht.
  *
- * ⚠ Das Kapitel ist eine eigene `<Page>` (D5, Regel 1). Als `<View break>` im Kernergebnis-Kapitel
+ * ⚠ Das Kapitel ist eine eigene `<Page>` (D5, Regel 1). Als `<View break>` in der Zusammenfassung
  * bekäme es in der Agenda die Seitenzahl JENES Kapitels — plausibel aussehend und falsch.
  */
 export const RECOMMENDATION_SECTION: ReportSection = {
@@ -410,22 +410,16 @@ export function buildReportAgenda(presence: ReportChapterPresence): readonly Rep
 }
 
 /**
- * B23c-1 — was unter der Kapitelüberschrift steht.
- *
- * Bis zu diesem Schritt stand hier eine ausdrücklich gekennzeichnete PLATZHALTER-Seite
- * (`RESULTS_PLACEHOLDER_BODY`, B23a). Sie ist ersatzlos entfallen: das Kapitel trägt jetzt die
- * gerechneten Zahlen (`summary.ts`). Die Abschnitts-Kennung (`SECTION_ID.results`), der Titel und
- * die Stellung in `REPORT_AGENDA` sind dabei UNVERÄNDERT geblieben — der Agenda-Eintrag zeigt auf
- * denselben Abschnitt wie vorher, nur ist dessen Inhalt jetzt echt.
+ * Was unter der Kapitelüberschrift steht.
  *
  * ⚠ Der Satz kündigt bewusst NICHT an, was auf der Seite steht („Ersparnis, Empfehlung, …"). Was
  * dort steht, hängt davon ab, was gerechnet werden konnte (s. den Kopf von `summary.ts`) — eine
  * feste Ankündigung wäre auf jedem Report falsch, dem eine dieser Aussagen fehlt.
  */
-export const RESULTS_INTRO = 'Die Zahlen, um die es geht — und wie sie zueinander stehen.'
+export const RESULTS_INTRO = 'Die Zahlen, um die es geht — und was sie für Sie bedeuten.'
 
 /**
- * Steht als Fussnote unter den Kernaussagen.
+ * Steht als Fussnote am Fuss der Zusammenfassung.
  *
  * ⚠ Er verweist auf das Methodik-Kapitel und wiederholt dessen Inhalt NICHT. Die Vorbehalte stehen
  * an einer Stelle; sie hier zu paraphrasieren hiesse, denselben Vorbehalt in zwei Schärfen in

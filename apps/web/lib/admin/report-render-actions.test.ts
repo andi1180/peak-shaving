@@ -143,7 +143,7 @@ describe('createReportRenderRequestAction', () => {
     expect(loadProfile.intervalMinutes).toBe(15)
 
     /*
-     * Neun Felder, als WERTE — kein Verweis auf den veränderlichen Entwurf.
+     * Zehn Felder, als WERTE — kein Verweis auf den veränderlichen Entwurf.
      *
      * ⚠ `optionalSections` FEHLT hier, und das ist die Zusage: dieses Formular führt die Auswahl
      * nicht, und ein fehlendes Feld heisst auf der Leseseite ALLE VIER (Report-Baukasten C). Eine
@@ -159,6 +159,9 @@ describe('createReportRenderRequestAction', () => {
        * erreicht und deshalb gar nicht erst bewertet wird.
        */
       hasPv: null,
+      /* Ohne erfasste Modulfläche gibt es keine Nennleistung — der Satz der Zusammenfassung steht
+         dann ohne Klammerwert (`PdfReportInput.pvPeakPowerKwp`). */
+      pvPeakPowerKwp: null,
       pvOutageMonths: [],
       /*
        * D9 — beide leer: dieser Entwurf hat keinen Netzbetreiber-Preisblatt-Treffer (der Port ist

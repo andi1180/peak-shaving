@@ -134,6 +134,18 @@ Nach der Tarif-Station des letzten Zählpunkts: ein "Fertig"-Abschluss mit Hinwe
 
 ⚠ **Ein loser Faden:** die Migration zu `admin_delete_project` wurde mangels funktionierendem CLI-Zugang direkt über den Supabase-SQL-Editor in der Cloud angelegt, NICHT über `supabase db push`. Sie fehlt deshalb in Supabase's eigener Migrations-Historie. Der nächste `supabase db push` könnte auf dieser einen Datei mit "existiert bereits" scheitern — dann die Datei einmalig überspringen oder die Historie von Hand nachtragen, nicht neu anlegen.
 
-**Nächster grosser Schritt: der Report-Baukasten (Teil 3)** — bislang unangetastet, nichts davon existiert für den neuen Wizard-Entwurf.
+### Report-Baukasten — Kapitel 1 ist die „Zusammenfassung" (19.09.2026)
+
+Das erste inhaltliche Kapitel des PDF-Reports heisst nicht mehr „Kernergebnisse" und trägt die Form von Seite 2 des Urbanz-Zielbildes: **zwei Kopfzahlen** (Ihre Stromkosten heute · Mögliche Ersparnis als Spanne), ein **Fliesstext** (was der Kunde hat, wie viele Wege es gibt), ein **PV-Satz** nur bei angegebener Anlage, und der teal Kasten **„Ausserdem schon geklärt"**. Fachliche Tiefe: `Pflichtenheft_Kalkulator_Delta_Report-Baukasten.md` D8.
+
+**⚠ Drei Bausteine sind ersatzlos entfallen** (`savings`, `peak_shaving`, `load_shift`) — der Katalog hat 25 statt 28 Kennungen. Das ist die Ein-Spanne-Regel: vier Euro-Grössen nebeneinander, von denen drei nicht addiert werden durften. **Benannte Folge: der Spitzenkappungs-BETRAG steht danach in keinem Kapitel mehr** (die Kapp-Aussage unter dem Lastgang-Diagramm bleibt, sie beziffert nichts). Der Ladesteuerungs-Betrag ist erhalten — `load_control` hat seine Kopfzahl zurück, weil der Abschnitt sonst die Herkunft einer Zahl erklärte, die es nicht mehr gibt.
+
+**Was daraus für jeden Umbau am Report folgt:** die Kopfzahlen und die zwei Textblöcke stehen bewusst NICHT in der Registry — sie sind keine der vier Formen, die `document.tsx` rendert. Ihre Querverweise lösen über einen unbekannten Ursprung auf und nennen deshalb das Zielkapitel beim Namen statt einer Richtung. Wer einen davon zum Baustein machen will, braucht zuerst eine fünfte Form.
+
+**Neu in der Übergabe:** `report_input_meta.pvPeakPowerKwp` (Summe über die erfassten Modulflächen, `null` sobald einer Fläche die Nennleistung fehlt) — eine ANGABE für einen Halbsatz, keine Rechengrösse.
+
+**Gemessen am echten Urbanz-Lastgang** (209 Tage, echte Cloud-Preisdaten): € 770 Ist-Kosten, € 84 mögliche Ersparnis — **eine Zahl statt einer Spanne**, weil der reine Tarifwechsel bei diesem Kunden negativ ist. Die Zahlen des Zielbildes (€1.061, €53–€207) stammen aus einer Handrechnung und sind nicht reproduziert.
+
+**Nächster grosser Schritt: der übrige Report-Baukasten (Teil 3)** — die weiteren Zielseiten (Voraussetzungs-Seite, Drei-Wege-Seite, PV-Kapitel, Jahres-Hochrechnung) sind unangetastet.
 
 **Weiterhin nicht gebaut:** Engine-Anbindung des Wizard-Entwurfs (rechnet nichts), Rollup-Schicht über mehrere Zählpunkte, Fragenkatalog-Inhalte, eigene Kostenbremse für den Energieberater-Endpunkt (teilt sich die des Kunden-Chats), ein Erzeugungsprofil zu ersetzen/entfernen (nur einzelne Fläche geht), echter PVGIS-Aufruf nur gemockt verifiziert, echter Batteriekatalog (auf Analyse-Phase verschoben), ein Lauf über die echte Oberfläche für die meisten B24-Schritte (durchgängig nur Typen/Logik/Wächter bzw. jsdom-Harness geprüft, kein Playwright).

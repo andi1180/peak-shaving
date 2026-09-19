@@ -251,7 +251,15 @@ export async function runSummaryAnalysis(
       ? (plan.flow.entries.find((e) => e.battery.id === plan.flow!.selectedBatteryId) ??
         plan.flow.entries[0])
       : undefined
-    const summary = buildReportSummary(result, payload.load.profile, estimate?.summary)
+    const summary = buildReportSummary({
+      analysis: result,
+      loadProfile: payload.load.profile,
+      estimatedPv: estimate?.summary,
+      /* Der Prüfstand kennt keinen Zählpunkt-Entwurf — die PV-ANGABE gibt es hier nur, wo eine
+         Schätzung gelaufen ist (dann ist die Anlage belegt und ihre Nennleistung bekannt). */
+      hasPv: estimate ? true : undefined,
+      pvPeakPowerKwp: estimate?.summary.totalPeakPowerKwp,
+    })
     /*
      * ⚠ AUS DEMSELBEN Ergebnis und DEMSELBEN Lastgang wie das Dokument gleich — nicht aus einer
      * zweiten Ableitung. `tariffVintage` kommt dabei über `derive.ts` und nicht aus `basis.ts`

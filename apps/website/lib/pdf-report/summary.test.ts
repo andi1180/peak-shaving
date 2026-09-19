@@ -1,32 +1,33 @@
 import { describe, expect, it } from 'vitest'
-import type { MonthlyTariffComparison } from 'shared'
+import type { BatteryRoiEntry, MonthlyTariffComparison } from 'shared'
 
-import { SECTION_ID } from './content'
 import { reportLayoutOf } from './layout'
 import { resolveReportText } from './report-text'
-import { buildReportSummary, type ReportSummary } from './summary'
+import { buildReportSummary, type SummaryInput } from './summary'
 import type { PdfReportAnalysis } from './types'
 
 /**
- * `load_shift` verweist unbedingt auf die Zeile „Eigenverbrauch" — die gibt es nur in der
- * §3.7-Aufschlüsselung. Steht oben die Kassen-Fassung (Monatsvergleich, s. `buildSavings`), trägt
- * sie keine eigene Eigenverbrauchs-Zeile; der Effekt steckt dort in „Wert der Ladesteuerung" mit
- * drin. Geprüft wird über `buildReportSummary`, nicht über einen internen Helfer — der Fehler
- * betrifft den zusammengesetzten Text.
+ * Die Zusammenfassung — die zwei Kopfzahlen, der Fliesstext und die Bedingungen, unter denen sie
+ * entstehen.
+ *
+ * ⚠ Gemessen wird über `buildReportSummary` und nicht über die Helfer darunter: was auf der Seite
+ * steht, ist das Zusammenspiel — eine Kopfzahl ohne den Absatz, der sie einordnet, wäre in jedem
+ * Einzeltest grün und im Dokument falsch.
  */
 
+/** Zahlen wie im Zielbild: 1.061 heute, 53 durch den reinen Wechsel, 207 mit Steuerung. */
 const COMPARISON: MonthlyTariffComparison = {
-  currentTariffEur: [120, ...Array<null>(11).fill(null)],
-  spotWithoutControlEur: [110, ...Array<null>(11).fill(null)],
-  spotWithBatteryEur: [95, ...Array<null>(11).fill(null)],
-  coveredMonths: 1,
+  currentTariffEur: [1061, ...Array<null>(11).fill(null)],
+  spotWithoutControlEur: [1008, ...Array<null>(11).fill(null)],
+  spotWithBatteryEur: [854, ...Array<null>(11).fill(null)],
+  coveredMonths: 8,
   fixedCosts: {
     networkBaseFeeEur: 0,
     supplierBaseFeeEur: 0,
     awattarBaseFeeEur: 4.79,
     supplierFeeEurPerMonth: 0,
     awattarFeeEurPerMonth: 4.79,
-    coveredDays: 31,
+    coveredDays: 210,
   },
 }
 
@@ -35,8 +36,8 @@ const BATTERY = {
   name: 'Katalog 1',
   manufacturer: 'Fixture',
   class: 'commercial' as const,
-  usableCapacityKwh: 60,
-  maxPowerKw: 20,
+  usableCapacityKwh: 19.2,
+  maxPowerKw: 10.6,
   roundTripEfficiency: 0.9,
   pricePerKwh: 350,
   inverterIncluded: true,
@@ -44,17 +45,18 @@ const BATTERY = {
   controlType: 'dynamic' as const,
 }
 
-const ENTRY = {
+const ENTRY: BatteryRoiEntry = {
   battery: BATTERY,
   newBilledKw: 40,
-  leistungspreisSavingPerYear: 800,
+  /* 0 = der Speicher senkt den abgerechneten Leistungswert nicht (Urbanz: NE 7 ohne Messung). */
+  leistungspreisSavingPerYear: 0,
   selfConsumptionSavingPerYear: 300,
   loadShiftSavingPerYear: 100,
   selfConsumptionSavingOverCoveredPeriod: 300,
   loadShiftSavingOverCoveredPeriod: 100,
   annualizationFactor: 1,
-  coveredDays: 365,
-  totalSavingPerYear: 1200,
+  coveredDays: 209,
+  totalSavingPerYear: 400,
   warnings: [],
   totalInvestment: 21000,
   subsidyAmount: 0,
@@ -65,13 +67,14 @@ const ENTRY = {
   netSavingOverHorizon: -9000,
 }
 
-function analysisFor(withExisting: boolean): PdfReportAnalysis {
+function analysisFor(over: Partial<PdfReportAnalysis> = {}): PdfReportAnalysis {
   return {
     current: {
-      annualPeakKw: 48,
-      monthlyPeaksKw: Array<number>(12).fill(48),
-      billedKw: 48,
-      leistungspreisCostPerYear: 3980.16,
+      annualPeakKw: 13.5,
+      monthlyPeaksKw: Array<number>(12).fill(13.5),
+      billedKw: 13.5,
+      /* Netzebene 7 ohne Leistungsmessung — den Posten gibt es nicht. */
+      leistungspreisCostPerYear: 0,
     },
     perBattery: [ENTRY],
     recommendation: { batteryId: BATTERY.id, rationale: '' },
@@ -83,130 +86,166 @@ function analysisFor(withExisting: boolean): PdfReportAnalysis {
       billingModel: 'monthly_max_sum',
     },
     dataQuality: {
-      coveredDays: 365,
-      coveredMonths: 12,
+      coveredDays: 209,
+      coveredMonths: 8,
       gapsInterpolated: 0,
       largestGapSlots: 0,
       warnings: [],
     },
     tariffOptimization: { computable: true, monthlyComparison: COMPARISON },
-    ...(withExisting ? { existingBatteryAnalysis: { entry: ENTRY, addonScenarios: [] } } : {}),
+    existingBatteryAnalysis: { entry: ENTRY, addonScenarios: [] },
+    ...over,
   }
 }
 
-/**
- * Stufe D — die Beschreibung von Kapitel 1, aus dem gebauten Kapitel selbst gebildet: dieselbe
- * Reihenfolge, dieselben Zeilen. Von Hand hingeschrieben wäre sie eine zweite Behauptung darüber,
- * was auf der Seite steht.
- */
-function layoutFor(summary: ReportSummary) {
-  return reportLayoutOf(
-    summary.statements.map((statement) => ({
-      id: statement.id,
-      section: SECTION_ID.results,
-      title: statement.title,
-      amount: statement.amount ? statement.amount.caption : null,
-      rows: Object.fromEntries(
-        statement.rows.flatMap((r) => (r.key ? [[r.key, r.label] as const] : [])),
-      ),
-    })),
-  )
+function summaryFor(over: Partial<SummaryInput> = {}) {
+  return buildReportSummary({
+    analysis: analysisFor(),
+    loadProfile: { source: 'net_signed' },
+    ...over,
+  })
 }
 
-function loadShiftBody(withExisting: boolean): string {
-  const summary = buildReportSummary(analysisFor(withExisting), { source: 'net_signed' })
-  const loadShift = summary.statements.find((s) => s.id === 'load_shift')
-  return resolveReportText(loadShift?.body ?? '', layoutFor(summary), 'load_shift')
+/** Der Fliesstext, ohne Verweisziele aufgelöst — die Ersatzfassungen greifen dann. */
+function proseOf(summary: ReturnType<typeof summaryFor>): string {
+  return resolveReportText(summary.overview, reportLayoutOf([]), 'overview')
 }
 
-describe('load_shift — Verweis auf die Eigenverbrauchs-Zeile', () => {
-  it('verweist in der Kassen-Fassung auf „Wert der Ladesteuerung" statt auf „Eigenverbrauch"', () => {
-    const body = loadShiftBody(true)
+describe('die zwei Kopfzahlen', () => {
+  it('nennt Ist-Kosten und Ersparnis-Spanne über die gemessenen Tage', () => {
+    const kpis = summaryFor().kpis
 
-    expect(body).not.toContain('eigener Anteil („Eigenverbrauch")')
-    expect(body).toContain('Wert der Ladesteuerung" in der Aufschlüsselung oben')
+    expect(kpis.map((k) => [k.id, k.value, k.tone])).toEqual([
+      ['cost_today', '€ 1.061', 'ink'],
+      ['possible_saving', '€ 53 – € 207', 'accent'],
+    ])
+    expect(kpis[0]!.caption).toEqual(['Ihre Stromkosten heute', 'über 209 gemessene Tage'])
+    expect(kpis[1]!.caption[1]).toBe('je nach gewähltem Weg, im selben Zeitraum')
   })
 
-  it('bleibt in der §3.7-Fassung unverändert bei „Eigenverbrauch"', () => {
-    expect(loadShiftBody(false)).toContain('eigener Anteil („Eigenverbrauch")')
+  /**
+   * ⚠ Der reine Wechsel ist im gemessenen Realfall NEGATIV (`real-saving.ts`) — dann gibt es keine
+   * Spanne, sondern eine Zahl, und die Bezugszeile muss sagen, wodurch sie entsteht. Eine Spanne
+   * „€ −53 – € 101" behauptete einen Weg, der die Kosten erhöht, als Ersparnis.
+   */
+  it('zeigt bei nur einem tragenden Weg eine Zahl statt einer Spanne', () => {
+    const kpis = summaryFor({
+      analysis: analysisFor({
+        tariffOptimization: {
+          computable: true,
+          monthlyComparison: {
+            ...COMPARISON,
+            spotWithoutControlEur: [1114, ...Array<null>(11).fill(null)],
+          },
+        },
+      }),
+    }).kpis
+
+    expect(kpis[1]!.value).toBe('€ 207')
+    expect(kpis[1]!.caption[1]).toBe('mit gezielter Ladesteuerung, im selben Zeitraum')
+  })
+
+  /**
+   * ⚠ OHNE MONATSVERGLEICH GIBT ES BEIDE ZAHLEN NICHT — auch die Ist-Kosten nicht: der Contract
+   * führt sie an keiner anderen Stelle. Der Absatz muss das dann sagen, statt die Seite leer zu
+   * lassen.
+   */
+  it('lässt beide Zahlen weg, wenn der Tarifvergleich nicht gerechnet wurde', () => {
+    const summary = summaryFor({
+      analysis: analysisFor({ tariffOptimization: undefined }),
+    })
+
+    expect(summary.kpis).toEqual([])
+    expect(proseOf(summary)).toContain('liess sich für diesen Zeitraum nicht berechnen')
+  })
+
+  /**
+   * ⚠ Der Monatsvergleich führt den Leistungspreis ausdrücklich NICHT. Wo es den Posten gibt, muss
+   * die Bezugszeile das sagen — sonst stünde unter „Ihre Stromkosten heute" eine Zahl, die bei
+   * einem Gewerbekunden einen erheblichen Teil seiner Rechnung auslässt.
+   */
+  it('nennt die Grenze der Ist-Kosten, wo es einen Leistungspreis gibt', () => {
+    const mit = summaryFor({
+      analysis: analysisFor({
+        current: { ...analysisFor().current, leistungspreisCostPerYear: 3980 },
+        existingBatteryAnalysis: {
+          entry: { ...ENTRY, leistungspreisSavingPerYear: 800 },
+          addonScenarios: [],
+        },
+      }),
+    })
+
+    expect(mit.kpis[0]!.caption[1]).toBe('über 209 gemessene Tage, ohne Leistungspreis')
+    /* Und die Kappung wird im Absatz benannt, statt still aus der Spanne zu fallen. */
+    expect(proseOf(mit)).toContain('Die Kappung Ihrer Lastspitzen ist in dieser Spanne nicht')
+    expect(proseOf(summaryFor())).not.toContain('Kappung Ihrer Lastspitzen')
   })
 })
 
-/**
- * Delta 3 / NE7 — ein Anschluss ohne Leistungsmessung hat den Posten „Leistungspreis" überhaupt
- * nicht (`leistungspreisEurPerKwYear: 0` → `leistungspreisCostPerYear: 0`). Geprüft wird über
- * `buildReportSummary`, weil der Kasten UND der Teiljahres-Hinweis gemeinsam daran hängen.
- */
-function analysisWithoutLeistungspreis(): PdfReportAnalysis {
-  const base = analysisFor(false)
-  return {
-    ...base,
-    current: { ...base.current, leistungspreisCostPerYear: 0 },
-    /* Teiljahr unter einem monatsbasierten Modell — sonst entfiele der Hinweis schon deshalb. */
-    dataQuality: { ...base.dataQuality, coveredMonths: 7 },
-  }
-}
+describe('der Fliesstext', () => {
+  it('nennt Batterie und PV-Anlage mit ihren erfassten Werten', () => {
+    expect(proseOf(summaryFor({ hasPv: true, pvPeakPowerKwp: 10.2 }))).toContain(
+      'Sie haben bereits eine Batterie (19,2 kWh) und eine PV-Anlage (10,2 kWp). Es gibt zwei ' +
+        'unterschiedlich aufwändige Wege',
+    )
+  })
 
-describe('Leistungspreis-Block', () => {
-  it('steht mit Leistungspreis im Tarif — Kasten samt Teiljahres-Hinweis', () => {
-    const base = analysisFor(false)
-    const summary = buildReportSummary(
-      { ...base, dataQuality: { ...base.dataQuality, coveredMonths: 7 } },
-      { source: 'net_signed' },
+  /**
+   * ⚠ `hasPv === undefined` IST NICHT `false`: der Entwurf kennt „nein" und „nicht gefragt"
+   * getrennt. Auf `false` gerundet stünde eine Aussage über den Kunden im Report, die niemand
+   * gemacht hat.
+   */
+  it('verneint die PV-Anlage nur, wo sie ausdrücklich verneint wurde', () => {
+    expect(proseOf(summaryFor({ hasPv: false }))).toContain(
+      'Sie haben bereits eine Batterie (19,2 kWh), aber noch keine PV-Anlage.',
+    )
+    expect(proseOf(summaryFor())).toContain('Sie haben bereits eine Batterie (19,2 kWh).')
+    expect(proseOf(summaryFor())).not.toContain('PV-Anlage')
+  })
+
+  it('sagt ohne Bestandsanlage, dass die Steuerung einen Speicher voraussetzt', () => {
+    const text = proseOf(
+      summaryFor({ analysis: analysisFor({ existingBatteryAnalysis: undefined }) }),
     )
 
-    expect(summary.headline).not.toBeNull()
-    expect(summary.headline?.costCaption).toContain('Leistungspreis-Kosten pro Jahr')
-    expect(summary.notices.map((n) => n.id)).toContain('partial_year')
-  })
-
-  it('entfällt ohne Leistungspreis — beide Kacheln und der Teiljahres-Hinweis', () => {
-    const summary = buildReportSummary(analysisWithoutLeistungspreis(), { source: 'net_signed' })
-
-    expect(summary.headline).toBeNull()
-    expect(summary.notices.map((n) => n.id)).not.toContain('partial_year')
+    expect(text).toContain('Sie haben bislang keinen Batteriespeicher.')
+    expect(text).toContain('gezielter Ladesteuerung eines Speichers')
   })
 })
 
 /**
- * Beide Hinweise hängen strukturell NUR an der Datenqualität (Lückenlänge bzw. Herkunft des
- * Lastgangs) und nicht am Tarif — ohne Leistungspreis feuern sie also weiterhin, und ihr Verweis
- * auf „oben" zeigte bis hierher auf einen Kasten, den `buildHeadline` gar nicht mehr liefert.
+ * Die Positiv-Kontrolle zum Auftrag: der PV-Verweissatz steht NUR bei angegebener Anlage — und
+ * fehlt sonst ganz, statt leer oder verwaist dazustehen.
  */
-function analysisWithGap(withLeistungspreis: boolean): PdfReportAnalysis {
-  const base = analysisFor(false)
-  return {
-    ...base,
-    current: {
-      ...base.current,
-      leistungspreisCostPerYear: withLeistungspreis ? base.current.leistungspreisCostPerYear : 0,
-    },
-    /* Über `LARGE_GAP_SLOTS_THRESHOLD` (4 Wochen à 96 Slots) — 30 Tage am Stück. */
-    dataQuality: { ...base.dataQuality, largestGapSlots: 2880 },
-  }
-}
+describe('der PV-Satz', () => {
+  it('steht nur mit angegebener PV-Anlage', () => {
+    expect(summaryFor({ hasPv: true }).pvPointer).not.toBeNull()
+    expect(summaryFor({ hasPv: false }).pvPointer).toBeNull()
+    expect(summaryFor().pvPointer).toBeNull()
+  })
+})
 
-describe('Datenqualitäts-Hinweise ohne Leistungspreis', () => {
-  const bodiesFor = (withLeistungspreis: boolean) =>
-    buildReportSummary(analysisWithGap(withLeistungspreis), { source: 'standard_profile' }).notices
+/**
+ * Die Hinweiskästen bleiben — ihre Verweise auf „den abgerechneten Leistungswert oben" nicht: die
+ * Kopfzahl, auf die sie zeigten, gibt es seit dem Umbau nicht mehr.
+ */
+describe('die Hinweise zur Datengrundlage', () => {
+  it('feuern unverändert, nennen aber keinen Ort mehr', () => {
+    const summary = summaryFor({
+      analysis: analysisFor({
+        current: { ...analysisFor().current, leistungspreisCostPerYear: 3980 },
+        dataQuality: { ...analysisFor().dataQuality, largestGapSlots: 2880 },
+      }),
+      loadProfile: { source: 'standard_profile' },
+    })
 
-  it('feuern beide auch ohne Leistungspreis — aber ohne Verweis auf den Kasten', () => {
-    const notices = bodiesFor(false)
-
-    expect(notices.map((n) => n.id)).toEqual(['standard_profile', 'large_gap'])
-    for (const notice of notices) {
-      expect(`${notice.body} ${notice.hints.join(' ')}`).not.toContain('oben')
+    expect(summary.notices.map((n) => n.id)).toEqual([
+      'standard_profile',
+      'partial_year',
+      'large_gap',
+    ])
+    for (const notice of summary.notices) {
+      expect(`${notice.title} ${notice.body} ${notice.hints.join(' ')}`).not.toContain(' oben')
     }
-  })
-
-  it('behalten den Verweis, wo es den Kasten gibt', () => {
-    const notices = bodiesFor(true)
-
-    expect(notices.find((n) => n.id === 'large_gap')?.body).toContain(
-      'der abgerechnete Leistungswert oben',
-    )
-    expect(notices.find((n) => n.id === 'standard_profile')?.body).toContain(
-      'Die oben gezeigten Leistungswerte',
-    )
   })
 })

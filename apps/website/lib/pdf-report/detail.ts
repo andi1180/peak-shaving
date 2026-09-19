@@ -4,7 +4,7 @@ import { sumCovered } from 'shared'
 import { formatEur, formatYears } from '@/lib/format'
 import { monthlyBatteryRef } from '@/lib/report-copy'
 import type { ReportBuildContext } from './context'
-import { block, ref, t, REF_SECTION, type ReportText } from './report-text'
+import { t } from './report-text'
 import type { ReportFigure, ReportRow, ReportStatement } from './statement'
 import { recommendedEntryOf } from './summary'
 import type { PdfReportAnalysis } from './types'
@@ -175,7 +175,7 @@ function neutralRow(label: string, value: string): ReportRow {
  * (1) Gerastert wird der Recharts-ZEICHENBEREICH; die Legende der Komponente liegt ausserhalb
  *     davon (D11: Text gehört nativ neben das Bild, nicht als Pixel hinein). Ohne die Zeilen
  *     stünden je Monat drei unbeschriftete Balken.
- * (2) Die Kernergebnis-Seite zeigt im Bestandsfall die DIFFERENZEN zwischen genau diesen drei
+ * (2) Die Zusammenfassung zeigt die Spanne über genau diese drei
  *     Summen (`buildRealSavingBreakdown`); die Summen selbst stehen dort nirgends. Es ist also
  *     keine Wiederholung, sondern die Grundlage.
  *
@@ -211,31 +211,13 @@ export function buildMonthly(
   fees.push(`aWATTar ${formatEur(fixed.awattarFeeEurPerMonth)}/Monat`)
 
   /*
-   * ⚠ NUR IM BESTANDSFALL ZEIGT DIE KERNERGEBNIS-SEITE DIESE DREI SUMMEN ALS DIFFERENZ. Ohne
-   * Bestandsanlage (Kapitel 4, Katalog-Fassung) steht dort stattdessen „Wert der Ladesteuerung"
-   * (`load_shift`, s. `summary.ts`) — ein ANDERER Rechenweg auf denselben Zeitraum, der einzelne
-   * Kilowattstunden zuordnet statt Monatssummen zu vergleichen, und deshalb zu einer leicht
-   * abweichenden Zahl führt.
+   * ⚠ DIE ZWEI VERWEISE AUF DIE KERNERGEBNIS-SEITE SIND MIT DEM ZUSAMMENFASSUNGS-UMBAU ENTFALLEN.
+   * Sie zeigten auf `savings` bzw. `load_shift`; beide Bausteine gibt es nicht mehr (Ein-Spanne-
+   * Regel D8). Was hier steht, ist wörtlich die Ersatzfassung, die der Verweis ohne sein Ziel
+   * ohnehin genommen hätte — die Spanne der Zusammenfassung ist die Differenz dieser drei Summen,
+   * und hier stehen sie absolut.
    */
-  /*
-   * ── ⚠ STUFE D: BEIDE FASSUNGEN ZEIGEN AUF EINEN BAUSTEIN DES KERNERGEBNIS-KAPITELS ──────────
-   * Der Verweis umfasst jeweils den GANZEN Satz, denn ohne sein Ziel bleibt kein sinnvoller Rest:
-   * „hier stehen sie absolut" beantwortet eine Frage, die niemand gestellt hat, wenn die
-   * Differenzen nirgends stehen.
-   *
-   * ⚠ OFFENGELEGTE GRENZE: „Kernergebnis-Seite" bleibt geschrieben — s. `recommendation.ts`.
-   */
-  const closing: ReportText = isExisting
-    ? t`${ref(
-        block('savings'),
-        `Die ${REF_SECTION} zeigt die DIFFERENZEN zwischen diesen drei Summen; hier stehen sie absolut.`,
-        'Hier stehen die drei Summen absolut.',
-      )}`
-    : t`${ref(
-        block('load_shift'),
-        `Der „Wert der Ladesteuerung" auf der ${REF_SECTION} ist NICHT aus diesen drei Summen gebildet, sondern aus der Zuordnung einzelner Kilowattstunden — ein anderer Rechenweg auf denselben Zeitraum, der zu einer leicht abweichenden Zahl führt.`,
-        'Die drei Summen stehen hier absolut.',
-      )}`
+  const closing = 'Hier stehen die drei Summen absolut.'
 
   return {
     figure: {
@@ -250,13 +232,13 @@ export function buildMonthly(
       title: 'Das zahlen Sie jetzt — und das zahlten Sie mit aWATTar',
       /*
        * ⚠ KEINE KOPFZAHL. Die Differenz zwischen der ersten und der dritten Zeile ist die
-       * Kern-Ersparnis der Kernergebnis-Seite; hier gross daneben gesetzt stünde derselbe Betrag
+       * Kern-Ersparnis der Zusammenfassung; hier gross daneben gesetzt stünde derselbe Betrag
        * zweimal im Dokument und lüde dazu ein, ihn zu addieren (dieselbe Regel wie bei der
        * Ladesteuerungs-Aussage, B23c-2).
        */
       amount: null,
       rows,
-      body: t`Summen über die ${String(comparison.coveredMonths)} gemessenen Monate — ausdrücklich NICHT auf ein Jahr hochgerechnet: die fehlenden Monate liegen nicht gleichverteilt über das Jahr. Enthalten sind Arbeitspreis, Netz-Arbeitspreis und die anteiligen Grundgebühren (${fees.join(' · ')}). NICHT enthalten ist der Leistungspreis — er steht als Jahreszahl auf der Kernergebnis-Seite; ihn auf Monate zu verteilen verlangte eine Aufteilungsregel, die es nicht gibt. ${closing}`,
+      body: t`Summen über die ${String(comparison.coveredMonths)} gemessenen Monate — ausdrücklich NICHT auf ein Jahr hochgerechnet: die fehlenden Monate liegen nicht gleichverteilt über das Jahr. Enthalten sind Arbeitspreis, Netz-Arbeitspreis und die anteiligen Grundgebühren (${fees.join(' · ')}). NICHT enthalten ist der Leistungspreis — ihn auf Monate zu verteilen verlangte eine Aufteilungsregel, die es nicht gibt. ${closing}`,
     },
   }
 }
@@ -272,7 +254,7 @@ export function buildMonthly(
  * ⚠ Der gerasterte Ausschnitt ist der ERSTE Zeichenbereich der Komponente, also die
  * Kostenkurve. Die gestapelte Ersparnis-Aufschlüsselung darunter ist ein ZWEITER Chart derselben
  * Komponente und bleibt bewusst draussen: ihre drei Kategorien stehen als Zeilen auf der
- * Kernergebnis-Seite, und eine Grafik derselben drei Zahlen wäre die dritte Fassung derselben
+ * Zusammenfassung, und eine Grafik derselben drei Zahlen wäre die dritte Fassung derselben
  * Aussage im selben Dokument.
  */
 function buildCumulative(plan: Extract<DetailCostPlan, { kind: 'cumulative' }>): {
