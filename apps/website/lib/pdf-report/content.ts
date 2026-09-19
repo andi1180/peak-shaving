@@ -424,7 +424,12 @@ export const RESULTS_INTRO = 'Die Zahlen, um die es geht — und was sie für Si
  * ⚠ Er verweist auf das Methodik-Kapitel und wiederholt dessen Inhalt NICHT. Die Vorbehalte stehen
  * an einer Stelle; sie hier zu paraphrasieren hiesse, denselben Vorbehalt in zwei Schärfen in
  * dasselbe Dokument zu setzen — genau das, wogegen `lib/report-copy.ts` angelegt wurde.
+ *
+ * ⚠ DIE NETTO-ANGABE STAND HIER UND STEHT JETZT AN DER KOPFZAHL (`buildSummaryKpis`): als
+ * Seitenfussnote las sie sich wie ein Kleingedrucktes zum ganzen Blatt, obwohl sie eine Eigenschaft
+ * der zwei Zahlen darüber ist. Durchgerechnet wird weiterhin netto — das sagt `limitations` im
+ * Schlusskapitel für den ganzen Report.
  */
 export const RESULTS_FOOTNOTE =
-  'Alle Beträge netto (ohne USt.). Wie diese Zahlen entstanden sind und wo ihre Grenzen liegen, ' +
+  'Wie diese Zahlen entstanden sind und wo ihre Grenzen liegen, ' +
   `steht im Kapitel „${METHODOLOGY_SECTION.title}".`

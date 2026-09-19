@@ -282,9 +282,14 @@ ausdrücklich nicht reproduziert worden.
 **Positiv-Kontrolle:** derselbe Fall mit `hasPv: false` — der PV-Satz fehlt vollständig, der Absatz
 sagt „aber noch keine PV-Anlage", und die Seite schliesst ohne Lücke.
 
+**Nachgezogen am 19.09.2026:** die Netto-Angabe steht jetzt wie im Zielbild („€1.061 (netto)",
+S. 3) an der Kopfzahl selbst — als zweiter Teil der Bezugszeile von „Ihre Stromkosten heute"
+(„über 209 gemessene Tage, netto" bzw. „…, netto, ohne Leistungspreis"). Die Fussnote am Seitenende
+bleibt bestehen, trägt aber nur noch den Methodik-Zeiger. Dass durchgängig netto gerechnet wird,
+sagt weiterhin `limitations` im Schlusskapitel für den ganzen Report.
+
 **Offen geblieben:** der Zeilenabstand im teal Kasten weicht vom Zielbild ab (er ist der geteilte
-`statement`-Abstand); die Fussnote „Alle Beträge netto" bleibt entgegen dem Zielbild stehen, weil
-sie die einzige Netto-Angabe und der einzige Methodik-Zeiger dieser Seite ist.
+`statement`-Abstand).
 
 ---
 

@@ -119,7 +119,7 @@ describe('die zwei Kopfzahlen', () => {
       ['cost_today', '€ 1.061', 'ink'],
       ['possible_saving', '€ 53 – € 207', 'accent'],
     ])
-    expect(kpis[0]!.caption).toEqual(['Ihre Stromkosten heute', 'über 209 gemessene Tage'])
+    expect(kpis[0]!.caption).toEqual(['Ihre Stromkosten heute', 'über 209 gemessene Tage, netto'])
     expect(kpis[1]!.caption[1]).toBe('je nach gewähltem Weg, im selben Zeitraum')
   })
 
@@ -175,7 +175,7 @@ describe('die zwei Kopfzahlen', () => {
       }),
     })
 
-    expect(mit.kpis[0]!.caption[1]).toBe('über 209 gemessene Tage, ohne Leistungspreis')
+    expect(mit.kpis[0]!.caption[1]).toBe('über 209 gemessene Tage, netto, ohne Leistungspreis')
     /* Und die Kappung wird im Absatz benannt, statt still aus der Spanne zu fallen. */
     expect(proseOf(mit)).toContain('Die Kappung Ihrer Lastspitzen ist in dieser Spanne nicht')
     expect(proseOf(summaryFor())).not.toContain('Kappung Ihrer Lastspitzen')

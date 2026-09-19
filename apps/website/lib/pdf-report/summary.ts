@@ -208,9 +208,12 @@ function positiveWays(ways: SummaryWays): SummaryWay[] {
  * Netz-Arbeitspreis samt Grundgebühren, ausdrücklich NICHT den Leistungspreis. Wo es den Posten
  * gibt, sagt die Bezugszeile das — sonst stünde unter „Ihre Stromkosten heute" eine Zahl, die bei
  * einem Gewerbekunden einen erheblichen Teil seiner Rechnung auslässt.
+ *
+ * ⚠ „netto" steht in DERSELBEN Bezugszeile und nicht mehr als Fussnote am Seitenende: eine
+ * Preisangabe ohne Umsatzsteuer gehört an die Zahl, auf die sie sich bezieht.
  */
 export function buildSummaryKpis(analysis: PdfReportAnalysis, ways: SummaryWays): SummaryKpi[] {
-  const days = `über ${ways.coveredDays} gemessene Tage`
+  const days = `über ${ways.coveredDays} gemessene Tage, netto`
   const kpis: SummaryKpi[] = [
     {
       id: 'cost_today',
