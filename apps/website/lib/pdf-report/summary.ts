@@ -75,7 +75,10 @@ export type SummaryStatement = ReportStatement & {
   id: 'savings' | 'peak_shaving' | 'load_shift' | 'addon'
 }
 
-/** Die Kern-Kennzahl — die Zahl, die weh tut (§6.2). Steht immer, sie hängt an keiner Batterie. */
+/**
+ * Die Kern-Kennzahl — die Zahl, die weh tut (§6.2). Sie hängt an keiner Batterie, wohl aber am
+ * Leistungspreis: ohne ihn gibt es sie nicht (s. `buildHeadline`).
+ */
 export type SummaryHeadline = {
   peakValue: string
   peakCaption: string
@@ -84,7 +87,8 @@ export type SummaryHeadline = {
 }
 
 export type ReportSummary = {
-  headline: SummaryHeadline
+  /** `null` = der Tarif hat keinen Leistungspreis; dann steht der Kasten gar nicht da. */
+  headline: SummaryHeadline | null
   /**
    * B23c-4 — die Hinweise, die die Kern-Kennzahl QUALIFIZIEREN. Stehen zwischen ihr und den
    * Kernaussagen, in derselben Reihenfolge wie am Bildschirm.
@@ -145,7 +149,33 @@ export function recommendedEntryOf(analysis: PdfReportAnalysis): BatteryRoiEntry
   )
 }
 
-function buildHeadline(current: PdfReportAnalysis['current']): SummaryHeadline {
+/**
+ * Hat dieser Tarif überhaupt einen Leistungspreis?
+ *
+ * ⚠ [ABGELEITET, keine Contract-Zahl] — der Satz steht nirgends im `AnalysisResult`; gerechnet wird
+ * `leistungspreisCostPerYear = Satz × billedKw` (`analyzeCurrentPeaks`, §3.4). Ein Ergebnis > 0
+ * heisst also: es gibt einen Satz UND einen abgerechneten Wert. Dieselbe Rückrechnung wie in
+ * `basis.ts`, `charts.tsx` und `report.tsx`, nur ohne die Division — hier zählt allein, OB es den
+ * Posten gibt.
+ *
+ * ⚠ DIE 0 IST KEIN RANDFALL: ein Anschluss ohne Leistungsmessung (Netzebene 7) hat den Posten
+ * überhaupt nicht, und die Tarifschicht liefert dafür ausdrücklich `leistungspreisEurPerKwYear: 0`
+ * (`grid-tariff-prefill.ts`). Dasselbe Prinzip wie bei `buildPeakShaving`: fehlt die Grundlage,
+ * fehlt die ganze Aussage — nicht die Zahl darin.
+ */
+function hasLeistungspreis(current: PdfReportAnalysis['current']): boolean {
+  return current.leistungspreisCostPerYear > 0
+}
+
+/**
+ * ⚠ `null` = dieser Tarif hat keinen Leistungspreis, und dann entfällt der GANZE Kasten — beide
+ * Kacheln, nicht nur die Kostenzahl. „Ihre teuerste Lastspitze" steht dort nicht für sich, sondern
+ * als Begründung der Kosten daneben; ohne den Posten ist sie eine Zahl ohne Frage, und „€ 0" wäre
+ * auf einer Seite mit der Überschrift „Kernergebnisse" eine Einladung, nach einem Fehler zu suchen.
+ */
+function buildHeadline(current: PdfReportAnalysis['current']): SummaryHeadline | null {
+  if (!hasLeistungspreis(current)) return null
+
   return {
     peakValue: formatKw(current.annualPeakKw),
     /*
@@ -617,6 +647,13 @@ export function buildPartialYearNotice(analysis: PdfReportAnalysis): ReportNotic
   const { billingModel } = analysis.assumptions
   const { coveredMonths } = analysis.dataQuality
   if (!billingModel.startsWith('monthly') || coveredMonths >= 12) return null
+  /*
+   * ⚠ Ohne Leistungspreis entfällt der Hinweis mit dem Kasten, auf den er zeigt. Sein ganzer Inhalt
+   * ist „der abgerechnete Leistungswert OBEN ist nicht aussagekräftig" — steht der Kasten nicht da
+   * (`buildHeadline`), warnt der Satz vor einer Zahl, die das Dokument nicht zeigt, und empfiehlt
+   * dazu ein anderes Abrechnungsmodell für einen Posten, den dieser Anschluss nicht hat.
+   */
+  if (!hasLeistungspreis(analysis.current)) return null
 
   return {
     id: 'partial_year',

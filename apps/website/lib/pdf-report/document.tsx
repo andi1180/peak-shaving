@@ -1406,16 +1406,19 @@ function ResultsChapter({
       <Text style={styles.h2}>{RESULTS_SECTION.title}</Text>
       <Text style={styles.lead}>{RESULTS_INTRO}</Text>
 
-      <View style={styles.headline}>
-        <View style={styles.headlineCell}>
-          <Text style={styles.headlineValue}>{summary.headline.peakValue}</Text>
-          <Text style={styles.headlineCaption}>{summary.headline.peakCaption}</Text>
+      {/* ⚠ `null` = Tarif ohne Leistungspreis — dann entfällt der Kasten ganz, s. `buildHeadline`. */}
+      {summary.headline && (
+        <View style={styles.headline}>
+          <View style={styles.headlineCell}>
+            <Text style={styles.headlineValue}>{summary.headline.peakValue}</Text>
+            <Text style={styles.headlineCaption}>{summary.headline.peakCaption}</Text>
+          </View>
+          <View style={styles.headlineCell}>
+            <Text style={styles.headlineValueCost}>{summary.headline.costValue}</Text>
+            <Text style={styles.headlineCaption}>{summary.headline.costCaption}</Text>
+          </View>
         </View>
-        <View style={styles.headlineCell}>
-          <Text style={styles.headlineValueCost}>{summary.headline.costValue}</Text>
-          <Text style={styles.headlineCaption}>{summary.headline.costCaption}</Text>
-        </View>
-      </View>
+      )}
 
       {/*
         ⚠ ZWISCHEN Kopfzahl und Aussagen, nicht darunter oder im Schlusskapitel: sie qualifizieren
