@@ -95,7 +95,7 @@ export function buildEstimatedPvProfile(
 }
 
 /**
- * Darf der Generator für diesen Lastgang überhaupt angeboten werden (Pflichtenheft §2.4)?
+ * Darf die geschätzte Erzeugung von DIESEM Lastgang abgezogen werden (Pflichtenheft §2.4)?
  *
  * ── Warum nicht überall ────────────────────────────────────────────────────────────────────────
  * Trägt der Lastgang bereits Einspeisung, STEHT die Eigenverbrauchs-Ersparnis dort — sie ist
@@ -113,18 +113,66 @@ export function buildEstimatedPvProfile(
  *
  * Ein bereits mit geschätzter PV gekoppelter Lastgang fällt aus demselben Test heraus (er trägt
  * negative Werte) — ein zweites Aufaddieren ist damit strukturell ausgeschlossen.
+ *
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * ⚠ DIE DRITTE PRÜFUNG (19.09.2026) — `import_only` BEI EINEM KUNDEN, DER SCHON PV HAT
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * Die beiden Prüfungen oben erkennen SICHTBARE Einspeisung. Sie greifen aber genau dort nicht, wo
+ * eine vorhandene PV-Anlage gar keine Spur im Lastgang hinterlässt: Ein Netzbetreiber-Export ohne
+ * Einspeisespalte misst am Anschlusspunkt, und der selbst verbrauchte PV-Strom kommt dort nie
+ * vorbei. `LoadProfile` sagt das im Contract selbst zu („Enthält den Effekt vorhandener PV
+ * (Eigenverbrauch) bereits", `shared/src/load-profile.ts`) — der gesenkte Bezug IST die PV.
+ *
+ * Wer davon noch einmal eine PVGIS-Schätzung abzieht, zieht dieselbe Energie ein zweites Mal ab.
+ * Am realen Urbanz-Fall gemessen: 5.212,67 kWh gegengerechnete Erzeugung über 209 Tage gegen
+ * 4.321,17 kWh gemessenen Netzbezug desselben Zeitraums — das 1,21-fache. Der so entstandene
+ * Lastgang ersetzte bis hierher den echten für JEDE nachgelagerte Rechnung, und die Ist-Kosten des
+ * Tarifvergleichs fielen von ~€ 948 auf € 473.
+ *
+ * ⚠ DESHALB HÄNGT DIE PRÜFUNG AN EINER ANGABE UND NICHT AN DEN MESSWERTEN. Ob der Kunde eine
+ * Anlage besitzt, steht nicht in seinem Bezugslastgang — genau das ist der Punkt. Sie muss von
+ * aussen hereinkommen (`hasExistingPv`); die Engine kann sie nicht messen, und ein Versuch, sie aus
+ * einem fehlenden Mittagseinbruch abzuleiten, wäre eine Vermutung (`pv-anomaly/outage-months.ts`
+ * nimmt aus demselben Grund kein `hasPv` entgegen).
+ *
+ * ⚠ AUSDRÜCKLICH NUR `import_only`. `standard_profile` bleibt unberührt — es ist der wichtigste
+ * Anwendungsfall des Generators (Pflichtenheft §0.2), und ob die eingetippte Jahresmenge ein
+ * Brutto- oder ein Netzbezug ist, steht nirgends im Code. Eine Regel dafür wäre eine Vermutung über
+ * eine Zahl, die ein Mensch eingibt.
  */
+export type PvCouplingContext = {
+  /**
+   * Besitzt der Kunde BEREITS eine PV-Anlage? `true` heisst: ihre Erzeugung steckt im Lastgang,
+   * auch wenn man sie dort nicht sieht. `undefined` heisst „nicht erhoben" und verhält sich wie
+   * bisher — der öffentliche Rechner (`apps/website`) erhebt die Frage heute nicht.
+   */
+  hasExistingPv?: boolean
+}
+
 export type PvGeneratorEligibility =
   | { offered: true }
   /** Einspeisung liegt gemessen vor. Wird ANGEZEIGT und begründet, nicht verborgen (Delta 9). */
   | { offered: false; reason: 'measured_feed_in' }
+  /**
+   * Reiner Bezugslastgang, aber der Kunde hat eine Anlage: die Erzeugung ist bereits im gesenkten
+   * Bezug enthalten. Ein Abzug wäre eine Doppelzählung — die Rekonstruktion „Bruttoverbrauch =
+   * Netzbezug + geschätzte Erzeugung" für die „ohne PV"-Vergleichsrechnung des PV-Kapitels ist die
+   * ANDERE Richtung und von dieser Regel nicht betroffen.
+   */
+  | { offered: false; reason: 'pv_already_in_grid_profile' }
 
-export function pvGeneratorEligibility(load: LoadProfile): PvGeneratorEligibility {
+export function pvGeneratorEligibility(
+  load: LoadProfile,
+  context: PvCouplingContext = {},
+): PvGeneratorEligibility {
   if (load.source === 'net_signed' || load.source === 'import_export_split') {
     return { offered: false, reason: 'measured_feed_in' }
   }
   if (load.readings.some((r) => r.gridPowerKw < 0)) {
     return { offered: false, reason: 'measured_feed_in' }
+  }
+  if (load.source === 'import_only' && context.hasExistingPv === true) {
+    return { offered: false, reason: 'pv_already_in_grid_profile' }
   }
   return { offered: true }
 }

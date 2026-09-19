@@ -75,9 +75,16 @@ function generatedSeriesJson(timestamps: readonly string[]): string {
   }).text
 }
 
+/**
+ * Ein Entwurf mit abgelegter Schätzreihe.
+ *
+ * ⚠ OHNE `hasPv`. Bis zum 19.09.2026 stand hier `hasPv: true` — und genau diese Kombination
+ * (`import_only` + vorhandene Anlage) ist der nachgebesserte Defekt: der Netzbetreiber-Lastgang
+ * enthält die Eigenversorgung bereits, ein Abzug zählte sie ein zweites Mal. Der Gegenbeweis mit
+ * `hasPv: true` steht als eigener Fall darunter.
+ */
 const GENERATED_DRAFT: Record<string, unknown> = {
   ...DRAFT,
-  hasPv: true,
   pvProfileSource: 'generated',
   pvGeneratedDocumentId: 'pv-gen-1',
   // Die Kennzahlen daneben sperren nicht mehr, sobald die Reihe selbst benannt ist.
@@ -195,6 +202,33 @@ describe('runAnalysisFromMeteringPointDraft', () => {
       smoothingOptimismPercent: 4.9,
       weatherYears: { from: 2014, to: 2023 },
     })
+  })
+
+  it('⚠ zieht die Schätzreihe NICHT ab, wenn der Kunde bereits eine PV-Anlage hat', async () => {
+    /*
+     * Der reale Urbanz-Fall. Der Wizard bietet den Generator ausschliesslich bei `hasPv === true`
+     * an — also genau dem Kunden, dessen Erzeugung im gemessenen Bezug schon steckt. Bis zur
+     * Nachbesserung ersetzte der Abzug den echten Lastgang für JEDE nachgelagerte Rechnung.
+     */
+    const ohne = await runAnalysisFromMeteringPointDraft('mp-1', ports())
+    const seriesJson = generatedSeriesJson(ohne.loadProfile.readings.map((r) => r.ts))
+
+    const { result, loadProfile, estimatedPvMetadata } = await runAnalysisFromMeteringPointDraft(
+      'mp-1',
+      generatedPorts(seriesJson, { ...GENERATED_DRAFT, hasPv: true }),
+    )
+
+    // Gerechnet ist der ECHTE Lastgang — Wert für Wert der aus Schritt 1, nicht nur in der Summe.
+    expect(loadProfile.pvSource).toBeUndefined()
+    expect(loadProfile.readings).toEqual(ohne.loadProfile.readings)
+    expect(estimatedPvMetadata).toBeUndefined()
+    // Und damit steht auch die Spitzenkappung wieder da, die `estimated_pv` still abgeschaltet hat.
+    expect(result.perBattery.some((e) => e.leistungspreisSavingPerYear > 0)).toBe(true)
+
+    // Die abgelegte Reihe verpufft nicht still.
+    expect(
+      result.dataQuality.warnings.some((w) => w.includes('pv_already_in_grid_profile')),
+    ).toBe(true)
   })
 
   it('bricht ab, wenn die abgelegte Reihe zu einem anderen Lastgang gehört', async () => {

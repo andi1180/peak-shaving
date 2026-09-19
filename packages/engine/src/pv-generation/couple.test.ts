@@ -158,4 +158,41 @@ describe('B22a — wo der Generator NICHT angeboten wird (§2.4)', () => {
       reason: 'measured_feed_in',
     })
   })
+
+  /*
+   * ⚠ Nachbesserung 19.09.2026: derselbe reine Bezugs-Lastgang, nur mit der Angabe daneben, dass
+   * der Kunde bereits eine Anlage hat. An den Messwerten ist das NICHT zu sehen — die
+   * Eigenversorgung steckt unsichtbar im gesenkten Bezug (Contract `LoadProfile`). Das ist der
+   * reale Urbanz-Fall, an dem 5.212,67 kWh geschätzte Erzeugung gegen 4.321,17 kWh gemessenen
+   * Netzbezug gegengerechnet wurden.
+   */
+  it('⚠ verweigert ihn bei `import_only`, wenn der Kunde bereits eine PV-Anlage hat', () => {
+    const csv = readFileSync(
+      new URL('../../../../dev-fixtures/demo-baeckerei-lastgang-2023.csv', import.meta.url),
+      'utf8',
+    )
+    const parsed = parseLoadProfile({ content: csv, format: 'csv' })
+    if (!parsed.ok) throw new Error('Demo-Fixture parst nicht')
+    expect(parsed.profile.source).toBe('import_only')
+
+    // Ohne die Angabe unverändert angeboten — die Regel hängt an ihr und an nichts am Lastgang.
+    expect(pvGeneratorEligibility(parsed.profile)).toEqual({ offered: true })
+    expect(pvGeneratorEligibility(parsed.profile, { hasExistingPv: false })).toEqual({
+      offered: true,
+    })
+    expect(pvGeneratorEligibility(parsed.profile, { hasExistingPv: true })).toEqual({
+      offered: false,
+      reason: 'pv_already_in_grid_profile',
+    })
+  })
+
+  it('lässt das Standardprofil ausdrücklich unberührt — auch mit vorhandener Anlage', () => {
+    /*
+     * §0.2 nennt „synthetischer Verbrauch + geschätzte PV" den wichtigsten Anwendungsfall des
+     * Generators. Ob die eingetippte Jahresmenge ein Brutto- oder ein Netzbezug ist, steht nirgends
+     * im Code — eine Regel dafür wäre eine Vermutung über eine von Hand erfasste Zahl.
+     */
+    expect(consumption.source).toBe('standard_profile')
+    expect(pvGeneratorEligibility(consumption, { hasExistingPv: true })).toEqual({ offered: true })
+  })
 })

@@ -172,5 +172,21 @@ export function checkPvGeneratorEligibility(
    * Fassung derselben Regel — und die erste, die beim nächsten Umbau auseinanderliefe. Diese Datei
    * beschafft die Eingabe und gibt die Antwort weiter, mehr nicht.
    */
-  return pvGeneratorEligibility(parsed.profile)
+  /*
+   * ⚠ OHNE `hasExistingPv` — UND DAS IST DIE ABGRENZUNG, NICHT EIN VERGESSENES ARGUMENT.
+   * Diese Datei beantwortet die Frage des Wizards: „darf der Generator ANGEBOTEN werden?" Sie hängt
+   * allein am Lastgang. Ob der Kunde bereits eine Anlage hat, entscheidet nicht über das Angebot,
+   * sondern über den ABZUG — und die Angabe liegt dort vor, wo gerechnet wird (`run-from-draft.ts`,
+   * Nachbesserung B22 vom 19.09.2026). Die geschätzte Reihe entsteht also weiterhin: sie ist die
+   * Eingabe der „ohne PV"-Vergleichsrechnung des PV-Kapitels, die nicht abzieht, sondern addiert.
+   *
+   * Der Grund `pv_already_in_grid_profile` kann hier deshalb nicht entstehen. Er wird trotzdem
+   * behandelt und fällt auf eine Ablehnung zurück statt auf ein Angebot: reicht ihn jemand später
+   * hierher durch, ist das Ergebnis fail closed — dieselbe Richtung wie bei den drei
+   * Betriebszuständen oben.
+   */
+  const eligibility = pvGeneratorEligibility(parsed.profile)
+  return eligibility.offered || eligibility.reason === 'measured_feed_in'
+    ? eligibility
+    : { offered: false, reason: 'measured_feed_in' }
 }

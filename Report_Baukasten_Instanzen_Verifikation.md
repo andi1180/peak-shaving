@@ -263,3 +263,22 @@ Gemessen ist der Stilunterschied zu `Statement` klein: `itemTitle` (:345) und `s
 - Die Auswahl-Freiheit aus Delta-KI §5.1 („Reihenfolge frei") kollidiert mit 13 ortsgebundenen Textverweisen, von denen vier schon heute in erreichbaren Fällen ins Leere zeigen (Stand vor PR #273 — s. §2.3).
 - Wiederverwendbar ohne Umbau sind genau drei Prädikate (die Kapitel-Schalter) plus drei `…ChartPlan`-Funktionen. Für die 25 Baustein-Bedingungen gibt es kein Prädikat — nur den Erzeuger, der `null` zurückgibt.
 - Die Kapitel-Reihenfolge existiert zweimal (`buildReportAgenda` und der JSX-Seitenbaum). Eine KI-gewählte Reihenfolge müsste beide bedienen oder die Doppelung vorher auflösen.
+
+---
+
+## Nachtrag 19.09.2026 — Nachbesserung B22 verschiebt zwei Bausteine im Urbanz-Fall
+
+Keine Änderung am Katalog (weiterhin dieselben ids, dieselben Erzeuger, dieselben Bedingungen) — geändert hat sich, **welche Bedingung im realen Referenzfall zutrifft**.
+
+Für einen Lastgang mit `source: 'import_only'` und einem Kunden, der bereits eine PV-Anlage besitzt (`hasPv === true`), wird die geschätzte PVGIS-Erzeugung **nicht mehr vom Lastgang abgezogen** (`pvGeneratorEligibility`, Grund `pv_already_in_grid_profile`). Der Netzbetreiber-Export misst am Anschlusspunkt; die Eigenversorgung steckt dort als gesenkter Bezug bereits drin, ein Abzug zählte dieselbe Energie ein zweites Mal. Am echten Urbanz-Lastgang gemessen: 4.321,17 kWh Netzbezug über 209 Tage gegen 5.212,67 kWh gegengerechnete Erzeugung — das **1,21-fache**.
+
+Folgen für die Instanzliste, beide in Kapitel 1 bzw. 8:
+
+| Baustein | vorher | jetzt |
+|---|---|---|
+| `estimated_pv` (Notice, §1.2, summary.ts:653) | erschien — `input.estimatedPv` war gesetzt | **erscheint nicht**: es entsteht keine Schätzung, die in die Rechnung eingeht (`estimatedPvMetadata` bleibt `undefined`) |
+| `data_quality` (Notice, §1.2, basis.ts:191) | trug die Warnungen des Lastgangs | trägt **zusätzlich** einen Satz: die abgelegte Reihe liegt vor, wurde aber nicht abgezogen (`run-from-draft.ts`, angehängt an `dataQuality.warnings`) |
+
+⚠ **Die Kopfzahlen der Zusammenfassung (D8) hingen an dem Defekt mit.** `currentTariffEur` entsteht aus `buildMonthlyTariffComparison` auf `payload.load.profile` — also bis hierher auf dem gekoppelten Lastgang. Damit war „Ihre Stromkosten heute" halbiert und „reiner Tarifwechsel" fälschlich negativ; beide stehen in Kapitel 1 und sind **keine** Bausteine der Registry (s. den D8-Absatz in `CLAUDE.md`), fallen also durch jede Baustein-seitige Prüfung.
+
+⚠ **Nicht betroffen: die PV-Rekonstruktion des künftigen PV-Kapitels.** Sie geht die andere Richtung (Bruttoverbrauch = echter Netzbezug **+** geschätzte Erzeugung) und ist ausschliesslich die „ohne PV"-Vergleichsrechnung. Die geschätzte Reihe wird deshalb weiterhin erzeugt und abgelegt — der Wizard bietet den Generator unverändert an (`checkPvGeneratorEligibility` fragt nach dem ANGEBOT, nicht nach dem ABZUG). Bis das Kapitel gebaut ist, ist sie im Report ausschliesslich über den `data_quality`-Satz sichtbar.
