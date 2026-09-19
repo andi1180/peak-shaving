@@ -2,6 +2,7 @@ import {
   PV_TEN_YEAR_SMOOTHING_OPTIMISM_PERCENT,
   buildRealSavingBreakdown,
   sumCovered,
+  type BatteryCandidate,
   type BatteryResultEntry,
   type BatteryRoiEntry,
   type BillingModel,
@@ -10,116 +11,102 @@ import {
 } from 'shared'
 
 import { LARGE_GAP_SLOTS_THRESHOLD } from '@/lib/constants'
-import { formatEur, formatKw, formatKwh, formatKwh1, formatKwp, formatPercent } from '@/lib/format'
-import { HINDSIGHT_NOTE } from '@/lib/report-copy'
+import { formatEur, formatKwh, formatKwh1, formatKwp, formatPercent } from '@/lib/format'
 import { CANDIDATE_TABLE_ID } from './comparison'
 import type { ReportBuildContext } from './context'
-import { amount, block, ref, row, t, REF_LABEL, REF_PLACE, type ReportText } from './report-text'
+import { block, ref, t, REF_PLACE, type ReportText } from './report-text'
 import type { ReportNotice, ReportRow, ReportStatement, ReportTone } from './statement'
 import type { PdfReportAnalysis } from './types'
 
 /**
- * B23c-1 — die Executive Summary („Kernergebnisse") des react-pdf-Reports, aus dem Contract
- * abgeleitet.
+ * Das erste inhaltliche Kapitel des react-pdf-Reports — die „Zusammenfassung".
  *
  * ── ⚠ DIESE DATEI DARF `@react-pdf/renderer` NICHT ANFASSEN — und Recharts genauso wenig ────────
  * Sie ist die Ableitung, nicht die Darstellung: sie entscheidet, WELCHE Aussage im Dokument steht,
- * und liefert fertige Zeichenketten. Gerendert wird in `document.tsx`. Derselbe Zuschnitt wie
- * `derive.ts` und aus demselben Grund — nur so lässt sich die Entscheidung „welche Aussage bleibt
- * bei welchem fehlenden Wert aus" lesen, ohne sie aus JSX herauszuklauben.
+ * und liefert fertige Zeichenketten. Gerendert wird in `document.tsx`.
+ *
+ * ── ⚠ EINE SPANNE, NICHT VIER BETRÄGE (Delta Report-Baukasten D8) ─────────────────────────────
+ * Die Seite führt GENAU EINE Kern-Ersparnis-Aussage, und zwar als Spanne über benannte Wege. Bis
+ * zum Umbau standen hier vier Aussagen mit je eigener Kopfzahl (`savings`, `peak_shaving`,
+ * `load_shift`, `addon`) — vier Euro-Grössen nebeneinander, von denen drei nicht addiert werden
+ * durften und die deshalb je einen eigenen Abgrenzungssatz brauchten. Genau davor warnt die
+ * Ein-Spanne-Regel; sie ist mit dieser Fassung erfüllt.
  *
  * ── ⚠ DER GANZE ABSCHNITT HÄNGT AN EINER REGEL: KEINE ZAHL OHNE RECHNUNG ───────────────────────
  * Jede Aussage entsteht NUR, wenn die Grösse, um die es geht, tatsächlich gerechnet wurde. Fehlt
  * die Grundlage, fehlt die ZEILE — nicht ein Strich, nicht eine 0, nicht ein „nicht verfügbar".
- * Dasselbe Muster wie das leere Adressfeld auf dem Deckblatt (`document.tsx`, `Cover`): ein
- * sichtbar leeres Feld sieht aus wie ein Fehler beim Ausdrucken, nicht wie eine nicht gestellte
- * Frage. Auf einer Seite, die „Kernergebnisse" überschrieben ist, wiegt das schwerer als sonst
- * irgendwo — sie ist die eine Seite, die ein weitergereichter Report garantiert gelesen bekommt.
- *
- * Konkret geprüft und ausgelassen wird:
- *   • die Ladesteuerung, wenn `tariffOptimization?.computable !== true` (Delta 15 Regel C: eine
- *     Vergleichszahl aus einer anderen Grundlage fällt niemandem als Fehler auf, sondern als
- *     Ergebnis),
- *   • die Spitzenkappung, wenn der Speicher den abgerechneten Leistungswert nicht senkt (`static`
- *     kappt nicht, ein Tarif ohne Leistungspreis hat den Posten gar nicht — Delta 3),
- *   • der Zusatzspeicher, wenn es gar keine bestehende Anlage gibt.
+ * Auf einer Seite, die „Zusammenfassung" überschrieben ist, wiegt das schwerer als sonst irgendwo:
+ * sie ist die eine Seite, die ein weitergereichter Report garantiert gelesen bekommt.
  *
  * ── ⚠ ES WIRD NICHTS NACHGERECHNET ────────────────────────────────────────────────────────────
- * Jede Zahl steht bereits im `AnalysisResult`. Die einzige Arithmetik hier ist `sumCovered` +
- * `buildRealSavingBreakdown` — und beide sind DIESELBEN Funktionen, die die Bildschirm-Karten
- * benutzen (`sumCovered` ist dafür mit diesem Schritt nach `packages/shared` gewandert, s. dort).
- * Ein zweiter Rechenweg für die Kopfzahl ergäbe im selben Report zwei Beträge, die dasselbe
- * behaupten und sich um Cents unterscheiden — genau die Differenz, die am 02.09.2026 zwischen
- * Monatsvergleich und Ersparnis-Karte aufgefallen ist.
- *
- * ── DER KATALOG-FALL BEKOMMT HIER BEWUSST KEINE EIGENE SPRACHE ─────────────────────────────────
- * Hat der Kunde keine bestehende Anlage, zeigt diese Seite ausschliesslich, was gerechnet ist:
- * Kern-Kennzahl und die §3.7-Aufschlüsselung des bestgereihten Katalog-Geräts. KEINE
- * Kaufempfehlung, keine Amortisationszeile, kein „das lohnt sich". Der Bildschirm-Report führt
- * diese Aussage bereits (`recommendation.rationale`, Investitionsblock); sie in ein zweites,
- * anders formuliertes Dokument zu übernehmen ist eine eigene Entscheidung und nicht Teil dieses
- * Schritts. Die Lücke ist benannt, nicht übersehen.
+ * Die einzige Arithmetik sind `sumCovered` + `buildRealSavingBreakdown` — dieselben Funktionen, die
+ * die Bildschirm-Karten benutzen. Ein zweiter Rechenweg ergäbe im selben Report zwei Beträge, die
+ * dasselbe behaupten und sich um Cents unterscheiden.
  */
 
-/**
- * ⚠ Die drei Darstellungstypen sind mit B23c-2 nach `statement.ts` gewandert: `document.tsx`
- * rendert die Executive Summary und das Empfehlungs-Kapitel durch dieselben Bausteine, und zwei
- * strukturgleiche Definitionen liefen beim nächsten Feld auseinander. Hier bleiben die Aliasse
- * stehen, damit der Zuschnitt dieser Datei lesbar bleibt — `SummaryStatement` ist zusätzlich in
- * der Kennung ENGER: ihre vier Werte sind die vier Aussagen, die diese Seite kennt, und ein
- * Tippfehler darin ist damit ein Compile-Fehler statt einer Aussage, die niemand wiederfindet.
- */
 export type SummaryTone = ReportTone
 export type SummaryRow = ReportRow
-export type SummaryStatement = ReportStatement & {
-  id: 'savings' | 'peak_shaving' | 'load_shift' | 'addon'
-}
 
 /**
- * Die Kern-Kennzahl — die Zahl, die weh tut (§6.2). Sie hängt an keiner Batterie, wohl aber am
- * Leistungspreis: ohne ihn gibt es sie nicht (s. `buildHeadline`).
+ * Die Kennungen, die diese Seite noch trägt.
+ *
+ * ⚠ Ein Literal-Union und kein `string`: ein Tippfehler ist damit ein Compile-Fehler statt einer
+ * Aussage, die niemand wiederfindet (dieselbe Überlegung wie bei `ReportBaukastenId`).
  */
-export type SummaryHeadline = {
-  peakValue: string
-  peakCaption: string
-  costValue: string
-  costCaption: string
+export type SummaryStatement = ReportStatement & { id: 'addon' }
+
+/**
+ * Eine der zwei grossen Zahlen am Kopf der Seite.
+ *
+ * ⚠ `caption` ist ZWEIZEILIG, und die Trennung trägt Bedeutung: die erste Zeile sagt, WAS die Zahl
+ * ist, die zweite, WORAUF sie sich bezieht. In eine Zeile gezogen liest sich die Bezugsgrösse wie
+ * ein Nachsatz — und ausgerechnet sie entscheidet, ob ein Leser die Zahl für eine Jahreszahl hält.
+ *
+ * ⚠ `tone` ist eine AUSSAGE und keine Farbe: `ink` für das, was heute gezahlt wird, `accent` für
+ * das, was sich sparen liesse. Welche Farbe daraus wird, entscheidet `document.tsx`.
+ */
+export type SummaryKpi = {
+  id: 'cost_today' | 'possible_saving'
+  value: string
+  caption: readonly [string, string]
+  tone: 'ink' | 'accent'
 }
 
 export type ReportSummary = {
-  /** `null` = der Tarif hat keinen Leistungspreis; dann steht der Kasten gar nicht da. */
-  headline: SummaryHeadline | null
-  /**
-   * B23c-4 — die Hinweise, die die Kern-Kennzahl QUALIFIZIEREN. Stehen zwischen ihr und den
-   * Kernaussagen, in derselben Reihenfolge wie am Bildschirm.
-   *
-   * Leer heisst: an diesem Datensatz ist nichts einzuschränken. S. `buildNotices`.
-   */
+  /** Leer, wenn der Tarifvergleich nicht gerechnet werden konnte — dann gibt es keine der beiden. */
+  kpis: SummaryKpi[]
+  /** Die Hinweise, die die Datengrundlage der Zahlen darüber einschränken. */
   notices: ReportNotice[]
+  /** Der Fliesstext-Absatz: was der Kunde hat, und welche Wege es gibt. */
+  overview: ReportText
+  /** Der Satz zur PV-Anlage — `null`, wenn keine angegeben ist. */
+  pvPointer: ReportText | null
+  /** Nur noch `addon` („Ausserdem schon geklärt") — leer, wenn nichts vorab geklärt ist. */
   statements: SummaryStatement[]
 }
 
 /**
- * Vorzeichenbewusst: ein Minus bleibt in der Zahl stehen, die Farbe folgt ihm.
+ * Was diese Seite ausser dem Ergebnis liest.
  *
- * ⚠ Stufe D — der SCHLÜSSEL steht vorn und ist nicht die Beschriftung: fremde Bausteine zeigen auf
- * diese Zeilen („die Zeile „Wert der Ladesteuerung""), und über ihren Text adressiert drehte eine
- * Umformulierung den Verweis still ins Leere (s. `ReportRow.key`).
+ * ⚠ `PdfReportInput` ist strukturell zuweisbar — der eigene Typ steht hier, damit die Signatur
+ * sagt, welche FÜNF Felder gelesen werden, statt „alles, was ein Report hat".
  */
-function deltaRow(key: string, label: string, hint: string, eur: number): SummaryRow {
-  return { key, label, hint, value: formatEur(eur), tone: eur < 0 ? 'warning' : 'positive' }
-}
-
-function savingRow(key: string, label: string, eur: number): SummaryRow {
-  return { key, label, value: formatEur(eur), tone: 'positive' }
+export type SummaryInput = {
+  analysis: PdfReportAnalysis
+  /** Gelesen wird ausschliesslich die HERKUNFT — s. `buildStandardProfileNotice`. */
+  loadProfile: Pick<LoadProfile, 'source'>
+  estimatedPv?: EstimatedPvSummary
+  /** `undefined` = die Frage wurde nie beantwortet, und das ist NICHT `false` (s. `types.ts`). */
+  hasPv?: boolean
+  /** Die erfasste Nennleistung der PV-Anlage. `undefined` = nicht erfasst; dann ohne Klammerwert. */
+  pvPeakPowerKwp?: number
 }
 
 /**
  * Der Block, der oben steht: die bestehende Anlage des Kunden, sonst das bestgereihte Katalog-Gerät.
  *
- * Wortgleich zur Auswahl in `report.tsx` — dieselbe Reihenfolge, dieselbe Rückfallkette. Zwei
- * verschieden gewählte „primäre" Geräte in Bildschirm-Report und PDF wären derselbe Report mit zwei
- * verschiedenen Antworten.
+ * Wortgleich zur Auswahl in `report.tsx` — zwei verschieden gewählte „primäre" Geräte in
+ * Bildschirm-Report und PDF wären derselbe Report mit zwei verschiedenen Antworten.
  */
 export function primaryEntryOf(analysis: PdfReportAnalysis): BatteryResultEntry | undefined {
   if (analysis.existingBatteryAnalysis) return analysis.existingBatteryAnalysis.entry
@@ -135,12 +122,6 @@ export function primaryEntryOf(analysis: PdfReportAnalysis): BatteryResultEntry 
  * ⚠ Der Unterschied ist fachlich: `primaryEntryOf` liefert im Bestandsfall die Anlage des Kunden,
  * und für die gibt es keine Kaufentscheidung mehr (sie ist bezahlt). Empfohlen wird immer ein
  * Gerät aus dem Katalog.
- *
- * ⚠ Die Ableitung stand bis zum Report-Baukasten B1 DREIMAL fast wortgleich im Katalog
- * (`recommendation.ts`, `detail.ts` und inline in `basis.ts`) — drei Fassungen derselben
- * Rückfallkette, von denen der nächste Umbau zwei anfasst und eine vergisst. Sie steht deshalb
- * jetzt neben `primaryEntryOf`: die beiden sind die zwei Antworten auf dieselbe Frage („welches
- * Gerät meint dieser Absatz"), und sie gehören nebeneinander gelesen.
  */
 export function recommendedEntryOf(analysis: PdfReportAnalysis): BatteryRoiEntry | undefined {
   return (
@@ -152,397 +133,291 @@ export function recommendedEntryOf(analysis: PdfReportAnalysis): BatteryRoiEntry
 /**
  * Hat dieser Tarif überhaupt einen Leistungspreis?
  *
- * ⚠ [ABGELEITET, keine Contract-Zahl] — der Satz steht nirgends im `AnalysisResult`; gerechnet wird
- * `leistungspreisCostPerYear = Satz × billedKw` (`analyzeCurrentPeaks`, §3.4). Ein Ergebnis > 0
- * heisst also: es gibt einen Satz UND einen abgerechneten Wert. Dieselbe Rückrechnung wie in
- * `basis.ts`, `charts.tsx` und `report.tsx`, nur ohne die Division — hier zählt allein, OB es den
- * Posten gibt.
- *
- * ⚠ DIE 0 IST KEIN RANDFALL: ein Anschluss ohne Leistungsmessung (Netzebene 7) hat den Posten
- * überhaupt nicht, und die Tarifschicht liefert dafür ausdrücklich `leistungspreisEurPerKwYear: 0`
- * (`grid-tariff-prefill.ts`). Dasselbe Prinzip wie bei `buildPeakShaving`: fehlt die Grundlage,
- * fehlt die ganze Aussage — nicht die Zahl darin.
+ * ⚠ [ABGELEITET, keine Contract-Zahl] — gerechnet wird `leistungspreisCostPerYear = Satz × billedKw`
+ * (§3.4). Ein Ergebnis > 0 heisst: es gibt einen Satz UND einen abgerechneten Wert. Ein Anschluss
+ * ohne Leistungsmessung (Netzebene 7) hat den Posten überhaupt nicht.
  */
 function hasLeistungspreis(current: PdfReportAnalysis['current']): boolean {
   return current.leistungspreisCostPerYear > 0
 }
 
+/* ────────────────────────────────────────────────────────────────────────────────────────────────
+ * Die zwei Wege und die zwei Kopfzahlen
+ * ──────────────────────────────────────────────────────────────────────────────────────────── */
+
+/** Ein Weg, die Stromkosten zu senken — `eur` ist die Ersparnis über den GEMESSENEN Zeitraum. */
+export type SummaryWay = {
+  id: 'tariff_switch' | 'controlled'
+  eur: number
+}
+
+export type SummaryWays = {
+  /** Was der Kunde im gemessenen Zeitraum tatsächlich gezahlt hat. */
+  costTodayEur: number
+  /** Die Bezugsgrösse beider Zahlen. */
+  coveredDays: number
+  /** Beide Wege, immer in dieser Reihenfolge. `eur` kann negativ sein — dann senkt der Weg nichts. */
+  ways: readonly [SummaryWay, SummaryWay]
+}
+
 /**
- * ⚠ `null` = dieser Tarif hat keinen Leistungspreis, und dann entfällt der GANZE Kasten — beide
- * Kacheln, nicht nur die Kostenzahl. „Ihre teuerste Lastspitze" steht dort nicht für sich, sondern
- * als Begründung der Kosten daneben; ohne den Posten ist sie eine Zahl ohne Frage, und „€ 0" wäre
- * auf einer Seite mit der Überschrift „Kernergebnisse" eine Einladung, nach einem Fehler zu suchen.
+ * Die Wege aus dem Monatsvergleich — `null`, wenn er nicht gerechnet wurde.
+ *
+ * ── ⚠ DIE SPITZENKAPPUNG IST BEWUSST KEIN DRITTER WEG ─────────────────────────────────────────
+ * Sie ist eine JAHRESgrösse aus dem Leistungspreis (€/kW·a), die beiden Wege hier sind Summen über
+ * den gemessenen Zeitraum aus dem Monatsvergleich. In eine Spanne gezogen stünden zwei verschiedene
+ * Bezugszeiträume unter einer Zahl — genau die Addition, vor der der Report an jeder anderen Stelle
+ * warnt. Dass es sie gibt, sagt stattdessen der Fliesstext (s. `buildOverview`).
+ *
+ * ⚠ OHNE MONATSVERGLEICH GIBT ES AUCH KEINE IST-KOSTEN. Der Contract führt die Gesamtkosten des
+ * Kunden an keiner anderen Stelle — `current.leistungspreisCostPerYear` ist allein der
+ * Leistungspreis-Anteil. Beide Kopfzahlen entfallen deshalb gemeinsam oder gar nicht.
  */
-function buildHeadline(current: PdfReportAnalysis['current']): SummaryHeadline | null {
-  if (!hasLeistungspreis(current)) return null
+export function summaryWaysOf(analysis: PdfReportAnalysis): SummaryWays | null {
+  const comparison =
+    analysis.tariffOptimization?.computable === true
+      ? analysis.tariffOptimization.monthlyComparison
+      : undefined
+  if (!comparison) return null
+
+  const real = buildRealSavingBreakdown({
+    currentTariffEur: sumCovered(comparison.currentTariffEur),
+    spotWithoutControlEur: sumCovered(comparison.spotWithoutControlEur),
+    spotWithBatteryEur: sumCovered(comparison.spotWithBatteryEur),
+  })
 
   return {
-    peakValue: formatKw(current.annualPeakKw),
-    /*
-     * ⚠ Kurz genug für EINE Zeile in der halben Kastenbreite — am gerenderten PDF gemessen:
-     * die Grenze liegt bei rund 52 Zeichen (die Kostenbeschriftung daneben ist 52 lang und passt).
-     * Eine umbrechende Beschriftung reisst die zweite Zeile durch den Zeilenabstand weit vom Wert
-     * weg und lässt den Kasten wie einen Satzfehler aussehen.
-     */
-    peakCaption: 'Ihre teuerste Lastspitze — Jahreshöchstwert',
-    costValue: formatEur(current.leistungspreisCostPerYear),
-    costCaption: `Leistungspreis-Kosten pro Jahr (abgerechnet: ${formatKw(current.billedKw)})`,
+    costTodayEur: sumCovered(comparison.currentTariffEur),
+    coveredDays: analysis.dataQuality.coveredDays,
+    ways: [
+      { id: 'tariff_switch', eur: real.tariffSwitchEur },
+      { id: 'controlled', eur: real.totalEur },
+    ],
   }
 }
 
-/**
- * Die Ersparnis — in der Fassung, die zum Fall passt.
- *
- * ⚠ DIE REALE FASSUNG BRAUCHT BEIDES: `monthlyComparison` UND eine Bestandsanlage.
- * Bis D7 folgte das zweite aus dem ersten — die Engine setzte den Vergleich nur im Bestandsfall.
- * Seit D7 entsteht er auch aus dem Dispatch der empfohlenen Katalog-Batterie, und dann sind diese
- * Zeilen die falsche Darstellung: sie verrechnen den Ist-Tarif gegen einen Speicher, den der Kunde
- * noch gar nicht hat. Die Prüfung auf `existingBatteryAnalysis` unten ist deshalb ab jetzt
- * tragend und nicht mehr bloss belegend (dieselbe Regel wie in `recommendation-card.tsx`).
- */
-/**
- * Ob `savings` in der Kassen-Fassung steht (Bestandsanlage + rechenbarer Monatsvergleich) statt der
- * §3.7-Aufschlüsselung — reine Ableitung aus `analysis`, von `buildSavings` UND von
- * `recommendation.ts` für dieselbe Verzweigung an anderer Stelle gebraucht (dort gibt es kein
- * `entry`, an dem sich das sonst ablesen liesse).
- */
-/**
- * Stufe D — WELCHE Fassung von `savings` in diesem Dokument steht.
- *
- * ══════════════════════════════════════════════════════════════════════════════════════════════
- * ⚠ DREI ZUSTÄNDE, WEIL ES DREI GIBT — und der dritte ist der Grund für diesen Typ
- * ══════════════════════════════════════════════════════════════════════════════════════════════
- * Bis Stufe D reiste hier ein `boolean`. Er beantwortete EINE Frage („Kassen-Fassung oder
- * §3.7-Aufschlüsselung?") und wurde für DREI benutzt: ob der Leistungspreis in der Kopfzahl schon
- * steckt (fachlich), und ob es eine Zeile „Wert der Ladesteuerung" bzw. „Eigenverbrauch" gibt, auf
- * die ein Satz zeigen kann (eine EXISTENZfrage). Sobald eine Auswahl `savings` ganz entfernen
- * kann, ist `false` für die beiden letzten falsch: sein Zweig zeigt auf die §3.7-Zeilen, die es
- * dann ebenso wenig gibt.
- *
- * ⚠ `absent` entsteht heute schon: ohne durchgerechneten Kandidaten lässt Kapitel 1 ALLE vier
- * Aussagen weg (`buildReportSummary`). Der Zustand war bloss nicht benennbar.
- */
-export type SavingsPlacement = 'cash' | 'attribution' | 'absent'
-
-export function savingsPlacementOf(
-  analysis: PdfReportAnalysis,
-  entry: BatteryResultEntry | undefined,
-): SavingsPlacement {
-  if (!entry) return 'absent'
-  return isRealSavingsComparison(analysis) ? 'cash' : 'attribution'
+/** Die Wege, auf denen im gemessenen Zeitraum tatsächlich etwas zu sparen war. */
+function positiveWays(ways: SummaryWays): SummaryWay[] {
+  return ways.ways.filter((way) => way.eur > 0)
 }
 
-export function isRealSavingsComparison(analysis: PdfReportAnalysis): boolean {
-  const comparison =
-    analysis.tariffOptimization?.computable === true
-      ? analysis.tariffOptimization.monthlyComparison
-      : undefined
-  return analysis.existingBatteryAnalysis != null && comparison != null
-}
-
-export function buildSavings(
-  analysis: PdfReportAnalysis,
-  entry: BatteryResultEntry,
-): { statement: SummaryStatement; isRealComparison: boolean } {
-  const comparison =
-    analysis.tariffOptimization?.computable === true
-      ? analysis.tariffOptimization.monthlyComparison
-      : undefined
-
-  if (isRealSavingsComparison(analysis) && comparison) {
-    const real = buildRealSavingBreakdown({
-      currentTariffEur: sumCovered(comparison.currentTariffEur),
-      spotWithoutControlEur: sumCovered(comparison.spotWithoutControlEur),
-      spotWithBatteryEur: sumCovered(comparison.spotWithBatteryEur),
-    })
-    const cheaper = real.totalEur >= 0
-
-    /*
-     * ⚠ Bei einem Mehrbetrag trägt die BESCHRIFTUNG das Vorzeichen und die Zahl steht ohne Minus
-     * da: „Mehrkosten −€ 84" wäre doppelt verneint und würde beim Überfliegen als Ersparnis
-     * gelesen. In der Aufschlüsselung darunter ist es umgekehrt — dort IST das Vorzeichen die
-     * Information (der reine Tarifwechsel ist im gemessenen Realfall negativ, und erst die
-     * Ladesteuerung dreht ihn).
-     */
-    const statement: SummaryStatement = {
-      id: 'savings',
-      title: cheaper
-        ? 'Was Sie mit aWATTar und Ihrem Speicher real weniger zahlen'
-        : 'Was aWATTar Sie mit Ihrem Speicher derzeit zusätzlich kosten würde',
-      amount: {
-        value: formatEur(Math.abs(real.totalEur)),
-        caption: `über ${comparison.coveredMonths} gemessene Monate — nicht hochgerechnet, exkl. MwSt.`,
-        tone: cheaper ? 'positive' : 'warning',
-      },
-      rows: [
-        deltaRow(
-          'tariff_switch',
-          'Reiner Tarifwechsel',
-          'Ihr Tarif heute gegenüber aWATTar ohne jede Steuerung',
-          real.tariffSwitchEur,
-        ),
-        deltaRow(
-          'control_value',
-          'Wert der Ladesteuerung',
-          'aWATTar ohne Steuerung gegenüber aWATTar mit Ihrem Speicher',
-          real.controlValueEur,
-        ),
-        {
-          key: 'total',
-          label: 'Gesamt',
-          value: formatEur(real.totalEur),
-          tone: cheaper ? 'positive' : 'warning',
-          total: true,
-        },
-      ],
-      body:
-        'Beide Beträge stammen aus dem Monatsvergleich Ihres Tarifs gegen aWATTar — dieselben ' +
-        `Summen über dieselben ${comparison.coveredMonths} gemessenen Monate. Sie sind ` +
-        'ausdrücklich NICHT auf ein Jahr hochgerechnet: die fehlenden Monate liegen nicht ' +
-        'gleichmässig über das Jahr verteilt, und eine daraus gebildete Jahreszahl wäre eher zu ' +
-        'optimistisch als zu vorsichtig. Die Spitzenkappung steckt in keiner der beiden Zeilen — ' +
-        'sie hängt am Leistungspreis Ihres Netzbetreibers und nicht am Stromvertrag.',
-    }
-    return { statement, isRealComparison: true }
-  }
-
-  const isExisting = analysis.existingBatteryAnalysis != null
-  const rows: SummaryRow[] = [
-    savingRow('peak', 'Spitzenkappung (Leistungspreis)', entry.leistungspreisSavingPerYear),
-    savingRow('self_consumption', 'Eigenverbrauch', entry.selfConsumptionSavingPerYear),
-    savingRow('load_shift', 'Tarifbewusstes Laden', entry.loadShiftSavingPerYear),
+/**
+ * Die zwei Kopfzahlen.
+ *
+ * ⚠ DIE IST-KOSTEN NENNEN IHRE GRENZE SELBST. Der Monatsvergleich führt Arbeits- und
+ * Netz-Arbeitspreis samt Grundgebühren, ausdrücklich NICHT den Leistungspreis. Wo es den Posten
+ * gibt, sagt die Bezugszeile das — sonst stünde unter „Ihre Stromkosten heute" eine Zahl, die bei
+ * einem Gewerbekunden einen erheblichen Teil seiner Rechnung auslässt.
+ */
+export function buildSummaryKpis(analysis: PdfReportAnalysis, ways: SummaryWays): SummaryKpi[] {
+  const days = `über ${ways.coveredDays} gemessene Tage`
+  const kpis: SummaryKpi[] = [
     {
-      key: 'total',
-      label: 'Gesamt',
-      value: formatEur(entry.totalSavingPerYear),
-      tone: 'positive',
-      total: true,
+      id: 'cost_today',
+      value: formatEur(ways.costTodayEur),
+      caption: [
+        'Ihre Stromkosten heute',
+        hasLeistungspreis(analysis.current) ? `${days}, ohne Leistungspreis` : days,
+      ],
+      tone: 'ink',
     },
   ]
 
-  /*
-   * §3.7.1 — die beiden ENERGIE-Zeilen sind bei einem Teilzeitraum-Lastgang hochgerechnet, die
-   * Spitzenkappung (ratenbasiert, €/kW·Jahr) ausdrücklich nicht. Das zu sagen ist Teil der
-   * Auskunft: ohne den zweiten Halbsatz überträgt der Leser den Vorbehalt auf die ganze
-   * Aufschlüsselung.
-   */
-  const annualized =
-    entry.annualizationFactor > 1
-      ? ` Ihr Lastgang deckt ${entry.coveredDays} von 365 Tagen ab; Eigenverbrauch und ` +
-        'tarifbewusstes Laden sind von diesem Zeitraum auf ein Jahr hochgerechnet — gemessen ' +
-        `wurden ${formatEur(entry.selfConsumptionSavingOverCoveredPeriod)} bzw. ` +
-        `${formatEur(entry.loadShiftSavingOverCoveredPeriod)}. Die Spitzenkappung ist davon nicht ` +
-        'betroffen: sie ist bereits eine Jahresgrösse.'
-      : ''
+  const positive = positiveWays(ways)
+  if (positive.length === 0) return kpis
 
-  const statement: SummaryStatement = {
-    id: 'savings',
-    title: isExisting
-      ? 'Was Ihre bestehende Anlage pro Jahr einspart'
-      : 'Was ein Speicher pro Jahr einsparen würde',
-    amount: {
-      value: formatEur(entry.totalSavingPerYear),
-      caption: 'pro Jahr, exkl. MwSt.',
-      tone: 'positive',
-    },
-    rows,
-    body:
-      (isExisting
-        ? `Gerechnet mit Ihren eigenen Angaben (${formatKwh1(entry.battery.usableCapacityKwh)} / ` +
-          `${formatKw(entry.battery.maxPowerKw)}). `
-        : `Gerechnet für ${entry.battery.name} aus unserem Katalog. `) +
-      'Die drei Anteile stammen aus EINER Simulation und ergeben zusammen genau die ausgewiesene ' +
-      'Gesamtersparnis — keine Kilowattstunde zählt doppelt.' +
-      annualized +
-      ` ${HINDSIGHT_NOTE}`,
-  }
-  return { statement, isRealComparison: false }
-}
+  const min = Math.min(...positive.map((way) => way.eur))
+  const max = Math.max(...positive.map((way) => way.eur))
+  const only = positive.length === 1 ? positive[0] : undefined
 
-/**
- * Die Spitzenkappung.
- *
- * ⚠ ENTFÄLLT VOLLSTÄNDIG, WENN DER SPEICHER DEN ABGERECHNETEN LEISTUNGSWERT NICHT SENKT. Das ist
- * kein Randfall: eine `static` gesteuerte Anlage kappt gar nicht, und ein Anschluss ohne
- * Leistungsmessung hat den Posten überhaupt nicht (Delta 3). Eine Zeile „Spitzenkappung € 0" wäre
- * dort keine Auskunft, sondern eine Einladung, nach einem Fehler zu suchen.
- */
-export function buildPeakShaving(
-  analysis: PdfReportAnalysis,
-  entry: BatteryResultEntry,
-  placement: SavingsPlacement,
-): SummaryStatement | null {
-  if (entry.leistungspreisSavingPerYear <= 0) return null
-
-  /*
-   * ⚠ ZWEI VERSCHIEDENE WAHRHEITEN, JE NACHDEM WELCHE FASSUNG VON `savings` IM DOKUMENT STEHT —
-   * und beide müssen dastehen, sonst rechnet jemand falsch zusammen. Steht die KASSEN-Grösse aus
-   * dem Monatsvergleich, ist der Leistungspreis darin NICHT enthalten (der Vergleich führt
-   * ausschliesslich Arbeits- und Netz-Arbeitspreis samt Grundgebühren) — er kommt hinzu, darf aber
-   * nicht addiert werden, weil er eine Jahresgrösse ist und jene Zahl ein Zeitraumbetrag. Steht die
-   * §3.7-Aufschlüsselung, ist er dort bereits die erste Zeile.
-   *
-   * ── ⚠ STUFE D: „OBEN" WIRD NICHT MEHR GESCHRIEBEN, SONDERN ERRECHNET ─────────────────────────
-   * Der Verweis zeigt auf die KOPFZAHL von `savings` (`amount`), nicht auf den Baustein: „die Zahl"
-   * ist genau sie. Wo `savings` steht, entscheidet die Leseordnung (`layout.ts`); in der heutigen
-   * Anordnung ergibt das wortgleich „der Zahl oben".
-   */
-  const relation: ReportText =
-    placement === 'cash'
-      ? t`Dieser Betrag steckt NICHT in ${savingsAmount(`der Zahl ${REF_PLACE}`)}: der Monatsvergleich führt nur Arbeits- und Netz-Arbeitspreis samt Grundgebühren. Er kommt hinzu — addieren lässt er sich trotzdem nicht, weil er eine Jahresgrösse ist und ${savingsAmount(`die Zahl ${REF_PLACE}`)} ein Zeitraumbetrag.`
-      : placement === 'attribution'
-        ? t`Dieser Betrag ist in ${savingsAmount(`der Gesamtersparnis ${REF_PLACE}`)} bereits als erste Zeile enthalten und kommt nicht zusätzlich obendrauf.`
-        : /* `savings` steht nicht im Dokument — dann gibt es auch nichts zu verrechnen. */ ''
-
-  return {
-    id: 'peak_shaving',
-    title: 'Ihre Lastspitze wird gekappt',
-    amount: {
-      value: formatEur(entry.leistungspreisSavingPerYear),
-      caption: 'pro Jahr, exkl. MwSt.',
-      tone: 'positive',
-    },
-    rows: [
-      {
-        label: 'Abgerechneter Leistungswert heute',
-        value: formatKw(analysis.current.billedKw),
-        tone: 'neutral',
-      },
-      { label: 'Mit dem Speicher', value: formatKw(entry.newBilledKw), tone: 'neutral' },
+  kpis.push({
+    id: 'possible_saving',
+    value: min === max ? formatEur(max) : `${formatEur(min)} – ${formatEur(max)}`,
+    caption: [
+      'Mögliche Ersparnis',
+      only === undefined
+        ? 'je nach gewähltem Weg, im selben Zeitraum'
+        : only.id === 'controlled'
+          ? 'mit gezielter Ladesteuerung, im selben Zeitraum'
+          : 'durch einen Tarifwechsel, im selben Zeitraum',
     ],
-    body: t`Der Leistungspreis hängt an Ihrem Netzbetreiber und nicht an Ihrem Stromvertrag — dieser Anteil bleibt auch dann bestehen, wenn Sie den Lieferanten wechseln. ${relation}`,
+    tone: 'accent',
+  })
+  return kpis
+}
+
+/* ────────────────────────────────────────────────────────────────────────────────────────────────
+ * Der Fliesstext-Absatz
+ * ──────────────────────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * Was der Kunde hat — aus den tatsächlich erfassten Angaben gebildet, Baustein für Baustein.
+ *
+ * ⚠ `hasPv === undefined` IST NICHT `false`: der Wizard-Entwurf kennt „nein" und „dazu wurde nichts
+ * gefragt" getrennt (`readPvDraft`). Auf `false` gerundet stünde im Report eine Aussage über den
+ * Kunden, die niemand gemacht hat — der Satz schweigt dann über die PV-Seite, statt sie zu
+ * verneinen. Für den Speicher gibt es diese Unterscheidung nicht: ohne `existingBatteryAnalysis`
+ * hat die Engine ohne Bestandsanlage gerechnet, und das IST die Aussage.
+ */
+function equipmentSentence(
+  battery: BatteryCandidate | undefined,
+  hasPv: boolean | undefined,
+  pvPeakPowerKwp: number | undefined,
+): string {
+  const have: string[] = []
+  const lack: string[] = []
+
+  if (battery) have.push(`eine Batterie (${formatKwh1(battery.usableCapacityKwh)})`)
+  else lack.push('keinen Batteriespeicher')
+
+  if (hasPv === true) {
+    have.push(
+      pvPeakPowerKwp === undefined
+        ? 'eine PV-Anlage'
+        : `eine PV-Anlage (${formatKwp(pvPeakPowerKwp)})`,
+    )
+  } else if (hasPv === false) lack.push('keine PV-Anlage')
+
+  if (have.length > 0 && lack.length > 0) {
+    return `Sie haben bereits ${have.join(' und ')}, aber noch ${lack.join(' und ')}.`
   }
+  if (have.length > 0) return `Sie haben bereits ${have.join(' und ')}.`
+  if (lack.length === 2) return 'Sie haben bislang weder einen Batteriespeicher noch eine PV-Anlage.'
+  return `Sie haben bislang ${lack[0]}.`
+}
+
+/** Wie der Weg „aWATTar mit Steuerung" heisst — mit Bestandsanlage steuert er IHREN Speicher. */
+function controlledWay(hasBattery: boolean): string {
+  return (
+    'ein Tarif mit stündlich wechselndem Preis, kombiniert mit gezielter Ladesteuerung ' +
+    (hasBattery ? 'Ihres Speichers' : 'eines Speichers')
+  )
+}
+
+const SWITCH_WAY = 'ein einfacher Tarifwechsel ohne jede Umstellung'
+
+/**
+ * Welche Wege es gibt — und, wo einer nicht trägt, warum nicht.
+ *
+ * ⚠ GEZÄHLT WIRD, WAS TATSÄCHLICH SENKT. Ein Weg mit negativer Ersparnis ist kein Weg zur
+ * Kostensenkung, sondern ein teurerer Tarif; ihn mitzuzählen machte aus „zwei Wege" eine Angabe,
+ * die die Spanne daneben nicht deckt.
+ */
+function waysSentence(ways: SummaryWays, hasBattery: boolean): string {
+  const positive = positiveWays(ways)
+  const controlled = controlledWay(hasBattery)
+
+  if (positive.length === 2) {
+    return (
+      'Es gibt zwei unterschiedlich aufwändige Wege, Ihre Stromkosten zu senken: ' +
+      `${SWITCH_WAY}, oder ${controlled} — beide weiter hinten im Detail erklärt.`
+    )
+  }
+  const only = positive.length === 1 ? positive[0] : undefined
+  if (only?.id === 'controlled') {
+    return (
+      'Es gibt genau einen Weg, Ihre Stromkosten zu senken: ' +
+      `${controlled} — weiter hinten im Detail erklärt. Ein reiner Tarifwechsel ohne Steuerung ` +
+      'käme Sie in Ihrem Fall teurer als Ihr heutiger Tarif.'
+    )
+  }
+  if (only) {
+    return (
+      'Es gibt genau einen Weg, Ihre Stromkosten zu senken: ' +
+      `${SWITCH_WAY} — weiter hinten im Detail erklärt. Die zusätzliche Ladesteuerung bringt in ` +
+      'Ihrem Fall nichts darüber hinaus.'
+    )
+  }
+  return (
+    'Keiner der zwei geprüften Tarifwege hätte Ihre Stromkosten im gemessenen Zeitraum gesenkt: ' +
+    'weder ein reiner Wechsel zu einem Börsenpreis-Tarif noch derselbe Tarif mit gezielter ' +
+    'Ladesteuerung wäre günstiger gewesen als Ihr heutiger. Die Zahlen dazu stehen weiter hinten.'
+  )
 }
 
 /**
- * Der Verweis auf die Kopfzahl von `savings`, in der Formulierung des jeweiligen Satzes.
+ * Der eine Absatz der Zusammenfassung.
  *
- * ⚠ DIE ERSATZFORMULIERUNG IST HEUTE UNERREICHBAR und steht trotzdem da: beide Aufrufer verzweigen
- * bereits an `SavingsPlacement`, und `absent` schliesst `savings` aus. Sie ist die Zusage für den
- * Tag, an dem eine Auswahl den Baustein entfernen kann — ohne sie bliebe ein Satz stehen, der auf
- * eine Zahl zeigt, die das Dokument nicht zeigt.
+ * ⚠ ER IST DER ORT, AN DEM DIE SPITZENKAPPUNG GENANNT WIRD. Sie steht bewusst nicht in der Spanne
+ * darüber (s. `summaryWaysOf`) — verschwiege der Absatz sie ganz, führte der Report bei einem
+ * Gewerbekunden eine Zahl mit der Überschrift „Mögliche Ersparnis", die seinen grössten Hebel
+ * auslässt. Der Satz entsteht nur, wo der Speicher den abgerechneten Leistungswert wirklich senkt.
  */
-function savingsAmount(say: string) {
-  return ref(amount('savings'), say, 'der Gesamtersparnis dieses Reports')
+export function buildOverview(analysis: PdfReportAnalysis, input: SummaryInput): ReportText {
+  const existing = analysis.existingBatteryAnalysis
+  const equipment = equipmentSentence(
+    existing?.entry.battery,
+    input.hasPv,
+    input.pvPeakPowerKwp,
+  )
+  const ways = summaryWaysOf(analysis)
+
+  if (!ways) {
+    /* Der Grund steht als strukturierter Befund im Schlusskapitel — hier nur der Zeiger darauf. */
+    return t`${equipment} Ob und wie sich Ihre Stromkosten über den Stromtarif senken lassen, liess sich für diesen Zeitraum nicht berechnen${ref(
+      block('tariff_blocker'),
+      ` — woran das liegt, steht ${REF_PLACE}`,
+      '',
+    )}.`
+  }
+
+  const primary = primaryEntryOf(analysis)
+  const peakPart: ReportText =
+    primary && primary.leistungspreisSavingPerYear > 0
+      ? t` Die Kappung Ihrer Lastspitzen ist in dieser Spanne nicht enthalten: sie hängt am Leistungspreis Ihres Netzbetreibers und nicht am Stromvertrag${ref(
+          block('recommendation'),
+          `, und was Ihr Speicher dabei leistet, steht ${REF_PLACE}`,
+          '',
+        )}.`
+      : ''
+
+  return t`${equipment} ${waysSentence(ways, existing != null)}${peakPart}`
 }
 
 /**
- * Der Wert der Ladesteuerung unter aWATTar.
+ * Der Satz zur PV-Anlage.
  *
- * ── ⚠ DIE AUSSAGE ENTFÄLLT VOLLSTÄNDIG, WENN DER HEBEL NICHT BERECHENBAR IST ───────────────────
- * Nicht gedämpft, nicht „vorläufig", nicht aus dem statischen Fensterschema ersatzweise gebildet —
- * gar nicht. Genau davor warnt Delta 15 Regel C: `intervalTariffRates` füllt die Preisreihe im
- * nicht berechenbaren Fall bewusst durchgehend mit dem Standard-Arbeitspreis, und eine daraus
- * gebildete Zahl behauptete, die Steuerung bringe nichts, statt zu sagen, dass sie nicht bewertbar
- * ist. Auf einer Seite mit der Überschrift „Kernergebnisse" wäre das die teuerste Sorte Fehler.
- *
- * `undefined` (Hebel gar nicht angefordert) und ein Blocker führen zum selben Ergebnis: keine
- * Zeile. Das ist Absicht — für die Seite ist beides „diese Zahl gibt es hier nicht".
+ * ⚠ ER HÄNGT AN DER ANGABE DES KUNDEN, NICHT AM BEFUND. Dass eine PV-Anlage da ist, ändert die
+ * Lesart aller drei Kostenreihen — sie sind auf dem Netzbezug NACH Eigenverbrauch gerechnet. Der
+ * zweite Halbsatz kommt nur dazu, wenn es den Befund wirklich gibt; ohne ihn versprächen wir ein
+ * Kapitel, in dem nichts steht.
  */
-export function buildLoadShift(
-  analysis: PdfReportAnalysis,
-  entry: BatteryResultEntry,
-  placement: SavingsPlacement,
-): SummaryStatement | null {
-  if (analysis.tariffOptimization?.computable !== true) return null
+export function buildPvPointer(hasPv: boolean | undefined): ReportText | null {
+  if (hasPv !== true) return null
 
-  const annualized =
-    entry.annualizationFactor > 1
-      ? ` Hochgerechnet aus ${entry.coveredDays} abgedeckten Tagen — gemessen wurden in diesem ` +
-        `Zeitraum ${formatEur(entry.loadShiftSavingOverCoveredPeriod)}.`
-      : ''
-
-  /*
-   * ⚠ DER SATZ, OHNE DEN DIESE SEITE EINEN RECHENFEHLER ZU ZEIGEN SCHEINT.
-   *
-   * Steht oben die Kassen-Grösse aus dem Monatsvergleich, trägt deren Aufschlüsselung bereits eine
-   * Zeile „Wert der Ladesteuerung" — und die weicht von der Zahl hier um wenige Euro ab, weil sie
-   * ein ANDERER Rechenweg ist (Kassendifferenz gegen §3.7-Attribution; die drei Posten sind im Kopf
-   * von `real-saving.ts` benannt). Am Bildschirm liegen die beiden in getrennten Karten; auf dieser
-   * Seite stehen sie wenige Zeilen auseinander, und zwei fast gleiche Zahlen unter zwei fast
-   * gleichen Beschriftungen liest jeder als Fehler. Der Satz benennt den Unterschied, statt eine
-   * der beiden Zahlen wegzulassen — weglassen hiesse, die Frage „was zahle ich real" oder die Frage
-   * „was ist die Steuerung wert" unbeantwortet zu lassen.
-   */
-  const reconcile: ReportText =
-    placement === 'cash'
-      ? t` ${ref(
-          row('savings', 'control_value'),
-          `Die Zeile „${REF_LABEL}" in der Aufschlüsselung ${REF_PLACE}`,
-          'Die Kassenzahl dieses Reports',
-        )} beantwortet dieselbe Frage aus der Kassensicht des Monatsvergleichs; diese Zahl hier stammt aus der Zuordnung der einzelnen Kilowattstunden. Die beiden Wege unterscheiden sich um wenige Euro — das ist kein Rechenfehler, sondern der Abstand zwischen einer Kassen- und einer Zuordnungsgrösse.`
-      : ''
-
-  /*
-   * ⚠ „EIGENVERBRAUCH" GIBT ES NUR IN DER §3.7-AUFSCHLÜSSELUNG. Steht oben die Kassen-Fassung
-   * (Monatsvergleich), trägt sie keine eigene Eigenverbrauchs-Zeile — der Effekt steckt dort
-   * bereits in „Wert der Ladesteuerung" mit drin, weil diese Zeile aus dem tatsächlichen
-   * Netzbezug gebildet ist und jeden Effekt des Speichers auf die Kassenzahlen abbildet.
-   */
-  /*
-   * ── ⚠ STUFE D: DIE ZEILE WIRD ÜBER IHREN SCHLÜSSEL BENANNT, NICHT ÜBER IHREN TEXT ────────────
-   * Beide Fassungen zeigen auf eine Zeile von `savings`, und WELCHE es gibt, ist genau der
-   * Unterschied zwischen ihnen: die Kassen-Fassung führt `control_value`, die §3.7-Fassung
-   * `self_consumption`. Die Beschriftung kommt aus der Zeile selbst — eine dort umformulierte
-   * Zeile zieht den Satz hier mit, statt ihn ins Leere zeigen zu lassen.
-   */
-  const selfConsumptionNote: ReportText =
-    placement === 'cash'
-      ? t`was Ihre PV-Erzeugung über den Speicher zusätzlich einspart, ${ref(
-          row('savings', 'control_value'),
-          `steckt in der Zeile „${REF_LABEL}" in der Aufschlüsselung ${REF_PLACE} mit drin`,
-          'steckt in der Gesamtersparnis mit drin',
-        )}`
-      : t`was Ihre PV-Erzeugung über den Speicher zusätzlich einspart, ${ref(
-          row('savings', 'self_consumption'),
-          `steht als eigener Anteil („${REF_LABEL}") daneben`,
-          'steckt in der Gesamtersparnis mit drin',
-        )}`
-
-  return {
-    id: 'load_shift',
-    title: 'Wert der Ladesteuerung unter aWATTar',
-    amount: {
-      value: formatEur(entry.loadShiftSavingPerYear),
-      caption: 'pro Jahr, exkl. MwSt.',
-      tone: 'positive',
-    },
-    rows: [],
-    body: t`Für jede Viertelstunde Ihres Lastgangs ist der echte Börsenpreis jener Stunde plus das Netzentgelt Ihres Netzbetreibers angesetzt, statt eines festen Arbeitspreises. Die Zahl sagt damit: so viel wäre in diesem Zeitraum möglich gewesen — sie ist kein Versprechen für die Zukunft, denn die Marktpreise von morgen kennt niemand. Sie zeigt ausschliesslich den Gewinn aus den Preisunterschieden; ${selfConsumptionNote}.${annualized}${reconcile}`,
-  }
+  return t`Ihre PV-Anlage ist in diesen Zahlen bereits berücksichtigt: sie senkt Ihren Netzbezug und damit die Kosten aller Wege gleichermassen — an der Tarifwahl ändert sie nichts.${ref(
+    block('pv_outage'),
+    ` Zu ihrer Erzeugung gibt es ausserdem einen Befund, der unabhängig von der Tarifwahl gilt — er steht ${REF_PLACE}.`,
+    '',
+  )}`
 }
 
-/** Stufe D — die stabile Kennung des Zusatzspeicher-Zeigers (s. `CANDIDATE_TABLE_ID`). */
+/* ────────────────────────────────────────────────────────────────────────────────────────────────
+ * „Ausserdem schon geklärt"
+ * ──────────────────────────────────────────────────────────────────────────────────────────── */
+
+/** Die stabile Kennung des Zusatzspeicher-Zeigers (s. `CANDIDATE_TABLE_ID`). */
 export const ADDON_ID = 'addon'
 
 /**
  * Lohnt sich ein ZUSÄTZLICHER Speicher?
  *
  * ⚠ NUR IM BESTANDSFALL. Ohne bestehende Anlage gibt es diese Frage nicht — dort ist der Kauf
- * EINES Speichers offen, und dazu sagt diese Seite bewusst nichts (s. Modulkopf).
+ * EINES Speichers offen, und dazu sagt diese Seite bewusst nichts.
  *
- * ── ⚠ SEIT B3-2b EIN ZEIGER UND KEINE ZWEITE FASSUNG ──────────────────────────────────────────
- * Bis hierher stand die Antwort ZWEIMAL im Dokument: hier mit Kopfzahl und vier Zeilen bzw. mit
- * drei Sätzen, und im Kapitel „Speichergrösse und Gerätewahl" noch einmal — dort drei davon
- * wortgleich. Das Zielbild (S. 2, gemessen) löscht keine der beiden, es STAFFELT sie: die
- * Kernergebnis-Seite sagt, dass die Frage geklärt ist, die Antwort steht dort, wo ihre Begründung
- * liegt (Kurve, Tabelle bzw. Verdikt). Ein Satz, ein teal Kasten, ein Verweis.
+ * ── ⚠ EIN ZEIGER UND KEINE ZWEITE FASSUNG ─────────────────────────────────────────────────────
+ * Die Seite sagt, dass die Frage geklärt ist; die Antwort steht dort, wo ihre Begründung liegt
+ * (Kurve, Tabelle bzw. Verdikt). Ein Satz, ein teal Kasten, ein Verweis.
  *
  * ⚠ DIE ZAHL DES POSITIVEN ZWEIGS HÄNGT AN DER KANDIDATENTABELLE, und zwar an ihrem tatsächlichen
- * Dastehen — nicht an einer hier nachgebauten Bedingung (`Report_Baukasten_Auswahlschicht_Verifikation.md`
- * §3.1: „am Hinweis selbst gemessen"). Sie ist eine Jahresersparnis, deren Beleg — welches Gerät,
- * was es kostet, was netto bleibt — AUSSCHLIESSLICH in `table_candidates` steht; das
- * Vergleichs-Kapitel trägt ausdrücklich keine Kopfzahl (`comparison.ts`). Ist die Tabelle
- * abgewählt (B3-1), stünde hier sonst ein Betrag, den das Dokument nirgends aufschlüsselt.
- * Deshalb liegt der ganze Halbsatz IM Verweis: mit Tabelle steht er wie bisher, ohne sie bleibt
- * die Aussage „rechnet sich" und die Zahl fällt mit ihrem Beleg.
+ * Dastehen. Sie ist eine Jahresersparnis, deren Beleg — welches Gerät, was es kostet, was netto
+ * bleibt — AUSSCHLIESSLICH in `table_candidates` steht. Ist die Tabelle abgewählt, stünde hier
+ * sonst ein Betrag, den das Dokument nirgends aufschlüsselt.
  *
  * ⚠ Die Schwelle ist `netSavingOverHorizon > 0` und ausdrücklich NICHT `totalSavingPerYear > 0` —
- * dieselbe Bedingung wie im Bildschirm-Report (01.09.2026) und wie in `comparisonSelection`. Die
- * schwächere Fassung liess an einem realen Fall alle fünf Geräte als „positiv" durchgehen
- * (€ 22–32 im Jahr bei € 6.750 Investition, Amortisation 250 bis 410 Jahre). Sie ist zugleich die
- * Weiche zwischen den zwei Verweiszielen: dieselbe Bedingung entscheidet in `comparison.ts`, ob
- * Kapitel 6 die Kandidatentabelle trägt oder das Verdikt.
+ * dieselbe Bedingung wie im Bildschirm-Report und wie in `comparisonSelection`. Die schwächere
+ * Fassung liess an einem realen Fall alle fünf Geräte als „positiv" durchgehen (€ 22–32 im Jahr bei
+ * € 6.750 Investition).
  */
 export function buildAddon(analysis: PdfReportAnalysis): SummaryStatement | null {
   const existing = analysis.existingBatteryAnalysis
@@ -552,8 +427,6 @@ export function buildAddon(analysis: PdfReportAnalysis): SummaryStatement | null
 
   return {
     id: ADDON_ID,
-    /* Der Titel des Zielbildes — und ausdrücklich nicht mehr der von Kapitel 6: zwei gleich
-       lautende Überschriften über zwei verschieden langen Fassungen sahen wie zwei Befunde aus. */
     title: 'Ausserdem schon geklärt',
     /* Kein Betrag, keine Aufschlüsselung: beide stünden in einem Kasten, der auf sie verweist. */
     amount: null,
@@ -576,41 +449,27 @@ export function buildAddon(analysis: PdfReportAnalysis): SummaryStatement | null
 }
 
 /* ────────────────────────────────────────────────────────────────────────────────────────────────
- * B23c-4/-5 — die vier Hinweise, die die Kern-Kennzahl qualifizieren
+ * Die vier Hinweise, die die Datengrundlage einschränken
  * ──────────────────────────────────────────────────────────────────────────────────────────── */
 
 /**
  * ⚠ VIER BEDINGUNGEN, DIE VONEINANDER UNABHÄNGIG SIND — und genau so sind sie am Bildschirm
- * begründet.
+ * begründet. Sie sagen VERSCHIEDENES, und die Handlung, die daraus folgt, ist je eine andere:
  *
- * `report.tsx` führt sie als vier getrennte `Alert`-Kästen mit vier getrennten Bedingungen, und die
- * Kommentare dort sagen ausdrücklich, warum sie nicht zusammengelegt werden dürfen: sie sagen
- * VERSCHIEDENES, und die Handlung, die daraus folgt, ist je eine andere.
- *
- *   • Teiljahr — es FEHLT ein Zeitraum. Ein `monthly_*`-Modell kann nicht mitteln, was es nicht
- *     hat. Abhilfe: ein anderes Abrechnungsmodell (oder mehr Monate).
- *   • Datenlücke — der Zeitraum sieht VOLLSTÄNDIG aus und hat trotzdem keine Substanz: die Slots
+ *   • Teiljahr — es FEHLT ein Zeitraum. Abhilfe: ein anderes Abrechnungsmodell (oder mehr Monate).
+ *   • Datenlücke — der Zeitraum sieht vollständig aus und hat trotzdem keine Substanz: die Slots
  *     existieren, ihre Werte sind linear aufgefüllt. Abhilfe: den vollständigen Lastgang anfordern.
- *   • Standardprofil — es gibt gar keine Messung des VERBRAUCHS, nur eine Durchschnittskurve aus
- *     einer Verbrauchsangabe. Abhilfe: einen echten Lastgang hochladen.
- *   • Geschätzte PV (B23c-5) — es gibt keine Messung der ERZEUGUNG, nur eine Wetterjahr-Kurve von
- *     PVGIS. Abhilfe: einen Lastgang MIT Einspeisung anfordern. Die zwei letzten können zugleich
- *     zutreffen und sind dann die schwächste Grundlage im ganzen Rechner.
+ *   • Standardprofil — es gibt gar keine Messung des VERBRAUCHS. Abhilfe: echten Lastgang laden.
+ *   • Geschätzte PV — es gibt keine Messung der ERZEUGUNG. Abhilfe: Lastgang MIT Einspeisung.
  *
- * Zu einem Satz zusammengezogen bekäme der Leser für vier verschiedene Sachverhalte eine Meldung,
- * aus der er nicht ableiten kann, was zu tun ist. Sie stehen deshalb einzeln, und alle vier können
- * gleichzeitig zutreffen.
- *
- * ⚠ SIE STEHEN BEI DER KERN-KENNZAHL UND NICHT IM SCHLUSSKAPITEL. Sie qualifizieren genau die Zahl
- * darüber — der abgerechnete Leistungswert eines Standardprofils ist die Spitze einer
- * Durchschnittskurve und keine gemessene Spitze. Drei Seiten weiter hinten stünde die Einordnung
+ * ⚠ SIE STEHEN BEI DEN KOPFZAHLEN UND NICHT IM SCHLUSSKAPITEL. Sie schränken genau die Grundlage
+ * ein, auf der die zwei Zahlen darüber beruhen — drei Seiten weiter hinten stünde die Einordnung
  * dort, wo sie niemand mehr mit der Zahl zusammenbringt (so schon der Bildschirm-Kommentar: „nicht
  * nur in der Datenqualitäts-Box, die beim Live-Test überscrollt wurde").
  *
- * ⚠ KEINE der drei Schwellen ist hier erfunden: `< 12` Monate und `startsWith('monthly')` stehen
- * so in `report.tsx`, die Lückengrenze ist die EINE Konstante `LARGE_GAP_SLOTS_THRESHOLD`
- * (importiert, nicht abgeschrieben — sie ist ein als vorläufig gekennzeichneter Platzhalter,
- * Delta 14 Punkt 9), und `source === 'standard_profile'` ist dieselbe Eigenschaft, an der die
+ * ⚠ KEINE der Schwellen ist hier erfunden: `< 12` Monate und `startsWith('monthly')` stehen so in
+ * `report.tsx`, die Lückengrenze ist die EINE Konstante `LARGE_GAP_SLOTS_THRESHOLD` (importiert,
+ * nicht abgeschrieben), und `source === 'standard_profile'` ist dieselbe Eigenschaft, an der die
  * Engine die Spitzenkappung abschaltet (`peakShavingBlockers`).
  */
 
@@ -619,9 +478,7 @@ export function buildAddon(analysis: PdfReportAnalysis): SummaryStatement | null
  *
  * ⚠ BEWUSSTE DOPPELUNG ZU `print-assumptions-snapshot.tsx`. Sie zu teilen hiesse, aus dem
  * PDF-Verzeichnis in eine Bildschirm-Komponente zu importieren — und die zieht React und das
- * Zahlenformat-Bauteil in den Lazy-Chunk des PDF-Wegs. Dieselbe Doppelung wie beim Methodik-Text
- * (`content.ts`) und aus demselben Grund: solange beide Wege nebeneinander stehen, ist der TEXT
- * doppelt; beim Cutover fällt der CSS-Weg samt Doppelung weg.
+ * Zahlenformat-Bauteil in den Lazy-Chunk des PDF-Wegs.
  */
 const BILLING_MODEL_LABEL: Record<BillingModel, string> = {
   monthly_max_average: 'Mittel der 12 Monatshöchstwerte',
@@ -632,27 +489,19 @@ const BILLING_MODEL_LABEL: Record<BillingModel, string> = {
 /**
  * Teiljahres-Datensatz unter einem monatsbasierten Abrechnungsmodell (§3.5).
  *
- * ⚠ BENANNTE ABWEICHUNG VOM BILDSCHIRM, UND SIE IST EINE PRÄZISIERUNG: dort steht das Modell fest
- * als „Mittelwert der Monatsspitzen" im Satz, obwohl die Bedingung (`startsWith('monthly')`) auch
- * `monthly_max_sum` trifft — dann benennt der Satz das falsche Modell. Hier steht der Name, den
- * das Ergebnis tatsächlich trägt. Es ist derselbe BEFUND, nur nicht mehr an einen der zwei Fälle
- * gebunden.
+ * ⚠ BENANNTE PRÄZISIERUNG GEGENÜBER DEM BILDSCHIRM: dort steht das Modell fest als „Mittelwert der
+ * Monatsspitzen" im Satz, obwohl die Bedingung auch `monthly_max_sum` trifft — dann benennt der
+ * Satz das falsche Modell. Hier steht der Name, den das Ergebnis tatsächlich trägt.
  *
- * ⚠ Der Bildschirm trägt zusätzlich einen KNOPF („Mit Jahreshöchstwert rechnen"). Auf Papier gibt
- * es ihn nicht, und ein Satz, der auf eine Schaltfläche verweist, die dort nicht existiert, wäre
- * eine tote Anweisung. Die Handlung steht deshalb als Aussage da — sie ist ohnehin der Inhalt des
- * Knopfes, nicht seine Beschriftung.
+ * ⚠ SEIT DEM UMBAU AUF DIE ZUSAMMENFASSUNG OHNE ORTSANGABE: der abgerechnete Leistungswert steht
+ * nicht mehr als Kopfzahl auf dieser Seite, „oben" zeigte ins Leere. Der Hinweis benennt ihn
+ * stattdessen als Grösse — er ist deswegen nicht weniger wahr.
  */
 export function buildPartialYearNotice(analysis: PdfReportAnalysis): ReportNotice | null {
   const { billingModel } = analysis.assumptions
   const { coveredMonths } = analysis.dataQuality
   if (!billingModel.startsWith('monthly') || coveredMonths >= 12) return null
-  /*
-   * ⚠ Ohne Leistungspreis entfällt der Hinweis mit dem Kasten, auf den er zeigt. Sein ganzer Inhalt
-   * ist „der abgerechnete Leistungswert OBEN ist nicht aussagekräftig" — steht der Kasten nicht da
-   * (`buildHeadline`), warnt der Satz vor einer Zahl, die das Dokument nicht zeigt, und empfiehlt
-   * dazu ein anderes Abrechnungsmodell für einen Posten, den dieser Anschluss nicht hat.
-   */
+  /* Ohne Leistungspreis hat der Hinweis keinen Gegenstand: es gibt den Posten gar nicht. */
   if (!hasLeistungspreis(analysis.current)) return null
 
   return {
@@ -660,10 +509,10 @@ export function buildPartialYearNotice(analysis: PdfReportAnalysis): ReportNotic
     tone: 'warning',
     title: `Nur ${coveredMonths} von 12 Monaten mit Daten`,
     body:
-      `Der abgerechnete Leistungswert oben unter dem Modell „${BILLING_MODEL_LABEL[billingModel]}" ` +
-      `ist damit nicht aussagekräftig — die ${12 - coveredMonths} Monate ohne Daten kann das ` +
-      'Modell nicht mitteln. „Jahreshöchstwert" als Abrechnungsmodell liefert für diesen Datensatz ' +
-      'eine belastbarere Zahl.',
+      `Der abgerechnete Leistungswert unter dem Modell „${BILLING_MODEL_LABEL[billingModel]}" ist ` +
+      `damit nicht aussagekräftig — die ${12 - coveredMonths} Monate ohne Daten kann das Modell ` +
+      'nicht mitteln. „Jahreshöchstwert" als Abrechnungsmodell liefert für diesen Datensatz eine ' +
+      'belastbarere Zahl.',
     list: null,
     hints: [],
   }
@@ -674,31 +523,23 @@ export function buildPartialYearNotice(analysis: PdfReportAnalysis): ReportNotic
  *
  * ⚠ Gemessen wird die LÄNGSTE zusammenhängende Lücke und nicht ihre Summe: 2.000 über das Jahr
  * verstreute Einzelslots sind eine Kleinigkeit, 2.000 am Stück sind drei Wochen ohne jede Messung.
- * `largestGapSlots` ist dieselbe Zahl, die der Parser beim Interpolieren gemessen hat — hier wird
- * nichts nachgerechnet ausser der Umrechnung in Tage (96 Slots je Tag, wie am Bildschirm).
  *
  * ⚠ Ein älteres archiviertes Ergebnis trägt das Feld nicht; `undefined > Schwelle` ist `false`, und
- * dann steht hier kein Hinweis statt eines Fehlers (wortgleiche Überlegung wie in `report.tsx`).
+ * dann steht hier kein Hinweis statt eines Fehlers.
  *
- * ⚠ ER HÄNGT AN KEINEM TARIF — und deshalb braucht seine Folgerung zwei Fassungen. Die Bedingung
- * ist allein die Lückenlänge; ein Anschluss ohne Leistungsmessung kann sie genauso reissen wie
- * jeder andere. Die alte Fassung zeigte dann auf einen Kasten, den es in diesem Dokument gar nicht
- * gibt (s. `buildHeadline`).
+ * ⚠ ER HÄNGT AN KEINEM TARIF — und deshalb braucht seine Folgerung zwei Fassungen: ein Anschluss
+ * ohne Leistungsmessung kann die Lücke genauso reissen wie jeder andere, hat aber weder einen
+ * abgerechneten Leistungswert noch eine Ersparnis daraus.
  */
 export function buildLargeGapNotice(analysis: PdfReportAnalysis): ReportNotice | null {
   const slots = analysis.dataQuality.largestGapSlots
   if (!(slots > LARGE_GAP_SLOTS_THRESHOLD)) return null
 
   const days = Math.round(slots / 96)
-  /*
-   * Ohne Leistungspreis gibt es weder den abgerechneten Wert noch eine Ersparnis daraus. Übrig
-   * bleibt die Aussage, die ohnehin die tragende ist: was in diesem Abschnitt verbraucht wurde,
-   * ist aufgefüllt und nicht gemessen.
-   */
   const consequence = hasLeistungspreis(analysis.current)
     ? `Eine Lastspitze, die in diesen ${days} Tagen aufgetreten ist, kann in keiner Zahl dieses ` +
-      'Reports vorkommen: der abgerechnete Leistungswert oben und die daraus abgeleitete ' +
-      'Ersparnis sind für diesen Datensatz eher zu niedrig als zu hoch.'
+      'Reports vorkommen: der abgerechnete Leistungswert und die daraus abgeleitete Ersparnis ' +
+      'sind für diesen Datensatz eher zu niedrig als zu hoch.'
     : `Was in diesen ${days} Tagen tatsächlich verbraucht wurde, steckt deshalb in keiner Zahl ` +
       'dieses Reports — jede Ersparnis, die auf diesen Abschnitt entfällt, beruht auf einer ' +
       'Annahme und nicht auf einer Messung.'
@@ -722,28 +563,14 @@ export function buildLargeGapNotice(analysis: PdfReportAnalysis): ReportNotice |
 /**
  * Der Lastgang ist SYNTHETISCH (Delta 8 / 9b-1).
  *
- * ⚠ NEUTRALER Ton, nicht Warnung — wortgleich zum Bildschirm, wo dieser Kasten als einziger der
- * drei die Standard-Variante trägt. Ein Standardprofil ist kein Mangel an den Daten, sondern eine
- * andere Art von Grundlage: für den Tarifvergleich reicht sie, für die Leistungspreis-Dimension
- * nicht. Ihn bernsteinfarben zu setzen hiesse, einen vollständig legitimen Einstieg (Delta 9b-1)
- * als Fehler zu kennzeichnen.
+ * ⚠ NEUTRALER Ton, nicht Warnung — wortgleich zum Bildschirm. Ein Standardprofil ist kein Mangel an
+ * den Daten, sondern eine andere Art von Grundlage: für den Tarifvergleich reicht sie, für die
+ * Leistungspreis-Dimension nicht.
  *
- * ⚠ Er sagt zusätzlich, dass die Leistungspreis-Ersparnis gar nicht erst ausgewiesen wird — das
- * erklärt die 0 in der Aufschlüsselung darunter, die sonst wie ein Rechenfehler aussieht. Dieselbe
- * Rolle wie der Engine-Warnsatz an der Batterie (`peakShavingBlockers`), nur an der Stelle, an der
- * die 0 steht.
- *
- * ══════════════════════════════════════════════════════════════════════════════════════════════
- * ⚠ ER LIEST JETZT ZWEIERLEI — DIE HERKUNFT DES LASTGANGS UND OB ES EINEN LEISTUNGSPREIS GIBT
- * ══════════════════════════════════════════════════════════════════════════════════════════════
- * Beides ist nötig, weil die Kombination die WAHRSCHEINLICHSTE ist und nicht etwa ein Randfall: die
- * Lastgang-Station bietet das Standardprofil an, bevor die Rechnungs-Station `meteringVariant`
- * überhaupt erhebt (`data-entry-actions-lastgang.ts` liest das Feld nirgends) — ein privater
- * NE7-Anschluss läuft also regelmässig in genau diesen Fall. Ohne Leistungspreis sind BEIDE
- * bisherigen Aussagen des zweiten Satzteils falsch: „die oben gezeigten Leistungswerte" zeigen auf
- * einen Kasten, den es nicht gibt (`buildHeadline`), und „wird gar nicht erst ausgewiesen" liest
- * sich wie eine wegen der Datenlage zurückgehaltene Zahl statt wie ein Posten, den dieser Anschluss
- * überhaupt nicht hat.
+ * ⚠ ER LIEST ZWEIERLEI — die Herkunft des Lastgangs UND ob es einen Leistungspreis gibt. Beides ist
+ * nötig, weil die Kombination die WAHRSCHEINLICHSTE ist: die Lastgang-Station bietet das
+ * Standardprofil an, bevor die Rechnungs-Station `meteringVariant` überhaupt erhebt — ein privater
+ * NE7-Anschluss läuft also regelmässig in genau diesen Fall.
  */
 export function buildStandardProfileNotice(
   loadProfile: Pick<LoadProfile, 'source'>,
@@ -762,7 +589,7 @@ export function buildStandardProfileNotice(
       'Jahresverbrauchs-Angabe gebildet wurde. Für den Tarifvergleich reicht das: dafür zählt, ' +
       'wann im Tagesverlauf Strom verbraucht wird. ' +
       (withLeistungspreis
-        ? 'Die oben gezeigten Leistungswerte sind dagegen die Spitzen dieser Durchschnittskurve ' +
+        ? 'Die ausgewiesenen Leistungswerte sind dagegen die Spitzen dieser Durchschnittskurve ' +
           'und keine gemessene Lastspitze — eine Ersparnis beim Leistungspreis wird deshalb gar ' +
           'nicht erst ausgewiesen, statt sie zu schätzen.'
         : 'Über Ihre tatsächlichen Lastspitzen sagt diese Analyse dagegen nichts: eine ' +
@@ -780,39 +607,18 @@ export function buildStandardProfileNotice(
 }
 
 /**
- * B23c-5 — die PV-Erzeugung ist GESCHÄTZT und nicht gemessen (B22b, Pflichtenheft §2.2 Punkt 1).
+ * Die PV-Erzeugung ist GESCHÄTZT und nicht gemessen (B22b, Pflichtenheft §2.2 Punkt 1).
  *
- * ── ⚠ SEINE DATEN STEHEN NIRGENDS IM CONTRACT, UND DAS IST DER GANZE GRUND FÜR DAS EIGENE FELD ──
+ * ── ⚠ SEINE DATEN STEHEN NIRGENDS IM CONTRACT, UND DAS IST DER GRUND FÜR DAS EIGENE FELD ───────
  * Die Engine bekommt einen fertigen Lastgang, dem die geschätzte Erzeugung bereits abgezogen ist
- * (`applyEstimatedPv`, B22a) — WOMIT geschätzt wurde, erfährt sie nie. `loadProfile.pvSource` sagt
- * allein, DASS geschätzt wurde. Standort, Nennleistung, Wetterjahre und die für DIESE Anlage
- * gemessene Streuung stehen ausschliesslich in `EstimatedPvSummary`, und die reist deshalb als
- * eigenständiges Feld des Eingangs herein (`types.ts`), genau wie am Bildschirm als eigene Prop.
+ * (`applyEstimatedPv`, B22a) — WOMIT geschätzt wurde, erfährt sie nie. Standort, Nennleistung,
+ * Wetterjahre und die für DIESE Anlage gemessene Streuung stehen ausschliesslich in
+ * `EstimatedPvSummary`.
  *
- * Eine aus `pvSource` gebaute Kurzfassung wäre keine Abkürzung, sondern eine ZWEITE Formulierung
- * desselben Befunds ohne seine Zahlen — genau das, was D17 als offenen Punkt benannt und
- * ausdrücklich nicht gebaut hat.
- *
- * ── ⚠ ER NENNT ZWEI UNSICHERHEITEN, NICHT EINE — wortgleich zum Bildschirm ────────────────────
- * 1. Die **Jahresstreuung** (± x %) aus der ECHTEN PVGIS-Antwort DIESER Anlage, nicht aus einer
- *    Konstanten: die dokumentierten ± 5,8 % gehören zu EINER Konfiguration, eine andere Auslegung
- *    an einem anderen Standort streut anders. `spread === null` heisst „keine Angabe" und nicht
- *    „Streuung 0" — dann steht der Satz ohne Zahlen da, statt eine zu erfinden.
- * 2. Der **systematische Aufschlag** der Glättung (`PV_TEN_YEAR_SMOOTHING_OPTIMISM_PERCENT`, eine
- *    IMPORTIERTE `[ANNAHME]`-Konstante und keine abgeschriebene Zahl): ein Mehrjahres-Mittel ist
- *    glatter als jedes einzelne Jahr und sättigt Speicher und Verbrauch seltener. Ohne ihn läse
- *    sich das „±" wie eine symmetrische Unsicherheit, und das ist es nicht.
- *
- * ── WAS ER NICHT TUT ──────────────────────────────────────────────────────────────────────────
- * Er BEGRÜNDET nicht, warum die Spitzenkappung entfällt — das sagt der Engine-Warnsatz zum Blocker
- * `estimated_pv` (`savings/attribute.ts`) dort, wo die € 0 steht. Er STELLT die Folge fest, weil
- * das der Satz ist, den der Bildschirm an dieser Stelle trägt; die Begründung bleibt beim Betrag.
- *
- * ── ⚠ NEUTRALER TON, NICHT WARNUNG ────────────────────────────────────────────────────────────
- * Wortgleich zum Bildschirm, wo dieser Kasten (wie der Standardprofil-Hinweis) die Standard- und
- * nicht die Warn-Variante trägt. Eine geschätzte Erzeugungskurve ist kein Mangel an den Daten,
- * sondern eine andere Art von Grundlage — und der einzige Weg für einen Kunden, dessen Lastgang
- * gar keine Einspeisung führt (Delta 9b-1/B22b, der wichtigste Anwendungsfall des Generators).
+ * ── ⚠ ER NENNT ZWEI UNSICHERHEITEN, NICHT EINE ────────────────────────────────────────────────
+ * Die Jahresstreuung (± x %) aus der ECHTEN PVGIS-Antwort dieser Anlage — `spread === null` heisst
+ * „keine Angabe" und nicht „Streuung 0" —, und den systematischen Aufschlag der Glättung über die
+ * IMPORTIERTE Konstante. Ohne ihn läse sich das „±" wie eine symmetrische Unsicherheit.
  */
 export function buildEstimatedPvNotice(
   summary: EstimatedPvSummary | undefined,
@@ -856,82 +662,43 @@ export function buildEstimatedPvNotice(
 /**
  * Die vier Hinweise in der Reihenfolge des Bildschirms.
  *
- * ⚠ Die Reihenfolge ist übernommen und nicht neu gewählt: zuerst die Herkunft der Daten (woraus
- * der Verbrauch stammt, dann woraus die Erzeugung stammt), danach die zwei Mängel am Umfang. Wer
- * den Report von oben liest, erfährt erst, WORAUS gerechnet wurde, und danach, was daran fehlt.
- *
- * ⚠ B23c-5: der PV-Hinweis steht damit an GENAU derselben relativen Stelle wie in `report.tsx` —
- * zwischen Standardprofil und Teiljahr. Der dortige Kommentar begründet das ausdrücklich: beide
- * Herkunfts-Hinweise können zugleich zutreffen, und synthetischer Verbrauch MINUS geschätzter
- * Erzeugung ist die schwächste Grundlage im ganzen Rechner (und zugleich der wichtigste
- * Anwendungsfall). Zwei Sätze für zwei Sachverhalte, nicht einer für beide.
+ * ⚠ Die Reihenfolge ist übernommen und nicht neu gewählt: zuerst die Herkunft der Daten (woraus der
+ * Verbrauch stammt, dann woraus die Erzeugung stammt), danach die zwei Mängel am Umfang.
  */
-function buildNotices(
-  analysis: PdfReportAnalysis,
-  loadProfile: Pick<LoadProfile, 'source'>,
-  estimatedPv: EstimatedPvSummary | undefined,
-): ReportNotice[] {
+function buildNotices(input: SummaryInput): ReportNotice[] {
   return [
-    buildStandardProfileNotice(loadProfile, analysis.current),
-    buildEstimatedPvNotice(estimatedPv),
-    buildPartialYearNotice(analysis),
-    buildLargeGapNotice(analysis),
+    buildStandardProfileNotice(input.loadProfile, input.analysis.current),
+    buildEstimatedPvNotice(input.estimatedPv),
+    buildPartialYearNotice(input.analysis),
+    buildLargeGapNotice(input.analysis),
   ].filter((n): n is ReportNotice => n !== null)
 }
 
+/**
+ * Die ganze Seite.
+ *
+ * ⚠ `context` ist optional: fehlt er (Tests, der Prüfstand), bildet diese Funktion die
+ * Zwischenwerte wie bisher selbst. Das Ergebnis ist dasselbe, es entsteht nur an einem anderen Ort.
+ */
 export function buildReportSummary(
-  analysis: PdfReportAnalysis,
-  /* Gelesen wird ausschliesslich die HERKUNFT — s. `buildStandardProfileNotice`. */
-  loadProfile: Pick<LoadProfile, 'source'>,
-  /*
-   * B23c-5 — die Zusammenfassung der geschätzten PV-Erzeugung, falls eine übernommen wurde.
-   * `undefined` heisst „nicht geschätzt", und dann entfällt der Hinweis ganz (s.
-   * `buildEstimatedPvNotice`). Sie steht bewusst NICHT in `analysis`: die Engine kennt sie nicht.
-   */
-  estimatedPv?: EstimatedPvSummary,
-  /*
-   * Report-Baukasten B1 — die report-weit EINMAL gebildeten Zwischenwerte. Fehlt er (Tests, der
-   * Prüfstand), bildet diese Funktion sie wie bisher selbst; das Ergebnis ist dasselbe, es
-   * entsteht nur an einem anderen Ort. Weitergereicht wird er ausdrücklich NICHT in die
-   * Baustein-Erzeuger — die behalten ihre engen Signaturen und bekommen die WERTE.
-   */
+  input: SummaryInput,
   context?: ReportBuildContext,
 ): ReportSummary {
-  const headline = buildHeadline(analysis.current)
-  const notices = buildNotices(analysis, loadProfile, estimatedPv)
+  const analysis = input.analysis
+  const ways = summaryWaysOf(analysis)
   /* ⚠ `context ? … : …` statt `??` — `primaryEntry` ist selbst gültig `undefined`. */
   const entry = context ? context.primaryEntry : primaryEntryOf(analysis)
 
-  /*
-   * Ohne einen einzigen durchgerechneten Kandidaten bleibt die Kern-Kennzahl — sie hängt allein am
-   * Lastgang und am Tarif. Alles Übrige entfällt, statt mit Nullen dazustehen. Der Fall entsteht
-   * mit dem heutigen Katalog nicht (er ist nie leer); die Seite behandelt ihn trotzdem, weil eine
-   * Executive Summary, die bei leerem Katalog eine Ausnahme wirft, den ganzen Report kostet.
-   */
-  if (!entry) return { headline, notices, statements: [] }
-
-  /*
-   * ⚠ `isRealComparison` reist als eigener Rückgabewert heraus und wird NICHT aus dem erzeugten
-   * Text zurückgelesen (etwa an einer Zeilenbeschriftung). Woran die Spitzenkappungs-Aussage
-   * hängt — „steckt in der Zahl oben" gegen „kommt hinzu" — ist eine fachliche Verzweigung, und
-   * sie an einer Zeichenkette festzumachen hiesse, dass eine Umformulierung sie still umdreht.
-   */
-  const savings = buildSavings(analysis, entry)
-
-  /*
-   * ⚠ Derselbe Wert wie `savings.isRealComparison` — `buildSavings` verzweigt an genau dieser
-   * Ableitung (`isRealSavingsComparison`), und ihr `true`-Fall schliesst den fehlenden Vergleich
-   * bereits ein. Aus dem Kontext gelesen ist er report-weit derselbe wie der, an dem
-   * `recommendation.ts` seinen Abgleichsatz aufhängt.
-   */
-  const placement = context ? context.savingsPlacement : savingsPlacementOf(analysis, entry)
-
-  const statements = [
-    savings.statement,
-    buildPeakShaving(analysis, entry, placement),
-    buildLoadShift(analysis, entry, placement),
-    buildAddon(analysis),
-  ].filter((s): s is SummaryStatement => s !== null)
-
-  return { headline, notices, statements }
+  return {
+    kpis: ways ? buildSummaryKpis(analysis, ways) : [],
+    notices: buildNotices(input),
+    overview: buildOverview(analysis, input),
+    pvPointer: buildPvPointer(input.hasPv),
+    /*
+     * Ohne einen einzigen durchgerechneten Kandidaten gibt es auch die Zusatzspeicher-Frage nicht.
+     * Der Fall entsteht mit dem heutigen Katalog nicht (er ist nie leer); die Seite behandelt ihn
+     * trotzdem, weil eine Zusammenfassung, die bei leerem Katalog wirft, den ganzen Report kostet.
+     */
+    statements: entry ? [buildAddon(analysis)].filter((s): s is SummaryStatement => s !== null) : [],
+  }
 }

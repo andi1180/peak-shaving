@@ -3,7 +3,6 @@ import type { BatteryRoiEntry, MonthlyTariffComparison } from 'shared'
 
 import { buildAssumptions, TARIFF_COMPONENTS_TABLE_ID } from './basis'
 import { buildComparisonChapter, CANDIDATE_TABLE_ID } from './comparison'
-import { buildDetailChapter, buildMonthlyChapter } from './detail'
 import { REPORT_SECTIONS, SECTION_ID } from './content'
 import { reportLayoutOf, type ReportPlacement } from './layout'
 import { buildRecommendationChapter } from './recommendation'
@@ -169,11 +168,6 @@ function summaryPlacements(summary: ReportSummary): ReportPlacement[] {
   return summary.statements.map((s) => placementOf(s, SECTION_ID.results))
 }
 
-function bodyOf(summary: ReportSummary, id: string, layout: ReportLayout): string {
-  const statement = summary.statements.find((s) => s.id === id)
-  return resolveReportText(statement?.body ?? '', layout, id)
-}
-
 /**
  * Der ganze Fliesstext einer Aussage, aufgelöst — Körper ODER Listenpunkte (B3-3). Die Punkte
  * werden mit einem Leerzeichen verbunden: genau so hingen die Sätze im Absatz aneinander, bevor
@@ -187,79 +181,77 @@ function statementText(statement: ReportStatement, layout: ReportLayout, from: s
 }
 
 /* ────────────────────────────────────────────────────────────────────────────────────────────────
- * 1 — Position + Feld-Referenz: `peak_shaving` → Kopfzahl von `savings`
+ * 1+2 — Die zwei Textblöcke der Zusammenfassung
+ *
+ * ⚠ Sie stehen NICHT in der Registry (`ReportBaukastenId`) und lösen deshalb über einen
+ * UNBEKANNTEN Ursprung auf. Genau das ist hier zu messen: der Resolver darf daraus keine Richtung
+ * behaupten („oben"), sondern muss das Zielkapitel beim Namen nennen — und ohne Ziel auf die
+ * Ersatzfassung fallen, statt einen halben Satz stehenzulassen.
  * ──────────────────────────────────────────────────────────────────────────────────────────── */
 
-describe('peak_shaving — Verweis auf die Kopfzahl von savings', () => {
-  it('sagt in der Kassen-Fassung wortgleich, was vor Stufe D dastand', () => {
-    const summary = buildReportSummary(analysisFor(true), { source: 'net_signed' })
-    const body = bodyOf(summary, 'peak_shaving', reportLayoutOf(summaryPlacements(summary)))
+describe('Zusammenfassung — Fliesstext und PV-Satz', () => {
+  const BASIS_PLACEMENTS: ReportPlacement[] = [
+    {
+      id: 'tariff_blocker',
+      section: SECTION_ID.basis,
+      title: 'Der Tarifvergleich konnte nicht gerechnet werden',
+      amount: null,
+      rows: {},
+    },
+    {
+      id: 'pv_outage',
+      section: SECTION_ID.basis,
+      title: 'Monate ohne erkennbaren PV-Beitrag',
+      amount: null,
+      rows: {},
+    },
+  ]
 
-    expect(body).toBe(
-      'Der Leistungspreis hängt an Ihrem Netzbetreiber und nicht an Ihrem Stromvertrag — dieser ' +
-        'Anteil bleibt auch dann bestehen, wenn Sie den Lieferanten wechseln. ' +
-        'Dieser Betrag steckt NICHT in der Zahl oben: der Monatsvergleich führt nur Arbeits- und ' +
-        'Netz-Arbeitspreis samt Grundgebühren. Er kommt hinzu — addieren lässt er sich trotzdem ' +
-        'nicht, weil er eine Jahresgrösse ist und die Zahl oben ein Zeitraumbetrag.',
+  /** Ohne rechenbaren Hebel zeigt der Absatz auf den Blocker-Befund im Schlusskapitel. */
+  const ohneHebel = buildReportSummary({
+    analysis: { ...analysisFor(true), tariffOptimization: undefined },
+    loadProfile: { source: 'net_signed' },
+  })
+
+  it('nennt das Zielkapitel statt einer Richtung', () => {
+    const text = resolveReportText(
+      ohneHebel.overview,
+      reportLayoutOf(BASIS_PLACEMENTS),
+      'overview',
+    )
+
+    expect(text).toContain(
+      'nicht berechnen — woran das liegt, steht im Kapitel „Annahmen und Datengrundlage".',
     )
   })
 
-  it('sagt in der §3.7-Fassung wortgleich, was vor Stufe D dastand', () => {
-    const summary = buildReportSummary(analysisFor(false), { source: 'net_signed' })
-    const body = bodyOf(summary, 'peak_shaving', reportLayoutOf(summaryPlacements(summary)))
+  it('lässt den Halbsatz fallen, wenn der Befund nicht im Dokument steht', () => {
+    const text = resolveReportText(ohneHebel.overview, reportLayoutOf([]), 'overview')
 
-    expect(body).toContain(
-      'Dieser Betrag ist in der Gesamtersparnis oben bereits als erste Zeile enthalten und kommt ' +
-        'nicht zusätzlich obendrauf.',
-    )
+    expect(text).toContain('liess sich für diesen Zeitraum nicht berechnen.')
+    expect(text).not.toContain('woran das liegt')
   })
 
-  /**
-   * ⚠ DER NACHWEIS, DASS DER ORT NICHT MEHR IM TEXT STECKT: dieselbe Aussage, `savings` einmal
-   * NACH `peak_shaving` gelesen. Vor Stufe D stand „oben" als Literal im Satz und wäre falsch
-   * geblieben.
-   */
-  it('dreht die Ortsangabe mit der Leseordnung', () => {
-    const summary = buildReportSummary(analysisFor(true), { source: 'net_signed' })
-    const umsortiert = [...summaryPlacements(summary)].reverse()
-    const body = bodyOf(summary, 'peak_shaving', reportLayoutOf(umsortiert))
+  it('PV-Satz: der Befund-Halbsatz hängt am Hinweis, der Satz selbst an der Angabe', () => {
+    const mitPv = buildReportSummary({
+      analysis: analysisFor(true),
+      loadProfile: { source: 'net_signed' },
+      hasPv: true,
+      pvPeakPowerKwp: 10.2,
+    })
 
-    expect(body).toContain('steckt NICHT in der Zahl weiter unten')
-    expect(body).not.toContain('der Zahl oben')
-  })
-})
-
-/* ────────────────────────────────────────────────────────────────────────────────────────────────
- * 2 — Zeilen-Referenz: `load_shift` → eine Zeile von `savings`
- * ──────────────────────────────────────────────────────────────────────────────────────────── */
-
-describe('load_shift — Verweis auf eine Zeile von savings', () => {
-  it('nennt die Zeile mit ihrer echten Beschriftung, in beiden Fassungen wortgleich', () => {
-    const kasse = buildReportSummary(analysisFor(true), { source: 'net_signed' })
-    expect(bodyOf(kasse, 'load_shift', reportLayoutOf(summaryPlacements(kasse)))).toContain(
-      'was Ihre PV-Erzeugung über den Speicher zusätzlich einspart, steckt in der Zeile „Wert der ' +
-        'Ladesteuerung" in der Aufschlüsselung oben mit drin.',
-    )
-
-    const attribution = buildReportSummary(analysisFor(false), { source: 'net_signed' })
     expect(
-      bodyOf(attribution, 'load_shift', reportLayoutOf(summaryPlacements(attribution))),
-    ).toContain(
-      'was Ihre PV-Erzeugung über den Speicher zusätzlich einspart, steht als eigener Anteil ' +
-        '(„Eigenverbrauch") daneben.',
-    )
-  })
-
-  /** Die Zeile gibt es nur in EINER Fassung — fehlt sie, greift die Ersatzformulierung. */
-  it('fällt auf die Ersatzformulierung zurück, wenn die Zeile nicht im Dokument steht', () => {
-    const summary = buildReportSummary(analysisFor(true), { source: 'net_signed' })
-    const ohneZeilen = summaryPlacements(summary).map((p) =>
-      p.id === 'savings' ? { ...p, rows: {} } : p,
+      resolveReportText(mitPv.pvPointer ?? '', reportLayoutOf(BASIS_PLACEMENTS), 'pv_pointer'),
+    ).toContain('er steht im Kapitel „Annahmen und Datengrundlage".')
+    expect(resolveReportText(mitPv.pvPointer ?? '', reportLayoutOf([]), 'pv_pointer')).not.toContain(
+      'Befund',
     )
 
-    expect(bodyOf(summary, 'load_shift', reportLayoutOf(ohneZeilen))).toContain(
-      'zusätzlich einspart, steckt in der Gesamtersparnis mit drin.',
-    )
+    /* Ohne Angabe gibt es den Satz gar nicht — auch dann nicht, wenn ein Befund vorläge. */
+    expect(
+      buildReportSummary({ analysis: analysisFor(true), loadProfile: { source: 'net_signed' } })
+        .pvPointer,
+    ).toBeNull()
   })
 })
 
@@ -333,35 +325,35 @@ describe('catalog_alternatives — Verweis auf das Empfehlungs-Kapitel', () => {
 describe('resolveReportText', () => {
   const LAYOUT = reportLayoutOf([
     {
-      id: 'savings',
-      section: SECTION_ID.results,
-      title: 'Was Sie sparen',
-      amount: 'pro Jahr',
-      rows: { peak: 'Spitzenkappung (Leistungspreis)' },
+      id: 'recommendation',
+      section: SECTION_ID.recommendation,
+      title: 'Das empfohlene Gerät',
+      amount: 'Amortisation',
+      rows: { saving: 'Ersparnis pro Jahr' },
     },
     {
-      id: 'peak_shaving',
-      section: SECTION_ID.results,
-      title: 'Ihre Lastspitze wird gekappt',
+      id: 'load_control',
+      section: SECTION_ID.recommendation,
+      title: 'Wert der Ladesteuerung unter aWATTar',
       amount: 'pro Jahr',
       rows: {},
     },
   ])
 
   it('setzt beide Platzhalter ein', () => {
-    const text = t`Die Zeile ${ref(row('savings', 'peak'), `„${REF_LABEL}" ${REF_PLACE}`, 'x')}.`
-    expect(resolveReportText(text, LAYOUT, 'peak_shaving')).toBe(
-      'Die Zeile „Spitzenkappung (Leistungspreis)" oben.',
+    const text = t`Die Zeile ${ref(row('recommendation', 'saving'), `„${REF_LABEL}" ${REF_PLACE}`, 'x')}.`
+    expect(resolveReportText(text, LAYOUT, 'load_control')).toBe(
+      'Die Zeile „Ersparnis pro Jahr" oben.',
     )
   })
 
   it('lässt den GANZEN Text entfallen, wenn `absent` null ist', () => {
-    const text = t`Etwas über ${ref(block('load_shift'), REF_PLACE, null)} und noch mehr.`
-    expect(resolveReportText(text, LAYOUT, 'peak_shaving')).toBe('')
+    const text = t`Etwas über ${ref(block('addon'), REF_PLACE, null)} und noch mehr.`
+    expect(resolveReportText(text, LAYOUT, 'load_control')).toBe('')
   })
 
   it('lässt eine blosse Zeichenkette unverändert', () => {
-    expect(resolveReportText('Ein fertiger Satz.', LAYOUT, 'peak_shaving')).toBe(
+    expect(resolveReportText('Ein fertiger Satz.', LAYOUT, 'load_control')).toBe(
       'Ein fertiger Satz.',
     )
   })
@@ -427,21 +419,21 @@ describe('Stufe-C-Sperren: `addon` und `table_candidates`', () => {
   it('`addon` abgewählt: der Satz im Empfehlungs-Kapitel verschwindet mit', () => {
     const analysis = analysisFor(true)
     const chapter = buildRecommendationChapter(analysis)
-    const summary = buildReportSummary(analysis, { source: 'net_signed' })
+    const summary = buildReportSummary({ analysis, loadProfile: { source: 'net_signed' } })
 
     const mit = statementText(
       chapter.recommendation!,
       reportLayoutOf(summaryPlacements(summary)),
       'recommendation',
     )
-    expect(mit).toContain('steht auf der Kernergebnis-Seite')
+    expect(mit).toContain('steht auf der Zusammenfassung')
 
     const ohne = statementText(
       chapter.recommendation!,
       reportLayoutOf(summaryPlacements(summary).filter((p) => p.id !== 'addon')),
       'recommendation',
     )
-    expect(ohne).not.toContain('Kernergebnis-Seite')
+    expect(ohne).not.toContain('Zusammenfassung')
     expect(ohne).toContain('wenn ich Ihre Anlage durch ein neues Gerät ersetzte?".')
   })
 
@@ -525,7 +517,7 @@ describe('Verweisname eines Kapitels (`REF_SECTION`)', () => {
    * Fällen ohne es auf nichts zu zeigen.
    */
   it('haben nur unbedingte Kapitel — die drei bedingten ausdrücklich nicht', () => {
-    expect(REPORT_SECTIONS[SECTION_ID.results].reference).toBe('Kernergebnis-Seite')
+    expect(REPORT_SECTIONS[SECTION_ID.results].reference).toBe('Zusammenfassung')
 
     for (const key of [SECTION_ID.monthly, SECTION_ID.insight, SECTION_ID.comparison]) {
       expect(REPORT_SECTIONS[key].reference).toBeUndefined()
@@ -535,68 +527,25 @@ describe('Verweisname eines Kapitels (`REF_SECTION`)', () => {
   const analysis = analysisFor(true)
   const chapter = buildRecommendationChapter(analysis)
 
-  /* Die Hochrechnungs-Aussage entsteht nur bei einem Teilzeitraum — sonst fehlt der Satz ganz. */
-  const teiljahr: PdfReportAnalysis = {
-    ...analysis,
-    perBattery: [{ ...ENTRY, annualizationFactor: 2, coveredDays: 180 }, ZWEITES],
-    existingBatteryAnalysis: {
-      entry: { ...ENTRY, annualizationFactor: 2, coveredDays: 180 },
-      addonScenarios: [],
-    },
-  }
-
-  /** Die fünf migrierten Sätze, je mit dem Baustein, der sie trägt, und seinem Ziel. */
+  /**
+   * ⚠ NACH DEM ZUSAMMENFASSUNGS-UMBAU BLEIBT GENAU EIN SATZ ÜBRIG, der Kapitel 1 beim Namen nennt.
+   * Die vier übrigen zeigten auf `savings`/`load_shift`; beide Bausteine gibt es nicht mehr
+   * (Ein-Spanne-Regel D8), und ihre Sätze tragen seither ihre Ersatzfassung ausgeschrieben.
+   */
   const SAETZE = [
     {
       name: 'recommendation → addon',
       statement: chapter.recommendation!,
       from: 'recommendation',
       ziel: 'addon' as const,
-      mit: 'steht auf der Kernergebnis-Seite',
+      mit: 'steht auf der Zusammenfassung',
       ohne: 'ersetzte?".',
-    },
-    {
-      name: 'load_control → load_shift (Hochrechnung)',
-      statement: buildRecommendationChapter(teiljahr).loadControl!,
-      from: 'load_control',
-      ziel: 'load_shift' as const,
-      mit: 'die Zahl auf der Kernergebnis-Seite ist',
-      ohne: 'der ausgewiesene Wert ist',
-    },
-    {
-      name: 'load_control → Zeile von savings',
-      statement: chapter.loadControl!,
-      from: 'load_control',
-      ziel: 'savings' as const,
-      mit: 'in der Aufschlüsselung der Kernergebnis-Seite',
-      ohne: 'Er steckt in der Gesamtersparnis bereits mit drin',
-    },
-    {
-      name: 'monthly_comparison → savings',
-      statement: buildDetailChapter(analysis).cost!.statement!,
-      from: 'monthly_comparison',
-      ziel: 'savings' as const,
-      mit: 'Die Kernergebnis-Seite zeigt die DIFFERENZEN',
-      ohne: 'Hier stehen die drei Summen absolut.',
-    },
-    {
-      name: 'monthly_comparison → load_shift',
-      statement: buildMonthlyChapter(analysisFor(false))!.statement,
-      from: 'monthly_comparison',
-      ziel: 'load_shift' as const,
-      mit: 'auf der Kernergebnis-Seite ist NICHT aus diesen drei Summen',
-      ohne: 'Die drei Summen stehen hier absolut.',
     },
   ]
 
-  /*
-   * Die Zusammenstellung, die das Dokument heute hat. Beide Fassungen von `savings` sind vertreten,
-   * damit jeder der fünf Sätze sein Ziel findet — sie schliessen einander im Dokument aus, hier
-   * geht es allein um die Kapitelzuordnung.
-   */
   const inKapitel1 = summaryPlacements(
-    buildReportSummary(analysisFor(false), { source: 'net_signed' }),
-  ).concat(summaryPlacements(buildReportSummary(analysis, { source: 'net_signed' })))
+    buildReportSummary({ analysis, loadProfile: { source: 'net_signed' } }),
+  )
 
   it.each(SAETZE)('$name: nennt Kapitel 1 beim Namen, solange das Ziel dort steht', (satz) => {
     expect(statementText(satz.statement, reportLayoutOf(inKapitel1), satz.from)).toContain(satz.mit)

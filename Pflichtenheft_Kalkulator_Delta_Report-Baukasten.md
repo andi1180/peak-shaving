@@ -239,6 +239,53 @@ das Risiko als **heute real, an fünf Orten**, nicht als Theorie.
 angetastet — die Regel gilt für alle **neuen** Bausteine aus diesem Delta, nicht rückwirkend als
 eigener Umbauauftrag am Bestand (das wäre ein eigenes Ticket, hier nicht beauftragt).
 
+### D8 umgesetzt (19.09.2026) — „Kernergebnisse" ist „Zusammenfassung"
+
+Das erste inhaltliche Kapitel trägt jetzt die Form von Seite 2 des Zielbildes und erfüllt damit die
+Regel oben. **Nur Struktur und Optik sind übernommen, keine Zahl** — alles kommt aus dem
+Live-Engine-Output des jeweiligen Falls.
+
+| Was | Woher |
+|---|---|
+| Kopfzahl „Ihre Stromkosten heute" (`ink`) | `sumCovered(tariffOptimization.monthlyComparison.currentTariffEur)`, Bezugszeile aus `dataQuality.coveredDays` |
+| Kopfzahl „Mögliche Ersparnis" (`accent`) | `buildRealSavingBreakdown` — min/max über die Wege mit POSITIVER Ersparnis; eine Zahl statt einer Spanne, wo nur einer trägt |
+| Fliesstext | Bestandsbatterie (`existingBatteryAnalysis.entry.battery`), PV-Angabe + kWp aus dem Entwurf, Zahl der tragenden Wege |
+| PV-Satz | nur bei `hasPv === true`; der Befund-Halbsatz nur, wenn `pv_outage` im Dokument steht |
+| „Ausserdem schon geklärt" | unverändert `buildAddon` (B3-2b) |
+
+**Vier Entscheidungen, die den Abschnitt tragen:**
+
+1. **`savings`, `peak_shaving` und `load_shift` sind ersatzlos entfallen** (Katalog 28 → 25
+   Kennungen). Sie waren vier Euro-Grössen nebeneinander, von denen drei nicht addiert werden
+   durften — genau der Zustand, gegen den D8 geschrieben ist. **⚠ Benannte Folge: der
+   Spitzenkappungs-BETRAG steht damit in keinem Kapitel mehr.** Der Ladesteuerungs-Betrag dagegen
+   ist erhalten geblieben — `load_control` trägt wieder eine Kopfzahl, weil der Abschnitt sonst die
+   Herkunft einer Zahl erklärte, die im Dokument nicht vorkommt.
+2. **Die Spanne führt nur die TARIF-Wege.** Die Spitzenkappung ist eine Jahresgrösse aus dem
+   Leistungspreis, die zwei Wege sind Summen über den gemessenen Zeitraum — in einer Spanne
+   vereint stünden zwei Bezugszeiträume unter einer Zahl. Dass es sie gibt, sagt stattdessen der
+   Fliesstext, und die Bezugszeile der Ist-Kosten nennt ihre eigene Grenze („ohne Leistungspreis").
+3. **Die vier Hinweiskästen bleiben, ihre Ortsangaben nicht.** Drei verwiesen auf „den
+   abgerechneten Leistungswert oben" — die Kopfzahl, auf die sie zeigten, gibt es nicht mehr.
+4. **Die zwei Textblöcke stehen NICHT im Katalog** (`ReportBaukastenId`), wie die Kopfzahlen auch:
+   sie tragen weder Titel noch Betrag noch Zeilen und sind damit keine der vier Formen, die
+   `document.tsx` rendert. Ihre Querverweise lösen über einen unbekannten Ursprung auf und nennen
+   deshalb das Zielkapitel beim Namen statt einer Richtung — gemessen in `registry.test.ts`.
+
+**Am echten Urbanz-Lastgang gemessen** (209 Tage, 8 Monate, Bestandsspeicher 19,2 kWh, NE 7 ohne
+Leistungsmessung, echte Cloud-Preisdaten): `€ 770` Ist-Kosten, `€ 84` mögliche Ersparnis — **eine
+Zahl, keine Spanne**, weil der reine Tarifwechsel bei diesem Kunden negativ ist. Die Spannen-Form
+des Zielbildes entsteht am selben Lastgang mit einem üblichen Fixpreis-Vertrag (`€ 574 – € 778`).
+Die Zahlen des Zielbildes (`€1.061`, `€53 – €207`) stammen aus einer Handrechnung und sind
+ausdrücklich nicht reproduziert worden.
+
+**Positiv-Kontrolle:** derselbe Fall mit `hasPv: false` — der PV-Satz fehlt vollständig, der Absatz
+sagt „aber noch keine PV-Anlage", und die Seite schliesst ohne Lücke.
+
+**Offen geblieben:** der Zeilenabstand im teal Kasten weicht vom Zielbild ab (er ist der geteilte
+`statement`-Abstand); die Fussnote „Alle Beträge netto" bleibt entgegen dem Zielbild stehen, weil
+sie die einzige Netto-Angabe und der einzige Methodik-Zeiger dieser Seite ist.
+
 ---
 
 ## D9 — Baustein 7: „Annahmen und Datengrundlage" ausbauen

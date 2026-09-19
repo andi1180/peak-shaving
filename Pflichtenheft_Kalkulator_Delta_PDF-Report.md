@@ -223,6 +223,14 @@ und rund 86.000 Bildpunkte Text stehen jetzt nativ daneben statt im Bild.
 
 ## D12 — B23c-1: die Executive Summary, und die Regel, nach der sie schweigt
 
+> **⚠ ÜBERHOLT SEIT 19.09.2026, soweit es die vier AUSSAGEN betrifft.** Das Kapitel heisst jetzt
+> „Zusammenfassung" und trägt zwei Kopfzahlen (Ist-Kosten · Ersparnis-Spanne), einen Fliesstext und
+> den teal Kasten; `savings`, `peak_shaving` und `load_shift` sind ersatzlos entfallen
+> (Ein-Spanne-Regel, `Pflichtenheft_Kalkulator_Delta_Report-Baukasten.md` D8). **Unverändert gültig
+> bleibt die Schweigeregel dieses Abschnitts** — sie trägt die neue Fassung genauso: ohne
+> gerechneten Monatsvergleich gibt es BEIDE Kopfzahlen nicht, und ohne angegebene PV-Anlage keinen
+> PV-Satz. Alles Übrige hier ist historisch zu lesen.
+
 **Gebaut am 03.09.2026.** Der Platzhalter aus B23a ist ersatzlos entfallen; `SECTION_ID.results`,
 der Kapiteltitel und die Stellung in `REPORT_AGENDA` sind unverändert — der Agenda-Eintrag zeigt auf
 denselben Abschnitt, nur ist dessen Inhalt jetzt gerechnet.

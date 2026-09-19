@@ -105,7 +105,7 @@ function analysisFor(withExisting: boolean): PdfReportAnalysis {
  * Gegen sie lösen sich die Verweise auf, die dieser Baustein trägt.
  */
 function resultsLayout(analysis: PdfReportAnalysis) {
-  const summary = buildReportSummary(analysis, { source: 'net_signed' })
+  const summary = buildReportSummary({ analysis, loadProfile: { source: 'net_signed' } })
   return reportLayoutOf(
     summary.statements.map((statement) => ({
       id: statement.id,
@@ -133,17 +133,17 @@ describe('Monatsvergleich als eigenes Kapitel (D7)', () => {
     expect(text).not.toContain('Ihrem Speicher')
 
     /*
-     * Ohne Bestandsanlage steht auf der Kernergebnis-Seite kein Vergleich dieser drei Summen,
-     * sondern „Wert der Ladesteuerung" — ein anderer Rechenweg. Der Satz „Die Kernergebnis-Seite
-     * zeigt die DIFFERENZEN zwischen diesen drei Summen" war hier bisher trotzdem falsch stehend.
+     * Seit dem Zusammenfassungs-Umbau nennt der Satz weder die Kernergebnis-Seite noch einen ihrer
+     * Bausteine — die gibt es nicht mehr (Ein-Spanne-Regel D8). Was bleibt, ist die Feststellung,
+     * dass die drei Summen hier absolut stehen.
      */
     const body = resolveReportText(
       chapter.statement.body,
       resultsLayout(analysis),
       'monthly_comparison',
     )
-    expect(body).not.toContain('DIFFERENZEN zwischen diesen drei Summen')
-    expect(body).toContain('Wert der Ladesteuerung')
+    expect(body).toContain('Hier stehen die drei Summen absolut.')
+    expect(body).not.toContain('Kernergebnis')
   })
 
   it('mit Bestandsanlage: KEIN eigenes Kapitel — der Vergleich steht im Detail-Kapitel', () => {
@@ -153,14 +153,14 @@ describe('Monatsvergleich als eigenes Kapitel (D7)', () => {
     expect(buildMonthlyChapter(analysis)).toBeNull()
     expect(detailChartPlan(analysis).cost?.kind).toBe('monthly')
 
-    // Regression: im Bestandsfall bleibt der bisher schon richtige Satz unverändert.
+    // Regression: derselbe Schlusssatz wie im Katalog-Fall — er verzweigt nicht mehr.
     expect(
       resolveReportText(
         buildDetailChapter(analysis).cost?.statement?.body ?? '',
         resultsLayout(analysis),
         'monthly_comparison',
       ),
-    ).toContain('DIFFERENZEN zwischen diesen drei Summen')
+    ).toContain('Hier stehen die drei Summen absolut.')
   })
 
   it('ohne berechenbaren Hebel gibt es das Kapitel nicht', () => {

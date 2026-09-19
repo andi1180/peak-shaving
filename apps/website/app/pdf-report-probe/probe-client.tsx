@@ -332,7 +332,7 @@ export function PdfReportProbe() {
         <h1 className="text-2xl font-semibold text-ink">PDF-Report-Prüfstand</h1>
         <p className="mt-1 text-sm text-text-muted">
           B23a — Dokumentgerüst (Deckblatt, Kopf-/Fusszeile mit Seitenzahl, Agenda mit
-          Seitenverweisen, Methodik). B23c-1/2/3a/3b — Kernergebnisse, Empfehlung mit
+          Seitenverweisen, Methodik). B23c-1/2/3a/3b — Zusammenfassung, Empfehlung mit
           Lastgang-Diagramm, Kostenverlauf und Tages-Energiefluss, das Ladeverhalten
           (Stunden-Heatmap und Ø-Ladepreis) sowie Speichergrösse und Gerätewahl (Grenznutzen-Kurve
           und Vergleichstabelle), alle aus einem ECHTEN, hier im Browser gerechneten
@@ -347,7 +347,7 @@ export function PdfReportProbe() {
           <p className="text-xs text-text-muted">
             Derselbe Lastgang wie die Chart-Läufe (35.040 Viertelstundenwerte), gerechnet vom
             ECHTEN Analyse-Worker. Der Fall entscheidet über die Datenlage — nicht über die
-            Darstellung: was auf der Kernergebnis-Seite steht, folgt daraus.
+            Darstellung: was in der Zusammenfassung steht, folgt daraus.
           </p>
           {SUMMARY_PROBE_KINDS.map((kind) => (
             <label key={kind} className="flex items-center gap-2 text-sm">
@@ -395,11 +395,11 @@ export function PdfReportProbe() {
               </strong>
             </p>
             <p className="text-text-muted">
-              Kern-Kennzahl:{' '}
+              Kopfzahlen:{' '}
               <strong id="probe-headline">
-                {/* „—" = Tarif ohne Leistungspreis, der Kasten entfällt dann ganz. */}
-                {summary.headline
-                  ? `${summary.headline.peakValue} · ${summary.headline.costValue}`
+                {/* „—" = der Tarifvergleich war nicht rechenbar; dann gibt es beide Zahlen nicht. */}
+                {summary.kpis.length > 0
+                  ? summary.kpis.map((kpi) => kpi.value).join(' · ')
                   : '—'}
               </strong>
             </p>
@@ -408,6 +408,8 @@ export function PdfReportProbe() {
               <strong id="probe-summary-ids">
                 {summary.statements.map((s) => s.id).join(', ') || '—'}
               </strong>
+              {' · PV-Satz: '}
+              <strong id="probe-summary-pv">{summary.pvPointer ? 'ja' : 'nein'}</strong>
             </p>
             {/*
               B23c-2 — was das Empfehlungs-Kapitel aus DEMSELBEN Ergebnis ableitet. Auch das ist die
@@ -659,6 +661,11 @@ export function PdfReportProbe() {
               </ul>
             )}
             <ul id="probe-summary" className="flex flex-col gap-0.5 text-text-muted">
+              {summary.kpis.map((kpi) => (
+                <li key={kpi.id} data-kpi={kpi.id}>
+                  {kpi.caption[0]}: {kpi.value} ({kpi.caption[1]})
+                </li>
+              ))}
               {summary.statements.map((statement) => (
                 <li key={statement.id} data-statement={statement.id}>
                   {statement.title}
@@ -725,7 +732,7 @@ export function PdfReportProbe() {
           </Button>
           {analysis === null && (
             <p className="mt-1 text-xs text-text-muted">
-              Erst rechnen — die Kernergebnis-Seite entsteht aus dem Ergebnis, nicht aus Vorgaben.
+              Erst rechnen — die Zusammenfassung entsteht aus dem Ergebnis, nicht aus Vorgaben.
             </p>
           )}
         </div>

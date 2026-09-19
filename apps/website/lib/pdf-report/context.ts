@@ -5,12 +5,7 @@ import { comparisonChartPlan, hasComparisonChapter, type ComparisonChartPlan } f
 import { detailChartPlan, hasMonthlyChapter, type DetailChartPlan } from './detail'
 import { insightChartPlan, type InsightChartPlan } from './insight'
 import type { ReportNotice } from './statement'
-import {
-  primaryEntryOf,
-  recommendedEntryOf,
-  savingsPlacementOf,
-  type SavingsPlacement,
-} from './summary'
+import { primaryEntryOf, recommendedEntryOf } from './summary'
 import type { PdfReportInput } from './types'
 
 /**
@@ -32,9 +27,9 @@ import type { PdfReportInput } from './types'
  *
  * ── ⚠ DER KONTEXT GEHT NICHT IN DIE BAUSTEIN-ERZEUGER ─────────────────────────────────────────
  * Er wird ausschliesslich an die sieben KAPITEL-Fassaden gereicht, und die geben daraus die
- * WERTE weiter, die ihre Bausteine heute schon bekommen (`buildPeakShaving(analysis, entry,
- * isRealComparison)`). Kein Baustein-Erzeuger nimmt einen `ReportBuildContext` entgegen — täte er
- * es, wäre die enge Signatur dahin, die heute lesbar macht, WOVON eine Aussage abhängt.
+ * WERTE weiter, die ihre Bausteine heute schon bekommen (`buildLoadControl(analysis, entry)`). Kein
+ * Baustein-Erzeuger nimmt einen `ReportBuildContext` entgegen — täte er es, wäre die enge Signatur
+ * dahin, die heute lesbar macht, WOVON eine Aussage abhängt.
  *
  * ── ⚠ WAS HIER BEWUSST NICHT STEHT ────────────────────────────────────────────────────────────
  * `charts.flowDay` — die Tagesbeschriftung, die die Energiefluss-Komponente beim Rastern
@@ -47,14 +42,6 @@ export type ReportBuildContext = {
   primaryEntry: BatteryResultEntry | undefined
   /** Das empfohlene KATALOG-Gerät — im Bestandsfall ein anderes als `primaryEntry`. */
   recommendedEntry: BatteryRoiEntry | undefined
-  /**
-   * WELCHE Fassung von `savings` im Dokument steht — die Verzweigung dreier Bausteine.
-   *
-   * ⚠ Stufe D: ein `boolean` konnte den dritten Zustand („steht gar nicht") nicht ausdrücken und
-   * liess den `false`-Zweig auf §3.7-Zeilen zeigen, die es dann ebenso wenig gibt. S.
-   * `SavingsPlacement` in `summary.ts`.
-   */
-  savingsPlacement: SavingsPlacement
   /** Welcher Kosten-Chart und welcher Energiefluss-Tag (Kapitel 3). */
   detailPlan: DetailChartPlan
   /** Welche der beiden Ladeverhalten-Grafiken entstehen (Kapitel 5). */
@@ -95,12 +82,10 @@ export type ReportBuildContext = {
 export function buildReportContext(input: PdfReportInput): ReportBuildContext {
   const analysis = input.analysis
   const insightPlan = insightChartPlan(analysis)
-  const primaryEntry = primaryEntryOf(analysis)
 
   return {
-    primaryEntry,
+    primaryEntry: primaryEntryOf(analysis),
     recommendedEntry: recommendedEntryOf(analysis),
-    savingsPlacement: savingsPlacementOf(analysis, primaryEntry),
     detailPlan: detailChartPlan(analysis),
     insightPlan,
     comparisonPlan: comparisonChartPlan(analysis),

@@ -20,7 +20,7 @@ import type { PdfReportInput } from './types'
  * das ist der Nachweis, dass die Verweise ortsunabhängig geworden sind (`report-text.test.ts`).
  *
  * ── ⚠ KEINE REKURSION, OBWOHL ES SO AUSSIEHT ──────────────────────────────────────────────────
- * Die Beschreibung entsteht, indem alle 28 Bausteine gebaut werden — und deren Körper tragen
+ * Die Beschreibung entsteht, indem alle 25 Bausteine gebaut werden — und deren Körper tragen
  * ihrerseits Verweise. Das dreht sich nicht im Kreis: gebaut wird ein `ReportTextParts`, also der
  * UNAUFGELÖSTE Text. Gelesen werden hier ausschliesslich Titel, Zeilenbeschriftungen und die
  * Kopfzahl — nie ein Körper. Aufgelöst wird erst danach, im Renderer.

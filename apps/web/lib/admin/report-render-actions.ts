@@ -16,6 +16,7 @@ import { readProjectDocument } from '@/lib/project-documents/documents'
 import { readTariffPricingForAnalysis } from './analysis-tariff-inputs'
 import { readStoredInvoiceExtractions } from './invoice-extractions'
 import { readMeteringPointList } from './metering-points'
+import { readPvArraysDraft } from './pv-array-draft'
 import { readPvDraft } from './pv-draft'
 import { readAdminProject } from './projects'
 import {
@@ -169,7 +170,7 @@ export async function createReportRenderRequestAction(
   }
 
   /*
-   * ⚠ ZEHN FELDER, UND KEINES MEHR. `report_input_meta` ist in der Migration bewusst ohne Struktur
+   * ⚠ ELF FELDER, UND KEINES MEHR. `report_input_meta` ist in der Migration bewusst ohne Struktur
    * — die legt der SCHREIBENDE Schritt fest, und was hier hineinwandert, ist ab dann die Form, an
    * die sich der Renderer bindet. Deshalb nur, was ein Report ausser Ergebnis und Lastgang
    * nachweislich braucht: die Bezeichnung fürs Deckblatt, der Netzbetreiber als ANGABE (er geht in
@@ -216,6 +217,17 @@ export async function createReportRenderRequestAction(
      * geänderter Entwurf darf eine bereits übergebene Rechnung nicht still umschreiben.
      */
     hasPv: readPvDraft(point.draft).hasPv,
+    /*
+     * Die Nennleistung der Anlage, Summe über die erfassten Modulflächen — eine ANGABE für den
+     * Fliesstext der Zusammenfassung („eine PV-Anlage (10,2 kWp)") und keine Rechengrösse: die
+     * Engine bekommt einen Lastgang, in dem die Erzeugung bereits steckt.
+     *
+     * ⚠ `null`, solange nicht JEDE erfasste Fläche eine Nennleistung trägt. Die Summe über die
+     * Hälfte der Flächen wäre eine zu kleine Anlage — und sie sähe auf dem Blatt aus wie eine
+     * gemessene Angabe (dieselbe Haltung wie beim Abbruch des PVGIS-Laufs bei unvollständigen
+     * Flächen).
+     */
+    pvPeakPowerKwp: readPvPeakPowerKwp(point.draft),
     pvOutageMonths: run.pvOutageMonths,
     /*
      * D9 — DIE ZWEI ROHEN HERKUNFTSANGABEN DER TARIFSEITE.
@@ -277,6 +289,24 @@ export async function createReportRenderRequestAction(
     success: `Report-Übergabe angelegt — sie läuft in 24 Stunden ab.`,
     successHref: externalReportUrl(created.data),
   }
+}
+
+/**
+ * Die Nennleistung der PV-Anlage — Summe über die erfassten Modulflächen.
+ *
+ * ⚠ ALLES ODER NICHTS: fehlt auch nur einer Fläche die Nennleistung, gibt es keine Summe. Eine
+ * über die vollständigen Flächen gebildete Zahl wäre kleiner als die Anlage und stünde trotzdem
+ * als Angabe auf einem Kundendokument.
+ */
+function readPvPeakPowerKwp(draft: Record<string, unknown>): number | null {
+  const arrays = readPvArraysDraft(draft)
+  if (arrays.length === 0) return null
+  let total = 0
+  for (const array of arrays) {
+    if (array.peakPowerKwp === null || !(array.peakPowerKwp > 0)) return null
+    total += array.peakPowerKwp
+  }
+  return total
 }
 
 /**

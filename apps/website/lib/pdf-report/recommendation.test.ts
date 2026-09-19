@@ -2,18 +2,17 @@ import { describe, expect, it } from 'vitest'
 import type { MonthlyTariffComparison } from 'shared'
 
 import { SECTION_ID } from './content'
-import { reportLayoutOf } from './layout'
+import { reportLayoutOf, type ReportPlacement } from './layout'
 import { buildRecommendationChapter } from './recommendation'
 import { resolveReportText } from './report-text'
 import { statementPoints } from './statement'
-import { buildReportSummary } from './summary'
 import type { PdfReportAnalysis } from './types'
 
 /**
- * `load_control` verweist unbedingt auf „tarifbewusstes Laden" (Zeile der §3.7-Aufschlüsselung)
- * und auf „Eigenverbrauch" (dieselbe Fassung) — beide gibt es in der Kassen-Fassung (Monatsvergleich
- * mit Bestandsanlage) nicht; dort steht stattdessen „Wert der Ladesteuerung". Identisches Problem
- * wie bei `load_shift` in `summary.ts`, eine Ebene weiter.
+ * `load_control` zeigte bis zum Zusammenfassungs-Umbau auf zwei Zeilen der Ersparnis-
+ * Aufschlüsselung von Kapitel 1. Die gibt es nicht mehr (Ein-Spanne-Regel D8) — und mit ihnen ist
+ * der Betrag der Ladesteuerung aus dem Dokument verschwunden. Er steht seither als KOPFZAHL an
+ * dieser Aussage, weil sie sonst die Herkunft einer Zahl erklärte, die nirgends vorkommt.
  */
 
 const COMPARISON: MonthlyTariffComparison = {
@@ -95,48 +94,27 @@ function analysisFor(withExisting: boolean): PdfReportAnalysis {
   }
 }
 
-/**
- * Stufe D — die Beschreibung von Kapitel 1, aus der gebauten Zusammenfassung selbst gebildet.
- * Gegen sie lösen sich die Verweise auf, die dieser Baustein trägt.
- */
-function resultsLayout(analysis: PdfReportAnalysis) {
-  const summary = buildReportSummary(analysis, { source: 'net_signed' })
-  return reportLayoutOf(
-    summary.statements.map((statement) => ({
-      id: statement.id,
-      section: SECTION_ID.results,
-      title: statement.title,
-      amount: statement.amount ? statement.amount.caption : null,
-      rows: Object.fromEntries(
-        statement.rows.flatMap((r) => (r.key ? [[r.key, r.label] as const] : [])),
-      ),
-    })),
-  )
-}
+describe('load_control — der Betrag steht hier, und der Satz zeigt nirgendwohin', () => {
+  it.each([true, false])('trägt die Kopfzahl (Bestandsanlage: %s)', (withExisting) => {
+    const statement = buildRecommendationChapter(analysisFor(withExisting)).loadControl!
 
-function loadControlBody(withExisting: boolean): string {
-  const analysis = analysisFor(withExisting)
-  return resolveReportText(
-    buildRecommendationChapter(analysis).loadControl?.body ?? '',
-    resultsLayout(analysis),
-    'load_control',
-  )
-}
-
-describe('load_control — Verweis auf „tarifbewusstes Laden" und „Eigenverbrauch"', () => {
-  it('verweist in der Kassen-Fassung auf die Zeile „Wert der Ladesteuerung" statt auf beide Zeilen der §3.7-Aufschlüsselung', () => {
-    const body = loadControlBody(true)
-
-    expect(body).not.toContain('tarifbewusstes Laden')
-    expect(body).not.toContain('eigener Anteil („Eigenverbrauch")')
-    expect(body).toContain('Wert der Ladesteuerung" in der Aufschlüsselung')
+    /* `loadShiftSavingPerYear` der primären Anlage — 100 € in beiden Fixtures. */
+    expect(statement.amount?.value).toBe('€\u00a0100')
+    expect(statement.amount?.tone).toBe('positive')
   })
 
-  it('bleibt in der §3.7-Fassung unverändert bei „tarifbewusstes Laden" und „Eigenverbrauch"', () => {
-    const body = loadControlBody(false)
+  it('nennt keine Zeile einer Aufschlüsselung mehr, die es nicht gibt', () => {
+    const analysis = analysisFor(true)
+    const body = resolveReportText(
+      buildRecommendationChapter(analysis).loadControl?.body ?? '',
+      reportLayoutOf([]),
+      'load_control',
+    )
 
-    expect(body).toContain('tarifbewusstes Laden')
-    expect(body).toContain('eigener Anteil („Eigenverbrauch")')
+    expect(body).not.toContain('tarifbewusstes Laden')
+    expect(body).not.toContain('Eigenverbrauch')
+    expect(body).not.toContain('Kernergebnis')
+    expect(body).toContain('steckt in der Gesamtersparnis dieses Speichers bereits mit drin')
   })
 })
 
@@ -146,28 +124,28 @@ describe('load_control — Verweis auf „tarifbewusstes Laden" und „Eigenverb
  * Katalog-Fall, Steuerangabe und vorhandenem `addon` ergeben die verbundenen Punkte zeichengleich
  * den früheren Absatz. Was hier steht, ist derselbe Wortlaut je Punkt.
  */
-const RECOMMENDATION_PLACEMENT = {
+const RECOMMENDATION_PLACEMENT: ReportPlacement = {
   id: 'recommendation',
   section: SECTION_ID.recommendation,
   title: 'Falls Sie stattdessen neu kaufen würden: Katalog 1',
   amount: null,
   rows: {},
 }
-const ADDON_PLACEMENT = {
+const ADDON_PLACEMENT: ReportPlacement = {
   id: 'addon',
   section: SECTION_ID.results,
-  title: 'Ein zusätzlicher Speicher',
+  title: 'Ausserdem schon geklärt',
   amount: null,
   rows: {},
 }
 
-function recommendationPoints(placements: (typeof RECOMMENDATION_PLACEMENT)[]): string[] {
+function recommendationPoints(placements: ReportPlacement[]): string[] {
   return resolvedPoints(placements).map((point) =>
     point.segments.map((segment) => segment.text).join(''),
   )
 }
 
-function resolvedPoints(placements: (typeof RECOMMENDATION_PLACEMENT)[]) {
+function resolvedPoints(placements: ReportPlacement[]) {
   const statement = buildRecommendationChapter(analysisFor(true)).recommendation!
   return statementPoints(statement, reportLayoutOf(placements))
 }
@@ -177,7 +155,7 @@ describe('recommendation — Listenform', () => {
     expect(recommendationPoints([ADDON_PLACEMENT, RECOMMENDATION_PLACEMENT])).toEqual([
       'Sie haben bereits einen Speicher — diese Aussage beantwortet deshalb nicht „soll ich ' +
         'überhaupt?", sondern „was bekäme ich, wenn ich Ihre Anlage durch ein neues Gerät ersetzte?".',
-      'Ob sich ein ZUSÄTZLICHES Gerät neben Ihrer Anlage lohnt, steht auf der Kernergebnis-Seite; ' +
+      'Ob sich ein ZUSÄTZLICHES Gerät neben Ihrer Anlage lohnt, steht auf der Zusammenfassung; ' +
         'die dortigen Beträge sind Differenzen und nicht mit den Zahlen hier vergleichbar.',
       'Förderung und Steuervorteil sind nicht angegeben und deshalb in keiner dieser Zahlen ' +
         'enthalten — mit ihnen fiele die Investition niedriger aus.',

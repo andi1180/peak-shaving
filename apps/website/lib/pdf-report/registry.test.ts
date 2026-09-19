@@ -263,7 +263,7 @@ const BLOCKER_FALL = inputFor(
   }),
 )
 
-/** PV-Ausfall — und zugleich der einzige Fall, der alle vier Hinweise der Kernergebnis-Seite trägt. */
+/** PV-Ausfall — und zugleich der einzige Fall, der alle vier Hinweise der Zusammenfassung trägt. */
 const PV_AUSFALL = inputFor(
   analysisBase({
     tariffOptimization: { computable: true, monthlyComparison: COMPARISON },
@@ -311,7 +311,7 @@ function expectedFor(id: ReportBaukastenId, input: PdfReportInput): unknown {
   const analysis = input.analysis
   const context = buildReportContext(input)
 
-  const summary = buildReportSummary(analysis, input.loadProfile, input.estimatedPv, context)
+  const summary = buildReportSummary(input, context)
   const recommendation = buildRecommendationChapter(analysis, context)
   const detail = buildDetailChapter(analysis, { flowDay: null }, context)
   const monthly = context.hasMonthly ? buildMonthlyChapter(analysis) : null
@@ -320,9 +320,6 @@ function expectedFor(id: ReportBaukastenId, input: PdfReportInput): unknown {
   const basis = buildBasisChapter(input, context)
 
   switch (id) {
-    case 'savings':
-    case 'peak_shaving':
-    case 'load_shift':
     case 'addon':
       return summary.statements.find((s) => s.id === id) ?? null
     case 'standard_profile':
@@ -375,9 +372,9 @@ function registryFor(input: PdfReportInput) {
 }
 
 describe('Report-Baukasten-Registry (B2)', () => {
-  it('deckt die 28 Kennungen genau einmal ab', () => {
+  it('deckt die 25 Kennungen genau einmal ab', () => {
     const entries = registryFor(BESTAND_FALL).entries
-    expect(entries).toHaveLength(28)
+    expect(entries).toHaveLength(25)
     expect([...entries.map((e) => e.id)].sort()).toEqual([...REPORT_BAUKASTEN_IDS].sort())
   })
 
@@ -398,15 +395,23 @@ describe('Report-Baukasten-Registry (B2)', () => {
 
     expect(mitBestand).not.toBeNull()
     expect(ohneBestand).not.toBeNull()
-    /* Die Fallunterscheidung des Erzeugers (`isExisting`) schlägt im Wortlaut durch. */
+    /*
+     * Die Fallunterscheidung des Erzeugers (`isExisting`) schlägt in den ZEILEN durch — seit dem
+     * Zusammenfassungs-Umbau nicht mehr im Schlusssatz, der auf `savings`/`load_shift` zeigte.
+     */
+    const labelsOf = (built: unknown) =>
+      (built as { rows: { label: string }[] }).rows.map((r) => r.label).join(' | ')
+    expect(labelsOf(mitBestand)).toContain('Ihrem Speicher')
+    expect(labelsOf(ohneBestand)).toContain('der empfohlenen Batterie')
+
+    /* Und der Schlusssatz nennt keinen Baustein mehr, den es nicht gibt. */
     const textOf = (built: unknown, input: PdfReportInput) =>
       resolveReportText(
         (built as { body: ReportText }).body,
         buildReportLayout(input, buildReportContext(input), registryFor(input)),
         'monthly_comparison',
       )
-    expect(textOf(mitBestand, BESTAND_FALL)).toContain('DIFFERENZEN zwischen diesen drei Summen')
-    expect(textOf(ohneBestand, KATALOG_POSITIV)).toContain('Wert der Ladesteuerung')
+    expect(textOf(mitBestand, BESTAND_FALL)).not.toContain('Kernergebnis')
 
     /* Ohne rechenbaren Hebel gibt es ihn an keiner der beiden Stellen. */
     expect(registryFor(BLOCKER_FALL).get('monthly_comparison').build()).toBeNull()
@@ -486,22 +491,25 @@ describe('Stufe D — `entries` ist die Leseordnung des Dokuments', () => {
       'estimated_pv',
       'partial_year',
       'large_gap',
-      'savings',
-      'peak_shaving',
-      'load_shift',
       'addon',
     ])
   })
 
-  it('Kapitel 1: die zwei migrierten Verweise zeigen zurück auf `savings`', () => {
-    const layout = layoutFor(BESTAND_FALL)
-
-    expect(layout.place('peak_shaving', { kind: 'amount', id: 'savings' })).toBe('oben')
-    expect(layout.place('load_shift', { kind: 'row', id: 'savings', row: 'control_value' })).toBe(
-      'oben',
+  /*
+   * ⚠ Die Textblöcke der Zusammenfassung stehen NICHT in der Registry (s. `ReportBaukastenId`).
+   * Ihre Verweise lösen deshalb über einen UNBEKANNTEN Ursprung auf — und der fällt in den Zweig
+   * „kein gemeinsames Kapitel", der das Zielkapitel beim Namen nennt statt eine Richtung zu
+   * behaupten. Genau das misst diese Probe: ohne sie wäre unbelegt, dass ein Absatz ausserhalb des
+   * Katalogs überhaupt einen brauchbaren Satz ergibt.
+   */
+  it('Kapitel 1: der Fliesstext zeigt über die Kapitelgrenze und nennt das Zielkapitel', () => {
+    expect(
+      layoutFor(BLOCKER_FALL).place('overview', { kind: 'block', id: 'tariff_blocker' }),
+    ).toBe('im Kapitel „Annahmen und Datengrundlage"')
+    /* Der PV-Befund entsteht nur im PV-Fall — sonst gibt es nichts, worauf der Satz zeigen könnte. */
+    expect(layoutFor(PV_AUSFALL).place('pv_pointer', { kind: 'block', id: 'pv_outage' })).toBe(
+      'im Kapitel „Annahmen und Datengrundlage"',
     )
-    /* Gegenprobe: umgekehrt gelesen dreht sich die Richtung. */
-    expect(layout.place('savings', { kind: 'block', id: 'load_shift' })).toBe('weiter unten')
   })
 
   it('Kapitel 8: `entries` folgt dem JSX, `limitations` steht zuletzt', () => {

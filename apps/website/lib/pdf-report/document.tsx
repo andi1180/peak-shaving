@@ -394,12 +394,16 @@ const styles = StyleSheet.create({
   itemTitle: { ...LEADING, fontSize: PDF_TYPE.h3, fontWeight: 600, color: PDF_COLORS.ink },
   itemBody: { ...LEADING, marginTop: 1, color: PDF_COLORS.text },
   /**
-   * Kernergebnisse (B23c-1).
+   * Die zwei Kopfzahlen der Zusammenfassung.
    *
    * ⚠ D15 Block 1, Punkt 6: Kasten und Rahmen sind weg, die Zahl steht frei und trägt statt
    * dessen eine Hairline unter sich. Ein Kasten um die wichtigste Zahl des Dokuments macht sie
    * zu einer Notiz am Rand; die grösste Zahl auf dem Blatt braucht keine Umrandung, um gefunden
    * zu werden.
+   *
+   * ⚠ ZWEI ZELLEN AUCH BEI EINER ZAHL: die zweite bleibt leer, statt die erste über die ganze
+   * Breite zu ziehen. Ein Betrag in 27 pt über 500 pt Satzbreite sieht aus wie eine Überschrift,
+   * und die Seite verlöre die Form, an der man sie wiedererkennt.
    */
   headline: {
     marginTop: 14,
@@ -411,14 +415,29 @@ const styles = StyleSheet.create({
   },
   headlineCell: { flexGrow: 1, flexBasis: 0 },
   headlineValue: { ...LEADING, fontSize: 27, fontWeight: 700, color: PDF_COLORS.ink },
-  /* Kosten in Rot — dieselbe Farbzuordnung wie `key-metric.tsx` am Bildschirm. */
-  headlineValueCost: { ...LEADING, fontSize: 27, fontWeight: 700, color: PDF_COLORS.negative },
+  /**
+   * Die Ersparnis-Spanne im Akzent.
+   *
+   * ⚠ FARBE IST HIER INFORMATION (DESIGN.md): `ink` steht für das, was heute gezahlt wird, der
+   * Akzent für das, was sich sparen liesse. Ausdrücklich NICHT `positive` — die drei semantischen
+   * Töne gehören zu Beträgen INNERHALB einer Aufschlüsselung (`TONE_COLOR`); hier stehen zwei
+   * Grössen nebeneinander, von denen keine „richtig" oder „falsch" ist.
+   */
+  headlineValueAccent: { ...LEADING, fontSize: 27, fontWeight: 700, color: PDF_COLORS.accent },
   headlineCaption: {
     ...LEADING,
     marginTop: 2,
     fontSize: PDF_TYPE.small,
     color: PDF_COLORS.textMuted,
   },
+  /**
+   * Der Fliesstext der Zusammenfassung.
+   *
+   * ⚠ KEIN `statementBody`: der trägt den Abstand einer Aussage zu IHRER Kopfzahl (6 pt) und stünde
+   * hier zu eng unter der Hairline. Und ausdrücklich kein Titel darüber — der Absatz IST die Seite
+   * und nicht ein Baustein darauf.
+   */
+  summaryProse: { ...LEADING, marginTop: 14, color: PDF_COLORS.text },
 
   statement: { marginTop: 14 },
   /**
@@ -1364,31 +1383,22 @@ function StatementTable({
 }
 
 /**
- * B23c-1 — die Kernergebnisse. Bis hierher eine ausdrücklich gekennzeichnete Platzhalter-Seite.
+ * Die Zusammenfassung — das erste inhaltliche Kapitel.
  *
  * ── ⚠ WAS AUF DIESER SEITE STEHT, ENTSCHEIDET `summary.ts` UND NICHT DIESE DATEI ───────────────
  * Hier wird ausschliesslich gerendert, was die Ableitung geliefert hat. Es gibt bewusst KEINE
  * Verzweigung an einem Contract-Feld in diesem JSX: die Frage „darf diese Zahl im Dokument
  * stehen" ist fachlich (Delta 15 Regel C, Delta 3, Prinzip 2) und hätte an zwei Orten zwei
- * Antworten. Fehlt eine Aussage, fehlt sie hier schlicht in der Liste.
+ * Antworten.
  *
- * ⚠ KEIN CHART. B23c-1 ist Text und Zahlen; die Rasterbild-Pipeline (B23b) hängt sich mit B23c-2
- * in diesen Fluss ein. Ein Chart hier hiesse, `rasterizeChart` in den Renderpfad zu ziehen — und
- * der ist synchron und kennt kein DOM.
+ * ── DIE REIHENFOLGE IST EINE AUSSAGE ──────────────────────────────────────────────────────────
+ * Zwei Kopfzahlen → Hinweise zu ihrer Grundlage → der Absatz, der sie erklärt → der Satz zur
+ * PV-Anlage → der teal Kasten mit dem, was schon geklärt ist. Wer nur diese eine Seite liest,
+ * bekommt die Zahl, ihre Grenzen und den Weg dorthin in genau dieser Folge.
  *
- * ── ⚠ BEOBACHTET UND OHNE MECHANISCHEN SCHUTZ: DIE FUSSNOTE KANN ALLEIN AUF EINER SEITE LANDEN ─
- * Mit einer um eine Zeile längeren Kern-Kennzahl-Beschriftung füllte der Blocker-Fall Seite 3 so
- * weit, dass die Schlussfussnote als EINZIGER Inhalt auf Seite 4 rutschte. In den drei heutigen
- * Prüfläufen tritt das nicht mehr auf (die Beschriftung ist auf eine Zeile gekürzt, s. `summary.ts`)
- * — aber das ist ein Zustand des Textes, keine Zusage des Layouts.
- *
- * Der naheliegende Schutz `minPresenceAhead` wurde GEMESSEN und ist hier wirkungslos (s.
- * `Statement`). Die zwei Auswege, die wirken würden, sind beide schlechter: die Fussnote in den
- * letzten `wrap={false}`-Block zu ziehen kann einen zu langen Block über den Satzspiegel hinaus
- * abschneiden (Inhaltsverlust statt einer unschönen Seite), und die Abstände so lange zu
- * verkleinern, bis ein Fall passt, hält genau bis zur nächsten Textänderung. Mit B23c-2 kommen
- * Charts in dieses Kapitel und ändern den Umbruch ohnehin — dann ist am erzeugten PDF neu zu
- * messen, ob eine Seite allein mit dieser Fussnote dasteht.
+ * ⚠ KEIN CHART. Die Rasterbild-Pipeline (B23b) hängt sich erst ab dem Empfehlungs-Kapitel in den
+ * Fluss ein; ein Chart hier hiesse, `rasterizeChart` in den Renderpfad zu ziehen — und der ist
+ * synchron und kennt kein DOM.
  */
 function ResultsChapter({
   input,
@@ -1399,48 +1409,72 @@ function ResultsChapter({
   context: ReportBuildContext
   layout: ReportLayout
 }) {
-  const summary = buildReportSummary(input.analysis, input.loadProfile, input.estimatedPv, context)
+  const summary = buildReportSummary(input, context)
+  const overview = resolveReportSegments(summary.overview, layout, 'overview')
+  const pvPointer = summary.pvPointer
+    ? resolveReportSegments(summary.pvPointer, layout, 'pv_pointer')
+    : []
 
   return (
     <View style={styles.body}>
       <Text style={styles.h2}>{RESULTS_SECTION.title}</Text>
       <Text style={styles.lead}>{RESULTS_INTRO}</Text>
 
-      {/* ⚠ `null` = Tarif ohne Leistungspreis — dann entfällt der Kasten ganz, s. `buildHeadline`. */}
-      {summary.headline && (
+      {/* ⚠ Leer = der Tarifvergleich war nicht rechenbar; dann gibt es BEIDE Zahlen nicht, und der
+          Absatz darunter sagt warum (s. `summaryWaysOf`). */}
+      {summary.kpis.length > 0 && (
         <View style={styles.headline}>
-          <View style={styles.headlineCell}>
-            <Text style={styles.headlineValue}>{summary.headline.peakValue}</Text>
-            <Text style={styles.headlineCaption}>{summary.headline.peakCaption}</Text>
-          </View>
-          <View style={styles.headlineCell}>
-            <Text style={styles.headlineValueCost}>{summary.headline.costValue}</Text>
-            <Text style={styles.headlineCaption}>{summary.headline.costCaption}</Text>
-          </View>
+          {summary.kpis.map((kpi) => (
+            <View key={kpi.id} style={styles.headlineCell}>
+              <Text
+                style={kpi.tone === 'accent' ? styles.headlineValueAccent : styles.headlineValue}
+              >
+                {kpi.value}
+              </Text>
+              {kpi.caption.map((line) => (
+                <Text key={line} style={styles.headlineCaption}>
+                  {line}
+                </Text>
+              ))}
+            </View>
+          ))}
+          {/* Die leere zweite Zelle — s. `styles.headline`. */}
+          {summary.kpis.length === 1 && <View style={styles.headlineCell} />}
         </View>
       )}
 
       {/*
-        ⚠ ZWISCHEN Kopfzahl und Aussagen, nicht darunter oder im Schlusskapitel: sie qualifizieren
-        GENAU die Zahl darüber (der abgerechnete Leistungswert eines Standardprofils ist die Spitze
-        einer Durchschnittskurve und keine gemessene Spitze). Dieselbe Stellung wie am Bildschirm,
-        wo sie unmittelbar unter der Kern-Kennzahl stehen und ausdrücklich NICHT in der
+        ⚠ ZWISCHEN Kopfzahlen und Fliesstext, nicht im Schlusskapitel: sie schränken GENAU die
+        Grundlage ein, auf der die zwei Zahlen darüber beruhen. Dieselbe Stellung wie am
+        Bildschirm, wo sie unmittelbar unter der Kern-Kennzahl stehen und ausdrücklich NICHT in der
         Datenqualitäts-Box weiter unten — die wurde beim Live-Test überscrollt.
 
-        ⚠ B23c-5: es sind jetzt vier, und ihre REIHENFOLGE ist die des Bildschirms (`buildNotices`)
-        — sie entsteht in der Ableitung und nicht hier. Hier durchsortiert stünde dieselbe
-        Entscheidung an zwei Orten.
+        ⚠ Ihre REIHENFOLGE ist die des Bildschirms (`buildNotices`) — sie entsteht in der Ableitung
+        und nicht hier. Hier durchsortiert stünde dieselbe Entscheidung an zwei Orten.
       */}
       {summary.notices.map((notice) => (
         <Notice key={notice.id} notice={notice} />
       ))}
 
       {/*
-        Report-Baukasten C (B3-2b) — `addon` ist seit B3-2b abwählbar, und die Auswahl greift HIER
-        und nicht in der Ableitung: `buildReportLayout` bildet seine Beschreibung aus derselben
-        Bedingung, und die zwei Wege müssen dieselbe Antwort geben (s. `reportBlockSelected`).
-        Fällt der Zeiger, fällt mit ihm der Satz im Empfehlungs-Kapitel, der auf ihn zeigt — er
-        trägt dafür seine leere Ersatzfassung (`recommendation.ts`, Kante E).
+        ⚠ DER ABSATZ IST KEIN `Statement`: er trägt keinen Titel, keine Kopfzahl und keine
+        Aufschlüsselung, und ein `Statement` mit leerem Titel setzte eine leere Zeile über ihn.
+        Aufgelöst wird er trotzdem über dieselbe Stufe-D-Auflösung wie jeder Baustein — er zeigt je
+        nach Fall auf den Blocker-Befund bzw. auf das Empfehlungs-Kapitel, und beide können fehlen.
+      */}
+      <Text style={styles.summaryProse}>{overview.map((segment) => segment.text)}</Text>
+
+      {/* Nur mit angegebener PV-Anlage — s. `buildPvPointer`. */}
+      {pvPointer.length > 0 && (
+        <Text style={styles.summaryProse}>{pvPointer.map((segment) => segment.text)}</Text>
+      )}
+
+      {/*
+        Report-Baukasten C (B3-2b) — `addon` ist abwählbar, und die Auswahl greift HIER und nicht in
+        der Ableitung: `buildReportLayout` bildet seine Beschreibung aus derselben Bedingung, und
+        die zwei Wege müssen dieselbe Antwort geben (s. `reportBlockSelected`). Fällt der Zeiger,
+        fällt mit ihm der Satz im Empfehlungs-Kapitel, der auf ihn zeigt — er trägt dafür seine
+        leere Ersatzfassung (`recommendation.ts`, Kante E).
       */}
       {summary.statements
         .filter((s) => s.id !== ADDON_ID || reportSectionEnabled(input.optionalSections, ADDON_ID))
@@ -1562,7 +1596,7 @@ function figureMissingText(what: string): string {
  *
  * ── ⚠ WAS AUF DIESER SEITE STEHT, ENTSCHEIDET `recommendation.ts` ─────────────────────────────
  * Hier wird gerendert, was die Ableitung liefert. Keine Verzweigung an einem Contract-Feld in
- * diesem JSX — dieselbe Regel wie beim Kernergebnis-Kapitel: fehlt eine Aussage, fehlt sie schlicht.
+ * diesem JSX — dieselbe Regel wie bei der Zusammenfassung: fehlt eine Aussage, fehlt sie schlicht.
  */
 function RecommendationChapter({
   input,
