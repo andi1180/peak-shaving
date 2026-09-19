@@ -69,6 +69,7 @@ describe('JSON-Schema', () => {
       'netzebene',
       'meteringVariant',
       'rates',
+      'energyPricePeriods',
       'annualConsumptionKwh',
       // Abrechnungszeitraum (B24, 11.09.2026) — der Vergleich bleibt EXAKT: die Liste ist die
       // Absicherung dagegen, dass ein Feld unbemerkt optional wird und „weggelassen" ein zweiter
@@ -175,6 +176,7 @@ describe('parseInvoiceExtraction — der Gutfall', () => {
       billingPeriodFrom: null,
       billingPeriodTo: null,
       billingPeriodAssumed: null,
+      energyPriceBasis: 'stated',
     })
   })
 
@@ -272,6 +274,7 @@ describe('parseInvoiceExtraction — fail closed, Feld für Feld', () => {
       'billingPeriodAssumed',
       'billingPeriodFrom',
       'billingPeriodTo',
+      'energyPriceBasis',
       'meteringVariant',
       'netzbetreiber',
       'netzebene',
@@ -526,5 +529,69 @@ describe('Abrechnungszeitraum — invoiceExtractionIsEmpty', () => {
     })
     expect(parsed.billingPeriodFrom).toBe('2024-01-01')
     expect(invoiceExtractionIsEmpty(parsed)).toBe(true)
+  })
+})
+
+describe('Variabler Tarif — verbrauchsgewichteter Schnitt statt letzter Monatszeile', () => {
+  /**
+   * Die dreizehn Energiepreis-Zeilen des Referenzfalls (SteirerStrom Flex, Jahresabrechnung über
+   * 19.06.24–18.06.25). Die letzte ist ein Rumpfmonat mit 0,4 % des Jahresverbrauchs — genau die
+   * Zeile, die die alte Regel als Jahres-Arbeitspreis ausgewiesen hat.
+   */
+  const FLEX_PERIODS = [
+    { consumptionKwh: 11.78, ctPerKwh: 8.58 },
+    { consumptionKwh: 60.96, ctPerKwh: 9.07 },
+    { consumptionKwh: 62.84, ctPerKwh: 8.87 },
+    { consumptionKwh: 294.64, ctPerKwh: 11.03 },
+    { consumptionKwh: 743.63, ctPerKwh: 10.87 },
+    { consumptionKwh: 918.12, ctPerKwh: 12.13 },
+    { consumptionKwh: 1503.02, ctPerKwh: 13.58 },
+    { consumptionKwh: 1770.81, ctPerKwh: 15.16 },
+    { consumptionKwh: 1532.33, ctPerKwh: 14.98 },
+    { consumptionKwh: 881.53, ctPerKwh: 12.94 },
+    { consumptionKwh: 505.37, ctPerKwh: 9.76 },
+    { consumptionKwh: 358.03, ctPerKwh: 8.3 },
+    { consumptionKwh: 34.92, ctPerKwh: 8.94 },
+  ]
+
+  it('mittelt die dreizehn Monatszeilen auf 13,081 ct/kWh und prüft die Summe gegen', () => {
+    const parsed = parseInvoiceExtraction({
+      ...completeRaw(),
+      rates: { ...completeRaw().rates, energyPriceCtPerKwh: 8.94 },
+      energyPricePeriods: FLEX_PERIODS,
+      annualConsumptionKwh: 8677.98,
+    })
+
+    expect(parsed.rates.energyPriceCtPerKwh).toBeCloseTo(13.081, 3)
+    expect(parsed.energyPriceBasis).toBe('weighted')
+  })
+
+  it('behält den Schnitt, nennt ihn aber ungeprüft, wenn die Summe nicht aufgeht', () => {
+    /* Die grösste Zeile fehlt (−20 %) — das Muster einer auf der Folgeseite übersehenen Zeile. */
+    const parsed = parseInvoiceExtraction({
+      ...completeRaw(),
+      energyPricePeriods: FLEX_PERIODS.filter((period) => period.ctPerKwh !== 15.16),
+      annualConsumptionKwh: 8677.98,
+    })
+
+    expect(parsed.rates.energyPriceCtPerKwh).toBeCloseTo(12.548, 3)
+    expect(parsed.energyPriceBasis).toBe('weighted_unverified')
+  })
+
+  it('⚠ Positiv-Kontrolle: ein Tarif mit EINEM Satz läuft unverändert durch', () => {
+    /*
+     * Der Regelfall darf sich um nichts ändern — weder ohne Liste (eine Antwort aus der Zeit vor
+     * diesem Feld) noch mit der einen Zeile, die eine Rechnung mit festem Preis hergibt.
+     */
+    const ohneListe = parseInvoiceExtraction(completeRaw())
+    expect(ohneListe.rates.energyPriceCtPerKwh).toBe(25)
+    expect(ohneListe.energyPriceBasis).toBe('stated')
+
+    const eineZeile = parseInvoiceExtraction({
+      ...completeRaw(),
+      energyPricePeriods: [{ consumptionKwh: 88426.4, ctPerKwh: 25 }],
+    })
+    expect(eineZeile.rates.energyPriceCtPerKwh).toBe(25)
+    expect(eineZeile.energyPriceBasis).toBe('stated')
   })
 })

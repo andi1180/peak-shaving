@@ -49,6 +49,25 @@ export const INVOICE_SCAN_METERING_VARIANTS = [
 export type InvoiceScanMeteringVariant = (typeof INVOICE_SCAN_METERING_VARIANTS)[number]
 
 /**
+ * Woher `rates.energyPriceCtPerKwh` stammt.
+ *
+ * — `stated`              Genau ein Energiepreis-Abschnitt: der Wert steht so auf der Rechnung.
+ * — `weighted`            Mehrere Abschnitte, verbrauchsgewichtet gemittelt, und die Summe der
+ *                        Teilmengen deckt sich mit dem ausgewiesenen Gesamtverbrauch.
+ * — `weighted_unverified` Gemittelt, aber ohne diese Gegenprobe — entweder weist die Rechnung
+ *                        keinen Gesamtverbrauch aus, oder er weicht ab.
+ */
+export const INVOICE_ENERGY_PRICE_BASES = ['stated', 'weighted', 'weighted_unverified'] as const
+export type InvoiceEnergyPriceBasis = (typeof INVOICE_ENERGY_PRICE_BASES)[number]
+
+/**
+ * Wie weit die Summe der Teilmengen vom ausgewiesenen Gesamtverbrauch abweichen darf, bevor der
+ * Schnitt als ungeprüft gilt. Eine Rechnung rundet ihre Teilmengen; 1 % trägt das und bemerkt
+ * trotzdem eine fehlende Zeile (im Urbanz-Fall wäre die kleinste 0,4 %, die grösste 20 %).
+ */
+const ENERGY_PRICE_SUM_TOLERANCE = 0.01
+
+/**
  * Die Zahlenfelder, die aus einer Netzrechnung gelesen werden.
  *
  * ── DIE AUSWAHL IST EINE TEILMENGE VON `tariffParamsSchema`, UND DIE LÜCKEN SIND BEGRÜNDET ────
@@ -140,6 +159,18 @@ export interface InvoiceExtraction {
    * als `true` aus — s. dort: die Richtung ist bewusst unsymmetrisch.
    */
   billingPeriodAssumed: boolean | null
+  /**
+   * ⚠ DAS ZWEITE HERKUNFTSFELD — und der zweite Wert, der nicht wortwörtlich auf dem Papier steht.
+   *
+   * Ein variabler Tarif (SteirerStrom Flex und seinesgleichen) rechnet denselben Posten je Monat
+   * mit eigenem Satz ab. Der Preis dieses Vertrags ist dann keine der gedruckten Zahlen, sondern
+   * ihr VERBRAUCHSGEWICHTETER Schnitt — und der entsteht hier, deterministisch aus den abgelesenen
+   * Abschnitten, nicht im Modell (s. `energyPriceFrom`).
+   *
+   * `null`, solange es keinen Energiepreis gibt. Sonst sagt der Vermerk, welcher der drei Fälle
+   * vorliegt; die Oberfläche nennt ihn, statt eine gerechnete Zahl wie eine abgelesene zu zeigen.
+   */
+  energyPriceBasis: InvoiceEnergyPriceBasis | null
 }
 
 /** Die Namen der Zahlenfelder, in fester Reihenfolge — von Schema, Auswertung und Test geteilt. */
@@ -172,6 +203,7 @@ export function emptyInvoiceExtraction(): InvoiceExtraction {
     billingPeriodFrom: null,
     billingPeriodTo: null,
     billingPeriodAssumed: null,
+    energyPriceBasis: null,
   }
 }
 
@@ -247,6 +279,7 @@ export const INVOICE_SCAN_JSON_SCHEMA: { [key: string]: unknown } = {
     'netzebene',
     'meteringVariant',
     'rates',
+    'energyPricePeriods',
     'annualConsumptionKwh',
     'billingPeriodFrom',
     'billingPeriodTo',
@@ -323,6 +356,38 @@ export const INVOICE_SCAN_JSON_SCHEMA: { [key: string]: unknown } = {
             '(÷12), und nur dann, wenn der Bezugszeitraum eindeutig dasteht. Steht sie als ' +
             'Tagespauschale, ist das Feld null.',
         ),
+      },
+    },
+    /*
+     * ⚠ DIE LISTE IST BELEG, NICHT ERGEBNIS. Sie geht NICHT in `InvoiceExtraction` — aus ihr
+     * entsteht in `energyPriceFrom` genau eine Zahl und ein Herkunftsvermerk, und die Zeilen
+     * selbst werden verworfen. Behalten wären sie eine zweite, dauerhafte Kopie der
+     * Abrechnungsdetails eines Menschen in einem Entwurf, den niemand dafür angelegt hat.
+     *
+     * ⚠ Die Bauform (Array von Objekten, leere Liste statt `null`) ist die des PV-Scans
+     * (`pv-design-scan.ts` `arrays`) — die einzige Array-Konstruktion dieses Repos, die gegen die
+     * echte API gemessen ist. Hier keine zweite erfinden.
+     */
+    energyPricePeriods: {
+      type: 'array',
+      description:
+        'Die Energiepreis-Zeilen der Energielieferung, EINZELN und in der Reihenfolge des ' +
+        'Dokuments — jede mit ihrer eigenen Verrechnungsmenge in kWh und ihrem eigenen Satz in ' +
+        'ct/kWh. Gemeint sind ausschliesslich die Zeilen des Postens Energiepreis / Arbeitspreis ' +
+        'der ENERGIELIEFERUNG (Bezug). Nimm KEINE Netzentgelt-, Einspeise-, Bonus-, Steuer- oder ' +
+        'Zuschuss-Zeilen auf, auch wenn sie ebenso aufgebaut sind. Weist die Rechnung den Posten ' +
+        'nur EINMAL aus, ist das genau ein Eintrag. Rechne nichts zusammen und fasse nichts ' +
+        'zusammen. Leere Liste, wenn keine solche Zeile erkennbar ist.',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['consumptionKwh', 'ctPerKwh'],
+        properties: {
+          consumptionKwh: nullableNumber(
+            'Die Verrechnungsmenge DIESER Zeile in kWh, so wie sie danebensteht.',
+          ),
+          ctPerKwh: nullableNumber('Der Satz DIESER Zeile in Cent je kWh, unverändert übernommen.'),
+        },
       },
     },
     annualConsumptionKwh: nullableNumber(
@@ -423,6 +488,61 @@ function billingPeriod(root: Record<string, unknown>): {
   }
 }
 
+/**
+ * Der Energiepreis — und, bei einem variablen Tarif, WIE er entstanden ist.
+ *
+ * ── ⚠ DIE EINZIGE STELLE DIESES SCHEMAS, DIE RECHNET ─────────────────────────────────
+ * Bis zum 19.09.2026 galt auch hier „der zuletzt endende Abschnitt gewinnt". Bei einem Tarif mit
+ * EINEM Satz ist das richtig und bleibt es (`stated`). Bei einem variablen Tarif ist es falsch,
+ * und zwar messbar: die Jahresabrechnung des Referenzfalls führt dreizehn Monatszeilen, die
+ * letzte ist ein Rumpfmonat mit 0,4 % des Jahresverbrauchs und 8,94 ct/kWh — der Vertrag kostete
+ * in Wahrheit 13,081 ct/kWh. Der letzte Satz ist dort kein Tarifwechsel, sondern eine Momentaufnahme.
+ *
+ * ⚠ GERECHNET WIRD HIER UND NICHT IM MODELL. Der System-Prompt verbietet dem Modell das Rechnen
+ * ausdrücklich und behandelt es als Ablesegerät; daran ändert sich nichts. Es liefert die Zeilen,
+ * die Zahl entsteht deterministisch — dieselbe Rechnung ergibt denselben Wert, was von einer
+ * dreizehnzeiligen Kopfrechnung eines Sprachmodells niemand behaupten könnte.
+ *
+ * ⚠ WENIGER ALS ZWEI BRAUCHBARE ZEILEN ÄNDERN NICHTS. Dann gilt unverändert der abgelesene Wert
+ * des Modells — eine Rechnung mit einem Satz läuft also bitgleich durch wie zuvor.
+ */
+function energyPriceFrom(
+  rawPeriods: unknown,
+  stated: number | null,
+  annualConsumptionKwh: number | null,
+): { value: number | null; basis: InvoiceEnergyPriceBasis | null } {
+  const asStated = { value: stated, basis: stated === null ? null : ('stated' as const) }
+  if (!Array.isArray(rawPeriods)) return asStated
+
+  const periods: { kwh: number; ct: number }[] = []
+  for (const entry of rawPeriods) {
+    const row = record(entry)
+    const kwh = finiteNonNegative(row.consumptionKwh)
+    const ct = finiteNonNegative(row.ctPerKwh)
+    /* Eine halb gelesene Zeile ist kein Gewicht und kein Preis — sie fällt ganz weg. */
+    if (kwh !== null && ct !== null) periods.push({ kwh, ct })
+  }
+
+  const kwhSum = periods.reduce((sum, period) => sum + period.kwh, 0)
+  if (periods.length < 2 || !(kwhSum > 0)) return asStated
+
+  /*
+   * Die Gegenprobe gegen die Kontrollsumme der Rechnung. Sie fängt den Fall, der einen gewichteten
+   * Schnitt unbemerkt verfälscht: eine übersehene Zeile — etwa weil sie auf der nächsten Seite
+   * weiterläuft. Der Schnitt bleibt dann stehen (er ist immer noch die bessere Zahl als eine
+   * einzelne Monatszeile), aber er trägt den Vermerk `weighted_unverified` statt still zu gelten.
+   */
+  const verified =
+    annualConsumptionKwh !== null &&
+    annualConsumptionKwh > 0 &&
+    Math.abs(kwhSum - annualConsumptionKwh) / annualConsumptionKwh <= ENERGY_PRICE_SUM_TOLERANCE
+
+  return {
+    value: periods.reduce((sum, period) => sum + period.kwh * period.ct, 0) / kwhSum,
+    basis: verified ? 'weighted' : 'weighted_unverified',
+  }
+}
+
 function record(value: unknown): Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
     ? (value as Record<string, unknown>)
@@ -447,13 +567,22 @@ export function parseInvoiceExtraction(raw: unknown): InvoiceExtraction {
     rates[key] = finiteNonNegative(rawRates[key])
   }
 
+  const annualConsumptionKwh = finiteNonNegative(root.annualConsumptionKwh)
+  const energyPrice = energyPriceFrom(
+    root.energyPricePeriods,
+    rates.energyPriceCtPerKwh,
+    annualConsumptionKwh,
+  )
+  rates.energyPriceCtPerKwh = energyPrice.value
+
   return {
     netzbetreiber: oneOf(root.netzbetreiber, INVOICE_SCAN_OPERATORS),
     netzebene: oneOf(root.netzebene, INVOICE_SCAN_NETZEBENEN),
     meteringVariant: oneOf(root.meteringVariant, INVOICE_SCAN_METERING_VARIANTS),
     rates,
-    annualConsumptionKwh: finiteNonNegative(root.annualConsumptionKwh),
+    annualConsumptionKwh,
     ...billingPeriod(root),
+    energyPriceBasis: energyPrice.basis,
   }
 }
 

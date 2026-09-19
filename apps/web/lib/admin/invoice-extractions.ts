@@ -335,9 +335,30 @@ export function invoiceMergeDisplayRows(merged: InvoiceExtraction): InvoiceMerge
   for (const key of INVOICE_MERGE_FIELD_KEYS) {
     const raw = mergeFieldValue(merged, key)
     if (raw === null) continue
-    rows.push({ key, label: INVOICE_MERGE_FIELD_LABELS[key], text: displayValue(key, raw) })
+    const note = key === 'energyPriceCtPerKwh' ? energyPriceNote(merged.energyPriceBasis) : ''
+    rows.push({
+      key,
+      label: INVOICE_MERGE_FIELD_LABELS[key],
+      text: `${displayValue(key, raw)}${note}`,
+    })
   }
   return rows
+}
+
+/**
+ * Der Zusatz hinter dem Arbeitspreis eines VARIABLEN Tarifs.
+ *
+ * ⚠ Er steht da, weil die Zahl bei einem solchen Tarif nicht mehr auf der Rechnung zu finden ist:
+ * sie ist der verbrauchsgewichtete Schnitt über deren Monatszeilen (`invoice-scan.ts`). Wer den
+ * Wert gegenprüfen will, sucht ihn sonst vergeblich und hält ihn für falsch abgelesen. Beim
+ * gewöhnlichen Tarif mit einem Satz (`stated`) bleibt die Zeile unverändert ohne Zusatz.
+ */
+function energyPriceNote(basis: InvoiceExtraction['energyPriceBasis']): string {
+  if (basis === 'weighted') return ' (verbrauchsgewichteter Schnitt der Monatszeilen)'
+  if (basis === 'weighted_unverified') {
+    return ' (verbrauchsgewichteter Schnitt der Monatszeilen — Gesamtverbrauch nicht gegengeprüft)'
+  }
+  return ''
 }
 
 function displayValue(key: InvoiceMergeFieldKey, raw: string | number): string {

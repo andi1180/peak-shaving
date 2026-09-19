@@ -169,5 +169,29 @@ export function mergeInvoiceExtractions(extractions: readonly InvoiceExtraction[
     else conflicts.push(key)
   }
 
+  /*
+   * Der Herkunftsvermerk des Energiepreises reist mit dem WERT und steht ausdrücklich NICHT in
+   * `INVOICE_MERGE_FIELD_KEYS`: Zwei Rechnungen, von denen die eine einen festen und die andere
+   * einen variablen Tarif abrechnet, widersprechen einander nicht — sie sind verschieden gebaut.
+   * Als Vergleichsfeld geführt meldete das einen Widerspruch, den es nicht gibt, und nähme dem
+   * Nutzer einen Wert weg, über den sich alle Rechnungen einig sind.
+   *
+   * Durchgesetzt wird der VORSICHTIGSTE Vermerk der beteiligten Rechnungen. Ein ungeprüfter
+   * Schnitt bleibt ungeprüft, auch wenn eine zweite Rechnung danebenliegt, die ihre Kontrollsumme
+   * hat — die Gegenprobe der einen sagt über die andere nichts. Sagt keine der Rechnungen etwas,
+   * bleibt es bei `null`: die Zusage „eine einzelne Rechnung kommt unverändert wieder heraus" gilt
+   * auch für dieses Feld, und ein hier erfundenes `stated` wäre die erste Ausnahme davon.
+   */
+  if (merged.rates.energyPriceCtPerKwh !== null) {
+    const bases = extractions
+      .filter((extraction) => extraction.rates.energyPriceCtPerKwh !== null)
+      .map((extraction) => extraction.energyPriceBasis)
+    merged.energyPriceBasis =
+      bases.find((basis) => basis === 'weighted_unverified') ??
+      bases.find((basis) => basis === 'weighted') ??
+      bases.find((basis) => basis === 'stated') ??
+      null
+  }
+
   return { merged, conflicts }
 }
