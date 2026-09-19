@@ -7,6 +7,7 @@ import {
   mapDraftToTariffParams,
   parseLoadProfile,
   parsePvProfile,
+  pvGeneratorEligibility,
   type CalculatorPayload,
   type DataQuality,
   type DraftTariffMappingOptions,
@@ -331,16 +332,56 @@ export async function runAnalysisFromMeteringPointDraft(
   const existingBattery = mapDraftToExistingBatteryInput(point.draft)
 
   /*
+   * ══════════════════════════════════════════════════════════════════════════════════════════════
+   * ⚠ DARF DIE SCHÄTZREIHE ÜBERHAUPT ABGEZOGEN WERDEN? (Nachbesserung B22, 19.09.2026)
+   * ══════════════════════════════════════════════════════════════════════════════════════════════
+   * Der Wizard bietet den Generator ausschliesslich bei `hasPv === true` an (`data-entry-pv.tsx`)
+   * — also GENAU dem Kunden, dessen Erzeugung im Netzbetreiber-Lastgang bereits als gesenkter
+   * Bezug steckt. Sie ein zweites Mal abzuziehen war der gemessene Defekt (Begründung und Zahlen
+   * im Kopf von `pvGeneratorEligibility`); der Abzug ersetzte den echten Lastgang für den
+   * Tarifvergleich, den Dispatch und die Hochrechnung gleich mit.
+   *
+   * ⚠ DIE REGEL WIRD NICHT HIER GETROFFEN. `pvGeneratorEligibility` ist die eine Stelle, an der
+   * steht, wann gekoppelt werden darf — dieselbe, die auch den öffentlichen Rechner und die
+   * Anbietbarkeits-Prüfung des Wizards trägt. Eine zweite Bedingung hier wäre die erste, die beim
+   * nächsten Umbau ausser Tritt gerät.
+   *
+   * ⚠ GEPRÜFT WIRD AUF DEM UNGEKOPPELTEN `parsed.profile` — auf dem gekoppelten läge die Antwort
+   * immer schon fest (er trägt negative Werte und fiele in `measured_feed_in`).
+   */
+  const pvCoupling = pvGeneratorEligibility(parsed.profile, {
+    hasExistingPv: point.draft[PV_UPLOAD_DRAFT_KEYS.present] === true,
+  })
+
+  /*
    * ⚠ DIE KOPPLUNG STEHT VOR DEM PAYLOAD-BAU, nicht darin — wortgleiche Reihenfolge wie im
    * öffentlichen Rechner (`apps/website/components/flow/calculator.tsx:62-63`): der gekoppelte
    * Lastgang ERSETZT `load.profile`, bevor der Payload entsteht. Als nachträgliche Änderung am
    * fertigen Payload gäbe es einen Moment, in dem beide Fassungen nebeneinander existieren, und
    * die Frage „welche ist gerechnet worden?" hinge an der Zeilenreihenfolge.
+   *
+   * ⚠ WIRD ABGELEHNT, WIRD DIE DATEI GAR NICHT ERST GEHOLT. Sie zu lesen und dann zu verwerfen
+   * kostete einen Abruf und einen Zeitstempel-Abgleich, dessen Ergebnis niemand mehr benutzt.
    */
   const estimatedPv =
-    generatedSeriesDocumentId === null
+    generatedSeriesDocumentId === null || !pvCoupling.offered
       ? null
       : await readCoupledGeneratedPvSeries(ports, generatedSeriesDocumentId, parsed)
+
+  /*
+   * ⚠ EINE ABGELEHNTE SCHÄTZREIHE VERPUFFT NICHT STILL. Der Admin hat sie im Wizard erzeugt und
+   * sieht sie dort stehen; ohne diesen Satz käme ein Report heraus, der sie nicht kennt und
+   * vollständig aussieht. Derselbe Kanal wie beim Bestandsbatterie-Hinweis darunter und beim
+   * PV-Lesefehler in `computeAnalysis`: angehängt an `dataQuality.warnings`, kein neues Feld.
+   */
+  const couplingWarning =
+    generatedSeriesDocumentId !== null && pvCoupling.offered === false
+      ? 'Für diesen Zählpunkt liegt eine geschätzte PV-Erzeugungsreihe (PVGIS) vor, sie wurde aber ' +
+        `NICHT vom Lastgang abgezogen (${pvCoupling.reason}). Gerechnet ist der echte, gemessene ` +
+        'Netzbezug: bei einer bereits vorhandenen PV-Anlage steckt die Eigenversorgung darin ' +
+        'bereits, ein Abzug zählte dieselbe Energie ein zweites Mal. Die Eigenverbrauchs-Ersparnis ' +
+        'ist damit weiterhin nicht beziffert (§3.1).'
+      : null
 
   /*
    * ⚠ EINE EINZIGE ABLEITUNG DES GERECHNETEN LASTGANGS, und alles Weitere hängt an dieser Variablen
@@ -358,12 +399,7 @@ export async function runAnalysisFromMeteringPointDraft(
       // ⚠ Die `dataQuality` bleibt die des URSPRUNGSLASTGANGS: die Kopplung legt Werte auf
       // dieselben Zeitstempel, sie verändert weder Abdeckung noch Lücken.
       profile: loadProfile,
-      dataQuality: existingBattery.warning
-        ? {
-            ...parsed.dataQuality,
-            warnings: [...parsed.dataQuality.warnings, existingBattery.warning],
-          }
-        : parsed.dataQuality,
+      dataQuality: appendWarnings(parsed.dataQuality, [existingBattery.warning, couplingWarning]),
     },
     pv: estimatedPv?.pv ?? (await readPvProfileFromDraft(point.draft, ports)),
     existingBattery: existingBattery.input,
@@ -381,6 +417,19 @@ export async function runAnalysisFromMeteringPointDraft(
     pvOutageMonths: detectPvOutageMonths(payload.load.profile),
     ...(estimatedPv === null ? {} : { estimatedPvMetadata: estimatedPv.metadata }),
   }
+}
+
+/**
+ * Hängt die Hinweise an, die dieser Lauf selbst erzeugt — `null`-Einträge fallen weg, und liegt
+ * keiner an, kommt die unveränderte `DataQuality` zurück (kein neues Objekt, keine leere Kopie).
+ */
+function appendWarnings(
+  dataQuality: DataQuality,
+  warnings: readonly (string | null)[],
+): DataQuality {
+  const added = warnings.filter((w): w is string => w !== null)
+  if (added.length === 0) return dataQuality
+  return { ...dataQuality, warnings: [...dataQuality.warnings, ...added] }
 }
 
 /**

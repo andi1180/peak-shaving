@@ -40,10 +40,15 @@ Er richtet sich an **zwei** Ausgangslagen, und beide sind messbar dieselbe:
   strikt positive Kurve — **0 negative Slots von 35.040** (Bestandsaufnahme 1.4). Die
   Eigenverbrauchs-Ersparnis ist damit heute **immer exakt € 0,00**. Genau dieser Kunde ist der,
   für den der zweite Einstieg überhaupt gebaut wurde. **Hier ist der Hebel am größten.**
-- **Echter Lastgang ohne Einspeisespalte** (`source: 'import_only'`, der reale Urbanz-Fall): ebenfalls
+- **Echter Lastgang ohne Einspeisespalte** (`source: 'import_only'`): ebenfalls
   0 Einspeise-Slots, ebenfalls € 0,00. Für ihn existiert bereits die §3.1-Pflichtwarnung
   („nicht beurteilbar bzw. unterschätzt") — der Generator macht daraus eine Zahl mit benannter
   Herkunft statt einer Leerstelle.
+
+  > **⚠ Korrektur 19.09.2026: das galt hier nur für einen Kunden OHNE Anlage.** Dieser Absatz nannte
+  > bis dahin „den realen Urbanz-Fall" als Beispiel — und das war falsch. Urbanz HAT eine PV-Anlage;
+  > sein Netzbetreiber-Export misst am Anschlusspunkt und enthält die Eigenversorgung bereits als
+  > gesenkten Bezug. Für ihn wird nicht mehr gekoppelt, s. §2.4.
 
 **Größenordnung, gemessen** (Bestandsaufnahme 1.3; H0 4.500 kWh/Jahr, Batterie 19,2 kWh / 10,6 kW /
 η 0,9, Arbeitspreis 25 ct, Einspeisevergütung 8 ct, echte PVGIS-Reihe Wien 10,2 kWp):
@@ -230,6 +235,27 @@ erscheint mit dem Satz, dass die Einspeisung im hochgeladenen Lastgang bereits e
 Eigenverbrauchs-Ersparnis daraus **gemessen** ist — dasselbe Muster wie das sichtbar deaktivierte
 Kleingewerbe-Profil in Delta 9b-1. Wer nichts anbietet und nichts sagt, sieht aus wie ein Rechner,
 der für diesen Kunden nichts kann.
+
+**⚠ Nachtrag 19.09.2026 — eine dritte Absage: `import_only` bei einem Kunden, der schon PV hat.**
+Die Regel oben erkennt **sichtbare** Einspeisung. Sie greift genau dort nicht, wo eine vorhandene
+Anlage gar keine Spur im Lastgang hinterlässt: Ein Netzbetreiber-Export ohne Einspeisespalte misst am
+Anschlusspunkt, der selbst verbrauchte PV-Strom kommt dort nie vorbei. `LoadProfile` sagt das im
+Contract selbst zu („Enthält den Effekt vorhandener PV (Eigenverbrauch) bereits"). Wer davon noch
+eine Schätzung abzieht, zieht dieselbe Energie ein zweites Mal ab — am realen Urbanz-Fall gemessen:
+**5.212,67 kWh** gegengerechnete Erzeugung über 209 Tage gegen **4.321,17 kWh** gemessenen Netzbezug,
+das 1,21-fache. Der so entstandene Lastgang ersetzte **jede** nachgelagerte Rechnung, nicht nur die
+PV-Aussage: „Ihre Stromkosten heute" fielen von ~€ 948 auf € 473, und der reine Tarifwechsel kippte
+fälschlich ins Negative.
+
+**Die Absage hängt an einer ANGABE, nicht an den Messwerten** (`hasExistingPv`) — ob der Kunde eine
+Anlage besitzt, steht nicht in seinem Bezugslastgang; genau das ist der Punkt. **Ausdrücklich nur
+`import_only`:** `standard_profile` bleibt unberührt (§0.2, der wichtigste Anwendungsfall), weil
+nirgends im Code steht, ob die eingetippte Jahresmenge ein Brutto- oder ein Netzbezug ist.
+
+**Abgesagt ist der ABZUG, nicht das ANGEBOT.** Die Erzeugungsreihe entsteht und wird abgelegt wie
+bisher: sie ist die Eingabe der „ohne PV"-Vergleichsrechnung des PV-Kapitels, und die geht die andere
+Richtung (Bruttoverbrauch = echter Netzbezug **+** geschätzte Erzeugung). Die Absage wird im Report
+als Satz in `dataQuality.warnings` sichtbar gemacht, damit die abgelegte Reihe nicht still verpufft.
 
 **⚠ Die Erkennung läuft über `source`, nicht über eine Zählung negativer Slots.** Ein
 `net_signed`-Lastgang, dessen erste Einspeisung spät im Jahr liegt, wird vom Parser heute als

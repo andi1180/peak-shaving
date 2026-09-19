@@ -9,6 +9,7 @@ import {
   buildPvReferenceProfile,
   expandReferenceToTimestamps,
   parsePvgisSeries,
+  pvGeneratorEligibility,
 } from '../pv-generation'
 import { syntheticSeries } from '../pv-generation/__fixtures__/synthetic-series'
 import { peakShavingBlockers } from '../simulation/peak-shaving'
@@ -142,9 +143,15 @@ describe('B22 — geschätzte PV auf einem GEMESSENEN Lastgang: nur ein Feld unt
 
 describe('B22 — der Fall, für den es sonst GAR KEINEN Blocker gäbe', () => {
   /*
-   * Echter Lastgang ohne Einspeisespalte (`import_only`, der reale Urbanz-Fall) minus geschätzter
-   * Erzeugung. Weder `standard_profile` noch `no_demand_charge` greifen hier — ohne `estimated_pv`
-   * würde auf einem zur Hälfte geschätzten Lastgang voll gekappt und kreditiert.
+   * Echter Lastgang ohne Einspeisespalte (`import_only`) eines Kunden OHNE eigene Anlage, minus
+   * geschätzter Erzeugung. Weder `standard_profile` noch `no_demand_charge` greifen hier — ohne
+   * `estimated_pv` würde auf einem zur Hälfte geschätzten Lastgang voll gekappt und kreditiert.
+   *
+   * ⚠ DIESER BLOCK HIESS BIS ZUM 19.09.2026 „der reale Urbanz-Fall" — das war falsch und ist der
+   * Kern des nachgebesserten Defekts: Urbanz HAT eine PV-Anlage, und sein Netzbetreiber-Lastgang
+   * enthält deren Eigenversorgung als gesenkten Bezug bereits. Für ihn wird gar nicht mehr
+   * gekoppelt (s. den Block darunter). Was hier steht, gilt weiterhin — nur eben für den Kunden,
+   * der noch keine Anlage hat.
    */
   const verbrauch = fixture('demo-baeckerei-lastgang-2023.csv')
   const pvKw = estimatedPvKw(verbrauch, 30)
@@ -187,6 +194,66 @@ describe('B22 — der Fall, für den es sonst GAR KEINEN Blocker gäbe', () => {
     expect(ohnePv.selfConsumptionSavingPerYear).toBe(0)
     // Und genau das ändert der Generator — das ist sein ganzer Zweck.
     expect(mitPv.selfConsumptionSavingPerYear).toBeGreaterThan(0)
+  })
+})
+
+describe('B22 — der reale Urbanz-Fall: `import_only` MIT vorhandener PV-Anlage', () => {
+  /*
+   * ══════════════════════════════════════════════════════════════════════════════════════════════
+   * ⚠ HIER WIRD NICHT GEKOPPELT — DER GERECHNETE LASTGANG IST DER ECHTE, UNGEKOPPELTE
+   * ══════════════════════════════════════════════════════════════════════════════════════════════
+   * Ein Netzbetreiber-Export ohne Einspeisespalte misst am Anschlusspunkt: der selbst verbrauchte
+   * PV-Strom kommt dort nie vorbei, die Anlage steckt unsichtbar im gesenkten Bezug. Eine
+   * PVGIS-Schätzung davon abzuziehen zieht dieselbe Energie ein zweites Mal ab — und der so
+   * entstandene Lastgang ersetzte bis zur Nachbesserung den echten für JEDE nachgelagerte Rechnung
+   * (Tarifvergleich, Dispatch, Hochrechnung), nicht nur für die PV-Rekonstruktion.
+   */
+  const verbrauch = fixture('demo-baeckerei-lastgang-2023.csv')
+  const pvKw = estimatedPvKw(verbrauch, 30)
+
+  it('⚠ verweigert die Kopplung — und der Grund ist ein anderer als bei gemessener Einspeisung', () => {
+    expect(verbrauch.source).toBe('import_only')
+    expect(pvGeneratorEligibility(verbrauch, { hasExistingPv: true })).toEqual({
+      offered: false,
+      reason: 'pv_already_in_grid_profile',
+    })
+  })
+
+  it('⚠ rechnet auf den unveränderten Messwerten — Wert für Wert, nicht nur in der Summe', () => {
+    /*
+     * Der Prüfpunkt ist die Bit-Gleichheit gegen `verbrauch` selbst: eine Summenprüfung bliebe auch
+     * dann grün, wenn Energie nur zwischen den Viertelstunden verschoben würde.
+     */
+    const gekoppelt = applyEstimatedPv(verbrauch, pvKw)
+    expect(verbrauch.readings.map((r) => r.gridPowerKw)).not.toEqual(
+      gekoppelt.readings.map((r) => r.gridPowerKw),
+    )
+    expect(verbrauch.pvSource).toBeUndefined()
+
+    // Die Grössenordnung der vermiedenen Doppelzählung — am Fixture dieselbe Art Befund wie live.
+    const h = verbrauch.intervalMinutes / 60
+    const bezugKwh = verbrauch.readings.reduce((s, r) => s + r.gridPowerKw * h, 0)
+    const erzeugungKwh = pvKw.reduce((s, kw) => s + kw * h, 0)
+    console.log(
+      `[B22] import_only + vorhandene PV: gemessener Netzbezug ${bezugKwh.toFixed(2)} kWh · ` +
+        `geschätzte Erzeugung ${erzeugungKwh.toFixed(2)} kWh (${(erzeugungKwh / bezugKwh).toFixed(2)}-fach) — ` +
+        'nicht abgezogen.',
+    )
+    expect(erzeugungKwh).toBeGreaterThan(0)
+  })
+
+  it('behält dadurch die Spitzenkappung, die der Abzug still abgeschaltet hätte', () => {
+    /*
+     * Die Gegenrichtung des Defekts: `pvSource: 'estimated'` schaltet die Leistungspreis-Dimension
+     * hart ab. Auf einem gemessenen Lastgang, der gar nicht geschätzt ist, war das ein Verlust.
+     */
+    expect(peakShavingBlockers(verbrauch, battery, mitLeistungsmessung)).toEqual([])
+    expect(
+      peakShavingBlockers(applyEstimatedPv(verbrauch, pvKw), battery, mitLeistungsmessung),
+    ).toEqual(['estimated_pv'])
+
+    const s = computeBatterySavings(verbrauch, battery, mitLeistungsmessung)
+    expect(s.leistungspreisSavingPerYear).toBeGreaterThan(0)
   })
 })
 

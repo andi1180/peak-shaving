@@ -146,6 +146,12 @@ Das erste inhaltliche Kapitel des PDF-Reports heisst nicht mehr „Kernergebniss
 
 **Gemessen am echten Urbanz-Lastgang** (209 Tage, echte Cloud-Preisdaten): € 770 Ist-Kosten, € 84 mögliche Ersparnis — **eine Zahl statt einer Spanne**, weil der reine Tarifwechsel bei diesem Kunden negativ ist. Die Zahlen des Zielbildes (€1.061, €53–€207) stammen aus einer Handrechnung und sind nicht reproduziert.
 
+### PV-Kopplung: kein Abzug mehr, wo die Anlage schon im Bezug steckt (19.09.2026)
+
+Für `source: 'import_only'` bei einem Kunden mit vorhandener PV-Anlage (`hasPv === true`) wird die geschätzte PVGIS-Erzeugung **nicht mehr vom Lastgang abgezogen** (`pvGeneratorEligibility`, dritte Prüfung, Grund `pv_already_in_grid_profile`). Ein Netzbetreiber-Export misst am Anschlusspunkt — die Eigenversorgung ist dort als gesenkter Bezug bereits enthalten. Am echten Urbanz-Fall: 5.212,67 kWh abgezogene Erzeugung gegen 4.321,17 kWh gemessenen Netzbezug über 209 Tage (das 1,21-fache); der gekoppelte Lastgang ersetzte dabei den echten für **alle** Rechnungen, weshalb schon Kapitel 1 falsche Kopfzahlen trug.
+
+**Was bleibt:** die Reihe wird weiter erzeugt und abgelegt (sie ist die Eingabe der künftigen „ohne PV"-Vergleichsrechnung des PV-Kapitels, die **addiert** statt abzuziehen); `standard_profile` ist ausdrücklich unberührt; der öffentliche Rechner (`apps/website`) erhebt die Frage „haben Sie schon PV?" gar nicht und verhält sich deshalb unverändert — **offener Punkt**, s. `Pflichtenheft_PV_Zeitreihengenerator.md` §2.4.
+
 **Nächster grosser Schritt: der übrige Report-Baukasten (Teil 3)** — die weiteren Zielseiten (Voraussetzungs-Seite, Drei-Wege-Seite, PV-Kapitel, Jahres-Hochrechnung) sind unangetastet.
 
 **Weiterhin nicht gebaut:** Engine-Anbindung des Wizard-Entwurfs (rechnet nichts), Rollup-Schicht über mehrere Zählpunkte, Fragenkatalog-Inhalte, eigene Kostenbremse für den Energieberater-Endpunkt (teilt sich die des Kunden-Chats), ein Erzeugungsprofil zu ersetzen/entfernen (nur einzelne Fläche geht), echter PVGIS-Aufruf nur gemockt verifiziert, echter Batteriekatalog (auf Analyse-Phase verschoben), ein Lauf über die echte Oberfläche für die meisten B24-Schritte (durchgängig nur Typen/Logik/Wächter bzw. jsdom-Harness geprüft, kein Playwright).
