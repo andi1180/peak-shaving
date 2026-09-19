@@ -397,7 +397,10 @@ export function PdfReportProbe() {
             <p className="text-text-muted">
               Kern-Kennzahl:{' '}
               <strong id="probe-headline">
-                {summary.headline.peakValue} · {summary.headline.costValue}
+                {/* „—" = Tarif ohne Leistungspreis, der Kasten entfällt dann ganz. */}
+                {summary.headline
+                  ? `${summary.headline.peakValue} · ${summary.headline.costValue}`
+                  : '—'}
               </strong>
             </p>
             <p className="text-text-muted">

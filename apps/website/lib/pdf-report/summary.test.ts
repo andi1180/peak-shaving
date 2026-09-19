@@ -131,3 +131,39 @@ describe('load_shift — Verweis auf die Eigenverbrauchs-Zeile', () => {
     expect(loadShiftBody(false)).toContain('eigener Anteil („Eigenverbrauch")')
   })
 })
+
+/**
+ * Delta 3 / NE7 — ein Anschluss ohne Leistungsmessung hat den Posten „Leistungspreis" überhaupt
+ * nicht (`leistungspreisEurPerKwYear: 0` → `leistungspreisCostPerYear: 0`). Geprüft wird über
+ * `buildReportSummary`, weil der Kasten UND der Teiljahres-Hinweis gemeinsam daran hängen.
+ */
+function analysisWithoutLeistungspreis(): PdfReportAnalysis {
+  const base = analysisFor(false)
+  return {
+    ...base,
+    current: { ...base.current, leistungspreisCostPerYear: 0 },
+    /* Teiljahr unter einem monatsbasierten Modell — sonst entfiele der Hinweis schon deshalb. */
+    dataQuality: { ...base.dataQuality, coveredMonths: 7 },
+  }
+}
+
+describe('Leistungspreis-Block', () => {
+  it('steht mit Leistungspreis im Tarif — Kasten samt Teiljahres-Hinweis', () => {
+    const base = analysisFor(false)
+    const summary = buildReportSummary(
+      { ...base, dataQuality: { ...base.dataQuality, coveredMonths: 7 } },
+      { source: 'net_signed' },
+    )
+
+    expect(summary.headline).not.toBeNull()
+    expect(summary.headline?.costCaption).toContain('Leistungspreis-Kosten pro Jahr')
+    expect(summary.notices.map((n) => n.id)).toContain('partial_year')
+  })
+
+  it('entfällt ohne Leistungspreis — beide Kacheln und der Teiljahres-Hinweis', () => {
+    const summary = buildReportSummary(analysisWithoutLeistungspreis(), { source: 'net_signed' })
+
+    expect(summary.headline).toBeNull()
+    expect(summary.notices.map((n) => n.id)).not.toContain('partial_year')
+  })
+})
