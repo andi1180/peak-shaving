@@ -1000,12 +1000,31 @@ sie über ein esbuild-Bündel des echten Moduls ausserhalb des Repos
 > **Offen bleibt:** `unterbrechbar` ist nur synthetisch belegt, und die Musterlisten stammen aus
 > zwei Rechnungen eines Lieferanten — bei ungewohnter Formulierung ist `null` der sichere Ausgang.
 >
-> **(b) Ein variabler Tarif liefert jetzt den letzten Monat.** Die Vollrechnung trägt einen
-> Flex-Tarif mit dreizehn Monatspreisen; unter der neuen Regel steht der Juni-Preis im Formular. Das
-> ist die beabsichtigte Folge — ein Jahresmittel wäre eine gerechnete Zahl, die nirgends auf dem
-> Dokument steht. Fachlich ist ein Sommermonat als Grundlage einer Jahresrechnung aber eher zu
-> niedrig. Der Wert bleibt in Schritt 2 editierbar; ob der Rechner für variable Tarife einen eigenen
-> Hinweis braucht, ist eine offene Produktfrage.
+> **(b)** ~~Ein variabler Tarif liefert jetzt den letzten Monat.~~ **✅ ERLEDIGT AM 19.09.2026
+> (PR #292).** Der Befund von damals ist inzwischen beziffert: Die Vollrechnung trägt einen
+> Flex-Tarif mit dreizehn Monatspreisen, und die letzte Zeile ist ein Rumpfmonat mit **0,4 % des
+> Jahresverbrauchs** — **8,94 ct/kWh** standen im Formular, wo der Vertrag **13,081 ct/kWh**
+> gekostet hat. „Eher zu niedrig" war also eine Untertreibung um ein Drittel des Arbeitspreises,
+> und der Fehler zeigt in die teure Richtung: er lässt den heutigen Tarif billiger aussehen und
+> kann damit den Vorteil eines Wechsels im Vorzeichen kippen.
+>
+> **Aufgelöst ist der Widerspruch „Mittelwert wäre eine gerechnete Zahl" dadurch, dass nicht das
+> MODELL rechnet.** Es bleibt Ablesegerät und liefert die Zeilen einzeln
+> (`energyPricePeriods` — Menge und Satz je Abschnitt, nichts zusammengerechnet);
+> `parseInvoiceExtraction` bildet daraus deterministisch den verbrauchsgewichteten Schnitt. Eine
+> Rechnung mit EINEM Satz läuft unverändert durch, und der Wert bleibt in Schritt 2 editierbar.
+>
+> **Die Gegenprobe steht mit drin:** Die Summe der Teilmengen wird gegen den ausgewiesenen
+> Gesamtverbrauch geprüeft (Toleranz 1 %). Geht sie nicht auf — oder weist die Rechnung gar keinen
+> Gesamtverbrauch aus —, bleibt der Schnitt stehen, trägt aber den Vermerk `weighted_unverified`
+> statt still zu gelten; der Admin-Bereich schreibt ihn hinter den Wert. Das ist nach
+> `billingPeriodAssumed` das **zweite Herkunftsfeld** dieses Schemas und der zweite Wert, der nicht
+> wortwörtlich auf dem Papier steht.
+>
+> **Offen bleibt:** gemessen ist die Rechenregel an den dreizehn Zeilen des Referenzfalls (Unit-Test
+> in `packages/shared`), **nicht** die Zuverlässigkeit, mit der das Modell die Zeilen einer
+> unbekannten Rechnung vollständig überträgt. Genau dafür ist die Gegenprobe da — sie fängt die
+> übersehene Zeile, aber sie kann sie nicht ergänzen.
 
 ---
 

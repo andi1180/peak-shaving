@@ -60,12 +60,19 @@ export type InvoiceScanOutcome =
  * dieser Wert der heute gültige, und ihn zu verschweigen liesse den Nutzer eine Zahl abtippen, die
  * klar auf dem Papier steht.
  *
- * ⚠ Bei einem VARIABLEN Tarif (ein eigener Preis je Monat) ist damit der letzte Monat der
- * ausgewiesene Wert. Das ist die Folge derselben Regel und bewusst in Kauf genommen — ein
- * Jahresmittel wäre eine GERECHNETE Zahl, die nirgends auf dem Dokument steht, und die Grundregel
- * „lieber nichts als geraten" verbietet sie. Der Wert bleibt in Schritt 2 editierbar; dass ein
- * Sommermonat als Grundlage einer Jahresrechnung zu niedrig sein kann, steht als offener Punkt in
- * `DEPLOYMENT.md` §1-Website-c.
+ * ⚠ FÜR DEN ENERGIEPREIS GILT SIE SEIT DEM 19.09.2026 NICHT MEHR ALLEIN, und der Grund ist
+ * gemessen: Bei einem VARIABLEN Tarif (ein eigener Preis je Monat) lieferte sie den letzten Monat,
+ * und der ist bei einer Jahresabrechnung typischerweise ein Rumpfmonat. Am Referenzfall
+ * (SteirerStrom Flex, dreizehn Monatszeilen) waren das 8,94 ct/kWh aus einer Zeile mit 0,4 % des
+ * Jahresverbrauchs — gegenüber 13,081 ct/kWh, die der Vertrag tatsächlich gekostet hat. Kein
+ * Tarifwechsel, sondern eine Momentaufnahme; die frühere Fassung nannte das „bewusst in Kauf
+ * genommen", und der offene Punkt stand in `DEPLOYMENT.md` §1-Website-c.
+ *
+ * Aufgelöst ist das NICHT, indem das Modell jetzt mitteln dürfte — es bleibt Ablesegerät. Es
+ * liefert die Zeilen (`energyPricePeriods`), und `parseInvoiceExtraction` bildet daraus den
+ * verbrauchsgewichteten Schnitt, deterministisch und mit Gegenprobe gegen den ausgewiesenen
+ * Gesamtverbrauch. Eine Rechnung mit EINEM Satz ändert sich dabei um nichts. Der Wert bleibt in
+ * Schritt 2 wie bisher editierbar.
  *
  * ⚠ Die Zahlen in den Beispielen des Prompts sind ERFUNDEN und bewusst keine echten Werte aus einer
  * Kundenrechnung — auch ein Tarifsatz samt Abrechnungszeitraum ist ein Datum aus dem Vertrag eines
@@ -182,8 +189,27 @@ const SYSTEM_PROMPT = [
   '  Dokument und wäre eine gerechnete Zahl, keine abgelesene.',
   '- Steht bei den Abschnitten kein Datum, sodass sich der jüngste nicht bestimmen lässt, ist das',
   '  Feld null. Nur dann.',
-  '- Das gilt für alle Zahlenfelder gleichermassen, insbesondere für Arbeitspreis, Netz-Arbeitspreis,',
+  '- Das gilt für die Zahlenfelder gleichermassen, insbesondere für Netz-Arbeitspreis,',
   '  Einspeisevergütung und die Grundgebühr des Lieferanten.',
+  '',
+  'energyPricePeriods — die EINE Ausnahme, und sie nimmt dir nichts ab:',
+  'Für den Arbeitspreis der ENERGIELIEFERUNG (Bezug) füllst du zusätzlich die Liste',
+  'energyPricePeriods: je abgerechneter Zeitabschnitt ein Eintrag mit seiner Verrechnungsmenge in',
+  'kWh und seinem Satz in ct/kWh, beides so, wie es nebeneinander auf der Rechnung steht.',
+  '',
+  '- Du rechnest dabei NICHTS. Du überträgst die Zeilen, mehr nicht — kein Mittelwert, keine Summe,',
+  '  keine Umrechnung. Was aus den Zeilen wird, entscheidet das Programm, nicht du.',
+  '- energyPriceCtPerKwh füllst du unverändert weiter nach der Regel oben (der zuletzt endende',
+  '  Abschnitt). Die beiden Angaben widersprechen einander nicht: die eine ist der letzte Satz, die',
+  '  andere die vollständige Aufstellung.',
+  '- Gemeint sind ausschliesslich die Zeilen des Postens Energiepreis / Arbeitspreis der',
+  '  Energielieferung. NICHT hinein gehören Netznutzung, Netzverlust, Messpreis, Einspeisung,',
+  '  Boni/Gutschriften, Steuern, Abgaben und Zuschüsse — auch dann nicht, wenn sie genauso',
+  '  aufgebaut sind und ebenfalls je Monat eine eigene Zeile haben.',
+  '- Weist die Rechnung den Posten nur EINMAL aus, ist die Liste genau ein Eintrag.',
+  '- Steht bei einer Zeile keine Menge oder kein Satz, lass das jeweilige Feld null. Erfinde keine',
+  '  Menge, um eine Zeile vollständig zu machen.',
+  '- Findest du den Posten gar nicht, ist die Liste leer.',
   '',
   'billingPeriodFrom / billingPeriodTo / billingPeriodAssumed — der Abrechnungszeitraum:',
   'Gemeint ist der Zeitraum, den diese Rechnung abrechnet — NICHT das Ausstellungs-, Rechnungs-,',
@@ -327,7 +353,9 @@ const SYSTEM_PROMPT = [
 const USER_PROMPT =
   'Lies aus dieser Rechnung die Angaben nach Schema aus. Lass jedes Feld null, das auf dem ' +
   'Dokument nicht steht. Steht ein Posten mehrfach für verschiedene Zeitabschnitte, gilt der ' +
-  'Wert des zuletzt endenden Abschnitts. Einzige Ausnahme vom Ablesen ist der ' +
+  'Wert des zuletzt endenden Abschnitts; die Energiepreis-Zeilen der Energielieferung trage ' +
+  'zusätzlich VOLLSTÄNDIG in energyPricePeriods ein, mit Menge und Satz je Zeile und ohne zu ' +
+  'rechnen. Einzige Ausnahme vom Ablesen ist der ' +
   'Abrechnungszeitraum einer erkennbaren Jahresrechnung — dort gilt die Regel des Systemtexts, ' +
   'und das Ergebnis ist als erschlossen zu kennzeichnen.'
 
