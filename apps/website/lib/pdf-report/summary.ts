@@ -679,12 +679,30 @@ export function buildPartialYearNotice(analysis: PdfReportAnalysis): ReportNotic
  *
  * ⚠ Ein älteres archiviertes Ergebnis trägt das Feld nicht; `undefined > Schwelle` ist `false`, und
  * dann steht hier kein Hinweis statt eines Fehlers (wortgleiche Überlegung wie in `report.tsx`).
+ *
+ * ⚠ ER HÄNGT AN KEINEM TARIF — und deshalb braucht seine Folgerung zwei Fassungen. Die Bedingung
+ * ist allein die Lückenlänge; ein Anschluss ohne Leistungsmessung kann sie genauso reissen wie
+ * jeder andere. Die alte Fassung zeigte dann auf einen Kasten, den es in diesem Dokument gar nicht
+ * gibt (s. `buildHeadline`).
  */
 export function buildLargeGapNotice(analysis: PdfReportAnalysis): ReportNotice | null {
   const slots = analysis.dataQuality.largestGapSlots
   if (!(slots > LARGE_GAP_SLOTS_THRESHOLD)) return null
 
   const days = Math.round(slots / 96)
+  /*
+   * Ohne Leistungspreis gibt es weder den abgerechneten Wert noch eine Ersparnis daraus. Übrig
+   * bleibt die Aussage, die ohnehin die tragende ist: was in diesem Abschnitt verbraucht wurde,
+   * ist aufgefüllt und nicht gemessen.
+   */
+  const consequence = hasLeistungspreis(analysis.current)
+    ? `Eine Lastspitze, die in diesen ${days} Tagen aufgetreten ist, kann in keiner Zahl dieses ` +
+      'Reports vorkommen: der abgerechnete Leistungswert oben und die daraus abgeleitete ' +
+      'Ersparnis sind für diesen Datensatz eher zu niedrig als zu hoch.'
+    : `Was in diesen ${days} Tagen tatsächlich verbraucht wurde, steckt deshalb in keiner Zahl ` +
+      'dieses Reports — jede Ersparnis, die auf diesen Abschnitt entfällt, beruht auf einer ' +
+      'Annahme und nicht auf einer Messung.'
+
   return {
     id: 'large_gap',
     tone: 'warning',
@@ -692,9 +710,7 @@ export function buildLargeGapNotice(analysis: PdfReportAnalysis): ReportNotice |
     body:
       'Der Zeitraum ist zwar durchgehend abgedeckt, in diesem Abschnitt stammen die Werte aber ' +
       'nicht aus einer Messung — sie wurden linear zwischen dem letzten und dem nächsten bekannten ' +
-      `Wert aufgefüllt. Eine Lastspitze, die in diesen ${days} Tagen aufgetreten ist, kann in ` +
-      'keiner Zahl dieses Reports vorkommen: der abgerechnete Leistungswert oben und die daraus ' +
-      'abgeleitete Ersparnis sind für diesen Datensatz eher zu niedrig als zu hoch.',
+      `Wert aufgefüllt. ${consequence}`,
     list: null,
     hints: [
       'Bitte den vollständigen Lastgang beim Netzbetreiber anfordern (Viertelstundenwerte ohne ' +
@@ -716,11 +732,26 @@ export function buildLargeGapNotice(analysis: PdfReportAnalysis): ReportNotice |
  * erklärt die 0 in der Aufschlüsselung darunter, die sonst wie ein Rechenfehler aussieht. Dieselbe
  * Rolle wie der Engine-Warnsatz an der Batterie (`peakShavingBlockers`), nur an der Stelle, an der
  * die 0 steht.
+ *
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * ⚠ ER LIEST JETZT ZWEIERLEI — DIE HERKUNFT DES LASTGANGS UND OB ES EINEN LEISTUNGSPREIS GIBT
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * Beides ist nötig, weil die Kombination die WAHRSCHEINLICHSTE ist und nicht etwa ein Randfall: die
+ * Lastgang-Station bietet das Standardprofil an, bevor die Rechnungs-Station `meteringVariant`
+ * überhaupt erhebt (`data-entry-actions-lastgang.ts` liest das Feld nirgends) — ein privater
+ * NE7-Anschluss läuft also regelmässig in genau diesen Fall. Ohne Leistungspreis sind BEIDE
+ * bisherigen Aussagen des zweiten Satzteils falsch: „die oben gezeigten Leistungswerte" zeigen auf
+ * einen Kasten, den es nicht gibt (`buildHeadline`), und „wird gar nicht erst ausgewiesen" liest
+ * sich wie eine wegen der Datenlage zurückgehaltene Zahl statt wie ein Posten, den dieser Anschluss
+ * überhaupt nicht hat.
  */
 export function buildStandardProfileNotice(
   loadProfile: Pick<LoadProfile, 'source'>,
+  current: PdfReportAnalysis['current'],
 ): ReportNotice | null {
   if (loadProfile.source !== 'standard_profile') return null
+
+  const withLeistungspreis = hasLeistungspreis(current)
 
   return {
     id: 'standard_profile',
@@ -729,13 +760,21 @@ export function buildStandardProfileNotice(
     body:
       'Diese Analyse rechnet mit einem synthetischen Durchschnittsprofil, das aus Ihrer ' +
       'Jahresverbrauchs-Angabe gebildet wurde. Für den Tarifvergleich reicht das: dafür zählt, ' +
-      'wann im Tagesverlauf Strom verbraucht wird. Die oben gezeigten Leistungswerte sind dagegen ' +
-      'die Spitzen dieser Durchschnittskurve und keine gemessene Lastspitze — eine Ersparnis beim ' +
-      'Leistungspreis wird deshalb gar nicht erst ausgewiesen, statt sie zu schätzen.',
+      'wann im Tagesverlauf Strom verbraucht wird. ' +
+      (withLeistungspreis
+        ? 'Die oben gezeigten Leistungswerte sind dagegen die Spitzen dieser Durchschnittskurve ' +
+          'und keine gemessene Lastspitze — eine Ersparnis beim Leistungspreis wird deshalb gar ' +
+          'nicht erst ausgewiesen, statt sie zu schätzen.'
+        : 'Über Ihre tatsächlichen Lastspitzen sagt diese Analyse dagegen nichts: eine ' +
+          'Durchschnittskurve glättet sie, und gemessen wurde keine einzige.'),
     list: null,
     hints: [
-      'Für die Leistungspreis-Dimension: echten Lastgang hochladen (Viertelstundenwerte Ihres ' +
-        'Netzbetreibers).',
+      withLeistungspreis
+        ? 'Für die Leistungspreis-Dimension: echten Lastgang hochladen (Viertelstundenwerte Ihres ' +
+          'Netzbetreibers).'
+        : /* Der Upload lohnt auch ohne Leistungspreis — er ändert Dispatch und Eigenverbrauch. */
+          'Für eine gemessene Grundlage: echten Lastgang hochladen (Viertelstundenwerte Ihres ' +
+          'Netzbetreibers).',
     ],
   }
 }
@@ -833,7 +872,7 @@ function buildNotices(
   estimatedPv: EstimatedPvSummary | undefined,
 ): ReportNotice[] {
   return [
-    buildStandardProfileNotice(loadProfile),
+    buildStandardProfileNotice(loadProfile, analysis.current),
     buildEstimatedPvNotice(estimatedPv),
     buildPartialYearNotice(analysis),
     buildLargeGapNotice(analysis),

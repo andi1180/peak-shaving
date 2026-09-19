@@ -289,7 +289,9 @@ export function buildReportRegistry(
      * Ordnungshilfe war. Seit `layout.ts` daraus die LESEORDNUNG liest, wäre es ein Verweis, der
      * „weiter unten" sagt, wo „oben" richtig ist — derselbe stille Fehler wie bei `limitations`.
      */
-    notice('standard_profile', () => buildStandardProfileNotice(input.loadProfile)),
+    notice('standard_profile', () =>
+      buildStandardProfileNotice(input.loadProfile, analysis.current),
+    ),
     notice('estimated_pv', () => buildEstimatedPvNotice(input.estimatedPv)),
     notice('partial_year', () => buildPartialYearNotice(analysis)),
     notice('large_gap', () => buildLargeGapNotice(analysis)),
