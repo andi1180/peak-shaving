@@ -85,7 +85,7 @@ Kommentare: ein Satz pro nicht offensichtlicher Entscheidung. Keine Historie, ke
 
 Tests: 1–3 pro Änderung — Erfolgsfall plus das, was wirklich brechen könnte. Keine Wächter-Proben (Code absichtlich kaputt machen und zurücksetzen), keine A/B-Läufe gegen `git stash`, ausser die Änderung selbst ist riskant oder schwer auf andere Weise zu verifizieren — dann kurz benennen, warum diese Ausnahme hier gilt.
 
-Abschlussbericht an Andreas: was geändert wurde, in wenigen Zeilen. Keine Testzahlen-Choreografie, keine Schritt-für-Schritt-Erzählung des Prüflaufs.
+Abschlussbericht an Andreas: was geändert wurde, in wenigen Zeilen. Keine Testzahlen-Choreografie, keine Schritt-für-Schritt-Erzählung des Prüflaufs. **Die Zahlen, die dabei vorkommen, nennen ihre Datenquelle — s. Regel 11.**
 
 ### Regel 10 — Vor jedem Merge-Versuch frisch mit main abgleichen
 
@@ -94,6 +94,28 @@ Schritt der Abschluss-Kette — nicht erst als Reaktion auf einen abgelehnten Me
 Tag mit vielen PRs wächst `main` auch NACH dem Abzweigen eines Branches weiter; „von frischem main
 abzweigen" allein verhindert die Divergenz deshalb nicht zuverlässig (zweimal aufgetreten,
 15.09.2026).
+
+### Regel 11 — Jede berichtete Kennzahl nennt ihre Datenquelle, unaufgefordert
+
+Jede Zahl, die CC in einem Bericht aus einer BERECHNUNG meldet, trägt die Herkunft ihrer Eingaben
+direkt daneben — nicht erst auf Rückfrage. Zum Beispiel:
+
+- „Cloud-Entwurf, `_provenance.source: measured` vom 19.09.2026" — echte Produktionsdaten,
+- „Kalibrier-Fixture des öffentlichen Rechners (9,5 ct), nicht Cloud-Live" — von Hand gesetzt,
+- „synthetischer Testlastgang" — gar keine Kundendaten.
+
+Das gilt je Eingabeseite getrennt, sobald sie verschiedene Herkunft haben: „Lastgang und Preisdaten
+live, Tarifparameter von Hand" ist eine andere Aussage als „live gemessen" und muss auch so
+dastehen.
+
+**Anlass:** #295 meldete eine Kalibrier-Fixture als „live gemessen, echte Cloud-Preisdaten". Der
+Fehler überlebte mehrere Nachrichten, weil die Fixture-Zahl (843,00 €) durch **Zufall** nur 4 Cent
+neben einem echten Bug-Wert lag (842,96 € aus einem bekannt falschen Tarifsatz) — die Verwechslung
+sah dadurch aus wie eine Regression im Code. Aufgefallen ist sie erst, weil Andreas nachgefragt hat.
+
+**⚠ Das steht NICHT im Widerspruch zu Regel 9** („keine Testzahlen-Choreografie"): Verlangt ist
+eine kurze Klammer an der Zahl, kein Prüflauf-Protokoll. Wer die Herkunft weglässt, spart keine
+Zeile, sondern verschiebt die Prüfung auf den Leser.
 
 ---
 
@@ -172,12 +194,26 @@ sonst stünde die spätere „Drei Wege"-Gegenüberstellung auf zwei Massstäben
 ein Test-Hilfsmittel; ein Wächter in `packages/shared/src/levies.test.ts` hält es aus jedem
 Rechenweg heraus.
 
-**Am echten Urbanz-Lastgang live gemessen** (209 Tage, echte Cloud-Preisdaten, A/B):
-Ihr Tarif heute **769,73 € → 843,00 €**, aWATTar ungesteuert **890,07 € → 963,34 €** (beide
+**Am echten Urbanz-Fall über den PRODUKTIONSPFAD gemessen** (`run-from-draft.ts`, 209 Tage,
+Cloud-Entwurf `_provenance.source: measured` vom 19.09.2026, echte `grid_tariffs`/`spot_prices`):
+Ihr Tarif heute **948,62 € → 1.021,89 €**, aWATTar ungesteuert **890,07 € → 963,34 €** (beide
 +73,27 €, identischer Massstab), aWATTar mit Speicher **685,85 € → 761,35 €** (+75,50 € — die
 Ladeverluste erhöhen die bezogene Energiemenge, an der die ct/kWh-Abgaben hängen). Der
 Netto-Disclaimer in `basis.ts` benennt jetzt die Umsatzsteuer statt der behobenen Posten und hängt
 an derselben Bedingung wie die Monatszahlen selbst.
+
+**⚠ KORREKTUR 21.09.2026 — hier standen 769,73 € → 843,00 €, und das war NICHT der Urbanz-Live-Wert.**
+Die Zahlen stammten aus der **Kalibrier-Fixture des öffentlichen Rechners** (9,5 ct/kWh, keine
+Lieferanten-Grundgebühr, Einspeisevergütung 0) — dem Parametersatz, der den Report-Screenshot
+reproduziert, nicht dem Cloud-Entwurf (13,081 ct, 3,50 €/Monat, 4,56 ct). Nur Lastgang und
+Preisdaten waren live; die Tarifseite war von Hand gesetzt, und der Bericht nannte das nicht.
+**Der Fehler blieb über mehrere Nachrichten unentdeckt, weil die beiden Parametersätze im selben
+Rechenweg auf 4 Cent zusammenfallen** (gemessen: 8,94 ct + Entwurfsgebühren = 842,96 € gegen
+9,5 ct ohne Gebühren = 843,00 €; 24,20 € Energiedifferenz gegen 24,16 € anteilige Grundgebühr über
+209 Tage). Die Fixture-Zahl sah dadurch aus wie ein bekannter Bug-Wert. Daraus folgt **Regel 11**.
+
+⚠ Die beiden aWATTar-Reihen sind in BEIDEN Parametersätzen identisch und deshalb unverändert
+geblieben: sie hängen an keinem Lieferantenpreis, und der Urbanz-Lastgang trägt keine Einspeisung.
 
 ### PV-Kopplung: kein Abzug mehr, wo die Anlage schon im Bezug steckt (19.09.2026)
 
