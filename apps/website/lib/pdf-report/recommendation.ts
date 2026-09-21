@@ -8,7 +8,7 @@ import { primaryEntryOf, recommendedEntryOf } from './summary'
 import type { PdfReportAnalysis } from './types'
 
 /**
- * B23c-2 — das Kapitel „Empfehlung und Lastverlauf": welches Gerät, was es kostet, und woher der
+ * B23c-2 — das Kapitel „Empfehlung und Wirtschaftlichkeit": welches Gerät, was es kostet, und woher der
  * Wert der Ladesteuerung kommt.
  *
  * ⚠ DAS LASTGANG-BILD IST HIER RAUS und steht als eigenes Kapitel davor (`LOAD_SECTION`). Mit ihm

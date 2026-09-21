@@ -197,14 +197,22 @@ export const LOAD_INTRO =
   'Grundlage für alle Zahlen in dieser Auswertung.'
 
 /**
- * B23c-2 — das Kapitel, das die Kaufaussage, das Lastgang-Diagramm und die Ladesteuerung trägt.
+ * B23c-2 — das Kapitel, das die Kaufaussage und die Ladesteuerung trägt.
  *
- * ── ⚠ EIN KAPITEL UND NICHT ZWEI, UND DER GRUND IST DAS BILD ──────────────────────────────────
- * Das Diagramm steht IM FLUSS zwischen den beiden Textteilen: es ist der Beleg für die
- * Kapp-Schwelle, von der die Empfehlung darüber lebt, und der Anschauungsgegenstand für die
- * Ladesteuerung darunter. Als eigene `<Page>` dazwischen wäre es ein Kapitel ohne Aussage; hinter
- * beiden Texten wäre es ein Anhang. Die Agenda führt deshalb EINEN Eintrag — der Titel nennt
- * beides, damit ein Leser, der die Agenda überfliegt, weiss, wo die Empfehlung steht.
+ * ── ⚠ DER TITEL NENNT SEIT DEM LASTGANG-KAPITEL KEINEN LASTVERLAUF MEHR ───────────────────────
+ * Er hiess „Empfehlung und Lastverlauf", solange das Diagramm im Fluss zwischen den beiden
+ * Textteilen stand. Seit es ein eigenes Kapitel davor ist (`LOAD_SECTION`), versprach die Agenda
+ * einen Lastverlauf auf einer Seite, die keinen zeigt. „Wirtschaftlichkeit" an seiner Stelle
+ * benennt, was übrig ist und in beiden Fällen dasteht: Investition, Amortisation, Netto über den
+ * Horizont — und den Wert der Ladesteuerung.
+ *
+ * ⚠ NICHT bloss „Empfehlung": der einzige Kapitelverweis auf dieses Kapitel steht im Satz
+ * „…derselben Grösse wie die Kurve darüber und wie die Empfehlung im Kapitel „…""
+ * (`comparison.ts`), und der löste dann zu „wie die Empfehlung im Kapitel „Empfehlung"" auf.
+ *
+ * ⚠ Der Titel wird NIRGENDS ausgeschrieben — Verweise bilden ihn aus `REPORT_SECTIONS`
+ * (`layout.ts`). Eine Umbenennung wie diese kostet deshalb keine Textstelle, nur Kommentare und
+ * die Erwartungen der Proben.
  *
  * ⚠ Das Kapitel ist eine eigene `<Page>` (D5, Regel 1). Als `<View break>` in der Zusammenfassung
  * bekäme es in der Agenda die Seitenzahl JENES Kapitels — plausibel aussehend und falsch.
@@ -212,7 +220,7 @@ export const LOAD_INTRO =
 export const RECOMMENDATION_SECTION: ReportSection = {
   id: SECTION_ID.recommendation,
   level: 1,
-  title: 'Empfehlung und Lastverlauf',
+  title: 'Empfehlung und Wirtschaftlichkeit',
 }
 
 /**
@@ -232,7 +240,7 @@ export const RECOMMENDATION_INTRO = 'Welches Gerät — und was es kostet.'
 /**
  * B23c-3a — das Kapitel mit dem Kostenvergleich und dem Tages-Energiefluss.
  *
- * ── ⚠ EIN EIGENES KAPITEL UND KEIN ANHANG AN „Empfehlung und Lastverlauf" ─────────────────────
+ * ── ⚠ EIN EIGENES KAPITEL UND KEIN ANHANG AN „Empfehlung und Wirtschaftlichkeit" ─────────────
  * Jenes Kapitel beantwortet „welches Gerät und was kostet es"; dieses zeigt, wie sich das über die
  * Zeit auswirkt und wie ein einzelner Tag damit aussieht. Zwei Bilder mehr auf jener Seite hätten
  * sie ohnehin über den Satzspiegel getragen — dann stünde in der Agenda ein Kapitel, dessen
@@ -385,7 +393,8 @@ export type ReportSectionKey = (typeof SECTION_ID)[keyof typeof SECTION_ID]
  * ⚠ Stufe D bildet daraus die Ortsangabe „im Kapitel „X"" (`layout.ts`) — und zwar nach DEMSELBEN
  * Muster, mit dem `RESULTS_FOOTNOTE` schon heute seinen Kapitelnamen bildet (`${METHODOLOGY_SECTION.title}`
  * statt eines Literals). Das war bis Stufe D der EINZIGE aufgelöste Kapitelverweis im ganzen
- * Dokument; die Bausteine schrieben den Titel aus (`comparison.ts`, „Empfehlung und Lastverlauf").
+ * Dokument; die Bausteine schrieben den Titel aus (`comparison.ts`, damals „Empfehlung und
+ * Lastverlauf").
  */
 export const REPORT_SECTIONS: Record<ReportSectionKey, ReportSection> = {
   [SECTION_ID.results]: RESULTS_SECTION,

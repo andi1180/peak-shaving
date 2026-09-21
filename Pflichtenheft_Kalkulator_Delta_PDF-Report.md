@@ -294,7 +294,14 @@ Kaufempfehlung, keine Investition, keine Amortisation. **Gemessen:** die Wörter
 IM Zwei-/Drei-Pass-Dokument aus B23a — bis hierher waren beide Hälften getrennt bewiesen (ein Chart
 in einem Mini-PDF, ein Dokument ohne Chart).
 
-**Das neue Kapitel ist EINES und heisst „Empfehlung und Lastverlauf".** Es trägt in dieser
+> **⚠ KORREKTUR 21.09.2026 (PR #300/#301):** Das Lastgang-Diagramm steht seit #300 in einem
+> EIGENEN Kapitel „Ihr Lastgang" zwischen „Voraussetzungen" und diesem, ohne Kapp-Linie und
+> ohne markierte Spitzen; mit ihm entfielen die Kapp-Aussage und die Erklärung zur fehlenden
+> Kapp-Linie. Dieses Kapitel heisst seit #301 **„Empfehlung und Wirtschaftlichkeit"** und
+> trägt nur noch Kaufaussage und Ladesteuerung. Der Absatz darunter beschreibt korrekt den
+> Stand von B23c-2 und bleibt als Begründung stehen, warum das Bild damals im Fluss stand.
+
+**Das Kapitel war EINES und hiess „Empfehlung und Lastverlauf".** Es trug in dieser
 Reihenfolge: die Kaufaussage, das Lastgang-Diagramm im Fluss, die Ladesteuerungs-Aussage. Das Bild
 steht bewusst ZWISCHEN den beiden Textteilen — es ist der Beleg für die Kapp-Schwelle, von der die
 Empfehlung darüber lebt, und der Anschauungsgegenstand für die Ladesteuerung darunter. Als eigene

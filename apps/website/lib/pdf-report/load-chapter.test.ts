@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 
-import { buildReportAgenda, LOAD_INTRO, LOAD_SECTION } from './content'
+import {
+  buildReportAgenda,
+  LOAD_INTRO,
+  LOAD_SECTION,
+  PREREQUISITES_SECTION,
+  RECOMMENDATION_SECTION,
+} from './content'
 import { loadChartCaption } from './derive'
 
 /**
@@ -31,8 +37,11 @@ describe('Lastgang-Kapitel', () => {
       comparison: false,
     }).map((s) => s.title)
 
-    expect(titles.indexOf(LOAD_SECTION.title)).toBe(titles.indexOf('Voraussetzungen') + 1)
-    expect(titles.indexOf('Empfehlung und Lastverlauf')).toBe(
+    /* Über die Konstanten und nicht über Titel-Literale: geprüft wird die REIHENFOLGE. */
+    expect(titles.indexOf(LOAD_SECTION.title)).toBe(
+      titles.indexOf(PREREQUISITES_SECTION.title) + 1,
+    )
+    expect(titles.indexOf(RECOMMENDATION_SECTION.title)).toBe(
       titles.indexOf(LOAD_SECTION.title) + 1,
     )
     expect(LOAD_INTRO).toContain('Grundlage für alle Zahlen')

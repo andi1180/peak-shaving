@@ -286,7 +286,8 @@ describe('catalog_alternatives — Verweis auf das Empfehlungs-Kapitel', () => {
   it('nennt den Kapiteltitel wortgleich — und zieht ihn aus `content.ts`, nicht aus einem Literal', () => {
     expect(body(reportLayoutOf(placements()))).toBe(
       'Gereiht ist nach der Netto-Ersparnis über den Betrachtungszeitraum — derselben Grösse wie ' +
-        'die Kurve darüber und wie die Empfehlung im Kapitel „Empfehlung und Lastverlauf". Das ' +
+        'die Kurve darüber und wie die Empfehlung im Kapitel „Empfehlung und Wirtschaftlichkeit". ' +
+        'Das ' +
         'empfohlene Gerät steht deshalb hier nicht noch einmal: es ist dort vollständig ' +
         'aufgeschlüsselt. Diese Tabelle sagt, was die Alternativen dagegen leisten — und um ' +
         'welchen Betrag die Empfehlung besser ist. Die §3.8-Hinweise eines Geräts (Betonsockel, ' +
@@ -298,7 +299,7 @@ describe('catalog_alternatives — Verweis auf das Empfehlungs-Kapitel', () => {
   /**
    * ⚠ DER KERN-NACHWEIS DIESES SCHRITTS: die Empfehlung wandert in DASSELBE Kapitel, und der Satz
    * sagt von selbst „oben" statt den Kapitelnamen zu nennen. Vor Stufe D stand
-   * „im Kapitel „Empfehlung und Lastverlauf"" als Literal im Text (die einzige Stelle im ganzen
+   * „im Kapitel „…"" als Literal im Text (die einzige Stelle im ganzen
    * Katalog, die einen fremden Kapiteltitel ausschrieb).
    */
   it('wird zur Richtungsangabe, sobald die Empfehlung im selben Kapitel steht', () => {
@@ -499,7 +500,8 @@ describe('Stufe-C-Sperren: `addon` und `table_candidates`', () => {
     )
     expect(ohne).toBe(
       'Verglichen wird nach der Netto-Ersparnis über den Betrachtungszeitraum — derselben Grösse ' +
-        'wie die Kurve darüber und wie die Empfehlung im Kapitel „Empfehlung und Lastverlauf". ' +
+        'wie die Kurve darüber und wie die Empfehlung im Kapitel „Empfehlung und ' +
+        'Wirtschaftlichkeit". ' +
         'Das empfohlene Gerät selbst ist dort vollständig aufgeschlüsselt. Die §3.8-Hinweise ' +
         'eines Geräts (Betonsockel, separater Wechselrichter, zu geringe Leistung für alle ' +
         'Spitzen) sind in der Investition bereits enthalten — sie stehen beim empfohlenen Gerät.',
