@@ -11,12 +11,14 @@ import { EnergyFlowChart } from '@/components/report/energy-flow-chart'
 import { LoadChart } from '@/components/report/load-chart'
 import { MarginalBenefitChart } from '@/components/report/marginal-benefit-chart'
 import { MonthlyTariffChart } from '@/components/report/monthly-tariff-chart'
+import { TariffWaysChart } from '@/components/report/tariff-ways-chart'
 import { captureChart, selectHeatmapGrid, selectRechartsSurface } from './chart-capture'
 import type { ChartRaster } from './chart-raster'
 import { comparisonChartPlan } from './comparison'
 import { detailChartPlan, hasMonthlyChapter } from './detail'
 import { insightChartPlan } from './insight'
 import type { PdfReportInput } from './types'
+import { buildWaysChapter } from './ways'
 
 /**
  * B23c-2/B23c-3a — die Chart-Bilder des Reports: GENAU EINMAL je Dokument erzeugt, VOR dem Rendern.
@@ -83,6 +85,13 @@ export type ReportChartRasters = {
    * zum Chart durchläuft (dieselbe Prüfung wie in B23b). `null`, wenn kein Bild entstanden ist.
    */
   loadVertices: number | null
+
+  /**
+   * D7 — die drei Balken „Zwei Wege zu weniger Stromkosten". `null`, wenn es das Kapitel in diesem
+   * Dokument nicht gibt (`hasWaysChapter`: kein berechenbarer Monatsvergleich).
+   */
+  ways: ChartRaster | null
+  waysError: string | null
 
   /** Kostenvergleich — welcher, sagt `costKind`. `null`, wenn keiner entstanden ist. */
   cost: ChartRaster | null
@@ -159,6 +168,7 @@ export type ReportChartRasters = {
 /** Dauer je Bild, in Dokumentreihenfolge. `null` = für diesen Fall nicht gerastert. */
 export type ReportChartFigureMs = {
   load: number | null
+  ways: number | null
   cost: number | null
   monthly: number | null
   flow: number | null
@@ -305,6 +315,7 @@ export async function buildReportCharts(input: PdfReportInput): Promise<ReportCh
   const analysis = input.analysis
   const plan = detailChartPlan(analysis)
   const insight = insightChartPlan(analysis)
+  const waysChapter = buildWaysChapter(analysis)
 
   /*
    * Report-Baukasten C — ein abgewählter Baustein wird gar nicht erst gerastert.
@@ -363,6 +374,23 @@ export async function buildReportCharts(input: PdfReportInput): Promise<ReportCh
       },
     ),
   )
+
+  /*
+   * D7 — die drei Balken „Zwei Wege zu weniger Stromkosten". `waysChapter === null` heisst: kein
+   * berechenbarer Monatsvergleich, dann gibt es dieses Kapitel im Dokument nicht (`hasWaysChapter`).
+   */
+  const ways: Attempt =
+    waysChapter === null
+      ? NOT_RASTERIZED
+      : await attempt(() =>
+          captureChart(
+            <TariffWaysChart
+              totals={waysChapter.totals}
+              isExisting={analysis.existingBatteryAnalysis != null}
+            />,
+            { width: DETAIL_CHART_WIDTH_PX, select: selectRechartsSurface },
+          ),
+        )
 
   /*
    * Der Kostenvergleich in der Fassung, die `detail.ts` bestimmt hat.
@@ -527,6 +555,8 @@ export async function buildReportCharts(input: PdfReportInput): Promise<ReportCh
     load: load.raster,
     loadError: load.error,
     loadVertices: load.raster ? measured.loadVertices : null,
+    ways: ways.raster,
+    waysError: ways.error,
     cost: cost.raster,
     costError: cost.error,
     costKind: plan.cost?.kind ?? null,
@@ -545,6 +575,7 @@ export async function buildReportCharts(input: PdfReportInput): Promise<ReportCh
     captureMs: performance.now() - started,
     figureMs: {
       load: load.ms,
+      ways: ways.ms,
       cost: cost.ms,
       monthly: monthly.ms,
       flow: flow.ms,

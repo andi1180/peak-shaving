@@ -6,6 +6,7 @@ import {
   LOAD_SECTION,
   PREREQUISITES_SECTION,
   RECOMMENDATION_SECTION,
+  WAYS_SECTION,
 } from './content'
 import { loadChartCaption } from './derive'
 
@@ -32,6 +33,7 @@ describe('Lastgang-Kapitel', () => {
    */
   it('steht in der Agenda zwischen Voraussetzungen und Empfehlung', () => {
     const titles = buildReportAgenda({
+      ways: false,
       monthly: false,
       insight: false,
       comparison: false,
@@ -41,9 +43,25 @@ describe('Lastgang-Kapitel', () => {
     expect(titles.indexOf(LOAD_SECTION.title)).toBe(
       titles.indexOf(PREREQUISITES_SECTION.title) + 1,
     )
+    /* Ohne „Zwei Wege" (D7: kein berechenbarer Monatsvergleich) folgt die Empfehlung direkt. */
     expect(titles.indexOf(RECOMMENDATION_SECTION.title)).toBe(
       titles.indexOf(LOAD_SECTION.title) + 1,
     )
     expect(LOAD_INTRO).toContain('Grundlage für alle Zahlen')
+  })
+
+  /* D7 — das neue Kapitel „Zwei Wege zu weniger Stromkosten", mit berechenbarem Monatsvergleich. */
+  it('„Zwei Wege zu weniger Stromkosten" steht zwischen Lastgang und Empfehlung, wenn es das Kapitel gibt', () => {
+    const titles = buildReportAgenda({
+      ways: true,
+      monthly: false,
+      insight: false,
+      comparison: false,
+    }).map((s) => s.title)
+
+    expect(titles.indexOf(WAYS_SECTION.title)).toBe(titles.indexOf(LOAD_SECTION.title) + 1)
+    expect(titles.indexOf(RECOMMENDATION_SECTION.title)).toBe(
+      titles.indexOf(WAYS_SECTION.title) + 1,
+    )
   })
 })

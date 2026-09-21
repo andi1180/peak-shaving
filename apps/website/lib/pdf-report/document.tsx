@@ -31,6 +31,8 @@ import {
   RESULTS_FOOTNOTE,
   RESULTS_INTRO,
   RESULTS_SECTION,
+  WAYS_INTRO,
+  WAYS_SECTION,
   type ReportSection,
 } from './content'
 import { buildBasisChapter, DATA_SOURCES_TABLE_ID, TARIFF_COMPONENTS_TABLE_ID } from './basis'
@@ -42,6 +44,7 @@ import { buildInsightChapter } from './insight'
 import { buildPrerequisitesChapter } from './prerequisites'
 import { buildRecommendationChapter } from './recommendation'
 import type { ReportBaukastenId, ReportBaukastenRegistry } from './registry'
+import { buildWaysChapter } from './ways'
 import {
   resolveReportSegments,
   resolveReportText,
@@ -1649,6 +1652,43 @@ function LoadChapter({ input, charts }: { input: PdfReportInput; charts: ReportC
 }
 
 /**
+ * D7 — das Kapitel „Zwei Wege zu weniger Stromkosten": drei Balken, zwei Absätze.
+ *
+ * ── ⚠ ES GIBT DIESES KAPITEL NICHT IN JEDEM DOKUMENT ──────────────────────────────────────────
+ * Nur mit berechenbarem Monatsvergleich (`hasWaysChapter`); ohne ihn gibt es weder die drei Balken
+ * noch die zwei Beträge. Dieselbe Mechanik wie beim „Ladeverhalten"- und „Monatsvergleich"-Kapitel:
+ * der Aufrufer entscheidet EINMAL (`context.hasWays`) und lässt die `<Page>` sonst ganz weg, samt
+ * Agenda-Eintrag.
+ */
+function WaysChapter({
+  input,
+  charts,
+  layout,
+}: {
+  input: PdfReportInput
+  charts: ReportChartRasters
+  layout: ReportLayout
+}) {
+  const chapter = buildWaysChapter(input.analysis)
+
+  return (
+    <View style={styles.body}>
+      <Text style={styles.h2}>{WAYS_SECTION.title}</Text>
+      <Text style={styles.lead}>{WAYS_INTRO}</Text>
+
+      <ChartFigure
+        raster={charts.ways}
+        caption={chapter?.figure.caption ?? ''}
+        note={chapter?.figure.note}
+        missing={figureMissingText('Das Balkendiagramm')}
+      />
+      {chapter && <Statement statement={chapter.tariffSwitch} layout={layout} />}
+      {chapter && <Statement statement={chapter.loadControl} layout={layout} />}
+    </View>
+  )
+}
+
+/**
  * B23c-2 — Empfehlung und Ladesteuerung.
  *
  * ⚠ DAS LASTGANG-BILD IST HIER RAUS und steht als eigenes Kapitel davor (`LoadChapter`). Der Rest
@@ -2236,7 +2276,7 @@ export function ReportDocument({
    * ⚠ B1: entschieden wird jetzt im KONTEXT, einmal je Dokument statt einmal je Durchlauf. Diese
    * Funktion läuft zwei- bis dreimal (`render.tsx`) — sie LIEST die Antwort nur noch.
    */
-  const { hasMonthly, hasComparison } = context
+  const { hasWays, hasMonthly, hasComparison } = context
 
   /*
    * ⚠ Report-Baukasten C: KAPITEL 5 FÄLLT MIT SEINEN BEIDEN BAUSTEINEN. Sind beide abgewählt,
@@ -2278,6 +2318,7 @@ export function ReportDocument({
         <SectionAnchor id="agenda" sink={sink} />
         <Agenda
           sections={buildReportAgenda({
+            ways: hasWays,
             monthly: hasMonthly,
             insight: hasInsight,
             comparison: hasComparison,
@@ -2303,6 +2344,14 @@ export function ReportDocument({
         <SectionAnchor id={LOAD_SECTION.id} sink={sink} />
         <LoadChapter input={input} charts={charts} />
       </Page>
+
+      {hasWays && (
+        <Page size="A4" style={styles.page}>
+          <PageFurniture sink={sink} docLabel={docLabel} />
+          <SectionAnchor id={WAYS_SECTION.id} sink={sink} />
+          <WaysChapter input={input} charts={charts} layout={layout} />
+        </Page>
+      )}
 
       <Page size="A4" style={styles.page}>
         <PageFurniture sink={sink} docLabel={docLabel} />

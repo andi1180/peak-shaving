@@ -128,6 +128,7 @@ export const SECTION_ID = {
   results: 'zusammenfassung',
   prerequisites: 'voraussetzungen',
   load: 'lastgang',
+  ways: 'wege',
   recommendation: 'empfehlung',
   detail: 'kostenverlauf',
   monthly: 'monatsvergleich',
@@ -195,6 +196,32 @@ export const LOAD_SECTION: ReportSection = {
 export const LOAD_INTRO =
   'Ihr Netzbezug über den ausgewerteten Zeitraum, in Viertelstundenwerten — die tatsächliche ' +
   'Grundlage für alle Zahlen in dieser Auswertung.'
+
+/**
+ * D7 — das Kapitel zwischen Lastgang und Empfehlung: zwei Wege, den heutigen Stromtarif zu
+ * verlassen, mit dem Balkendiagramm aus dem Urbanz-Referenz-PDF (S. 5–6, nur Struktur/Optik).
+ *
+ * ── ⚠ „ZWEI", NICHT „DREI" WEGE — DAS IST DER SCOPE, DEN D7 ENTSCHIEDEN HAT (16.09.2026) ───────
+ * Das Referenzbild zeigt fünf Balken: Ihr Tarif heute, ein einfacher Pauschaltarif-Wechsel,
+ * aWATTar ungesteuert, aWATTar einfach gesteuert, aWATTar optimal (LP). Der Pauschaltarif-Vergleich
+ * liegt im Monitor-Produkt und nicht im Kalkulator-Pfad; die LP-Bestmarke ist eine unvalidierte
+ * Hindsight-Zahl, die laut den Engine-Prinzipien nicht unvalidiert in Kundenmaterial gehört. Der
+ * Titel benennt deshalb bewusst „Zwei Wege" und nicht „Drei" — eine höhere Zahl behauptete einen
+ * Pauschaltarif-Balken, den es in diesem Kapitel nicht gibt.
+ *
+ * ⚠ Bedingtes Kapitel wie „Ihr Stromtarif im Monatsvergleich" (`MONTHLY_SECTION`): ohne
+ * berechenbaren Monatsvergleich gibt es weder die drei Balken noch die zwei Absätze — s.
+ * `hasWaysChapter` (`ways.ts`).
+ */
+export const WAYS_SECTION: ReportSection = {
+  id: SECTION_ID.ways,
+  level: 1,
+  title: 'Zwei Wege zu weniger Stromkosten',
+}
+
+/** Steht unter der Kapitelüberschrift. Sagt, worum es geht, nicht was auf der Seite steht. */
+export const WAYS_INTRO =
+  'Was ein Tarifwechsel allein bringt — und was zusätzlich eine gezielte Ladesteuerung bringt.'
 
 /**
  * B23c-2 — das Kapitel, das die Kaufaussage und die Ladesteuerung trägt.
@@ -400,6 +427,7 @@ export const REPORT_SECTIONS: Record<ReportSectionKey, ReportSection> = {
   [SECTION_ID.results]: RESULTS_SECTION,
   [SECTION_ID.prerequisites]: PREREQUISITES_SECTION,
   [SECTION_ID.load]: LOAD_SECTION,
+  [SECTION_ID.ways]: WAYS_SECTION,
   [SECTION_ID.recommendation]: RECOMMENDATION_SECTION,
   [SECTION_ID.detail]: DETAIL_SECTION,
   [SECTION_ID.monthly]: MONTHLY_SECTION,
@@ -448,6 +476,12 @@ export const REPORT_DISCLAIMER =
 /** Welche BEDINGTEN Kapitel dieses Dokument trägt. */
 export type ReportChapterPresence = {
   /**
+   * `true` = das Kapitel „Zwei Wege zu weniger Stromkosten" steht — s. `hasWaysChapter` (`ways.ts`).
+   * `false` ohne berechenbaren Monatsvergleich (dieselbe Bedingung wie die Spanne der
+   * Zusammenfassung).
+   */
+  ways: boolean
+  /**
    * `true` = der Monatsvergleich steht als eigenes Kapitel — s. `hasMonthlyChapter` (`detail.ts`).
    * Im Bestandsfall `false`: dort steht er im Detail-Kapitel an der Stelle des Kostenverlaufs.
    */
@@ -480,6 +514,7 @@ export function buildReportAgenda(presence: ReportChapterPresence): readonly Rep
     RESULTS_SECTION,
     PREREQUISITES_SECTION,
     LOAD_SECTION,
+    ...(presence.ways ? [WAYS_SECTION] : []),
     RECOMMENDATION_SECTION,
     DETAIL_SECTION,
     ...(presence.monthly ? [MONTHLY_SECTION] : []),
