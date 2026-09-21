@@ -366,6 +366,18 @@ export const BASIS_INTRO =
   'Womit gerechnet wurde, woher die Tarifwerte stammen — und was an diesem Datensatz zu wissen ist.'
 
 /**
+ * Ersetzt seit PR #298 den vollen Preisstand-Satz an der Tarifkomponenten-Tabelle im Schlusskapitel
+ * — derselbe Zeiger wie `RESULTS_FOOTNOTE` (`${…SECTION.title}` statt eines Literals).
+ *
+ * ⚠ Der volle Satz (`tariffVintageNote`, `derive.ts`) steht seit dem Kapitel „Voraussetzungen"
+ * bereits prominent dort, als eigener Hinweiskasten samt Netzkosten-/Abgaben-Zusatz. Ihn hier ein
+ * zweites Mal auszuschreiben wäre dieselbe Verwechslung, vor der `RESULTS_FOOTNOTE` schon warnt:
+ * derselbe Vorbehalt in zwei Schärfen im selben Dokument. Die BEDINGUNG bleibt unverändert
+ * (`chapter.tariffVintage`, `basis.ts`) — nur der TEXT, der bei einem Treffer steht.
+ */
+export const BASIS_TARIFF_VINTAGE_FOOTNOTE = `Details zum Preisstand dieser Tarifsätze stehen im Kapitel „${PREREQUISITES_SECTION.title}".`
+
+/**
  * Der Vorbehalt, der auf dem Deckblatt UND am Schluss steht.
  *
  * ── ⚠ EINE DEFINITION, ZWEI KONSUMENTEN — und die Doppelung im Dokument ist Absicht ───────────
