@@ -107,7 +107,7 @@ export type ReportBaukastenId =
   | 'estimated_pv'
   | 'partial_year'
   | 'large_gap'
-  /* Kapitel 2 — Empfehlung und Lastverlauf */
+  /* Kapitel 2 — Empfehlung und Wirtschaftlichkeit */
   | 'recommendation'
   | 'load_control'
   /* Kapitel 3 oder 4 — der Monatsvergleich (ein Erzeuger, zwei Orte) */

@@ -420,9 +420,11 @@ export function buildTableStatement(
         )} als Punkte in der Kurve darüber.`
       : /*
          * ── ⚠ STUFE D: DER KAPITELNAME WIRD NICHT MEHR AUSGESCHRIEBEN ────────────────────────
-         * „im Kapitel „Empfehlung und Lastverlauf"" war die EINZIGE Stelle im ganzen Katalog, die
-         * einen fremden Kapiteltitel als Literal trug — eine Umbenennung des Kapitels hätte hier
-         * einen Verweis auf ein Kapitel hinterlassen, das es nicht mehr gibt. Die Ortsangabe kommt
+         * Der Kapiteltitel war hier einmal ein Literal — die EINZIGE solche Stelle im ganzen
+         * Katalog. Eine Umbenennung des Kapitels hätte damit einen Verweis auf ein Kapitel
+         * hinterlassen, das es nicht mehr gibt; genau das ist inzwischen eingetreten und hat
+         * nichts gekostet („Empfehlung und Lastverlauf" → „Empfehlung und Wirtschaftlichkeit",
+         * ohne dass jemand diesen Satz angefasst hätte). Die Ortsangabe kommt
          * jetzt aus der Leseordnung und der Titel aus `REPORT_SECTIONS` (`layout.ts`), also nach
          * demselben Muster, mit dem `RESULTS_FOOTNOTE` seinen Kapitelnamen schon immer gebildet
          * hat: `METHODOLOGY_SECTION.title` statt eines Literals (`content.ts`).

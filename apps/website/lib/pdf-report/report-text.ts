@@ -7,7 +7,7 @@ import type { ReportBaukastenId } from './registry'
  * ⚠ WARUM DIESE DATEI ÜBERHAUPT EXISTIERT
  * ══════════════════════════════════════════════════════════════════════════════════════════════
  * 29 Textstellen in den sechs Kapitel-Erzeugern zeigen heute auf einen Nachbarn und schreiben
- * seinen Ort als Wort hin: „in der Zahl oben", „im Kapitel „Empfehlung und Lastverlauf"", „wie im
+ * seinen Ort als Wort hin: „in der Zahl oben", „im Kapitel „Empfehlung und Wirtschaftlichkeit"", „wie im
  * Datenqualitäts-Hinweis oben" (vollständige Liste: `Report_Baukasten_Stufe_D_Plan.md` §1). Sie
  * sind damit für GENAU EINE Reihenfolge geschrieben. Verschiebt ein Umbau einen Baustein oder
  * wählt die Admin-Auswahl ihn ab, zeigt der Satz auf etwas, das nicht (mehr) dort steht — viermal

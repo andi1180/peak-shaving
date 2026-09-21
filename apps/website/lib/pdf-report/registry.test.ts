@@ -551,7 +551,7 @@ describe('Stufe D — `entries` ist die Leseordnung des Dokuments', () => {
     const layout = layoutFor(KATALOG_POSITIV)
 
     expect(layout.place('catalog_alternatives', { kind: 'block', id: 'recommendation' })).toBe(
-      'im Kapitel „Empfehlung und Lastverlauf"',
+      'im Kapitel „Empfehlung und Wirtschaftlichkeit"',
     )
   })
 })
