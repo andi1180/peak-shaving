@@ -75,6 +75,74 @@ aber (1.1.2023 = Sonntag, 1.1.2025 = Mittwoch), und der Tagesverlauf hängt am W
 geschlossen, Samstag verkürzt). Peak und `annual_max` bleiben trotzdem gleich: der Jahres-Peak
 entsteht aus dem Ofen-Anlauf, nicht aus dem Wochentagsmuster.
 
+## `demo-baeckerei-lastgang-verschoben-2025.csv` (Wochentag-erhaltende Verschiebung, 21.09.2026)
+
+**Dieselbe Wertereihe wie `demo-baeckerei-lastgang-2023.csv`, bit-genau — nur die Zeitstempel sind
+um 735 Tage (105 Wochen) nach vorne geschoben.** Zeitraum **05.01.2025 … 04.01.2026**, Sonntag bis
+Sonntag. Erzeugt von `shift-demo-baeckerei-lastgang.mjs`.
+
+**Warum es diese Datei NEBEN `demo-baeckerei-lastgang-2025.csv` gibt:** der Generator bildet jeden
+Tag aus SEINEM Wochentag, der 2025er-Jahrgang ist deshalb eine ANDERE Wertereihe (s. „Warum die
+Summen nicht identisch sind" oben). Für eine Messung, deren Bezugszahlen am 2023er-Jahrgang erhoben
+wurden, muss die Reihe identisch bleiben — verschoben wird der Zeitstempel, nicht das Profil.
+
+**Warum ein Vielfaches von 7 Tagen:** 01.01.2023 ist ein Sonntag, 01.01.2025 ein Mittwoch. Eine
+blosse Umbenennung der Jahreszahl verschöbe das Wochenmuster um drei Tage — aus dem geschlossenen
+Sonntag (3,354 kW Mittel) würde ein Mittwoch mit voller Ofenlast. 735 ist die kleinste
+wochentagserhaltende Verschiebung, die die Upload-Sperre „kein Lastgang vor dem 1.1.2025" (Delta 15
+Regel B) passiert; 728 landete am 29.12.2024.
+
+**In Kauf genommen:** Kalendertag und Jahreszeit verschieben sich um vier Tage, und die Reihe ragt
+vier Tage in 2026. Folgenlos — `consumption-pattern.ts` führt den Monat ohnehin ohne Jahr.
+
+Gegengeprüft (Wochentagsmittel, beide Dateien identisch): So **3,354 kW** (n=53) · Mo–Fr
+**11,503–11,513 kW** (je n=52) · Sa **9,721 kW** (n=52). Stichprobe: Sonntag 12.03.2023 →
+16.03.2025, ebenfalls Sonntag, 96 Slots, Slot-für-Slot identisch. Durch `parseLoadProfile`:
+`ok`, 35.040 Slots, `import_only`, `coveredMonths` 12, `coveredDays` 365, Jahres-Peak
+**50,780 kW**, Σ 88.221,7 kWh — dieselben Kennzahlen wie der 2023er-Jahrgang.
+
+### Reserve-Messung an diesem Lastgang (21.09.2026)
+
+Wiener Netze NE 3, Leistungspreis **38,52 €/kW·a**, `monthly_max_average`
+(`packages/shared/src/tariff-catalog.ts:207-223`, Preisblatt WN-EX0105 V1/2026) · Speicher
+60 kWh / 30 kW / η 0,9 (die Vergleichskonfiguration oben):
+
+| | Wert |
+|---|---|
+| `capKwByPeriod` (12 Monate) | **20,170 – 20,780 kW** (roher Peak 50,780 kW) |
+| Intervalle mit `draw > cap` | 3.474 von 35.040 (**9,91 %**) |
+| Intervalle mit `socFloor > 0` | 6.431 von 35.040 (**18,4 %**) |
+| `socFloor` Mittel / Max | 1,912 kWh / **28,355 kWh** (47 % der Kapazität) |
+| `newBilledKw` | 20,547 kW (−30,000 kW) → **1.155,60 €/a** Leistungspreis-Ersparnis |
+
+**Die Reserve bindet fast ausschliesslich 02:00–05:00** (Ø `socFloor` 03:00 = 13,89 kWh,
+04:00 = 21,85 kWh; ab 06:00 durchgehend 0) — sie baut sich vor der Ofen-Spitze auf und ist danach
+verbraucht.
+
+**Konflikt mit dem Arbitrage-Fenster** (aWATTar AT, Rohkurve, 8.760 Stundenwerte über denselben
+Zeitraum, lückenlos): die Tagesspitze um 05:00 liegt preislich im **Mittelfeld** (Ø Rang 11,77 von
+24; an 15,3 % der Tage in den 6 billigsten, an 5,2 % in den 6 teuersten Stunden). Die billigsten
+Stunden sind **12:00–14:00** (5,58–6,18 ct/kWh) — dort ist `socFloor` durchgehend **0**. Die Reserve
+trifft nur das **nächtliche** Billigfenster (02:00–03:00). In den 6 billigsten Stunden je Tag sind
+Ø 2,864 kWh gebunden (4,8 % der Kapazität) gegen 0,108 kWh (0,2 %) in den 6 teuersten. Bei Ø
+8,38 ct/kWh Tages-Spread ergibt das eine **Obergrenze von 60,41 €/Jahr** entgangener Arbitrage —
+gegen 1.155,60 €/a Leistungspreis-Ersparnis.
+
+**⚠ Die Euro-Zahl der Energieseite ist NICHT über den Produktionspfad gerechnet, und zwar aus einem
+strukturellen Grund:** `intervalTariffRates` verlangt einen Abgabenzeitraum (Delta 16b), und die
+belegten Sätze in `packages/shared/src/levies.ts` decken **nur Netzebene 7 ab 2026-01-01** ab. Der
+Leistungspreis ist umgekehrt nur für **NE 3** belegt. Gemessen für Wiener Netze:
+
+| | NE 3 | NE 4–6 | NE 7 |
+|---|---|---|---|
+| Leistungspreis | 38,52 | `pending_regulation` | `pending_regulation` |
+| Abgabenzeiträume im 2025-Fenster | 0 | 0 | 2 |
+
+**Die beiden Schichten überlappen heute für keine Netzebene** → `priceCurveComputable` ist in diesem
+Lauf `false`, der Energie-Anteil der Engine ist 0,00 €/a, und `computePredictiveControlValue`
+verweigert bei diesem Kunden ohnehin zuerst mit `demand_charge`. Die 60,41 € oben sind deshalb
+eine **direkt auf der aWATTar-Rohkurve gerechnete Obergrenze**, keine Engine-Zahl.
+
 ## `demo-baeckerei-mit-pv-netzlastgang-2023.csv` + `demo-baeckerei-pv-erzeugung-2023.csv` (PV-Paar)
 
 Ein **konsistentes Paar** für den PvProfile-Pfad (Upload → Engine → Trace, §3.1):
@@ -188,6 +256,7 @@ node dev-fixtures/generate-demo-pv-profile.mjs --year 2023      # das eingefrore
 node dev-fixtures/generate-eda-netzbetreiber-fixtures.mjs  # Format A (Split-Timestamp + Mehrspalten)
 node dev-fixtures/generate-wechselrichter-ess-fixtures.mjs # Format B (ESS-XLSX, wird abgelehnt)
 node dev-fixtures/generate-teiljahr-lastgang.mjs           # Teiljahres-Lastgang (7 Tage, §3.5-Regression)
+node dev-fixtures/shift-demo-baeckerei-lastgang.mjs        # 2023er-Bäcker wochentagserhaltend nach 2025 verschoben
 ```
 
 Alle deterministisch (fixer Seed) — erzeugen bei jedem Lauf byte-identische Ausgabe (auch der
