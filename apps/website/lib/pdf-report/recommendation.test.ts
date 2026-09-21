@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { MonthlyTariffComparison } from 'shared'
+import type { DispatchTrace, MonthlyTariffComparison } from 'shared'
 
 import { SECTION_ID } from './content'
 import { reportLayoutOf, type ReportPlacement } from './layout'
@@ -118,6 +118,49 @@ describe('load_control — der Betrag steht hier, und der Satz zeigt nirgendwohi
     expect(body).not.toContain('Eigenverbrauch')
     expect(body).not.toContain('Kernergebnis')
     expect(body).toContain('steckt in der Gesamtersparnis dieses Speichers bereits mit drin')
+  })
+})
+
+const TRACE: DispatchTrace = {
+  capKwByPeriod: [30, 35],
+  caughtPeaks: [],
+  representativeDays: [],
+}
+
+/**
+ * a8f1934 hat die Kapp-Schwelle und den Leistungswert vorher/nachher aus dem Kapitel entfernt, weil
+ * beide Sätze am Bildlegenden-Text hingen. Sie stehen jetzt als eigene Zeilen der Aufschlüsselung,
+ * im Format des alten `peak_shaving`-Zeilenpaars aus `summary.ts` (vor #290).
+ */
+describe('recommendation — Kapp-Zeilen', () => {
+  it('erscheinen bei leistungspreisSavingPerYear > 0 mit Schwelle und Leistungswert vorher/nachher', () => {
+    const analysis = analysisFor(false)
+    analysis.perBattery = [{ ...ENTRY, dispatchTrace: TRACE }]
+
+    const rows = buildRecommendationChapter(analysis).recommendation!.rows
+
+    expect(rows).toContainEqual({
+      label: 'Kapp-Schwelle',
+      value: 'zwischen 30 kW und 35 kW (je Abrechnungsperiode)',
+      tone: 'neutral',
+    })
+    expect(rows).toContainEqual({
+      label: 'Abgerechneter Leistungswert heute',
+      value: '48 kW',
+      tone: 'neutral',
+    })
+    expect(rows).toContainEqual({ label: 'Mit dem Speicher', value: '40 kW', tone: 'neutral' })
+  })
+
+  it('fehlen ohne Leistungspreis-Ersparnis (leistungspreisSavingPerYear = 0)', () => {
+    const analysis = analysisFor(false)
+    analysis.perBattery = [{ ...ENTRY, leistungspreisSavingPerYear: 0, dispatchTrace: TRACE }]
+
+    const labels = buildRecommendationChapter(analysis).recommendation!.rows.map((r) => r.label)
+
+    expect(labels).not.toContain('Kapp-Schwelle')
+    expect(labels).not.toContain('Abgerechneter Leistungswert heute')
+    expect(labels).not.toContain('Mit dem Speicher')
   })
 })
 
