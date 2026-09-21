@@ -62,6 +62,12 @@ Ein Kalkulator, der aus dem Viertelstunden-Lastgang eines Gewerbebetriebs die Be
 
 ## Arbeitsregeln — aus Fehlern entstanden, verbindlich
 
+**Grundsatz (Andreas, 21.09.2026):** Abweichungen vom Pflichtenheft sind erlaubt, wenn sie fachlich Sinn machen — wir arbeiten agil, nicht starr.
+
+> Der Grundsatz steht bewusst VOR den nummerierten Regeln und ist die einzige Zeile hier, die nicht
+> aus einem Fehler entstanden ist. Er entbindet nicht von den Regeln darunter und nicht von der
+> Pflicht, eine Abweichung im betroffenen Dokument als Revision zu vermerken (nicht zu löschen).
+
 > Jede dieser Regeln steht hier, weil ihr Fehlen mindestens einmal einen Fehler erzeugt hat, den **kein Test und kein Build gefangen hat**. Sie gelten für jede Arbeit an `platform`, an den Wrappern und an den Deployments — Kalkulator wie Website.
 
 1. **Vor jedem `DROP` oder `RENAME` einer Spalte im `platform`-Schema werden ALLE Funktionsrümpfe per `pg_get_functiondef` nach dem Spaltennamen durchsucht.** plpgsql prüft Funktionsrümpfe **nicht** beim Anlegen: Die Migration läuft sauber durch, und die Funktion bricht erst beim **ersten Aufruf** — also im Betrieb, nicht im CI. **Zweimal aufgetreten** (B3-4: ein fehlender Join in `admin_lead_source_stats`; Namens-Split: `admin_list_leads`/`admin_export_leads`/`admin_get_lead` lasen `ld.contact_name` und standen gar nicht in der Aufgabenstellung).
@@ -147,12 +153,21 @@ Analyse-Bündel.** Der Marker `basis: 'foresight_unvalidated'` reist mit der Zah
 `energyPriceBasis`). Fachliche Tiefe: `Pflichtenheft_Vorausschauende_Ladesteuerung.md`,
 Messgrundlage `Vorausschauende_Ladesteuerung_Bestandsaufnahme.md`.
 
-**Nur Weg c, nur ohne Leistungspreis:** gerechnet wird bei `leistungspreisCostPerYear === 0` mit
-`cap = ∞`/`socFloor ≡ 0` — für diese Kunden ist das keine Abweichung, sondern genau der heutige
-Produktivpfad (Blocker `no_demand_charge`). Bei Leistungspreis > 0 wird mit benanntem Grund
-**verweigert** (`demand_charge`), weil `cap`/`socFloor` Periodengrössen sind und auf einen
-Tageshorizont nicht reduzierbar — Weg a/b bleiben offen `[ANDREAS]`. Ebenso verweigert werden
-`standard_profile` (Muster und Wahrheit wären dieselbe Formel) und eine fehlende echte Preiskurve.
+**~~Nur Weg c, nur ohne Leistungspreis~~ — seit 21.09.2026 WEG a, für alle Kunden:** `cap` und
+`socFloor` kommen aus einem Rückblick-Lauf desselben Kunden und Zeitraums
+(`simulation/peak-constraints.ts`, dieselbe Funktion wie `simulateBattery`); der Blocker
+`demand_charge` ist entfallen. Getauscht bleibt allein die Verbrauchserwartung — **der Lauf ist
+damit nur zur Hälfte vorausschauend, die Spitzenschutz-Seite ist perfektes Wissen**, und genau das
+steht im Modulkopf. Verweigert werden weiterhin `standard_profile` (Muster und Wahrheit wären
+dieselbe Formel) und eine fehlende echte Preiskurve; Weg b bleibt offen `[ANDREAS]`.
+
+**⚠ Beim Lesen der Zahl mitzudenken (an einer synthetischen Leistungspreis-Last gemessen):**
+`searchCaps` liefert die niedrigste tragbare Schwelle — bindet die daraus folgende Reserve fast die
+ganze Batterie (Plateau-Last, `socFloor` max 25,8 von 30 kWh), wird die Zahl gegenüber der Prognose
+unempfindlich: `realizationRatio` exakt 1,000, obwohl sich die Preis-Untergrenze in 420 von 480
+Intervallen unterscheidet. Bei kurzer Spitze (`socFloor` max 8,0 kWh) schlägt dieselbe Prognose
+durch (0,955). **Eine 1,000 ist hier zuerst ein Hinweis auf eine gebundene Batterie, nicht auf eine
+perfekte Prognose.**
 
 **⚠ Die Eimer-Einteilung `month` ist `[ANNAHME, vorläufig]` und revisionspflichtig**
 (`DEFAULT_CONSUMPTION_PATTERN_SCHEME`); alle drei zulässigen Schemata sind als Parameter rechenbar,

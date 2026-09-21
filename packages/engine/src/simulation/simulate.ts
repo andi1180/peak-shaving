@@ -1,21 +1,11 @@
 import type { BatteryCandidate, LoadProfile, PvProfile, TariffParams, TariffPricingInputs } from 'shared'
 
 import { getTariffStrategy } from '../tariff/strategy'
-import { searchCaps } from './cap-search'
 import { dailyPriceOrder } from './daily-price-order'
 import { runCombinedDispatch, type DispatchResult } from './dispatch'
-import {
-  capForIntervalSeries,
-  drawSeries,
-  intervalHours,
-  periodIndexByInterval,
-  periodSlotCount,
-  startSoc,
-  toPhysics,
-} from './helpers'
-import { isPeakShavingDisabled } from './peak-shaving'
+import { drawSeries, intervalHours, startSoc, toPhysics } from './helpers'
+import { peakConstraints } from './peak-constraints'
 import { alignPvGrossToLoad } from './pv'
-import { computeSocFloor } from './reserve'
 import { intervalTariffRates } from './tou'
 
 /**
@@ -112,28 +102,17 @@ export function simulateBattery(
   const physics = toPhysics(battery)
   const deltaH = intervalHours(loadProfile)
   const draws = drawSeries(loadProfile)
-  const periodOfInterval = periodIndexByInterval(loadProfile, tariffParams.billingModel)
+
   /*
-   * Delta 3/Delta 8 (9b-1): NICHT mehr nur `controlType === 'static'`. Dieselbe reserve-freie
-   * Konfiguration gilt auch für ein SYNTHETISCHES Standardlastprofil (keine gemessene Spitze, die
-   * zu kappen wäre) und für einen Tarif OHNE Leistungspreis (kein Posten, den eine Kappung senken
-   * könnte). Die Bedingung steht an genau EINER Stelle (`peakShavingBlockers`), weil die
-   * Zuschreibung in §3.7 dieselbe Antwort braucht.
+   * 1.+2. Kapp-Suche (§3.6.1) und Spitzen-Reserve (§3.6-Kasten) — inklusive der Delta-3/Delta-8-
+   * Sperre, die beide auf `cap = ∞` / `socFloor ≡ 0` setzt. Seit dem 21.09.2026 in
+   * `peak-constraints.ts`, weil der vorausschauende Lauf (Weg a) DIESELBEN Schranken übernimmt.
    */
-  const noPeakShaving = isPeakShavingDisabled(loadProfile, battery, tariffParams)
-
-  // 1. Kapp-Suche (§3.6.1). Ohne Spitzenkappung → `cap = ∞` je Contract-Slot (nie eine Spitze
-  //    gekappt); sonst die niedrigste machbare Schwelle je Periode.
-  const capKwByPeriod = noPeakShaving
-    ? new Array<number>(periodSlotCount(tariffParams.billingModel)).fill(Infinity)
-    : searchCaps(loadProfile, physics, tariffParams.billingModel).capKwByPeriod
-  const capForInterval = capForIntervalSeries(capKwByPeriod, periodOfInterval)
-
-  // 2. Spitzen-Reserve (§3.6-Kasten). Bei `cap = ∞` ergäbe `computeSocFloor` ohnehin überall 0; ohne
-  //    Spitzenkappung setzen wir die reserve-freie Trajektorie direkt (kein Rückwärts-Pass nötig).
-  const socFloorKwh = noPeakShaving
-    ? new Array<number>(draws.length).fill(0)
-    : computeSocFloor(draws, capForInterval, physics, deltaH)
+  const { capKwByPeriod, capForInterval, socFloorKwh } = peakConstraints(
+    loadProfile,
+    battery,
+    tariffParams,
+  )
 
   // 3. Kombinierter Dispatch (§3.6). Günstige Tarif-Fenster (§3.7 Schritt 5a) steuern das
   //    tarifbewusste Laden; ohne Fenster ist `isCheapWindow` überall false → reiner Spitzenschutz.

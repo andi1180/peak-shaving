@@ -208,7 +208,11 @@ oder eine bewusste Ausnahme davon.
    Kalkulator-Pfad geholt oder dupliziert (Verhältnis zum Monitor-Produkt zu klären, `[MARTIN]`),
    (b) eine Entscheidung zur LP-Optimum-Validierungsfrage.
 
-**Entschieden (Andreas, 16.09.2026, nach dem ersten Live-Test): Variante 1, drei Balken.**
+**~~Entschieden (Andreas, 16.09.2026, nach dem ersten Live-Test): Variante 1, drei Balken.~~
+⚠ ÜBERHOLT durch die Revision vom 21.09.2026 unmittelbar darunter — steht als Beleg der
+Entscheidungsgeschichte da, ist aber nicht mehr maßgeblich.**
+
+**Revidiert (Andreas, 21.09.2026):** Scope ist FÜNF Wege. 1) aktueller Tarif, 2) alternativer Tarif (nur wenn vom Kunden angegeben), 3) aWATTar ohne Ladesteuerung, 4) aWATTar mit vorausschauender Ladesteuerung — gilt für ALLE Kunden, nicht nur Weg-c-Fälle, 5) Lastspitzenkappung als eigener Weg, wenn der Speicher den abgerechneten Leistungswert senkt. Vorhandene Batterie wird für alle fünf Wege herangezogen UND zusätzlich unter „Zahlt sich ein weiterer Speicher aus" geprüft; ohne vorhandene Batterie wird eine Erstanschaffung empfohlen.
 
 **Korrektur nach dem Live-Test:** „sofort baubar, keine neue Engine-Arbeit" war zu optimistisch.
 `runAnalysisFromMeteringPointDraft` (D3) setzt `payload.tariffPricing` nirgends — ohne dieses Feld
