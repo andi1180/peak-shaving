@@ -264,6 +264,8 @@ const CHARTS: ReportChartRasters = {
   load: null,
   loadError: null,
   loadVertices: null,
+  ways: null,
+  waysError: null,
   cost: null,
   costError: null,
   costKind: null,
@@ -282,6 +284,7 @@ const CHARTS: ReportChartRasters = {
   captureMs: 0,
   figureMs: {
     load: null,
+    ways: null,
     cost: null,
     monthly: null,
     flow: null,
