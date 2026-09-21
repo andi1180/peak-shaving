@@ -7,7 +7,13 @@ import { buildLevySchedule, findLevyPeriod } from './levies'
 
 describe('buildLevySchedule — was belegt ist, wird geschnitten; was fehlt, bleibt Lücke', () => {
   it('schneidet den Gebrauchsabgabe-Sprung am 01.03.2026 zu ZWEI Zeiträumen', () => {
-    const { periods } = buildLevySchedule('wiener_netze', 7, '2026-01-30', '2026-08-26')
+    const { periods } = buildLevySchedule(
+      'wiener_netze',
+      7,
+      '2026-01-30',
+      '2026-08-26',
+      'ohne_leistungsmessung',
+    )
 
     expect(periods.map((p) => [p.validFrom, p.gebrauchsabgabeRate])).toEqual([
       ['2026-01-01', 0.06],
@@ -24,7 +30,13 @@ describe('buildLevySchedule — was belegt ist, wird geschnitten; was fehlt, ble
      * Kalendertag) und die Jahres-Hochrechnung, die Tage ausserhalb des Messzeitraums bewertet.
      * Auf den Ausschnitt beschnitten fände beides keinen Satz und der Hebel fiele stumm aus.
      */
-    const { periods } = buildLevySchedule('wiener_netze', 7, '2026-05-01', '2026-05-02')
+    const { periods } = buildLevySchedule(
+      'wiener_netze',
+      7,
+      '2026-05-01',
+      '2026-05-02',
+      'ohne_leistungsmessung',
+    )
 
     expect(findLevyPeriod(periods, '2026-01-01')).not.toBeNull()
     expect(findLevyPeriod(periods, '2026-12-31')).not.toBeNull()
@@ -32,11 +44,50 @@ describe('buildLevySchedule — was belegt ist, wird geschnitten; was fehlt, ble
     expect(findLevyPeriod(periods, '2027-01-01')).toBeNull()
   })
 
-  it('liefert GAR NICHTS, wo eine der drei Quellen fehlt — statt den Posten still auf 0 zu setzen', () => {
-    // NE 5: kein belegter EAG-Satz. Netz NÖ: keine belegte Gebrauchsabgabe. 2025: keine Sätze.
-    expect(buildLevySchedule('wiener_netze', 5, '2026-01-01', '2026-12-31').periods).toEqual([])
+  it('liefert GAR NICHTS, wo eine der vier Quellen fehlt — statt den Posten still auf 0 zu setzen', () => {
+    // Netz NÖ: keine belegte Gebrauchsabgabe.
     expect(buildLevySchedule('netz_noe', 7, '2026-01-01', '2026-12-31').periods).toEqual([])
-    expect(buildLevySchedule('wiener_netze', 7, '2025-01-01', '2025-12-31').periods).toEqual([])
+    // 2025: Elektrizitätsabgabe und Gebrauchsabgabe sind für dieses Jahr nicht belegt — die
+    // EAG-Sätze allein genügen nicht.
+    expect(
+      buildLevySchedule('wiener_netze', 7, '2025-01-01', '2025-12-31', 'ohne_leistungsmessung')
+        .periods,
+    ).toEqual([])
+    /*
+     * ⚠ Netzebene 7 OHNE Messvariante: EX104 führt für NE 7 drei Zeilen und keine variantenlose.
+     * Wer die Variante nicht mitgibt, bekommt deshalb nichts — nicht ersatzweise eine der drei.
+     */
+    expect(buildLevySchedule('wiener_netze', 7, '2026-01-01', '2026-12-31').periods).toEqual([])
+  })
+
+  it('trägt die EX104-Sätze je Netzebene und Messvariante', () => {
+    const at = (ne: number, variant: string | null) =>
+      findLevyPeriod(
+        buildLevySchedule('wiener_netze', ne, '2026-06-01', '2026-06-02', variant).periods,
+        '2026-06-01',
+      )
+
+    // NE 6: Grundpreis ist ein LEISTUNGSpreis, Verbrauchspreis 0,198 + Verlust 0,011.
+    expect(at(6, null)).toMatchObject({
+      eagFoerderbeitragGrundpreisAmount: 5.252,
+      eagFoerderbeitragGrundpreisUnit: 'eur_per_kw_year',
+      eagPauschaleEurPerYear: 553.36,
+    })
+    expect(at(6, null)!.eagFoerderbeitragCtPerKwh).toBeCloseTo(0.209, 10)
+
+    // NE 7 ohne Leistungsmessung — der Fall, den Urbanz und der öffentliche Rechner treffen.
+    expect(at(7, 'ohne_leistungsmessung')).toMatchObject({
+      eagFoerderbeitragGrundpreisAmount: 3.796,
+      eagFoerderbeitragGrundpreisUnit: 'eur_per_year',
+      eagPauschaleEurPerYear: 19.02,
+    })
+    expect(at(7, 'ohne_leistungsmessung')!.eagFoerderbeitragCtPerKwh).toBeCloseTo(0.62, 10)
+
+    // Dieselbe Netzebene, andere Variante, anderer Satz — der Grund für den neuen Parameter.
+    expect(at(7, 'mit_leistungsmessung')).toMatchObject({
+      eagFoerderbeitragGrundpreisAmount: 5.619,
+      eagFoerderbeitragGrundpreisUnit: 'eur_per_kw_year',
+    })
   })
 })
 

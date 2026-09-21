@@ -52,7 +52,13 @@ const WN_MESSPREIS_EUR_PER_MONTH = 2.18
 /** Die belegten Sätze 2026 (s. `packages/shared/src/levies.ts`). */
 const ELEKTRIZITAETSABGABE_CT = 0.1
 const EAG_FOERDERBEITRAG_CT = 0.62
-const EAG_PAUSCHALE_EUR_PER_YEAR = 3.8
+/**
+ * ⚠ Bis zum 21.09.2026 stand hier 3,80 — das war der GRUNDPREIS des Förderbeitrags
+ * (3,796 €/Zählpunkt·Jahr), nicht die Förderpauschale. Die echte Pauschale der Netzebene 7 sind
+ * 19,02 €/Jahr (EX104). Beide fallen an, deshalb stehen jetzt beide da.
+ */
+const EAG_PAUSCHALE_EUR_PER_YEAR = 19.02
+const EAG_GRUNDPREIS_EUR_PER_YEAR = 3.796
 
 const iso = (ms: number): string => new Date(ms).toISOString()
 
@@ -121,6 +127,8 @@ function onlyLevy(overrides: Partial<LevySchedule['periods'][number]>): LevySche
         validUntil: null,
         elektrizitaetsabgabeCtPerKwh: 0,
         eagFoerderbeitragCtPerKwh: 0,
+        eagFoerderbeitragGrundpreisAmount: 0,
+        eagFoerderbeitragGrundpreisUnit: 'eur_per_year',
         eagPauschaleEurPerYear: 0,
         gebrauchsabgabeRate: 0,
         ...overrides,
@@ -173,10 +181,21 @@ describe('Die fünf fehlenden Kostenposten — Urbanz-Zuschnitt, Wiener Netze NE
       6,
     )
 
-    // 4 — EAG-Pauschale: 3,80 €/Jahr über 209 von 365 Tagen = 2,18 €.
-    const pauschale = run(onlyLevy({ eagPauschaleEurPerYear: EAG_PAUSCHALE_EUR_PER_YEAR }), false)
+    /*
+     * 4 — die beiden verbrauchsUNabhängigen EAG-Teile, tagesanteilig über 209 von 365 Tagen:
+     * Förderpauschale 19,02 €/Jahr und der Grundpreis des Förderbeitrags 3,796 €/Zählpunkt·Jahr.
+     * Sie landen bewusst in DERSELBEN Fixposten-Zeile (`eagFlatFeeEur`) — für den Kunden ist es
+     * ein Betrag, und getrennt ausgewiesen bräuchte der Report eine Zeile, die niemand liest.
+     */
+    const pauschale = run(
+      onlyLevy({
+        eagPauschaleEurPerYear: EAG_PAUSCHALE_EUR_PER_YEAR,
+        eagFoerderbeitragGrundpreisAmount: EAG_GRUNDPREIS_EUR_PER_YEAR,
+      }),
+      false,
+    )
     expect(pauschale.fixedCosts.eagFlatFeeEur).toBeCloseTo(
-      (EAG_PAUSCHALE_EUR_PER_YEAR * 209) / 365,
+      ((EAG_PAUSCHALE_EUR_PER_YEAR + EAG_GRUNDPREIS_EUR_PER_YEAR) * 209) / 365,
       6,
     )
 
@@ -194,8 +213,8 @@ describe('Die fünf fehlenden Kostenposten — Urbanz-Zuschnitt, Wiener Netze NE
     // Alle fünf gemeinsam, mit den ECHTEN datierten Sätzen (6 % bis 28.02., danach 7 %).
     const full = run(levySchedule(), true)
     const delta = sum(full.currentTariffEur) - sum(BASE.currentTariffEur)
-    expect(delta).toBeGreaterThan(70)
-    expect(delta).toBeLessThan(76)
+    expect(delta).toBeGreaterThan(82)
+    expect(delta).toBeLessThan(87)
   })
 
   it('⚠ die Abgaben stehen in ALLEN DREI Reihen, nicht nur bei „Ihr Tarif heute"', () => {
@@ -216,7 +235,7 @@ describe('Die fünf fehlenden Kostenposten — Urbanz-Zuschnitt, Wiener Netze NE
 
     expect(deltas[1]).toBeCloseTo(deltas[0]!, 9)
     expect(deltas[2]).toBeCloseTo(deltas[0]!, 9)
-    expect(deltas[0]).toBeGreaterThan(70)
+    expect(deltas[0]).toBeGreaterThan(82)
     // Die Grundgebühren-Zuordnung bleibt davon unberührt: aWATTar zahlt weiter seine eigene.
     expect(full.fixedCosts.awattarBaseFeeEur).toBeCloseTo(
       (AWATTAR_BASE_FEE.eurPerMonth * 209) / 30.5,
@@ -245,10 +264,14 @@ describe('Die fünf fehlenden Kostenposten — Urbanz-Zuschnitt, Wiener Netze NE
 })
 
 describe('Ohne belegte Sätze wird der Hebel verweigert, nicht zu niedrig gerechnet', () => {
-  it('eine unbelegte Netzebene liefert einen leeren Plan — und damit KEINE Monatsreihen', () => {
-    // NE 5: der EAG-Förderbeitrag ist dafür nicht belegt (nur NE 7). Ein Plan ohne Zeitraum führt
-    // im Rechenkern zur Lückenmeldung; eine halbe Rechnung entsteht nicht.
-    expect(buildLevySchedule('wiener_netze', 5, '2026-01-30', '2026-08-26').periods).toEqual([])
+  it('eine unbelegte Kombination liefert einen leeren Plan — und damit KEINE Monatsreihen', () => {
+    /*
+     * ⚠ Seit dem EX104-Nachtrag sind NE 3–7 alle belegt; der unbelegte Fall ist jetzt die
+     * MESSVARIANTE. EX104 führt für NE 7 drei Zeilen und keine variantenlose — wer keine mitgibt,
+     * bekommt nichts. Ein Plan ohne Zeitraum führt im Rechenkern zur Lückenmeldung; eine halbe
+     * Rechnung entsteht nicht.
+     */
+    expect(buildLevySchedule('wiener_netze', 7, '2026-01-30', '2026-08-26').periods).toEqual([])
     expect(
       buildMonthlyTariffComparison(
         LOAD,
@@ -260,21 +283,24 @@ describe('Ohne belegte Sätze wird der Hebel verweigert, nicht zu niedrig gerech
   })
 
   it('ein unbelegter Netzbetreiber ebenso — Wien ist die einzige hinterlegte Gebrauchsabgabe', () => {
-    expect(buildLevySchedule('netz_noe', 7, '2026-01-30', '2026-08-26').periods).toEqual([])
+    expect(
+      buildLevySchedule('netz_noe', 7, '2026-01-30', '2026-08-26', 'ohne_leistungsmessung').periods,
+    ).toEqual([])
   })
 })
 
 /** Der echte Plan des Referenzfalls. */
 function levySchedule(): LevySchedule {
-  return buildLevySchedule('wiener_netze', 7, '2026-01-30', '2026-08-26')
+  return buildLevySchedule('wiener_netze', 7, '2026-01-30', '2026-08-26', 'ohne_leistungsmessung')
 }
 
-/** Derselbe Zeitschnitt, aber ohne die beiden ct/kWh-Abgaben und ohne die Pauschale. */
+/** Derselbe Zeitschnitt, aber ohne die beiden ct/kWh-Abgaben und ohne die Fixbeträge. */
 function usageChargeOnly(p: LevySchedule['periods'][number]): LevySchedule['periods'][number] {
   return {
     ...p,
     elektrizitaetsabgabeCtPerKwh: 0,
     eagFoerderbeitragCtPerKwh: 0,
+    eagFoerderbeitragGrundpreisAmount: 0,
     eagPauschaleEurPerYear: 0,
   }
 }

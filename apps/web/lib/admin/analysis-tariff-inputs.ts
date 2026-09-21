@@ -336,6 +336,7 @@ export async function readTariffPricingForAnalysis(
             netzebene,
             toDateOnly(window.startIso),
             toDateOnly(window.endIso),
+            meteringVariant,
           )
         : null,
   }

@@ -72,6 +72,7 @@ export async function loadTariffPricing(
             netzebene,
             window.startIso.slice(0, 10),
             window.endIso.slice(0, 10),
+            meteringVariant,
           )
         : null,
     spotPrices: spotResult.ok
