@@ -7,6 +7,7 @@ import type {
   TariffParams,
   TariffPricingInputs,
 } from 'shared'
+import { LEVIES_NONE } from 'shared'
 
 import { topPeaksKw } from '../peaks/metrics'
 import type { BatterySimulationResult } from './simulate'
@@ -334,7 +335,7 @@ function chainCase() {
     complete: true,
     missingRanges: [],
   }
-  const pricing: TariffPricingInputs = { gridTariffRows: [FLAT_GRID], spotPrices }
+  const pricing: TariffPricingInputs = { gridTariffRows: [FLAT_GRID], spotPrices, levies: LEVIES_NONE }
   const sim = simulateBattery(load, CHAIN_BATTERY, FLAT_TARIFF, undefined, pricing)
   expect(sim.priceCurveComputable).toBe(true)
   return { load, sim, trace: buildDispatchTrace(load, FLAT_TARIFF, sim, topPeaksKw(load)) }

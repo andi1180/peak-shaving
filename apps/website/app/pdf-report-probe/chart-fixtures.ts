@@ -40,6 +40,9 @@ export const MONTHLY_COMPARISON_FIXTURE: MonthlyTariffComparison = {
   /* Ebenfalls dokumentiert (02.09.2026): Netz 30,92 € · Lieferant 0,00 € · aWATTar 33,07 €. */
   fixedCosts: {
     networkBaseFeeEur: 30.92,
+    meteringFeeEur: 0,
+    eagFlatFeeEur: 0,
+    usageChargeOnFixedEur: 0,
     supplierBaseFeeEur: 0,
     awattarBaseFeeEur: 33.07,
     supplierFeeEurPerMonth: 0,

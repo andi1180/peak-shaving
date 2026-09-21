@@ -7,6 +7,7 @@ import type {
   TariffParams,
   TariffPricingInputs,
 } from 'shared'
+import { LEVIES_NONE } from 'shared'
 
 import { simulateBattery } from '../simulation/simulate'
 import { computeBatterySavings } from './attribute'
@@ -151,6 +152,7 @@ function series(priceAt: (hourIndex: number) => number): SpotPriceSeriesInput {
 const pricing: TariffPricingInputs = {
   gridTariffRows: gridRows,
   spotPrices: series((h) => spotAt(h % 24)),
+  levies: LEVIES_NONE,
 }
 
 describe('§3.7.2 — der Eigenverbrauch wird am ENTLADE-Intervall bewertet, nicht am Fixtarif', () => {
@@ -229,6 +231,7 @@ function flatPricing(lowHour?: number, lowValue?: number): TariffPricingInputs {
   return {
     gridTariffRows: gridRows,
     spotPrices: series((h) => (h === lowHour ? (lowValue as number) : FLAT_SPOT_CT)),
+    levies: LEVIES_NONE,
   }
 }
 

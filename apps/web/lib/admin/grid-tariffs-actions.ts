@@ -103,6 +103,10 @@ export async function createGridTariffAction(
     p_metering_variant: input.meteringVariant ?? undefined,
     p_grundpreis_amount: input.grundpreisAmount,
     p_grundpreis_unit: input.grundpreisUnit,
+    // Beide zusammen oder beide weg — das Schema hat das Paar bereits geprüft, der CHECK in der
+    // Datenbank weist einen halben Eintrag zusätzlich ab.
+    p_messpreis_amount: input.messpreisAmount,
+    p_messpreis_unit: input.messpreisUnit,
     p_netzverlust_ct_per_kwh: input.netzverlustCtPerKwh,
     p_price_basis: input.priceBasis,
     p_valid_from: input.validFrom,
@@ -446,6 +450,10 @@ export async function backfillGridTariffAction(
     p_metering_variant: input.meteringVariant ?? undefined,
     p_grundpreis_amount: input.grundpreisAmount,
     p_grundpreis_unit: input.grundpreisUnit,
+    // Beide zusammen oder beide weg — das Schema hat das Paar bereits geprüft, der CHECK in der
+    // Datenbank weist einen halben Eintrag zusätzlich ab.
+    p_messpreis_amount: input.messpreisAmount,
+    p_messpreis_unit: input.messpreisUnit,
     p_netzverlust_ct_per_kwh: input.netzverlustCtPerKwh,
     p_price_basis: input.priceBasis,
     p_valid_from: input.validFrom,

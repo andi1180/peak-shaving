@@ -83,6 +83,20 @@ export const GRUNDPREIS_UNIT_LABELS: Record<GrundpreisUnit, string> = {
   eur_per_year: 'EUR / Jahr (Pauschale, kein Leistungspreis)',
 }
 
+/**
+ * Spiegel des CHECK `messpreis_unit in (…)`.
+ *
+ * Andere Werte als beim Grundpreis, weil die Preisblätter das Messentgelt je MONAT ausweisen —
+ * ein `eur_per_kw_year` gibt es hier nicht: ein Zähler hat keine Anschlussleistung.
+ */
+export const MESSPREIS_UNITS = ['eur_per_month', 'eur_per_year'] as const
+export type MesspreisUnit = (typeof MESSPREIS_UNITS)[number]
+
+export const MESSPREIS_UNIT_LABELS: Record<MesspreisUnit, string> = {
+  eur_per_month: 'EUR / Monat',
+  eur_per_year: 'EUR / Jahr',
+}
+
 /** Spiegel des CHECK `price_basis in (…)` — Delta 6. */
 export const PRICE_BASES = ['net', 'gross'] as const
 export type PriceBasisValue = (typeof PRICE_BASES)[number]
@@ -98,6 +112,7 @@ export const PRICE_BASIS_LABELS: Record<PriceBasisValue, string> = {
  */
 export const DEFAULT_PRICE_BASIS: PriceBasisValue = 'net'
 export const DEFAULT_GRUNDPREIS_UNIT: GrundpreisUnit = 'eur_per_kw_year'
+export const DEFAULT_MESSPREIS_UNIT: MesspreisUnit = 'eur_per_month'
 
 /**
  * Vorschläge für die Bezeichnung eines Zeitfensters. Bewusst NUR Vorschläge und kein CHECK: Delta 5
@@ -116,6 +131,9 @@ export type GridTariffRow = {
   metering_variant: string | null
   grundpreis_amount: number
   grundpreis_unit: string
+  /** Messentgelt. `null` = für diese Zeile nicht erfasst — dann rechnet der Rechner keines ein. */
+  messpreis_amount: number | null
+  messpreis_unit: string | null
   netzverlust_ct_per_kwh: number
   price_basis: string
   valid_from: string
@@ -267,6 +285,13 @@ export function meteringVariantLabel(value: string | null): string {
 
 export function grundpreisUnitLabel(value: string): string {
   return GRUNDPREIS_UNIT_LABELS[value as GrundpreisUnit] ?? value
+}
+
+/** Der Messpreis samt Einheit — `null`, wo für die Zeile keiner erfasst ist (dann steht nichts). */
+export function messpreisLabel(row: Pick<GridTariffRow, 'messpreis_amount' | 'messpreis_unit'>): string | null {
+  if (row.messpreis_amount == null || row.messpreis_unit == null) return null
+  const unit = MESSPREIS_UNIT_LABELS[row.messpreis_unit as MesspreisUnit] ?? row.messpreis_unit
+  return `${row.messpreis_amount} ${unit}`
 }
 
 export function priceBasisLabel(value: string): string {

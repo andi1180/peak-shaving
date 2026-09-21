@@ -146,6 +146,39 @@ Das erste inhaltliche Kapitel des PDF-Reports heisst nicht mehr „Kernergebniss
 
 **Gemessen am echten Urbanz-Lastgang** (209 Tage, echte Cloud-Preisdaten): € 770 Ist-Kosten, € 84 mögliche Ersparnis — **eine Zahl statt einer Spanne**, weil der reine Tarifwechsel bei diesem Kunden negativ ist. Die Zahlen des Zielbildes (€1.061, €53–€207) stammen aus einer Handrechnung und sind nicht reproduziert.
 
+### Fünf fehlende Kostenposten im Tarifvergleich (21.09.2026)
+
+Der Vergleich rechnete bis hierher nur Arbeitspreis, Netz-Arbeitspreis, Netzverlust,
+Netz-Grundpreis und die beiden Lieferanten-Grundgebühren. Neu dazu, alle in der **gemeinsamen,
+tarifübergreifenden Schicht** und damit in allen drei Reihen gleich: **Messpreis** (neue,
+nullable Spalte `grid_tariffs.messpreis_amount`/`_unit`, Migration
+`20260921120000_add_grid_tariff_messpreis.sql`), **Elektrizitätsabgabe**, **EAG-Förderbeitrag**,
+**EAG-Pauschale** und **Gebrauchsabgabe** (6 % → 7 % ab 01.03.2026, **nur auf den Netzpreis**:
+Netznutzung + Netzverlust + Netz-Grundpreis + Messpreis, ausdrücklich nicht auf Arbeitspreis,
+Lieferanten-Grundgebühr oder die übrigen Abgaben).
+
+Die vier Verordnungssätze liegen als versionierte Code-Konstanten in
+`packages/shared/src/levies.ts` (Muster `supplier-tariffs.ts`), aufgelöst an den Rändern
+(`apps/website/lib/tariff-pricing.ts`, `apps/web/lib/admin/analysis-tariff-inputs.ts`) und als
+Pflichtfeld `TariffPricingInputs.levies` in den Rechenkern gereicht. Anleitung und Stichtage:
+`DEPLOYMENT.md` §3a-bis.
+
+**⚠ Was daraus für jeden Umbau folgt:** (a) **Was nicht belegt ist, wird nicht gerechnet, sondern
+verweigert** — fehlt für eine Kombination aus Netzbetreiber/Netzebene/Zeitraum ein Satz, entsteht
+kein Abgabenzeitraum und der ganze Börsenpreis-Vergleich fällt mit benannter Lücke aus (neue
+Blocker-Seite `side: 'levy'`). Konkret: **NE 3–6, Netz NÖ, Salzburg Netz und ab 01.01.2027 ALLE**
+rechnen den Vergleich heute nicht. (b) Die Posten dürfen **nie** an `currentTariffEur` hängen —
+sonst stünde die spätere „Drei Wege"-Gegenüberstellung auf zwei Massstäben. (c) `LEVIES_NONE` ist
+ein Test-Hilfsmittel; ein Wächter in `packages/shared/src/levies.test.ts` hält es aus jedem
+Rechenweg heraus.
+
+**Am echten Urbanz-Lastgang live gemessen** (209 Tage, echte Cloud-Preisdaten, A/B):
+Ihr Tarif heute **769,73 € → 843,00 €**, aWATTar ungesteuert **890,07 € → 963,34 €** (beide
++73,27 €, identischer Massstab), aWATTar mit Speicher **685,85 € → 761,35 €** (+75,50 € — die
+Ladeverluste erhöhen die bezogene Energiemenge, an der die ct/kWh-Abgaben hängen). Der
+Netto-Disclaimer in `basis.ts` benennt jetzt die Umsatzsteuer statt der behobenen Posten und hängt
+an derselben Bedingung wie die Monatszahlen selbst.
+
 ### PV-Kopplung: kein Abzug mehr, wo die Anlage schon im Bezug steckt (19.09.2026)
 
 Für `source: 'import_only'` bei einem Kunden mit vorhandener PV-Anlage (`hasPv === true`) wird die geschätzte PVGIS-Erzeugung **nicht mehr vom Lastgang abgezogen** (`pvGeneratorEligibility`, dritte Prüfung, Grund `pv_already_in_grid_profile`). Ein Netzbetreiber-Export misst am Anschlusspunkt — die Eigenversorgung ist dort als gesenkter Bezug bereits enthalten. Am echten Urbanz-Fall: 5.212,67 kWh abgezogene Erzeugung gegen 4.321,17 kWh gemessenen Netzbezug über 209 Tage (das 1,21-fache); der gekoppelte Lastgang ersetzte dabei den echten für **alle** Rechnungen, weshalb schon Kapitel 1 falsche Kopfzahlen trug.

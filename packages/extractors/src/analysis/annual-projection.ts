@@ -237,6 +237,12 @@ export async function projectAnnualTariffComparison(
   const gapPricing: TariffPricingInputs = {
     gridTariffRows: pricing.gridTariffRows,
     spotPrices: { prices, complete, missingRanges },
+    /*
+     * Die Abgaben reisen UNVERÄNDERT mit: sie gelten für die hochgerechneten Tage genauso wie für
+     * die gemessenen. Der Plan deckt sie ab, weil er auf die berührten Kalenderjahre geweitet wird
+     * (`buildLevySchedule`) — auf das Messfenster beschnitten fiele die Hochrechnung hier weg.
+     */
+    levies: pricing.levies,
   }
 
   const projected = buildMonthlyTariffComparison(gapProfile, tariffParams, gapPricing, [])

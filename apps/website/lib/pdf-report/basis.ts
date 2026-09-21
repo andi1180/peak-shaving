@@ -220,9 +220,10 @@ export function buildDataQuality(analysis: PdfReportAnalysis): ReportNotice | nu
  * kein Freitext aus dem Befund: `TariffOptimizationBlocker` trägt `side` als Aufzählung, damit die
  * Anzeige nicht an einem Satz erkennen muss, worum es geht.
  */
-const SIDE_LABEL: Record<'grid_tariff' | 'spot_price', string> = {
+const SIDE_LABEL: Record<'grid_tariff' | 'spot_price' | 'levy', string> = {
   grid_tariff: 'Netzentgelte Ihres Netzbetreibers',
   spot_price: 'Börsen-Strompreise',
+  levy: 'gesetzliche Abgaben (Elektrizitätsabgabe, EAG, Gebrauchsabgabe)',
 }
 
 /** Was der Nutzer daraus machen kann — je Grund verschieden, und keiner davon ist sein Fehler. */
@@ -1169,10 +1170,22 @@ function buildMethodPerMetric(
  * nach einer Zahl suchen, die es nicht gibt.
  */
 export function buildLimitations(analysis: PdfReportAnalysis): ReportNotice {
+  /*
+   * ⚠ DER ERSTE SATZ HÄNGT AN DERSELBEN BEDINGUNG WIE DIE MONATSZAHLEN SELBST. Die Abgaben stecken
+   * im kombinierten Intervallpreis und in den anteiligen Fixkosten — beides gibt es nur, wenn der
+   * Börsenpreis-Vergleich berechenbar war. Unbedingt formuliert behauptete der Satz im Blocker-Fall
+   * Posten in Zahlen, die es in diesem Report gar nicht gibt.
+   */
   const hints: string[] = [
-    'Gerechnet wird durchgängig netto. Verbrauchsabgaben — Elektrizitätsabgabe, ' +
-      'EAG-Förderbeitrag und, wo sie anfällt, die Gebrauchsabgabe — sind in keiner Zahl dieses ' +
-      'Reports enthalten; Ihr tatsächlicher Rechnungsbetrag liegt entsprechend höher.',
+    analysis.tariffOptimization?.computable === true
+      ? 'Gerechnet wird durchgängig netto, also ohne Umsatzsteuer. Die Abgaben auf den Bezug sind ' +
+        'dagegen enthalten: Elektrizitätsabgabe, EAG-Förderbeitrag und EAG-Pauschale sowie die ' +
+        'Gebrauchsabgabe auf den Netzpreis stecken in den Monatskosten und damit in den ' +
+        'Kopfzahlen. Auf den Leistungspreis, der als eigene Jahreszahl ausgewiesen wird, ist die ' +
+        'Gebrauchsabgabe nicht aufgeschlagen.'
+      : 'Gerechnet wird durchgängig netto. Verbrauchsabgaben — Elektrizitätsabgabe, ' +
+        'EAG-Förderbeitrag und, wo sie anfällt, die Gebrauchsabgabe — sind in keiner Zahl dieses ' +
+        'Reports enthalten; Ihr tatsächlicher Rechnungsbetrag liegt entsprechend höher.',
   ]
 
   if (analysis.annualProjection) {

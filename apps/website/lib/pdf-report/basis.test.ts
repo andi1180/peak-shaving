@@ -396,6 +396,9 @@ function analysisWithSupplierFee(supplierFeeEurPerMonth: number): PdfReportAnaly
         coveredMonths: 12,
         fixedCosts: {
           networkBaseFeeEur: 240,
+          meteringFeeEur: 0,
+          eagFlatFeeEur: 0,
+          usageChargeOnFixedEur: 0,
           supplierBaseFeeEur: supplierFeeEurPerMonth * 12,
           awattarBaseFeeEur: 65.88,
           supplierFeeEurPerMonth,

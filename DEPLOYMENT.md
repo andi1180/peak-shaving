@@ -1401,6 +1401,46 @@ Vorgabewert ist schlimmer als ein fehlender — er sieht aus wie eine Aussage.
 
 ---
 
+## 3a-bis. Gesetzliche Abgaben nachtragen — Code, KEINE Datenbank ⚠️ STICHTAG 31.12.2026
+
+**Datei: `packages/shared/src/levies.ts`.** Sie hält Elektrizitätsabgabe, EAG-Förderbeitrag,
+EAG-Pauschale und Gebrauchsabgabe — Verordnungssätze, versioniert wie die B11-Tarifsätze in §3a und
+aus demselben Grund im Code: eine Satzänderung ist ein PR mit einer Datei, samt Fundstelle und
+Gegenlesen. Hinterlegt sind **ausschliesslich** belegte Sätze.
+
+**⚠️ Was heute belegt ist — und was daraus folgt:**
+
+| Abgabe | belegt für | Gültig bis |
+|---|---|---|
+| Elektrizitätsabgabe 0,10 ct/kWh | ganz Österreich | **31.12.2026** (BGBl. I 95/2025, befristet) |
+| EAG-Förderbeitrag 0,620 ct/kWh | **nur Netzebene 7** | 31.12.2026 |
+| EAG-Pauschale 3,80 €/Jahr | **nur Netzebene 7** | 31.12.2026 |
+| Gebrauchsabgabe 6 % → 7 % ab 01.03.2026 | **nur `wiener_netze`** | offen |
+
+Für jede Kombination, die hier fehlt, entsteht **kein Abgabenzeitraum** — und der Rechenkern
+**verweigert dann den ganzen Börsenpreis-Vergleich** mit einer benannten Lücke, statt eine zu
+niedrige Summe auszuweisen. Konkret heisst das:
+
+- **Ab 01.01.2027 fällt der Tarifvergleich für JEDEN Kunden aus**, solange die Sätze für 2027 nicht
+  nachgetragen sind. Das ist beabsichtigt (dieselbe Haltung wie `pending_regulation` in §3a), aber
+  es ist ein Stichtag, der im Kalender stehen sollte.
+- **Netzebene 3–6 rechnet den Vergleich heute gar nicht** — es fehlen die EAG-Sätze dieser Ebenen.
+- **Netz NÖ und Salzburg Netz ebenso** — es fehlt ihre Gebrauchsabgabe. Ein Netzbereich **ohne**
+  Gebrauchsabgabe (Burgenland, Vorarlberg) bekommt einen ausdrücklichen Eintrag mit `rate: 0`:
+  „nicht erfasst" und „fällt nicht an" dürfen nicht dieselbe Wirkung haben.
+
+**Einen Satz nachtragen:** einen weiteren datierten Eintrag in die betreffende Liste, mit
+`validFrom`/`validUntil` (Ende **inklusiv**) und `sourceNote`. Bestehende Einträge werden **nicht
+editiert** — eine 2026 gerechnete Baseline muss 2028 noch sagen können, womit sie gerechnet wurde.
+
+**Der Messpreis gehört NICHT hierher.** Er ist eine Netzbetreiber-Grösse je (Betreiber, Netzebene,
+Messvariante) und steht in `public.grid_tariffs` — gepflegt über das Admin-UI aus §3c, dort seit
+21.09.2026 als optionales Feld „Messpreis" samt Einheit. Bleibt es leer, wird **kein** Messpreis
+eingerechnet (nicht ein geschätzter). Belegt ist bislang genau eine Kombination: Wiener Netze,
+NE 7, `ohne_leistungsmessung`, Stand ab 01.01.2026 → **2,18 €/Monat** (Preisblatt WN-EX0105).
+
+---
+
 ## 3b. Referenzdaten-Tabellen im `public`-Schema (B21-1) — Tarifzeilen und Spotpreise
 
 Seit **27.08.2026** stehen drei Tabellen im `public`-Schema. Sie tragen **öffentliche Referenzdaten**

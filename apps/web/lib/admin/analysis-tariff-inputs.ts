@@ -23,6 +23,7 @@
  */
 import 'server-only'
 
+import { buildLevySchedule } from 'shared'
 import type {
   GridTariffRowInput,
   SpotPricePointInput,
@@ -65,7 +66,7 @@ const PAGE_SIZE = 1000
  * nicht und mitgelesen wären sie Fracht ohne Konsumenten.
  */
 const GRID_TARIFF_SELECT =
-  'netzverlust_ct_per_kwh, grundpreis_amount, grundpreis_unit, price_basis, valid_from, valid_until, grid_tariff_rate_windows(label, month_day_from, month_day_to, time_from, time_to, ct_per_kwh)'
+  'netzverlust_ct_per_kwh, grundpreis_amount, grundpreis_unit, messpreis_amount, messpreis_unit, price_basis, valid_from, valid_until, grid_tariff_rate_windows(label, month_day_from, month_day_to, time_from, time_to, ct_per_kwh)'
 
 export type GridTariffReadParams = {
   /** Kennung wie in `grid_tariffs.operator_id` gepflegt (`wiener_netze`, …). Ohne Fremdschlüssel, ohne CHECK. */
@@ -134,6 +135,10 @@ export async function readGridTariffRowsForAnalysis(
     netzverlustCtPerKwh: Number(row.netzverlust_ct_per_kwh),
     grundpreisAmount: Number(row.grundpreis_amount),
     grundpreisUnit: row.grundpreis_unit,
+    // ⚠ `null` bleibt `null` und wird NICHT zu 0: `Number(null)` wäre 0, und ein Messpreis von 0
+    // behauptete „es gibt keinen", wo in Wahrheit keiner gepflegt ist.
+    messpreisAmount: row.messpreis_amount == null ? undefined : Number(row.messpreis_amount),
+    messpreisUnit: row.messpreis_unit ?? undefined,
     priceBasis: row.price_basis,
     windows: (row.grid_tariff_rate_windows ?? []).map((w) => ({
       label: w.label,
@@ -319,5 +324,19 @@ export async function readTariffPricingForAnalysis(
   return {
     gridTariffRows: grid.status === 'fulfilled' ? grid.value : null,
     spotPrices: spot.status === 'fulfilled' ? spot.value : null,
+    /*
+     * Die Abgaben stammen aus der versionierten Code-Schicht (`shared/levies.ts`), nicht aus der
+     * Datenbank — dieselbe Auflösung wie im öffentlichen Rechner, damit beide Wege dieselbe
+     * Rechnung ergeben. Ohne Netzbetreiber/Netzebene nicht auflösbar.
+     */
+    levies:
+      operatorId !== null && netzebene !== null
+        ? buildLevySchedule(
+            operatorId,
+            netzebene,
+            toDateOnly(window.startIso),
+            toDateOnly(window.endIso),
+          )
+        : null,
   }
 }

@@ -300,6 +300,20 @@ export function MonthlyTariffChart({
               Reihen gleich hoch, er verschiebt den Vergleich also nicht.
             </li>
           )}
+          {fixed.meteringFeeEur > 0 && (
+            <li>
+              <strong>Messpreis</strong> Ihres Netzbetreibers, anteilig:{' '}
+              <Num className="text-ink">{formatEur2(fixed.meteringFeeEur)}</Num> — ebenfalls in
+              allen drei Reihen, der Zähler hängt am Anschluss.
+            </li>
+          )}
+          <li>
+            <strong>Abgaben auf den Bezug</strong>: Elektrizitätsabgabe und EAG-Förderbeitrag je
+            Kilowattstunde, die EAG-Pauschale anteilig mit{' '}
+            <Num className="text-ink">{formatEur2(fixed.eagFlatFeeEur)}</Num>, dazu die
+            Gebrauchsabgabe auf den Netzpreis. Sie gelten unabhängig vom Lieferanten und stehen
+            deshalb in allen drei Reihen gleich hoch.
+          </li>
           <li>
             <strong>Grundgebühr Ihres heutigen Lieferanten</strong>:{' '}
             {fixed.supplierFeeEurPerMonth > 0 ? (

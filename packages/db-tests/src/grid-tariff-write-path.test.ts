@@ -60,6 +60,7 @@ type Args = {
   grundpreis?: number
   windows?: unknown[]
   operator?: string
+  messpreis?: { amount: number; unit: string | null }
 }
 
 /** Der Aufruf, den auch die Server Action absetzt — benannte Argumente, wie PostgREST sie schickt. */
@@ -76,7 +77,9 @@ function callSql(a: Args): { text: string; values: unknown[] } {
              p_price_basis            => 'net',
              p_valid_from             => $5::date,
              p_created_by             => 'gate@test.local',
-             p_windows                => $6::jsonb
+             p_windows                => $6::jsonb,
+             p_messpreis_amount       => $7,
+             p_messpreis_unit         => $8
            ) as r`,
     values: [
       a.operator ?? OP,
@@ -97,6 +100,8 @@ function callSql(a: Args): { text: string; values: unknown[] } {
           },
         ],
       ),
+      a.messpreis?.amount ?? null,
+      a.messpreis?.unit ?? null,
     ],
   }
 }
@@ -144,6 +149,48 @@ describe('B21-2b — der Schreibweg legt Tarifzeile und Zeitfenster ATOMAR an', 
     expect(out.window_count).toBe(2)
     expect(out.closed_count).toBe(0)
     expect(out.closed_valid_until).toBeNull()
+  })
+
+  it('der Messpreis reist als PAAR mit — und ohne ihn bleiben beide Spalten null', async () => {
+    /*
+     * Die beiden Spalten sind der einzige Grund, aus dem diese Funktion neu angelegt wurde
+     * (DROP+CREATE, 21.09.2026). Geprüft wird deshalb der ECHTE Aufruf und was danach in der Zeile
+     * steht — Introspektion belegte nur, dass es die Parameter gibt.
+     */
+    const rows = await runAs({ role: 'service_role' }, async (c) => {
+      const withFee = await call(c, {
+        validFrom: '2026-01-01',
+        messpreis: { amount: 2.18, unit: 'eur_per_month' },
+      })
+      const without = await call(c, { validFrom: '2026-06-01' })
+      expect(withFee.status).toBe('created')
+      expect(without.status).toBe('created')
+      await readAsOwner(c)
+      const res = await c.query(
+        `select valid_from, messpreis_amount, messpreis_unit
+           from public.grid_tariffs
+          where operator_id = $1
+          order by valid_from`,
+        [OP],
+      )
+      return res.rows as { messpreis_amount: string | null; messpreis_unit: string | null }[]
+    })
+
+    expect(Number(rows[0]!.messpreis_amount)).toBe(2.18)
+    expect(rows[0]!.messpreis_unit).toBe('eur_per_month')
+    expect(rows[1]!.messpreis_amount).toBeNull()
+    expect(rows[1]!.messpreis_unit).toBeNull()
+  })
+
+  it('ein halbes Paar wird auf SPEICHERebene abgewiesen — Betrag ohne Einheit ist keine Angabe', async () => {
+    await expect(
+      runAs({ role: 'service_role' }, (c) =>
+        call(c, {
+          validFrom: '2026-01-01',
+          messpreis: { amount: 2.18, unit: null },
+        }),
+      ),
+    ).rejects.toThrow(/invalid_input/)
   })
 
   it('die Zeilen stehen anschliessend wirklich da — Tarifzeile UND ihre zwei Fenster', async () => {

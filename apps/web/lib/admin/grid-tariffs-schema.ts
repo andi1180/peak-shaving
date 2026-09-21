@@ -24,6 +24,7 @@
 import { z } from 'zod'
 import {
   GRUNDPREIS_UNITS,
+  MESSPREIS_UNITS,
   METERING_VARIANTS,
   NETZEBENEN,
   PRICE_BASES,
@@ -183,6 +184,17 @@ const gridTariffFields = z.object({
   grundpreisUnit: z.enum(GRUNDPREIS_UNITS, {
     errorMap: () => ({ message: 'Bitte die Einheit des Grundpreises wählen.' }),
   }),
+  /*
+   * ⚠ OPTIONAL — und das Paar wird gemeinsam geprüft (`requireMesspreisPair`). Eine Zeile ohne
+   * Messpreis ist zulässig; ein Betrag ohne Einheit ist eine Zahl ohne Bedeutung, und eine Einheit
+   * ohne Betrag eine Angabe ohne Inhalt. Denselben Satz setzt der CHECK in der Datenbank durch.
+   */
+  messpreisAmount: amountField('den Messpreis').optional(),
+  messpreisUnit: z
+    .enum(MESSPREIS_UNITS, {
+      errorMap: () => ({ message: 'Bitte die Einheit des Messpreises wählen.' }),
+    })
+    .optional(),
   netzverlustCtPerKwh: amountField('das Netzverlustentgelt'),
   priceBasis: z.enum(PRICE_BASES, {
     errorMap: () => ({ message: 'Bitte angeben, ob die Beträge netto oder brutto sind.' }),
@@ -199,6 +211,27 @@ const gridTariffFields = z.object({
       'Mindestens ein Zeitfenster ist nötig — ohne Arbeitspreis ist die Tarifzeile unvollständig.',
     ),
 })
+
+/** Betrag und Einheit des Messpreises gehören zusammen oder fehlen beide. */
+function requireMesspreisPair(
+  v: { messpreisAmount?: number; messpreisUnit?: string },
+  ctx: z.RefinementCtx,
+): void {
+  if (v.messpreisAmount !== undefined && v.messpreisUnit === undefined) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['messpreisUnit'],
+      message: 'Zum Messpreis gehört seine Einheit.',
+    })
+  }
+  if (v.messpreisAmount === undefined && v.messpreisUnit !== undefined) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['messpreisAmount'],
+      message: 'Zur Einheit gehört ein Messpreis-Betrag.',
+    })
+  }
+}
 
 /**
  * `meteringVariant` ist KONTEXTABHÄNGIG pflichtig (Delta 5): Netzebenen, die eine Variante
@@ -239,6 +272,7 @@ export const gridTariffSchema = gridTariffFields
       .max(200, 'Zu lang.'),
   })
   .superRefine(requireMeteringVariantMatch)
+  .superRefine(requireMesspreisPair)
 
 export type GridTariffInput = z.infer<typeof gridTariffSchema>
 
@@ -251,7 +285,9 @@ export type GridTariffInput = z.infer<typeof gridTariffSchema>
  * `public.backfill_grid_tariff` selbst (`no_existing_stand` / `not_before_oldest`) — und zwar unter
  * einer Sperre. Eine hier vorweggenommene Prüfung wäre zum Zeitpunkt des Klicks womöglich veraltet.
  */
-export const backfillGridTariffSchema = gridTariffFields.superRefine(requireMeteringVariantMatch)
+export const backfillGridTariffSchema = gridTariffFields
+  .superRefine(requireMeteringVariantMatch)
+  .superRefine(requireMesspreisPair)
 
 export type BackfillGridTariffInput = z.infer<typeof backfillGridTariffSchema>
 
@@ -307,6 +343,8 @@ export function readGridTariffForm(formData: FormData): Record<string, unknown> 
     meteringVariant: opt('meteringVariant'),
     grundpreisAmount: str('grundpreisAmount'),
     grundpreisUnit: str('grundpreisUnit'),
+    messpreisAmount: opt('messpreisAmount'),
+    messpreisUnit: opt('messpreisUnit'),
     netzverlustCtPerKwh: str('netzverlustCtPerKwh'),
     priceBasis: str('priceBasis'),
     validFrom: str('validFrom'),

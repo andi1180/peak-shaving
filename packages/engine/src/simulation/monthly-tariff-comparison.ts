@@ -1,6 +1,7 @@
-import { AWATTAR_BASE_FEE } from 'shared'
+import { AWATTAR_BASE_FEE, findLevyPeriod } from 'shared'
 import type {
   GridTariffRowInput,
+  LevyPeriodInput,
   LoadProfile,
   MonthlyFixedCosts,
   MonthlyTariffComparison,
@@ -40,10 +41,14 @@ import { combinedIntervalPrices } from './tou'
  * Kleinverbraucher kann die Differenz der Grundgebühren die Differenz der Arbeitskosten sogar
  * übersteigen; dann zeigte der Chart einen Vorteil, den es in der Jahresrechnung nicht gibt.
  *
- * Drei Posten, drei Zuordnungen:
+ * Sechs Posten, drei Zuordnungen:
  *   • Netz-Grundpreis (nur als JAHRESPAUSCHALE, s. `grundpreisUnit`) → in ALLE DREI Reihen, gleich
  *     hoch. Derselbe Netzanschluss bleibt derselbe, egal von wem der Kunde seine Energie kauft; er
  *     kürzt sich aus jeder Differenz heraus und macht nur die absoluten Zahlen richtig.
+ *   • Messpreis des Netzbetreibers → ebenfalls in alle drei: der Zähler hängt am Anschluss.
+ *   • EAG-Pauschale → ebenfalls in alle drei: eine gesetzliche Abgabe, kein Vertragsbestandteil.
+ *   • Gebrauchsabgabe auf Netz-Grundpreis + Messpreis → ebenfalls in alle drei. Die Abgabe bemisst
+ *     sich am NETZ-Preis; die beiden Lieferantengebühren unten gehören ausdrücklich NICHT dazu.
  *   • Grundgebühr des heutigen Lieferanten → nur „Ihr Tarif heute".
  *   • Grundgebühr von aWATTar (`AWATTAR_BASE_FEE`) → nur in die beiden aWATTar-Reihen.
  *
@@ -116,6 +121,26 @@ function annualFlatNetworkFeeEur(row: GridTariffRowInput | null): number {
   if (row.grundpreisUnit !== 'eur_per_year') return 0
   const amount = row.grundpreisAmount
   return typeof amount === 'number' && Number.isFinite(amount) && amount > 0 ? amount : 0
+}
+
+/**
+ * Der Messpreis einer Tarifzeile, umgerechnet auf den Anteil EINES Kalendertags.
+ *
+ * Zwei Einheiten, zwei Bezugsgrössen: ein Monatsbetrag wird durch die Länge SEINES Monats geteilt,
+ * ein Jahresbetrag durch die Länge SEINES Jahres. Eine unbekannte Einheit wird wie eine fehlende
+ * Angabe behandelt — es wird nichts eingerechnet, nicht etwas geraten.
+ */
+function meteringFeeDayShareEur(
+  row: GridTariffRowInput | null,
+  daysThisMonth: number,
+  daysThisYear: number,
+): number {
+  if (row == null) return 0
+  const amount = row.messpreisAmount
+  if (typeof amount !== 'number' || !Number.isFinite(amount) || amount <= 0) return 0
+  if (row.messpreisUnit === 'eur_per_month') return amount / daysThisMonth
+  if (row.messpreisUnit === 'eur_per_year') return amount / daysThisYear
+  return 0
 }
 
 /**
@@ -200,6 +225,9 @@ export function buildMonthlyTariffComparison(
   const supplierFeeEurPerMonth = tariffParams.supplierBaseFeeEurPerMonth ?? 0
   const awattarFeeEurPerMonth = AWATTAR_BASE_FEE.eurPerMonth
   const networkFix = new Array<number>(12).fill(0)
+  const meteringFix = new Array<number>(12).fill(0)
+  const eagFlatFix = new Array<number>(12).fill(0)
+  const usageChargeFix = new Array<number>(12).fill(0)
   const supplierFix = new Array<number>(12).fill(0)
   const awattarFix = new Array<number>(12).fill(0)
 
@@ -207,26 +235,47 @@ export function buildMonthlyTariffComparison(
     const year = Number(date.slice(0, 4))
     const month = Number(date.slice(5, 7))
     const idx = month - 1
-    const monthShare = 1 / daysInMonth(year, month)
-    const yearShare = 1 / daysInYear(year)
+    const daysThisMonth = daysInMonth(year, month)
+    const daysThisYear = daysInYear(year)
+    const monthShare = 1 / daysThisMonth
+    const yearShare = 1 / daysThisYear
 
-    networkFix[idx]! +=
-      annualFlatNetworkFeeEur(findGridTariffRow(pricing.gridTariffRows ?? [], date)) * yearShare
+    const row = findGridTariffRow(pricing.gridTariffRows ?? [], date)
+    const networkDay = annualFlatNetworkFeeEur(row) * yearShare
+    const meteringDay = meteringFeeDayShareEur(row, daysThisMonth, daysThisYear)
+    /*
+     * ⚠ Der Abgabenzeitraum wird JE TAG gesucht, genau wie die Tarifzeile. `combinedIntervalPrices`
+     * hat oben bereits sichergestellt, dass jeder Tag einen trägt; fehlte hier trotzdem einer,
+     * bliebe die Gebrauchsabgabe für diesen Tag aus, statt mit einem geratenen Satz zu rechnen.
+     */
+    const levy: LevyPeriodInput | null = findLevyPeriod(pricing.levies?.periods ?? [], date)
+
+    networkFix[idx]! += networkDay
+    meteringFix[idx]! += meteringDay
+    eagFlatFix[idx]! += (levy?.eagPauschaleEurPerYear ?? 0) * yearShare
+    // Bemessungsgrundlage: die beiden NETZ-Fixposten. Die Lieferantengebühren stehen bewusst
+    // draussen, die EAG-Pauschale ebenfalls — eine Abgabe bemisst sich nicht an einer Abgabe.
+    usageChargeFix[idx]! += (networkDay + meteringDay) * (levy?.gebrauchsabgabeRate ?? 0)
     supplierFix[idx]! += supplierFeeEurPerMonth * monthShare
     awattarFix[idx]! += awattarFeeEurPerMonth * monthShare
   }
 
   for (let idx = 0; idx < 12; idx++) {
-    // Der Netz-Grundpreis geht in ALLE DREI Reihen (er hängt am Anschluss, nicht am Lieferanten),
-    // die beiden Lieferanten-Gebühren jeweils nur dorthin, wo sie tatsächlich anfallen.
-    current[idx]! += networkFix[idx]! + supplierFix[idx]!
-    withoutControl[idx]! += networkFix[idx]! + awattarFix[idx]!
-    withBattery[idx]! += networkFix[idx]! + awattarFix[idx]!
+    // Alles, was am ANSCHLUSS oder am Gesetz hängt, geht in ALLE DREI Reihen; die beiden
+    // Lieferanten-Gebühren jeweils nur dorthin, wo sie tatsächlich anfallen.
+    const shared =
+      networkFix[idx]! + meteringFix[idx]! + eagFlatFix[idx]! + usageChargeFix[idx]!
+    current[idx]! += shared + supplierFix[idx]!
+    withoutControl[idx]! += shared + awattarFix[idx]!
+    withBattery[idx]! += shared + awattarFix[idx]!
   }
 
   const sum = (values: number[]): number => values.reduce((a, b) => a + b, 0)
   const fixedCosts: MonthlyFixedCosts = {
     networkBaseFeeEur: sum(networkFix),
+    meteringFeeEur: sum(meteringFix),
+    eagFlatFeeEur: sum(eagFlatFix),
+    usageChargeOnFixedEur: sum(usageChargeFix),
     supplierBaseFeeEur: sum(supplierFix),
     awattarBaseFeeEur: sum(awattarFix),
     supplierFeeEurPerMonth,

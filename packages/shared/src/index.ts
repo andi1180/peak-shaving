@@ -64,6 +64,10 @@ export * from './report-request'
 // Delta 19: Grundgebühren von Stromlieferanten (heute: aWATTar). Code-Konstante statt
 // Datenbankzeile — sie hat keine Netz-Dimension; Begründung im Kopf der Datei.
 export * from './supplier-tariffs'
+// Die gesetzlichen Abgaben auf den Bezug (Elektrizitätsabgabe, EAG, Gebrauchsabgabe). Aus
+// demselben Grund hier wie `supplier-tariffs`: Verordnungssätze ohne Kundendimension, im Code
+// versioniert. Aufgelöst wird an den Rändern, gerechnet im Kern.
+export * from './levies'
 // Delta 5 (02.09.2026): die Auswahlregel der Netzentgelt-Zeitfenster — welches Fenster einer
 // Tarifzeile gilt zu einem Zeitpunkt. Hier und nicht in `engine`, weil sie ZWEI Konsumenten in
 // verschiedenen Paketen hat: den Rechenkern (Intervallpreis, Delta 4) und den Admin-Pflegeweg in

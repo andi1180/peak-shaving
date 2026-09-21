@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { ASSUMED_EXISTING_ROUND_TRIP_EFFICIENCY } from 'shared'
+import { ASSUMED_EXISTING_ROUND_TRIP_EFFICIENCY, LEVIES_NONE } from 'shared'
 
 import { buildGeneratedPvSeriesFile } from '../pv-reference/generated-series'
 
@@ -323,6 +323,7 @@ describe('runAnalysisFromMeteringPointDraft — tariffPricing', () => {
     const fetchTariffPricing = vi.fn(async (request: { window: { startIso: string; endIso: string }; intervalMinutes: number }) => ({
       gridTariffRows: GRID_ROWS,
       spotPrices: spotSeries(request.window, request.intervalMinutes),
+      levies: LEVIES_NONE,
     }))
 
     const { result, loadProfile } = await runAnalysisFromMeteringPointDraft(
@@ -368,7 +369,7 @@ describe('runAnalysisFromMeteringPointDraft — tariffPricing', () => {
     const fetchTariffPricing = vi.fn(
       async (request: { netzebene: number | null; meteringVariant: string | null }) => {
         void request
-        return { gridTariffRows: null, spotPrices: null }
+        return { gridTariffRows: null, spotPrices: null, levies: null }
       },
     )
 

@@ -43,8 +43,11 @@ import { ADMIN_INITIAL_STATE } from '@/lib/admin/schema'
 import {
   DEFAULT_GRUNDPREIS_UNIT,
   DEFAULT_PRICE_BASIS,
+  DEFAULT_MESSPREIS_UNIT,
   GRUNDPREIS_UNITS,
   GRUNDPREIS_UNIT_LABELS,
+  MESSPREIS_UNITS,
+  MESSPREIS_UNIT_LABELS,
   PRICE_BASES,
   PRICE_BASIS_LABELS,
   backfillRangeText,
@@ -219,6 +222,32 @@ export function BackfillGridTariffForm({ oldest }: { oldest: GridTariffRow }) {
           {GRUNDPREIS_UNITS.map((u) => (
             <option key={u} value={u}>
               {GRUNDPREIS_UNIT_LABELS[u]}
+            </option>
+          ))}
+        </AdminSelect>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <AdminField
+          id={`${formId}-messpreisAmount`}
+          name="messpreisAmount"
+          label="Messpreis (optional)"
+          inputMode="numeric"
+          placeholder={AMOUNT_PLACEHOLDER}
+          error={state.fieldErrors?.messpreisAmount}
+          hint="Das Messentgelt des Preisblatts. Leer lassen, wenn es nicht vorliegt — dann rechnet der Rechner keines ein, statt eines zu schätzen."
+          defaultValue={state.values?.messpreisAmount}
+        />
+        <AdminSelect
+          id={`${formId}-messpreisUnit`}
+          name="messpreisUnit"
+          label="Einheit des Messpreises"
+          defaultValue={state.values?.messpreisUnit ?? DEFAULT_MESSPREIS_UNIT}
+          error={state.fieldErrors?.messpreisUnit}
+        >
+          {MESSPREIS_UNITS.map((u) => (
+            <option key={u} value={u}>
+              {MESSPREIS_UNIT_LABELS[u]}
             </option>
           ))}
         </AdminSelect>
