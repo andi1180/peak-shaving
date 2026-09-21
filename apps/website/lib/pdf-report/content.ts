@@ -127,6 +127,7 @@ export const METHODOLOGY_ITEMS: readonly MethodologyItem[] = [
 export const SECTION_ID = {
   results: 'zusammenfassung',
   prerequisites: 'voraussetzungen',
+  load: 'lastgang',
   recommendation: 'empfehlung',
   detail: 'kostenverlauf',
   monthly: 'monatsvergleich',
@@ -162,6 +163,40 @@ export const PREREQUISITES_INTRO =
   'Ersparnis bewegt.'
 
 /**
+ * Das Kapitel zwischen Voraussetzungen und Empfehlung: die gemessene Kurve, sonst nichts.
+ *
+ * ── ⚠ EIN EIGENES KAPITEL UND KEIN BILD IM EMPFEHLUNGS-KAPITEL MEHR ───────────────────────────
+ * Der Lastgang ist die Grundlage JEDER Zahl dieses Reports und nicht nur die Anschauung zur
+ * Kaufaussage. Als Bild im Empfehlungs-Kapitel las er sich wie deren Beleg — und trug dafür eine
+ * Kapp-Linie samt Deutung, also eine Bewertung über einer Messung. Hier steht die Messung für
+ * sich: keine Kapp-Schwelle, keine markierten Spitzen, keine Aussage über eine Ersparnis.
+ *
+ * ⚠ Unbedingtes Kapitel wie `RESULTS_SECTION`/`PREREQUISITES_SECTION`: es gibt keinen Report ohne
+ * Lastgang. Misslingt die Rasterung, steht an der Stelle des Bildes die Fehlmeldung (`ChartFigure`)
+ * — ein Kapitel, das dann ganz entfiele, nähme dem Leser die Grundlage kommentarlos weg.
+ *
+ * ⚠ Eigene `<Page>` (D5, Regel 1). Als `<View break>` bekäme es in der Agenda die Seitenzahl des
+ * vorigen Kapitels — plausibel aussehend und falsch.
+ */
+export const LOAD_SECTION: ReportSection = {
+  id: SECTION_ID.load,
+  level: 1,
+  title: 'Ihr Lastgang',
+}
+
+/**
+ * Steht unter der Kapitelüberschrift.
+ *
+ * ⚠ Er ist FALLUNABHÄNGIG und beschreibt deshalb ausnahmsweise doch, was auf der Seite steht: auf
+ * dieser Seite steht in jedem Report dasselbe — die gemessene Kurve. Die Regel, nach der die
+ * übrigen Vorspänne nichts ankündigen (s. `RESULTS_INTRO`), greift dort, wo der Inhalt an der
+ * Datenlage hängt; hier tut er das nicht.
+ */
+export const LOAD_INTRO =
+  'Ihr Netzbezug über den ausgewerteten Zeitraum, in Viertelstundenwerten — die tatsächliche ' +
+  'Grundlage für alle Zahlen in dieser Auswertung.'
+
+/**
  * B23c-2 — das Kapitel, das die Kaufaussage, das Lastgang-Diagramm und die Ladesteuerung trägt.
  *
  * ── ⚠ EIN KAPITEL UND NICHT ZWEI, UND DER GRUND IST DAS BILD ──────────────────────────────────
@@ -183,13 +218,16 @@ export const RECOMMENDATION_SECTION: ReportSection = {
 /**
  * Steht unter der Kapitelüberschrift.
  *
- * ⚠ Er kündigt bewusst NICHT an, was auf der Seite steht („Empfehlung, Diagramm, Ladesteuerung").
- * Was dort steht, hängt davon ab, was gerechnet werden konnte (s. den Kopf von
- * `recommendation.ts`) — eine feste Ankündigung wäre auf jedem Report falsch, dem eine dieser
- * Aussagen fehlt. Dieselbe Regel wie bei `RESULTS_INTRO`.
+ * ⚠ Er kündigt bewusst NICHT an, was auf der Seite steht („Empfehlung, Ladesteuerung"). Was dort
+ * steht, hängt davon ab, was gerechnet werden konnte (s. den Kopf von `recommendation.ts`) — eine
+ * feste Ankündigung wäre auf jedem Report falsch, dem eine dieser Aussagen fehlt. Dieselbe Regel
+ * wie bei `RESULTS_INTRO`.
+ *
+ * ⚠ DIE ZWEITE HÄLFTE IST MIT DEM BILD GEGANGEN: sie lautete „und wie sich Ihr Lastgang mit ihm
+ * liest" und beschrieb das Diagramm, das jetzt ein eigenes Kapitel davor ist (`LOAD_SECTION`) —
+ * ein Vorspann, der ein Bild ankündigt, das auf der Seite nicht mehr steht.
  */
-export const RECOMMENDATION_INTRO =
-  'Welches Gerät, was es kostet — und wie sich Ihr Lastgang mit ihm liest.'
+export const RECOMMENDATION_INTRO = 'Welches Gerät — und was es kostet.'
 
 /**
  * B23c-3a — das Kapitel mit dem Kostenvergleich und dem Tages-Energiefluss.
@@ -352,6 +390,7 @@ export type ReportSectionKey = (typeof SECTION_ID)[keyof typeof SECTION_ID]
 export const REPORT_SECTIONS: Record<ReportSectionKey, ReportSection> = {
   [SECTION_ID.results]: RESULTS_SECTION,
   [SECTION_ID.prerequisites]: PREREQUISITES_SECTION,
+  [SECTION_ID.load]: LOAD_SECTION,
   [SECTION_ID.recommendation]: RECOMMENDATION_SECTION,
   [SECTION_ID.detail]: DETAIL_SECTION,
   [SECTION_ID.monthly]: MONTHLY_SECTION,
@@ -431,6 +470,7 @@ export function buildReportAgenda(presence: ReportChapterPresence): readonly Rep
   return [
     RESULTS_SECTION,
     PREREQUISITES_SECTION,
+    LOAD_SECTION,
     RECOMMENDATION_SECTION,
     DETAIL_SECTION,
     ...(presence.monthly ? [MONTHLY_SECTION] : []),

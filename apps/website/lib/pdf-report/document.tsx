@@ -16,6 +16,8 @@ import {
   DETAIL_SECTION,
   INSIGHT_INTRO,
   INSIGHT_SECTION,
+  LOAD_INTRO,
+  LOAD_SECTION,
   METHODOLOGY_INTRO,
   METHODOLOGY_ITEMS,
   METHODOLOGY_SECTION,
@@ -35,6 +37,7 @@ import { buildBasisChapter, DATA_SOURCES_TABLE_ID, TARIFF_COMPONENTS_TABLE_ID } 
 import { buildComparisonChapter, CANDIDATE_TABLE_ID } from './comparison'
 import type { ReportBuildContext } from './context'
 import { buildDetailChapter, buildMonthlyChapter } from './detail'
+import { loadChartCaption } from './derive'
 import { buildInsightChapter } from './insight'
 import { buildPrerequisitesChapter } from './prerequisites'
 import { buildRecommendationChapter } from './recommendation'
@@ -1596,10 +1599,10 @@ function ChartFigure({
       {legend}
       <Text style={styles.figureCaption}>{caption}</Text>
       {/*
-        Genau eine der beiden steht, wo sie einander ausschliessen (Lastgang: die
-        Spitzenkappungs-Aussage ODER die Erklärung, warum keine Kapp-Linie im Bild ist). Die
-        Entscheidung fällt in der jeweiligen Ableitung und nicht hier — die Frage „darf diese
-        Aussage im Dokument stehen" ist fachlich und hätte an zwei Orten zwei Antworten.
+        Beide sind optional; welche steht, entscheidet die jeweilige Ableitung und nicht dieses
+        JSX — die Frage „darf diese Aussage im Dokument stehen" ist fachlich und hätte an zwei
+        Orten zwei Antworten. Das Lastgang-Kapitel übergibt keine von beiden: unter einer reinen
+        Messung steht die Bildunterschrift und sonst nichts.
       */}
       {statement && <Text style={styles.figureStatement}>{statement}</Text>}
       {note && <Text style={styles.figureCaption}>{note}</Text>}
@@ -1616,14 +1619,40 @@ function figureMissingText(what: string): string {
 }
 
 /**
- * B23c-2 — Empfehlung, Lastgang-Diagramm und Ladesteuerung.
+ * Das Lastgang-Kapitel — Überschrift, ein fallunabhängiger Satz, das Bild, der Zeitraum.
  *
- * ── ⚠ DAS BILD IST HIER SCHON FERTIG ──────────────────────────────────────────────────────────
- * `charts` kommt als fertige Data-URI herein und wird in diesem Baum NICHT erzeugt. Rastern
- * verlangt ein DOM und mehrere Frames; der Dokumentbaum ist synchron und läuft zwei- bis dreimal
- * (`render.tsx`). Ein Chart, der hier entstünde, entstünde je Durchlauf neu — und zwei Bilder mit
- * um einen Bildpunkt abweichender Höhe verschöben den Umbruch, worauf der Agenda-Wächter
- * anschlüge, ohne dass die Ursache irgendwo im Dokument stünde.
+ * ── ⚠ ES LEITET NICHTS AB, UND DAS IST DER PUNKT ──────────────────────────────────────────────
+ * Es gibt keine `buildLoadChapter`-Ableitung neben den sieben anderen: auf dieser Seite hängt
+ * nichts an der Datenlage. Der Vorspann ist eine Konstante (`LOAD_INTRO`), die Bildunterschrift
+ * formatiert den bereits abgeleiteten Zeitraum (`loadChartCaption`) — es gibt keine Entscheidung
+ * „welche Aussage bleibt bei welchem fehlenden Wert aus", die eine eigene Datei lesbar machen
+ * müsste.
+ *
+ * ⚠ KEIN `statement`, KEIN `note` an `ChartFigure`: unter diesem Bild steht die Bildunterschrift
+ * und sonst nichts. Eine Kapp-Schwelle, eine markierte Spitze oder ein gedeuteter Verlauf wären
+ * eine Bewertung über einer Messung — und für den gedeuteten Verlauf gibt es überdies keine
+ * Rechnung (s. `loadChartCaption`).
+ */
+function LoadChapter({ input, charts }: { input: PdfReportInput; charts: ReportChartRasters }) {
+  return (
+    <View style={styles.body}>
+      <Text style={styles.h2}>{LOAD_SECTION.title}</Text>
+      <Text style={styles.lead}>{LOAD_INTRO}</Text>
+
+      <ChartFigure
+        raster={charts.load}
+        caption={loadChartCaption(input.period)}
+        missing={figureMissingText('Das Lastgang-Diagramm')}
+      />
+    </View>
+  )
+}
+
+/**
+ * B23c-2 — Empfehlung und Ladesteuerung.
+ *
+ * ⚠ DAS LASTGANG-BILD IST HIER RAUS und steht als eigenes Kapitel davor (`LoadChapter`). Der Rest
+ * der Seite — Kaufaussage und Ladesteuerung — ist unverändert.
  *
  * ── ⚠ WAS AUF DIESER SEITE STEHT, ENTSCHEIDET `recommendation.ts` ─────────────────────────────
  * Hier wird gerendert, was die Ableitung liefert. Keine Verzweigung an einem Contract-Feld in
@@ -1631,12 +1660,10 @@ function figureMissingText(what: string): string {
  */
 function RecommendationChapter({
   input,
-  charts,
   context,
   layout,
 }: {
   input: PdfReportInput
-  charts: ReportChartRasters
   context: ReportBuildContext
   layout: ReportLayout
 }) {
@@ -1648,15 +1675,6 @@ function RecommendationChapter({
       <Text style={styles.lead}>{RECOMMENDATION_INTRO}</Text>
 
       {chapter.recommendation && <Statement statement={chapter.recommendation} layout={layout} />}
-
-      <ChartFigure
-        raster={charts.load}
-        caption={chapter.chart.caption}
-        statement={chapter.chart.capStatement}
-        note={chapter.chart.noCapNote}
-        missing={figureMissingText('Das Lastgang-Diagramm')}
-      />
-
       {chapter.loadControl && <Statement statement={chapter.loadControl} layout={layout} />}
     </View>
   )
@@ -2282,8 +2300,14 @@ export function ReportDocument({
 
       <Page size="A4" style={styles.page}>
         <PageFurniture sink={sink} docLabel={docLabel} />
+        <SectionAnchor id={LOAD_SECTION.id} sink={sink} />
+        <LoadChapter input={input} charts={charts} />
+      </Page>
+
+      <Page size="A4" style={styles.page}>
+        <PageFurniture sink={sink} docLabel={docLabel} />
         <SectionAnchor id={RECOMMENDATION_SECTION.id} sink={sink} />
-        <RecommendationChapter input={input} charts={charts} context={context} layout={layout} />
+        <RecommendationChapter input={input} context={context} layout={layout} />
       </Page>
 
       <Page size="A4" style={styles.page}>

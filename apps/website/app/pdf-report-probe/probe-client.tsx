@@ -421,7 +421,6 @@ export function PdfReportProbe() {
               <strong id="probe-chapter-ids">
                 {[
                   chapter?.recommendation ? 'recommendation' : null,
-                  chapter?.chart.capStatement ? 'cap_statement' : 'no_cap_note',
                   chapter?.loadControl ? 'load_control' : null,
                 ]
                   .filter((v) => v !== null)
