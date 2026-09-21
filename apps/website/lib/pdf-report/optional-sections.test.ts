@@ -114,6 +114,9 @@ const COMPARISON: MonthlyTariffComparison = {
   coveredMonths: 1,
   fixedCosts: {
     networkBaseFeeEur: 0,
+    meteringFeeEur: 0,
+    eagFlatFeeEur: 0,
+    usageChargeOnFixedEur: 0,
     supplierBaseFeeEur: 0,
     awattarBaseFeeEur: 4.79,
     supplierFeeEurPerMonth: 0,

@@ -1,4 +1,5 @@
 import { estimateAnnualConsumption } from 'engine'
+import { LEVIES_NONE } from 'shared'
 import type {
   GridTariffRowInput,
   LoadProfile,
@@ -116,6 +117,7 @@ describe('projectAnnualTariffComparison', () => {
     const pricing: TariffPricingInputs = {
       gridTariffRows: [fullDayRow('2024-01-01', null, 6.98)],
       spotPrices: hourly(Date.parse('2024-12-31T23:00:00Z'), Date.parse('2025-07-29T00:00:00Z'), 10, true),
+      levies: LEVIES_NONE,
     }
     const before = structuredClone(pricing)
 
@@ -152,6 +154,7 @@ describe('projectAnnualTariffComparison', () => {
     const pricing: TariffPricingInputs = {
       gridTariffRows: [fullDayRow('2024-01-01', null, 6.98)],
       spotPrices: hourly(Date.parse('2024-12-31T23:00:00Z'), Date.parse('2025-12-31T23:00:00Z'), 10, true),
+      levies: LEVIES_NONE,
     }
 
     const out = (await project(load, pricing))!
@@ -168,6 +171,7 @@ describe('projectAnnualTariffComparison', () => {
     const pricing: TariffPricingInputs = {
       gridTariffRows: [fullDayRow('2024-01-01', null, 6.98)],
       spotPrices: hourly(Date.parse('2024-12-31T23:00:00Z'), Date.parse('2025-07-29T00:00:00Z'), 10, true),
+      levies: LEVIES_NONE,
     }
     // Der Bestand endet nach 30 Tagen der Lücke; nachladen lässt sich nichts → Näherung.
     const partial: SpotPriceRangeReader = async (fromIso, toIso) => {
@@ -198,11 +202,13 @@ describe('projectAnnualTariffComparison', () => {
         fullDayRow('2025-10-01', null, 20),
       ],
       spotPrices: spot,
+      levies: LEVIES_NONE,
     }
     // Die naive Lesart „der Stand des ersten Lückentages gilt für alle 156".
     const naive: TariffPricingInputs = {
       gridTariffRows: [fullDayRow('2024-01-01', null, 6.98)],
       spotPrices: spot,
+      levies: LEVIES_NONE,
     }
 
     const withChange = (await project(load, staged))!

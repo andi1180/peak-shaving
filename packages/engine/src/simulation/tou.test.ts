@@ -6,6 +6,7 @@ import type {
   TariffParams,
   TariffPricingInputs,
 } from 'shared'
+import { LEVIES_NONE } from 'shared'
 
 import { intervalTariffRates } from './tou'
 
@@ -94,6 +95,7 @@ describe('Delta 4 — kombinierter Intervallpreis', () => {
     const pricing: TariffPricingInputs = {
       gridTariffRows: [gridRow('2025-01-01', '2025-12-31', 4.5, 9.9)],
       spotPrices: spot,
+      levies: LEVIES_NONE,
     }
 
     const { rateCtPerKwh, tariffOptimization } = intervalTariffRates(load, tariff, pricing)
@@ -119,6 +121,7 @@ describe('Delta 4 — kombinierter Intervallpreis', () => {
     const pricing: TariffPricingInputs = {
       gridTariffRows: [gridRow('2025-01-01', '2025-12-31', 4.5, 9.9)],
       spotPrices: spot,
+      levies: LEVIES_NONE,
     }
 
     const { rateCtPerKwh } = intervalTariffRates(load, tariff, pricing)
@@ -141,6 +144,7 @@ describe('Delta 4 — kombinierter Intervallpreis', () => {
     const pricing: TariffPricingInputs = {
       gridTariffRows: [gridRow('2025-01-01', '2025-12-31', 4.5, 9.9)],
       spotPrices: spot,
+      levies: LEVIES_NONE,
     }
 
     const { rateCtPerKwh } = intervalTariffRates(load, tariff, pricing)
@@ -162,6 +166,7 @@ describe('Delta 4 — kombinierter Intervallpreis', () => {
         gridRow('2026-01-01', null, 6.0, 12.0, 2.0),
       ],
       spotPrices: spot,
+      levies: LEVIES_NONE,
     }
 
     const { rateCtPerKwh, tariffOptimization } = intervalTariffRates(load, tariff, pricing)
@@ -188,6 +193,7 @@ describe('Delta 4 — kombinierter Intervallpreis', () => {
     const pricing: TariffPricingInputs = {
       gridTariffRows: [gridRow('2025-01-01', '2025-12-31', 4.5, 9.9)],
       spotPrices: spot,
+      levies: LEVIES_NONE,
     }
 
     const { rateCtPerKwh, tariffOptimization } = intervalTariffRates(load, tariff, pricing)
@@ -206,6 +212,7 @@ describe('Delta 4 — kombinierter Intervallpreis', () => {
     const pricing: TariffPricingInputs = {
       gridTariffRows: [gridRow('2025-01-01', '2025-12-31', 4.5, 9.9)],
       spotPrices: withGap,
+      levies: LEVIES_NONE,
     }
 
     const result = intervalTariffRates(load, tariff, pricing)
@@ -230,6 +237,7 @@ describe('Delta 4 — kombinierter Intervallpreis', () => {
     const pricing: TariffPricingInputs = {
       gridTariffRows: [gridRow('2026-01-01', null, 4.5, 9.9)],
       spotPrices: spotSeries(START_UTC, 6, () => 10),
+      levies: LEVIES_NONE,
     }
 
     const result = intervalTariffRates(load, tariff, pricing)
@@ -252,6 +260,7 @@ describe('Delta 4 — kombinierter Intervallpreis', () => {
     const pricing: TariffPricingInputs = {
       gridTariffRows: [gridRow('2025-01-02', null, 4.5, 9.9)],
       spotPrices: spotSeries(start, 48, () => 10),
+      levies: LEVIES_NONE,
     }
 
     const result = intervalTariffRates(load, tariff, pricing)
@@ -270,7 +279,7 @@ describe('Delta 4 — kombinierter Intervallpreis', () => {
     const load = profile(START_UTC, 4)
     const spot = spotSeries(START_UTC, 1, () => 10)
 
-    const noGrid = intervalTariffRates(load, tariff, { gridTariffRows: null, spotPrices: spot })
+    const noGrid = intervalTariffRates(load, tariff, { gridTariffRows: null, spotPrices: spot, levies: LEVIES_NONE })
     expect(noGrid.tariffOptimization).toMatchObject({
       computable: false,
       side: 'grid_tariff',
@@ -281,6 +290,7 @@ describe('Delta 4 — kombinierter Intervallpreis', () => {
     const noSpot = intervalTariffRates(load, tariff, {
       gridTariffRows: [gridRow('2025-01-01', null, 4.5, 9.9)],
       spotPrices: null,
+      levies: LEVIES_NONE,
     })
     expect(noSpot.tariffOptimization).toMatchObject({
       computable: false,
@@ -290,7 +300,7 @@ describe('Delta 4 — kombinierter Intervallpreis', () => {
 
     // Fehlen BEIDE, wird die Netzentgelt-Seite genannt: sie ist ein Pflegestand, der von Hand
     // nachzutragen ist — eine Spotpreis-Lücke schliesst der nächste Cron-Lauf von selbst.
-    const neither = intervalTariffRates(load, tariff, { gridTariffRows: null, spotPrices: null })
+    const neither = intervalTariffRates(load, tariff, { gridTariffRows: null, spotPrices: null, levies: LEVIES_NONE })
     expect(neither.tariffOptimization).toMatchObject({ side: 'grid_tariff' })
   })
 
@@ -302,6 +312,7 @@ describe('Delta 4 — kombinierter Intervallpreis', () => {
     const result = intervalTariffRates(load, tariff, {
       gridTariffRows: [gridRow('2025-01-01', null, 4.5, 9.9)],
       spotPrices: grossSpot,
+      levies: LEVIES_NONE,
     })
     expect(result.tariffOptimization).toMatchObject({
       computable: false,
@@ -323,6 +334,7 @@ describe('Delta 4 — kombinierter Intervallpreis', () => {
     const pricing: TariffPricingInputs = {
       gridTariffRows: [gridRow('2025-01-01', null, 4.5, 9.9)],
       spotPrices: spot,
+      levies: LEVIES_NONE,
     }
 
     const { rateCtPerKwh, isCheapWindow, touActive } = intervalTariffRates(load, tariff, pricing)
@@ -374,7 +386,7 @@ describe('Delta 4 — kombinierter Intervallpreis', () => {
      */
     const load = profile(START_UTC, 192)
     const spot = spotSeries(START_UTC, 48, (h) => (h < 24 ? 10 : 40) + (h % 2 === 0 ? 0 : 10))
-    const pricing: TariffPricingInputs = { gridTariffRows: [flatGridRow()], spotPrices: spot }
+    const pricing: TariffPricingInputs = { gridTariffRows: [flatGridRow()], spotPrices: spot, levies: LEVIES_NONE }
 
     const { rateCtPerKwh, isCheapWindow, touActive } = intervalTariffRates(load, tariff, pricing)
     expect(touActive).toBe(true)
@@ -423,7 +435,7 @@ describe('Delta 4 — kombinierter Intervallpreis', () => {
       if (h < 6) return h === 5 ? 30 : 20
       return (h - 6) % 2 === 0 ? 45 : 55
     })
-    const pricing: TariffPricingInputs = { gridTariffRows: [flatGridRow()], spotPrices: spot }
+    const pricing: TariffPricingInputs = { gridTariffRows: [flatGridRow()], spotPrices: spot, levies: LEVIES_NONE }
 
     const { rateCtPerKwh, isCheapWindow } = intervalTariffRates(load, tariff, pricing)
     expect(rateCtPerKwh[0]!).toBeCloseTo(25.73, 10) // Fragment, 20 ct

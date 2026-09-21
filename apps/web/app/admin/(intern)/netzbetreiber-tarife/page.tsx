@@ -14,6 +14,7 @@ import {
   combinationLabel,
   deleteConfirmText,
   grundpreisUnitLabel,
+  messpreisLabel,
   isOpen,
   operatorOptions,
   priceBasisLabel,
@@ -245,6 +246,14 @@ export default async function AdminGridTariffsPage() {
                                 </span>
                               </dd>
                             </div>
+                            {messpreisLabel(row) && (
+                              <div>
+                                <dt className="text-caption text-text-muted">Messpreis</dt>
+                                <dd className="text-text">
+                                  <Num>{messpreisLabel(row)}</Num>
+                                </dd>
+                              </div>
+                            )}
                             <div>
                               <dt className="text-caption text-text-muted">Netzverlust</dt>
                               <dd className="text-text">

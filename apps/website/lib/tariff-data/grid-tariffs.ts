@@ -23,6 +23,10 @@ export type GridTariffWithWindows = {
   grundpreisAmount: number
   /** `eur_per_kw_year` = Leistungspreis · `eur_per_year` = Jahrespauschale (Leistungspreis 0). */
   grundpreisUnit: string
+  /** Messentgelt des Netzbetreibers. `undefined` = keins gepflegt (dann wird auch keins gerechnet). */
+  messpreisAmount?: number
+  /** `eur_per_month` | `eur_per_year`. `undefined`, wo kein Messpreis gepflegt ist. */
+  messpreisUnit?: string
   netzverlustCtPerKwh: number
   priceBasis: string
   /** ISO-Datum (inklusiv). */
@@ -52,7 +56,7 @@ export type GridTariffRateWindow = {
  * `grid_tariff_rate_windows(...)` ist die EINGEBETTETE Kind-Tabelle über den Fremdschlüssel.
  */
 const GRID_TARIFF_SELECT =
-  'id, operator_id, operator_name, netzebene, metering_variant, grundpreis_amount, grundpreis_unit, netzverlust_ct_per_kwh, price_basis, valid_from, valid_until, grid_tariff_rate_windows(id, label, month_day_from, month_day_to, time_from, time_to, ct_per_kwh)'
+  'id, operator_id, operator_name, netzebene, metering_variant, grundpreis_amount, grundpreis_unit, messpreis_amount, messpreis_unit, netzverlust_ct_per_kwh, price_basis, valid_from, valid_until, grid_tariff_rate_windows(id, label, month_day_from, month_day_to, time_from, time_to, ct_per_kwh)'
 
 export type GridTariffFetchResult =
   { ok: true; tariffs: GridTariffWithWindows[] } | TariffDataFailure
@@ -134,6 +138,10 @@ export async function fetchGridTariffs(
       meteringVariant: row.metering_variant,
       grundpreisAmount: Number(row.grundpreis_amount),
       grundpreisUnit: row.grundpreis_unit,
+      // ⚠ `null` bleibt `null`: `Number(null)` wäre 0 und behauptete einen Messpreis von null, wo
+      // in Wahrheit keiner gepflegt ist.
+      messpreisAmount: row.messpreis_amount == null ? undefined : Number(row.messpreis_amount),
+      messpreisUnit: row.messpreis_unit ?? undefined,
       netzverlustCtPerKwh: Number(row.netzverlust_ct_per_kwh),
       priceBasis: row.price_basis,
       validFrom: row.valid_from,

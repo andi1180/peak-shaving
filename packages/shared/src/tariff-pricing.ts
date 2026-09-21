@@ -20,6 +20,7 @@
  * Abbildung, die auseinanderlaufen könnte, und die Engine bekommt trotzdem nur das, was sie liest.
  */
 
+import type { LevySchedule } from './levies'
 import type { PriceBasis } from './tariff'
 
 /**
@@ -75,6 +76,20 @@ export type GridTariffRowInput = {
    * Ein unbekannter Wert wird wie ein fehlender behandelt: es wird nichts eingerechnet.
    */
   grundpreisUnit?: string
+  /**
+   * Das MESSENTGELT der Tarifzeile — der zweite verbrauchsunabhängige Posten des Netzbetreibers
+   * neben dem Grundpreis, und wie dieser eine Grösse je (Betreiber, Netzebene, Messvariante).
+   *
+   * Optional aus demselben Grund wie `grundpreisAmount`: eine Datenzeile ohne gepflegten Messpreis
+   * (jede vor dieser Erweiterung angelegte) bleibt gültig. Fehlt er, wird KEIN Messpreis
+   * eingerechnet — nicht ein geschätzter.
+   */
+  messpreisAmount?: number
+  /**
+   * `'eur_per_month'` = Monatsbetrag (die Form der Wiener-Netze-Preisblätter),
+   * `'eur_per_year'`  = Jahresbetrag. Ein unbekannter Wert wird wie ein fehlender behandelt.
+   */
+  messpreisUnit?: string
   /** Delta 6: Pflichtangabe an der Quelle. Gerechnet wird durchgängig netto. */
   priceBasis: PriceBasis | string
   windows: GridTariffWindowInput[]
@@ -121,6 +136,16 @@ export type TariffPricingInputs = {
   gridTariffRows: GridTariffRowInput[] | null
   /** Die Marktpreis-Reihe des Analysezeitraums. `null` = nicht lesbar. */
   spotPrices: SpotPriceSeriesInput | null
+  /**
+   * Die gesetzlichen Abgaben über den Zeitraum (`packages/shared/src/levies.ts`).
+   *
+   * ⚠ PFLICHTFELD, und zwar absichtlich: weggelassen werden zu dürfen hiesse, dass ein Aufrufer
+   * die Abgaben still übergehen kann — und eine um sie zu niedrige Summe fällt niemandem als
+   * Fehler auf, sondern als Ergebnis. `null` heisst „nicht auflösbar" und führt wie bei den beiden
+   * Preisseiten zur ausdrücklichen Verweigerung; ein Zeitraum ohne belegte Sätze ist eine LÜCKE im
+   * Plan, kein Nullsatz.
+   */
+  levies: LevySchedule | null
 }
 
 /**
@@ -132,8 +157,8 @@ export type TariffPricingInputs = {
  * Meldung parsen zu müssen.
  */
 export type TariffOptimizationBlocker = {
-  /** Netzentgelt- oder Spotpreis-Seite. */
-  side: 'grid_tariff' | 'spot_price'
+  /** Netzentgelt-, Spotpreis- oder Abgabenseite. */
+  side: 'grid_tariff' | 'spot_price' | 'levy'
   /**
    * `gap`         — Daten vorhanden, decken den Zeitraum aber nicht vollständig ab.
    * `unavailable` — gar nicht lesbar (fehlende Auswahl, fehlende Umgebung, Abfrage gescheitert).
@@ -217,6 +242,23 @@ export type MonthlyFixedCosts = {
    * Jahrespauschale trägt (dann ist ihr Grundpreis der Leistungspreis, s. `grundpreisUnit`).
    */
   networkBaseFeeEur: number
+  /**
+   * Messpreis des Netzbetreibers, anteilig. Steht wie der Netz-Grundpreis in ALLEN DREI Reihen —
+   * der Zähler bleibt derselbe, egal von wem der Kunde seine Energie kauft. `0`, wenn die
+   * Tarifzeile keinen Messpreis trägt.
+   */
+  meteringFeeEur: number
+  /** EAG-Pauschale, anteilig über das Jahr. Ebenfalls in allen drei Reihen. */
+  eagFlatFeeEur: number
+  /**
+   * Gebrauchsabgabe auf die beiden NETZ-Fixposten (Grundpreis + Messpreis), anteilig.
+   *
+   * ⚠ Sie steht hier getrennt und nicht in den beiden Posten eingerechnet, damit der Report sagen
+   * kann, worauf sie anfällt — sie bemisst sich ausdrücklich nicht an den Lieferantengebühren.
+   * Der verbrauchsABHÄNGIGE Teil der Gebrauchsabgabe steckt dagegen im Intervallpreis und nicht
+   * in diesem Feld.
+   */
+  usageChargeOnFixedEur: number
   /** Grundgebühr des HEUTIGEN Lieferanten — ausschliesslich in „Ihr Tarif heute". */
   supplierBaseFeeEur: number
   /** Grundgebühr von aWATTar — ausschliesslich in den beiden aWATTar-Reihen. */

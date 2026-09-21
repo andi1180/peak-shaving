@@ -13,7 +13,12 @@
  * (Delta 15 Regel C). Ein hier eingesetzter Vorgabewert wäre genau die stille Verschlechterung, die
  * niemandem als Fehler auffiele, sondern als Ergebnis.
  */
-import { analysisWindow, type LoadProfile, type TariffPricingInputs } from 'shared'
+import {
+  analysisWindow,
+  buildLevySchedule,
+  type LoadProfile,
+  type TariffPricingInputs,
+} from 'shared'
 
 import { analysisWindowToPriceRange, fetchGridTariffs, fetchSpotPrices } from './tariff-data'
 
@@ -39,7 +44,7 @@ export async function loadTariffPricing(
   meteringVariant: string | null,
 ): Promise<TariffPricingInputs> {
   const window = analysisWindow(loadProfile)
-  if (!window) return { gridTariffRows: null, spotPrices: null }
+  if (!window) return { gridTariffRows: null, spotPrices: null, levies: null }
 
   const priceRange = analysisWindowToPriceRange(window, loadProfile.intervalMinutes)
 
@@ -54,6 +59,21 @@ export async function loadTariffPricing(
 
   return {
     gridTariffRows: gridResult?.ok ? gridResult.tariffs : null,
+    /*
+     * Die Abgaben kommen nicht aus der Datenbank, sondern aus der versionierten Code-Schicht
+     * (`shared/levies.ts`) — sie sind Verordnungssätze, nicht Preisblattzeilen. Ohne Netzbetreiber
+     * und Netzebene lassen sie sich nicht auflösen; dann steht hier `null`, wie bei der
+     * Netzentgelt-Seite auch.
+     */
+    levies:
+      operatorId != null && netzebene != null
+        ? buildLevySchedule(
+            operatorId,
+            netzebene,
+            window.startIso.slice(0, 10),
+            window.endIso.slice(0, 10),
+          )
+        : null,
     spotPrices: spotResult.ok
       ? {
           prices: spotResult.prices,

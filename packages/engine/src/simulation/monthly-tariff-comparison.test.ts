@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { AWATTAR_BASE_FEE } from 'shared'
+import { AWATTAR_BASE_FEE, LEVIES_NONE } from 'shared'
 import type {
   GridTariffRowInput,
   LoadProfile,
@@ -116,7 +116,7 @@ describe('Monatsvergleich — die Netzentgelt-Seite ist in BEIDEN Preisreihen di
    */
   const START_UTC = '2025-01-15T16:00:00Z'
   const spot = spotSeries(START_UTC, 6, () => 10)
-  const pricing: TariffPricingInputs = { gridTariffRows: [WN_ROW], spotPrices: spot }
+  const pricing: TariffPricingInputs = { gridTariffRows: [WN_ROW], spotPrices: spot, levies: LEVIES_NONE }
 
   it('ein Intervall gegen die echten Wiener-Netze-Sätze, SNAP und normal, beide Reihen', () => {
     // 24 Intervalle = 6 Stunden ab 17:00 Ortszeit: 17:00–20:00 liegt im SNAP-Fenster (12
@@ -210,7 +210,7 @@ describe('Monatsvergleich — Monatsgruppierung, Abdeckung und Hochrechnung', ()
    */
   const START_UTC = '2025-01-31T22:00:00Z' // = 23:00 Ortszeit
   const spot = spotSeries(START_UTC, 4, () => 10)
-  const pricing: TariffPricingInputs = { gridTariffRows: [WN_ROW], spotPrices: spot }
+  const pricing: TariffPricingInputs = { gridTariffRows: [WN_ROW], spotPrices: spot, levies: LEVIES_NONE }
 
   const load = profile(START_UTC, Array.from({ length: 12 }, () => 4))
   const gridAfter = load.readings.map((r) => r.gridPowerKw)
@@ -272,7 +272,7 @@ describe('Monatsvergleich — Monatsgruppierung, Abdeckung und Hochrechnung', ()
 describe('Monatsvergleich — Einspeisung und nicht berechenbare Preisseiten', () => {
   const START_UTC = '2025-06-15T10:00:00Z'
   const spot = spotSeries(START_UTC, 2, () => 10)
-  const pricing: TariffPricingInputs = { gridTariffRows: [WN_ROW], spotPrices: spot }
+  const pricing: TariffPricingInputs = { gridTariffRows: [WN_ROW], spotPrices: spot, levies: LEVIES_NONE }
 
   it('nettet die Einspeisung in ALLEN DREI Reihen mit demselben Satz', () => {
     /*
@@ -298,7 +298,7 @@ describe('Monatsvergleich — Einspeisung und nicht berechenbare Preisseiten', (
     const load = profile(START_UTC, [4, 4, 4, 4])
     const gridAfter = load.readings.map((r) => r.gridPowerKw)
     expect(
-      buildMonthlyTariffComparison(load, tariff, { gridTariffRows: null, spotPrices: spot }, gridAfter),
+      buildMonthlyTariffComparison(load, tariff, { gridTariffRows: null, spotPrices: spot, levies: LEVIES_NONE }, gridAfter),
     ).toBeUndefined()
   })
 
@@ -315,7 +315,7 @@ describe('Monatsvergleich — Einspeisung und nicht berechenbare Preisseiten', (
       buildMonthlyTariffComparison(
         load,
         tariff,
-        { gridTariffRows: [WN_ROW], spotPrices: shortSpot },
+        { gridTariffRows: [WN_ROW], spotPrices: shortSpot, levies: LEVIES_NONE },
         gridAfter,
       ),
     ).toBeUndefined()
@@ -352,7 +352,7 @@ describe('Monatsvergleich — Grundgebühren (Delta 19)', () => {
     return buildMonthlyTariffComparison(
       load,
       supplierFee == null ? tariff : { ...tariff, supplierBaseFeeEurPerMonth: supplierFee },
-      { gridTariffRows: [row], spotPrices: spot },
+      { gridTariffRows: [row], spotPrices: spot, levies: LEVIES_NONE },
       gridAfter,
     )!
   }
@@ -474,7 +474,7 @@ describe('Monatsvergleich — Grundgebühren (Delta 19)', () => {
     const sparseResult = buildMonthlyTariffComparison(
       sparse,
       { ...tariff, supplierBaseFeeEurPerMonth: 3.5 },
-      { gridTariffRows: [rowWithoutFee], spotPrices: spot },
+      { gridTariffRows: [rowWithoutFee], spotPrices: spot, levies: LEVIES_NONE },
       [4],
     )!
 

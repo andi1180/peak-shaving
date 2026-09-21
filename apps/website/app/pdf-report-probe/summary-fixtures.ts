@@ -1,5 +1,6 @@
 import { generateStandardLoadProfile } from 'engine'
 import {
+  LEVIES_NONE,
   buildExistingBatteryCandidate,
   lookupTariffProfile,
   tariffSelectionFrom,
@@ -141,7 +142,14 @@ const pricingCache = new Map<LoadProfile, TariffPricingInputs>()
 function pricingComplete(profile: LoadProfile): TariffPricingInputs {
   let cached = pricingCache.get(profile)
   if (!cached) {
-    cached = { gridTariffRows: GRID_TARIFF_ROWS, spotPrices: buildSpotPrices(profile) }
+    cached = {
+      gridTariffRows: GRID_TARIFF_ROWS,
+      spotPrices: buildSpotPrices(profile),
+      // Der Probe-Lastgang liegt in 2025, für das keine Abgabensätze belegt sind. Ein echter Plan
+      // machte den Hebel hier unberechenbar und die Probe zeigte nur noch den Blocker — sie prüft
+      // aber das RENDERN. Deshalb ausdrücklich ohne Abgaben.
+      levies: LEVIES_NONE,
+    }
     pricingCache.set(profile, cached)
   }
   return cached
@@ -177,6 +185,7 @@ function pricingWithGap(profile: LoadProfile): TariffPricingInputs {
       complete: false,
       missingRanges: [{ fromIso: SPOT_GAP_FROM_ISO, toIso: SPOT_GAP_TO_ISO }],
     },
+    levies: LEVIES_NONE,
   }
 }
 
@@ -192,6 +201,7 @@ function pricingWithGap(profile: LoadProfile): TariffPricingInputs {
 const PRICING_WITHOUT_SPOT: TariffPricingInputs = {
   gridTariffRows: GRID_TARIFF_ROWS,
   spotPrices: null,
+  levies: LEVIES_NONE,
 }
 
 /** Netzebene 3, Wiener Netze — Leistungspreis aus dem Preisblatt, Energiepreise als Rundwerte. */

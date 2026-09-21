@@ -1,4 +1,5 @@
 import type {
+  LevyPeriodInput,
   LoadProfile,
   SpotPricePointInput,
   TariffOptimizationStatus,
@@ -7,6 +8,7 @@ import type {
   TariffPricingInputs,
   TimeOfUseWindow,
 } from 'shared'
+import { findLevyPeriod } from 'shared'
 
 import { utcMsToLocalFields } from '../parser/datetime'
 import { findGridTariffRow, findGridTariffWindow } from './grid-tariff-window'
@@ -121,11 +123,22 @@ export type CombinedIntervalPrices =
 /**
  * Der kombinierte Intervallpreis (Delta 4):
  *
- *     effectivePriceCtPerKwh(t) = energyPrice(t) + netzVerbrauchspreis(t)
+ *     effectivePriceCtPerKwh(t) = energyPrice(t)
+ *                               + netzVerbrauchspreis(t) × (1 + Gebrauchsabgabe(t))
+ *                               + Elektrizitätsabgabe(t) + EAG-Förderbeitrag(t)
  *
  * mit `netzVerbrauchspreis(t) = Fensterpreis(t) + Netzverlust`. Der Netzverlust ist zeitunabhängig
  * und kommt zu JEDEM Fensterpreis hinzu — er ist kein eigenes Fenster, sondern ein Sockel auf der
  * Netzentgelt-Seite (so steht er auch im Pflegeformular aus B21-2b: ein Feld neben den Fenstern).
+ *
+ * ── ⚠ DIE ABGABEN SITZEN HIER UND NICHT AN EINER DER DREI REIHEN ──────────────────────────────
+ * Sie hängen am Netzanschluss und am Gesetz, nicht am Lieferanten: identisch für „Ihr Tarif heute",
+ * für aWATTar und für jede weitere Vergleichsoption. An `currentTariffEur` gehängt verglichen die
+ * Balken zwei verschieden zusammengesetzte Rechnungen, und die spätere Gegenüberstellung mehrerer
+ * Wege stünde auf zwei Massstäben.
+ *
+ * ⚠ Die Gebrauchsabgabe multipliziert AUSSCHLIESSLICH den Netzanteil. Auf den Arbeitspreis
+ * angewandt wäre sie die umstrittene Zweitpraxis einzelner Lieferanten und nicht belegt.
  *
  * Schlägt die Zuordnung für auch nur EIN Intervall fehl, ist der Hebel für die GANZE Analyse nicht
  * berechenbar — nicht für den Rest berechnet und für die Lücke geschätzt. Delta 15 Regel C nennt
@@ -155,7 +168,7 @@ export function combinedIntervalPrices(
   pricing: TariffPricingInputs,
   energyPriceCtPerKwh?: number,
 ): CombinedIntervalPrices {
-  const { gridTariffRows, spotPrices } = pricing
+  const { gridTariffRows, spotPrices, levies } = pricing
 
   if (gridTariffRows == null || gridTariffRows.length === 0) {
     return {
@@ -181,6 +194,20 @@ export function combinedIntervalPrices(
         message:
           'Tarifoptimierung nicht berechenbar: Die Börsen-Strompreise konnten nicht gelesen werden. ' +
           'Peak Shaving und Eigenverbrauch sind davon nicht betroffen.',
+      },
+    }
+  }
+  if (levies == null) {
+    return {
+      blocker: {
+        computable: false,
+        side: 'levy',
+        kind: 'unavailable',
+        ranges: [],
+        message:
+          'Tarifoptimierung nicht berechenbar: Die gesetzlichen Abgaben (Elektrizitätsabgabe, ' +
+          'EAG-Beiträge, Gebrauchsabgabe) konnten für diese Analyse nicht bestimmt werden. Peak ' +
+          'Shaving und Eigenverbrauch sind davon nicht betroffen.',
       },
     }
   }
@@ -231,6 +258,7 @@ export function combinedIntervalPrices(
   const intervalMs = loadProfile.intervalMinutes * 60 * 1000
   const prices: number[] = new Array(loadProfile.readings.length)
   const gridGaps: TariffPriceRange[] = []
+  const levyGaps: TariffPriceRange[] = []
   const spotGaps: TariffPriceRange[] = []
 
   for (let i = 0; i < loadProfile.readings.length; i++) {
@@ -242,9 +270,15 @@ export function combinedIntervalPrices(
     const row = findGridTariffRow(gridTariffRows, localDate)
     const window = row ? findGridTariffWindow(row, month, day, hour * 60 + minute) : null
     const spot = findSpotPrice(startMs, spotPrices.prices, ms)
+    // Je INTERVALL nachgeschlagen, nicht einmal für den Zeitraum: der Gebrauchsabgabe-Satz springt
+    // mitten im Jahr (Wien 6 % → 7 % am 01.03.2026).
+    const levy = findLevyPeriod(levies.periods, localDate)
 
     if (row == null || window == null) {
       gridGaps.push({ fromIso: reading.ts, toIso: new Date(ms + intervalMs).toISOString() })
+    }
+    if (levy == null) {
+      levyGaps.push({ fromIso: reading.ts, toIso: new Date(ms + intervalMs).toISOString() })
     }
     if (spot == null) {
       spotGaps.push({ fromIso: reading.ts, toIso: new Date(ms + intervalMs).toISOString() })
@@ -252,8 +286,8 @@ export function combinedIntervalPrices(
     // Die Energiepreis-Komponente: der übergebene Festpreis, sonst der Börsenpreis der Stunde.
     const energyCt = energyPriceCtPerKwh ?? spot?.ctPerKwh ?? null
     prices[i] =
-      row && window && energyCt != null
-        ? energyCt + window.ctPerKwh + row.netzverlustCtPerKwh
+      row && window && levy && energyCt != null
+        ? energyCt + levyOnGridWorkPrice(window.ctPerKwh + row.netzverlustCtPerKwh, levy)
         : Number.NaN
   }
 
@@ -271,6 +305,20 @@ export function combinedIntervalPrices(
       },
     }
   }
+  // Wie die Netzentgelt-Lücke ein Pflegestand, der von Hand nachzutragen ist (ein Verordnungssatz
+  // ohne Fundstelle im Repo) — deshalb vor der Spotpreis-Lücke, die der nächste Cron-Lauf schliesst.
+  if (levyGaps.length > 0) {
+    const ranges = mergeRanges(levyGaps)
+    return {
+      blocker: {
+        computable: false,
+        side: 'levy',
+        kind: 'gap',
+        ranges,
+        message: gapMessage('belegte Abgabensätze', ranges),
+      },
+    }
+  }
   if (spotGaps.length > 0) {
     const ranges = mergeRanges(spotGaps)
     return {
@@ -285,6 +333,21 @@ export function combinedIntervalPrices(
   }
 
   return { prices }
+}
+
+/**
+ * Der Netz-Arbeitspreis mit Gebrauchsabgabe, plus die beiden verbrauchsabhängigen Abgaben.
+ *
+ * Eigene Funktion, weil die Bemessungsgrundlage der Gebrauchsabgabe die eigentliche fachliche
+ * Aussage ist: multipliziert wird NUR der Netzanteil, die beiden Abgaben kommen danach dazu und
+ * werden nicht mitbesteuert.
+ */
+function levyOnGridWorkPrice(netzCtPerKwh: number, levy: LevyPeriodInput): number {
+  return (
+    netzCtPerKwh * (1 + levy.gebrauchsabgabeRate) +
+    levy.elektrizitaetsabgabeCtPerKwh +
+    levy.eagFoerderbeitragCtPerKwh
+  )
 }
 
 /** Eine Lückenmeldung, die den betroffenen Zeitraum NENNT statt ihn nur zu zählen. */

@@ -56,9 +56,10 @@ function formatRange(range: TariffPriceRange, timeZone: string): string {
   return `${fmt.format(Date.parse(range.fromIso))} – ${fmt.format(Date.parse(range.toIso))}`
 }
 
-const SIDE_LABEL: Record<'grid_tariff' | 'spot_price', string> = {
+const SIDE_LABEL: Record<'grid_tariff' | 'spot_price' | 'levy', string> = {
   grid_tariff: 'Netzentgelte Ihres Netzbetreibers',
   spot_price: 'Börsen-Strompreise',
+  levy: 'gesetzliche Abgaben (Elektrizitätsabgabe, EAG, Gebrauchsabgabe)',
 }
 
 /** Was der Nutzer daraus machen kann — je Grund verschieden, und keiner davon ist sein Fehler. */

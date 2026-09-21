@@ -1696,6 +1696,8 @@ export type Database = {
           grundpreis_amount: number
           grundpreis_unit: string
           id: string
+          messpreis_amount: number | null
+          messpreis_unit: string | null
           metering_variant: string | null
           netzebene: number
           netzverlust_ct_per_kwh: number
@@ -1712,6 +1714,8 @@ export type Database = {
           grundpreis_amount: number
           grundpreis_unit: string
           id?: string
+          messpreis_amount?: number | null
+          messpreis_unit?: string | null
           metering_variant?: string | null
           netzebene: number
           netzverlust_ct_per_kwh: number
@@ -1728,6 +1732,8 @@ export type Database = {
           grundpreis_amount?: number
           grundpreis_unit?: string
           id?: string
+          messpreis_amount?: number | null
+          messpreis_unit?: string | null
           metering_variant?: string | null
           netzebene?: number
           netzverlust_ct_per_kwh?: number
@@ -2182,6 +2188,8 @@ export type Database = {
           p_created_by: string
           p_grundpreis_amount: number
           p_grundpreis_unit: string
+          p_messpreis_amount?: number
+          p_messpreis_unit?: string
           p_metering_variant?: string
           p_netzebene: number
           p_netzverlust_ct_per_kwh: number
@@ -2230,6 +2238,8 @@ export type Database = {
           p_created_by: string
           p_grundpreis_amount: number
           p_grundpreis_unit: string
+          p_messpreis_amount?: number
+          p_messpreis_unit?: string
           p_metering_variant?: string
           p_netzebene: number
           p_netzverlust_ct_per_kwh: number

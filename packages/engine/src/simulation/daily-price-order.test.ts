@@ -6,6 +6,7 @@ import type {
   TariffParams,
   TariffPricingInputs,
 } from 'shared'
+import { LEVIES_NONE } from 'shared'
 
 import { dailyPriceOrder } from './daily-price-order'
 import { runCombinedDispatch } from './dispatch'
@@ -158,6 +159,7 @@ describe('§3.6 Schritt 5 — Tages-Rangfolge beim LADEN: die günstigsten Stund
   const pricing: TariffPricingInputs = {
     gridTariffRows: [FLAT_GRID],
     spotPrices: spotSeries(START, 24, priceAt),
+    levies: LEVIES_NONE,
   }
   const deltaH = 0.25
   // Start leer, damit ausschliesslich gemessen wird, WO geladen wird.
@@ -219,6 +221,7 @@ describe('§3.6 Schritt 5 — Tages-Rangfolge beim ENTLADEN: die teuersten Stund
   const pricing: TariffPricingInputs = {
     gridTariffRows: [FLAT_GRID],
     spotPrices: spotSeries(START, 24, priceAt),
+    levies: LEVIES_NONE,
   }
   const deltaH = 0.25
   const r = run(load, physics, pricing, 0)
@@ -275,6 +278,7 @@ describe('§3.6 Schritt 5 — die Rangfolge kostet KEINEN Durchsatz', () => {
   const pricing: TariffPricingInputs = {
     gridTariffRows: [FLAT_GRID],
     spotPrices: spotSeries(START, 24, priceAt),
+    levies: LEVIES_NONE,
   }
   const deltaH = 0.25
   const r = run(load, physics, pricing, 20)
@@ -315,6 +319,7 @@ describe('§3.6 Schritt 5 — die Schranken lassen den Spitzenschutz unangetaste
   const pricing: TariffPricingInputs = {
     gridTariffRows: [FLAT_GRID],
     spotPrices: spotSeries(START, 24, priceAt),
+    levies: LEVIES_NONE,
   }
 
   it('bei `cap` = 40 kW wird die Spitze gekappt, obwohl die Preis-Untergrenze dort greift', () => {

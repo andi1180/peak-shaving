@@ -7,6 +7,7 @@ import {
   type TariffParams,
   type TariffPricingInputs,
 } from 'shared'
+import { LEVIES_NONE } from 'shared'
 
 import { parseLoadProfile } from '../parser'
 import { recommendBattery } from '../recommendation/rank'
@@ -79,6 +80,7 @@ describe('Delta 4 — kombinierter Preis durch die volle Kette (Demo-Bäckerei 2
     const pricing: TariffPricingInputs = {
       gridTariffRows: gridRows,
       spotPrices: fullSpotSeries((h) => 5 + (h % 24)),
+      levies: LEVIES_NONE,
     }
     const rates = intervalTariffRates(load, tariff, pricing)
     expect(rates.tariffOptimization).toEqual({ computable: true })
@@ -99,6 +101,7 @@ describe('Delta 4 — kombinierter Preis durch die volle Kette (Demo-Bäckerei 2
         complete: false,
         missingRanges: [{ fromIso: '2025-07-04T10:00:00.000Z', toIso: '2025-07-04T13:00:00.000Z' }],
       },
+      levies: LEVIES_NONE,
     }
     const withBrokenLever = recommendBattery(
       load,
@@ -135,6 +138,7 @@ describe('Delta 4 — kombinierter Preis durch die volle Kette (Demo-Bäckerei 2
     const pricing: TariffPricingInputs = {
       gridTariffRows: gridRows,
       spotPrices: fullSpotSeries((h) => (h % 24 < 6 || h % 24 >= 22 ? 5 : 35)),
+      levies: LEVIES_NONE,
     }
     const withLever = recommendBattery(
       load,

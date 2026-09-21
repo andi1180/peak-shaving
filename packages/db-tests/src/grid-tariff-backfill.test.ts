@@ -729,10 +729,10 @@ describe('B21-2e — die Funktion ist so verschlossen wie ihre Geschwister', () 
     expect(rows[0]).toEqual({ anon: false, auth: false, svc: true })
   })
 
-  it('nur `p_metering_variant` trägt einen Vorgabewert, und es steht am ENDE', async () => {
+  it('die drei optionalen Parameter stehen am ENDE, alle übrigen sind pflichtig', async () => {
     /*
      * PostgreSQL verlangt, dass alle Parameter NACH einem mit Vorgabewert ebenfalls einen tragen.
-     * Rutschte es nach vorn, müssten auch `p_valid_from` und `p_windows` optional werden — ein
+     * Rutschte einer nach vorn, müssten auch `p_valid_from` und `p_windows` optional werden — ein
      * Aufruf ohne Gültigkeitsbeginn liefe dann durch. Dieselbe Anordnung wie in `create_grid_tariff`.
      *
      * ⚠ `p_operator_name` fehlt hier bewusst: der Anzeigename kommt aus dem Bestand (s. Migration).
@@ -753,8 +753,10 @@ describe('B21-2e — die Funktion ist so verschlossen wie ihre Geschwister', () 
       'p_created_by',
       'p_windows',
       'p_metering_variant',
+      'p_messpreis_amount',
+      'p_messpreis_unit',
     ])
-    expect(Number(rows[0]?.defaults)).toBe(1)
+    expect(Number(rows[0]?.defaults)).toBe(3)
   })
 
   it('KEIN neues Tabellenrecht — die Rechtefläche ist unverändert die aus B21-2b/2c', async () => {

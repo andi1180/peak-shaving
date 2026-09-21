@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { LEVIES_NONE } from 'shared'
 import type { BatteryCandidate, MonthlyTariffComparison, TariffPricingInputs } from 'shared'
 
 import { computeAnalysis, type CalculatorPayload } from './compute-analysis'
@@ -142,6 +143,7 @@ function pricingInputs(): TariffPricingInputs {
       complete: true,
       missingRanges: [],
     },
+    levies: LEVIES_NONE,
   }
 }
 
