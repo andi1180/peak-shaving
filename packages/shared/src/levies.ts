@@ -36,9 +36,34 @@ export type LevyPeriodInput = {
   validUntil: string | null
   /** Elektrizitätsabgabe, ct/kWh netto — auf jede bezogene Kilowattstunde. */
   elektrizitaetsabgabeCtPerKwh: number
-  /** EAG-Förderbeitrag, ct/kWh netto — netzebenenabhängig. */
+  /**
+   * EAG-Förderbeitrag, verbrauchsabhängiger Teil in ct/kWh netto — netzebenen- UND
+   * messvariantenabhängig. Es ist die SUMME aus „Netznutzung Verbrauchspreis" und
+   * „Netzverlustentgelt" des Preisblatts: beide hängen an der bezogenen Kilowattstunde und an
+   * derselben Bemessungsgrundlage, und der Rechenkern hat für sie eine Multiplikation. Getrennt
+   * geführt wären es zwei Felder mit identischer Behandlung; die Einzelwerte stehen in `sourceNote`.
+   */
   eagFoerderbeitragCtPerKwh: number
-  /** EAG-Pauschale, €/Jahr netto — verbrauchsunabhängig, tagesanteilig zu rechnen. */
+  /**
+   * EAG-Förderbeitrag, GRUNDPREIS-Teil — der dritte Bestandteil des Preisblatts (EX104).
+   *
+   * ⚠ Die Einheit gehört zwingend dazu und ist deshalb ein eigenes Feld, genau wie bei
+   * `GridTariffRowInput.grundpreisUnit`: auf Netzebene 3–6 und auf NE 7 MIT Leistungsmessung ist
+   * der Satz ein LEISTUNGSpreis (€ je kW und Jahr), auf NE 7 OHNE Leistungsmessung ein fixer
+   * Jahresbetrag je Zählpunkt. Die beiden unterscheiden sich um den Faktor der Anschlussleistung —
+   * eine geratene Deutung wäre hier besonders teuer.
+   */
+  eagFoerderbeitragGrundpreisAmount: number
+  eagFoerderbeitragGrundpreisUnit: 'eur_per_kw_year' | 'eur_per_year'
+  /**
+   * Erneuerbaren-FÖRDERPAUSCHALE, €/Jahr netto je Zählpunkt — verbrauchsunabhängig, tagesanteilig.
+   *
+   * ⚠ NICHT dasselbe wie der Grundpreis des Förderbeitrags oben, auch wenn beide ein Jahresbetrag
+   * sein können: die Pauschale steht im EAG 2021 und wird von der Förderpauschale-Verordnung für
+   * mehrere Jahre im Voraus festgesetzt, der Förderbeitrag jährlich neu. Sie werden getrennt
+   * geführt, weil sie getrennt gelten — und weil genau diese Verwechslung der Fehler war, den
+   * dieser Nachtrag behebt.
+   */
   eagPauschaleEurPerYear: number
   /**
    * Gebrauchsabgabe als ANTEIL (0,07 = 7 %), und zwar AUSSCHLIESSLICH auf den Netto-NETZPREIS:
@@ -87,6 +112,8 @@ export const LEVIES_NONE: LevySchedule = {
       validUntil: null,
       elektrizitaetsabgabeCtPerKwh: 0,
       eagFoerderbeitragCtPerKwh: 0,
+      eagFoerderbeitragGrundpreisAmount: 0,
+      eagFoerderbeitragGrundpreisUnit: 'eur_per_year',
       eagPauschaleEurPerYear: 0,
       gebrauchsabgabeRate: 0,
     },
@@ -118,25 +145,124 @@ const ELEKTRIZITAETSABGABE: (DatedEntry & { ctPerKwh: number })[] = [
 ]
 
 /**
- * EAG-Förderbeitrag und EAG-Pauschale — bundesweit, aber nach NETZEBENE gestaffelt.
+ * Fundstelle beider EAG-Tabellen — EIN Ort, weil es EIN Preisblatt ist.
  *
- * Belegt ist bislang nur die Netzebene 7. Für NE 3–6 steht hier bewusst nichts: die Sätze
- * existieren, sind aber nicht belegbar hinterlegt, und geraten wird nicht (B11, `not_yet_recorded`).
+ * ⚠ Bis zum 21.09.2026 stand hier für Netzebene 7 ein Satzpaar OHNE Fundstelle
+ * (0,620 ct/kWh + 3,80 €/Jahr). Nachgemessen am Preisblatt war der ct/kWh-Wert richtig
+ * (0,583 + 0,037, Variante „ohne Leistungsmessung"), der Jahresbetrag aber der GRUNDPREIS des
+ * Förderbeitrags (3,796 €/Zählpunkt·Jahr) — und die eigentliche Förderpauschale von 19,02 €/Jahr
+ * fehlte damit vollständig. Deshalb trägt hier ab jetzt jeder Satz seine Herkunft.
  */
-const EAG_BY_NETZEBENE: Record<
-  number,
-  (DatedEntry & { foerderbeitragCtPerKwh: number; pauschaleEurPerYear: number })[]
-> = {
-  7: [
-    {
-      validFrom: '2026-01-01',
-      validUntil: '2026-12-31',
-      foerderbeitragCtPerKwh: 0.62,
-      pauschaleEurPerYear: 3.8,
-      sourceNote:
-        'EAG-Förderbeitrag 0,620 ct/kWh und EAG-Förderpauschale 3,80 €/Jahr, jeweils netto, ' +
-        'Netzebene 7, Tarifjahr 2026. Im Repo festgehalten am 21.09.2026.',
-    },
+const EAG_SOURCE_DOC =
+  'Quelle: Wiener Netze, Preisblatt EX104 „Erneuerbaren-Förderpauschale und ' +
+  'Erneuerbaren-Förderbeitrag", Vers. 1/2026. Im Repo festgehalten am 21.09.2026.'
+
+const EAG_PAUSCHALE_SOURCE =
+  'Erneuerbaren-Förderpauschale je Zählpunkt und Kalenderjahr, netto, festgesetzt für die ' +
+  'Kalenderjahre 2025 bis 2027 (Erneuerbaren-Ausbau-Gesetz 2021 i. V. m. ' +
+  `Erneuerbaren-Förderpauschale-Verordnung 2025). ${EAG_SOURCE_DOC}`
+
+/**
+ * Der Schlüssel, unter dem ein EAG-Förderbeitrag steht.
+ *
+ * ⚠ Die MESSVARIANTE gehört dazu, nicht nur die Netzebene. EX104 führt für Netzebene 7 drei
+ * verschiedene Zeilen (mit Leistungsmessung / ohne / unterbrechbare Nutzung), und sie
+ * unterscheiden sich um mehr als ein Drittel im Verbrauchspreis. Auf den Netzebenen 3–6 gibt es
+ * die Unterscheidung nicht — dort steht `null`, wie in `grid_tariffs.metering_variant` und aus
+ * demselben Grund.
+ */
+function eagKey(netzebene: number, meteringVariant: string | null): string {
+  return `${netzebene}:${meteringVariant ?? '-'}`
+}
+
+/**
+ * Erneuerbaren-FÖRDERPAUSCHALE je Netzebene, € pro Kalenderjahr und Zählpunkt.
+ *
+ * Sie hängt NICHT an der Messvariante (EX104 führt sie je Netzebene, einwertig) und gilt
+ * ausdrücklich für die Kalenderjahre 2025 bis 2027 — die Erneuerbaren-Förderpauschale-Verordnung
+ * 2025 setzt sie für drei Jahre im Voraus fest, anders als den jährlich neu festgesetzten
+ * Förderbeitrag. Deshalb eine eigene Tabelle mit eigener Datierung statt eines Felds neben ihm.
+ *
+ * ⚠ Die Beträge der oberen Netzebenen sind KEIN Tippfehler: NE 3/4 stehen bei 60.524,03 € im Jahr.
+ * Es sind Industrieanschlüsse, und die Pauschale ist dort nach Anschlussgrösse gestaffelt.
+ */
+const EAG_PAUSCHALE_BY_NETZEBENE: Record<number, (DatedEntry & { eurPerYear: number })[]> = {
+  3: [{ validFrom: '2025-01-01', validUntil: '2027-12-31', eurPerYear: 60524.03, sourceNote: EAG_PAUSCHALE_SOURCE }],
+  4: [{ validFrom: '2025-01-01', validUntil: '2027-12-31', eurPerYear: 60524.03, sourceNote: EAG_PAUSCHALE_SOURCE }],
+  5: [{ validFrom: '2025-01-01', validUntil: '2027-12-31', eurPerYear: 8992.14, sourceNote: EAG_PAUSCHALE_SOURCE }],
+  6: [{ validFrom: '2025-01-01', validUntil: '2027-12-31', eurPerYear: 553.36, sourceNote: EAG_PAUSCHALE_SOURCE }],
+  7: [{ validFrom: '2025-01-01', validUntil: '2027-12-31', eurPerYear: 19.02, sourceNote: EAG_PAUSCHALE_SOURCE }],
+}
+
+/**
+ * Erneuerbaren-FÖRDERBEITRAG je (Netzebene, Messvariante) und Tarifjahr.
+ *
+ * Drei Bestandteile je Zeile, so wie das Preisblatt sie führt: „Netznutzung Grundpreis"
+ * (€/kW·Jahr, auf NE 7 ohne Leistungsmessung €/Zählpunkt·Jahr), „Netznutzung Verbrauchspreis"
+ * (ct/kWh) und „Netzverlustentgelt" (ct/kWh). Die beiden ct/kWh-Teile werden beim Zusammensetzen
+ * addiert (s. `eagFoerderbeitragCtPerKwh`); der Grundpreis reist mit seiner Einheit weiter.
+ *
+ * Die Höhe wird jährlich neu festgesetzt — jeder Eintrag ist deshalb auf SEIN Kalenderjahr
+ * befristet, und für 2027 steht hier nichts. Ein fortgeschriebener Satz sähe aus wie eine Angabe.
+ */
+type FoerderbeitragEntry = DatedEntry & {
+  grundpreisAmount: number
+  grundpreisUnit: 'eur_per_kw_year' | 'eur_per_year'
+  verbrauchspreisCtPerKwh: number
+  netzverlustCtPerKwh: number
+}
+
+function foerderbeitrag(
+  year: number,
+  grundpreisAmount: number,
+  grundpreisUnit: 'eur_per_kw_year' | 'eur_per_year',
+  verbrauchspreisCtPerKwh: number,
+  netzverlustCtPerKwh: number,
+  label: string,
+): FoerderbeitragEntry {
+  return {
+    validFrom: `${year}-01-01`,
+    validUntil: `${year}-12-31`,
+    grundpreisAmount,
+    grundpreisUnit,
+    verbrauchspreisCtPerKwh,
+    netzverlustCtPerKwh,
+    sourceNote:
+      `Erneuerbaren-Förderbeitrag ${label}, Tarifjahr ${year}: Grundpreis ${grundpreisAmount} ` +
+      `${grundpreisUnit === 'eur_per_kw_year' ? '€/kW·Jahr' : '€/Zählpunkt·Jahr'}, ` +
+      `Verbrauchspreis ${verbrauchspreisCtPerKwh} ct/kWh, Netzverlustentgelt ` +
+      `${netzverlustCtPerKwh} ct/kWh, jeweils netto. ${EAG_SOURCE_DOC}`,
+  }
+}
+
+const EAG_FOERDERBEITRAG: Record<string, FoerderbeitragEntry[]> = {
+  [eagKey(3, null)]: [
+    foerderbeitrag(2025, 5.774, 'eur_per_kw_year', 0.114, 0.02, 'Netzebene 3'),
+    foerderbeitrag(2026, 3.87, 'eur_per_kw_year', 0.073, 0.01, 'Netzebene 3'),
+  ],
+  [eagKey(4, null)]: [
+    foerderbeitrag(2025, 7.54, 'eur_per_kw_year', 0.15, 0.02, 'Netzebene 4'),
+    foerderbeitrag(2026, 5.564, 'eur_per_kw_year', 0.108, 0.011, 'Netzebene 4'),
+  ],
+  [eagKey(5, null)]: [
+    foerderbeitrag(2025, 6.796, 'eur_per_kw_year', 0.179, 0.02, 'Netzebene 5'),
+    foerderbeitrag(2026, 4.918, 'eur_per_kw_year', 0.127, 0.013, 'Netzebene 5'),
+  ],
+  [eagKey(6, null)]: [
+    foerderbeitrag(2025, 7.358, 'eur_per_kw_year', 0.271, 0.018, 'Netzebene 6'),
+    foerderbeitrag(2026, 5.252, 'eur_per_kw_year', 0.198, 0.011, 'Netzebene 6'),
+  ],
+  [eagKey(7, 'mit_leistungsmessung')]: [
+    foerderbeitrag(2025, 7.102, 'eur_per_kw_year', 0.457, 0.059, 'Netzebene 7 mit Leistungsmessung'),
+    foerderbeitrag(2026, 5.619, 'eur_per_kw_year', 0.364, 0.037, 'Netzebene 7 mit Leistungsmessung'),
+  ],
+  [eagKey(7, 'ohne_leistungsmessung')]: [
+    foerderbeitrag(2025, 4.695, 'eur_per_year', 0.737, 0.059, 'Netzebene 7 ohne Leistungsmessung'),
+    foerderbeitrag(2026, 3.796, 'eur_per_year', 0.583, 0.037, 'Netzebene 7 ohne Leistungsmessung'),
+  ],
+  [eagKey(7, 'unterbrechbar')]: [
+    foerderbeitrag(2025, 0, 'eur_per_kw_year', 0.435, 0.059, 'Netzebene 7 unterbrechbare Nutzung'),
+    foerderbeitrag(2026, 0, 'eur_per_kw_year', 0.347, 0.037, 'Netzebene 7 unterbrechbare Nutzung'),
   ],
 }
 
@@ -190,24 +316,28 @@ function pick<T extends DatedEntry>(entries: readonly T[], date: string): T | nu
  * Den Abgabenplan für eine Kombination und einen Zeitraum bilden.
  *
  * ── ⚠ DIE SATZWECHSEL WERDEN GESCHNITTEN, NICHT EINMAL AUSGEWERTET ────────────────────────────
- * Gesammelt werden ALLE Gültigkeitsgrenzen aller drei Quellen im Zeitraum; zwischen zwei Grenzen
+ * Gesammelt werden ALLE Gültigkeitsgrenzen aller vier Quellen im Zeitraum; zwischen zwei Grenzen
  * entsteht je ein Zeitabschnitt. Nur am Zeitraumbeginn nachzusehen träfe den Sprung 6 % → 7 %
  * nicht — dieselbe Falle wie beim Netzentgelt-Backfill, der `min(valid_from)` über ALLE Zeilen
  * bildet statt nur die offene zu prüfen.
  *
  * ── ⚠ EIN ABSCHNITT OHNE VOLLSTÄNDIGEN BELEG ENTFÄLLT ─────────────────────────────────────────
- * Fehlt auch nur eine der drei Quellen, entsteht für diesen Abschnitt KEIN Eintrag. Der Rechenkern
+ * Fehlt auch nur eine der vier Quellen, entsteht für diesen Abschnitt KEIN Eintrag. Der Rechenkern
  * findet dort keinen Abgabenzeitraum und verweigert den Hebel mit benanntem Zeitraum — statt den
  * Abschnitt still mit null Abgaben zu rechnen.
  *
  * @param fromDate ISO-Datum des Zeitraumbeginns (UTC-Sicht des Lastgangs).
  * @param toDate   ISO-Datum des Zeitraumendes (UTC-Sicht des Lastgangs).
+ * @param meteringVariant Messvariante der Netzebene (`grid_tariffs.metering_variant`), sonst
+ *                 `null`. Auf NE 7 entscheidet sie über den Förderbeitrag; auf NE 3–6 gibt es
+ *                 keine Variante und der Schlüssel trägt `null`.
  */
 export function buildLevySchedule(
   operatorId: string,
   netzebene: number,
   fromDate: string,
   toDate: string,
+  meteringVariant: string | null = null,
 ): LevySchedule {
   /*
    * ⚠ Der Plan wird auf die BERÜHRTEN KALENDERJAHRE geweitet, nicht auf den übergebenen Zeitraum
@@ -223,9 +353,13 @@ export function buildLevySchedule(
   const from = `${fromDate.slice(0, 4)}-01-01`
   const to = `${toDate.slice(0, 4)}-12-31`
 
+  const foerderbeitraege = EAG_FOERDERBEITRAG[eagKey(netzebene, meteringVariant)] ?? []
+  const pauschalen = EAG_PAUSCHALE_BY_NETZEBENE[netzebene] ?? []
+
   const sources = [
     ...ELEKTRIZITAETSABGABE,
-    ...(EAG_BY_NETZEBENE[netzebene] ?? []),
+    ...foerderbeitraege,
+    ...pauschalen,
     ...(GEBRAUCHSABGABE_BY_OPERATOR[operatorId] ?? []),
   ]
 
@@ -245,16 +379,20 @@ export function buildLevySchedule(
     const end = i + 1 < ordered.length ? shiftDate(ordered[i + 1]!, -1) : to
 
     const strom = pick(ELEKTRIZITAETSABGABE, start)
-    const eag = pick(EAG_BY_NETZEBENE[netzebene] ?? [], start)
+    const beitrag = pick(foerderbeitraege, start)
+    const pauschale = pick(pauschalen, start)
     const gebrauch = pick(GEBRAUCHSABGABE_BY_OPERATOR[operatorId] ?? [], start)
-    if (!strom || !eag || !gebrauch) continue
+    if (!strom || !beitrag || !pauschale || !gebrauch) continue
 
     periods.push({
       validFrom: start,
       validUntil: end,
       elektrizitaetsabgabeCtPerKwh: strom.ctPerKwh,
-      eagFoerderbeitragCtPerKwh: eag.foerderbeitragCtPerKwh,
-      eagPauschaleEurPerYear: eag.pauschaleEurPerYear,
+      // Verbrauchspreis + Netzverlustentgelt: beide ct/kWh auf dieselbe Bemessungsgrundlage.
+      eagFoerderbeitragCtPerKwh: beitrag.verbrauchspreisCtPerKwh + beitrag.netzverlustCtPerKwh,
+      eagFoerderbeitragGrundpreisAmount: beitrag.grundpreisAmount,
+      eagFoerderbeitragGrundpreisUnit: beitrag.grundpreisUnit,
+      eagPauschaleEurPerYear: pauschale.eurPerYear,
       gebrauchsabgabeRate: gebrauch.rate,
     })
   }

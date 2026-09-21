@@ -252,7 +252,20 @@ export function buildMonthlyTariffComparison(
 
     networkFix[idx]! += networkDay
     meteringFix[idx]! += meteringDay
+    /*
+     * Förderpauschale UND der Grundpreis-Teil des Förderbeitrags — beide verbrauchsunabhängig,
+     * beide tagesanteilig.
+     *
+     * ⚠ Vom Grundpreis zählt hier NUR die Einheit `eur_per_year`. Ein Satz in €/kW·Jahr ist ein
+     * LEISTUNGSpreis und gehört damit in dieselbe Rechnung wie der Netz-Grundpreis derselben
+     * Einheit — den `annualFlatNetworkFeeEur` aus genau diesem Grund ebenfalls überspringt. Diese
+     * drei Reihen vergleichen Arbeitspreise und Fixbeträge; ein leistungsabhängiger Posten stünde
+     * in allen dreien gleich hoch und verschöbe nur das Niveau (s. Modulkopf).
+     */
     eagFlatFix[idx]! += (levy?.eagPauschaleEurPerYear ?? 0) * yearShare
+    if (levy?.eagFoerderbeitragGrundpreisUnit === 'eur_per_year') {
+      eagFlatFix[idx]! += levy.eagFoerderbeitragGrundpreisAmount * yearShare
+    }
     // Bemessungsgrundlage: die beiden NETZ-Fixposten. Die Lieferantengebühren stehen bewusst
     // draussen, die EAG-Pauschale ebenfalls — eine Abgabe bemisst sich nicht an einer Abgabe.
     usageChargeFix[idx]! += (networkDay + meteringDay) * (levy?.gebrauchsabgabeRate ?? 0)

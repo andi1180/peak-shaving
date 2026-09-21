@@ -1413,9 +1413,21 @@ Gegenlesen. Hinterlegt sind **ausschliesslich** belegte Sätze.
 | Abgabe | belegt für | Gültig bis |
 |---|---|---|
 | Elektrizitätsabgabe 0,10 ct/kWh | ganz Österreich | **31.12.2026** (BGBl. I 95/2025, befristet) |
-| EAG-Förderbeitrag 0,620 ct/kWh | **nur Netzebene 7** | 31.12.2026 |
-| EAG-Pauschale 3,80 €/Jahr | **nur Netzebene 7** | 31.12.2026 |
+| EAG-Förderbeitrag, dreiteilig je Netzebene UND Messvariante | **NE 3–7**, Wiener Netze (EX104) | 31.12.2026 |
+| EAG-Förderpauschale 19,02 … 60.524,03 €/Jahr je Netzebene | **NE 3–7** | **31.12.2027** |
 | Gebrauchsabgabe 6 % → 7 % ab 01.03.2026 | **nur `wiener_netze`** | offen |
+
+**⚠ Der EAG-Förderbeitrag hat DREI Bestandteile** (EX104: Grundpreis, Verbrauchspreis,
+Netzverlustentgelt). Die beiden ct/kWh-Teile werden beim Zusammensetzen addiert; der **Grundpreis**
+reist mit seiner **Einheit** weiter — auf NE 3–6 und NE 7 mit Leistungsmessung ist er ein
+LEISTUNGSpreis (€/kW·Jahr), auf NE 7 ohne Leistungsmessung ein Jahresbetrag je Zählpunkt. Nur
+Letzterer geht heute in die Monatsreihen ein; ein €/kW·Jahr-Satz bleibt dort aussen vor, genau wie
+der Netz-Grundpreis derselben Einheit (s. `monthly-tariff-comparison.ts`). **Das ist ein offener
+Punkt für Kunden MIT Leistungsmessung**, kein Endzustand.
+
+**⚠ Die Messvariante ist ab jetzt Teil des Schlüssels.** `buildLevySchedule` nimmt sie als fünften
+Parameter. Für NE 7 führt EX104 drei Zeilen und **keine variantenlose** — wer die Variante nicht
+mitgibt, bekommt **keinen** Zeitraum und damit die Lückenmeldung.
 
 Für jede Kombination, die hier fehlt, entsteht **kein Abgabenzeitraum** — und der Rechenkern
 **verweigert dann den ganzen Börsenpreis-Vergleich** mit einer benannten Lücke, statt eine zu
@@ -1424,7 +1436,11 @@ niedrige Summe auszuweisen. Konkret heisst das:
 - **Ab 01.01.2027 fällt der Tarifvergleich für JEDEN Kunden aus**, solange die Sätze für 2027 nicht
   nachgetragen sind. Das ist beabsichtigt (dieselbe Haltung wie `pending_regulation` in §3a), aber
   es ist ein Stichtag, der im Kalender stehen sollte.
-- **Netzebene 3–6 rechnet den Vergleich heute gar nicht** — es fehlen die EAG-Sätze dieser Ebenen.
+- **Netzebene 3–6 rechnet seit dem EX104-Nachtrag (21.09.2026) mit.** Davor fehlten die EAG-Sätze
+  dieser Ebenen; gemessen ist, dass NE 6 in einem 2026er Fenster jetzt `computable: true` liefert.
+- **Das Kalenderjahr 2025 rechnet weiterhin nicht** — die EAG-Sätze sind dafür zwar belegt (EX104
+  führt beide Tabellen auch für 2025), Elektrizitätsabgabe und Gebrauchsabgabe aber nicht. Ein
+  Lastgang aus 2025 fällt deshalb aus, unabhängig von der Netzebene.
 - **Netz NÖ und Salzburg Netz ebenso** — es fehlt ihre Gebrauchsabgabe. Ein Netzbereich **ohne**
   Gebrauchsabgabe (Burgenland, Vorarlberg) bekommt einen ausdrücklichen Eintrag mit `rate: 0`:
   „nicht erfasst" und „fällt nicht an" dürfen nicht dieselbe Wirkung haben.
