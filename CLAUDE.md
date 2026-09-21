@@ -136,6 +136,38 @@ Details und der vollständige Stand: siehe `./Pflichtenheft_Kalkulator_MVP.md`, 
 
 > Lebendiger Handover-Anker. Neueste offene Punkte, die den Bau der Engine/Simulation berühren. Erledigtes wandert raus.
 
+### Vorausschauende Ladesteuerung — „Zahl 2" gebaut, aber nur intern (21.09.2026)
+
+`packages/engine/src/foresight/` rechnet den **vorausschauenden `controlValueEur`**: denselben
+Fahrplan, aber die Tages-Rangfolge (`daily-price-order.ts`) sieht statt des gemessenen Netzbezugs
+eine **Leave-one-out-Prognose aus der eigenen Historie des Kunden**. Ausgeführt wird weiterhin auf
+dem echten Lastgang — eine Steuerung plant mit ihrer Erwartung und bezahlt die Wirklichkeit. Kein
+zweiter Planer, kein zweiter Dispatch-Pfad; **kein Rendering, keine Oberfläche, kein
+Analyse-Bündel.** Der Marker `basis: 'foresight_unvalidated'` reist mit der Zahl (Muster
+`energyPriceBasis`). Fachliche Tiefe: `Pflichtenheft_Vorausschauende_Ladesteuerung.md`,
+Messgrundlage `Vorausschauende_Ladesteuerung_Bestandsaufnahme.md`.
+
+**Nur Weg c, nur ohne Leistungspreis:** gerechnet wird bei `leistungspreisCostPerYear === 0` mit
+`cap = ∞`/`socFloor ≡ 0` — für diese Kunden ist das keine Abweichung, sondern genau der heutige
+Produktivpfad (Blocker `no_demand_charge`). Bei Leistungspreis > 0 wird mit benanntem Grund
+**verweigert** (`demand_charge`), weil `cap`/`socFloor` Periodengrössen sind und auf einen
+Tageshorizont nicht reduzierbar — Weg a/b bleiben offen `[ANDREAS]`. Ebenso verweigert werden
+`standard_profile` (Muster und Wahrheit wären dieselbe Formel) und eine fehlende echte Preiskurve.
+
+**⚠ Die Eimer-Einteilung `month` ist `[ANNAHME, vorläufig]` und revisionspflichtig**
+(`DEFAULT_CONSUMPTION_PATTERN_SCHEME`); alle drei zulässigen Schemata sind als Parameter rechenbar,
+`weekday_month` ist ausgeschlossen. Die Wahl wartet auf einen **gewerblichen** Lastgang `[MARTIN]` —
+gemessen ist sie an einem Haushalt, bei dem die Wochentagsachse nichts trägt.
+
+**Am echten Urbanz-Fall gemessen** (Cloud-Entwurf 13,081 ct / 3,50 €/Monat / 4,56 ct, echte
+`grid_tariffs`/`spot_prices`, 209 Tage, Bestandsspeicher 19,2 kWh): Zahl 1 **201,99 €**, Zahl 2
+(`month`) **200,86 €**, `realizationRatio` **0,994**. **⚠ Das belegt die Prognosegüte NICHT.**
+Derselbe Lauf mit dem trivialen Vorhersager ergibt 200,62 €, mit einer Null-Prognose 200,15 € — die
+ganze Spanne zwischen vollem Rückblick und gar keiner Prognose ist **1,84 €**. Ohne Tages-Rangfolge
+fällt derselbe Posten dagegen auf **77,60 €**. Der Fahrplan hängt hier also fast nur am PREIS; der
+Speicher ist gegenüber 20,5 kWh Tagesmittel (Sommer 2–7 kWh) so gross, dass die beiden Schranken
+selten binden. **Eine aussagekräftige Zahl braucht einen Kunden mit knappem Speicher.**
+
 ### B24 Teil 1 — Dateneingabe-Wizard (aktueller Stand, 15.09.2026, Live-geprüft)
 
 Admin-geführter Wizard unter `/admin/kalkulator-projekte/[id]/dateneingabe`: Segment (Privat/Betrieb) → Anzahl Zählpunkte → je Zählpunkt fünf Stationen. Alle fünf vollständig, in allen Wegen:

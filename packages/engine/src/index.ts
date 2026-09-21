@@ -15,6 +15,9 @@ export * from './standard-profile'
 // Referenzprofil und dieses zu einem signierten Netz-Lastgang (Verbrauch − Erzeugung). Der
 // Netzaufruf selbst liegt bewusst NICHT hier, sondern als Proxy in `apps/website/lib/pvgis/`.
 export * from './pv-generation'
+// Vorausschauende Ladesteuerung (vereinfacht, 21.09.2026): der INTERNE Nachweis „was hätte eine
+// Steuerung ohne Rückblick erreicht". Reine Berechnung, kein Report und keine Oberfläche.
+export * from './foresight'
 // D5 (17.09.2026): die PV-Ausfallerkennung — Monate, in denen eine vorhandene Anlage im Lastgang
 // keinen Mittagseinbruch zeigt. Rein beobachtend, kein KI-Aufruf (Prinzip 5).
 export * from './pv-anomaly'
