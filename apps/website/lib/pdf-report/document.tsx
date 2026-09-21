@@ -8,6 +8,7 @@ import { fitRasterToWidth, type ChartRaster } from './chart-raster'
 import {
   BASIS_INTRO,
   BASIS_SECTION,
+  BASIS_TARIFF_VINTAGE_FOOTNOTE,
   buildReportAgenda,
   COMPARISON_INTRO,
   COMPARISON_SECTION,
@@ -2093,7 +2094,16 @@ function BasisChapter({
       {pvOutage && <Notice notice={pvOutage} />}
 
       <Text style={styles.provenance}>{chapter.tariffSource}</Text>
-      {chapter.tariffVintage && <Text style={styles.provenance}>{chapter.tariffVintage}</Text>}
+      {/*
+        ⚠ NICHT `chapter.tariffVintage` selbst — der volle Satz steht seit PR #298 bereits als
+        eigener Hinweiskasten im Kapitel „Voraussetzungen" (`prerequisites.ts`,
+        `buildPriceBasisNotice`). Die BEDINGUNG bleibt dieselbe (ein Treffer heisst: der
+        ausgewertete Zeitraum reicht in ein laufendes Kalenderjahr); nur der TEXT ist jetzt ein
+        Zeiger dorthin, wortgleiches Muster zu `RESULTS_FOOTNOTE`.
+      */}
+      {chapter.tariffVintage && (
+        <Text style={styles.provenance}>{BASIS_TARIFF_VINTAGE_FOOTNOTE}</Text>
+      )}
 
       {/* D9 — die Tarifgrössen im Einzelnen. Sie steht direkt unter den beiden Herkunftssätzen,
           weil ihre Status-Spalte genau deren Aussage Feld für Feld wiederholt: erst der Satz über
