@@ -34,3 +34,22 @@ export const HINDSIGHT_NOTE =
 export function monthlyBatteryRef(isExisting: boolean): string {
   return isExisting ? 'Ihrem Speicher' : 'der empfohlenen Batterie'
 }
+
+/**
+ * Wie die Reihe/der Weg „aWATTar, gesteuert" ÜBERALL heisst, wo sie BESCHRIFTET wird —
+ * Balkenlabel, Legende, Tabellenzeile, Absatzüberschrift.
+ *
+ * ── ⚠ EIN NAME, WEIL ES EINE SACHE IST ────────────────────────────────────────────────────────
+ * Bis zum 21.09.2026 stand hier `aWATTar mit ${monthlyBatteryRef(isExisting)}` — gerendert also
+ * „aWATTar mit" plus Possessivum („Ihrem Speicher" bzw. „der empfohlenen Batterie"), und im
+ * Monatsvergleich zusätzlich mit dem Anhang „(Ladung optimiert)". Derselbe Gegenstand trug damit
+ * im selben Dokument bis zu drei Beschriftungen, und im Wege-Kapitel las sich die Achse anders als
+ * die Überschrift darunter.
+ *
+ * ⚠ Der Wortlaut ist DER DES ZIELBILDS: `Urbanz_Wirtschaftlichkeitsanalyse V2.pdf`, Seite 5,
+ * „Weg 3 — aWATTar mit Ladesteuerung". Er nennt bewusst kein Gerät — wessen Speicher gesteuert
+ * wird, sagt der Fliesstext daneben (`monthlyBatteryRef`), wo ein Satz den Dativ auch tragen kann.
+ * Eine Beschriftung ohne Possessivum ist ausserdem in BEIDEN Fällen richtig (Bestandsanlage wie
+ * empfohlene Batterie) und braucht die Fallunterscheidung gar nicht erst.
+ */
+export const CONTROLLED_WAY_LABEL = 'aWATTar mit Ladesteuerung'

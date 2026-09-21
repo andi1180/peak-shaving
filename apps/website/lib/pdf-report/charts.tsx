@@ -384,10 +384,13 @@ export async function buildReportCharts(input: PdfReportInput): Promise<ReportCh
     waysChapter === null
       ? NOT_RASTERIZED
       : await attempt(() =>
-          captureChart(<TariffWaysChart bars={waysChapter.bars} />, {
-            width: DETAIL_CHART_WIDTH_PX,
-            select: selectRechartsSurface,
-          }),
+          captureChart(
+            <TariffWaysChart bars={waysChapter.bars} coveredDays={waysChapter.coveredDays} />,
+            {
+              width: DETAIL_CHART_WIDTH_PX,
+              select: selectRechartsSurface,
+            },
+          ),
         )
 
   /*
@@ -502,9 +505,10 @@ export async function buildReportCharts(input: PdfReportInput): Promise<ReportCh
       ? NOT_RASTERIZED
       : await attempt(() =>
           captureChart(<ChargePriceChart price={chargePricePlan.price} />, {
-            width: DETAIL_CHART_WIDTH_PX,
-            select: selectRechartsSurface,
-          }),
+              width: DETAIL_CHART_WIDTH_PX,
+              select: selectRechartsSurface,
+            },
+          ),
         )
 
   /*

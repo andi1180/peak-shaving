@@ -11,7 +11,7 @@ import {
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { formatEur, formatKw, formatKwh1, formatPercent, formatYears } from '@/lib/format'
-import { HINDSIGHT_NOTE } from '@/lib/report-copy'
+import { CONTROLLED_WAY_LABEL, HINDSIGHT_NOTE } from '@/lib/report-copy'
 import { sumCovered } from './monthly-tariff-chart'
 import { Num } from './num'
 
@@ -271,7 +271,7 @@ export function RecommendationCard(props: RecommendationCardProps) {
             />
             <DeltaRow
               label="Wert der Ladesteuerung"
-              hint="aWATTar ohne Steuerung gegenüber aWATTar mit Ihrem Speicher"
+              hint={`aWATTar ohne Steuerung gegenüber ${CONTROLLED_WAY_LABEL}`}
               value={real.controlValueEur}
             />
             <div className="flex items-center justify-between border-t-2 border-border py-2 text-sm font-semibold">
