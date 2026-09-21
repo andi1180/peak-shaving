@@ -1,6 +1,6 @@
 import type { BatteryResultEntry, BatteryRoiEntry } from 'shared'
 
-import { formatEur, formatKw, formatKwh1, formatYears } from '@/lib/format'
+import { formatEur, formatEur2, formatKw, formatKwh1, formatYears } from '@/lib/format'
 import type { ReportBuildContext } from './context'
 import { block, ref, t, REF_SECTION } from './report-text'
 import type { ReportPoint, ReportRow, ReportStatement } from './statement'
@@ -82,6 +82,41 @@ function capRows(analysis: PdfReportAnalysis, entry: BatteryResultEntry): Report
     neutralRow('Kapp-Schwelle', threshold),
     neutralRow('Abgerechneter Leistungswert heute', formatKw(analysis.current.billedKw)),
     neutralRow('Mit dem Speicher', formatKw(entry.newBilledKw)),
+    ...eagDemandChargeRow(analysis),
+  ]
+}
+
+/**
+ * Der GRUNDPREIS-Teil des EAG-Förderbeitrags — die ZWEITE kW-gebundene Jahresgrösse, unter
+ * denselben Bedingungen wie die Kapp-Zeilen darüber (der Aufrufer ist ihr einziger).
+ *
+ * ── ⚠ EINE EIGENE ZEILE, UND SIE WIRD MIT NICHTS VERSCHMOLZEN ─────────────────────────────────
+ * Sie steht neben dem abgerechneten Leistungswert, weil sie an demselben kW-Wert hängt — aber der
+ * Leistungspreis ist die Netznutzung des Netzbetreibers und dies eine gesetzliche Abgabe (EAG 2021,
+ * Preisblatt EX104). Zu einer Zahl addiert stünde im Report ein Posten, der auf keiner
+ * Netzrechnung so dasteht; und weil die Zeile NACH den Summenzeilen des Kapitels steht
+ * (`total: true`, s. `buildRecommendation`), geht sie in keine Summe ein.
+ *
+ * ⚠ SIE ERSCHEINT NUR, WO DER SATZ EIN LEISTUNGSPREIS IST (€/kW·Jahr — Netzebene 3–6 und NE 7 MIT
+ * Leistungsmessung). Auf NE 7 OHNE Leistungsmessung ist er ein fixer Jahresbetrag und steckt
+ * bereits in den Monatsreihen (`MonthlyFixedCosts.eagFlatFeeEur`); dort entsteht deshalb
+ * `eagGrundpreisCostPerYear` gar nicht erst, und hier entfällt die AUSSAGE statt einer 0 zu
+ * behaupten (D12).
+ *
+ * ⚠ [ABGELEITET, keine Contract-Zahl] Der €/kW·a-Satz in Klammern ist `Betrag / billedKw` —
+ * wortgleich zur Herleitung des Leistungspreis-Satzes in `basis.ts`, und aus demselben Grund: er
+ * macht die Zeile nachrechenbar (Prinzip 5), ohne dass eine zweite Zahl durch den Contract reist.
+ */
+function eagDemandChargeRow(analysis: PdfReportAnalysis): ReportRow[] {
+  const amount = analysis.current.eagGrundpreisCostPerYear
+  if (amount === undefined || !(analysis.current.billedKw > 0)) return []
+
+  const rate = amount / analysis.current.billedKw
+  return [
+    neutralRow(
+      'EAG-Förderbeitrag (Grundpreis) heute',
+      `${formatEur(amount)} pro Jahr (${formatEur2(rate)} / kW·a)`,
+    ),
   ]
 }
 
