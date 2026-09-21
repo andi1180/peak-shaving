@@ -170,11 +170,25 @@ export function buildMonthlyTariffComparison(
   )
   if ('blocker' in currentSide) return undefined
 
+  /*
+   * D7-Revision Weg 2 — der selbst gefundene Vergleichstarif. Dieselbe Funktion, dieselben Netz-,
+   * Mess- und Abgabenposten; getauscht wird GENAU der Energiepreis. Ein brutto hinterlegter Tarif
+   * lässt den Weg entfallen, statt durch einen geratenen Steuersatz zu teilen (`tariff.ts`).
+   */
+  const comparisonTariff =
+    tariffParams.comparisonSupplier?.priceBasis === 'net' ? tariffParams.comparisonSupplier : null
+  const comparisonSide = comparisonTariff
+    ? combinedIntervalPrices(loadProfile, pricing, comparisonTariff.energyPriceCtPerKwh)
+    : null
+  const comparisonPrices =
+    comparisonSide && !('blocker' in comparisonSide) ? comparisonSide.prices : null
+
   const deltaHours = intervalHours(loadProfile)
   const feedInCt = tariffParams.einspeiseverguetungCtPerKwh
   const current = new Array<number>(12).fill(0)
   const withoutControl = new Array<number>(12).fill(0)
   const withBattery = new Array<number>(12).fill(0)
+  const comparison = new Array<number>(12).fill(0)
   const covered = new Array<boolean>(12).fill(false)
   /*
    * Die belegten Kalendertage je Monat, als lokale `YYYY-MM-DD`-Zeichenketten. Ein Set, weil ein
@@ -210,6 +224,9 @@ export function buildMonthlyTariffComparison(
     current[idx]! += intervalCostEur(rawKw, deltaHours, currentPrice, feedInCt)
     withoutControl[idx]! += intervalCostEur(rawKw, deltaHours, spotPrice, feedInCt)
     withBattery[idx]! += intervalCostEur(afterKw, deltaHours, spotPrice, feedInCt)
+    if (comparisonPrices) {
+      comparison[idx]! += intervalCostEur(rawKw, deltaHours, comparisonPrices[i]!, feedInCt)
+    }
   }
 
   /*
@@ -230,6 +247,7 @@ export function buildMonthlyTariffComparison(
   const usageChargeFix = new Array<number>(12).fill(0)
   const supplierFix = new Array<number>(12).fill(0)
   const awattarFix = new Array<number>(12).fill(0)
+  const comparisonFix = new Array<number>(12).fill(0)
 
   for (const date of coveredDates) {
     const year = Number(date.slice(0, 4))
@@ -271,6 +289,9 @@ export function buildMonthlyTariffComparison(
     usageChargeFix[idx]! += (networkDay + meteringDay) * (levy?.gebrauchsabgabeRate ?? 0)
     supplierFix[idx]! += supplierFeeEurPerMonth * monthShare
     awattarFix[idx]! += awattarFeeEurPerMonth * monthShare
+    if (comparisonTariff) {
+      comparisonFix[idx]! += comparisonTariff.baseFeeEurPerMonth * monthShare
+    }
   }
 
   for (let idx = 0; idx < 12; idx++) {
@@ -281,6 +302,7 @@ export function buildMonthlyTariffComparison(
     current[idx]! += shared + supplierFix[idx]!
     withoutControl[idx]! += shared + awattarFix[idx]!
     withBattery[idx]! += shared + awattarFix[idx]!
+    comparison[idx]! += shared + comparisonFix[idx]!
   }
 
   const sum = (values: number[]): number => values.reduce((a, b) => a + b, 0)
@@ -294,6 +316,7 @@ export function buildMonthlyTariffComparison(
     supplierFeeEurPerMonth,
     awattarFeeEurPerMonth,
     coveredDays: coveredDates.size,
+    ...(comparisonPrices ? { comparisonSupplierBaseFeeEur: sum(comparisonFix) } : {}),
   }
 
   const mask = (values: number[]): (number | null)[] =>
@@ -303,6 +326,9 @@ export function buildMonthlyTariffComparison(
     currentTariffEur: mask(current),
     spotWithoutControlEur: mask(withoutControl),
     spotWithBatteryEur: mask(withBattery),
+    ...(comparisonPrices && comparisonTariff
+      ? { comparisonTariffEur: mask(comparison), comparisonSupplier: comparisonTariff.supplier }
+      : {}),
     coveredMonths: covered.filter(Boolean).length,
     fixedCosts,
   }

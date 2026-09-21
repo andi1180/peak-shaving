@@ -223,7 +223,43 @@ keinen Tarifvergleich. Zu bauen, bevor die drei Balken erscheinen können: `Tari
 Engine-Einstiegspunkt zusammenstellen — eigener Baustein, eigene Bestandsaufnahme vor dem Bau
 (`grid-tariff-lookup.ts`, `TariffPricingInputs`, B21-3b-Kommentare zur Herkunft).
 
-`[MARTIN]` `[OFFEN]` — bitte vor dem CC-Prompt zu diesem Baustein entscheiden.
+~~`[MARTIN]` `[OFFEN]` — bitte vor dem CC-Prompt zu diesem Baustein entscheiden.~~
+
+### D7 umgesetzt (21.09.2026) — fünf Wege, jeder nur wenn er zutrifft
+
+Gebaut ist die Revision oben. Das Kapitel heisst nicht mehr „Zwei Wege zu weniger Stromkosten",
+sondern zählt (`waysSectionTitle`, `content.ts`) — Agenda und Überschrift aus **derselben** Zahl
+(`context.waysCount`).
+
+| Weg | Bedingung | Herkunft der Zahl |
+|---|---|---|
+| 1 Ihr Tarif heute | immer (wenn es das Kapitel gibt) | `currentTariffEur` — jetzt eigener Absatz, nicht nur Kopfzahl |
+| 2 Vergleichstarif | **nur** wenn in der Tarif-Station eingetragen UND netto | neue Reihe `comparisonTariffEur` |
+| 3 aWATTar ohne Steuerung | immer | `spotWithoutControlEur`, unverändert |
+| 4 aWATTar mit Steuerung | immer — **vorausschauend**, sonst einfach | `spotWithPredictiveControlEur`, sonst `spotWithBatteryEur` |
+| 5 Lastspitzenkappung | **nur** `leistungspreisSavingPerYear > 0` | die bestehende §3.7-Zuschreibung |
+
+**⚠ Drei Entscheidungen, die der Auftrag offen liess und die hier fielen:**
+
+1. **Weg 5 ist kein Balken.** Die Balken sind Zeitraum-KOSTEN, Weg 5 ist eine Jahres-ERSPARNIS aus
+   dem Leistungspreis, den der Monatsvergleich ausdrücklich nicht führt. Als fünfter Balken stünden
+   zwei Einheiten über zwei Zeiträumen auf einer Achse. Er ist ein Absatz mit eigener Bezugsangabe
+   und bleibt aus demselben Grund **ausserhalb der D8-Spanne** — wie bisher; der Absatz sagt das
+   selbst.
+2. **Ein brutto eingetragener Vergleichstarif lässt Weg 2 ENTFALLEN**, statt durch einen geratenen
+   Steuersatz zu teilen — dieselbe Haltung wie bei Netzentgelt-Zeilen und Börsenpreisen
+   (`tou.ts`, `kind: 'price_basis'`).
+3. **Weg 4 verschiebt die D8-Spanne.** Mit der vorausschauenden Reihe ist die Ersparnis kleiner als
+   mit der Bestmarke (`realizationRatio ≤ 1`) — die Kopfzahl der Zusammenfassung wird dadurch
+   konservativer. `realizationRatio` selbst steht **nicht** im Kundenreport.
+
+**Der Hinweistext zu Weg 4 ist ein `[ENTWURF]`** (`PREDICTIVE_NOTE`, `ways.ts`) und von Andreas beim
+Testgate zu prüfen. Der interne Marker `basis: 'foresight_unvalidated'` bleibt unverändert.
+
+**Am erzeugten PDF gemessen** (Prüffall `optional-sections.test.ts` + von Hand gesetzte Weg-2-/
+Weg-4-Reihen — **synthetische Fixture, keine Kundendaten**): Titel „Fünf Wege zu weniger
+Stromkosten" in Agenda **und** Überschrift, alle fünf Absätze, Spanne **€ 36 – € 231**, und
+`pdftotext | grep -c "Mögliche Ersparnis"` = **1**.
 
 ---
 

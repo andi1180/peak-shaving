@@ -33,6 +33,7 @@ import {
   RESULTS_SECTION,
   WAYS_INTRO,
   WAYS_SECTION,
+  waysSectionTitle,
   type ReportSection,
 } from './content'
 import { buildBasisChapter, DATA_SOURCES_TABLE_ID, TARIFF_COMPONENTS_TABLE_ID } from './basis'
@@ -1652,28 +1653,38 @@ function LoadChapter({ input, charts }: { input: PdfReportInput; charts: ReportC
 }
 
 /**
- * D7 — das Kapitel „Zwei Wege zu weniger Stromkosten": drei Balken, zwei Absätze.
+ * D7 — das Kapitel „… Wege zu weniger Stromkosten": drei bis vier Balken, drei bis fünf Absätze.
+ *
+ * ── ⚠ DIE ÜBERSCHRIFT ZÄHLT, UND ZWAR AUS DEMSELBEN WERT WIE DIE AGENDA ───────────────────────
+ * `context.waysCount` entsteht EINMAL je Dokument; Agenda (`buildReportAgenda`) und diese
+ * Überschrift bilden ihren Titel beide daraus (`waysSectionTitle`). Zwei getrennte Zählungen
+ * ergäben eine Agenda, die ein anderes Kapitel ankündigt, als danach dasteht — und das sähe man
+ * dem Blatt nicht an.
  *
  * ── ⚠ ES GIBT DIESES KAPITEL NICHT IN JEDEM DOKUMENT ──────────────────────────────────────────
- * Nur mit berechenbarem Monatsvergleich (`hasWaysChapter`); ohne ihn gibt es weder die drei Balken
- * noch die zwei Beträge. Dieselbe Mechanik wie beim „Ladeverhalten"- und „Monatsvergleich"-Kapitel:
- * der Aufrufer entscheidet EINMAL (`context.hasWays`) und lässt die `<Page>` sonst ganz weg, samt
- * Agenda-Eintrag.
+ * Nur mit berechenbarem Monatsvergleich (`hasWaysChapter`). Dieselbe Mechanik wie beim
+ * „Ladeverhalten"- und „Monatsvergleich"-Kapitel: der Aufrufer entscheidet EINMAL
+ * (`context.hasWays`) und lässt die `<Page>` sonst ganz weg, samt Agenda-Eintrag.
+ *
+ * ⚠ Welche Absätze entstehen, entscheidet `ways.ts`. Keine Verzweigung an einem Contract-Feld in
+ * diesem JSX — dieselbe Regel wie bei der Zusammenfassung: fehlt ein Weg, fehlt er schlicht.
  */
 function WaysChapter({
   input,
   charts,
+  context,
   layout,
 }: {
   input: PdfReportInput
   charts: ReportChartRasters
+  context: ReportBuildContext
   layout: ReportLayout
 }) {
   const chapter = buildWaysChapter(input.analysis)
 
   return (
     <View style={styles.body}>
-      <Text style={styles.h2}>{WAYS_SECTION.title}</Text>
+      <Text style={styles.h2}>{waysSectionTitle(context.waysCount)}</Text>
       <Text style={styles.lead}>{WAYS_INTRO}</Text>
 
       <ChartFigure
@@ -1682,8 +1693,9 @@ function WaysChapter({
         note={chapter?.figure.note}
         missing={figureMissingText('Das Balkendiagramm')}
       />
-      {chapter && <Statement statement={chapter.tariffSwitch} layout={layout} />}
-      {chapter && <Statement statement={chapter.loadControl} layout={layout} />}
+      {chapter?.statements.map((statement) => (
+        <Statement key={statement.id} statement={statement} layout={layout} />
+      ))}
     </View>
   )
 }
@@ -2319,6 +2331,7 @@ export function ReportDocument({
         <Agenda
           sections={buildReportAgenda({
             ways: hasWays,
+            waysCount: context.waysCount,
             monthly: hasMonthly,
             insight: hasInsight,
             comparison: hasComparison,
@@ -2349,7 +2362,7 @@ export function ReportDocument({
         <Page size="A4" style={styles.page}>
           <PageFurniture sink={sink} docLabel={docLabel} />
           <SectionAnchor id={WAYS_SECTION.id} sink={sink} />
-          <WaysChapter input={input} charts={charts} layout={layout} />
+          <WaysChapter input={input} charts={charts} context={context} layout={layout} />
         </Page>
       )}
 

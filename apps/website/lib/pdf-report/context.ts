@@ -7,7 +7,7 @@ import { insightChartPlan, type InsightChartPlan } from './insight'
 import type { ReportNotice } from './statement'
 import { primaryEntryOf, recommendedEntryOf } from './summary'
 import type { PdfReportInput } from './types'
-import { hasWaysChapter } from './ways'
+import { hasWaysChapter, waysCountOf } from './ways'
 
 /**
  * Report-Baukasten B1 — die Zwischenwerte, die für EIN Dokument genau einmal entstehen.
@@ -63,8 +63,10 @@ export type ReportBuildContext = {
    * zeigt der Katalog einen Baustein, den das Dokument weglässt.
    */
   dataQuality: ReportNotice | null
-  /** D7 — Kapitel „Zwei Wege zu weniger Stromkosten", zwischen Lastgang und Empfehlung. */
+  /** D7 — Kapitel „… Wege zu weniger Stromkosten", zwischen Lastgang und Empfehlung. */
   hasWays: boolean
+  /** Wie viele Wege es führt (D7-Revision) — Agenda und Überschrift zählen daraus. */
+  waysCount: number
   /** Kapitel 4 — Monatsvergleich als eigenes Kapitel. */
   hasMonthly: boolean
   /** Kapitel 5 — Ladeverhalten. */
@@ -95,6 +97,7 @@ export function buildReportContext(input: PdfReportInput): ReportBuildContext {
     pvOutage: pvOutageNoticeOf(input),
     dataQuality: dataQualityNoticeOf(input),
     hasWays: hasWaysChapter(analysis),
+    waysCount: waysCountOf(analysis),
     hasMonthly: hasMonthlyChapter(analysis),
     hasInsight: insightPlan.hourFlow !== null || insightPlan.chargePrice !== null,
     hasComparison: hasComparisonChapter(analysis),

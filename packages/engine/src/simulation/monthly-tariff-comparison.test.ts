@@ -483,3 +483,63 @@ describe('Monatsvergleich — Grundgebühren (Delta 19)', () => {
     expect(sparseResult.fixedCosts.supplierBaseFeeEur).toBeCloseTo(3.5 / 31, 12)
   })
 })
+
+describe('Monatsvergleich — Weg 2: der selbst gefundene Vergleichstarif (D7-Revision)', () => {
+  const START_UTC = '2025-01-15T16:00:00Z'
+  const pricing: TariffPricingInputs = {
+    gridTariffRows: [WN_ROW],
+    spotPrices: spotSeries(START_UTC, 6, () => 10),
+    levies: LEVIES_NONE,
+  }
+  /** 24 Intervalle à 4 kW = 1 kWh je Intervall — die Kosten je Intervall sind damit der Preis in €. */
+  const load = profile(START_UTC, Array.from({ length: 24 }, () => 4))
+  const gridAfter = load.readings.map((r) => r.gridPowerKw)
+
+  it('netto hinterlegt: eine vierte Reihe, gleiche Netz- und Abgabenposten, nur Energiepreis und Grundgebühr sind andere', () => {
+    const withComparison: TariffParams = {
+      ...tariff,
+      comparisonSupplier: {
+        supplier: 'ENSTROGA',
+        energyPriceCtPerKwh: 18,
+        baseFeeEurPerMonth: 3.1,
+        priceBasis: 'net',
+      },
+    }
+    const result = buildMonthlyTariffComparison(load, withComparison, pricing, gridAfter)!
+
+    // SNAP (12 Intervalle): 18 + 5,58 + 0,70 = 24,28 ct · Grundfenster (12): 18 + 6,98 + 0,70 = 25,68 ct
+    // Dazu die anteilige Grundgebühr des EINEN belegten Kalendertags (Jänner, 31 Tage).
+    const expected = (12 * 24.28 + 12 * 25.68) / 100 + 3.1 / 31
+    expect(result.comparisonTariffEur![0]).toBeCloseTo(expected, 8)
+    expect(result.comparisonSupplier).toBe('ENSTROGA')
+    expect(result.fixedCosts.comparisonSupplierBaseFeeEur).toBeCloseTo(3.1 / 31, 8)
+
+    // Die drei bestehenden Reihen sind davon unberührt — Weg 2 ist additiv.
+    const ohne = buildMonthlyTariffComparison(load, tariff, pricing, gridAfter)!
+    expect(result.currentTariffEur).toEqual(ohne.currentTariffEur)
+    expect(result.spotWithoutControlEur).toEqual(ohne.spotWithoutControlEur)
+    expect(result.spotWithBatteryEur).toEqual(ohne.spotWithBatteryEur)
+  })
+
+  it('BRUTTO hinterlegt: der Weg entfällt, statt durch einen geratenen Steuersatz zu teilen', () => {
+    const brutto: TariffParams = {
+      ...tariff,
+      comparisonSupplier: {
+        supplier: 'ENSTROGA',
+        energyPriceCtPerKwh: 21.6,
+        baseFeeEurPerMonth: 3.72,
+        priceBasis: 'gross',
+      },
+    }
+    const result = buildMonthlyTariffComparison(load, brutto, pricing, gridAfter)!
+    expect(result.comparisonTariffEur).toBeUndefined()
+    expect(result.comparisonSupplier).toBeUndefined()
+    expect(result.fixedCosts.comparisonSupplierBaseFeeEur).toBeUndefined()
+  })
+
+  it('ohne Angabe gibt es die Reihe nicht — kein Platzhalter, keine Null', () => {
+    const result = buildMonthlyTariffComparison(load, tariff, pricing, gridAfter)!
+    expect(result.comparisonTariffEur).toBeUndefined()
+    expect(result.comparisonSupplier).toBeUndefined()
+  })
+})

@@ -129,10 +129,27 @@ import type { TariffOverridableField } from './tariff-catalog'
  * `amortizationYears` und `netSavingOverHorizon` — also bis in die Spalten, gegen die der
  * Wirkungsnachweis läuft.
  *
+ * ── FASSUNG 8 (D7-Revision: fünf Wege) ────────────────────────────────────────────────────────
+ * `result.tariffOptimization.monthlyComparison` trägt zwei weitere Reihen:
+ * `comparisonTariffEur` (der selbst gefundene Vergleichstarif des Kunden, Weg 2, dazu
+ * `comparisonSupplier` und `fixedCosts.comparisonSupplierBaseFeeEur`) und
+ * `spotWithPredictiveControlEur` (aWATTar mit VORAUSSCHAUENDER Ladesteuerung, Weg 4). Additiv wie
+ * die Fassungen 2, 3 und 6 — und die Fassungsnummer steigt aus genau dem Grund, den Fassung 6
+ * nennt: `undefined` heisst ab Fassung 8 „dieser Kunde hat keinen Vergleichstarif angegeben" bzw.
+ * „die Vorausberechnung war für ihn nicht möglich", in einer Baseline der Fassung ≤ 7 dagegen
+ * „die Unterscheidung gab es noch nicht". Ohne die Nummer wäre beides derselbe leere Wert.
+ *
+ * ⚠ Der Vergleichstarif selbst reist als WERT mit (`inputs.tariff.comparisonSupplier`), nicht als
+ * Verweis auf eine gepflegte Tabelle — B14-1 Regel b.
+ *
+ * ⚠ `spotWithPredictiveControlEur` ist UNVALIDIERT (`PREDICTIVE_CONTROL_VALUE_BASIS =
+ * 'foresight_unvalidated'`): eine Gegenrechnung gegen den eigenen historischen Lastgang, nicht
+ * eine live gemessene Anlage. Wer 2028 gegen diese Reihe misst, misst gegen eine Prognose.
+ *
  * ⚠ Und wie bei jeder Fassung davor: eine archivierte Zeile wird NICHT nachgerechnet (B14-1
  * Regel a). Eine 2026 gerechnete Baseline bleibt die Prognose, die 2026 abgegeben wurde.
  */
-export const ANALYSIS_BUNDLE_VERSION = 7
+export const ANALYSIS_BUNDLE_VERSION = 8
 
 /**
  * Fassungen, die der Upload annimmt.
@@ -141,7 +158,7 @@ export const ANALYSIS_BUNDLE_VERSION = 7
  * worden sein, und ein Bündel unbrauchbar zu machen, das ein Mensch in der Hand hält, wäre der
  * schlechtere Handel. Bei einer älteren Fassung bleiben die jeweils neueren Felder schlicht leer.
  */
-export const SUPPORTED_ANALYSIS_BUNDLE_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7]
+export const SUPPORTED_ANALYSIS_BUNDLE_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8]
 
 /**
  * Fassung der Rechen-Engine, VON HAND gepflegt.

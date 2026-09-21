@@ -209,6 +209,26 @@ export type MonthlyTariffComparison = {
    * derselben Aussage. Die Beschriftungen des Reports verzweigen genau daran.
    */
   spotWithBatteryEur: (number | null)[]
+  /**
+   * D7-Revision Weg 2 — derselbe rohe Lastgang zum selbst gefundenen VERGLEICHSTARIF des Kunden.
+   *
+   * `undefined` heisst „kein Vergleichstarif angegeben ODER er ist brutto hinterlegt" — beides
+   * lässt den Weg ENTFALLEN, statt eine Reihe aus einem geratenen Steuersatz zu bilden
+   * (`comparisonSupplierTariffSchema`). Welcher Lieferant, steht in `comparisonSupplier`.
+   */
+  comparisonTariffEur?: (number | null)[]
+  /** Der Name des Lieferanten zu `comparisonTariffEur` — gemeinsam gesetzt oder gemeinsam weg. */
+  comparisonSupplier?: string
+  /**
+   * D7-Revision Weg 4 — aWATTar mit VORAUSSCHAUENDER Ladesteuerung: derselbe Fahrplan wie
+   * `spotWithBatteryEur`, aber geplant mit der Verbrauchserwartung des Vorabends statt mit dem
+   * gemessenen Tag (`computePredictiveControlValue`, Weg a).
+   *
+   * ⚠ `undefined` heisst „nicht berechenbar" (synthetischer Lastgang, keine echte Preiskurve, kein
+   * Muster) — dann zeigt der Report an dieser Stelle die EINFACHE Ladesteuerung und sagt das auch.
+   * Die Zahl ist UNVALIDIERT (`PREDICTIVE_CONTROL_VALUE_BASIS`).
+   */
+  spotWithPredictiveControlEur?: (number | null)[]
   /** Zahl der belegten Kalendermonate — die Bezugsgrösse des Hinweistexts im Report. */
   coveredMonths: number
   /**
@@ -263,6 +283,11 @@ export type MonthlyFixedCosts = {
   supplierBaseFeeEur: number
   /** Grundgebühr von aWATTar — ausschliesslich in den beiden aWATTar-Reihen. */
   awattarBaseFeeEur: number
+  /**
+   * Grundgebühr des VERGLEICHSTARIFS — ausschliesslich in `comparisonTariffEur`. `undefined`,
+   * wenn es diese Reihe nicht gibt (gemeinsam gesetzt oder gemeinsam weg).
+   */
+  comparisonSupplierBaseFeeEur?: number
   /** Der zugrunde liegende Monatssatz des heutigen Lieferanten (0 = keine Angabe). */
   supplierFeeEurPerMonth: number
   /** Der zugrunde liegende Monatssatz von aWATTar. */

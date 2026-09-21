@@ -4,29 +4,29 @@ import { useId } from 'react'
 import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 
 import { formatEur } from '@/lib/format'
-import { monthlyBatteryRef } from '@/lib/report-copy'
 import { CHART_COLORS } from '@/lib/pdf-report/theme'
 import { Num } from './num'
-import type { WaysTotals } from '@/lib/pdf-report/ways'
+import type { WaysBar } from '@/lib/pdf-report/ways'
 
 /**
- * D7 — die drei Balken des Kapitels „Zwei Wege zu weniger Stromkosten": Ihr Tarif heute, aWATTar
- * ohne Steuerung, aWATTar mit Ladesteuerung — je EIN Balken über den gesamten gemessenen Zeitraum.
+ * D7 — die Balken des Wege-Kapitels: je EIN Balken über den gesamten gemessenen Zeitraum.
  *
- * ── ⚠ KEIN VIERTER ODER FÜNFTER BALKEN ─────────────────────────────────────────────────────────
- * Kein Pauschaltarif-Vergleich, keine LP-optimale Bestmarke (D7, MVP-Scope „drei Balken"). Diese
- * Komponente kennt beide Grössen nicht und darf sie nicht dazubekommen, ohne dass D7 neu
- * entschieden wird.
+ * ── ⚠ DREI ODER VIER BALKEN, JE KUNDE (D7-Revision, 21.09.2026) ───────────────────────────────
+ * Ihr Tarif heute · optional der selbst gefundene Vergleichstarif · aWATTar ohne Steuerung ·
+ * aWATTar mit Ladesteuerung. Welche davon es gibt, entscheidet `ways.ts`; diese Komponente
+ * zeichnet, was sie bekommt, und zählt selbst nichts ab.
  *
- * ── ⚠ DIESELBEN DREI FARBSTUFEN WIE `MonthlyTariffChart` ──────────────────────────────────────
- * Neutral für den Ist-Zustand, zwei zunehmend kräftige Akzentstufen für aWATTar — „so ist es heute
- * → so wäre es dort → so wäre es dort mit Ladesteuerung" steckt damit in der Helligkeit, genau wie
- * im Monatsvergleich. Die dritte Reihe trägt dieselbe Schraffur (D15 Block 2, Punkt 14): sie
- * unterstellt eine Ladesteuerung, die so noch nicht läuft.
+ * ── ⚠ DIE LASTSPITZENKAPPUNG IST HIER KEIN BALKEN ─────────────────────────────────────────────
+ * Sie ist eine Jahres-ERSPARNIS, die Balken sind Zeitraum-KOSTEN — zwei Einheiten auf einer Achse.
+ * Begründung im Kopf von `ways.ts`.
  *
- * ── ⚠ DIE TOTALS KOMMEN FERTIG HEREIN ──────────────────────────────────────────────────────────
- * `sumCovered` läuft in `ways.ts` (derselbe Helfer wie in `MonthlyTariffChart` und der
- * Zusammenfassung) — diese Komponente rechnet nichts nach, sie zeichnet nur.
+ * ── ⚠ DIESELBEN FARBSTUFEN WIE `MonthlyTariffChart` ───────────────────────────────────────────
+ * Neutral für den Ist-Zustand, zunehmend kräftige Akzentstufen für die Alternativen. Der
+ * Ladesteuerungs-Balken trägt zusätzlich die Schraffur (D15 Block 2, Punkt 14): er unterstellt
+ * eine Steuerung, die so noch nicht läuft.
+ *
+ * ── ⚠ DIE BETRÄGE KOMMEN FERTIG HEREIN ─────────────────────────────────────────────────────────
+ * `sumCovered` läuft in `summary.ts` — diese Komponente rechnet nichts nach, sie zeichnet nur.
  */
 /** Wortgleiches Muster zu `MonthTooltip` (`monthly-tariff-chart.tsx`) — vermeidet die Typprobleme
  * von `formatter`/`labelFormatter` bei `undefined`-Werten. */
@@ -47,43 +47,26 @@ function WaysTooltip({
   )
 }
 
-export function TariffWaysChart({
-  totals,
-  isExisting,
-}: {
-  totals: WaysTotals
-  /** Fährt die dritte Reihe die Anlage des Kunden oder die empfohlene Batterie? Nur der Wortlaut. */
-  isExisting: boolean
-}) {
+export function TariffWaysChart({ bars }: { bars: readonly WaysBar[] }) {
   const modelPatternId = useId()
-  const whose = monthlyBatteryRef(isExisting)
 
-  const rows = [
-    {
-      key: 'today',
-      label: 'Ihr Tarif heute',
-      value: totals.currentTariffEur,
-      color: 'var(--color-text-muted)',
-      model: false,
-    },
-    {
-      key: 'uncontrolled',
-      label: 'aWATTar ohne Steuerung',
-      value: totals.spotWithoutControlEur,
-      color: CHART_COLORS.seriesSoft,
-      model: false,
-    },
-    {
-      key: 'controlled',
-      label: `aWATTar mit ${whose}`,
-      value: totals.spotWithBatteryEur,
-      color: CHART_COLORS.series,
-      model: true,
-    },
-  ] as const
+  /* Der erste Balken ist immer „Ihr Tarif heute" und bleibt neutral; die Alternativen werden von
+     links nach rechts kräftiger — dieselbe Leserichtung wie im Monatsvergleich. */
+  const rows = bars.map((bar, i) => ({
+    key: bar.key,
+    label: bar.label,
+    value: bar.eur,
+    color:
+      i === 0
+        ? 'var(--color-text-muted)'
+        : i === bars.length - 1
+          ? CHART_COLORS.series
+          : CHART_COLORS.seriesSoft,
+    model: bar.model,
+  }))
 
   return (
-    <div className="h-56 w-full" data-testid="zwei-wege-chart">
+    <div className="h-56 w-full" data-testid="wege-chart">
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={rows} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
           <defs>
