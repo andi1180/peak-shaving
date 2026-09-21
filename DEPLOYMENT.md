@@ -596,6 +596,23 @@ Mehrfach-Zeitraum-Regel) — WN-EX0105 trägt nur einen Stand, der Fall war dara
 
 ---
 
+### 1m. Function-Region = `fra1` (beide Projekte)
+
+`"regions": ["fra1"]` steht in `apps/web/vercel.json` **und** `apps/website/vercel.json`.
+
+**Vercel-Function-Region = fra1 für beide Projekte (peak-shaving-web, peak-shaving-website), Match
+mit Supabase eu-central-1 — verkürzt Latenz für Admin-Bereich, Cron-Läufe und
+Rechner-/Report-Erzeugung mit echten Datenbank-/Live-Preiszugriffen; öffentliche/statische Seiten
+überwiegend ISR-gecacht und davon kaum betroffen.**
+
+Vorher lief beides auf `iad1` (Washington). Wie bei den Cron-Zeitplänen (§1g) hängt die Einstellung
+am **Deployment**, nicht an der Datei: Nachprüfen unter **Vercel → Project → Settings → Functions →
+Function Region**, je Projekt einzeln.
+
+---
+
+---
+
 ## 1-Website. Vercel — Projekt `peak-shaving-website` (= `apps/website`, der Kalkulator)
 
 Bis B21-3a hatte dieses Projekt **überhaupt keine** eigene Umgebungsvariable: der Rechner lief
