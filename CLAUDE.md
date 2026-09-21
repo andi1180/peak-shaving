@@ -166,7 +166,9 @@ Das erste inhaltliche Kapitel des PDF-Reports heisst nicht mehr „Kernergebniss
 
 **Neu in der Übergabe:** `report_input_meta.pvPeakPowerKwp` (Summe über die erfassten Modulflächen, `null` sobald einer Fläche die Nennleistung fehlt) — eine ANGABE für einen Halbsatz, keine Rechengrösse.
 
-**Gemessen am echten Urbanz-Lastgang** (209 Tage, echte Cloud-Preisdaten): € 770 Ist-Kosten, € 84 mögliche Ersparnis — **eine Zahl statt einer Spanne**, weil der reine Tarifwechsel bei diesem Kunden negativ ist. Die Zahlen des Zielbildes (€1.061, €53–€207) stammen aus einer Handrechnung und sind nicht reproduziert.
+**Am Urbanz-Fall über den PRODUKTIONSPFAD gemessen** (`run-from-draft.ts`, 209 Tage, Cloud-Entwurf `_provenance.source: measured` vom 19.09.2026, echte `grid_tariffs`/`spot_prices`): Kapitel 1 zeigt **€ 1.022 Ist-Kosten** (gerechnet 1.021,89) und eine **Ersparnis-Spanne € 59 – € 261** — **zwei tragende Wege**, weil der reine Tarifwechsel mit **+58,55 €** positiv ist und die Ladesteuerung ihn auf 260,54 € hebt. `formatEur` rundet auf ganze Euro; die Spanne entsteht aus `positiveWays` (summary.ts), das beide Wege behält, sobald beide über null liegen. Die Zahlen des Zielbildes (€1.061, €53–€207) stammen aus einer Handrechnung und sind weiterhin nicht reproduziert — sie liegen dem gemessenen Stand seither aber nahe.
+
+**⚠ KORREKTUR 21.09.2026 — hier stand „€ 770 Ist-Kosten, € 84 mögliche Ersparnis, eine Zahl statt einer Spanne, weil der reine Tarifwechsel bei diesem Kunden negativ ist".** Diese Aussage beschrieb einen Stand vor **#293** (PV-Kopplung), **#295** (fünf Abgabenposten) und **#296**, und sie war mit der **Kalibrier-Fixture des öffentlichen Rechners** (9,5 ct/kWh, keine Lieferanten-Grundgebühr, Einspeisung 0) gerechnet statt mit dem Cloud-Entwurf (13,081 ct) — s. Regel 11. Mit dem echten Arbeitspreis **kehrt sich das Vorzeichen des Tarifwechsels um**, und aus dem Einzelwert wird eine Spanne. Wer die alte Aussage irgendwo zitiert findet, prüft zuerst den Parametersatz.
 
 ### Fünf fehlende Kostenposten im Tarifvergleich (21.09.2026)
 
