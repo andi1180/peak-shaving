@@ -11,12 +11,10 @@ import type { PdfReportAnalysis } from './types'
  * B23c-2 — das Kapitel „Empfehlung und Wirtschaftlichkeit": welches Gerät, was es kostet, und woher der
  * Wert der Ladesteuerung kommt.
  *
- * ⚠ DAS LASTGANG-BILD IST HIER RAUS und steht als eigenes Kapitel davor (`LOAD_SECTION`). Mit ihm
- * gingen die beiden Sätze, die unter ihm standen: die Kapp-Aussage (Schwelle, abgefangene Spitzen,
- * abgerechneter Wert vorher → nachher) und die Erklärung, warum bei einem nicht kappenden Speicher
- * keine Kapp-Linie im Bild ist. Beide beschrieben AUSSCHLIESSLICH das Bild; ohne es stünde hier
- * ein Verweis auf eine gestrichelte Linie, die es auf der Seite nicht gibt. Benannte Folge: die
- * Kapp-Schwelle in kW steht damit in keinem Kapitel mehr.
+ * ⚠ DAS LASTGANG-BILD IST HIER RAUS und steht als eigenes Kapitel davor (`LOAD_SECTION`). Nur die
+ * reinen BILD-Aussagen (gestrichelte Kapp-Linie, markierte Spitzen) sind nicht zurückgekommen —
+ * dafür fehlt hier das Bild. Die Kapp-Schwelle und der abgerechnete Leistungswert vorher → nachher
+ * hingen nie am Bild und stehen als Zeilen wieder in der Aufschlüsselung (`capRows`).
  *
  * ── ⚠ DIESE DATEI DARF WEDER `@react-pdf/renderer` NOCH RECHARTS ANFASSEN ──────────────────────
  * Sie ist die Ableitung, nicht die Darstellung — derselbe Zuschnitt wie `summary.ts` und
@@ -26,6 +24,8 @@ import type { PdfReportAnalysis } from './types'
  *
  * ── ⚠ DIESELBE REGEL WIE IN B23c-1: KEINE AUSSAGE OHNE RECHNUNG (D12) ─────────────────────────
  * Fehlt die Grundlage, fehlt die AUSSAGE — nicht ein Strich, nicht eine 0. Konkret:
+ *   • die **Kapp-Zeilen** entfallen, wenn der Speicher den abgerechneten Leistungswert nicht senkt
+ *     (`static` kappt nicht, ein Anschluss ohne Leistungspreis hat den Posten gar nicht — Delta 3).
  *   • die **Ladesteuerungs-Aussage** entfällt vollständig bei
  *     `tariffOptimization?.computable !== true` (Delta 15 Regel C).
  *
@@ -54,6 +54,35 @@ export type RecommendationChapter = {
 
 function neutralRow(label: string, value: string): ReportRow {
   return { label, value, tone: 'neutral' }
+}
+
+/** Die endlichen Kapp-Schwellen des Fahrplans — `Infinity` heisst „diese Periode wird nicht gekappt". */
+function finiteCaps(entry: BatteryResultEntry): number[] {
+  return (entry.dispatchTrace?.capKwByPeriod ?? []).filter((kw) => Number.isFinite(kw))
+}
+
+/**
+ * Kapp-Schwelle und abgerechneter Leistungswert vorher/nachher, als Zeilen statt als Bildlegende.
+ * Bedingung wie vor a8f1934 (`buildChartLegend`); Format wie das alte `peak_shaving`-Zeilenpaar aus
+ * `summary.ts` (vor #290): „Abgerechneter Leistungswert heute" / „Mit dem Speicher".
+ */
+function capRows(analysis: PdfReportAnalysis, entry: BatteryResultEntry): ReportRow[] {
+  if (!(entry.leistungspreisSavingPerYear > 0)) return []
+  const caps = finiteCaps(entry)
+  if (caps.length === 0) return []
+
+  const lo = Math.min(...caps)
+  const hi = Math.max(...caps)
+  const threshold =
+    lo === hi
+      ? formatKw(lo)
+      : `zwischen ${formatKw(lo)} und ${formatKw(hi)} (je Abrechnungsperiode)`
+
+  return [
+    neutralRow('Kapp-Schwelle', threshold),
+    neutralRow('Abgerechneter Leistungswert heute', formatKw(analysis.current.billedKw)),
+    neutralRow('Mit dem Speicher', formatKw(entry.newBilledKw)),
+  ]
 }
 
 /**
@@ -105,6 +134,7 @@ export function buildRecommendation(
     tone: entry.netSavingOverHorizon < 0 ? 'warning' : 'positive',
     total: true,
   })
+  rows.push(...capRows(analysis, entry))
 
   /*
    * ⚠ Die Amortisation ist die Kopfzahl und nicht die Ersparnis: Letztere steht als Zeile in der
