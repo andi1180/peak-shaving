@@ -376,20 +376,18 @@ export async function buildReportCharts(input: PdfReportInput): Promise<ReportCh
   )
 
   /*
-   * D7 — die drei Balken „Zwei Wege zu weniger Stromkosten". `waysChapter === null` heisst: kein
-   * berechenbarer Monatsvergleich, dann gibt es dieses Kapitel im Dokument nicht (`hasWaysChapter`).
+   * D7 — die Balken des Wege-Kapitels (drei oder vier, s. `ways.ts`). `waysChapter === null`
+   * heisst: kein berechenbarer Monatsvergleich, dann gibt es dieses Kapitel im Dokument nicht
+   * (`hasWaysChapter`).
    */
   const ways: Attempt =
     waysChapter === null
       ? NOT_RASTERIZED
       : await attempt(() =>
-          captureChart(
-            <TariffWaysChart
-              totals={waysChapter.totals}
-              isExisting={analysis.existingBatteryAnalysis != null}
-            />,
-            { width: DETAIL_CHART_WIDTH_PX, select: selectRechartsSurface },
-          ),
+          captureChart(<TariffWaysChart bars={waysChapter.bars} />, {
+            width: DETAIL_CHART_WIDTH_PX,
+            select: selectRechartsSurface,
+          }),
         )
 
   /*

@@ -17,6 +17,7 @@ import {
 import type { DataQuality } from './parser'
 import { analyzeCurrentPeaks, topPeaksKw } from './peaks'
 import { recommendBattery } from './recommendation'
+import { computePredictiveControlValue } from './foresight'
 import { eagDemandChargePerYear } from './tariff'
 import { calculateRoi } from './roi'
 import { computeBatterySavings } from './savings'
@@ -430,8 +431,35 @@ export function computeAnalysis(
           comparisonDispatchKw,
         )
       : undefined
+  /*
+   * ── D7-REVISION WEG 4: DIE VORAUSSCHAUENDE LADESTEUERUNG ─────────────────────────────────────
+   * Derselbe Fahrplan wie die dritte Reihe, aber geplant mit der Verbrauchserwartung des Vorabends
+   * (`computePredictiveControlValue`, Weg a). Gerechnet wird für DENSELBEN Speicher, dessen
+   * Dispatch schon die dritte Reihe trägt — sonst verglichen die beiden Reihen zwei Geräte.
+   *
+   * ⚠ Nur, wenn es die dritte Reihe überhaupt gibt: ohne sie gäbe es nichts, wogegen Weg 4 stünde.
+   * Ein Blocker (synthetischer Lastgang, keine echte Preiskurve, kein Muster) lässt die Reihe
+   * ENTFALLEN — der Report zeigt dann die einfache Ladesteuerung und sagt das auch.
+   */
+  const comparisonBattery = existing?.analysis.entry.battery ?? perBattery[0]!.battery
+  const predictive =
+    monthlyComparison && payload.tariffPricing && comparisonDispatchKw
+      ? computePredictiveControlValue({
+          loadProfile,
+          battery: comparisonBattery,
+          tariffParams: payload.tariff,
+          pricing: payload.tariffPricing,
+        })
+      : undefined
+
   const tariffOptimization: TariffOptimizationStatus | undefined = monthlyComparison
-    ? { computable: true, monthlyComparison }
+    ? {
+        computable: true,
+        monthlyComparison:
+          predictive?.ok === true
+            ? { ...monthlyComparison, spotWithPredictiveControlEur: predictive.predictiveMonthlyEur }
+            : monthlyComparison,
+      }
     : baseTariffOptimization
 
   return {

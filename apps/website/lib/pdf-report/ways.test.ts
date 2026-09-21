@@ -1,27 +1,44 @@
 import { describe, expect, it } from 'vitest'
-import type { MonthlyTariffComparison } from 'shared'
+import type { BatteryResultEntry, MonthlyTariffComparison } from 'shared'
 
-import { summaryWaysOf } from './summary'
+import { waysSectionTitle } from './content'
+import { buildSummaryKpis, summaryWaysOf } from './summary'
 import type { PdfReportAnalysis } from './types'
-import { buildWaysChapter, hasWaysChapter } from './ways'
+import { buildWaysChapter, hasWaysChapter, waysCountOf } from './ways'
 
 /**
- * D7 — das Kapitel „Zwei Wege zu weniger Stromkosten": drei Balken, zwei Absätze.
+ * D7-Revision — das Wege-Kapitel führt je Kunde DREI BIS FÜNF Wege.
  *
- * Geprüft wird vor allem die BINDUNG an `summaryWaysOf`/`sumCovered` — die drei Balken und die
- * beiden Ergebnis-Beträge müssen dieselben Zahlen tragen wie Kapitel 1 (D8-Spanne) und die
- * Tabellenzeilen in `detail.ts` (`buildMonthly`), nicht eine zweite, eigene Rechnung.
+ * Geprüft wird vor allem, dass jeder Weg NUR dasteht, wenn er zutrifft (Weg 2 ohne Angabe, Weg 5
+ * ohne Leistungspreis), und dass die Balken dieselben Zahlen tragen wie `summaryWaysOf` — nicht
+ * eine zweite, eigene Rechnung.
  */
 
-function comparisonWith(
-  currentTariffEur: number,
-  spotWithoutControlEur: number,
-  spotWithBatteryEur: number,
-): MonthlyTariffComparison {
+const MONTHS = <T,>(first: T): (T | null)[] => [first, ...Array<null>(11).fill(null)]
+
+function comparisonWith(args: {
+  current: number
+  spot: number
+  battery: number
+  /** Weg 2 — fehlt, wenn der Kunde keinen Vergleichstarif angegeben hat. */
+  comparison?: number
+  comparisonSupplier?: string
+  /** Weg 4 — die vorausschauende Reihe, wenn die Engine sie rechnen konnte. */
+  predictive?: number
+}): MonthlyTariffComparison {
   return {
-    currentTariffEur: [currentTariffEur, ...Array<null>(11).fill(null)],
-    spotWithoutControlEur: [spotWithoutControlEur, ...Array<null>(11).fill(null)],
-    spotWithBatteryEur: [spotWithBatteryEur, ...Array<null>(11).fill(null)],
+    currentTariffEur: MONTHS(args.current),
+    spotWithoutControlEur: MONTHS(args.spot),
+    spotWithBatteryEur: MONTHS(args.battery),
+    ...(args.comparison === undefined
+      ? {}
+      : {
+          comparisonTariffEur: MONTHS(args.comparison),
+          comparisonSupplier: args.comparisonSupplier ?? 'ENSTROGA',
+        }),
+    ...(args.predictive === undefined
+      ? {}
+      : { spotWithPredictiveControlEur: MONTHS(args.predictive) }),
     coveredMonths: 1,
     fixedCosts: {
       networkBaseFeeEur: 0,
@@ -37,7 +54,41 @@ function comparisonWith(
   }
 }
 
-function analysisWith(comparison: MonthlyTariffComparison | undefined): PdfReportAnalysis {
+/** Ein Eintrag, dessen Speicher den abgerechneten Leistungswert senkt (Weg 5 trifft zu). */
+function entryWith(leistungspreisSavingPerYear: number): BatteryResultEntry {
+  return {
+    battery: {
+      id: 'kat-1',
+      name: 'Test',
+      manufacturer: 'Test',
+      class: 'commercial',
+      usableCapacityKwh: 30,
+      maxPowerKw: 10,
+      roundTripEfficiency: 0.9,
+      pricePerKwh: 500,
+      inverterIncluded: true,
+      requiresFoundation: false,
+      controlType: 'dynamic',
+    },
+    newBilledKw: 40,
+    leistungspreisSavingPerYear,
+    selfConsumptionSavingPerYear: 100,
+    loadShiftSavingPerYear: 50,
+    selfConsumptionSavingOverCoveredPeriod: 100,
+    loadShiftSavingOverCoveredPeriod: 50,
+    annualizationFactor: 1,
+    coveredDays: 31,
+    totalSavingPerYear: leistungspreisSavingPerYear + 150,
+    warnings: [],
+    dispatchTrace: undefined as unknown as BatteryResultEntry['dispatchTrace'],
+  }
+}
+
+function analysisWith(args: {
+  comparison?: MonthlyTariffComparison
+  peakSaving?: number
+}): PdfReportAnalysis {
+  const entry = entryWith(args.peakSaving ?? 0)
   return {
     current: {
       annualPeakKw: 48,
@@ -45,7 +96,7 @@ function analysisWith(comparison: MonthlyTariffComparison | undefined): PdfRepor
       billedKw: 48,
       leistungspreisCostPerYear: 3980.16,
     },
-    perBattery: [],
+    perBattery: [entry as never],
     recommendation: { batteryId: 'kat-1', rationale: '' },
     assumptions: {
       roundTripEfficiency: 0.9,
@@ -61,49 +112,130 @@ function analysisWith(comparison: MonthlyTariffComparison | undefined): PdfRepor
       largestGapSlots: 0,
       warnings: [],
     },
-    tariffOptimization: comparison ? { computable: true, monthlyComparison: comparison } : undefined,
+    tariffOptimization: args.comparison
+      ? { computable: true, monthlyComparison: args.comparison }
+      : undefined,
   }
 }
 
-describe('„Zwei Wege zu weniger Stromkosten" (D7)', () => {
+describe('Wege-Kapitel (D7-Revision)', () => {
   it('ohne berechenbaren Monatsvergleich gibt es das Kapitel nicht', () => {
-    const analysis = analysisWith(undefined)
+    const analysis = analysisWith({})
     expect(hasWaysChapter(analysis)).toBe(false)
     expect(buildWaysChapter(analysis)).toBeNull()
+    expect(waysCountOf(analysis)).toBe(0)
   })
 
-  it('beide Wege positiv: Balken bit-identisch mit `sumCovered`, Ergebnis identisch mit Kapitel 1', () => {
-    const comparison = comparisonWith(120, 110, 95)
-    const analysis = analysisWith(comparison)
-    const ways = summaryWaysOf(analysis)!
-
-    expect(hasWaysChapter(analysis)).toBe(true)
-    const chapter = buildWaysChapter(analysis)!
-
-    // Die drei Balken — dieselben Summen wie in `detail.ts`s Tabellenzeilen.
-    expect(chapter.totals).toEqual({
-      currentTariffEur: 120,
-      spotWithoutControlEur: 110,
-      spotWithBatteryEur: 95,
+  it('Leistungspreis + Bestandsbatterie: alle fünf Wege, Weg 5 mit einer Zahl > 0', () => {
+    const analysis = analysisWith({
+      comparison: comparisonWith({
+        current: 120,
+        spot: 110,
+        battery: 95,
+        comparison: 112,
+        comparisonSupplier: 'ENSTROGA',
+        predictive: 97,
+      }),
+      peakSaving: 1200,
     })
-
-    // Die zwei Ergebnisbeträge sind dieselben Werte, aus denen Kapitel 1 seine Spanne bildet.
-    expect(chapter.tariffSwitch.body).toContain('10')
-    expect(String(chapter.tariffSwitch.body)).not.toContain('MEHR gekostet')
-    expect(chapter.loadControl.body).toContain('25')
-    expect(String(chapter.loadControl.body)).not.toContain('mehr gekostet')
-    expect(ways.ways[0].eur).toBe(10)
-    expect(ways.ways[1].eur).toBe(25)
-  })
-
-  it('Tarifwechsel allein negativ: Absatz sagt „mehr gekostet", nicht „gespart"', () => {
-    // Ident zum realen Bestandsfall (§8, Korrektur 21.09.2026): der Wechsel allein ist teurer,
-    // erst die Ladesteuerung dreht das Vorzeichen.
-    const comparison = comparisonWith(90, 110, 70)
-    const analysis = analysisWith(comparison)
     const chapter = buildWaysChapter(analysis)!
 
-    expect(String(chapter.tariffSwitch.body)).toContain('MEHR gekostet')
-    expect(String(chapter.loadControl.body)).toContain('gespart')
+    expect(waysCountOf(analysis)).toBe(5)
+    expect(chapter.wayCount).toBe(5)
+    expect(waysSectionTitle(chapter.wayCount)).toBe('Fünf Wege zu weniger Stromkosten')
+
+    expect(chapter.statements.map((s) => s.id)).toEqual([
+      'ways_current',
+      'ways_comparison_tariff',
+      'ways_tariff_switch',
+      'ways_load_control',
+      'ways_peak_shaving',
+    ])
+
+    // Weg 5 zeigt eine Zahl > 0 UND sagt, dass sie ein Jahreswert ist.
+    const peak = chapter.statements.find((s) => s.id === 'ways_peak_shaving')!
+    expect(String(peak.body)).toContain('1.200')
+    expect(String(peak.body)).toContain('pro Jahr')
+
+    // Vier Balken — die Lastspitzenkappung ist ausdrücklich keiner (andere Einheit).
+    expect(chapter.bars.map((b) => b.key)).toEqual([
+      'today',
+      'comparison',
+      'uncontrolled',
+      'controlled',
+    ])
+    // Und sie tragen dieselben Beträge wie `summaryWaysOf` — keine zweite Rechnung.
+    const ways = summaryWaysOf(analysis)!
+    expect(chapter.bars.map((b) => b.eur)).toEqual([
+      ways.costTodayEur,
+      ...ways.ways.map((w) => w.costEur),
+    ])
+    // Weg 4 rechnet mit der VORAUSSCHAUENDEN Reihe (97), nicht mit der Bestmarke (95).
+    expect(ways.controlVariant).toBe('predictive')
+    expect(ways.ways.find((w) => w.id === 'controlled')!.costEur).toBe(97)
+    expect(String(chapter.statements[3]!.body)).toContain('Vorausberechnung')
+  })
+
+  /* D8 — die Ein-Spanne-Regel: GENAU EINE Kern-Ersparnis-Aussage im ganzen Dokument. */
+  it('kein Weg trägt eine eigene Ersparnis-Kopfzahl — die einzige steht in der Zusammenfassung', () => {
+    const analysis = analysisWith({
+      comparison: comparisonWith({
+        current: 120,
+        spot: 110,
+        battery: 95,
+        comparison: 112,
+        predictive: 97,
+      }),
+      peakSaving: 1200,
+    })
+    const chapter = buildWaysChapter(analysis)!
+
+    // Fünf Absätze, fünf Beträge — und KEINER davon als Kopfzahl neben der Spanne aus Kapitel 1.
+    expect(chapter.statements).toHaveLength(5)
+    expect(chapter.statements.every((s) => s.amount === null)).toBe(true)
+
+    // Und in Kapitel 1 steht die Ersparnis genau einmal, als Spanne.
+    const kpis = buildSummaryKpis(analysis, summaryWaysOf(analysis)!)
+    expect(kpis.filter((k) => k.id === 'possible_saving')).toHaveLength(1)
+    expect(kpis.find((k) => k.id === 'possible_saving')!.value).toContain('–')
+  })
+
+  it('ohne Leistungspreis-Ersparnis erscheint Weg 5 nicht', () => {
+    const analysis = analysisWith({
+      comparison: comparisonWith({ current: 120, spot: 110, battery: 95 }),
+      peakSaving: 0,
+    })
+    const chapter = buildWaysChapter(analysis)!
+
+    expect(chapter.statements.map((s) => s.id)).not.toContain('ways_peak_shaving')
+    expect(chapter.wayCount).toBe(3)
+    expect(waysSectionTitle(chapter.wayCount)).toBe('Drei Wege zu weniger Stromkosten')
+  })
+
+  it('ohne eingegebenen Vergleichstarif erscheint Weg 2 nicht — kein Platzhalter, kein Nullwert', () => {
+    const analysis = analysisWith({
+      comparison: comparisonWith({ current: 120, spot: 110, battery: 95 }),
+      peakSaving: 1200,
+    })
+    const chapter = buildWaysChapter(analysis)!
+
+    expect(chapter.statements.map((s) => s.id)).not.toContain('ways_comparison_tariff')
+    expect(chapter.bars.map((b) => b.key)).not.toContain('comparison')
+    expect(summaryWaysOf(analysis)!.comparisonSupplier).toBeNull()
+    expect(chapter.wayCount).toBe(4)
+  })
+
+  it('ohne vorausschauende Reihe zeigt Weg 4 die einfache Ladesteuerung und sagt es nicht als Prognose', () => {
+    const analysis = analysisWith({
+      comparison: comparisonWith({ current: 120, spot: 110, battery: 95 }),
+    })
+    const ways = summaryWaysOf(analysis)!
+    const chapter = buildWaysChapter(analysis)!
+
+    expect(ways.controlVariant).toBe('simple')
+    expect(ways.ways.find((w) => w.id === 'controlled')!.costEur).toBe(95)
+    const control = chapter.statements.find((s) => s.id === 'ways_load_control')!
+    expect(String(control.body)).not.toContain('Vorausberechnung')
+    expect(String(control.body)).toContain('gespart')
   })
 })

@@ -203,6 +203,32 @@ Nach der Tarif-Station des letzten Zählpunkts: ein "Fertig"-Abschluss mit Hinwe
 
 ⚠ **Ein loser Faden:** die Migration zu `admin_delete_project` wurde mangels funktionierendem CLI-Zugang direkt über den Supabase-SQL-Editor in der Cloud angelegt, NICHT über `supabase db push`. Sie fehlt deshalb in Supabase's eigener Migrations-Historie. Der nächste `supabase db push` könnte auf dieser einen Datei mit "existiert bereits" scheitern — dann die Datei einmalig überspringen oder die Historie von Hand nachtragen, nicht neu anlegen.
 
+### Report-Baukasten — das Wege-Kapitel führt FÜNF Wege (21.09.2026)
+
+D7 ist auf die Revision vom 21.09.2026 umgestellt (`Pflichtenheft_Kalkulator_Delta_Report-Baukasten.md`
+D7, Abschnitt „D7 umgesetzt"): 1) Ihr Tarif heute · 2) der selbst gefundene Vergleichstarif · 3)
+aWATTar ohne Steuerung · 4) aWATTar mit **vorausschauender** Ladesteuerung · 5) Lastspitzenkappung.
+**Jeder Weg steht nur da, wenn er zutrifft**; der Kapiteltitel zählt sie (`waysSectionTitle`), Agenda
+und Überschrift aus derselben Zahl.
+
+Neu in der Engine: `TariffParams.comparisonSupplier` (der Vergleichstarif aus der Wizard-Station
+reist jetzt bis in den Rechenkern, `draft-mapping.ts`) und zwei Reihen auf
+`MonthlyTariffComparison` — `comparisonTariffEur` (Weg 2) und `spotWithPredictiveControlEur`
+(Weg 4, aus `computePredictiveControlValue`). **Bündel-Fassung 8.**
+
+**⚠ Drei Dinge, die beim nächsten Umbau mitzudenken sind: (a) Weg 5 ist KEIN Balken und steht
+NICHT in der D8-Spanne** — Jahres-Ersparnis gegen Zeitraum-Kosten, zwei Einheiten auf einer Achse;
+der Absatz sagt das selbst. **(b) Ein BRUTTO eingetragener Vergleichstarif lässt Weg 2 entfallen**
+statt durch einen geratenen Steuersatz zu teilen (Muster `tou.ts`, `kind: 'price_basis'`).
+**(c) Weg 4 macht die Kopfzahl der Zusammenfassung konservativer**, weil die vorausschauende Zahl
+die Bestmarke nicht übertreffen kann; `realizationRatio` steht bewusst nicht im Kundenreport, der
+Hinweistext dazu ist ein `[ENTWURF]` (`PREDICTIVE_NOTE`, `ways.ts`) und wartet auf Andreas.
+
+**⚠ Kein `⚠` in Kundentext des PDF-Reports** — die Report-Schrift trägt das Zeichen nicht, es
+verschwindet beim Rendern spurlos (am erzeugten PDF gemessen, 21.09.2026). Und `monthlyBatteryRef`
+liefert eine DATIV-Fügung („der empfohlenen Batterie"): sie trägt nur nach „mit", nicht als
+Satzsubjekt.
+
 ### Report-Baukasten — Kapitel 1 ist die „Zusammenfassung" (19.09.2026)
 
 Das erste inhaltliche Kapitel des PDF-Reports heisst nicht mehr „Kernergebnisse" und trägt die Form von Seite 2 des Urbanz-Zielbildes: **zwei Kopfzahlen** (Ihre Stromkosten heute · Mögliche Ersparnis als Spanne), ein **Fliesstext** (was der Kunde hat, wie viele Wege es gibt), ein **PV-Satz** nur bei angegebener Anlage, und der teal Kasten **„Ausserdem schon geklärt"**. Fachliche Tiefe: `Pflichtenheft_Kalkulator_Delta_Report-Baukasten.md` D8.

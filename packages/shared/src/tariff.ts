@@ -51,8 +51,34 @@ export const benutzungsdauerModelSchema = z.object({
 })
 export type BenutzungsdauerModel = z.infer<typeof benutzungsdauerModelSchema>
 
+/**
+ * Der selbst gefundene VERGLEICHSTARIF eines anderen Lieferanten (D7-Revision, 21.09.2026) —
+ * Weg 2 der fünf Wege.
+ *
+ * ── ⚠ ER IST KEIN OPTIMIERUNGSGEGENSTAND ──────────────────────────────────────────────────────
+ * Ein Fixtarif hat keine Preisbewegung über den Tag; eine Batterie kann gegen ihn nicht steuern
+ * (so begründet die Wizard-Station, die ihn erhebt). Er ist ein von der Batterie UNABHÄNGIGER
+ * Hebel, den der Report NENNT — gerechnet wird mit ihm genau eine Reihe: dieselben Netz-, Mess-
+ * und Abgabenposten wie im Ist-Tarif, nur der Energiepreis und die Lieferanten-Grundgebühr sind
+ * andere.
+ *
+ * ⚠ `priceBasis` IST PFLICHT UND WIRD NICHT UMGERECHNET. Ein brutto eingetragener Tarif führt zum
+ * AUSFALL dieses einen Wegs, nicht zu einer Division durch einen geratenen Steuersatz — dieselbe
+ * Haltung wie bei Netzentgelt-Zeilen und Börsenpreisen (`tou.ts`, `kind: 'price_basis'`).
+ */
+export const comparisonSupplierTariffSchema = z.object({
+  /** Wie der Lieferant heisst, so wie der Kunde ihn eingetragen hat. Steht im Report. */
+  supplier: z.string().min(1),
+  energyPriceCtPerKwh: z.number().nonnegative(),
+  baseFeeEurPerMonth: z.number().nonnegative(),
+  priceBasis: priceBasisSchema,
+})
+export type ComparisonSupplierTariff = z.infer<typeof comparisonSupplierTariffSchema>
+
 /** Tarifparameter aus der Netzrechnung — „Die Rechnung ist die Wahrheit" (§3.1). */
 export const tariffParamsSchema = z.object({
+  /** D7-Revision — Weg 2. `undefined` heisst „der Kunde hat keinen angegeben"; dann entfällt der Weg. */
+  comparisonSupplier: comparisonSupplierTariffSchema.optional(),
   leistungspreisEurPerKwYear: z.number().nonnegative(),
   billingModel: billingModelSchema,
   minBillableKw: z.number().nonnegative(), // Mindestleistung (Sockel, nie unterschreitbar)

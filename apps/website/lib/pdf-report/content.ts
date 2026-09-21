@@ -198,30 +198,44 @@ export const LOAD_INTRO =
   'Grundlage für alle Zahlen in dieser Auswertung.'
 
 /**
- * D7 — das Kapitel zwischen Lastgang und Empfehlung: zwei Wege, den heutigen Stromtarif zu
+ * D7 — das Kapitel zwischen Lastgang und Empfehlung: die Wege, den heutigen Stromtarif zu
  * verlassen, mit dem Balkendiagramm aus dem Urbanz-Referenz-PDF (S. 5–6, nur Struktur/Optik).
  *
- * ── ⚠ „ZWEI", NICHT „DREI" WEGE — DAS IST DER SCOPE, DEN D7 ENTSCHIEDEN HAT (16.09.2026) ───────
- * Das Referenzbild zeigt fünf Balken: Ihr Tarif heute, ein einfacher Pauschaltarif-Wechsel,
- * aWATTar ungesteuert, aWATTar einfach gesteuert, aWATTar optimal (LP). Der Pauschaltarif-Vergleich
- * liegt im Monitor-Produkt und nicht im Kalkulator-Pfad; die LP-Bestmarke ist eine unvalidierte
- * Hindsight-Zahl, die laut den Engine-Prinzipien nicht unvalidiert in Kundenmaterial gehört. Der
- * Titel benennt deshalb bewusst „Zwei Wege" und nicht „Drei" — eine höhere Zahl behauptete einen
- * Pauschaltarif-Balken, den es in diesem Kapitel nicht gibt.
+ * ── ⚠ DER TITEL HIER IST EIN PLATZHALTER UND STEHT IN KEINEM FERTIGEN DOKUMENT ────────────────
+ * Seit der D7-Revision (21.09.2026) führt das Kapitel je Kunde DREI BIS FÜNF Wege; der Titel zählt
+ * sie (`waysSectionTitle`, `ways.ts`) und wird von Agenda und Überschrift aus DERSELBEN Ableitung
+ * gebildet. Diese Konstante trägt die Kennung und die Ebene — der Titel darin ist nur der Wert,
+ * der dasteht, wenn jemand das Kapitel ohne Zählung einsetzt (heute niemand).
+ *
+ * ⚠ Ein Querverweis auf dieses Kapitel gibt es nicht: kein Baustein der Registry liegt in ihm
+ * (`ReportBaukastenId` führt keine `ways_*`-Kennung), `layout.ts` kann also nie auf diesen Titel
+ * auflösen. Sobald ein Baustein hierher zieht, muss der Verweis die gezählte Fassung bekommen.
  *
  * ⚠ Bedingtes Kapitel wie „Ihr Stromtarif im Monatsvergleich" (`MONTHLY_SECTION`): ohne
- * berechenbaren Monatsvergleich gibt es weder die drei Balken noch die zwei Absätze — s.
- * `hasWaysChapter` (`ways.ts`).
+ * berechenbaren Monatsvergleich gibt es weder die Balken noch die Absätze — s. `hasWaysChapter`.
  */
 export const WAYS_SECTION: ReportSection = {
   id: SECTION_ID.ways,
   level: 1,
-  title: 'Zwei Wege zu weniger Stromkosten',
+  title: 'Wege zu weniger Stromkosten',
 }
 
 /** Steht unter der Kapitelüberschrift. Sagt, worum es geht, nicht was auf der Seite steht. */
 export const WAYS_INTRO =
-  'Was ein Tarifwechsel allein bringt — und was zusätzlich eine gezielte Ladesteuerung bringt.'
+  'Was Ihr Strom heute kostet — und was jeder der geprüften Wege daran ändern würde.'
+
+const WAYS_NUMBER_WORD: Record<number, string> = { 2: 'Zwei', 3: 'Drei', 4: 'Vier', 5: 'Fünf' }
+
+/**
+ * Die gezählte Kapitelüberschrift (D7-Revision).
+ *
+ * ⚠ Sie steht HIER und nicht in `ways.ts`, obwohl dort die Zählung entsteht: `content.ts` ist die
+ * Heimat der Kapiteltitel, und `ways.ts` hängt über `summary.ts` an diesem Modul — der Titel dort
+ * gebildet ergäbe einen Import-Zyklus.
+ */
+export function waysSectionTitle(wayCount: number): string {
+  return `${WAYS_NUMBER_WORD[wayCount] ?? String(wayCount)} Wege zu weniger Stromkosten`
+}
 
 /**
  * B23c-2 — das Kapitel, das die Kaufaussage und die Ladesteuerung trägt.
@@ -482,6 +496,11 @@ export type ReportChapterPresence = {
    */
   ways: boolean
   /**
+   * Wie viele Wege das Kapitel führt (D7-Revision) — die Agenda trägt damit denselben gezählten
+   * Titel wie die Kapitelüberschrift. `0`, wenn es das Kapitel nicht gibt.
+   */
+  waysCount: number
+  /**
    * `true` = der Monatsvergleich steht als eigenes Kapitel — s. `hasMonthlyChapter` (`detail.ts`).
    * Im Bestandsfall `false`: dort steht er im Detail-Kapitel an der Stelle des Kostenverlaufs.
    */
@@ -514,7 +533,9 @@ export function buildReportAgenda(presence: ReportChapterPresence): readonly Rep
     RESULTS_SECTION,
     PREREQUISITES_SECTION,
     LOAD_SECTION,
-    ...(presence.ways ? [WAYS_SECTION] : []),
+    ...(presence.ways
+      ? [{ ...WAYS_SECTION, title: waysSectionTitle(presence.waysCount) }]
+      : []),
     RECOMMENDATION_SECTION,
     DETAIL_SECTION,
     ...(presence.monthly ? [MONTHLY_SECTION] : []),

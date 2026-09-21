@@ -1,6 +1,21 @@
 import { tariffParamsSchema, type BillingModel, type TariffParams } from 'shared'
 
 /**
+ * Die vier Entwurfs-Schlüssel des selbst gefundenen VERGLEICHSTARIFS (Tarif-Station,
+ * `apps/web/lib/admin/tariff-draft.ts`) — D7-Revision Weg 2.
+ *
+ * ⚠ ALLE VIER ODER KEINER. Die Leseseite der Station gibt schon heute `null` zurück, sobald eines
+ * fehlt; hier gilt dasselbe, weil ein Vergleich ohne Preis oder ohne Preisbasis keiner ist. Ein
+ * halber Tarif wird still verworfen statt ergänzt — geraten wird in dieser Datei nichts.
+ */
+const COMPARISON_DRAFT_KEYS = {
+  supplier: 'tariffComparisonProviderName',
+  energyPriceCtPerKwh: 'tariffComparisonEnergyPriceCtPerKwh',
+  baseFeeEurPerMonth: 'tariffComparisonBaseFeeEurPerMonth',
+  priceBasis: 'tariffComparisonPriceBasis',
+} as const
+
+/**
  * D3, Baustein 1 — DER WIZARD-ENTWURF WIRD ZU `TariffParams`.
  *
  * ── WARUM DIESE ABBILDUNG ÜBERHAUPT NÖTIG IST ─────────────────────────────────────────────────
@@ -126,6 +141,29 @@ export function mapDraftToTariffParams(
     !('leistungspreisEurPerKwYear' in candidate)
   ) {
     candidate.leistungspreisEurPerKwYear = 0
+  }
+
+  /*
+   * Weg 2 — der Vergleichstarif reist als GANZES Objekt in den Contract, nicht als vier
+   * Einzelfelder: so kann es ihn nur vollständig geben, und `comparisonSupplierTariffSchema`
+   * prüft ihn in einem Stück.
+   */
+  const supplier = draft[COMPARISON_DRAFT_KEYS.supplier]
+  const energyPrice = draft[COMPARISON_DRAFT_KEYS.energyPriceCtPerKwh]
+  const baseFee = draft[COMPARISON_DRAFT_KEYS.baseFeeEurPerMonth]
+  const priceBasis = draft[COMPARISON_DRAFT_KEYS.priceBasis]
+  if (
+    typeof supplier === 'string' &&
+    typeof energyPrice === 'number' &&
+    typeof baseFee === 'number' &&
+    typeof priceBasis === 'string'
+  ) {
+    candidate.comparisonSupplier = {
+      supplier,
+      energyPriceCtPerKwh: energyPrice,
+      baseFeeEurPerMonth: baseFee,
+      priceBasis,
+    }
   }
 
   const parsed = tariffParamsSchema.safeParse(candidate)

@@ -116,6 +116,14 @@ export type PredictiveControlValueResult =
        */
       capKwByPeriod: number[]
       socFloorKwh: number[]
+      /**
+       * Die Monatsreihe des VORAUSSCHAUENDEN Laufs — dieselbe Grösse wie
+       * `MonthlyTariffComparison.spotWithBatteryEur`, nur aus diesem Fahrplan.
+       *
+       * ⚠ Sie wird hier ohnehin gebildet (die Kassen-Grösse entsteht aus ihr); herausgereicht
+       * wird sie, damit der Report Weg 4 zeigen kann, ohne die Reihe ein zweites Mal zu rechnen.
+       */
+      predictiveMonthlyEur: (number | null)[]
     }
   | { ok: false; reason: PredictiveControlValueBlocker }
 
@@ -192,7 +200,9 @@ export function computePredictiveControlValue(
     })
 
   // Ausgeführt wird IMMER auf dem echten Lastgang — nur der Plan unterscheidet sich.
-  const controlValueFor = (order: DailyPriceOrder): number | undefined => {
+  const runFor = (
+    order: DailyPriceOrder,
+  ): { controlValueEur: number; monthlyEur: (number | null)[] } | undefined => {
     const dispatch = runCombinedDispatch(
       measuredDraws,
       capForInterval,
@@ -212,24 +222,29 @@ export function computePredictiveControlValue(
     if (!comparison) return undefined
     // Dieselbe EINE Definition wie die Kopfkarte des Reports (`real-saving.ts`) — kein zweiter
     // Reducer, der beim nächsten Ausbau davon abliefe.
-    return buildRealSavingBreakdown({
-      currentTariffEur: sumCovered(comparison.currentTariffEur),
-      spotWithoutControlEur: sumCovered(comparison.spotWithoutControlEur),
-      spotWithBatteryEur: sumCovered(comparison.spotWithBatteryEur),
-    }).controlValueEur
+    return {
+      controlValueEur: buildRealSavingBreakdown({
+        currentTariffEur: sumCovered(comparison.currentTariffEur),
+        spotWithoutControlEur: sumCovered(comparison.spotWithoutControlEur),
+        spotWithBatteryEur: sumCovered(comparison.spotWithBatteryEur),
+      }).controlValueEur,
+      monthlyEur: comparison.spotWithBatteryEur,
+    }
   }
 
-  const hindsightControlValueEur = controlValueFor(orderFor(measuredDraws))
-  const predictiveControlValueEur = controlValueFor(
+  const hindsight = runFor(orderFor(measuredDraws))
+  const predictive = runFor(
     withoutPlanOnDaysMissingPattern(
       orderFor(forecast.forecastKw),
       forecast.hasPattern,
       physics.usableCapacityKwh,
     ),
   )
-  if (hindsightControlValueEur === undefined || predictiveControlValueEur === undefined) {
+  if (hindsight === undefined || predictive === undefined) {
     return { ok: false, reason: 'comparison_unavailable' }
   }
+  const hindsightControlValueEur = hindsight.controlValueEur
+  const predictiveControlValueEur = predictive.controlValueEur
 
   return {
     ok: true,
@@ -245,5 +260,6 @@ export function computePredictiveControlValue(
     daysWithoutPattern: forecast.daysWithoutPattern,
     capKwByPeriod,
     socFloorKwh,
+    predictiveMonthlyEur: predictive.monthlyEur,
   }
 }

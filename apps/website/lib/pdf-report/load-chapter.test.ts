@@ -7,6 +7,7 @@ import {
   PREREQUISITES_SECTION,
   RECOMMENDATION_SECTION,
   WAYS_SECTION,
+  waysSectionTitle,
 } from './content'
 import { loadChartCaption } from './derive'
 
@@ -34,6 +35,7 @@ describe('Lastgang-Kapitel', () => {
   it('steht in der Agenda zwischen Voraussetzungen und Empfehlung', () => {
     const titles = buildReportAgenda({
       ways: false,
+      waysCount: 0,
       monthly: false,
       insight: false,
       comparison: false,
@@ -43,25 +45,29 @@ describe('Lastgang-Kapitel', () => {
     expect(titles.indexOf(LOAD_SECTION.title)).toBe(
       titles.indexOf(PREREQUISITES_SECTION.title) + 1,
     )
-    /* Ohne „Zwei Wege" (D7: kein berechenbarer Monatsvergleich) folgt die Empfehlung direkt. */
+    /* Ohne das Wege-Kapitel (D7: kein berechenbarer Monatsvergleich) folgt die Empfehlung direkt. */
     expect(titles.indexOf(RECOMMENDATION_SECTION.title)).toBe(
       titles.indexOf(LOAD_SECTION.title) + 1,
     )
     expect(LOAD_INTRO).toContain('Grundlage für alle Zahlen')
   })
 
-  /* D7 — das neue Kapitel „Zwei Wege zu weniger Stromkosten", mit berechenbarem Monatsvergleich. */
-  it('„Zwei Wege zu weniger Stromkosten" steht zwischen Lastgang und Empfehlung, wenn es das Kapitel gibt', () => {
+  /* D7 — das Wege-Kapitel, mit berechenbarem Monatsvergleich. */
+  it('das Wege-Kapitel steht zwischen Lastgang und Empfehlung, wenn es das Kapitel gibt', () => {
     const titles = buildReportAgenda({
       ways: true,
+      waysCount: 4,
       monthly: false,
       insight: false,
       comparison: false,
     }).map((s) => s.title)
 
-    expect(titles.indexOf(WAYS_SECTION.title)).toBe(titles.indexOf(LOAD_SECTION.title) + 1)
-    expect(titles.indexOf(RECOMMENDATION_SECTION.title)).toBe(
-      titles.indexOf(WAYS_SECTION.title) + 1,
-    )
+    /* Die Agenda trägt den GEZÄHLTEN Titel (D7-Revision), nicht den Platzhalter der Konstante. */
+    const waysTitle = waysSectionTitle(4)
+    expect(waysTitle).toBe('Vier Wege zu weniger Stromkosten')
+    expect(titles).toContain(waysTitle)
+    expect(titles).not.toContain(WAYS_SECTION.title)
+    expect(titles.indexOf(waysTitle)).toBe(titles.indexOf(LOAD_SECTION.title) + 1)
+    expect(titles.indexOf(RECOMMENDATION_SECTION.title)).toBe(titles.indexOf(waysTitle) + 1)
   })
 })

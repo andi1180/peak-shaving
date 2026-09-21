@@ -145,29 +145,54 @@ function hasLeistungspreis(current: PdfReportAnalysis['current']): boolean {
  * Die zwei Wege und die zwei Kopfzahlen
  * ──────────────────────────────────────────────────────────────────────────────────────────── */
 
+/**
+ * Die Kennung eines TARIFwegs. Weg 1 („Ihr Tarif heute") ist die BEZUGSGRÖSSE und steht deshalb
+ * nicht in dieser Liste; Weg 5 (Spitzenkappung) hat einen anderen Bezugszeitraum, s. unten.
+ */
+export type SummaryWayId = 'comparison_tariff' | 'tariff_switch' | 'controlled'
+
 /** Ein Weg, die Stromkosten zu senken — `eur` ist die Ersparnis über den GEMESSENEN Zeitraum. */
 export type SummaryWay = {
-  id: 'tariff_switch' | 'controlled'
+  id: SummaryWayId
   eur: number
+  /** Was dieser Weg im selben Zeitraum GEKOSTET hätte — die Höhe seines Balkens. */
+  costEur: number
 }
 
+/** Welche Ladesteuerung Weg 4 zeigt (D7-Revision). */
+export type ControlVariant = 'predictive' | 'simple'
+
 export type SummaryWays = {
-  /** Was der Kunde im gemessenen Zeitraum tatsächlich gezahlt hat. */
+  /** Was der Kunde im gemessenen Zeitraum tatsächlich gezahlt hat — Weg 1, die Bezugsgrösse. */
   costTodayEur: number
-  /** Die Bezugsgrösse beider Zahlen. */
+  /** Die Bezugsgrösse aller Zahlen. */
   coveredDays: number
-  /** Beide Wege, immer in dieser Reihenfolge. `eur` kann negativ sein — dann senkt der Weg nichts. */
-  ways: readonly [SummaryWay, SummaryWay]
+  /**
+   * Die Tarifwege in Dokumentreihenfolge (Weg 2, 3, 4). Weg 2 fehlt, wenn der Kunde keinen
+   * Vergleichstarif angegeben hat — dann gibt es ihn schlicht nicht, keinen Platzhalter.
+   * `eur` kann negativ sein; dann senkt der Weg nichts.
+   */
+  ways: readonly SummaryWay[]
+  /**
+   * ⚠ `predictive` heisst: Weg 4 trägt die VORAUSSCHAUENDE Ladesteuerung (unvalidiert,
+   * `PREDICTIVE_CONTROL_VALUE_BASIS`), `simple` die bisherige Tagesmittel-Regel. Der Kundentext
+   * verzweigt daran — eine Prognose unbenannt zu zeigen wäre der stille Rückfall, den D15 Regel C
+   * verbietet.
+   */
+  controlVariant: ControlVariant
+  /** Der Lieferant zu Weg 2 — `null`, wenn es den Weg nicht gibt. */
+  comparisonSupplier: string | null
 }
 
 /**
  * Die Wege aus dem Monatsvergleich — `null`, wenn er nicht gerechnet wurde.
  *
- * ── ⚠ DIE SPITZENKAPPUNG IST BEWUSST KEIN DRITTER WEG ─────────────────────────────────────────
- * Sie ist eine JAHRESgrösse aus dem Leistungspreis (€/kW·a), die beiden Wege hier sind Summen über
- * den gemessenen Zeitraum aus dem Monatsvergleich. In eine Spanne gezogen stünden zwei verschiedene
+ * ── ⚠ DIE SPITZENKAPPUNG (WEG 5) STEHT AUCH NACH DER D7-REVISION NICHT IN DIESER SPANNE ───────
+ * Sie ist eine JAHRESgrösse aus dem Leistungspreis (€/kW·a), die Wege hier sind Summen über den
+ * gemessenen Zeitraum aus dem Monatsvergleich. In eine Spanne gezogen stünden zwei verschiedene
  * Bezugszeiträume unter einer Zahl — genau die Addition, vor der der Report an jeder anderen Stelle
- * warnt. Dass es sie gibt, sagt stattdessen der Fliesstext (s. `buildOverview`).
+ * warnt. Sie ist deshalb ein eigener Weg IM KAPITEL (`ways.ts`) mit eigener Bezugsangabe, und der
+ * Fliesstext dieser Seite nennt sie weiterhin gesondert (s. `buildOverview`).
  *
  * ⚠ OHNE MONATSVERGLEICH GIBT ES AUCH KEINE IST-KOSTEN. Der Contract führt die Gesamtkosten des
  * Kunden an keiner anderen Stelle — `current.leistungspreisCostPerYear` ist allein der
@@ -186,13 +211,45 @@ export function summaryWaysOf(analysis: PdfReportAnalysis): SummaryWays | null {
     spotWithBatteryEur: sumCovered(comparison.spotWithBatteryEur),
   })
 
+  const costTodayEur = sumCovered(comparison.currentTariffEur)
+  const ways: SummaryWay[] = []
+
+  /*
+   * Weg 2 — nur, wenn die Engine die Reihe gebildet hat. Sie fehlt, wenn der Kunde keinen
+   * Vergleichstarif angegeben hat ODER er brutto hinterlegt ist (`tariff.ts`); in beiden Fällen
+   * entfällt der Weg ganz, statt mit einem geratenen Wert dazustehen.
+   */
+  const comparisonSeries = comparison.comparisonTariffEur
+  if (comparisonSeries) {
+    const costEur = sumCovered(comparisonSeries)
+    ways.push({ id: 'comparison_tariff', eur: costTodayEur - costEur, costEur })
+  }
+
+  ways.push({
+    id: 'tariff_switch',
+    eur: real.tariffSwitchEur,
+    costEur: sumCovered(comparison.spotWithoutControlEur),
+  })
+
+  /*
+   * Weg 4 — die VORAUSSCHAUENDE Ladesteuerung, sobald die Engine sie rechnen konnte; sonst die
+   * bisherige Tagesmittel-Regel. Gezeigt wird immer genau eine der beiden, und der Report sagt
+   * welche (`controlVariant`).
+   */
+  const predictiveSeries = comparison.spotWithPredictiveControlEur
+  const controlCostEur = sumCovered(predictiveSeries ?? comparison.spotWithBatteryEur)
+  ways.push({
+    id: 'controlled',
+    eur: predictiveSeries ? costTodayEur - controlCostEur : real.totalEur,
+    costEur: controlCostEur,
+  })
+
   return {
-    costTodayEur: sumCovered(comparison.currentTariffEur),
+    costTodayEur,
     coveredDays: analysis.dataQuality.coveredDays,
-    ways: [
-      { id: 'tariff_switch', eur: real.tariffSwitchEur },
-      { id: 'controlled', eur: real.totalEur },
-    ],
+    ways,
+    controlVariant: predictiveSeries ? 'predictive' : 'simple',
+    comparisonSupplier: comparison.comparisonSupplier ?? null,
   }
 }
 
@@ -242,7 +299,9 @@ export function buildSummaryKpis(analysis: PdfReportAnalysis, ways: SummaryWays)
         ? 'je nach gewähltem Weg, im selben Zeitraum'
         : only.id === 'controlled'
           ? 'mit gezielter Ladesteuerung, im selben Zeitraum'
-          : 'durch einen Tarifwechsel, im selben Zeitraum',
+          : only.id === 'comparison_tariff'
+            ? 'mit dem von Ihnen gefundenen Tarif, im selben Zeitraum'
+            : 'durch einen Tarifwechsel, im selben Zeitraum',
     ],
     tone: 'accent',
   })
@@ -299,41 +358,55 @@ function controlledWay(hasBattery: boolean): string {
 
 const SWITCH_WAY = 'ein einfacher Tarifwechsel ohne jede Umstellung'
 
+/** Wie ein einzelner Weg im Fliesstext heisst. */
+function wayPhrase(way: SummaryWay, ways: SummaryWays, hasBattery: boolean): string {
+  if (way.id === 'controlled') return controlledWay(hasBattery)
+  if (way.id === 'comparison_tariff') {
+    return ways.comparisonSupplier
+      ? `ein Wechsel zu dem von Ihnen gefundenen Tarif (${ways.comparisonSupplier})`
+      : 'ein Wechsel zu dem von Ihnen gefundenen Tarif'
+  }
+  return SWITCH_WAY
+}
+
+const COUNT_WORD = ['keinen', 'einen', 'zwei', 'drei'] as const
+
 /**
  * Welche Wege es gibt — und, wo einer nicht trägt, warum nicht.
  *
  * ⚠ GEZÄHLT WIRD, WAS TATSÄCHLICH SENKT. Ein Weg mit negativer Ersparnis ist kein Weg zur
  * Kostensenkung, sondern ein teurerer Tarif; ihn mitzuzählen machte aus „zwei Wege" eine Angabe,
  * die die Spanne daneben nicht deckt.
+ *
+ * ⚠ Die ZAHL im Satz kommt aus `positive.length` und ist nirgends ausgeschrieben — seit der
+ * D7-Revision können es bis zu drei sein (Weg 2 kommt dazu, wenn der Kunde einen Vergleichstarif
+ * angegeben hat), und ein Literal liefe beim nächsten Weg still daneben.
  */
 function waysSentence(ways: SummaryWays, hasBattery: boolean): string {
   const positive = positiveWays(ways)
-  const controlled = controlledWay(hasBattery)
+  const phrases = positive.map((way) => wayPhrase(way, ways, hasBattery))
 
-  if (positive.length === 2) {
+  if (positive.length >= 2) {
     return (
-      'Es gibt zwei unterschiedlich aufwändige Wege, Ihre Stromkosten zu senken: ' +
-      `${SWITCH_WAY}, oder ${controlled} — beide weiter hinten im Detail erklärt.`
+      `Es gibt ${COUNT_WORD[positive.length] ?? String(positive.length)} unterschiedlich ` +
+      `aufwändige Wege, Ihre Stromkosten zu senken: ${phrases.slice(0, -1).join(', ')} oder ` +
+      `${phrases[phrases.length - 1]} — alle weiter hinten im Detail erklärt.`
     )
   }
-  const only = positive.length === 1 ? positive[0] : undefined
-  if (only?.id === 'controlled') {
-    return (
-      'Es gibt genau einen Weg, Ihre Stromkosten zu senken: ' +
-      `${controlled} — weiter hinten im Detail erklärt. Ein reiner Tarifwechsel ohne Steuerung ` +
-      'käme Sie in Ihrem Fall teurer als Ihr heutiger Tarif.'
-    )
-  }
+  const only = positive[0]
   if (only) {
+    const rest =
+      only.id === 'controlled'
+        ? ' Ein reiner Tarifwechsel ohne Steuerung käme Sie in Ihrem Fall teurer als Ihr heutiger Tarif.'
+        : ' Die zusätzliche Ladesteuerung bringt in Ihrem Fall nichts darüber hinaus.'
     return (
-      'Es gibt genau einen Weg, Ihre Stromkosten zu senken: ' +
-      `${SWITCH_WAY} — weiter hinten im Detail erklärt. Die zusätzliche Ladesteuerung bringt in ` +
-      'Ihrem Fall nichts darüber hinaus.'
+      `Es gibt genau einen Weg, Ihre Stromkosten zu senken: ${phrases[0]} — weiter hinten im ` +
+      `Detail erklärt.${rest}`
     )
   }
   return (
-    'Keiner der zwei geprüften Tarifwege hätte Ihre Stromkosten im gemessenen Zeitraum gesenkt: ' +
-    'weder ein reiner Wechsel zu einem Börsenpreis-Tarif noch derselbe Tarif mit gezielter ' +
+    'Keiner der geprüften Tarifwege hätte Ihre Stromkosten im gemessenen Zeitraum gesenkt: weder ' +
+    'ein reiner Wechsel zu einem Börsenpreis-Tarif noch derselbe Tarif mit gezielter ' +
     'Ladesteuerung wäre günstiger gewesen als Ihr heutiger. Die Zahlen dazu stehen weiter hinten.'
   )
 }
