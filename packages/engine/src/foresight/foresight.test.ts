@@ -9,6 +9,7 @@ import type {
   TariffPricingInputs,
 } from 'shared'
 
+import { simulateBattery } from '../simulation/simulate'
 import { consumptionPatternForDay } from './consumption-pattern'
 import { computePredictiveControlValue } from './predictive-control-value'
 
@@ -83,7 +84,7 @@ const PRICING: TariffPricingInputs = {
   levies: LEVIES_NONE,
 }
 
-/** Ohne Leistungsmessung — die Auslösebedingung von Weg c. */
+/** Ohne Leistungsmessung — dort sperrt `no_demand_charge` die Spitzenkappung ohnehin. */
 const TARIFF: TariffParams = {
   leistungspreisEurPerKwYear: 0,
   billingModel: 'annual_max',
@@ -104,6 +105,37 @@ const BATTERY: BatteryCandidate = {
   inverterIncluded: true,
   requiresFoundation: false,
   controlType: 'static',
+}
+
+/** MIT Leistungsmessung und kappfähiger Steuerung — der Fall, den Weg a neu abdeckt. */
+const TARIFF_WITH_DEMAND_CHARGE: TariffParams = { ...TARIFF, leistungspreisEurPerKwYear: 100 }
+const DYNAMIC_BATTERY: BatteryCandidate = {
+  ...BATTERY,
+  controlType: 'dynamic',
+  usableCapacityKwh: 30,
+  maxPowerKw: 10,
+}
+
+/**
+ * Derselbe Tagesverlauf, aber mit einer KURZEN Spitze statt des fünfstündigen Plateaus — sonst
+ * bindet die Spitzen-Reserve die ganze Batterie und der Fahrplan hängt gar nicht mehr an der
+ * Verbrauchserwartung (gemessen, s. Modulkopf von `predictive-control-value.ts`).
+ */
+function peakyLoadKw(day: number, slot: number): number {
+  if (slot === 40 || slot === 41) return 12 // 10:00–10:30 Ortszeit
+  const hour = Math.floor(slot / 4)
+  if (hour < 6) return 0.5
+  if (hour < 21) return 2
+  return day % 2 === 0 ? 1 : 3
+}
+
+function peakyProfile(): LoadProfile {
+  const t0 = Date.parse(START_UTC)
+  const readings = []
+  for (let d = 0; d < DAYS; d++)
+    for (let s = 0; s < SLOTS; s++)
+      readings.push({ ts: iso(t0 + (d * SLOTS + s) * STEP_MS), gridPowerKw: peakyLoadKw(d, s) })
+  return { readings, intervalMinutes: 15, timezoneMeta: 'Europe/Vienna', source: 'import_only' }
 }
 
 describe('Verbrauchsmuster', () => {
@@ -129,7 +161,6 @@ describe('Vorausschauender controlValueEur (Zahl 2)', () => {
       battery: BATTERY,
       tariffParams: TARIFF,
       pricing: PRICING,
-      leistungspreisCostPerYear: 0,
     })
     expect(result.ok).toBe(true)
     if (!result.ok) return
@@ -145,25 +176,43 @@ describe('Vorausschauender controlValueEur (Zahl 2)', () => {
     expect(result.realizationRatio!).toBeLessThan(0.9)
   })
 
+  it('Weg a: rechnet MIT Leistungspreis und übernimmt cap/socFloor aus dem Rückblick-Lauf', () => {
+    const loadProfile = peakyProfile()
+    const result = computePredictiveControlValue({
+      loadProfile,
+      battery: DYNAMIC_BATTERY,
+      tariffParams: TARIFF_WITH_DEMAND_CHARGE,
+      pricing: PRICING,
+    })
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+
+    // Der frühere `demand_charge`-Blocker ist weg — und die Schranken sind nicht mehr ∞/0.
+    expect(result.capKwByPeriod).toHaveLength(1)
+    expect(result.capKwByPeriod[0]).toBeLessThan(12) // Tagesspitze des Fixture-Lastgangs
+    expect(Number.isFinite(result.capKwByPeriod[0]!)).toBe(true)
+    expect(result.socFloorKwh.some((v) => v > 0)).toBe(true)
+
+    // Und sie stammen wirklich aus dem Rückblick-Lauf: bit-identisch zu `simulateBattery`.
+    const hindsight = simulateBattery(loadProfile, DYNAMIC_BATTERY, TARIFF_WITH_DEMAND_CHARGE)
+    expect(result.capKwByPeriod).toEqual(hindsight.capKwByPeriod)
+    expect(result.socFloorKwh).toEqual(hindsight.socFloorKwh)
+
+    expect(result.basis).toBe('foresight_unvalidated')
+    // Die Prognose schlägt trotz Spitzenschutz durch, und sie übertrifft die Bestmarke nicht.
+    expect(result.realizationRatio).not.toBeNull()
+    expect(result.realizationRatio!).toBeLessThanOrEqual(1)
+    expect(result.predictiveControlValueEur).not.toBe(result.hindsightControlValueEur)
+  })
+
   it('verweigert mit benanntem Grund, statt eine falsche Zahl zu liefern', () => {
     const base = { battery: BATTERY, pricing: PRICING, tariffParams: TARIFF }
-
-    // Leistungspreis > 0: `cap`/`socFloor` sind Periodengrössen und für einen Tageshorizont offen.
-    expect(
-      computePredictiveControlValue({
-        ...base,
-        loadProfile: profile(),
-        tariffParams: { ...TARIFF, leistungspreisEurPerKwYear: 100 },
-        leistungspreisCostPerYear: 100 * 6,
-      }),
-    ).toEqual({ ok: false, reason: 'demand_charge' })
 
     // Synthetisches Profil: Muster und Wahrheit wären dieselbe Formel.
     expect(
       computePredictiveControlValue({
         ...base,
         loadProfile: profile('standard_profile'),
-        leistungspreisCostPerYear: 0,
       }),
     ).toEqual({ ok: false, reason: 'standard_profile' })
 
@@ -173,7 +222,6 @@ describe('Vorausschauender controlValueEur (Zahl 2)', () => {
         ...base,
         loadProfile: profile(),
         pricing: { ...PRICING, spotPrices: null },
-        leistungspreisCostPerYear: 0,
       }),
     ).toEqual({ ok: false, reason: 'price_curve_not_computable' })
   })

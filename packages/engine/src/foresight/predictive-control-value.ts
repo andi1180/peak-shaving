@@ -5,6 +5,7 @@ import { dailyPriceOrder, type DailyPriceOrder } from '../simulation/daily-price
 import { runCombinedDispatch } from '../simulation/dispatch'
 import { drawSeries, intervalHours, startSoc, toPhysics } from '../simulation/helpers'
 import { buildMonthlyTariffComparison } from '../simulation/monthly-tariff-comparison'
+import { peakConstraints } from '../simulation/peak-constraints'
 import { intervalTariffRates } from '../simulation/tou'
 import {
   DEFAULT_CONSUMPTION_PATTERN_SCHEME,
@@ -14,7 +15,7 @@ import {
 
 /**
  * „Zahl 2" — der VORAUSSCHAUENDE `controlValueEur`
- * (`Pflichtenheft_Vorausschauende_Ladesteuerung.md`, Weg c aus der Bestandsaufnahme §3.4).
+ * (`Pflichtenheft_Vorausschauende_Ladesteuerung.md`, Weg a aus §4 — s. den `cap`/`socFloor`-Block).
  *
  * ── ⚠ WOFÜR DIESE ZAHL DA IST, UND WOFÜR NICHT ─────────────────────────────────────────────────
  * Sie ist ein INTERNER Nachweis: was die Ladesteuerung erreicht hätte, wenn sie am Vorabend nur
@@ -35,18 +36,35 @@ import {
  * Erwartung, bezahlt aber die Wirklichkeit. Ein Dispatch über die Prognose selbst ergäbe Kosten
  * eines Jahres, das es nie gab.
  *
- * ── ⚠ AUSLÖSEBEDINGUNG: NUR OHNE LEISTUNGSPREIS (Weg c) ───────────────────────────────────────
- * `cap` und `socFloor` sind PERIODENgrössen — `cap` aus einer binären Suche über die ganze
- * Abrechnungsperiode, `socFloor` aus einem Rückwärts-Pass über das ganze Jahr. Eine Steuerung mit
- * Tageshorizont kann beide nicht kennen (§2.4). Welchen Wert ein vorausschauender Lauf bei einem
- * Kunden MIT Leistungspreis einsetzen müsste, ist im Pflichtenheft §4 ausdrücklich OFFEN
- * `[ANDREAS]`; hier wird deshalb nichts geraten, sondern mit benanntem Grund verweigert
- * (`demand_charge`) — dieselbe Haltung wie `peakShavingBlockers`.
+ * ── `cap`/`socFloor`: WEG a — AUS DEM RÜCKBLICK-LAUF ÜBERNOMMEN (Andreas, 21.09.2026) ─────────
+ * Beide sind PERIODENgrössen — `cap` aus einer binären Suche über die ganze Abrechnungsperiode,
+ * `socFloor` aus einem Rückwärts-Pass über das ganze Jahr (§2.4). Eine Steuerung mit Tageshorizont
+ * kann sie nicht kennen. Von den drei in §4 genannten Wegen ist **Weg a** gewählt: dieselben
+ * Schranken wie im Rückblick-Lauf, gebildet über `peakConstraints` — also genau die, die
+ * `simulateBattery` für denselben Kunden und denselben Zeitraum bildet (EINE Definition, deshalb
+ * das eigene Modul). Vorher war ausschliesslich **Weg c** gebaut (`cap = ∞`, `socFloor ≡ 0`) und
+ * der Fall „Leistungspreis > 0" mit dem Grund `demand_charge` verweigert; dieser Blocker ist damit
+ * entfallen, die Zahl gilt jetzt für ALLE Kunden mit echter Preiskurve und echtem Lastgang.
  *
- * Bei `leistungspreisCostPerYear === 0` stellt sich die Frage gar nicht: der Blocker
- * `no_demand_charge` (Delta 3/9b-1) setzt den Produktivlauf für genau diese Kunden bereits auf
- * `cap = ∞` und `socFloor ≡ 0`. Weg c ist dort also keine Abweichung vom Produktivpfad, sondern
- * genau er — und die beiden Zahlen unten sind deshalb direkt vergleichbar.
+ * **⚠ UND DAS MUSS DASTEHEN (§4, Wortlaut von Weg a): der Lauf ist damit nur zur HÄLFTE
+ * vorausschauend.** Die Spitzenschutz-Seite ist perfektes Wissen — simuliert, nicht prognostiziert.
+ * Vorausschauend ist allein die Verbrauchserwartung (`draws`). Der Marker
+ * `basis: 'foresight_unvalidated'` bleibt deshalb unverändert an der Zahl; was sich mit Weg a
+ * ändert, ist ihr Geltungsbereich, nicht ihre Belastbarkeit.
+ *
+ * Für Kunden ohne Leistungspreis ändert sich dabei NICHTS: dort setzt der Blocker
+ * `no_demand_charge` (Delta 3/9b-1) dieselben Schranken auf `cap = ∞`/`socFloor ≡ 0`, die Weg c
+ * von Hand gesetzt hat — der bisherige Pfad ist ein Sonderfall von Weg a geworden.
+ *
+ * **⚠ GEMESSENE NEBENWIRKUNG VON WEG a, die beim Lesen der Zahl mitgedacht gehört:** `searchCaps`
+ * liefert die NIEDRIGSTE tragbare Schwelle, und je breiter die zu kappende Spitze ist, desto mehr
+ * Kapazität bindet die daraus folgende Reserve. Bindet sie fast alles, wird die Zahl gegenüber der
+ * Prognose UNEMPFINDLICH — an einer synthetischen Fünf-Stunden-Plateau-Last (30 kWh/10 kW,
+ * `socFloor` max 25,8 kWh, in 468 von 480 Intervallen > 0) unterscheiden sich die beiden Läufe in
+ * 420 Intervallen in `priceFloorKwh`, der Fahrplan danach aber in KEINEM: `realizationRatio` ist
+ * exakt 1,000. Mit einer kurzen Spitze statt des Plateaus (`socFloor` max 8,0 kWh) schlägt dieselbe
+ * Prognose durch: 0,955. Ein Verhältnis von 1,000 bei einem Leistungspreis-Kunden ist also nicht
+ * automatisch eine perfekte Prognose, sondern zuerst ein Hinweis auf eine gebundene Batterie.
  *
  * ── ⚠ DIE PV-SEITE STECKT BEREITS IN DER PROGNOSE — EIN ZWEITER PVGIS-LAUF WÜRDE DOPPELT ZÄHLEN ─
  * Der Lastgang ist der signierte NETZ-Lastgang am Anschlusspunkt; die Erzeugung einer vorhandenen
@@ -61,8 +79,6 @@ import {
 export const PREDICTIVE_CONTROL_VALUE_BASIS = 'foresight_unvalidated' as const
 
 export type PredictiveControlValueBlocker =
-  /** Der Tarif hat einen Leistungspreis — `cap`/`socFloor` sind für einen Tageshorizont offen (§4). */
-  | 'demand_charge'
   /** Synthetischer Lastgang: Muster und Wahrheit wären dieselbe Formel (§0.2). */
   | 'standard_profile'
   /** Ohne echte Preiskurve gibt es innerhalb eines Tages gar keine Rangfolge (§0.2). */
@@ -92,6 +108,14 @@ export type PredictiveControlValueResult =
       /** Kalendertage mit bzw. ohne Muster. Letztere planen gar nicht, statt ersatzweise zu planen. */
       patternDays: number
       daysWithoutPattern: number
+      /**
+       * Die Spitzenschutz-Schranken, unter denen BEIDE Läufe geplant und ausgeführt wurden — aus
+       * dem Rückblick-Lauf übernommen (Weg a, s. Modulkopf). Herausgereicht, damit der Nachweis
+       * belegen kann, dass sie tatsächlich von dort stammen und nicht konstant `∞`/0 sind.
+       * `capKwByPeriod` hat Contract-Länge 1 (`annual_max`) bzw. 12 (`monthly_*`).
+       */
+      capKwByPeriod: number[]
+      socFloorKwh: number[]
     }
   | { ok: false; reason: PredictiveControlValueBlocker }
 
@@ -100,13 +124,16 @@ export type PredictiveControlValueInputs = {
   battery: BatteryCandidate
   tariffParams: TariffParams
   pricing: TariffPricingInputs
-  /** Aus `analyzeCurrentPeaks` (§3.4) — die Auslösebedingung, s. Modulkopf. */
-  leistungspreisCostPerYear: number
   scheme?: ConsumptionPatternScheme
 }
 
 /**
- * Tage ohne Muster bekommen KEINE Schranken — nicht ersatzweise die des Rückblick-Laufs.
+ * Tage ohne Muster bekommen KEINE Preis-Rangfolge — nicht ersatzweise die des Rückblick-Laufs.
+ *
+ * ⚠ Gemeint sind allein die beiden Schranken von `dailyPriceOrder` (`chargeCeilingKwh`,
+ * `priceFloorKwh`), die aus der Verbrauchserwartung entstehen. `cap`/`socFloor` bleiben auch an
+ * diesen Tagen die des Rückblick-Laufs — sie sind der Spitzenschutz und hängen an keiner Prognose
+ * (Weg a, s. Modulkopf).
  *
  * Das ist der Zustand „heute liegt kein Plan vor" und damit genau das, was eine reale Steuerung an
  * einem solchen Tag hätte; `daily-price-order.ts` liest ein Intervall ohne Tagesbezug bereits
@@ -129,10 +156,9 @@ function withoutPlanOnDaysMissingPattern(
 export function computePredictiveControlValue(
   inputs: PredictiveControlValueInputs,
 ): PredictiveControlValueResult {
-  const { loadProfile, battery, tariffParams, pricing, leistungspreisCostPerYear } = inputs
+  const { loadProfile, battery, tariffParams, pricing } = inputs
   const scheme = inputs.scheme ?? DEFAULT_CONSUMPTION_PATTERN_SCHEME
 
-  if (leistungspreisCostPerYear !== 0) return { ok: false, reason: 'demand_charge' }
   if (loadProfile.source === 'standard_profile') return { ok: false, reason: 'standard_profile' }
 
   const rates = intervalTariffRates(loadProfile, tariffParams, pricing)
@@ -146,10 +172,13 @@ export function computePredictiveControlValue(
   const physics = toPhysics(battery)
   const deltaH = intervalHours(loadProfile)
   const measuredDraws = drawSeries(loadProfile)
-  // Weg c: keine Kappschwelle, keine Spitzen-Reserve — identisch zur Konfiguration, die
-  // `simulateBattery` für diese Kunden ohnehin wählt (Blocker `no_demand_charge`).
-  const capForInterval = new Array<number>(measuredDraws.length).fill(Infinity)
-  const socFloorKwh = new Array<number>(measuredDraws.length).fill(0)
+  // Weg a: die Schranken des Rückblick-Laufs, gebildet von derselben Funktion, die
+  // `simulateBattery` benutzt — perfektes Wissen auf der Spitzenschutz-Seite (s. Modulkopf).
+  const { capKwByPeriod, capForInterval, socFloorKwh } = peakConstraints(
+    loadProfile,
+    battery,
+    tariffParams,
+  )
 
   const orderFor = (draws: number[]): DailyPriceOrder =>
     dailyPriceOrder({
@@ -214,5 +243,7 @@ export function computePredictiveControlValue(
     scheme,
     patternDays: forecast.patternDays,
     daysWithoutPattern: forecast.daysWithoutPattern,
+    capKwByPeriod,
+    socFloorKwh,
   }
 }
