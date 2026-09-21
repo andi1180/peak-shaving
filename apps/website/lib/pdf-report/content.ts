@@ -126,6 +126,7 @@ export const METHODOLOGY_ITEMS: readonly MethodologyItem[] = [
 /** Kapitel-Kennungen, damit die Dokument-Bausteine sie nicht als Zeichenkette ausschreiben. */
 export const SECTION_ID = {
   results: 'zusammenfassung',
+  prerequisites: 'voraussetzungen',
   recommendation: 'empfehlung',
   detail: 'kostenverlauf',
   monthly: 'monatsvergleich',
@@ -141,6 +142,24 @@ export const RESULTS_SECTION: ReportSection = {
   title: 'Zusammenfassung',
   reference: 'Zusammenfassung',
 }
+
+/**
+ * Das Kapitel zwischen Zusammenfassung und Empfehlung: welche Anlage der Kunde hat, welcher Rahmen
+ * für seinen Anschluss gilt (Leistungspreis ja/nein), und worauf die heutigen Kosten beruhen.
+ *
+ * ⚠ Unbedingtes Kapitel wie `RESULTS_SECTION`/`BASIS_SECTION`: der Netzanschluss-Block und der
+ * Rahmen-Satz stehen in jedem Report, egal ob es eine Bestandsanlage oder eine PV-Anlage gibt.
+ */
+export const PREREQUISITES_SECTION: ReportSection = {
+  id: SECTION_ID.prerequisites,
+  level: 1,
+  title: 'Voraussetzungen',
+}
+
+/** Steht unter der Kapitelüberschrift. Sagt, worum es geht, nicht was auf der Seite steht. */
+export const PREREQUISITES_INTRO =
+  'Womit gerechnet wird — Ihre Anlage, Ihr Netzanschluss, und der Rahmen, in dem sich Ihre ' +
+  'Ersparnis bewegt.'
 
 /**
  * B23c-2 — das Kapitel, das die Kaufaussage, das Lastgang-Diagramm und die Ladesteuerung trägt.
@@ -332,6 +351,7 @@ export type ReportSectionKey = (typeof SECTION_ID)[keyof typeof SECTION_ID]
  */
 export const REPORT_SECTIONS: Record<ReportSectionKey, ReportSection> = {
   [SECTION_ID.results]: RESULTS_SECTION,
+  [SECTION_ID.prerequisites]: PREREQUISITES_SECTION,
   [SECTION_ID.recommendation]: RECOMMENDATION_SECTION,
   [SECTION_ID.detail]: DETAIL_SECTION,
   [SECTION_ID.monthly]: MONTHLY_SECTION,
@@ -398,6 +418,7 @@ export type ReportChapterPresence = {
 export function buildReportAgenda(presence: ReportChapterPresence): readonly ReportSection[] {
   return [
     RESULTS_SECTION,
+    PREREQUISITES_SECTION,
     RECOMMENDATION_SECTION,
     DETAIL_SECTION,
     ...(presence.monthly ? [MONTHLY_SECTION] : []),

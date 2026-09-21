@@ -20,6 +20,8 @@ import {
   METHODOLOGY_SECTION,
   MONTHLY_INTRO,
   MONTHLY_SECTION,
+  PREREQUISITES_INTRO,
+  PREREQUISITES_SECTION,
   RECOMMENDATION_INTRO,
   RECOMMENDATION_SECTION,
   REPORT_DISCLAIMER,
@@ -33,6 +35,7 @@ import { buildComparisonChapter, CANDIDATE_TABLE_ID } from './comparison'
 import type { ReportBuildContext } from './context'
 import { buildDetailChapter, buildMonthlyChapter } from './detail'
 import { buildInsightChapter } from './insight'
+import { buildPrerequisitesChapter } from './prerequisites'
 import { buildRecommendationChapter } from './recommendation'
 import type { ReportBaukastenId, ReportBaukastenRegistry } from './registry'
 import {
@@ -1488,6 +1491,33 @@ function ResultsChapter({
 }
 
 /**
+ * „Voraussetzungen" — zwischen Zusammenfassung und Empfehlung.
+ *
+ * ── ⚠ WAS AUF DIESER SEITE STEHT, ENTSCHEIDET `prerequisites.ts` UND NICHT DIESE DATEI ─────────
+ * Dieselbe Regel wie bei `ResultsChapter`: hier wird ausschliesslich gerendert, was die Ableitung
+ * geliefert hat.
+ *
+ * ⚠ Unbedingtes Kapitel: die Übersichts-Aussage, der Rahmen-Hinweis und der Verbrauchs-Block
+ * stehen immer; nur einzelne ZEILEN der Übersicht (Batterie/PV) und der Preisgrundlage-Hinweis
+ * entfallen fallweise — s. `prerequisites.ts`.
+ */
+function PrerequisitesChapter({ input, layout }: { input: PdfReportInput; layout: ReportLayout }) {
+  const chapter = buildPrerequisitesChapter(input)
+
+  return (
+    <View style={styles.body}>
+      <Text style={styles.h2}>{PREREQUISITES_SECTION.title}</Text>
+      <Text style={styles.lead}>{PREREQUISITES_INTRO}</Text>
+
+      <Statement statement={chapter.overview} layout={layout} />
+      <Notice notice={chapter.framing} />
+      <Statement statement={chapter.consumption} layout={layout} />
+      {chapter.priceBasis && <Notice notice={chapter.priceBasis} />}
+    </View>
+  )
+}
+
+/**
  * Ein Diagramm im Fluss — Bild, Bildunterschrift und die Sätze, die dazugehören.
  *
  * ── ⚠ KEIN KASTEN, KEIN RAHMEN — und das ist eine Entscheidung, keine Auslassung ───────────────
@@ -2232,6 +2262,12 @@ export function ReportDocument({
         <PageFurniture sink={sink} docLabel={docLabel} />
         <SectionAnchor id={RESULTS_SECTION.id} sink={sink} />
         <ResultsChapter input={input} context={context} layout={layout} />
+      </Page>
+
+      <Page size="A4" style={styles.page}>
+        <PageFurniture sink={sink} docLabel={docLabel} />
+        <SectionAnchor id={PREREQUISITES_SECTION.id} sink={sink} />
+        <PrerequisitesChapter input={input} layout={layout} />
       </Page>
 
       <Page size="A4" style={styles.page}>
