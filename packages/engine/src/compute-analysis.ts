@@ -169,7 +169,7 @@ type ExistingBatteryOutcome = {
   analysis: ExistingBatteryAnalysis
   /**
    * Netzbezug nach dem Dispatch der bestehenden Anlage (signiert, + = Bezug) — die Eingangsgrösse
-   * der Monatsreihe „aWATTar mit Ihrem Speicher".
+   * der Monatsreihe „aWATTar mit Ladesteuerung".
    *
    * ⚠ Sie reist als Rückgabewert heraus und NICHT als zusätzliches Contract-Feld: eine Rohreihe
    * mit bis zu 35.040 Werten im `AnalysisResult` wäre eine zweite, ungenutzte Kopie des Dispatchs

@@ -4,7 +4,7 @@ import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxi
 import { sumCovered, type MonthlyTariffComparison } from 'shared'
 
 import { formatEur, formatEur2 } from '@/lib/format'
-import { monthlyBatteryRef } from '@/lib/report-copy'
+import { CONTROLLED_WAY_LABEL, monthlyBatteryRef } from '@/lib/report-copy'
 import { Num } from './num'
 import { CHART_COLORS } from '@/lib/pdf-report/theme'
 import { useId } from 'react'
@@ -61,11 +61,14 @@ const MONTH_LABELS = [
  * Grün/Rot bleiben für Ersparnis/Kosten reserviert (DESIGN.md Zeile 51).
  */
 /**
- * Die drei Reihen. Die dritte trägt ihre Beschriftung als Funktion des Falls: seit D7 fährt sie
- * ohne Bestandsanlage die empfohlene Katalog-Batterie, und „Ihrem Speicher" wäre dort eine Aussage
- * über ein Gerät, das der Kunde nicht besitzt (`monthlyBatteryRef` — ein Wortlaut, ein Ort).
+ * Die drei Reihen.
+ *
+ * ⚠ Die dritte hing bis zum 21.09.2026 am FALL — „aWATTar mit" plus Possessivum („Ihrem
+ * Speicher" bzw. „der empfohlenen Batterie"), dazu „(Ladung optimiert)". Sie heisst jetzt überall gleich
+ * (`CONTROLLED_WAY_LABEL`) — derselbe Gegenstand trug im selben Dokument sonst drei
+ * Beschriftungen. Wessen Speicher gesteuert wird, sagt der Fliesstext daneben.
  */
-const seriesFor = (isExisting: boolean) =>
+const SERIES =
   [
     {
       key: 'currentTariffEur',
@@ -79,7 +82,7 @@ const seriesFor = (isExisting: boolean) =>
     },
     {
       key: 'spotWithBatteryEur',
-      label: `aWATTar mit ${monthlyBatteryRef(isExisting)} (Ladung optimiert)`,
+      label: CONTROLLED_WAY_LABEL,
       color: CHART_COLORS.series,
       /*
        * D15 Block 2, Punkt 14 — die einzige MODELLIERTE der drei Reihen: sie unterstellt eine
@@ -104,9 +107,9 @@ type Row = {
 }
 
 /**
- * ⚠ Die Reihen kommen HEREIN und werden nicht neben dem Chart ein zweites Mal gebildet: seit D7
- * hängt die dritte Beschriftung am Fall (s. `seriesFor`), und eine eigene Liste im Tooltip zeigte
- * beim nächsten Umformulieren eine andere Beschriftung als die Legende daneben.
+ * ⚠ Die Reihen kommen HEREIN und werden nicht neben dem Chart ein zweites Mal gebildet: eine
+ * eigene Liste im Tooltip zeigte beim nächsten Umformulieren eine andere Beschriftung als die
+ * Legende daneben.
  */
 function MonthTooltip({
   active,
@@ -117,7 +120,7 @@ function MonthTooltip({
   active?: boolean
   payload?: Array<{ dataKey?: string; value?: number | null }>
   label?: string
-  series?: ReturnType<typeof seriesFor>
+  series?: typeof SERIES
 }) {
   if (!active || !payload || payload.length === 0 || !series) return null
   return (
@@ -160,7 +163,6 @@ export function MonthlyTariffChart({
   /** Fährt die dritte Reihe die Anlage des Kunden oder die Empfehlung? Entscheidet nur den Wortlaut. */
   isExisting: boolean
 }) {
-  const SERIES = seriesFor(isExisting)
   /* Eigene Kennung je Instanz — zwei Charts auf einem Blatt teilten sonst ein `<pattern>`. */
   const modelPatternId = useId()
   const whose = monthlyBatteryRef(isExisting)
@@ -188,7 +190,7 @@ export function MonthlyTariffChart({
       <p className="mb-1 text-sm font-medium text-ink">Das zahlen Sie jetzt vs. mit aWATTar</p>
       <p className="mb-3 text-xs text-text-muted">
         Energie- und Netzkosten je Monat, inklusive Grundgebühren — Ihr Tarif, aWATTar ohne
-        Steuerung und aWATTar mit {whose} (Ladung optimiert). Alle Beträge exkl. MwSt.
+        Steuerung und {CONTROLLED_WAY_LABEL}. Alle Beträge exkl. MwSt.
       </p>
 
       <div className="h-64 w-full">

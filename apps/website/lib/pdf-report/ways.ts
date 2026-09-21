@@ -1,7 +1,7 @@
 import type { MonthlyTariffComparison } from 'shared'
 
 import { formatEur } from '@/lib/format'
-import { monthlyBatteryRef } from '@/lib/report-copy'
+import { CONTROLLED_WAY_LABEL, monthlyBatteryRef } from '@/lib/report-copy'
 import type { ReportFigure, ReportStatement } from './statement'
 import { primaryEntryOf, summaryWaysOf, type SummaryWay, type SummaryWays } from './summary'
 import type { PdfReportAnalysis } from './types'
@@ -51,6 +51,14 @@ export type WaysBar = {
 
 export type WaysChapter = {
   bars: WaysBar[]
+  /**
+   * Die Bezugsgrösse der Balken, für den Achsentitel des Diagramms.
+   *
+   * ⚠ Sie steht hier und wird NICHT in der Chart-Komponente neu gebildet: der Achsentitel und die
+   * Bildunterschrift darunter müssen dieselbe Zahl nennen, und die kommt aus dem Contract
+   * (`dataQuality.coveredDays` über `summaryWaysOf`).
+   */
+  coveredDays: number
   /** Wie viele Wege das Kapitel FÜHRT — inklusive Weg 1 und, wenn er dasteht, Weg 5. */
   wayCount: number
   figure: ReportFigure
@@ -146,7 +154,7 @@ export function buildWaysChapter(analysis: PdfReportAnalysis): WaysChapter | nul
   }
   bars.push(
     { key: 'uncontrolled', label: 'aWATTar ohne Steuerung', eur: switchWay.costEur, model: false },
-    { key: 'controlled', label: `aWATTar mit ${whose}`, eur: controlWay.costEur, model: true },
+    { key: 'controlled', label: CONTROLLED_WAY_LABEL, eur: controlWay.costEur, model: true },
   )
 
   /** „X gespart" bzw. „X MEHR gekostet" — ein Weg mit negativer Ersparnis senkt nichts. */
@@ -200,7 +208,7 @@ export function buildWaysChapter(analysis: PdfReportAnalysis): WaysChapter | nul
 
   statements.push({
     id: 'ways_load_control',
-    title: `aWATTar mit ${whose}`,
+    title: CONTROLLED_WAY_LABEL,
     amount: null,
     rows: [],
     body:
@@ -238,6 +246,7 @@ export function buildWaysChapter(analysis: PdfReportAnalysis): WaysChapter | nul
 
   return {
     bars,
+    coveredDays: ways.coveredDays,
     wayCount,
     figure: {
       caption:

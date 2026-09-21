@@ -2,7 +2,7 @@ import type { BatteryResultEntry, BatteryRoiEntry, MonthlyTariffComparison } fro
 import { sumCovered } from 'shared'
 
 import { formatEur, formatYears } from '@/lib/format'
-import { monthlyBatteryRef } from '@/lib/report-copy'
+import { CONTROLLED_WAY_LABEL } from '@/lib/report-copy'
 import type { ReportBuildContext } from './context'
 import { t } from './report-text'
 import type { ReportFigure, ReportRow, ReportStatement } from './statement'
@@ -183,20 +183,20 @@ function neutralRow(label: string, value: string): ReportRow {
  * Bildschirm und die Executive Summary ihre Summen bilden (`packages/shared/src/real-saving.ts`).
  * Ein zweiter Reducer ergäbe im selben Report anders gebildete Summen derselben drei Reihen.
  */
-export function buildMonthly(
-  comparison: MonthlyTariffComparison,
-  isExisting: boolean,
-): {
+/*
+ * ⚠ OHNE `isExisting`, seit die dritte Reihe überall gleich heisst (`CONTROLLED_WAY_LABEL`,
+ * 21.09.2026). Ein Parameter, den der Rumpf nicht mehr liest, behauptete eine Abhängigkeit, die es
+ * nicht gibt — und die nächste Lesung zöge daraus den falschen Schluss.
+ */
+export function buildMonthly(comparison: MonthlyTariffComparison): {
   figure: DetailFigure
   statement: ReportStatement
 } {
   const fixed = comparison.fixedCosts
-  /* Seit D7 fährt die dritte Reihe auch die empfohlene Katalog-Batterie — ein Wortlaut, ein Ort. */
-  const whose = monthlyBatteryRef(isExisting)
   const rows: ReportRow[] = [
     neutralRow('Ihr Tarif heute', formatEur(sumCovered(comparison.currentTariffEur))),
     neutralRow('aWATTar ohne Steuerung', formatEur(sumCovered(comparison.spotWithoutControlEur))),
-    neutralRow(`aWATTar mit ${whose}`, formatEur(sumCovered(comparison.spotWithBatteryEur))),
+    neutralRow(CONTROLLED_WAY_LABEL, formatEur(sumCovered(comparison.spotWithBatteryEur))),
   ]
 
   /*
@@ -224,7 +224,7 @@ export function buildMonthly(
       caption:
         'Energie- und Netzkosten je Kalendermonat. Die drei Balken eines Monats stehen in ' +
         'derselben Reihenfolge wie die Zeilen darunter: grau Ihr heutiger Tarif, hell aWATTar ohne ' +
-        `Steuerung, kräftig aWATTar mit ${whose}. Monate ohne Messwert bleiben leer.`,
+        `Steuerung, kräftig ${CONTROLLED_WAY_LABEL}. Monate ohne Messwert bleiben leer.`,
       note: null,
     },
     statement: {
@@ -370,7 +370,7 @@ export function buildDetailChapter(
       ? null
       : plan.cost.kind === 'monthly'
         ? /* `detailChartPlan` wählt `monthly` ausschliesslich im Bestandsfall — s. dort. */
-          buildMonthly(plan.cost.comparison, true)
+          buildMonthly(plan.cost.comparison)
         : buildCumulative(plan.cost)
 
   const flowEntry = plan.flow
@@ -425,7 +425,7 @@ export function hasMonthlyChapter(analysis: PdfReportAnalysis): boolean {
 
 export function buildMonthlyChapter(analysis: PdfReportAnalysis): MonthlyChapter | null {
   const comparison = monthlyComparisonOf(analysis)
-  return comparison ? buildMonthly(comparison, false) : null
+  return comparison ? buildMonthly(comparison) : null
 }
 
 /** Der Vergleich, SOFERN er diesem Kapitel gehört — eine Bedingung, ein Ort. */

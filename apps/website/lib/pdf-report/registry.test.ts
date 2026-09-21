@@ -13,6 +13,7 @@ import type {
 import { buildBasisChapter } from './basis'
 import { buildComparisonChapter } from './comparison'
 import { buildReportContext } from './context'
+import { CONTROLLED_WAY_LABEL } from '@/lib/report-copy'
 import { buildDetailChapter, buildMonthlyChapter } from './detail'
 import { buildInsightChapter } from './insight'
 import { buildRecommendationChapter } from './recommendation'
@@ -399,13 +400,16 @@ describe('Report-Baukasten-Registry (B2)', () => {
     expect(mitBestand).not.toBeNull()
     expect(ohneBestand).not.toBeNull()
     /*
-     * Die Fallunterscheidung des Erzeugers (`isExisting`) schlägt in den ZEILEN durch — seit dem
-     * Zusammenfassungs-Umbau nicht mehr im Schlusssatz, der auf `savings`/`load_shift` zeigte.
+     * ⚠ Die ZEILEN sind seit dem 21.09.2026 fallUNabhängig: die dritte Reihe heisst in beiden
+     * Fällen `CONTROLLED_WAY_LABEL` und nennt kein Gerät mehr. Bis dahin prüfte diese Stelle, dass
+     * die Fallunterscheidung durchschlägt — jetzt prüft sie, dass sie es NICHT mehr tut, denn
+     * genau daran hing die dritte Beschriftung desselben Gegenstands.
      */
     const labelsOf = (built: unknown) =>
       (built as { rows: { label: string }[] }).rows.map((r) => r.label).join(' | ')
-    expect(labelsOf(mitBestand)).toContain('Ihrem Speicher')
-    expect(labelsOf(ohneBestand)).toContain('der empfohlenen Batterie')
+    expect(labelsOf(mitBestand)).toContain(CONTROLLED_WAY_LABEL)
+    expect(labelsOf(ohneBestand)).toContain(CONTROLLED_WAY_LABEL)
+    expect(labelsOf(mitBestand)).toBe(labelsOf(ohneBestand))
 
     /* Und der Schlusssatz nennt keinen Baustein mehr, den es nicht gibt. */
     const textOf = (built: unknown, input: PdfReportInput) =>

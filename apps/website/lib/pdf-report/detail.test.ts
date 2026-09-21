@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { MonthlyTariffComparison } from 'shared'
 
+import { CONTROLLED_WAY_LABEL } from '@/lib/report-copy'
 import { SECTION_ID } from './content'
 import {
   buildDetailChapter,
@@ -123,7 +124,7 @@ function resultsLayout(analysis: PdfReportAnalysis) {
 }
 
 describe('Monatsvergleich als eigenes Kapitel (D7)', () => {
-  it('ohne Bestandsanlage: eigenes Kapitel NEBEN dem Kostenverlauf, Wortlaut ohne „Ihrem Speicher"', () => {
+  it('ohne Bestandsanlage: eigenes Kapitel NEBEN dem Kostenverlauf, Reihe fallunabhängig benannt', () => {
     const analysis = analysisFor(false)
 
     expect(hasMonthlyChapter(analysis)).toBe(true)
@@ -131,9 +132,15 @@ describe('Monatsvergleich als eigenes Kapitel (D7)', () => {
     expect(detailChartPlan(analysis).cost?.kind).toBe('cumulative')
 
     const chapter = buildMonthlyChapter(analysis)!
+    /*
+     * ⚠ Seit dem 21.09.2026 heisst die dritte Reihe ÜBERALL gleich (`CONTROLLED_WAY_LABEL`) und
+     * nennt kein Gerät mehr. Die frühere Erwartung war die Fallunterscheidung selbst — sie prüfte,
+     * dass hier NICHT „Ihrem Speicher" steht; das gilt weiterhin, nur eben ohne zweiten Wortlaut.
+     */
     const text = [chapter.figure.caption, ...chapter.statement.rows.map((r) => r.label)].join(' | ')
-    expect(text).toContain('der empfohlenen Batterie')
+    expect(text).toContain(CONTROLLED_WAY_LABEL)
     expect(text).not.toContain('Ihrem Speicher')
+    expect(text).not.toContain('der empfohlenen Batterie')
 
     /*
      * Seit dem Zusammenfassungs-Umbau nennt der Satz weder die Kernergebnis-Seite noch einen ihrer

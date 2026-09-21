@@ -224,6 +224,29 @@ statt durch einen geratenen Steuersatz zu teilen (Muster `tou.ts`, `kind: 'price
 die Bestmarke nicht übertreffen kann; `realizationRatio` steht bewusst nicht im Kundenreport, der
 Hinweistext dazu ist ein `[ENTWURF]` (`PREDICTIVE_NOTE`, `ways.ts`) und wartet auf Andreas.
 
+**Beschriftung und Chart-Optik des Wege-Kapitels (21.09.2026, Nachtrag):** Die gesteuerte Reihe
+heisst jetzt ÜBERALL `CONTROLLED_WAY_LABEL` = „aWATTar mit Ladesteuerung" (`lib/report-copy.ts`,
+Wortlaut aus dem Urbanz-Zielbild) — Wege-Kapitel, Monatsvergleich-Legende, Detail-Tabelle und die
+Bildschirm-Karte. Vorher hing sie am Fall („aWATTar mit" + Possessivum) und trug im Monatsvergleich
+zusätzlich „(Ladung optimiert)": **derselbe Gegenstand mit drei Beschriftungen in einem Dokument.**
+`monthlyBatteryRef` bleibt für den FLIESSTEXT, wo ein Satz den Dativ auch tragen kann;
+`buildMonthly` hat seinen `isExisting`-Parameter dadurch verloren.
+
+Das Balkendiagramm (`tariff-ways-chart.tsx`) hat drei Angleichungen ans Zielbild bekommen:
+Wertelabels fett über den Balken, rotierter Achsentitel „Kosten über N Tage (netto, EUR)" (N kommt
+aus `WaysChapter.coveredDays`, nicht neu gebildet) und mehrzeilige, zentrierte Kategorielabels.
+**⚠ Umbrochen wird an der BALKENbreite, nicht an der Spaltenbreite** — die Zeichenbreite ist im SVG
+erst nach dem Satz bekannt, die Komponente muss davor entscheiden, und 6 px/Zeichen bei Inter 11 px
+ist die Schätzung dafür. **⚠ Die Wertelabels tragen `formatEur` („€ 1.061") und nicht die
+Schreibweise des Zielbilds („€1.061")** — zwei Euro-Schreibweisen in einem Dokument wären schlimmer
+als eine Abweichung um ein Leerzeichen vom Referenzbild; wer das ändern will, ändert `formatEur`
+für den ganzen Report.
+
+**⚠ Der Wege-Chart hängt heute NUR am PDF-Pfad.** `TariffWaysChart` hat genau einen Aufrufer
+(`charts.tsx`); der Bildschirm-Report zeigt das Wege-Kapitel nicht. D2 ist damit strukturell
+erfüllt (eine Zeichenimplementierung), aber ein Bildschirm-Gegencheck ist heute nicht möglich —
+gemessen wird die Komponente über einen esbuild+jsdom-Harness im Scratchpad.
+
 **⚠ Kein `⚠` in Kundentext des PDF-Reports** — die Report-Schrift trägt das Zeichen nicht, es
 verschwindet beim Rendern spurlos (am erzeugten PDF gemessen, 21.09.2026). Und `monthlyBatteryRef`
 liefert eine DATIV-Fügung („der empfohlenen Batterie"): sie trägt nur nach „mit", nicht als
