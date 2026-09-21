@@ -17,6 +17,7 @@ import {
 import type { DataQuality } from './parser'
 import { analyzeCurrentPeaks, topPeaksKw } from './peaks'
 import { recommendBattery } from './recommendation'
+import { eagDemandChargePerYear } from './tariff'
 import { calculateRoi } from './roi'
 import { computeBatterySavings } from './savings'
 import {
@@ -301,6 +302,21 @@ export function computeAnalysis(
   // --- current/peaks: ECHTER Engine-Aufruf (§3.4/§3.5) ---
   const { current, peaks } = analyzeCurrentPeaks(loadProfile, payload.tariff)
 
+  /*
+   * Die ZWEITE kW-gebundene Jahresgrösse neben dem Leistungspreis: der Grundpreis-Teil des
+   * EAG-Förderbeitrags (21.09.2026). Er steht hier und nicht in `analyzeCurrentPeaks`, weil er an
+   * den ABGABENSÄTZEN hängt und nicht am Abrechnungsmodell — `analyzeCurrentPeaks` bekommt
+   * `TariffPricingInputs` gar nicht und soll es auch nicht bekommen.
+   *
+   * ⚠ `undefined` reicht als `undefined` durch und wird NICHT auf 0 gerundet: „nicht bezifferbar"
+   * und „fällt nicht an" sind zwei verschiedene Aussagen (s. `eagDemandChargePerYear`).
+   */
+  const eagGrundpreisCostPerYear = eagDemandChargePerYear(
+    loadProfile,
+    payload.tariffPricing,
+    current.billedKw,
+  )
+
   // --- PV-Konsistenz + -Abdeckung (§3.1): Brutto-PV gegen den Netz-Lastgang prüfen (Prinzip 1: Netz
   // gewinnt) UND einen still verpuffenden PV-Upload sichtbar machen. Einmal profil-weit (nicht je
   // Batterie) — die geklemmten/getroffenen Slots hängen nur an Lastgang×PV, nicht an der Batterie.
@@ -419,7 +435,10 @@ export function computeAnalysis(
     : baseTariffOptimization
 
   return {
-    current,
+    current:
+      eagGrundpreisCostPerYear === undefined
+        ? current
+        : { ...current, eagGrundpreisCostPerYear },
     peaks,
     perBattery,
     recommendation,

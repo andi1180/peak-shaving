@@ -152,6 +152,44 @@ describe('recommendation — Kapp-Zeilen', () => {
     expect(rows).toContainEqual({ label: 'Mit dem Speicher', value: '40 kW', tone: 'neutral' })
   })
 
+  /**
+   * Der Grundpreis-Teil des EAG-Förderbeitrags (21.09.2026) — eine ZWEITE kW-gebundene Jahresgrösse
+   * neben dem Leistungswert, und ausdrücklich eine EIGENE Zeile: sie darf mit dem Leistungspreis des
+   * Netzbetreibers nicht verschmelzen (zwei verschiedene Abgaben, dieselbe Einheit).
+   *
+   * Zahlenbasis: der Bäckerei-Zuschnitt, Wiener Netze NE 6, Tarifjahr 2026 — 5,252 €/kW·a (EX104)
+   * auf 48 kW des Fixtures ergibt 252,10 €. Die Engine rechnet den Betrag (`eagDemandChargePerYear`);
+   * hier steht er als Contract-Wert und wird nur formatiert.
+   */
+  it('weist den EAG-Förderbeitrag-Grundpreis als eigene Zeile aus, getrennt vom Leistungswert', () => {
+    const analysis = analysisFor(false)
+    analysis.perBattery = [{ ...ENTRY, dispatchTrace: TRACE }]
+    analysis.current = { ...analysis.current, eagGrundpreisCostPerYear: 5.252 * 48 }
+
+    const rows = buildRecommendationChapter(analysis).recommendation!.rows
+
+    expect(rows).toContainEqual({
+      label: 'EAG-Förderbeitrag (Grundpreis) heute',
+      value: '€\u00a0252 pro Jahr (€\u00a05,25 / kW·a)',
+      tone: 'neutral',
+    })
+    // Kein doppeltes Zählen: die Zeile steht NACH den Summenzeilen und geht in keine ein.
+    expect(rows.filter((r) => r.total).map((r) => r.label)).toEqual([
+      'Gesamtinvestition',
+      `Netto über ${analysis.assumptions.horizonYears} Jahre`,
+    ])
+  })
+
+  it('fehlt ohne bezifferbaren Grundpreis (Urbanz: NE 7 ohne Leistungsmessung)', () => {
+    const analysis = analysisFor(false)
+    analysis.perBattery = [{ ...ENTRY, dispatchTrace: TRACE }]
+
+    const labels = buildRecommendationChapter(analysis).recommendation!.rows.map((r) => r.label)
+
+    expect(labels).toContain('Abgerechneter Leistungswert heute')
+    expect(labels).not.toContain('EAG-Förderbeitrag (Grundpreis) heute')
+  })
+
   it('fehlen ohne Leistungspreis-Ersparnis (leistungspreisSavingPerYear = 0)', () => {
     const analysis = analysisFor(false)
     analysis.perBattery = [{ ...ENTRY, leistungspreisSavingPerYear: 0, dispatchTrace: TRACE }]

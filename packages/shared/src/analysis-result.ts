@@ -267,6 +267,29 @@ export type AnalysisResult = {
     monthlyPeaksKw: number[] // 12
     billedKw: number // gem. billingModel (§3.5)
     leistungspreisCostPerYear: number
+    /**
+     * Der GRUNDPREIS-Teil des EAG-Förderbeitrags als Jahresbetrag — aber NUR, wenn er ein
+     * LEISTUNGSpreis ist (€/kW·Jahr: Netzebene 3–6 und NE 7 mit Leistungsmessung).
+     *
+     * ⚠ ER IST NICHT DERSELBE POSTEN WIE DER LEISTUNGSPREIS DES NETZBETREIBERS, auch wenn beide
+     * an denselben kW hängen: der eine ist die Netznutzung, der andere eine gesetzliche Abgabe
+     * (EAG 2021, Preisblatt EX104). Sie dürfen deshalb nirgends zu einer Zahl verschmelzen.
+     *
+     * ── ⚠ WARUM ER HIER UND NICHT IN `MonthlyFixedCosts` STEHT ──────────────────────────────
+     * `buildMonthlyTariffComparison` überspringt den Grundpreis in dieser Einheit bewusst — aus
+     * demselben Grund wie den Netz-Grundpreis derselben Einheit (`annualFlatNetworkFeeEur`): ein
+     * leistungsabhängiger Posten auf Monate zu verteilen verlangte eine Aufteilungsregel, die
+     * weder Preisblatt noch Pflichtenheft hergeben. Er ist damit eine JAHRESGRÖSSE neben den
+     * Monatsreihen — dieselbe Stellung wie `leistungspreisCostPerYear`, und deshalb derselbe Ort.
+     * Wer ihn zu einem Monatsbalken addiert, zählt ihn doppelt, sobald er dort einmal auftaucht.
+     *
+     * `undefined` heisst „nicht bezifferbar" und ausdrücklich nicht `0`: keine Abgabensätze
+     * übergeben, kein Satz für den Zeitraum belegt, der Satz ist ein fixer Jahresbetrag
+     * (NE 7 ohne Leistungsmessung — dann steckt er bereits in `MonthlyFixedCosts.eagFlatFeeEur`),
+     * oder der Zeitraum überquert einen Satzwechsel und hat damit gar keine EINE Jahreszahl.
+     * Additiv und optional — wie `monthlyComparison` erzwingt das keinen `bundleVersion`-Sprung.
+     */
+    eagGrundpreisCostPerYear?: number
   }
   peaks: {
     top: Array<{ ts: string; kw: number }>
