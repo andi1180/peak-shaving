@@ -16,7 +16,6 @@ import type { ChartRaster } from './chart-raster'
 import { comparisonChartPlan } from './comparison'
 import { detailChartPlan, hasMonthlyChapter } from './detail'
 import { insightChartPlan } from './insight'
-import { primaryEntryOf } from './summary'
 import type { PdfReportInput } from './types'
 
 /**
@@ -304,7 +303,6 @@ async function attempt(run: () => Promise<ChartRaster>): Promise<Attempt> {
 export async function buildReportCharts(input: PdfReportInput): Promise<ReportChartRasters> {
   const started = performance.now()
   const analysis = input.analysis
-  const primary = primaryEntryOf(analysis)
   const plan = detailChartPlan(analysis)
   const insight = insightChartPlan(analysis)
 
@@ -326,17 +324,6 @@ export async function buildReportCharts(input: PdfReportInput): Promise<ReportCh
   const shows = (id: ReportOptionalSection) => reportSectionEnabled(input.optionalSections, id)
 
   /*
-   * [ABGELEITET, keine Contract-Zahl] Roher Leistungspreis-Satz (€/kW·a) aus den Ist-Kosten —
-   * wortgleich zu `report.tsx`. `null` bei `billedKw = 0` (leeres oder rein einspeisendes Profil);
-   * dann zeigt das Chart die kontrafaktische Kostengrösse je Spitze nicht, was im PDF ohnehin
-   * niemand anklicken kann.
-   */
-  const rate =
-    analysis.current.billedKw > 0
-      ? analysis.current.leistungspreisCostPerYear / analysis.current.billedKw
-      : null
-
-  /*
    * ⚠ Ein Halter statt einer `let`-Variablen: die Zuweisung geschieht in einem Rückruf, und
    * TypeScript verengt eine `let`-Union nach ihrem Initialisierer, ohne den Rückruf zu kennen.
    */
@@ -347,11 +334,19 @@ export async function buildReportCharts(input: PdfReportInput): Promise<ReportCh
 
   const load = await attempt(() =>
     captureChart(
+      /*
+       * ⚠ OHNE `dispatchTrace` UND OHNE LEISTUNGSPREIS-SATZ, und das ist die ganze Änderung am
+       * Bild: das Lastgang-Kapitel zeigt die Messung und nichts sonst (s. `LOAD_SECTION`). Mit
+       * einem Fahrplan zeichnete die Komponente die Kapp-Schwelle als gestrichelte Linie und die
+       * abgefangenen Spitzen als Punkte — eine Bewertung über einer Messung, und seit dem Umzug
+       * ohne den Satz, der sie erklärte. Die Kurve selbst ist davon unberührt: Min/Max-Bucketing
+       * und Achsen hängen an `readings`, nicht am Fahrplan.
+       */
       <LoadChart
         loadProfile={input.loadProfile}
-        dispatchTrace={primary?.dispatchTrace}
+        dispatchTrace={undefined}
         billingModel={analysis.assumptions.billingModel}
-        leistungspreisRatePerKwYear={rate}
+        leistungspreisRatePerKwYear={null}
       />,
       {
         width: LOAD_CHART_WIDTH_PX,

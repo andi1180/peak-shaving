@@ -84,6 +84,24 @@ export function formatAnalysisPeriod(
   return `${fmt.format(Date.parse(first.ts))} – ${fmt.format(Date.parse(last.ts))}`
 }
 
+/**
+ * Die Bildunterschrift des Lastgang-Kapitels — ein reiner Messfakt: was gezeigt wird, in welcher
+ * Einheit, über welchen Zeitraum.
+ *
+ * ⚠ SIE DEUTET NICHTS. Das Zielbild trug hier einen zweiten Satz über einen saisonalen Rückgang;
+ * er war für diesen einen Kunden von Hand geschrieben. Eine Muster- oder Trenderkennung auf dem
+ * Lastgang gibt es nicht (die einzige Musterprüfung der Engine ist der PV-Mittagseinbruch je
+ * Monat, `pv-anomaly/outage-months.ts`, und die kennt ausdrücklich keine Jahreszeit) — ein hier
+ * ausgeschriebener Befund wäre auf jedem anderen Report eine Behauptung ohne Rechnung.
+ *
+ * ⚠ Sie nimmt den FERTIGEN Zeitraum entgegen (`PdfReportInput.period`) statt ihn erneut zu
+ * formatieren: zwei Schreibweisen desselben Zeitraums im selben Dokument sähen aus wie zwei
+ * Datensätze. `null` bei leerem Lastgang — dann steht die Einheit ohne Zeitraum da.
+ */
+export function loadChartCaption(period: string | null): string {
+  return period ? `Netzbezug in kW, ${period}.` : 'Netzbezug in kW.'
+}
+
 /** Das Erstellungsdatum. Nimmt `now` entgegen — s. `types.ts`, `printedAt`. */
 export function formatPrintedAt(now: Date): string {
   return new Intl.DateTimeFormat('de-AT', {

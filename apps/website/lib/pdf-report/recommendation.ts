@@ -8,8 +8,15 @@ import { primaryEntryOf, recommendedEntryOf } from './summary'
 import type { PdfReportAnalysis } from './types'
 
 /**
- * B23c-2 — das Kapitel „Empfehlung und Lastverlauf": welches Gerät, was es kostet, wie sich der
- * Lastgang liest, und woher der Wert der Ladesteuerung kommt.
+ * B23c-2 — das Kapitel „Empfehlung und Lastverlauf": welches Gerät, was es kostet, und woher der
+ * Wert der Ladesteuerung kommt.
+ *
+ * ⚠ DAS LASTGANG-BILD IST HIER RAUS und steht als eigenes Kapitel davor (`LOAD_SECTION`). Mit ihm
+ * gingen die beiden Sätze, die unter ihm standen: die Kapp-Aussage (Schwelle, abgefangene Spitzen,
+ * abgerechneter Wert vorher → nachher) und die Erklärung, warum bei einem nicht kappenden Speicher
+ * keine Kapp-Linie im Bild ist. Beide beschrieben AUSSCHLIESSLICH das Bild; ohne es stünde hier
+ * ein Verweis auf eine gestrichelte Linie, die es auf der Seite nicht gibt. Benannte Folge: die
+ * Kapp-Schwelle in kW steht damit in keinem Kapitel mehr.
  *
  * ── ⚠ DIESE DATEI DARF WEDER `@react-pdf/renderer` NOCH RECHARTS ANFASSEN ──────────────────────
  * Sie ist die Ableitung, nicht die Darstellung — derselbe Zuschnitt wie `summary.ts` und
@@ -19,10 +26,6 @@ import type { PdfReportAnalysis } from './types'
  *
  * ── ⚠ DIESELBE REGEL WIE IN B23c-1: KEINE AUSSAGE OHNE RECHNUNG (D12) ─────────────────────────
  * Fehlt die Grundlage, fehlt die AUSSAGE — nicht ein Strich, nicht eine 0. Konkret:
- *   • die **Spitzenkappungs-Aussage** entfällt, wenn der Speicher den abgerechneten Leistungswert
- *     nicht senkt (`static` kappt nicht, ein Anschluss ohne Leistungspreis hat den Posten gar
- *     nicht — Delta 3). Dann steht an ihrer Stelle die Erklärung, warum im Bild keine Kapp-Linie
- *     ist: eine Aussage über das BILD, keine über eine Ersparnis.
  *   • die **Ladesteuerungs-Aussage** entfällt vollständig bei
  *     `tariffOptimization?.computable !== true` (Delta 15 Regel C).
  *
@@ -45,26 +48,8 @@ export type RecommendationChapter = {
    * herstellt; behandelt, weil ein Kapitel, das dann eine Ausnahme wirft, den ganzen Report kostet.
    */
   recommendation: ReportStatement | null
-  /** Was unter dem Lastgang-Bild steht. */
-  chart: ChartLegend
   /** Woher der Wert der Ladesteuerung kommt. `null` = Hebel nicht berechenbar oder nicht gefragt. */
   loadControl: ReportStatement | null
-}
-
-export type ChartLegend = {
-  /** Beschreibt, was das Bild zeigt. Steht immer. */
-  caption: string
-  /**
-   * Die Spitzenkappungs-Aussage: Kapp-Schwelle, abgefangene Spitzen, abgerechneter Wert vorher →
-   * nachher. `null`, wenn der Speicher den abgerechneten Leistungswert nicht senkt.
-   */
-  capStatement: string | null
-  /**
-   * Warum im Bild keine Kapp-Linie steht. Gesetzt GENAU DANN, wenn `capStatement` fehlt — die
-   * beiden schliessen einander aus, und eine leere Stelle unter einem Diagramm ohne gestrichelte
-   * Linie liesse den Leser nach einem Druckfehler suchen.
-   */
-  noCapNote: string | null
 }
 
 function neutralRow(label: string, value: string): ReportRow {
@@ -210,71 +195,6 @@ export function buildRecommendation(
   }
 }
 
-/** Die endlichen Kapp-Schwellen des Fahrplans — `Infinity` heisst „diese Periode wird nicht gekappt". */
-function finiteCaps(entry: BatteryResultEntry | undefined): number[] {
-  return (entry?.dispatchTrace?.capKwByPeriod ?? []).filter((kw) => Number.isFinite(kw))
-}
-
-/**
- * Was unter dem Bild steht.
- *
- * ⚠ Die Kapp-Linie gehört zum PRIMÄREN Block — im Bestandsfall der Anlage des Kunden, sonst der
- * Empfehlung. Wortgleich zur Auswahl in `report.tsx`: eine Schwelle, die ein Gerät zöge, das der
- * Kunde erst kaufen müsste, wäre im Hauptdiagramm seiner eigenen Auswertung die falsche Linie.
- */
-function buildChartLegend(
-  analysis: PdfReportAnalysis,
-  primary: BatteryResultEntry | undefined,
-): ChartLegend {
-  const isExisting = analysis.existingBatteryAnalysis != null
-  const whose = isExisting ? 'Ihres Speichers' : 'der empfohlenen Batterie'
-  const caption =
-    'Ihr Netzbezug über den ausgewerteten Zeitraum, in Viertelstundenwerten. Für die Darstellung ' +
-    'sind je Zeitabschnitt der höchste und der niedrigste Wert behalten — die Spitzen bleiben ' +
-    'dadurch erhalten, auch wo ein Bildpunkt mehrere Stunden trägt.'
-
-  const caps = finiteCaps(primary)
-  const capped = primary != null && primary.leistungspreisSavingPerYear > 0 && caps.length > 0
-
-  if (!capped) {
-    return {
-      caption,
-      capStatement: null,
-      /*
-       * ⚠ Eine Aussage über das BILD, keine über eine Ersparnis. Sie erklärt, warum die
-       * gestrichelte Linie fehlt — dieselbe Auskunft, die der Bildschirm-Chart an dieser Stelle
-       * gibt. Eine Kapp-Ersparnis wird hier ausdrücklich NICHT beziffert; genau die entfällt.
-       */
-      noCapNote:
-        'Es ist keine Kapp-Schwelle eingezeichnet: der zugrunde gelegte Speicher senkt den ' +
-        'abgerechneten Leistungswert nicht. Entweder steuert er nur Eigenverbrauch und Ladezeiten ' +
-        '(dann kappt er keine Spitzen), oder Ihr Anschluss wird ohne Leistungspreis abgerechnet — ' +
-        'dann gibt es diesen Posten gar nicht. Die Kurve selbst ist davon unberührt.',
-    }
-  }
-
-  const lo = Math.min(...caps)
-  const hi = Math.max(...caps)
-  const threshold =
-    lo === hi
-      ? `von ${formatKw(lo)}`
-      : `zwischen ${formatKw(lo)} und ${formatKw(hi)} (je Abrechnungsperiode)`
-  const peaks = primary.dispatchTrace?.caughtPeaks.length ?? 0
-  const peakPart =
-    peaks > 0
-      ? ` Die markierten Punkte sind die ${peaks} teuersten Spitzen, die dabei abgefangen wurden.`
-      : ''
-
-  return {
-    caption,
-    capStatement:
-      `Die gestrichelte Linie ist die Kapp-Schwelle ${whose} ${threshold} — oberhalb davon springt ` +
-      `der Speicher ein.${peakPart} Der abgerechnete Leistungswert sinkt dadurch von ` +
-      `${formatKw(analysis.current.billedKw)} auf ${formatKw(primary.newBilledKw)}.`,
-    noCapNote: null,
-  }
-}
-
 /**
  * Woher der Wert der Ladesteuerung kommt.
  *
@@ -349,7 +269,6 @@ export function buildRecommendationChapter(
 
   return {
     recommendation: recommended ? buildRecommendation(analysis, recommended) : null,
-    chart: buildChartLegend(analysis, primary),
     loadControl: buildLoadControl(analysis, primary),
   }
 }
