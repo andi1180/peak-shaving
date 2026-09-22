@@ -71,6 +71,51 @@ const ROW = {
   },
 }
 
+/** D6 Teil 3 — das Jahres-Szenario, wie `runAnalysisFromMeteringPointDraft` es in die Übergabe schreibt. */
+const SCENARIO: NonNullable<AnalysisResult['annualScenario']> = {
+  windowFromDate: '2025-09-22',
+  windowToDate: '2026-09-21',
+  measuredDays: 209,
+  projectedDays: 156,
+  reference: {
+    fromDate: '2026-01-30',
+    toDate: '2026-02-05',
+    consumptionKwh: 522.164,
+    rateKwhPerDay: 74.59485714285714,
+  },
+  ways: {
+    currentTariffEur: 3733.37,
+    comparisonTariffEur: 3947.61,
+    comparisonSupplier: 'gogreenenergy',
+    spotWithoutControlEur: 3689.93,
+    controlledEur: 3311.72,
+    controlVariant: 'predictive',
+    peakShavingSavingEur: 0,
+  },
+}
+
+/** D6 Teil 2b — heute von keinem Weg gesetzt, aber aus demselben Grund verloren gegangen. */
+const PROJECTION: NonNullable<AnalysisResult['annualProjection']> = {
+  currentTariffEur: { measuredEur: 9000, projectedEur: 4000, totalEur: 13000 },
+  spotWithoutControlEur: { measuredEur: 8200, projectedEur: 3600, totalEur: 11800 },
+  windowFromDate: '2025-01-01',
+  windowToDate: '2025-12-31',
+  measuredDays: 209,
+  projectedDays: 156,
+  consumption: {
+    method: 'winter_reference',
+    missingDays: 156,
+    referenceRateKwhPerDay: 480,
+    referenceSegments: [],
+    estimatedAnnualConsumptionKwh: 175000,
+  },
+  marketPrices: {
+    coverage: [],
+    hoursByOrigin: { database: 0, fetched: 0, assumed: 0 },
+    missingRanges: [],
+  },
+}
+
 describe('buildReportInputFromRenderRequest', () => {
   it('baut aus einer vollständigen Übergabe den Dokument-Eingang', () => {
     const readout = readRenderRequest({ data: [ROW], error: null })
@@ -99,8 +144,10 @@ describe('buildReportInputFromRenderRequest', () => {
     /* Der Preisstand-Satz nennt die Grundgebühr, weil die Übergabe eine trägt. */
     expect(input.tariffVintage).toContain('Arbeitspreis und Grundgebühr basieren')
 
-    /* Verengt auf die sieben gelesenen Felder — `peaks` reist NICHT mit. */
+    /* Verengt auf die neun gelesenen Felder — `peaks` reist NICHT mit. */
     expect(Object.keys(input.analysis).sort()).toEqual([
+      'annualProjection',
+      'annualScenario',
       'assumptions',
       'current',
       'dataQuality',
@@ -110,6 +157,33 @@ describe('buildReportInputFromRenderRequest', () => {
       'tariffOptimization',
     ])
     expect('peaks' in input.analysis).toBe(false)
+  })
+
+  /**
+   * ⚠ DIE PRÜFUNG, DIE BEIM BAU VON D6 TEIL 3 GEFEHLT HAT.
+   *
+   * `annualScenario` und `annualProjection` sind auf `AnalysisResult` OPTIONAL; die Verengung
+   * (`reduceAnalysis`) liess sie weg, und weil ein `Pick<…>` auch ohne optionale Felder erfüllt
+   * ist, meldete weder Build noch Typecheck etwas. Am echten Fall gemessen (Übergabe `362797a4`,
+   * 22.09.2026): die gerechnete Analyse trug das Szenario, das Dokument sah es nie.
+   *
+   * ⚠ ALLE BESTEHENDEN KAPITEL-TESTS BAUEN IHR `PdfReportAnalysis` VON HAND (`annual-scenario.test.ts`)
+   * — sie prüfen, was das Kapitel aus dem Feld macht, nie ob das Feld ankommt. Genau diese Naht
+   * prüft dieser Test, und nur er. Der zweite Halt ist der Rückgabetyp `Complete<…>`, der ein
+   * weggelassenes Feld zum Typfehler macht.
+   */
+  it('reicht die zwei optionalen Jahres-Felder unverändert durch', () => {
+    const readout = readRenderRequest({
+      data: [{ ...ROW, analysis_result: { ...ANALYSIS, annualScenario: SCENARIO, annualProjection: PROJECTION } }],
+      error: null,
+    })
+    if (readout.status !== 'ok') throw new Error('Übergabe sollte lesbar sein')
+
+    const input = buildReportInputFromRenderRequest(readout.request, NOW)
+
+    /* Identität, nicht Gleichheit: 1:1 durchgereicht, keine Umformung und kein Vorgabewert. */
+    expect(input.analysis.annualScenario).toBe(SCENARIO)
+    expect(input.analysis.annualProjection).toBe(PROJECTION)
   })
 
   it('lässt die Grundgebühr ohne Angabe aus dem Preisstand-Satz weg', () => {
