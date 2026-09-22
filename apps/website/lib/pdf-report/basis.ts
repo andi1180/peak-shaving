@@ -604,8 +604,14 @@ const LOAD_SOURCE_LABEL: Record<LoadSource, string> = {
 /** Die Antwort, wo es keine Angabe gibt — ausgeschrieben statt weggelassen, s. Kopf. */
 const NOT_RECORDED = 'nicht erfasst'
 
-/** ISO `YYYY-MM-DD` → `TT.MM.JJJJ`. Ein unbrauchbarer Wert ergibt `null` statt `Invalid Date`. */
-function formatIsoDate(value: string): string | null {
+/**
+ * ISO `YYYY-MM-DD` → `TT.MM.JJJJ`. Ein unbrauchbarer Wert ergibt `null` statt `Invalid Date`.
+ *
+ * ⚠ Exportiert, weil das Kapitel „Unser Vorschlag" dieselben Stände in Kurzfassung nennt
+ * (`advice.ts`). Zwei Formatierungen desselben Datums ergäben im selben Dokument zwei
+ * Schreibweisen für denselben Tag.
+ */
+export function formatIsoDate(value: string): string | null {
   const ms = Date.parse(value)
   if (!Number.isFinite(ms)) return null
   return new Intl.DateTimeFormat('de-AT', {

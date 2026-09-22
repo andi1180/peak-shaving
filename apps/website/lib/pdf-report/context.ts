@@ -1,5 +1,6 @@
 import type { BatteryResultEntry, BatteryRoiEntry } from 'shared'
 
+import { hasAdviceChapter } from './advice'
 import { dataQualityNoticeOf, pvOutageNoticeOf } from './basis'
 import { comparisonChartPlan, hasComparisonChapter, type ComparisonChartPlan } from './comparison'
 import { detailChartPlan, hasMonthlyChapter, type DetailChartPlan } from './detail'
@@ -85,6 +86,11 @@ export type ReportBuildContext = {
    * „Nein" sagt — s. `hasRecommendationChapter` (`recommendation.ts`).
    */
   hasRecommendation: boolean
+  /**
+   * Kapitel „Unser Vorschlag", zwischen Methodik und Schlusskapitel. `false`, wenn weder ein
+   * Vorschlag zutrifft noch eine Herkunftsangabe belegt ist — s. `hasAdviceChapter`.
+   */
+  hasAdvice: boolean
 }
 
 /**
@@ -116,5 +122,8 @@ export function buildReportContext(input: PdfReportInput): ReportBuildContext {
     hasInsight: insightPlan.hourFlow !== null || insightPlan.chargePrice !== null,
     hasComparison: hasComparisonChapter(analysis),
     hasRecommendation: hasRecommendationChapter(analysis),
+    /* ⚠ Das einzige Kapitel-Prädikat, das die EINGABE liest und nicht nur das Ergebnis: die
+       Herkunftsangaben der Tarifseite stehen dort (`tariffSource`/`tariffProvenance`). */
+    hasAdvice: hasAdviceChapter(input),
   }
 }
