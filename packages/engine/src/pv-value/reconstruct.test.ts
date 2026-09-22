@@ -1,7 +1,14 @@
 import type { LoadProfile, PvProfile } from 'shared'
 import { describe, expect, it } from 'vitest'
 
-import { addPvToGridDraw, monthlyPvGeneration, zeroPvOutageMonths } from './reconstruct'
+import {
+  addPvToGridDraw,
+  monthlyPvGeneration,
+  PV_DAY_MIN_DEMAND_KWH,
+  zeroPvDaysWithoutMiddayDemand,
+  zeroPvOutageMonths,
+  zeroPvWhereNoDemand,
+} from './reconstruct'
 
 /**
  * Drei Kalendermonate, Ortszeit Wien: Jänner und Februar mit Mittagseinbruch, März ohne. Die
@@ -94,5 +101,84 @@ describe('Rekonstruktion „ohne PV"', () => {
     expect(months[0]!.selfConsumptionKwh).toBeCloseTo(6 * PV_KW * 31, 6)
     expect(months[1]!.selfConsumptionKwh).toBeCloseTo(6 * PV_KW * 28, 6)
     expect(months[2]).toEqual({ year: 2025, month: 3, selfConsumptionKwh: null, outage: true })
+  })
+})
+
+/**
+ * Die TAGESschwelle (`PV_DAY_MIN_DEMAND_KWH`) — ein eigenes Fixture, weil das obige im Tagfenster
+ * bewusst auf 0 kW steht und damit jeden Jänner-/Februartag unter die Schwelle fiele.
+ *
+ * Zwei Tage, die sich AUSSCHLIESSLICH im Mittagsfenster unterscheiden: 1,002 kWh gegen 0,996 kWh.
+ * Die Nachtlast ist bei beiden gleich hoch — damit ist gemessen, dass das Fenster das Kriterium
+ * ist und nicht der Tagesverbrauch.
+ */
+const DAY2_T0 = Date.parse('2025-01-05T23:00:00Z') // 06.01.2025 00:00 Ortszeit Wien
+/** UTC 9–15 = 10–16 Ortszeit (UTC+1) — dasselbe Fenster, das die Schwelle prüft. */
+const inWindow = (ms: number): boolean => {
+  const hour = new Date(ms).getUTCHours()
+  return hour >= 9 && hour < 15
+}
+/** Erzeugung auch AUSSERHALB des Fensters, damit die Nullung des ganzen Tages prüfbar ist. */
+const generates = (ms: number): boolean => {
+  const hour = new Date(ms).getUTCHours()
+  return hour >= 7 && hour < 17
+}
+const dayIndexOf = (ms: number): number => Math.floor((ms - DAY2_T0) / (24 * 3_600_000))
+
+/** 24 Slots × 0,25 h × kW ⇒ 6 × kW kWh im Fenster: 0,167 → 1,002 · 0,166 → 0,996. */
+const WINDOW_KW = [0.167, 0.166]
+
+function twoDayLoad(): LoadProfile {
+  return {
+    readings: Array.from({ length: 2 * 96 }, (_, i) => {
+      const ms = DAY2_T0 + i * STEP_MS
+      return {
+        ts: new Date(ms).toISOString(),
+        gridPowerKw: inWindow(ms) ? WINDOW_KW[dayIndexOf(ms)]! : 9,
+      }
+    }),
+    intervalMinutes: 15,
+    timezoneMeta: 'Europe/Vienna',
+    source: 'import_only',
+  }
+}
+
+function twoDayPv(): PvProfile {
+  return {
+    readings: Array.from({ length: 2 * 96 }, (_, i) => {
+      const ms = DAY2_T0 + i * STEP_MS
+      return { ts: new Date(ms).toISOString(), pvGenerationKw: generates(ms) ? PV_KW : 0 }
+    }),
+  }
+}
+
+describe('Tagesschwelle ohne Mittagsbedarf', () => {
+  it('nullt nur den Tag UNTER der Schwelle, und dort den ganzen Tag', () => {
+    const profile = twoDayLoad()
+    const generation = zeroPvDaysWithoutMiddayDemand(profile, twoDayPv())
+
+    expect(PV_DAY_MIN_DEMAND_KWH).toBe(1)
+    const perDay = [0, 0]
+    let zeroedOutsideWindow = 0
+    for (const reading of generation.readings) {
+      const ms = Date.parse(reading.ts)
+      perDay[dayIndexOf(ms)]! += reading.pvGenerationKw * 0.25
+      if (generates(ms) && !inWindow(ms) && dayIndexOf(ms) === 1) {
+        /* Randstunden des genullten Tages: das Fenster ist das Kriterium, nicht der Wirkungsbereich. */
+        expect(reading.pvGenerationKw).toBe(0)
+        zeroedOutsideWindow++
+      }
+    }
+    expect(zeroedOutsideWindow).toBeGreaterThan(0)
+    /* 10 Erzeugungsstunden × 12 kW — der Tag über der Schwelle bleibt unangetastet. */
+    expect(perDay[0]).toBeCloseTo(10 * PV_KW, 9)
+    expect(perDay[1]).toBe(0)
+  })
+
+  it('nullt Ausfallmonate UND Tage in einem Aufruf', () => {
+    const profile = twoDayLoad()
+    const both = zeroPvWhereNoDemand(profile, twoDayPv(), [{ year: 2025, month: 1 }])
+    /* Jänner ist hier Ausfallmonat — dann trägt auch der Tag über der Schwelle nichts. */
+    expect(both.readings.every((r) => r.pvGenerationKw === 0)).toBe(true)
   })
 })

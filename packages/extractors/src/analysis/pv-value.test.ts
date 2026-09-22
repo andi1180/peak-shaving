@@ -28,6 +28,12 @@ const DAYS = 85
 const PV_KW = 12
 const BASE_KW = 20
 const SUN_HOURS = 6
+/*
+ * Der Rest-Bezug über Mittag in den Monaten MIT Einbruch. Bewusst nicht 0: seit der Tagesschwelle
+ * (`PV_DAY_MIN_DEMAND_KWH`) wäre ein Tag ohne jeden Mittagsbedarf selbst genullt, und dieses
+ * Fixture prüft die MONATSebene. 6 h × 2 kW = 12 kWh liegen klar über der Schwelle.
+ */
+const DIP_KW = 2
 
 const OUTAGE = [{ year: 2025, month: 3 }]
 
@@ -50,7 +56,7 @@ function loadProfile(): LoadProfile {
     readings: Array.from({ length: DAYS * 96 }, (_, i) => {
       const ms = T0 + i * STEP_MS
       const working = monthOf(ms) !== 3 && isSunHour(ms)
-      return { ts: new Date(ms).toISOString(), gridPowerKw: working ? 0 : BASE_KW }
+      return { ts: new Date(ms).toISOString(), gridPowerKw: working ? DIP_KW : BASE_KW }
     }),
     intervalMinutes: 15,
     timezoneMeta: 'Europe/Vienna',
@@ -139,8 +145,8 @@ function payload(): CalculatorPayload {
  */
 const CT_PER_KWH = tariff.energyPriceCtPerKwh + 6.98 + 0.7
 
-/** Der gemessene Bezug: 20 kW rund um die Uhr, abzüglich der gedeckten Sonnenstunden in Jän/Feb. */
-const MEASURED_KWH = DAYS * 24 * BASE_KW - (31 + 28) * SUN_HOURS * BASE_KW
+/** Der gemessene Bezug: 20 kW rund um die Uhr, über Mittag in Jän/Feb auf `DIP_KW` gesenkt. */
+const MEASURED_KWH = DAYS * 24 * BASE_KW - (31 + 28) * SUN_HOURS * (BASE_KW - DIP_KW)
 
 /**
  * Die Kopfzahl des gemessenen Laufs — HIER VON HAND gerechnet und nicht aus dem Lauf gezogen.
@@ -201,7 +207,7 @@ describe('buildPvValueScenario', () => {
 
     /*
      * ⚠ DIE JAHRESZAHL IST HIER GLEICH DER GEMESSENEN, UND DAS IST DER EIGENTLICHE BEFUND DIESES
-     * FIXTURES: die verbrauchsstärkste Woche liegt im MÄRZ (480 kWh/Tag gegen 360 in Jän/Feb, weil
+     * FIXTURES: die verbrauchsstärkste Woche liegt im MÄRZ (480 kWh/Tag gegen 372 in Jän/Feb, weil
      * dort die Sonnenstunden den Bezug decken) — und der März ist der Ausfallmonat. Die gefüllten
      * Tage übernehmen deshalb eine Woche OHNE angesetzte Erzeugung, und die „ohne PV"-Seite
      * unterscheidet sich dort von der „mit PV"-Seite um nichts.
@@ -217,5 +223,101 @@ describe('buildPvValueScenario', () => {
     const withoutYear = await buildPvValueScenario({ ...options, annualWindow: null })
     expect(withoutYear?.annual).toBeNull()
     expect(withoutYear?.measured).toEqual(withYear!.measured)
+  })
+})
+
+/**
+ * URBANZ-ÄHNLICH: ein Ausfallmonat, gefolgt von einem Monat, in dem die MEISTEN Tage keinen
+ * Mittagsbedarf zeigen — der Fall, für den die Tagesschwelle gebaut ist.
+ *
+ * Jänner: kein Einbruch, als Ausfallmonat übergeben. Februar: 20 Tage mit 0,6 kWh im Tagfenster
+ * (unter der Schwelle), 8 Tage mit 12 kWh (darüber). Gemessen wird, dass nur die 8 Tage Erzeugung
+ * tragen — und dass der Februar-Balken dabei trotzdem ein normaler Monat bleibt.
+ */
+const DAYS_2M = 31 + 28
+const QUIET_FEB_DAYS = 20
+/** 6 h × 0,1 kW = 0,6 kWh im Fenster — unter `PV_DAY_MIN_DEMAND_KWH`. */
+const QUIET_KW = 0.1
+const dayOf = (ms: number): number => Math.floor((ms - T0) / (24 * HOUR_MS))
+
+/** Derselbe Weg wie oben: der gemessene Bezug von Hand, damit `valueEur` eine echte Differenz ist. */
+const MEASURED_KWH_2M =
+  DAYS_2M * 24 * BASE_KW -
+  QUIET_FEB_DAYS * SUN_HOURS * (BASE_KW - QUIET_KW) -
+  (28 - QUIET_FEB_DAYS) * SUN_HOURS * (BASE_KW - DIP_KW)
+const MEASURED_WITH_PV_EUR_2M = (MEASURED_KWH_2M * CT_PER_KWH) / 100
+
+function loadProfile2M(): LoadProfile {
+  return {
+    readings: Array.from({ length: DAYS_2M * 96 }, (_, i) => {
+      const ms = T0 + i * STEP_MS
+      if (monthOf(ms) === 1 || !isSunHour(ms)) {
+        return { ts: new Date(ms).toISOString(), gridPowerKw: BASE_KW }
+      }
+      const quiet = dayOf(ms) < 31 + QUIET_FEB_DAYS
+      return { ts: new Date(ms).toISOString(), gridPowerKw: quiet ? QUIET_KW : DIP_KW }
+    }),
+    intervalMinutes: 15,
+    timezoneMeta: 'Europe/Vienna',
+    source: 'import_only',
+  }
+}
+
+function payload2M(): CalculatorPayload {
+  const profile = loadProfile2M()
+  return {
+    load: {
+      fileName: 'test.csv',
+      profile,
+      dataQuality: {
+        coveredDays: DAYS_2M,
+        coveredMonths: 2,
+        gapsInterpolated: 0,
+        largestGapSlots: 0,
+        warnings: [],
+      },
+    },
+    tariff,
+    financial: { fixedSubsidyEur: 0, taxRatePercent: 0, depreciationYears: 10 },
+    tariffPricing: pricing({
+      startIso: profile.readings[0]!.ts,
+      endIso: profile.readings.at(-1)!.ts,
+    }),
+  }
+}
+
+describe('buildPvValueScenario — Tage ohne Mittagsbedarf', () => {
+  it('rechnet nur die Tage MIT Bedarf an und senkt den €-Wert entsprechend', async () => {
+    const profile = loadProfile2M()
+    const scenario = await buildPvValueScenario({
+      payload: payload2M(),
+      measuredWithPvEur: MEASURED_WITH_PV_EUR_2M,
+      pvGross: {
+        readings: profile.readings.map((r) => ({
+          ts: r.ts,
+          pvGenerationKw: isSunHour(Date.parse(r.ts)) ? PV_KW : 0,
+        })),
+      },
+      outageMonths: [{ year: 2025, month: 1 }],
+      annualWindow: null,
+      fetchTariffPricing: async ({ window }) => pricing(window),
+    })
+    if (!scenario) throw new Error('unerwartet kein Szenario')
+
+    /* Nur die 8 Februartage über der Schwelle tragen — Jänner per Ausfallmonat, 20 Tage per Tagesregel. */
+    const withDayRule = SUN_HOURS * PV_KW * (28 - QUIET_FEB_DAYS)
+    expect(scenario.estimatedGenerationKwh).toBeCloseTo(withDayRule, 6)
+    expect(scenario.measured.valueEur).toBeCloseTo((withDayRule * CT_PER_KWH) / 100, 6)
+
+    /* Die alte Fassung hätte den ganzen Februar angesetzt — der Wert sinkt auf rund ein Drittel. */
+    const monthRuleOnly = SUN_HOURS * PV_KW * 28
+    expect(scenario.measured.valueEur).toBeLessThan((monthRuleOnly * CT_PER_KWH) / 100 * 0.4)
+
+    /*
+     * Der Monatsbalken bleibt ein NORMALER Monat: „Ausfall" ist ganzen Monaten vorbehalten, ein
+     * teilweise genullter zeigt einfach eine kleinere Summe.
+     */
+    expect(scenario.months.map((m) => m.outage)).toEqual([true, false])
+    expect(scenario.months[1]!.selfConsumptionKwh).toBeCloseTo(withDayRule, 6)
   })
 })
