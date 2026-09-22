@@ -341,14 +341,28 @@ export function buildReportInputFromRenderRequest(
 }
 
 /**
- * Das Ergebnis auf die sieben Felder verengen, die das Dokument LIEST.
+ * Jeder Schlüssel von `T` wird PFLICHT — der Werttyp bleibt unverändert und darf weiterhin
+ * `undefined` sein. Das ist der Unterschied zu `Required<T>`, das auch das `undefined` entfernte.
+ */
+type Complete<T> = { [K in keyof Required<T>]: T[K] }
+
+/**
+ * Das Ergebnis auf die neun Felder verengen, die das Dokument LIEST.
  *
  * ⚠ Ein `AnalysisResult` wäre strukturell zuweisbar — dann reiste `peaks` (samt Spitzenliste und
- * Verteilung) als achtes Feld mit, ohne dass es je gelesen wird. `PdfReportAnalysis` ist genau
+ * Verteilung) als zehntes Feld mit, ohne dass es je gelesen wird. `PdfReportAnalysis` ist genau
  * dafür ein `Pick<…>`: der Typ sagt, was das Dokument braucht, und das Verengen hier hält den
  * übergebenen Wert daran (s. Kopf von `types.ts`).
+ *
+ * ⚠ DER RÜCKGABETYP IST `Complete<…>` UND NICHT `PdfReportAnalysis` — das ist der Wächter gegen
+ * den Fehler, der hier bereits einmal passiert ist. `annualScenario` und `annualProjection` sind
+ * auf `AnalysisResult` OPTIONAL; ein `Pick<…>` ist deshalb auch ohne sie erfüllt, und beide fielen
+ * still weg. Am Ergebnis gemessen (Übergabe `362797a4`, 22.09.2026): die Analyse trug
+ * `annualScenario`, das Dokument sah es nie, und das Kapitel „Was wäre, wenn wir ein ganzes Jahr
+ * hätten?" erschien in keinem Report — ohne dass Build oder Typecheck etwas meldeten. Mit
+ * `Complete<…>` bricht das Weglassen eines Feldes den Typecheck.
  */
-function reduceAnalysis(result: AnalysisResult): PdfReportAnalysis {
+function reduceAnalysis(result: AnalysisResult): Complete<PdfReportAnalysis> {
   return {
     current: result.current,
     perBattery: result.perBattery,
@@ -356,6 +370,8 @@ function reduceAnalysis(result: AnalysisResult): PdfReportAnalysis {
     assumptions: result.assumptions,
     tariffOptimization: result.tariffOptimization,
     existingBatteryAnalysis: result.existingBatteryAnalysis,
+    annualProjection: result.annualProjection,
+    annualScenario: result.annualScenario,
     dataQuality: result.dataQuality,
   }
 }
