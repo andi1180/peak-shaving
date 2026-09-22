@@ -17,7 +17,9 @@ import {
 } from 'shared'
 
 import { formatEur, formatEur2, formatPercent } from '@/lib/format'
+import { REPORT_SECTIONS, SECTION_ID } from './content'
 import type { ReportBuildContext } from './context'
+import { hasPvValueChapter } from './pv-value'
 import { block, ref, t, REF_PLACE, type ReportText } from './report-text'
 import type {
   ReportNotice,
@@ -362,6 +364,11 @@ export function buildPvOutage(
   hasPv: boolean | undefined,
   pvStage: PvStage | undefined,
   months: PvOutageMonth[] | undefined,
+  /**
+   * Gibt es das Kapitel „Ihre PV-Anlage"? Dann steht die Deutung DORT, und hier bleibt die
+   * Datenzeile samt Zeiger — s. den Kopf-Kommentar.
+   */
+  pvChapterPresent = false,
 ): ReportNotice | null {
   if (hasPv !== true) return null
   /*
@@ -374,6 +381,43 @@ export function buildPvOutage(
   if (!months || months.length === 0) return null
 
   const plural = months.length > 1
+
+  /*
+   * ══════════════════════════════════════════════════════════════════════════════════════════
+   * ⚠ MIT DEM PV-KAPITEL BLEIBT HIER DIE BEOBACHTUNG, NICHT IHRE DEUTUNG
+   * ══════════════════════════════════════════════════════════════════════════════════════════
+   * Beides nebeneinander wäre derselbe Befund in zwei Ausführlichkeiten, und der Leser müsste
+   * raten, welche gilt — genau die Doppelung, die der Report sonst über Verweise auflöst. Was
+   * bleibt, ist das, wofür dieses Kapitel da ist: WELCHE Monate betroffen sind, als Angabe zur
+   * Datengrundlage. Was daraus folgt und was nicht, steht im PV-Kapitel samt der Zahl dazu.
+   *
+   * ⚠ DIE LISTE BLEIBT IN BEIDEN FASSUNGEN. Sie ist die Beobachtung selbst; ohne sie stünde hier
+   * ein Zeiger ohne Gegenstand, und die Datenquellen-Seite verlöre die einzige Stelle, an der die
+   * betroffenen Monate benannt sind.
+   *
+   * ⚠ DER KAPITELNAME WIRD NICHT AUSGESCHRIEBEN, SONDERN GELESEN (`REPORT_SECTIONS`). Ein
+   * `ReportNotice.body` ist eine Zeichenkette und kann keinen aufgelösten Verweis tragen (s.
+   * `statement.ts`); die zweitbeste Zusage ist, dass wenigstens der NAME mitwandert, wenn das
+   * Kapitel umbenannt wird. Dass es das Kapitel überhaupt gibt, sagt `pvChapterPresent`.
+   */
+  if (pvChapterPresent) {
+    return {
+      id: 'pv_outage',
+      tone: 'warning',
+      title: pvOutageTitle(months),
+      body:
+        `In ${plural ? 'diesen Monaten' : 'diesem Monat'} Ihres Lastgangs ist der Mittagseinbruch, ` +
+        'den eine arbeitende PV-Anlage hinterlässt, an keinem einzigen Tag aufgetreten — in den ' +
+        'übrigen Monaten desselben Zeitraums schon. Was daraus folgt und was ausdrücklich nicht, ' +
+        `steht im Kapitel „${REPORT_SECTIONS[SECTION_ID.pvValue].title}"; dort ist auch beziffert, ` +
+        'was Ihre Anlage in den übrigen Monaten beigetragen hat.',
+      list: {
+        label: plural ? 'Betroffene Monate' : 'Betroffener Monat',
+        items: months.map(formatOutageMonth),
+      },
+      hints: [],
+    }
+  }
 
   return {
     id: 'pv_outage',
@@ -429,7 +473,17 @@ export function dataQualityNoticeOf(input: PdfReportInput): ReportNotice | null 
 /** Der PV-Befund, wie ihn das Dokument zeigt — Auswahl inbegriffen. S. `dataQualityNoticeOf`. */
 export function pvOutageNoticeOf(input: PdfReportInput): ReportNotice | null {
   if (!reportSectionEnabled(input.optionalSections, 'pv_outage')) return null
-  return buildPvOutage(input.hasPv, input.pvStage, input.pvOutageMonths)
+  /*
+   * ⚠ Die Frage „gibt es das PV-Kapitel?" wird NICHT hier neu beantwortet, sondern an derselben
+   * Stelle gelesen wie überall sonst. Ein `input.analysis.pvValue != null` daneben wäre die zweite
+   * Fassung derselben Regel.
+   */
+  return buildPvOutage(
+    input.hasPv,
+    input.pvStage,
+    input.pvOutageMonths,
+    hasPvValueChapter(input.analysis),
+  )
 }
 
 /* ────────────────────────────────────────────────────────────────────────────────────────────────

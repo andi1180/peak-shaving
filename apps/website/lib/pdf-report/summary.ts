@@ -18,6 +18,7 @@ import { LARGE_GAP_SLOTS_THRESHOLD } from '@/lib/constants'
 import { formatEur, formatKwh, formatKwh1, formatKwp, formatPercent } from '@/lib/format'
 import { CANDIDATE_TABLE_ID } from './comparison'
 import type { ReportBuildContext } from './context'
+import { hasPvValueChapter } from './pv-value'
 import { block, ref, t, REF_PLACE, type ReportText } from './report-text'
 import type { ReportNotice, ReportRow, ReportStatement, ReportTone } from './statement'
 import type { PdfReportAnalysis } from './types'
@@ -493,6 +494,11 @@ export function buildOverview(analysis: PdfReportAnalysis, input: SummaryInput):
 export function buildPvPointer(
   hasPv: boolean | undefined,
   pvStage: PvStage | undefined,
+  /**
+   * Gibt es das Kapitel „Ihre PV-Anlage"? Entscheidet AUSSCHLIESSLICH, WOHIN der Befund-Halbsatz
+   * zeigt — ob es ihn gibt, hängt weiterhin am Befund selbst (s. unten).
+   */
+  pvChapterPresent = false,
 ): ReportText | null {
   if (hasPv !== true) return null
 
@@ -507,8 +513,21 @@ export function buildPvPointer(
     return t`Ihre geplante PV-Anlage ist in diesen Zahlen bereits berücksichtigt: ihre Erzeugung ist aus Standort und Anlagendaten geschätzt und vom gemessenen Netzbezug abgezogen — sie senkt die Kosten aller Wege gleichermassen, an der Tarifwahl ändert sie nichts.`
   }
 
+  /*
+   * ⚠ ZWEI MÖGLICHE ZIELE, UND DAS IST KEINE DOPPELUNG DES SATZES. Gibt es das Kapitel „Ihre
+   * PV-Anlage", steht der Befund dort — samt dem, was er kostet und was er NICHT sagt; sonst ist
+   * der Hinweis im Schlusskapitel die einzige Stelle. Ein fest auf `pv_outage` verdrahteter
+   * Verweis schickte den Leser an der ausführlichen Fassung vorbei.
+   *
+   * ⚠ OB ES DEN HALBSATZ GIBT, entscheidet weiterhin das ZIEL und nicht diese Bedingung: beide
+   * Bausteine entstehen nur mit auffälligem Monat, und ohne einen fällt der Verweis samt Satzteil
+   * auf seine leere Fassung. Das Kapitel gibt es auch ohne Befund — ein an ihm hängender Satz
+   * kündigte dann einen an, den niemand findet.
+   */
+  const finding = pvChapterPresent ? block('pv_value_finding') : block('pv_outage')
+
   return t`Ihre PV-Anlage ist in diesen Zahlen bereits berücksichtigt: sie senkt Ihren Netzbezug und damit die Kosten aller Wege gleichermassen — an der Tarifwahl ändert sie nichts.${ref(
-    block('pv_outage'),
+    finding,
     ` Zu ihrer Erzeugung gibt es ausserdem einen Befund, der unabhängig von der Tarifwahl gilt — er steht ${REF_PLACE}.`,
     '',
   )}`
@@ -815,7 +834,12 @@ export function buildReportSummary(
     kpis: ways ? buildSummaryKpis(analysis, ways) : [],
     notices: buildNotices(input),
     overview: buildOverview(analysis, input),
-    pvPointer: buildPvPointer(input.hasPv, input.pvStage),
+    /* ⚠ `context ? … : …` wie bei `entry` darüber — der Prüfstand fährt ohne Kontext. */
+    pvPointer: buildPvPointer(
+      input.hasPv,
+      input.pvStage,
+      context ? context.hasPvValue : hasPvValueChapter(analysis),
+    ),
     /*
      * Ohne einen einzigen durchgerechneten Kandidaten gibt es auch die Zusatzspeicher-Frage nicht.
      * Der Fall entsteht mit dem heutigen Katalog nicht (er ist nie leer); die Seite behandelt ihn

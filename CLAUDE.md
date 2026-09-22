@@ -292,6 +292,14 @@ nichts genähert**.
 **(e) Der PV-Wert gehört in KEINE Ersparnis-Spanne (D8)** — er ist bereits gehoben und steckt in den
 Ist-Kosten.
 
+**(e2) Der Befund steht GENAU EINMAL ausführlich, und wo, hängt am Kapitel (Nachtrag 22.09.2026).**
+Gibt es das PV-Kapitel, zeigt der Satz der Zusammenfassung dorthin und der Hinweis in „Annahmen und
+Datengrundlage" kürzt sich auf die betroffenen Monate plus einen Zeiger; sonst bleibt beides
+wortgleich wie zuvor. **Dafür ist der Absatz `pv_value_finding` als 26. Baustein in die Registry
+gewandert** — ohne einen Katalog-Eintrag kann ein Verweis auf ein Kapitel gar nicht auflösen
+(`WAYS_SECTION` benennt genau diese Bedingung). Der Halbsatz hängt weiterhin am BEFUND und nicht am
+Kapitel: ohne auffälligen Monat gibt es das Kapitel sehr wohl, den Satz aber nicht.
+
 **(f) `pvValue` steht von Anfang an in `reduceAnalysis`** und in dessen Prüfung — der Fehler aus
 #320 (ein optionales Feld fällt in der Verengung still weg) ist diesmal vorweggenommen, nicht
 repariert.

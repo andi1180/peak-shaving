@@ -16,6 +16,7 @@ import { buildReportContext } from './context'
 import { CONTROLLED_WAY_LABEL } from '@/lib/report-copy'
 import { buildDetailChapter, buildMonthlyChapter } from './detail'
 import { buildInsightChapter } from './insight'
+import { buildPvValueChapter } from './pv-value'
 import { buildRecommendationChapter } from './recommendation'
 import { SECTION_ID } from './content'
 import { buildReportLayout } from './layout'
@@ -325,6 +326,8 @@ function expectedFor(id: ReportBaukastenId, input: PdfReportInput): unknown {
   const insight = context.hasInsight ? buildInsightChapter(analysis, context) : null
   const comparison = context.hasComparison ? buildComparisonChapter(analysis, context) : null
   const basis = buildBasisChapter(input, context)
+  /* Dasselbe Kapitel, das `document.tsx` baut — die Seite entsteht nur mit `context.hasPvValue`. */
+  const pvValue = context.hasPvValue ? buildPvValueChapter(analysis) : null
 
   switch (id) {
     case 'addon':
@@ -334,6 +337,8 @@ function expectedFor(id: ReportBaukastenId, input: PdfReportInput): unknown {
     case 'partial_year':
     case 'large_gap':
       return summary.notices.find((n) => n.id === id) ?? null
+    case 'pv_value_finding':
+      return pvValue?.statements.find((s) => s.id === id) ?? null
     case 'recommendation':
       return recommendation?.recommendation ?? null
     case 'load_control':
@@ -379,9 +384,9 @@ function registryFor(input: PdfReportInput) {
 }
 
 describe('Report-Baukasten-Registry (B2)', () => {
-  it('deckt die 25 Kennungen genau einmal ab', () => {
+  it('deckt die 26 Kennungen genau einmal ab', () => {
     const entries = registryFor(BESTAND_FALL).entries
-    expect(entries).toHaveLength(25)
+    expect(entries).toHaveLength(26)
     expect([...entries.map((e) => e.id)].sort()).toEqual([...REPORT_BAUKASTEN_IDS].sort())
   })
 
