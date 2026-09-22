@@ -12,7 +12,7 @@ import {
 } from 'recharts'
 import type { MonthlyChargePrice } from 'shared'
 
-import { formatKwh1 } from '@/lib/format'
+import { formatKwh1, formatKwh1Fixed } from '@/lib/format'
 import { Num } from './num'
 import { CHART_COLORS } from '@/lib/pdf-report/theme'
 
@@ -207,7 +207,7 @@ export function ChargePriceChart({ price }: { price: MonthlyChargePrice }) {
             {overallCharge == null ? '—' : `${formatCt(overallCharge)}/kWh`}
           </Num>{' '}
           <span>
-            über <Num>{formatKwh1(chargedKwh)}</Num> bezogen
+            über <Num>{formatKwh1Fixed(chargedKwh)}</Num> bezogen
           </span>
         </span>
         <span className="flex items-center gap-1.5">
@@ -221,7 +221,7 @@ export function ChargePriceChart({ price }: { price: MonthlyChargePrice }) {
             {overallDischarge == null ? '—' : `${formatCt(overallDischarge)}/kWh`}
           </Num>{' '}
           <span>
-            über <Num>{formatKwh1(dischargedKwh)}</Num> abgegeben
+            über <Num>{formatKwh1Fixed(dischargedKwh)}</Num> abgegeben
           </span>
         </span>
         <span className="mt-1">
