@@ -139,8 +139,12 @@ export function recommendedEntryOf(analysis: PdfReportAnalysis): BatteryRoiEntry
  * ⚠ [ABGELEITET, keine Contract-Zahl] — gerechnet wird `leistungspreisCostPerYear = Satz × billedKw`
  * (§3.4). Ein Ergebnis > 0 heisst: es gibt einen Satz UND einen abgerechneten Wert. Ein Anschluss
  * ohne Leistungsmessung (Netzebene 7) hat den Posten überhaupt nicht.
+ *
+ * ⚠ EXPORTIERT FÜR `detail.ts`: der Monatsvergleich sagt in seiner Bildunterschrift, dass der
+ * Leistungspreis NICHT enthalten ist — derselbe Vorbehalt wie an der Ist-Kosten-Kopfzahl unten,
+ * und deshalb an derselben Bedingung. (`prerequisites.ts` hält seine eigene Fassung, s. dort.)
  */
-function hasLeistungspreis(current: PdfReportAnalysis['current']): boolean {
+export function hasLeistungspreis(current: PdfReportAnalysis['current']): boolean {
   return current.leistungspreisCostPerYear > 0
 }
 

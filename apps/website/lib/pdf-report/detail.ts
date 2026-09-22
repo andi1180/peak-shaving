@@ -1,12 +1,12 @@
 import type { BatteryResultEntry, BatteryRoiEntry, MonthlyTariffComparison } from 'shared'
 import { sumCovered } from 'shared'
 
-import { formatEur, formatYears } from '@/lib/format'
+import { formatEur, formatEur2, formatYears } from '@/lib/format'
 import { CONTROLLED_WAY_LABEL } from '@/lib/report-copy'
 import type { ReportBuildContext } from './context'
 import { t } from './report-text'
 import type { ReportFigure, ReportRow, ReportStatement } from './statement'
-import { recommendedEntryOf } from './summary'
+import { hasLeistungspreis, recommendedEntryOf } from './summary'
 import type { PdfReportAnalysis } from './types'
 
 /**
@@ -188,7 +188,10 @@ function neutralRow(label: string, value: string): ReportRow {
  * 21.09.2026). Ein Parameter, den der Rumpf nicht mehr liest, behauptete eine Abhängigkeit, die es
  * nicht gibt — und die nächste Lesung zöge daraus den falschen Schluss.
  */
-export function buildMonthly(comparison: MonthlyTariffComparison): {
+export function buildMonthly(
+  comparison: MonthlyTariffComparison,
+  current: PdfReportAnalysis['current'],
+): {
   figure: DetailFigure
   statement: ReportStatement
 } {
@@ -204,11 +207,18 @@ export function buildMonthly(comparison: MonthlyTariffComparison): {
    * den die Rechnung des Kunden nicht kennt — dieselbe Regel wie beim Betonsockel in
    * `recommendation.ts`.
    */
+  /*
+   * ⚠ `formatEur2` UND NICHT `formatEur`: dieselbe Grundgebühr steht in der Tarifkomponenten-
+   * Tabelle des Schlusskapitels, aus DEMSELBEN Feld (`supplierFeeEurPerMonth`, `basis.ts`) — dort
+   * mit zwei Nachkommastellen. Auf ganze Euro gerundet las derselbe Wert sich hier als „€ 4" und
+   * dort als „€ 3,50", und das sah nach zwei verschiedenen Zahlen aus. Monatssätze dieser
+   * Grössenordnung verlieren beim Runden ihre Aussage.
+   */
   const fees: string[] = []
   if (fixed.supplierFeeEurPerMonth > 0) {
-    fees.push(`Ihr Lieferant ${formatEur(fixed.supplierFeeEurPerMonth)}/Monat`)
+    fees.push(`Ihr Lieferant ${formatEur2(fixed.supplierFeeEurPerMonth)}/Monat`)
   }
-  fees.push(`aWATTar ${formatEur(fixed.awattarFeeEurPerMonth)}/Monat`)
+  fees.push(`aWATTar ${formatEur2(fixed.awattarFeeEurPerMonth)}/Monat`)
 
   /*
    * ⚠ DIE ZWEI VERWEISE AUF DIE KERNERGEBNIS-SEITE SIND MIT DEM ZUSAMMENFASSUNGS-UMBAU ENTFALLEN.
@@ -218,6 +228,17 @@ export function buildMonthly(comparison: MonthlyTariffComparison): {
    * und hier stehen sie absolut.
    */
   const closing = 'Hier stehen die drei Summen absolut.'
+
+  /*
+   * Der Vorbehalt nur, wo es den Posten gibt — dieselbe Bedingung wie der Rahmen-Hinweis im
+   * Kapitel „Voraussetzungen" und die Bezugszeile der Ist-Kosten (`hasLeistungspreis`). Ohne
+   * Leistungspreis gäbe es nichts Reales, das „nicht enthalten" wäre; der Satz erfände einen
+   * Posten, den die Rechnung des Kunden nicht kennt — dieselbe Regel wie bei den Grundgebühren.
+   */
+  const leistungspreis = hasLeistungspreis(current)
+    ? ' NICHT enthalten ist der Leistungspreis — ihn auf Monate zu verteilen verlangte eine ' +
+      'Aufteilungsregel, die es nicht gibt.'
+    : ''
 
   return {
     figure: {
@@ -238,7 +259,7 @@ export function buildMonthly(comparison: MonthlyTariffComparison): {
        */
       amount: null,
       rows,
-      body: t`Summen über die ${String(comparison.coveredMonths)} gemessenen Monate — ausdrücklich NICHT auf ein Jahr hochgerechnet: die fehlenden Monate liegen nicht gleichverteilt über das Jahr. Enthalten sind Arbeitspreis, Netz-Arbeitspreis, die Abgaben auf den Bezug (Elektrizitätsabgabe, EAG, Gebrauchsabgabe auf den Netzpreis) und die anteiligen Fixkosten — Netz-Grundpreis, Messpreis und Grundgebühren (${fees.join(' · ')}). NICHT enthalten ist der Leistungspreis — ihn auf Monate zu verteilen verlangte eine Aufteilungsregel, die es nicht gibt. ${closing}`,
+      body: t`Summen über die ${String(comparison.coveredMonths)} gemessenen Monate — ausdrücklich NICHT auf ein Jahr hochgerechnet: die fehlenden Monate liegen nicht gleichverteilt über das Jahr. Enthalten sind Arbeitspreis, Netz-Arbeitspreis, die Abgaben auf den Bezug (Elektrizitätsabgabe, EAG, Gebrauchsabgabe auf den Netzpreis) und die anteiligen Fixkosten — Netz-Grundpreis, Messpreis und Grundgebühren (${fees.join(' · ')}).${leistungspreis} ${closing}`,
     },
   }
 }
@@ -370,7 +391,7 @@ export function buildDetailChapter(
       ? null
       : plan.cost.kind === 'monthly'
         ? /* `detailChartPlan` wählt `monthly` ausschliesslich im Bestandsfall — s. dort. */
-          buildMonthly(plan.cost.comparison)
+          buildMonthly(plan.cost.comparison, analysis.current)
         : buildCumulative(plan.cost)
 
   const flowEntry = plan.flow
@@ -425,7 +446,7 @@ export function hasMonthlyChapter(analysis: PdfReportAnalysis): boolean {
 
 export function buildMonthlyChapter(analysis: PdfReportAnalysis): MonthlyChapter | null {
   const comparison = monthlyComparisonOf(analysis)
-  return comparison ? buildMonthly(comparison) : null
+  return comparison ? buildMonthly(comparison, analysis.current) : null
 }
 
 /** Der Vergleich, SOFERN er diesem Kapitel gehört — eine Bedingung, ein Ort. */

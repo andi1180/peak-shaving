@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { MonthlyTariffComparison } from 'shared'
 
 import { CONTROLLED_WAY_LABEL } from '@/lib/report-copy'
+import { buildTariffComponents } from './basis'
 import { SECTION_ID } from './content'
 import {
   buildDetailChapter,
@@ -12,6 +13,7 @@ import {
 import { reportLayoutOf } from './layout'
 import { resolveReportText } from './report-text'
 import { buildReportSummary } from './summary'
+import { TARIFF_SOURCE_UNTRACKED } from './types'
 import type { PdfReportAnalysis } from './types'
 
 /**
@@ -171,6 +173,67 @@ describe('Monatsvergleich als eigenes Kapitel (D7)', () => {
         'monthly_comparison',
       ),
     ).toContain('Hier stehen die drei Summen absolut.')
+  })
+
+  /**
+   * Die Lieferanten-Grundgebühr steht ZWEIMAL im Report — in dieser Bildunterschrift und in der
+   * Tarifkomponenten-Tabelle des Schlusskapitels. Beide lesen dasselbe Feld; die Bildunterschrift
+   * rundete es auf ganze Euro und zeigte für 3,50 € ein „€ 4" neben dem „€ 3,50" der Tabelle.
+   */
+  it('nennt die Grundgebühr mit demselben Wert wie die Tarifkomponenten-Tabelle', () => {
+    const analysis = {
+      ...analysisFor(false),
+      tariffOptimization: {
+        computable: true as const,
+        monthlyComparison: {
+          ...COMPARISON,
+          fixedCosts: { ...COMPARISON.fixedCosts, supplierFeeEurPerMonth: 3.5 },
+        },
+      },
+    }
+
+    const body = resolveReportText(
+      buildMonthlyChapter(analysis)!.statement.body,
+      resultsLayout(analysis),
+      'monthly_comparison',
+    )
+    const tabelle = buildTariffComponents({
+      analysis,
+      loadProfile: { source: 'net_signed' },
+      tariffSource: TARIFF_SOURCE_UNTRACKED,
+    })
+    const zelle = tabelle.rows.find((r) => r.key === 'tariff_supplier_fee')!.cells[1]
+
+    expect(zelle).toBe('€\u00a03,50 / Monat')
+    expect(body).toContain('Ihr Lieferant €\u00a03,50/Monat')
+    expect(body).not.toContain('€\u00a04/Monat')
+  })
+
+  /**
+   * Der Vorbehalt „NICHT enthalten ist der Leistungspreis" nennt einen Posten, den ein Anschluss
+   * ohne Leistungsmessung (Netzebene 7, der Urbanz-Fall) gar nicht hat — dieselbe Bedingung wie
+   * der Rahmen-Hinweis im Kapitel „Voraussetzungen".
+   */
+  it('der Leistungspreis-Vorbehalt steht nur, wo es den Posten gibt', () => {
+    const satz = 'NICHT enthalten ist der Leistungspreis'
+    const bodyFor = (analysis: PdfReportAnalysis) =>
+      resolveReportText(
+        buildMonthlyChapter(analysis)!.statement.body,
+        resultsLayout(analysis),
+        'monthly_comparison',
+      )
+
+    const mit = analysisFor(false)
+    expect(bodyFor(mit)).toContain(satz)
+
+    const ohne: PdfReportAnalysis = {
+      ...mit,
+      current: { ...mit.current, leistungspreisCostPerYear: 0 },
+    }
+    const body = bodyFor(ohne)
+    expect(body).not.toContain(satz)
+    /* Ersatzlos, nicht umformuliert: der Satz davor und der danach schliessen direkt aneinander. */
+    expect(body).toContain('/Monat). Hier stehen die drei Summen absolut.')
   })
 
   it('ohne berechenbaren Hebel gibt es das Kapitel nicht', () => {
