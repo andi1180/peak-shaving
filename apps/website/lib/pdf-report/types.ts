@@ -4,6 +4,7 @@ import type {
   EstimatedPvSummary,
   LoadProfile,
   NetzbetreiberId,
+  PvStage,
   ReportSectionSelection,
   TariffSourceRef,
 } from 'shared'
@@ -350,6 +351,19 @@ export type PdfReportInput = {
    * PV-Befund unten unterbleibt — aber aus verschiedenen Gründen.
    */
   hasPv?: boolean
+  /**
+   * BESTEHT die Anlage schon, oder ist sie GEPLANT (`PV_STAGES`, `shared`)?
+   *
+   * ⚠ SIE ÄNDERT DIE LESART JEDER ZAHL IM REPORT, nicht nur ein Wort. Bei `'existing'` ist die
+   * Erzeugung im gemessenen Netzbezug bereits enthalten; bei `'planned'` ist sie aus Standort und
+   * Anlagendaten GESCHÄTZT und vom Lastgang abgezogen worden (`run-from-draft.ts`). „bestehend"
+   * über einer geschätzten Wirkung zu schreiben wäre die teuerste Verwechslung dieses Kapitels.
+   *
+   * `undefined` heisst „kein `hasPv`" oder „eine Übergabe aus einer Fassung, die die Stufe noch
+   * nicht führte" — dann gilt `'existing'` (der Zustand, den jeder vor dem 22.09.2026 erfasste
+   * Zählpunkt trägt, s. `DEFAULT_PV_STAGE`).
+   */
+  pvStage?: PvStage
   /**
    * Die erfasste Nennleistung der PV-Anlage in kWp — die SUMME über alle Modulflächen des
    * Zählpunkt-Entwurfs.

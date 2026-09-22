@@ -159,6 +159,9 @@ describe('createReportRenderRequestAction', () => {
        * erreicht und deshalb gar nicht erst bewertet wird.
        */
       hasPv: null,
+      /* Ohne Anlage gibt es keine Stufe — der Report liest `null` wie `existing` und ändert damit
+         kein Wort (`DEFAULT_PV_STAGE`). */
+      pvStage: null,
       /* Ohne erfasste Modulfläche gibt es keine Nennleistung — der Satz der Zusammenfassung steht
          dann ohne Klammerwert (`PdfReportInput.pvPeakPowerKwp`). */
       pvPeakPowerKwp: null,

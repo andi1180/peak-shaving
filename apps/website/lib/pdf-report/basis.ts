@@ -10,6 +10,7 @@ import {
   type LoadProfile,
   type LoadSource,
   type NetzbetreiberId,
+  type PvStage,
   reportSectionEnabled,
   type TariffPriceRange,
   type TariffSourceRef,
@@ -359,9 +360,17 @@ function pvOutageTitle(months: PvOutageMonth[]): string {
 
 export function buildPvOutage(
   hasPv: boolean | undefined,
+  pvStage: PvStage | undefined,
   months: PvOutageMonth[] | undefined,
 ): ReportNotice | null {
   if (hasPv !== true) return null
+  /*
+   * ⚠ EINE GEPLANTE ANLAGE KANN NICHT AUSFALLEN. Der Befund entsteht aus einem fehlenden
+   * Mittagseinbruch im Lastgang — bei einer Anlage, die es im Messzeitraum noch gar nicht gab, ist
+   * genau das der Normalzustand und keine Auffälligkeit. Ihn trotzdem zu melden hiesse, dem Kunden
+   * einen Defekt an einer Anlage zu berichten, die noch nicht steht.
+   */
+  if (pvStage === 'planned') return null
   if (!months || months.length === 0) return null
 
   const plural = months.length > 1
@@ -420,7 +429,7 @@ export function dataQualityNoticeOf(input: PdfReportInput): ReportNotice | null 
 /** Der PV-Befund, wie ihn das Dokument zeigt — Auswahl inbegriffen. S. `dataQualityNoticeOf`. */
 export function pvOutageNoticeOf(input: PdfReportInput): ReportNotice | null {
   if (!reportSectionEnabled(input.optionalSections, 'pv_outage')) return null
-  return buildPvOutage(input.hasPv, input.pvOutageMonths)
+  return buildPvOutage(input.hasPv, input.pvStage, input.pvOutageMonths)
 }
 
 /* ────────────────────────────────────────────────────────────────────────────────────────────────

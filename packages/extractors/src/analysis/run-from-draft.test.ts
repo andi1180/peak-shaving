@@ -231,6 +231,103 @@ describe('runAnalysisFromMeteringPointDraft', () => {
     ).toBe(true)
   })
 
+  it('⚠ zieht sie bei einer GEPLANTEN Anlage ab — dieselbe Antwort, gegensätzliche Rechnung', async () => {
+    /*
+     * ══════════════════════════════════════════════════════════════════════════════════════════
+     * DER FALL, DEN DIE STATION BIS ZUM 22.09.2026 NICHT ERFASSEN KONNTE
+     * ══════════════════════════════════════════════════════════════════════════════════════════
+     * Sie fragte nach einer „bereits errichteten ODER FEST BESTELLTEN" Anlage. Eine bestellte
+     * steckt aber NICHT im Lastgang: ohne Abzug entsteht ihre Wirkung in keiner einzigen Zahl,
+     * und der Report nannte sie trotzdem „bestehend". Der Test misst beide Richtungen desselben
+     * `hasPv: true` gegeneinander.
+     */
+    const ohne = await runAnalysisFromMeteringPointDraft('mp-1', ports())
+    const seriesJson = generatedSeriesJson(ohne.loadProfile.readings.map((r) => r.ts))
+
+    const bestehend = await runAnalysisFromMeteringPointDraft(
+      'mp-1',
+      generatedPorts(seriesJson, { ...GENERATED_DRAFT, hasPv: true, pvStage: 'existing' }),
+    )
+    const geplant = await runAnalysisFromMeteringPointDraft(
+      'mp-1',
+      generatedPorts(seriesJson, { ...GENERATED_DRAFT, hasPv: true, pvStage: 'planned' }),
+    )
+
+    // Bestehend: unverändert der echte Lastgang (das Verhalten aus dem Test darüber).
+    expect(bestehend.loadProfile.pvSource).toBeUndefined()
+    expect(bestehend.loadProfile.readings).toEqual(ohne.loadProfile.readings)
+
+    // Geplant: die Schätzung IST abgezogen — Wert für Wert, nicht nur in der Summe.
+    expect(geplant.loadProfile.pvSource).toBe('estimated')
+    expect(geplant.loadProfile.readings).not.toEqual(ohne.loadProfile.readings)
+    expect(geplant.estimatedPvMetadata).toBeDefined()
+    // Und keine Warnung: hier verpufft nichts, die Reihe wird gerechnet.
+    expect(
+      geplant.result.dataQuality.warnings.some((w) => w.includes('pv_already_in_grid_profile')),
+    ).toBe(false)
+
+    /*
+     * ⚠ DIE SPITZE ÄNDERT SICH HIER BEWUSST NICHT — und das ist kein schwacher Test, sondern die
+     * Physik dieses Fixtures: seine Spitze liegt von 5 bis 8 Uhr, die geschätzte Erzeugung
+     * beginnt um 9. Eine PV-Anlage senkt eine Spitze vor Sonnenaufgang nicht. Wer hier eine
+     * Änderung erzwänge, hätte einen Test, der eine Wirkung behauptet, die es nicht gibt.
+     * Gemessen wird die Wirkung deshalb am ENERGIEBEZUG — und am Leistungswert dort, wo die
+     * Spitze tatsächlich in der Sonne liegt (eigener Test darunter).
+     */
+    expect(geplant.result.current.billedKw).toBe(bestehend.result.current.billedKw)
+    const bezug = (p: typeof ohne.loadProfile) =>
+      p.readings.reduce((sum, r) => sum + Math.max(0, r.gridPowerKw), 0)
+    expect(bezug(geplant.loadProfile)).toBeLessThan(bezug(bestehend.loadProfile))
+  })
+
+  it('⚠ eine GEPLANTE Anlage senkt den abgerechneten Leistungswert, wenn die Spitze in der Sonne liegt', async () => {
+    /*
+     * Der Hotel-Fall in klein: ein tagslastiger Betrieb, dessen Spitze mittags auftritt. Genau
+     * dort greift die geplante Anlage — und genau diese Grösse trägt den Leistungspreis. Der Test
+     * daneben misst dasselbe an einem Profil mit Spitze vor Sonnenaufgang; zusammen sagen die
+     * beiden, dass der Abzug WIRKT und WO er wirkt.
+     */
+    const middayCsv = (() => {
+      const rows: string[] = ['Zeitstempel;Bezug (kW)']
+      for (let i = 0; i < 96; i += 1) {
+        const at = new Date(Date.UTC(2025, 2, 17, 0, 0) + i * 15 * 60_000)
+        const hour = at.getUTCHours()
+        // Mittagsspitze 11–14 Uhr, also mitten im Erzeugungsfenster der Schätzreihe (9–16).
+        rows.push(`${at.toISOString().slice(0, 16)};${hour >= 11 && hour < 14 ? 48 : 9}`)
+      }
+      return rows.join('\n')
+    })()
+
+    const middayPorts = (draft: Record<string, unknown>): Ports => ({
+      readMeteringPoint: async () => ({ draft, sourceDocumentId: 'doc-1' }),
+      readDocument: async (id) =>
+        id === 'pv-gen-1'
+          ? file(seriesForMidday!, 'pv-geschaetzt.json')
+          : file(middayCsv, 'lastgang-2025.csv'),
+    })
+
+    // Erst der ungekoppelte Lauf — seine Zeitstempel sind der Schlüssel der Schätzreihe.
+    let seriesForMidday: string | undefined
+    const roh = await runAnalysisFromMeteringPointDraft('mp-1', {
+      readMeteringPoint: async () => ({ draft: DRAFT, sourceDocumentId: 'doc-1' }),
+      readDocument: async () => file(middayCsv, 'lastgang-2025.csv'),
+    })
+    seriesForMidday = generatedSeriesJson(roh.loadProfile.readings.map((r) => r.ts))
+
+    const bestehend = await runAnalysisFromMeteringPointDraft(
+      'mp-1',
+      middayPorts({ ...GENERATED_DRAFT, hasPv: true, pvStage: 'existing' }),
+    )
+    const geplant = await runAnalysisFromMeteringPointDraft(
+      'mp-1',
+      middayPorts({ ...GENERATED_DRAFT, hasPv: true, pvStage: 'planned' }),
+    )
+
+    // 48 kW Spitze minus 12 kW geschätzte Erzeugung — der Leistungswert fällt messbar.
+    expect(bestehend.result.current.billedKw).toBe(48)
+    expect(geplant.result.current.billedKw).toBe(36)
+  })
+
   it('bricht ab, wenn die abgelegte Reihe zu einem anderen Lastgang gehört', async () => {
     const ohne = await runAnalysisFromMeteringPointDraft('mp-1', ports())
     // Ein um einen Tag verschobener Zeitstempel: positionsweise addiert fiele das nirgends auf.

@@ -173,14 +173,28 @@ export function checkPvGeneratorEligibility(
    * beschafft die Eingabe und gibt die Antwort weiter, mehr nicht.
    */
   /*
-   * ⚠ OHNE `hasExistingPv` — UND DAS IST DIE ABGRENZUNG, NICHT EIN VERGESSENES ARGUMENT.
-   * Diese Datei beantwortet die Frage des Wizards: „darf der Generator ANGEBOTEN werden?" Sie hängt
-   * allein am Lastgang. Ob der Kunde bereits eine Anlage hat, entscheidet nicht über das Angebot,
-   * sondern über den ABZUG — und die Angabe liegt dort vor, wo gerechnet wird (`run-from-draft.ts`,
-   * Nachbesserung B22 vom 19.09.2026). Die geschätzte Reihe entsteht also weiterhin: sie ist die
-   * Eingabe der „ohne PV"-Vergleichsrechnung des PV-Kapitels, die nicht abzieht, sondern addiert.
+   * ══════════════════════════════════════════════════════════════════════════════════════════════
+   * ⚠ OHNE `hasExistingPv` — DIE ASYMMETRIE ZU `run-from-draft.ts` IST GEWOLLT UND GEMESSEN
+   * ══════════════════════════════════════════════════════════════════════════════════════════════
+   * Beide Stellen rufen dieselbe Engine-Funktion, und nur EINE übergibt die Angabe des Kunden. Am
+   * 22.09.2026 war das ausdrücklich zu prüfen; das Ergebnis ist, dass ein Angleichen eine
+   * Verschlechterung wäre. Der Grund liegt darin, dass die zwei Stellen VERSCHIEDENE Fragen
+   * beantworten — und seit der Dreiteilung der PV-Angabe (`PV_STAGES`) sieht man das deutlicher:
    *
-   * Der Grund `pv_already_in_grid_profile` kann hier deshalb nicht entstehen. Er wird trotzdem
+   *   DIESE DATEI: „darf die Schätzreihe ERZEUGT werden?" Sie hängt allein am Lastgang. Bei einer
+   *     BESTEHENDEN Anlage lautet die Antwort weiterhin JA — die Reihe ist die Eingabe der
+   *     „ohne PV"-Vergleichsrechnung des PV-Kapitels, die nicht abzieht, sondern ADDIERT. Würde
+   *     `hasExistingPv` hier durchgereicht, entstünde sie für genau diese Kunden nie mehr, und die
+   *     beiden real erfassten Zählpunkte verlören ihre bereits abgelegte.
+   *   `run-from-draft.ts`: „darf sie vom Lastgang ABGEZOGEN werden?" Nur dort ist die Stufe
+   *     entscheidend — bestehend heisst nein (Doppelzählung), geplant heisst ja.
+   *
+   * ⚠ WAS DARAUS FOLGT UND WAS DIE STATION DESHALB SAGEN MUSS: bei einer BESTEHENDEN Anlage wird
+   * die Schätzung erzeugt und beim Rechnen verworfen. Das ist richtig, aber überraschend — die
+   * PV-Station benennt es deshalb sichtbar, statt es dem Admin als stille Wirkungslosigkeit zu
+   * überlassen (`data-entry-pv.tsx`).
+   *
+   * Der Grund `pv_already_in_grid_profile` kann hier folglich nicht entstehen. Er wird trotzdem
    * behandelt und fällt auf eine Ablehnung zurück statt auf ein Angebot: reicht ihn jemand später
    * hierher durch, ist das Ergebnis fail closed — dieselbe Richtung wie bei den drei
    * Betriebszuständen oben.

@@ -25,6 +25,7 @@ import {
   PV_GENERATED_DRAFT_KEYS,
   PV_GENERATED_PROFILE_SOURCE,
   PV_UPLOAD_DRAFT_KEYS,
+  pvIsInLoadProfile,
   type AnalysisResult,
   type AnalysisWindow,
   type LoadProfile,
@@ -335,11 +336,21 @@ export async function runAnalysisFromMeteringPointDraft(
    * ══════════════════════════════════════════════════════════════════════════════════════════════
    * ⚠ DARF DIE SCHÄTZREIHE ÜBERHAUPT ABGEZOGEN WERDEN? (Nachbesserung B22, 19.09.2026)
    * ══════════════════════════════════════════════════════════════════════════════════════════════
-   * Der Wizard bietet den Generator ausschliesslich bei `hasPv === true` an (`data-entry-pv.tsx`)
-   * — also GENAU dem Kunden, dessen Erzeugung im Netzbetreiber-Lastgang bereits als gesenkter
-   * Bezug steckt. Sie ein zweites Mal abzuziehen war der gemessene Defekt (Begründung und Zahlen
-   * im Kopf von `pvGeneratorEligibility`); der Abzug ersetzte den echten Lastgang für den
-   * Tarifvergleich, den Dispatch und die Hochrechnung gleich mit.
+   * Der Wizard bietet den Generator bei einer angegebenen PV-Anlage an — und die konnte bis zum
+   * 22.09.2026 zweierlei sein, weil die Station wörtlich nach einer „bereits errichteten ODER FEST
+   * BESTELLTEN" fragte. Für DIESE Entscheidung sind das die beiden Gegensätze:
+   *
+   *   BESTEHEND (`pvStage: 'existing'`) — die Erzeugung steckt im Netzbetreiber-Lastgang bereits
+   *     als gesenkter Bezug. Sie ein zweites Mal abzuziehen war der gemessene Defekt (Begründung
+   *     und Zahlen im Kopf von `pvGeneratorEligibility`); der Abzug ersetzte den echten Lastgang
+   *     für den Tarifvergleich, den Dispatch und die Hochrechnung gleich mit.
+   *   GEPLANT (`pvStage: 'planned'`) — sie steckt dort NICHT, und ohne Abzug entsteht die Wirkung
+   *     der Anlage in keiner einzigen Zahl. Der Lauf rechnete dann den Ist-Zustand und nannte ihn
+   *     im Report eine „bestehende" Anlage.
+   *
+   * ⚠ DIE UNTERSCHEIDUNG KOMMT AUS `shared`, NICHT AUS EINEM `=== true` HIER. `pvIsInLoadProfile`
+   * ist die eine Ableitung; die Station liest dieselbe, um dem Admin zu sagen, was mit seiner
+   * Schätzreihe geschieht. Zwei Fassungen liefen still auseinander.
    *
    * ⚠ DIE REGEL WIRD NICHT HIER GETROFFEN. `pvGeneratorEligibility` ist die eine Stelle, an der
    * steht, wann gekoppelt werden darf — dieselbe, die auch den öffentlichen Rechner und die
@@ -350,7 +361,7 @@ export async function runAnalysisFromMeteringPointDraft(
    * immer schon fest (er trägt negative Werte und fiele in `measured_feed_in`).
    */
   const pvCoupling = pvGeneratorEligibility(parsed.profile, {
-    hasExistingPv: point.draft[PV_UPLOAD_DRAFT_KEYS.present] === true,
+    hasExistingPv: pvIsInLoadProfile(point.draft),
   })
 
   /*
@@ -378,9 +389,20 @@ export async function runAnalysisFromMeteringPointDraft(
     generatedSeriesDocumentId !== null && pvCoupling.offered === false
       ? 'Für diesen Zählpunkt liegt eine geschätzte PV-Erzeugungsreihe (PVGIS) vor, sie wurde aber ' +
         `NICHT vom Lastgang abgezogen (${pvCoupling.reason}). Gerechnet ist der echte, gemessene ` +
-        'Netzbezug: bei einer bereits vorhandenen PV-Anlage steckt die Eigenversorgung darin ' +
-        'bereits, ein Abzug zählte dieselbe Energie ein zweites Mal. Die Eigenverbrauchs-Ersparnis ' +
-        'ist damit weiterhin nicht beziffert (§3.1).'
+        'Netzbezug. ' +
+        /*
+         * ⚠ DER GRUND WIRD BENANNT, NICHT EINER ANGENOMMEN. Bis zum 22.09.2026 stand hier in jedem
+         * Fall „bei einer bereits vorhandenen PV-Anlage …" — auch bei `measured_feed_in`, wo die
+         * Einspeisung schlicht gemessen vorliegt. Ein Satz, der die falsche Ursache nennt, schickt
+         * den Admin an die falsche Station.
+         */
+        (pvCoupling.reason === 'pv_already_in_grid_profile'
+          ? 'Die Anlage ist als BESTEHEND erfasst: ihre Eigenversorgung steckt im Lastgang bereits, ' +
+            'ein Abzug zählte dieselbe Energie ein zweites Mal. Ist sie erst geplant, ist das in ' +
+            'der PV-Station zu korrigieren — dann wird die Schätzung gerechnet.'
+          : 'Der Lastgang trägt bereits gemessene Einspeisung; die Eigenverbrauchs-Ersparnis steht ' +
+            'damit gemessen darin und braucht keine Schätzung.') +
+        ' Die Eigenverbrauchs-Ersparnis ist aus der Schätzreihe damit nicht beziffert (§3.1).'
       : null
 
   /*

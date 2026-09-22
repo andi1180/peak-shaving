@@ -17,6 +17,7 @@ import {
   lookupPostalCodeCentroid,
   type CompassDirection,
   type PvDesignArrayPrefill,
+  type PvStage,
 } from 'shared'
 import { readProjectDocument, uploadProjectDocument } from '@/lib/project-documents/documents'
 import { setDraftField } from '@/lib/project-chat/draft'
@@ -35,7 +36,7 @@ import {
   type PvArrayEntry,
 } from './pv-array-draft'
 import { formatKwh, formatPercent } from './format'
-import { PV_DRAFT_KEYS, PV_PRESENT_KEY } from './pv-draft'
+import { PV_DRAFT_KEYS, PV_PRESENT_KEY, PV_STAGE_KEY } from './pv-draft'
 import { combinePvArrayYields, splitPvArrayDesigns } from './pv-estimate'
 import {
   hasPvProfile,
@@ -95,25 +96,52 @@ export async function saveMeteringPointPvChoiceAction(
   const meteringPointId = String(formData.get('meteringPointId') ?? '')
   if (!UUID.test(meteringPointId)) return { formError: GENERIC }
 
+  /*
+   * ══════════════════════════════════════════════════════════════════════════════════════════════
+   * ⚠ DREI ANTWORTEN, NICHT ZWEI — und die dritte ist der Grund dieses Umbaus (22.09.2026)
+   * ══════════════════════════════════════════════════════════════════════════════════════════════
+   * Die Frage lautete „Haben Sie bereits eine PV-Anlage?" und nannte im Hinweistext ausdrücklich
+   * auch die „fest bestellte" Anlage. Für den Rechenlauf sind das gegensätzliche Fälle: die
+   * errichtete steckt im Lastgang schon als gesenkter Bezug, die bestellte nicht. Dieselbe Antwort
+   * löste damit die falsche Behandlung des jeweils anderen Falls aus — Begründung in voller Länge
+   * bei `PV_UPLOAD_DRAFT_KEYS.stage` (`shared`).
+   *
+   * ⚠ `'ja'` BLEIBT GÜLTIG und bedeutet `existing`. Ein Zählpunkt, der vor dieser Änderung
+   * beantwortet wurde, trägt keine Stufe und wird genauso gelesen (`DEFAULT_PV_STAGE`); die alte
+   * Antwort behält also ihre Bedeutung, statt still umgedeutet zu werden.
+   */
   const answer = String(formData.get(PV_PRESENT_KEY) ?? '')
-  if (answer !== 'ja' && answer !== 'nein') {
-    // Erreichbar nur an den zwei Knöpfen vorbei — die schicken feste Werte.
+  if (answer !== 'ja' && answer !== 'geplant' && answer !== 'nein') {
+    // Erreichbar nur an den drei Knöpfen vorbei — die schicken feste Werte.
     return { formError: GENERIC }
   }
-  const has = answer === 'ja'
+  const has = answer !== 'nein'
+  const stage: PvStage = answer === 'geplant' ? 'planned' : 'existing'
 
+  /*
+   * ⚠ BEIDE FELDER IN EINEM SCHREIBVORGANG. Getrennt geschrieben gäbe es einen Zustand, in dem
+   * `hasPv: true` ohne Stufe dasteht — und der wird als `existing` gelesen. Ein abgebrochener
+   * zweiter Schreibvorgang machte aus einer geplanten Anlage also still eine bestehende.
+   */
   const failure = await writeMeteringPointDraftFields(
     projectId,
     meteringPointId,
-    [{ field: PV_PRESENT_KEY, value: has }],
+    has
+      ? [
+          { field: PV_PRESENT_KEY, value: true },
+          { field: PV_STAGE_KEY, value: stage },
+        ]
+      : [{ field: PV_PRESENT_KEY, value: false }],
     'PV-Anlage',
   )
   if (failure) return failure
 
+  if (!has) return { success: 'Vermerkt: Es gibt keine PV-Anlage.' }
   return {
-    success: has
-      ? 'Vermerkt: Es gibt bereits eine PV-Anlage.'
-      : 'Vermerkt: Es gibt keine PV-Anlage.',
+    success:
+      stage === 'existing'
+        ? 'Vermerkt: Die PV-Anlage ist bereits in Betrieb — ihre Erzeugung steckt im Lastgang.'
+        : 'Vermerkt: Die PV-Anlage ist geplant — ihre Wirkung wird für die Analyse geschätzt.',
   }
 }
 

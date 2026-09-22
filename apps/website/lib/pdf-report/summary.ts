@@ -8,6 +8,7 @@ import {
   type BillingModel,
   type EstimatedPvSummary,
   type LoadProfile,
+  type PvStage,
 } from 'shared'
 
 import { LARGE_GAP_SLOTS_THRESHOLD } from '@/lib/constants'
@@ -98,6 +99,8 @@ export type SummaryInput = {
   estimatedPv?: EstimatedPvSummary
   /** `undefined` = die Frage wurde nie beantwortet, und das ist NICHT `false` (s. `types.ts`). */
   hasPv?: boolean
+  /** Bestehend oder geplant — s. `PdfReportInput.pvStage`. Fehlt sie, gilt `'existing'`. */
+  pvStage?: PvStage
   /** Die erfasste Nennleistung der PV-Anlage. `undefined` = nicht erfasst; dann ohne Klammerwert. */
   pvPeakPowerKwp?: number
 }
@@ -324,6 +327,7 @@ export function buildSummaryKpis(analysis: PdfReportAnalysis, ways: SummaryWays)
 function equipmentSentence(
   battery: BatteryCandidate | undefined,
   hasPv: boolean | undefined,
+  pvStage: PvStage | undefined,
   pvPeakPowerKwp: number | undefined,
 ): string {
   const have: string[] = []
@@ -332,20 +336,29 @@ function equipmentSentence(
   if (battery) have.push(`eine Batterie (${formatKwh1(battery.usableCapacityKwh)})`)
   else lack.push('keinen Batteriespeicher')
 
-  if (hasPv === true) {
-    have.push(
-      pvPeakPowerKwp === undefined
-        ? 'eine PV-Anlage'
-        : `eine PV-Anlage (${formatKwp(pvPeakPowerKwp)})`,
-    )
-  } else if (hasPv === false) lack.push('keine PV-Anlage')
+  const pvLabel =
+    pvPeakPowerKwp === undefined ? 'eine PV-Anlage' : `eine PV-Anlage (${formatKwp(pvPeakPowerKwp)})`
 
-  if (have.length > 0 && lack.length > 0) {
-    return `Sie haben bereits ${have.join(' und ')}, aber noch ${lack.join(' und ')}.`
-  }
-  if (have.length > 0) return `Sie haben bereits ${have.join(' und ')}.`
-  if (lack.length === 2) return 'Sie haben bislang weder einen Batteriespeicher noch eine PV-Anlage.'
-  return `Sie haben bislang ${lack[0]}.`
+  /*
+   * ⚠ EINE GEPLANTE ANLAGE GEHÖRT IN KEINE DER BEIDEN LISTEN. „Sie haben bereits" wäre falsch (sie
+   * steht noch nicht), „Sie haben noch keine" ebenso (sie ist bestellt, und die Rechnung darunter
+   * setzt sie bereits voraus). Sie bekommt deshalb einen eigenen Satz, der beides sagt — dass es
+   * sie noch nicht gibt UND dass sie in den Zahlen schon steckt.
+   */
+  const planned = hasPv === true && pvStage === 'planned'
+  if (hasPv === true && !planned) have.push(pvLabel)
+  else if (hasPv === false) lack.push('keine PV-Anlage')
+
+  const base =
+    have.length > 0 && lack.length > 0
+      ? `Sie haben bereits ${have.join(' und ')}, aber noch ${lack.join(' und ')}.`
+      : have.length > 0
+        ? `Sie haben bereits ${have.join(' und ')}.`
+        : lack.length === 2
+          ? 'Sie haben bislang weder einen Batteriespeicher noch eine PV-Anlage.'
+          : `Sie haben bislang ${lack[0]}.`
+
+  return planned ? `${base} ${pvLabel[0]!.toUpperCase()}${pvLabel.slice(1)} ist geplant.` : base
 }
 
 /** Wie der Weg „aWATTar mit Steuerung" heisst — mit Bestandsanlage steuert er IHREN Speicher. */
@@ -424,6 +437,7 @@ export function buildOverview(analysis: PdfReportAnalysis, input: SummaryInput):
   const equipment = equipmentSentence(
     existing?.entry.battery,
     input.hasPv,
+    input.pvStage,
     input.pvPeakPowerKwp,
   )
   const ways = summaryWaysOf(analysis)
@@ -458,8 +472,22 @@ export function buildOverview(analysis: PdfReportAnalysis, input: SummaryInput):
  * zweite Halbsatz kommt nur dazu, wenn es den Befund wirklich gibt; ohne ihn versprächen wir ein
  * Kapitel, in dem nichts steht.
  */
-export function buildPvPointer(hasPv: boolean | undefined): ReportText | null {
+export function buildPvPointer(
+  hasPv: boolean | undefined,
+  pvStage: PvStage | undefined,
+): ReportText | null {
   if (hasPv !== true) return null
+
+  /*
+   * ⚠ ZWEI SÄTZE, WEIL DIE ZAHLEN VERSCHIEDEN ZUSTANDE KOMMEN. Bei einer BESTEHENDEN Anlage steckt
+   * die Erzeugung im gemessenen Netzbezug; bei einer GEPLANTEN ist sie aus Standort und
+   * Anlagendaten geschätzt und vom Lastgang abgezogen worden. Denselben Satz über beide zu
+   * schreiben hiesse, eine Schätzung als Messung auszugeben — und zwar an der Stelle, die die
+   * Lesart ALLER Kostenreihen setzt.
+   */
+  if (pvStage === 'planned') {
+    return t`Ihre geplante PV-Anlage ist in diesen Zahlen bereits berücksichtigt: ihre Erzeugung ist aus Standort und Anlagendaten geschätzt und vom gemessenen Netzbezug abgezogen — sie senkt die Kosten aller Wege gleichermassen, an der Tarifwahl ändert sie nichts.`
+  }
 
   return t`Ihre PV-Anlage ist in diesen Zahlen bereits berücksichtigt: sie senkt Ihren Netzbezug und damit die Kosten aller Wege gleichermassen — an der Tarifwahl ändert sie nichts.${ref(
     block('pv_outage'),
@@ -769,7 +797,7 @@ export function buildReportSummary(
     kpis: ways ? buildSummaryKpis(analysis, ways) : [],
     notices: buildNotices(input),
     overview: buildOverview(analysis, input),
-    pvPointer: buildPvPointer(input.hasPv),
+    pvPointer: buildPvPointer(input.hasPv, input.pvStage),
     /*
      * Ohne einen einzigen durchgerechneten Kandidaten gibt es auch die Zusatzspeicher-Frage nicht.
      * Der Fall entsteht mit dem heutigen Katalog nicht (er ist nie leer); die Seite behandelt ihn
