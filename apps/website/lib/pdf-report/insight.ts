@@ -1,6 +1,6 @@
 import type { BatteryResultEntry, MonthlyChargePrice } from 'shared'
 
-import { formatKwh1 } from '@/lib/format'
+import { formatKwh1, formatKwh1Fixed } from '@/lib/format'
 import type { ReportBuildContext } from './context'
 import type { ReportFigure, ReportRow, ReportStatement } from './statement'
 import { primaryEntryOf } from './summary'
@@ -341,13 +341,13 @@ export function buildChargePrice(
       'Geladen zu',
       summary.chargeCtPerKwh == null
         ? '—'
-        : `${formatCtPerKwh(summary.chargeCtPerKwh)} · ${formatKwh1(summary.chargedKwh)} bezogen`,
+        : `${formatCtPerKwh(summary.chargeCtPerKwh)} · ${formatKwh1Fixed(summary.chargedKwh)} bezogen`,
     ),
     neutralRow(
       'Entladen zu',
       summary.dischargeCtPerKwh == null
         ? '—'
-        : `${formatCtPerKwh(summary.dischargeCtPerKwh)} · ${formatKwh1(summary.dischargedKwh)} abgegeben`,
+        : `${formatCtPerKwh(summary.dischargeCtPerKwh)} · ${formatKwh1Fixed(summary.dischargedKwh)} abgegeben`,
     ),
     neutralRow(
       'Unter dem Monatsdurchschnitt',

@@ -22,6 +22,20 @@ export function formatKwh1(value: number): string {
 }
 
 /**
+ * kWh mit GENAU einer Nachkommastelle — für zwei Mengen, die untereinander stehen und verglichen
+ * werden (geladen/entladen im Ladepreis-Kapitel).
+ *
+ * ⚠ DER UNTERSCHIED ZU `formatKwh1` IST DIE ERZWUNGENE NULL. Dort fällt die Nachkommastelle weg,
+ * sobald der Wert zufällig glatt ist — untereinander gesetzt lasen sich „2.679,6 kWh" und
+ * „2.402 kWh" dann wie zwei verschieden genaue Messungen. Für eine EINZELNE Angabe (Kapazität
+ * eines Speichers) ist die weggelassene Null dagegen richtig; deshalb zwei Funktionen und nicht
+ * eine geänderte.
+ */
+export function formatKwh1Fixed(value: number): string {
+  return `${de({ minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(value)} kWh`
+}
+
+/**
  * kWp mit bis zu einer Nachkommastelle — die Nennleistung einer PV-Anlage (B22b).
  *
  * ⚠ Eine Nachkommastelle ist Pflicht und keine Feinheit: eine Anlage heisst „10,2 kWp", und auf
