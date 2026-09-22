@@ -1,6 +1,7 @@
 import type { LoadProfile, PvProfile, PvValueMonth } from 'shared'
 
 import { utcMsToLocalFields } from '../parser/datetime'
+import { PV_DAY_WINDOW_FROM_HOUR, PV_DAY_WINDOW_TO_HOUR } from '../pv-anomaly'
 
 /**
  * DIE REKONSTRUKTION „OHNE PV" — `Bruttoverbrauch(t) = Netzbezug(t) + Erzeugung(t)`.
@@ -31,6 +32,7 @@ import { utcMsToLocalFields } from '../parser/datetime'
 export type PvMonthRef = { year: number; month: number }
 
 const monthKey = (year: number, month: number): string => `${year}-${month}`
+const dayKey = (year: number, month: number, day: number): string => `${year}-${month}-${day}`
 
 /**
  * Die Erzeugung in den AUSFALLMONATEN auf 0 setzen.
@@ -130,4 +132,86 @@ export function monthlyPvGeneration(
         outage,
       }
     })
+}
+
+/**
+ * Die Schwelle, unter der ein EINZELNER Tag als „kein Mittagsbedarf" gilt, in kWh im Tagfenster.
+ *
+ * `[ANNAHME]` — eine Kilowattstunde über sechs Stunden, also 0,167 kW Durchschnittslast. Bewusst
+ * unterhalb einer typischen Standby-Grundlast gewählt: darunter gab es im ganzen Mittagsfenster
+ * keinen Bedarf, den eine Anlage hätte decken können.
+ */
+export const PV_DAY_MIN_DEMAND_KWH = 1
+
+/**
+ * Die Erzeugung an EINZELNEN TAGEN ohne Mittagsbedarf auf 0 setzen — die Tagesvariante der
+ * Ausfallmonate.
+ *
+ * Dieselbe Begründung wie bei `zeroPvOutageMonths`, nur eine Ebene feiner: liegt der gemessene
+ * Netzbezug im Tagfenster unter `PV_DAY_MIN_DEMAND_KWH`, war an diesem Tag erkennbar nichts da, was
+ * die Anlage hätte decken können — eine angesetzte Erzeugung wäre dort eine Behauptung. Die URSACHE
+ * bleibt ausdrücklich offen (Ausfall, Abwesenheit, hohe Eigendeckung); gemessen wird allein, dass
+ * kein Bedarf vorlag.
+ *
+ * ⚠ GENULLT WIRD DER GANZE TAG, nicht nur das Fenster: das Fenster ist das Kriterium, nicht der
+ * Wirkungsbereich. Eine am Morgen und Abend stehengelassene Erzeugung ergäbe einen Tag, an dem die
+ * Anlage nur in den Randstunden geliefert hätte.
+ *
+ * ⚠ EIN TAG OHNE MESSWERTE IM FENSTER WIRD NICHT BEURTEILT und behält seine Erzeugung — dieselbe
+ * Zurückhaltung wie `PV_OUTAGE_MIN_DAYS_PER_MONTH` auf Monatsebene. Eine Summe von 0 kWh aus null
+ * Messwerten ist keine Beobachtung, sondern eine fehlende.
+ */
+export function zeroPvDaysWithoutMiddayDemand(load: LoadProfile, pv: PvProfile): PvProfile {
+  const tz = load.timezoneMeta
+  const deltaHours = load.intervalMinutes / 60
+
+  const tallies = new Map<string, number>()
+  for (const reading of load.readings) {
+    const ms = Date.parse(reading.ts)
+    if (!Number.isFinite(ms)) continue
+    const { year, month, day, hour } = utcMsToLocalFields(ms, tz)
+    /* Halboffen wie in `detectPvOutageMonths` — 16:00 gehört nicht mehr dazu. */
+    if (hour < PV_DAY_WINDOW_FROM_HOUR || hour >= PV_DAY_WINDOW_TO_HOUR) continue
+    const key = dayKey(year, month, day)
+    tallies.set(key, (tallies.get(key) ?? 0) + reading.gridPowerKw * deltaHours)
+  }
+
+  const blocked = new Set<string>()
+  for (const [key, kwh] of tallies) {
+    if (kwh < PV_DAY_MIN_DEMAND_KWH) blocked.add(key)
+  }
+  if (blocked.size === 0) return pv
+
+  return {
+    readings: pv.readings.map((reading) => {
+      const ms = Date.parse(reading.ts)
+      if (!Number.isFinite(ms)) return reading
+      const { year, month, day } = utcMsToLocalFields(ms, tz)
+      return blocked.has(dayKey(year, month, day))
+        ? { ts: reading.ts, pvGenerationKw: 0 }
+        : reading
+    }),
+  }
+}
+
+/**
+ * DER EINZIGE EINSTIEG FÜR DIE REKONSTRUKTION: Ausfallmonate UND Tage ohne Mittagsbedarf nullen.
+ *
+ * ⚠ BEIDE SCHRITTE IN EINER FUNKTION, damit keiner von beiden vergessen werden kann. Die Nullung
+ * ist der erste Schritt und keine Korrektur hinterher (s. `zeroPvOutageMonths`); zwei Aufrufe
+ * nebeneinander im Aufrufer wären zwei Gelegenheiten, einen davon auszulassen.
+ *
+ * Die Monatsebene läuft zuerst — sie nimmt ganze Monate heraus, und was danach noch übrig ist,
+ * prüft die Tagesebene. Die Reihenfolge ist für das Ergebnis gleichgültig, in dieser Richtung ist
+ * aber weniger zu prüfen.
+ */
+export function zeroPvWhereNoDemand(
+  load: LoadProfile,
+  pv: PvProfile,
+  outageMonths: readonly PvMonthRef[],
+): PvProfile {
+  return zeroPvDaysWithoutMiddayDemand(
+    load,
+    zeroPvOutageMonths(pv, outageMonths, load.timezoneMeta),
+  )
 }

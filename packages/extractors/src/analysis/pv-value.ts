@@ -3,7 +3,7 @@ import {
   buildMonthlyTariffComparison,
   buildSyntheticYearProfile,
   monthlyPvGeneration,
-  zeroPvOutageMonths,
+  zeroPvWhereNoDemand,
   type CalculatorPayload,
   type PvMonthRef,
 } from 'engine'
@@ -74,7 +74,8 @@ export type PvValueOptions = {
  * Das PV-Kapitel bauen — oder `null`, wenn es nichts zu zeigen gibt.
  *
  * ── DER ABLAUF ────────────────────────────────────────────────────────────────────────────────
- *  1. Ausfallmonate in der Erzeugungsreihe auf 0 setzen (EINMAL, s. `zeroPvOutageMonths`).
+ *  1. Ausfallmonate UND Tage ohne Mittagsbedarf in der Erzeugungsreihe auf 0 setzen (EINMAL, s.
+ *     `zeroPvWhereNoDemand`).
  *  2. Rekonstruierter Lastgang = gemessener Netzbezug + bereinigte Erzeugung.
  *  3. Kosten beider Seiten über den gemessenen Zeitraum.
  *  4. Dasselbe Paar über das Jahresfenster — beide Seiten aus DEMSELBEN synthetischen Jahreslauf.
@@ -89,7 +90,7 @@ export async function buildPvValueScenario(
   if (pricing === undefined) return null
   if (measuredLoad.readings.length === 0) return null
 
-  const generation = zeroPvOutageMonths(pvGross, outageMonths, measuredLoad.timezoneMeta)
+  const generation = zeroPvWhereNoDemand(measuredLoad, pvGross, outageMonths)
   const reconstructed = addPvToGridDraw(measuredLoad, generation)
 
   const withoutPvEur = currentTariffCostEur(reconstructed, payload, pricing)
