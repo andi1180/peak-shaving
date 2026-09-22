@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import type { PvOutageMonth } from 'engine'
-import type { LoadProfile, NetzbetreiberId, TariffSourceRef } from 'shared'
+import type {
+  LoadProfile,
+  NetzbetreiberId,
+  PvValueScenario,
+  TariffSourceRef,
+} from 'shared'
 
 import { buildBasisChapter, DATA_SOURCES_TABLE_ID } from './basis'
 import { SECTION_ID } from './content'
@@ -144,13 +149,18 @@ const OUTAGE_MONTHS: PvOutageMonth[] = [
   { year: 2025, month: 3, daysWithDayWindowData: 31, minDayWindowKw: 18.4 },
 ]
 
-function pvChapterFor(hasPv: boolean | undefined, pvOutageMonths: PvOutageMonth[] | undefined) {
+function pvChapterFor(
+  hasPv: boolean | undefined,
+  pvOutageMonths: PvOutageMonth[] | undefined,
+  /** Gibt es das Kapitel „Ihre PV-Anlage"? Es hängt allein an `analysis.pvValue`. */
+  pvValue?: PvValueScenario,
+) {
   const input: PdfReportInput = {
     title: 'Wirtschaftlichkeitsanalyse Batteriespeicher',
     subtitle: 'Auf Basis Ihres Viertelstunden-Lastgangs',
     period: '01.01.2025 – 31.12.2025',
     printedAt: '17.09.2026',
-    analysis: ANALYSIS,
+    analysis: pvValue ? { ...ANALYSIS, pvValue } : ANALYSIS,
     loadProfile: LOAD_PROFILE,
     tariffSource: TARIFF_SOURCE_UNTRACKED,
     tariffVintage: null,
@@ -158,6 +168,15 @@ function pvChapterFor(hasPv: boolean | undefined, pvOutageMonths: PvOutageMonth[
     pvOutageMonths,
   }
   return buildBasisChapter(input)
+}
+
+/** Ein PV-Kapitel, das es gibt — gelesen wird davon hier nur, DASS es da ist. */
+const PV_VALUE: PvValueScenario = {
+  coveredDays: 209,
+  measured: { withPvEur: 1000, withoutPvEur: 1654, valueEur: 654 },
+  annual: null,
+  months: [{ year: 2025, month: 2, selfConsumptionKwh: null, outage: true }],
+  estimatedGenerationKwh: 5212.67,
 }
 
 describe('buildBasisChapter — Monate ohne erkennbaren PV-Beitrag (D5)', () => {
@@ -168,6 +187,27 @@ describe('buildBasisChapter — Monate ohne erkennbaren PV-Beitrag (D5)', () => 
     expect(pvOutage?.list?.items).toEqual(['Februar 2025', 'März 2025'])
     // Beobachtung über den Zeitraum — ausdrücklich keine Aussage über die Anlage von heute.
     expect(pvOutage?.hints.join(' ')).toContain('keine Aussage über den heutigen Zustand')
+  })
+
+  /**
+   * ⚠ MIT DEM PV-KAPITEL BLEIBT HIER DIE BEOBACHTUNG, NICHT IHRE DEUTUNG.
+   *
+   * Beides nebeneinander wäre derselbe Befund in zwei Ausführlichkeiten. Die betroffenen Monate
+   * bleiben, weil sie die Angabe zur Datengrundlage SIND; die Einordnung wandert ins Kapitel, und
+   * der Hinweis nennt es beim Namen.
+   */
+  it('kürzt sich auf einen Zeiger, sobald es das Kapitel „Ihre PV-Anlage" gibt', () => {
+    const { pvOutage } = pvChapterFor(true, OUTAGE_MONTHS, PV_VALUE)
+
+    expect(pvOutage?.id).toBe('pv_outage')
+    expect(pvOutage?.body).toContain('steht im Kapitel „Ihre PV-Anlage"')
+    /* Die Deutung ist WEG — sie steht jetzt genau einmal, im Kapitel. */
+    expect(pvOutage?.hints).toEqual([])
+    expect(pvOutage?.body).not.toContain('Verschattung')
+    /* Die Monate bleiben: ohne sie wäre der Zeiger ein Verweis ohne Gegenstand. */
+    expect(pvOutage?.list?.items).toEqual(['Februar 2025', 'März 2025'])
+    /* Und der Titel ist derselbe wie ohne Kapitel — der Methodik-Absatz verlangt Gleichnamigkeit. */
+    expect(pvOutage?.title).toBe(pvChapterFor(true, OUTAGE_MONTHS).pvOutage?.title)
   })
 
   it('schweigt ohne PV-Angabe und ohne erkannte Monate', () => {

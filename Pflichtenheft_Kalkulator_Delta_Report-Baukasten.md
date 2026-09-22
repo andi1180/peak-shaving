@@ -202,10 +202,24 @@ nicht zweitausgerechnet; ohne Jahres-Szenario entfällt die Hochrechnung, es wir
 gehoben und steckt in den Ist-Kosten. In der Spanne stünde sie als etwas, das man noch bekommt.
 `summary.ts` liest `pvValue` nirgends.
 
+**Nachtrag (22.09.2026) — der Befund steht genau einmal ausführlich.** Solange beide Stellen die
+volle Erklärung trugen, stand derselbe Befund in zwei Ausführlichkeiten und der Leser musste raten,
+welche gilt. Mit dem Kapitel zeigt der Satz der Zusammenfassung jetzt dorthin, und der Hinweis in
+„Annahmen und Datengrundlage" kürzt sich auf das, wofür jenes Kapitel da ist: WELCHE Monate
+betroffen sind, plus einen Zeiger. **Ohne das PV-Kapitel bleibt beides wortgleich wie zuvor** — dort
+ist der Hinweis weiterhin die einzige Stelle. Der Methodik-Absatz `method_pv_outage` ist unberührt:
+er erklärt, WIE gemessen wird, und das gehört in beiden Fällen ins Methodik-Kapitel.
+
+⚠ Dafür ist `pv_value_finding` als **26.** Baustein in die Registry gewandert. Ein Verweis kann nur
+auf einen Katalog-Eintrag auflösen; ohne ihn fiele der Satz stillschweigend auf seine leere Fassung
+(`WAYS_SECTION` benennt genau diese Bedingung). Die übrigen Absätze des Kapitels bleiben draussen —
+sie werden von nirgends adressiert. ⚠ Und der Halbsatz hängt weiterhin am BEFUND und nicht am
+Kapitel: ohne auffälligen Monat gibt es das Kapitel sehr wohl, den Satz aber nicht.
+
 **Gemessen:** gegen synthetische Lastgänge (Engine- und Extractor-Tests, absolute Kostenwerte von
-Hand nachgerechnet) und an einem gerenderten PDF (16 statt 15 Seiten, Kapitel gelesen); die
-Chart-Komponente über einen esbuild+jsdom-Harness im Scratchpad. **Nicht gegen den Urbanz-Fall über
-den Produktionspfad** — s. Regel 11.
+Hand nachgerechnet) und an einem gerenderten PDF (16 statt 15 Seiten, Kapitel gelesen, beide
+Verweis-Fassungen nebeneinander); die Chart-Komponente über einen esbuild+jsdom-Harness im
+Scratchpad. **Nicht gegen den Urbanz-Fall über den Produktionspfad** — s. Regel 11.
 
 ---
 

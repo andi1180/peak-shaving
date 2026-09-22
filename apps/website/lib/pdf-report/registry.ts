@@ -26,6 +26,7 @@ import type { ReportBuildContext } from './context'
 import { buildMonthly, buildMonthlyChapter } from './detail'
 import { buildChargePrice, buildHourFlow } from './insight'
 import { buildLoadControl, buildRecommendation } from './recommendation'
+import { buildPvValueChapter } from './pv-value'
 import type { ReportNotice, ReportStatement, ReportTable } from './statement'
 import {
   buildAddon,
@@ -37,7 +38,7 @@ import {
 import type { PdfReportInput } from './types'
 
 /**
- * Report-Baukasten B2 — der KATALOG: alle 25 Bausteine eines Reports, über ihre stabile `id`
+ * Report-Baukasten B2 — der KATALOG: alle 26 Bausteine eines Reports, über ihre stabile `id`
  * ansprechbar.
  *
  * ══════════════════════════════════════════════════════════════════════════════════════════════
@@ -52,17 +53,17 @@ import type { PdfReportInput } from './types'
  *
  * ── ⚠ EINE DÜNNE HÜLLE, KEINE ZWEITE ABLEITUNG ────────────────────────────────────────────────
  * Jedes `build()` ruft GENAU den Erzeuger auf, den die zugehörige Kapitel-Fassade heute aufruft,
- * mit genau den Werten, die sie ihm heute gibt. Keine der 25 Signaturen ist angefasst; hinzugekommen
+ * mit genau den Werten, die sie ihm heute gibt. Keine der 26 Signaturen ist angefasst; hinzugekommen
  * ist ausschliesslich das Schlüsselwort `export` und — in `comparison.ts` — die herausgezogene
  * Auswahl `comparisonSelection`, damit die Schwelle `netSavingOverHorizon > 0` nicht zweimal
  * dasteht. Wo hier eine Bedingung steht, ist sie die der Fassade und nicht eine neue.
  *
  * ── ⚠ EIGNUNG BLEIBT AM ERZEUGER: `build()` LIEFERT `null` ────────────────────────────────────
  * Es gibt bewusst KEINE vorgelagerte Prüfung „ist dieser Baustein für diesen Fall zulässig". Für
- * 22 der 25 Bausteine existiert ein solches Prädikat nirgends — die Bedingung lebt als frühes
+ * 22 der 26 Bausteine existiert ein solches Prädikat nirgends — die Bedingung lebt als frühes
  * `return null` im Erzeuger, und `basis.ts` benennt das ausdrücklich als Regel („am HINWEIS
  * gemessen, nicht an seinen Vorbedingungen: eine Bedingung, ein Ort"). Sie zu verdoppeln hiesse,
- * 25 Bedingungen an zwei Orten zu führen, von denen der nächste Umbau einen anfasst. Eine
+ * 26 Bedingungen an zwei Orten zu führen, von denen der nächste Umbau einen anfasst. Eine
  * content-lose Eignungs-Schicht ist erst nötig, wenn eine KI VOR der Erzeugung auswählen soll;
  * für die geplante manuelle Admin-Auswahl ist „erzeugen und `null` heisst: gibt es nicht" genau
  * richtig.
@@ -88,7 +89,7 @@ import type { PdfReportInput } from './types'
 export type ReportBaukastenForm = 'statement' | 'notice' | 'table' | 'method'
 
 /**
- * Die 25 stabilen Kennungen.
+ * Die 26 stabilen Kennungen.
  *
  * ⚠ EIN LITERAL-UNION UND KEIN `string` — dieselbe Überlegung wie bei `SummaryStatement['id']`
  * (`summary.ts`): ein Tippfehler in einer Kennung ist damit ein Compile-Fehler und nicht ein
@@ -112,6 +113,8 @@ export type ReportBaukastenId =
   /* Kapitel 2 — Empfehlung und Wirtschaftlichkeit */
   | 'recommendation'
   | 'load_control'
+  /* Kapitel „Ihre PV-Anlage" */
+  | 'pv_value_finding'
   /* Kapitel 3 oder 4 — der Monatsvergleich (ein Erzeuger, zwei Orte) */
   | 'monthly_comparison'
   /* Kapitel 5 — Ladeverhalten */
@@ -173,7 +176,7 @@ export type ReportBaukastenEntry =
 
 export type ReportBaukastenRegistry = {
   /**
-   * Alle 25 Einträge, in Kapitel- und Leserichtung.
+   * Alle 26 Einträge, in Kapitel- und Leserichtung.
    *
    * ⚠ Stufe D LIEST diese Reihenfolge als die Leseordnung des Dokuments (`layout.ts`) — bis dahin
    * war sie eine Ordnungshilfe. Sie muss deshalb der Folge im JSX entsprechen; `limitations` stand
@@ -197,6 +200,7 @@ const SECTION_OF: Record<ReportBaukastenId, ReportSectionKey> = {
   estimated_pv: SECTION_ID.results,
   partial_year: SECTION_ID.results,
   large_gap: SECTION_ID.results,
+  pv_value_finding: SECTION_ID.pvValue,
   recommendation: SECTION_ID.recommendation,
   load_control: SECTION_ID.recommendation,
   monthly_comparison: SECTION_ID.detail,
@@ -290,6 +294,22 @@ export function buildReportRegistry(
     notice('partial_year', () => buildPartialYearNotice(analysis)),
     notice('large_gap', () => buildLargeGapNotice(analysis)),
     statement('addon', () => (entry ? buildAddon(analysis) : null)),
+
+    /*
+     * ── Kapitel „Ihre PV-Anlage" ──────────────────────────────────────────────────────────────
+     *
+     * ⚠ DER EINZIGE BAUSTEIN DIESES KAPITELS, UND ER IST HIER, WEIL EIN FREMDER SATZ AUF IHN
+     * ZEIGT. Die Zusammenfassung verweist auf den PV-Befund; solange kein Baustein des Kapitels
+     * im Katalog stand, konnte der Verweis dorthin gar nicht auflösen (`WAYS_SECTION` benennt
+     * genau diese Bedingung). Die übrigen Absätze des Kapitels bleiben bewusst draussen — sie
+     * werden von nirgends adressiert, und ein Katalog-Eintrag für sie wäre eine Auswahl-Zusage,
+     * die die Seite nicht einlöst (dieselbe Grenze wie bei den Textblöcken der Zusammenfassung).
+     *
+     * ⚠ ER HÄNGT AM BEFUND UND NICHT AM KAPITEL. Ohne auffälligen Monat gibt es das Kapitel sehr
+     * wohl, diesen Absatz aber nicht — und der Satz in der Zusammenfassung, der einen „Befund"
+     * ankündigt, muss dann ebenfalls entfallen.
+     */
+    statement('pv_value_finding', () => pvValueFinding()),
 
     /*
      * ── Kapitel 2 ─────────────────────────────────────────────────────────────────────────────
@@ -407,6 +427,17 @@ export function buildReportRegistry(
     notice('limitations', () => buildLimitations(analysis)),
   ]
 
+  /**
+   * Der Befund-Absatz des PV-Kapitels — `null`, wenn es das Kapitel nicht gibt ODER es keinen
+   * auffälligen Monat führt. Herausgegriffen über die Kennung und nicht über den Index: eine
+   * andere Reihenfolge im Erzeuger bliebe sonst unbemerkt (wie bei den Tarif-Absätzen unten).
+   */
+  function pvValueFinding(): ReportStatement | null {
+    return (
+      buildPvValueChapter(analysis)?.statements.find((s) => s.id === 'pv_value_finding') ?? null
+    )
+  }
+
   function tariffMethodItemById(id: string): BasisMethodItem | null {
     if (analysis.tariffOptimization?.computable !== true) return null
     return tariffMethodItems().find((item) => item.id === id) ?? null
@@ -425,7 +456,7 @@ export function buildReportRegistry(
 }
 
 /**
- * Die 25 Kennungen als Laufzeitliste.
+ * Die 26 Kennungen als Laufzeitliste.
  *
  * ⚠ Sie steht hier und nicht in der Registry: ein Prüflauf, der die Vollständigkeit der Registry
  * aus der Registry selbst läse, prüfte sie gegen sich. Der Typ `ReportBaukastenId` und diese Liste
@@ -439,6 +470,7 @@ export const REPORT_BAUKASTEN_IDS = [
   'large_gap',
   'recommendation',
   'load_control',
+  'pv_value_finding',
   'monthly_comparison',
   'hour_flow',
   'charge_price',

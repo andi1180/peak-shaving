@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { BatteryRoiEntry, MonthlyTariffComparison } from 'shared'
+import type { BatteryRoiEntry, MonthlyTariffComparison, PvValueScenario } from 'shared'
 
 import { buildAssumptions, TARIFF_COMPONENTS_TABLE_ID } from './basis'
 import { buildComparisonChapter, CANDIDATE_TABLE_ID } from './comparison'
@@ -15,6 +15,7 @@ import {
   row,
   t,
   type ReportLayout,
+  type ReportText,
 } from './report-text'
 import { statementTexts, type ReportStatement, type ReportTable } from './statement'
 import { buildReportSummary, type ReportSummary } from './summary'
@@ -92,6 +93,15 @@ const COMPARISON: MonthlyTariffComparison = {
     awattarFeeEurPerMonth: 4.79,
     coveredDays: 31,
   },
+}
+
+/** Ein PV-Kapitel, das es gibt — gelesen wird davon hier nur, DASS es da ist. */
+const PV_VALUE: PvValueScenario = {
+  coveredDays: 209,
+  measured: { withPvEur: 1000, withoutPvEur: 1654, valueEur: 654 },
+  annual: null,
+  months: [{ year: 2026, month: 2, selfConsumptionKwh: null, outage: true }],
+  estimatedGenerationKwh: 5212.67,
 }
 
 function analysisFor(withExisting: boolean): PdfReportAnalysis {
@@ -255,6 +265,56 @@ describe('Zusammenfassung — Fliesstext und PV-Satz', () => {
       buildReportSummary({ analysis: analysisFor(true), loadProfile: { source: 'net_signed' } })
         .pvPointer,
     ).toBeNull()
+  })
+
+  /**
+   * ⚠ DERSELBE SATZ, ZWEI ZIELE — und der Unterschied ist das einzige, was hier gemessen wird.
+   *
+   * Gibt es das Kapitel „Ihre PV-Anlage", steht der Befund dort (samt Zahl und Einordnung); sonst
+   * bleibt der Hinweis im Schlusskapitel die einzige Stelle. Beide Fassungen müssen ihr Ziel beim
+   * NAMEN nennen — eine Richtungsangabe („weiter unten") wäre hier falsch, weil Ursprung und Ziel
+   * in verschiedenen Kapiteln liegen.
+   */
+  it('PV-Satz: mit PV-Kapitel zeigt er dorthin, ohne es auf das Schlusskapitel', () => {
+    const PLACEMENTS: ReportPlacement[] = [
+      ...BASIS_PLACEMENTS,
+      {
+        id: 'pv_value_finding',
+        section: SECTION_ID.pvValue,
+        title: 'Was Ihr Lastgang über Ihre Anlage zeigt',
+        amount: null,
+        rows: {},
+      },
+    ]
+
+    const mitKapitel = buildReportSummary({
+      analysis: { ...analysisFor(true), pvValue: PV_VALUE },
+      loadProfile: { source: 'net_signed' },
+      hasPv: true,
+    })
+    const ohneKapitel = buildReportSummary({
+      analysis: analysisFor(true),
+      loadProfile: { source: 'net_signed' },
+      hasPv: true,
+    })
+
+    const textOf = (summary: { pvPointer: ReportText | null }) =>
+      resolveReportText(summary.pvPointer ?? '', reportLayoutOf(PLACEMENTS), 'pv_pointer')
+
+    expect(textOf(mitKapitel)).toContain('er steht im Kapitel „Ihre PV-Anlage".')
+    expect(textOf(ohneKapitel)).toContain('er steht im Kapitel „Annahmen und Datengrundlage".')
+
+    /*
+     * ⚠ Und der Halbsatz hängt weiterhin am BEFUND, nicht am Kapitel: steht der Absatz nicht im
+     * Dokument (kein auffälliger Monat), fällt er samt Verweis weg — sonst kündigte die
+     * Zusammenfassung einen Befund an, den niemand findet.
+     */
+    const ohneBefund = resolveReportText(
+      mitKapitel.pvPointer ?? '',
+      reportLayoutOf([]),
+      'pv_pointer',
+    )
+    expect(ohneBefund).not.toContain('Befund')
   })
 })
 
