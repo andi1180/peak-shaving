@@ -132,8 +132,22 @@ type DatedEntry = { validFrom: string; validUntil: string | null; sourceNote: st
  * ⚠ Der Satz für 2026 ist BEFRISTET. Ab 2027 steht hier nichts, und das ist die richtige Aussage:
  * ob die Absenkung verlängert wird, entscheidet der Gesetzgeber. Ein fortgeschriebener Satz sähe
  * aus wie eine Angabe.
+ *
+ * ⚠ Der Abstand zwischen 2025 und 2026 ist KEIN Tippfehler: 1,5 ct/kWh gegen 0,10 ct/kWh, also der
+ * Faktor 15. 2026 gilt die abgesenkte Fassung, 2025 der Regelsatz.
  */
 const ELEKTRIZITAETSABGABE: (DatedEntry & { ctPerKwh: number })[] = [
+  {
+    validFrom: '2025-01-01',
+    validUntil: '2025-12-31',
+    ctPerKwh: 1.5,
+    sourceNote:
+      'Elektrizitätsabgabe 1,50 ct/kWh netto für das Kalenderjahr 2025 ' +
+      '(Elektrizitätsabgabegesetz, Fassung vor BGBl. I Nr. 95/2025). Quelle: Wiener Netze, ' +
+      '„Steuern und Abgaben für Netzleistungen" (wn-ex0106) — „Im Zeitraum von 1.1.2025 bis ' +
+      '31.12.2025 betrug die Abgabe 1,5 Cent pro Kilowattstunde." Im Repo festgehalten am ' +
+      '22.09.2026.',
+  },
   {
     validFrom: '2026-01-01',
     validUntil: '2026-12-31',
@@ -278,6 +292,16 @@ const EAG_FOERDERBEITRAG: Record<string, FoerderbeitragEntry[]> = {
  */
 const GEBRAUCHSABGABE_BY_OPERATOR: Record<string, (DatedEntry & { rate: number })[]> = {
   wiener_netze: [
+    {
+      validFrom: '2025-01-01',
+      validUntil: '2025-12-31',
+      rate: 0.06,
+      sourceNote:
+        'Gebrauchsabgabe Wien 6 % vom Netto-Netzpreis im Kalenderjahr 2025. Quelle: Wiener Netze, ' +
+        '„Steuern und Abgaben für Netzleistungen" (wn-ex0106) — „Für KundInnen aus Wien beträgt ' +
+        'die Abgabe 6 % vom Netto-Netzpreis"; die Fassungen 2024 und 2026 stimmen für diesen ' +
+        'Zeitraum überein. Im Repo festgehalten am 22.09.2026.',
+    },
     {
       validFrom: '2026-01-01',
       validUntil: '2026-02-28',
