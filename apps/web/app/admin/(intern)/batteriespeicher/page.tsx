@@ -6,6 +6,8 @@ import { ActionButton } from '@/components/admin/action-button'
 import { CreateBatteryForm } from '@/components/admin/battery-catalog-form'
 import { deleteBatteryAction, setBatteryActiveAction } from '@/lib/admin/battery-catalog-actions'
 import { listBatteries } from '@/lib/admin/battery-catalog-data'
+import { listCostComponents } from '@/lib/admin/cost-components-data'
+import { COST_COMPONENTS_HREF } from '@/lib/admin/cost-components'
 import {
   BATTERY_CATALOG_HREF,
   BATTERY_KATEGORIEN,
@@ -155,6 +157,7 @@ export default async function AdminBatteryCatalogPage({
   const params = await searchParams
   const filters = readFilters(params)
   const { rows, failed } = await listBatteries(filters)
+  const { rows: components } = await listCostComponents()
 
   const activeCount = rows.filter((r) => r.active).length
 
@@ -166,7 +169,13 @@ export default async function AdminBatteryCatalogPage({
           Der Gerätekatalog des Kalkulators: Kenndaten und Netto-Listenpreise der Speicher, aus
           denen die Empfehlung gewählt wird. Ein neues Gerät ist zuerst ein Entwurf — der Rechner
           sieht es erst, wenn alle Kenndaten stehen und es ausdrücklich freigegeben wurde. Der
-          Einkaufspreis liegt getrennt und verlässt den Admin-Bereich nicht.
+          Einkaufspreis liegt getrennt und verlässt den Admin-Bereich nicht. Fundament- und
+          Installationskosten stehen als{' '}
+          <a href={COST_COMPONENTS_HREF} className="underline underline-offset-2">
+            Kostenbausteine
+          </a>{' '}
+          daneben — ein fundamentpflichtiges Gerät braucht zur Freigabe einen Fundament-Baustein
+          mit Preis.
         </p>
       </header>
 
@@ -176,7 +185,7 @@ export default async function AdminBatteryCatalogPage({
         description="Hersteller, Bezeichnung und Kategorie genügen für den Anfang. Kenndaten und Preise lassen sich jederzeit nachtragen."
       >
         <AdminPanel>
-          <CreateBatteryForm />
+          <CreateBatteryForm components={components} />
         </AdminPanel>
       </AdminSection>
 

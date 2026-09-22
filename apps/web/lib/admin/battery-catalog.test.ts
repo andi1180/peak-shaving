@@ -23,8 +23,8 @@ const BASE: BatteryCatalogRow = {
   inverter_included: true,
   extra_inverter_cost_net: null,
   requires_foundation: false,
-  foundation_cost_net: null,
-  installation_cost_net: null,
+  foundation_component_id: null,
+  installation_component_id: null,
   price_as_of: null,
   source_url: null,
   datasheet_url: null,
@@ -35,6 +35,10 @@ const BASE: BatteryCatalogRow = {
   updated_at: '2026-09-22T00:00:00Z',
   purchase_price_net: null,
   purchase_price_as_of: null,
+  foundation_component_label: null,
+  foundation_component_price_net: null,
+  installation_component_label: null,
+  installation_component_price_net: null,
 }
 
 describe('missingEngineFields', () => {
@@ -45,7 +49,32 @@ describe('missingEngineFields', () => {
   it('macht die zwei Zuschläge nur dort zur Pflicht, wo sie in die Investition eingehen', () => {
     expect(
       missingEngineFields({ ...BASE, inverter_included: false, requires_foundation: true }),
-    ).toEqual(['extra_inverter_cost_net', 'foundation_cost_net'])
+    ).toEqual(['extra_inverter_cost_net', 'foundation_component_id'])
+  })
+
+  // K1b: aus einem Betrag sind zwei Zustände geworden, und sie verlangen verschiedene Handgriffe
+  // an verschiedenen Stellen — zugeordnet-aber-unbepreist darf nicht wie gar-nicht-zugeordnet
+  // aussehen, sonst schickt die Meldung jemanden ins falsche Formular.
+  it('unterscheidet den fehlenden Baustein vom Baustein ohne Preis', () => {
+    expect(missingEngineFields({ ...BASE, requires_foundation: true })).toEqual([
+      'foundation_component_id',
+    ])
+    expect(
+      missingEngineFields({
+        ...BASE,
+        requires_foundation: true,
+        foundation_component_id: 'b1e1…',
+        foundation_component_price_net: null,
+      }),
+    ).toEqual(['foundation_component_price_net'])
+    expect(
+      missingEngineFields({
+        ...BASE,
+        requires_foundation: true,
+        foundation_component_id: 'b1e1…',
+        foundation_component_price_net: 4200,
+      }),
+    ).toEqual([])
   })
 
   it('unterscheidet „nicht angegeben" von „nein" — null verlangt keinen Zuschlag', () => {

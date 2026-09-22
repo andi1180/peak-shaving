@@ -43,6 +43,24 @@ function optionalText(max = 2000) {
  * deutschsprachig, und „0,9" in ein Feld zu tippen, das still `NaN` daraus macht, wäre die
  * gefährlichste Art, einen Wirkungsgrad zu verlieren.
  */
+/**
+ * Eine optionale Kennung aus einem Auswahlfeld. Leer ⇒ `undefined` (= keine Zuordnung).
+ *
+ * Geprüft wird die FORM, nicht die Existenz: ob es den Baustein gibt und ob er die passende Art
+ * hat, weiss nur die Datenbank (Fremdschlüssel und Trigger `battery_catalog_guard_components`).
+ * Eine Prüfung hier wäre ein zweiter, langsamer Wahrheitsanspruch mit einem Zeitfenster dazwischen.
+ */
+function optionalUuid(label: string) {
+  return z
+    .string()
+    .trim()
+    .transform((v) => (v === '' ? undefined : v))
+    .refine(
+      (v) => v === undefined || /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v),
+      `${label} wurde nicht richtig übergeben. Bitte die Seite neu laden.`,
+    )
+}
+
 function optionalNumber(label: string, opts: { min?: number; max?: number; gt?: number } = {}) {
   return z
     .string()
@@ -134,8 +152,14 @@ export const batteryCatalogSchema = z.object({
   inverterIncluded: optionalBoolean,
   extraInverterCostNet: optionalNumber('Der Aufpreis für den Wechselrichter', { min: 0 }),
   requiresFoundation: optionalBoolean,
-  foundationCostNet: optionalNumber('Die Fundamentkosten', { min: 0 }),
-  installationCostNet: optionalNumber('Die Installationskosten', { min: 0 }),
+  /*
+   * K1b: statt zweier Beträge je Gerät nun die Verweise auf einen Kostenbaustein. Der Preis steht
+   * dort EINMAL — dieselbe Bodenplatte trägt neun Aussenschränke, und neun Mal derselbe Betrag
+   * wären neun Stellen, an denen er auseinanderlaufen kann. Geprüft wird hier nur die Form; ob der
+   * Baustein die passende Art hat, entscheidet der Trigger in der Datenbank.
+   */
+  foundationComponentId: optionalUuid('Der Fundament-Baustein'),
+  installationComponentId: optionalUuid('Der Installations-Baustein'),
   priceAsOf: optionalDate,
   sourceUrl: optionalText(),
   datasheetUrl: optionalText(),
@@ -165,8 +189,8 @@ export const BATTERY_FORM_FIELDS = [
   'inverterIncluded',
   'extraInverterCostNet',
   'requiresFoundation',
-  'foundationCostNet',
-  'installationCostNet',
+  'foundationComponentId',
+  'installationComponentId',
   'priceAsOf',
   'sourceUrl',
   'datasheetUrl',

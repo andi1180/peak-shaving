@@ -83,8 +83,8 @@ export type BatteryCatalogRow = {
   inverter_included: boolean | null
   extra_inverter_cost_net: number | null
   requires_foundation: boolean | null
-  foundation_cost_net: number | null
-  installation_cost_net: number | null
+  foundation_component_id: string | null
+  installation_component_id: string | null
   price_as_of: string | null
   source_url: string | null
   datasheet_url: string | null
@@ -95,6 +95,15 @@ export type BatteryCatalogRow = {
   updated_at: string
   purchase_price_net: number | null
   purchase_price_as_of: string | null
+  /**
+   * Bezeichnung und Preis der zugeordneten Kostenbausteine (K1b) — vom Wrapper mitgeliefert, damit
+   * die Liste ohne einen zweiten Aufruf je Zeile zeigen kann, ob eine Freigabe scheitern würde.
+   * `…_price_net === null` bei gesetzter `…_id` heisst: Baustein da, aber noch nicht bepreist.
+   */
+  foundation_component_label: string | null
+  foundation_component_price_net: number | null
+  installation_component_label: string | null
+  installation_component_price_net: number | null
 }
 
 export function batterieKategorieLabel(value: string): string {
@@ -133,7 +142,10 @@ export const BATTERY_ENGINE_FIELD_LABELS: Record<string, string> = {
   inverter_included: 'Wechselrichter enthalten?',
   requires_foundation: 'Fundament nötig?',
   extra_inverter_cost_net: 'Aufpreis Wechselrichter (netto)',
-  foundation_cost_net: 'Fundamentkosten (netto)',
+  // K1b: aus einem Betrag sind zwei Zustände geworden, und sie verlangen verschiedene Handgriffe
+  // an verschiedenen Stellen — „ordne einen Baustein zu" gegen „trage im Baustein einen Preis ein".
+  foundation_component_id: 'Fundament-Baustein',
+  foundation_component_price_net: 'Preis des Fundament-Bausteins',
 }
 
 export function batteryEngineFieldLabel(column: string): string {
@@ -160,8 +172,12 @@ export function missingEngineFields(row: BatteryCatalogRow): string[] {
   if (row.inverter_included === false && row.extra_inverter_cost_net === null) {
     missing.push('extra_inverter_cost_net')
   }
-  if (row.requires_foundation === true && row.foundation_cost_net === null) {
-    missing.push('foundation_cost_net')
+  if (row.requires_foundation === true) {
+    if (row.foundation_component_id === null) {
+      missing.push('foundation_component_id')
+    } else if (row.foundation_component_price_net === null) {
+      missing.push('foundation_component_price_net')
+    }
   }
   return missing
 }
