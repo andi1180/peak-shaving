@@ -661,32 +661,55 @@ describe('B24 — die Batterie-Station', () => {
   })
 
   /*
-   * ⚠ DIESER WÄCHTER HAT SEIN VORZEICHEN GEWECHSELT, und das ist kein Nachgeben.
+   * ⚠ DIESER WÄCHTER HAT SEIN VORZEICHEN ZWEIMAL GEWECHSELT, und beide Male war es kein Nachgeben.
    *
-   * Er verlangte bis zum Löschweg das Gegenteil („stellt die Frage AUCH dann, wenn schon etwas
-   * erfasst ist"), mit der Begründung: „dort gibt es einen ausdrücklichen Entfernen-Weg, hier
-   * nicht". Genau diese Voraussetzung ist entfallen — es gibt ihn jetzt. Ersetzt statt gestrichen,
-   * weil die Stelle abgesichert bleiben muss: eine Frage, die nach dem Speichern verschwindet,
-   * WÄRE eine Sackgasse, solange kein Rückweg daneben steht. Der Wächter misst deshalb BEIDES
-   * zusammen — die Frage verschwindet, UND der Löschknopf ist an ihre Stelle getreten.
+   * (1) Bis zum Löschweg verlangte er das Gegenteil („stellt die Frage AUCH dann, wenn schon etwas
+   * erfasst ist"), begründet mit: „anderswo gibt es einen ausdrücklichen Entfernen-Weg, hier
+   * nicht". Genau diese Voraussetzung ist entfallen — es gibt ihn jetzt.
+   *
+   * (2) Seit dem 22.09.2026 hängt der JA-Zweig nicht mehr an derselben Bedingung wie die Frage.
+   * Er tat es, und dadurch war ein von der Station selbst gegebenes Versprechen nicht einlösbar:
+   * „Ja" ohne Kenndaten schreibt `{hasBattery: true}` und quittiert „lassen sich hier jederzeit
+   * nachtragen" — `batteryDraftIsEmpty` wird davon aber schon falsch, `hasSummary` stand auf wahr,
+   * und `!hasSummary && …` blendete ausgerechnet die vier nachzutragenden Felder aus. Der einzige
+   * Weg zu ihnen führte über „Batterie-Angaben löschen", also über das Zurücknehmen der gerade
+   * gegebenen Antwort. Im Browser gemessen, nicht abgeleitet (`apps/web/e2e/batterie-station.mjs`).
+   *
+   * ⚠ DIE GEFAHR, GEGEN DIE ER GEBAUT IST, BLEIBT DIESELBE und wird weiter gemessen: kein ZWEITER
+   * Ort für dieselben vier Werte. Sie ist jetzt an `valuesMissing` gebunden statt an die Weiche —
+   * sobald ein Kenndatenfeld gesetzt ist, verschwindet das Formular. Das ist der Grund, warum
+   * `summary.values.length === 0` hier ausgeschrieben steht: ohne diese Hälfte wäre
+   * `showValueForm` ein dauerhaft offenes Formular neben der Zusammenfassung.
    */
   it('⚠ stellt die Frage NUR, solange nichts erfasst ist — und hat dafür einen Löschweg', () => {
-    // Die Frage selbst, ihre beiden Zweige und die Weiche hängen an derselben Bedingung: `answer`
-    // lebt in `useState` und überlebt den Schreibvorgang — ohne sie stünde das ausgefüllte
-    // Formular weiter unter der frischen Zusammenfassung.
+    // Die Frage und der NEIN-Zweig hängen an derselben Bedingung: `answer` lebt in `useState` und
+    // überlebt den Schreibvorgang — ohne sie stünde die beantwortete Frage nach dem Speichern
+    // erneut unter der frischen Zusammenfassung.
     expect(source).toContain('Haben Sie bereits einen Batteriespeicher')
     expect(source).toContain('{!hasSummary && (')
-    expect(source).toContain("{!hasSummary && answer === 'ja' && (")
     expect(source).toContain("{!hasSummary && answer === 'nein' && (")
-    // ⚠ Der Griff daneben: die Zweige NICHT mitgezogen. Dann wäre die Frage weg und das Formular
-    // stünde weiter da — ein zweiter Ort für dieselben Werte, und der gefährlichere.
-    expect(source).not.toContain("{answer === 'ja' && (")
+    // ⚠ Der Griff daneben: den Zweig NICHT mitgezogen. Dann wäre die Frage weg und das Formular
+    // stünde bedingungslos weiter da.
     expect(source).not.toContain("{answer === 'nein' && (")
 
     // Und der Rückweg, ohne den das Verschwinden eine Sackgasse wäre.
     expect(source).toContain('deleteMeteringPointBatteryAction')
     expect(source).toContain('Batterie-Angaben löschen')
     expect(source).toContain('window.confirm(deleteConfirmText(meteringPointNumber))')
+  })
+
+  it('⚠ lässt die Kenndaten offen, solange sie fehlen — und schliesst sie, sobald eine dasteht', () => {
+    // Der Ja-Zweig folgt `showValueForm`, nicht der Weiche — sonst gälte „nachtragen" nur im
+    // selben Render (`answer` ist nach einem Neuladen wieder `null`).
+    expect(source).toContain('{showValueForm && (')
+    expect(source).not.toContain("{!hasSummary && answer === 'ja' && (")
+    expect(source).not.toContain("{answer === 'ja' && (")
+
+    // ⚠ BEIDE HÄLFTEN, und die zweite ist die eigentliche Absicherung: ohne `values.length === 0`
+    // stünde das Formular dauerhaft neben der Zusammenfassung — ein zweiter Ort für dieselben
+    // vier Werte, und der gefährlichere.
+    expect(source).toContain('summary.hasBattery === true && summary.values.length === 0')
+    expect(source).toContain("showValueForm = valuesMissing || (!hasSummary && answer === 'ja')")
   })
 
   it('⚠ setzt Weiche und Felder nach dem Löschen zurück', () => {

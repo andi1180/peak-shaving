@@ -41,6 +41,17 @@ values ('22222222-2222-4222-8222-222222222222', '11111111-1111-4111-8111-1111111
 ⚠ **Fixtures danach wieder abräumen** — `packages/db-tests` pinnt absolute Admin-Zahlen, ein
 zurückgelassener Test-Admin macht das DB-Gate rot, ohne dass am Code etwas falsch ist.
 
+## batterie-station.mjs
+
+Prüft, dass sich Kenndaten **nachtragen** lassen: „Ja, es gibt einen Speicher" ohne Zahlen
+speichern · weg-navigieren · zurück · die vier Felder müssen editierbar dastehen. Die Gegenprobe
+im selben Lauf wiegt gleich schwer — sobald ein Kenndatenfeld gesetzt ist, muss das Formular weg
+sein (sonst gäbe es zwei Plätze für dieselben Werte). Nachweis für den Fix vom 22.09.2026:
+**ohne ihn rot, mit ihm grün.**
+
+⚠ Er benutzt denselben Zählpunkt wie `rechnung-station.mjs` und leert dessen Entwurf. Die beiden
+Läufe sind deshalb nacheinander zu fahren, nicht gleichzeitig.
+
 ## rechnung-station.mjs
 
 Fährt die fünf Schritte der Rechnung-Station nach (öffnen · vorhandene Rechnung entfernen · Werte

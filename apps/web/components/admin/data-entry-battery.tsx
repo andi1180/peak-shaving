@@ -23,8 +23,10 @@
  * näher als zuvor, aber aus einem eigenen Grund: dort ersetzt ein Rückweg eine Datei, hier
  * mehrere Felder EINES Entwurfs.
  *
- * ⚠ DIE BEIDEN ZWEIGE HÄNGEN AN DERSELBEN BEDINGUNG, nicht nur die Frage — `answer` lebt in
- * `useState` und überlebt jeden Schreibvorgang.
+ * ⚠ DER NEIN-ZWEIG HÄNGT AN DERSELBEN BEDINGUNG wie die Frage — `answer` lebt in `useState` und
+ * überlebt jeden Schreibvorgang. Der JA-Zweig nicht: seine vier Kenndatenfelder bleiben offen,
+ * solange sie leer sind, auch nach einem Neuladen (`showValueForm`). Sonst wäre „lässt sich hier
+ * jederzeit nachtragen" eine Zusage, die nur im selben Render gilt.
  *
  * ── ⚠ DIE ZUSAMMENFASSUNG KOMMT AUS DER DATENBANK, NICHT AUS DEM RÜCKGABEWERT DER ACTION ──────
  * Wortgleich zu den beiden Stationen davor und aus demselben Grund: nach einem Neuladen stünde sie
@@ -283,6 +285,32 @@ export function DataEntryBattery({
   const summary = readBatteryDraft(meteringPoint.draft)
   const hasSummary = !batteryDraftIsEmpty(summary)
 
+  /*
+   * ⚠ ERFASST, ABER OHNE KENNDATEN — der Zustand, den der Ja-Zweig OHNE Eingabe ABSICHTLICH
+   * herstellt: `saveMeteringPointBatteryAction` schreibt `hasBattery` immer, die vier Zahlen nur,
+   * wenn sie dastehen, und quittiert das mit „Kenndaten wurden keine erfasst — sie lassen sich
+   * hier jederzeit nachtragen."
+   *
+   * ⚠ GENAU DIESES VERSPRECHEN WAR NICHT EINGELÖST. `batteryDraftIsEmpty` wird schon durch
+   * `hasBattery` allein falsch; `hasSummary` stand damit auf wahr, und die Bedingung des
+   * Formulars (`!hasSummary && …`) blendete ausgerechnet die vier Felder aus, die nachzutragen
+   * waren. Der einzige verbliebene Weg dorthin führte über „Batterie-Angaben löschen" — also
+   * darüber, die gerade gegebene Antwort erst zurückzunehmen.
+   *
+   * Der Entwurfszustand selbst bleibt unangetastet und richtig (der Löschweg begründet ihn
+   * ausführlich): „es gibt einen Speicher, die Kenndaten fehlen noch" ist eine ANGABE und kein
+   * halb fertiges Formular.
+   */
+  const valuesMissing = summary.hasBattery === true && summary.values.length === 0
+
+  /*
+   * Die Kenndaten stehen offen, solange sie fehlen — unabhängig von der Weiche, denn `answer`
+   * lebt in `useState` und ist nach einem Neuladen oder einer Rückkehr zur Station wieder `null`.
+   * Eine Bedingung allein auf `answer` machte „nachtragen" zu etwas, das nur unmittelbar nach dem
+   * Klick funktioniert.
+   */
+  const showValueForm = valuesMissing || (!hasSummary && answer === 'ja')
+
   return (
     <div className="flex flex-col gap-6">
       {/*
@@ -355,10 +383,15 @@ export function DataEntryBattery({
         Antworten nebeneinander im Entwurf standen. Mit dem Löschknopf gibt es den Rückweg
         ausdrücklich, und die Frage kann verschwinden, sobald sie beantwortet ist.
 
-        ⚠ BEIDE ZWEIGE HÄNGEN EBENFALLS DARAN, nicht nur die Frage: `answer` lebt in `useState`
-        und überlebt einen Schreibvorgang. Ohne die Bedingung stünde nach dem Speichern weiterhin
-        das ausgefüllte Formular unter der frischen Zusammenfassung — zweimal dieselben Werte, und
-        der zweite Platz wäre der, an dem man sie versehentlich ändert.
+        ⚠ DER NEIN-ZWEIG HÄNGT EBENFALLS DARAN: `answer` lebt in `useState` und überlebt einen
+        Schreibvorgang. Ohne die Bedingung stünde die beantwortete Frage nach dem Speichern erneut
+        unter der frischen Zusammenfassung.
+
+        ⚠ DER JA-ZWEIG HÄNGT SEITHER NICHT MEHR DARAN, und der Unterschied ist kein Versehen: Er
+        folgt `showValueForm` (s. dort). Ausgeblendet wird er, sobald ein Kenndatenfeld gesetzt ist
+        — dann stünde er als zweiter Platz für dieselben Werte unter der Zusammenfassung, und
+        genau dort ändert man sie versehentlich. Solange die Kenndaten FEHLEN, gibt es diesen
+        zweiten Platz nicht: die Zusammenfassung hat dazu nichts zu zeigen und sagt das auch.
       */}
       {!hasSummary && (
         <div>
@@ -445,7 +478,7 @@ export function DataEntryBattery({
         </form>
       )}
 
-      {!hasSummary && answer === 'ja' && (
+      {showValueForm && (
         <form action={saveAction} noValidate className="flex flex-col gap-6 border-t border-line pt-6">
           <input type="hidden" name="projectId" value={projectId} />
           <input type="hidden" name="meteringPointId" value={meteringPoint.id} />
