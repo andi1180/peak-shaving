@@ -452,6 +452,51 @@ gesetzten Feldern — **keine** der drei Strukturen, die der Urbanz-Anhang zeigt
 dafür heute jedes Feld (§3.6). `[OFFEN]`, ob das für den Kalkulator-Report gewünscht ist oder eine
 B23-D4-artige reine Druckfeld-Lösung analog übernommen wird.
 
+### D9 Nachtrag umgesetzt (22.09.2026) — das Inhaltsverzeichnis führt Unterpunkte für JEDES Kapitel, das welche hat
+
+Drei Dinge, unabhängig voneinander:
+
+**1 — „Unser Vorschlag" steht jetzt VOR „Methodik & Vorbehalte".** Ein Vorschlag ist eine Aussage an
+den Kunden; Methodik und Schlusskapitel sind der Apparat dahinter. Agenda und Seitenzahlen ergeben
+sich aus der Reihenfolge selbst — es ist keine Zahl von Hand gesetzt.
+
+**2 — „Ihr Lastgang" trägt unter dem Diagramm drei Kennzahlen** (`load.ts`): Gesamtverbrauch über
+den Zeitraum, Ø Tagesverbrauch, Lastfaktor. Alle drei aus Zahlen, die das Dokument ohnehin führt —
+**keine neue Datenquelle**. ⚠ Die Spitzenleistung wird aus `current.annualPeakKw` WIEDERVERWENDET,
+derselben Zahl, die das Kapitel „Voraussetzungen" als „Höchste gemessene Verbrauchsspitze" ausweist;
+zwei getrennt gebildete Maxima derselben Kurve könnten im selben Dokument auseinanderlaufen, und
+eine davon trägt den Leistungspreis. ⚠ Gezählt wird NUR der Bezug (`gridPowerKw > 0`) — netto
+gerechnet stünde eine Netto-Menge neben einer Bezugs-Spitze. ⚠ Der Erklärsatz gibt die DEFINITION
+des Lastfaktors (spitzig vs. gleichmässig) und ordnet den konkreten Kunden ausdrücklich nicht ein.
+
+**3 — die Unterpunkte des Inhaltsverzeichnisses kommen aus einer gemeinsamen Struktur**
+(`ChapterSubsections`, `content.ts`). `buildReportAgenda` kennt keinen Kapitelnamen mehr: ein
+Kapitel MELDET seine Unterabschnitte, und die Liste ist dieselbe, aus der das Kapitel sie rendert —
+`METHODOLOGY_ITEMS` für die Methodik, `basisSubsections(chapter)` fürs Schlusskapitel. Damit ist die
+Fehlerklasse geschlossen, an der die Berechnungsmethodik schon einmal auseinandergelaufen ist: zwei
+Orte, die synchron bleiben mussten.
+
+⚠ Was daraus für jeden Umbau folgt:
+
+**(a) Ein bedingter Abschnitt taucht im Verzeichnis genau dann auf, wenn er gerendert wird** — die
+Bedingung wird nicht zweitformuliert, sondern am gebauten Kapitel abgelesen (`chapter.pvOutage`,
+`chapter.methodPerMetric.length`). Betroffen sind vier: Datenqualität, Blocker-Befund, PV-Befund und
+die Berechnungsmethodik.
+
+**(b) Das Schlusskapitel wird seit diesem Schritt EINMAL je Durchlauf gebaut** (`ReportDocument`)
+und an Agenda UND Kapitel gereicht. `selectedNotice` ist damit entfallen: die Auswahl (Baukasten C)
+greift bereits im Kontext, ein zweiter Weg über die Registry wäre eine zweite Antwort auf dieselbe
+Frage gewesen — und nur einer der beiden hätte das Verzeichnis gespeist.
+
+**(c) Ein Agenda-Unterpunkt verlangt eine Überschrift im Kapitel.** Für die Herkunft der Tarifsätze
+gab es keine; sie hat deshalb eine bekommen (`BASIS_HEADING.tariffSource`), und die Sätze darunter
+beginnen dafür nicht mehr mit „Tarifsätze:". Der Bildschirmweg (`tariff-source-note.tsx`) behält
+sein Präfix — er hat keine Überschrift.
+
+**(d) Unterpunkte tragen weiterhin KEINE Seitenzahl** (`level: 2`, `page-numbers.ts` Aufbau C). Die
+Agenda passt mit acht weiteren Einträgen weiter auf eine Seite; am erzeugten PDF gemessen (18
+Seiten, beide Durchläufe messen dasselbe).
+
 ---
 
 ## D10 — Baustein 8: Der Baukasten selbst

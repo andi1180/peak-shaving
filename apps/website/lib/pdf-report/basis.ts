@@ -16,7 +16,7 @@ import {
 } from 'shared'
 
 import { formatEur, formatEur2, formatPercent } from '@/lib/format'
-import { REPORT_SECTIONS, SECTION_ID } from './content'
+import { REPORT_SECTIONS, SECTION_ID, type ReportSection } from './content'
 import type { ReportBuildContext } from './context'
 import { hasPvValueChapter } from './pv-value'
 import { block, ref, t, REF_PLACE, type ReportText } from './report-text'
@@ -526,6 +526,12 @@ const TARIFF_FIELD_LABEL: Record<TariffSourceRef['overriddenFields'][number], st
  * und der Rest des Satzes ist wortgleich. Fehlt der Name, steht er gar nicht da — ein
  * „(Netzbetreiber: unbekannt)" wäre eine Angabe, die nichts bezeichnet.
  */
+/*
+ * ⚠ DIE SÄTZE BEGINNEN SEIT DEM 22.09.2026 NICHT MEHR MIT „Tarifsätze:" — das Wort steht jetzt als
+ * Überschrift darüber (`BASIS_HEADING.tariffSource`, nötig geworden mit dem Agenda-Unterpunkt).
+ * Beides nebeneinander läse sich als Doppelung. Der Bildschirmweg (`tariff-source-note.tsx`) trägt
+ * seine eigene Fassung MIT Präfix, weil er keine Überschrift hat.
+ */
 function buildTariffSource(
   source: PdfReportTariffSource,
   netzbetreiber: NetzbetreiberId | undefined,
@@ -539,7 +545,7 @@ function buildTariffSource(
   if (source === TARIFF_SOURCE_UNTRACKED) {
     const operator = netzbetreiber ? ` (Netzbetreiber: ${NETZBETREIBER_LABELS[netzbetreiber]})` : ''
     return (
-      'Tarifsätze: Herkunft für diese Auswertung nicht im Einzelnen nachverfolgt — gerechnet wurde ' +
+      'Herkunft für diese Auswertung nicht im Einzelnen nachverfolgt — gerechnet wurde ' +
       'mit den Leistungspreis-, Abrechnungs- und Mindestleistungswerten, die zu diesem Zählpunkt ' +
       `hinterlegt sind${operator}. Ob sie aus einer Netzrechnung oder aus einem hinterlegten ` +
       'Tarifstand stammen, hält dieser Report nicht fest.'
@@ -548,7 +554,7 @@ function buildTariffSource(
 
   if (source === null) {
     return (
-      'Tarifsätze: kein hinterlegter Stand gewählt — Leistungspreis, Abrechnungsmodell und ' +
+      'Kein hinterlegter Stand gewählt — Leistungspreis, Abrechnungsmodell und ' +
       'Mindestleistung stammen unverändert aus Ihrer Eingabe.'
     )
   }
@@ -560,7 +566,7 @@ function buildTariffSource(
       : `Selbst eingetragen und damit massgeblich: ${overridden.join(', ')}.`
 
   return (
-    `Tarifsätze: ${NETZBETREIBER_LABELS[source.netzbetreiber]}, Netzebene ${source.netzebene} · ` +
+    `${NETZBETREIBER_LABELS[source.netzbetreiber]}, Netzebene ${source.netzebene} · ` +
     `Stand „${source.tariffSetLabel}", gültig ab ${source.tariffSetValidFrom}. ${tail}`
   )
 }
@@ -1359,4 +1365,63 @@ export function buildBasisChapter(
  */
 export function timeZoneOf(loadProfile: Pick<LoadProfile, 'timezoneMeta'>): string {
   return loadProfile.timezoneMeta
+}
+
+/* ────────────────────────────────────────────────────────────────────────────────────────────────
+ * Die Unterabschnitte — dieselbe Liste, aus der das Kapitel rendert
+ * ──────────────────────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * Die drei Überschriften, die dieses Kapitel SELBST setzt.
+ *
+ * ⚠ Die übrigen Abschnitte bringen ihre Überschrift in der Aussage bzw. im Hinweis mit
+ * (`ReportStatement.title`, `ReportNotice.title`); für diese drei gäbe es keinen Träger. Sie
+ * standen bis zum 22.09.2026 als Literale im JSX — dort belassen hätte das Inhaltsverzeichnis sie
+ * ein zweites Mal ausschreiben müssen, und das ist die Doppelung, um die es hier geht.
+ */
+export const BASIS_HEADING = {
+  /**
+   * ⚠ NEU MIT DEM INHALTSVERZEICHNIS (22.09.2026): die beiden Herkunftssätze standen bis dahin
+   * ohne Überschrift da. Ein Agenda-Eintrag ohne Überschrift im Kapitel zeigt auf nichts, was der
+   * Leser wiederfindet — die Überschrift ist die Folge des Eintrags, nicht umgekehrt.
+   */
+  tariffSource: 'Tarifsätze',
+  tariffComponents: 'Tarifkomponenten',
+  dataSources: 'Datenquellen',
+  methodPerMetric: 'Berechnungsmethodik je Kennzahl',
+} as const
+
+/**
+ * Die Unterabschnitte dieses Kapitels fürs Inhaltsverzeichnis — GENAU die, die auch gerendert
+ * werden.
+ *
+ * ── ⚠ AUS DEM GEBAUTEN KAPITEL UND NICHT AUS DEN BEDINGUNGEN DARUNTER ─────────────────────────
+ * Jeder Eintrag liest den Wert, an dem auch `document.tsx` entscheidet, ob der Abschnitt dasteht:
+ * `chapter.dataQuality` ist der Hinweis selbst, `chapter.methodPerMetric.length` die Liste selbst.
+ * Die Bedingungen ein zweites Mal zu formulieren wäre dieselbe Drift wie eine zweite Titelliste —
+ * ein Unterpunkt für einen Abschnitt, den das Blatt nicht zeigt, und niemand sieht es ihm an.
+ *
+ * ⚠ Die TITEL kommen ebenso von dort (`assumptions.title`, `limitations.title`, …) und sind hier
+ * nirgends ausgeschrieben; die drei Ausnahmen stehen in `BASIS_HEADING` und werden vom JSX aus
+ * derselben Konstante gesetzt.
+ */
+export function basisSubsections(chapter: BasisChapter): readonly ReportSection[] {
+  const entries: (readonly [string, string | null])[] = [
+    ['grundlage-annahmen', chapter.assumptions.title],
+    ['grundlage-datenqualitaet', chapter.dataQuality?.title ?? null],
+    ['grundlage-blocker', chapter.blocker?.title ?? null],
+    ['grundlage-pv-ausfall', chapter.pvOutage?.title ?? null],
+    ['grundlage-tarifsaetze', BASIS_HEADING.tariffSource],
+    ['grundlage-tarifkomponenten', BASIS_HEADING.tariffComponents],
+    ['grundlage-datenquellen', BASIS_HEADING.dataSources],
+    [
+      'grundlage-methodik',
+      chapter.methodPerMetric.length > 0 ? BASIS_HEADING.methodPerMetric : null,
+    ],
+    ['grundlage-einschraenkungen', chapter.limitations.title],
+  ]
+
+  return entries
+    .filter((e): e is readonly [string, string] => e[1] !== null)
+    .map(([id, title]) => ({ id, title, level: 2 }))
 }

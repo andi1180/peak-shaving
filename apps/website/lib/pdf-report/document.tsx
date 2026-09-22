@@ -38,16 +38,25 @@ import {
   WAYS_INTRO,
   WAYS_SECTION,
   waysSectionTitle,
+  SECTION_ID,
   ANNUAL_SCENARIO_INTRO,
   ANNUAL_SCENARIO_SECTION,
   type ReportSection,
 } from './content'
 import { buildAdviceChapter } from './advice'
-import { buildBasisChapter, DATA_SOURCES_TABLE_ID, TARIFF_COMPONENTS_TABLE_ID } from './basis'
+import {
+  BASIS_HEADING,
+  basisSubsections,
+  buildBasisChapter,
+  DATA_SOURCES_TABLE_ID,
+  TARIFF_COMPONENTS_TABLE_ID,
+  type BasisChapter as BasisChapterData,
+} from './basis'
 import { buildComparisonChapter, CANDIDATE_TABLE_ID } from './comparison'
 import type { ReportBuildContext } from './context'
 import { buildDetailChapter, buildMonthlyChapter } from './detail'
 import { loadChartCaption } from './derive'
+import { buildLoadMetrics } from './load'
 import { buildInsightChapter } from './insight'
 import { buildPrerequisitesChapter } from './prerequisites'
 import { buildRecommendationChapter } from './recommendation'
@@ -1653,7 +1662,20 @@ function figureMissingText(what: string): string {
  * eine Bewertung über einer Messung — und für den gedeuteten Verlauf gibt es überdies keine
  * Rechnung (s. `loadChartCaption`).
  */
-function LoadChapter({ input, charts }: { input: PdfReportInput; charts: ReportChartRasters }) {
+function LoadChapter({
+  input,
+  charts,
+  layout,
+}: {
+  input: PdfReportInput
+  charts: ReportChartRasters
+  layout: ReportLayout
+}) {
+  /* ⚠ Seit dem Kennzahlenblock hängt auf dieser Seite doch etwas an der Datenlage — und es steht
+     deshalb in einer Ableitung und nicht in diesem JSX (`load.ts`). Der Block entfällt ganz, wenn
+     es keine gemessenen Tage gibt. */
+  const metrics = buildLoadMetrics(input.loadProfile, input.analysis)
+
   return (
     <View style={styles.body}>
       <Text style={styles.h2}>{LOAD_SECTION.title}</Text>
@@ -1664,6 +1686,8 @@ function LoadChapter({ input, charts }: { input: PdfReportInput; charts: ReportC
         caption={loadChartCaption(input.period)}
         missing={figureMissingText('Das Lastgang-Diagramm')}
       />
+
+      {metrics && <Statement statement={metrics} layout={layout} />}
     </View>
   )
 }
@@ -2017,16 +2041,13 @@ function selectedStatement(
   return entry.form === 'statement' ? entry.build() : null
 }
 
-/** Wie `selectedStatement`, für die zwei Hinweise des Schlusskapitels. */
-function selectedNotice(
-  registry: ReportBaukastenRegistry,
-  input: PdfReportInput,
-  id: ReportOptionalSection,
-): ReportNotice | null {
-  if (!reportSectionEnabled(input.optionalSections, id)) return null
-  const entry = registry.get(id)
-  return entry.form === 'notice' ? entry.build() : null
-}
+/*
+ * ⚠ HIER STAND `selectedNotice` FÜR DIE ZWEI HINWEISE DES SCHLUSSKAPITELS. Seit die Agenda ihre
+ * Unterpunkte aus dem gebauten Kapitel zieht (22.09.2026), liest `BasisChapter` beide direkt von
+ * dort — und dort haben sie die Auswahl bereits hinter sich (`context.ts` →
+ * `dataQualityNoticeOf`/`pvOutageNoticeOf`). Ein zweiter Weg über die Registry daneben wäre eine
+ * zweite Antwort auf dieselbe Frage, und nur einer der beiden speiste das Inhaltsverzeichnis.
+ */
 
 /**
  * Wie `selectedStatement`, für die Kandidatentabelle (B3-1).
@@ -2250,28 +2271,27 @@ function AdviceChapter({ input, layout }: { input: PdfReportInput; layout: Repor
  * Kapitel: Annahmen, Tarifherkunft und Vorbehalt gibt es in jedem Report.
  */
 function BasisChapter({
-  input,
-  context,
-  registry,
+  chapter,
   layout,
 }: {
-  input: PdfReportInput
-  context: ReportBuildContext
-  registry: ReportBaukastenRegistry
+  /**
+   * ⚠ HEREINGEREICHT UND NICHT HIER GEBAUT (22.09.2026): die Agenda bildet ihre Unterpunkte aus
+   * DEMSELBEN Objekt (`basisSubsections`). Hier ein zweites Mal gebaut könnten Inhaltsverzeichnis
+   * und Blatt auseinanderlaufen, sobald eine der Bedingungen nicht mehr allein am Eingang hängt.
+   */
+  chapter: BasisChapterData
   layout: ReportLayout
 }) {
-  const chapter = buildBasisChapter(input, context)
-
   /*
-   * ⚠ Report-Baukasten C: DIE AUSWAHL HAT HIER SCHON GEGRIFFEN, BEVOR SIE GELESEN WIRD. Beide
-   * Hinweise entstehen im Kontext (`context.ts` → `dataQualityNoticeOf`/`pvOutageNoticeOf`), und
-   * daran hängen zwei Abhängige, die im JSX gar nicht vorkommen: der Verweis „wie im
+   * ⚠ Report-Baukasten C: DIE AUSWAHL HAT SCHON GEGRIFFEN, BEVOR SIE HIER GELESEN WIRD. Beide
+   * Hinweise entstehen im Kontext (`context.ts` → `dataQualityNoticeOf`/`pvOutageNoticeOf`) und
+   * kommen von dort über `buildBasisChapter` als `null` herein, wenn sie abgewählt sind — samt
+   * ihrer zwei Abhängigen, die im JSX gar nicht vorkommen: der Verweis „wie im
    * Datenqualitäts-Hinweis oben" in der Datenquellen-Tabelle und der Methodik-Absatz
    * `method_pv_outage`. Erst hier abgeschaltet blieben beide stehen und verwiesen auf einen
    * Hinweis, den dieses Dokument nicht zeigt.
    */
-  const dataQuality = selectedNotice(registry, input, 'data_quality')
-  const pvOutage = selectedNotice(registry, input, 'pv_outage')
+  const { dataQuality, pvOutage } = chapter
 
   return (
     <View style={styles.body}>
@@ -2286,7 +2306,13 @@ function BasisChapter({
           einem eigenen Kapitel. Ob sie erscheint, entscheidet `basis.ts`. */}
       {pvOutage && <Notice notice={pvOutage} />}
 
-      <Text style={styles.provenance}>{chapter.tariffSource}</Text>
+      {/* ⚠ Die Überschrift ist NEU (22.09.2026) und die Folge des Agenda-Unterpunkts: ein Eintrag
+          im Inhaltsverzeichnis, dem im Kapitel keine Überschrift entspricht, zeigt auf etwas, das
+          der Leser nicht wiederfindet. Wortlaut aus `BASIS_HEADING` — dieselbe Konstante, aus der
+          `basisSubsections` den Eintrag bildet. */}
+      <View style={styles.statement}>
+        <Text style={styles.statementTitle}>{BASIS_HEADING.tariffSource}</Text>
+        <Text style={styles.provenance}>{chapter.tariffSource}</Text>
       {/*
         ⚠ NICHT `chapter.tariffVintage` selbst — der volle Satz steht seit PR #298 bereits als
         eigener Hinweiskasten im Kapitel „Voraussetzungen" (`prerequisites.ts`,
@@ -2294,15 +2320,16 @@ function BasisChapter({
         ausgewertete Zeitraum reicht in ein laufendes Kalenderjahr); nur der TEXT ist jetzt ein
         Zeiger dorthin, wortgleiches Muster zu `RESULTS_FOOTNOTE`.
       */}
-      {chapter.tariffVintage && (
-        <Text style={styles.provenance}>{BASIS_TARIFF_VINTAGE_FOOTNOTE}</Text>
-      )}
+        {chapter.tariffVintage && (
+          <Text style={styles.provenance}>{BASIS_TARIFF_VINTAGE_FOOTNOTE}</Text>
+        )}
+      </View>
 
       {/* D9 — die Tarifgrössen im Einzelnen. Sie steht direkt unter den beiden Herkunftssätzen,
           weil ihre Status-Spalte genau deren Aussage Feld für Feld wiederholt: erst der Satz über
           den Stand, dann die Zeilen, für die er gilt. */}
       <View style={styles.statement}>
-        <Text style={styles.statementTitle}>Tarifkomponenten</Text>
+        <Text style={styles.statementTitle}>{BASIS_HEADING.tariffComponents}</Text>
         <StatementTable
           table={chapter.tariffComponents}
           from={TARIFF_COMPONENTS_TABLE_ID}
@@ -2315,7 +2342,7 @@ function BasisChapter({
           Herkunftssätzen und vor dem Vorbehalt: die Sätze sagen, welcher Tarifstand gerechnet
           wurde, die Tabelle belegt ihn und alles daneben. */}
       <View style={styles.statement}>
-        <Text style={styles.statementTitle}>Datenquellen</Text>
+        <Text style={styles.statementTitle}>{BASIS_HEADING.dataSources}</Text>
         <StatementTable
           table={chapter.dataSources}
           from={DATA_SOURCES_TABLE_ID}
@@ -2329,7 +2356,7 @@ function BasisChapter({
           Kennzahl einen Absatz bekommt, entscheidet `basis.ts`. */}
       {chapter.methodPerMetric.length > 0 && (
         <View style={styles.statement}>
-          <Text style={styles.statementTitle}>Berechnungsmethodik je Kennzahl</Text>
+          <Text style={styles.statementTitle}>{BASIS_HEADING.methodPerMetric}</Text>
           <View style={styles.methodList}>
             {chapter.methodPerMetric.map((item) =>
               /*
@@ -2453,6 +2480,13 @@ export function ReportDocument({
    */
   const docLabel = input.customer?.company || input.customer?.name || null
 
+  /*
+   * ⚠ EINMAL GEBAUT, ZWEIMAL GELESEN: die Agenda zieht ihre Unterpunkte aus DIESEM Objekt, und
+   * `BasisChapter` rendert daraus. Zwei getrennte Aufbauten ergäben ein Inhaltsverzeichnis, das
+   * einen Abschnitt nennt, den das Blatt nicht zeigt — dieselbe Überlegung wie bei `context`.
+   */
+  const basis = buildBasisChapter(input, context)
+
   return (
     <Document
       title={input.title}
@@ -2474,17 +2508,30 @@ export function ReportDocument({
         <PageFurniture sink={sink} docLabel={docLabel} />
         <SectionAnchor id="agenda" sink={sink} />
         <Agenda
-          sections={buildReportAgenda({
-            ways: hasWays,
-            waysCount: context.waysCount,
-            annualScenario: hasAnnualScenario,
-            pvValue: hasPvValue,
-            recommendation: hasRecommendation,
-            monthly: hasMonthly,
-            insight: hasInsight,
-            comparison: hasComparison,
-            advice: hasAdvice,
-          })}
+          sections={buildReportAgenda(
+            {
+              ways: hasWays,
+              waysCount: context.waysCount,
+              annualScenario: hasAnnualScenario,
+              pvValue: hasPvValue,
+              recommendation: hasRecommendation,
+              monthly: hasMonthly,
+              insight: hasInsight,
+              comparison: hasComparison,
+              advice: hasAdvice,
+            },
+            /*
+             * ⚠ DIESELBEN LISTEN, AUS DENEN DIE KAPITEL RENDERN — nicht zwei gepflegte
+             * Aufzählungen. `METHODOLOGY_ITEMS` ist die Quelle der sechs Methodik-Absätze,
+             * `basisSubsections(basis)` liest das EINMAL gebaute Schlusskapitel, das eine Seite
+             * weiter unten gerendert wird. Ein drittes Kapitel mit Unterabschnitten kommt hier
+             * als weiterer Eintrag dazu; `buildReportAgenda` bleibt unberührt.
+             */
+            {
+              [SECTION_ID.methodology]: METHODOLOGY_ITEMS,
+              [SECTION_ID.basis]: basisSubsections(basis),
+            },
+          )}
           pages={agenda}
         />
       </Page>
@@ -2504,7 +2551,7 @@ export function ReportDocument({
       <Page size="A4" style={styles.page}>
         <PageFurniture sink={sink} docLabel={docLabel} />
         <SectionAnchor id={LOAD_SECTION.id} sink={sink} />
-        <LoadChapter input={input} charts={charts} />
+        <LoadChapter input={input} charts={charts} layout={layout} />
       </Page>
 
       {hasWays && (
@@ -2581,12 +2628,6 @@ export function ReportDocument({
         </Page>
       )}
 
-      <Page size="A4" style={styles.page}>
-        <PageFurniture sink={sink} docLabel={docLabel} />
-        <SectionAnchor id={METHODOLOGY_SECTION.id} sink={sink} />
-        <MethodologyChapter />
-      </Page>
-
       {hasAdvice && (
         <Page size="A4" style={styles.page}>
           <PageFurniture sink={sink} docLabel={docLabel} />
@@ -2597,8 +2638,14 @@ export function ReportDocument({
 
       <Page size="A4" style={styles.page}>
         <PageFurniture sink={sink} docLabel={docLabel} />
+        <SectionAnchor id={METHODOLOGY_SECTION.id} sink={sink} />
+        <MethodologyChapter />
+      </Page>
+
+      <Page size="A4" style={styles.page}>
+        <PageFurniture sink={sink} docLabel={docLabel} />
         <SectionAnchor id={BASIS_SECTION.id} sink={sink} />
-        <BasisChapter input={input} context={context} registry={registry} layout={layout} />
+        <BasisChapter chapter={basis} layout={layout} />
       </Page>
 
       {/*
