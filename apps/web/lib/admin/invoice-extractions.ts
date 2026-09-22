@@ -1,4 +1,7 @@
 import {
+  BILLING_MODELS,
+  BILLING_MODEL_LABELS,
+  DEFAULT_DRAFT_BILLING_MODEL,
   INVOICE_MERGE_FIELD_KEYS,
   INVOICE_MERGE_FIELD_LABELS,
   METERING_VARIANTS,
@@ -9,6 +12,7 @@ import {
   NETZEBENEN,
   parseInvoiceExtraction,
   tariffParamsSchema,
+  type BillingModel,
   type InvoiceExtraction,
   type InvoiceMergeFieldKey,
 } from 'shared'
@@ -296,6 +300,7 @@ function mergeFieldValue(
   if (key === 'netzbetreiber') return extraction.netzbetreiber
   if (key === 'netzebene') return extraction.netzebene
   if (key === 'meteringVariant') return extraction.meteringVariant
+  if (key === 'billingModel') return extraction.billingModel
   if (key === 'annualConsumptionKwh') return extraction.annualConsumptionKwh
   return extraction.rates[key]
 }
@@ -371,6 +376,9 @@ function displayValue(key: InvoiceMergeFieldKey, raw: string | number): string {
   if (key === 'meteringVariant') {
     return METERING_VARIANT_LABELS[raw as keyof typeof METERING_VARIANT_LABELS] ?? String(raw)
   }
+  if (key === 'billingModel') {
+    return BILLING_MODEL_LABELS[raw as keyof typeof BILLING_MODEL_LABELS] ?? String(raw)
+  }
   if (key === 'annualConsumptionKwh') return formatKwh(typeof raw === 'number' ? raw : null)
 
   const unit = FIELD_UNITS[key]
@@ -419,6 +427,24 @@ export type ManualTariffDraft = {
   /** Die Netzebene als blosse Ziffer (`'7'`), wie das Auswahlfeld sie führt. */
   netzebene: string
   meteringVariant: string
+  /**
+   * Das Abrechnungsmodell — IMMER einer der drei Werte, nie `''`.
+   *
+   * ⚠ DAS EINZIGE FELD DIESER STRUKTUR OHNE LEEREN ZUSTAND, und das ist der ganze Punkt. Es ist im
+   * Contract PFLICHT; solange es keine Station erhob, entschied es ein unsichtbarer Vorgabewert in
+   * `mapDraftToTariffParams`. Eine Auswahl mit „— bitte wählen —" hätte daraus einen Pflichtfehler
+   * gemacht, den niemand auflösen kann, der die Frage nicht versteht. Stattdessen steht ein Wert
+   * da, und `billingModelConfirmed` sagt, ob ihn schon jemand bestätigt hat.
+   */
+  billingModel: BillingModel
+  /**
+   * Steht das Modell bereits im Entwurf — hat es also ein Mensch übernommen?
+   *
+   * `false` heisst „das ist unser Vorschlag, noch von niemandem bestätigt". Die Station sagt das
+   * sichtbar dazu; ohne die Unterscheidung sähe ein Vorgabewert genauso aus wie eine getroffene
+   * Wahl, und genau das war der Zustand vorher.
+   */
+  billingModelConfirmed: boolean
   /** Die sieben Zahlenfelder als Eingabetext, Schlüssel wie im Formular. */
   numbers: Record<(typeof MANUAL_TARIFF_NUMBER_FIELDS)[number], string>
 }
@@ -470,10 +496,22 @@ export function readManualTariffDraft(draft: Record<string, unknown>): ManualTar
     numbers[key] = manualNumberText(draft[draftFieldFor(key)])
   }
 
+  /*
+   * ⚠ Der Vorschlag kommt aus dem Rechnungs-Scan, wenn er einen geliefert hat, sonst aus dem
+   * Vorgabewert der Engine. Beide Wege enden im selben Auswahlfeld — was sie unterscheidet, ist
+   * nicht der Wert, sondern der Satz daneben (s. `billingModelConfirmed`).
+   */
+  const billingModelRaw = draft.billingModel
+  const confirmed =
+    typeof billingModelRaw === 'string' &&
+    (BILLING_MODELS as readonly string[]).includes(billingModelRaw)
+
   return {
     operatorId:
       typeof operatorRaw === 'string' && isKnownNetzbetreiber(operatorRaw) ? operatorRaw : '',
     netzebene: readNetzebeneDigit(netzebeneRaw),
+    billingModel: confirmed ? (billingModelRaw as BillingModel) : DEFAULT_DRAFT_BILLING_MODEL,
+    billingModelConfirmed: confirmed,
     /*
      * Nur eine der geführten Varianten — ein fremder Wert im `jsonb` liesse das Auswahlfeld sonst
      * auf „— bitte wählen —" stehen und wäre beim nächsten Speichern trotzdem mitgeschickt.
@@ -503,6 +541,10 @@ export function manualTariffDraftIsEmpty(values: ManualTariffDraft): boolean {
     values.operatorId === '' &&
     values.netzebene === '' &&
     values.meteringVariant === '' &&
+    // ⚠ Nur das BESTÄTIGTE Modell zählt: der blosse Vorschlag steht immer da und machte diese
+    // Prüfung sonst für jeden Zählpunkt `false` — die Station klappte die Handeingabe dann auch
+    // dort auf, wo nachweislich nichts erfasst ist.
+    !values.billingModelConfirmed &&
     Object.values(values.numbers).every((text) => text === '')
   )
 }

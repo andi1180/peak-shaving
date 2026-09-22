@@ -14,6 +14,55 @@ export const billingModelSchema = z.enum([
 ])
 export type BillingModel = z.infer<typeof billingModelSchema>
 
+/** Die drei Modelle in fester Reihenfolge — für jede Auswahl, die sie zur Wahl stellt. */
+export const BILLING_MODELS = billingModelSchema.options
+
+/**
+ * Das Modell, wenn niemand eines genannt hat.
+ *
+ * ── ⚠ WARUM ES SEIT DEM 22.09.2026 HIER LIEGT UND NICHT MEHR IN `packages/engine` ─────────────
+ * Es stand als `DEFAULT_DRAFT_BILLING_MODEL` in `engine/src/tariff/draft-mapping.ts`, weil nur der
+ * Rechenkern es brauchte. Seit die Rechnung-Station das Modell sichtbar zur Bestätigung vorlegt,
+ * braucht sie denselben Wert als Vorbelegung — und `apps/web` darf `engine` nicht kennen
+ * (gemessen: `apps/web/package.json` führt `shared` und `extractors`, kein `engine`). Dieselbe
+ * Verlegung und dieselbe Begründung wie bei `findGridTariffRow` (grid-tariff-row.ts): ein Nachbau
+ * in `apps/web` wären zwei Fassungen desselben Vorgabewerts, und das Auseinanderlaufen wäre STILL
+ * — das Formular zeigte das eine Modell, gerechnet würde mit dem anderen.
+ *
+ * `engine` re-exportiert den Wert unverändert weiter; für den Rechenkern ändert sich keine Zeile.
+ *
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * ⚠ `monthly_max_sum` — UND AUSDRÜCKLICH NICHT `monthly_max_average`
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * Es ist der Standardfall der E-Control-SNE-V (Martin bestätigt, 16.09.2026): abgerechnet wird die
+ * SUMME der zwölf Monatshöchstwerte. `monthly_max_average` war der hartkodierte Vorgabewert des
+ * alten, abgeschalteten Rechners und ist oben als „AT-Default [ANNAHME]" vermerkt — eine Annahme,
+ * die nie validiert wurde. Die beiden Modelle unterscheiden sich um den Faktor 12 im abgerechneten
+ * kW-Wert; der falsche Vorgabewert ergäbe eine Ersparnis, die plausibel aussieht und es nicht ist.
+ */
+export const DEFAULT_DRAFT_BILLING_MODEL: BillingModel = 'monthly_max_sum'
+
+/** Kurzname eines Modells. Eine Formulierung, ein Ort. */
+export const BILLING_MODEL_LABELS: Record<BillingModel, string> = {
+  annual_max: 'Jahreshöchstwert',
+  monthly_max_average: 'Mittel der 12 Monatshöchstwerte',
+  monthly_max_sum: 'Summe der 12 Monatshöchstwerte',
+}
+
+/**
+ * Was die Wahl bedeutet, in einem Satz — die Auswahl ist ohne sie nicht zu treffen.
+ *
+ * Die drei Modelle unterscheiden sich um bis zum Faktor 12 im abgerechneten kW-Wert, und keiner
+ * der Kurznamen sagt, welcher Wert in die Rechnung eingeht. Wer zwischen ihnen wählt, braucht
+ * genau diesen Satz und nicht das Wort.
+ */
+export const BILLING_MODEL_HINTS: Record<BillingModel, string> = {
+  annual_max: 'Ein einziger Höchstwert des Jahres bestimmt den Leistungspreis.',
+  monthly_max_average:
+    'Die zwölf Monatshöchstwerte werden gemittelt; abgerechnet wird dieser eine Mittelwert.',
+  monthly_max_sum: 'Jeder Monat wird mit seinem eigenen Höchstwert abgerechnet, alle zwölf addiert.',
+}
+
 /**
  * Preisbasis einer Preisquelle (Delta 6 „Brutto/Netto") — Pflichtangabe an JEDER Quelle:
  * Netzbetreiber-Tarifzeile, Stromanbieter-Tarif, Spotpreis-Reihe.

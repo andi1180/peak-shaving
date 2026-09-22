@@ -28,6 +28,8 @@ function completeRaw() {
     netzbetreiber: 'wiener_netze',
     netzebene: 3,
     meteringVariant: 'mit_leistungsmessung',
+    billingModel: 'annual_max',
+    billingModelBasis: 'stated',
     rates: {
       leistungspreisEurPerKwYear: 38.52,
       minBillableKw: 0,
@@ -68,6 +70,8 @@ describe('JSON-Schema', () => {
       'netzbetreiber',
       'netzebene',
       'meteringVariant',
+      'billingModel',
+      'billingModelBasis',
       'rates',
       'energyPricePeriods',
       'annualConsumptionKwh',
@@ -95,7 +99,13 @@ describe('JSON-Schema', () => {
     }
 
     // Die Aufzählungsfelder: `anyOf` mit einem ausdrücklichen null-Zweig, s. Test darunter.
-    for (const enumKey of ['netzbetreiber', 'netzebene', 'meteringVariant']) {
+    for (const enumKey of [
+      'netzbetreiber',
+      'netzebene',
+      'meteringVariant',
+      'billingModel',
+      'billingModelBasis',
+    ]) {
       const branches = props[enumKey].anyOf as { type: string; enum?: unknown[] }[]
       expect(branches.map((branch) => branch.type)).toContain('null')
     }
@@ -163,6 +173,8 @@ describe('parseInvoiceExtraction — der Gutfall', () => {
       netzbetreiber: 'wiener_netze',
       netzebene: 3,
       meteringVariant: 'mit_leistungsmessung',
+      billingModel: 'annual_max',
+      billingModelBasis: 'stated',
       rates: {
         leistungspreisEurPerKwYear: 38.52,
         minBillableKw: 0,
@@ -271,6 +283,8 @@ describe('parseInvoiceExtraction — fail closed, Feld für Feld', () => {
     })
     expect(Object.keys(parsed).sort()).toEqual([
       'annualConsumptionKwh',
+      'billingModel',
+      'billingModelBasis',
       'billingPeriodAssumed',
       'billingPeriodFrom',
       'billingPeriodTo',

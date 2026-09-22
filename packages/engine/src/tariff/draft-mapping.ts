@@ -1,4 +1,9 @@
-import { tariffParamsSchema, type BillingModel, type TariffParams } from 'shared'
+import {
+  DEFAULT_DRAFT_BILLING_MODEL,
+  tariffParamsSchema,
+  type BillingModel,
+  type TariffParams,
+} from 'shared'
 
 /**
  * Die vier Entwurfs-Schlüssel des selbst gefundenen VERGLEICHSTARIFS (Tarif-Station,
@@ -52,20 +57,17 @@ const COMPARISON_DRAFT_KEYS = {
  */
 
 /**
- * Das Abrechnungsmodell, wenn der Aufrufer keines vorgibt.
+ * Das Abrechnungsmodell, wenn WEDER der Entwurf noch der Aufrufer eines trägt.
  *
- * ══════════════════════════════════════════════════════════════════════════════════════════════
- * ⚠ `monthly_max_sum` — UND AUSDRÜCKLICH NICHT `monthly_max_average`
- * ══════════════════════════════════════════════════════════════════════════════════════════════
- * Es ist der Standardfall der E-Control-SNE-V (Martin bestätigt, 16.09.2026): abgerechnet wird die
- * SUMME der zwölf Monatshöchstwerte. `monthly_max_average` war der hartkodierte Vorgabewert des
- * alten, abgeschalteten Rechners und ist als „AT-Default [ANNAHME]" im Contract vermerkt — eine
- * Annahme, die hier nie validiert wurde. Die beiden Modelle unterscheiden sich um den Faktor 12 im
- * abgerechneten kW-Wert; der falsche Vorgabewert ergäbe eine Ersparnis, die plausibel aussieht und
- * es nicht ist. Das Feld ist im Contract PFLICHT und wird bis heute von keiner Wizard-Station
- * geschrieben (D3, zweites Hindernis) — dieser Wert ist die Antwort darauf.
+ * ⚠ REVISION 22.09.2026 — ZWEI ÄNDERUNGEN AN EINER ZEILE, DIE HIER EINMAL DER GANZE MECHANISMUS WAR.
+ *   1. Der Wert WOHNT JETZT IN `shared` (`tariff.ts`) und wird hier nur weitergereicht — die
+ *      Rechnung-Station braucht denselben Vorgabewert als Vorbelegung, und `apps/web` darf
+ *      `engine` nicht kennen. Begründung in voller Länge dort.
+ *   2. Er ist das LETZTE GLIED, nicht das einzige. Bis hierher schrieb keine Station das Feld, und
+ *      dieser Wert entschied deshalb IMMER. Die Reihenfolge ist jetzt
+ *      Aufrufer-Override → Entwurf (`billingModel`) → dieser Wert.
  */
-export const DEFAULT_DRAFT_BILLING_MODEL: BillingModel = 'monthly_max_sum'
+export { DEFAULT_DRAFT_BILLING_MODEL }
 
 /**
  * Die Entwurfs-Schlüssel, die namensgleich in den Contract gehen.
@@ -92,8 +94,9 @@ export type DraftTariffMappingOptions = {
    * Überschreibt das Abrechnungsmodell für DIESEN Lauf.
    *
    * ⚠ Ein Parameter und ausdrücklich KEINE Oberfläche: wer ihn setzt, entscheidet damit über die
-   * Kernzahl der ganzen Analyse. Solange keine Station das Modell erhebt, gilt der Vorgabewert —
-   * und wer davon abweicht, tut es sichtbar im Code des Aufrufers.
+   * Kernzahl der ganzen Analyse — und überstimmt seit dem 22.09.2026 auch die AUSDRÜCKLICHE Wahl
+   * des Admins im Entwurf. Er bleibt für Probeläufe und Gegenrechnungen da; im Wizard-Pfad wird er
+   * nicht gesetzt.
    */
   billingModelOverride?: BillingModel
 }
@@ -109,8 +112,19 @@ export function mapDraftToTariffParams(
   draft: Record<string, unknown>,
   options: DraftTariffMappingOptions = {},
 ): TariffParams {
+  /*
+   * ⚠ DREI STUFEN, UND DER ENTWURF STEHT IN DER MITTE. Ein ungültiger Wert im `jsonb` fällt dabei
+   * NICHT still auf den Vorgabewert zurück — er läuft in `tariffParamsSchema` und wird dort mit
+   * benanntem Feld abgewiesen. Ein Entwurfswert, den der Contract nicht kennt, ist ein Fehler und
+   * keine Abwesenheit; still ersetzt sähe die Rechnung aus, als hätte jemand das Modell gewählt.
+   */
+  const draftBillingModel = draft.billingModel
   const candidate: Record<string, unknown> = {
-    billingModel: options.billingModelOverride ?? DEFAULT_DRAFT_BILLING_MODEL,
+    billingModel:
+      options.billingModelOverride ??
+      (draftBillingModel === undefined || draftBillingModel === null
+        ? DEFAULT_DRAFT_BILLING_MODEL
+        : draftBillingModel),
   }
 
   for (const key of DRAFT_TARIFF_KEYS) {

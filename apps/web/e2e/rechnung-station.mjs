@@ -150,6 +150,12 @@ try {
   await setSelect(page, 'manual-netzebene', '7')
   await page.locator('#manual-metering-variant').waitFor({ timeout: 5000 })
   await setSelect(page, 'manual-metering-variant', 'mit_leistungsmessung')
+  /*
+   * ⚠ BEWUSST EIN ANDERER WERT ALS DER VORGABEWERT (`monthly_max_sum`). Mit dem Vorgabewert
+   * gewählt wäre der Lauf blind: das Feld stünde nach der Rückkehr auch dann richtig da, wenn
+   * gar nichts gespeichert wurde.
+   */
+  await setSelect(page, 'manual-billing-model', 'annual_max')
   for (const [id, value] of Object.entries(MANUAL)) await page.fill(`#${id}`, value)
 
   await page.getByRole('button', { name: 'Werte übernehmen' }).click()
@@ -192,6 +198,24 @@ try {
     (await page.inputValue('#manual-metering-variant')) === 'mit_leistungsmessung',
     `ist "${await page.inputValue('#manual-metering-variant')}"`,
   )
+  check(
+    'Abrechnungsmodell vorbefüllt',
+    (await page.inputValue('#manual-billing-model')) === 'annual_max',
+    `ist "${await page.inputValue('#manual-billing-model')}"`,
+  )
+  /*
+   * ⚠ DIE ZWEITE HÄLFTE DERSELBEN AUSSAGE. Das Auswahlfeld zeigt IMMER einen Wert — es hat keinen
+   * leeren Zustand. Ohne diese Prüfung wäre „vorbefüllt" allein noch kein Beleg dafür, dass ein
+   * Mensch den Wert übernommen hat; erst der Satz daneben unterscheidet „bestätigt" vom blossen
+   * Vorschlag, und genau das ist der Zustand, den diese Station sichtbar machen soll.
+   */
+  const confirmation = await page.getByTestId('billing-model-confirmation').textContent()
+  check(
+    'Abrechnungsmodell als bestätigt ausgewiesen',
+    (confirmation ?? '').includes('Übernommen'),
+    `steht "${(confirmation ?? '').slice(0, 60)}…"`,
+  )
+
   for (const [id, expected] of Object.entries(MANUAL)) {
     const actual = await page.inputValue(`#${id}`)
     check(`${id} vorbefüllt (${expected})`, actual === expected, `ist "${actual}"`)

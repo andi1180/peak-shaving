@@ -44,6 +44,9 @@ import { useActionState } from 'react'
 import { Loader2 } from 'lucide-react'
 
 import {
+  BILLING_MODELS,
+  BILLING_MODEL_HINTS,
+  BILLING_MODEL_LABELS,
   INVOICE_MERGE_FIELD_LABELS,
   METERING_VARIANTS,
   METERING_VARIANT_LABELS,
@@ -142,6 +145,14 @@ export function DataEntryInvoiceManual({
    */
   const variantApplies = netzebene !== '' && hasMeteringVariant(Number(netzebene))
   const [meteringVariant, setMeteringVariant] = React.useState(initial.meteringVariant)
+
+  /*
+   * ⚠ KONTROLLIERT AUS DEMSELBEN GRUND WIE DIE DREI FELDER DARÜBER: auch der Vorschlagen-Knopf
+   * setzt dieses Formular zurück, und ein zurückgesetztes Auswahlfeld stünde wieder auf dem
+   * Vorgabewert — es hätte damit still eine getroffene Wahl verworfen, und zwar die eine, die die
+   * Kernzahl der Analyse bestimmt.
+   */
+  const [billingModel, setBillingModel] = React.useState<string>(initial.billingModel)
 
   /*
    * ⚠ DIESE ZWEI TARIFFELDER SIND KONTROLLIERT, WEIL DER VORSCHLAG SIE BEFÜLLT — ein anderer Grund
@@ -291,6 +302,53 @@ export function DataEntryInvoiceManual({
                   : ''}
           </span>
         </div>
+      </fieldset>
+
+      <fieldset className="flex flex-col gap-4 border-t border-line pt-6">
+        <legend className="text-small font-medium text-ink">Abrechnungsmodell</legend>
+        <p className="max-w-2xl text-small text-text-muted">
+          Nach welcher Regel der Netzbetreiber die abgerechnete Leistung bildet. Die drei Modelle
+          unterscheiden sich um bis zum Faktor 12 im verrechneten kW-Wert — die Wahl bestimmt damit
+          die Ersparnis, die der Report ausweist.
+        </p>
+
+        <div className="sm:max-w-md">
+          <AdminSelect
+            id="manual-billing-model"
+            name="billingModel"
+            label={INVOICE_MERGE_FIELD_LABELS.billingModel}
+            error={fieldError('billingModel')}
+            value={billingModel}
+            onValueChange={setBillingModel}
+          >
+            {/*
+              ⚠ KEINE leere Option. Das Feld ist im Contract PFLICHT; ein „— bitte wählen —" machte
+              daraus einen Pflichtfehler, den nur auflösen kann, wer die Frage bereits versteht.
+              Vorbelegt und sichtbar ist die ehrlichere Form — und die Zeile darunter sagt, ob der
+              Wert schon bestätigt ist oder noch unser Vorschlag.
+            */}
+            {BILLING_MODELS.map((model) => (
+              <option key={model} value={model}>
+                {BILLING_MODEL_LABELS[model]}
+              </option>
+            ))}
+          </AdminSelect>
+        </div>
+
+        <p className="max-w-2xl text-small text-text-muted">
+          {BILLING_MODEL_HINTS[billingModel as keyof typeof BILLING_MODEL_HINTS]}
+        </p>
+
+        <p
+          className="max-w-2xl text-small text-text-muted"
+          data-testid="billing-model-confirmation"
+        >
+          {initial.billingModelConfirmed
+            ? 'Übernommen — dieser Wert steht beim Zählpunkt und wird so gerechnet.'
+            : 'Noch nicht bestätigt: das ist unser Vorschlag. Gerechnet wird damit erst, wenn Sie ' +
+              'ihn mit „Werte übernehmen" bestätigen — prüfen Sie ihn an der Leistungszeile der ' +
+              'Rechnung.'}
+        </p>
       </fieldset>
 
       <fieldset className="flex flex-col gap-4 border-t border-line pt-6">

@@ -284,6 +284,48 @@ const SYSTEM_PROMPT = [
   '- Findet die Rechnung gar keine Grundgebühr des Lieferanten, ist das Feld null. Trage nicht 0',
   '  ein, um „keine gefunden" auszudrücken — 0 hiesse „es gibt sie und sie beträgt null".',
   '',
+  'billingModel — nach welcher Regel die Leistung abgerechnet wird:',
+  'Gemeint ist die Regel, aus der der abgerechnete kW-Wert entsteht — nicht der Wert selbst. Drei',
+  'Regeln sind möglich, und du wählst nur dann eine, wenn die Rechnung dafür etwas hergibt.',
+  '',
+  'ZUERST die Vorbedingung: Rechnet das Dokument überhaupt einen LEISTUNGSposten ab (ein Entgelt',
+  'je kW)? Tut es das nicht, ist billingModel null und billingModelBasis ebenfalls null. Du wendest',
+  'die Muster unten dann gar nicht erst an.',
+  '',
+  '"annual_max" — ein einziger Höchstwert des Jahres bestimmt alles. Hinweise:',
+  '  „Jahreshöchstlast", „Jahreshöchstleistung", „höchste Viertelstundenleistung des Jahres",',
+  '  „Jahresmaximum" — oder GENAU EINE Leistungszeile für den ganzen Abrechnungszeitraum, mit',
+  '  einem einzelnen kW-Wert und einem Datum oder Monat dahinter, an dem er aufgetreten ist.',
+  '',
+  '"monthly_max_sum" — jeder Monat mit seinem eigenen Höchstwert, alle addiert. Hinweise:',
+  '  eine monatsweise AUFSCHLÜSSELUNG der Leistung (je Monat eine Zeile mit eigenem kW-Wert und',
+  '  eigenem Betrag), „Monatshöchstleistung", „höchste Leistung je Monat" — und die Beträge der',
+  '  Monatszeilen ergeben zusammen den ausgewiesenen Leistungspreis-Gesamtbetrag.',
+  '',
+  '"monthly_max_average" — die Monatshöchstwerte werden gemittelt. Hinweise:',
+  '  „Mittelwert der Monatshöchstleistungen", „durchschnittliche Höchstleistung",',
+  '  „Mittel der zwölf Monatswerte" — oder eine Rechnung, die zwölf Monatswerte NENNT, daraus',
+  '  aber sichtbar EINEN gemittelten kW-Wert bildet und nur diesen verrechnet.',
+  '',
+  'billingModelBasis sagt, worauf du dich stützt:',
+  '- "stated", wenn die Rechnung die Regel mit Worten benennt (eines der oben zitierten Wörter).',
+  '- "inferred", wenn du sie aus der FORM der Leistungsabrechnung geschlossen hast (Anzahl und',
+  '  Aufbau der Zeilen). Das ist der häufigere Fall und vollkommen in Ordnung — aber er muss so',
+  '  gekennzeichnet sein.',
+  '',
+  'Die Abgrenzungen, die hier am ehesten schiefgehen:',
+  '- Eine monatsweise Aufschlüsselung des VERBRAUCHS (kWh je Monat) sagt über die',
+  '  Leistungsabrechnung NICHTS. Entscheidend sind die kW-Zeilen, nicht die kWh-Zeilen.',
+  '- Zwölf Monatszeilen allein entscheiden nicht zwischen Summe und Mittel. Sieh nach, ob die',
+  '  Beträge ADDIERT werden (dann Summe) oder ob daraus ein einzelner Wert gebildet wird (dann',
+  '  Mittel). Lässt sich das nicht sehen, nimm "monthly_max_sum" — das ist der Regelfall der',
+  '  österreichischen Systemnutzungsentgelte-Verordnung.',
+  '- Eine vereinbarte oder Mindestleistung (NBL, „vereinbarte Leistung") ist KEINE Regel, sondern',
+  '  ein Sockel. Sie gehört in minBillableKw und sagt über billingModel nichts.',
+  '- Rate das Modell NICHT aus der Netzebene, aus der Höhe des Leistungspreises oder daraus, dass',
+  '  es sich um einen Haushalt oder einen Betrieb handelt. Findest du kein Muster, ist das Feld',
+  '  null — auch dann, wenn eine Leistung abgerechnet wird.',
+  '',
   'meteringVariant — wie du sie erkennst:',
   'Österreichische Rechnungen schreiben diese Wörter NIE so hin, wie das Schema sie nennt. Sie',
   'umschreiben sie. Schliesse deshalb aus den folgenden Formulierungen, und zwar NUR aus ihnen:',
@@ -343,6 +385,10 @@ const SYSTEM_PROMPT = [
  * beiden Anweisungen hätten einander aufgehoben — die Unbestimmtheit wäre nur verschoben gewesen.
  * Massgeblich ist jetzt „steht nicht darauf", und für das Mehrfach-Vorkommen gilt die Regel oben.
  *
+ * ⚠ Am 22.09.2026 kam die ZWEITE Erschliessungs-Regel dazu (`billingModel`), und der Satz nennt
+ * sie deshalb jetzt beide ausdrücklich und abschliessend („nur diese zwei"). Wer eine dritte
+ * ergänzt, ergänzt sie hier mit — sonst hebt die Ableseregel sie wieder auf.
+ *
  * ⚠ Am 11.09.2026 trat dieselbe Falle ein zweites Mal auf, und zwar durch den Abrechnungszeitraum:
  * die Zwölf-Monats-Regel lässt einen Wert entstehen, der auf dem Dokument gerade NICHT steht —
  * „Lass jedes Feld null, das auf dem Dokument nicht steht" hätte sie also wieder aufgehoben. Der
@@ -355,9 +401,10 @@ const USER_PROMPT =
   'Dokument nicht steht. Steht ein Posten mehrfach für verschiedene Zeitabschnitte, gilt der ' +
   'Wert des zuletzt endenden Abschnitts; die Energiepreis-Zeilen der Energielieferung trage ' +
   'zusätzlich VOLLSTÄNDIG in energyPricePeriods ein, mit Menge und Satz je Zeile und ohne zu ' +
-  'rechnen. Einzige Ausnahme vom Ablesen ist der ' +
-  'Abrechnungszeitraum einer erkennbaren Jahresrechnung — dort gilt die Regel des Systemtexts, ' +
-  'und das Ergebnis ist als erschlossen zu kennzeichnen.'
+  'rechnen. Zwei Angaben darfst du erschliessen statt abzulesen, und nur diese zwei: den ' +
+  'Abrechnungszeitraum einer erkennbaren Jahresrechnung und das Abrechnungsmodell der Leistung ' +
+  '(billingModel) aus der Form der Leistungszeilen. Für beide gelten die Regeln des Systemtexts, ' +
+  'und beide sind als erschlossen zu kennzeichnen (billingPeriodAssumed bzw. billingModelBasis).'
 
 /**
  * Extrahiert die Tarif- und Verbrauchsangaben aus einer Rechnung.
