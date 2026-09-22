@@ -49,6 +49,39 @@ export type WaysBar = {
   model: boolean
 }
 
+/**
+ * Was an EINEM Weg anders gerechnet ist — die Kurzfassung für das Schlusskapitel
+ * („Berechnungsmethodik je Kennzahl", `basis.ts`).
+ *
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * ⚠ SIE STEHT HIER UND NICHT IM SCHLUSSKAPITEL, UND DAS IST DER GANZE PUNKT
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * Die Methodik-Liste führte bis hierher fest verdrahtete Absätze zu drei Wegen — der
+ * Vergleichstarif und die Spitzenkappung kamen darin gar nicht vor, obwohl das Kapitel sie zeigt,
+ * und die vorausschauende Fassung von Weg 4 war nirgends erwähnt. Ein Weg mehr im Kapitel hiess:
+ * daran denken, an einer ganz anderen Stelle einen Absatz nachzutragen. Genau diese Fehlerklasse
+ * schliesst sich, indem die Erklärung dort entsteht, wo der Weg selbst entsteht: `addWay` legt
+ * Absatz UND Erklärung gemeinsam an, und das Schlusskapitel liest nur noch die Liste.
+ *
+ * ⚠ `id` und `title` werden NICHT eigens gesetzt — sie kommen aus dem Absatz des Wegs. Zwei
+ * getrennt gepflegte Titel ergäben ein Dokument, in dem die Methodik einen Weg anders benennt als
+ * das Kapitel, in dem er steht; der Leser fände ihn dann nicht wieder.
+ */
+export type WayMethodNote = {
+  /** Die Kennung des Absatzes, zu dem diese Erklärung gehört (`ReportStatement.id`). */
+  id: string
+  /** Wortgleich der Titel jenes Absatzes. */
+  title: string
+  /** NUR, was an diesem Weg anders ist — die gemeinsame Rechnung steht einmal darüber. */
+  body: string
+  /**
+   * `true` = dieser Weg ist KEINE Viertelstunden-Grösse und gehört nicht in dieselbe Aufzählung
+   * wie die übrigen (heute allein die Spitzenkappung: eine Jahresgrösse aus dem Leistungspreis).
+   * Der Renderer setzt ihn deshalb als eigenen Absatz statt als Listenzeile.
+   */
+  aside: boolean
+}
+
 export type WaysChapter = {
   bars: WaysBar[]
   /**
@@ -64,6 +97,13 @@ export type WaysChapter = {
   figure: ReportFigure
   /** Die Absätze in Dokumentreihenfolge. Ein Weg, der nicht zutrifft, hat hier keinen Eintrag. */
   statements: ReportStatement[]
+  /**
+   * Je Absatz darüber genau eine Kurzerklärung, in derselben Reihenfolge — s. `WayMethodNote`.
+   *
+   * ⚠ DIE LÄNGEN SIND IMMER GLEICH, und zwar bauartbedingt: beide Listen entstehen ausschliesslich
+   * über `addWay`.
+   */
+  methodNotes: WayMethodNote[]
 }
 
 function monthlyComparisonOf(analysis: PdfReportAnalysis): MonthlyTariffComparison | undefined {
@@ -135,6 +175,59 @@ const PREDICTIVE_NOTE =
   'Messwerten — nicht mit dem Wissen, was der Tag tatsächlich bringen wird. Weicht Ihr Verbrauch ' +
   'von dieser Erwartung ab, fällt das Ergebnis entsprechend anders aus.'
 
+/**
+ * Weg 4 in Kurzfassung — Fundstellen `cheapAgainstDailyMean` (`tou.ts`), `dailyPriceOrder`
+ * (`daily-price-order.ts`) und `runCombinedDispatch` (`dispatch.ts`).
+ *
+ * ⚠ „MITTEL" UND NICHT „MEDIAN", und das ist der Satz, auf den es ankommt: die Schwelle ist das
+ * arithmetische Mittel der Intervallpreise des jeweiligen LOKALEN Kalendertags. Ein Median stünde
+ * bei einer schiefen Preiskurve woanders und markierte andere Stunden als günstig — eine hier
+ * hingeschriebene Verwechslung beschriebe eine Steuerung, die so nie gefahren wurde.
+ *
+ * ⚠ Gekürzt ist gegenüber der früheren Fassung ausschliesslich das, was jetzt EINMAL im
+ * gemeinsamen Absatz steht. Keine der drei Regeln (Tagesschwelle, die zwei Rückhalte-Schranken,
+ * Vorrang des Spitzenschutzes) ist weggefallen.
+ */
+const LOAD_CONTROL_METHOD =
+  'wie der Weg davor, aber auf dem SIMULIERTEN Lastgang. Eine Viertelstunde gilt als günstig, wenn ' +
+  'ihr Preis unter dem arithmetischen Mittel aller Viertelstundenpreise ihres eigenen ' +
+  'Kalendertags liegt (Ortszeit, je Tag neu gebildet) — dann lädt der Speicher aus dem Netz. Bis ' +
+  'zum Tagesende bleibt Kapazität für eine später noch günstigere Stunde frei und Energie für ' +
+  'eine später noch teurere liegen. Daraus entsteht ein einziger, chronologischer Fahrplan mit ' +
+  'mitgeführtem Ladezustand und Wirkungsgradverlust; der Spitzenschutz hat darin immer Vorrang ' +
+  'vor dem Preis. Eine Faustregel je Viertelstunde, keine Zusicherung für den einzelnen Tag.'
+
+/**
+ * Der Zusatz, wenn Weg 4 die VORAUSSCHAUENDE Fassung trägt.
+ *
+ * ⚠ ER FEHLTE IN DER FRÜHEREN METHODIK-LISTE VOLLSTÄNDIG, obwohl der Absatz im Kapitel davor den
+ * Kunden ausdrücklich darauf hinweist (`PREDICTIVE_NOTE`). Eine Methodik, die den Rückblick
+ * beschreibt, während die Zahl aus einer Prognose stammt, ist genau die Sorte Erklärung, die wie
+ * eine Erklärung aussieht und eine andere Rechnung beschreibt.
+ *
+ * ⚠ Getauscht ist allein die VERBRAUCHSERWARTUNG der Tages-Rangfolge; ausgeführt wird auf dem
+ * echten Lastgang, und die Spitzenschutz-Schranken kommen weiterhin aus einem Rückblick-Lauf.
+ */
+const PREDICTIVE_METHOD =
+  'Die Tages-Rangfolge sieht dabei nicht Ihren gemessenen Verbrauch, sondern eine Erwartung aus ' +
+  'Ihren eigenen früheren Messwerten; ausgeführt wird der Fahrplan trotzdem auf dem echten ' +
+  'Lastgang, und die Schranken des Spitzenschutzes kommen weiterhin aus einem Rückblick.'
+
+/**
+ * Weg 5 in Kurzfassung — und er ist der einzige Eintrag mit `aside: true`.
+ *
+ * ⚠ ER DARF NICHT IN DIE AUFZÄHLUNG DER ÜBRIGEN: die stehen alle für dieselbe
+ * Viertelstunden-Rechnung mit je einem getauschten Stück. Diese Zahl entsteht aus einer ganz
+ * anderen Grösse (dem abgerechneten kW-Wert) und über einen anderen Bezugszeitraum (ein Jahr).
+ * Als weitere Zeile derselben Liste läse sie sich wie ein vierter Tarif.
+ */
+const PEAK_SHAVING_METHOD =
+  'Diese Zahl entsteht NICHT aus der Viertelstunden-Rechnung oben. Der Leistungspreis hängt am ' +
+  'abgerechneten Leistungswert in kW und wird pro JAHR verrechnet; gerechnet wird, um wie viel ' +
+  'der simulierte Fahrplan diesen Wert senkt, mal dem Satz Ihres Netzbetreibers. Der abgerechnete ' +
+  'Wert folgt dem Abrechnungsmodell Ihres Netzbetreibers und wird von der Mindestleistung nach ' +
+  'unten begrenzt. Als Jahresgrösse gehört er zu keinem der Beträge darüber dazu.'
+
 export function buildWaysChapter(analysis: PdfReportAnalysis): WaysChapter | null {
   const comparison = monthlyComparisonOf(analysis)
   const ways = summaryWaysOf(analysis)
@@ -170,7 +263,21 @@ export function buildWaysChapter(analysis: PdfReportAnalysis): WaysChapter | nul
   const outcome = (way: SummaryWay, more: string, less: string): string =>
     way.eur > 0 ? `${formatEur(way.eur)} ${less}` : `${formatEur(Math.abs(way.eur))} ${more}`
 
-  const statements: ReportStatement[] = [
+  const statements: ReportStatement[] = []
+  const methodNotes: WayMethodNote[] = []
+
+  /*
+   * ⚠ DER EINZIGE WEG, EINEN WEG ANZULEGEN — und das ist die Zusage, von der das Schlusskapitel
+   * lebt (s. `WayMethodNote`): Absatz und Kurzerklärung entstehen in EINEM Aufruf, Kennung und
+   * Titel der Erklärung kommen aus dem Absatz selbst. Ein Weg, der künftig dazukommt, bringt seine
+   * Methodik damit mit, ohne dass irgendwo sonst eine Liste nachgezogen werden muss.
+   */
+  const addWay = (statement: ReportStatement, method: string, aside = false): void => {
+    statements.push(statement)
+    methodNotes.push({ id: statement.id, title: statement.title, body: method, aside })
+  }
+
+  addWay(
     {
       id: 'ways_current',
       title: 'Ihr Tarif heute',
@@ -182,10 +289,14 @@ export function buildWaysChapter(analysis: PdfReportAnalysis): WaysChapter | nul
         'Jeder der folgenden Wege wird gegen genau diesen Betrag gerechnet — mit demselben ' +
         'Lastgang, denselben Netzentgelten und denselben gesetzlichen Abgaben.',
     },
-  ]
+    /* ⚠ Kein Gedankenstrich am Satzanfang: der Renderer setzt bereits einen zwischen Titel und
+       Text, und zwei hintereinander lasen sich im erzeugten PDF wie ein Einschub. */
+    'die Bezugsgrösse. Gerechnet mit Ihrem festen Arbeitspreis und der Grundgebühr Ihres ' +
+      'Lieferanten, auf dem gemessenen Lastgang.',
+  )
 
   if (comparisonWay) {
-    statements.push({
+    addWay({
       id: 'ways_comparison_tariff',
       title: ways.comparisonSupplier
         ? `Ihr Vergleichstarif (${ways.comparisonSupplier})`
@@ -200,10 +311,13 @@ export function buildWaysChapter(analysis: PdfReportAnalysis): WaysChapter | nul
         outcome(comparisonWay, 'MEHR gekostet als Ihr heutiger Tarif.', 'weniger gekostet.') +
         ' Ein Festpreistarif bewegt sich über den Tag nicht, Ihr Speicher kann gegen ihn also ' +
         'nicht steuern: dieser Weg ist unabhängig davon, ob Sie einen Speicher haben.',
-    })
+    },
+    'getauscht sind allein Arbeitspreis und Grundgebühr des Lieferanten; Netzseite, Abgaben und ' +
+      'Lastgang bleiben bit-genau dieselben.',
+    )
   }
 
-  statements.push({
+  addWay({
     id: 'ways_tariff_switch',
     title: 'aWATTar ohne Steuerung',
     amount: null,
@@ -213,9 +327,14 @@ export function buildWaysChapter(analysis: PdfReportAnalysis): WaysChapter | nul
       'aWATTar statt zu Ihrem festen Arbeitspreis — ohne jede Umstellung an Speicher oder ' +
       `Verbrauch. Über die ${days} gemessenen Tage hätte das ` +
       outcome(switchWay, 'MEHR gekostet als Ihr heutiger Tarif, nicht weniger.', 'weniger gekostet.'),
-  })
+    },
+    'statt Ihres festen Arbeitspreises der Börsenpreis der jeweiligen Stunde, statt Ihrer ' +
+      'Grundgebühr die von aWATTar. Die Netzseite hängt am Anschluss und nicht am Lieferanten und ' +
+      'bleibt unverändert. Gerechnet auf dem rohen Lastgang: nichts wird verschoben, nichts ' +
+      'gespeichert.',
+  )
 
-  statements.push({
+  addWay({
     id: 'ways_load_control',
     title: CONTROLLED_WAY_LABEL,
     amount: null,
@@ -227,10 +346,12 @@ export function buildWaysChapter(analysis: PdfReportAnalysis): WaysChapter | nul
       'Vorrang. Über denselben Zeitraum hätte das, Tarifwechsel und Ladesteuerung zusammen, ' +
       outcome(controlWay, 'mehr gekostet als Ihr heutiger Tarif.', 'gespart.') +
       (ways.controlVariant === 'predictive' ? ` ${PREDICTIVE_NOTE}` : ''),
-  })
+    },
+    LOAD_CONTROL_METHOD + (ways.controlVariant === 'predictive' ? ` ${PREDICTIVE_METHOD}` : ''),
+  )
 
   if (peakSavingPerYear > 0) {
-    statements.push({
+    addWay({
       id: 'ways_peak_shaving',
       title: PEAK_SHAVING_WAY_LABEL,
       amount: null,
@@ -248,7 +369,10 @@ export function buildWaysChapter(analysis: PdfReportAnalysis): WaysChapter | nul
         `die ${days} Tage der Balken darüber — sie wird deshalb nicht zu ihnen addiert und steht ` +
         'auch nicht in der Ersparnis-Spanne der Zusammenfassung. Sie kommt zu dem Weg, für den ' +
         'Sie sich beim Stromvertrag entscheiden, hinzu.',
-    })
+    },
+      PEAK_SHAVING_METHOD,
+      true,
+    )
   }
 
   const wayCount = 1 + ways.ways.length + (peakSavingPerYear > 0 ? 1 : 0)
@@ -257,6 +381,7 @@ export function buildWaysChapter(analysis: PdfReportAnalysis): WaysChapter | nul
     bars,
     coveredDays: ways.coveredDays,
     wayCount,
+    methodNotes,
     figure: {
       caption:
         `Was Sie über die ${days} gemessenen Tage tatsächlich gezahlt hätten — je Weg ein Balken. ` +

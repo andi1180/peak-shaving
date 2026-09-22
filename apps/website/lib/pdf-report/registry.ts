@@ -8,9 +8,8 @@ import {
   buildDataSources,
   buildLimitations,
   buildTariffComponents,
-  loadControlMethodItem,
   pvOutageMethodItem,
-  tariffMethodItems,
+  sharedMethodItem,
   timeZoneOf,
   type BasisMethodItem,
 } from './basis'
@@ -38,7 +37,7 @@ import {
 import type { PdfReportInput } from './types'
 
 /**
- * Report-Baukasten B2 — der KATALOG: alle 26 Bausteine eines Reports, über ihre stabile `id`
+ * Report-Baukasten B2 — der KATALOG: alle 24 Bausteine eines Reports, über ihre stabile `id`
  * ansprechbar.
  *
  * ══════════════════════════════════════════════════════════════════════════════════════════════
@@ -89,7 +88,7 @@ import type { PdfReportInput } from './types'
 export type ReportBaukastenForm = 'statement' | 'notice' | 'table' | 'method'
 
 /**
- * Die 26 stabilen Kennungen.
+ * Die 24 stabilen Kennungen.
  *
  * ⚠ EIN LITERAL-UNION UND KEIN `string` — dieselbe Überlegung wie bei `SummaryStatement['id']`
  * (`summary.ts`): ein Tippfehler in einer Kennung ist damit ein Compile-Fehler und nicht ein
@@ -133,9 +132,7 @@ export type ReportBaukastenId =
   | 'limitations'
   | 'table_data_sources'
   | 'table_tariff_components'
-  | 'method_current_tariff'
-  | 'method_spot_uncontrolled'
-  | 'method_load_control'
+  | 'method_shared'
   | 'method_pv_outage'
 
 /**
@@ -176,7 +173,7 @@ export type ReportBaukastenEntry =
 
 export type ReportBaukastenRegistry = {
   /**
-   * Alle 26 Einträge, in Kapitel- und Leserichtung.
+   * Alle 24 Einträge, in Kapitel- und Leserichtung.
    *
    * ⚠ Stufe D LIEST diese Reihenfolge als die Leseordnung des Dokuments (`layout.ts`) — bis dahin
    * war sie eine Ordnungshilfe. Sie muss deshalb der Folge im JSX entsprechen; `limitations` stand
@@ -217,9 +214,7 @@ const SECTION_OF: Record<ReportBaukastenId, ReportSectionKey> = {
   limitations: SECTION_ID.basis,
   table_tariff_components: SECTION_ID.basis,
   table_data_sources: SECTION_ID.basis,
-  method_current_tariff: SECTION_ID.basis,
-  method_spot_uncontrolled: SECTION_ID.basis,
-  method_load_control: SECTION_ID.basis,
+  method_shared: SECTION_ID.basis,
   method_pv_outage: SECTION_ID.basis,
 }
 
@@ -409,17 +404,13 @@ export function buildReportRegistry(
     table(DATA_SOURCES_TABLE_ID, () => buildDataSources(input)),
 
     /*
-     * ⚠ Die beiden Tarif-Absätze entstehen gemeinsam (eine Funktion, zwei Elemente) und werden
-     * über ihre Kennung herausgegriffen, nicht über den Index: eine vertauschte Reihenfolge im
-     * Erzeuger bliebe sonst unbemerkt.
+     * ⚠ NUR DER GEMEINSAME ABSATZ STEHT IM KATALOG, DIE WEGE-ZEILEN NICHT. Wie viele es davon gibt
+     * und welche, entscheidet das Wege-Kapitel je Kunde (`methodNotes`, `ways.ts`) — eine feste
+     * Kennung je Zeile wäre eine Behauptung über eine Anzahl, die es nicht gibt, und eine
+     * Auswahl-Zusage, die die Seite nicht einlösen kann (dieselbe Grenze wie bei den Textblöcken
+     * der Zusammenfassung und den übrigen Absätzen des PV-Kapitels).
      */
-    method('method_current_tariff', () => tariffMethodItemById('method_current_tariff')),
-    method('method_spot_uncontrolled', () => tariffMethodItemById('method_spot_uncontrolled')),
-    method('method_load_control', () =>
-      analysis.tariffOptimization?.computable === true && context.primaryEntry
-        ? loadControlMethodItem()
-        : null,
-    ),
+    method('method_shared', () => sharedMethodItem(analysis)),
     method('method_pv_outage', () =>
       context.pvOutage && input.pvOutageMonths ? pvOutageMethodItem(input.pvOutageMonths) : null,
     ),
@@ -438,11 +429,6 @@ export function buildReportRegistry(
     )
   }
 
-  function tariffMethodItemById(id: string): BasisMethodItem | null {
-    if (analysis.tariffOptimization?.computable !== true) return null
-    return tariffMethodItems().find((item) => item.id === id) ?? null
-  }
-
   const byId = new Map<ReportBaukastenId, ReportBaukastenEntry>(entries.map((e) => [e.id, e]))
 
   return {
@@ -456,7 +442,7 @@ export function buildReportRegistry(
 }
 
 /**
- * Die 26 Kennungen als Laufzeitliste.
+ * Die 24 Kennungen als Laufzeitliste.
  *
  * ⚠ Sie steht hier und nicht in der Registry: ein Prüflauf, der die Vollständigkeit der Registry
  * aus der Registry selbst läse, prüfte sie gegen sich. Der Typ `ReportBaukastenId` und diese Liste
@@ -485,9 +471,7 @@ export const REPORT_BAUKASTEN_IDS = [
   'limitations',
   'table_tariff_components',
   'table_data_sources',
-  'method_current_tariff',
-  'method_spot_uncontrolled',
-  'method_load_control',
+  'method_shared',
   'method_pv_outage',
 ] as const satisfies readonly ReportBaukastenId[]
 

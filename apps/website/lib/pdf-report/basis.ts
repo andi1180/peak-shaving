@@ -3,7 +3,6 @@ import {
   AWATTAR_BASE_FEE,
   NETZBETREIBER_LABELS,
   TARIFF_SETS,
-  type BatteryResultEntry,
   type BatteryRoiEntry,
   type BillingModel,
   type EstimatedPvSummary,
@@ -29,6 +28,7 @@ import type {
   ReportTableRow,
 } from './statement'
 import { primaryEntryOf, recommendedEntryOf } from './summary'
+import { buildWaysChapter, hasWaysChapter } from './ways'
 import { TARIFF_SOURCE_UNTRACKED } from './types'
 import type {
   PdfReportAnalysis,
@@ -1066,7 +1066,7 @@ export function buildTariffComponents(input: PdfReportInput): ReportTable {
  * ──────────────────────────────────────────────────────────────────────────────────────────── */
 
 /**
- * D9 — ein Absatz je Kennzahl: welche Formel und welche Annahme dahinterstehen.
+ * D9 — wie die Zahlen zustande kamen: EIN gemeinsamer Absatz, darunter je Weg die Differenz.
  *
  * ══════════════════════════════════════════════════════════════════════════════════════════════
  * ⚠ DIE SÄTZE SIND AUS DEM CODE ABGELEITET, NICHT AUS DEM URBANZ-ANHANG ÜBERNOMMEN
@@ -1075,13 +1075,24 @@ export function buildTariffComponents(input: PdfReportInput): ReportTable {
  * Verfahren (die Preisschwelle etwa ist seit 02.09.2026 das Tages- und nicht mehr das
  * Perioden-Mittel, `tou.ts`). Eine abgeschriebene Methodik wäre die gefährlichste Sorte Fehler in
  * diesem Kapitel: sie sähe wie eine Erklärung aus und beschriebe eine Rechnung, die nicht
- * stattgefunden hat. Fundstellen je Absatz stehen deshalb im Kommentar darüber.
+ * stattgefunden hat.
  *
- * ── ⚠ EIN ABSATZ ENTSTEHT NUR, WO DIE KENNZAHL DIESEN REPORT AUCH ERREICHT ────────────────────
- * Die beiden Tarifzeilen gibt es genau dann, wenn der Vergleich berechenbar war; die Ladesteuerung
- * zusätzlich nur mit einem durchgerechneten Speicher, der PV-Befund nur dort, wo er oben steht.
- * Eine Methodik zu einer Zahl, die im Dokument nirgends vorkommt, beantwortete eine Frage, die
- * niemand stellt — und liesse den Leser die Zahl suchen.
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * ⚠ DIE WEGE-EINTRÄGE WERDEN HIER NICHT MEHR AUFGEZÄHLT — SIE KOMMEN AUS DEM WEGE-KAPITEL
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * Bis hierher standen an dieser Stelle drei fest verdrahtete Absätze („Ihr Tarif heute", „aWATTar
+ * ohne Steuerung", „Mit Ladesteuerung"), und jeder wiederholte die gemeinsame Rechnung in eigenen
+ * Worten. Das hatte drei messbare Folgen: der VERGLEICHSTARIF und die SPITZENKAPPUNG kamen darin
+ * gar nicht vor, obwohl das Wege-Kapitel sie führt; die vorausschauende Fassung von Weg 4 war
+ * nirgends erwähnt; und ein Weg mehr im Kapitel hiess, an dieser ganz anderen Stelle daran zu
+ * denken. Gelesen wird deshalb `buildWaysChapter(...).methodNotes` — dieselbe Liste, aus der auch
+ * die Absätze des Kapitels entstehen (`addWay`, `ways.ts`). Eine zweite Aufzählung hier wäre genau
+ * die Doppelung, die schon dreimal unvollständig war.
+ *
+ * ── ⚠ EIN EINTRAG ENTSTEHT NUR, WO DIE KENNZAHL DIESEN REPORT AUCH ERREICHT ───────────────────
+ * Ohne berechenbaren Tarifvergleich gibt es kein Wege-Kapitel und damit weder den gemeinsamen
+ * Absatz noch eine Differenz; der PV-Befund steht nur dort, wo er oben steht. Eine Methodik zu
+ * einer Zahl, die im Dokument nirgends vorkommt, beantwortete eine Frage, die niemand stellt.
  */
 export type BasisMethodItem = {
   /** Stabil — zur Wiedererkennung in Prüfläufen, nicht im Dokument sichtbar. */
@@ -1089,72 +1100,58 @@ export type BasisMethodItem = {
   /** Die Kennzahl, so benannt wie an der Stelle, an der sie im Report steht. */
   title: string
   body: string
+  /**
+   * Wie der Eintrag gesetzt wird.
+   *
+   * ⚠ `way` ist eine ZEILE einer Aufzählung (Titel und Text in einer Zeile), `text` ein eigener
+   * Absatz mit Überschrift. Der Unterschied ist fachlich und keine Gestaltung: die Wege-Zeilen
+   * sind Varianten EINER Rechnung, die darüber einmal ausgeschrieben steht, und lesen sich nur
+   * als Aufzählung richtig. Der gemeinsame Absatz, die Spitzenkappung (eine Jahresgrösse, s.
+   * `WayMethodNote.aside`) und der PV-Befund sind keine solchen Varianten.
+   */
+  kind: 'text' | 'way'
 }
 
 /**
- * Die zwei Tarifzeilen — Fundstelle `buildMonthlyTariffComparison` (`monthly-tariff-comparison.ts`).
+ * Der gemeinsame Absatz — die Rechnung, die jeder Weg teilt.
  *
- * ⚠ Beide Zeilen entstehen aus DERSELBEN Funktion mit unterschiedlicher Energiepreis-Eingabe; die
- * Netzseite ist bit-genau dieselbe. Genau das sagen die beiden Absätze auch, und in dieser
- * Reihenfolge: der zweite verweist auf den ersten, statt die Formel ein zweites Mal auszuschreiben.
+ * ⚠ ER NENNT DIE ABGABEN, und das ist gegenüber den drei Vorgängerabsätzen eine Ergänzung und
+ * keine Kürzung: seit #295 stecken Elektrizitätsabgabe, EAG-Förderbeitrag, EAG-Pauschale und die
+ * Gebrauchsabgabe im kombinierten Intervallpreis bzw. in den anteiligen Fixkosten, und die
+ * Methodik erwähnte sie bis hierher an keiner Stelle.
+ *
+ * ⚠ DER LEISTUNGSPREIS STEHT AUSDRÜCKLICH NICHT DARIN, und der Satz sagt auch, warum — er ist
+ * eine Jahresgrösse und zählte in den Viertelstundenkosten ein zweites Mal. Dieselbe Abgrenzung
+ * trägt die Kopfzahl der Zusammenfassung („ohne Leistungspreis", `summary.ts`).
  */
-export function tariffMethodItems(): BasisMethodItem[] {
-  return [
-    {
-      id: 'method_current_tariff',
-      title: 'Ihr Tarif heute',
-      body:
-        'Viertelstunde für Viertelstunde: Ihr Netzbezug multipliziert mit dem Preis dieser ' +
-        'Viertelstunde — Ihr Arbeitspreis plus das Netzentgelt des Zeitfensters, in das sie fällt, ' +
-        'plus der Netzverlustaufschlag. Dazu die verbrauchsunabhängigen Gebühren: die Grundgebühr ' +
-        'Ihres Lieferanten und der Netz-Grundpreis, beide tagesanteilig nach den tatsächlich ' +
-        'belegten Kalendertagen und nie als voller Monatsbetrag. Eingespeiste Viertelstunden werden ' +
-        'mit Ihrer Einspeisevergütung gegengerechnet. Der Leistungspreis steht bewusst nicht darin — ' +
-        'er ist die eigene Jahreszahl weiter vorne und würde hier ein zweites Mal zählen.',
-    },
-    {
-      id: 'method_spot_uncontrolled',
-      title: 'aWATTar ohne Steuerung',
-      body:
-        'Dieselbe Rechnung über dieselben Viertelstunden, nur tritt an die Stelle Ihres festen ' +
-        'Arbeitspreises der Börsenpreis der jeweiligen Stunde. Netzentgelt, Netzverlustaufschlag ' +
-        'und Netz-Grundpreis sind identisch — sie hängen an Ihrem Anschluss und nicht an Ihrem ' +
-        'Lieferanten; statt der Grundgebühr Ihres Lieferanten steht die von aWATTar. Gerechnet wird ' +
-        'auf dem rohen Lastgang: es wird nichts verschoben und nichts gespeichert.',
-    },
-  ]
-}
+const SHARED_METHOD_BODY =
+  'Alle Wege entstehen aus DERSELBEN Rechnung, Viertelstunde für Viertelstunde: Ihr Netzbezug mal ' +
+  'dem Preis genau dieser Viertelstunde — Arbeitspreis plus das Netzentgelt des Zeitfensters, in ' +
+  'das sie fällt, plus Netzverlustaufschlag und die gesetzlichen Abgaben (Elektrizitätsabgabe, ' +
+  'EAG-Förderbeitrag und -Pauschale, Gebrauchsabgabe auf den Netzpreis). Dazu die ' +
+  'verbrauchsunabhängigen Gebühren — Grundgebühr des Lieferanten, Netz-Grundpreis und Messpreis —, ' +
+  'tagesanteilig nach den tatsächlich belegten Kalendertagen und nie als voller Monatsbetrag. ' +
+  'Eingespeiste Viertelstunden werden mit Ihrer Einspeisevergütung gegengerechnet. Der ' +
+  'Leistungspreis steht in keiner dieser Zahlen: er ist eine Jahresgrösse und würde hier ein ' +
+  'zweites Mal zählen. Darunter steht je Weg nur noch, was an ihm anders ist.'
 
 /**
- * Die Ladesteuerung — Fundstellen `cheapAgainstDailyMean` (`tou.ts`), `dailyPriceOrder`
- * (`daily-price-order.ts`) und `runCombinedDispatch` (`dispatch.ts`).
+ * Der gemeinsame Absatz, oder `null`, wenn es die Wege nicht gibt.
  *
- * ── ⚠ „MITTEL" UND NICHT „MEDIAN", UND DAS IST DER SATZ, AUF DEN ES ANKOMMT ───────────────────
- * Die Schwelle ist das arithmetische Mittel der Intervallpreise des jeweiligen lokalen
- * Kalendertags. Ein Median stünde bei einer schiefen Preiskurve an einer anderen Stelle und
- * markierte andere Stunden als günstig — eine hier hingeschriebene Verwechslung beschriebe eine
- * Steuerung, die so nie gefahren wurde.
+ * ⚠ Die Bedingung wird am WEGE-KAPITEL gemessen und nicht an `tariffOptimization` daneben: er
+ * beschreibt die Rechnung hinter den Wegen, und ohne sie beschriebe er nichts. Eine zweite Fassung
+ * derselben Bedingung liefe beim nächsten Umbau von ihr weg (dieselbe Überlegung wie bei
+ * `hasPvValueChapter`).
  *
- * ⚠ ES WIRD KEIN VERFAHREN ERWÄHNT, GEGEN DAS DIESE REGEL SICH ABGRENZEN LIESSE. Der Absatz sagt,
- * WAS gerechnet wurde, und benennt es als Heuristik. Ein Hinweis auf ein rechnerisch bestmögliches
- * Gegenstück wäre eine Aussage über eine Zahl, die dieser Report nicht enthält (Prinzip 5: jede
- * Kernzahl nachvollziehbar — nicht jede denkbare Zahl erwähnt).
+ * ⚠ Exportiert für die Registry (`method_shared`) — eine Bedingung, ein Ort.
  */
-export function loadControlMethodItem(): BasisMethodItem {
+export function sharedMethodItem(analysis: PdfReportAnalysis): BasisMethodItem | null {
+  if (!hasWaysChapter(analysis)) return null
   return {
-    id: 'method_load_control',
-    title: 'Mit Ladesteuerung',
-    body:
-      'Eine Viertelstunde gilt als günstig, wenn ihr Preis unter dem arithmetischen Mittel aller ' +
-      'Viertelstundenpreise ihres eigenen Kalendertags liegt — das Mittel wird für jeden Tag nach ' +
-      'Ortszeit neu gebildet, nicht einmal über den ganzen Zeitraum. In diesen Viertelstunden lädt ' +
-      'der Speicher aus dem Netz. Zwei zusätzliche Schranken gelten dabei jeweils bis zum Tagesende: ' +
-      'Kapazität, die eine später am selben Tag noch günstigere Stunde braucht, bleibt frei, und ' +
-      'Energie, die eine später noch teurere Stunde nutzt, bleibt liegen. Daraus entsteht ein ' +
-      'einziger, chronologischer Fahrplan über den gesamten Zeitraum, mit mitgeführtem Ladezustand ' +
-      'und Wirkungsgradverlust; der Schutz Ihrer Lastspitzen hat darin immer Vorrang vor dem Preis. ' +
-      'Das ist eine Faustregel (Heuristik), die je Viertelstunde entscheidet, und keine Zusicherung ' +
-      'für den einzelnen Tag.',
+    id: 'method_shared',
+    kind: 'text',
+    title: 'Was für alle Wege gleich gerechnet ist',
+    body: SHARED_METHOD_BODY,
   }
 }
 
@@ -1169,6 +1166,7 @@ export function loadControlMethodItem(): BasisMethodItem {
 export function pvOutageMethodItem(months: PvOutageMonth[]): BasisMethodItem {
   return {
     id: 'method_pv_outage',
+    kind: 'text',
     title: pvOutageTitle(months),
     body:
       'Der Befund misst eine Abwesenheit: gemeldet wird ein Monat, in dem Ihr Netzbezug im ' +
@@ -1178,32 +1176,33 @@ export function pvOutageMethodItem(months: PvOutageMonth[]): BasisMethodItem {
   }
 }
 
-/** Die Liste. Leer heisst: keine der vier Kennzahlen hat diesen Report erreicht — s. Kopf. */
+/** Die Liste. Leer heisst: keine Kennzahl hat diesen Report erreicht — s. Kopf. */
 function buildMethodPerMetric(
   analysis: PdfReportAnalysis,
   pvOutage: ReportNotice | null,
   pvOutageMonths: PvOutageMonth[] | undefined,
-  /* Der primäre Block — hereingereicht, nicht hier ein zweites Mal abgeleitet (B1). */
-  primaryEntry: BatteryResultEntry | undefined,
 ): BasisMethodItem[] {
   const items: BasisMethodItem[] = []
 
-  /*
-   * ⚠ Dieselbe Bedingung wie überall sonst im Dokument (`detail.ts`, `summary.ts`, `supplierFeeRow`
-   * eine Sektion weiter oben): erst `computable === true` gibt es den Monatsvergleich, und nur mit
-   * ihm stehen die beiden Tarifzeilen irgendwo im Report.
-   */
-  const comparable = analysis.tariffOptimization?.computable === true
-  if (comparable) items.push(...tariffMethodItems())
-
-  /*
-   * ⚠ ZWEI Bedingungen, und die zweite ist die leicht zu übersehende: die Tages-Preisschwelle und
-   * die Tages-Rangfolge entstehen ausschliesslich im Zweig mit echter Preiskurve
-   * (`simulate.ts`: `rates.tariffOptimization?.computable === true`). Beim statischen HT/NT-Fenster
-   * wird gegen den Standardpreis gemessen und gar keine Rangfolge gebildet — der Absatz beschriebe
-   * dort eine Steuerung, die so nicht gelaufen ist.
-   */
-  if (comparable && primaryEntry) items.push(loadControlMethodItem())
+  const shared = sharedMethodItem(analysis)
+  if (shared) {
+    items.push(shared)
+    /*
+     * ⚠ DIE REIHENFOLGE IST DIE DES WEGE-KAPITELS, weil es dieselbe Liste ist. Hier umsortiert
+     * stünde die Methodik in einer anderen Ordnung als die Wege, auf die sie sich bezieht — und
+     * der Leser suchte den vierten Eintrag beim dritten Weg.
+     */
+    for (const note of buildWaysChapter(analysis)?.methodNotes ?? []) {
+      items.push({
+        /* ⚠ Aus der Kennung des Wegs abgeleitet und nicht frei vergeben: zwei Einträge mit
+           derselben Kennung wären im Dokument nicht unterscheidbar. */
+        id: `method_${note.id}`,
+        kind: note.aside ? 'text' : 'way',
+        title: note.title,
+        body: note.body,
+      })
+    }
+  }
 
   /* Am HINWEIS gemessen und nicht an `hasPv`/`pvOutageMonths`: eine Bedingung, ein Ort. */
   if (pvOutage && pvOutageMonths) items.push(pvOutageMethodItem(pvOutageMonths))
@@ -1329,7 +1328,6 @@ export function buildBasisChapter(
    * der Hinweis in genau dem Fall ein zweites Mal, in dem es ihn gar nicht gibt.
    */
   const pvOutage = context ? context.pvOutage : pvOutageNoticeOf(input)
-  const primaryEntry = context ? context.primaryEntry : primaryEntryOf(input.analysis)
 
   /*
    * ⚠ Report-Baukasten C: EINMAL GEBILDET, ZWEIMAL GELESEN — genau wie `pvOutage` darüber und aus
@@ -1348,12 +1346,7 @@ export function buildBasisChapter(
     tariffVintage: input.tariffVintage,
     tariffComponents: buildTariffComponents(input),
     dataSources: buildDataSources(input),
-    methodPerMetric: buildMethodPerMetric(
-      input.analysis,
-      pvOutage,
-      input.pvOutageMonths,
-      primaryEntry,
-    ),
+    methodPerMetric: buildMethodPerMetric(input.analysis, pvOutage, input.pvOutageMonths),
     limitations: buildLimitations(input.analysis),
   }
 }

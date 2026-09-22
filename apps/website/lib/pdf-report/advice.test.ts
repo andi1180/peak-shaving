@@ -175,7 +175,18 @@ function layoutFor(input: PdfReportInput): ReportLayout {
   return buildReportLayout(input, context, buildReportRegistry(input, context))
 }
 
-/** Die Punkte, wie das Dokument sie setzt: aufgelöst und um die leeren gekürzt. */
+/**
+ * Die Punkte, wie das Dokument sie setzt: aufgelöst und um die leeren gekürzt.
+ *
+ * ⚠ Die Texte kommen als `Record` und nicht als Feld: ein Index wäre die Reihenfolge, und genau
+ * die ändert sich in diesen Proben von Fall zu Fall (das ist ja der Gegenstand). Über den Titel
+ * angesprochen schlägt ein fehlender Punkt als fehlender Schlüssel auf, nicht als verschobener
+ * Vergleich, der zufällig noch passt.
+ */
+function textsOf(input: PdfReportInput): Record<string, string> {
+  return Object.fromEntries(pointsOf(input).map((point) => [point.title, point.text]))
+}
+
 function pointsOf(input: PdfReportInput): { title: string; text: string }[] {
   const proposal = buildAdviceChapter(input).proposal
   if (!proposal) return []
@@ -208,23 +219,25 @@ describe('Kapitel „Unser Vorschlag" — Abschnitt „Was wir vorschlagen"', ()
       'Für eine noch genauere Zahl',
     ])
 
+    const texts = textsOf(input)
+
     /* Punkt 1 ist Weg 3 und nicht Weg 2: der Vergleichstarif kostet hier MEHR. */
-    expect(points[0].text).toContain('aWATTar')
-    expect(points[0].text).not.toContain('ENSTROGA')
+    expect(texts['Wollen Sie es einfach halten']).toContain('aWATTar')
+    expect(texts['Wollen Sie es einfach halten']).not.toContain('ENSTROGA')
     /* 1000 − 900, über die 209 gemessenen Tage — nicht als Jahreszahl. */
-    expect(points[0].text).toContain('€ 100')
-    expect(points[0].text).toContain('209 gemessenen Tage')
+    expect(texts['Wollen Sie es einfach halten']).toContain('€ 100')
+    expect(texts['Wollen Sie es einfach halten']).toContain('209 gemessenen Tage')
 
     /* Punkt 2 ist die Ladesteuerung und liegt über Punkt 1 (1000 − 800). */
-    expect(points[1].text).toContain('bis zu € 200')
+    expect(texts['Wollen Sie das Maximum']).toContain('bis zu € 200')
 
     /* Punkt 3 zeigt auf das Kapitel, in dem die Antwort steht — kein zweites „Nein" mit Zahlen. */
-    expect(points[2].text).toBe(
+    expect(texts['Zusätzlicher Speicher']).toBe(
       'Nicht nötig — das ist bereits geklärt: die Antwort samt Begründung steht im Kapitel ' +
         '„Speichergrösse und Gerätewahl".',
     )
 
-    expect(points[3].text).toContain('Einspeisedaten')
+    expect(texts['Für eine noch genauere Zahl']).toContain('Einspeisedaten')
   })
 
   /*

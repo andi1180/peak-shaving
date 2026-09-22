@@ -371,9 +371,7 @@ function expectedFor(id: ReportBaukastenId, input: PdfReportInput): unknown {
       return basis.tariffComponents
     case 'table_data_sources':
       return basis.dataSources
-    case 'method_current_tariff':
-    case 'method_spot_uncontrolled':
-    case 'method_load_control':
+    case 'method_shared':
     case 'method_pv_outage':
       return basis.methodPerMetric.find((m) => m.id === id) ?? null
   }
@@ -384,9 +382,9 @@ function registryFor(input: PdfReportInput) {
 }
 
 describe('Report-Baukasten-Registry (B2)', () => {
-  it('deckt die 26 Kennungen genau einmal ab', () => {
+  it('deckt die 24 Kennungen genau einmal ab', () => {
     const entries = registryFor(BESTAND_FALL).entries
-    expect(entries).toHaveLength(26)
+    expect(entries).toHaveLength(24)
     expect([...entries.map((e) => e.id)].sort()).toEqual([...REPORT_BAUKASTEN_IDS].sort())
   })
 
@@ -539,9 +537,7 @@ describe('Stufe D — `entries` ist die Leseordnung des Dokuments', () => {
       'pv_outage',
       'table_tariff_components',
       'table_data_sources',
-      'method_current_tariff',
-      'method_spot_uncontrolled',
-      'method_load_control',
+      'method_shared',
       'method_pv_outage',
       'limitations',
     ])
