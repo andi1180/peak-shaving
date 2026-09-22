@@ -12,7 +12,9 @@ import { defineConfig } from 'vitest/config'
  * gehalten wird (s. Kopf von `basis.ts`).
  *
  * `include` ist deshalb eng gefasst: ein versehentlich hier abgelegter Komponententest soll nicht
- * still mitlaufen und dann an fehlendem jsdom scheitern.
+ * still mitlaufen und dann an fehlendem jsdom scheitern. Es zählt `lib/` selbst mit (dort liegt
+ * mit `chart-ticks.ts` reine Achsen-Arithmetik, die von Komponenten benutzt wird, aber keine
+ * kennt) — `components/` bleibt ausgenommen, denn dort wäre ein Test ohne DOM gar nicht denkbar.
  *
  * ── ⚠ ZWEI AUSNAHMEN, UND SIE BRAUCHEN KEIN DOM ──────────────────────────────────────────────
  * `optional-sections.test.ts` (Katalog-Fall) und `existing-case.test.ts` (Bestandsfall) erzeugen
@@ -32,6 +34,6 @@ export default defineConfig({
   },
   esbuild: { jsx: 'automatic' },
   test: {
-    include: ['lib/pdf-report/*.test.ts'],
+    include: ['lib/*.test.ts', 'lib/pdf-report/*.test.ts'],
   },
 })

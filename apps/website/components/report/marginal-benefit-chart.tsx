@@ -12,6 +12,7 @@ import {
 } from 'recharts'
 import type { BatteryCandidate, BatteryRoiSummary } from 'shared'
 
+import { evenAxisTicks } from '@/lib/chart-ticks'
 import { formatEur, formatKw, formatKwh1 } from '@/lib/format'
 import { Num } from './num'
 
@@ -74,13 +75,6 @@ function BenefitTooltip({ active, payload }: { active?: boolean; payload?: Array
   )
 }
 
-/** Nach aussen auf eine halbe Dekade runden — 0 bleibt 0, damit die Nulllinie exakt sitzt. */
-function niceBound(value: number, direction: 'down' | 'up'): number {
-  if (value === 0) return 0
-  const step = Math.pow(10, Math.floor(Math.log10(Math.abs(value)))) / 2
-  return direction === 'down' ? Math.floor(value / step) * step : Math.ceil(value / step) * step
-}
-
 export function MarginalBenefitChart({
   points,
   horizonYears,
@@ -113,13 +107,12 @@ export function MarginalBenefitChart({
    * Beides ist am echten Bestandsfall gemessen: liegen alle fünf Punkte im Minus, skaliert
    * Recharts von selbst auf −4.000 bis −20.000, die Nulllinie fällt aus dem Sichtbereich, und die
    * Kurve sieht aus, als verliefe sie um eine Null herum, die irgendwo oben läge — ausgerechnet in
-   * dem Fall, für den die Grafik gebaut ist. Ein hart auf [min, 0] gesetzter Bereich behebt das,
-   * erzeugt dann aber Achsenbeschriftungen wie „−€ 3.422". Deshalb nach aussen auf eine halbe
-   * Dekade gerundet: die Null ist drin UND die Ticks sind lesbar.
+   * dem Fall, für den die Grafik gebaut ist. `evenAxisTicks` setzt den Bereich deshalb fest und
+   * liefert die Ticks gleich mit: die Null liegt auf einem Tick, die Beschriftungen sind rund, und
+   * die Abstände sind durchgehend gleich (warum das nicht von selbst so ist, s. `chart-ticks.ts`).
    */
   const values = rows.map((r) => r.netSaving)
-  const lowerBound = niceBound(Math.min(0, ...values), 'down')
-  const upperBound = niceBound(Math.max(0, ...values), 'up')
+  const axis = evenAxisTicks(Math.min(0, ...values), Math.max(0, ...values))
 
   const best = rows.reduce((a, b) => (b.netSaving > a.netSaving ? b : a))
   const allNegative = rows.every((r) => r.netSaving <= 0)
@@ -166,7 +159,8 @@ export function MarginalBenefitChart({
                * verliefe sie um eine Nulllinie herum, die irgendwo oben läge. Genau in dem Fall,
                * für den die Grafik gebaut ist („keines rechnet sich"), wäre sie damit unlesbar.
                */
-              domain={[lowerBound, upperBound]}
+              domain={axis ? axis.domain : ['auto', 'auto']}
+              ticks={axis?.ticks}
               stroke="var(--color-text-muted)"
               tick={{ fontSize: 11 }}
               tickFormatter={(v: number) => formatEur(v)}
