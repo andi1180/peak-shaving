@@ -59,6 +59,7 @@ import {
   saveMeteringPointManualTariffAction,
 } from '@/lib/admin/data-entry-actions'
 import { ADMIN_INITIAL_STATE } from '@/lib/admin/schema'
+import type { ManualTariffDraft } from '@/lib/admin/invoice-extractions'
 import { AdminError, AdminField, AdminSelect, AdminSuccess } from './ui'
 
 /**
@@ -88,9 +89,21 @@ function fieldLabel(key: NumberFieldKey): string {
 export function DataEntryInvoiceManual({
   projectId,
   meteringPointId,
+  initial,
 }: {
   projectId: string
   meteringPointId: string
+  /**
+   * Der bereits erfasste Stand dieses Zählpunkts, gelesen aus dem ENTWURF
+   * (`readManualTariffDraft`) — nicht aus dem Rückgabewert einer Action.
+   *
+   * ⚠ ER IST DER GRUND, WARUM DIESES FORMULAR NACH EINEM STATIONSWECHSEL NICHT MEHR LEER IST. Bis
+   * dahin schrieb die Handeingabe in den Entwurf und las ihn nie zurück: alle Felder starteten auf
+   * `''`, und weil die Zusammenfassung darüber an den gelesenen RECHNUNGEN hängt (nicht am
+   * Entwurf), zeigte die ganze Station den eingetragenen Stand nirgends. Gespeichert war er,
+   * sichtbar nicht — von aussen ununterscheidbar von „nichts gespeichert".
+   */
+  initial: ManualTariffDraft
 }) {
   const [saveState, saveAction, isSaving] = useActionState(
     saveMeteringPointManualTariffAction,
@@ -115,8 +128,8 @@ export function DataEntryInvoiceManual({
    * nicht; der Zustand überlebte, das FELD nicht. Die übrigen Felder bleiben dagegen bewusst
    * unkontrolliert (s. der Absatz bei `leistungspreis`).
    */
-  const [operatorId, setOperatorId] = React.useState('')
-  const [netzebene, setNetzebene] = React.useState('')
+  const [operatorId, setOperatorId] = React.useState(initial.operatorId)
+  const [netzebene, setNetzebene] = React.useState(initial.netzebene)
   /*
    * Die Netzebene steuert ein ANDERES Feld: nur auf Netzebenen mit Varianten (heute NE 7) gibt es
    * überhaupt eine Messvariante.
@@ -128,7 +141,7 @@ export function DataEntryInvoiceManual({
    * FormData, und auf NE 3–6 gehört in der Spalte `null` (B21-1, `unique nulls not distinct`).
    */
   const variantApplies = netzebene !== '' && hasMeteringVariant(Number(netzebene))
-  const [meteringVariant, setMeteringVariant] = React.useState('')
+  const [meteringVariant, setMeteringVariant] = React.useState(initial.meteringVariant)
 
   /*
    * ⚠ DIESE ZWEI TARIFFELDER SIND KONTROLLIERT, WEIL DER VORSCHLAG SIE BEFÜLLT — ein anderer Grund
@@ -140,8 +153,10 @@ export function DataEntryInvoiceManual({
    * Fehler in genau diesem Feld. Die drei Anschluss-Felder darüber trifft dagegen auch die
    * LESENDE Action, die über ihren Inhalt gar nicht urteilt.
    */
-  const [leistungspreis, setLeistungspreis] = React.useState('')
-  const [minBillableKw, setMinBillableKw] = React.useState('')
+  const [leistungspreis, setLeistungspreis] = React.useState(
+    initial.numbers.leistungspreisEurPerKwYear,
+  )
+  const [minBillableKw, setMinBillableKw] = React.useState(initial.numbers.minBillableKw)
 
   const suggested = lookupState.values?.lookup === 'ok' ? lookupState.values : null
 
@@ -311,6 +326,7 @@ export function DataEntryInvoiceManual({
             name="energyPriceCtPerKwh"
             label={fieldLabel('energyPriceCtPerKwh')}
             inputMode="numeric"
+            defaultValue={initial.numbers.energyPriceCtPerKwh}
             error={fieldError('energyPriceCtPerKwh')}
           />
           <AdminField
@@ -318,6 +334,7 @@ export function DataEntryInvoiceManual({
             name="energyPriceNightCtPerKwh"
             label={fieldLabel('energyPriceNightCtPerKwh')}
             inputMode="numeric"
+            defaultValue={initial.numbers.energyPriceNightCtPerKwh}
             error={fieldError('energyPriceNightCtPerKwh')}
             hint="Nur, wenn ein eigener Nachttarif vereinbart ist."
           />
@@ -326,6 +343,7 @@ export function DataEntryInvoiceManual({
             name="einspeiseverguetungCtPerKwh"
             label={fieldLabel('einspeiseverguetungCtPerKwh')}
             inputMode="numeric"
+            defaultValue={initial.numbers.einspeiseverguetungCtPerKwh}
             error={fieldError('einspeiseverguetungCtPerKwh')}
           />
           <AdminField
@@ -333,6 +351,7 @@ export function DataEntryInvoiceManual({
             name="supplierBaseFeeEurPerMonth"
             label={fieldLabel('supplierBaseFeeEurPerMonth')}
             inputMode="numeric"
+            defaultValue={initial.numbers.supplierBaseFeeEurPerMonth}
             error={fieldError('supplierBaseFeeEurPerMonth')}
           />
           <AdminField
@@ -340,6 +359,7 @@ export function DataEntryInvoiceManual({
             name="annualConsumptionKwh"
             label={fieldLabel('annualConsumptionKwh')}
             inputMode="numeric"
+            defaultValue={initial.numbers.annualConsumptionKwh}
             error={fieldError('annualConsumptionKwh')}
           />
         </div>

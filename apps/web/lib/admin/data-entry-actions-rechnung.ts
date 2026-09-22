@@ -8,7 +8,6 @@ import {
   NETZEBENEN,
   hasMeteringVariant,
   mergeInvoiceExtractions,
-  type InvoiceMergeFieldKey,
 } from 'shared'
 import { uploadProjectDocument } from '@/lib/project-documents/documents'
 import { setDraftField } from '@/lib/project-chat/draft'
@@ -16,6 +15,7 @@ import { createClient } from '@/lib/supabase/server'
 import { lookupGridTariffDefaults } from './grid-tariff-lookup'
 import {
   INVOICE_SKIPPED_KEY,
+  MANUAL_TARIFF_NUMBER_FIELDS,
   MAX_INVOICES_PER_UPLOAD,
   draftFieldFor,
   invoiceDraftValues,
@@ -777,17 +777,6 @@ export async function lookupGridTariffDefaultsAction(
     },
   }
 }
-
-/** Die Felder, die als nicht-negative Zahl in den Entwurf gehen — Reihenfolge = Anzeigereihenfolge. */
-const MANUAL_TARIFF_NUMBER_FIELDS = [
-  'energyPriceCtPerKwh',
-  'energyPriceNightCtPerKwh',
-  'einspeiseverguetungCtPerKwh',
-  'supplierBaseFeeEurPerMonth',
-  'leistungspreisEurPerKwYear',
-  'minBillableKw',
-  'annualConsumptionKwh',
-] as const satisfies readonly InvoiceMergeFieldKey[]
 
 /**
  * Liest eine eingetippte Zahl.

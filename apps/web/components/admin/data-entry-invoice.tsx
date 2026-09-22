@@ -94,6 +94,8 @@ import {
   MAX_INVOICES_PER_UPLOAD,
   invoiceConflictLabels,
   invoiceMergeDisplayRows,
+  manualTariffDraftIsEmpty,
+  readManualTariffDraft,
   readStoredInvoiceExtractions,
 } from '@/lib/admin/invoice-extractions'
 import { ADMIN_INITIAL_STATE } from '@/lib/admin/schema'
@@ -150,7 +152,24 @@ export function DataEntryInvoice({
     ADMIN_INITIAL_STATE,
   )
   const error = state.fieldErrors?.files
-  const [manualOpen, setManualOpen] = React.useState(false)
+  /*
+   * ⚠ Der erfasste Tarifstand dieses Zählpunkts — aus dem ENTWURF, wie alles andere auf dieser
+   * Station auch (s. Kopf). Er befüllt das Formular der Handeingabe wieder; ohne ihn stand es nach
+   * jedem Stationswechsel leer da, obwohl gespeichert war.
+   */
+  const manualValues = readManualTariffDraft(meteringPoint.draft)
+  const hasManualValues = !manualTariffDraftIsEmpty(manualValues)
+  /*
+   * ⚠ AUFGEKLAPPT, SOBALD ETWAS ERFASST IST — und nur dann.
+   *
+   * Zugeklappt ist der zweite Weg eine bewusste Zurückhaltung: ausgeklappt danebenstehend lüde er
+   * dazu ein, das Auslesen zu überspringen und Zahlen abzutippen, die eine Datei genauer liefert.
+   * Diese Überlegung trägt aber nur, SOLANGE noch nichts erfasst ist. Steht bereits ein Wert im
+   * Entwurf, ist die Einladung längst angenommen — und zugeklappt zu bleiben hiesse dann, den
+   * einzigen Ort zu verstecken, an dem dieser Stand überhaupt sichtbar ist. Genau das sah aus wie
+   * „nichts gespeichert".
+   */
+  const [manualOpen, setManualOpen] = React.useState(hasManualValues)
 
   React.useEffect(() => {
     if (error) document.getElementById(FIELD_ID)?.focus()
@@ -383,7 +402,11 @@ export function DataEntryInvoice({
         */}
         {manualOpen && (
           <div id={MANUAL_ID} className="mt-6">
-            <DataEntryInvoiceManual projectId={projectId} meteringPointId={meteringPoint.id} />
+            <DataEntryInvoiceManual
+              projectId={projectId}
+              meteringPointId={meteringPoint.id}
+              initial={manualValues}
+            />
           </div>
         )}
       </div>

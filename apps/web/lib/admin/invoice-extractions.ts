@@ -1,10 +1,12 @@
 import {
   INVOICE_MERGE_FIELD_KEYS,
   INVOICE_MERGE_FIELD_LABELS,
+  METERING_VARIANTS,
   METERING_VARIANT_LABELS,
   NETZBETREIBER_DRAFT_KEY,
   NETZBETREIBER_IDS,
   NETZBETREIBER_LABELS,
+  NETZEBENEN,
   parseInvoiceExtraction,
   tariffParamsSchema,
   type InvoiceExtraction,
@@ -388,4 +390,119 @@ export function invoiceConflictLabels(conflicts: readonly InvoiceMergeFieldKey[]
  */
 export function invoiceExtractionsKeyCollidesWithContract(): boolean {
   return DRAFT_INVOICE_EXTRACTIONS_KEY in tariffParamsSchema.shape
+}
+
+/**
+ * Die Tarifwerte, die die Handeingabe schreibt — in genau dieser Reihenfolge.
+ *
+ * ⚠ SIE STEHT HIER UND NICHT IN DER SERVER ACTION, obwohl die sie schreibt: `readManualTariffDraft`
+ * darunter liest DIESELBEN Felder wieder heraus, und die Station befüllt ihr Formular daraus. Zwei
+ * Listen liefen beim nächsten zusätzlichen Feld auseinander, und zwar still — gespeichert würde es,
+ * angezeigt nicht, und die Station sähe für dieses eine Feld weiterhin leer aus. Ausserdem ist
+ * `data-entry-actions-rechnung.ts` eine `'use server'`-Datei: dort sind nur asynchrone Funktionen
+ * exportierbar, eine geteilte Konstante kann darin gar nicht wohnen.
+ */
+export const MANUAL_TARIFF_NUMBER_FIELDS = [
+  'energyPriceCtPerKwh',
+  'energyPriceNightCtPerKwh',
+  'einspeiseverguetungCtPerKwh',
+  'supplierBaseFeeEurPerMonth',
+  'leistungspreisEurPerKwYear',
+  'minBillableKw',
+  'annualConsumptionKwh',
+] as const satisfies readonly InvoiceMergeFieldKey[]
+
+/** Der erfasste Stand eines Zählpunkts, fertig als Formularwerte der Handeingabe. */
+export type ManualTariffDraft = {
+  /** Die Kennung des Netzbetreibers, oder `''` — der leere Wert der Auswahl. */
+  operatorId: string
+  /** Die Netzebene als blosse Ziffer (`'7'`), wie das Auswahlfeld sie führt. */
+  netzebene: string
+  meteringVariant: string
+  /** Die sieben Zahlenfelder als Eingabetext, Schlüssel wie im Formular. */
+  numbers: Record<(typeof MANUAL_TARIFF_NUMBER_FIELDS)[number], string>
+}
+
+/**
+ * Zahl → Formularwert. Deutsches Dezimalkomma, KEIN Tausendertrennzeichen.
+ *
+ * ⚠ Bewusst nicht über `Intl.NumberFormat('de-AT')` — dieselbe Regel und derselbe Grund wie bei
+ * `formatBatteryNumber`: das setzt ab 1000 ein schmales geschütztes Leerzeichen, und
+ * `readManualNumber` in der Server Action weist so etwas als unbrauchbar ab. Der wieder angezeigte
+ * Wert wäre dann genau der, den das eigene Formular nicht mehr annimmt (der Jahresverbrauch liegt
+ * immer über 1000).
+ */
+function manualNumberText(value: unknown): string {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return ''
+  return String(value).replace('.', ',')
+}
+
+/**
+ * Was zu diesem Zählpunkt bereits an Tarifwerten im Entwurf steht — damit die Handeingabe es
+ * WIEDER ANZEIGT statt leer aufzumachen.
+ *
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * ⚠ DIE GEGENRICHTUNG ZU `saveMeteringPointManualTariffAction`, UND SIE HAT GEFEHLT
+ * ══════════════════════════════════════════════════════════════════════════════════════════════
+ * Die Handeingabe schrieb ihre Werte in den Entwurf, las sie aber nie zurück: alle Felder starteten
+ * auf `''`. Wer Werte eintrug, die Station verliess und zurückkam, stand vor einem leeren Formular
+ * — und es gab in der ganzen Station keine zweite Stelle, die sie gezeigt hätte (`InvoiceSummary`
+ * hängt an den gelesenen RECHNUNGEN, nicht am Entwurf). Gespeichert war alles; sichtbar nichts.
+ *
+ * ⚠ ES WIRD OHNE RÜCKSICHT AUF DIE HERKUNFT GELESEN. Ein Wert aus einem Rechnungs-Scan steht unter
+ * denselben Schlüsseln und erscheint deshalb ebenfalls im Formular. Das ist richtig: das Formular
+ * behauptet nicht „das haben Sie getippt", sondern zeigt den erfassten Stand dieses Zählpunkts —
+ * und genau den soll korrigieren können, wer ihn korrigieren will (Prinzip 1: die Rechnung des
+ * Kunden schlägt jede Tabelle, und dafür muss man den Wert sehen).
+ *
+ * ⚠ DIE NETZEBENE WIRD ZURÜCKGEFORMT. Im Entwurf steht `NE 7` (`netzebeneDraftValue`), das
+ * Auswahlfeld führt `7`. Ohne die Rückformung fände `<select>` seine Option nicht und stünde auf
+ * „— bitte wählen —", obwohl die Angabe da ist — und mit ihr verschwände auch die Messvariante,
+ * deren Feld an der Netzebene hängt.
+ */
+export function readManualTariffDraft(draft: Record<string, unknown>): ManualTariffDraft {
+  const operatorRaw = draft[NETZBETREIBER_DRAFT_KEY]
+  const netzebeneRaw = draft.netzebene
+  const variantRaw = draft.meteringVariant
+
+  const numbers = {} as ManualTariffDraft['numbers']
+  for (const key of MANUAL_TARIFF_NUMBER_FIELDS) {
+    numbers[key] = manualNumberText(draft[draftFieldFor(key)])
+  }
+
+  return {
+    operatorId:
+      typeof operatorRaw === 'string' && isKnownNetzbetreiber(operatorRaw) ? operatorRaw : '',
+    netzebene: readNetzebeneDigit(netzebeneRaw),
+    /*
+     * Nur eine der geführten Varianten — ein fremder Wert im `jsonb` liesse das Auswahlfeld sonst
+     * auf „— bitte wählen —" stehen und wäre beim nächsten Speichern trotzdem mitgeschickt.
+     */
+    meteringVariant:
+      typeof variantRaw === 'string' && (METERING_VARIANTS as readonly string[]).includes(variantRaw)
+        ? variantRaw
+        : '',
+    numbers,
+  }
+}
+
+/**
+ * `NE 7` → `'7'`. Alles, was keine geführte Netzebene ergibt, wird zu `''` — geraten wird nicht,
+ * und eine erfundene Ziffer fände im Auswahlfeld ohnehin keine Option.
+ */
+function readNetzebeneDigit(raw: unknown): string {
+  if (typeof raw !== 'string') return ''
+  const digits = raw.trim().replace(/^NE\s*/i, '')
+  const value = Number(digits)
+  return (NETZEBENEN as readonly number[]).includes(value) ? String(value) : ''
+}
+
+/** Steht überhaupt ein Tarifwert im Entwurf? Für die Station: die Handeingabe offen zeigen oder nicht. */
+export function manualTariffDraftIsEmpty(values: ManualTariffDraft): boolean {
+  return (
+    values.operatorId === '' &&
+    values.netzebene === '' &&
+    values.meteringVariant === '' &&
+    Object.values(values.numbers).every((text) => text === '')
+  )
 }
