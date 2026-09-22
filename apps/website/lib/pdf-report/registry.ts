@@ -326,7 +326,9 @@ export function buildReportRegistry(
       () => {
         if (analysis.existingBatteryAnalysis) {
           const cost = context.detailPlan.cost
-          return cost?.kind === 'monthly' ? buildMonthly(cost.comparison).statement : null
+          return cost?.kind === 'monthly'
+            ? buildMonthly(cost.comparison, analysis.current).statement
+            : null
         }
         return buildMonthlyChapter(analysis)?.statement ?? null
       },
