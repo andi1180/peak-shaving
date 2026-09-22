@@ -411,6 +411,13 @@ const styles = StyleSheet.create({
      eigener Überschrift und braucht deshalb weniger Luft nach oben als ein Kapitel-Aufmacher. */
   methodList: { marginTop: 6 },
   methodItem: { marginBottom: 8 },
+  /*
+   * Eine Zeile der Wege-Aufzählung: Titel und Differenz in EINEM Absatz, eng gesetzt. Sie ist
+   * bewusst keine `methodItem`-Karte — die Wege sind Varianten einer Rechnung, die darüber einmal
+   * ausgeschrieben steht, und als Folge eigener Überschriften läsen sie sich wie eigene Verfahren.
+   */
+  methodWay: { ...LEADING, marginBottom: 4, color: PDF_COLORS.text },
+  methodWayTitle: { fontWeight: 600, color: PDF_COLORS.ink },
   itemTitle: { ...LEADING, fontSize: PDF_TYPE.h3, fontWeight: 600, color: PDF_COLORS.ink },
   itemBody: { ...LEADING, marginTop: 1, color: PDF_COLORS.text },
   /**
@@ -2324,12 +2331,26 @@ function BasisChapter({
         <View style={styles.statement}>
           <Text style={styles.statementTitle}>Berechnungsmethodik je Kennzahl</Text>
           <View style={styles.methodList}>
-            {chapter.methodPerMetric.map((item) => (
-              <View key={item.id} style={styles.methodItem} wrap={false}>
-                <Text style={styles.itemTitle}>{item.title}</Text>
-                <Text style={styles.itemBody}>{item.body}</Text>
-              </View>
-            ))}
+            {chapter.methodPerMetric.map((item) =>
+              /*
+               * ⚠ ZWEI FORMEN, UND WELCHE, ENTSCHEIDET `basis.ts` — nicht dieses JSX. Ein Eintrag
+               * der Form `way` ist eine ZEILE der Aufzählung unter dem gemeinsamen Absatz; alles
+               * andere ist ein eigener Absatz mit Überschrift. Die Spitzenkappung ist deshalb
+               * `text`: sie ist keine Viertelstunden-Grösse und gehört nicht in dieselbe Liste
+               * (`WayMethodNote.aside`, `ways.ts`).
+               */
+              item.kind === 'way' ? (
+                <Text key={item.id} style={styles.methodWay}>
+                  <Text style={styles.methodWayTitle}>{item.title}</Text>
+                  {` — ${item.body}`}
+                </Text>
+              ) : (
+                <View key={item.id} style={styles.methodItem} wrap={false}>
+                  <Text style={styles.itemTitle}>{item.title}</Text>
+                  <Text style={styles.itemBody}>{item.body}</Text>
+                </View>
+              ),
+            )}
           </View>
         </View>
       )}

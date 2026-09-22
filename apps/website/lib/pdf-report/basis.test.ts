@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { PvOutageMonth } from 'engine'
 import type {
   LoadProfile,
+  MonthlyTariffComparison,
   NetzbetreiberId,
   PvValueScenario,
   TariffSourceRef,
@@ -13,6 +14,7 @@ import { reportLayoutOf } from './layout'
 import { resolveReportText, type ReportText } from './report-text'
 import type { ReportNotice } from './statement'
 import { TARIFF_SOURCE_UNTRACKED } from './types'
+import { buildWaysChapter } from './ways'
 import type { PdfReportAnalysis, PdfReportInput, PdfReportTariffSource } from './types'
 
 /**
@@ -630,20 +632,66 @@ const FULL_WITH_BATTERY: PdfReportAnalysis = {
   recommendation: BATTERY_ANALYSIS.recommendation,
 }
 
+/**
+ * Fünf Wege: derselbe volle Fall, zusätzlich mit dem selbst gefundenen Vergleichstarif. Der
+ * Leistungspreis-Weg steckt bereits in `BATTERY_ANALYSIS` (`leistungspreisSavingPerYear: 995`).
+ */
+const FIVE_WAYS: PdfReportAnalysis = {
+  ...FULL_WITH_BATTERY,
+  tariffOptimization: {
+    computable: true,
+    monthlyComparison: {
+      ...(FULL_WITH_BATTERY.tariffOptimization as { monthlyComparison: MonthlyTariffComparison })
+        .monthlyComparison,
+      comparisonTariffEur: Array(12).fill(95),
+      comparisonSupplier: 'ENSTROGA',
+    },
+  },
+}
+
+/**
+ * Die Berechnungsmethodik: EIN gemeinsamer Absatz, darunter je aktivem Weg eine Zeile.
+ *
+ * ⚠ DIE EIGENTLICHE PROBE IST DIE LETZTE. Die Liste stammt aus derselben Quelle wie das
+ * Wege-Kapitel selbst (`methodNotes`, `ways.ts`); dass sie mitwächst, ist damit keine Absprache,
+ * sondern Bauart — und genau das misst der Vergleich der Titel gegen das Kapitel.
+ */
 describe('buildBasisChapter — Berechnungsmethodik je Kennzahl (D9)', () => {
-  it('führt jede erreichbare Kennzahl, mit Batterie und PV-Befund alle vier', () => {
-    const chapter = basisFor(FULL_WITH_BATTERY, { hasPv: true, pvOutageMonths: OUTAGE_MONTHS })
+  it('führt bei fünf aktiven Wegen alle fünf Kurzeinträge, keiner fehlt', () => {
+    const chapter = basisFor(FIVE_WAYS, { hasPv: true, pvOutageMonths: OUTAGE_MONTHS })
 
     expect(chapter.methodPerMetric.map((item) => item.id)).toEqual([
-      'method_current_tariff',
-      'method_spot_uncontrolled',
-      'method_load_control',
+      'method_shared',
+      'method_ways_current',
+      'method_ways_comparison_tariff',
+      'method_ways_tariff_switch',
+      'method_ways_load_control',
+      'method_ways_peak_shaving',
       'method_pv_outage',
     ])
-    // Die Schwelle ist das MITTEL des jeweiligen Kalendertags — nicht die des ganzen Zeitraums.
-    const loadControl = chapter.methodPerMetric.find((i) => i.id === 'method_load_control')?.body
-    expect(loadControl).toContain('arithmetischen Mittel')
-    expect(loadControl).toContain('ihres eigenen Kalendertags')
+
+    /* Der gemeinsame Absatz trägt die geteilte Rechnung — einmal, und nirgends sonst. */
+    const shared = chapter.methodPerMetric.find((i) => i.id === 'method_shared')
+    expect(shared?.kind).toBe('text')
+    expect(shared?.body).toContain('DERSELBEN Rechnung, Viertelstunde für Viertelstunde')
+    expect(shared?.body).toContain('tagesanteilig')
+    expect(shared?.body).toContain('Leistungspreis steht in keiner dieser Zahlen')
+
+    /* Die Schwelle ist das MITTEL des jeweiligen Kalendertags — nicht die des ganzen Zeitraums. */
+    const loadControl = chapter.methodPerMetric.find((i) => i.id === 'method_ways_load_control')
+    expect(loadControl?.body).toContain('arithmetischen Mittel')
+    expect(loadControl?.body).toContain('ihres eigenen Kalendertags')
+
+    /*
+     * ⚠ Die Kappung ist KEINE Zeile der Aufzählung: sie ist keine Viertelstunden-Grösse, und der
+     * Renderer setzt `text` deshalb als eigenen Absatz. Die vier Wege davor sind `way`.
+     */
+    const kinds = Object.fromEntries(chapter.methodPerMetric.map((i) => [i.id, i.kind]))
+    expect(kinds['method_ways_peak_shaving']).toBe('text')
+    expect(kinds['method_ways_tariff_switch']).toBe('way')
+    expect(
+      chapter.methodPerMetric.find((i) => i.id === 'method_ways_peak_shaving')?.body,
+    ).toContain('NICHT aus der Viertelstunden-Rechnung')
   })
 
   /**
@@ -663,13 +711,38 @@ describe('buildBasisChapter — Berechnungsmethodik je Kennzahl (D9)', () => {
   })
 
   it('lässt weg, was dieser Report nicht zeigt — bis hin zur leeren Liste', () => {
-    // Tarifvergleich berechenbar, aber kein Speicher und keine PV: nur die beiden Tarifabsätze.
+    /*
+     * Der Urbanz-Zuschnitt: kein Vergleichstarif und kein Leistungspreis-Weg (ohne Speicher gibt
+     * es keine Kappung) — drei Wege, drei Zeilen, und kein Eintrag zu einem Weg, den das Kapitel
+     * gar nicht führt.
+     */
     expect(basisFor(FULL_ANALYSIS).methodPerMetric.map((item) => item.id)).toEqual([
-      'method_current_tariff',
-      'method_spot_uncontrolled',
+      'method_shared',
+      'method_ways_current',
+      'method_ways_tariff_switch',
+      'method_ways_load_control',
     ])
-    // Ohne berechenbaren Vergleich bleibt nichts übrig — dann entfällt auch die Überschrift.
+    /* Ohne berechenbaren Vergleich bleibt nichts übrig — dann entfällt auch die Überschrift. */
     expect(basisFor(BATTERY_ANALYSIS).methodPerMetric).toEqual([])
+  })
+
+  /*
+   * ⚠ DIE PROBE, UM DIE ES GEHT. Sie misst nicht eine Liste gegen eine erwartete, sondern gegen
+   * DAS WEGE-KAPITEL: jeder Weg, den das Kapitel führt, hat hier genau einen Eintrag, mit
+   * wortgleichem Titel und in derselben Reihenfolge. Ein künftiger sechster Weg erscheint damit
+   * von selbst — `basis.ts` zählt die Wege nicht auf und kann sie folglich auch nicht vergessen.
+   */
+  it('folgt dem Wege-Kapitel Weg für Weg, ohne eigene Aufzählung', () => {
+    for (const analysis of [FULL_ANALYSIS, FULL_WITH_BATTERY, FIVE_WAYS]) {
+      const ways = buildWaysChapter(analysis)!
+      const items = basisFor(analysis).methodPerMetric
+
+      expect(items.at(0)?.id).toBe('method_shared')
+      expect(items.slice(1).map((item) => item.title)).toEqual(
+        ways.statements.map((statement) => statement.title),
+      )
+      expect(items).toHaveLength(1 + ways.wayCount)
+    }
   })
 })
 
