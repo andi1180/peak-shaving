@@ -186,6 +186,30 @@ describe('buildPrerequisitesChapter — Urbanz-Fall (Bestandsbatterie, PV, NE7 o
     ])
   })
 
+  it('⚠ nennt die Spitze nur „gemessen", solange keine Schätzung abgezogen wurde', () => {
+    /*
+     * Wurde eine PVGIS-Schätzung vom Verbrauch abgezogen (PV-Stufe „geplant"), steht die Spitze
+     * dort, wo die GESCHÄTZTE Erzeugung gerade klein war. Der Report sagt das auf Seite 7 bereits
+     * („jede Lastspitze dieses Lastgangs zur Hälfte eine Schätzung"); dieselbe Zahl hier als
+     * „gemessen" zu beschriften widerspräche dem eigenen Hinweis im selben Dokument.
+     */
+    const labelOf = (profile: LoadProfile) =>
+      buildPrerequisitesChapter(inputFor({ loadProfile: profile })).consumption.rows.at(-1)?.label
+
+    // Roher Lastgang — kein PV, oder PV „in Betrieb": das Label bleibt Wort für Wort dasselbe.
+    expect(labelOf(LOAD_PROFILE)).toBe('Höchste gemessene Verbrauchsspitze')
+
+    // Gekoppelt: `pvSource: 'estimated'` ist die Eigenschaft des LASTGANGS, der gerechnet wurde.
+    expect(labelOf({ ...LOAD_PROFILE, pvSource: 'estimated' })).toBe(
+      'Höchste Verbrauchsspitze (nach Abzug der geschätzten PV-Erzeugung)',
+    )
+
+    // ⚠ Nur das Label — die Zahl ist in beiden Fällen dieselbe Spitze des gerechneten Lastgangs.
+    const value = (profile: LoadProfile) =>
+      buildPrerequisitesChapter(inputFor({ loadProfile: profile })).consumption.rows.at(-1)?.value
+    expect(value({ ...LOAD_PROFILE, pvSource: 'estimated' })).toBe(value(LOAD_PROFILE))
+  })
+
   it('zeigt keinen Preisgrundlage-Hinweis ohne `tariffVintage`', () => {
     expect(chapter.priceBasis).toBeNull()
   })
