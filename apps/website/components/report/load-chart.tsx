@@ -14,6 +14,7 @@ import {
 } from 'recharts'
 import type { BillingModel, DispatchTrace, LoadProfile } from 'shared'
 
+import { evenAxisTicks } from '@/lib/chart-ticks'
 import { downsampleMinMax, type SamplePoint } from '@/lib/downsample'
 import { formatEur, formatKw } from '@/lib/format'
 import { formatDateTimeLabel, formatDayLabel, localMonthIndex } from '@/lib/local-time'
@@ -170,7 +171,10 @@ export function LoadChart({
     return [rawPoints[0]!.x, rawPoints[rawPoints.length - 1]!.x]
   }, [rawPoints])
 
-  const [minY, maxY] = useMemo(() => {
+  // Der Bereich ist fest gesetzt (die Kappungslinie muss mit ins Bild, auch wenn sie über dem
+  // höchsten Messpunkt liegt) — `evenAxisTicks` liefert dazu die gleichmässigen Ticks, die
+  // Recharts bei gesetztem `domain` von sich aus NICHT vergibt (s. `chart-ticks.ts`).
+  const yAxis = useMemo(() => {
     let lo = 0
     let hi = 0
     for (const p of loadPoints) {
@@ -179,7 +183,7 @@ export function LoadChart({
     }
     for (const seg of capSegments) if (Number.isFinite(seg.capKw) && seg.capKw > hi) hi = seg.capKw
     for (const p of peakPoints) if (p.y > hi) hi = p.y
-    return [lo, hi * 1.05]
+    return evenAxisTicks(lo, hi * 1.05)
   }, [loadPoints, peakPoints, capSegments])
 
   const capAtSelected = selectedPeak ? capAtMs(capSegments, selectedPeak.x) : null
@@ -212,7 +216,8 @@ export function LoadChart({
               minTickGap={40}
             />
             <YAxis
-              domain={[minY, maxY]}
+              domain={yAxis ? yAxis.domain : ['auto', 'auto']}
+              ticks={yAxis?.ticks}
               tickFormatter={(kw: number) => formatKw(kw)}
               stroke="var(--color-text-muted)"
               tick={{ fontSize: 11 }}
