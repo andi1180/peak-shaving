@@ -49,6 +49,29 @@ export const INVOICE_SCAN_METERING_VARIANTS = [
 export type InvoiceScanMeteringVariant = (typeof INVOICE_SCAN_METERING_VARIANTS)[number]
 
 /**
+ * Abrechnungsmodelle, die der Scan benennen darf. Spiegel von `BILLING_MODELS`.
+ *
+ * ⚠ Als Literale wiederholt und nicht importiert — dieselbe Regel wie bei den drei Listen darüber:
+ * die API erzwingt die Werte nur, wenn sie als Literale im Schema stehen.
+ */
+export const INVOICE_SCAN_BILLING_MODELS = [
+  'annual_max',
+  'monthly_max_average',
+  'monthly_max_sum',
+] as const
+export type InvoiceScanBillingModel = (typeof INVOICE_SCAN_BILLING_MODELS)[number]
+
+/**
+ * Wie sicher `billingModel` ist.
+ *
+ * — `stated`   Die Rechnung benennt die Regel selbst (etwa „Jahreshöchstleistung").
+ * — `inferred` Aus der Form der Leistungsabrechnung erschlossen (etwa eine monatsweise
+ *              Aufschlüsselung der Höchstlast).
+ */
+export const INVOICE_SCAN_BILLING_MODEL_BASES = ['stated', 'inferred'] as const
+export type InvoiceScanBillingModelBasis = (typeof INVOICE_SCAN_BILLING_MODEL_BASES)[number]
+
+/**
  * Woher `rates.energyPriceCtPerKwh` stammt.
  *
  * — `stated`              Genau ein Energiepreis-Abschnitt: der Wert steht so auf der Rechnung.
@@ -74,11 +97,14 @@ const ENERGY_PRICE_SUM_TOLERANCE = 0.01
  * Enthalten sind genau die Posten, die auf einem österreichischen Netz-/Energieabrechnungsblatt
  * als BETRAG stehen. Ausdrücklich NICHT enthalten:
  *
- *   `billingModel`  — eine Rechnung zeigt einen abgerechneten kW-Wert, nicht die Regel, nach der er
- *                     entstanden ist. Welches Modell in Österreich gilt, ist eine seit §3.5
- *                     ausdrücklich OFFENE fachliche Frage (die `[ANNAHME]` dort trägt dokumentierten
- *                     Gegenwind, OP#3). Ein Modell aus einem Rechnungsbild zu erschliessen hiesse,
- *                     genau diese offene Frage still über eine Extraktion zu entscheiden.
+ *   `billingModel`  — kein BETRAG, deshalb nicht hier. ⚠ REVISION 22.09.2026: es steht seither
+ *                     als eigenes Kopffeld neben `meteringVariant` (s. `InvoiceExtraction`). Hier
+ *                     stand zuvor, es dürfe gar nicht erschlossen werden, weil §3.5 die Frage offen
+ *                     führt und eine Extraktion sie still entschiede. Das STILL ist gefallen, nicht
+ *                     die Sorge: der Wert ist ein gekennzeichneter Vorschlag (`billingModelBasis`),
+ *                     und die Rechnung-Station legt ihn sichtbar zur Bestätigung vor. Zuvor
+ *                     entschied ihn ein unsichtbarer Vorgabewert im Code — die Frage war damit
+ *                     ebenfalls entschieden, nur ohne dass jemand es sah.
  *   `timeOfUseWindows`, `benutzungsdauerModel` — Strukturen, keine Beträge; ein halb erkanntes
  *                     Fenster ist schlimmer als keines (es verschöbe jede Ladeentscheidung).
  *   `dynamicPriceProfile` — [v2], hat bis heute null Konsumenten.
@@ -121,6 +147,21 @@ export interface InvoiceExtraction {
   netzbetreiber: InvoiceScanOperator | null
   netzebene: InvoiceScanNetzebene | null
   meteringVariant: InvoiceScanMeteringVariant | null
+  /**
+   * Nach welcher Regel der Netzbetreiber die Leistung abrechnet (§3.5) — ein VORSCHLAG.
+   *
+   * ⚠ DAS DRITTE FELD DIESES SCHEMAS, DAS NICHT WORTWÖRTLICH ABGELESEN IST. Eine Rechnung zeigt
+   * einen abgerechneten kW-Wert; die Regel dahinter benennt sie manchmal („Jahreshöchstleistung"),
+   * meistens zeigt sie nur ihre Form (eine monatsweise Aufschlüsselung der Höchstlast). `basis`
+   * sagt, welcher der beiden Fälle vorliegt — ohne den Vermerk wäre ein Schluss später von einer
+   * Ablesung nicht mehr zu unterscheiden, und genau daran hing die frühere Entscheidung, das Feld
+   * gar nicht erst zu erheben.
+   *
+   * `null` ist ausdrücklich erlaubt und der Regelfall bei einer Rechnung ohne Leistungsposten.
+   */
+  billingModel: InvoiceScanBillingModel | null
+  /** `null`, solange es kein `billingModel` gibt. */
+  billingModelBasis: InvoiceScanBillingModelBasis | null
   rates: InvoiceScanRates
   /** Jahresverbrauch in kWh (Delta 9b: der Eingang in den Standardprofil-Generator, 9b-1). */
   annualConsumptionKwh: number | null
@@ -190,6 +231,8 @@ export function emptyInvoiceExtraction(): InvoiceExtraction {
     netzbetreiber: null,
     netzebene: null,
     meteringVariant: null,
+    billingModel: null,
+    billingModelBasis: null,
     rates: {
       leistungspreisEurPerKwYear: null,
       minBillableKw: null,
@@ -278,6 +321,8 @@ export const INVOICE_SCAN_JSON_SCHEMA: { [key: string]: unknown } = {
     'netzbetreiber',
     'netzebene',
     'meteringVariant',
+    'billingModel',
+    'billingModelBasis',
     'rates',
     'energyPricePeriods',
     'annualConsumptionKwh',
@@ -314,6 +359,20 @@ export const INVOICE_SCAN_JSON_SCHEMA: { [key: string]: unknown } = {
       'Die Leistungsmessungs-Variante des Bezugs-Zählpunkts, erschlossen aus den Formulierungen ' +
         'der Rechnung (sie nennt diese Begriffe nicht wörtlich). null, wenn keines der bekannten ' +
         'Muster vorkommt — etwa auf einer reinen Einspeise-Abrechnung.',
+    ),
+    billingModel: nullableEnum(
+      'string',
+      INVOICE_SCAN_BILLING_MODELS,
+      'Nach welcher Regel der Netzbetreiber die abgerechnete Leistung bildet. Welche ' +
+        'Formulierungen und welche Rechnungsform auf welchen Wert zeigen, steht im System-Prompt. ' +
+        'null, wenn die Rechnung gar keinen Leistungsposten abrechnet oder kein Muster passt — ' +
+        'das ist ein richtiges Ergebnis.',
+    ),
+    billingModelBasis: nullableEnum(
+      'string',
+      INVOICE_SCAN_BILLING_MODEL_BASES,
+      '"stated", wenn die Rechnung die Regel selbst benennt; "inferred", wenn du sie aus der Form ' +
+        'der Leistungsabrechnung erschlossen hast. null, wenn billingModel null ist.',
     ),
     rates: {
       type: 'object',
@@ -543,6 +602,28 @@ function energyPriceFrom(
   }
 }
 
+/**
+ * Das vorgeschlagene Abrechnungsmodell samt Herkunftsvermerk.
+ *
+ * ⚠ DIE RICHTUNG IST UNSYMMETRISCH, GENAU WIE BEI `billingPeriodAssumed`: fehlt der Vermerk bei
+ * vorhandenem Modell, gilt `inferred`. Ein fehlender Vermerk darf nicht zur STÄRKEREN Aussage
+ * werden — „die Rechnung sagt es selbst" ist die Behauptung, die belegt sein muss.
+ *
+ * Ohne Modell gibt es auch keinen Vermerk: ein `basis` ohne Wert beschriebe eine Herkunft von
+ * nichts.
+ */
+function billingModelFrom(root: Record<string, unknown>): {
+  billingModel: InvoiceScanBillingModel | null
+  billingModelBasis: InvoiceScanBillingModelBasis | null
+} {
+  const billingModel = oneOf(root.billingModel, INVOICE_SCAN_BILLING_MODELS)
+  if (billingModel === null) return { billingModel: null, billingModelBasis: null }
+  return {
+    billingModel,
+    billingModelBasis: root.billingModelBasis === 'stated' ? 'stated' : 'inferred',
+  }
+}
+
 function record(value: unknown): Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
     ? (value as Record<string, unknown>)
@@ -579,6 +660,7 @@ export function parseInvoiceExtraction(raw: unknown): InvoiceExtraction {
     netzbetreiber: oneOf(root.netzbetreiber, INVOICE_SCAN_OPERATORS),
     netzebene: oneOf(root.netzebene, INVOICE_SCAN_NETZEBENEN),
     meteringVariant: oneOf(root.meteringVariant, INVOICE_SCAN_METERING_VARIANTS),
+    ...billingModelFrom(root),
     rates,
     annualConsumptionKwh,
     ...billingPeriod(root),
@@ -596,6 +678,9 @@ export function parseInvoiceExtraction(raw: unknown): InvoiceExtraction {
  * dem Kunden ein leeres Formular vor und täte so, als hätte der Scan funktioniert. Genau dafür
  * gibt es den Ausgang `unreadable` (s. `extractInvoiceData`). Ein Zeitraum allein füllt kein
  * einziges Feld in Schritt 2; als Fund taugt er nicht.
+ *
+ * ⚠ `billingModel` zählt aus demselben Grund NICHT mit: es ist ebenfalls erschliessbar, und ein
+ * aus dem Nichts geratenes Modell dürfte eine unlesbare PDF nicht zum Erfolg machen.
  */
 export function invoiceExtractionIsEmpty(extraction: InvoiceExtraction): boolean {
   return (

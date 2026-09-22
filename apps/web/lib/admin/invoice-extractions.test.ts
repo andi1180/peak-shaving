@@ -343,4 +343,30 @@ describe('readManualTariffDraft', () => {
     expect(werte.meteringVariant).toBe('')
     expect(werte.numbers.minBillableKw).toBe('')
   })
+
+  it('⚠ trennt das VORGESCHLAGENE Abrechnungsmodell vom bestätigten — es hat keinen leeren Zustand', () => {
+    /*
+     * Das Feld ist im Contract PFLICHT und hatte bis zum 22.09.2026 gar keine Oberfläche: es
+     * entschied ein unsichtbarer Vorgabewert. Die Auswahl zeigt deshalb IMMER einen Wert — und
+     * `billingModelConfirmed` ist das Einzige, was „von einem Menschen übernommen" von „unser
+     * Vorschlag" unterscheidet. Fiele die Unterscheidung weg, sähe der Vorgabewert aus wie eine
+     * getroffene Wahl, und der Zustand wäre wieder der alte.
+     */
+    const leer = readManualTariffDraft({})
+    expect(leer.billingModel).toBe('monthly_max_sum')
+    expect(leer.billingModelConfirmed).toBe(false)
+    // Der blosse Vorschlag darf die Station nicht als „hier steht schon etwas" erscheinen lassen.
+    expect(manualTariffDraftIsEmpty(leer)).toBe(true)
+
+    const bestaetigt = readManualTariffDraft({ billingModel: 'annual_max' })
+    expect(bestaetigt.billingModel).toBe('annual_max')
+    expect(bestaetigt.billingModelConfirmed).toBe(true)
+    expect(manualTariffDraftIsEmpty(bestaetigt)).toBe(false)
+
+    // Ein fremder Wert im `jsonb` gilt als unbestätigt — die Auswahl fände seine Option nicht.
+    expect(readManualTariffDraft({ billingModel: 'quartalsmittel' })).toMatchObject({
+      billingModel: 'monthly_max_sum',
+      billingModelConfirmed: false,
+    })
+  })
 })

@@ -31,6 +31,7 @@ describe('Feldliste und Beschriftungen', () => {
       'netzbetreiber',
       'netzebene',
       'meteringVariant',
+      'billingModel',
       'annualConsumptionKwh',
       'leistungspreisEurPerKwYear',
       'minBillableKw',

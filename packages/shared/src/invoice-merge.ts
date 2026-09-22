@@ -72,6 +72,7 @@ export const INVOICE_MERGE_FIELD_KEYS = [
   'netzbetreiber',
   'netzebene',
   'meteringVariant',
+  'billingModel',
   'annualConsumptionKwh',
   ...INVOICE_SCAN_RATE_KEYS,
 ] as const
@@ -85,6 +86,7 @@ export const INVOICE_MERGE_FIELD_LABELS: Record<InvoiceMergeFieldKey, string> = 
   netzbetreiber: 'Netzbetreiber',
   netzebene: 'Netzebene',
   meteringVariant: 'Leistungsmessung',
+  billingModel: 'Abrechnungsmodell',
   annualConsumptionKwh: 'Jahresverbrauch',
   leistungspreisEurPerKwYear: 'Leistungspreis',
   minBillableKw: 'vereinbarte Leistung',
@@ -118,6 +120,7 @@ function fieldValue(
   if (key === 'netzbetreiber') return extraction.netzbetreiber
   if (key === 'netzebene') return extraction.netzebene
   if (key === 'meteringVariant') return extraction.meteringVariant
+  if (key === 'billingModel') return extraction.billingModel
   if (key === 'annualConsumptionKwh') return extraction.annualConsumptionKwh
   return extraction.rates[key]
 }
@@ -134,6 +137,10 @@ function setFieldValue(
     target.netzebene = value as InvoiceExtraction['netzebene']
   } else if (key === 'meteringVariant') {
     target.meteringVariant = value as InvoiceExtraction['meteringVariant']
+  } else if (key === 'billingModel') {
+    // Der Herkunftsvermerk reist nicht hier mit, sondern wird nach der Schleife durchgesetzt — s.
+    // den Absatz dazu in `mergeInvoiceExtractions`, wortgleich zum Energiepreis.
+    target.billingModel = value as InvoiceExtraction['billingModel']
   } else if (key === 'annualConsumptionKwh') {
     target.annualConsumptionKwh = value as number | null
   } else {
@@ -182,6 +189,19 @@ export function mergeInvoiceExtractions(extractions: readonly InvoiceExtraction[
    * bleibt es bei `null`: die Zusage „eine einzelne Rechnung kommt unverändert wieder heraus" gilt
    * auch für dieses Feld, und ein hier erfundenes `stated` wäre die erste Ausnahme davon.
    */
+  /*
+   * Derselbe Fall und dieselbe Regel beim Abrechnungsmodell: `billingModelBasis` ist KEIN
+   * Vergleichsfeld — zwei Rechnungen, von denen die eine die Regel benennt und die andere sie nur
+   * zeigt, widersprechen einander nicht. Durchgesetzt wird auch hier der VORSICHTIGERE Vermerk:
+   * `inferred` schlägt `stated`, denn ein Beleg auf der einen Rechnung belegt die andere nicht.
+   */
+  if (merged.billingModel !== null) {
+    const bases = extractions
+      .filter((extraction) => extraction.billingModel !== null)
+      .map((extraction) => extraction.billingModelBasis)
+    merged.billingModelBasis = bases.includes('inferred') ? 'inferred' : (bases[0] ?? null)
+  }
+
   if (merged.rates.energyPriceCtPerKwh !== null) {
     const bases = extractions
       .filter((extraction) => extraction.rates.energyPriceCtPerKwh !== null)

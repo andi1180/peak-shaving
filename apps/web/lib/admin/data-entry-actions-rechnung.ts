@@ -3,11 +3,14 @@
 import { revalidatePath } from 'next/cache'
 import { MAX_INVOICE_FILE_BYTES, extractInvoiceData } from 'extractors'
 import {
+  BILLING_MODELS,
+  DEFAULT_DRAFT_BILLING_MODEL,
   METERING_VARIANTS,
   NETZBETREIBER_DRAFT_KEY,
   NETZEBENEN,
   hasMeteringVariant,
   mergeInvoiceExtractions,
+  type BillingModel,
 } from 'shared'
 import { uploadProjectDocument } from '@/lib/project-documents/documents'
 import { setDraftField } from '@/lib/project-chat/draft'
@@ -667,6 +670,21 @@ function readMeteringVariant(formData: FormData, field: string): string | null {
   return (METERING_VARIANTS as readonly string[]).includes(raw) ? raw : null
 }
 
+/**
+ * Liest das Abrechnungsmodell des Auswahlfelds.
+ *
+ * ⚠ EIN LEERES FELD ERGIBT DEN VORGABEWERT, KEINEN FEHLER. Das Formular bietet keine leere Option
+ * an; leer kommt der Wert nur bei einem Aufruf daneben oder einem alten Browser-Cache an, und
+ * dann ist der Vorgabewert richtiger als eine Fehlermeldung über ein Feld, das der Admin gar nicht
+ * leer lassen konnte. `null` heisst dagegen „ein Wert kam an, den der Contract nicht kennt" — der
+ * wird abgewiesen statt ersetzt.
+ */
+function readBillingModel(formData: FormData): BillingModel | null {
+  const raw = String(formData.get('billingModel') ?? '').trim()
+  if (raw === '') return DEFAULT_DRAFT_BILLING_MODEL
+  return (BILLING_MODELS as readonly string[]).includes(raw) ? (raw as BillingModel) : null
+}
+
 const MANUAL_TARIFF_NOT_FOUND =
   'Diesen Zählpunkt gibt es nicht (mehr). Bitte laden Sie die Seite neu.'
 
@@ -884,6 +902,21 @@ export async function saveMeteringPointManualTariffAction(
     }
   }
 
+  /*
+   * ⚠ DAS ABRECHNUNGSMODELL IST DAS EINZIGE FELD DIESES FORMULARS OHNE LEEREN ZUSTAND — und es
+   * wird deshalb bei JEDEM Speichern geschrieben, auch wenn der Admin die Auswahl nicht angefasst
+   * hat. Das ist der ganze Zweck: bis hierher entschied es ein unsichtbarer Vorgabewert in
+   * `mapDraftToTariffParams`, den niemand je zu Gesicht bekam. Sichtbar vorgelegt und mit dem
+   * Speichern übernommen ist es eine Entscheidung; die drei Modelle unterscheiden sich um bis zum
+   * Faktor 12 im abgerechneten kW-Wert.
+   *
+   * ⚠ ES ZÄHLT NICHT ALS „ANGABE" (`values`) — dieselbe Überlegung wie bei `INVOICE_SKIPPED_KEY`
+   * darunter: sonst meldete das Formular bei einem einzigen eingetippten Wert „2 Angaben wurden
+   * übernommen", und ein leeres Formular liefe nicht mehr in die Abweisung.
+   */
+  const billingModel = readBillingModel(formData)
+  if (billingModel === null) fieldErrors.billingModel = 'Dieses Abrechnungsmodell kennen wir nicht.'
+
   if (Object.keys(fieldErrors).length > 0) return { fieldErrors }
   if (values.length === 0) {
     return {
@@ -928,6 +961,17 @@ export async function saveMeteringPointManualTariffAction(
    * Signal ist eine Eigenschaft der Station, keine abgetippte Tarifzahl — mitgezählt meldete das
    * Formular bei einem einzigen eingetippten Wert „2 Angaben wurden übernommen".
    */
+  /*
+   * `assumed`, nicht `measured` — als EINZIGES Feld dieser Action, und das ist kein Versehen: die
+   * Wahl ist eine Einordnung des Admins, keine von der Rechnung abgelesene Zahl. Lieferte der Scan
+   * einen Beleg, trägt der Entwurf ihn ohnehin schon aus dem Upload-Weg; hier bestätigt oder
+   * korrigiert ihn ein Mensch. Als Messwert gekennzeichnet sähe eine vertretbare Einordnung später
+   * aus wie eine Ablesung (Delta §3.2, dieselbe Trennlinie wie bei `billingPeriodAssumed`).
+   */
+  if (billingModel !== null) {
+    nextDraft = setDraftField(nextDraft, 'billingModel', billingModel, 'assumed', undefined, now)
+  }
+
   nextDraft = setDraftField(nextDraft, INVOICE_SKIPPED_KEY, false, 'measured', undefined, now)
 
   const draftRes = await supabase.rpc('update_metering_point_draft', {

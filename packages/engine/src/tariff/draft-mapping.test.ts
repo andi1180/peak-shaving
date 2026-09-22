@@ -39,6 +39,22 @@ describe('mapDraftToTariffParams', () => {
     expect(DEFAULT_DRAFT_BILLING_MODEL).toBe('monthly_max_sum')
   })
 
+  it('⚠ nimmt ein im Entwurf BESTÄTIGTES Abrechnungsmodell — der Vorgabewert ist nur das letzte Glied', () => {
+    /*
+     * Bis zum 22.09.2026 stand `billingModel` in KEINER Schlüsselliste dieser Datei: die
+     * Rechnung-Station konnte es schreiben, gerechnet wurde trotzdem mit dem Vorgabewert. Der
+     * Fehlschlag wäre still gewesen — das Formular zeigte das eine Modell, der Report das andere,
+     * und die beiden unterscheiden sich um den Faktor 12 im abgerechneten kW-Wert.
+     */
+    expect(mapDraftToTariffParams({ ...DRAFT, billingModel: 'annual_max' }).billingModel).toBe(
+      'annual_max',
+    )
+    // Ein unbekannter Wert wird ABGEWIESEN und nicht still durch den Vorgabewert ersetzt.
+    expect(() => mapDraftToTariffParams({ ...DRAFT, billingModel: 'quartalsmittel' })).toThrow(
+      /billingModel/,
+    )
+  })
+
   /*
    * ⚠ BEIDE RICHTUNGEN IN EINEM TEST: die Lücke wird gefüllt, ein vorhandener Wert NICHT
    * überschrieben. Nur die erste Hälfte bliebe auch dann grün, wenn die Ableitung jeden Wert auf 0
