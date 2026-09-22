@@ -1,11 +1,14 @@
 import {
   PV_TEN_YEAR_SMOOTHING_OPTIMISM_PERCENT,
   buildRealSavingBreakdown,
+  primaryBatteryEntry,
   sumCovered,
+  tariffWayCosts,
   type BatteryCandidate,
   type BatteryResultEntry,
   type BatteryRoiEntry,
   type BillingModel,
+  type ControlVariant as SharedControlVariant,
   type EstimatedPvSummary,
   type LoadProfile,
   type PvStage,
@@ -112,11 +115,13 @@ export type SummaryInput = {
  * Bildschirm-Report und PDF wären derselbe Report mit zwei verschiedenen Antworten.
  */
 export function primaryEntryOf(analysis: PdfReportAnalysis): BatteryResultEntry | undefined {
-  if (analysis.existingBatteryAnalysis) return analysis.existingBatteryAnalysis.entry
-  return (
-    analysis.perBattery.find((p) => p.battery.id === analysis.recommendation.batteryId) ??
-    analysis.perBattery[0]
-  )
+  /*
+   * ⚠ Die REGEL liegt seit D6 Teil 3 in `shared` (`primaryBatteryEntry`): die Jahres-Hochrechnung
+   * liest denselben Eintrag aus einem ZWEITEN Ergebnis, und zwei Fassungen derselben Wahl ergäben
+   * ein Dokument, dessen Kapitel von verschiedenen Speichern sprechen. Hier bleibt der bisherige
+   * Name stehen — die Aufrufer dieser Datei heissen unverändert.
+   */
+  return primaryBatteryEntry(analysis)
 }
 
 /**
@@ -166,8 +171,13 @@ export type SummaryWay = {
   costEur: number
 }
 
-/** Welche Ladesteuerung Weg 4 zeigt (D7-Revision). */
-export type ControlVariant = 'predictive' | 'simple'
+/**
+ * Welche Ladesteuerung Weg 4 zeigt (D7-Revision).
+ *
+ * ⚠ Seit D6 Teil 3 die Definition aus `shared` — sie steht an der Auswahl, die sie bestimmt
+ * (`tariffWayCosts`), und nicht hier. Der Name bleibt unverändert erreichbar.
+ */
+export type ControlVariant = SharedControlVariant
 
 export type SummaryWays = {
   /** Was der Kunde im gemessenen Zeitraum tatsächlich gezahlt hat — Weg 1, die Bezugsgrösse. */
@@ -218,7 +228,14 @@ export function summaryWaysOf(analysis: PdfReportAnalysis): SummaryWays | null {
     spotWithBatteryEur: sumCovered(comparison.spotWithBatteryEur),
   })
 
-  const costTodayEur = sumCovered(comparison.currentTariffEur)
+  /*
+   * ⚠ WELCHE REIHE WELCHER WEG IST, ENTSCHEIDET `tariffWayCosts` (`shared`) — hier steht nur noch,
+   * welche ERSPARNIS daraus folgt. Die Auswahl hat seit D6 Teil 3 einen zweiten Konsumenten (den
+   * synthetischen Jahreslauf); zweimal geschrieben liefen die beiden auseinander, und der
+   * Unterschied sähe aus wie ein Jahresgang.
+   */
+  const costs = tariffWayCosts(comparison)
+  const costTodayEur = costs.currentTariffEur
   const ways: SummaryWay[] = []
 
   /*
@@ -226,16 +243,15 @@ export function summaryWaysOf(analysis: PdfReportAnalysis): SummaryWays | null {
    * Vergleichstarif angegeben hat ODER er brutto hinterlegt ist (`tariff.ts`); in beiden Fällen
    * entfällt der Weg ganz, statt mit einem geratenen Wert dazustehen.
    */
-  const comparisonSeries = comparison.comparisonTariffEur
-  if (comparisonSeries) {
-    const costEur = sumCovered(comparisonSeries)
+  if (costs.comparisonTariffEur !== null) {
+    const costEur = costs.comparisonTariffEur
     ways.push({ id: 'comparison_tariff', eur: costTodayEur - costEur, costEur })
   }
 
   ways.push({
     id: 'tariff_switch',
     eur: real.tariffSwitchEur,
-    costEur: sumCovered(comparison.spotWithoutControlEur),
+    costEur: costs.spotWithoutControlEur,
   })
 
   /*
@@ -243,20 +259,18 @@ export function summaryWaysOf(analysis: PdfReportAnalysis): SummaryWays | null {
    * bisherige Tagesmittel-Regel. Gezeigt wird immer genau eine der beiden, und der Report sagt
    * welche (`controlVariant`).
    */
-  const predictiveSeries = comparison.spotWithPredictiveControlEur
-  const controlCostEur = sumCovered(predictiveSeries ?? comparison.spotWithBatteryEur)
   ways.push({
     id: 'controlled',
-    eur: predictiveSeries ? costTodayEur - controlCostEur : real.totalEur,
-    costEur: controlCostEur,
+    eur: costs.controlVariant === 'predictive' ? costTodayEur - costs.controlledEur : real.totalEur,
+    costEur: costs.controlledEur,
   })
 
   return {
     costTodayEur,
     coveredDays: analysis.dataQuality.coveredDays,
     ways,
-    controlVariant: predictiveSeries ? 'predictive' : 'simple',
-    comparisonSupplier: comparison.comparisonSupplier ?? null,
+    controlVariant: costs.controlVariant,
+    comparisonSupplier: costs.comparisonSupplier,
   }
 }
 

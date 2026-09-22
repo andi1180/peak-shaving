@@ -111,6 +111,18 @@ import type {
  * in eine Übergabe an dieses Dokument verdrahtet — das ist D4/D10. Das Feld steht trotzdem hier und
  * nicht als Kommentar „später ergänzen": es ist die Bedingung, unter der der Satz von selbst
  * entsteht, sobald die Verdrahtung kommt.
+ *
+ * ── D6 TEIL 3: DER TYP WÄCHST UM GENAU EIN FELD — `annualScenario`, AUSGEZÄHLT ───────────────
+ * Das Kapitel „Was wäre, wenn wir ein ganzes Jahr hätten?" (`annual-scenario.ts`) liest zusammen:
+ *   • `annualScenario` → die Jahresbeträge je Weg, die Referenzwoche und das Jahresfenster;
+ *   • `tariffOptimization` → über `buildWaysChapter`, WELCHE Wege dieser Kunde hat (die Zeilen der
+ *     Tabelle werden davon übernommen und nicht zweitausgewertet);
+ *   • `perBattery`/`recommendation`/`existingBatteryAnalysis` → über `peakShavingSavingOf`, ob
+ *     Weg 5 zutrifft.
+ *
+ * Nur `annualScenario` fehlte; die übrigen standen bereits hier. ⚠ ANDERS ALS `annualProjection`
+ * darüber IST es verdrahtet: `runAnalysisFromMeteringPointDraft` setzt es, sobald der Preis-Port
+ * gesetzt ist und die Hochrechnung gebildet werden konnte.
  */
 export type PdfReportAnalysis = Pick<
   AnalysisResult,
@@ -121,6 +133,7 @@ export type PdfReportAnalysis = Pick<
   | 'tariffOptimization'
   | 'existingBatteryAnalysis'
   | 'annualProjection'
+  | 'annualScenario'
   | 'dataQuality'
 >
 

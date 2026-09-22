@@ -331,3 +331,21 @@ export {
   projectAnnualTariffComparison,
   type AnnualTariffProjectionOptions,
 } from './analysis/annual-projection'
+
+/*
+ * ── DAS JAHRES-SZENARIO (D6 Teil 3) ───────────────────────────────────────────────────────────
+ * Der andere Weg neben der Hochrechnung darüber, und ausdrücklich kein Ersatz für sie: er baut
+ * erst einen vollständigen 365-Tage-Lastgang aus der verbrauchsstärksten gemessenen Woche und
+ * lässt darauf die GANZE Rechenkette laufen (`computeAnalysis`), Dispatch und Spitzenkappung
+ * eingeschlossen. Geschätzt ist damit die Eingabe, nicht das Ergebnis.
+ *
+ * Verdrahtet in `runAnalysisFromMeteringPointDraft`; angezeigt im Kapitel „Was wäre, wenn wir ein
+ * ganzes Jahr hätten?" (`apps/website/lib/pdf-report/annual-scenario.ts`).
+ */
+export {
+  buildAnnualScenario,
+  type AnnualScenarioBlocker,
+  type AnnualScenarioOptions,
+  type AnnualScenarioPricingReader,
+  type AnnualScenarioResult,
+} from './analysis/annual-scenario'

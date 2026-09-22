@@ -179,6 +179,45 @@ statt nachzuladen — §5.6).
 gekennzeichnet** — keine zweite, unabhängig validierte Zahl. Das ist bereits Prinzip im bestehenden
 Code (§5.3) und wird hier nicht aufgeweicht.
 
+### D6 Teil 3 umgesetzt (22.09.2026, Andreas) — Kapitel „Was wäre, wenn wir ein ganzes Jahr hätten?"
+
+Teil 1 und Teil 2b bleiben unverändert stehen; Teil 3 ist ein **zweiter, anderer Weg daneben** und
+kein Ersatz für sie. Der Unterschied ist die Stelle, an der geschätzt wird:
+
+| | D6 Teil 2b (`annualProjection`) | D6 Teil 3 (`annualScenario`) |
+|---|---|---|
+| Referenzperiode | kälteste Monate, sonst stärkster Monat | **verbrauchsstärkste 7 zusammenhängende Tage** |
+| Lückentag | flache Tagesform aus der Rate | **echter Viertelstundenverlauf** desselben Wochentags |
+| Gerechnet wird | zwei Kostenzeilen (`buildMonthlyTariffComparison`) | **die ganze Kette** (`computeAnalysis`), Dispatch und Spitzenkappung eingeschlossen |
+| Marktpreise der Lücke | nachgeladen und genähert | **aus dem gepflegten Bestand; fehlt etwas, entfällt das Kapitel** |
+| Geschätzt ist | das Ergebnis der beiden Zeilen | **die Eingabe (der Lastgang), nicht das Ergebnis** |
+
+**Die Referenzwoche statt der kältesten Periode** (Abweichung von der ursprünglichen D6-Fassung,
+zulässig nach dem Grundsatz vom 21.09.2026): eine Auswahl nach Kalendermonat setzt voraus, dass der
+Kunde heizlastgetrieben ist. Ein Betrieb mit Kühlhaus hat seine Spitzenwoche im August, und für ihn
+wählte die Winterregel die schwächste Zeit als Referenz. Das Maximum über alle Wochen trifft beide
+Fälle ohne Wetterannahme und ohne Verbrauchertyp-Kategorie.
+
+**Das Fenster ist begrenzt, nicht fest:** 365 Kalendertage, die alle Messwerte enthalten müssen,
+innerhalb von `[Preisanker, gestern]`. Gewählt wird das **spätestmögliche** — solange es geht,
+beginnt das Jahr am ersten Messtag und die Lücke liegt dahinter. Die Grenzen kommen als Parameter
+in die Engine (`SyntheticYearBounds`); der Rechenkern kennt weder den Preisanker noch die Uhr.
+
+**Im Report:** eigenes Kapitel direkt hinter den Wegen, ohne Chart (eine zyklisch wiederholte Woche
+als Heatmap sähe aus wie ein gemessener Jahresgang). Tabelle mit **einer Zeile je Balken des
+Wege-Kapitels**, Kasten „Gesamtersparnis im Jahresvergleich". **Weg 5 steht im Kasten und nicht in
+der Tabelle** — Kosten und Ersparnis gehören nicht in dieselbe Spalte, dieselbe Trennung wie bei
+den Balken in D7. Der Kasten ist zugleich **die einzige Stelle im Report, an der Weg 5 addiert
+werden darf**: dort sind alle Zahlen Jahresgrössen.
+
+**Die Ein-Spanne-Regel (D8) bleibt unberührt:** `summary.ts` liest `annualScenario` nirgends, und
+ein Test pinnt, dass die Kopfzahlen mit und ohne Szenario bit-gleich bleiben.
+
+**Fundstellen:** `packages/engine/src/savings/reference-week.ts` · `…/synthetic-year.ts` ·
+`packages/shared/src/annual-scenario.ts` · `packages/shared/src/tariff-ways.ts` (die Wege-Auswahl,
+eine Definition für gemessenen und hochgerechneten Lauf) · `packages/extractors/src/analysis/annual-scenario.ts` ·
+`apps/website/lib/pdf-report/annual-scenario.ts`.
+
 ---
 
 ## D7 — Baustein 5: Der Kostenvergleich — Scope-Entscheidung nötig `[OFFEN]`

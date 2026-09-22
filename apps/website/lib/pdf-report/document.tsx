@@ -34,6 +34,8 @@ import {
   WAYS_INTRO,
   WAYS_SECTION,
   waysSectionTitle,
+  ANNUAL_SCENARIO_INTRO,
+  ANNUAL_SCENARIO_SECTION,
   type ReportSection,
 } from './content'
 import { buildBasisChapter, DATA_SOURCES_TABLE_ID, TARIFF_COMPONENTS_TABLE_ID } from './basis'
@@ -46,6 +48,7 @@ import { buildPrerequisitesChapter } from './prerequisites'
 import { buildRecommendationChapter } from './recommendation'
 import type { ReportBaukastenId, ReportBaukastenRegistry } from './registry'
 import { buildWaysChapter } from './ways'
+import { buildAnnualScenarioChapter } from './annual-scenario'
 import {
   resolveReportSegments,
   resolveReportText,
@@ -1701,6 +1704,40 @@ function WaysChapter({
 }
 
 /**
+ * D6 Teil 3 — das Kapitel „Was wäre, wenn wir ein ganzes Jahr hätten?".
+ *
+ * ── ⚠ KEIN BILD, UND DAS IST EINE ENTSCHEIDUNG ────────────────────────────────────────────────
+ * Die gefüllten Tage sind die zyklisch wiederholte Referenzwoche. Als Heatmap oder Jahreskurve
+ * gezeichnet sähen sie aus wie ein gemessener Jahresgang — ein Muster, das der Lastgang gar nicht
+ * hergibt, und ein Leser könnte an der Zeichnung nicht erkennen, dass er siebenmal dieselbe Woche
+ * sieht. Text und Tabelle können sagen, was sie sind; ein Bild könnte es nicht.
+ *
+ * ⚠ OB ES DIE SEITE GIBT, entscheidet `hasAnnualScenarioChapter` (`context.hasAnnualScenario`) —
+ * dieselbe Mechanik wie beim Wege-Kapitel davor: der Aufrufer liest die Antwort einmal und gibt
+ * sie an Agenda UND Seitenbaum.
+ */
+function AnnualScenarioChapter({
+  input,
+  layout,
+}: {
+  input: PdfReportInput
+  layout: ReportLayout
+}) {
+  const chapter = buildAnnualScenarioChapter(input.analysis)
+
+  return (
+    <View style={styles.body}>
+      <Text style={styles.h2}>{ANNUAL_SCENARIO_SECTION.title}</Text>
+      <Text style={styles.lead}>{ANNUAL_SCENARIO_INTRO}</Text>
+
+      {chapter?.statements.map((statement) => (
+        <Statement key={statement.id} statement={statement} layout={layout} />
+      ))}
+    </View>
+  )
+}
+
+/**
  * B23c-2 — Empfehlung und Ladesteuerung.
  *
  * ⚠ DAS LASTGANG-BILD IST HIER RAUS und steht als eigenes Kapitel davor (`LoadChapter`). Der Rest
@@ -2292,7 +2329,7 @@ export function ReportDocument({
    * ⚠ B1: entschieden wird jetzt im KONTEXT, einmal je Dokument statt einmal je Durchlauf. Diese
    * Funktion läuft zwei- bis dreimal (`render.tsx`) — sie LIEST die Antwort nur noch.
    */
-  const { hasWays, hasMonthly, hasComparison, hasRecommendation } = context
+  const { hasWays, hasAnnualScenario, hasMonthly, hasComparison, hasRecommendation } = context
 
   /*
    * ⚠ Report-Baukasten C: KAPITEL 5 FÄLLT MIT SEINEN BEIDEN BAUSTEINEN. Sind beide abgewählt,
@@ -2336,6 +2373,7 @@ export function ReportDocument({
           sections={buildReportAgenda({
             ways: hasWays,
             waysCount: context.waysCount,
+            annualScenario: hasAnnualScenario,
             recommendation: hasRecommendation,
             monthly: hasMonthly,
             insight: hasInsight,
@@ -2368,6 +2406,14 @@ export function ReportDocument({
           <PageFurniture sink={sink} docLabel={docLabel} />
           <SectionAnchor id={WAYS_SECTION.id} sink={sink} />
           <WaysChapter input={input} charts={charts} context={context} layout={layout} />
+        </Page>
+      )}
+
+      {hasAnnualScenario && (
+        <Page size="A4" style={styles.page}>
+          <PageFurniture sink={sink} docLabel={docLabel} />
+          <SectionAnchor id={ANNUAL_SCENARIO_SECTION.id} sink={sink} />
+          <AnnualScenarioChapter input={input} layout={layout} />
         </Page>
       )}
 

@@ -16,3 +16,15 @@ export type {
 // D6 Teil 2a: flache Stundenverteilung einer Tagesmenge — der Eingang, mit dem eine
 // hochgerechnete Menge gegen Stundenpreise bewertet werden kann.
 export { spreadDailyConsumptionHourly } from './hourly-spread'
+// D6 Teil 3: die Referenzwoche (verbrauchsstärkste sieben zusammenhängenden Tage) und der daraus
+// gefüllte 365-Tage-Lastgang. Er ist eine EINGABE für `computeAnalysis` — gerechnet wird damit
+// unverändert dort, geschätzt ist der Lastgang und nicht das Ergebnis.
+export { REFERENCE_WEEK_DAYS, findReferenceWeek } from './reference-week'
+export type { ReferenceWeek, ReferenceWeekDay } from './reference-week'
+export { buildSyntheticYearProfile } from './synthetic-year'
+export type {
+  SyntheticYearBlocker,
+  SyntheticYearBounds,
+  SyntheticYearProfile,
+  SyntheticYearResult,
+} from './synthetic-year'

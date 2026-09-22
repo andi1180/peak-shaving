@@ -203,6 +203,58 @@ Nach der Tarif-Station des letzten Zählpunkts: ein "Fertig"-Abschluss mit Hinwe
 
 ⚠ **Ein loser Faden:** die Migration zu `admin_delete_project` wurde mangels funktionierendem CLI-Zugang direkt über den Supabase-SQL-Editor in der Cloud angelegt, NICHT über `supabase db push`. Sie fehlt deshalb in Supabase's eigener Migrations-Historie. Der nächste `supabase db push` könnte auf dieser einen Datei mit "existiert bereits" scheitern — dann die Datei einmalig überspringen oder die Historie von Hand nachtragen, nicht neu anlegen.
 
+### Jahres-Hochrechnung als eigenes Kapitel — geschätzt ist der LASTGANG (22.09.2026)
+
+Neues, bedingtes Report-Kapitel **„Was wäre, wenn wir ein ganzes Jahr hätten?"** direkt hinter den
+fünf Wegen, bei `coveredDays < 365` für jeden Kunden. Der Weg dorthin ist bewusst nicht die
+naheliegende Streckung der Ersparnis-Zahlen: aus der **verbrauchsstärksten zusammenhängenden Woche**
+des echten Lastgangs (`findReferenceWeek`) wird ein vollständiger 365-Tage-Lastgang gefüllt
+(`buildSyntheticYearProfile`, jeder fehlende Tag bekommt den ECHTEN Viertelstundenverlauf desselben
+WOCHENTAGS), und darauf läuft ein **zweiter, unveränderter `computeAnalysis`-Lauf** — Dispatch,
+Ladesteuerung und Spitzenkappung eingeschlossen. Fachliche Tiefe:
+`Pflichtenheft_Kalkulator_Delta_Report-Baukasten.md`, „D6 Teil 3 umgesetzt".
+
+**⚠ Was beim nächsten Umbau mitzudenken ist:**
+
+**(a) Die Referenzwoche ist NICHT die kälteste, sondern die stärkste** — und das ist eine bewusste
+Abweichung von der ursprünglichen D6-Fassung: eine Auswahl nach Kalendermonat unterstellt einen
+heizlastgetriebenen Kunden und wählte für einen Kühlhaus-Betrieb die schwächste Zeit. Keine
+Wetterannahme, keine Verbrauchertyp-Kategorie.
+
+**(b) Die gefüllten Tage tragen ECHTE Messwerte, nicht skalierte.** Daraus folgt, dass die PV-Wirkung
+mitreist (bei bestehender Anlage steckt sie im Netzbezug) — es braucht **keine** zweite
+PVGIS-Schätzung, und es darf auch keine geben. Eine mitgelieferte Brutto-PV-Reihe wird nach
+DEMSELBEN Plan verlängert; getrennte Zuordnungen brächten Netzbezug und Erzeugung aus verschiedenen
+Tagen zusammen.
+
+**(c) Das Fenster hängt an Grenzen, die die ENGINE nicht kennen darf.** 365 Tage innerhalb
+`[Preisanker 01.01.2025, gestern]`, gewählt wird das spätestmögliche. Die Grenzen kommen als
+`SyntheticYearBounds` herein; die Uhr liest `run-from-draft.ts`, nicht der Rechenkern. Passt kein
+Fenster, kommt `no_window` zurück — es wird **nichts zurechtgeschnitten**.
+
+**(d) Es wird NICHTS genähert.** Deckt der Preisbestand das Jahresfenster nicht, entfällt das Kapitel
+(`not_computable`). Das Nachladen/Nähern gibt es weiterhin nur im parallelen Weg
+`projectAnnualTariffComparison` (D6 Teil 2b, `annualProjection`) — die beiden Contract-Felder
+beantworten verschiedene Fragen und sind **nicht** gegeneinander austauschbar.
+
+**(e) Weg 5 steht im Ersparnis-Kasten, nicht in der Kostentabelle**, und der Kasten ist die **einzige
+Stelle im ganzen Report, an der Weg 5 addiert werden darf** (dort sind alle Zahlen Jahresgrössen —
+im Kapitel davor ausdrücklich nicht). **Keine der Zahlen erreicht die Ersparnis-Spanne der
+Zusammenfassung** (D8): `summary.ts` liest `annualScenario` nirgends, ein Test pinnt die
+Bit-Gleichheit der Kopfzahlen mit und ohne Szenario.
+
+**(f) Kein Chart** — eine zyklisch wiederholte Woche als Heatmap sähe aus wie ein gemessener
+Jahresgang.
+
+**(g) Neu geteilt: `tariffWayCosts` (`shared`)** entscheidet jetzt für BEIDE Läufe, welche Reihe des
+Monatsvergleichs welcher Weg ist; `primaryBatteryEntry` (`shared`) ebenso für „wessen Speicher".
+`summaryWaysOf`/`primaryEntryOf` delegieren dorthin — Verhalten unverändert, die bestehenden
+Wege-Tests sind unberührt grün.
+
+**Noch nicht gemessen:** das Kapitel ist gegen synthetische Lastgänge und ein gerendertes PDF
+geprüft (18 statt 17 Seiten, Text und Tabelle gelesen), **nicht gegen den Urbanz-Fall über den
+Produktionspfad** — s. Regel 11.
+
 ### Report-Baukasten — das Wege-Kapitel führt FÜNF Wege (21.09.2026)
 
 D7 ist auf die Revision vom 21.09.2026 umgestellt (`Pflichtenheft_Kalkulator_Delta_Report-Baukasten.md`
