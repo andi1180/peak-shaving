@@ -123,6 +123,33 @@ sah dadurch aus wie eine Regression im Code. Aufgefallen ist sie erst, weil Andr
 eine kurze Klammer an der Zahl, kein Prüflauf-Protokoll. Wer die Herkunft weglässt, spart keine
 Zeile, sondern verschiebt die Prüfung auf den Leser.
 
+### Regel 12 — Geteilter Code heisst geteiltes Risiko: neue Fälle können bestehende leise verändern
+
+Report- und Engine-Code ist bewusst geteilt (eine Rechnung, keine zwei Wahrheiten) — das heisst
+aber auch: eine Änderung für einen NEUEN Fall (z. B. ein Kunde mit Kappungsbedarf, ohne PV, wo
+bisher ein anderer Zweig lief) kann denselben Code treffen, den ein bereits abgeschlossener
+Referenzfall benutzt. Ein grüner Testlauf beweist „die Logik tut, was sie soll" — **nicht** „die
+Zahlen bestehender Fälle haben sich nicht verändert".
+
+Nach JEDEM Änderungs-Batch, der Report- oder Engine-Code berührt, der von mehr als einem Fall
+genutzt wird: mindestens einen bestehenden Referenzfall (aktuell **Markus Urbanz**, **Demo Hotel**)
+neu als Report ziehen und die Kopfzahlen gegen den letzten bekannten Stand prüfen — nicht nur die
+neuen Tests grün sehen.
+
+**Anlass:** Dreimal in einer Session ist genau diese Fehlerklasse aufgetreten, nicht spekulativ:
+`reduceAnalysis` liess `annualScenario` und `pvValue` aus seiner Pick-Liste aus (Feld existierte,
+Typprüfung erlaubte es, Report zeigte trotzdem nichts — **#320**, **#321**); „Berechnungsmethodik je
+Kennzahl" kannte Vergleichstarif und Kappung nicht, obwohl beide in anderen Fällen längst aktiv
+waren (**#326**); das Inhaltsverzeichnis führte Unterpunkte für ein Kapitel, für ein gleichrangiges
+anderes nicht (**#327**). Keiner dieser drei Fälle wurde von einem automatisierten Test gefangen —
+sie fielen erst auf, weil der echte Report gegen den Produktionspfad gezogen und von Auge geprüft
+wurde.
+
+**Offener Punkt für eine künftige Sitzung, nicht Teil dieser Regel:** ein bis zwei Referenzfälle als
+Golden-File-Regressionstest in die Suite aufnehmen (kompletter Report-Output gegen einen
+gespeicherten Vorher-Stand, automatisch bei jedem PR) — würde das manuelle Nachziehen dieser Regel
+teilweise ins CI verlagern. `[OFFEN]`.
+
 ---
 
 ## Offene Abhängigkeiten (blockieren Validierung, nicht den Bau)
