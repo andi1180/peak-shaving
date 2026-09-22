@@ -1879,6 +1879,29 @@ export type Database = {
         }
         Returns: Json
       }
+      admin_create_battery: {
+        Args: {
+          p_bezeichnung: string
+          p_control_type?: string
+          p_datasheet_url?: string
+          p_extra_inverter_cost_net?: number
+          p_foundation_cost_net?: number
+          p_hersteller: string
+          p_installation_cost_net?: number
+          p_inverter_included?: boolean
+          p_kategorie: string
+          p_list_price_net?: number
+          p_max_power_kw?: number
+          p_memodo_id?: number
+          p_notes?: string
+          p_price_as_of?: string
+          p_requires_foundation?: boolean
+          p_round_trip_efficiency?: number
+          p_source_url?: string
+          p_usable_capacity_kwh?: number
+        }
+        Returns: Json
+      }
       admin_create_code: {
         Args: {
           p_code: string
@@ -1917,6 +1940,7 @@ export type Database = {
         Args: { p_decision: string; p_id: string }
         Returns: Json
       }
+      admin_delete_battery: { Args: { p_id: string }; Returns: Json }
       admin_delete_metering_point_document: {
         Args: { p_document_id: string; p_metering_point_id: string }
         Returns: Json
@@ -1962,6 +1986,7 @@ export type Database = {
       }
       admin_get_analysis: { Args: { p_id: string }; Returns: Json }
       admin_get_analysis_source: { Args: { p_id: string }; Returns: Json }
+      admin_get_battery: { Args: { p_id: string }; Returns: Json }
       admin_get_chat_rate_limit: { Args: never; Returns: Json }
       admin_get_lead: { Args: { p_lead_id: string }; Returns: Json }
       admin_get_partner_application: { Args: { p_id: string }; Returns: Json }
@@ -1992,6 +2017,10 @@ export type Database = {
           p_limit?: number
           p_offset?: number
         }
+        Returns: Json
+      }
+      admin_list_battery_catalog: {
+        Args: { p_active?: boolean; p_kategorie?: string }
         Returns: Json
       }
       admin_list_calculator_requests: {
@@ -2080,6 +2109,18 @@ export type Database = {
         Args: { p_role: string; p_target_user_id: string }
         Returns: Json
       }
+      admin_set_battery_active: {
+        Args: { p_active: boolean; p_id: string }
+        Returns: Json
+      }
+      admin_set_battery_purchase_price: {
+        Args: {
+          p_as_of?: string
+          p_battery_id: string
+          p_purchase_price_net?: number
+        }
+        Returns: Json
+      }
       admin_set_chat_rate_limit: {
         Args: { p_max: number; p_valid_from?: string }
         Returns: Json
@@ -2110,6 +2151,30 @@ export type Database = {
       }
       admin_suppress_lead: { Args: { p_lead_id: string }; Returns: Json }
       admin_suppression_count: { Args: never; Returns: Json }
+      admin_update_battery: {
+        Args: {
+          p_bezeichnung: string
+          p_control_type?: string
+          p_datasheet_url?: string
+          p_extra_inverter_cost_net?: number
+          p_foundation_cost_net?: number
+          p_hersteller: string
+          p_id: string
+          p_installation_cost_net?: number
+          p_inverter_included?: boolean
+          p_kategorie: string
+          p_list_price_net?: number
+          p_max_power_kw?: number
+          p_memodo_id?: number
+          p_notes?: string
+          p_price_as_of?: string
+          p_requires_foundation?: boolean
+          p_round_trip_efficiency?: number
+          p_source_url?: string
+          p_usable_capacity_kwh?: number
+        }
+        Returns: Json
+      }
       admin_update_lead: {
         Args: {
           p_annual_consumption_kwh?: number

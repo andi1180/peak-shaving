@@ -24,6 +24,7 @@ import { CALCULATOR_REQUESTS_HREF } from './calculator-requests'
 import { ADMIN_CALCULATOR_HREF } from './calculator'
 import { GRID_TARIFFS_HREF } from './grid-tariffs'
 import { RETAIL_TARIFFS_HREF } from './retail-tariffs'
+import { BATTERY_CATALOG_HREF } from './battery-catalog'
 import { OPEN_QUESTIONS_HREF } from './open-questions'
 import { PROJECTS_HREF } from './projects'
 import { SYSTEM_PROMPT_EXTENSIONS_HREF } from './system-prompt-extensions'
@@ -95,6 +96,13 @@ export const ADMIN_NAV_ITEMS: readonly AdminNavItem[] = [
    * sie auch in zwei Tabellen stehen.
    */
   { href: RETAIL_TARIFFS_HREF, label: 'Lieferanten-Tarife' },
+  /*
+   * K1: der Gerätekatalog des Kalkulators. Eigener Punkt neben den beiden Tarif-Abschnitten und
+   * ausdrücklich KEIN Unterpfad von „Kalkulator" — dieselbe Präfix-Regel wie oben. Fachlich ein
+   * dritter Gegenstand: Netzentgelt und Lieferantenpreis beschreiben, was Strom KOSTET, dieser
+   * Katalog, womit sich die Kosten senken lassen.
+   */
+  { href: BATTERY_CATALOG_HREF, label: 'Batteriespeicher' },
   /*
    * B24: Martins Posteingang der Kalkulator-Rückfragen. Eigener Punkt und ausdrücklich KEIN
    * Unterpfad von „Kalkulator" — die Präfix-Regel von `AdminNav` markierte sonst beide gleichzeitig
