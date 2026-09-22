@@ -25,6 +25,8 @@ import {
   MONTHLY_SECTION,
   PREREQUISITES_INTRO,
   PREREQUISITES_SECTION,
+  PV_VALUE_INTRO,
+  PV_VALUE_SECTION,
   RECOMMENDATION_INTRO,
   RECOMMENDATION_SECTION,
   REPORT_DISCLAIMER,
@@ -49,6 +51,7 @@ import { buildRecommendationChapter } from './recommendation'
 import type { ReportBaukastenId, ReportBaukastenRegistry } from './registry'
 import { buildWaysChapter } from './ways'
 import { buildAnnualScenarioChapter } from './annual-scenario'
+import { buildPvValueChapter } from './pv-value'
 import {
   resolveReportSegments,
   resolveReportText,
@@ -1738,6 +1741,48 @@ function AnnualScenarioChapter({
 }
 
 /**
+ * Das Kapitel „Ihre PV-Anlage" — was die BESTEHENDE Anlage über den Zeitraum wert war.
+ *
+ * ── ⚠ HIER GIBT ES EIN BILD, UND ZWAR EIN ANDERES ALS IM KAPITEL DAVOR ────────────────────────
+ * Die Monatsbalken zeigen GESCHÄTZTE Mengen über echte Kalendermonate — jeder Balken gehört zu
+ * einem Monat, den der Lastgang tatsächlich abdeckt. Das unterscheidet sie von der
+ * Jahres-Hochrechnung, deren gefüllte Tage siebenmal dieselbe Woche sind und als Kurve deshalb
+ * bewusst nicht gezeichnet werden.
+ *
+ * ⚠ OB ES DIE SEITE GIBT, entscheidet `hasPvValueChapter` (`context.hasPvValue`) — dieselbe
+ * Mechanik wie bei den beiden Kapiteln davor: der Aufrufer liest die Antwort einmal und gibt sie
+ * an Agenda UND Seitenbaum.
+ */
+function PvValueChapter({
+  input,
+  charts,
+  layout,
+}: {
+  input: PdfReportInput
+  charts: ReportChartRasters
+  layout: ReportLayout
+}) {
+  const chapter = buildPvValueChapter(input.analysis)
+
+  return (
+    <View style={styles.body}>
+      <Text style={styles.h2}>{PV_VALUE_SECTION.title}</Text>
+      <Text style={styles.lead}>{PV_VALUE_INTRO}</Text>
+
+      <ChartFigure
+        raster={charts.pvSelfConsumption}
+        caption={chapter?.figure.caption ?? ''}
+        note={chapter?.figure.note}
+        missing={figureMissingText('Das Monatsdiagramm')}
+      />
+      {chapter?.statements.map((statement) => (
+        <Statement key={statement.id} statement={statement} layout={layout} />
+      ))}
+    </View>
+  )
+}
+
+/**
  * B23c-2 — Empfehlung und Ladesteuerung.
  *
  * ⚠ DAS LASTGANG-BILD IST HIER RAUS und steht als eigenes Kapitel davor (`LoadChapter`). Der Rest
@@ -2329,7 +2374,8 @@ export function ReportDocument({
    * ⚠ B1: entschieden wird jetzt im KONTEXT, einmal je Dokument statt einmal je Durchlauf. Diese
    * Funktion läuft zwei- bis dreimal (`render.tsx`) — sie LIEST die Antwort nur noch.
    */
-  const { hasWays, hasAnnualScenario, hasMonthly, hasComparison, hasRecommendation } = context
+  const { hasWays, hasAnnualScenario, hasPvValue, hasMonthly, hasComparison, hasRecommendation } =
+    context
 
   /*
    * ⚠ Report-Baukasten C: KAPITEL 5 FÄLLT MIT SEINEN BEIDEN BAUSTEINEN. Sind beide abgewählt,
@@ -2374,6 +2420,7 @@ export function ReportDocument({
             ways: hasWays,
             waysCount: context.waysCount,
             annualScenario: hasAnnualScenario,
+            pvValue: hasPvValue,
             recommendation: hasRecommendation,
             monthly: hasMonthly,
             insight: hasInsight,
@@ -2414,6 +2461,14 @@ export function ReportDocument({
           <PageFurniture sink={sink} docLabel={docLabel} />
           <SectionAnchor id={ANNUAL_SCENARIO_SECTION.id} sink={sink} />
           <AnnualScenarioChapter input={input} layout={layout} />
+        </Page>
+      )}
+
+      {hasPvValue && (
+        <Page size="A4" style={styles.page}>
+          <PageFurniture sink={sink} docLabel={docLabel} />
+          <SectionAnchor id={PV_VALUE_SECTION.id} sink={sink} />
+          <PvValueChapter input={input} charts={charts} layout={layout} />
         </Page>
       )}
 

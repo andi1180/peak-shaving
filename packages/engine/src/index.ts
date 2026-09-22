@@ -21,6 +21,10 @@ export * from './foresight'
 // D5 (17.09.2026): die PV-Ausfallerkennung — Monate, in denen eine vorhandene Anlage im Lastgang
 // keinen Mittagseinbruch zeigt. Rein beobachtend, kein KI-Aufruf (Prinzip 5).
 export * from './pv-anomaly'
+// „Ihre PV-Anlage" (22.09.2026): die Rekonstruktion des Lastgangs OHNE eine bestehende Anlage —
+// Netzbezug + geschätzte Erzeugung. Gegenrichtung zu `pv-generation`, von dessen Abzugs-Sperre
+// (`pv_already_in_grid_profile`) ausdrücklich nicht betroffen.
+export * from './pv-value'
 // D3 (16.09.2026): die vollständige Rechenkette (§3.4–§3.9) — bis dahin app-lokal im Analyse-Worker
 // von `apps/website`. Sie liegt hier, damit der Wizard-Entwurf denselben Rechenweg benutzen kann
 // statt einer zweiten Kopie (Prinzip 2). Die Typen reisen mit: sie beschreiben die Nutzlast.

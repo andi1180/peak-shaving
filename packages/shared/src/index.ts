@@ -39,6 +39,9 @@ export * from './annual-projection'
 // `AnalysisResult.annualScenario` trägt ihn, und `shared` ist die unterste Schicht.
 export * from './tariff-ways'
 export * from './annual-scenario'
+// „Ihre PV-Anlage" (22.09.2026): der rekonstruierte „ohne PV"-Vergleich. Hier aus demselben Grund
+// wie `annual-scenario`: `AnalysisResult.pvValue` trägt ihn, und `shared` ist die unterste Schicht.
+export * from './pv-value'
 export * from './battery-entry'
 // Delta 16b: das Name/Firma-Gate vor dem Report-Download — Herkunftsschlüssel, Einwilligungszweck
 // und die EINE Prüfregel für Formular (Rückmeldung), Server Action (Wahrheit) und DB-Gate

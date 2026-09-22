@@ -11,6 +11,7 @@ import { EnergyFlowChart } from '@/components/report/energy-flow-chart'
 import { LoadChart } from '@/components/report/load-chart'
 import { MarginalBenefitChart } from '@/components/report/marginal-benefit-chart'
 import { MonthlyTariffChart } from '@/components/report/monthly-tariff-chart'
+import { PvSelfConsumptionChart } from '@/components/report/pv-self-consumption-chart'
 import { TariffWaysChart } from '@/components/report/tariff-ways-chart'
 import { captureChart, selectHeatmapGrid, selectRechartsSurface } from './chart-capture'
 import type { ChartRaster } from './chart-raster'
@@ -18,6 +19,7 @@ import { comparisonChartPlan } from './comparison'
 import { detailChartPlan, hasMonthlyChapter } from './detail'
 import { insightChartPlan } from './insight'
 import type { PdfReportInput } from './types'
+import { buildPvValueChapter } from './pv-value'
 import { buildWaysChapter } from './ways'
 
 /**
@@ -92,6 +94,13 @@ export type ReportChartRasters = {
    */
   ways: ChartRaster | null
   waysError: string | null
+
+  /**
+   * Der geschätzte PV-Eigenverbrauch je Monat. `null`, wenn es das Kapitel „Ihre PV-Anlage" in
+   * diesem Dokument nicht gibt (`hasPvValueChapter`).
+   */
+  pvSelfConsumption: ChartRaster | null
+  pvSelfConsumptionError: string | null
 
   /** Kostenvergleich — welcher, sagt `costKind`. `null`, wenn keiner entstanden ist. */
   cost: ChartRaster | null
@@ -169,6 +178,7 @@ export type ReportChartRasters = {
 export type ReportChartFigureMs = {
   load: number | null
   ways: number | null
+  pvSelfConsumption: number | null
   cost: number | null
   monthly: number | null
   flow: number | null
@@ -394,6 +404,21 @@ export async function buildReportCharts(input: PdfReportInput): Promise<ReportCh
         )
 
   /*
+   * Die Monatsbalken des PV-Kapitels. `pvValueChapter === null` heisst: es gibt das Kapitel in
+   * diesem Dokument nicht — dieselbe Entscheidung, die auch `context.hasPvValue` liest.
+   */
+  const pvValueChapter = buildPvValueChapter(analysis)
+  const pvSelfConsumption: Attempt =
+    pvValueChapter === null
+      ? NOT_RASTERIZED
+      : await attempt(() =>
+          captureChart(<PvSelfConsumptionChart months={pvValueChapter.months} />, {
+            width: DETAIL_CHART_WIDTH_PX,
+            select: selectRechartsSurface,
+          }),
+        )
+
+  /*
    * Der Kostenvergleich in der Fassung, die `detail.ts` bestimmt hat.
    *
    * ⚠ Beim kumulierten Vergleich rastert `selectRechartsSurface` den ERSTEN Zeichenbereich der
@@ -559,6 +584,8 @@ export async function buildReportCharts(input: PdfReportInput): Promise<ReportCh
     loadVertices: load.raster ? measured.loadVertices : null,
     ways: ways.raster,
     waysError: ways.error,
+    pvSelfConsumption: pvSelfConsumption.raster,
+    pvSelfConsumptionError: pvSelfConsumption.error,
     cost: cost.raster,
     costError: cost.error,
     costKind: plan.cost?.kind ?? null,
@@ -578,6 +605,7 @@ export async function buildReportCharts(input: PdfReportInput): Promise<ReportCh
     figureMs: {
       load: load.ms,
       ways: ways.ms,
+      pvSelfConsumption: pvSelfConsumption.ms,
       cost: cost.ms,
       monthly: monthly.ms,
       flow: flow.ms,

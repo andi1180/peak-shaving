@@ -10,6 +10,7 @@ import { primaryEntryOf, recommendedEntryOf } from './summary'
 import type { PdfReportInput } from './types'
 import { hasWaysChapter, waysCountOf } from './ways'
 import { hasAnnualScenarioChapter } from './annual-scenario'
+import { hasPvValueChapter } from './pv-value'
 
 /**
  * Report-Baukasten B1 — die Zwischenwerte, die für EIN Dokument genau einmal entstehen.
@@ -71,6 +72,8 @@ export type ReportBuildContext = {
   waysCount: number
   /** D6 Teil 3 — Kapitel „Was wäre, wenn wir ein ganzes Jahr hätten?", direkt hinter den Wegen. */
   hasAnnualScenario: boolean
+  /** Kapitel „Ihre PV-Anlage" — der rekonstruierte „ohne PV"-Vergleich, hinter der Hochrechnung. */
+  hasPvValue: boolean
   /** Kapitel 4 — Monatsvergleich als eigenes Kapitel. */
   hasMonthly: boolean
   /** Kapitel 5 — Ladeverhalten. */
@@ -108,6 +111,7 @@ export function buildReportContext(input: PdfReportInput): ReportBuildContext {
     hasWays: hasWaysChapter(analysis),
     waysCount: waysCountOf(analysis),
     hasAnnualScenario: hasAnnualScenarioChapter(analysis),
+    hasPvValue: hasPvValueChapter(analysis),
     hasMonthly: hasMonthlyChapter(analysis),
     hasInsight: insightPlan.hourFlow !== null || insightPlan.chargePrice !== null,
     hasComparison: hasComparisonChapter(analysis),

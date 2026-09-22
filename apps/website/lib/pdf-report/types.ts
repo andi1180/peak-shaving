@@ -123,6 +123,18 @@ import type {
  * Nur `annualScenario` fehlte; die übrigen standen bereits hier. ⚠ ANDERS ALS `annualProjection`
  * darüber IST es verdrahtet: `runAnalysisFromMeteringPointDraft` setzt es, sobald der Preis-Port
  * gesetzt ist und die Hochrechnung gebildet werden konnte.
+ *
+ * ── „IHRE PV-ANLAGE": DER TYP WÄCHST UM GENAU EIN FELD — `pvValue`, AUSGEZÄHLT ────────────────
+ * Das Kapitel (`pv-value.ts`) liest AUSSCHLIESSLICH `pvValue`: die beiden Kostenseiten, die
+ * Jahres-Hochrechnung und die Monatsmengen stehen alle darin, und ob es das Kapitel gibt, steht
+ * ebenfalls darin (`hasPvValueChapter`). Weder `hasPv` noch `pvStage` noch `pvOutageMonths` kommen
+ * dafür in Frage — die Bedingung ist auf der Schreibseite bereits gefallen, und eine zweite
+ * Fassung davon hier liefe von ihr weg.
+ *
+ * ⚠ DAS FELD MUSS IN `reduceAnalysis` MIT — es ist auf `AnalysisResult` OPTIONAL, ein `Pick<…>`
+ * wäre also auch ohne es erfüllt, und es fiele in der Verengung still weg. Genau das ist mit
+ * `annualScenario` bereits passiert (#320); `Complete<…>` dort macht das Weglassen seither zu
+ * einem Compile-Fehler.
  */
 export type PdfReportAnalysis = Pick<
   AnalysisResult,
@@ -134,6 +146,7 @@ export type PdfReportAnalysis = Pick<
   | 'existingBatteryAnalysis'
   | 'annualProjection'
   | 'annualScenario'
+  | 'pvValue'
   | 'dataQuality'
 >
 

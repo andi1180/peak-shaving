@@ -95,6 +95,24 @@ const SCENARIO: NonNullable<AnalysisResult['annualScenario']> = {
 }
 
 /** D6 Teil 2b — heute von keinem Weg gesetzt, aber aus demselben Grund verloren gegangen. */
+const PV_VALUE: NonNullable<AnalysisResult['pvValue']> = {
+  coveredDays: 209,
+  measured: { withPvEur: 1021.89, withoutPvEur: 1675.89, valueEur: 654 },
+  annual: {
+    withPvEur: 1800,
+    withoutPvEur: 2942,
+    valueEur: 1142,
+    windowFromDate: '2025-09-22',
+    windowToDate: '2026-09-21',
+    projectedDays: 156,
+  },
+  months: [
+    { year: 2026, month: 2, selfConsumptionKwh: null, outage: true },
+    { year: 2026, month: 5, selfConsumptionKwh: 612.4, outage: false },
+  ],
+  estimatedGenerationKwh: 5212.67,
+}
+
 const PROJECTION: NonNullable<AnalysisResult['annualProjection']> = {
   currentTariffEur: { measuredEur: 9000, projectedEur: 4000, totalEur: 13000 },
   spotWithoutControlEur: { measuredEur: 8200, projectedEur: 3600, totalEur: 11800 },
@@ -144,7 +162,7 @@ describe('buildReportInputFromRenderRequest', () => {
     /* Der Preisstand-Satz nennt die Grundgebühr, weil die Übergabe eine trägt. */
     expect(input.tariffVintage).toContain('Arbeitspreis und Grundgebühr basieren')
 
-    /* Verengt auf die neun gelesenen Felder — `peaks` reist NICHT mit. */
+    /* Verengt auf die zehn gelesenen Felder — `peaks` reist NICHT mit. */
     expect(Object.keys(input.analysis).sort()).toEqual([
       'annualProjection',
       'annualScenario',
@@ -153,6 +171,7 @@ describe('buildReportInputFromRenderRequest', () => {
       'dataQuality',
       'existingBatteryAnalysis',
       'perBattery',
+      'pvValue',
       'recommendation',
       'tariffOptimization',
     ])
@@ -172,9 +191,19 @@ describe('buildReportInputFromRenderRequest', () => {
    * prüft dieser Test, und nur er. Der zweite Halt ist der Rückgabetyp `Complete<…>`, der ein
    * weggelassenes Feld zum Typfehler macht.
    */
-  it('reicht die zwei optionalen Jahres-Felder unverändert durch', () => {
+  it('reicht die drei optionalen Felder unverändert durch', () => {
     const readout = readRenderRequest({
-      data: [{ ...ROW, analysis_result: { ...ANALYSIS, annualScenario: SCENARIO, annualProjection: PROJECTION } }],
+      data: [
+        {
+          ...ROW,
+          analysis_result: {
+            ...ANALYSIS,
+            annualScenario: SCENARIO,
+            annualProjection: PROJECTION,
+            pvValue: PV_VALUE,
+          },
+        },
+      ],
       error: null,
     })
     if (readout.status !== 'ok') throw new Error('Übergabe sollte lesbar sein')
@@ -184,6 +213,8 @@ describe('buildReportInputFromRenderRequest', () => {
     /* Identität, nicht Gleichheit: 1:1 durchgereicht, keine Umformung und kein Vorgabewert. */
     expect(input.analysis.annualScenario).toBe(SCENARIO)
     expect(input.analysis.annualProjection).toBe(PROJECTION)
+    /* ⚠ `pvValue` steht von Anfang an in dieser Prüfung — nicht erst, nachdem es gefehlt hat. */
+    expect(input.analysis.pvValue).toBe(PV_VALUE)
   })
 
   it('lässt die Grundgebühr ohne Angabe aus dem Preisstand-Satz weg', () => {
