@@ -47,10 +47,10 @@ describe('buildLevySchedule — was belegt ist, wird geschnitten; was fehlt, ble
   it('liefert GAR NICHTS, wo eine der vier Quellen fehlt — statt den Posten still auf 0 zu setzen', () => {
     // Netz NÖ: keine belegte Gebrauchsabgabe.
     expect(buildLevySchedule('netz_noe', 7, '2026-01-01', '2026-12-31').periods).toEqual([])
-    // 2025: Elektrizitätsabgabe und Gebrauchsabgabe sind für dieses Jahr nicht belegt — die
-    // EAG-Sätze allein genügen nicht.
+    // 2027: die Absenkung der Elektrizitätsabgabe ist auf 2026 befristet, danach ist nichts
+    // belegt — die EAG-Sätze und die offene Gebrauchsabgabe allein genügen nicht.
     expect(
-      buildLevySchedule('wiener_netze', 7, '2025-01-01', '2025-12-31', 'ohne_leistungsmessung')
+      buildLevySchedule('wiener_netze', 7, '2027-01-01', '2027-12-31', 'ohne_leistungsmessung')
         .periods,
     ).toEqual([])
     /*
@@ -58,6 +58,21 @@ describe('buildLevySchedule — was belegt ist, wird geschnitten; was fehlt, ble
      * Wer die Variante nicht mitgibt, bekommt deshalb nichts — nicht ersatzweise eine der drei.
      */
     expect(buildLevySchedule('wiener_netze', 7, '2026-01-01', '2026-12-31').periods).toEqual([])
+  })
+
+  it('trägt 2025 — Satz und Rechnungsposten gegen die echte Demo-Hotel-Rechnung nachgerechnet', () => {
+    const periods = buildLevySchedule('wiener_netze', 6, '2025-01-01', '2025-12-31', null).periods
+    const p = findLevyPeriod(periods, '2025-06-01')
+    expect(p).toMatchObject({ elektrizitaetsabgabeCtPerKwh: 1.5, gebrauchsabgabeRate: 0.06 })
+
+    /*
+     * Die Gegenprobe am echten Beleg: 2.202.991 kWh Jahresbezug (Entwurf des Demo-Hotel-
+     * Zählpunkts, auf ganze kWh gerundet) ergeben mit diesem Satz den Rechnungsposten
+     * € 33.044,86 der Wien-Energie-Rechnung. Mit dem 2026er-Satz wären es € 2.202,99 —
+     * die Zeile unterscheidet die beiden Jahre also eindeutig.
+     */
+    const eur = (2_202_991 * p!.elektrizitaetsabgabeCtPerKwh) / 100
+    expect(eur).toBeCloseTo(33_044.86, 1)
   })
 
   it('trägt die EX104-Sätze je Netzebene und Messvariante', () => {
