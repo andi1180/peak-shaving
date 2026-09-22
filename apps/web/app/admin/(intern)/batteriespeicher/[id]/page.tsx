@@ -8,6 +8,7 @@ import { EditBatteryForm } from '@/components/admin/battery-catalog-form'
 import { BatteryPurchasePriceForm } from '@/components/admin/battery-purchase-price-form'
 import { deleteBatteryAction, setBatteryActiveAction } from '@/lib/admin/battery-catalog-actions'
 import { getBattery } from '@/lib/admin/battery-catalog-data'
+import { listCostComponents } from '@/lib/admin/cost-components-data'
 import {
   BATTERY_CATALOG_HREF,
   batterieKategorieLabel,
@@ -34,6 +35,7 @@ export default async function AdminBatteryDetailPage({
 
   const { id } = await params
   const battery = await getBattery(id)
+  const { rows: components } = await listCostComponents()
   if (!battery) notFound()
 
   const missing = missingEngineFields(battery)
@@ -107,7 +109,7 @@ export default async function AdminBatteryDetailPage({
         description="Alle Beträge netto. Ein geleertes Feld wird beim Speichern gelöscht."
       >
         <AdminPanel>
-          <EditBatteryForm battery={battery} />
+          <EditBatteryForm battery={battery} components={components} />
         </AdminPanel>
       </AdminSection>
 

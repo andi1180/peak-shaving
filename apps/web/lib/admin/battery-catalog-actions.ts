@@ -83,6 +83,28 @@ function commonFailure(status: string, values?: Record<string, string>): AdminSt
       return { formError: 'Bitte Heim- oder Gewerbespeicher wählen.', values }
     case 'invalid_control_type':
       return { formError: 'Bitte statisch oder dynamisch wählen.', values }
+    // K1b — die drei Antworten des Baustein-Wegs.
+    case 'unknown_component':
+      return {
+        formError:
+          'Der gewählte Kostenbaustein gibt es nicht (mehr). Bitte laden Sie die Seite neu.',
+        values,
+      }
+    case 'invalid_component':
+      return {
+        formError:
+          'Ein gewählter Kostenbaustein hat die falsche Art — ein Fundament gehört ins ' +
+          'Fundament-Feld, eine Installation ins Installations-Feld.',
+        values,
+      }
+    case 'would_break_active':
+      return {
+        formError:
+          'Das Gerät ist freigegeben und fundamentpflichtig — ihm kann der Fundament-Baustein ' +
+          'nicht genommen werden. Nehmen Sie die Freigabe zurück, oder wählen Sie einen anderen ' +
+          'Baustein mit Preis.',
+        values,
+      }
     case 'duplicate_memodo_id':
       return {
         fieldErrors: {
@@ -128,8 +150,8 @@ function catalogParams(input: ReturnType<typeof batteryCatalogSchema.parse>) {
     p_inverter_included: input.inverterIncluded ?? undefined,
     p_extra_inverter_cost_net: input.extraInverterCostNet ?? undefined,
     p_requires_foundation: input.requiresFoundation ?? undefined,
-    p_foundation_cost_net: input.foundationCostNet ?? undefined,
-    p_installation_cost_net: input.installationCostNet ?? undefined,
+    p_foundation_component_id: input.foundationComponentId ?? undefined,
+    p_installation_component_id: input.installationComponentId ?? undefined,
     p_price_as_of: input.priceAsOf ?? undefined,
     p_source_url: input.sourceUrl ?? undefined,
     p_datasheet_url: input.datasheetUrl ?? undefined,

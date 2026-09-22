@@ -7,6 +7,11 @@ export type Json =
   | Json[]
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "14.5"
+  }
   monitor: {
     Tables: {
       scrape_runs: {
@@ -320,6 +325,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      battery_purchase_prices: {
+        Row: {
+          as_of: string
+          battery_id: string
+          created_at: string
+          purchase_price_net: number
+          updated_at: string
+        }
+        Insert: {
+          as_of: string
+          battery_id: string
+          created_at?: string
+          purchase_price_net: number
+          updated_at?: string
+        }
+        Update: {
+          as_of?: string
+          battery_id?: string
+          created_at?: string
+          purchase_price_net?: number
+          updated_at?: string
+        }
+        Relationships: []
       }
       calculator_requests: {
         Row: {
@@ -1295,6 +1324,36 @@ export type Database = {
         }
         Relationships: []
       }
+      report_render_requests: {
+        Row: {
+          analysis_result: Json
+          created_at: string
+          created_by: string
+          expires_at: string
+          id: string
+          load_profile: Json
+          report_input_meta: Json
+        }
+        Insert: {
+          analysis_result: Json
+          created_at?: string
+          created_by: string
+          expires_at?: string
+          id?: string
+          load_profile: Json
+          report_input_meta?: Json
+        }
+        Update: {
+          analysis_result?: Json
+          created_at?: string
+          created_by?: string
+          expires_at?: string
+          id?: string
+          load_profile?: Json
+          report_input_meta?: Json
+        }
+        Relationships: []
+      }
       stripe_events: {
         Row: {
           payload: Json | null
@@ -1620,6 +1679,132 @@ export type Database = {
   }
   public: {
     Tables: {
+      battery_catalog: {
+        Row: {
+          active: boolean
+          bezeichnung: string
+          control_type: string | null
+          created_at: string
+          datasheet_url: string | null
+          extra_inverter_cost_net: number | null
+          foundation_component_id: string | null
+          hersteller: string
+          id: string
+          installation_component_id: string | null
+          inverter_included: boolean | null
+          kategorie: string
+          list_price_net: number | null
+          max_power_kw: number | null
+          memodo_id: number | null
+          notes: string | null
+          price_as_of: string | null
+          requires_foundation: boolean | null
+          round_trip_efficiency: number | null
+          source_url: string | null
+          updated_at: string
+          usable_capacity_kwh: number | null
+        }
+        Insert: {
+          active?: boolean
+          bezeichnung: string
+          control_type?: string | null
+          created_at?: string
+          datasheet_url?: string | null
+          extra_inverter_cost_net?: number | null
+          foundation_component_id?: string | null
+          hersteller: string
+          id?: string
+          installation_component_id?: string | null
+          inverter_included?: boolean | null
+          kategorie: string
+          list_price_net?: number | null
+          max_power_kw?: number | null
+          memodo_id?: number | null
+          notes?: string | null
+          price_as_of?: string | null
+          requires_foundation?: boolean | null
+          round_trip_efficiency?: number | null
+          source_url?: string | null
+          updated_at?: string
+          usable_capacity_kwh?: number | null
+        }
+        Update: {
+          active?: boolean
+          bezeichnung?: string
+          control_type?: string | null
+          created_at?: string
+          datasheet_url?: string | null
+          extra_inverter_cost_net?: number | null
+          foundation_component_id?: string | null
+          hersteller?: string
+          id?: string
+          installation_component_id?: string | null
+          inverter_included?: boolean | null
+          kategorie?: string
+          list_price_net?: number | null
+          max_power_kw?: number | null
+          memodo_id?: number | null
+          notes?: string | null
+          price_as_of?: string | null
+          requires_foundation?: boolean | null
+          round_trip_efficiency?: number | null
+          source_url?: string | null
+          updated_at?: string
+          usable_capacity_kwh?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "battery_catalog_foundation_component_id_fkey"
+            columns: ["foundation_component_id"]
+            isOneToOne: false
+            referencedRelation: "battery_cost_components"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "battery_catalog_installation_component_id_fkey"
+            columns: ["installation_component_id"]
+            isOneToOne: false
+            referencedRelation: "battery_cost_components"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      battery_cost_components: {
+        Row: {
+          art: string
+          beschreibung: string | null
+          bezeichnung: string
+          created_at: string
+          id: string
+          notes: string | null
+          price_as_of: string | null
+          price_net: number | null
+          updated_at: string
+        }
+        Insert: {
+          art: string
+          beschreibung?: string | null
+          bezeichnung: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          price_as_of?: string | null
+          price_net?: number | null
+          updated_at?: string
+        }
+        Update: {
+          art?: string
+          beschreibung?: string | null
+          bezeichnung?: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          price_as_of?: string | null
+          price_net?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       grid_tariff_deletions: {
         Row: {
           deleted_at: string
@@ -1885,9 +2070,9 @@ export type Database = {
           p_control_type?: string
           p_datasheet_url?: string
           p_extra_inverter_cost_net?: number
-          p_foundation_cost_net?: number
+          p_foundation_component_id?: string
           p_hersteller: string
-          p_installation_cost_net?: number
+          p_installation_component_id?: string
           p_inverter_included?: boolean
           p_kategorie: string
           p_list_price_net?: number
@@ -1909,6 +2094,17 @@ export type Database = {
           p_max_redemptions?: number
           p_note?: string
           p_product_key: Database["platform"]["Enums"]["product_key"]
+        }
+        Returns: Json
+      }
+      admin_create_cost_component: {
+        Args: {
+          p_art: string
+          p_beschreibung?: string
+          p_bezeichnung: string
+          p_notes?: string
+          p_price_as_of?: string
+          p_price_net?: number
         }
         Returns: Json
       }
@@ -1941,6 +2137,7 @@ export type Database = {
         Returns: Json
       }
       admin_delete_battery: { Args: { p_id: string }; Returns: Json }
+      admin_delete_cost_component: { Args: { p_id: string }; Returns: Json }
       admin_delete_metering_point_document: {
         Args: { p_document_id: string; p_metering_point_id: string }
         Returns: Json
@@ -1988,6 +2185,7 @@ export type Database = {
       admin_get_analysis_source: { Args: { p_id: string }; Returns: Json }
       admin_get_battery: { Args: { p_id: string }; Returns: Json }
       admin_get_chat_rate_limit: { Args: never; Returns: Json }
+      admin_get_cost_component: { Args: { p_id: string }; Returns: Json }
       admin_get_lead: { Args: { p_lead_id: string }; Returns: Json }
       admin_get_partner_application: { Args: { p_id: string }; Returns: Json }
       admin_get_project: { Args: { p_id: string }; Returns: Json }
@@ -2028,6 +2226,7 @@ export type Database = {
         Returns: Json
       }
       admin_list_codes: { Args: never; Returns: Json }
+      admin_list_cost_components: { Args: { p_art?: string }; Returns: Json }
       admin_list_customers: { Args: never; Returns: Json }
       admin_list_email_events: {
         Args: { p_lead_id?: string; p_limit?: number }
@@ -2157,10 +2356,10 @@ export type Database = {
           p_control_type?: string
           p_datasheet_url?: string
           p_extra_inverter_cost_net?: number
-          p_foundation_cost_net?: number
+          p_foundation_component_id?: string
           p_hersteller: string
           p_id: string
-          p_installation_cost_net?: number
+          p_installation_component_id?: string
           p_inverter_included?: boolean
           p_kategorie: string
           p_list_price_net?: number
@@ -2172,6 +2371,18 @@ export type Database = {
           p_round_trip_efficiency?: number
           p_source_url?: string
           p_usable_capacity_kwh?: number
+        }
+        Returns: Json
+      }
+      admin_update_cost_component: {
+        Args: {
+          p_art: string
+          p_beschreibung?: string
+          p_bezeichnung: string
+          p_id: string
+          p_notes?: string
+          p_price_as_of?: string
+          p_price_net?: number
         }
         Returns: Json
       }
@@ -2394,7 +2605,11 @@ export type Database = {
       get_project_document: { Args: { p_document_id: string }; Returns: Json }
       get_report_render_request: {
         Args: { p_id: string }
-        Returns: { analysis_result: Json; load_profile: Json; report_input_meta: Json }[]
+        Returns: {
+          analysis_result: Json
+          load_profile: Json
+          report_input_meta: Json
+        }[]
       }
       get_stripe_customer_id: { Args: { p_user_id: string }; Returns: string }
       get_system_prompt_extension: { Args: { p_kind?: string }; Returns: Json }
@@ -2560,12 +2775,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2589,11 +2804,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2614,11 +2829,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2639,11 +2854,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2656,11 +2871,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2704,4 +2919,3 @@ export const Constants = {
     Enums: {},
   },
 } as const
-

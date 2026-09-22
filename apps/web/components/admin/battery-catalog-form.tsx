@@ -33,6 +33,10 @@ import {
   BATTERY_SELECT_UNSET,
   type BatteryCatalogRow,
 } from '@/lib/admin/battery-catalog'
+import {
+  costComponentOptionLabel,
+  type CostComponentRow,
+} from '@/lib/admin/cost-components'
 import { AdminError, AdminField, AdminSelect, AdminSuccess } from './ui'
 
 /** Zahl → Feldinhalt. Mit Komma, weil Datenblätter und Angebote deutschsprachig sind. */
@@ -65,8 +69,8 @@ function defaults(state: AdminState, battery?: BatteryCatalogRow): Record<string
         inverterIncluded: bool(battery.inverter_included),
         extraInverterCostNet: num(battery.extra_inverter_cost_net),
         requiresFoundation: bool(battery.requires_foundation),
-        foundationCostNet: num(battery.foundation_cost_net),
-        installationCostNet: num(battery.installation_cost_net),
+        foundationComponentId: battery.foundation_component_id ?? '',
+        installationComponentId: battery.installation_component_id ?? '',
         priceAsOf: battery.price_as_of ?? '',
         sourceUrl: battery.source_url ?? '',
         datasheetUrl: battery.datasheet_url ?? '',
@@ -82,12 +86,17 @@ function BatteryFields({
   formId,
   state,
   values,
+  components,
 }: {
   formId: string
   state: AdminState
   values: Record<string, string>
+  /** Alle Kostenbausteine — die Auswahlfelder trennen sie selbst nach Art. */
+  components: CostComponentRow[]
 }) {
   const err = (name: string) => state.fieldErrors?.[name]
+  const foundationComponents = components.filter((c) => c.art === 'fundament')
+  const installationComponents = components.filter((c) => c.art === 'installation')
 
   return (
     <>
@@ -225,29 +234,42 @@ function BatteryFields({
             label="Fundament nötig?"
             defaultValue={values.requiresFoundation ?? BATTERY_SELECT_UNSET}
             error={err('requiresFoundation')}
-            hint="Antwort „ja“ macht die Fundamentkosten zur Pflicht."
+            hint="Antwort „ja“ macht einen Fundament-Baustein MIT Preis zur Pflicht für die Freigabe."
           >
             <option value={BATTERY_SELECT_UNSET}>— noch nicht bekannt —</option>
             <option value="false">nein</option>
             <option value="true">ja</option>
           </AdminSelect>
-          <AdminField
-            id={`${formId}-foundationCostNet`}
-            name="foundationCostNet"
-            label="Fundamentkosten netto (EUR)"
-            inputMode="numeric"
-            defaultValue={values.foundationCostNet}
-            error={err('foundationCostNet')}
-          />
-          <AdminField
-            id={`${formId}-installationCostNet`}
-            name="installationCostNet"
-            label="Installationskosten netto (EUR, optional)"
-            inputMode="numeric"
-            defaultValue={values.installationCostNet}
-            error={err('installationCostNet')}
+          <AdminSelect
+            id={`${formId}-foundationComponentId`}
+            name="foundationComponentId"
+            label="Fundament-Baustein"
+            defaultValue={values.foundationComponentId ?? BATTERY_SELECT_UNSET}
+            error={err('foundationComponentId')}
+            hint="Der Preis steht im Baustein, nicht am Gerät — dieselbe Bodenplatte trägt mehrere Schränke."
+          >
+            <option value={BATTERY_SELECT_UNSET}>— keiner —</option>
+            {foundationComponents.map((c) => (
+              <option key={c.id} value={c.id}>
+                {costComponentOptionLabel(c)}
+              </option>
+            ))}
+          </AdminSelect>
+          <AdminSelect
+            id={`${formId}-installationComponentId`}
+            name="installationComponentId"
+            label="Installations-Baustein (optional)"
+            defaultValue={values.installationComponentId ?? BATTERY_SELECT_UNSET}
+            error={err('installationComponentId')}
             hint="Angabe für die Angebotslegung. Die Engine hat dafür kein Feld und rechnet sie NICHT mit."
-          />
+          >
+            <option value={BATTERY_SELECT_UNSET}>— keiner —</option>
+            {installationComponents.map((c) => (
+              <option key={c.id} value={c.id}>
+                {costComponentOptionLabel(c)}
+              </option>
+            ))}
+          </AdminSelect>
         </div>
       </fieldset>
 
@@ -300,7 +322,7 @@ function BatteryFields({
 
 // ── Anlegen ──────────────────────────────────────────────────────────────────────────────────────
 
-export function CreateBatteryForm() {
+export function CreateBatteryForm({ components }: { components: CostComponentRow[] }) {
   const [state, formAction, isPending] = useActionState(createBatteryAction, ADMIN_INITIAL_STATE)
   const formId = useId()
   const values = defaults(state)
@@ -325,7 +347,7 @@ export function CreateBatteryForm() {
   return (
     <form action={formAction} className="flex flex-col gap-6" noValidate>
       {state.formError && <AdminError>{state.formError}</AdminError>}
-      <BatteryFields formId={formId} state={state} values={values} />
+      <BatteryFields formId={formId} state={state} values={values} components={components} />
       <div>
         <Button type="submit" disabled={isPending}>
           {isPending ? (
@@ -348,7 +370,13 @@ export function CreateBatteryForm() {
 
 // ── Bearbeiten ───────────────────────────────────────────────────────────────────────────────────
 
-export function EditBatteryForm({ battery }: { battery: BatteryCatalogRow }) {
+export function EditBatteryForm({
+  battery,
+  components,
+}: {
+  battery: BatteryCatalogRow
+  components: CostComponentRow[]
+}) {
   const [state, formAction, isPending] = useActionState(updateBatteryAction, ADMIN_INITIAL_STATE)
   const formId = useId()
   const values = defaults(state, battery)
@@ -358,7 +386,7 @@ export function EditBatteryForm({ battery }: { battery: BatteryCatalogRow }) {
       <input type="hidden" name="id" value={battery.id} />
       {state.formError && <AdminError>{state.formError}</AdminError>}
       {state.success && <AdminSuccess>{state.success}</AdminSuccess>}
-      <BatteryFields formId={formId} state={state} values={values} />
+      <BatteryFields formId={formId} state={state} values={values} components={components} />
       <div>
         <Button type="submit" disabled={isPending}>
           {isPending ? (
