@@ -36,6 +36,7 @@ describe('Lastgang-Kapitel', () => {
     const titles = buildReportAgenda({
       ways: false,
       waysCount: 0,
+      annualScenario: false,
       recommendation: true,
       monthly: false,
       insight: false,
@@ -58,6 +59,7 @@ describe('Lastgang-Kapitel', () => {
     const titles = buildReportAgenda({
       ways: true,
       waysCount: 4,
+      annualScenario: false,
       recommendation: true,
       monthly: false,
       insight: false,

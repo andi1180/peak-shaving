@@ -34,6 +34,12 @@ export * from './tariff-pricing'
 // Hier und nicht in `engine`/`extractors`, weil `AnalysisResult.annualProjection` sie trägt und
 // `shared` die unterste Schicht ist; gerechnet wird unverändert dort, wo es bisher gerechnet wurde.
 export * from './annual-projection'
+// D6 Teil 3 (22.09.2026): die Wege-Auswahl des Monatsvergleichs (eine Definition, zwei Konsumenten)
+// und der Contract des Jahres-Szenarios. Hier aus demselben Grund wie `annual-projection`:
+// `AnalysisResult.annualScenario` trägt ihn, und `shared` ist die unterste Schicht.
+export * from './tariff-ways'
+export * from './annual-scenario'
+export * from './battery-entry'
 // Delta 16b: das Name/Firma-Gate vor dem Report-Download — Herkunftsschlüssel, Einwilligungszweck
 // und die EINE Prüfregel für Formular (Rückmeldung), Server Action (Wahrheit) und DB-Gate
 // (Abgleich mit `platform.lead_sources`). Bewusst importfrei; Begründung im Kopf der Datei.

@@ -37,6 +37,7 @@ import {
   coupleGeneratedPvSeries,
   readGeneratedPvSeries,
 } from '../pv-reference/generated-series-read'
+import { buildAnnualScenario } from './annual-scenario'
 
 /**
  * D3, Baustein 1 — DER ERSTE ENGINE-LAUF AUS DEM WIZARD-ENTWURF.
@@ -428,12 +429,44 @@ export async function runAnalysisFromMeteringPointDraft(
     ...(await readTariffPricing(ports.fetchTariffPricing, point.draft, loadProfile)),
   }
 
+  const horizonYears = options.horizonYears ?? DRAFT_ANALYSIS_HORIZON_YEARS
+  const result = computeAnalysis(payload, horizonYears, DEMO_BATTERY_CATALOG)
+
+  /*
+   * D6 Teil 3 — „Was wäre, wenn wir ein ganzes Jahr hätten?". Ein ZWEITER Lauf derselben Rechnung
+   * über einen aus der verbrauchsstärksten gemessenen Woche gefüllten 365-Tage-Lastgang.
+   *
+   * ⚠ NUR MIT DEM PREIS-PORT, und ohne ihn ohne jede Ersatzlösung: die Jahreszahlen sind
+   * Tarifzahlen, und ohne Preisseiten gäbe es keine. Ein Lauf ohne sie ergäbe ein Kapitel, das
+   * fünf Wege ankündigt und keinen beziffern kann.
+   *
+   * ⚠ ER KANN DEN LAUF NICHT ZU FALL BRINGEN. Jeder Abbruchgrund kommt als `blocker` zurück, und
+   * der lässt das Kapitel entfallen — die gemessene Analyse daneben hängt an keiner seiner Zahlen.
+   */
+  const fetchPricing = ports.fetchTariffPricing
+  const subject = tariffPricingSubject(point.draft, netzebeneOf(point.draft))
+  const annualScenario =
+    fetchPricing === undefined
+      ? undefined
+      : await buildAnnualScenario({
+          payload,
+          horizonYears,
+          catalog: DEMO_BATTERY_CATALOG,
+          fetchTariffPricing: ({ window, intervalMinutes }) =>
+            fetchPricing({ ...subject, window, intervalMinutes }),
+          /*
+           * ⚠ Die Uhr wird HIER gelesen und nicht im Baustein: die obere Kante des Jahresfensters
+           * hängt daran, und ein Lauf, der sie selbst liest, wäre von seinem Zeitpunkt abhängig,
+           * ohne dass die Signatur es sagte.
+           */
+          today: new Date(),
+        })
+
   return {
-    result: computeAnalysis(
-      payload,
-      options.horizonYears ?? DRAFT_ANALYSIS_HORIZON_YEARS,
-      DEMO_BATTERY_CATALOG,
-    ),
+    result:
+      annualScenario?.ok === true
+        ? { ...result, annualScenario: annualScenario.value }
+        : result,
     loadProfile: payload.load.profile,
     /* ⚠ Auf DEM Lastgang, mit dem gerechnet wurde — also nach der PV-Kopplung, nicht auf `parsed`. */
     pvOutageMonths: detectPvOutageMonths(payload.load.profile),
@@ -496,21 +529,40 @@ async function readTariffPricing(
   const window = analysisWindow(loadProfile)
   if (window === null) return {}
 
-  const operator = draft[NETZBETREIBER_DRAFT_KEY]
-  const netzebene = parseNetzebeneDraftValue(draft.netzebene)
-  const meteringVariant = draft.meteringVariant
-
   return {
     tariffPricing: await fetchTariffPricing({
-      operatorId: typeof operator === 'string' && operator.trim() !== '' ? operator : null,
-      netzebene,
-      meteringVariant:
-        netzebene !== null && hasMeteringVariant(netzebene) && typeof meteringVariant === 'string'
-          ? meteringVariant
-          : null,
+      ...tariffPricingSubject(draft, netzebeneOf(draft)),
       window,
       intervalMinutes: loadProfile.intervalMinutes,
     }),
+  }
+}
+
+function netzebeneOf(draft: Record<string, unknown>): number | null {
+  return parseNetzebeneDraftValue(draft.netzebene)
+}
+
+/**
+ * WEN die Preisabfrage betrifft — Netzbetreiber, Netzebene, Messvariante. Ohne Zeitfenster.
+ *
+ * ⚠ Getrennt vom Fenster, weil es seit D6 Teil 3 ZWEI Fenster für denselben Zählpunkt gibt: den
+ * gemessenen Zeitraum und das Jahresfenster des Szenarios. Zweimal abgeleitet könnten sie
+ * verschiedene Netzebenen treffen — und die Jahreszahl stünde dann auf einer anderen Tarifzeile
+ * als die gemessene, ohne dass es irgendwo stünde.
+ */
+function tariffPricingSubject(
+  draft: Record<string, unknown>,
+  netzebene: number | null,
+): Omit<TariffPricingRequest, 'window' | 'intervalMinutes'> {
+  const operator = draft[NETZBETREIBER_DRAFT_KEY]
+  const meteringVariant = draft.meteringVariant
+  return {
+    operatorId: typeof operator === 'string' && operator.trim() !== '' ? operator : null,
+    netzebene,
+    meteringVariant:
+      netzebene !== null && hasMeteringVariant(netzebene) && typeof meteringVariant === 'string'
+        ? meteringVariant
+        : null,
   }
 }
 

@@ -103,12 +103,21 @@ export function waysCountOf(analysis: PdfReportAnalysis): number {
  * `estimated_pv`, `no_demand_charge`) — eine eigene Prüfung hier wäre eine zweite Auslegung
  * derselben Frage.
  */
-function peakShavingSavingOf(analysis: PdfReportAnalysis): number {
+export function peakShavingSavingOf(analysis: PdfReportAnalysis): number {
   return primaryEntryOf(analysis)?.leistungspreisSavingPerYear ?? 0
 }
 
 const wayById = (ways: SummaryWays, id: SummaryWay['id']): SummaryWay | undefined =>
   ways.ways.find((way) => way.id === id)
+
+/**
+ * Die Beschriftung von Weg 5.
+ *
+ * ⚠ Exportiert, weil das Jahres-Kapitel (D6 Teil 3) denselben Weg in seinem Ersparnis-Kasten
+ * führt. Derselbe Gegenstand mit zwei Beschriftungen in einem Dokument ist genau der Fehler, den
+ * `CONTROLLED_WAY_LABEL` für Weg 4 bereits behoben hat.
+ */
+export const PEAK_SHAVING_WAY_LABEL = 'Kappung Ihrer Lastspitzen'
 
 /**
  * Der Hinweis zur vorausschauenden Ladesteuerung.
@@ -223,7 +232,7 @@ export function buildWaysChapter(analysis: PdfReportAnalysis): WaysChapter | nul
   if (peakSavingPerYear > 0) {
     statements.push({
       id: 'ways_peak_shaving',
-      title: 'Kappung Ihrer Lastspitzen',
+      title: PEAK_SHAVING_WAY_LABEL,
       amount: null,
       rows: [],
       /*

@@ -129,6 +129,7 @@ export const SECTION_ID = {
   prerequisites: 'voraussetzungen',
   load: 'lastgang',
   ways: 'wege',
+  annualScenario: 'jahreshochrechnung',
   recommendation: 'empfehlung',
   detail: 'kostenverlauf',
   monthly: 'monatsvergleich',
@@ -219,6 +220,28 @@ export const WAYS_SECTION: ReportSection = {
   level: 1,
   title: 'Wege zu weniger Stromkosten',
 }
+
+/**
+ * D6 Teil 3 — das Kapitel direkt hinter den Wegen: dieselben Wege, gerechnet auf einem vollen Jahr.
+ *
+ * ⚠ Bedingtes Kapitel: es steht nur, wenn der Lastgang WENIGER als ein Jahr abdeckt UND die
+ * Hochrechnung gebildet werden konnte (`hasAnnualScenarioChapter`, `annual-scenario.ts`). Bei
+ * einem Lastgang über ein volles Jahr wäre es eine Schätzung ohne Gegenstand.
+ *
+ * ⚠ Der Titel ist eine FRAGE, und das ist Absicht: er sagt dem Leser im Inhaltsverzeichnis, dass
+ * hier gerechnet und nicht gemessen wurde. „Jahres-Hochrechnung" klänge nach einer weiteren
+ * Auswertung derselben Daten.
+ */
+export const ANNUAL_SCENARIO_SECTION: ReportSection = {
+  id: SECTION_ID.annualScenario,
+  level: 1,
+  title: 'Was wäre, wenn wir ein ganzes Jahr hätten?',
+}
+
+/** Steht unter der Kapitelüberschrift. Sagt, worum es geht, nicht was auf der Seite steht. */
+export const ANNUAL_SCENARIO_INTRO =
+  'Dieselben Wege, hochgerechnet auf zwölf Monate — eine Schätzung auf Grundlage Ihrer eigenen ' +
+  'Messwerte, keine zweite Messung.'
 
 /** Steht unter der Kapitelüberschrift. Sagt, worum es geht, nicht was auf der Seite steht. */
 export const WAYS_INTRO =
@@ -442,6 +465,7 @@ export const REPORT_SECTIONS: Record<ReportSectionKey, ReportSection> = {
   [SECTION_ID.prerequisites]: PREREQUISITES_SECTION,
   [SECTION_ID.load]: LOAD_SECTION,
   [SECTION_ID.ways]: WAYS_SECTION,
+  [SECTION_ID.annualScenario]: ANNUAL_SCENARIO_SECTION,
   [SECTION_ID.recommendation]: RECOMMENDATION_SECTION,
   [SECTION_ID.detail]: DETAIL_SECTION,
   [SECTION_ID.monthly]: MONTHLY_SECTION,
@@ -501,6 +525,12 @@ export type ReportChapterPresence = {
    */
   waysCount: number
   /**
+   * `true` = das Kapitel „Was wäre, wenn wir ein ganzes Jahr hätten?" steht — s.
+   * `hasAnnualScenarioChapter` (`annual-scenario.ts`). `false` bei einem Lastgang über ein volles
+   * Jahr und immer dann, wenn die Hochrechnung nicht gebildet werden konnte.
+   */
+  annualScenario: boolean
+  /**
    * `false` = das Kapitel „Empfehlung und Wirtschaftlichkeit" entfällt — s.
    * `hasRecommendationChapter` (`recommendation.ts`). Der Fall entsteht ausschliesslich mit
    * Bestandsanlage, deren Gerätewahl „Nein" sagt: die Kaufaussage widerspräche dort dem Verdikt
@@ -543,6 +573,7 @@ export function buildReportAgenda(presence: ReportChapterPresence): readonly Rep
     ...(presence.ways
       ? [{ ...WAYS_SECTION, title: waysSectionTitle(presence.waysCount) }]
       : []),
+    ...(presence.annualScenario ? [ANNUAL_SCENARIO_SECTION] : []),
     ...(presence.recommendation ? [RECOMMENDATION_SECTION] : []),
     DETAIL_SECTION,
     ...(presence.monthly ? [MONTHLY_SECTION] : []),
