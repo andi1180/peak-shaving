@@ -42,6 +42,7 @@ describe('Lastgang-Kapitel', () => {
       monthly: false,
       insight: false,
       comparison: false,
+      advice: false,
     }).map((s) => s.title)
 
     /* Über die Konstanten und nicht über Titel-Literale: geprüft wird die REIHENFOLGE. */
@@ -66,6 +67,7 @@ describe('Lastgang-Kapitel', () => {
       monthly: false,
       insight: false,
       comparison: false,
+      advice: false,
     }).map((s) => s.title)
 
     /* Die Agenda trägt den GEZÄHLTEN Titel (D7-Revision), nicht den Platzhalter der Konstante. */

@@ -6,6 +6,8 @@ import { PRINT_COMPANY, REPORT_CONTACT } from '@/lib/company'
 import type { ReportChartRasters } from './charts'
 import { fitRasterToWidth, type ChartRaster } from './chart-raster'
 import {
+  ADVICE_INTRO,
+  ADVICE_SECTION,
   BASIS_INTRO,
   BASIS_SECTION,
   BASIS_TARIFF_VINTAGE_FOOTNOTE,
@@ -40,6 +42,7 @@ import {
   ANNUAL_SCENARIO_SECTION,
   type ReportSection,
 } from './content'
+import { buildAdviceChapter } from './advice'
 import { buildBasisChapter, DATA_SOURCES_TABLE_ID, TARIFF_COMPONENTS_TABLE_ID } from './basis'
 import { buildComparisonChapter, CANDIDATE_TABLE_ID } from './comparison'
 import type { ReportBuildContext } from './context'
@@ -2191,6 +2194,33 @@ function MethodologyChapter() {
 }
 
 /**
+ * Das Kapitel „Unser Vorschlag" — was wir dem Kunden raten, und woher die Zahlen stammen.
+ *
+ * ── ⚠ ES GIBT DIESE SEITE NICHT IN JEDEM DOKUMENT ─────────────────────────────────────────────
+ * Ohne zutreffenden Vorschlag und ohne belegte Herkunftsangabe entfällt sie samt Agenda-Eintrag.
+ * Der Aufrufer entscheidet das EINMAL (`context.hasAdvice`) und lässt die `<Page>` sonst ganz weg
+ * — dieselbe Mechanik wie bei den bedingten Kapiteln davor.
+ *
+ * ── ⚠ WAS AUF DIESER SEITE STEHT, ENTSCHEIDET `advice.ts` ─────────────────────────────────────
+ * Hier wird gerendert, was die Ableitung liefert — keine Verzweigung an einem Contract-Feld in
+ * diesem JSX, und insbesondere keine Zählung der Punkte: die Nummern entstehen beim Auflösen aus
+ * der Reihenfolge der übriggebliebenen (`Statement` → `statementPoints`).
+ */
+function AdviceChapter({ input, layout }: { input: PdfReportInput; layout: ReportLayout }) {
+  const chapter = buildAdviceChapter(input)
+
+  return (
+    <View style={styles.body}>
+      <Text style={styles.h2}>{ADVICE_SECTION.title}</Text>
+      <Text style={styles.lead}>{ADVICE_INTRO}</Text>
+
+      {chapter.proposal && <Statement statement={chapter.proposal} layout={layout} />}
+      {chapter.provenance && <Statement statement={chapter.provenance} layout={layout} />}
+    </View>
+  )
+}
+
+/**
  * B23c-4 — Annahmen und Datengrundlage: das Schlusskapitel.
  *
  * ── ⚠ WAS AUF DIESER SEITE STEHT, ENTSCHEIDET `basis.ts` ──────────────────────────────────────
@@ -2374,8 +2404,15 @@ export function ReportDocument({
    * ⚠ B1: entschieden wird jetzt im KONTEXT, einmal je Dokument statt einmal je Durchlauf. Diese
    * Funktion läuft zwei- bis dreimal (`render.tsx`) — sie LIEST die Antwort nur noch.
    */
-  const { hasWays, hasAnnualScenario, hasPvValue, hasMonthly, hasComparison, hasRecommendation } =
-    context
+  const {
+    hasWays,
+    hasAnnualScenario,
+    hasPvValue,
+    hasMonthly,
+    hasComparison,
+    hasRecommendation,
+    hasAdvice,
+  } = context
 
   /*
    * ⚠ Report-Baukasten C: KAPITEL 5 FÄLLT MIT SEINEN BEIDEN BAUSTEINEN. Sind beide abgewählt,
@@ -2425,6 +2462,7 @@ export function ReportDocument({
             monthly: hasMonthly,
             insight: hasInsight,
             comparison: hasComparison,
+            advice: hasAdvice,
           })}
           pages={agenda}
         />
@@ -2527,6 +2565,14 @@ export function ReportDocument({
         <SectionAnchor id={METHODOLOGY_SECTION.id} sink={sink} />
         <MethodologyChapter />
       </Page>
+
+      {hasAdvice && (
+        <Page size="A4" style={styles.page}>
+          <PageFurniture sink={sink} docLabel={docLabel} />
+          <SectionAnchor id={ADVICE_SECTION.id} sink={sink} />
+          <AdviceChapter input={input} layout={layout} />
+        </Page>
+      )}
 
       <Page size="A4" style={styles.page}>
         <PageFurniture sink={sink} docLabel={docLabel} />

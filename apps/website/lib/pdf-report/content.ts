@@ -137,6 +137,7 @@ export const SECTION_ID = {
   insight: 'ladeverhalten',
   comparison: 'geraetewahl',
   methodology: 'methodik',
+  advice: 'vorschlag',
   basis: 'grundlage',
 } as const
 
@@ -466,6 +467,30 @@ export const METHODOLOGY_SECTION: ReportSection = {
  * Preisstand-Hinweis bei einem abgeschlossenen Kalenderjahr) — `ReportChapterPresence` wächst
  * deshalb nicht.
  */
+/**
+ * Das Kapitel zwischen Methodik und Schlusskapitel: was wir dem Kunden raten, und worauf sich das
+ * stützt — nach dem Vorbild von Seite 11 des Urbanz-Zielbildes.
+ *
+ * ⚠ DER TITEL IST NICHT „Unsere Empfehlung", OBWOHL DAS DIE NAHELIEGENDE WAHL WÄRE: das Dokument
+ * führt bereits ein Kapitel „Empfehlung und Wirtschaftlichkeit" (`RECOMMENDATION_SECTION`), und
+ * dessen Kaufaussage heisst im Katalogfall wörtlich „Unsere Empfehlung: <Gerät>". Zwei
+ * Agenda-Einträge mit demselben Wort beantworteten für den Leser zwei verschiedene Fragen unter
+ * einem Namen — hier geht es um den WEG, dort um das GERÄT.
+ *
+ * ⚠ Bedingtes Kapitel: es steht nur, wenn es einen zutreffenden Vorschlag ODER eine belegte
+ * Herkunftsangabe gibt (`hasAdviceChapter`, `advice.ts`). Ohne beides wäre es eine Seite, die nur
+ * sagt, dass sie leer ist (D14).
+ */
+export const ADVICE_SECTION: ReportSection = {
+  id: SECTION_ID.advice,
+  level: 1,
+  title: 'Unser Vorschlag',
+}
+
+/** Steht unter der Kapitelüberschrift. Sagt, worum es geht, nicht was auf der Seite steht. */
+export const ADVICE_INTRO =
+  'Was wir Ihnen raten — und worauf sich die Zahlen stützen, die dahinterstehen.'
+
 export const BASIS_SECTION: ReportSection = {
   id: SECTION_ID.basis,
   level: 1,
@@ -497,6 +522,7 @@ export const REPORT_SECTIONS: Record<ReportSectionKey, ReportSection> = {
   [SECTION_ID.insight]: INSIGHT_SECTION,
   [SECTION_ID.comparison]: COMPARISON_SECTION,
   [SECTION_ID.methodology]: METHODOLOGY_SECTION,
+  [SECTION_ID.advice]: ADVICE_SECTION,
   [SECTION_ID.basis]: BASIS_SECTION,
 }
 
@@ -581,6 +607,11 @@ export type ReportChapterPresence = {
    * weil ein leeres Kapitel eine Seitenzahl verspricht, hinter der nichts steht.
    */
   comparison: boolean
+  /**
+   * `true` = das Kapitel „Unser Vorschlag" steht — s. `hasAdviceChapter` (`advice.ts`). `false`,
+   * wenn weder ein Vorschlag zutrifft noch eine Herkunftsangabe belegt ist.
+   */
+  advice: boolean
 }
 
 /**
@@ -613,6 +644,7 @@ export function buildReportAgenda(presence: ReportChapterPresence): readonly Rep
     ...(presence.comparison ? [COMPARISON_SECTION] : []),
     METHODOLOGY_SECTION,
     ...METHODOLOGY_ITEMS,
+    ...(presence.advice ? [ADVICE_SECTION] : []),
     BASIS_SECTION,
   ]
 }
