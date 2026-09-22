@@ -255,6 +255,29 @@ Wege-Tests sind unberührt grün.
 geprüft (18 statt 17 Seiten, Text und Tabelle gelesen), **nicht gegen den Urbanz-Fall über den
 Produktionspfad** — s. Regel 11.
 
+### Inhaltsverzeichnis mit Unterpunkten, „Unser Vorschlag" vorgezogen, Lastgang-Kennzahlen (22.09.2026)
+
+Drei unabhängige Änderungen am PDF-Report; fachliche Tiefe:
+`Pflichtenheft_Kalkulator_Delta_Report-Baukasten.md`, „D9 Nachtrag umgesetzt".
+
+**(1)** „Unser Vorschlag" steht jetzt VOR „Methodik & Vorbehalte". **(2)** „Ihr Lastgang" trägt
+unter dem Diagramm drei Kennzahlen (`apps/website/lib/pdf-report/load.ts`): Gesamtverbrauch,
+Ø Tagesverbrauch, Lastfaktor — keine neue Datenquelle, und die Spitzenleistung ist
+`current.annualPeakKw`, WIEDERVERWENDET von der Voraussetzungs-Seite. **(3)** Die TOC-Unterpunkte
+kommen aus einer gemeinsamen Struktur (`ChapterSubsections`, `content.ts`): ein Kapitel MELDET seine
+Unterabschnitte, und zwar aus derselben Liste, aus der es sie rendert. Gilt für beide heutigen
+Kapitel mit Unterabschnitten und für jedes künftige, ohne dass `buildReportAgenda` es kennt.
+
+**⚠ Beim nächsten Umbau mitzudenken: (a)** ein bedingter Abschnitt steht im Verzeichnis genau dann,
+wenn er gerendert wird — die Bedingung wird am GEBAUTEN Kapitel abgelesen, nicht zweitformuliert.
+**(b)** Das Schlusskapitel wird seither EINMAL je Durchlauf gebaut und an Agenda und Kapitel
+gereicht; `selectedNotice` ist entfallen, weil die Baukasten-C-Auswahl schon im Kontext greift.
+**(c)** Ein Agenda-Unterpunkt verlangt eine Überschrift im Kapitel — die Herkunft der Tarifsätze
+hat dafür eine bekommen, und ihre Sätze beginnen nicht mehr mit „Tarifsätze:" (der Bildschirmweg
+behält sein Präfix). **(d)** Gemessen am erzeugten PDF (18 Seiten, beide Durchläufe gleich), der
+Lastfaktor zusätzlich gegen eine Handrechnung — **nicht** gegen den Urbanz-Fall über den
+Produktionspfad (s. Regel 11).
+
 ### Kapitel „Ihre PV-Anlage" — rekonstruiert, nicht gemessen (22.09.2026)
 
 Neues, bedingtes Report-Kapitel hinter der Jahres-Hochrechnung: **was die BESTEHENDE PV-Anlage über

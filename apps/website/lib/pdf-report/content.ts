@@ -468,8 +468,12 @@ export const METHODOLOGY_SECTION: ReportSection = {
  * deshalb nicht.
  */
 /**
- * Das Kapitel zwischen Methodik und Schlusskapitel: was wir dem Kunden raten, und worauf sich das
- * stützt — nach dem Vorbild von Seite 11 des Urbanz-Zielbildes.
+ * Das Kapitel zwischen der Gerätewahl und der Methodik: was wir dem Kunden raten, und worauf sich
+ * das stützt — nach dem Vorbild von Seite 11 des Urbanz-Zielbildes.
+ *
+ * ⚠ ES STAND BIS ZUM 22.09.2026 HINTER DER METHODIK und steht jetzt davor: ein Vorschlag ist eine
+ * Aussage an den Kunden, die Methodik und das Schlusskapitel sind der Apparat dahinter. Hinter dem
+ * Apparat gelesen wirkte der Vorschlag wie ein Nachtrag zu den Vorbehalten.
  *
  * ⚠ DER TITEL IST NICHT „Unsere Empfehlung", OBWOHL DAS DIE NAHELIEGENDE WAHL WÄRE: das Dokument
  * führt bereits ein Kapitel „Empfehlung und Wirtschaftlichkeit" (`RECOMMENDATION_SECTION`), und
@@ -499,6 +503,24 @@ export const BASIS_SECTION: ReportSection = {
 
 /** Die Kennung eines Kapitels — die Werte von `SECTION_ID`. */
 export type ReportSectionKey = (typeof SECTION_ID)[keyof typeof SECTION_ID]
+
+/**
+ * Die Unterabschnitte je Kapitel, das welche führt — die Grundlage der eingerückten Agenda-Einträge.
+ *
+ * ── ⚠ EINE LISTE, ZWEI KONSUMENTEN — UND DIE LISTE GEHÖRT DEM KAPITEL ─────────────────────────
+ * Die Einträge kommen aus DERSELBEN Aufzählung, aus der das Kapitel seine Abschnitte rendert:
+ * `METHODOLOGY_ITEMS` für die Methodik, `basisSubsections(chapter)` für das Schlusskapitel. Eine
+ * zweite, eigens gepflegte Liste fürs Inhaltsverzeichnis ist genau die Fehlerklasse, an der die
+ * Berechnungsmethodik schon einmal auseinandergelaufen ist: zwei Orte, die synchron bleiben
+ * mussten, und niemand sieht es dem Blatt an, wenn sie es nicht mehr sind.
+ *
+ * ⚠ Ein Kapitel, das hier nicht vorkommt, bekommt keine Unterpunkte — `buildReportAgenda` kennt
+ * keinen Kapitelnamen und braucht für ein drittes solches Kapitel keine Zeile.
+ *
+ * ⚠ Die Einträge MÜSSEN `level: 2` tragen: daran hängt, dass sie eingerückt und OHNE Seitenzahl
+ * stehen (`sectionHasPageNumber`, `page-numbers.ts` Aufbau C).
+ */
+export type ChapterSubsections = Partial<Record<ReportSectionKey, readonly ReportSection[]>>
 
 /**
  * Die acht Kapitel, über ihre Kennung erreichbar.
@@ -609,7 +631,8 @@ export type ReportChapterPresence = {
   comparison: boolean
   /**
    * `true` = das Kapitel „Unser Vorschlag" steht — s. `hasAdviceChapter` (`advice.ts`). `false`,
-   * wenn weder ein Vorschlag zutrifft noch eine Herkunftsangabe belegt ist.
+   * wenn weder ein Vorschlag zutrifft noch eine Herkunftsangabe belegt ist. Seine Stelle ist VOR
+   * der Methodik (22.09.2026).
    */
   advice: boolean
 }
@@ -627,8 +650,11 @@ export type ReportChapterPresence = {
  * (`document.tsx`) bildet die Entscheidung EINMAL und gibt sie an Agenda UND Seitenbaum; zwei
  * getrennte Auswertungen ergäben einen Eintrag ohne Kapitel oder ein Kapitel ohne Eintrag.
  */
-export function buildReportAgenda(presence: ReportChapterPresence): readonly ReportSection[] {
-  return [
+export function buildReportAgenda(
+  presence: ReportChapterPresence,
+  subsections: ChapterSubsections = {},
+): readonly ReportSection[] {
+  const chapters: readonly ReportSection[] = [
     RESULTS_SECTION,
     PREREQUISITES_SECTION,
     LOAD_SECTION,
@@ -642,11 +668,20 @@ export function buildReportAgenda(presence: ReportChapterPresence): readonly Rep
     ...(presence.monthly ? [MONTHLY_SECTION] : []),
     ...(presence.insight ? [INSIGHT_SECTION] : []),
     ...(presence.comparison ? [COMPARISON_SECTION] : []),
-    METHODOLOGY_SECTION,
-    ...METHODOLOGY_ITEMS,
     ...(presence.advice ? [ADVICE_SECTION] : []),
+    METHODOLOGY_SECTION,
     BASIS_SECTION,
   ]
+
+  /*
+   * ⚠ HIER STEHT KEIN KAPITELNAME. Die Einrückung entsteht daraus, dass ein Kapitel Unterabschnitte
+   * MELDET — nicht daraus, dass diese Funktion weiss, welche Kapitel welche haben. Ein künftiges
+   * drittes Kapitel mit Unterabschnitten meldet sie genauso und braucht hier keine Zeile.
+   */
+  return chapters.flatMap((chapter) => [
+    chapter,
+    ...(subsections[chapter.id as ReportSectionKey] ?? []),
+  ])
 }
 
 /**

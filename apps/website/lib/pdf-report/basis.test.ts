@@ -98,11 +98,11 @@ describe('buildBasisChapter — Herkunft der Tarifsätze', () => {
 
   it('lässt den `null`-Fall und einen echten TariffSourceRef unverändert', () => {
     expect(chapterFor(null).tariffSource).toBe(
-      'Tarifsätze: kein hinterlegter Stand gewählt — Leistungspreis, Abrechnungsmodell und ' +
+      'Kein hinterlegter Stand gewählt — Leistungspreis, Abrechnungsmodell und ' +
         'Mindestleistung stammen unverändert aus Ihrer Eingabe.',
     )
     expect(chapterFor(REAL_REF).tariffSource).toBe(
-      'Tarifsätze: Wiener Netze, Netzebene 6 · Stand „Wiener Netze 2026", gültig ab 2026-01-01. ' +
+      'Wiener Netze, Netzebene 6 · Stand „Wiener Netze 2026", gültig ab 2026-01-01. ' +
         'Die Vorgabewerte wurden unverändert übernommen.',
     )
   })
@@ -124,7 +124,7 @@ describe('buildBasisChapter — Herkunft der Tarifsätze', () => {
 
   it('lässt den Satz ohne Netzbetreiber unverändert — kein Platzhalter', () => {
     expect(chapterFor(TARIFF_SOURCE_UNTRACKED).tariffSource).toBe(
-      'Tarifsätze: Herkunft für diese Auswertung nicht im Einzelnen nachverfolgt — gerechnet ' +
+      'Herkunft für diese Auswertung nicht im Einzelnen nachverfolgt — gerechnet ' +
         'wurde mit den Leistungspreis-, Abrechnungs- und Mindestleistungswerten, die zu diesem ' +
         'Zählpunkt hinterlegt sind. Ob sie aus einer Netzrechnung oder aus einem hinterlegten ' +
         'Tarifstand stammen, hält dieser Report nicht fest.',
