@@ -4,6 +4,7 @@ import { dataQualityNoticeOf, pvOutageNoticeOf } from './basis'
 import { comparisonChartPlan, hasComparisonChapter, type ComparisonChartPlan } from './comparison'
 import { detailChartPlan, hasMonthlyChapter, type DetailChartPlan } from './detail'
 import { insightChartPlan, type InsightChartPlan } from './insight'
+import { hasRecommendationChapter } from './recommendation'
 import type { ReportNotice } from './statement'
 import { primaryEntryOf, recommendedEntryOf } from './summary'
 import type { PdfReportInput } from './types'
@@ -73,6 +74,11 @@ export type ReportBuildContext = {
   hasInsight: boolean
   /** Kapitel 6 — Speichergrösse und Gerätewahl. */
   hasComparison: boolean
+  /**
+   * Kapitel 2 — Empfehlung und Wirtschaftlichkeit. `false` im Bestandsfall, dessen Gerätewahl
+   * „Nein" sagt — s. `hasRecommendationChapter` (`recommendation.ts`).
+   */
+  hasRecommendation: boolean
 }
 
 /**
@@ -101,5 +107,6 @@ export function buildReportContext(input: PdfReportInput): ReportBuildContext {
     hasMonthly: hasMonthlyChapter(analysis),
     hasInsight: insightPlan.hourFlow !== null || insightPlan.chargePrice !== null,
     hasComparison: hasComparisonChapter(analysis),
+    hasRecommendation: hasRecommendationChapter(analysis),
   }
 }

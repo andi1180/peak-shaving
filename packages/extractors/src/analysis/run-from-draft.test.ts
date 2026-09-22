@@ -307,12 +307,13 @@ describe('runAnalysisFromMeteringPointDraft', () => {
     })
 
     // Erst der ungekoppelte Lauf — seine Zeitstempel sind der Schlüssel der Schätzreihe.
-    let seriesForMidday: string | undefined
     const roh = await runAnalysisFromMeteringPointDraft('mp-1', {
       readMeteringPoint: async () => ({ draft: DRAFT, sourceDocumentId: 'doc-1' }),
       readDocument: async () => file(middayCsv, 'lastgang-2025.csv'),
     })
-    seriesForMidday = generatedSeriesJson(roh.loadProfile.readings.map((r) => r.ts))
+    const seriesForMidday: string | undefined = generatedSeriesJson(
+      roh.loadProfile.readings.map((r) => r.ts),
+    )
 
     const bestehend = await runAnalysisFromMeteringPointDraft(
       'mp-1',
