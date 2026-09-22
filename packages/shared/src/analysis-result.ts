@@ -1,6 +1,7 @@
 import type { AnnualScenario } from './annual-scenario'
 import type { AnnualTariffProjection } from './annual-projection'
 import type { BatteryCandidate } from './battery'
+import type { PvValueScenario } from './pv-value'
 import type { BillingModel } from './tariff'
 import type { TariffOptimizationStatus } from './tariff-pricing'
 
@@ -375,6 +376,24 @@ export type AnalysisResult = {
    * nebeneinander im selben Kapitel stehen.
    */
   annualScenario?: AnnualScenario
+  /**
+   * „Ihre PV-Anlage" (22.09.2026): was die BESTEHENDE Anlage über den ausgewerteten Zeitraum wert
+   * war — rekonstruiert, indem die geschätzte Erzeugung wieder auf den Netzbezug AUFADDIERT wird.
+   *
+   * `undefined` heisst: nicht angefordert ODER nicht zutreffend (keine bestehende Anlage, ein
+   * Lastgang mit gemessener Einspeisung, keine abgelegte Erzeugungsreihe, keine Preisseiten). Kein
+   * Fehlerfall, und wie bei den vier Feldern darüber KEIN `bundleVersion`-Sprung (B14-2).
+   *
+   * ⚠ ES IST DIE GEGENRICHTUNG ZU `pv_already_in_grid_profile` (`pvGeneratorEligibility`) UND
+   * KEIN WIDERSPRUCH DAZU. Dort wird die Schätzung NICHT abgezogen, weil die Erzeugung im
+   * gesenkten Bezug bereits steckt; hier wird sie addiert, um den Zustand OHNE Anlage zu bilden.
+   * Der gerechnete Lastgang aller übrigen Zahlen bleibt davon unberührt — die Rekonstruktion
+   * verlässt dieses Feld nicht.
+   *
+   * ⚠ DIE ZAHL GEHÖRT IN KEINE ERSPARNIS-SPANNE (D8): sie ist bereits gehoben und steckt in den
+   * Ist-Kosten. S. Kopf von `pv-value.ts`.
+   */
+  pvValue?: PvValueScenario
   dataQuality: {
     coveredDays: number
     /** Anzahl der 12 Kalendermonate (lokal) mit ≥ 1 Messwert. < 12 = Teiljahres-Datensatz (§3.5) —

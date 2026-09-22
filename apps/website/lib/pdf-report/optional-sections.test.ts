@@ -218,6 +218,8 @@ const CHARTS: ReportChartRasters = {
   hourFlowError: null,
   chargePrice: raster(CHARGE_PRICE_PNG, 11),
   chargePriceError: null,
+  pvSelfConsumption: null,
+  pvSelfConsumptionError: null,
   comparison: null,
   comparisonError: null,
   comparisonVariant: null,
@@ -225,6 +227,7 @@ const CHARTS: ReportChartRasters = {
   figureMs: {
     load: null,
     ways: null,
+    pvSelfConsumption: null,
     cost: null,
     monthly: null,
     flow: null,

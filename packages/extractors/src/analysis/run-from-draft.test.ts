@@ -46,6 +46,18 @@ function loadProfileCsv(): string {
   return rows.join('\n')
 }
 
+/** Derselbe Tag, aber mit gemessener Einspeisung über Mittag — ein signierter Lastgang. */
+function signedLoadProfileCsv(): string {
+  const rows: string[] = ['Zeitstempel;Bezug (kW)']
+  for (let i = 0; i < 96; i += 1) {
+    const at = new Date(Date.UTC(2025, 2, 17, 0, 0) + i * 15 * 60_000)
+    const hour = at.getUTCHours()
+    const kw = hour >= 11 && hour < 13 ? -8 : hour >= 5 && hour < 8 ? 48 : 22
+    rows.push(`${at.toISOString().slice(0, 16)};${String(kw).replace('.', ',')}`)
+  }
+  return rows.join('\n')
+}
+
 function file(content: string, filename: string) {
   return { bytes: new TextEncoder().encode(content).buffer as ArrayBuffer, filename }
 }
@@ -487,6 +499,83 @@ describe('runAnalysisFromMeteringPointDraft — tariffPricing', () => {
       netzebene: 5,
       meteringVariant: null,
     })
+  })
+
+  /**
+   * Kapitel „Ihre PV-Anlage" — es entsteht GENAU in der Lage, in der der Lastgang die Frage „was
+   * wäre ohne die Anlage gewesen?" nicht selbst beantworten kann.
+   *
+   * ⚠ `annual` bleibt hier `null`, und das ist richtig: der Demo-Lastgang ist EIN Tag, es gibt
+   * also keine Referenzwoche und damit kein Jahres-Szenario. Genähert wird nichts.
+   */
+  it('setzt `pvValue` bei bestehender Anlage — und bei einer GEPLANTEN nicht', async () => {
+    const fetchTariffPricing = async (request: {
+      window: { startIso: string; endIso: string }
+      intervalMinutes: number
+    }) => ({
+      gridTariffRows: GRID_ROWS,
+      spotPrices: spotSeries(request.window, request.intervalMinutes),
+      levies: LEVIES_NONE,
+    })
+
+    const ohne = await runAnalysisFromMeteringPointDraft('mp-1', ports())
+    const seriesJson = generatedSeriesJson(ohne.loadProfile.readings.map((r) => r.ts))
+
+    const bestehend = await runAnalysisFromMeteringPointDraft('mp-1', {
+      ...generatedPorts(seriesJson, { ...GENERATED_DRAFT, hasPv: true }),
+      fetchTariffPricing,
+    })
+    const pvValue = bestehend.result.pvValue
+    expect(pvValue).toBeDefined()
+    /* Der rekonstruierte Bezug ist höher — beide Seiten durch dieselbe Tarifrechnung. */
+    expect(pvValue!.measured.withoutPvEur).toBeGreaterThan(pvValue!.measured.withPvEur)
+    expect(pvValue!.measured.valueEur).toBeGreaterThan(0)
+    expect(pvValue!.estimatedGenerationKwh).toBeGreaterThan(0)
+    expect(pvValue!.annual).toBeNull()
+
+    /*
+     * ⚠ Und der gerechnete Lastgang bleibt davon unberührt: die Rekonstruktion verlässt das
+     * Contract-Feld nicht. Ohne diese Zeile wäre der Defekt vom 19.09.2026 in der Gegenrichtung
+     * wieder möglich.
+     */
+    expect(bestehend.loadProfile.readings).toEqual(ohne.loadProfile.readings)
+
+    const geplant = await runAnalysisFromMeteringPointDraft('mp-1', {
+      ...generatedPorts(seriesJson, { ...GENERATED_DRAFT, hasPv: true, pvStage: 'planned' }),
+      fetchTariffPricing,
+    })
+    /* Eine geplante Anlage steckt nicht im Lastgang — es gibt nichts zu rekonstruieren. */
+    expect(geplant.result.pvValue).toBeUndefined()
+  })
+
+  it('setzt `pvValue` NICHT, wenn der Lastgang gemessene Einspeisung trägt', async () => {
+    /*
+     * Der bewusst ausgeklammerte Sonderfall: liegt die Einspeisung gemessen vor, wäre ein
+     * DIREKTER Wert möglich — eine Rekonstruktion daneben wäre ein Rückschritt gegenüber der
+     * Messung (Prinzip 1).
+     */
+    const fetchTariffPricing = async (request: {
+      window: { startIso: string; endIso: string }
+      intervalMinutes: number
+    }) => ({
+      gridTariffRows: GRID_ROWS,
+      spotPrices: spotSeries(request.window, request.intervalMinutes),
+      levies: LEVIES_NONE,
+    })
+
+    const ohne = await runAnalysisFromMeteringPointDraft('mp-1', ports())
+    const seriesJson = generatedSeriesJson(ohne.loadProfile.readings.map((r) => r.ts))
+
+    const { result } = await runAnalysisFromMeteringPointDraft('mp-1', {
+      ...generatedPorts(seriesJson, { ...GENERATED_DRAFT, hasPv: true }),
+      readDocument: async (id) =>
+        id === 'pv-gen-1'
+          ? file(seriesJson, 'pv-erzeugung-geschaetzt.json')
+          : file(signedLoadProfileCsv(), 'lastgang-2025.csv'),
+      fetchTariffPricing,
+    })
+
+    expect(result.pvValue).toBeUndefined()
   })
 
   it('lässt tariffPricing ohne den Port unangetastet — bestehende Aufrufer rechnen wie bisher', async () => {

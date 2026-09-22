@@ -130,6 +130,7 @@ export const SECTION_ID = {
   load: 'lastgang',
   ways: 'wege',
   annualScenario: 'jahreshochrechnung',
+  pvValue: 'pv-anlage',
   recommendation: 'empfehlung',
   detail: 'kostenverlauf',
   monthly: 'monatsvergleich',
@@ -237,6 +238,29 @@ export const ANNUAL_SCENARIO_SECTION: ReportSection = {
   level: 1,
   title: 'Was wäre, wenn wir ein ganzes Jahr hätten?',
 }
+
+/**
+ * Das Kapitel hinter der Jahres-Hochrechnung: was die BESTEHENDE PV-Anlage wert war.
+ *
+ * ⚠ Bedingtes Kapitel: es steht nur, wenn die Rekonstruktion gebildet werden konnte
+ * (`hasPvValueChapter`, `pv-value.ts`) — also bei einer bestehenden Anlage in einem reinen
+ * Bezugslastgang. Bei gemessener Einspeisung und bei einer geplanten Anlage gibt es nichts zu
+ * rekonstruieren.
+ *
+ * ⚠ Der Titel nennt weder „Rekonstruktion" noch „Wert": was auf der Seite steht, hängt daran, ob
+ * der Lastgang auffällige Monate zeigt — und ein Kunde sucht im Inhaltsverzeichnis nach seiner
+ * Anlage, nicht nach unserer Methode.
+ */
+export const PV_VALUE_SECTION: ReportSection = {
+  id: SECTION_ID.pvValue,
+  level: 1,
+  title: 'Ihre PV-Anlage',
+}
+
+/** Steht unter der Kapitelüberschrift. Sagt, worum es geht, nicht was auf der Seite steht. */
+export const PV_VALUE_INTRO =
+  'Was Ihre Anlage in diesem Zeitraum beigetragen hat — zurückgerechnet aus Ihrem echten ' +
+  'Lastgang, nicht ein zweites Mal gemessen.'
 
 /** Steht unter der Kapitelüberschrift. Sagt, worum es geht, nicht was auf der Seite steht. */
 export const ANNUAL_SCENARIO_INTRO =
@@ -466,6 +490,7 @@ export const REPORT_SECTIONS: Record<ReportSectionKey, ReportSection> = {
   [SECTION_ID.load]: LOAD_SECTION,
   [SECTION_ID.ways]: WAYS_SECTION,
   [SECTION_ID.annualScenario]: ANNUAL_SCENARIO_SECTION,
+  [SECTION_ID.pvValue]: PV_VALUE_SECTION,
   [SECTION_ID.recommendation]: RECOMMENDATION_SECTION,
   [SECTION_ID.detail]: DETAIL_SECTION,
   [SECTION_ID.monthly]: MONTHLY_SECTION,
@@ -531,6 +556,12 @@ export type ReportChapterPresence = {
    */
   annualScenario: boolean
   /**
+   * `true` = das Kapitel „Ihre PV-Anlage" steht — s. `hasPvValueChapter` (`pv-value.ts`). `false`
+   * ohne bestehende Anlage, bei gemessener Einspeisung und immer dann, wenn die Rekonstruktion
+   * nicht gebildet werden konnte.
+   */
+  pvValue: boolean
+  /**
    * `false` = das Kapitel „Empfehlung und Wirtschaftlichkeit" entfällt — s.
    * `hasRecommendationChapter` (`recommendation.ts`). Der Fall entsteht ausschliesslich mit
    * Bestandsanlage, deren Gerätewahl „Nein" sagt: die Kaufaussage widerspräche dort dem Verdikt
@@ -574,6 +605,7 @@ export function buildReportAgenda(presence: ReportChapterPresence): readonly Rep
       ? [{ ...WAYS_SECTION, title: waysSectionTitle(presence.waysCount) }]
       : []),
     ...(presence.annualScenario ? [ANNUAL_SCENARIO_SECTION] : []),
+    ...(presence.pvValue ? [PV_VALUE_SECTION] : []),
     ...(presence.recommendation ? [RECOMMENDATION_SECTION] : []),
     DETAIL_SECTION,
     ...(presence.monthly ? [MONTHLY_SECTION] : []),

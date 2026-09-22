@@ -157,6 +157,56 @@ führt).
 **`[OFFEN]`:** die genaue Schwelle (wie lang, wie nahe null) — braucht `[MARTIN]`, Fachwissen zu
 typischen PV-Ausfallmustern gegen normales Nachtverhalten.
 
+### D5 Teil 2 umgesetzt (22.09.2026) — Kapitel „Ihre PV-Anlage"
+
+Der Befund aus D5 bekommt ein eigenes Kapitel, und es beantwortet die Frage, die der Lastgang
+strukturell nicht beantwortet: **was hätte es OHNE die Anlage gekostet?** Ein
+Netzbetreiber-Export misst am Anschlusspunkt; der selbst verbrauchte PV-Strom steht dort nur als
+gesenkter Bezug. Gerechnet wird deshalb ein zweiter, rekonstruierter Lastgang —
+`Netzbezug(t) + geschätzte Erzeugung(t)` — und **beide Seiten gehen durch dieselbe
+Tarifkosten-Funktion**, aus der auch „Ihr Tarif heute" entsteht (`buildMonthlyTariffComparison`,
+Reihe `currentTariffEur`). Contract: `AnalysisResult.pvValue` (`packages/shared/src/pv-value.ts`),
+gerechnet in `packages/extractors/src/analysis/pv-value.ts`, Kapitel in
+`apps/website/lib/pdf-report/pv-value.ts`.
+
+**Es erscheint genau in einer Lage** — bestehende Anlage (`pvStage: 'existing'`) in einem reinen
+Bezugslastgang (`source: 'import_only'`), mit abgelegter PVGIS-Reihe und Preisseiten. Die
+Bedingung wird **nicht neu formuliert**, sondern am bereits gefallenen Urteil abgelesen
+(`pvGeneratorEligibility(...).reason === 'pv_already_in_grid_profile'`). Bei einer GEPLANTEN
+Anlage gibt es nichts zu rekonstruieren (die Schätzung ist bereits abgezogen, der Ist-Zustand IST
+„ohne PV"); bei GEMESSENER Einspeisung wäre ein direkter Wert möglich — **`[OFFEN]`, bewusst
+ausgeklammert**: eine Rekonstruktion neben einer Messung wäre ein Rückschritt gegenüber ihr
+(Prinzip 1).
+
+**⚠ Vier Dinge, die beim nächsten Umbau mitzudenken sind:**
+
+**(a) Die Vereinfachung ist bewusst und steht im Kundentext:** die gesamte geschätzte Erzeugung
+gilt als Eigenverbrauch, eine Netzeinspeisung wird nicht gegengerechnet (ohne Exportdaten wäre ein
+`min(Erzeugung, Last)` eine zweite Schätzung über der ersten). Die Richtung des Fehlers ist
+benannt — tatsächlicher Export machte die Differenz kleiner.
+
+**(b) Ausfallmonate bekommen 0 Erzeugung, und das geschieht EINMAL** (`zeroPvOutageMonths`), bevor
+addiert, summiert oder ins Jahr verlängert wird. In den Monatsbalken tragen sie `null` und keinen
+Nullbalken — dieselbe Unterscheidung „keine Angabe vs. gemessene Null" wie im Monatsvergleich.
+
+**(c) Die Jahres-Hochrechnung läuft über EINEN `buildSyntheticYearProfile`-Aufruf, nicht zwei.**
+Der Baustein wählt seine Referenzwoche nach dem höchsten Verbrauch, und der rekonstruierte
+Lastgang ist im Sommer stärker angehoben als im Winter — zwei Läufe könnten verschiedene Wochen
+und damit verschiedene Füllpläne wählen, und die ausgewiesene Differenz enthielte einen Anteil aus
+der Auswahl statt aus der Anlage. Der Baustein verlängert eine mitgegebene Erzeugungsreihe nach
+DEMSELBEN Plan (`extendPv`); die „ohne PV"-Seite entsteht daraus durch dieselbe Addition wie im
+gemessenen Zeitraum. **Das Fenster wird aus dem Kapitel davor übernommen** (`annualScenario`) und
+nicht zweitausgerechnet; ohne Jahres-Szenario entfällt die Hochrechnung, es wird nichts genähert.
+
+**(d) Die Zahl steht NICHT in der Ersparnis-Spanne der Zusammenfassung (D8):** sie ist bereits
+gehoben und steckt in den Ist-Kosten. In der Spanne stünde sie als etwas, das man noch bekommt.
+`summary.ts` liest `pvValue` nirgends.
+
+**Gemessen:** gegen synthetische Lastgänge (Engine- und Extractor-Tests, absolute Kostenwerte von
+Hand nachgerechnet) und an einem gerenderten PDF (16 statt 15 Seiten, Kapitel gelesen); die
+Chart-Komponente über einen esbuild+jsdom-Harness im Scratchpad. **Nicht gegen den Urbanz-Fall über
+den Produktionspfad** — s. Regel 11.
+
 ---
 
 ## D6 — Baustein 4: Jahres-Hochrechnung als wiederverwendbare Funktion

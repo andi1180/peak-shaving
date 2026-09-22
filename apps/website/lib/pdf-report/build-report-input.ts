@@ -347,10 +347,10 @@ export function buildReportInputFromRenderRequest(
 type Complete<T> = { [K in keyof Required<T>]: T[K] }
 
 /**
- * Das Ergebnis auf die neun Felder verengen, die das Dokument LIEST.
+ * Das Ergebnis auf die zehn Felder verengen, die das Dokument LIEST.
  *
  * ⚠ Ein `AnalysisResult` wäre strukturell zuweisbar — dann reiste `peaks` (samt Spitzenliste und
- * Verteilung) als zehntes Feld mit, ohne dass es je gelesen wird. `PdfReportAnalysis` ist genau
+ * Verteilung) als elftes Feld mit, ohne dass es je gelesen wird. `PdfReportAnalysis` ist genau
  * dafür ein `Pick<…>`: der Typ sagt, was das Dokument braucht, und das Verengen hier hält den
  * übergebenen Wert daran (s. Kopf von `types.ts`).
  *
@@ -372,6 +372,7 @@ function reduceAnalysis(result: AnalysisResult): Complete<PdfReportAnalysis> {
     existingBatteryAnalysis: result.existingBatteryAnalysis,
     annualProjection: result.annualProjection,
     annualScenario: result.annualScenario,
+    pvValue: result.pvValue,
     dataQuality: result.dataQuality,
   }
 }

@@ -26,6 +26,7 @@ import {
   PV_GENERATED_PROFILE_SOURCE,
   PV_UPLOAD_DRAFT_KEYS,
   pvIsInLoadProfile,
+  tariffWayCosts,
   type AnalysisResult,
   type AnalysisWindow,
   type LoadProfile,
@@ -38,6 +39,7 @@ import {
   readGeneratedPvSeries,
 } from '../pv-reference/generated-series-read'
 import { buildAnnualScenario } from './annual-scenario'
+import { buildPvValueScenario } from './pv-value'
 
 /**
  * D3, Baustein 1 — DER ERSTE ENGINE-LAUF AUS DEM WIZARD-ENTWURF.
@@ -372,13 +374,31 @@ export async function runAnalysisFromMeteringPointDraft(
    * fertigen Payload gäbe es einen Moment, in dem beide Fassungen nebeneinander existieren, und
    * die Frage „welche ist gerechnet worden?" hinge an der Zeilenreihenfolge.
    *
-   * ⚠ WIRD ABGELEHNT, WIRD DIE DATEI GAR NICHT ERST GEHOLT. Sie zu lesen und dann zu verwerfen
-   * kostete einen Abruf und einen Zeitstempel-Abgleich, dessen Ergebnis niemand mehr benutzt.
+   * ⚠ WIRD ABGELEHNT, WIRD DIE DATEI IN DER REGEL GAR NICHT ERST GEHOLT. Sie zu lesen und dann zu
+   * verwerfen kostete einen Abruf und einen Zeitstempel-Abgleich, dessen Ergebnis niemand mehr
+   * benutzt.
+   *
+   * ⚠ GENAU EINE AUSNAHME: `pv_already_in_grid_profile`. Dort wird die Reihe nicht abgezogen, aber
+   * sie ist die Eingabe der GEGENRICHTUNG — der Rekonstruktion „was hätte es ohne die Anlage
+   * gekostet?" (`buildPvValueScenario`, Kapitel „Ihre PV-Anlage"). Bei `measured_feed_in` bleibt
+   * es beim Nichtlesen: dort liegt die Einspeisung gemessen vor, und eine Rekonstruktion neben
+   * einer Messung wäre ein Rückschritt gegenüber ihr (Prinzip 1).
    */
-  const estimatedPv =
-    generatedSeriesDocumentId === null || !pvCoupling.offered
+  const pvIsAlreadyInProfile =
+    pvCoupling.offered === false && pvCoupling.reason === 'pv_already_in_grid_profile'
+
+  const generatedSeries =
+    generatedSeriesDocumentId === null || !(pvCoupling.offered || pvIsAlreadyInProfile)
       ? null
       : await readCoupledGeneratedPvSeries(ports, generatedSeriesDocumentId, parsed)
+
+  /*
+   * ⚠ DIE GEKOPPELTE FASSUNG GILT NUR BEI ERLAUBTEM ABZUG. Alles, was an dieser Variablen hängt —
+   * der gerechnete Lastgang, `payload.pv`, die Herkunftsangaben im Report — verhält sich damit
+   * Zeile für Zeile wie vor dem PV-Kapitel. Die Rekonstruktion liest ausschliesslich die
+   * BRUTTO-Reihe daneben und ersetzt nichts.
+   */
+  const estimatedPv = pvCoupling.offered ? generatedSeries : null
 
   /*
    * ⚠ EINE ABGELEHNTE SCHÄTZREIHE VERPUFFT NICHT STILL. Der Admin hat sie im Wizard erzeugt und
@@ -445,15 +465,23 @@ export async function runAnalysisFromMeteringPointDraft(
    */
   const fetchPricing = ports.fetchTariffPricing
   const subject = tariffPricingSubject(point.draft, netzebeneOf(point.draft))
+  /*
+   * ⚠ EIN FENSTER, EINE ABFRAGE. Seit dem PV-Kapitel fragen ZWEI Bausteine nach den Preisseiten
+   * desselben Jahresfensters (Jahres-Szenario und PV-Hochrechnung). Zweimal geholt wären es zwei
+   * Abfragen über bis zu 35.040 Marktpreise — und, schlimmer, zwei Antworten: ein Pflegestand, der
+   * sich zwischen den beiden Aufrufen ändert, ergäbe zwei Kapitel auf verschiedenen Preisblättern,
+   * ohne dass es irgendwo stünde.
+   */
+  const fetchPricingOnce = fetchPricing === undefined ? undefined : memoizeByWindow(fetchPricing)
   const annualScenario =
-    fetchPricing === undefined
+    fetchPricingOnce === undefined
       ? undefined
       : await buildAnnualScenario({
           payload,
           horizonYears,
           catalog: DEMO_BATTERY_CATALOG,
           fetchTariffPricing: ({ window, intervalMinutes }) =>
-            fetchPricing({ ...subject, window, intervalMinutes }),
+            fetchPricingOnce({ ...subject, window, intervalMinutes }),
           /*
            * ⚠ Die Uhr wird HIER gelesen und nicht im Baustein: die obere Kante des Jahresfensters
            * hängt daran, und ein Lauf, der sie selbst liest, wäre von seinem Zeitpunkt abhängig,
@@ -462,15 +490,111 @@ export async function runAnalysisFromMeteringPointDraft(
           today: new Date(),
         })
 
+  /*
+   * ⚠ Auf DEM Lastgang, mit dem gerechnet wurde — also nach der PV-Kopplung, nicht auf `parsed`.
+   * EINMAL gebildet: der Rückgabewert und die Rekonstruktion unten müssen dieselben Monate
+   * ausblenden, die der Report als auffällig benennt.
+   */
+  const pvOutageMonths = detectPvOutageMonths(payload.load.profile)
+
+  /*
+   * ⚠ DIE KOPFZAHL KOMMT AUS DEM BEREITS GELAUFENEN ERGEBNIS und wird nicht nachgerechnet — sonst
+   * stünden im Report zwei Zahlen namens „Ihr Tarif heute", die sich um Rundungen unterscheiden
+   * können. Ohne berechenbaren Monatsvergleich gibt es sie nicht, und dann auch kein Kapitel.
+   */
+  const measuredComparison =
+    result.tariffOptimization?.computable === true
+      ? result.tariffOptimization.monthlyComparison
+      : undefined
+  const measuredWithPvEur = measuredComparison
+    ? tariffWayCosts(measuredComparison).currentTariffEur
+    : null
+
+  /*
+   * „Ihre PV-Anlage" — der rekonstruierte „ohne PV"-Vergleich (22.09.2026).
+   *
+   * ══════════════════════════════════════════════════════════════════════════════════════════
+   * ⚠ VIER BEDINGUNGEN, UND JEDE EINZELNE IST EIN ECHTER ZUSTAND
+   * ══════════════════════════════════════════════════════════════════════════════════════════
+   * Der Preis-Port muss da sein (die Zahlen sind Tarifzahlen), es muss eine abgelegte
+   * Erzeugungsreihe geben (ohne sie gibt es nichts zu addieren), es muss die Bezugsgrösse „Ihr
+   * Tarif heute" geben, und die Lage muss GENAU die sein, in der der Lastgang die Frage nicht
+   * selbst beantwortet: `pv_already_in_grid_profile` — eine bestehende Anlage in einem reinen
+   * Bezugslastgang.
+   *
+   * ⚠ DIE BEDINGUNG WIRD NICHT NEU FORMULIERT, sondern am bereits gefallenen Urteil abgelesen.
+   * `pvGeneratorEligibility` ist die eine Stelle, an der steht, in welcher Lage dieser Zählpunkt
+   * ist; ein eigenes `hasPv && source === 'import_only'` hier wäre die zweite Fassung derselben
+   * Regel und liefe beim nächsten Umbau von ihr weg. Bei `measured_feed_in` (Einspeisung liegt
+   * gemessen vor) und bei einer GEPLANTEN Anlage (`offered: true`) entfällt das Kapitel damit von
+   * selbst — der zweite Fall, weil dort gar nichts zu rekonstruieren ist: die geschätzte Erzeugung
+   * wurde abgezogen, der Ist-Zustand IST „ohne PV".
+   *
+   * ⚠ ER KANN DEN LAUF NICHT ZU FALL BRINGEN — dieselbe Zusage wie beim Jahres-Szenario darüber:
+   * jeder Abbruchgrund kommt als `null` zurück und lässt das Kapitel entfallen.
+   */
+  const pvValue =
+    fetchPricingOnce === undefined ||
+    generatedSeries === null ||
+    measuredWithPvEur === null ||
+    !pvIsAlreadyInProfile
+      ? null
+      : await buildPvValueScenario({
+          payload,
+          measuredWithPvEur,
+          pvGross: generatedSeries.pv.profile,
+          outageMonths: pvOutageMonths,
+          /*
+           * ⚠ DAS FENSTER KOMMT AUS DEM KAPITEL DAVOR und wird nicht zweitausgerechnet: die
+           * Jahres-Hochrechnung dieses Kapitels muss dasselbe Jahr meinen wie die daneben (s.
+           * `buildPvValueScenario`).
+           */
+          annualWindow:
+            annualScenario?.ok === true
+              ? {
+                  fromDate: annualScenario.value.windowFromDate,
+                  toDate: annualScenario.value.windowToDate,
+                }
+              : null,
+          fetchTariffPricing: ({ window, intervalMinutes }) =>
+            fetchPricingOnce({ ...subject, window, intervalMinutes }),
+        })
+
   return {
-    result:
-      annualScenario?.ok === true
-        ? { ...result, annualScenario: annualScenario.value }
-        : result,
+    result: {
+      ...result,
+      ...(annualScenario?.ok === true ? { annualScenario: annualScenario.value } : {}),
+      ...(pvValue ? { pvValue } : {}),
+    },
     loadProfile: payload.load.profile,
-    /* ⚠ Auf DEM Lastgang, mit dem gerechnet wurde — also nach der PV-Kopplung, nicht auf `parsed`. */
-    pvOutageMonths: detectPvOutageMonths(payload.load.profile),
+    pvOutageMonths,
     ...(estimatedPv === null ? {} : { estimatedPvMetadata: estimatedPv.metadata }),
+  }
+}
+
+/**
+ * Den Preis-Port je FENSTER genau einmal fragen.
+ *
+ * ⚠ Der Schlüssel ist das Fenster samt Intervalldauer und ausdrücklich nicht der ganze Request:
+ * Netzbetreiber, Netzebene und Messvariante sind über einen Lauf konstant (`tariffPricingSubject`
+ * bildet sie einmal), und sie in den Schlüssel zu nehmen behauptete eine Veränderlichkeit, die es
+ * nicht gibt.
+ *
+ * ⚠ Gemerkt wird das PROMISE und nicht sein Ergebnis — zwei Aufrufe vor der ersten Antwort ergäben
+ * sonst doch zwei Abfragen. Ein Fehlschlag wird mitgemerkt: er ist die Antwort dieses Laufs auf
+ * dieses Fenster, und ein zweiter Versuch daneben könnte eine andere bekommen.
+ */
+function memoizeByWindow(
+  fetch: (request: TariffPricingRequest) => Promise<TariffPricingInputs>,
+): (request: TariffPricingRequest) => Promise<TariffPricingInputs> {
+  const cache = new Map<string, Promise<TariffPricingInputs>>()
+  return (request) => {
+    const key = `${request.window.startIso}|${request.window.endIso}|${request.intervalMinutes}`
+    const hit = cache.get(key)
+    if (hit) return hit
+    const pending = fetch(request)
+    cache.set(key, pending)
+    return pending
   }
 }
 

@@ -255,6 +255,51 @@ Wege-Tests sind unberührt grün.
 geprüft (18 statt 17 Seiten, Text und Tabelle gelesen), **nicht gegen den Urbanz-Fall über den
 Produktionspfad** — s. Regel 11.
 
+### Kapitel „Ihre PV-Anlage" — rekonstruiert, nicht gemessen (22.09.2026)
+
+Neues, bedingtes Report-Kapitel hinter der Jahres-Hochrechnung: **was die BESTEHENDE PV-Anlage über
+den Zeitraum wert war**. Der Lastgang eines Netzbetreiber-Exports beantwortet die Frage „was wäre
+ohne die Anlage gewesen?" strukturell nicht — die Eigenversorgung steht dort nur als gesenkter
+Bezug. Gerechnet wird deshalb ein zweiter Lastgang (`Netzbezug + geschätzte Erzeugung`), und
+**beide Seiten gehen durch dieselbe Tarifkosten-Funktion**, aus der auch „Ihr Tarif heute" entsteht.
+Contract `AnalysisResult.pvValue`; fachliche Tiefe:
+`Pflichtenheft_Kalkulator_Delta_Report-Baukasten.md`, „D5 Teil 2 umgesetzt".
+
+**⚠ Was beim nächsten Umbau mitzudenken ist:**
+
+**(a) Es ist die GEGENRICHTUNG zu `pv_already_in_grid_profile` und kein Widerspruch dazu.** Dort
+wird die PVGIS-Schätzung NICHT abgezogen (sie steckt im Bezug bereits); hier wird sie addiert. Der
+gerechnete Lastgang aller übrigen Zahlen bleibt unberührt — die Rekonstruktion verlässt das
+Contract-Feld nicht, und ein Test pinnt das mit. **`run-from-draft.ts` liest die abgelegte
+Erzeugungsreihe seither AUCH im abgelehnten Fall** — genau in diesem einen, nicht bei
+`measured_feed_in`.
+
+**(b) Die Bedingung wird am bereits gefallenen Urteil abgelesen**, nicht neu formuliert: kein
+zweites `hasPv && source === 'import_only'`. Bei GEPLANTER Anlage und bei gemessener Einspeisung
+entfällt das Kapitel von selbst; der Einspeise-Fall (direkter, gemessener Wert möglich) ist ein
+bewusst offener Sonderfall.
+
+**(c) Ausfallmonate (`detectPvOutageMonths`) bekommen 0 Erzeugung — EINMAL gesetzt**, bevor addiert,
+summiert oder ins Jahr verlängert wird. In den Monatsbalken tragen sie `null` statt eines
+Nullbalkens.
+
+**(d) Die Jahreszahl läuft über EINEN `buildSyntheticYearProfile`-Aufruf**, nicht zwei: der Baustein
+wählt die Referenzwoche nach dem höchsten Verbrauch, und zwei Läufe könnten verschiedene Wochen
+wählen — die Differenz enthielte dann einen Anteil aus der Auswahl statt aus der Anlage. Das Fenster
+kommt aus dem Kapitel davor (`annualScenario`); ohne das gibt es keine Jahreszahl und **es wird
+nichts genähert**.
+
+**(e) Der PV-Wert gehört in KEINE Ersparnis-Spanne (D8)** — er ist bereits gehoben und steckt in den
+Ist-Kosten.
+
+**(f) `pvValue` steht von Anfang an in `reduceAnalysis`** und in dessen Prüfung — der Fehler aus
+#320 (ein optionales Feld fällt in der Verengung still weg) ist diesmal vorweggenommen, nicht
+repariert.
+
+**Noch nicht gemessen:** geprüft gegen synthetische Lastgänge und ein gerendertes PDF (16 statt 15
+Seiten), Chart über einen esbuild+jsdom-Harness — **nicht gegen den Urbanz-Fall über den
+Produktionspfad** (s. Regel 11).
+
 ### Report-Baukasten — das Wege-Kapitel führt FÜNF Wege (21.09.2026)
 
 D7 ist auf die Revision vom 21.09.2026 umgestellt (`Pflichtenheft_Kalkulator_Delta_Report-Baukasten.md`
