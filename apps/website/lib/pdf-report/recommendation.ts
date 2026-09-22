@@ -1,6 +1,7 @@
 import type { BatteryResultEntry, BatteryRoiEntry } from 'shared'
 
 import { formatEur, formatEur2, formatKw, formatKwh1, formatYears } from '@/lib/format'
+import { hasNegativeAddonVerdict } from './comparison'
 import type { ReportBuildContext } from './context'
 import { block, ref, t, REF_SECTION } from './report-text'
 import type { ReportPoint, ReportRow, ReportStatement } from './statement'
@@ -321,6 +322,28 @@ export function buildLoadControl(
       `${embeddedNote}, und er zeigt ausschliesslich den Gewinn aus den Preisunterschieden: ` +
       `${selfConsumptionNote}.${annualized}`,
   }
+}
+
+/**
+ * Gibt es das Kapitel überhaupt? — die Bedingung, an der auch der Agenda-Eintrag hängt.
+ *
+ * ── ⚠ OHNE BESTANDSANLAGE STEHT ES IMMER ──────────────────────────────────────────────────────
+ * Dort IST es die Empfehlung des Reports: welches Gerät gekauft werden soll und was es kostet.
+ *
+ * ── ⚠ MIT BESTANDSANLAGE ENTFÄLLT ES, SOBALD DIE GERÄTEWAHL „NEIN" GESAGT HAT ─────────────────
+ * Dann beantwortet dieses Kapitel eine Kauffrage („Falls Sie stattdessen neu kaufen würden …"),
+ * die das Dokument wenige Seiten später verneint. Zwei Seiten, die einander widersprechen, liest
+ * ein Kunde als zwei Empfehlungen — und die schwächere steht weiter vorne.
+ *
+ * ⚠ DIE BEDINGUNG WIRD NICHT HIER ABGELEITET, sondern aus `comparison.ts` gelesen: es ist
+ * dieselbe leere Auswahl, die dort zur Antwort „Nein" führt (`hasNegativeAddonVerdict`), und sie
+ * trägt den Bestandsfall bereits in sich.
+ *
+ * ⚠ Der Bestandsfall MIT positiver Zusatzspeicher-Antwort bleibt unberührt — das Kapitel steht
+ * dort unverändert.
+ */
+export function hasRecommendationChapter(analysis: PdfReportAnalysis): boolean {
+  return !hasNegativeAddonVerdict(analysis)
 }
 
 export function buildRecommendationChapter(

@@ -67,13 +67,15 @@ import type { PdfReportInput } from './types'
  * für die geplante manuelle Admin-Auswahl ist „erzeugen und `null` heisst: gibt es nicht" genau
  * richtig.
  *
- * ── ⚠ DREI STELLEN, AN DENEN DIE FASSADE MEHR WEISS ALS DER ERZEUGER ──────────────────────────
+ * ── ⚠ VIER STELLEN, AN DENEN DIE FASSADE MEHR WEISS ALS DER ERZEUGER ─────────────────────────
  * Sie sind hier nachgebildet, weil der Baustein sonst ERSCHIENE, wo er im Dokument fehlt:
  *   1. Kapitel 1 lässt ALLE vier Aussagen weg, wenn es keinen primären Block gibt (`summary.ts`:
  *      `if (!entry) return { …, statements: [] }`).
  *   2. Kapitel 6 wird gar nicht gerendert, wenn `hasComparison` falsch ist — der Klarsatz
  *      `addon_none` entstünde dort trotzdem.
- *   3. `monthly_comparison` hat EINEN Erzeuger und zwei Kapitel — s. den Eintrag unten.
+ *   3. Kapitel 2 wird gar nicht gerendert, wenn `hasRecommendation` falsch ist — seine beiden
+ *      Bausteine entstünden dort trotzdem.
+ *   4. `monthly_comparison` hat EINEN Erzeuger und zwei Kapitel — s. den Eintrag unten.
  */
 
 /**
@@ -289,12 +291,22 @@ export function buildReportRegistry(
     notice('large_gap', () => buildLargeGapNotice(analysis)),
     statement('addon', () => (entry ? buildAddon(analysis) : null)),
 
-    /* ── Kapitel 2 ─────────────────────────────────────────────────────────────────────────── */
+    /*
+     * ── Kapitel 2 ─────────────────────────────────────────────────────────────────────────────
+     *
+     * ⚠ BEIDE BAUSTEINE TRAGEN DEN KAPITEL-SCHALTER (`hasRecommendation`): sagt die Gerätewahl im
+     * Bestandsfall „Nein", wird das Kapitel nicht gerendert — die zwei Aussagen entstünden sonst
+     * trotzdem, und ein Verweis auf sie zeigte auf eine Seite, die es nicht gibt.
+     */
     statement('recommendation', () => {
       const recommended = context.recommendedEntry
-      return recommended ? buildRecommendation(analysis, recommended) : null
+      return context.hasRecommendation && recommended
+        ? buildRecommendation(analysis, recommended)
+        : null
     }),
-    statement('load_control', () => buildLoadControl(analysis, context.primaryEntry)),
+    statement('load_control', () =>
+      context.hasRecommendation ? buildLoadControl(analysis, context.primaryEntry) : null,
+    ),
 
     /*
      * ── Kapitel 3 ODER 4: EIN Eintrag, zwei Quellen ───────────────────────────────────────────

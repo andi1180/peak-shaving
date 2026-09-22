@@ -506,6 +506,26 @@ export function comparisonSelection(analysis: PdfReportAnalysis): ComparisonSele
   return { variant, considered: candidates, shown, horizonYears: analysis.assumptions.horizonYears }
 }
 
+/**
+ * Sagt dieses Kapitel „Nein" — rechnet sich also kein Zusatzgerät neben der bestehenden Anlage?
+ *
+ * ⚠ SIE LIEST `comparisonSelection` UND ERFINDET DIE SCHWELLE NICHT NEU: eine leere Auswahl ist
+ * genau das, was `buildComparisonChapter` den Klarsatz statt der Tabelle bauen lässt
+ * (`buildVerdict`, Überschrift „Lohnt sich ein zusätzlicher Speicher?", Antwort „Nein"). Eine
+ * zweite Fassung von `netSavingOverHorizon > 0` liefe beim nächsten Umbau auseinander.
+ *
+ * ⚠ DER BESTANDSFALL STECKT IN `variant === 'addon'` — `candidatesOf` verzweigt allein an
+ * `existingBatteryAnalysis`. Ein zweites `analysis.existingBatteryAnalysis` daneben wäre dieselbe
+ * Frage an zwei Orten, und nur einer davon würde beim nächsten Umbau angefasst.
+ *
+ * ⚠ `hasComparisonChapter` gehört dazu: ohne das Kapitel wird der Klarsatz gar nicht gezeigt, und
+ * „Nein" ist dann nirgends im Dokument gesagt.
+ */
+export function hasNegativeAddonVerdict(analysis: PdfReportAnalysis): boolean {
+  const { variant, shown } = comparisonSelection(analysis)
+  return variant === 'addon' && shown.length === 0 && hasComparisonChapter(analysis)
+}
+
 export function buildComparisonChapter(
   analysis: PdfReportAnalysis,
   /* Report-Baukasten B1 — s. `buildReportSummary`. Ohne ihn wird wie bisher selbst abgeleitet. */

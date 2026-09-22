@@ -501,6 +501,13 @@ export type ReportChapterPresence = {
    */
   waysCount: number
   /**
+   * `false` = das Kapitel „Empfehlung und Wirtschaftlichkeit" entfällt — s.
+   * `hasRecommendationChapter` (`recommendation.ts`). Der Fall entsteht ausschliesslich mit
+   * Bestandsanlage, deren Gerätewahl „Nein" sagt: die Kaufaussage widerspräche dort dem Verdikt
+   * zwei Kapitel weiter.
+   */
+  recommendation: boolean
+  /**
    * `true` = der Monatsvergleich steht als eigenes Kapitel — s. `hasMonthlyChapter` (`detail.ts`).
    * Im Bestandsfall `false`: dort steht er im Detail-Kapitel an der Stelle des Kostenverlaufs.
    */
@@ -536,7 +543,7 @@ export function buildReportAgenda(presence: ReportChapterPresence): readonly Rep
     ...(presence.ways
       ? [{ ...WAYS_SECTION, title: waysSectionTitle(presence.waysCount) }]
       : []),
-    RECOMMENDATION_SECTION,
+    ...(presence.recommendation ? [RECOMMENDATION_SECTION] : []),
     DETAIL_SECTION,
     ...(presence.monthly ? [MONTHLY_SECTION] : []),
     ...(presence.insight ? [INSIGHT_SECTION] : []),

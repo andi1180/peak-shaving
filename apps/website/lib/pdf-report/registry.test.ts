@@ -307,16 +307,19 @@ const FAELLE: ReadonlyArray<[string, PdfReportInput]> = [
  * ──────────────────────────────────────────────────────────────────────────────────────────── */
 
 /**
- * Was `document.tsx` für diese Kennung zeigt — über dieselben Kapitel-Fassaden und dieselben drei
- * Kapitel-Schalter, die der Seitenbaum auswertet (`document.tsx`: `hasMonthly`/`hasInsight`/
- * `hasComparison` aus dem Kontext). `null` heisst: der Baustein steht in diesem Fall nirgends.
+ * Was `document.tsx` für diese Kennung zeigt — über dieselben Kapitel-Fassaden und dieselben vier
+ * Kapitel-Schalter, die der Seitenbaum auswertet (`document.tsx`: `hasRecommendation`/`hasMonthly`/
+ * `hasInsight`/`hasComparison` aus dem Kontext). `null` heisst: der Baustein steht in diesem Fall
+ * nirgends.
  */
 function expectedFor(id: ReportBaukastenId, input: PdfReportInput): unknown {
   const analysis = input.analysis
   const context = buildReportContext(input)
 
   const summary = buildReportSummary(input, context)
-  const recommendation = buildRecommendationChapter(analysis, context)
+  const recommendation = context.hasRecommendation
+    ? buildRecommendationChapter(analysis, context)
+    : null
   const detail = buildDetailChapter(analysis, { flowDay: null }, context)
   const monthly = context.hasMonthly ? buildMonthlyChapter(analysis) : null
   const insight = context.hasInsight ? buildInsightChapter(analysis, context) : null
@@ -332,9 +335,9 @@ function expectedFor(id: ReportBaukastenId, input: PdfReportInput): unknown {
     case 'large_gap':
       return summary.notices.find((n) => n.id === id) ?? null
     case 'recommendation':
-      return recommendation.recommendation
+      return recommendation?.recommendation ?? null
     case 'load_control':
-      return recommendation.loadControl
+      return recommendation?.loadControl ?? null
     case 'monthly_comparison': {
       const inDetail = detail.cost?.statement
       return inDetail?.id === 'monthly_comparison' ? inDetail : (monthly?.statement ?? null)

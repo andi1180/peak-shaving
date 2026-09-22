@@ -13,6 +13,7 @@ import type {
 } from 'shared'
 
 import type { ReportChartRasters } from './charts'
+import { SECTION_ID } from './content'
 import { buildReportContext } from './context'
 import { ReportDocument } from './document'
 import { buildReportLayout, reportBlockSelected } from './layout'
@@ -340,9 +341,23 @@ function reportText(input: PdfReportInput): string {
 }
 
 async function pdfFor(input: PdfReportInput): Promise<Buffer> {
+  return (await renderFor(input)).pdf
+}
+
+/**
+ * Wie `pdfFor`, gibt aber den Sentinel-Eimer mit zurück.
+ *
+ * ⚠ Er ist die einzige Ablesung am DOKUMENT, die sagt, welche Kapitel es gibt und wo sie beginnen:
+ * `SectionAnchor` meldet je gerenderter `<Page>` (`page-numbers.ts`). Aus dem PDF selbst ist das
+ * nicht lesbar — die Schrift ist als Subset eingebettet, die Textoperanden sind Glyph-Nummern.
+ */
+async function renderFor(
+  input: PdfReportInput,
+): Promise<{ pdf: Buffer; sink: ReturnType<typeof createPageNumberSink> }> {
   const context = buildReportContext(input)
   const registry = buildReportRegistry(input, context)
-  return renderToBuffer(
+  const sink = createPageNumberSink()
+  const pdf = await renderToBuffer(
     h(ReportDocument, {
       input,
       charts: CHARTS,
@@ -350,9 +365,10 @@ async function pdfFor(input: PdfReportInput): Promise<Buffer> {
       registry,
       layout: buildReportLayout(input, context, registry),
       agenda: null,
-      sink: createPageNumberSink(),
+      sink,
     }) as never,
   )
+  return { pdf, sink }
 }
 
 /* ────────────────────────────────────────────────────────────────────────────────────────────────
@@ -486,6 +502,44 @@ describe('Stufe D — der Bestandsfall als zweite Render-Fixture', () => {
     /* Und das Vergleichs-Kapitel, auf das er zeigte, steht unverändert. */
     expect(text).toContain('Gerechnet ist je Zeile EIN gemeinsamer Speicher')
   })
+
+  /**
+   * Sagt die Gerätewahl „Nein", entfällt das Kapitel „Empfehlung und Wirtschaftlichkeit".
+   *
+   * ⚠ GEMESSEN WIRD AM SENTINEL-EIMER und nicht am Schalter: dass `hasRecommendation` falsch ist,
+   * sagt nichts darüber, ob der Seitenbaum ihn liest. Fehlt die Kennung im Eimer, ist die `<Page>`
+   * nicht entstanden — und weil Agenda und Seitenbaum dieselbe Grösse lesen (`document.tsx`),
+   * fehlt damit auch der Agenda-Eintrag samt Zahlenspalte.
+   *
+   * ⚠ Die beiden anderen Fälle sind der Regressionsschutz: der Katalog-Fall (dort IST das Kapitel
+   * die Empfehlung) und der Bestandsfall mit positiver Zusatzspeicher-Antwort (eine eigene, spätere
+   * Runde).
+   */
+  it('Klarsatz-Fall: das Empfehlungs-Kapitel entfällt, die Folgekapitel rücken auf', async () => {
+    const [klarsatz, bestand, katalog] = await Promise.all([
+      renderFor(KLARSATZ_FALL),
+      renderFor(BESTANDSFALL),
+      renderFor(OHNE_BESTAND),
+    ])
+
+    expect(klarsatz.sink.pages[SECTION_ID.recommendation]).toBeUndefined()
+    expect(bestand.sink.pages[SECTION_ID.recommendation]).toBeDefined()
+    expect(katalog.sink.pages[SECTION_ID.recommendation]).toBeDefined()
+
+    /*
+     * Und das nächste Kapitel steht auf genau dem Blatt, auf dem im Ja-Fall die Empfehlung stand.
+     * Die beiden Fixtures unterscheiden sich allein im Vorzeichen der Zusatzszenarien; alles vor
+     * dem Kostenverlauf ist damit Blatt für Blatt vergleichbar.
+     */
+    expect(klarsatz.sink.pages[SECTION_ID.detail]).toBe(
+      bestand.sink.pages[SECTION_ID.recommendation],
+    )
+
+    /* Die zwei Aussagen des Kapitels stehen im Klarsatz-Fall nirgends mehr im Dokument. */
+    const satz = 'Der Speicher lädt in den günstigen Viertelstunden und entlädt in den teuren'
+    expect(reportText(KLARSATZ_FALL)).not.toContain(satz)
+    expect(reportText(BESTANDSFALL)).toContain(satz)
+  }, 90_000)
 
   it('den Verweis aus Nr. 10 gibt es nur mit Bestandsanlage', () => {
     /*

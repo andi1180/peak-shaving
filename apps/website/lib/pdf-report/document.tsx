@@ -1709,6 +1709,10 @@ function WaysChapter({
  * ── ⚠ WAS AUF DIESER SEITE STEHT, ENTSCHEIDET `recommendation.ts` ─────────────────────────────
  * Hier wird gerendert, was die Ableitung liefert. Keine Verzweigung an einem Contract-Feld in
  * diesem JSX — dieselbe Regel wie bei der Zusammenfassung: fehlt eine Aussage, fehlt sie schlicht.
+ *
+ * ⚠ OB ES DIE SEITE GIBT, entscheidet `hasRecommendationChapter` (`context.hasRecommendation`) —
+ * dieselbe Mechanik wie beim Ladeverhalten: der Aufrufer liest die Antwort einmal und gibt sie an
+ * Agenda UND Seitenbaum.
  */
 function RecommendationChapter({
   input,
@@ -2288,7 +2292,7 @@ export function ReportDocument({
    * ⚠ B1: entschieden wird jetzt im KONTEXT, einmal je Dokument statt einmal je Durchlauf. Diese
    * Funktion läuft zwei- bis dreimal (`render.tsx`) — sie LIEST die Antwort nur noch.
    */
-  const { hasWays, hasMonthly, hasComparison } = context
+  const { hasWays, hasMonthly, hasComparison, hasRecommendation } = context
 
   /*
    * ⚠ Report-Baukasten C: KAPITEL 5 FÄLLT MIT SEINEN BEIDEN BAUSTEINEN. Sind beide abgewählt,
@@ -2332,6 +2336,7 @@ export function ReportDocument({
           sections={buildReportAgenda({
             ways: hasWays,
             waysCount: context.waysCount,
+            recommendation: hasRecommendation,
             monthly: hasMonthly,
             insight: hasInsight,
             comparison: hasComparison,
@@ -2366,11 +2371,13 @@ export function ReportDocument({
         </Page>
       )}
 
-      <Page size="A4" style={styles.page}>
-        <PageFurniture sink={sink} docLabel={docLabel} />
-        <SectionAnchor id={RECOMMENDATION_SECTION.id} sink={sink} />
-        <RecommendationChapter input={input} context={context} layout={layout} />
-      </Page>
+      {hasRecommendation && (
+        <Page size="A4" style={styles.page}>
+          <PageFurniture sink={sink} docLabel={docLabel} />
+          <SectionAnchor id={RECOMMENDATION_SECTION.id} sink={sink} />
+          <RecommendationChapter input={input} context={context} layout={layout} />
+        </Page>
+      )}
 
       <Page size="A4" style={styles.page}>
         <PageFurniture sink={sink} docLabel={docLabel} />
