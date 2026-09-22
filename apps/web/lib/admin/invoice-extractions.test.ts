@@ -18,6 +18,8 @@ import {
   invoiceDraftValues,
   invoiceExtractionsKeyCollidesWithContract,
   invoiceMergeDisplayRows,
+  manualTariffDraftIsEmpty,
+  readManualTariffDraft,
   readStoredInvoiceExtractions,
   withStoredInvoiceExtractions,
   type StoredInvoiceExtraction,
@@ -292,5 +294,53 @@ describe('invoiceConflictLabels — dieselben Bezeichnungen, dieselbe Reihenfolg
 describe('der Seiteneintrag verdeckt kein Contract-Feld', () => {
   it('kollidiert nicht mit `tariffParamsSchema`', () => {
     expect(invoiceExtractionsKeyCollidesWithContract()).toBe(false)
+  })
+})
+
+describe('readManualTariffDraft', () => {
+  /*
+   * Der Fehler, den diese Datei ab jetzt fängt: der Entwurf trug die Werte, die Station zeigte
+   * sie nirgends. Gemessen wird deshalb die RÜCKRICHTUNG desselben Wegs — was
+   * `saveMeteringPointManualTariffAction` schreibt, muss hier wieder als Formularwert herauskommen.
+   */
+  it('liefert die geschriebenen Werte als Formularwerte zurück', () => {
+    const draft: Record<string, unknown> = {
+      [NETZBETREIBER_DRAFT_KEY]: 'wiener_netze',
+      netzebene: 'NE 7',
+      meteringVariant: 'mit_leistungsmessung',
+      leistungspreisEurPerKwYear: 82.92,
+      minBillableKw: 35,
+      einspeiseverguetungCtPerKwh: 4.56,
+      [ANNUAL_CONSUMPTION_KWH_KEY]: 48000,
+    }
+
+    const values = readManualTariffDraft(draft)
+
+    expect(values.operatorId).toBe('wiener_netze')
+    // ⚠ Die BLOSSE ZIFFER — das Auswahlfeld führt `7`, der Entwurf `NE 7`.
+    expect(values.netzebene).toBe('7')
+    expect(values.meteringVariant).toBe('mit_leistungsmessung')
+    expect(values.numbers.leistungspreisEurPerKwYear).toBe('82,92')
+    expect(values.numbers.minBillableKw).toBe('35')
+    expect(values.numbers.einspeiseverguetungCtPerKwh).toBe('4,56')
+    // ⚠ Ohne Tausendertrennzeichen — `readManualNumber` in der Action weist eines ab.
+    expect(values.numbers.annualConsumptionKwh).toBe('48000')
+    expect(manualTariffDraftIsEmpty(values)).toBe(false)
+  })
+
+  it('macht aus einem leeren oder unbrauchbaren Entwurf leere Felder statt geratener', () => {
+    expect(manualTariffDraftIsEmpty(readManualTariffDraft({}))).toBe(true)
+
+    const werte = readManualTariffDraft({
+      [NETZBETREIBER_DRAFT_KEY]: 'erfundener-netzbetreiber',
+      netzebene: 'NE 9',
+      meteringVariant: 'erfunden',
+      minBillableKw: 'dreissig',
+    })
+
+    expect(werte.operatorId).toBe('')
+    expect(werte.netzebene).toBe('')
+    expect(werte.meteringVariant).toBe('')
+    expect(werte.numbers.minBillableKw).toBe('')
   })
 })
