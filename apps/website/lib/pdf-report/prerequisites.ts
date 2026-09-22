@@ -1,4 +1,4 @@
-import type { PvStage } from 'shared'
+import type { PvSource, PvStage } from 'shared'
 
 import { formatEur, formatKw, formatKwh1, formatKwp, formatPercent } from '@/lib/format'
 import type { ReportNotice, ReportRow, ReportStatement } from './statement'
@@ -159,8 +159,35 @@ export function buildFramingNotice(analysis: PdfReportAnalysis, hasBattery: bool
  * Kopfzahl der Zusammenfassung (`buildSummaryKpis`) entsteht. `costTodayEur` hier und dort sind
  * damit strukturell derselbe Wert, nicht nur zufällig gleich.
  */
-export function buildConsumptionTodayStatement(analysis: PdfReportAnalysis): ReportStatement {
+export function buildConsumptionTodayStatement(
+  analysis: PdfReportAnalysis,
+  pvSource: PvSource | undefined,
+): ReportStatement {
   const ways = summaryWaysOf(analysis)
+
+  /*
+   * ══════════════════════════════════════════════════════════════════════════════════════════════
+   * ⚠ „GEMESSEN" IST HIER EINE ZUSAGE, UND SIE GILT NICHT IMMER
+   * ══════════════════════════════════════════════════════════════════════════════════════════════
+   * Wurde eine PVGIS-Schätzung vom Verbrauch abgezogen (PV-Stufe „geplant", `run-from-draft.ts`),
+   * steht die Spitze dieses Lastgangs dort, wo die GESCHÄTZTE Erzeugung gerade klein war — nicht
+   * dort, wo ein Zähler eine gemessen hat. Der Report sagt das auf Seite 7 bereits im Klartext
+   * („damit ist jede Lastspitze dieses Lastgangs zur Hälfte eine Schätzung"); dieselbe Zahl hier
+   * als „gemessen" zu beschriften widerspräche dem eigenen Hinweis zwei Seiten weiter.
+   *
+   * ⚠ DIE BEDINGUNG IST `pvSource`, NICHT DIE PV-STUFE. Beide sagen heute dasselbe, aber `pvSource`
+   * ist die Eigenschaft des LASTGANGS, der tatsächlich gerechnet wurde — dieselbe Tatsache, an der
+   * auch der Seite-7-Hinweis hängt (Blocker `estimated_pv`). Über die Stufe abgeleitet könnten die
+   * beiden Aussagen auseinanderlaufen, und sie widersprächen einander im selben Dokument. Der
+   * öffentliche Rechner (`apps/website`) kennt die Stufe zudem gar nicht, koppelt aber ebenso.
+   *
+   * ⚠ NUR DAS LABEL. Die ZAHL bleibt unverändert — sie ist die Spitze des gerechneten Lastgangs,
+   * und genau die trägt den Leistungspreis.
+   */
+  const peakLabel =
+    pvSource === 'estimated'
+      ? 'Höchste Verbrauchsspitze (nach Abzug der geschätzten PV-Erzeugung)'
+      : 'Höchste gemessene Verbrauchsspitze'
 
   return {
     id: 'prerequisites_consumption',
@@ -169,7 +196,7 @@ export function buildConsumptionTodayStatement(analysis: PdfReportAnalysis): Rep
     rows: [
       neutralRow('Kosten', ways ? `${formatEur(ways.costTodayEur)} (netto)` : 'nicht berechenbar'),
       neutralRow('Zeitraum', `${analysis.dataQuality.coveredDays} gemessene Tage`),
-      neutralRow('Höchste gemessene Verbrauchsspitze', formatKw(analysis.current.annualPeakKw)),
+      neutralRow(peakLabel, formatKw(analysis.current.annualPeakKw)),
     ],
     body: '',
   }
@@ -222,7 +249,7 @@ export function buildPrerequisitesChapter(input: PdfReportInput): PrerequisitesC
   return {
     overview: buildOverviewStatement(input),
     framing: buildFramingNotice(analysis, hasBattery),
-    consumption: buildConsumptionTodayStatement(analysis),
+    consumption: buildConsumptionTodayStatement(analysis, input.loadProfile.pvSource),
     priceBasis: buildPriceBasisNotice(input.tariffVintage),
   }
 }
