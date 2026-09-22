@@ -111,9 +111,60 @@ export const EXISTING_BATTERY_DRAFT_KEYS = {
  */
 export const PV_UPLOAD_DRAFT_KEYS = {
   present: 'hasPv',
+  /**
+   * ⚠ DIE FRAGE, DIE `hasPv` NICHT BEANTWORTET — und deren Fehlen ein gemessener Defekt war.
+   *
+   * `hasPv: true` hiess bis zum 22.09.2026 zweierlei zugleich, weil der Wizard wörtlich nach einer
+   * „bereits errichteten ODER FEST BESTELLTEN" Anlage fragte. Für den Rechenlauf sind das aber
+   * gegensätzliche Fälle: die errichtete Anlage steckt im Netzbetreiber-Lastgang bereits als
+   * gesenkter Bezug (`pv_already_in_grid_profile` — ein Abzug wäre Doppelzählung), die bestellte
+   * steckt dort NICHT, und ihre Wirkung entsteht nur, wenn die Schätzreihe abgezogen WIRD.
+   * Dieselbe Antwort löste also die falsche Behandlung des jeweils anderen Falls aus.
+   *
+   * ⚠ FEHLT DER SCHLÜSSEL, GILT `existing`. Jeder vor dieser Änderung beantwortete Zählpunkt
+   * rechnet damit unverändert weiter (s. `pvIsInLoadProfile`) — eine stille Umdeutung bestehender
+   * Angaben wäre die teurere Richtung: sie änderte Zahlen, ohne dass jemand etwas angefasst hat.
+   */
+  stage: 'pvStage',
   sourceDocumentId: 'pvSourceDocumentId',
   profileSource: 'pvProfileSource',
 } as const
+
+/**
+ * Steht die Anlage schon, oder ist sie geplant?
+ *
+ * ⚠ AUSDRÜCKLICH KEIN DATUM UND KEIN ALTER. Gefragt ist nicht, WANN die Anlage gebaut wurde,
+ * sondern ob ihre Erzeugung im hochgeladenen Lastgang bereits wirkt — das ist die einzige
+ * Unterscheidung, die der Rechenlauf braucht. Ein Inbetriebnahmedatum wäre eine zweite Angabe, aus
+ * der sich dieselbe Antwort ableiten liesse, und die erste, die dem Lastgang widerspricht (er kann
+ * aus einem Zeitraum davor stammen).
+ */
+export const PV_STAGES = ['existing', 'planned'] as const
+export type PvStage = (typeof PV_STAGES)[number]
+
+/** Was gilt, wenn `hasPv: true` ohne Stufe dasteht — s. `PV_UPLOAD_DRAFT_KEYS.stage`. */
+export const DEFAULT_PV_STAGE: PvStage = 'existing'
+
+/** Die Stufe eines Entwurfs, `null` wenn es gar keine Anlage gibt oder nichts beantwortet wurde. */
+export function readPvStage(draft: Record<string, unknown>): PvStage | null {
+  if (draft[PV_UPLOAD_DRAFT_KEYS.present] !== true) return null
+  const raw = draft[PV_UPLOAD_DRAFT_KEYS.stage]
+  return (PV_STAGES as readonly unknown[]).includes(raw) ? (raw as PvStage) : DEFAULT_PV_STAGE
+}
+
+/**
+ * Steckt die Erzeugung dieser Anlage im hochgeladenen Lastgang schon drin?
+ *
+ * ⚠ DIE EINE ABLEITUNG, AN DER DER ABZUG HÄNGT — bewusst hier in `shared` und nicht an der
+ * Aufrufstelle: sie wird vom Rechenlauf (`packages/extractors`) UND von der Station
+ * (`apps/web`) gelesen, und `apps/web` darf `engine` nicht kennen. Zwei Fassungen liefen still
+ * auseinander: die Station schriebe „wird abgezogen", gerechnet würde ohne Abzug.
+ *
+ * `false` für eine GEPLANTE Anlage — dann darf und muss die Schätzreihe abgezogen werden.
+ */
+export function pvIsInLoadProfile(draft: Record<string, unknown>): boolean {
+  return readPvStage(draft) === 'existing'
+}
 
 /** Der Wert von `pvProfileSource`, der eine GESCHÄTZTE (PVGIS-)Reihe bezeichnet. */
 export const PV_GENERATED_PROFILE_SOURCE = 'generated'

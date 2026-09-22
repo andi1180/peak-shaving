@@ -218,6 +218,14 @@ export async function createReportRenderRequestAction(
      */
     hasPv: readPvDraft(point.draft).hasPv,
     /*
+     * ⚠ OHNE DIE STUFE IST `hasPv` IM REPORT NICHT LESBAR. Der Report schreibt daraus „bestehend"
+     * oder „geplant", und bei einer geplanten Anlage ist die PV-Wirkung eine SCHÄTZUNG, die vom
+     * Lastgang abgezogen wurde — eine als bestehend ausgewiesene Schätzung wäre die teuerste
+     * Verwechslung des PV-Kapitels. `null` heisst „keine Anlage" oder „nie erfasst"; der Report
+     * liest beides als `existing`, den Zustand jedes vor dem 22.09.2026 erfassten Zählpunkts.
+     */
+    pvStage: readPvDraft(point.draft).pvStage,
+    /*
      * Die Nennleistung der Anlage, Summe über die erfassten Modulflächen — eine ANGABE für den
      * Fliesstext der Zusammenfassung („eine PV-Anlage (10,2 kWp)") und keine Rechengrösse: die
      * Engine bekommt einen Lastgang, in dem die Erzeugung bereits steckt.

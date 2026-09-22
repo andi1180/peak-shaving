@@ -1,3 +1,5 @@
+import type { PvStage } from 'shared'
+
 import { formatEur, formatKw, formatKwh1, formatKwp, formatPercent } from '@/lib/format'
 import type { ReportNotice, ReportRow, ReportStatement } from './statement'
 import { summaryWaysOf } from './summary'
@@ -55,12 +57,24 @@ function batteryRow(analysis: PdfReportAnalysis): ReportRow | null {
  * Referenz-PDF: der Contract trägt sie nicht (nur `pvPeakPowerKwp`, die Summe über alle
  * Modulflächen) — s. `types.ts`.
  */
-function pvRow(hasPv: boolean | undefined, pvPeakPowerKwp: number | undefined): ReportRow | null {
+function pvRow(
+  hasPv: boolean | undefined,
+  pvStage: PvStage | undefined,
+  pvPeakPowerKwp: number | undefined,
+): ReportRow | null {
   if (hasPv !== true) return null
+
+  /*
+   * ⚠ „bestehend" IST EINE TATSACHENBEHAUPTUNG. Bis zum 22.09.2026 stand sie hier unbedingt — auch
+   * über einer Anlage, die erst geplant ist: die Station fragte nach einer „errichteten ODER FEST
+   * BESTELLTEN" und konnte die beiden gar nicht trennen. Eine fehlende Stufe gilt als `existing`,
+   * weil jeder vor dieser Änderung erfasste Zählpunkt genau das meinte (`DEFAULT_PV_STAGE`).
+   */
+  const stage = pvStage === 'planned' ? 'geplant' : 'bestehend'
 
   return neutralRow(
     'Ihre PV-Anlage',
-    pvPeakPowerKwp === undefined ? 'bestehend' : `${formatKwp(pvPeakPowerKwp)}, bestehend`,
+    pvPeakPowerKwp === undefined ? stage : `${formatKwp(pvPeakPowerKwp)}, ${stage}`,
   )
 }
 
@@ -82,7 +96,7 @@ export function buildOverviewStatement(input: PdfReportInput): ReportStatement {
   const analysis = input.analysis
   const rows = [
     batteryRow(analysis),
-    pvRow(input.hasPv, input.pvPeakPowerKwp),
+    pvRow(input.hasPv, input.pvStage, input.pvPeakPowerKwp),
     gridConnectionRow(analysis, input.tariffSource),
   ].filter((r): r is ReportRow => r !== null)
 

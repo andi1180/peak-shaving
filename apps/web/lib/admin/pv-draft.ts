@@ -27,9 +27,16 @@
  * ── ⚠ WAS DIESE ANGABE NICHT IST ─────────────────────────────────────────────────────────────
  * Sie ist NICHT die Erzeugungskurve und auch keine Aussage über deren Herkunft. Ob eine vorhandene
  * Anlage als gemessenes Profil vorliegt oder geschätzt werden muss (PVGIS, B22), entscheidet der
- * Ja-Zweig — und der ist ein eigener Bauabschnitt. `hasPv: true` heisst heute ausschliesslich:
+ * Ja-Zweig — und der ist ein eigener Bauabschnitt. `hasPv: true` heisst ausschliesslich:
  * „es gibt eine Anlage", nicht „ihre Erzeugung ist erfasst".
+ *
+ * ⚠ SEIT DEM 22.09.2026 REICHT `hasPv` FÜR DEN RECHENLAUF NICHT MEHR AUS. Die zweite Angabe
+ * (`PV_STAGE_KEY`) sagt, ob die Anlage im Lastgang schon WIRKT — Begründung in voller Länge bei
+ * `PV_UPLOAD_DRAFT_KEYS.stage` (`shared`). Beide werden hier zusammen gelesen, damit die Station
+ * gar nicht erst die eine ohne die andere anzeigen kann.
  */
+
+import { PV_UPLOAD_DRAFT_KEYS, readPvStage, type PvStage } from 'shared'
 
 import { PV_ARRAYS_KEY } from './pv-array-draft'
 import { PV_PROFILE_DRAFT_KEYS } from './pv-profile-draft'
@@ -45,6 +52,9 @@ import { PV_PROFILE_DRAFT_KEYS } from './pv-profile-draft'
  * unterscheidbar bleiben — sonst stellte die Station sie nach jedem Neuladen erneut.
  */
 export const PV_PRESENT_KEY = 'hasPv'
+
+/** Die Stufe der Anlage (bestehend / geplant) — s. `PV_UPLOAD_DRAFT_KEYS.stage` in `shared`. */
+export const PV_STAGE_KEY = PV_UPLOAD_DRAFT_KEYS.stage
 
 /**
  * ALLE Entwurfs-Schlüssel, die zur PV-Angabe dieses Zählpunkts gehören — die Antwort auf die
@@ -67,6 +77,9 @@ export const PV_PRESENT_KEY = 'hasPv'
  */
 export const PV_DRAFT_KEYS: readonly string[] = [
   PV_PRESENT_KEY,
+  // ⚠ Muss mit gelöscht werden: eine stehengebliebene Stufe ohne `hasPv` wäre eine Aussage über
+  // eine Anlage, von der der Zählpunkt selbst nicht mehr behauptet, dass es sie gibt.
+  PV_STAGE_KEY,
   PV_ARRAYS_KEY,
   ...PV_PROFILE_DRAFT_KEYS,
 ]
@@ -75,6 +88,13 @@ export const PV_DRAFT_KEYS: readonly string[] = [
 export type PvDraftSummary = {
   /** `true`/`false` = die Frage wurde beantwortet · `null` = dazu steht nichts im Entwurf. */
   hasPv: boolean | null
+  /**
+   * Bestehend oder geplant — `null`, solange es keine Anlage gibt.
+   *
+   * ⚠ Ein `hasPv: true` OHNE Stufe ergibt `'existing'` und nicht `null`: jeder vor dem 22.09.2026
+   * beantwortete Zählpunkt rechnet damit unverändert weiter (s. `DEFAULT_PV_STAGE`).
+   */
+  pvStage: PvStage | null
 }
 
 export function readPvDraft(draft: Record<string, unknown>): PvDraftSummary {
@@ -85,5 +105,8 @@ export function readPvDraft(draft: Record<string, unknown>): PvDraftSummary {
    * exportiert seinen Leser nicht, und ihn dafür zu öffnen machte aus zwei unabhängigen
    * Entwurfs-Modulen eines, das am anderen hängt.
    */
-  return { hasPv: value === true ? true : value === false ? false : null }
+  return {
+    hasPv: value === true ? true : value === false ? false : null,
+    pvStage: readPvStage(draft),
+  }
 }

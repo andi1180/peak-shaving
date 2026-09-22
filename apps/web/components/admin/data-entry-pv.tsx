@@ -218,7 +218,7 @@ export function DataEntryPv({
     if (postalState.success) setIsEditingPostal(false)
   }, [postalState.success])
 
-  const { hasPv } = readPvDraft(meteringPoint.draft)
+  const { hasPv, pvStage } = readPvDraft(meteringPoint.draft)
   const pvProfile = readPvProfileDraft(meteringPoint.draft)
   const uploadError = uploadState.fieldErrors?.file
 
@@ -298,11 +298,18 @@ export function DataEntryPv({
           <input type="hidden" name="meteringPointId" value={meteringPoint.id} />
 
           <p className="max-w-prose text-body text-ink">
-            Haben Sie bereits eine PV-Anlage für Zählpunkt {meteringPointNumber}?
+            Gibt es eine PV-Anlage für Zählpunkt {meteringPointNumber}?
           </p>
+          {/*
+            ⚠ DIE FRAGE LAUTETE BIS ZUM 22.09.2026 „Haben Sie BEREITS …?" und nannte im Hinweis
+            ausdrücklich auch die „fest bestellte" Anlage — also zwei Fälle unter einer Antwort.
+            Für den Rechenlauf sind sie gegensätzlich: die errichtete steckt im Lastgang schon
+            drin, die bestellte nicht. Die Unterscheidung ist deshalb die Antwort selbst und kein
+            Zusatz darunter; die Erklärung steht AN den Knöpfen, wo sie gelesen wird.
+          */}
           <p className="mt-2 max-w-prose text-small text-text-muted">
-            Gemeint ist eine bereits errichtete oder fest bestellte Anlage — unabhängig davon, ob ihre
-            Erzeugung gemessen vorliegt.
+            Entscheidend ist nicht das Baujahr, sondern ob ihre Erzeugung im hochgeladenen Lastgang
+            schon wirkt.
           </p>
 
           <div className="mt-4 flex flex-wrap items-center gap-3">
@@ -317,7 +324,17 @@ export function DataEntryPv({
               {isSaving && (
                 <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2} aria-hidden="true" />
               )}
-              Ja
+              Ja, sie ist in Betrieb
+            </Button>
+            <Button
+              type="submit"
+              name={PV_PRESENT_KEY}
+              value="geplant"
+              variant="secondary"
+              size="md"
+              disabled={isSaving}
+            >
+              Ja, aber geplant oder bestellt
             </Button>
             <Button
               type="submit"
@@ -348,10 +365,32 @@ export function DataEntryPv({
         <div className="flex flex-col gap-3">
           <p className="max-w-prose text-body text-ink">
             <span className="font-medium">
-              {hasPv ? 'Vermerkt: PV-Anlage vorhanden' : 'Vermerkt: keine PV-Anlage vorhanden'}
+              {hasPv === false
+                ? 'Vermerkt: keine PV-Anlage vorhanden'
+                : pvStage === 'planned'
+                  ? 'Vermerkt: PV-Anlage geplant oder bestellt'
+                  : 'Vermerkt: PV-Anlage in Betrieb'}
             </span>{' '}
             <span className="text-text-muted">(Zählpunkt {meteringPointNumber})</span>
           </p>
+
+          {/*
+            ⚠ WAS MIT DER SCHÄTZREIHE GESCHIEHT, GEHÖRT HIERHER — sonst ist es eine stille
+            Eigenschaft. Der Wizard BIETET den PVGIS-Generator in beiden Fällen an (die Reihe ist
+            auch die Eingabe der künftigen „ohne PV"-Vergleichsrechnung), der Rechenlauf ZIEHT sie
+            aber nur bei einer geplanten Anlage ab. Ohne diesen Satz erzeugt ein Admin eine
+            Schätzung und sieht sie im Report nirgends wieder (`pv-reference/eligibility.ts`).
+          */}
+          {hasPv === true && (
+            <p className="max-w-prose text-small text-text-muted">
+              {pvStage === 'planned'
+                ? 'Die Anlage steckt noch nicht im Lastgang. Eine geschätzte Erzeugung wird deshalb ' +
+                  'vom gemessenen Netzbezug abgezogen — die Analyse rechnet den Zustand NACH dem Bau.'
+                : 'Ihre Erzeugung steckt im gemessenen Netzbezug bereits. Eine geschätzte Reihe wird ' +
+                  'deshalb NICHT abgezogen (das zählte dieselbe Energie zweimal); die Analyse ' +
+                  'rechnet den echten Lastgang.'}
+            </p>
+          )}
 
           {/*
             ⚠ DER LÖSCHWEG STEHT DIREKT UNTER DER ANTWORT, nicht am Fuss der ganzen Station: bei

@@ -11,7 +11,7 @@ import { MAX_BATTERY_TEXT_CHARS, MAX_INVOICE_FILE_BYTES } from 'extractors'
  * `MAX_PROJECT_DOCUMENT_BYTES` (die ABLAGE ist die kleinere von zwei Grenzen). Hier steht
  * deshalb die Quelle und keine zweite Zahl.
  */
-import { MAX_PROJECT_DOCUMENT_BYTES } from 'shared'
+import { MAX_PROJECT_DOCUMENT_BYTES, pvIsInLoadProfile } from 'shared'
 import { INVOICE_SKIPPED_KEY, MAX_INVOICES_PER_UPLOAD } from './invoice-extractions'
 
 /**
@@ -128,7 +128,7 @@ const { BATTERY_DRAFT_KEYS, BATTERY_VALUE_FIELDS, readBatteryDraft, batteryDraft
  * verteilt entsteht (`hasPv` · die Modulflächen · die zehn Profil-Schlüssel). Abgetippt bliebe der
  * Test grün, während der Löschweg genau die Hälfte stehen liesse.
  */
-const { PV_DRAFT_KEYS, PV_PRESENT_KEY, readPvDraft } = await import('./pv-draft')
+const { PV_DRAFT_KEYS, PV_PRESENT_KEY, PV_STAGE_KEY, readPvDraft } = await import('./pv-draft')
 const { PV_ARRAYS_KEY, readPvArraysDraft, pvArraysDraftIsEmpty } = await import('./pv-array-draft')
 const { PV_PROFILE_DRAFT_KEYS, readPvProfileDraft, hasPvProfile } =
   await import('./pv-profile-draft')
@@ -1712,22 +1712,44 @@ describe('PV-Station', () => {
     expect(provenance.hasPv?.source).toBe('measured')
   })
 
-  it('speichert „ja" und schreibt sonst nichts', async () => {
+  it('speichert „ja" mit der Stufe `existing` und schreibt sonst nichts', async () => {
     const keysBefore = Object.keys(draft)
 
     const state = await saveMeteringPointPvChoiceAction({}, pvForm('ja'))
 
     expect(state.formError).toBeUndefined()
-    expect(state.success).toBe('Vermerkt: Es gibt bereits eine PV-Anlage.')
+    expect(state.success).toContain('bereits in Betrieb')
     expect(draft.hasPv).toBe(true)
+    expect(draft.pvStage).toBe('existing')
 
     /*
      * ⚠ Der Ja-Zweig erhebt in diesem Bauschritt NICHTS über die Erzeugung. Ein hier nebenbei
      * geschriebenes Profil-Feld wäre eine Aussage über eine Kurve, die niemand hochgeladen hat.
      */
     const added = Object.keys(draft).filter((key) => !keysBefore.includes(key))
-    expect(added).toEqual(['hasPv'])
+    expect(added).toEqual(['hasPv', 'pvStage'])
     expect(rpc.mock.calls.filter(([fn]) => fn === 'update_metering_point_draft')).toHaveLength(1)
+  })
+
+  it('⚠ trennt „geplant" von „in Betrieb" — dieselbe Antwort löste zwei gegensätzliche Rechnungen aus', async () => {
+    /*
+     * Die Station fragte bis zum 22.09.2026 nach einer „errichteten ODER FEST BESTELLTEN" Anlage.
+     * Für den Rechenlauf sind das die Gegensätze: die errichtete steckt im Lastgang bereits (die
+     * PVGIS-Schätzung darf NICHT abgezogen werden), die bestellte nicht (sie MUSS abgezogen
+     * werden, sonst entsteht ihre Wirkung in keiner Zahl).
+     */
+    await saveMeteringPointPvChoiceAction({}, pvForm('geplant'))
+    expect(draft.hasPv).toBe(true)
+    expect(draft.pvStage).toBe('planned')
+    expect(pvIsInLoadProfile(draft)).toBe(false)
+
+    // Ein Wechsel auf „in Betrieb" dreht die Wirkung, ohne eine zweite Angabe stehen zu lassen.
+    await saveMeteringPointPvChoiceAction({}, pvForm('ja'))
+    expect(draft.pvStage).toBe('existing')
+    expect(pvIsInLoadProfile(draft)).toBe(true)
+
+    // ⚠ Ein vor dieser Änderung erfasster Zählpunkt trägt keine Stufe und rechnet unverändert.
+    expect(pvIsInLoadProfile({ hasPv: true })).toBe(true)
   })
 
   it('⚠ eine geänderte Antwort ÜBERSCHREIBT die frühere', async () => {
@@ -2532,11 +2554,17 @@ describe('deleteMeteringPointPvAction', () => {
      */
     expect(PV_DRAFT_KEYS).toContain(PV_PRESENT_KEY)
     expect(PV_DRAFT_KEYS).toContain(PV_ARRAYS_KEY)
+    /*
+     * ⚠ Die STUFE gehört mit gelöscht. Bliebe sie stehen, trüge der Zählpunkt die Aussage
+     * „geplant" über eine Anlage, von der er selbst nicht mehr behauptet, dass es sie gibt — und
+     * die nächste „Ja"-Antwort erbte sie stillschweigend.
+     */
+    expect(PV_DRAFT_KEYS).toContain(PV_STAGE_KEY)
     for (const key of PV_PROFILE_DRAFT_KEYS) {
       expect(PV_DRAFT_KEYS, key).toContain(key)
     }
-    // Die Antwort plus die Flächen plus die Profil-Schlüssel — und sonst nichts.
-    expect(PV_DRAFT_KEYS).toHaveLength(PV_PROFILE_DRAFT_KEYS.length + 2)
+    // Die Antwort, die Stufe, die Flächen und die Profil-Schlüssel — und sonst nichts.
+    expect(PV_DRAFT_KEYS).toHaveLength(PV_PROFILE_DRAFT_KEYS.length + 3)
   })
 
   it('⚠ löscht ALLE PV-Schlüssel samt Vermerken — nicht nur `hasPv`', async () => {

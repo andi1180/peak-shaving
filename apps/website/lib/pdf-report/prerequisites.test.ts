@@ -150,6 +150,24 @@ describe('buildPrerequisitesChapter — Urbanz-Fall (Bestandsbatterie, PV, NE7 o
     ])
   })
 
+  it('⚠ schreibt „geplant" statt „bestehend", sobald die Anlage erst geplant ist', () => {
+    /*
+     * „bestehend" ist eine TATSACHENBEHAUPTUNG über den Betrieb des Kunden. Sie stand hier bis zum
+     * 22.09.2026 unbedingt — auch über einer Anlage, die erst bestellt ist: die Station konnte die
+     * beiden Fälle gar nicht trennen. Eine FEHLENDE Stufe bleibt „bestehend", weil jeder vor dieser
+     * Änderung erfasste Zählpunkt genau das meinte.
+     */
+    const geplant = buildPrerequisitesChapter(inputFor({ pvStage: 'planned' }))
+    expect(geplant.overview.rows).toContainEqual({
+      label: 'Ihre PV-Anlage',
+      value: `${formatKwp(9.8)}, geplant`,
+      tone: 'neutral',
+    })
+    expect(buildPrerequisitesChapter(inputFor({ pvStage: undefined })).overview.rows).toContainEqual(
+      { label: 'Ihre PV-Anlage', value: `${formatKwp(9.8)}, bestehend`, tone: 'neutral' },
+    )
+  })
+
   it('nennt im Rahmen-Satz die zwei tragenden Quellen und keine Spitzenkappung', () => {
     expect(chapter.framing.body).toBe(
       'Ihr Anschluss hat keinen Leistungspreis-Bestandteil (eine Zusatzgebühr für hohe ' +

@@ -1,10 +1,12 @@
 import type { PvOutageMonth } from 'engine'
 import {
   NETZBETREIBER_IDS,
+  PV_STAGES,
   readReportSectionSelection,
   type AnalysisResult,
   type LoadProfile,
   type NetzbetreiberId,
+  type PvStage,
   type ReportSectionSelection,
 } from 'shared'
 
@@ -68,6 +70,12 @@ export type ReportRenderMeta = {
    * und das ist NICHT `false` (s. `readPvDraft` auf der Schreibseite).
    */
   hasPv: boolean | null
+  /**
+   * Bestehend oder geplant (`PV_STAGES`, `shared`). `null` = keine Anlage ODER eine Übergabe aus
+   * einer Fassung, die die Stufe noch nicht führte — beides wird als `'existing'` gelesen, dem
+   * Zustand jedes vor dem 22.09.2026 erfassten Zählpunkts.
+   */
+  pvStage: PvStage | null
   /**
    * Die erfasste Nennleistung der PV-Anlage in kWp (Summe über alle Modulflächen). `null` = keine
    * erfasst ODER eine Übergabe aus einer Fassung, die sie noch nicht führte — beide führen zu
@@ -178,6 +186,7 @@ function readMeta(value: unknown): ReportRenderMeta {
   const label = meta.customerLabel
   const baseFee = meta.supplierBaseFeeEurPerMonth
   const hasPv = meta.hasPv
+  const pvStage = meta.pvStage
   const pvKwp = meta.pvPeakPowerKwp
   return {
     customerLabel: typeof label === 'string' && label !== '' ? label : null,
@@ -185,6 +194,8 @@ function readMeta(value: unknown): ReportRenderMeta {
     supplierBaseFeeEurPerMonth: typeof baseFee === 'number' ? baseFee : null,
     /* Strikt `true`/`false` — `'true'` oder `1` sähen wie eine Antwort aus und sind keine. */
     hasPv: hasPv === true ? true : hasPv === false ? false : null,
+    /* Ein fremder Wert aus einem von Hand veränderten `jsonb` wird verworfen, nicht geraten. */
+    pvStage: (PV_STAGES as readonly unknown[]).includes(pvStage) ? (pvStage as PvStage) : null,
     /* ⚠ `> 0` und nicht bloss „ist eine Zahl": eine 0-kWp-Anlage wäre keine, und `NaN` aus einem
        von Hand veränderten `jsonb` stünde sonst als „(NaN kWp)" auf einem Kundendokument. */
     pvPeakPowerKwp: typeof pvKwp === 'number' && Number.isFinite(pvKwp) && pvKwp > 0 ? pvKwp : null,
@@ -318,6 +329,7 @@ export function buildReportInputFromRenderRequest(
     estimatedPv: undefined,
     /* D5 — beide Hälften bleiben getrennt; verknüpft werden sie im Kapitel (`basis.ts`). */
     hasPv: meta.hasPv ?? undefined,
+    pvStage: meta.pvStage ?? undefined,
     /* Ohne erfasste Nennleistung steht der Satz der Zusammenfassung ohne Klammerwert. */
     pvPeakPowerKwp: meta.pvPeakPowerKwp ?? undefined,
     pvOutageMonths: meta.pvOutageMonths,

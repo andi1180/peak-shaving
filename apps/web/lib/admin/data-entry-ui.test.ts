@@ -867,7 +867,7 @@ describe('B24 — die PV-Station', () => {
      * wirklich gespeichert ist — genau dann, wenn der Schreibvorgang scheitert: die Oberfläche
      * zeigte einen beantworteten Zweig, und im Entwurf stünde nichts.
      */
-    expect(source).toContain('const { hasPv } = readPvDraft(meteringPoint.draft)')
+    expect(source).toContain('const { hasPv, pvStage } = readPvDraft(meteringPoint.draft)')
 
     /*
      * ⚠ NACHGEZOGEN, NICHT GELOCKERT (PLZ-Schritt): Die Prüfung lautete `not.toContain('useState')`
@@ -890,10 +890,29 @@ describe('B24 — die PV-Station', () => {
     expect(source).toContain('name={PV_PRESENT_KEY}')
     expect(source).toContain("value=\"ja\"")
     expect(source).toContain("value=\"nein\"")
+    /*
+     * ⚠ DIE DRITTE ANTWORT IST DER GRUND DIESER STATION (22.09.2026). „errichtet" und „bestellt"
+     * standen bis dahin unter derselben Antwort und lösten im Rechenlauf das Gegenteil voneinander
+     * aus: die errichtete Anlage steckt im Lastgang bereits, die bestellte nicht. Fällt der Knopf
+     * weg, ist der Fehler zurück — und zwar unsichtbar, weil die Station weiter funktioniert.
+     */
+    expect(source).toContain("value=\"geplant\"")
     expect(source).not.toContain('type="checkbox"')
     expect(source).not.toContain('type="radio"')
     // Und der Feldname kommt aus dem Entwurfs-Modul, nicht als getippte Zeichenkette.
     expect(source).not.toContain("name=\"hasPv\"")
+  })
+
+  it('⚠ die Station sagt, was mit der PVGIS-Schätzung geschieht — je Stufe verschieden', () => {
+    /*
+     * Der Wizard BIETET den Generator in beiden Fällen an (die Reihe ist auch die Eingabe der
+     * künftigen „ohne PV"-Vergleichsrechnung), der Rechenlauf ZIEHT sie aber nur bei einer
+     * GEPLANTEN Anlage ab (`pv-reference/eligibility.ts` gegen `run-from-draft.ts`). Ohne diesen
+     * Satz erzeugt ein Admin eine Schätzung und sieht sie im Report nirgends wieder.
+     */
+    expect(source).toContain("pvStage === 'planned'")
+    expect(source).toContain('vom gemessenen Netzbezug abgezogen')
+    expect(source).toContain('NICHT abgezogen')
   })
 
   /*
@@ -915,7 +934,7 @@ describe('B24 — die PV-Station', () => {
      * und wäre der erste Treffer auf die blosse Zeichenkette. Der Wächter wäre dann grün, sobald
      * die Bedingung irgendwo NACH dem Rückfragetext auftaucht, also faktisch immer.
      */
-    const question = source.indexOf('Haben Sie bereits eine PV-Anlage für Zählpunkt')
+    const question = source.indexOf('Gibt es eine PV-Anlage für Zählpunkt')
     expect(question).toBeGreaterThan(-1)
     // Die Frage hängt an `hasPv === null` — und die Bedingung steht VOR ihr, umschliesst sie also.
     const gate = source.indexOf('{hasPv === null && (')
@@ -929,8 +948,9 @@ describe('B24 — die PV-Station', () => {
      */
     expect(source).not.toContain('aria-pressed')
 
-    // An seiner Stelle sagt eine Zeile im Klartext, was vermerkt ist — für BEIDE Antworten.
-    expect(source).toContain('Vermerkt: PV-Anlage vorhanden')
+    // An seiner Stelle sagt eine Zeile im Klartext, was vermerkt ist — für ALLE DREI Antworten.
+    expect(source).toContain('Vermerkt: PV-Anlage in Betrieb')
+    expect(source).toContain('Vermerkt: PV-Anlage geplant oder bestellt')
     expect(source).toContain('Vermerkt: keine PV-Anlage vorhanden')
 
     // Und der Rückweg, ohne den das Verschwinden eine Sackgasse wäre.
@@ -1026,11 +1046,18 @@ describe('B24 — die PV-Station', () => {
     expect(close).not.toContain('MAX_PV_PROFILE_FILE_BYTES')
   })
 
-  it('⚠ die Action schreibt GENAU EIN Feld und leitet NICHT um', () => {
+  it('⚠ die Action schreibt Antwort UND Stufe in EINEM Vorgang und leitet NICHT um', () => {
     const action = actions.slice(actions.indexOf('export async function saveMeteringPointPvChoiceAction'))
     const body = action.slice(0, action.indexOf('\n}\n'))
-    // Ein Feld, ein Schreibvorgang — der Wrapper ERSETZT den Entwurf.
-    expect(body).toContain('[{ field: PV_PRESENT_KEY, value: has }]')
+    /*
+     * ⚠ EIN Schreibvorgang für BEIDE Felder — der Wrapper ERSETZT den Entwurf. Getrennt
+     * geschrieben gäbe es einen Zustand mit `hasPv: true` ohne Stufe, und der wird als
+     * `existing` gelesen: ein abgebrochener zweiter Schreibvorgang machte aus einer geplanten
+     * Anlage still eine bestehende und den Abzug der Schätzung damit lautlos rückgängig.
+     */
+    expect(body).toContain('{ field: PV_PRESENT_KEY, value: true }')
+    expect(body).toContain('{ field: PV_STAGE_KEY, value: stage }')
+    expect(body.match(/writeMeteringPointDraftFields\(/g)).toHaveLength(1)
     /*
      * Kein `redirect`: der gespeicherte Stand ist das Einzige, was ein Mensch hier prüfen kann.
      * Eine Weiterleitung nähme ihm genau die Bestätigung, die er gerade ausgelöst hat.
