@@ -1,10 +1,10 @@
 import type { LoadProfile, PvProfile } from 'shared'
 
 import { matchAdapter } from './adapters'
-import { countCoveredMonths, toIsoUtc, type DateFormat } from './datetime'
+import { countCoveredMonths, toIsoUtc, utcMsToLocalFields, type DateFormat } from './datetime'
 import { detectStructure, isInverterExport, type DetectionDraft } from './detect'
 import { byteSize, resolveLimits } from './limits'
-import { normalizeLoad, normalizeSingleValue } from './normalize'
+import { normalizeLoad, normalizeSingleValue, type NormalizeResult } from './normalize'
 import { prepareSeries } from './prepare'
 import { extractTable } from './table'
 import type {
@@ -26,6 +26,64 @@ function err(
   message: string,
 ): { ok: false; kind: 'error'; error: ParseError } {
   return { ok: false, kind: 'error', error: { code, message } }
+}
+
+/** `TT.MM.JJJJ` in der Profil-Zeitzone — für Meldungen, nicht für Rechnungen. */
+function localDate(ms: number, timeZone: string): string {
+  const { year, month, day } = utcMsToLocalFields(ms, timeZone)
+  return `${String(day).padStart(2, '0')}.${String(month).padStart(2, '0')}.${year}`
+}
+
+/**
+ * Meldungen zu übersprungenen Zeilen — je Ausfallart eine, NIE zu einer Zahl addiert. (22.09.2026)
+ *
+ * Eine Zeile ohne lesbaren Zeitstempel und eine Zeile ohne Messwert sind zwei verschiedene
+ * Befunde: die erste ist ein Verdacht auf falsch erkanntes Format, die zweite eine Aussage über
+ * den Zähler. Am Referenzfall trug die Datei 14.980 wertlose Zeilen am Anfang, weil die Auslesung
+ * erst später begann — die gemeinsame Meldung las sich dort wie ein Parser-Fehler.
+ *
+ * ── ⚠ DER ZEITRAUM WIRD NUR BEHAUPTET, WENN ER EINER IST ─────────────────────────────────────
+ * Ein Anfangs- oder Endblock liegt vor, wenn ALLE Wert-Ausfälle vor dem ersten bzw. nach dem
+ * letzten gemessenen Wert liegen. Sonst nennt der Satz bewusst keine Grenzen: „von … bis …" über
+ * verstreute Lücken gelesen hiesse, dazwischen fehle auch alles.
+ *
+ * Gemessen wird gegen die ROHEN Lesungen, nicht gegen `prepareSeries` — dort sind interpolierte
+ * Slots von gemessenen nicht mehr zu unterscheiden.
+ *
+ * Die Meldung zum Zeitstempel-Fall ist absichtlich wortgleich die bisherige.
+ */
+function skippedRowWarnings(norm: NormalizeResult, timeZone: string): string[] {
+  const out: string[] = []
+  if (norm.skippedTimestampRows > 0)
+    out.push(`${norm.skippedTimestampRows} Zeile(n) ohne gültigen Zeitstempel/Wert übersprungen.`)
+
+  const range = norm.valueGapRange
+  if (range == null) return out
+
+  const count = `${norm.skippedValueRows} Zeile(n) ohne Messwert`
+  if (norm.readings.length === 0) {
+    out.push(`${count}, verteilt über den Zeitraum.`)
+    return out
+  }
+
+  let firstMs = Number.POSITIVE_INFINITY
+  let lastMs = Number.NEGATIVE_INFINITY
+  for (const r of norm.readings) {
+    if (r.ms < firstMs) firstMs = r.ms
+    if (r.ms > lastMs) lastMs = r.ms
+  }
+
+  const from = localDate(range.fromMs, timeZone)
+  const to = localDate(range.toMs, timeZone)
+  const span = from === to ? `am ${from}` : `${from} bis ${to}`
+
+  if (range.toMs < firstMs)
+    out.push(`${count} (${span}) — die Zählerauslesung beginnt erst ab ${localDate(firstMs, timeZone)}.`)
+  else if (range.fromMs > lastMs)
+    out.push(`${count} (${span}) — die Zählerauslesung endet mit ${localDate(lastMs, timeZone)}.`)
+  else out.push(`${count}, verteilt über den Zeitraum.`)
+
+  return out
 }
 
 function decimalFallback(delimiter?: string): ',' | '.' {
@@ -272,9 +330,7 @@ export function parseLoadProfile(
     )
 
   // Datenqualität + Warnungen.
-  const warnings = [...prepared.warnings]
-  if (norm.skippedRows > 0)
-    warnings.push(`${norm.skippedRows} Zeile(n) ohne gültigen Zeitstempel/Wert übersprungen.`)
+  const warnings = [...prepared.warnings, ...skippedRowWarnings(norm, tz)]
 
   // Pflichtwarnung (§3.1): import_only ohne PV-Profil.
   if (source === 'import_only' && !options.hasPvProfile) {
@@ -390,9 +446,7 @@ export function parsePvProfile(
       `Nur 15-min-Intervall unterstützt (erkannt: ${prepared.intervalMinutes} min).`,
     )
 
-  const warnings = [...prepared.warnings]
-  if (norm.skippedRows > 0)
-    warnings.push(`${norm.skippedRows} Zeile(n) ohne gültigen Zeitstempel/Wert übersprungen.`)
+  const warnings = [...prepared.warnings, ...skippedRowWarnings(norm, timezone)]
 
   const profile: PvProfile = {
     readings: prepared.slots.map((s) => ({ ts: toIsoUtc(s.ms), pvGenerationKw: s.value })),
