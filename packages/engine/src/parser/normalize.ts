@@ -17,7 +17,53 @@ export type NormalizeParams = {
 export type NormalizeResult = {
   readings: RawReading[]
   parsedRows: number
+  /** Summe beider Ausfallarten. */
   skippedRows: number
+  /** Zeilen, deren Zeitstempel unlesbar ist — sie haben keinen Ort auf der Zeitachse. */
+  skippedTimestampRows: number
+  /** Zeilen MIT gültigem Zeitstempel, aber ohne verwertbaren Messwert. */
+  skippedValueRows: number
+  /** Erster und letzter Zeitstempel der Wert-Ausfälle; `null`, wenn es keine gibt. */
+  valueGapRange: { fromMs: number; toMs: number } | null
+}
+
+/**
+ * Sammelstelle für die beiden Ausfallarten. (22.09.2026)
+ *
+ * Sie waren bis hierher EIN Zähler, und die daraus gebaute Meldung („ohne gültigen
+ * Zeitstempel/Wert") konnte zwei sehr verschiedene Dinge bedeuten: eine unlesbare Zeile — also ein
+ * Verdacht auf falsch erkanntes Format — oder eine Zeile, die korrekt an ihrer Stelle steht und
+ * bloss keinen Messwert trägt, weil der Zähler zu der Zeit noch nichts geliefert hat. Am
+ * Referenzfall waren es 14.980 Zeilen der zweiten Art, und die Meldung las sich wie ein
+ * Parser-Fehler. Getrennt gezählt, nie addiert.
+ */
+function createSkipTally() {
+  let timestampRows = 0
+  let valueRows = 0
+  let fromMs = Number.POSITIVE_INFINITY
+  let toMs = Number.NEGATIVE_INFINITY
+
+  return {
+    noteTimestamp() {
+      timestampRows++
+    },
+    /** `ms` ist der GÜLTIGE Zeitstempel der Zeile — nur der Wert fehlt. */
+    noteValue(ms: number) {
+      valueRows++
+      if (ms < fromMs) fromMs = ms
+      if (ms > toMs) toMs = ms
+    },
+    finish(readings: RawReading[]): NormalizeResult {
+      return {
+        readings,
+        parsedRows: readings.length,
+        skippedRows: timestampRows + valueRows,
+        skippedTimestampRows: timestampRows,
+        skippedValueRows: valueRows,
+        valueGapRange: valueRows > 0 ? { fromMs, toMs } : null,
+      }
+    },
+  }
 }
 
 function cellNumber(cell: RawCell, decimal: DecimalSeparator): number {
@@ -66,14 +112,14 @@ export function normalizeLoad(
 ): NormalizeResult {
   const { columns, dateFormat, decimal, unit, timezone, source, signConvention } = params
   const readings: RawReading[] = []
-  let skipped = 0
+  const tally = createSkipTally()
 
   const isSummation = columns.consumptionCols != null || columns.feedInCols != null
 
   for (const row of dataRows) {
     const ms = rowTimestamp(row, columns, dateFormat, timezone)
     if (!Number.isFinite(ms)) {
-      skipped++
+      tally.noteTimestamp()
       continue
     }
 
@@ -83,7 +129,7 @@ export function normalizeLoad(
       const cons = sumCols(row, columns.consumptionCols ?? [], decimal)
       const feed = sumCols(row, columns.feedInCols ?? [], decimal)
       if (cons == null && feed == null) {
-        skipped++
+        tally.noteValue(ms)
         continue
       }
       kw = toKw((cons ?? 0) - (feed ?? 0), unit)
@@ -91,14 +137,14 @@ export function normalizeLoad(
       const imp = cellNumber(row[columns.import ?? -1] ?? null, decimal)
       const exp = cellNumber(row[columns.export ?? -1] ?? null, decimal)
       if (!Number.isFinite(imp) && !Number.isFinite(exp)) {
-        skipped++
+        tally.noteValue(ms)
         continue
       }
       kw = toKw((Number.isFinite(imp) ? imp : 0) - (Number.isFinite(exp) ? exp : 0), unit)
     } else {
       const v = cellNumber(row[columns.value ?? -1] ?? null, decimal)
       if (!Number.isFinite(v)) {
-        skipped++
+        tally.noteValue(ms)
         continue
       }
       // net_signed: Vorzeichenkonvention der Quelle berücksichtigen; import_only: bereits ≥0 gemeint.
@@ -109,7 +155,7 @@ export function normalizeLoad(
     readings.push({ ms, value: kw })
   }
 
-  return { readings, parsedRows: readings.length, skippedRows: skipped }
+  return tally.finish(readings)
 }
 
 /** Normalisiert eine einzelne Wertspalte (für PvProfile: pvGenerationKw), §3.1. */
@@ -119,17 +165,22 @@ export function normalizeSingleValue(
 ): NormalizeResult {
   const { columns, dateFormat, decimal, unit, timezone } = params
   const readings: RawReading[] = []
-  let skipped = 0
+  const tally = createSkipTally()
 
   for (const row of dataRows) {
+    // Zeitstempel zuerst: ohne ihn lässt sich ein fehlender Wert keinem Zeitpunkt zuordnen.
     const ms = rowTimestamp(row, columns, dateFormat, timezone)
+    if (!Number.isFinite(ms)) {
+      tally.noteTimestamp()
+      continue
+    }
     const v = cellNumber(row[columns.value ?? -1] ?? null, decimal)
-    if (!Number.isFinite(ms) || !Number.isFinite(v)) {
-      skipped++
+    if (!Number.isFinite(v)) {
+      tally.noteValue(ms)
       continue
     }
     readings.push({ ms, value: toKw(v, unit) })
   }
 
-  return { readings, parsedRows: readings.length, skippedRows: skipped }
+  return tally.finish(readings)
 }
