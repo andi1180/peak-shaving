@@ -169,6 +169,30 @@ Details und der vollständige Stand: siehe `./Pflichtenheft_Kalkulator_MVP.md`, 
 
 > Lebendiger Handover-Anker. Neueste offene Punkte, die den Bau der Engine/Simulation berühren. Erledigtes wandert raus.
 
+### Zwei stille Mängel aus #295 behoben — CI wieder grün (23.09.2026)
+
+Beide standen seit dem 21.09.2026 im roten DB-Gate, beide auch in Produktion gemessen
+(Management-API), Korrektur in `20260923190000_fix_grid_tariff_messpreis_check_and_note.sql`:
+
+**(a) `grid_tariffs_messpreis_check` liess einen Betrag OHNE Einheit durch.** Nicht vergessen,
+sondern dreiwertige Logik: `messpreis_unit in (…)` ergibt bei `null` NULL statt FALSE, und ein CHECK
+gilt als erfüllt, sobald sein Ausdruck NULL ist. Die Gegenrichtung (Einheit ohne Betrag) war nie
+betroffen — diese Asymmetrie hat den Mangel unauffällig gemacht. **⚠ Wer künftig einen Paar-CHECK
+schreibt, prüft BEIDE Richtungen echt gegen die DB; die Introspektion des Constraint-Texts sieht
+richtig aus.** Vorher gegen Produktion gemessen: 9 Zeilen, 0 verletzende.
+
+**(b) `create_grid_tariff` verlor die Notiz am Zeitfenster.** #295 hat die Funktion per DROP+CREATE
+neu angelegt und dafür die Fassung aus **B21-2b** als Vorlage genommen — also die vor B21-2d, die
+`note` noch nicht kannte. Die Messpreis-Parameter kamen dazu, `note` fiel dabei still heraus; der
+INSERT lief weiter, die Notiz landete nur nirgends (in Produktion bestätigt). Der Zwilling
+`backfill_grid_tariff` in derselben Migration war korrekt. **⚠ Eine per DROP+CREATE erneuerte
+Funktion wird gegen die JÜNGSTE Fassung abgeglichen, nicht gegen die, aus der die Aufgabe stammt.**
+
+Dazu vier Typfehler in Testdateien, die nie getypt wurden, weil der erste Fehler den Lauf abbrach
+(`pnpm -r` hält an): `CalculatorPayload` aus `'shared'` statt `'engine'` importiert, fehlendes
+`pv: null` im Payload-Fixture, unvollständige `PdfReportInput`/`PvOutageMonth`-Fixturen. Kein
+Produktionscode beteiligt.
+
 ### Vorausschauende Ladesteuerung — „Zahl 2" gebaut, aber nur intern (21.09.2026)
 
 `packages/engine/src/foresight/` rechnet den **vorausschauenden `controlValueEur`**: denselben

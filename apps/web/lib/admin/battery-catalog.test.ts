@@ -19,6 +19,7 @@ const BASE: BatteryCatalogRow = {
   usable_capacity_kwh: 60,
   max_power_kw: 30,
   round_trip_efficiency: 0.9,
+  rte_source: 'datenblatt',
   list_price_net: 24000,
   inverter_included: true,
   extra_inverter_cost_net: null,

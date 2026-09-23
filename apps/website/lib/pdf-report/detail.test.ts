@@ -198,8 +198,19 @@ describe('Monatsvergleich als eigenes Kapitel (D7)', () => {
       'monthly_comparison',
     )
     const tabelle = buildTariffComponents({
+      title: 'Report',
+      subtitle: '',
+      period: null,
+      printedAt: '2026-09-23',
+      tariffVintage: null,
       analysis,
-      loadProfile: { source: 'net_signed' },
+      // Die Tabelle liest den Lastgang nicht — er steht hier nur, weil der Eingabetyp ihn verlangt.
+      loadProfile: {
+        readings: [{ ts: '2025-03-17T00:00:00.000Z', gridPowerKw: 9 }],
+        intervalMinutes: 15,
+        timezoneMeta: 'Europe/Vienna',
+        source: 'net_signed',
+      },
       tariffSource: TARIFF_SOURCE_UNTRACKED,
     })
     const zelle = tabelle.rows.find((r) => r.key === 'tariff_supplier_fee')!.cells[1]
