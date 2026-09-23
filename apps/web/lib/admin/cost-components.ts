@@ -9,12 +9,13 @@
 
 export const COST_COMPONENTS_HREF = '/admin/kostenbausteine'
 
-export const COST_COMPONENT_ARTEN = ['fundament', 'installation'] as const
+export const COST_COMPONENT_ARTEN = ['fundament', 'installation', 'wechselrichter'] as const
 export type CostComponentArt = (typeof COST_COMPONENT_ARTEN)[number]
 
 export const COST_COMPONENT_ART_LABELS: Record<CostComponentArt, string> = {
   fundament: 'Fundament',
   installation: 'Installation',
+  wechselrichter: 'Wechselrichter',
 }
 
 /**
@@ -31,6 +32,8 @@ export type CostComponentRow = {
   beschreibung: string | null
   price_net: number | null
   price_as_of: string | null
+  /** Nennleistung (kW), nur bei Art `wechselrichter` (H1). */
+  leistung_kw: number | null
   notes: string | null
   created_at: string
   updated_at: string
@@ -56,8 +59,11 @@ export function costComponentPriceText(row: Pick<CostComponentRow, 'price_net'>)
  * steht das ausdrücklich — sonst wählt jemand einen Baustein aus und versteht die anschliessend
  * abgelehnte Freigabe nicht.
  */
-export function costComponentOptionLabel(row: Pick<CostComponentRow, 'bezeichnung' | 'price_net'>): string {
-  return `${row.bezeichnung} — ${costComponentPriceText(row)}`
+export function costComponentOptionLabel(
+  row: Pick<CostComponentRow, 'bezeichnung' | 'price_net'> & { leistung_kw?: number | null },
+): string {
+  const kw = row.leistung_kw == null ? '' : ` · ${row.leistung_kw.toLocaleString('de-AT')} kW`
+  return `${row.bezeichnung} — ${costComponentPriceText(row)}${kw}`
 }
 
 /**

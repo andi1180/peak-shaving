@@ -39,6 +39,7 @@ import {
 
 const spawnedUsers: string[] = []
 const spawnedBatteries: string[] = []
+const spawnedComponents: string[] = []
 
 beforeAll(assertStackReachable)
 
@@ -47,6 +48,9 @@ afterAll(async () => {
   // deshalb auch echt wieder weg — sonst stuenden Testgeraete im Bestand.
   for (const id of spawnedBatteries) {
     await sql('delete from public.battery_catalog where id = $1', [id]).catch(() => undefined)
+  }
+  for (const id of spawnedComponents) {
+    await sql('delete from public.battery_cost_components where id = $1', [id]).catch(() => undefined)
   }
   for (const id of spawnedUsers) await deleteUser(id).catch(() => undefined)
   await pool.end()
@@ -158,11 +162,14 @@ describe('K1 — Rechtefläche', () => {
     const signatures = [
       'public.admin_list_battery_catalog(text, boolean)',
       'public.admin_get_battery(uuid)',
-      'public.admin_create_battery(text, text, text, integer, numeric, numeric, numeric, text, numeric, boolean, numeric, boolean, uuid, uuid, date, text, text, text, text)',
-      'public.admin_update_battery(uuid, text, text, text, integer, numeric, numeric, numeric, text, numeric, boolean, numeric, boolean, uuid, uuid, date, text, text, text, text)',
+      'public.admin_create_battery(text, text, text, integer, numeric, numeric, numeric, text, numeric, boolean, uuid, boolean, uuid, uuid, date, text, text, text, text)',
+      'public.admin_update_battery(uuid, text, text, text, integer, numeric, numeric, numeric, text, numeric, boolean, uuid, boolean, uuid, uuid, date, text, text, text, text)',
       'public.admin_set_battery_active(uuid, boolean)',
       'public.admin_delete_battery(uuid)',
       'public.admin_set_battery_purchase_price(uuid, numeric, date)',
+      // H1: die Baustein-Wrapper mit neuer Signatur (DROP+CREATE) — der revoke muss mitgekommen sein.
+      'public.admin_create_cost_component(text, text, text, numeric, date, text, numeric)',
+      'public.admin_update_cost_component(uuid, text, text, text, numeric, date, text, numeric)',
     ]
     for (const sig of signatures) {
       const [row] = await sql<{ a: boolean; s: boolean; auth: boolean }>(
@@ -236,7 +243,7 @@ describe('K1 — Aktivieren verlangt Vollständigkeit', () => {
     const admin = await newAdmin()
     const id = await createBattery(admin, {
       p_usable_capacity_kwh: 10,
-      p_inverter_included: false, // ⇒ der Wechselrichter-Aufpreis wird zur Pflicht
+      p_inverter_included: false, // ⇒ der Wechselrichter-Baustein wird zur Pflicht
       p_requires_foundation: true, // ⇒ die Fundamentkosten ebenso
     })
 
@@ -254,7 +261,7 @@ describe('K1 — Aktivieren verlangt Vollständigkeit', () => {
       // aus wie ein belegter.
       'rte_source',
       'list_price_net',
-      'extra_inverter_cost_net',
+      'inverter_component_id',
       // K1b: aus einem Betrag am Gerät ist der Verweis auf einen Kostenbaustein geworden.
       'foundation_component_id',
     ])
@@ -467,5 +474,116 @@ describe('K1 — Bearbeiten', () => {
       p_round_trip_efficiency: 1.5,
     })
     expect(res.status).toBe('invalid_values')
+  })
+})
+
+describe('H1 — der Wechselrichter als Kostenbaustein', () => {
+  it('Freigabe verlangt einen Wechselrichter-Baustein MIT Preis; die Leser liefern ihn mit', async () => {
+    const admin = await newAdmin()
+
+    // Ohne Nennleistung gibt es keinen Wechselrichter-Baustein.
+    expect(
+      await callNamed<{ status: string }>(admin, 'public.admin_create_cost_component', {
+        p_art: 'wechselrichter',
+        p_bezeichnung: `Gate WR ${randomUUID()}`,
+      }),
+    ).toMatchObject({ status: 'invalid_leistung' })
+
+    const created = await callNamed<{ status: string; id: string }>(
+      admin,
+      'public.admin_create_cost_component',
+      { p_art: 'wechselrichter', p_bezeichnung: `Gate WR ${randomUUID()}`, p_leistung_kw: 8 },
+    )
+    expect(created.status).toBe('created')
+    spawnedComponents.push(created.id)
+
+    const heim = {
+      ...COMPLETE,
+      p_kategorie: 'heim',
+      p_hersteller: 'Gate Hersteller',
+      p_bezeichnung: `Gate Heim ${randomUUID()}`,
+      p_max_power_kw: 12,
+      p_inverter_included: false,
+    }
+    const id = await createBattery(admin, heim)
+    const activate = () =>
+      callNamed<{ status: string; missing?: string[] }>(admin, 'public.admin_set_battery_active', {
+        p_id: id,
+        p_active: true,
+      })
+
+    expect(await activate()).toEqual({ status: 'incomplete', missing: ['inverter_component_id'] })
+
+    const assigned = await callNamed<{ status: string }>(admin, 'public.admin_update_battery', {
+      p_id: id,
+      ...heim,
+      p_inverter_component_id: created.id,
+    })
+    expect(assigned.status).toBe('updated')
+    expect(await activate()).toEqual({
+      status: 'incomplete',
+      missing: ['inverter_component_price_net'],
+    })
+
+    const priced = await callNamed<{ status: string }>(admin, 'public.admin_update_cost_component', {
+      p_id: created.id,
+      p_art: 'wechselrichter',
+      p_bezeichnung: 'Gate WR bepreist',
+      p_price_net: 1330.5,
+      p_leistung_kw: 8,
+    })
+    expect(priced.status).toBe('updated')
+    expect((await activate()).status).toBe('activated')
+
+    const got = await callNamed<{ battery: Record<string, unknown> }>(admin, 'public.admin_get_battery', {
+      p_id: id,
+    })
+    expect(got.battery).toMatchObject({
+      inverter_component_label: 'Gate WR bepreist',
+      inverter_component_price_net: 1330.5,
+      inverter_component_leistung_kw: 8,
+    })
+    const listed = await callNamed<Array<{ id: string; inverter_component_leistung_kw: number }>>(
+      admin,
+      'public.admin_list_battery_catalog',
+      { p_kategorie: 'heim' },
+    )
+    expect(listed.find((r) => r.id === id)?.inverter_component_leistung_kw).toBe(8)
+    const component = await callNamed<{ used_by_active_count: number }>(
+      admin,
+      'public.admin_get_cost_component',
+      { p_id: created.id },
+    )
+    expect(component.used_by_active_count).toBe(1)
+    const components = await callNamed<Array<{ id: string }>>(admin, 'public.admin_list_cost_components', {
+      p_art: 'wechselrichter',
+    })
+    expect(components.some((c) => c.id === created.id)).toBe(true)
+
+    // An den Wrappern vorbei: einer aktiven Zeile lässt sich der Baustein nicht nehmen.
+    await expect(
+      runAs({ role: 'postgres' }, (c) =>
+        c.query('update public.battery_catalog set inverter_component_id = null where id = $1', [id]),
+      ),
+    ).rejects.toMatchObject({ code: '23514' })
+  })
+
+  it('ein Nicht-Wechselrichter-Baustein im Wechselrichter-Feld wird abgewiesen', async () => {
+    const admin = await newAdmin()
+    const fundament = await callNamed<{ status: string; id: string }>(
+      admin,
+      'public.admin_create_cost_component',
+      { p_art: 'fundament', p_bezeichnung: `Gate Fundament ${randomUUID()}`, p_price_net: 2000 },
+    )
+    spawnedComponents.push(fundament.id)
+
+    const res = await callNamed<{ status: string }>(admin, 'public.admin_create_battery', {
+      p_kategorie: 'heim',
+      p_hersteller: 'Gate',
+      p_bezeichnung: `Gate falsche Art ${randomUUID()}`,
+      p_inverter_included: false,
+      p_inverter_component_id: fundament.id,
+    })
+    expect(res.status).toBe('invalid_component')
   })
 })

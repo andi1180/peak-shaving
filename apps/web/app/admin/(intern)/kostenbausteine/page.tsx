@@ -81,7 +81,10 @@ export default async function AdminCostComponentsPage() {
               {rows.length === 0 && <EmptyRow colSpan={6}>Noch keine Bausteine angelegt.</EmptyRow>}
               {rows.map((row) => (
                 <tr key={row.id}>
-                  <Td>{costComponentArtLabel(row.art)}</Td>
+                  <Td>
+                    {costComponentArtLabel(row.art)}
+                    {row.leistung_kw != null && ` · ${row.leistung_kw.toLocaleString('de-AT')} kW`}
+                  </Td>
                   <Td>
                     <Link
                       href={`${COST_COMPONENTS_HREF}/${row.id}`}

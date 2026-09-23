@@ -8,7 +8,7 @@ import { missingEngineFields, type BatteryCatalogRow } from './battery-catalog'
  *
  * Geprüft werden die zwei Stellen, an denen ein Spiegel realistisch abweicht: die BEDINGTEN
  * Pflichtfelder (die zwei Zuschläge, die `roi.ts` addiert) und die Unterscheidung „false" von
- * „nicht angegeben" — `inverter_included === false` macht den Aufpreis zur Pflicht, `null` nicht.
+ * „nicht angegeben" — `inverter_included === false` macht den Wechselrichter-Baustein zur Pflicht, `null` nicht.
  */
 const BASE: BatteryCatalogRow = {
   id: 'b1',
@@ -22,10 +22,10 @@ const BASE: BatteryCatalogRow = {
   rte_source: 'datenblatt',
   list_price_net: 24000,
   inverter_included: true,
-  extra_inverter_cost_net: null,
   requires_foundation: false,
   foundation_component_id: null,
   installation_component_id: null,
+  inverter_component_id: null,
   price_as_of: null,
   source_url: null,
   datasheet_url: null,
@@ -40,6 +40,9 @@ const BASE: BatteryCatalogRow = {
   foundation_component_price_net: null,
   installation_component_label: null,
   installation_component_price_net: null,
+  inverter_component_label: null,
+  inverter_component_price_net: null,
+  inverter_component_leistung_kw: null,
 }
 
 describe('missingEngineFields', () => {
@@ -50,7 +53,13 @@ describe('missingEngineFields', () => {
   it('macht die zwei Zuschläge nur dort zur Pflicht, wo sie in die Investition eingehen', () => {
     expect(
       missingEngineFields({ ...BASE, inverter_included: false, requires_foundation: true }),
-    ).toEqual(['extra_inverter_cost_net', 'foundation_component_id'])
+    ).toEqual(['inverter_component_id', 'foundation_component_id'])
+  })
+
+  it('verlangt am zugeordneten Wechselrichter-Baustein Preis und Nennleistung', () => {
+    expect(
+      missingEngineFields({ ...BASE, inverter_included: false, inverter_component_id: 'w1' }),
+    ).toEqual(['inverter_component_price_net', 'inverter_component_leistung_kw'])
   })
 
   // K1b: aus einem Betrag sind zwei Zustände geworden, und sie verlangen verschiedene Handgriffe

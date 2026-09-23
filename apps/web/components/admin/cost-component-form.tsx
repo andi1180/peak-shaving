@@ -33,6 +33,7 @@ function defaults(state: AdminState, row?: CostComponentRow): Record<string, str
     beschreibung: row.beschreibung ?? '',
     priceNet: row.price_net === null ? '' : String(row.price_net),
     priceAsOf: row.price_as_of ?? '',
+    leistungKw: row.leistung_kw === null ? '' : String(row.leistung_kw),
     notes: row.notes ?? '',
   }
 }
@@ -115,6 +116,18 @@ function Fields({
           error={err('priceAsOf')}
         />
       </div>
+
+      {/* Immer sichtbar statt an die Art gekoppelt: ein Formular-Reset nach der Action setzt das
+          Art-Feld zurück, eine davon abhängige Sichtbarkeit liefe dann auseinander. */}
+      <AdminField
+        id={`${formId}-leistungKw`}
+        name="leistungKw"
+        label="Nennleistung (kW)"
+        inputMode="numeric"
+        defaultValue={values.leistungKw}
+        error={err('leistungKw')}
+        hint="Nur bei Art Wechselrichter, dort Pflicht — begrenzt die Lade-/Entladeleistung des Speichers. Bei Fundament und Installation wird der Wert nicht gespeichert."
+      />
 
       <AdminField
         id={`${formId}-notes`}

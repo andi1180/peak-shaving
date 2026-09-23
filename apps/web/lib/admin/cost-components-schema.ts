@@ -18,7 +18,7 @@ export const costComponentSchema = z.object({
     .trim()
     .refine(
       (v) => (COST_COMPONENT_ARTEN as readonly string[]).includes(v),
-      'Bitte Fundament oder Installation wählen.',
+      'Bitte Fundament, Installation oder Wechselrichter wählen.',
     ),
   bezeichnung: z.string().trim().min(1, 'Bitte eine Bezeichnung angeben.').max(200),
   beschreibung: optionalText(),
@@ -47,6 +47,24 @@ export const costComponentSchema = z.object({
     .transform((v) => (v === '' ? undefined : v))
     .refine((v) => v === undefined || /^\d{4}-\d{2}-\d{2}$/.test(v), 'Bitte ein gültiges Datum.'),
   notes: optionalText(4000),
+  leistungKw: z
+    .string()
+    .trim()
+    .transform((v) => (v === '' ? undefined : Number(v.replace(',', '.'))))
+    .superRefine((v, ctx) => {
+      if (v !== undefined && !(Number.isFinite(v) && v > 0)) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Bitte die Nennleistung als Zahl über 0 angeben.' })
+      }
+    }),
+}).superRefine((v, ctx) => {
+  // Dieselbe Pflicht wie der CHECK `battery_cost_components_leistung_check` — hier benannt am Feld.
+  if (v.art === 'wechselrichter' && v.leistungKw === undefined) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['leistungKw'],
+      message: 'Ein Wechselrichter braucht seine Nennleistung in kW.',
+    })
+  }
 })
 
 export type CostComponentInput = z.infer<typeof costComponentSchema>
@@ -58,6 +76,7 @@ export const COST_COMPONENT_FORM_FIELDS = [
   'priceNet',
   'priceAsOf',
   'notes',
+  'leistungKw',
 ] as const
 
 export function readCostComponentForm(formData: FormData): Record<string, unknown> {

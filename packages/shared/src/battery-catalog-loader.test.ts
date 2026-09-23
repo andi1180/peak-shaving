@@ -20,12 +20,12 @@ function row(overrides: Partial<BatteryCatalogRow> = {}): BatteryCatalogRow {
     round_trip_efficiency: 0.89,
     list_price_net: 36000,
     inverter_included: true,
-    extra_inverter_cost_net: 0,
     requires_foundation: true,
     control_type: null,
     active: true,
     foundation_component: { art: 'fundament', price_net: 2200 },
     installation_component: null,
+    inverter_component: null,
     ...overrides,
   }
 }
@@ -74,6 +74,36 @@ describe('batteryCatalogRowToCandidate', () => {
     expect(
       batteryCatalogRowToCandidate(row({ foundation_component: { art: 'fundament', price_net: null } })),
     ).toEqual({ ok: false, reason: 'foundation_price_missing' })
+  })
+
+  it('rechnet einen Wechselrichter-Baustein ein: Preis in die Investition, Leistung als Obergrenze', () => {
+    const result = batteryCatalogRowToCandidate(
+      row({
+        kategorie: 'heim',
+        max_power_kw: 12,
+        inverter_included: false,
+        requires_foundation: false,
+        foundation_component: null,
+        inverter_component: { art: 'wechselrichter', price_net: '1330.5', leistung_kw: '8' },
+      }),
+    )
+    expect(result.ok && result.candidate).toMatchObject({
+      inverterIncluded: false,
+      extraInverterCost: 1330.5,
+      maxPowerKw: 8,
+      roundTripEfficiency: 0.89,
+    })
+  })
+
+  it('weist ein Gerät ohne eingebauten Wechselrichter und ohne bepreisten Baustein ab', () => {
+    for (const inverter_component of [
+      null,
+      { art: 'wechselrichter', price_net: null, leistung_kw: 8 },
+    ]) {
+      expect(
+        batteryCatalogRowToCandidate(row({ inverter_included: false, inverter_component })),
+      ).toEqual({ ok: false, reason: 'inverter_price_missing' })
+    }
   })
 
   it('weist eine inaktive und eine unvollständige Zeile ab', () => {
@@ -143,6 +173,9 @@ describe('loadBatteryCatalog', () => {
     )
     expect(BATTERY_CATALOG_SELECT).toContain(
       'installation_component:battery_cost_components!battery_catalog_installation_component_id_fkey',
+    )
+    expect(BATTERY_CATALOG_SELECT).toContain(
+      'inverter_component:battery_cost_components!battery_catalog_inverter_component_id_fkey(art,price_net,leistung_kw)',
     )
   })
 })
