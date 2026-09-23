@@ -76,3 +76,22 @@ gespeichert wurde.
 
 Ausgangslage und Aufräumen macht er selbst (`battery-catalog-rte-source.seed.sql`, das Testgerät
 wird am Ende gelöscht). Er braucht kein Projekt und keinen Zählpunkt, nur das Admin-Konto.
+
+## admin-select-form-reset.mjs
+
+Derselbe Fehler wie oben, aber für die ÜBRIGEN Admin-Formulare — seit 23.09.2026 behebt ihn
+`AdminSelect` selbst (`useSelectValueOnFormReset`), und dieser Lauf hält den Nachweis offen. Er
+fährt drei Formulare in einer Sitzung, ausgewählt nach den drei Bauarten, in denen `AdminSelect`
+vorkommt:
+
+1. **Lead bearbeiten** — `defaultValue` aus der Serverzeile nach `revalidatePath`. ⚠ Der zweite
+   Speichern-Klick wiegt hier am schwersten: `admin_update_lead` deutet leer als LÖSCHEN.
+2. **Kostenbaustein bearbeiten** — ein Feld OHNE Leer-Eintrag: es fällt nicht auf „nichts" zurück,
+   sondern auf den falschen Wert `fundament`.
+3. **Lieferanten-Tarif anlegen** — `defaultValue` aus `state.values`, also aus der ABGELEHNTEN
+   Eingabe; der Quellenbeleg bleibt absichtlich leer.
+
+Nachweis für den Fix: **ohne ihn rot (6 Fehlschläge), mit ihm grün.** Ausgangslage und Aufräumen
+macht er selbst (`admin-select-form-reset.seed.sql`); er braucht nur das Admin-Konto.
+
+Vollständiger Befund samt Prüfung des Altbestands: `AdminSelect_Audit.md` im Repo-Root.

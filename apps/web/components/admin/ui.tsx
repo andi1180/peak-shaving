@@ -271,6 +271,63 @@ export function AdminFixedValue({
   )
 }
 
+/**
+ * ⚠ EIN `<select>` ÜBERSTEHT DEN FORMULAR-RESET NICHT VON SELBST — DAS HOLT DIESER HAKEN NACH.
+ *
+ * React setzt ein Formular zurück, sobald seine Action durchgelaufen ist (`form.reset()`, noch in
+ * der Mutationsphase). Ein `<input>` übersteht das, weil React sein `defaultValue` bei jedem
+ * Rerender in den DOM nachschreibt — der Reset trifft also schon den neuen Stand. Bei `<select>`
+ * gibt es diese Nachführung NICHT: `defaultValue` wirkt einzig beim Einhängen (React setzt daraus
+ * `option.defaultSelected`), und der Reset fällt deshalb auf den Stand des SEITENAUFBAUS zurück.
+ *
+ * Der Anzeigefehler ist der kleinere Teil. Das zurückgefallene Feld schickt beim nächsten
+ * Speichern seinen leeren Wert mit, und wo `leer` als LÖSCHEN gilt (`admin_update_battery`,
+ * `admin_update_lead`), löscht ein zweites Speichern ohne Änderung die gerade gespeicherte Angabe.
+ *
+ * Gemacht wird genau das Fehlende: bevor der Browser die Zurücksetzung ausführt, bekommen die
+ * Optionen ein `defaultSelected`, das dem AKTUELLEN `defaultValue` entspricht. Der Listener läuft
+ * vor der Standardaktion des `reset`-Ereignisses, der Reset landet damit auf dem neuen Stand.
+ *
+ * ⚠ WARUM NICHT EIN WERT-ABHÄNGIGER `key` (der punktuelle Fix aus dem Batteriekatalog): Er hängt
+ * das Feld bei JEDER Änderung von `defaultValue` neu ein. Dort, wo `defaultValue` aus dem eigenen
+ * `onValueChange` gespeist wird (`grid-tariff-form`, `lead-intake-form`), fiele damit bei jeder
+ * Auswahl der Fokus aus dem Feld — Tastaturbedienung erzeugt pro Pfeiltaste ein `change`. Dieser
+ * Haken rührt das Feld nur beim Reset an und kollidiert deshalb mit nichts.
+ *
+ * ⚠ WARUM DIE ABLAGE IM RENDER GESCHRIEBEN WIRD: Ein `useEffect` liefe erst NACH dem Commit — also
+ * nach dem Reset desselben Commits, und der Listener trüge im entscheidenden Moment noch den alten
+ * Wert. Die Zuweisung im Rendern entspricht dem, was React den Textfeldern in der Mutationsphase
+ * selbst tut.
+ *
+ * ⚠ DER KONTROLLIERTE FALL IST MITGEMEINT, und zwar nicht vorsorglich: React schreibt bei einem
+ * `<select>` mit `value` zwar in jedem Commit `option.selected` nach, aber nie `defaultSelected`
+ * (`updateOptions(…, setDefaultSelected = false)`, react-dom 19.2). Der Reset läuft im selben
+ * Commit NACH dieser Nachführung und gewinnt deshalb auch dort. Der Haken hält daher den
+ * WIRKSAMEN Wert (`value ?? defaultValue`) fest, nicht nur den unkontrollierten.
+ */
+function useSelectValueOnFormReset(
+  ref: React.RefObject<HTMLSelectElement | null>,
+  wanted: string | undefined,
+) {
+  const latest = React.useRef(wanted)
+  latest.current = wanted
+
+  React.useEffect(() => {
+    const form = ref.current?.form
+    if (!form) return
+    const onReset = () => {
+      const select = ref.current
+      const wanted = latest.current
+      if (!select || wanted === undefined) return
+      for (const option of Array.from(select.options)) {
+        option.defaultSelected = option.value === wanted
+      }
+    }
+    form.addEventListener('reset', onReset)
+    return () => form.removeEventListener('reset', onReset)
+  }, [ref])
+}
+
 /** Auswahlfeld mit Label und Hinweis-Slot — gleiche Form wie AdminField. */
 export function AdminSelect({
   id,
@@ -321,11 +378,14 @@ export function AdminSelect({
 }) {
   const hintId = `${id}-hint`
   const showHint = Boolean(error) || Boolean(hint)
+  const selectRef = React.useRef<HTMLSelectElement>(null)
+  useSelectValueOnFormReset(selectRef, value ?? defaultValue)
   return (
     <div>
       <Label htmlFor={id}>{label}</Label>
       <div className="mt-1.5">
         <Select
+          ref={selectRef}
           id={id}
           name={name}
           {...(value === undefined
