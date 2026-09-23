@@ -67,6 +67,11 @@ export function coveredMonthlyPeaksKw(loadProfile: LoadProfile): number[] {
 }
 
 /** [ANNAHME] N=10 — im Pflichtenheft §3.4 nicht beziffert, folgt CLAUDE_PEAKSHAVING.md. */
+/** Anzahl der Kalendermonate mit mindestens einem Messwert — die Monate, die `billedKw` abdeckt. */
+export function coveredMonthCount(loadProfile: LoadProfile): number {
+  return coveredMonthlyPeaksKw(loadProfile).length
+}
+
 export const TOP_PEAKS_N = 10
 
 /** Top-N Bezugsspitzen mit Zeitstempel, absteigend sortiert (§3.4). */

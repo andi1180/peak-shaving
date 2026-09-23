@@ -1,4 +1,10 @@
-import type { BatteryCandidate, LoadProfile, TariffParams, TariffPricingInputs } from 'shared'
+import {
+  demandChargePerYear,
+  type BatteryCandidate,
+  type LoadProfile,
+  type TariffParams,
+  type TariffPricingInputs,
+} from 'shared'
 
 import {
   capForIntervalSeries,
@@ -9,6 +15,7 @@ import {
 import { peakShavingBlockers } from '../simulation/peak-shaving'
 import { simulateBattery, type BatterySimulationResult } from '../simulation/simulate'
 import { intervalTariffRates } from '../simulation/tou'
+import { coveredMonthCount } from '../peaks/metrics'
 import { getTariffStrategy } from '../tariff/strategy'
 import { annualizationFactor, coveredDaysOf } from './annualization'
 
@@ -368,7 +375,12 @@ export function computeBatterySavings(
     }
   } else {
     newBilledKw = sim.newBilledKw
-    leistungspreisSavingPerYear = (oldBilledKw - newBilledKw) * tariffParams.leistungspreisEurPerKwYear
+    leistungspreisSavingPerYear = demandChargePerYear(
+      oldBilledKw - newBilledKw,
+      tariffParams.leistungspreisEurPerKwYear,
+      tariffParams.billingModel,
+      coveredMonthCount(loadProfile),
+    )
   }
 
   const totalSavingPerYear =

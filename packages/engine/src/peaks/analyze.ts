@@ -1,7 +1,13 @@
-import type { AnalysisResult, LoadProfile, TariffParams } from 'shared'
+import { demandChargePerYear, type AnalysisResult, type LoadProfile, type TariffParams } from 'shared'
 
 import { getTariffStrategy } from '../tariff/strategy'
-import { peakDistribution, positiveAnnualPeakKw, positiveMonthlyPeaksKw, topPeaksKw } from './metrics'
+import {
+  coveredMonthCount,
+  peakDistribution,
+  positiveAnnualPeakKw,
+  positiveMonthlyPeaksKw,
+  topPeaksKw,
+} from './metrics'
 
 export type CurrentPeakAnalysis = Pick<AnalysisResult, 'current' | 'peaks'>
 
@@ -18,7 +24,12 @@ export function analyzeCurrentPeaks(
   const annualPeakKw = positiveAnnualPeakKw(loadProfile)
   const monthlyPeaksKw = positiveMonthlyPeaksKw(loadProfile)
   const billedKw = getTariffStrategy(tariffParams.billingModel).billedKw(loadProfile, tariffParams)
-  const leistungspreisCostPerYear = tariffParams.leistungspreisEurPerKwYear * billedKw
+  const leistungspreisCostPerYear = demandChargePerYear(
+    billedKw,
+    tariffParams.leistungspreisEurPerKwYear,
+    tariffParams.billingModel,
+    coveredMonthCount(loadProfile),
+  )
 
   return {
     current: { annualPeakKw, monthlyPeaksKw, billedKw, leistungspreisCostPerYear },

@@ -3,6 +3,7 @@
 // gemeinsame Übereinkunft; Umbenennen bricht Engine/UI-Verträge und jedes Handover.
 export * from './load-profile'
 export * from './tariff'
+export * from './demand-charge'
 export * from './battery'
 export * from './financial'
 export * from './simulation'

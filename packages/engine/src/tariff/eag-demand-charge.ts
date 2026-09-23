@@ -1,6 +1,13 @@
-import type { LevyPeriodInput, LoadProfile, TariffPricingInputs } from 'shared'
+import {
+  demandChargePerYear,
+  type BillingModel,
+  type LevyPeriodInput,
+  type LoadProfile,
+  type TariffPricingInputs,
+} from 'shared'
 
 import { utcMsToLocalFields } from '../parser/datetime'
+import { coveredMonthCount } from '../peaks/metrics'
 
 /**
  * Der GRUNDPREIS-Teil des EAG-Förderbeitrags als JAHRESBETRAG — die zweite kW-gebundene
@@ -57,6 +64,7 @@ export function eagDemandChargePerYear(
   loadProfile: LoadProfile,
   pricing: TariffPricingInputs | undefined,
   billedKw: number,
+  billingModel: BillingModel,
 ): number | undefined {
   if (!(billedKw > 0)) return undefined
 
@@ -77,5 +85,7 @@ export function eagDemandChargePerYear(
 
   if (rates.size !== 1) return undefined
   const rate = [...rates][0]!
-  return rate > 0 ? rate * billedKw : undefined
+  return rate > 0
+    ? demandChargePerYear(billedKw, rate, billingModel, coveredMonthCount(loadProfile))
+    : undefined
 }

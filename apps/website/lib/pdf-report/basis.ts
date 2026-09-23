@@ -1,6 +1,7 @@
 import type { PvOutageMonth } from 'engine'
 import {
   AWATTAR_BASE_FEE,
+  demandChargeKwPerYear,
   NETZBETREIBER_LABELS,
   TARIFF_SETS,
   type BatteryCatalogMeta,
@@ -996,19 +997,28 @@ const SUPPLIER_STATUS = 'aus Ihren Angaben (Energieseite)'
 /**
  * Der Leistungspreis-Satz.
  *
- * ⚠ [ABGELEITET, keine Contract-Zahl] — `leistungspreisCostPerYear / billedKw`, wortgleich zu
- * `charts.tsx` und `report.tsx`: `analyzeCurrentPeaks` setzt Ersteres als Satz × `billedKw`, die
- * Division gibt also exakt den €/kW·a-Satz zurück, unabhängig vom Abrechnungsmodell.
+ * ⚠ [ABGELEITET, keine Contract-Zahl] — `leistungspreisCostPerYear` geteilt durch den kW-Wert, auf
+ * den die Engine den Satz anwendet (`demandChargeKwPerYear`, wortgleich zu `report.tsx`). Bei
+ * `monthly_max_sum` ist das NICHT `billedKw` (eine Monatssumme), sonst stünde hier ein Zwölftel.
  *
  * ⚠ Bei `billedKw = 0` (leeres oder rein einspeisendes Profil) entfällt die ZEILE und es steht
  * nicht „keine Angabe": der Satz ist angegeben, nur nicht zurückrechenbar — s. Kopf.
  */
+/** Der kW-Wert, auf den der Jahressatz angewandt wurde — geteilt mit `recommendation.ts`. */
+export function billedKwPerYear(analysis: PdfReportAnalysis): number {
+  return demandChargeKwPerYear(
+    analysis.current.billedKw,
+    analysis.assumptions.billingModel,
+    analysis.dataQuality.coveredMonths,
+  )
+}
+
 function leistungspreisRow(
   analysis: PdfReportAnalysis,
   source: PdfReportTariffSource,
 ): ReportTableRow[] {
   if (!(analysis.current.billedKw > 0)) return []
-  const rate = analysis.current.leistungspreisCostPerYear / analysis.current.billedKw
+  const rate = analysis.current.leistungspreisCostPerYear / billedKwPerYear(analysis)
   return [
     dataRow('tariff_leistungspreis', [
       'Leistungspreis',

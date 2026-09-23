@@ -5,6 +5,7 @@ export {
   positiveAnnualPeakKw,
   positiveMonthlyPeaksKw,
   coveredMonthlyPeaksKw,
+  coveredMonthCount,
   topPeaksKw,
   peakDistribution,
   TOP_PEAKS_N,

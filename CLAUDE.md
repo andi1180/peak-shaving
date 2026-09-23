@@ -155,7 +155,8 @@ Vorher-Lauf gegen einen anderen Cloud-Stand als der Nachher-Lauf, und die Differ
 Datenbank, nicht der Code. **Referenzstand 23.09.2026 — Bäckerei aus dem Golden File (s. unten;
 synthetischer Lastgang, Tarif von Hand: 9,5 ct / 50 €/kW·a / `monthly_max_sum` / Einspeisung 0,
 Netzentgelte/Spotpreise/Katalog am 23.09.2026 per `anon` eingefroren):** `billedKw` **606,56**,
-31 Katalog-Kandidaten, Empfehlung `ad294919…` (**Solinteg E2BR-S96K-C mit M2HT-50K-150**) · Urbanz
+31 Katalog-Kandidaten, Leistungspreis 2.527,33 €/Jahr, Empfehlung `6845c64d…` (**Kostal & Dyness
+Retrofit L**, 1.875 €/Jahr, Amortisation 5,84 Jahre, netto 7.803 € über 10 Jahre) · Urbanz
 mit den Cloud-Entwurfs-Parametern (13,081 ct / 3,50 €/Monat / 4,56 ct) `billedKw` **60,212**.
 **⚠ KORREKTUR:** hier stand bis zum Golden File „Empfehlung `f5d5344a…` (Dyness Stack 100
 40,96 kWh)". Die Zeile hat zwei Läufe vermischt — `billedKw` stammte aus der eingefrorenen
@@ -164,10 +165,13 @@ mit den Cloud-Entwurfs-Parametern (13,081 ct / 3,50 €/Monat / 4,56 ct) `billed
 KEINEM der beiden Modelle reproduzierbar (`monthly_max_average` ergibt „Kostal & Dyness Retrofit
 L"); die K3d-Probe mit demselben Parametersatz nannte bereits Solinteg E2BR-S96K-C. ⚠ Die
 Oberfläche des öffentlichen Rechners gibt `monthly_max_average` vor — wer dort misst und die
-Baseline-Zahl erwartet, muss das Modell umstellen, sonst steht dort der ZWÖLFTE Teil. **⚠ Die
-Wirtschaftlichkeitszahlen dieses Parametersatzes sind keine Kundenzahlen:** `monthly_max_sum`
-multipliziert die SUMME der Monatsspitzen mit dem JAHRESsatz (30.328 €/Jahr Leistungspreis bei
-50,78 kW Spitze) — offene fachliche Frage, im Golden File bewusst unverändert eingefroren.
+Baseline-Zahl erwartet, muss das Modell umstellen, sonst steht dort der ZWÖLFTE Teil des
+`billedKw` (die Leistungskosten sind seit dem Faktor-12-Fix in beiden Modellen gleich). **⚠ Die
+Empfehlung hat sich mit dem Faktor-12-Fix (23.09.2026) GEWOLLT geändert** — vorher Solinteg
+E2BR-S96K-C (`ad294919…`, 0,84 Jahre Amortisation), weil das Zwölffach des Leistungspreises jede
+Spitzenkappung überbewertete und das leistungsstärkste Gerät nach vorn schob. Je Gerät hat sich
+dabei nur die Leistungspreis-Ersparnis (exakt ÷ 12) und was daraus folgt bewegt; Fahrplan und
+`newBilledKw` sind unverändert.
 
 **Anlass:** Dreimal in einer Session ist genau diese Fehlerklasse aufgetreten, nicht spekulativ:
 `reduceAnalysis` liess `annualScenario` und `pvValue` aus seiner Pick-Liste aus (Feld existierte,
@@ -217,6 +221,24 @@ Details und der vollständige Stand: siehe `./Pflichtenheft_Kalkulator_MVP.md`, 
 ## Stand & offene Entscheidungen
 
 > Lebendiger Handover-Anker. Neueste offene Punkte, die den Bau der Engine/Simulation berühren. Erledigtes wandert raus.
+
+### Leistungspreis bei `monthly_max_sum`: Jahressatz ÷ 12 je Monat (23.09.2026)
+
+Der Leistungspreis-Satz ist in ALLEN Abrechnungsmodellen ein Jahressatz (€/kW·a). Die Umrechnung
+steht an einer Stelle, `packages/shared/src/demand-charge.ts` (`demandChargeKwPerYear`); Ist-Kosten,
+Ersparnis und EAG-Grundpreis rechnen darüber, der Report rechnet den Satz darüber zurück
+(`billedKwPerYear`, `apps/website/lib/pdf-report/basis.ts`). Befund und Belege:
+`Leistungspreis_Einheiten_Bestandsaufnahme.md`.
+
+**⚠ Beim nächsten Umbau mitzudenken: (a)** `billedKw` bleibt bei `monthly_max_sum` die SUMME;
+wer `Kosten ÷ billedKw` rechnet, bekommt ein Zwölftel des Satzes. **(b)** Ein Teiljahr wird mit
+12/beobachtete Monate hochgerechnet (sonst stünde ein 7-Monats-Betrag in einer `…PerYear`-Grösse
+neben hochgerechneten Energie-Töpfen); damit sind die Leistungskosten von Summe und Mittel
+IMMER gleich. Der D6-Jahreslauf deckt 12 Monate ab, dort ist der Faktor 1 — keine zweite
+Hochrechnung (Test: `packages/engine/src/tariff/demand-charge.test.ts`). **(c) Offen:**
+`minBillableKw` wird bei `monthly_max_sum` weiterhin gegen die Monats-SUMME verglichen, nicht je
+Monat — mit Mindestleistung über den Monatsspitzen rechnet das Summenmodell zu niedrig. Alle
+bekannten Fälle haben 0 bzw. Leistungspreis 0.
 
 ### Analyse ohne Speicherkandidaten ist ein gültiger Zustand — K3b-2 (23.09.2026)
 

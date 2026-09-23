@@ -316,6 +316,7 @@ export function computeAnalysis(
     loadProfile,
     payload.tariffPricing,
     current.billedKw,
+    payload.tariff.billingModel,
   )
 
   // --- PV-Konsistenz + -Abdeckung (§3.1): Brutto-PV gegen den Netz-Lastgang prüfen (Prinzip 1: Netz

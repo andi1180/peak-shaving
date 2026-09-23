@@ -32,7 +32,7 @@ const ANALYSIS: PdfReportAnalysis = {
     annualPeakKw: 48,
     monthlyPeaksKw: [48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48],
     billedKw: 48,
-    leistungspreisCostPerYear: 3980.16,
+    leistungspreisCostPerYear: 331.68, // 82,92 €/kW·a × 48 kW ÷ 12 (Summenmodell, 12 Monate)
   },
   perBattery: [],
   recommendation: { batteryId: 'keiner', rationale: 'leerer Katalog' },
@@ -533,7 +533,7 @@ describe('buildBasisChapter — Tarifkomponenten-Tabelle (D9)', () => {
       'tariff_netzebene',
     ])
 
-    // 3980,16 € ÷ 48 kW = 82,92 €/kW·a — zurückgerechnet, nicht geraten.
+    // 331,68 € ÷ (48 kW ÷ 12) = 82,92 €/kW·a — zurückgerechnet, nicht geraten.
     expect(componentRow(table, 'tariff_leistungspreis')?.[1]).toBe('€ 82,92 / kW·a')
     expect(componentRow(table, 'tariff_leistungspreis')?.[2]).toBe(
       'Vorgabewert aus Stand „Wiener Netze 2026"',
