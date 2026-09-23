@@ -208,3 +208,61 @@ describe('Monatsvergleich ohne Bestandsspeicher (D7)', () => {
     expect(mit.spotWithBatteryEur[FEB]).not.toBeCloseTo(ohne.spotWithBatteryEur[FEB]!, 3)
   })
 })
+
+/*
+ * K3b-2 — der LEERE Katalog. Drei Fälle, weil sie verschiedene Zweige treffen; der vierte
+ * („es rechnet sich keiner", voller Katalog) steht unverändert eine Beschreibung weiter oben.
+ */
+describe('Leerer Katalog (K3b-2)', () => {
+  const FEB = 1
+
+  it('wirft nicht, liefert recommendation null mit Grund und rechnet alles ohne Speicher weiter', () => {
+    const result = computeAnalysis(buildPayload(false, pricingInputs()), GATE_HORIZON_YEARS, [])
+
+    expect(result.recommendation).toBeNull()
+    expect(result.noRecommendationReason).toBe('no_candidates')
+    expect(result.perBattery).toEqual([])
+    // Ist-Kosten und Spitzen sind Zahlen ohne Speicher — sie stehen unverändert.
+    expect(result.current.billedKw).toBe(70)
+
+    // Der Tarifvergleich ist da, aber ohne dritte Reihe.
+    const status = result.tariffOptimization
+    expect(status?.computable).toBe(true)
+    const comparison = status?.computable === true ? status.monthlyComparison : undefined
+    expect(comparison?.currentTariffEur[FEB]).not.toBeNull()
+    expect(comparison?.spotWithoutControlEur[FEB]).not.toBeNull()
+    expect(comparison?.spotWithBatteryEur).toBeUndefined()
+  })
+
+  it('ein Bestandsspeicher trägt die dritte Reihe auch ohne Katalog', () => {
+    const leer = computeAnalysis(buildPayload(true, pricingInputs()), GATE_HORIZON_YEARS, [])
+    const voll = computeAnalysis(
+      buildPayload(true, pricingInputs()),
+      GATE_HORIZON_YEARS,
+      GATE_CATALOG,
+    )
+
+    expect(leer.recommendation).toBeNull()
+    const leerComparison =
+      leer.tariffOptimization?.computable === true
+        ? leer.tariffOptimization.monthlyComparison
+        : undefined
+    const vollComparison =
+      voll.tariffOptimization?.computable === true
+        ? voll.tariffOptimization.monthlyComparison
+        : undefined
+    // Der Bestand hat Vorrang — seine Reihe ist in beiden Läufen dieselbe, Katalog hin oder her.
+    expect(leerComparison?.spotWithBatteryEur?.[FEB]).toBeCloseTo(
+      vollComparison!.spotWithBatteryEur![FEB]!,
+      9,
+    )
+  })
+
+  it('ohne Preisdaten bleibt es beim bisherigen Verhalten: kein Vergleich, aber auch kein Wurf', () => {
+    const result = computeAnalysis(buildPayload(false), GATE_HORIZON_YEARS, [])
+
+    expect(result.recommendation).toBeNull()
+    expect(result.tariffOptimization).toBeUndefined()
+    expect(result.assumptions.roundTripEfficiency).toBe(0.9)
+  })
+})

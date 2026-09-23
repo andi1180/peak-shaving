@@ -208,7 +208,13 @@ export type MonthlyTariffComparison = {
    * ablesbar (`existingBatteryAnalysis != null`) — ein eigenes Feld dafür wäre eine zweite Quelle
    * derselben Aussage. Die Beschriftungen des Reports verzweigen genau daran.
    */
-  spotWithBatteryEur: (number | null)[]
+  /*
+   * ⚠ K3b-2: `undefined` heisst „es gibt keinen Speicher" — der Katalog war LEER, und ein
+   * Bestandsspeicher ist nicht angegeben. Der Vergleich trägt dann nur die speicherlosen Wege.
+   * Das ist ausdrücklich NICHT der Fall „es rechnet sich keiner" (voller Katalog): dort entsteht
+   * gar kein Vergleich, weil zwei von drei Reihen eine Auswahl zeigten, die es nicht gibt.
+   */
+  spotWithBatteryEur?: (number | null)[]
   /**
    * D7-Revision Weg 2 — derselbe rohe Lastgang zum selbst gefundenen VERGLEICHSTARIF des Kunden.
    *

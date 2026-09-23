@@ -146,6 +146,19 @@ existiert nur als gerenderter Report in einem Kundenordner und lässt sich nicht
 2023er-Jahrgang** — dieselbe Wertereihe, nur um 735 Tage (wochentagserhaltend) verschoben: ein
 Lastgang vor dem 1.1.2025 wird im Upload abgewiesen (Delta 15 Regel B, alle vier Einstiege).
 
+**⚠ DIE PRÜFUNG HAT SEIT K3b-2 (23.09.2026) EINE SCHÄRFERE FORM — und die ist billiger, nicht
+teurer:** statt „Kopfzahlen vergleichen" wird das **vollständige `AnalysisResult` als JSON** vorher
+und nachher abgelegt und TIEF verglichen; jede Differenz ist ein Fehler, den man findet, statt ihn
+zu erklären. Damit der Vergleich trägt, müssen die EINGABEN eingefroren sein: die Preisdaten einmal
+aus der Cloud holen, als Datei wegschreiben und für beide Läufe wiederverwenden — sonst läuft der
+Vorher-Lauf gegen einen anderen Cloud-Stand als der Nachher-Lauf, und die Differenz ist die
+Datenbank, nicht der Code. **Referenzstand 23.09.2026 (eingefrorene Eingaben, `billingModel`
+`monthly_max_sum`, Wiener Netze NE 7 ohne Leistungsmessung):** Bäckerei `billedKw` **606,56**,
+31 Katalog-Kandidaten, Empfehlung `f5d5344a…` (Dyness Stack 100 40,96 kWh) · Urbanz mit den
+Cloud-Entwurfs-Parametern (13,081 ct / 3,50 €/Monat / 4,56 ct) `billedKw` **60,212**. ⚠ Die
+Oberfläche des öffentlichen Rechners gibt `monthly_max_average` vor — wer dort misst und die
+Baseline-Zahl erwartet, muss das Modell umstellen, sonst steht dort der ZWÖLFTE Teil.
+
 **Anlass:** Dreimal in einer Session ist genau diese Fehlerklasse aufgetreten, nicht spekulativ:
 `reduceAnalysis` liess `annualScenario` und `pvValue` aus seiner Pick-Liste aus (Feld existierte,
 Typprüfung erlaubte es, Report zeigte trotzdem nichts — **#320**, **#321**); „Berechnungsmethodik je
@@ -178,6 +191,36 @@ Details und der vollständige Stand: siehe `./Pflichtenheft_Kalkulator_MVP.md`, 
 ## Stand & offene Entscheidungen
 
 > Lebendiger Handover-Anker. Neueste offene Punkte, die den Bau der Engine/Simulation berühren. Erledigtes wandert raus.
+
+### Analyse ohne Speicherkandidaten ist ein gültiger Zustand — K3b-2 (23.09.2026)
+
+`AnalysisResult.recommendation` ist **nullable**, daneben steht `noRecommendationReason`
+(`'no_candidates'`). `recommendBattery` wirft auf leerem Katalog nicht mehr; Ist-Kosten, Spitzen und
+der Tarifvergleich werden unverändert gerechnet. Fachliche Tiefe und die Messwerte:
+`apps/web/CLAUDE.md`, Absatz `[GEBAUT: K3b-2 …]`.
+
+**⚠ Was beim nächsten Umbau mitzudenken ist:**
+
+**(a) `recommendation === null` heisst „leerer Katalog", NICHT „es rechnet sich keiner".** Der
+zweite Fall ist der ältere: voller Katalog, `perBattery` gefüllt, eine Empfehlung, von der der
+Report abrät. Beide Zweige stehen nebeneinander und sind am Contract unterscheidbar
+(`perBattery.length`); der zweite ist in K3b-2 **nicht** angefasst worden.
+
+**(b) Der Monatsvergleich kann jetzt ZWEI Reihen haben** (`spotWithBatteryEur` ist optional). Die
+Bedingung dafür ist `perBattery.length === 0` und ausdrücklich nicht „kein Dispatch" — ein
+Bestandsspeicher trägt die dritte Reihe auch bei leerem Katalog, und „es rechnet sich keiner"
+erzeugt weiterhin gar keinen Vergleich. `tariffWayCosts` liefert `controlledEur`/`controlVariant`
+gemeinsam als `null`; wer eine der beiden Grössen liest, prüft die andere mit.
+
+**(c) Die Kapitelwahl des Reports hat jetzt `hasDetail`.** „Kostenverlauf und ein Tag im Detail"
+war bis hierher das EINZIGE Kapitel ohne Prädikat. Ein künftiges Kapitel bekommt seines von Anfang
+an — sonst steht es mit seinen Ersatzsätzen da, und einer davon war hier zugleich grammatisch
+kaputt und sachlich falsch.
+
+**(d) Der Speicherkatalog-Abruf hat als EINZIGER eine Frist** (`BATTERY_CATALOG_TIMEOUT_MS`, 3 s,
+plus `retry(false)`). Grund: `postgrest-js` wiederholt einen gescheiterten GET dreimal mit 1/2/4 s
+Backoff, und ein HÄNGENDER Abruf lief unbegrenzt. **Diese Frist gehört nicht auf `tariff-data/**`**
+— dort werden bis zu 35.040 Preiszeilen seitenweise geholt.
 
 ### Zwei stille Mängel aus #295 behoben — CI wieder grün (23.09.2026)
 
@@ -510,4 +553,4 @@ Für `source: 'import_only'` bei einem Kunden mit vorhandener PV-Anlage (`hasPv 
 
 **Nächster grosser Schritt: der übrige Report-Baukasten (Teil 3)** — die weiteren Zielseiten (Voraussetzungs-Seite, Drei-Wege-Seite, PV-Kapitel, Jahres-Hochrechnung) sind unangetastet.
 
-**Weiterhin nicht gebaut:** Engine-Anbindung des Wizard-Entwurfs (rechnet nichts), Rollup-Schicht über mehrere Zählpunkte, Fragenkatalog-Inhalte, eigene Kostenbremse für den Energieberater-Endpunkt (teilt sich die des Kunden-Chats), ein Erzeugungsprofil zu ersetzen/entfernen (nur einzelne Fläche geht), echter PVGIS-Aufruf nur gemockt verifiziert, echter Batteriekatalog (**seit K1, 22.09.2026, gibt es die ABLAGE samt Admin-Pflege — `public.battery_catalog`; sie ist leer, und der Rechner liest weiterhin `DEMO_BATTERY_CATALOG`: das Befüllen ist K2, das Umhängen K3**), ein Lauf über die echte Oberfläche für die meisten B24-Schritte (durchgängig nur Typen/Logik/Wächter bzw. jsdom-Harness geprüft — **Ausnahmen seit 22.09.2026: Rechnung- und Batterie-Station**, `apps/web/e2e/{rechnung,batterie}-station.mjs`).
+**Weiterhin nicht gebaut:** Engine-Anbindung des Wizard-Entwurfs (rechnet nichts), Rollup-Schicht über mehrere Zählpunkte, Fragenkatalog-Inhalte, eigene Kostenbremse für den Energieberater-Endpunkt (teilt sich die des Kunden-Chats), ein Erzeugungsprofil zu ersetzen/entfernen (nur einzelne Fläche geht), echter PVGIS-Aufruf nur gemockt verifiziert, echter Batteriekatalog (**seit K3b, 23.09.2026, rechnet der ÖFFENTLICHE Rechner gegen `public.battery_catalog` — 31 freigegebene Gewerbe-Geräte; für `heim` ist noch keines freigegeben, ein Haushalt bekommt seit K3b-2 deshalb eine Analyse OHNE Speichervorschlag statt gar keiner. `DEMO_BATTERY_CATALOG`, `apps/web` und `extractors` stehen noch aus: K3c**), ein Lauf über die echte Oberfläche für die meisten B24-Schritte (durchgängig nur Typen/Logik/Wächter bzw. jsdom-Harness geprüft — **Ausnahmen seit 22.09.2026: Rechnung- und Batterie-Station**, `apps/web/e2e/{rechnung,batterie}-station.mjs`).

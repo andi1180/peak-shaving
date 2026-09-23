@@ -140,7 +140,16 @@ export function TariffOptimizationCard({
     )
   }
 
-  const saving = recommended?.loadShiftSavingPerYear ?? 0
+  /*
+   * ── K3b-2: OHNE SPEICHER GIBT ES DIESE KARTE NICHT ──────────────────────────────────────────
+   * Sie beziffert, was eine LADESTEUERUNG wert wäre — das ist eine Aussage über ein Gerät. Ohne
+   * Kandidaten und ohne Bestandsanlage stünde hier „€ 0 pro Jahr zusätzlich", und eine 0 liest
+   * sich als „bringt nichts" statt als „wurde nicht gerechnet". Der Blocker-Zweig darüber bleibt:
+   * er erklärt die FEHLENDEN Preisdaten und braucht keinen Speicher.
+   */
+  if (!recommended) return null
+
+  const saving = recommended.loadShiftSavingPerYear
 
   /*
    * ⚠ DIE SUMMEN KOMMEN AUS DEMSELBEN HELFER WIE DIE LEGENDE DES MONATSCHARTS (`sumCovered`).
@@ -149,13 +158,17 @@ export function TariffOptimizationCard({
    * NICHT gewarnt und auch nichts behauptet: „nicht verglichen" ist nicht „günstiger".
    */
   const monthly = status.monthlyComparison
-  const totals = monthly
-    ? {
-        current: sumCovered(monthly.currentTariffEur),
-        withBattery: sumCovered(monthly.spotWithBatteryEur),
-        months: monthly.coveredMonths,
-      }
-    : null
+  /* K3b-2: Ohne Speicherreihe gibt es diesen Vergleich nicht — „nicht verglichen" ist wie bisher
+     nicht „günstiger", und die Warnung bleibt deshalb aus. */
+  const monthlyWithBattery = monthly?.spotWithBatteryEur
+  const totals =
+    monthly && monthlyWithBattery
+      ? {
+          current: sumCovered(monthly.currentTariffEur),
+          withBattery: sumCovered(monthlyWithBattery),
+          months: monthly.coveredMonths,
+        }
+      : null
   const surcharge = totals ? totals.withBattery - totals.current : 0
   const awattarCostsMore = totals != null && surcharge > 0
 

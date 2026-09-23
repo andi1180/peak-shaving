@@ -162,7 +162,7 @@ describe('buildReportInputFromRenderRequest', () => {
     /* Der Preisstand-Satz nennt die Grundgebühr, weil die Übergabe eine trägt. */
     expect(input.tariffVintage).toContain('Arbeitspreis und Grundgebühr basieren')
 
-    /* Verengt auf die zehn gelesenen Felder — `peaks` reist NICHT mit. */
+    /* Verengt auf die elf gelesenen Felder — `peaks` reist NICHT mit. */
     expect(Object.keys(input.analysis).sort()).toEqual([
       'annualProjection',
       'annualScenario',
@@ -170,6 +170,7 @@ describe('buildReportInputFromRenderRequest', () => {
       'current',
       'dataQuality',
       'existingBatteryAnalysis',
+      'noRecommendationReason',
       'perBattery',
       'pvValue',
       'recommendation',

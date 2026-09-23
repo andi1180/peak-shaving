@@ -239,7 +239,9 @@ export function buildWaysChapter(analysis: PdfReportAnalysis): WaysChapter | nul
 
   const comparisonWay = wayById(ways, 'comparison_tariff')
   const switchWay = wayById(ways, 'tariff_switch')!
-  const controlWay = wayById(ways, 'controlled')!
+  /* K3b-2: `undefined`, wenn ohne Speicher gerechnet wurde — dann gibt es Weg 4 nicht, weder als
+     Balken noch als Absatz. `waysCountOf` zählt ihn aus derselben Liste und ist damit schon mit. */
+  const controlWay = wayById(ways, 'controlled')
   const peakSavingPerYear = peakShavingSavingOf(analysis)
 
   /* Weg 1 ist der erste Balken und der erste Absatz — nicht mehr nur die Kopfzahl in Kapitel 1. */
@@ -254,10 +256,20 @@ export function buildWaysChapter(analysis: PdfReportAnalysis): WaysChapter | nul
       model: false,
     })
   }
-  bars.push(
-    { key: 'uncontrolled', label: 'aWATTar ohne Steuerung', eur: switchWay.costEur, model: false },
-    { key: 'controlled', label: CONTROLLED_WAY_LABEL, eur: controlWay.costEur, model: true },
-  )
+  bars.push({
+    key: 'uncontrolled',
+    label: 'aWATTar ohne Steuerung',
+    eur: switchWay.costEur,
+    model: false,
+  })
+  if (controlWay) {
+    bars.push({
+      key: 'controlled',
+      label: CONTROLLED_WAY_LABEL,
+      eur: controlWay.costEur,
+      model: true,
+    })
+  }
 
   /** „X gespart" bzw. „X MEHR gekostet" — ein Weg mit negativer Ersparnis senkt nichts. */
   const outcome = (way: SummaryWay, more: string, less: string): string =>
@@ -334,21 +346,23 @@ export function buildWaysChapter(analysis: PdfReportAnalysis): WaysChapter | nul
       'gespeichert.',
   )
 
-  addWay({
-    id: 'ways_load_control',
-    title: CONTROLLED_WAY_LABEL,
-    amount: null,
-    rows: [],
-    body:
-      `Zusätzlich zum Tarifwechsel wird mit ${whose} gezielt geladen: in den günstigen ` +
-      'Viertelstunden lädt der Speicher aus dem Netz, während er Kapazität für die teureren ' +
-      'Stunden desselben Tages zurückhält — der Schutz Ihrer Lastspitzen hat dabei weiterhin ' +
-      'Vorrang. Über denselben Zeitraum hätte das, Tarifwechsel und Ladesteuerung zusammen, ' +
-      outcome(controlWay, 'mehr gekostet als Ihr heutiger Tarif.', 'gespart.') +
-      (ways.controlVariant === 'predictive' ? ` ${PREDICTIVE_NOTE}` : ''),
-    },
-    LOAD_CONTROL_METHOD + (ways.controlVariant === 'predictive' ? ` ${PREDICTIVE_METHOD}` : ''),
-  )
+  if (controlWay) {
+    addWay({
+      id: 'ways_load_control',
+      title: CONTROLLED_WAY_LABEL,
+      amount: null,
+      rows: [],
+      body:
+        `Zusätzlich zum Tarifwechsel wird mit ${whose} gezielt geladen: in den günstigen ` +
+        'Viertelstunden lädt der Speicher aus dem Netz, während er Kapazität für die teureren ' +
+        'Stunden desselben Tages zurückhält — der Schutz Ihrer Lastspitzen hat dabei weiterhin ' +
+        'Vorrang. Über denselben Zeitraum hätte das, Tarifwechsel und Ladesteuerung zusammen, ' +
+        outcome(controlWay, 'mehr gekostet als Ihr heutiger Tarif.', 'gespart.') +
+        (ways.controlVariant === 'predictive' ? ` ${PREDICTIVE_NOTE}` : ''),
+      },
+      LOAD_CONTROL_METHOD + (ways.controlVariant === 'predictive' ? ` ${PREDICTIVE_METHOD}` : ''),
+    )
+  }
 
   if (peakSavingPerYear > 0) {
     addWay({

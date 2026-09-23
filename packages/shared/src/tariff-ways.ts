@@ -30,21 +30,28 @@ export type TariffWayCosts = {
   comparisonSupplier: string | null
   /** Weg 3 — aWATTar auf den rohen Lastgang. */
   spotWithoutControlEur: number
-  /** Weg 4 — aWATTar mit Ladesteuerung; welche, sagt `controlVariant`. */
-  controlledEur: number
-  controlVariant: ControlVariant
+  /**
+   * Weg 4 — aWATTar mit Ladesteuerung; welche, sagt `controlVariant`.
+   *
+   * ⚠ K3b-2: `null` heisst „es gibt keinen Speicher" (leerer Katalog, kein Bestand) — dann fehlt
+   * die Reihe im Vergleich, und der Weg entfällt ganz, wie Weg 2 ohne Vergleichstarif.
+   * `controlVariant` ist dann gemeinsam `null`: beide gesetzt oder beide weg.
+   */
+  controlledEur: number | null
+  controlVariant: ControlVariant | null
 }
 
 export function tariffWayCosts(comparison: MonthlyTariffComparison): TariffWayCosts {
   const comparisonSeries = comparison.comparisonTariffEur
   const predictiveSeries = comparison.spotWithPredictiveControlEur
+  const controlledSeries = predictiveSeries ?? comparison.spotWithBatteryEur
 
   return {
     currentTariffEur: sumCovered(comparison.currentTariffEur),
     comparisonTariffEur: comparisonSeries ? sumCovered(comparisonSeries) : null,
     comparisonSupplier: comparison.comparisonSupplier ?? null,
     spotWithoutControlEur: sumCovered(comparison.spotWithoutControlEur),
-    controlledEur: sumCovered(predictiveSeries ?? comparison.spotWithBatteryEur),
-    controlVariant: predictiveSeries ? 'predictive' : 'simple',
+    controlledEur: controlledSeries ? sumCovered(controlledSeries) : null,
+    controlVariant: controlledSeries ? (predictiveSeries ? 'predictive' : 'simple') : null,
   }
 }

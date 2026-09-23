@@ -381,6 +381,13 @@ export function buildLoadControl(
  * dort unverändert.
  */
 export function hasRecommendationChapter(analysis: PdfReportAnalysis): boolean {
+  /*
+   * ⚠ K3b-2: Ohne Kandidaten hat das Kapitel keine seiner beiden Aussagen — weder eine Empfehlung
+   * (kein Gerät) noch die Ladesteuerungs-Zahl (sie hängt am primären Speicher). Es entfällt über
+   * DIESE Bedingung und damit über dieselbe Auswahlschicht wie jedes andere Kapitel, samt
+   * Agenda-Eintrag; gebaut würde es sonst leer.
+   */
+  if (analysis.perBattery.length === 0 && !analysis.existingBatteryAnalysis) return false
   return !hasNegativeAddonVerdict(analysis)
 }
 

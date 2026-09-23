@@ -133,8 +133,10 @@ export function primaryEntryOf(analysis: PdfReportAnalysis): BatteryResultEntry 
  * Gerät aus dem Katalog.
  */
 export function recommendedEntryOf(analysis: PdfReportAnalysis): BatteryRoiEntry | undefined {
+  /* K3b-2: ohne Empfehlung (leerer Katalog) ist auch `perBattery` leer — beides ergibt `undefined`. */
+  const id = analysis.recommendation?.batteryId
   return (
-    analysis.perBattery.find((p) => p.battery.id === analysis.recommendation.batteryId) ??
+    (id === undefined ? undefined : analysis.perBattery.find((p) => p.battery.id === id)) ??
     analysis.perBattery[0]
   )
 }
@@ -197,7 +199,7 @@ export type SummaryWays = {
    * verzweigt daran — eine Prognose unbenannt zu zeigen wäre der stille Rückfall, den D15 Regel C
    * verbietet.
    */
-  controlVariant: ControlVariant
+  controlVariant: ControlVariant | null
   /** Der Lieferant zu Weg 2 — `null`, wenn es den Weg nicht gibt. */
   comparisonSupplier: string | null
 }
@@ -223,11 +225,16 @@ export function summaryWaysOf(analysis: PdfReportAnalysis): SummaryWays | null {
       : undefined
   if (!comparison) return null
 
-  const real = buildRealSavingBreakdown({
-    currentTariffEur: sumCovered(comparison.currentTariffEur),
-    spotWithoutControlEur: sumCovered(comparison.spotWithoutControlEur),
-    spotWithBatteryEur: sumCovered(comparison.spotWithBatteryEur),
-  })
+  /* K3b-2: ohne Speicherreihe gibt es keine Aufschlüsselung „Tarifwechsel + Steuerung" — der
+     Tarifwechsel steht dann für sich, und Weg 4 entfällt (unten). */
+  const withBatterySeries = comparison.spotWithBatteryEur
+  const real = withBatterySeries
+    ? buildRealSavingBreakdown({
+        currentTariffEur: sumCovered(comparison.currentTariffEur),
+        spotWithoutControlEur: sumCovered(comparison.spotWithoutControlEur),
+        spotWithBatteryEur: sumCovered(withBatterySeries),
+      })
+    : null
 
   /*
    * ⚠ WELCHE REIHE WELCHER WEG IST, ENTSCHEIDET `tariffWayCosts` (`shared`) — hier steht nur noch,
@@ -251,7 +258,9 @@ export function summaryWaysOf(analysis: PdfReportAnalysis): SummaryWays | null {
 
   ways.push({
     id: 'tariff_switch',
-    eur: real.tariffSwitchEur,
+    /* Derselbe Ausdruck wie in `buildRealSavingBreakdown`, auf denselben Summen — der Rückfall ist
+       wertgleich und steht nur da, weil es ohne Speicherreihe keine Aufschlüsselung gibt. */
+    eur: real ? real.tariffSwitchEur : costTodayEur - costs.spotWithoutControlEur,
     costEur: costs.spotWithoutControlEur,
   })
 
@@ -260,11 +269,14 @@ export function summaryWaysOf(analysis: PdfReportAnalysis): SummaryWays | null {
    * bisherige Tagesmittel-Regel. Gezeigt wird immer genau eine der beiden, und der Report sagt
    * welche (`controlVariant`).
    */
-  ways.push({
-    id: 'controlled',
-    eur: costs.controlVariant === 'predictive' ? costTodayEur - costs.controlledEur : real.totalEur,
-    costEur: costs.controlledEur,
-  })
+  if (costs.controlledEur !== null && real) {
+    ways.push({
+      id: 'controlled',
+      eur:
+        costs.controlVariant === 'predictive' ? costTodayEur - costs.controlledEur : real.totalEur,
+      costEur: costs.controlledEur,
+    })
+  }
 
   return {
     costTodayEur,
@@ -425,22 +437,29 @@ function waysSentence(ways: SummaryWays, hasBattery: boolean): string {
       `${phrases[phrases.length - 1]} — alle weiter hinten im Detail erklärt.`
     )
   }
+  /* K3b-2: Ohne Speicher wurde Weg 4 gar nicht gerechnet (`controlVariant === null`). Die beiden
+     Sätze unten sprechen sonst über eine Ladesteuerung, zu der in diesem Report keine Zahl steht. */
+  const hasControlled = ways.controlVariant !== null
   const only = positive[0]
   if (only) {
     const rest =
       only.id === 'controlled'
         ? ' Ein reiner Tarifwechsel ohne Steuerung käme Sie in Ihrem Fall teurer als Ihr heutiger Tarif.'
-        : ' Die zusätzliche Ladesteuerung bringt in Ihrem Fall nichts darüber hinaus.'
+        : hasControlled
+          ? ' Die zusätzliche Ladesteuerung bringt in Ihrem Fall nichts darüber hinaus.'
+          : ''
     return (
       `Es gibt genau einen Weg, Ihre Stromkosten zu senken: ${phrases[0]} — weiter hinten im ` +
       `Detail erklärt.${rest}`
     )
   }
-  return (
-    'Keiner der geprüften Tarifwege hätte Ihre Stromkosten im gemessenen Zeitraum gesenkt: weder ' +
-    'ein reiner Wechsel zu einem Börsenpreis-Tarif noch derselbe Tarif mit gezielter ' +
-    'Ladesteuerung wäre günstiger gewesen als Ihr heutiger. Die Zahlen dazu stehen weiter hinten.'
-  )
+  return hasControlled
+    ? 'Keiner der geprüften Tarifwege hätte Ihre Stromkosten im gemessenen Zeitraum gesenkt: weder ' +
+      'ein reiner Wechsel zu einem Börsenpreis-Tarif noch derselbe Tarif mit gezielter ' +
+      'Ladesteuerung wäre günstiger gewesen als Ihr heutiger. Die Zahlen dazu stehen weiter hinten.'
+    : 'Keiner der geprüften Tarifwege hätte Ihre Stromkosten im gemessenen Zeitraum gesenkt: auch ' +
+      'ein Wechsel zu einem Börsenpreis-Tarif wäre nicht günstiger gewesen als Ihr heutiger. ' +
+      'Die Zahlen dazu stehen weiter hinten.'
 }
 
 /**
@@ -461,13 +480,24 @@ export function buildOverview(analysis: PdfReportAnalysis, input: SummaryInput):
   )
   const ways = summaryWaysOf(analysis)
 
+  /*
+   * ── K3b-2: DER HINWEIS STEHT IM ERSTEN KAPITEL, WEIL DAS IMMER GERENDERT WIRD ───────────────
+   * Er erklärt, warum weiter hinten ganze Kapitel fehlen. Ein eigener Baustein wäre dafür der
+   * falsche Ort: ein Baustein kann abgewählt werden (Baukasten C), und dann stünde die Lücke
+   * unerklärt da.
+   */
+  const noRecommendation: ReportText = analysis.noRecommendationReason
+    ? ' Einen Speichervorschlag enthält dieser Report nicht: für Ihre Kundenkategorie ist derzeit ' +
+      'kein Speicher freigegeben, und ein Beispielgerät wäre eine Empfehlung ohne Grundlage.'
+    : ''
+
   if (!ways) {
     /* Der Grund steht als strukturierter Befund im Schlusskapitel — hier nur der Zeiger darauf. */
     return t`${equipment} Ob und wie sich Ihre Stromkosten über den Stromtarif senken lassen, liess sich für diesen Zeitraum nicht berechnen${ref(
       block('tariff_blocker'),
       ` — woran das liegt, steht ${REF_PLACE}`,
       '',
-    )}.`
+    )}.${noRecommendation}`
   }
 
   const primary = primaryEntryOf(analysis)
@@ -480,7 +510,7 @@ export function buildOverview(analysis: PdfReportAnalysis, input: SummaryInput):
         )}.`
       : ''
 
-  return t`${equipment} ${waysSentence(ways, existing != null)}${peakPart}`
+  return t`${equipment} ${waysSentence(ways, existing != null)}${peakPart}${noRecommendation}`
 }
 
 /**

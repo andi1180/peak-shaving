@@ -72,6 +72,7 @@ const PRESENCE = {
   annualScenario: false,
   pvValue: false,
   recommendation: true,
+  detail: true,
   monthly: false,
   insight: false,
   comparison: false,

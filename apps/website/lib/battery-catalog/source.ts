@@ -9,6 +9,15 @@ import {
 import { createTariffDataClient } from '@/lib/tariff-data/client'
 
 /**
+ * Wie lange auf den Speicherkatalog gewartet wird, bevor die Meldung samt Wiederholen-Knopf steht.
+ *
+ * Drei Sekunden: lang genug für eine träge Mobilverbindung (die Abfrage holt heute 31 Zeilen),
+ * kurz genug, dass niemand vor einer Oberfläche sitzt, die nichts sagt. Begründung der Zahl und
+ * warum sie nur HIER gilt: s. der Kommentar an der Abfrage unten.
+ */
+export const BATTERY_CATALOG_TIMEOUT_MS = 3_000
+
+/**
  * Der Datenbank-Port des K3a-Loaders (K3b) — `anon`, nur lesend, im Browser.
  *
  * Es entsteht KEIN zweiter Supabase-Client: `createTariffDataClient` ist derselbe, den B21-3a für
@@ -53,6 +62,27 @@ export function fetchBatteryCatalog(
         .eq('kategorie', requested)
         .eq('active', true)
         .order('usable_capacity_kwh', { ascending: true })
+        /*
+         * ── ⚠ K3b-2: WARUM DIESE ZWEI ZEILEN — DIE ZEHN SEKUNDEN SIND GEMESSEN, NICHT GERATEN ──
+         * `@supabase/postgrest-js` 2.110.7 wiederholt einen gescheiterten GET von sich aus bis zu
+         * `DEFAULT_MAX_RETRIES = 3` mal, mit exponentiellem Abstand `getRetryDelay` = 1 s, 2 s,
+         * 4 s (Quelle: `PostgrestBuilder`, `executeWithRetry`). Vier Versuche plus sieben Sekunden
+         * reines Warten — die Meldung samt Wiederholen-Knopf erschien deshalb erst nach rund zehn
+         * Sekunden, und in dieser Zeit stand die Oberfläche auf „Speicherkatalog wird geladen …".
+         *
+         * ⚠ BEIDE ZEILEN SIND NÖTIG, EINE ALLEIN REICHT NICHT. `retry(false)` nimmt die drei
+         * Pausen weg, aber nicht einen EINZELNEN Versuch, der gar nicht antwortet (blockierte
+         * Verbindung, hängender Proxy) — dort liefe die Abfrage bis zum Zeitlimit des Browsers.
+         * `abortSignal` deckt genau diesen Fall; der Wurf landet im `catch` darunter.
+         *
+         * ⚠ EIN KURZER NETZHÄNGER KIPPT DAMIT NICHT IN `failed`: unterhalb der drei Sekunden
+         * ändert sich gar nichts, und der Knopf „Erneut versuchen" steht unmittelbar daneben.
+         * Die Zahl gilt AUSSCHLIESSLICH für diesen einen Abruf — Netzentgelte und Marktpreise
+         * (`tariff-data/**`) sind unberührt: sie laden bis zu 35.040 Preiszeilen seitenweise, und
+         * drei Sekunden wären dort keine Störung, sondern die Regel.
+         */
+        .retry(false)
+        .abortSignal(AbortSignal.timeout(BATTERY_CATALOG_TIMEOUT_MS))
 
       if (response.error) {
         return {

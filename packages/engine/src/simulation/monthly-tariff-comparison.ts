@@ -159,7 +159,13 @@ export function buildMonthlyTariffComparison(
   loadProfile: LoadProfile,
   tariffParams: TariffParams,
   pricing: TariffPricingInputs,
-  gridAfterKw: number[],
+  /**
+   * K3b-2: `undefined` heisst „es gibt keinen Speicher, über den etwas zu sagen wäre" — dann
+   * entsteht die Reihe „mit Ladesteuerung" NICHT, statt auf der ungesteuerten zu liegen. Wann das
+   * zulässig ist, entscheidet der Aufrufer (`compute-analysis.ts`) und ausdrücklich nicht diese
+   * Funktion; sie rechnet nur, was sie bekommt.
+   */
+  gridAfterKw: number[] | undefined,
 ): MonthlyTariffComparison | undefined {
   const spotSide = combinedIntervalPrices(loadProfile, pricing)
   if ('blocker' in spotSide) return undefined
@@ -219,11 +225,13 @@ export function buildMonthlyTariffComparison(
     // Fehlt der Dispatch-Wert (kann nur bei abweichender Reihenlänge passieren), gilt der rohe
     // Bezug — dann steht die Reihe „mit Speicher" auf der Reihe „ohne Steuerung", statt eine
     // Ersparnis zu behaupten, die nicht gerechnet wurde.
-    const afterKw = gridAfterKw[i] ?? rawKw
+    const afterKw = gridAfterKw?.[i] ?? rawKw
 
     current[idx]! += intervalCostEur(rawKw, deltaHours, currentPrice, feedInCt)
     withoutControl[idx]! += intervalCostEur(rawKw, deltaHours, spotPrice, feedInCt)
-    withBattery[idx]! += intervalCostEur(afterKw, deltaHours, spotPrice, feedInCt)
+    if (gridAfterKw) {
+      withBattery[idx]! += intervalCostEur(afterKw, deltaHours, spotPrice, feedInCt)
+    }
     if (comparisonPrices) {
       comparison[idx]! += intervalCostEur(rawKw, deltaHours, comparisonPrices[i]!, feedInCt)
     }
@@ -301,7 +309,7 @@ export function buildMonthlyTariffComparison(
       networkFix[idx]! + meteringFix[idx]! + eagFlatFix[idx]! + usageChargeFix[idx]!
     current[idx]! += shared + supplierFix[idx]!
     withoutControl[idx]! += shared + awattarFix[idx]!
-    withBattery[idx]! += shared + awattarFix[idx]!
+    if (gridAfterKw) withBattery[idx]! += shared + awattarFix[idx]!
     comparison[idx]! += shared + comparisonFix[idx]!
   }
 
@@ -325,7 +333,7 @@ export function buildMonthlyTariffComparison(
   return {
     currentTariffEur: mask(current),
     spotWithoutControlEur: mask(withoutControl),
-    spotWithBatteryEur: mask(withBattery),
+    ...(gridAfterKw ? { spotWithBatteryEur: mask(withBattery) } : {}),
     ...(comparisonPrices && comparisonTariff
       ? { comparisonTariffEur: mask(comparison), comparisonSupplier: comparisonTariff.supplier }
       : {}),

@@ -114,18 +114,24 @@ export function Calculator() {
       ? { ...load, profile: result.estimatedPv.profile }
       : load
     /*
-     * K3b: Ohne verwendbaren Katalog wird nicht gerechnet. Der Knopf in Schritt 2 ist in diesem
-     * Fall gesperrt (`catalogBlocked`), diese Prüfung ist die zweite Schicht — sie verhindert, dass
-     * ein künftiger zweiter Aufrufer den Worker mit einem leeren Array startet: `recommendBattery`
-     * wirft dort (gemessen: `TypeError … reading 'entry'`), und der Nutzer sähe einen Absturz statt
-     * der Erklärung, die daneben steht.
+     * ── K3b-2: EIN LEERER KATALOG HÄLT DIE ANALYSE NICHT MEHR AUF ───────────────────────────────
+     * Bis hierher galt „ohne verwendbaren Katalog wird nicht gerechnet", weil `recommendBattery`
+     * auf einem leeren Array warf. Das tut es nicht mehr: `recommendation` ist `null`, der Grund
+     * reist als `noRecommendationReason` mit, und alles ohne Speicher Belegbare (Ist-Kosten,
+     * Spitzen, Tarifvergleich) wird unverändert gerechnet.
+     *
+     * ⚠ `failed` und `loading` halten weiterhin an — und zwar aus dem ANDEREN Grund: dort ist
+     * unbekannt, ob es Geräte gibt. Eine Analyse „ohne Speichervorschlag" behauptete dann, es
+     * gäbe keinen, obwohl bloss die Abfrage nicht durchkam.
      */
-    if (catalog.kind !== 'available') return
+    if (catalog.kind !== 'available' && catalog.kind !== 'empty') return
     const p: CalculatorPayload = { ...result, load: effectiveLoad }
     setPayload(p)
     setStep(3)
     // Off-Main-Thread; komplettes AnalysisResult echt (§3.4-3.8, Prompt 4 abgeschlossen).
-    analysis.start(p, catalog.batteries)
+    /* K3b-2: `empty` startet mit leerem Array — die Engine antwortet dann mit `recommendation:
+       null` und `noRecommendationReason`, statt zu werfen. */
+    analysis.start(p, catalog.kind === 'available' ? catalog.batteries : [])
   }
 
   function handleRestart() {
@@ -160,9 +166,10 @@ export function Calculator() {
               prefill={tariffPrefill}
               onBack={() => setStep(1)}
               onComplete={handleTariff}
-              /* K3b: gesperrt, solange der Katalog lädt, ausfällt oder leer ist — die Begründung
-                 steht als Meldung darüber, nicht als stumm nicht reagierender Knopf. */
-              catalogBlocked={catalog.kind !== 'available'}
+              /* K3b-2: gesperrt, solange der Katalog lädt oder ausfällt — NICHT mehr, wenn er
+                 für diese Kategorie leer ist: das ist eine Antwort, keine Störung, und die
+                 Analyse läuft dann ohne Speichervorschlag (s. `handleTariff`). */
+              catalogBlocked={catalog.kind === 'loading' || catalog.kind === 'failed'}
               catalogLoading={catalog.kind === 'loading'}
               catalogNotice={
                 catalog.kind === 'failed' ? (

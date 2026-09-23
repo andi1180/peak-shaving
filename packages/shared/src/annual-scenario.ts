@@ -51,8 +51,9 @@ export type AnnualScenarioWays = {
   comparisonTariffEur: number | null
   comparisonSupplier: string | null
   spotWithoutControlEur: number
-  controlledEur: number
-  controlVariant: ControlVariant
+  /* K3b-2: `null` = ohne Speicher gerechnet, der Weg entfällt — wie `comparisonTariffEur` oben. */
+  controlledEur: number | null
+  controlVariant: ControlVariant | null
   /**
    * Weg 5 — was die Spitzenkappung im synthetischen Jahr bringt, in Euro pro Jahr. `0` heisst
    * „dieser Weg trifft nicht zu" (kein Leistungspreis, oder ein Blocker aus `peakShavingBlockers`)

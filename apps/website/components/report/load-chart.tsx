@@ -279,7 +279,10 @@ export function LoadChart({
         </ResponsiveContainer>
       </div>
 
-      {finiteCapSegments.length === 0 && (
+      {/* ⚠ K3b-2: Der Satz nennt einen GRUND („die gewählte Steuerung") und setzt damit voraus,
+          dass überhaupt ein Speicher simuliert wurde. Ohne Dispatch gibt es keine gewählte
+          Steuerung — dann steht hier nichts, statt das Fehlen der Linie falsch zu erklären. */}
+      {dispatchTrace && finiteCapSegments.length === 0 && (
         <p className="text-xs text-text-muted">
           Keine Kapp-Schwelle eingezeichnet — die gewählte Steuerung kappt keine Spitzen (statisch,
           nur Eigenverbrauch/Lastverschiebung).

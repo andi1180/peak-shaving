@@ -143,7 +143,7 @@ export function hasComparisonChapter(analysis: PdfReportAnalysis): boolean {
  * Dokument beantwortet.
  */
 function alternativesOf(analysis: PdfReportAnalysis): ComparisonCandidate[] {
-  return analysis.perBattery.filter((p) => p.battery.id !== analysis.recommendation.batteryId)
+  return analysis.perBattery.filter((p) => p.battery.id !== analysis.recommendation?.batteryId)
 }
 
 /* ────────────────────────────────────────────────────────────────────────────────────────────────

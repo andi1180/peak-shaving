@@ -263,6 +263,15 @@ export type ExistingBatteryAnalysis = {
  * die Drift erzeugen, die B1 für die Eingaben vermeidet. Ein zod-Mirror kann ergänzt
  * werden, falls der Worker-Harness die gemockte Ausgabe zur Laufzeit validieren soll.
  */
+/**
+ * Warum eine Analyse ohne Speicherempfehlung dasteht (K3b-2).
+ *
+ * Heute genau ein Wert; der Typ ist trotzdem ein Aufzählungstyp und kein `'no_candidates'`-Literal,
+ * damit ein zweiter Grund (etwa „Kategorie unbekannt") später additiv danebentreten kann, ohne
+ * jede Auswertung umzubauen.
+ */
+export type NoRecommendationReason = 'no_candidates'
+
 export type AnalysisResult = {
   current: {
     annualPeakKw: number
@@ -298,10 +307,28 @@ export type AnalysisResult = {
     distribution: PeakDistribution
   }
   perBattery: BatteryRoiEntry[]
+  /**
+   * Das empfohlene Katalog-Gerät — `null`, wenn es gar keine Kandidaten gab (K3b-2).
+   *
+   * ── ⚠ `null` HEISST NICHT „ES RECHNET SICH KEINER" ────────────────────────────────────────────
+   * Das ist der andere, ältere Fall: voller Katalog, `perBattery` gefüllt, eine Empfehlung, von
+   * der der Report abrät (`netSavingOverHorizon <= 0`). Hier ist der KATALOG leer — es gab nichts
+   * zu bewerten. Warum, steht in `noRecommendationReason`; alles ausser der Gerätewahl (Ist-Kosten,
+   * Spitzen, Tarifvergleich) ist unverändert gerechnet.
+   */
   recommendation: {
     batteryId: string
     rationale: string
-  }
+  } | null
+  /**
+   * Warum es keine Empfehlung gibt. Gesetzt GENAU DANN, wenn `recommendation === null` —
+   * sonst fehlt das Feld, und ein vor K3b-2 abgelegtes Bündel bleibt dadurch wortgleich lesbar.
+   *
+   * `'no_candidates'`: der übergebene Katalog war leer (heute: für diese Kundenkategorie ist kein
+   * Gerät freigegeben). Ein Aufzählungstyp und kein Satz — den Wortlaut wählt die Oberfläche, die
+   * ihn zeigt; derselbe Grund wie bei `TariffOptimizationBlocker.kind`.
+   */
+  noRecommendationReason?: NoRecommendationReason
   assumptions: {
     // Transparenz-Panel & Editierbarkeit (§6.2). Erweiterbar (§3.10 „…").
     roundTripEfficiency: number

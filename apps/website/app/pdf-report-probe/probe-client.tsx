@@ -243,7 +243,7 @@ export function PdfReportProbe() {
               grid: run.hourFlowGrid,
               batteryName:
                 run.result.existingBatteryAnalysis?.entry.battery.name ??
-                run.result.perBattery.find((p) => p.battery.id === run.result.recommendation.batteryId)
+                run.result.perBattery.find((p) => p.battery.id === run.result.recommendation?.batteryId)
                   ?.battery.name ??
                 'Speicher aus dem Rechenlauf',
             }
@@ -616,7 +616,7 @@ export function PdfReportProbe() {
                     battery: (() => {
                       const r =
                         analysis.perBattery.find(
-                          (p) => p.battery.id === analysis.recommendation.batteryId,
+                          (p) => p.battery.id === analysis.recommendation?.batteryId,
                         ) ?? analysis.perBattery[0]
                       return r
                         ? {

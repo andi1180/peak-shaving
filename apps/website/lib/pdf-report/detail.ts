@@ -128,14 +128,16 @@ export function detailChartPlan(analysis: PdfReportAnalysis): DetailChartPlan {
   /* Bestandsfall: die Anlage des Kunden, sonst der volle Katalog mit der Empfehlung ausgewählt —
      wortgleich zu `report.tsx`. */
   const flowEntries: BatteryResultEntry[] = existing ? [existing.entry] : analysis.perBattery
-  const flowSelected = existing ? existing.entry.battery.id : analysis.recommendation.batteryId
+  const flowSelected = existing ? existing.entry.battery.id : analysis.recommendation?.batteryId
   const flowEntry = flowEntries.find((e) => e.battery.id === flowSelected) ?? flowEntries[0]
 
   return {
     cost,
     flow:
       flowEntry && hasRepresentativeDay(flowEntry)
-        ? { entries: flowEntries, selectedBatteryId: flowSelected }
+        ? /* K3b-2: ohne Empfehlung gibt es keine Kennung zum Vorauswählen — dann die des
+             gezeichneten Eintrags. Mit Empfehlung bleibt die Auswahl Zeichen für Zeichen dieselbe. */
+          { entries: flowEntries, selectedBatteryId: flowSelected ?? flowEntry.battery.id }
         : null,
   }
 }
@@ -199,7 +201,10 @@ export function buildMonthly(
   const rows: ReportRow[] = [
     neutralRow('Ihr Tarif heute', formatEur(sumCovered(comparison.currentTariffEur))),
     neutralRow('aWATTar ohne Steuerung', formatEur(sumCovered(comparison.spotWithoutControlEur))),
-    neutralRow(CONTROLLED_WAY_LABEL, formatEur(sumCovered(comparison.spotWithBatteryEur))),
+    /* K3b-2: ohne Speicher gibt es diese Reihe nicht — die Tabelle führt dann zwei Zeilen. */
+    ...(comparison.spotWithBatteryEur
+      ? [neutralRow(CONTROLLED_WAY_LABEL, formatEur(sumCovered(comparison.spotWithBatteryEur)))]
+      : []),
   ]
 
   /*

@@ -370,10 +370,10 @@ export function StepTariff({
    */
   prefill?: TariffPrefill
   /**
-   * K3b: `true`, solange der Speicherkatalog lädt, nicht abrufbar ist oder für diese Kategorie
-   * keine freigegebene Zeile führt. Der Knopf ist dann gesperrt — aus demselben Grund wie bei
-   * einem fehlenden Netzentgelt-Satz: ohne Katalog gibt es keine Empfehlung, und der Rechenkern
-   * wirft auf einem leeren Katalog (gemessen).
+   * K3b/K3b-2: `true`, solange der Speicherkatalog lädt oder nicht abrufbar ist — dann ist
+   * UNBEKANNT, ob es Geräte gibt, und eine Analyse ohne Speichervorschlag behauptete das Gegenteil.
+   * Ein Katalog, der für diese Kategorie LEER ist, sperrt dagegen nicht mehr: das ist eine Antwort,
+   * und die Analyse läuft ohne Speichervorschlag weiter (K3b-2).
    */
   catalogBlocked: boolean
   /** Nur für die Knopfbeschriftung — „wird geladen" ist etwas anderes als „gibt es nicht". */
