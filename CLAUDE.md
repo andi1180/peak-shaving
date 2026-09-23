@@ -154,9 +154,11 @@ aus der Cloud holen, als Datei wegschreiben und für beide Läufe wiederverwende
 Vorher-Lauf gegen einen anderen Cloud-Stand als der Nachher-Lauf, und die Differenz ist die
 Datenbank, nicht der Code. **Referenzstand 23.09.2026 — Bäckerei aus dem Golden File (s. unten;
 synthetischer Lastgang, Tarif von Hand: 9,5 ct / 50 €/kW·a / `monthly_max_sum` / Einspeisung 0,
-Netzentgelte/Spotpreise/Katalog am 23.09.2026 per `anon` eingefroren):** `billedKw` **606,56**,
+Netzentgelte/Spotpreise/Katalog am 23.09.2026 per `anon` eingefroren, 2025er Netzverlust nach der
+Tippfehler-Korrektur 0,7 ct):** `billedKw` **606,56**,
 31 Katalog-Kandidaten, Leistungspreis 2.527,33 €/Jahr, Empfehlung `6845c64d…` (**Kostal & Dyness
-Retrofit L**, 1.875 €/Jahr, Amortisation 5,84 Jahre, netto 7.803 € über 10 Jahre) · Urbanz
+Retrofit L**, 2.009 €/Jahr, Amortisation 5,45 Jahre, netto 9.139 € über 10 Jahre; mit dem
+fehlerhaften Netzverlust 7 ct waren es 1.875 €/5,84/7.803 €) · Urbanz
 mit den Cloud-Entwurfs-Parametern (13,081 ct / 3,50 €/Monat / 4,56 ct) `billedKw` **69,132** (bis
 zur Mindestleistung je Monat 60,212 — der Entwurf trägt `minBillableKw` 7, Leistungspreis 0, kein
 Euro-Betrag hat sich dadurch bewegt).
