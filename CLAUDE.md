@@ -172,7 +172,7 @@ Details und der vollständige Stand: siehe `./Pflichtenheft_Kalkulator_MVP.md`, 
 ### Zwei stille Mängel aus #295 behoben — CI wieder grün (23.09.2026)
 
 Beide standen seit dem 21.09.2026 im roten DB-Gate, beide auch in Produktion gemessen
-(Management-API), Korrektur in `…_fix_grid_tariff_messpreis_check_and_note.sql`:
+(Management-API), Korrektur in `20260923190000_fix_grid_tariff_messpreis_check_and_note.sql`:
 
 **(a) `grid_tariffs_messpreis_check` liess einen Betrag OHNE Einheit durch.** Nicht vergessen,
 sondern dreiwertige Logik: `messpreis_unit in (…)` ergibt bei `null` NULL statt FALSE, und ein CHECK
