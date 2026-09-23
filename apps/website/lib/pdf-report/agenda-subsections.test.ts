@@ -92,7 +92,7 @@ describe('Agenda — Reihenfolge und Unterpunkte', () => {
   it('beide Kapitel mit Unterabschnitten tragen sie eingerückt — der PV-Befund nur, wenn es ihn gibt', () => {
     const ohnePv = basisSubsections(basisFor())
     const mitPv = basisSubsections(
-      basisFor({ hasPv: true, pvOutageMonths: [{ year: 2025, month: 7 }] }),
+      basisFor({ hasPv: true, pvOutageMonths: [{ year: 2025, month: 7, daysWithDayWindowData: 30, minDayWindowKw: 1.4 }] }),
     )
 
     /* Der eine bedingte Unterpunkt — und sonst dieselbe Liste. */
@@ -119,10 +119,10 @@ describe('Agenda — Reihenfolge und Unterpunkte', () => {
 
     /* Die Unterpunkte stehen unmittelbar hinter IHREM Kapitel und tragen Stufe 2 (= keine
        Seitenzahl, s. `sectionHasPageNumber`). */
-    expect(titles.indexOf(METHODOLOGY_ITEMS[0].title)).toBe(
+    expect(titles.indexOf(METHODOLOGY_ITEMS[0]!.title)).toBe(
       titles.indexOf(METHODOLOGY_SECTION.title) + 1,
     )
-    expect(titles.indexOf(ohnePv[0].title)).toBe(titles.indexOf(BASIS_SECTION.title) + 1)
+    expect(titles.indexOf(ohnePv[0]!.title)).toBe(titles.indexOf(BASIS_SECTION.title) + 1)
     expect(sections.filter((s) => s.level === 2)).toHaveLength(
       METHODOLOGY_ITEMS.length + ohnePv.length,
     )

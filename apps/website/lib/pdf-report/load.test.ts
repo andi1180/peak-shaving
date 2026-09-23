@@ -61,7 +61,7 @@ describe('Lastgang-Kennzahlen', () => {
     const block = buildLoadMetrics(tagesprofil(), analysisFor(1, 40))
     expect(block?.rows.map((r) => r.value)).toEqual(['248 kWh', '248 kWh / Tag', '25,8 %'])
     /* Die Spitze stammt aus `current.annualPeakKw` — dieselbe Zahl wie auf der Voraussetzungs-Seite. */
-    expect(block?.rows[2].hint).toContain('40 kW')
+    expect(block?.rows[2]!.hint).toContain('40 kW')
     /* Nur die Definition, keine Einordnung dieses Kunden. */
     expect(block?.body).toContain('Ein niedriger Wert steht für einen spitzigen Verlauf')
   })

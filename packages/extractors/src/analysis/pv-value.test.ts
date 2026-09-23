@@ -1,6 +1,6 @@
+import type { CalculatorPayload } from 'engine'
 import { LEVIES_NONE } from 'shared'
 import type {
-  CalculatorPayload,
   GridTariffRowInput,
   LoadProfile,
   PvProfile,
@@ -130,6 +130,8 @@ function payload(): CalculatorPayload {
       },
     },
     tariff,
+    // Der gemessene Lauf trägt keine Schätzreihe: die Erzeugung steckt im Bezug (`import_only`).
+    pv: null,
     financial: { fixedSubsidyEur: 0, taxRatePercent: 0, depreciationYears: 10 },
     tariffPricing: pricing({
       startIso: profile.readings[0]!.ts,
@@ -278,6 +280,8 @@ function payload2M(): CalculatorPayload {
       },
     },
     tariff,
+    // Der gemessene Lauf trägt keine Schätzreihe: die Erzeugung steckt im Bezug (`import_only`).
+    pv: null,
     financial: { fixedSubsidyEur: 0, taxRatePercent: 0, depreciationYears: 10 },
     tariffPricing: pricing({
       startIso: profile.readings[0]!.ts,

@@ -1,6 +1,6 @@
+import type { CalculatorPayload } from 'engine'
 import { LEVIES_NONE } from 'shared'
 import type {
-  CalculatorPayload,
   GridTariffRowInput,
   LoadProfile,
   SpotPriceSeriesInput,
@@ -79,6 +79,8 @@ function payloadOf(days: number): CalculatorPayload {
       },
     },
     tariff,
+    // Der gemessene Lauf trägt keine Schätzreihe: die Erzeugung steckt im Bezug (`import_only`).
+    pv: null,
     financial: { fixedSubsidyEur: 0, taxRatePercent: 0, depreciationYears: 10 },
   }
 }
