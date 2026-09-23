@@ -9,6 +9,7 @@ import {
   formatPercent,
   formatYears,
 } from '@/lib/format'
+import { billedKwPerYear } from './basis'
 import { hasNegativeAddonVerdict } from './comparison'
 import type { ReportBuildContext } from './context'
 import { block, ref, t, REF_SECTION } from './report-text'
@@ -112,15 +113,15 @@ function capRows(analysis: PdfReportAnalysis, entry: BatteryResultEntry): Report
  * `eagGrundpreisCostPerYear` gar nicht erst, und hier entfällt die AUSSAGE statt einer 0 zu
  * behaupten (D12).
  *
- * ⚠ [ABGELEITET, keine Contract-Zahl] Der €/kW·a-Satz in Klammern ist `Betrag / billedKw` —
- * wortgleich zur Herleitung des Leistungspreis-Satzes in `basis.ts`, und aus demselben Grund: er
+ * ⚠ [ABGELEITET, keine Contract-Zahl] Der €/kW·a-Satz in Klammern ist `Betrag / billedKwPerYear` —
+ * dieselbe Herleitung wie der Leistungspreis-Satz in `basis.ts`, und aus demselben Grund: er
  * macht die Zeile nachrechenbar (Prinzip 5), ohne dass eine zweite Zahl durch den Contract reist.
  */
 function eagDemandChargeRow(analysis: PdfReportAnalysis): ReportRow[] {
   const amount = analysis.current.eagGrundpreisCostPerYear
   if (amount === undefined || !(analysis.current.billedKw > 0)) return []
 
-  const rate = amount / analysis.current.billedKw
+  const rate = amount / billedKwPerYear(analysis)
   return [
     neutralRow(
       'EAG-Förderbeitrag (Grundpreis) heute',

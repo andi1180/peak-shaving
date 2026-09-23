@@ -4,6 +4,27 @@
 > geändert, Golden File nicht neu erzeugt.** Anlass: Befund aus #347 (Golden File Bäckerei).
 > Keine Aussage zur Abrechnungspraxis in Österreich, nur was der Code tut und was er voraussetzt.
 
+## Status: behoben (23.09.2026)
+
+Der Satz ist in allen Modellen ein Jahressatz. Bei `monthly_max_sum` wird jeder Monat mit Satz/12
+abgerechnet, ein Teiljahr mit 12/beobachtete Monate aufs Jahr gebracht. Die Umrechnung steht an
+einer Stelle, `packages/shared/src/demand-charge.ts`. Über sie laufen die drei Engine-Stellen aus
+Abschnitt 1 (Ist-Kosten, Ersparnis, EAG-Grundpreis). `billedKw` bleibt die Summe.
+
+**Nachtrag zu dieser Bestandsaufnahme:** Sie hat vier Report-Stellen übersehen, die den alten
+Zusammenhang „Kosten = Satz × `billedKw`" voraussetzten. Sie sind mitgezogen:
+
+- Satz-Rückrechnung in `apps/website/components/report/report.tsx` (Lastgang-Diagramm)
+- Satz-Rückrechnung in `apps/website/lib/pdf-report/basis.ts` (Tabelle „Leistungspreis")
+- Satz-Rückrechnung in `apps/website/lib/pdf-report/recommendation.ts` (EAG-Zeile)
+- Teiler des Lastgang-Diagramms in `apps/website/components/report/load-chart.tsx`: beim
+  Summenmodell 12 statt 1
+
+Ohne diesen Nachzug hätte der PDF-Report der Bäckerei „4,17 €/kW·a" statt 50 gezeigt.
+
+Offen bleibt die Mindestleistung: `minBillableKw` wird beim Summenmodell weiterhin gegen die
+Monatssumme verglichen, nicht je Monat.
+
 ## Kurzfassung
 
 Jeder Weg, auf dem ein Leistungspreis in den Rechner kommt, liefert ihn als **Jahressatz (€/kW·a)**

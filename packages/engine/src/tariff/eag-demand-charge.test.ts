@@ -42,7 +42,7 @@ const YEAR_2026 = profile('2025-12-31T23:00:00Z', '2026-12-31T22:45:00Z')
 
 describe('eagDemandChargePerYear', () => {
   it('Netzebene 6, 2026er-Fenster: Satz × abgerechneter Leistungswert', () => {
-    expect(eagDemandChargePerYear(YEAR_2026, pricing(6, null, '2026-01-01', '2026-12-31'), BILLED_KW)).toBeCloseTo(
+    expect(eagDemandChargePerYear(YEAR_2026, pricing(6, null, '2026-01-01', '2026-12-31'), BILLED_KW, 'annual_max')).toBeCloseTo(
       NE6_RATE_EUR_PER_KW_YEAR * BILLED_KW,
       9,
     )
@@ -59,6 +59,7 @@ describe('eagDemandChargePerYear', () => {
         YEAR_2026,
         pricing(7, 'ohne_leistungsmessung', '2026-01-01', '2026-12-31'),
         BILLED_KW,
+        'annual_max',
       ),
     ).toBeUndefined()
   })
@@ -95,18 +96,20 @@ describe('eagDemandChargePerYear', () => {
           levies: { periods: [period('2025-01-01', '2025-12-31', 7.358), period('2026-01-01', null, 5.252)] },
         },
         BILLED_KW,
+        'annual_max',
       ),
     ).toBeUndefined()
   })
 
   it('ohne abgerechneten Leistungswert und ohne belegte Sätze entsteht keine Zahl', () => {
-    expect(eagDemandChargePerYear(YEAR_2026, pricing(6, null, '2026-01-01', '2026-12-31'), 0)).toBeUndefined()
+    expect(eagDemandChargePerYear(YEAR_2026, pricing(6, null, '2026-01-01', '2026-12-31'), 0, 'annual_max')).toBeUndefined()
     // Netz NÖ: keine Gebrauchsabgabe belegt → gar kein Abgabenzeitraum, also auch kein Grundpreis.
     expect(
       eagDemandChargePerYear(
         YEAR_2026,
         { gridTariffRows: null, spotPrices: null, levies: buildLevySchedule('netz_noe', 6, '2026-01-01', '2026-12-31') },
         BILLED_KW,
+        'annual_max',
       ),
     ).toBeUndefined()
   })

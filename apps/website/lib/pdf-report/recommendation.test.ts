@@ -158,19 +158,19 @@ describe('recommendation — Kapp-Zeilen', () => {
    * Netzbetreibers nicht verschmelzen (zwei verschiedene Abgaben, dieselbe Einheit).
    *
    * Zahlenbasis: der Bäckerei-Zuschnitt, Wiener Netze NE 6, Tarifjahr 2026 — 5,252 €/kW·a (EX104)
-   * auf 48 kW des Fixtures ergibt 252,10 €. Die Engine rechnet den Betrag (`eagDemandChargePerYear`);
+   * auf 48 kW Monatssumme des Fixtures (`monthly_max_sum`, 12 Monate, also ÷ 12) ergibt 21,01 €. Die Engine rechnet den Betrag (`eagDemandChargePerYear`);
    * hier steht er als Contract-Wert und wird nur formatiert.
    */
   it('weist den EAG-Förderbeitrag-Grundpreis als eigene Zeile aus, getrennt vom Leistungswert', () => {
     const analysis = analysisFor(false)
     analysis.perBattery = [{ ...ENTRY, dispatchTrace: TRACE }]
-    analysis.current = { ...analysis.current, eagGrundpreisCostPerYear: 5.252 * 48 }
+    analysis.current = { ...analysis.current, eagGrundpreisCostPerYear: (5.252 * 48) / 12 }
 
     const rows = buildRecommendationChapter(analysis).recommendation!.rows
 
     expect(rows).toContainEqual({
       label: 'EAG-Förderbeitrag (Grundpreis) heute',
-      value: '€\u00a0252 pro Jahr (€\u00a05,25 / kW·a)',
+      value: '€\u00a021 pro Jahr (€\u00a05,25 / kW·a)',
       tone: 'neutral',
     })
     // Kein doppeltes Zählen: die Zeile steht NACH den Summenzeilen und geht in keine ein.

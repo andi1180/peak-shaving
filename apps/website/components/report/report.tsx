@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { AlertCircle, AlertTriangle } from 'lucide-react'
 import {
+  demandChargeKwPerYear,
   type AnalysisResult,
   type BatteryCandidate,
   type BatteryCatalogMeta,
@@ -370,17 +371,22 @@ export function Report({
     })
   }
 
-  // [ABGELEITET, keine Contract-Zahl] Roher Leistungspreis-Satz (€/kW·a) direkt aus den Ist-Kosten:
-  // `leistungspreisCostPerYear / billedKw` (analyzeCurrentPeaks setzt Ersteres = Satz × billedKw,
-  // §3.4) → exakt der €/kW·a-Satz, unabhängig vom Abrechnungsmodell und von der Batterie. Basis für
+  // [ABGELEITET, keine Contract-Zahl] Roher Leistungspreis-Satz (€/kW·a) direkt aus den Ist-Kosten,
+  // über dieselbe Umrechnung, mit der die Engine sie bildet (`demandChargeKwPerYear`) → exakt der
+  // €/kW·a-Satz, auch bei `monthly_max_sum` (dort ist `billedKw` eine Monatssumme). Basis für
   // die KONTRAFAKTISCHE Kostengröße je angeklickter Spitze in Chart 1 (was diese Spitze allein an
   // Leistungsentgelt trüge, wäre sie der abgerechnete Höchstwert ihrer Periode) — bewusst NICHT die
   // Ersparnis (die richtet sich je Periode nur nach der höchsten Spitze; s. LoadChart-Popover). Die
-  // perioden-spezifische Umrechnung (monthly_max_average → ÷12) macht das Chart selbst am
+  // perioden-spezifische Umrechnung (monthly_* → ÷12) macht das Chart selbst am
   // `billingModel`. `null` bei billedKw = 0 (leeres/rein einspeisendes Profil) — dann keine Spitzen.
   const leistungspreisRatePerKwYear =
     result.current.billedKw > 0
-      ? result.current.leistungspreisCostPerYear / result.current.billedKw
+      ? result.current.leistungspreisCostPerYear /
+        demandChargeKwPerYear(
+          result.current.billedKw,
+          result.assumptions.billingModel,
+          result.dataQuality.coveredMonths,
+        )
       : null
 
   /*

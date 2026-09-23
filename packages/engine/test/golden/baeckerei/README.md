@@ -28,10 +28,9 @@ Katalog-Loader) fängt dieser Test deshalb bewusst nicht.
   — der Parametersatz, mit dem die Bäckerei seit K3b in allen Regel-12-Proben gerechnet wurde.
 - **Leistungspreis 50 €/kW·a, `monthly_max_sum`** — ebenfalls der bisherige Proben-Stand;
   `monthly_max_sum` ist zudem der SNE-V-Standardfall (`DEFAULT_DRAFT_BILLING_MODEL`).
-  ⚠ Die Engine multipliziert dabei die **Summe** der zwölf Monatsspitzen mit dem **Jahres**satz
-  (`billedKw` 606,56 → 30.328 €/Jahr Leistungspreis bei 50,78 kW Spitze). Die Wirtschaftlichkeitszahlen
-  dieses Falls sind deshalb **keine plausiblen Kundenzahlen** — für eine Regressionsprobe spielt das
-  keine Rolle, zitieren darf man sie nicht.
+  `billedKw` bleibt die Summe (606,56 kW); seit dem Faktor-12-Fix (23.09.2026) wird jeder Monat mit
+  Satz/12 abgerechnet, also 2.527,33 €/Jahr, derselbe Betrag wie mit `monthly_max_average`.
+  Vorher stand hier das Zwölffache (30.328 €/Jahr), s. `Leistungspreis_Einheiten_Bestandsaufnahme.md`.
 - **Wiener Netze NE 7 `ohne_leistungsmessung`** — die einzige Kombination, für die die Cloud eine
   Netzentgelt-Zeile ab 01.01.2025 trägt; nur damit ist der Tarifvergleich über das ganze Fenster
   rechenbar. Zusammen mit einem Leistungspreis ist das bewusst konstruiert, kein realer Tarif.

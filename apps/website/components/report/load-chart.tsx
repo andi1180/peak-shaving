@@ -110,12 +110,12 @@ function ChartTooltip({
 /**
  * Wie viele Perioden-Höchstwerte in den abgerechneten kW-Wert eingehen — bestimmt, welchen Anteil
  * am jährlichen Leistungsentgelt EIN Perioden-Höchstwert trägt: `monthly_max_average` mittelt über
- * 12 Monate (eine Monats-Spitze trägt 1/12 ihres kW-Werts bei), `monthly_max_sum` summiert und
- * `annual_max` kennt nur den einen Jahres-Höchstwert (jeweils voller Beitrag → Divisor 1).
+ * 12 Monate, `monthly_max_sum` rechnet jeden Monat mit Satz/12 ab (beide: eine Monats-Spitze trägt
+ * 1/12 ihres kW-Werts bei), `annual_max` kennt nur den einen Jahres-Höchstwert (Divisor 1).
  */
 const BILLED_PERIOD_DIVISOR: Record<BillingModel, number> = {
   annual_max: 1,
-  monthly_max_sum: 1,
+  monthly_max_sum: 12,
   monthly_max_average: 12,
 }
 
