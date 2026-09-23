@@ -35,10 +35,7 @@ import {
   BATTERY_SELECT_UNSET,
   type BatteryCatalogRow,
 } from '@/lib/admin/battery-catalog'
-import {
-  costComponentOptionLabel,
-  type CostComponentRow,
-} from '@/lib/admin/cost-components'
+import { costComponentOptionLabel, type CostComponentRow } from '@/lib/admin/cost-components'
 import { AdminError, AdminField, AdminSelect, AdminSuccess } from './ui'
 
 /** Zahl → Feldinhalt. Mit Komma, weil Datenblätter und Angebote deutschsprachig sind. */
@@ -48,6 +45,33 @@ function num(value: number | null | undefined): string {
 
 function bool(value: boolean | null | undefined): string {
   return value === null || value === undefined ? '' : value ? 'true' : 'false'
+}
+
+/**
+ * ⚠ WARUM JEDES AUSWAHLFELD EINEN `key` TRÄGT — UND DASS DAS KEIN ZIERRAT IST.
+ *
+ * React setzt ein Formular zurück, sobald seine Action durchgelaufen ist (`form.reset()`, am Ende
+ * der Mutationsphase). Ein `<input>` übersteht das, weil React sein `defaultValue` bei jedem
+ * Rerender in den DOM nachschreibt — der Reset trifft also schon den neuen Stand. Bei `<select>`
+ * gibt es diese Nachführung NICHT: `defaultValue` wirkt einzig beim Einhängen (React setzt daraus
+ * `option.defaultSelected`), und der Reset fällt deshalb auf den Stand des SEITENAUFBAUS zurück.
+ *
+ * Gemessen am 23.09.2026 im Browser: Wirkungsgrad-Quelle „Datenblatt" wählen, speichern — die
+ * Datenbank trug den Wert, `option[value=""]` trug weiterhin `defaultSelected`, und das Feld stand
+ * danach wieder auf „nicht angegeben". Ein KONTROLLIERTES Feld hilft hier nicht: React schreibt
+ * `select.value` nur, wenn sich der Wert zwischen zwei Rendern ÄNDERT — nach dem Speichern tut er
+ * das nicht, und der Reset gewinnt.
+ *
+ * Der Schlüssel hängt am Wert und hängt das Feld damit genau dann neu ein, wenn sich der gemeldete
+ * Stand ändert — noch in der Mutationsphase und damit VOR dem Reset. Das ist dieselbe Nachführung,
+ * die React den Textfeldern von selbst gibt.
+ *
+ * ⚠ Der Fehler traf ALLE Auswahlfelder dieses Formulars. Aufgefallen ist er an der Quelle nur,
+ * weil deren Stand beim Seitenaufbau leer war: die Kategorie fiel auf ihren richtigen Wert zurück.
+ * Wer hier ein Auswahlfeld ergänzt, gibt ihm einen Schlüssel mit.
+ */
+function selectKey(values: Record<string, string>, field: string): string {
+  return `${field}:${values[field] ?? ''}`
 }
 
 /**
@@ -109,6 +133,7 @@ function BatteryFields({
           id={`${formId}-kategorie`}
           name="kategorie"
           label="Kategorie"
+          key={selectKey(values, 'kategorie')}
           defaultValue={values.kategorie ?? BATTERY_SELECT_UNSET}
           error={err('kategorie')}
           hint="Heim oder Gewerbe — der Rechner wählt daraus, welche Geräte für einen Kunden überhaupt in Frage kommen."
@@ -186,6 +211,7 @@ function BatteryFields({
             id={`${formId}-rteSource`}
             name="rteSource"
             label="Wirkungsgrad-Quelle"
+            key={selectKey(values, 'rteSource')}
             defaultValue={values.rteSource ?? BATTERY_SELECT_UNSET}
             error={err('rteSource')}
             hint="Zum Freigeben Pflicht, sobald ein Wirkungsgrad dasteht. „Datenblatt“ nur, wenn der Hersteller einen System- bzw. AC-Round-Trip nennt — ein Wechselrichter-Spitzenwirkungsgrad ist keiner."
@@ -230,6 +256,7 @@ function BatteryFields({
             id={`${formId}-inverterIncluded`}
             name="inverterIncluded"
             label="Wechselrichter enthalten?"
+            key={selectKey(values, 'inverterIncluded')}
             defaultValue={values.inverterIncluded ?? BATTERY_SELECT_UNSET}
             error={err('inverterIncluded')}
             hint="Antwort „nein“ macht den Aufpreis unten zur Pflicht — ohne ihn wäre die Investition zu niedrig."
@@ -250,6 +277,7 @@ function BatteryFields({
             id={`${formId}-requiresFoundation`}
             name="requiresFoundation"
             label="Fundament nötig?"
+            key={selectKey(values, 'requiresFoundation')}
             defaultValue={values.requiresFoundation ?? BATTERY_SELECT_UNSET}
             error={err('requiresFoundation')}
             hint="Antwort „ja“ macht einen Fundament-Baustein MIT Preis zur Pflicht für die Freigabe."
@@ -262,6 +290,7 @@ function BatteryFields({
             id={`${formId}-foundationComponentId`}
             name="foundationComponentId"
             label="Fundament-Baustein"
+            key={selectKey(values, 'foundationComponentId')}
             defaultValue={values.foundationComponentId ?? BATTERY_SELECT_UNSET}
             error={err('foundationComponentId')}
             hint="Der Preis steht im Baustein, nicht am Gerät — dieselbe Bodenplatte trägt mehrere Schränke."
@@ -277,6 +306,7 @@ function BatteryFields({
             id={`${formId}-installationComponentId`}
             name="installationComponentId"
             label="Installations-Baustein (optional)"
+            key={selectKey(values, 'installationComponentId')}
             defaultValue={values.installationComponentId ?? BATTERY_SELECT_UNSET}
             error={err('installationComponentId')}
             hint="Angabe für die Angebotslegung. Die Engine hat dafür kein Feld und rechnet sie NICHT mit."
@@ -314,6 +344,7 @@ function BatteryFields({
             id={`${formId}-controlType`}
             name="controlType"
             label="Steuerungsart (optional)"
+            key={selectKey(values, 'controlType')}
             defaultValue={values.controlType ?? BATTERY_SELECT_UNSET}
             error={err('controlType')}
             hint="Metadatum — die Engine liest es heute nicht. Bleibt es leer, gilt: Heim statisch, Gewerbe dynamisch."

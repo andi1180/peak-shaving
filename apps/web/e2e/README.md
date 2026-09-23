@@ -58,3 +58,21 @@ Fährt die fünf Schritte der Rechnung-Station nach (öffnen · vorhandene Rechn
 von Hand eintragen · weiter · zurück) und prüft, dass der erfasste Stand wieder dasteht. Er war
 der Nachweis für den Fix vom 22.09.2026: **ohne ihn rot, mit ihm grün.** Die Ausgangslage stellt er
 selbst her (`rechnung-station.seed.sql`).
+
+## battery-catalog-rte-source.mjs
+
+Prüft am Batteriekatalog (`/admin/batteriespeicher/<id>`), dass eine Auswahl das Speichern
+übersteht: Kenndaten + Quelle „Datenblatt" eintragen · speichern · **ein zweites Mal speichern,
+ohne etwas zu ändern** · neu laden. Nachweis für den Fix vom 23.09.2026: **ohne ihn rot (4
+Fehlschläge), mit ihm grün.**
+
+⚠ **Der zweite Speichern-Klick ist der Kern.** React setzt das Formular nach jeder abgeschlossenen
+Action zurück, und ein `<select>` fällt dabei auf den Stand des SEITENAUFBAUS zurück (sein
+`defaultValue` wirkt nur beim Einhängen). Das leere Feld schickt beim nächsten Speichern seinen
+leeren Wert mit — und `admin_update_battery` deutet leer als LÖSCHEN. Der Anzeigefehler löscht also
+die gerade gespeicherte Angabe; nachgewiesen wird das an der Datenbank, nicht am Bildschirm. Ein
+Test, der nur nach dem Neuladen hinschaut, wäre vor dem Fix grün geblieben, solange nur einmal
+gespeichert wurde.
+
+Ausgangslage und Aufräumen macht er selbst (`battery-catalog-rte-source.seed.sql`, das Testgerät
+wird am Ende gelöscht). Er braucht kein Projekt und keinen Zählpunkt, nur das Admin-Konto.
