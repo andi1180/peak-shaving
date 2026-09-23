@@ -18,6 +18,7 @@ import {
   batteryEngineFieldLabel,
   batteryLabel,
   batteryPriceStand,
+  batterieRteSourceLabel,
   missingEngineFields,
   type BatteryCatalogRow,
 } from '@/lib/admin/battery-catalog'
@@ -110,6 +111,10 @@ function BatteryRow({ row }: { row: BatteryCatalogRow }) {
         <span className="tabular-nums">{num(row.max_power_kw, 'kW')}</span>
         <span className="text-text-muted"> · Wirkungsgrad </span>
         <span className="tabular-nums">{num(row.round_trip_efficiency, '')}</span>
+        {/* K2c: ein geratener Wirkungsgrad soll nicht aussehen wie ein belegter. */}
+        {row.round_trip_efficiency !== null && (
+          <span className="text-text-muted"> ({batterieRteSourceLabel(row.rte_source)})</span>
+        )}
       </p>
       <p className="mt-1 text-small text-text">
         <span className="text-text-muted">Liste netto </span>

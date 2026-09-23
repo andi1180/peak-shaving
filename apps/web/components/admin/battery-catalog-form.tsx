@@ -30,6 +30,8 @@ import {
   BATTERY_CONTROL_TYPE_LABELS,
   BATTERY_KATEGORIEN,
   BATTERY_KATEGORIE_LABELS,
+  BATTERY_RTE_SOURCES,
+  BATTERY_RTE_SOURCE_LABELS,
   BATTERY_SELECT_UNSET,
   type BatteryCatalogRow,
 } from '@/lib/admin/battery-catalog'
@@ -65,6 +67,7 @@ function defaults(state: AdminState, battery?: BatteryCatalogRow): Record<string
         usableCapacityKwh: num(battery.usable_capacity_kwh),
         maxPowerKw: num(battery.max_power_kw),
         roundTripEfficiency: num(battery.round_trip_efficiency),
+        rteSource: battery.rte_source ?? '',
         listPriceNet: num(battery.list_price_net),
         inverterIncluded: bool(battery.inverter_included),
         extraInverterCostNet: num(battery.extra_inverter_cost_net),
@@ -179,6 +182,21 @@ function BatteryFields({
             error={err('roundTripEfficiency')}
             hint="Round-Trip, also Laden und Entladen zusammen. 0,9 heisst 90 % — nicht 90 eintragen."
           />
+          <AdminSelect
+            id={`${formId}-rteSource`}
+            name="rteSource"
+            label="Wirkungsgrad-Quelle"
+            defaultValue={values.rteSource ?? BATTERY_SELECT_UNSET}
+            error={err('rteSource')}
+            hint="Zum Freigeben Pflicht, sobald ein Wirkungsgrad dasteht. „Datenblatt“ nur, wenn der Hersteller einen System- bzw. AC-Round-Trip nennt — ein Wechselrichter-Spitzenwirkungsgrad ist keiner."
+          >
+            <option value={BATTERY_SELECT_UNSET}>— nicht angegeben —</option>
+            {BATTERY_RTE_SOURCES.map((r) => (
+              <option key={r} value={r}>
+                {BATTERY_RTE_SOURCE_LABELS[r]}
+              </option>
+            ))}
+          </AdminSelect>
         </div>
       </fieldset>
 

@@ -103,6 +103,7 @@ const COMPLETE = {
   p_usable_capacity_kwh: 60,
   p_max_power_kw: 30,
   p_round_trip_efficiency: 0.9,
+  p_rte_source: 'datenblatt',
   p_list_price_net: 24000,
   p_inverter_included: true,
   p_requires_foundation: false,
@@ -157,8 +158,8 @@ describe('K1 — Rechtefläche', () => {
     const signatures = [
       'public.admin_list_battery_catalog(text, boolean)',
       'public.admin_get_battery(uuid)',
-      'public.admin_create_battery(text, text, text, integer, numeric, numeric, numeric, numeric, boolean, numeric, boolean, numeric, numeric, date, text, text, text, text)',
-      'public.admin_update_battery(uuid, text, text, text, integer, numeric, numeric, numeric, numeric, boolean, numeric, boolean, numeric, numeric, date, text, text, text, text)',
+      'public.admin_create_battery(text, text, text, integer, numeric, numeric, numeric, text, numeric, boolean, numeric, boolean, uuid, uuid, date, text, text, text, text)',
+      'public.admin_update_battery(uuid, text, text, text, integer, numeric, numeric, numeric, text, numeric, boolean, numeric, boolean, uuid, uuid, date, text, text, text, text)',
       'public.admin_set_battery_active(uuid, boolean)',
       'public.admin_delete_battery(uuid)',
       'public.admin_set_battery_purchase_price(uuid, numeric, date)',
@@ -249,9 +250,13 @@ describe('K1 — Aktivieren verlangt Vollständigkeit', () => {
     expect(res.missing).toEqual([
       'max_power_kw',
       'round_trip_efficiency',
+      // K2c: der Wirkungsgrad allein reicht nicht — ohne seine Herkunft sieht ein geratener Wert
+      // aus wie ein belegter.
+      'rte_source',
       'list_price_net',
       'extra_inverter_cost_net',
-      'foundation_cost_net',
+      // K1b: aus einem Betrag am Gerät ist der Verweis auf einen Kostenbaustein geworden.
+      'foundation_component_id',
     ])
 
     const [row] = await sql<{ active: boolean }>(
@@ -295,6 +300,38 @@ describe('K1 — Aktivieren verlangt Vollständigkeit', () => {
         })
       ).status,
     ).toBe('deactivated')
+  })
+})
+
+describe('K2c — die Herkunft des Wirkungsgrads', () => {
+  it('ein Wirkungsgrad ohne Herkunft blockiert die Freigabe — im Wrapper und an der DB vorbei', async () => {
+    const admin = await newAdmin()
+    const { p_rte_source: _weg, ...ohneHerkunft } = COMPLETE
+    const id = await createBattery(admin, ohneHerkunft)
+
+    const res = await callNamed<{ status: string; missing: string[] }>(
+      admin,
+      'public.admin_set_battery_active',
+      { p_id: id, p_active: true },
+    )
+    expect(res).toMatchObject({ status: 'incomplete', missing: ['rte_source'] })
+
+    await expect(
+      runAs({ role: 'postgres' }, (c) =>
+        c.query('update public.battery_catalog set active = true where id = $1', [id]),
+      ),
+    ).rejects.toMatchObject({ code: '23514' })
+  })
+
+  it('eine Herkunft OHNE Wert wird benannt abgewiesen statt als 23514 durchzuschlagen', async () => {
+    const admin = await newAdmin()
+    const res = await callNamed<{ status: string }>(admin, 'public.admin_create_battery', {
+      p_kategorie: 'gewerbe',
+      p_hersteller: 'Gate',
+      p_bezeichnung: `Gate Herkunft ohne Wert ${randomUUID()}`,
+      p_rte_source: 'annahme',
+    })
+    expect(res.status).toBe('rte_source_without_value')
   })
 })
 
@@ -413,10 +450,12 @@ describe('K1 — Bearbeiten', () => {
       p_usable_capacity_kwh: 60,
       p_max_power_kw: 30,
       p_round_trip_efficiency: 0.9,
+      p_rte_source: 'datenblatt',
       p_inverter_included: true,
       p_requires_foundation: false,
     })
-    expect(res.status).toBe('invalid_values')
+    // K1b hatte hieraus `invalid_values` gemacht: JEDER check_violation galt als Freigabe-Bruch.
+    expect(res.status).toBe('would_break_active')
   })
 
   it('unmögliche Kenndaten werden benannt statt als 23514 durchzuschlagen', async () => {
