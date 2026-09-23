@@ -1,3 +1,4 @@
+import { displayedPriceBasis, VAT_INCLUSIVE_LABEL } from 'shared'
 import type { BatteryResultEntry, MonthlyChargePrice } from 'shared'
 
 import { formatKwh1, formatKwh1Fixed } from '@/lib/format'
@@ -378,7 +379,8 @@ export function buildChargePrice(
       amount: null,
       rows,
       body:
-        'Alle Beträge netto (ohne USt.) und mengengewichtet: ein Monat mit wenigen Kilowattstunden ' +
+        `Alle Beträge ${displayedPriceBasis(price) === 'gross' ? VAT_INCLUSIVE_LABEL : 'netto (ohne USt.)'} ` +
+        'und mengengewichtet: ein Monat mit wenigen Kilowattstunden ' +
         'und einem sehr guten Preis wiegt entsprechend leicht. Die geladene Menge ist die am Netz ' +
         'BEZOGENE, also die bezahlte. Gerechnet ist das rückblickend auf die tatsächlichen ' +
         'Marktpreise Ihres Zeitraums — kein Versprechen für die Zukunft; und die Ladesteuerung folgt ' +

@@ -12,6 +12,7 @@ import {
   type EstimatedPvSummary,
   type LoadProfile,
   type PvStage,
+  displayedPriceLabel,
 } from 'shared'
 
 import { LARGE_GAP_SLOTS_THRESHOLD } from '@/lib/constants'
@@ -304,7 +305,7 @@ function positiveWays(ways: SummaryWays): SummaryWay[] {
  * Preisangabe ohne Umsatzsteuer gehört an die Zahl, auf die sie sich bezieht.
  */
 export function buildSummaryKpis(analysis: PdfReportAnalysis, ways: SummaryWays): SummaryKpi[] {
-  const days = `über ${ways.coveredDays} gemessene Tage, netto`
+  const days = `über ${ways.coveredDays} gemessene Tage, ${displayedPriceLabel(analysis)}`
   const kpis: SummaryKpi[] = [
     {
       id: 'cost_today',

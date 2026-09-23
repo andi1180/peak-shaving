@@ -40,6 +40,7 @@ function completeRaw() {
       supplierBaseFeeEurPerMonth: 3.5,
     },
     annualConsumptionKwh: 88426.4,
+    supplierPriceBasis: 'gross',
   }
 }
 
@@ -81,6 +82,7 @@ describe('JSON-Schema', () => {
       'billingPeriodFrom',
       'billingPeriodTo',
       'billingPeriodAssumed',
+      'supplierPriceBasis',
     ])
 
     const props = INVOICE_SCAN_JSON_SCHEMA.properties as Record<string, Record<string, unknown>>
@@ -189,6 +191,7 @@ describe('parseInvoiceExtraction — der Gutfall', () => {
       billingPeriodTo: null,
       billingPeriodAssumed: null,
       energyPriceBasis: 'stated',
+      supplierPriceBasis: 'gross',
     })
   })
 
@@ -293,6 +296,7 @@ describe('parseInvoiceExtraction — fail closed, Feld für Feld', () => {
       'netzbetreiber',
       'netzebene',
       'rates',
+      'supplierPriceBasis',
     ])
     expect(Object.keys(parsed.rates)).toEqual([...INVOICE_SCAN_RATE_KEYS])
   })

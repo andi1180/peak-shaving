@@ -8,7 +8,7 @@ import {
   UPLOAD_DOCUMENT_TYPES,
   UPLOAD_DOCUMENT_TYPE_LABELS,
   isUploadDocumentType,
-  mergeInvoiceExtractions,
+  mergeInvoicesForPrefill,
   type InvoiceExtraction,
   type UploadDocumentType,
 } from 'shared'
@@ -370,7 +370,7 @@ export function MixedUploadPanel({
       notes.push(`„${title}“: nicht zugeordnet und deshalb nicht verwendet.`)
     }
 
-    const { merged, conflicts } = mergeInvoiceExtractions(extractions)
+    const { merged, conflicts, supplierPriceBasis } = mergeInvoicesForPrefill(extractions)
     const hasInvoice = extractions.length > 0
 
     if (!lastgang && !hasInvoice) {
@@ -395,6 +395,7 @@ export function MixedUploadPanel({
             netzebene: merged.netzebene,
             meteringVariant: merged.meteringVariant,
             rates: merged.rates,
+            ...(supplierPriceBasis === undefined ? {} : { supplierPriceBasis }),
           }
         : undefined,
       annualFromInvoice: merged.annualConsumptionKwh,

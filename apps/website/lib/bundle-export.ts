@@ -7,6 +7,8 @@ import {
   type AnalysisResult,
   type BatteryCandidate,
   type BatteryCatalogMeta,
+  type DisplayPriceBasis,
+  type PriceBasis,
   type TariffSourceRef,
 } from 'shared'
 
@@ -53,6 +55,9 @@ export type BundleExportArgs = {
   batteryCatalog: BatteryCandidate[]
   /** K3b: die Beiwerte je Gerät (Preisstand, Wirkungsgrad-Herkunft, Händlerkennung). */
   batteryCatalogMeta: Record<string, BatteryCatalogMeta>
+  /** H3: Anzeigebasis der Beträge und Eingabebasis der Lieferantenpreise, als Wertkopie. */
+  priceDisplay: DisplayPriceBasis
+  supplierPriceBasis: PriceBasis | undefined
 }
 
 /**
@@ -85,6 +90,8 @@ export async function buildBundle(args: BundleExportArgs): Promise<AnalysisBundl
        * Preisstand, den die Katalogzeile trug.
        */
       batteryCatalogMeta: args.batteryCatalogMeta,
+      priceDisplay: args.priceDisplay,
+      ...(args.supplierPriceBasis ? { supplierPriceBasis: args.supplierPriceBasis } : {}),
       batteryOverride: args.inputs.batteryOverride,
       pvFileName: args.pv?.fileName ?? null,
       /*

@@ -80,7 +80,7 @@ import { useActionState } from 'react'
 import Link from 'next/link'
 import { Loader2 } from 'lucide-react'
 
-import { mergeInvoiceExtractions } from 'shared'
+import { hasSupplierPrices, priceBasisLabel, type PriceBasis } from 'shared'
 
 import { Button } from '@/components/ui/button'
 import { FieldHint, Label } from '@/components/ui/input'
@@ -89,14 +89,17 @@ import {
   skipMeteringPointInvoiceAction,
   uploadMeteringPointInvoicesAction,
 } from '@/lib/admin/data-entry-actions'
+import { setInvoicePriceBasisAction } from '@/lib/admin/data-entry-actions-rechnung-basis'
 import {
   INVOICE_SKIPPED_KEY,
   MAX_INVOICES_PER_UPLOAD,
+  foldStoredInvoices,
   invoiceConflictLabels,
   invoiceMergeDisplayRows,
   manualTariffDraftIsEmpty,
   readManualTariffDraft,
   readStoredInvoiceExtractions,
+  supplierPriceBasisOf,
 } from '@/lib/admin/invoice-extractions'
 import { ADMIN_INITIAL_STATE } from '@/lib/admin/schema'
 import { DataEntryInvoiceManual } from './data-entry-invoice-manual'
@@ -112,9 +115,12 @@ export function DataEntryInvoice({
   meteringPointNumber,
   maxBytes,
   nextHref,
+  defaultPriceBasis,
 }: {
   projectId: string
   meteringPoint: MeteringPointSummary
+  /** H3: Vorgabe der Preisbasis nach Segment (privat → inkl. USt, betrieb → netto). */
+  defaultPriceBasis: PriceBasis
   /** 1-basiert, wie in der Station — die Nummer ist eine Position, keine Kennung. */
   meteringPointNumber: number
   /**
@@ -151,13 +157,17 @@ export function DataEntryInvoice({
     skipMeteringPointInvoiceAction,
     ADMIN_INITIAL_STATE,
   )
+  const [basisState, basisAction, isSettingBasis] = useActionState(
+    setInvoicePriceBasisAction,
+    ADMIN_INITIAL_STATE,
+  )
   const error = state.fieldErrors?.files
   /*
    * ⚠ Der erfasste Tarifstand dieses Zählpunkts — aus dem ENTWURF, wie alles andere auf dieser
    * Station auch (s. Kopf). Er befüllt das Formular der Handeingabe wieder; ohne ihn stand es nach
    * jedem Stationswechsel leer da, obwohl gespeichert war.
    */
-  const manualValues = readManualTariffDraft(meteringPoint.draft)
+  const manualValues = readManualTariffDraft(meteringPoint.draft, defaultPriceBasis)
   const hasManualValues = !manualTariffDraftIsEmpty(manualValues)
   /*
    * ⚠ AUFGEKLAPPT, SOBALD ETWAS ERFASST IST — und nur dann.
@@ -183,7 +193,8 @@ export function DataEntryInvoice({
    * nicht mehr da, obwohl er gespeichert ist.
    */
   const skipped = meteringPoint.draft[INVOICE_SKIPPED_KEY] === true
-  const { merged, conflicts } = mergeInvoiceExtractions(stored.map((entry) => entry.extraction))
+  // H3: gefaltet auf netto — genau das, was auch im Entwurf steht.
+  const { merged, conflicts } = foldStoredInvoices(stored)
   const rows = invoiceMergeDisplayRows(merged)
   const conflictLabels = invoiceConflictLabels(conflicts)
 
@@ -205,6 +216,8 @@ export function DataEntryInvoice({
       */}
       {skipState.success && <AdminSuccess>{skipState.success}</AdminSuccess>}
       {skipState.formError && <AdminError>{skipState.formError}</AdminError>}
+      {basisState.success && <AdminSuccess>{basisState.success}</AdminSuccess>}
+      {basisState.formError && <AdminError>{basisState.formError}</AdminError>}
 
       {stored.length > 0 && (
         <InvoiceSummary
@@ -214,7 +227,11 @@ export function DataEntryInvoice({
           entries={stored.map((entry) => ({
             documentId: entry.documentId,
             filename: entry.filename,
+            hasPrices: hasSupplierPrices(entry.extraction),
+            basis: supplierPriceBasisOf(entry),
           }))}
+          basisAction={basisAction}
+          isSettingBasis={isSettingBasis}
           rows={rows}
           conflictLabels={conflictLabels}
           removeAction={removeAction}
@@ -439,11 +456,20 @@ function InvoiceSummary({
   conflictLabels,
   removeAction,
   isRemoving,
+  basisAction,
+  isSettingBasis,
 }: {
   number: number
   projectId: string
   meteringPointId: string
-  entries: readonly { documentId: string; filename: string }[]
+  entries: readonly {
+    documentId: string
+    filename: string
+    hasPrices: boolean
+    basis: PriceBasis | null
+  }[]
+  basisAction: (formData: FormData) => void
+  isSettingBasis: boolean
   rows: readonly { key: string; label: string; text: string }[]
   conflictLabels: readonly string[]
   /*
@@ -474,6 +500,26 @@ function InvoiceSummary({
             className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-small text-text-muted"
           >
             <span>{entry.filename}</span>
+            {entry.hasPrices && entry.basis !== null && (
+              <span>Lieferantenpreise {priceBasisLabel(entry.basis)} gelesen, netto übernommen</span>
+            )}
+            {entry.hasPrices && entry.basis === null && (
+              /* H3: Basis unklar — die Preise dieser Rechnung gehen erst nach der Wahl ein. */
+              <form action={basisAction} className="flex flex-wrap items-baseline gap-2">
+                <input type="hidden" name="projectId" value={projectId} />
+                <input type="hidden" name="meteringPointId" value={meteringPointId} />
+                <input type="hidden" name="documentId" value={entry.documentId} />
+                <span className="text-warning">
+                  Preisbasis unklar — Lieferantenpreise noch nicht übernommen:
+                </span>
+                <Button type="submit" name="basis" value="net" variant="secondary" size="sm" disabled={isSettingBasis}>
+                  netto
+                </Button>
+                <Button type="submit" name="basis" value="gross" variant="secondary" size="sm" disabled={isSettingBasis}>
+                  inkl. USt
+                </Button>
+              </form>
+            )}
             {/*
               ⚠ EIN EIGENES `<form>` JE ZEILE, und ausdrücklich NICHT das Upload-Formular darüber:
               verschachtelte Formulare gibt es in HTML nicht, und selbst wenn — ein Fehler beim

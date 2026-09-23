@@ -11,6 +11,7 @@ import { buildReportContext, type ReportBuildContext } from './context'
 import { ReportDocument } from './document'
 import { registerReportFonts } from './fonts'
 import { buildReportLayout } from './layout'
+import { reportInputForDisplay } from './price-display'
 import { buildReportRegistry, type ReportBaukastenRegistry } from './registry'
 import type { ReportLayout } from './report-text'
 import {
@@ -171,8 +172,10 @@ export type RenderReportResult = {
 
 type EmbeddedBox = { width: number; height: number }
 
-export async function renderReportPdf(input: PdfReportInput): Promise<RenderReportResult> {
+export async function renderReportPdf(rawInput: PdfReportInput): Promise<RenderReportResult> {
   const startedAt = performance.now()
+  // H3: ab hier sieht jedes Kapitel die Beträge in der Anzeigebasis des Kunden.
+  const input = reportInputForDisplay(rawInput)
 
   /*
    * Vor dem ersten Rendern. Die Schrift wird per URL von der eigenen Herkunft geholt; ohne

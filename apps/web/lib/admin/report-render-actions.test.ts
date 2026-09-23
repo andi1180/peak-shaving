@@ -194,6 +194,8 @@ describe('createReportRenderRequestAction', () => {
       gridTariffValidFrom: [],
       invoicePeriods: [],
       batteryCatalogMeta: CATALOG_META,
+      // H3: Segment betrieb → Anzeige netto.
+      priceDisplay: 'net',
       meteringPointId: POINT_ID,
       projectId: PROJECT_ID,
     })

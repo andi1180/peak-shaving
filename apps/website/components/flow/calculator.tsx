@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import type { BatteryCatalogState } from 'shared'
+import { displayPriceBasisFor, type BatteryCatalogState } from 'shared'
 
 import { batteryCategoryFor, type BatteryCategoryInput } from '@/lib/battery-catalog/category'
 import { fetchBatteryCatalog } from '@/lib/battery-catalog/source'
@@ -46,6 +46,8 @@ export function Calculator() {
    */
   const [categoryInput, setCategoryInput] = useState<BatteryCategoryInput>({ entry: 'upload' })
   const [catalog, setCatalog] = useState<BatteryCatalogState>({ kind: 'loading' })
+  /** H3: Privatkunden sehen Beträge inkl. USt und geben Preise per Vorgabe brutto ein. */
+  const priceDisplay = displayPriceBasisFor(batteryCategoryFor(categoryInput))
   /** Hochgezählt vom „Erneut versuchen"-Knopf — die einzige Möglichkeit, erneut abzufragen. */
   const [catalogRetry, setCatalogRetry] = useState(0)
   const analysis = useAnalysis()
@@ -164,6 +166,7 @@ export function Calculator() {
               loadDataQuality={load.dataQuality}
               // Delta 9b-2b: vorbelegt aus dem Rechnungs-Scan, sonst `undefined` (= wie vorher).
               prefill={tariffPrefill}
+              defaultPriceBasis={priceDisplay}
               onBack={() => setStep(1)}
               onComplete={handleTariff}
               /* K3b-2: gesperrt, solange der Katalog lädt oder ausfällt — NICHT mehr, wenn er
@@ -191,6 +194,7 @@ export function Calculator() {
         payload && (
           <StepResult
             result={analysis.displayResult}
+            priceDisplay={priceDisplay}
             // B14-2: die Eingaben GENAU zu `displayResult` — der Hook führt beide paarweise, damit
             // ein Bündel keine Eingaben zu einem anderen Ergebnis mitschreiben kann.
             inputs={analysis.displayInputs}

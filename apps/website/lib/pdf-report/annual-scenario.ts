@@ -1,3 +1,4 @@
+import { displayedPriceLabel } from 'shared'
 import type { AnnualScenario } from 'shared'
 
 import { formatEur, formatKwh1 } from '@/lib/format'
@@ -203,7 +204,7 @@ export function buildAnnualScenarioChapter(
         ? null
         : {
             value: formatEur(totalSavingEur),
-            caption: 'geschätzt über 365 Tage, netto',
+            caption: `geschätzt über 365 Tage, ${displayedPriceLabel(analysis)}`,
             tone: 'positive',
           },
     rows: totalRows,

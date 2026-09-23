@@ -47,6 +47,8 @@
  * Rein und ohne Seiteneffekte. Der Import ist ausschliesslich ein TYP-Import; `invoice-scan.ts`
  * selbst bleibt in diesem Bauabschnitt mit 0 Zeilen Diff unangetastet.
  */
+import { netFromEntered } from './display-price-basis'
+import type { PriceBasis } from './tariff'
 import {
   INVOICE_SCAN_RATE_KEYS,
   emptyInvoiceExtraction,
@@ -155,7 +157,9 @@ function setFieldValue(
  * leere Liste ergibt ein Ergebnis, in dem nichts erkannt wurde — kein Wurf, kein Sonderfall beim
  * Aufrufer.
  */
-export function mergeInvoiceExtractions(extractions: readonly InvoiceExtraction[]): InvoiceMergeResult {
+export function mergeInvoiceExtractions(
+  extractions: readonly InvoiceExtraction[],
+): InvoiceMergeResult {
   const merged = emptyInvoiceExtraction()
   const conflicts: InvoiceMergeFieldKey[] = []
 
@@ -214,4 +218,67 @@ export function mergeInvoiceExtractions(extractions: readonly InvoiceExtraction[
   }
 
   return { merged, conflicts }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────────────────────
+ * H3 — Preisbasis der Lieferantenpreise
+ * ──────────────────────────────────────────────────────────────────────────────────────────── */
+
+/** Die drei Lieferantenpreise, die eine Rechnung netto ODER brutto ausweisen kann. */
+export const SUPPLIER_PRICE_KEYS = [
+  'energyPriceCtPerKwh',
+  'energyPriceNightCtPerKwh',
+  'supplierBaseFeeEurPerMonth',
+] as const satisfies readonly (keyof InvoiceExtraction['rates'])[]
+
+/**
+ * Entwurfsschlüssel: in welcher Basis die Lieferantenpreise eingegeben bzw. abgelesen wurden. Die
+ * Werte im Entwurf sind IMMER netto; fehlt der Schlüssel, ist die Basis nicht erfasst (Entwürfe vor H3).
+ */
+export const SUPPLIER_PRICE_BASIS_DRAFT_KEY = 'supplierPriceBasis'
+
+export function hasSupplierPrices(extraction: InvoiceExtraction): boolean {
+  return SUPPLIER_PRICE_KEYS.some((key) => extraction.rates[key] !== null)
+}
+
+/**
+ * Die Lieferantenpreise einer Rechnung auf netto. Bei unklarer Basis (`null`) werden sie
+ * ZURÜCKGEHALTEN statt geraten — sie gehen erst in die Rechnung, wenn ein Mensch entschieden hat.
+ */
+export function supplierPricesOnNetBasis(
+  extraction: InvoiceExtraction,
+  basis: PriceBasis | null,
+): InvoiceExtraction {
+  if (!hasSupplierPrices(extraction)) return extraction
+  const rates = { ...extraction.rates }
+  for (const key of SUPPLIER_PRICE_KEYS) {
+    const value = rates[key]
+    rates[key] = value === null || basis === null ? null : netFromEntered(value, basis)
+  }
+  return { ...extraction, rates, supplierPriceBasis: basis }
+}
+
+/**
+ * Mehrere Rechnungen zu EINER Vorbelegung (öffentlicher Rechner). Tragen alle dieselbe bekannte
+ * Basis, bleiben die Preise wie gelesen; weichen sie ab, wird auf netto normalisiert. Ist eine
+ * unklar, bleibt die Basis `null` — dann wählt der Nutzer, bevor gerechnet wird.
+ */
+export function mergeInvoicesForPrefill(
+  extractions: readonly InvoiceExtraction[],
+): InvoiceMergeResult & { supplierPriceBasis: PriceBasis | null | undefined } {
+  const bases = extractions.filter(hasSupplierPrices).map((e) => e.supplierPriceBasis)
+  if (bases.length === 0)
+    return { ...mergeInvoiceExtractions(extractions), supplierPriceBasis: undefined }
+  if (bases.some((b) => b === null)) {
+    return { ...mergeInvoiceExtractions(extractions), supplierPriceBasis: null }
+  }
+  if (bases.every((b) => b === bases[0])) {
+    return { ...mergeInvoiceExtractions(extractions), supplierPriceBasis: bases[0] }
+  }
+  return {
+    ...mergeInvoiceExtractions(
+      extractions.map((e) => supplierPricesOnNetBasis(e, e.supplierPriceBasis)),
+    ),
+    supplierPriceBasis: 'net',
+  }
 }

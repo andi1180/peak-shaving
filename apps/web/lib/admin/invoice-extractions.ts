@@ -10,11 +10,18 @@ import {
   NETZBETREIBER_IDS,
   NETZBETREIBER_LABELS,
   NETZEBENEN,
+  SUPPLIER_PRICE_BASIS_DRAFT_KEY,
+  SUPPLIER_PRICE_KEYS,
+  enteredFromNet,
+  hasSupplierPrices,
+  mergeInvoiceExtractions,
   parseInvoiceExtraction,
+  supplierPricesOnNetBasis,
   tariffParamsSchema,
   type BillingModel,
   type InvoiceExtraction,
   type InvoiceMergeFieldKey,
+  type PriceBasis,
 } from 'shared'
 
 import type { DraftValue } from '@/lib/project-chat/draft'
@@ -133,6 +140,8 @@ export type StoredInvoiceExtraction = {
    */
   filename: string
   extraction: InvoiceExtraction
+  /** H3: die vom Admin gewählte Preisbasis, wenn die Rechnung selbst sie nicht eindeutig nennt. */
+  supplierPriceBasisChosen?: PriceBasis
 }
 
 function asObject(value: unknown): Record<string, unknown> | null {
@@ -166,10 +175,12 @@ export function readStoredInvoiceExtractions(
     const filename = row?.filename
     if (typeof documentId !== 'string' || documentId === '') continue
     if (typeof filename !== 'string' || filename.trim() === '') continue
+    const chosen = row?.supplierPriceBasisChosen
     rows.push({
       documentId,
       filename: filename.trim(),
       extraction: parseInvoiceExtraction(row?.extraction),
+      ...(chosen === 'net' || chosen === 'gross' ? { supplierPriceBasisChosen: chosen } : {}),
     })
   }
   return rows
@@ -207,6 +218,63 @@ export function withStoredInvoiceExtractions(
  * nicht, und ein Report nach einem reinen Rechnungs-Scan ging mit `netzbetreiber: null` heraus —
  * ohne dass irgendwo etwas fehlschlug.
  */
+/** H3: die Basis, in der die Lieferantenpreise dieser Rechnung stehen — `null` = unklar. */
+export function supplierPriceBasisOf(entry: StoredInvoiceExtraction): PriceBasis | null {
+  return entry.supplierPriceBasisChosen ?? entry.extraction.supplierPriceBasis
+}
+
+/** Rechnungen mit Lieferantenpreisen, deren Basis noch ein Mensch wählen muss. */
+export function invoicesAwaitingPriceBasis(
+  entries: readonly StoredInvoiceExtraction[],
+): StoredInvoiceExtraction[] {
+  return entries.filter(
+    (entry) => hasSupplierPrices(entry.extraction) && supplierPriceBasisOf(entry) === null,
+  )
+}
+
+/**
+ * H3 — die gelesenen Rechnungen, gefaltet auf NETTO: brutto abgelesene Lieferantenpreise werden
+ * umgerechnet, solche mit unklarer Basis zurückgehalten. `supplierPriceBasis` ist die Basis, die
+ * der Entwurf neben den Nettowerten festhält (die der ersten Rechnung, deren Preise eingehen).
+ */
+export function foldStoredInvoices(entries: readonly StoredInvoiceExtraction[]) {
+  const { merged, conflicts } = mergeInvoiceExtractions(
+    entries.map((entry) => supplierPricesOnNetBasis(entry.extraction, supplierPriceBasisOf(entry))),
+  )
+  const counted = entries.find(
+    (entry) => hasSupplierPrices(entry.extraction) && supplierPriceBasisOf(entry) !== null,
+  )
+  return {
+    merged,
+    conflicts,
+    values: invoiceDraftValues(merged),
+    supplierPriceBasis: counted ? supplierPriceBasisOf(counted) : null,
+  }
+}
+
+/** H3: die Basis der eingegangenen Lieferantenpreise in den Entwurf — nur wenn es eine gibt. */
+export function withInvoicePriceBasis(
+  draft: Record<string, unknown>,
+  fold: { supplierPriceBasis: PriceBasis | null },
+): Record<string, unknown> {
+  return fold.supplierPriceBasis === null
+    ? draft
+    : { ...draft, [SUPPLIER_PRICE_BASIS_DRAFT_KEY]: fold.supplierPriceBasis }
+}
+
+/** Formularfeld der Preisbasis in der Handeingabe — dieselbe Konstante in Formular und Action. */
+export const MANUAL_PRICE_BASIS_FIELD = 'priceBasis'
+
+/** `'net'`/`'gross'` oder `null` (nicht gewählt) — ein fremder Wert zählt als nicht gewählt. */
+export function readPriceBasisField(raw: FormDataEntryValue | null): PriceBasis | null {
+  return raw === 'net' || raw === 'gross' ? raw : null
+}
+
+/** Ein Lieferantenpreis-Feld der Handeingabe? Nur diese werden zwischen netto/brutto umgerechnet. */
+export function isSupplierPriceField(key: string): boolean {
+  return (SUPPLIER_PRICE_KEYS as readonly string[]).includes(key)
+}
+
 export const INVOICE_DRAFT_FIELD_KEYS: readonly InvoiceMergeFieldKey[] = INVOICE_MERGE_FIELD_KEYS
 
 /** Ist der gelesene Betreiber eine der Kennungen, die auch die Handeingabe zur Auswahl stellt? */
@@ -422,6 +490,11 @@ export const MANUAL_TARIFF_NUMBER_FIELDS = [
 
 /** Der erfasste Stand eines Zählpunkts, fertig als Formularwerte der Handeingabe. */
 export type ManualTariffDraft = {
+  /**
+   * H3: in welcher Basis die Lieferantenpreise in `numbers` stehen. `''` = im Entwurf nicht
+   * erfasst (vor H3 gespeichert) — die Zahlen stehen dann unverändert, wie gerechnet (netto).
+   */
+  priceBasis: PriceBasis | ''
   /** Die Kennung des Netzbetreibers, oder `''` — der leere Wert der Auswahl. */
   operatorId: string
   /** Die Netzebene als blosse Ziffer (`'7'`), wie das Auswahlfeld sie führt. */
@@ -486,14 +559,32 @@ function manualNumberText(value: unknown): string {
  * „— bitte wählen —", obwohl die Angabe da ist — und mit ihr verschwände auch die Messvariante,
  * deren Feld an der Netzebene hängt.
  */
-export function readManualTariffDraft(draft: Record<string, unknown>): ManualTariffDraft {
+export function readManualTariffDraft(
+  draft: Record<string, unknown>,
+  /** Die Vorgabe für einen Entwurf ohne Lieferantenpreise — nach Segment (heim → brutto). */
+  defaultPriceBasis: PriceBasis = 'net',
+): ManualTariffDraft {
   const operatorRaw = draft[NETZBETREIBER_DRAFT_KEY]
+  const storedBasis = draft[SUPPLIER_PRICE_BASIS_DRAFT_KEY]
+  const hasPrices = SUPPLIER_PRICE_KEYS.some((key) => typeof draft[draftFieldFor(key)] === 'number')
+  const priceBasis: PriceBasis | '' =
+    storedBasis === 'net' || storedBasis === 'gross'
+      ? storedBasis
+      : hasPrices
+        ? ''
+        : defaultPriceBasis
   const netzebeneRaw = draft.netzebene
   const variantRaw = draft.meteringVariant
 
   const numbers = {} as ManualTariffDraft['numbers']
   for (const key of MANUAL_TARIFF_NUMBER_FIELDS) {
-    numbers[key] = manualNumberText(draft[draftFieldFor(key)])
+    const value = draft[draftFieldFor(key)]
+    // Im Entwurf steht netto; gezeigt wird in der Basis, in der eingegeben wurde.
+    numbers[key] = manualNumberText(
+      priceBasis !== '' && typeof value === 'number' && isSupplierPriceField(key)
+        ? enteredFromNet(value, priceBasis)
+        : value,
+    )
   }
 
   /*
@@ -507,6 +598,7 @@ export function readManualTariffDraft(draft: Record<string, unknown>): ManualTar
     (BILLING_MODELS as readonly string[]).includes(billingModelRaw)
 
   return {
+    priceBasis,
     operatorId:
       typeof operatorRaw === 'string' && isKnownNetzbetreiber(operatorRaw) ? operatorRaw : '',
     netzebene: readNetzebeneDigit(netzebeneRaw),

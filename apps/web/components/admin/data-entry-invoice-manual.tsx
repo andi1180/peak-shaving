@@ -53,6 +53,7 @@ import {
   NETZBETREIBER_IDS,
   NETZBETREIBER_LABELS,
   NETZEBENEN,
+  VAT_INCLUSIVE_LABEL,
   hasMeteringVariant,
 } from 'shared'
 
@@ -379,6 +380,23 @@ export function DataEntryInvoiceManual({
             error={fieldError('minBillableKw')}
             hint="Die Untergrenze, die der Netzbetreiber mindestens verrechnet."
           />
+          {/* H3: gespeichert wird netto; die Basis sagt, wie die drei Lieferantenpreise gemeint sind. */}
+          <AdminSelect
+            id="manual-price-basis"
+            name="priceBasis"
+            label="Lieferantenpreise eingetragen"
+            defaultValue={initial.priceBasis}
+            error={fieldError('priceBasis')}
+            hint={
+              initial.priceBasis === ''
+                ? 'Basis nicht erfasst — die Werte stehen so, wie bisher gerechnet (netto). Beim Speichern bitte wählen.'
+                : 'Gilt für Arbeitspreis, Nachttarif und Grundgebühr. Gerechnet wird immer netto.'
+            }
+          >
+            {initial.priceBasis === '' && <option value="">Basis nicht erfasst — bitte wählen</option>}
+            <option value="net">netto (ohne USt)</option>
+            <option value="gross">{VAT_INCLUSIVE_LABEL}</option>
+          </AdminSelect>
           <AdminField
             id="manual-energy-price"
             name="energyPriceCtPerKwh"

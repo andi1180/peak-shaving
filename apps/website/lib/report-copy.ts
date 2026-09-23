@@ -1,3 +1,5 @@
+import { displayedPriceBasis, VAT_INCLUSIVE_LABEL } from 'shared'
+
 /**
  * Report-Texte, die an MEHR ALS EINER Stelle stehen müssen (Delta 16a).
  *
@@ -62,4 +64,12 @@ export function rteSourceNote(rteSource: string | null | undefined): string | nu
   if (rteSource === 'datenblatt') return 'laut Datenblatt'
   if (rteSource === 'annahme') return 'angenommen'
   return null
+}
+
+/**
+ * H3 — der USt-Zusatz am Bildschirm, abgelesen an den gezeigten Zahlen (`analysisForDisplay`):
+ * Privatkunden sehen „inkl. 20 % USt", Betriebe unverändert „exkl. MwSt.".
+ */
+export function vatNote(view: object | null | undefined): string {
+  return displayedPriceBasis(view) === 'gross' ? VAT_INCLUSIVE_LABEL : 'exkl. MwSt.'
 }

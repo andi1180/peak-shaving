@@ -5,6 +5,7 @@ import type {
 import type {
   FinancialParams,
   InvoiceExtraction,
+  PriceBasis,
   TariffParams,
   TariffSelection,
 } from 'shared'
@@ -28,7 +29,11 @@ export type { EstimatedPvResult, ExistingBatteryInput, ParsedLoad, ParsedPv } fr
  * Report und ins Analyse-Bündel, nie in die Rechnung — und sein Typ gehört der Tarifsatz-
  * Datenschicht, die `packages/engine` nicht kennen darf (`tariff/no-catalog-dependency.test.ts`).
  */
-type WithTariffSelection = { tariffSelection?: TariffSelection }
+/**
+ * H3: `supplierPriceBasis` ist die Basis, in der die Lieferantenpreise EINGEGEBEN wurden — die
+ * Werte im Tarif sind immer netto. Reist als Wertkopie bis ins Analyse-Bündel.
+ */
+type WithTariffSelection = { tariffSelection?: TariffSelection; supplierPriceBasis?: PriceBasis }
 
 export type TariffResult = EngineTariffResult & WithTariffSelection
 export type CalculatorPayload = EngineCalculatorPayload & WithTariffSelection
@@ -59,7 +64,13 @@ export type CalculatorPayload = EngineCalculatorPayload & WithTariffSelection
 export type TariffPrefill = Pick<
   InvoiceExtraction,
   'netzbetreiber' | 'netzebene' | 'meteringVariant' | 'rates'
->
+> & {
+  /**
+   * H3: Basis der gelesenen Lieferantenpreise. `null` = auf der Rechnung unklar (der Nutzer muss
+   * wählen); fehlt das Feld, gibt es keine gelesenen Lieferantenpreise.
+   */
+  supplierPriceBasis?: PriceBasis | null
+}
 
 // Vom editierbaren Annahmen-Panel (§6.2) nach oben gereichte, vollständige Eingabe für eine
 // Live-Neuberechnung — `tariff`/`financial` sind bereits mit den editierten Feldern gemergte

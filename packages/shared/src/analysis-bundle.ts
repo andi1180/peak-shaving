@@ -35,7 +35,8 @@ import type { AnalysisResult } from './analysis-result'
 import type { BatteryCandidate } from './battery'
 import type { BatteryCatalogMeta } from './battery-catalog-loader'
 import type { FinancialParams } from './financial'
-import type { TariffParams } from './tariff'
+import type { DisplayPriceBasis } from './display-price-basis'
+import type { PriceBasis, TariffParams } from './tariff'
 import type { TariffOverridableField } from './tariff-catalog'
 
 /**
@@ -162,7 +163,14 @@ import type { TariffOverridableField } from './tariff-catalog'
  * deaktiviert, ändert das an dieser Analyse nichts — sie trägt den Stand, gegen den gerechnet
  * wurde, samt seinem Datum.
  */
-export const ANALYSIS_BUNDLE_VERSION = 9
+/**
+ * ── FASSUNG 10 (H3, 23.09.2026) ────────────────────────────────────────────────────────────────
+ * `inputs.priceDisplay` (in welcher Basis die Beträge dem Kunden gezeigt wurden) und
+ * `inputs.supplierPriceBasis` (in welcher Basis die Lieferantenpreise eingegeben wurden) — beide
+ * als Wert. Gerechnet ist unverändert netto; ohne die Angabe liesse sich ein Heim-Bündel später
+ * nicht von einem Gewerbe-Bündel unterscheiden. Fehlt sie (Fassung ≤ 9), wurde netto gezeigt.
+ */
+export const ANALYSIS_BUNDLE_VERSION = 10
 
 /**
  * Fassungen, die der Upload annimmt.
@@ -171,7 +179,7 @@ export const ANALYSIS_BUNDLE_VERSION = 9
  * worden sein, und ein Bündel unbrauchbar zu machen, das ein Mensch in der Hand hält, wäre der
  * schlechtere Handel. Bei einer älteren Fassung bleiben die jeweils neueren Felder schlicht leer.
  */
-export const SUPPORTED_ANALYSIS_BUNDLE_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+export const SUPPORTED_ANALYSIS_BUNDLE_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 
 /**
  * Fassung der Rechen-Engine, VON HAND gepflegt.
@@ -259,6 +267,10 @@ export type AnalysisBundleInputs = {
    * nachgesehen worden.
    */
   batteryCatalogMeta?: Record<string, BatteryCatalogMeta>
+  /** H3 (Fassung 10): Anzeigebasis der Beträge — `gross` bei Privatkunden. */
+  priceDisplay?: DisplayPriceBasis
+  /** H3 (Fassung 10): Eingabebasis der Lieferantenpreise; die Werte in `tariff` sind netto. */
+  supplierPriceBasis?: PriceBasis
   /**
    * Die an genau EINEM Kandidaten geänderten Werte — zusätzlich zum bereits geänderten
    * `batteryCatalog`, damit später erkennbar bleibt, dass hier von Hand eingegriffen wurde und

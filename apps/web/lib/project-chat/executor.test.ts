@@ -698,6 +698,7 @@ describe('check_draft_completeness', () => {
 describe('extract_invoice', () => {
   const rates = (energy: number) => ({
     ...emptyInvoiceExtraction(),
+    supplierPriceBasis: 'net' as const,
     rates: { ...emptyInvoiceExtraction().rates, energyPriceCtPerKwh: energy },
   })
 

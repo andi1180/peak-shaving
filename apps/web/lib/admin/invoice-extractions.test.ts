@@ -23,6 +23,8 @@ import {
   readStoredInvoiceExtractions,
   withStoredInvoiceExtractions,
   type StoredInvoiceExtraction,
+  foldStoredInvoices,
+  invoicesAwaitingPriceBasis,
 } from './invoice-extractions'
 import { ANNUAL_CONSUMPTION_KWH_KEY } from './standard-profile'
 
@@ -186,7 +188,9 @@ describe('invoiceDraftValues — was in den Entwurf geht und in welcher Form', (
   })
 
   it('⚠ trägt einen UNBEKANNTEN Betreiber NICHT ein — es wird nichts zugeordnet', () => {
-    const fremd = invoiceDraftValues(extraction({ netzbetreiber: 'Elektrizitätswerke Mustertal' as never }))
+    const fremd = invoiceDraftValues(
+      extraction({ netzbetreiber: 'Elektrizitätswerke Mustertal' as never }),
+    )
     expect(fremd.some((value) => value.field === NETZBETREIBER_DRAFT_KEY)).toBe(false)
 
     // Und ohne jede Angabe bleibt der Schlüssel ebenfalls weg (kein Ersatzwert).
@@ -368,5 +372,39 @@ describe('readManualTariffDraft', () => {
       billingModel: 'monthly_max_sum',
       billingModelConfirmed: false,
     })
+  })
+})
+
+describe('H3 — Preisbasis der Lieferantenpreise', () => {
+  const invoice = (documentId: string, basis: 'net' | 'gross' | null, ct: number) => {
+    const extraction = emptyInvoiceExtraction()
+    extraction.rates.energyPriceCtPerKwh = ct
+    extraction.supplierPriceBasis = basis
+    return { documentId, filename: `${documentId}.pdf`, extraction }
+  }
+
+  it('faltet eine brutto gelesene Rechnung auf netto und hält eine unklare zurück', () => {
+    const gross = foldStoredInvoices([invoice('a', 'gross', 12)])
+    expect(gross.merged.rates.energyPriceCtPerKwh).toBe(10)
+    expect(gross.supplierPriceBasis).toBe('gross')
+
+    const unclear = [invoice('b', null, 12)]
+    expect(foldStoredInvoices(unclear).merged.rates.energyPriceCtPerKwh).toBeNull()
+    expect(invoicesAwaitingPriceBasis(unclear).map((e) => e.documentId)).toEqual(['b'])
+    const chosen = foldStoredInvoices([{ ...unclear[0]!, supplierPriceBasisChosen: 'gross' }])
+    expect(chosen.merged.rates.energyPriceCtPerKwh).toBe(10)
+  })
+
+  it('liest netto gespeicherte Werte in der Eingabebasis zurück — und deutet Altbestand nicht um', () => {
+    expect(
+      readManualTariffDraft({ energyPriceCtPerKwh: 10, supplierPriceBasis: 'gross' }).numbers
+        .energyPriceCtPerKwh,
+    ).toBe('12')
+
+    const legacy = readManualTariffDraft({ energyPriceCtPerKwh: 13.081 }, 'gross')
+    expect(legacy.priceBasis).toBe('')
+    expect(legacy.numbers.energyPriceCtPerKwh).toBe('13,081')
+
+    expect(readManualTariffDraft({}, 'gross').priceBasis).toBe('gross')
   })
 })

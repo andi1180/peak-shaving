@@ -357,3 +357,21 @@ describe('B14-2 — die fünf typisierten Auszüge', () => {
     expect(extracts.annualSavingEur).toBe(0)
   })
 })
+
+describe('H3 — Preisbasis im Bündel', () => {
+  it('trägt Anzeige- und Eingabebasis als Wert und liest sie unverändert zurück', async () => {
+    const bundle = await buildAnalysisBundle({
+      engineVersion: ENGINE_VERSION,
+      engineCommitSha: REAL_COMMIT,
+      computedAt: '2026-09-23T10:00:00.000Z',
+      inputs: { ...INPUTS, priceDisplay: 'gross', supplierPriceBasis: 'gross' },
+      result: makeResult(),
+      sourceFileName: 'lastgang.csv',
+      sourceFile: SOURCE,
+    })
+    expect(bundle.bundleVersion).toBe(10)
+    const parsed = parseAnalysisBundle(JSON.parse(JSON.stringify(bundle)))
+    expect(parsed.ok && parsed.bundle.inputs.priceDisplay).toBe('gross')
+    expect(parsed.ok && parsed.bundle.inputs.supplierPriceBasis).toBe('gross')
+  })
+})

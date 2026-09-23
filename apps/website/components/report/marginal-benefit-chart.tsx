@@ -15,6 +15,7 @@ import type { BatteryCandidate, BatteryRoiSummary } from 'shared'
 import { evenAxisTicks } from '@/lib/chart-ticks'
 import { formatEur, formatKw, formatKwh1 } from '@/lib/format'
 import { Num } from './num'
+import { vatNote } from '@/lib/report-copy'
 
 /**
  * Grenznutzen-Kurve: was bringt jede weitere Kilowattstunde Speicher noch? (02.09.2026)
@@ -130,7 +131,7 @@ export function MarginalBenefitChart({
       <p className="mb-3 text-xs text-text-muted">
         Netto über <Num>{horizonYears}</Num> Jahre, also Ersparnis abzüglich der Anschaffung
         {variant === 'addon' ? ' des Zusatzgeräts' : ''}. Über der Nulllinie rechnet sich das Gerät
-        im Betrachtungszeitraum, darunter nicht. Alle Beträge exkl. MwSt.
+        im Betrachtungszeitraum, darunter nicht. Alle Beträge {vatNote(points)}.
       </p>
 
       <div className="h-64 w-full">

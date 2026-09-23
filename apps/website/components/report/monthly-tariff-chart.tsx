@@ -1,10 +1,15 @@
 'use client'
 
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { sumCovered, type MonthlyTariffComparison } from 'shared'
+import {
+  displayedPriceBasis,
+  sumCovered,
+  VAT_INCLUSIVE_LABEL,
+  type MonthlyTariffComparison,
+} from 'shared'
 
 import { formatEur, formatEur2 } from '@/lib/format'
-import { CONTROLLED_WAY_LABEL, monthlyBatteryRef } from '@/lib/report-copy'
+import { CONTROLLED_WAY_LABEL, monthlyBatteryRef, vatNote } from '@/lib/report-copy'
 import { Num } from './num'
 import { CHART_COLORS } from '@/lib/pdf-report/theme'
 import { useId } from 'react'
@@ -166,6 +171,7 @@ export function MonthlyTariffChart({
   /* Eigene Kennung je Instanz — zwei Charts auf einem Blatt teilten sonst ein `<pattern>`. */
   const modelPatternId = useId()
   const whose = monthlyBatteryRef(isExisting)
+  const gross = displayedPriceBasis(comparison) === 'gross'
   const fixed = comparison.fixedCosts
   /*
    * K3b-2: Ohne Speicher (leerer Katalog, kein Bestand) gibt es die dritte Reihe nicht. Gefiltert
@@ -198,7 +204,7 @@ export function MonthlyTariffChart({
       <p className="mb-1 text-sm font-medium text-ink">Das zahlen Sie jetzt vs. mit aWATTar</p>
       <p className="mb-3 text-xs text-text-muted">
         Energie- und Netzkosten je Monat, inklusive Grundgebühren — Ihr Tarif, aWATTar ohne
-        Steuerung und {CONTROLLED_WAY_LABEL}. Alle Beträge exkl. MwSt.
+        Steuerung und {CONTROLLED_WAY_LABEL}. Alle Beträge {vatNote(comparison)}.
       </p>
 
       <div className="h-64 w-full">
@@ -274,7 +280,7 @@ export function MonthlyTariffChart({
           Stelle, an der ein Leser die Beträge vergleicht. An den einzelnen Monatsbalken und im
           Tooltip steht er bewusst gar nicht — die Chart-Unterzeile deckt sie mit ab.
         */}
-        <span className="mt-1">Alle Beträge exkl. MwSt.</span>
+        <span className="mt-1">Alle Beträge {vatNote(comparison)}.</span>
       </div>
 
       {/*
@@ -341,14 +347,17 @@ export function MonthlyTariffChart({
           </li>
           <li>
             <strong>Grundgebühr aWATTar</strong>:{' '}
-            <Num className="text-ink">{formatEur2(fixed.awattarFeeEurPerMonth)}</Num>/Monat (netto),
-            anteilig <Num className="text-ink">{formatEur2(fixed.awattarBaseFeeEur)}</Num> — nur in
-            den beiden aWATTar-Reihen.
+            <Num className="text-ink">{formatEur2(fixed.awattarFeeEurPerMonth)}</Num>/Monat (
+            {gross ? VAT_INCLUSIVE_LABEL : 'netto'}), anteilig{' '}
+            <Num className="text-ink">{formatEur2(fixed.awattarBaseFeeEur)}</Num> — nur in den
+            beiden aWATTar-Reihen.
           </li>
           <li>
             <strong>Nicht</strong> eingerechnet: der Leistungspreis (€/kW·Jahr) — er bleibt die
-            Jahreszahl weiter oben im Report; Umsatzsteuer — gerechnet wird durchgängig netto;
-            Wechsel- oder Vertragskosten.
+            Jahreszahl weiter oben im Report;{' '}
+            {gross
+              ? `Wechsel- oder Vertragskosten. Gerechnet wird netto, gezeigt ${VAT_INCLUSIVE_LABEL}.`
+              : 'Umsatzsteuer — gerechnet wird durchgängig netto; Wechsel- oder Vertragskosten.'}
           </li>
         </ul>
       </div>

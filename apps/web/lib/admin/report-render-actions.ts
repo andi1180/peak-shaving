@@ -6,6 +6,7 @@ import {
   REPORT_OPTIONAL_SECTIONS,
   REPORT_OPTIONAL_SECTIONS_FIELD,
   REPORT_OPTIONAL_SECTIONS_MARKER,
+  displayPriceBasisFor,
   type GridTariffRowInput,
   type ReportOptionalSection,
 } from 'shared'
@@ -294,6 +295,8 @@ export async function createReportRenderRequestAction(
     // K3c: Preisstand und Wirkungsgrad-Herkunft als Wertkopie — sonst nennte der Report für ein
     // echtes Katalog-Gerät „keine Preisquelle hinterlegt".
     ...(catalog.kind === 'available' ? { batteryCatalogMeta: catalog.meta } : {}),
+    // H3: Privatkunden sehen Beträge inkl. USt — als Wert, damit die Übergabe es selbst trägt.
+    priceDisplay: displayPriceBasisFor(category),
     meteringPointId,
     projectId,
   }
