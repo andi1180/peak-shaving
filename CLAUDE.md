@@ -152,12 +152,22 @@ und nachher abgelegt und TIEF verglichen; jede Differenz ist ein Fehler, den man
 zu erklären. Damit der Vergleich trägt, müssen die EINGABEN eingefroren sein: die Preisdaten einmal
 aus der Cloud holen, als Datei wegschreiben und für beide Läufe wiederverwenden — sonst läuft der
 Vorher-Lauf gegen einen anderen Cloud-Stand als der Nachher-Lauf, und die Differenz ist die
-Datenbank, nicht der Code. **Referenzstand 23.09.2026 (eingefrorene Eingaben, `billingModel`
-`monthly_max_sum`, Wiener Netze NE 7 ohne Leistungsmessung):** Bäckerei `billedKw` **606,56**,
-31 Katalog-Kandidaten, Empfehlung `f5d5344a…` (Dyness Stack 100 40,96 kWh) · Urbanz mit den
-Cloud-Entwurfs-Parametern (13,081 ct / 3,50 €/Monat / 4,56 ct) `billedKw` **60,212**. ⚠ Die
+Datenbank, nicht der Code. **Referenzstand 23.09.2026 — Bäckerei aus dem Golden File (s. unten;
+synthetischer Lastgang, Tarif von Hand: 9,5 ct / 50 €/kW·a / `monthly_max_sum` / Einspeisung 0,
+Netzentgelte/Spotpreise/Katalog am 23.09.2026 per `anon` eingefroren):** `billedKw` **606,56**,
+31 Katalog-Kandidaten, Empfehlung `ad294919…` (**Solinteg E2BR-S96K-C mit M2HT-50K-150**) · Urbanz
+mit den Cloud-Entwurfs-Parametern (13,081 ct / 3,50 €/Monat / 4,56 ct) `billedKw` **60,212**.
+**⚠ KORREKTUR:** hier stand bis zum Golden File „Empfehlung `f5d5344a…` (Dyness Stack 100
+40,96 kWh)". Die Zeile hat zwei Läufe vermischt — `billedKw` stammte aus der eingefrorenen
+`monthly_max_sum`-Probe, die Empfehlung aus einem Lauf über die Oberfläche (Vorgabe
+`monthly_max_average`, Tarifwerte nicht festgehalten). Mit den eingefrorenen Eingaben ist sie aus
+KEINEM der beiden Modelle reproduzierbar (`monthly_max_average` ergibt „Kostal & Dyness Retrofit
+L"); die K3d-Probe mit demselben Parametersatz nannte bereits Solinteg E2BR-S96K-C. ⚠ Die
 Oberfläche des öffentlichen Rechners gibt `monthly_max_average` vor — wer dort misst und die
-Baseline-Zahl erwartet, muss das Modell umstellen, sonst steht dort der ZWÖLFTE Teil.
+Baseline-Zahl erwartet, muss das Modell umstellen, sonst steht dort der ZWÖLFTE Teil. **⚠ Die
+Wirtschaftlichkeitszahlen dieses Parametersatzes sind keine Kundenzahlen:** `monthly_max_sum`
+multipliziert die SUMME der Monatsspitzen mit dem JAHRESsatz (30.328 €/Jahr Leistungspreis bei
+50,78 kW Spitze) — offene fachliche Frage, im Golden File bewusst unverändert eingefroren.
 
 **Anlass:** Dreimal in einer Session ist genau diese Fehlerklasse aufgetreten, nicht spekulativ:
 `reduceAnalysis` liess `annualScenario` und `pvValue` aus seiner Pick-Liste aus (Feld existierte,
@@ -168,10 +178,17 @@ anderes nicht (**#327**). Keiner dieser drei Fälle wurde von einem automatisier
 sie fielen erst auf, weil der echte Report gegen den Produktionspfad gezogen und von Auge geprüft
 wurde.
 
-**Offener Punkt für eine künftige Sitzung, nicht Teil dieser Regel:** ein bis zwei Referenzfälle als
-Golden-File-Regressionstest in die Suite aufnehmen (kompletter Report-Output gegen einen
-gespeicherten Vorher-Stand, automatisch bei jedem PR) — würde das manuelle Nachziehen dieser Regel
-teilweise ins CI verlagern. `[OFFEN]`.
+**Golden File Bäckerei — `[GEBAUT, 23.09.2026]`:** `packages/engine/test/golden/baeckerei.test.ts`
+rechnet `computeAnalysis` mit eingefrorenen Eingaben (`test/golden/baeckerei/`: Lastgang,
+Tarifwerte, Netzentgelte, Spotpreise, Abgaben, 31 Katalog-Geräte — Herkunft und Begründung in der
+README dort) und verlangt das vollständige `AnalysisResult` EXAKT wie in `expected.json`, ohne
+Toleranz; bei Abweichung listet er Pfad und alt → neu. Läuft in CI mit `pnpm --filter engine test`.
+Er ersetzt die Regel für den Rechner-Pfad **auf Engine-Ebene**, nicht ganz: Report-Aufbau und der
+Wizard-Pfad (Urbanz, echter Kunde, bleibt ausserhalb des Repos) sind weiterhin von Hand
+nachzuziehen. **Pflege:** `pnpm golden:update` erzeugt `expected.json` neu — nur im PR der
+bewussten Rechenänderung, und der PR-Bericht nennt, welche Zahlen sich bewegt haben und warum.
+**Nie zum Grünmachen**, und die Eingaben werden nicht nachgeladen (ein neuer Cloud-Stand ist kein
+Grund für ein Update).
 
 ### Regel 13 — Der Batteriekatalog wird nur mit einer Rolle gelesen, für die RLS gilt (ab 23.09.2026, K3c)
 

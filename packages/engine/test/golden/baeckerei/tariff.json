@@ -1,0 +1,11 @@
+{
+  "horizonYears": 10,
+  "tariff": {
+    "leistungspreisEurPerKwYear": 50,
+    "billingModel": "monthly_max_sum",
+    "minBillableKw": 0,
+    "energyPriceCtPerKwh": 9.5,
+    "einspeiseverguetungCtPerKwh": 0,
+    "netzebene": "NE 7"
+  }
+}
