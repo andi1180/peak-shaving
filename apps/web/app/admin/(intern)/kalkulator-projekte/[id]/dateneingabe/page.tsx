@@ -37,7 +37,8 @@ import {
   MAX_INVOICE_FILE_BYTES,
   MAX_PV_DESIGN_FILE_BYTES,
 } from 'extractors'
-import { MAX_PROJECT_DOCUMENT_BYTES } from 'shared'
+import { MAX_PROJECT_DOCUMENT_BYTES, displayPriceBasisFor } from 'shared'
+import { batteryCategoryForSegment } from '@/lib/admin/battery-catalog-source'
 
 /*
  * `/admin/kalkulator-projekte/[id]/dateneingabe` — der Dateneingabe-Wizard (B24, Teil 1).
@@ -437,6 +438,9 @@ export default async function AdminProjectDataEntryPage({
               meteringPointNumber={rechnung.number}
               maxBytes={MAX_INVOICE_FILE_BYTES}
               nextHref={next ? stationHref(project.id, next.id) : null}
+              defaultPriceBasis={displayPriceBasisFor(
+                batteryCategoryForSegment(project.segment) ?? 'gewerbe',
+              )}
             />
           )}
 

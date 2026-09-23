@@ -7,6 +7,7 @@ import {
   type AnalysisResult,
   type BatteryCandidate,
   type BatteryCatalogMeta,
+  type DisplayPriceBasis,
   type TariffSourceRef,
 } from 'shared'
 
@@ -54,6 +55,7 @@ type PdfExportState =
 
 export function StepResult({
   result,
+  priceDisplay,
   inputs,
   load,
   payload,
@@ -67,6 +69,8 @@ export function StepResult({
   onRestart,
 }: {
   result: AnalysisResult
+  /** H3: Anzeigebasis der Beträge — `gross` für Privatkunden. Gerechnet ist `result` netto. */
+  priceDisplay: DisplayPriceBasis
   /**
    * B14-2: die Eingangsgrössen GENAU dieses Ergebnisses (§6.2-Neuberechnung eingeschlossen).
    * `null`, solange sie noch nicht feststehen — dann ist kein Bündel möglich.
@@ -214,6 +218,7 @@ export function StepResult({
             period: formatAnalysisPeriod(load.profile),
             printedAt: formatPrintedAt(now),
             analysis: result,
+            priceDisplay,
             loadProfile: load.profile,
             /* K3b: dieselben Beiwerte wie im Bildschirm-Report — ein Dokument, eine Herkunft. */
             batteryCatalogMeta,
@@ -254,7 +259,16 @@ export function StepResult({
         })
       }
     })()
-  }, [pdfRequested, customer, result, load, payload, tariffSource, batteryCatalogMeta])
+  }, [
+    pdfRequested,
+    customer,
+    result,
+    priceDisplay,
+    load,
+    payload,
+    tariffSource,
+    batteryCatalogMeta,
+  ])
 
   /*
    * EIN Auslöser für beide Anlässe (erster Export nach dem Gate, jeder weitere und der erneute
@@ -310,6 +324,8 @@ export function StepResult({
         tariffSource,
         batteryCatalog,
         batteryCatalogMeta,
+        priceDisplay,
+        supplierPriceBasis: payload.supplierPriceBasis,
       })
       downloadTextFile(
         bundleFileName(bundle),
@@ -488,6 +504,7 @@ export function StepResult({
 
           <Report
             result={result}
+            priceDisplay={priceDisplay}
             loadProfile={load.profile}
             /* K3b: Grundlinie des Annahmen-Panels UND Quelle der Herkunftsangaben am Gerät. */
             batteryCatalog={batteryCatalog}

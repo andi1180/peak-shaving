@@ -9,6 +9,7 @@ import type {
 } from 'shared'
 
 import { buildBasisChapter, DATA_SOURCES_TABLE_ID } from './basis'
+import { reportInputForDisplay } from './price-display'
 import { SECTION_ID } from './content'
 import { reportLayoutOf } from './layout'
 import { resolveReportText, type ReportText } from './report-text'
@@ -396,7 +397,7 @@ describe('buildBasisChapter — Datenquellen-Tabelle (D9)', () => {
    */
   it('weist die fehlende Geräte-Herkunft in jedem Fall aus', () => {
     const withDevice = dataSourcesFor({ gridTariffValidFrom: [], invoicePeriods: [] })
-    expect(vintageOf(withDevice, 'battery_device')).toContain('keine Herkunfts- oder Preisquelle')
+    expect(vintageOf(withDevice, 'battery_device')).toContain('Katalogstand nicht übergeben')
 
     const withoutCatalog = buildBasisChapter({
       title: 'Wirtschaftlichkeitsanalyse Batteriespeicher',
@@ -442,6 +443,59 @@ describe('buildBasisChapter — Datenquellen-Tabelle (D9)', () => {
     expect(vintageOf(table, 'battery_device')).not.toContain('führt weder')
   })
 
+  it('beschreibt den Bestandsspeicher als eigenes Gerät mit Kundenangaben (H3)', () => {
+    const own = BATTERY_ANALYSIS.perBattery[0]!
+    const table = buildBasisChapter({
+      title: 'Wirtschaftlichkeitsanalyse Batteriespeicher',
+      subtitle: 'Auf Basis Ihres Viertelstunden-Lastgangs',
+      period: null,
+      printedAt: '23.09.2026',
+      analysis: {
+        ...BATTERY_ANALYSIS,
+        existingBatteryAnalysis: { entry: own, addonScenarios: [] },
+      },
+      loadProfile: LOAD_PROFILE,
+      tariffSource: TARIFF_SOURCE_UNTRACKED,
+      tariffVintage: null,
+    }).dataSources
+
+    expect(vintageOf(table, 'battery_device')).toContain('Ihr eigener Speicher')
+    expect(vintageOf(table, 'battery_device')).toContain('nach Ihren Angaben')
+    expect(vintageOf(table, 'battery_device')).not.toContain('führt weder')
+  })
+
+  it('weist den Listenpreis bei Privatkunden inkl. USt aus, bei Betrieben netto (H3)', () => {
+    const base: PdfReportInput = {
+      title: 'Wirtschaftlichkeitsanalyse Batteriespeicher',
+      subtitle: 'Auf Basis Ihres Viertelstunden-Lastgangs',
+      period: null,
+      printedAt: '23.09.2026',
+      analysis: BATTERY_ANALYSIS,
+      loadProfile: LOAD_PROFILE,
+      tariffSource: TARIFF_SOURCE_UNTRACKED,
+      tariffVintage: null,
+      batteryCatalogMeta: {
+        'ps-c60': {
+          memodoId: null,
+          priceAsOf: '2026-09-01',
+          rteSource: 'datenblatt',
+          listPriceNet: 25200,
+        },
+      },
+    }
+    const net = buildBasisChapter(reportInputForDisplay(base)).dataSources
+    const gross = buildBasisChapter(
+      reportInputForDisplay({ ...base, priceDisplay: 'gross' }),
+    ).dataSources
+
+    expect(vintageOf(net, 'battery_device')).toContain(
+      'Hardware-Listenpreis netto, exkl. Installation',
+    )
+    expect(vintageOf(gross, 'battery_device')).toContain(
+      'Hardware-Listenpreis inkl. 20 % USt, exkl. Installation',
+    )
+  })
+
   it('nennt am Wirkungsgrad die Herkunft aus dem Katalog (K3d)', () => {
     const { assumptions } = buildBasisChapter({
       title: 'Wirtschaftlichkeitsanalyse Batteriespeicher',
@@ -457,9 +511,9 @@ describe('buildBasisChapter — Datenquellen-Tabelle (D9)', () => {
       },
     })
 
-    expect(assumptions.rows.find((row) => row.label === 'Wirkungsgrad (PeakStore C60)')?.value).toMatch(
-      /\(angenommen\)$/,
-    )
+    expect(
+      assumptions.rows.find((row) => row.label === 'Wirkungsgrad (PeakStore C60)')?.value,
+    ).toMatch(/\(angenommen\)$/)
   })
 })
 

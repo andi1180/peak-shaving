@@ -1,3 +1,4 @@
+import { displayedPriceLabel } from 'shared'
 import type { PvSource, PvStage } from 'shared'
 
 import { formatEur, formatKw, formatKwh1, formatKwp, formatPercent } from '@/lib/format'
@@ -194,7 +195,12 @@ export function buildConsumptionTodayStatement(
     title: 'Ihr Verbrauch heute',
     amount: null,
     rows: [
-      neutralRow('Kosten', ways ? `${formatEur(ways.costTodayEur)} (netto)` : 'nicht berechenbar'),
+      neutralRow(
+        'Kosten',
+        ways
+          ? `${formatEur(ways.costTodayEur)} (${displayedPriceLabel(analysis)})`
+          : 'nicht berechenbar',
+      ),
       neutralRow('Zeitraum', `${analysis.dataQuality.coveredDays} gemessene Tage`),
       neutralRow(peakLabel, formatKw(analysis.current.annualPeakKw)),
     ],

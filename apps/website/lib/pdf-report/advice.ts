@@ -1,4 +1,4 @@
-import { NETZBETREIBER_LABELS } from 'shared'
+import { NETZBETREIBER_LABELS, displayedPriceLabel } from 'shared'
 
 import { formatEur } from '@/lib/format'
 import { CONTROLLED_WAY_LABEL } from '@/lib/report-copy'
@@ -161,7 +161,7 @@ function storagePoint(input: PdfReportInput): ReportPoint | null {
        Kandidatentabelle des Kapitels, auf das der Halbsatz daneben zeigt. */
     text: t`Ja — ${best.battery.name} bringt über ${String(horizonYears)} Jahre ${formatEur(
       best.netSavingOverHorizon,
-    )} netto${ref(block('addon_table'), `; die Geräte im Vergleich stehen ${REF_PLACE}`, '')}.`,
+    )} ${displayedPriceLabel(input.analysis)}${ref(block('addon_table'), `; die Geräte im Vergleich stehen ${REF_PLACE}`, '')}.`,
   }
 }
 

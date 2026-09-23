@@ -343,6 +343,7 @@ function extraction(rates: Record<string, number> = {}, head: Record<string, unk
       billingPeriodFrom: null,
       billingPeriodTo: null,
       billingPeriodAssumed: null,
+      supplierPriceBasis: 'net',
       ...head,
       rates: {
         leistungspreisEurPerKwYear: null,
@@ -1038,6 +1039,33 @@ describe('saveMeteringPointManualTariffAction — zwei von sieben Feldern', () =
 
     expect(state.formError).toContain('mindestens einen Wert')
     // Nicht einmal gelesen: ohne Angabe gibt es nichts zu tun.
+    expect(rpc).not.toHaveBeenCalled()
+    expect(draft).toEqual(EXISTING)
+  })
+
+  it('H3: speichert 12 ct inkl. USt als 10 ct netto und hält die gewählte Basis fest', async () => {
+    const state = await saveMeteringPointManualTariffAction(
+      {},
+      manualForm({
+        energyPriceCtPerKwh: '12',
+        supplierBaseFeeEurPerMonth: '6',
+        priceBasis: 'gross',
+      }),
+    )
+
+    expect(state.fieldErrors).toBeUndefined()
+    expect(draft.energyPriceCtPerKwh).toBe(10)
+    expect(draft.supplierBaseFeeEurPerMonth).toBe(5)
+    expect(draft.supplierPriceBasis).toBe('gross')
+  })
+
+  it('H3: weist einen Lieferantenpreis ohne gewählte Basis ab, statt ihn umzudeuten', async () => {
+    const state = await saveMeteringPointManualTariffAction(
+      {},
+      manualForm({ energyPriceCtPerKwh: '12' }),
+    )
+
+    expect(state.fieldErrors?.priceBasis).toBeDefined()
     expect(rpc).not.toHaveBeenCalled()
     expect(draft).toEqual(EXISTING)
   })

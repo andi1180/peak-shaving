@@ -5,6 +5,7 @@ import {
   readReportSectionSelection,
   type AnalysisResult,
   type BatteryCatalogMeta,
+  type DisplayPriceBasis,
   type LoadProfile,
   type NetzbetreiberId,
   type PvStage,
@@ -112,6 +113,8 @@ export type ReportRenderMeta = {
    * `undefined` bei älteren Übergaben und bei leerem Katalog; der Report nennt dann die Lücke.
    */
   batteryCatalogMeta: Record<string, BatteryCatalogMeta> | undefined
+  /** H3 — fehlt bei älteren Übergaben; dann netto, wie jeder Report davor. */
+  priceDisplay: DisplayPriceBasis | undefined
 }
 
 /** Eine gelesene, nicht abgelaufene Übergabe. */
@@ -212,6 +215,8 @@ function readMeta(value: unknown): ReportRenderMeta {
     },
     optionalSections: readReportSectionSelection(meta.optionalSections),
     batteryCatalogMeta: readBatteryCatalogMeta(meta.batteryCatalogMeta),
+    priceDisplay:
+      meta.priceDisplay === 'gross' || meta.priceDisplay === 'net' ? meta.priceDisplay : undefined,
   }
 }
 
@@ -361,6 +366,7 @@ export function buildReportInputFromRenderRequest(
     /* Report-Baukasten C — die Admin-Auswahl; `undefined` heisst alle vier (s. `ReportRenderMeta`). */
     optionalSections: meta.optionalSections,
     batteryCatalogMeta: meta.batteryCatalogMeta,
+    priceDisplay: meta.priceDisplay,
   }
 }
 

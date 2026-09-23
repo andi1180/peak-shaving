@@ -52,6 +52,7 @@ function AssumptionRow({ label, value }: { label: string; value: string }) {
  * aus, sondern eine Inline-Fehlermeldung.
  */
 export function AssumptionsPanel({
+  netLabels = false,
   originalTariff,
   originalFinancial,
   originalHorizonYears,
@@ -67,6 +68,8 @@ export function AssumptionsPanel({
   onRecompute,
   onReset,
 }: {
+  /** H3: bei Privatkunden stehen die Beträge im Report brutto — hier bearbeitet wird netto, und das steht dann dran. */
+  netLabels?: boolean
   originalTariff: TariffParams
   originalFinancial?: FinancialParams
   originalHorizonYears: number
@@ -339,7 +342,7 @@ export function AssumptionsPanel({
         <NumberField
           id="assumption-pricePerKwh"
           label={`Batteriepreis (${selectedBatteryName})`}
-          unit="€/kWh"
+          unit={netLabels ? '€/kWh netto' : '€/kWh'}
           value={pricePerKwh}
           onChange={(v) => {
             setPricePerKwh(v)
@@ -351,7 +354,7 @@ export function AssumptionsPanel({
         <NumberField
           id="assumption-fixedSubsidyEur"
           label="Pauschale Förderung"
-          unit="€"
+          unit={netLabels ? '€ netto' : '€'}
           value={fixedSubsidyEur}
           onChange={(v) => {
             setFixedSubsidyEur(v)
@@ -402,7 +405,7 @@ export function AssumptionsPanel({
       <div className="divide-y divide-border border-t border-border pt-1">
         <AssumptionRow
           label="Arbeitspreis"
-          value={`${formatEur2(originalTariff.energyPriceCtPerKwh / 100)} / kWh`}
+          value={`${formatEur2(originalTariff.energyPriceCtPerKwh / 100)} / kWh${netLabels ? ' netto' : ''}`}
         />
         <AssumptionRow
           label="Einspeisevergütung"

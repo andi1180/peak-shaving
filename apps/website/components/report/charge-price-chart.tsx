@@ -15,6 +15,7 @@ import type { MonthlyChargePrice } from 'shared'
 import { formatKwh1, formatKwh1Fixed } from '@/lib/format'
 import { Num } from './num'
 import { CHART_COLORS } from '@/lib/pdf-report/theme'
+import { vatNote } from '@/lib/report-copy'
 
 /**
  * Ø-Ladepreis je Monat — hat die Ladesteuerung die günstigen Stunden getroffen? (02.09.2026)
@@ -151,7 +152,7 @@ export function ChargePriceChart({ price }: { price: MonthlyChargePrice }) {
       <p className="mb-1 text-sm font-medium text-ink">Zu welchem Preis wird geladen?</p>
       <p className="mb-3 text-xs text-text-muted">
         Ø-Arbeitspreis der Lade- und Entladestunden je Monat, gewichtet mit der jeweiligen Menge —
-        gegen den Monatsdurchschnitt aller Stunden (gestrichelt). Alle Beträge exkl. MwSt.
+        gegen den Monatsdurchschnitt aller Stunden (gestrichelt). Alle Beträge {vatNote(price)}.
       </p>
 
       <div className="h-64 w-full">

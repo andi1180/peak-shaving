@@ -2,7 +2,12 @@
 
 import { useState } from 'react'
 import { AlertTriangle, CheckCircle2, Loader2, Upload } from 'lucide-react'
-import { NETZBETREIBER_LABELS, METERING_VARIANT_LABELS, type InvoiceExtraction } from 'shared'
+import {
+  NETZBETREIBER_LABELS,
+  METERING_VARIANT_LABELS,
+  hasSupplierPrices,
+  type InvoiceExtraction,
+} from 'shared'
 import type { InvoiceScanResponse } from '@/lib/invoice-scan/actions'
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -224,6 +229,9 @@ export function InvoiceScanPanel({
                 netzebene: extraction.netzebene,
                 meteringVariant: extraction.meteringVariant,
                 rates: extraction.rates,
+                ...(hasSupplierPrices(extraction)
+                  ? { supplierPriceBasis: extraction.supplierPriceBasis }
+                  : {}),
               })
             }
           />

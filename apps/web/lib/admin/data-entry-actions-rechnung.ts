@@ -8,8 +8,9 @@ import {
   METERING_VARIANTS,
   NETZBETREIBER_DRAFT_KEY,
   NETZEBENEN,
+  SUPPLIER_PRICE_BASIS_DRAFT_KEY,
   hasMeteringVariant,
-  mergeInvoiceExtractions,
+  netFromEntered,
   type BillingModel,
 } from 'shared'
 import { uploadProjectDocument } from '@/lib/project-documents/documents'
@@ -18,12 +19,16 @@ import { createClient } from '@/lib/supabase/server'
 import { lookupGridTariffDefaults } from './grid-tariff-lookup'
 import {
   INVOICE_SKIPPED_KEY,
+  MANUAL_PRICE_BASIS_FIELD,
   MANUAL_TARIFF_NUMBER_FIELDS,
   MAX_INVOICES_PER_UPLOAD,
   draftFieldFor,
-  invoiceDraftValues,
+  foldStoredInvoices,
+  isSupplierPriceField,
   netzebeneDraftValue,
+  readPriceBasisField,
   readStoredInvoiceExtractions,
+  withInvoicePriceBasis,
   withStoredInvoiceExtractions,
   type StoredInvoiceExtraction,
 } from './invoice-extractions'
@@ -239,7 +244,8 @@ export async function uploadMeteringPointInvoicesAction(
 
   const stored = readStoredInvoiceExtractions(point.draft)
   const all = [...stored, ...read.map((result) => result.entry)]
-  const { merged, conflicts } = mergeInvoiceExtractions(all.map((entry) => entry.extraction))
+  const fold = foldStoredInvoices(all)
+  const { conflicts } = fold
 
   /*
    * ⚠ EIN EINZIGER SCHREIBVORGANG. Der Seiteneintrag und die übernommenen Werte gehören zusammen:
@@ -247,9 +253,9 @@ export async function uploadMeteringPointInvoicesAction(
    * in dem der Entwurf Werte trägt, deren Belege fehlen (oder umgekehrt) — und `update_metering_point_draft`
    * ERSETZT ohnehin, ein zweiter Aufruf müsste also den ersten mitführen.
    */
-  let nextDraft = withStoredInvoiceExtractions(point.draft, all)
+  let nextDraft = withInvoicePriceBasis(withStoredInvoiceExtractions(point.draft, all), fold)
   const now = new Date()
-  for (const { field, value } of invoiceDraftValues(merged)) {
+  for (const { field, value } of fold.values) {
     /*
      * `measured`: jeder dieser Werte steht auf einer Rechnung, und zwar übereinstimmend auf allen,
      * die etwas dazu sagen. Widersprüchliche Felder kommen hier gar nicht an (`mergeInvoiceExtractions`
@@ -482,7 +488,8 @@ export async function removeMeteringPointInvoiceAction(
   }
 
   const remaining = stored.filter((entry) => entry.documentId !== documentId)
-  const { merged, conflicts } = mergeInvoiceExtractions(remaining.map((entry) => entry.extraction))
+  const fold = foldStoredInvoices(remaining)
+  const { conflicts } = fold
 
   /*
    * ⚠ Die Werte werden NEU GEFALTET, nicht bloss die Liste gekürzt. Für ein unverändertes Feld ist
@@ -493,9 +500,9 @@ export async function removeMeteringPointInvoiceAction(
    * `measured` und ohne Notiz, wortgleich zum Upload: jeder dieser Werte steht übereinstimmend auf
    * den verbliebenen Rechnungen, und eine Ablesung braucht keine Begründung.
    */
-  let nextDraft = withStoredInvoiceExtractions(point.draft, remaining)
+  let nextDraft = withInvoicePriceBasis(withStoredInvoiceExtractions(point.draft, remaining), fold)
   const now = new Date()
-  for (const { field, value } of invoiceDraftValues(merged)) {
+  for (const { field, value } of fold.values) {
     nextDraft = setDraftField(nextDraft, field, value, 'measured', undefined, now)
   }
 
@@ -852,12 +859,25 @@ export async function saveMeteringPointManualTariffAction(
 
   const fieldErrors: Record<string, string> = {}
   const values: { field: string; value: string | number }[] = []
+  // H3: Lieferantenpreise werden in der gewählten Basis eingegeben und netto gespeichert.
+  const priceBasis = readPriceBasisField(formData.get(MANUAL_PRICE_BASIS_FIELD))
+  let hasSupplierPrice = false
 
   for (const key of MANUAL_TARIFF_NUMBER_FIELDS) {
     const value = readManualNumber(formData, key)
     if (value === undefined) continue
     if (value === null) {
       fieldErrors[key] = 'Bitte eine Zahl ab 0 eintragen, z. B. 24,5.'
+      continue
+    }
+    if (isSupplierPriceField(key)) {
+      hasSupplierPrice = true
+      if (priceBasis === null) {
+        fieldErrors[MANUAL_PRICE_BASIS_FIELD] =
+          'Bitte angeben, ob die Preise netto oder inkl. USt eingetragen sind.'
+        continue
+      }
+      values.push({ field: draftFieldFor(key), value: netFromEntered(value, priceBasis) })
       continue
     }
     // ⚠ Über `draftFieldFor`, nicht über den rohen Schlüssel: der Jahresverbrauch heisst im Entwurf
@@ -973,6 +993,9 @@ export async function saveMeteringPointManualTariffAction(
   }
 
   nextDraft = setDraftField(nextDraft, INVOICE_SKIPPED_KEY, false, 'measured', undefined, now)
+  if (hasSupplierPrice && priceBasis !== null) {
+    nextDraft = setDraftField(nextDraft, SUPPLIER_PRICE_BASIS_DRAFT_KEY, priceBasis, 'measured', undefined, now)
+  }
 
   const draftRes = await supabase.rpc('update_metering_point_draft', {
     p_metering_point_id: meteringPointId,

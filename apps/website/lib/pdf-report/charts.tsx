@@ -1,4 +1,5 @@
 import {
+  displayedPriceLabel,
   reportSectionEnabled,
   type MonthlyTariffComparison,
   type ReportOptionalSection,
@@ -395,7 +396,11 @@ export async function buildReportCharts(input: PdfReportInput): Promise<ReportCh
       ? NOT_RASTERIZED
       : await attempt(() =>
           captureChart(
-            <TariffWaysChart bars={waysChapter.bars} coveredDays={waysChapter.coveredDays} />,
+            <TariffWaysChart
+              bars={waysChapter.bars}
+              coveredDays={waysChapter.coveredDays}
+              priceLabel={displayedPriceLabel(analysis)}
+            />,
             {
               width: DETAIL_CHART_WIDTH_PX,
               select: selectRechartsSurface,

@@ -1,3 +1,5 @@
+import type { PriceBasis } from './tariff'
+
 /**
  * Delta 9b-2a — DER VERTRAG DES RECHNUNGS-SCANS. Rein, ohne Importe, ohne Netz, ohne Datenbank.
  *
@@ -212,6 +214,11 @@ export interface InvoiceExtraction {
    * vorliegt; die Oberfläche nennt ihn, statt eine gerechnete Zahl wie eine abgelesene zu zeigen.
    */
   energyPriceBasis: InvoiceEnergyPriceBasis | null
+  /**
+   * H3 — in welcher Basis Energiepreis(e) und Grundgebühr des LIEFERANTEN auf der Rechnung stehen.
+   * `null` heisst „unklar": dann entscheidet ein Mensch, bevor die Preise in die Rechnung gehen.
+   */
+  supplierPriceBasis: PriceBasis | null
 }
 
 /** Die Namen der Zahlenfelder, in fester Reihenfolge — von Schema, Auswertung und Test geteilt. */
@@ -247,6 +254,7 @@ export function emptyInvoiceExtraction(): InvoiceExtraction {
     billingPeriodTo: null,
     billingPeriodAssumed: null,
     energyPriceBasis: null,
+    supplierPriceBasis: null,
   }
 }
 
@@ -329,6 +337,7 @@ export const INVOICE_SCAN_JSON_SCHEMA: { [key: string]: unknown } = {
     'billingPeriodFrom',
     'billingPeriodTo',
     'billingPeriodAssumed',
+    'supplierPriceBasis',
   ],
   properties: {
     netzbetreiber: nullableEnum(
@@ -392,7 +401,8 @@ export const INVOICE_SCAN_JSON_SCHEMA: { [key: string]: unknown } = {
         ),
         energyPriceCtPerKwh: nullableNumber(
           'Arbeitspreis der Energielieferung (Bezug) in Cent je kWh. Bei getrenntem Hoch-/ ' +
-            'Niedertarif der HOCHTARIF.',
+            'Niedertarif der HOCHTARIF. So übernehmen, wie er dasteht — nicht selbst zwischen ' +
+            'netto und brutto umrechnen (die Basis gehört in supplierPriceBasis).',
         ),
         energyPriceNightCtPerKwh: nullableNumber(
           'Nacht-/Niedertarif-Arbeitspreis in Cent je kWh, falls die Rechnung einen ausweist.',
@@ -470,6 +480,15 @@ export const INVOICE_SCAN_JSON_SCHEMA: { [key: string]: unknown } = {
         'wenn beide Datumsfelder null sind. Dieses Feld ist Pflicht, sobald ein Datum dasteht — ' +
         'ein Zeitraum ohne Herkunft wird als erschlossen behandelt.',
     ),
+    supplierPriceBasis: {
+      type: 'string',
+      enum: ['net', 'gross', 'unclear'],
+      description:
+        'In welcher Preisbasis stehen Energiepreis (Arbeitspreis) und Grundgebühr des ' +
+        'LIEFERANTEN auf dieser Rechnung: "net" = ohne Umsatzsteuer (z. B. Spalte "netto" oder ' +
+        'Hinweis "exkl. USt"), "gross" = inklusive Umsatzsteuer (z. B. "brutto", "inkl. 20 % ' +
+        'USt"). "unclear", wenn die Rechnung es nicht eindeutig ausweist — nicht raten.',
+    },
   },
 }
 
@@ -665,6 +684,10 @@ export function parseInvoiceExtraction(raw: unknown): InvoiceExtraction {
     annualConsumptionKwh,
     ...billingPeriod(root),
     energyPriceBasis: energyPrice.basis,
+    supplierPriceBasis:
+      root.supplierPriceBasis === 'net' || root.supplierPriceBasis === 'gross'
+        ? root.supplierPriceBasis
+        : null,
   }
 }
 

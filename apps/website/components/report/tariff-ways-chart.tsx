@@ -144,10 +144,13 @@ function WaysTooltip({
 export function TariffWaysChart({
   bars,
   coveredDays,
+  priceLabel = 'netto',
 }: {
   bars: readonly WaysBar[]
   /** Die Bezugsgrösse der Balken — steht im Achsentitel, s. Kopf. */
   coveredDays: number
+  /** H3: `netto` oder `inkl. 20 % USt`, passend zu den Beträgen in `bars`. */
+  priceLabel?: string
 }) {
   const modelPatternId = useId()
 
@@ -219,7 +222,7 @@ export function TariffWaysChart({
             tick={{ fontSize: 11 }}
             width={Y_AXIS_WIDTH_PX}
             label={{
-              value: `Kosten über ${coveredDays} Tage (netto, EUR)`,
+              value: `Kosten über ${coveredDays} Tage (${priceLabel}, EUR)`,
               angle: -90,
               position: 'insideLeft',
               style: {

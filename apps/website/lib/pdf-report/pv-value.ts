@@ -1,3 +1,4 @@
+import { displayedPriceLabel } from 'shared'
 import type { PvValueMonth } from 'shared'
 
 import { formatEur, formatKwh } from '@/lib/format'
@@ -142,7 +143,7 @@ export function buildPvValueChapter(analysis: PdfReportAnalysis): PvValueChapter
     title: 'Was Ihre Anlage im ausgewerteten Zeitraum wert war',
     amount: {
       value: formatEur(scenario.measured.valueEur),
-      caption: `über ${days} gemessene Tage, netto`,
+      caption: `über ${days} gemessene Tage, ${displayedPriceLabel(analysis)}`,
       tone: scenario.measured.valueEur >= 0 ? 'positive' : 'negative',
     },
     rows: measuredRows,
@@ -161,7 +162,7 @@ export function buildPvValueChapter(analysis: PdfReportAnalysis): PvValueChapter
       title: 'Dasselbe über ein volles Jahr',
       amount: {
         value: formatEur(annual.valueEur),
-        caption: 'geschätzt über 365 Tage, netto',
+        caption: `geschätzt über 365 Tage, ${displayedPriceLabel(analysis)}`,
         tone: annual.valueEur >= 0 ? 'positive' : 'negative',
       },
       rows: [

@@ -2,6 +2,7 @@ import type { PvOutageMonth } from 'engine'
 import type {
   AnalysisResult,
   BatteryCatalogMeta,
+  DisplayPriceBasis,
   EstimatedPvSummary,
   LoadProfile,
   NetzbetreiberId,
@@ -458,4 +459,10 @@ export type PdfReportInput = {
    * Ersatzfassung und verschwindet mit ihm (`Report_Baukasten_B3-2_Plan.md` §4.2).
    */
   optionalSections?: ReportSectionSelection
+  /**
+   * H3 — in welcher Basis der Report Geldbeträge ZEIGT (`heim` inkl. USt, `gewerbe` netto).
+   * Gerechnet ist immer netto; umgerechnet wird genau einmal am Eingang von `renderReportPdf`.
+   * Fehlt die Angabe (ältere Übergabe), gilt netto — so stand es in jedem bisherigen Report.
+   */
+  priceDisplay?: DisplayPriceBasis
 }

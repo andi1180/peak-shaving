@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { AlertCircle, AlertTriangle } from 'lucide-react'
 import {
   demandChargeKwPerYear,
@@ -14,6 +14,8 @@ import {
   type TariffParams,
   type EstimatedPvSummary,
   type TariffSourceRef,
+  analysisForDisplay,
+  type DisplayPriceBasis,
 } from 'shared'
 
 import {
@@ -58,7 +60,8 @@ import { TariffVintageNote } from './tariff-vintage-note'
 // Ergebnis. `originalTariff`/`originalFinancial` bleiben die vom Tarif-Schritt (§5) unveränderten
 // Werte (für die Formular-Defaults + den Reset-Vergleich im Annahmen-Panel).
 export function Report({
-  result,
+  result: netResult,
+  priceDisplay = 'net',
   loadProfile,
   batteryCatalog,
   batteryCatalogMeta,
@@ -74,7 +77,10 @@ export function Report({
   onRecompute,
   onResetAssumptions,
 }: {
+  /** Das gerechnete Ergebnis, netto — Quelle jeder Zahl, die in eine Neuberechnung zurückfliesst. */
   result: AnalysisResult
+  /** H3: `gross` für Privatkunden — gezeigt wird dann eine Kopie mit Beträgen inkl. USt. */
+  priceDisplay?: DisplayPriceBasis
   loadProfile: LoadProfile
   /**
    * K3b: der Katalogstand, gegen den gerechnet wurde. Er ist die Grundlinie des Annahmen-Panels
@@ -127,6 +133,10 @@ export function Report({
   onRecompute: (input: RecomputeInput) => void
   onResetAssumptions: () => void
 }) {
+  const result = useMemo(
+    () => analysisForDisplay(netResult, priceDisplay),
+    [netResult, priceDisplay],
+  )
   // Batterie, deren Energiefluss-Chart + Annahmen-Panel-Felder (Wirkungsgrad/Preis) gerade
   // angezeigt werden (§6.2 „aktuell angezeigte Batterie") — unabhängig von der Empfehlung, per
   // Dropdown im Chart wählbar (auch eine `static`-Alternative, um den Fallback zu sehen).
@@ -246,8 +256,11 @@ export function Report({
    */
   const effectiveTariff = effectiveInputs?.tariff ?? originalTariff
   const effectiveFinancial = effectiveInputs?.financial ?? originalFinancial
+  // ⚠ Aus dem NETTO-Ergebnis: Preis und Wirkungsgrad dieses Geräts gehen per Freitext-Änderung
+  // zurück in die Rechnung (`requestCurrent`), und die rechnet netto.
+  const netRecommended = netResult.perBattery.find((p) => p.battery.id === recommended?.battery.id)
   const selectedEntry =
-    result.perBattery.find((p) => p.battery.id === selectedBatteryId) ?? recommended
+    netResult.perBattery.find((p) => p.battery.id === selectedBatteryId) ?? netRecommended
   const selectedBattery =
     selectedEntry?.battery ??
     baselineCatalog.find((b) => b.id === selectedBatteryId) ??
@@ -950,6 +963,7 @@ export function Report({
           <AccordionContent>
             <AssumptionsPanel
               key={assumptionsKey}
+              netLabels={priceDisplay === 'gross'}
               originalTariff={originalTariff}
               originalFinancial={originalFinancial}
               originalHorizonYears={DEFAULT_HORIZON_YEARS}

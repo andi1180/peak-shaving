@@ -136,3 +136,7 @@ export * from './metering-point-draft'
 // Report-Baukasten C (17.09.2026): die vier Bausteine, die ein Admin vor dem Renderlauf abwählen
 // kann. Hier, weil `apps/web` die Auswahl SCHREIBT und `apps/website` sie LIEST — s. Kopf der Datei.
 export * from './report-sections'
+
+// H3 (23.09.2026): USt-Satz, Anzeigebasis je Kundenkategorie und die Umrechnung einer brutto
+// eingegebenen Zahl auf die Rechenbasis netto.
+export * from './display-price-basis'

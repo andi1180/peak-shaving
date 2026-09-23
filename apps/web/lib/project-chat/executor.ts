@@ -2,7 +2,9 @@ import {
   INVOICE_MERGE_FIELD_LABELS,
   type InvoiceExtraction,
   type InvoiceMergeFieldKey,
+  hasSupplierPrices,
   mergeInvoiceExtractions,
+  supplierPricesOnNetBasis,
 } from 'shared'
 
 import {
@@ -780,6 +782,7 @@ async function extractInvoice(
   if (documentIds.length !== raw.length) return fail('document_ids enthält ungültige Einträge.')
 
   const extractions = []
+  let unclearBasis = false
   for (const documentId of documentIds) {
     const pdf = await loadPdf(ports, documentId)
     if (!pdf.ok) return pdf.execution
@@ -788,8 +791,21 @@ async function extractInvoice(
     if (!outcome.ok) {
       return fail(`Rechnung ${pdf.filename} konnte nicht ausgelesen werden: ${outcome.reason}.`)
     }
-    extractions.push(outcome.extraction)
+    // H3: Lieferantenpreise gehen netto weiter; bei unklarer Basis werden sie zurückgehalten.
+    if (outcome.extraction.supplierPriceBasis === null && hasSupplierPrices(outcome.extraction)) {
+      unclearBasis = true
+    }
+    extractions.push(
+      supplierPricesOnNetBasis(outcome.extraction, outcome.extraction.supplierPriceBasis),
+    )
   }
+  const basisHinweis = unclearBasis
+    ? {
+        preisbasis:
+          'Auf mindestens einer Rechnung ist nicht erkennbar, ob die Lieferantenpreise netto oder ' +
+          'inkl. USt stehen; sie sind deshalb leer geblieben. Frag den Kunden, statt zu raten.',
+      }
+    : {}
 
   if (extractions.length === 1) {
     return ok({
@@ -797,6 +813,7 @@ async function extractInvoice(
       extraction: extractions[0],
       conflicts: [],
       periods: invoicePeriods(extractions),
+      ...basisHinweis,
     })
   }
 
@@ -826,6 +843,7 @@ async function extractInvoice(
       field: key,
       label: INVOICE_MERGE_FIELD_LABELS[key],
     })),
+    ...basisHinweis,
     ...(merged.conflicts.length > 0
       ? {
           hinweis:

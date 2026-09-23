@@ -49,7 +49,7 @@ const MP = 'aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa'
 
 function invoiceWith(energyPriceCtPerKwh: number) {
   const base = emptyInvoiceExtraction()
-  return { ...base, rates: { ...base.rates, energyPriceCtPerKwh } }
+  return { ...base, supplierPriceBasis: 'net' as const, rates: { ...base.rates, energyPriceCtPerKwh } }
 }
 
 /** Zwei Rechnungen desselben Anschlusses, die sich beim Arbeitspreis WIDERSPRECHEN. */

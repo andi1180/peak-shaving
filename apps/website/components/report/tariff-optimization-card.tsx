@@ -4,7 +4,7 @@ import type { BatteryResultEntry, TariffOptimizationStatus, TariffPriceRange } f
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { InfoHint } from '@/components/ui/info-hint'
 import { formatEur } from '@/lib/format'
-import { monthlyBatteryRef } from '@/lib/report-copy'
+import { monthlyBatteryRef, vatNote } from '@/lib/report-copy'
 import { sumCovered } from './monthly-tariff-chart'
 import { Num } from './num'
 
@@ -189,7 +189,7 @@ export function TariffOptimizationCard({
             und {monthlyBatteryRef(isExisting)} gegenüber{' '}
             <Num className="font-medium text-ink">{formatEur(totals!.current)}</Num> mit Ihrem
             heutigen Tarif — also <Num className="font-medium text-ink">{formatEur(surcharge)}</Num>{' '}
-            mehr. Alle Beträge exkl. MwSt.
+            mehr. Alle Beträge {vatNote(status)}.
           </p>
           <p className="mt-2 text-text-muted">
             Die Zahl unten ist deshalb <strong>kein Grund zum Wechseln</strong>: sie sagt, was Ihre
@@ -225,8 +225,8 @@ export function TariffOptimizationCard({
           <div>
             <Num className="block text-3xl font-semibold text-positive">{formatEur(saving)}</Num>
             <p className="text-xs text-text-muted">
-              pro Jahr zusätzlich (exkl. MwSt.) — durch Laden in günstigen und Entladen in teuren
-              Viertelstunden
+              pro Jahr zusätzlich ({vatNote(status)}) — durch Laden in günstigen und Entladen in
+              teuren Viertelstunden
             </p>
             {/*
             §3.7-Jahres-Hochrechnung: diese Zahl IST `loadShiftSavingPerYear`, also bei einem

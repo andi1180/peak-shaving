@@ -1,6 +1,7 @@
 import { AlertTriangle, Info } from 'lucide-react'
 import {
   buildRealSavingBreakdown,
+  displayedPriceLabel,
   type AddonBatteryScenario,
   type BatteryCandidate,
   type BatteryCatalogMeta,
@@ -19,7 +20,7 @@ import {
   formatPercent,
   formatYears,
 } from '@/lib/format'
-import { CONTROLLED_WAY_LABEL, HINDSIGHT_NOTE } from '@/lib/report-copy'
+import { CONTROLLED_WAY_LABEL, HINDSIGHT_NOTE, vatNote } from '@/lib/report-copy'
 import { sumCovered } from './monthly-tariff-chart'
 import { Num } from './num'
 
@@ -242,8 +243,8 @@ export function RecommendationCard(props: RecommendationCardProps) {
                 {formatEur(Math.abs(real.totalEur))}
               </Num>
               <p className="text-xs text-text-muted">
-                über <Num>{comparison.coveredMonths}</Num> gemessene Monate — nicht hochgerechnet,
-                exkl. MwSt.
+                über <Num>{comparison.coveredMonths}</Num> gemessene Monate — nicht hochgerechnet,{' '}
+                {vatNote(comparison)}.
               </p>
             </div>
           ) : (
@@ -264,7 +265,7 @@ export function RecommendationCard(props: RecommendationCardProps) {
                 nicht nur im Methodik-Abschnitt: sie ist der Betrag, den ein Kunde mit seiner Rechnung
                 vergleicht — und die trägt Umsatzsteuer.
               */}
-              <p className="text-xs text-text-muted">exkl. MwSt.</p>
+              <p className="text-xs text-text-muted">{vatNote(entry)}</p>
             </div>
           )}
           {/*
@@ -495,7 +496,7 @@ export function RecommendationCard(props: RecommendationCardProps) {
             </div>
             {catalogMeta && (
               <p className="mt-1 text-xs text-text-muted" data-testid="preisherkunft">
-                Hardware-Listenpreis netto, exkl. Installation
+                Hardware-Listenpreis {displayedPriceLabel(entry)}, exkl. Installation
                 {catalogMeta.priceAsOf
                   ? `, Preisstand ${formatDateOnly(catalogMeta.priceAsOf)}`
                   : ' — für dieses Gerät ist kein Preisstand erfasst'}

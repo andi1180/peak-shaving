@@ -1,3 +1,4 @@
+import { displayedPriceLabel } from 'shared'
 import type { BatteryCatalogMeta, BatteryResultEntry, BatteryRoiEntry } from 'shared'
 
 import {
@@ -248,7 +249,7 @@ export function buildRecommendation(
         {
           title: 'Woher Preis und Wirkungsgrad stammen',
           text:
-            'Hardware-Listenpreis netto, exkl. Installation' +
+            `Hardware-Listenpreis ${displayedPriceLabel(entry)}, exkl. Installation` +
             (catalogMeta.priceAsOf ? `, Preisstand ${formatDateOnly(catalogMeta.priceAsOf)}` : '') +
             '. ' +
             (catalogMeta.rteSource === 'annahme'

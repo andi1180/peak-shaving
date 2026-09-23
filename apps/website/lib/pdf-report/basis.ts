@@ -15,6 +15,9 @@ import {
   reportSectionEnabled,
   type TariffPriceRange,
   type TariffSourceRef,
+  displayedPriceBasis,
+  displayedPriceLabel,
+  VAT_INCLUSIVE_LABEL,
 } from 'shared'
 
 import { formatDateOnly, formatEur, formatEur2, formatPercent } from '@/lib/format'
@@ -895,16 +898,21 @@ function batteryRowsForSources(
   const meta = entry ? catalogMeta?.[entry.battery.id] : undefined
   const provenance = meta
     ? `Katalogstand ${meta.priceAsOf ? `vom ${formatDateOnly(meta.priceAsOf)}` : '(ohne Preisstand)'} — ` +
-      'Hardware-Listenpreis netto, exkl. Installation. Wirkungsgrad: ' +
+      `Hardware-Listenpreis ${displayedPriceLabel(analysis)}, exkl. Installation. Wirkungsgrad: ` +
       (meta.rteSource === 'datenblatt'
         ? 'Datenblatt des Herstellers.'
         : meta.rteSource === 'annahme'
           ? 'Erfahrungswert, kein Datenblattwert.'
           : 'Herkunft nicht vermerkt.')
-    : analysis.noRecommendationReason === 'no_candidates'
-      ? 'Für diese Kundenkategorie ist noch kein Speicher im Katalog freigegeben.'
-      : 'keine Herkunfts- oder Preisquelle hinterlegt — der Katalog führt weder Datenblatt-Fundstelle ' +
-        'noch Abrufdatum noch Preisstand.'
+    : analysis.existingBatteryAnalysis
+      ? 'Ihr eigener Speicher — Kenndaten nach Ihren Angaben, kein Katalog-Gerät und daher kein ' +
+        'Listenpreis.'
+      : analysis.noRecommendationReason === 'no_candidates'
+        ? 'Für diese Kundenkategorie ist noch kein Speicher im Katalog freigegeben.'
+        : !entry
+          ? 'keine Herkunfts- oder Preisquelle hinterlegt.'
+          : 'Katalogstand nicht übergeben — Preisstand und Herkunft des Wirkungsgrads liegen ' +
+            'diesem Report nicht bei.'
 
   return [
     groupRow('group_battery', 'Batterie'),
@@ -1300,14 +1308,20 @@ export function buildLimitations(analysis: PdfReportAnalysis): ReportNotice {
    * Börsenpreis-Vergleich berechenbar war. Unbedingt formuliert behauptete der Satz im Blocker-Fall
    * Posten in Zahlen, die es in diesem Report gar nicht gibt.
    */
+  const basisSentence =
+    displayedPriceBasis(analysis) === 'gross'
+      ? `Gerechnet wird netto; ausgewiesen sind alle Beträge ${VAT_INCLUSIVE_LABEL}.`
+      : null
   const hints: string[] = [
     analysis.tariffOptimization?.computable === true
-      ? 'Gerechnet wird durchgängig netto, also ohne Umsatzsteuer. Die Abgaben auf den Bezug sind ' +
-        'dagegen enthalten: Elektrizitätsabgabe, EAG-Förderbeitrag und EAG-Pauschale sowie die ' +
+      ? (basisSentence ?? 'Gerechnet wird durchgängig netto, also ohne Umsatzsteuer.') +
+        ` Die Abgaben auf den Bezug sind ${basisSentence ? 'ebenfalls' : 'dagegen'} enthalten: ` +
+        'Elektrizitätsabgabe, EAG-Förderbeitrag und EAG-Pauschale sowie die ' +
         'Gebrauchsabgabe auf den Netzpreis stecken in den Monatskosten und damit in den ' +
         'Kopfzahlen. Auf den Leistungspreis, der als eigene Jahreszahl ausgewiesen wird, ist die ' +
         'Gebrauchsabgabe nicht aufgeschlagen.'
-      : 'Gerechnet wird durchgängig netto. Verbrauchsabgaben — Elektrizitätsabgabe, ' +
+      : (basisSentence ?? 'Gerechnet wird durchgängig netto.') +
+        ' Verbrauchsabgaben — Elektrizitätsabgabe, ' +
         'EAG-Förderbeitrag und, wo sie anfällt, die Gebrauchsabgabe — sind in keiner Zahl dieses ' +
         'Reports enthalten; Ihr tatsächlicher Rechnungsbetrag liegt entsprechend höher.',
   ]

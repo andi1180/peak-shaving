@@ -13,6 +13,7 @@ import {
   gridTariffPrefill,
   hasMeteringVariant,
   lookupTariffProfile,
+  netFromEntered,
   pendingAcrossAllBetreiber,
   tariffParamsSchema,
   type BillingModel,
@@ -23,6 +24,7 @@ import {
   type Netzebene,
   type NetzbetreiberId,
   type PendingReason,
+  type PriceBasis,
   type TariffParams,
   type TariffPricingInputs,
 } from 'shared'
@@ -346,6 +348,7 @@ export function StepTariff({
   prefill,
   onBack,
   onComplete,
+  defaultPriceBasis,
   catalogBlocked,
   catalogLoading,
   catalogNotice,
@@ -364,6 +367,8 @@ export function StepTariff({
   loadDataQuality: ParsedLoad['dataQuality']
   onBack: () => void
   onComplete: (result: TariffResult) => void
+  /** H3: Vorgabe der Preisbasis für Lieferantenpreise — Privatkunden inkl. USt, Betriebe netto. */
+  defaultPriceBasis: PriceBasis
   /**
    * Delta 9b-2b: die aus einer Rechnung abgelesenen Tarifangaben aus Schritt 1. `undefined` heisst
    * „kein Rechnungs-Scan" — dann verhält sich dieser Schritt Zeile für Zeile wie vor 9b-2b.
@@ -389,6 +394,10 @@ export function StepTariff({
    */
   const [init] = useState(() => buildInitialTariffState(prefill))
   const [f, setF] = useState<FormState>(init.form)
+  // H3: '' = vom Rechnungs-Scan als unklar gemeldet — dann muss der Nutzer wählen.
+  const [priceBasis, setPriceBasis] = useState<PriceBasis | ''>(
+    prefill?.supplierPriceBasis !== undefined ? (prefill.supplierPriceBasis ?? '') : defaultPriceBasis,
+  )
   const [useNight, setUseNight] = useState(init.useNight)
   const [pvName, setPvName] = useState<string | null>(null)
   const [pv, setPv] = useState<ParsedPv | null>(null)
@@ -751,12 +760,16 @@ export function StepTariff({
     if (blocked) return
 
     const errs: Record<string, string> = {}
+    if (priceBasis === '') errs.priceBasis = 'Bitte angeben, ob die Preise netto oder inkl. USt sind'
+    // H3: Lieferantenpreise in der gewählten Basis eingegeben, gerechnet wird netto.
+    const supplierNet = (raw: string) =>
+      priceBasis === '' ? parseNum(raw) : netFromEntered(parseNum(raw), priceBasis)
 
     const tariffInput: Record<string, unknown> = {
       leistungspreisEurPerKwYear: parseNum(f.leistungspreisEurPerKwYear),
       billingModel: f.billingModel,
       minBillableKw: parseNum(f.minBillableKw),
-      energyPriceCtPerKwh: parseNum(f.energyPriceCtPerKwh),
+      energyPriceCtPerKwh: supplierNet(f.energyPriceCtPerKwh),
       einspeiseverguetungCtPerKwh: parseNum(f.einspeiseverguetungCtPerKwh),
       /*
        * Delta 19: leer gelassen heisst „keine Angabe" — dann reist das Feld gar nicht mit und die
@@ -766,13 +779,13 @@ export function StepTariff({
        */
       ...(f.supplierBaseFeeEurPerMonth.trim() === ''
         ? {}
-        : { supplierBaseFeeEurPerMonth: parseNum(f.supplierBaseFeeEurPerMonth) }),
+        : { supplierBaseFeeEurPerMonth: supplierNet(f.supplierBaseFeeEurPerMonth) }),
     }
     if (netzebene !== NOT_SET) tariffInput.netzebene = `NE ${netzebene}`
     if (useNight) {
-      tariffInput.energyPriceNightCtPerKwh = parseNum(f.energyPriceNightCtPerKwh)
+      tariffInput.energyPriceNightCtPerKwh = supplierNet(f.energyPriceNightCtPerKwh)
       tariffInput.timeOfUseWindows = [
-        { from: f.windowFrom, to: f.windowTo, ctPerKwh: parseNum(f.energyPriceNightCtPerKwh) },
+        { from: f.windowFrom, to: f.windowTo, ctPerKwh: supplierNet(f.energyPriceNightCtPerKwh) },
       ]
     }
 
@@ -867,6 +880,7 @@ export function StepTariff({
       // stammen die Werte direkt aus der Netzrechnung, und das ist eine eigene Aussage.
       tariffSelection: selection ?? undefined,
       tariffPricing,
+      ...(priceBasis === '' ? {} : { supplierPriceBasis: priceBasis }),
     })
   }
 
@@ -1145,6 +1159,25 @@ export function StepTariff({
 
         <Section title="Energiepreise">
           <div className="grid gap-4 sm:grid-cols-2">
+            <div className="flex flex-col gap-1.5 sm:col-span-2">
+              <Label htmlFor="priceBasis">Preise Ihres Stromlieferanten sind angegeben</Label>
+              <Select value={priceBasis} onValueChange={(v) => setPriceBasis(v as PriceBasis)}>
+                <SelectTrigger id="priceBasis" aria-invalid={errors.priceBasis ? true : undefined}>
+                  <SelectValue placeholder="Bitte wählen — netto oder inkl. USt" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="net">netto (ohne USt)</SelectItem>
+                  <SelectItem value="gross">inkl. USt</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-text-muted">
+                Gilt für Arbeitspreis, Nachttarif und Grundgebühr des Lieferanten. Gerechnet wird
+                netto; brutto eingegebene Preise rechnen wir um.
+              </p>
+              {errors.priceBasis && (
+                <p className="text-xs text-negative">{errors.priceBasis}</p>
+              )}
+            </div>
             <NumberField
               id="energyPrice"
               label="Arbeitspreis"

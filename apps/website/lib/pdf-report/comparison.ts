@@ -1,3 +1,4 @@
+import { displayedPriceBasis, VAT_INCLUSIVE_LABEL, type DisplayPriceBasis } from 'shared'
 import type { BatteryResultEntry, BatteryRoiSummary } from 'shared'
 
 import { formatEur, formatKw, formatKwh1, formatYears } from '@/lib/format'
@@ -240,14 +241,14 @@ function neutralRow(label: string, value: string): ReportRow {
  * Y-Achse man für die Jahresersparnis halten könnte — und das ist genau die Verwechslung, gegen
  * die die Komponente ihre Achse gewählt hat.
  */
-function buildFigure(plan: ComparisonChartPlan): ReportFigure {
+function buildFigure(plan: ComparisonChartPlan, basis: DisplayPriceBasis): ReportFigure {
   const which = plan.variant === 'addon' ? ' des Zusatzgeräts' : ''
   return {
     caption:
       `Je Katalog-Gerät ein Punkt: waagrecht seine nutzbare Kapazität, senkrecht das, was über ` +
       `${plan.horizonYears} Jahre netto übrig bleibt — Ersparnis abzüglich der Anschaffung` +
       `${which}. Über der waagrechten Nulllinie rechnet sich ein Gerät im Betrachtungszeitraum, ` +
-      'darunter nicht. Alle Beträge netto (ohne USt.).',
+      `darunter nicht. Alle Beträge ${basis === 'gross' ? VAT_INCLUSIVE_LABEL : 'netto (ohne USt.)'}.`,
     note:
       `Die Linie verbindet ${plan.points.length} Geräte, sie interpoliert nichts dazwischen: mit ` +
       'der Kapazität ändert sich auch die Leistung, und ein Gerät, das zwischen zwei Punkten läge, ' +
@@ -537,7 +538,7 @@ export function buildComparisonChapter(
   const hasTable = shown.length > 0
 
   return {
-    figure: plan ? buildFigure(plan) : null,
+    figure: plan ? buildFigure(plan, displayedPriceBasis(analysis)) : null,
     figureMissing: plan ? null : FIGURE_MISSING,
     statement: hasTable
       ? buildTableStatement(variant, considered, horizonYears)
