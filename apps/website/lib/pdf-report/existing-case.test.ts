@@ -395,6 +395,13 @@ describe('Stufe D — der Bestandsfall als zweite Render-Fixture', () => {
     expect(text).toContain('Ein zusätzlicher Batteriespeicher rechnet sich für Sie')
   }, 60_000)
 
+  it('Quellen-Tabelle: beim Bestandsspeicher kein „Preis je kWh", beim Katalog-Gerät schon', () => {
+    const bestand = reportText(BESTANDSFALL)
+    expect(bestand).toContain('Wirkungsgrad Ihres bestehenden Speichers.')
+    expect(bestand).not.toContain('Preis je kWh')
+    expect(reportText(OHNE_BESTAND)).toContain('Wirkungsgrad und Preis je kWh.')
+  })
+
   /**
    * ⚠ VON DEN ACHT VERWEISEN, DIE NUR DER BESTANDSFALL ERREICHTE, SIND ZWEI ÜBRIG. Die sechs
    * übrigen zeigten auf `savings`/`load_shift` — beide Bausteine sind mit der Zusammenfassung
