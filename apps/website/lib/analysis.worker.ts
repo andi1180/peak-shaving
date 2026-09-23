@@ -1,5 +1,4 @@
 import { computeAnalysis } from 'engine'
-import { DEMO_BATTERY_CATALOG } from 'shared'
 
 import type { AnalysisRequest, WorkerOutbound } from './analysis-protocol'
 // B14-2: dieselbe Katalog-Änderung, die auch der Bündel-Export mitschreibt — eine Definition,
@@ -14,8 +13,10 @@ import { DEFAULT_HORIZON_YEARS } from './constants'
  * │ `current`/`peaks` (§3.4/§3.5) UND `perBattery`/`recommendation`            │
  * │ (§3.6–§3.8) sind jetzt ECHT: `analyzeCurrentPeaks()` + `recommendBattery()`│
  * │ laufen gegen den echten geparsten Lastgang, die echten Tarifparameter aus  │
- * │ dem Formular und den `DEMO_BATTERY_CATALOG` (packages/shared) — ein        │
- * │ Platzhalter bis Martins echter Katalog vorliegt (§8 OP#2). `dataQuality`   │
+ * │ dem Formular und dem Batteriekatalog. SEIT K3b (23.09.2026) ist das der    │
+ * │ ECHTE Katalog aus `public.battery_catalog`, nicht mehr der Platzhalter:    │
+ * │ er reist als Wertkopie in der Nachricht mit (`msg.catalog`), weil der      │
+ * │ Rechenkern keine Datenbank kennt. `dataQuality`                            │
  * │ ist seit Prompt 2 echt. `dispatchTrace` ist seit der §6.2-Befüllung        │
  * │ (`recommendBattery` → `buildDispatchTrace`) je perBattery-Eintrag ECHT.    │
  * │                                                                            │
@@ -47,13 +48,14 @@ ctx.onmessage = (event: MessageEvent<AnalysisRequest>) => {
 
   if (msg.type === 'run') {
     /*
-     * Der Katalog des Erstlaufs ist der UNVERÄNDERTE — es gibt beim ersten Lauf keinen Override
+     * Der Katalog des Erstlaufs ist der UNVERÄNDERTE (der gelieferte Stand, K3b) — es gibt beim
+     * ersten Lauf keinen Override
      * (der entsteht erst im Annahmen-Panel, §6.2). Ein bestätigter Bestandsspeicher verändert ihn
      * ausdrücklich NICHT mehr: er ist kein Katalog-Kandidat, sondern wird daneben simuliert
      * (`buildExistingBatteryAnalysis`). Nur so bleiben die Zusatzspeicher-Szenarien ehrlich —
      * verglichen wird gegen echte Katalog-Geräte, nicht gegen ein umetikettiertes.
      */
-    const result = computeAnalysis(msg.payload, DEFAULT_HORIZON_YEARS, DEMO_BATTERY_CATALOG)
+    const result = computeAnalysis(msg.payload, DEFAULT_HORIZON_YEARS, msg.catalog)
 
     // Künstliche Fortschrittsanimation NUR beim Erstlauf (§5 Schritt 3, StepAnalyzing) — kein
     // fachlicher Wert, reine Wahrnehmungs-Geste. `recompute` (unten) überspringt sie bewusst,
@@ -83,7 +85,7 @@ ctx.onmessage = (event: MessageEvent<AnalysisRequest>) => {
        * das, verschwand die Angabe des Kunden lautlos). `msg.payload` trägt ihn unverändert;
        * `computeAnalysis` liest ihn selbst.
        */
-      const catalog = applyBatteryOverride(DEMO_BATTERY_CATALOG, msg.batteryOverride)
+      const catalog = applyBatteryOverride(msg.catalog, msg.batteryOverride)
       const result = computeAnalysis(msg.payload, msg.horizonYears, catalog)
       post({ type: 'recomputed', result })
     } catch (err) {

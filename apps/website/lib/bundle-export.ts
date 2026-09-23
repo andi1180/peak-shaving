@@ -1,11 +1,12 @@
 import {
-  DEMO_BATTERY_CATALOG,
   ENGINE_COMMIT_SHA_PLACEHOLDER,
   ENGINE_VERSION,
   buildAnalysisBundle,
   serializeAnalysisBundle,
   type AnalysisBundle,
   type AnalysisResult,
+  type BatteryCandidate,
+  type BatteryCatalogMeta,
   type TariffSourceRef,
 } from 'shared'
 
@@ -44,6 +45,14 @@ export type BundleExportArgs = {
   pv: ParsedPv | null
   /** B11: Herkunft der Tarifsätze; `null`, wenn kein Netzbetreiber gewählt wurde. */
   tariffSource: TariffSourceRef | null
+  /**
+   * K3b: der Katalogstand, gegen den GERECHNET wurde — derselbe, den `analysis.worker.ts` bekommen
+   * hat. Er wird hier nicht neu geladen und nicht aus einem Modul gelesen: das Bündel soll den
+   * Stand tragen, der in `recommendBattery` ging, und keinen zweiten, der ihm ähnlich sieht.
+   */
+  batteryCatalog: BatteryCandidate[]
+  /** K3b: die Beiwerte je Gerät (Preisstand, Wirkungsgrad-Herkunft, Händlerkennung). */
+  batteryCatalogMeta: Record<string, BatteryCatalogMeta>
 }
 
 /**
@@ -67,7 +76,15 @@ export async function buildBundle(args: BundleExportArgs): Promise<AnalysisBundl
        * eine zweite Umsetzung liefe irgendwann auseinander, und dann trüge das Archiv einen
        * Katalog, gegen den nie gerechnet wurde.
        */
-      batteryCatalog: applyBatteryOverride(DEMO_BATTERY_CATALOG, args.inputs.batteryOverride),
+      batteryCatalog: applyBatteryOverride(args.batteryCatalog, args.inputs.batteryOverride),
+      /*
+       * K3b — ARCHIV-REGEL: Wertkopie, kein Verweis. Preisstand und Händlerkennung stehen als
+       * WERTE im Bündel; eine spätere Katalogpflege (neuer Preis, Gerät deaktiviert) darf eine
+       * abgelegte Analyse nicht verändern (B14-1 Regel b). Die Beiwerte gehören zum UNVERÄNDERTEN
+       * Katalog: ein Override im Annahmen-Panel ändert Wirkungsgrad oder Preis je kWh, nicht den
+       * Preisstand, den die Katalogzeile trug.
+       */
+      batteryCatalogMeta: args.batteryCatalogMeta,
       batteryOverride: args.inputs.batteryOverride,
       pvFileName: args.pv?.fileName ?? null,
       /*

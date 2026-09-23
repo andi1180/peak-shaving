@@ -34,6 +34,12 @@ export default defineConfig({
   },
   esbuild: { jsx: 'automatic' },
   test: {
-    include: ['lib/*.test.ts', 'lib/pdf-report/*.test.ts'],
+    /*
+     * K3b nimmt `lib/battery-catalog/*` dazu — aus demselben Grund wie die beiden bestehenden
+     * Muster und ohne die Regel aufzuweichen: `batteryCategoryFor` ist eine reine Funktion ohne
+     * React, ohne Request und ohne Datenbank. Der Datenbank-Rand daneben (`source.ts`) hat
+     * bewusst keinen Test — er ist ein Adapter um den `shared`-Loader, und der IST geprüft.
+     */
+    include: ['lib/*.test.ts', 'lib/pdf-report/*.test.ts', 'lib/battery-catalog/*.test.ts'],
   },
 })

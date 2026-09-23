@@ -1,6 +1,7 @@
 import type { PvOutageMonth } from 'engine'
 import type {
   AnalysisResult,
+  BatteryCatalogMeta,
   EstimatedPvSummary,
   LoadProfile,
   NetzbetreiberId,
@@ -292,6 +293,15 @@ export type PdfReportInput = {
    * wäre „Report ohne Diagramm" ein Zustand, den ein Aufrufer versehentlich herstellen kann.
    */
   loadProfile: LoadProfile
+  /**
+   * K3b: die Beiwerte des Katalogstands, gegen den gerechnet wurde — je Geräte-Kennung Preisstand
+   * und Herkunft des Wirkungsgrads.
+   *
+   * OPTIONAL, und das ist eine Aussage: der Rechner (`apps/website`) liefert sie seit K3b mit, der
+   * Wizard-Weg (`apps/web`, D12) noch nicht (K3c). Fehlen sie, benennt die Quellen-Tabelle die
+   * Lücke weiterhin wörtlich, statt einen Preisstand zu behaupten, den niemand nachgeschlagen hat.
+   */
+  batteryCatalogMeta?: Record<string, BatteryCatalogMeta>
   /**
    * B23c-4 — welcher Tarifsatz-Stand dieser Rechnung zugrunde lag (B11). `null` = kein
    * hinterlegter Stand gewählt, `TARIFF_SOURCE_UNTRACKED` = Herkunft nicht nachverfolgt (s. dort).

@@ -1,4 +1,4 @@
-import type { AnalysisResult, BatteryOverrideSource } from 'shared'
+import type { AnalysisResult, BatteryCandidate, BatteryOverrideSource } from 'shared'
 import type { CalculatorPayload } from '@/components/flow/types'
 
 // Nachrichten-Protokoll zwischen UI-Thread und Analyse-Worker. Der Payload trägt seit
@@ -33,12 +33,25 @@ export type BatteryOverride = {
   source: BatteryOverrideSource
 }
 
+/**
+ * K3b: Der KATALOG reist in jeder Nachricht mit, als Wertkopie.
+ *
+ * Bis hierher las der Worker `DEMO_BATTERY_CATALOG` selbst — ein Codemodul, das er importieren
+ * konnte. Der echte Katalog steht in der Datenbank, und die Abfrage gehört nicht in den Rechenkern
+ * (s. Begründung in `calculator.tsx`). Beide Nachrichten führen deshalb dasselbe Array; dass es
+ * dasselbe IST, ist die Zusage dieses Feldes: Erstlauf und Neuberechnung dürfen nicht gegen zwei
+ * verschiedene Katalogstände laufen.
+ *
+ * Eine leere Liste ist hier kein gültiger Wert — `recommendBattery` wirft darauf (gemessen). Die
+ * Oberfläche lässt es deshalb gar nicht so weit kommen (`catalogBlocked` in Schritt 2).
+ */
 export type AnalysisRequest =
-  | { type: 'run'; payload: CalculatorPayload }
+  | { type: 'run'; payload: CalculatorPayload; catalog: BatteryCandidate[] }
   | {
       type: 'recompute'
       payload: CalculatorPayload
       horizonYears: number
+      catalog: BatteryCandidate[]
       batteryOverride?: BatteryOverride
     }
 

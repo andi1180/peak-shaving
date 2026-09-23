@@ -132,9 +132,19 @@ Referenzfall benutzt. Ein grüner Testlauf beweist „die Logik tut, was sie sol
 Zahlen bestehender Fälle haben sich nicht verändert".
 
 Nach JEDEM Änderungs-Batch, der Report- oder Engine-Code berührt, der von mehr als einem Fall
-genutzt wird: mindestens einen bestehenden Referenzfall (aktuell **Markus Urbanz**, **Demo Hotel**)
+genutzt wird: mindestens einen bestehenden Referenzfall (aktuell **Markus Urbanz** über den
+Wizard-Pfad `run-from-draft.ts` und die **Demo-Bäckerei** über den öffentlichen Rechner)
 neu als Report ziehen und die Kopfzahlen gegen den letzten bekannten Stand prüfen — nicht nur die
 neuen Tests grün sehen.
+
+**⚠ Der zweite Fall ist seit K3b (23.09.2026) die Bäckerei und nicht mehr das Demo Hotel**, und der
+Grund ist nicht Geschmack: die beiden Fälle sollen die ZWEI Analysepfade abdecken, die es gibt —
+den Wizard (`apps/web` → `extractors`) und den öffentlichen Rechner (`apps/website`). Der
+Bäckerei-Lastgang liegt als Fixture im Repo und läuft über die echte Oberfläche; das Demo Hotel
+existiert nur als gerenderter Report in einem Kundenordner und lässt sich nicht nachziehen.
+**⚠ Genommen wird `dev-fixtures/demo-baeckerei-lastgang-verschoben-2025.csv`, nicht der
+2023er-Jahrgang** — dieselbe Wertereihe, nur um 735 Tage (wochentagserhaltend) verschoben: ein
+Lastgang vor dem 1.1.2025 wird im Upload abgewiesen (Delta 15 Regel B, alle vier Einstiege).
 
 **Anlass:** Dreimal in einer Session ist genau diese Fehlerklasse aufgetreten, nicht spekulativ:
 `reduceAnalysis` liess `annualScenario` und `pvValue` aus seiner Pick-Liste aus (Feld existierte,

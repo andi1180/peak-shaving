@@ -73,3 +73,16 @@ export function formatYears(value: number): string {
 export function formatPercent(value: number): string {
   return `${de({ maximumFractionDigits: 1 }).format(value)} %`
 }
+
+/**
+ * Ein reines DATUM (`YYYY-MM-DD`) als `TT.MM.JJJJ` — K3b, für den Preisstand des Katalogs.
+ *
+ * ⚠ Bewusst per Zerlegung und NICHT über `new Date(...)` + `Intl`: ein Datum ohne Uhrzeit wird von
+ * JavaScript als UTC-Mitternacht gelesen, und in einer Zeitzone westlich davon zeigte die Anzeige
+ * dann den VORTAG. Ein Preisstand hat keine Zeitzone, also darf ihn auch keine umrechnen.
+ */
+export function formatDateOnly(value: string): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value.trim())
+  if (!match) return value
+  return `${match[3]}.${match[2]}.${match[1]}`
+}

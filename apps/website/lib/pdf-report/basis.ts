@@ -3,6 +3,7 @@ import {
   AWATTAR_BASE_FEE,
   NETZBETREIBER_LABELS,
   TARIFF_SETS,
+  type BatteryCatalogMeta,
   type BatteryRoiEntry,
   type BillingModel,
   type EstimatedPvSummary,
@@ -15,7 +16,7 @@ import {
   type TariffSourceRef,
 } from 'shared'
 
-import { formatEur, formatEur2, formatPercent } from '@/lib/format'
+import { formatDateOnly, formatEur, formatEur2, formatPercent } from '@/lib/format'
 import { REPORT_SECTIONS, SECTION_ID, type ReportSection } from './content'
 import type { ReportBuildContext } from './context'
 import { hasPvValueChapter } from './pv-value'
@@ -851,7 +852,10 @@ function formatInvoicePeriod(period: PdfReportInvoicePeriod): string {
  * Bestandsfall ist das die Anlage des Kunden. Die Annahmen-Tabelle oben wählt aus einem anderen
  * Grund anders (dort geht es um Preis und Investition, die es nur für ein Katalog-Gerät gibt).
  */
-function batteryRowsForSources(analysis: PdfReportAnalysis): ReportTableRow[] {
+function batteryRowsForSources(
+  analysis: PdfReportAnalysis,
+  catalogMeta: Record<string, BatteryCatalogMeta> | undefined,
+): ReportTableRow[] {
   const entry = primaryEntryOf(analysis)
   const device = entry
     ? `${entry.battery.manufacturer} ${entry.battery.name}`
@@ -860,14 +864,28 @@ function batteryRowsForSources(analysis: PdfReportAnalysis): ReportTableRow[] {
     ? 'Nutzbare Kapazität, Lade-/Entladeleistung, Wirkungsgrad und Preis je kWh.'
     : 'Es steht kein Kandidat zur Verfügung (leerer Katalog) — es wurde nichts daraus verwendet.'
 
+  /*
+   * ⚠ K3b: Die Lücke oben ist für ein KATALOG-Gerät geschlossen — seit die Geräte aus
+   * `public.battery_catalog` kommen, gibt es einen Preisstand und eine Aussage darüber, ob der
+   * Wirkungsgrad belegt oder angenommen ist. Für den BESTANDSSPEICHER des Kunden bleibt sie
+   * bestehen und muss es: dessen Werte hat er selbst genannt, dazu gibt es kein Datenblatt.
+   * Deshalb wird am Gerät nachgeschlagen, das die Tabelle ausweist, und nicht am empfohlenen.
+   */
+  const meta = entry ? catalogMeta?.[entry.battery.id] : undefined
+  const provenance = meta
+    ? `Katalogstand ${meta.priceAsOf ? `vom ${formatDateOnly(meta.priceAsOf)}` : '(ohne Preisstand)'} — ` +
+      'Hardware-Listenpreis netto, exkl. Installation. Wirkungsgrad: ' +
+      (meta.rteSource === 'datenblatt'
+        ? 'Datenblatt des Herstellers.'
+        : meta.rteSource === 'annahme'
+          ? 'Erfahrungswert, kein Datenblattwert.'
+          : 'Herkunft nicht vermerkt.')
+    : 'keine Herkunfts- oder Preisquelle hinterlegt — der Katalog führt weder Datenblatt-Fundstelle ' +
+      'noch Abrufdatum noch Preisstand.'
+
   return [
     groupRow('group_battery', 'Batterie'),
-    dataRow('battery_device', [
-      device,
-      usage,
-      'keine Herkunfts- oder Preisquelle hinterlegt — der Katalog führt weder Datenblatt-Fundstelle ' +
-        'noch Abrufdatum noch Preisstand.',
-    ]),
+    dataRow('battery_device', [device, usage, provenance]),
   ]
 }
 
@@ -902,7 +920,7 @@ export function buildDataSources(input: PdfReportInput): ReportTable {
         input.estimatedPv,
       ),
       ...tariffRows(input.tariffSource, input.tariffProvenance),
-      ...batteryRowsForSources(input.analysis),
+      ...batteryRowsForSources(input.analysis, input.batteryCatalogMeta),
     ],
   }
 }
