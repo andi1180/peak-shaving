@@ -53,3 +53,13 @@ export function monthlyBatteryRef(isExisting: boolean): string {
  * empfohlene Batterie) und braucht die Fallunterscheidung gar nicht erst.
  */
 export const CONTROLLED_WAY_LABEL = 'aWATTar mit Ladesteuerung'
+
+/**
+ * K3d — Herkunft des angezeigten Wirkungsgrads eines Katalog-Geräts, am Bildschirm-Druck und im
+ * PDF gleich. `null`, wo die Herkunft nicht vermerkt ist: dann steht der Wert ohne Zusatz.
+ */
+export function rteSourceNote(rteSource: string | null | undefined): string | null {
+  if (rteSource === 'datenblatt') return 'laut Datenblatt'
+  if (rteSource === 'annahme') return 'angenommen'
+  return null
+}

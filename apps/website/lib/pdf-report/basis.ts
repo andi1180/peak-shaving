@@ -17,6 +17,7 @@ import {
 } from 'shared'
 
 import { formatDateOnly, formatEur, formatEur2, formatPercent } from '@/lib/format'
+import { rteSourceNote } from '@/lib/report-copy'
 import { REPORT_SECTIONS, SECTION_ID, type ReportSection } from './content'
 import type { ReportBuildContext } from './context'
 import { hasPvValueChapter } from './pv-value'
@@ -116,14 +117,21 @@ function neutralRow(label: string, value: string): ReportRow {
  * hätten sie dieselbe Zahl zweimal auf einer Seite getragen, und die zweite Fassung liefe beim
  * nächsten Umbau von der ersten weg.
  */
-export function buildAssumptions(analysis: PdfReportAnalysis): ReportStatement {
+export function buildAssumptions(
+  analysis: PdfReportAnalysis,
+  catalogMeta?: Record<string, BatteryCatalogMeta>,
+): ReportStatement {
   const a = analysis.assumptions
   /* Report-Baukasten B1: dieselbe Rückfallkette wie überall sonst, jetzt aus EINER Funktion. */
   const recommended = recommendedEntryOf(analysis)
 
   const rows: ReportRow[] = [
     neutralRow('Betrachtungshorizont', `${a.horizonYears} Jahre`),
-    ...batteryRows(recommended, a.roundTripEfficiency),
+    ...batteryRows(
+      recommended,
+      a.roundTripEfficiency,
+      recommended ? catalogMeta?.[recommended.battery.id] : undefined,
+    ),
   ]
 
   return {
@@ -164,12 +172,21 @@ export function buildAssumptions(analysis: PdfReportAnalysis): ReportStatement {
  */
 function batteryRows(
   recommended: BatteryRoiEntry | undefined,
-  roundTripEfficiency: number,
+  roundTripEfficiency: number | null,
+  meta: BatteryCatalogMeta | undefined,
 ): ReportRow[] {
   if (!recommended) return []
   const name = recommended.battery.name
+  const note = rteSourceNote(meta?.rteSource)
   return [
-    neutralRow(`Wirkungsgrad (${name})`, formatPercent(roundTripEfficiency * 100)),
+    ...(roundTripEfficiency === null
+      ? []
+      : [
+          neutralRow(
+            `Wirkungsgrad (${name})`,
+            formatPercent(roundTripEfficiency * 100) + (note ? ` (${note})` : ''),
+          ),
+        ]),
     neutralRow(`Batteriepreis (${name})`, `${formatEur2(recommended.battery.pricePerKwh)} / kWh`),
     neutralRow('Gesamtinvestition', formatEur(recommended.totalInvestment)),
     neutralRow(
@@ -880,8 +897,10 @@ function batteryRowsForSources(
         : meta.rteSource === 'annahme'
           ? 'Erfahrungswert, kein Datenblattwert.'
           : 'Herkunft nicht vermerkt.')
-    : 'keine Herkunfts- oder Preisquelle hinterlegt — der Katalog führt weder Datenblatt-Fundstelle ' +
-      'noch Abrufdatum noch Preisstand.'
+    : analysis.noRecommendationReason === 'no_candidates'
+      ? 'Für diese Kundenkategorie ist noch kein Speicher im Katalog freigegeben.'
+      : 'keine Herkunfts- oder Preisquelle hinterlegt — der Katalog führt weder Datenblatt-Fundstelle ' +
+        'noch Abrufdatum noch Preisstand.'
 
   return [
     groupRow('group_battery', 'Batterie'),
@@ -1362,7 +1381,7 @@ export function buildBasisChapter(
   const dataQuality = context ? context.dataQuality : dataQualityNoticeOf(input)
 
   return {
-    assumptions: buildAssumptions(input.analysis),
+    assumptions: buildAssumptions(input.analysis, input.batteryCatalogMeta),
     dataQuality,
     blocker: buildBlocker(input.analysis, timeZoneOf(input.loadProfile)),
     pvOutage,

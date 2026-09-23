@@ -1,6 +1,7 @@
-import type { AnalysisResult, BillingModel } from 'shared'
+import type { AnalysisResult, BatteryCatalogMeta, BillingModel } from 'shared'
 
 import { formatEur, formatEur2, formatPercent } from '@/lib/format'
+import { rteSourceNote } from '@/lib/report-copy'
 import { Num } from './num'
 
 type Entry = AnalysisResult['perBattery'][number]
@@ -32,10 +33,13 @@ function Row({ label, value }: { label: string; value: string }) {
 export function PrintAssumptionsSnapshot({
   assumptions,
   recommended,
+  catalogMeta,
 }: {
   assumptions: AnalysisResult['assumptions']
   recommended?: Entry
+  catalogMeta?: BatteryCatalogMeta
 }) {
+  const rteNote = rteSourceNote(catalogMeta?.rteSource)
   return (
     <div className="hidden rounded-lg border border-border bg-surface p-6 print:block print:break-inside-avoid">
       <p className="mb-3 text-sm font-medium text-ink">
@@ -61,7 +65,14 @@ export function PrintAssumptionsSnapshot({
         </div>
         {recommended && (
           <div>
-            <Row label={`Wirkungsgrad (${recommended.battery.name})`} value={formatPercent(assumptions.roundTripEfficiency * 100)} />
+            {assumptions.roundTripEfficiency !== null && (
+              <Row
+                label={`Wirkungsgrad (${recommended.battery.name})`}
+                value={
+                  formatPercent(assumptions.roundTripEfficiency * 100) + (rteNote ? ` (${rteNote})` : '')
+                }
+              />
+            )}
             <Row
               label={`Batteriepreis (${recommended.battery.name})`}
               value={`${formatEur2(recommended.battery.pricePerKwh)} / kWh`}

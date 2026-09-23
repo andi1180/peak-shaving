@@ -418,6 +418,49 @@ describe('buildBasisChapter — Datenquellen-Tabelle (D9)', () => {
     // Ohne Lastgang-Zeitraum steht die Leerstelle ausgeschrieben da, kein Strich.
     expect(vintageOf(withoutCatalog, 'load_readings')).toContain('nicht erfasst')
   })
+
+  it('sagt bei leerem Katalog, dass für die Kategorie kein Speicher freigegeben ist (K3d)', () => {
+    const table = buildBasisChapter({
+      title: 'Wirtschaftlichkeitsanalyse Batteriespeicher',
+      subtitle: 'Auf Basis Ihres Viertelstunden-Lastgangs',
+      period: null,
+      printedAt: '23.09.2026',
+      analysis: {
+        ...ANALYSIS,
+        recommendation: null,
+        noRecommendationReason: 'no_candidates',
+        assumptions: { ...ANALYSIS.assumptions, roundTripEfficiency: null },
+      },
+      loadProfile: LOAD_PROFILE,
+      tariffSource: TARIFF_SOURCE_UNTRACKED,
+      tariffVintage: null,
+    }).dataSources
+
+    expect(vintageOf(table, 'battery_device')).toContain(
+      'Für diese Kundenkategorie ist noch kein Speicher im Katalog freigegeben.',
+    )
+    expect(vintageOf(table, 'battery_device')).not.toContain('führt weder')
+  })
+
+  it('nennt am Wirkungsgrad die Herkunft aus dem Katalog (K3d)', () => {
+    const { assumptions } = buildBasisChapter({
+      title: 'Wirtschaftlichkeitsanalyse Batteriespeicher',
+      subtitle: 'Auf Basis Ihres Viertelstunden-Lastgangs',
+      period: null,
+      printedAt: '23.09.2026',
+      analysis: BATTERY_ANALYSIS,
+      loadProfile: LOAD_PROFILE,
+      tariffSource: TARIFF_SOURCE_UNTRACKED,
+      tariffVintage: null,
+      batteryCatalogMeta: {
+        'ps-c60': { memodoId: null, priceAsOf: null, rteSource: 'annahme', listPriceNet: 25200 },
+      },
+    })
+
+    expect(assumptions.rows.find((row) => row.label === 'Wirkungsgrad (PeakStore C60)')?.value).toMatch(
+      /\(angenommen\)$/,
+    )
+  })
 })
 
 /**

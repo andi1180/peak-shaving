@@ -977,7 +977,11 @@ export function Report({
       )}
 
       {/* Druck-Pendant zur Accordion oben — Snapshot statt Eingabefelder (§6.2 Teil D). */}
-      <PrintAssumptionsSnapshot assumptions={a} recommended={recommended} />
+      <PrintAssumptionsSnapshot
+        assumptions={a}
+        recommended={recommended}
+        catalogMeta={recommended ? batteryCatalogMeta[recommended.battery.id] : undefined}
+      />
 
       {/*
         Delta 16a — Methodik & Vorbehalte, nur im Druck. Steht bewusst NACH den Zahlen und den

@@ -1,5 +1,4 @@
 import {
-  ASSUMED_EXISTING_ROUND_TRIP_EFFICIENCY,
   combineBatteries,
   type AddonBatteryScenario,
   type AnalysisResult,
@@ -492,15 +491,13 @@ export function computeAnalysis(
     // K3b-2: gesetzt GENAU DANN, wenn es keine Empfehlung gibt — sonst fehlt das Feld ganz.
     ...(recommendation ? {} : { noRecommendationReason: 'no_candidates' as const }),
     assumptions: {
-      // Einzelner Wirkungsgrad-Wert fürs Annahmen-Panel (§6.2): der der EMPFOHLENEN Batterie —
-      // jeder Kandidat hat sein eigenes `roundTripEfficiency`, dieses Feld ist ein Report-weiter
-      // Anzeigewert, kein Rechenkern-Input. ⚠ K3b-2: bei leerem Katalog gibt es keinen — dann der
-      // Bestandsspeicher, sonst der Annahmewert. Die Reihenfolge lässt den bisherigen Fall
-      // (Kandidaten vorhanden, mit ODER ohne Bestand) Zeichen für Zeichen unverändert.
+      // Reiner Anzeigewert, kein Rechenkern-Input: der Wirkungsgrad des Geräts, mit dem die Analyse
+      // rechnet — Empfehlung, sonst Bestandsspeicher, sonst `null` (kein Ersatzwert).
       roundTripEfficiency:
-        perBattery[0]?.battery.roundTripEfficiency ??
+        perBattery.find((p) => p.battery.id === recommendation?.batteryId)?.battery
+          .roundTripEfficiency ??
         existing?.analysis.entry.battery.roundTripEfficiency ??
-        ASSUMED_EXISTING_ROUND_TRIP_EFFICIENCY,
+        null,
       horizonYears,
       billingModel: payload.tariff.billingModel,
       energyPriceCtPerKwh: payload.tariff.energyPriceCtPerKwh,
