@@ -65,10 +65,15 @@ export const monthlyMaxAverageStrategy: TariffStrategy = {
  * „alle 12" nicht — die Semantik bleibt aber konsistent „nur belegte Monate zählen". Eine Summe
  * über 1 von 12 Monaten ist bei Teildaten fachlich fragwürdig; das flankiert die Teiljahres-Warnung
  * (§3.5), NICHT eine erfundene Hochrechnung auf ein Jahr.
+ *
+ * Die Mindestleistung greift JE MONAT, weil jeder Monat einzeln abgerechnet wird; gegen die Summe
+ * verglichen, verschwände ein Sockel über den Monatsspitzen fast ganz. Das äussere `withMinimum`
+ * trägt nur den Fall ohne belegten Monat.
  */
 export const monthlyMaxSumStrategy: TariffStrategy = {
   billedKw(loadProfile, params) {
-    return withMinimum(sum(coveredMonthlyPeaksKw(loadProfile)), params.minBillableKw)
+    const perMonth = coveredMonthlyPeaksKw(loadProfile).map((kw) => withMinimum(kw, params.minBillableKw))
+    return withMinimum(sum(perMonth), params.minBillableKw)
   },
 }
 

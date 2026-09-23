@@ -878,9 +878,12 @@ function batteryRowsForSources(
   const device = entry
     ? `${entry.battery.manufacturer} ${entry.battery.name}`
     : 'kein Gerät ausgewiesen'
-  const usage = entry
-    ? 'Nutzbare Kapazität, Lade-/Entladeleistung, Wirkungsgrad und Preis je kWh.'
-    : 'Es steht kein Kandidat zur Verfügung (leerer Katalog) — es wurde nichts daraus verwendet.'
+  // Der Bestandsspeicher hat keinen Katalogpreis — gerechnet wird nur mit seinen Kenndaten.
+  const usage = !entry
+    ? 'Es steht kein Kandidat zur Verfügung (leerer Katalog) — es wurde nichts daraus verwendet.'
+    : analysis.existingBatteryAnalysis
+      ? 'Nutzbare Kapazität, Lade-/Entladeleistung und Wirkungsgrad Ihres bestehenden Speichers.'
+      : 'Nutzbare Kapazität, Lade-/Entladeleistung, Wirkungsgrad und Preis je kWh.'
 
   /*
    * ⚠ K3b: Die Lücke oben ist für ein KATALOG-Gerät geschlossen — seit die Geräte aus

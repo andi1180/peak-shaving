@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { demandChargeKwPerYear } from 'shared'
 import type { LoadProfile, TariffParams } from 'shared'
 
 import {
@@ -75,6 +76,38 @@ describe('Mindestleistung (§3.5): billedKw = max(computed, minBillableKw) — I
   })
   it('monthly_max_sum: dito → 50', () => {
     expect(monthlyMaxSumStrategy.billedKw(lp, params)).toBe(50)
+  })
+})
+
+describe('monthly_max_sum: Mindestleistung je MONAT, nicht gegen die Summe', () => {
+  // Monatsspitzen 11× 20 kW + 1× 200 kW (März), volles Jahr.
+  function fullYear(): LoadProfile {
+    const readings = Array.from({ length: 12 }, (_, i) => ({ ts: isoUtc(2023, i + 1, 15), gridPowerKw: 20 }))
+    readings.push({ ts: isoUtc(2023, 3, 15, 14, 0), gridPowerKw: 200 })
+    return loadProfile(readings)
+  }
+  const perYear = (model: 'monthly_max_sum' | 'monthly_max_average', minBillableKw: number) =>
+    demandChargeKwPerYear(
+      getTariffStrategy(model).billedKw(fullYear(), tariffParams({ minBillableKw })),
+      model,
+      12,
+    )
+
+  it('Sockel über allen Monatsspitzen: 12 × 250 → Summe und Mittel gleich (250 kW·a)', () => {
+    expect(monthlyMaxSumStrategy.billedKw(fullYear(), tariffParams({ minBillableKw: 250 }))).toBe(3000)
+    expect(perYear('monthly_max_sum', 250)).toBeCloseTo(perYear('monthly_max_average', 250), 9)
+  })
+
+  it('Sockel unter allen Monatsspitzen: unverändert 420 → Summe und Mittel gleich (35 kW·a)', () => {
+    expect(monthlyMaxSumStrategy.billedKw(fullYear(), tariffParams({ minBillableKw: 10 }))).toBe(420)
+    expect(perYear('monthly_max_sum', 10)).toBeCloseTo(perYear('monthly_max_average', 10), 9)
+  })
+
+  it('Sockel zwischen den Monatsspitzen: 11 × 30 + 200 = 530 — das Mittel-Modell weicht hier ab', () => {
+    expect(monthlyMaxSumStrategy.billedKw(fullYear(), tariffParams({ minBillableKw: 30 }))).toBe(530)
+    // Das Mittel-Modell legt den Sockel an den Jahresmittelwert (max(35, 30)), nicht je Monat.
+    expect(perYear('monthly_max_sum', 30)).toBeCloseTo(530 / 12, 9)
+    expect(perYear('monthly_max_average', 30)).toBe(35)
   })
 })
 
