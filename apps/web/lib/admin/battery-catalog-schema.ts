@@ -163,7 +163,6 @@ export const batteryCatalogSchema = z.object({
     ),
   listPriceNet: optionalNumber('Der Listenpreis', { gt: 0 }),
   inverterIncluded: optionalBoolean,
-  extraInverterCostNet: optionalNumber('Der Aufpreis für den Wechselrichter', { min: 0 }),
   requiresFoundation: optionalBoolean,
   /*
    * K1b: statt zweier Beträge je Gerät nun die Verweise auf einen Kostenbaustein. Der Preis steht
@@ -173,6 +172,7 @@ export const batteryCatalogSchema = z.object({
    */
   foundationComponentId: optionalUuid('Der Fundament-Baustein'),
   installationComponentId: optionalUuid('Der Installations-Baustein'),
+  inverterComponentId: optionalUuid('Der Wechselrichter-Baustein'),
   priceAsOf: optionalDate,
   sourceUrl: optionalText(),
   datasheetUrl: optionalText(),
@@ -201,10 +201,10 @@ export const BATTERY_FORM_FIELDS = [
   'rteSource',
   'listPriceNet',
   'inverterIncluded',
-  'extraInverterCostNet',
   'requiresFoundation',
   'foundationComponentId',
   'installationComponentId',
+  'inverterComponentId',
   'priceAsOf',
   'sourceUrl',
   'datasheetUrl',

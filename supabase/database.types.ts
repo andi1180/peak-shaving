@@ -1686,11 +1686,11 @@ export type Database = {
           control_type: string | null
           created_at: string
           datasheet_url: string | null
-          extra_inverter_cost_net: number | null
           foundation_component_id: string | null
           hersteller: string
           id: string
           installation_component_id: string | null
+          inverter_component_id: string | null
           inverter_included: boolean | null
           kategorie: string
           list_price_net: number | null
@@ -1711,11 +1711,11 @@ export type Database = {
           control_type?: string | null
           created_at?: string
           datasheet_url?: string | null
-          extra_inverter_cost_net?: number | null
           foundation_component_id?: string | null
           hersteller: string
           id?: string
           installation_component_id?: string | null
+          inverter_component_id?: string | null
           inverter_included?: boolean | null
           kategorie: string
           list_price_net?: number | null
@@ -1736,11 +1736,11 @@ export type Database = {
           control_type?: string | null
           created_at?: string
           datasheet_url?: string | null
-          extra_inverter_cost_net?: number | null
           foundation_component_id?: string | null
           hersteller?: string
           id?: string
           installation_component_id?: string | null
+          inverter_component_id?: string | null
           inverter_included?: boolean | null
           kategorie?: string
           list_price_net?: number | null
@@ -1770,6 +1770,13 @@ export type Database = {
             referencedRelation: "battery_cost_components"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "battery_catalog_inverter_component_id_fkey"
+            columns: ["inverter_component_id"]
+            isOneToOne: false
+            referencedRelation: "battery_cost_components"
+            referencedColumns: ["id"]
+          },
         ]
       }
       battery_cost_components: {
@@ -1779,6 +1786,7 @@ export type Database = {
           bezeichnung: string
           created_at: string
           id: string
+          leistung_kw: number | null
           notes: string | null
           price_as_of: string | null
           price_net: number | null
@@ -1790,6 +1798,7 @@ export type Database = {
           bezeichnung: string
           created_at?: string
           id?: string
+          leistung_kw?: number | null
           notes?: string | null
           price_as_of?: string | null
           price_net?: number | null
@@ -1801,6 +1810,7 @@ export type Database = {
           bezeichnung?: string
           created_at?: string
           id?: string
+          leistung_kw?: number | null
           notes?: string | null
           price_as_of?: string | null
           price_net?: number | null
@@ -2072,10 +2082,10 @@ export type Database = {
           p_bezeichnung: string
           p_control_type?: string
           p_datasheet_url?: string
-          p_extra_inverter_cost_net?: number
           p_foundation_component_id?: string
           p_hersteller: string
           p_installation_component_id?: string
+          p_inverter_component_id?: string
           p_inverter_included?: boolean
           p_kategorie: string
           p_list_price_net?: number
@@ -2106,6 +2116,7 @@ export type Database = {
           p_art: string
           p_beschreibung?: string
           p_bezeichnung: string
+          p_leistung_kw?: number
           p_notes?: string
           p_price_as_of?: string
           p_price_net?: number
@@ -2359,11 +2370,11 @@ export type Database = {
           p_bezeichnung: string
           p_control_type?: string
           p_datasheet_url?: string
-          p_extra_inverter_cost_net?: number
           p_foundation_component_id?: string
           p_hersteller: string
           p_id: string
           p_installation_component_id?: string
+          p_inverter_component_id?: string
           p_inverter_included?: boolean
           p_kategorie: string
           p_list_price_net?: number
@@ -2385,6 +2396,7 @@ export type Database = {
           p_beschreibung?: string
           p_bezeichnung: string
           p_id: string
+          p_leistung_kw?: number
           p_notes?: string
           p_price_as_of?: string
           p_price_net?: number

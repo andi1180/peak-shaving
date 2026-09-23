@@ -36,8 +36,8 @@ export type BatteryCatalogCategory = 'gewerbe' | 'heim'
  * Die Spalten, die der Loader liest — als PostgREST-Auswahl, damit die Abfrage der Apps nicht
  * gegen das driftet, was hier übersetzt wird.
  *
- * ⚠ Die beiden Bausteine müssen über den FREMDSCHLÜSSELNAMEN eingebettet werden. `battery_catalog`
- * zeigt ZWEIMAL auf `battery_cost_components` (Fundament und Installation); ohne `!…_fkey` kann
+ * ⚠ Die Bausteine müssen über den FREMDSCHLÜSSELNAMEN eingebettet werden. `battery_catalog`
+ * zeigt DREIMAL auf `battery_cost_components` (Fundament, Installation, Wechselrichter); ohne `!…_fkey` kann
  * PostgREST die Beziehung nicht auflösen und antwortet mit PGRST201. Die Namen sind die von
  * PostgreSQL vergebenen Vorgabenamen aus der K1b-Migration.
  *
@@ -58,12 +58,12 @@ export const BATTERY_CATALOG_SELECT = [
   'price_as_of',
   'rte_source',
   'inverter_included',
-  'extra_inverter_cost_net',
   'requires_foundation',
   'control_type',
   'active',
   'foundation_component:battery_cost_components!battery_catalog_foundation_component_id_fkey(art,price_net)',
   'installation_component:battery_cost_components!battery_catalog_installation_component_id_fkey(art,price_net)',
+  'inverter_component:battery_cost_components!battery_catalog_inverter_component_id_fkey(art,price_net,leistung_kw)',
 ].join(',')
 
 /** Ein eingebetteter Kostenbaustein, so wie PostgREST ihn liefert. */
@@ -71,6 +71,8 @@ export type BatteryCostComponentRow = {
   art: string | null
   /** `null` heisst „noch nicht bepreist" (K1b) — die Zeile ist für `anon` dann gar nicht sichtbar. */
   price_net: number | string | null
+  /** Nur bei Art `wechselrichter` gesetzt (H1); Fundament/Installation betten die Spalte nicht ein. */
+  leistung_kw?: number | string | null
 }
 
 /** Eine Katalogzeile, beschränkt auf die Spalten aus `BATTERY_CATALOG_SELECT`. */
@@ -87,12 +89,12 @@ export type BatteryCatalogRow = {
   price_as_of: string | null
   rte_source: string | null
   inverter_included: boolean | null
-  extra_inverter_cost_net: number | string | null
   requires_foundation: boolean | null
   control_type: string | null
   active: boolean
   foundation_component: BatteryCostComponentRow | null
   installation_component: BatteryCostComponentRow | null
+  inverter_component: BatteryCostComponentRow | null
 }
 
 /**
@@ -115,7 +117,7 @@ export type BatteryCatalogSource = (
 /**
  * Warum eine gelieferte Zeile nicht in die Rechnung geht.
  *
- * Alle vier Gründe schliessen die DB-Invarianten (`battery_catalog_active_complete`,
+ * Alle fünf Gründe schliessen die DB-Invarianten (`battery_catalog_active_complete`,
  * `battery_catalog_guard_components`) bereits aus. Sie stehen hier, weil ein Eingriff von Hand
  * oder ein künftig gelockerter CHECK sie wieder möglich macht — und dann soll die Zeile
  * AUSFALLEN und BENANNT sein, nicht mit einer stillen 0 in die Investition gehen.
@@ -123,7 +125,12 @@ export type BatteryCatalogSource = (
 export type SkippedCatalogRow = {
   id: string
   label: string
-  reason: 'inactive' | 'wrong_category' | 'incomplete' | 'foundation_price_missing'
+  reason:
+    | 'inactive'
+    | 'wrong_category'
+    | 'incomplete'
+    | 'foundation_price_missing'
+    | 'inverter_price_missing'
 }
 
 /**
@@ -242,7 +249,25 @@ export function batteryCatalogRowToCandidate(row: BatteryCatalogRow): BatteryCat
     return { ok: false, reason: 'foundation_price_missing' }
   }
 
-  const extraInverterCost = num(row.extra_inverter_cost_net)
+  /*
+   * Ohne eingebauten Umrichter kommt der Wechselrichter-Baustein dazu: sein Preis in die Investition,
+   * seine Nennleistung als Obergrenze der Systemleistung. Fehlt eines davon, fällt die Zeile aus —
+   * dieselbe Falle wie beim Fundament (`extraInverterCost ?? 0` in der Engine).
+   *
+   * Der Wirkungsgrad bleibt unverändert: die Umrichterverluste stecken bereits in der
+   * AC-Round-Trip-Annahme (`round_trip_efficiency`), ein zweiter Abschlag zählte sie doppelt.
+   */
+  let extraInverterCost = 0
+  let systemPowerKw = maxPowerKw
+  if (!row.inverter_included) {
+    const inverterCost = componentPrice(row.inverter_component)
+    const inverterKw = num(row.inverter_component?.leistung_kw)
+    if (inverterCost == null || inverterKw == null || inverterKw <= 0) {
+      return { ok: false, reason: 'inverter_price_missing' }
+    }
+    extraInverterCost = inverterCost
+    systemPowerKw = Math.min(maxPowerKw, inverterKw)
+  }
 
   return {
     ok: true,
@@ -252,12 +277,13 @@ export function batteryCatalogRowToCandidate(row: BatteryCatalogRow): BatteryCat
       manufacturer: row.hersteller,
       class: row.kategorie === 'heim' ? 'residential' : 'commercial',
       usableCapacityKwh,
-      maxPowerKw,
+      maxPowerKw: systemPowerKw,
       roundTripEfficiency,
       // Gesamtpreis → Preis je kWh. Ungerundet, s. Kopf.
       pricePerKwh: listPriceNet / usableCapacityKwh,
       inverterIncluded: row.inverter_included,
-      ...(extraInverterCost == null ? {} : { extraInverterCost }),
+      // Bei eingebautem Umrichter 0 — die Form, die die Spalte vor H1 bei allen solchen Geräten trug.
+      extraInverterCost,
       requiresFoundation: row.requires_foundation,
       ...(foundationCost == null ? {} : { foundationCost }),
       controlType: controlTypeOf(row),
@@ -288,6 +314,7 @@ export function toBatteryCatalogRows(data: unknown[] | null): BatteryCatalogRow[
     ...row,
     foundation_component: firstOrNull(row.foundation_component),
     installation_component: firstOrNull(row.installation_component),
+    inverter_component: firstOrNull(row.inverter_component),
   })) as BatteryCatalogRow[]
 }
 

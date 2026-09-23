@@ -97,10 +97,10 @@ export type BatteryCatalogRow = {
   rte_source: string | null
   list_price_net: number | null
   inverter_included: boolean | null
-  extra_inverter_cost_net: number | null
   requires_foundation: boolean | null
   foundation_component_id: string | null
   installation_component_id: string | null
+  inverter_component_id: string | null
   price_as_of: string | null
   source_url: string | null
   datasheet_url: string | null
@@ -120,6 +120,9 @@ export type BatteryCatalogRow = {
   foundation_component_price_net: number | null
   installation_component_label: string | null
   installation_component_price_net: number | null
+  inverter_component_label: string | null
+  inverter_component_price_net: number | null
+  inverter_component_leistung_kw: number | null
 }
 
 export function batterieKategorieLabel(value: string): string {
@@ -164,7 +167,10 @@ export const BATTERY_ENGINE_FIELD_LABELS: Record<string, string> = {
   list_price_net: 'Listenpreis (netto)',
   inverter_included: 'Wechselrichter enthalten?',
   requires_foundation: 'Fundament nötig?',
-  extra_inverter_cost_net: 'Aufpreis Wechselrichter (netto)',
+  // H1: der Wechselrichter ist ein Baustein wie das Fundament — mit Preis UND Nennleistung.
+  inverter_component_id: 'Wechselrichter-Baustein',
+  inverter_component_price_net: 'Preis des Wechselrichter-Bausteins',
+  inverter_component_leistung_kw: 'Nennleistung des Wechselrichter-Bausteins',
   // K1b: aus einem Betrag sind zwei Zustände geworden, und sie verlangen verschiedene Handgriffe
   // an verschiedenen Stellen — „ordne einen Baustein zu" gegen „trage im Baustein einen Preis ein".
   foundation_component_id: 'Fundament-Baustein',
@@ -193,8 +199,15 @@ export function missingEngineFields(row: BatteryCatalogRow): string[] {
   if (row.requires_foundation === null) missing.push('requires_foundation')
   // Die zwei BEDINGTEN: genau die zwei Zuschläge, die `roi.ts` addiert. Ohne sie wäre die
   // Investition zu niedrig und die Amortisation zu gut — ein Fehler, der wie ein Ergebnis aussieht.
-  if (row.inverter_included === false && row.extra_inverter_cost_net === null) {
-    missing.push('extra_inverter_cost_net')
+  if (row.inverter_included === false) {
+    if (row.inverter_component_id === null) {
+      missing.push('inverter_component_id')
+    } else {
+      if (row.inverter_component_price_net === null) missing.push('inverter_component_price_net')
+      if (row.inverter_component_leistung_kw === null) {
+        missing.push('inverter_component_leistung_kw')
+      }
+    }
   }
   if (row.requires_foundation === true) {
     if (row.foundation_component_id === null) {

@@ -69,9 +69,14 @@ function commonFailure(status: string, v?: Record<string, string>): AdminState |
     case 'missing_fields':
       return { formError: 'Bitte Art und Bezeichnung angeben.', values: v }
     case 'invalid_art':
-      return { formError: 'Bitte Fundament oder Installation wählen.', values: v }
+      return { formError: 'Bitte Fundament, Installation oder Wechselrichter wählen.', values: v }
     case 'invalid_price':
       return { formError: 'Der Preis kann nicht negativ sein.', values: v }
+    case 'invalid_leistung':
+      return {
+        fieldErrors: { leistungKw: 'Ein Wechselrichter braucht seine Nennleistung in kW.' },
+        values: v,
+      }
     default:
       return null
   }
@@ -95,6 +100,7 @@ export async function createCostComponentAction(
     p_price_net: parsed.data.priceNet ?? undefined,
     p_price_as_of: parsed.data.priceAsOf ?? undefined,
     p_notes: parsed.data.notes ?? undefined,
+    p_leistung_kw: parsed.data.leistungKw ?? undefined,
   })
   const result = interpret('admin_create_cost_component', data, error)
   if (!result) return { formError: GENERIC, values: v }
@@ -126,6 +132,7 @@ export async function updateCostComponentAction(
     p_price_net: parsed.data.priceNet ?? undefined,
     p_price_as_of: parsed.data.priceAsOf ?? undefined,
     p_notes: parsed.data.notes ?? undefined,
+    p_leistung_kw: parsed.data.leistungKw ?? undefined,
   })
   const result = interpret('admin_update_cost_component', data, error)
   if (!result) return { formError: GENERIC, values: v }

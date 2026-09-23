@@ -75,7 +75,7 @@ function defaults(state: AdminState, battery?: BatteryCatalogRow): Record<string
         rteSource: battery.rte_source ?? '',
         listPriceNet: num(battery.list_price_net),
         inverterIncluded: bool(battery.inverter_included),
-        extraInverterCostNet: num(battery.extra_inverter_cost_net),
+        inverterComponentId: battery.inverter_component_id ?? '',
         requiresFoundation: bool(battery.requires_foundation),
         foundationComponentId: battery.foundation_component_id ?? '',
         installationComponentId: battery.installation_component_id ?? '',
@@ -105,6 +105,7 @@ function BatteryFields({
   const err = (name: string) => state.fieldErrors?.[name]
   const foundationComponents = components.filter((c) => c.art === 'fundament')
   const installationComponents = components.filter((c) => c.art === 'installation')
+  const inverterComponents = components.filter((c) => c.art === 'wechselrichter')
 
   return (
     <>
@@ -237,20 +238,27 @@ function BatteryFields({
             label="Wechselrichter enthalten?"
             defaultValue={values.inverterIncluded ?? BATTERY_SELECT_UNSET}
             error={err('inverterIncluded')}
-            hint="Antwort „nein“ macht den Aufpreis unten zur Pflicht — ohne ihn wäre die Investition zu niedrig."
+            hint="Antwort „nein“ macht einen Wechselrichter-Baustein MIT Preis und Nennleistung zur Pflicht — ohne ihn wäre die Investition zu niedrig."
           >
             <option value={BATTERY_SELECT_UNSET}>— noch nicht bekannt —</option>
             <option value="true">ja, enthalten</option>
             <option value="false">nein, separat</option>
           </AdminSelect>
-          <AdminField
-            id={`${formId}-extraInverterCostNet`}
-            name="extraInverterCostNet"
-            label="Aufpreis Wechselrichter netto (EUR)"
-            inputMode="numeric"
-            defaultValue={values.extraInverterCostNet}
-            error={err('extraInverterCostNet')}
-          />
+          <AdminSelect
+            id={`${formId}-inverterComponentId`}
+            name="inverterComponentId"
+            label="Wechselrichter-Baustein"
+            defaultValue={values.inverterComponentId ?? BATTERY_SELECT_UNSET}
+            error={err('inverterComponentId')}
+            hint="Nur bei „nein, separat“. Sein Preis geht in die Investition, seine Nennleistung begrenzt die Systemleistung."
+          >
+            <option value={BATTERY_SELECT_UNSET}>— keiner —</option>
+            {inverterComponents.map((c) => (
+              <option key={c.id} value={c.id}>
+                {costComponentOptionLabel(c)}
+              </option>
+            ))}
+          </AdminSelect>
           <AdminSelect
             id={`${formId}-requiresFoundation`}
             name="requiresFoundation"

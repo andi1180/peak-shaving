@@ -108,16 +108,17 @@ function commonFailure(status: string, values?: Record<string, string>): AdminSt
     case 'invalid_component':
       return {
         formError:
-          'Ein gewählter Kostenbaustein hat die falsche Art — ein Fundament gehört ins ' +
-          'Fundament-Feld, eine Installation ins Installations-Feld.',
+          'Ein gewählter Kostenbaustein passt nicht — ein Fundament gehört ins Fundament-Feld, ' +
+          'eine Installation ins Installations-Feld, ein Wechselrichter ins Wechselrichter-Feld. ' +
+          'Bei eingebautem Wechselrichter bleibt das Wechselrichter-Feld leer.',
         values,
       }
     case 'would_break_active':
       return {
         formError:
-          'Das Gerät ist freigegeben und fundamentpflichtig — ihm kann der Fundament-Baustein ' +
-          'nicht genommen werden. Nehmen Sie die Freigabe zurück, oder wählen Sie einen anderen ' +
-          'Baustein mit Preis.',
+          'Das Gerät ist freigegeben — die Änderung nähme ihm eine Freigabe-Voraussetzung ' +
+          '(einen Pflichtwert oder einen Fundament- bzw. Wechselrichter-Baustein mit Preis). ' +
+          'Nehmen Sie die Freigabe zurück, oder wählen Sie einen Baustein mit Preis.',
         values,
       }
     case 'duplicate_memodo_id':
@@ -164,7 +165,7 @@ function catalogParams(input: ReturnType<typeof batteryCatalogSchema.parse>) {
     p_rte_source: input.rteSource ?? undefined,
     p_list_price_net: input.listPriceNet ?? undefined,
     p_inverter_included: input.inverterIncluded ?? undefined,
-    p_extra_inverter_cost_net: input.extraInverterCostNet ?? undefined,
+    p_inverter_component_id: input.inverterComponentId ?? undefined,
     p_requires_foundation: input.requiresFoundation ?? undefined,
     p_foundation_component_id: input.foundationComponentId ?? undefined,
     p_installation_component_id: input.installationComponentId ?? undefined,
