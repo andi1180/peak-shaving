@@ -173,6 +173,15 @@ Golden-File-Regressionstest in die Suite aufnehmen (kompletter Report-Output geg
 gespeicherten Vorher-Stand, automatisch bei jedem PR) — würde das manuelle Nachziehen dieser Regel
 teilweise ins CI verlagern. `[OFFEN]`.
 
+### Regel 13 — Der Batteriekatalog wird nur mit einer Rolle gelesen, für die RLS gilt (ab 23.09.2026, K3c)
+
+Rechenpfade (öffentlicher Rechner, Wizard, künftige) lesen `public.battery_catalog` ausschliesslich
+als `anon` oder `authenticated` — **nie mit `service_role` und nie über die SECURITY-DEFINER-
+Pflegewrapper** (`admin_list_battery_catalog`/`admin_get_battery`). Beide sehen inaktive Entwürfe;
+ein Entwurf mit ungeprüften Kenndaten stünde dann als Empfehlung im Kundenreport. Das gilt auch für
+Messungen. Festgehalten an beiden Abrufstellen (`apps/website/lib/battery-catalog/source.ts`,
+`apps/web/lib/admin/battery-catalog-source.ts`).
+
 ---
 
 ## Offene Abhängigkeiten (blockieren Validierung, nicht den Bau)
@@ -553,4 +562,4 @@ Für `source: 'import_only'` bei einem Kunden mit vorhandener PV-Anlage (`hasPv 
 
 **Nächster grosser Schritt: der übrige Report-Baukasten (Teil 3)** — die weiteren Zielseiten (Voraussetzungs-Seite, Drei-Wege-Seite, PV-Kapitel, Jahres-Hochrechnung) sind unangetastet.
 
-**Weiterhin nicht gebaut:** Engine-Anbindung des Wizard-Entwurfs (rechnet nichts), Rollup-Schicht über mehrere Zählpunkte, Fragenkatalog-Inhalte, eigene Kostenbremse für den Energieberater-Endpunkt (teilt sich die des Kunden-Chats), ein Erzeugungsprofil zu ersetzen/entfernen (nur einzelne Fläche geht), echter PVGIS-Aufruf nur gemockt verifiziert, echter Batteriekatalog (**seit K3b, 23.09.2026, rechnet der ÖFFENTLICHE Rechner gegen `public.battery_catalog` — 31 freigegebene Gewerbe-Geräte; für `heim` ist noch keines freigegeben, ein Haushalt bekommt seit K3b-2 deshalb eine Analyse OHNE Speichervorschlag statt gar keiner. `DEMO_BATTERY_CATALOG`, `apps/web` und `extractors` stehen noch aus: K3c**), ein Lauf über die echte Oberfläche für die meisten B24-Schritte (durchgängig nur Typen/Logik/Wächter bzw. jsdom-Harness geprüft — **Ausnahmen seit 22.09.2026: Rechnung- und Batterie-Station**, `apps/web/e2e/{rechnung,batterie}-station.mjs`).
+**Weiterhin nicht gebaut:** Engine-Anbindung des Wizard-Entwurfs (rechnet nichts), Rollup-Schicht über mehrere Zählpunkte, Fragenkatalog-Inhalte, eigene Kostenbremse für den Energieberater-Endpunkt (teilt sich die des Kunden-Chats), ein Erzeugungsprofil zu ersetzen/entfernen (nur einzelne Fläche geht), echter PVGIS-Aufruf nur gemockt verifiziert, echter Batteriekatalog (**seit K3b, 23.09.2026, rechnet der ÖFFENTLICHE Rechner gegen `public.battery_catalog` — 31 freigegebene Gewerbe-Geräte; für `heim` ist noch keines freigegeben, ein Haushalt bekommt seit K3b-2 deshalb eine Analyse OHNE Speichervorschlag statt gar keiner. seit K3c rechnet auch der Wizard-Pfad (`apps/web`/`extractors`) gegen den echten Katalog, `DEMO_BATTERY_CATALOG` liegt nur noch als Prüf-Fixture unter `shared/fixtures`**), ein Lauf über die echte Oberfläche für die meisten B24-Schritte (durchgängig nur Typen/Logik/Wächter bzw. jsdom-Harness geprüft — **Ausnahmen seit 22.09.2026: Rechnung- und Batterie-Station**, `apps/web/e2e/{rechnung,batterie}-station.mjs`).

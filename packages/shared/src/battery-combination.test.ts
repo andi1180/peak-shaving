@@ -7,7 +7,7 @@ import {
   combineBatteries,
   combinedBatteryId,
 } from './battery-combination'
-import { DEMO_BATTERY_CATALOG } from './demo-battery-catalog'
+import { DEMO_BATTERY_CATALOG } from './fixtures/demo-battery-catalog'
 
 function candidate(over: Partial<BatteryCandidate>): BatteryCandidate {
   return {

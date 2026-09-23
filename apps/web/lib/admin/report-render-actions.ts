@@ -14,6 +14,7 @@ import { externalReportUrl } from '@/lib/config'
 import { createClient } from '@/lib/supabase/server'
 import { readProjectDocument } from '@/lib/project-documents/documents'
 import { readTariffPricingForAnalysis } from './analysis-tariff-inputs'
+import { batteryCategoryForSegment, fetchBatteryCatalogForAnalysis } from './battery-catalog-source'
 import { readStoredInvoiceExtractions } from './invoice-extractions'
 import { readMeteringPointList } from './metering-points'
 import { readPvArraysDraft } from './pv-array-draft'
@@ -97,6 +98,16 @@ export async function createReportRenderRequestAction(
     return { formError: GENERIC }
   }
 
+  // K3c: die Katalog-Kategorie folgt DIREKT dem Segment; ohne Segment wird nicht geraten.
+  const category = batteryCategoryForSegment(project.segment)
+  if (category === null) {
+    return {
+      formError:
+        'Für dieses Projekt ist noch kein Segment (Privat/Betrieb) gewählt — ohne Segment ist ' +
+        'nicht entscheidbar, welcher Speicherkatalog gilt. Bitte zuerst in der Dateneingabe wählen.',
+    }
+  }
+
   const listRes = await supabase.rpc('list_metering_points', { p_project_id: projectId })
   if (listRes.error) {
     if (isForbidden(listRes.error)) return { formError: FORBIDDEN }
@@ -122,6 +133,18 @@ export async function createReportRenderRequestAction(
    */
   let gridTariffRows: GridTariffRowInput[] | null = null
 
+  // K3c: EINMAL geladen, für Erstlauf und Jahres-Hochrechnung derselbe Stand; kein Rückfall.
+  const catalog = await fetchBatteryCatalogForAnalysis(supabase, category)
+  if (catalog.kind === 'failed') {
+    console.error('[admin/report] Speicherkatalog:', catalog.reason, catalog.message)
+    return {
+      formError:
+        catalog.reason === 'not_configured'
+          ? 'Die Verbindung zum Speicherkatalog ist nicht eingerichtet.'
+          : 'Der Speicherkatalog liess sich gerade nicht abrufen. Bitte erneut versuchen.',
+    }
+  }
+
   /*
    * ⚠ DER ZÄHLPUNKT IST SCHON GELESEN, BEVOR DIE PORTS ENTSTEHEN. Der Lauf verlangt für beide
    * Ports „`null` heisst gibt es nicht, ein LESEFEHLER gehört geworfen" — und ein aus dem Port
@@ -132,6 +155,7 @@ export async function createReportRenderRequestAction(
   let run
   try {
     run = await runAnalysisFromMeteringPointDraft(meteringPointId, {
+      batteryCatalog: catalog.kind === 'available' ? catalog.batteries : [],
       readMeteringPoint: async () => ({
         draft: point.draft,
         sourceDocumentId: point.sourceDocumentId,
@@ -170,7 +194,7 @@ export async function createReportRenderRequestAction(
   }
 
   /*
-   * ⚠ ELF FELDER, UND KEINES MEHR. `report_input_meta` ist in der Migration bewusst ohne Struktur
+   * ⚠ DIESE FELDER, UND KEINES MEHR. `report_input_meta` ist in der Migration bewusst ohne Struktur
    * — die legt der SCHREIBENDE Schritt fest, und was hier hineinwandert, ist ab dann die Form, an
    * die sich der Renderer bindet. Deshalb nur, was ein Report ausser Ergebnis und Lastgang
    * nachweislich braucht: die Bezeichnung fürs Deckblatt, der Netzbetreiber als ANGABE (er geht in
@@ -267,6 +291,9 @@ export async function createReportRenderRequestAction(
      * übergebene Rechnung still umschreiben.
      */
     ...readOptionalSections(formData),
+    // K3c: Preisstand und Wirkungsgrad-Herkunft als Wertkopie — sonst nennte der Report für ein
+    // echtes Katalog-Gerät „keine Preisquelle hinterlegt".
+    ...(catalog.kind === 'available' ? { batteryCatalogMeta: catalog.meta } : {}),
     meteringPointId,
     projectId,
   }
@@ -294,7 +321,13 @@ export async function createReportRenderRequestAction(
   }
 
   return {
-    success: `Report-Übergabe angelegt — sie läuft in 24 Stunden ab.`,
+    success:
+      'Report-Übergabe angelegt — sie läuft in 24 Stunden ab.' +
+      (catalog.kind === 'empty'
+        ? category === 'heim'
+          ? ' Speicherkatalog für Privathaushalte im Aufbau — der Report enthält keinen Speichervorschlag.'
+          : ' Im Speicherkatalog ist für Betriebe kein Gerät freigegeben — der Report enthält keinen Speichervorschlag.'
+        : ''),
     successHref: externalReportUrl(created.data),
   }
 }

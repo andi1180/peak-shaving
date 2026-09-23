@@ -17,11 +17,15 @@ import {
   type InvoiceExtraction,
 } from 'shared'
 
+import { DEMO_BATTERY_CATALOG } from 'shared/fixtures'
+
 import { setDraftField } from '@/lib/project-chat/draft'
 import { invoiceDraftValues } from './invoice-extractions'
 
 const rpc = vi.fn()
 const readProjectDocument = vi.fn()
+const fetchCatalog = vi.fn()
+const CATALOG_META = { [DEMO_BATTERY_CATALOG[0]!.id]: { memodoId: 1, priceAsOf: '2026-09-22', rteSource: 'annahme', listPriceNet: 1 } }
 
 /*
  * Der Drei-Wege-Vergleich fragt seit dem `fetchTariffPricing`-Port zwei Tabellen ab. Hier ist nichts
@@ -39,6 +43,10 @@ for (const method of ['select', 'eq', 'is', 'or', 'lte', 'gte', 'lt', 'order', '
 vi.mock('server-only', () => ({}))
 vi.mock('@/lib/supabase/server', () => ({
   createClient: async () => ({ rpc, from: () => emptyQuery }),
+}))
+vi.mock('./battery-catalog-source', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./battery-catalog-source')>()),
+  fetchBatteryCatalogForAnalysis: (_client: unknown, category: string) => fetchCatalog(category),
 }))
 vi.mock('@/lib/project-documents/documents', () => ({
   readProjectDocument: (id: string) => readProjectDocument(id),
@@ -82,10 +90,13 @@ function form(): FormData {
   return fd
 }
 
-function withWrappers(draft: Record<string, unknown>) {
+function withWrappers(draft: Record<string, unknown>, segment: string | null = 'betrieb') {
   rpc.mockImplementation(async (fn: string) => {
     if (fn === 'admin_get_project') {
-      return { data: { status: 'ok', project: { id: PROJECT_ID, customer_label: 'Bäckerei Gruber' } }, error: null }
+      return {
+        data: { status: 'ok', project: { id: PROJECT_ID, customer_label: 'Bäckerei Gruber', segment } },
+        error: null,
+      }
     }
     if (fn === 'list_metering_points') {
       return {
@@ -104,6 +115,15 @@ function withWrappers(draft: Record<string, unknown>) {
 }
 
 beforeEach(() => {
+  fetchCatalog.mockReset()
+  fetchCatalog.mockImplementation(async (category: string) => ({
+    kind: 'available',
+    category,
+    batteries: DEMO_BATTERY_CATALOG,
+    installationCostNet: {},
+    meta: CATALOG_META,
+    skipped: [],
+  }))
   rpc.mockReset()
   readProjectDocument.mockReset()
   readProjectDocument.mockResolvedValue({
@@ -173,10 +193,12 @@ describe('createReportRenderRequestAction', () => {
        */
       gridTariffValidFrom: [],
       invoicePeriods: [],
+      batteryCatalogMeta: CATALOG_META,
       meteringPointId: POINT_ID,
       projectId: PROJECT_ID,
     })
     expect(args.p_ttl_hours).toBe(24)
+    expect(fetchCatalog).toHaveBeenCalledWith('gewerbe')
   })
 
   /*
@@ -268,6 +290,34 @@ describe('createReportRenderRequestAction', () => {
     // Die Meldung des Laufs kommt unverändert an — sie nennt die betroffenen Felder.
     expect(state.success).toBeUndefined()
     expect(state.formError).toContain('pvProfileSource')
+    expect(rpc.mock.calls.some(([fn]) => fn === 'create_report_render_request')).toBe(false)
+  })
+})
+
+describe('K3c — Speicherkatalog aus dem Segment', () => {
+  it('privat liest den Heim-Katalog; leer ergibt eine Analyse ohne Vorschlag und den Hinweis', async () => {
+    withWrappers(DRAFT, 'privat')
+    fetchCatalog.mockResolvedValue({ kind: 'empty', category: 'heim', skipped: [] })
+
+    const state = await createReportRenderRequestAction({}, form())
+
+    expect(fetchCatalog).toHaveBeenCalledWith('heim')
+    expect(state.formError).toBeUndefined()
+    expect(state.success).toContain('Privathaushalte im Aufbau')
+    const call = rpc.mock.calls.find(([fn]) => fn === 'create_report_render_request')!
+    const args = call[1] as { p_analysis_result: { recommendation: unknown }; p_report_input_meta: object }
+    expect(args.p_analysis_result.recommendation).toBeNull()
+    expect(args.p_report_input_meta).not.toHaveProperty('batteryCatalogMeta')
+  })
+
+  it('ohne Segment und bei gescheitertem Abruf entsteht KEINE Übergabe', async () => {
+    withWrappers(DRAFT, null)
+    expect((await createReportRenderRequestAction({}, form())).formError).toContain('kein Segment')
+    expect(fetchCatalog).not.toHaveBeenCalled()
+
+    withWrappers(DRAFT)
+    fetchCatalog.mockResolvedValue({ kind: 'failed', reason: 'request_failed', message: 'x' })
+    expect((await createReportRenderRequestAction({}, form())).formError).toContain('erneut versuchen')
     expect(rpc.mock.calls.some(([fn]) => fn === 'create_report_render_request')).toBe(false)
   })
 })

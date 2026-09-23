@@ -249,6 +249,24 @@ describe('buildReportInputFromRenderRequest', () => {
     expect(buildBasisChapter(input).tariffSource).not.toContain('Netzbetreiber:')
     expect(buildBasisChapter(input).tariffSource).not.toContain('linz_netz')
   })
+  it('K3c: reicht die Katalog-Beiwerte durch und verwirft einen unbrauchbaren Eintrag einzeln', () => {
+    const good = { memodoId: 15838, priceAsOf: '2026-09-22', rteSource: 'annahme', listPriceNet: 7199 }
+    const readout = readRenderRequest({
+      data: [
+        {
+          ...ROW,
+          report_input_meta: {
+            ...ROW.report_input_meta,
+            batteryCatalogMeta: { a: good, b: { ...good, priceAsOf: 'gestern' } },
+          },
+        },
+      ],
+      error: null,
+    })
+    if (readout.status !== 'ok') throw new Error('Übergabe sollte lesbar sein')
+
+    expect(buildReportInputFromRenderRequest(readout.request, NOW).batteryCatalogMeta).toEqual({ a: good })
+  })
 })
 
 describe('readRenderRequest — eine Meldung für jeden Fehlschlag', () => {

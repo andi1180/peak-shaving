@@ -1,9 +1,9 @@
 import {
   BATTERY_CATALOG_SELECT,
   loadBatteryCatalog,
+  toBatteryCatalogRows,
   type BatteryCatalogCategory,
   type BatteryCatalogResult,
-  type BatteryCatalogRow,
 } from 'shared'
 
 import { createTariffDataClient } from '@/lib/tariff-data/client'
@@ -25,6 +25,9 @@ export const BATTERY_CATALOG_TIMEOUT_MS = 3_000
  * Endgerät und kein Cookie-Banner — §165 TKG, s. Kopf jener Datei). `battery_catalog` ist wie
  * `grid_tariffs` eine VERÖFFENTLICHTE Referenztabelle ohne Personenbezug; RLS gibt ausschliesslich
  * Zeilen mit `active = true` frei (K1).
+ *
+ * ⚠ HARTE REGEL (Root-`CLAUDE.md` Regel 13): nur mit einer RLS-gebundenen Rolle lesen, NIE mit
+ * `service_role` oder über die Pflegewrapper — beide sähen inaktive Entwürfe.
  *
  * ⚠ DIE ABFRAGE FILTERT SELBST AUF `active` UND KATEGORIE, obwohl RLS das erste bereits tut und
  * der Loader beides nochmals prüft. Das ist keine Verdopplung, sondern die Reihenfolge, in der die
@@ -102,24 +105,6 @@ export function fetchBatteryCatalog(
       }
     }
 
-    /*
-     * Die Zuordnung auf `BatteryCatalogRow` ist eine Zusicherung, keine Prüfung — geprüft wird
-     * Zeile für Zeile im Loader (`batteryCatalogRowToCandidate`), und der wirft nicht, sondern
-     * lässt eine unbrauchbare Zeile BENANNT ausfallen. Die eingebetteten Kostenbausteine kommen
-     * von PostgREST je nach Beziehung als Objekt oder als Array; der Loader liest ein Objekt,
-     * deshalb wird hier auf das erste Element normalisiert statt im `shared`-Paket eine zweite
-     * Form zu erlauben.
-     */
-    const rows = ((data ?? []) as Record<string, unknown>[]).map((row) => ({
-      ...row,
-      foundation_component: firstOrNull(row.foundation_component),
-      installation_component: firstOrNull(row.installation_component),
-    })) as BatteryCatalogRow[]
-
-    return { ok: true, rows }
+    return { ok: true, rows: toBatteryCatalogRows(data) }
   })
-}
-
-function firstOrNull(value: unknown): unknown {
-  return Array.isArray(value) ? (value[0] ?? null) : (value ?? null)
 }

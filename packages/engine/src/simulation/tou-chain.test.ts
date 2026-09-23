@@ -1,13 +1,13 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import {
-  DEMO_BATTERY_CATALOG,
   type GridTariffRowInput,
   type SpotPriceSeriesInput,
   type TariffParams,
   type TariffPricingInputs,
 } from 'shared'
 import { LEVIES_NONE } from 'shared'
+import { DEMO_BATTERY_CATALOG } from 'shared/fixtures'
 
 import { parseLoadProfile } from '../parser'
 import { recommendBattery } from '../recommendation/rank'

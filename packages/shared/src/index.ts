@@ -7,7 +7,9 @@ export * from './battery'
 export * from './financial'
 export * from './simulation'
 export * from './analysis-result'
-export * from './demo-battery-catalog'
+// K3c (23.09.2026): `DEMO_BATTERY_CATALOG` ist KEIN Produktions-Export mehr — er liegt als Prüf- und
+// Test-Fixture unter `shared/fixtures` (Prüfroute `/pdf-report-probe` und Tests), damit kein
+// Produktionspfad auf erfundene Geräte zurückfallen kann.
 // K3a (23.09.2026): die Übersetzung einer `public.battery_catalog`-Zeile in genau diesen
 // Engine-Typ — dasselbe Muster wie `grid-tariff-prefill` für die Netzentgelte. Noch NICHT
 // verdrahtet; gerechnet wird weiterhin gegen den Platzhalter-Katalog darüber (K3b).
