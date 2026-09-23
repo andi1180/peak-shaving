@@ -331,7 +331,8 @@ export type AnalysisResult = {
   noRecommendationReason?: NoRecommendationReason
   assumptions: {
     // Transparenz-Panel & Editierbarkeit (§6.2). Erweiterbar (§3.10 „…").
-    roundTripEfficiency: number
+    /** Anzeigewert: Wirkungsgrad der Empfehlung, sonst des Bestandsspeichers, sonst `null` (K3d). */
+    roundTripEfficiency: number | null
     horizonYears: number
     energyPriceCtPerKwh: number
     einspeiseverguetungCtPerKwh: number

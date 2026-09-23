@@ -263,6 +263,31 @@ describe('Leerer Katalog (K3b-2)', () => {
 
     expect(result.recommendation).toBeNull()
     expect(result.tariffOptimization).toBeUndefined()
-    expect(result.assumptions.roundTripEfficiency).toBe(0.9)
+    // K3d: weder Empfehlung noch Bestand — kein Gerät, also kein Anzeigewert (kein Ersatzwert).
+    expect(result.assumptions.roundTripEfficiency).toBeNull()
+  })
+
+  it('zeigt bei leerem Katalog den Wirkungsgrad des Bestandsspeichers (K3d)', () => {
+    const result = computeAnalysis(buildPayload(true), GATE_HORIZON_YEARS, [])
+
+    expect(result.assumptions.roundTripEfficiency).toBe(EXISTING_BATTERY.roundTripEfficiency)
+  })
+})
+
+describe('Angezeigter Wirkungsgrad (K3d)', () => {
+  it('ist der der Empfehlung, auch wenn sie nicht das erste Gerät im Katalog ist', () => {
+    const worseFirst: BatteryCandidate = {
+      ...GATE_DYNAMIC_BATTERY,
+      id: 'gate-teurer-schlechter',
+      roundTripEfficiency: 0.8,
+      pricePerKwh: GATE_DYNAMIC_BATTERY.pricePerKwh * 3,
+    }
+    const result = computeAnalysis(buildPayload(false), GATE_HORIZON_YEARS, [
+      worseFirst,
+      GATE_DYNAMIC_BATTERY,
+    ])
+
+    expect(result.recommendation?.batteryId).toBe(GATE_DYNAMIC_BATTERY.id)
+    expect(result.assumptions.roundTripEfficiency).toBe(GATE_DYNAMIC_BATTERY.roundTripEfficiency)
   })
 })

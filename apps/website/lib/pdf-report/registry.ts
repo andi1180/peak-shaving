@@ -394,7 +394,7 @@ export function buildReportRegistry(
     ),
 
     /* ── Kapitel 8 ─────────────────────────────────────────────────────────────────────────── */
-    statement('assumptions', () => buildAssumptions(analysis)),
+    statement('assumptions', () => buildAssumptions(analysis, input.batteryCatalogMeta)),
     /* ⚠ Aus dem Kontext und NICHT neu gebaut: die Datenquellen-Tabelle unten hängt am HINWEIS. */
     notice('data_quality', () => context.dataQuality),
     notice('tariff_blocker', () => buildBlocker(analysis, timeZoneOf(input.loadProfile))),
