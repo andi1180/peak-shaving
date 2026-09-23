@@ -157,7 +157,9 @@ synthetischer Lastgang, Tarif von Hand: 9,5 ct / 50 €/kW·a / `monthly_max_sum
 Netzentgelte/Spotpreise/Katalog am 23.09.2026 per `anon` eingefroren):** `billedKw` **606,56**,
 31 Katalog-Kandidaten, Leistungspreis 2.527,33 €/Jahr, Empfehlung `6845c64d…` (**Kostal & Dyness
 Retrofit L**, 1.875 €/Jahr, Amortisation 5,84 Jahre, netto 7.803 € über 10 Jahre) · Urbanz
-mit den Cloud-Entwurfs-Parametern (13,081 ct / 3,50 €/Monat / 4,56 ct) `billedKw` **60,212**.
+mit den Cloud-Entwurfs-Parametern (13,081 ct / 3,50 €/Monat / 4,56 ct) `billedKw` **69,132** (bis
+zur Mindestleistung je Monat 60,212 — der Entwurf trägt `minBillableKw` 7, Leistungspreis 0, kein
+Euro-Betrag hat sich dadurch bewegt).
 **⚠ KORREKTUR:** hier stand bis zum Golden File „Empfehlung `f5d5344a…` (Dyness Stack 100
 40,96 kWh)". Die Zeile hat zwei Läufe vermischt — `billedKw` stammte aus der eingefrorenen
 `monthly_max_sum`-Probe, die Empfehlung aus einem Lauf über die Oberfläche (Vorgabe
@@ -233,12 +235,15 @@ Ersparnis und EAG-Grundpreis rechnen darüber, der Report rechnet den Satz darü
 **⚠ Beim nächsten Umbau mitzudenken: (a)** `billedKw` bleibt bei `monthly_max_sum` die SUMME;
 wer `Kosten ÷ billedKw` rechnet, bekommt ein Zwölftel des Satzes. **(b)** Ein Teiljahr wird mit
 12/beobachtete Monate hochgerechnet (sonst stünde ein 7-Monats-Betrag in einer `…PerYear`-Grösse
-neben hochgerechneten Energie-Töpfen); damit sind die Leistungskosten von Summe und Mittel
-IMMER gleich. Der D6-Jahreslauf deckt 12 Monate ab, dort ist der Faktor 1 — keine zweite
-Hochrechnung (Test: `packages/engine/src/tariff/demand-charge.test.ts`). **(c) Offen:**
-`minBillableKw` wird bei `monthly_max_sum` weiterhin gegen die Monats-SUMME verglichen, nicht je
-Monat — mit Mindestleistung über den Monatsspitzen rechnet das Summenmodell zu niedrig. Alle
-bekannten Fälle haben 0 bzw. Leistungspreis 0.
+neben hochgerechneten Energie-Töpfen); ohne Mindestleistung sind die Leistungskosten von Summe
+und Mittel damit gleich. Der D6-Jahreslauf deckt 12 Monate ab, dort ist der Faktor 1 — keine zweite
+Hochrechnung (Test: `packages/engine/src/tariff/demand-charge.test.ts`). **(c) Mindestleistung
+beim Summenmodell JE MONAT (23.09.2026):** abgerechnet wird Σ max(Monatsspitze, `minBillableKw`)
+(`strategy.ts`). **⚠ Das Mittel-Modell legt den Sockel weiterhin an den MITTELWERT** — liegt die
+Mindestleistung zwischen den Monatsspitzen, rechnen die beiden Modelle deshalb verschieden
+(gemessen: Spitzen 11 × 20 + 200 kW, Sockel 30 → Summe 530/12 = 44,17 kW·a, Mittel 35 kW·a; Test
+in `strategy.test.ts`). Liegt er über oder unter allen Spitzen, sind sie gleich. Ob das
+Mittel-Modell ebenfalls je Monat greifen muss, hängt an der Netzbetreiber-Systematik (OP#3).
 
 ### Analyse ohne Speicherkandidaten ist ein gültiger Zustand — K3b-2 (23.09.2026)
 
