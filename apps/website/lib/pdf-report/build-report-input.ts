@@ -4,6 +4,7 @@ import {
   PV_STAGES,
   readReportSectionSelection,
   type AnalysisResult,
+  type BatteryCatalogMeta,
   type LoadProfile,
   type NetzbetreiberId,
   type PvStage,
@@ -106,6 +107,11 @@ export type ReportRenderMeta = {
    * ausgeübte Wahl.
    */
   optionalSections: ReportSectionSelection
+  /**
+   * K3c — Preisstand und Wirkungsgrad-Herkunft der Katalog-Geräte, als Wertkopie aus dem Lauf.
+   * `undefined` bei älteren Übergaben und bei leerem Katalog; der Report nennt dann die Lücke.
+   */
+  batteryCatalogMeta: Record<string, BatteryCatalogMeta> | undefined
 }
 
 /** Eine gelesene, nicht abgelaufene Übergabe. */
@@ -205,7 +211,24 @@ function readMeta(value: unknown): ReportRenderMeta {
       invoicePeriods: readInvoicePeriods(meta.invoicePeriods),
     },
     optionalSections: readReportSectionSelection(meta.optionalSections),
+    batteryCatalogMeta: readBatteryCatalogMeta(meta.batteryCatalogMeta),
   }
+}
+
+/** Ein unbrauchbarer Eintrag fällt einzeln weg — das Gerät zeigt dann die Lücke statt einer falschen Angabe. */
+function readBatteryCatalogMeta(value: unknown): Record<string, BatteryCatalogMeta> | undefined {
+  if (!isRecord(value)) return undefined
+  const out: Record<string, BatteryCatalogMeta> = {}
+  for (const [id, entry] of Object.entries(value)) {
+    if (!isRecord(entry)) continue
+    const { memodoId, priceAsOf, rteSource, listPriceNet } = entry
+    if (typeof listPriceNet !== 'number' || !Number.isFinite(listPriceNet)) continue
+    if (memodoId !== null && typeof memodoId !== 'number') continue
+    if (priceAsOf !== null && !(typeof priceAsOf === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(priceAsOf))) continue
+    if (rteSource !== null && typeof rteSource !== 'string') continue
+    out[id] = { memodoId, priceAsOf, rteSource, listPriceNet }
+  }
+  return Object.keys(out).length > 0 ? out : undefined
 }
 
 /**
@@ -337,6 +360,7 @@ export function buildReportInputFromRenderRequest(
     tariffProvenance: meta.tariffProvenance,
     /* Report-Baukasten C — die Admin-Auswahl; `undefined` heisst alle vier (s. `ReportRenderMeta`). */
     optionalSections: meta.optionalSections,
+    batteryCatalogMeta: meta.batteryCatalogMeta,
   }
 }
 

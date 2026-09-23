@@ -1,10 +1,10 @@
-import type { BatteryCandidate } from './battery'
+import type { BatteryCandidate } from '../battery'
 
 /**
- * PLATZHALTER-Katalog für den öffentlichen Rechner (`apps/website`).
- * Martins echter Batteriekatalog ist weiterhin offen (Pflichtenheft §8, OP#2) — bis dahin
- * arbeitet die Öffentlichkeitsseite mit diesen synthetischen Kandidaten, konsistent mit dem
- * Prinzip „mit synthetischen Daten arbeiten, solange nicht von Martin geliefert" (CLAUDE.md).
+ * PRÜF- UND TEST-FIXTURE (seit K3c, 23.09.2026) — kein Produktionskatalog mehr.
+ * Gerechnet wird in allen Produktionspfaden gegen `public.battery_catalog` (K3b/K3c). Diese sechs
+ * Geräte bleiben für die Prüfroute `/pdf-report-probe` (sie darf nicht mit der Katalogpflege
+ * wandern) und für Tests; erreichbar nur über `shared/fixtures`, nicht über den Barrel.
  * Namen/Preise/Kenndaten sind FREI ERFUNDEN — `manufacturer` trägt bewusst die bestehende
  * `[MARTIN: Katalog]`-Konvention aus der UI, um Platzhalter-Status auch im Report sichtbar zu
  * halten. NICHT verwechseln mit `engine`s `recommendation/dummy-catalog.ts`: jener Katalog ist

@@ -2,16 +2,13 @@
  * Die Übersetzung einer `public.battery_catalog`-Zeile in den Typ, den die Engine liest (K3a).
  *
  * ── WARUM ES DIESE DATEI GIBT ───────────────────────────────────────────────────────────────────
- * Gerechnet wird bis heute gegen `DEMO_BATTERY_CATALOG` — sechs frei erfundene Geräte in einem
- * Codemodul. Seit K1/K2 steht der echte Katalog in der Datenbank und wird über `/admin/batterien`
- * gepflegt. Diese Datei ist der Weg von dort in die Rechnung; sie ist dasselbe Muster wie
+ * Seit K1/K2 steht der Gerätekatalog in der Datenbank und wird über `/admin/batterien` gepflegt.
+ * Diese Datei ist der Weg von dort in die Rechnung; sie ist dasselbe Muster wie
  * `grid-tariff-prefill.ts` (B21-3d) für die Netzentgelte: eine REINE ÜBERSETZUNG in `shared`,
  * damit sie einen Testlauf hat, und nicht in der Oberfläche, wo sie ungeprüft bliebe.
  *
- * ⚠ K3a hängt sie ausdrücklich NOCH NICHT ein. Kein bestehender Aufrufer (`analysis.worker.ts`,
- * `run-from-draft.ts`, `report.tsx`) ist umgestellt, `DEMO_BATTERY_CATALOG` ist unangetastet. Das
- * Umhängen ist K3b — und dort ist zuerst zu entscheiden, welche Kategorie der öffentliche Rechner
- * überhaupt fragt (s. „Die Kategorie ist ein Parameter" unten).
+ * Eingehängt seit K3b (öffentlicher Rechner) und K3c (Wizard, `apps/web`). Der frühere Code-Katalog
+ * liegt seit K3c nur noch als Prüf-Fixture unter `shared/fixtures`.
  *
  * ── SIE FÜHRT KEINEN DATENBANK-CLIENT ───────────────────────────────────────────────────────────
  * `shared` hängt an zod und an nichts sonst; `@supabase/supabase-js` lebt in den Apps. Die Abfrage
@@ -280,7 +277,25 @@ export function batteryCatalogRowToCandidate(row: BatteryCatalogRow): BatteryCat
  *
  * ── DIE KATEGORIE IST EIN PARAMETER, UND DAS IST EINE OFFENE FRAGE FÜR K3b ─────────────────────
  * `recommendBattery` filtert NICHT nach `class` — es bewertet, was im übergebenen Array steht
- * (gemessen: kein `\.class`-Zugriff in `packages/engine/src/recommendation/**`). Wer hier `heim`
+ * (gemessen: kein `\.class`-Zugriff in `packages/engine/src/recommendation/**
+ * Die PostgREST-Antwort auf `BATTERY_CATALOG_SELECT` als `BatteryCatalogRow[]` — die eine Stelle,
+ * die beide Abrufwege (`apps/website`, `apps/web`) benutzen. Eingebettete Kostenbausteine kommen je
+ * nach Beziehung als Objekt oder Array; der Loader liest ein Objekt. Zusicherung, keine Prüfung —
+ * geprüft wird Zeile für Zeile in `batteryCatalogRowToCandidate`.
+ */
+export function toBatteryCatalogRows(data: unknown[] | null): BatteryCatalogRow[] {
+  return ((data ?? []) as Record<string, unknown>[]).map((row) => ({
+    ...row,
+    foundation_component: firstOrNull(row.foundation_component),
+    installation_component: firstOrNull(row.installation_component),
+  })) as BatteryCatalogRow[]
+}
+
+function firstOrNull(value: unknown): unknown {
+  return Array.isArray(value) ? (value[0] ?? null) : (value ?? null)
+}
+
+/**`). Wer hier `heim`
  * und `gewerbe` zusammenlegte, liesse ein Heimgerät gegen einen Gewerbe-Lastgang antreten; wer
  * nur eine Kategorie lädt, muss die Wahl begründen können. `DEMO_BATTERY_CATALOG` vermischt beide
  * (4 commercial, 2 residential) — die Frage stellt sich also erst mit der Umstellung.

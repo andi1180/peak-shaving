@@ -23,12 +23,10 @@ import type { BatteryCatalogCategory } from 'shared'
  * Die Vermutung ist damit nicht geraten, sondern aus dem Einstieg selbst abgeleitet; und sie liegt
  * auf der Seite, die heute überhaupt einen Katalog hat.
  *
- * ── WIE DAS B24-SEGMENT SPÄTER DARAUF ABBILDET (NICHT GEBAUT, nur festgehalten) ────────────────
- * Der Admin-Wizard (`apps/web`, B24) erhebt je Projekt ein Segment `privat | betrieb`. Das ist
- * eine AUSDRÜCKLICHE Angabe eines Menschen und schlägt damit jeden Rückfall: `privat → 'heim'`,
- * `betrieb → 'gewerbe'`. Der Wizard-Analysepfad (`run-from-draft.ts`) ist K3c und bleibt hier
- * unangetastet — wenn er umgestellt wird, ruft er NICHT diese Funktion auf, sondern bildet das
- * Segment direkt ab: die Angabe zu haben und stattdessen zu raten wäre der Fehler.
+ * ── DAS B24-SEGMENT BILDET DIREKT AB (K3c, `apps/web/lib/admin/battery-catalog-source.ts`) ─────
+ * Der Admin-Wizard erhebt je Projekt ein Segment `privat | betrieb` — eine AUSDRÜCKLICHE Angabe,
+ * die jeden Rückfall schlägt: `privat → 'heim'`, `betrieb → 'gewerbe'`. Der Wizard ruft diese
+ * Funktion deshalb NICHT auf: die Angabe zu haben und stattdessen zu raten wäre der Fehler.
  */
 export type BatteryCategoryInput =
   | { entry: 'upload' }

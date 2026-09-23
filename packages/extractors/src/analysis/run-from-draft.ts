@@ -16,7 +16,6 @@ import {
 } from 'engine'
 import {
   analysisWindow,
-  DEMO_BATTERY_CATALOG,
   DRAFT_ANALYSIS_HORIZON_YEARS,
   findUnsupportedAnalysisDraftKeys,
   hasMeteringVariant,
@@ -29,6 +28,7 @@ import {
   tariffWayCosts,
   type AnalysisResult,
   type AnalysisWindow,
+  type BatteryCandidate,
   type LoadProfile,
   type TariffPricingInputs,
 } from 'shared'
@@ -106,6 +106,12 @@ export type ProjectDocumentFile = {
  */
 export type MeteringPointAnalysisPorts = {
   readMeteringPoint: (meteringPointId: string) => Promise<MeteringPointAnalysisSource | null>
+  /**
+   * K3c — der Speicherkatalog als WERT, vom Aufrufer EINMAL geladen (K3a-Loader). Erstlauf und
+   * Jahres-Hochrechnung rechnen damit gegen denselben Stand. Leer ist gültig (K3b-2: Analyse ohne
+   * Speichervorschlag); einen Rückfall auf einen festen Katalog gibt es nicht.
+   */
+  batteryCatalog: BatteryCandidate[]
   readDocument: (documentId: string) => Promise<ProjectDocumentFile | null>
   /**
    * Die zwei Preisseiten des Drei-Wege-Vergleichs (Delta 4/15) — OPTIONAL, und das ist die Aussage.
@@ -450,7 +456,7 @@ export async function runAnalysisFromMeteringPointDraft(
   }
 
   const horizonYears = options.horizonYears ?? DRAFT_ANALYSIS_HORIZON_YEARS
-  const result = computeAnalysis(payload, horizonYears, DEMO_BATTERY_CATALOG)
+  const result = computeAnalysis(payload, horizonYears, ports.batteryCatalog)
 
   /*
    * D6 Teil 3 — „Was wäre, wenn wir ein ganzes Jahr hätten?". Ein ZWEITER Lauf derselben Rechnung
@@ -479,7 +485,7 @@ export async function runAnalysisFromMeteringPointDraft(
       : await buildAnnualScenario({
           payload,
           horizonYears,
-          catalog: DEMO_BATTERY_CATALOG,
+          catalog: ports.batteryCatalog,
           fetchTariffPricing: ({ window, intervalMinutes }) =>
             fetchPricingOnce({ ...subject, window, intervalMinutes }),
           /*

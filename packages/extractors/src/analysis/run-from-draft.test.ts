@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ASSUMED_EXISTING_ROUND_TRIP_EFFICIENCY, LEVIES_NONE } from 'shared'
+import { DEMO_BATTERY_CATALOG } from 'shared/fixtures'
 
 import { buildGeneratedPvSeriesFile } from '../pv-reference/generated-series'
 
@@ -64,6 +65,7 @@ function file(content: string, filename: string) {
 
 function ports(overrides: Partial<Ports> = {}): Ports {
   return {
+    batteryCatalog: DEMO_BATTERY_CATALOG,
     readMeteringPoint: async () => ({ draft: DRAFT, sourceDocumentId: 'doc-1' }),
     readDocument: async (id) =>
       id === 'pv-1'
@@ -311,6 +313,7 @@ describe('runAnalysisFromMeteringPointDraft', () => {
     })()
 
     const middayPorts = (draft: Record<string, unknown>): Ports => ({
+      batteryCatalog: DEMO_BATTERY_CATALOG,
       readMeteringPoint: async () => ({ draft, sourceDocumentId: 'doc-1' }),
       readDocument: async (id) =>
         id === 'pv-gen-1'
@@ -320,6 +323,7 @@ describe('runAnalysisFromMeteringPointDraft', () => {
 
     // Erst der ungekoppelte Lauf — seine Zeitstempel sind der Schlüssel der Schätzreihe.
     const roh = await runAnalysisFromMeteringPointDraft('mp-1', {
+      batteryCatalog: DEMO_BATTERY_CATALOG,
       readMeteringPoint: async () => ({ draft: DRAFT, sourceDocumentId: 'doc-1' }),
       readDocument: async () => file(middayCsv, 'lastgang-2025.csv'),
     })
@@ -583,5 +587,15 @@ describe('runAnalysisFromMeteringPointDraft — tariffPricing', () => {
 
     // `undefined` heisst „nicht angefordert": kein Hebel, aber auch kein Blocker-Befund.
     expect(result.tariffOptimization).toBeUndefined()
+  })
+})
+
+describe('K3c — der Katalog kommt vom Aufrufer', () => {
+  it('rechnet mit leerem Katalog ohne Speichervorschlag weiter (K3b-2-Pfad)', async () => {
+    const { result } = await runAnalysisFromMeteringPointDraft('mp-1', ports({ batteryCatalog: [] }))
+    expect(result.recommendation).toBeNull()
+    expect(result.noRecommendationReason).toBe('no_candidates')
+    expect(result.perBattery).toEqual([])
+    expect(result.current.billedKw).toBeGreaterThan(0)
   })
 })

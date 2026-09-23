@@ -5,7 +5,9 @@ import type {
   TariffParams,
   TariffSourceRef,
 } from 'shared'
-import { buildTariffSourceRef, DEMO_BATTERY_CATALOG } from 'shared'
+import { buildTariffSourceRef } from 'shared'
+// Bewusst ein FESTER Katalog: die Prüfroute darf nicht mit der Katalogpflege wandern (K3c).
+import { DEMO_BATTERY_CATALOG } from 'shared/fixtures'
 
 import type { AnalysisRequest, WorkerOutbound } from '@/lib/analysis-protocol'
 import { DEFAULT_HORIZON_YEARS } from '@/lib/constants'
