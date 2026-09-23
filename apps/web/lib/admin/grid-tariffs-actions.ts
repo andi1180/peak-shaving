@@ -34,6 +34,7 @@ import { revalidatePath } from 'next/cache'
 import { isCurrentUserAdmin } from './guard'
 import { currentUserEmail } from './session'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
+import { createClient } from '@/lib/supabase/server'
 import { GRID_TARIFFS_HREF } from './grid-tariffs'
 import {
   addRateWindowSchema,
@@ -42,6 +43,8 @@ import {
   gridTariffSchema,
   readAddRateWindowForm,
   readGridTariffForm,
+  readUpdateGridTariffForm,
+  updateGridTariffSchema,
 } from './grid-tariffs-schema'
 import { toFieldErrors } from './schema'
 import type { AdminState } from './schema'
@@ -562,6 +565,139 @@ export async function backfillGridTariffAction(
       }
     default:
       console.error('[admin/grid-tariffs] unerwartete Antwort beim Nachtragen:', data)
+      return { formError: GENERIC, values }
+  }
+}
+
+/**
+ * Ändert einen bestehenden Tarifstand samt Zeitfenstern; der alte Stand landet mit Grund im
+ * Änderungsprotokoll. Anders als die übrigen Wege mit der SITZUNG des Admins, nicht service_role:
+ * `public.update_grid_tariff` prüft die Rolle selbst und nimmt `changed_by` aus der Sitzung.
+ */
+export async function updateGridTariffAction(
+  _prev: AdminState,
+  formData: FormData,
+): Promise<AdminState> {
+  const values = Object.fromEntries(
+    [...formData.entries()]
+      .filter(([, v]) => typeof v === 'string')
+      .map(([k, v]) => [k, String(v)]),
+  )
+  if (!(await isCurrentUserAdmin())) return { formError: FORBIDDEN, values }
+
+  const parsed = updateGridTariffSchema.safeParse(readUpdateGridTariffForm(formData))
+  if (!parsed.success) {
+    return { fieldErrors: gridTariffFieldErrors(parsed.error.issues), values }
+  }
+  const input = parsed.data
+
+  const supabase = await createClient()
+  const { data, error } = await supabase.rpc('update_grid_tariff', {
+    p_tariff_id: input.tariffId,
+    p_reason: input.reason,
+    p_operator_name: input.operatorName,
+    p_grundpreis_amount: input.grundpreisAmount,
+    p_grundpreis_unit: input.grundpreisUnit,
+    p_messpreis_amount: input.messpreisAmount,
+    p_messpreis_unit: input.messpreisUnit,
+    p_netzverlust_ct_per_kwh: input.netzverlustCtPerKwh,
+    p_price_basis: input.priceBasis,
+    p_valid_from: input.validFrom,
+    // Leer heisst „offen" — die Spalte ist dann null, nicht unberührt.
+    p_valid_until: (input.validUntil ?? null) as string,
+    p_windows: input.windows.map((w) => ({
+      label: w.label,
+      month_day_from: w.monthDayFrom ?? null,
+      month_day_to: w.monthDayTo ?? null,
+      time_from: w.timeFrom,
+      time_to: w.timeTo,
+      ct_per_kwh: w.ctPerKwh,
+      note: w.note ?? null,
+    })),
+  })
+
+  if (error) {
+    const code = (error as { code?: string }).code
+    if (code === 'P0001') {
+      switch (error.message) {
+        case 'reason_required':
+          return { fieldErrors: { reason: 'Bitte den Grund der Änderung angeben.' }, values }
+        case 'duplicate_valid_from':
+          return {
+            fieldErrors: {
+              validFrom:
+                'Für diese Kombination gibt es bereits einen Stand mit genau diesem Beginn.',
+            },
+            values,
+          }
+        case 'invalid_window':
+          return {
+            formError:
+              'Mindestens ein Zeitfenster konnte nicht gelesen werden. Bitte Uhrzeiten als HH:MM ' +
+              'und den Arbeitspreis als Zahl angeben.',
+            values,
+          }
+        case 'invalid_input':
+          return {
+            formError:
+              'Mindestens ein Wert liegt ausserhalb dessen, was die Datenbank zulässt ' +
+              '(Einheit, Preisbasis oder ein Betrag ohne Einheit).',
+            values,
+          }
+      }
+    }
+    if (code === '42501') return { formError: FORBIDDEN, values }
+    console.error('[admin/grid-tariffs] update_grid_tariff:', error)
+    return { formError: GENERIC, values }
+  }
+
+  const result = (data ?? {}) as {
+    status?: unknown
+    conflict_valid_from?: unknown
+    conflict_valid_until?: unknown
+  }
+
+  switch (result.status) {
+    case 'updated':
+      revalidatePath(GRID_TARIFFS_HREF)
+      return { success: 'Änderung gespeichert und protokolliert.', values }
+    case 'unchanged':
+      return {
+        success: 'Keine Änderung gegenüber dem gespeicherten Stand — nichts protokolliert.',
+        values,
+      }
+    case 'overlap': {
+      const from =
+        typeof result.conflict_valid_from === 'string' ? result.conflict_valid_from : null
+      const until =
+        typeof result.conflict_valid_until === 'string' ? result.conflict_valid_until : null
+      return {
+        fieldErrors: {
+          validFrom:
+            'Der Zeitraum überschneidet sich mit dem Stand ' +
+            (from
+              ? `ab ${formatDay(from)}${until ? ` bis ${formatDay(until)}` : ' (offen)'}`
+              : '') +
+            '. Bitte zuerst dessen Gültigkeit anpassen.',
+        },
+        values,
+      }
+    }
+    case 'invalid_valid_until':
+      return { fieldErrors: { validUntil: 'Das Ende liegt vor dem Beginn.' }, values }
+    case 'no_windows':
+      return {
+        formError:
+          'Ohne Zeitfenster ist die Tarifzeile unvollständig — bitte mindestens eines angeben.',
+        values,
+      }
+    case 'not_found':
+      return {
+        formError: 'Diese Tarifzeile gibt es nicht mehr. Bitte die Seite neu laden.',
+        values,
+      }
+    default:
+      console.error('[admin/grid-tariffs] unerwartete Antwort beim Bearbeiten:', data)
       return { formError: GENERIC, values }
   }
 }

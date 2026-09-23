@@ -695,6 +695,36 @@ export type Database = {
         }
         Relationships: []
       }
+      grid_tariff_changes: {
+        Row: {
+          changed_at: string
+          changed_by: string
+          id: string
+          new_row: Json
+          old_row: Json
+          reason: string
+          tariff_id: string
+        }
+        Insert: {
+          changed_at?: string
+          changed_by: string
+          id?: string
+          new_row: Json
+          old_row: Json
+          reason: string
+          tariff_id: string
+        }
+        Update: {
+          changed_at?: string
+          changed_by?: string
+          id?: string
+          new_row?: Json
+          old_row?: Json
+          reason?: string
+          tariff_id?: string
+        }
+        Relationships: []
+      }
       job_runs: {
         Row: {
           detail: string | null
@@ -2248,6 +2278,7 @@ export type Database = {
         Returns: Json
       }
       admin_list_exports: { Args: { p_limit?: number }; Returns: Json }
+      admin_list_grid_tariff_changes: { Args: never; Returns: Json }
       admin_list_job_runs: {
         Args: { p_job_key?: string; p_limit?: number }
         Returns: Json
@@ -2749,6 +2780,23 @@ export type Database = {
       }
       suppress_email_and_withdraw_all: {
         Args: { p_lead_id: string }
+        Returns: Json
+      }
+      update_grid_tariff: {
+        Args: {
+          p_grundpreis_amount: number
+          p_grundpreis_unit: string
+          p_messpreis_amount?: number
+          p_messpreis_unit?: string
+          p_netzverlust_ct_per_kwh: number
+          p_operator_name: string
+          p_price_basis: string
+          p_reason: string
+          p_tariff_id: string
+          p_valid_from: string
+          p_valid_until: string
+          p_windows: Json
+        }
         Returns: Json
       }
       update_metering_point_draft: {
