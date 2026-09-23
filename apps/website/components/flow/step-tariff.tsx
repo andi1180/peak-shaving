@@ -346,6 +346,9 @@ export function StepTariff({
   prefill,
   onBack,
   onComplete,
+  catalogBlocked,
+  catalogLoading,
+  catalogNotice,
 }: {
   /**
    * B21-3b: der bereits geparste Lastgang aus Schritt 1. Gebraucht wird allein sein ZEITRAUM —
@@ -366,6 +369,17 @@ export function StepTariff({
    * „kein Rechnungs-Scan" — dann verhält sich dieser Schritt Zeile für Zeile wie vor 9b-2b.
    */
   prefill?: TariffPrefill
+  /**
+   * K3b: `true`, solange der Speicherkatalog lädt, nicht abrufbar ist oder für diese Kategorie
+   * keine freigegebene Zeile führt. Der Knopf ist dann gesperrt — aus demselben Grund wie bei
+   * einem fehlenden Netzentgelt-Satz: ohne Katalog gibt es keine Empfehlung, und der Rechenkern
+   * wirft auf einem leeren Katalog (gemessen).
+   */
+  catalogBlocked: boolean
+  /** Nur für die Knopfbeschriftung — „wird geladen" ist etwas anderes als „gibt es nicht". */
+  catalogLoading: boolean
+  /** Die Meldung zum Zustand; `null`, solange es nichts zu sagen gibt. */
+  catalogNotice: ReactNode
 }) {
   /*
    * EINMAL berechnet und danach festgehalten: der Anfangszustand hängt am Scan und am Stichtag,
@@ -666,6 +680,7 @@ export function StepTariff({
    * über „Nicht angeben" läuft er vollständig, wie er es vor B11 tat.
    */
   const blocked =
+    catalogBlocked ||
     (pending != null && !noPowerMeasurement) ||
     netzentgelt.kind === 'loading' ||
     netzentgelt.kind === 'missing' ||
@@ -1338,6 +1353,8 @@ export function StepTariff({
           </AccordionItem>
         </Accordion>
 
+        {catalogNotice}
+
         <div className="flex justify-between">
           <Button variant="outline" onClick={onBack}>
             <ArrowLeft className="h-4 w-4" />
@@ -1353,7 +1370,9 @@ export function StepTariff({
               ? 'Preisdaten werden geladen …'
               : netzentgelt.kind === 'loading'
                 ? 'Preisblatt wird geprüft …'
-                : 'Analyse starten'}
+                : catalogLoading
+                  ? 'Speicherkatalog wird geladen …'
+                  : 'Analyse starten'}
             <ArrowRight className="h-4 w-4" />
           </Button>
         </div>

@@ -1,6 +1,14 @@
-import type { BatteryResultEntry, BatteryRoiEntry } from 'shared'
+import type { BatteryCatalogMeta, BatteryResultEntry, BatteryRoiEntry } from 'shared'
 
-import { formatEur, formatEur2, formatKw, formatKwh1, formatYears } from '@/lib/format'
+import {
+  formatDateOnly,
+  formatEur,
+  formatEur2,
+  formatKw,
+  formatKwh1,
+  formatPercent,
+  formatYears,
+} from '@/lib/format'
 import { hasNegativeAddonVerdict } from './comparison'
 import type { ReportBuildContext } from './context'
 import { block, ref, t, REF_SECTION } from './report-text'
@@ -133,6 +141,12 @@ function eagDemandChargeRow(analysis: PdfReportAnalysis): ReportRow[] {
 export function buildRecommendation(
   analysis: PdfReportAnalysis,
   entry: BatteryRoiEntry,
+  /**
+   * K3b: die Beiwerte GENAU dieses Geräts (Preisstand, Herkunft des Wirkungsgrads). `undefined`
+   * heisst „keine Katalogzeile dahinter" — dann steht der Punkt nicht da, statt eine Herkunft zu
+   * behaupten, die niemand nachgeschlagen hat.
+   */
+  catalogMeta?: BatteryCatalogMeta,
 ): ReportStatement {
   const b = entry.battery
   const horizonYears = analysis.assumptions.horizonYears
@@ -223,6 +237,30 @@ export function buildRecommendation(
         },
       ]
 
+  /*
+   * K3b — die Preis- und Wirkungsgrad-Herkunft steht AM GERÄT und nicht nur in der Quellen-Tabelle
+   * am Ende: die Investition oben ist die Zahl, an der eine Kaufentscheidung hängt, und ein
+   * Listenpreis von einem bestimmten Tag ohne Installation ist etwas anderes als ein Angebot.
+   */
+  const provenance: ReportPoint[] = catalogMeta
+    ? [
+        {
+          title: 'Woher Preis und Wirkungsgrad stammen',
+          text:
+            'Hardware-Listenpreis netto, exkl. Installation' +
+            (catalogMeta.priceAsOf ? `, Preisstand ${formatDateOnly(catalogMeta.priceAsOf)}` : '') +
+            '. ' +
+            (catalogMeta.rteSource === 'annahme'
+              ? `Der Wirkungsgrad (${formatPercent(entry.battery.roundTripEfficiency * 100)}) ist ein ` +
+                'Erfahrungswert: das Datenblatt dieses Geräts nennt keinen Systemwirkungsgrad über ' +
+                'Laden und Entladen.'
+              : catalogMeta.rteSource === 'datenblatt'
+                ? 'Der Wirkungsgrad stammt aus dem Datenblatt des Herstellers.'
+                : 'Zur Herkunft des Wirkungsgrads ist nichts vermerkt.'),
+        },
+      ]
+    : []
+
   const taxes: ReportPoint[] = entry.taxEffectsIncluded
     ? []
     : [
@@ -251,7 +289,7 @@ export function buildRecommendation(
      * die Leerzeichen, mit denen die Sätze im Absatz aneinanderhingen.
      */
     body: '',
-    points: [...framing, ...taxes],
+    points: [...framing, ...provenance, ...taxes],
     /*
      * Die §3.8-Warnungen des Kandidaten, unverändert. Sie stehen NEBEN der Investition und nicht
      * hinter ihr: „Betonsockel nötig (+€1800)" ist eine Kostenaussage, und sie ist in
@@ -350,13 +388,17 @@ export function buildRecommendationChapter(
   analysis: PdfReportAnalysis,
   /* Report-Baukasten B1 — s. `buildReportSummary`. Ohne ihn wird wie bisher selbst abgeleitet. */
   context?: ReportBuildContext,
+  /** K3b: die Beiwerte des Katalogstands; `undefined` beim Wizard-Weg (K3c) und im Prüfstand. */
+  catalogMeta?: Record<string, BatteryCatalogMeta>,
 ): RecommendationChapter {
   /* ⚠ `context ? … : …` statt `??` — beide Einträge sind selbst gültig `undefined`. */
   const recommended = context ? context.recommendedEntry : recommendedEntryOf(analysis)
   const primary = context ? context.primaryEntry : primaryEntryOf(analysis)
 
   return {
-    recommendation: recommended ? buildRecommendation(analysis, recommended) : null,
+    recommendation: recommended
+      ? buildRecommendation(analysis, recommended, catalogMeta?.[recommended.battery.id])
+      : null,
     loadControl: buildLoadControl(analysis, primary),
   }
 }

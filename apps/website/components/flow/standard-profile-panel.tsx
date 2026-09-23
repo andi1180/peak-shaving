@@ -3,6 +3,8 @@
 import { useState } from 'react'
 import { AlertTriangle, ArrowRight } from 'lucide-react'
 import { generateStandardLoadProfile, type StandardProfileCustomerClass } from 'engine'
+
+import type { BatteryCategoryInput } from '@/lib/battery-catalog/category'
 import { analysisWindow, standardProfileYear, startsBeforeSpotPriceAnchor } from 'shared'
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -49,7 +51,14 @@ export function StandardProfilePanel({
    * kein späterer Render wieder überschreiben.
    */
   initialAnnualKwh?: number | null
-  onComplete: (load: ParsedLoad) => void
+  /**
+   * K3b: der dritte Parameter sagt, WIE dieser Lastgang entstanden ist — hier: Standardprofil mit
+   * der gewählten Kundenklasse. Daraus entscheidet der Rechner, welchen Speicherkatalog er lädt
+   * (`batteryCategoryFor`). Die Kundenklasse reist damit mit, statt später aus
+   * `profile.source === 'standard_profile'` zurückgerechnet zu werden — das wäre an dem Tag still
+   * falsch, an dem `kleingewerbe` wählbar wird.
+   */
+  onComplete: (load: ParsedLoad, tariffPrefill?: undefined, origin?: BatteryCategoryInput) => void
 }) {
   const [annual, setAnnual] = useState(() =>
     initialAnnualKwh != null && Number.isFinite(initialAnnualKwh) && initialAnnualKwh > 0
@@ -110,13 +119,17 @@ export function StandardProfilePanel({
       return
     }
 
-    onComplete({
+    onComplete(
+      {
       fileName: `Standardprofil ${year} · ${new Intl.NumberFormat('de-AT').format(Math.round(kwh))} kWh/Jahr`,
       profile: outcome.profile,
       dataQuality: outcome.dataQuality,
       // Kein `sourceBytes`: es gibt keine Ursprungsdatei. Das Analyse-Bündel (B14-2) bleibt für
       // diesen Lauf deshalb bewusst gesperrt — eine Prüfsumme über nichts bände auch nichts.
-    })
+      },
+      undefined,
+      { entry: 'standard_profile', customerClass },
+    )
   }
 
   return (

@@ -33,6 +33,7 @@
 import { sha256Hex } from './archive'
 import type { AnalysisResult } from './analysis-result'
 import type { BatteryCandidate } from './battery'
+import type { BatteryCatalogMeta } from './battery-catalog-loader'
 import type { FinancialParams } from './financial'
 import type { TariffParams } from './tariff'
 import type { TariffOverridableField } from './tariff-catalog'
@@ -149,7 +150,19 @@ import type { TariffOverridableField } from './tariff-catalog'
  * ⚠ Und wie bei jeder Fassung davor: eine archivierte Zeile wird NICHT nachgerechnet (B14-1
  * Regel a). Eine 2026 gerechnete Baseline bleibt die Prognose, die 2026 abgegeben wurde.
  */
-export const ANALYSIS_BUNDLE_VERSION = 8
+/**
+ * ── FASSUNG 9 (K3b, 23.09.2026) ────────────────────────────────────────────────────────────────
+ * Der Rechner rechnet ab jetzt gegen den ECHTEN Katalog (`public.battery_catalog`) statt gegen
+ * `DEMO_BATTERY_CATALOG`. `inputs.batteryCatalog` trägt damit weiterhin genau das Array, das in
+ * `recommendBattery` ging — neu daneben steht `inputs.batteryCatalogMeta`: je Gerät der Preisstand,
+ * die Herkunft des Wirkungsgrads und die Händlerkennung.
+ *
+ * ⚠ Das ist eine WERTKOPIE und ausdrücklich kein Verweis auf die Katalogzeile (B14-1 Regel b:
+ * keine Fremdschlüssel auf veränderliche Konfiguration). Wird ein Gerät morgen umgepreist oder
+ * deaktiviert, ändert das an dieser Analyse nichts — sie trägt den Stand, gegen den gerechnet
+ * wurde, samt seinem Datum.
+ */
+export const ANALYSIS_BUNDLE_VERSION = 9
 
 /**
  * Fassungen, die der Upload annimmt.
@@ -158,7 +171,7 @@ export const ANALYSIS_BUNDLE_VERSION = 8
  * worden sein, und ein Bündel unbrauchbar zu machen, das ein Mensch in der Hand hält, wäre der
  * schlechtere Handel. Bei einer älteren Fassung bleiben die jeweils neueren Felder schlicht leer.
  */
-export const SUPPORTED_ANALYSIS_BUNDLE_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8]
+export const SUPPORTED_ANALYSIS_BUNDLE_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9]
 
 /**
  * Fassung der Rechen-Engine, VON HAND gepflegt.
@@ -236,6 +249,16 @@ export type AnalysisBundleInputs = {
    * (Wirkungsgrad/Preis). Genau dieses Array ging in `recommendBattery`.
    */
   batteryCatalog: BatteryCandidate[]
+  /**
+   * Fassung 9 (K3b): die Beiwerte je Katalog-Gerät — Preisstand, Herkunft des Wirkungsgrads,
+   * Händlerkennung. Sie stehen NEBEN `batteryCatalog`, weil `BatteryCandidate` sie nicht führt und
+   * die Engine sie nicht liest (dasselbe Muster wie `installationCostNet` im Loader).
+   *
+   * Fehlt in jedem Bündel der Fassungen 1–8 und bei einem Lauf gegen den Platzhalter-Katalog: ein
+   * erfundenes Gerät hat keinen Preisstand, und ein leeres Objekt zu schreiben behauptete, es sei
+   * nachgesehen worden.
+   */
+  batteryCatalogMeta?: Record<string, BatteryCatalogMeta>
   /**
    * Die an genau EINEM Kandidaten geänderten Werte — zusätzlich zum bereits geänderten
    * `batteryCatalog`, damit später erkennbar bleibt, dass hier von Hand eingegriffen wurde und

@@ -3,6 +3,7 @@ import {
   buildRealSavingBreakdown,
   type AddonBatteryScenario,
   type BatteryCandidate,
+  type BatteryCatalogMeta,
   type BatteryResultEntry,
   type BatteryRoiEntry,
   type MonthlyTariffComparison,
@@ -10,7 +11,14 @@ import {
 
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
-import { formatEur, formatKw, formatKwh1, formatPercent, formatYears } from '@/lib/format'
+import {
+  formatDateOnly,
+  formatEur,
+  formatKw,
+  formatKwh1,
+  formatPercent,
+  formatYears,
+} from '@/lib/format'
 import { CONTROLLED_WAY_LABEL, HINDSIGHT_NOTE } from '@/lib/report-copy'
 import { sumCovered } from './monthly-tariff-chart'
 import { Num } from './num'
@@ -109,7 +117,24 @@ type RecommendationCardProps =
       monthlyComparison?: MonthlyTariffComparison
     }
   | { entry: AddonBatteryScenario; variant: 'addon'; primary?: boolean }
-  | { entry: BatteryRoiEntry; variant?: 'catalog'; primary?: boolean }
+  | {
+      entry: BatteryRoiEntry
+      variant?: 'catalog'
+      primary?: boolean
+      /**
+       * K3b: die Beiwerte der Katalogzeile — Preisstand und Herkunft des Wirkungsgrads.
+       *
+       * ⚠ Sie sind der Grund, warum die Karte ab jetzt sagen kann, WORAUF sich ihre Zahlen
+       * stützen: der Preis ist ein Hardware-LISTENpreis von einem bestimmten Tag und enthält keine
+       * Installation, und ein Wirkungsgrad aus `rte_source = 'annahme'` ist ein Erfahrungswert
+       * (0,88) und kein Datenblattwert. Beides läuft in jede ROI-Zahl — ungekennzeichnet sähe eine
+       * Annahme aus wie ein Beleg.
+       *
+       * `undefined` heisst „keine Katalogzeile dahinter" (Platzhalter-Katalog, Bündel älterer
+       * Fassung): dann steht die Zeile nicht da, statt eine Herkunft zu behaupten.
+       */
+      catalogMeta?: BatteryCatalogMeta
+    }
 
 export function RecommendationCard(props: RecommendationCardProps) {
   const { entry, primary = false } = props
@@ -118,6 +143,9 @@ export function RecommendationCard(props: RecommendationCardProps) {
   const roi = props.variant === 'existing' ? null : props.entry
   const addon = props.variant === 'addon' ? props.entry : null
   const efficiencyAssumed = props.variant === 'existing' && props.efficiencyAssumed === true
+  /* K3b: nur am Katalog-Gerät — der Bestandsspeicher hat seine eigene Annahme-Kennzeichnung. */
+  const catalogMeta = props.variant === 'existing' || props.variant === 'addon' ? undefined : props.catalogMeta
+  const rteAssumed = catalogMeta?.rteSource === 'annahme'
 
   /*
    * ── ⚠ DIE KOPFZAHL: REALER VORTEIL STATT AWATTAR-INTERNER ATTRIBUTION (02.09.2026) ───────────
@@ -417,7 +445,7 @@ export function RecommendationCard(props: RecommendationCardProps) {
               </div>
               <div className="flex items-center justify-between border-t border-border py-1 text-sm">
                 <span className="text-text-muted">
-                  Wirkungsgrad{efficiencyAssumed && ' (angenommen)'}
+                  Wirkungsgrad{(efficiencyAssumed || rteAssumed) && ' (angenommen)'}
                 </span>
                 <Num className="text-text">{formatPercent(b.roundTripEfficiency * 100)}</Num>
               </div>
@@ -425,6 +453,13 @@ export function RecommendationCard(props: RecommendationCardProps) {
                 <p className="mt-1 text-xs text-text-muted">
                   Ihre Angabe nennt keinen Wirkungsgrad — wir rechnen mit einem branchenüblichen
                   Wert. Kapazität und Leistung sind Ihre eigenen Angaben.
+                </p>
+              )}
+              {rteAssumed && (
+                <p className="mt-1 text-xs text-text-muted" data-testid="rte-angenommen">
+                  Wirkungsgrad angenommen ({formatPercent(b.roundTripEfficiency * 100)}): das
+                  Datenblatt dieses Geräts nennt keinen Systemwirkungsgrad über Laden und Entladen.
+                  Kapazität, Leistung und Preis sind belegt.
                 </p>
               )}
             </div>
@@ -454,6 +489,15 @@ export function RecommendationCard(props: RecommendationCardProps) {
               <span className="text-ink">Gesamtinvestition</span>
               <Num className="text-ink">{formatEur(roi.totalInvestment)}</Num>
             </div>
+            {catalogMeta && (
+              <p className="mt-1 text-xs text-text-muted" data-testid="preisherkunft">
+                Hardware-Listenpreis netto, exkl. Installation
+                {catalogMeta.priceAsOf
+                  ? `, Preisstand ${formatDateOnly(catalogMeta.priceAsOf)}`
+                  : ' — für dieses Gerät ist kein Preisstand erfasst'}
+                .
+              </p>
+            )}
             {!roi.taxEffectsIncluded && (
               <p className="mt-1 text-xs text-text-muted">
                 Förderung &amp; Steuervorteil: keine Angabe (nicht in die Rechnung einbezogen).

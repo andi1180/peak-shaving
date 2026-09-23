@@ -5,7 +5,7 @@ import type {
   TariffParams,
   TariffSourceRef,
 } from 'shared'
-import { buildTariffSourceRef } from 'shared'
+import { buildTariffSourceRef, DEMO_BATTERY_CATALOG } from 'shared'
 
 import type { AnalysisRequest, WorkerOutbound } from '@/lib/analysis-protocol'
 import { DEFAULT_HORIZON_YEARS } from '@/lib/constants'
@@ -240,6 +240,14 @@ export async function runSummaryAnalysis(
       const request: AnalysisRequest = {
         type: 'recompute',
         payload,
+        /*
+         * K3b: Der PRÜFSTAND rechnet weiterhin gegen den Platzhalter-Katalog, und das ist Absicht.
+         * Er füttert synthetische Fixtures, um das Dokumentgerüst zu prüfen; gegen den echten
+         * Katalog gerechnet änderte sich sein Ergebnis, sobald jemand im Admin ein Gerät pflegt —
+         * eine Prüfroute, deren Ausgabe von aussen wandert, prüft nichts. Der KUNDENPFAD
+         * (`calculator.tsx` → `analysis.worker.ts`) liest den Platzhalter nicht mehr.
+         */
+        catalog: DEMO_BATTERY_CATALOG,
         /* Vorgabe wie im Rechner; ein Fall weicht bewusst ab (s. `SUMMARY_PROBE_HORIZON_YEARS`). */
         horizonYears: SUMMARY_PROBE_HORIZON_YEARS[kind] ?? DEFAULT_HORIZON_YEARS,
       }

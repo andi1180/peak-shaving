@@ -16,6 +16,7 @@ import { InvoiceScanPanel } from './invoice-scan-panel'
 import { MappingPanel } from './mapping-panel'
 import { MixedUploadPanel } from './mixed-upload-panel'
 import { StandardProfilePanel } from './standard-profile-panel'
+import type { BatteryCategoryInput } from '@/lib/battery-catalog/category'
 import type { ParsedLoad, TariffPrefill } from './types'
 
 /**
@@ -93,7 +94,16 @@ export function StepUpload({
    * ein von Hand eingetragener Jahresverbrauch sagen über den Tarif nichts, und ein leeres Objekt
    * an ihrer Stelle wäre eine Aussage, die sie nicht treffen.
    */
-  onComplete: (load: ParsedLoad, tariffPrefill?: TariffPrefill) => void
+  /**
+   * K3b: der dritte Parameter ist die HERKUNFT des Lastgangs (Datei-Upload gegen Standardprofil
+   * samt Kundenklasse). Nur das Standardprofil-Panel kennt sie und setzt sie; die übrigen drei
+   * Wege lassen sie weg, und der Aufrufer liest das als „hochgeladen" (s. `batteryCategoryFor`).
+   */
+  onComplete: (
+    load: ParsedLoad,
+    tariffPrefill?: TariffPrefill,
+    origin?: BatteryCategoryInput,
+  ) => void
 }) {
   const [fileName, setFileName] = useState<string | null>(initialLoad?.fileName ?? null)
   const [load, setLoad] = useState<ParsedLoad | null>(initialLoad)

@@ -2,7 +2,13 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { Download, FileJson, Loader2, Printer, RotateCcw } from 'lucide-react'
-import { buildTariffSourceRef, type AnalysisResult, type TariffSourceRef } from 'shared'
+import {
+  buildTariffSourceRef,
+  type AnalysisResult,
+  type BatteryCandidate,
+  type BatteryCatalogMeta,
+  type TariffSourceRef,
+} from 'shared'
 
 import { PrintCover } from '@/components/report/print-cover'
 import { PrintFrame, PrintRunningFooter } from '@/components/report/print-frame'
@@ -51,6 +57,8 @@ export function StepResult({
   inputs,
   load,
   payload,
+  batteryCatalog,
+  batteryCatalogMeta,
   recomputing,
   recomputeError,
   isLive,
@@ -66,6 +74,15 @@ export function StepResult({
   inputs: AnalysisRunInputs | null
   load: ParsedLoad
   payload: CalculatorPayload
+  /**
+   * K3b: der Katalogstand, gegen den gerechnet wurde (`public.battery_catalog`). Er reicht bis
+   * hierher durch, weil ihn DREI Stellen brauchen, die denselben Stand sehen müssen: das
+   * Analyse-Bündel (Archiv), die Grundlinie des Annahmen-Panels und die Herkunftsangaben am
+   * empfohlenen Gerät. Ein zweiter Abruf an einer dieser Stellen wäre ein zweiter Zeitpunkt.
+   */
+  batteryCatalog: BatteryCandidate[]
+  /** K3b: Preisstand, Wirkungsgrad-Herkunft und Händlerkennung je Gerät. */
+  batteryCatalogMeta: Record<string, BatteryCatalogMeta>
   recomputing: boolean
   recomputeError: string | null
   isLive: boolean
@@ -198,6 +215,8 @@ export function StepResult({
             printedAt: formatPrintedAt(now),
             analysis: result,
             loadProfile: load.profile,
+            /* K3b: dieselben Beiwerte wie im Bildschirm-Report — ein Dokument, eine Herkunft. */
+            batteryCatalogMeta,
             tariffSource,
             /*
              * ⚠ `payload.tariff` und NICHT `activeTariff`: der Preisstand-Satz beschreibt, woher die
@@ -235,7 +254,7 @@ export function StepResult({
         })
       }
     })()
-  }, [pdfRequested, customer, result, load, payload, tariffSource])
+  }, [pdfRequested, customer, result, load, payload, tariffSource, batteryCatalogMeta])
 
   /*
    * EIN Auslöser für beide Anlässe (erster Export nach dem Gate, jeder weitere und der erneute
@@ -283,7 +302,15 @@ export function StepResult({
       return
     }
     try {
-      const bundle = await buildBundle({ result, inputs, load, pv: payload.pv, tariffSource })
+      const bundle = await buildBundle({
+        result,
+        inputs,
+        load,
+        pv: payload.pv,
+        tariffSource,
+        batteryCatalog,
+        batteryCatalogMeta,
+      })
       downloadTextFile(
         bundleFileName(bundle),
         serializeBundle(bundle),
@@ -462,6 +489,9 @@ export function StepResult({
           <Report
             result={result}
             loadProfile={load.profile}
+            /* K3b: Grundlinie des Annahmen-Panels UND Quelle der Herkunftsangaben am Gerät. */
+            batteryCatalog={batteryCatalog}
+            batteryCatalogMeta={batteryCatalogMeta}
             tariffSource={tariffSource}
             originalTariff={payload.tariff}
             originalFinancial={payload.financial}

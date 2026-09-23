@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { AnalysisResult, FinancialParams, TariffParams } from 'shared'
+import type { AnalysisResult, BatteryCandidate, FinancialParams, TariffParams } from 'shared'
 import type { CalculatorPayload } from '@/components/flow/types'
 import type { AnalysisRequest, BatteryOverride, WorkerOutbound } from './analysis-protocol'
 
@@ -71,7 +71,13 @@ export function useAnalysis() {
     }
   }, [])
 
-  const start = useCallback((payload: CalculatorPayload) => {
+  /*
+   * K3b: `catalog` ist der geladene Katalogstand (`public.battery_catalog`), den der Aufrufer
+   * bereithält. Er wird NICHT hier abgefragt — der Hook verwaltet den Worker, nicht die
+   * Datenquelle — und er ist bewusst PFLICHT: ein optionaler Parameter mit Rückfall auf den
+   * Platzhalter-Katalog wäre genau der stille Rückfall, den K3b ausschliesst.
+   */
+  const start = useCallback((payload: CalculatorPayload, catalog: BatteryCandidate[]) => {
     workerRef.current?.terminate()
     setStatus('running')
     setProgress(0)
@@ -149,7 +155,7 @@ export function useAnalysis() {
       }
     }
 
-    const request: AnalysisRequest = { type: 'run', payload }
+    const request: AnalysisRequest = { type: 'run', payload, catalog }
     worker.postMessage(request)
   }, [])
 
@@ -158,7 +164,13 @@ export function useAnalysis() {
   // VOLLE Katalog (Architektur-Vorgabe), `batteryOverride` betrifft nur den einen bearbeiteten
   // Kandidaten (Worker wendet die modifizierte Kopie an, s. analysis.worker.ts).
   const recompute = useCallback(
-    (payload: CalculatorPayload, horizonYears: number, batteryOverride?: BatteryOverride) => {
+    (
+      payload: CalculatorPayload,
+      horizonYears: number,
+      /** K3b: DERSELBE Stand wie im Erstlauf — der Aufrufer hält ihn, es gibt keinen zweiten Abruf. */
+      catalog: BatteryCandidate[],
+      batteryOverride?: BatteryOverride,
+    ) => {
       const worker = workerRef.current
       if (!worker) return
       recomputingRef.current = true
@@ -182,6 +194,7 @@ export function useAnalysis() {
         type: 'recompute',
         payload,
         horizonYears,
+        catalog,
         batteryOverride,
       }
       worker.postMessage(request)

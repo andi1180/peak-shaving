@@ -50,6 +50,7 @@ export type BatteryCatalogCategory = 'gewerbe' | 'heim'
  */
 export const BATTERY_CATALOG_SELECT = [
   'id',
+  'memodo_id',
   'kategorie',
   'hersteller',
   'bezeichnung',
@@ -57,6 +58,8 @@ export const BATTERY_CATALOG_SELECT = [
   'max_power_kw',
   'round_trip_efficiency',
   'list_price_net',
+  'price_as_of',
+  'rte_source',
   'inverter_included',
   'extra_inverter_cost_net',
   'requires_foundation',
@@ -76,6 +79,7 @@ export type BatteryCostComponentRow = {
 /** Eine Katalogzeile, beschränkt auf die Spalten aus `BATTERY_CATALOG_SELECT`. */
 export type BatteryCatalogRow = {
   id: string
+  memodo_id: number | string | null
   kategorie: string
   hersteller: string
   bezeichnung: string
@@ -83,6 +87,8 @@ export type BatteryCatalogRow = {
   max_power_kw: number | string | null
   round_trip_efficiency: number | string | null
   list_price_net: number | string | null
+  price_as_of: string | null
+  rte_source: string | null
   inverter_included: boolean | null
   extra_inverter_cost_net: number | string | null
   requires_foundation: boolean | null
@@ -124,6 +130,29 @@ export type SkippedCatalogRow = {
 }
 
 /**
+ * Die BEIWERTE einer Katalogzeile — alles, was der Report und das Archiv brauchen und was in
+ * `BatteryCandidate` bewusst nicht vorkommt (K3b, dasselbe Muster wie `installationCostNet`).
+ *
+ * `BatteryCandidate` und die Engine bleiben dadurch unverändert: sie rechnen mit Kapazität,
+ * Leistung, Wirkungsgrad und Preis; woher der Preis stammt und wie alt er ist, ist eine Aussage
+ * ÜBER die Zahl und keine Rechengrösse.
+ *
+ * ⚠ `rteSource` ist die Herkunft des Wirkungsgrads (K2c): `'annahme'` heisst, dass 0,88 ein
+ * Erfahrungswert ist und kein Datenblattwert. Der Report muss das sagen können — ein angenommener
+ * Wirkungsgrad läuft durch jede Viertelstunde der Simulation und hebt jede ROI-Zahl still an.
+ */
+export type BatteryCatalogMeta = {
+  /** Kennung aus der Händlerliste — trägt das Archiv mit, damit eine Zeile wiederfindbar bleibt. */
+  memodoId: number | null
+  /** Preisstand (Datum), NICHT eine Gültigkeit — s. Kopf der K1-Migration. `null` = nicht erfasst. */
+  priceAsOf: string | null
+  /** `'datenblatt' | 'annahme'`; `null` nur bei einer von Hand veränderten Zeile. */
+  rteSource: string | null
+  /** Der GESAMTPREIS der Zeile, ungeteilt — der Report nennt ihn als Listenpreis. */
+  listPriceNet: number
+}
+
+/**
  * Der Katalogstand — oder warum es keinen gibt.
  *
  * ⚠ `empty` und `failed` sind AUSDRÜCKLICH verschiedene Zustände, nicht zweimal ein leeres Array:
@@ -144,6 +173,8 @@ export type BatteryCatalogResult =
       batteries: BatteryCandidate[]
       /** Je Kandidaten-Kennung der aufgelöste Installationspreis, sofern einer gepflegt ist. */
       installationCostNet: Record<string, number>
+      /** Je Kandidaten-Kennung die Beiwerte (Preisstand, Wirkungsgrad-Herkunft, Händlerkennung). */
+      meta: Record<string, BatteryCatalogMeta>
       skipped: SkippedCatalogRow[]
     }
   | { kind: 'empty'; category: BatteryCatalogCategory; skipped: SkippedCatalogRow[] }
@@ -159,7 +190,12 @@ export type BatteryCatalogState = { kind: 'loading' } | BatteryCatalogResult
 
 /** Das Ergebnis der Übersetzung EINER Zeile. */
 export type BatteryCatalogRowResult =
-  | { ok: true; candidate: BatteryCandidate; installationCostNet: number | null }
+  | {
+      ok: true
+      candidate: BatteryCandidate
+      installationCostNet: number | null
+      meta: BatteryCatalogMeta
+    }
   | { ok: false; reason: SkippedCatalogRow['reason'] }
 
 /**
@@ -230,6 +266,12 @@ export function batteryCatalogRowToCandidate(row: BatteryCatalogRow): BatteryCat
       controlType: controlTypeOf(row),
     },
     installationCostNet: componentPrice(row.installation_component),
+    meta: {
+      memodoId: num(row.memodo_id),
+      priceAsOf: nullif(row.price_as_of),
+      rteSource: nullif(row.rte_source),
+      listPriceNet,
+    },
   }
 }
 
@@ -252,6 +294,7 @@ export async function loadBatteryCatalog(
 
   const batteries: BatteryCandidate[] = []
   const installationCostNet: Record<string, number> = {}
+  const meta: Record<string, BatteryCatalogMeta> = {}
   const skipped: SkippedCatalogRow[] = []
 
   for (const row of answer.rows) {
@@ -267,13 +310,14 @@ export async function loadBatteryCatalog(
       continue
     }
     batteries.push(translated.candidate)
+    meta[translated.candidate.id] = translated.meta
     if (translated.installationCostNet != null) {
       installationCostNet[translated.candidate.id] = translated.installationCostNet
     }
   }
 
   if (batteries.length === 0) return { kind: 'empty', category, skipped }
-  return { kind: 'available', category, batteries, installationCostNet, skipped }
+  return { kind: 'available', category, batteries, installationCostNet, meta, skipped }
 }
 
 /**
@@ -313,4 +357,11 @@ function num(value: number | string | null | undefined): number | null {
   if (value == null || value === '') return null
   const parsed = typeof value === 'number' ? value : Number(value)
   return Number.isFinite(parsed) ? parsed : null
+}
+
+/** Leerstring und reine Leerzeichen sind keine Angabe — sie werden zu `null`, nicht zu `''`. */
+function nullif(value: string | null | undefined): string | null {
+  if (value == null) return null
+  const trimmed = value.trim()
+  return trimmed === '' ? null : trimmed
 }

@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { AlertCircle, AlertTriangle } from 'lucide-react'
 import {
-  DEMO_BATTERY_CATALOG,
   type AnalysisResult,
+  type BatteryCandidate,
+  type BatteryCatalogMeta,
   type BillingModel,
   type FinancialParams,
   type LoadProfile,
@@ -57,6 +58,8 @@ import { TariffVintageNote } from './tariff-vintage-note'
 export function Report({
   result,
   loadProfile,
+  batteryCatalog,
+  batteryCatalogMeta,
   tariffSource,
   originalTariff,
   originalFinancial,
@@ -71,6 +74,14 @@ export function Report({
 }: {
   result: AnalysisResult
   loadProfile: LoadProfile
+  /**
+   * K3b: der Katalogstand, gegen den gerechnet wurde. Er ist die Grundlinie des Annahmen-Panels
+   * (Vorbelegung UND Ziel von „Zurücksetzen") — bis K3b war das `DEMO_BATTERY_CATALOG`, also ein
+   * anderer Katalog als der gerechnete, sobald der echte kommt.
+   */
+  batteryCatalog: BatteryCandidate[]
+  /** K3b: Preisstand und Wirkungsgrad-Herkunft je Gerät — für die Herkunftszeile am Vorschlag. */
+  batteryCatalogMeta: Record<string, BatteryCatalogMeta>
   /** B11: Herkunft der Tarifsätze zum ANGEZEIGTEN Lauf; `null` ohne Netzbetreiber-Auswahl. */
   tariffSource: TariffSourceRef | null
   originalTariff: TariffParams
@@ -136,8 +147,12 @@ export function Report({
    * bestätigtes Batterie-Preset eingerechnet, weil der Speicher des Kunden ein Override auf einen
    * Katalog-Kandidaten war — er ist es nicht mehr (er wird daneben simuliert), und der Katalog ist
    * damit wieder das, was er auch vor Delta 17 Teil 2 war.
+   *
+   * K3b: und es ist DERSELBE Stand, gegen den gerechnet wurde — hereingereicht statt aus einem
+   * Modul gelesen. Ein hier gelesener Platzhalter-Katalog hätte das Annahmen-Panel auf Geräte
+   * zurückgesetzt, die in der Rechnung gar nicht vorkamen.
    */
-  const baselineCatalog = DEMO_BATTERY_CATALOG
+  const baselineCatalog = batteryCatalog
 
   const recommended =
     result.perBattery.find((p) => p.battery.id === result.recommendation.batteryId) ??
@@ -540,7 +555,11 @@ export function Report({
           <AccordionContent>
             <div className="grid gap-4 pt-2 sm:grid-cols-2">
               {alternatives.map((entry) => (
-                <RecommendationCard key={entry.battery.id} entry={entry} />
+                <RecommendationCard
+                  key={entry.battery.id}
+                  entry={entry}
+                  catalogMeta={batteryCatalogMeta[entry.battery.id]}
+                />
               ))}
             </div>
           </AccordionContent>
@@ -769,7 +788,14 @@ export function Report({
               monthlyComparison={monthlyComparison}
             />
           ) : (
-            recommended && <RecommendationCard entry={recommended} primary />
+            recommended && (
+              <RecommendationCard
+                entry={recommended}
+                primary
+                /* K3b: Preisstand und Wirkungsgrad-Herkunft GENAU dieses Geräts. */
+                catalogMeta={batteryCatalogMeta[recommended.battery.id]}
+              />
+            )
           )}
           {/*
             Delta 9a — der Tarifoptimierungs-Hebel steht DANEBEN, nicht darin: er ist eine eigene

@@ -1,8 +1,15 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import type { BatteryCatalogState } from 'shared'
 
+import { batteryCategoryFor, type BatteryCategoryInput } from '@/lib/battery-catalog/category'
+import { fetchBatteryCatalog } from '@/lib/battery-catalog/source'
 import { useAnalysis } from '@/lib/use-analysis'
+import {
+  SpeicherkatalogImAufbau,
+  SpeicherkatalogNichtAbrufbar,
+} from './speicherkatalog-hinweise'
 import { Stepper } from './stepper'
 import { StepAnalyzing } from './step-analyzing'
 import { StepResult } from './step-result'
@@ -27,15 +34,59 @@ export function Calculator() {
   // Original-Payload (Tarif/Finanzen/PV) — für das Annahmen-Panel (§6.2): `recompute()` braucht
   // die unveränderten `load`/`pv`, um sie mit editierten `tariff`/`financial` neu zu verschicken.
   const [payload, setPayload] = useState<CalculatorPayload | null>(null)
+  /*
+   * ── K3b: DER SPEICHERKATALOG WIRD GENAU EINMAL GELADEN ────────────────────────────────────────
+   * Er liegt hier und nicht im Worker, aus zwei Gründen. (1) Der Worker hat keinen Supabase-Client
+   * und soll keinen bekommen — er ist der Rechenkern, und eine Abfrage darin wäre ein zweiter Ort,
+   * an dem eine Netzstörung auftreten kann, ohne dass die Oberfläche es benennen könnte. (2) Der
+   * ERSTLAUF und jede Neuberechnung im Annahmen-Panel müssen denselben Stand sehen: würde der
+   * Worker je Nachricht neu abfragen, könnte eine Live-Änderung am Wirkungsgrad gegen einen
+   * inzwischen gepflegten Katalog laufen, und der Report zeigte zwei Läufe gegen zwei Kataloge.
+   * Der Stand reist deshalb als WERTKOPIE in beiden Nachrichten mit (`analysis-protocol.ts`).
+   */
+  const [categoryInput, setCategoryInput] = useState<BatteryCategoryInput>({ entry: 'upload' })
+  const [catalog, setCatalog] = useState<BatteryCatalogState>({ kind: 'loading' })
+  /** Hochgezählt vom „Erneut versuchen"-Knopf — die einzige Möglichkeit, erneut abzufragen. */
+  const [catalogRetry, setCatalogRetry] = useState(0)
   const analysis = useAnalysis()
+
+  /*
+   * Geladen wird, sobald die Kategorie feststeht — also nach Schritt 1. Ein Lauf, der schon auf der
+   * Startseite begänne, fragte für jeden Besucher den Gewerbe-Katalog ab, auch für den, der gleich
+   * ein Standardprofil erzeugt; der zweite Abruf wäre dann der eigentliche.
+   *
+   * `mounted`-Ref statt eines `cancelled`-Flags: eine noch laufende Abfrage, deren Kategorie sich
+   * inzwischen geändert hat, darf ihr Ergebnis nicht mehr schreiben — sie würde sonst den Stand der
+   * NEUEN Kategorie überschreiben (dieselbe Falle wie bei der PV-Erzeugung, s. Handover).
+   */
+  const catalogNeeded = step !== 1
+  useEffect(() => {
+    if (!catalogNeeded) return
+    let current = true
+    setCatalog({ kind: 'loading' })
+    void fetchBatteryCatalog(batteryCategoryFor(categoryInput)).then((result) => {
+      if (current) setCatalog(result)
+    })
+    return () => {
+      current = false
+    }
+  }, [catalogNeeded, categoryInput, catalogRetry])
 
   // Analyse fertig → automatisch zum Ergebnis.
   useEffect(() => {
     if (step === 3 && analysis.status === 'done') setStep(4)
   }, [step, analysis.status])
 
-  function handleUpload(l: ParsedLoad, prefill?: TariffPrefill) {
+  function handleUpload(l: ParsedLoad, prefill?: TariffPrefill, origin?: BatteryCategoryInput) {
     setLoad(l)
+    /*
+     * K3b: Die Herkunft entscheidet über die Katalog-Kategorie. Fehlt sie, ist dieser Lastgang
+     * hochgeladen (Datei, Rechnungs-Scan, mehrzeiliger Upload) — nur das Standardprofil-Panel
+     * kennt eine Kundenklasse und setzt sie. `setCategoryInput` ohne `if` ist auch hier das
+     * Zurücksetzen: wer zurückgeht und statt des Standardprofils eine Datei wählt, darf nicht mit
+     * dem Heim-Katalog weiterrechnen.
+     */
+    setCategoryInput(origin ?? { entry: 'upload' })
     /*
      * Auch das LEERE Ergebnis wird übernommen: wer zurückgeht und statt der Rechnung eine
      * Lastgang-Datei wählt, darf nicht die Tarifwerte der vorigen Rechnung im Formular vorfinden.
@@ -62,14 +113,24 @@ export function Calculator() {
     const effectiveLoad: ParsedLoad = result.estimatedPv
       ? { ...load, profile: result.estimatedPv.profile }
       : load
+    /*
+     * K3b: Ohne verwendbaren Katalog wird nicht gerechnet. Der Knopf in Schritt 2 ist in diesem
+     * Fall gesperrt (`catalogBlocked`), diese Prüfung ist die zweite Schicht — sie verhindert, dass
+     * ein künftiger zweiter Aufrufer den Worker mit einem leeren Array startet: `recommendBattery`
+     * wirft dort (gemessen: `TypeError … reading 'entry'`), und der Nutzer sähe einen Absturz statt
+     * der Erklärung, die daneben steht.
+     */
+    if (catalog.kind !== 'available') return
     const p: CalculatorPayload = { ...result, load: effectiveLoad }
     setPayload(p)
     setStep(3)
-    analysis.start(p) // Off-Main-Thread; komplettes AnalysisResult echt (§3.4-3.8, Prompt 4 abgeschlossen).
+    // Off-Main-Thread; komplettes AnalysisResult echt (§3.4-3.8, Prompt 4 abgeschlossen).
+    analysis.start(p, catalog.batteries)
   }
 
   function handleRestart() {
     analysis.reset()
+    setCategoryInput({ entry: 'upload' })
     setLoad(null)
     setPayload(null)
     setTariffPrefill(undefined)
@@ -99,6 +160,20 @@ export function Calculator() {
               prefill={tariffPrefill}
               onBack={() => setStep(1)}
               onComplete={handleTariff}
+              /* K3b: gesperrt, solange der Katalog lädt, ausfällt oder leer ist — die Begründung
+                 steht als Meldung darüber, nicht als stumm nicht reagierender Knopf. */
+              catalogBlocked={catalog.kind !== 'available'}
+              catalogLoading={catalog.kind === 'loading'}
+              catalogNotice={
+                catalog.kind === 'failed' ? (
+                  <SpeicherkatalogNichtAbrufbar
+                    reason={catalog.reason}
+                    onRetry={() => setCatalogRetry((n) => n + 1)}
+                  />
+                ) : catalog.kind === 'empty' ? (
+                  <SpeicherkatalogImAufbau />
+                ) : null
+              }
             />
           )}
           {step === 3 && <StepAnalyzing progress={analysis.progress} status={analysis.status} />}
@@ -119,13 +194,23 @@ export function Calculator() {
              */
             load={payload.load}
             payload={payload}
+            /* K3b: derselbe Stand, gegen den gerechnet wurde — Archiv, Annahmen-Panel, Report. */
+            batteryCatalog={catalog.kind === 'available' ? catalog.batteries : []}
+            batteryCatalogMeta={catalog.kind === 'available' ? catalog.meta : {}}
             recomputing={analysis.recomputing}
             recomputeError={analysis.recomputeError}
             isLive={analysis.isLive}
             onRecompute={(input) =>
+              /*
+               * K3b: DERSELBE geladene Stand wie im Erstlauf — kein zweiter Abruf. Der Zweig ist
+               * nur erreichbar, wenn oben `available` galt; der Rückfall auf ein leeres Array ist
+               * der Typ-Abschluss und kann nicht eintreten (der Worker stünde sonst vor demselben
+               * leeren Katalog wie in `handleTariff`).
+               */
               analysis.recompute(
                 { ...payload, tariff: input.tariff, financial: input.financial },
                 input.horizonYears,
+                catalog.kind === 'available' ? catalog.batteries : [],
                 input.batteryOverride,
               )
             }
