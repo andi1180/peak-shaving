@@ -610,6 +610,16 @@ export type ReportChapterPresence = {
    */
   pvValue: boolean
   /**
+   * `true` = das Kapitel „Kostenverlauf und ein Tag im Detail" steht.
+   *
+   * ⚠ K3b-2: Es ist das letzte Kapitel, das diese Auswahlschicht noch nicht kannte — es stand
+   * IMMER. Solange es Kandidaten gibt, trägt es auch immer mindestens den Kostenvergleich; ohne
+   * Speicher blieben nur seine beiden Ersatzsätze übrig, und einer davon sprach von „dem zugrunde
+   * gelegten Speicher". Die Bedingung liest den bereits gebauten `detailPlan` (`context.ts`) und
+   * formuliert nichts zweitmalig.
+   */
+  detail: boolean
+  /**
    * `false` = das Kapitel „Empfehlung und Wirtschaftlichkeit" entfällt — s.
    * `hasRecommendationChapter` (`recommendation.ts`). Der Fall entsteht ausschliesslich mit
    * Bestandsanlage, deren Gerätewahl „Nein" sagt: die Kaufaussage widerspräche dort dem Verdikt
@@ -664,7 +674,7 @@ export function buildReportAgenda(
     ...(presence.annualScenario ? [ANNUAL_SCENARIO_SECTION] : []),
     ...(presence.pvValue ? [PV_VALUE_SECTION] : []),
     ...(presence.recommendation ? [RECOMMENDATION_SECTION] : []),
-    DETAIL_SECTION,
+    ...(presence.detail ? [DETAIL_SECTION] : []),
     ...(presence.monthly ? [MONTHLY_SECTION] : []),
     ...(presence.insight ? [INSIGHT_SECTION] : []),
     ...(presence.comparison ? [COMPARISON_SECTION] : []),

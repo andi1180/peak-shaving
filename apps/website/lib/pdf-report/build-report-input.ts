@@ -367,6 +367,7 @@ function reduceAnalysis(result: AnalysisResult): Complete<PdfReportAnalysis> {
     current: result.current,
     perBattery: result.perBattery,
     recommendation: result.recommendation,
+    noRecommendationReason: result.noRecommendationReason,
     assumptions: result.assumptions,
     tariffOptimization: result.tariffOptimization,
     existingBatteryAnalysis: result.existingBatteryAnalysis,

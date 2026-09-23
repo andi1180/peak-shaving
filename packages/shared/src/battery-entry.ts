@@ -18,8 +18,9 @@ export function primaryBatteryEntry(
   result: Pick<AnalysisResult, 'perBattery' | 'recommendation' | 'existingBatteryAnalysis'>,
 ): BatteryResultEntry | undefined {
   if (result.existingBatteryAnalysis) return result.existingBatteryAnalysis.entry
+  const id = result.recommendation?.batteryId
   return (
-    result.perBattery.find((p) => p.battery.id === result.recommendation.batteryId) ??
+    (id === undefined ? undefined : result.perBattery.find((p) => p.battery.id === id)) ??
     result.perBattery[0]
   )
 }

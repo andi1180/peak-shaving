@@ -1,4 +1,5 @@
 import {
+  ASSUMED_EXISTING_ROUND_TRIP_EFFICIENCY,
   combineBatteries,
   type AddonBatteryScenario,
   type AnalysisResult,
@@ -419,11 +420,29 @@ export function computeAnalysis(
    * steht trotzdem im Code und nicht nur in diesem Absatz.
    */
   const recommendedDispatchKw =
-    perBattery[0]!.netSavingOverHorizon > 0 ? recommendedGridAfterKw : undefined
+    perBattery[0] && perBattery[0].netSavingOverHorizon > 0 ? recommendedGridAfterKw : undefined
   const comparisonDispatchKw = existing?.gridAfterKw ?? recommendedDispatchKw
 
+  /*
+   * ── ⚠ K3b-2: DER VERGLEICH OHNE DRITTE REIHE — UND WANN ER ENTSTEHT ─────────────────────────
+   * Ohne Dispatch gab es bis hierher GAR KEINEN Vergleich („kein Teilzustand", s. oben). Das ist
+   * richtig, solange es Kandidaten gibt: dann sagt das Fehlen der dritten Reihe „von diesem
+   * Speicher raten wir ab", und zwei von drei Reihen zeigten eine Auswahl, die es nicht gibt.
+   *
+   * Mit leerem KATALOG ist die Lage eine andere: es gibt keinen Speicher, über den etwas zu sagen
+   * wäre — die Frage „was kostet mich Strom heute, und was bei aWATTar" steht davon unberührt, und
+   * sie unbeantwortet zu lassen verschwiege eine Zahl, die vollständig belegt ist.
+   *
+   * ⚠ DIE BEDINGUNG IST `perBattery.length === 0` UND NICHT `!comparisonDispatchKw`. Der
+   * Unterschied ist genau der Fall „es rechnet sich keiner" (voller Katalog, kein Dispatch) — der
+   * bleibt unverändert ohne Vergleich. Ein Bestandsspeicher hat ausserdem Vorrang und trägt die
+   * dritte Reihe auch bei leerem Katalog (`existing?.gridAfterKw` steht davor).
+   */
+  const noCandidates = perBattery.length === 0
   const monthlyComparison =
-    baseTariffOptimization?.computable === true && comparisonDispatchKw && payload.tariffPricing
+    baseTariffOptimization?.computable === true &&
+    payload.tariffPricing &&
+    (comparisonDispatchKw || noCandidates)
       ? buildMonthlyTariffComparison(
           loadProfile,
           payload.tariff,
@@ -441,9 +460,9 @@ export function computeAnalysis(
    * Ein Blocker (synthetischer Lastgang, keine echte Preiskurve, kein Muster) lässt die Reihe
    * ENTFALLEN — der Report zeigt dann die einfache Ladesteuerung und sagt das auch.
    */
-  const comparisonBattery = existing?.analysis.entry.battery ?? perBattery[0]!.battery
+  const comparisonBattery = existing?.analysis.entry.battery ?? perBattery[0]?.battery
   const predictive =
-    monthlyComparison && payload.tariffPricing && comparisonDispatchKw
+    monthlyComparison && payload.tariffPricing && comparisonDispatchKw && comparisonBattery
       ? computePredictiveControlValue({
           loadProfile,
           battery: comparisonBattery,
@@ -470,12 +489,18 @@ export function computeAnalysis(
     peaks,
     perBattery,
     recommendation,
+    // K3b-2: gesetzt GENAU DANN, wenn es keine Empfehlung gibt — sonst fehlt das Feld ganz.
+    ...(recommendation ? {} : { noRecommendationReason: 'no_candidates' as const }),
     assumptions: {
       // Einzelner Wirkungsgrad-Wert fürs Annahmen-Panel (§6.2): der der EMPFOHLENEN Batterie —
       // jeder Kandidat hat sein eigenes `roundTripEfficiency`, dieses Feld ist ein Report-weiter
-      // Anzeigewert, kein Rechenkern-Input. `perBattery` ist über den nicht-leeren
-      // `DEMO_BATTERY_CATALOG` nie leer.
-      roundTripEfficiency: perBattery[0]!.battery.roundTripEfficiency,
+      // Anzeigewert, kein Rechenkern-Input. ⚠ K3b-2: bei leerem Katalog gibt es keinen — dann der
+      // Bestandsspeicher, sonst der Annahmewert. Die Reihenfolge lässt den bisherigen Fall
+      // (Kandidaten vorhanden, mit ODER ohne Bestand) Zeichen für Zeichen unverändert.
+      roundTripEfficiency:
+        perBattery[0]?.battery.roundTripEfficiency ??
+        existing?.analysis.entry.battery.roundTripEfficiency ??
+        ASSUMED_EXISTING_ROUND_TRIP_EFFICIENCY,
       horizonYears,
       billingModel: payload.tariff.billingModel,
       energyPriceCtPerKwh: payload.tariff.energyPriceCtPerKwh,

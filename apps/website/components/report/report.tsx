@@ -38,6 +38,7 @@ import { LoadChart } from './load-chart'
 import { MarginalBenefitChart } from './marginal-benefit-chart'
 import { MonthlyTariffChart } from './monthly-tariff-chart'
 import { Num } from './num'
+import { KeinSpeichervorschlag } from '@/components/flow/speicherkatalog-hinweise'
 import { PrintAssumptionsSnapshot } from './print-assumptions-snapshot'
 import { PrintMethodology } from './print-methodology'
 import { RecommendationCard } from './recommendation-card'
@@ -135,7 +136,7 @@ export function Report({
    * bewusst nicht bearbeiten: ihre Werte hat er in Schritt 2 angegeben, und sie sind keine
    * Annahme, an der man drehen könnte (s. Handover, offener Punkt).
    */
-  const [selectedBatteryId, setSelectedBatteryId] = useState(result.recommendation.batteryId)
+  const [selectedBatteryId, setSelectedBatteryId] = useState(result.recommendation?.batteryId ?? '')
 
   /** Delta 18: erzwingt einen Neuaufbau des Annahmen-Panels nach einer Änderung per Freitext. */
   const [assumptionsKey, setAssumptionsKey] = useState(0)
@@ -154,9 +155,13 @@ export function Report({
    */
   const baselineCatalog = batteryCatalog
 
+  /* K3b-2: ohne Empfehlung ist auch `perBattery` leer — `recommended` bleibt dann `undefined`,
+     und jeder speicherbezogene Kasten darunter hängt bereits an genau dieser Bedingung. */
+  const recommendedId = result.recommendation?.batteryId
   const recommended =
-    result.perBattery.find((p) => p.battery.id === result.recommendation.batteryId) ??
-    result.perBattery[0]
+    (recommendedId === undefined
+      ? undefined
+      : result.perBattery.find((p) => p.battery.id === recommendedId)) ?? result.perBattery[0]
   // 2–3 Alternativen (Pflichtenheft §3.8/§6.2), nicht der komplette Katalog-Rest — `perBattery`
   // ist bereits vollständig nach `netSavingOverHorizon` sortiert (§3.8), also sind das die
   // nächstbesten Kandidaten direkt hinter der Empfehlung.
@@ -245,9 +250,11 @@ export function Report({
   const selectedBattery =
     selectedEntry?.battery ??
     baselineCatalog.find((b) => b.id === selectedBatteryId) ??
-    baselineCatalog[0]!
+    baselineCatalog[0]
 
-  const requestCurrent: ReportRequestCurrent = {
+  /* K3b-2: `null` ohne Katalog-Gerät — die beiden Grössen ganz unten sind BATTERIEwerte, und
+     das Panel, das sie liest, entfällt dann ohnehin (s. unten). */
+  const requestCurrent: ReportRequestCurrent | null = !selectedBattery ? null : {
     billingModel: a.billingModel,
     horizonYears: a.horizonYears,
     subsidyPercent: effectiveFinancial?.subsidyPercent ?? null,
@@ -303,6 +310,9 @@ export function Report({
           }
         : undefined
 
+    /* Erreichbar nur über das Panel, und das steht nur mit Katalog-Gerät — die Prüfung ist der
+       Typ-Abschluss, kein eintretender Zustand. */
+    if (!selectedBattery || !requestCurrent) return
     const efficiencyPercent = numberFor('roundTripEfficiencyPercent')
     const pricePerKwh = numberFor('pricePerKwh')
     /*
@@ -394,21 +404,22 @@ export function Report({
    * Kasten bleibt deshalb an die Katalog-Empfehlung gebunden und erscheint nur dort, wo es diese
    * Empfehlung als primäre Aussage gibt — im Bestandsfall gar nicht.
    */
-  const costChartBox = (
+  /* ⚠ K3b-2: Die Bedingung steht am KASTEN und nicht mehr nur am Chart darin. Ohne Empfehlung
+     blieben sonst Überschrift und Unterzeile stehen — „Kostenvergleich mit/ohne Batterie" über
+     einer leeren Fläche, im echten Report gemessen. */
+  const costChartBox = recommended ? (
     <div className="rounded-lg border border-border bg-surface p-6 print:break-inside-avoid">
       <p className="mb-1 text-sm font-medium text-ink">Kostenvergleich mit/ohne Batterie</p>
       <p className="mb-3 text-xs text-text-muted">
         Kumulierte Kosten über {a.horizonYears} Jahre, Ersparnis nach Kategorie
       </p>
-      {recommended && (
-        <CostChart
-          entry={recommended}
-          currentLeistungspreisCostPerYear={result.current.leistungspreisCostPerYear}
-          horizonYears={a.horizonYears}
-        />
-      )}
+      <CostChart
+        entry={recommended}
+        currentLeistungspreisCostPerYear={result.current.leistungspreisCostPerYear}
+        horizonYears={a.horizonYears}
+      />
     </div>
-  )
+  ) : null
 
   /*
    * ── DER MONATSVERGLEICH „IST vs. aWATTar" (01.09.2026) ─────────────────────────────────────
@@ -474,14 +485,14 @@ export function Report({
       onSelectBattery={setSelectedBatteryId}
       timeZone={loadProfile.timezoneMeta}
     />
-  ) : (
+  ) : result.perBattery.length > 0 ? (
     <EnergyFlowChart
       perBattery={result.perBattery}
       selectedBatteryId={selectedBatteryId}
       onSelectBattery={setSelectedBatteryId}
       timeZone={loadProfile.timezoneMeta}
     />
-  )
+  ) : null
 
   const nextStepBox = (
     <div className="flex flex-col justify-center gap-3 rounded-lg border border-border bg-surface p-6 print:break-inside-avoid">
@@ -495,7 +506,10 @@ export function Report({
       <p className="text-sm text-text-muted">
         {isExisting
           ? 'Ihr Speicher ist oben mit Ihren exakten Angaben durchgerechnet. Ob sich daneben ein zusätzliches Gerät lohnt, steht im Abschnitt darunter.'
-          : result.recommendation.rationale}
+          : /* K3b-2: ohne Empfehlung gibt es keinen Kauf zu begründen — der Kasten nennt dann,
+               was dieser Report beantwortet, und der Hinweis oben sagt warum. */
+            (result.recommendation?.rationale ??
+            'Dieser Report zeigt Ihren Lastgang, Ihre Stromkosten heute und den Vergleich mit den Börsenpreisen. Einen Speichervorschlag enthält er nicht — der Grund steht oben.')}
       </p>
       <div className="print:hidden">
         <LeadDialog />
@@ -572,9 +586,10 @@ export function Report({
    * Alternativen-Aufklappliste — die Karten darin beantworten „welches Gerät", die Kurve davor die
    * vorgelagerte Frage „welche Grösse überhaupt", und die ist ohne Aufklappen zu sehen.
    */
-  const catalogMarginalBenefit = (
-    <MarginalBenefitChart points={result.perBattery} horizonYears={a.horizonYears} variant="catalog" />
-  )
+  const catalogMarginalBenefit =
+    result.perBattery.length > 0 ? (
+      <MarginalBenefitChart points={result.perBattery} horizonYears={a.horizonYears} variant="catalog" />
+    ) : null
 
   /*
    * ── LOHNT SICH EIN ZUSÄTZLICHER SPEICHER? (01.09.2026) ─────────────────────────────────────
@@ -685,6 +700,12 @@ export function Report({
       <div className="print:break-inside-avoid">
         <KeyMetric current={result.current} />
       </div>
+
+      {/* K3b-2: Ganz oben, weil er erklärt, warum unten ganze Kästen fehlen — weiter unten gelesen
+          hätte der Leser die Lücke schon für einen Fehler gehalten. */}
+      {result.noRecommendationReason && (
+        <KeinSpeichervorschlag reason={result.noRecommendationReason} />
+      )}
 
       {isStandardProfile && (
         <Alert className="print:break-inside-avoid">
@@ -823,8 +844,12 @@ export function Report({
               Hauptdiagramm seiner eigenen Auswertung die falsche Linie.
             */}
             <p className="mb-3 text-xs text-text-muted">
-              Jahresverlauf, teuerste abgefangene Spitzen markiert (anklickbar) — Kapp-Schwelle{' '}
-              {isExisting ? 'Ihres Speichers' : 'der empfohlenen Batterie'} eingezeichnet
+              {/* K3b-2: Ohne Speicher gibt es keine Kapp-Schwelle — der Halbsatz entfällt, statt
+                  eine Linie anzukündigen, die im Diagramm fehlt. */}
+              Jahresverlauf, teuerste abgefangene Spitzen markiert (anklickbar)
+              {primaryEntry
+                ? ` — Kapp-Schwelle ${isExisting ? 'Ihres Speichers' : 'der empfohlenen Batterie'} eingezeichnet`
+                : ''}
             </p>
             <LoadChart
               loadProfile={loadProfile}
@@ -896,13 +921,19 @@ export function Report({
         Abkürzung, die man erst aufklappen muss, keine ist. `print:hidden` wie die beiden
         Accordions: ein Eingabefeld gehört nicht ins gedruckte Dokument.
       */}
-      <ReportRequestPanel
-        current={requestCurrent}
-        batteryName={selectedBattery.name}
-        recomputing={recomputing}
-        onApply={applyReportRequest}
-      />
+      {/* K3b-2: Beide Bedienflächen bearbeiten GENAU EIN Katalog-Gerät (`selectedBattery`). Ohne
+          Katalog gibt es keines — sie entfallen deshalb gemeinsam, statt mit leeren Feldern
+          dazustehen. Die gedruckte Annahmen-Übersicht darunter bleibt. */}
+      {selectedBattery && requestCurrent && (
+        <ReportRequestPanel
+          current={requestCurrent}
+          batteryName={selectedBattery.name}
+          recomputing={recomputing}
+          onApply={applyReportRequest}
+        />
+      )}
 
+      {selectedBattery && (
       <Accordion
         type="single"
         collapsible
@@ -926,7 +957,7 @@ export function Report({
               effectiveHorizonYears={a.horizonYears}
               liveBillingModel={a.billingModel}
               originalBattery={
-                baselineCatalog.find((b) => b.id === selectedBatteryId) ?? baselineCatalog[0]!
+                baselineCatalog.find((b) => b.id === selectedBatteryId) ?? selectedBattery
               }
               selectedBatteryName={
                 result.perBattery.find((p) => p.battery.id === selectedBatteryId)?.battery.name ??
@@ -943,6 +974,7 @@ export function Report({
           </AccordionContent>
         </AccordionItem>
       </Accordion>
+      )}
 
       {/* Druck-Pendant zur Accordion oben — Snapshot statt Eingabefelder (§6.2 Teil D). */}
       <PrintAssumptionsSnapshot assumptions={a} recommended={recommended} />

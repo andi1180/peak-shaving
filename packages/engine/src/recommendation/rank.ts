@@ -37,7 +37,7 @@ export type RecommendationResult = Pick<AnalysisResult, 'perBattery' | 'recommen
    * selben Lauf (sie fallen bei jeder Simulation ohnehin an) und werden nach der Sortierung
    * verworfen; sie wandern nicht mit heraus.
    */
-  recommendedGridAfterKw: number[]
+  recommendedGridAfterKw: number[] | undefined
 }
 
 /**
@@ -200,10 +200,22 @@ export function recommendBattery(
       : a.entry.amortizationYears - b.entry.amortizationYears,
   )
 
-  // Invariante: ein leerer Katalog kann keine Empfehlung erzeugen — `recommendBattery` setzt
-  // (wie der §3.8-Prompt) mindestens einen Kandidaten voraus.
-  const top = outcomes[0]!
+  /*
+   * ── K3b-2: EIN LEERER KATALOG IST EIN GÜLTIGER ZUSTAND, KEIN ABSTURZ ─────────────────────────
+   * Bis hierher stand hier `outcomes[0]!` — ein leerer Katalog warf deshalb tief im Rechenkern
+   * (`TypeError … reading 'entry'`), und der Nutzer sah einen Absturz statt der Erklärung. Seit
+   * der Rechner gegen den ECHTEN Katalog rechnet (K3b), ist „für diese Kategorie ist kein Gerät
+   * freigegeben" eine Antwort, die vorkommt — und alles ausser der Gerätewahl bleibt rechenbar.
+   *
+   * ⚠ Das ist ausdrücklich NICHT der Fall „kein Kandidat rechnet sich": der entsteht bei
+   * VOLLEM Katalog, hat `perBattery`-Einträge und eine Empfehlung, von der der Report abrät. Die
+   * Unterscheidung ist am Contract ablesbar (`perBattery.length`), und beide Zweige sind hier
+   * unverändert nebeneinander.
+   */
+  const top = outcomes[0]
   const perBattery = outcomes.map((o) => o.entry)
+  if (!top) return { perBattery, recommendation: null, recommendedGridAfterKw: undefined }
+
   const recommendation = {
     batteryId: top.entry.battery.id,
     rationale: buildRationale(top.entry, horizonYears),

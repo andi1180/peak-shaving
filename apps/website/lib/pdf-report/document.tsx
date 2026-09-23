@@ -2456,6 +2456,7 @@ export function ReportDocument({
     hasWays,
     hasAnnualScenario,
     hasPvValue,
+    hasDetail,
     hasMonthly,
     hasComparison,
     hasRecommendation,
@@ -2515,6 +2516,7 @@ export function ReportDocument({
               annualScenario: hasAnnualScenario,
               pvValue: hasPvValue,
               recommendation: hasRecommendation,
+              detail: hasDetail,
               monthly: hasMonthly,
               insight: hasInsight,
               comparison: hasComparison,
@@ -2586,11 +2588,13 @@ export function ReportDocument({
         </Page>
       )}
 
-      <Page size="A4" style={styles.page}>
-        <PageFurniture sink={sink} docLabel={docLabel} />
-        <SectionAnchor id={DETAIL_SECTION.id} sink={sink} />
-        <DetailChapter input={input} charts={charts} context={context} layout={layout} />
-      </Page>
+      {hasDetail && (
+        <Page size="A4" style={styles.page}>
+          <PageFurniture sink={sink} docLabel={docLabel} />
+          <SectionAnchor id={DETAIL_SECTION.id} sink={sink} />
+          <DetailChapter input={input} charts={charts} context={context} layout={layout} />
+        </Page>
+      )}
 
       {hasMonthly && (
         <Page size="A4" style={styles.page}>

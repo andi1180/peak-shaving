@@ -219,16 +219,20 @@ export function computePredictiveControlValue(
       pricing,
       dispatch.gridAfterKw,
     )
-    if (!comparison) return undefined
+    // ⚠ `spotWithBatteryEur` ist hier IMMER gesetzt (der Dispatch oben ist der Eingang) — die
+    // Prüfung steht für den Typ, nicht für einen erreichbaren Zustand; K3b-2 hat die Reihe für den
+    // speicherlosen Aufrufer optional gemacht.
+    const withBattery = comparison?.spotWithBatteryEur
+    if (!comparison || !withBattery) return undefined
     // Dieselbe EINE Definition wie die Kopfkarte des Reports (`real-saving.ts`) — kein zweiter
     // Reducer, der beim nächsten Ausbau davon abliefe.
     return {
       controlValueEur: buildRealSavingBreakdown({
         currentTariffEur: sumCovered(comparison.currentTariffEur),
         spotWithoutControlEur: sumCovered(comparison.spotWithoutControlEur),
-        spotWithBatteryEur: sumCovered(comparison.spotWithBatteryEur),
+        spotWithBatteryEur: sumCovered(withBattery),
       }).controlValueEur,
-      monthlyEur: comparison.spotWithBatteryEur,
+      monthlyEur: withBattery,
     }
   }
 

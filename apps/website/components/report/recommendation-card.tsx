@@ -167,13 +167,17 @@ export function RecommendationCard(props: RecommendationCardProps) {
    * systematisch. Die Karte nennt deshalb den gemessenen Zeitraum.
    */
   const comparison = props.variant === 'existing' ? props.monthlyComparison : undefined
-  const real = comparison
-    ? buildRealSavingBreakdown({
-        currentTariffEur: sumCovered(comparison.currentTariffEur),
-        spotWithoutControlEur: sumCovered(comparison.spotWithoutControlEur),
-        spotWithBatteryEur: sumCovered(comparison.spotWithBatteryEur),
-      })
-    : null
+  /* K3b-2: Diese Karte gibt es nur MIT Speicher; die Reihe ist dann gesetzt. Fehlt sie doch,
+     entfällt die Aufschlüsselung — es gäbe nichts aufzuschlüsseln. */
+  const withBattery = comparison?.spotWithBatteryEur
+  const real =
+    comparison && withBattery
+      ? buildRealSavingBreakdown({
+          currentTariffEur: sumCovered(comparison.currentTariffEur),
+          spotWithoutControlEur: sumCovered(comparison.spotWithoutControlEur),
+          spotWithBatteryEur: sumCovered(withBattery),
+        })
+      : null
 
   const b = entry.battery
   const baseCost = b.usableCapacityKwh * b.pricePerKwh

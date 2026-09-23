@@ -364,17 +364,17 @@ export type BaselineExtracts = {
  * Leitet die fünf Auszüge ab.
  *
  * ── DER FALL „KEINE EMPFEHLUNG" ─────────────────────────────────────────────────────────────────
- * Findet sich zur `recommendation.batteryId` kein Eintrag in `perBattery` (oder ist `perBattery`
- * leer), bleiben Modell und Kapazität `null` — die B14-1-Spalten sind dafür ausdrücklich nullable,
+ * Gibt es gar keine Empfehlung (`recommendation === null`, leerer Katalog — K3b-2) oder findet
+ * sich zu ihrer `batteryId` kein Eintrag in `perBattery`, bleiben Modell und Kapazität `null` — die B14-1-Spalten sind dafür ausdrücklich nullable,
  * „ein Ersatzwert wäre hier eine Behauptung". Die zwei kW-Werte sind dann GLEICH und die Ersparnis
  * 0: ohne empfohlene Batterie ändert sich am abgerechneten Wert nichts. Das ist keine Notlösung,
  * sondern die zutreffende Baseline für „es rechnet sich keiner".
  */
 export function deriveBaselineExtracts(result: AnalysisResult): BaselineExtracts {
   const before = result.current.billedKw
-  const recommended = result.perBattery.find(
-    (e) => e.battery.id === result.recommendation.batteryId,
-  )
+  const recommended = result.recommendation
+    ? result.perBattery.find((e) => e.battery.id === result.recommendation!.batteryId)
+    : undefined
 
   if (!recommended) {
     return {
@@ -587,11 +587,20 @@ export function parseAnalysisBundle(raw: unknown): AnalysisBundleParseResult {
   if (!Array.isArray(result.perBattery)) {
     return { ok: false, message: 'Im Ergebnis fehlt die Kandidatenliste („result.perBattery").' }
   }
-  if (
-    !isRecord(raw.result.recommendation) ||
-    typeof result.recommendation?.batteryId !== 'string'
-  ) {
+  /*
+   * ── K3b-2: `null` IST EINE GÜLTIGE EMPFEHLUNG ──────────────────────────────────────────────
+   * Es gab keinen Kandidaten zu bewerten (leerer Katalog). Das Feld muss trotzdem DA sein — fehlt
+   * es ganz, stammt die Datei nicht aus dem Export, und genau das prüft diese Zeile weiterhin.
+   * Ein Bündel MIT Empfehlung liest sich unverändert.
+   */
+  if (!('recommendation' in raw.result)) {
     return { ok: false, message: 'Im Ergebnis fehlt die Empfehlung („result.recommendation").' }
+  }
+  if (
+    raw.result.recommendation !== null &&
+    (!isRecord(raw.result.recommendation) || typeof result.recommendation?.batteryId !== 'string')
+  ) {
+    return { ok: false, message: 'Die Empfehlung im Ergebnis ist unlesbar („result.recommendation").' }
   }
 
   // Die fünf Auszüge sind `not null` — lassen sie sich nicht ableiten, scheiterte sonst erst die

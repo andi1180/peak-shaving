@@ -75,6 +75,8 @@ export type ReportBuildContext = {
   hasAnnualScenario: boolean
   /** Kapitel „Ihre PV-Anlage" — der rekonstruierte „ohne PV"-Vergleich, hinter der Hochrechnung. */
   hasPvValue: boolean
+  /** Kapitel „Kostenverlauf und ein Tag im Detail" — K3b-2, s. `ReportChapterPresence.detail`. */
+  hasDetail: boolean
   /** Kapitel 4 — Monatsvergleich als eigenes Kapitel. */
   hasMonthly: boolean
   /** Kapitel 5 — Ladeverhalten. */
@@ -105,11 +107,12 @@ export type ReportBuildContext = {
 export function buildReportContext(input: PdfReportInput): ReportBuildContext {
   const analysis = input.analysis
   const insightPlan = insightChartPlan(analysis)
+  const detailPlan = detailChartPlan(analysis)
 
   return {
     primaryEntry: primaryEntryOf(analysis),
     recommendedEntry: recommendedEntryOf(analysis),
-    detailPlan: detailChartPlan(analysis),
+    detailPlan,
     insightPlan,
     comparisonPlan: comparisonChartPlan(analysis),
     pvOutage: pvOutageNoticeOf(input),
@@ -118,6 +121,8 @@ export function buildReportContext(input: PdfReportInput): ReportBuildContext {
     waysCount: waysCountOf(analysis),
     hasAnnualScenario: hasAnnualScenarioChapter(analysis),
     hasPvValue: hasPvValueChapter(analysis),
+    /* ⚠ Aus dem BEREITS gebauten Plan gelesen — dieselbe Zusage wie bei `hasInsight` darunter. */
+    hasDetail: detailPlan.cost !== null || detailPlan.flow !== null,
     hasMonthly: hasMonthlyChapter(analysis),
     hasInsight: insightPlan.hourFlow !== null || insightPlan.chargePrice !== null,
     hasComparison: hasComparisonChapter(analysis),

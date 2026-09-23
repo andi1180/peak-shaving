@@ -120,7 +120,7 @@ function MonthTooltip({
   active?: boolean
   payload?: Array<{ dataKey?: string; value?: number | null }>
   label?: string
-  series?: typeof SERIES
+  series?: readonly (typeof SERIES)[number][]
 }) {
   if (!active || !payload || payload.length === 0 || !series) return null
   return (
@@ -167,19 +167,27 @@ export function MonthlyTariffChart({
   const modelPatternId = useId()
   const whose = monthlyBatteryRef(isExisting)
   const fixed = comparison.fixedCosts
+  /*
+   * K3b-2: Ohne Speicher (leerer Katalog, kein Bestand) gibt es die dritte Reihe nicht. Gefiltert
+   * wird an GENAU DIESER Stelle — Balken, Tooltip und Legende lesen dieselbe Auswahl, sonst
+   * beschriftete die Legende eine Säule, die niemand zeichnet.
+   */
+  const withBattery = comparison.spotWithBatteryEur
+  const series = withBattery ? SERIES : SERIES.filter((s) => s.key !== 'spotWithBatteryEur')
+
   const rows: Row[] = MONTH_LABELS.map((month, i) => ({
     month,
     // ⚠ `null`, nicht 0: ein Nullbalken sähe aus wie „gemessen, kostet nichts". Recharts zeichnet
     // an dieser Stelle nichts — der Monat bleibt sichtbar leer, und das ist die Aussage.
     currentTariffEur: comparison.currentTariffEur[i] ?? null,
     spotWithoutControlEur: comparison.spotWithoutControlEur[i] ?? null,
-    spotWithBatteryEur: comparison.spotWithBatteryEur[i] ?? null,
+    spotWithBatteryEur: withBattery?.[i] ?? null,
   }))
 
   const totals = {
     currentTariffEur: sumCovered(comparison.currentTariffEur),
     spotWithoutControlEur: sumCovered(comparison.spotWithoutControlEur),
-    spotWithBatteryEur: sumCovered(comparison.spotWithBatteryEur),
+    spotWithBatteryEur: withBattery ? sumCovered(withBattery) : 0,
   } as const
 
   return (
@@ -221,8 +229,8 @@ export function MonthlyTariffChart({
               tick={{ fontSize: 11 }}
               width={64}
             />
-            <Tooltip content={<MonthTooltip series={SERIES} />} isAnimationActive={false} cursor={false} />
-            {SERIES.map((s) => (
+            <Tooltip content={<MonthTooltip series={series} />} isAnimationActive={false} cursor={false} />
+            {series.map((s) => (
               <Bar
                 key={s.key}
                 dataKey={s.key}
@@ -239,7 +247,7 @@ export function MonthlyTariffChart({
           steht damit auch dann da, wenn niemand die einzelnen Balken abliest (und im Druck, wo es
           keinen Tooltip gibt). */}
       <div className="mt-4 flex flex-col gap-1 text-xs text-text-muted">
-        {SERIES.map((s) => (
+        {series.map((s) => (
           <span key={s.key} className="flex items-center gap-1.5">
             <span
               className="inline-block h-2.5 w-2.5 shrink-0 rounded-sm"
