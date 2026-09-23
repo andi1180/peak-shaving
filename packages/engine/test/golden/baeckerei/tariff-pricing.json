@@ -10,13 +10,13 @@
    "grundpreisUnit": "eur_per_year",
    "messpreisAmount": 24,
    "messpreisUnit": "eur_per_year",
-   "netzverlustCtPerKwh": 7,
+   "netzverlustCtPerKwh": 0.7,
    "priceBasis": "net",
    "validFrom": "2025-01-01",
    "validUntil": "2025-12-31",
    "windows": [
     {
-     "id": "5138c68c-ec84-48dc-88a4-f3afe934ca9f",
+     "id": "8a983917-5be4-496b-b49e-ef878153bbd7",
      "label": "normal",
      "monthDayFrom": null,
      "monthDayTo": null,

@@ -36,8 +36,11 @@ Katalog-Loader) fängt dieser Test deshalb bewusst nicht.
   rechenbar. Zusammen mit einem Leistungspreis ist das bewusst konstruiert, kein realer Tarif.
 - **Horizont 10 Jahre** — `DEFAULT_HORIZON_YEARS` des öffentlichen Rechners.
 
-⚠ Die 2025er Netzentgelt-Zeile trägt einen Netzverlust von **7 ct/kWh** (2026: 0,7) — vermutlich
-ein Erfassungsfehler in Produktion. Eingefroren wie vorgefunden.
+Die 2025er Netzentgelt-Zeile trug ursprünglich einen Netzverlust von **7 ct/kWh** — ein
+Erfassungsfehler in Produktion, am 23.09.2026 dort über `update_grid_tariff` korrigiert (Protokoll:
+Grund „Tippfehler", 7 → 0,7, sonst unverändert). Diese eine Zeile ist am 23.09.2026 per `anon`
+neu eingefroren (Netzverlust 0,7; die Fenster-ID hat der Bearbeitungspfad neu vergeben); alle
+übrigen Eingaben sind unverändert der Stand vom 23.09.2026 vor der Korrektur.
 
 ## Pflege
 
