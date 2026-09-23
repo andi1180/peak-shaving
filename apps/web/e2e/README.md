@@ -95,3 +95,10 @@ Nachweis für den Fix: **ohne ihn rot (6 Fehlschläge), mit ihm grün.** Ausgang
 macht er selbst (`admin-select-form-reset.seed.sql`); er braucht nur das Admin-Konto.
 
 Vollständiger Befund samt Prüfung des Altbestands: `AdminSelect_Audit.md` im Repo-Root.
+
+## grid-tariff-edit.mjs
+
+Netztarif-Zeile bearbeiten: Messpreis (Betrag + Einheit) und Netzverlust ändern, speichern, ein
+zweites Mal ohne Änderung speichern (muss „Keine Änderung" melden und nichts protokollieren), neu
+laden. Der zweite Klick misst den AdminSelect-Reset. Seed und Aufräumen macht der Lauf selbst; er
+braucht nur das Admin-Konto aus „Voraussetzungen".

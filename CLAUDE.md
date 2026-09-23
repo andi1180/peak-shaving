@@ -224,6 +224,18 @@ Details und der vollständige Stand: siehe `./Pflichtenheft_Kalkulator_MVP.md`, 
 
 > Lebendiger Handover-Anker. Neueste offene Punkte, die den Bau der Engine/Simulation berühren. Erledigtes wandert raus.
 
+### Netztarif-Zeilen bearbeitbar, mit Änderungsprotokoll (23.09.2026)
+
+`public.update_grid_tariff` (Migration `20260923230000_create_grid_tariff_update_path.sql`) ändert eine
+`grid_tariffs`-Zeile samt Zeitfenstern; alt/neu landen mit Grund in `platform.grid_tariff_changes`.
+Anders als `create_grid_tariff`/`delete_grid_tariff` (INVOKER, service_role, Prüfung im Anwendungscode)
+ist dieser Weg SECURITY DEFINER mit `platform.is_admin()`, nur `authenticated`; die Server Action nutzt
+den Sitzungs-Client. **⚠ Beim nächsten Umbau mitzudenken: (a)** die B21-1-Regel „nie in-place
+überschreiben" gilt nicht mehr — was sie schützte, tragen die Wertkopie in `platform.analyses` und das
+Protokoll (`old_row` = voller Stand samt `rate_windows`). **(b)** Die Kombination ist nicht editierbar;
+eine falsch zugeordnete Zeile ist Löschen + Neuanlegen. **(c)** Das Protokoll hat keinen FK auf
+`grid_tariffs` (überlebt das Löschen) und `changed_by` ist Text — keine `ON DELETE SET NULL`-Falle.
+
 ### Leistungspreis bei `monthly_max_sum`: Jahressatz ÷ 12 je Monat (23.09.2026)
 
 Der Leistungspreis-Satz ist in ALLEN Abrechnungsmodellen ein Jahressatz (€/kW·a). Die Umrechnung

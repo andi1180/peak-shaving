@@ -19,6 +19,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const rpc = vi.fn()
 const createServiceRoleClient = vi.fn(() => ({ rpc }))
+const sessionRpc = vi.fn()
+const createClient = vi.fn(async () => ({ rpc: sessionRpc }))
 const isCurrentUserAdmin = vi.fn()
 const currentUserEmail = vi.fn()
 const revalidatePath = vi.fn()
@@ -26,12 +28,17 @@ const revalidatePath = vi.fn()
 vi.mock('@/lib/supabase/service-role', () => ({
   createServiceRoleClient: () => createServiceRoleClient(),
 }))
+vi.mock('@/lib/supabase/server', () => ({ createClient: () => createClient() }))
 vi.mock('./guard', () => ({ isCurrentUserAdmin: () => isCurrentUserAdmin() }))
 vi.mock('./session', () => ({ currentUserEmail: () => currentUserEmail() }))
 vi.mock('next/cache', () => ({ revalidatePath: (p: string) => revalidatePath(p) }))
 
-const { backfillGridTariffAction, createGridTariffAction, deleteGridTariffAction } =
-  await import('./grid-tariffs-actions')
+const {
+  backfillGridTariffAction,
+  createGridTariffAction,
+  deleteGridTariffAction,
+  updateGridTariffAction,
+} = await import('./grid-tariffs-actions')
 
 const ID = '11111111-2222-4333-8444-555555555555'
 
@@ -43,6 +50,7 @@ function formFor(tariffId: string): FormData {
 
 beforeEach(() => {
   rpc.mockReset()
+  sessionRpc.mockReset()
   createServiceRoleClient.mockClear()
   isCurrentUserAdmin.mockReset()
   currentUserEmail.mockReset()
@@ -400,5 +408,64 @@ describe('backfillGridTariffAction — der Nachtrag ist ein eigener Weg, kein So
     expect(state.fieldErrors?.validFrom).toBeTruthy()
     expect(createServiceRoleClient).not.toHaveBeenCalled()
     expect(rpc).not.toHaveBeenCalled()
+  })
+})
+
+describe('updateGridTariffAction', () => {
+  function editForm(over: Record<string, string> = {}): FormData {
+    const fd = new FormData()
+    const fields: Record<string, string> = {
+      tariffId: ID,
+      operatorId: 'wiener_netze',
+      operatorName: 'Wiener Netze',
+      netzebene: '5',
+      grundpreisAmount: '38.52',
+      grundpreisUnit: 'eur_per_kw_year',
+      messpreisAmount: '2.4',
+      messpreisUnit: 'eur_per_month',
+      netzverlustCtPerKwh: '0.43',
+      priceBasis: 'net',
+      validFrom: '2026-01-01',
+      validUntil: '',
+      reason: 'Tippfehler Netzverlust',
+      w0_label: 'normal',
+      w0_timeFrom: '00:00',
+      w0_timeTo: '24:00',
+      w0_ctPerKwh: '4.5',
+      w0_note: 'Preisblatt S. 2',
+      ...over,
+    }
+    for (const [k, v] of Object.entries(fields)) fd.set(k, v)
+    return fd
+  }
+
+  it('geht über die Sitzung (nicht service_role) und reicht alle Felder samt Grund durch', async () => {
+    sessionRpc.mockResolvedValue({ data: { status: 'updated', id: ID }, error: null })
+    const state = await updateGridTariffAction({}, editForm())
+
+    expect(createServiceRoleClient).not.toHaveBeenCalled()
+    expect(sessionRpc).toHaveBeenCalledWith(
+      'update_grid_tariff',
+      expect.objectContaining({
+        p_tariff_id: ID,
+        p_reason: 'Tippfehler Netzverlust',
+        p_messpreis_amount: 2.4,
+        p_messpreis_unit: 'eur_per_month',
+        p_netzverlust_ct_per_kwh: 0.43,
+        p_valid_until: null,
+        p_windows: [expect.objectContaining({ note: 'Preisblatt S. 2', ct_per_kwh: 4.5 })],
+      }),
+    )
+    expect(state.success).toMatch(/protokolliert/)
+    expect(revalidatePath).toHaveBeenCalled()
+  })
+
+  it('ohne Grund oder mit halbem Messpreis-Paar erreicht nichts die Datenbank', async () => {
+    const noReason = await updateGridTariffAction({}, editForm({ reason: '  ' }))
+    const halfPair = await updateGridTariffAction({}, editForm({ messpreisUnit: '' }))
+
+    expect(noReason.fieldErrors?.reason).toBeTruthy()
+    expect(halfPair.fieldErrors).toBeTruthy()
+    expect(sessionRpc).not.toHaveBeenCalled()
   })
 })

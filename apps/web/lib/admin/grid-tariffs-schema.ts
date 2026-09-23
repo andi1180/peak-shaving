@@ -291,6 +291,36 @@ export const backfillGridTariffSchema = gridTariffFields
 
 export type BackfillGridTariffInput = z.infer<typeof backfillGridTariffSchema>
 
+/** Bearbeiten eines bestehenden Stands: die Kombination reist nur zur Prüfung mit, sie ändert sich nicht. */
+export const updateGridTariffSchema = gridTariffFields
+  .extend({
+    tariffId: z.string().uuid('Es wurde keine gültige Tarifzeile übergeben.'),
+    operatorName: z
+      .string()
+      .trim()
+      .min(1, 'Bitte den Anzeigenamen des Netzbetreibers angeben.')
+      .max(200, 'Zu lang.'),
+    validUntil: z
+      .string()
+      .trim()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, 'Bitte ein Datum angeben (JJJJ-MM-TT).')
+      .optional(),
+    reason: z.string().trim().min(1, 'Bitte den Grund der Änderung angeben.').max(500, 'Zu lang.'),
+  })
+  .superRefine(requireMeteringVariantMatch)
+  .superRefine(requireMesspreisPair)
+  .superRefine((v, ctx) => {
+    if (v.validUntil && v.validUntil < v.validFrom) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['validUntil'],
+        message: 'Das Ende liegt vor dem Beginn.',
+      })
+    }
+  })
+
+export type UpdateGridTariffInput = z.infer<typeof updateGridTariffSchema>
+
 // ── Formulardaten einlesen ───────────────────────────────────────────────────────────────────────
 
 /**
@@ -360,6 +390,17 @@ export function readGridTariffForm(formData: FormData): Record<string, unknown> 
  * die Fehlerpfade des Schemas (`label`, `timeFrom`) liessen sich nicht mehr direkt auf Feldnamen
  * abbilden. `RateWindowFields` bekommt die Vorsilbe deshalb als Prop und liefert hier `''`.
  */
+export function readUpdateGridTariffForm(formData: FormData): Record<string, unknown> {
+  const str = (name: string): string => String(formData.get(name) ?? '').trim()
+  const validUntil = str('validUntil')
+  return {
+    ...readGridTariffForm(formData),
+    tariffId: str('tariffId'),
+    validUntil: validUntil === '' ? undefined : validUntil,
+    reason: str('reason'),
+  }
+}
+
 export function readAddRateWindowForm(formData: FormData): Record<string, unknown> {
   const str = (name: string): string => String(formData.get(name) ?? '').trim()
   const opt = (name: string): string | undefined => {

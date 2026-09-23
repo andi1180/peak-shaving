@@ -7,6 +7,8 @@ import { ActionButton } from '@/components/admin/action-button'
 import { TariffScanCandidates } from '@/components/admin/tariff-scan-candidates'
 import { AddRateWindowSection } from '@/components/admin/add-rate-window-form'
 import { BackfillGridTariffSection } from '@/components/admin/backfill-grid-tariff-form'
+import { EditGridTariffSection } from '@/components/admin/grid-tariff-edit-form'
+import { changedFields, type GridTariffChange } from '@/lib/admin/grid-tariff-changes'
 import { deleteGridTariffAction } from '@/lib/admin/grid-tariffs-actions'
 import {
   STALE_OPEN_STAND_MONTHS,
@@ -77,7 +79,7 @@ export default async function AdminGridTariffsPage() {
    * und Jahr). Zwei flache Listen bleiben lesbar und brauchen keine Beziehungs-Definition, die bei
    * einer Schemaänderung still bricht.
    */
-  const [tariffRes, windowRes] = await Promise.all([
+  const [tariffRes, windowRes, changesRes] = await Promise.all([
     supabase
       .from('grid_tariffs')
       .select('*')
@@ -85,14 +87,24 @@ export default async function AdminGridTariffsPage() {
       .order('netzebene', { ascending: true })
       .order('valid_from', { ascending: false }),
     supabase.from('grid_tariff_rate_windows').select('*').order('label', { ascending: true }),
+    supabase.rpc('admin_list_grid_tariff_changes'),
   ])
 
   if (tariffRes.error) console.error('[admin/grid-tariffs] grid_tariffs:', tariffRes.error)
   if (windowRes.error) console.error('[admin/grid-tariffs] rate_windows:', windowRes.error)
+  if (changesRes.error) console.error('[admin/grid-tariffs] changes:', changesRes.error)
 
   const failed = Boolean(tariffRes.error || windowRes.error)
   const tariffs = (tariffRes.data ?? []) as GridTariffRow[]
   const windows = (windowRes.data ?? []) as GridTariffRateWindowRow[]
+
+  // Neueste zuerst (so liefert sie der Wrapper); je Zeile werden die letzten fünf gezeigt.
+  const changesByTariff = new Map<string, GridTariffChange[]>()
+  for (const c of (changesRes.data ?? []) as GridTariffChange[]) {
+    const list = changesByTariff.get(c.tariff_id)
+    if (list) list.push(c)
+    else changesByTariff.set(c.tariff_id, [c])
+  }
 
   const windowsByTariff = new Map<string, GridTariffRateWindowRow[]>()
   for (const w of windows) {
@@ -194,6 +206,7 @@ export default async function AdminGridTariffsPage() {
                       return (
                         <li
                           key={row.id}
+                          data-tariff-id={row.id}
                           className={
                             open
                               ? 'rounded-md border border-accent-border bg-accent-subtle p-4'
@@ -353,6 +366,39 @@ export default async function AdminGridTariffsPage() {
                             einzige Schranke.
                           */}
                           {oldest && <BackfillGridTariffSection oldest={row} />}
+
+                          <EditGridTariffSection
+                            row={row}
+                            windows={windowsByTariff.get(row.id) ?? []}
+                          />
+
+                          {(changesByTariff.get(row.id) ?? []).length > 0 && (
+                            <div className="mt-4 border-t border-line pt-3">
+                              <p className="text-caption font-semibold uppercase tracking-wide text-text-muted">
+                                Letzte Änderungen
+                              </p>
+                              <ul
+                                className="mt-1 flex flex-col gap-2"
+                                data-testid="grid-tariff-changes"
+                              >
+                                {(changesByTariff.get(row.id) ?? []).slice(0, 5).map((c) => (
+                                  <li key={c.id} className="text-small text-text">
+                                    <span className="text-text-muted">
+                                      <Num>{formatDate(c.changed_at)}</Num> · {c.changed_by} ·{' '}
+                                    </span>
+                                    {c.reason}
+                                    <ul className="mt-0.5 text-caption text-text-muted">
+                                      {changedFields(c).map((f) => (
+                                        <li key={f.label}>
+                                          {f.label}: {f.from} → {f.to}
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
 
                           {/*
                             Der Löschknopf steht am FUSS der Zeile, nicht neben der Markierung oben:
