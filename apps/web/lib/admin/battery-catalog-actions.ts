@@ -83,6 +83,21 @@ function commonFailure(status: string, values?: Record<string, string>): AdminSt
       return { formError: 'Bitte Heim- oder Gewerbespeicher wählen.', values }
     case 'invalid_control_type':
       return { formError: 'Bitte statisch oder dynamisch wählen.', values }
+    // K2c — die Herkunft gehört zum Wert; ohne ihn belegt sie nichts.
+    case 'invalid_rte_source':
+      return {
+        fieldErrors: { rteSource: 'Bitte Datenblatt oder Annahme wählen.' },
+        values,
+      }
+    case 'rte_source_without_value':
+      return {
+        fieldErrors: {
+          rteSource:
+            'Ohne Wirkungsgrad gibt es nichts zu belegen — bitte den Wirkungsgrad eintragen ' +
+            'oder die Herkunft leer lassen.',
+        },
+        values,
+      }
     // K1b — die drei Antworten des Baustein-Wegs.
     case 'unknown_component':
       return {
@@ -129,7 +144,7 @@ function commonFailure(status: string, values?: Record<string, string>): AdminSt
 }
 
 /**
- * Die 18 Katalog-Parameter, aus einer geprüften Eingabe.
+ * Die 19 Katalog-Parameter, aus einer geprüften Eingabe.
  *
  * ⚠ Ein nicht gesetztes Feld wird als `undefined` übergeben und damit gar nicht mitgeschickt
  * (`JSON.stringify` lässt es weg). In der Datenbank greift dann der Vorgabewert — und der ist bei
@@ -146,6 +161,7 @@ function catalogParams(input: ReturnType<typeof batteryCatalogSchema.parse>) {
     p_usable_capacity_kwh: input.usableCapacityKwh ?? undefined,
     p_max_power_kw: input.maxPowerKw ?? undefined,
     p_round_trip_efficiency: input.roundTripEfficiency ?? undefined,
+    p_rte_source: input.rteSource ?? undefined,
     p_list_price_net: input.listPriceNet ?? undefined,
     p_inverter_included: input.inverterIncluded ?? undefined,
     p_extra_inverter_cost_net: input.extraInverterCostNet ?? undefined,

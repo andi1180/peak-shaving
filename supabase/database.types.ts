@@ -1700,6 +1700,7 @@ export type Database = {
           price_as_of: string | null
           requires_foundation: boolean | null
           round_trip_efficiency: number | null
+          rte_source: string | null
           source_url: string | null
           updated_at: string
           usable_capacity_kwh: number | null
@@ -1724,6 +1725,7 @@ export type Database = {
           price_as_of?: string | null
           requires_foundation?: boolean | null
           round_trip_efficiency?: number | null
+          rte_source?: string | null
           source_url?: string | null
           updated_at?: string
           usable_capacity_kwh?: number | null
@@ -1748,6 +1750,7 @@ export type Database = {
           price_as_of?: string | null
           requires_foundation?: boolean | null
           round_trip_efficiency?: number | null
+          rte_source?: string | null
           source_url?: string | null
           updated_at?: string
           usable_capacity_kwh?: number | null
@@ -2082,6 +2085,7 @@ export type Database = {
           p_price_as_of?: string
           p_requires_foundation?: boolean
           p_round_trip_efficiency?: number
+          p_rte_source?: string
           p_source_url?: string
           p_usable_capacity_kwh?: number
         }
@@ -2369,6 +2373,7 @@ export type Database = {
           p_price_as_of?: string
           p_requires_foundation?: boolean
           p_round_trip_efficiency?: number
+          p_rte_source?: string
           p_source_url?: string
           p_usable_capacity_kwh?: number
         }

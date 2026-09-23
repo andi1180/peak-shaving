@@ -57,6 +57,21 @@ export const BATTERY_CONTROL_TYPE_LABELS: Record<BatterieControlType, string> = 
   dynamic: 'dynamisch',
 }
 
+/**
+ * Spiegel des CHECK `rte_source in ('datenblatt','annahme')`.
+ *
+ * ⚠ Die Herkunft ist zum FREIGEBEN Pflicht, sobald ein Wirkungsgrad dasteht — anders als
+ * `control_type`, das reines Metadatum bleibt. Grund: 0,88 ist ein Erfahrungswert, und ohne das
+ * Feld daneben sähen Engine und Report einen geratenen Wert wie einen belegten.
+ */
+export const BATTERY_RTE_SOURCES = ['datenblatt', 'annahme'] as const
+export type BatterieRteSource = (typeof BATTERY_RTE_SOURCES)[number]
+
+export const BATTERY_RTE_SOURCE_LABELS: Record<BatterieRteSource, string> = {
+  datenblatt: 'Datenblatt',
+  annahme: 'Annahme',
+}
+
 /** Leerwert der Auswahlfelder ohne Vorgabe. */
 export const BATTERY_SELECT_UNSET = ''
 
@@ -79,6 +94,7 @@ export type BatteryCatalogRow = {
   usable_capacity_kwh: number | null
   max_power_kw: number | null
   round_trip_efficiency: number | null
+  rte_source: string | null
   list_price_net: number | null
   inverter_included: boolean | null
   extra_inverter_cost_net: number | null
@@ -115,6 +131,11 @@ export function batterieControlTypeLabel(value: string | null): string {
   return BATTERY_CONTROL_TYPE_LABELS[value as BatterieControlType] ?? value
 }
 
+export function batterieRteSourceLabel(value: string | null): string {
+  if (!value) return '—'
+  return BATTERY_RTE_SOURCE_LABELS[value as BatterieRteSource] ?? value
+}
+
 export function batteryLabel(row: Pick<BatteryCatalogRow, 'hersteller' | 'bezeichnung'>): string {
   return `${row.hersteller} ${row.bezeichnung}`
 }
@@ -138,6 +159,8 @@ export const BATTERY_ENGINE_FIELD_LABELS: Record<string, string> = {
   usable_capacity_kwh: 'Nutzbare Kapazität',
   max_power_kw: 'Maximale Leistung',
   round_trip_efficiency: 'Wirkungsgrad',
+  // K2c: ein geratener Wirkungsgrad sieht aus wie ein belegter, solange nichts daneben steht.
+  rte_source: 'Herkunft des Wirkungsgrads',
   list_price_net: 'Listenpreis (netto)',
   inverter_included: 'Wechselrichter enthalten?',
   requires_foundation: 'Fundament nötig?',
@@ -164,6 +187,7 @@ export function missingEngineFields(row: BatteryCatalogRow): string[] {
   if (row.usable_capacity_kwh === null) missing.push('usable_capacity_kwh')
   if (row.max_power_kw === null) missing.push('max_power_kw')
   if (row.round_trip_efficiency === null) missing.push('round_trip_efficiency')
+  if (row.rte_source === null) missing.push('rte_source')
   if (row.list_price_net === null) missing.push('list_price_net')
   if (row.inverter_included === null) missing.push('inverter_included')
   if (row.requires_foundation === null) missing.push('requires_foundation')

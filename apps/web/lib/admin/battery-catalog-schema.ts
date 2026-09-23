@@ -20,7 +20,7 @@
  * wortgleich zu den CHECKs der Tabelle: nicht negativ, Wirkungsgrad zwischen 0 und 1.
  */
 import { z } from 'zod'
-import { BATTERY_CONTROL_TYPES, BATTERY_KATEGORIEN } from './battery-catalog'
+import { BATTERY_CONTROL_TYPES, BATTERY_KATEGORIEN, BATTERY_RTE_SOURCES } from './battery-catalog'
 
 /** Ein Pflicht-Text mit Längengrenze. */
 function requiredText(label: string, max = 200) {
@@ -148,6 +148,19 @@ export const batteryCatalogSchema = z.object({
    * falschen Simulation auf.
    */
   roundTripEfficiency: optionalNumber('Der Wirkungsgrad', { gt: 0, max: 1 }),
+  /*
+   * K2c: woher der Wert stammt. Geprüft wird hier nur die Form — dass eine Herkunft ohne Wert
+   * sinnlos ist, entscheidet die Datenbank (CHECK + benannte Wrapper-Antwort), damit die Regel
+   * auch für einen zweiten Schreibweg gilt.
+   */
+  rteSource: z
+    .string()
+    .trim()
+    .transform((v) => (v === '' ? undefined : v))
+    .refine(
+      (v) => v === undefined || (BATTERY_RTE_SOURCES as readonly string[]).includes(v),
+      'Bitte Datenblatt oder Annahme wählen.',
+    ),
   listPriceNet: optionalNumber('Der Listenpreis', { gt: 0 }),
   inverterIncluded: optionalBoolean,
   extraInverterCostNet: optionalNumber('Der Aufpreis für den Wechselrichter', { min: 0 }),
@@ -185,6 +198,7 @@ export const BATTERY_FORM_FIELDS = [
   'usableCapacityKwh',
   'maxPowerKw',
   'roundTripEfficiency',
+  'rteSource',
   'listPriceNet',
   'inverterIncluded',
   'extraInverterCostNet',
