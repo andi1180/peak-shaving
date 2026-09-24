@@ -11,6 +11,7 @@ import type {
 import { describe, expect, it } from 'vitest'
 
 import { buildMonthlyTariffComparison } from './monthly-tariff-comparison'
+import { combinedIntervalPrices } from './tou'
 
 /**
  * Die fünf gesetzlichen/netzseitigen Kostenposten, am Zuschnitt des Urbanz-Referenzfalls.
@@ -272,6 +273,26 @@ describe('Die fünf fehlenden Kostenposten — Urbanz-Zuschnitt, Wiener Netze NE
     expect(dated).toBeLessThan(flat7)
     // Zwei Perioden im Plan, nicht eine — sonst könnte der Sprung gar nicht stattfinden.
     expect(levySchedule().periods.length).toBeGreaterThanOrEqual(2)
+  })
+})
+
+describe('Gebrauchsabgabe Wien 6 % → 7 % (LGBl. für Wien Nr. 3/2026) — viertelstundengenau', () => {
+  it('die letzte Viertelstunde des 28.02. trägt 6 %, die erste des 01.03. (Ortszeit) 7 %', () => {
+    const prices = combinedIntervalPrices(LOAD, {
+      gridTariffRows: [gridRow(true)],
+      spotPrices: SPOT,
+      levies: levySchedule(),
+    })
+    if (!('prices' in prices)) throw new Error('Preisreihe erwartet')
+
+    const at = (utc: string) => prices.prices[LOAD.readings.findIndex((r) => r.ts === utc)]!
+    // 23:45 Ortszeit (UTC+1) am 28.02. und 00:00 Ortszeit am 01.03.
+    const before = at('2026-02-28T22:45:00.000Z')
+    const after = at('2026-02-28T23:00:00.000Z')
+    const base = 10 + WN_NORMAL_CT + WN_NETZVERLUST_CT
+    const fixed = ELEKTRIZITAETSABGABE_CT + EAG_FOERDERBEITRAG_CT
+    expect(before).toBeCloseTo(base * 1.06 + fixed, 10)
+    expect(after).toBeCloseTo(base * 1.07 + fixed, 10)
   })
 })
 
