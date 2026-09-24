@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { batteryCategoryFor } from './category'
+import { batteryCategoryFor, tariffComparisonDefaultFor } from './category'
 
 describe('batteryCategoryFor', () => {
   it('Standardprofil mit Kundenklasse Haushalt fragt den Heim-Katalog', () => {
@@ -20,5 +20,12 @@ describe('batteryCategoryFor', () => {
 
   it('ein hochgeladener Lastgang gilt als Gewerbe', () => {
     expect(batteryCategoryFor({ entry: 'upload' })).toBe('gewerbe')
+  })
+})
+
+describe('tariffComparisonDefaultFor', () => {
+  it('Börsenpreis-Vergleich ist für Haushalte vorgewählt, für Gewerbe nicht', () => {
+    expect(tariffComparisonDefaultFor('heim')).toBe(true)
+    expect(tariffComparisonDefaultFor('gewerbe')).toBe(false)
   })
 })

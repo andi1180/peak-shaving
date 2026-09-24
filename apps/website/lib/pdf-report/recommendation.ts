@@ -10,7 +10,12 @@ import {
   formatPercent,
   formatYears,
 } from '@/lib/format'
-import { batteryNoteTexts, DYNAMIC_TARIFF_HINT, needsDynamicTariffHint } from '@/lib/report-copy'
+import {
+  batteryNoteTexts,
+  dynamicTariffHintKind,
+  dynamicTariffHintText,
+  type DynamicTariffHintKind,
+} from '@/lib/report-copy'
 import { billedKwPerYear } from './basis'
 import { hasNegativeAddonVerdict } from './comparison'
 import type { ReportBuildContext } from './context'
@@ -303,13 +308,13 @@ export function buildRecommendation(
 }
 
 /** Heimspeicher ohne Ersparnis mangels Börsenpreis: der Hinweis statt eines Geräts mit ∞ Amortisation. */
-function dynamicTariffHintStatement(): ReportStatement {
+export function dynamicTariffHintStatement(kind: DynamicTariffHintKind): ReportStatement {
   return {
     id: 'recommendation',
     title: 'Speicher nur mit dynamischem Tarif',
     amount: null,
     rows: [],
-    body: DYNAMIC_TARIFF_HINT,
+    body: dynamicTariffHintText(kind),
   }
 }
 
@@ -416,11 +421,13 @@ export function buildRecommendationChapter(
   const recommended = context ? context.recommendedEntry : recommendedEntryOf(analysis)
   const primary = context ? context.primaryEntry : primaryEntryOf(analysis)
 
+  const hint = dynamicTariffHintKind(analysis)
+
   return {
     recommendation: !recommended
       ? null
-      : needsDynamicTariffHint(analysis)
-        ? dynamicTariffHintStatement()
+      : hint
+        ? dynamicTariffHintStatement(hint)
         : buildRecommendation(analysis, recommended, catalogMeta?.[recommended.battery.id]),
     loadControl: buildLoadControl(analysis, primary),
   }

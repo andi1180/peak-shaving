@@ -21,7 +21,7 @@ import {
 } from 'shared'
 
 import { formatDateOnly, formatEur, formatEur2, formatPercent } from '@/lib/format'
-import { rteSourceNote } from '@/lib/report-copy'
+import { dynamicTariffHintKind, rteSourceNote } from '@/lib/report-copy'
 import { REPORT_SECTIONS, SECTION_ID, type ReportSection } from './content'
 import type { ReportBuildContext } from './context'
 import { hasPvValueChapter } from './pv-value'
@@ -126,8 +126,9 @@ export function buildAssumptions(
   catalogMeta?: Record<string, BatteryCatalogMeta>,
 ): ReportStatement {
   const a = analysis.assumptions
-  /* Report-Baukasten B1: dieselbe Rückfallkette wie überall sonst, jetzt aus EINER Funktion. */
-  const recommended = recommendedEntryOf(analysis)
+  /* Report-Baukasten B1: dieselbe Rückfallkette wie überall sonst, jetzt aus EINER Funktion.
+     Im Hinweisfall „nur mit dynamischem Tarif" wird kein Gerät ausgewiesen, also auch keine Gerätewerte. */
+  const recommended = dynamicTariffHintKind(analysis) ? undefined : recommendedEntryOf(analysis)
 
   const rows: ReportRow[] = [
     neutralRow('Betrachtungshorizont', `${a.horizonYears} Jahre`),
@@ -877,16 +878,19 @@ function batteryRowsForSources(
   analysis: PdfReportAnalysis,
   catalogMeta: Record<string, BatteryCatalogMeta> | undefined,
 ): ReportTableRow[] {
-  const entry = primaryEntryOf(analysis)
+  const hint = dynamicTariffHintKind(analysis)
+  const entry = hint ? undefined : primaryEntryOf(analysis)
   const device = entry
     ? `${entry.battery.manufacturer} ${entry.battery.name}`
     : 'kein Gerät ausgewiesen'
   // Der Bestandsspeicher hat keinen Katalogpreis — gerechnet wird nur mit seinen Kenndaten.
-  const usage = !entry
-    ? 'Es steht kein Kandidat zur Verfügung (leerer Katalog) — es wurde nichts daraus verwendet.'
-    : analysis.existingBatteryAnalysis
-      ? 'Nutzbare Kapazität, Lade-/Entladeleistung und Wirkungsgrad Ihres bestehenden Speichers.'
-      : 'Nutzbare Kapazität, Lade-/Entladeleistung, Wirkungsgrad und Preis je kWh.'
+  const usage = hint
+    ? 'Kein Speichervorschlag: ohne dynamischen Tarif spart keines der Katalog-Geräte etwas.'
+    : !entry
+      ? 'Es steht kein Kandidat zur Verfügung (leerer Katalog) — es wurde nichts daraus verwendet.'
+      : analysis.existingBatteryAnalysis
+        ? 'Nutzbare Kapazität, Lade-/Entladeleistung und Wirkungsgrad Ihres bestehenden Speichers.'
+        : 'Nutzbare Kapazität, Lade-/Entladeleistung, Wirkungsgrad und Preis je kWh.'
 
   /*
    * ⚠ K3b: Die Lücke oben ist für ein KATALOG-Gerät geschlossen — seit die Geräte aus
@@ -909,10 +913,12 @@ function batteryRowsForSources(
         'Listenpreis.'
       : analysis.noRecommendationReason === 'no_candidates'
         ? 'Für diese Kundenkategorie ist noch kein Speicher im Katalog freigegeben.'
-        : !entry
-          ? 'keine Herkunfts- oder Preisquelle hinterlegt.'
-          : 'Katalogstand nicht übergeben — Preisstand und Herkunft des Wirkungsgrads liegen ' +
-            'diesem Report nicht bei.'
+        : hint
+          ? 'Speicherkatalog für Privathaushalte — ausgewiesen wird ein Gerät erst mit dynamischem Tarif.'
+          : !entry
+            ? 'keine Herkunfts- oder Preisquelle hinterlegt.'
+            : 'Katalogstand nicht übergeben — Preisstand und Herkunft des Wirkungsgrads liegen ' +
+              'diesem Report nicht bei.'
 
   return [
     groupRow('group_battery', 'Batterie'),

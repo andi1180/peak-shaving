@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import type { BatteryNotice, DispatchTrace, MonthlyTariffComparison } from 'shared'
 
+import { DYNAMIC_TARIFF_HINT_NOT_COMPUTABLE } from '@/lib/report-copy'
+
+import { comparisonChartPlan, hasComparisonChapter } from './comparison'
 import { SECTION_ID } from './content'
+import { detailChartPlan } from './detail'
+import { insightChartPlan } from './insight'
 import { reportLayoutOf, type ReportPlacement } from './layout'
 import { buildRecommendationChapter } from './recommendation'
 import { resolveReportText } from './report-text'
@@ -97,6 +102,22 @@ function analysisFor(withExisting: boolean): PdfReportAnalysis {
     ...(withExisting ? { existingBatteryAnalysis: { entry: ENTRY, addonScenarios: [] } } : {}),
   }
 }
+
+describe('Hinweis „nur mit dynamischem Tarif" ersetzt die Speicher-Strecke', () => {
+  it('Heimspeicher ohne Ersparnis, Vergleich nicht berechenbar: Hinweis statt Gerät, keine Gerätekapitel', () => {
+    const home = { ...ENTRY, battery: { ...BATTERY, class: 'residential' as const }, totalSavingPerYear: 0, dispatchTrace: TRACE }
+    const analysis: PdfReportAnalysis = {
+      ...analysisFor(false),
+      perBattery: [home, { ...home, battery: { ...home.battery, id: 'kat-2' } }],
+      tariffOptimization: { computable: false, side: 'grid_tariff', kind: 'unavailable', ranges: [], message: '' } as never,
+    }
+    expect(buildRecommendationChapter(analysis).recommendation?.body).toBe(DYNAMIC_TARIFF_HINT_NOT_COMPUTABLE)
+    expect(detailChartPlan(analysis)).toEqual({ cost: null, flow: null })
+    expect(insightChartPlan(analysis)).toEqual({ hourFlow: null, chargePrice: null })
+    expect(comparisonChartPlan(analysis)).toBeNull()
+    expect(hasComparisonChapter(analysis)).toBe(false)
+  })
+})
 
 describe('load_control — der Betrag steht hier, und der Satz zeigt nirgendwohin', () => {
   it.each([true, false])('trägt die Kopfzahl (Bestandsanlage: %s)', (withExisting) => {

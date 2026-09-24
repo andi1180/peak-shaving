@@ -2,7 +2,7 @@ import type { BatteryResultEntry, BatteryRoiEntry, MonthlyTariffComparison } fro
 import { sumCovered } from 'shared'
 
 import { formatEur, formatEur2, formatYears } from '@/lib/format'
-import { CONTROLLED_WAY_LABEL } from '@/lib/report-copy'
+import { CONTROLLED_WAY_LABEL, dynamicTariffHintKind } from '@/lib/report-copy'
 import type { ReportBuildContext } from './context'
 import { t } from './report-text'
 import type { ReportFigure, ReportRow, ReportStatement } from './statement'
@@ -106,6 +106,8 @@ function hasRepresentativeDay(entry: BatteryResultEntry | undefined): boolean {
 }
 
 export function detailChartPlan(analysis: PdfReportAnalysis): DetailChartPlan {
+  // Hinweis „nur mit dynamischem Tarif": kein Gerät, also weder Kostenverlauf noch Energiefluss.
+  if (dynamicTariffHintKind(analysis)) return { cost: null, flow: null }
   const existing = analysis.existingBatteryAnalysis
   const comparison =
     analysis.tariffOptimization?.computable === true

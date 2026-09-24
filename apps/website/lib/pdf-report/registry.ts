@@ -1,5 +1,7 @@
 import type { ReportOptionalSection } from 'shared'
 
+import { dynamicTariffHintKind } from '@/lib/report-copy'
+
 import {
   DATA_SOURCES_TABLE_ID,
   TARIFF_COMPONENTS_TABLE_ID,
@@ -24,7 +26,7 @@ import { SECTION_ID, type ReportSectionKey } from './content'
 import type { ReportBuildContext } from './context'
 import { buildMonthly, buildMonthlyChapter } from './detail'
 import { buildChargePrice, buildHourFlow } from './insight'
-import { buildLoadControl, buildRecommendation } from './recommendation'
+import { buildLoadControl, buildRecommendation, dynamicTariffHintStatement } from './recommendation'
 import { buildPvValueChapter } from './pv-value'
 import type { ReportNotice, ReportStatement, ReportTable } from './statement'
 import {
@@ -315,9 +317,9 @@ export function buildReportRegistry(
      */
     statement('recommendation', () => {
       const recommended = context.recommendedEntry
-      return context.hasRecommendation && recommended
-        ? buildRecommendation(analysis, recommended)
-        : null
+      if (!context.hasRecommendation || !recommended) return null
+      const hint = dynamicTariffHintKind(analysis)
+      return hint ? dynamicTariffHintStatement(hint) : buildRecommendation(analysis, recommended)
     }),
     statement('load_control', () =>
       context.hasRecommendation ? buildLoadControl(analysis, context.primaryEntry) : null,

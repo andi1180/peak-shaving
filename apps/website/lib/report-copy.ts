@@ -118,24 +118,45 @@ export function recommendationRationaleText(batteryName: string, r: Recommendati
   )
 }
 
-/** Statt eines Heimspeichers ohne jede Ersparnis (∞ Amortisation), s. `needsDynamicTariffHint`. */
+/** Statt eines Heimspeichers ohne jede Ersparnis (∞ Amortisation), s. `dynamicTariffHintKind`. */
 export const DYNAMIC_TARIFF_HINT =
   'Ein Speicher lohnt sich für Haushalte nur mit einem dynamischen Tarif (Börsenpreis). ' +
   'Aktivieren Sie den Börsenpreis-Vergleich, um die Wirkung zu sehen.'
 
+/** Derselbe Befund, wenn der Vergleich angefordert war, aber nicht gerechnet werden konnte. */
+export const DYNAMIC_TARIFF_HINT_NOT_COMPUTABLE =
+  'Ein Speicher lohnt sich für Haushalte nur mit einem dynamischen Tarif (Börsenpreis). ' +
+  'Der Börsenpreis-Vergleich ließ sich für Ihre Angaben nicht rechnen — die Gründe stehen im ' +
+  'Abschnitt „Vergleich mit Börsen-Strompreisen".'
+
+export type DynamicTariffHintKind = 'not_requested' | 'not_computable'
+
 /**
- * Heimspeicher, Börsenpreis-Vergleich nicht angefordert (`tariffOptimization` fehlt — ein
- * angeforderter, aber nicht berechenbarer Vergleich trägt ein Objekt) und kein Kandidat spart
- * etwas. Mit eigenem Speicher bleibt dessen Karte stehen.
+ * Heimspeicher, kein berechneter Börsenpreis-Vergleich (nicht angefordert ODER angefordert und
+ * nicht berechenbar) und kein Kandidat spart etwas → Hinweis statt der ganzen Speicher-Strecke.
+ * Mit eigenem Speicher bleibt dessen Karte stehen. `null` = kein Hinweis.
  */
-export function needsDynamicTariffHint(
+export function dynamicTariffHintKind(
   analysis: Pick<AnalysisResult, 'perBattery' | 'recommendation' | 'tariffOptimization' | 'existingBatteryAnalysis'>,
-): boolean {
-  return (
-    analysis.recommendation != null &&
-    analysis.existingBatteryAnalysis == null &&
-    analysis.tariffOptimization === undefined &&
-    analysis.perBattery.length > 0 &&
-    analysis.perBattery.every((e) => e.battery.class === 'residential' && e.totalSavingPerYear === 0)
-  )
+): DynamicTariffHintKind | null {
+  const kind =
+    analysis.tariffOptimization === undefined
+      ? 'not_requested'
+      : analysis.tariffOptimization.computable === false
+        ? 'not_computable'
+        : null
+  if (
+    kind === null ||
+    analysis.recommendation == null ||
+    analysis.existingBatteryAnalysis != null ||
+    analysis.perBattery.length === 0 ||
+    !analysis.perBattery.every((e) => e.battery.class === 'residential' && e.totalSavingPerYear === 0)
+  ) {
+    return null
+  }
+  return kind
+}
+
+export function dynamicTariffHintText(kind: DynamicTariffHintKind): string {
+  return kind === 'not_requested' ? DYNAMIC_TARIFF_HINT : DYNAMIC_TARIFF_HINT_NOT_COMPUTABLE
 }
