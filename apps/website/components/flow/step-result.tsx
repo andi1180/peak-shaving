@@ -34,7 +34,11 @@ import {
 } from '@/lib/pdf-report/derive'
 import { REACT_PDF_REPORT_ENABLED } from '@/lib/pdf-report-flag'
 import type { AnalysisRunInputs } from '@/lib/use-analysis'
+import type { PdfReportOrigin } from '@/lib/pdf-report/types'
 import type { CalculatorPayload, ParsedLoad, RecomputeInput } from './types'
+
+/** Echt im Browser des Kunden gerechnet und gerendert — PDF, Bildschirm und Deckblatt. */
+const ORIGIN: PdfReportOrigin = 'client'
 
 /**
  * Cutover Teil 1 — der Zustand des react-pdf-Wegs. Er ist ASYNCHRON und dauert wirklich (D19/D20:
@@ -204,8 +208,7 @@ export function StepResult({
         const now = new Date()
         await downloadReportPdf(
           {
-            /* Echt im Browser des Kunden gerechnet und gerendert — s. `PdfReportOrigin`. */
-            origin: 'client',
+            origin: ORIGIN,
             /*
              * Ein geleertes Titelfeld fällt auf den Vorschlag zurück statt eine leere Zeile zu
              * drucken: der Titel ist die einzige Angabe des Deckblatts, die es immer geben muss.
@@ -375,7 +378,7 @@ export function StepResult({
         ohne dessen Durchlauf bleibt der Block leer, statt eine Platzhalterzeile zu zeigen.
       */}
           <div className="mx-auto w-full max-w-6xl px-4 sm:px-6">
-            <PrintCover loadProfile={load.profile} customer={customer ?? undefined} />
+            <PrintCover loadProfile={load.profile} customer={customer ?? undefined} origin={ORIGIN} />
           </div>
 
           <div className="mx-auto flex w-full max-w-6xl flex-col gap-3 px-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
@@ -505,6 +508,7 @@ export function StepResult({
           )}
 
           <Report
+            origin={ORIGIN}
             result={result}
             priceDisplay={priceDisplay}
             loadProfile={load.profile}

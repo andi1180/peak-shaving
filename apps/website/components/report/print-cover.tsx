@@ -1,4 +1,6 @@
 import type { LoadProfile } from 'shared'
+import type { PdfReportOrigin } from '@/lib/pdf-report/types'
+import { DemoDisclaimer } from './demo-disclaimer'
 
 /**
  * Deckblatt des erweiterten Druck-Reports (Delta 16a, §6.2 „Installateur nimmt etwas zum
@@ -49,8 +51,11 @@ function formatPeriod(profile: LoadProfile): string | null {
 export function PrintCover({
   loadProfile,
   customer,
+  origin,
 }: {
   loadProfile: LoadProfile
+  /** Nur bei `demo` steht der Vorbehalt auf dem Deckblatt — s. `DemoDisclaimer`. */
+  origin: PdfReportOrigin
   /** Delta 16b. Heute immer `undefined` — s. Kopf. */
   customer?: PrintCoverCustomer
 }) {
@@ -108,10 +113,10 @@ export function PrintCover({
          * den Vorbehalt sehen, bevor er die Zahlen sieht. Derselbe Satz wie am Fuss des
          * Bildschirm-Reports (CLAUDE.md: keine ROI-Zahl als „echt" vor der Validierung).
          */}
-        <p className="mt-10 max-w-prose border-t border-border pt-4 text-xs text-text-muted">
-          Demo-Berechnung mit Beispieldaten. Die Zahlen sind noch nicht gegen einen echten Lastgang
-          und eine echte Netzrechnung validiert.
-        </p>
+        <DemoDisclaimer
+          origin={origin}
+          className="mt-10 max-w-prose border-t border-border pt-4 text-xs text-text-muted"
+        />
       </div>
     </div>
   )
