@@ -162,7 +162,7 @@ describe('Die fünf fehlenden Kostenposten — Urbanz-Zuschnitt, Wiener Netze NE
     expect(BASE.coveredMonths).toBe(8)
   })
 
-  it('jeder der fünf Posten einzeln — und zusammen rund 73 € mehr', () => {
+  it('jeder der fünf Posten einzeln — und zusammen', () => {
     // 1 — Messpreis: 2,18 €/Monat, tagesanteilig über die belegten Tage jedes Monats.
     const messpreis = run(LEVIES_NONE, true)
     expect(messpreis.fixedCosts.meteringFeeEur).toBeCloseTo(15.05, 2)
@@ -199,22 +199,23 @@ describe('Die fünf fehlenden Kostenposten — Urbanz-Zuschnitt, Wiener Netze NE
       6,
     )
 
-    // 5 — Gebrauchsabgabe, hier mit dem festen 7-%-Satz gemessen: sie bemisst sich am Netzpreis,
-    //     also am Netz-Arbeitspreis (6,98 + 0,70 ct/kWh) PLUS Grundpreis und Messpreis.
+    // 5 — Gebrauchsabgabe, hier mit dem festen 7-%-Satz gemessen: sie bemisst sich an Energie
+    //     (9,5 ct/kWh) UND Netz-Arbeitspreis (6,98 + 0,70 ct/kWh) PLUS Grundpreis und Messpreis
+    //     (WGAG Tarif C Post 1 und 1a).
     const abgabe = run(onlyLevy({ gebrauchsabgabeRate: 0.07 }), true)
-    const netzArbeitEur = (TOTAL_KWH * (WN_NORMAL_CT + WN_NETZVERLUST_CT)) / 100
+    const arbeitEur = (TOTAL_KWH * (TARIFF.energyPriceCtPerKwh + WN_NORMAL_CT + WN_NETZVERLUST_CT)) / 100
     const netzFixEur = messpreis.fixedCosts.networkBaseFeeEur + messpreis.fixedCosts.meteringFeeEur
     expect(abgabe.fixedCosts.usageChargeOnFixedEur).toBeCloseTo(netzFixEur * 0.07, 6)
     expect(sum(abgabe.currentTariffEur) - sum(messpreis.currentTariffEur)).toBeCloseTo(
-      (netzArbeitEur + netzFixEur) * 0.07,
+      (arbeitEur + netzFixEur) * 0.07,
       6,
     )
 
     // Alle fünf gemeinsam, mit den ECHTEN datierten Sätzen (6 % bis 28.02., danach 7 %).
     const full = run(levySchedule(), true)
     const delta = sum(full.currentTariffEur) - sum(BASE.currentTariffEur)
-    expect(delta).toBeGreaterThan(82)
-    expect(delta).toBeLessThan(87)
+    expect(delta).toBeGreaterThan(110)
+    expect(delta).toBeLessThan(116)
   })
 
   it('⚠ die Abgaben stehen in ALLEN DREI Reihen, nicht nur bei „Ihr Tarif heute"', () => {
@@ -228,14 +229,25 @@ describe('Die fünf fehlenden Kostenposten — Urbanz-Zuschnitt, Wiener Netze NE
      * Mit einem echten Dispatch fällt der dritte HÖHER aus, und das ist richtig: die Ladeverluste
      * erhöhen die bezogene Energiemenge, und die beiden ct/kWh-Abgaben hängen an ihr.
      */
-    const full = run(levySchedule(), true)
-    const deltas = (
-      ['currentTariffEur', 'spotWithoutControlEur', 'spotWithBatteryEur'] as const
-    ).map((key) => sum(full[key]) - sum(BASE[key]))
+    const SERIES = ['currentTariffEur', 'spotWithoutControlEur', 'spotWithBatteryEur'] as const
+    const withoutUsage = {
+      periods: levySchedule().periods.map((p) => ({ ...p, gebrauchsabgabeRate: 0 })),
+    }
+    const full = run(withoutUsage, true)
+    const deltas = SERIES.map((key) => sum(full[key]) - sum(BASE[key]))
 
     expect(deltas[1]).toBeCloseTo(deltas[0]!, 9)
     expect(deltas[2]).toBeCloseTo(deltas[0]!, 9)
-    expect(deltas[0]).toBeGreaterThan(82)
+
+    /*
+     * Die Gebrauchsabgabe dagegen folgt dem Energiepreis JEDER Reihe (WGAG Tarif C Post 1a): mit
+     * 7 % allein wächst jede Reihe um genau 7 % ihrer abgabenfreien Summe, denn Energie, Netz und
+     * Grundgebühren sind vollständig Bemessungsgrundlage (keine Einspeisung in diesem Fixture).
+     */
+    const usage = run(onlyLevy({ gebrauchsabgabeRate: 0.07 }), false)
+    for (const key of SERIES) {
+      expect(sum(usage[key]) - sum(BASE[key])).toBeCloseTo(sum(BASE[key]) * 0.07, 9)
+    }
     // Die Grundgebühren-Zuordnung bleibt davon unberührt: aWATTar zahlt weiter seine eigene.
     expect(full.fixedCosts.awattarBaseFeeEur).toBeCloseTo(
       (AWATTAR_BASE_FEE.eurPerMonth * 209) / 30.5,

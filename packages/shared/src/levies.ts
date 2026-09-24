@@ -66,9 +66,10 @@ export type LevyPeriodInput = {
    */
   eagPauschaleEurPerYear: number
   /**
-   * Gebrauchsabgabe als ANTEIL (0,07 = 7 %), und zwar AUSSCHLIESSLICH auf den Netto-NETZPREIS:
-   * Netznutzung, Netzverlust, Netz-Grundpreis und Messpreis. Nicht auf Arbeitspreis,
-   * Lieferanten-Grundgebühr, Elektrizitätsabgabe oder die EAG-Beiträge (Quelle s. unten).
+   * Gebrauchsabgabe als ANTEIL (0,07 = 7 %) auf die Netto-Einnahmen von Netzbetreiber UND
+   * Lieferant: Netznutzung, Netzverlust, Netz-Grundpreis, Messpreis, Energie-Arbeitspreis und
+   * Lieferanten-Grundgebühr (Wiener GAG Tarif C Post 1 und 1a). Nicht auf Elektrizitätsabgabe oder
+   * die EAG-Beiträge (§ 10 Abs. 1 lit. b). Bis 24.09.2026 stand hier „nur Netzpreis“.
    */
   gebrauchsabgabeRate: number
 }
@@ -312,27 +313,28 @@ const GEBRAUCHSABGABE_BY_OPERATOR: Record<string, (DatedEntry & { rate: number }
       validUntil: '2025-12-31',
       rate: 0.06,
       sourceNote:
-        'Gebrauchsabgabe Wien 6 % vom Netto-Netzpreis im Kalenderjahr 2025. Quelle: Wiener Netze, ' +
-        '„Steuern und Abgaben für Netzleistungen" (wn-ex0106) — „Für KundInnen aus Wien beträgt ' +
-        'die Abgabe 6 % vom Netto-Netzpreis"; die Fassungen 2024 und 2026 stimmen für diesen ' +
-        'Zeitraum überein. Im Repo festgehalten am 22.09.2026.',
+        'Gebrauchsabgabe Wien 6 % im Kalenderjahr 2025 (Wiener Gebrauchsabgabegesetz 1966 Tarif C ' +
+        'Post 1 und 1a — Netz und Energie). Netzseite: Wiener Netze wn-ex0106 „6 % vom ' +
+        'Netto-Netzpreis"; Energieseite bestätigt die Urbanz-Rechnung 2024/25. Stand 24.09.2026.',
     },
     {
       validFrom: '2026-01-01',
       validUntil: '2026-02-28',
       rate: 0.06,
       sourceNote:
-        'Gebrauchsabgabe Wien 6 % vom Netto-Netzpreis bis 28.02.2026 (wienernetze.at). ' +
-        'Im Repo festgehalten am 21.09.2026.',
+        'Gebrauchsabgabe Wien 6 % bis 28.02.2026: Wiener Gebrauchsabgabegesetz 1966 Tarif C Post 1 ' +
+        'und 1a, RIS-Fassung vom 28.02.2026 („6 vH"). Bemessung: Netz- und Energieentgelte. ' +
+        'Abgerufen 24.09.2026.',
     },
     {
       validFrom: '2026-03-01',
       validUntil: null,
       rate: 0.07,
       sourceNote:
-        'Gebrauchsabgabe Wien 7 % vom Netto-Netzpreis ab 01.03.2026 (wienernetze.at). ' +
-        'Bemessungsgrundlage sind Netznutzung, Netzverlust, Netz-Grundpreis und Messpreis — ' +
-        'ausdrücklich NICHT Arbeitspreis, Lieferanten-Grundgebühr oder die übrigen Abgaben.',
+        'Gebrauchsabgabe Wien 7 % ab 01.03.2026: Wiener Gebrauchsabgabegesetz 1966 Tarif C Post 1 ' +
+        '(Netzbetreiber) und Post 1a (Lieferant), je „7 vH der Einnahmen", Novelle LGBl. für Wien ' +
+        'Nr. 3/2026, Inkrafttreten § 18 Abs. 18 Z 1. Bemessung: Netz- UND Energieentgelte samt ' +
+        'Grundgebühren, ohne Elektrizitätsabgabe/EAG (§ 10 Abs. 1 lit. b). Abgerufen 24.09.2026.',
     },
   ],
 }

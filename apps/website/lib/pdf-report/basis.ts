@@ -1198,7 +1198,7 @@ const SHARED_METHOD_BODY =
   'Alle Wege entstehen aus DERSELBEN Rechnung, Viertelstunde für Viertelstunde: Ihr Netzbezug mal ' +
   'dem Preis genau dieser Viertelstunde — Arbeitspreis plus das Netzentgelt des Zeitfensters, in ' +
   'das sie fällt, plus Netzverlustaufschlag und die gesetzlichen Abgaben (Elektrizitätsabgabe, ' +
-  'EAG-Förderbeitrag und -Pauschale, Gebrauchsabgabe auf den Netzpreis). Dazu die ' +
+  'EAG-Förderbeitrag und -Pauschale, Gebrauchsabgabe auf Netz- und Energiepreis). Dazu die ' +
   'verbrauchsunabhängigen Gebühren — Grundgebühr des Lieferanten, Netz-Grundpreis und Messpreis —, ' +
   'tagesanteilig nach den tatsächlich belegten Kalendertagen und nie als voller Monatsbetrag. ' +
   'Eingespeiste Viertelstunden werden mit Ihrer Einspeisevergütung gegengerechnet. Der ' +
@@ -1323,7 +1323,8 @@ export function buildLimitations(analysis: PdfReportAnalysis): ReportNotice {
       ? (basisSentence ?? 'Gerechnet wird durchgängig netto, also ohne Umsatzsteuer.') +
         ` Die Abgaben auf den Bezug sind ${basisSentence ? 'ebenfalls' : 'dagegen'} enthalten: ` +
         'Elektrizitätsabgabe, EAG-Förderbeitrag und EAG-Pauschale sowie die ' +
-        'Gebrauchsabgabe auf den Netzpreis stecken in den Monatskosten und damit in den ' +
+        'Gebrauchsabgabe auf Netz- und Energiepreis samt Grundgebühren stecken in den ' +
+        'Monatskosten und damit in den ' +
         'Kopfzahlen. Auf den Leistungspreis, der als eigene Jahreszahl ausgewiesen wird, ist die ' +
         'Gebrauchsabgabe nicht aufgeschlagen.'
       : (basisSentence ?? 'Gerechnet wird durchgängig netto.') +

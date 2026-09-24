@@ -280,9 +280,9 @@ export type MonthlyFixedCosts = {
    * Gebrauchsabgabe auf die beiden NETZ-Fixposten (Grundpreis + Messpreis), anteilig.
    *
    * ⚠ Sie steht hier getrennt und nicht in den beiden Posten eingerechnet, damit der Report sagen
-   * kann, worauf sie anfällt — sie bemisst sich ausdrücklich nicht an den Lieferantengebühren.
-   * Der verbrauchsABHÄNGIGE Teil der Gebrauchsabgabe steckt dagegen im Intervallpreis und nicht
-   * in diesem Feld.
+   * kann, worauf sie anfällt. Die Gebrauchsabgabe auf die Lieferantengebühren (WGAG Tarif C
+   * Post 1a) ist je Reihe verschieden und steckt deshalb nur in der jeweiligen Monatsreihe; der
+   * verbrauchsABHÄNGIGE Teil steckt im Intervallpreis. Beide stehen nicht in diesem Feld.
    */
   usageChargeOnFixedEur: number
   /** Grundgebühr des HEUTIGEN Lieferanten — ausschliesslich in „Ihr Tarif heute". */

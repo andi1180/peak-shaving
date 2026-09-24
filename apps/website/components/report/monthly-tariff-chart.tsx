@@ -326,9 +326,10 @@ export function MonthlyTariffChart({
           <li>
             <strong>Abgaben auf den Bezug</strong>: Elektrizitätsabgabe und EAG-Förderbeitrag je
             Kilowattstunde, die EAG-Pauschale anteilig mit{' '}
-            <Num className="text-ink">{formatEur2(fixed.eagFlatFeeEur)}</Num>, dazu die
-            Gebrauchsabgabe auf den Netzpreis. Sie gelten unabhängig vom Lieferanten und stehen
-            deshalb in allen drei Reihen gleich hoch.
+            <Num className="text-ink">{formatEur2(fixed.eagFlatFeeEur)}</Num> — unabhängig vom
+            Lieferanten und deshalb in allen drei Reihen gleich hoch. Dazu, wo sie anfällt, die
+            Gebrauchsabgabe auf Netz- und Energiepreis samt Grundgebühren; sie folgt dem
+            Energiepreis der jeweiligen Reihe.
           </li>
           <li>
             <strong>Grundgebühr Ihres heutigen Lieferanten</strong>:{' '}

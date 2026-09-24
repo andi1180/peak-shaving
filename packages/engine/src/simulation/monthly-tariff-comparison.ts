@@ -47,10 +47,10 @@ import { combinedIntervalPrices } from './tou'
  *     kürzt sich aus jeder Differenz heraus und macht nur die absoluten Zahlen richtig.
  *   • Messpreis des Netzbetreibers → ebenfalls in alle drei: der Zähler hängt am Anschluss.
  *   • EAG-Pauschale → ebenfalls in alle drei: eine gesetzliche Abgabe, kein Vertragsbestandteil.
- *   • Gebrauchsabgabe auf Netz-Grundpreis + Messpreis → ebenfalls in alle drei. Die Abgabe bemisst
- *     sich am NETZ-Preis; die beiden Lieferantengebühren unten gehören ausdrücklich NICHT dazu.
- *   • Grundgebühr des heutigen Lieferanten → nur „Ihr Tarif heute".
- *   • Grundgebühr von aWATTar (`AWATTAR_BASE_FEE`) → nur in die beiden aWATTar-Reihen.
+ *   • Gebrauchsabgabe auf Netz-Grundpreis + Messpreis → ebenfalls in alle drei.
+ *   • Grundgebühr des heutigen Lieferanten → nur „Ihr Tarif heute", samt Gebrauchsabgabe darauf
+ *     (WGAG Tarif C Post 1a erfasst die Einnahmen des Lieferanten).
+ *   • Grundgebühr von aWATTar (`AWATTAR_BASE_FEE`) → nur in die beiden aWATTar-Reihen, ebenso.
  *
  * ── ⚠ ANTEILIG NACH ABGEDECKTEN KALENDERTAGEN, NIE ALS VOLLER MONATSBETRAG ────────────────────
  * Ein Lastgang, der am 20. beginnt, trägt für diesen Monat elf Dreissigstel. Der volle Betrag stünde
@@ -256,6 +256,11 @@ export function buildMonthlyTariffComparison(
   const supplierFix = new Array<number>(12).fill(0)
   const awattarFix = new Array<number>(12).fill(0)
   const comparisonFix = new Array<number>(12).fill(0)
+  // Gebrauchsabgabe auf die Lieferanten-Grundgebühr (WGAG Tarif C Post 1a) — je Reihe, weil jede
+  // Reihe ihre eigene Gebühr trägt. Die Gebührenfelder in `fixedCosts` bleiben netto.
+  const supplierLevyFix = new Array<number>(12).fill(0)
+  const awattarLevyFix = new Array<number>(12).fill(0)
+  const comparisonLevyFix = new Array<number>(12).fill(0)
 
   for (const date of coveredDates) {
     const year = Number(date.slice(0, 4))
@@ -292,13 +297,17 @@ export function buildMonthlyTariffComparison(
     if (levy?.eagFoerderbeitragGrundpreisUnit === 'eur_per_year') {
       eagFlatFix[idx]! += levy.eagFoerderbeitragGrundpreisAmount * yearShare
     }
-    // Bemessungsgrundlage: die beiden NETZ-Fixposten. Die Lieferantengebühren stehen bewusst
-    // draussen, die EAG-Pauschale ebenfalls — eine Abgabe bemisst sich nicht an einer Abgabe.
-    usageChargeFix[idx]! += (networkDay + meteringDay) * (levy?.gebrauchsabgabeRate ?? 0)
+    // Bemessungsgrundlage hier: die beiden NETZ-Fixposten; die Lieferantengebühren folgen je Reihe.
+    // Die EAG-Pauschale steht draussen — eine Abgabe bemisst sich nicht an einer Abgabe.
+    const usageRate = levy?.gebrauchsabgabeRate ?? 0
+    usageChargeFix[idx]! += (networkDay + meteringDay) * usageRate
     supplierFix[idx]! += supplierFeeEurPerMonth * monthShare
+    supplierLevyFix[idx]! += supplierFeeEurPerMonth * monthShare * usageRate
     awattarFix[idx]! += awattarFeeEurPerMonth * monthShare
+    awattarLevyFix[idx]! += awattarFeeEurPerMonth * monthShare * usageRate
     if (comparisonTariff) {
       comparisonFix[idx]! += comparisonTariff.baseFeeEurPerMonth * monthShare
+      comparisonLevyFix[idx]! += comparisonTariff.baseFeeEurPerMonth * monthShare * usageRate
     }
   }
 
@@ -307,10 +316,11 @@ export function buildMonthlyTariffComparison(
     // Lieferanten-Gebühren jeweils nur dorthin, wo sie tatsächlich anfallen.
     const shared =
       networkFix[idx]! + meteringFix[idx]! + eagFlatFix[idx]! + usageChargeFix[idx]!
-    current[idx]! += shared + supplierFix[idx]!
-    withoutControl[idx]! += shared + awattarFix[idx]!
-    if (gridAfterKw) withBattery[idx]! += shared + awattarFix[idx]!
-    comparison[idx]! += shared + comparisonFix[idx]!
+    const awattar = awattarFix[idx]! + awattarLevyFix[idx]!
+    current[idx]! += shared + supplierFix[idx]! + supplierLevyFix[idx]!
+    withoutControl[idx]! += shared + awattar
+    if (gridAfterKw) withBattery[idx]! += shared + awattar
+    comparison[idx]! += shared + comparisonFix[idx]! + comparisonLevyFix[idx]!
   }
 
   const sum = (values: number[]): number => values.reduce((a, b) => a + b, 0)

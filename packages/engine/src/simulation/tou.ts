@@ -123,8 +123,7 @@ export type CombinedIntervalPrices =
 /**
  * Der kombinierte Intervallpreis (Delta 4):
  *
- *     effectivePriceCtPerKwh(t) = energyPrice(t)
- *                               + netzVerbrauchspreis(t) × (1 + Gebrauchsabgabe(t))
+ *     effectivePriceCtPerKwh(t) = (energyPrice(t) + netzVerbrauchspreis(t)) × (1 + Gebrauchsabgabe(t))
  *                               + Elektrizitätsabgabe(t) + EAG-Förderbeitrag(t)
  *
  * mit `netzVerbrauchspreis(t) = Fensterpreis(t) + Netzverlust`. Der Netzverlust ist zeitunabhängig
@@ -137,8 +136,9 @@ export type CombinedIntervalPrices =
  * Balken zwei verschieden zusammengesetzte Rechnungen, und die spätere Gegenüberstellung mehrerer
  * Wege stünde auf zwei Massstäben.
  *
- * ⚠ Die Gebrauchsabgabe multipliziert AUSSCHLIESSLICH den Netzanteil. Auf den Arbeitspreis
- * angewandt wäre sie die umstrittene Zweitpraxis einzelner Lieferanten und nicht belegt.
+ * ⚠ Die Gebrauchsabgabe multipliziert Netz- UND Energieanteil: Wiener GAG Tarif C Post 1 erfasst
+ * die Einnahmen des Netzbetreibers, Post 1a die des Lieferanten, beide mit demselben Satz. Nicht
+ * darauf: Elektrizitätsabgabe und EAG-Beiträge (§ 10 Abs. 1 lit. b).
  *
  * Schlägt die Zuordnung für auch nur EIN Intervall fehl, ist der Hebel für die GANZE Analyse nicht
  * berechenbar — nicht für den Rest berechnet und für die Lücke geschätzt. Delta 15 Regel C nennt
@@ -287,7 +287,7 @@ export function combinedIntervalPrices(
     const energyCt = energyPriceCtPerKwh ?? spot?.ctPerKwh ?? null
     prices[i] =
       row && window && levy && energyCt != null
-        ? energyCt + levyOnGridWorkPrice(window.ctPerKwh + row.netzverlustCtPerKwh, levy)
+        ? levyOnWorkPrice(energyCt, window.ctPerKwh + row.netzverlustCtPerKwh, levy)
         : Number.NaN
   }
 
@@ -336,15 +336,15 @@ export function combinedIntervalPrices(
 }
 
 /**
- * Der Netz-Arbeitspreis mit Gebrauchsabgabe, plus die beiden verbrauchsabhängigen Abgaben.
+ * Energie- und Netz-Arbeitspreis mit Gebrauchsabgabe, plus die beiden verbrauchsabhängigen Abgaben.
  *
  * Eigene Funktion, weil die Bemessungsgrundlage der Gebrauchsabgabe die eigentliche fachliche
- * Aussage ist: multipliziert wird NUR der Netzanteil, die beiden Abgaben kommen danach dazu und
- * werden nicht mitbesteuert.
+ * Aussage ist: multipliziert werden Energie und Netz (WGAG Tarif C Post 1 und 1a), die beiden
+ * Abgaben kommen danach dazu und werden nicht mitbesteuert.
  */
-function levyOnGridWorkPrice(netzCtPerKwh: number, levy: LevyPeriodInput): number {
+function levyOnWorkPrice(energyCtPerKwh: number, netzCtPerKwh: number, levy: LevyPeriodInput): number {
   return (
-    netzCtPerKwh * (1 + levy.gebrauchsabgabeRate) +
+    (energyCtPerKwh + netzCtPerKwh) * (1 + levy.gebrauchsabgabeRate) +
     levy.elektrizitaetsabgabeCtPerKwh +
     levy.eagFoerderbeitragCtPerKwh
   )
