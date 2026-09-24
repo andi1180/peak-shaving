@@ -93,9 +93,9 @@ function candidatesOf(analysis: PdfReportAnalysis): {
  *
  * Die Komponente wirft nicht-endliche Werte aus der Achse (ein `Infinity` zöge sie ins Unendliche
  * und machte alle übrigen Punkte unlesbar) und rendert bei weniger als zwei verbleibenden Punkten
- * GAR NICHTS — eine Linie durch einen Punkt ist keine Kurve. Gäbe es dann trotzdem einen
- * Rasterauftrag, liefe `captureChart` acht Sekunden in eine Zeitüberschreitung und setzte eine
- * technische Meldung an die Stelle einer Aussage. Dieselbe Überlegung wie bei
+ * GAR NICHTS — ein einzelner Punkt zeigt keinen Grenznutzen, der braucht einen Vergleich. Gäbe es
+ * dann trotzdem einen Rasterauftrag, liefe `captureChart` acht Sekunden in eine Zeitüberschreitung
+ * und setzte eine technische Meldung an die Stelle einer Aussage. Dieselbe Überlegung wie bei
  * `hasRepresentativeDay` (`detail.ts`) und der Heatmap-Vorbedingung (`insight.ts`).
  */
 function drawablePoints(candidates: ComparisonCandidate[]): ComparisonCandidate[] {
@@ -237,11 +237,11 @@ function neutralRow(label: string, value: string): ReportRow {
 }
 
 /**
- * Die Bildunterschrift der Kurve.
+ * Die Bildunterschrift der Punktwolke.
  *
  * ⚠ Sie beschreibt das BILD, nicht die Karte: gerastert wird der Recharts-Zeichenbereich, die
  * beiden erklärenden Absätze der Komponente (Achsenwahl und „keine stetige Kurve") liegen
- * ausserhalb und stehen im PDF hier. Ohne sie stünde eine Linie durch fünf Punkte da, deren
+ * ausserhalb und stehen im PDF hier. Ohne sie stünden fünf Punkte ohne Verbindung da, deren
  * Y-Achse man für die Jahresersparnis halten könnte — und das ist genau die Verwechslung, gegen
  * die die Komponente ihre Achse gewählt hat.
  */
@@ -254,7 +254,7 @@ function buildFigure(plan: ComparisonChartPlan, basis: DisplayPriceBasis): Repor
       `${which}. Über der waagrechten Nulllinie rechnet sich ein Gerät im Betrachtungszeitraum, ` +
       `darunter nicht. Alle Beträge ${basis === 'gross' ? VAT_INCLUSIVE_LABEL : 'netto (ohne USt.)'}.`,
     note:
-      `Die Linie verbindet ${plan.points.length} Geräte, sie interpoliert nichts dazwischen: mit ` +
+      `Es sind ${plan.points.length} Geräte unseres Katalogs, keine stetige Kurve: mit ` +
       'der Kapazität ändert sich auch die Leistung, und ein Gerät, das zwischen zwei Punkten läge, ' +
       'gibt es im Katalog nicht — seinen Preis kennen wir also auch nicht. Gemessen ist die ' +
       'Netto-Ersparnis über den Zeitraum und ausdrücklich nicht die Jahresersparnis: die steigt mit ' +
@@ -263,10 +263,10 @@ function buildFigure(plan: ComparisonChartPlan, basis: DisplayPriceBasis): Repor
   }
 }
 
-/** Warum keine Kurve da ist — erreichbar nur bei einem einzigen Kandidaten. */
+/** Warum keine Punktwolke da ist — erreichbar nur bei einem einzigen Kandidaten. */
 const FIGURE_MISSING =
-  'Für diesen Report ist keine Grenznutzen-Kurve abgebildet: es liegt nur ein einziges ' +
-  'durchgerechnetes Gerät vor, und eine Linie durch einen Punkt ist keine Kurve. Die Zahlen ' +
+  'Für diesen Report ist keine Grenznutzen-Grafik abgebildet: es liegt nur ein einziges ' +
+  'durchgerechnetes Gerät vor, und ein einzelner Punkt zeigt keinen Grenznutzen. Die Zahlen ' +
   'dieses Reports sind davon nicht betroffen — sie stammen aus der Berechnung, nicht aus der ' +
   'Abbildung.'
 

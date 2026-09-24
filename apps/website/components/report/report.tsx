@@ -669,9 +669,9 @@ export function Report({
       </div>
       {/*
         ⚠ UNBEDINGT — ausdrücklich NICHT an `netSavingOverHorizon > 0` gekoppelt. Rechnet sich
-        keines der Geräte, ist diese Kurve die BEGRÜNDUNG des Klarsatzes darunter: sie zeigt, dass
-        die Linie über alle Grössen unter der Nulllinie bleibt und nicht bloss knapp danebenliegt.
-        Ein Klarsatz ohne Bild wäre eine Behauptung, die der Kunde nicht nachprüfen kann.
+        keines der Geräte, ist diese Grafik die BEGRÜNDUNG des Klarsatzes darunter: sie zeigt, dass
+        alle Punkte unter der Nulllinie bleiben und keiner bloss knapp danebenliegt. Ein Klarsatz
+        ohne Bild wäre eine Behauptung, die der Kunde nicht nachprüfen kann.
       */}
       <MarginalBenefitChart
         points={existingAnalysis.addonScenarios}

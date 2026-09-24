@@ -304,8 +304,8 @@ describe('Kapitel „Unser Vorschlag" — Abschnitt „Was wir vorschlagen"', ()
 })
 
 describe('Kapitel „Unser Vorschlag" — Abschnitt „Woher diese Zahlen stammen"', () => {
-  /* Jeder Satz nur, wenn die Angabe dahinter belegt ist — und kein Satz über PV ohne PV-Kapitel. */
-  it('nennt nur die belegten Quellen', () => {
+  /* Seit 24.09.2026 ein Verweis statt einer Aufzählung — Details stehen im Basis-Kapitel. */
+  it('verweist auf das Kapitel „Annahmen und Datengrundlage" statt Details aufzuzählen', () => {
     const input = inputFor(
       analysisWith({
         comparison: comparisonWith({ current: 1000, comparison: 1100, spot: 900, battery: 800 }),
@@ -320,13 +320,10 @@ describe('Kapitel „Unser Vorschlag" — Abschnitt „Woher diese Zahlen stamme
     const provenance = buildAdviceChapter(input).provenance
     const body = resolveReportText(provenance!.body, layoutFor(input), provenance!.id)
 
-    expect(body).toContain('aus Ihren eigenen Angaben')
-    expect(body).toContain('Wiener Netze')
-    expect(body).toContain('gültig ab 01.01.2026')
-    expect(body).toContain('EAG-Förderbeitrag')
-    expect(body).toContain('historischen Stundenpreise')
-    /* Ohne PV-Kapitel kein Satz über die Rekonstruktion. */
-    expect(body).not.toContain('PVGIS')
+    expect(body).toContain('Annahmen und Datengrundlage')
+    /* Die Details stehen nicht mehr hier, sondern nur noch im Basis-Kapitel. */
+    expect(body).not.toContain('Wiener Netze')
+    expect(body).not.toContain('gültig ab 01.01.2026')
   })
 
   /*

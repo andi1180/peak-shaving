@@ -63,6 +63,7 @@ import type { ReportBaukastenId, ReportBaukastenRegistry } from './registry'
 import { buildWaysChapter } from './ways'
 import { buildAnnualScenarioChapter } from './annual-scenario'
 import { buildPvValueChapter } from './pv-value'
+import { SHOW_PV_VALUE_AMOUNTS } from './report-flags'
 import {
   resolveReportSegments,
   resolveReportText,
@@ -194,20 +195,26 @@ const styles = StyleSheet.create({
     color: PDF_COLORS.accent,
     letterSpacing: 0.6,
   },
-  /* Dokumenttitel am rechten Kopfzeilenrand — was der Leser in der Hand hält, auf jedem Blatt. */
+  /* Dokumenttitel am rechten Kopfzeilenrand — was der Leser in der Hand hält, auf jedem Blatt.
+     `marginLeft` statt allein auf `flexGrow` zu vertrauen: sonst rückt der Kundenname direkt an
+     die Wortmarke heran, sobald die Zeile eng ist ("COOLiNENERGYMarkus Urbanz"). */
   headerDoc: {
     ...LEADING,
     flexGrow: 1,
+    marginLeft: 10,
     textAlign: 'right',
     fontSize: PDF_TYPE.small,
     color: PDF_COLORS.textMuted,
   },
   headerMark: { width: 13, height: 13 },
+  /* `marginRight` schliesst die Lücke, die `.split(' ')` beim Trennen der Wortmarke verschluckt
+     — sonst rendern die beiden Text-Knoten flächenbündig als "COOLiNENERGY". */
   headerWordmark: {
     fontSize: PDF_TYPE.small,
     fontWeight: 600,
     color: PDF_COLORS.navy,
     letterSpacing: 0.6,
+    marginRight: 3,
   },
   /**
    * ⚠ D15 Block 1, Punkt 7: 2 pt Navy → 1,6 pt Akzent. Der Navy-Balken war so schwer wie die
@@ -1802,12 +1809,15 @@ function PvValueChapter({
       <Text style={styles.h2}>{PV_VALUE_SECTION.title}</Text>
       <Text style={styles.lead}>{PV_VALUE_INTRO}</Text>
 
-      <ChartFigure
-        raster={charts.pvSelfConsumption}
-        caption={chapter?.figure.caption ?? ''}
-        note={chapter?.figure.note}
-        missing={figureMissingText('Das Monatsdiagramm')}
-      />
+      {/* ⚠ Hinter `SHOW_PV_VALUE_AMOUNTS` — s. `report-flags.ts`. Der Monatsbalken behauptet Beträge. */}
+      {SHOW_PV_VALUE_AMOUNTS && (
+        <ChartFigure
+          raster={charts.pvSelfConsumption}
+          caption={chapter?.figure.caption ?? ''}
+          note={chapter?.figure.note}
+          missing={figureMissingText('Das Monatsdiagramm')}
+        />
+      )}
       {chapter?.statements.map((statement) => (
         <Statement key={statement.id} statement={statement} layout={layout} />
       ))}

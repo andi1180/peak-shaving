@@ -4,7 +4,7 @@ import { formatEur } from '@/lib/format'
 import { CONTROLLED_WAY_LABEL } from '@/lib/report-copy'
 import { formatIsoDate } from './basis'
 import { comparisonSelection, hasComparisonChapter } from './comparison'
-import { PV_VALUE_SECTION } from './content'
+import { BASIS_SECTION, PV_VALUE_SECTION } from './content'
 import { hasPvValueChapter } from './pv-value'
 import { block, ref, t, REF_PLACE } from './report-text'
 import type { ReportPoint, ReportStatement } from './statement'
@@ -36,12 +36,13 @@ import type { PdfReportInput } from './types'
  * Rendern aus der Reihenfolge der übriggebliebenen Punkte (`statementPoints`, `statement.ts`);
  * eine hier vergebene Nummer risse beim nächsten entfallenden Punkt eine Lücke in die Zählung.
  *
- * ── ⚠ DER ZWEITE ABSCHNITT IST EINE TEXTKOMPOSITION, KEINE ZWEITE DATENQUELLEN-TABELLE ────────
- * Er sagt in Fliesstext, woher die Zahlen stammen, und zieht dafür ausschliesslich Felder heran,
- * die die Übergabe ohnehin trägt. Jeder Satz steht nur, wenn die Angabe dahinter BELEGT ist — was
- * nicht nachverfolgt ist, wird hier gar nicht erwähnt statt als Leerstelle ausgeschrieben. Die
- * ausgeschriebene Leerstelle ist die Aufgabe der Datenquellen-Tabelle im Kapitel danach
- * (`basis.ts`), und sie ist dort richtig: wer dort liest, prüft die Belastbarkeit.
+ * ── ⚠ DER ZWEITE ABSCHNITT IST EIN VERWEIS, KEINE ZWEITE DATENQUELLEN-TABELLE ──────────────────
+ * Er nennt keine Herkunftsangaben mehr selbst, sondern zeigt auf das Kapitel, das sie ausführlich
+ * trägt (`basis.ts`, „Annahmen und Datengrundlage") — Abrechnungszeitraum, Preisblatt-Stand,
+ * Abgabensätze, aWATTar-Stundenpreise und die PV-Rekonstruktion stehen dort bereits, eine zweite
+ * Aufzählung hier liefe beim nächsten Ausbau von ihr weg. Er steht trotzdem nur, wenn ÜBERHAUPT
+ * etwas Nachverfolgbares vorliegt (`provenanceSentences`) — sonst zeigte er auf ein Kapitel, das
+ * für diesen Report nichts zu belegen hat.
  *
  * ── ⚠ DIESE DATEI DARF `@react-pdf/renderer` NICHT ANFASSEN — dieselbe Regel wie überall sonst in
  * diesem Verzeichnis. Gerendert wird in `document.tsx`.
@@ -342,8 +343,7 @@ function provenanceSentences(input: PdfReportInput): string[] {
 }
 
 export function buildProvenance(input: PdfReportInput): ReportStatement | null {
-  const sentences = provenanceSentences(input)
-  if (sentences.length === 0) return null
+  if (provenanceSentences(input).length === 0) return null
 
   return {
     id: 'advice_provenance',
@@ -351,13 +351,14 @@ export function buildProvenance(input: PdfReportInput): ReportStatement | null {
      * ⚠ DER TITEL WEICHT VOM ZIELBILD AB („Wie diese Zahlen entstanden sind"), UND ZWAR BEWUSST:
      * genau dieser Satz steht als Vorspann des Kapitels davor („Methodik & Vorbehalte",
      * `METHODOLOGY_INTRO`). Zwei aufeinanderfolgende Seiten mit derselben Überschriftszeile lesen
-     * sich wie ein Doppeldruck. Was hier steht, sind ausserdem QUELLEN und Stände, nicht
-     * Rechenwege — die stehen im Kapitel davor und, je Kennzahl, im Kapitel danach.
+     * sich wie ein Doppeldruck.
      */
     title: 'Woher diese Zahlen stammen',
     amount: null,
     rows: [],
-    body: sentences.join(' '),
+    body: `Abrechnungszeitraum, Preisblatt-Stand, Abgabensätze, aWATTar-Stundenpreise und — sofern ` +
+      `zutreffend — die PV-Rekonstruktion sind ausführlich im Kapitel „${BASIS_SECTION.title}" ` +
+      'nachvollziehbar.',
   }
 }
 
