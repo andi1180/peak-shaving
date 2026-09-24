@@ -561,7 +561,7 @@ export async function buildReportCharts(input: PdfReportInput): Promise<ReportCh
    * Die Grenznutzen-Kurve.
    *
    * ⚠ `comparisonPlan === null` heisst: weniger als zwei zeichenbare Punkte, und dann rendert
-   * `MarginalBenefitChart` bewusst gar nichts (eine Linie durch einen Punkt ist keine Kurve).
+   * `MarginalBenefitChart` bewusst gar nichts (ein einzelner Punkt zeigt keinen Grenznutzen).
    * Ohne diese Vorbedingung liefe `captureChart` acht Sekunden in die Zeitüberschreitung — wie bei
    * Energiefluss und Heatmap. Die Begründung steht im Dokument (`comparison.ts`, `figureMissing`).
    *

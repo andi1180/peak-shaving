@@ -2,6 +2,7 @@ import { displayedPriceLabel } from 'shared'
 import type { PvValueMonth } from 'shared'
 
 import { formatEur, formatKwh } from '@/lib/format'
+import { SHOW_PV_VALUE_AMOUNTS } from './report-flags'
 import type { ReportFigure, ReportRow, ReportStatement } from './statement'
 import type { PdfReportAnalysis } from './types'
 
@@ -138,24 +139,27 @@ export function buildPvValueChapter(analysis: PdfReportAnalysis): PvValueChapter
     },
   ]
 
-  statements.push({
-    id: 'pv_value_measured',
-    title: 'Was Ihre Anlage im ausgewerteten Zeitraum wert war',
-    amount: {
-      value: formatEur(scenario.measured.valueEur),
-      caption: `über ${days} gemessene Tage, ${displayedPriceLabel(analysis)}`,
-      tone: scenario.measured.valueEur >= 0 ? 'positive' : 'negative',
-    },
-    rows: measuredRows,
-    body:
-      'Beide Beträge sind mit derselben Rechnung entstanden, mit der auch „Ihr Tarif heute" weiter ' +
-      'vorne gebildet wird — gleicher Arbeitspreis, gleiche Netzentgelte, gleiche Abgaben. ' +
-      'Getauscht ist genau eine Sache: der Lastgang. ' +
-      `Angesetzt sind dafür ${formatKwh(scenario.estimatedGenerationKwh)} geschätzte Erzeugung ` +
-      'über den Zeitraum.',
-  })
+  /* ⚠ Hinter `SHOW_PV_VALUE_AMOUNTS` — s. `report-flags.ts` für den Grund. Bau bleibt vollständig. */
+  if (SHOW_PV_VALUE_AMOUNTS) {
+    statements.push({
+      id: 'pv_value_measured',
+      title: 'Was Ihre Anlage im ausgewerteten Zeitraum wert war',
+      amount: {
+        value: formatEur(scenario.measured.valueEur),
+        caption: `über ${days} gemessene Tage, ${displayedPriceLabel(analysis)}`,
+        tone: scenario.measured.valueEur >= 0 ? 'positive' : 'negative',
+      },
+      rows: measuredRows,
+      body:
+        'Beide Beträge sind mit derselben Rechnung entstanden, mit der auch „Ihr Tarif heute" weiter ' +
+        'vorne gebildet wird — gleicher Arbeitspreis, gleiche Netzentgelte, gleiche Abgaben. ' +
+        'Getauscht ist genau eine Sache: der Lastgang. ' +
+        `Angesetzt sind dafür ${formatKwh(scenario.estimatedGenerationKwh)} geschätzte Erzeugung ` +
+        'über den Zeitraum.',
+    })
+  }
 
-  if (scenario.annual) {
+  if (SHOW_PV_VALUE_AMOUNTS && scenario.annual) {
     const annual = scenario.annual
     statements.push({
       id: 'pv_value_annual',
@@ -208,8 +212,9 @@ export function buildPvValueChapter(analysis: PdfReportAnalysis): PvValueChapter
     rows: [],
     aside: true,
     body:
-      'Diese Zahlen sind eine Rekonstruktion und keine zweite Messung: Ihr echter Netzbezug plus ' +
-      'eine aus Wetterdaten (PVGIS) und Ihren Anlagendaten geschätzte Erzeugung. Ein ' +
+      'Der Vergleich mit und ohne PV-Anlage ist eine Rekonstruktion und keine zweite Messung: Ihr ' +
+      'echter Netzbezug plus eine aus Wetterdaten (PVGIS) und Ihren Anlagendaten geschätzte ' +
+      'Erzeugung. Ein ' +
       'Netzbetreiber-Zähler misst am Anschlusspunkt — was Ihre Anlage direkt in den Betrieb ' +
       'liefert, kommt dort nie vorbei und steht nur als gesenkter Bezug darin. Was ohne die ' +
       'Anlage gewesen wäre, kann der Lastgang deshalb nicht zeigen, sondern nur eine Schätzung ' +

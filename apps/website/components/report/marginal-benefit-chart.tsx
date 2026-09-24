@@ -3,9 +3,9 @@
 import {
   CartesianGrid,
   ComposedChart,
-  Line,
   ReferenceLine,
   ResponsiveContainer,
+  Scatter,
   Tooltip,
   XAxis,
   YAxis,
@@ -28,12 +28,12 @@ import { vatNote } from '@/lib/report-copy'
  * Grösse, nach der `rank.ts` sortiert und nach der die Zusatzspeicher-Sektion filtert. Eine
  * andere Kurve als der Report daneben wäre ein zweiter Massstab für dieselbe Entscheidung.
  *
- * ── ⚠ PUNKTWOLKE MIT VERBINDUNGSLINIE, KEINE GLATTE FUNKTION ─────────────────────────────────
+ * ── ⚠ STREUDIAGRAMM OHNE VERBINDUNGSLINIE, KEINE GLATTE FUNKTION ─────────────────────────────
  * Es sind fünf Katalog-Geräte, keine Messreihe über eine stetige Kapazitätsachse. Mit jedem Punkt
- * ändert sich ausser der Kapazität auch die LEISTUNG (und mitunter die Steuerungsart) — die Linie
- * verbindet also Geräte, sie interpoliert keine Zwischengrössen. Eine geglättete Kurve behauptete,
- * ein 32-kWh-Speicher liege auf ihr; den gibt es im Katalog nicht, und seinen Preis kennt niemand.
- * Deshalb `type="linear"`, sichtbare Punkte und ein Hinweis darunter.
+ * ändert sich ausser der Kapazität auch die LEISTUNG (und mitunter die Steuerungsart) — eine
+ * verbindende Linie behauptete deshalb eine Zwischengrösse, die es im Katalog nicht gibt: ein
+ * 32-kWh-Speicher, dessen Preis niemand kennt. Deshalb reine Punkte ohne Linie und ein Hinweis
+ * darunter.
  *
  * ── ⚠ ERSCHEINT AUCH, WENN ALLE PUNKTE NEGATIV SIND ──────────────────────────────────────────
  * Im Bestandsfall ist die Grafik die BEGRÜNDUNG des Klarsatzes „ein zusätzlicher Speicher lohnt
@@ -171,15 +171,21 @@ export function MarginalBenefitChart({
             {/* Die Nulllinie ist die eigentliche Aussage der Grafik — sie trennt „rechnet sich"
                 von „rechnet sich nicht" und steht deshalb kräftiger als das Raster. */}
             <ReferenceLine y={0} stroke="var(--color-text-muted)" strokeWidth={1} />
-            <Line
-              type="linear"
+            <Scatter
               dataKey="netSaving"
               name="Netto über den Betrachtungszeitraum"
-              stroke="var(--color-accent)"
-              strokeWidth={2}
-              dot={{ r: 4, fill: 'var(--color-accent)', stroke: 'var(--color-surface)', strokeWidth: 1 }}
-              activeDot={{ r: 6 }}
+              fill="var(--color-accent)"
               isAnimationActive={false}
+              shape={(props: { cx?: number; cy?: number }) => (
+                <circle
+                  cx={props.cx}
+                  cy={props.cy}
+                  r={4}
+                  fill="var(--color-accent)"
+                  stroke="var(--color-surface)"
+                  strokeWidth={1}
+                />
+              )}
             />
           </ComposedChart>
         </ResponsiveContainer>
@@ -197,16 +203,15 @@ export function MarginalBenefitChart({
             <>
               Am meisten bleibt bei <strong>{best.name}</strong> übrig:{' '}
               <Num>{formatEur(best.netSaving)}</Num> über <Num>{horizonYears}</Num> Jahre.
-              Grössere Geräte sparen zwar mehr, kosten aber auch mehr — die Kurve zeigt, ab wann das
-              eine das andere nicht mehr einholt.
+              Grössere Geräte sparen zwar mehr, kosten aber auch mehr — die Punkte zeigen, ab wann
+              das eine das andere nicht mehr einholt.
             </>
           )}
         </p>
         <p className="mt-2">
           Es sind die <Num>{rows.length}</Num> Geräte unseres Katalogs, keine stetige Kurve: mit der
-          Kapazität ändert sich auch die Leistung. Die Linie verbindet die Punkte,{' '}
-          <strong>sie interpoliert keine Zwischengrössen</strong> — ein Gerät, das dazwischen liegt,
-          gibt es im Katalog nicht, und seinen Preis kennen wir nicht.
+          Kapazität ändert sich auch die Leistung, und ein Gerät, das zwischen zwei Punkten läge,{' '}
+          <strong>gibt es im Katalog nicht</strong> — seinen Preis kennen wir also auch nicht.
         </p>
       </div>
     </div>

@@ -12,6 +12,7 @@ import type { PdfReportInput } from './types'
 import { hasWaysChapter, waysCountOf } from './ways'
 import { hasAnnualScenarioChapter } from './annual-scenario'
 import { hasPvValueChapter } from './pv-value'
+import { SHOW_ANNUAL_SCENARIO_CHAPTER } from './report-flags'
 
 /**
  * Report-Baukasten B1 — die Zwischenwerte, die für EIN Dokument genau einmal entstehen.
@@ -119,7 +120,8 @@ export function buildReportContext(input: PdfReportInput): ReportBuildContext {
     dataQuality: dataQualityNoticeOf(input),
     hasWays: hasWaysChapter(analysis),
     waysCount: waysCountOf(analysis),
-    hasAnnualScenario: hasAnnualScenarioChapter(analysis),
+    /* ⚠ Zusätzlich hinter `SHOW_ANNUAL_SCENARIO_CHAPTER` — s. dort für den Grund. */
+    hasAnnualScenario: SHOW_ANNUAL_SCENARIO_CHAPTER && hasAnnualScenarioChapter(analysis),
     hasPvValue: hasPvValueChapter(analysis),
     /* ⚠ Aus dem BEREITS gebauten Plan gelesen — dieselbe Zusage wie bei `hasInsight` darunter. */
     hasDetail: detailPlan.cost !== null || detailPlan.flow !== null,

@@ -345,7 +345,8 @@ export function buildWaysChapter(analysis: PdfReportAnalysis): WaysChapter | nul
     'statt Ihres festen Arbeitspreises der Börsenpreis der jeweiligen Stunde, statt Ihrer ' +
       'Grundgebühr die von aWATTar. Die Netzseite hängt am Anschluss und nicht am Lieferanten und ' +
       'bleibt unverändert. Gerechnet auf dem rohen Lastgang: nichts wird verschoben, nichts ' +
-      'gespeichert.',
+      'gespeichert. Die verwendeten aWATTar-Preise sind die echten, historischen Stundenpreise ' +
+      'genau dieses Zeitraums — keine Prognose und kein Durchschnittswert.',
   )
 
   if (controlWay) {

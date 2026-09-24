@@ -403,6 +403,8 @@ Nach der Tarif-Station des letzten Zählpunkts: ein "Fertig"-Abschluss mit Hinwe
 
 ### Jahres-Hochrechnung als eigenes Kapitel — geschätzt ist der LASTGANG (22.09.2026)
 
+**⚠ VORLÄUFIG AUSGEBLENDET (24.09.2026, `SHOW_ANNUAL_SCENARIO_CHAPTER` in `apps/website/lib/pdf-report/report-flags.ts`):** die Hochrechnung überhöht das Ergebnis, weil sie jeden fehlenden Tag mit der stärksten Woche füllt — Kapitel bleibt vollständig gebaut, nur die Anzeige ist aus, bis die Engine das behebt.
+
 Neues, bedingtes Report-Kapitel **„Was wäre, wenn wir ein ganzes Jahr hätten?"** direkt hinter den
 fünf Wegen, bei `coveredDays < 365` für jeden Kunden. Der Weg dorthin ist bewusst nicht die
 naheliegende Streckung der Ersparnis-Zahlen: aus der **verbrauchsstärksten zusammenhängenden Woche**
@@ -477,6 +479,8 @@ Lastfaktor zusätzlich gegen eine Handrechnung — **nicht** gegen den Urbanz-Fa
 Produktionspfad (s. Regel 11).
 
 ### Kapitel „Ihre PV-Anlage" — rekonstruiert, nicht gemessen (22.09.2026)
+
+**⚠ €-BLÖCKE VORLÄUFIG AUSGEBLENDET (24.09.2026, `SHOW_PV_VALUE_AMOUNTS` in `apps/website/lib/pdf-report/report-flags.ts`):** sowohl der Zeitraum- als auch der Jahreswert, bis die Hochrechnung (s. o.) geprüft ist. Befund und „Einordnung" bleiben stehen, sie behaupten keinen Betrag.
 
 Neues, bedingtes Report-Kapitel hinter der Jahres-Hochrechnung: **was die BESTEHENDE PV-Anlage über
 den Zeitraum wert war**. Der Lastgang eines Netzbetreiber-Exports beantwortet die Frage „was wäre
