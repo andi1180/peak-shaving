@@ -224,4 +224,15 @@ describe('Jahres-Kapitel (D6 Teil 3)', () => {
     /* Die Kopfzahlen sprechen vom MESSzeitraum; keine Jahreszahl taucht in ihnen auf. */
     expect(JSON.stringify(kpisOf(withScenario))).not.toContain('2.000')
   })
+
+  it('nennt netto statt hartkodiert „exkl. MwSt."', () => {
+    const analysis = analysisWith({ comparison: MEASURED, annualScenario: scenarioWith({}) })
+    const body = String(
+      buildAnnualScenarioChapter(analysis)?.statements.find((s) => s.id === 'annual_scenario_ways')
+        ?.body,
+    )
+
+    expect(body).toContain('netto')
+    expect(body).not.toContain('exkl. MwSt')
+  })
 })

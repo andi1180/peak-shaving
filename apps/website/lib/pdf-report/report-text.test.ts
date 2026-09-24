@@ -351,9 +351,9 @@ describe('catalog_alternatives — Verweis auf das Empfehlungs-Kapitel', () => {
         'Das ' +
         'empfohlene Gerät steht deshalb hier nicht noch einmal: es ist dort vollständig ' +
         'aufgeschlüsselt. Diese Tabelle sagt, was die Alternativen dagegen leisten — und um ' +
-        'welchen Betrag die Empfehlung besser ist. Die §3.8-Hinweise eines Geräts (Betonsockel, ' +
+        'welchen Betrag die Empfehlung besser ist. Die Hinweise zu einem Gerät (Betonsockel, ' +
         'separater Wechselrichter, zu geringe Leistung für alle Spitzen) sind in der Investition ' +
-        'bereits enthalten, stehen hier aber nicht je Zeile — sie stehen beim empfohlenen Gerät.',
+        'bereits enthalten, werden hier aber nicht je Gerät wiederholt — sie stehen beim empfohlenen Gerät.',
     )
   })
 
@@ -563,8 +563,8 @@ describe('Stufe-C-Sperren: `addon` und `table_candidates`', () => {
       'Verglichen wird nach der Netto-Ersparnis über den Betrachtungszeitraum — derselben Grösse ' +
         'wie die Kurve darüber und wie die Empfehlung im Kapitel „Empfehlung und ' +
         'Wirtschaftlichkeit". ' +
-        'Das empfohlene Gerät selbst ist dort vollständig aufgeschlüsselt. Die §3.8-Hinweise ' +
-        'eines Geräts (Betonsockel, separater Wechselrichter, zu geringe Leistung für alle ' +
+        'Das empfohlene Gerät selbst ist dort vollständig aufgeschlüsselt. Die Hinweise zu einem ' +
+        'Gerät (Betonsockel, separater Wechselrichter, zu geringe Leistung für alle ' +
         'Spitzen) sind in der Investition bereits enthalten — sie stehen beim empfohlenen Gerät.',
     )
     expect(ohne).not.toContain('Tabelle')

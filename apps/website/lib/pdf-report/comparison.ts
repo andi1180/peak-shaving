@@ -447,8 +447,8 @@ export function buildTableStatement(
         )} ${recommendationRef('dort', 'beim empfohlenen Gerät')} vollständig aufgeschlüsselt. ${tableRef(
           'Diese Tabelle sagt, was die Alternativen dagegen leisten — und um welchen Betrag die Empfehlung besser ist. ',
           '',
-        )}Die §3.8-Hinweise eines Geräts (Betonsockel, separater Wechselrichter, zu geringe Leistung für alle Spitzen) sind in der Investition bereits enthalten${tableRef(
-          ', stehen hier aber nicht je Zeile',
+        )}Die Hinweise zu einem Gerät (Betonsockel, separater Wechselrichter, zu geringe Leistung für alle Spitzen) sind in der Investition bereits enthalten${tableRef(
+          ', werden hier aber nicht je Gerät wiederholt',
           '',
         )}${recommendationRef(' — sie stehen beim empfohlenen Gerät', '')}.`,
   }

@@ -6,6 +6,7 @@ import { buildTariffComponents } from './basis'
 import { SECTION_ID } from './content'
 import {
   buildDetailChapter,
+  buildMonthly,
   buildMonthlyChapter,
   detailChartPlan,
   hasMonthlyChapter,
@@ -159,6 +160,40 @@ describe('Monatsvergleich als eigenes Kapitel (D7)', () => {
     expect(body).not.toContain('Kernergebnis')
   })
 
+  /**
+   * Sobald die vorausschauende Reihe vorliegt, zeigt Weg 4 SIE — dieselbe Auswahl wie im
+   * Wege-Kapitel (`ways.ts`/`tariffWayCosts`). Vorher las diese Zeile immer `spotWithBatteryEur`
+   * (die einfache Reihe) und zeigte damit unter demselben Namen einen anderen Betrag als der
+   * Balken im Wege-Kapitel.
+   */
+  it('zeigt bei vorliegender Prognose deren Betrag, nicht den der einfachen Reihe', () => {
+    const predictive: MonthlyTariffComparison = {
+      ...COMPARISON,
+      spotWithPredictiveControlEur: [90, ...Array<null>(11).fill(null)],
+    }
+    const { statement } = buildMonthly(predictive, {
+      annualPeakKw: 48,
+      monthlyPeaksKw: Array<number>(12).fill(48),
+      billedKw: 0,
+      leistungspreisCostPerYear: 0,
+    })
+    const row = statement.rows.find((r) => r.label === CONTROLLED_WAY_LABEL)
+
+    expect(row?.value).toBe('€ 90')
+    expect(row?.value).not.toBe('€ 95')
+  })
+
+  /**
+   * Kein Tages-Energiefluss (die Fixture trägt keinen `dispatchTrace`) heisst: an seiner Stelle
+   * steht nichts, nicht einmal eine Begründung — das Kapitel trägt dafür seit hierher kein
+   * `flowMissing`-Feld mehr.
+   */
+  it('ohne Energiefluss-Tag bleibt `flow` `null`, ohne einen Begründungs-Text daneben', () => {
+    const chapter = buildDetailChapter(analysisFor(false))
+    expect(chapter.flow).toBeNull()
+    expect('flowMissing' in chapter).toBe(false)
+  })
+
   it('mit Bestandsanlage: KEIN eigenes Kapitel — der Vergleich steht im Detail-Kapitel', () => {
     const analysis = analysisFor(true)
 
@@ -222,12 +257,12 @@ describe('Monatsvergleich als eigenes Kapitel (D7)', () => {
   })
 
   /**
-   * Der Vorbehalt „NICHT enthalten ist der Leistungspreis" nennt einen Posten, den ein Anschluss
+   * Der Vorbehalt „Nicht enthalten ist der Leistungspreis" nennt einen Posten, den ein Anschluss
    * ohne Leistungsmessung (Netzebene 7, der Urbanz-Fall) gar nicht hat — dieselbe Bedingung wie
    * der Rahmen-Hinweis im Kapitel „Voraussetzungen".
    */
   it('der Leistungspreis-Vorbehalt steht nur, wo es den Posten gibt', () => {
-    const satz = 'NICHT enthalten ist der Leistungspreis'
+    const satz = 'Nicht enthalten ist der Leistungspreis'
     const bodyFor = (analysis: PdfReportAnalysis) =>
       resolveReportText(
         buildMonthlyChapter(analysis)!.statement.body,

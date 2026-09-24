@@ -321,6 +321,8 @@ export function buildReportInputFromRenderRequest(
   const { analysisResult, loadProfile, meta } = request
 
   return {
+    /* Server-seitig gerechnet und über eine Übergabe gelesen — s. `PdfReportOrigin`. */
+    origin: 'transfer',
     title: defaultReportTitle(analysisResult),
     subtitle: reportSubtitle(loadProfile),
     /*

@@ -1,3 +1,4 @@
+import { displayedPriceLabel } from 'shared'
 import type { MonthlyTariffComparison } from 'shared'
 
 import { formatEur } from '@/lib/format'
@@ -189,7 +190,7 @@ const PREDICTIVE_NOTE =
  * Vorrang des Spitzenschutzes) ist weggefallen.
  */
 const LOAD_CONTROL_METHOD =
-  'wie der Weg davor, aber auf dem SIMULIERTEN Lastgang. Eine Viertelstunde gilt als günstig, wenn ' +
+  'wie der Weg davor, aber auf dem simulierten Lastgang. Eine Viertelstunde gilt als günstig, wenn ' +
   'ihr Preis unter dem arithmetischen Mittel aller Viertelstundenpreise ihres eigenen ' +
   'Kalendertags liegt (Ortszeit, je Tag neu gebildet) — dann lädt der Speicher aus dem Netz. Bis ' +
   'zum Tagesende bleibt Kapazität für eine später noch günstigere Stunde frei und Energie für ' +
@@ -222,7 +223,7 @@ const PREDICTIVE_METHOD =
  * Als weitere Zeile derselben Liste läse sie sich wie ein vierter Tarif.
  */
 const PEAK_SHAVING_METHOD =
-  'Diese Zahl entsteht NICHT aus der Viertelstunden-Rechnung oben. Der Leistungspreis hängt am ' +
+  'Diese Zahl entsteht nicht aus der Viertelstunden-Rechnung oben. Der Leistungspreis hängt am ' +
   'abgerechneten Leistungswert in kW und wird pro JAHR verrechnet; gerechnet wird, um wie viel ' +
   'der simulierte Fahrplan diesen Wert senkt, mal dem Satz Ihres Netzbetreibers — samt der ' +
   'Gebrauchsabgabe darauf, wo sie anfällt, denn mit dem Leistungspreis sinkt auch sie. Der abgerechnete ' +
@@ -321,7 +322,7 @@ export function buildWaysChapter(analysis: PdfReportAnalysis): WaysChapter | nul
         'Lastgang wie Ihr heutiger Vertrag; getauscht sind ausschliesslich der Arbeitspreis und ' +
         'die Grundgebühr des Lieferanten — Netzentgelt, Messpreis und Abgaben bleiben, was sie ' +
         `sind. Über die ${days} gemessenen Tage hätte das ` +
-        outcome(comparisonWay, 'MEHR gekostet als Ihr heutiger Tarif.', 'weniger gekostet.') +
+        outcome(comparisonWay, 'mehr gekostet als Ihr heutiger Tarif.', 'weniger gekostet.') +
         ' Ein Festpreistarif bewegt sich über den Tag nicht, Ihr Speicher kann gegen ihn also ' +
         'nicht steuern: dieser Weg ist unabhängig davon, ob Sie einen Speicher haben.',
     },
@@ -339,7 +340,7 @@ export function buildWaysChapter(analysis: PdfReportAnalysis): WaysChapter | nul
       'Der einfachste Weg mit Börsenpreis: derselbe Lastgang wie heute, aber zum Börsenpreis von ' +
       'aWATTar statt zu Ihrem festen Arbeitspreis — ohne jede Umstellung an Speicher oder ' +
       `Verbrauch. Über die ${days} gemessenen Tage hätte das ` +
-      outcome(switchWay, 'MEHR gekostet als Ihr heutiger Tarif, nicht weniger.', 'weniger gekostet.'),
+      outcome(switchWay, 'mehr gekostet als Ihr heutiger Tarif, nicht weniger.', 'weniger gekostet.'),
     },
     'statt Ihres festen Arbeitspreises der Börsenpreis der jeweiligen Stunde, statt Ihrer ' +
       'Grundgebühr die von aWATTar. Die Netzseite hängt am Anschluss und nicht am Lieferanten und ' +
@@ -401,11 +402,11 @@ export function buildWaysChapter(analysis: PdfReportAnalysis): WaysChapter | nul
       caption:
         `Was Sie über die ${days} gemessenen Tage tatsächlich gezahlt hätten — je Weg ein Balken. ` +
         (peakSavingPerYear > 0
-          ? 'Die Kappung Ihrer Lastspitzen ist hier NICHT enthalten (Jahresgrösse, s. unten). '
+          ? 'Die Kappung Ihrer Lastspitzen ist hier nicht enthalten (Jahresgrösse, s. unten). '
           : '') +
         /* Kein `⚠` in Kundentext: die Report-Schrift trägt das Zeichen nicht, es verschwindet
            beim Rendern spurlos (am erzeugten PDF gemessen). */
-        'Alle Beträge exkl. MwSt.',
+        `Alle Beträge ${displayedPriceLabel(analysis)}.`,
       note: null,
     },
     statements,

@@ -148,7 +148,7 @@ export function buildPvValueChapter(analysis: PdfReportAnalysis): PvValueChapter
     },
     rows: measuredRows,
     body:
-      'Beide Beträge sind mit DERSELBEN Rechnung entstanden, mit der auch „Ihr Tarif heute" weiter ' +
+      'Beide Beträge sind mit derselben Rechnung entstanden, mit der auch „Ihr Tarif heute" weiter ' +
       'vorne gebildet wird — gleicher Arbeitspreis, gleiche Netzentgelte, gleiche Abgaben. ' +
       'Getauscht ist genau eine Sache: der Lastgang. ' +
       `Angesetzt sind dafür ${formatKwh(scenario.estimatedGenerationKwh)} geschätzte Erzeugung ` +

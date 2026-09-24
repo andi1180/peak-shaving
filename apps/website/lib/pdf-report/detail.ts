@@ -1,5 +1,5 @@
 import type { BatteryResultEntry, BatteryRoiEntry, MonthlyTariffComparison } from 'shared'
-import { sumCovered } from 'shared'
+import { sumCovered, tariffWayCosts } from 'shared'
 
 import { formatEur, formatEur2, formatYears } from '@/lib/format'
 import { CONTROLLED_WAY_LABEL, dynamicTariffHintKind } from '@/lib/report-copy'
@@ -162,10 +162,11 @@ export type DetailChapter = {
   cost: { figure: DetailFigure; statement: ReportStatement | null } | null
   /** Warum keiner entsteht. Gesetzt GENAU DANN, wenn `cost === null`. */
   costMissing: string | null
-  /** Was unter dem Energiefluss-Bild steht. `null` = es entsteht keines. */
+  /**
+   * Was unter dem Energiefluss-Bild steht. `null` = es entsteht keines — dann steht an seiner
+   * Stelle nichts, nicht einmal eine Begründung: ein Regelfall braucht keine Erklärung.
+   */
   flow: DetailFigure | null
-  /** Warum keines entsteht. Gesetzt GENAU DANN, wenn `flow === null`. */
-  flowMissing: string | null
 }
 
 function neutralRow(label: string, value: string): ReportRow {
@@ -200,13 +201,19 @@ export function buildMonthly(
   statement: ReportStatement
 } {
   const fixed = comparison.fixedCosts
+  /*
+   * ⚠ `tariffWayCosts` UND NICHT `sumCovered(comparison.spotWithBatteryEur)` — dieselbe Auswahl
+   * wie im Wege-Kapitel (`ways.ts`/`tariff-ways.ts`): sobald die vorausschauende Reihe vorliegt,
+   * zeigt Weg 4 SIE, nicht die einfache. Die beiden Stellen lasen bis hierher verschiedene Reihen
+   * unter demselben Namen — derselbe Balken stand im Wege-Kapitel und in dieser Tabelle mit zwei
+   * verschiedenen Beträgen.
+   */
+  const controlledEur = tariffWayCosts(comparison).controlledEur
   const rows: ReportRow[] = [
     neutralRow('Ihr Tarif heute', formatEur(sumCovered(comparison.currentTariffEur))),
     neutralRow('aWATTar ohne Steuerung', formatEur(sumCovered(comparison.spotWithoutControlEur))),
     /* K3b-2: ohne Speicher gibt es diese Reihe nicht — die Tabelle führt dann zwei Zeilen. */
-    ...(comparison.spotWithBatteryEur
-      ? [neutralRow(CONTROLLED_WAY_LABEL, formatEur(sumCovered(comparison.spotWithBatteryEur)))]
-      : []),
+    ...(controlledEur !== null ? [neutralRow(CONTROLLED_WAY_LABEL, formatEur(controlledEur))] : []),
   ]
 
   /*
@@ -243,7 +250,7 @@ export function buildMonthly(
    * Posten, den die Rechnung des Kunden nicht kennt — dieselbe Regel wie bei den Grundgebühren.
    */
   const leistungspreis = hasLeistungspreis(current)
-    ? ' NICHT enthalten ist der Leistungspreis — ihn auf Monate zu verteilen verlangte eine ' +
+    ? ' Nicht enthalten ist der Leistungspreis — ihn auf Monate zu verteilen verlangte eine ' +
       'Aufteilungsregel, die es nicht gibt.'
     : ''
 
@@ -266,7 +273,7 @@ export function buildMonthly(
        */
       amount: null,
       rows,
-      body: t`Summen über die ${String(comparison.coveredMonths)} gemessenen Monate — ausdrücklich NICHT auf ein Jahr hochgerechnet: die fehlenden Monate liegen nicht gleichverteilt über das Jahr. Enthalten sind Arbeitspreis, Netz-Arbeitspreis, die Abgaben auf den Bezug (Elektrizitätsabgabe, EAG, Gebrauchsabgabe auf Netz- und Energiepreis) und die anteiligen Fixkosten — Netz-Grundpreis, Messpreis und Grundgebühren (${fees.join(' · ')}).${leistungspreis} ${closing}`,
+      body: t`Summen über die ${String(comparison.coveredMonths)} gemessenen Monate — ausdrücklich nicht auf ein Jahr hochgerechnet: die fehlenden Monate liegen nicht gleichverteilt über das Jahr. Enthalten sind Arbeitspreis, Netz-Arbeitspreis, die Abgaben auf den Bezug (Elektrizitätsabgabe, EAG, Gebrauchsabgabe auf Netz- und Energiepreis) und die anteiligen Fixkosten — Netz-Grundpreis, Messpreis und Grundgebühren (${fees.join(' · ')}).${leistungspreis} ${closing}`,
     },
   }
 }
@@ -350,29 +357,6 @@ function buildFlow(dayCaption: string | null): DetailFigure {
 }
 
 /**
- * Warum kein Energiefluss-Tag da ist.
- *
- * ⚠ Dieselben zwei Gründe, die auch die Komponente in ihrem Leerzustand nennt — und in derselben
- * Reihenfolge. Sie sind hier ausgeschrieben und nicht aus ihr gelesen: was im Leerzustand steht,
- * ist Fliesstext in einer Bildschirm-Komponente, und ihn als Bild in ein PDF zu rastern wäre genau
- * die Aufteilung, die D11 ausschliesst.
- */
-function flowMissingNote(entry: BatteryResultEntry | undefined): string {
-  const which = entry ? `„${entry.battery.name}"` : 'Der zugrunde gelegte Speicher'
-  const why =
-    entry?.battery.controlType === 'static'
-      ? `${which} ist statisch gesteuert und kappt deshalb keine Spitzen — es gibt keinen Tag mit ` +
-        'einer abgefangenen Spitze.'
-      : `Für ${which} wurde im ausgewerteten Zeitraum keine Spitze abgefangen.`
-  return (
-    `Für diesen Report ist kein Tages-Energiefluss abgebildet. ${why} Und es liegt kein ` +
-    'PV-Erzeugungsprofil vor, aus dem sich ersatzweise ein Tag mit starker Einspeisung wählen ' +
-    'liesse. Die Zahlen dieses Reports sind davon nicht betroffen — sie stammen aus der ' +
-    'Simulation, nicht aus der Abbildung.'
-  )
-}
-
-/**
  * Das Kapitel.
  *
  * `measured.flowDay` ist die Beschriftung, die die Energiefluss-Komponente beim Rastern
@@ -401,12 +385,6 @@ export function buildDetailChapter(
           buildMonthly(plan.cost.comparison, analysis.current)
         : buildCumulative(plan.cost)
 
-  const flowEntry = plan.flow
-    ? undefined
-    : /* Nur für die Begründung gebraucht: WELCHER Speicher keinen Tag hergibt. */
-      (analysis.existingBatteryAnalysis?.entry ??
-      (context ? context.recommendedEntry : recommendedEntryOf(analysis)))
-
   return {
     cost,
     costMissing:
@@ -415,7 +393,6 @@ export function buildDetailChapter(
           'Gerät vor, gegen das sich vergleichen liesse.'
         : null,
     flow: plan.flow ? buildFlow(measured.flowDay) : null,
-    flowMissing: plan.flow ? null : flowMissingNote(flowEntry),
   }
 }
 

@@ -108,7 +108,7 @@ export function buildAnnualScenarioChapter(
          */
         `Für ein volles Jahr fehlen ${scenario.projectedDays} Kalendertage. Für diese Tage haben ` +
         'wir nicht geschätzt, was ' +
-        'Sie gespart hätten — wir haben geschätzt, was Sie VERBRAUCHT hätten, und darauf dieselbe ' +
+        'Sie gespart hätten — wir haben geschätzt, was Sie verbraucht hätten, und darauf dieselbe ' +
         'Rechnung laufen lassen wie auf Ihren echten Messwerten: derselbe Speicher, dieselbe ' +
         'Ladesteuerung, dieselben Netzentgelte und Abgaben. ' +
         `Als Vorlage dient Ihre verbrauchsstärkste gemessene Woche (${formatDate(reference.fromDate)} ` +
@@ -151,10 +151,10 @@ export function buildAnnualScenarioChapter(
     rows: wayRows,
     body:
       `Hochgerechnete Jahreskosten für den Zeitraum ${formatDate(scenario.windowFromDate)} bis ` +
-      `${formatDate(scenario.windowToDate)}, je Weg — exkl. MwSt. Gerechnet wurde jeder Weg auf ` +
-      'demselben hochgerechneten Lastgang, sodass die Beträge untereinander vergleichbar bleiben. ' +
-      'Gegen die Beträge im Kapitel davor sind sie es NICHT: die beziehen sich auf die ' +
-      `${measured.coveredDays} tatsächlich gemessenen Tage.`,
+      `${formatDate(scenario.windowToDate)}, je Weg — ${displayedPriceLabel(analysis)}. Gerechnet ` +
+      'wurde jeder Weg auf demselben hochgerechneten Lastgang, sodass die Beträge untereinander ' +
+      'vergleichbar bleiben. Gegen die Beträge im Kapitel davor sind sie es nicht: die beziehen ' +
+      `sich auf die ${measured.coveredDays} tatsächlich gemessenen Tage.`,
   })
 
   /*

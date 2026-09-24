@@ -86,10 +86,10 @@ function chapterFor(tariffSource: PdfReportTariffSource, netzbetreiber?: Netzbet
 }
 
 describe('buildBasisChapter — Herkunft der Tarifsätze', () => {
-  it('nennt beim dritten Zustand die Unkenntnis und behauptet keine Herkunft', () => {
+  it('nennt beim dritten Zustand die hinterlegten Werte und behauptet keine Herkunft', () => {
     const { tariffSource } = chapterFor(TARIFF_SOURCE_UNTRACKED)
 
-    expect(tariffSource).toContain('nicht im Einzelnen nachverfolgt')
+    expect(tariffSource).toContain('Gerechnet mit den bei diesem Zählpunkt hinterlegten')
     // Weder die `null`-Aussage („aus Ihrer Eingabe") noch ein Tarifstand werden behauptet.
     expect(tariffSource).not.toContain('kein hinterlegter Stand gewählt')
     expect(tariffSource).not.toContain('Netzebene')
@@ -116,19 +116,16 @@ describe('buildBasisChapter — Herkunft der Tarifsätze', () => {
   it('nennt den Netzbetreiber, wenn der Weg ihn kennt — ohne eine Herkunft zu behaupten', () => {
     const { tariffSource } = chapterFor(TARIFF_SOURCE_UNTRACKED, 'wiener_netze')
 
-    expect(tariffSource).toContain('(Netzbetreiber: Wiener Netze)')
-    expect(tariffSource).toContain('nicht im Einzelnen nachverfolgt')
-    expect(tariffSource).toContain('hält dieser Report nicht fest')
+    expect(tariffSource).toContain('laut hinterlegtem Tarif Wiener Netze')
+    expect(tariffSource).toContain('Gerechnet mit den bei diesem Zählpunkt hinterlegten')
     // Die rohe Kennung darf nicht als Beschriftung durchschlagen.
     expect(tariffSource).not.toContain('wiener_netze')
   })
 
   it('lässt den Satz ohne Netzbetreiber unverändert — kein Platzhalter', () => {
     expect(chapterFor(TARIFF_SOURCE_UNTRACKED).tariffSource).toBe(
-      'Herkunft für diese Auswertung nicht im Einzelnen nachverfolgt — gerechnet ' +
-        'wurde mit den Leistungspreis-, Abrechnungs- und Mindestleistungswerten, die zu diesem ' +
-        'Zählpunkt hinterlegt sind. Ob sie aus einer Netzrechnung oder aus einem hinterlegten ' +
-        'Tarifstand stammen, hält dieser Report nicht fest.',
+      'Gerechnet mit den bei diesem Zählpunkt hinterlegten Leistungspreis-, Abrechnungs- und ' +
+        'Mindestleistungswerten.',
     )
   })
 
@@ -336,7 +333,7 @@ describe('buildBasisChapter — Datenquellen-Tabelle (D9)', () => {
     expect(vintageOf(table, 'load_readings')).toContain('01.01.2025 – 31.12.2025')
     expect(vintageOf(table, 'load_readings')).toContain('365 abgedeckte Tage')
     // D8: die gezeigte Abdeckungszahl ist benannt und steht nicht neben einer zweiten.
-    expect(vintageOf(table, 'load_readings')).toContain('Slot-Zählung')
+    expect(vintageOf(table, 'load_readings')).toContain('gerundet aus Messwerte ÷ 96')
 
     // Der echte Gültigkeitsbeginn tritt an die Stelle von „nicht nachverfolgt".
     expect(vintageOf(table, 'tariff_grid')).toContain('gültig ab 01.01.2026')
@@ -357,7 +354,7 @@ describe('buildBasisChapter — Datenquellen-Tabelle (D9)', () => {
     // ANALYSIS/BATTERY_ANALYSIS tragen `warnings: []` — bisher stand der Verweis trotzdem da.
     const withoutWarnings = dataSourcesFor({ gridTariffValidFrom: [], invoicePeriods: [] })
     expect(vintageOf(withoutWarnings, 'load_readings')).not.toContain('Datenqualitäts-Hinweis')
-    expect(vintageOf(withoutWarnings, 'load_readings')).toContain('Slot-Zählung')
+    expect(vintageOf(withoutWarnings, 'load_readings')).toContain('gerundet aus Messwerte ÷ 96')
 
     const chapter = buildBasisChapter({
       title: 'Wirtschaftlichkeitsanalyse Batteriespeicher',
@@ -619,8 +616,25 @@ describe('buildBasisChapter — Tarifkomponenten-Tabelle (D9)', () => {
       'unverändert aus Ihrer Eingabe (Netzrechnung)',
     )
     expect(componentsFor(FULL_ANALYSIS, TARIFF_SOURCE_UNTRACKED).rows[0]?.cells[2]).toBe(
-      'Herkunft nicht im Einzelnen nachverfolgt',
+      'laut hinterlegtem Tarif',
     )
+  })
+
+  /**
+   * Ein Anschluss ohne Leistungsmessung (Netzebene 7) hat weder einen Leistungspreis noch ein
+   * Abrechnungsmodell für ihn — beide Zeilen nannten bis hierher trotzdem einen Wert, den die
+   * Rechnung des Kunden nicht kennt.
+   */
+  it('führt weder Leistungspreis noch Abrechnungsmodell ohne Leistungsmessung', () => {
+    const ohneLeistungsmessung: PdfReportAnalysis = {
+      ...FULL_ANALYSIS,
+      current: { ...FULL_ANALYSIS.current, billedKw: 0, leistungspreisCostPerYear: 0 },
+    }
+    const table = componentsFor(ohneLeistungsmessung, REAL_REF)
+
+    expect(table.rows.map((row) => row.key)).not.toContain('tariff_leistungspreis')
+    expect(table.rows.map((row) => row.key)).not.toContain('tariff_billing_model')
+    expect(table.rows.map((row) => row.key)).toContain('tariff_energy_price')
   })
 
   /**
@@ -771,7 +785,7 @@ describe('buildBasisChapter — Berechnungsmethodik je Kennzahl (D9)', () => {
     /* Der gemeinsame Absatz trägt die geteilte Rechnung — einmal, und nirgends sonst. */
     const shared = chapter.methodPerMetric.find((i) => i.id === 'method_shared')
     expect(shared?.kind).toBe('text')
-    expect(shared?.body).toContain('DERSELBEN Rechnung, Viertelstunde für Viertelstunde')
+    expect(shared?.body).toContain('derselben Rechnung, Viertelstunde für Viertelstunde')
     expect(shared?.body).toContain('tagesanteilig')
     expect(shared?.body).toContain('Leistungspreis steht in keiner dieser Zahlen')
 
@@ -789,7 +803,7 @@ describe('buildBasisChapter — Berechnungsmethodik je Kennzahl (D9)', () => {
     expect(kinds['method_ways_tariff_switch']).toBe('way')
     expect(
       chapter.methodPerMetric.find((i) => i.id === 'method_ways_peak_shaving')?.body,
-    ).toContain('NICHT aus der Viertelstunden-Rechnung')
+    ).toContain('nicht aus der Viertelstunden-Rechnung')
   })
 
   /**

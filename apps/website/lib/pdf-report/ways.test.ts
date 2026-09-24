@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { analysisForDisplay } from 'shared'
 import type { BatteryResultEntry, MonthlyTariffComparison } from 'shared'
 
 import { waysSectionTitle } from './content'
@@ -237,5 +238,24 @@ describe('Wege-Kapitel (D7-Revision)', () => {
     const control = chapter.statements.find((s) => s.id === 'ways_load_control')!
     expect(String(control.body)).not.toContain('Vorausberechnung')
     expect(String(control.body)).toContain('gespart')
+  })
+
+  /**
+   * Die Bildunterschrift trug bis hierher hartkodiert „exkl. MwSt." — bei Privatkunden (H3, USt
+   * inkl.) eine falsche Aussage. Sie hängt jetzt an `displayedPriceLabel` wie der Rest des
+   * Dokuments, statt einen eigenen Text zu behaupten.
+   */
+  it('die Bildunterschrift nennt netto oder inkl. USt, nie „exkl. MwSt."', () => {
+    const analysis = analysisWith({
+      comparison: comparisonWith({ current: 120, spot: 110, battery: 95 }),
+    })
+
+    const netto = buildWaysChapter(analysis)!
+    expect(netto.figure.caption).toContain('Alle Beträge netto.')
+    expect(netto.figure.caption).not.toContain('exkl. MwSt')
+
+    const brutto = buildWaysChapter(analysisForDisplay(analysis, 'gross'))!
+    expect(brutto.figure.caption).toContain('Alle Beträge inkl. 20 % USt.')
+    expect(brutto.figure.caption).not.toContain('exkl. MwSt')
   })
 })

@@ -209,6 +209,15 @@ export const TARIFF_SOURCE_UNTRACKED = 'untracked' as const
 /** Die drei Antworten auf „woher stammen die Tarifsätze?" — s. `TARIFF_SOURCE_UNTRACKED`. */
 export type PdfReportTariffSource = TariffSourceRef | typeof TARIFF_SOURCE_UNTRACKED | null
 
+/**
+ * Woher dieser Erzeugungslauf stammt — das Signal, an dem zwei Kundentexte hängen (`content.ts`):
+ * die Demo-Fusszeile (nur `demo`) und der Datenschutz-Absatz „Ihre Verbrauchsdaten haben Ihren
+ * Rechner nicht verlassen" (nur `client`, da im Admin-/Übergabe-Pfad die Daten den Browser des
+ * Kunden nie sehen). `undefined` gilt als keins von beiden — der sichere Standard für Prüfstände
+ * und Tests, die diese Frage nicht stellen.
+ */
+export type PdfReportOrigin = 'client' | 'transfer' | 'demo'
+
 /** Der Abrechnungszeitraum EINER gelesenen Kundenrechnung (`InvoiceExtraction`, Teilmenge). */
 export type PdfReportInvoicePeriod = {
   /** ISO-Datum `YYYY-MM-DD`. `null` = die Rechnung nennt keinen Beginn. */
@@ -260,6 +269,8 @@ export type PdfReportTariffProvenance = {
 }
 
 export type PdfReportInput = {
+  /** `undefined` = weder Demo noch client-seitig erzeugt — s. `PdfReportOrigin`. */
+  origin?: PdfReportOrigin
   /** Vom Nutzer editierbar, vorbelegt aus `defaultReportTitle` (`derive.ts`). */
   title: string
   /** Abgeleitet, NICHT editierbar — `reportSubtitle` (`derive.ts`). */

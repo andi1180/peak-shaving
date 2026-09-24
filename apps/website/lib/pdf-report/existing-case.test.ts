@@ -12,6 +12,7 @@ import type {
   MonthlyTariffComparison,
 } from 'shared'
 
+import { buildBasisChapter } from './basis'
 import type { ReportChartRasters } from './charts'
 import { SECTION_ID } from './content'
 import { buildReportContext } from './context'
@@ -560,5 +561,25 @@ describe('Stufe D — der Bestandsfall als zweite Render-Fixture', () => {
      */
     expect(reportText(OHNE_BESTAND)).not.toContain('steht auf der Kernergebnis-Seite')
     expect(reportText(OHNE_BESTAND)).toContain('Aus dem Katalog schneidet dieses Gerät')
+  })
+
+  /**
+   * „Annahmen & Rechenweise" gehört nicht zum registry-Baukasten (`reportText`), deshalb hier über
+   * `buildBasisChapter` direkt: bis zu dieser Korrektur zeigte die Tabelle Preis, Wirkungsgrad und
+   * Investition des bestgereihten Zusatzgeräts, obwohl das Kapitel daneben „Nein" sagt — derselbe
+   * `KLARSATZ_FALL` wie oben.
+   */
+  it('„Annahmen & Rechenweise" nennt kein Gerät, wenn kein Zusatzspeicher sich rechnet', () => {
+    const klarsatz = buildBasisChapter(KLARSATZ_FALL).assumptions
+    expect(klarsatz.rows.map((r) => r.label)).toEqual([
+      'Betrachtungshorizont',
+      'Nettoinvestition (nach Förderung/Steuervorteil)',
+    ])
+    expect(klarsatz.rows.map((r) => r.value).join(' ')).not.toContain('Katalog 1')
+    expect(klarsatz.rows.map((r) => r.value).join(' ')).toContain('kein Gerät empfohlen')
+
+    /* Gegenprobe: der reguläre Bestandsfall nennt das Gerät weiterhin. */
+    const bestand = buildBasisChapter(BESTANDSFALL).assumptions
+    expect(bestand.rows.map((r) => r.label)).toContain('Batteriepreis (Katalog 1)')
   })
 })

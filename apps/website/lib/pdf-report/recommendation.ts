@@ -366,7 +366,7 @@ export function buildLoadControl(
     /* ⚠ SEIT DEM ZUSAMMENFASSUNGS-UMBAU DER EINZIGE ORT DIESES BETRAGS — s. Modulkopf. */
     amount: {
       value: formatEur(primary.loadShiftSavingPerYear),
-      caption: 'pro Jahr, exkl. MwSt.',
+      caption: `pro Jahr, ${displayedPriceLabel(analysis)}`,
       tone: 'positive',
     },
     rows: [],
