@@ -19,7 +19,7 @@ function daily(fromUtc: string, days: number): LoadProfile {
 const wien = (from: string, to: string): TariffPricingInputs => ({
   gridTariffRows: null,
   spotPrices: null,
-  levies: buildLevySchedule('wiener_netze', 7, from, to, 'mit_leistungsmessung', { category: 'gewerbe' }),
+  levies: buildLevySchedule('wiener_netze', 7, from, to, 'mit_leistungsmessung', { category: 'gewerbe', postalCode: null }),
 })
 
 describe('usageLevyFactor — Gebrauchsabgabe auf den Leistungspreis', () => {

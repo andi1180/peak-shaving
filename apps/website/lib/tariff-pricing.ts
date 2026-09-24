@@ -44,6 +44,7 @@ export async function loadTariffPricing(
   netzebene: number | null,
   meteringVariant: string | null,
   category: LevyCustomerCategory,
+  postalCode: string | null,
 ): Promise<TariffPricingInputs> {
   const window = analysisWindow(loadProfile)
   if (!window) return { gridTariffRows: null, spotPrices: null, levies: null }
@@ -75,7 +76,7 @@ export async function loadTariffPricing(
             window.startIso.slice(0, 10),
             window.endIso.slice(0, 10),
             meteringVariant,
-            { category },
+            { category, postalCode },
           )
         : null,
     spotPrices: spotResult.ok

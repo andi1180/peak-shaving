@@ -1334,6 +1334,14 @@ export function buildLimitations(analysis: PdfReportAnalysis): ReportNotice {
         'Reports enthalten; Ihr tatsächlicher Rechnungsbetrag liegt entsprechend höher.',
   ]
 
+  if (analysis.assumptions.levyLocationAssumed === 'vienna') {
+    hints.push(
+      'Gebrauchsabgabe Wien angenommen — Standort nicht angegeben. Sie fällt nur für Anschlüsse ' +
+        'im Wiener Gemeindegebiet an; liegt Ihr Anschluss ausserhalb Wiens, sind die Kosten um ' +
+        'diesen Posten zu hoch angesetzt.',
+    )
+  }
+
   if (analysis.annualProjection) {
     hints.push(
       'Die Jahres-Hochrechnung bewertet die nicht gemessenen Tage mit einer bewusst konservativen ' +

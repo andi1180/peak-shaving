@@ -359,6 +359,11 @@ export type AnalysisResult = {
     energyPriceCtPerKwh: number
     einspeiseverguetungCtPerKwh: number
     billingModel: BillingModel
+    /**
+     * Gesetzt, wenn die Wiener Gebrauchsabgabe ohne Standortangabe angenommen wurde
+     * (`LevySchedule.locationAssumed`). Optional und additiv — kein Bündel-Versionssprung.
+     */
+    levyLocationAssumed?: 'vienna'
   }
   /**
    * Delta 9 (B21-3b/9a): Konnte der Tarifoptimierungs-Hebel für diese Analyse gerechnet werden?

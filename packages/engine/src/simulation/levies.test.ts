@@ -323,7 +323,7 @@ describe('Ohne belegte Sätze wird der Hebel verweigert, nicht zu niedrig gerech
 })
 
 /** Der Referenzfall (Urbanz) ist ein Haushalt. */
-const HEIM = { category: 'heim' } as const
+const HEIM = { category: 'heim', postalCode: null } as const
 
 /** Der echte Plan des Referenzfalls. */
 function levySchedule(): LevySchedule {

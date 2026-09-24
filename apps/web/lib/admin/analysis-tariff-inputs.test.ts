@@ -233,7 +233,7 @@ describe('readTariffPricingForAnalysis', () => {
       meteringVariant: 'mit_leistungsmessung',
       window: { startIso: '2026-01-01T00:00:00.000Z', endIso: '2026-01-01T23:45:00.000Z' },
       intervalMinutes: 15,
-    }, { category: 'gewerbe' })
+    }, { category: 'gewerbe', postalCode: null })
 
     // Die eine Seite fällt aus (⇒ Hebel nicht berechenbar), die andere steht — kein Wurf.
     expect(pricing.gridTariffRows).toBeNull()
@@ -255,7 +255,7 @@ describe('readTariffPricingForAnalysis', () => {
       meteringVariant: null,
       window: { startIso: '2026-01-01T00:00:00.000Z', endIso: '2026-01-01T23:45:00.000Z' },
       intervalMinutes: 15,
-    }, { category: 'gewerbe' })
+    }, { category: 'gewerbe', postalCode: null })
 
     expect(pricing.gridTariffRows).toBeNull()
     expect(pricing.spotPrices).not.toBeNull()

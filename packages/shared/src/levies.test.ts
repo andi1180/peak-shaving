@@ -5,8 +5,8 @@ import { describe, expect, it } from 'vitest'
 
 import { buildLevySchedule, findLevyPeriod } from './levies'
 
-const HEIM = { category: 'heim' } as const
-const GEWERBE = { category: 'gewerbe' } as const
+const HEIM = { category: 'heim', postalCode: null } as const
+const GEWERBE = { category: 'gewerbe', postalCode: null } as const
 
 describe('buildLevySchedule — was belegt ist, wird geschnitten; was fehlt, bleibt Lücke', () => {
   it('schneidet den Gebrauchsabgabe-Sprung am 01.03.2026 zu ZWEI Zeiträumen', () => {
@@ -92,6 +92,27 @@ describe('buildLevySchedule — was belegt ist, wird geschnitten; was fehlt, ble
     // 2025 galt der Regelsatz für beide.
     expect(at(HEIM, '2025-06-01')).toBe(1.5)
     expect(at(GEWERBE, '2025-06-01')).toBe(1.5)
+  })
+
+  it('Wiener Gebrauchsabgabe nach Standort: Wiener PLZ ja, NÖ-PLZ nein, ohne PLZ angenommen', () => {
+    const plan = (postalCode: string | null) =>
+      buildLevySchedule('wiener_netze', 7, '2026-06-01', '2026-06-01', 'ohne_leistungsmessung', {
+        category: 'gewerbe',
+        postalCode,
+      })
+
+    const wien = plan('1100')
+    expect(findLevyPeriod(wien.periods, '2026-06-01')?.gebrauchsabgabeRate).toBe(0.07)
+    expect(wien.locationAssumed).toBeUndefined()
+
+    const ohne = plan(null)
+    expect(findLevyPeriod(ohne.periods, '2026-06-01')?.gebrauchsabgabeRate).toBe(0.07)
+    expect(ohne.locationAssumed).toBe('vienna')
+
+    // Klosterneuburg: Wiener Netze, aber nicht Wien — die Wiener Abgabe fällt nicht an.
+    const noe = plan('3400')
+    expect(findLevyPeriod(noe.periods, '2026-06-01')?.gebrauchsabgabeRate ?? null).not.toBe(0.07)
+    expect(noe.locationAssumed).toBeUndefined()
   })
 
   it('trägt die EX104-Sätze je Netzebene und Messvariante', () => {

@@ -94,7 +94,8 @@
     "eagPauschaleEurPerYear": 19.02,
     "gebrauchsabgabeRate": 0.07
    }
-  ]
+  ],
+  "locationAssumed": "vienna"
  },
  "spotPrices": {
   "prices": [

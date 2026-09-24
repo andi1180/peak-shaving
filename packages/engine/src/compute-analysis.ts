@@ -503,6 +503,9 @@ export function computeAnalysis(
       billingModel: payload.tariff.billingModel,
       energyPriceCtPerKwh: payload.tariff.energyPriceCtPerKwh,
       einspeiseverguetungCtPerKwh: payload.tariff.einspeiseverguetungCtPerKwh,
+      ...(payload.tariffPricing?.levies?.locationAssumed
+        ? { levyLocationAssumed: payload.tariffPricing.levies.locationAssumed }
+        : {}),
     },
     tariffOptimization,
     existingBatteryAnalysis: existing?.analysis,

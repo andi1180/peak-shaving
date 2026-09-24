@@ -860,6 +860,8 @@ export function StepTariff({
           // in die Abfrage (B21-1, `nulls not distinct`).
           showMeteringVariant && meteringVariant !== NOT_SET ? meteringVariant : null,
           levyCategory,
+          // Die einzige PLZ, die der Rechner kennt: der Standort aus der PV-Planung, falls genutzt.
+          estimatedPv?.summary.postalCode ?? null,
         )
       } finally {
         setPricingBusy(false)

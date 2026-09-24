@@ -37561,7 +37561,8 @@
   "horizonYears": 10,
   "billingModel": "monthly_max_sum",
   "energyPriceCtPerKwh": 9.5,
-  "einspeiseverguetungCtPerKwh": 0
+  "einspeiseverguetungCtPerKwh": 0,
+  "levyLocationAssumed": "vienna"
  },
  "tariffOptimization": {
   "computable": true,

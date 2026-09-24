@@ -33,7 +33,7 @@ function pricing(netzebene: number, variant: string | null, from: string, to: st
   return {
     gridTariffRows: null,
     spotPrices: null,
-    levies: buildLevySchedule('wiener_netze', netzebene, from, to, variant, { category: 'gewerbe' }),
+    levies: buildLevySchedule('wiener_netze', netzebene, from, to, variant, { category: 'gewerbe', postalCode: null }),
   }
 }
 
@@ -107,7 +107,7 @@ describe('eagDemandChargePerYear', () => {
     expect(
       eagDemandChargePerYear(
         YEAR_2026,
-        { gridTariffRows: null, spotPrices: null, levies: buildLevySchedule('netz_noe', 6, '2026-01-01', '2026-12-31', null, { category: 'gewerbe' }) },
+        { gridTariffRows: null, spotPrices: null, levies: buildLevySchedule('netz_noe', 6, '2026-01-01', '2026-12-31', null, { category: 'gewerbe', postalCode: null }) },
         BILLED_KW,
         'annual_max',
       ),
