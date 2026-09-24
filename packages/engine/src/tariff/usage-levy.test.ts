@@ -1,4 +1,4 @@
-import { buildLevySchedule, type LoadProfile, type TariffPricingInputs } from 'shared'
+import { buildLevySchedule, type LoadProfile } from 'shared'
 import { describe, expect, it } from 'vitest'
 
 import { usageLevyFactor } from './usage-levy'
@@ -16,11 +16,8 @@ function daily(fromUtc: string, days: number): LoadProfile {
   }
 }
 
-const wien = (from: string, to: string): TariffPricingInputs => ({
-  gridTariffRows: null,
-  spotPrices: null,
-  levies: buildLevySchedule('wiener_netze', 7, from, to, 'mit_leistungsmessung', { category: 'gewerbe', postalCode: null }),
-})
+const wien = (from: string, to: string) =>
+  buildLevySchedule('wiener_netze', 7, from, to, 'mit_leistungsmessung', { category: 'gewerbe', postalCode: null })
 
 describe('usageLevyFactor — Gebrauchsabgabe auf den Leistungspreis', () => {
   it('Kalenderjahr 2026 in Wien: 59 Tage 6 %, 306 Tage 7 %, tagesgewichtet', () => {

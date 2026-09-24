@@ -1,4 +1,4 @@
-import { findLevyPeriod, type LoadProfile, type TariffPricingInputs } from 'shared'
+import { findLevyPeriod, type LevySchedule, type LoadProfile } from 'shared'
 
 import { utcMsToLocalFields } from '../parser/datetime'
 
@@ -12,10 +12,10 @@ import { utcMsToLocalFields } from '../parser/datetime'
  *
  * ⚠ Ein Tag OHNE Abgabenzeitraum zählt mit Faktor 1. Anders als beim Tarifvergleich wird hier
  * nicht verweigert: der Leistungspreis ist auch ohne Abgaben eine belegte Zahl, und ihn wegen einer
- * fehlenden Abgabe zu streichen wäre der grössere Fehler. Ohne `pricing` gilt dasselbe.
+ * fehlenden Abgabe zu streichen wäre der grössere Fehler. Ohne Abgabenplan gilt dasselbe.
  */
-export function usageLevyFactor(loadProfile: LoadProfile, pricing: TariffPricingInputs | undefined): number {
-  const periods = pricing?.levies?.periods ?? []
+export function usageLevyFactor(loadProfile: LoadProfile, levies: LevySchedule | null | undefined): number {
+  const periods = levies?.periods ?? []
   if (periods.length === 0) return 1
 
   const days = new Set<string>()

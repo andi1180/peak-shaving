@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { LEVIES_NONE } from 'shared'
+import { LEVIES_NONE, buildLevySchedule } from 'shared'
 import type { BatteryCandidate, MonthlyTariffComparison, TariffPricingInputs } from 'shared'
 
 import { computeAnalysis, type CalculatorPayload } from './compute-analysis'
@@ -289,5 +289,36 @@ describe('Angezeigter Wirkungsgrad (K3d)', () => {
 
     expect(result.recommendation?.batteryId).toBe(GATE_DYNAMIC_BATTERY.id)
     expect(result.assumptions.roundTripEfficiency).toBe(GATE_DYNAMIC_BATTERY.roundTripEfficiency)
+  })
+})
+
+describe('Gebrauchsabgabe auf die Leistungspreis-Ersparnis OHNE Tarifvergleich', () => {
+  it('der eigenständige Abgabenplan hebt die Ersparnis um genau 1,06 (Wien, Februar 2026)', () => {
+    const base = buildPayload(false)
+    const shiftMs = 731 * 86_400_000 // 01.02.2024 → 01.02.2026
+    const profile = {
+      ...base.load.profile,
+      readings: base.load.profile.readings.map((r) => ({
+        ...r,
+        ts: new Date(Date.parse(r.ts) + shiftMs).toISOString(),
+      })),
+    }
+    const payload: CalculatorPayload = { ...base, pv: null, load: { ...base.load, profile } }
+    const levies = buildLevySchedule('wiener_netze', 7, '2026-02-01', '2026-02-28', 'mit_leistungsmessung', {
+      category: 'gewerbe',
+      postalCode: null,
+    })
+
+    const ohne = computeAnalysis(payload, GATE_HORIZON_YEARS, GATE_CATALOG)
+    const mit = computeAnalysis({ ...payload, levies }, GATE_HORIZON_YEARS, GATE_CATALOG)
+
+    const saving = (r: typeof ohne, id: string) =>
+      r.perBattery.find((p) => p.battery.id === id)!.leistungspreisSavingPerYear
+    const ids = ohne.perBattery.map((p) => p.battery.id)
+    expect(ids.some((id) => saving(ohne, id) > 0)).toBe(true)
+    for (const id of ids) expect(saving(mit, id)).toBeCloseTo(saving(ohne, id) * 1.06, 9)
+    // Kein Tarifvergleich angefordert — der Abgabenplan macht ihn nicht dazu.
+    expect(mit.tariffOptimization).toBeUndefined()
+    expect(mit.assumptions.levyLocationAssumed).toBe('vienna')
   })
 })

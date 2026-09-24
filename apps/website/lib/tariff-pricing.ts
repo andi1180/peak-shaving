@@ -17,11 +17,37 @@ import {
   analysisWindow,
   buildLevySchedule,
   type LevyCustomerCategory,
+  type LevySchedule,
   type LoadProfile,
   type TariffPricingInputs,
 } from 'shared'
 
 import { analysisWindowToPriceRange, fetchGridTariffs, fetchSpotPrices } from './tariff-data'
+
+/**
+ * Der Abgabenplan für den Zeitraum des Lastgangs — reiner Code, kein Netzwerkaufruf. Deshalb auch
+ * OHNE Tarifvergleich gebaut: die Leistungspreis-Ersparnis braucht die Gebrauchsabgabe.
+ * `null` ohne Netzbetreiber/Netzebene oder ohne auswertbaren Zeitraum.
+ */
+export function buildLevies(
+  loadProfile: LoadProfile,
+  operatorId: string | null,
+  netzebene: number | null,
+  meteringVariant: string | null,
+  category: LevyCustomerCategory,
+  postalCode: string | null,
+): LevySchedule | null {
+  const window = analysisWindow(loadProfile)
+  if (!window || operatorId == null || netzebene == null) return null
+  return buildLevySchedule(
+    operatorId,
+    netzebene,
+    window.startIso.slice(0, 10),
+    window.endIso.slice(0, 10),
+    meteringVariant,
+    { category, postalCode },
+  )
+}
 
 /**
  * Beide Preisseiten für den Zeitraum des Lastgangs holen.
@@ -68,17 +94,7 @@ export async function loadTariffPricing(
      * und Netzebene lassen sie sich nicht auflösen; dann steht hier `null`, wie bei der
      * Netzentgelt-Seite auch.
      */
-    levies:
-      operatorId != null && netzebene != null
-        ? buildLevySchedule(
-            operatorId,
-            netzebene,
-            window.startIso.slice(0, 10),
-            window.endIso.slice(0, 10),
-            meteringVariant,
-            { category, postalCode },
-          )
-        : null,
+    levies: buildLevies(loadProfile, operatorId, netzebene, meteringVariant, category, postalCode),
     spotPrices: spotResult.ok
       ? {
           prices: spotResult.prices,

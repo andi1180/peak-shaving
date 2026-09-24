@@ -1,6 +1,7 @@
 import {
   demandChargePerYear,
   type BatteryCandidate,
+  type LevySchedule,
   type LoadProfile,
   type TariffParams,
   type TariffPricingInputs,
@@ -131,6 +132,8 @@ export function computeBatterySavings(
   tariffParams: TariffParams,
   precomputed?: BatterySimulationResult,
   pricing?: TariffPricingInputs,
+  /** Abgabenplan für die Gebrauchsabgabe auf den Leistungspreis, auch ohne Tarifvergleich. */
+  levies?: LevySchedule | null,
 ): BatterySavings {
   const sim = precomputed ?? simulateBattery(loadProfile, battery, tariffParams, undefined, pricing)
 
@@ -383,7 +386,7 @@ export function computeBatterySavings(
         tariffParams.leistungspreisEurPerKwYear,
         tariffParams.billingModel,
         coveredMonthCount(loadProfile),
-      ) * usageLevyFactor(loadProfile, pricing)
+      ) * usageLevyFactor(loadProfile, levies ?? pricing?.levies)
   }
 
   const totalSavingPerYear =

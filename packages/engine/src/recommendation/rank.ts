@@ -3,6 +3,7 @@ import type {
   BatteryCandidate,
   BatteryNotice,
   FinancialParams,
+  LevySchedule,
   LoadProfile,
   PvProfile,
   RecommendationRationale,
@@ -111,6 +112,7 @@ function buildPerBatteryEntry(
   topPeaks: Array<{ ts: string; kw: number }>,
   pvProfile: PvProfile | undefined,
   pricing: TariffPricingInputs | undefined,
+  levies: LevySchedule | undefined,
 ): PerBatteryOutcome {
   // PvProfile ändert Dispatch/Ersparnis NICHT (s. `simulateBattery`) — es reichert nur den Trace um die
   // echte Brutto-PV an. `computeBatterySavings` nutzt denselben `sim` (dessen Dispatch pv-unabhängig ist).
@@ -120,7 +122,7 @@ function buildPerBatteryEntry(
   // bewertet wird. Es muss deshalb an BEIDE Stellen — die Simulation und die Buchhaltung darüber;
   // nur an eine gereicht rechnete die eine gegen einen anderen Preis als die andere.
   const sim = simulateBattery(loadProfile, battery, tariffParams, pvProfile, pricing)
-  const savings = computeBatterySavings(loadProfile, battery, tariffParams, sim, pricing)
+  const savings = computeBatterySavings(loadProfile, battery, tariffParams, sim, pricing, levies)
   const roi = calculateRoi(battery, savings.totalSavingPerYear, horizonYears, financialParams)
   const powerLimited = isPowerLimited(loadProfile, battery, tariffParams, sim.capKwByPeriod)
 
@@ -184,12 +186,13 @@ export function recommendBattery(
   financialParams?: FinancialParams,
   pvProfile?: PvProfile,
   pricing?: TariffPricingInputs,
+  levies?: LevySchedule,
 ): RecommendationResult {
   // Top-Peaks (§3.4) sind profil-, nicht batterieabhängig — einmal für den ganzen Katalog rechnen und
   // je Kandidat in `buildDispatchTrace` injizieren (dieselbe Menge, die `AnalysisResult.peaks.top` zeigt).
   const topPeaks = topPeaksKw(loadProfile)
   const outcomes = catalog.map((battery) =>
-    buildPerBatteryEntry(loadProfile, battery, tariffParams, horizonYears, financialParams, topPeaks, pvProfile, pricing),
+    buildPerBatteryEntry(loadProfile, battery, tariffParams, horizonYears, financialParams, topPeaks, pvProfile, pricing, levies),
   )
 
   // Unveränderte Regel, nur auf dem Paar statt auf dem Eintrag — s. `PerBatteryOutcome`.

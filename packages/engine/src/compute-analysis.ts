@@ -7,6 +7,7 @@ import {
   type EstimatedPvSummary,
   type ExistingBatteryAnalysis,
   type FinancialParams,
+  type LevySchedule,
   type LoadProfile,
   type PvProfile,
   type TariffOptimizationStatus,
@@ -119,6 +120,12 @@ export type TariffResult = {
    */
   tariffPricing?: TariffPricingInputs
   /**
+   * Der Abgabenplan UNABHÄNGIG vom Tarifvergleich — gebraucht für die Gebrauchsabgabe auf die
+   * Leistungspreis-Ersparnis, wenn `tariffPricing` fehlt. Reiner Code (`buildLevySchedule`), kein
+   * Netzwerkaufruf. Liegt `tariffPricing` vor, gilt dessen Plan.
+   */
+  levies?: LevySchedule | null
+  /**
    * Delta 17 Teil 2: der vom Nutzer BESTÄTIGTE Speicher, den er bereits besitzt.
    *
    * `undefined` heisst „keine Angabe oder nicht übernommen" — dann verhält sich der Rechner Zeile
@@ -211,6 +218,11 @@ type ExistingBatteryOutcome = {
  * addierte Kapazität zum Zusatzpreis und behauptete damit eine Investition, die es nirgends gibt.
  * Bezahlt wird ausschliesslich das neue Gerät; verglichen wird es an dem, was es zusätzlich bringt.
  */
+/** Der Abgabenplan der Analyse: der des Tarifvergleichs, sonst der eigenständige. */
+function leviesOf(payload: CalculatorPayload): LevySchedule | undefined {
+  return payload.tariffPricing?.levies ?? payload.levies ?? undefined
+}
+
 function buildExistingBatteryAnalysis(
   payload: CalculatorPayload,
   horizonYears: number,
@@ -222,11 +234,12 @@ function buildExistingBatteryAnalysis(
   const loadProfile = payload.load.profile
   const pvProfile = payload.pv?.profile
   const pricing = payload.tariffPricing
+  const levies = leviesOf(payload)
   // Profil-, nicht batterieabhängig — einmal für alle Läufe (dieselbe Menge wie `peaks.top`).
   const topPeaks = topPeaksKw(loadProfile)
 
   const sim = simulateBattery(loadProfile, existing, payload.tariff, pvProfile, pricing)
-  const savings = computeBatterySavings(loadProfile, existing, payload.tariff, sim, pricing)
+  const savings = computeBatterySavings(loadProfile, existing, payload.tariff, sim, pricing, levies)
   const entry: BatteryResultEntry = {
     battery: existing,
     ...savings,
@@ -236,7 +249,7 @@ function buildExistingBatteryAnalysis(
   const addonScenarios: AddonBatteryScenario[] = catalog.map((addon) => {
     const combined = combineBatteries(existing, addon)
     const cSim = simulateBattery(loadProfile, combined, payload.tariff, pvProfile, pricing)
-    const cSav = computeBatterySavings(loadProfile, combined, payload.tariff, cSim, pricing)
+    const cSav = computeBatterySavings(loadProfile, combined, payload.tariff, cSim, pricing, levies)
 
     const leistungspreisSavingPerYear =
       cSav.leistungspreisSavingPerYear - savings.leistungspreisSavingPerYear
@@ -390,6 +403,7 @@ export function computeAnalysis(
     payload.financial,
     pvProfile,
     payload.tariffPricing,
+    leviesOf(payload),
   )
 
   /*
@@ -503,8 +517,8 @@ export function computeAnalysis(
       billingModel: payload.tariff.billingModel,
       energyPriceCtPerKwh: payload.tariff.energyPriceCtPerKwh,
       einspeiseverguetungCtPerKwh: payload.tariff.einspeiseverguetungCtPerKwh,
-      ...(payload.tariffPricing?.levies?.locationAssumed
-        ? { levyLocationAssumed: payload.tariffPricing.levies.locationAssumed }
+      ...(leviesOf(payload)?.locationAssumed
+        ? { levyLocationAssumed: leviesOf(payload)!.locationAssumed }
         : {}),
     },
     tariffOptimization,
