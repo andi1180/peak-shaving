@@ -1,6 +1,7 @@
 import type { AnalysisResult } from 'shared'
 
 import { formatEur, formatYears } from './format'
+import { batteryNoteTexts } from './report-copy'
 
 type Entry = AnalysisResult['perBattery'][number]
 
@@ -75,7 +76,7 @@ export function buildPerBatteryCsv(perBattery: Entry[], horizonYears: number): s
       formatEur(entry.totalSavingPerYear),
       formatYears(entry.amortizationYears),
       formatEur(entry.netSavingOverHorizon),
-      entry.warnings.join(' | '),
+      batteryNoteTexts(entry).join(' | '),
     ]),
   )
 

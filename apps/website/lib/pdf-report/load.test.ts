@@ -35,7 +35,7 @@ function analysisFor(coveredDays: number, peakKw: number): PdfReportAnalysis {
       leistungspreisCostPerYear: 0,
     },
     perBattery: [],
-    recommendation: { batteryId: 'keiner', rationale: 'leerer Katalog' },
+    recommendation: { batteryId: 'keiner', rationale: { code: 'best_net_saving', totalSavingPerYear: 0, amortizationYears: 0, netSavingOverHorizon: 0, horizonYears: 10 } },
     assumptions: {
       roundTripEfficiency: 0.9,
       horizonYears: 10,

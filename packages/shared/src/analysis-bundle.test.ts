@@ -369,7 +369,7 @@ describe('H3 — Preisbasis im Bündel', () => {
       sourceFileName: 'lastgang.csv',
       sourceFile: SOURCE,
     })
-    expect(bundle.bundleVersion).toBe(10)
+    expect(bundle.bundleVersion).toBe(ANALYSIS_BUNDLE_VERSION)
     const parsed = parseAnalysisBundle(JSON.parse(JSON.stringify(bundle)))
     expect(parsed.ok && parsed.bundle.inputs.priceDisplay).toBe('gross')
     expect(parsed.ok && parsed.bundle.inputs.supplierPriceBasis).toBe('gross')

@@ -59,7 +59,14 @@ describe('§3.8 recommendBattery — Demo-Bäckerei × Dummy-Katalog', () => {
 
     // recommendation zeigt konsistent auf Platz 1 des sortierten Arrays.
     expect(recommendation.batteryId).toBe(perBattery[0]!.battery.id)
-    expect(recommendation.rationale).toContain(perBattery[0]!.battery.name)
+    // Begründung als Werte (netto), identisch mit Platz 1 — der Satz entsteht im Report.
+    expect(recommendation.rationale).toEqual({
+      code: 'best_net_saving',
+      totalSavingPerYear: perBattery[0]!.totalSavingPerYear,
+      amortizationYears: perBattery[0]!.amortizationYears,
+      netSavingOverHorizon: perBattery[0]!.netSavingOverHorizon,
+      horizonYears: 10,
+    })
   })
 
   it('der leistungsschwache Kandidat (1,5 kW) trägt die "Leistung reicht nicht"-Warnung und landet nicht auf Platz 1', () => {
@@ -68,28 +75,30 @@ describe('§3.8 recommendBattery — Demo-Bäckerei × Dummy-Katalog', () => {
 
     console.log(
       `[§3.8 Leistungslimit] ${weak!.battery.id}: newBilledKw=${weak!.newBilledKw.toFixed(1)} kW · ` +
-        `warnings=[${weak!.warnings.join(' | ')}]`,
+        `notices=[${weak!.notices.map((n) => n.code).join(' | ')}]`,
     )
 
-    expect(weak!.warnings.some((w) => /Leistung.*reicht nicht/i.test(w))).toBe(true)
+    expect(weak!.notices).toContainEqual({ code: 'power_limited', maxPowerKw: weak!.battery.maxPowerKw })
     expect(perBattery[0]!.battery.id).not.toBe('dummy-res-m10-lowpower')
   })
 
   it('Betonsockel-/Wechselrichter-Warnungen erscheinen exakt bei den Kandidaten mit gesetztem Feld', () => {
     for (const p of perBattery) {
-      const hasFoundationWarning = p.warnings.some((w) => /Betonsockel/i.test(w))
+      const hasFoundationWarning = p.notices.some((n) => n.code === 'foundation_required')
       expect(hasFoundationWarning).toBe(p.battery.requiresFoundation)
 
-      const hasInverterWarning = p.warnings.some((w) => /Wechselrichter/i.test(w))
+      const hasInverterWarning = p.notices.some((n) => n.code === 'separate_inverter')
       const expectInverterWarning = !p.battery.inverterIncluded && p.battery.extraInverterCost != null
       expect(hasInverterWarning).toBe(expectInverterWarning)
     }
 
     // Konkrete Gegenprobe: mind. ein Kandidat mit und mind. einer ohne jede Warnung.
-    expect(perBattery.some((p) => p.warnings.some((w) => /Betonsockel/i.test(w)))).toBe(true)
-    expect(perBattery.some((p) => !p.warnings.some((w) => /Betonsockel/i.test(w)))).toBe(true)
-    expect(perBattery.some((p) => p.warnings.some((w) => /Wechselrichter/i.test(w)))).toBe(true)
-    expect(perBattery.some((p) => !p.warnings.some((w) => /Wechselrichter/i.test(w)))).toBe(true)
+    expect(perBattery.some((p) => p.notices.some((n) => n.code === 'foundation_required'))).toBe(true)
+    expect(perBattery.some((p) => !p.notices.some((n) => n.code === 'foundation_required'))).toBe(true)
+    expect(perBattery.some((p) => p.notices.some((n) => n.code === 'separate_inverter'))).toBe(true)
+    expect(perBattery.some((p) => !p.notices.some((n) => n.code === 'separate_inverter'))).toBe(true)
+    // Kein Geldbetrag mehr als fertiger Text in der Engine-Ausgabe.
+    expect(perBattery.every((p) => p.warnings.every((w) => !/€/.test(w)))).toBe(true)
   })
 
   it('static-Batterien tragen die Martin-konforme §3.7-Warnung (reserve-frei, keine Spitzenkappung) und KEINE Leistungs-Warnung', () => {
@@ -102,7 +111,7 @@ describe('§3.8 recommendBattery — Demo-Bäckerei × Dummy-Katalog', () => {
       expect(p.warnings.some((w) => /statisch/i.test(w) && /keine Spitzenkappung/i.test(w))).toBe(true)
       expect(p.warnings.some((w) => /socFloor|Reserve/i.test(w))).toBe(false)
       // Die „Leistung reicht nicht"-Warnung betrifft nur die Spitzenkappung → für static nie gesetzt.
-      expect(p.warnings.some((w) => /Leistung.*reicht nicht/i.test(w))).toBe(false)
+      expect(p.notices.some((n) => n.code === 'power_limited')).toBe(false)
     }
   })
 })

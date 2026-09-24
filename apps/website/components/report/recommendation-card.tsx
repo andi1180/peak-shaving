@@ -20,7 +20,7 @@ import {
   formatPercent,
   formatYears,
 } from '@/lib/format'
-import { CONTROLLED_WAY_LABEL, HINDSIGHT_NOTE, vatNote } from '@/lib/report-copy'
+import { batteryNoteTexts, CONTROLLED_WAY_LABEL, HINDSIGHT_NOTE, vatNote } from '@/lib/report-copy'
 import { sumCovered } from './monthly-tariff-chart'
 import { Num } from './num'
 
@@ -140,6 +140,7 @@ type RecommendationCardProps =
 export function RecommendationCard(props: RecommendationCardProps) {
   const { entry, primary = false } = props
   const isExisting = props.variant === 'existing'
+  const noteTexts = batteryNoteTexts(entry)
   // Narrowing über die Union: beide Nicht-`existing`-Zweige tragen die ROI-Felder.
   const roi = props.variant === 'existing' ? null : props.entry
   const addon = props.variant === 'addon' ? props.entry : null
@@ -522,12 +523,12 @@ export function RecommendationCard(props: RecommendationCardProps) {
           )
         )}
 
-        {entry.warnings.length > 0 && (
+        {noteTexts.length > 0 && (
           <Alert variant="warning">
             <AlertTriangle className="h-4 w-4" />
             <AlertDescription>
               <ul className="list-disc space-y-1 pl-4">
-                {entry.warnings.map((w) => (
+                {noteTexts.map((w) => (
                   <li key={w}>{w}</li>
                 ))}
               </ul>

@@ -122,7 +122,7 @@ function analysisWith(args: {
       leistungspreisCostPerYear: 3980.16,
     },
     perBattery: [entry as never],
-    recommendation: { batteryId: 'kat-1', rationale: '' },
+    recommendation: { batteryId: 'kat-1', rationale: { code: 'best_net_saving', totalSavingPerYear: 0, amortizationYears: 0, netSavingOverHorizon: 0, horizonYears: 10 } },
     assumptions: {
       roundTripEfficiency: 0.9,
       horizonYears: 10,

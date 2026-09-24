@@ -36,7 +36,7 @@ const ANALYSIS: PdfReportAnalysis = {
     leistungspreisCostPerYear: 331.68, // 82,92 €/kW·a × 48 kW ÷ 12 (Summenmodell, 12 Monate)
   },
   perBattery: [],
-  recommendation: { batteryId: 'keiner', rationale: 'leerer Katalog' },
+  recommendation: { batteryId: 'keiner', rationale: { code: 'best_net_saving', totalSavingPerYear: 0, amortizationYears: 0, netSavingOverHorizon: 0, horizonYears: 10 } },
   assumptions: {
     roundTripEfficiency: 0.9,
     horizonYears: 10,
@@ -256,6 +256,7 @@ const BATTERY_ANALYSIS: PdfReportAnalysis = {
       coveredDays: 365,
       totalSavingPerYear: 995,
       warnings: [],
+      notices: [],
       totalInvestment: 25200,
       subsidyAmount: 0,
       taxBenefit: 0,
@@ -265,7 +266,7 @@ const BATTERY_ANALYSIS: PdfReportAnalysis = {
       netSavingOverHorizon: 0,
     },
   ],
-  recommendation: { batteryId: 'ps-c60', rationale: 'bester ROI' },
+  recommendation: { batteryId: 'ps-c60', rationale: { code: 'best_net_saving', totalSavingPerYear: 0, amortizationYears: 0, netSavingOverHorizon: 0, horizonYears: 10 } },
 }
 
 function dataSourcesFor(provenance: PdfReportInput['tariffProvenance']) {

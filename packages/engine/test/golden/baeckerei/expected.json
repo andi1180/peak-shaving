@@ -145,8 +145,12 @@
    "netInvestment": 10950,
    "amortizationYears": 5.4507382464407845,
    "netSavingOverHorizon": 9139.02189928147,
-   "warnings": [
-    "Leistung des Kandidaten reicht nicht für alle Spitzen (25 kW maximale Lade-/Entladeleistung) — die Kappung ist leistungs-, nicht energiebegrenzt."
+   "warnings": [],
+   "notices": [
+    {
+     "code": "power_limited",
+     "maxPowerKw": 25
+    }
    ],
    "dispatchTrace": {
     "capKwByPeriod": [
@@ -1348,8 +1352,12 @@
    "netInvestment": 13350,
    "amortizationYears": 6.645420601825066,
    "netSavingOverHorizon": 6739.02189928147,
-   "warnings": [
-    "Leistung des Kandidaten reicht nicht für alle Spitzen (25 kW maximale Lade-/Entladeleistung) — die Kappung ist leistungs-, nicht energiebegrenzt."
+   "warnings": [],
+   "notices": [
+    {
+     "code": "power_limited",
+     "maxPowerKw": 25
+    }
    ],
    "dispatchTrace": {
     "capKwByPeriod": [
@@ -2551,8 +2559,12 @@
    "netInvestment": 9100,
    "amortizationYears": 5.820980922437833,
    "netSavingOverHorizon": 6533.103975521895,
-   "warnings": [
-    "Leistung des Kandidaten reicht nicht für alle Spitzen (20.5 kW maximale Lade-/Entladeleistung) — die Kappung ist leistungs-, nicht energiebegrenzt."
+   "warnings": [],
+   "notices": [
+    {
+     "code": "power_limited",
+     "maxPowerKw": 20.5
+    }
    ],
    "dispatchTrace": {
     "capKwByPeriod": [
@@ -3755,9 +3767,16 @@
    "netInvestment": 16052,
    "amortizationYears": 7.341283006812794,
    "netSavingOverHorizon": 5813.387814505397,
-   "warnings": [
-    "Betonsockel nötig (+€1990).",
-    "Leistung des Kandidaten reicht nicht für alle Spitzen (30 kW maximale Lade-/Entladeleistung) — die Kappung ist leistungs-, nicht energiebegrenzt."
+   "warnings": [],
+   "notices": [
+    {
+     "code": "foundation_required",
+     "foundationCost": 1990
+    },
+    {
+     "code": "power_limited",
+     "maxPowerKw": 30
+    }
    ],
    "dispatchTrace": {
     "capKwByPeriod": [
@@ -4959,8 +4978,12 @@
    "netInvestment": 14756,
    "amortizationYears": 7.185150299616026,
    "netSavingOverHorizon": 5780.800741368708,
-   "warnings": [
-    "Leistung des Kandidaten reicht nicht für alle Spitzen (30 kW maximale Lade-/Entladeleistung) — die Kappung ist leistungs-, nicht energiebegrenzt."
+   "warnings": [],
+   "notices": [
+    {
+     "code": "power_limited",
+     "maxPowerKw": 30
+    }
    ],
    "dispatchTrace": {
     "capKwByPeriod": [
@@ -6162,8 +6185,12 @@
    "netInvestment": 7199,
    "amortizationYears": 5.846912211252876,
    "netSavingOverHorizon": 5113.481767974754,
-   "warnings": [
-    "Leistung des Kandidaten reicht nicht für alle Spitzen (20 kW maximale Lade-/Entladeleistung) — die Kappung ist leistungs-, nicht energiebegrenzt."
+   "warnings": [],
+   "notices": [
+    {
+     "code": "power_limited",
+     "maxPowerKw": 20
+    }
    ],
    "dispatchTrace": {
     "capKwByPeriod": [
@@ -7366,9 +7393,16 @@
    "netInvestment": 17004,
    "amortizationYears": 7.732454129062552,
    "netSavingOverHorizon": 4986.431131159501,
-   "warnings": [
-    "Betonsockel nötig (+€1990).",
-    "Leistung des Kandidaten reicht nicht für alle Spitzen (29.9 kW maximale Lade-/Entladeleistung) — die Kappung ist leistungs-, nicht energiebegrenzt."
+   "warnings": [],
+   "notices": [
+    {
+     "code": "foundation_required",
+     "foundationCost": 1990
+    },
+    {
+     "code": "power_limited",
+     "maxPowerKw": 29.9
+    }
    ],
    "dispatchTrace": {
     "capKwByPeriod": [
@@ -8570,8 +8604,12 @@
    "netInvestment": 11200,
    "amortizationYears": 7.16428421223118,
    "netSavingOverHorizon": 4433.103975521895,
-   "warnings": [
-    "Leistung des Kandidaten reicht nicht für alle Spitzen (20.5 kW maximale Lade-/Entladeleistung) — die Kappung ist leistungs-, nicht energiebegrenzt."
+   "warnings": [],
+   "notices": [
+    {
+     "code": "power_limited",
+     "maxPowerKw": 20.5
+    }
    ],
    "dispatchTrace": {
     "capKwByPeriod": [
@@ -9773,8 +9811,12 @@
    "netInvestment": 5791,
    "amortizationYears": 6.162922225912949,
    "netSavingOverHorizon": 3605.5164376906396,
-   "warnings": [
-    "Leistung des Kandidaten reicht nicht für alle Spitzen (15 kW maximale Lade-/Entladeleistung) — die Kappung ist leistungs-, nicht energiebegrenzt."
+   "warnings": [],
+   "notices": [
+    {
+     "code": "power_limited",
+     "maxPowerKw": 15
+    }
    ],
    "dispatchTrace": {
     "capKwByPeriod": [
@@ -10976,8 +11018,12 @@
    "netInvestment": 6650,
    "amortizationYears": 7.014233246358244,
    "netSavingOverHorizon": 2830.7226484129933,
-   "warnings": [
-    "Leistung des Kandidaten reicht nicht für alle Spitzen (12.3 kW maximale Lade-/Entladeleistung) — die Kappung ist leistungs-, nicht energiebegrenzt."
+   "warnings": [],
+   "notices": [
+    {
+     "code": "power_limited",
+     "maxPowerKw": 12.3
+    }
    ],
    "dispatchTrace": {
     "capKwByPeriod": [
@@ -12179,8 +12225,12 @@
    "netInvestment": 22100,
    "amortizationYears": 9.331821736827713,
    "netSavingOverHorizon": 1582.406954671147,
-   "warnings": [
-    "Leistung des Kandidaten reicht nicht für alle Spitzen (30 kW maximale Lade-/Entladeleistung) — die Kappung ist leistungs-, nicht energiebegrenzt."
+   "warnings": [],
+   "notices": [
+    {
+     "code": "power_limited",
+     "maxPowerKw": 30
+    }
    ],
    "dispatchTrace": {
     "capKwByPeriod": [
@@ -13383,8 +13433,12 @@
    "netInvestment": 19190,
    "amortizationYears": 9.51161004584818,
    "netSavingOverHorizon": 985.3435091427455,
-   "warnings": [
-    "Betonsockel nötig (+€1990)."
+   "warnings": [],
+   "notices": [
+    {
+     "code": "foundation_required",
+     "foundationCost": 1990
+    }
    ],
    "dispatchTrace": {
     "capKwByPeriod": [
@@ -14586,8 +14640,12 @@
    "netInvestment": 12676,
    "amortizationYears": 9.423995647272086,
    "netSavingOverHorizon": 774.7702193912337,
-   "warnings": [
-    "Leistung des Kandidaten reicht nicht für alle Spitzen (24 kW maximale Lade-/Entladeleistung) — die Kappung ist leistungs-, nicht energiebegrenzt."
+   "warnings": [],
+   "notices": [
+    {
+     "code": "power_limited",
+     "maxPowerKw": 24
+    }
    ],
    "dispatchTrace": {
     "capKwByPeriod": [
@@ -15789,8 +15847,12 @@
    "netInvestment": 10138,
    "amortizationYears": 10.356037800810219,
    "netSavingOverHorizon": -348.54171972331096,
-   "warnings": [
-    "Leistung des Kandidaten reicht nicht für alle Spitzen (18 kW maximale Lade-/Entladeleistung) — die Kappung ist leistungs-, nicht energiebegrenzt."
+   "warnings": [],
+   "notices": [
+    {
+     "code": "power_limited",
+     "maxPowerKw": 18
+    }
    ],
    "dispatchTrace": {
     "capKwByPeriod": [
@@ -16993,6 +17055,7 @@
    "amortizationYears": 10.2972165440053,
    "netSavingOverHorizon": -553.8669832322776,
    "warnings": [],
+   "notices": [],
    "dispatchTrace": {
     "capKwByPeriod": [
      12.65296485900879,
@@ -18194,6 +18257,7 @@
    "amortizationYears": 11.304039426578177,
    "netSavingOverHorizon": -2653.29106520793,
    "warnings": [],
+   "notices": [],
    "dispatchTrace": {
     "capKwByPeriod": [
      12.237843627929688,
@@ -19395,8 +19459,12 @@
    "netInvestment": 26117,
    "amortizationYears": 12.933491558994959,
    "netSavingOverHorizon": -5923.6903427665675,
-   "warnings": [
-    "Betonsockel nötig (+€1990)."
+   "warnings": [],
+   "notices": [
+    {
+     "code": "foundation_required",
+     "foundationCost": 1990
+    }
    ],
    "dispatchTrace": {
     "capKwByPeriod": [
@@ -20599,9 +20667,16 @@
    "netInvestment": 32890,
    "amortizationYears": 13.529061226518351,
    "netSavingOverHorizon": -8579.37012752059,
-   "warnings": [
-    "Betonsockel nötig (+€1990).",
-    "Leistung des Kandidaten reicht nicht für alle Spitzen (30 kW maximale Lade-/Entladeleistung) — die Kappung ist leistungs-, nicht energiebegrenzt."
+   "warnings": [],
+   "notices": [
+    {
+     "code": "foundation_required",
+     "foundationCost": 1990
+    },
+    {
+     "code": "power_limited",
+     "maxPowerKw": 30
+    }
    ],
    "dispatchTrace": {
     "capKwByPeriod": [
@@ -21804,8 +21879,12 @@
    "netInvestment": 32915,
    "amortizationYears": 16.181454915037296,
    "netSavingOverHorizon": -12573.813022176175,
-   "warnings": [
-    "Betonsockel nötig (+€1990)."
+   "warnings": [],
+   "notices": [
+    {
+     "code": "foundation_required",
+     "foundationCost": 1990
+    }
    ],
    "dispatchTrace": {
     "capKwByPeriod": [
@@ -23008,8 +23087,12 @@
    "netInvestment": 33690,
    "amortizationYears": 16.622080094553407,
    "netSavingOverHorizon": -13421.77856901359,
-   "warnings": [
-    "Betonsockel nötig (+€1990)."
+   "warnings": [],
+   "notices": [
+    {
+     "code": "foundation_required",
+     "foundationCost": 1990
+    }
    ],
    "dispatchTrace": {
     "capKwByPeriod": [
@@ -24212,6 +24295,7 @@
    "amortizationYears": 17.51668830905121,
    "netSavingOverHorizon": -15276.523683072675,
    "warnings": [],
+   "notices": [],
    "dispatchTrace": {
     "capKwByPeriod": [
      11.558210945129396,
@@ -25413,8 +25497,12 @@
    "netInvestment": 35915,
    "amortizationYears": 17.691396538744915,
    "netSavingOverHorizon": -15614.171898982306,
-   "warnings": [
-    "Betonsockel nötig (+€1990)."
+   "warnings": [],
+   "notices": [
+    {
+     "code": "foundation_required",
+     "foundationCost": 1990
+    }
    ],
    "dispatchTrace": {
     "capKwByPeriod": [
@@ -26617,8 +26705,12 @@
    "netInvestment": 38200,
    "amortizationYears": 18.831988278133416,
    "netSavingOverHorizon": -17915.365453813727,
-   "warnings": [
-    "Betonsockel nötig (+€2200)."
+   "warnings": [],
+   "notices": [
+    {
+     "code": "foundation_required",
+     "foundationCost": 2200
+    }
    ],
    "dispatchTrace": {
     "capKwByPeriod": [
@@ -27821,8 +27913,12 @@
    "netInvestment": 39200,
    "amortizationYears": 19.43284194472399,
    "netSavingOverHorizon": -19027.963346018572,
-   "warnings": [
-    "Betonsockel nötig (+€2200)."
+   "warnings": [],
+   "notices": [
+    {
+     "code": "foundation_required",
+     "foundationCost": 2200
+    }
    ],
    "dispatchTrace": {
     "capKwByPeriod": [
@@ -29025,8 +29121,12 @@
    "netInvestment": 41000,
    "amortizationYears": 20.525324043499978,
    "netSavingOverHorizon": -21024.675901287897,
-   "warnings": [
-    "Betonsockel nötig (+€2200)."
+   "warnings": [],
+   "notices": [
+    {
+     "code": "foundation_required",
+     "foundationCost": 2200
+    }
    ],
    "dispatchTrace": {
     "capKwByPeriod": [
@@ -30229,8 +30329,12 @@
    "netInvestment": 41900,
    "amortizationYears": 21.118751452167242,
    "netSavingOverHorizon": -22059.811959101327,
-   "warnings": [
-    "Betonsockel nötig (+€2200)."
+   "warnings": [],
+   "notices": [
+    {
+     "code": "foundation_required",
+     "foundationCost": 2200
+    }
    ],
    "dispatchTrace": {
     "capKwByPeriod": [
@@ -31433,8 +31537,12 @@
    "netInvestment": 44050,
    "amortizationYears": 22.102299087948232,
    "netSavingOverHorizon": -24119.946649116137,
-   "warnings": [
-    "Betonsockel nötig (+€2200)."
+   "warnings": [],
+   "notices": [
+    {
+     "code": "foundation_required",
+     "foundationCost": 2200
+    }
    ],
    "dispatchTrace": {
     "capKwByPeriod": [
@@ -32637,8 +32745,12 @@
    "netInvestment": 44450,
    "amortizationYears": 21.871258295992313,
    "netSavingOverHorizon": -24126.523683072675,
-   "warnings": [
-    "Betonsockel nötig (+€2200)."
+   "warnings": [],
+   "notices": [
+    {
+     "code": "foundation_required",
+     "foundationCost": 2200
+    }
    ],
    "dispatchTrace": {
     "capKwByPeriod": [
@@ -33841,8 +33953,12 @@
    "netInvestment": 46200,
    "amortizationYears": 22.71876426635675,
    "netSavingOverHorizon": -25864.386910156198,
-   "warnings": [
-    "Betonsockel nötig (+€2200)."
+   "warnings": [],
+   "notices": [
+    {
+     "code": "foundation_required",
+     "foundationCost": 2200
+    }
    ],
    "dispatchTrace": {
     "capKwByPeriod": [
@@ -35045,8 +35161,12 @@
    "netInvestment": 49200,
    "amortizationYears": 24.19400869923706,
    "netSavingOverHorizon": -28864.386910156198,
-   "warnings": [
-    "Betonsockel nötig (+€2200)."
+   "warnings": [],
+   "notices": [
+    {
+     "code": "foundation_required",
+     "foundationCost": 2200
+    }
    ],
    "dispatchTrace": {
     "capKwByPeriod": [
@@ -36249,8 +36369,12 @@
    "netInvestment": 80500,
    "amortizationYears": 41.65146522427411,
    "netSavingOverHorizon": -61172.94882267784,
-   "warnings": [
-    "Betonsockel nötig (+€2500)."
+   "warnings": [],
+   "notices": [
+    {
+     "code": "foundation_required",
+     "foundationCost": 2500
+    }
    ],
    "dispatchTrace": {
     "capKwByPeriod": [
@@ -37424,7 +37548,13 @@
  ],
  "recommendation": {
   "batteryId": "6845c64d-b181-4384-9852-0aeaaa1e2b5b",
-  "rationale": "Kostal & Dyness Retrofit L spart voraussichtlich €2009 pro Jahr und amortisiert sich nach 5.5 Jahren — Netto-Ersparnis über 10 Jahre: €9139."
+  "rationale": {
+   "code": "best_net_saving",
+   "totalSavingPerYear": 2008.902189928147,
+   "amortizationYears": 5.4507382464407845,
+   "netSavingOverHorizon": 9139.02189928147,
+   "horizonYears": 10
+  }
  },
  "assumptions": {
   "roundTripEfficiency": 0.88,

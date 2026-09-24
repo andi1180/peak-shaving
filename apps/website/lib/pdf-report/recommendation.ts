@@ -10,6 +10,7 @@ import {
   formatPercent,
   formatYears,
 } from '@/lib/format'
+import { batteryNoteTexts, DYNAMIC_TARIFF_HINT, needsDynamicTariffHint } from '@/lib/report-copy'
 import { billedKwPerYear } from './basis'
 import { hasNegativeAddonVerdict } from './comparison'
 import type { ReportBuildContext } from './context'
@@ -297,7 +298,18 @@ export function buildRecommendation(
      * hinter ihr: „Betonsockel nötig (+€1800)" ist eine Kostenaussage, und sie ist in
      * `totalInvestment` bereits enthalten — wer sie überliest, hält die Gesamtsumme für zu hoch.
      */
-    notes: entry.warnings,
+    notes: batteryNoteTexts(entry),
+  }
+}
+
+/** Heimspeicher ohne Ersparnis mangels Börsenpreis: der Hinweis statt eines Geräts mit ∞ Amortisation. */
+function dynamicTariffHintStatement(): ReportStatement {
+  return {
+    id: 'recommendation',
+    title: 'Speicher nur mit dynamischem Tarif',
+    amount: null,
+    rows: [],
+    body: DYNAMIC_TARIFF_HINT,
   }
 }
 
@@ -405,9 +417,11 @@ export function buildRecommendationChapter(
   const primary = context ? context.primaryEntry : primaryEntryOf(analysis)
 
   return {
-    recommendation: recommended
-      ? buildRecommendation(analysis, recommended, catalogMeta?.[recommended.battery.id])
-      : null,
+    recommendation: !recommended
+      ? null
+      : needsDynamicTariffHint(analysis)
+        ? dynamicTariffHintStatement()
+        : buildRecommendation(analysis, recommended, catalogMeta?.[recommended.battery.id]),
     loadControl: buildLoadControl(analysis, primary),
   }
 }

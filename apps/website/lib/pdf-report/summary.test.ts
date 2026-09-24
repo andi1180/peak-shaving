@@ -61,6 +61,7 @@ const ENTRY: BatteryRoiEntry = {
   coveredDays: 209,
   totalSavingPerYear: 400,
   warnings: [],
+  notices: [],
   totalInvestment: 21000,
   subsidyAmount: 0,
   taxBenefit: 0,
@@ -80,7 +81,7 @@ function analysisFor(over: Partial<PdfReportAnalysis> = {}): PdfReportAnalysis {
       leistungspreisCostPerYear: 0,
     },
     perBattery: [ENTRY],
-    recommendation: { batteryId: BATTERY.id, rationale: '' },
+    recommendation: { batteryId: BATTERY.id, rationale: { code: 'best_net_saving', totalSavingPerYear: 0, amortizationYears: 0, netSavingOverHorizon: 0, horizonYears: 10 } },
     assumptions: {
       roundTripEfficiency: 0.9,
       horizonYears: 10,
