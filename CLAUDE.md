@@ -161,7 +161,10 @@ Retrofit L**, 2.009 €/Jahr, Amortisation 5,45 Jahre, netto 9.139 € über 10 
 fehlerhaften Netzverlust 7 ct waren es 1.875 €/5,84/7.803 €) · Urbanz
 mit den Cloud-Entwurfs-Parametern (13,081 ct / 3,50 €/Monat / 4,56 ct) `billedKw` **69,132** (bis
 zur Mindestleistung je Monat 60,212 — der Entwurf trägt `minBillableKw` 7, Leistungspreis 0, kein
-Euro-Betrag hat sich dadurch bewegt).
+Euro-Betrag hat sich dadurch bewegt). **Seit H2-A (24.09.2026) hat Urbanz (Segment privat) eine
+Empfehlung:** BYD Battery-Box HVB 5.9 (5,94 kWh, wirksam 5 kW über den 5-kW-Wechselrichter-Baustein),
+3.253 € netto / 3.903,60 € brutto, 169,21 €/Jahr netto, Amortisation 19,2 Jahre (rät ab) — eingefrorene
+Preisdaten per `anon` vom 24.09.2026, synthetische PV-Ersatzreihe; alle übrigen Ergebnisteile tief gleich.
 **⚠ KORREKTUR:** hier stand bis zum Golden File „Empfehlung `f5d5344a…` (Dyness Stack 100
 40,96 kWh)". Die Zeile hat zwei Läufe vermischt — `billedKw` stammte aus der eingefrorenen
 `monthly_max_sum`-Probe, die Empfehlung aus einem Lauf über die Oberfläche (Vorgabe
@@ -620,4 +623,4 @@ Für `source: 'import_only'` bei einem Kunden mit vorhandener PV-Anlage (`hasPv 
 
 **Nächster grosser Schritt: der übrige Report-Baukasten (Teil 3)** — die weiteren Zielseiten (Voraussetzungs-Seite, Drei-Wege-Seite, PV-Kapitel, Jahres-Hochrechnung) sind unangetastet.
 
-**Weiterhin nicht gebaut:** Engine-Anbindung des Wizard-Entwurfs (rechnet nichts), Rollup-Schicht über mehrere Zählpunkte, Fragenkatalog-Inhalte, eigene Kostenbremse für den Energieberater-Endpunkt (teilt sich die des Kunden-Chats), ein Erzeugungsprofil zu ersetzen/entfernen (nur einzelne Fläche geht), echter PVGIS-Aufruf nur gemockt verifiziert, echter Batteriekatalog (**seit K3b, 23.09.2026, rechnet der ÖFFENTLICHE Rechner gegen `public.battery_catalog` — 31 freigegebene Gewerbe-Geräte; für `heim` ist noch keines freigegeben, ein Haushalt bekommt seit K3b-2 deshalb eine Analyse OHNE Speichervorschlag statt gar keiner. seit K3c rechnet auch der Wizard-Pfad (`apps/web`/`extractors`) gegen den echten Katalog, `DEMO_BATTERY_CATALOG` liegt nur noch als Prüf-Fixture unter `shared/fixtures`**), ein Lauf über die echte Oberfläche für die meisten B24-Schritte (durchgängig nur Typen/Logik/Wächter bzw. jsdom-Harness geprüft — **Ausnahmen seit 22.09.2026: Rechnung- und Batterie-Station**, `apps/web/e2e/{rechnung,batterie}-station.mjs`).
+**Weiterhin nicht gebaut:** Engine-Anbindung des Wizard-Entwurfs (rechnet nichts), Rollup-Schicht über mehrere Zählpunkte, Fragenkatalog-Inhalte, eigene Kostenbremse für den Energieberater-Endpunkt (teilt sich die des Kunden-Chats), ein Erzeugungsprofil zu ersetzen/entfernen (nur einzelne Fläche geht), echter PVGIS-Aufruf nur gemockt verifiziert, echter Batteriekatalog (**seit K3b, 23.09.2026, rechnet der ÖFFENTLICHE Rechner gegen `public.battery_catalog` — 31 freigegebene Gewerbe-Geräte; für `heim` sind seit H2-A (24.09.2026) 12 Geräte freigegeben (Fronius Reserva, SMA Home Storage, BYD HVB, KOSTAL HELIVOR); ohne Kandidaten bekäme ein Haushalt seit K3b-2 eine Analyse OHNE Speichervorschlag statt gar keiner. seit K3c rechnet auch der Wizard-Pfad (`apps/web`/`extractors`) gegen den echten Katalog, `DEMO_BATTERY_CATALOG` liegt nur noch als Prüf-Fixture unter `shared/fixtures`**), ein Lauf über die echte Oberfläche für die meisten B24-Schritte (durchgängig nur Typen/Logik/Wächter bzw. jsdom-Harness geprüft — **Ausnahmen seit 22.09.2026: Rechnung- und Batterie-Station**, `apps/web/e2e/{rechnung,batterie}-station.mjs`).

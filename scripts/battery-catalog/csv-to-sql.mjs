@@ -158,3 +158,103 @@ where kategorie = 'gewerbe'
 
 writeFileSync(KENNDATEN_OUT, kSql, 'utf8')
 console.log(`${updates.length} Kenndaten-Zeilen → ${KENNDATEN_OUT}`)
+
+// ── H2-A: Kenndaten + Freigabe für Heimgeräte ──────────────────────────────────────────────────
+// Eigenes Spaltenformat: seit K2c gehört `rte_source` zum Wert, und seit H1 liegt der
+// Wechselrichter als Baustein an der Zeile — `inverter_included`/`inverter_component_id` fasst
+// dieser Durchgang nicht an.
+
+const HEIM_CSV = join(root, 'data', 'batteriekatalog', 'kenndaten_heim_a.csv')
+const HEIM_OUT = join(root, 'supabase', 'migrations', '20260924120000_battery_catalog_kenndaten_heim_a.sql')
+
+const hLines = readFileSync(HEIM_CSV, 'utf8').split('\n').map((l) => l.replace(/\r$/, '')).filter((l) => l !== '')
+const hHeader = hLines.shift().split(';')
+const hExpected = ['memodo_id', 'usable_capacity_kwh', 'max_power_kw', 'round_trip_efficiency', 'rte_source',
+  'requires_foundation', 'datasheet_url', 'rechenweg']
+if (hHeader.join(';') !== hExpected.join(';')) throw new Error(`Unerwartete Kopfzeile: ${hHeader.join(';')}`)
+
+const heimIds = []
+const heimUpdates = hLines.map((line, i) => {
+  const row = i + 2
+  const f = line.split(';')
+  if (f.length !== 8) throw new Error(`Zeile ${row}: ${f.length} Felder statt 8`)
+  const [memodoId, kwh, kw, rte, rteSource, reqFound, datasheet, rechenweg] = f.map((s) => s.trim())
+  if (!/^\d+$/.test(memodoId)) throw new Error(`Zeile ${row}: memodo_id "${memodoId}" ist keine Zahl`)
+  if (!/^https:\/\//.test(datasheet)) throw new Error(`Zeile ${row}: datasheet_url fehlt oder ist nicht https`)
+  if (!rechenweg) throw new Error(`Zeile ${row}: rechenweg fehlt`)
+  const e = num(rte, 'round_trip_efficiency', row)
+  if (e !== 'null' && !(Number(e) > 0 && Number(e) <= 1)) throw new Error(`Zeile ${row}: Wirkungsgrad ${e} nicht in (0,1]`)
+  // Ein Wirkungsgrad ohne Herkunft wäre von einem belegten nicht zu unterscheiden (K2c).
+  if ((e === 'null') !== (rteSource === '')) throw new Error(`Zeile ${row}: Wirkungsgrad und rte_source nur gemeinsam`)
+  if (rteSource !== '' && rteSource !== 'datenblatt' && rteSource !== 'annahme') {
+    throw new Error(`Zeile ${row}: rte_source "${rteSource}" unbekannt`)
+  }
+  heimIds.push(memodoId)
+
+  return `update public.battery_catalog set
+  usable_capacity_kwh   = ${num(kwh, 'usable_capacity_kwh', row)},
+  max_power_kw          = ${num(kw, 'max_power_kw', row)},
+  round_trip_efficiency = ${e},
+  rte_source            = ${rteSource === '' ? 'null' : lit(rteSource)},
+  requires_foundation   = ${bool(reqFound, 'requires_foundation', row)},
+  datasheet_url         = ${lit(datasheet)},
+  notes                 = nullif(btrim(coalesce(notes || ' · ', '') || ${lit(rechenweg)}), '')
+where memodo_id = ${memodoId}
+  and kategorie = 'heim'
+  and usable_capacity_kwh is null
+  and max_power_kw is null
+  and round_trip_efficiency is null
+  and rte_source is null
+  and requires_foundation is null
+  and datasheet_url is null;`
+})
+
+const hSql = `-- H2-A: Kenndaten und Freigabe für ${heimUpdates.length} Heimgeräte (Fronius Reserva, SMA Home Storage,
+-- BYD Battery-Box HVB, KOSTAL HELIVOR HV).
+--
+-- ERZEUGT — nicht von Hand bearbeiten. Quelle: data/batteriekatalog/kenndaten_heim_a.csv,
+-- Generator: scripts/battery-catalog/csv-to-sql.mjs.
+--
+-- \`max_power_kw\` ist die Leistung des SPEICHERS laut Blatt; die Begrenzung durch den in H1
+-- zugeordneten Wechselrichter-Baustein rechnet der Loader (min(Speicher, Wechselrichter)).
+-- Kein Blatt nennt einen System-Round-Trip — alle tragen 0,88 als Annahme (K2c-Regel).
+--
+-- ⚠ DIE WHERE-BEDINGUNG IST DIE SICHERUNG: geändert wird nur eine Zeile, deren Kenndatenfelder
+-- noch ALLE leer sind. Hat ein Mensch im Admin gepflegt, läuft das UPDATE vorbei; daraus folgt
+-- zugleich die Idempotenz.
+
+${heimUpdates.join('\n\n')}
+
+-- Freigabe über denselben Wrapper wie die Oberfläche (samt Bausteinprüfung). Eine unvollständige
+-- Zeile bleibt Entwurf und wird gemeldet, statt die Migration abzubrechen.
+do $$
+declare
+  v_admin  uuid;
+  v_row    public.battery_catalog%rowtype;
+  v_result jsonb;
+  v_memodo int;
+begin
+  select user_id into v_admin from platform.user_roles where role = 'admin' limit 1;
+  if v_admin is null then
+    raise notice 'H2-A: kein Admin-Konto gefunden — die Freigaben unterbleiben.';
+    return;
+  end if;
+
+  -- NUR die JWT-Angabe, KEIN Rollenwechsel (Begründung im Kopf des K1b-DO-Blocks).
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', v_admin, 'role', 'authenticated')::text, true);
+
+  foreach v_memodo in array array[${heimIds.join(', ')}] loop
+    select * into v_row from public.battery_catalog where memodo_id = v_memodo and kategorie = 'heim';
+    continue when v_row.id is null or v_row.active;
+
+    v_result := public.admin_set_battery_active(v_row.id, true);
+    if v_result->>'status' <> 'activated' then
+      raise notice 'H2-A: memodo_id % bleibt Entwurf: %', v_memodo, v_result;
+    end if;
+  end loop;
+end $$;
+`
+
+writeFileSync(HEIM_OUT, hSql, 'utf8')
+console.log(`${heimUpdates.length} Heim-Kenndaten-Zeilen → ${HEIM_OUT}`)
