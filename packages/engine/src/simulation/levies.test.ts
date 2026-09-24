@@ -296,6 +296,21 @@ describe('Gebrauchsabgabe Wien 6 % → 7 % (LGBl. für Wien Nr. 3/2026) — vier
   })
 })
 
+describe('Netz NÖ — Haushalt 2026 wird rechenbar (Gebrauchsabgabe 0, belegt)', () => {
+  it('liefert Monatsreihen, und die Gebrauchsabgabe schlägt nirgends auf', () => {
+    const levies = buildLevySchedule('netz_noe', 7, '2026-01-30', '2026-08-26', 'ohne_leistungsmessung', HEIM)
+    const result = buildMonthlyTariffComparison(
+      LOAD,
+      TARIFF,
+      { gridTariffRows: [gridRow(true)], spotPrices: SPOT, levies },
+      GRID_AFTER,
+    )
+    expect(result).toBeDefined()
+    expect(result!.fixedCosts.usageChargeOnFixedEur).toBe(0)
+    expect(sum(result!.currentTariffEur)).toBeGreaterThan(0)
+  })
+})
+
 describe('Ohne belegte Sätze wird der Hebel verweigert, nicht zu niedrig gerechnet', () => {
   it('eine unbelegte Kombination liefert einen leeren Plan — und damit KEINE Monatsreihen', () => {
     /*
