@@ -4,6 +4,7 @@ import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxi
 import {
   displayedPriceBasis,
   sumCovered,
+  tariffWayCosts,
   VAT_INCLUSIVE_LABEL,
   type MonthlyTariffComparison,
 } from 'shared'
@@ -86,7 +87,7 @@ const SERIES =
       color: CHART_COLORS.seriesSoft,
     },
     {
-      key: 'spotWithBatteryEur',
+      key: 'controlledEur',
       label: CONTROLLED_WAY_LABEL,
       color: CHART_COLORS.series,
       /*
@@ -108,7 +109,49 @@ type Row = {
   month: string
   currentTariffEur: number | null
   spotWithoutControlEur: number | null
-  spotWithBatteryEur: number | null
+  controlledEur: number | null
+}
+
+/**
+ * Balken und Legendensummen des Charts. Die gesteuerte Reihe liest dieselbe Auswahl wie die
+ * Monatstabelle (`buildMonthly`) und das Wege-Kapitel: `tariffWayCosts` entscheidet, ob die
+ * vorausschauende oder die einfache Reihe Weg 4 ist.
+ *
+ * K3b-2: Ohne Speicher (leerer Katalog, kein Bestand) gibt es die dritte Reihe nicht — Balken,
+ * Tooltip und Legende lesen dieselbe Auswahl, sonst beschriftete die Legende eine Säule, die
+ * niemand zeichnet.
+ */
+export function monthlyChartData(comparison: MonthlyTariffComparison): {
+  rows: Row[]
+  totals: Record<(typeof SERIES)[number]['key'], number>
+  hasControlled: boolean
+} {
+  const { controlVariant, controlledEur } = tariffWayCosts(comparison)
+  const controlled =
+    controlVariant === 'predictive'
+      ? comparison.spotWithPredictiveControlEur
+      : controlVariant === 'simple'
+        ? comparison.spotWithBatteryEur
+        : undefined
+
+  const rows: Row[] = MONTH_LABELS.map((month, i) => ({
+    month,
+    // ⚠ `null`, nicht 0: ein Nullbalken sähe aus wie „gemessen, kostet nichts". Recharts zeichnet
+    // an dieser Stelle nichts — der Monat bleibt sichtbar leer, und das ist die Aussage.
+    currentTariffEur: comparison.currentTariffEur[i] ?? null,
+    spotWithoutControlEur: comparison.spotWithoutControlEur[i] ?? null,
+    controlledEur: controlled?.[i] ?? null,
+  }))
+
+  return {
+    rows,
+    totals: {
+      currentTariffEur: sumCovered(comparison.currentTariffEur),
+      spotWithoutControlEur: sumCovered(comparison.spotWithoutControlEur),
+      controlledEur: controlledEur ?? 0,
+    },
+    hasControlled: controlled != null,
+  }
 }
 
 /**
@@ -173,28 +216,8 @@ export function MonthlyTariffChart({
   const whose = monthlyBatteryRef(isExisting)
   const gross = displayedPriceBasis(comparison) === 'gross'
   const fixed = comparison.fixedCosts
-  /*
-   * K3b-2: Ohne Speicher (leerer Katalog, kein Bestand) gibt es die dritte Reihe nicht. Gefiltert
-   * wird an GENAU DIESER Stelle — Balken, Tooltip und Legende lesen dieselbe Auswahl, sonst
-   * beschriftete die Legende eine Säule, die niemand zeichnet.
-   */
-  const withBattery = comparison.spotWithBatteryEur
-  const series = withBattery ? SERIES : SERIES.filter((s) => s.key !== 'spotWithBatteryEur')
-
-  const rows: Row[] = MONTH_LABELS.map((month, i) => ({
-    month,
-    // ⚠ `null`, nicht 0: ein Nullbalken sähe aus wie „gemessen, kostet nichts". Recharts zeichnet
-    // an dieser Stelle nichts — der Monat bleibt sichtbar leer, und das ist die Aussage.
-    currentTariffEur: comparison.currentTariffEur[i] ?? null,
-    spotWithoutControlEur: comparison.spotWithoutControlEur[i] ?? null,
-    spotWithBatteryEur: withBattery?.[i] ?? null,
-  }))
-
-  const totals = {
-    currentTariffEur: sumCovered(comparison.currentTariffEur),
-    spotWithoutControlEur: sumCovered(comparison.spotWithoutControlEur),
-    spotWithBatteryEur: withBattery ? sumCovered(withBattery) : 0,
-  } as const
+  const { rows, totals, hasControlled } = monthlyChartData(comparison)
+  const series = hasControlled ? SERIES : SERIES.filter((s) => s.key !== 'controlledEur')
 
   return (
     <div
