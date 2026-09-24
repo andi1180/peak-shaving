@@ -1450,8 +1450,9 @@ niedrige Summe auszuweisen. Konkret heisst das:
 - **Salzburg Netz rechnet noch nicht** — seine Gebrauchsabgabe ist ein ct/kWh-Satz je Netzebene
   (Preisblatt „Zuschläge zum Systemnutzungsentgelt“) und braucht ein eigenes Feld (Phase 2b).
   Ebenso ein Wiener-Netze-Anschluss mit PLZ weder in Wien noch in NÖ.
-- **Die Gebrauchsabgabe auf den Leistungspreis** wirkt nur, wo ein Abgabenplan vorliegt: im Wizard
-  immer, im öffentlichen Rechner nur mit eingeschaltetem Börsenpreis-Vergleich.
+- **Die Gebrauchsabgabe auf den Leistungspreis** wirkt in beiden Pfaden: der Wizard hat den
+  Abgabenplan immer, der öffentliche Rechner baut ihn seit Phase 2b auch ohne Börsenpreis-Vergleich
+  (`CalculatorPayload.levies`), sobald Netzbetreiber und Netzebene gewählt sind.
 
 **Einen Satz nachtragen:** einen weiteren datierten Eintrag in die betreffende Liste, mit
 `validFrom`/`validUntil` (Ende **inklusiv**) und `sourceNote`. Ein richtiger Eintrag wird **nicht

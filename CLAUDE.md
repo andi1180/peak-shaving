@@ -245,9 +245,12 @@ Gebrauchsabgabe 0, belegt ab 2025.
 
 **⚠ Beim nächsten Umbau mitzudenken: (a)** PLZ kennt der Wizard (`projects.postal_code`), der
 öffentliche Rechner nur aus der PV-Planung — fast jeder Wiener-Netze-Lauf dort trägt die Annahme.
-**(b)** Ohne Abgabenplan (öffentlicher Rechner ohne Börsenvergleich) bleibt die
-Leistungspreis-Ersparnis ohne Gebrauchsabgabe. **(c)** Salzburg (ct/kWh je Netzebene) und 2027 sind
-Phase 2b. **(d)** Die Cloud trägt keine Netzentgelt-Zeile für `netz_noe` — der NÖ-Vergleich
+**(b)** ~~Ohne Börsenvergleich bleibt die Leistungspreis-Ersparnis ohne Gebrauchsabgabe~~ —
+behoben in Phase 2b (24.09.2026): der öffentliche Rechner baut den Abgabenplan immer
+(`CalculatorPayload.levies`, reiner Code); der Plan des Tarifvergleichs hat Vorrang. Der Hinweis
+„Gebrauchsabgabe Wien angenommen“ steht seither auch am Bildschirm (Kosten-Kachel). **(c)** Salzburg
+(ct/kWh je Netzebene) und 2027 sind auf Andreas' Entscheidung vom 24.09.2026 zurückgestellt:
+Netzgebiete ausser Wien mit dem ersten Kunden dort, 2027 nach der Veröffentlichung durch E-Control. **(d)** Die Cloud trägt keine Netzentgelt-Zeile für `netz_noe` — der NÖ-Vergleich
 scheitert dort weiterhin, jetzt an der Netzentgelt-Seite statt an den Abgaben.
 
 ### Netztarif-Zeilen bearbeitbar, mit Änderungsprotokoll (23.09.2026)

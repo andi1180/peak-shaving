@@ -64,7 +64,7 @@ import {
   TarifNichtVerfuegbar,
   TarifOhneLeistungsmessung,
 } from './tarif-nicht-verfuegbar'
-import { loadTariffPricing } from '@/lib/tariff-pricing'
+import { buildLevies, loadTariffPricing } from '@/lib/tariff-pricing'
 import { fetchGridTariffs } from '@/lib/tariff-data'
 import type {
   EstimatedPvResult,
@@ -848,21 +848,24 @@ export function StepTariff({
      * betroffene Seite, und die Engine kennzeichnet den Hebel als nicht berechenbar (Regel C).
      * Die Peak-Shaving-Analyse läuft unverändert weiter — sie hängt an keiner dieser Zahlen.
      */
+    const pricingArgs = [
+      loadProfile,
+      netzbetreiber === NOT_SET ? null : netzbetreiber,
+      netzebene === NOT_SET ? null : Number(netzebene),
+      // Nur wo die Netzebene eine Variante ANBIETET, darf eine mitfahren — sonst gehört `null`
+      // in die Abfrage (B21-1, `nulls not distinct`).
+      showMeteringVariant && meteringVariant !== NOT_SET ? meteringVariant : null,
+      levyCategory,
+      // Die einzige PLZ, die der Rechner kennt: der Standort aus der PV-Planung, falls genutzt.
+      estimatedPv?.summary.postalCode ?? null,
+    ] as const
+    // Die Abgaben IMMER — Code, kein Netzwerkaufruf; die Leistungspreis-Ersparnis braucht sie.
+    const levies = buildLevies(...pricingArgs)
     let tariffPricing: TariffPricingInputs | undefined
     if (useTariffOptimization) {
       setPricingBusy(true)
       try {
-        tariffPricing = await loadTariffPricing(
-          loadProfile,
-          netzbetreiber === NOT_SET ? null : netzbetreiber,
-          netzebene === NOT_SET ? null : Number(netzebene),
-          // Nur wo die Netzebene eine Variante ANBIETET, darf eine mitfahren — sonst gehört `null`
-          // in die Abfrage (B21-1, `nulls not distinct`).
-          showMeteringVariant && meteringVariant !== NOT_SET ? meteringVariant : null,
-          levyCategory,
-          // Die einzige PLZ, die der Rechner kennt: der Standort aus der PV-Planung, falls genutzt.
-          estimatedPv?.summary.postalCode ?? null,
-        )
+        tariffPricing = await loadTariffPricing(...pricingArgs)
       } finally {
         setPricingBusy(false)
       }
@@ -890,6 +893,7 @@ export function StepTariff({
       // stammen die Werte direkt aus der Netzrechnung, und das ist eine eigene Aussage.
       tariffSelection: selection ?? undefined,
       tariffPricing,
+      levies,
       ...(priceBasis === '' ? {} : { supplierPriceBasis: priceBasis }),
     })
   }
