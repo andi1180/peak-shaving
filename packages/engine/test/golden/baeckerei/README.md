@@ -19,7 +19,7 @@ Katalog-Loader) fängt dieser Test deshalb bewusst nicht.
 |---|---|---|
 | `lastgang.csv` | Kopie von `dev-fixtures/demo-baeckerei-lastgang-verschoben-2025.csv` (05.01.2025–04.01.2026) | **synthetischer Testlastgang**, keine Kundendaten |
 | `tariff.json` | `TariffParams` + Horizont | **von Hand festgelegt**, s. unten |
-| `tariff-pricing.json` | `TariffPricingInputs`: 2 Netzentgelt-Zeilen, 8.760 Spotpreise (vollständig), Abgabenplan | Cloud per `anon`, `loadTariffPricing(…, 'wiener_netze', 7, 'ohne_leistungsmessung')`, 23.09.2026 |
+| `tariff-pricing.json` | `TariffPricingInputs`: 2 Netzentgelt-Zeilen, 8.760 Spotpreise (vollständig), Abgabenplan | Cloud per `anon`, `loadTariffPricing(…, 'wiener_netze', 7, 'ohne_leistungsmessung')`, 23.09.2026. **Der Abgabenplan** ist Code, kein Cloud-Stand: seit 24.09.2026 neu erzeugt mit `buildLevySchedule(…, { category: 'gewerbe', postalCode: null })` (Elektrizitätsabgabe 2026 0,82 statt 0,10 ct; ohne PLZ ist die Wiener Gebrauchsabgabe angenommen, `locationAssumed: 'vienna'`) |
 | `battery-catalog.json` | die 31 freigegebenen Gewerbe-Geräte als `BatteryCandidate[]` (Wertkopie) | Cloud per `anon`, `fetchBatteryCatalog('gewerbe')`, 23.09.2026 |
 
 ### Tarifwerte (`tariff.json`) und warum

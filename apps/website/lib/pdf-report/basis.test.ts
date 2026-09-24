@@ -860,4 +860,13 @@ describe('buildBasisChapter — Bekannte Einschränkungen (D9)', () => {
     expect(projected.hints).toHaveLength(3)
     expect(projected.hints[1]).toContain('kältesten verfügbaren Zeitraum')
   })
+
+  it('weist die ohne Standort angenommene Wiener Gebrauchsabgabe aus — und nur dann', () => {
+    const assumed = basisFor({
+      ...FULL_ANALYSIS,
+      assumptions: { ...FULL_ANALYSIS.assumptions, levyLocationAssumed: 'vienna' },
+    }).limitations
+    expect(assumed.hints.join(' ')).toContain('Gebrauchsabgabe Wien angenommen — Standort nicht angegeben')
+    expect(basisFor(FULL_ANALYSIS).limitations.hints.join(' ')).not.toContain('angenommen')
+  })
 })

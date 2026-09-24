@@ -77,7 +77,7 @@
    {
     "validFrom": "2026-01-01",
     "validUntil": "2026-02-28",
-    "elektrizitaetsabgabeCtPerKwh": 0.1,
+    "elektrizitaetsabgabeCtPerKwh": 0.82,
     "eagFoerderbeitragCtPerKwh": 0.62,
     "eagFoerderbeitragGrundpreisAmount": 3.796,
     "eagFoerderbeitragGrundpreisUnit": "eur_per_year",
@@ -87,14 +87,15 @@
    {
     "validFrom": "2026-03-01",
     "validUntil": "2026-12-31",
-    "elektrizitaetsabgabeCtPerKwh": 0.1,
+    "elektrizitaetsabgabeCtPerKwh": 0.82,
     "eagFoerderbeitragCtPerKwh": 0.62,
     "eagFoerderbeitragGrundpreisAmount": 3.796,
     "eagFoerderbeitragGrundpreisUnit": "eur_per_year",
     "eagPauschaleEurPerYear": 19.02,
     "gebrauchsabgabeRate": 0.07
    }
-  ]
+  ],
+  "locationAssumed": "vienna"
  },
  "spotPrices": {
   "prices": [

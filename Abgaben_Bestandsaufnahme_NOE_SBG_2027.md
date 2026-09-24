@@ -4,6 +4,17 @@
 > Phase 2 (Eintragen/Umbau) erst nach Freigabe durch Andreas.
 > Code-Stand: `main` @ `58348a3`.
 
+## Status (24.09.2026)
+
+| # | Befund | Status |
+|---|---|---|
+| 1 | Netz NÖ: Gebrauchsabgabe 0 | **umgesetzt (Phase 2a)** — auch Wiener Netze mit NÖ-PLZ, ab 2025 |
+| 2 | Salzburg Netz: ct/kWh je Netzebene | offen — Phase 2b |
+| 3 | Wien: Gebrauchsabgabe auch auf Energie + Grundgebühr | **umgesetzt (Phase 2a)**, dazu auf die Leistungspreis-Ersparnis und nur bei Wiener Standort (ohne PLZ angenommen und ausgewiesen) |
+| 4 | Elektrizitätsabgabe 2026: 0,10 Haushalt / 0,82 sonst | **umgesetzt (Phase 2a)** — Kategorie `heim`/`gewerbe` |
+| 5 | EAG bundesweit einheitlich | bestätigt; Quellen im Code noch auf EX104 statt Verordnung — offen |
+| 6, 7 | 2027 | offen — Phase 2b |
+
 ## 0. Kurzfassung
 
 | # | Befund | Folge |

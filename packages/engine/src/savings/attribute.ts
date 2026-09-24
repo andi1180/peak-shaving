@@ -17,6 +17,7 @@ import { simulateBattery, type BatterySimulationResult } from '../simulation/sim
 import { intervalTariffRates } from '../simulation/tou'
 import { coveredMonthCount } from '../peaks/metrics'
 import { getTariffStrategy } from '../tariff/strategy'
+import { usageLevyFactor } from '../tariff/usage-levy'
 import { annualizationFactor, coveredDaysOf } from './annualization'
 
 /**
@@ -375,12 +376,14 @@ export function computeBatterySavings(
     }
   } else {
     newBilledKw = sim.newBilledKw
-    leistungspreisSavingPerYear = demandChargePerYear(
-      oldBilledKw - newBilledKw,
-      tariffParams.leistungspreisEurPerKwYear,
-      tariffParams.billingModel,
-      coveredMonthCount(loadProfile),
-    )
+    // Die Gebrauchsabgabe fällt auch auf den Leistungspreis an (WGAG Tarif C Post 1).
+    leistungspreisSavingPerYear =
+      demandChargePerYear(
+        oldBilledKw - newBilledKw,
+        tariffParams.leistungspreisEurPerKwYear,
+        tariffParams.billingModel,
+        coveredMonthCount(loadProfile),
+      ) * usageLevyFactor(loadProfile, pricing)
   }
 
   const totalSavingPerYear =

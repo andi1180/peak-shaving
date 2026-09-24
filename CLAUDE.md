@@ -157,11 +157,14 @@ synthetischer Lastgang, Tarif von Hand: 9,5 ct / 50 €/kW·a / `monthly_max_sum
 Netzentgelte/Spotpreise/Katalog am 23.09.2026 per `anon` eingefroren, 2025er Netzverlust nach der
 Tippfehler-Korrektur 0,7 ct):** `billedKw` **606,56**,
 31 Katalog-Kandidaten, Leistungspreis 2.527,33 €/Jahr, Empfehlung `6845c64d…` (**Kostal & Dyness
-Retrofit L**, 2.009 €/Jahr, Amortisation 5,45 Jahre, netto 9.139 € über 10 Jahre; mit dem
-fehlerhaften Netzverlust 7 ct waren es 1.875 €/5,84/7.803 €) · Urbanz
+Retrofit L**, **2.144 €/Jahr, Amortisation 5,11 Jahre, netto 10.490 € über 10 Jahre** seit Abgaben
+Phase 2a, 24.09.2026 — davor 2.009 €/5,45/9.139 €; mit dem fehlerhaften Netzverlust 7 ct waren es
+1.875 €/5,84/7.803 €). Die Bewegung kommt aus der Gebrauchsabgabe auf Energie (Lastverschiebung
+891,66 → 959,93 €) und auf den Leistungspreis (1.117,08 → 1.184,11 €, × 1,06); der Abgabenplan des
+Golden ist dafür mit `{ category: 'gewerbe', postalCode: null }` neu erzeugt · Urbanz
 mit den Cloud-Entwurfs-Parametern (13,081 ct / 3,50 €/Monat / 4,56 ct) `billedKw` **69,132** (bis
 zur Mindestleistung je Monat 60,212 — der Entwurf trägt `minBillableKw` 7, Leistungspreis 0, kein
-Euro-Betrag hat sich dadurch bewegt). **Seit H2-B (24.09.2026) empfiehlt Urbanz (Segment privat):** Pylontech Force H3 10,24 kWh (9,69 kWh nutzbar, wirksam 8 kW über den 8-kW-Wechselrichter-Baustein), 3.318 € netto, 240,21 €/Jahr netto, Amortisation 13,8 Jahre (rät ab, netto −915 € über 10 Jahre) — 25 Heimgeräte, eingefrorene Preisdaten per `anon` vom 24.09.2026, synthetische PV-Ersatzreihe; alle übrigen Ergebnisteile tief gleich zu H2-A. (H2-A, 12 Geräte: BYD Battery-Box HVB 5.9, 3.253 € netto, 169,21 €/Jahr, 19,2 Jahre.)
+Euro-Betrag hat sich dadurch bewegt). **Seit H2-B (24.09.2026) empfiehlt Urbanz (Segment privat):** Pylontech Force H3 10,24 kWh (9,69 kWh nutzbar, wirksam 8 kW über den 8-kW-Wechselrichter-Baustein), 3.318 € netto, 240,21 €/Jahr netto, Amortisation 13,8 Jahre (rät ab, netto −915 € über 10 Jahre) — 25 Heimgeräte, eingefrorene Preisdaten per `anon` vom 24.09.2026, synthetische PV-Ersatzreihe; alle übrigen Ergebnisteile tief gleich zu H2-A. **Seit Abgaben Phase 2a (24.09.2026, dieselben eingefrorenen Eingaben, Projekt-PLZ 1190):** dieselbe Empfehlung mit **257,24 €/Jahr, Amortisation 12,9 Jahre, netto −745 €**; „Ihr Tarif heute" 1.032,78 → 1.071,97 € (+39,18 € Gebrauchsabgabe auf Energie + Grundgebühr, tagesgenau nachgerechnet), aWATTar 974,23 → 1.009,48 €, mit Speicher 772,24 → 793,10 € — allein aus der Gebrauchsabgabe auf Energie; Elektrizitätsabgabe (Haushalt), Leistungspreis (0) und Standort (Wien) bewegen hier nichts. (H2-A, 12 Geräte: BYD Battery-Box HVB 5.9, 3.253 € netto, 169,21 €/Jahr, 19,2 Jahre.)
 **⚠ KORREKTUR:** hier stand bis zum Golden File „Empfehlung `f5d5344a…` (Dyness Stack 100
 40,96 kWh)". Die Zeile hat zwei Läufe vermischt — `billedKw` stammte aus der eingefrorenen
 `monthly_max_sum`-Probe, die Empfehlung aus einem Lauf über die Oberfläche (Vorgabe
@@ -225,6 +228,27 @@ Details und der vollständige Stand: siehe `./Pflichtenheft_Kalkulator_MVP.md`, 
 ## Stand & offene Entscheidungen
 
 > Lebendiger Handover-Anker. Neueste offene Punkte, die den Bau der Engine/Simulation berühren. Erledigtes wandert raus.
+
+### Abgaben Phase 2a — laufende Abgabenfehler behoben (24.09.2026)
+
+Grundlage: `Abgaben_Bestandsaufnahme_NOE_SBG_2027.md` (Primärquellen). Geändert in
+`packages/shared/src/levies.ts` und am Rechenkern: **(1)** Elektrizitätsabgabe 2026 je Kategorie —
+0,10 ct `heim`, 0,82 ct `gewerbe` (ElAbgG § 7 Abs. 16); `buildLevySchedule` verlangt dafür
+`{ category, postalCode }`. **(2)** Die Wiener Gebrauchsabgabe bemisst sich an Netz **und**
+Energie samt Grundgebühren (WGAG Tarif C Post 1 und 1a) — kombinierter Intervallpreis
+`(Energie + Netz) × (1 + GA) + Abgaben`. **(3)** 6 % → 7 % am 01.03.2026 viertelstundengenau
+(LGBl. 3/2026). **(4)** Die Leistungspreis-Ersparnis trägt die Gebrauchsabgabe
+(`usageLevyFactor`); die Ist-Kosten des Leistungspreises bleiben wie auf der Netzrechnung.
+**(5)** Die Wiener Abgabe nur bei Wiener PLZ (1010–1239); ohne PLZ angenommen und im PDF-Report
+ausgewiesen (`assumptions.levyLocationAssumed`). **(6)** Netz NÖ und Wiener Netze mit NÖ-PLZ:
+Gebrauchsabgabe 0, belegt ab 2025.
+
+**⚠ Beim nächsten Umbau mitzudenken: (a)** PLZ kennt der Wizard (`projects.postal_code`), der
+öffentliche Rechner nur aus der PV-Planung — fast jeder Wiener-Netze-Lauf dort trägt die Annahme.
+**(b)** Ohne Abgabenplan (öffentlicher Rechner ohne Börsenvergleich) bleibt die
+Leistungspreis-Ersparnis ohne Gebrauchsabgabe. **(c)** Salzburg (ct/kWh je Netzebene) und 2027 sind
+Phase 2b. **(d)** Die Cloud trägt keine Netzentgelt-Zeile für `netz_noe` — der NÖ-Vergleich
+scheitert dort weiterhin, jetzt an der Netzentgelt-Seite statt an den Abgaben.
 
 ### Netztarif-Zeilen bearbeitbar, mit Änderungsprotokoll (23.09.2026)
 
@@ -572,7 +596,8 @@ Netz-Grundpreis und die beiden Lieferanten-Grundgebühren. Neu dazu, alle in der
 tarifübergreifenden Schicht** und damit in allen drei Reihen gleich: **Messpreis** (neue,
 nullable Spalte `grid_tariffs.messpreis_amount`/`_unit`, Migration
 `20260921120000_add_grid_tariff_messpreis.sql`), **Elektrizitätsabgabe**, **EAG-Förderbeitrag**,
-**EAG-Pauschale** und **Gebrauchsabgabe** (6 % → 7 % ab 01.03.2026, **nur auf den Netzpreis**:
+**EAG-Pauschale** und **Gebrauchsabgabe** (6 % → 7 % ab 01.03.2026, **nur auf den Netzpreis** —
+⚠ überholt seit 24.09.2026, s. „Abgaben Phase 2a“:
 Netznutzung + Netzverlust + Netz-Grundpreis + Messpreis, ausdrücklich nicht auf Arbeitspreis,
 Lieferanten-Grundgebühr oder die übrigen Abgaben).
 
@@ -585,7 +610,7 @@ Pflichtfeld `TariffPricingInputs.levies` in den Rechenkern gereicht. Anleitung u
 **⚠ Was daraus für jeden Umbau folgt:** (a) **Was nicht belegt ist, wird nicht gerechnet, sondern
 verweigert** — fehlt für eine Kombination aus Netzbetreiber/Netzebene/Zeitraum ein Satz, entsteht
 kein Abgabenzeitraum und der ganze Börsenpreis-Vergleich fällt mit benannter Lücke aus (neue
-Blocker-Seite `side: 'levy'`). Konkret: **NE 3–6, Netz NÖ, Salzburg Netz und ab 01.01.2027 ALLE**
+Blocker-Seite `side: 'levy'`). Konkret (Stand 21.09.; NE 3–6 und Netz NÖ rechnen inzwischen): **NE 3–6, Netz NÖ, Salzburg Netz und ab 01.01.2027 ALLE**
 rechnen den Vergleich heute nicht. (b) Die Posten dürfen **nie** an `currentTariffEur` hängen —
 sonst stünde die spätere „Drei Wege"-Gegenüberstellung auf zwei Massstäben. (c) `LEVIES_NONE` ist
 ein Test-Hilfsmittel; ein Wächter in `packages/shared/src/levies.test.ts` hält es aus jedem

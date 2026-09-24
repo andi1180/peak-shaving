@@ -172,6 +172,7 @@ export function Calculator() {
               prefill={tariffPrefill}
               defaultPriceBasis={priceDisplay}
               defaultTariffOptimization={tariffComparisonDefaultFor(batteryCategoryFor(categoryInput))}
+              levyCategory={batteryCategoryFor(categoryInput)}
               onBack={() => setStep(1)}
               onComplete={handleTariff}
               /* K3b-2: gesperrt, solange der Katalog lädt oder ausfällt — NICHT mehr, wenn er

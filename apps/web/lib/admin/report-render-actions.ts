@@ -180,7 +180,10 @@ export async function createReportRenderRequestAction(
        * abhängen.
        */
       fetchTariffPricing: async (request) => {
-        const pricing = await readTariffPricingForAnalysis(supabase, request)
+        const pricing = await readTariffPricingForAnalysis(supabase, request, {
+          category,
+          postalCode: project.postal_code,
+        })
         gridTariffRows = pricing.gridTariffRows
         return pricing
       },

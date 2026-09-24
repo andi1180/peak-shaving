@@ -33,7 +33,7 @@ function pricing(netzebene: number, variant: string | null, from: string, to: st
   return {
     gridTariffRows: null,
     spotPrices: null,
-    levies: buildLevySchedule('wiener_netze', netzebene, from, to, variant),
+    levies: buildLevySchedule('wiener_netze', netzebene, from, to, variant, { category: 'gewerbe', postalCode: null }),
   }
 }
 
@@ -103,11 +103,11 @@ describe('eagDemandChargePerYear', () => {
 
   it('ohne abgerechneten Leistungswert und ohne belegte Sätze entsteht keine Zahl', () => {
     expect(eagDemandChargePerYear(YEAR_2026, pricing(6, null, '2026-01-01', '2026-12-31'), 0, 'annual_max')).toBeUndefined()
-    // Netz NÖ: keine Gebrauchsabgabe belegt → gar kein Abgabenzeitraum, also auch kein Grundpreis.
+    // Salzburg Netz: Gebrauchsabgabe nicht erfasst → gar kein Abgabenzeitraum, also auch kein Grundpreis.
     expect(
       eagDemandChargePerYear(
         YEAR_2026,
-        { gridTariffRows: null, spotPrices: null, levies: buildLevySchedule('netz_noe', 6, '2026-01-01', '2026-12-31') },
+        { gridTariffRows: null, spotPrices: null, levies: buildLevySchedule('salzburg_netz', 6, '2026-01-01', '2026-12-31', null, { category: 'gewerbe', postalCode: null }) },
         BILLED_KW,
         'annual_max',
       ),

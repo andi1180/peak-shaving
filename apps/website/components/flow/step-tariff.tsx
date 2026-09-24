@@ -19,6 +19,7 @@ import {
   type BillingModel,
   type FinancialParams,
   type GridTariffPrefill,
+  type LevyCustomerCategory,
   type LoadProfile,
   type MeteringVariant,
   type Netzebene,
@@ -350,6 +351,7 @@ export function StepTariff({
   onComplete,
   defaultPriceBasis,
   defaultTariffOptimization,
+  levyCategory,
   catalogBlocked,
   catalogLoading,
   catalogNotice,
@@ -372,6 +374,8 @@ export function StepTariff({
   defaultPriceBasis: PriceBasis
   /** Vorgabe des Börsenpreis-Vergleichs — Haushalte an, Betriebe aus (`tariffComparisonDefaultFor`). */
   defaultTariffOptimization: boolean
+  /** Kundenkategorie für die Abgabensätze — dieselbe wie die des Speicherkatalogs. */
+  levyCategory: LevyCustomerCategory
   /**
    * Delta 9b-2b: die aus einer Rechnung abgelesenen Tarifangaben aus Schritt 1. `undefined` heisst
    * „kein Rechnungs-Scan" — dann verhält sich dieser Schritt Zeile für Zeile wie vor 9b-2b.
@@ -855,6 +859,9 @@ export function StepTariff({
           // Nur wo die Netzebene eine Variante ANBIETET, darf eine mitfahren — sonst gehört `null`
           // in die Abfrage (B21-1, `nulls not distinct`).
           showMeteringVariant && meteringVariant !== NOT_SET ? meteringVariant : null,
+          levyCategory,
+          // Die einzige PLZ, die der Rechner kennt: der Standort aus der PV-Planung, falls genutzt.
+          estimatedPv?.summary.postalCode ?? null,
         )
       } finally {
         setPricingBusy(false)

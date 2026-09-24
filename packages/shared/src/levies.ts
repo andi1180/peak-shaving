@@ -66,9 +66,10 @@ export type LevyPeriodInput = {
    */
   eagPauschaleEurPerYear: number
   /**
-   * Gebrauchsabgabe als ANTEIL (0,07 = 7 %), und zwar AUSSCHLIESSLICH auf den Netto-NETZPREIS:
-   * Netznutzung, Netzverlust, Netz-Grundpreis und Messpreis. Nicht auf Arbeitspreis,
-   * Lieferanten-Grundgebühr, Elektrizitätsabgabe oder die EAG-Beiträge (Quelle s. unten).
+   * Gebrauchsabgabe als ANTEIL (0,07 = 7 %) auf die Netto-Einnahmen von Netzbetreiber UND
+   * Lieferant: Netznutzung, Netzverlust, Netz-Grundpreis, Messpreis, Energie-Arbeitspreis und
+   * Lieferanten-Grundgebühr (Wiener GAG Tarif C Post 1 und 1a). Nicht auf Elektrizitätsabgabe oder
+   * die EAG-Beiträge (§ 10 Abs. 1 lit. b). Bis 24.09.2026 stand hier „nur Netzpreis“.
    */
   gebrauchsabgabeRate: number
 }
@@ -82,7 +83,14 @@ export type LevyPeriodInput = {
  *
  * Deckt die Liste einen Tag des Lastgangs NICHT ab, ist das eine Lücke und kein Nullsatz.
  */
-export type LevySchedule = { periods: LevyPeriodInput[] }
+export type LevySchedule = {
+  periods: LevyPeriodInput[]
+  /**
+   * Gesetzt, wenn die Wiener Gebrauchsabgabe ohne Standortangabe ANGENOMMEN wurde (Wiener Netze,
+   * keine PLZ). Der Report weist das aus; fehlt das Feld, gab es keine Annahme.
+   */
+  locationAssumed?: 'vienna'
+}
 
 /**
  * Der Abgabenzeitraum, der einen Kalendertag abdeckt — `null`, wenn keiner ihn abdeckt.
@@ -127,34 +135,54 @@ export const LEVIES_NONE: LevySchedule = {
 type DatedEntry = { validFrom: string; validUntil: string | null; sourceNote: string }
 
 /**
- * Elektrizitätsabgabe — bundesweit, unabhängig von Netzbetreiber und Netzebene.
- *
- * ⚠ Der Satz für 2026 ist BEFRISTET. Ab 2027 steht hier nichts, und das ist die richtige Aussage:
- * ob die Absenkung verlängert wird, entscheidet der Gesetzgeber. Ein fortgeschriebener Satz sähe
- * aus wie eine Angabe.
- *
- * ⚠ Der Abstand zwischen 2025 und 2026 ist KEIN Tippfehler: 1,5 ct/kWh gegen 0,10 ct/kWh, also der
- * Faktor 15. 2026 gilt die abgesenkte Fassung, 2025 der Regelsatz.
+ * Die Kundenkategorie, an der ein Abgabensatz hängen kann — dieselben zwei Werte wie die
+ * Katalog-Kategorie (`BatteryCatalogCategory`), damit beide Pfade sie ohne Umrechnung durchreichen.
  */
-const ELEKTRIZITAETSABGABE: (DatedEntry & { ctPerKwh: number })[] = [
+export type LevyCustomerCategory = 'heim' | 'gewerbe'
+
+/** Was ausser Netzbetreiber, Netzebene und Zeitraum über die Sätze entscheidet. */
+export type LevyContext = {
+  /** Entscheidet über die Elektrizitätsabgabe 2026 (ElAbgG § 7 Abs. 16). */
+  category: LevyCustomerCategory
+  /**
+   * PLZ des Anschlusses, `null` = nicht angegeben. Entscheidet bei Wiener Netze, ob die Wiener
+   * Gebrauchsabgabe anfällt — sie gilt nur im Gemeindegebiet Wien (WGAG § 1 Abs. 1).
+   */
+  postalCode: string | null
+}
+
+/**
+ * Elektrizitätsabgabe — bundesweit, unabhängig von Netzbetreiber und Netzebene, aber seit 2026
+ * abhängig von der Kundenkategorie.
+ *
+ * ⚠ 2026 gibt es ZWEI Sätze (ElAbgG § 7 Abs. 16, eingefügt durch BGBl. I Nr. 95/2025): Z 1
+ * 0,1 ct/kWh für natürliche Personen, die § 4 Abs. 1 Stromkostenzuschussgesetz erfüllen
+ * (Haushalts-Standardlastprofil H0/HA/HF), Z 2 0,82 ct/kWh für alle sonstigen Lieferungen.
+ * `heim` steht für Z 1, `gewerbe` für Z 2. Bis 24.09.2026 stand hier 0,1 ct für JEDEN Kunden.
+ *
+ * ⚠ Ab 2027 steht hier nichts: die Befristung endet „vor dem 1. Jänner 2027“, der Satz danach ist
+ * Phase 2b (`Abgaben_Bestandsaufnahme_NOE_SBG_2027.md`).
+ */
+const ELEKTRIZITAETSABGABE: (DatedEntry & { ctPerKwh: Record<LevyCustomerCategory, number> })[] = [
   {
     validFrom: '2025-01-01',
     validUntil: '2025-12-31',
-    ctPerKwh: 1.5,
+    ctPerKwh: { heim: 1.5, gewerbe: 1.5 },
     sourceNote:
       'Elektrizitätsabgabe 1,50 ct/kWh netto für das Kalenderjahr 2025 ' +
-      '(Elektrizitätsabgabegesetz, Fassung vor BGBl. I Nr. 95/2025). Quelle: Wiener Netze, ' +
-      '„Steuern und Abgaben für Netzleistungen" (wn-ex0106) — „Im Zeitraum von 1.1.2025 bis ' +
-      '31.12.2025 betrug die Abgabe 1,5 Cent pro Kilowattstunde." Im Repo festgehalten am ' +
-      '22.09.2026.',
+      '(Elektrizitätsabgabegesetz § 4 Abs. 2, „0,015 Euro je kWh"; die Absenkung nach § 7 Abs. 11 ' +
+      'galt nur „vor dem 1. Jänner 2025"). Gegenprobe: Wiener Netze, wn-ex0106. Im Repo ' +
+      'festgehalten am 22.09.2026.',
   },
   {
     validFrom: '2026-01-01',
     validUntil: '2026-12-31',
-    ctPerKwh: 0.1,
+    ctPerKwh: { heim: 0.1, gewerbe: 0.82 },
     sourceNote:
-      'Elektrizitätsabgabe 0,10 ct/kWh netto, befristet auf das Kalenderjahr 2026 ' +
-      '(BGBl. I Nr. 95/2025). Im Repo festgehalten am 21.09.2026.',
+      'Elektrizitätsabgabe 2026, ElAbgG § 7 Abs. 16 (BGBl. I Nr. 95/2025): Z 1 0,001 €/kWh für ' +
+      'natürliche Personen nach § 4 Abs. 1 SKZG (Haushaltsprofil), Z 2 0,0082 €/kWh für sonstige ' +
+      'Lieferungen. Gegenprobe: Netz NÖ Preisblatt B410 (Ausgabe 01.01.2026) „Alle Ebenen 0,82 / ' +
+      'Für Haushaltskunden 0,1". Abgerufen 24.09.2026.',
   },
 ]
 
@@ -282,44 +310,102 @@ const EAG_FOERDERBEITRAG: Record<string, FoerderbeitragEntry[]> = {
 
 /**
  * Gebrauchsabgabe — eine Gemeinde-/Landesabgabe und deshalb als EINZIGE der vier nach
- * Netzbetreiber geschlüsselt.
+ * Netzbetreiber UND Standort geschlüsselt (`usageLevyFor`).
  *
- * ⚠ Hinterlegt ist nur Wien. Für `netz_noe` und `salzburg_netz` steht hier nichts — sie liegen in
- * anderen Bundesländern mit eigener Regelung, und ein übernommener Wiener Satz wäre eine erfundene
- * Zahl. Ein Netzbereich OHNE Gebrauchsabgabe (Burgenland, Vorarlberg) bekäme hier einen
- * ausdrücklichen Eintrag mit `rate: 0` — „nicht erfasst" und „fällt nicht an" sind zwei
- * verschiedene Aussagen und dürfen nicht dieselbe Wirkung haben.
+ * ⚠ „nicht erfasst" und „fällt nicht an" sind zwei verschiedene Aussagen: wo keine Regelung
+ * belegt ist (heute Salzburg Netz), steht nichts und der Vergleich wird verweigert; wo belegt ist,
+ * dass keine anfällt (Niederösterreich), steht ein ausdrücklicher Eintrag mit `rate: 0`.
  */
-const GEBRAUCHSABGABE_BY_OPERATOR: Record<string, (DatedEntry & { rate: number })[]> = {
-  wiener_netze: [
-    {
-      validFrom: '2025-01-01',
-      validUntil: '2025-12-31',
-      rate: 0.06,
-      sourceNote:
-        'Gebrauchsabgabe Wien 6 % vom Netto-Netzpreis im Kalenderjahr 2025. Quelle: Wiener Netze, ' +
-        '„Steuern und Abgaben für Netzleistungen" (wn-ex0106) — „Für KundInnen aus Wien beträgt ' +
-        'die Abgabe 6 % vom Netto-Netzpreis"; die Fassungen 2024 und 2026 stimmen für diesen ' +
-        'Zeitraum überein. Im Repo festgehalten am 22.09.2026.',
-    },
-    {
-      validFrom: '2026-01-01',
-      validUntil: '2026-02-28',
-      rate: 0.06,
-      sourceNote:
-        'Gebrauchsabgabe Wien 6 % vom Netto-Netzpreis bis 28.02.2026 (wienernetze.at). ' +
-        'Im Repo festgehalten am 21.09.2026.',
-    },
-    {
-      validFrom: '2026-03-01',
-      validUntil: null,
-      rate: 0.07,
-      sourceNote:
-        'Gebrauchsabgabe Wien 7 % vom Netto-Netzpreis ab 01.03.2026 (wienernetze.at). ' +
-        'Bemessungsgrundlage sind Netznutzung, Netzverlust, Netz-Grundpreis und Messpreis — ' +
-        'ausdrücklich NICHT Arbeitspreis, Lieferanten-Grundgebühr oder die übrigen Abgaben.',
-    },
-  ],
+type UsageLevyEntry = DatedEntry & { rate: number }
+
+/** Wiener Gebrauchsabgabe — nur für Anschlüsse im Gemeindegebiet Wien (WGAG § 1 Abs. 1). */
+const GEBRAUCHSABGABE_WIEN: UsageLevyEntry[] = [
+  {
+    validFrom: '2025-01-01',
+    validUntil: '2025-12-31',
+    rate: 0.06,
+    sourceNote:
+      'Gebrauchsabgabe Wien 6 % im Kalenderjahr 2025 (Wiener Gebrauchsabgabegesetz 1966 Tarif C ' +
+      'Post 1 und 1a — Netz und Energie). Netzseite: Wiener Netze wn-ex0106 „6 % vom ' +
+      'Netto-Netzpreis"; Energieseite bestätigt die Urbanz-Rechnung 2024/25. Stand 24.09.2026.',
+  },
+  {
+    validFrom: '2026-01-01',
+    validUntil: '2026-02-28',
+    rate: 0.06,
+    sourceNote:
+      'Gebrauchsabgabe Wien 6 % bis 28.02.2026: Wiener Gebrauchsabgabegesetz 1966 Tarif C Post 1 ' +
+      'und 1a, RIS-Fassung vom 28.02.2026 („6 vH"). Bemessung: Netz- und Energieentgelte. ' +
+      'Abgerufen 24.09.2026.',
+  },
+  {
+    validFrom: '2026-03-01',
+    validUntil: null,
+    rate: 0.07,
+    sourceNote:
+      'Gebrauchsabgabe Wien 7 % ab 01.03.2026: Wiener Gebrauchsabgabegesetz 1966 Tarif C Post 1 ' +
+      '(Netzbetreiber) und Post 1a (Lieferant), je „7 vH der Einnahmen", Novelle LGBl. für Wien ' +
+      'Nr. 3/2026, Inkrafttreten § 18 Abs. 18 Z 1. Bemessung: Netz- UND Energieentgelte samt ' +
+      'Grundgebühren, ohne Elektrizitätsabgabe/EAG (§ 10 Abs. 1 lit. b). Abgerufen 24.09.2026.',
+  },
+]
+
+/**
+ * Niederösterreich: KEINE Gebrauchsabgabe auf den Strombezug — belegt, nicht bloss nicht erfasst.
+ *
+ * Das NÖ Gebrauchsabgabegesetz 1973 kennt für Leitungen nur eine Jahresabgabe je Längenmeter
+ * (Tarif Z 6), geschuldet vom Leitungsbetreiber, keine Abgabe auf den Energiebezug. Letzte Novelle
+ * LGBl. Nr. 101/2022 — die Rechtslage gilt deshalb unverändert ab 2025.
+ */
+const GEBRAUCHSABGABE_NOE: UsageLevyEntry[] = [
+  {
+    validFrom: '2025-01-01',
+    validUntil: null,
+    rate: 0,
+    sourceNote:
+      'Keine Gebrauchsabgabe auf den Strombezug in Niederösterreich: NÖ Gebrauchsabgabegesetz 1973 ' +
+      '(LGBl. 3700, zuletzt LGBl. Nr. 101/2022; RIS-Fassungen 01.01.2025 und 24.09.2026) erfasst ' +
+      'Leitungen nur nach Länge (Tarif Z 6, § 10 Abs. 1: Schuldner ist der Leitungsbetreiber). ' +
+      'Netz NÖ, Preisblatt B410 Ausgabe 01.01.2026: unter „Steuern und Abgaben" keine ' +
+      'Gebrauchsabgabe. Für Wiener-Netze-Anschlüsse in NÖ zusätzlich WGAG § 1 Abs. 1 (nur Wien). ' +
+      'Abgerufen 24.09.2026.',
+  },
+]
+
+/**
+ * Niederösterreichische Postleitzahlen, grob 2000–3999 — nur in Verbindung mit Wiener Netze
+ * benutzt, deren Versorgungsgebiet ausserhalb Wiens in Niederösterreich liegt.
+ */
+function isLowerAustrianPostalCode(postalCode: string): boolean {
+  const n = Number(postalCode)
+  return n >= 2000 && n <= 3999
+}
+
+/** Wiener Postleitzahlen (1010–1239). */
+function isViennaPostalCode(postalCode: string): boolean {
+  const n = Number(postalCode)
+  return n >= 1010 && n <= 1239
+}
+
+/**
+ * Die Gebrauchsabgabe-Einträge für Netzbetreiber und Standort — und ob der Standort ANGENOMMEN ist.
+ *
+ * Wiener Netze versorgt auch Teile Niederösterreichs; die Wiener Abgabe gilt dort nicht. Ohne PLZ
+ * wird Wien angenommen und das ausgewiesen: eine neue Pflichteingabe gibt es dafür bewusst nicht.
+ */
+function usageLevyFor(
+  operatorId: string,
+  postalCode: string | null,
+): { entries: readonly UsageLevyEntry[]; locationAssumed: boolean } {
+  const plz = postalCode != null && /^\d{4}$/.test(postalCode.trim()) ? postalCode.trim() : null
+  if (operatorId === 'wiener_netze') {
+    if (plz === null) return { entries: GEBRAUCHSABGABE_WIEN, locationAssumed: true }
+    if (isViennaPostalCode(plz)) return { entries: GEBRAUCHSABGABE_WIEN, locationAssumed: false }
+    if (isLowerAustrianPostalCode(plz)) return { entries: GEBRAUCHSABGABE_NOE, locationAssumed: false }
+    return { entries: [], locationAssumed: false }
+  }
+  if (operatorId === 'netz_noe') return { entries: GEBRAUCHSABGABE_NOE, locationAssumed: false }
+  return { entries: [], locationAssumed: false }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════════════════════
@@ -355,13 +441,15 @@ function pick<T extends DatedEntry>(entries: readonly T[], date: string): T | nu
  * @param meteringVariant Messvariante der Netzebene (`grid_tariffs.metering_variant`), sonst
  *                 `null`. Auf NE 7 entscheidet sie über den Förderbeitrag; auf NE 3–6 gibt es
  *                 keine Variante und der Schlüssel trägt `null`.
+ * @param context  Kundenkategorie und PLZ — Pflicht, damit kein Aufrufer einen Satz still erbt.
  */
 export function buildLevySchedule(
   operatorId: string,
   netzebene: number,
   fromDate: string,
   toDate: string,
-  meteringVariant: string | null = null,
+  meteringVariant: string | null,
+  context: LevyContext,
 ): LevySchedule {
   /*
    * ⚠ Der Plan wird auf die BERÜHRTEN KALENDERJAHRE geweitet, nicht auf den übergebenen Zeitraum
@@ -380,12 +468,9 @@ export function buildLevySchedule(
   const foerderbeitraege = EAG_FOERDERBEITRAG[eagKey(netzebene, meteringVariant)] ?? []
   const pauschalen = EAG_PAUSCHALE_BY_NETZEBENE[netzebene] ?? []
 
-  const sources = [
-    ...ELEKTRIZITAETSABGABE,
-    ...foerderbeitraege,
-    ...pauschalen,
-    ...(GEBRAUCHSABGABE_BY_OPERATOR[operatorId] ?? []),
-  ]
+  const usage = usageLevyFor(operatorId, context.postalCode)
+
+  const sources = [...ELEKTRIZITAETSABGABE, ...foerderbeitraege, ...pauschalen, ...usage.entries]
 
   const starts = new Set<string>([from])
   for (const entry of sources) {
@@ -405,13 +490,13 @@ export function buildLevySchedule(
     const strom = pick(ELEKTRIZITAETSABGABE, start)
     const beitrag = pick(foerderbeitraege, start)
     const pauschale = pick(pauschalen, start)
-    const gebrauch = pick(GEBRAUCHSABGABE_BY_OPERATOR[operatorId] ?? [], start)
+    const gebrauch = pick(usage.entries, start)
     if (!strom || !beitrag || !pauschale || !gebrauch) continue
 
     periods.push({
       validFrom: start,
       validUntil: end,
-      elektrizitaetsabgabeCtPerKwh: strom.ctPerKwh,
+      elektrizitaetsabgabeCtPerKwh: strom.ctPerKwh[context.category],
       // Verbrauchspreis + Netzverlustentgelt: beide ct/kWh auf dieselbe Bemessungsgrundlage.
       eagFoerderbeitragCtPerKwh: beitrag.verbrauchspreisCtPerKwh + beitrag.netzverlustCtPerKwh,
       eagFoerderbeitragGrundpreisAmount: beitrag.grundpreisAmount,
@@ -421,5 +506,5 @@ export function buildLevySchedule(
     })
   }
 
-  return { periods }
+  return usage.locationAssumed && periods.length > 0 ? { periods, locationAssumed: 'vienna' } : { periods }
 }
