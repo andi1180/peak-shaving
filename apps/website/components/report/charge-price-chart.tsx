@@ -239,8 +239,8 @@ export function ChargePriceChart({ price }: { price: MonthlyChargePrice }) {
         </p>
         <p className="mt-2">
           Rückblickend gerechnet auf die tatsächlichen Marktpreise Ihres Zeitraums — kein
-          Versprechen für die Zukunft. Die Ladesteuerung folgt einer einfachen Schwellenregel und
-          ist noch nicht gegen ein rechnerisches Optimum geprüft:{' '}
+          Versprechen für die Zukunft. Die Ladesteuerung folgt einer einfachen Regel — eine
+          feinere Steuerung kann mehr herausholen:{' '}
           <strong>der Abstand zum Durchschnitt gilt als Untergrenze</strong>, mit besserer Steuerung
           eher mehr.
         </p>
