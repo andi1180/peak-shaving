@@ -224,7 +224,8 @@ const PREDICTIVE_METHOD =
 const PEAK_SHAVING_METHOD =
   'Diese Zahl entsteht NICHT aus der Viertelstunden-Rechnung oben. Der Leistungspreis hängt am ' +
   'abgerechneten Leistungswert in kW und wird pro JAHR verrechnet; gerechnet wird, um wie viel ' +
-  'der simulierte Fahrplan diesen Wert senkt, mal dem Satz Ihres Netzbetreibers. Der abgerechnete ' +
+  'der simulierte Fahrplan diesen Wert senkt, mal dem Satz Ihres Netzbetreibers — samt der ' +
+  'Gebrauchsabgabe darauf, wo sie anfällt, denn mit dem Leistungspreis sinkt auch sie. Der abgerechnete ' +
   'Wert folgt dem Abrechnungsmodell Ihres Netzbetreibers und wird von der Mindestleistung nach ' +
   'unten begrenzt. Als Jahresgrösse gehört er zu keinem der Beträge darüber dazu.'
 

@@ -1325,8 +1325,9 @@ export function buildLimitations(analysis: PdfReportAnalysis): ReportNotice {
         'Elektrizitätsabgabe, EAG-Förderbeitrag und EAG-Pauschale sowie die ' +
         'Gebrauchsabgabe auf Netz- und Energiepreis samt Grundgebühren stecken in den ' +
         'Monatskosten und damit in den ' +
-        'Kopfzahlen. Auf den Leistungspreis, der als eigene Jahreszahl ausgewiesen wird, ist die ' +
-        'Gebrauchsabgabe nicht aufgeschlagen.'
+        'Kopfzahlen. Der Leistungspreis steht als eigene Jahreszahl ohne Gebrauchsabgabe da, so ' +
+        'wie er auf der Netzrechnung steht; die Ersparnis durch Spitzenkappung enthält sie, wo sie ' +
+        'anfällt.'
       : (basisSentence ?? 'Gerechnet wird durchgängig netto.') +
         ' Verbrauchsabgaben — Elektrizitätsabgabe, ' +
         'EAG-Förderbeitrag und, wo sie anfällt, die Gebrauchsabgabe — sind in keiner Zahl dieses ' +
