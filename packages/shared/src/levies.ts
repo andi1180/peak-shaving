@@ -127,34 +127,49 @@ export const LEVIES_NONE: LevySchedule = {
 type DatedEntry = { validFrom: string; validUntil: string | null; sourceNote: string }
 
 /**
- * Elektrizitätsabgabe — bundesweit, unabhängig von Netzbetreiber und Netzebene.
- *
- * ⚠ Der Satz für 2026 ist BEFRISTET. Ab 2027 steht hier nichts, und das ist die richtige Aussage:
- * ob die Absenkung verlängert wird, entscheidet der Gesetzgeber. Ein fortgeschriebener Satz sähe
- * aus wie eine Angabe.
- *
- * ⚠ Der Abstand zwischen 2025 und 2026 ist KEIN Tippfehler: 1,5 ct/kWh gegen 0,10 ct/kWh, also der
- * Faktor 15. 2026 gilt die abgesenkte Fassung, 2025 der Regelsatz.
+ * Die Kundenkategorie, an der ein Abgabensatz hängen kann — dieselben zwei Werte wie die
+ * Katalog-Kategorie (`BatteryCatalogCategory`), damit beide Pfade sie ohne Umrechnung durchreichen.
  */
-const ELEKTRIZITAETSABGABE: (DatedEntry & { ctPerKwh: number })[] = [
+export type LevyCustomerCategory = 'heim' | 'gewerbe'
+
+/** Was ausser Netzbetreiber, Netzebene und Zeitraum über die Sätze entscheidet. */
+export type LevyContext = {
+  /** Entscheidet über die Elektrizitätsabgabe 2026 (ElAbgG § 7 Abs. 16). */
+  category: LevyCustomerCategory
+}
+
+/**
+ * Elektrizitätsabgabe — bundesweit, unabhängig von Netzbetreiber und Netzebene, aber seit 2026
+ * abhängig von der Kundenkategorie.
+ *
+ * ⚠ 2026 gibt es ZWEI Sätze (ElAbgG § 7 Abs. 16, eingefügt durch BGBl. I Nr. 95/2025): Z 1
+ * 0,1 ct/kWh für natürliche Personen, die § 4 Abs. 1 Stromkostenzuschussgesetz erfüllen
+ * (Haushalts-Standardlastprofil H0/HA/HF), Z 2 0,82 ct/kWh für alle sonstigen Lieferungen.
+ * `heim` steht für Z 1, `gewerbe` für Z 2. Bis 24.09.2026 stand hier 0,1 ct für JEDEN Kunden.
+ *
+ * ⚠ Ab 2027 steht hier nichts: die Befristung endet „vor dem 1. Jänner 2027“, der Satz danach ist
+ * Phase 2b (`Abgaben_Bestandsaufnahme_NOE_SBG_2027.md`).
+ */
+const ELEKTRIZITAETSABGABE: (DatedEntry & { ctPerKwh: Record<LevyCustomerCategory, number> })[] = [
   {
     validFrom: '2025-01-01',
     validUntil: '2025-12-31',
-    ctPerKwh: 1.5,
+    ctPerKwh: { heim: 1.5, gewerbe: 1.5 },
     sourceNote:
       'Elektrizitätsabgabe 1,50 ct/kWh netto für das Kalenderjahr 2025 ' +
-      '(Elektrizitätsabgabegesetz, Fassung vor BGBl. I Nr. 95/2025). Quelle: Wiener Netze, ' +
-      '„Steuern und Abgaben für Netzleistungen" (wn-ex0106) — „Im Zeitraum von 1.1.2025 bis ' +
-      '31.12.2025 betrug die Abgabe 1,5 Cent pro Kilowattstunde." Im Repo festgehalten am ' +
-      '22.09.2026.',
+      '(Elektrizitätsabgabegesetz § 4 Abs. 2, „0,015 Euro je kWh"; die Absenkung nach § 7 Abs. 11 ' +
+      'galt nur „vor dem 1. Jänner 2025"). Gegenprobe: Wiener Netze, wn-ex0106. Im Repo ' +
+      'festgehalten am 22.09.2026.',
   },
   {
     validFrom: '2026-01-01',
     validUntil: '2026-12-31',
-    ctPerKwh: 0.1,
+    ctPerKwh: { heim: 0.1, gewerbe: 0.82 },
     sourceNote:
-      'Elektrizitätsabgabe 0,10 ct/kWh netto, befristet auf das Kalenderjahr 2026 ' +
-      '(BGBl. I Nr. 95/2025). Im Repo festgehalten am 21.09.2026.',
+      'Elektrizitätsabgabe 2026, ElAbgG § 7 Abs. 16 (BGBl. I Nr. 95/2025): Z 1 0,001 €/kWh für ' +
+      'natürliche Personen nach § 4 Abs. 1 SKZG (Haushaltsprofil), Z 2 0,0082 €/kWh für sonstige ' +
+      'Lieferungen. Gegenprobe: Netz NÖ Preisblatt B410 (Ausgabe 01.01.2026) „Alle Ebenen 0,82 / ' +
+      'Für Haushaltskunden 0,1". Abgerufen 24.09.2026.',
   },
 ]
 
@@ -355,13 +370,15 @@ function pick<T extends DatedEntry>(entries: readonly T[], date: string): T | nu
  * @param meteringVariant Messvariante der Netzebene (`grid_tariffs.metering_variant`), sonst
  *                 `null`. Auf NE 7 entscheidet sie über den Förderbeitrag; auf NE 3–6 gibt es
  *                 keine Variante und der Schlüssel trägt `null`.
+ * @param context  Kundenkategorie — Pflicht, damit kein Aufrufer den Satz still erbt.
  */
 export function buildLevySchedule(
   operatorId: string,
   netzebene: number,
   fromDate: string,
   toDate: string,
-  meteringVariant: string | null = null,
+  meteringVariant: string | null,
+  context: LevyContext,
 ): LevySchedule {
   /*
    * ⚠ Der Plan wird auf die BERÜHRTEN KALENDERJAHRE geweitet, nicht auf den übergebenen Zeitraum
@@ -411,7 +428,7 @@ export function buildLevySchedule(
     periods.push({
       validFrom: start,
       validUntil: end,
-      elektrizitaetsabgabeCtPerKwh: strom.ctPerKwh,
+      elektrizitaetsabgabeCtPerKwh: strom.ctPerKwh[context.category],
       // Verbrauchspreis + Netzverlustentgelt: beide ct/kWh auf dieselbe Bemessungsgrundlage.
       eagFoerderbeitragCtPerKwh: beitrag.verbrauchspreisCtPerKwh + beitrag.netzverlustCtPerKwh,
       eagFoerderbeitragGrundpreisAmount: beitrag.grundpreisAmount,

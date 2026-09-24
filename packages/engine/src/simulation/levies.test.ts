@@ -271,7 +271,7 @@ describe('Ohne belegte Sätze wird der Hebel verweigert, nicht zu niedrig gerech
      * bekommt nichts. Ein Plan ohne Zeitraum führt im Rechenkern zur Lückenmeldung; eine halbe
      * Rechnung entsteht nicht.
      */
-    expect(buildLevySchedule('wiener_netze', 7, '2026-01-30', '2026-08-26').periods).toEqual([])
+    expect(buildLevySchedule('wiener_netze', 7, '2026-01-30', '2026-08-26', null, HEIM).periods).toEqual([])
     expect(
       buildMonthlyTariffComparison(
         LOAD,
@@ -284,14 +284,17 @@ describe('Ohne belegte Sätze wird der Hebel verweigert, nicht zu niedrig gerech
 
   it('ein unbelegter Netzbetreiber ebenso — Wien ist die einzige hinterlegte Gebrauchsabgabe', () => {
     expect(
-      buildLevySchedule('netz_noe', 7, '2026-01-30', '2026-08-26', 'ohne_leistungsmessung').periods,
+      buildLevySchedule('netz_noe', 7, '2026-01-30', '2026-08-26', 'ohne_leistungsmessung', HEIM).periods,
     ).toEqual([])
   })
 })
 
+/** Der Referenzfall (Urbanz) ist ein Haushalt. */
+const HEIM = { category: 'heim' } as const
+
 /** Der echte Plan des Referenzfalls. */
 function levySchedule(): LevySchedule {
-  return buildLevySchedule('wiener_netze', 7, '2026-01-30', '2026-08-26', 'ohne_leistungsmessung')
+  return buildLevySchedule('wiener_netze', 7, '2026-01-30', '2026-08-26', 'ohne_leistungsmessung', HEIM)
 }
 
 /** Derselbe Zeitschnitt, aber ohne die beiden ct/kWh-Abgaben und ohne die Fixbeträge. */

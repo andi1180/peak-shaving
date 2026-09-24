@@ -16,6 +16,7 @@
 import {
   analysisWindow,
   buildLevySchedule,
+  type LevyCustomerCategory,
   type LoadProfile,
   type TariffPricingInputs,
 } from 'shared'
@@ -42,6 +43,7 @@ export async function loadTariffPricing(
   operatorId: string | null,
   netzebene: number | null,
   meteringVariant: string | null,
+  category: LevyCustomerCategory,
 ): Promise<TariffPricingInputs> {
   const window = analysisWindow(loadProfile)
   if (!window) return { gridTariffRows: null, spotPrices: null, levies: null }
@@ -73,6 +75,7 @@ export async function loadTariffPricing(
             window.startIso.slice(0, 10),
             window.endIso.slice(0, 10),
             meteringVariant,
+            { category },
           )
         : null,
     spotPrices: spotResult.ok

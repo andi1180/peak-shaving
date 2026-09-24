@@ -23,7 +23,7 @@
  */
 import 'server-only'
 
-import { buildLevySchedule } from 'shared'
+import { buildLevySchedule, type LevyContext } from 'shared'
 import type {
   GridTariffRowInput,
   SpotPricePointInput,
@@ -304,6 +304,7 @@ export async function readTariffPricingForAnalysis(
     window: AnalysisPeriod
     intervalMinutes: number
   },
+  levyContext: LevyContext,
 ): Promise<TariffPricingInputs> {
   const { operatorId, netzebene, meteringVariant, window, intervalMinutes } = request
 
@@ -337,6 +338,7 @@ export async function readTariffPricingForAnalysis(
             toDateOnly(window.startIso),
             toDateOnly(window.endIso),
             meteringVariant,
+            levyContext,
           )
         : null,
   }

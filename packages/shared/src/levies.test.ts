@@ -5,6 +5,9 @@ import { describe, expect, it } from 'vitest'
 
 import { buildLevySchedule, findLevyPeriod } from './levies'
 
+const HEIM = { category: 'heim' } as const
+const GEWERBE = { category: 'gewerbe' } as const
+
 describe('buildLevySchedule — was belegt ist, wird geschnitten; was fehlt, bleibt Lücke', () => {
   it('schneidet den Gebrauchsabgabe-Sprung am 01.03.2026 zu ZWEI Zeiträumen', () => {
     const { periods } = buildLevySchedule(
@@ -13,6 +16,7 @@ describe('buildLevySchedule — was belegt ist, wird geschnitten; was fehlt, ble
       '2026-01-30',
       '2026-08-26',
       'ohne_leistungsmessung',
+      HEIM,
     )
 
     expect(periods.map((p) => [p.validFrom, p.gebrauchsabgabeRate])).toEqual([
@@ -36,6 +40,7 @@ describe('buildLevySchedule — was belegt ist, wird geschnitten; was fehlt, ble
       '2026-05-01',
       '2026-05-02',
       'ohne_leistungsmessung',
+      HEIM,
     )
 
     expect(findLevyPeriod(periods, '2026-01-01')).not.toBeNull()
@@ -46,22 +51,22 @@ describe('buildLevySchedule — was belegt ist, wird geschnitten; was fehlt, ble
 
   it('liefert GAR NICHTS, wo eine der vier Quellen fehlt — statt den Posten still auf 0 zu setzen', () => {
     // Netz NÖ: keine belegte Gebrauchsabgabe.
-    expect(buildLevySchedule('netz_noe', 7, '2026-01-01', '2026-12-31').periods).toEqual([])
+    expect(buildLevySchedule('netz_noe', 7, '2026-01-01', '2026-12-31', null, HEIM).periods).toEqual([])
     // 2027: die Absenkung der Elektrizitätsabgabe ist auf 2026 befristet, danach ist nichts
     // belegt — die EAG-Sätze und die offene Gebrauchsabgabe allein genügen nicht.
     expect(
-      buildLevySchedule('wiener_netze', 7, '2027-01-01', '2027-12-31', 'ohne_leistungsmessung')
+      buildLevySchedule('wiener_netze', 7, '2027-01-01', '2027-12-31', 'ohne_leistungsmessung', HEIM)
         .periods,
     ).toEqual([])
     /*
      * ⚠ Netzebene 7 OHNE Messvariante: EX104 führt für NE 7 drei Zeilen und keine variantenlose.
      * Wer die Variante nicht mitgibt, bekommt deshalb nichts — nicht ersatzweise eine der drei.
      */
-    expect(buildLevySchedule('wiener_netze', 7, '2026-01-01', '2026-12-31').periods).toEqual([])
+    expect(buildLevySchedule('wiener_netze', 7, '2026-01-01', '2026-12-31', null, HEIM).periods).toEqual([])
   })
 
   it('trägt 2025 — Satz und Rechnungsposten gegen die echte Demo-Hotel-Rechnung nachgerechnet', () => {
-    const periods = buildLevySchedule('wiener_netze', 6, '2025-01-01', '2025-12-31', null).periods
+    const periods = buildLevySchedule('wiener_netze', 6, '2025-01-01', '2025-12-31', null, GEWERBE).periods
     const p = findLevyPeriod(periods, '2025-06-01')
     expect(p).toMatchObject({ elektrizitaetsabgabeCtPerKwh: 1.5, gebrauchsabgabeRate: 0.06 })
 
@@ -75,10 +80,24 @@ describe('buildLevySchedule — was belegt ist, wird geschnitten; was fehlt, ble
     expect(eur).toBeCloseTo(33_044.86, 1)
   })
 
+  it('Elektrizitätsabgabe 2026: 0,10 ct nur für Haushalte, 0,82 ct für Betriebe (ElAbgG § 7 Abs. 16)', () => {
+    const at = (context: typeof HEIM | typeof GEWERBE, date: string) =>
+      findLevyPeriod(
+        buildLevySchedule('wiener_netze', 7, date, date, 'ohne_leistungsmessung', context).periods,
+        date,
+      )?.elektrizitaetsabgabeCtPerKwh
+
+    expect(at(HEIM, '2026-06-01')).toBe(0.1)
+    expect(at(GEWERBE, '2026-06-01')).toBe(0.82)
+    // 2025 galt der Regelsatz für beide.
+    expect(at(HEIM, '2025-06-01')).toBe(1.5)
+    expect(at(GEWERBE, '2025-06-01')).toBe(1.5)
+  })
+
   it('trägt die EX104-Sätze je Netzebene und Messvariante', () => {
     const at = (ne: number, variant: string | null) =>
       findLevyPeriod(
-        buildLevySchedule('wiener_netze', ne, '2026-06-01', '2026-06-02', variant).periods,
+        buildLevySchedule('wiener_netze', ne, '2026-06-01', '2026-06-02', variant, HEIM).periods,
         '2026-06-01',
       )
 

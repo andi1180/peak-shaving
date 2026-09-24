@@ -132,19 +132,19 @@
    "newBilledKw": 338.46059761047366,
    "leistungspreisSavingPerYear": 1117.0808432896933,
    "selfConsumptionSavingPerYear": 0,
-   "loadShiftSavingPerYear": 891.8213466384536,
+   "loadShiftSavingPerYear": 891.6604589924002,
    "selfConsumptionSavingOverCoveredPeriod": 0,
-   "loadShiftSavingOverCoveredPeriod": 891.8213466384536,
+   "loadShiftSavingOverCoveredPeriod": 891.6604589924002,
    "annualizationFactor": 1,
    "coveredDays": 365,
-   "totalSavingPerYear": 2008.902189928147,
+   "totalSavingPerYear": 2008.7413022820936,
    "totalInvestment": 10950,
    "subsidyAmount": 0,
    "taxBenefit": 0,
    "taxEffectsIncluded": false,
    "netInvestment": 10950,
-   "amortizationYears": 5.4507382464407845,
-   "netSavingOverHorizon": 9139.02189928147,
+   "amortizationYears": 5.451174816567922,
+   "netSavingOverHorizon": 9137.413022820936,
    "warnings": [],
    "notices": [
     {
@@ -1249,7 +1249,7 @@
     ],
     "monthlyChargePrice": {
      "chargeCtPerKwh": [
-      21.930643519814286,
+      22.01584997248226,
       23.37837399194698,
       18.79726818423872,
       13.911273368974284,
@@ -1263,7 +1263,7 @@
       21.154851076865455
      ],
      "dischargeCtPerKwh": [
-      26.165912890984522,
+      26.241075104891422,
       27.33900639168092,
       24.227771204798813,
       22.16540826601303,
@@ -1277,7 +1277,7 @@
       23.391256863227266
      ],
      "averageCtPerKwh": [
-      23.624733602150467,
+      23.717636827956877,
       24.962836309523784,
       21.272822341857353,
       18.986183333333297,
@@ -1339,19 +1339,19 @@
    "newBilledKw": 338.46059761047366,
    "leistungspreisSavingPerYear": 1117.0808432896933,
    "selfConsumptionSavingPerYear": 0,
-   "loadShiftSavingPerYear": 891.8213466384536,
+   "loadShiftSavingPerYear": 891.6604589924002,
    "selfConsumptionSavingOverCoveredPeriod": 0,
-   "loadShiftSavingOverCoveredPeriod": 891.8213466384536,
+   "loadShiftSavingOverCoveredPeriod": 891.6604589924002,
    "annualizationFactor": 1,
    "coveredDays": 365,
-   "totalSavingPerYear": 2008.902189928147,
+   "totalSavingPerYear": 2008.7413022820936,
    "totalInvestment": 13350,
    "subsidyAmount": 0,
    "taxBenefit": 0,
    "taxEffectsIncluded": false,
    "netInvestment": 13350,
-   "amortizationYears": 6.645420601825066,
-   "netSavingOverHorizon": 6739.02189928147,
+   "amortizationYears": 6.645952858555412,
+   "netSavingOverHorizon": 6737.413022820936,
    "warnings": [],
    "notices": [
     {
@@ -2456,7 +2456,7 @@
     ],
     "monthlyChargePrice": {
      "chargeCtPerKwh": [
-      21.930643519814286,
+      22.01584997248226,
       23.37837399194698,
       18.79726818423872,
       13.911273368974284,
@@ -2470,7 +2470,7 @@
       21.154851076865455
      ],
      "dischargeCtPerKwh": [
-      26.165912890984522,
+      26.241075104891422,
       27.33900639168092,
       24.227771204798813,
       22.16540826601303,
@@ -2484,7 +2484,7 @@
       23.391256863227266
      ],
      "averageCtPerKwh": [
-      23.624733602150467,
+      23.717636827956877,
       24.962836309523784,
       21.272822341857353,
       18.986183333333297,
@@ -2546,19 +2546,19 @@
    "newBilledKw": 438.8298234176635,
    "leistungspreisSavingPerYear": 698.8757357597358,
    "selfConsumptionSavingPerYear": 0,
-   "loadShiftSavingPerYear": 864.4346617924537,
+   "loadShiftSavingPerYear": 864.2882858173028,
    "selfConsumptionSavingOverCoveredPeriod": 0,
-   "loadShiftSavingOverCoveredPeriod": 864.4346617924537,
+   "loadShiftSavingOverCoveredPeriod": 864.2882858173028,
    "annualizationFactor": 1,
    "coveredDays": 365,
-   "totalSavingPerYear": 1563.3103975521894,
+   "totalSavingPerYear": 1563.1640215770385,
    "totalInvestment": 9100,
    "subsidyAmount": 0,
    "taxBenefit": 0,
    "taxEffectsIncluded": false,
    "netInvestment": 9100,
-   "amortizationYears": 5.820980922437833,
-   "netSavingOverHorizon": 6533.103975521895,
+   "amortizationYears": 5.821526003918149,
+   "netSavingOverHorizon": 6531.640215770385,
    "warnings": [],
    "notices": [
     {
@@ -3663,7 +3663,7 @@
     ],
     "monthlyChargePrice": {
      "chargeCtPerKwh": [
-      21.980519019054178,
+      22.057648332329943,
       23.233928584616127,
       17.90948250989017,
       12.86954472517943,
@@ -3677,7 +3677,7 @@
       21.21049734540957
      ],
      "dischargeCtPerKwh": [
-      26.425544724700412,
+      26.49587218268058,
       27.572845061717345,
       24.424565551849206,
       22.094857915647513,
@@ -3691,7 +3691,7 @@
       23.610666764849768
      ],
      "averageCtPerKwh": [
-      23.624733602150467,
+      23.717636827956877,
       24.962836309523784,
       21.272822341857353,
       18.986183333333297,
@@ -3754,19 +3754,19 @@
    "newBilledKw": 253.6002929115296,
    "leistungspreisSavingPerYear": 1470.66544620196,
    "selfConsumptionSavingPerYear": 0,
-   "loadShiftSavingPerYear": 715.8733352485797,
+   "loadShiftSavingPerYear": 715.7610749931333,
    "selfConsumptionSavingOverCoveredPeriod": 0,
-   "loadShiftSavingOverCoveredPeriod": 715.8733352485797,
+   "loadShiftSavingOverCoveredPeriod": 715.7610749931333,
    "annualizationFactor": 1,
    "coveredDays": 365,
-   "totalSavingPerYear": 2186.53878145054,
+   "totalSavingPerYear": 2186.4265211950933,
    "totalInvestment": 16052,
    "subsidyAmount": 0,
    "taxBenefit": 0,
    "taxEffectsIncluded": false,
    "netInvestment": 16052,
-   "amortizationYears": 7.341283006812794,
-   "netSavingOverHorizon": 5813.387814505397,
+   "amortizationYears": 7.341659938897023,
+   "netSavingOverHorizon": 5812.265211950933,
    "warnings": [],
    "notices": [
     {
@@ -4875,7 +4875,7 @@
     ],
     "monthlyChargePrice": {
      "chargeCtPerKwh": [
-      21.772430284235043,
+      21.86507113258819,
       23.262987051151633,
       19.295049429151902,
       15.372377298008917,
@@ -4889,7 +4889,7 @@
       21.00999666698166
      ],
      "dischargeCtPerKwh": [
-      25.431306296118454,
+      25.51357235419249,
       26.955663783814686,
       24.079180263247228,
       21.97582330891411,
@@ -4903,7 +4903,7 @@
       23.000581774034355
      ],
      "averageCtPerKwh": [
-      23.624733602150467,
+      23.717636827956877,
       24.962836309523784,
       21.272822341857353,
       18.986183333333297,
@@ -4965,19 +4965,19 @@
    "newBilledKw": 273.0632355125428,
    "leistungspreisSavingPerYear": 1389.5698520310718,
    "selfConsumptionSavingPerYear": 0,
-   "loadShiftSavingPerYear": 664.1102221057986,
+   "loadShiftSavingPerYear": 664.0140757442599,
    "selfConsumptionSavingOverCoveredPeriod": 0,
-   "loadShiftSavingOverCoveredPeriod": 664.1102221057986,
+   "loadShiftSavingOverCoveredPeriod": 664.0140757442599,
    "annualizationFactor": 1,
    "coveredDays": 365,
-   "totalSavingPerYear": 2053.6800741368706,
+   "totalSavingPerYear": 2053.5839277753316,
    "totalInvestment": 14756,
    "subsidyAmount": 0,
    "taxBenefit": 0,
    "taxEffectsIncluded": false,
    "netInvestment": 14756,
-   "amortizationYears": 7.185150299616026,
-   "netSavingOverHorizon": 5780.800741368708,
+   "amortizationYears": 7.185486699823038,
+   "netSavingOverHorizon": 5779.839277753315,
    "warnings": [],
    "notices": [
     {
@@ -6082,7 +6082,7 @@
     ],
     "monthlyChargePrice": {
      "chargeCtPerKwh": [
-      21.808721186824553,
+      21.903882779364125,
       23.344498923932555,
       19.320982618540352,
       15.263972018473055,
@@ -6096,7 +6096,7 @@
       21.076790506817048
      ],
      "dischargeCtPerKwh": [
-      25.186158209860228,
+      25.273088716976606,
       26.815326214222786,
       24.04252460669466,
       21.871084758053655,
@@ -6110,7 +6110,7 @@
       22.834350514088083
      ],
      "averageCtPerKwh": [
-      23.624733602150467,
+      23.717636827956877,
       24.962836309523784,
       21.272822341857353,
       18.986183333333297,
@@ -6172,19 +6172,19 @@
    "newBilledKw": 495.4421822471619,
    "leistungspreisSavingPerYear": 462.99090730349235,
    "selfConsumptionSavingPerYear": 0,
-   "loadShiftSavingPerYear": 768.257269493983,
+   "loadShiftSavingPerYear": 768.1321217914245,
    "selfConsumptionSavingOverCoveredPeriod": 0,
-   "loadShiftSavingOverCoveredPeriod": 768.257269493983,
+   "loadShiftSavingOverCoveredPeriod": 768.1321217914245,
    "annualizationFactor": 1,
    "coveredDays": 365,
-   "totalSavingPerYear": 1231.2481767974755,
+   "totalSavingPerYear": 1231.123029094917,
    "totalInvestment": 7199,
    "subsidyAmount": 0,
    "taxBenefit": 0,
    "taxEffectsIncluded": false,
    "netInvestment": 7199,
-   "amortizationYears": 5.846912211252876,
-   "netSavingOverHorizon": 5113.481767974754,
+   "amortizationYears": 5.847506569097711,
+   "netSavingOverHorizon": 5112.23029094917,
    "warnings": [],
    "notices": [
     {
@@ -7289,7 +7289,7 @@
     ],
     "monthlyChargePrice": {
      "chargeCtPerKwh": [
-      21.87998512804833,
+      21.95837090955932,
       23.146721800302938,
       17.918954926888976,
       13.1418086298965,
@@ -7303,7 +7303,7 @@
       21.20131679488737
      ],
      "dischargeCtPerKwh": [
-      26.3967140033422,
+      26.470442177286017,
       27.72015201560433,
       24.532728164256103,
       22.13520373053482,
@@ -7317,7 +7317,7 @@
       23.622459519060456
      ],
      "averageCtPerKwh": [
-      23.624733602150467,
+      23.717636827956877,
       24.962836309523784,
       21.272822341857353,
       18.986183333333297,
@@ -7380,19 +7380,19 @@
    "newBilledKw": 254.3003448104859,
    "leistungspreisSavingPerYear": 1467.7485632896423,
    "selfConsumptionSavingPerYear": 0,
-   "loadShiftSavingPerYear": 731.294549826308,
+   "loadShiftSavingPerYear": 731.1758885400246,
    "selfConsumptionSavingOverCoveredPeriod": 0,
-   "loadShiftSavingOverCoveredPeriod": 731.294549826308,
+   "loadShiftSavingOverCoveredPeriod": 731.1758885400246,
    "annualizationFactor": 1,
    "coveredDays": 365,
-   "totalSavingPerYear": 2199.0431131159503,
+   "totalSavingPerYear": 2198.924451829667,
    "totalInvestment": 17004,
    "subsidyAmount": 0,
    "taxBenefit": 0,
    "taxEffectsIncluded": false,
    "netInvestment": 17004,
-   "amortizationYears": 7.732454129062552,
-   "netSavingOverHorizon": 4986.431131159501,
+   "amortizationYears": 7.732871398037991,
+   "netSavingOverHorizon": 4985.244518296669,
    "warnings": [],
    "notices": [
     {
@@ -8501,7 +8501,7 @@
     ],
     "monthlyChargePrice": {
      "chargeCtPerKwh": [
-      21.76790026028543,
+      21.85967970139183,
       23.246401215712545,
       19.28054460803066,
       15.364211775462374,
@@ -8515,7 +8515,7 @@
       21.000654563589976
      ],
      "dischargeCtPerKwh": [
-      25.49378114966888,
+      25.574790227838964,
       26.985633928810493,
       24.091644988329325,
       21.998147782351737,
@@ -8529,7 +8529,7 @@
       23.04157478531303
      ],
      "averageCtPerKwh": [
-      23.624733602150467,
+      23.717636827956877,
       24.962836309523784,
       21.272822341857353,
       18.986183333333297,
@@ -8591,19 +8591,19 @@
    "newBilledKw": 438.8298234176635,
    "leistungspreisSavingPerYear": 698.8757357597358,
    "selfConsumptionSavingPerYear": 0,
-   "loadShiftSavingPerYear": 864.4346617924537,
+   "loadShiftSavingPerYear": 864.2882858173028,
    "selfConsumptionSavingOverCoveredPeriod": 0,
-   "loadShiftSavingOverCoveredPeriod": 864.4346617924537,
+   "loadShiftSavingOverCoveredPeriod": 864.2882858173028,
    "annualizationFactor": 1,
    "coveredDays": 365,
-   "totalSavingPerYear": 1563.3103975521894,
+   "totalSavingPerYear": 1563.1640215770385,
    "totalInvestment": 11200,
    "subsidyAmount": 0,
    "taxBenefit": 0,
    "taxEffectsIncluded": false,
    "netInvestment": 11200,
-   "amortizationYears": 7.16428421223118,
-   "netSavingOverHorizon": 4433.103975521895,
+   "amortizationYears": 7.164955081745414,
+   "netSavingOverHorizon": 4431.640215770385,
    "warnings": [],
    "notices": [
     {
@@ -9708,7 +9708,7 @@
     ],
     "monthlyChargePrice": {
      "chargeCtPerKwh": [
-      21.980519019054178,
+      22.057648332329943,
       23.233928584616127,
       17.90948250989017,
       12.86954472517943,
@@ -9722,7 +9722,7 @@
       21.21049734540957
      ],
      "dischargeCtPerKwh": [
-      26.425544724700412,
+      26.49587218268058,
       27.572845061717345,
       24.424565551849206,
       22.094857915647513,
@@ -9736,7 +9736,7 @@
       23.610666764849768
      ],
      "averageCtPerKwh": [
-      23.624733602150467,
+      23.717636827956877,
       24.962836309523784,
       21.272822341857353,
       18.986183333333297,
@@ -9798,19 +9798,19 @@
    "newBilledKw": 544.5601577949524,
    "leistungspreisSavingPerYear": 258.3326758543654,
    "selfConsumptionSavingPerYear": 0,
-   "loadShiftSavingPerYear": 681.3189679146985,
+   "loadShiftSavingPerYear": 681.2198990149732,
    "selfConsumptionSavingOverCoveredPeriod": 0,
-   "loadShiftSavingOverCoveredPeriod": 681.3189679146985,
+   "loadShiftSavingOverCoveredPeriod": 681.2198990149732,
    "annualizationFactor": 1,
    "coveredDays": 365,
-   "totalSavingPerYear": 939.6516437690639,
+   "totalSavingPerYear": 939.5525748693385,
    "totalInvestment": 5791,
    "subsidyAmount": 0,
    "taxBenefit": 0,
    "taxEffectsIncluded": false,
    "netInvestment": 5791,
-   "amortizationYears": 6.162922225912949,
-   "netSavingOverHorizon": 3605.5164376906396,
+   "amortizationYears": 6.1635720606750946,
+   "netSavingOverHorizon": 3604.5257486933842,
    "warnings": [],
    "notices": [
     {
@@ -10915,7 +10915,7 @@
     ],
     "monthlyChargePrice": {
      "chargeCtPerKwh": [
-      21.8456581031106,
+      21.920616284388043,
       23.096859769256817,
       17.841311108797477,
       13.351817867654027,
@@ -10929,7 +10929,7 @@
       21.139389135484425
      ],
      "dischargeCtPerKwh": [
-      26.83410327171869,
+      26.907095747671928,
       28.165677920067523,
       24.941253692665146,
       22.474674573249967,
@@ -10943,7 +10943,7 @@
       23.840126304830314
      ],
      "averageCtPerKwh": [
-      23.624733602150467,
+      23.717636827956877,
       24.962836309523784,
       21.272822341857353,
       18.986183333333297,
@@ -11005,19 +11005,19 @@
    "newBilledKw": 542.9202488708496,
    "leistungspreisSavingPerYear": 265.16562970479356,
    "selfConsumptionSavingPerYear": 0,
-   "loadShiftSavingPerYear": 682.9066351365058,
+   "loadShiftSavingPerYear": 682.8107728637781,
    "selfConsumptionSavingOverCoveredPeriod": 0,
-   "loadShiftSavingOverCoveredPeriod": 682.9066351365058,
+   "loadShiftSavingOverCoveredPeriod": 682.8107728637781,
    "annualizationFactor": 1,
    "coveredDays": 365,
-   "totalSavingPerYear": 948.0722648412993,
+   "totalSavingPerYear": 947.9764025685716,
    "totalInvestment": 6650,
    "subsidyAmount": 0,
    "taxBenefit": 0,
    "taxEffectsIncluded": false,
    "netInvestment": 6650,
-   "amortizationYears": 7.014233246358244,
-   "netSavingOverHorizon": 2830.7226484129933,
+   "amortizationYears": 7.014942547073553,
+   "netSavingOverHorizon": 2829.7640256857158,
    "warnings": [],
    "notices": [
     {
@@ -12122,7 +12122,7 @@
     ],
     "monthlyChargePrice": {
      "chargeCtPerKwh": [
-      21.892926381063237,
+      21.963469814523005,
       23.11582348759006,
       17.95071394792657,
       13.328762111312745,
@@ -12136,7 +12136,7 @@
       21.12753898652855
      ],
      "dischargeCtPerKwh": [
-      26.9884956969503,
+      27.056906264373385,
       28.254111517044226,
       25.077517125768626,
       22.605999262326172,
@@ -12150,7 +12150,7 @@
       23.967724640214225
      ],
      "averageCtPerKwh": [
-      23.624733602150467,
+      23.717636827956877,
       24.962836309523784,
       21.272822341857353,
       18.986183333333297,
@@ -12212,19 +12212,19 @@
    "newBilledKw": 246.56052379608167,
    "leistungspreisSavingPerYear": 1499.9978175163267,
    "selfConsumptionSavingPerYear": 0,
-   "loadShiftSavingPerYear": 868.2428779507879,
+   "loadShiftSavingPerYear": 868.1061647823142,
    "selfConsumptionSavingOverCoveredPeriod": 0,
-   "loadShiftSavingOverCoveredPeriod": 868.2428779507879,
+   "loadShiftSavingOverCoveredPeriod": 868.1061647823142,
    "annualizationFactor": 1,
    "coveredDays": 365,
-   "totalSavingPerYear": 2368.2406954671146,
+   "totalSavingPerYear": 2368.103982298641,
    "totalInvestment": 22100,
    "subsidyAmount": 0,
    "taxBenefit": 0,
    "taxEffectsIncluded": false,
    "netInvestment": 22100,
-   "amortizationYears": 9.331821736827713,
-   "netSavingOverHorizon": 1582.406954671147,
+   "amortizationYears": 9.33236047284894,
+   "netSavingOverHorizon": 1581.0398229864077,
    "warnings": [],
    "notices": [
     {
@@ -13329,7 +13329,7 @@
     ],
     "monthlyChargePrice": {
      "chargeCtPerKwh": [
-      21.567102722128915,
+      21.651203780211908,
       23.08591916033424,
       19.072974644327676,
       15.363412464006151,
@@ -13343,7 +13343,7 @@
       20.87916834245859
      ],
      "dischargeCtPerKwh": [
-      25.928927781282564,
+      25.997348268684863,
       26.990335341649576,
       24.036979627357766,
       21.950994818247068,
@@ -13357,7 +13357,7 @@
       23.2635767949375
      ],
      "averageCtPerKwh": [
-      23.624733602150467,
+      23.717636827956877,
       24.962836309523784,
       21.272822341857353,
       18.986183333333297,
@@ -13420,19 +13420,19 @@
    "newBilledKw": 149.76851586456428,
    "leistungspreisSavingPerYear": 1903.2978505643157,
    "selfConsumptionSavingPerYear": 0,
-   "loadShiftSavingPerYear": 114.23650034995877,
+   "loadShiftSavingPerYear": 114.21809364767118,
    "selfConsumptionSavingOverCoveredPeriod": 0,
-   "loadShiftSavingOverCoveredPeriod": 114.23650034995877,
+   "loadShiftSavingOverCoveredPeriod": 114.21809364767118,
    "annualizationFactor": 1,
    "coveredDays": 365,
-   "totalSavingPerYear": 2017.5343509142745,
+   "totalSavingPerYear": 2017.5159442119868,
    "totalInvestment": 19190,
    "subsidyAmount": 0,
    "taxBenefit": 0,
    "taxEffectsIncluded": false,
    "netInvestment": 19190,
-   "amortizationYears": 9.51161004584818,
-   "netSavingOverHorizon": 985.3435091427455,
+   "amortizationYears": 9.5116968245301,
+   "netSavingOverHorizon": 985.1594421198679,
    "warnings": [],
    "notices": [
     {
@@ -14537,7 +14537,7 @@
     ],
     "monthlyChargePrice": {
      "chargeCtPerKwh": [
-      22.389112616709976,
+      22.479417535697543,
       24.254528286398084,
       21.489709405194816,
       19.29631139600926,
@@ -14551,7 +14551,7 @@
       21.428521620996737
      ],
      "dischargeCtPerKwh": [
-      22.857511469561658,
+      22.94100892629413,
       24.041390106606695,
       20.930145067619122,
       19.17254070209355,
@@ -14565,7 +14565,7 @@
       21.75441229484849
      ],
      "averageCtPerKwh": [
-      23.624733602150467,
+      23.717636827956877,
       24.962836309523784,
       21.272822341857353,
       18.986183333333297,
@@ -14627,19 +14627,19 @@
    "newBilledKw": 460.0300373458863,
    "leistungspreisSavingPerYear": 610.5415110588074,
    "selfConsumptionSavingPerYear": 0,
-   "loadShiftSavingPerYear": 734.5355108803161,
+   "loadShiftSavingPerYear": 734.4188167149642,
    "selfConsumptionSavingOverCoveredPeriod": 0,
-   "loadShiftSavingOverCoveredPeriod": 734.5355108803161,
+   "loadShiftSavingOverCoveredPeriod": 734.4188167149642,
    "annualizationFactor": 1,
    "coveredDays": 365,
-   "totalSavingPerYear": 1345.0770219391234,
+   "totalSavingPerYear": 1344.9603277737715,
    "totalInvestment": 12676,
    "subsidyAmount": 0,
    "taxBenefit": 0,
    "taxEffectsIncluded": false,
    "netInvestment": 12676,
-   "amortizationYears": 9.423995647272086,
-   "netSavingOverHorizon": 774.7702193912337,
+   "amortizationYears": 9.424813311022927,
+   "netSavingOverHorizon": 773.603277737715,
    "warnings": [],
    "notices": [
     {
@@ -15744,7 +15744,7 @@
     ],
     "monthlyChargePrice": {
      "chargeCtPerKwh": [
-      21.867200452710325,
+      21.94903250147333,
       23.188681940340825,
       18.320888139076914,
       13.69251874785502,
@@ -15758,7 +15758,7 @@
       21.164235212381936
      ],
      "dischargeCtPerKwh": [
-      25.958566404541354,
+      26.035505463424975,
       27.36279762896881,
       24.39997311643852,
       22.03782090429405,
@@ -15772,7 +15772,7 @@
       23.336281215826823
      ],
      "averageCtPerKwh": [
-      23.624733602150467,
+      23.717636827956877,
       24.962836309523784,
       21.272822341857353,
       18.986183333333297,
@@ -15834,19 +15834,19 @@
    "newBilledKw": 535.9900539779663,
    "leistungspreisSavingPerYear": 294.04144175847387,
    "selfConsumptionSavingPerYear": 0,
-   "loadShiftSavingPerYear": 684.9043862691951,
+   "loadShiftSavingPerYear": 684.8037257394442,
    "selfConsumptionSavingOverCoveredPeriod": 0,
-   "loadShiftSavingOverCoveredPeriod": 684.9043862691951,
+   "loadShiftSavingOverCoveredPeriod": 684.8037257394442,
    "annualizationFactor": 1,
    "coveredDays": 365,
-   "totalSavingPerYear": 978.945828027669,
+   "totalSavingPerYear": 978.845167497918,
    "totalInvestment": 10138,
    "subsidyAmount": 0,
    "taxBenefit": 0,
    "taxEffectsIncluded": false,
    "netInvestment": 10138,
-   "amortizationYears": 10.356037800810219,
-   "netSavingOverHorizon": -348.54171972331096,
+   "amortizationYears": 10.357102774399264,
+   "netSavingOverHorizon": -349.5483250208199,
    "warnings": [],
    "notices": [
     {
@@ -16951,7 +16951,7 @@
     ],
     "monthlyChargePrice": {
      "chargeCtPerKwh": [
-      21.82753661904497,
+      21.90569689106067,
       23.08528039769153,
       17.826831184953278,
       13.474289161755305,
@@ -16965,7 +16965,7 @@
       21.15100229991146
      ],
      "dischargeCtPerKwh": [
-      26.548814589274865,
+      26.62490043728558,
       27.938226379676866,
       24.783531893611322,
       22.31280431990016,
@@ -16979,7 +16979,7 @@
       23.6903166581383
      ],
      "averageCtPerKwh": [
-      23.624733602150467,
+      23.717636827956877,
       24.962836309523784,
       21.272822341857353,
       18.986183333333297,
@@ -17041,19 +17041,19 @@
    "newBilledKw": 189.24190497741742,
    "leistungspreisSavingPerYear": 1738.8253959274277,
    "selfConsumptionSavingPerYear": 0,
-   "loadShiftSavingPerYear": 124.68790574934441,
+   "loadShiftSavingPerYear": 124.66755760547849,
    "selfConsumptionSavingOverCoveredPeriod": 0,
-   "loadShiftSavingOverCoveredPeriod": 124.68790574934441,
+   "loadShiftSavingOverCoveredPeriod": 124.66755760547849,
    "annualizationFactor": 1,
    "coveredDays": 365,
-   "totalSavingPerYear": 1863.5133016767722,
+   "totalSavingPerYear": 1863.4929535329063,
    "totalInvestment": 19189,
    "subsidyAmount": 0,
    "taxBenefit": 0,
    "taxEffectsIncluded": false,
    "netInvestment": 19189,
-   "amortizationYears": 10.2972165440053,
-   "netSavingOverHorizon": -553.8669832322776,
+   "amortizationYears": 10.297328982983542,
+   "netSavingOverHorizon": -554.0704646709382,
    "warnings": [],
    "notices": [],
    "dispatchTrace": {
@@ -18153,7 +18153,7 @@
     ],
     "monthlyChargePrice": {
      "chargeCtPerKwh": [
-      22.027081676326965,
+      22.11652739663368,
       23.87570250062197,
       21.192648425684695,
       19.036177498030177,
@@ -18167,7 +18167,7 @@
       21.274121834657507
      ],
      "dischargeCtPerKwh": [
-      22.76503205711198,
+      22.84947473139444,
       23.996403163771667,
       20.9913868486022,
       19.228670965444934,
@@ -18181,7 +18181,7 @@
       21.68604148279117
      ],
      "averageCtPerKwh": [
-      23.624733602150467,
+      23.717636827956877,
       24.962836309523784,
       21.272822341857353,
       18.986183333333297,
@@ -18243,19 +18243,19 @@
    "newBilledKw": 145.32993482589882,
    "leistungspreisSavingPerYear": 1921.791938225422,
    "selfConsumptionSavingPerYear": 0,
-   "loadShiftSavingPerYear": 112.87895525378455,
+   "loadShiftSavingPerYear": 112.86053399067904,
    "selfConsumptionSavingOverCoveredPeriod": 0,
-   "loadShiftSavingOverCoveredPeriod": 112.87895525378455,
+   "loadShiftSavingOverCoveredPeriod": 112.86053399067904,
    "annualizationFactor": 1,
    "coveredDays": 365,
-   "totalSavingPerYear": 2034.6708934792066,
+   "totalSavingPerYear": 2034.652472216101,
    "totalInvestment": 22999.999999999996,
    "subsidyAmount": 0,
    "taxBenefit": 0,
    "taxEffectsIncluded": false,
    "netInvestment": 22999.999999999996,
-   "amortizationYears": 11.304039426578177,
-   "netSavingOverHorizon": -2653.29106520793,
+   "amortizationYears": 11.304141770682282,
+   "netSavingOverHorizon": -2653.4752778389884,
    "warnings": [],
    "notices": [],
    "dispatchTrace": {
@@ -19355,7 +19355,7 @@
     ],
     "monthlyChargePrice": {
      "chargeCtPerKwh": [
-      22.37833464612305,
+      22.46900672252362,
       24.252161097010813,
       21.475326616117584,
       19.30676571194336,
@@ -19369,7 +19369,7 @@
       21.425128680309992
      ],
      "dischargeCtPerKwh": [
-      22.86941582295083,
+      22.95275791990571,
       24.04386585633472,
       20.926392181440878,
       19.165542340434904,
@@ -19383,7 +19383,7 @@
       21.759126772656465
      ],
      "averageCtPerKwh": [
-      23.624733602150467,
+      23.717636827956877,
       24.962836309523784,
       21.272822341857353,
       18.986183333333297,
@@ -19446,19 +19446,19 @@
    "newBilledKw": 144.69597242355516,
    "leistungspreisSavingPerYear": 1924.4334482351871,
    "selfConsumptionSavingPerYear": 0,
-   "loadShiftSavingPerYear": 94.89751748815611,
+   "loadShiftSavingPerYear": 94.87897346229302,
    "selfConsumptionSavingOverCoveredPeriod": 0,
-   "loadShiftSavingOverCoveredPeriod": 94.89751748815611,
+   "loadShiftSavingOverCoveredPeriod": 94.87897346229302,
    "annualizationFactor": 1,
    "coveredDays": 365,
-   "totalSavingPerYear": 2019.3309657233433,
+   "totalSavingPerYear": 2019.3124216974802,
    "totalInvestment": 26117,
    "subsidyAmount": 0,
    "taxBenefit": 0,
    "taxEffectsIncluded": false,
    "netInvestment": 26117,
-   "amortizationYears": 12.933491558994959,
-   "netSavingOverHorizon": -5923.6903427665675,
+   "amortizationYears": 12.933610331602601,
+   "netSavingOverHorizon": -5923.8757830252,
    "warnings": [],
    "notices": [
     {
@@ -20563,7 +20563,7 @@
     ],
     "monthlyChargePrice": {
      "chargeCtPerKwh": [
-      22.315125859717174,
+      22.40986415673432,
       24.259762416215462,
       21.3534264840912,
       19.381814318804178,
@@ -20577,7 +20577,7 @@
       21.42208017407093
      ],
      "dischargeCtPerKwh": [
-      22.979471819410474,
+      23.062461356957424,
       24.06302141030194,
       20.885691933032504,
       19.074517810011002,
@@ -20591,7 +20591,7 @@
       21.79975627946126
      ],
      "averageCtPerKwh": [
-      23.624733602150467,
+      23.717636827956877,
       24.962836309523784,
       21.272822341857353,
       18.986183333333297,
@@ -20654,19 +20654,19 @@
    "newBilledKw": 246.56052379608167,
    "leistungspreisSavingPerYear": 1499.9978175163267,
    "selfConsumptionSavingPerYear": 0,
-   "loadShiftSavingPerYear": 931.0651697316144,
+   "loadShiftSavingPerYear": 930.9284565631407,
    "selfConsumptionSavingOverCoveredPeriod": 0,
-   "loadShiftSavingOverCoveredPeriod": 931.0651697316144,
+   "loadShiftSavingOverCoveredPeriod": 930.9284565631407,
    "annualizationFactor": 1,
    "coveredDays": 365,
-   "totalSavingPerYear": 2431.0629872479412,
+   "totalSavingPerYear": 2430.9262740794675,
    "totalInvestment": 32890,
    "subsidyAmount": 0,
    "taxBenefit": 0,
    "taxEffectsIncluded": false,
    "netInvestment": 32890,
-   "amortizationYears": 13.529061226518351,
-   "netSavingOverHorizon": -8579.37012752059,
+   "amortizationYears": 13.529822089094266,
+   "netSavingOverHorizon": -8580.737259205325,
    "warnings": [],
    "notices": [
     {
@@ -21775,7 +21775,7 @@
     ],
     "monthlyChargePrice": {
      "chargeCtPerKwh": [
-      21.5278938883301,
+      21.609538775299022,
       23.05333808383973,
       18.95566812897014,
       15.127633936898398,
@@ -21789,7 +21789,7 @@
       20.84716681075193
      ],
      "dischargeCtPerKwh": [
-      26.005715982803302,
+      26.068797957077205,
       26.946951553554456,
       24.02837287181037,
       21.91614308994281,
@@ -21803,7 +21803,7 @@
       23.327558546540285
      ],
      "averageCtPerKwh": [
-      23.624733602150467,
+      23.717636827956877,
       24.962836309523784,
       21.272822341857353,
       18.986183333333297,
@@ -21866,19 +21866,19 @@
    "newBilledKw": 145.0014285850542,
    "leistungspreisSavingPerYear": 1923.1607142289408,
    "selfConsumptionSavingPerYear": 0,
-   "loadShiftSavingPerYear": 110.95798355344154,
+   "loadShiftSavingPerYear": 110.93954379642366,
    "selfConsumptionSavingOverCoveredPeriod": 0,
-   "loadShiftSavingOverCoveredPeriod": 110.95798355344154,
+   "loadShiftSavingOverCoveredPeriod": 110.93954379642366,
    "annualizationFactor": 1,
    "coveredDays": 365,
-   "totalSavingPerYear": 2034.1186977823825,
+   "totalSavingPerYear": 2034.1002580253644,
    "totalInvestment": 32915,
    "subsidyAmount": 0,
    "taxBenefit": 0,
    "taxEffectsIncluded": false,
    "netInvestment": 32915,
-   "amortizationYears": 16.181454915037296,
-   "netSavingOverHorizon": -12573.813022176175,
+   "amortizationYears": 16.181601605002875,
+   "netSavingOverHorizon": -12573.997419746356,
    "warnings": [],
    "notices": [
     {
@@ -22983,7 +22983,7 @@
     ],
     "monthlyChargePrice": {
      "chargeCtPerKwh": [
-      22.36574346722589,
+      22.457036893335285,
       24.249375265780994,
       21.455822138091893,
       19.319580941390747,
@@ -22997,7 +22997,7 @@
       21.422210902083958
      ],
      "dischargeCtPerKwh": [
-      22.892440038285322,
+      22.97572631810942,
       24.047437044732614,
       20.921976018908875,
       19.158398924434145,
@@ -23011,7 +23011,7 @@
       21.76503472074369
      ],
      "averageCtPerKwh": [
-      23.624733602150467,
+      23.717636827956877,
       24.962836309523784,
       21.272822341857353,
       18.986183333333297,
@@ -23074,19 +23074,19 @@
    "newBilledKw": 143.45802436905072,
    "leistungspreisSavingPerYear": 1929.5915651289558,
    "selfConsumptionSavingPerYear": 0,
-   "loadShiftSavingPerYear": 97.23057796968541,
+   "loadShiftSavingPerYear": 97.2120514335404,
    "selfConsumptionSavingOverCoveredPeriod": 0,
-   "loadShiftSavingOverCoveredPeriod": 97.23057796968541,
+   "loadShiftSavingOverCoveredPeriod": 97.2120514335404,
    "annualizationFactor": 1,
    "coveredDays": 365,
-   "totalSavingPerYear": 2026.8221430986412,
+   "totalSavingPerYear": 2026.8036165624962,
    "totalInvestment": 33690,
    "subsidyAmount": 0,
    "taxBenefit": 0,
    "taxEffectsIncluded": false,
    "netInvestment": 33690,
-   "amortizationYears": 16.622080094553407,
-   "netSavingOverHorizon": -13421.77856901359,
+   "amortizationYears": 16.622232033086156,
+   "netSavingOverHorizon": -13421.963834375038,
    "warnings": [],
    "notices": [
     {
@@ -24191,7 +24191,7 @@
     ],
     "monthlyChargePrice": {
      "chargeCtPerKwh": [
-      22.31880900840527,
+      22.41287127006671,
       24.25676011584664,
       21.3707901745468,
       19.368200446474827,
@@ -24205,7 +24205,7 @@
       21.42244786689394
      ],
      "dischargeCtPerKwh": [
-      22.964032880728357,
+      23.0469786167111,
       24.059358538968,
       20.89333134570002,
       19.085987224576744,
@@ -24219,7 +24219,7 @@
       21.795101397060165
      ],
      "averageCtPerKwh": [
-      23.624733602150467,
+      23.717636827956877,
       24.962836309523784,
       21.272822341857353,
       18.986183333333297,
@@ -24281,19 +24281,19 @@
    "newBilledKw": 131.2628460884124,
    "leistungspreisSavingPerYear": 1980.4048079649488,
    "selfConsumptionSavingPerYear": 0,
-   "loadShiftSavingPerYear": 51.942823727783555,
+   "loadShiftSavingPerYear": 51.923815262040165,
    "selfConsumptionSavingOverCoveredPeriod": 0,
-   "loadShiftSavingOverCoveredPeriod": 51.942823727783555,
+   "loadShiftSavingOverCoveredPeriod": 51.923815262040165,
    "annualizationFactor": 1,
    "coveredDays": 365,
-   "totalSavingPerYear": 2032.3476316927324,
+   "totalSavingPerYear": 2032.3286232269888,
    "totalInvestment": 35600,
    "subsidyAmount": 0,
    "taxBenefit": 0,
    "taxEffectsIncluded": false,
    "netInvestment": 35600,
-   "amortizationYears": 17.51668830905121,
-   "netSavingOverHorizon": -15276.523683072675,
+   "amortizationYears": 17.516852143465517,
+   "netSavingOverHorizon": -15276.71376773011,
    "warnings": [],
    "notices": [],
    "dispatchTrace": {
@@ -25393,7 +25393,7 @@
     ],
     "monthlyChargePrice": {
      "chargeCtPerKwh": [
-      22.40580149436558,
+      22.499310929414932,
       24.40182147874292,
       21.136810718608793,
       19.39201171349751,
@@ -25407,7 +25407,7 @@
       21.464582752125498
      ],
      "dischargeCtPerKwh": [
-      22.912123528095016,
+      22.997611809129687,
       24.041485151549065,
       20.791588730750107,
       18.905297381720533,
@@ -25421,7 +25421,7 @@
       21.85273947442623
      ],
      "averageCtPerKwh": [
-      23.624733602150467,
+      23.717636827956877,
       24.962836309523784,
       21.272822341857353,
       18.986183333333297,
@@ -25484,19 +25484,19 @@
    "newBilledKw": 143.64399543762372,
    "leistungspreisSavingPerYear": 1928.816685676568,
    "selfConsumptionSavingPerYear": 0,
-   "loadShiftSavingPerYear": 101.26612442520155,
+   "loadShiftSavingPerYear": 101.2476263412294,
    "selfConsumptionSavingOverCoveredPeriod": 0,
-   "loadShiftSavingOverCoveredPeriod": 101.26612442520155,
+   "loadShiftSavingOverCoveredPeriod": 101.2476263412294,
    "annualizationFactor": 1,
    "coveredDays": 365,
-   "totalSavingPerYear": 2030.0828101017696,
+   "totalSavingPerYear": 2030.0643120177974,
    "totalInvestment": 35915,
    "subsidyAmount": 0,
    "taxBenefit": 0,
    "taxEffectsIncluded": false,
    "netInvestment": 35915,
-   "amortizationYears": 17.691396538744915,
-   "netSavingOverHorizon": -15614.171898982306,
+   "amortizationYears": 17.691557743952465,
+   "netSavingOverHorizon": -15614.356879822026,
    "warnings": [],
    "notices": [
     {
@@ -26601,7 +26601,7 @@
     ],
     "monthlyChargePrice": {
      "chargeCtPerKwh": [
-      22.33319565811627,
+      22.426256609779557,
       24.25176173998676,
       21.39739858025746,
       19.34940340194108,
@@ -26615,7 +26615,7 @@
       21.422742548065397
      ],
      "dischargeCtPerKwh": [
-      22.942996491303884,
+      23.025958415990942,
       24.054283630421587,
       20.90399245019956,
       19.10193754539988,
@@ -26629,7 +26629,7 @@
       21.788133147933273
      ],
      "averageCtPerKwh": [
-      23.624733602150467,
+      23.717636827956877,
       24.962836309523784,
       21.272822341857353,
       18.986183333333297,
@@ -26692,19 +26692,19 @@
    "newBilledKw": 129.19406061172828,
    "leistungspreisSavingPerYear": 1989.0247474511323,
    "selfConsumptionSavingPerYear": 0,
-   "loadShiftSavingPerYear": 39.438707167494776,
+   "loadShiftSavingPerYear": 39.416573465333315,
    "selfConsumptionSavingOverCoveredPeriod": 0,
-   "loadShiftSavingOverCoveredPeriod": 39.438707167494776,
+   "loadShiftSavingOverCoveredPeriod": 39.416573465333315,
    "annualizationFactor": 1,
    "coveredDays": 365,
-   "totalSavingPerYear": 2028.463454618627,
+   "totalSavingPerYear": 2028.4413209164657,
    "totalInvestment": 38200,
    "subsidyAmount": 0,
    "taxBenefit": 0,
    "taxEffectsIncluded": false,
    "netInvestment": 38200,
-   "amortizationYears": 18.831988278133416,
-   "netSavingOverHorizon": -17915.365453813727,
+   "amortizationYears": 18.832193766759268,
+   "netSavingOverHorizon": -17915.586790835343,
    "warnings": [],
    "notices": [
     {
@@ -27809,7 +27809,7 @@
     ],
     "monthlyChargePrice": {
      "chargeCtPerKwh": [
-      22.426138683413395,
+      22.51840569299916,
       24.409968776054296,
       21.17102447534936,
       19.369553423565126,
@@ -27823,7 +27823,7 @@
       21.472875625891888
      ],
      "dischargeCtPerKwh": [
-      22.93027753451292,
+      23.01620674199548,
       24.06068063774625,
       20.7812440753683,
       18.88525436226813,
@@ -27837,7 +27837,7 @@
       21.882042856922183
      ],
      "averageCtPerKwh": [
-      23.624733602150467,
+      23.717636827956877,
       24.962836309523784,
       21.272822341857353,
       18.986183333333297,
@@ -27900,19 +27900,19 @@
    "newBilledKw": 128.58229116440077,
    "leistungspreisSavingPerYear": 1991.5737868149972,
    "selfConsumptionSavingPerYear": 0,
-   "loadShiftSavingPerYear": 25.629878583145516,
+   "loadShiftSavingPerYear": 25.610725764466316,
    "selfConsumptionSavingOverCoveredPeriod": 0,
-   "loadShiftSavingOverCoveredPeriod": 25.629878583145516,
+   "loadShiftSavingOverCoveredPeriod": 25.610725764466316,
    "annualizationFactor": 1,
    "coveredDays": 365,
-   "totalSavingPerYear": 2017.2036653981427,
+   "totalSavingPerYear": 2017.1845125794634,
    "totalInvestment": 39200,
    "subsidyAmount": 0,
    "taxBenefit": 0,
    "taxEffectsIncluded": false,
    "netInvestment": 39200,
-   "amortizationYears": 19.43284194472399,
-   "netSavingOverHorizon": -19027.963346018572,
+   "amortizationYears": 19.433026456203166,
+   "netSavingOverHorizon": -19028.154874205364,
    "warnings": [],
    "notices": [
     {
@@ -29017,7 +29017,7 @@
     ],
     "monthlyChargePrice": {
      "chargeCtPerKwh": [
-      22.444290339669124,
+      22.535601828137352,
       24.442425971661653,
       21.238636381968504,
       19.380168209705882,
@@ -29031,7 +29031,7 @@
       21.495564571184257
      ],
      "dischargeCtPerKwh": [
-      22.92972643542771,
+      23.01597555730662,
       24.050244035050824,
       20.750056171663417,
       18.87145811240615,
@@ -29045,7 +29045,7 @@
       21.88500109958488
      ],
      "averageCtPerKwh": [
-      23.624733602150467,
+      23.717636827956877,
       24.962836309523784,
       21.272822341857353,
       18.986183333333297,
@@ -29108,19 +29108,19 @@
    "newBilledKw": 129.79797770156287,
    "leistungspreisSavingPerYear": 1986.508426243488,
    "selfConsumptionSavingPerYear": 0,
-   "loadShiftSavingPerYear": 11.023983627722144,
+   "loadShiftSavingPerYear": 11.004951596137124,
    "selfConsumptionSavingOverCoveredPeriod": 0,
-   "loadShiftSavingOverCoveredPeriod": 11.023983627722144,
+   "loadShiftSavingOverCoveredPeriod": 11.004951596137124,
    "annualizationFactor": 1,
    "coveredDays": 365,
-   "totalSavingPerYear": 1997.5324098712101,
+   "totalSavingPerYear": 1997.513377839625,
    "totalInvestment": 41000,
    "subsidyAmount": 0,
    "taxBenefit": 0,
    "taxEffectsIncluded": false,
    "netInvestment": 41000,
-   "amortizationYears": 20.525324043499978,
-   "netSavingOverHorizon": -21024.675901287897,
+   "amortizationYears": 20.525519605952688,
+   "netSavingOverHorizon": -21024.86622160375,
    "warnings": [],
    "notices": [
     {
@@ -30225,7 +30225,7 @@
     ],
     "monthlyChargePrice": {
      "chargeCtPerKwh": [
-      22.504294934764875,
+      22.592062320024116,
       24.505756992098334,
       21.201478976509005,
       19.49744233979375,
@@ -30239,7 +30239,7 @@
       21.545472869927362
      ],
      "dischargeCtPerKwh": [
-      22.958428903581833,
+      23.044976616028706,
       24.050875256169665,
       20.783539629321613,
       18.78044092584133,
@@ -30253,7 +30253,7 @@
       21.90948245359411
      ],
      "averageCtPerKwh": [
-      23.624733602150467,
+      23.717636827956877,
       24.962836309523784,
       21.272822341857353,
       18.986183333333297,
@@ -30316,19 +30316,19 @@
    "newBilledKw": 132.5339434165966,
    "leistungspreisSavingPerYear": 1975.1085690975146,
    "selfConsumptionSavingPerYear": 0,
-   "loadShiftSavingPerYear": 8.910234992352636,
+   "loadShiftSavingPerYear": 8.891191663581324,
    "selfConsumptionSavingOverCoveredPeriod": 0,
-   "loadShiftSavingOverCoveredPeriod": 8.910234992352636,
+   "loadShiftSavingOverCoveredPeriod": 8.891191663581324,
    "annualizationFactor": 1,
    "coveredDays": 365,
-   "totalSavingPerYear": 1984.0188040898672,
+   "totalSavingPerYear": 1983.999760761096,
    "totalInvestment": 41900,
    "subsidyAmount": 0,
    "taxBenefit": 0,
    "taxEffectsIncluded": false,
    "netInvestment": 41900,
-   "amortizationYears": 21.118751452167242,
-   "netSavingOverHorizon": -22059.811959101327,
+   "amortizationYears": 21.118954159513834,
+   "netSavingOverHorizon": -22060.00239238904,
    "warnings": [],
    "notices": [
     {
@@ -31433,7 +31433,7 @@
     ],
     "monthlyChargePrice": {
      "chargeCtPerKwh": [
-      22.498227718176825,
+      22.586263412073308,
       24.505946276554802,
       21.223636687553434,
       19.49750941897891,
@@ -31447,7 +31447,7 @@
       21.545254068412508
      ],
      "dischargeCtPerKwh": [
-      22.95777991343984,
+      23.044284251106124,
       24.05007492807336,
       20.76528970095135,
       18.781216879730543,
@@ -31461,7 +31461,7 @@
       21.9095374680899
      ],
      "averageCtPerKwh": [
-      23.624733602150467,
+      23.717636827956877,
       24.962836309523784,
       21.272822341857353,
       18.986183333333297,
@@ -31524,19 +31524,19 @@
    "newBilledKw": 130.8405404869044,
    "leistungspreisSavingPerYear": 1982.1644146378985,
    "selfConsumptionSavingPerYear": 0,
-   "loadShiftSavingPerYear": 10.840920450487783,
+   "loadShiftSavingPerYear": 10.823396030570798,
    "selfConsumptionSavingOverCoveredPeriod": 0,
-   "loadShiftSavingOverCoveredPeriod": 10.840920450487783,
+   "loadShiftSavingOverCoveredPeriod": 10.823396030570798,
    "annualizationFactor": 1,
    "coveredDays": 365,
-   "totalSavingPerYear": 1993.0053350883863,
+   "totalSavingPerYear": 1992.9878106684694,
    "totalInvestment": 44050,
    "subsidyAmount": 0,
    "taxBenefit": 0,
    "taxEffectsIncluded": false,
    "netInvestment": 44050,
-   "amortizationYears": 22.102299087948232,
-   "netSavingOverHorizon": -24119.946649116137,
+   "amortizationYears": 22.102493434330217,
+   "netSavingOverHorizon": -24120.121893315307,
    "warnings": [],
    "notices": [
     {
@@ -32641,7 +32641,7 @@
     ],
     "monthlyChargePrice": {
      "chargeCtPerKwh": [
-      22.489668103778644,
+      22.577712566307724,
       24.499836052095493,
       21.210047584159188,
       19.49673073687433,
@@ -32655,7 +32655,7 @@
       21.541049230387088
      ],
      "dischargeCtPerKwh": [
-      22.991572423520445,
+      23.07787320186958,
       24.074574464315425,
       20.771050511764802,
       18.771894679772927,
@@ -32669,7 +32669,7 @@
       21.9310922417368
      ],
      "averageCtPerKwh": [
-      23.624733602150467,
+      23.717636827956877,
       24.962836309523784,
       21.272822341857353,
       18.986183333333297,
@@ -32732,19 +32732,19 @@
    "newBilledKw": 131.2628460884124,
    "leistungspreisSavingPerYear": 1980.4048079649488,
    "selfConsumptionSavingPerYear": 0,
-   "loadShiftSavingPerYear": 51.942823727783555,
+   "loadShiftSavingPerYear": 51.923815262040165,
    "selfConsumptionSavingOverCoveredPeriod": 0,
-   "loadShiftSavingOverCoveredPeriod": 51.942823727783555,
+   "loadShiftSavingOverCoveredPeriod": 51.923815262040165,
    "annualizationFactor": 1,
    "coveredDays": 365,
-   "totalSavingPerYear": 2032.3476316927324,
+   "totalSavingPerYear": 2032.3286232269888,
    "totalInvestment": 44450,
    "subsidyAmount": 0,
    "taxBenefit": 0,
    "taxEffectsIncluded": false,
    "netInvestment": 44450,
-   "amortizationYears": 21.871258295992313,
-   "netSavingOverHorizon": -24126.523683072675,
+   "amortizationYears": 21.87146285890568,
+   "netSavingOverHorizon": -24126.71376773011,
    "warnings": [],
    "notices": [
     {
@@ -33849,7 +33849,7 @@
     ],
     "monthlyChargePrice": {
      "chargeCtPerKwh": [
-      22.40580149436558,
+      22.499310929414932,
       24.40182147874292,
       21.136810718608793,
       19.39201171349751,
@@ -33863,7 +33863,7 @@
       21.464582752125498
      ],
      "dischargeCtPerKwh": [
-      22.912123528095016,
+      22.997611809129687,
       24.041485151549065,
       20.791588730750107,
       18.905297381720533,
@@ -33877,7 +33877,7 @@
       21.85273947442623
      ],
      "averageCtPerKwh": [
-      23.624733602150467,
+      23.717636827956877,
       24.962836309523784,
       21.272822341857353,
       18.986183333333297,
@@ -33940,19 +33940,19 @@
    "newBilledKw": 132.20716646194714,
    "leistungspreisSavingPerYear": 1976.4701397418871,
    "selfConsumptionSavingPerYear": 0,
-   "loadShiftSavingPerYear": 57.09116924249319,
+   "loadShiftSavingPerYear": 57.07221157224659,
    "selfConsumptionSavingOverCoveredPeriod": 0,
-   "loadShiftSavingOverCoveredPeriod": 57.09116924249319,
+   "loadShiftSavingOverCoveredPeriod": 57.07221157224659,
    "annualizationFactor": 1,
    "coveredDays": 365,
-   "totalSavingPerYear": 2033.5613089843803,
+   "totalSavingPerYear": 2033.5423513141336,
    "totalInvestment": 46200,
    "subsidyAmount": 0,
    "taxBenefit": 0,
    "taxEffectsIncluded": false,
    "netInvestment": 46200,
-   "amortizationYears": 22.71876426635675,
-   "netSavingOverHorizon": -25864.386910156198,
+   "amortizationYears": 22.718976061720195,
+   "netSavingOverHorizon": -25864.576486858663,
    "warnings": [],
    "notices": [
     {
@@ -35057,7 +35057,7 @@
     ],
     "monthlyChargePrice": {
      "chargeCtPerKwh": [
-      22.38979303354181,
+      22.4840951109662,
       24.396794712668957,
       21.150521045741673,
       19.414288022678516,
@@ -35071,7 +35071,7 @@
       21.469809916103035
      ],
      "dischargeCtPerKwh": [
-      22.906609844862647,
+      22.99184431650871,
       24.037802356984493,
       20.792751055941135,
       18.91512572736585,
@@ -35085,7 +35085,7 @@
       21.836761488601265
      ],
      "averageCtPerKwh": [
-      23.624733602150467,
+      23.717636827956877,
       24.962836309523784,
       21.272822341857353,
       18.986183333333297,
@@ -35148,19 +35148,19 @@
    "newBilledKw": 132.20716646194714,
    "leistungspreisSavingPerYear": 1976.4701397418871,
    "selfConsumptionSavingPerYear": 0,
-   "loadShiftSavingPerYear": 57.09116924249319,
+   "loadShiftSavingPerYear": 57.07221157224659,
    "selfConsumptionSavingOverCoveredPeriod": 0,
-   "loadShiftSavingOverCoveredPeriod": 57.09116924249319,
+   "loadShiftSavingOverCoveredPeriod": 57.07221157224659,
    "annualizationFactor": 1,
    "coveredDays": 365,
-   "totalSavingPerYear": 2033.5613089843803,
+   "totalSavingPerYear": 2033.5423513141336,
    "totalInvestment": 49200,
    "subsidyAmount": 0,
    "taxBenefit": 0,
    "taxEffectsIncluded": false,
    "netInvestment": 49200,
-   "amortizationYears": 24.19400869923706,
-   "netSavingOverHorizon": -28864.386910156198,
+   "amortizationYears": 24.19423424754618,
+   "netSavingOverHorizon": -28864.576486858663,
    "warnings": [],
    "notices": [
     {
@@ -36265,7 +36265,7 @@
     ],
     "monthlyChargePrice": {
      "chargeCtPerKwh": [
-      22.38979303354181,
+      22.4840951109662,
       24.396794712668957,
       21.150521045741673,
       19.414288022678516,
@@ -36279,7 +36279,7 @@
       21.469809916103035
      ],
      "dischargeCtPerKwh": [
-      22.906609844862647,
+      22.99184431650871,
       24.037802356984493,
       20.792751055941135,
       18.91512572736585,
@@ -36293,7 +36293,7 @@
       21.836761488601265
      ],
      "averageCtPerKwh": [
-      23.624733602150467,
+      23.717636827956877,
       24.962836309523784,
       21.272822341857353,
       18.986183333333297,
@@ -36356,19 +36356,19 @@
    "newBilledKw": 147.13341403348562,
    "leistungspreisSavingPerYear": 1914.2774415271435,
    "selfConsumptionSavingPerYear": 0,
-   "loadShiftSavingPerYear": 18.42767620507232,
+   "loadShiftSavingPerYear": 18.409046631748094,
    "selfConsumptionSavingOverCoveredPeriod": 0,
-   "loadShiftSavingOverCoveredPeriod": 18.42767620507232,
+   "loadShiftSavingOverCoveredPeriod": 18.409046631748094,
    "annualizationFactor": 1,
    "coveredDays": 365,
-   "totalSavingPerYear": 1932.705117732216,
+   "totalSavingPerYear": 1932.6864881588917,
    "totalInvestment": 80500,
    "subsidyAmount": 0,
    "taxBenefit": 0,
    "taxEffectsIncluded": false,
    "netInvestment": 80500,
-   "amortizationYears": 41.65146522427411,
-   "netSavingOverHorizon": -61172.94882267784,
+   "amortizationYears": 41.651866711545956,
+   "netSavingOverHorizon": -61173.13511841108,
    "warnings": [],
    "notices": [
     {
@@ -37473,7 +37473,7 @@
     ],
     "monthlyChargePrice": {
      "chargeCtPerKwh": [
-      22.648637281900527,
+      22.730467063855038,
       24.495486519442164,
       20.544162933909305,
       19.49431060242855,
@@ -37487,7 +37487,7 @@
       21.551052093180296
      ],
      "dischargeCtPerKwh": [
-      23.02909336135383,
+      23.115366050377734,
       24.229503857228465,
       21.09582593627157,
       18.752534108680496,
@@ -37501,7 +37501,7 @@
       21.908172293531972
      ],
      "averageCtPerKwh": [
-      23.624733602150467,
+      23.717636827956877,
       24.962836309523784,
       21.272822341857353,
       18.986183333333297,
@@ -37550,9 +37550,9 @@
   "batteryId": "6845c64d-b181-4384-9852-0aeaaa1e2b5b",
   "rationale": {
    "code": "best_net_saving",
-   "totalSavingPerYear": 2008.902189928147,
-   "amortizationYears": 5.4507382464407845,
-   "netSavingOverHorizon": 9139.02189928147,
+   "totalSavingPerYear": 2008.7413022820936,
+   "amortizationYears": 5.451174816567922,
+   "netSavingOverHorizon": 9137.413022820936,
    "horizonYears": 10
   }
  },
@@ -37567,7 +37567,7 @@
   "computable": true,
   "monthlyComparison": {
    "currentTariffEur": [
-    1554.0646242144023,
+    1560.4905162144019,
     1432.443487958218,
     1540.2523400876703,
     1508.0427348945223,
@@ -37581,7 +37581,7 @@
     1601.5308230876717
    ],
    "spotWithoutControlEur": [
-    1841.1088676894037,
+    1847.5347596894048,
     1748.6884754082246,
     1596.5113185626715,
     1392.0557996195232,
@@ -37595,7 +37595,7 @@
     1765.6973475126686
    ],
    "spotWithBatteryEur": [
-    1816.1756312483233,
+    1823.1769188281069,
     1737.114026515436,
     1522.9294662321222,
     1255.415419600845,
@@ -37621,7 +37621,7 @@
     "coveredDays": 365
    },
    "spotWithPredictiveControlEur": [
-    1818.802533754124,
+    1825.8025462139076,
     1737.749380043718,
     1523.7349505257528,
     1262.508981187159,
