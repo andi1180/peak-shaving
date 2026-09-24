@@ -154,7 +154,7 @@ export function tariffVintageNote(
 
   return (
     `${posten} auf einer ${periodEndYear - 1}er-Vorjahresrechnung — für ${periodEndYear} gibt es ` +
-    `noch keine Jahresabrechnung. Für eine aktuelle Zahl wird die ${periodEndYear}er-` +
-    'Jahresrechnung des Kunden benötigt.'
+    `noch keine Jahresabrechnung. Für eine aktuelle Zahl wird Ihre ${periodEndYear}er-` +
+    'Jahresrechnung benötigt.'
   )
 }

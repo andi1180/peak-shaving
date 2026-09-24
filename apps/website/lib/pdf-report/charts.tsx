@@ -462,8 +462,8 @@ export async function buildReportCharts(input: PdfReportInput): Promise<ReportCh
    *
    * ⚠ `plan.flow === null` heisst: die Komponente hat für diesen Fall gar keinen Tag und würde
    * ihren erklärten Leerzustand rendern — dann gibt es keinen Zeichenbereich, `captureChart` liefe
-   * fünf Sekunden in die Zeitüberschreitung, und das Ergebnis wäre ein Fehler, wo es eine Aussage
-   * braucht. Die Aussage steht im Dokument (`detail.ts`, `flowMissing`).
+   * fünf Sekunden in die Zeitüberschreitung, und das Ergebnis wäre ein Fehler, wo `document.tsx`
+   * an dieser Stelle bewusst nichts rendert (`DetailChapter`, `chapter.flow === null`).
    *
    * ⚠ `disableAnimation` — die EINZIGE Stelle im Repo, die diesen Prop setzt (D20). Der
    * Tages-Energiefluss ist der einzige Report-Chart, der seine Einblend-Animation behält (§6.2),

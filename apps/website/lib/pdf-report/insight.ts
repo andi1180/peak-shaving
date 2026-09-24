@@ -316,7 +316,7 @@ export function buildHourFlow(
       amount: null,
       rows,
       body:
-        `Gezählt ist die Menge am NETZ, also das, was bezogen bzw. eingespart wurde — nicht die im ` +
+        `Gezählt ist die Menge am Netz, also das, was bezogen bzw. eingespart wurde — nicht die im ` +
         'Speicher ankommende Energie; die liegt auf der Ladeseite um den Wirkungsgrad darunter. ' +
         'Wandert der Ladeschwerpunkt über die Monate, folgt die Steuerung dem Preis: im Winter ' +
         'liegen die günstigen Stunden meist nachts, im Sommer um die Mittagszeit. Die Auflösung ist ' +
@@ -363,8 +363,8 @@ export function buildChargePrice(
   return {
     figure: {
       caption:
-        'Je Monat zwei Balken: petrol der mengengewichtete Ø-Preis der LADE-Stunden, hell der der ' +
-        'Entlade-Stunden. Die gestrichelte Linie ist der Monatsdurchschnitt ALLER Stunden — also ' +
+        'Je Monat zwei Balken: petrol der mengengewichtete Ø-Preis der Lade-Stunden, hell der der ' +
+        'Entlade-Stunden. Die gestrichelte Linie ist der Monatsdurchschnitt aller Stunden — also ' +
         'der Preis, den ein Speicher zahlte, der blind über den Monat verteilt lädt. Monate ohne ' +
         'Messwert bleiben leer; über eine Lücke wird die Linie nicht durchgezogen.',
       note:
@@ -386,10 +386,10 @@ export function buildChargePrice(
         `Alle Beträge ${displayedPriceBasis(price) === 'gross' ? VAT_INCLUSIVE_LABEL : 'netto (ohne USt.)'} ` +
         'und mengengewichtet: ein Monat mit wenigen Kilowattstunden ' +
         'und einem sehr guten Preis wiegt entsprechend leicht. Die geladene Menge ist die am Netz ' +
-        'BEZOGENE, also die bezahlte. Gerechnet ist das rückblickend auf die tatsächlichen ' +
+        'bezogene, also die bezahlte. Gerechnet ist das rückblickend auf die tatsächlichen ' +
         'Marktpreise Ihres Zeitraums — kein Versprechen für die Zukunft; und die Ladesteuerung folgt ' +
-        'einer einfachen Schwellenregel, die noch nicht gegen ein rechnerisches Optimum geprüft ist: ' +
-        'der Abstand zum Durchschnitt gilt als Untergrenze, mit besserer Steuerung eher mehr.',
+        'einer einfachen Regel — eine feinere Steuerung kann mehr herausholen: der Abstand zum ' +
+        'Durchschnitt gilt als Untergrenze, mit besserer Steuerung eher mehr.',
     },
   }
 }

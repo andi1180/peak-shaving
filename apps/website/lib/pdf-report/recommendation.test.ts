@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { analysisForDisplay } from 'shared'
 import type { BatteryNotice, DispatchTrace, MonthlyTariffComparison } from 'shared'
 
 import { DYNAMIC_TARIFF_HINT_NOT_COMPUTABLE } from '@/lib/report-copy'
@@ -140,6 +141,15 @@ describe('load_control — der Betrag steht hier, und der Satz zeigt nirgendwohi
     expect(body).not.toContain('Eigenverbrauch')
     expect(body).not.toContain('Kernergebnis')
     expect(body).toContain('steckt in der Gesamtersparnis dieses Speichers bereits mit drin')
+  })
+
+  it('die Kopfzahl-Beschriftung nennt netto oder inkl. USt, nie „exkl. MwSt."', () => {
+    const analysis = analysisFor(true)
+    const netto = buildRecommendationChapter(analysis).loadControl!
+    expect(netto.amount?.caption).toBe('pro Jahr, netto')
+
+    const brutto = buildRecommendationChapter(analysisForDisplay(analysis, 'gross')).loadControl!
+    expect(brutto.amount?.caption).toBe('pro Jahr, inkl. 20 % USt')
   })
 })
 

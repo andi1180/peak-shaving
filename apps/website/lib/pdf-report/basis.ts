@@ -22,7 +22,8 @@ import {
 
 import { formatDateOnly, formatEur, formatEur2, formatPercent } from '@/lib/format'
 import { dynamicTariffHintKind, rteSourceNote } from '@/lib/report-copy'
-import { REPORT_SECTIONS, SECTION_ID, type ReportSection } from './content'
+import { hasNegativeAddonVerdict } from './comparison'
+import { REPORT_SECTIONS, reportDisclaimer, SECTION_ID, type ReportSection } from './content'
 import type { ReportBuildContext } from './context'
 import { hasPvValueChapter } from './pv-value'
 import { block, ref, t, REF_PLACE, type ReportText } from './report-text'
@@ -33,7 +34,7 @@ import type {
   ReportTable,
   ReportTableRow,
 } from './statement'
-import { primaryEntryOf, recommendedEntryOf } from './summary'
+import { hasLeistungspreis, primaryEntryOf, recommendedEntryOf } from './summary'
 import { buildWaysChapter, hasWaysChapter } from './ways'
 import { TARIFF_SOURCE_UNTRACKED } from './types'
 import type {
@@ -129,14 +130,29 @@ export function buildAssumptions(
   /* Report-Baukasten B1: dieselbe Rückfallkette wie überall sonst, jetzt aus EINER Funktion.
      Im Hinweisfall „nur mit dynamischem Tarif" wird kein Gerät ausgewiesen, also auch keine Gerätewerte. */
   const recommended = dynamicTariffHintKind(analysis) ? undefined : recommendedEntryOf(analysis)
+  /*
+   * ⚠ „Zusatzspeicher lohnt nicht" (`hasNegativeAddonVerdict`, dieselbe Schwelle wie im Kapitel
+   * „Speichergrösse und Gerätewahl") zeigt hier kein Gerät: `recommendedEntryOf` liefert in diesem
+   * Fall trotzdem den bestgereihten Kandidaten, obwohl das Kapitel daneben „Nein" sagt — Preis,
+   * Wirkungsgrad und Investition eines Geräts zu nennen, das der Report nicht empfiehlt, behauptete
+   * einen Kauf, den es nicht gibt.
+   */
+  const negativeAddon = hasNegativeAddonVerdict(analysis)
 
   const rows: ReportRow[] = [
     neutralRow('Betrachtungshorizont', `${a.horizonYears} Jahre`),
-    ...batteryRows(
-      recommended,
-      a.roundTripEfficiency,
-      recommended ? catalogMeta?.[recommended.battery.id] : undefined,
-    ),
+    ...(negativeAddon
+      ? [
+          neutralRow(
+            'Nettoinvestition (nach Förderung/Steuervorteil)',
+            'kein Gerät empfohlen — kein Zusatzspeicher rechnet sich über den Betrachtungszeitraum',
+          ),
+        ]
+      : batteryRows(
+          recommended,
+          a.roundTripEfficiency,
+          recommended ? catalogMeta?.[recommended.battery.id] : undefined,
+        )),
   ]
 
   return {
@@ -566,12 +582,10 @@ function buildTariffSource(
    * drei Antworten werden deshalb einzeln und benannt unterschieden (s. `types.ts`).
    */
   if (source === TARIFF_SOURCE_UNTRACKED) {
-    const operator = netzbetreiber ? ` (Netzbetreiber: ${NETZBETREIBER_LABELS[netzbetreiber]})` : ''
+    const operator = netzbetreiber ? `, laut hinterlegtem Tarif ${NETZBETREIBER_LABELS[netzbetreiber]}` : ''
     return (
-      'Herkunft für diese Auswertung nicht im Einzelnen nachverfolgt — gerechnet wurde ' +
-      'mit den Leistungspreis-, Abrechnungs- und Mindestleistungswerten, die zu diesem Zählpunkt ' +
-      `hinterlegt sind${operator}. Ob sie aus einer Netzrechnung oder aus einem hinterlegten ` +
-      'Tarifstand stammen, hält dieser Report nicht fest.'
+      'Gerechnet mit den bei diesem Zählpunkt hinterlegten Leistungspreis-, Abrechnungs- und ' +
+      `Mindestleistungswerten${operator}.`
     )
   }
 
@@ -688,7 +702,7 @@ function loadProfileRows(
        * der Aufrufer richtig setzen MUSSTE. Jetzt fragt der Verweis selbst: steht der Hinweis in
        * diesem Dokument? Es gibt keine zweite Bedingung mehr, die jemand falsch setzen kann.
        */
-      t`${`${period ?? NOT_RECORDED} · ${coveredDays} abgedeckte Tage `}(Slot-Zählung: Messwerte ÷ 96${ref(
+      t`${`${period ?? NOT_RECORDED} · ${coveredDays} abgedeckte Tage `}(gerundet aus Messwerte ÷ 96${ref(
         block('data_quality'),
         `, wie im Datenqualitäts-Hinweis ${REF_PLACE}`,
         '',
@@ -720,7 +734,7 @@ function loadProfileRows(
     dataRow('load_file', [
       'Quelldatei',
       'Dateiname und Upload-Zeitpunkt des Lastgangs.',
-      `${NOT_RECORDED} (beides reist nicht mit der Report-Übergabe)`,
+      `${NOT_RECORDED} (in diesem Dokument nicht verfügbar)`,
     ]),
   )
   return rows
@@ -999,9 +1013,14 @@ const NOT_SPECIFIED = 'keine Angabe'
 function gridFieldStatus(
   source: PdfReportTariffSource,
   field: TariffSourceRef['overriddenFields'][number],
+  netzbetreiber: NetzbetreiberId | undefined,
 ): string {
   /* ⚠ Als Gleichheit geprüft und nicht über `!source` — s. `buildTariffSource`. */
-  if (source === TARIFF_SOURCE_UNTRACKED) return 'Herkunft nicht im Einzelnen nachverfolgt'
+  if (source === TARIFF_SOURCE_UNTRACKED) {
+    return netzbetreiber
+      ? `laut hinterlegtem Tarif ${NETZBETREIBER_LABELS[netzbetreiber]}`
+      : 'laut hinterlegtem Tarif'
+  }
   if (source === null) return 'unverändert aus Ihrer Eingabe (Netzrechnung)'
   return source.overriddenFields.includes(field)
     ? `selbst eingetragen — abweichend vom Stand „${source.tariffSetLabel}"`
@@ -1033,6 +1052,7 @@ export function billedKwPerYear(analysis: PdfReportAnalysis): number {
 function leistungspreisRow(
   analysis: PdfReportAnalysis,
   source: PdfReportTariffSource,
+  netzbetreiber: NetzbetreiberId | undefined,
 ): ReportTableRow[] {
   if (!(analysis.current.billedKw > 0)) return []
   const rate = analysis.current.leistungspreisCostPerYear / billedKwPerYear(analysis)
@@ -1040,7 +1060,27 @@ function leistungspreisRow(
     dataRow('tariff_leistungspreis', [
       'Leistungspreis',
       `${formatEur2(rate)} / kW·a`,
-      gridFieldStatus(source, 'leistungspreisEurPerKwYear'),
+      gridFieldStatus(source, 'leistungspreisEurPerKwYear', netzbetreiber),
+    ]),
+  ]
+}
+
+/**
+ * Das Abrechnungsmodell — nur bei einem Anschluss MIT Leistungsmessung, dieselbe Bedingung wie
+ * die Leistungspreis-Zeile daneben: `billingModel` beschreibt allein, WIE der Leistungspreis
+ * abgerechnet wird, und ist ohne ihn keine Angabe über den Anschluss des Kunden.
+ */
+function billingModelRow(
+  analysis: PdfReportAnalysis,
+  source: PdfReportTariffSource,
+  netzbetreiber: NetzbetreiberId | undefined,
+): ReportTableRow[] {
+  if (!hasLeistungspreis(analysis.current)) return []
+  return [
+    dataRow('tariff_billing_model', [
+      'Abrechnungsmodell',
+      BILLING_MODEL_LABEL[analysis.assumptions.billingModel],
+      gridFieldStatus(source, 'billingModel', netzbetreiber),
     ]),
   ]
 }
@@ -1093,10 +1133,11 @@ function netzebeneRow(source: PdfReportTariffSource): ReportTableRow[] {
 /** Report-Baukasten B2 — die stabile Kennung dieser Tabelle (s. `CANDIDATE_TABLE_ID`). */
 export const TARIFF_COMPONENTS_TABLE_ID = 'table_tariff_components'
 
-/** Die Tabelle. Sie steht IMMER — ohne Abrechnungsmodell und Arbeitspreis gibt es keine Rechnung. */
+/** Die Tabelle steht immer — Leistungspreis und Abrechnungsmodell fehlen nur ohne Leistungsmessung. */
 export function buildTariffComponents(input: PdfReportInput): ReportTable {
   const a = input.analysis.assumptions
   const source = input.tariffSource
+  const netzbetreiber = input.netzbetreiber
 
   return {
     /* ⚠ Gewichte als VERHÄLTNIS, keine pt-Angaben — s. `buildDataSources`. Der Status trägt ganze
@@ -1109,12 +1150,8 @@ export function buildTariffComponents(input: PdfReportInput): ReportTable {
     /* Die Reihenfolge ist die des Schemas (`tariffParamsSchema`): Netzseite, dann Energieseite,
        dann die Metadaten. Wer das Schema neben den Report legt, liest beide in derselben Folge. */
     rows: [
-      ...leistungspreisRow(input.analysis, source),
-      dataRow('tariff_billing_model', [
-        'Abrechnungsmodell',
-        BILLING_MODEL_LABEL[a.billingModel],
-        gridFieldStatus(source, 'billingModel'),
-      ]),
+      ...leistungspreisRow(input.analysis, source, netzbetreiber),
+      ...billingModelRow(input.analysis, source, netzbetreiber),
       dataRow('tariff_energy_price', [
         'Arbeitspreis',
         `${formatEur2(a.energyPriceCtPerKwh / 100)} / kWh`,
@@ -1195,7 +1232,7 @@ export type BasisMethodItem = {
  * trägt die Kopfzahl der Zusammenfassung („ohne Leistungspreis", `summary.ts`).
  */
 const SHARED_METHOD_BODY =
-  'Alle Wege entstehen aus DERSELBEN Rechnung, Viertelstunde für Viertelstunde: Ihr Netzbezug mal ' +
+  'Alle Wege entstehen aus derselben Rechnung, Viertelstunde für Viertelstunde: Ihr Netzbezug mal ' +
   'dem Preis genau dieser Viertelstunde — Arbeitspreis plus das Netzentgelt des Zeitfensters, in ' +
   'das sie fällt, plus Netzverlustaufschlag und die gesetzlichen Abgaben (Elektrizitätsabgabe, ' +
   'EAG-Förderbeitrag und -Pauschale, Gebrauchsabgabe auf Netz- und Energiepreis). Dazu die ' +
@@ -1398,6 +1435,8 @@ export type BasisChapter = {
   methodPerMetric: BasisMethodItem[]
   /** D9 — was die Rechnung selbst nicht enthält. Steht IMMER, unabhängig vom Datensatz. */
   limitations: ReportNotice
+  /** Die Demo-Fusszeile. `null` ausser bei `origin === 'demo'` — s. `reportDisclaimer`. */
+  disclaimer: string | null
 }
 
 export function buildBasisChapter(
@@ -1434,6 +1473,7 @@ export function buildBasisChapter(
     dataSources: buildDataSources(input),
     methodPerMetric: buildMethodPerMetric(input.analysis, pvOutage, input.pvOutageMonths),
     limitations: buildLimitations(input.analysis),
+    disclaimer: reportDisclaimer(input.origin),
   }
 }
 

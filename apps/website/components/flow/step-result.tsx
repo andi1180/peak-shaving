@@ -204,6 +204,8 @@ export function StepResult({
         const now = new Date()
         await downloadReportPdf(
           {
+            /* Echt im Browser des Kunden gerechnet und gerendert — s. `PdfReportOrigin`. */
+            origin: 'client',
             /*
              * Ein geleertes Titelfeld fällt auf den Vorschlag zurück statt eine leere Zeile zu
              * drucken: der Titel ist die einzige Angabe des Deckblatts, die es immer geben muss.

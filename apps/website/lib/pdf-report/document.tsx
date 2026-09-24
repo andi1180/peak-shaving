@@ -21,7 +21,7 @@ import {
   LOAD_INTRO,
   LOAD_SECTION,
   METHODOLOGY_INTRO,
-  METHODOLOGY_ITEMS,
+  methodologyItemsFor,
   METHODOLOGY_SECTION,
   MONTHLY_INTRO,
   MONTHLY_SECTION,
@@ -31,7 +31,6 @@ import {
   PV_VALUE_SECTION,
   RECOMMENDATION_INTRO,
   RECOMMENDATION_SECTION,
-  REPORT_DISCLAIMER,
   RESULTS_FOOTNOTE,
   RESULTS_INTRO,
   RESULTS_SECTION,
@@ -865,11 +864,11 @@ function NavyLockup() {
  *
  * ── DER DEMODATEN-VORBEHALT STEHT HIER NICHT MEHR ──────────────────────────────────────────────
  * Er ist nicht entfallen, sondern steht ab jetzt nur noch im Schlusskapitel „Annahmen und
- * Datengrundlage" (`BasisChapter`, dieselbe Konstante `REPORT_DISCLAIMER`). Er gehört inhaltlich
- * dorthin, wo das Dokument seine Grenzen benennt; auf dem Deckblatt stand er als einzige
- * Kleinschrift unter einer sonst repräsentativen Seite. **Aus dem Dokument verschwinden darf er
- * nicht** — §8 verlangt, dass keine ROI-Zahl als „echt" ausgegeben wird, solange nicht gegen einen
- * echten Lastgang und eine echte Netzrechnung validiert wurde.
+ * Datengrundlage" (`BasisChapter.disclaimer`, `reportDisclaimer` in `content.ts`). Er gehört
+ * inhaltlich dorthin, wo das Dokument seine Grenzen benennt; auf dem Deckblatt stand er als
+ * einzige Kleinschrift unter einer sonst repräsentativen Seite. Seit `PdfReportOrigin` steht er
+ * dort nur noch bei `origin === 'demo'` (Prüfstand) — ein Lauf über echte Kundendaten ist keine
+ * Demo-Berechnung, auch solange die ROI-Validierung gegen Martins Referenzfall (§8) noch aussteht.
  */
 function Cover({ input }: { input: PdfReportInput }) {
   const customer = input.customer
@@ -1862,11 +1861,13 @@ function RecommendationChapter({
  * getrennte Verzweigungen ergäben eine Bildunterschrift, die ein anderes Bild beschreibt als das
  * darüber, und man sähe es der Seite nicht an.
  *
- * ── ⚠ EIN FEHLENDES BILD IST HIER EIN REGELFALL, KEIN FEHLER ──────────────────────────────────
- * Der Tages-Energiefluss entsteht nur, wenn die Simulation überhaupt einen Tag hergibt (keine
- * abgefangene Spitze UND keine PV-Einspeisung ⇒ keiner). Dann steht an seiner Stelle die
- * Begründung — ausgeschrieben in `detail.ts`, nicht hier: „was fehlt und warum" ist eine
- * fachliche Aussage.
+ * ── ⚠ EIN FEHLENDER TAGES-ENERGIEFLUSS IST HIER EIN REGELFALL, KEIN FEHLER ────────────────────
+ * Er entsteht nur, wenn die Simulation überhaupt einen Tag hergibt (keine abgefangene Spitze UND
+ * keine PV-Einspeisung ⇒ keiner) — bei einer statisch gesteuerten Anlage etwa der Normalfall.
+ * Dafür steht an seiner Stelle KEIN Kasten: die Erklärung „warum kein Bild" liest sich an dieser
+ * Stelle wie eine Fehlermeldung zu etwas, das der Kunde nie erwartet hat. Nur ein tatsächlicher
+ * Rasterungs-Fehlschlag (ein Tag liegt vor, das Bild aber nicht) bekommt weiterhin die
+ * Fehlschlag-Meldung.
  */
 function DetailChapter({
   input,
@@ -1897,12 +1898,14 @@ function DetailChapter({
       />
       {chapter.cost?.statement && <Statement statement={chapter.cost.statement} layout={layout} />}
 
-      <ChartFigure
-        raster={charts.flow}
-        caption={chapter.flow?.caption ?? ''}
-        note={chapter.flow?.note}
-        missing={chapter.flowMissing ?? figureMissingText('Der Tages-Energiefluss')}
-      />
+      {chapter.flow && (
+        <ChartFigure
+          raster={charts.flow}
+          caption={chapter.flow.caption}
+          note={chapter.flow.note}
+          missing={figureMissingText('Der Tages-Energiefluss')}
+        />
+      )}
     </View>
   )
 }
@@ -2204,13 +2207,13 @@ function ComparisonChapter({
   )
 }
 
-function MethodologyChapter() {
+function MethodologyChapter({ input }: { input: PdfReportInput }) {
   return (
     <View style={styles.body}>
       <Text style={styles.h2}>{METHODOLOGY_SECTION.title}</Text>
       <Text style={styles.lead}>{METHODOLOGY_INTRO}</Text>
       <View style={styles.itemList}>
-        {METHODOLOGY_ITEMS.map((item) => (
+        {methodologyItemsFor(input).map((item) => (
           <View key={item.id} style={styles.item} wrap={false}>
             <Text style={styles.itemTitle}>{item.title}</Text>
             <Text style={styles.itemBody}>{item.body}</Text>
@@ -2389,12 +2392,11 @@ function BasisChapter({
       <Notice notice={chapter.limitations} />
 
       {/*
-        ⚠ Derselbe Vorbehalt wie auf dem Deckblatt, aus DERSELBEN Konstante — s. `REPORT_DISCLAIMER`
-        in `content.ts`. Dass er zweimal steht, ist Absicht (ein weitergereichter Report wird von
-        beiden Enden gelesen); dass er zweimal ANDERS stünde, wäre es nicht. Der CSS-Weg trägt ihn
-        ebenso zweimal.
+        ⚠ `chapter.disclaimer` ist `null` ausser bei `origin === 'demo'` (Prüfstand) —
+        `reportDisclaimer` in `content.ts`. Nur die Demo-Fusszeile hängt an der Konstante
+        `REPORT_DISCLAIMER`; ein Lauf über echte Kundendaten trägt sie nicht.
       */}
-      <Text style={styles.footnote}>{REPORT_DISCLAIMER}</Text>
+      {chapter.disclaimer && <Text style={styles.footnote}>{chapter.disclaimer}</Text>}
     </View>
   )
 }
@@ -2524,13 +2526,14 @@ export function ReportDocument({
             },
             /*
              * ⚠ DIESELBEN LISTEN, AUS DENEN DIE KAPITEL RENDERN — nicht zwei gepflegte
-             * Aufzählungen. `METHODOLOGY_ITEMS` ist die Quelle der sechs Methodik-Absätze,
+             * Aufzählungen. `methodologyItemsFor(input)` ist die Quelle der Methodik-Absätze
+             * (gekürzt um den Datenschutz-Punkt ausserhalb des Client-Laufs, s. `content.ts`),
              * `basisSubsections(basis)` liest das EINMAL gebaute Schlusskapitel, das eine Seite
              * weiter unten gerendert wird. Ein drittes Kapitel mit Unterabschnitten kommt hier
              * als weiterer Eintrag dazu; `buildReportAgenda` bleibt unberührt.
              */
             {
-              [SECTION_ID.methodology]: METHODOLOGY_ITEMS,
+              [SECTION_ID.methodology]: methodologyItemsFor(input),
               [SECTION_ID.basis]: basisSubsections(basis),
             },
           )}
@@ -2643,7 +2646,7 @@ export function ReportDocument({
       <Page size="A4" style={styles.page}>
         <PageFurniture sink={sink} docLabel={docLabel} />
         <SectionAnchor id={METHODOLOGY_SECTION.id} sink={sink} />
-        <MethodologyChapter />
+        <MethodologyChapter input={input} />
       </Page>
 
       <Page size="A4" style={styles.page}>

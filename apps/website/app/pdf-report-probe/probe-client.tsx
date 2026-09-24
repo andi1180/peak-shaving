@@ -269,6 +269,8 @@ export function PdfReportProbe() {
       const now = new Date()
       const result = await downloadReportPdf(
         {
+          /* Prüfstand — nie ein echter Kundenlauf, s. `PdfReportOrigin`. */
+          origin: 'demo',
           title,
           subtitle,
           customer: { name, company, address },
@@ -462,12 +464,6 @@ export function PdfReportProbe() {
                 <strong id="probe-detail-flow-days">
                   {detail.flowDays.map((d) => `${d.label}@${d.date}`).join(', ') || '—'}
                 </strong>
-                {detail.chapter.flowMissing && (
-                  <>
-                    {' '}
-                    · Grund: <span id="probe-detail-flow-missing">{detail.chapter.flowMissing}</span>
-                  </>
-                )}
               </p>
             )}
             {/*

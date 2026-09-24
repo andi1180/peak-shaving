@@ -157,7 +157,7 @@ describe('buildReportInputFromRenderRequest', () => {
 
     /* D9-Vorgriff: der Netzbetreiber reist als Angabe mit und steht im Tarifquellen-Satz. */
     expect(input.netzbetreiber).toBe('wiener_netze')
-    expect(buildBasisChapter(input).tariffSource).toContain('(Netzbetreiber: Wiener Netze)')
+    expect(buildBasisChapter(input).tariffSource).toContain('laut hinterlegtem Tarif Wiener Netze')
 
     /* Der Preisstand-Satz nennt die Grundgebühr, weil die Übergabe eine trägt. */
     expect(input.tariffVintage).toContain('Arbeitspreis und Grundgebühr basieren')

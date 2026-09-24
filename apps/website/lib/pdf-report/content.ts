@@ -1,4 +1,5 @@
 import { HINDSIGHT_NOTE } from '@/lib/report-copy'
+import type { PdfReportInput } from './types'
 
 /**
  * B23a — die Kapitel des react-pdf-Reports als DATEN, nicht als JSX.
@@ -17,7 +18,9 @@ import { HINDSIGHT_NOTE } from '@/lib/report-copy'
  * ⚠ Genau EINE Ausnahme davon, und sie ist die wichtige: der Hindsight-Hinweis (§6.2, Pflicht) wird
  * NICHT abgeschrieben, sondern aus `lib/report-copy.ts` importiert. Er steht am Bildschirm an der
  * Ersparnis-Aufschlüsselung, im CSS-Druck im Methodik-Kapitel und ab jetzt zusätzlich hier — drei
- * Konsumenten, ein Wortlaut. Eine dritte Abschrift wäre die Drift, gegen die diese Konstante
+ * Konsumenten, ein Wortlaut. Eine zweite Ausnahme: `methodologyItemsFor` tauscht denselben Absatz
+ * gegen `HINDSIGHT_NOTE_PREDICTIVE`, sobald Weg 4 die vorausschauende Ladesteuerung zeigt — sonst
+ * beschriebe die Methodik einen Rückblick, den die Zahl daneben nicht mehr ist. Eine dritte Abschrift wäre die Drift, gegen die diese Konstante
  * überhaupt angelegt wurde.
  */
 
@@ -122,6 +125,39 @@ export const METHODOLOGY_ITEMS: readonly MethodologyItem[] = [
       'entstanden.',
   },
 ]
+
+/** Der Bestmarke-Absatz, wenn Weg 4 die vorausschauende Ladesteuerung trägt — s. Kopf. */
+const HINDSIGHT_NOTE_PREDICTIVE =
+  'Der Eigenverbrauch ist mit vollem Rückblick auf das Jahresprofil gerechnet (Bestmarke). Für ' +
+  'das tarifbewusste Laden nutzen wir bei ausreichender Datenlage stattdessen eine ' +
+  'Vorabend-Prognose aus Ihrer eigenen Verbrauchshistorie, ausgeführt wird trotzdem auf Ihrem ' +
+  'echten Lastgang — Details dazu stehen beim Weg „aWATTar mit Ladesteuerung". Der ' +
+  'Spitzenschutz-Anteil ist von beidem nicht betroffen.'
+
+/**
+ * `METHODOLOGY_ITEMS`, angepasst an diesen Lauf — s. `PdfReportOrigin` (`types.ts`).
+ *
+ * Dieselbe Liste geht an die Agenda UND an das Kapitel (Kopf oben): ein Punkt, der hier entfällt,
+ * fehlt damit auch im Inhaltsverzeichnis, ohne dass beide Stellen einzeln gepflegt werden müssen.
+ */
+export function methodologyItemsFor(input: Pick<PdfReportInput, 'analysis' | 'origin'>): readonly MethodologyItem[] {
+  const tariffOptimization = input.analysis.tariffOptimization
+  const monthlyComparison = tariffOptimization?.computable === true ? tariffOptimization.monthlyComparison : undefined
+  const isPredictive = monthlyComparison?.spotWithPredictiveControlEur != null
+
+  return METHODOLOGY_ITEMS.filter(
+    (item) => item.id !== 'methodik-prinzip4' || input.origin === 'client',
+  ).map((item) =>
+    item.id === 'methodik-bestmarke' && isPredictive
+      ? { ...item, body: HINDSIGHT_NOTE_PREDICTIVE }
+      : item,
+  )
+}
+
+/** Die Demo-Fusszeile — ausschliesslich am Prüfstand/Demo-Fixture, s. `PdfReportOrigin`. */
+export function reportDisclaimer(origin: PdfReportInput['origin']): string | null {
+  return origin === 'demo' ? REPORT_DISCLAIMER : null
+}
 
 /** Kapitel-Kennungen, damit die Dokument-Bausteine sie nicht als Zeichenkette ausschreiben. */
 export const SECTION_ID = {
