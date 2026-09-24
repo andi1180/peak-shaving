@@ -2,6 +2,7 @@ import { displayedPriceBasis, VAT_INCLUSIVE_LABEL } from 'shared'
 import type { BatteryResultEntry, MonthlyChargePrice } from 'shared'
 
 import { formatKwh1, formatKwh1Fixed } from '@/lib/format'
+import { dynamicTariffHintKind } from '@/lib/report-copy'
 import type { ReportBuildContext } from './context'
 import type { ReportFigure, ReportRow, ReportStatement } from './statement'
 import { primaryEntryOf } from './summary'
@@ -206,7 +207,10 @@ export function summarizeChargePrice(price: MonthlyChargePrice): ChargePriceSumm
  * gehört als die Bildunterschrift darunter.
  */
 export function insightChartPlan(analysis: PdfReportAnalysis): InsightChartPlan {
-  const entry: BatteryResultEntry | undefined = primaryEntryOf(analysis)
+  // Hinweis „nur mit dynamischem Tarif": kein Gerät, dessen Ladeverhalten zu zeigen wäre.
+  const entry: BatteryResultEntry | undefined = dynamicTariffHintKind(analysis)
+    ? undefined
+    : primaryEntryOf(analysis)
   const trace = entry?.dispatchTrace
   const grid = trace?.batteryFlowByHourMonth
   const price = trace?.monthlyChargePrice

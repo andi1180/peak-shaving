@@ -28,8 +28,8 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { DEFAULT_HORIZON_YEARS, LARGE_GAP_SLOTS_THRESHOLD } from '@/lib/constants'
 import {
-  DYNAMIC_TARIFF_HINT,
-  needsDynamicTariffHint,
+  dynamicTariffHintKind,
+  dynamicTariffHintText,
   recommendationRationaleText,
 } from '@/lib/report-copy'
 import type { AnalysisRunInputs } from '@/lib/use-analysis'
@@ -181,8 +181,9 @@ export function Report({
   // 2–3 Alternativen (Pflichtenheft §3.8/§6.2), nicht der komplette Katalog-Rest — `perBattery`
   // ist bereits vollständig nach `netSavingOverHorizon` sortiert (§3.8), also sind das die
   // nächstbesten Kandidaten direkt hinter der Empfehlung.
-  // Heimspeicher ohne jede Ersparnis, weil kein Börsenpreis gerechnet ist: Hinweis statt Geräten.
-  const dynamicTariffHint = needsDynamicTariffHint(result)
+  // Heimspeicher ohne jede Ersparnis, weil kein Börsenpreis gerechnet ist: der Hinweis ersetzt die
+  // ganze Speicher-Strecke (Karten, Alternativen, Kapp-Linie, Ladeverhalten, Grössen-Diagramm).
+  const dynamicTariffHint = dynamicTariffHintKind(result)
   const alternatives = dynamicTariffHint
     ? []
     : result.perBattery.filter((p) => p !== recommended).slice(0, 3)
@@ -207,7 +208,7 @@ export function Report({
   const existingAnalysis = result.existingBatteryAnalysis
   const isExisting = existingAnalysis != null
   /** Der Block, der oben steht: die Anlage des Kunden, sonst die Empfehlung. */
-  const primaryEntry = existingAnalysis?.entry ?? recommended
+  const primaryEntry = existingAnalysis?.entry ?? (dynamicTariffHint ? undefined : recommended)
 
   // Teiljahres-Verzerrung der KERN-Kennzahl (§3.5): ein `monthly_*`-Modell mittelt/summiert über die
   // 12 Monate — bei < 12 belegten Monaten ist der abgerechnete Leistungswert oben nicht aussagekräftig
@@ -435,7 +436,7 @@ export function Report({
   /* ⚠ K3b-2: Die Bedingung steht am KASTEN und nicht mehr nur am Chart darin. Ohne Empfehlung
      blieben sonst Überschrift und Unterzeile stehen — „Kostenvergleich mit/ohne Batterie" über
      einer leeren Fläche, im echten Report gemessen. */
-  const costChartBox = recommended ? (
+  const costChartBox = recommended && !dynamicTariffHint ? (
     <div className="rounded-lg border border-border bg-surface p-6 print:break-inside-avoid">
       <p className="mb-1 text-sm font-medium text-ink">Kostenvergleich mit/ohne Batterie</p>
       <p className="mb-3 text-xs text-text-muted">
@@ -513,7 +514,7 @@ export function Report({
       onSelectBattery={setSelectedBatteryId}
       timeZone={loadProfile.timezoneMeta}
     />
-  ) : result.perBattery.length > 0 ? (
+  ) : result.perBattery.length > 0 && !dynamicTariffHint ? (
     <EnergyFlowChart
       perBattery={result.perBattery}
       selectedBatteryId={selectedBatteryId}
@@ -618,7 +619,7 @@ export function Report({
    * vorgelagerte Frage „welche Grösse überhaupt", und die ist ohne Aufklappen zu sehen.
    */
   const catalogMarginalBenefit =
-    result.perBattery.length > 0 ? (
+    result.perBattery.length > 0 && !dynamicTariffHint ? (
       <MarginalBenefitChart points={result.perBattery} horizonYears={a.horizonYears} variant="catalog" />
     ) : null
 
@@ -844,7 +845,7 @@ export function Report({
             (dynamicTariffHint ? (
               <Alert variant="default" data-testid="speicher-nur-mit-dynamischem-tarif">
                 <AlertCircle className="h-4 w-4" />
-                <AlertDescription>{DYNAMIC_TARIFF_HINT}</AlertDescription>
+                <AlertDescription>{dynamicTariffHintText(dynamicTariffHint)}</AlertDescription>
               </Alert>
             ) : (
               <RecommendationCard
@@ -1017,8 +1018,10 @@ export function Report({
       {/* Druck-Pendant zur Accordion oben — Snapshot statt Eingabefelder (§6.2 Teil D). */}
       <PrintAssumptionsSnapshot
         assumptions={a}
-        recommended={recommended}
-        catalogMeta={recommended ? batteryCatalogMeta[recommended.battery.id] : undefined}
+        recommended={dynamicTariffHint ? undefined : recommended}
+        catalogMeta={
+          recommended && !dynamicTariffHint ? batteryCatalogMeta[recommended.battery.id] : undefined
+        }
       />
 
       {/*

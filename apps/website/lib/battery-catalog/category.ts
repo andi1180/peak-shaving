@@ -36,3 +36,12 @@ export function batteryCategoryFor(input: BatteryCategoryInput): BatteryCatalogC
   if (input.entry === 'standard_profile' && input.customerClass === 'privat') return 'heim'
   return 'gewerbe'
 }
+
+/**
+ * Vorgabe des Schalters „Mit Börsen-Strompreisen vergleichen". Ein Heimspeicher spart ohne
+ * dynamischen Tarif nichts (kein Leistungspreis, beim Standardprofil ohnehin keine Kappung) —
+ * für Haushalte ist der Vergleich deshalb die eigentliche Frage. Gewerbe bleibt bei „aus".
+ */
+export function tariffComparisonDefaultFor(category: BatteryCatalogCategory): boolean {
+  return category === 'heim'
+}

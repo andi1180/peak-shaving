@@ -3,7 +3,7 @@ import { analysisForDisplay, type AnalysisResult, type BatteryRoiEntry } from 's
 
 import {
   batteryNoteTexts,
-  needsDynamicTariffHint,
+  dynamicTariffHintKind,
   recommendationRationaleText,
 } from './report-copy'
 
@@ -36,11 +36,12 @@ describe('Engine-Gründe als Satz in der Anzeigebasis', () => {
     )
   })
 
-  it('Hinweis nur bei Heimspeicher ohne Ersparnis UND ohne angeforderten Börsenpreis-Vergleich', () => {
+  it('Hinweis bei Heimspeicher ohne Ersparnis, wenn der Börsenpreis-Vergleich fehlt oder nicht berechenbar ist', () => {
     const base = { perBattery: [entry()], recommendation: { batteryId: 'x' }, existingBatteryAnalysis: undefined, tariffOptimization: undefined } as unknown as AnalysisResult
-    expect(needsDynamicTariffHint(base)).toBe(true)
-    expect(needsDynamicTariffHint({ ...base, tariffOptimization: { computable: false } } as unknown as AnalysisResult)).toBe(false)
-    expect(needsDynamicTariffHint({ ...base, perBattery: [entry({ totalSavingPerYear: 12 })] })).toBe(false)
-    expect(needsDynamicTariffHint({ ...base, perBattery: [entry({ battery: { class: 'commercial' } } as never)] })).toBe(false)
+    expect(dynamicTariffHintKind(base)).toBe('not_requested')
+    expect(dynamicTariffHintKind({ ...base, tariffOptimization: { computable: false } } as unknown as AnalysisResult)).toBe('not_computable')
+    expect(dynamicTariffHintKind({ ...base, tariffOptimization: { computable: true } } as unknown as AnalysisResult)).toBeNull()
+    expect(dynamicTariffHintKind({ ...base, perBattery: [entry({ totalSavingPerYear: 12 })] })).toBeNull()
+    expect(dynamicTariffHintKind({ ...base, perBattery: [entry({ battery: { class: 'commercial' } } as never)] })).toBeNull()
   })
 })

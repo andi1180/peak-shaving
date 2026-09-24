@@ -349,6 +349,7 @@ export function StepTariff({
   onBack,
   onComplete,
   defaultPriceBasis,
+  defaultTariffOptimization,
   catalogBlocked,
   catalogLoading,
   catalogNotice,
@@ -369,6 +370,8 @@ export function StepTariff({
   onComplete: (result: TariffResult) => void
   /** H3: Vorgabe der Preisbasis für Lieferantenpreise — Privatkunden inkl. USt, Betriebe netto. */
   defaultPriceBasis: PriceBasis
+  /** Vorgabe des Börsenpreis-Vergleichs — Haushalte an, Betriebe aus (`tariffComparisonDefaultFor`). */
+  defaultTariffOptimization: boolean
   /**
    * Delta 9b-2b: die aus einer Rechnung abgelesenen Tarifangaben aus Schritt 1. `undefined` heisst
    * „kein Rechnungs-Scan" — dann verhält sich dieser Schritt Zeile für Zeile wie vor 9b-2b.
@@ -417,9 +420,9 @@ export function StepTariff({
    * end-to-end prüfen.
    *
    * Ist er AUS, passiert nichts Neues: kein Netzwerkaufruf, kein zusätzliches Feld im Payload, und
-   * die Engine rechnet wie vor B21.
+   * die Engine rechnet wie vor B21. Die Vorgabe hängt an der Kategorie (Haushalte an).
    */
-  const [useTariffOptimization, setUseTariffOptimization] = useState(false)
+  const [useTariffOptimization, setUseTariffOptimization] = useState(defaultTariffOptimization)
   const [pricingBusy, setPricingBusy] = useState(false)
 
   // ── B11: Netzbetreiber & Netzebene ────────────────────────────────────────────────────────────

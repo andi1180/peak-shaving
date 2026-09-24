@@ -2,6 +2,7 @@ import { displayedPriceBasis, VAT_INCLUSIVE_LABEL, type DisplayPriceBasis } from
 import type { BatteryResultEntry, BatteryRoiSummary } from 'shared'
 
 import { formatEur, formatKw, formatKwh1, formatYears } from '@/lib/format'
+import { dynamicTariffHintKind } from '@/lib/report-copy'
 import type { ReportBuildContext } from './context'
 import type { ReportFigure, ReportRow, ReportStatement, ReportTable } from './statement'
 import { accent, block, column, ref, t, REF_LABEL, REF_PLACE } from './report-text'
@@ -104,6 +105,7 @@ function drawablePoints(candidates: ComparisonCandidate[]): ComparisonCandidate[
 }
 
 export function comparisonChartPlan(analysis: PdfReportAnalysis): ComparisonChartPlan | null {
+  if (dynamicTariffHintKind(analysis)) return null
   const { variant, candidates } = candidatesOf(analysis)
   const points = drawablePoints(candidates)
   if (points.length < 2) return null
@@ -124,6 +126,8 @@ export function comparisonChartPlan(analysis: PdfReportAnalysis): ComparisonChar
  * verspricht, hinter der nichts steht.
  */
 export function hasComparisonChapter(analysis: PdfReportAnalysis): boolean {
+  // Hinweis „nur mit dynamischem Tarif": eine Gerätewahl, in der jedes Gerät € 0 spart, sagt nichts.
+  if (dynamicTariffHintKind(analysis)) return false
   const { variant, candidates } = candidatesOf(analysis)
   if (variant === 'addon') return candidates.length > 0
   return alternativesOf(analysis).length > 0

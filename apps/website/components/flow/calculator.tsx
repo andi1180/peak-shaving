@@ -3,7 +3,11 @@
 import { useEffect, useState } from 'react'
 import { displayPriceBasisFor, type BatteryCatalogState } from 'shared'
 
-import { batteryCategoryFor, type BatteryCategoryInput } from '@/lib/battery-catalog/category'
+import {
+  batteryCategoryFor,
+  tariffComparisonDefaultFor,
+  type BatteryCategoryInput,
+} from '@/lib/battery-catalog/category'
 import { fetchBatteryCatalog } from '@/lib/battery-catalog/source'
 import { useAnalysis } from '@/lib/use-analysis'
 import {
@@ -167,6 +171,7 @@ export function Calculator() {
               // Delta 9b-2b: vorbelegt aus dem Rechnungs-Scan, sonst `undefined` (= wie vorher).
               prefill={tariffPrefill}
               defaultPriceBasis={priceDisplay}
+              defaultTariffOptimization={tariffComparisonDefaultFor(batteryCategoryFor(categoryInput))}
               onBack={() => setStep(1)}
               onComplete={handleTariff}
               /* K3b-2: gesperrt, solange der Katalog lädt oder ausfällt — NICHT mehr, wenn er
