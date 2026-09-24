@@ -314,7 +314,7 @@ const EAG_FOERDERBEITRAG: Record<string, FoerderbeitragEntry[]> = {
  *
  * ⚠ „nicht erfasst" und „fällt nicht an" sind zwei verschiedene Aussagen: wo keine Regelung
  * belegt ist (heute Salzburg Netz), steht nichts und der Vergleich wird verweigert; wo belegt ist,
- * dass keine anfällt, steht ein ausdrücklicher Eintrag mit `rate: 0`.
+ * dass keine anfällt (Niederösterreich), steht ein ausdrücklicher Eintrag mit `rate: 0`.
  */
 type UsageLevyEntry = DatedEntry & { rate: number }
 
@@ -350,6 +350,37 @@ const GEBRAUCHSABGABE_WIEN: UsageLevyEntry[] = [
   },
 ]
 
+/**
+ * Niederösterreich: KEINE Gebrauchsabgabe auf den Strombezug — belegt, nicht bloss nicht erfasst.
+ *
+ * Das NÖ Gebrauchsabgabegesetz 1973 kennt für Leitungen nur eine Jahresabgabe je Längenmeter
+ * (Tarif Z 6), geschuldet vom Leitungsbetreiber, keine Abgabe auf den Energiebezug. Letzte Novelle
+ * LGBl. Nr. 101/2022 — die Rechtslage gilt deshalb unverändert ab 2025.
+ */
+const GEBRAUCHSABGABE_NOE: UsageLevyEntry[] = [
+  {
+    validFrom: '2025-01-01',
+    validUntil: null,
+    rate: 0,
+    sourceNote:
+      'Keine Gebrauchsabgabe auf den Strombezug in Niederösterreich: NÖ Gebrauchsabgabegesetz 1973 ' +
+      '(LGBl. 3700, zuletzt LGBl. Nr. 101/2022; RIS-Fassungen 01.01.2025 und 24.09.2026) erfasst ' +
+      'Leitungen nur nach Länge (Tarif Z 6, § 10 Abs. 1: Schuldner ist der Leitungsbetreiber). ' +
+      'Netz NÖ, Preisblatt B410 Ausgabe 01.01.2026: unter „Steuern und Abgaben" keine ' +
+      'Gebrauchsabgabe. Für Wiener-Netze-Anschlüsse in NÖ zusätzlich WGAG § 1 Abs. 1 (nur Wien). ' +
+      'Abgerufen 24.09.2026.',
+  },
+]
+
+/**
+ * Niederösterreichische Postleitzahlen, grob 2000–3999 — nur in Verbindung mit Wiener Netze
+ * benutzt, deren Versorgungsgebiet ausserhalb Wiens in Niederösterreich liegt.
+ */
+function isLowerAustrianPostalCode(postalCode: string): boolean {
+  const n = Number(postalCode)
+  return n >= 2000 && n <= 3999
+}
+
 /** Wiener Postleitzahlen (1010–1239). */
 function isViennaPostalCode(postalCode: string): boolean {
   const n = Number(postalCode)
@@ -370,7 +401,10 @@ function usageLevyFor(
   if (operatorId === 'wiener_netze') {
     if (plz === null) return { entries: GEBRAUCHSABGABE_WIEN, locationAssumed: true }
     if (isViennaPostalCode(plz)) return { entries: GEBRAUCHSABGABE_WIEN, locationAssumed: false }
+    if (isLowerAustrianPostalCode(plz)) return { entries: GEBRAUCHSABGABE_NOE, locationAssumed: false }
+    return { entries: [], locationAssumed: false }
   }
+  if (operatorId === 'netz_noe') return { entries: GEBRAUCHSABGABE_NOE, locationAssumed: false }
   return { entries: [], locationAssumed: false }
 }
 

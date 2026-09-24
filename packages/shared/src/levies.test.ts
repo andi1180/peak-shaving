@@ -50,8 +50,8 @@ describe('buildLevySchedule — was belegt ist, wird geschnitten; was fehlt, ble
   })
 
   it('liefert GAR NICHTS, wo eine der vier Quellen fehlt — statt den Posten still auf 0 zu setzen', () => {
-    // Netz NÖ: keine belegte Gebrauchsabgabe.
-    expect(buildLevySchedule('netz_noe', 7, '2026-01-01', '2026-12-31', null, HEIM).periods).toEqual([])
+    // Salzburg Netz: Gebrauchsabgabe noch nicht erfasst (Phase 2b).
+    expect(buildLevySchedule('salzburg_netz', 7, '2026-01-01', '2026-12-31', 'ohne_leistungsmessung', HEIM).periods).toEqual([])
     // 2027: die Absenkung der Elektrizitätsabgabe ist auf 2026 befristet, danach ist nichts
     // belegt — die EAG-Sätze und die offene Gebrauchsabgabe allein genügen nicht.
     expect(
@@ -109,10 +109,18 @@ describe('buildLevySchedule — was belegt ist, wird geschnitten; was fehlt, ble
     expect(findLevyPeriod(ohne.periods, '2026-06-01')?.gebrauchsabgabeRate).toBe(0.07)
     expect(ohne.locationAssumed).toBe('vienna')
 
-    // Klosterneuburg: Wiener Netze, aber nicht Wien — die Wiener Abgabe fällt nicht an.
+    // Klosterneuburg: Wiener Netze, aber Niederösterreich — keine Gebrauchsabgabe.
     const noe = plan('3400')
-    expect(findLevyPeriod(noe.periods, '2026-06-01')?.gebrauchsabgabeRate ?? null).not.toBe(0.07)
+    expect(findLevyPeriod(noe.periods, '2026-06-01')?.gebrauchsabgabeRate).toBe(0)
     expect(noe.locationAssumed).toBeUndefined()
+    // Weder Wien noch NÖ: nicht belegt, also kein Zeitraum statt eines geratenen Satzes.
+    expect(plan('5020').periods).toEqual([])
+  })
+
+  it('Netz NÖ: Gebrauchsabgabe 0 — belegt für 2025 und 2026, der Vergleich wird rechenbar', () => {
+    const periods = buildLevySchedule('netz_noe', 7, '2025-01-01', '2026-12-31', 'ohne_leistungsmessung', HEIM).periods
+    expect(findLevyPeriod(periods, '2025-06-01')).toMatchObject({ gebrauchsabgabeRate: 0, elektrizitaetsabgabeCtPerKwh: 1.5 })
+    expect(findLevyPeriod(periods, '2026-06-01')).toMatchObject({ gebrauchsabgabeRate: 0, elektrizitaetsabgabeCtPerKwh: 0.1 })
   })
 
   it('trägt die EX104-Sätze je Netzebene und Messvariante', () => {

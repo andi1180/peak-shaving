@@ -315,9 +315,9 @@ describe('Ohne belegte Sätze wird der Hebel verweigert, nicht zu niedrig gerech
     ).toBeUndefined()
   })
 
-  it('ein unbelegter Netzbetreiber ebenso — Wien ist die einzige hinterlegte Gebrauchsabgabe', () => {
+  it('ein Netzbetreiber ohne erfasste Gebrauchsabgabe ebenso (Salzburg Netz, Phase 2b)', () => {
     expect(
-      buildLevySchedule('netz_noe', 7, '2026-01-30', '2026-08-26', 'ohne_leistungsmessung', HEIM).periods,
+      buildLevySchedule('salzburg_netz', 7, '2026-01-30', '2026-08-26', 'ohne_leistungsmessung', HEIM).periods,
     ).toEqual([])
   })
 })
