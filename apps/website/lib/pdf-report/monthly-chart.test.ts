@@ -1,7 +1,9 @@
+import { createElement } from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import type { MonthlyTariffComparison } from 'shared'
 
-import { monthlyChartData } from '@/components/report/monthly-tariff-chart'
+import { MonthlyTariffChart, monthlyChartData } from '@/components/report/monthly-tariff-chart'
 import { formatEur } from '@/lib/format'
 import { CONTROLLED_WAY_LABEL } from '@/lib/report-copy'
 import { buildMonthly } from './detail'
@@ -50,5 +52,22 @@ describe('monthlyChartData — dieselbe Auswahl wie die Monatstabelle', () => {
     expect(hasControlled).toBe(false)
     expect(rows.every((r) => r.controlledEur === null)).toBe(true)
     expect(buildMonthly(none, CURRENT).statement.rows.some((r) => r.label === CONTROLLED_WAY_LABEL)).toBe(false)
+  })
+})
+
+describe('MonthlyTariffChart — Bildunterschrift zur Ladesteuerung', () => {
+  const caption = (comparison: MonthlyTariffComparison) =>
+    renderToStaticMarkup(createElement(MonthlyTariffChart, { comparison, isExisting: false })).replace(/<[^>]+>/g, '')
+
+  it('mit vorausschauender Reihe: Vorabend-Planung statt Schwellenregel', () => {
+    const text = caption(PREDICTIVE)
+
+    expect(text).toContain('Vorabend')
+    expect(text).not.toContain('Schwellenregel')
+    expect(text).not.toContain('rechnerisches Optimum')
+  })
+
+  it('ohne vorausschauende Reihe: Schwellenregel wie bisher', () => {
+    expect(caption(SIMPLE)).toContain('Schwellenregel')
   })
 })

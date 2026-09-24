@@ -396,10 +396,23 @@ export function MonthlyTariffChart({
         </p>
         <p className="mt-2">
           Rückblickend gerechnet auf die tatsächlichen Marktpreise Ihres Zeitraums — kein
-          Versprechen für die Zukunft. Die Ladesteuerung des Speichers folgt dabei einer einfachen
-          Schwellenregel und ist noch nicht gegen ein rechnerisches Optimum geprüft:{' '}
-          <strong>die Zahl gilt als vorläufige Untergrenze</strong>, mit besserer Steuerung eher
-          mehr als weniger.
+          Versprechen für die Zukunft.{' '}
+          {/* Derselbe Abgleich wie im Methodik-Kapitel (`methodologyItemsFor`): die Reihe entscheidet den Wortlaut. */}
+          {comparison.spotWithPredictiveControlEur != null ? (
+            <>
+              Die Ladesteuerung des Speichers plant dabei jeweils am Vorabend mit einer
+              Verbrauchserwartung aus Ihrer eigenen Verbrauchshistorie; ausgeführt wird trotzdem auf
+              Ihrem echten Lastgang. Ihren tatsächlichen Verbrauch des nächsten Tages kennt sie
+              also nicht im Voraus.
+            </>
+          ) : (
+            <>
+              Die Ladesteuerung des Speichers folgt dabei einer einfachen Schwellenregel und ist
+              noch nicht gegen ein rechnerisches Optimum geprüft:{' '}
+              <strong>die Zahl gilt als vorläufige Untergrenze</strong>, mit besserer Steuerung
+              eher mehr als weniger.
+            </>
+          )}
         </p>
       </div>
     </div>
