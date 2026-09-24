@@ -1408,16 +1408,24 @@ EAG-Pauschale und Gebrauchsabgabe — Verordnungssätze, versioniert wie die B11
 aus demselben Grund im Code: eine Satzänderung ist ein PR mit einer Datei, samt Fundstelle und
 Gegenlesen. Hinterlegt sind **ausschliesslich** belegte Sätze.
 
-**⚠️ Was heute belegt ist — und was daraus folgt:**
+**⚠️ Was heute belegt ist — und was daraus folgt** (Stand 24.09.2026; Primärquellen und Fundstellen:
+`Abgaben_Bestandsaufnahme_NOE_SBG_2027.md`):
 
 | Abgabe | belegt für | Gültig bis |
 |---|---|---|
-| Elektrizitätsabgabe 0,10 ct/kWh | ganz Österreich | **31.12.2026** (BGBl. I 95/2025, befristet) |
-| EAG-Förderbeitrag, dreiteilig je Netzebene UND Messvariante | **NE 3–7**, Wiener Netze (EX104) | 31.12.2026 |
-| EAG-Förderpauschale 19,02 … 60.524,03 €/Jahr je Netzebene | **NE 3–7** | **31.12.2027** |
-| Gebrauchsabgabe 6 % → 7 % ab 01.03.2026 | **nur `wiener_netze`** | offen |
+| Elektrizitätsabgabe 1,50 ct/kWh | ganz Österreich, jede Kategorie | 31.12.2025 (ElAbgG § 4 Abs. 2) |
+| Elektrizitätsabgabe 2026: **0,10 ct/kWh `heim`, 0,82 ct/kWh `gewerbe`** | ganz Österreich | **31.12.2026** (ElAbgG § 7 Abs. 16, BGBl. I 95/2025, befristet) |
+| EAG-Förderbeitrag, dreiteilig je Netzebene UND Messvariante | **NE 3–7**, bundesweit einheitlich (BGBl. II 419/2024, 301/2025) | 31.12.2026 |
+| EAG-Förderpauschale 19,02 … 60.524,03 €/Jahr je Netzebene | **NE 3–7** (BGBl. II 416/2024) | **31.12.2027** |
+| Gebrauchsabgabe Wien 6 % → 7 % ab 01.03.2026, auf **Netz UND Energie** samt Grundgebühren und Leistungspreis | `wiener_netze` mit Wiener PLZ (1010–1239) oder **ohne PLZ (angenommen, im Report ausgewiesen)** | offen |
+| Gebrauchsabgabe **0** (belegt: fällt nicht an) | `netz_noe`; `wiener_netze` mit NÖ-PLZ (2000–3999) | offen, ab 01.01.2025 |
 
-**⚠ Der EAG-Förderbeitrag hat DREI Bestandteile** (EX104: Grundpreis, Verbrauchspreis,
+**⚠ Die Kategorie ist Pflicht.** `buildLevySchedule` nimmt als sechsten Parameter
+`{ category, postalCode }`. Die Kategorie ist dieselbe wie die des Speicherkatalogs (öffentlicher
+Rechner: `batteryCategoryFor`, Wizard: Segment); die PLZ kommt im Wizard aus `projects.postal_code`,
+im öffentlichen Rechner nur aus der PV-Planung (der Rechnungs-Scan liest keine).
+
+**⚠ Der EAG-Förderbeitrag hat DREI Bestandteile** (Grundpreis, Verbrauchspreis,
 Netzverlustentgelt). Die beiden ct/kWh-Teile werden beim Zusammensetzen addiert; der **Grundpreis**
 reist mit seiner **Einheit** weiter — auf NE 3–6 und NE 7 mit Leistungsmessung ist er ein
 LEISTUNGSpreis (€/kW·Jahr), auf NE 7 ohne Leistungsmessung ein Jahresbetrag je Zählpunkt. Nur
@@ -1425,29 +1433,31 @@ Letzterer geht heute in die Monatsreihen ein; ein €/kW·Jahr-Satz bleibt dort 
 der Netz-Grundpreis derselben Einheit (s. `monthly-tariff-comparison.ts`). **Das ist ein offener
 Punkt für Kunden MIT Leistungsmessung**, kein Endzustand.
 
-**⚠ Die Messvariante ist ab jetzt Teil des Schlüssels.** `buildLevySchedule` nimmt sie als fünften
-Parameter. Für NE 7 führt EX104 drei Zeilen und **keine variantenlose** — wer die Variante nicht
-mitgibt, bekommt **keinen** Zeitraum und damit die Lückenmeldung.
+**⚠ Die Messvariante ist Teil des Schlüssels.** Für NE 7 gibt es drei Zeilen und **keine
+variantenlose** — wer die Variante nicht mitgibt, bekommt **keinen** Zeitraum und damit die
+Lückenmeldung.
 
 Für jede Kombination, die hier fehlt, entsteht **kein Abgabenzeitraum** — und der Rechenkern
 **verweigert dann den ganzen Börsenpreis-Vergleich** mit einer benannten Lücke, statt eine zu
 niedrige Summe auszuweisen. Konkret heisst das:
 
-- **Ab 01.01.2027 fällt der Tarifvergleich für JEDEN Kunden aus**, solange die Sätze für 2027 nicht
-  nachgetragen sind. Das ist beabsichtigt (dieselbe Haltung wie `pending_regulation` in §3a), aber
-  es ist ein Stichtag, der im Kalender stehen sollte.
-- **Netzebene 3–6 rechnet seit dem EX104-Nachtrag (21.09.2026) mit.** Davor fehlten die EAG-Sätze
-  dieser Ebenen; gemessen ist, dass NE 6 in einem 2026er Fenster jetzt `computable: true` liefert.
-- **Das Kalenderjahr 2025 rechnet weiterhin nicht** — die EAG-Sätze sind dafür zwar belegt (EX104
-  führt beide Tabellen auch für 2025), Elektrizitätsabgabe und Gebrauchsabgabe aber nicht. Ein
-  Lastgang aus 2025 fällt deshalb aus, unabhängig von der Netzebene.
-- **Netz NÖ und Salzburg Netz ebenso** — es fehlt ihre Gebrauchsabgabe. Ein Netzbereich **ohne**
-  Gebrauchsabgabe (Burgenland, Vorarlberg) bekommt einen ausdrücklichen Eintrag mit `rate: 0`:
-  „nicht erfasst" und „fällt nicht an" dürfen nicht dieselbe Wirkung haben.
+- **Ab 01.01.2027 fällt der Tarifvergleich für JEDEN Kunden aus**, solange Elektrizitätsabgabe und
+  EAG-Förderbeitrag für 2027 nicht nachgetragen sind (Phase 2b). Der Förderbeitrag 2027 wird
+  üblicherweise in der zweiten Dezemberhälfte verordnet; die Netzentgelte 2027 (ElWG § 135) fehlen
+  ohnehin und blockieren zuerst.
+- **Das Kalenderjahr 2025 rechnet seit #312** (Elektrizitätsabgabe und Gebrauchsabgabe Wien 2025
+  nachgetragen) und für Netz NÖ seit dem 24.09.2026.
+- **Salzburg Netz rechnet noch nicht** — seine Gebrauchsabgabe ist ein ct/kWh-Satz je Netzebene
+  (Preisblatt „Zuschläge zum Systemnutzungsentgelt“) und braucht ein eigenes Feld (Phase 2b).
+  Ebenso ein Wiener-Netze-Anschluss mit PLZ weder in Wien noch in NÖ.
+- **Die Gebrauchsabgabe auf den Leistungspreis** wirkt nur, wo ein Abgabenplan vorliegt: im Wizard
+  immer, im öffentlichen Rechner nur mit eingeschaltetem Börsenpreis-Vergleich.
 
 **Einen Satz nachtragen:** einen weiteren datierten Eintrag in die betreffende Liste, mit
-`validFrom`/`validUntil` (Ende **inklusiv**) und `sourceNote`. Bestehende Einträge werden **nicht
-editiert** — eine 2026 gerechnete Baseline muss 2028 noch sagen können, womit sie gerechnet wurde.
+`validFrom`/`validUntil` (Ende **inklusiv**) und `sourceNote`. Ein richtiger Eintrag wird **nicht
+editiert**; ein nachweislich FALSCHER wird korrigiert und sagt das in seinem Kommentar (so am
+24.09.2026 die Elektrizitätsabgabe 2026 und die Bemessung der Wiener Gebrauchsabgabe). Was eine
+abgelegte Analyse damals gerechnet hat, steht als Wertkopie in `platform.analyses.inputs` (B14).
 
 **Der Messpreis gehört NICHT hierher.** Er ist eine Netzbetreiber-Grösse je (Betreiber, Netzebene,
 Messvariante) und steht in `public.grid_tariffs` — gepflegt über das Admin-UI aus §3c, dort seit
