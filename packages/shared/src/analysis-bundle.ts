@@ -170,7 +170,13 @@ import type { TariffOverridableField } from './tariff-catalog'
  * als Wert. Gerechnet ist unverändert netto; ohne die Angabe liesse sich ein Heim-Bündel später
  * nicht von einem Gewerbe-Bündel unterscheiden. Fehlt sie (Fassung ≤ 9), wurde netto gezeigt.
  */
-export const ANALYSIS_BUNDLE_VERSION = 10
+/**
+ * ── FASSUNG 11 (24.09.2026) ────────────────────────────────────────────────────────────────────
+ * `result.recommendation.rationale` ist ein Objekt (Code + Nettowerte) statt eines Satzes, und die
+ * Betonsockel-/Wechselrichter-/Leistungshinweise stehen als `perBattery[].notices` statt in
+ * `warnings`. Bis Fassung 10 tragen beide fertige Sätze mit NETTObeträgen. Zahlen unverändert.
+ */
+export const ANALYSIS_BUNDLE_VERSION = 11
 
 /**
  * Fassungen, die der Upload annimmt.
@@ -179,7 +185,7 @@ export const ANALYSIS_BUNDLE_VERSION = 10
  * worden sein, und ein Bündel unbrauchbar zu machen, das ein Mensch in der Hand hält, wäre der
  * schlechtere Handel. Bei einer älteren Fassung bleiben die jeweils neueren Felder schlicht leer.
  */
-export const SUPPORTED_ANALYSIS_BUNDLE_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+export const SUPPORTED_ANALYSIS_BUNDLE_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
 
 /**
  * Fassung der Rechen-Engine, VON HAND gepflegt.

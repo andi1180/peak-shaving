@@ -200,6 +200,7 @@ export type BatteryResultEntry = {
   /** Abgedeckte Tage — die Bezugsgrösse des Faktors, damit Report/CSV sie benennen können. */
   coveredDays: number
   totalSavingPerYear: number // Summe aus DEMSELBEN Fahrplan (keine Doppelrechnung)
+  /** Hinweise der Ersparnisrechnung — ohne Geldbeträge (die stünden sonst netto im Brutto-Report). */
   warnings: string[]
   dispatchTrace?: DispatchTrace
 }
@@ -216,8 +217,29 @@ export type BatteryRoiSummary = {
   netSavingOverHorizon: number
 }
 
+/**
+ * Ein §3.8-Hinweis zu einem Katalog-Kandidaten: Code plus Nettowerte. Den Satz bildet der Report,
+ * damit Beträge in derselben Anzeigebasis stehen wie alle anderen (H3: `heim` brutto).
+ */
+export type BatteryNotice =
+  | { code: 'foundation_required'; foundationCost: number }
+  | { code: 'separate_inverter'; extraInverterCost: number }
+  | { code: 'power_limited'; maxPowerKw: number }
+
 /** Ein Katalog-Kandidat, wie ihn `recommendBattery` (§3.8) liefert: Ergebnis PLUS Investition. */
-export type BatteryRoiEntry = BatteryResultEntry & BatteryRoiSummary
+export type BatteryRoiEntry = BatteryResultEntry &
+  BatteryRoiSummary & {
+    notices: BatteryNotice[]
+  }
+
+/** Warum die Empfehlung gewählt ist — Werte netto, den Satz bildet der Report (s. `BatteryNotice`). */
+export type RecommendationRationale = {
+  code: 'best_net_saving'
+  totalSavingPerYear: number
+  amortizationYears: number
+  netSavingOverHorizon: number
+  horizonYears: number
+}
 
 /**
  * Ein durchgerechnetes Szenario „bestehende Anlage + EIN Zusatzgerät" (01.09.2026).
@@ -318,7 +340,7 @@ export type AnalysisResult = {
    */
   recommendation: {
     batteryId: string
-    rationale: string
+    rationale: RecommendationRationale
   } | null
   /**
    * Warum es keine Empfehlung gibt. Gesetzt GENAU DANN, wenn `recommendation === null` —

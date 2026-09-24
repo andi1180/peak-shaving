@@ -27,6 +27,11 @@ import {
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { DEFAULT_HORIZON_YEARS, LARGE_GAP_SLOTS_THRESHOLD } from '@/lib/constants'
+import {
+  DYNAMIC_TARIFF_HINT,
+  needsDynamicTariffHint,
+  recommendationRationaleText,
+} from '@/lib/report-copy'
 import type { AnalysisRunInputs } from '@/lib/use-analysis'
 import type { ExistingBatteryInput, RecomputeInput } from '@/components/flow/types'
 import { AssumptionsPanel } from './assumptions-panel'
@@ -176,7 +181,11 @@ export function Report({
   // 2–3 Alternativen (Pflichtenheft §3.8/§6.2), nicht der komplette Katalog-Rest — `perBattery`
   // ist bereits vollständig nach `netSavingOverHorizon` sortiert (§3.8), also sind das die
   // nächstbesten Kandidaten direkt hinter der Empfehlung.
-  const alternatives = result.perBattery.filter((p) => p !== recommended).slice(0, 3)
+  // Heimspeicher ohne jede Ersparnis, weil kein Börsenpreis gerechnet ist: Hinweis statt Geräten.
+  const dynamicTariffHint = needsDynamicTariffHint(result)
+  const alternatives = dynamicTariffHint
+    ? []
+    : result.perBattery.filter((p) => p !== recommended).slice(0, 3)
   const a = result.assumptions
 
   /*
@@ -527,8 +536,11 @@ export function Report({
           ? 'Ihr Speicher ist oben mit Ihren exakten Angaben durchgerechnet. Ob sich daneben ein zusätzliches Gerät lohnt, steht im Abschnitt darunter.'
           : /* K3b-2: ohne Empfehlung gibt es keinen Kauf zu begründen — der Kasten nennt dann,
                was dieser Report beantwortet, und der Hinweis oben sagt warum. */
-            (result.recommendation?.rationale ??
-            'Dieser Report zeigt Ihren Lastgang, Ihre Stromkosten heute und den Vergleich mit den Börsenpreisen. Einen Speichervorschlag enthält er nicht — der Grund steht oben.')}
+            (dynamicTariffHint
+              ? 'Dieser Report zeigt Ihren Lastgang und Ihre Stromkosten heute. Einen Speichervorschlag enthält er nicht — der Grund steht oben.'
+              : result.recommendation && recommended
+                ? recommendationRationaleText(recommended.battery.name, result.recommendation.rationale)
+                : 'Dieser Report zeigt Ihren Lastgang, Ihre Stromkosten heute und den Vergleich mit den Börsenpreisen. Einen Speichervorschlag enthält er nicht — der Grund steht oben.')}
       </p>
       <div className="print:hidden">
         <LeadDialog />
@@ -828,14 +840,20 @@ export function Report({
               monthlyComparison={monthlyComparison}
             />
           ) : (
-            recommended && (
+            recommended &&
+            (dynamicTariffHint ? (
+              <Alert variant="default" data-testid="speicher-nur-mit-dynamischem-tarif">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{DYNAMIC_TARIFF_HINT}</AlertDescription>
+              </Alert>
+            ) : (
               <RecommendationCard
                 entry={recommended}
                 primary
                 /* K3b: Preisstand und Wirkungsgrad-Herkunft GENAU dieses Geräts. */
                 catalogMeta={batteryCatalogMeta[recommended.battery.id]}
               />
-            )
+            ))
           )}
           {/*
             Delta 9a — der Tarifoptimierungs-Hebel steht DANEBEN, nicht darin: er ist eine eigene

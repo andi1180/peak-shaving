@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { DispatchTrace, MonthlyTariffComparison } from 'shared'
+import type { BatteryNotice, DispatchTrace, MonthlyTariffComparison } from 'shared'
 
 import { SECTION_ID } from './content'
 import { reportLayoutOf, type ReportPlacement } from './layout'
@@ -59,6 +59,7 @@ const ENTRY = {
   coveredDays: 365,
   totalSavingPerYear: 1200,
   warnings: [],
+  notices: [] as BatteryNotice[],
   totalInvestment: 21000,
   subsidyAmount: 0,
   taxBenefit: 0,
@@ -77,7 +78,7 @@ function analysisFor(withExisting: boolean): PdfReportAnalysis {
       leistungspreisCostPerYear: 3980.16,
     },
     perBattery: [ENTRY],
-    recommendation: { batteryId: BATTERY.id, rationale: '' },
+    recommendation: { batteryId: BATTERY.id, rationale: { code: 'best_net_saving', totalSavingPerYear: 0, amortizationYears: 0, netSavingOverHorizon: 0, horizonYears: 10 } },
     assumptions: {
       roundTripEfficiency: 0.9,
       horizonYears: 10,

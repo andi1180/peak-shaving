@@ -1,9 +1,11 @@
 import type {
   AnalysisResult,
   BatteryCandidate,
+  BatteryNotice,
   FinancialParams,
   LoadProfile,
   PvProfile,
+  RecommendationRationale,
   TariffParams,
   TariffPricingInputs,
 } from 'shared'
@@ -83,24 +85,21 @@ function isPowerLimited(
   return false
 }
 
-/** §3.8-Warnungen: Betonsockel, separater Wechselrichter, unzureichende Leistung — ergänzend zu `savingsWarnings` (§3.7, z. B. static-Steuerung). */
-function buildWarnings(battery: BatteryCandidate, savingsWarnings: string[], powerLimited: boolean): string[] {
-  const warnings = [...savingsWarnings]
+/** §3.8-Hinweise: Betonsockel, separater Wechselrichter, unzureichende Leistung — als Code mit Nettowerten, den Satz bildet der Report. */
+function buildNotices(battery: BatteryCandidate, powerLimited: boolean): BatteryNotice[] {
+  const notices: BatteryNotice[] = []
 
   if (battery.requiresFoundation) {
-    warnings.push(`Betonsockel nötig (+€${(battery.foundationCost ?? 0).toFixed(0)}).`)
+    notices.push({ code: 'foundation_required', foundationCost: battery.foundationCost ?? 0 })
   }
   if (!battery.inverterIncluded && battery.extraInverterCost != null) {
-    warnings.push(`Separater Wechselrichter nötig (+€${battery.extraInverterCost.toFixed(0)}).`)
+    notices.push({ code: 'separate_inverter', extraInverterCost: battery.extraInverterCost })
   }
   if (powerLimited) {
-    warnings.push(
-      `Leistung des Kandidaten reicht nicht für alle Spitzen (${battery.maxPowerKw} kW maximale ` +
-        'Lade-/Entladeleistung) — die Kappung ist leistungs-, nicht energiebegrenzt.',
-    )
+    notices.push({ code: 'power_limited', maxPowerKw: battery.maxPowerKw })
   }
 
-  return warnings
+  return notices
 }
 
 function buildPerBatteryEntry(
@@ -137,7 +136,8 @@ function buildPerBatteryEntry(
     coveredDays: savings.coveredDays,
     totalSavingPerYear: savings.totalSavingPerYear,
     ...roi,
-    warnings: buildWarnings(battery, savings.warnings, powerLimited),
+    warnings: savings.warnings,
+    notices: buildNotices(battery, powerLimited),
     // §6.2-Charts: aus demselben `sim`-Lauf extrahiert (keine Zweitsimulation). `topPeaks` ist
     // profil- (nicht batterie-)abhängig → in `recommendBattery` einmal gerechnet, hier injiziert.
     dispatchTrace: buildDispatchTrace(loadProfile, tariffParams, sim, topPeaks),
@@ -148,19 +148,18 @@ function buildPerBatteryEntry(
   return { entry, gridAfterKw: sim.dispatch.gridAfterKw }
 }
 
-function formatAmortization(amortizationYears: number): string {
-  return Number.isFinite(amortizationYears)
-    ? `nach ${amortizationYears.toFixed(1)} Jahren`
-    : 'innerhalb des Betrachtungszeitraums nicht'
-}
-
-/** Deterministischer Template-Satz — KEIN KI-Layer (das ist ein separat geplanter, späterer Baustein). */
-function buildRationale(entry: AnalysisResult['perBattery'][number], horizonYears: number): string {
-  return (
-    `${entry.battery.name} spart voraussichtlich €${entry.totalSavingPerYear.toFixed(0)} pro Jahr und ` +
-    `amortisiert sich ${formatAmortization(entry.amortizationYears)} — Netto-Ersparnis über ` +
-    `${horizonYears} Jahre: €${entry.netSavingOverHorizon.toFixed(0)}.`
-  )
+/** Deterministisch aus dem Eintrag — KEIN KI-Layer (das ist ein separat geplanter, späterer Baustein). */
+function buildRationale(
+  entry: AnalysisResult['perBattery'][number],
+  horizonYears: number,
+): RecommendationRationale {
+  return {
+    code: 'best_net_saving',
+    totalSavingPerYear: entry.totalSavingPerYear,
+    amortizationYears: entry.amortizationYears,
+    netSavingOverHorizon: entry.netSavingOverHorizon,
+    horizonYears,
+  }
 }
 
 /**

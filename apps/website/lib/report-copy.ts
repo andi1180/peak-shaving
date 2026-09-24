@@ -1,4 +1,12 @@
-import { displayedPriceBasis, VAT_INCLUSIVE_LABEL } from 'shared'
+import {
+  displayedPriceBasis,
+  VAT_INCLUSIVE_LABEL,
+  type AnalysisResult,
+  type BatteryNotice,
+  type RecommendationRationale,
+} from 'shared'
+
+import { formatEur, formatKw } from './format'
 
 /**
  * Report-Texte, die an MEHR ALS EINER Stelle stehen müssen (Delta 16a).
@@ -72,4 +80,62 @@ export function rteSourceNote(rteSource: string | null | undefined): string | nu
  */
 export function vatNote(view: object | null | undefined): string {
   return displayedPriceBasis(view) === 'gross' ? VAT_INCLUSIVE_LABEL : 'exkl. MwSt.'
+}
+
+/**
+ * Ein §3.8-Hinweis als Satz (Karte, PDF, CSV). Die Beträge kommen aus dem Ergebnis in der
+ * Anzeigebasis — bei `heim` also brutto, passend zu den Investitionszeilen daneben.
+ */
+export function batteryNoticeText(notice: BatteryNotice): string {
+  switch (notice.code) {
+    case 'foundation_required':
+      return `Betonsockel nötig (+${formatEur(notice.foundationCost)}).`
+    case 'separate_inverter':
+      return `Separater Wechselrichter nötig (+${formatEur(notice.extraInverterCost)}).`
+    case 'power_limited':
+      return (
+        `Leistung des Kandidaten reicht nicht für alle Spitzen (${formatKw(notice.maxPowerKw)} maximale ` +
+        'Lade-/Entladeleistung) — die Kappung ist leistungs-, nicht energiebegrenzt.'
+      )
+  }
+}
+
+/** Alle Hinweise eines Eintrags in der bisherigen Reihenfolge: Ersparnisrechnung, dann §3.8. */
+export function batteryNoteTexts(entry: { warnings: string[]; notices?: BatteryNotice[] }): string[] {
+  // `?? []`: Ergebnisse von vor der Umstellung (Fassung ≤ 10) tragen noch keine `notices`.
+  return [...entry.warnings, ...(entry.notices ?? []).map(batteryNoticeText)]
+}
+
+/** Der Satz zur Empfehlung, aus den Werten der Engine. */
+export function recommendationRationaleText(batteryName: string, r: RecommendationRationale): string {
+  const amortization = Number.isFinite(r.amortizationYears)
+    ? `nach ${new Intl.NumberFormat('de-AT', { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(r.amortizationYears)} Jahren`
+    : 'innerhalb des Betrachtungszeitraums nicht'
+  return (
+    `${batteryName} spart voraussichtlich ${formatEur(r.totalSavingPerYear)} pro Jahr und ` +
+    `amortisiert sich ${amortization} — Netto-Ersparnis über ${r.horizonYears} Jahre: ` +
+    `${formatEur(r.netSavingOverHorizon)}.`
+  )
+}
+
+/** Statt eines Heimspeichers ohne jede Ersparnis (∞ Amortisation), s. `needsDynamicTariffHint`. */
+export const DYNAMIC_TARIFF_HINT =
+  'Ein Speicher lohnt sich für Haushalte nur mit einem dynamischen Tarif (Börsenpreis). ' +
+  'Aktivieren Sie den Börsenpreis-Vergleich, um die Wirkung zu sehen.'
+
+/**
+ * Heimspeicher, Börsenpreis-Vergleich nicht angefordert (`tariffOptimization` fehlt — ein
+ * angeforderter, aber nicht berechenbarer Vergleich trägt ein Objekt) und kein Kandidat spart
+ * etwas. Mit eigenem Speicher bleibt dessen Karte stehen.
+ */
+export function needsDynamicTariffHint(
+  analysis: Pick<AnalysisResult, 'perBattery' | 'recommendation' | 'tariffOptimization' | 'existingBatteryAnalysis'>,
+): boolean {
+  return (
+    analysis.recommendation != null &&
+    analysis.existingBatteryAnalysis == null &&
+    analysis.tariffOptimization === undefined &&
+    analysis.perBattery.length > 0 &&
+    analysis.perBattery.every((e) => e.battery.class === 'residential' && e.totalSavingPerYear === 0)
+  )
 }

@@ -65,9 +65,10 @@ const RESULT: AnalysisResult = {
       amortizationYears: 7.1,
       netSavingOverHorizon: 7900,
       warnings: [],
+      notices: [],
     },
   ],
-  recommendation: { batteryId: 'test-c60', rationale: 'Beispiel' },
+  recommendation: { batteryId: 'test-c60', rationale: { code: 'best_net_saving', totalSavingPerYear: 0, amortizationYears: 0, netSavingOverHorizon: 0, horizonYears: 10 } },
   assumptions: {
     roundTripEfficiency: 0.9,
     horizonYears: 10,
