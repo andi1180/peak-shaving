@@ -497,6 +497,8 @@ sein Präfix — er hat keine Überschrift.
 Agenda passt mit acht weiteren Einträgen weiter auf eine Seite; am erzeugten PDF gemessen (18
 Seiten, beide Durchläufe messen dasselbe).
 
+**Demo-Vorbehalt (24.09.2026):** Bildschirm-Report und Druck-Deckblatt zeigen „Demo-Berechnung mit Beispieldaten …" nur noch bei `origin === 'demo'` (`components/report/demo-disclaimer.tsx`, dieselbe Bedingung wie `reportDisclaimer` im PDF); der öffentliche Rechner reicht `'client'` durch und zeigt ihn deshalb nie.
+
 ---
 
 ## D10 — Baustein 8: Der Baukasten selbst

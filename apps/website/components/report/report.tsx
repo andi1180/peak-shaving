@@ -33,11 +33,13 @@ import {
   recommendationRationaleText,
 } from '@/lib/report-copy'
 import type { AnalysisRunInputs } from '@/lib/use-analysis'
+import type { PdfReportOrigin } from '@/lib/pdf-report/types'
 import type { ExistingBatteryInput, RecomputeInput } from '@/components/flow/types'
 import { AssumptionsPanel } from './assumptions-panel'
 import { BatteryFlowHeatmap } from './battery-flow-heatmap'
 import { ChargePriceChart } from './charge-price-chart'
 import { CostChart } from './cost-chart'
+import { DemoDisclaimer } from './demo-disclaimer'
 import { EnergyFlowChart } from './energy-flow-chart'
 import { EstimatedPvNote } from './estimated-pv-note'
 import { KeyMetric } from './key-metric'
@@ -81,7 +83,10 @@ export function Report({
   effectiveInputs,
   onRecompute,
   onResetAssumptions,
+  origin,
 }: {
+  /** Nur bei `demo` steht der Demo-Vorbehalt am Fuss — s. `DemoDisclaimer`. */
+  origin: PdfReportOrigin
   /** Das gerechnete Ergebnis, netto — Quelle jeder Zahl, die in eine Neuberechnung zurückfliesst. */
   result: AnalysisResult
   /** H3: `gross` für Privatkunden — gezeigt wird dann eine Kopie mit Beträgen inkl. USt. */
@@ -1061,11 +1066,7 @@ export function Report({
           ausgewertete Zeitraum in ein noch laufendes Kalenderjahr reicht (s. Komponente). */}
       <TariffVintageNote loadProfile={loadProfile} tariff={originalTariff} />
 
-      <p className="text-xs text-text-muted">
-        {/* Nicht verhandelbar (CLAUDE.md): keine ROI-Zahl als „echt", bevor gegen echten Lastgang validiert. */}
-        Demo-Berechnung mit Beispieldaten. Zahlen sind noch nicht gegen einen echten Lastgang und
-        eine echte Netzrechnung validiert.
-      </p>
+      <DemoDisclaimer origin={origin} className="text-xs text-text-muted" />
     </div>
   )
 }
