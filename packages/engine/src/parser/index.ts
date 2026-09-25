@@ -23,6 +23,7 @@ export type {
   ColumnRole,
   ValueColumnInfo,
   SignConvention,
+  TimestampMarks,
   Detection,
   DataQuality,
   TablePreview,

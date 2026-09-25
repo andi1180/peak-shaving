@@ -7,7 +7,7 @@ import {
   type DateFormat,
 } from './datetime'
 import { detectDecimalSeparator, looksNumeric, parseNumber, type DecimalSeparator } from './number'
-import type { ColumnRole, RawCell, Unit, ValueColumnInfo } from './types'
+import type { ColumnRole, RawCell, TimestampMarks, Unit, ValueColumnInfo } from './types'
 
 const SAMPLE_ROWS = 60
 
@@ -199,6 +199,37 @@ function pickStartTimeCol(timeCols: number[], headers: string[]): number {
   if (start != null) return start
   const nonEnd = timeCols.filter((c) => !matchKeys(headers[c] ?? '', TIME_END_KEYS))
   return nonEnd[0] ?? timeCols[0]!
+}
+
+/*
+ * Wortweise statt als Teilstring: `ende` steckte sonst auch in „verwendet", `bis` in fremden Wörtern.
+ * Zusammensetzungen („Intervallende", „Periodenbeginn") zählen mit.
+ */
+function isEndToken(t: string): boolean {
+  return t === 'bis' || t === 'end' || t.startsWith('ende') || t.endsWith('ende')
+}
+function isStartToken(t: string): boolean {
+  return (
+    t === 'von' || t === 'from' || t === 'start' ||
+    t.startsWith('beginn') || t.endsWith('beginn') || t.startsWith('anfang') || t.endsWith('anfang')
+  )
+}
+
+/**
+ * Was der Kopf der Zeitstempel-Spalte über die Konvention sagt — bei Split-Timestamp der Kopf der
+ * Zeitspalte. Ohne Hinweis gilt wie bisher der Intervallbeginn; aus den Werten (z. B. einem
+ * Beginn um :15) wird bewusst nicht geraten.
+ */
+export function timestampMarksFromHeader(
+  headers: string[],
+  columns: { timestamp: number; timeColumn?: number },
+): TimestampMarks | 'ambiguous' {
+  const header = headers[columns.timeColumn ?? columns.timestamp] ?? ''
+  const tokens = header.toLowerCase().split(/[^a-zäöüß]+/).filter(Boolean)
+  const end = tokens.some(isEndToken)
+  const start = tokens.some(isStartToken)
+  if (end && start) return 'ambiguous'
+  return end ? 'interval_end' : 'interval_start'
 }
 
 type TimestampDetection = {

@@ -1,7 +1,7 @@
 import { countCoveredMonths, toIsoUtc, type DateFormat } from './datetime'
-import { detectStructure, isInverterExport } from './detect'
+import { detectStructure, isInverterExport, timestampMarksFromHeader } from './detect'
 import { byteSize, resolveLimits } from './limits'
-import { detectIntervalMinutes } from './prepare'
+import { detectIntervalMinutes, shiftToIntervalStart } from './prepare'
 import { matchAdapter } from './adapters'
 import { normalizeLoad, normalizeSingleValue } from './normalize'
 import { extractTable } from './table'
@@ -293,6 +293,15 @@ export function readLoadProfileMetadata(
         : 'import_only'
       : (options.source ?? hints.source ?? draft.source)
 
+  // Dieselbe Konvention wie `parseLoadProfile`, sonst widerspräche `covered_from` dem gerechneten Lastgang.
+  const timestampMarks = options.timestampMarks ?? timestampMarksFromHeader(draft.headers, columns)
+  if (timestampMarks === 'ambiguous')
+    return err(
+      'ambiguous_timestamp',
+      'Der Kopf der Zeitstempel-Spalte nennt Beginn und Ende des Intervalls; ob die Zeitstempel ' +
+        'den Beginn oder das Ende bezeichnen, muss bestaetigt werden.',
+    )
+
   const norm = normalizeLoad(draft.dataRows, {
     columns,
     dateFormat,
@@ -305,6 +314,8 @@ export function readLoadProfileMetadata(
   if (norm.parsedRows === 0)
     return err('unparsable_timestamps', 'Keine Zeile mit gueltigem Zeitstempel und Wert.')
   if (norm.parsedRows < 2) return err('insufficient_rows', 'Zu wenige gueltige Datenzeilen.')
+  const readings =
+    timestampMarks === 'interval_end' ? shiftToIntervalStart(norm.readings) : norm.readings
 
   /*
    * Sortieren und deduplizieren wie `prepareSeries`: `normalizeLoad` behält die Zeilenreihenfolge
@@ -312,7 +323,7 @@ export function readLoadProfileMetadata(
    * Ohne Deduplizierung zählte `rowCount` sie doppelt und der Abstand 0 verfälschte die
    * Intervall-Bestimmung.
    */
-  const sorted = [...norm.readings].sort((a, b) => a.ms - b.ms)
+  const sorted = [...readings].sort((a, b) => a.ms - b.ms)
   const stamps: number[] = []
   for (const reading of sorted) {
     if (stamps[stamps.length - 1] === reading.ms) continue
