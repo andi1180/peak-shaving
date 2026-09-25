@@ -1,6 +1,7 @@
 import 'server-only'
 
 import {
+  AnalysisRefusedError,
   computeAnalysis,
   detectPvOutageMonths,
   mapDraftToExistingBatteryInput,
@@ -25,6 +26,7 @@ import {
   PV_GENERATED_PROFILE_SOURCE,
   PV_UPLOAD_DRAFT_KEYS,
   pvIsInLoadProfile,
+  readPvStage,
   tariffWayCosts,
   type AnalysisResult,
   type AnalysisWindow,
@@ -212,7 +214,10 @@ export class MeteringPointAnalysisError extends Error {
       | 'pv_profile_unreadable'
       | 'generated_pv_document_not_found'
       | 'generated_pv_file_too_large'
-      | 'unsupported_draft',
+      | 'unsupported_draft'
+      // „Eigener Tarif unbekannt" (25.09.2026) — `AnalysisRefusal` der Engine, gleichnamig.
+      | 'supplier_tariff_unknown_without_price_basis'
+      | 'feed_in_tariff_missing',
     message: string,
   ) {
     super(message)
@@ -455,8 +460,14 @@ export async function runAnalysisFromMeteringPointDraft(
     ...(await readTariffPricing(ports.fetchTariffPricing, point.draft, loadProfile)),
   }
 
+  // „PV erfasst" kennt nur der Entwurf; eine bestehende Anlage ohne Reihe erreicht die Engine nicht.
+  const pvRecorded = readPvStage(point.draft) !== null
+  if (pvRecorded && payload.tariff.einspeiseverguetungCtPerKwh === undefined) {
+    throw refusalToError(new AnalysisRefusedError({ reason: 'feed_in_tariff_missing' }))
+  }
+
   const horizonYears = options.horizonYears ?? DRAFT_ANALYSIS_HORIZON_YEARS
-  const result = computeAnalysis(payload, horizonYears, ports.batteryCatalog)
+  const result = computeOrRefuse(payload, horizonYears, ports.batteryCatalog)
 
   /*
    * D6 Teil 3 — „Was wäre, wenn wir ein ganzes Jahr hätten?". Ein ZWEITER Lauf derselben Rechnung
@@ -839,4 +850,20 @@ async function readPvProfileFromDraft(
   }
 
   return { fileName: document.fileName, profile: parsed.profile, dataQuality: parsed.dataQuality }
+}
+
+/** Eine Verweigerung der Engine wird zum benannten Abbruch dieses Laufs, mit ihrer Meldung. */
+function refusalToError(error: AnalysisRefusedError): MeteringPointAnalysisError {
+  return new MeteringPointAnalysisError(error.refusal.reason, error.message)
+}
+
+function computeOrRefuse(
+  ...args: Parameters<typeof computeAnalysis>
+): ReturnType<typeof computeAnalysis> {
+  try {
+    return computeAnalysis(...args)
+  } catch (error) {
+    if (error instanceof AnalysisRefusedError) throw refusalToError(error)
+    throw error
+  }
 }

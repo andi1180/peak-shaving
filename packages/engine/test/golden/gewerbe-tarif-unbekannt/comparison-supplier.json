@@ -1,0 +1,6 @@
+{
+  "supplier": "Vergleichslieferant (synthetisch)",
+  "energyPriceCtPerKwh": 12,
+  "baseFeeEurPerMonth": 5,
+  "priceBasis": "net"
+}

@@ -356,9 +356,12 @@ export type AnalysisResult = {
     /** Anzeigewert: Wirkungsgrad der Empfehlung, sonst des Bestandsspeichers, sonst `null` (K3d). */
     roundTripEfficiency: number | null
     horizonYears: number
-    energyPriceCtPerKwh: number
-    einspeiseverguetungCtPerKwh: number
-    billingModel: BillingModel
+    /** `null` bei unbekanntem Liefertarif (`TariffParams.supplierTariff: 'unknown'`). */
+    energyPriceCtPerKwh: number | null
+    /** `null`, wenn nicht angegeben — dann speist der Lastgang nicht ein (sonst Abbruch). */
+    einspeiseverguetungCtPerKwh: number | null
+    /** `null`, wenn kein Leistungspreis anfällt (`TariffParams.billingModel`). */
+    billingModel: BillingModel | null
     /**
      * Gesetzt, wenn die Wiener Gebrauchsabgabe ohne Standortangabe angenommen wurde
      * (`LevySchedule.locationAssumed`). Optional und additiv — kein Bündel-Versionssprung.

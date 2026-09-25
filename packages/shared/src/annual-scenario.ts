@@ -47,7 +47,8 @@ export type AnnualScenarioReference = {
  * „dieser Weg kostet nichts".
  */
 export type AnnualScenarioWays = {
-  currentTariffEur: number
+  /** `null` bei unbekanntem Liefertarif — wie `TariffWayCosts.currentTariffEur`. */
+  currentTariffEur: number | null
   comparisonTariffEur: number | null
   comparisonSupplier: string | null
   spotWithoutControlEur: number

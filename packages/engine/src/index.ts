@@ -29,6 +29,13 @@ export * from './pv-value'
 // von `apps/website`. Sie liegt hier, damit der Wizard-Entwurf denselben Rechenweg benutzen kann
 // statt einer zweiten Kopie (Prinzip 2). Die Typen reisen mit: sie beschreiben die Nutzlast.
 export { computeAnalysis } from './compute-analysis'
+// „Eigener Tarif unbekannt" (25.09.2026): benannte Verweigerungen statt Schätzung.
+export {
+  AnalysisRefusedError,
+  feedInTariffCtPerKwh,
+  hasFeedIn,
+  type AnalysisRefusal,
+} from './refusal'
 export type {
   CalculatorPayload,
   EstimatedPvResult,

@@ -1075,11 +1075,12 @@ function billingModelRow(
   source: PdfReportTariffSource,
   netzbetreiber: NetzbetreiberId | undefined,
 ): ReportTableRow[] {
-  if (!hasLeistungspreis(analysis.current)) return []
+  const billingModel = analysis.assumptions.billingModel
+  if (!hasLeistungspreis(analysis.current) || billingModel === null) return []
   return [
     dataRow('tariff_billing_model', [
       'Abrechnungsmodell',
-      BILLING_MODEL_LABEL[analysis.assumptions.billingModel],
+      BILLING_MODEL_LABEL[billingModel],
       gridFieldStatus(source, 'billingModel', netzbetreiber),
     ]),
   ]
@@ -1154,12 +1155,14 @@ export function buildTariffComponents(input: PdfReportInput): ReportTable {
       ...billingModelRow(input.analysis, source, netzbetreiber),
       dataRow('tariff_energy_price', [
         'Arbeitspreis',
-        `${formatEur2(a.energyPriceCtPerKwh / 100)} / kWh`,
+        a.energyPriceCtPerKwh === null ? 'unbekannt' : `${formatEur2(a.energyPriceCtPerKwh / 100)} / kWh`,
         SUPPLIER_STATUS,
       ]),
       dataRow('tariff_einspeiseverguetung', [
         'Einspeisevergütung',
-        `${formatEur2(a.einspeiseverguetungCtPerKwh / 100)} / kWh`,
+        a.einspeiseverguetungCtPerKwh === null
+          ? 'nicht angegeben'
+          : `${formatEur2(a.einspeiseverguetungCtPerKwh / 100)} / kWh`,
         SUPPLIER_STATUS,
       ]),
       ...supplierFeeRow(input.analysis),

@@ -102,6 +102,22 @@ describe('tariffParamsSchema', () => {
     const { leistungspreisEurPerKwYear: _omit, ...rest } = valid
     expect(tariffParamsSchema.safeParse(rest).success).toBe(false)
   })
+
+  it('Liefertarif: Arbeitspreis Pflicht bei „known", verboten bei „unknown"; Modell null nur ohne Leistungspreis', () => {
+    const { energyPriceCtPerKwh: _omit, ...ohnePreis } = valid
+    expect(tariffParamsSchema.safeParse(ohnePreis).success).toBe(false)
+    expect(tariffParamsSchema.safeParse({ ...ohnePreis, supplierTariff: 'unknown' }).success).toBe(
+      true,
+    )
+    expect(tariffParamsSchema.safeParse({ ...valid, supplierTariff: 'unknown' }).success).toBe(
+      false,
+    )
+    expect(tariffParamsSchema.safeParse({ ...valid, billingModel: null }).success).toBe(false)
+    expect(
+      tariffParamsSchema.safeParse({ ...valid, billingModel: null, leistungspreisEurPerKwYear: 0 })
+        .success,
+    ).toBe(true)
+  })
 })
 
 describe('financialParamsSchema', () => {

@@ -774,7 +774,9 @@ export function StepTariff({
 
     const tariffInput: Record<string, unknown> = {
       leistungspreisEurPerKwYear: parseNum(f.leistungspreisEurPerKwYear),
-      billingModel: f.billingModel,
+      // Ohne Leistungsmessung und ohne Leistungspreis gibt es kein Abrechnungsmodell (#370-Nachtrag).
+      billingModel:
+        noPowerMeasurement && parseNum(f.leistungspreisEurPerKwYear) === 0 ? null : f.billingModel,
       minBillableKw: parseNum(f.minBillableKw),
       energyPriceCtPerKwh: supplierNet(f.energyPriceCtPerKwh),
       einspeiseverguetungCtPerKwh: parseNum(f.einspeiseverguetungCtPerKwh),

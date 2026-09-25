@@ -22,8 +22,8 @@ export type ControlVariant = 'predictive' | 'simple'
 
 /** Die Kosten der vier TARIFwege über den Zeitraum des Monatsvergleichs, in Euro. */
 export type TariffWayCosts = {
-  /** Weg 1 — „Ihr Tarif heute", die Bezugsgrösse. */
-  currentTariffEur: number
+  /** Weg 1 — „Ihr Tarif heute". `null` bei unbekanntem Liefertarif: der Weg entfällt. */
+  currentTariffEur: number | null
   /** Weg 2 — der selbst gefundene Vergleichstarif. `null` = der Weg entfällt (s. Modulkopf). */
   comparisonTariffEur: number | null
   /** Der Lieferant zu Weg 2 — `null`, wenn es den Weg nicht gibt. */
@@ -41,14 +41,37 @@ export type TariffWayCosts = {
   controlVariant: ControlVariant | null
 }
 
+/** Wogegen die Ersparnis der übrigen Wege gemessen wird — s. `savingsBaselineOf`. */
+export type SavingsBaseline = { source: 'current_tariff' | 'comparison_tariff'; eur: number }
+
+/**
+ * Die Bezugsgrösse der Ersparnis: „Ihr Tarif heute", bei unbekanntem Liefertarif der
+ * Vergleichstarif, ohne beide `null` — dann gibt es nur absolute Kosten, keine Ersparnis.
+ */
+export function savingsBaselineOf(
+  costs: Pick<TariffWayCosts, 'currentTariffEur' | 'comparisonTariffEur'>,
+): SavingsBaseline | null {
+  if (costs.currentTariffEur !== null)
+    return { source: 'current_tariff', eur: costs.currentTariffEur }
+  if (costs.comparisonTariffEur !== null) {
+    return { source: 'comparison_tariff', eur: costs.comparisonTariffEur }
+  }
+  return null
+}
+
 export function tariffWayCosts(comparison: MonthlyTariffComparison): TariffWayCosts {
   const comparisonSeries = comparison.comparisonTariffEur
   const predictiveSeries = comparison.spotWithPredictiveControlEur
   const controlledSeries = predictiveSeries ?? comparison.spotWithBatteryEur
 
+  const currentTariffEur = comparison.currentTariffEur
+    ? sumCovered(comparison.currentTariffEur)
+    : null
+  const comparisonTariffEur = comparisonSeries ? sumCovered(comparisonSeries) : null
+
   return {
-    currentTariffEur: sumCovered(comparison.currentTariffEur),
-    comparisonTariffEur: comparisonSeries ? sumCovered(comparisonSeries) : null,
+    currentTariffEur,
+    comparisonTariffEur,
     comparisonSupplier: comparison.comparisonSupplier ?? null,
     spotWithoutControlEur: sumCovered(comparison.spotWithoutControlEur),
     controlledEur: controlledSeries ? sumCovered(controlledSeries) : null,

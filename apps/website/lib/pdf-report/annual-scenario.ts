@@ -65,8 +65,8 @@ function formatDate(date: string): string {
 }
 
 /** Die Ersparnis eines Tarifwegs gegenüber „Ihr Tarif heute" — negativ, wenn er mehr kostet. */
-function savingOf(scenario: AnnualScenario, costEur: number): number {
-  return scenario.ways.currentTariffEur - costEur
+function savingOf(todayEur: number, costEur: number): number {
+  return todayEur - costEur
 }
 
 /**
@@ -90,6 +90,9 @@ export function buildAnnualScenarioChapter(
   const scenario = analysis.annualScenario
   const measured = buildWaysChapter(analysis)
   if (!scenario || !measured || scenario.projectedDays === 0) return null
+  // Ohne „Ihr Tarif heute" (Liefertarif unbekannt) fehlt die Bezugsgrösse dieses Kapitels.
+  const todayEur = scenario.ways.currentTariffEur
+  if (todayEur === null) return null
 
   const reference = scenario.reference
   const statements: ReportStatement[] = [
@@ -130,7 +133,7 @@ export function buildAnnualScenarioChapter(
   for (const bar of measured.bars) {
     const costEur = annualCostOf(scenario, bar.key)
     if (costEur === null) continue
-    const saving = savingOf(scenario, costEur)
+    const saving = savingOf(todayEur, costEur)
     wayRows.push({
       label: bar.label,
       hint:
@@ -166,7 +169,7 @@ export function buildAnnualScenarioChapter(
     if (bar.key === 'today') continue
     const costEur = annualCostOf(scenario, bar.key)
     if (costEur === null) continue
-    const savingEur = savingOf(scenario, costEur)
+    const savingEur = savingOf(todayEur, costEur)
     if (savingEur > 0 && (bestWay === null || savingEur > bestWay.savingEur)) {
       bestWay = { label: bar.label, savingEur }
     }

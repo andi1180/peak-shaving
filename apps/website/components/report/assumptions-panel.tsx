@@ -88,7 +88,7 @@ export function AssumptionsPanel({
   /** `billingModel` des aktuell angezeigten (ggf. live neu berechneten) Ergebnisses — die EINE
    * Wahrheit. Das Panel spiegelt ihn (s. Sync unten), damit der Teiljahres-Shortcut oben (report.tsx)
    * und dieses Dropdown NIE auseinanderlaufen (kein zweiter Umschalt-Zustand). */
-  liveBillingModel: BillingModel
+  liveBillingModel: BillingModel | null
   selectedBatteryName: string
   /**
    * Herkunft der GERADE BEARBEITETEN Batterie (`originalBattery`) — vom Report gesetzt, nicht hier
@@ -114,7 +114,7 @@ export function AssumptionsPanel({
   // Init aus dem ANGEZEIGTEN Ergebnis (nicht dem Original): klappt der Nutzer das Panel ERST nach
   // einem Umschalten (Teiljahres-Shortcut oben) auf, mountet es frisch und muss den aktuellen
   // `billingModel` zeigen — nicht den ursprünglichen. Der Sync unten deckt den bereits gemounteten Fall.
-  const [billingModel, setBillingModel] = useState<BillingModel>(liveBillingModel)
+  const [billingModel, setBillingModel] = useState<BillingModel | null>(liveBillingModel)
   // Delta 18: Vorbelegung aus dem WIRKSAMEN Stand (s. `effectiveFinancial`/`effectiveHorizonYears`).
   // `handleReset` unten stellt weiterhin `original*` her — die beiden Rollen sind getrennt.
   const [horizonYears, setHorizonYears] = useState(String(effectiveHorizonYears))
@@ -161,7 +161,7 @@ export function AssumptionsPanel({
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   type Fields = {
-    billingModel: BillingModel
+    billingModel: BillingModel | null
     horizonYears: string
     subsidyPercent: string
     fixedSubsidyEur: string
@@ -294,26 +294,29 @@ export function AssumptionsPanel({
       )}
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="assumption-billingModel">Abrechnungsmodell</Label>
-          <Select
-            value={billingModel}
-            onValueChange={(v) => {
-              const bm = v as BillingModel
-              setBillingModel(bm)
-              computeAndSend({ billingModel: bm })
-            }}
-          >
-            <SelectTrigger id="assumption-billingModel">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="monthly_max_average">Mittel der 12 Monatshöchstwerte</SelectItem>
-              <SelectItem value="annual_max">Jahreshöchstwert</SelectItem>
-              <SelectItem value="monthly_max_sum">Summe der 12 Monatshöchstwerte</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+        {/* Ohne Leistungspreis gibt es kein Abrechnungsmodell (`billingModel: null`). */}
+        {billingModel !== null && (
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="assumption-billingModel">Abrechnungsmodell</Label>
+            <Select
+              value={billingModel}
+              onValueChange={(v) => {
+                const bm = v as BillingModel
+                setBillingModel(bm)
+                computeAndSend({ billingModel: bm })
+              }}
+            >
+              <SelectTrigger id="assumption-billingModel">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="monthly_max_average">Mittel der 12 Monatshöchstwerte</SelectItem>
+                <SelectItem value="annual_max">Jahreshöchstwert</SelectItem>
+                <SelectItem value="monthly_max_sum">Summe der 12 Monatshöchstwerte</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        )}
 
         <NumberField
           id="assumption-horizonYears"
@@ -405,11 +408,19 @@ export function AssumptionsPanel({
       <div className="divide-y divide-border border-t border-border pt-1">
         <AssumptionRow
           label="Arbeitspreis"
-          value={`${formatEur2(originalTariff.energyPriceCtPerKwh / 100)} / kWh${netLabels ? ' netto' : ''}`}
+          value={
+            originalTariff.energyPriceCtPerKwh === undefined
+              ? 'unbekannt'
+              : `${formatEur2(originalTariff.energyPriceCtPerKwh / 100)} / kWh${netLabels ? ' netto' : ''}`
+          }
         />
         <AssumptionRow
           label="Einspeisevergütung"
-          value={`${formatEur2(originalTariff.einspeiseverguetungCtPerKwh / 100)} / kWh`}
+          value={
+            originalTariff.einspeiseverguetungCtPerKwh === undefined
+              ? 'nicht angegeben'
+              : `${formatEur2(originalTariff.einspeiseverguetungCtPerKwh / 100)} / kWh`
+          }
         />
       </div>
       <p className="text-xs text-text-muted">

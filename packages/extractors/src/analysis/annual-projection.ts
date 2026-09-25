@@ -128,7 +128,9 @@ export async function projectAnnualTariffComparison(
    * `gridAfterKw` bleibt leer: die beiden Zeilen, die hier gelesen werden, lesen es nicht.
    */
   const measured = buildMonthlyTariffComparison(loadProfile, tariffParams, pricing, [])
-  if (!measured) return undefined
+  // Ohne „Ihr Tarif heute" (Liefertarif unbekannt) gibt es die eine der beiden Zeilen nicht.
+  const measuredCurrent = measured?.currentTariffEur
+  if (!measured || !measuredCurrent) return undefined
 
   const coveredDates = new Set<string>()
   let firstMs = Number.POSITIVE_INFINITY
@@ -167,7 +169,7 @@ export async function projectAnnualTariffComparison(
   if (missingDates.length === 0) {
     return {
       ...base,
-      currentTariffEur: amountOf(sumRow(measured.currentTariffEur), 0),
+      currentTariffEur: amountOf(sumRow(measuredCurrent), 0),
       spotWithoutControlEur: amountOf(sumRow(measured.spotWithoutControlEur), 0),
       marketPrices: { coverage: [], hoursByOrigin: noHours(), missingRanges: [] },
     }
@@ -246,14 +248,11 @@ export async function projectAnnualTariffComparison(
   }
 
   const projected = buildMonthlyTariffComparison(gapProfile, tariffParams, gapPricing, [])
-  if (!projected) return undefined
+  if (!projected?.currentTariffEur) return undefined
 
   return {
     ...base,
-    currentTariffEur: amountOf(
-      sumRow(measured.currentTariffEur),
-      sumRow(projected.currentTariffEur),
-    ),
+    currentTariffEur: amountOf(sumRow(measuredCurrent), sumRow(projected.currentTariffEur)),
     spotWithoutControlEur: amountOf(
       sumRow(measured.spotWithoutControlEur),
       sumRow(projected.spotWithoutControlEur),

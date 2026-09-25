@@ -1,4 +1,10 @@
-import type { BatteryCandidate, LoadProfile, PvProfile, TariffParams } from 'shared'
+import type {
+  BatteryCandidate,
+  KnownSupplierTariffParams,
+  LoadProfile,
+  PvProfile,
+  TariffParams,
+} from 'shared'
 
 /**
  * §3.11-Fixture-Generatoren — das M1-Gate braucht MINDESTENS drei synthetische Lastprofile
@@ -121,7 +127,7 @@ export const basisForTouLoadProfile = (): LoadProfile => buildProfile(false)
  */
 export function flatTariff(
   billingModel: TariffParams['billingModel'],
-  overrides: Partial<TariffParams> = {},
+  overrides: Partial<KnownSupplierTariffParams> = {},
 ): TariffParams {
   return {
     leistungspreisEurPerKwYear: 100,

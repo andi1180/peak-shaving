@@ -52,15 +52,30 @@ export function PrintAssumptionsSnapshot({
       */}
       <div className="grid gap-x-8 sm:grid-cols-2 print:grid-cols-1">
         <div>
-          <Row label="Abrechnungsmodell" value={billingModelLabel[assumptions.billingModel]} />
+          <Row
+            label="Abrechnungsmodell"
+            value={
+              assumptions.billingModel === null
+                ? 'entfällt (kein Leistungspreis)'
+                : billingModelLabel[assumptions.billingModel]
+            }
+          />
           <Row label="Betrachtungshorizont" value={`${assumptions.horizonYears} Jahre`} />
           <Row
             label="Arbeitspreis"
-            value={`${formatEur2(assumptions.energyPriceCtPerKwh / 100)} / kWh`}
+            value={
+              assumptions.energyPriceCtPerKwh === null
+                ? 'unbekannt'
+                : `${formatEur2(assumptions.energyPriceCtPerKwh / 100)} / kWh`
+            }
           />
           <Row
             label="Einspeisevergütung"
-            value={`${formatEur2(assumptions.einspeiseverguetungCtPerKwh / 100)} / kWh`}
+            value={
+              assumptions.einspeiseverguetungCtPerKwh === null
+                ? 'nicht angegeben'
+                : `${formatEur2(assumptions.einspeiseverguetungCtPerKwh / 100)} / kWh`
+            }
           />
         </div>
         {recommended && (

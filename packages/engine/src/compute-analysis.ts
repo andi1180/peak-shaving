@@ -22,6 +22,7 @@ import { computePredictiveControlValue } from './foresight'
 import { eagDemandChargePerYear } from './tariff'
 import { calculateRoi } from './roi'
 import { computeBatterySavings } from './savings'
+import { AnalysisRefusedError, hasFeedIn } from './refusal'
 import {
   alignPvGrossToLoad,
   buildDispatchTrace,
@@ -377,6 +378,23 @@ export function computeAnalysis(
   )
 
   /*
+   * „Eigener Tarif unbekannt" und Einspeisevergütung: benannte Verweigerung statt eines Reports
+   * ohne Zahlen bzw. einer unbewerteten Einspeisung (`refusal.ts`).
+   */
+  if (payload.tariff.supplierTariff === 'unknown' && baseTariffOptimization?.computable !== true) {
+    throw new AnalysisRefusedError({
+      reason: 'supplier_tariff_unknown_without_price_basis',
+      blocker: baseTariffOptimization ?? null,
+    })
+  }
+  if (
+    payload.tariff.einspeiseverguetungCtPerKwh === undefined &&
+    (hasFeedIn(loadProfile) || pvProfile != null || payload.estimatedPv != null)
+  ) {
+    throw new AnalysisRefusedError({ reason: 'feed_in_tariff_missing' })
+  }
+
+  /*
    * Die bestehende Anlage des Kunden — ausserhalb von `perBattery`, s. `buildExistingBatteryAnalysis`.
    * `undefined`, wenn keine angegeben wurde: dann ist dieser Report Zeile für Zeile der bisherige.
    *
@@ -453,10 +471,15 @@ export function computeAnalysis(
    * dritte Reihe auch bei leerem Katalog (`existing?.gridAfterKw` steht davor).
    */
   const noCandidates = perBattery.length === 0
+  /*
+   * Bei unbekanntem Liefertarif ist der Vergleich die EINZIGE Kostenaussage — er entsteht deshalb
+   * immer, notfalls ohne Speicherreihe (wie bei leerem Katalog); sonst stünde ein Report ohne Zahlen.
+   */
+  const supplierTariffUnknown = payload.tariff.supplierTariff === 'unknown'
   const monthlyComparison =
     baseTariffOptimization?.computable === true &&
     payload.tariffPricing &&
-    (comparisonDispatchKw || noCandidates)
+    (comparisonDispatchKw || noCandidates || supplierTariffUnknown)
       ? buildMonthlyTariffComparison(
           loadProfile,
           payload.tariff,
@@ -515,8 +538,8 @@ export function computeAnalysis(
         null,
       horizonYears,
       billingModel: payload.tariff.billingModel,
-      energyPriceCtPerKwh: payload.tariff.energyPriceCtPerKwh,
-      einspeiseverguetungCtPerKwh: payload.tariff.einspeiseverguetungCtPerKwh,
+      energyPriceCtPerKwh: payload.tariff.energyPriceCtPerKwh ?? null,
+      einspeiseverguetungCtPerKwh: payload.tariff.einspeiseverguetungCtPerKwh ?? null,
       ...(leviesOf(payload)?.locationAssumed
         ? { levyLocationAssumed: leviesOf(payload)!.locationAssumed }
         : {}),

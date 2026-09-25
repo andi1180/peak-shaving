@@ -1,4 +1,9 @@
-import type { BatteryCandidate, BillingModel, LoadProfile } from 'shared'
+import {
+  effectiveBillingModel,
+  type BatteryCandidate,
+  type BillingModel,
+  type LoadProfile,
+} from 'shared'
 
 import { utcMsToLocalFields } from '../parser/datetime'
 
@@ -60,17 +65,17 @@ export function maxPositiveDraw(draws: number[]): number {
  */
 export function periodIndexByInterval(
   loadProfile: LoadProfile,
-  billingModel: BillingModel,
+  billingModel: BillingModel | null,
 ): number[] {
-  if (billingModel === 'annual_max') return loadProfile.readings.map(() => 0)
+  if (effectiveBillingModel(billingModel) === 'annual_max') return loadProfile.readings.map(() => 0)
   return loadProfile.readings.map(
     (r) => utcMsToLocalFields(Date.parse(r.ts), loadProfile.timezoneMeta).month - 1,
   )
 }
 
 /** Contract-Länge von `capKwByPeriod` (§3.10/`DispatchTrace`): 1 bei `annual_max`, 12 bei `monthly_*`. */
-export const periodSlotCount = (billingModel: BillingModel): number =>
-  billingModel === 'annual_max' ? 1 : 12
+export const periodSlotCount = (billingModel: BillingModel | null): number =>
+  effectiveBillingModel(billingModel) === 'annual_max' ? 1 : 12
 
 /** Per-Intervall-Kappschwelle aus den Perioden-Caps (annual: 1 Slot, monthly: 12 Slots nach Monat). */
 export const capForIntervalSeries = (

@@ -471,7 +471,7 @@ describe('runAnalysisFromMeteringPointDraft — tariffPricing', () => {
     expect(status?.computable).toBe(true)
     const monthly = status?.computable === true ? status.monthlyComparison : undefined
     expect(monthly).toBeDefined()
-    const month = monthly!.currentTariffEur.findIndex((v) => v != null)
+    const month = monthly!.currentTariffEur!.findIndex((v) => v != null)
     expect(month).toBeGreaterThanOrEqual(0)
     expect(monthly!.spotWithBatteryEur![month]).not.toBeCloseTo(
       monthly!.spotWithoutControlEur[month]!,

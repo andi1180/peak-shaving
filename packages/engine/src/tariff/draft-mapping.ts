@@ -69,6 +69,9 @@ const COMPARISON_DRAFT_KEYS = {
  */
 export { DEFAULT_DRAFT_BILLING_MODEL }
 
+/** Der Vermerk der Rechnung-Station „ohne Rechnungsdaten fortgefahren" (`INVOICE_SKIPPED_KEY`). */
+const INVOICE_SKIPPED_DRAFT_KEY = 'invoiceSkipped'
+
 /**
  * Die Entwurfs-Schlüssel, die namensgleich in den Contract gehen.
  *
@@ -78,6 +81,7 @@ export { DEFAULT_DRAFT_BILLING_MODEL }
  * hinein. Eine benannte Liste macht aus dem, was in die Rechnung eingeht, eine Entscheidung.
  */
 const DRAFT_TARIFF_KEYS = [
+  'supplierTariff',
   'netzebene',
   'meteringVariant',
   'leistungspreisEurPerKwYear',
@@ -156,6 +160,17 @@ export function mapDraftToTariffParams(
   ) {
     candidate.leistungspreisEurPerKwYear = 0
   }
+  // Ohne Leistungspreis gibt es keinen Sockel, auf den eine Mindestleistung wirken könnte.
+  if (candidate.leistungspreisEurPerKwYear === 0 && !('minBillableKw' in candidate)) {
+    candidate.minBillableKw = 0
+  }
+
+  /*
+   * „Ohne Rechnung fortfahren" (`invoiceSkipped`, Rechnung-Station) IST die Aussage „eigener
+   * Liefertarif unbekannt" — eine ausdrückliche Angabe, nicht aus leeren Feldern geschlossen. Jeder
+   * Schreibweg mit echten Tarifwerten setzt den Vermerk zurück (`INVOICE_SKIPPED_KEY`, apps/web).
+   */
+  if (draft[INVOICE_SKIPPED_DRAFT_KEY] === true) candidate.supplierTariff = 'unknown'
 
   /*
    * Weg 2 — der Vergleichstarif reist als GANZES Objekt in den Contract, nicht als vier
@@ -188,7 +203,8 @@ export function mapDraftToTariffParams(
     throw new Error(
       `Der Entwurf ergibt keine gültigen Tarifparameter — ${problems}. ` +
         'Die fehlenden Angaben stammen aus der Netzrechnung und werden in der Rechnung-Station ' +
-        'erfasst; geraten wird hier nichts.',
+        'erfasst; geraten wird hier nichts. Gibt es keine Stromrechnung, dort „Ohne Rechnung ' +
+        'fortfahren" wählen — dann wird mit unbekanntem Liefertarif gerechnet.',
     )
   }
 

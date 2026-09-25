@@ -16,6 +16,7 @@ import {
   type TariffSourceRef,
   analysisForDisplay,
   type DisplayPriceBasis,
+  effectiveBillingModel,
 } from 'shared'
 
 import {
@@ -224,7 +225,9 @@ export function Report({
   // — kein zweiter Zustand: verschwindet automatisch, sobald `billingModel` (via Shortcut ODER
   // Annahmen-Panel) auf `annual_max` wechselt.
   const showPartialYearWarning =
-    a.billingModel.startsWith('monthly') && result.dataQuality.coveredMonths < 12
+    a.billingModel !== null &&
+    a.billingModel.startsWith('monthly') &&
+    result.dataQuality.coveredMonths < 12
 
   /*
    * Grosse zusammenhängende Datenlücke (§3.3) — ein EIGENER Hinweis neben der Teiljahres-Warnung
@@ -900,7 +903,7 @@ export function Report({
             <LoadChart
               loadProfile={loadProfile}
               dispatchTrace={primaryEntry?.dispatchTrace}
-              billingModel={a.billingModel}
+              billingModel={effectiveBillingModel(a.billingModel)}
               leistungspreisRatePerKwYear={leistungspreisRatePerKwYear}
             />
           </div>

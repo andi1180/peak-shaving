@@ -1,4 +1,4 @@
-import type { BillingModel } from './tariff'
+import { effectiveBillingModel, type BillingModel } from './tariff'
 
 /**
  * Umrechnung abgerechneter kW-Wert → Jahreskosten eines kW-Satzes — die EINE Stelle dafür, benutzt
@@ -18,10 +18,11 @@ export const MONTHS_PER_YEAR = 12
 /** Der kW-Wert, auf den der Jahressatz genau einmal angewandt wird. */
 export function demandChargeKwPerYear(
   billedKw: number,
-  billingModel: BillingModel,
+  billingModel: BillingModel | null,
   coveredMonths: number,
 ): number {
-  if (billingModel !== 'monthly_max_sum' || coveredMonths <= 0) return billedKw
+  if (effectiveBillingModel(billingModel) !== 'monthly_max_sum' || coveredMonths <= 0)
+    return billedKw
   const overCoveredMonths = billedKw / MONTHS_PER_YEAR // Σ Monatsspitze × Satz/12, je kW Satz
   return overCoveredMonths * (MONTHS_PER_YEAR / coveredMonths)
 }
@@ -30,7 +31,7 @@ export function demandChargeKwPerYear(
 export function demandChargePerYear(
   billedKw: number,
   rateEurPerKwYear: number,
-  billingModel: BillingModel,
+  billingModel: BillingModel | null,
   coveredMonths: number,
 ): number {
   return rateEurPerKwYear * demandChargeKwPerYear(billedKw, billingModel, coveredMonths)

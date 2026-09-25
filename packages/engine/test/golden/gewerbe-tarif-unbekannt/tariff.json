@@ -1,0 +1,11 @@
+{
+  "horizonYears": 10,
+  "tariff": {
+    "supplierTariff": "unknown",
+    "leistungspreisEurPerKwYear": 0,
+    "billingModel": null,
+    "minBillableKw": 0,
+    "meteringVariant": "ohne_leistungsmessung",
+    "netzebene": "NE 7"
+  }
+}

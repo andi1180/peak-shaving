@@ -572,7 +572,9 @@ export function parseAnalysisBundle(raw: unknown): AnalysisBundleParseResult {
   if (!isRecord(raw.inputs.tariff)) {
     return { ok: false, message: 'Im Bündel fehlen die Tarifparameter („inputs.tariff").' }
   }
-  if (typeof raw.inputs.tariff.billingModel !== 'string') {
+  // `null` ist seit „Eigener Tarif unbekannt" (25.09.2026) zulässig: kein Leistungspreis, kein Modell.
+  const billingModel = raw.inputs.tariff.billingModel
+  if (typeof billingModel !== 'string' && billingModel !== null) {
     return {
       ok: false,
       message: 'Im Bündel fehlt das Abrechnungsmodell („inputs.tariff.billingModel").',

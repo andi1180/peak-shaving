@@ -5,7 +5,7 @@ import type {
   TariffParams,
   TariffSourceRef,
 } from 'shared'
-import { buildTariffSourceRef } from 'shared'
+import { buildTariffSourceRef, effectiveBillingModel } from 'shared'
 // Bewusst ein FESTER Katalog: die Prüfroute darf nicht mit der Katalogpflege wandern (K3c).
 import { DEMO_BATTERY_CATALOG } from 'shared/fixtures'
 
@@ -278,7 +278,7 @@ export async function runSummaryAnalysis(
     const tariffSource: TariffSourceRef | null = payload.tariffSelection
       ? buildTariffSourceRef(payload.tariffSelection, {
           leistungspreisEurPerKwYear: payload.tariff.leistungspreisEurPerKwYear,
-          billingModel: payload.tariff.billingModel,
+          billingModel: effectiveBillingModel(payload.tariff.billingModel),
           minBillableKw: payload.tariff.minBillableKw,
         })
       : null

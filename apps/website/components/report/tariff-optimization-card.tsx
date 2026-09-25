@@ -161,10 +161,11 @@ export function TariffOptimizationCard({
   /* K3b-2: Ohne Speicherreihe gibt es diesen Vergleich nicht — „nicht verglichen" ist wie bisher
      nicht „günstiger", und die Warnung bleibt deshalb aus. */
   const monthlyWithBattery = monthly?.spotWithBatteryEur
+  const monthlyCurrent = monthly?.currentTariffEur
   const totals =
-    monthly && monthlyWithBattery
+    monthly && monthlyWithBattery && monthlyCurrent
       ? {
-          current: sumCovered(monthly.currentTariffEur),
+          current: sumCovered(monthlyCurrent),
           withBattery: sumCovered(monthlyWithBattery),
           months: monthly.coveredMonths,
         }

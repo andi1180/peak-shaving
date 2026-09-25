@@ -68,13 +68,21 @@ export function buildRealSavingBreakdown(totals: {
   spotWithBatteryEur: number
 }): RealSavingBreakdown {
   const tariffSwitchEur = totals.currentTariffEur - totals.spotWithoutControlEur
-  const controlValueEur = totals.spotWithoutControlEur - totals.spotWithBatteryEur
+  const controlValueEur = controlValueOf(totals)
   return {
     tariffSwitchEur,
     controlValueEur,
     // ⚠ Summe der Teile, nicht `currentTariffEur - spotWithBatteryEur` — s. Modulkopf.
     totalEur: tariffSwitchEur + controlValueEur,
   }
+}
+
+/** Der Beitrag der Ladesteuerung — braucht „Ihr Tarif heute" nicht, gilt also auch ohne ihn. */
+export function controlValueOf(totals: {
+  spotWithoutControlEur: number
+  spotWithBatteryEur: number
+}): number {
+  return totals.spotWithoutControlEur - totals.spotWithBatteryEur
 }
 
 /**

@@ -327,7 +327,8 @@ export function reportRequestExtractionIsEmpty(e: ReportRequestExtraction): bool
  * zweite ist eine Änderung, die man vorschlagen kann.
  */
 export type ReportRequestCurrent = {
-  billingModel: BillingModel
+  /** `null` ohne Leistungspreis (`TariffParams.billingModel`). */
+  billingModel: BillingModel | null
   horizonYears: number
   subsidyPercent: number | null
   fixedSubsidyEur: number | null
