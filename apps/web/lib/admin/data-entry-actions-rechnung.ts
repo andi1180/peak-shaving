@@ -14,7 +14,7 @@ import {
   type BillingModel,
 } from 'shared'
 import { uploadProjectDocument } from '@/lib/project-documents/documents'
-import { setDraftField } from '@/lib/project-chat/draft'
+import { dropInapplicableBillingModel, setDraftField } from '@/lib/project-chat/draft'
 import { createClient } from '@/lib/supabase/server'
 import { lookupGridTariffDefaults } from './grid-tariff-lookup'
 import {
@@ -289,7 +289,7 @@ export async function uploadMeteringPointInvoicesAction(
   const draftRes = await supabase.rpc('update_metering_point_draft', {
     p_metering_point_id: meteringPointId,
     // Zusicherung wie im Standardprofil-Zweig: zur Laufzeit dasselbe, TypeScript kann es nur nicht wissen.
-    p_draft: nextDraft as Json,
+    p_draft: dropInapplicableBillingModel(nextDraft) as Json,
   })
 
   if (draftRes.error) {
@@ -509,7 +509,7 @@ export async function removeMeteringPointInvoiceAction(
   const draftRes = await supabase.rpc('update_metering_point_draft', {
     p_metering_point_id: meteringPointId,
     // Zusicherung wie im Upload-Zweig: zur Laufzeit dasselbe, TypeScript kann es nur nicht wissen.
-    p_draft: nextDraft as Json,
+    p_draft: dropInapplicableBillingModel(nextDraft) as Json,
   })
 
   if (draftRes.error) {
@@ -1057,7 +1057,7 @@ export async function saveMeteringPointManualTariffAction(
   const draftRes = await supabase.rpc('update_metering_point_draft', {
     p_metering_point_id: meteringPointId,
     // Zusicherung wie in den übrigen Entwurf-Schreibwegen: zur Laufzeit dasselbe.
-    p_draft: nextDraft as Json,
+    p_draft: dropInapplicableBillingModel(nextDraft) as Json,
   })
 
   if (draftRes.error) {

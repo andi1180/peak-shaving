@@ -1146,21 +1146,24 @@ export function StepTariff({
               onChange={set('minBillableKw')}
               error={errors.minBillableKw}
             />
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="billingModel">Abrechnungsmodell</Label>
-              <Select value={f.billingModel} onValueChange={set('billingModel')}>
-                <SelectTrigger id="billingModel">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="monthly_max_average">
-                    Mittel der 12 Monatshöchstwerte
-                  </SelectItem>
-                  <SelectItem value="annual_max">Jahreshöchstwert</SelectItem>
-                  <SelectItem value="monthly_max_sum">Summe der 12 Monatshöchstwerte</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            {/* Ohne Leistungsmessung kein Leistungspreis — und damit kein Abrechnungsmodell. */}
+            {!noPowerMeasurement && (
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="billingModel">Abrechnungsmodell</Label>
+                <Select value={f.billingModel} onValueChange={set('billingModel')}>
+                  <SelectTrigger id="billingModel">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="monthly_max_average">
+                      Mittel der 12 Monatshöchstwerte
+                    </SelectItem>
+                    <SelectItem value="annual_max">Jahreshöchstwert</SelectItem>
+                    <SelectItem value="monthly_max_sum">Summe der 12 Monatshöchstwerte</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
           {deviates && defaultLeistungspreis != null && (
             <p className="text-xs text-text-muted" data-testid="tarif-abweichung">

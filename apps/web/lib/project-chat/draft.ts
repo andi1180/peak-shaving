@@ -1,5 +1,7 @@
 import { tariffParamsSchema } from 'shared'
 
+import { billingModelApplies } from './billing-model'
+
 import { DRAFT_REQUIRED_FIELDS, type DraftValueSource } from './tools'
 
 /**
@@ -95,6 +97,24 @@ export function setDraftField(
       at: now.toISOString(),
     },
   }
+  return next
+}
+
+/**
+ * Entfernt ein Abrechnungsmodell samt Herkunftsvermerk, wo es nicht gilt — vor JEDEM Schreiben
+ * angewandt, damit ein Entwurf ohne Leistungsmessung nie ein aktives Modell trägt, gleich über
+ * welchen Weg Messvariante oder Modell hineinkamen.
+ */
+export function dropInapplicableBillingModel(
+  draft: Record<string, unknown>,
+): Record<string, unknown> {
+  if (billingModelApplies(draft) || !('billingModel' in draft)) return draft
+  const next: Record<string, unknown> = { ...draft }
+  delete next.billingModel
+  const provenance = readDraftProvenance(draft)
+  delete provenance.billingModel
+  if (Object.keys(provenance).length > 0) next[DRAFT_PROVENANCE_KEY] = provenance
+  else delete next[DRAFT_PROVENANCE_KEY]
   return next
 }
 

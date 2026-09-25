@@ -1165,6 +1165,63 @@ describe('saveMeteringPointManualTariffAction — zwei von sieben Feldern', () =
  * Die zweite Eigenschaft, die nur hier messbar ist: der NEIN-Zweig schreibt GENAU EIN Feld. Fiele
  * dort ein Batteriefeld mit hinein, wäre das eine Angabe über eine Anlage, die es nicht gibt.
  */
+describe('Abrechnungsmodell nur mit Leistungsmessung', () => {
+  beforeEach(() => {
+    draft = {}
+    withInvoiceWrappers()
+  })
+
+  function tariffForm(meteringVariant: string): FormData {
+    const fd = new FormData()
+    fd.set('projectId', PROJECT_ID)
+    fd.set('meteringPointId', POINT_ID)
+    fd.set('operatorId', 'wiener_netze')
+    fd.set('netzebene', '7')
+    fd.set('meteringVariant', meteringVariant)
+    fd.set('billingModel', 'monthly_max_average')
+    fd.set('energyPriceCtPerKwh', '13,081')
+    fd.set('priceBasis', 'net')
+    return fd
+  }
+
+  it('⚠ speichert ohne Leistungsmessung KEIN Abrechnungsmodell, auch keinen Vermerk', async () => {
+    const state = await saveMeteringPointManualTariffAction({}, tariffForm('ohne_leistungsmessung'))
+
+    expect(state.formError).toBeUndefined()
+    expect(state.fieldErrors).toBeUndefined()
+    expect(draft.meteringVariant).toBe('ohne_leistungsmessung')
+    expect(draft.billingModel).toBeUndefined()
+    expect((draft._provenance as Record<string, unknown>).billingModel).toBeUndefined()
+  })
+
+  it('mit Leistungsmessung bleibt das Modell wie bisher (Vorgabe monthly_max_average)', async () => {
+    await saveMeteringPointManualTariffAction({}, tariffForm('mit_leistungsmessung'))
+
+    expect(draft.billingModel).toBe('monthly_max_average')
+  })
+
+  it('ein bestehendes Modell verschwindet, sobald der Anschluss auf „ohne" gestellt wird', async () => {
+    draft = {
+      netzebene: 'NE 7',
+      meteringVariant: 'mit_leistungsmessung',
+      billingModel: 'monthly_max_sum',
+      _provenance: { billingModel: { source: 'assumed', at: '2026-09-01T10:00:00.000Z' } },
+    }
+    const fd = new FormData()
+    fd.set('projectId', PROJECT_ID)
+    fd.set('meteringPointId', POINT_ID)
+    fd.set('netzebene', '7')
+    fd.set('meteringVariant', 'ohne_leistungsmessung')
+
+    const state = await saveMeteringPointGridConnectionAction({}, fd)
+
+    expect(state.formError).toBeUndefined()
+    expect(draft.billingModel).toBeUndefined()
+    expect(draft._provenance).toBeDefined()
+    expect((draft._provenance as Record<string, unknown>).billingModel).toBeUndefined()
+  })
+})
+
 describe('Batterie-Station', () => {
   /** Ein bereits gelesener Stand, wie ihn die Rechnungs-Station hinterlässt. */
   const EXISTING = {
