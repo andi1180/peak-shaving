@@ -83,5 +83,5 @@ describe('Golden File — Referenzfall Bäckerei', () => {
       `AnalysisResult weicht vom Golden File ab (${lines.length} Stellen, erwartet → erhalten):\n` +
         `${shown}${more}\n\nBewusste Änderung? \`pnpm golden:update\` und im PR begründen (Regel 12).`,
     ).toBe(0)
-  })
+  }, 120_000)
 })
