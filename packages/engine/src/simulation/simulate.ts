@@ -1,10 +1,15 @@
 import type { BatteryCandidate, LoadProfile, PvProfile, TariffParams, TariffPricingInputs } from 'shared'
 
 import { getTariffStrategy } from '../tariff/strategy'
-import { dailyPriceOrder } from './daily-price-order'
+import { dailyPriceOrder, type DailyPriceOrder } from './daily-price-order'
 import { runCombinedDispatch, type DispatchResult } from './dispatch'
 import { drawSeries, intervalHours, startSoc, toPhysics } from './helpers'
 import { peakConstraints } from './peak-constraints'
+import {
+  dispatchPlanningFor,
+  withoutPlanOnDaysMissingPattern,
+  type DispatchPlanning,
+} from './planning'
 import { alignPvGrossToLoad } from './pv'
 import { intervalTariffRates } from './tou'
 
@@ -98,6 +103,8 @@ export function simulateBattery(
   tariffParams: TariffParams,
   pvProfile?: PvProfile,
   pricing?: TariffPricingInputs,
+  /** Fehlt sie, wird sie hier gebildet — Aufrufer mit mehreren Geräten reichen sie einmal je Lauf. */
+  planning?: DispatchPlanning,
 ): BatterySimulationResult {
   const physics = toPhysics(battery)
   const deltaH = intervalHours(loadProfile)
@@ -135,18 +142,29 @@ export function simulateBattery(
    * seiner bisherigen Form), und der nicht berechenbare Fall fällt weiterhin auf gar nichts zurück
    * statt auf eine andere Grundlage (Delta 15 Regel C).
    */
-  const priceOrder =
-    rates.tariffOptimization?.computable === true
-      ? dailyPriceOrder({
-          loadProfile,
-          rateCtPerKwh: rates.rateCtPerKwh,
-          preferChargeInterval: isCheapWindow,
-          capForInterval,
-          draws,
-          physics,
-          deltaH,
-        })
-      : undefined
+  const orderFor = (planDraws: number[]) =>
+    dailyPriceOrder({
+      loadProfile,
+      rateCtPerKwh: rates.rateCtPerKwh,
+      preferChargeInterval: isCheapWindow,
+      capForInterval,
+      draws: planDraws,
+      physics,
+      deltaH,
+    })
+  // Geplant wird mit der Erwartung vom Vorabend (`planning.ts`), ausgeführt unten auf `draws`.
+  let priceOrder: DailyPriceOrder | undefined
+  if (rates.tariffOptimization?.computable === true) {
+    const plan = planning ?? dispatchPlanningFor(loadProfile)
+    priceOrder =
+      plan.basis === 'forecast'
+        ? withoutPlanOnDaysMissingPattern(
+            orderFor(plan.forecast.forecastKw),
+            plan.forecast.hasPattern,
+            physics.usableCapacityKwh,
+          )
+        : orderFor(draws)
+  }
 
   const socStart = startSoc(physics)
   const dispatch = runCombinedDispatch(

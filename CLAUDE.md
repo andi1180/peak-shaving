@@ -157,8 +157,9 @@ synthetischer Lastgang, Tarif von Hand: 9,5 ct / 50 €/kW·a / `monthly_max_sum
 Netzentgelte/Spotpreise/Katalog am 23.09.2026 per `anon` eingefroren, 2025er Netzverlust nach der
 Tippfehler-Korrektur 0,7 ct):** `billedKw` **606,56**,
 31 Katalog-Kandidaten, Leistungspreis 2.527,33 €/Jahr, Empfehlung `6845c64d…` (**Kostal & Dyness
-Retrofit L**, **2.114 €/Jahr, Amortisation 5,18 Jahre, netto 10.193 € über 10 Jahre** seit der
-§3.7-Revision 25.09.2026 — davor 2.144 €/5,11/10.490 € seit Abgaben Phase 2a, davor 2.009 €/5,45/9.139 €; mit dem fehlerhaften Netzverlust 7 ct waren es
+Retrofit L**, **2.083 €/Jahr, Amortisation 5,26 Jahre, netto 9.883 € über 10 Jahre** seit der
+Vorabend-Planung (§3.7-Revision PR 2, 25.09.2026) — davor 2.114 €/5,18/10.193 € seit der
+§3.7-Revision PR 1, davor 2.144 €/5,11/10.490 € seit Abgaben Phase 2a, davor 2.009 €/5,45/9.139 €; mit dem fehlerhaften Netzverlust 7 ct waren es
 1.875 €/5,84/7.803 €). Die Bewegung kommt aus der Gebrauchsabgabe auf Energie (Lastverschiebung
 891,66 → 959,93 €) und auf den Leistungspreis (1.117,08 → 1.184,11 €, × 1,06); der Abgabenplan des
 Golden ist dafür mit `{ category: 'gewerbe', postalCode: null }` neu erzeugt · Urbanz
@@ -239,6 +240,26 @@ Details und der vollständige Stand: siehe `./Pflichtenheft_Kalkulator_MVP.md`, 
 
 > Lebendiger Handover-Anker. Neueste offene Punkte, die den Bau der Engine/Simulation berühren. Erledigtes wandert raus.
 
+### Ein vorausschauender Fahrplan — §3.7-Revision PR 2 (25.09.2026)
+
+`simulateBattery` plant die Tages-Rangfolge mit der Vorabend-Prognose (`engine/src/simulation/planning.ts`,
+einmal je Lauf in `computeAnalysis` gebildet und an Katalog, Bestand und Zusatzszenarien gereicht);
+ausgeführt wird auf dem echten Lastgang. `spotWithBatteryEur` IST damit Weg 4;
+`spotWithPredictiveControlEur`/`computePredictiveControlValue` sind entfallen, die Rückblick-Obergrenze
+für das gezeigte Gerät steht in `spotWithBatteryHindsightEur`. Bündel-Fassung 13, `ENGINE_VERSION`
+1.5.0-mvp. Fachliche Tiefe: `Pflichtenheft_Kalkulator_MVP.md` §3.7 (Revision PR 2).
+
+**⚠ Beim nächsten Umbau mitzudenken: (a)** `controlVariant: 'predictive'` hängt jetzt an der
+Obergrenze (`spotWithBatteryHindsightEur != null`), nicht mehr an einer eigenen Reihe — sie ist genau
+dann gesetzt, wenn die Reihe vorausschauend geplant ist. **(b)** Wer `simulateBattery` ohne
+`planning` aufruft, bekommt die Prognose je Aufruf neu gebildet — korrekt, aber teuer; Schleifen
+über Geräte reichen sie herein. **(c) ⚠ Der Leistungspreis-Anteil ist NICHT mehr reiner Rückblick:**
+Kappschwelle und Reserve stammen zwar aus dem ganzen Zeitraum, aber im günstigen Ladefenster deckelt
+`chargeCeilingKwh` die Ladung ohne Rücksicht auf die Reserve — plant die Prognose falsch, bricht die
+Kappschwelle (Bäckerei-Golden: `newBilledKw` bewegt sich bei 27 von 31 Geräten, nicht beim
+empfohlenen). Offene Entscheidung, eigener PR mit Golden-Update. **(d)** Report-Texte und die
+Darstellung der Obergrenze sind PR 3.
+
 ### Energie-Ersparnis als volle Kostendifferenz der Reihen — §3.7-Revision (25.09.2026)
 
 `computeBatterySavings` bewertet nicht mehr Einzel-kWh in zwei Töpfen, sondern rechnet
@@ -251,7 +272,7 @@ Bündel-Fassung 12, `ENGINE_VERSION` 1.4.0-mvp. Fachliche Tiefe: `Pflichtenheft_
 Kapp-Ladungen, keine Untergrenze) — ein Kapp-Gerät verliert dadurch bis ~1.000 €/Jahr gegenüber der
 alten Zahl. **(b)** Ohne rechenbare Preisdaten ist er nur mit Arbeitspreis/Nachttarif bewertet
 (`energySavingBasis: 'energy_price_only'`); der Report weist das noch nicht aus (PR 3). **(c)** Der
-Fahrplan ist unverändert und weiterhin Rückblick; die Vorabend-Planung ist PR 2. **(d)** Report-Texte
+Fahrplan ist seit PR 2 vorausschauend (Abschnitt darüber). **(d)** Report-Texte
 („Wert der Ladesteuerung unter aWATTar" zeigt jetzt den Energie-Anteil, doppelt zur Weg-4-Differenz)
 sind bewusst erst PR 3.
 
@@ -387,6 +408,9 @@ Dazu vier Typfehler in Testdateien, die nie getypt wurden, weil der erste Fehler
 Produktionscode beteiligt.
 
 ### Vorausschauende Ladesteuerung — „Zahl 2" gebaut, aber nur intern (21.09.2026)
+
+**⚠ Überholt seit 25.09.2026 (§3.7-Revision PR 2):** die Vorabend-Prognose ist jetzt die Planung JEDES
+Fahrplans, `computePredictiveControlValue` ist entfallen. Der Abschnitt bleibt als Messgeschichte stehen.
 
 `packages/engine/src/foresight/` rechnet den **vorausschauenden `controlValueEur`**: denselben
 Fahrplan, aber die Tages-Rangfolge (`daily-price-order.ts`) sieht statt des gemessenen Netzbezugs

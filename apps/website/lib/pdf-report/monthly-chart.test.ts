@@ -29,14 +29,14 @@ const SIMPLE: MonthlyTariffComparison = {
     coveredDays: 59,
   },
 }
-const PREDICTIVE: MonthlyTariffComparison = { ...SIMPLE, spotWithPredictiveControlEur: months(90, 97) }
+const PREDICTIVE: MonthlyTariffComparison = { ...SIMPLE, spotWithBatteryHindsightEur: months(90, 97) }
 
 const CURRENT = { annualPeakKw: 48, monthlyPeaksKw: Array<number>(12).fill(48), billedKw: 0, leistungspreisCostPerYear: 0 }
 
 describe('monthlyChartData — dieselbe Auswahl wie die Monatstabelle', () => {
   it.each([
     ['ohne vorausschauende Reihe', SIMPLE, SIMPLE.spotWithBatteryEur!],
-    ['mit vorausschauender Reihe', PREDICTIVE, PREDICTIVE.spotWithPredictiveControlEur!],
+    ['mit Rückblick-Obergrenze', PREDICTIVE, PREDICTIVE.spotWithBatteryEur!],
   ])('%s', (_, comparison, expectedSeries) => {
     const { rows, totals } = monthlyChartData(comparison)
     const tableRow = buildMonthly(comparison, CURRENT).statement.rows.find((r) => r.label === CONTROLLED_WAY_LABEL)

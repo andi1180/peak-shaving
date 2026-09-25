@@ -17,12 +17,9 @@ import { computeSocFloor } from './reserve'
  * Abrechnungsperiode und Reserve-Trajektorie `socFloor(t)`.
  *
  * ── WARUM EIN EIGENES MODUL ────────────────────────────────────────────────────────────────────
- * Sie werden seit dem 21.09.2026 an ZWEI Stellen gebraucht: `simulateBattery` (der Produktivlauf)
- * und `computePredictiveControlValue` (Weg a der vorausschauenden Ladesteuerung, das den
- * Produktivlauf als Vergleichsmassstab benutzt). Genau darin liegt die Zusage von Weg a — der
- * vorausschauende Lauf rechnet unter DENSELBEN Schranken wie der Rückblick-Lauf, nur mit anderer
- * Verbrauchserwartung. Zwei Kopien dieser vier Zeilen liefen beim nächsten Ausbau auseinander, und
- * die Differenz der beiden Zahlen enthielte dann einen Anteil, der gar nicht an der Prognose liegt.
+ * Weg a: der vorausschauend geplante Fahrplan und seine Rückblick-Obergrenze (`planning.ts`)
+ * rechnen unter DENSELBEN Schranken, nur mit anderer Verbrauchserwartung — die Differenz der
+ * beiden Zahlen liegt damit allein an der Prognose.
  */
 export type PeakConstraints = {
   /** Kapp-Schwelle je Contract-Slot (§3.10): Länge 1 (`annual_max`) / 12 (`monthly_*`). */

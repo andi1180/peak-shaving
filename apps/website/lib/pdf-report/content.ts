@@ -143,7 +143,7 @@ const HINDSIGHT_NOTE_PREDICTIVE =
 export function methodologyItemsFor(input: Pick<PdfReportInput, 'analysis' | 'origin'>): readonly MethodologyItem[] {
   const tariffOptimization = input.analysis.tariffOptimization
   const monthlyComparison = tariffOptimization?.computable === true ? tariffOptimization.monthlyComparison : undefined
-  const isPredictive = monthlyComparison?.spotWithPredictiveControlEur != null
+  const isPredictive = monthlyComparison?.spotWithBatteryHindsightEur != null
 
   return METHODOLOGY_ITEMS.filter(
     (item) => item.id !== 'methodik-prinzip4' || input.origin === 'client',

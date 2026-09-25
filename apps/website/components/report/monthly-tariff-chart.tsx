@@ -129,12 +129,7 @@ export function monthlyChartData(comparison: MonthlyTariffComparison): {
   hasCurrent: boolean
 } {
   const { controlVariant, controlledEur } = tariffWayCosts(comparison)
-  const controlled =
-    controlVariant === 'predictive'
-      ? comparison.spotWithPredictiveControlEur
-      : controlVariant === 'simple'
-        ? comparison.spotWithBatteryEur
-        : undefined
+  const controlled = controlVariant !== null ? comparison.spotWithBatteryEur : undefined
 
   const rows: Row[] = MONTH_LABELS.map((month, i) => ({
     month,
@@ -412,7 +407,7 @@ export function MonthlyTariffChart({
           Rückblickend gerechnet auf die tatsächlichen Marktpreise Ihres Zeitraums — kein
           Versprechen für die Zukunft.{' '}
           {/* Derselbe Abgleich wie im Methodik-Kapitel (`methodologyItemsFor`): die Reihe entscheidet den Wortlaut. */}
-          {comparison.spotWithPredictiveControlEur != null ? (
+          {comparison.spotWithBatteryHindsightEur != null ? (
             <>
               Die Ladesteuerung des Speichers plant dabei jeweils am Vorabend mit einer
               Verbrauchserwartung aus Ihrer eigenen Verbrauchshistorie; ausgeführt wird trotzdem auf

@@ -231,15 +231,14 @@ export type MonthlyTariffComparison = {
   /** Der Name des Lieferanten zu `comparisonTariffEur` — gemeinsam gesetzt oder gemeinsam weg. */
   comparisonSupplier?: string
   /**
-   * D7-Revision Weg 4 — aWATTar mit VORAUSSCHAUENDER Ladesteuerung: derselbe Fahrplan wie
-   * `spotWithBatteryEur`, aber geplant mit der Verbrauchserwartung des Vorabends statt mit dem
-   * gemessenen Tag (`computePredictiveControlValue`, Weg a).
+   * OBERGRENZE zu `spotWithBatteryEur`: derselbe Speicher, aber geplant mit dem gemessenen Tag
+   * statt mit der Vorabend-Erwartung (perfektes Wissen). Seit Fassung 13 ist
+   * `spotWithBatteryEur` selbst vorausschauend geplant.
    *
-   * ⚠ `undefined` heisst „nicht berechenbar" (synthetischer Lastgang, keine echte Preiskurve, kein
-   * Muster) — dann zeigt der Report an dieser Stelle die EINFACHE Ladesteuerung und sagt das auch.
-   * Die Zahl ist UNVALIDIERT (`PREDICTIVE_CONTROL_VALUE_BASIS`).
+   * Gesetzt genau dann, wenn `spotWithBatteryEur` vorausschauend geplant ist — beim
+   * Standardprofil sind beide dasselbe, und ohne Speicher gibt es nichts zu begrenzen.
    */
-  spotWithPredictiveControlEur?: (number | null)[]
+  spotWithBatteryHindsightEur?: (number | null)[]
   /** Zahl der belegten Kalendermonate — die Bezugsgrösse des Hinweistexts im Report. */
   coveredMonths: number
   /**

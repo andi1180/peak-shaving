@@ -6,9 +6,9 @@ import type { MonthlyTariffComparison } from './tariff-pricing'
  *
  * ── ⚠ WARUM DIESE AUSWAHL EINE EIGENE HEIMAT HAT ──────────────────────────────────────────────
  * Die Zuordnung „Reihe → Weg" ist nicht offensichtlich und hat zwei Sonderregeln: Weg 2 entfällt
- * ganz, wenn der Kunde keinen Vergleichstarif genannt hat, und Weg 4 liest die VORAUSSCHAUENDE
- * Reihe, sobald es sie gibt, sonst die einfache — und der Report muss sagen können, welche der
- * beiden er zeigt. Seit der Jahres-Hochrechnung (D6 Teil 3) gibt es zwei Konsumenten dieser
+ * ganz, wenn der Kunde keinen Vergleichstarif genannt hat, und Weg 4 ist `spotWithBatteryEur`, das
+ * seit Fassung 13 vorausschauend geplant ist — und der Report muss sagen können, ob (beim
+ * Standardprofil nicht). Seit der Jahres-Hochrechnung (D6 Teil 3) gibt es zwei Konsumenten dieser
  * Auswahl: den Report für den gemessenen Zeitraum (`summaryWaysOf`) und die Hochrechnung für den
  * synthetischen Jahreslauf. Zweimal geschrieben liefen sie irgendwann auseinander — und der
  * Unterschied sähe aus wie ein Jahresgang, wäre aber eine andere Lesart derselben Reihen.
@@ -61,8 +61,9 @@ export function savingsBaselineOf(
 
 export function tariffWayCosts(comparison: MonthlyTariffComparison): TariffWayCosts {
   const comparisonSeries = comparison.comparisonTariffEur
-  const predictiveSeries = comparison.spotWithPredictiveControlEur
-  const controlledSeries = predictiveSeries ?? comparison.spotWithBatteryEur
+  const controlledSeries = comparison.spotWithBatteryEur
+  // Die Obergrenze gibt es genau dann, wenn die Reihe vorausschauend geplant ist (`tariff-pricing.ts`).
+  const predictive = comparison.spotWithBatteryHindsightEur != null
 
   const currentTariffEur = comparison.currentTariffEur
     ? sumCovered(comparison.currentTariffEur)
@@ -75,6 +76,6 @@ export function tariffWayCosts(comparison: MonthlyTariffComparison): TariffWayCo
     comparisonSupplier: comparison.comparisonSupplier ?? null,
     spotWithoutControlEur: sumCovered(comparison.spotWithoutControlEur),
     controlledEur: controlledSeries ? sumCovered(controlledSeries) : null,
-    controlVariant: controlledSeries ? (predictiveSeries ? 'predictive' : 'simple') : null,
+    controlVariant: controlledSeries ? (predictive ? 'predictive' : 'simple') : null,
   }
 }

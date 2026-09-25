@@ -159,16 +159,11 @@ describe('Monatsvergleich als eigenes Kapitel (D7)', () => {
     expect(body).not.toContain('Kernergebnis')
   })
 
-  /**
-   * Sobald die vorausschauende Reihe vorliegt, zeigt Weg 4 SIE — dieselbe Auswahl wie im
-   * Wege-Kapitel (`ways.ts`/`tariffWayCosts`). Vorher las diese Zeile immer `spotWithBatteryEur`
-   * (die einfache Reihe) und zeigte damit unter demselben Namen einen anderen Betrag als der
-   * Balken im Wege-Kapitel.
-   */
-  it('zeigt bei vorliegender Prognose deren Betrag, nicht den der einfachen Reihe', () => {
+  /** Weg 4 zeigt die vorausschauende Reihe selbst, nie die Rückblick-Obergrenze daneben. */
+  it('zeigt bei vorliegender Obergrenze den Betrag der Reihe, nicht den der Obergrenze', () => {
     const predictive: MonthlyTariffComparison = {
       ...COMPARISON,
-      spotWithPredictiveControlEur: [90, ...Array<null>(11).fill(null)],
+      spotWithBatteryHindsightEur: [90, ...Array<null>(11).fill(null)],
     }
     const { statement } = buildMonthly(predictive, {
       annualPeakKw: 48,
@@ -178,8 +173,8 @@ describe('Monatsvergleich als eigenes Kapitel (D7)', () => {
     })
     const row = statement.rows.find((r) => r.label === CONTROLLED_WAY_LABEL)
 
-    expect(row?.value).toBe('€ 90')
-    expect(row?.value).not.toBe('€ 95')
+    expect(row?.value).toBe('€ 95')
+    expect(row?.value).not.toBe('€ 90')
   })
 
   /**

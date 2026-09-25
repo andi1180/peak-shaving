@@ -18,7 +18,6 @@ import {
 import type { DataQuality } from './parser'
 import { analyzeCurrentPeaks, topPeaksKw } from './peaks'
 import { recommendBattery } from './recommendation'
-import { computePredictiveControlValue } from './foresight'
 import { eagDemandChargePerYear } from './tariff'
 import { calculateRoi } from './roi'
 import { computeBatterySavings } from './savings'
@@ -27,7 +26,10 @@ import {
   alignPvGrossToLoad,
   buildDispatchTrace,
   buildMonthlyTariffComparison,
+  dispatchPlanningFor,
   evaluateTariffOptimization,
+  HINDSIGHT_PLANNING,
+  type DispatchPlanning,
   pvConsistencyWarning,
   pvCoverageWarning,
   simulateBattery,
@@ -228,6 +230,7 @@ function buildExistingBatteryAnalysis(
   payload: CalculatorPayload,
   horizonYears: number,
   catalog: BatteryCandidate[],
+  planning: DispatchPlanning,
 ): ExistingBatteryOutcome | undefined {
   const existing = payload.existingBattery?.battery
   if (!existing) return undefined
@@ -239,7 +242,7 @@ function buildExistingBatteryAnalysis(
   // Profil-, nicht batterieabhängig — einmal für alle Läufe (dieselbe Menge wie `peaks.top`).
   const topPeaks = topPeaksKw(loadProfile)
 
-  const sim = simulateBattery(loadProfile, existing, payload.tariff, pvProfile, pricing)
+  const sim = simulateBattery(loadProfile, existing, payload.tariff, pvProfile, pricing, planning)
   const savings = computeBatterySavings(loadProfile, existing, payload.tariff, sim, pricing, levies)
   const entry: BatteryResultEntry = {
     battery: existing,
@@ -249,7 +252,7 @@ function buildExistingBatteryAnalysis(
 
   const addonScenarios: AddonBatteryScenario[] = catalog.map((addon) => {
     const combined = combineBatteries(existing, addon)
-    const cSim = simulateBattery(loadProfile, combined, payload.tariff, pvProfile, pricing)
+    const cSim = simulateBattery(loadProfile, combined, payload.tariff, pvProfile, pricing, planning)
     const cSav = computeBatterySavings(loadProfile, combined, payload.tariff, cSim, pricing, levies)
 
     const leistungspreisSavingPerYear =
@@ -397,7 +400,13 @@ export function computeAnalysis(
    * Zusatzgeräts verschieben. Nur im Erstlauf gerechnet stünde nach der ersten Änderung im
    * Annahmen-Panel ein Bestandsblock aus einer anderen Rechnung neben dem übrigen Report.
    */
-  const existing = buildExistingBatteryAnalysis(payload, horizonYears, catalog)
+  // Die Vorabend-Prognose EINMAL je Lauf; ohne Preiskurve gibt es keine Rangfolge, die sie bräuchte.
+  const planning =
+    baseTariffOptimization?.computable === true
+      ? dispatchPlanningFor(loadProfile)
+      : HINDSIGHT_PLANNING
+
+  const existing = buildExistingBatteryAnalysis(payload, horizonYears, catalog, planning)
 
   // --- perBattery/recommendation: ECHTER Engine-Aufruf (§3.6–§3.8) ---
   // `financial` ist bereits vollständig optional gebaut (§3.9) — fehlt es (Formular sammelt es
@@ -416,6 +425,7 @@ export function computeAnalysis(
     pvProfile,
     payload.tariffPricing,
     leviesOf(payload),
+    planning,
   )
 
   /*
@@ -456,33 +466,37 @@ export function computeAnalysis(
         )
       : undefined
   /*
-   * ── D7-REVISION WEG 4: DIE VORAUSSCHAUENDE LADESTEUERUNG ─────────────────────────────────────
-   * Derselbe Fahrplan wie die dritte Reihe, aber geplant mit der Verbrauchserwartung des Vorabends
-   * (`computePredictiveControlValue`, Weg a). Gerechnet wird für DENSELBEN Speicher, dessen
-   * Dispatch schon die dritte Reihe trägt — sonst verglichen die beiden Reihen zwei Geräte.
-   *
-   * ⚠ Nur, wenn es die dritte Reihe überhaupt gibt: ohne sie gäbe es nichts, wogegen Weg 4 stünde.
-   * Ein Blocker (synthetischer Lastgang, keine echte Preiskurve, kein Muster) lässt die Reihe
-   * ENTFALLEN — der Report zeigt dann die einfache Ladesteuerung und sagt das auch.
+   * Weg 4 ist `spotWithBatteryEur` selbst — derselbe vorausschauende Fahrplan wie jede Ersparnis.
+   * Die Obergrenze (Planung mit dem gemessenen Tag) entsteht nur für das gezeigte Gerät, in einem
+   * zusätzlichen Lauf, und nur wenn die Reihe tatsächlich vorausschauend geplant ist.
    */
   const comparisonBattery = existing?.analysis.entry.battery ?? perBattery[0]?.battery
-  const predictive =
-    monthlyComparison && payload.tariffPricing && comparisonDispatchKw && comparisonBattery
-      ? computePredictiveControlValue({
+  const hindsightSeries =
+    monthlyComparison?.spotWithBatteryEur &&
+    payload.tariffPricing &&
+    comparisonBattery &&
+    planning.basis === 'forecast'
+      ? buildMonthlyTariffComparison(
           loadProfile,
-          battery: comparisonBattery,
-          tariffParams: payload.tariff,
-          pricing: payload.tariffPricing,
-        })
+          payload.tariff,
+          payload.tariffPricing,
+          simulateBattery(
+            loadProfile,
+            comparisonBattery,
+            payload.tariff,
+            pvProfile,
+            payload.tariffPricing,
+            HINDSIGHT_PLANNING,
+          ).dispatch.gridAfterKw,
+        )?.spotWithBatteryEur
       : undefined
 
   const tariffOptimization: TariffOptimizationStatus | undefined = monthlyComparison
     ? {
         computable: true,
-        monthlyComparison:
-          predictive?.ok === true
-            ? { ...monthlyComparison, spotWithPredictiveControlEur: predictive.predictiveMonthlyEur }
-            : monthlyComparison,
+        monthlyComparison: hindsightSeries
+          ? { ...monthlyComparison, spotWithBatteryHindsightEur: hindsightSeries }
+          : monthlyComparison,
       }
     : baseTariffOptimization
 

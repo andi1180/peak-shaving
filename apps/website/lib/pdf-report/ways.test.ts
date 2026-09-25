@@ -24,8 +24,8 @@ function comparisonWith(args: {
   /** Weg 2 — fehlt, wenn der Kunde keinen Vergleichstarif angegeben hat. */
   comparison?: number
   comparisonSupplier?: string
-  /** Weg 4 — die vorausschauende Reihe, wenn die Engine sie rechnen konnte. */
-  predictive?: number
+  /** Rückblick-Obergrenze zu Weg 4 — gesetzt, wenn `battery` vorausschauend geplant ist. */
+  hindsight?: number
 }): MonthlyTariffComparison {
   return {
     currentTariffEur: MONTHS(args.current),
@@ -37,9 +37,9 @@ function comparisonWith(args: {
           comparisonTariffEur: MONTHS(args.comparison),
           comparisonSupplier: args.comparisonSupplier ?? 'ENSTROGA',
         }),
-    ...(args.predictive === undefined
+    ...(args.hindsight === undefined
       ? {}
-      : { spotWithPredictiveControlEur: MONTHS(args.predictive) }),
+      : { spotWithBatteryHindsightEur: MONTHS(args.hindsight) }),
     coveredMonths: 1,
     fixedCosts: {
       networkBaseFeeEur: 0,
@@ -131,10 +131,10 @@ describe('Wege-Kapitel (D7-Revision)', () => {
       comparison: comparisonWith({
         current: 120,
         spot: 110,
-        battery: 95,
+        battery: 97,
         comparison: 112,
         comparisonSupplier: 'ENSTROGA',
-        predictive: 97,
+        hindsight: 95,
       }),
       peakSaving: 1200,
     })
@@ -170,7 +170,7 @@ describe('Wege-Kapitel (D7-Revision)', () => {
       ways.costTodayEur,
       ...ways.ways.map((w) => w.costEur),
     ])
-    // Weg 4 rechnet mit der VORAUSSCHAUENDEN Reihe (97), nicht mit der Bestmarke (95).
+    // Weg 4 rechnet mit der VORAUSSCHAUENDEN Reihe (97), nicht mit der Obergrenze (95).
     expect(ways.controlVariant).toBe('predictive')
     expect(ways.ways.find((w) => w.id === 'controlled')!.costEur).toBe(97)
     expect(String(chapter.statements[3]!.body)).toContain('Vorausberechnung')
@@ -182,9 +182,9 @@ describe('Wege-Kapitel (D7-Revision)', () => {
       comparison: comparisonWith({
         current: 120,
         spot: 110,
-        battery: 95,
+        battery: 97,
         comparison: 112,
-        predictive: 97,
+        hindsight: 95,
       }),
       peakSaving: 1200,
     })

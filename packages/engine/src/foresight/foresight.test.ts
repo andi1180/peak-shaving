@@ -9,9 +9,10 @@ import type {
   TariffPricingInputs,
 } from 'shared'
 
+import { buildMonthlyTariffComparison } from '../simulation/monthly-tariff-comparison'
+import { dispatchPlanningFor, HINDSIGHT_PLANNING } from '../simulation/planning'
 import { simulateBattery } from '../simulation/simulate'
 import { consumptionPatternForDay } from './consumption-pattern'
-import { computePredictiveControlValue } from './predictive-control-value'
 
 const STEP_MS = 15 * 60 * 1000
 const ONE_HOUR_MS = 60 * 60 * 1000
@@ -119,7 +120,7 @@ const DYNAMIC_BATTERY: BatteryCandidate = {
 /**
  * Derselbe Tagesverlauf, aber mit einer KURZEN Spitze statt des fünfstündigen Plateaus — sonst
  * bindet die Spitzen-Reserve die ganze Batterie und der Fahrplan hängt gar nicht mehr an der
- * Verbrauchserwartung (gemessen, s. Modulkopf von `predictive-control-value.ts`).
+ * Verbrauchserwartung (gemessen am 21.09.2026).
  */
 function peakyLoadKw(day: number, slot: number): number {
   if (slot === 40 || slot === 41) return 12 // 10:00–10:30 Ortszeit
@@ -154,75 +155,44 @@ describe('Verbrauchsmuster', () => {
   })
 })
 
-describe('Vorausschauender controlValueEur (Zahl 2)', () => {
-  it('liefert eine Zahl und kann die Bestmarke nicht übertreffen', () => {
-    const result = computePredictiveControlValue({
-      loadProfile: profile(),
-      battery: BATTERY,
-      tariffParams: TARIFF,
-      pricing: PRICING,
-    })
-    expect(result.ok).toBe(true)
-    if (!result.ok) return
+/** aWATTar-Kosten mit Speicher über den ganzen Zeitraum (€). */
+function spotCostEur(loadProfile: LoadProfile, gridAfterKw: number[]): number {
+  const c = buildMonthlyTariffComparison(loadProfile, TARIFF, PRICING, gridAfterKw)
+  return (c?.spotWithBatteryEur ?? []).reduce<number>((s, v) => s + (v ?? 0), 0)
+}
 
-    expect(result.basis).toBe('foresight_unvalidated')
-    expect(result.patternDays).toBe(DAYS)
-    expect(result.daysWithoutPattern).toBe(0)
-    expect(result.hindsightControlValueEur).toBeGreaterThan(0)
-    // §5 Punkt 4: eine Steuerung ohne Rückblick kann die Bestmarke nicht übertreffen.
-    expect(result.realizationRatio).not.toBeNull()
-    expect(result.realizationRatio!).toBeLessThanOrEqual(1)
-    // Und die Prognose schlägt hier wirklich durch — sonst prüfte die Zeile darüber nichts.
-    expect(result.realizationRatio!).toBeLessThan(0.9)
+describe('Fahrplan mit Vorabend-Prognose', () => {
+  it('ist ohne Angabe vorausschauend und kann die Rückblick-Obergrenze nicht unterbieten', () => {
+    const loadProfile = profile()
+    const planning = dispatchPlanningFor(loadProfile)
+    expect(planning.basis).toBe('forecast')
+
+    const byDefault = simulateBattery(loadProfile, BATTERY, TARIFF, undefined, PRICING)
+    const forecast = simulateBattery(loadProfile, BATTERY, TARIFF, undefined, PRICING, planning)
+    const hindsight = simulateBattery(loadProfile, BATTERY, TARIFF, undefined, PRICING, HINDSIGHT_PLANNING)
+    expect(byDefault.dispatch.gridAfterKw).toEqual(forecast.dispatch.gridAfterKw)
+
+    // Die Prognose schlägt hier wirklich durch — und perfektes Wissen ist nie teurer.
+    const forecastEur = spotCostEur(loadProfile, forecast.dispatch.gridAfterKw)
+    const hindsightEur = spotCostEur(loadProfile, hindsight.dispatch.gridAfterKw)
+    expect(forecastEur).toBeGreaterThan(hindsightEur)
   })
 
-  it('Weg a: rechnet MIT Leistungspreis und übernimmt cap/socFloor aus dem Rückblick-Lauf', () => {
+  it('übernimmt Kappschwelle und Spitzen-Reserve unverändert aus dem ganzen Zeitraum', () => {
     const loadProfile = peakyProfile()
-    const result = computePredictiveControlValue({
-      loadProfile,
-      battery: DYNAMIC_BATTERY,
-      tariffParams: TARIFF_WITH_DEMAND_CHARGE,
-      pricing: PRICING,
-    })
-    expect(result.ok).toBe(true)
-    if (!result.ok) return
+    const run = (planning = dispatchPlanningFor(loadProfile)) =>
+      simulateBattery(loadProfile, DYNAMIC_BATTERY, TARIFF_WITH_DEMAND_CHARGE, undefined, PRICING, planning)
+    const forecast = run()
+    const hindsight = run(HINDSIGHT_PLANNING)
 
-    // Der frühere `demand_charge`-Blocker ist weg — und die Schranken sind nicht mehr ∞/0.
-    expect(result.capKwByPeriod).toHaveLength(1)
-    expect(result.capKwByPeriod[0]).toBeLessThan(12) // Tagesspitze des Fixture-Lastgangs
-    expect(Number.isFinite(result.capKwByPeriod[0]!)).toBe(true)
-    expect(result.socFloorKwh.some((v) => v > 0)).toBe(true)
-
-    // Und sie stammen wirklich aus dem Rückblick-Lauf: bit-identisch zu `simulateBattery`.
-    const hindsight = simulateBattery(loadProfile, DYNAMIC_BATTERY, TARIFF_WITH_DEMAND_CHARGE)
-    expect(result.capKwByPeriod).toEqual(hindsight.capKwByPeriod)
-    expect(result.socFloorKwh).toEqual(hindsight.socFloorKwh)
-
-    expect(result.basis).toBe('foresight_unvalidated')
-    // Die Prognose schlägt trotz Spitzenschutz durch, und sie übertrifft die Bestmarke nicht.
-    expect(result.realizationRatio).not.toBeNull()
-    expect(result.realizationRatio!).toBeLessThanOrEqual(1)
-    expect(result.predictiveControlValueEur).not.toBe(result.hindsightControlValueEur)
+    expect(forecast.capKwByPeriod[0]).toBeLessThan(12) // Tagesspitze des Fixture-Lastgangs
+    expect(forecast.socFloorKwh.some((v) => v > 0)).toBe(true)
+    expect(forecast.capKwByPeriod).toEqual(hindsight.capKwByPeriod)
+    expect(forecast.socFloorKwh).toEqual(hindsight.socFloorKwh)
+    expect(forecast.dispatch.gridAfterKw).not.toEqual(hindsight.dispatch.gridAfterKw)
   })
 
-  it('verweigert mit benanntem Grund, statt eine falsche Zahl zu liefern', () => {
-    const base = { battery: BATTERY, pricing: PRICING, tariffParams: TARIFF }
-
-    // Synthetisches Profil: Muster und Wahrheit wären dieselbe Formel.
-    expect(
-      computePredictiveControlValue({
-        ...base,
-        loadProfile: profile('standard_profile'),
-      }),
-    ).toEqual({ ok: false, reason: 'standard_profile' })
-
-    // Ohne Preiskurve gibt es innerhalb eines Tages gar keine Rangfolge.
-    expect(
-      computePredictiveControlValue({
-        ...base,
-        loadProfile: profile(),
-        pricing: { ...PRICING, spotPrices: null },
-      }),
-    ).toEqual({ ok: false, reason: 'price_curve_not_computable' })
+  it('das Standardprofil ist seine eigene Erwartung und plant ohne Prognose', () => {
+    expect(dispatchPlanningFor(profile('standard_profile'))).toEqual(HINDSIGHT_PLANNING)
   })
 })
