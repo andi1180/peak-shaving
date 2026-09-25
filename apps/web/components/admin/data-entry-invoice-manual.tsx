@@ -27,12 +27,14 @@
  * es gibt keinen „aus dem Preisblatt"-Zustand, der sie schützt. Prinzip 1: die Rechnung des Kunden
  * schlägt unsere Tabelle, und das muss man tun können, ohne etwas zurückzunehmen.
  *
- * ── EIN FORMULAR, ZWEI ACTIONS ────────────────────────────────────────────────────────────────
- * Verschachtelte Formulare gibt es in HTML nicht, und die zwei Wege brauchen dieselben drei Felder.
- * Der Vorschlagen-Knopf trägt deshalb ein eigenes `formAction` (React 19) — er schickt DASSELBE
- * Formular an eine andere Action. Zwei getrennte Formulare nebeneinander hiessen, Netzbetreiber und
- * Netzebene zweimal zu erheben; zwei Werte für dieselbe Frage wären ein Zustand, der auseinander
- * laufen kann.
+ * ── EIN FORMULAR, DREI ACTIONS ────────────────────────────────────────────────────────────────
+ * Verschachtelte Formulare gibt es in HTML nicht, und alle Wege brauchen dieselben drei
+ * Anschluss-Felder. Vorschlagen und „Netzanschluss übernehmen" tragen deshalb je ein eigenes
+ * `formAction` (React 19) — sie schicken DASSELBE Formular an eine andere Action.
+ *
+ * ── DER NETZANSCHLUSS IST DER ERSTE, IN SICH ABSCHLIESSBARE TEIL ────────────────────────────
+ * Erst danach (mit oder ohne Angabe) die Wahl: Tarifwerte eintragen oder direkt weiter. Keiner
+ * der Tarifwerte ist Pflicht; wer schon welche erfasst hat, sieht das Formular sofort ganz.
  *
  * ⚠ DER PREIS DIESER ENTSCHEIDUNG, und er ist bezahlt: React setzt UNKONTROLLIERTE Formularfelder
  * nach JEDER abgeschlossenen Action auf diesem Formular zurück, nicht nur nach der gemeinten. Die
@@ -48,22 +50,25 @@ import {
   BILLING_MODEL_HINTS,
   BILLING_MODEL_LABELS,
   INVOICE_MERGE_FIELD_LABELS,
-  METERING_VARIANTS,
-  METERING_VARIANT_LABELS,
-  NETZBETREIBER_IDS,
-  NETZBETREIBER_LABELS,
-  NETZEBENEN,
   VAT_INCLUSIVE_LABEL,
-  hasMeteringVariant,
 } from 'shared'
+
+import Link from 'next/link'
 
 import { Button } from '@/components/ui/button'
 import {
   lookupGridTariffDefaultsAction,
+  saveMeteringPointGridConnectionAction,
   saveMeteringPointManualTariffAction,
 } from '@/lib/admin/data-entry-actions'
 import { ADMIN_INITIAL_STATE } from '@/lib/admin/schema'
 import type { ManualTariffDraft } from '@/lib/admin/invoice-extractions'
+import {
+  DataEntryGridConnectionFields,
+  EMPTY_GRID_CONNECTION,
+  GRID_CONNECTION_NOT_SET_LABEL,
+  type GridConnection,
+} from './data-entry-grid-connection'
 import { AdminError, AdminField, AdminSelect, AdminSuccess } from './ui'
 
 /**
@@ -90,13 +95,23 @@ function fieldLabel(key: NumberFieldKey): string {
   return `${INVOICE_MERGE_FIELD_LABELS[key]} (${UNITS[key]})`
 }
 
+/** Ob über den Netzanschluss hinaus schon ein Tarifwert (oder ein bestätigtes Modell) erfasst ist. */
+function hasStoredTariffValues(initial: ManualTariffDraft): boolean {
+  return initial.billingModelConfirmed || Object.values(initial.numbers).some((text) => text !== '')
+}
+
+type Phase = 'connection' | 'choice' | 'tariff'
+
 export function DataEntryInvoiceManual({
   projectId,
   meteringPointId,
   initial,
+  nextHref,
 }: {
   projectId: string
   meteringPointId: string
+  /** Die nächste Station, oder `null` am Ende der Liste. */
+  nextHref: string | null
   /**
    * Der bereits erfasste Stand dieses Zählpunkts, gelesen aus dem ENTWURF
    * (`readManualTariffDraft`) — nicht aus dem Rückgabewert einer Action.
@@ -118,34 +133,36 @@ export function DataEntryInvoiceManual({
     ADMIN_INITIAL_STATE,
   )
 
+  const [connectionState, connectionAction, isSavingConnection] = useActionState(
+    saveMeteringPointGridConnectionAction,
+    ADMIN_INITIAL_STATE,
+  )
+
   /*
-   * ⚠ DIE DREI ANSCHLUSS-FELDER SIND KONTROLLIERT, UND ZWAR WEGEN DER ZWEITEN ACTION.
-   *
-   * React setzt UNKONTROLLIERTE Formularfelder nach JEDER abgeschlossenen Action auf diesem
-   * Formular zurück — auch nach der, die nur nachschlägt. Der Vorschlagen-Knopf löschte damit
-   * ausgerechnet die drei Angaben, aus denen der Vorschlag gebildet wurde: Netzbetreiber,
-   * Netzebene und Messvariante standen danach wieder auf „— bitte wählen —", während die
-   * vorgeschlagenen Zahlen darunter erschienen. Für den Admin sah das aus wie ein Formular, das
-   * seine Eingabe verliert; ein zweiter Vorschlag war ohne erneutes Auswählen nicht möglich.
-   *
-   * Ein blosser Beobachter (`onValueChange`, B19) genügt dafür nicht — er liest mit, er hält
-   * nicht; der Zustand überlebte, das FELD nicht. Die übrigen Felder bleiben dagegen bewusst
-   * unkontrolliert (s. der Absatz bei `leistungspreis`).
+   * ⚠ DIE DREI ANSCHLUSS-FELDER SIND KONTROLLIERT, UND ZWAR WEGEN DER WEITEREN ACTIONS: React
+   * setzt unkontrollierte Felder nach JEDER Action auf diesem Formular zurück — der
+   * Vorschlagen-Knopf löschte sonst genau die Angaben, aus denen der Vorschlag gebildet wurde.
    */
-  const [operatorId, setOperatorId] = React.useState(initial.operatorId)
-  const [netzebene, setNetzebene] = React.useState(initial.netzebene)
-  /*
-   * Die Netzebene steuert ein ANDERES Feld: nur auf Netzebenen mit Varianten (heute NE 7) gibt es
-   * überhaupt eine Messvariante.
-   *
-   * ⚠ FOLGE DES HOCHGEZOGENEN ZUSTANDS: Wechselt die Netzebene auf NE 3–6, verschwindet das Feld,
-   * der Wert bleibt aber im Zustand stehen und erscheint bei einer Rückkehr auf NE 7 wieder. Das
-   * ist gewollt — es ist die zuletzt gegebene Antwort desselben Menschen auf dieselbe Frage.
-   * Mitgeschickt wird er in der Zwischenzeit NICHT: was nicht gerendert ist, steht in keiner
-   * FormData, und auf NE 3–6 gehört in der Spalte `null` (B21-1, `unique nulls not distinct`).
-   */
-  const variantApplies = netzebene !== '' && hasMeteringVariant(Number(netzebene))
-  const [meteringVariant, setMeteringVariant] = React.useState(initial.meteringVariant)
+  const [connection, setConnection] = React.useState<GridConnection>({
+    operatorId: initial.operatorId,
+    netzebene: initial.netzebene,
+    meteringVariant: initial.meteringVariant,
+  })
+  const [phase, setPhase] = React.useState<Phase>(
+    hasStoredTariffValues(initial) ? 'tariff' : 'connection',
+  )
+  const [connectionSkipped, setConnectionSkipped] = React.useState(false)
+
+  React.useEffect(() => {
+    if (connectionState.success) setPhase('choice')
+  }, [connectionState])
+
+  // Eine Änderung nach dem Abschluss macht ihn wieder offen — sonst ginge sie beim „Weiter" still verloren.
+  const changeConnection = (next: GridConnection) => {
+    setConnection(next)
+    setConnectionSkipped(false)
+    setPhase((current) => (current === 'choice' ? 'connection' : current))
+  }
 
   /*
    * ⚠ KONTROLLIERT AUS DEMSELBEN GRUND WIE DIE DREI FELDER DARÜBER: auch der Vorschlagen-Knopf
@@ -191,7 +208,11 @@ export function DataEntryInvoiceManual({
    * Speichern fehlt.
    */
   const fieldError = (key: string): string | undefined =>
-    saveState.fieldErrors?.[key] ?? lookupState.fieldErrors?.[key]
+    saveState.fieldErrors?.[key] ??
+    lookupState.fieldErrors?.[key] ??
+    connectionState.fieldErrors?.[key]
+
+  const busy = isSaving || isLooking || isSavingConnection
 
   return (
     <form action={saveAction} noValidate className="flex flex-col gap-6">
@@ -210,248 +231,262 @@ export function DataEntryInvoiceManual({
           werden erst mit dem Speichern übernommen.
         </p>
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <AdminSelect
-            id="manual-operator"
-            name="operatorId"
-            label="Netzbetreiber"
-            error={fieldError('operatorId')}
-            hint="Löst den Vorschlag aus und wird mitgespeichert."
-            value={operatorId}
-            onValueChange={setOperatorId}
-          >
-            <option value="">— bitte wählen —</option>
-            {NETZBETREIBER_IDS.map((id) => (
-              <option key={id} value={id}>
-                {NETZBETREIBER_LABELS[id]}
-              </option>
-            ))}
-          </AdminSelect>
+        <DataEntryGridConnectionFields
+          idPrefix="manual"
+          value={connection}
+          onChange={changeConnection}
+          fieldError={fieldError}
+        />
 
-          <AdminSelect
-            id="manual-netzebene"
-            name="netzebene"
-            label={INVOICE_MERGE_FIELD_LABELS.netzebene}
-            error={fieldError('netzebene')}
-            value={netzebene}
-            onValueChange={setNetzebene}
-          >
-            <option value="">— bitte wählen —</option>
-            {NETZEBENEN.map((level) => (
-              <option key={level} value={String(level)}>
-                Netzebene {level}
-              </option>
-            ))}
-          </AdminSelect>
-        </div>
-
-        {/*
-          ⚠ GAR NICHT GERENDERT, nicht bloss deaktiviert — dieselbe Entscheidung wie im
-          Tarif-Schritt des Rechners: ein deaktiviertes Feld gäbe es weiterhin, und der nächste
-          Umbau schickte seinen Wert mit. In der Spalte gehört auf NE 3–6 aber `null` (B21-1,
-          `unique nulls not distinct`); ein Wert daneben fände die gepflegte Zeile nie, und der
-          Vorschlag bliebe leer, obwohl das Preisblatt gepflegt ist.
-        */}
-        {variantApplies && (
-          <div className="sm:max-w-sm">
-            <AdminSelect
-              id="manual-metering-variant"
-              name="meteringVariant"
-              label={INVOICE_MERGE_FIELD_LABELS.meteringVariant}
-              error={fieldError('meteringVariant')}
-              hint="Auf Netzebene 7 hängt der Leistungspreis daran."
-              value={meteringVariant}
-              onValueChange={setMeteringVariant}
+        {phase === 'connection' && connectionState.formError && (
+          <AdminError>{connectionState.formError}</AdminError>
+        )}
+        {phase === 'connection' && (
+          <div className="flex flex-wrap items-center gap-3">
+            <Button
+              type="submit"
+              formAction={connectionAction}
+              variant="primary"
+              size="md"
+              disabled={busy}
             >
-              <option value="">— bitte wählen —</option>
-              {METERING_VARIANTS.map((variant) => (
-                <option key={variant} value={variant}>
-                  {METERING_VARIANT_LABELS[variant]}
-                </option>
-              ))}
-            </AdminSelect>
+              {isSavingConnection && (
+                <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2} aria-hidden="true" />
+              )}
+              {isSavingConnection ? 'Wird gespeichert …' : 'Netzanschluss übernehmen'}
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="md"
+              disabled={busy}
+              onClick={() => {
+                setConnection(EMPTY_GRID_CONNECTION)
+                setConnectionSkipped(true)
+                setPhase('choice')
+              }}
+            >
+              {GRID_CONNECTION_NOT_SET_LABEL}
+            </Button>
           </div>
         )}
 
-        <div className="flex flex-wrap items-center gap-3">
-          {/*
+        {phase === 'choice' && (
+          <div className="flex flex-col gap-3" data-testid="manual-connection-choice">
+            {connectionSkipped ? (
+              <p className="text-small text-text-muted">Netzanschluss nicht angegeben.</p>
+            ) : (
+              connectionState.success && <AdminSuccess>{connectionState.success}</AdminSuccess>
+            )}
+            <p className="max-w-2xl text-small text-text-muted">
+              Tarifwerte sind freiwillig — Abrechnungsmodell, Arbeitspreis und Grundgebühr lassen
+              sich jetzt eintragen oder später nachholen.
+            </p>
+            <div className="flex flex-wrap items-center gap-3">
+              <Button
+                type="button"
+                variant="secondary"
+                size="md"
+                onClick={() => setPhase('tariff')}
+              >
+                Tarifwerte eintragen
+              </Button>
+              {nextHref !== null && (
+                <Button asChild variant="primary" size="md">
+                  <Link href={nextHref}>Weiter zur nächsten Station</Link>
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {phase === 'tariff' && (
+          <div className="flex flex-wrap items-center gap-3">
+            {/*
             `formAction` schickt DIESES Formular an die Lookup-Action — kein Speichern, kein
             Schreibvorgang. `type="submit"` ist dafür nötig; ein Knopf ohne Absendetyp löst gar
             nichts aus.
           */}
-          <Button
-            type="submit"
-            formAction={lookupAction}
-            variant="secondary"
-            size="md"
-            disabled={isLooking || isSaving}
-          >
-            {isLooking && (
-              <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2} aria-hidden="true" />
-            )}
-            {isLooking ? 'Wird nachgeschlagen …' : 'Werte vorschlagen'}
-          </Button>
-          <span role="status" aria-live="polite" className="text-small text-text-muted">
-            {isLooking
-              ? 'Wird nachgeschlagen …'
-              : suggested
-                ? `Aus dem hinterlegten Preisblatt übernommen (Stand ${suggested.stichtag}). ` +
-                  'Beide Werte bleiben frei änderbar.'
-                : lookupState.values?.lookup === 'none'
-                  ? 'Für diese Kombination ist kein Preisblatt hinterlegt — bitte von der ' +
-                    'Netzrechnung abtippen.'
-                  : ''}
-          </span>
-        </div>
+            <Button
+              type="submit"
+              formAction={lookupAction}
+              variant="secondary"
+              size="md"
+              disabled={busy}
+            >
+              {isLooking && (
+                <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2} aria-hidden="true" />
+              )}
+              {isLooking ? 'Wird nachgeschlagen …' : 'Werte vorschlagen'}
+            </Button>
+            <span role="status" aria-live="polite" className="text-small text-text-muted">
+              {isLooking
+                ? 'Wird nachgeschlagen …'
+                : suggested
+                  ? `Aus dem hinterlegten Preisblatt übernommen (Stand ${suggested.stichtag}). ` +
+                    'Beide Werte bleiben frei änderbar.'
+                  : lookupState.values?.lookup === 'none'
+                    ? 'Für diese Kombination ist kein Preisblatt hinterlegt — bitte von der ' +
+                      'Netzrechnung abtippen.'
+                    : ''}
+            </span>
+          </div>
+        )}
       </fieldset>
 
-      <fieldset className="flex flex-col gap-4 border-t border-line pt-6">
-        <legend className="text-small font-medium text-ink">Abrechnungsmodell</legend>
-        <p className="max-w-2xl text-small text-text-muted">
-          Nach welcher Regel der Netzbetreiber die abgerechnete Leistung bildet. Die drei Modelle
-          unterscheiden sich um bis zum Faktor 12 im verrechneten kW-Wert — die Wahl bestimmt damit
-          die Ersparnis, die der Report ausweist.
-        </p>
+      {phase === 'tariff' && (
+        <>
+          <fieldset className="flex flex-col gap-4 border-t border-line pt-6">
+            <legend className="text-small font-medium text-ink">Abrechnungsmodell</legend>
+            <p className="max-w-2xl text-small text-text-muted">
+              Nach welcher Regel der Netzbetreiber die abgerechnete Leistung bildet. Die drei
+              Modelle unterscheiden sich um bis zum Faktor 12 im verrechneten kW-Wert — die Wahl
+              bestimmt damit die Ersparnis, die der Report ausweist.
+            </p>
 
-        <div className="sm:max-w-md">
-          <AdminSelect
-            id="manual-billing-model"
-            name="billingModel"
-            label={INVOICE_MERGE_FIELD_LABELS.billingModel}
-            error={fieldError('billingModel')}
-            value={billingModel}
-            onValueChange={setBillingModel}
-          >
-            {/*
+            <div className="sm:max-w-md">
+              <AdminSelect
+                id="manual-billing-model"
+                name="billingModel"
+                label={INVOICE_MERGE_FIELD_LABELS.billingModel}
+                error={fieldError('billingModel')}
+                value={billingModel}
+                onValueChange={setBillingModel}
+              >
+                {/*
               ⚠ KEINE leere Option. Das Feld ist im Contract PFLICHT; ein „— bitte wählen —" machte
               daraus einen Pflichtfehler, den nur auflösen kann, wer die Frage bereits versteht.
               Vorbelegt und sichtbar ist die ehrlichere Form — und die Zeile darunter sagt, ob der
               Wert schon bestätigt ist oder noch unser Vorschlag.
             */}
-            {BILLING_MODELS.map((model) => (
-              <option key={model} value={model}>
-                {BILLING_MODEL_LABELS[model]}
-              </option>
-            ))}
-          </AdminSelect>
-        </div>
+                {BILLING_MODELS.map((model) => (
+                  <option key={model} value={model}>
+                    {BILLING_MODEL_LABELS[model]}
+                  </option>
+                ))}
+              </AdminSelect>
+            </div>
 
-        <p className="max-w-2xl text-small text-text-muted">
-          {BILLING_MODEL_HINTS[billingModel as keyof typeof BILLING_MODEL_HINTS]}
-        </p>
+            <p className="max-w-2xl text-small text-text-muted">
+              {BILLING_MODEL_HINTS[billingModel as keyof typeof BILLING_MODEL_HINTS]}
+            </p>
 
-        <p
-          className="max-w-2xl text-small text-text-muted"
-          data-testid="billing-model-confirmation"
-        >
-          {initial.billingModelConfirmed
-            ? 'Übernommen — dieser Wert steht beim Zählpunkt und wird so gerechnet.'
-            : 'Noch nicht bestätigt: das ist unser Vorschlag. Gerechnet wird damit erst, wenn Sie ' +
-              'ihn mit „Werte übernehmen" bestätigen — prüfen Sie ihn an der Leistungszeile der ' +
-              'Rechnung.'}
-        </p>
-      </fieldset>
+            <p
+              className="max-w-2xl text-small text-text-muted"
+              data-testid="billing-model-confirmation"
+            >
+              {initial.billingModelConfirmed
+                ? 'Übernommen — dieser Wert steht beim Zählpunkt und wird so gerechnet.'
+                : 'Noch nicht bestätigt: das ist unser Vorschlag. Gerechnet wird damit erst, wenn Sie ' +
+                  'ihn mit „Werte übernehmen" bestätigen — prüfen Sie ihn an der Leistungszeile der ' +
+                  'Rechnung.'}
+            </p>
+          </fieldset>
 
-      <fieldset className="flex flex-col gap-4 border-t border-line pt-6">
-        <legend className="text-small font-medium text-ink">Tarifwerte</legend>
-        <p className="max-w-2xl text-small text-text-muted">
-          Alle Felder sind freiwillig. Was leer bleibt, wird nicht gespeichert — ein bereits
-          eingetragener Wert (etwa aus einer zuvor gelesenen Rechnung) bleibt dann unverändert
-          stehen.
-        </p>
+          <fieldset className="flex flex-col gap-4 border-t border-line pt-6">
+            <legend className="text-small font-medium text-ink">Tarifwerte</legend>
+            <p className="max-w-2xl text-small text-text-muted">
+              Alle Felder sind freiwillig. Was leer bleibt, wird nicht gespeichert — ein bereits
+              eingetragener Wert (etwa aus einer zuvor gelesenen Rechnung) bleibt dann unverändert
+              stehen.
+            </p>
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <AdminField
-            id="manual-leistungspreis"
-            name="leistungspreisEurPerKwYear"
-            label={fieldLabel('leistungspreisEurPerKwYear')}
-            inputMode="numeric"
-            value={leistungspreis}
-            onValueChange={setLeistungspreis}
-            error={fieldError('leistungspreisEurPerKwYear')}
-          />
-          <AdminField
-            id="manual-min-billable"
-            name="minBillableKw"
-            label={fieldLabel('minBillableKw')}
-            inputMode="numeric"
-            value={minBillableKw}
-            onValueChange={setMinBillableKw}
-            error={fieldError('minBillableKw')}
-            hint="Die Untergrenze, die der Netzbetreiber mindestens verrechnet."
-          />
-          {/* H3: gespeichert wird netto; die Basis sagt, wie die drei Lieferantenpreise gemeint sind. */}
-          <AdminSelect
-            id="manual-price-basis"
-            name="priceBasis"
-            label="Lieferantenpreise eingetragen"
-            defaultValue={initial.priceBasis}
-            error={fieldError('priceBasis')}
-            hint={
-              initial.priceBasis === ''
-                ? 'Basis nicht erfasst — die Werte stehen so, wie bisher gerechnet (netto). Beim Speichern bitte wählen.'
-                : 'Gilt für Arbeitspreis, Nachttarif und Grundgebühr. Gerechnet wird immer netto.'
-            }
-          >
-            {initial.priceBasis === '' && <option value="">Basis nicht erfasst — bitte wählen</option>}
-            <option value="net">netto (ohne USt)</option>
-            <option value="gross">{VAT_INCLUSIVE_LABEL}</option>
-          </AdminSelect>
-          <AdminField
-            id="manual-energy-price"
-            name="energyPriceCtPerKwh"
-            label={fieldLabel('energyPriceCtPerKwh')}
-            inputMode="numeric"
-            defaultValue={initial.numbers.energyPriceCtPerKwh}
-            error={fieldError('energyPriceCtPerKwh')}
-          />
-          <AdminField
-            id="manual-energy-price-night"
-            name="energyPriceNightCtPerKwh"
-            label={fieldLabel('energyPriceNightCtPerKwh')}
-            inputMode="numeric"
-            defaultValue={initial.numbers.energyPriceNightCtPerKwh}
-            error={fieldError('energyPriceNightCtPerKwh')}
-            hint="Nur, wenn ein eigener Nachttarif vereinbart ist."
-          />
-          <AdminField
-            id="manual-feed-in"
-            name="einspeiseverguetungCtPerKwh"
-            label={fieldLabel('einspeiseverguetungCtPerKwh')}
-            inputMode="numeric"
-            defaultValue={initial.numbers.einspeiseverguetungCtPerKwh}
-            error={fieldError('einspeiseverguetungCtPerKwh')}
-          />
-          <AdminField
-            id="manual-base-fee"
-            name="supplierBaseFeeEurPerMonth"
-            label={fieldLabel('supplierBaseFeeEurPerMonth')}
-            inputMode="numeric"
-            defaultValue={initial.numbers.supplierBaseFeeEurPerMonth}
-            error={fieldError('supplierBaseFeeEurPerMonth')}
-          />
-          <AdminField
-            id="manual-annual-kwh"
-            name="annualConsumptionKwh"
-            label={fieldLabel('annualConsumptionKwh')}
-            inputMode="numeric"
-            defaultValue={initial.numbers.annualConsumptionKwh}
-            error={fieldError('annualConsumptionKwh')}
-          />
-        </div>
-      </fieldset>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <AdminField
+                id="manual-leistungspreis"
+                name="leistungspreisEurPerKwYear"
+                label={fieldLabel('leistungspreisEurPerKwYear')}
+                inputMode="numeric"
+                value={leistungspreis}
+                onValueChange={setLeistungspreis}
+                error={fieldError('leistungspreisEurPerKwYear')}
+              />
+              <AdminField
+                id="manual-min-billable"
+                name="minBillableKw"
+                label={fieldLabel('minBillableKw')}
+                inputMode="numeric"
+                value={minBillableKw}
+                onValueChange={setMinBillableKw}
+                error={fieldError('minBillableKw')}
+                hint="Die Untergrenze, die der Netzbetreiber mindestens verrechnet."
+              />
+              {/* H3: gespeichert wird netto; die Basis sagt, wie die drei Lieferantenpreise gemeint sind. */}
+              <AdminSelect
+                id="manual-price-basis"
+                name="priceBasis"
+                label="Lieferantenpreise eingetragen"
+                defaultValue={initial.priceBasis}
+                error={fieldError('priceBasis')}
+                hint={
+                  initial.priceBasis === ''
+                    ? 'Basis nicht erfasst — die Werte stehen so, wie bisher gerechnet (netto). Beim Speichern bitte wählen.'
+                    : 'Gilt für Arbeitspreis, Nachttarif und Grundgebühr. Gerechnet wird immer netto.'
+                }
+              >
+                {initial.priceBasis === '' && (
+                  <option value="">Basis nicht erfasst — bitte wählen</option>
+                )}
+                <option value="net">netto (ohne USt)</option>
+                <option value="gross">{VAT_INCLUSIVE_LABEL}</option>
+              </AdminSelect>
+              <AdminField
+                id="manual-energy-price"
+                name="energyPriceCtPerKwh"
+                label={fieldLabel('energyPriceCtPerKwh')}
+                inputMode="numeric"
+                defaultValue={initial.numbers.energyPriceCtPerKwh}
+                error={fieldError('energyPriceCtPerKwh')}
+              />
+              <AdminField
+                id="manual-energy-price-night"
+                name="energyPriceNightCtPerKwh"
+                label={fieldLabel('energyPriceNightCtPerKwh')}
+                inputMode="numeric"
+                defaultValue={initial.numbers.energyPriceNightCtPerKwh}
+                error={fieldError('energyPriceNightCtPerKwh')}
+                hint="Nur, wenn ein eigener Nachttarif vereinbart ist."
+              />
+              <AdminField
+                id="manual-feed-in"
+                name="einspeiseverguetungCtPerKwh"
+                label={fieldLabel('einspeiseverguetungCtPerKwh')}
+                inputMode="numeric"
+                defaultValue={initial.numbers.einspeiseverguetungCtPerKwh}
+                error={fieldError('einspeiseverguetungCtPerKwh')}
+              />
+              <AdminField
+                id="manual-base-fee"
+                name="supplierBaseFeeEurPerMonth"
+                label={fieldLabel('supplierBaseFeeEurPerMonth')}
+                inputMode="numeric"
+                defaultValue={initial.numbers.supplierBaseFeeEurPerMonth}
+                error={fieldError('supplierBaseFeeEurPerMonth')}
+              />
+              <AdminField
+                id="manual-annual-kwh"
+                name="annualConsumptionKwh"
+                label={fieldLabel('annualConsumptionKwh')}
+                inputMode="numeric"
+                defaultValue={initial.numbers.annualConsumptionKwh}
+                error={fieldError('annualConsumptionKwh')}
+              />
+            </div>
+          </fieldset>
 
-      <div className="flex flex-wrap items-center gap-3">
-        <Button type="submit" variant="primary" size="md" disabled={isSaving || isLooking}>
-          {isSaving && (
-            <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2} aria-hidden="true" />
-          )}
-          {isSaving ? 'Wird gespeichert …' : 'Werte übernehmen'}
-        </Button>
-        <span role="status" aria-live="polite" className="sr-only">
-          {isSaving ? 'Wird gespeichert …' : ''}
-        </span>
-      </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <Button type="submit" variant="primary" size="md" disabled={busy}>
+              {isSaving && (
+                <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2} aria-hidden="true" />
+              )}
+              {isSaving ? 'Wird gespeichert …' : 'Werte übernehmen'}
+            </Button>
+            <span role="status" aria-live="polite" className="sr-only">
+              {isSaving ? 'Wird gespeichert …' : ''}
+            </span>
+          </div>
+        </>
+      )}
     </form>
   )
 }

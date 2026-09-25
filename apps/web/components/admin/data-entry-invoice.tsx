@@ -78,6 +78,7 @@
 import * as React from 'react'
 import { useActionState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { Loader2 } from 'lucide-react'
 
 import { hasSupplierPrices, priceBasisLabel, type PriceBasis } from 'shared'
@@ -103,6 +104,7 @@ import {
 } from '@/lib/admin/invoice-extractions'
 import { ADMIN_INITIAL_STATE } from '@/lib/admin/schema'
 import { DataEntryInvoiceManual } from './data-entry-invoice-manual'
+import { DataEntryInvoiceSkip } from './data-entry-invoice-skip'
 import type { MeteringPointSummary } from '@/lib/admin/metering-points'
 import { AdminError, AdminSuccess } from './ui'
 
@@ -179,7 +181,17 @@ export function DataEntryInvoice({
    * einzigen Ort zu verstecken, an dem dieser Stand überhaupt sichtbar ist. Genau das sah aus wie
    * „nichts gespeichert".
    */
-  const [manualOpen, setManualOpen] = React.useState(hasManualValues)
+  const [mode, setMode] = React.useState<'closed' | 'manual' | 'skip'>(
+    hasManualValues ? 'manual' : 'closed',
+  )
+  const router = useRouter()
+
+  // Der Vermerk ist gesetzt — erst jetzt geht es zur nächsten Station.
+  React.useEffect(() => {
+    if (!skipState.success) return
+    if (nextHref !== null) router.push(nextHref)
+    else setMode('closed')
+  }, [skipState, nextHref, router])
 
   React.useEffect(() => {
     if (error) document.getElementById(FIELD_ID)?.focus()
@@ -344,18 +356,18 @@ export function DataEntryInvoice({
         nachvollziehbarer liefert — die Rechnung ist die Wahrheit, und der Weg dorthin soll der
         erste bleiben.
 
-        ⚠ AUSSERHALB DES UPLOAD-FORMULARS: der zweite Weg trägt selbst ein `<form>` mit zwei
+        ⚠ AUSSERHALB DES UPLOAD-FORMULARS: der zweite Weg trägt selbst ein `<form>` mit drei
         eigenen Actions, und verschachtelte Formulare gibt es in HTML nicht.
       */}
       <div className="border-t border-line pt-6">
         <button
           type="button"
-          onClick={() => setManualOpen((open) => !open)}
-          aria-expanded={manualOpen}
+          onClick={() => setMode((current) => (current === 'manual' ? 'closed' : 'manual'))}
+          aria-expanded={mode === 'manual'}
           aria-controls={MANUAL_ID}
           className="text-small font-medium text-accent underline underline-offset-2 hover:text-accent-hover"
         >
-          {manualOpen
+          {mode === 'manual'
             ? 'Manuelle Eingabe schliessen'
             : 'Keine Rechnung vorhanden — Werte selbst eintragen'}
         </button>
@@ -372,44 +384,41 @@ export function DataEntryInvoice({
           (`ghost`, klein): er ist der Ausweg, nicht der Weg — dieselbe Zurückhaltung wie beim
           „Lastgang entfernen" der Nachbarstation.
 
-          Und ein EIGENES `<form>`: das Formular der manuellen Eingabe steht darunter im
-          aufgeklappten Block, verschachtelte Formulare gibt es in HTML nicht.
+          Der Knopf schreibt nichts: er öffnet den Netzanschluss-Block (`DataEntryInvoiceSkip`),
+          der Vermerk entsteht erst nach der Rückfrage dort. Handeingabe und dieser Block sind nie
+          gleichzeitig offen — der Anschluss stünde sonst zweimal auf der Seite.
 
-          ⚠ Die Bedingung ist AUSSCHLIESSLICH `stored.length === 0` — der Knopf bleibt also stehen,
+          ⚠ Die Bedingung ist `stored.length === 0` — der Knopf bleibt also stehen,
           wenn der Vermerk bereits gesetzt ist, und seine Beschriftung ändert sich dabei nicht. Ein
           zweiter Klick schreibt denselben Wert und ist folgenlos; ihn nach dem ersten Mal
           auszublenden hiesse, den Weg an einen Zustand zu koppeln, den der Admin in diesem Moment
           gerade selbst hergestellt hat — und der einzige Ausweg daraus wäre ein Upload.
         */}
-        {stored.length === 0 && (
-          <form
-            action={skipAction}
-            className="mt-3"
-            onSubmit={(e) => {
-              /*
-               * Eine Rückfrage an einen Menschen, KEINE Prüfung — die Autorisierung liegt in der
-               * Datenbank. Sie steht hier, weil der Klick eine ENTSCHEIDUNG festhält, die die
-               * spätere Analyse sichtbar verändert (kein Kostenvergleich) — anders als beim
-               * Aufklappen der manuellen Eingabe daneben, das nichts schreibt.
-               */
-              const prompt =
-                'Ohne Rechnungsdaten fortfahren? Die Analyse rechnet dann ohne Kostenvergleich ' +
-                '— nur auf Basis des Lastgangs und der Batterie-/Tarifoptimierung.'
-              if (!window.confirm(prompt)) e.preventDefault()
-            }}
-          >
-            <input type="hidden" name="projectId" value={projectId} />
-            <input type="hidden" name="meteringPointId" value={meteringPoint.id} />
-            <Button type="submit" variant="ghost" size="sm" disabled={isSkipping}>
-              {isSkipping && (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2} aria-hidden="true" />
-              )}
+        {stored.length === 0 && mode !== 'skip' && (
+          <div className="mt-3">
+            <Button type="button" variant="ghost" size="sm" onClick={() => setMode('skip')}>
               Ohne Rechnung fortfahren
             </Button>
-            <span role="status" aria-live="polite" className="sr-only">
-              {isSkipping ? 'Wird vermerkt …' : ''}
-            </span>
-          </form>
+          </div>
+        )}
+
+        {/* Statt `window.confirm`: erst der (freiwillige) Netzanschluss, dann die Rückfrage auf der Seite. */}
+        {stored.length === 0 && mode === 'skip' && (
+          <div className="mt-6">
+            <DataEntryInvoiceSkip
+              projectId={projectId}
+              meteringPointId={meteringPoint.id}
+              initial={{
+                operatorId: manualValues.operatorId,
+                netzebene: manualValues.netzebene,
+                meteringVariant: manualValues.meteringVariant,
+              }}
+              skipAction={skipAction}
+              skipState={skipState}
+              isSkipping={isSkipping}
+              onCancel={() => setMode('closed')}
+            />
+          </div>
         )}
 
         {/*
@@ -417,12 +426,13 @@ export function DataEntryInvoice({
           schickte seine leeren Felder beim nächsten Umbau mit, und leere Felder sind hier eine
           Aussage („unverändert lassen"), die niemand getroffen hat.
         */}
-        {manualOpen && (
+        {mode === 'manual' && (
           <div id={MANUAL_ID} className="mt-6">
             <DataEntryInvoiceManual
               projectId={projectId}
               meteringPointId={meteringPoint.id}
               initial={manualValues}
+              nextHref={nextHref}
             />
           </div>
         )}

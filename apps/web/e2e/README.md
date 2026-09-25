@@ -56,7 +56,7 @@ Läufe sind deshalb nacheinander zu fahren, nicht gleichzeitig.
 
 Fährt die fünf Schritte der Rechnung-Station nach (öffnen · vorhandene Rechnung entfernen · Werte
 von Hand eintragen · weiter · zurück) und prüft, dass der erfasste Stand wieder dasteht. Er war
-der Nachweis für den Fix vom 22.09.2026: **ohne ihn rot, mit ihm grün.** Die Ausgangslage stellt er
+der Nachweis für den Fix vom 22.09.2026: **ohne ihn rot, mit ihm grün.** Seit 25.09.2026 zusätzlich: Netzanschluss zuerst in der Handeingabe, und „Ohne Rechnung fortfahren“ mit und ohne Netzanschluss (kein nativer Dialog mehr). Die Ausgangslage stellt er
 selbst her (`rechnung-station.seed.sql`).
 
 ## battery-catalog-rte-source.mjs
