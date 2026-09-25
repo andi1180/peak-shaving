@@ -183,6 +183,10 @@ ausschliesslich aus „Ohne Rechnung fortfahren" (`invoiceSkipped: true`).
   `null`, nicht 0. Netzentgelte und Abgaben laufen normal (der Netzanschluss ist bekannt).
 - **Tarifwege:** aWATTar ohne Steuerung immer, aWATTar mit Ladesteuerung sobald ein Speicher-Dispatch
   existiert — der Monatsvergleich entsteht bei `'unknown'` immer, notfalls ohne Speicherreihe.
+  **Revision 25.09.2026 (gilt auch für `'known'`):** ohne Bestandsspeicher trägt die Reihe das
+  bestgereihte Katalog-Gerät, auch wenn es sich im Betrachtungszeitraum nicht rechnet; der Report
+  stellt im Weg „aWATTar mit Ladesteuerung" Investition, Netto über den Horizont und das
+  Speicher-Urteil daneben (`ways.ts`). Vorher entfiel die Reihe bei `netSavingOverHorizon ≤ 0`.
   Ein Vergleichstarif ist eigener Weg UND Bezugsgrösse der Ersparnis (`savingsBaselineOf`, `shared`);
   ohne ihn gibt es keine Ersparnis-Grösse, nur absolute Kosten. Bei `'known'` unverändert.
 - **Speicherbewertung:** läuft über die kombinierte aWATTar-Reihe; der Einstand der Start-SoC-Schicht

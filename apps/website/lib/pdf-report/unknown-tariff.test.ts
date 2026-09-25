@@ -246,3 +246,22 @@ describe('Liefertarif bekannt (Urbanz-Zuschnitt)', () => {
     expect(texts.proposal).not.toContain('Stromrechnung nach')
   })
 })
+
+describe('Weg „mit Ladesteuerung" ohne wirtschaftliches Gerät (ENTRY: Netto −500 €)', () => {
+  const controlledOf = (known: boolean) => {
+    const current = known ? 10000 : null
+    const analysis = analysisOf(comparisonOf({ current, coveredMonths: 12 }), known)
+    const statement = buildWaysChapter(analysis)!.statements.find((s) => s.id === 'ways_load_control')!
+    return {
+      rows: statement.rows.map((row) => plain(`${row.label}: ${row.value}`)),
+      body: plain(String(statement.body)),
+    }
+  }
+
+  it.each([false, true])('known=%s: Investition und Urteil im selben Block', (known) => {
+    const { rows, body } = controlledOf(known)
+    expect(rows).toEqual(['Gesamtinvestition: € 12.000', 'Netto über 10 Jahre: -€ 500'])
+    expect(body).toContain('Prüfspeicher 30 spart voraussichtlich € 1.200 pro Jahr')
+    expect(body).toContain('Im Betrachtungszeitraum von 10 Jahren rechnet er sich damit nicht.')
+  })
+})

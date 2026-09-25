@@ -469,11 +469,9 @@ export function Report({
    * vorhanden); eine hier nachgebaute Zweitprüfung an `status.computable` könnte davon abweichen,
    * und die Frage „darf ich diese Zahlen zeigen" hat einen Ort.
    *
-   * ⚠ SEIT D7 STEHT DER KASTEN IN BEIDEN ZWEIGEN — und die Bedingung dafür bleibt trotzdem die
-   * EINE oben. Ohne Bestandsanlage setzt die Engine `monthlyComparison` ausschliesslich, wenn sich
-   * die Katalog-Empfehlung im Betrachtungszeitraum rechnet (`netSavingOverHorizon > 0`,
-   * `compute-analysis.ts`). Das Vorhandensein des Feldes TRÄGT diese Entscheidung also bereits;
-   * sie hier ein zweites Mal zu prüfen wäre genau die Zweitprüfung, die auseinanderlaufen kann.
+   * ⚠ SEIT D7 STEHT DER KASTEN IN BEIDEN ZWEIGEN — und die Bedingung dafür bleibt die EINE oben.
+   * Seit 25.09.2026 trägt die Speicherreihe ohne Bestandsanlage das bestgereihte Katalog-Gerät,
+   * auch wenn es sich im Betrachtungszeitraum nicht rechnet (`compute-analysis.ts`).
    *
    * ⚠ Im Katalog-Zweig ERSETZT er den Kostenvergleich NICHT: dort ist die Kauffrage offen, und der
    * Kostenverlauf ist das Bild dazu. Er steht über beiden Kästen, weil er die volle Breite braucht

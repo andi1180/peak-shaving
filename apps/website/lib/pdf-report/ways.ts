@@ -3,9 +3,12 @@ import type { MonthlyTariffComparison } from 'shared'
 
 import { formatEur } from '@/lib/format'
 import { CONTROLLED_WAY_LABEL, monthlyBatteryRef } from '@/lib/report-copy'
-import type { ReportFigure, ReportStatement } from './statement'
+import { netOverHorizonRow, totalInvestmentRow } from './investment-rows'
+import type { ReportFigure, ReportRow, ReportStatement } from './statement'
 import {
   primaryEntryOf,
+  recommendationVerdictOf,
+  recommendedEntryOf,
   summaryWaysOf,
   unknownTariffWaysOf,
   type SummaryWay,
@@ -244,6 +247,24 @@ const PEAK_SHAVING_METHOD =
   'Wert folgt dem Abrechnungsmodell Ihres Netzbetreibers und wird von der Mindestleistung nach ' +
   'unten begrenzt. Als Jahresgrösse gehört er zu keinem der Beträge darüber dazu.'
 
+/**
+ * Gerät, Investition und Speicher-Urteil zu Weg 4: ein Kostenbalken „mit Speicher" steht nie ohne
+ * die Investition daneben. Zeilen und Urteil wortgleich wie im Gerätekapitel. `null` beim
+ * Bestandsspeicher — der ist bezahlt.
+ */
+function controlledDeviceOf(analysis: PdfReportAnalysis): { rows: ReportRow[]; text: string } | null {
+  if (analysis.existingBatteryAnalysis) return null
+  const entry = recommendedEntryOf(analysis)
+  const verdict = recommendationVerdictOf(analysis)
+  if (!entry || !verdict) return null
+  const horizonYears = analysis.assumptions.horizonYears
+  const judgement = entry.netSavingOverHorizon > 0 ? 'rechnet er sich damit' : 'rechnet er sich damit nicht'
+  return {
+    rows: [totalInvestmentRow(entry), netOverHorizonRow(entry, horizonYears)],
+    text: ` Gerechnet mit diesem Speicher: ${verdict} Im Betrachtungszeitraum von ${horizonYears} Jahren ${judgement}.`,
+  }
+}
+
 export function buildWaysChapter(analysis: PdfReportAnalysis): WaysChapter | null {
   const comparison = monthlyComparisonOf(analysis)
   if (!comparison) return null
@@ -368,17 +389,19 @@ export function buildWaysChapter(analysis: PdfReportAnalysis): WaysChapter | nul
   )
 
   if (controlWay) {
+    const device = controlledDeviceOf(analysis)
     addWay({
       id: 'ways_load_control',
       title: CONTROLLED_WAY_LABEL,
       amount: null,
-      rows: [],
+      rows: device?.rows ?? [],
       body:
         `Zusätzlich zum Tarifwechsel wird mit ${whose} gezielt geladen: in den günstigen ` +
         'Viertelstunden lädt der Speicher aus dem Netz, während er Kapazität für die teureren ' +
         'Stunden desselben Tages zurückhält — der Schutz Ihrer Lastspitzen hat dabei weiterhin ' +
         'Vorrang. Über denselben Zeitraum hätte das, Tarifwechsel und Ladesteuerung zusammen, ' +
         outcome(controlWay, 'mehr gekostet als Ihr heutiger Tarif.', 'gespart.') +
+        (device?.text ?? '') +
         (ways.controlVariant === 'predictive' ? ` ${PREDICTIVE_NOTE}` : ''),
       },
       LOAD_CONTROL_METHOD + (ways.controlVariant === 'predictive' ? ` ${PREDICTIVE_METHOD}` : ''),
@@ -534,13 +557,14 @@ function buildUnknownTariffWaysChapter(
 
   if (ways.controlledEur !== null) {
     const controlValue = ways.uncontrolledEur - ways.controlledEur
+    const device = controlledDeviceOf(analysis)
     bars.push({ key: 'controlled', label: CONTROLLED_WAY_LABEL, eur: ways.controlledEur, model: true })
     addWay(
       {
         id: 'ways_load_control',
         title: CONTROLLED_WAY_LABEL,
         amount: null,
-        rows: [],
+        rows: device?.rows ?? [],
         body:
           `Zusätzlich zum Börsenpreis wird mit ${whose} gezielt geladen: in den günstigen ` +
           'Viertelstunden lädt der Speicher aus dem Netz, während er Kapazität für die teureren ' +
@@ -550,6 +574,7 @@ function buildUnknownTariffWaysChapter(
             ? ` — ${formatEur(controlValue)} weniger als ohne Steuerung; das ist der Wert der Ladesteuerung.`
             : ' — nicht weniger als ohne Steuerung.') +
           againstBaseline(ways.controlledEur) +
+          (device?.text ?? '') +
           (ways.controlVariant === 'predictive' ? ` ${PREDICTIVE_NOTE}` : ''),
       },
       LOAD_CONTROL_METHOD + (ways.controlVariant === 'predictive' ? ` ${PREDICTIVE_METHOD}` : ''),
