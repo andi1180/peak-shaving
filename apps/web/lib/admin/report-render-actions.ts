@@ -7,6 +7,7 @@ import {
   REPORT_OPTIONAL_SECTIONS_FIELD,
   REPORT_OPTIONAL_SECTIONS_MARKER,
   displayPriceBasisFor,
+  parseNetzebeneDraftValue,
   type GridTariffRowInput,
   type ReportOptionalSection,
 } from 'shared'
@@ -221,6 +222,8 @@ export async function createReportRenderRequestAction(
   const reportInputMeta = {
     customerLabel: project.customer_label,
     netzbetreiber: typeof netzbetreiber === 'string' ? netzbetreiber : null,
+    // Für „Ihr Netzanschluss" (Voraussetzungen) — `tariffSource` bleibt hier der dritte Zustand.
+    netzebene: parseNetzebeneDraftValue(point.draft.netzebene),
     /*
      * `null` heisst „keine Angabe" und ist NICHT dasselbe wie 0 — im Contract ist das Feld optional
      * (Delta 19), und `tariffVintageNote` behandelt beide ohnehin gleich. Ein aus einem von Hand

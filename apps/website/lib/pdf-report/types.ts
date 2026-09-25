@@ -347,6 +347,11 @@ export type PdfReportInput = {
    */
   netzbetreiber?: NetzbetreiberId
   /**
+   * Die Netzebene des Zählpunkts als ANGABE, wenn der Weg sie kennt (Wizard-Entwurf, 3–7).
+   * `undefined` = keine Angabe. Ein gebauter `tariffSource` hat Vorrang (s. `prerequisites.ts`).
+   */
+  netzebene?: number
+  /**
    * D9 — die rohen Herkunftsangaben der Tarifseite (s. `PdfReportTariffProvenance`).
    *
    * ⚠ OPTIONAL und nicht `null`-fähig: „dieser Weg führt die Angaben nicht" (der Chart-Prüfstand,

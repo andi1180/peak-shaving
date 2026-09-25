@@ -2,6 +2,7 @@ import type { PvOutageMonth } from 'engine'
 import {
   NETZBETREIBER_IDS,
   PV_STAGES,
+  parseNetzebeneDraftValue,
   readReportSectionSelection,
   type AnalysisResult,
   type BatteryCatalogMeta,
@@ -62,6 +63,8 @@ export type ReportRenderMeta = {
    * nicht kennt — beides führt zu demselben Report ohne Namen (s. `readMeta`).
    */
   netzbetreiber: NetzbetreiberId | null
+  /** Die Netzebene aus dem Entwurf (3–7). `null` = keine brauchbare Angabe. */
+  netzebene: number | null
   /**
    * Die Grundgebühr des Lieferanten. `null` heisst „keine Angabe" und ist NICHT 0 — gelesen wird
    * sie für GENAU einen Satz (`tariffVintageNote`), s. unten.
@@ -200,6 +203,7 @@ function readMeta(value: unknown): ReportRenderMeta {
   return {
     customerLabel: typeof label === 'string' && label !== '' ? label : null,
     netzbetreiber: readNetzbetreiber(meta.netzbetreiber),
+    netzebene: parseNetzebeneDraftValue(meta.netzebene),
     supplierBaseFeeEurPerMonth: typeof baseFee === 'number' ? baseFee : null,
     /* Strikt `true`/`false` — `'true'` oder `1` sähen wie eine Antwort aus und sind keine. */
     hasPv: hasPv === true ? true : hasPv === false ? false : null,
@@ -344,6 +348,7 @@ export function buildReportInputFromRenderRequest(
     tariffSource: TARIFF_SOURCE_UNTRACKED,
     /* Ohne bekannten Netzbetreiber gar keine Angabe — der Satz steht dann wortgleich wie zuvor. */
     netzbetreiber: meta.netzbetreiber ?? undefined,
+    netzebene: meta.netzebene ?? undefined,
     tariffVintage: tariffVintageNote(
       loadProfile,
       /* Ohne Angabe nennt der Satz die Grundgebühr nicht — die konservative Fassung. */
