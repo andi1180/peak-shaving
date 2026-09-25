@@ -173,6 +173,12 @@ function neutralRow(label: string, value: string): ReportRow {
   return { label, value, tone: 'neutral' }
 }
 
+const SERIES_COUNT_WORD: Record<number, string> = { 2: 'zwei', 3: 'drei' }
+
+/** Vorspann bei unbekanntem Liefertarif — `MONTHLY_INTRO` spricht von dem, was Sie heute zahlen. */
+const UNKNOWN_TARIFF_MONTHLY_INTRO =
+  'Was Ihr Strom mit einem Börsenpreis-Tarif Monat für Monat gekostet hätte.'
+
 /**
  * Der Monatsvergleich.
  *
@@ -196,10 +202,7 @@ function neutralRow(label: string, value: string): ReportRow {
 export function buildMonthly(
   comparison: MonthlyTariffComparison,
   current: PdfReportAnalysis['current'],
-): {
-  figure: DetailFigure
-  statement: ReportStatement
-} {
+): MonthlyChapter {
   const fixed = comparison.fixedCosts
   /*
    * ⚠ `tariffWayCosts` UND NICHT `sumCovered(comparison.spotWithBatteryEur)` — dieselbe Auswahl
@@ -209,15 +212,42 @@ export function buildMonthly(
    * verschiedenen Beträgen.
    */
   const controlledEur = tariffWayCosts(comparison).controlledEur
-  const rows: ReportRow[] = [
-    // Bei unbekanntem Liefertarif gibt es diese Zeile nicht (`currentTariffEur: null`).
+  /*
+   * Die GEZEIGTEN Reihen, in Balkenreihenfolge — Summenzeilen, Bildunterschrift und Überschrift
+   * entstehen alle aus dieser einen Liste. „Ihr Tarif heute" fehlt bei unbekanntem Liefertarif
+   * (`currentTariffEur: null`), die gesteuerte Reihe ohne Speicher (K3b-2).
+   */
+  const series: { color: string; legend: string; label: string; eur: number }[] = [
     ...(comparison.currentTariffEur
-      ? [neutralRow('Ihr Tarif heute', formatEur(sumCovered(comparison.currentTariffEur)))]
+      ? [
+          {
+            color: 'grau',
+            legend: 'Ihr heutiger Tarif',
+            label: 'Ihr Tarif heute',
+            eur: sumCovered(comparison.currentTariffEur),
+          },
+        ]
       : []),
-    neutralRow('aWATTar ohne Steuerung', formatEur(sumCovered(comparison.spotWithoutControlEur))),
-    /* K3b-2: ohne Speicher gibt es diese Reihe nicht — die Tabelle führt dann zwei Zeilen. */
-    ...(controlledEur !== null ? [neutralRow(CONTROLLED_WAY_LABEL, formatEur(controlledEur))] : []),
+    {
+      color: 'hell',
+      legend: 'aWATTar ohne Steuerung',
+      label: 'aWATTar ohne Steuerung',
+      eur: sumCovered(comparison.spotWithoutControlEur),
+    },
+    ...(controlledEur !== null
+      ? [
+          {
+            color: 'kräftig',
+            legend: CONTROLLED_WAY_LABEL,
+            label: CONTROLLED_WAY_LABEL,
+            eur: controlledEur,
+          },
+        ]
+      : []),
   ]
+  const rows: ReportRow[] = series.map((s) => neutralRow(s.label, formatEur(s.eur)))
+  const hasCurrent = comparison.currentTariffEur != null
+  const monthsMissing = comparison.coveredMonths < 12
 
   /*
    * Die Grundgebühren nur, wo es sie gibt. Eine Zeile „Grundgebühr € 0" behauptete einen Posten,
@@ -244,7 +274,10 @@ export function buildMonthly(
    * ohnehin genommen hätte — die Spanne der Zusammenfassung ist die Differenz dieser drei Summen,
    * und hier stehen sie absolut.
    */
-  const closing = 'Hier stehen die drei Summen absolut.'
+  const closing =
+    series.length === 1
+      ? 'Hier steht die Summe absolut.'
+      : `Hier stehen die ${SERIES_COUNT_WORD[series.length] ?? String(series.length)} Summen absolut.`
 
   /*
    * Der Vorbehalt nur, wo es den Posten gibt — dieselbe Bedingung wie der Rahmen-Hinweis im
@@ -257,17 +290,26 @@ export function buildMonthly(
       'Aufteilungsregel, die es nicht gibt.'
     : ''
 
+  const legend =
+    series.length === 1
+      ? `Je Monat ein Balken: ${series[0]!.legend}.`
+      : `Die ${SERIES_COUNT_WORD[series.length] ?? String(series.length)} Balken eines Monats ` +
+        'stehen in derselben Reihenfolge wie die Zeilen darunter: ' +
+        `${series.map((s) => `${s.color} ${s.legend}`).join(', ')}.`
+
   return {
+    intro: hasCurrent ? null : UNKNOWN_TARIFF_MONTHLY_INTRO,
     figure: {
       caption:
-        'Energie- und Netzkosten je Kalendermonat. Die drei Balken eines Monats stehen in ' +
-        'derselben Reihenfolge wie die Zeilen darunter: grau Ihr heutiger Tarif, hell aWATTar ohne ' +
-        `Steuerung, kräftig ${CONTROLLED_WAY_LABEL}. Monate ohne Messwert bleiben leer.`,
+        `Energie- und Netzkosten je Kalendermonat. ${legend}` +
+        (monthsMissing ? ' Monate ohne Messwert bleiben leer.' : ''),
       note: null,
     },
     statement: {
       id: 'monthly_comparison',
-      title: 'Das zahlen Sie jetzt — und das zahlten Sie mit aWATTar',
+      title: hasCurrent
+        ? 'Das zahlen Sie jetzt — und das zahlten Sie mit aWATTar'
+        : 'Ihre Stromkosten mit aWATTar',
       /*
        * ⚠ KEINE KOPFZAHL. Die Differenz zwischen der ersten und der dritten Zeile ist die
        * Kern-Ersparnis der Zusammenfassung; hier gross daneben gesetzt stünde derselbe Betrag
@@ -276,7 +318,7 @@ export function buildMonthly(
        */
       amount: null,
       rows,
-      body: t`Summen über die ${String(comparison.coveredMonths)} gemessenen Monate — ausdrücklich nicht auf ein Jahr hochgerechnet: die fehlenden Monate liegen nicht gleichverteilt über das Jahr. Enthalten sind Arbeitspreis, Netz-Arbeitspreis, die Abgaben auf den Bezug (Elektrizitätsabgabe, EAG, Gebrauchsabgabe auf Netz- und Energiepreis) und die anteiligen Fixkosten — Netz-Grundpreis, Messpreis und Grundgebühren (${fees.join(' · ')}).${leistungspreis} ${closing}`,
+      body: t`Summen über die ${String(comparison.coveredMonths)} gemessenen Monate${monthsMissing ? ' — ausdrücklich nicht auf ein Jahr hochgerechnet: die fehlenden Monate liegen nicht gleichverteilt über das Jahr' : ''}. Enthalten sind Arbeitspreis, Netz-Arbeitspreis, die Abgaben auf den Bezug (Elektrizitätsabgabe, EAG, Gebrauchsabgabe auf Netz- und Energiepreis) und die anteiligen Fixkosten — Netz-Grundpreis, Messpreis und Grundgebühren (${fees.join(' · ')}).${leistungspreis} ${closing}`,
     },
   }
 }
@@ -412,6 +454,8 @@ export function buildDetailChapter(
  * Ableitung, zwei Kapitel; zwei Fassungen liefen beim nächsten Umformulieren auseinander.
  */
 export type MonthlyChapter = {
+  /** Ersetzt den Kapitel-Vorspann; `null` = der übliche (`MONTHLY_INTRO`). */
+  intro: string | null
   figure: DetailFigure
   statement: ReportStatement
 }

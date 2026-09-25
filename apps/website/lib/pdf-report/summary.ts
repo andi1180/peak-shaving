@@ -2,6 +2,7 @@ import {
   PV_TEN_YEAR_SMOOTHING_OPTIMISM_PERCENT,
   buildRealSavingBreakdown,
   primaryBatteryEntry,
+  savingsBaselineOf,
   sumCovered,
   tariffWayCosts,
   type BatteryCandidate,
@@ -17,6 +18,7 @@ import {
 
 import { LARGE_GAP_SLOTS_THRESHOLD } from '@/lib/constants'
 import { formatEur, formatKwh, formatKwh1, formatKwp, formatPercent } from '@/lib/format'
+import { dynamicTariffHintKind, recommendationRationaleText } from '@/lib/report-copy'
 import { CANDIDATE_TABLE_ID } from './comparison'
 import type { ReportBuildContext } from './context'
 import { hasPvValueChapter } from './pv-value'
@@ -72,7 +74,7 @@ export type SummaryStatement = ReportStatement & { id: 'addon' }
  * das, was sich sparen liesse. Welche Farbe daraus wird, entscheidet `document.tsx`.
  */
 export type SummaryKpi = {
-  id: 'cost_today' | 'possible_saving'
+  id: 'cost_today' | 'possible_saving' | 'cost_awattar' | 'cost_controlled'
   value: string
   caption: readonly [string, string]
   tone: 'ink' | 'accent'
@@ -292,6 +294,85 @@ export function summaryWaysOf(analysis: PdfReportAnalysis): SummaryWays | null {
   }
 }
 
+/**
+ * Die Tarifwege bei unbekanntem Liefertarif (Pflichtenheft §3.1a) — `null` in jedem anderen Fall.
+ *
+ * ⚠ EIGENE FORM NEBEN `SummaryWays` UND NICHT DEREN ERWEITERUNG: ohne „Ihr Tarif heute" gibt es
+ * absolute Kosten, aber keine Ersparnis-Grösse, und jeder Leser von `SummaryWays` rechnet mit
+ * einer. Bezugsgrösse kann allein der Vergleichstarif sein (`savingsBaselineOf`).
+ */
+export type UnknownTariffWays = {
+  coveredDays: number
+  /** aWATTar ohne Steuerung, über den gemessenen Zeitraum. */
+  uncontrolledEur: number
+  /** aWATTar mit Ladesteuerung — `null` ohne Speicher-Dispatch. */
+  controlledEur: number | null
+  controlVariant: ControlVariant | null
+  /** Der Vergleichstarif als Bezugsgrösse; `null` = keine Ersparnis-Aussage, nur absolute Kosten. */
+  baseline: { supplier: string | null; eur: number } | null
+}
+
+export function unknownTariffWaysOf(analysis: PdfReportAnalysis): UnknownTariffWays | null {
+  const comparison =
+    analysis.tariffOptimization?.computable === true
+      ? analysis.tariffOptimization.monthlyComparison
+      : undefined
+  if (!comparison || comparison.currentTariffEur) return null
+
+  const costs = tariffWayCosts(comparison)
+  const baseline = savingsBaselineOf(costs)
+  return {
+    coveredDays: analysis.dataQuality.coveredDays,
+    uncontrolledEur: costs.spotWithoutControlEur,
+    controlledEur: costs.controlledEur,
+    controlVariant: costs.controlVariant,
+    baseline: baseline ? { supplier: costs.comparisonSupplier, eur: baseline.eur } : null,
+  }
+}
+
+/**
+ * Das Urteil über das empfohlene Gerät, wortgleich mit der Bildschirm-Empfehlung
+ * (`recommendationRationaleText`) — `null`, wo das Gerätekapitel keine Kaufaussage trägt.
+ */
+export function recommendationVerdictOf(analysis: PdfReportAnalysis): string | null {
+  const recommendation = analysis.recommendation
+  if (!recommendation || analysis.existingBatteryAnalysis) return null
+  if (dynamicTariffHintKind(analysis)) return null
+  const entry = recommendedEntryOf(analysis)
+  return entry ? recommendationRationaleText(entry.battery.name, recommendation.rationale) : null
+}
+
+/** Die Kopfzahlen bei unbekanntem Liefertarif: absolute Kosten, keine Ersparnis. */
+export function buildUnknownTariffKpis(
+  analysis: PdfReportAnalysis,
+  ways: UnknownTariffWays,
+): SummaryKpi[] {
+  const days = `über ${ways.coveredDays} gemessene Tage, ${displayedPriceLabel(analysis)}`
+  const basis = hasLeistungspreis(analysis.current) ? `${days}, ohne Leistungspreis` : days
+  const kpis: SummaryKpi[] = [
+    {
+      id: 'cost_awattar',
+      value: formatEur(ways.uncontrolledEur),
+      caption: ['Stromkosten mit aWATTar ohne Steuerung', basis],
+      tone: 'ink',
+    },
+  ]
+  if (ways.controlledEur !== null) {
+    kpis.push({
+      id: 'cost_controlled',
+      value: formatEur(ways.controlledEur),
+      caption: [
+        analysis.existingBatteryAnalysis
+          ? 'Mit Ladesteuerung Ihres Speichers'
+          : 'Mit Speicher und Ladesteuerung',
+        basis,
+      ],
+      tone: 'accent',
+    })
+  }
+  return kpis
+}
+
 /** Die Wege, auf denen im gemessenen Zeitraum tatsächlich etwas zu sparen war. */
 function positiveWays(ways: SummaryWays): SummaryWay[] {
   return ways.ways.filter((way) => way.eur > 0)
@@ -468,6 +549,39 @@ function waysSentence(ways: SummaryWays, hasBattery: boolean): string {
 }
 
 /**
+ * Der Absatz bei unbekanntem Liefertarif: was gerechnet ist (absolute Kosten), was fehlt (der
+ * heutige Tarif) und wie es nachzuholen ist. Das Speicher-Urteil wird zitiert, nicht neu gefasst.
+ */
+function unknownTariffOverview(analysis: PdfReportAnalysis, ways: UnknownTariffWays): ReportText {
+  const existing = analysis.existingBatteryAnalysis != null
+  const controlled =
+    ways.controlledEur === null
+      ? '.'
+      : existing
+        ? ' — einmal ohne Steuerung und einmal mit gezielter Ladesteuerung Ihres Speichers.'
+        : ' — einmal so, wie Sie heute Strom beziehen, und einmal mit einem Speicher, der gezielt in den günstigen Stunden lädt.'
+  const baseline = ways.baseline
+    ? ` Der von Ihnen gefundene Tarif${ways.baseline.supplier ? ` (${ways.baseline.supplier})` : ''} hätte im selben Zeitraum ${formatEur(ways.baseline.eur)} gekostet; was die Wege gegenüber ihm sparen, steht weiter hinten.`
+    : ''
+  const verdict = recommendationVerdictOf(analysis)
+  const primary = primaryEntryOf(analysis)
+  const peakPart: ReportText =
+    primary && primary.leistungspreisSavingPerYear > 0
+      ? t` Die Kappung Ihrer Lastspitzen ist in diesen Zahlen nicht enthalten: sie hängt am Leistungspreis Ihres Netzbetreibers und nicht am Stromvertrag${ref(
+          block('recommendation'),
+          `, und was ein Speicher dabei leistet, steht ${REF_PLACE}`,
+          '',
+        )}.`
+      : ''
+
+  return t`Ihren heutigen Stromtarif kennen wir nicht, weil uns Ihre Stromrechnung nicht vorliegt. Die Zahlen oben sind deshalb keine Ersparnis, sondern Ihre Stromkosten mit einem Börsenpreis-Tarif (aWATTar)${controlled}${baseline} Den Vergleich mit Ihrem heutigen Tarif rechnen wir nach, sobald Sie uns Ihre Stromrechnung nachreichen.${
+    verdict
+      ? t` ${verdict}${ref(block('recommendation'), ` Die Einzelheiten zum Gerät stehen ${REF_PLACE}.`, '')}`
+      : ''
+  }${peakPart}`
+}
+
+/**
  * Der eine Absatz der Zusammenfassung.
  *
  * ⚠ ER IST DER ORT, AN DEM DIE SPITZENKAPPUNG GENANNT WIRD. Sie steht bewusst nicht in der Spanne
@@ -495,6 +609,9 @@ export function buildOverview(analysis: PdfReportAnalysis, input: SummaryInput):
     ? ' Einen Speichervorschlag enthält dieser Report nicht: für Ihre Kundenkategorie ist derzeit ' +
       'kein Speicher freigegeben, und ein Beispielgerät wäre eine Empfehlung ohne Grundlage.'
     : ''
+
+  const unknown = unknownTariffWaysOf(analysis)
+  if (unknown) return t`${equipment} ${unknownTariffOverview(analysis, unknown)}${noRecommendation}`
 
   if (!ways) {
     /* Der Grund steht als strukturierter Befund im Schlusskapitel — hier nur der Zeiger darauf. */
@@ -864,11 +981,16 @@ export function buildReportSummary(
 ): ReportSummary {
   const analysis = input.analysis
   const ways = summaryWaysOf(analysis)
+  const unknownWays = unknownTariffWaysOf(analysis)
   /* ⚠ `context ? … : …` statt `??` — `primaryEntry` ist selbst gültig `undefined`. */
   const entry = context ? context.primaryEntry : primaryEntryOf(analysis)
 
   return {
-    kpis: ways ? buildSummaryKpis(analysis, ways) : [],
+    kpis: ways
+      ? buildSummaryKpis(analysis, ways)
+      : unknownWays
+        ? buildUnknownTariffKpis(analysis, unknownWays)
+        : [],
     notices: buildNotices(input),
     overview: buildOverview(analysis, input),
     /* ⚠ `context ? … : …` wie bei `entry` darüber — der Prüfstand fährt ohne Kontext. */

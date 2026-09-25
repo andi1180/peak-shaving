@@ -172,6 +172,7 @@ describe('createReportRenderRequestAction', () => {
     expect(args.p_report_input_meta).toEqual({
       customerLabel: 'Bäckerei Gruber',
       netzbetreiber: 'wiener_netze',
+      netzebene: 7,
       supplierBaseFeeEurPerMonth: 14.9,
       /*
        * D5 — `null` heisst „die PV-Frage wurde nie beantwortet" (dieser Entwurf stellt sie nicht),

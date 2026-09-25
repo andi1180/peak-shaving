@@ -8,7 +8,13 @@ import { BASIS_SECTION, PV_VALUE_SECTION } from './content'
 import { hasPvValueChapter } from './pv-value'
 import { block, ref, t, REF_PLACE } from './report-text'
 import type { ReportPoint, ReportStatement } from './statement'
-import { summaryWaysOf, type SummaryWay, type SummaryWays } from './summary'
+import {
+  recommendationVerdictOf,
+  summaryWaysOf,
+  unknownTariffWaysOf,
+  type SummaryWay,
+  type SummaryWays,
+} from './summary'
 import type { PdfReportInput } from './types'
 
 /**
@@ -195,9 +201,35 @@ function accuracyPoint(input: PdfReportInput): ReportPoint | null {
   }
 }
 
+/**
+ * Die zwei Punkte bei unbekanntem Liefertarif (§3.1a): das Speicher-Urteil, zitiert aus dem
+ * Gerätekapitel, und die fehlende Rechnung. Ohne heutigen Tarif gibt es keinen Tarifweg, der
+ * gegen ihn „spart" — die Punkte „einfach"/„Maximum" entfallen deshalb.
+ */
+function unknownTariffPoints(input: PdfReportInput): ReportPoint[] {
+  const points: ReportPoint[] = []
+  const verdict = recommendationVerdictOf(input.analysis)
+  if (verdict) {
+    points.push({
+      title: 'Speicher',
+      text: t`${verdict}${ref(block('recommendation'), ` Die Einzelheiten stehen ${REF_PLACE}.`, '')}`,
+    })
+  }
+  points.push({
+    title: 'Für den Vergleich mit Ihrem heutigen Tarif',
+    text:
+      'Reichen Sie uns Ihre Stromrechnung nach. Ohne sie kennen wir Ihren heutigen Arbeitspreis ' +
+      'und Ihre Grundgebühr nicht; mit ihr rechnen wir jeden Weg dieses Reports gegen das, was ' +
+      'Sie heute tatsächlich zahlen.',
+  })
+  return points
+}
+
 export function buildProposal(input: PdfReportInput): ReportStatement | null {
   const ways = summaryWaysOf(input.analysis)
-  const points: ReportPoint[] = []
+  const points: ReportPoint[] = unknownTariffWaysOf(input.analysis)
+    ? unknownTariffPoints(input)
+    : []
 
   if (ways) {
     const days = String(ways.coveredDays)
@@ -254,6 +286,9 @@ function energyPriceSentence(input: PdfReportInput): string | null {
     const origin = period.assumed ? ', aus der Jahresrechnung abgeleitet' : ''
     return `Ihr heutiger Energiepreis stammt aus Ihrer Kundenrechnung (Abrechnungszeitraum ${span}${origin}).`
   }
+
+  /* Unbekannter Liefertarif: es gibt keinen heutigen Energiepreis, über dessen Herkunft zu reden wäre. */
+  if (input.analysis.assumptions.energyPriceCtPerKwh === null) return null
 
   /* ⚠ `null` ist eine AUSSAGE und keine Leerstelle: der Kunde hat die Werte selbst eingetragen,
      und das ist die bessere Grundlage (Prinzip 1). Der dritte Zustand („nicht nachverfolgt")

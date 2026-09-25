@@ -196,8 +196,7 @@ ausschliesslich aus „Ohne Rechnung fortfahren" (`invoiceSkipped: true`).
   `null`, wenn kein Leistungspreis anfällt; gerechnet wird dann mit `NO_DEMAND_CHARGE_BILLING_MODEL`
   (auf keinen Euro wirksam). Der öffentliche Rechner schickt `null` ohne Leistungsmessung.
 
-Report und Wizard sind nur absturzsicher angepasst; die Gestaltung des unbekannten Tarifs im Report
-(Zusammenfassung ohne „Stromkosten heute", Ersparnis gegen den Vergleichstarif) folgt eigens.
+Report (nachgezogen 25.09.2026, `unknownTariffWaysOf` in `apps/website/lib/pdf-report/summary.ts`): Kopfzahlen = aWATTar-Kosten ohne/mit Ladesteuerung, Wege ohne „Ihr Tarif heute" (Ersparnis nur gegen einen Vergleichstarif), Monatskapitel aus den gezeigten Reihen, „Unser Vorschlag" = Speicher-Urteil + Rechnung nachreichen.
 
 ### 3.2 CSV/XLSX-Parsing & Format-Erkennung
 

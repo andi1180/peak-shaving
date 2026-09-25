@@ -1731,7 +1731,7 @@ function WaysChapter({
   return (
     <View style={styles.body}>
       <Text style={styles.h2}>{waysSectionTitle(context.waysCount)}</Text>
-      <Text style={styles.lead}>{WAYS_INTRO}</Text>
+      <Text style={styles.lead}>{chapter?.intro ?? WAYS_INTRO}</Text>
 
       <ChartFigure
         raster={charts.ways}
@@ -1946,7 +1946,7 @@ function MonthlyChapter({
   return (
     <View style={styles.body}>
       <Text style={styles.h2}>{MONTHLY_SECTION.title}</Text>
-      <Text style={styles.lead}>{MONTHLY_INTRO}</Text>
+      <Text style={styles.lead}>{chapter?.intro ?? MONTHLY_INTRO}</Text>
 
       <ChartFigure
         raster={charts.monthly}

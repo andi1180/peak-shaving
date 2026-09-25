@@ -4,7 +4,14 @@ import type { MonthlyTariffComparison } from 'shared'
 import { formatEur } from '@/lib/format'
 import { CONTROLLED_WAY_LABEL, monthlyBatteryRef } from '@/lib/report-copy'
 import type { ReportFigure, ReportStatement } from './statement'
-import { primaryEntryOf, summaryWaysOf, type SummaryWay, type SummaryWays } from './summary'
+import {
+  primaryEntryOf,
+  summaryWaysOf,
+  unknownTariffWaysOf,
+  type SummaryWay,
+  type SummaryWays,
+  type UnknownTariffWays,
+} from './summary'
 import type { PdfReportAnalysis } from './types'
 
 /**
@@ -95,6 +102,8 @@ export type WaysChapter = {
   coveredDays: number
   /** Wie viele Wege das Kapitel FÜHRT — inklusive Weg 1 und, wenn er dasteht, Weg 5. */
   wayCount: number
+  /** Ersetzt den Vorspann des Kapitels; `null` = der übliche (`WAYS_INTRO`). */
+  intro: string | null
   figure: ReportFigure
   /** Die Absätze in Dokumentreihenfolge. Ein Weg, der nicht zutrifft, hat hier keinen Eintrag. */
   statements: ReportStatement[]
@@ -120,7 +129,7 @@ function monthlyComparisonOf(analysis: PdfReportAnalysis): MonthlyTariffComparis
  * gibt es weder die eine noch die Zahlen, aus denen dieses Kapitel besteht.
  */
 export function hasWaysChapter(analysis: PdfReportAnalysis): boolean {
-  return summaryWaysOf(analysis) !== null
+  return summaryWaysOf(analysis) !== null || unknownTariffWaysOf(analysis) !== null
 }
 
 /**
@@ -130,9 +139,14 @@ export function hasWaysChapter(analysis: PdfReportAnalysis): boolean {
  * Stelle und wird von beiden gelesen (dasselbe Muster wie `context.hasWays`).
  */
 export function waysCountOf(analysis: PdfReportAnalysis): number {
+  const peak = peakShavingSavingOf(analysis) > 0 ? 1 : 0
   const ways = summaryWaysOf(analysis)
-  if (!ways) return 0
-  return 1 + ways.ways.length + (peakShavingSavingOf(analysis) > 0 ? 1 : 0)
+  if (!ways) {
+    const unknown = unknownTariffWaysOf(analysis)
+    if (!unknown) return 0
+    return (unknown.baseline ? 1 : 0) + 1 + (unknown.controlledEur !== null ? 1 : 0) + peak
+  }
+  return 1 + ways.ways.length + peak
 }
 
 /**
@@ -232,8 +246,12 @@ const PEAK_SHAVING_METHOD =
 
 export function buildWaysChapter(analysis: PdfReportAnalysis): WaysChapter | null {
   const comparison = monthlyComparisonOf(analysis)
+  if (!comparison) return null
   const ways = summaryWaysOf(analysis)
-  if (!comparison || !ways) return null
+  if (!ways) {
+    const unknown = unknownTariffWaysOf(analysis)
+    return unknown ? buildUnknownTariffWaysChapter(analysis, unknown) : null
+  }
 
   const isExisting = analysis.existingBatteryAnalysis != null
   const whose = monthlyBatteryRef(isExisting)
@@ -378,14 +396,7 @@ export function buildWaysChapter(analysis: PdfReportAnalysis): WaysChapter | nul
        * `monthlyBatteryRef`) und trägt deshalb nur nach „mit" — als Satzsubjekt ergäbe sie
        * „der empfohlenen Batterie senkt…". Am erzeugten PDF gemessen, nicht vermutet.
        */
-      body:
-        'Ein Weg, der unabhängig von Ihrem Stromvertrag wirkt: Sie senken mit ' +
-        `${whose} den abgerechneten Leistungswert, mit dem Ihr Netzbetreiber den Leistungspreis ` +
-        `verrechnet. Das bringt ${formatEur(peakSavingPerYear)} pro Jahr. ` +
-        'Diese Zahl ist eine JAHRESgrösse und bezieht sich damit auf einen anderen Zeitraum als ' +
-        `die ${days} Tage der Balken darüber — sie wird deshalb nicht zu ihnen addiert und steht ` +
-        'auch nicht in der Ersparnis-Spanne der Zusammenfassung. Sie kommt zu dem Weg, für den ' +
-        'Sie sich beim Stromvertrag entscheiden, hinzu.',
+      body: peakShavingBody(whose, peakSavingPerYear, days, true),
     },
       PEAK_SHAVING_METHOD,
       true,
@@ -398,6 +409,7 @@ export function buildWaysChapter(analysis: PdfReportAnalysis): WaysChapter | nul
     bars,
     coveredDays: ways.coveredDays,
     wayCount,
+    intro: null,
     methodNotes,
     figure: {
       caption:
@@ -407,6 +419,169 @@ export function buildWaysChapter(analysis: PdfReportAnalysis): WaysChapter | nul
           : '') +
         /* Kein `⚠` in Kundentext: die Report-Schrift trägt das Zeichen nicht, es verschwindet
            beim Rendern spurlos (am erzeugten PDF gemessen). */
+        `Alle Beträge ${displayedPriceLabel(analysis)}.`,
+      note: null,
+    },
+    statements,
+  }
+}
+
+/** Der Absatz zu Weg 5 — `inSummarySpan`: gibt es eine Ersparnis-Spanne, von der er sich abgrenzt? */
+function peakShavingBody(
+  whose: string,
+  peakSavingPerYear: number,
+  days: string,
+  inSummarySpan: boolean,
+): string {
+  return (
+    'Ein Weg, der unabhängig von Ihrem Stromvertrag wirkt: Sie senken mit ' +
+    `${whose} den abgerechneten Leistungswert, mit dem Ihr Netzbetreiber den Leistungspreis ` +
+    `verrechnet. Das bringt ${formatEur(peakSavingPerYear)} pro Jahr. ` +
+    'Diese Zahl ist eine JAHRESgrösse und bezieht sich damit auf einen anderen Zeitraum als ' +
+    `die ${days} Tage der Balken darüber — sie wird deshalb nicht zu ihnen addiert` +
+    (inSummarySpan ? ' und steht auch nicht in der Ersparnis-Spanne der Zusammenfassung' : '') +
+    '. Sie kommt zu dem Weg, für den Sie sich beim Stromvertrag entscheiden, hinzu.'
+  )
+}
+
+/** Vorspann bei unbekanntem Liefertarif — `WAYS_INTRO` verspricht, was der Strom HEUTE kostet. */
+const UNKNOWN_TARIFF_WAYS_INTRO =
+  'Was Ihr Strom mit einem Börsenpreis-Tarif gekostet hätte — Ihren heutigen Tarif kennen wir ' +
+  'noch nicht.'
+
+const UNKNOWN_TARIFF_SWITCH_METHOD =
+  'der Börsenpreis der jeweiligen Stunde und die Grundgebühr von aWATTar. Die Netzseite hängt am ' +
+  'Anschluss und nicht am Lieferanten. Gerechnet auf dem rohen Lastgang: nichts wird verschoben, ' +
+  'nichts gespeichert. Die verwendeten aWATTar-Preise sind die echten, historischen Stundenpreise ' +
+  'genau dieses Zeitraums — keine Prognose und kein Durchschnittswert.'
+
+/**
+ * Das Wege-Kapitel bei unbekanntem Liefertarif (§3.1a).
+ *
+ * ⚠ OHNE WEG 1: „Ihr Tarif heute" gibt es nicht, weder als Balken noch als Absatz. Ersparnis wird
+ * nur gegen einen erfassten Vergleichstarif ausgewiesen (`baseline`); ohne ihn stehen die Wege mit
+ * absoluten Kosten da, und der Wert der Ladesteuerung ist die Differenz der beiden aWATTar-Wege.
+ */
+function buildUnknownTariffWaysChapter(
+  analysis: PdfReportAnalysis,
+  ways: UnknownTariffWays,
+): WaysChapter {
+  const whose = monthlyBatteryRef(analysis.existingBatteryAnalysis != null)
+  const days = String(ways.coveredDays)
+  const baseline = ways.baseline
+  const peakSavingPerYear = peakShavingSavingOf(analysis)
+
+  /** Gegenüber dem Vergleichstarif — leer ohne ihn. */
+  const againstBaseline = (costEur: number): string => {
+    if (!baseline) return ''
+    const diff = baseline.eur - costEur
+    return diff > 0
+      ? ` Gegenüber Ihrem Vergleichstarif sind das ${formatEur(diff)} weniger.`
+      : ` Gegenüber Ihrem Vergleichstarif sind das ${formatEur(Math.abs(diff))} mehr.`
+  }
+
+  const bars: WaysBar[] = []
+  const statements: ReportStatement[] = []
+  const methodNotes: WayMethodNote[] = []
+  const addWay = (statement: ReportStatement, method: string, aside = false): void => {
+    statements.push(statement)
+    methodNotes.push({ id: statement.id, title: statement.title, body: method, aside })
+  }
+
+  if (baseline) {
+    bars.push({
+      key: 'comparison',
+      label: baseline.supplier ?? 'Ihr Vergleichstarif',
+      eur: baseline.eur,
+      model: false,
+    })
+    addWay(
+      {
+        id: 'ways_comparison_tariff',
+        title: baseline.supplier ? `Ihr Vergleichstarif (${baseline.supplier})` : 'Ihr Vergleichstarif',
+        amount: null,
+        rows: [],
+        body:
+          'Der Tarif, den Sie selbst gefunden und uns genannt haben. Ihren heutigen Tarif kennen wir ' +
+          'nicht; dieser Tarif ist deshalb die Bezugsgrösse der folgenden Wege. Über die ' +
+          `${days} gemessenen Tage hätte er ${formatEur(baseline.eur)} für Energie, Netz und ` +
+          'Abgaben gekostet — mit demselben Lastgang, denselben Netzentgelten und denselben ' +
+          'gesetzlichen Abgaben wie die übrigen Wege.',
+      },
+      'die Bezugsgrösse, solange Ihr heutiger Tarif nicht bekannt ist. Gerechnet mit Arbeitspreis ' +
+        'und Grundgebühr des Vergleichstarifs, auf dem gemessenen Lastgang.',
+    )
+  }
+
+  bars.push({ key: 'uncontrolled', label: 'aWATTar ohne Steuerung', eur: ways.uncontrolledEur, model: false })
+  addWay(
+    {
+      id: 'ways_tariff_switch',
+      title: 'aWATTar ohne Steuerung',
+      amount: null,
+      rows: [],
+      body:
+        'Der einfachste Weg mit Börsenpreis: Ihr gemessener Lastgang zum Börsenpreis von aWATTar, ' +
+        `ohne jede Umstellung an Speicher oder Verbrauch. Über die ${days} gemessenen Tage hätte ` +
+        `das ${formatEur(ways.uncontrolledEur)} für Energie, Netz und Abgaben gekostet.` +
+        againstBaseline(ways.uncontrolledEur) +
+        (baseline
+          ? ''
+          : ' Ob das weniger ist als heute, zeigt erst der Vergleich mit Ihrer Stromrechnung.'),
+    },
+    UNKNOWN_TARIFF_SWITCH_METHOD,
+  )
+
+  if (ways.controlledEur !== null) {
+    const controlValue = ways.uncontrolledEur - ways.controlledEur
+    bars.push({ key: 'controlled', label: CONTROLLED_WAY_LABEL, eur: ways.controlledEur, model: true })
+    addWay(
+      {
+        id: 'ways_load_control',
+        title: CONTROLLED_WAY_LABEL,
+        amount: null,
+        rows: [],
+        body:
+          `Zusätzlich zum Börsenpreis wird mit ${whose} gezielt geladen: in den günstigen ` +
+          'Viertelstunden lädt der Speicher aus dem Netz, während er Kapazität für die teureren ' +
+          'Stunden desselben Tages zurückhält — der Schutz Ihrer Lastspitzen hat dabei weiterhin ' +
+          `Vorrang. Über denselben Zeitraum hätte das ${formatEur(ways.controlledEur)} gekostet` +
+          (controlValue > 0
+            ? ` — ${formatEur(controlValue)} weniger als ohne Steuerung; das ist der Wert der Ladesteuerung.`
+            : ' — nicht weniger als ohne Steuerung.') +
+          againstBaseline(ways.controlledEur) +
+          (ways.controlVariant === 'predictive' ? ` ${PREDICTIVE_NOTE}` : ''),
+      },
+      LOAD_CONTROL_METHOD + (ways.controlVariant === 'predictive' ? ` ${PREDICTIVE_METHOD}` : ''),
+    )
+  }
+
+  if (peakSavingPerYear > 0) {
+    addWay(
+      {
+        id: 'ways_peak_shaving',
+        title: PEAK_SHAVING_WAY_LABEL,
+        amount: null,
+        rows: [],
+        body: peakShavingBody(whose, peakSavingPerYear, days, false),
+      },
+      PEAK_SHAVING_METHOD,
+      true,
+    )
+  }
+
+  return {
+    bars,
+    coveredDays: ways.coveredDays,
+    wayCount: statements.length,
+    intro: UNKNOWN_TARIFF_WAYS_INTRO,
+    methodNotes,
+    figure: {
+      caption:
+        `Was Ihr Strom über die ${days} gemessenen Tage gekostet hätte — je Weg ein Balken. ` +
+        (peakSavingPerYear > 0
+          ? 'Die Kappung Ihrer Lastspitzen ist hier nicht enthalten (Jahresgrösse, s. unten). '
+          : '') +
         `Alle Beträge ${displayedPriceLabel(analysis)}.`,
       note: null,
     },

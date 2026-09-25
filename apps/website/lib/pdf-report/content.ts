@@ -318,6 +318,7 @@ const WAYS_NUMBER_WORD: Record<number, string> = { 2: 'Zwei', 3: 'Drei', 4: 'Vie
  * gebildet ergäbe einen Import-Zyklus.
  */
 export function waysSectionTitle(wayCount: number): string {
+  if (wayCount === 1) return 'Ein Weg zu weniger Stromkosten'
   return `${WAYS_NUMBER_WORD[wayCount] ?? String(wayCount)} Wege zu weniger Stromkosten`
 }
 

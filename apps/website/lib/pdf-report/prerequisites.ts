@@ -3,7 +3,7 @@ import type { PvSource, PvStage } from 'shared'
 
 import { formatEur, formatKw, formatKwh1, formatKwp, formatPercent } from '@/lib/format'
 import type { ReportNotice, ReportRow, ReportStatement } from './statement'
-import { summaryWaysOf } from './summary'
+import { summaryWaysOf, unknownTariffWaysOf } from './summary'
 import type { PdfReportAnalysis, PdfReportInput, PdfReportTariffSource } from './types'
 
 /**
@@ -80,11 +80,18 @@ function pvRow(
 }
 
 /** Immer — anders als die beiden Anlagenteile gibt es einen Netzanschluss in jedem Report. */
-function gridConnectionRow(analysis: PdfReportAnalysis, tariffSource: PdfReportTariffSource): ReportRow {
-  const netzebene =
+function gridConnectionRow(
+  analysis: PdfReportAnalysis,
+  tariffSource: PdfReportTariffSource,
+  netzebeneFromDraft: number | undefined,
+): ReportRow {
+  /* Der Wizard-Weg trägt `tariffSource` immer als „nicht nachverfolgt" — die Netzebene selbst steht
+     trotzdem im Entwurf und reist als eigene Angabe mit. */
+  const level =
     typeof tariffSource === 'object' && tariffSource !== null
-      ? `Netzebene ${tariffSource.netzebene}`
-      : 'Netzebene nicht erfasst'
+      ? tariffSource.netzebene
+      : netzebeneFromDraft
+  const netzebene = level === undefined ? 'Netzebene nicht erfasst' : `Netzebene ${level}`
   const measurement = hasLeistungspreis(analysis.current)
     ? 'mit Leistungsmessung'
     : 'ohne Leistungsmessung'
@@ -98,7 +105,7 @@ export function buildOverviewStatement(input: PdfReportInput): ReportStatement {
   const rows = [
     batteryRow(analysis),
     pvRow(input.hasPv, input.pvStage, input.pvPeakPowerKwp),
-    gridConnectionRow(analysis, input.tariffSource),
+    gridConnectionRow(analysis, input.tariffSource, input.netzebene),
   ].filter((r): r is ReportRow => r !== null)
 
   return {
@@ -199,7 +206,9 @@ export function buildConsumptionTodayStatement(
         'Kosten',
         ways
           ? `${formatEur(ways.costTodayEur)} (${displayedPriceLabel(analysis)})`
-          : 'nicht berechenbar',
+          : unknownTariffWaysOf(analysis)
+            ? 'unbekannt — Ihre Stromrechnung liegt uns nicht vor'
+            : 'nicht berechenbar',
       ),
       neutralRow('Zeitraum', `${analysis.dataQuality.coveredDays} gemessene Tage`),
       neutralRow(peakLabel, formatKw(analysis.current.annualPeakKw)),
