@@ -25,7 +25,7 @@ import { buildDispatchTrace } from './trace'
  *   1. REGRESSION: PvProfile ändert Dispatch UND Ersparnis NICHT (der speicherbare Überschuss = am
  *      Zähler sichtbare Einspeisung steckt schon im signierten Netz-Lastgang). `grossPvKw` ist der
  *      EINZIGE Unterschied → alles andere bit-identisch.
- *   2. selfConsumptionSaving MIT PvProfile ≥ OHNE (hier: exakt gleich — s. Doku-Assertion).
+ *   2. Ersparnis MIT PvProfile = OHNE (Dispatch pv-unabhängig).
  *   3. Bilanz-Invariante MIT PV je Slot: Verbrauch = grid − Batterie + BruttoPV, geschlossen & ≥ 0.
  *   4. Trace: `pvGenerationKw` = echte Brutto-PV (nicht mehr nur die Einspeisung).
  */
@@ -53,19 +53,13 @@ describe('§3.1 PvProfile-Kette — Regression (Dispatch/Ersparnis unverändert)
     expect(simPv.dispatch.batteryPowerKw).toEqual(simNoPv.dispatch.batteryPowerKw)
   })
 
-  it('selfConsumptionSaving MIT PvProfile ≥ OHNE — hier exakt gleich (Überschuss = Einspeisung, schon im Netz)', () => {
+  it('Ersparnis MIT PvProfile = OHNE (Überschuss = Einspeisung, schon im Netz)', () => {
     const savNoPv = computeBatterySavings(lp, battery, tariff, simNoPv)
     const savPv = computeBatterySavings(lp, battery, tariff, simPv)
 
-    expect(savPv.selfConsumptionSavingPerYear).toBeGreaterThan(0) // der Fall ist nicht-trivial (echte PV)
-    expect(savPv.selfConsumptionSavingPerYear).toBeGreaterThanOrEqual(savNoPv.selfConsumptionSavingPerYear)
-    // Präzise: identisch, weil derselbe (pv-unabhängige) Fahrplan zugrunde liegt.
+    expect(savPv.energySavingPerYear).toBeGreaterThan(0) // der Fall ist nicht-trivial (echte PV)
+    // Identisch, weil derselbe (pv-unabhängige) Fahrplan zugrunde liegt.
     expect(savPv).toEqual(savNoPv)
-
-    console.log(
-      `[§3.1 selfConsumption] ohne PvProfile=€${savNoPv.selfConsumptionSavingPerYear.toFixed(2)} · ` +
-        `mit=€${savPv.selfConsumptionSavingPerYear.toFixed(2)} (gleich: Dispatch pv-unabhängig)`,
-    )
   })
 })
 

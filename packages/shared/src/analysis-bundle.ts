@@ -176,7 +176,15 @@ import type { TariffOverridableField } from './tariff-catalog'
  * Betonsockel-/Wechselrichter-/Leistungshinweise stehen als `perBattery[].notices` statt in
  * `warnings`. Bis Fassung 10 tragen beide fertige Sätze mit NETTObeträgen. Zahlen unverändert.
  */
-export const ANALYSIS_BUNDLE_VERSION = 11
+/**
+ * ── FASSUNG 12 (25.09.2026, §3.7 Revision) ─────────────────────────────────────────────────────
+ * `perBattery[]` (und Bestand/Zusatzszenarien) tragen statt Eigenverbrauch/Lastverschiebung in €
+ * EINEN Energie-Anteil: `energySavingPerYear`/`…OverCoveredPeriod` = volle Kostendifferenz der
+ * Netzreihen, dazu `energySavingBasis`. Kapp-Energie, Ladeverluste und Ladestand an den Rändern
+ * sind jetzt gebucht, die Untergrenze 0 je Intervall ist entfallen — `totalSavingPerYear` und
+ * alles daraus sind gegenüber Fassung ≤ 11 eine andere Definition, keine neue Messung.
+ */
+export const ANALYSIS_BUNDLE_VERSION = 12
 
 /**
  * Fassungen, die der Upload annimmt.
@@ -185,7 +193,7 @@ export const ANALYSIS_BUNDLE_VERSION = 11
  * worden sein, und ein Bündel unbrauchbar zu machen, das ein Mensch in der Hand hält, wäre der
  * schlechtere Handel. Bei einer älteren Fassung bleiben die jeweils neueren Felder schlicht leer.
  */
-export const SUPPORTED_ANALYSIS_BUNDLE_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+export const SUPPORTED_ANALYSIS_BUNDLE_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
 
 /**
  * Fassung der Rechen-Engine, VON HAND gepflegt.
@@ -196,7 +204,7 @@ export const SUPPORTED_ANALYSIS_BUNDLE_VERSIONS: readonly number[] = [1, 2, 3, 4
  *
  * Bei einer Änderung am Rechenkern, die Ergebnisse verschiebt, MITZIEHEN.
  */
-export const ENGINE_VERSION = '1.3.0-mvp'
+export const ENGINE_VERSION = '1.4.0-mvp'
 
 /**
  * Was anstelle des Commits geschrieben wird, wenn die Bauumgebung keinen kennt (lokaler

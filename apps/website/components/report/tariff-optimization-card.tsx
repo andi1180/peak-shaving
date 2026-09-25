@@ -79,11 +79,11 @@ export function TariffOptimizationCard({
 }: {
   /** `undefined` = Hebel nicht angefordert; dann rendert die Karte nichts. */
   status: TariffOptimizationStatus | undefined
-  /** Die angezeigte Empfehlung — sie trägt die gerechnete Zahl (`loadShiftSavingPerYear`). */
+  /** Die angezeigte Empfehlung — sie trägt die gerechnete Zahl (`energySavingPerYear`). */
   /**
    * Der primäre Block des Reports — die bestehende Anlage des Kunden, sonst die Empfehlung.
    * `BatteryResultEntry` statt des `perBattery`-Elementtyps, weil hier ausschliesslich
-   * Lastverschiebungs- und Hochrechnungsfelder gelesen werden und keine Investition; nur so kann
+   * Energie- und Hochrechnungsfelder gelesen werden und keine Investition; nur so kann
    * die Karte im Bestandsfall die Zahl DESSELBEN Geräts zeigen wie der Block darüber.
    */
   recommended: BatteryResultEntry | undefined
@@ -149,7 +149,7 @@ export function TariffOptimizationCard({
    */
   if (!recommended) return null
 
-  const saving = recommended.loadShiftSavingPerYear
+  const saving = recommended.energySavingPerYear
 
   /*
    * ⚠ DIE SUMMEN KOMMEN AUS DEMSELBEN HELFER WIE DIE LEGENDE DES MONATSCHARTS (`sumCovered`).
@@ -230,7 +230,7 @@ export function TariffOptimizationCard({
               teuren Viertelstunden
             </p>
             {/*
-            §3.7-Jahres-Hochrechnung: diese Zahl IST `loadShiftSavingPerYear`, also bei einem
+            §3.7-Jahres-Hochrechnung: diese Zahl IST `energySavingPerYear`, also bei einem
             Teilzeitraum-Lastgang eine hochgerechnete Grösse. Sie steht hier gross und mit dem
             Etikett „pro Jahr" — der Vorbehalt gehört deshalb an dieselbe Stelle und nicht nur in
             die Ersparnis-Aufschlüsselung nebenan, sonst trägt derselbe Wert im selben Report
@@ -241,7 +241,7 @@ export function TariffOptimizationCard({
                 Hochgerechnet aus <Num>{recommended.coveredDays}</Num> abgedeckten Tagen — gemessen
                 wurden in diesem Zeitraum{' '}
                 <Num className="font-medium text-text">
-                  {formatEur(recommended.loadShiftSavingOverCoveredPeriod)}
+                  {formatEur(recommended.energySavingOverCoveredPeriod)}
                 </Num>
                 .
               </p>

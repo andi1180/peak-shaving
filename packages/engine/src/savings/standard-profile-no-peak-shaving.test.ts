@@ -98,7 +98,7 @@ describe('Delta 8 — Standardprofil trägt die Leistungspreis-Dimension nicht',
     expect(s.warnings.some((w) => /Synthetisches Standardlastprofil/.test(w))).toBe(true)
     expect(s.warnings.some((w) => /Statische Steuerung/.test(w))).toBe(false)
     expect(s.totalSavingPerYear).toBeCloseTo(
-      s.leistungspreisSavingPerYear + s.selfConsumptionSavingPerYear + s.loadShiftSavingPerYear,
+      s.leistungspreisSavingPerYear + s.energySavingPerYear,
       12,
     )
   })

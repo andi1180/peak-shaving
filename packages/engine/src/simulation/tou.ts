@@ -455,7 +455,7 @@ function cheapAgainstDailyMean(loadProfile: LoadProfile, rateCtPerKwh: number[])
  * Ein Intervall bekommt den GÜNSTIGSTEN Preis unter allen matchenden `timeOfUseWindows`; matcht
  * keins, gilt der Standard-`energyPriceCtPerKwh`. „Günstig" = Rate strikt unter dem Standardpreis.
  * Ohne (echte oder Default-NT-)Fenster ist `touActive=false` und alle Flags sind `false` →
- * `loadShiftSavingPerYear` bleibt 0 (§3.7). Dieser Pfad ist unverändert.
+ * kein Laden im günstigen Fenster (§3.7). Dieser Pfad ist unverändert.
  *
  * ── MIT `pricing` (Tarifoptimierungs-Hebel angefordert, B21-3b) ────────────────────────────────
  * Der Preis je Intervall ist der kombinierte (Marktpreis + Netzentgelt, s. `combinedPrices`).

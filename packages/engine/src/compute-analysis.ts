@@ -254,11 +254,8 @@ function buildExistingBatteryAnalysis(
 
     const leistungspreisSavingPerYear =
       cSav.leistungspreisSavingPerYear - savings.leistungspreisSavingPerYear
-    const selfConsumptionSavingPerYear =
-      cSav.selfConsumptionSavingPerYear - savings.selfConsumptionSavingPerYear
-    const loadShiftSavingPerYear = cSav.loadShiftSavingPerYear - savings.loadShiftSavingPerYear
-    const totalSavingPerYear =
-      leistungspreisSavingPerYear + selfConsumptionSavingPerYear + loadShiftSavingPerYear
+    const energySavingPerYear = cSav.energySavingPerYear - savings.energySavingPerYear
+    const totalSavingPerYear = leistungspreisSavingPerYear + energySavingPerYear
 
     return {
       // Das ZUSATZgerät: es wird gekauft, seine Karte zeigt seinen Preis und seine Amortisation.
@@ -268,13 +265,10 @@ function buildExistingBatteryAnalysis(
       // absolute Grösse; eine Differenz zweier kW-Werte wäre hier keine sinnvolle Aussage.
       newBilledKw: cSav.newBilledKw,
       leistungspreisSavingPerYear,
-      selfConsumptionSavingPerYear,
-      loadShiftSavingPerYear,
-      selfConsumptionSavingOverCoveredPeriod:
-        cSav.selfConsumptionSavingOverCoveredPeriod -
-        savings.selfConsumptionSavingOverCoveredPeriod,
-      loadShiftSavingOverCoveredPeriod:
-        cSav.loadShiftSavingOverCoveredPeriod - savings.loadShiftSavingOverCoveredPeriod,
+      energySavingPerYear,
+      energySavingOverCoveredPeriod:
+        cSav.energySavingOverCoveredPeriod - savings.energySavingOverCoveredPeriod,
+      energySavingBasis: cSav.energySavingBasis,
       // Faktor und abgedeckte Tage hängen am LASTGANG, nicht an der Batterie — beide Läufe liefern
       // denselben Wert, eine Differenz wäre hier sinnlos.
       annualizationFactor: cSav.annualizationFactor,

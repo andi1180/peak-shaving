@@ -3,6 +3,7 @@ import type { BatteryCandidate, LoadProfile, TariffParams } from 'shared'
 
 import { simulateBattery } from '../simulation/simulate'
 import { computeBatterySavings } from './attribute'
+import { annualizationFactor } from './annualization'
 
 const STEP_MS = 15 * 60 * 1000
 const iso = (ms: number): string => new Date(ms).toISOString()
@@ -70,28 +71,40 @@ const withNightWindow: TariffParams = {
 const days = Array.from({ length: 10 }, (_, i) => day(i === 5 ? 90 : undefined))
 const lp = profile(days)
 
-describe('§3.7 Attribution ohne Doppelzählung', () => {
-  it('Profil mit PV UND Tarif-Fenstern UND Spitze: alle drei Anteile > 0 und Summe = total (exakt)', () => {
+describe('§3.7 zwei exakte Anteile: Leistungspreis + Energie', () => {
+  it('Summe Leistungspreis-Anteil + Energie-Anteil = Gesamtersparnis, exakt', () => {
     const s = computeBatterySavings(lp, battery('dynamic'), withNightWindow)
 
-    console.log(
-      `[§3.7 Attribution] leistungspreis=€${s.leistungspreisSavingPerYear.toFixed(0)} · ` +
-        `eigenverbrauch=€${s.selfConsumptionSavingPerYear.toFixed(0)} · ` +
-        `lastverschiebung=€${s.loadShiftSavingPerYear.toFixed(0)} · ` +
-        `total=€${s.totalSavingPerYear.toFixed(0)} · newBilledKw=${s.newBilledKw.toFixed(1)}`,
-    )
-
-    // Alle drei Zwecke sind gleichzeitig aktiv.
     expect(s.leistungspreisSavingPerYear).toBeGreaterThan(0)
-    expect(s.selfConsumptionSavingPerYear).toBeGreaterThan(0)
-    expect(s.loadShiftSavingPerYear).toBeGreaterThan(0)
+    expect(s.energySavingPerYear).not.toBe(0)
+    expect(s.totalSavingPerYear).toBe(s.leistungspreisSavingPerYear + s.energySavingPerYear)
+    expect(s.energySavingPerYear).toBe(s.energySavingOverCoveredPeriod * annualizationFactor(lp))
+    // Ohne Preisdaten nur Arbeitspreis/Nachttarif — als Einschränkung gekennzeichnet.
+    expect(s.energySavingBasis).toBe('energy_price_only')
+  })
+})
 
-    // Kern-Invariante (Prinzip 2): keine kWh doppelt gezählt → Summe == total, exakt.
-    const sum =
-      s.leistungspreisSavingPerYear +
-      s.selfConsumptionSavingPerYear +
-      s.loadShiftSavingPerYear
-    expect(s.totalSavingPerYear).toBeCloseTo(sum, 10)
+describe('§3.7 Kapp-Entladungen sind in der Energie-Ersparnis gebucht', () => {
+  // Flacher Tarif ohne PV und ohne Fenster: die Batterie lädt und entlädt NUR für die Spitzenkappung.
+  const flat: TariffParams = { ...baseTariff, einspeiseverguetungCtPerKwh: 0 }
+  const peakDay = (): number[] => Array.from({ length: 96 }, (_, i) => (i >= 32 && i < 40 ? 60 : 20))
+  const peakProfile = profile(Array.from({ length: 10 }, peakDay))
+
+  it('Energie- und Verlustkosten der Kapp-Entladungen stehen in der Ersparnis', () => {
+    const sim = simulateBattery(peakProfile, battery('dynamic'), flat)
+    const s = computeBatterySavings(peakProfile, battery('dynamic'), flat, sim)
+
+    const costEur = (kw: number[]): number => kw.reduce((sum, v) => sum + v * 0.25 * 25, 0) / 100
+    const raw = peakProfile.readings.map((r) => r.gridPowerKw)
+    const expected = costEur(raw) - costEur(sim.dispatch.gridAfterKw)
+
+    expect(s.leistungspreisSavingPerYear).toBeGreaterThan(0)
+    // Die Batterie hat gekappt, und ihre Ladeverluste kosten Geld: der Energie-Anteil ist negativ.
+    expect(expected).toBeLessThan(-1)
+    expect(s.totalSavingPerYear - s.leistungspreisSavingPerYear).toBeCloseTo(
+      expected * annualizationFactor(peakProfile),
+      6,
+    )
   })
 })
 
@@ -110,78 +123,7 @@ describe('§3.7 controlType (Martins Semantik, OP#5)', () => {
     expect(stat.warnings.some((w) => /socFloor|Reserve/i.test(w))).toBe(false)
     expect(dyn.warnings).toHaveLength(0)
 
-    // Eigenverbrauch/Lastverschiebung: static ist reserve-frei simuliert (volle Kapazität) → NICHT unter
-    // die dynamische (durch die Spitzen-Reserve gebundene) Zuschreibung. total(static) = Σ der drei Töpfe.
-    expect(stat.selfConsumptionSavingPerYear).toBeGreaterThanOrEqual(dyn.selfConsumptionSavingPerYear - 1e-9)
-    expect(stat.totalSavingPerYear).toBeCloseTo(
-      stat.selfConsumptionSavingPerYear + stat.loadShiftSavingPerYear,
-      10,
-    )
-  })
-
-  it('static reserve-frei (OP#5): Eigenverbrauch/Lastverschiebung ≥ alte reservierte Zuschreibung + Summe = total exakt', () => {
-    // NEU: static läuft reserve-frei (simulateBattery mit cap = ∞ / socFloor ≡ 0).
-    const free = computeBatterySavings(lp, battery('static'), withNightWindow)
-
-    // ALT (zum Vergleich reproduziert): dieselbe static-Batterie, aber gegen einen MIT Spitzen-Reserve
-    // gerechneten Fahrplan gebucht — das war das frühere Verhalten (static lief durch die volle,
-    // reservierte Simulation, danach nur Leistungspreis auf 0). Wir erzeugen den reservierten Fahrplan
-    // über die dynamische Physik und buchen ihn für die static-Batterie.
-    const reservedSim = simulateBattery(lp, { ...battery('static'), controlType: 'dynamic' }, withNightWindow)
-    const reserved = computeBatterySavings(lp, battery('static'), withNightWindow, reservedSim)
-
-    const freeEvLs = free.selfConsumptionSavingPerYear + free.loadShiftSavingPerYear
-    const reservedEvLs = reserved.selfConsumptionSavingPerYear + reserved.loadShiftSavingPerYear
-
-    console.log(
-      `[§3.7/OP#5 static reserve-frei] Eigenverbrauch+Lastverschiebung ` +
-        `NEU(reserve-frei)=€${freeEvLs.toFixed(2)} ` +
-        `(EV €${free.selfConsumptionSavingPerYear.toFixed(2)} + LS €${free.loadShiftSavingPerYear.toFixed(2)}) ` +
-        `vs. ALT(mit Reserve)=€${reservedEvLs.toFixed(2)} ` +
-        `(EV €${reserved.selfConsumptionSavingPerYear.toFixed(2)} + LS €${reserved.loadShiftSavingPerYear.toFixed(2)}) ` +
-        `→ Delta €${(freeEvLs - reservedEvLs).toFixed(2)}`,
-    )
-
-    // Reserve-frei gibt dem Eigenverbrauch die volle Kapazität → nie schlechter als mit Reserve.
-    expect(freeEvLs).toBeGreaterThanOrEqual(reservedEvLs - 1e-9)
-    // Für dieses Profil (90-kW-Spitze bindet Reserve vor der Spitze) ist es echt mehr, kein Grenzfall.
-    expect(freeEvLs).toBeGreaterThan(reservedEvLs + 1)
-
-    // Nicht-Doppelzählung bleibt für static exakt (leistungspreis = 0).
-    expect(free.leistungspreisSavingPerYear).toBe(0)
-    expect(free.totalSavingPerYear).toBeCloseTo(
-      free.leistungspreisSavingPerYear + free.selfConsumptionSavingPerYear + free.loadShiftSavingPerYear,
-      10,
-    )
-  })
-
-  it('dynamic-Pfad unberührt (OP#5): der LEISTUNGSPREIS-Teil ist bit-identisch wie vor der static-Änderung', () => {
-    // Baseline vor der Änderung erfasst (dynamic, withNightWindow, Batterie 100 kWh/50 kW/η0,9).
-    // Der static-Fix fasst den dynamic-Zweig NICHT an → diese Zahlen müssen exakt erhalten bleiben.
-    //
-    // ⚠ DELTA 19 HAT DIE BEIDEN ENERGIE-PINS BEWUSST VERSCHOBEN — und das ist der einzige Grund,
-    // aus dem sie sich je bewegen durften. Sie standen seit dem static-Fix (OP#5) auf 104,04 bzw.
-    // 110,50000495910645 und haben seither jede Änderung überlebt, weil keine die Buchhaltung über
-    // den Fahrplan angefasst hat. Delta 19 fasst genau sie an: die Ladeverluste sind ab jetzt auf
-    // der KOSTEN-Seite verbucht (§3.7). Die neuen Werte sind nachrechenbar und stehen deshalb als
-    // RECHNUNG da, nicht als abgeschriebene Zahl aus einem Lauf:
-    //   • Eigenverbrauch: Wert einer PV-kWh 25 − 8 = 17 ct → 25 − 8/0,9 = 16,111… ct  (−5,229 %)
-    //     104,04 × (25 − 8/0,9) / 17 = 98,60
-    //   • Lastverschiebung: Aufschlag 25 − 12 = 13 ct → 25 − 12/0,9 = 11,666… ct     (−10,256 %)
-    //     110,50000495910645 × (25 − 12/0,9) / 13 = 99,16667111714679
-    // Der Fahrplan selbst ist dabei unverändert (`newBilledKw` und der Leistungspreis-Anteil
-    // stehen bit-genau wie zuvor) — es ist eine reine Bewertungsänderung, keine andere Physik.
-    const dyn = computeBatterySavings(lp, battery('dynamic'), withNightWindow)
-    const eta = 0.9
-    expect(dyn.newBilledKw).toBeCloseTo(40.00001907348633, 8)
-    expect(dyn.leistungspreisSavingPerYear).toBeCloseTo(4999.998092651367, 6)
-    expect(dyn.selfConsumptionSavingOverCoveredPeriod).toBeCloseTo((104.04 * (25 - 8 / eta)) / 17, 8)
-    expect(dyn.selfConsumptionSavingOverCoveredPeriod).toBeCloseTo(98.6, 8)
-    expect(dyn.loadShiftSavingOverCoveredPeriod).toBeCloseTo(
-      (110.50000495910645 * (25 - 12 / eta)) / 13,
-      8,
-    )
-    expect(dyn.loadShiftSavingOverCoveredPeriod).toBeCloseTo(99.16667111714679, 8)
+    expect(stat.totalSavingPerYear).toBe(stat.energySavingPerYear)
   })
 
   it('§3.7 Hochrechnung: das 10-Tage-Profil wird mit 36,5 auf ein Jahr gerechnet — Leistungspreis nicht', () => {
@@ -190,35 +132,17 @@ describe('§3.7 controlType (Martins Semantik, OP#5)', () => {
 
     expect(dyn.coveredDays).toBe(10)
     expect(dyn.annualizationFactor).toBe(factor)
-    // Delta 19 (Ladeverluste als Kosten): 98,60 statt 104,04 bzw. 99,16667… statt 110,50000…
-    // — die Herleitung steht im Pin-Test darüber.
-    expect(dyn.selfConsumptionSavingPerYear).toBe(98.6 * factor)
-    expect(dyn.loadShiftSavingPerYear).toBe(99.16667111714679 * factor)
-    // Ratenbasiert und deshalb unskaliert — der historische Pin oben steht unverändert.
+    expect(dyn.energySavingPerYear).toBe(dyn.energySavingOverCoveredPeriod * factor)
+    // Ratenbasiert und deshalb unskaliert — derselbe Fahrplan, derselbe Pin wie vor §3.7-Revision.
+    expect(dyn.newBilledKw).toBeCloseTo(40.00001907348633, 8)
     expect(dyn.leistungspreisSavingPerYear).toBeCloseTo(4999.998092651367, 6)
-    expect(dyn.totalSavingPerYear).toBeCloseTo(
-      dyn.leistungspreisSavingPerYear + (98.6 + 99.16667111714679) * factor,
-      6,
-    )
   })
 })
 
-describe('§3.7 loadShiftSaving nur mit Tarif-Fenstern', () => {
-  it('ohne Tarif-Fenster → 0; mit HT/NT-Fenster → > 0 (konkreter Wert)', () => {
+describe('§3.7 günstiges Tarif-Fenster', () => {
+  it('ein NT-Fenster hebt den Energie-Anteil', () => {
     const withoutWindows = computeBatterySavings(lp, battery('dynamic'), baseTariff)
     const withWindows = computeBatterySavings(lp, battery('dynamic'), withNightWindow)
-
-    console.log(
-      `[§3.7 Lastverschiebung] ohne Fenster=€${withoutWindows.loadShiftSavingPerYear.toFixed(2)} · ` +
-        `mit NT-Fenster (25→12 ct)=€${withWindows.loadShiftSavingPerYear.toFixed(0)}`,
-    )
-
-    // Ohne günstiges Fenster kann keine Lastverschiebung entstehen.
-    expect(withoutWindows.loadShiftSavingPerYear).toBe(0)
-    // Eigenverbrauch (PV) läuft auch ohne Tarif-Fenster.
-    expect(withoutWindows.selfConsumptionSavingPerYear).toBeGreaterThan(0)
-
-    // Mit NT-Fenster: nachts billig laden, tagsüber teuer nutzen → echte Ersparnis.
-    expect(withWindows.loadShiftSavingPerYear).toBeGreaterThan(50)
+    expect(withWindows.energySavingPerYear).toBeGreaterThan(withoutWindows.energySavingPerYear + 50)
   })
 })

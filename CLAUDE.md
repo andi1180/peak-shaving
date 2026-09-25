@@ -157,8 +157,8 @@ synthetischer Lastgang, Tarif von Hand: 9,5 ct / 50 €/kW·a / `monthly_max_sum
 Netzentgelte/Spotpreise/Katalog am 23.09.2026 per `anon` eingefroren, 2025er Netzverlust nach der
 Tippfehler-Korrektur 0,7 ct):** `billedKw` **606,56**,
 31 Katalog-Kandidaten, Leistungspreis 2.527,33 €/Jahr, Empfehlung `6845c64d…` (**Kostal & Dyness
-Retrofit L**, **2.144 €/Jahr, Amortisation 5,11 Jahre, netto 10.490 € über 10 Jahre** seit Abgaben
-Phase 2a, 24.09.2026 — davor 2.009 €/5,45/9.139 €; mit dem fehlerhaften Netzverlust 7 ct waren es
+Retrofit L**, **2.114 €/Jahr, Amortisation 5,18 Jahre, netto 10.193 € über 10 Jahre** seit der
+§3.7-Revision 25.09.2026 — davor 2.144 €/5,11/10.490 € seit Abgaben Phase 2a, davor 2.009 €/5,45/9.139 €; mit dem fehlerhaften Netzverlust 7 ct waren es
 1.875 €/5,84/7.803 €). Die Bewegung kommt aus der Gebrauchsabgabe auf Energie (Lastverschiebung
 891,66 → 959,93 €) und auf den Leistungspreis (1.117,08 → 1.184,11 €, × 1,06); der Abgabenplan des
 Golden ist dafür mit `{ category: 'gewerbe', postalCode: null }` neu erzeugt · Urbanz
@@ -238,6 +238,22 @@ Details und der vollständige Stand: siehe `./Pflichtenheft_Kalkulator_MVP.md`, 
 ## Stand & offene Entscheidungen
 
 > Lebendiger Handover-Anker. Neueste offene Punkte, die den Bau der Engine/Simulation berühren. Erledigtes wandert raus.
+
+### Energie-Ersparnis als volle Kostendifferenz der Reihen — §3.7-Revision (25.09.2026)
+
+`computeBatterySavings` bewertet nicht mehr Einzel-kWh in zwei Töpfen, sondern rechnet
+`energyCostEur(roher Netzbezug) − energyCostEur(gridAfterKw)` (`engine/src/simulation/energy-cost.ts`,
+dieselbe Funktion wie der Monatsvergleich). Contract: `energySavingPerYear`/`…OverCoveredPeriod`/
+`energySavingBasis` statt `selfConsumption…`/`loadShift…`; `total = leistungspreis + energy` exakt.
+Bündel-Fassung 12, `ENGINE_VERSION` 1.4.0-mvp. Fachliche Tiefe: `Pflichtenheft_Kalkulator_MVP.md` §3.7.
+
+**⚠ Beim nächsten Umbau mitzudenken: (a)** der Energie-Anteil kann NEGATIV sein (Ladeverluste der
+Kapp-Ladungen, keine Untergrenze) — ein Kapp-Gerät verliert dadurch bis ~1.000 €/Jahr gegenüber der
+alten Zahl. **(b)** Ohne rechenbare Preisdaten ist er nur mit Arbeitspreis/Nachttarif bewertet
+(`energySavingBasis: 'energy_price_only'`); der Report weist das noch nicht aus (PR 3). **(c)** Der
+Fahrplan ist unverändert und weiterhin Rückblick; die Vorabend-Planung ist PR 2. **(d)** Report-Texte
+(„Wert der Ladesteuerung unter aWATTar" zeigt jetzt den Energie-Anteil, doppelt zur Weg-4-Differenz)
+sind bewusst erst PR 3.
 
 ### Eigener Tarif unbekannt — benannter Zustand statt Required-Abbruch (25.09.2026)
 

@@ -132,14 +132,8 @@ describe('Delta 3 — ein Tarif ohne Leistungspreis trägt keine Spitzenkappung'
     const ohne = computeBatterySavings(lp, battery, ohneLeistungspreis)
     const mit = computeBatterySavings(lp, battery, mitLeistungspreis)
 
-    const energieTopfOhne = ohne.selfConsumptionSavingPerYear + ohne.loadShiftSavingPerYear
-    const energieTopfMit = mit.selfConsumptionSavingPerYear + mit.loadShiftSavingPerYear
-    console.log(
-      `[Delta 3] Energie-Töpfe: ohne LP €${energieTopfOhne.toFixed(2)} ` +
-        `(EV €${ohne.selfConsumptionSavingPerYear.toFixed(2)} + LV €${ohne.loadShiftSavingPerYear.toFixed(2)}) · ` +
-        `mit LP €${energieTopfMit.toFixed(2)} ` +
-        `(EV €${mit.selfConsumptionSavingPerYear.toFixed(2)} + LV €${mit.loadShiftSavingPerYear.toFixed(2)})`,
-    )
+    const energieTopfOhne = ohne.energySavingPerYear
+    const energieTopfMit = mit.energySavingPerYear
 
     // Die Spitzen-Reserve kostet Eigenverbrauch; ohne Leistungspreis gibt es sie nicht mehr.
     expect(energieTopfOhne).toBeGreaterThan(energieTopfMit)
@@ -152,9 +146,7 @@ describe('Delta 3 — ein Tarif ohne Leistungspreis trägt keine Spitzenkappung'
       false,
     )
     expect(ohne.totalSavingPerYear).toBeCloseTo(
-      ohne.leistungspreisSavingPerYear +
-        ohne.selfConsumptionSavingPerYear +
-        ohne.loadShiftSavingPerYear,
+      ohne.leistungspreisSavingPerYear + ohne.energySavingPerYear,
       12,
     )
 

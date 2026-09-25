@@ -8,7 +8,7 @@ import type { LoadProfile } from 'shared'
  * ist bereits ein Jahressatz, das Ergebnis also konstruktionsbedingt eine Jahresgrösse — egal, ob
  * der Lastgang 7 Tage oder 12 Monate abdeckt.
  *
- * `selfConsumptionSaving` und `loadShiftSaving` entstehen dagegen aus einer SUMMIERUNG über die
+ * Der Energie-Anteil (`energySaving`) entsteht dagegen aus einer SUMMIERUNG über die
  * tatsächlich vorhandenen Intervalle: jede entladene kWh wird bewertet und aufaddiert. Bei einem
  * 209-Tage-Lastgang ist das die Ersparnis ÜBER 209 TAGE — und trug bis hierher trotzdem dasselbe
  * `...PerYear`-Etikett, floss unskaliert in dieselbe Summe und über `totalSavingPerYear` in
