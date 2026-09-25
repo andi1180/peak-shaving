@@ -400,6 +400,8 @@ export function buildWaysChapter(analysis: PdfReportAnalysis): WaysChapter | nul
         'Stunden desselben Tages zurückhält — der Schutz Ihrer Lastspitzen hat dabei weiterhin ' +
         'Vorrang. Über denselben Zeitraum hätte das, Tarifwechsel und Ladesteuerung zusammen, ' +
         outcome(controlWay, 'mehr gekostet als Ihr heutiger Tarif.', 'gespart.') +
+        ' Der Wert der Ladesteuerung allein, der Abstand zu „aWATTar ohne Steuerung", beträgt ' +
+        `${formatEur(switchWay.costEur - controlWay.costEur)}.` +
         (device?.text ?? '') +
         (ways.controlVariant === 'predictive' ? ` ${PREDICTIVE_NOTE}` : ''),
       },

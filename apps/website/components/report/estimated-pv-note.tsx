@@ -43,7 +43,7 @@ export function EstimatedPvNote({ summary }: { summary: EstimatedPvSummary }) {
       <AlertTitle>PV-Erzeugung geschätzt — nicht gemessen</AlertTitle>
       <AlertDescription>
         <p className="text-text">
-          Die Eigenverbrauchs-Ersparnis in diesem Report beruht auf einer{' '}
+          Was der Speicher aus Ihrem PV-Überschuss einspart, beruht in diesem Report auf einer{' '}
           <strong>geschätzten Erzeugungskurve</strong>. Sie stammt nicht aus Ihrer Anlage, sondern
           aus dem <strong>Mittel der Wetterjahre</strong>{' '}
           <Num>
@@ -72,7 +72,7 @@ export function EstimatedPvNote({ summary }: { summary: EstimatedPvSummary }) {
           )}{' '}
           Dazu kommt ein <strong>systematischer Aufschlag</strong>: ein Mehrjahres-Mittel ist
           glatter als jedes einzelne Jahr, und eine glattere Erzeugung wird seltener eingespeist.
-          Gemessen fällt die Eigenverbrauchs-Ersparnis dadurch rund{' '}
+          Gemessen fällt die Ersparnis aus dem PV-Überschuss dadurch rund{' '}
           <Num>{formatPercent(PV_TEN_YEAR_SMOOTHING_OPTIMISM_PERCENT)}</Num> höher aus
           als beim Mittel der einzeln gerechneten Jahre —{' '}
           <strong>die Schätzung ist also eher etwas zu optimistisch als zu vorsichtig.</strong>

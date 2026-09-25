@@ -67,7 +67,11 @@ describe('MonthlyTariffChart — Bildunterschrift zur Ladesteuerung', () => {
     expect(text).not.toContain('rechnerisches Optimum')
   })
 
-  it('ohne vorausschauende Reihe: Schwellenregel wie bisher', () => {
-    expect(caption(SIMPLE)).toContain('Schwellenregel')
+  it('ohne Obergrenze (Standardprofil): plant mit dem Profil, keine Schwellenregel und keine Untergrenze', () => {
+    const text = caption(SIMPLE)
+
+    expect(text).toContain('Standardprofil')
+    expect(text).not.toContain('Schwellenregel')
+    expect(text).not.toContain('Untergrenze')
   })
 })

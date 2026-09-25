@@ -1115,7 +1115,8 @@ export function StepTariff({
             Statt eines festen Arbeitspreises rechnen wir jede Viertelstunde mit dem tatsächlichen
             Börsenpreis jener Stunde plus dem Netzentgelt Ihres Netzbetreibers. Das zeigt, was ein
             Speicher zusätzlich gebracht hätte, wenn er in billigen Stunden geladen und in teuren
-            entladen hätte — rückblickend auf echte Marktpreise Ihres Zeitraums, nicht als Prognose.
+            entladen hätte — mit den echten Marktpreisen Ihres Zeitraums und einem Tagesplan, der
+            Ihren Verbrauch nicht im Voraus kennt.
             Fehlen für Ihren Zeitraum Preisdaten, sagen wir das ausdrücklich und zeigen keine Zahl.
             Die Spitzenkappung bleibt davon in jedem Fall unberührt.
           </InfoHint>

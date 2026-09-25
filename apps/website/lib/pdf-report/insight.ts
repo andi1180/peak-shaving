@@ -376,8 +376,8 @@ export function buildChargePrice(
       id: 'charge_price',
       title: 'Zu welchem Preis wird geladen?',
       /*
-       * ⚠ KEINE KOPFZAHL — der Preisvorteil in Euro steht als „Wert der Ladesteuerung" bereits auf
-       * der Kernergebnis-Seite und im Empfehlungs-Kapitel. Ein dritter, hier gross gesetzter Betrag
+       * ⚠ KEINE KOPFZAHL — der Preisvorteil in Euro steht als „Wert der Ladesteuerung" bereits im
+       * Wege- und im Empfehlungs-Kapitel. Ein dritter, hier gross gesetzter Betrag
        * derselben Sache lüde dazu ein, ihn zu addieren (dieselbe Regel wie in B23c-2/3a).
        */
       amount: null,
@@ -386,10 +386,10 @@ export function buildChargePrice(
         `Alle Beträge ${displayedPriceBasis(price) === 'gross' ? VAT_INCLUSIVE_LABEL : 'netto (ohne USt.)'} ` +
         'und mengengewichtet: ein Monat mit wenigen Kilowattstunden ' +
         'und einem sehr guten Preis wiegt entsprechend leicht. Die geladene Menge ist die am Netz ' +
-        'bezogene, also die bezahlte. Gerechnet ist das rückblickend auf die tatsächlichen ' +
-        'Marktpreise Ihres Zeitraums — kein Versprechen für die Zukunft; und die Ladesteuerung folgt ' +
-        'einer einfachen Regel — eine feinere Steuerung kann mehr herausholen: der Abstand zum ' +
-        'Durchschnitt gilt als Untergrenze, mit besserer Steuerung eher mehr.',
+        'bezogene, also die bezahlte. Gerechnet ist das auf die tatsächlichen Marktpreise Ihres ' +
+        'Zeitraums — kein Versprechen für die Zukunft. Die Ladesteuerung plant jeden Tag im Voraus, ' +
+        'ohne den tatsächlichen Verbrauch des Tages zu kennen: der Abstand zum Durchschnitt ist, was ' +
+        'dieser Plan erreicht hat.',
     },
   }
 }

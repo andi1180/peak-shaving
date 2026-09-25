@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { analysisForDisplay } from 'shared'
 import type { BatteryNotice, DispatchTrace, MonthlyTariffComparison } from 'shared'
 
-import { DYNAMIC_TARIFF_HINT_NOT_COMPUTABLE } from '@/lib/report-copy'
+import { formatEur } from '@/lib/format'
+import { DYNAMIC_TARIFF_HINT_NOT_COMPUTABLE, ENERGY_PRICE_ONLY_NOTE } from '@/lib/report-copy'
 
 import { comparisonChartPlan, hasComparisonChapter } from './comparison'
 import { SECTION_ID } from './content'
@@ -13,6 +14,7 @@ import { buildRecommendationChapter } from './recommendation'
 import { resolveReportText } from './report-text'
 import { statementPoints } from './statement'
 import type { PdfReportAnalysis } from './types'
+import { buildWaysChapter } from './ways'
 
 /**
  * `load_control` zeigte bis zum Zusammenfassungs-Umbau auf zwei Zeilen der Ersparnis-
@@ -119,16 +121,37 @@ describe('Hinweis „nur mit dynamischem Tarif" ersetzt die Speicher-Strecke', (
   })
 })
 
-describe('load_control — der Betrag steht hier, und der Satz zeigt nirgendwohin', () => {
-  it.each([true, false])('trägt die Kopfzahl (Bestandsanlage: %s)', (withExisting) => {
-    const statement = buildRecommendationChapter(analysisFor(withExisting)).loadControl!
+describe('load_control — derselbe Wert wie die Differenz der Wege', () => {
+  const wayDifference = (analysis: PdfReportAnalysis) => {
+    const bars = buildWaysChapter(analysis)!.bars
+    const eur = (key: string) => bars.find((b) => b.key === key)!.eur
+    return formatEur(eur('uncontrolled') - eur('controlled'))
+  }
 
-    /* `energySavingPerYear` der primären Anlage — 400 € in beiden Fixtures. */
-    expect(statement.amount?.value).toBe('€\u00a0400')
-    expect(statement.amount?.tone).toBe('positive')
+  it.each([true, false])('bei 365 Tagen genau die Wege-Differenz (Bestandsanlage: %s)', (withExisting) => {
+    const analysis = analysisFor(withExisting)
+    const statement = buildRecommendationChapter(analysis).loadControl!
+
+    expect(statement.amount?.value).toBe(wayDifference(analysis))
+    expect(statement.rows).toEqual([])
   })
 
-  it('nennt keine Zeile einer Aufschlüsselung mehr, die es nicht gibt', () => {
+  it('bei kürzerem Lastgang: Jahreswert gekennzeichnet, Wege-Differenz über die gemessenen Tage', () => {
+    const partial = { ...ENTRY, coveredDays: 209, annualizationFactor: 365 / 209, energySavingPerYear: 26.2, energySavingOverCoveredPeriod: 15 }
+    const analysis: PdfReportAnalysis = { ...analysisFor(false), perBattery: [partial] }
+    const chapter = buildRecommendationChapter(analysis)
+
+    expect(chapter.loadControl!.amount?.value).toBe(formatEur(26.2))
+    expect(chapter.loadControl!.amount?.caption).toContain('auf ein Jahr hochgerechnet')
+    expect(chapter.loadControl!.rows).toContainEqual({
+      label: 'Gemessen, über die 209 gemessenen Tage',
+      value: wayDifference(analysis),
+      tone: 'neutral',
+    })
+    expect(chapter.recommendation!.rows.map((r) => r.label)).toContain('Ersparnis pro Jahr (auf ein Jahr hochgerechnet)')
+  })
+
+  it('nennt keine Aufteilung, die es nicht mehr gibt, und keinen Rückblick in Versalien', () => {
     const analysis = analysisFor(true)
     const body = resolveReportText(
       buildRecommendationChapter(analysis).loadControl?.body ?? '',
@@ -138,17 +161,29 @@ describe('load_control — der Betrag steht hier, und der Satz zeigt nirgendwohi
 
     expect(body).not.toContain('tarifbewusstes Laden')
     expect(body).not.toContain('Eigenverbrauch')
-    expect(body).not.toContain('Kernergebnis')
-    expect(body).toContain('steckt in der Gesamtersparnis dieses Speichers bereits mit drin')
+    expect(body).not.toContain('RÜCKBLICK')
+    expect(body).toContain('steckt dort bereits mit drin')
   })
 
   it('die Kopfzahl-Beschriftung nennt netto oder inkl. USt, nie „exkl. MwSt."', () => {
     const analysis = analysisFor(true)
     const netto = buildRecommendationChapter(analysis).loadControl!
-    expect(netto.amount?.caption).toBe('pro Jahr, netto')
+    expect(netto.amount?.caption).toBe('über die 365 gemessenen Tage, netto')
 
     const brutto = buildRecommendationChapter(analysisForDisplay(analysis, 'gross')).loadControl!
-    expect(brutto.amount?.caption).toBe('pro Jahr, inkl. 20 % USt')
+    expect(brutto.amount?.caption).toBe('über die 365 gemessenen Tage, inkl. 20 % USt')
+  })
+})
+
+describe('Energie-Anteil ohne vollständige Preisdaten', () => {
+  it('weist die Bewertung zum Arbeitspreis sichtbar aus', () => {
+    const analysis: PdfReportAnalysis = {
+      ...analysisFor(false),
+      perBattery: [{ ...ENTRY, energySavingBasis: 'energy_price_only' }],
+    }
+    const points = buildRecommendationChapter(analysis).recommendation!.points ?? []
+
+    expect(points.map((p) => p.text)).toContain(ENERGY_PRICE_ONLY_NOTE)
   })
 })
 

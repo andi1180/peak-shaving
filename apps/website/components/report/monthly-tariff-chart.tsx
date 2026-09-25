@@ -404,9 +404,9 @@ export function MonthlyTariffChart({
           Monatsbetrag.
         </p>
         <p className="mt-2">
-          Rückblickend gerechnet auf die tatsächlichen Marktpreise Ihres Zeitraums — kein
-          Versprechen für die Zukunft.{' '}
-          {/* Derselbe Abgleich wie im Methodik-Kapitel (`methodologyItemsFor`): die Reihe entscheidet den Wortlaut. */}
+          Gerechnet auf die tatsächlichen Marktpreise Ihres Zeitraums — kein Versprechen für die
+          Zukunft.{' '}
+          {/* Die Reihe entscheidet den Wortlaut: eine Obergrenze gibt es nur zum Vorabend-Plan; ohne sie plant das Standardprofil mit sich selbst. */}
           {comparison.spotWithBatteryHindsightEur != null ? (
             <>
               Die Ladesteuerung des Speichers plant dabei jeweils am Vorabend mit einer
@@ -414,14 +414,12 @@ export function MonthlyTariffChart({
               Ihrem echten Lastgang. Ihren tatsächlichen Verbrauch des nächsten Tages kennt sie
               also nicht im Voraus.
             </>
-          ) : (
+          ) : comparison.spotWithBatteryEur ? (
             <>
-              Die Ladesteuerung des Speichers folgt dabei einer einfachen Schwellenregel und ist
-              noch nicht gegen ein rechnerisches Optimum geprüft:{' '}
-              <strong>die Zahl gilt als vorläufige Untergrenze</strong>, mit besserer Steuerung
-              eher mehr als weniger.
+              Ihr Verbrauch ist ein Standardprofil aus Ihrem Jahresverbrauch; die Ladesteuerung
+              plant mit genau diesem Profil.
             </>
-          )}
+          ) : null}
         </p>
       </div>
     </div>

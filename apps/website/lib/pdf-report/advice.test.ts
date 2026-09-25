@@ -229,7 +229,8 @@ describe('Kapitel „Unser Vorschlag" — Abschnitt „Was wir vorschlagen"', ()
     expect(texts['Wollen Sie es einfach halten']).toContain('209 gemessenen Tage')
 
     /* Punkt 2 ist die Ladesteuerung und liegt über Punkt 1 (1000 − 800). */
-    expect(texts['Wollen Sie das Maximum']).toContain('bis zu € 200')
+    expect(texts['Wollen Sie das Maximum']).toContain('€ 200 weniger')
+    expect(texts['Wollen Sie das Maximum']).not.toContain('bis zu')
 
     /* Punkt 3 zeigt auf das Kapitel, in dem die Antwort steht — kein zweites „Nein" mit Zahlen. */
     expect(texts['Zusätzlicher Speicher']).toBe(
@@ -299,6 +300,19 @@ describe('Kapitel „Unser Vorschlag" — Abschnitt „Was wir vorschlagen"', ()
       'Wollen Sie es einfach halten',
       'Wollen Sie das Maximum',
     ])
+  })
+
+  it('nennt den Speicherbetrag nur mit Investition und Urteil daneben', () => {
+    const input = inputFor(
+      analysisWith({
+        comparison: comparisonWith({ current: 1000, comparison: 1100, spot: 900, battery: 800 }),
+      }),
+    )
+    const maximum = textsOf(input)['Wollen Sie das Maximum']!
+
+    expect(maximum).not.toContain('bis zu')
+    expect(maximum).toContain('Investition € 21.000')
+    expect(maximum).toContain('Im Betrachtungszeitraum von 10 Jahren rechnet er sich damit')
   })
 })
 

@@ -20,7 +20,15 @@ import {
   formatPercent,
   formatYears,
 } from '@/lib/format'
-import { batteryNoteTexts, CONTROLLED_WAY_LABEL, HINDSIGHT_NOTE, vatNote } from '@/lib/report-copy'
+import {
+  ANNUALIZED_LABEL,
+  batteryNoteTexts,
+  CONTROLLED_WAY_LABEL,
+  ENERGY_PRICE_ONLY_NOTE,
+  hasEnergyPriceOnlyBasis,
+  isAnnualized,
+  vatNote,
+} from '@/lib/report-copy'
 import { sumCovered } from './monthly-tariff-chart'
 import { Num } from './num'
 
@@ -81,7 +89,7 @@ function CostRow({ label, value }: { label: string; value: number }) {
  * ZUSÄTZLICHES Gerät neben der bestehenden Anlage — dort sind alle Ersparnis-Zahlen DIFFERENZEN,
  * und das muss auf der Karte stehen, sonst liest sie sich wie eine Bruttozahl.
  *
- * Alle drei zeigen ansonsten DASSELBE — Ersparnis, Aufschlüsselung, Hindsight-Vorbehalt,
+ * Alle drei zeigen ansonsten DASSELBE — Ersparnis, Aufschlüsselung, Fahrplan-Vorbehalt,
  * Warnungen. Eine zweite Komponente wäre eine zweite Stelle, an der dieselbe Aufschlüsselung
  * gepflegt werden müsste.
  *
@@ -90,7 +98,7 @@ function CostRow({ label, value }: { label: string; value: number }) {
  * soll das Typsystem durchsetzen statt die Oberfläche. Ein `entry.totalInvestment` im
  * `existing`-Zweig ist damit kein Anzeigefehler, sondern ein Compile-Fehler.
  */
-type RecommendationCardProps =
+type RecommendationCardProps = (
   | {
       entry: BatteryResultEntry
       variant: 'existing'
@@ -136,9 +144,13 @@ type RecommendationCardProps =
        */
       catalogMeta?: BatteryCatalogMeta
     }
+) & {
+  /** §6.2-Vorbehalt zum Fahrplan (`dispatchMethodText`), einmal im Report gebildet. */
+  dispatchNote?: string
+}
 
 export function RecommendationCard(props: RecommendationCardProps) {
-  const { entry, primary = false } = props
+  const { entry, primary = false, dispatchNote } = props
   const isExisting = props.variant === 'existing'
   const noteTexts = batteryNoteTexts(entry)
   // Narrowing über die Union: beide Nicht-`existing`-Zweige tragen die ROI-Felder.
@@ -267,7 +279,10 @@ export function RecommendationCard(props: RecommendationCardProps) {
                 nicht nur im Methodik-Abschnitt: sie ist der Betrag, den ein Kunde mit seiner Rechnung
                 vergleicht — und die trägt Umsatzsteuer.
               */}
-              <p className="text-xs text-text-muted">{vatNote(entry)}</p>
+              <p className="text-xs text-text-muted">
+                {vatNote(entry)}
+                {isAnnualized(entry) && `, ${ANNUALIZED_LABEL}`}
+              </p>
             </div>
           )}
           {/*
@@ -315,13 +330,12 @@ export function RecommendationCard(props: RecommendationCardProps) {
                 {formatEur(real.totalEur)}
               </Num>
             </div>
-            {/* Hindsight-Hinweis Pflicht (§6.2) — er gilt hier unverändert: die Ladesteuerung ist
-                mit vollem Rückblick auf die tatsächlichen Marktpreise gerechnet. Wortlaut aus
-                `lib/report-copy.ts`, damit Karte und Druck-Methodik nicht auseinanderlaufen. */}
-            <p className="mt-2 flex items-start gap-1.5 text-xs text-text-muted">
-              <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
-              {HINDSIGHT_NOTE}
-            </p>
+            {dispatchNote && (
+              <p className="mt-2 flex items-start gap-1.5 text-xs text-text-muted">
+                <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
+                {dispatchNote}
+              </p>
+            )}
             <div className="mt-2 rounded-md bg-surface-alt p-3 text-xs text-text-muted print:break-inside-avoid">
               <p>
                 Beide Beträge stammen aus dem Monatsvergleich „Das zahlen Sie jetzt vs. mit
@@ -372,23 +386,23 @@ export function RecommendationCard(props: RecommendationCardProps) {
                 des gemeinsamen Speichers.
               </p>
             )}
-            <SavingRow
-              label="Spitzenkappung (Leistungspreis)"
-              value={entry.leistungspreisSavingPerYear}
-            />
-            <SavingRow label="Energie" value={entry.energySavingPerYear} />
+            <SavingRow label="Leistungspreis-Anteil" value={entry.leistungspreisSavingPerYear} />
+            <SavingRow label="Energie-Anteil" value={entry.energySavingPerYear} />
             <div className="flex items-center justify-between border-t-2 border-border py-2 text-sm font-semibold">
               <span className="text-ink">Gesamt</span>
               <Num className="text-positive">{formatEur(entry.totalSavingPerYear)}</Num>
             </div>
-            {/* Hindsight-Hinweis Pflicht (§6.2): der Energie-Anteil ist mit vollem Rückblick gerechnet.
-                Wortlaut seit Delta 16a aus `lib/report-copy.ts` — der Methodik-Abschnitt des
-                Druck-Reports trägt DIESELBE Aussage und darf nicht davon abweichen. Gerendert
-                unverändert; am Bildschirm ist der Satz bit-gleich zu vorher. */}
-            <p className="mt-2 flex items-start gap-1.5 text-xs text-text-muted">
-              <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
-              {HINDSIGHT_NOTE}
-            </p>
+            {dispatchNote && (
+              <p className="mt-2 flex items-start gap-1.5 text-xs text-text-muted">
+                <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
+                {dispatchNote}
+              </p>
+            )}
+            {hasEnergyPriceOnlyBasis(entry) && (
+              <p className="mt-2 text-xs text-text-muted" data-testid="energie-nur-arbeitspreis">
+                {ENERGY_PRICE_ONLY_NOTE}
+              </p>
+            )}
             {/*
               ── Jahres-Hochrechnung der ENERGIE-Zeile (§3.7) ─────────────────────────────────────
               Steht bewusst HIER, unmittelbar unter der betroffenen Zeile, und nicht als
@@ -418,8 +432,8 @@ export function RecommendationCard(props: RecommendationCardProps) {
                 . Für die Jahreszahl oben nehmen wir an, dass sich die übrigen{' '}
                 <Num>{365 - entry.coveredDays}</Num> Tage im Mittel wie die gemessenen verhalten — bei
                 einem reinen Sommer- oder Winterzeitraum ist das eher zu optimistisch bzw. zu
-                vorsichtig. <strong className="text-ink">Die Spitzenkappung ist nicht betroffen</strong>
-                : sie hängt am Leistungspreis (€ je kW und Jahr) und ist bereits eine Jahresgrösse.
+                vorsichtig. <strong className="text-ink">Der Leistungspreis-Anteil ist nicht betroffen</strong>
+                : er hängt am Leistungspreis (€ je kW und Jahr) und ist bereits eine Jahresgrösse.
               </div>
             )}
           </div>

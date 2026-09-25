@@ -10,12 +10,12 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import type { BatteryCandidate, BatteryRoiSummary } from 'shared'
+import type { BatteryCandidate, BatteryResultEntry, BatteryRoiSummary } from 'shared'
 
 import { evenAxisTicks } from '@/lib/chart-ticks'
 import { formatEur, formatKw, formatKwh1 } from '@/lib/format'
 import { Num } from './num'
-import { vatNote } from '@/lib/report-copy'
+import { ANNUALIZED_LABEL, isAnnualized, vatNote } from '@/lib/report-copy'
 
 /**
  * Grenznutzen-Kurve: was bringt jede weitere Kilowattstunde Speicher noch? (02.09.2026)
@@ -45,7 +45,8 @@ import { vatNote } from '@/lib/report-copy'
 type Point = { battery: BatteryCandidate } & Pick<
   BatteryRoiSummary,
   'netSavingOverHorizon' | 'amortizationYears' | 'netInvestment'
->
+> &
+  Pick<BatteryResultEntry, 'annualizationFactor' | 'coveredDays'>
 
 type Row = {
   capacityKwh: number
@@ -213,6 +214,12 @@ export function MarginalBenefitChart({
           Kapazität ändert sich auch die Leistung, und ein Gerät, das zwischen zwei Punkten läge,{' '}
           <strong>gibt es im Katalog nicht</strong> — seinen Preis kennen wir also auch nicht.
         </p>
+        {points[0] && isAnnualized(points[0]) && (
+          <p className="mt-2">
+            Der Energie-Anteil der Ersparnis ist {ANNUALIZED_LABEL}, aus{' '}
+            <Num>{points[0].coveredDays}</Num> gemessenen Tagen.
+          </p>
+        )}
       </div>
     </div>
   )

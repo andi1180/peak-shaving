@@ -2,7 +2,7 @@ import { displayedPriceBasis, VAT_INCLUSIVE_LABEL, type DisplayPriceBasis } from
 import type { BatteryResultEntry, BatteryRoiSummary } from 'shared'
 
 import { formatEur, formatKw, formatKwh1, formatYears } from '@/lib/format'
-import { dynamicTariffHintKind } from '@/lib/report-copy'
+import { ANNUALIZED_LABEL, dynamicTariffHintKind, isAnnualized } from '@/lib/report-copy'
 import type { ReportBuildContext } from './context'
 import type { ReportFigure, ReportRow, ReportStatement, ReportTable } from './statement'
 import { accent, block, column, ref, t, REF_LABEL, REF_PLACE } from './report-text'
@@ -394,6 +394,13 @@ export function buildTableStatement(
       String(considered.filter((c) => c.netSavingOverHorizon > 0).length),
     ),
   ]
+  /* §3.7.1 — Ersparnis, Amortisation und Netto der Tabelle ruhen auf dem hochgerechneten Energie-Anteil. */
+  const annualized = considered.find((c) => isAnnualized(c))
+  if (annualized) {
+    rows.push(
+      neutralRow('Energie-Anteil der Ersparnis', `${ANNUALIZED_LABEL} aus ${annualized.coveredDays} Tagen`),
+    )
+  }
 
   return {
     id: isAddon ? 'addon_table' : 'catalog_alternatives',

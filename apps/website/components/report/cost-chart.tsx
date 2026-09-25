@@ -18,6 +18,7 @@ import {
 import type { AnalysisResult } from 'shared'
 
 import { formatEur } from '@/lib/format'
+import { ANNUALIZED_LABEL, isAnnualized } from '@/lib/report-copy'
 import { Num } from './num'
 import { CHART_COLORS } from '@/lib/pdf-report/theme'
 
@@ -97,13 +98,13 @@ function CostTooltip({
 const BREAKDOWN = [
   {
     key: 'leistungspreisSavingPerYear',
-    label: 'Spitzenkappung (Leistungspreis)',
+    label: 'Leistungspreis-Anteil',
     color: 'var(--color-accent)',
     textColor: 'var(--color-on-accent)',
   },
   {
     key: 'energySavingPerYear',
-    label: 'Energie',
+    label: 'Energie-Anteil',
     color: CHART_COLORS.seriesStrong,
     textColor: 'var(--color-ink)',
   },
@@ -190,6 +191,7 @@ function SavingsBreakdownBar({ entry }: { entry: Entry }) {
             {b.label}: <Num className="font-medium text-ink">{formatEur(entry[b.key])}</Num>
           </span>
         ))}
+        {isAnnualized(entry) && <span>Energie-Anteil {ANNUALIZED_LABEL}</span>}
       </div>
     </div>
   )

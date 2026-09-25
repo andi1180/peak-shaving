@@ -1,4 +1,4 @@
-import { HINDSIGHT_NOTE } from '@/lib/report-copy'
+import { dispatchMethodText, type DispatchMethodInput } from '@/lib/report-copy'
 
 /**
  * Methodik & Vorbehalte — der Kapitel-Abschnitt des erweiterten Druck-Reports (Delta 16a).
@@ -11,9 +11,8 @@ import { HINDSIGHT_NOTE } from '@/lib/report-copy'
  *
  * ── ER ERFINDET KEINE AUSSAGE ───────────────────────────────────────────────────────────────────
  * Jeder Punkt gibt eine bereits geltende Regel des Systems wieder (Prinzipien 1–4, §3.5–§3.7) oder
- * einen bereits dokumentierten Vorbehalt. Der Hindsight-Hinweis kommt WÖRTLICH aus derselben
- * Konstante wie die Ersparnis-Aufschlüsselung (`lib/report-copy.ts`) — er darf zwischen Karte und
- * Kapitel nicht auseinanderlaufen.
+ * einen bereits dokumentierten Vorbehalt. Der Absatz zum Fahrplan kommt aus derselben Funktion
+ * wie im PDF und an der Ersparnis-Aufschlüsselung (`dispatchMethodText`, `lib/report-copy.ts`).
  *
  * ── DIE DEGRADATION IST DER EINZIGE NEUE SATZ, UND SIE WAR ÜBERFÄLLIG ───────────────────────────
  * Delta 11 verlangt ausdrücklich, die konstant angenommene Kapazität/Wirkungsgrad über den
@@ -35,7 +34,10 @@ function Item({ title, children }: { title: string; children: React.ReactNode })
   )
 }
 
-export function PrintMethodology() {
+export function PrintMethodology({
+  analysis,
+  isStandardProfile,
+}: Omit<DispatchMethodInput, 'withUpperBound'>) {
   return (
     <div className="hidden print:block print:break-before-page">
       <h2 className="text-lg font-semibold text-ink">Methodik &amp; Vorbehalte</h2>
@@ -53,9 +55,10 @@ export function PrintMethodology() {
         <Item title="Ein Fahrplan, keine addierten Einzelrechnungen">
           Spitzenkappung, Eigenverbrauch und tarifbewusstes Laden konkurrieren um dieselbe
           Batteriekapazität. Sie werden deshalb in einer einzigen Simulation gemeinsam gefahren und
-          anschliessend aufgeschlüsselt — nie getrennt gerechnet und addiert. Die Teilbeträge in der
-          Empfehlung ergeben zusammen genau die ausgewiesene Gesamtersparnis, keine Kilowattstunde
-          zählt doppelt.
+          erst danach in Leistungspreis- und Energie-Anteil aufgeteilt — nie getrennt gerechnet und
+          addiert. Der Energie-Anteil ist die volle Kostendifferenz Ihres Netzbezugs ohne und mit
+          Speicher, Ladeverluste eingeschlossen; beide Anteile ergeben zusammen genau die
+          ausgewiesene Gesamtersparnis.
         </Item>
 
         <Item title="Physikalische Simulation, kein Hochrechnen von Spitzen">
@@ -65,7 +68,9 @@ export function PrintMethodology() {
           tatsächlich genug Energie und Leistung vorhanden waren.
         </Item>
 
-        <Item title="Bestmarke, nicht Alltagsbetrieb">{HINDSIGHT_NOTE}</Item>
+        <Item title="Wie der Fahrplan entsteht">
+          {dispatchMethodText({ analysis, isStandardProfile, withUpperBound: true })}
+        </Item>
 
         <Item title="Konstante Batterieeigenschaften über den Betrachtungszeitraum">
           Nutzbare Kapazität und Wirkungsgrad werden über den gesamten Horizont als unverändert
