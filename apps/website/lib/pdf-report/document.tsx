@@ -472,6 +472,13 @@ const styles = StyleSheet.create({
     fontSize: PDF_TYPE.small,
     color: PDF_COLORS.textMuted,
   },
+  headlineNote: {
+    ...LEADING,
+    marginTop: 4,
+    paddingRight: 8,
+    fontSize: PDF_TYPE.small,
+    color: PDF_COLORS.ink,
+  },
   /**
    * Der Fliesstext der Zusammenfassung.
    *
@@ -1478,6 +1485,7 @@ function ResultsChapter({
                   {line}
                 </Text>
               ))}
+              {kpi.note && <Text style={styles.headlineNote}>{kpi.note}</Text>}
             </View>
           ))}
           {/* Die leere zweite Zelle — s. `styles.headline`. */}

@@ -18,7 +18,14 @@ import {
 
 import { LARGE_GAP_SLOTS_THRESHOLD } from '@/lib/constants'
 import { formatEur, formatKwh, formatKwh1, formatKwp, formatPercent } from '@/lib/format'
-import { dynamicTariffHintKind, recommendationRationaleText } from '@/lib/report-copy'
+import {
+  catalogStorageEntry,
+  catalogStorageNote,
+  dynamicTariffHintKind,
+  recommendationRationaleText,
+  storageJudgementText,
+  storagePaysOff,
+} from '@/lib/report-copy'
 import { CANDIDATE_TABLE_ID } from './comparison'
 import type { ReportBuildContext } from './context'
 import { hasPvValueChapter } from './pv-value'
@@ -77,6 +84,8 @@ export type SummaryKpi = {
   id: 'cost_today' | 'possible_saving' | 'cost_awattar' | 'cost_controlled'
   value: string
   caption: readonly [string, string]
+  /** Eine Zeile unter der Bezugszeile: Investition und Urteil zu einem Betrag „mit Speicher". */
+  note?: string
   tone: 'ink' | 'accent'
 }
 
@@ -358,6 +367,7 @@ export function buildUnknownTariffKpis(
     },
   ]
   if (ways.controlledEur !== null) {
+    const note = catalogStorageNote(analysis)
     kpis.push({
       id: 'cost_controlled',
       value: formatEur(ways.controlledEur),
@@ -367,6 +377,7 @@ export function buildUnknownTariffKpis(
           : 'Mit Speicher und Ladesteuerung',
         basis,
       ],
+      ...(note ? { note } : {}),
       tone: 'accent',
     })
   }
@@ -403,8 +414,24 @@ export function buildSummaryKpis(analysis: PdfReportAnalysis, ways: SummaryWays)
     },
   ]
 
-  const positive = positiveWays(ways)
-  if (positive.length === 0) return kpis
+  /*
+   * Ein Speicher, der sich im Betrachtungszeitraum nicht rechnet, steht nicht in der Spanne — sein
+   * Betrag steht als Satz darunter, mit Investition und Urteil.
+   */
+  const storage = catalogStorageEntry(analysis)
+  const controlled = ways.ways.find((way) => way.id === 'controlled')
+  const unprofitable = storage && controlled && !storagePaysOff(storage) ? storage : undefined
+  const note = unprofitable
+    ? `Mit Speicher und Ladesteuerung zusätzlich ${formatEur(unprofitable.totalSavingPerYear)} pro Jahr, ` +
+      `bei ${formatEur(unprofitable.totalInvestment)} Investition (${unprofitable.battery.name}). ` +
+      storageJudgementText(unprofitable, analysis.assumptions.horizonYears)
+    : undefined
+
+  const positive = positiveWays(ways).filter((way) => !(unprofitable && way.id === 'controlled'))
+  if (positive.length === 0) {
+    if (note) kpis[0] = { ...kpis[0]!, note }
+    return kpis
+  }
 
   const min = Math.min(...positive.map((way) => way.eur))
   const max = Math.max(...positive.map((way) => way.eur))
@@ -423,6 +450,7 @@ export function buildSummaryKpis(analysis: PdfReportAnalysis, ways: SummaryWays)
             ? 'mit dem von Ihnen gefundenen Tarif, im selben Zeitraum'
             : 'durch einen Tarifwechsel, im selben Zeitraum',
     ],
+    ...(note ? { note } : {}),
     tone: 'accent',
   })
   return kpis
