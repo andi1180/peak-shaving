@@ -457,7 +457,8 @@ describe('Stufe D — der Bestandsfall als zweite Render-Fixture', () => {
     const positiv = reportText(BESTANDSFALL)
     expect(positiv).toContain(
       'Ein zusätzlicher Batteriespeicher rechnet sich für Sie: das bestgereihte Gerät bringt ' +
-        '€\u00a01.499 im Jahr zusätzlich, und im Kapitel „Speichergrösse und Gerätewahl" steht, ' +
+        '€\u00a01.499 pro Jahr (auf ein Jahr hochgerechnet) zusätzlich, und im Kapitel ' +
+        '„Speichergrösse und Gerätewahl" steht, ' +
         'welches Gerät das ist und was es kostet.',
     )
     /* Die drei Sätze der alten Fassung standen wortgleich auch in Kapitel 6 — genau das nicht. */
@@ -547,7 +548,7 @@ describe('Stufe D — der Bestandsfall als zweite Render-Fixture', () => {
     )
 
     /* Die zwei Aussagen des Kapitels stehen im Klarsatz-Fall nirgends mehr im Dokument. */
-    const satz = 'Der Speicher lädt in den günstigen Viertelstunden und entlädt in den teuren'
+    const satz = 'Der Speicher lädt nach einem Tagesplan in günstigen Stunden und entlädt in teuren'
     expect(reportText(KLARSATZ_FALL)).not.toContain(satz)
     expect(reportText(BESTANDSFALL)).toContain(satz)
   }, 90_000)

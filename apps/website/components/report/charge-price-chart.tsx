@@ -238,11 +238,10 @@ export function ChargePriceChart({ price }: { price: MonthlyChargePrice }) {
           Menge sehr wohl.
         </p>
         <p className="mt-2">
-          Rückblickend gerechnet auf die tatsächlichen Marktpreise Ihres Zeitraums — kein
-          Versprechen für die Zukunft. Die Ladesteuerung folgt einer einfachen Regel — eine
-          feinere Steuerung kann mehr herausholen:{' '}
-          <strong>der Abstand zum Durchschnitt gilt als Untergrenze</strong>, mit besserer Steuerung
-          eher mehr.
+          Gerechnet auf die tatsächlichen Marktpreise Ihres Zeitraums — kein Versprechen für die
+          Zukunft. Die Ladesteuerung plant jeden Tag im Voraus, ohne den tatsächlichen Verbrauch
+          des Tages zu kennen: <strong>der Abstand zum Durchschnitt ist, was dieser Plan erreicht
+          hat</strong>.
         </p>
       </div>
     </div>

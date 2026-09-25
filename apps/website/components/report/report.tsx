@@ -30,8 +30,10 @@ import { Button } from '@/components/ui/button'
 import { DEFAULT_HORIZON_YEARS, LARGE_GAP_SLOTS_THRESHOLD } from '@/lib/constants'
 import {
   catalogStorageNote,
+  dispatchMethodText,
   dynamicTariffHintKind,
   dynamicTariffHintText,
+  isAnnualized,
   recommendationRationaleText,
 } from '@/lib/report-copy'
 import type { AnalysisRunInputs } from '@/lib/use-analysis'
@@ -216,6 +218,12 @@ export function Report({
   const isExisting = existingAnalysis != null
   /** Der Block, der oben steht: die Anlage des Kunden, sonst die Empfehlung. */
   const primaryEntry = existingAnalysis?.entry ?? (dynamicTariffHint ? undefined : recommended)
+  /* §6.2-Vorbehalt an jeder Ersparnis-Aufschlüsselung — derselbe Wortlaut wie im Methodik-Kapitel, ohne die Obergrenzen-Zahl. */
+  const dispatchNote = dispatchMethodText({
+    analysis: result,
+    isStandardProfile: loadProfile.source === 'standard_profile',
+    withUpperBound: false,
+  })
 
   // Teiljahres-Verzerrung der KERN-Kennzahl (§3.5): ein `monthly_*`-Modell mittelt/summiert über die
   // 12 Monate — bei < 12 belegten Monaten ist der abgerechnete Leistungswert oben nicht aussagekräftig
@@ -551,7 +559,11 @@ export function Report({
             (dynamicTariffHint
               ? 'Dieser Report zeigt Ihren Lastgang und Ihre Stromkosten heute. Einen Speichervorschlag enthält er nicht — der Grund steht oben.'
               : result.recommendation && recommended
-                ? recommendationRationaleText(recommended.battery.name, result.recommendation.rationale)
+                ? recommendationRationaleText(
+                    recommended.battery.name,
+                    result.recommendation.rationale,
+                    isAnnualized(recommended),
+                  )
                 : 'Dieser Report zeigt Ihren Lastgang, Ihre Stromkosten heute und den Vergleich mit den Börsenpreisen. Einen Speichervorschlag enthält er nicht — der Grund steht oben.')}
       </p>
       <div className="print:hidden">
@@ -616,6 +628,7 @@ export function Report({
                   key={entry.battery.id}
                   entry={entry}
                   catalogMeta={batteryCatalogMeta[entry.battery.id]}
+                  dispatchNote={dispatchNote}
                 />
               ))}
             </div>
@@ -707,6 +720,7 @@ export function Report({
                     key={scenario.battery.id}
                     entry={scenario}
                     variant="addon"
+                    dispatchNote={dispatchNote}
                   />
                 ))}
               </div>
@@ -843,6 +857,7 @@ export function Report({
               entry={existingAnalysis.entry}
               primary
               variant="existing"
+              dispatchNote={dispatchNote}
               efficiencyAssumed={existingBattery?.efficiencyAssumed}
               /*
                 ⚠ Liegt der Monatsvergleich vor, zeigt die Kopfkarte den REALEN Vorteil gegenüber
@@ -865,6 +880,7 @@ export function Report({
               <RecommendationCard
                 entry={recommended}
                 primary
+                dispatchNote={dispatchNote}
                 /* K3b: Preisstand und Wirkungsgrad-Herkunft GENAU dieses Geräts. */
                 catalogMeta={batteryCatalogMeta[recommended.battery.id]}
               />
@@ -1044,7 +1060,10 @@ export function Report({
         selbst einen Seitenumbruch davor, damit das Kapitel nicht als Rest einer Zahlenseite
         beginnt.
       */}
-      <PrintMethodology />
+      <PrintMethodology
+        analysis={result}
+        isStandardProfile={loadProfile.source === 'standard_profile'}
+      />
 
       {result.dataQuality.warnings.length > 0 && (
         <Alert className="print:break-inside-avoid">

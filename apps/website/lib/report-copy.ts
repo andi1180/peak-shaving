@@ -1,9 +1,13 @@
 import {
+  controlValueOf,
   displayedPriceBasis,
+  sumCovered,
   VAT_INCLUSIVE_LABEL,
   type AnalysisResult,
   type BatteryNotice,
+  type BatteryResultEntry,
   type BatteryRoiEntry,
+  type MonthlyTariffComparison,
   type RecommendationRationale,
 } from 'shared'
 
@@ -12,26 +16,112 @@ import { formatEur, formatKw } from './format'
 /**
  * Report-Texte, die an MEHR ALS EINER Stelle stehen müssen (Delta 16a).
  *
- * ── WARUM EINE KONSTANTE UND NICHT ZWEIMAL DERSELBE SATZ ────────────────────────────────────────
- * Der Hindsight-Hinweis ist nach §6.2 PFLICHT und steht seit U2 unaufdringlich an der
- * Ersparnis-Aufschlüsselung (`recommendation-card.tsx`) — genau dort, wo §6.2 ihn verlangt
- * („beim Eigenverbrauchs-/Lastverschiebungs-Anteil"). Der Methodik-Abschnitt des erweiterten
- * Druck-Reports (Delta 16a) braucht dieselbe Aussage ein zweites Mal, weil er als Kapitel für sich
- * gelesen wird: ein Report, den ein Installateur beim Kunden dalässt, wird abschnittsweise
- * gelesen, nicht von vorn bis hinten.
- *
- * Zweimal ausgeschrieben liefen die beiden Fassungen beim nächsten Umformulieren auseinander — und
- * dann stünde in einem Dokument zweimal derselbe Vorbehalt in zwei Schärfen. Das ist der einzige
- * Grund für diese Datei; sie ist bewusst kein allgemeiner „Textkatalog".
- *
- * Der Wortlaut ist WÖRTLICH der bestehende (U2, `recommendation-card.tsx`) — in Delta 16a
- * ausdrücklich übernommen und nicht neu formuliert.
+ * Der Fahrplan-Vorbehalt (§6.2, Pflicht) steht an der Ersparnis-Aufschlüsselung und im
+ * Methodik-Kapitel; zweimal ausgeschrieben liefen die Fassungen beim nächsten Umformulieren
+ * auseinander. Das ist der einzige Grund für diese Datei; sie ist bewusst kein allgemeiner
+ * „Textkatalog".
  */
 
-/** §6.2/§3.6, Pflicht. Steht an der Ersparnis-Aufschlüsselung UND im Methodik-Abschnitt. */
-export const HINDSIGHT_NOTE =
-  'Eigenverbrauch & tarifbewusstes Laden sind mit vollem Rückblick auf das Jahresprofil ' +
-  'gerechnet (Bestmarke). Der Spitzenschutz-Anteil ist davon nicht betroffen.'
+/** §3.7.1 — die Kennzeichnung jeder Zahl, deren Energie-Anteil aus weniger als 365 Tagen hochgerechnet ist. */
+export const ANNUALIZED_LABEL = 'auf ein Jahr hochgerechnet'
+
+export function isAnnualized(entry: Pick<BatteryResultEntry, 'annualizationFactor'>): boolean {
+  return entry.annualizationFactor > 1
+}
+
+/** „pro Jahr", bei hochgerechneter Zahl mit Kennzeichnung. */
+export function perYearText(entry: Pick<BatteryResultEntry, 'annualizationFactor'>): string {
+  return isAnnualized(entry) ? `pro Jahr (${ANNUALIZED_LABEL})` : 'pro Jahr'
+}
+
+/** §3.7 — ohne rechenbare Preisdaten ist der Energie-Anteil nur zum Arbeitspreis bewertet. */
+export const ENERGY_PRICE_ONLY_NOTE =
+  'Der Energie-Anteil ist nur mit Ihrem Arbeitspreis bewertet, ohne Netzentgelte und Abgaben auf ' +
+  'die eingesparte Menge — für diesen Zeitraum liegen uns keine vollständigen Preisdaten vor. ' +
+  'Mit ihnen fiele er in der Regel höher aus.'
+
+export function hasEnergyPriceOnlyBasis(entry: Pick<BatteryResultEntry, 'energySavingBasis'>): boolean {
+  return entry.energySavingBasis === 'energy_price_only'
+}
+
+/**
+ * Der Wert der Ladesteuerung — EINE Zahl für Wege-Kapitel, Empfehlungskapitel und Bildschirmkarte:
+ * die Differenz „aWATTar ohne Steuerung" − „aWATTar mit Ladesteuerung" über die gemessenen Tage.
+ * Das ist exakt der gemessene Energie-Anteil des gezeigten Speichers (§3.7-Revision 25.09.2026).
+ */
+export type LoadControlValue = {
+  overCoveredDaysEur: number
+  coveredDays: number
+  /** Auf ein Jahr hochgerechnet; `null`, wenn nichts hochgerechnet ist (dann gilt die Zahl oben). */
+  annualizedEur: number | null
+}
+
+export function loadControlValueOf(
+  entry: Pick<BatteryResultEntry, 'energySavingPerYear' | 'energySavingOverCoveredPeriod' | 'annualizationFactor' | 'coveredDays'>,
+  comparison: MonthlyTariffComparison | undefined,
+): LoadControlValue {
+  const withBattery = comparison?.spotWithBatteryEur
+  return {
+    overCoveredDaysEur:
+      comparison && withBattery
+        ? controlValueOf({
+            spotWithoutControlEur: sumCovered(comparison.spotWithoutControlEur),
+            spotWithBatteryEur: sumCovered(withBattery),
+          })
+        : entry.energySavingOverCoveredPeriod,
+    coveredDays: entry.coveredDays,
+    annualizedEur: isAnnualized(entry) ? entry.energySavingPerYear : null,
+  }
+}
+
+export type DispatchMethodInput = {
+  analysis: Pick<AnalysisResult, 'tariffOptimization' | 'current'>
+  isStandardProfile: boolean
+  /** Nur das Methodik-Kapitel nennt die Rückblick-Obergrenze der Ladesteuerung als Zahl. */
+  withUpperBound: boolean
+}
+
+/**
+ * Worauf der EINE Fahrplan beruht (§3.6/§3.7, Revisionen 25.09.2026) — Methodik-Kapitel (PDF und
+ * Druck) und Ersparnis-Aufschlüsselung lesen denselben Wortlaut.
+ */
+export function dispatchMethodText({ analysis, isStandardProfile, withUpperBound }: DispatchMethodInput): string {
+  const comparison =
+    analysis.tariffOptimization?.computable === true ? analysis.tariffOptimization.monthlyComparison : undefined
+  const plan =
+    analysis.tariffOptimization?.computable !== true
+      ? 'Ohne Börsenpreise gibt es keinen Tagesplan: der Speicher lädt aus PV-Überschuss und im ' +
+        'günstigen Tarif-Fenster und entscheidet dabei nur mit dem, was bis zu diesem Zeitpunkt ' +
+        'bekannt ist.'
+      : isStandardProfile
+        ? 'Ihr Verbrauch ist ein Standardprofil aus Ihrem Jahresverbrauch; der Speicher plant jeden ' +
+          'Tag mit genau diesem Profil, es ist zugleich Erwartung und gerechneter Verbrauch.'
+        : 'Der Speicher plant jeden Tag am Vorabend: mit den dann bekannten Börsenpreisen und einer ' +
+          'Verbrauchserwartung aus Ihren eigenen früheren Messwerten, nicht mit dem tatsächlichen ' +
+          'Verbrauch des Tages. Ausgeführt wird dieser Plan auf Ihrem echten Lastgang; Ersparnis, ' +
+          'Amortisation und die Reihung der Geräte stammen aus genau diesem Fahrplan.'
+  const peak =
+    analysis.current.leistungspreisCostPerYear > 0
+      ? ' Anders die Spitzenkappung: Kappschwelle und Reserve für die Spitzen sind aus dem ganzen ' +
+        'Zeitraum bestimmt, also mit dem Wissen, wann die Spitzen kommen. Der Leistungspreis-Anteil ' +
+        'der Ersparnis ist deshalb eine Obergrenze.'
+      : ''
+  const hindsight = comparison?.spotWithBatteryHindsightEur
+  const upperBoundEur =
+    comparison && hindsight
+      ? controlValueOf({
+          spotWithoutControlEur: sumCovered(comparison.spotWithoutControlEur),
+          spotWithBatteryEur: sumCovered(hindsight),
+        })
+      : null
+  const upperBound =
+    withUpperBound && comparison && upperBoundEur !== null
+      ? ' Mit vollem Rückblick auf Ihren tatsächlichen Verbrauch wäre die Ladesteuerung über die ' +
+        `${comparison.fixedCosts.coveredDays} gemessenen Tage höchstens ${formatEur(upperBoundEur)} ` +
+        'wert gewesen — die Obergrenze dieser Rechnung, nicht ihr Ergebnis.'
+      : ''
+  return plan + peak + upperBound
+}
 
 /**
  * Wessen Speicher die dritte Reihe des Monatsvergleichs fährt — Dativ, für „aWATTar mit …".
@@ -148,13 +238,18 @@ export function catalogStorageNote(
   return entry ? storageInvestmentNote(entry, analysis.assumptions.horizonYears) : null
 }
 
-/** Der Satz zur Empfehlung, aus den Werten der Engine. */
-export function recommendationRationaleText(batteryName: string, r: RecommendationRationale): string {
+/** Der Satz zur Empfehlung, aus den Werten der Engine; `annualized` = Energie-Anteil hochgerechnet. */
+export function recommendationRationaleText(
+  batteryName: string,
+  r: RecommendationRationale,
+  annualized = false,
+): string {
   const amortization = Number.isFinite(r.amortizationYears)
     ? `nach ${new Intl.NumberFormat('de-AT', { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(r.amortizationYears)} Jahren`
     : 'innerhalb des Betrachtungszeitraums nicht'
   return (
-    `${batteryName} spart voraussichtlich ${formatEur(r.totalSavingPerYear)} pro Jahr und ` +
+    `${batteryName} spart voraussichtlich ${formatEur(r.totalSavingPerYear)} ` +
+    `${annualized ? `pro Jahr (${ANNUALIZED_LABEL})` : 'pro Jahr'} und ` +
     `amortisiert sich ${amortization} — Netto-Ersparnis über ${r.horizonYears} Jahre: ` +
     `${formatEur(r.netSavingOverHorizon)}.`
   )

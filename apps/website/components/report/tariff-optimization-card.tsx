@@ -4,7 +4,13 @@ import type { BatteryResultEntry, TariffOptimizationStatus, TariffPriceRange } f
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { InfoHint } from '@/components/ui/info-hint'
 import { formatEur } from '@/lib/format'
-import { monthlyBatteryRef, vatNote } from '@/lib/report-copy'
+import {
+  ANNUALIZED_LABEL,
+  CONTROLLED_WAY_LABEL,
+  loadControlValueOf,
+  monthlyBatteryRef,
+  vatNote,
+} from '@/lib/report-copy'
 import { sumCovered } from './monthly-tariff-chart'
 import { Num } from './num'
 
@@ -37,10 +43,10 @@ import { Num } from './num'
  * Deshalb steht bei einem solchen Ergebnis eine WARNUNG VOR der Karte, nicht bloss eine andere
  * Beschriftung: eine Nuance in der Überschrift liest niemand, der auf die grüne Zahl sieht.
  *
- * ── RÜCKBLICKEND FORMULIERT, NICHT ALS ZUSAGE (Delta 11) ────────────────────────────────────────
- * Gerechnet wird gegen die tatsächlichen Marktpreise des hochgeladenen Zeitraums. Das ist ein
- * Rückblick („wäre möglich gewesen"), keine Prognose — und die Sprache dieser Karte hält das
- * durch. Wer sie umformuliert, prüft das bitte Satz für Satz nach.
+ * ── EINE ZAHL MIT DEN WEGEN (§3.7-Revision 25.09.2026) ───────────────────────────────────────────
+ * Die Zahl ist die Differenz „aWATTar ohne Steuerung" − „aWATTar mit Ladesteuerung" (`loadControlValueOf`),
+ * dieselbe wie im PDF-Empfehlungskapitel. Gerechnet gegen die tatsächlichen Marktpreise des
+ * Zeitraums — keine Zusage für die Zukunft (Delta 11).
  */
 
 /** Ein Zeitbereich in Ortszeit — der Befund trägt UTC-ISO, ein Leser denkt in seiner Uhr. */
@@ -79,7 +85,6 @@ export function TariffOptimizationCard({
 }: {
   /** `undefined` = Hebel nicht angefordert; dann rendert die Karte nichts. */
   status: TariffOptimizationStatus | undefined
-  /** Die angezeigte Empfehlung — sie trägt die gerechnete Zahl (`energySavingPerYear`). */
   /**
    * Der primäre Block des Reports — die bestehende Anlage des Kunden, sonst die Empfehlung.
    * `BatteryResultEntry` statt des `perBattery`-Elementtyps, weil hier ausschliesslich
@@ -149,7 +154,8 @@ export function TariffOptimizationCard({
    */
   if (!recommended) return null
 
-  const saving = recommended.energySavingPerYear
+  const value = loadControlValueOf(recommended, status.monthlyComparison)
+  const saving = value.annualizedEur ?? value.overCoveredDaysEur
 
   /*
    * ⚠ DIE SUMMEN KOMMEN AUS DEMSELBEN HELFER WIE DIE LEGENDE DES MONATSCHARTS (`sumCovered`).
@@ -224,68 +230,63 @@ export function TariffOptimizationCard({
         </CardHeader>
         <CardContent className="flex flex-col gap-3 text-sm">
           <div>
-            <Num className="block text-3xl font-semibold text-positive">{formatEur(saving)}</Num>
+            <Num
+              className={
+                saving > 0
+                  ? 'block text-3xl font-semibold text-positive'
+                  : 'block text-3xl font-semibold text-warning'
+              }
+            >
+              {formatEur(saving)}
+            </Num>
             <p className="text-xs text-text-muted">
-              pro Jahr zusätzlich ({vatNote(status)}) — durch Laden in günstigen und Entladen in
-              teuren Viertelstunden
+              {value.annualizedEur === null ? (
+                <>
+                  über die <Num>{value.coveredDays}</Num> gemessenen Tage ({vatNote(status)})
+                </>
+              ) : (
+                <>
+                  pro Jahr, {ANNUALIZED_LABEL} ({vatNote(status)})
+                </>
+              )}
+              {` — dieselbe Zahl wie der Abstand zwischen „aWATTar ohne Steuerung" und „${CONTROLLED_WAY_LABEL}".`}
             </p>
-            {/*
-            §3.7-Jahres-Hochrechnung: diese Zahl IST `energySavingPerYear`, also bei einem
-            Teilzeitraum-Lastgang eine hochgerechnete Grösse. Sie steht hier gross und mit dem
-            Etikett „pro Jahr" — der Vorbehalt gehört deshalb an dieselbe Stelle und nicht nur in
-            die Ersparnis-Aufschlüsselung nebenan, sonst trägt derselbe Wert im selben Report
-            einmal einen Vorbehalt und einmal nicht.
-          */}
-            {recommended != null && recommended.annualizationFactor > 1 && (
-              <p className="text-xs text-text-muted">
-                Hochgerechnet aus <Num>{recommended.coveredDays}</Num> abgedeckten Tagen — gemessen
-                wurden in diesem Zeitraum{' '}
-                <Num className="font-medium text-text">
-                  {formatEur(recommended.energySavingOverCoveredPeriod)}
-                </Num>
-                .
+            {value.annualizedEur !== null && (
+              <p className="text-xs text-text-muted" data-testid="ladesteuerung-gemessen">
+                Über die <Num>{value.coveredDays}</Num> gemessenen Tage:{' '}
+                <Num className="font-medium text-text">{formatEur(value.overCoveredDaysEur)}</Num>.
+                Die Jahreszahl nimmt an, dass sich die übrigen Tage im Mittel wie die gemessenen
+                verhalten.
               </p>
             )}
           </div>
           {/*
-          Delta 16a / CLAUDE.md Punkt (d): DIESE Erklärung druckt mit — als einzige im Report.
-          Sie trägt zwei Aussagen, die auf einem weitergereichten Blatt nicht fehlen dürfen: dass
-          die Zahl ein RÜCKBLICK ist und keine Zusage (Delta 11), und dass sie in der
-          Gesamtersparnis bereits enthalten ist und nicht obendrauf kommt (Prinzip 2). Ohne sie
-          stünde im PDF eine grosse Euro-Zahl ohne beides.
+          Delta 16a: DIESE Erklärung druckt mit — sie sagt, dass die Zahl keine Zusage ist und dass
+          sie in der Gesamtersparnis bereits enthalten ist (Prinzip 2).
         */}
           <InfoHint
             label="Vergleich mit Börsen-Strompreisen"
             printExplanation
             before={
               <p className="text-text">
-                Rückblickend gerechnet auf die tatsächlichen Marktpreise Ihres Zeitraums.
+                Gerechnet auf die tatsächlichen Marktpreise Ihres Zeitraums.
               </p>
             }
           >
-            Für jede Viertelstunde Ihres Lastgangs setzen wir den echten Börsenpreis jener Stunde
-            plus das Netzentgelt Ihres Netzbetreibers an, statt eines festen Arbeitspreises. Die
-            Zahl sagt also: <strong>so viel wäre in diesem Zeitraum möglich gewesen</strong> — sie
-            ist kein Versprechen für die Zukunft, denn die Marktpreise von morgen kennt niemand. Sie
-            steckt bereits in der Gesamtersparnis der Empfehlung (als „Lastverschiebung") und kommt
-            nicht zusätzlich obendrauf.{' '}
-            {/*
-              §3.7.2: die Kopfkarte („was zahle ich real weniger") enthält zusätzlich den
-              PV-Eigenverbrauch, diese Zahl hier nicht. Ohne den Satz sieht die Differenz zwischen
-              beiden Karten wie ein Rechenfehler aus — sie ist aber genau dieser zweite Topf.
-            */}
-            <strong>
-              Sie zeigt ausschliesslich den Gewinn aus den Preisunterschieden.
-            </strong>{' '}
-            Was Ihre PV-Erzeugung über den Speicher zusätzlich einspart, steht als eigener Anteil
-            („Eigenverbrauch") in der Ersparnis-Aufschlüsselung und ist in dieser Zahl nicht
-            enthalten.
+            Für jede Viertelstunde Ihres Lastgangs setzen wir den Börsenpreis jener Stunde, das
+            Netzentgelt Ihres Netzbetreibers und die Abgaben an, statt eines festen Arbeitspreises.
+            Der Speicher lädt nach einem Tagesplan in günstigen Stunden und entlädt in teuren; die
+            Zahl ist, was Ihr Strom damit weniger kostet als ohne Steuerung, Ladeverluste
+            eingeschlossen. Sie ist <strong>kein Versprechen für die Zukunft</strong>, denn die
+            Marktpreise von morgen kennt niemand. Sie ist der Energie-Anteil der Ersparnis dieses
+            Speichers — auch was er aus PV-Überschuss aufnimmt, steckt darin — und kommt nicht
+            zusätzlich obendrauf.
           </InfoHint>
           {saving <= 0 && (
             <p className="border-t border-border pt-3 text-text-muted">
               In diesem Zeitraum hätte sich aus den Preisunterschieden nichts holen lassen — der
-              Speicher war durch die Spitzenkappung gebunden, oder die Preisspanne war zu klein. Das
-              ist ein Ergebnis, kein Fehler.
+              Speicher war durch die Spitzenkappung gebunden, oder die Preisspanne war kleiner als
+              die Ladeverluste. Das ist ein Ergebnis, kein Fehler.
             </p>
           )}
         </CardContent>

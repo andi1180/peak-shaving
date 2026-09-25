@@ -16,11 +16,11 @@ const PRICE: MonthlyChargePrice = {
 }
 
 describe('ChargePriceChart — Fussnote zur Ladesteuerung', () => {
-  it('trägt den Wortlaut aus der PDF-Notiz, nicht mehr die Schwellenregel', () => {
+  it('beschreibt den Tagesplan, keine einfache Regel und keine Untergrenze', () => {
     const text = renderToStaticMarkup(createElement(ChargePriceChart, { price: PRICE })).replace(/<[^>]+>/g, '')
 
-    expect(text).toContain('eine feinere Steuerung kann mehr herausholen')
-    expect(text).not.toContain('Schwellenregel')
-    expect(text).not.toContain('rechnerisches Optimum')
+    expect(text).toContain('plant jeden Tag im Voraus')
+    expect(text).not.toContain('einfachen Regel')
+    expect(text).not.toContain('Untergrenze')
   })
 })

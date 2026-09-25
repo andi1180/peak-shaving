@@ -241,6 +241,20 @@ Details und der vollständige Stand: siehe `./Pflichtenheft_Kalkulator_MVP.md`, 
 
 > Lebendiger Handover-Anker. Neueste offene Punkte, die den Bau der Engine/Simulation berühren. Erledigtes wandert raus.
 
+### Report an die vorausschauende Rechnung angeglichen — §3.7-Revision PR 3 (25.09.2026)
+
+Nur Report, Bildschirm, CSV; Engine und Golden-Fälle unverändert. Fachliche Tiefe: `Pflichtenheft_Kalkulator_MVP.md` §3.7 (Revision PR 3).
+
+**⚠ Beim nächsten Umbau mitzudenken: (a)** Der „Wert der Ladesteuerung" hat EINE Quelle,
+`loadControlValueOf` (`apps/website/lib/report-copy.ts`): Weg 3 − Weg 4 über die gemessenen Tage, bei
+`annualizationFactor > 1` zusätzlich `energySavingPerYear` als gekennzeichneter Jahreswert. Wer ihn
+anderswo zeigt, nimmt diese Funktion. **(b)** Der Fahrplan-Vorbehalt kommt aus `dispatchMethodText`
+(Methodik PDF + Druck + Ersparnis-Aufschlüsselung); die Rückblick-Obergrenze als Zahl steht nur im
+Methodik-Kapitel (`withUpperBound`). **(c)** „auf ein Jahr hochgerechnet" hängt an `isAnnualized`/
+`perYearText` — eine neue Jahres-Ersparniszahl im Report bekommt sie von Anfang an. **(d)** Die
+Engine-Warnungen (`entry.warnings`) sprechen noch von „Eigenverbrauch/Lastverschiebung" als
+Verwendungszweck — Engine-Text, in PR 3 bewusst nicht angefasst.
+
 ### Ein vorausschauender Fahrplan — §3.7-Revision PR 2 (25.09.2026)
 
 `simulateBattery` plant die Tages-Rangfolge mit der Vorabend-Prognose (`engine/src/simulation/planning.ts`,
@@ -259,8 +273,8 @@ behoben in PR 2a (25.09.2026, `ENGINE_VERSION` 1.5.1-mvp):** `chargeCeilingKwh` 
 Schritt 5(a) nur noch ÜBER der Spitzen-Reserve (`max(floorNext, …)` in `dispatch.ts`). Bäckerei-Golden:
 30 von 31 Geräten halten jede Kappschwelle, `newBilledKw` = Summe der Kappschwellen. **⚠ Offen:** die
 Sungrow ST510 bricht 84-mal auch OHNE Tagesplanung — ihre Reserve ist am 1.1. höher als der Start-SoC
-und an der Kapazität geklemmt, die Kapp-Suche ist dort optimistischer als die Reserve (eigener Befund). **(d)** Report-Texte und die
-Darstellung der Obergrenze sind PR 3.
+und an der Kapazität geklemmt, die Kapp-Suche ist dort optimistischer als die Reserve (eigener Befund). **(d)** ~~Report-Texte und die
+Darstellung der Obergrenze sind PR 3.~~ Gebaut in PR 3 (Abschnitt darüber).
 
 ### Energie-Ersparnis als volle Kostendifferenz der Reihen — §3.7-Revision (25.09.2026)
 
@@ -273,10 +287,10 @@ Bündel-Fassung 12, `ENGINE_VERSION` 1.4.0-mvp. Fachliche Tiefe: `Pflichtenheft_
 **⚠ Beim nächsten Umbau mitzudenken: (a)** der Energie-Anteil kann NEGATIV sein (Ladeverluste der
 Kapp-Ladungen, keine Untergrenze) — ein Kapp-Gerät verliert dadurch bis ~1.000 €/Jahr gegenüber der
 alten Zahl. **(b)** Ohne rechenbare Preisdaten ist er nur mit Arbeitspreis/Nachttarif bewertet
-(`energySavingBasis: 'energy_price_only'`); der Report weist das noch nicht aus (PR 3). **(c)** Der
-Fahrplan ist seit PR 2 vorausschauend (Abschnitt darüber). **(d)** Report-Texte
+(`energySavingBasis: 'energy_price_only'`); der Report weist das seit PR 3 aus. **(c)** Der
+Fahrplan ist seit PR 2 vorausschauend (Abschnitt darüber). **(d)** ~~Report-Texte
 („Wert der Ladesteuerung unter aWATTar" zeigt jetzt den Energie-Anteil, doppelt zur Weg-4-Differenz)
-sind bewusst erst PR 3.
+sind bewusst erst PR 3.~~ Gebaut in PR 3.
 
 ### Eigener Tarif unbekannt — benannter Zustand statt Required-Abbruch (25.09.2026)
 

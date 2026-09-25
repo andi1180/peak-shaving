@@ -1,7 +1,7 @@
 import { NETZBETREIBER_LABELS, displayedPriceLabel } from 'shared'
 
 import { formatEur } from '@/lib/format'
-import { CONTROLLED_WAY_LABEL } from '@/lib/report-copy'
+import { ANNUALIZED_LABEL, catalogStorageNote, CONTROLLED_WAY_LABEL, isAnnualized } from '@/lib/report-copy'
 import { formatIsoDate } from './basis'
 import { comparisonSelection, hasComparisonChapter } from './comparison'
 import { BASIS_SECTION, PV_VALUE_SECTION } from './content'
@@ -119,16 +119,18 @@ function simplePoint(ways: SummaryWays, way: SummaryWay, days: string): ReportPo
  * Ein Report, der sie druckt, verspricht eine Leistung, die niemand bestätigt hat. Der Punkt lädt
  * deshalb zum Gespräch ein, statt eine Einrichtung anzukündigen.
  *
- * ⚠ „bis zu": die Zahl kommt aus einer Vorausberechnung, deren Vorbehalt im Wege-Kapitel steht
- * (`PREDICTIVE_NOTE`, `ways.ts`). Hier ein zweites Mal ausgeschrieben stünde derselbe Vorbehalt
- * in zwei Schärfen im selben Dokument.
+ * ⚠ Kein „bis zu": der Betrag ist die Zahl des Fahrplans selbst, nicht eine Obergrenze. Beim
+ * Katalog-Gerät stehen Investition und Urteil daneben (#378, `catalogStorageNote`); der
+ * Bestandsspeicher ist bezahlt.
  */
-function maximumPoint(way: SummaryWay, days: string): ReportPoint {
+function maximumPoint(way: SummaryWay, days: string, input: PdfReportInput): ReportPoint {
+  const storage = catalogStorageNote(input.analysis)
   return {
     title: 'Wollen Sie das Maximum',
     text:
-      `${CONTROLLED_WAY_LABEL} — bis zu ${formatEur(way.eur)} weniger über dieselben ${days} ` +
-      'Tage. Sprechen Sie uns an, wenn Sie dabei Unterstützung möchten.',
+      `${CONTROLLED_WAY_LABEL} — ${formatEur(way.eur)} weniger über dieselben ${days} Tage.` +
+      (storage ? ` ${storage}` : '') +
+      ' Sprechen Sie uns an, wenn Sie dabei Unterstützung möchten.',
   }
 }
 
@@ -168,7 +170,7 @@ function storagePoint(input: PdfReportInput): ReportPoint | null {
        Kandidatentabelle des Kapitels, auf das der Halbsatz daneben zeigt. */
     text: t`Ja — ${best.battery.name} bringt über ${String(horizonYears)} Jahre ${formatEur(
       best.netSavingOverHorizon,
-    )} ${displayedPriceLabel(input.analysis)}${ref(block('addon_table'), `; die Geräte im Vergleich stehen ${REF_PLACE}`, '')}.`,
+    )} ${displayedPriceLabel(input.analysis)}${isAnnualized(best) ? `, aus der ${ANNUALIZED_LABEL}en Ersparnis` : ''}${ref(block('addon_table'), `; die Geräte im Vergleich stehen ${REF_PLACE}`, '')}.`,
   }
 }
 
@@ -238,12 +240,12 @@ export function buildProposal(input: PdfReportInput): ReportStatement | null {
 
     /*
      * ⚠ DER PUNKT STEHT NUR, WENN ER DEN EINFACHEN WEG ÜBERTRIFFT. Ohne Punkt 1 ist die Schwelle
-     * die Bezugsgrösse selbst (eine Ersparnis über null). Gleichstand zählt nicht: „bis zu X"
+     * die Bezugsgrösse selbst (eine Ersparnis über null). Gleichstand zählt nicht: „X"
      * neben demselben X eine Zeile darüber wäre zweimal dieselbe Zahl unter zwei Vorschlägen.
      */
     const controlled = ways.ways.find((way) => way.id === 'controlled')
     const threshold = simple ? simple.eur : 0
-    if (controlled && controlled.eur > threshold) points.push(maximumPoint(controlled, days))
+    if (controlled && controlled.eur > threshold) points.push(maximumPoint(controlled, days, input))
   }
 
   const storage = storagePoint(input)

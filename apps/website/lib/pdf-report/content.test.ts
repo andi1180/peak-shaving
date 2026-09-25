@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import type { MonthlyTariffComparison } from 'shared'
 
+import { formatEur } from '@/lib/format'
+
 import { methodologyItemsFor, reportDisclaimer } from './content'
 import type { PdfReportAnalysis, PdfReportInput } from './types'
 
@@ -92,12 +94,8 @@ describe('methodologyItemsFor — der Datenschutz-Punkt nur im echten Client-Lau
     }
   })
 
-  it('tauscht den Bestmarke-Absatz gegen die vorausschauende Fassung, sobald Weg 4 sie zeigt', () => {
-    const withoutPredictive = methodologyItemsFor(inputWith('client'))
-    const bestmarke = withoutPredictive.find((i) => i.id === 'methodik-bestmarke')!
-    expect(bestmarke.body).toContain('Eigenverbrauch & tarifbewusstes Laden sind mit vollem Rückblick')
-
-    const predictiveInput: Pick<PdfReportInput, 'analysis' | 'origin'> = {
+  it('beschreibt den Fahrplan wie gerechnet: Vorabend-Planung, Leistungspreis-Obergrenze, Rückblick nur als Zahl hier', () => {
+    const input: Pick<PdfReportInput, 'analysis' | 'origin'> = {
       origin: 'client',
       analysis: {
         ...ANALYSIS,
@@ -107,9 +105,13 @@ describe('methodologyItemsFor — der Datenschutz-Punkt nur im echten Client-Lau
         },
       },
     }
-    const withPredictive = methodologyItemsFor(predictiveInput)
-    const bestmarkePredictive = withPredictive.find((i) => i.id === 'methodik-bestmarke')!
-    expect(bestmarkePredictive.body).toContain('Vorabend-Prognose')
-    expect(bestmarkePredictive.body).not.toBe(bestmarke.body)
+    const items = methodologyItemsFor(input)
+    const plan = items.find((i) => i.id === 'methodik-fahrplan')!
+
+    expect(items.map((i) => i.title)).not.toContain('Bestmarke, nicht Alltagsbetrieb')
+    expect(plan.body).toContain('am Vorabend')
+    expect(plan.body).toContain('Der Leistungspreis-Anteil der Ersparnis ist deshalb eine Obergrenze')
+    /* Obergrenze = aWATTar ohne Steuerung − Rückblick-Reihe = 110 − 90 über die 31 gemessenen Tage. */
+    expect(plan.body).toContain(`über die 31 gemessenen Tage höchstens ${formatEur(20)}`)
   })
 })

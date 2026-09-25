@@ -11,9 +11,16 @@ import {
   formatYears,
 } from '@/lib/format'
 import {
+  ANNUALIZED_LABEL,
   batteryNoteTexts,
+  CONTROLLED_WAY_LABEL,
   dynamicTariffHintKind,
   dynamicTariffHintText,
+  ENERGY_PRICE_ONLY_NOTE,
+  hasEnergyPriceOnlyBasis,
+  isAnnualized,
+  loadControlValueOf,
+  perYearText,
   type DynamicTariffHintKind,
 } from '@/lib/report-copy'
 import { billedKwPerYear } from './basis'
@@ -176,7 +183,7 @@ export function buildRecommendation(
   if (inverter > 0) rows.push(neutralRow('Separater Wechselrichter', formatEur(inverter)))
   rows.push(totalInvestmentRow(entry))
   rows.push({
-    label: 'Ersparnis pro Jahr',
+    label: `Ersparnis ${perYearText(entry)}`,
     value: formatEur(entry.totalSavingPerYear),
     tone: 'positive',
   })
@@ -258,6 +265,24 @@ export function buildRecommendation(
       ]
     : []
 
+  /* §3.7.1 — Amortisation und Netto hängen an der hochgerechneten Ersparnis; das steht an ihnen. */
+  const annualized: ReportPoint[] = isAnnualized(entry)
+    ? [
+        {
+          title: 'Auf ein Jahr hochgerechnet',
+          text:
+            `Ihr Lastgang deckt ${entry.coveredDays} von 365 Tagen ab. Der Energie-Anteil der ` +
+            `Ersparnis (${formatEur(entry.energySavingOverCoveredPeriod)} über diese Tage) ist ` +
+            'daraus auf ein Jahr hochgerechnet, und mit ihm Amortisation und Netto-Ersparnis — ' +
+            'unter der Annahme, dass sich die übrigen Tage im Mittel wie die gemessenen verhalten.',
+        },
+      ]
+    : []
+
+  const energyBasis: ReportPoint[] = hasEnergyPriceOnlyBasis(entry)
+    ? [{ title: 'Energie-Anteil nur zum Arbeitspreis', text: ENERGY_PRICE_ONLY_NOTE }]
+    : []
+
   const taxes: ReportPoint[] = entry.taxEffectsIncluded
     ? []
     : [
@@ -286,7 +311,7 @@ export function buildRecommendation(
      * die Leerzeichen, mit denen die Sätze im Absatz aneinanderhingen.
      */
     body: '',
-    points: [...framing, ...provenance, ...taxes],
+    points: [...framing, ...annualized, ...energyBasis, ...provenance, ...taxes],
     /*
      * Die §3.8-Warnungen des Kandidaten, unverändert. Sie stehen NEBEN der Investition und nicht
      * hinter ihr: „Betonsockel nötig (+€1800)" ist eine Kostenaussage, und sie ist in
@@ -329,40 +354,42 @@ export function buildLoadControl(
   if (analysis.tariffOptimization?.computable !== true) return null
   if (!primary) return null
 
-  /* ⚠ Er zeigt auf die EIGENE Kopfzahl darüber — seit dem Zusammenfassungs-Umbau gibt es die Zahl
-     nur noch hier, und ein Verweis auf ein fremdes Kapitel liefe ins Leere. */
-  const annualized =
-    primary.annualizationFactor > 1
-      ? ` Ihr Lastgang deckt ${primary.coveredDays} von 365 Tagen ab; der Betrag oben ist von ` +
-        'diesem Zeitraum auf ein Jahr hochgerechnet — gemessen wurden ' +
-        `${formatEur(primary.energySavingOverCoveredPeriod)}.`
-      : ''
-
   /*
-   * ⚠ DER SATZ GEGEN DAS DOPPELTZÄHLEN BLEIBT, SEIN VERWEIS FÄLLT. Er zeigte bis zum
-   * Zusammenfassungs-Umbau auf eine Zeile der Ersparnis-Aufschlüsselung („Wert der Ladesteuerung"
-   * bzw. „tarifbewusstes Laden"); die gibt es nicht mehr. Was er sagt, gilt unverändert: der Betrag
-   * ist der Energie-Anteil DERSELBEN Simulation und kommt nicht obendrauf.
+   * EINE Zahl mit den Wegen (Weg 3 − Weg 4): bei vollem Jahr steht sie allein, bei kürzerem
+   * Lastgang ist die Kopfzahl hochgerechnet und die gemessene Differenz steht als Zeile darunter.
    */
-  const embeddedNote = 'Er steckt in der Gesamtersparnis dieses Speichers bereits mit drin'
+  const value = loadControlValueOf(primary, analysis.tariffOptimization.monthlyComparison)
+  const days = `über die ${value.coveredDays} gemessenen Tage`
+  const headline = value.annualizedEur ?? value.overCoveredDaysEur
 
   return {
     id: 'load_control',
     title: 'Wert der Ladesteuerung unter aWATTar',
-    /* ⚠ SEIT DEM ZUSAMMENFASSUNGS-UMBAU DER EINZIGE ORT DIESES BETRAGS — s. Modulkopf. */
     amount: {
-      value: formatEur(primary.energySavingPerYear),
-      caption: `pro Jahr, ${displayedPriceLabel(analysis)}`,
-      tone: 'positive',
+      value: formatEur(headline),
+      caption:
+        value.annualizedEur === null
+          ? `${days}, ${displayedPriceLabel(analysis)}`
+          : `pro Jahr, ${ANNUALIZED_LABEL}, ${displayedPriceLabel(analysis)}`,
+      tone: headline > 0 ? 'positive' : 'warning',
     },
-    rows: [],
+    rows:
+      value.annualizedEur === null
+        ? []
+        : [neutralRow(`Gemessen, ${days}`, formatEur(value.overCoveredDaysEur))],
     body:
-      'Für jede Viertelstunde Ihres Lastgangs ist der echte Börsenpreis jener Stunde plus das ' +
-      'Netzentgelt Ihres Netzbetreibers angesetzt, statt eines festen Arbeitspreises. Der Speicher ' +
-      'lädt in den günstigen Viertelstunden und entlädt in den teuren; die Differenz ist der ' +
-      'ausgewiesene Wert. Er ist ein RÜCKBLICK auf die tatsächlichen Marktpreise Ihres Zeitraums ' +
-      'und kein Versprechen für die Zukunft — die Preise von morgen kennt niemand. ' +
-      `${embeddedNote}.${annualized}`,
+      'Für jede Viertelstunde Ihres Lastgangs sind der Börsenpreis jener Stunde, das Netzentgelt ' +
+      'und die Abgaben angesetzt, statt eines festen Arbeitspreises. Der Speicher lädt nach einem ' +
+      'Tagesplan in günstigen Stunden und entlädt in teuren; ausgewiesen ist, was Ihr Strom damit ' +
+      'weniger kostet als ohne Steuerung, Ladeverluste eingeschlossen. Das ist genau der Abstand ' +
+      `der Wege „aWATTar ohne Steuerung" und „${CONTROLLED_WAY_LABEL}" ${days}. Er ist der ` +
+      'Energie-Anteil der Gesamtersparnis dieses Speichers und steckt dort bereits mit drin. Die ' +
+      'Preise sind die tatsächlichen Ihres Zeitraums; ein Versprechen für die Zukunft ist die Zahl ' +
+      'nicht.' +
+      (value.annualizedEur === null
+        ? ''
+        : ` Ihr Lastgang deckt ${value.coveredDays} von 365 Tagen ab; die Zahl oben ist daraus ` +
+          'auf ein Jahr hochgerechnet.'),
   }
 }
 

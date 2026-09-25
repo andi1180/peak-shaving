@@ -291,8 +291,8 @@ export function PvDesignPanel({
           PV-Erzeugung schätzen — für diesen Lastgang nicht nötig
         </p>
         <p className="mt-2 text-xs leading-relaxed text-text-muted">
-          Ihr Lastgang enthält bereits <strong>gemessene Einspeisung</strong>. Die
-          Eigenverbrauchs-Ersparnis im Ergebnis stammt damit aus Ihren echten Zählwerten — eine
+          Ihr Lastgang enthält bereits <strong>gemessene Einspeisung</strong>. Was ein Speicher
+          aus Ihrem PV-Überschuss einspart, stammt damit aus Ihren echten Zählwerten — eine
           geschätzte Erzeugungskurve daneben wäre gegenüber dieser Messung ein Rückschritt und
           würde zwei Antworten auf dieselbe Frage erzeugen.
         </p>
@@ -474,8 +474,8 @@ export function PvDesignPanel({
           PV-Erzeugung schätzen (optional)
         </p>
         <p className="text-xs leading-relaxed text-text-muted">
-          Ihr Lastgang enthält keine Einspeisung — die Eigenverbrauchs-Ersparnis ist damit heute
-          € 0. Wenn Sie eine PV-Anlage haben oder planen, schätzen wir ihre Erzeugung aus Standort
+          Ihr Lastgang enthält keine Einspeisung — ein Speicher hat damit heute keinen
+          PV-Überschuss, den er aufnehmen könnte. Wenn Sie eine PV-Anlage haben oder planen, schätzen wir ihre Erzeugung aus Standort
           und Auslegung und ziehen sie vom Verbrauch ab. Das Ergebnis ist im Report{' '}
           <strong>durchgehend als Schätzung gekennzeichnet</strong>; die Leistungspreis-Ersparnis
           wird dann gar nicht mehr ausgewiesen, weil auch die Lastspitzen zur Hälfte geschätzt

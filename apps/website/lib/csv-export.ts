@@ -45,12 +45,12 @@ export function buildPerBatteryCsv(perBattery: Entry[], horizonYears: number): s
     'Modell',
     'Klasse',
     'Investition',
-    'Spitzenkappung (Leistungspreis)',
-    'Energie pro Jahr',
+    'Leistungspreis-Anteil pro Jahr',
+    'Energie-Anteil pro Jahr',
     'Abgedeckte Tage',
     'Hochrechnungsfaktor',
-    'Energie gemessen (abgedeckter Zeitraum)',
-    'Energie bewertet mit',
+    'Energie-Anteil gemessen (abgedeckter Zeitraum)',
+    'Energie-Anteil bewertet mit',
     'Gesamtersparnis pro Jahr',
     'Amortisation',
     `Netto-Ersparnis über ${horizonYears} Jahre`,
@@ -70,7 +70,9 @@ export function buildPerBatteryCsv(perBattery: Entry[], horizonYears: number): s
       // nicht mehr sauber auf. de-AT-Dezimalkomma wie die übrigen Spalten (`formatEur`).
       entry.annualizationFactor.toFixed(4).replace('.', ','),
       formatEur(entry.energySavingOverCoveredPeriod),
-      entry.energySavingBasis === 'full_price' ? 'vollem Preis' : 'nur Arbeitspreis',
+      entry.energySavingBasis === 'full_price'
+        ? 'vollem Intervallpreis (Energie, Netz, Abgaben)'
+        : 'nur Arbeitspreis (ohne Netz und Abgaben)',
       formatEur(entry.totalSavingPerYear),
       formatYears(entry.amortizationYears),
       formatEur(entry.netSavingOverHorizon),

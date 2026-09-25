@@ -22,6 +22,8 @@ import {
   catalogStorageEntry,
   catalogStorageNote,
   dynamicTariffHintKind,
+  isAnnualized,
+  perYearText,
   recommendationRationaleText,
   storageJudgementText,
   storagePaysOff,
@@ -348,7 +350,9 @@ export function recommendationVerdictOf(analysis: PdfReportAnalysis): string | n
   if (!recommendation || analysis.existingBatteryAnalysis) return null
   if (dynamicTariffHintKind(analysis)) return null
   const entry = recommendedEntryOf(analysis)
-  return entry ? recommendationRationaleText(entry.battery.name, recommendation.rationale) : null
+  return entry
+    ? recommendationRationaleText(entry.battery.name, recommendation.rationale, isAnnualized(entry))
+    : null
 }
 
 /** Die Kopfzahlen bei unbekanntem Liefertarif: absolute Kosten, keine Ersparnis. */
@@ -422,7 +426,7 @@ export function buildSummaryKpis(analysis: PdfReportAnalysis, ways: SummaryWays)
   const controlled = ways.ways.find((way) => way.id === 'controlled')
   const unprofitable = storage && controlled && !storagePaysOff(storage) ? storage : undefined
   const note = unprofitable
-    ? `Mit Speicher und Ladesteuerung zusätzlich ${formatEur(unprofitable.totalSavingPerYear)} pro Jahr, ` +
+    ? `Mit Speicher und Ladesteuerung zusätzlich ${formatEur(unprofitable.totalSavingPerYear)} ${perYearText(unprofitable)}, ` +
       `bei ${formatEur(unprofitable.totalInvestment)} Investition (${unprofitable.battery.name}). ` +
       storageJudgementText(unprofitable, analysis.assumptions.horizonYears)
     : undefined
@@ -756,9 +760,9 @@ export function buildAddon(analysis: PdfReportAnalysis): SummaryStatement | null
     body: best
       ? t`Ein zusätzlicher Batteriespeicher rechnet sich für Sie${ref(
           block(CANDIDATE_TABLE_ID),
-          `: das bestgereihte Gerät bringt ${formatEur(
-            best.totalSavingPerYear,
-          )} im Jahr zusätzlich, und ${REF_PLACE} steht, welches Gerät das ist und was es kostet`,
+          `: das bestgereihte Gerät bringt ${formatEur(best.totalSavingPerYear)} ${perYearText(
+            best,
+          )} zusätzlich, und ${REF_PLACE} steht, welches Gerät das ist und was es kostet`,
           '',
         )}.`
       : t`Ein zusätzlicher Batteriespeicher lohnt sich für Sie derzeit nicht${ref(
@@ -956,8 +960,8 @@ export function buildEstimatedPvNotice(
     tone: 'neutral',
     title: 'PV-Erzeugung geschätzt — nicht gemessen',
     body:
-      'Die Eigenverbrauchs-Ersparnis in diesem Report beruht auf einer geschätzten ' +
-      'Erzeugungskurve. Sie stammt nicht aus Ihrer Anlage, sondern aus dem Mittel der Wetterjahre ' +
+      'Was der Speicher aus Ihrem PV-Überschuss einspart, beruht in diesem Report auf einer ' +
+      'geschätzten Erzeugungskurve. Sie stammt nicht aus Ihrer Anlage, sondern aus dem Mittel der Wetterjahre ' +
       `${summary.weatherYears.from}–${summary.weatherYears.to} des EU-Dienstes PVGIS für ` +
       `${formatKwp(summary.totalPeakPowerKwp)} am Standort ${summary.postalCode} ` +
       `${summary.locationName}${arrays} — und wurde von Ihrem Verbrauch abgezogen.`,
@@ -971,7 +975,7 @@ export function buildEstimatedPvNotice(
           : 'Die Streuung zwischen den Wetterjahren liegt in der Grössenordnung einiger Prozent.') +
         ' Dazu kommt ein systematischer Aufschlag: ein Mehrjahres-Mittel ist glatter als jedes ' +
         'einzelne Jahr, und eine glattere Erzeugung wird seltener eingespeist. Gemessen fällt die ' +
-        'Eigenverbrauchs-Ersparnis dadurch rund ' +
+        'Ersparnis aus dem PV-Überschuss dadurch rund ' +
         `${formatPercent(PV_TEN_YEAR_SMOOTHING_OPTIMISM_PERCENT)} höher aus als beim Mittel der ` +
         'einzeln gerechneten Jahre — die Schätzung ist also eher etwas zu optimistisch als zu ' +
         'vorsichtig.',
