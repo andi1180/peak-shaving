@@ -181,20 +181,23 @@ describe('Monatsvergleich ohne Bestandsspeicher (D7)', () => {
     )
   })
 
-  it('lässt die dritte Reihe weg, wenn sich das empfohlene Gerät nicht rechnet', () => {
-    // Identische Physik, nur unbezahlbar — damit die Ersparnis dieselbe bleibt und allein
-    // `netSavingOverHorizon` kippt.
+  it('rechnet die dritte Reihe auch, wenn sich das bestgereihte Gerät nicht rechnet', () => {
+    // Identische Physik, nur unbezahlbar — allein `netSavingOverHorizon` kippt.
     const unaffordable = [{ ...GATE_DYNAMIC_BATTERY, id: 'zu-teuer', pricePerKwh: 5000 }]
-    const result = computeAnalysis(
-      buildPayload(false, pricingInputs()),
-      GATE_HORIZON_YEARS,
-      unaffordable,
-    )
-
+    const payload = buildPayload(false, pricingInputs())
+    const result = computeAnalysis(payload, GATE_HORIZON_YEARS, unaffordable)
     expect(result.perBattery[0]!.netSavingOverHorizon).toBeLessThan(0)
-    // Der Hebel bleibt berechenbar — es fehlt der Dispatch, nicht der Preis. Der Unterschied ist
-    // die Aussage: „nicht empfehlenswert" ist nicht „nicht berechenbar".
-    expect(result.tariffOptimization).toEqual({ computable: true })
+
+    const status = result.tariffOptimization
+    const comparison = status?.computable === true ? status.monthlyComparison : undefined
+    // Der Preis ändert den Fahrplan nicht: dieselbe Reihe wie beim wirtschaftlichen Gerät.
+    const affordable = computeAnalysis(payload, GATE_HORIZON_YEARS, [GATE_DYNAMIC_BATTERY])
+    const reference =
+      affordable.tariffOptimization?.computable === true
+        ? affordable.tariffOptimization.monthlyComparison
+        : undefined
+    expect(reference?.spotWithBatteryEur?.[FEB]).toBeTypeOf('number')
+    expect(comparison?.spotWithBatteryEur?.[FEB]).toBeCloseTo(reference!.spotWithBatteryEur![FEB]!, 9)
   })
 
   it('der Bestandsspeicher hat Vorrang vor der Katalog-Batterie', () => {

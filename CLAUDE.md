@@ -255,7 +255,9 @@ Bezugsgrösse liefert `savingsBaselineOf` und steht bewusst NICHT als Feld in `t
 Ausgabe ist im Privat-Golden serialisiert). **(c)** Verweigerungen laufen als `AnalysisRefusedError`
 (Engine) → `MeteringPointAnalysisError` mit gleichem `reason`; der Jahreslauf fängt sie und lässt
 sein Kapitel entfallen. **(d)** `billingModel: null` wird über `effectiveBillingModel` aufgelöst —
-nie direkt als Index in Label-Tabellen.
+nie direkt als Index in Label-Tabellen. **(e)** Seit 25.09.2026 bildet die Speicherreihe auch ein
+Gerät, das sich nicht rechnet (`known` wie `unknown`) — „Reihe vorhanden" heisst NICHT mehr
+„Gerät wirtschaftlich"; Weg 4 trägt dafür Investition und Urteil (`controlledDeviceOf`, `ways.ts`).
 
 ### Abgaben Phase 2a — laufende Abgabenfehler behoben (24.09.2026)
 

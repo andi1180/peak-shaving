@@ -438,43 +438,17 @@ export function computeAnalysis(
    * Report entfällt vollständig.
    *
    * ── ⚠ D7: WESSEN DISPATCH DAS IST ────────────────────────────────────────────────────────────
-   * Bis D7 ausschliesslich die BESTEHENDE Anlage — ein Interessent ohne Speicher sah die Sektion
-   * deshalb nie, obwohl der Vergleich gerade für ihn die Kauffrage beantwortet. Zweite Quelle ist
-   * jetzt die empfohlene Katalog-Batterie, und zwar NUR, wenn sie sich im Betrachtungszeitraum
-   * überhaupt rechnet: `netSavingOverHorizon > 0` — dieselbe Schwelle, an der der Report heute
-   * schon entscheidet, ob ein Gerät gezeigt wird (`report.tsx`, `pdf-report/summary.ts`,
-   * `pdf-report/comparison.ts`, 01.09.2026), und hier bewusst keine eigene. Ohne sie zeigte der
-   * Vergleich die Ersparnis eines Speichers, von dem derselbe Report abrät.
-   *
-   * ⚠ DER BESTAND HAT VORRANG. Er ist der Speicher, den der Kunde tatsächlich fährt; die
-   * Katalog-Reihe daneben beantwortete eine Frage, die sich für ihn nicht stellt. Beides zugleich
-   * kann es heute nicht geben (ohne Bestandsanlage ist `existing` undefined) — die Reihenfolge
-   * steht trotzdem im Code und nicht nur in diesem Absatz.
+   * Die bestehende Anlage, sonst das bestgereihte Katalog-Gerät — seit 25.09.2026 auch dann, wenn
+   * es sich im Betrachtungszeitraum nicht rechnet: der Report stellt Investition und Urteil neben
+   * die Reihe (`ways.ts`), statt den Weg wegzulassen. Der Bestand hat Vorrang.
    */
-  const recommendedDispatchKw =
-    perBattery[0] && perBattery[0].netSavingOverHorizon > 0 ? recommendedGridAfterKw : undefined
-  const comparisonDispatchKw = existing?.gridAfterKw ?? recommendedDispatchKw
+  const comparisonDispatchKw = existing?.gridAfterKw ?? recommendedGridAfterKw
 
   /*
-   * ── ⚠ K3b-2: DER VERGLEICH OHNE DRITTE REIHE — UND WANN ER ENTSTEHT ─────────────────────────
-   * Ohne Dispatch gab es bis hierher GAR KEINEN Vergleich („kein Teilzustand", s. oben). Das ist
-   * richtig, solange es Kandidaten gibt: dann sagt das Fehlen der dritten Reihe „von diesem
-   * Speicher raten wir ab", und zwei von drei Reihen zeigten eine Auswahl, die es nicht gibt.
-   *
-   * Mit leerem KATALOG ist die Lage eine andere: es gibt keinen Speicher, über den etwas zu sagen
-   * wäre — die Frage „was kostet mich Strom heute, und was bei aWATTar" steht davon unberührt, und
-   * sie unbeantwortet zu lassen verschwiege eine Zahl, die vollständig belegt ist.
-   *
-   * ⚠ DIE BEDINGUNG IST `perBattery.length === 0` UND NICHT `!comparisonDispatchKw`. Der
-   * Unterschied ist genau der Fall „es rechnet sich keiner" (voller Katalog, kein Dispatch) — der
-   * bleibt unverändert ohne Vergleich. Ein Bestandsspeicher hat ausserdem Vorrang und trägt die
-   * dritte Reihe auch bei leerem Katalog (`existing?.gridAfterKw` steht davor).
+   * K3b-2: ohne Kandidaten und ohne Bestand entsteht der Vergleich ohne dritte Reihe; bei
+   * unbekanntem Liefertarif ist er die einzige Kostenaussage (§3.1a).
    */
   const noCandidates = perBattery.length === 0
-  /*
-   * Bei unbekanntem Liefertarif ist der Vergleich die EINZIGE Kostenaussage — er entsteht deshalb
-   * immer, notfalls ohne Speicherreihe (wie bei leerem Katalog); sonst stünde ein Report ohne Zahlen.
-   */
   const supplierTariffUnknown = payload.tariff.supplierTariff === 'unknown'
   const monthlyComparison =
     baseTariffOptimization?.computable === true &&

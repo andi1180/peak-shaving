@@ -17,6 +17,7 @@ import {
   type DynamicTariffHintKind,
 } from '@/lib/report-copy'
 import { billedKwPerYear } from './basis'
+import { netOverHorizonRow, totalInvestmentRow } from './investment-rows'
 import { hasNegativeAddonVerdict } from './comparison'
 import type { ReportBuildContext } from './context'
 import { block, ref, t, REF_SECTION } from './report-text'
@@ -173,25 +174,13 @@ export function buildRecommendation(
   /* Nur, wo es sie gibt — eine Zeile „Betonsockel € 0" behauptete einen Posten, den es nicht gibt. */
   if (foundation > 0) rows.push(neutralRow('Betonsockel', formatEur(foundation)))
   if (inverter > 0) rows.push(neutralRow('Separater Wechselrichter', formatEur(inverter)))
-  rows.push({
-    label: 'Gesamtinvestition',
-    value: formatEur(entry.totalInvestment),
-    tone: 'neutral',
-    total: true,
-  })
+  rows.push(totalInvestmentRow(entry))
   rows.push({
     label: 'Ersparnis pro Jahr',
     value: formatEur(entry.totalSavingPerYear),
     tone: 'positive',
   })
-  rows.push({
-    label: `Netto über ${horizonYears} Jahre`,
-    value: formatEur(entry.netSavingOverHorizon),
-    /* Vorzeichenbewusst: ein Gerät, das sich im Betrachtungszeitraum nicht einspielt, darf nicht
-       grün dastehen — dieselbe Regel wie `deltaRow` in `summary.ts`. */
-    tone: entry.netSavingOverHorizon < 0 ? 'warning' : 'positive',
-    total: true,
-  })
+  rows.push(netOverHorizonRow(entry, horizonYears))
   rows.push(...capRows(analysis, entry))
 
   /*
