@@ -10,7 +10,7 @@
     "build": "pnpm -r --if-present run build",
     "test": "pnpm -r --if-present run test",
     "typecheck": "pnpm -r --if-present run typecheck",
-    "golden:update": "pnpm --filter engine golden:update",
+    "golden:update": "pnpm --filter engine --filter extractors golden:update",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
