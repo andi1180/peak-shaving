@@ -48,6 +48,13 @@ export function detectIntervalMinutes(sortedMs: number[]): number {
   return best
 }
 
+/** Verschiebt am Intervallende gestempelte Werte um ein Messintervall auf den Intervallbeginn. */
+export function shiftToIntervalStart(readings: RawReading[]): RawReading[] {
+  const stamps = [...new Set(readings.map((r) => r.ms))].sort((a, b) => a - b)
+  const stepMs = detectIntervalMinutes(stamps) * 60_000
+  return readings.map((r) => ({ ...r, ms: r.ms - stepMs }))
+}
+
 /**
  * §3.3-Aufbereitung: sortieren, deduplizieren, Intervall bestimmen, lückenlosen 15-min-Vektor
  * bauen (kleine Lücken still interpolieren, große markieren), Plausibilität prüfen.

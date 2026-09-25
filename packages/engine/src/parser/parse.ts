@@ -2,10 +2,15 @@ import type { LoadProfile, PvProfile } from 'shared'
 
 import { matchAdapter } from './adapters'
 import { countCoveredMonths, toIsoUtc, utcMsToLocalFields, type DateFormat } from './datetime'
-import { detectStructure, isInverterExport, type DetectionDraft } from './detect'
+import {
+  detectStructure,
+  isInverterExport,
+  timestampMarksFromHeader,
+  type DetectionDraft,
+} from './detect'
 import { byteSize, resolveLimits } from './limits'
 import { normalizeLoad, normalizeSingleValue, type NormalizeResult } from './normalize'
-import { prepareSeries } from './prepare'
+import { prepareSeries, shiftToIntervalStart } from './prepare'
 import { extractTable } from './table'
 import type {
   ColumnMapping,
@@ -309,6 +314,25 @@ export function parseLoadProfile(
     }
   }
 
+  const timestampMarks = options.timestampMarks ?? timestampMarksFromHeader(draft.headers, columns)
+  if (timestampMarks === 'ambiguous') {
+    return {
+      ok: false,
+      kind: 'needs_mapping',
+      detection,
+      issues: [
+        {
+          field: 'timestampColumn',
+          message:
+            'Der Kopf der Zeitstempel-Spalte nennt Beginn und Ende des Intervalls. Bitte bestätigen, ' +
+            'ob die Zeitstempel den Beginn oder das Ende der Viertelstunde bezeichnen.',
+          options: ['interval_start', 'interval_end'],
+        },
+      ],
+      preview: buildPreview(draft),
+    }
+  }
+
   const norm = normalizeLoad(draft.dataRows, {
     columns,
     dateFormat,
@@ -322,7 +346,9 @@ export function parseLoadProfile(
     return err('unparsable_timestamps', 'Keine Zeile mit gültigem Zeitstempel und Wert.')
   if (norm.parsedRows < 2) return err('insufficient_rows', 'Zu wenige gültige Datenzeilen.')
 
-  const prepared = prepareSeries(norm.readings, maxGap)
+  const readings =
+    timestampMarks === 'interval_end' ? shiftToIntervalStart(norm.readings) : norm.readings
+  const prepared = prepareSeries(readings, maxGap)
   if (prepared.intervalMinutes !== 15)
     return err(
       'wrong_interval',
@@ -331,6 +357,13 @@ export function parseLoadProfile(
 
   // Datenqualität + Warnungen.
   const warnings = [...prepared.warnings, ...skippedRowWarnings(norm, tz)]
+  if (timestampMarks === 'interval_end') {
+    const header = draft.rawHeaders[columns.timeColumn ?? columns.timestamp] ?? ''
+    warnings.push(
+      `Die Zeitstempel bezeichnen das Ende des Messintervalls (Spalte „${header}“) und wurden ` +
+        'auf den Intervallbeginn umgerechnet.',
+    )
+  }
 
   // Pflichtwarnung (§3.1): import_only ohne PV-Profil.
   if (source === 'import_only' && !options.hasPvProfile) {

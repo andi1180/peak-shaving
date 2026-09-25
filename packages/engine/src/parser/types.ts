@@ -64,6 +64,9 @@ export type ValueColumnInfo = {
 
 export type SignConvention = 'import_positive' | 'export_positive'
 
+/** Ob ein Zeitstempel den Beginn oder das Ende seines Messintervalls bezeichnet. */
+export type TimestampMarks = 'interval_start' | 'interval_end'
+
 export type ParseOptions = {
   limits?: Partial<ParseLimits>
   /** Zeitzone zur Interpretation lokaler (naiver) Zeitstempel; Metadatum im LoadProfile. */
@@ -77,6 +80,8 @@ export type ParseOptions = {
   delimiter?: string
   decimal?: ',' | '.'
   dateFormat?: string
+  /** Bestätigt die Zeitstempel-Konvention, wenn der Spaltenkopf sie nicht eindeutig nennt. */
+  timestampMarks?: TimestampMarks
   /** Vorzeichen im net_signed-Quellfeld. Default: import_positive (+ = Bezug). */
   signConvention?: SignConvention
   /** Ob ein PvProfile mitgeliefert wird (steuert die import_only-Pflichtwarnung, §3.1). */
@@ -132,6 +137,7 @@ export type ParseErrorCode =
   | 'no_timestamp_column'
   | 'no_value_column'
   | 'unparsable_timestamps'
+  | 'ambiguous_timestamp' // Kopf nennt Intervallbeginn UND -ende, nur im Metadaten-Leser
   | 'wrong_interval'
   | 'insufficient_rows'
   | 'not_a_load_profile' // z. B. Wechselrichter-/ESS-Log ohne Netzbezug (OP#4, Format B)
