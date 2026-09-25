@@ -210,3 +210,22 @@ describe('§3.6 Harte Constraints — soc ∈ [0, Kapazität], |Leistung| ≤ ma
     expect(res.capKwByPeriod[0] ?? Infinity).toBeLessThan(60)
   })
 })
+
+describe('§3.6 peak_first — die Ladeobergrenze der Tagesplanung unterschreitet nie die Spitzen-Reserve', () => {
+  // 40 kWh / 40 kW, η=1, Kappschwelle 10 kW, Start auf der Reserve. Zwei günstige Stunden (5 kW Bezug), deren
+  // Tagesplanung die Ladung auf 0 kWh deckelt, danach eine 30-kW-Spitze.
+  const physics: BatteryPhysics = { usableCapacityKwh: 40, maxPowerKw: 40, roundTripEfficiency: 1 }
+  const draws = [5, 5, 30, 5, 5]
+  const cap = 10
+  const capForInterval = draws.map(() => cap)
+  const socFloor = computeSocFloor(draws, capForInterval, physics, 1)
+  const prefer = [true, true, false, false, false]
+  const priceOrder = { chargeCeilingKwh: draws.map(() => 0), priceFloorKwh: draws.map(() => 0) }
+
+  it('reichen Speicher und Leistung, bleibt kein Intervall über der Kappschwelle', () => {
+    const r = runCombinedDispatch(draws, capForInterval, socFloor, physics, socFloor[0]!, 1, prefer, priceOrder)
+    expect(r.gridAfterKw.filter((g) => g > cap + EPS)).toHaveLength(0)
+    // Eine Abrechnungsperiode: die abgerechnete Spitze ist genau die Kappschwelle.
+    expect(Math.max(...r.gridAfterKw)).toBeCloseTo(cap, 9)
+  })
+})

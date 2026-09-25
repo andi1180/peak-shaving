@@ -111,8 +111,12 @@ export function runCombinedDispatch(
       // BEWUSST kein Entladen hier (billiges Netz zieht man direkt, statt teure/PV-Energie zu vergeuden).
       const headroomKw = Math.max(0, cap - Math.max(0, draw))
       // Ladeobergrenze der Tages-Rangfolge (ohne sie die volle Kapazität): was eine strikt
-      // günstigere Stunde desselben Tages noch brauchen könnte, bleibt frei.
-      const ceilingKwh = Math.min(usableCapacityKwh, priceOrder?.chargeCeilingKwh[i] ?? usableCapacityKwh)
+      // günstigere Stunde desselben Tages noch brauchen könnte, bleibt frei — aber nie unter der
+      // Spitzen-Reserve (`peak_first`), sonst lädt 5(a) weniger nach, als Schritt 5(b) garantiert.
+      const ceilingKwh = Math.max(
+        floorNext,
+        Math.min(usableCapacityKwh, priceOrder?.chargeCeilingKwh[i] ?? usableCapacityKwh),
+      )
       const freeKwh = Math.max(0, ceilingKwh - soc)
       const chargeKw = Math.min(maxPowerKw, headroomKw, freeKwh / (deltaH * eta))
       soc += chargeKw * deltaH * eta

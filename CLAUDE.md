@@ -157,8 +157,9 @@ synthetischer Lastgang, Tarif von Hand: 9,5 ct / 50 €/kW·a / `monthly_max_sum
 Netzentgelte/Spotpreise/Katalog am 23.09.2026 per `anon` eingefroren, 2025er Netzverlust nach der
 Tippfehler-Korrektur 0,7 ct):** `billedKw` **606,56**,
 31 Katalog-Kandidaten, Leistungspreis 2.527,33 €/Jahr, Empfehlung `6845c64d…` (**Kostal & Dyness
-Retrofit L**, **2.083 €/Jahr, Amortisation 5,26 Jahre, netto 9.883 € über 10 Jahre** seit der
-Vorabend-Planung (§3.7-Revision PR 2, 25.09.2026) — davor 2.114 €/5,18/10.193 € seit der
+Retrofit L**, **2.224 €/Jahr, Amortisation 4,92 Jahre, netto 11.288 € über 10 Jahre** seit PR 2a
+(Tagesplanung respektiert die Spitzen-Reserve, 25.09.2026) — davor 2.083 €/5,26/9.883 € seit der
+Vorabend-Planung (§3.7-Revision PR 2, 25.09.2026), davor 2.114 €/5,18/10.193 € seit der
 §3.7-Revision PR 1, davor 2.144 €/5,11/10.490 € seit Abgaben Phase 2a, davor 2.009 €/5,45/9.139 €; mit dem fehlerhaften Netzverlust 7 ct waren es
 1.875 €/5,84/7.803 €). Die Bewegung kommt aus der Gebrauchsabgabe auf Energie (Lastverschiebung
 891,66 → 959,93 €) und auf den Leistungspreis (1.117,08 → 1.184,11 €, × 1,06); der Abgabenplan des
@@ -253,11 +254,12 @@ für das gezeigte Gerät steht in `spotWithBatteryHindsightEur`. Bündel-Fassung
 Obergrenze (`spotWithBatteryHindsightEur != null`), nicht mehr an einer eigenen Reihe — sie ist genau
 dann gesetzt, wenn die Reihe vorausschauend geplant ist. **(b)** Wer `simulateBattery` ohne
 `planning` aufruft, bekommt die Prognose je Aufruf neu gebildet — korrekt, aber teuer; Schleifen
-über Geräte reichen sie herein. **(c) ⚠ Der Leistungspreis-Anteil ist NICHT mehr reiner Rückblick:**
-Kappschwelle und Reserve stammen zwar aus dem ganzen Zeitraum, aber im günstigen Ladefenster deckelt
-`chargeCeilingKwh` die Ladung ohne Rücksicht auf die Reserve — plant die Prognose falsch, bricht die
-Kappschwelle (Bäckerei-Golden: `newBilledKw` bewegt sich bei 27 von 31 Geräten, nicht beim
-empfohlenen). Offene Entscheidung, eigener PR mit Golden-Update. **(d)** Report-Texte und die
+über Geräte reichen sie herein. **(c) ~~Der Leistungspreis-Anteil ist NICHT mehr reiner Rückblick~~ —
+behoben in PR 2a (25.09.2026, `ENGINE_VERSION` 1.5.1-mvp):** `chargeCeilingKwh` deckelt die Ladung in
+Schritt 5(a) nur noch ÜBER der Spitzen-Reserve (`max(floorNext, …)` in `dispatch.ts`). Bäckerei-Golden:
+30 von 31 Geräten halten jede Kappschwelle, `newBilledKw` = Summe der Kappschwellen. **⚠ Offen:** die
+Sungrow ST510 bricht 84-mal auch OHNE Tagesplanung — ihre Reserve ist am 1.1. höher als der Start-SoC
+und an der Kapazität geklemmt, die Kapp-Suche ist dort optimistischer als die Reserve (eigener Befund). **(d)** Report-Texte und die
 Darstellung der Obergrenze sind PR 3.
 
 ### Energie-Ersparnis als volle Kostendifferenz der Reihen — §3.7-Revision (25.09.2026)
