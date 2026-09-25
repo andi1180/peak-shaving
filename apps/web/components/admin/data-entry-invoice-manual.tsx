@@ -61,6 +61,7 @@ import {
   saveMeteringPointGridConnectionAction,
   saveMeteringPointManualTariffAction,
 } from '@/lib/admin/data-entry-actions'
+import { billingModelApplies } from '@/lib/project-chat/billing-model'
 import { ADMIN_INITIAL_STATE } from '@/lib/admin/schema'
 import type { ManualTariffDraft } from '@/lib/admin/invoice-extractions'
 import {
@@ -213,6 +214,8 @@ export function DataEntryInvoiceManual({
     connectionState.fieldErrors?.[key]
 
   const busy = isSaving || isLooking || isSavingConnection
+  // Ohne Leistungsmessung gibt es keinen Leistungspreis und damit kein Abrechnungsmodell.
+  const showBillingModel = billingModelApplies(connection)
 
   return (
     <form action={saveAction} noValidate className="flex flex-col gap-6">
@@ -336,52 +339,61 @@ export function DataEntryInvoiceManual({
 
       {phase === 'tariff' && (
         <>
-          <fieldset className="flex flex-col gap-4 border-t border-line pt-6">
-            <legend className="text-small font-medium text-ink">Abrechnungsmodell</legend>
-            <p className="max-w-2xl text-small text-text-muted">
-              Nach welcher Regel der Netzbetreiber die abgerechnete Leistung bildet. Die drei
-              Modelle unterscheiden sich um bis zum Faktor 12 im verrechneten kW-Wert — die Wahl
-              bestimmt damit die Ersparnis, die der Report ausweist.
-            </p>
+          {showBillingModel ? (
+            <fieldset className="flex flex-col gap-4 border-t border-line pt-6">
+              <legend className="text-small font-medium text-ink">Abrechnungsmodell</legend>
+              <p className="max-w-2xl text-small text-text-muted">
+                Nach welcher Regel der Netzbetreiber die abgerechnete Leistung bildet. Die drei
+                Modelle unterscheiden sich um bis zum Faktor 12 im verrechneten kW-Wert — die Wahl
+                bestimmt damit die Ersparnis, die der Report ausweist.
+              </p>
 
-            <div className="sm:max-w-md">
-              <AdminSelect
-                id="manual-billing-model"
-                name="billingModel"
-                label={INVOICE_MERGE_FIELD_LABELS.billingModel}
-                error={fieldError('billingModel')}
-                value={billingModel}
-                onValueChange={setBillingModel}
-              >
-                {/*
+              <div className="sm:max-w-md">
+                <AdminSelect
+                  id="manual-billing-model"
+                  name="billingModel"
+                  label={INVOICE_MERGE_FIELD_LABELS.billingModel}
+                  error={fieldError('billingModel')}
+                  value={billingModel}
+                  onValueChange={setBillingModel}
+                >
+                  {/*
               ⚠ KEINE leere Option. Das Feld ist im Contract PFLICHT; ein „— bitte wählen —" machte
               daraus einen Pflichtfehler, den nur auflösen kann, wer die Frage bereits versteht.
               Vorbelegt und sichtbar ist die ehrlichere Form — und die Zeile darunter sagt, ob der
               Wert schon bestätigt ist oder noch unser Vorschlag.
             */}
-                {BILLING_MODELS.map((model) => (
-                  <option key={model} value={model}>
-                    {BILLING_MODEL_LABELS[model]}
-                  </option>
-                ))}
-              </AdminSelect>
-            </div>
+                  {BILLING_MODELS.map((model) => (
+                    <option key={model} value={model}>
+                      {BILLING_MODEL_LABELS[model]}
+                    </option>
+                  ))}
+                </AdminSelect>
+              </div>
 
-            <p className="max-w-2xl text-small text-text-muted">
-              {BILLING_MODEL_HINTS[billingModel as keyof typeof BILLING_MODEL_HINTS]}
-            </p>
+              <p className="max-w-2xl text-small text-text-muted">
+                {BILLING_MODEL_HINTS[billingModel as keyof typeof BILLING_MODEL_HINTS]}
+              </p>
 
+              <p
+                className="max-w-2xl text-small text-text-muted"
+                data-testid="billing-model-confirmation"
+              >
+                {initial.billingModelConfirmed
+                  ? 'Übernommen — dieser Wert steht beim Zählpunkt und wird so gerechnet.'
+                  : 'Noch nicht bestätigt: das ist unser Vorschlag. Gerechnet wird damit erst, wenn Sie ' +
+                    'ihn mit „Werte übernehmen" bestätigen — prüfen Sie ihn an der Leistungszeile der ' +
+                    'Rechnung.'}
+              </p>
+            </fieldset>
+          ) : (
             <p
-              className="max-w-2xl text-small text-text-muted"
-              data-testid="billing-model-confirmation"
+              className="max-w-2xl border-t border-line pt-6 text-small text-text-muted"
+              data-testid="billing-model-not-applicable"
             >
-              {initial.billingModelConfirmed
-                ? 'Übernommen — dieser Wert steht beim Zählpunkt und wird so gerechnet.'
-                : 'Noch nicht bestätigt: das ist unser Vorschlag. Gerechnet wird damit erst, wenn Sie ' +
-                  'ihn mit „Werte übernehmen" bestätigen — prüfen Sie ihn an der Leistungszeile der ' +
-                  'Rechnung.'}
+              Abrechnungsmodell: entfällt — ohne Leistungsmessung fällt kein Leistungspreis an.
             </p>
-          </fieldset>
+          )}
 
           <fieldset className="flex flex-col gap-4 border-t border-line pt-6">
             <legend className="text-small font-medium text-ink">Tarifwerte</legend>

@@ -5,6 +5,7 @@ import type Anthropic from '@anthropic-ai/sdk'
 import type { Json } from '@/db-types'
 import { readProjectDocument } from '@/lib/project-documents/documents'
 import { createClient } from '@/lib/supabase/server'
+import { dropInapplicableBillingModel } from './draft'
 import { DEFAULT_CHAT_KIND } from './ports'
 import type {
   ChatKind,
@@ -251,7 +252,7 @@ export function createProjectChatPorts(extractors: Partial<ChatExtractors>): Pro
       const supabase = await createClient()
       const { data, error } = await supabase.rpc('update_metering_point_draft', {
         p_metering_point_id: meteringPointId,
-        p_draft: draft as Json,
+        p_draft: dropInapplicableBillingModel(draft) as Json,
       })
       return asWrapperStatus(data, error)
     },

@@ -1,7 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { setDraftField } from '@/lib/project-chat/draft'
+import { dropInapplicableBillingModel, setDraftField } from '@/lib/project-chat/draft'
 import { createClient } from '@/lib/supabase/server'
 import {
   foldStoredInvoices,
@@ -73,7 +73,7 @@ export async function setInvoicePriceBasisAction(
 
   const draftRes = await supabase.rpc('update_metering_point_draft', {
     p_metering_point_id: meteringPointId,
-    p_draft: nextDraft as Json,
+    p_draft: dropInapplicableBillingModel(nextDraft) as Json,
   })
   if (draftRes.error) {
     if (isForbidden(draftRes.error)) return { formError: FORBIDDEN }

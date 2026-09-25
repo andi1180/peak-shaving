@@ -10,6 +10,7 @@
 import { revalidatePath } from 'next/cache'
 import {
   DRAFT_PROVENANCE_KEY,
+  dropInapplicableBillingModel,
   readDraftProvenance,
   setDraftField,
   type DraftValue,
@@ -123,7 +124,7 @@ async function updateMeteringPointDraft(
   const draftRes = await supabase.rpc('update_metering_point_draft', {
     p_metering_point_id: meteringPointId,
     // Zusicherung wie in den übrigen Entwurf-Schreibwegen: zur Laufzeit dasselbe.
-    p_draft: transform(point.draft) as Json,
+    p_draft: dropInapplicableBillingModel(transform(point.draft)) as Json,
   })
 
   if (draftRes.error) {
