@@ -12,6 +12,7 @@ import { statementPoints } from './statement'
 import { buildReportSummary } from './summary'
 import { TARIFF_SOURCE_UNTRACKED, type PdfReportAnalysis, type PdfReportInput } from './types'
 import { buildWaysChapter, waysCountOf } from './ways'
+import { catalogStorageNote } from '@/lib/report-copy'
 
 /**
  * Report bei unbekanntem Liefertarif (Pflichtenheft §3.1a) — gelesen wird der TEXT, wie das
@@ -263,5 +264,46 @@ describe('Weg „mit Ladesteuerung" ohne wirtschaftliches Gerät (ENTRY: Netto �
     expect(rows).toEqual(['Gesamtinvestition: € 12.000', 'Netto über 10 Jahre: -€ 500'])
     expect(body).toContain('Prüfspeicher 30 spart voraussichtlich € 1.200 pro Jahr')
     expect(body).toContain('Im Betrachtungszeitraum von 10 Jahren rechnet er sich damit nicht.')
+  })
+})
+
+describe('Kein Betrag „mit Speicher" ohne Investition und Urteil', () => {
+  const PAYS_OFF: BatteryRoiEntry = { ...ENTRY, netSavingOverHorizon: 500 }
+  const withEntry = (analysis: PdfReportAnalysis, entry: BatteryRoiEntry): PdfReportAnalysis => ({
+    ...analysis,
+    perBattery: [entry],
+  })
+  const known = (entry: BatteryRoiEntry) =>
+    withEntry(analysisOf(comparisonOf({ current: 10000, coveredMonths: 12 }), true), entry)
+  const kpiOf = (analysis: PdfReportAnalysis, id: string) =>
+    buildReportSummary(inputOf(analysis)).kpis.find((kpi) => kpi.id === id)!
+  const NOTE = 'Speicher: Prüfspeicher 30, Investition € 12.000.'
+
+  it('bekannter Tarif, Gerät unwirtschaftlich: Spanne ohne Speicherweg, Satz darunter', () => {
+    const kpi = kpiOf(known(ENTRY), 'possible_saving')
+    expect(plain(kpi.value)).toBe('€ 1.000')
+    expect(plain(kpi.note ?? '')).toBe(
+      'Mit Speicher und Ladesteuerung zusätzlich € 1.200 pro Jahr, bei € 12.000 Investition (Prüfspeicher 30). ' +
+        'Im Betrachtungszeitraum von 10 Jahren rechnet er sich damit nicht.',
+    )
+  })
+
+  it('bekannter Tarif, Gerät wirtschaftlich: Spanne unverändert inkl. Speicherweg', () => {
+    const kpi = kpiOf(known(PAYS_OFF), 'possible_saving')
+    expect(plain(kpi.value)).toBe('€ 1.000 – € 2.200')
+    expect(kpi.note).toBeUndefined()
+  })
+
+  it('unbekannter Tarif: Zeile mit Investition und Urteil unter der Kopfzahl', () => {
+    const kpi = kpiOf(analysisOf(comparisonOf({ current: null, coveredMonths: 12 }), false), 'cost_controlled')
+    expect(plain(kpi.note ?? '')).toBe(`${NOTE} Im Betrachtungszeitraum von 10 Jahren rechnet er sich damit nicht.`)
+  })
+
+  it('Monatsdiagramm mit Speicherreihe: Unterschrift nennt Gerät, Investition und Urteil', () => {
+    const caption = plain(buildMonthlyChapter(known(PAYS_OFF))!.figure.caption)
+    expect(caption).toContain(`${NOTE} Im Betrachtungszeitraum von 10 Jahren rechnet er sich damit.`)
+    expect(plain(catalogStorageNote(known(ENTRY)) ?? '')).toBe(
+      `${NOTE} Im Betrachtungszeitraum von 10 Jahren rechnet er sich damit nicht.`,
+    )
   })
 })

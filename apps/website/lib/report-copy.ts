@@ -3,6 +3,7 @@ import {
   VAT_INCLUSIVE_LABEL,
   type AnalysisResult,
   type BatteryNotice,
+  type BatteryRoiEntry,
   type RecommendationRationale,
 } from 'shared'
 
@@ -104,6 +105,47 @@ export function batteryNoticeText(notice: BatteryNotice): string {
 export function batteryNoteTexts(entry: { warnings: string[]; notices?: BatteryNotice[] }): string[] {
   // `?? []`: Ergebnisse von vor der Umstellung (Fassung ≤ 10) tragen noch keine `notices`.
   return [...entry.warnings, ...(entry.notices ?? []).map(batteryNoticeText)]
+}
+
+/**
+ * Das Katalog-Gerät hinter der Speicherreihe des Monatsvergleichs — `undefined` beim
+ * Bestandsspeicher (bezahlt, keine Investition) und ohne Kandidaten.
+ */
+export function catalogStorageEntry(
+  analysis: Pick<AnalysisResult, 'perBattery' | 'recommendation' | 'existingBatteryAnalysis'>,
+): BatteryRoiEntry | undefined {
+  if (analysis.existingBatteryAnalysis) return undefined
+  const id = analysis.recommendation?.batteryId
+  return analysis.perBattery.find((p) => p.battery.id === id) ?? analysis.perBattery[0]
+}
+
+/** Rechnet sich das Gerät im Betrachtungszeitraum? Dieselbe Schwelle wie Gerätetabelle und Engine-Reihung. */
+export function storagePaysOff(entry: Pick<BatteryRoiEntry, 'netSavingOverHorizon'>): boolean {
+  return entry.netSavingOverHorizon > 0
+}
+
+/** Das Speicher-Urteil — wortgleich überall, wo ein Betrag „mit Speicher" steht. */
+export function storageJudgementText(
+  entry: Pick<BatteryRoiEntry, 'netSavingOverHorizon'>,
+  horizonYears: number,
+): string {
+  return `Im Betrachtungszeitraum von ${horizonYears} Jahren rechnet er sich damit${storagePaysOff(entry) ? '' : ' nicht'}.`
+}
+
+/** Gerät, Investition und Urteil in einer Zeile — für Kopfzahlen und Diagramm-Legenden. */
+export function storageInvestmentNote(entry: BatteryRoiEntry, horizonYears: number): string {
+  return (
+    `Speicher: ${entry.battery.name}, Investition ${formatEur(entry.totalInvestment)}. ` +
+    storageJudgementText(entry, horizonYears)
+  )
+}
+
+/** Die Zeile zur Speicherreihe eines Ergebnisses — `null` beim Bestandsspeicher und ohne Kandidaten. */
+export function catalogStorageNote(
+  analysis: Pick<AnalysisResult, 'perBattery' | 'recommendation' | 'existingBatteryAnalysis' | 'assumptions'>,
+): string | null {
+  const entry = catalogStorageEntry(analysis)
+  return entry ? storageInvestmentNote(entry, analysis.assumptions.horizonYears) : null
 }
 
 /** Der Satz zur Empfehlung, aus den Werten der Engine. */

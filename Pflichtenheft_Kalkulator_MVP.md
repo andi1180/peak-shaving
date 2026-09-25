@@ -187,6 +187,10 @@ ausschliesslich aus „Ohne Rechnung fortfahren" (`invoiceSkipped: true`).
   bestgereihte Katalog-Gerät, auch wenn es sich im Betrachtungszeitraum nicht rechnet; der Report
   stellt im Weg „aWATTar mit Ladesteuerung" Investition, Netto über den Horizont und das
   Speicher-Urteil daneben (`ways.ts`). Vorher entfiel die Reihe bei `netSavingOverHorizon ≤ 0`.
+  Regel dazu: **kein Betrag „mit Speicher" ohne Investition und Urteil** — Spanne der
+  Zusammenfassung ohne unwirtschaftlichen Speicherweg (Satz darunter), Zeile unter der Kopfzahl bei
+  `'unknown'`, Gerät/Investition/Urteil in Bildunterschrift bzw. Legende der Monatsdiagramme
+  (`catalogStorageNote`, `lib/report-copy.ts`).
   Ein Vergleichstarif ist eigener Weg UND Bezugsgrösse der Ersparnis (`savingsBaselineOf`, `shared`);
   ohne ihn gibt es keine Ersparnis-Grösse, nur absolute Kosten. Bei `'known'` unverändert.
 - **Speicherbewertung:** läuft über die kombinierte aWATTar-Reihe; der Einstand der Start-SoC-Schicht

@@ -29,6 +29,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { DEFAULT_HORIZON_YEARS, LARGE_GAP_SLOTS_THRESHOLD } from '@/lib/constants'
 import {
+  catalogStorageNote,
   dynamicTariffHintKind,
   dynamicTariffHintText,
   recommendationRationaleText,
@@ -498,7 +499,11 @@ export function Report({
    */
   const monthlyTariffBox = monthlyComparison ? (
     <div className="sm:col-span-2 print:col-span-1">
-      <MonthlyTariffChart comparison={monthlyComparison} isExisting={isExisting} />
+      <MonthlyTariffChart
+        comparison={monthlyComparison}
+        isExisting={isExisting}
+        storageNote={catalogStorageNote(result)}
+      />
     </div>
   ) : null
 

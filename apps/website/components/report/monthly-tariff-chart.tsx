@@ -210,10 +210,16 @@ export { sumCovered }
 export function MonthlyTariffChart({
   comparison,
   isExisting,
+  storageNote = null,
 }: {
   comparison: MonthlyTariffComparison
   /** Fährt die dritte Reihe die Anlage des Kunden oder die Empfehlung? Entscheidet nur den Wortlaut. */
   isExisting: boolean
+  /**
+   * Gerät, Investition und Urteil zur Speicherreihe (`catalogStorageNote`). Im PDF-Raster bleibt er
+   * weg — dort steht er in der Bildunterschrift (`detail.ts`).
+   */
+  storageNote?: string | null
 }) {
   /* Eigene Kennung je Instanz — zwei Charts auf einem Blatt teilten sonst ein `<pattern>`. */
   const modelPatternId = useId()
@@ -310,6 +316,7 @@ export function MonthlyTariffChart({
           Stelle, an der ein Leser die Beträge vergleicht. An den einzelnen Monatsbalken und im
           Tooltip steht er bewusst gar nicht — die Chart-Unterzeile deckt sie mit ab.
         */}
+        {hasControlled && storageNote && <span className="mt-1 text-ink">{storageNote}</span>}
         <span className="mt-1">Alle Beträge {vatNote(comparison)}.</span>
       </div>
 

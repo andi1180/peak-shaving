@@ -2,7 +2,7 @@ import type { BatteryResultEntry, BatteryRoiEntry, MonthlyTariffComparison } fro
 import { sumCovered, tariffWayCosts } from 'shared'
 
 import { formatEur, formatEur2, formatYears } from '@/lib/format'
-import { CONTROLLED_WAY_LABEL, dynamicTariffHintKind } from '@/lib/report-copy'
+import { catalogStorageNote, CONTROLLED_WAY_LABEL, dynamicTariffHintKind } from '@/lib/report-copy'
 import type { ReportBuildContext } from './context'
 import { t } from './report-text'
 import type { ReportFigure, ReportRow, ReportStatement } from './statement'
@@ -202,6 +202,8 @@ const UNKNOWN_TARIFF_MONTHLY_INTRO =
 export function buildMonthly(
   comparison: MonthlyTariffComparison,
   current: PdfReportAnalysis['current'],
+  /** Gerät, Investition und Urteil zur Speicherreihe (`catalogStorageNote`); `null` beim Bestand. */
+  storageNote: string | null = null,
 ): MonthlyChapter {
   const fixed = comparison.fixedCosts
   /*
@@ -302,7 +304,8 @@ export function buildMonthly(
     figure: {
       caption:
         `Energie- und Netzkosten je Kalendermonat. ${legend}` +
-        (monthsMissing ? ' Monate ohne Messwert bleiben leer.' : ''),
+        (monthsMissing ? ' Monate ohne Messwert bleiben leer.' : '') +
+        (controlledEur !== null && storageNote ? ` ${storageNote}` : ''),
       note: null,
     },
     statement: {
@@ -477,7 +480,9 @@ export function hasMonthlyChapter(analysis: PdfReportAnalysis): boolean {
 
 export function buildMonthlyChapter(analysis: PdfReportAnalysis): MonthlyChapter | null {
   const comparison = monthlyComparisonOf(analysis)
-  return comparison ? buildMonthly(comparison, analysis.current) : null
+  return comparison
+    ? buildMonthly(comparison, analysis.current, catalogStorageNote(analysis))
+    : null
 }
 
 /** Der Vergleich, SOFERN er diesem Kapitel gehört — eine Bedingung, ein Ort. */
