@@ -184,7 +184,15 @@ import type { TariffOverridableField } from './tariff-catalog'
  * sind jetzt gebucht, die Untergrenze 0 je Intervall ist entfallen — `totalSavingPerYear` und
  * alles daraus sind gegenüber Fassung ≤ 11 eine andere Definition, keine neue Messung.
  */
-export const ANALYSIS_BUNDLE_VERSION = 12
+/**
+ * ── FASSUNG 13 (25.09.2026, §3.7 Revision PR 2) ────────────────────────────────────────────────
+ * Der Fahrplan jedes Geräts plant die Tages-Rangfolge mit der Vorabend-Prognose statt mit dem
+ * gemessenen Tag. `spotWithBatteryEur` und alles aus dem Fahrplan (Ersparnis, Reihung,
+ * Amortisation, Zusatzspeicher, Trace) sind damit vorausschauend; `spotWithPredictiveControlEur`
+ * ist entfallen, neu ist `spotWithBatteryHindsightEur` als Rückblick-Obergrenze für das gezeigte
+ * Gerät. Kappschwelle und Spitzen-Reserve bleiben aus dem ganzen Zeitraum.
+ */
+export const ANALYSIS_BUNDLE_VERSION = 13
 
 /**
  * Fassungen, die der Upload annimmt.
@@ -193,7 +201,7 @@ export const ANALYSIS_BUNDLE_VERSION = 12
  * worden sein, und ein Bündel unbrauchbar zu machen, das ein Mensch in der Hand hält, wäre der
  * schlechtere Handel. Bei einer älteren Fassung bleiben die jeweils neueren Felder schlicht leer.
  */
-export const SUPPORTED_ANALYSIS_BUNDLE_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+export const SUPPORTED_ANALYSIS_BUNDLE_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
 
 /**
  * Fassung der Rechen-Engine, VON HAND gepflegt.
@@ -204,7 +212,7 @@ export const SUPPORTED_ANALYSIS_BUNDLE_VERSIONS: readonly number[] = [1, 2, 3, 4
  *
  * Bei einer Änderung am Rechenkern, die Ergebnisse verschiebt, MITZIEHEN.
  */
-export const ENGINE_VERSION = '1.4.0-mvp'
+export const ENGINE_VERSION = '1.5.0-mvp'
 
 /**
  * Was anstelle des Commits geschrieben wird, wenn die Bauumgebung keinen kennt (lokaler

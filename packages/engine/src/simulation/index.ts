@@ -50,3 +50,5 @@ export {
   periodIndexByInterval,
 } from './helpers'
 export type { BatteryPhysics } from './helpers'
+export { dispatchPlanningFor, HINDSIGHT_PLANNING } from './planning'
+export type { DispatchPlanning } from './planning'

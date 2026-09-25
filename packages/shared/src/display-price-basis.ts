@@ -141,7 +141,7 @@ const FIELD_KIND: Record<AnalysisNumericKey, 'money' | 'price' | 'other'> = {
   selfConsumptionKwh: 'other',
   socKwh: 'other',
   spotWithBatteryEur: 'money',
-  spotWithPredictiveControlEur: 'money',
+  spotWithBatteryHindsightEur: 'money',
   spotWithoutControlEur: 'money',
   subsidyAmount: 'money',
   supplierBaseFeeEur: 'money',

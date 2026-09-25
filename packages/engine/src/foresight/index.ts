@@ -1,7 +1,5 @@
-// Vorausschauende Ladesteuerung (vereinfacht), INTERNER Nachweis — kein Report, keine Oberfläche,
-// kein Analyse-Bündel. `Pflichtenheft_Vorausschauende_Ladesteuerung.md` (21.09.2026): es entsteht
-// kein zweiter Planer, es wird eine Eingabe getauscht — `dailyPriceOrder` sieht statt des
-// gemessenen Netzbezugs die Leave-one-out-Prognose aus der eigenen Historie des Kunden.
+// Verbrauchserwartung vom Vorabend (Leave-one-out aus der eigenen Historie des Kunden) — seit dem
+// 25.09.2026 die Planungsgrundlage JEDES Fahrplans (`simulation/planning.ts`).
 export {
   consumptionPatternForDay,
   forecastDrawSeries,
@@ -14,9 +12,3 @@ export type {
   ConsumptionPatternOutcome,
   ForecastDrawSeries,
 } from './consumption-pattern'
-export { computePredictiveControlValue, PREDICTIVE_CONTROL_VALUE_BASIS } from './predictive-control-value'
-export type {
-  PredictiveControlValueBlocker,
-  PredictiveControlValueInputs,
-  PredictiveControlValueResult,
-} from './predictive-control-value'

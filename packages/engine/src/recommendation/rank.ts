@@ -15,6 +15,7 @@ import { topPeaksKw } from '../peaks/metrics'
 import { calculateRoi } from '../roi/roi'
 import { computeBatterySavings } from '../savings/attribute'
 import { drawSeries, intervalIndicesByPeriod, maxPositiveDraw, periodIndexByInterval } from '../simulation/helpers'
+import type { DispatchPlanning } from '../simulation/planning'
 import { simulateBattery } from '../simulation/simulate'
 import { buildDispatchTrace } from '../simulation/trace'
 
@@ -113,6 +114,7 @@ function buildPerBatteryEntry(
   pvProfile: PvProfile | undefined,
   pricing: TariffPricingInputs | undefined,
   levies: LevySchedule | undefined,
+  planning: DispatchPlanning | undefined,
 ): PerBatteryOutcome {
   // PvProfile ändert Dispatch/Ersparnis NICHT (s. `simulateBattery`) — es reichert nur den Trace um die
   // echte Brutto-PV an. `computeBatterySavings` nutzt denselben `sim` (dessen Dispatch pv-unabhängig ist).
@@ -121,7 +123,7 @@ function buildPerBatteryEntry(
   // welchen Stunden geladen wird (`isCheapWindow` im Dispatch) und womit eine verschobene kWh
   // bewertet wird. Es muss deshalb an BEIDE Stellen — die Simulation und die Buchhaltung darüber;
   // nur an eine gereicht rechnete die eine gegen einen anderen Preis als die andere.
-  const sim = simulateBattery(loadProfile, battery, tariffParams, pvProfile, pricing)
+  const sim = simulateBattery(loadProfile, battery, tariffParams, pvProfile, pricing, planning)
   const savings = computeBatterySavings(loadProfile, battery, tariffParams, sim, pricing, levies)
   const roi = calculateRoi(battery, savings.totalSavingPerYear, horizonYears, financialParams)
   const powerLimited = isPowerLimited(loadProfile, battery, tariffParams, sim.capKwByPeriod)
@@ -186,12 +188,13 @@ export function recommendBattery(
   pvProfile?: PvProfile,
   pricing?: TariffPricingInputs,
   levies?: LevySchedule,
+  planning?: DispatchPlanning,
 ): RecommendationResult {
   // Top-Peaks (§3.4) sind profil-, nicht batterieabhängig — einmal für den ganzen Katalog rechnen und
   // je Kandidat in `buildDispatchTrace` injizieren (dieselbe Menge, die `AnalysisResult.peaks.top` zeigt).
   const topPeaks = topPeaksKw(loadProfile)
   const outcomes = catalog.map((battery) =>
-    buildPerBatteryEntry(loadProfile, battery, tariffParams, horizonYears, financialParams, topPeaks, pvProfile, pricing, levies),
+    buildPerBatteryEntry(loadProfile, battery, tariffParams, horizonYears, financialParams, topPeaks, pvProfile, pricing, levies, planning),
   )
 
   // Unveränderte Regel, nur auf dem Paar statt auf dem Eintrag — s. `PerBatteryOutcome`.

@@ -103,7 +103,7 @@ describe('methodologyItemsFor — der Datenschutz-Punkt nur im echten Client-Lau
         ...ANALYSIS,
         tariffOptimization: {
           computable: true,
-          monthlyComparison: { ...COMPARISON, spotWithPredictiveControlEur: MONTHS(90) },
+          monthlyComparison: { ...COMPARISON, spotWithBatteryHindsightEur: MONTHS(90) },
         },
       },
     }
