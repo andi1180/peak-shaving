@@ -1,0 +1,44 @@
+{
+ "hasPv": true,
+ "_pvArrays": [
+  {
+   "slopeDeg": 90,
+   "direction": "SO",
+   "peakPowerKwp": 4.25
+  },
+  {
+   "slopeDeg": 90,
+   "direction": "SO",
+   "peakPowerKwp": 5.95
+  }
+ ],
+ "netzebene": "NE 7",
+ "hasBattery": true,
+ "pvCoveredTo": "2026-08-26T22:00:00+00:00",
+ "minBillableKw": 7,
+ "netzbetreiber": "wiener_netze",
+ "pvCoveredFrom": "2026-01-29T23:00:00+00:00",
+ "_pvProfileGaps": [],
+ "invoiceSkipped": false,
+ "meteringVariant": "ohne_leistungsmessung",
+ "pvProfileSource": "generated",
+ "pvIntervalMinutes": 15,
+ "supplierPriceBasis": "net",
+ "energyPriceCtPerKwh": 13.080848434773992,
+ "annualConsumptionKwh": 8070.52,
+ "pvEstimatedAnnualKwh": 7802.947861999999,
+ "pvGeneratedDocumentId": "pv-erzeugung",
+ "arbeitspreisNetzCtPerKwh": 7.4,
+ "pvEstimatedSpreadPercent": 5.824436777455342,
+ "pvEstimatedWeatherYearTo": 2023,
+ "existingBatteryMaxPowerKw": 10.6,
+ "existingBatteryCapacityKwh": 19.2,
+ "pvEstimatedWeatherYearFrom": 2014,
+ "supplierBaseFeeEurPerMonth": 3.5,
+ "tariffComparisonPriceBasis": "net",
+ "einspeiseverguetungCtPerKwh": 4.56,
+ "tariffComparisonProviderName": "gogreenenergy",
+ "tariffComparisonBaseFeeEurPerMonth": 2.5,
+ "tariffComparisonEnergyPriceCtPerKwh": 14.5,
+ "existingBatteryRoundTripEfficiencyPercent": 90
+}

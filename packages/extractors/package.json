@@ -16,7 +16,8 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "lint": "eslint .",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "golden:update": "GOLDEN_UPDATE=1 vitest run test/golden"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.122.0",

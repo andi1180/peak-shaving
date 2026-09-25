@@ -201,6 +201,16 @@ bewussten Rechenänderung, und der PR-Bericht nennt, welche Zahlen sich bewegt h
 **Nie zum Grünmachen**, und die Eingaben werden nicht nachgeladen (ein neuer Cloud-Stand ist kein
 Grund für ein Update).
 
+**Zweiter Golden-Fall `privat-bestand-pv-wien` — `[GEBAUT, 25.09.2026]`:**
+`packages/extractors/test/golden/privat-bestand-pv-wien.test.ts` deckt den **Wizard-Pfad** ab
+(`runAnalysisFromMeteringPointDraft` mit eingefrorenen Ports, Uhr fest auf 24.09.2026 13:04:38 UTC).
+Quelle ist der Urbanz-Lauf vom 24.09.2026, anonymisiert (Lastgang × 0,93, PLZ 1010). Eingefroren ist
+der volle Lauf, einschliesslich der bekannt fehlerhaften Jahres-Hochrechnung und PV-Rekonstruktion;
+Details in der README dort. Ab jetzt läuft auch der Wizard-Pfad auf Engine-Ebene automatisch, von
+Hand bleibt nur der Report-Aufbau. `pnpm golden:update` erneuert beide Fälle.
+
+**Grundsatz: Jeder korrekt laufende Kundenfall kommt anonymisiert ins Golden File.**
+
 ### Regel 13 — Der Batteriekatalog wird nur mit einer Rolle gelesen, für die RLS gilt (ab 23.09.2026, K3c)
 
 Rechenpfade (öffentlicher Rechner, Wizard, künftige) lesen `public.battery_catalog` ausschliesslich
