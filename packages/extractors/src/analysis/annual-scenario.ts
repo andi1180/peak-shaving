@@ -1,4 +1,9 @@
-import { buildSyntheticYearProfile, computeAnalysis, type SyntheticYearBlocker } from 'engine'
+import {
+  AnalysisRefusedError,
+  buildSyntheticYearProfile,
+  computeAnalysis,
+  type SyntheticYearBlocker,
+} from 'engine'
 import type { CalculatorPayload } from 'engine'
 import {
   SPOT_PRICE_ANCHOR_DATE,
@@ -117,7 +122,7 @@ export async function buildAnnualScenario(
     intervalMinutes: year.profile.intervalMinutes,
   })
 
-  const result = computeAnalysis(
+  const result = computeYearOrRefusal(
     {
       ...payload,
       load: {
@@ -139,6 +144,7 @@ export async function buildAnnualScenario(
     horizonYears,
     catalog,
   )
+  if (result === null) return { ok: false, blocker: 'not_computable' }
 
   /*
    * ⚠ `computable === true` allein reicht nicht: der Monatsvergleich ist im Contract auch dort
@@ -187,4 +193,19 @@ function localDateKey(at: Date, timeZone: string): string {
     month: '2-digit',
     day: '2-digit',
   }).format(at)
+}
+
+/**
+ * Ein unbekannter Liefertarif ohne rechenbaren Preisbestand im Jahresfenster wird verweigert
+ * (`AnalysisRefusedError`) — das Kapitel entfällt dann wie bei jedem nicht rechenbaren Jahreslauf.
+ */
+function computeYearOrRefusal(
+  ...args: Parameters<typeof computeAnalysis>
+): ReturnType<typeof computeAnalysis> | null {
+  try {
+    return computeAnalysis(...args)
+  } catch (error) {
+    if (error instanceof AnalysisRefusedError) return null
+    throw error
+  }
 }

@@ -171,6 +171,34 @@ type SimulationConfig = {
 };
 ```
 
+#### 3.1a Eigener Tarif unbekannt (25.09.2026)
+
+Ein Kunde ohne Stromrechnung ist ein **benannter, gültiger Zustand**: `TariffParams.supplierTariff: 'unknown'`
+(fehlt das Feld, gilt `'known'`; nicht aus leeren Feldern abgeleitet). Im Wizard entsteht er
+ausschliesslich aus „Ohne Rechnung fortfahren" (`invoiceSkipped: true`).
+
+- **Pflicht/verboten:** Bei `'unknown'` gibt es keinen Arbeitspreis, keine Lieferanten-Grundgebühr,
+  kein HT/NT-Fenster (das Schema weist sie ab). Bei `'known'` bleibt der Arbeitspreis Pflicht.
+- **Baseline:** „Ihr Tarif heute" wird nicht gerechnet — `monthlyComparison.currentTariffEur` ist
+  `null`, nicht 0. Netzentgelte und Abgaben laufen normal (der Netzanschluss ist bekannt).
+- **Tarifwege:** aWATTar ohne Steuerung immer, aWATTar mit Ladesteuerung sobald ein Speicher-Dispatch
+  existiert — der Monatsvergleich entsteht bei `'unknown'` immer, notfalls ohne Speicherreihe.
+  Ein Vergleichstarif ist eigener Weg UND Bezugsgrösse der Ersparnis (`savingsBaselineOf`, `shared`);
+  ohne ihn gibt es keine Ersparnis-Grösse, nur absolute Kosten. Bei `'known'` unverändert.
+- **Speicherbewertung:** läuft über die kombinierte aWATTar-Reihe; der Einstand der Start-SoC-Schicht
+  ist deren Mittelwert (bei `'known'` weiterhin der Arbeitspreis).
+- **Verweigerung statt Schätzung** (`AnalysisRefusedError`, Muster NE-7-Verweigerung): `'unknown'`
+  ohne rechenbaren aWATTar-Vergleich wird beim „Zählpunkt rechnen" mit der fehlenden Grundlage
+  (Netzentgelt / Abgaben / Spotpreise) abgewiesen — kein Report ohne Zahlen.
+- **Einspeisevergütung:** nur Pflicht bei Einspeisung im Lastgang oder erfasster PV; fehlt sie dann,
+  benannter Abbruch (`feed_in_tariff_missing`). Sonst optional und nicht gelesen.
+- **Mindestleistung** ohne Leistungspreis implizit 0 (Entwurfs-Abbildung). **`billingModel`** ist
+  `null`, wenn kein Leistungspreis anfällt; gerechnet wird dann mit `NO_DEMAND_CHARGE_BILLING_MODEL`
+  (auf keinen Euro wirksam). Der öffentliche Rechner schickt `null` ohne Leistungsmessung.
+
+Report und Wizard sind nur absturzsicher angepasst; die Gestaltung des unbekannten Tarifs im Report
+(Zusammenfassung ohne „Stromkosten heute", Ersparnis gegen den Vergleichstarif) folgt eigens.
+
 ### 3.2 CSV/XLSX-Parsing & Format-Erkennung
 
 Netzbetreiber und Wechselrichter liefern uneinheitliche Formate. Der Parser muss robust und erweiterbar sein.

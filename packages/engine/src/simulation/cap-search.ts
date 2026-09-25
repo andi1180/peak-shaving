@@ -70,7 +70,7 @@ export type CapSearchResult = {
 export function searchCaps(
   loadProfile: LoadProfile,
   physics: BatteryPhysics,
-  billingModel: BillingModel,
+  billingModel: BillingModel | null,
 ): CapSearchResult {
   const draws = drawSeries(loadProfile)
   const deltaH = intervalHours(loadProfile)

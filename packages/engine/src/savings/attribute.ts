@@ -16,6 +16,7 @@ import {
 import { peakShavingBlockers } from '../simulation/peak-shaving'
 import { simulateBattery, type BatterySimulationResult } from '../simulation/simulate'
 import { intervalTariffRates } from '../simulation/tou'
+import { feedInTariffCtPerKwh } from '../refusal'
 import { coveredMonthCount } from '../peaks/metrics'
 import { getTariffStrategy } from '../tariff/strategy'
 import { usageLevyFactor } from '../tariff/usage-levy'
@@ -164,8 +165,15 @@ export function computeBatterySavings(
    */
   const { rateCtPerKwh } = intervalTariffRates(loadProfile, tariffParams, pricing)
 
-  const std = tariffParams.energyPriceCtPerKwh
-  const einspeise = tariffParams.einspeiseverguetungCtPerKwh
+  /*
+   * Bei unbekanntem Liefertarif gibt es keinen Arbeitspreis; sein semantisches Gegenstück für den
+   * Start-SoC-Einstand ist der MITTELWERT der kombinierten aWATTar-Reihe (Entscheidung 25.09.2026).
+   */
+  const std =
+    tariffParams.supplierTariff === 'unknown'
+      ? meanOf(rateCtPerKwh)
+      : tariffParams.energyPriceCtPerKwh
+  const einspeise = feedInTariffCtPerKwh(loadProfile, tariffParams)
 
   /*
    * ── ⚠ DER LADEVERLUST IST EINE KOSTE, NICHT NUR EIN SoC-EFFEKT (Delta 19, §3.7) ───────────────
@@ -404,4 +412,10 @@ export function computeBatterySavings(
     totalSavingPerYear,
     warnings,
   }
+}
+
+function meanOf(values: number[]): number {
+  let sum = 0
+  for (const v of values) sum += v
+  return values.length > 0 ? sum / values.length : 0
 }

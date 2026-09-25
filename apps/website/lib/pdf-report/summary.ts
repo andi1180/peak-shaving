@@ -225,13 +225,17 @@ export function summaryWaysOf(analysis: PdfReportAnalysis): SummaryWays | null {
       ? analysis.tariffOptimization.monthlyComparison
       : undefined
   if (!comparison) return null
+  /* Liefertarif unbekannt: ohne „Ihr Tarif heute" gibt es die Kopfzahl „Stromkosten heute" nicht —
+     die Zusammenfassung dafür wird eigens gestaltet (25.09.2026), bis dahin entfällt sie. */
+  const currentSeries = comparison.currentTariffEur
+  if (!currentSeries) return null
 
   /* K3b-2: ohne Speicherreihe gibt es keine Aufschlüsselung „Tarifwechsel + Steuerung" — der
      Tarifwechsel steht dann für sich, und Weg 4 entfällt (unten). */
   const withBatterySeries = comparison.spotWithBatteryEur
   const real = withBatterySeries
     ? buildRealSavingBreakdown({
-        currentTariffEur: sumCovered(comparison.currentTariffEur),
+        currentTariffEur: sumCovered(currentSeries),
         spotWithoutControlEur: sumCovered(comparison.spotWithoutControlEur),
         spotWithBatteryEur: sumCovered(withBatterySeries),
       })
@@ -244,7 +248,7 @@ export function summaryWaysOf(analysis: PdfReportAnalysis): SummaryWays | null {
    * Unterschied sähe aus wie ein Jahresgang.
    */
   const costs = tariffWayCosts(comparison)
-  const costTodayEur = costs.currentTariffEur
+  const costTodayEur = sumCovered(currentSeries)
   const ways: SummaryWay[] = []
 
   /*
@@ -672,7 +676,9 @@ const BILLING_MODEL_LABEL: Record<BillingModel, string> = {
 export function buildPartialYearNotice(analysis: PdfReportAnalysis): ReportNotice | null {
   const { billingModel } = analysis.assumptions
   const { coveredMonths } = analysis.dataQuality
-  if (!billingModel.startsWith('monthly') || coveredMonths >= 12) return null
+  if (billingModel === null || !billingModel.startsWith('monthly') || coveredMonths >= 12) {
+    return null
+  }
   /* Ohne Leistungspreis hat der Hinweis keinen Gegenstand: es gibt den Posten gar nicht. */
   if (!hasLeistungspreis(analysis.current)) return null
 

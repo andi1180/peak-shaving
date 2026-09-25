@@ -125,6 +125,8 @@ export function monthlyChartData(comparison: MonthlyTariffComparison): {
   rows: Row[]
   totals: Record<(typeof SERIES)[number]['key'], number>
   hasControlled: boolean
+  /** `false` bei unbekanntem Liefertarif — dann gibt es „Ihr Tarif heute" nicht. */
+  hasCurrent: boolean
 } {
   const { controlVariant, controlledEur } = tariffWayCosts(comparison)
   const controlled =
@@ -138,7 +140,7 @@ export function monthlyChartData(comparison: MonthlyTariffComparison): {
     month,
     // ⚠ `null`, nicht 0: ein Nullbalken sähe aus wie „gemessen, kostet nichts". Recharts zeichnet
     // an dieser Stelle nichts — der Monat bleibt sichtbar leer, und das ist die Aussage.
-    currentTariffEur: comparison.currentTariffEur[i] ?? null,
+    currentTariffEur: comparison.currentTariffEur?.[i] ?? null,
     spotWithoutControlEur: comparison.spotWithoutControlEur[i] ?? null,
     controlledEur: controlled?.[i] ?? null,
   }))
@@ -146,11 +148,13 @@ export function monthlyChartData(comparison: MonthlyTariffComparison): {
   return {
     rows,
     totals: {
-      currentTariffEur: sumCovered(comparison.currentTariffEur),
+      // Ohne Reihe nie angezeigt (`hasCurrent`); die 0 füllt nur den Record.
+      currentTariffEur: comparison.currentTariffEur ? sumCovered(comparison.currentTariffEur) : 0,
       spotWithoutControlEur: sumCovered(comparison.spotWithoutControlEur),
       controlledEur: controlledEur ?? 0,
     },
     hasControlled: controlled != null,
+    hasCurrent: comparison.currentTariffEur !== null,
   }
 }
 
@@ -216,8 +220,11 @@ export function MonthlyTariffChart({
   const whose = monthlyBatteryRef(isExisting)
   const gross = displayedPriceBasis(comparison) === 'gross'
   const fixed = comparison.fixedCosts
-  const { rows, totals, hasControlled } = monthlyChartData(comparison)
-  const series = hasControlled ? SERIES : SERIES.filter((s) => s.key !== 'controlledEur')
+  const { rows, totals, hasControlled, hasCurrent } = monthlyChartData(comparison)
+  const series = SERIES.filter(
+    (s) =>
+      (hasControlled || s.key !== 'controlledEur') && (hasCurrent || s.key !== 'currentTariffEur'),
+  )
 
   return (
     <div

@@ -196,8 +196,13 @@ export type TariffOptimizationBlocker = {
  * Angabe über einen Monat, für den es keine Messung gibt.
  */
 export type MonthlyTariffComparison = {
-  /** Index 0 = Jänner. `null` = kein Messwert in diesem Kalendermonat. Länge immer 12. */
-  currentTariffEur: (number | null)[]
+  /**
+   * Index 0 = Jänner. `null` = kein Messwert in diesem Kalendermonat. Länge immer 12.
+   *
+   * ⚠ Die ganze Reihe ist `null` genau bei `supplierTariff: 'unknown'` — ohne Arbeitspreis gibt es
+   * „Ihr Tarif heute" nicht, und eine 0 sähe aus wie „kostet nichts".
+   */
+  currentTariffEur: (number | null)[] | null
   /** aWATTar-Preise auf den ROHEN, unveränderten Lastgang — ohne jeden Dispatch. */
   spotWithoutControlEur: (number | null)[]
   /**

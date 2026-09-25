@@ -64,7 +64,7 @@ export function eagDemandChargePerYear(
   loadProfile: LoadProfile,
   pricing: TariffPricingInputs | undefined,
   billedKw: number,
-  billingModel: BillingModel,
+  billingModel: BillingModel | null,
 ): number | undefined {
   if (!(billedKw > 0)) return undefined
 

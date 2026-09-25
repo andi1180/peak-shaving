@@ -172,10 +172,11 @@ export function RecommendationCard(props: RecommendationCardProps) {
   /* K3b-2: Diese Karte gibt es nur MIT Speicher; die Reihe ist dann gesetzt. Fehlt sie doch,
      entfällt die Aufschlüsselung — es gäbe nichts aufzuschlüsseln. */
   const withBattery = comparison?.spotWithBatteryEur
+  const current = comparison?.currentTariffEur
   const real =
-    comparison && withBattery
+    comparison && withBattery && current
       ? buildRealSavingBreakdown({
-          currentTariffEur: sumCovered(comparison.currentTariffEur),
+          currentTariffEur: sumCovered(current),
           spotWithoutControlEur: sumCovered(comparison.spotWithoutControlEur),
           spotWithBatteryEur: sumCovered(withBattery),
         })

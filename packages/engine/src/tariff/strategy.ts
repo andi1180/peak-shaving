@@ -1,4 +1,4 @@
-import type { BillingModel, LoadProfile, TariffParams } from 'shared'
+import { effectiveBillingModel, type BillingModel, type LoadProfile, type TariffParams } from 'shared'
 
 import { coveredMonthlyPeaksKw, positiveAnnualPeakKw } from '../peaks/metrics'
 
@@ -84,6 +84,6 @@ export const tariffStrategies: Record<BillingModel, TariffStrategy> = {
 }
 
 /** Wählt die TariffStrategy passend zum `billingModel` aus der Netzrechnung (§3.1: „Die Rechnung ist die Wahrheit"). */
-export function getTariffStrategy(billingModel: BillingModel): TariffStrategy {
-  return tariffStrategies[billingModel]
+export function getTariffStrategy(billingModel: BillingModel | null): TariffStrategy {
+  return tariffStrategies[effectiveBillingModel(billingModel)]
 }

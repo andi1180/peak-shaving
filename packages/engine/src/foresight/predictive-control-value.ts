@@ -1,5 +1,5 @@
 import type { BatteryCandidate, LoadProfile, TariffParams, TariffPricingInputs } from 'shared'
-import { buildRealSavingBreakdown, sumCovered } from 'shared'
+import { controlValueOf, sumCovered } from 'shared'
 
 import { dailyPriceOrder, type DailyPriceOrder } from '../simulation/daily-price-order'
 import { runCombinedDispatch } from '../simulation/dispatch'
@@ -227,11 +227,10 @@ export function computePredictiveControlValue(
     // Dieselbe EINE Definition wie die Kopfkarte des Reports (`real-saving.ts`) — kein zweiter
     // Reducer, der beim nächsten Ausbau davon abliefe.
     return {
-      controlValueEur: buildRealSavingBreakdown({
-        currentTariffEur: sumCovered(comparison.currentTariffEur),
+      controlValueEur: controlValueOf({
         spotWithoutControlEur: sumCovered(comparison.spotWithoutControlEur),
         spotWithBatteryEur: sumCovered(withBattery),
-      }).controlValueEur,
+      }),
       monthlyEur: withBattery,
     }
   }

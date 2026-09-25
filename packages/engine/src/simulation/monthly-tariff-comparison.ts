@@ -13,6 +13,7 @@ import { utcMsToLocalFields } from '../parser/datetime'
 import { findGridTariffRow } from './grid-tariff-window'
 import { intervalHours } from './helpers'
 import { combinedIntervalPrices } from './tou'
+import { feedInTariffCtPerKwh } from '../refusal'
 
 /*
  * Monatsvergleich „Ist-Tarif vs. aWATTar ohne Steuerung vs. aWATTar mit dem Speicher des Kunden"
@@ -169,12 +170,12 @@ export function buildMonthlyTariffComparison(
 ): MonthlyTariffComparison | undefined {
   const spotSide = combinedIntervalPrices(loadProfile, pricing)
   if ('blocker' in spotSide) return undefined
-  const currentSide = combinedIntervalPrices(
-    loadProfile,
-    pricing,
-    tariffParams.energyPriceCtPerKwh,
-  )
-  if ('blocker' in currentSide) return undefined
+  // Bei unbekanntem Liefertarif gibt es „Ihr Tarif heute" nicht — die Reihe wird `null`, nicht 0.
+  const currentSide =
+    tariffParams.supplierTariff === 'unknown'
+      ? null
+      : combinedIntervalPrices(loadProfile, pricing, tariffParams.energyPriceCtPerKwh)
+  if (currentSide !== null && 'blocker' in currentSide) return undefined
 
   /*
    * D7-Revision Weg 2 — der selbst gefundene Vergleichstarif. Dieselbe Funktion, dieselben Netz-,
@@ -190,7 +191,7 @@ export function buildMonthlyTariffComparison(
     comparisonSide && !('blocker' in comparisonSide) ? comparisonSide.prices : null
 
   const deltaHours = intervalHours(loadProfile)
-  const feedInCt = tariffParams.einspeiseverguetungCtPerKwh
+  const feedInCt = feedInTariffCtPerKwh(loadProfile, tariffParams)
   const current = new Array<number>(12).fill(0)
   const withoutControl = new Array<number>(12).fill(0)
   const withBattery = new Array<number>(12).fill(0)
@@ -220,14 +221,15 @@ export function buildMonthlyTariffComparison(
     )
 
     const spotPrice = spotSide.prices[i]!
-    const currentPrice = currentSide.prices[i]!
     const rawKw = reading.gridPowerKw
     // Fehlt der Dispatch-Wert (kann nur bei abweichender Reihenlänge passieren), gilt der rohe
     // Bezug — dann steht die Reihe „mit Speicher" auf der Reihe „ohne Steuerung", statt eine
     // Ersparnis zu behaupten, die nicht gerechnet wurde.
     const afterKw = gridAfterKw?.[i] ?? rawKw
 
-    current[idx]! += intervalCostEur(rawKw, deltaHours, currentPrice, feedInCt)
+    if (currentSide) {
+      current[idx]! += intervalCostEur(rawKw, deltaHours, currentSide.prices[i]!, feedInCt)
+    }
     withoutControl[idx]! += intervalCostEur(rawKw, deltaHours, spotPrice, feedInCt)
     if (gridAfterKw) {
       withBattery[idx]! += intervalCostEur(afterKw, deltaHours, spotPrice, feedInCt)
@@ -341,7 +343,7 @@ export function buildMonthlyTariffComparison(
     values.map((v, i) => (covered[i] ? v : null))
 
   return {
-    currentTariffEur: mask(current),
+    currentTariffEur: currentSide ? mask(current) : null,
     spotWithoutControlEur: mask(withoutControl),
     ...(gridAfterKw ? { spotWithBatteryEur: mask(withBattery) } : {}),
     ...(comparisonPrices && comparisonTariff

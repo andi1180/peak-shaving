@@ -42,6 +42,17 @@ export const BILLING_MODELS = billingModelSchema.options
  */
 export const DEFAULT_DRAFT_BILLING_MODEL: BillingModel = 'monthly_max_sum'
 
+/**
+ * Womit gerechnet wird, wenn kein Leistungspreis anfällt (`billingModel: null`). Auf keinen Euro
+ * wirksam (Leistungspreis 0); gewählt ist der Wert, den der öffentliche Rechner bis dahin in diesem
+ * Fall schickte, damit kein angezeigter kW-Wert springt.
+ */
+export const NO_DEMAND_CHARGE_BILLING_MODEL: BillingModel = 'monthly_max_average'
+
+export function effectiveBillingModel(billingModel: BillingModel | null): BillingModel {
+  return billingModel ?? NO_DEMAND_CHARGE_BILLING_MODEL
+}
+
 /** Kurzname eines Modells. Eine Formulierung, ein Ort. */
 export const BILLING_MODEL_LABELS: Record<BillingModel, string> = {
   annual_max: 'Jahreshöchstwert',
@@ -124,19 +135,39 @@ export const comparisonSupplierTariffSchema = z.object({
 })
 export type ComparisonSupplierTariff = z.infer<typeof comparisonSupplierTariffSchema>
 
+/**
+ * Ist der heutige Liefertarif des Kunden bekannt? — „Eigener Tarif unbekannt" (25.09.2026).
+ *
+ * `'unknown'` ist eine ANGABE (der Kunde hat keine Stromrechnung), kein fehlender Wert: dann gibt es
+ * keinen Arbeitspreis und keine Lieferanten-Grundgebühr, „Ihr Tarif heute" entfällt, und die
+ * Speicherbewertung läuft über die aWATTar-Preisreihe. Fehlt das Feld, gilt `'known'` — so lesen
+ * sich alle Eingaben von vor dieser Unterscheidung unverändert.
+ */
+export const SUPPLIER_TARIFF_STATES = ['known', 'unknown'] as const
+export const supplierTariffStateSchema = z.enum(SUPPLIER_TARIFF_STATES)
+export type SupplierTariffState = z.infer<typeof supplierTariffStateSchema>
+
 /** Tarifparameter aus der Netzrechnung — „Die Rechnung ist die Wahrheit" (§3.1). */
-export const tariffParamsSchema = z.object({
+const tariffParamsObjectSchema = z.object({
+  /** Bekannter oder unbekannter Liefertarif — s. `SUPPLIER_TARIFF_STATES`. `undefined` = `'known'`. */
+  supplierTariff: supplierTariffStateSchema.optional(),
   /** D7-Revision — Weg 2. `undefined` heisst „der Kunde hat keinen angegeben"; dann entfällt der Weg. */
   comparisonSupplier: comparisonSupplierTariffSchema.optional(),
   leistungspreisEurPerKwYear: z.number().nonnegative(),
-  billingModel: billingModelSchema,
+  /** `null` nur ohne Leistungspreis (`leistungspreisEurPerKwYear === 0`) — dann gibt es kein Modell. */
+  billingModel: billingModelSchema.nullable(),
   minBillableKw: z.number().nonnegative(), // Mindestleistung (Sockel, nie unterschreitbar)
   arbeitspreisNetzCtPerKwh: z.number().nonnegative().optional(),
-  energyPriceCtPerKwh: z.number().nonnegative(), // Bezugs-Arbeitspreis (Eigenverbrauchswert)
+  /** Bezugs-Arbeitspreis — Pflicht bei `supplierTariff: 'known'`, verboten bei `'unknown'`. */
+  energyPriceCtPerKwh: z.number().nonnegative().optional(),
   energyPriceNightCtPerKwh: z.number().nonnegative().optional(), // Nacht-/Niedertarif
   timeOfUseWindows: z.array(timeOfUseWindowSchema).optional(),
   dynamicPriceProfile: z.unknown().optional(), // [v2] Spot-/dynamische Preise (Arbitrage)
-  einspeiseverguetungCtPerKwh: z.number().nonnegative(),
+  /**
+   * Nur Pflicht, wenn eingespeist wird (Einspeisung im Lastgang oder PV erfasst) — geprüft in der
+   * Engine (`assertFeedInTariffPresent`), weil erst dort der Lastgang bekannt ist.
+   */
+  einspeiseverguetungCtPerKwh: z.number().nonnegative().optional(),
   /**
    * Monatliche Grundgebühr des heutigen Stromlieferanten (netto, €/Monat) — Delta 19.
    *
@@ -187,4 +218,72 @@ export const tariffParamsSchema = z.object({
   netzebene: z.string().optional(), // Metadatum
   benutzungsdauerModel: benutzungsdauerModelSchema.optional(),
 })
-export type TariffParams = z.infer<typeof tariffParamsSchema>
+
+/** Die Felder, die allein am bekannten Liefertarif hängen. */
+type SupplierTariffFields =
+  | 'supplierTariff'
+  | 'energyPriceCtPerKwh'
+  | 'energyPriceNightCtPerKwh'
+  | 'timeOfUseWindows'
+  | 'supplierBaseFeeEurPerMonth'
+
+const SUPPLIER_ONLY_FIELDS = [
+  'energyPriceCtPerKwh',
+  'energyPriceNightCtPerKwh',
+  'timeOfUseWindows',
+  'supplierBaseFeeEurPerMonth',
+] as const
+
+/**
+ * Der Typ trennt die beiden Zustände, damit jeder Leser des Arbeitspreises an `supplierTariff`
+ * verzweigen muss — ein `number | undefined` liesse ihn still als 0 oder NaN weiterrechnen.
+ */
+export type TariffParams = Omit<z.infer<typeof tariffParamsObjectSchema>, SupplierTariffFields> &
+  (
+    | {
+        supplierTariff?: 'known'
+        energyPriceCtPerKwh: number
+        energyPriceNightCtPerKwh?: number
+        timeOfUseWindows?: TimeOfUseWindow[]
+        supplierBaseFeeEurPerMonth?: number
+      }
+    | {
+        supplierTariff: 'unknown'
+        energyPriceCtPerKwh?: undefined
+        energyPriceNightCtPerKwh?: undefined
+        timeOfUseWindows?: undefined
+        supplierBaseFeeEurPerMonth?: undefined
+      }
+  )
+
+/** Die bekannte Variante — für Wege, die ausschliesslich mit einem Arbeitspreis rechnen. */
+export type KnownSupplierTariffParams = Extract<TariffParams, { energyPriceCtPerKwh: number }>
+
+export const tariffParamsSchema = Object.assign(
+  tariffParamsObjectSchema
+    .superRefine((t, ctx) => {
+      if (t.supplierTariff === 'unknown') {
+        for (const key of SUPPLIER_ONLY_FIELDS) {
+          if (t[key] !== undefined) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              path: [key],
+              message: 'Widerspricht „eigener Liefertarif unbekannt" (supplierTariff: unknown).',
+            })
+          }
+        }
+      } else if (t.energyPriceCtPerKwh === undefined) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['energyPriceCtPerKwh'], message: 'Required' })
+      }
+      if (t.billingModel === null && t.leistungspreisEurPerKwYear !== 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['billingModel'],
+          message: 'Ohne Abrechnungsmodell nur bei Leistungspreis 0.',
+        })
+      }
+    })
+    .transform((t) => t as TariffParams),
+  // `.shape` bleibt erreichbar: Feldlisten (Chat-Werkzeuge, Entwurfsprüfungen) lesen die Schlüssel.
+  { shape: tariffParamsObjectSchema.shape },
+)

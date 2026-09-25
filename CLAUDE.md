@@ -239,6 +239,24 @@ Details und der vollständige Stand: siehe `./Pflichtenheft_Kalkulator_MVP.md`, 
 
 > Lebendiger Handover-Anker. Neueste offene Punkte, die den Bau der Engine/Simulation berühren. Erledigtes wandert raus.
 
+### Eigener Tarif unbekannt — benannter Zustand statt Required-Abbruch (25.09.2026)
+
+`TariffParams.supplierTariff: 'known' | 'unknown'` (fehlt = `'known'`); fachliche Tiefe:
+`Pflichtenheft_Kalkulator_MVP.md` §3.1a. Im Wizard entsteht `'unknown'` nur aus „Ohne Rechnung
+fortfahren" (`invoiceSkipped: true`) — **der echte Steinhauser-Entwurf trägt `invoiceSkipped: false`
+und rechnet erst nach diesem Klick.** Golden `engine/test/golden/gewerbe-tarif-unbekannt/` (zwei
+Varianten, mit/ohne Vergleichstarif).
+
+**⚠ Beim nächsten Umbau mitzudenken: (a)** `TariffParams` ist ein TS-Union — wer den Arbeitspreis
+liest, verzweigt an `supplierTariff`; `KnownSupplierTariffParams` für Wege, die nur den bekannten Fall
+kennen. `tariffParamsSchema` ist ein `ZodEffects` mit angehängtem `.shape`. **(b)**
+`monthlyComparison.currentTariffEur` und `TariffWayCosts.currentTariffEur` sind nullable; die
+Bezugsgrösse liefert `savingsBaselineOf` und steht bewusst NICHT als Feld in `tariffWayCosts` (die
+Ausgabe ist im Privat-Golden serialisiert). **(c)** Verweigerungen laufen als `AnalysisRefusedError`
+(Engine) → `MeteringPointAnalysisError` mit gleichem `reason`; der Jahreslauf fängt sie und lässt
+sein Kapitel entfallen. **(d)** `billingModel: null` wird über `effectiveBillingModel` aufgelöst —
+nie direkt als Index in Label-Tabellen.
+
 ### Abgaben Phase 2a — laufende Abgabenfehler behoben (24.09.2026)
 
 Grundlage: `Abgaben_Bestandsaufnahme_NOE_SBG_2027.md` (Primärquellen). Geändert in

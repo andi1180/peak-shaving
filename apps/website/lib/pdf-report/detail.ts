@@ -210,7 +210,10 @@ export function buildMonthly(
    */
   const controlledEur = tariffWayCosts(comparison).controlledEur
   const rows: ReportRow[] = [
-    neutralRow('Ihr Tarif heute', formatEur(sumCovered(comparison.currentTariffEur))),
+    // Bei unbekanntem Liefertarif gibt es diese Zeile nicht (`currentTariffEur: null`).
+    ...(comparison.currentTariffEur
+      ? [neutralRow('Ihr Tarif heute', formatEur(sumCovered(comparison.currentTariffEur)))]
+      : []),
     neutralRow('aWATTar ohne Steuerung', formatEur(sumCovered(comparison.spotWithoutControlEur))),
     /* K3b-2: ohne Speicher gibt es diese Reihe nicht — die Tabelle führt dann zwei Zeilen. */
     ...(controlledEur !== null ? [neutralRow(CONTROLLED_WAY_LABEL, formatEur(controlledEur))] : []),

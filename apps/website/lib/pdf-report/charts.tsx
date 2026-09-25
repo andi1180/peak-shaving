@@ -3,6 +3,7 @@ import {
   reportSectionEnabled,
   type MonthlyTariffComparison,
   type ReportOptionalSection,
+  effectiveBillingModel,
 } from 'shared'
 
 import { BatteryFlowHeatmap } from '@/components/report/battery-flow-heatmap'
@@ -367,7 +368,7 @@ export async function buildReportCharts(input: PdfReportInput): Promise<ReportCh
       <LoadChart
         loadProfile={input.loadProfile}
         dispatchTrace={undefined}
-        billingModel={analysis.assumptions.billingModel}
+        billingModel={effectiveBillingModel(analysis.assumptions.billingModel)}
         leistungspreisRatePerKwYear={null}
       />,
       {

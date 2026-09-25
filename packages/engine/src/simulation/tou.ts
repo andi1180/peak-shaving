@@ -10,6 +10,8 @@ import type {
 } from 'shared'
 import { findLevyPeriod } from 'shared'
 
+import { AnalysisRefusedError } from '../refusal'
+
 import { utcMsToLocalFields } from '../parser/datetime'
 import { findGridTariffRow, findGridTariffWindow } from './grid-tariff-window'
 import { EPS } from './helpers'
@@ -486,6 +488,22 @@ export function intervalTariffRates(
   tariffParams: TariffParams,
   pricing?: TariffPricingInputs,
 ): IntervalTariffRates {
+  /*
+   * „Eigener Tarif unbekannt": ohne Arbeitspreis ist die kombinierte aWATTar-Reihe die einzige
+   * Preisbasis — es gibt keinen Standardpreis, auf den zurückzufallen wäre. `computeAnalysis`
+   * verweigert den Fall ohne rechenbare Reihe vorher; der Wurf hier fängt jeden anderen Aufrufer.
+   */
+  if (tariffParams.supplierTariff === 'unknown') {
+    const combined = pricing ? combinedIntervalPrices(loadProfile, pricing) : null
+    if (combined === null || 'blocker' in combined) {
+      throw new AnalysisRefusedError({
+        reason: 'supplier_tariff_unknown_without_price_basis',
+        blocker: combined?.blocker ?? null,
+      })
+    }
+    return ratesFromCombinedPrices(loadProfile, combined.prices)
+  }
+
   const std = tariffParams.energyPriceCtPerKwh
   const count = loadProfile.readings.length
 
@@ -500,16 +518,7 @@ export function intervalTariffRates(
       }
     }
 
-    const rateCtPerKwh = combined.prices
-    const isCheapWindow = cheapAgainstDailyMean(loadProfile, rateCtPerKwh)
-    let touActive = false
-    for (const cheap of isCheapWindow) {
-      if (cheap) {
-        touActive = true
-        break
-      }
-    }
-    return { rateCtPerKwh, isCheapWindow, touActive, tariffOptimization: { computable: true } }
+    return ratesFromCombinedPrices(loadProfile, combined.prices)
   }
 
   const windows = effectiveWindows(tariffParams).map((w) => ({
@@ -541,6 +550,21 @@ export function intervalTariffRates(
   return { rateCtPerKwh, isCheapWindow, touActive }
 }
 
+function ratesFromCombinedPrices(
+  loadProfile: LoadProfile,
+  rateCtPerKwh: number[],
+): IntervalTariffRates {
+  const isCheapWindow = cheapAgainstDailyMean(loadProfile, rateCtPerKwh)
+  let touActive = false
+  for (const cheap of isCheapWindow) {
+    if (cheap) {
+      touActive = true
+      break
+    }
+  }
+  return { rateCtPerKwh, isCheapWindow, touActive, tariffOptimization: { computable: true } }
+}
+
 /**
  * Nur der Status, ohne die Preisreihe — für den Aufrufer, der EINMAL profilweit wissen will, ob der
  * Hebel rechenbar ist (der Worker, für `dataQuality.warnings`).
@@ -554,5 +578,12 @@ export function evaluateTariffOptimization(
   tariffParams: TariffParams,
   pricing?: TariffPricingInputs,
 ): TariffOptimizationStatus | undefined {
+  // Bei unbekanntem Liefertarif würde `intervalTariffRates` den nicht rechenbaren Fall verweigern;
+  // hier wird er nur FESTGESTELLT — die Verweigerung spricht `computeAnalysis` mit diesem Befund aus.
+  if (tariffParams.supplierTariff === 'unknown') {
+    if (!pricing) return undefined
+    const combined = combinedIntervalPrices(loadProfile, pricing)
+    return 'blocker' in combined ? combined.blocker : { computable: true }
+  }
   return intervalTariffRates(loadProfile, tariffParams, pricing).tariffOptimization
 }

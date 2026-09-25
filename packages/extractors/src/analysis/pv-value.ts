@@ -136,7 +136,7 @@ function currentTariffCostEur(
     pricing,
     load.readings.map((reading) => reading.gridPowerKw),
   )
-  return comparison ? sumCovered(comparison.currentTariffEur) : null
+  return comparison?.currentTariffEur ? sumCovered(comparison.currentTariffEur) : null
 }
 
 /**

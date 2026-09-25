@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Download, FileJson, Loader2, Printer, RotateCcw } from 'lucide-react'
 import {
   buildTariffSourceRef,
+  effectiveBillingModel,
   type AnalysisResult,
   type BatteryCandidate,
   type BatteryCatalogMeta,
@@ -139,7 +140,7 @@ export function StepResult({
   const tariffSource: TariffSourceRef | null = payload.tariffSelection
     ? buildTariffSourceRef(payload.tariffSelection, {
         leistungspreisEurPerKwYear: activeTariff.leistungspreisEurPerKwYear,
-        billingModel: activeTariff.billingModel,
+        billingModel: effectiveBillingModel(activeTariff.billingModel),
         minBillableKw: activeTariff.minBillableKw,
       })
     : null
