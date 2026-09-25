@@ -118,28 +118,19 @@ describe('§3.7 Jahres-Hochrechnung — 180-von-365-Tage-Profil, exakt nachreche
   it('Verifikations-Zahlen (180 Tage)', () => {
     console.log(
       `[§3.7 Hochrechnung] coveredDays=${halfYear.coveredDays} · Faktor=${halfYear.annualizationFactor.toFixed(6)}\n` +
-        `  Eigenverbrauch:   gemessen €${halfYear.selfConsumptionSavingOverCoveredPeriod.toFixed(2)} → ` +
-        `hochgerechnet €${halfYear.selfConsumptionSavingPerYear.toFixed(2)}\n` +
-        `  Lastverschiebung: gemessen €${halfYear.loadShiftSavingOverCoveredPeriod.toFixed(2)} → ` +
-        `hochgerechnet €${halfYear.loadShiftSavingPerYear.toFixed(2)}\n` +
+        `  Energie: gemessen €${halfYear.energySavingOverCoveredPeriod.toFixed(2)} → ` +
+        `hochgerechnet €${halfYear.energySavingPerYear.toFixed(2)}\n` +
         `  Leistungspreis (ratenbasiert, unskaliert): €${halfYear.leistungspreisSavingPerYear.toFixed(2)}\n` +
         `  total=€${halfYear.totalSavingPerYear.toFixed(2)}`,
     )
     expect(halfYear.coveredDays).toBe(180)
   })
 
-  it('beide Energie-Töpfe: hochgerechnet = gemessen × Faktor, exakt', () => {
+  it('Energie-Anteil: hochgerechnet = gemessen × Faktor, exakt', () => {
     const factor = DAYS_PER_YEAR / 180
     expect(halfYear.annualizationFactor).toBe(factor)
-
-    // Der Fall ist nicht-trivial: beide Töpfe tragen echte Beträge.
-    expect(halfYear.selfConsumptionSavingOverCoveredPeriod).toBeGreaterThan(0)
-    expect(halfYear.loadShiftSavingOverCoveredPeriod).toBeGreaterThan(0)
-
-    expect(halfYear.selfConsumptionSavingPerYear).toBe(
-      halfYear.selfConsumptionSavingOverCoveredPeriod * factor,
-    )
-    expect(halfYear.loadShiftSavingPerYear).toBe(halfYear.loadShiftSavingOverCoveredPeriod * factor)
+    expect(halfYear.energySavingOverCoveredPeriod).not.toBe(0)
+    expect(halfYear.energySavingPerYear).toBe(halfYear.energySavingOverCoveredPeriod * factor)
   })
 
   it('⚠ der GEGENBEWEIS: der Leistungspreis-Anteil wird NICHT mitskaliert', () => {
@@ -150,20 +141,16 @@ describe('§3.7 Jahres-Hochrechnung — 180-von-365-Tage-Profil, exakt nachreche
     expect(halfYear.newBilledKw).toBe(fullYear.newBilledKw)
   })
 
-  it('Summe der drei Anteile = totalSavingPerYear, exakt (Prinzip 2 bleibt)', () => {
-    expect(halfYear.totalSavingPerYear).toBeCloseTo(
-      halfYear.leistungspreisSavingPerYear +
-        halfYear.selfConsumptionSavingPerYear +
-        halfYear.loadShiftSavingPerYear,
-      10,
+  it('Leistungspreis- + Energie-Anteil = totalSavingPerYear, exakt (Prinzip 2 bleibt)', () => {
+    expect(halfYear.totalSavingPerYear).toBe(
+      halfYear.leistungspreisSavingPerYear + halfYear.energySavingPerYear,
     )
   })
 
   it('Volljahr: Faktor 1, gemessener und hochgerechneter Wert IDENTISCH', () => {
     expect(fullYear.annualizationFactor).toBe(1)
     expect(fullYear.coveredDays).toBe(365)
-    expect(fullYear.selfConsumptionSavingPerYear).toBe(fullYear.selfConsumptionSavingOverCoveredPeriod)
-    expect(fullYear.loadShiftSavingPerYear).toBe(fullYear.loadShiftSavingOverCoveredPeriod)
+    expect(fullYear.energySavingPerYear).toBe(fullYear.energySavingOverCoveredPeriod)
   })
 })
 
@@ -204,7 +191,7 @@ describe('§3.7 Jahres-Hochrechnung — der Faktor stimmt mit dem überein, was 
 })
 
 describe('§3.7 Jahres-Hochrechnung — ein Standardprofil bleibt unangetastet', () => {
-  it('volles Jahr aus dem Generator: Faktor 1, beide Paare identisch', () => {
+  it('volles Jahr aus dem Generator: Faktor 1, gemessen = hochgerechnet', () => {
     const outcome = generateStandardLoadProfile({
       annualConsumptionKwh: 4200,
       customerClass: 'privat',
@@ -215,7 +202,6 @@ describe('§3.7 Jahres-Hochrechnung — ein Standardprofil bleibt unangetastet',
 
     const s = computeBatterySavings(outcome.profile, battery, tariff)
     expect(s.annualizationFactor).toBe(1)
-    expect(s.selfConsumptionSavingPerYear).toBe(s.selfConsumptionSavingOverCoveredPeriod)
-    expect(s.loadShiftSavingPerYear).toBe(s.loadShiftSavingOverCoveredPeriod)
+    expect(s.energySavingPerYear).toBe(s.energySavingOverCoveredPeriod)
   })
 })

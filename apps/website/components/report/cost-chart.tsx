@@ -84,7 +84,7 @@ function CostTooltip({
   )
 }
 
-// Ein einziger Akzentton, drei monotone Helligkeitsstufen (DESIGN.md: kein erfundenes
+// Ein einziger Akzentton, monotone Helligkeitsstufen (DESIGN.md: kein erfundenes
 // drittes Kategorie-Farbschema, Grün/Rot/Bernstein bleiben für Ersparnis/Kosten/Warnung
 // reserviert). Reihenfolge/Helligkeit gegen den Skill-Validator geprüft (OKLCH-Lightness-Band,
 // ΔL≥0,06 je Nachbarpaar, Hellstufe ≥2:1 Kontrast auf `--color-surface`) — nicht frei gegriffen.
@@ -102,15 +102,9 @@ const BREAKDOWN = [
     textColor: 'var(--color-on-accent)',
   },
   {
-    key: 'selfConsumptionSavingPerYear',
-    label: 'Eigenverbrauch',
+    key: 'energySavingPerYear',
+    label: 'Energie',
     color: CHART_COLORS.seriesStrong,
-    textColor: 'var(--color-ink)',
-  },
-  {
-    key: 'loadShiftSavingPerYear',
-    label: 'Tarifbewusstes Laden',
-    color: CHART_COLORS.seriesMid,
     textColor: 'var(--color-ink)',
   },
 ] as const
@@ -161,8 +155,7 @@ function SavingsBreakdownBar({ entry }: { entry: Entry }) {
   const row = {
     name: 'Ersparnis/Jahr',
     leistungspreisSavingPerYear: entry.leistungspreisSavingPerYear,
-    selfConsumptionSavingPerYear: entry.selfConsumptionSavingPerYear,
-    loadShiftSavingPerYear: entry.loadShiftSavingPerYear,
+    energySavingPerYear: entry.energySavingPerYear,
   }
   return (
     <div className="flex flex-col gap-2">

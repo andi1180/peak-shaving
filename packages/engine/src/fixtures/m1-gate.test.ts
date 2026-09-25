@@ -77,8 +77,7 @@ describe('§3.11 M1-Gate — 3×2-Matrix (3 Profile × annual_max/monthly_max_av
       return (
         `  ${r.profileLabel.padEnd(24)} · ${r.billingModel.padEnd(20)} · ` +
         `leistungspreis=€${d.leistungspreisSavingPerYear.toFixed(0).padStart(5)} · ` +
-        `eigenverbrauch=€${d.selfConsumptionSavingPerYear.toFixed(0).padStart(4)} · ` +
-        `lastverschiebung=€${d.loadShiftSavingPerYear.toFixed(0).padStart(4)} · ` +
+        `energie=€${d.energySavingPerYear.toFixed(0).padStart(5)} · ` +
         `total=€${d.totalSavingPerYear.toFixed(0).padStart(5)}`
       )
     })
@@ -88,30 +87,22 @@ describe('§3.11 M1-Gate — 3×2-Matrix (3 Profile × annual_max/monthly_max_av
   })
 
   describe('TEIL 1 — je Profil wird der jeweils zu testende Ersparnis-Pfad tatsächlich > 0', () => {
-    it('Profil 1 (Basis): Spitzenkappung > 0, aber Eigenverbrauch/Lastverschiebung bleiben 0 (kein PV, kein Fenster)', () => {
+    const dyn = (i: number, bm: (typeof BILLING_MODELS)[number]) =>
+      MATRIX.find((r) => r.profileLabel === PROFILES[i]!.label && r.billingModel === bm)!.dynamic
+
+    it('Profil 1 (Basis): Spitzenkappung > 0', () => {
+      for (const bm of BILLING_MODELS) expect(dyn(0, bm).leistungspreisSavingPerYear).toBeGreaterThan(0)
+    })
+
+    it('Profil 2 (Basis + PV): Eigenverbrauch hebt den Energie-Anteil über den der Basis', () => {
       for (const bm of BILLING_MODELS) {
-        const d = MATRIX.find((r) => r.profileLabel === PROFILES[0]!.label && r.billingModel === bm)!.dynamic
-        expect(d.leistungspreisSavingPerYear).toBeGreaterThan(0)
-        expect(d.selfConsumptionSavingPerYear).toBe(0)
-        expect(d.loadShiftSavingPerYear).toBe(0)
+        expect(dyn(1, bm).energySavingPerYear).toBeGreaterThan(dyn(0, bm).energySavingPerYear)
       }
     })
 
-    it('Profil 2 (Basis + PV): Eigenverbrauchs-Pfad > 0 (Schritt 3–4, inkl. Spitzen-Reserve)', () => {
+    it('Profil 3 (Basis + HT/NT-Fenster): tarifbewusstes Laden hebt den Energie-Anteil über den der Basis', () => {
       for (const bm of BILLING_MODELS) {
-        const d = MATRIX.find((r) => r.profileLabel === PROFILES[1]!.label && r.billingModel === bm)!.dynamic
-        expect(d.selfConsumptionSavingPerYear).toBeGreaterThan(0)
-        // Kein Tarif-Fenster in Profil 2 → keine Lastverschiebung.
-        expect(d.loadShiftSavingPerYear).toBe(0)
-      }
-    })
-
-    it('Profil 3 (Basis + HT/NT-Fenster): Lastverschiebungs-Pfad > 0 (Schritt 5, tarifbewusstes Laden)', () => {
-      for (const bm of BILLING_MODELS) {
-        const d = MATRIX.find((r) => r.profileLabel === PROFILES[2]!.label && r.billingModel === bm)!.dynamic
-        expect(d.loadShiftSavingPerYear).toBeGreaterThan(0)
-        // Kein PV in Profil 3 → kein Eigenverbrauch.
-        expect(d.selfConsumptionSavingPerYear).toBe(0)
+        expect(dyn(2, bm).energySavingPerYear).toBeGreaterThan(dyn(0, bm).energySavingPerYear)
       }
     })
   })
@@ -159,14 +150,12 @@ describe('§3.11 M1-Gate — 3×2-Matrix (3 Profile × annual_max/monthly_max_av
       }
     })
 
-    it('Summe der drei Ersparnisanteile = totalSavingPerYear (exakt, alle 6 Kombinationen × beide Kandidaten)', () => {
+    it('Leistungspreis- + Energie-Anteil = totalSavingPerYear (exakt, alle 6 Kombinationen × beide Kandidaten)', () => {
       for (const row of MATRIX) {
         for (const entry of [row.dynamic, row.static_]) {
-          const sum =
-            entry.leistungspreisSavingPerYear +
-            entry.selfConsumptionSavingPerYear +
-            entry.loadShiftSavingPerYear
-          expect(entry.totalSavingPerYear).toBeCloseTo(sum, 6)
+          expect(entry.totalSavingPerYear).toBe(
+            entry.leistungspreisSavingPerYear + entry.energySavingPerYear,
+          )
         }
       }
     })

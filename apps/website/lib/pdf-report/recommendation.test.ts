@@ -57,10 +57,9 @@ const ENTRY = {
   battery: BATTERY,
   newBilledKw: 40,
   leistungspreisSavingPerYear: 800,
-  selfConsumptionSavingPerYear: 300,
-  loadShiftSavingPerYear: 100,
-  selfConsumptionSavingOverCoveredPeriod: 300,
-  loadShiftSavingOverCoveredPeriod: 100,
+  energySavingPerYear: 400,
+  energySavingOverCoveredPeriod: 400,
+  energySavingBasis: 'full_price' as const,
   annualizationFactor: 1,
   coveredDays: 365,
   totalSavingPerYear: 1200,
@@ -124,8 +123,8 @@ describe('load_control — der Betrag steht hier, und der Satz zeigt nirgendwohi
   it.each([true, false])('trägt die Kopfzahl (Bestandsanlage: %s)', (withExisting) => {
     const statement = buildRecommendationChapter(analysisFor(withExisting)).loadControl!
 
-    /* `loadShiftSavingPerYear` der primären Anlage — 100 € in beiden Fixtures. */
-    expect(statement.amount?.value).toBe('€\u00a0100')
+    /* `energySavingPerYear` der primären Anlage — 400 € in beiden Fixtures. */
+    expect(statement.amount?.value).toBe('€\u00a0400')
     expect(statement.amount?.tone).toBe('positive')
   })
 

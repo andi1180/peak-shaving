@@ -53,10 +53,9 @@ const ENTRY: BatteryRoiEntry = {
   newBilledKw: 40,
   /* 0 = der Speicher senkt den abgerechneten Leistungswert nicht (Urbanz: NE 7 ohne Messung). */
   leistungspreisSavingPerYear: 0,
-  selfConsumptionSavingPerYear: 300,
-  loadShiftSavingPerYear: 100,
-  selfConsumptionSavingOverCoveredPeriod: 300,
-  loadShiftSavingOverCoveredPeriod: 100,
+  energySavingPerYear: 400,
+  energySavingOverCoveredPeriod: 400,
+  energySavingBasis: 'full_price' as const,
   annualizationFactor: 1,
   coveredDays: 209,
   totalSavingPerYear: 400,

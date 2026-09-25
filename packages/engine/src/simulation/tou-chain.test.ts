@@ -126,13 +126,12 @@ describe('Delta 4 — kombinierter Preis durch die volle Kette (Demo-Bäckerei 2
       expect(b.battery.id).toBe(a.battery.id)
       expect(b.newBilledKw).toBe(a.newBilledKw)
       expect(b.leistungspreisSavingPerYear).toBe(a.leistungspreisSavingPerYear)
-      expect(b.selfConsumptionSavingPerYear).toBe(a.selfConsumptionSavingPerYear)
-      expect(b.loadShiftSavingPerYear).toBe(a.loadShiftSavingPerYear)
+      expect(b.energySavingPerYear).toBe(a.energySavingPerYear)
       expect(b.totalSavingPerYear).toBe(a.totalSavingPerYear)
     }
   })
 
-  it('ein berechenbarer Hebel bewegt die Lastverschiebung, nicht den Leistungspreis-Anteil', () => {
+  it('ein berechenbarer Hebel bewegt den Energie-Anteil, nicht den Leistungspreis-Anteil', () => {
     const withoutLever = recommendBattery(load, tariff, DEMO_BATTERY_CATALOG, 10)
     // Tag/Nacht-Spreizung: nachts 5 ct, tagsüber 35 ct — ein Muster, das Laden im Tal belohnt.
     const pricing: TariffPricingInputs = {
@@ -155,11 +154,12 @@ describe('Delta 4 — kombinierter Preis durch die volle Kette (Demo-Bäckerei 2
     const before = byId(withoutLever.perBattery)
     const after = byId(withLever.perBattery)
 
-    // Ohne Tarif-Fenster ist die Lastverschiebung per Contract 0 (§3.7) …
-    for (const entry of before.values()) expect(entry.loadShiftSavingPerYear).toBe(0)
-    // … mit echter Preiskurve entsteht sie bei mindestens einem Kandidaten.
-    const moved = [...after.values()].filter((e) => e.loadShiftSavingPerYear > 0)
+    // Mit echter Preiskurve steigt der Energie-Anteil bei mindestens einem Kandidaten.
+    const moved = [...after.values()].filter(
+      (e) => e.energySavingPerYear > before.get(e.battery.id)!.energySavingPerYear,
+    )
     expect(moved.length).toBeGreaterThan(0)
+    for (const entry of after.values()) expect(entry.energySavingBasis).toBe('full_price')
 
     /*
      * Der Leistungspreis-Anteil hängt am gekappten Profil, nicht am Preis — die Kapp-Suche ist

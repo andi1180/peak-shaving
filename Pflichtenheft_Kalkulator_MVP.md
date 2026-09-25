@@ -312,9 +312,16 @@ Für eine gegebene Batterie ist die interessante Frage: **Wie tief kann die Kapp
 
 Aus dem einen Simulationslauf (§3.6) ergeben sich alle Effekte gleichzeitig:
 - `leistungspreisSavingPerYear` = (alter abgerechneter kW − neuer abgerechneter kW) × `leistungspreisEurPerKwYear`.
-- `selfConsumptionSavingPerYear` = Σ (durch Batterie verschobene kWh von Einspeisung→Eigenverbrauch) × (`Preis des Entlade-Intervalls − einspeisevergütung ÷ η`), s. §3.7.2. Der Entladepreis kommt aus derselben Intervallreihe wie bei der Lastverschiebung — nicht aus dem Fixtarif des Kunden.
-- `loadShiftSavingPerYear` `[MN]` = Σ (aus günstigem Tarif-Fenster geladene und in teurem Fenster genutzte kWh) × (`teurer − günstiger ÷ η` Tarif), s. §3.7.2. Nur wenn Tarif-Fenster gesetzt sind; sonst 0.
-- `totalSavingPerYear` = Summe **aus demselben Fahrplan** (keine unabhängige Doppelrechnung).
+- ~~`selfConsumptionSavingPerYear` = Σ (durch Batterie verschobene kWh von Einspeisung→Eigenverbrauch) × (`Preis des Entlade-Intervalls − einspeisevergütung ÷ η`), s. §3.7.2. Der Entladepreis kommt aus derselben Intervallreihe wie bei der Lastverschiebung — nicht aus dem Fixtarif des Kunden.~~
+- ~~`loadShiftSavingPerYear` `[MN]` = Σ (aus günstigem Tarif-Fenster geladene und in teurem Fenster genutzte kWh) × (`teurer − günstiger ÷ η` Tarif), s. §3.7.2. Nur wenn Tarif-Fenster gesetzt sind; sonst 0.~~
+- `energySavingPerYear` = (Energiekosten der Netzreihe **ohne** Speicher − **mit** Speicher) × `annualizationFactor` — s. Revision 25.09.2026 unten.
+- `totalSavingPerYear` = `leistungspreisSavingPerYear + energySavingPerYear` **aus demselben Fahrplan**, exakt.
+
+> **Revision 25.09.2026 — Energie-Ersparnis als volle Kostendifferenz der Reihen (Bündel-Fassung 12, `ENGINE_VERSION` 1.4.0-mvp).**
+> Die Einzel-kWh-Bewertung in zwei Töpfe (Eigenverbrauch / Lastverschiebung, FIFO nach Herkunft) ist ersetzt durch **eine** Grösse: `energyCostEur(Netzreihe, Preise)` über den rohen Netzbezug minus dieselbe Funktion über `gridAfterKw` — dieselbe Funktion, aus der der Monatsvergleich (§3.7.3) seine Reihen bildet. Preise: mit rechenbaren Preisdaten der volle Intervallpreis (Energie, Netz, Abgaben); ohne sie Arbeitspreis/Nachttarif und Einspeisevergütung — dann trägt der Eintrag `energySavingBasis: 'energy_price_only'` (Einschränkung, im Bündel festgehalten).
+> **Warum:** die alte Buchhaltung liess vier Dinge aus — Energie und Ladeverluste der **Kapp-Entladungen** (sie legten keine kWh in einen Topf), die **Untergrenze 0** je Intervall, und den **Ladestand an Anfang und Ende**. Bei Kapp-starken Geräten war der Fehler vierstellig (Bäckerei, Solinteg E2BR-S96K-C: +122,66 € Einzel-kWh gegen −853,47 € Reihendifferenz).
+> **Entscheidung (Andreas):** die Euro-Aufteilung in Eigenverbrauch und Lastverschiebung **entfällt**; es bleiben zwei exakte Teile, Leistungspreis-Anteil und Energie-Anteil. Hochgerechnet wird nur der Energie-Anteil (`× annualizationFactor`), der Leistungspreis behält seine Monatsregel (§3.7.1 gilt sinngemäss für den einen Energie-Anteil). Der Fahrplan (`simulateBattery`) ist unverändert; die Tarifwege-Reihen sind in allen drei Golden-Fällen bitgleich geblieben.
+> §3.7.2 beschreibt die alte Buchhaltung und ist damit überholt; der Ladeverlust ist in der Reihendifferenz physikalisch enthalten.
 
 Der Report weist die Anteile getrennt aus (Transparenz), betont aber die **eine** Gesamtzahl. Priorität `peak_first`: Spitzenschutz hat Vorrang, weil eine verpasste Spitze eine ganze Periode kostet; Eigenverbrauch und Lastverschiebung nutzen nur die verbleibende Kapazität und dürfen die Spitzen-Reserve nie gefährden.
 
@@ -334,6 +341,8 @@ Die drei Anteile sind **nicht von gleicher Art**, und das muss die Rechnung ber�
 **Abgrenzung zur Teiljahres-Warnung (§3.5).** Die beiden sagen Verschiedenes und haben verschiedene Bedingungen: die Teiljahres-Warnung betrifft den **abgerechneten Leistungswert** unter einem `monthly_*`-Modell (`coveredMonths < 12`), diese Regel betrifft die **Energie-Anteile** und gilt unabhängig vom Abrechnungsmodell.
 
 #### 3.7.2 Ladeverluste sind eine Koste, nicht nur ein SoC-Effekt
+
+> ⚠ **Überholt durch die §3.7-Revision vom 25.09.2026** (Energie-Ersparnis als Reihendifferenz). Historisch stehen gelassen.
 
 **Die Regel.** Eine im Speicher liegende Kilowattstunde wird mit dem Preis der **tatsächlich dafür bezogenen** Menge bewertet — also mit `1/η` kWh, nicht mit einer. Der Ladeverlust steht damit auf der **Kosten**-Seite beider Energie-Anteile:
 
@@ -420,8 +429,10 @@ type AnalysisResult = {
     battery: BatteryCandidate;
     newBilledKw: number;
     leistungspreisSavingPerYear: number;
-    selfConsumptionSavingPerYear: number;
-    loadShiftSavingPerYear: number;     // [MN] tarifbewusstes Laden; 0 ohne Tarif-Fenster
+    // selfConsumptionSavingPerYear / loadShiftSavingPerYear: entfallen mit der §3.7-Revision 25.09.2026
+    energySavingPerYear: number;        // volle Kostendifferenz der Netzreihen, hochgerechnet
+    energySavingOverCoveredPeriod: number;
+    energySavingBasis: 'full_price' | 'energy_price_only';
     totalSavingPerYear: number;
     totalInvestment: number;
     subsidyAmount: number;

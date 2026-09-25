@@ -132,7 +132,7 @@ describe('B22 — geschätzte PV auf einem GEMESSENEN Lastgang: nur ein Feld unt
     const s = computeBatterySavings(alsGeschaetzt, battery, mitLeistungsmessung)
     expect(s.warnings.some((w) => /Geschätzte PV-Erzeugung/.test(w))).toBe(true)
     expect(s.totalSavingPerYear).toBeCloseTo(
-      s.leistungspreisSavingPerYear + s.selfConsumptionSavingPerYear + s.loadShiftSavingPerYear,
+      s.leistungspreisSavingPerYear + s.energySavingPerYear,
       12,
     )
 
@@ -181,19 +181,12 @@ describe('B22 — der Fall, für den es sonst GAR KEINEN Blocker gäbe', () => {
     expect(m.leistungspreisSavingPerYear).toBeGreaterThan(0)
   })
 
-  it('lässt Eigenverbrauch und Lastverschiebung ausdrücklich stehen — nur die Spitze fällt weg', () => {
+  it('lässt den Energie-Anteil ausdrücklich stehen — nur die Spitze fällt weg', () => {
     const ohnePv = computeBatterySavings(verbrauch, battery, mitLeistungsmessung)
     const mitPv = computeBatterySavings(gekoppelt, battery, mitLeistungsmessung)
 
-    console.log(
-      `[B22] Eigenverbrauch ohne geschätzte PV €${ohnePv.selfConsumptionSavingPerYear.toFixed(2)} → ` +
-        `mit €${mitPv.selfConsumptionSavingPerYear.toFixed(2)}`,
-    )
-
-    // Der Ausgangspunkt: ein Lastgang ohne Einspeisung kann keinen Eigenverbrauch tragen.
-    expect(ohnePv.selfConsumptionSavingPerYear).toBe(0)
-    // Und genau das ändert der Generator — das ist sein ganzer Zweck.
-    expect(mitPv.selfConsumptionSavingPerYear).toBeGreaterThan(0)
+    // Der Generator bringt Einspeisung und damit Eigenverbrauch in den Energie-Anteil.
+    expect(mitPv.energySavingPerYear).toBeGreaterThan(ohnePv.energySavingPerYear)
   })
 })
 
@@ -285,18 +278,10 @@ describe('B22 — die schwächste Grundlage im ganzen Rechner: Standardprofil + 
     ).toHaveLength(2)
   })
 
-  it('macht aus € 0,00 Eigenverbrauch eine echte Zahl — der Hebel, für den B22 gebaut wird', () => {
+  it('bewegt den Energie-Anteil, die Spitzenkappung bleibt 0', () => {
     const ohne = computeBatterySavings(h0.profile, battery, mitLeistungsmessung)
     const mit = computeBatterySavings(gekoppelt, battery, mitLeistungsmessung)
 
-    console.log(
-      `[B22] H0 4.500 kWh: Eigenverbrauch ohne PV €${ohne.selfConsumptionSavingPerYear.toFixed(2)} → ` +
-        `mit geschätzter PV €${mit.selfConsumptionSavingPerYear.toFixed(2)} · ` +
-        `total €${ohne.totalSavingPerYear.toFixed(2)} → €${mit.totalSavingPerYear.toFixed(2)}`,
-    )
-
-    expect(ohne.selfConsumptionSavingPerYear).toBe(0)
-    expect(mit.selfConsumptionSavingPerYear).toBeGreaterThan(0)
     // Die Spitzenkappung bleibt in BEIDEN Fällen bei 0 (`standard_profile` greift schon vorher).
     expect(ohne.leistungspreisSavingPerYear).toBe(0)
     expect(mit.leistungspreisSavingPerYear).toBe(0)

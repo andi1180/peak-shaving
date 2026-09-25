@@ -112,7 +112,7 @@ export const INCONSISTENT_PV_SLOTS = 8 * N_DAYS
 
 /**
  * Profil 3 (§3.11): Basis + HT/NT-Tarif-Fenster. Testet tarifbewusstes Laden (Schritt 5,
- * `loadShiftSavingPerYear`) — die LAST ist identisch zu Profil 1, nur `touTariff()` (unten) fügt
+ * Energie-Anteil) — die LAST ist identisch zu Profil 1, nur `touTariff()` (unten) fügt
  * das günstige Fenster hinzu. Eigener Name der Klarheit halber (§3.11 benennt es als eigenes Profil).
  */
 export const basisForTouLoadProfile = (): LoadProfile => buildProfile(false)

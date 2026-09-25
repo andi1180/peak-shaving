@@ -293,8 +293,8 @@ export function RecommendationCard(props: RecommendationCardProps) {
               ⚠ ZWEI ZEILEN, WEIL ES ZWEI URSACHEN SIND — und die erste ist im gemessenen Realfall
               negativ. Eine einzelne Gesamtzahl liesse den Wechsel als solchen vorteilhaft
               erscheinen; tatsächlich kostet er allein mehr, und erst die Ladesteuerung dreht das
-              Vorzeichen. Die drei §3.7-Zeilen (Spitzenkappung / Eigenverbrauch / tarifbewusstes
-              Laden) entfallen HIER: sie schlüsseln eine andere Grösse auf (die hochgerechnete
+              Vorzeichen. Die §3.7-Zeilen (Spitzenkappung / Energie) entfallen
+              HIER: sie schlüsseln eine andere Grösse auf (die hochgerechnete
               Attribution des Speichers) und stünden unter einer Kopfzahl, die sie nicht ergeben.
               An der Rechnung selbst ändert das nichts — sie stehen unverändert in der CSV und im
               Analyse-Bündel.
@@ -358,7 +358,7 @@ export function RecommendationCard(props: RecommendationCardProps) {
               {addon ? 'Zusätzliche Ersparnis aufgeschlüsselt' : 'Ersparnis aufgeschlüsselt'}
             </p>
             {/*
-              ⚠ Der Satz, ohne den die drei Zeilen darunter falsch gelesen werden. Simuliert wurde
+              ⚠ Der Satz, ohne den die Zeilen darunter falsch gelesen werden. Simuliert wurde
               der KOMBINIERTE Speicher (Bestand + dieses Gerät); ausgewiesen ist die Differenz zur
               bestehenden Anlage allein. Er nennt zugleich die resultierende Gesamtgrösse — sonst
               bleibt offen, worauf sich „zusätzlich" bezieht.
@@ -376,13 +376,12 @@ export function RecommendationCard(props: RecommendationCardProps) {
               label="Spitzenkappung (Leistungspreis)"
               value={entry.leistungspreisSavingPerYear}
             />
-            <SavingRow label="Eigenverbrauch" value={entry.selfConsumptionSavingPerYear} />
-            <SavingRow label="Tarifbewusstes Laden" value={entry.loadShiftSavingPerYear} />
+            <SavingRow label="Energie" value={entry.energySavingPerYear} />
             <div className="flex items-center justify-between border-t-2 border-border py-2 text-sm font-semibold">
               <span className="text-ink">Gesamt</span>
               <Num className="text-positive">{formatEur(entry.totalSavingPerYear)}</Num>
             </div>
-            {/* Hindsight-Hinweis Pflicht (§6.2): Eigenverbrauch/Lastverschiebung mit vollem Rückblick.
+            {/* Hindsight-Hinweis Pflicht (§6.2): der Energie-Anteil ist mit vollem Rückblick gerechnet.
                 Wortlaut seit Delta 16a aus `lib/report-copy.ts` — der Methodik-Abschnitt des
                 Druck-Reports trägt DIESELBE Aussage und darf nicht davon abweichen. Gerendert
                 unverändert; am Bildschirm ist der Satz bit-gleich zu vorher. */}
@@ -391,8 +390,8 @@ export function RecommendationCard(props: RecommendationCardProps) {
               {HINDSIGHT_NOTE}
             </p>
             {/*
-              ── Jahres-Hochrechnung der beiden ENERGIE-Zeilen (§3.7) ─────────────────────────────
-              Steht bewusst HIER, unmittelbar unter den beiden betroffenen Zeilen, und nicht als
+              ── Jahres-Hochrechnung der ENERGIE-Zeile (§3.7) ─────────────────────────────────────
+              Steht bewusst HIER, unmittelbar unter der betroffenen Zeile, und nicht als
               Fussnote am Seitenende: die Zahlen darüber tragen das Etikett „pro Jahr", obwohl der
               Lastgang weniger als ein Jahr abdeckt — wer sie liest, muss im selben Blick sehen, was
               gemessen und was angenommen ist. Der gemessene Rohwert steht deshalb im Klartext daneben
@@ -410,19 +409,13 @@ export function RecommendationCard(props: RecommendationCardProps) {
                 className="mt-2 rounded-md bg-surface-alt p-3 text-xs text-text-muted print:break-inside-avoid"
                 data-testid="hochrechnung-hinweis"
               >
-                <strong className="text-ink">
-                  Eigenverbrauch und tarifbewusstes Laden sind auf ein Jahr hochgerechnet.
-                </strong>{' '}
+                <strong className="text-ink">Der Energie-Anteil ist auf ein Jahr hochgerechnet.</strong>{' '}
                 Ihr Lastgang deckt <Num>{entry.coveredDays}</Num> von 365 Tagen ab. Gemessen wurden in
                 diesem Zeitraum{' '}
                 <Num className="font-medium text-text">
-                  {formatEur(entry.selfConsumptionSavingOverCoveredPeriod)}
-                </Num>{' '}
-                Eigenverbrauch und{' '}
-                <Num className="font-medium text-text">
-                  {formatEur(entry.loadShiftSavingOverCoveredPeriod)}
-                </Num>{' '}
-                tarifbewusstes Laden. Für die Jahreszahlen oben nehmen wir an, dass sich die übrigen{' '}
+                  {formatEur(entry.energySavingOverCoveredPeriod)}
+                </Num>
+                . Für die Jahreszahl oben nehmen wir an, dass sich die übrigen{' '}
                 <Num>{365 - entry.coveredDays}</Num> Tage im Mittel wie die gemessenen verhalten — bei
                 einem reinen Sommer- oder Winterzeitraum ist das eher zu optimistisch bzw. zu
                 vorsichtig. <strong className="text-ink">Die Spitzenkappung ist nicht betroffen</strong>

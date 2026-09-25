@@ -13,6 +13,7 @@ import { utcMsToLocalFields } from '../parser/datetime'
 import { findGridTariffRow } from './grid-tariff-window'
 import { intervalHours } from './helpers'
 import { combinedIntervalPrices } from './tou'
+import { energyCostEur } from './energy-cost'
 import { feedInTariffCtPerKwh } from '../refusal'
 
 /*
@@ -82,15 +83,6 @@ import { feedInTariffCtPerKwh } from '../refusal'
  * Bezugstarif und ändert sich durch einen aWATTar-Wechsel nicht. Bei einem Lastgang ohne
  * Einspeisung (der reale Bestandsfall, an dem dies gemessen wurde) ist die Regel folgenlos.
  */
-function intervalCostEur(
-  gridKw: number,
-  deltaHours: number,
-  drawPriceCtPerKwh: number,
-  feedInCtPerKwh: number,
-): number {
-  const ct = gridKw >= 0 ? gridKw * drawPriceCtPerKwh : gridKw * feedInCtPerKwh
-  return (ct * deltaHours) / 100
-}
 
 /** Tage des Kalendermonats — schaltjahres-korrekt, weil `new Date(y, m, 0)` den letzten Tag liefert. */
 function daysInMonth(year: number, month: number): number {
@@ -192,10 +184,6 @@ export function buildMonthlyTariffComparison(
 
   const deltaHours = intervalHours(loadProfile)
   const feedInCt = feedInTariffCtPerKwh(loadProfile, tariffParams)
-  const current = new Array<number>(12).fill(0)
-  const withoutControl = new Array<number>(12).fill(0)
-  const withBattery = new Array<number>(12).fill(0)
-  const comparison = new Array<number>(12).fill(0)
   const covered = new Array<boolean>(12).fill(false)
   /*
    * Die belegten Kalendertage je Monat, als lokale `YYYY-MM-DD`-Zeichenketten. Ein Set, weil ein
@@ -207,6 +195,12 @@ export function buildMonthlyTariffComparison(
    * ohne Jahr zählte den 15. Jänner zweier Jahre als einen Tag und rechnete die Gebühr zu niedrig.
    */
   const coveredDates = new Set<string>()
+  const monthIndex = new Array<number>(loadProfile.readings.length)
+  const rawKw = new Array<number>(loadProfile.readings.length)
+  // Fehlt der Dispatch-Wert (kann nur bei abweichender Reihenlänge passieren), gilt der rohe
+  // Bezug — dann steht die Reihe „mit Speicher" auf der Reihe „ohne Steuerung", statt eine
+  // Ersparnis zu behaupten, die nicht gerechnet wurde.
+  const afterKw = gridAfterKw ? new Array<number>(loadProfile.readings.length) : null
 
   for (let i = 0; i < loadProfile.readings.length; i++) {
     const reading = loadProfile.readings[i]!
@@ -214,30 +208,23 @@ export function buildMonthlyTariffComparison(
     // Ausdrücklich NICHT `periodIndexByInterval`: das folgt dem Abrechnungsmodell und lieferte bei
     // `annual_max` einen einzigen Balken für das ganze Jahr.
     const { year, month, day } = utcMsToLocalFields(Date.parse(reading.ts), loadProfile.timezoneMeta)
-    const idx = month - 1
-    covered[idx] = true
+    monthIndex[i] = month - 1
+    covered[month - 1] = true
     coveredDates.add(
       `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`,
     )
-
-    const spotPrice = spotSide.prices[i]!
-    const rawKw = reading.gridPowerKw
-    // Fehlt der Dispatch-Wert (kann nur bei abweichender Reihenlänge passieren), gilt der rohe
-    // Bezug — dann steht die Reihe „mit Speicher" auf der Reihe „ohne Steuerung", statt eine
-    // Ersparnis zu behaupten, die nicht gerechnet wurde.
-    const afterKw = gridAfterKw?.[i] ?? rawKw
-
-    if (currentSide) {
-      current[idx]! += intervalCostEur(rawKw, deltaHours, currentSide.prices[i]!, feedInCt)
-    }
-    withoutControl[idx]! += intervalCostEur(rawKw, deltaHours, spotPrice, feedInCt)
-    if (gridAfterKw) {
-      withBattery[idx]! += intervalCostEur(afterKw, deltaHours, spotPrice, feedInCt)
-    }
-    if (comparisonPrices) {
-      comparison[idx]! += intervalCostEur(rawKw, deltaHours, comparisonPrices[i]!, feedInCt)
-    }
+    rawKw[i] = reading.gridPowerKw
+    if (afterKw) afterKw[i] = gridAfterKw![i] ?? reading.gridPowerKw
   }
+
+  // Dieselbe Bewertung wie die Energie-Ersparnis (`energyCostEur`); getauscht wird je Reihe nur der Preis.
+  const costByMonth = (grid: number[], drawCtPerKwh: number[]): number[] =>
+    energyCostEur(grid, { drawCtPerKwh, feedInCtPerKwh: feedInCt, deltaHours }, monthIndex).byMonthEur
+  const zeros = (): number[] => new Array<number>(12).fill(0)
+  const current = currentSide ? costByMonth(rawKw, currentSide.prices) : zeros()
+  const withoutControl = costByMonth(rawKw, spotSide.prices)
+  const withBattery = afterKw ? costByMonth(afterKw, spotSide.prices) : zeros()
+  const comparison = comparisonPrices ? costByMonth(rawKw, comparisonPrices) : zeros()
 
   /*
    * ── DIE FIXKOSTEN, TAGWEISE AUFGETEILT (Delta 19) ────────────────────────────────────────────

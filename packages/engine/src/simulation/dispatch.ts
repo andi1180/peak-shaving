@@ -33,7 +33,7 @@ export type DispatchResult = {
  *  5. Laden aus Netz. Zwei Fälle, gesteuert über `preferChargeInterval` (§3.7 Schritt-5-Ausbau):
  *     (a) GÜNSTIGES Tarif-Fenster (`preferChargeInterval[i] === true`): tarifbewusst laden —
  *         GREEDY so weit unter `cap` laden, wie Kapazität/`maxPowerKw` zulassen, um billige Energie
- *         für die teuren Fenster zu speichern (Lastverschiebung → `loadShiftSaving`). In günstigen
+ *         für die teuren Fenster zu speichern (Lastverschiebung → `energySaving`). In günstigen
  *         Fenstern wird BEWUSST NICHT entladen (Netzbezug ist gerade billig; Eigenverbrauch lohnt
  *         nicht — Schritt 4 wird übersprungen). Ist eine Tages-Rangfolge gesetzt, begrenzt deren
  *         Ladeobergrenze das Greedy zusätzlich: Kapazität, die eine strikt GÜNSTIGERE Stunde

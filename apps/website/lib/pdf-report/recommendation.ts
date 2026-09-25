@@ -335,26 +335,23 @@ export function buildLoadControl(
     primary.annualizationFactor > 1
       ? ` Ihr Lastgang deckt ${primary.coveredDays} von 365 Tagen ab; der Betrag oben ist von ` +
         'diesem Zeitraum auf ein Jahr hochgerechnet — gemessen wurden ' +
-        `${formatEur(primary.loadShiftSavingOverCoveredPeriod)}.`
+        `${formatEur(primary.energySavingOverCoveredPeriod)}.`
       : ''
 
   /*
    * ⚠ DER SATZ GEGEN DAS DOPPELTZÄHLEN BLEIBT, SEIN VERWEIS FÄLLT. Er zeigte bis zum
    * Zusammenfassungs-Umbau auf eine Zeile der Ersparnis-Aufschlüsselung („Wert der Ladesteuerung"
    * bzw. „tarifbewusstes Laden"); die gibt es nicht mehr. Was er sagt, gilt unverändert: der Betrag
-   * ist einer der drei Anteile DERSELBEN Simulation und kommt nicht obendrauf. Es ist wörtlich die
-   * Ersatzfassung, die der Verweis ohne sein Ziel ohnehin genommen hätte.
+   * ist der Energie-Anteil DERSELBEN Simulation und kommt nicht obendrauf.
    */
   const embeddedNote = 'Er steckt in der Gesamtersparnis dieses Speichers bereits mit drin'
-  const selfConsumptionNote =
-    'was Ihre PV-Erzeugung über den Speicher einspart, steckt dort als eigener Anteil daneben'
 
   return {
     id: 'load_control',
     title: 'Wert der Ladesteuerung unter aWATTar',
     /* ⚠ SEIT DEM ZUSAMMENFASSUNGS-UMBAU DER EINZIGE ORT DIESES BETRAGS — s. Modulkopf. */
     amount: {
-      value: formatEur(primary.loadShiftSavingPerYear),
+      value: formatEur(primary.energySavingPerYear),
       caption: `pro Jahr, ${displayedPriceLabel(analysis)}`,
       tone: 'positive',
     },
@@ -365,8 +362,7 @@ export function buildLoadControl(
       'lädt in den günstigen Viertelstunden und entlädt in den teuren; die Differenz ist der ' +
       'ausgewiesene Wert. Er ist ein RÜCKBLICK auf die tatsächlichen Marktpreise Ihres Zeitraums ' +
       'und kein Versprechen für die Zukunft — die Preise von morgen kennt niemand. ' +
-      `${embeddedNote}, und er zeigt ausschliesslich den Gewinn aus den Preisunterschieden: ` +
-      `${selfConsumptionNote}.${annualized}`,
+      `${embeddedNote}.${annualized}`,
   }
 }
 

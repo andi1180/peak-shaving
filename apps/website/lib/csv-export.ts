@@ -30,13 +30,13 @@ function csvRow(fields: string[]): string {
  * Zahlenwerte in derselben Formatierung wie im Report (`formatEur`/`formatYears`, de-AT) —
  * konsistent mit dem, was der Nutzer bereits auf dem Bildschirm sieht, kein zweites Zahlenformat.
  *
- * ── BEIDE ENERGIE-WERTE, JE EIGENE SPALTE (§3.7-Jahres-Hochrechnung) ────────────────────────────
- * Eigenverbrauch und tarifbewusstes Laden stehen zweimal: einmal auf ein Jahr HOCHGERECHNET (die
+ * ── DER ENERGIE-ANTEIL, ZWEIMAL (§3.7-Jahres-Hochrechnung) ────────────────────────────────────────
+ * Der Energie-Anteil steht zweimal: einmal auf ein Jahr HOCHGERECHNET (die
  * Zahl, die in `Gesamtersparnis pro Jahr` und damit in Amortisation und Netto-Ersparnis eingeht)
  * und einmal als GEMESSENE Summe über den tatsächlich abgedeckten Zeitraum. Dazwischen stehen die
  * Bezugsgrössen `Abgedeckte Tage` und `Hochrechnungsfaktor`, damit sich der Weg von der einen zur
  * anderen Zahl in der Tabelle nachrechnen lässt — bei voller Jahresabdeckung ist der Faktor 1 und
- * beide Paare sind identisch. Nur die hochgerechnete Zahl auszugeben hiesse, eine ANNAHME als
+ * beide Werte sind identisch. Nur die hochgerechnete Zahl auszugeben hiesse, eine ANNAHME als
  * Messung zu exportieren; nur die gemessene, sie mit einem Leistungspreis-Anteil in eine Zeile zu
  * stellen, der bereits eine Jahresgrösse ist.
  */
@@ -46,12 +46,11 @@ export function buildPerBatteryCsv(perBattery: Entry[], horizonYears: number): s
     'Klasse',
     'Investition',
     'Spitzenkappung (Leistungspreis)',
-    'Eigenverbrauch pro Jahr',
-    'Tarifbewusstes Laden pro Jahr',
+    'Energie pro Jahr',
     'Abgedeckte Tage',
     'Hochrechnungsfaktor',
-    'Eigenverbrauch gemessen (abgedeckter Zeitraum)',
-    'Tarifbewusstes Laden gemessen (abgedeckter Zeitraum)',
+    'Energie gemessen (abgedeckter Zeitraum)',
+    'Energie bewertet mit',
     'Gesamtersparnis pro Jahr',
     'Amortisation',
     `Netto-Ersparnis über ${horizonYears} Jahre`,
@@ -64,15 +63,14 @@ export function buildPerBatteryCsv(perBattery: Entry[], horizonYears: number): s
       classLabel[entry.battery.class],
       formatEur(entry.totalInvestment),
       formatEur(entry.leistungspreisSavingPerYear),
-      formatEur(entry.selfConsumptionSavingPerYear),
-      formatEur(entry.loadShiftSavingPerYear),
+      formatEur(entry.energySavingPerYear),
       String(entry.coveredDays),
       // Der Faktor ausgeschrieben statt gerundet: er ist der Rechenweg zwischen den beiden
-      // Zahlenpaaren nebenan, und mit zwei Nachkommastellen ginge er in einer Tabellenkalkulation
+      // Energie-Werten nebenan, und mit zwei Nachkommastellen ginge er in einer Tabellenkalkulation
       // nicht mehr sauber auf. de-AT-Dezimalkomma wie die übrigen Spalten (`formatEur`).
       entry.annualizationFactor.toFixed(4).replace('.', ','),
-      formatEur(entry.selfConsumptionSavingOverCoveredPeriod),
-      formatEur(entry.loadShiftSavingOverCoveredPeriod),
+      formatEur(entry.energySavingOverCoveredPeriod),
+      entry.energySavingBasis === 'full_price' ? 'vollem Preis' : 'nur Arbeitspreis',
       formatEur(entry.totalSavingPerYear),
       formatYears(entry.amortizationYears),
       formatEur(entry.netSavingOverHorizon),

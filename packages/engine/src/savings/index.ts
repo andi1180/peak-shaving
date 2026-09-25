@@ -1,6 +1,5 @@
-// Kombinierter Dispatch → benannte Ersparnis-Felder (§3.7). Verwandelt die §3.6-Simulation eines
-// Batterie-Kandidaten in die drei disjunkten Ersparnis-Anteile des `AnalysisResult.perBattery`-
-// Contracts (Leistungspreis / Eigenverbrauch / Lastverschiebung), inkl. controlType-Default.
+// Kombinierter Dispatch → Ersparnis (§3.7): Leistungspreis-Anteil und Energie-Anteil (volle
+// Kostendifferenz der Netzreihen), inkl. controlType-Default.
 export { computeBatterySavings } from './attribute'
 export type { BatterySavings } from './attribute'
 // D6 Teil 1: die Jahres-Hochrechnung. `annualizationFactor` gab es bereits, war aber über den
