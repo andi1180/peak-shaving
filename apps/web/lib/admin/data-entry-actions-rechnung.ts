@@ -582,18 +582,23 @@ export async function skipMeteringPointInvoiceAction(
    * vermerkt sie als `measured` — dieselbe Herkunft wie jede andere Angabe des Kunden, denn „es gibt
    * keine Rechnung" ist eine Auskunft und keine Schätzung von uns.
    */
+  // Der Netzanschluss ist optional mitgeschickt: Netzentgelt und Abgaben hängen am Anschluss, nicht an der Rechnung.
+  const connection = readGridConnectionFields(formData)
+  if (Object.keys(connection.fieldErrors).length > 0) return { fieldErrors: connection.fieldErrors }
+
   const failure = await writeMeteringPointDraftFields(
     projectId,
     meteringPointId,
-    [{ field: INVOICE_SKIPPED_KEY, value: true }],
+    [...connection.values, { field: INVOICE_SKIPPED_KEY, value: true }],
     'Rechnung übersprungen',
   )
   if (failure) return failure
 
   return {
     success:
-      'Vermerkt: ohne Rechnungsdaten fortgefahren. Die Analyse rechnet auf Basis des Lastgangs ' +
-      'und ohne Kostenvergleich.',
+      'Vermerkt: ohne Rechnungsdaten fortgefahren. ' +
+      (connection.values.length > 0 ? `${connectionCountText(connection.values.length)} ` : '') +
+      'Die Analyse rechnet auf Basis des Lastgangs und ohne Kostenvergleich.',
   }
 }
 
@@ -804,6 +809,91 @@ export async function lookupGridTariffDefaultsAction(
 }
 
 /**
+ * Die drei Netzanschluss-Felder (Netzbetreiber, Netzebene, Messvariante) als Entwurfswerte.
+ *
+ * Geteilt von Handeingabe, Netzanschluss allein und „ohne Rechnung fortfahren" — dieselbe Frage
+ * darf nicht an drei Stellen verschieden gelesen werden. Ein leeres Feld ist keine Angabe.
+ */
+function readGridConnectionFields(formData: FormData): {
+  values: { field: string; value: string }[]
+  fieldErrors: Record<string, string>
+} {
+  const values: { field: string; value: string }[] = []
+  const fieldErrors: Record<string, string> = {}
+
+  // `tariffParamsSchema.netzebene` ist ein String — `netzebeneDraftValue` ist der eine Ort dieser Regel.
+  const netzebeneRaw = String(formData.get('netzebene') ?? '').trim()
+  if (netzebeneRaw !== '') {
+    const netzebene = readNetzebene(formData, 'netzebene')
+    if (netzebene === null) {
+      fieldErrors.netzebene = 'Diese Netzebene kennen wir nicht.'
+    } else {
+      values.push({ field: 'netzebene', value: netzebeneDraftValue(netzebene) })
+    }
+  }
+
+  // Keine feste Betreiberliste: `grid_tariffs.operator_id` hat weder FK noch CHECK (B21-1).
+  const operatorRaw = String(formData.get('operatorId') ?? '').trim()
+  if (operatorRaw !== '') {
+    values.push({ field: NETZBETREIBER_DRAFT_KEY, value: operatorRaw })
+  }
+
+  const variantRaw = String(formData.get('meteringVariant') ?? '').trim()
+  if (variantRaw !== '') {
+    const meteringVariant = readMeteringVariant(formData, 'meteringVariant')
+    if (meteringVariant === null) {
+      fieldErrors.meteringVariant = 'Diese Messvariante kennen wir nicht.'
+    } else {
+      values.push({ field: 'meteringVariant', value: meteringVariant })
+    }
+  }
+
+  return { values, fieldErrors }
+}
+
+function connectionCountText(count: number): string {
+  return count === 1
+    ? 'Eine Angabe zum Netzanschluss wurde übernommen.'
+    : `${count} Angaben zum Netzanschluss wurden übernommen.`
+}
+
+/**
+ * Speichert NUR den Netzanschluss — der erste, in sich abschliessbare Teil der Handeingabe.
+ *
+ * Eigene Action statt `saveMeteringPointManualTariffAction`, weil jene das Abrechnungsmodell bei
+ * jedem Speichern als bestätigt schreibt; hier hat es niemand zu Gesicht bekommen. Der
+ * Überspringen-Vermerk bleibt unberührt: ein Netzanschluss ist keine Rechnungsangabe.
+ */
+export async function saveMeteringPointGridConnectionAction(
+  _prev: AdminState,
+  formData: FormData,
+): Promise<AdminState> {
+  const projectId = readProjectId(formData)
+  if (projectId === null) return { formError: UNKNOWN_PROJECT }
+
+  const meteringPointId = String(formData.get('meteringPointId') ?? '')
+  if (!UUID.test(meteringPointId)) return { formError: GENERIC }
+
+  const { values, fieldErrors } = readGridConnectionFields(formData)
+  if (Object.keys(fieldErrors).length > 0) return { fieldErrors }
+  if (values.length === 0) {
+    return {
+      formError: 'Bitte mindestens eine Angabe wählen — oder „Nicht angeben".',
+    }
+  }
+
+  const failure = await writeMeteringPointDraftFields(
+    projectId,
+    meteringPointId,
+    values,
+    'Netzanschluss',
+  )
+  if (failure) return failure
+
+  return { success: connectionCountText(values.length) }
+}
+
+/**
  * Liest eine eingetippte Zahl.
  *
  * `undefined` = Feld leer (keine Angabe, kein Fehler) · `null` = eingetippt, aber unbrauchbar.
@@ -885,42 +975,9 @@ export async function saveMeteringPointManualTariffAction(
     values.push({ field: draftFieldFor(key), value })
   }
 
-  /*
-   * ⚠ Die Netzebene wird UMGEFORMT. `tariffParamsSchema.netzebene` ist `z.string()`; eine Zahl dort
-   * ist ein Schema-Verstoss, den `checkDraftCompleteness` dauerhaft als `invalid` meldet, während
-   * der Wert gespeichert aussieht. `netzebeneDraftValue` ist der eine Ort dieser Regel.
-   */
-  const netzebeneRaw = String(formData.get('netzebene') ?? '').trim()
-  if (netzebeneRaw !== '') {
-    const netzebene = readNetzebene(formData, 'netzebene')
-    if (netzebene === null) {
-      fieldErrors.netzebene = 'Diese Netzebene kennen wir nicht.'
-    } else {
-      values.push({ field: 'netzebene', value: netzebeneDraftValue(netzebene) })
-    }
-  }
-
-  /*
-   * ⚠ KEINE Prüfung gegen eine feste Betreiberliste — wortgleich zu `lookupGridTariffDefaultsAction`
-   * und aus demselben Grund: `grid_tariffs.operator_id` ist ohne Fremdschlüssel und ohne CHECK
-   * gebaut (B21-1), und die gepflegten Kennungen wachsen mit dem Bestand. Eine Liste, die der
-   * Vorschlag NICHT anlegt, die Speicherung aber verlangte, liesse einen neu gepflegten
-   * Netzbetreiber vorschlagen und nicht speichern — und das sähe wie ein Defekt aus.
-   */
-  const operatorRaw = String(formData.get('operatorId') ?? '').trim()
-  if (operatorRaw !== '') {
-    values.push({ field: NETZBETREIBER_DRAFT_KEY, value: operatorRaw })
-  }
-
-  const variantRaw = String(formData.get('meteringVariant') ?? '').trim()
-  if (variantRaw !== '') {
-    const meteringVariant = readMeteringVariant(formData, 'meteringVariant')
-    if (meteringVariant === null) {
-      fieldErrors.meteringVariant = 'Diese Messvariante kennen wir nicht.'
-    } else {
-      values.push({ field: 'meteringVariant', value: meteringVariant })
-    }
-  }
+  const connection = readGridConnectionFields(formData)
+  Object.assign(fieldErrors, connection.fieldErrors)
+  values.push(...connection.values)
 
   /*
    * ⚠ DAS ABRECHNUNGSMODELL IST DAS EINZIGE FELD DIESES FORMULARS OHNE LEEREN ZUSTAND — und es

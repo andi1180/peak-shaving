@@ -96,6 +96,7 @@ const {
   removeMeteringPointLoadProfileAction,
   saveMeteringPointBatteryAction,
   saveMeteringPointBatteryChoiceAction,
+  saveMeteringPointGridConnectionAction,
   saveMeteringPointManualTariffAction,
   saveMeteringPointPvArrayAction,
   saveMeteringPointPvChoiceAction,
@@ -884,6 +885,25 @@ describe('skipMeteringPointInvoiceAction', () => {
     expect(draft[INVOICE_SKIPPED_KEY]).toBe(false)
   })
 
+  it('⚠ nimmt den Netzanschluss mit — ohne Rechnung bleibt er trotzdem angebbar', async () => {
+    const fd = skipForm()
+    fd.set('operatorId', 'wiener_netze')
+    fd.set('netzebene', '7')
+    fd.set('meteringVariant', 'ohne_leistungsmessung')
+
+    const state = await skipMeteringPointInvoiceAction({}, fd)
+
+    expect(state.formError).toBeUndefined()
+    expect(state.success).toContain('3 Angaben zum Netzanschluss wurden übernommen')
+    expect(draft).toMatchObject({
+      [INVOICE_SKIPPED_KEY]: true,
+      netzbetreiber: 'wiener_netze',
+      netzebene: 'NE 7',
+      meteringVariant: 'ohne_leistungsmessung',
+    })
+    expect(rpc.mock.calls.filter(([fn]) => fn === 'update_metering_point_draft')).toHaveLength(1)
+  })
+
   it('⚠ eine spätere Eingabe von Hand setzt den Vermerk auf `false` zurück', async () => {
     await skipMeteringPointInvoiceAction({}, skipForm())
     expect(draft[INVOICE_SKIPPED_KEY]).toBe(true)
@@ -917,6 +937,46 @@ describe('skipMeteringPointInvoiceAction', () => {
     expect(state.success).toContain('2 Angaben wurden übernommen')
     expect(draft.leistungspreisEurPerKwYear).toBe(38.52)
     expect(draft[INVOICE_SKIPPED_KEY]).toBe(false)
+  })
+})
+
+describe('saveMeteringPointGridConnectionAction — nur der Netzanschluss', () => {
+  beforeEach(() => {
+    draft = {}
+    withInvoiceWrappers()
+  })
+
+  function connectionForm(fields: Record<string, string>): FormData {
+    const fd = new FormData()
+    fd.set('projectId', PROJECT_ID)
+    fd.set('meteringPointId', POINT_ID)
+    for (const [key, value] of Object.entries(fields)) fd.set(key, value)
+    return fd
+  }
+
+  it('⚠ schreibt die drei Felder und KEIN Abrechnungsmodell, Vermerk unberührt', async () => {
+    draft = { [INVOICE_SKIPPED_KEY]: true }
+
+    const state = await saveMeteringPointGridConnectionAction(
+      {},
+      connectionForm({ operatorId: 'wiener_netze', netzebene: '6', meteringVariant: '' }),
+    )
+
+    expect(state.success).toContain('2 Angaben zum Netzanschluss wurden übernommen')
+    expect(draft).toMatchObject({ netzbetreiber: 'wiener_netze', netzebene: 'NE 6' })
+    // Das Modell hat niemand gesehen — geschrieben hiesse es „bestätigt" (`readManualTariffDraft`).
+    expect(draft.billingModel).toBeUndefined()
+    expect(draft[INVOICE_SKIPPED_KEY]).toBe(true)
+  })
+
+  it('weist ein leeres Formular ab, ohne die Datenbank zu fragen', async () => {
+    const state = await saveMeteringPointGridConnectionAction(
+      {},
+      connectionForm({ operatorId: '', netzebene: '', meteringVariant: '' }),
+    )
+
+    expect(state.formError).toContain('Nicht angeben')
+    expect(rpc).not.toHaveBeenCalled()
   })
 })
 

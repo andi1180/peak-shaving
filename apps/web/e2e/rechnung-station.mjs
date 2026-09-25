@@ -26,6 +26,11 @@
  * DB_CONTAINER. Die Ausgangslage stellt der Lauf SELBST her (`rechnung-station.seed.sql`) — sonst
  * misst der zweite Lauf etwas anderes als der erste.
  *
+ * ── NETZANSCHLUSS OHNE RECHNUNG (Schritte 3, 6, 7) ────────────────────────────────────────────
+ * Die Handeingabe fragt zuerst nur den Netzanschluss und bietet danach „Tarifwerte eintragen" ODER
+ * „Weiter" an; „Ohne Rechnung fortfahren" öffnet denselben Block inline statt eines
+ * `window.confirm` — mit Angabe (6) und über „Nicht angeben" (7).
+ *
  * ── DIE FÜNF SCHRITTE ────────────────────────────────────────────────────────────────────────
  * Sie sind der von Andreas berichtete Weg, in genau dieser Reihenfolge, und nicht zu kürzen:
  * ohne das Entfernen (2) stünde die Zusammenfassung der gelesenen Rechnung über dem Formular und
@@ -70,6 +75,34 @@ function check(name, ok, detail) {
     console.log(`  FAIL ${name}${detail ? ` — ${detail}` : ''}`)
     failures.push(name)
   }
+}
+
+const POINT_ID = '22222222-2222-4222-8222-222222222222'
+
+function sql(query) {
+  return execFileSync(
+    'docker',
+    ['exec', '-i', DB_CONTAINER, 'psql', '-U', 'postgres', '-d', 'postgres', '-tA', '-v', 'ON_ERROR_STOP=1', '-c', query],
+    { encoding: 'utf8' },
+  ).trim()
+}
+
+function draftField(key) {
+  return sql(`select coalesce(draft->>'${key}', '<fehlt>') from platform.metering_points where id = '${POINT_ID}'`)
+}
+
+function clearDraft() {
+  sql(`update platform.metering_points set draft = '{}'::jsonb where id = '${POINT_ID}'`)
+}
+
+/** Den Knopf „Ohne Rechnung fortfahren" betätigen, bis der Netzanschluss-Block steht (Hydration). */
+async function openSkipPanel(page) {
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    if (await page.getByTestId('invoice-skip').isVisible().catch(() => false)) return true
+    await page.getByRole('button', { name: 'Ohne Rechnung fortfahren' }).first().click()
+    await page.waitForTimeout(1000)
+  }
+  return await page.getByTestId('invoice-skip').isVisible().catch(() => false)
 }
 
 async function setSelect(page, id, value) {
@@ -142,14 +175,48 @@ try {
   }
   console.log(`  ${removed} gelesene Rechnung(en) zurückgenommen`)
 
+  // Ab hier darf KEIN nativer Dialog mehr kommen — der Skip-Weg lief früher über `window.confirm`.
+  const dialogs = []
+  page.on('dialog', (d) => {
+    dialogs.push(d.message())
+    d.dismiss()
+  })
+
+  // Deterministischer Ausgangspunkt: ohne erfasste Tarifwerte beginnt die Handeingabe beim Netzanschluss.
+  clearDraft()
+  await page.goto(STATION, { waitUntil: 'domcontentloaded' })
+  await page.getByRole('heading', { name: /Rechnung/ }).first().waitFor({ timeout: 15000 })
+
   // ── 3. Manuelle Eingabe: alle Felder ausfüllen und übernehmen ─────────────
   console.log('Schritt 3 — „Keine Rechnung vorhanden — Werte selbst eintragen"')
   if (!(await openManualPanel(page))) throw new Error('Manuelle Eingabe liess sich nicht öffnen')
+
+  check(
+    'Handeingabe beginnt beim Netzanschluss (Tarifwerte noch nicht sichtbar)',
+    !(await page.locator('#manual-billing-model').isVisible().catch(() => false)) &&
+      (await page.getByRole('button', { name: 'Netzanschluss übernehmen' }).isVisible()),
+  )
 
   await setSelect(page, 'manual-operator', 'wiener_netze')
   await setSelect(page, 'manual-netzebene', '7')
   await page.locator('#manual-metering-variant').waitFor({ timeout: 5000 })
   await setSelect(page, 'manual-metering-variant', 'mit_leistungsmessung')
+
+  await page.getByRole('button', { name: 'Netzanschluss übernehmen' }).click()
+  await page.getByTestId('manual-connection-choice').waitFor({ timeout: 20000 })
+  check(
+    'Nach dem Netzanschluss: „Tarifwerte eintragen" UND „Weiter zur nächsten Station" angeboten',
+    (await page.getByRole('button', { name: 'Tarifwerte eintragen' }).isVisible()) &&
+      (await page.getByRole('link', { name: 'Weiter zur nächsten Station' }).isVisible()),
+  )
+  check('Netzanschluss allein gespeichert (Netzebene)', draftField('netzebene') === 'NE 7', draftField('netzebene'))
+  check(
+    'Netzanschluss allein schreibt KEIN Abrechnungsmodell',
+    draftField('billingModel') === '<fehlt>',
+    draftField('billingModel'),
+  )
+  await page.getByRole('button', { name: 'Tarifwerte eintragen' }).click()
+  await page.locator('#manual-billing-model').waitFor({ timeout: 5000 })
   /*
    * ⚠ BEWUSST EIN ANDERER WERT ALS DER VORGABEWERT (`monthly_max_sum`). Mit dem Vorgabewert
    * gewählt wäre der Lauf blind: das Feld stünde nach der Rückkehr auch dann richtig da, wenn
@@ -162,10 +229,11 @@ try {
   const saved = page.getByText(/Angaben? wurden? übernommen|Angabe wurde übernommen/)
   await saved.first().waitFor({ timeout: 20000 })
   console.log('  gespeichert:', (await saved.first().textContent())?.slice(0, 60), '…')
+  check('Übernommen-Meldung genau einmal (Handeingabe)', (await saved.count()) === 1, `${await saved.count()}×`)
 
   // ── 4. „Weiter" klicken, zu einer anderen Station navigieren ──────────────
   console.log('Schritt 4 — Weiter zu einer anderen Station')
-  await page.getByRole('link', { name: 'Weiter' }).click()
+  await page.getByRole('link', { name: 'Weiter', exact: true }).click()
   await page.waitForURL(/station=zp1-batterie/, { timeout: 15000 })
 
   // ── 5. Zurück zur Rechnung-Station ────────────────────────────────────────
@@ -221,6 +289,59 @@ try {
     check(`${id} vorbefüllt (${expected})`, actual === expected, `ist "${actual}"`)
   }
 
+  // ── 6. „Ohne Rechnung fortfahren" MIT Netzanschluss ─────────────────────
+  console.log('Schritt 6 — „Ohne Rechnung fortfahren" mit Netzanschluss')
+  if (!(await openSkipPanel(page))) throw new Error('Netzanschluss-Block liess sich nicht öffnen')
+  check('Handeingabe und Skip-Block nie gleichzeitig offen', !(await page.locator('#manual-operator').isVisible()))
+  check(
+    'Skip-Block zeigt denselben erfassten Netzanschluss',
+    (await page.inputValue('#skip-operator')) === 'wiener_netze' &&
+      (await page.inputValue('#skip-netzebene')) === '7' &&
+      (await page.inputValue('#skip-metering-variant')) === 'mit_leistungsmessung',
+  )
+  await setSelect(page, 'skip-operator', 'netz_noe')
+  await setSelect(page, 'skip-netzebene', '6')
+  check('Messvariante auf NE 6 ausgeblendet', !(await page.locator('#skip-metering-variant').isVisible()))
+  await page.getByRole('button', { name: 'Weiter', exact: true }).click()
+  const prompt = page.getByText(
+    'Ohne Rechnungsdaten fortfahren? Die Analyse rechnet dann ohne Kostenvergleich — nur auf Basis des Lastgangs und der Batterie-/Tarifoptimierung.',
+  )
+  check('Hinweistext wortgleich auf der Seite', await prompt.isVisible())
+  check('Vor der Bestätigung noch nichts vermerkt', draftField('invoiceSkipped') !== 'true', draftField('invoiceSkipped'))
+  await page.getByRole('button', { name: 'Ohne Rechnung fortfahren' }).click()
+  await page.waitForURL(/station=zp1-batterie/, { timeout: 20000 })
+  check('Weiterleitung zur nächsten Station', true)
+  check('Vermerk gesetzt', draftField('invoiceSkipped') === 'true', draftField('invoiceSkipped'))
+  check('Netzbetreiber übernommen', draftField('netzbetreiber') === 'netz_noe', draftField('netzbetreiber'))
+  check('Netzebene übernommen', draftField('netzebene') === 'NE 6', draftField('netzebene'))
+
+  await page.goto(STATION, { waitUntil: 'domcontentloaded' })
+  await page.getByRole('heading', { name: /Rechnung/ }).first().waitFor({ timeout: 15000 })
+  check(
+    'Bei „manuelle Eingabe" identisch da',
+    (await page.inputValue('#manual-operator')) === 'netz_noe' &&
+      (await page.inputValue('#manual-netzebene')) === '6',
+  )
+  check('Vermerk-Zeile sichtbar', await page.getByText('Vermerkt: ohne Rechnungsdaten fortgefahren.').first().isVisible())
+  await page.getByRole('button', { name: 'Werte übernehmen' }).click()
+  const savedAgain = page.getByText(/Angaben? wurden? übernommen|Angabe wurde übernommen/)
+  await savedAgain.first().waitFor({ timeout: 20000 })
+  check('Übernommen-Meldung genau einmal (nach Skip-Einstieg)', (await savedAgain.count()) === 1, `${await savedAgain.count()}×`)
+
+  // ── 7. „Ohne Rechnung fortfahren" über „Nicht angeben" ─────────────────
+  console.log('Schritt 7 — „Nicht angeben"')
+  clearDraft()
+  await page.goto(STATION, { waitUntil: 'domcontentloaded' })
+  await page.getByRole('heading', { name: /Rechnung/ }).first().waitFor({ timeout: 15000 })
+  if (!(await openSkipPanel(page))) throw new Error('Netzanschluss-Block liess sich nicht öffnen')
+  await page.getByRole('button', { name: 'Nicht angeben' }).click()
+  await prompt.waitFor({ timeout: 5000 })
+  await page.getByRole('button', { name: 'Ohne Rechnung fortfahren' }).click()
+  await page.waitForURL(/station=zp1-batterie/, { timeout: 20000 })
+  check('„Nicht angeben": Vermerk gesetzt', draftField('invoiceSkipped') === 'true', draftField('invoiceSkipped'))
+  check('„Nicht angeben": kein Netzbetreiber', draftField('netzbetreiber') === '<fehlt>', draftField('netzbetreiber'))
+
+  check('kein nativer Dialog', dialogs.length === 0, dialogs.join(' | '))
   check('keine Konsolenfehler', consoleErrors.length === 0, consoleErrors.slice(0, 3).join(' | '))
 } catch (err) {
   console.log('ABBRUCH:', err.message.split('\n').slice(0, 5).join(' | '))
