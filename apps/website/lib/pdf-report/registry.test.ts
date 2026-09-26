@@ -474,7 +474,12 @@ describe('Report-Baukasten-Registry (B2)', () => {
         if (built?.amount?.tone === 'negative') rot.push(`${label}/${entry.id}`)
       }
     }
-    expect(rot).toEqual(['Blocker/addon_none'])
+    /* Katalog ohne wirtschaftliches Gerät: „Lohnt sich ein Speicher? — Derzeit nicht" (beide Fixturen −9.000 €). */
+    expect(rot).toEqual([
+      'Katalog positiv/catalog_alternatives',
+      'Blocker/addon_none',
+      'PV-Ausfall/catalog_alternatives',
+    ])
   })
 })
 

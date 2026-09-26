@@ -383,16 +383,18 @@ export function buildReportRegistry(
     ),
     statement('addon_table', () =>
       hasTable && comparison.variant === 'addon'
-        ? buildTableStatement('addon', comparison.considered, comparison.horizonYears)
+        ? buildTableStatement('addon', comparison.considered)
         : null,
     ),
     statement('catalog_alternatives', () =>
       hasTable && comparison.variant === 'catalog'
-        ? buildTableStatement('catalog', comparison.considered, comparison.horizonYears)
+        ? buildTableStatement('catalog', comparison.considered)
         : null,
     ),
     table(CANDIDATE_TABLE_ID, () =>
-      hasTable ? buildCandidateTable(comparison.shown, comparison.horizonYears) : null,
+      hasTable
+        ? buildCandidateTable(comparison.shown, comparison.horizonYears, comparison.reference)
+        : null,
     ),
 
     /* ── Kapitel 8 ─────────────────────────────────────────────────────────────────────────── */

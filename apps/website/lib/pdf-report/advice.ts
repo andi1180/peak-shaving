@@ -1,7 +1,14 @@
 import { NETZBETREIBER_LABELS, displayedPriceLabel } from 'shared'
 
 import { formatEur } from '@/lib/format'
-import { ANNUALIZED_LABEL, catalogStorageNote, CONTROLLED_WAY_LABEL, isAnnualized } from '@/lib/report-copy'
+import {
+  ANNUALIZED_LABEL,
+  catalogStorageEntry,
+  catalogStorageNote,
+  CONTROLLED_WAY_LABEL,
+  isAnnualized,
+  storagePaysOff,
+} from '@/lib/report-copy'
 import { formatIsoDate } from './basis'
 import { comparisonSelection, hasComparisonChapter } from './comparison'
 import { BASIS_SECTION, PV_VALUE_SECTION } from './content'
@@ -125,12 +132,15 @@ function simplePoint(ways: SummaryWays, way: SummaryWay, days: string): ReportPo
  */
 function maximumPoint(way: SummaryWay, days: string, input: PdfReportInput): ReportPoint {
   const storage = catalogStorageNote(input.analysis)
+  /* Rechnet sich das Katalog-Gerät nicht, ist der Punkt eine Feststellung und kein Rat. */
+  const entry = catalogStorageEntry(input.analysis)
+  const neutral = entry !== undefined && !storagePaysOff(entry)
   return {
-    title: 'Wollen Sie das Maximum',
+    title: neutral ? 'Mit Speicher und Ladesteuerung' : 'Wollen Sie das Maximum',
     text:
       `${CONTROLLED_WAY_LABEL} — ${formatEur(way.eur)} weniger über dieselben ${days} Tage.` +
       (storage ? ` ${storage}` : '') +
-      ' Sprechen Sie uns an, wenn Sie dabei Unterstützung möchten.',
+      (neutral ? '' : ' Sprechen Sie uns an, wenn Sie dabei Unterstützung möchten.'),
   }
 }
 

@@ -870,6 +870,14 @@ function formatInvoicePeriod(period: PdfReportInvoicePeriod): string {
   return `Kundenrechnung, Abrechnungszeitraum ${from} – ${to}${origin}`
 }
 
+/** Hersteller und Bezeichnung — ohne den Hersteller zu wiederholen, wenn die Katalog-Bezeichnung ihn schon trägt. */
+function deviceLabel(battery: { manufacturer: string; name: string }): string {
+  const manufacturer = battery.manufacturer.trim()
+  return !manufacturer || battery.name.toLowerCase().startsWith(manufacturer.toLowerCase())
+    ? battery.name
+    : `${manufacturer} ${battery.name}`
+}
+
 /**
  * Gruppe 3 — das Gerät.
  *
@@ -894,9 +902,7 @@ function batteryRowsForSources(
 ): ReportTableRow[] {
   const hint = dynamicTariffHintKind(analysis)
   const entry = hint ? undefined : primaryEntryOf(analysis)
-  const device = entry
-    ? `${entry.battery.manufacturer} ${entry.battery.name}`
-    : 'kein Gerät ausgewiesen'
+  const device = entry ? deviceLabel(entry.battery) : 'kein Gerät ausgewiesen'
   // Der Bestandsspeicher hat keinen Katalogpreis — gerechnet wird nur mit seinen Kenndaten.
   const usage = hint
     ? 'Kein Speichervorschlag: ohne dynamischen Tarif spart keines der Katalog-Geräte etwas.'

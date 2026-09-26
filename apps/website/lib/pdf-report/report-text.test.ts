@@ -346,13 +346,13 @@ describe('catalog_alternatives — Verweis auf das Empfehlungs-Kapitel', () => {
   it('nennt den Kapiteltitel wortgleich — und zieht ihn aus `content.ts`, nicht aus einem Literal', () => {
     expect(body(reportLayoutOf(placements()))).toBe(
       'Gereiht ist nach der Netto-Ersparnis über den Betrachtungszeitraum — derselben Grösse wie ' +
-        'die Kurve darüber und wie die Empfehlung im Kapitel „Empfehlung und Wirtschaftlichkeit". ' +
-        'Das ' +
-        'empfohlene Gerät steht deshalb hier nicht noch einmal: es ist dort vollständig ' +
-        'aufgeschlüsselt. Diese Tabelle sagt, was die Alternativen dagegen leisten — und um ' +
-        'welchen Betrag die Empfehlung besser ist. Die Hinweise zu einem Gerät (Betonsockel, ' +
-        'separater Wechselrichter, zu geringe Leistung für alle Spitzen) sind in der Investition ' +
-        'bereits enthalten, werden hier aber nicht je Gerät wiederholt — sie stehen beim empfohlenen Gerät.',
+        'die Kurve darüber und wie das beste Gerät im Kapitel „Empfehlung und Wirtschaftlichkeit". ' +
+        'Das beste Gerät steht deshalb hier nicht noch einmal: es ist dort vollständig ' +
+        'aufgeschlüsselt. Diese Tabelle zeigt die nächsten Alternativen — und um welchen Betrag ' +
+        'das beste Gerät besser ist; alle übrigen Geräte stehen als Punkte in der Kurve. Die ' +
+        'Hinweise zu einem Gerät (Betonsockel, separater Wechselrichter, zu geringe Leistung für ' +
+        'alle Spitzen) sind in der Investition bereits enthalten, werden hier aber nicht je Gerät ' +
+        'wiederholt — sie stehen beim besten Gerät.',
     )
   })
 
@@ -368,7 +368,7 @@ describe('catalog_alternatives — Verweis auf das Empfehlungs-Kapitel', () => {
     )
     const text = body(reportLayoutOf(umsortiert))
 
-    expect(text).toContain('wie die Empfehlung oben.')
+    expect(text).toContain('wie das beste Gerät oben.')
     expect(text).not.toContain('im Kapitel')
   })
 
@@ -377,8 +377,8 @@ describe('catalog_alternatives — Verweis auf das Empfehlungs-Kapitel', () => {
     const ohne = placements().filter((p) => p.id !== 'recommendation')
     const text = body(reportLayoutOf(ohne))
 
-    expect(text).toContain('wie die Empfehlung dieses Reports.')
-    expect(text).toContain('es ist beim empfohlenen Gerät vollständig aufgeschlüsselt.')
+    expect(text).toContain('wie das beste Gerät dieses Reports.')
+    expect(text).toContain('es ist beim besten Gerät vollständig aufgeschlüsselt.')
   })
 })
 
@@ -560,11 +560,11 @@ describe('Stufe-C-Sperren: `addon` und `table_candidates`', () => {
     )
     expect(ohne).toBe(
       'Verglichen wird nach der Netto-Ersparnis über den Betrachtungszeitraum — derselben Grösse ' +
-        'wie die Kurve darüber und wie die Empfehlung im Kapitel „Empfehlung und ' +
+        'wie die Kurve darüber und wie das beste Gerät im Kapitel „Empfehlung und ' +
         'Wirtschaftlichkeit". ' +
-        'Das empfohlene Gerät selbst ist dort vollständig aufgeschlüsselt. Die Hinweise zu einem ' +
+        'Das beste Gerät selbst ist dort vollständig aufgeschlüsselt. Die Hinweise zu einem ' +
         'Gerät (Betonsockel, separater Wechselrichter, zu geringe Leistung für alle ' +
-        'Spitzen) sind in der Investition bereits enthalten — sie stehen beim empfohlenen Gerät.',
+        'Spitzen) sind in der Investition bereits enthalten — sie stehen beim besten Gerät.',
     )
     expect(ohne).not.toContain('Tabelle')
     expect(ohne).not.toContain('je Zeile')
