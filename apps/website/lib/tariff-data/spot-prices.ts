@@ -89,7 +89,9 @@ export async function fetchSpotPrices(
       .from('spot_prices')
       .select('ts_start, ts_end, ct_per_kwh, price_basis')
       .eq('provider', SPOT_PRICE_PROVIDER)
-      .gte('ts_start', periodStart)
+      /* Jede Stunde, die sich mit [periodStart, periodEnd) überschneidet — auch die angebrochene
+         erste (Lastgang ab 00:15) und letzte. `ts_start >= periodStart` schnitt die erste ab. */
+      .gt('ts_end', periodStart)
       .lt('ts_start', periodEnd)
       .order('ts_start', { ascending: true })
       .range(offset, offset + PAGE_SIZE - 1)
@@ -142,6 +144,8 @@ export function findMissingRanges(
     const from = Date.parse(p.tsStart)
     const to = Date.parse(p.tsEnd)
     if (!Number.isFinite(from) || !Number.isFinite(to)) continue
+    // Dieselbe Überschneidungs-Regel wie die Abfrage: was ausserhalb des Zeitraums liegt, zählt nicht.
+    if (to <= startMs || from >= endMs) continue
     if (from > coveredUntil) gaps.push({ fromIso: iso(coveredUntil), toIso: iso(from) })
     // `Math.max`, weil sich Einträge überlappen dürfen (eine feinere Quelle neben einer gröberen).
     // Ein Rückschritt würde sonst eine Lücke erfinden, die es nicht gibt.

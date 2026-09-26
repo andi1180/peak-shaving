@@ -40,6 +40,12 @@ export default defineConfig({
      * React, ohne Request und ohne Datenbank. Der Datenbank-Rand daneben (`source.ts`) hat
      * bewusst keinen Test — er ist ein Adapter um den `shared`-Loader, und der IST geprüft.
      */
-    include: ['lib/*.test.ts', 'lib/pdf-report/*.test.ts', 'lib/battery-catalog/*.test.ts'],
+    // `lib/tariff-data/*`: die Spotpreis-Abfrage gegen einen gestubbten Client, ohne Datenbank.
+    include: [
+      'lib/*.test.ts',
+      'lib/pdf-report/*.test.ts',
+      'lib/battery-catalog/*.test.ts',
+      'lib/tariff-data/*.test.ts',
+    ],
   },
 })

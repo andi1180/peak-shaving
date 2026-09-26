@@ -36,7 +36,7 @@ function stubClient(results: { data: unknown[] | null; error: { message: string 
     then: (resolve: (value: unknown) => unknown) =>
       Promise.resolve(results[Math.min(next++, results.length - 1)]).then(resolve),
   }
-  for (const method of ['select', 'eq', 'is', 'or', 'lte', 'gte', 'lt', 'order', 'range'] as const) {
+  for (const method of ['select', 'eq', 'is', 'or', 'lte', 'gte', 'gt', 'lt', 'order', 'range'] as const) {
     builder[method] = (...args: unknown[]) => {
       calls.push({ method, args })
       return builder
@@ -215,6 +215,70 @@ describe('readSpotPricesForAnalysis', () => {
     // Der Aufschlag der Intervalldauer: ohne ihn endete die Abfrage um 07:45 und die letzte Stunde
     // (07:00–08:00) gälte als nicht abgedeckt — für JEDEN vollständigen Lastgang eine Lücke.
     expect(series.prices).toHaveLength(6)
+  })
+})
+
+/**
+ * Ein Stub, der die Filter WIRKLICH anwendet — der obige gibt jede Zeile zurück und könnte eine
+ * zu enge Abfrage nie zeigen. Stundenpreise 2025-12-31 22:00 bis 2026-01-01 06:00 UTC.
+ */
+function spotTable(skipHourIso?: string) {
+  const rows = hourlyRows('2025-12-31T22:00:00.000Z', 8)
+    .filter((row) => row.ts_start !== skipHourIso)
+    .map((row) => ({ ...row, provider: 'awattar_at' }))
+  const time = (value: unknown) => Date.parse(String(value))
+  const client = {
+    from: () => {
+      const filters: ((row: Record<string, unknown>) => boolean)[] = []
+      let range: [number, number] = [0, Infinity]
+      const builder: Record<string, unknown> = {
+        select: () => builder,
+        order: () => builder,
+        eq: (c: string, v: unknown) => (filters.push((r) => r[c] === v), builder),
+        gt: (c: string, v: unknown) => (filters.push((r) => time(r[c]) > time(v)), builder),
+        gte: (c: string, v: unknown) => (filters.push((r) => time(r[c]) >= time(v)), builder),
+        lt: (c: string, v: unknown) => (filters.push((r) => time(r[c]) < time(v)), builder),
+        range: (from: number, to: number) => ((range = [from, to]), builder),
+        then: (resolve: (value: unknown) => unknown) =>
+          Promise.resolve({
+            data: rows.filter((r) => filters.every((f) => f(r))).slice(range[0], range[1] + 1),
+            error: null,
+          }).then(resolve),
+      }
+      return builder
+    },
+  }
+  return client as never
+}
+
+describe('readSpotPricesForAnalysis — angebrochene Randstunden', () => {
+  it.each([
+    ['Beginn :15 — die angebrochene erste Stunde fehlt nicht', '2026-01-01T00:15:00.000Z', '2026-01-01T02:30:00.000Z'],
+    ['Ende :45 — die angebrochene letzte Stunde ist dabei', '2026-01-01T00:00:00.000Z', '2026-01-01T02:30:00.000Z'],
+    ['Beginn zur vollen Stunde — die Stunde davor bleibt draussen', '2026-01-01T00:00:00.000Z', '2026-01-01T02:45:00.000Z'],
+  ])('%s', async (_, startIso, endIso) => {
+    const series = await readSpotPricesForAnalysis(spotTable(), { startIso, endIso }, 15)
+
+    expect(series.prices.map((price) => price.tsStart)).toEqual([
+      '2026-01-01T00:00:00.000Z',
+      '2026-01-01T01:00:00.000Z',
+      '2026-01-01T02:00:00.000Z',
+    ])
+    expect(series.complete).toBe(true)
+    expect(series.missingRanges).toEqual([])
+  })
+
+  it('eine echte fehlende Stunde in der Mitte bleibt eine benannte Lücke', async () => {
+    const series = await readSpotPricesForAnalysis(
+      spotTable('2026-01-01T01:00:00.000Z'),
+      { startIso: '2026-01-01T00:15:00.000Z', endIso: '2026-01-01T02:30:00.000Z' },
+      15,
+    )
+
+    expect(series.complete).toBe(false)
+    expect(series.missingRanges).toEqual([
+      { fromIso: '2026-01-01T01:00:00.000Z', toIso: '2026-01-01T02:00:00.000Z' },
+    ])
   })
 })
 

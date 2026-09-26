@@ -241,6 +241,8 @@ Details und der vollständige Stand: siehe `./Pflichtenheft_Kalkulator_MVP.md`, 
 
 > Lebendiger Handover-Anker. Neueste offene Punkte, die den Bau der Engine/Simulation berühren. Erledigtes wandert raus.
 
+**Spotpreise mit angebrochenen Randstunden (26.09.2026):** beide Leser (`apps/web/lib/admin/analysis-tariff-inputs.ts`, `apps/website/lib/tariff-data/spot-prices.ts`) holen jede Stunde mit `ts_end > Beginn` und `ts_start < Ende`, und `findMissingRanges` zählt nur überschneidende Einträge — vorher fehlte bei Lastgang-Beginn :15 die erste Stunde, und der Vergleich wurde verweigert.
+
 ### Report an die vorausschauende Rechnung angeglichen — §3.7-Revision PR 3 (25.09.2026)
 
 Nur Report, Bildschirm, CSV; Engine und Golden-Fälle unverändert. Fachliche Tiefe: `Pflichtenheft_Kalkulator_MVP.md` §3.7 (Revision PR 3).
