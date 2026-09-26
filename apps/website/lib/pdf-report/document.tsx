@@ -562,7 +562,6 @@ const styles = StyleSheet.create({
   rowHint: { ...LEADING, fontSize: PDF_TYPE.small, color: PDF_COLORS.textMuted },
   rowValue: { ...LEADING, fontWeight: 600 },
 
-  statementNote: { ...LEADING, marginTop: 2, fontSize: PDF_TYPE.small, color: PDF_COLORS.warning },
 
   /*
    * B3-3 (20a) — die nummerierte Liste. Am Zielbild gemessen (S. 11): Ziffer in `accent` und fett
@@ -1300,16 +1299,11 @@ function Statement({ statement, layout }: { statement: ReportStatement; layout: 
         </View>
       )}
       {/*
-        Die §3.8-Warnungen, je eine Zeile. Sie stehen NEBEN der Investition und nicht in ihr:
+        Die §3.8-Warnungen als Hinweiskasten. Sie stehen NEBEN der Investition und nicht in ihr:
         „Betonsockel nötig (+€1800)" ist bereits in der Gesamtsumme enthalten — wer den Satz
-        überliest, hält die Summe für zu hoch. Fehlt die Liste, gibt es keine Warnung; eine leere
-        Zeile wäre hier ein Loch.
+        überliest, hält die Summe für zu hoch. Fehlt der Kasten, gibt es keine Warnung.
       */}
-      {statement.notes?.map((note) => (
-        <Text key={note} style={styles.statementNote}>
-          · {note}
-        </Text>
-      ))}
+      {statement.notice && <Notice notice={statement.notice} />}
     </View>
   )
 }
@@ -2194,7 +2188,7 @@ function ComparisonChapter({
   registry: ReportBaukastenRegistry
   layout: ReportLayout
 }) {
-  const chapter = buildComparisonChapter(input.analysis, context)
+  const chapter = buildComparisonChapter(input.analysis, context, input.hasPv)
   /* Report-Baukasten C: abgewählt fällt mit der Tabelle auch die Navy-Kopfzeile und das Zebra weg
      — beides lebt in `StatementTable` und nicht daneben. Die Klarsätze darüber bleiben und nennen
      sie dann nicht mehr (`comparison.ts`, `tableRef`). */

@@ -6,6 +6,7 @@ import { ANNUALIZED_LABEL, dynamicTariffHintKind, isAnnualized } from '@/lib/rep
 import type { ReportBuildContext } from './context'
 import type { ReportFigure, ReportRow, ReportStatement, ReportTable } from './statement'
 import { accent, block, column, ref, t, REF_LABEL, REF_PLACE } from './report-text'
+import { hasLeistungspreis } from './summary'
 import type { PdfReportAnalysis } from './types'
 
 /**
@@ -69,6 +70,8 @@ export type ComparisonChartPlan = {
   variant: ComparisonVariant
   points: ComparisonCandidate[]
   horizonYears: number
+  /** Das hervorgehobene Gerät („Bestes Gerät"): im Katalog die Empfehlung, sonst das bestgereihte. */
+  highlight: ComparisonCandidate
 }
 
 /**
@@ -109,7 +112,11 @@ export function comparisonChartPlan(analysis: PdfReportAnalysis): ComparisonChar
   const { variant, candidates } = candidatesOf(analysis)
   const points = drawablePoints(candidates)
   if (points.length < 2) return null
-  return { variant, points, horizonYears: analysis.assumptions.horizonYears }
+  const highlight =
+    (variant === 'catalog'
+      ? points.find((c) => c.battery.id === analysis.recommendation?.batteryId)
+      : undefined) ?? points[0]!
+  return { variant, points, horizonYears: analysis.assumptions.horizonYears, highlight }
 }
 
 /**
@@ -162,6 +169,25 @@ export function noCatalogDevicePaysOff(analysis: PdfReportAnalysis): boolean {
     analysis.perBattery.length > 0 &&
     !analysis.perBattery.some(paysOff)
   )
+}
+
+const NO_PAYOFF_REASON =
+  'Ohne Leistungspreis und ohne PV-Anlage kommt die gesamte Ersparnis aus der Preisdifferenz am ' +
+  'Spotmarkt; bei Ihrem Verbrauch reicht das nicht aus, um die Investition zu decken.'
+
+/**
+ * Der strukturelle Grund, warum sich kein Katalog-Gerät rechnet — nur, wo er eindeutig ist: kein
+ * Leistungspreis, ausdrücklich keine PV, Energie-Anteil voll aus den Preisdaten bewertet. Jede
+ * andere Lage hat mehrere Hebel, und ein Satz dazu wäre geraten — dann `null`.
+ */
+export function noPayoffReasonOf(
+  analysis: PdfReportAnalysis,
+  hasPv: boolean | undefined,
+): string | null {
+  if (!noCatalogDevicePaysOff(analysis) || hasPv !== false) return null
+  if (hasLeistungspreis(analysis.current)) return null
+  if (!analysis.perBattery.every((c) => c.energySavingBasis === 'full_price')) return null
+  return NO_PAYOFF_REASON
 }
 
 /* ────────────────────────────────────────────────────────────────────────────────────────────────
@@ -299,7 +325,8 @@ function buildFigure(plan: ComparisonChartPlan, basis: DisplayPriceBasis): Repor
       `Je Katalog-Gerät ein Punkt: waagrecht seine nutzbare Kapazität, senkrecht das, was über ` +
       `${plan.horizonYears} Jahre netto übrig bleibt — Ersparnis abzüglich der Anschaffung` +
       `${which}. Über der waagrechten Nulllinie rechnet sich ein Gerät im Betrachtungszeitraum, ` +
-      `darunter nicht. Alle Beträge ${basis === 'gross' ? VAT_INCLUSIVE_LABEL : 'netto (ohne USt.)'}.`,
+      `darunter nicht.${highlightCaption(plan)} Alle Beträge ` +
+      `${basis === 'gross' ? VAT_INCLUSIVE_LABEL : 'netto (ohne USt.)'}.`,
     note:
       `Es sind ${plan.points.length} Geräte unseres Katalogs, keine stetige Kurve: mit ` +
       'der Kapazität ändert sich auch die Leistung, und ein Gerät, das zwischen zwei Punkten läge, ' +
@@ -308,6 +335,16 @@ function buildFigure(plan: ComparisonChartPlan, basis: DisplayPriceBasis): Repor
       'der Kapazität fast immer, und die Frage ist nicht „bringt mehr Speicher mehr", sondern „ab ' +
       'wann zahlt er sich nicht mehr ein".',
   }
+}
+
+/** Der Satz zum hervorgehobenen Punkt — der Bezugspunkt, an dem der Leser die übrigen misst. */
+function highlightCaption(plan: ComparisonChartPlan): string {
+  const h = plan.highlight
+  return (
+    ` Die dunkle Raute „Bestes Gerät" ist ${h.battery.name} ` +
+    `(${formatKwh1(h.battery.usableCapacityKwh)}, ${formatEur(h.netSavingOverHorizon)} über ` +
+    `${plan.horizonYears} Jahre).`
+  )
 }
 
 /** Warum keine Punktwolke da ist — erreichbar nur bei einem einzigen Kandidaten. */
@@ -427,6 +464,8 @@ export function buildVerdict(
 export function buildTableStatement(
   variant: ComparisonVariant,
   considered: ComparisonCandidate[],
+  /* `noPayoffReasonOf` — steht vor der Einleitung, nur im Fall „Derzeit nicht". */
+  noPayoffReason: string | null = null,
 ): ReportStatement {
   const isAddon = variant === 'addon'
   const none = !isAddon && considered.length > 0 && !considered.some(paysOff)
@@ -488,7 +527,7 @@ export function buildTableStatement(
          * Empfehlung eines Tages in diesem Kapitel, wird aus beiden „oben" bzw. „weiter unten" —
          * ohne dass jemand den Satz anfasst.
          */
-        t`${tableRef(
+        t`${none && noPayoffReason ? `${noPayoffReason} ` : ''}${tableRef(
           'Gereiht ist',
           'Verglichen wird',
         )} nach der Netto-Ersparnis über den Betrachtungszeitraum — derselben Grösse wie die Kurve darüber und wie ${best} ${recommendationRef(REF_PLACE, 'dieses Reports')}. ${tableRef(
@@ -597,6 +636,7 @@ export function buildComparisonChapter(
   analysis: PdfReportAnalysis,
   /* Report-Baukasten B1 — s. `buildReportSummary`. Ohne ihn wird wie bisher selbst abgeleitet. */
   context?: ReportBuildContext,
+  hasPv?: boolean,
 ): ComparisonChapter {
   /* ⚠ `context ? … : …` statt `??` — `comparisonPlan` ist selbst gültig `null`. */
   const plan = context ? context.comparisonPlan : comparisonChartPlan(analysis)
@@ -607,7 +647,7 @@ export function buildComparisonChapter(
     figure: plan ? buildFigure(plan, displayedPriceBasis(analysis)) : null,
     figureMissing: plan ? null : FIGURE_MISSING,
     statement: hasTable
-      ? buildTableStatement(variant, considered)
+      ? buildTableStatement(variant, considered, noPayoffReasonOf(analysis, hasPv))
       : buildVerdict(considered, horizonYears),
     table: hasTable ? buildCandidateTable(shown, horizonYears, reference) : null,
     countLine: hasTable ? countLineOf(considered) : null,

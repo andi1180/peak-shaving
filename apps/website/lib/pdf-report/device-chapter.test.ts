@@ -4,8 +4,13 @@ import type { BatteryRoiEntry, LoadProfile, MonthlyTariffComparison } from 'shar
 import { formatEur } from '@/lib/format'
 import { buildAdviceChapter } from './advice'
 import { buildDataSources } from './basis'
-import { buildComparisonChapter } from './comparison'
+import { buildComparisonChapter, comparisonChartPlan } from './comparison'
+import { buildReportContext } from './context'
+import { buildReportLayout } from './layout'
 import { buildRecommendationChapter } from './recommendation'
+import { buildReportRegistry } from './registry'
+import { resolveReportText } from './report-text'
+import { statementPoints } from './statement'
 import { TARIFF_SOURCE_UNTRACKED } from './types'
 import type { PdfReportAnalysis, PdfReportInput } from './types'
 
@@ -148,10 +153,62 @@ describe('Gerätekapitel — Top-Alternativen, Urteil, Datenquellen', () => {
       'Bestes Gerät im Katalog: Dyness Stack 100',
     )
     expect(proposalTitles(input)).not.toContain('Wollen Sie das Maximum')
-    const point = proposal.find((p) => p.title === 'Mit Speicher und Ladesteuerung')!
-    expect(point.text).toContain(`Investition ${formatEur(5790)}`)
-    expect(point.text).toContain('rechnet er sich damit nicht.')
-    expect(point.text).not.toContain('Sprechen Sie uns an')
+    expect(proposalTitles(input)).not.toContain('Mit Speicher und Ladesteuerung')
+    expect(proposal.map((p) => p.title)).toContain('Speicher')
+  })
+
+  it('kein Gerät wirtschaftlich: Vorschlag verweist aufs Gerätekapitel, ohne Beträge', () => {
+    const input = inputWith(0)
+    const context = buildReportContext(input)
+    const layout = buildReportLayout(input, context, buildReportRegistry(input, context))
+    const points = statementPoints(buildAdviceChapter(input).proposal!, layout)
+    const texts = points.map((p) => `${p.title}: ${p.segments.map((s) => s.text).join('')}`)
+
+    expect(texts).toContain(
+      'Speicher: Derzeit nicht wirtschaftlich — die Antwort samt Begründung steht im Kapitel ' +
+        '„Speichergrösse und Gerätewahl".',
+    )
+    expect(texts.join(' ')).not.toContain(formatEur(5790))
+  })
+
+  it('Gerätehinweise stehen im Hinweiskasten, nicht als lose Zeile', () => {
+    const input = inputWith(0)
+    input.analysis.perBattery[0]!.warnings = ['Tarif ohne Leistungspreis: nichts zu kappen.']
+    const statement = buildRecommendationChapter(input.analysis).recommendation!
+
+    expect(statement.notice).toMatchObject({
+      tone: 'warning',
+      title: 'Hinweis zu diesem Gerät',
+      body: 'Tarif ohne Leistungspreis: nichts zu kappen.',
+    })
+  })
+
+  it('Streudiagramm hebt das beste Gerät hervor und nennt es in der Bildunterschrift', () => {
+    const input = inputWith(0)
+    const plan = comparisonChartPlan(input.analysis)!
+    const figure = buildComparisonChapter(input.analysis).figure!
+
+    expect(plan.highlight.battery.id).toBe('kat-0')
+    expect(figure.caption).toContain('„Bestes Gerät" ist Dyness Stack 100')
+  })
+
+  it('struktureller Grund nur bei keinem Leistungspreis UND ausdrücklich keiner PV', () => {
+    const reason = 'Ohne Leistungspreis und ohne PV-Anlage'
+    const bodyOf = (input: PdfReportInput, hasPv: boolean | undefined) => {
+      const context = buildReportContext(input)
+      const layout = buildReportLayout(input, context, buildReportRegistry(input, context))
+      const statement = buildComparisonChapter(input.analysis, undefined, hasPv).statement
+      return resolveReportText(statement.body, layout, statement.id)
+    }
+
+    expect(bodyOf(inputWith(0), false)).toContain(reason)
+    expect(bodyOf(inputWith(0), true)).not.toContain(reason)
+    expect(bodyOf(inputWith(0), undefined)).not.toContain(reason)
+    expect(bodyOf(inputWith(5), false)).not.toContain(reason)
+
+    const withDemandCharge = inputWith(0)
+    withDemandCharge.analysis.current.leistungspreisCostPerYear = 1200
+    expect(bodyOf(withDemandCharge, false)).not.toContain(reason)
   })
 
   it('Gerät wirtschaftlich: Überschriften wie bisher', () => {

@@ -440,7 +440,9 @@ export function PdfReportProbe() {
                 </strong>{' '}
                 · Warnungen:{' '}
                 <strong id="probe-chapter-warnings">
-                  {chapter.recommendation.notes?.length ?? 0}
+                  {chapter.recommendation.notice
+                    ? 1 + chapter.recommendation.notice.hints.length
+                    : 0}
                 </strong>
               </p>
             )}
