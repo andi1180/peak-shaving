@@ -114,14 +114,14 @@ export type ReportStatement = {
    */
   aside?: boolean
   /**
-   * Kurze Zusatzsätze unter dem Fliesstext — je Eintrag eine Zeile.
+   * Ein Hinweiskasten unter dem Fliesstext, gesetzt wie jeder `ReportNotice`.
    *
    * ⚠ Dafür da, dass die §3.8-WARNUNGEN eines Kandidaten (Betonsockel, separater Wechselrichter,
    * „Leistung reicht nicht für alle Spitzen") sichtbar bleiben statt in einem Absatz zu
    * verschwinden. Sie sind Kosten- und Eignungsaussagen und gehören neben die Investition, nicht
-   * hinter sie. Leer oder fehlend heisst: es gibt keine — nicht „wir zeigen sie hier nicht".
+   * hinter sie. Fehlend heisst: es gibt keine — nicht „wir zeigen sie hier nicht".
    */
-  notes?: string[]
+  notice?: ReportNotice | null
   /**
    * B3-3 (20a) — derselbe Fliesstext als NUMMERIERTE LISTE, ein Eintrag je Punkt. Ein Baustein
    * trägt das eine oder das andere; wo diese Liste steht, bleibt `body` leer.

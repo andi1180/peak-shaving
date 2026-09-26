@@ -32,7 +32,7 @@ import { netOverHorizonRow, totalInvestmentRow } from './investment-rows'
 import { hasNegativeAddonVerdict, noCatalogDevicePaysOff } from './comparison'
 import type { ReportBuildContext } from './context'
 import { block, ref, t, REF_SECTION } from './report-text'
-import type { ReportPoint, ReportRow, ReportStatement } from './statement'
+import type { ReportNotice, ReportPoint, ReportRow, ReportStatement } from './statement'
 import { primaryEntryOf, recommendedEntryOf } from './summary'
 import type { PdfReportAnalysis } from './types'
 
@@ -332,7 +332,21 @@ export function buildRecommendation(
      * hinter ihr: „Betonsockel nötig (+€1800)" ist eine Kostenaussage, und sie ist in
      * `totalInvestment` bereits enthalten — wer sie überliest, hält die Gesamtsumme für zu hoch.
      */
-    notes: batteryNoteTexts(entry),
+    notice: deviceNoticeOf(batteryNoteTexts(entry)),
+  }
+}
+
+/** Die Gerätehinweise als Kasten im Stil der übrigen Hinweise (STCE 26.09.2026: vorher lose Farbzeilen). */
+export function deviceNoticeOf(notes: string[]): ReportNotice | null {
+  const [first, ...rest] = notes
+  if (first === undefined) return null
+  return {
+    id: 'recommendation_device_notes',
+    tone: 'warning',
+    title: rest.length === 0 ? 'Hinweis zu diesem Gerät' : 'Hinweise zu diesem Gerät',
+    body: first,
+    list: null,
+    hints: rest,
   }
 }
 

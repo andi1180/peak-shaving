@@ -21,6 +21,7 @@ import {
   buildTableStatement,
   buildVerdict,
   comparisonSelection,
+  noPayoffReasonOf,
 } from './comparison'
 import { SECTION_ID, type ReportSectionKey } from './content'
 import type { ReportBuildContext } from './context'
@@ -388,7 +389,11 @@ export function buildReportRegistry(
     ),
     statement('catalog_alternatives', () =>
       hasTable && comparison.variant === 'catalog'
-        ? buildTableStatement('catalog', comparison.considered)
+        ? buildTableStatement(
+            'catalog',
+            comparison.considered,
+            noPayoffReasonOf(analysis, input.hasPv),
+          )
         : null,
     ),
     table(CANDIDATE_TABLE_ID, () =>

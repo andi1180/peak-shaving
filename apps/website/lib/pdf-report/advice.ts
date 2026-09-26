@@ -10,7 +10,7 @@ import {
   storagePaysOff,
 } from '@/lib/report-copy'
 import { formatIsoDate } from './basis'
-import { comparisonSelection, hasComparisonChapter } from './comparison'
+import { comparisonSelection, hasComparisonChapter, noCatalogDevicePaysOff } from './comparison'
 import { BASIS_SECTION, PV_VALUE_SECTION } from './content'
 import { hasPvValueChapter } from './pv-value'
 import { block, ref, t, REF_PLACE } from './report-text'
@@ -150,9 +150,9 @@ function maximumPoint(way: SummaryWay, days: string, input: PdfReportInput): Rep
  *
  * ⚠ DIE ANTWORT WIRD NICHT NEU ABGELEITET. `comparisonSelection` ist die eine Stelle, an der die
  * Schwelle `netSavingOverHorizon > 0` steht; `variant === 'addon'` ist dort bereits der
- * Bestandsfall (`candidatesOf` verzweigt allein an `existingBatteryAnalysis`). Ohne
- * Bestandsspeicher gibt es die Frage nicht — dann entfällt der Punkt, und der Katalog-Fall wird
- * hier ausdrücklich nicht nachgebaut: seine Empfehlung steht als eigenes Kapitel im Dokument.
+ * Bestandsfall (`candidatesOf` verzweigt allein an `existingBatteryAnalysis`). Im Katalog-Fall
+ * steht der Punkt nur beim „Derzeit nicht" des Gerätekapitels, als Verweis ohne Beträge; eine
+ * wirtschaftliche Empfehlung steht als eigenes Kapitel im Dokument.
  *
  * ⚠ `hasComparisonChapter` gehört dazu: ohne das Kapitel steht die Antwort nirgends, und ein
  * Verweis darauf zeigte ins Leere.
@@ -160,7 +160,20 @@ function maximumPoint(way: SummaryWay, days: string, input: PdfReportInput): Rep
 function storagePoint(input: PdfReportInput): ReportPoint | null {
   const analysis = input.analysis
   const { variant, shown, horizonYears } = comparisonSelection(analysis)
-  if (variant !== 'addon' || !hasComparisonChapter(analysis)) return null
+  if (!hasComparisonChapter(analysis)) return null
+  /* Katalog ohne wirtschaftliches Gerät: Verweis statt Empfehlung (STCE 26.09.2026). Bei
+     unbekanntem Tarif trägt `unknownTariffPoints` den Speicher-Punkt bereits. */
+  if (variant === 'catalog') {
+    if (!catalogVerdictIsNo(input)) return null
+    return {
+      title: 'Speicher',
+      text: t`Derzeit nicht wirtschaftlich — ${ref(
+        block('catalog_alternatives'),
+        `die Antwort samt Begründung steht ${REF_PLACE}`,
+        'kein geprüftes Gerät rechnet sich über den Betrachtungszeitraum',
+      )}.`,
+    }
+  }
 
   const best = shown[0]
   if (!best) {
@@ -182,6 +195,15 @@ function storagePoint(input: PdfReportInput): ReportPoint | null {
       best.netSavingOverHorizon,
     )} ${displayedPriceLabel(input.analysis)}${isAnnualized(best) ? `, aus der ${ANNUALIZED_LABEL}en Ersparnis` : ''}${ref(block('addon_table'), `; die Geräte im Vergleich stehen ${REF_PLACE}`, '')}.`,
   }
+}
+
+/** Sagt das Gerätekapitel „Derzeit nicht"? Dann tritt kein Speicher-Punkt als Empfehlung auf. */
+function catalogVerdictIsNo(input: PdfReportInput): boolean {
+  return (
+    noCatalogDevicePaysOff(input.analysis) &&
+    hasComparisonChapter(input.analysis) &&
+    !unknownTariffWaysOf(input.analysis)
+  )
 }
 
 /**
@@ -255,7 +277,9 @@ export function buildProposal(input: PdfReportInput): ReportStatement | null {
      */
     const controlled = ways.ways.find((way) => way.id === 'controlled')
     const threshold = simple ? simple.eur : 0
-    if (controlled && controlled.eur > threshold) points.push(maximumPoint(controlled, days, input))
+    if (controlled && controlled.eur > threshold && !catalogVerdictIsNo(input)) {
+      points.push(maximumPoint(controlled, days, input))
+    }
   }
 
   const storage = storagePoint(input)

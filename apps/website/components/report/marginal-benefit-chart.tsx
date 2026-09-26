@@ -49,6 +49,7 @@ type Point = { battery: BatteryCandidate } & Pick<
   Pick<BatteryResultEntry, 'annualizationFactor' | 'coveredDays'>
 
 type Row = {
+  id: string
   capacityKwh: number
   netSaving: number
   name: string
@@ -81,11 +82,14 @@ export function MarginalBenefitChart({
   points,
   horizonYears,
   variant,
+  highlightId,
 }: {
   points: Point[]
   horizonYears: number
   /** `addon` = Zusatzgeräte neben einer bestehenden Anlage (Differenzen), `catalog` = Neukauf. */
   variant: 'catalog' | 'addon'
+  /** PDF-Report: dieses Gerät als Raute „Bestes Gerät" hervorheben (Bezugspunkt für den Leser). */
+  highlightId?: string
 }) {
   // Nicht-endliche Werte gehören nicht in eine Achse (ein `Infinity` zöge sie ins Unendliche und
   // machte alle übrigen Punkte unlesbar). Sortiert nach Kapazität — die Linie ist eine Achse,
@@ -93,6 +97,7 @@ export function MarginalBenefitChart({
   const rows: Row[] = points
     .filter((p) => Number.isFinite(p.netSavingOverHorizon) && Number.isFinite(p.battery.usableCapacityKwh))
     .map((p) => ({
+      id: p.battery.id,
       capacityKwh: p.battery.usableCapacityKwh,
       netSaving: p.netSavingOverHorizon,
       name: p.battery.name,
@@ -118,6 +123,16 @@ export function MarginalBenefitChart({
 
   const best = rows.reduce((a, b) => (b.netSaving > a.netSaving ? b : a))
   const allNegative = rows.every((r) => r.netSaving <= 0)
+  const highlighted = rows.find((r) => r.id === highlightId)
+  const plain = highlighted ? rows.filter((r) => r !== highlighted) : rows
+  // Am Rand der x-Achse liefe eine zentrierte Beschriftung aus dem Bild.
+  const labelAnchor = !highlighted
+    ? 'middle'
+    : highlighted.capacityKwh === rows[rows.length - 1]!.capacityKwh
+      ? 'end'
+      : highlighted.capacityKwh === rows[0]!.capacityKwh
+        ? 'start'
+        : 'middle'
 
   return (
     <div
@@ -137,7 +152,7 @@ export function MarginalBenefitChart({
 
       <div className="h-64 w-full">
         <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={rows} margin={{ top: 8, right: 16, bottom: 18, left: 0 }}>
+          <ComposedChart data={rows} margin={{ top: highlighted ? 24 : 8, right: 16, bottom: 18, left: 0 }}>
             <CartesianGrid stroke="var(--color-border)" strokeDasharray="3 3" vertical={false} />
             <XAxis
               dataKey="capacityKwh"
@@ -173,6 +188,7 @@ export function MarginalBenefitChart({
                 von „rechnet sich nicht" und steht deshalb kräftiger als das Raster. */}
             <ReferenceLine y={0} stroke="var(--color-text-muted)" strokeWidth={1} />
             <Scatter
+              data={plain}
               dataKey="netSaving"
               name="Netto über den Betrachtungszeitraum"
               fill="var(--color-accent)"
@@ -188,6 +204,39 @@ export function MarginalBenefitChart({
                 />
               )}
             />
+            {highlighted && (
+              <Scatter
+                data={[highlighted]}
+                dataKey="netSaving"
+                name="Bestes Gerät"
+                fill="var(--color-ink)"
+                isAnimationActive={false}
+                shape={(props: { cx?: number; cy?: number }) => {
+                  const cx = props.cx ?? 0
+                  const cy = props.cy ?? 0
+                  return (
+                    <g>
+                      <path
+                        d={`M ${cx} ${cy - 7} L ${cx + 7} ${cy} L ${cx} ${cy + 7} L ${cx - 7} ${cy} Z`}
+                        fill="var(--color-ink)"
+                        stroke="var(--color-surface)"
+                        strokeWidth={1.5}
+                      />
+                      <text
+                        x={labelAnchor === 'start' ? cx + 9 : labelAnchor === 'end' ? cx - 9 : cx}
+                        y={cy - 11}
+                        textAnchor={labelAnchor}
+                        fontSize={11}
+                        fontWeight={600}
+                        fill="var(--color-ink)"
+                      >
+                        Bestes Gerät
+                      </text>
+                    </g>
+                  )
+                }}
+              />
+            )}
           </ComposedChart>
         </ResponsiveContainer>
       </div>

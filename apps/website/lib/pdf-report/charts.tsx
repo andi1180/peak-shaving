@@ -579,6 +579,7 @@ export async function buildReportCharts(input: PdfReportInput): Promise<ReportCh
               points={comparisonPlan.points}
               horizonYears={comparisonPlan.horizonYears}
               variant={comparisonPlan.variant}
+              highlightId={comparisonPlan.highlight.battery.id}
             />,
             { width: DETAIL_CHART_WIDTH_PX, select: selectRechartsSurface },
           ),
