@@ -164,11 +164,19 @@ function paysOff(c: Pick<ComparisonCandidate, 'netSavingOverHorizon'>): boolean 
  * Gerätewahl antwortet „Derzeit nicht". `false` im Bestandsfall und ohne Kandidaten.
  */
 export function noCatalogDevicePaysOff(analysis: PdfReportAnalysis): boolean {
-  return (
-    !analysis.existingBatteryAnalysis &&
-    analysis.perBattery.length > 0 &&
-    !analysis.perBattery.some(paysOff)
-  )
+  return !analysis.existingBatteryAnalysis && noneEconomical(analysis.perBattery)
+}
+
+function noneEconomical(candidates: ComparisonCandidate[]): boolean {
+  return candidates.length > 0 && !candidates.some(paysOff)
+}
+
+/**
+ * Zeigt das Gerätekapitel „Derzeit nicht"? Die EINE Bedingung für jede Stelle, die davon abhängt
+ * (Vorschlag, Kaufaussagen) — sonst widerspricht ein Kapitel dem anderen (STCE 26.09.2026).
+ */
+export function catalogVerdictIsNo(analysis: PdfReportAnalysis): boolean {
+  return noCatalogDevicePaysOff(analysis) && hasComparisonChapter(analysis)
 }
 
 const NO_PAYOFF_REASON =
@@ -468,7 +476,7 @@ export function buildTableStatement(
   noPayoffReason: string | null = null,
 ): ReportStatement {
   const isAddon = variant === 'addon'
-  const none = !isAddon && considered.length > 0 && !considered.some(paysOff)
+  const none = !isAddon && noneEconomical(considered)
   const rows: ReportRow[] = []
   /* §3.7.1 — Ersparnis, Amortisation und Netto der Tabelle ruhen auf dem hochgerechneten Energie-Anteil. */
   const annualized = considered.find((c) => isAnnualized(c))

@@ -10,7 +10,7 @@ import {
   storagePaysOff,
 } from '@/lib/report-copy'
 import { formatIsoDate } from './basis'
-import { comparisonSelection, hasComparisonChapter, noCatalogDevicePaysOff } from './comparison'
+import { catalogVerdictIsNo, comparisonSelection, hasComparisonChapter } from './comparison'
 import { BASIS_SECTION, PV_VALUE_SECTION } from './content'
 import { hasPvValueChapter } from './pv-value'
 import { block, ref, t, REF_PLACE } from './report-text'
@@ -161,18 +161,10 @@ function storagePoint(input: PdfReportInput): ReportPoint | null {
   const analysis = input.analysis
   const { variant, shown, horizonYears } = comparisonSelection(analysis)
   if (!hasComparisonChapter(analysis)) return null
-  /* Katalog ohne wirtschaftliches Gerät: Verweis statt Empfehlung (STCE 26.09.2026). Bei
-     unbekanntem Tarif trägt `unknownTariffPoints` den Speicher-Punkt bereits. */
+  /* Katalog: nur der Verweis bei „Derzeit nicht". Bei unbekanntem Tarif steht er bereits in
+     `unknownTariffPoints`, an erster Stelle. */
   if (variant === 'catalog') {
-    if (!catalogVerdictIsNo(input)) return null
-    return {
-      title: 'Speicher',
-      text: t`Derzeit nicht wirtschaftlich — ${ref(
-        block('catalog_alternatives'),
-        `die Antwort samt Begründung steht ${REF_PLACE}`,
-        'kein geprüftes Gerät rechnet sich über den Betrachtungszeitraum',
-      )}.`,
-    }
+    return unknownTariffWaysOf(analysis) ? null : catalogNoPoint(input)
   }
 
   const best = shown[0]
@@ -197,13 +189,17 @@ function storagePoint(input: PdfReportInput): ReportPoint | null {
   }
 }
 
-/** Sagt das Gerätekapitel „Derzeit nicht"? Dann tritt kein Speicher-Punkt als Empfehlung auf. */
-function catalogVerdictIsNo(input: PdfReportInput): boolean {
-  return (
-    noCatalogDevicePaysOff(input.analysis) &&
-    hasComparisonChapter(input.analysis) &&
-    !unknownTariffWaysOf(input.analysis)
-  )
+/** Der Verweis statt einer Kaufaussage — genau dann, wenn das Gerätekapitel „Derzeit nicht" sagt. */
+function catalogNoPoint(input: PdfReportInput): ReportPoint | null {
+  if (!catalogVerdictIsNo(input.analysis)) return null
+  return {
+    title: 'Speicher',
+    text: t`Derzeit nicht wirtschaftlich — ${ref(
+      block('catalog_alternatives'),
+      `die Antwort samt Begründung steht ${REF_PLACE}`,
+      'kein geprüftes Gerät rechnet sich über den Betrachtungszeitraum',
+    )}.`,
+  }
 }
 
 /**
@@ -243,7 +239,10 @@ function accuracyPoint(input: PdfReportInput): ReportPoint | null {
 function unknownTariffPoints(input: PdfReportInput): ReportPoint[] {
   const points: ReportPoint[] = []
   const verdict = recommendationVerdictOf(input.analysis)
-  if (verdict) {
+  const no = catalogNoPoint(input)
+  if (no) {
+    points.push(no)
+  } else if (verdict) {
     points.push({
       title: 'Speicher',
       text: t`${verdict}${ref(block('recommendation'), ` Die Einzelheiten stehen ${REF_PLACE}.`, '')}`,
@@ -277,7 +276,7 @@ export function buildProposal(input: PdfReportInput): ReportStatement | null {
      */
     const controlled = ways.ways.find((way) => way.id === 'controlled')
     const threshold = simple ? simple.eur : 0
-    if (controlled && controlled.eur > threshold && !catalogVerdictIsNo(input)) {
+    if (controlled && controlled.eur > threshold && !catalogVerdictIsNo(input.analysis)) {
       points.push(maximumPoint(controlled, days, input))
     }
   }

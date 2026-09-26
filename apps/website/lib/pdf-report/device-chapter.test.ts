@@ -171,6 +171,39 @@ describe('Gerätekapitel — Top-Alternativen, Urteil, Datenquellen', () => {
     expect(texts.join(' ')).not.toContain(formatEur(5790))
   })
 
+  it('kein Gerät wirtschaftlich, Liefertarif unbekannt: Punkt 1 ist der Verweis, keine Kaufaussage', () => {
+    const input = inputWith(0)
+    input.analysis.assumptions.energyPriceCtPerKwh = null
+    input.analysis.tariffOptimization = {
+      computable: true,
+      monthlyComparison: { ...COMPARISON, currentTariffEur: null },
+    }
+    const context = buildReportContext(input)
+    const layout = buildReportLayout(input, context, buildReportRegistry(input, context))
+    const points = statementPoints(buildAdviceChapter(input).proposal!, layout)
+    const texts = points.map((p) => `${p.title}: ${p.segments.map((s) => s.text).join('')}`)
+
+    expect(buildComparisonChapter(input.analysis).statement.amount?.value).toBe('Derzeit nicht')
+    expect(texts[0]).toBe(
+      'Speicher: Derzeit nicht wirtschaftlich — die Antwort samt Begründung steht im Kapitel ' +
+        '„Speichergrösse und Gerätewahl".',
+    )
+    expect(texts.join(' ')).not.toContain('spart voraussichtlich')
+  })
+
+  it('Gerät wirtschaftlich, Liefertarif unbekannt: Punkt 1 bleibt die Kaufaussage', () => {
+    const input = inputWith(5)
+    input.analysis.assumptions.energyPriceCtPerKwh = null
+    input.analysis.tariffOptimization = {
+      computable: true,
+      monthlyComparison: { ...COMPARISON, currentTariffEur: null },
+    }
+    const points = buildAdviceChapter(input).proposal!.points!
+
+    expect(points[0]!.title).toBe('Speicher')
+    expect(String(points[0]!.text)).not.toContain('Derzeit nicht')
+  })
+
   it('Gerätehinweise stehen im Hinweiskasten, nicht als lose Zeile', () => {
     const input = inputWith(0)
     input.analysis.perBattery[0]!.warnings = ['Tarif ohne Leistungspreis: nichts zu kappen.']

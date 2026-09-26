@@ -262,6 +262,7 @@ Nebenablage `installationCostNet` des Loaders ist entfallen; der Preisstand der 
 Nur Report, Bildschirm, CSV; Engine und Golden-Fälle unverändert. Fachliche Tiefe: `Pflichtenheft_Kalkulator_MVP.md` §3.7 (Revision PR 3).
 
 **Nachtrag 26.09.2026 (STCE-Report, nur PDF):** Gerätehinweise als Warnkasten (`ReportStatement.notice`), Streudiagramm mit Raute „Bestes Gerät" (`ComparisonChartPlan.highlight`), bei „Derzeit nicht" der Grund-Satz nur bei kein Leistungspreis + `hasPv === false` + voll bepreist (`noPayoffReasonOf`) und im Vorschlag ein Verweis statt des Speicher-Punkts mit Beträgen.
+**Nachtrag 2 (26.09.2026):** Vorschlag und Gerätekapitel entscheiden über EINE Bedingung, `catalogVerdictIsNo` (`comparison.ts`) — #386 hatte den unbekannten Liefertarif ausgenommen, dort stand weiter die Kaufaussage.
 
 **⚠ Beim nächsten Umbau mitzudenken: (a)** Der „Wert der Ladesteuerung" hat EINE Quelle,
 `loadControlValueOf` (`apps/website/lib/report-copy.ts`): Weg 3 − Weg 4 über die gemessenen Tage, bei
