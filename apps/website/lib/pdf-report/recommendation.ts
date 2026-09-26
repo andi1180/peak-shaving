@@ -25,7 +25,7 @@ import {
 } from '@/lib/report-copy'
 import { billedKwPerYear } from './basis'
 import { netOverHorizonRow, totalInvestmentRow } from './investment-rows'
-import { hasNegativeAddonVerdict } from './comparison'
+import { hasNegativeAddonVerdict, noCatalogDevicePaysOff } from './comparison'
 import type { ReportBuildContext } from './context'
 import { block, ref, t, REF_SECTION } from './report-text'
 import type { ReportPoint, ReportRow, ReportStatement } from './statement'
@@ -298,7 +298,9 @@ export function buildRecommendation(
     id: 'recommendation',
     title: isExisting
       ? `Falls Sie stattdessen neu kaufen würden: ${b.name}`
-      : `Unsere Empfehlung: ${b.name}`,
+      : noCatalogDevicePaysOff(analysis)
+        ? `Bestes Gerät im Katalog: ${b.name}`
+        : `Unsere Empfehlung: ${b.name}`,
     amount: {
       value: formatYears(entry.amortizationYears),
       caption: `bis sich die Investition von ${formatEur(entry.totalInvestment)} bezahlt gemacht hat`,

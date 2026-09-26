@@ -134,21 +134,34 @@ export function hasComparisonChapter(analysis: PdfReportAnalysis): boolean {
 }
 
 /**
- * Die Katalog-Alternativen: alle Kandidaten AUSSER dem empfohlenen.
- *
- * ── ⚠ BENANNTE ABWEICHUNG VOM BILDSCHIRM — VOLLSTÄNDIG STATT DER ERSTEN DREI ──────────────────
- * `report.tsx` kürzt auf drei (`.slice(0, 3)`, §3.8/§6.2 „2–3 Alternativen"), und dort ist das
- * richtig: jede Alternative ist eine volle `RecommendationCard`, und fünf davon in einer
- * Aufklappliste sind eine Wand. Im PDF ist eine Alternative eine TABELLENZEILE — die Kürzung
- * spart dort einen Zeilenabstand und kostet eine Angabe.
- *
- * Dazu kommt der Unterschied, der auf Papier zählt: ein Bildschirm-Report lässt sich weiter
- * aufklappen, ein weitergereichtes Blatt nicht. Was nicht gedruckt ist, ist für den Leser nicht
- * vorhanden — und die Frage „warum ist das drittbeste Gerät schlechter" wäre dann nirgends im
- * Dokument beantwortet.
+ * Höchstens so viele Zeilen trägt die Kandidatentabelle (§3.8/§6.2 „2–3 Alternativen", wie
+ * `report.tsx`). Die übrigen Geräte stehen als Punkte in der Kurve; eine volle Katalogliste
+ * (34 Geräte, STCE 25.09.2026) sprengte als `wrap={false}`-Block die Seite und überlagerte Bild und Text.
  */
+export const MAX_TABLE_ROWS = 3
+
+/** Die nächsten Katalog-Alternativen nach der empfohlenen, in der Reihung des Contracts. */
 function alternativesOf(analysis: PdfReportAnalysis): ComparisonCandidate[] {
-  return analysis.perBattery.filter((p) => p.battery.id !== analysis.recommendation?.batteryId)
+  return analysis.perBattery
+    .filter((p) => p.battery.id !== analysis.recommendation?.batteryId)
+    .slice(0, MAX_TABLE_ROWS)
+}
+
+/** Rechnet sich ein Gerät im Betrachtungszeitraum? Dieselbe Schwelle wie Tabelle und Engine-Reihung. */
+function paysOff(c: Pick<ComparisonCandidate, 'netSavingOverHorizon'>): boolean {
+  return c.netSavingOverHorizon > 0
+}
+
+/**
+ * Rechnet sich KEIN Katalog-Gerät? Dann heisst die Empfehlung „Bestes Gerät im Katalog" und die
+ * Gerätewahl antwortet „Derzeit nicht". `false` im Bestandsfall und ohne Kandidaten.
+ */
+export function noCatalogDevicePaysOff(analysis: PdfReportAnalysis): boolean {
+  return (
+    !analysis.existingBatteryAnalysis &&
+    analysis.perBattery.length > 0 &&
+    !analysis.perBattery.some(paysOff)
+  )
 }
 
 /* ────────────────────────────────────────────────────────────────────────────────────────────────
@@ -183,24 +196,41 @@ export const CANDIDATE_TABLE_ID = 'table_candidates'
  * ⚠ Die Reihenfolge der Zeilen ist die des Contracts (`netSavingOverHorizon` absteigend, §3.8) und
  * wird hier NICHT neu sortiert: eine zweite Rangfolge im selben Dokument wäre eine zweite Aussage
  * darüber, welches Gerät das beste ist.
+ *
+ * ⚠ Die Spaltengewichte sind an den Inter-Breiten bei 8,5 pt ausgemessen: das längste untrennbare
+ * Wort je Spalte („ST510kWh-125kW-4h", „Ersparnis/Jahr", „Amortisation") muss hineinpassen — es gibt
+ * keine Silbentrennung (`fonts.ts`), ein zu langes Wort liefe in die Nachbarspalte.
  */
 export function buildCandidateTable(
   candidates: ComparisonCandidate[],
   horizonYears: number,
+  /* Katalog-Fall: das empfohlene Gerät, gegen das die Abstandsspalte rechnet. */
+  reference: ComparisonCandidate | null = null,
 ): ReportTable {
+  const distance = reference
+    ? [
+        {
+          key: 'distance',
+          label: reference.netSavingOverHorizon > 0 ? 'Abstand zur Empfehlung' : 'Abstand zum besten Gerät',
+          width: 2.1,
+          align: 'right' as const,
+        },
+      ]
+    : []
   return {
     columns: [
-      { label: 'Gerät', width: 3 },
-      { label: 'Grösse', width: 2.4 },
-      { label: 'Investition', width: 1.7, align: 'right' },
-      { key: 'saving_per_year', label: 'Ersparnis/Jahr', width: 1.7, align: 'right' },
-      { label: 'Amortisation', width: 1.6, align: 'right' },
+      { label: 'Gerät', width: 3.2 },
+      { label: 'Grösse', width: 2 },
+      { label: 'Investition', width: 1.6, align: 'right' },
+      { key: 'saving_per_year', label: 'Ersparnis/Jahr', width: 2.1, align: 'right' },
+      { label: 'Amortisation', width: 1.85, align: 'right' },
       {
         key: 'net_over_horizon',
         label: `Netto über ${horizonYears} Jahre`,
-        width: 2,
+        width: 1.6,
         align: 'right',
       },
+      ...distance,
     ],
     rows: candidates.map((c) => ({
       key: c.battery.id,
@@ -212,9 +242,24 @@ export function buildCandidateTable(
         /* `formatYears(Infinity)` liefert „∞ Jahre" — eine Antwort, keine Lücke (s. `roi.ts`). */
         formatYears(c.amortizationYears),
         formatEur(c.netSavingOverHorizon),
+        ...(reference ? [distanceText(reference, c, horizonYears)] : []),
       ],
     })),
   }
+}
+
+function distanceText(reference: ComparisonCandidate, c: ComparisonCandidate, horizonYears: number): string {
+  const gap = reference.netSavingOverHorizon - c.netSavingOverHorizon
+  return Number.isFinite(gap) ? `${formatEur(gap)} weniger über ${horizonYears} Jahre` : '–'
+}
+
+/** Die Zeile über der Tabelle — gezählt über ALLE betrachteten Geräte, nicht über die gezeigten. */
+export function countLineOf(considered: ComparisonCandidate[]): string {
+  const n = considered.length
+  return (
+    `${n} ${n === 1 ? 'Gerät' : 'Geräte'} geprüft, davon ${considered.filter(paysOff).length} im ` +
+    'Betrachtungszeitraum wirtschaftlich.'
+  )
 }
 
 /* ────────────────────────────────────────────────────────────────────────────────────────────────
@@ -230,6 +275,8 @@ export type ComparisonChapter = {
   statement: ReportStatement
   /** Die Vergleichstabelle. `null` GENAU DANN, wenn `statement` der Klarsatz ist. */
   table: ReportTable | null
+  /** „N Geräte geprüft, davon M …" über der Tabelle — `null` beim Klarsatz (er nennt die Zahl selbst). */
+  countLine: string | null
 }
 
 function neutralRow(label: string, value: string): ReportRow {
@@ -370,30 +417,20 @@ export function buildVerdict(
 /**
  * Die Einleitung über der Tabelle.
  *
- * ⚠ Die drei Zeilen darüber sind KEINE Wiederholung der Tabelle, sondern ihre Einordnung: wie
- * viele Geräte betrachtet wurden, wie viele davon sich rechnen, und — im Zusatzfall — dass alle
- * Ersparnis-Zahlen Differenzen sind. Ohne die dritte Zeile liest sich die Spalte
- * „Ersparnis/Jahr" als Bruttozahl des gemeinsamen Speichers.
+ * ⚠ Wie viele Geräte geprüft wurden und wie viele sich rechnen, steht als Zeile direkt über der
+ * Tabelle (`countLineOf`). Im Zusatzfall bleibt die Einordnung, dass alle Ersparnis-Zahlen
+ * Differenzen sind — ohne sie liest sich „Ersparnis/Jahr" als Bruttozahl des gemeinsamen Speichers.
+ *
+ * Rechnet sich im Katalog-Fall KEIN Gerät, trägt die Aussage das Urteil in der Form des
+ * Bestandsfalls: Frage als Überschrift, „Derzeit nicht" im Kostenton.
  */
 export function buildTableStatement(
   variant: ComparisonVariant,
   considered: ComparisonCandidate[],
-  horizonYears: number,
 ): ReportStatement {
   const isAddon = variant === 'addon'
-  /*
-   * ⚠ Beide Zahlen zählen über ALLE betrachteten Geräte, nicht über die gezeigten Zeilen. Im
-   * Katalog-Fall fehlt in der Tabelle das empfohlene Gerät (es steht vollständig im Kapitel davor)
-   * — „davon wirtschaftlich" über die Tabelle gezählt liesse ausgerechnet den besten Kandidaten
-   * aus und meldete eine kleinere Zahl, als der Report an anderer Stelle ausweist.
-   */
-  const rows: ReportRow[] = [
-    neutralRow('Betrachtete Geräte', String(considered.length)),
-    neutralRow(
-      `Davon im Betrachtungszeitraum (${horizonYears} Jahre) wirtschaftlich`,
-      String(considered.filter((c) => c.netSavingOverHorizon > 0).length),
-    ),
-  ]
+  const none = !isAddon && considered.length > 0 && !considered.some(paysOff)
+  const rows: ReportRow[] = []
   /* §3.7.1 — Ersparnis, Amortisation und Netto der Tabelle ruhen auf dem hochgerechneten Energie-Anteil. */
   const annualized = considered.find((c) => isAnnualized(c))
   if (annualized) {
@@ -401,15 +438,21 @@ export function buildTableStatement(
       neutralRow('Energie-Anteil der Ersparnis', `${ANNUALIZED_LABEL} aus ${annualized.coveredDays} Tagen`),
     )
   }
+  /* Ohne wirtschaftliches Gerät gibt es keine Empfehlung, nur ein bestgereihtes Gerät. */
+  const best = none ? 'das beste Gerät' : 'die Empfehlung'
+  const bestDevice = none ? 'Das beste Gerät' : 'Das empfohlene Gerät'
 
   return {
     id: isAddon ? 'addon_table' : 'catalog_alternatives',
     title: isAddon
       ? 'Diese Zusatzgeräte rechnen sich — im Vergleich'
-      : 'Die übrigen Geräte des Katalogs — im Vergleich',
+      : none
+        ? 'Lohnt sich ein Speicher?'
+        : 'Die übrigen Geräte des Katalogs — im Vergleich',
     /* ⚠ KEINE KOPFZAHL: der bestgereihte Betrag steht bereits auf der Kernergebnis-Seite bzw. im
-       Empfehlungs-Kapitel; hier stünde er ein zweites Mal und lüde dazu ein, ihn zu addieren. */
-    amount: null,
+       Empfehlungs-Kapitel; hier stünde er ein zweites Mal und lüde dazu ein, ihn zu addieren.
+       Das Urteil ist ein Wort, keine Zahl (wie `buildVerdict`). */
+    amount: none ? { value: 'Derzeit nicht', caption: '', tone: 'negative' } : null,
     rows,
     body: isAddon
       ? /*
@@ -448,16 +491,16 @@ export function buildTableStatement(
         t`${tableRef(
           'Gereiht ist',
           'Verglichen wird',
-        )} nach der Netto-Ersparnis über den Betrachtungszeitraum — derselben Grösse wie die Kurve darüber und wie die Empfehlung ${recommendationRef(REF_PLACE, 'dieses Reports')}. ${tableRef(
-          'Das empfohlene Gerät steht deshalb hier nicht noch einmal: es ist',
-          'Das empfohlene Gerät selbst ist',
-        )} ${recommendationRef('dort', 'beim empfohlenen Gerät')} vollständig aufgeschlüsselt. ${tableRef(
-          'Diese Tabelle sagt, was die Alternativen dagegen leisten — und um welchen Betrag die Empfehlung besser ist. ',
+        )} nach der Netto-Ersparnis über den Betrachtungszeitraum — derselben Grösse wie die Kurve darüber und wie ${best} ${recommendationRef(REF_PLACE, 'dieses Reports')}. ${tableRef(
+          `${bestDevice} steht deshalb hier nicht noch einmal: es ist`,
+          `${bestDevice} selbst ist`,
+        )} ${recommendationRef('dort', none ? 'beim besten Gerät' : 'beim empfohlenen Gerät')} vollständig aufgeschlüsselt. ${tableRef(
+          `Diese Tabelle zeigt die nächsten Alternativen — und um welchen Betrag ${best} besser ist; alle übrigen Geräte stehen als Punkte in der Kurve. `,
           '',
         )}Die Hinweise zu einem Gerät (Betonsockel, separater Wechselrichter, zu geringe Leistung für alle Spitzen) sind in der Investition bereits enthalten${tableRef(
           ', werden hier aber nicht je Gerät wiederholt',
           '',
-        )}${recommendationRef(' — sie stehen beim empfohlenen Gerät', '')}.`,
+        )}${recommendationRef(none ? ' — sie stehen beim besten Gerät' : ' — sie stehen beim empfohlenen Gerät', '')}.`,
   }
 }
 
@@ -496,13 +539,19 @@ export type ComparisonSelection = {
   variant: ComparisonVariant
   /** ALLE betrachteten Geräte — die Grundlage der zwei Zeilen über der Tabelle. */
   considered: ComparisonCandidate[]
-  /** Die Zeilen der Tabelle. Leer heisst: statt der Tabelle steht der Klarsatz. */
+  /** Die Zeilen der Tabelle (höchstens `MAX_TABLE_ROWS`). Leer heisst: statt der Tabelle steht der Klarsatz. */
   shown: ComparisonCandidate[]
+  /** Katalog-Fall: das empfohlene Gerät, gegen das die Abstandsspalte rechnet. `null` im Bestandsfall. */
+  reference: ComparisonCandidate | null
   horizonYears: number
 }
 
 export function comparisonSelection(analysis: PdfReportAnalysis): ComparisonSelection {
   const { variant, candidates } = candidatesOf(analysis)
+  const reference =
+    variant === 'catalog'
+      ? (candidates.find((c) => c.battery.id === analysis.recommendation?.batteryId) ?? null)
+      : null
 
   /*
    * ⚠ DIE SCHWELLE IST `netSavingOverHorizon > 0` — dieselbe wie am Bildschirm und in
@@ -512,10 +561,16 @@ export function comparisonSelection(analysis: PdfReportAnalysis): ComparisonSele
    */
   const shown =
     variant === 'addon'
-      ? candidates.filter((c) => c.netSavingOverHorizon > 0)
+      ? candidates.filter(paysOff).slice(0, MAX_TABLE_ROWS)
       : alternativesOf(analysis)
 
-  return { variant, considered: candidates, shown, horizonYears: analysis.assumptions.horizonYears }
+  return {
+    variant,
+    considered: candidates,
+    shown,
+    reference,
+    horizonYears: analysis.assumptions.horizonYears,
+  }
 }
 
 /**
@@ -545,15 +600,16 @@ export function buildComparisonChapter(
 ): ComparisonChapter {
   /* ⚠ `context ? … : …` statt `??` — `comparisonPlan` ist selbst gültig `null`. */
   const plan = context ? context.comparisonPlan : comparisonChartPlan(analysis)
-  const { variant, considered, shown, horizonYears } = comparisonSelection(analysis)
+  const { variant, considered, shown, reference, horizonYears } = comparisonSelection(analysis)
   const hasTable = shown.length > 0
 
   return {
     figure: plan ? buildFigure(plan, displayedPriceBasis(analysis)) : null,
     figureMissing: plan ? null : FIGURE_MISSING,
     statement: hasTable
-      ? buildTableStatement(variant, considered, horizonYears)
+      ? buildTableStatement(variant, considered)
       : buildVerdict(considered, horizonYears),
-    table: hasTable ? buildCandidateTable(shown, horizonYears) : null,
+    table: hasTable ? buildCandidateTable(shown, horizonYears, reference) : null,
+    countLine: hasTable ? countLineOf(considered) : null,
   }
 }

@@ -672,6 +672,8 @@ const styles = StyleSheet.create({
     color: PDF_COLORS.textMuted,
   },
   figureStatement: { ...LEADING, marginTop: 4, color: PDF_COLORS.text },
+  /* Die Zählzeile über der Kandidatentabelle („N Geräte geprüft, davon M …"). */
+  countLine: { ...LEADING, marginTop: 12, fontWeight: 600, color: PDF_COLORS.ink },
   figureMissing: {
     ...LEADING,
     marginTop: 14,
@@ -1326,7 +1328,7 @@ function Statement({ statement, layout }: { statement: ReportStatement; layout: 
  * die Zahlen einer Spalte stünden dann nicht mehr untereinander.
  *
  * ⚠ `wrap={false}`: eine Tabelle, deren Kopfzeile auf der einen und deren Zeilen auf der nächsten
- * Seite stehen, ist eine Zahlenkolonne ohne Beschriftung. Sie ist mit höchstens fünf Zeilen weit
+ * Seite stehen, ist eine Zahlenkolonne ohne Beschriftung. Sie ist mit höchstens drei Zeilen weit
  * kleiner als der Satzspiegel — die Gefahr eines abgeschnittenen `wrap={false}`-Blocks besteht
  * hier nicht.
  */
@@ -1347,7 +1349,7 @@ function StatementTable({
   /**
    * D9 — DIESE EINE TABELLE DARF UMBRECHEN.
    *
-   * Die Vergleichstabelle trägt höchstens fünf einzeilige Zeilen und ist damit nachweislich kleiner
+   * Die Vergleichstabelle trägt höchstens drei Zeilen (`MAX_TABLE_ROWS`) und ist damit nachweislich kleiner
    * als der Satzspiegel; die Datenquellen-Tabelle trägt bis zu neun Zeilen mit ganzen Sätzen darin,
    * und wie hoch sie wird, entscheidet die Länge einer Fundstelle. Ein `wrap={false}`-Block, der die
    * Seite sprengt, wird von react-pdf ABGESCHNITTEN statt umgebrochen — ausgerechnet in der Tabelle,
@@ -2220,7 +2222,11 @@ function ComparisonChapter({
       />
 
       {!verdictLeads && <Statement statement={chapter.statement} layout={layout} />}
-      {table && <StatementTable table={table} from={CANDIDATE_TABLE_ID} layout={layout} />}
+      {/* Zählzeile und Tabelle auf einem Blatt — beide sind mit höchstens drei Zeilen klein. */}
+      <View wrap={false}>
+        {chapter.countLine && <Text style={styles.countLine}>{chapter.countLine}</Text>}
+        {table && <StatementTable table={table} from={CANDIDATE_TABLE_ID} layout={layout} />}
+      </View>
     </View>
   )
 }

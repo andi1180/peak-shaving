@@ -639,6 +639,7 @@ Ausgelöst durch Martins Review. **Pflichtfelder** bei Lead-Abgabe: Name, E-Mail
 - **Jede Kernzahl aufklappbar zur Rechenweise** (Annahmen + Formel).
 - **Editierbares Annahmen-Panel** (Wirkungsgrad, Entladetiefe, Batteriepreis, Abschreibung, Förderung, Abrechnungsmodell) → Ergebnis rechnet live neu.
 - **2–3 Alternativen** zur Empfehlung aufklappbar.
+  - *Revision 26.09.2026 (PDF-Report):* die Gerätetabelle zeigt auch im PDF höchstens 3 Alternativen samt Abstand zur Empfehlung, darüber „N Geräte geprüft, davon M im Betrachtungszeitraum wirtschaftlich." (vorher alle Geräte — 34 überlagerten Kurve und Text); rechnet sich keines: „Lohnt sich ein Speicher? — Derzeit nicht", „Bestes Gerät im Katalog", Vorschlagspunkt „Mit Speicher und Ladesteuerung" ohne Einladung.
 - **Hindsight-Hinweis (Pflicht, §3.6):** Beim Eigenverbrauchs-/Lastverschiebungs-Anteil ein unaufdringlicher Hinweis, dass dieser Wert mit vollem Rückblick auf das Jahresprofil berechnet ist (Bestmarke) und eine reale, rein reaktive Steuerung ohne Prognose ([v2] Predictive Dispatch) davon abweichen kann. Der Leistungspreis-/Spitzenschutz-Anteil ist davon **nicht** betroffen. **⚠ Revision 25.09.2026 (§3.7 PR 3):** ersetzt durch den Fahrplan-Hinweis an der Aufschlüsselung (Vorabend-Planung; Leistungspreis-Anteil als Obergrenze), s. §3.7.
 
 **Export:** PDF-Report (Installateur nimmt etwas zum Dalassen mit) + CSV-Export der Ergebnistabelle. **Responsive** (Tablet beim Kunden vor Ort).
