@@ -21,7 +21,12 @@ import {
 } from 'shared'
 
 import { formatDateOnly, formatEur, formatEur2, formatPercent } from '@/lib/format'
-import { dynamicTariffHintKind, rteSourceNote } from '@/lib/report-copy'
+import {
+  dynamicTariffHintKind,
+  installationExclusionSuffix,
+  installationPriceText,
+  rteSourceNote,
+} from '@/lib/report-copy'
 import { hasNegativeAddonVerdict } from './comparison'
 import { REPORT_SECTIONS, reportDisclaimer, SECTION_ID, type ReportSection } from './content'
 import type { ReportBuildContext } from './context'
@@ -920,9 +925,11 @@ function batteryRowsForSources(
    * Deshalb wird am Gerät nachgeschlagen, das die Tabelle ausweist, und nicht am empfohlenen.
    */
   const meta = entry ? catalogMeta?.[entry.battery.id] : undefined
-  const provenance = meta
+  const provenance = meta && entry
     ? `Katalogstand ${meta.priceAsOf ? `vom ${formatDateOnly(meta.priceAsOf)}` : '(ohne Preisstand)'} — ` +
-      `Hardware-Listenpreis ${displayedPriceLabel(analysis)}, exkl. Installation. Wirkungsgrad: ` +
+      `Hardware-Listenpreis ${displayedPriceLabel(analysis)}${installationExclusionSuffix(entry.battery)}.` +
+      installationPriceText(entry.battery, meta) +
+      ' Wirkungsgrad: ' +
       (meta.rteSource === 'datenblatt'
         ? 'Datenblatt des Herstellers.'
         : meta.rteSource === 'annahme'

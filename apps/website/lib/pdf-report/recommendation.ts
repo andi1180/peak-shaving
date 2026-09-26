@@ -18,6 +18,10 @@ import {
   dynamicTariffHintText,
   ENERGY_PRICE_ONLY_NOTE,
   hasEnergyPriceOnlyBasis,
+  INSTALLATION_ROW_LABEL,
+  installationExclusionSuffix,
+  installationPartialText,
+  installationPriceText,
   isAnnualized,
   loadControlValueOf,
   perYearText,
@@ -171,6 +175,7 @@ export function buildRecommendation(
   const baseCost = b.usableCapacityKwh * b.pricePerKwh
   const foundation = b.requiresFoundation ? (b.foundationCost ?? 0) : 0
   const inverter = b.inverterIncluded ? 0 : (b.extraInverterCost ?? 0)
+  const installation = b.installationCost ?? 0
 
   const rows: ReportRow[] = [
     neutralRow(
@@ -181,6 +186,7 @@ export function buildRecommendation(
   /* Nur, wo es sie gibt — eine Zeile „Betonsockel € 0" behauptete einen Posten, den es nicht gibt. */
   if (foundation > 0) rows.push(neutralRow('Betonsockel', formatEur(foundation)))
   if (inverter > 0) rows.push(neutralRow('Separater Wechselrichter', formatEur(inverter)))
+  if (installation > 0) rows.push(neutralRow(INSTALLATION_ROW_LABEL, formatEur(installation)))
   rows.push(totalInvestmentRow(entry))
   rows.push({
     label: `Ersparnis ${perYearText(entry)}`,
@@ -251,9 +257,11 @@ export function buildRecommendation(
         {
           title: 'Woher Preis und Wirkungsgrad stammen',
           text:
-            `Hardware-Listenpreis ${displayedPriceLabel(entry)}, exkl. Installation` +
+            `Hardware-Listenpreis ${displayedPriceLabel(entry)}${installationExclusionSuffix(b)}` +
             (catalogMeta.priceAsOf ? `, Preisstand ${formatDateOnly(catalogMeta.priceAsOf)}` : '') +
-            '. ' +
+            '.' +
+            installationPriceText(b, catalogMeta) +
+            ' ' +
             (catalogMeta.rteSource === 'annahme'
               ? `Der Wirkungsgrad (${formatPercent(entry.battery.roundTripEfficiency * 100)}) ist ein ` +
                 'Erfahrungswert: das Datenblatt dieses Geräts nennt keinen Systemwirkungsgrad über ' +
@@ -263,6 +271,11 @@ export function buildRecommendation(
                 : 'Zur Herkunft des Wirkungsgrads ist nichts vermerkt.'),
         },
       ]
+    : []
+
+  const partialInstallation = installationPartialText(analysis)
+  const installationLimit: ReportPoint[] = partialInstallation
+    ? [{ title: 'Installation nicht bei allen Geräten eingerechnet', text: partialInstallation }]
     : []
 
   /* §3.7.1 — Amortisation und Netto hängen an der hochgerechneten Ersparnis; das steht an ihnen. */
@@ -313,7 +326,7 @@ export function buildRecommendation(
      * die Leerzeichen, mit denen die Sätze im Absatz aneinanderhingen.
      */
     body: '',
-    points: [...framing, ...annualized, ...energyBasis, ...provenance, ...taxes],
+    points: [...framing, ...annualized, ...energyBasis, ...provenance, ...installationLimit, ...taxes],
     /*
      * Die §3.8-Warnungen des Kandidaten, unverändert. Sie stehen NEBEN der Investition und nicht
      * hinter ihr: „Betonsockel nötig (+€1800)" ist eine Kostenaussage, und sie ist in

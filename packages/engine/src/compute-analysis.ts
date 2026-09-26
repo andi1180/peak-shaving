@@ -17,7 +17,7 @@ import {
 
 import type { DataQuality } from './parser'
 import { analyzeCurrentPeaks, topPeaksKw } from './peaks'
-import { recommendBattery } from './recommendation'
+import { installationCoverageOf, recommendBattery } from './recommendation'
 import { eagDemandChargePerYear } from './tariff'
 import { calculateRoi } from './roi'
 import { computeBatterySavings } from './savings'
@@ -416,6 +416,7 @@ export function computeAnalysis(
   // ⚠ Steht seit D7 VOR dem Monatsvergleich und nicht mehr dahinter: dessen dritte Reihe kann jetzt
   // aus dem Dispatch der empfohlenen Batterie entstehen. Der Aufruf selbst ist unverändert — er
   // hängt an nichts, was dazwischen berechnet wird.
+  const installationCoverage = installationCoverageOf(catalog)
   const { perBattery, recommendation, recommendedGridAfterKw } = recommendBattery(
     loadProfile,
     payload.tariff,
@@ -510,6 +511,7 @@ export function computeAnalysis(
     recommendation,
     // K3b-2: gesetzt GENAU DANN, wenn es keine Empfehlung gibt — sonst fehlt das Feld ganz.
     ...(recommendation ? {} : { noRecommendationReason: 'no_candidates' as const }),
+    ...(installationCoverage ? { installationCoverage } : {}),
     assumptions: {
       // Reiner Anzeigewert, kein Rechenkern-Input: der Wirkungsgrad des Geräts, mit dem die Analyse
       // rechnet — Empfehlung, sonst Bestandsspeicher, sonst `null` (kein Ersatzwert).

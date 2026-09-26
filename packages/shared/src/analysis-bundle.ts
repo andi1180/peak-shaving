@@ -282,7 +282,7 @@ export type AnalysisBundleInputs = {
   /**
    * Fassung 9 (K3b): die Beiwerte je Katalog-Gerät — Preisstand, Herkunft des Wirkungsgrads,
    * Händlerkennung. Sie stehen NEBEN `batteryCatalog`, weil `BatteryCandidate` sie nicht führt und
-   * die Engine sie nicht liest (dasselbe Muster wie `installationCostNet` im Loader).
+   * die Engine sie nicht liest.
    *
    * Fehlt in jedem Bündel der Fassungen 1–8 und bei einem Lauf gegen den Platzhalter-Katalog: ein
    * erfundenes Gerät hat keinen Preisstand, und ein leeres Objekt zu schreiben behauptete, es sei

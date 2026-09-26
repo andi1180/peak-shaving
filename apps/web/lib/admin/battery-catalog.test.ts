@@ -24,7 +24,7 @@ const BASE: BatteryCatalogRow = {
   inverter_included: true,
   requires_foundation: false,
   foundation_component_id: null,
-  installation_component_id: null,
+  installation_component_id: 'i1',
   inverter_component_id: null,
   price_as_of: null,
   source_url: null,
@@ -38,8 +38,8 @@ const BASE: BatteryCatalogRow = {
   purchase_price_as_of: null,
   foundation_component_label: null,
   foundation_component_price_net: null,
-  installation_component_label: null,
-  installation_component_price_net: null,
+  installation_component_label: 'Gewerbe 110',
+  installation_component_price_net: 1900,
   inverter_component_label: null,
   inverter_component_price_net: null,
   inverter_component_leistung_kw: null,
@@ -85,6 +85,15 @@ describe('missingEngineFields', () => {
         foundation_component_price_net: 4200,
       }),
     ).toEqual([])
+  })
+
+  it('verlangt immer einen bepreisten Installations-Baustein (K4)', () => {
+    expect(missingEngineFields({ ...BASE, installation_component_id: null })).toEqual([
+      'installation_component_id',
+    ])
+    expect(missingEngineFields({ ...BASE, installation_component_price_net: null })).toEqual([
+      'installation_component_price_net',
+    ])
   })
 
   it('unterscheidet „nicht angegeben" von „nein" — null verlangt keinen Zuschlag', () => {

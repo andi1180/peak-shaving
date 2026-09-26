@@ -103,7 +103,7 @@ async function createBattery(admin: TestUser, args: Record<string, unknown> = {}
 }
 
 /** Die Kenndaten, ohne die eine Zeile nicht aktivierbar ist — hier vollstaendig. */
-const COMPLETE = {
+const COMPLETE: Record<string, unknown> = {
   p_usable_capacity_kwh: 60,
   p_max_power_kw: 30,
   p_round_trip_efficiency: 0.9,
@@ -112,6 +112,17 @@ const COMPLETE = {
   p_inverter_included: true,
   p_requires_foundation: false,
 }
+
+// K4: ohne bepreisten Installations-Baustein gibt es keine Freigabe — einer fuer alle Faelle hier.
+beforeAll(async () => {
+  const [row] = await sql<{ id: string }>(
+    `insert into public.battery_cost_components (art, bezeichnung, price_net, price_as_of)
+     values ('installation', $1, 1900, '2026-09-24') returning id`,
+    [`Gate Installation ${randomUUID()}`],
+  )
+  spawnedComponents.push(row!.id)
+  COMPLETE.p_installation_component_id = row!.id
+})
 
 describe('K1 — Rechtefläche', () => {
   it('anon/authenticated haben auf public.battery_catalog NUR select, service_role gar nichts', async () => {
@@ -264,6 +275,8 @@ describe('K1 — Aktivieren verlangt Vollständigkeit', () => {
       'inverter_component_id',
       // K1b: aus einem Betrag am Gerät ist der Verweis auf einen Kostenbaustein geworden.
       'foundation_component_id',
+      // K4: die Installation ist immer Pflicht.
+      'installation_component_id',
     ])
 
     const [row] = await sql<{ active: boolean }>(
@@ -585,5 +598,46 @@ describe('H1 — der Wechselrichter als Kostenbaustein', () => {
       p_inverter_component_id: fundament.id,
     })
     expect(res.status).toBe('invalid_component')
+  })
+})
+
+describe('K4 — Freigabe nur mit bepreister Installation', () => {
+  it('ohne Installation abgelehnt (Wrapper benennt, Trigger weist ab); mit Installation freigegeben', async () => {
+    const admin = await newAdmin()
+    const { p_installation_component_id: installation, ...ohneInstallation } = COMPLETE
+    const id = await createBattery(admin, ohneInstallation)
+    const activate = () =>
+      callNamed<{ status: string; missing?: string[] }>(admin, 'public.admin_set_battery_active', {
+        p_id: id,
+        p_active: true,
+      })
+
+    expect(await activate()).toEqual({ status: 'incomplete', missing: ['installation_component_id'] })
+    await expect(
+      runAs({ role: 'postgres' }, (c) =>
+        c.query('update public.battery_catalog set active = true where id = $1', [id]),
+      ),
+    ).rejects.toMatchObject({ code: '23514' })
+
+    // Positiv-Kontrolle: derselbe Datensatz mit Installation geht durch.
+    await sql('update public.battery_catalog set installation_component_id = $2 where id = $1', [
+      id,
+      installation,
+    ])
+    expect((await activate()).status).toBe('activated')
+  })
+
+  it('ein Installations-Baustein ohne Preis blockiert die Freigabe', async () => {
+    const admin = await newAdmin()
+    const [unpriced] = await sql<{ id: string }>(
+      `insert into public.battery_cost_components (art, bezeichnung) values ('installation', $1) returning id`,
+      [`Gate Installation ohne Preis ${randomUUID()}`],
+    )
+    spawnedComponents.push(unpriced!.id)
+    const id = await createBattery(admin, { ...COMPLETE, p_installation_component_id: unpriced!.id })
+
+    expect(
+      await callNamed(admin, 'public.admin_set_battery_active', { p_id: id, p_active: true }),
+    ).toEqual({ status: 'incomplete', missing: ['installation_component_price_net'] })
   })
 })

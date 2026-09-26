@@ -291,6 +291,15 @@ export type ExistingBatteryAnalysis = {
  */
 export type NoRecommendationReason = 'no_candidates'
 
+/**
+ * K4: Nur ein Teil der Kandidaten trägt eine Installationspauschale — die Reihung vergleicht dann
+ * Investitionen mit und ohne Installation. `withoutInstallation` sind die Geräte-Kennungen ohne.
+ */
+export type InstallationCoverageLimitation = {
+  code: 'installation_partial'
+  withoutInstallation: string[]
+}
+
 export type AnalysisResult = {
   current: {
     annualPeakKw: number
@@ -348,6 +357,8 @@ export type AnalysisResult = {
    * ihn zeigt; derselbe Grund wie bei `TariffOptimizationBlocker.kind`.
    */
   noRecommendationReason?: NoRecommendationReason
+  /** Gesetzt GENAU DANN, wenn die Kandidaten gemischt mit und ohne Installation gerechnet sind. */
+  installationCoverage?: InstallationCoverageLimitation
   assumptions: {
     // Transparenz-Panel & Editierbarkeit (§6.2). Erweiterbar (§3.10 „…").
     /** Anzeigewert: Wirkungsgrad der Empfehlung, sonst des Bestandsspeichers, sonst `null` (K3d). */

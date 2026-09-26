@@ -325,3 +325,31 @@ describe('Gebrauchsabgabe auf die Leistungspreis-Ersparnis OHNE Tarifvergleich',
     expect(mit.assumptions.levyLocationAssumed).toBe('vienna')
   })
 })
+
+describe('Installationspauschale (K4)', () => {
+  const withInstallation = (catalog: BatteryCandidate[]) =>
+    catalog.map((b) => ({ ...b, installationCost: 1900 }))
+
+  it('gemischte Kandidaten tragen eine benannte Einschränkung mit den Geräten ohne Installation', () => {
+    const [first, ...rest] = GATE_CATALOG
+    const result = computeAnalysis(buildPayload(false), GATE_HORIZON_YEARS, [
+      first!,
+      ...withInstallation(rest),
+    ])
+    expect(result.installationCoverage).toEqual({
+      code: 'installation_partial',
+      withoutInstallation: [first!.id],
+    })
+  })
+
+  it('alle mit Installation: keine Einschränkung, Investition um genau die Pauschale höher', () => {
+    const ohne = computeAnalysis(buildPayload(false), GATE_HORIZON_YEARS, GATE_CATALOG)
+    const mit = computeAnalysis(buildPayload(false), GATE_HORIZON_YEARS, withInstallation(GATE_CATALOG))
+    expect(ohne.installationCoverage).toBeUndefined()
+    expect(mit.installationCoverage).toBeUndefined()
+    for (const entry of mit.perBattery) {
+      const before = ohne.perBattery.find((p) => p.battery.id === entry.battery.id)!
+      expect(entry.totalInvestment).toBeCloseTo(before.totalInvestment + 1900, 9)
+    }
+  })
+})

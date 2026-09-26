@@ -120,7 +120,6 @@ beforeEach(() => {
     kind: 'available',
     category,
     batteries: DEMO_BATTERY_CATALOG,
-    installationCostNet: {},
     meta: CATALOG_META,
     skipped: [],
   }))

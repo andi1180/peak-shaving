@@ -289,10 +289,10 @@ function BatteryFields({
           <AdminSelect
             id={`${formId}-installationComponentId`}
             name="installationComponentId"
-            label="Installations-Baustein (optional)"
+            label="Installations-Baustein"
             defaultValue={values.installationComponentId ?? BATTERY_SELECT_UNSET}
             error={err('installationComponentId')}
-            hint="Angabe für die Angebotslegung. Die Engine hat dafür kein Feld und rechnet sie NICHT mit."
+            hint="Pflicht für die Freigabe, MIT Preis. Geht als Installationspauschale (Richtwert) in die Investition."
           >
             <option value={BATTERY_SELECT_UNSET}>— keiner —</option>
             {installationComponents.map((c) => (

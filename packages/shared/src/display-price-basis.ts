@@ -113,6 +113,7 @@ const FIELD_KIND: Record<AnalysisNumericKey, 'money' | 'price' | 'other'> = {
   gridPowerKw: 'other',
   horizonYears: 'other',
   hours: 'other',
+  installationCost: 'money',
   kw: 'other',
   largestGapSlots: 'other',
   leistungspreisCostPerYear: 'money',

@@ -419,7 +419,8 @@ Drei Posten, drei Zuordnungen:
 
 ### 3.9 ROI & Förderung
 
-- `totalInvestment` = `usableCapacityKwh × pricePerKwh` + ggf. `foundationCost` + ggf. `extraInverterCost`.
+- `totalInvestment` = `usableCapacityKwh × pricePerKwh` + ggf. `foundationCost` + ggf. `extraInverterCost` + ggf. `installationCost`.
+- **Revision K4 (26.09.2026) — Installationspauschale als Kostenbaustein.** Jedes Katalog-Gerät trägt einen Installations-Baustein (`battery_cost_components`, Art `installation`: Heim · Gewerbe bis ~110 kWh · ~190–260 kWh · ≥ 500 kWh; Zuordnung Heim → Heim, Gewerbe nach nutzbarer Kapazität < 150 / ≤ 400 / > 400 kWh). Der Loader reicht den Preis als `BatteryCandidate.installationCost` in die Investition. **Freigabe nur mit bepreister Installation** (Trigger `battery_catalog_guard_components`, gilt auch gegen `service_role`/`postgres`; der Preis-Trigger verhindert das nachträgliche Leeren). Tragen nur manche Kandidaten einer Analyse eine Pauschale, weist `AnalysisResult.installationCoverage` (`installation_partial` + Geräte ohne) das als benannte Einschränkung aus — keine stille Mischung. Report: eigene Zeile „Installationspauschale (Richtwert)" mit Preisstand; „exkl. Installation" steht nur noch an einem Gerät ohne Pauschale. Die Pauschale ist ein Richtwert, kein Angebot.
 - **Förder- & Steuereffekte** aus `FinancialParams` `[MN]` (alle optional, transparent ausgewiesen):
   - `subsidyAmount` = `fixedSubsidyEur` bzw. `subsidyPercent × totalInvestment` (direkte Förderung, mindert die Investition).
   - `taxBenefit` = Steuereffekt aus **Investitionsfreibetrag** (IFB) und **Abschreibung** (AfA) — vereinfacht: `(investitionsfreibetragPercent × totalInvestment + jährliche AfA) × taxRatePercent`, über den Betrachtungszeitraum. **Kennzeichnung als vereinfachte Rechnung, keine Steuerberatung**; hängt vom `taxRatePercent` des Betriebs ab (`[MARTIN]`/`[ANNAHME]` sinnvolle Defaults + Quelle).

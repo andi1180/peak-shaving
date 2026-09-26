@@ -46,6 +46,11 @@ describe('calculateRoi — totalInvestment', () => {
     expect(calculateRoi(b, 1000, 10).totalInvestment).toBe(30_000)
   })
 
+  it('+ installationCost (K4): Hardware + Fundament + Installationspauschale', () => {
+    const b = battery({ requiresFoundation: true, foundationCost: 1990, installationCost: 1900 })
+    expect(calculateRoi(b, 1000, 10).totalInvestment).toBe(30_000 + 1990 + 1900)
+  })
+
   it('Fundament + separater WR kombiniert', () => {
     const b = battery({
       requiresFoundation: true,

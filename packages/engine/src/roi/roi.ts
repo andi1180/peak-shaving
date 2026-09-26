@@ -15,12 +15,12 @@ export type RoiFields = Pick<
   | 'netSavingOverHorizon'
 >
 
-/** `totalInvestment` = Kapazität × Preis + ggf. Fundament + ggf. separater Wechselrichter (§3.9). */
+/** `totalInvestment` = Kapazität × Preis + ggf. Fundament + ggf. separater Wechselrichter + ggf. Installationspauschale (§3.9). */
 function calculateTotalInvestment(battery: BatteryCandidate): number {
   const base = battery.usableCapacityKwh * battery.pricePerKwh
   const foundation = battery.requiresFoundation ? (battery.foundationCost ?? 0) : 0
   const inverter = !battery.inverterIncluded ? (battery.extraInverterCost ?? 0) : 0
-  return base + foundation + inverter
+  return base + foundation + inverter + (battery.installationCost ?? 0)
 }
 
 /**

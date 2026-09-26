@@ -241,6 +241,20 @@ Details und der vollständige Stand: siehe `./Pflichtenheft_Kalkulator_MVP.md`, 
 
 > Lebendiger Handover-Anker. Neueste offene Punkte, die den Bau der Engine/Simulation berühren. Erledigtes wandert raus.
 
+### Installationspauschale je Gerät — K4 (26.09.2026)
+
+Alle 149 Katalog-Geräte tragen einen Installations-Baustein (Heim nach Kategorie, Gewerbe nach nutzbarer
+Kapazität < 150 / ≤ 400 / > 400 kWh); ohne bepreiste Installation keine Freigabe (Trigger + Wrapper,
+Migration `20260926120000_installation_component_required.sql`). Die Pauschale geht als
+`BatteryCandidate.installationCost` in `totalInvestment`. Fachliche Tiefe: `Pflichtenheft_Kalkulator_MVP.md` §3.9 (Revision K4).
+
+**⚠ Beim nächsten Umbau mitzudenken: (a)** Die Migration ordnet nach Bezeichnung zu („Heim", „Gewerbe 110",
+„Gewerbe 190–260", „Gewerbe 500") — die Bausteine gibt es nur in der Cloud; auf einer frischen DB
+unterbleibt die Zuordnung. **(b)** `AnalysisResult.installationCoverage` ist nur bei GEMISCHTEN Kandidaten
+gesetzt (Golden-Kataloge tragen keine Pauschale → Feld fehlt, Golden unverändert). **(c)** Die
+Nebenablage `installationCostNet` des Loaders ist entfallen; der Preisstand der Pauschale steht in
+`BatteryCatalogMeta.installationPriceAsOf`.
+
 **Spotpreise mit angebrochenen Randstunden (26.09.2026):** beide Leser (`apps/web/lib/admin/analysis-tariff-inputs.ts`, `apps/website/lib/tariff-data/spot-prices.ts`) holen jede Stunde mit `ts_end > Beginn` und `ts_start < Ende`, und `findMissingRanges` zählt nur überschneidende Einträge — vorher fehlte bei Lastgang-Beginn :15 die erste Stunde, und der Vergleich wurde verweigert.
 
 ### Report an die vorausschauende Rechnung angeglichen — §3.7-Revision PR 3 (25.09.2026)

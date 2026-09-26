@@ -230,14 +230,27 @@ function readBatteryCatalogMeta(value: unknown): Record<string, BatteryCatalogMe
   const out: Record<string, BatteryCatalogMeta> = {}
   for (const [id, entry] of Object.entries(value)) {
     if (!isRecord(entry)) continue
-    const { memodoId, priceAsOf, rteSource, listPriceNet } = entry
+    const { memodoId, priceAsOf, rteSource, listPriceNet, installationPriceAsOf } = entry
     if (typeof listPriceNet !== 'number' || !Number.isFinite(listPriceNet)) continue
     if (memodoId !== null && typeof memodoId !== 'number') continue
-    if (priceAsOf !== null && !(typeof priceAsOf === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(priceAsOf))) continue
+    if (priceAsOf !== null && !isIsoDate(priceAsOf)) continue
     if (rteSource !== null && typeof rteSource !== 'string') continue
-    out[id] = { memodoId, priceAsOf, rteSource, listPriceNet }
+    out[id] = {
+      memodoId,
+      priceAsOf,
+      rteSource,
+      listPriceNet,
+      // K4: ein unlesbarer Preisstand der Pauschale kostet nur ihn, nicht die übrigen Beiwerte.
+      ...(installationPriceAsOf === null || isIsoDate(installationPriceAsOf)
+        ? { installationPriceAsOf }
+        : {}),
+    }
   }
   return Object.keys(out).length > 0 ? out : undefined
+}
+
+function isIsoDate(value: unknown): value is string {
+  return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)
 }
 
 /**
@@ -405,6 +418,7 @@ function reduceAnalysis(result: AnalysisResult): Complete<PdfReportAnalysis> {
     perBattery: result.perBattery,
     recommendation: result.recommendation,
     noRecommendationReason: result.noRecommendationReason,
+    installationCoverage: result.installationCoverage,
     assumptions: result.assumptions,
     tariffOptimization: result.tariffOptimization,
     existingBatteryAnalysis: result.existingBatteryAnalysis,

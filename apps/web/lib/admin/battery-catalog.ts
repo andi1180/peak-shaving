@@ -175,6 +175,9 @@ export const BATTERY_ENGINE_FIELD_LABELS: Record<string, string> = {
   // an verschiedenen Stellen — „ordne einen Baustein zu" gegen „trage im Baustein einen Preis ein".
   foundation_component_id: 'Fundament-Baustein',
   foundation_component_price_net: 'Preis des Fundament-Bausteins',
+  // K4: ohne Installation sähe ein Gerät in der Reihung um die Pauschale billiger aus.
+  installation_component_id: 'Installations-Baustein',
+  installation_component_price_net: 'Preis des Installations-Bausteins',
 }
 
 export function batteryEngineFieldLabel(column: string): string {
@@ -197,7 +200,7 @@ export function missingEngineFields(row: BatteryCatalogRow): string[] {
   if (row.list_price_net === null) missing.push('list_price_net')
   if (row.inverter_included === null) missing.push('inverter_included')
   if (row.requires_foundation === null) missing.push('requires_foundation')
-  // Die zwei BEDINGTEN: genau die zwei Zuschläge, die `roi.ts` addiert. Ohne sie wäre die
+  // Die zwei BEDINGTEN Zuschläge, die `roi.ts` addiert; die Installation darunter gilt immer. Ohne sie wäre die
   // Investition zu niedrig und die Amortisation zu gut — ein Fehler, der wie ein Ergebnis aussieht.
   if (row.inverter_included === false) {
     if (row.inverter_component_id === null) {
@@ -215,6 +218,11 @@ export function missingEngineFields(row: BatteryCatalogRow): string[] {
     } else if (row.foundation_component_price_net === null) {
       missing.push('foundation_component_price_net')
     }
+  }
+  if (row.installation_component_id === null) {
+    missing.push('installation_component_id')
+  } else if (row.installation_component_price_net === null) {
+    missing.push('installation_component_price_net')
   }
   return missing
 }
