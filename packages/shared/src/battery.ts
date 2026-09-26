@@ -20,6 +20,8 @@ export const batteryCandidateSchema = z.object({
   extraInverterCost: z.number().nonnegative().optional(), // falls separater WR nötig
   requiresFoundation: z.boolean(),
   foundationCost: z.number().nonnegative().optional(),
+  // K4: Installationspauschale (Richtwert) aus dem Katalog-Baustein; fehlt = nicht eingerechnet.
+  installationCost: z.number().nonnegative().optional(),
   controlType: controlTypeSchema, // residential oft static, commercial dynamic
 })
 export type BatteryCandidate = z.infer<typeof batteryCandidateSchema>

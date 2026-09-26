@@ -26,6 +26,9 @@ import {
   CONTROLLED_WAY_LABEL,
   ENERGY_PRICE_ONLY_NOTE,
   hasEnergyPriceOnlyBasis,
+  INSTALLATION_ROW_LABEL,
+  installationExclusionSuffix,
+  installationPriceText,
   isAnnualized,
   vatNote,
 } from '@/lib/report-copy'
@@ -147,10 +150,12 @@ type RecommendationCardProps = (
 ) & {
   /** §6.2-Vorbehalt zum Fahrplan (`dispatchMethodText`), einmal im Report gebildet. */
   dispatchNote?: string
+  /** K4: benannte Einschränkung bei gemischten Kandidaten (`installationPartialText`). */
+  installationNote?: string | null
 }
 
 export function RecommendationCard(props: RecommendationCardProps) {
-  const { entry, primary = false, dispatchNote } = props
+  const { entry, primary = false, dispatchNote, installationNote } = props
   const isExisting = props.variant === 'existing'
   const noteTexts = batteryNoteTexts(entry)
   // Narrowing über die Union: beide Nicht-`existing`-Zweige tragen die ROI-Felder.
@@ -198,6 +203,7 @@ export function RecommendationCard(props: RecommendationCardProps) {
   const baseCost = b.usableCapacityKwh * b.pricePerKwh
   const foundation = b.requiresFoundation ? (b.foundationCost ?? 0) : 0
   const inverter = b.inverterIncluded ? 0 : (b.extraInverterCost ?? 0)
+  const installation = b.installationCost ?? 0
 
   return (
     <Card
@@ -499,17 +505,24 @@ export function RecommendationCard(props: RecommendationCardProps) {
             />
             {foundation > 0 && <CostRow label="Betonsockel" value={foundation} />}
             {inverter > 0 && <CostRow label="Separater Wechselrichter" value={inverter} />}
+            {installation > 0 && <CostRow label={INSTALLATION_ROW_LABEL} value={installation} />}
             <div className="flex items-center justify-between border-t border-border py-2 text-sm font-semibold">
               <span className="text-ink">Gesamtinvestition</span>
               <Num className="text-ink">{formatEur(roi.totalInvestment)}</Num>
             </div>
             {catalogMeta && (
               <p className="mt-1 text-xs text-text-muted" data-testid="preisherkunft">
-                Hardware-Listenpreis {displayedPriceLabel(entry)}, exkl. Installation
+                Hardware-Listenpreis {displayedPriceLabel(entry)}
+                {installationExclusionSuffix(b)}
                 {catalogMeta.priceAsOf
                   ? `, Preisstand ${formatDateOnly(catalogMeta.priceAsOf)}`
                   : ' — für dieses Gerät ist kein Preisstand erfasst'}
-                .
+                .{installationPriceText(b, catalogMeta)}
+              </p>
+            )}
+            {catalogMeta && installationNote && (
+              <p className="mt-1 text-xs text-text-muted" data-testid="installation-einschraenkung">
+                {installationNote}
               </p>
             )}
             {!roi.taxEffectsIncluded && (

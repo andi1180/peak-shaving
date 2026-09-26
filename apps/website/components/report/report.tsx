@@ -33,6 +33,7 @@ import {
   dispatchMethodText,
   dynamicTariffHintKind,
   dynamicTariffHintText,
+  installationPartialText,
   isAnnualized,
   recommendationRationaleText,
 } from '@/lib/report-copy'
@@ -883,6 +884,7 @@ export function Report({
                 dispatchNote={dispatchNote}
                 /* K3b: Preisstand und Wirkungsgrad-Herkunft GENAU dieses Geräts. */
                 catalogMeta={batteryCatalogMeta[recommended.battery.id]}
+                installationNote={installationPartialText(result)}
               />
             ))
           )}

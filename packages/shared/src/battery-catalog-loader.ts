@@ -21,11 +21,8 @@
  * wird NICHT gerundet: die Engine multipliziert sie sofort wieder mit der Kapazität
  * (`roi.ts:20`), und eine gerundete Zwischenzahl liefe als Abweichung in die Investition.
  *
- * `installation_cost_net` bzw. der Installations-Baustein hat in `BatteryCandidate` KEIN Feld —
- * die Engine rechnet Montage/Elektroanschluss an keiner Stelle mit (Bestandsaufnahme §2). Er wird
- * hier trotzdem aufgelöst und NEBEN dem Kandidaten geliefert (`installationCostNet`), damit ihn
- * die Angebotslegung nicht ein zweites Mal aus der Datenbank holen muss. In den Engine-Typ gehört
- * er nicht: wer ihn in die Investition nimmt, erweitert zuerst `BatteryCandidate`.
+ * Der Installations-Baustein geht seit K4 als `installationCost` in den Kandidaten und damit in die
+ * Investition; sein Preisstand steht in den Beiwerten (`installationPriceAsOf`).
  */
 import type { BatteryCandidate, ControlType } from './battery'
 
@@ -62,7 +59,7 @@ export const BATTERY_CATALOG_SELECT = [
   'control_type',
   'active',
   'foundation_component:battery_cost_components!battery_catalog_foundation_component_id_fkey(art,price_net)',
-  'installation_component:battery_cost_components!battery_catalog_installation_component_id_fkey(art,price_net)',
+  'installation_component:battery_cost_components!battery_catalog_installation_component_id_fkey(art,price_net,price_as_of)',
   'inverter_component:battery_cost_components!battery_catalog_inverter_component_id_fkey(art,price_net,leistung_kw)',
 ].join(',')
 
@@ -73,6 +70,8 @@ export type BatteryCostComponentRow = {
   price_net: number | string | null
   /** Nur bei Art `wechselrichter` gesetzt (H1); Fundament/Installation betten die Spalte nicht ein. */
   leistung_kw?: number | string | null
+  /** Nur bei der Installation eingebettet (K4) — der Report nennt den Preisstand der Pauschale. */
+  price_as_of?: string | null
 }
 
 /** Eine Katalogzeile, beschränkt auf die Spalten aus `BATTERY_CATALOG_SELECT`. */
@@ -135,7 +134,7 @@ export type SkippedCatalogRow = {
 
 /**
  * Die BEIWERTE einer Katalogzeile — alles, was der Report und das Archiv brauchen und was in
- * `BatteryCandidate` bewusst nicht vorkommt (K3b, dasselbe Muster wie `installationCostNet`).
+ * `BatteryCandidate` bewusst nicht vorkommt (K3b).
  *
  * `BatteryCandidate` und die Engine bleiben dadurch unverändert: sie rechnen mit Kapazität,
  * Leistung, Wirkungsgrad und Preis; woher der Preis stammt und wie alt er ist, ist eine Aussage
@@ -154,6 +153,8 @@ export type BatteryCatalogMeta = {
   rteSource: string | null
   /** Der GESAMTPREIS der Zeile, ungeteilt — der Report nennt ihn als Listenpreis. */
   listPriceNet: number
+  /** K4: Preisstand der Installationspauschale; fehlt in Bündeln vor K4. */
+  installationPriceAsOf?: string | null
 }
 
 /**
@@ -175,8 +176,6 @@ export type BatteryCatalogResult =
       category: BatteryCatalogCategory
       /** Genau der Typ, den die Engine liest — Drop-in für `DEMO_BATTERY_CATALOG`. */
       batteries: BatteryCandidate[]
-      /** Je Kandidaten-Kennung der aufgelöste Installationspreis, sofern einer gepflegt ist. */
-      installationCostNet: Record<string, number>
       /** Je Kandidaten-Kennung die Beiwerte (Preisstand, Wirkungsgrad-Herkunft, Händlerkennung). */
       meta: Record<string, BatteryCatalogMeta>
       skipped: SkippedCatalogRow[]
@@ -197,7 +196,6 @@ export type BatteryCatalogRowResult =
   | {
       ok: true
       candidate: BatteryCandidate
-      installationCostNet: number | null
       meta: BatteryCatalogMeta
     }
   | { ok: false; reason: SkippedCatalogRow['reason'] }
@@ -238,6 +236,7 @@ export function batteryCatalogRowToCandidate(row: BatteryCatalogRow): BatteryCat
   }
 
   const foundationCost = componentPrice(row.foundation_component)
+  const installationCost = componentPrice(row.installation_component)
 
   /*
    * ⚠ Der teuerste stille Fehler dieser Datei, wäre er nicht abgefangen: `calculateTotalInvestment`
@@ -286,14 +285,17 @@ export function batteryCatalogRowToCandidate(row: BatteryCatalogRow): BatteryCat
       extraInverterCost,
       requiresFoundation: row.requires_foundation,
       ...(foundationCost == null ? {} : { foundationCost }),
+      ...(installationCost == null ? {} : { installationCost }),
       controlType: controlTypeOf(row),
     },
-    installationCostNet: componentPrice(row.installation_component),
     meta: {
       memodoId: num(row.memodo_id),
       priceAsOf: nullif(row.price_as_of),
       rteSource: nullif(row.rte_source),
       listPriceNet,
+      ...(installationCost == null
+        ? {}
+        : { installationPriceAsOf: nullif(row.installation_component?.price_as_of) }),
     },
   }
 }
@@ -335,7 +337,6 @@ export async function loadBatteryCatalog(
   if (!answer.ok) return { kind: 'failed', reason: answer.reason, message: answer.message }
 
   const batteries: BatteryCandidate[] = []
-  const installationCostNet: Record<string, number> = {}
   const meta: Record<string, BatteryCatalogMeta> = {}
   const skipped: SkippedCatalogRow[] = []
 
@@ -353,13 +354,10 @@ export async function loadBatteryCatalog(
     }
     batteries.push(translated.candidate)
     meta[translated.candidate.id] = translated.meta
-    if (translated.installationCostNet != null) {
-      installationCostNet[translated.candidate.id] = translated.installationCostNet
-    }
   }
 
   if (batteries.length === 0) return { kind: 'empty', category, skipped }
-  return { kind: 'available', category, batteries, installationCostNet, meta, skipped }
+  return { kind: 'available', category, batteries, meta, skipped }
 }
 
 /**

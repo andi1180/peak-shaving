@@ -334,3 +334,43 @@ describe('recommendation — Listenform', () => {
     ])
   })
 })
+
+describe('Installationspauschale (K4)', () => {
+  const META = {
+    [BATTERY.id]: {
+      memodoId: null,
+      priceAsOf: '2026-09-01',
+      rteSource: 'datenblatt',
+      listPriceNet: 21000,
+      installationPriceAsOf: '2026-09-24',
+    },
+  }
+  const withInstallation = { ...ENTRY, battery: { ...BATTERY, installationCost: 1900 }, totalInvestment: 22900 }
+  const pointTexts = (analysis: PdfReportAnalysis) =>
+    buildRecommendationChapter(analysis, undefined, META).recommendation!.points!.map(
+      (p) => `${p.title}: ${String(p.text)}`,
+    )
+
+  it('alle mit Installation: eigene Zeile mit Preisstand, kein „exkl. Installation"', () => {
+    const analysis = { ...analysisFor(false), perBattery: [withInstallation] }
+    const rows = buildRecommendationChapter(analysis, undefined, META).recommendation!.rows
+
+    expect(rows).toContainEqual({ label: 'Installationspauschale (Richtwert)', value: formatEur(1900), tone: 'neutral' })
+    const texts = pointTexts(analysis).join(' ')
+    expect(texts).not.toContain('exkl. Installation')
+    expect(texts).toContain('Installationspauschale (Richtwert), Preisstand 24.09.2026')
+    expect(texts).not.toContain('nicht bei allen Geräten')
+  })
+
+  it('gemischte Kandidaten: benannte Einschränkung mit dem Gerät ohne Installation', () => {
+    const other = { ...ENTRY, battery: { ...BATTERY, id: 'kat-2', name: 'Ohne Montage' } }
+    const analysis: PdfReportAnalysis = {
+      ...analysisFor(false),
+      perBattery: [withInstallation, other],
+      installationCoverage: { code: 'installation_partial', withoutInstallation: ['kat-2'] },
+    }
+    expect(pointTexts(analysis)).toContainEqual(
+      expect.stringMatching(/^Installation nicht bei allen Geräten eingerechnet: .*Ohne Montage/),
+    )
+  })
+})

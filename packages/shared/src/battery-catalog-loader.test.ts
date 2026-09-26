@@ -130,17 +130,22 @@ describe('batteryCatalogRowToCandidate', () => {
 })
 
 describe('loadBatteryCatalog', () => {
-  it('liefert die verwendbaren Geräte und den Installationspreis daneben', async () => {
+  it('nimmt die Installationspauschale in den Kandidaten und ihren Preisstand in die Beiwerte', async () => {
     const result = await loadBatteryCatalog(
       'gewerbe',
-      sourceOf([row({ installation_component: { art: 'installation', price_net: 1800 } })]),
+      sourceOf([
+        row({ installation_component: { art: 'installation', price_net: '1800', price_as_of: '2026-09-24' } }),
+        row({ id: 'ohne' }),
+      ]),
     )
     expect(result.kind).toBe('available')
     if (result.kind !== 'available') return
-    expect(result.batteries).toHaveLength(1)
-    expect(result.installationCostNet[result.batteries[0]!.id]).toBe(1800)
-    // Der Installationspreis gehört NICHT in den Engine-Typ — die Engine rechnet ihn nicht mit.
-    expect(result.batteries[0]).not.toHaveProperty('installationCostNet')
+    const [withInstallation, without] = result.batteries
+    expect(withInstallation!.installationCost).toBe(1800)
+    expect(result.meta[withInstallation!.id]!.installationPriceAsOf).toBe('2026-09-24')
+    // Ohne Baustein fehlt das Feld — keine 0, die eine eingerechnete Installation behauptete.
+    expect(without).not.toHaveProperty('installationCost')
+    expect(result.meta['ohne']).not.toHaveProperty('installationPriceAsOf')
   })
 
   it('unterscheidet empty von failed — und nennt bei empty den Grund', async () => {

@@ -3,6 +3,7 @@ import type {
   BatteryCandidate,
   BatteryNotice,
   FinancialParams,
+  InstallationCoverageLimitation,
   LevySchedule,
   LoadProfile,
   PvProfile,
@@ -226,4 +227,17 @@ export function recommendBattery(
   }
 
   return { perBattery, recommendation, recommendedGridAfterKw: top.gridAfterKw }
+}
+
+/**
+ * K4: Tragen nur manche Kandidaten eine Installationspauschale, ist die Reihung verzerrt — die
+ * Geräte ohne sähen um die Pauschale billiger aus. Benannt statt still gemischt; `undefined`, wenn
+ * alle oder keiner eine tragen.
+ */
+export function installationCoverageOf(
+  catalog: BatteryCandidate[],
+): InstallationCoverageLimitation | undefined {
+  const withoutInstallation = catalog.filter((b) => b.installationCost == null).map((b) => b.id)
+  if (withoutInstallation.length === 0 || withoutInstallation.length === catalog.length) return undefined
+  return { code: 'installation_partial', withoutInstallation }
 }

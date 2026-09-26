@@ -146,6 +146,8 @@ export type PdfReportAnalysis = Pick<
   /* K3b-2 — der Grund, warum keine Empfehlung dasteht. Optional auf `AnalysisResult` und deshalb
      ein Fall für `Complete<…>` in `reduceAnalysis` (s. dort, die #320-Lehre). */
   | 'noRecommendationReason'
+  /* K4 — Kandidaten gemischt mit und ohne Installation; optional, also ebenfalls `Complete<…>`. */
+  | 'installationCoverage'
   | 'assumptions'
   | 'tariffOptimization'
   | 'existingBatteryAnalysis'

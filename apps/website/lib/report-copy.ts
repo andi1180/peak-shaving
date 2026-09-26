@@ -4,6 +4,8 @@ import {
   sumCovered,
   VAT_INCLUSIVE_LABEL,
   type AnalysisResult,
+  type BatteryCandidate,
+  type BatteryCatalogMeta,
   type BatteryNotice,
   type BatteryResultEntry,
   type BatteryRoiEntry,
@@ -11,7 +13,7 @@ import {
   type RecommendationRationale,
 } from 'shared'
 
-import { formatEur, formatKw } from './format'
+import { formatDateOnly, formatEur, formatKw } from './format'
 
 /**
  * Report-Texte, die an MEHR ALS EINER Stelle stehen müssen (Delta 16a).
@@ -296,4 +298,37 @@ export function dynamicTariffHintKind(
 
 export function dynamicTariffHintText(kind: DynamicTariffHintKind): string {
   return kind === 'not_requested' ? DYNAMIC_TARIFF_HINT : DYNAMIC_TARIFF_HINT_NOT_COMPUTABLE
+}
+
+/** K4 — die Investitionszeile der Pauschale, wortgleich in Karte und PDF. */
+export const INSTALLATION_ROW_LABEL = 'Installationspauschale (Richtwert)'
+
+/** K4 — „, exkl. Installation" nur an einem Gerät, das keine Pauschale trägt. */
+export function installationExclusionSuffix(battery: Pick<BatteryCandidate, 'installationCost'>): string {
+  return battery.installationCost == null ? ', exkl. Installation' : ''
+}
+
+/** K4 — der Satz zur Pauschale samt Preisstand; leer ohne Pauschale. */
+export function installationPriceText(
+  battery: Pick<BatteryCandidate, 'installationCost'>,
+  meta: Pick<BatteryCatalogMeta, 'installationPriceAsOf'> | undefined,
+): string {
+  if (battery.installationCost == null) return ''
+  const asOf = meta?.installationPriceAsOf
+  return ` ${INSTALLATION_ROW_LABEL}${asOf ? `, Preisstand ${formatDateOnly(asOf)}` : ''}.`
+}
+
+/** K4 — die benannte Einschränkung, wenn Kandidaten gemischt mit und ohne Installation gerechnet sind. */
+export function installationPartialText(
+  analysis: Pick<AnalysisResult, 'installationCoverage' | 'perBattery'>,
+): string | null {
+  const ids = analysis.installationCoverage?.withoutInstallation
+  if (!ids?.length) return null
+  const names = ids.map((id) => analysis.perBattery.find((p) => p.battery.id === id)?.battery.name ?? id)
+  const listed = names.length > 3 ? `${names.slice(0, 3).join(', ')} und ${names.length - 3} weitere` : names.join(', ')
+  return (
+    `Nicht alle verglichenen Geräte tragen eine Installationspauschale: bei ${listed} ist die ` +
+    'Investition ohne Installation gerechnet. Diese Geräte erscheinen in der Reihung deshalb günstiger, ' +
+    'als sie sind.'
+  )
 }
