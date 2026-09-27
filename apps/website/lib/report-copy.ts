@@ -4,6 +4,7 @@ import {
   sumCovered,
   VAT_INCLUSIVE_LABEL,
   type AnalysisResult,
+  type AnalysisSubsidyProgram,
   type AnalysisTaxAssumptions,
   type BatteryCandidate,
   type BatteryCatalogMeta,
@@ -16,7 +17,7 @@ import {
   type RecommendationRationale,
 } from 'shared'
 
-import { formatDateOnly, formatEur, formatKw, formatPercent, formatYears } from './format'
+import { formatDateOnly, formatEur, formatKw, formatKwh1, formatPercent, formatYears } from './format'
 
 /**
  * Report-Texte, die an MEHR ALS EINER Stelle stehen müssen (Delta 16a).
@@ -235,17 +236,63 @@ export function hasEnteredSubsidy(entry: Pick<BatteryRoiSummary, 'subsidyAmount'
   return entry.subsidyAmount > 0
 }
 
-/** Investition nach der eingetragenen Förderung — ohne Steuervorteil, der eine eigene Zeile hat. */
-export function investmentAfterSubsidy(
-  entry: Pick<BatteryRoiSummary, 'totalInvestment' | 'subsidyAmount'>,
-): number {
-  return entry.totalInvestment - entry.subsidyAmount
+type SubsidyEntry = Pick<BatteryRoiSummary, 'totalInvestment' | 'subsidyAmount' | 'subsidyProgramAmounts'>
+
+/** Eine Förderzeile, wie sie im Report steht: Betrag in GANZEN Euro, positiv. */
+export type SubsidyLine = { label: string; amountEur: number }
+
+/**
+ * Investition, Förderzeilen und Nettoinvestition, wie sie angezeigt werden — in ganzen Euro und so,
+ * dass angezeigte Investition − angezeigte Förderung = angezeigte Nettoinvestition exakt gilt.
+ * Ergeben die Programme gerundet mehr als die Investition, steht die Kürzung in `capEur`.
+ */
+export function displayedInvestmentOf(
+  entry: SubsidyEntry,
+  programs?: readonly AnalysisSubsidyProgram[],
+): { investmentEur: number; lines: SubsidyLine[]; capEur: number; subsidyEur: number; netEur: number } {
+  const investmentEur = Math.round(entry.totalInvestment)
+  const lines: SubsidyLine[] = !hasEnteredSubsidy(entry)
+    ? []
+    : entry.subsidyProgramAmounts !== undefined
+      ? entry.subsidyProgramAmounts.map((amount, i) => ({
+          label: subsidyProgramLabel(programs?.[i], i),
+          amountEur: Math.round(amount),
+        }))
+      : [{ label: SUBSIDY_ROW_LABEL, amountEur: Math.round(entry.subsidyAmount) }]
+  const linesEur = lines.reduce((sum, line) => sum + line.amountEur, 0)
+  const subsidyEur = Math.min(linesEur, investmentEur)
+  return { investmentEur, lines, capEur: linesEur - subsidyEur, subsidyEur, netEur: investmentEur - subsidyEur }
+}
+
+/** Investition nach der eingetragenen Förderung, in ganzen Euro wie angezeigt — ohne Steuervorteil. */
+export function investmentAfterSubsidy(entry: SubsidyEntry): number {
+  return displayedInvestmentOf(entry).netEur
+}
+
+/** „Wiener Landesförderung (150 €/kWh, max. 10 kWh, max. 30 %)" — ohne Bezeichnung „Förderprogramm 1 (…)". */
+export function subsidyProgramLabel(program: AnalysisSubsidyProgram | undefined, index: number): string {
+  const name = program?.label ?? `Förderprogramm ${index + 1}`
+  if (program === undefined) return name
+  const parts = [
+    `${new Intl.NumberFormat('de-AT', { maximumFractionDigits: 2 }).format(program.eurPerKwh)} €/kWh`,
+    ...(program.maxKwh === null ? [] : [`max. ${formatKwh1(program.maxKwh)}`]),
+    ...(program.maxPercent === null ? [] : [`max. ${formatPercent(program.maxPercent)}`]),
+  ]
+  return `${name} (${parts.join(', ')})`
 }
 
 export const SUBSIDY_ROW_LABEL = 'Förderung (von Ihnen eingetragen)'
+export const SUBSIDY_CAP_LABEL = 'Begrenzt auf die Investition'
 export const NET_INVESTMENT_AFTER_SUBSIDY_LABEL = 'Nettoinvestition nach Förderung'
 export const SUBSIDY_NOTE =
   'Nettoinvestition nach einer von Ihnen eingetragenen Förderung — keine geprüfte Zusage.'
+export const SUBSIDY_PROGRAMS_NOTE =
+  'Voraussetzungen und Kombinierbarkeit der Programme bitte beim Fördergeber prüfen.'
+
+/** Der Förderhinweis — mit Programmen „€ pro kWh" um den Prüfhinweis zu den Programmen ergänzt. */
+export function subsidyNoteOf(programs: readonly AnalysisSubsidyProgram[] | undefined): string {
+  return programs?.length ? `${SUBSIDY_NOTE} ${SUBSIDY_PROGRAMS_NOTE}` : SUBSIDY_NOTE
+}
 
 export const TAX_EFFECT_TITLE = 'Steuerliche Wirkung (Richtwert)'
 export const TAX_EFFECT_NOTE =
@@ -296,9 +343,7 @@ export function taxAssumptionLines(tax: AnalysisTaxAssumptions): { label: string
 }
 
 /** „Investition € X" bzw. „Investition € X, nach Förderung € Y". */
-export function investmentText(
-  entry: Pick<BatteryRoiSummary, 'totalInvestment' | 'subsidyAmount'>,
-): string {
+export function investmentText(entry: SubsidyEntry): string {
   return (
     `Investition ${formatEur(entry.totalInvestment)}` +
     (hasEnteredSubsidy(entry) ? `, nach Förderung ${formatEur(investmentAfterSubsidy(entry))}` : '')

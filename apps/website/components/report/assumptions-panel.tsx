@@ -215,6 +215,14 @@ export function AssumptionsPanel({
       financialRaw.investitionsfreibetragPercent = effectiveFinancial.investitionsfreibetragPercent
     }
     if (effectiveFinancial?.note) financialRaw.note = effectiveFinancial.note
+    // Programme „€ pro kWh" (nur Wizard) reisen mit, solange hier weder Prozent noch Fixbetrag steht.
+    if (
+      effectiveFinancial?.subsidyPrograms &&
+      financialRaw.subsidyPercent === undefined &&
+      financialRaw.fixedSubsidyEur === undefined
+    ) {
+      financialRaw.subsidyPrograms = effectiveFinancial.subsidyPrograms
+    }
 
     let financial: FinancialParams | undefined
     if (Object.keys(financialRaw).length > 0) {

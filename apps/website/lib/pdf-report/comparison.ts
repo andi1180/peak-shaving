@@ -9,6 +9,7 @@ import {
   investmentAfterSubsidy,
   isAnnualized,
   SUBSIDY_NOTE,
+  SUBSIDY_PROGRAMS_NOTE,
   TAX_EFFECT_NOTE,
 } from '@/lib/report-copy'
 import type { ReportBuildContext } from './context'
@@ -673,7 +674,8 @@ function withSubsidyNote(
   hasTable: boolean,
 ): ReportStatement {
   if (!considered.some(hasEnteredSubsidy)) return statement
-  const note = `${hasTable ? '„Nach Förderung“: ' : ''}${SUBSIDY_NOTE} Amortisation und Netto rechnen mit diesem Betrag.`
+  const programs = considered.some((c) => c.subsidyProgramAmounts !== undefined)
+  const note = `${hasTable ? '„Nach Förderung“: ' : ''}${SUBSIDY_NOTE}${programs ? ` ${SUBSIDY_PROGRAMS_NOTE}` : ''} Amortisation und Netto rechnen mit diesem Betrag.`
   return { ...statement, body: statement.body === '' ? note : t`${statement.body} ${note}` }
 }
 

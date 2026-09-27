@@ -199,7 +199,13 @@ import type { TariffOverridableField } from './tariff-catalog'
  * sind `perBattery[].taxEffect` (Nach-Steuer-Richtwert) und `assumptions.tax`; `taxBenefit` ist
  * die IFB- plus AfA-Wirkung im Horizont auf die Investition nach Förderung.
  */
-export const ANALYSIS_BUNDLE_VERSION = 14
+/**
+ * ── FASSUNG 15 (27.09.2026, §3.9 Revision Förderung pro kWh) ───────────────────────────────────
+ * Neu ist der Förder-Modus „€ pro kWh": `financial.subsidyPrograms` in den Eingaben,
+ * `perBattery[].subsidyProgramAmounts` und `assumptions.subsidyPrograms` im Ergebnis. Ohne
+ * Programme ist ein Ergebnis bitgleich zu Fassung 14.
+ */
+export const ANALYSIS_BUNDLE_VERSION = 15
 
 /**
  * Fassungen, die der Upload annimmt.
@@ -208,7 +214,7 @@ export const ANALYSIS_BUNDLE_VERSION = 14
  * worden sein, und ein Bündel unbrauchbar zu machen, das ein Mensch in der Hand hält, wäre der
  * schlechtere Handel. Bei einer älteren Fassung bleiben die jeweils neueren Felder schlicht leer.
  */
-export const SUPPORTED_ANALYSIS_BUNDLE_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
+export const SUPPORTED_ANALYSIS_BUNDLE_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
 
 /**
  * Fassung der Rechen-Engine, VON HAND gepflegt.
@@ -219,7 +225,7 @@ export const SUPPORTED_ANALYSIS_BUNDLE_VERSIONS: readonly number[] = [1, 2, 3, 4
  *
  * Bei einer Änderung am Rechenkern, die Ergebnisse verschiebt, MITZIEHEN.
  */
-export const ENGINE_VERSION = '1.6.0-mvp'
+export const ENGINE_VERSION = '1.7.0-mvp'
 
 /**
  * Was anstelle des Commits geschrieben wird, wenn die Bauumgebung keinen kennt (lokaler

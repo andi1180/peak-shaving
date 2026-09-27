@@ -27,7 +27,7 @@ import {
   isAnnualized,
   loadControlValueOf,
   perYearText,
-  SUBSIDY_NOTE,
+  subsidyNoteOf,
   type DynamicTariffHintKind,
 } from '@/lib/report-copy'
 import { billedKwPerYear } from './basis'
@@ -196,7 +196,7 @@ export function buildRecommendation(
   if (inverter > 0) rows.push(neutralRow('Separater Wechselrichter', formatEur(inverter)))
   if (installation > 0) rows.push(neutralRow(INSTALLATION_ROW_LABEL, formatEur(installation)))
   rows.push(totalInvestmentRow(entry))
-  rows.push(...subsidyRows(entry))
+  rows.push(...subsidyRows(entry, analysis.assumptions.subsidyPrograms))
   rows.push({
     label: `Ersparnis ${perYearText(entry)}`,
     value: formatEur(entry.totalSavingPerYear),
@@ -311,7 +311,7 @@ export function buildRecommendation(
     ? [
         {
           title: 'Mit Förderung gerechnet',
-          text: `${SUBSIDY_NOTE} Amortisation und Netto rechnen mit diesem Betrag.`,
+          text: `${subsidyNoteOf(analysis.assumptions.subsidyPrograms)} Amortisation und Netto rechnen mit diesem Betrag.`,
         },
       ]
     : []

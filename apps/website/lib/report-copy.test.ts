@@ -5,6 +5,7 @@ import {
   batteryNoteTexts,
   dynamicTariffHintKind,
   recommendationRationaleText,
+  displayedInvestmentOf,
 } from './report-copy'
 
 // `Intl` setzt geschützte Leerzeichen.
@@ -43,5 +44,28 @@ describe('Engine-Gründe als Satz in der Anzeigebasis', () => {
     expect(dynamicTariffHintKind({ ...base, tariffOptimization: { computable: true } } as unknown as AnalysisResult)).toBeNull()
     expect(dynamicTariffHintKind({ ...base, perBattery: [entry({ totalSavingPerYear: 12 })] })).toBeNull()
     expect(dynamicTariffHintKind({ ...base, perBattery: [entry({ battery: { class: 'commercial' } } as never)] })).toBeNull()
+  })
+})
+
+describe('displayedInvestmentOf — angezeigte Investition − Förderung = Nettoinvestition, auf den Euro', () => {
+  it('rundet die Nettoinvestition als Differenz, nicht für sich (7.691 − 3.846 = 3.845)', () => {
+    const shown = displayedInvestmentOf({ totalInvestment: 7691.4, subsidyAmount: 3845.7 })
+    expect(shown).toMatchObject({ investmentEur: 7691, subsidyEur: 3846, netEur: 3845, capEur: 0 })
+    expect(shown.lines).toEqual([{ label: 'Förderung (von Ihnen eingetragen)', amountEur: 3846 }])
+  })
+
+  it('je Programm eine Zeile mit Parametern; über der Investition eine Kürzungszeile, Netto 0', () => {
+    const shown = displayedInvestmentOf(
+      { totalInvestment: 1000, subsidyAmount: 1000, subsidyProgramAmounts: [1200, 1200] },
+      [
+        { label: 'Wiener Landesförderung', eurPerKwh: 150, maxKwh: 10, maxPercent: 30 },
+        { label: null, eurPerKwh: 150, maxKwh: null, maxPercent: null },
+      ],
+    )
+    expect(shown.lines.map((l) => l.label)).toEqual([
+      'Wiener Landesförderung (150 €/kWh, max. 10 kWh, max. 30 %)',
+      'Förderprogramm 2 (150 €/kWh)',
+    ])
+    expect(shown).toMatchObject({ capEur: 1400, subsidyEur: 1000, netEur: 0 })
   })
 })

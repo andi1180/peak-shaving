@@ -9,6 +9,8 @@ import {
   DEPRECIATION_YEARS_MIN,
   DRAFT_ANALYSIS_HORIZON_YEARS,
   priceBasisLabel,
+  SUBSIDY_PROGRAM_LABEL_MAX,
+  SUBSIDY_PROGRAMS_MAX,
   type PriceBasis,
 } from 'shared'
 import { Button } from '@/components/ui/button'
@@ -16,6 +18,7 @@ import {
   isSubsidyMode,
   readAnalysisAssumptionsForm,
   taxRateMissing,
+  type AnalysisAssumptionsForm,
   type SubsidyMode,
 } from '@/lib/admin/analysis-assumptions-draft'
 import { saveMeteringPointAnalysisAssumptionsAction } from '@/lib/admin/data-entry-actions'
@@ -25,6 +28,32 @@ import { ADMIN_INITIAL_STATE } from '@/lib/admin/schema'
 import { AdminError, AdminField, AdminPanel, AdminSuccess } from './ui'
 
 const NUMBER = new Intl.NumberFormat('de-AT', { maximumFractionDigits: 2, useGrouping: false })
+
+const PROGRAM_FIELDS = ['Label', 'EurPerKwh', 'MaxKwh', 'MaxPercent'] as const
+type ProgramRow = Record<(typeof PROGRAM_FIELDS)[number], string>
+const EMPTY_PROGRAM: ProgramRow = { Label: '', EurPerKwh: '', MaxKwh: '', MaxPercent: '' }
+
+/** Die Programmzeilen zum Start: nach einem Fehler die Eingabe, sonst der gespeicherte Stand. */
+function initialProgramRows(
+  values: Record<string, string> | undefined,
+  stored: AnalysisAssumptionsForm,
+): ProgramRow[] {
+  if (values !== undefined && values.subsidyMode === 'per_kwh') {
+    const rows = Array.from({ length: SUBSIDY_PROGRAMS_MAX }, (_, i) =>
+      Object.fromEntries(PROGRAM_FIELDS.map((f) => [f, values[`program${i}${f}`] ?? ''])),
+    ) as ProgramRow[]
+    const filled = rows.filter((row) => PROGRAM_FIELDS.some((f) => row[f] !== ''))
+    return filled.length > 0 ? filled : [EMPTY_PROGRAM]
+  }
+  if (stored.subsidyPrograms.length === 0) return [EMPTY_PROGRAM]
+  const format = (value: number | null) => (value === null ? '' : NUMBER.format(value))
+  return stored.subsidyPrograms.map((p) => ({
+    Label: p.label,
+    EurPerKwh: format(p.eurPerKwh),
+    MaxKwh: format(p.maxKwh),
+    MaxPercent: format(p.maxPercent),
+  }))
+}
 
 /**
  * „Annahmen für die Wirtschaftlichkeit" — Betrachtungshorizont, Förderung und (nur Betrieb) die
@@ -54,12 +83,18 @@ export function DataEntryAssumptions({
   const [mode, setMode] = useState<SubsidyMode>(
     isSubsidyMode(returnedMode) ? returnedMode : (stored.subsidyMode ?? 'percent'),
   )
+  const [programs, setPrograms] = useState<ProgramRow[]>(() =>
+    initialProgramRows(state.values, stored),
+  )
+  const updateProgram = (index: number, field: keyof ProgramRow, value: string) =>
+    setPrograms((rows) => rows.map((row, i) => (i === index ? { ...row, [field]: value } : row)))
 
   // Hängt den Formularinhalt nach einem gespeicherten Stand neu ein (React setzt Formulare zurück).
   const storedKey = [
     stored.horizonYears,
     stored.subsidyMode,
     stored.subsidyValue,
+    JSON.stringify(stored.subsidyPrograms),
     stored.investitionsfreibetragPercent,
     stored.taxRatePercent,
     stored.depreciationYears,
@@ -100,6 +135,7 @@ export function DataEntryAssumptions({
               [
                 ['percent', '% der Investition'],
                 ['fixed', 'Fixbetrag in €'],
+                ['per_kwh', '€ pro kWh'],
               ] as const
             ).map(([value, label]) => (
               <label key={value} className="flex items-center gap-2 text-small text-text">
@@ -115,25 +151,102 @@ export function DataEntryAssumptions({
               </label>
             ))}
           </div>
-          <AdminField
-            id={`${formId}-subsidyValue`}
-            name="subsidyValue"
-            label={
-              mode === 'percent'
-                ? 'Anteil der Investition (%)'
-                : `Betrag (EUR, ${priceBasisLabel(basis)})`
-            }
-            inputMode="numeric"
-            placeholder="leer = keine Förderung"
-            hint="Nur eine eingetragene Angabe, keine geprüfte Zusage — sie wird im Report so benannt."
-            defaultValue={
-              state.values?.subsidyValue ??
-              (stored.subsidyValue === null || stored.subsidyMode !== mode
-                ? ''
-                : NUMBER.format(stored.subsidyValue))
-            }
-            error={state.fieldErrors?.subsidyValue ?? state.fieldErrors?.subsidyMode}
-          />
+          {mode === 'per_kwh' ? (
+            <div className="flex flex-col gap-3">
+              <p className="text-caption text-text-muted">
+                Je Gerät gerechnet: Satz × nutzbare kWh, gedeckelt auf „max. kWh" und „max. % der
+                Investition". Nur eingetragene Angaben, keine geprüfte Zusage.
+              </p>
+              {programs.map((row, i) => (
+                <div key={i} className="flex flex-col gap-2 rounded-md border border-border p-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-small font-medium text-ink">Programm {i + 1}</span>
+                    {programs.length > 1 && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setPrograms((rows) => rows.filter((_, j) => j !== i))}
+                      >
+                        Entfernen
+                      </Button>
+                    )}
+                  </div>
+                  <AdminField
+                    id={`${formId}-program${i}Label`}
+                    name={`program${i}Label`}
+                    label="Bezeichnung (optional)"
+                    placeholder="z. B. Wiener Landesförderung"
+                    maxLength={SUBSIDY_PROGRAM_LABEL_MAX}
+                    value={row.Label}
+                    onValueChange={(v) => updateProgram(i, 'Label', v)}
+                    error={state.fieldErrors?.[`program${i}Label`]}
+                  />
+                  <div className="grid gap-2 sm:grid-cols-3">
+                    <AdminField
+                      id={`${formId}-program${i}EurPerKwh`}
+                      name={`program${i}EurPerKwh`}
+                      label={`€ pro kWh (${priceBasisLabel(basis)})`}
+                      inputMode="numeric"
+                      value={row.EurPerKwh}
+                      onValueChange={(v) => updateProgram(i, 'EurPerKwh', v)}
+                      error={state.fieldErrors?.[`program${i}EurPerKwh`]}
+                    />
+                    <AdminField
+                      id={`${formId}-program${i}MaxKwh`}
+                      name={`program${i}MaxKwh`}
+                      label="max. kWh (optional)"
+                      inputMode="numeric"
+                      value={row.MaxKwh}
+                      onValueChange={(v) => updateProgram(i, 'MaxKwh', v)}
+                      error={state.fieldErrors?.[`program${i}MaxKwh`]}
+                    />
+                    <AdminField
+                      id={`${formId}-program${i}MaxPercent`}
+                      name={`program${i}MaxPercent`}
+                      label="max. % der Investition (optional)"
+                      inputMode="numeric"
+                      value={row.MaxPercent}
+                      onValueChange={(v) => updateProgram(i, 'MaxPercent', v)}
+                      error={state.fieldErrors?.[`program${i}MaxPercent`]}
+                    />
+                  </div>
+                </div>
+              ))}
+              {programs.length < SUBSIDY_PROGRAMS_MAX && (
+                <div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setPrograms((rows) => [...rows, EMPTY_PROGRAM])}
+                  >
+                    Programm hinzufügen
+                  </Button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <AdminField
+              id={`${formId}-subsidyValue`}
+              name="subsidyValue"
+              label={
+                mode === 'percent'
+                  ? 'Anteil der Investition (%)'
+                  : `Betrag (EUR, ${priceBasisLabel(basis)})`
+              }
+              inputMode="numeric"
+              placeholder="leer = keine Förderung"
+              hint="Nur eine eingetragene Angabe, keine geprüfte Zusage — sie wird im Report so benannt."
+              defaultValue={
+                state.values?.subsidyValue ??
+                (stored.subsidyValue === null || stored.subsidyMode !== mode
+                  ? ''
+                  : NUMBER.format(stored.subsidyValue))
+              }
+              error={state.fieldErrors?.subsidyValue ?? state.fieldErrors?.subsidyMode}
+            />
+          )}
         </fieldset>
 
         {withTax && (

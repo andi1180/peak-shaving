@@ -88,19 +88,17 @@ Stromkosten mit aWATTar ohne Steuerung                          Mit Speicher und
 über 365 gemessene Tage, netto                                  über 365 gemessene Tage, netto
                                                                 Speicher: Dyness Stack 100 30,72 kWh mit Solinteg
                                                                 MHT-15K-40, Investition € 7.691, nach Förderung
-                                                                € 3.845. Im Betrachtungszeitraum von 15 Jahren
-                                                                rechnet er sich damit.
+                                                                € 6.191. Im Betrachtungszeitraum von 15 Jahren rechnet
+                                                                er sich damit nicht.
 
 
 
 Sie haben bislang weder einen Batteriespeicher noch eine PV-Anlage. Ihren heutigen Stromtarif kennen wir
-nicht, weil uns Ihre Stromrechnung nicht vorliegt. Die Zahlen oben sind deshalb keine Ersparnis, sondern
-Ihre Stromkosten mit einem Börsenpreis-Tarif (aWATTar) — einmal so, wie Sie heute Strom beziehen, und
-einmal mit einem Speicher, der gezielt in den günstigen Stunden lädt. Den Vergleich mit Ihrem heutigen Tarif
-rechnen wir nach, sobald Sie uns Ihre Stromrechnung nachreichen. Dyness Stack 100 30,72 kWh mit Solinteg
-MHT-15K-40 spart voraussichtlich € 367 pro Jahr und amortisiert sich mit der von Ihnen eingetragenen
-Förderung nach 10,5 Jahren — Netto-Ersparnis über 15 Jahre: € 1.653. Die Einzelheiten zum Gerät stehen
-im Kapitel „Empfehlung und Wirtschaftlichkeit".
+nicht, weil uns Ihre Stromrechnung nicht vorliegt. Die Zahlen oben sind deshalb keine Ersparnis, sondern Ihre
+Stromkosten mit einem Börsenpreis-Tarif (aWATTar) — einmal so, wie Sie heute Strom beziehen, und einmal
+mit einem Speicher, der gezielt in den günstigen Stunden lädt. Den Vergleich mit Ihrem heutigen Tarif rechnen
+wir nach, sobald Sie uns Ihre Stromrechnung nachreichen. Ein Speicher ist derzeit nicht wirtschaftlich — die
+Antwort samt Begründung steht im Kapitel „Speichergrösse und Gerätewahl".
 
 
 Wie diese Zahlen entstanden sind und wo ihre Grenzen liegen, steht im Kapitel „Methodik & Vorbehalte".
@@ -108,7 +106,7 @@ Wie diese Zahlen entstanden sind und wo ihre Grenzen liegen, steht im Kapitel �
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                              www.coolin.at · Seite 3 von 18
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                               www.coolin.at · Seite 3 von 18
     COOLiN ENERGY          Referenzfall Gewerbe
 
 
@@ -192,20 +190,20 @@ und Abgaben gekostet. Ob das weniger ist als heute, zeigt erst der Vergleich mit
 aWATTar mit Ladesteuerung
  Gesamtinvestition                                                                                       € 7.691
 
- Förderung (von Ihnen eingetragen)                                                                    -€ 3.846
+ Wiener Landesförderung (150 €/kWh, max. 10 kWh, max. 30 %)                                           -€ 1.500
 
- Nettoinvestition nach Förderung                                                                       € 3.845
+ Nettoinvestition nach Förderung                                                                         € 6.191
 
- Netto über 15 Jahre                                                                                    € 1.653
+ Netto über 15 Jahre                                                                                    -€ 693
 
 Zusätzlich zum Börsenpreis wird mit der empfohlenen Batterie gezielt geladen: in den günstigen
 Viertelstunden lädt der Speicher aus dem Netz, während er Kapazität für die teureren Stunden desselben
 Tages zurückhält — der Schutz Ihrer Lastspitzen hat dabei weiterhin Vorrang. Über denselben Zeitraum hätte
 das € 2.331 gekostet — € 367 weniger als ohne Steuerung; das ist der Wert der Ladesteuerung. Gerechnet
 mit diesem Speicher: Dyness Stack 100 30,72 kWh mit Solinteg MHT-15K-40 spart voraussichtlich € 367 pro
-Jahr und amortisiert sich mit der von Ihnen eingetragenen Förderung nach 10,5 Jahren — Netto-Ersparnis
-über 15 Jahre: € 1.653. Im Betrachtungszeitraum von 15 Jahren rechnet er sich damit. Diese Zahl ist eine
-Vorausberechnung, keine Zusage: der Speicher plant seinen Tag am Vorabend mit den dann bekannten
+Jahr und amortisiert sich mit der von Ihnen eingetragenen Förderung nach 16,9 Jahren — Netto-Ersparnis
+über 15 Jahre: -€ 693. Im Betrachtungszeitraum von 15 Jahren rechnet er sich damit nicht. Diese Zahl ist
+eine Vorausberechnung, keine Zusage: der Speicher plant seinen Tag am Vorabend mit den dann bekannten
 Börsenpreisen und einer Verbrauchserwartung aus Ihren eigenen Messwerten — nicht mit dem Wissen,
 was der Tag tatsächlich bringen wird. Weicht Ihr Verbrauch von dieser Erwartung ab, fällt das Ergebnis
 entsprechend anders aus.
@@ -222,30 +220,30 @@ COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich               
 Empfehlung und Wirtschaftlichkeit
 Welches Gerät — und was es kostet.
 
-Unsere Empfehlung: Dyness Stack 100 30,72 kWh mit Solinteg MHT-15K-40
-10,5 Jahre bis sich die Nettoinvestition nach Förderung von € 3.845 bezahlt gemacht hat
+Bestes Gerät im Katalog: Dyness Stack 100 30,72 kWh mit Solinteg MHT-15K-40
+16,9 Jahre bis sich die Nettoinvestition nach Förderung von € 6.191 bezahlt gemacht hat
     Speicher (15 kW / 29,2 kWh)                                                                        € 5.791
 
     Installationspauschale (Richtwert)                                                                 € 1.900
 
     Gesamtinvestition                                                                                   € 7.691
 
-    Förderung (von Ihnen eingetragen)                                                                -€ 3.846
+    Wiener Landesförderung (150 €/kWh, max. 10 kWh, max. 30 %)                                       -€ 1.500
 
-    Nettoinvestition nach Förderung                                                                   € 3.845
+    Nettoinvestition nach Förderung                                                                     € 6.191
 
     Ersparnis pro Jahr                                                                                   € 367
 
-    Netto über 15 Jahre                                                                                € 1.653
+    Netto über 15 Jahre                                                                                -€ 693
 
 Steuerliche Wirkung (Richtwert)
-    Investitionsfreibetrag, einmalig                                                                     € 177
+    Investitionsfreibetrag, einmalig                                                                     € 285
 
-    Abschreibung über 10 Jahre                                                                    € 88 / Jahr
+    Abschreibung über 10 Jahre                                                                   € 142 / Jahr
 
-    Amortisation nach Steuern                                                                       9,9 Jahre
+    Amortisation nach Steuern                                                                      15,9 Jahre
 
-    Netto nach Steuern über 15 Jahre                                                                  € 1.449
+    Netto nach Steuern über 15 Jahre                                                                   -€ 249
 
 Richtwert auf Basis Ihrer Angaben — keine Steuerberatung. Die Einsparungen erhöhen den steuerpflichtigen
 Gewinn und sind berücksichtigt.
@@ -261,7 +259,8 @@ Gewinn und sind berücksichtigt.
         keinen Systemwirkungsgrad über Laden und Entladen.
 
 3       Mit Förderung gerechnet
-        Nettoinvestition nach einer von Ihnen eingetragenen Förderung — keine geprüfte Zusage. Amortisation
+        Nettoinvestition nach einer von Ihnen eingetragenen Förderung — keine geprüfte Zusage.
+        Voraussetzungen und Kombinierbarkeit der Programme bitte beim Fördergeber prüfen. Amortisation
         und Netto rechnen mit diesem Betrag.
 
 
@@ -401,42 +400,47 @@ Was jede weitere Kilowattstunde Speicher noch bringt — und wie die Geräte des
 
 
 
-Die übrigen Geräte des Katalogs — im Vergleich
-Gereiht ist nach der Netto-Ersparnis über den Betrachtungszeitraum — derselben Grösse wie die Kurve
-darüber und wie die Empfehlung im Kapitel „Empfehlung und Wirtschaftlichkeit". Das empfohlene Gerät steht
-deshalb hier nicht noch einmal: es ist dort vollständig aufgeschlüsselt. Diese Tabelle zeigt die nächsten
-Alternativen — und um welchen Betrag die Empfehlung besser ist; alle übrigen Geräte stehen als Punkte in
-der Kurve. Die Hinweise zu einem Gerät (Betonsockel, separater Wechselrichter, zu geringe Leistung für alle
-Spitzen) sind in der Investition bereits enthalten, werden hier aber nicht je Gerät wiederholt — sie stehen beim
-empfohlenen Gerät. „Nach Förderung“: Nettoinvestition nach einer von Ihnen eingetragenen Förderung —
-keine geprüfte Zusage. Amortisation und Netto rechnen mit diesem Betrag. Amortisation nach Steuern: Kostal
-& Dyness Retrofit S: 11,1 Jahre; Dyness Stack 100 40,96 kWh mit Solinteg MHT-20K-40: 11,5 Jahre; Kostal &
-Dyness Retrofit M: 14 Jahre. Richtwert auf Basis Ihrer Angaben — keine Steuerberatung. Die Einsparungen
-erhöhen den steuerpflichtigen Gewinn und sind berücksichtigt.
+Lohnt sich ein Speicher?
 
-34 Geräte geprüft, davon 4 im Betrachtungszeitraum wirtschaftlich.
+Derzeit nicht
+Ohne Leistungspreis und ohne PV-Anlage kommt die gesamte Ersparnis aus der Preisdifferenz am Spotmarkt;
+bei Ihrem Verbrauch reicht das nicht aus, um die Investition zu decken. Gereiht ist nach der Netto-Ersparnis
+über den Betrachtungszeitraum — derselben Grösse wie die Kurve darüber und wie das beste Gerät im
+Kapitel „Empfehlung und Wirtschaftlichkeit". Das beste Gerät steht deshalb hier nicht noch einmal: es ist
+dort vollständig aufgeschlüsselt. Diese Tabelle zeigt die nächsten Alternativen — und um welchen Betrag
+das beste Gerät besser ist; alle übrigen Geräte stehen als Punkte in der Kurve. Die Hinweise zu einem Gerät
+(Betonsockel, separater Wechselrichter, zu geringe Leistung für alle Spitzen) sind in der Investition bereits
+enthalten, werden hier aber nicht je Gerät wiederholt — sie stehen beim besten Gerät. „Nach Förderung“:
+Nettoinvestition nach einer von Ihnen eingetragenen Förderung — keine geprüfte Zusage. Voraussetzungen
+und Kombinierbarkeit der Programme bitte beim Fördergeber prüfen. Amortisation und Netto rechnen mit
+diesem Betrag. Amortisation nach Steuern: Kostal & Dyness Retrofit S: 18,2 Jahre; Dyness Stack 100 40,96
+kWh mit Solinteg MHT-20K-40: 19,3 Jahre; Kostal & Dyness Retrofit M: 24,1 Jahre. Richtwert auf Basis
+Ihrer Angaben — keine Steuerberatung. Die Einsparungen erhöhen den steuerpflichtigen Gewinn und sind
+berücksichtigt.
 
- Gerät                   Grösse         Investition        Nach Ersparnis/Jahr Amortisation        Netto     Abstand zur
-                                                      Förderung                                   über 15    Empfehlung
-                                                                                                   Jahre
+34 Geräte geprüft, davon 0 im Betrachtungszeitraum wirtschaftlich.
 
- Kostal & Dyness         29,2 kWh /        € 8.550      € 4.275         € 363    11,8 Jahre        € 1.174          € 479
- Retrofit S              12,3 kW                                                                             weniger über
-                                                                                                                 15 Jahre
+ Gerät                   Grösse         Investition        Nach Ersparnis/Jahr Amortisation       Netto Abstand zum
+                                                      Förderung                                  über 15 besten Gerät
+                                                                                                  Jahre
 
- Dyness Stack            38,9 kWh /        € 9.099      € 4.549         € 371    12,3 Jahre        € 1.018          € 635
- 100 40,96 kWh           20 kW                                                                               weniger über
- mit Solinteg                                                                                                    15 Jahre
+ Kostal & Dyness         29,2 kWh /        € 8.550       € 7.050        € 363   19,4 Jahre      -€ 1.601         € 908
+ Retrofit S              12,3 kW                                                                           weniger über
+                                                                                                               15 Jahre
+
+ Dyness Stack            38,9 kWh /        € 9.099       € 7.599        € 371   20,5 Jahre      -€ 2.032        € 1.339
+ 100 40,96 kWh           20 kW                                                                             weniger über
+ mit Solinteg                                                                                                  15 Jahre
  MHT-20K-40
 
- Kostal & Dyness         48,6 kWh /        € 11.000     € 5.500         € 371    14,8 Jahre          € 58         € 1.594
- Retrofit M              20,5 kW                                                                             weniger über
-                                                                                                                 15 Jahre
+ Kostal & Dyness         48,6 kWh /        € 11.000     € 9.500         € 371   25,6 Jahre     -€ 3.942         € 3.249
+ Retrofit M              20,5 kW                                                                           weniger über
+                                                                                                               15 Jahre
 
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                                 www.coolin.at · Seite 12 von 18
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                                www.coolin.at · Seite 12 von 18
     COOLiN ENERGY          Referenzfall Gewerbe
 
 
@@ -447,9 +451,8 @@ Was wir Ihnen raten — und worauf sich die Zahlen stützen, die dahinterstehen.
 
 Was wir vorschlagen
 1     Speicher
-      Dyness Stack 100 30,72 kWh mit Solinteg MHT-15K-40 spart voraussichtlich € 367 pro Jahr und
-      amortisiert sich mit der von Ihnen eingetragenen Förderung nach 10,5 Jahren — Netto-Ersparnis über
-      15 Jahre: € 1.653. Die Einzelheiten stehen im Kapitel „Empfehlung und Wirtschaftlichkeit".
+      Derzeit nicht wirtschaftlich — die Antwort samt Begründung steht im Kapitel „Speichergrösse und
+      Gerätewahl".
 
 2     Für den Vergleich mit Ihrem heutigen Tarif
       Reichen Sie uns Ihre Stromrechnung nach. Ohne sie kennen wir Ihren heutigen Arbeitspreis und Ihre
@@ -525,9 +528,9 @@ Annahmen & Rechenweise — Stand dieser Berechnung
 
  Gesamtinvestition                                                                                           € 7.691
 
- Förderung (von Ihnen eingetragen)                                                                        -€ 3.846
+ Wiener Landesförderung (150 €/kWh, max. 10 kWh, max. 30 %)                                               -€ 1.500
 
- Nettoinvestition nach Förderung                                                                           € 3.845
+ Nettoinvestition nach Förderung                                                                             € 6.191
 
  Steuersatz                                                                                                   23 %
 

@@ -349,7 +349,10 @@ export function Report({
     const financial: FinancialParams | undefined =
       touchesFinancial || effectiveFinancial
         ? {
-            ...effectiveFinancial,
+            // Die Förder-Modi schliessen einander aus: ein Prozent- oder Fixbetrag ersetzt die Programme.
+            ...(subsidyPercent !== undefined || fixedSubsidyEur !== undefined
+              ? { ...effectiveFinancial, subsidyPrograms: undefined }
+              : effectiveFinancial),
             ...(subsidyPercent !== undefined ? { subsidyPercent } : {}),
             ...(fixedSubsidyEur !== undefined ? { fixedSubsidyEur } : {}),
             ...(depreciationYears !== undefined ? { depreciationYears } : {}),
@@ -637,6 +640,7 @@ export function Report({
                   catalogMeta={batteryCatalogMeta[entry.battery.id]}
                   tax={taxProp}
                   dispatchNote={dispatchNote}
+                  subsidyPrograms={result.assumptions.subsidyPrograms}
                 />
               ))}
             </div>
@@ -729,6 +733,7 @@ export function Report({
                     entry={scenario}
                     variant="addon"
                     dispatchNote={dispatchNote}
+                    subsidyPrograms={result.assumptions.subsidyPrograms}
                   />
                 ))}
               </div>
@@ -892,6 +897,7 @@ export function Report({
                 /* K3b: Preisstand und Wirkungsgrad-Herkunft GENAU dieses Geräts. */
                 catalogMeta={batteryCatalogMeta[recommended.battery.id]}
                 tax={taxProp}
+                subsidyPrograms={result.assumptions.subsidyPrograms}
                 installationNote={installationPartialText(result)}
               />
             ))

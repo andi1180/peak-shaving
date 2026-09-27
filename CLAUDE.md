@@ -241,6 +241,22 @@ Details und der vollständige Stand: siehe `./Pflichtenheft_Kalkulator_MVP.md`, 
 
 > Lebendiger Handover-Anker. Neueste offene Punkte, die den Bau der Engine/Simulation berühren. Erledigtes wandert raus.
 
+### Förderung „€ pro kWh" je Gerät mit Programmdeckeln (27.09.2026)
+
+Tarif-Station, dritter Förder-Modus neben % und Fixbetrag: 1–3 Programmzeilen (Bezeichnung, €/kWh, max. kWh,
+max. %), flach im Entwurf (`subsidyProgram{1–3}…` + `subsidyProgramsPriceBasis`, Satz netto). Die Engine rechnet
+je Gerät auf der NUTZBAREN Kapazität (`roi.ts`), die Reihung folgt der Nettoinvestition je Gerät. Contract:
+`perBattery[].subsidyProgramAmounts`, `assumptions.subsidyPrograms`. Fachliche Tiefe: `Pflichtenheft_Kalkulator_MVP.md`
+§3.9 (Revision Förderung pro kWh). Bündel-Fassung 15, `ENGINE_VERSION` 1.7.0-mvp.
+
+**⚠ Beim nächsten Umbau mitzudenken: (a)** Angezeigte Investition, Förderung und Nettoinvestition kommen aus EINER
+Funktion, `displayedInvestmentOf` (`apps/website/lib/report-copy.ts`): ganze Euro, Netto als Differenz der
+angezeigten Zahlen. Wer eine dieser Zahlen neu zeigt, nimmt sie — `formatEur(entry.netInvestment)` rundet für sich
+und bricht die Summe. Der Snapshot-Test prüft die Arithmetik jedes Förderblocks im PDF-Text. **(b)** Die Modi
+schliessen einander aus, auch im Bildschirm-Report: ein Prozent-/Fixbetrag aus Panel oder Report-Anfrage ersetzt
+die Programme (`assumptions-panel.tsx`, `report.tsx`). **(c)** Entwurfswerte sind Skalare (`DraftValue`) — deshalb
+flache Schlüssel statt eines Arrays.
+
 ### Steuerwirkung als getrennter Nach-Steuer-Richtwert (27.09.2026)
 
 Tarif-Station (nur Gewerbe): Investitionsfreibetrag %, Steuersatz %, Abschreibungsdauer 1–30 Jahre, Entwurfsschlüssel

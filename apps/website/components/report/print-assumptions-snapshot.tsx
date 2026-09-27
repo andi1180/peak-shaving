@@ -2,10 +2,11 @@ import type { AnalysisResult, BatteryCatalogMeta, BillingModel } from 'shared'
 
 import { formatEur, formatEur2, formatPercent } from '@/lib/format'
 import {
+  displayedInvestmentOf,
   hasEnteredSubsidy,
   NET_INVESTMENT_AFTER_SUBSIDY_LABEL,
   rteSourceNote,
-  SUBSIDY_ROW_LABEL,
+  SUBSIDY_CAP_LABEL,
   taxAssumptionLines,
 } from '@/lib/report-copy'
 import { Num } from './num'
@@ -46,6 +47,7 @@ export function PrintAssumptionsSnapshot({
   catalogMeta?: BatteryCatalogMeta
 }) {
   const rteNote = rteSourceNote(catalogMeta?.rteSource)
+  const shown = recommended ? displayedInvestmentOf(recommended, assumptions.subsidyPrograms) : null
   return (
     <div className="hidden rounded-lg border border-border bg-surface p-6 print:block print:break-inside-avoid">
       <p className="mb-3 text-sm font-medium text-ink">
@@ -84,7 +86,7 @@ export function PrintAssumptionsSnapshot({
             }
           />
         </div>
-        {recommended && (
+        {recommended && shown && (
           <div>
             {assumptions.roundTripEfficiency !== null && (
               <Row
@@ -98,15 +100,16 @@ export function PrintAssumptionsSnapshot({
               label={`Batteriepreis (${recommended.battery.name})`}
               value={`${formatEur2(recommended.battery.pricePerKwh)} / kWh`}
             />
-            <Row label="Gesamtinvestition" value={formatEur(recommended.totalInvestment)} />
-            {hasEnteredSubsidy(recommended) && (
-              <Row label={SUBSIDY_ROW_LABEL} value={formatEur(-recommended.subsidyAmount)} />
-            )}
+            <Row label="Gesamtinvestition" value={formatEur(shown.investmentEur)} />
+            {shown.lines.map((line) => (
+              <Row key={line.label} label={line.label} value={formatEur(-line.amountEur)} />
+            ))}
+            {shown.capEur > 0 && <Row label={SUBSIDY_CAP_LABEL} value={formatEur(shown.capEur)} />}
             <Row
               label={NET_INVESTMENT_AFTER_SUBSIDY_LABEL}
               value={
                 hasEnteredSubsidy(recommended)
-                  ? formatEur(recommended.netInvestment)
+                  ? formatEur(shown.netEur)
                   : 'keine Angabe (nicht einbezogen)'
               }
             />

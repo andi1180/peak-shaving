@@ -9,6 +9,8 @@ import { Font, renderToBuffer } from '@react-pdf/renderer'
 import { mapDraftToExistingBatteryInput, mapDraftToTariffParams } from 'engine'
 import type { MeteringPointAnalysisPorts } from 'extractors'
 import {
+  analysisForDisplay,
+  type AnalysisResult,
   readDraftFinancialParams,
   readPvStage,
   type BatteryCandidate,
@@ -54,6 +56,8 @@ type SnapshotCase = {
   catalogMetaFile: string | null
   /** Zusätzliche Entwurfsfelder über dem eingefrorenen Entwurf (Varianten). */
   draftPatch?: Record<string, unknown>
+  /** Zusätzliche Prüfung am Ergebnis des Laufs (netto, wie gerechnet). */
+  checkResult?: (result: AnalysisResult) => void
 }
 
 const APP = path.resolve(import.meta.dirname, '../..')
@@ -104,6 +108,41 @@ const CASES: SnapshotCase[] = [
       taxRatePercent: 23,
       investitionsfreibetragPercent: 20,
       depreciationYears: 10,
+    },
+  },
+  // Förderung „€ pro kWh", Programm A: 150 €/kWh, max. 10 kWh, max. 30 % (Sätze netto im Entwurf).
+  {
+    ...GEWERBE,
+    name: 'gewerbe-ohne-rechnung-wien.foerderung-pro-kwh-horizont-15-steuer',
+    draftPatch: {
+      subsidyProgramsPriceBasis: 'net',
+      subsidyProgram1Label: 'Wiener Landesförderung',
+      subsidyProgram1EurPerKwh: 150,
+      subsidyProgram1MaxKwh: 10,
+      subsidyProgram1MaxPercent: 30,
+      horizonYears: 15,
+      taxRatePercent: 23,
+      investitionsfreibetragPercent: 20,
+      depreciationYears: 10,
+    },
+  },
+  {
+    ...PRIVAT,
+    name: 'privat-bestand-pv-wien.foerderung-pro-kwh',
+    draftPatch: {
+      subsidyProgramsPriceBasis: 'gross',
+      subsidyProgram1Label: 'Wiener Landesförderung',
+      subsidyProgram1EurPerKwh: 125,
+      subsidyProgram1MaxKwh: 10,
+      subsidyProgram1MaxPercent: 30,
+    },
+    // Der 30-%-Deckel greift auf der angezeigten Bruttobasis: Förderung = 30 % der Bruttoinvestition.
+    checkResult: (result) => {
+      const capped = analysisForDisplay(result, 'gross').perBattery.filter(
+        (e) => 150 * Math.min(e.battery.usableCapacityKwh, 10) > 0.3 * e.totalInvestment,
+      )
+      expect(capped.length).toBeGreaterThan(0)
+      for (const e of capped) expect(e.subsidyAmount).toBeCloseTo(0.3 * e.totalInvestment, 6)
     },
   },
   // Privatpfad: Steuerwerte im Entwurf bleiben unbeachtet — derselbe Snapshot wie ohne.
@@ -257,7 +296,7 @@ async function renderPdfText(input: PdfReportInput, file: string): Promise<strin
 
 export async function renderSnapshots(
   c: SnapshotCase,
-): Promise<{ pdfText: string; screenHtml: string }> {
+): Promise<{ pdfText: string; screenHtml: string; result: AnalysisResult }> {
   const { run, draft, catalog, lastPricing } = await runCase(c)
   await yieldToEventLoop()
   const catalogMeta: Record<string, BatteryCatalogMeta> = c.catalogMetaFile
@@ -319,7 +358,7 @@ export async function renderSnapshots(
     />,
   ).replace(/></g, '>\n<')
 
-  return { pdfText, screenHtml }
+  return { pdfText, screenHtml, result: run.result }
 }
 
 function firstDifferences(expected: string, actual: string, max = 30): string {
@@ -344,6 +383,34 @@ function checkSnapshot(file: string, actual: string): void {
   )
 }
 
+/**
+ * Jeder Förderblock im PDF-Text: angezeigte Investition − angezeigte Förderzeilen (+ Kürzung auf die
+ * Investition) = angezeigte Nettoinvestition, auf den Euro exakt. Liefert die Zahl geprüfter Blöcke.
+ */
+function checkSubsidyArithmetic(pdfText: string): number {
+  const euro = (line: string) => {
+    const match = /(-?)€\s?([\d.]+)\s*$/.exec(line)
+    return match ? (match[1] === '-' ? -1 : 1) * Number(match[2]!.replace(/\./g, '')) : null
+  }
+  const lines = pdfText.split('\n')
+  let blocks = 0
+  lines.forEach((line, i) => {
+    if (!/^\s*Gesamtinvestition\s/.test(line)) return
+    const investment = euro(line)
+    const end = lines.findIndex((l, j) => j > i && /Nettoinvestition nach Förderung\s+€/.test(l))
+    if (investment === null || end === -1 || lines.slice(i + 1, end).some((l) => /Gesamtinvestition/.test(l))) {
+      return
+    }
+    const between = lines.slice(i + 1, end).map(euro).filter((v): v is number => v !== null)
+    expect(between.length, `Förderzeilen fehlen nach Zeile ${i + 1}`).toBeGreaterThan(0)
+    expect(investment + between.reduce((a, b) => a + b, 0), `Förderblock ab Zeile ${i + 1}`).toBe(
+      euro(lines[end]!),
+    )
+    blocks++
+  })
+  return blocks
+}
+
 describe('Report-Snapshots der Referenzfälle', () => {
   afterEach(() => {
     vi.useRealTimers()
@@ -352,8 +419,14 @@ describe('Report-Snapshots der Referenzfälle', () => {
   for (const c of CASES) {
     it(`${c.name}: PDF-Text und Bildschirm-Markup unverändert`, async () => {
       vi.useFakeTimers({ toFake: ['Date'], now: new Date(c.runAt) })
-      const { pdfText, screenHtml } = await renderSnapshots(c)
+      const { pdfText, screenHtml, result } = await renderSnapshots(c)
       checkSnapshot(`${c.snapshot ?? c.name}.pdf.txt`, pdfText)
+      // Mit Förderung trägt das PDF mindestens einen Förderblock — ausser kein Zusatzspeicher rechnet sich.
+      const blocks = checkSubsidyArithmetic(pdfText)
+      if (/subsidy/i.test(Object.keys(c.draftPatch ?? {}).join(' '))) {
+        if (!pdfText.includes('kein Zusatzspeicher rechnet sich')) expect(blocks).toBeGreaterThan(0)
+      }
+      c.checkResult?.(result)
       checkSnapshot(`${c.snapshot ?? c.name}.screen.html`, screenHtml)
     })
   }
