@@ -573,7 +573,7 @@ describe('Stufe D — der Bestandsfall als zweite Render-Fixture', () => {
     const klarsatz = buildBasisChapter(KLARSATZ_FALL).assumptions
     expect(klarsatz.rows.map((r) => r.label)).toEqual([
       'Betrachtungshorizont',
-      'Nettoinvestition (nach Förderung/Steuervorteil)',
+      'Nettoinvestition nach Förderung',
     ])
     expect(klarsatz.rows.map((r) => r.value).join(' ')).not.toContain('Katalog 1')
     expect(klarsatz.rows.map((r) => r.value).join(' ')).toContain('kein Gerät empfohlen')
