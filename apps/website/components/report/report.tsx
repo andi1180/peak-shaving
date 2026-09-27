@@ -39,6 +39,7 @@ import {
   recommendationRationaleText,
 } from '@/lib/report-copy'
 import type { AnalysisRunInputs } from '@/lib/use-analysis'
+import { hasNegativeAddonVerdict } from '@/lib/pdf-report/comparison'
 import type { PdfReportOrigin } from '@/lib/pdf-report/types'
 import type { ExistingBatteryInput, RecomputeInput } from '@/components/flow/types'
 import { AssumptionsPanel } from './assumptions-panel'
@@ -1068,6 +1069,7 @@ export function Report({
         catalogMeta={
           recommended && !dynamicTariffHint ? batteryCatalogMeta[recommended.battery.id] : undefined
         }
+        noDeviceRecommended={hasNegativeAddonVerdict(result)}
       />
 
       {/*

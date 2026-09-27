@@ -41,10 +41,13 @@ export function PrintAssumptionsSnapshot({
   assumptions,
   recommended,
   catalogMeta,
+  noDeviceRecommended = false,
 }: {
   assumptions: AnalysisResult['assumptions']
   recommended?: Entry
   catalogMeta?: BatteryCatalogMeta
+  /** „Zusatzspeicher lohnt nicht" (wie `buildAssumptions`): keine Geräte- und keine Steuerzeilen. */
+  noDeviceRecommended?: boolean
 }) {
   const rteNote = rteSourceNote(catalogMeta?.rteSource)
   const shown = recommended ? displayedInvestmentOf(recommended, assumptions.subsidyPrograms) : null
@@ -86,7 +89,7 @@ export function PrintAssumptionsSnapshot({
             }
           />
         </div>
-        {recommended && shown && (
+        {recommended && shown && !noDeviceRecommended && (
           <div>
             {assumptions.roundTripEfficiency !== null && (
               <Row
@@ -115,7 +118,7 @@ export function PrintAssumptionsSnapshot({
             />
           </div>
         )}
-        {assumptions.tax && (
+        {assumptions.tax && !noDeviceRecommended && (
           <div>
             {taxAssumptionLines(assumptions.tax).map((line) => (
               <Row key={line.label} label={line.label} value={line.value} />

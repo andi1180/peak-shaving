@@ -424,7 +424,7 @@ describe('Report-Snapshots der Referenzfälle', () => {
       // Mit Förderung trägt das PDF mindestens einen Förderblock — ausser kein Zusatzspeicher rechnet sich.
       const blocks = checkSubsidyArithmetic(pdfText)
       if (/subsidy/i.test(Object.keys(c.draftPatch ?? {}).join(' '))) {
-        if (!pdfText.includes('kein Zusatzspeicher rechnet sich')) expect(blocks).toBeGreaterThan(0)
+        if (!pdfText.includes('Lohnt sich ein zusätzlicher Speicher?')) expect(blocks).toBeGreaterThan(0)
       }
       c.checkResult?.(result)
       checkSnapshot(`${c.snapshot ?? c.name}.screen.html`, screenHtml)
