@@ -1,7 +1,12 @@
 import type { AnalysisResult, BatteryCatalogMeta, BillingModel } from 'shared'
 
 import { formatEur, formatEur2, formatPercent } from '@/lib/format'
-import { hasEnteredSubsidy, rteSourceNote, SUBSIDY_ROW_LABEL } from '@/lib/report-copy'
+import {
+  hasEnteredSubsidy,
+  NET_INVESTMENT_AFTER_SUBSIDY_LABEL,
+  rteSourceNote,
+  SUBSIDY_ROW_LABEL,
+} from '@/lib/report-copy'
 import { Num } from './num'
 
 type Entry = AnalysisResult['perBattery'][number]
@@ -97,7 +102,7 @@ export function PrintAssumptionsSnapshot({
               <Row label={SUBSIDY_ROW_LABEL} value={formatEur(-recommended.subsidyAmount)} />
             )}
             <Row
-              label="Nettoinvestition (nach Förderung/Steuervorteil)"
+              label={NET_INVESTMENT_AFTER_SUBSIDY_LABEL}
               value={
                 recommended.taxEffectsIncluded || hasEnteredSubsidy(recommended)
                   ? formatEur(recommended.netInvestment)

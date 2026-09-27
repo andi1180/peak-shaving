@@ -26,6 +26,7 @@ import {
   hasEnteredSubsidy,
   installationExclusionSuffix,
   installationPriceText,
+  NET_INVESTMENT_AFTER_SUBSIDY_LABEL,
   rteSourceNote,
   SUBSIDY_ROW_LABEL,
 } from '@/lib/report-copy'
@@ -151,7 +152,7 @@ export function buildAssumptions(
     ...(negativeAddon
       ? [
           neutralRow(
-            'Nettoinvestition (nach Förderung/Steuervorteil)',
+            NET_INVESTMENT_AFTER_SUBSIDY_LABEL,
             'kein Gerät empfohlen — kein Zusatzspeicher rechnet sich über den Betrachtungszeitraum',
           ),
         ]
@@ -221,7 +222,7 @@ function batteryRows(
       ? [neutralRow(SUBSIDY_ROW_LABEL, formatEur(-recommended.subsidyAmount))]
       : []),
     neutralRow(
-      'Nettoinvestition (nach Förderung/Steuervorteil)',
+      NET_INVESTMENT_AFTER_SUBSIDY_LABEL,
       recommended.taxEffectsIncluded || hasEnteredSubsidy(recommended)
         ? formatEur(recommended.netInvestment)
         : 'keine Angabe (nicht einbezogen)',

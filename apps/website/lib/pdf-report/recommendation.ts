@@ -317,7 +317,7 @@ export function buildRecommendation(
           text: subsidy
             ? 'Ein Steuervorteil ist nicht angegeben und deshalb in keiner dieser Zahlen enthalten.'
             : 'Förderung und Steuervorteil sind nicht angegeben und deshalb in keiner dieser Zahlen ' +
-              'enthalten — mit ihnen fiele die Investition niedriger aus.',
+              'enthalten — mit einer Förderung fiele die Investition niedriger aus.',
         },
       ]
 

@@ -239,7 +239,7 @@ Bestes Gerät im Katalog: Dyness Stack 100 30,72 kWh mit Solinteg MHT-15K-40
 
 3       Ohne Steuervorteil gerechnet
         Förderung und Steuervorteil sind nicht angegeben und deshalb in keiner dieser Zahlen enthalten — mit
-        ihnen fiele die Investition niedriger aus.
+        einer Förderung fiele die Investition niedriger aus.
 
 
      Hinweis zu diesem Gerät
@@ -489,7 +489,7 @@ Annahmen & Rechenweise — Stand dieser Berechnung
 
  Gesamtinvestition                                                                                              € 7.691
 
- Nettoinvestition (nach Förderung/Steuervorteil)                                keine Angabe (nicht einbezogen)
+ Nettoinvestition nach Förderung                                                keine Angabe (nicht einbezogen)
 
 Das sind die Werte, mit denen dieser Report gerechnet wurde — zum Zeitpunkt seiner Erstellung. Die
 Entladetiefe ist dabei fest und geht unverändert aus Ihren Angaben ein; die übrigen Grössen lassen sich
