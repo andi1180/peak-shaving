@@ -147,25 +147,24 @@ export function buildAssumptions(
    * Fall trotzdem den bestgereihten Kandidaten, obwohl das Kapitel daneben „Nein" sagt — Preis,
    * Wirkungsgrad und Investition eines Geräts zu nennen, das der Report nicht empfiehlt, behauptete
    * einen Kauf, den es nicht gibt.
+   * Auch die Steuerzeilen entfallen dann — sie beziehen sich auf eine Investition, die der Report
+   * nicht vorschlägt; das „Nein" selbst steht im Kapitel „Speichergrösse und Gerätewahl".
    */
   const negativeAddon = hasNegativeAddonVerdict(analysis)
 
   const rows: ReportRow[] = [
     neutralRow('Betrachtungshorizont', `${a.horizonYears} Jahre`),
     ...(negativeAddon
-      ? [
-          neutralRow(
-            NET_INVESTMENT_AFTER_SUBSIDY_LABEL,
-            'kein Gerät empfohlen — kein Zusatzspeicher rechnet sich über den Betrachtungszeitraum',
-          ),
-        ]
+      ? []
       : batteryRows(
           recommended,
           a.roundTripEfficiency,
           recommended ? catalogMeta?.[recommended.battery.id] : undefined,
           a.subsidyPrograms,
         )),
-    ...(a.tax ? taxAssumptionLines(a.tax).map((line) => neutralRow(line.label, line.value)) : []),
+    ...(a.tax && !negativeAddon
+      ? taxAssumptionLines(a.tax).map((line) => neutralRow(line.label, line.value))
+      : []),
   ]
 
   return {

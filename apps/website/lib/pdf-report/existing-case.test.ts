@@ -570,13 +570,18 @@ describe('Stufe D — der Bestandsfall als zweite Render-Fixture', () => {
    * `KLARSATZ_FALL` wie oben.
    */
   it('„Annahmen & Rechenweise" nennt kein Gerät, wenn kein Zusatzspeicher sich rechnet', () => {
-    const klarsatz = buildBasisChapter(KLARSATZ_FALL).assumptions
-    expect(klarsatz.rows.map((r) => r.label)).toEqual([
-      'Betrachtungshorizont',
-      'Nettoinvestition nach Förderung',
-    ])
-    expect(klarsatz.rows.map((r) => r.value).join(' ')).not.toContain('Katalog 1')
-    expect(klarsatz.rows.map((r) => r.value).join(' ')).toContain('kein Gerät empfohlen')
+    /* Mit Steuerwerten: auch die Steuerzeilen entfallen, sie hingen an einer Investition. */
+    const klarsatz = buildBasisChapter({
+      ...KLARSATZ_FALL,
+      analysis: {
+        ...KLARSATZ_FALL.analysis,
+        assumptions: {
+          ...KLARSATZ_FALL.analysis.assumptions,
+          tax: { taxRatePercent: 23, investitionsfreibetragPercent: 20, depreciationYears: 10 },
+        },
+      },
+    }).assumptions
+    expect(klarsatz.rows.map((r) => r.label)).toEqual(['Betrachtungshorizont'])
 
     /* Gegenprobe: der reguläre Bestandsfall nennt das Gerät weiterhin. */
     const bestand = buildBasisChapter(BESTANDSFALL).assumptions
