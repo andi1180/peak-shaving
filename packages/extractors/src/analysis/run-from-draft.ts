@@ -33,6 +33,7 @@ import {
   type AnalysisResult,
   type AnalysisWindow,
   type BatteryCandidate,
+  type BatteryCatalogCategory,
   type LoadProfile,
   type TariffPricingInputs,
 } from 'shared'
@@ -198,6 +199,8 @@ export type EstimatedPvSeriesMetadata = {
 export type RunAnalysisFromDraftOptions = DraftTariffMappingOptions & {
   /** Betrachtungszeitraum in Jahren. Vorgabe: der Entwurf, sonst `DRAFT_ANALYSIS_HORIZON_YEARS`. */
   horizonYears?: number
+  /** Kundenkategorie aus dem Projektsegment — Steuerangaben des Entwurfs gelten nur bei `gewerbe`. */
+  category?: BatteryCatalogCategory
 }
 
 /** Jeder Abbruch dieses Laufs — benannt, damit ein Aufrufer verzweigen kann statt Text zu lesen. */
@@ -448,7 +451,7 @@ export async function runAnalysisFromMeteringPointDraft(
    */
   const loadProfile = estimatedPv?.profile ?? parsed.profile
 
-  const financial = readDraftFinancialParams(point.draft)
+  const financial = readDraftFinancialParams(point.draft, options.category)
   const payload: CalculatorPayload = {
     tariff: mapDraftToTariffParams(point.draft, options),
     load: {

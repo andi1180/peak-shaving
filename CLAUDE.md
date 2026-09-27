@@ -241,6 +241,21 @@ Details und der vollständige Stand: siehe `./Pflichtenheft_Kalkulator_MVP.md`, 
 
 > Lebendiger Handover-Anker. Neueste offene Punkte, die den Bau der Engine/Simulation berühren. Erledigtes wandert raus.
 
+### Steuerwirkung als getrennter Nach-Steuer-Richtwert (27.09.2026)
+
+Tarif-Station (nur Gewerbe): Investitionsfreibetrag %, Steuersatz %, Abschreibungsdauer 1–30 Jahre, Entwurfsschlüssel
+wie `FinancialParams`. Gerechnet nur bei Steuersatz UND (IFB oder AfA); die Steuerwirkung wird NIE von der Investition
+abgezogen — `perBattery[].taxEffect` + `assumptions.tax`, Basis ist die Investition nach Förderung. Fachliche Tiefe:
+`Pflichtenheft_Kalkulator_MVP.md` §3.9 (Revision Steuerwirkung). Bündel-Fassung 14, `ENGINE_VERSION` 1.6.0-mvp.
+
+**⚠ Beim nächsten Umbau mitzudenken: (a)** Den Privatpfad sperrt `readDraftFinancialParams(draft, category)` —
+`run-from-draft.ts` braucht dafür `options.category` (Aufrufer `report-render-actions.ts`); ohne Kategorie werden
+Steuerwerte NICHT gelesen. **(b)** Der öffentliche Rechner rechnet mit derselben Semantik: dort gesetzte Steuerwerte
+senken Amortisation und Nettoinvestition nicht mehr. **(c)** Eine neunte Spalte „Amortisation nach Steuern" passt nicht
+in die Gerätetabelle (gemessen am PDF) — die Werte stehen im Kapiteltext (`withTaxNote`, `comparison.ts`). **(d)** Die
+Report-Snapshots laufen seit diesem PR in CI (`report-snapshots`-Job); der Worker muss zwischen langen Render-Strecken
+die Event-Loop freigeben, sonst endet vitest mit `Timeout calling "onTaskUpdate"` (Exit 1 trotz grüner Vergleiche).
+
 ### Betrachtungshorizont und Förderung in der Tarif-Station (27.09.2026)
 
 Wizard-Tarif-Station, Abschnitt „Annahmen für die Wirtschaftlichkeit": Horizont (1–30 Jahre, leer = 10) und
@@ -255,8 +270,8 @@ Annahmen-Kapitel, Zusammenfassung und Bildschirm-Karte. **(b)** Ohne Eintrag ist
 wird das mit den **Report-Snapshots** (`pnpm --filter website report:snapshots`, `apps/website/test/report-snapshots/`,
 seit 27.09.2026 eigener Pflicht-Job `report-snapshots` in CI, installiert poppler): PDF-Text und Bildschirm-Markup der Referenzfälle Privat (Golden-Eingaben
 Urbanz) und Gewerbe (anonymisiertes STCE, Eingaben dort eingefroren) plus zwei Förder-Varianten. Nach jeder
-Report-Änderung laufen lassen; neu schreiben nur bei gewollter Änderung. **(c)** Steuerfelder (IFB, Steuersatz,
-AfA) fehlen im Wizard bewusst — eigener Folge-PR.
+Report-Änderung laufen lassen; neu schreiben nur bei gewollter Änderung. **(c)** ~~Steuerfelder (IFB, Steuersatz,
+AfA) fehlen im Wizard bewusst — eigener Folge-PR.~~ Gebaut, s. Abschnitt darüber.
 
 ### Installationspauschale je Gerät — K4 (26.09.2026)
 

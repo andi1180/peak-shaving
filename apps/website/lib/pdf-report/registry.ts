@@ -384,7 +384,7 @@ export function buildReportRegistry(
     ),
     statement('addon_table', () =>
       hasTable && comparison.variant === 'addon'
-        ? buildTableStatement('addon', comparison.considered)
+        ? buildTableStatement('addon', comparison.considered, null, comparison.shown)
         : null,
     ),
     statement('catalog_alternatives', () =>
@@ -393,6 +393,7 @@ export function buildReportRegistry(
             'catalog',
             comparison.considered,
             noPayoffReasonOf(analysis, input.hasPv),
+            comparison.shown,
           )
         : null,
     ),

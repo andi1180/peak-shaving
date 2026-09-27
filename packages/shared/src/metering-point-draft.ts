@@ -15,6 +15,7 @@
  * Sperre unten fände ihren Schlüssel nicht mehr, und die Analyse liefe OHNE sie durch und sähe
  * vollständig aus.
  */
+import type { BatteryCatalogCategory } from './battery-catalog-loader'
 import type { FinancialParams } from './financial'
 import { tariffParamsSchema, type PriceBasis } from './tariff'
 
@@ -83,17 +84,23 @@ export const DRAFT_ANALYSIS_HORIZON_YEARS = 10
 /**
  * Die Annahmen der Wirtschaftlichkeit aus der Tarif-Station — Feldnamen wie in `SimulationParams`
  * und `FinancialParams`. Fehlt ein Wert, rechnet der Lauf wie ohne Angabe (Horizont 10, keine
- * Förderung). `fixedSubsidyEur` steht NETTO im Entwurf, die eingegebene Basis daneben (H3).
+ * Förderung, keine Steuerwirkung). `fixedSubsidyEur` steht NETTO im Entwurf, die eingegebene Basis
+ * daneben (H3). Die drei Steuerfelder gelten nur im Gewerbepfad.
  */
 export const ANALYSIS_ASSUMPTION_DRAFT_KEYS = {
   horizonYears: 'horizonYears',
   subsidyPercent: 'subsidyPercent',
   fixedSubsidyEur: 'fixedSubsidyEur',
   fixedSubsidyPriceBasis: 'fixedSubsidyPriceBasis',
+  investitionsfreibetragPercent: 'investitionsfreibetragPercent',
+  taxRatePercent: 'taxRatePercent',
+  depreciationYears: 'depreciationYears',
 } as const
 
 export const ANALYSIS_HORIZON_YEARS_MIN = 1
 export const ANALYSIS_HORIZON_YEARS_MAX = 30
+export const DEPRECIATION_YEARS_MIN = 1
+export const DEPRECIATION_YEARS_MAX = 30
 
 /** Der eingetragene Horizont, oder `null` (dann gilt `DRAFT_ANALYSIS_HORIZON_YEARS`). */
 export function readDraftHorizonYears(draft: Record<string, unknown>): number | null {
@@ -106,19 +113,54 @@ export function readDraftHorizonYears(draft: Record<string, unknown>): number | 
     : null
 }
 
-/** Die eingetragene Förderung (Prozent ODER Fixbetrag netto), oder `undefined` ohne Angabe. */
+function draftPercent(draft: Record<string, unknown>, key: string): number | undefined {
+  const value = draft[key]
+  return typeof value === 'number' && value > 0 && value <= 100 ? value : undefined
+}
+
+/** Die eingetragenen Steuerangaben (nur Gewerbe), einzeln — auch ohne Steuersatz, fürs Formular. */
+export function readDraftTaxFields(
+  draft: Record<string, unknown>,
+): Pick<FinancialParams, 'investitionsfreibetragPercent' | 'taxRatePercent' | 'depreciationYears'> {
+  const keys = ANALYSIS_ASSUMPTION_DRAFT_KEYS
+  const years = draft[keys.depreciationYears]
+  return {
+    investitionsfreibetragPercent: draftPercent(draft, keys.investitionsfreibetragPercent),
+    taxRatePercent: draftPercent(draft, keys.taxRatePercent),
+    depreciationYears:
+      typeof years === 'number' &&
+      Number.isInteger(years) &&
+      years >= DEPRECIATION_YEARS_MIN &&
+      years <= DEPRECIATION_YEARS_MAX
+        ? years
+        : undefined,
+  }
+}
+
+/**
+ * Die eingetragene Förderung (Prozent ODER Fixbetrag netto) und — nur bei `category: 'gewerbe'` —
+ * die Steuerangaben; `undefined` ohne jede Angabe. Im Privatpfad bleiben Steuerwerte im Entwurf
+ * unbeachtet.
+ */
 export function readDraftFinancialParams(
   draft: Record<string, unknown>,
+  category?: BatteryCatalogCategory,
 ): FinancialParams | undefined {
-  const percent = draft[ANALYSIS_ASSUMPTION_DRAFT_KEYS.subsidyPercent]
-  if (typeof percent === 'number' && percent > 0 && percent <= 100) {
-    return { subsidyPercent: percent }
-  }
+  const params: FinancialParams = {}
+  const percent = draftPercent(draft, ANALYSIS_ASSUMPTION_DRAFT_KEYS.subsidyPercent)
   const fixed = draft[ANALYSIS_ASSUMPTION_DRAFT_KEYS.fixedSubsidyEur]
-  if (typeof fixed === 'number' && Number.isFinite(fixed) && fixed > 0) {
-    return { fixedSubsidyEur: fixed }
+  if (percent !== undefined) {
+    params.subsidyPercent = percent
+  } else if (typeof fixed === 'number' && Number.isFinite(fixed) && fixed > 0) {
+    params.fixedSubsidyEur = fixed
   }
-  return undefined
+  if (category === 'gewerbe') {
+    const tax = readDraftTaxFields(draft)
+    for (const key of ['investitionsfreibetragPercent', 'taxRatePercent', 'depreciationYears'] as const) {
+      if (tax[key] !== undefined) params[key] = tax[key]
+    }
+  }
+  return Object.keys(params).length > 0 ? params : undefined
 }
 
 /** Die Basis, in der ein Fixbetrag eingegeben wurde — fürs Zurücklesen (`enteredFromNet`). */

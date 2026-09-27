@@ -22,6 +22,8 @@ gewollten Report-Änderung, mit benannter Ursache — nie zum Grünmachen.
 | `gewerbe-ohne-rechnung-wien` | `fixtures/gewerbe-ohne-rechnung-wien/` | anonymisierter Kundenfall Gewerbe, s. unten |
 | `gewerbe-ohne-rechnung-wien.foerderung-50-horizont-15` | wie oben + Entwurf `subsidyPercent: 50`, `horizonYears: 15` | Tarif-Station-Annahmen |
 | `privat-bestand-pv-wien.foerderung-fix-ueber-investition` | wie oben + Fixbetrag 100.000 € inkl. USt | Begrenzung auf die Investition |
+| `gewerbe-ohne-rechnung-wien.foerderung-50-horizont-15-steuer` | Gewerbe + 50 %, 15 Jahre, Steuersatz 23 %, IFB 20 %, AfA 10 Jahre | Steuerwirkung neben der Förderung |
+| (Privat, Datei `privat-bestand-pv-wien`) | Privat + Steuerwerte im Entwurf | Steuerwerte im Privatpfad unbeachtet |
 
 Übergabe-Metadaten wie im Admin-Weg; Kundenname ersetzt durch „Referenzfall Privat/Gewerbe“,
 keine Rechnungszeiträume (die anonymisierten Entwürfe tragen keine `_invoiceExtractions`).

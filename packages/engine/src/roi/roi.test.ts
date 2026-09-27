@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { BatteryCandidate, FinancialParams } from 'shared'
 
-import { calculateRoi } from './roi'
+import { afterTaxCashflow, calculateRoi } from './roi'
 
 function battery(overrides: Partial<BatteryCandidate> = {}): BatteryCandidate {
   return {
@@ -85,48 +85,63 @@ describe('calculateRoi — subsidyAmount', () => {
   })
 })
 
-describe('calculateRoi — taxBenefit & taxEffectsIncluded (§3.9 „Ohne Angabe"-Klärung, Pflichttest)', () => {
-  const b = battery() // totalInvestment = 30.000
+describe('calculateRoi — Steuerwirkung (§3.9, Revision 27.09.2026)', () => {
+  // B = 10.000 (Investition nach Förderung), S = 1.000/Jahr, t = 23 %, IFB 20 %, H = 10.
+  const b = battery({ usableCapacityKwh: 10, pricePerKwh: 1000 })
+  const tax = { taxRatePercent: 23, investitionsfreibetragPercent: 20 }
 
-  it('vollständige FinancialParams → taxEffectsIncluded=true, taxBenefit > 0', () => {
-    const financialParams: FinancialParams = {
-      investitionsfreibetragPercent: 15,
-      depreciationYears: 10,
-      taxRatePercent: 25,
+  it('Handrechnung n = 10: IFB-Wirkung 460, Cashflow 1.460 / 1.000, Netto nach Steuern 460', () => {
+    const roi = calculateRoi(b, 1000, 10, { ...tax, depreciationYears: 10 })
+    const assumptions = { ...tax, depreciationYears: 10 }
+    expect(roi.taxEffect?.ifbEffect).toBeCloseTo(460, 9)
+    expect(afterTaxCashflow(1, 10_000, 1000, assumptions)).toBeCloseTo(1460, 9)
+    for (let year = 2; year <= 10; year++) {
+      expect(afterTaxCashflow(year, 10_000, 1000, assumptions)).toBeCloseTo(1000, 9)
     }
-    const roi = calculateRoi(b, 1000, 10, financialParams)
-
-    // IFB = 15% × 30.000 = 4.500 (Einmaleffekt)
-    // AfA = 30.000 / 10 = 3.000/Jahr × min(10, 10) Jahre = 30.000
-    // taxBenefit = (4.500 + 30.000) × 25% = 8.625
-    expect(roi.taxEffectsIncluded).toBe(true)
-    expect(roi.taxBenefit).toBeCloseTo(8625, 6)
-    expect(roi.taxBenefit).toBeGreaterThan(0)
+    expect(roi.taxEffect?.netSavingOverHorizonAfterTax).toBeCloseTo(460, 9)
+    // 9 Jahre: 1.460 + 8 × 1.000 = 9.460; der Rest 540 im 10. Jahr.
+    expect(roi.taxEffect?.amortizationYearsAfterTax).toBeCloseTo(9.54, 9)
   })
 
-  it('fehlende FinancialParams (kein Argument) → taxEffectsIncluded=false, taxBenefit=0', () => {
-    const roi = calculateRoi(b, 1000, 10)
-    expect(roi.taxEffectsIncluded).toBe(false)
-    expect(roi.taxBenefit).toBe(0)
+  it('Handrechnung n = 20: AfA-Term 115/Jahr, gilt über den Horizont hinaus', () => {
+    const roi = calculateRoi(b, 1000, 10, { ...tax, depreciationYears: 20 })
+    expect(roi.taxEffect?.annualDepreciationEffect).toBeCloseTo(115, 9)
+    expect(afterTaxCashflow(20, 10_000, 1000, { ...tax, depreciationYears: 20 })).toBeCloseTo(
+      885,
+      9,
+    )
+    expect(afterTaxCashflow(21, 10_000, 1000, { ...tax, depreciationYears: 20 })).toBeCloseTo(
+      770,
+      9,
+    )
+    // 1.345 + 9 × 885 − 10.000
+    expect(roi.taxEffect?.netSavingOverHorizonAfterTax).toBeCloseTo(-690, 9)
   })
 
-  it('leere FinancialParams ({}) → taxEffectsIncluded=false, taxBenefit=0 (nicht „geprüft und Null")', () => {
-    const roi = calculateRoi(b, 1000, 10, {})
-    expect(roi.taxEffectsIncluded).toBe(false)
-    expect(roi.taxBenefit).toBe(0)
+  it('Vor-Steuer-Zahlen unverändert; Basis ist die Investition NACH Förderung', () => {
+    const plain = calculateRoi(b, 1000, 10, { subsidyPercent: 50 })
+    const taxed = calculateRoi(b, 1000, 10, { subsidyPercent: 50, ...tax, depreciationYears: 10 })
+    expect(taxed.netInvestment).toBe(5000)
+    expect(taxed.amortizationYears).toBe(plain.amortizationYears)
+    expect(taxed.netSavingOverHorizon).toBe(plain.netSavingOverHorizon)
+    expect(taxed.taxEffect?.ifbEffect).toBeCloseTo(230, 9) // 20 % × 5.000 × 23 %
   })
 
-  it('taxRatePercent gesetzt, aber ohne IFB/AfA-Basis → taxEffectsIncluded=true, taxBenefit=0 (echtes Null-Ergebnis)', () => {
-    const roi = calculateRoi(b, 1000, 10, { taxRatePercent: 25 })
-    expect(roi.taxEffectsIncluded).toBe(true)
-    expect(roi.taxBenefit).toBe(0)
-  })
-
-  it('AfA wird auf min(depreciationYears, horizonYears) gedeckelt', () => {
-    // depreciationYears=20 > horizonYears=5 → nur 5 Jahre AfA zählen im Horizont.
-    const roi = calculateRoi(b, 1000, 5, { depreciationYears: 20, taxRatePercent: 25 })
-    // AfA/Jahr = 30.000/20 = 1.500 × 5 Jahre = 7.500 → taxBenefit = 7.500 × 25% = 1.875
-    expect(roi.taxBenefit).toBeCloseTo(1875, 6)
+  it('nur gerechnet mit Steuersatz UND (IFB oder AfA-Dauer)', () => {
+    for (const params of [
+      undefined,
+      {},
+      { taxRatePercent: 23 },
+      { investitionsfreibetragPercent: 20, depreciationYears: 10 },
+    ]) {
+      const roi = calculateRoi(b, 1000, 10, params)
+      expect(roi.taxEffectsIncluded).toBe(false)
+      expect(roi.taxBenefit).toBe(0)
+      expect(roi).not.toHaveProperty('taxEffect')
+    }
+    expect(
+      calculateRoi(b, 1000, 10, { taxRatePercent: 23, depreciationYears: 10 }).taxEffectsIncluded,
+    ).toBe(true)
   })
 })
 
@@ -156,17 +171,6 @@ describe('calculateRoi — amortizationYears (Grenzfälle, kein NaN/±Infinity a
     expect(roi.netInvestment).toBe(0)
     expect(roi.amortizationYears).toBe(0)
     expect(roi.netSavingOverHorizon).toBe(0)
-  })
-
-  it('Steuervorteil über der Restinvestition: netInvestment bleibt 0, nie negativ', () => {
-    const b = battery({ usableCapacityKwh: 10, pricePerKwh: 100 }) // totalInvestment = 1.000
-    const roi = calculateRoi(b, 100, 10, {
-      subsidyPercent: 90,
-      investitionsfreibetragPercent: 100,
-      taxRatePercent: 50,
-    })
-    expect(roi.netInvestment).toBe(0)
-    expect(roi.netSavingOverHorizon).toBe(1000)
   })
 })
 
@@ -209,14 +213,14 @@ describe('calculateRoi — durchgängiges Beispiel (konkrete Zahlen für den Abs
     expect(roi.totalInvestment).toBe(26_500)
     // subsidyAmount = 1.000 + 5% × 26.500 (1.325) = 2.325
     expect(roi.subsidyAmount).toBeCloseTo(2325, 6)
-    // taxBenefit = (15%×26.500 [3.975] + 26.500/10×10 [26.500]) × 25% = 30.475 × 25% = 7.618,75
-    expect(roi.taxBenefit).toBeCloseTo(7618.75, 6)
+    // netInvestment = 26.500 − 2.325 = 24.175 (die Steuerwirkung senkt die Investition nicht)
+    expect(roi.netInvestment).toBeCloseTo(24_175, 6)
+    // amortizationYears = 24.175 / 3.000 = 8,058333…
+    expect(roi.amortizationYears).toBeCloseTo(24_175 / 3000, 6)
+    // netSavingOverHorizon = 3.000×10 − 24.175 = 5.825
+    expect(roi.netSavingOverHorizon).toBeCloseTo(5825, 6)
+    // taxBenefit = (15 % × 24.175 + 24.175/10 × 10) × 25 % = 27.801,25 × 25 %
+    expect(roi.taxBenefit).toBeCloseTo(6950.3125, 6)
     expect(roi.taxEffectsIncluded).toBe(true)
-    // netInvestment = 26.500 − 2.325 − 7.618,75 = 16.556,25
-    expect(roi.netInvestment).toBeCloseTo(16_556.25, 6)
-    // amortizationYears = 16.556,25 / 3.000 = 5,51875
-    expect(roi.amortizationYears).toBeCloseTo(5.51875, 6)
-    // netSavingOverHorizon = 3.000×10 − 16.556,25 = 13.443,75
-    expect(roi.netSavingOverHorizon).toBeCloseTo(13_443.75, 6)
   })
 })

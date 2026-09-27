@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { parseNetzebeneDraftValue } from './metering-point-draft'
+import { parseNetzebeneDraftValue, readDraftFinancialParams } from './metering-point-draft'
 
 /*
  * Die Rückumformung „NE 5" → 5 ist die Brücke zwischen dem Entwurf (Text, Contract-Feld) und der
@@ -36,5 +36,29 @@ describe('parseNetzebeneDraftValue', () => {
       expect(() => parseNetzebeneDraftValue(raw)).not.toThrow()
       expect(parseNetzebeneDraftValue(raw)).toBeNull()
     }
+  })
+})
+
+describe('readDraftFinancialParams — Steuerangaben nur im Gewerbepfad', () => {
+  const draft = {
+    subsidyPercent: 50,
+    taxRatePercent: 23,
+    investitionsfreibetragPercent: 20,
+    depreciationYears: 10,
+  }
+
+  it('Gewerbe liest Förderung und Steuerangaben', () => {
+    expect(readDraftFinancialParams(draft, 'gewerbe')).toEqual({
+      subsidyPercent: 50,
+      taxRatePercent: 23,
+      investitionsfreibetragPercent: 20,
+      depreciationYears: 10,
+    })
+  })
+
+  it('Privat und ohne Kategorie: Steuerwerte im Entwurf bleiben unbeachtet', () => {
+    expect(readDraftFinancialParams(draft, 'heim')).toEqual({ subsidyPercent: 50 })
+    expect(readDraftFinancialParams(draft)).toEqual({ subsidyPercent: 50 })
+    expect(readDraftFinancialParams({ taxRatePercent: 23 }, 'heim')).toBeUndefined()
   })
 })

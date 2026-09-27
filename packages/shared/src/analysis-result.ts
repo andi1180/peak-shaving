@@ -206,12 +206,32 @@ export type BatteryResultEntry = {
 export type BatteryRoiSummary = {
   totalInvestment: number
   subsidyAmount: number
-  taxBenefit: number // [MN] Effekt aus IFB + AfA (vereinfacht)
-  // false = FinancialParams nicht gesetzt → taxBenefit=0 heißt „keine Angabe", nicht „geprüft".
+  /** IFB- plus AfA-Wirkung innerhalb des Horizonts (Richtwert); NIE von der Investition abgezogen, 0 ohne Steuerwirkung. */
+  taxBenefit: number
+  /** `true` GENAU DANN, wenn die Steuerwirkung gerechnet ist (Steuersatz UND IFB oder AfA-Dauer) — dann steht `taxEffect`. */
   taxEffectsIncluded: boolean
+  /** Investition nach Förderung (§3.9) — die Steuerwirkung steckt nicht darin. */
   netInvestment: number
   amortizationYears: number
   netSavingOverHorizon: number
+  /** Nach-Steuer-Richtwert (§3.9, Revision 27.09.2026); fehlt ohne Steuerwirkung. */
+  taxEffect?: BatteryTaxEffect
+}
+
+export type AnalysisTaxAssumptions = {
+  taxRatePercent: number
+  investitionsfreibetragPercent: number | null
+  depreciationYears: number | null
+}
+
+/** Steuerwirkung auf Basis `netInvestment`; die Einsparung ist mit dem Steuersatz belastet. */
+export type BatteryTaxEffect = {
+  /** IFB % × Basis × Steuersatz, einmalig im Jahr 1. */
+  ifbEffect: number
+  /** Basis ÷ Abschreibungsdauer × Steuersatz in den Jahren 1 bis n; 0 ohne Abschreibungsdauer. */
+  annualDepreciationEffect: number
+  amortizationYearsAfterTax: number
+  netSavingOverHorizonAfterTax: number
 }
 
 /**
@@ -375,6 +395,8 @@ export type AnalysisResult = {
      * (`LevySchedule.locationAssumed`). Optional und additiv — kein Bündel-Versionssprung.
      */
     levyLocationAssumed?: 'vienna'
+    /** Die Steuerangaben der Nach-Steuer-Richtwerte — gesetzt GENAU DANN, wenn sie gerechnet sind. */
+    tax?: AnalysisTaxAssumptions
   }
   /**
    * Delta 9 (B21-3b/9a): Konnte der Tarifoptimierungs-Hebel für diese Analyse gerechnet werden?

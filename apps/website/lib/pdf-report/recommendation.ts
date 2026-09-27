@@ -31,7 +31,12 @@ import {
   type DynamicTariffHintKind,
 } from '@/lib/report-copy'
 import { billedKwPerYear } from './basis'
-import { netOverHorizonRow, subsidyRows, totalInvestmentRow } from './investment-rows'
+import {
+  netOverHorizonRow,
+  subsidyRows,
+  taxEffectBlock,
+  totalInvestmentRow,
+} from './investment-rows'
 import { hasNegativeAddonVerdict, noCatalogDevicePaysOff } from './comparison'
 import type { ReportBuildContext } from './context'
 import { block, ref, t, REF_SECTION } from './report-text'
@@ -300,6 +305,7 @@ export function buildRecommendation(
     ? [{ title: 'Energie-Anteil nur zum Arbeitspreis', text: ENERGY_PRICE_ONLY_NOTE }]
     : []
 
+  const taxBlock = taxEffectBlock(entry, analysis.assumptions.tax, horizonYears)
   const subsidy = hasEnteredSubsidy(entry)
   const subsidyPoint: ReportPoint[] = subsidy
     ? [
@@ -357,6 +363,7 @@ export function buildRecommendation(
      * `totalInvestment` bereits enthalten — wer sie überliest, hält die Gesamtsumme für zu hoch.
      */
     notice: deviceNoticeOf(batteryNoteTexts(entry)),
+    ...(taxBlock ? { subBlock: taxBlock } : {}),
   }
 }
 

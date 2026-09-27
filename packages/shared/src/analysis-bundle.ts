@@ -192,7 +192,14 @@ import type { TariffOverridableField } from './tariff-catalog'
  * ist entfallen, neu ist `spotWithBatteryHindsightEur` als Rückblick-Obergrenze für das gezeigte
  * Gerät. Kappschwelle und Spitzen-Reserve bleiben aus dem ganzen Zeitraum.
  */
-export const ANALYSIS_BUNDLE_VERSION = 13
+/**
+ * ── FASSUNG 14 (27.09.2026, §3.9 Revision Steuerwirkung) ───────────────────────────────────────
+ * Die Steuerwirkung wird nicht mehr von der Investition abgezogen: `netInvestment`, Amortisation
+ * und „Netto über N Jahre" sind bei gesetztem Steuersatz jetzt vor Steuern (nach Förderung). Neu
+ * sind `perBattery[].taxEffect` (Nach-Steuer-Richtwert) und `assumptions.tax`; `taxBenefit` ist
+ * die IFB- plus AfA-Wirkung im Horizont auf die Investition nach Förderung.
+ */
+export const ANALYSIS_BUNDLE_VERSION = 14
 
 /**
  * Fassungen, die der Upload annimmt.
@@ -201,7 +208,7 @@ export const ANALYSIS_BUNDLE_VERSION = 13
  * worden sein, und ein Bündel unbrauchbar zu machen, das ein Mensch in der Hand hält, wäre der
  * schlechtere Handel. Bei einer älteren Fassung bleiben die jeweils neueren Felder schlicht leer.
  */
-export const SUPPORTED_ANALYSIS_BUNDLE_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
+export const SUPPORTED_ANALYSIS_BUNDLE_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
 
 /**
  * Fassung der Rechen-Engine, VON HAND gepflegt.
@@ -212,7 +219,7 @@ export const SUPPORTED_ANALYSIS_BUNDLE_VERSIONS: readonly number[] = [1, 2, 3, 4
  *
  * Bei einer Änderung am Rechenkern, die Ergebnisse verschiebt, MITZIEHEN.
  */
-export const ENGINE_VERSION = '1.5.1-mvp'
+export const ENGINE_VERSION = '1.6.0-mvp'
 
 /**
  * Was anstelle des Commits geschrieben wird, wenn die Bauumgebung keinen kennt (lokaler

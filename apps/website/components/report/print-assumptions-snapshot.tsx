@@ -6,6 +6,7 @@ import {
   NET_INVESTMENT_AFTER_SUBSIDY_LABEL,
   rteSourceNote,
   SUBSIDY_ROW_LABEL,
+  taxAssumptionLines,
 } from '@/lib/report-copy'
 import { Num } from './num'
 
@@ -104,11 +105,18 @@ export function PrintAssumptionsSnapshot({
             <Row
               label={NET_INVESTMENT_AFTER_SUBSIDY_LABEL}
               value={
-                recommended.taxEffectsIncluded || hasEnteredSubsidy(recommended)
+                hasEnteredSubsidy(recommended)
                   ? formatEur(recommended.netInvestment)
                   : 'keine Angabe (nicht einbezogen)'
               }
             />
+          </div>
+        )}
+        {assumptions.tax && (
+          <div>
+            {taxAssumptionLines(assumptions.tax).map((line) => (
+              <Row key={line.label} label={line.label} value={line.value} />
+            ))}
           </div>
         )}
       </div>

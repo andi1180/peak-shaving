@@ -3,6 +3,7 @@ import {
   buildRealSavingBreakdown,
   displayedPriceLabel,
   type AddonBatteryScenario,
+  type AnalysisTaxAssumptions,
   type BatteryCandidate,
   type BatteryCatalogMeta,
   type BatteryResultEntry,
@@ -35,6 +36,9 @@ import {
   NET_INVESTMENT_AFTER_SUBSIDY_LABEL,
   SUBSIDY_NOTE,
   SUBSIDY_ROW_LABEL,
+  TAX_EFFECT_NOTE,
+  TAX_EFFECT_TITLE,
+  taxEffectLines,
   vatNote,
 } from '@/lib/report-copy'
 import { sumCovered } from './monthly-tariff-chart'
@@ -151,6 +155,8 @@ type RecommendationCardProps = (
        * Fassung): dann steht die Zeile nicht da, statt eine Herkunft zu behaupten.
        */
       catalogMeta?: BatteryCatalogMeta
+      /** Steuerangaben und Horizont für den Nach-Steuer-Richtwert — nur, wo er gerechnet ist. */
+      tax?: { assumptions: AnalysisTaxAssumptions; horizonYears: number }
     }
 ) & {
   /** §6.2-Vorbehalt zum Fahrplan (`dispatchMethodText`), einmal im Report gebildet. */
@@ -169,6 +175,7 @@ export function RecommendationCard(props: RecommendationCardProps) {
   const efficiencyAssumed = props.variant === 'existing' && props.efficiencyAssumed === true
   /* K3b: nur am Katalog-Gerät — der Bestandsspeicher hat seine eigene Annahme-Kennzeichnung. */
   const catalogMeta = props.variant === 'existing' || props.variant === 'addon' ? undefined : props.catalogMeta
+  const tax = props.variant === 'existing' || props.variant === 'addon' ? undefined : props.tax
   const rteAssumed = catalogMeta?.rteSource === 'annahme'
 
   /*
@@ -524,6 +531,25 @@ export function RecommendationCard(props: RecommendationCardProps) {
                 </div>
                 <p className="mt-1 text-xs text-text-muted">{SUBSIDY_NOTE}</p>
               </>
+            )}
+            {roi.taxEffect && tax && (
+              <div className="mt-3" data-testid="steuerwirkung">
+                <p className="mb-1 text-sm font-medium text-ink">{TAX_EFFECT_TITLE}</p>
+                {taxEffectLines(roi.taxEffect, tax.assumptions, tax.horizonYears).map((line) => (
+                  <div
+                    key={line.label}
+                    className={
+                      line.total
+                        ? 'flex items-center justify-between border-t border-border py-2 text-sm font-semibold'
+                        : 'flex items-center justify-between py-1 text-sm'
+                    }
+                  >
+                    <span className={line.total ? 'text-ink' : 'text-text-muted'}>{line.label}</span>
+                    <Num className={line.total ? 'text-ink' : 'text-text'}>{line.value}</Num>
+                  </div>
+                ))}
+                <p className="mt-1 text-xs text-text-muted">{TAX_EFFECT_NOTE}</p>
+              </div>
             )}
             {catalogMeta && (
               <p className="mt-1 text-xs text-text-muted" data-testid="preisherkunft">

@@ -1265,6 +1265,17 @@ function Statement({ statement, layout }: { statement: ReportStatement; layout: 
           ))}
         </View>
       )}
+      {statement.subBlock && (
+        <View style={styles.pointList}>
+          <Text style={styles.pointTitle}>{statement.subBlock.title}</Text>
+          <View style={styles.rowList}>
+            {statement.subBlock.rows.map((row, index) => (
+              <StatementRow key={row.label} row={row} zebra={index % 2 === 1} />
+            ))}
+          </View>
+          <Text style={[styles.pointText, { marginTop: 4 }]}>{statement.subBlock.note}</Text>
+        </View>
+      )}
       {/*
         B3-2a — der Körper kommt in STÜCKEN und nicht als eine Zeichenkette: eines davon darf
         AUSGEZEICHNET sein (`ReportAccent`, `report-text.ts`). Die Farbe dazu ist die der Kopfzahl

@@ -5,6 +5,8 @@ import { Loader2 } from 'lucide-react'
 import {
   ANALYSIS_HORIZON_YEARS_MAX,
   ANALYSIS_HORIZON_YEARS_MIN,
+  DEPRECIATION_YEARS_MAX,
+  DEPRECIATION_YEARS_MIN,
   DRAFT_ANALYSIS_HORIZON_YEARS,
   priceBasisLabel,
   type PriceBasis,
@@ -13,6 +15,7 @@ import { Button } from '@/components/ui/button'
 import {
   isSubsidyMode,
   readAnalysisAssumptionsForm,
+  taxRateMissing,
   type SubsidyMode,
 } from '@/lib/admin/analysis-assumptions-draft'
 import { saveMeteringPointAnalysisAssumptionsAction } from '@/lib/admin/data-entry-actions'
@@ -24,8 +27,9 @@ import { AdminError, AdminField, AdminPanel, AdminSuccess } from './ui'
 const NUMBER = new Intl.NumberFormat('de-AT', { maximumFractionDigits: 2, useGrouping: false })
 
 /**
- * „Annahmen für die Wirtschaftlichkeit" — Betrachtungshorizont und Förderung je Zählpunkt.
- * Leer gelassen rechnet der Report wie bisher (10 Jahre, keine Förderung).
+ * „Annahmen für die Wirtschaftlichkeit" — Betrachtungshorizont, Förderung und (nur Betrieb) die
+ * Steuerangaben je Zählpunkt. Leer gelassen rechnet der Report wie bisher (10 Jahre, keine
+ * Förderung, keine Steuerwirkung).
  */
 export function DataEntryAssumptions({
   projectId,
@@ -44,6 +48,7 @@ export function DataEntryAssumptions({
   const stored = readAnalysisAssumptionsForm(meteringPoint.draft)
   // Die Förderbasis folgt der Preisanzeige des Reports: Privat inkl. USt, Betrieb netto.
   const basis: PriceBasis = segment === 'privat' ? 'gross' : 'net'
+  const withTax = segment === 'betrieb'
 
   const returnedMode = state.values?.subsidyMode
   const [mode, setMode] = useState<SubsidyMode>(
@@ -51,14 +56,22 @@ export function DataEntryAssumptions({
   )
 
   // Hängt den Formularinhalt nach einem gespeicherten Stand neu ein (React setzt Formulare zurück).
-  const storedKey = `${stored.horizonYears ?? ''}|${stored.subsidyMode ?? ''}|${stored.subsidyValue ?? ''}`
+  const storedKey = [
+    stored.horizonYears,
+    stored.subsidyMode,
+    stored.subsidyValue,
+    stored.investitionsfreibetragPercent,
+    stored.taxRatePercent,
+    stored.depreciationYears,
+  ].join('|')
+  const storedNumber = (value: number | null) => (value === null ? '' : NUMBER.format(value))
 
   return (
     <AdminPanel>
       <h3 className="text-h4 text-ink">Annahmen für die Wirtschaftlichkeit</h3>
       <p className="mt-1 text-caption text-text-muted">
-        Leer gelassen rechnet der Report mit {DRAFT_ANALYSIS_HORIZON_YEARS} Jahren und ohne
-        Förderung.
+        Leer gelassen rechnet der Report mit {DRAFT_ANALYSIS_HORIZON_YEARS} Jahren
+        {withTax ? ', ohne Förderung und ohne Steuerwirkung.' : ' und ohne Förderung.'}
       </p>
 
       <form key={storedKey} action={action} className="mt-4 flex flex-col gap-4">
@@ -122,6 +135,51 @@ export function DataEntryAssumptions({
             error={state.fieldErrors?.subsidyValue ?? state.fieldErrors?.subsidyMode}
           />
         </fieldset>
+
+        {withTax && (
+          <fieldset className="flex flex-col gap-2">
+            <legend className="text-small font-medium text-ink">Steuerliche Wirkung (Richtwert)</legend>
+            <input type="hidden" name="taxFields" value="1" />
+            <AdminField
+              id={`${formId}-investitionsfreibetragPercent`}
+              name="investitionsfreibetragPercent"
+              label="Investitionsfreibetrag (%)"
+              inputMode="numeric"
+              placeholder="leer = keine Angabe"
+              defaultValue={
+                state.values?.investitionsfreibetragPercent ??
+                storedNumber(stored.investitionsfreibetragPercent)
+              }
+              error={state.fieldErrors?.investitionsfreibetragPercent}
+            />
+            <AdminField
+              id={`${formId}-taxRatePercent`}
+              name="taxRatePercent"
+              label="Steuersatz (%)"
+              inputMode="numeric"
+              placeholder="leer = keine Angabe"
+              hint={
+                taxRateMissing(stored)
+                  ? 'Steuersatz nötig für die steuerliche Wirkung.'
+                  : 'Grenzsteuersatz bzw. KöSt.'
+              }
+              defaultValue={state.values?.taxRatePercent ?? storedNumber(stored.taxRatePercent)}
+              error={state.fieldErrors?.taxRatePercent}
+            />
+            <AdminField
+              id={`${formId}-depreciationYears`}
+              name="depreciationYears"
+              label="Abschreibungsdauer (Jahre)"
+              inputMode="numeric"
+              placeholder="leer = keine Angabe"
+              hint={`Ganze Zahl von ${DEPRECIATION_YEARS_MIN} bis ${DEPRECIATION_YEARS_MAX}.`}
+              defaultValue={
+                state.values?.depreciationYears ?? storedNumber(stored.depreciationYears)
+              }
+              error={state.fieldErrors?.depreciationYears}
+            />
+          </fieldset>
+        )}
 
         <div>
           <Button type="submit" variant="secondary" size="sm" disabled={isSaving}>

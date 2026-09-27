@@ -122,6 +122,8 @@ export type ReportStatement = {
    * hinter sie. Fehlend heisst: es gibt keine — nicht „wir zeigen sie hier nicht".
    */
   notice?: ReportNotice | null
+  /** Ein eigener Zeilenblock unter der Aufschlüsselung (heute: die steuerliche Wirkung als Richtwert). */
+  subBlock?: ReportSubBlock | null
   /**
    * B3-3 (20a) — derselbe Fliesstext als NUMMERIERTE LISTE, ein Eintrag je Punkt. Ein Baustein
    * trägt das eine oder das andere; wo diese Liste steht, bleibt `body` leer.
@@ -133,6 +135,8 @@ export type ReportStatement = {
    */
   points?: ReportPoint[]
 }
+
+export type ReportSubBlock = { title: string; rows: ReportRow[]; note: string }
 
 /**
  * B3-4 — ein Punkt trägt seinen Titel SELBST und nicht in einer zweiten Liste daneben.

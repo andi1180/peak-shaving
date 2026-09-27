@@ -1,4 +1,4 @@
-import type { BatteryRoiEntry } from 'shared'
+import type { AnalysisTaxAssumptions, BatteryRoiEntry } from 'shared'
 
 import { formatEur } from '@/lib/format'
 import {
@@ -6,8 +6,11 @@ import {
   investmentAfterSubsidy,
   NET_INVESTMENT_AFTER_SUBSIDY_LABEL,
   SUBSIDY_ROW_LABEL,
+  TAX_EFFECT_NOTE,
+  TAX_EFFECT_TITLE,
+  taxEffectLines,
 } from '@/lib/report-copy'
-import type { ReportRow } from './statement'
+import type { ReportRow, ReportSubBlock } from './statement'
 
 /** Zeile „Gesamtinvestition" — geteilt mit Weg 4 im Wege-Kapitel (`ways.ts`), damit beide wortgleich bleiben. */
 export function totalInvestmentRow(entry: BatteryRoiEntry): ReportRow {
@@ -37,5 +40,24 @@ export function netOverHorizonRow(entry: BatteryRoiEntry, horizonYears: number):
        grün dastehen — dieselbe Regel wie `deltaRow` in `summary.ts`. */
     tone: entry.netSavingOverHorizon < 0 ? 'warning' : 'positive',
     total: true,
+  }
+}
+
+/** Der Steuerblock als eigener Zeilenblock — nur, wo die Steuerwirkung gerechnet ist. */
+export function taxEffectBlock(
+  entry: BatteryRoiEntry,
+  tax: AnalysisTaxAssumptions | undefined,
+  horizonYears: number,
+): ReportSubBlock | null {
+  if (entry.taxEffect === undefined || tax === undefined) return null
+  return {
+    title: TAX_EFFECT_TITLE,
+    rows: taxEffectLines(entry.taxEffect, tax, horizonYears).map((line) => ({
+      label: line.label,
+      value: line.value,
+      tone: line.total ? (line.negative ? 'warning' : 'positive') : 'neutral',
+      total: line.total,
+    })),
+    note: TAX_EFFECT_NOTE,
   }
 }
