@@ -15,6 +15,10 @@ import {
   DEPRECIATION_YEARS_MAX,
   DEPRECIATION_YEARS_MIN,
   netFromEntered,
+  SUBSIDY_PROGRAM_DRAFT_KEYS,
+  SUBSIDY_PROGRAM_LABEL_MAX,
+  SUBSIDY_PROGRAMS_MAX,
+  subsidyProgramDraftKeys,
 } from 'shared'
 import { isSubsidyMode, parseAmountInput } from './analysis-assumptions-draft'
 import type { AdminState } from './schema'
@@ -158,14 +162,68 @@ export async function deleteMeteringPointTariffComparisonAction(
   return { success: 'Vergleichstarif gelöscht.' }
 }
 
+type ParsedSubsidyProgram = {
+  label: string
+  eurPerKwh: number
+  maxKwh: number | null
+  maxPercent: number | null
+}
+
+/**
+ * Die Programmzeilen „€ pro kWh" (`program0…` bis `program2…`). Eine ganz leere Zeile zählt nicht;
+ * in einer ausgefüllten ist der Satz Pflicht.
+ */
+function parseSubsidyPrograms(
+  formData: FormData,
+  fieldErrors: Record<string, string>,
+  values: Record<string, string>,
+): ParsedSubsidyProgram[] {
+  const programs: ParsedSubsidyProgram[] = []
+  for (let i = 0; i < SUBSIDY_PROGRAMS_MAX; i++) {
+    const raw = (name: string) => {
+      const value = String(formData.get(`program${i}${name}`) ?? '').trim()
+      values[`program${i}${name}`] = value
+      return value
+    }
+    const label = raw('Label')
+    const rateRaw = raw('EurPerKwh')
+    const maxKwhRaw = raw('MaxKwh')
+    const maxPercentRaw = raw('MaxPercent')
+    if (label === '' && rateRaw === '' && maxKwhRaw === '' && maxPercentRaw === '') continue
+
+    const rate = parseAmountInput(rateRaw)
+    const maxKwh = parseAmountInput(maxKwhRaw)
+    const maxPercent = parseAmountInput(maxPercentRaw)
+    if (label.length > SUBSIDY_PROGRAM_LABEL_MAX) {
+      fieldErrors[`program${i}Label`] = `Höchstens ${SUBSIDY_PROGRAM_LABEL_MAX} Zeichen.`
+    }
+    if (!(Number.isFinite(rate) && rate > 0)) {
+      fieldErrors[`program${i}EurPerKwh`] = 'Bitte einen Betrag über 0 € pro kWh angeben.'
+    }
+    if (maxKwhRaw !== '' && !(Number.isFinite(maxKwh) && maxKwh > 0)) {
+      fieldErrors[`program${i}MaxKwh`] = 'Bitte eine Menge über 0 kWh angeben.'
+    }
+    if (maxPercentRaw !== '' && !(maxPercent > 0 && maxPercent <= 100)) {
+      fieldErrors[`program${i}MaxPercent`] = 'Bitte einen Anteil über 0 und höchstens 100 % angeben.'
+    }
+    programs.push({
+      label,
+      eurPerKwh: rate,
+      maxKwh: maxKwhRaw === '' ? null : maxKwh,
+      maxPercent: maxPercentRaw === '' ? null : maxPercent,
+    })
+  }
+  return programs
+}
+
 /**
  * Die Annahmen der Wirtschaftlichkeit — Betrachtungshorizont, Förderung und (nur Gewerbe, am
  * Marker `taxFields` erkannt) die Steuerangaben, EIN Aufruf.
  *
  * Leer heisst „keine Angabe": der Schlüssel wird entfernt, und der Lauf rechnet wie ohne
- * (10 Jahre, ohne Förderung). Prozent und Fixbetrag schliessen einander aus — gespeichert wird
- * genau einer, der andere wird im selben Schreibvorgang entfernt. Ein Fixbetrag steht netto im
- * Entwurf, die eingegebene Basis daneben (H3).
+ * (10 Jahre, ohne Förderung). Prozent, Fixbetrag und Programme „€ pro kWh" schliessen einander
+ * aus — gespeichert wird genau ein Modus, die anderen werden im selben Schreibvorgang entfernt. Ein
+ * Fixbetrag bzw. Programmsatz steht netto im Entwurf, die eingegebene Basis daneben (H3).
  */
 export async function saveMeteringPointAnalysisAssumptionsAction(
   _prev: AdminState,
@@ -199,8 +257,11 @@ export async function saveMeteringPointAnalysisAssumptionsAction(
     fieldErrors.horizonYears = `Bitte eine ganze Zahl von ${ANALYSIS_HORIZON_YEARS_MIN} bis ${ANALYSIS_HORIZON_YEARS_MAX} Jahren angeben.`
   }
 
+  const programValues: Record<string, string> = {}
+  const programs =
+    subsidyMode === 'per_kwh' ? parseSubsidyPrograms(formData, fieldErrors, programValues) : []
   const subsidy = parseAmountInput(subsidyRaw)
-  if (subsidyRaw !== '') {
+  if (subsidyMode !== 'per_kwh' && subsidyRaw !== '') {
     if (!isSubsidyMode(subsidyMode)) {
       fieldErrors.subsidyMode = 'Bitte wählen, ob die Förderung ein Anteil oder ein Fixbetrag ist.'
     } else if (subsidyMode === 'percent' && !(subsidy > 0 && subsidy <= 100)) {
@@ -237,12 +298,12 @@ export async function saveMeteringPointAnalysisAssumptionsAction(
         investitionsfreibetragPercent: ifbRaw,
         taxRatePercent: taxRateRaw,
         depreciationYears: depreciationRaw,
+        ...programValues,
       },
     }
   }
   if (
-    subsidyRaw !== '' &&
-    subsidyMode === 'fixed' &&
+    ((subsidyRaw !== '' && subsidyMode === 'fixed') || programs.length > 0) &&
     priceBasis !== 'net' &&
     priceBasis !== 'gross'
   ) {
@@ -255,18 +316,38 @@ export async function saveMeteringPointAnalysisAssumptionsAction(
   if (horizonRaw === '') clear.push(keys.horizonYears)
   else set.push({ field: keys.horizonYears, value: horizon })
 
-  if (subsidyRaw === '') {
-    clear.push(keys.subsidyPercent, keys.fixedSubsidyEur, keys.fixedSubsidyPriceBasis)
+  const basis = priceBasis === 'gross' ? 'gross' : 'net'
+  if (subsidyMode === 'per_kwh') {
+    clear.push(
+      keys.subsidyPercent,
+      keys.fixedSubsidyEur,
+      keys.fixedSubsidyPriceBasis,
+      ...SUBSIDY_PROGRAM_DRAFT_KEYS,
+    )
+    if (programs.length > 0) set.push({ field: keys.subsidyProgramsPriceBasis, value: basis })
+    programs.forEach((program, i) => {
+      const k = subsidyProgramDraftKeys(i)
+      set.push({ field: k.eurPerKwh, value: netFromEntered(program.eurPerKwh, basis) })
+      if (program.label !== '') set.push({ field: k.label, value: program.label })
+      if (program.maxKwh !== null) set.push({ field: k.maxKwh, value: program.maxKwh })
+      if (program.maxPercent !== null) set.push({ field: k.maxPercent, value: program.maxPercent })
+    })
+  } else if (subsidyRaw === '') {
+    clear.push(
+      keys.subsidyPercent,
+      keys.fixedSubsidyEur,
+      keys.fixedSubsidyPriceBasis,
+      ...SUBSIDY_PROGRAM_DRAFT_KEYS,
+    )
   } else if (subsidyMode === 'percent') {
     set.push({ field: keys.subsidyPercent, value: subsidy })
-    clear.push(keys.fixedSubsidyEur, keys.fixedSubsidyPriceBasis)
+    clear.push(keys.fixedSubsidyEur, keys.fixedSubsidyPriceBasis, ...SUBSIDY_PROGRAM_DRAFT_KEYS)
   } else {
-    const basis = priceBasis === 'gross' ? 'gross' : 'net'
     set.push(
       { field: keys.fixedSubsidyEur, value: netFromEntered(subsidy, basis) },
       { field: keys.fixedSubsidyPriceBasis, value: basis },
     )
-    clear.push(keys.subsidyPercent)
+    clear.push(keys.subsidyPercent, ...SUBSIDY_PROGRAM_DRAFT_KEYS)
   }
 
   if (withTax) {

@@ -85,6 +85,46 @@ describe('calculateRoi — subsidyAmount', () => {
   })
 })
 
+describe('calculateRoi — Förderprogramme „€ pro kWh" je Gerät (§3.9, Revision Förderung pro kWh)', () => {
+  // Investition = kWh × Preis; Programm A: 150 €/kWh, max. 10 kWh, max. 30 %; B: 150 €/kWh, max. 50 kWh.
+  const A = { eurPerKwh: 150, maxKwh: 10, maxPercent: 30 }
+  const B = { eurPerKwh: 150, maxKwh: 50 }
+  const device = (kwh: number, investment: number) =>
+    battery({ usableCapacityKwh: kwh, pricePerKwh: investment / kwh })
+  const roiWith = (kwh: number, investment: number, programs: FinancialParams['subsidyPrograms']) =>
+    calculateRoi(device(kwh, investment), 1000, 10, { subsidyPrograms: programs })
+
+  it('Handrechnung Programm A — kWh-Deckel, Satz, 30-%-Deckel', () => {
+    expect(roiWith(8, 6000, [A]).subsidyAmount).toBeCloseTo(1200, 9)
+    expect(roiWith(15, 10_000, [A]).subsidyAmount).toBeCloseTo(1500, 9)
+    expect(roiWith(10, 4000, [A]).subsidyAmount).toBeCloseTo(1200, 9) // 30 % von 4.000
+  })
+
+  it('Programm B allein und je Programm ausgewiesen; Netto und Amortisation je Gerät', () => {
+    expect(roiWith(8, 6000, [B]).subsidyAmount).toBeCloseTo(1200, 9)
+    expect(roiWith(15, 10_000, [B]).subsidyAmount).toBeCloseTo(2250, 9)
+    const both = roiWith(15, 10_000, [A, B])
+    expect(both.subsidyProgramAmounts?.[0]).toBeCloseTo(1500, 9)
+    expect(both.subsidyProgramAmounts?.[1]).toBeCloseTo(2250, 9)
+    expect(both.subsidyAmount).toBeCloseTo(3750, 9)
+    expect(both.netInvestment).toBeCloseTo(6250, 9)
+    expect(both.amortizationYears).toBeCloseTo(6.25, 9)
+    expect(roiWith(8, 6000, [A, B]).subsidyAmount).toBeCloseTo(2400, 9)
+  })
+
+  it('Summe über der Investition → gedeckelt auf die Investition, Netto 0', () => {
+    const roi = roiWith(8, 1000, [B, B])
+    expect(roi.subsidyProgramAmounts).toEqual([1200, 1200])
+    expect(roi.subsidyAmount).toBe(1000)
+    expect(roi.netInvestment).toBe(0)
+    expect(roi.amortizationYears).toBe(0)
+  })
+
+  it('ohne Programme kein Feld — %/Fixbetrag unverändert', () => {
+    expect(calculateRoi(battery(), 1000, 10, { subsidyPercent: 50 })).not.toHaveProperty('subsidyProgramAmounts')
+  })
+})
+
 describe('calculateRoi — Steuerwirkung (§3.9, Revision 27.09.2026)', () => {
   // B = 10.000 (Investition nach Förderung), S = 1.000/Jahr, t = 23 %, IFB 20 %, H = 10.
   const b = battery({ usableCapacityKwh: 10, pricePerKwh: 1000 })

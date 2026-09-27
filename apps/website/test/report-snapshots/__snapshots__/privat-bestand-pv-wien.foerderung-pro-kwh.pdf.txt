@@ -1,0 +1,651 @@
+                    COOLiN ENERGY
+                    Peak Shaving & Speicher-Wirtschaftlichkeit
+
+
+
+
+Wirtschaftlichkeitsanalyse
+Batteriespeicher &
+Ladeoptimierung
+Auf Basis Ihres Viertelstunden-Lastgangs
+
+
+   E R S T E L LT F Ü R
+
+   Referenzfall Privat
+
+
+
+Ausgewerteter Zeitraum             30.01.2026 – 26.08.2026
+Erstellt am                        24.09.2026
+    COOLiN ENERGY          Referenzfall Privat
+
+
+
+
+Inhalt
+Was in diesem Dokument steht — und auf welcher Seite es beginnt.
+
+
+
+Zusammenfassung                                                                                3
+
+Voraussetzungen                                                                                4
+
+Ihr Lastgang                                                                                   5
+
+Vier Wege zu weniger Stromkosten                                                               6
+
+Ihre PV-Anlage                                                                                 7
+
+Kostenverlauf und ein Tag im Detail                                                            8
+
+Das Ladeverhalten Ihres Speichers                                                              9
+
+Speichergrösse und Gerätewahl                                                                 10
+
+Unser Vorschlag                                                                               11
+
+Methodik & Vorbehalte                                                                         12
+
+   Grundlage ist Ihr echter Lastgang
+   Ein Fahrplan, keine addierten Einzelrechnungen
+   Physikalische Simulation, kein Hochrechnen von Spitzen
+   Wie der Fahrplan entsteht
+   Konstante Batterieeigenschaften über den Betrachtungszeitraum
+
+Annahmen und Datengrundlage                                                                   13
+
+   Annahmen & Rechenweise — Stand dieser Berechnung
+   Datenqualität
+   Ein Monat ohne erkennbaren PV-Beitrag
+   Tarifsätze
+   Tarifkomponenten
+   Datenquellen
+   Berechnungsmethodik je Kennzahl
+   Bekannte Einschränkungen
+
+
+Unterpunkte sind eingerückt und beginnen im Kapitel darüber.
+
+
+
+
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich      www.coolin.at · Seite 2 von 16
+    COOLiN ENERGY          Referenzfall Privat
+
+
+
+
+Zusammenfassung
+Die Zahlen, um die es geht — und was sie für Sie bedeuten.
+
+
+
+€ 1.204                                                         € 69 – € 316
+Ihre Stromkosten heute                                          Mögliche Ersparnis
+über 209 gemessene Tage, inkl. 20 % USt                         je nach gewähltem Weg, im selben Zeitraum
+
+
+
+Sie haben bereits eine Batterie (19,2 kWh) und eine PV-Anlage (10,2 kWp). Es gibt zwei unterschiedlich
+aufwändige Wege, Ihre Stromkosten zu senken: ein einfacher Tarifwechsel ohne jede Umstellung oder ein
+Tarif mit stündlich wechselndem Preis, kombiniert mit gezielter Ladesteuerung Ihres Speichers — alle weiter
+hinten im Detail erklärt.
+
+Ihre PV-Anlage ist in diesen Zahlen bereits berücksichtigt: sie senkt Ihren Netzbezug und damit die Kosten
+aller Wege gleichermassen — an der Tarifwahl ändert sie nichts. Zu ihrer Erzeugung gibt es ausserdem einen
+Befund, der unabhängig von der Tarifwahl gilt — er steht im Kapitel „Ihre PV-Anlage".
+
+
+   Ausserdem schon geklärt
+   Ein zusätzlicher Batteriespeicher lohnt sich für Sie derzeit nicht — woran das liegt, steht im Kapitel
+   „Speichergrösse und Gerätewahl".
+
+
+
+Wie diese Zahlen entstanden sind und wo ihre Grenzen liegen, steht im Kapitel „Methodik & Vorbehalte".
+
+
+
+
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                              www.coolin.at · Seite 3 von 16
+    COOLiN ENERGY          Referenzfall Privat
+
+
+
+
+Voraussetzungen
+Womit gerechnet wird — Ihre Anlage, Ihr Netzanschluss, und der Rahmen, in dem sich Ihre Ersparnis bewegt.
+
+Voraussetzungen für diese Auswertung
+ Ihre Batterie                                                  19,2 kWh · 10,6 kW · 90 % Wirkungsgrad
+
+ Ihre PV-Anlage                                                                   10,2 kWp, bestehend
+
+ Ihr Netzanschluss                                                Netzebene 7, ohne Leistungsmessung
+
+
+
+   Ein wichtiger Rahmen vorweg
+   Ihr Anschluss hat keinen Leistungspreis-Bestandteil (eine Zusatzgebühr für hohe Verbrauchsspitzen,
+   vor allem bei Gewerbekunden üblich). Ihre Batterie kann bei Ihnen deshalb keine Ersparnis durchs
+   „Kappen von Spitzen" bringen. Die gesamte Ersparnis in dieser Auswertung kommt aus zwei anderen
+   Quellen: dem gewählten Tarif und, falls aWATTar, der gezielten Steuerung der Batterie.
+
+
+Ihr Verbrauch heute
+ Kosten                                                                         € 1.204 (inkl. 20 % USt)
+
+ Zeitraum                                                                         209 gemessene Tage
+
+ Höchste gemessene Verbrauchsspitze                                                               12,5 kW
+
+
+
+   Wichtig zur Preisgrundlage
+   Arbeitspreis und Grundgebühr basieren auf einer 2025er-Vorjahresrechnung — für 2026 gibt es
+   noch keine Jahresabrechnung. Für eine aktuelle Zahl wird Ihre 2026er-Jahresrechnung benötigt. Ihre
+   Netzkosten und die gesetzlichen Abgaben sind davon nicht betroffen: sie sind in dieser Auswertung
+   bereits auf dem aktuellen Jahresstand gerechnet.
+
+
+
+
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                   www.coolin.at · Seite 4 von 16
+    COOLiN ENERGY          Referenzfall Privat
+
+
+
+
+Ihr Lastgang
+Ihr Netzbezug über den ausgewerteten Zeitraum, in Viertelstundenwerten — die tatsächliche Grundlage für
+alle Zahlen in dieser Auswertung.
+
+
+  Das Lastgang-Diagramm konnte auf diesem Gerät nicht erzeugt werden. Die Zahlen in diesem Dokument sind davon
+  nicht betroffen — sie stammen aus der Berechnung, nicht aus der Abbildung.
+
+
+
+Ihr Verbrauch in Zahlen
+ Gesamtverbrauch über den Zeitraum                                                                   4 019 kWh
+
+ Ø Tagesverbrauch                                                                                 19 kWh / Tag
+
+ Lastfaktor                                                                                                6,4 %
+ Ø Leistung im Verhältnis zur Spitze von 12,5 kW
+
+Der Lastfaktor setzt Ihre durchschnittliche Leistung ins Verhältnis zu Ihrer höchsten. Ein niedriger Wert steht
+für einen spitzigen Verlauf — kurze, hohe Ausschläge über einem ruhigen Grundverbrauch. Ein hoher Wert
+steht für einen gleichmässigen Verlauf, bei dem die Spitze nicht weit über dem Durchschnitt liegt.
+
+
+
+
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                         www.coolin.at · Seite 5 von 16
+    COOLiN ENERGY          Referenzfall Privat
+
+
+
+
+Vier Wege zu weniger Stromkosten
+Was Ihr Strom heute kostet — und was jeder der geprüften Wege daran ändern würde.
+
+
+  Das Balkendiagramm konnte auf diesem Gerät nicht erzeugt werden. Die Zahlen in diesem Dokument sind davon
+  nicht betroffen — sie stammen aus der Berechnung, nicht aus der Abbildung.
+
+
+
+Ihr Tarif heute
+Die Bezugsgrösse für alles Weitere: mit Ihrem heutigen Vertrag haben Sie über die 209 gemessenen Tage
+€ 1.204 für Energie, Netz und Abgaben gezahlt. Jeder der folgenden Wege wird gegen genau diesen Betrag
+gerechnet — mit demselben Lastgang, denselben Netzentgelten und denselben gesetzlichen Abgaben.
+
+Ihr Vergleichstarif (gogreenenergy)
+Der Tarif, den Sie selbst gefunden und uns genannt haben. Gerechnet wird er mit demselben Lastgang wie
+Ihr heutiger Vertrag; getauscht sind ausschliesslich der Arbeitspreis und die Grundgebühr des Lieferanten
+— Netzentgelt, Messpreis und Abgaben bleiben, was sie sind. Über die 209 gemessenen Tage hätte das
+€ 64 mehr gekostet als Ihr heutiger Tarif. Ein Festpreistarif bewegt sich über den Tag nicht, Ihr Speicher kann
+gegen ihn also nicht steuern: dieser Weg ist unabhängig davon, ob Sie einen Speicher haben.
+
+aWATTar ohne Steuerung
+Der einfachste Weg mit Börsenpreis: derselbe Lastgang wie heute, aber zum Börsenpreis von aWATTar statt
+zu Ihrem festen Arbeitspreis — ohne jede Umstellung an Speicher oder Verbrauch. Über die 209 gemessenen
+Tage hätte das € 69 weniger gekostet.
+
+aWATTar mit Ladesteuerung
+Zusätzlich zum Tarifwechsel wird mit Ihrem Speicher gezielt geladen: in den günstigen Viertelstunden lädt
+der Speicher aus dem Netz, während er Kapazität für die teureren Stunden desselben Tages zurückhält —
+der Schutz Ihrer Lastspitzen hat dabei weiterhin Vorrang. Über denselben Zeitraum hätte das, Tarifwechsel
+und Ladesteuerung zusammen, € 316 gespart. Der Wert der Ladesteuerung allein, der Abstand zu „aWATTar
+ohne Steuerung", beträgt € 247. Diese Zahl ist eine Vorausberechnung, keine Zusage: der Speicher plant
+seinen Tag am Vorabend mit den dann bekannten Börsenpreisen und einer Verbrauchserwartung aus Ihren
+eigenen Messwerten — nicht mit dem Wissen, was der Tag tatsächlich bringen wird. Weicht Ihr Verbrauch
+von dieser Erwartung ab, fällt das Ergebnis entsprechend anders aus.
+
+
+
+
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                        www.coolin.at · Seite 6 von 16
+    COOLiN ENERGY          Referenzfall Privat
+
+
+
+
+Ihre PV-Anlage
+Was Ihre Anlage in diesem Zeitraum beigetragen hat — zurückgerechnet aus Ihrem echten Lastgang, nicht
+ein zweites Mal gemessen.
+
+Was Ihr Lastgang über Ihre Anlage zeigt
+In April fehlt in Ihrem Lastgang das Muster, das eine arbeitende PV-Anlage hinterlässt: an sonnigen Mittagen
+geht der Netzbezug sonst gegen null, in diesen Monaten tut er das an keinem einzigen Tag. Wir rechnen für
+diese Monate deshalb gar keine Erzeugung an — nicht eine geschätzte und auch keine null. Woran es lag,
+sagt der Lastgang nicht, und ob es inzwischen behoben ist, ebenso wenig. Ihre Kosten weiter vorne sind
+davon unberührt: sie sind Ihre tatsächlichen Kosten über diese 209 Tage, mit der Anlage genau so, wie sie
+in diesem Zeitraum lief.
+
+
+   Einordnung
+   Der Vergleich mit und ohne PV-Anlage ist eine Rekonstruktion und keine zweite Messung: Ihr echter
+   Netzbezug plus eine aus Wetterdaten (PVGIS) und Ihren Anlagendaten geschätzte Erzeugung. Ein
+   Netzbetreiber-Zähler misst am Anschlusspunkt — was Ihre Anlage direkt in den Betrieb liefert, kommt
+   dort nie vorbei und steht nur als gesenkter Bezug darin. Was ohne die Anlage gewesen wäre, kann der
+   Lastgang deshalb nicht zeigen, sondern nur eine Schätzung daneben. Dabei gilt die gesamte geschätzte
+   Erzeugung als selbst verbraucht; eine Netzeinspeisung ist nicht gegengerechnet, weil uns dafür die
+   viertelstundengenauen Einspeisedaten fehlen — tatsächlicher Export würde die Differenz etwas kleiner
+   machen. Und der Befund oben ist eine Beobachtung aus dem Auswertungszeitraum: er sagt nicht,
+   warum in diesen Monaten nichts zu sehen war, und nichts über den heutigen Zustand Ihrer Anlage.
+
+
+
+
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                      www.coolin.at · Seite 7 von 16
+    COOLiN ENERGY          Referenzfall Privat
+
+
+
+
+Kostenverlauf und ein Tag im Detail
+Wie sich die Zahlen über die Zeit auswirken — und wie ein einzelner Tag damit aussieht.
+
+
+  Der Kostenvergleich konnte auf diesem Gerät nicht erzeugt werden. Die Zahlen in diesem Dokument sind davon nicht
+  betroffen — sie stammen aus der Berechnung, nicht aus der Abbildung.
+
+
+
+Das zahlen Sie jetzt — und das zahlten Sie mit aWATTar
+ Ihr Tarif heute                                                                                            € 1.204
+
+ aWATTar ohne Steuerung                                                                                      € 1.135
+
+ aWATTar mit Ladesteuerung                                                                                    € 888
+
+Summen über die 8 gemessenen Monate — ausdrücklich nicht auf ein Jahr hochgerechnet: die fehlenden
+Monate liegen nicht gleichverteilt über das Jahr. Enthalten sind Arbeitspreis, Netz-Arbeitspreis, die Abgaben
+auf den Bezug (Elektrizitätsabgabe, EAG, Gebrauchsabgabe auf Netz- und Energiepreis) und die anteiligen
+Fixkosten — Netz-Grundpreis, Messpreis und Grundgebühren (Ihr Lieferant € 4,20/Monat · aWATTar
+€ 5,75/Monat). Hier stehen die drei Summen absolut.
+
+
+
+
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                            www.coolin.at · Seite 8 von 16
+    COOLiN ENERGY          Referenzfall Privat
+
+
+
+
+Das Ladeverhalten Ihres Speichers
+Wann Ihr Speicher arbeitet — und was das über seine Steuerung aussagt.
+
+
+  Die Stunden-Heatmap konnte auf diesem Gerät nicht erzeugt werden. Die Zahlen in diesem Dokument sind davon
+  nicht betroffen — sie stammen aus der Berechnung, nicht aus der Abbildung.
+
+
+
+Wann lädt und entlädt Ihr Speicher?
+ Stärkste Zelle                                                                                       250,3 kWh
+
+ Am meisten geladen um                                                                                 13:00 Uhr
+
+ Zellen ohne Messwert                                             96 von 288 (8 von 12 Monaten gemessen)
+
+Gezählt ist die Menge am Netz, also das, was bezogen bzw. eingespart wurde — nicht die im
+Speicher ankommende Energie; die liegt auf der Ladeseite um den Wirkungsgrad darunter. Wandert der
+Ladeschwerpunkt über die Monate, folgt die Steuerung dem Preis: im Winter liegen die günstigen Stunden
+meist nachts, im Sommer um die Mittagszeit. Die Auflösung ist bewusst stündlich und nicht viertelstündlich —
+die Börsenpreise, an denen sich die Ladung ausrichtet, gelten je Stunde, und eine feinere Darstellung zeigte
+Unterschiede, die aus der Last stammen und nicht aus der Steuerung.
+
+
+  Der Ø-Ladepreis konnte auf diesem Gerät nicht erzeugt werden. Die Zahlen in diesem Dokument sind davon nicht
+  betroffen — sie stammen aus der Berechnung, nicht aus der Abbildung.
+
+
+
+Zu welchem Preis wird geladen?
+ Geladen zu                                                              15,71 ct/kWh · 2 551,4 kWh bezogen
+
+ Entladen zu                                                         28,32 ct/kWh · 2 286,7 kWh abgegeben
+
+ Unter dem Monatsdurchschnitt                                                in 8 von 8 gemessenen Monaten
+
+Alle Beträge inkl. 20 % USt und mengengewichtet: ein Monat mit wenigen Kilowattstunden und einem sehr
+guten Preis wiegt entsprechend leicht. Die geladene Menge ist die am Netz bezogene, also die bezahlte.
+Gerechnet ist das auf die tatsächlichen Marktpreise Ihres Zeitraums — kein Versprechen für die Zukunft.
+Die Ladesteuerung plant jeden Tag im Voraus, ohne den tatsächlichen Verbrauch des Tages zu kennen: der
+Abstand zum Durchschnitt ist, was dieser Plan erreicht hat.
+
+
+
+
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                          www.coolin.at · Seite 9 von 16
+    COOLiN ENERGY          Referenzfall Privat
+
+
+
+
+Speichergrösse und Gerätewahl
+Was jede weitere Kilowattstunde Speicher noch bringt — und wie die Geräte des Katalogs dabei abschneiden.
+
+
+Lohnt sich ein zusätzlicher Speicher?
+
+Nein
+Keines der 27 geprüften Batteriegeräte würde sich neben Ihrer bestehenden Anlage innerhalb von 10 Jahren
+finanziell rechnen. Das am besten abschneidende Gerät bliebe über 10 Jahre gerechnet € 1.935 im Minus.
+Eine zusätzliche Ersparnis kann dabei durchaus herauskommen — über den Betrachtungszeitraum gerechnet
+bleibt sie nur unter dem, was das Gerät kostet. Ihr Speicher deckt bei diesem Verbrauch bereits ab, was
+sich wirtschaftlich holen lässt; mehr Kapazität stünde einen grossen Teil der Zeit ungenutzt da. Das ist eine
+Aussage über diesen Lastgang, diese Tarifangaben und einen Betrachtungszeitraum von 10 Jahren. Wächst
+Ihr Verbrauch, ändert sich Ihr Tarif, kommt PV dazu oder rechnen Sie über einen längeren Zeitraum, kann die
+Antwort eine andere sein. Nettoinvestition nach einer von Ihnen eingetragenen Förderung — keine geprüfte
+Zusage. Voraussetzungen und Kombinierbarkeit der Programme bitte beim Fördergeber prüfen. Amortisation
+und Netto rechnen mit diesem Betrag.
+
+
+  Die Grenznutzen-Kurve konnte auf diesem Gerät nicht erzeugt werden. Die Zahlen in diesem Dokument sind davon
+  nicht betroffen — sie stammen aus der Berechnung, nicht aus der Abbildung.
+
+
+
+
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                        www.coolin.at · Seite 10 von 16
+    COOLiN ENERGY          Referenzfall Privat
+
+
+
+
+Unser Vorschlag
+Was wir Ihnen raten — und worauf sich die Zahlen stützen, die dahinterstehen.
+
+Was wir vorschlagen
+1     Wollen Sie es einfach halten
+      Wechseln Sie zu aWATTar, ohne sonst etwas zu ändern — € 69 weniger über die 209 gemessenen
+      Tage, ohne Umstellung an Speicher oder Verbrauch.
+
+2     Wollen Sie das Maximum
+      aWATTar mit Ladesteuerung — € 316 weniger über dieselben 209 Tage. Sprechen Sie uns an, wenn Sie
+      dabei Unterstützung möchten.
+
+3     Zusätzlicher Speicher
+      Nicht nötig — das ist bereits geklärt: die Antwort samt Begründung steht im Kapitel „Speichergrösse
+      und Gerätewahl".
+
+4     Für eine noch genauere Zahl
+      Reichen Sie uns einen Lastgang mit Einspeisedaten nach, sobald Ihr Netzbetreiber ihn bereitstellt. Was
+      Ihre PV-Anlage beiträgt, ist heute rekonstruiert (Kapitel „Ihre PV-Anlage"); mit viertelstundengenauen
+      Einspeisedaten liesse sich derselbe Beitrag direkt aus Messwerten rechnen.
+
+Woher diese Zahlen stammen
+Abrechnungszeitraum, Preisblatt-Stand, Abgabensätze, aWATTar-Stundenpreise und — sofern zutreffend —
+die PV-Rekonstruktion sind ausführlich im Kapitel „Annahmen und Datengrundlage" nachvollziehbar.
+
+
+
+
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                     www.coolin.at · Seite 11 von 16
+    COOLiN ENERGY          Referenzfall Privat
+
+
+
+
+Methodik & Vorbehalte
+Wie diese Zahlen entstanden sind — und wo ihre Grenzen liegen.
+
+Grundlage ist Ihr echter Lastgang
+Gerechnet wird auf den Viertelstundenwerten, die Sie hochgeladen haben, und auf den Tarifwerten Ihrer
+Netzrechnung. Wo uns ein Wert fehlt, weisen wir das aus, statt ihn zu schätzen — eine geratene Zahl fällt
+später niemandem als Fehler auf, sondern als Ergebnis.
+
+Ein Fahrplan, keine addierten Einzelrechnungen
+Spitzenkappung, Eigenverbrauch und tarifbewusstes Laden konkurrieren um dieselbe Batteriekapazität. Sie
+werden deshalb in einer einzigen Simulation gemeinsam gefahren und erst danach in Leistungspreis- und
+Energie-Anteil aufgeteilt — nie getrennt gerechnet und addiert. Der Energie-Anteil ist die volle Kostendifferenz
+Ihres Netzbezugs ohne und mit Speicher, Ladeverluste eingeschlossen; beide Anteile ergeben zusammen
+genau die ausgewiesene Gesamtersparnis.
+
+Physikalische Simulation, kein Hochrechnen von Spitzen
+Die Batterie wird über den gesamten Zeitraum chronologisch mit Ladestand, Leistungsgrenze und
+Wirkungsgrad durchgerechnet. Der Ladestand bleibt dabei jederzeit innerhalb der nutzbaren Kapazität; eine
+Spitze gilt nur dann als abgefangen, wenn zu diesem Zeitpunkt tatsächlich genug Energie und Leistung
+vorhanden waren.
+
+Wie der Fahrplan entsteht
+Der Speicher plant jeden Tag am Vorabend: mit den dann bekannten Börsenpreisen und einer
+Verbrauchserwartung aus Ihren eigenen früheren Messwerten, nicht mit dem tatsächlichen Verbrauch des
+Tages. Ausgeführt wird dieser Plan auf Ihrem echten Lastgang; Ersparnis, Amortisation und die Reihung der
+Geräte stammen aus genau diesem Fahrplan. Mit vollem Rückblick auf Ihren tatsächlichen Verbrauch wäre
+die Ladesteuerung über die 209 gemessenen Tage höchstens € 248 wert gewesen — die Obergrenze dieser
+Rechnung, nicht ihr Ergebnis.
+
+Konstante Batterieeigenschaften über den Betrachtungszeitraum
+Nutzbare Kapazität und Wirkungsgrad werden über den gesamten Horizont als unverändert angenommen.
+Reale Speicher verlieren mit den Jahren an Kapazität. Diese Alterung ist hier bewusst nicht modelliert — eine
+erfundene Alterungskurve wäre schlechter als eine offengelegte Vereinfachung. Die ausgewiesene Ersparnis
+der späteren Jahre ist dadurch eher optimistisch.
+
+
+
+
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                        www.coolin.at · Seite 12 von 16
+    COOLiN ENERGY          Referenzfall Privat
+
+
+
+
+Annahmen und Datengrundlage
+Womit gerechnet wurde, woher die Tarifwerte stammen — und was an diesem Datensatz zu wissen ist.
+
+Annahmen & Rechenweise — Stand dieser Berechnung
+ Betrachtungshorizont                                                                                      10 Jahre
+
+ Nettoinvestition
+               kein Gerät empfohlen — kein Zusatzspeicher rechnet sich über den Betrachtungszeitraum
+ nach
+ Förderung
+
+Das sind die Werte, mit denen dieser Report gerechnet wurde — zum Zeitpunkt seiner Erstellung. Die
+Entladetiefe ist dabei fest und geht unverändert aus Ihren Angaben ein; die übrigen Grössen lassen sich
+im Rechner ändern, und ein danach erzeugter Report trägt dann andere Zahlen als dieser. Die Tarifgrössen
+selbst stehen weiter unten in der Tabelle „Tarifkomponenten", mit ihrer Herkunft daneben.
+
+
+   Datenqualität
+   Abgedeckt: 209 Tage · interpolierte Lücken: 0
+   · 14980 Zeile(n) ohne Messwert (27.08.2025 bis 29.01.2026) — die Zählerauslesung beginnt erst ab
+   30.01.2026.
+   · source ist „import_only" ohne PV-Profil: Die Eigenverbrauchs- und Lastverschiebungs-Ersparnis ist
+   nicht beurteilbar und kann unterschätzt sein (keine Einspeise-/PV-Daten).
+   · Für diesen Zählpunkt liegt eine geschätzte PV-Erzeugungsreihe (PVGIS) vor, sie wurde aber NICHT vom
+   Lastgang abgezogen (pv_already_in_grid_profile). Gerechnet ist der echte, gemessene Netzbezug. Die
+   Anlage ist als BESTEHEND erfasst: ihre Eigenversorgung steckt im Lastgang bereits, ein Abzug zählte
+   dieselbe Energie ein zweites Mal. Ist sie erst geplant, ist das in der PV-Station zu korrigieren — dann wird
+   die Schätzung gerechnet. Die Eigenverbrauchs-Ersparnis ist aus der Schätzreihe damit nicht beziffert
+   (§3.1).
+
+
+
+   Ein Monat ohne erkennbaren PV-Beitrag
+   In diesem Monat Ihres Lastgangs ist der Mittagseinbruch, den eine arbeitende PV-Anlage hinterlässt, an
+   keinem einzigen Tag aufgetreten — in den übrigen Monaten desselben Zeitraums schon. Was daraus
+   folgt und was ausdrücklich nicht, steht im Kapitel „Ihre PV-Anlage"; dort ist auch beziffert, was Ihre
+   Anlage in den übrigen Monaten beigetragen hat.
+   Betroffener Monat
+   · April 2026
+
+
+Tarifsätze
+Gerechnet mit den bei diesem Zählpunkt hinterlegten Leistungspreis-, Abrechnungs- und Mindestleistungswerten, laut
+hinterlegtem Tarif Wiener Netze.
+
+Details zum Preisstand dieser Tarifsätze stehen im Kapitel „Voraussetzungen".
+
+
+Tarifkomponenten
+ Position                            Wert                           Status
+
+ Leistungspreis                      € 0,00 / kW·a                  laut hinterlegtem Tarif Wiener Netze
+
+ Arbeitspreis                        € 0,16 / kWh                   aus Ihren Angaben (Energieseite)
+
+ Einspeisevergütung                  € 0,05 / kWh                   aus Ihren Angaben (Energieseite)
+
+ Grundgebühr Lieferant               € 4,20 / Monat                 aus Ihren Angaben (Energieseite)
+
+
+
+
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                            www.coolin.at · Seite 13 von 16
+    COOLiN ENERGY           Referenzfall Privat
+
+
+
+
+Datenquellen
+ Quelle                          Was daraus verwendet wurde                    Zeitraum / Stand
+
+ Lastgang
+ Viertelstundenwerte des         Grundlage aller Zahlen dieses Reports.        30.01.2026 – 26.08.2026 · 209 abgedeckte
+ Netzbezugs                      Herkunft: hochgeladener Lastgang, nur         Tage (gerundet aus Messwerte ÷ 96, wie im
+                                 Bezug. Monats- und Tagesgrenzen in            Datenqualitäts-Hinweis oben)
+                                 Ortszeit Europe/Vienna.
+
+ Quelldatei                      Dateiname und Upload-Zeitpunkt des            nicht erfasst (in diesem Dokument nicht
+                                 Lastgangs.                                    verfügbar)
+
+ Tarif
+ Netzbetreiber-Preisblatt        Leistungspreis, Abrechnungsmodell und         Zwei Preisblatt-Stände im
+                                 Mindestleistung; bei berechenbarem            Auswertungszeitraum, gültig ab 01.01.2025
+                                 Vergleich zusätzlich die Netz-Arbeitspreise   bzw. 01.01.2026. Name, Version und
+                                 je Zeitfenster.                               Fundstelle des Blatts: nicht erfasst.
+
+ Lieferanten-Tarif               Arbeitspreis, Grundgebühr und                 Kundenrechnung: nicht erfasst.
+                                 Einspeisevergütung der Energieseite.          Vergleichstarif aWATTar, gültig
+                                                                               ab 01.01.2025 — Fundstelle:
+                                                                               aWATTar HOURLY, Grundgebühr
+                                                                               laut Endkunden-Preisangabe (5,75 €
+                                                                               brutto/Monat = 4,79 € netto), im Repo
+                                                                               festgehalten am 02.09.2026. Ändert sich
+                                                                               der Satz, kommt ein ZWEITER Eintrag
+                                                                               mit späterem validFrom hinzu — der
+                                                                               bestehende wird nicht editiert.
+
+ Batterie
+ Ihre Angabe Ihr Speicher        Nutzbare Kapazität, Lade-/Entladeleistung Ihr eigener Speicher — Kenndaten nach
+                                 und Wirkungsgrad Ihres bestehenden        Ihren Angaben, kein Katalog-Gerät und
+                                 Speichers.                                daher kein Listenpreis.
+
+
+Berechnungsmethodik je Kennzahl
+Was für alle Wege gleich gerechnet ist
+Alle Wege entstehen aus derselben Rechnung, Viertelstunde für Viertelstunde: Ihr Netzbezug mal dem
+Preis genau dieser Viertelstunde — Arbeitspreis plus das Netzentgelt des Zeitfensters, in das sie
+fällt, plus Netzverlustaufschlag und die gesetzlichen Abgaben (Elektrizitätsabgabe, EAG-Förderbeitrag
+und -Pauschale, Gebrauchsabgabe auf Netz- und Energiepreis). Dazu die verbrauchsunabhängigen
+Gebühren — Grundgebühr des Lieferanten, Netz-Grundpreis und Messpreis —, tagesanteilig nach den
+tatsächlich belegten Kalendertagen und nie als voller Monatsbetrag. Eingespeiste Viertelstunden werden
+mit Ihrer Einspeisevergütung gegengerechnet. Der Leistungspreis steht in keiner dieser Zahlen: er ist eine
+Jahresgrösse und würde hier ein zweites Mal zählen. Darunter steht je Weg nur noch, was an ihm anders ist.
+
+Ihr Tarif heute — die Bezugsgrösse. Gerechnet mit Ihrem festen Arbeitspreis und der Grundgebühr Ihres
+Lieferanten, auf dem gemessenen Lastgang.
+Ihr Vergleichstarif (gogreenenergy) — getauscht sind allein Arbeitspreis und Grundgebühr des Lieferanten;
+Netzseite, Abgaben und Lastgang bleiben bit-genau dieselben.
+aWATTar ohne Steuerung — statt Ihres festen Arbeitspreises der Börsenpreis der jeweiligen Stunde, statt
+Ihrer Grundgebühr die von aWATTar. Die Netzseite hängt am Anschluss und nicht am Lieferanten und
+bleibt unverändert. Gerechnet auf dem rohen Lastgang: nichts wird verschoben, nichts gespeichert. Die
+verwendeten aWATTar-Preise sind die echten, historischen Stundenpreise genau dieses Zeitraums — keine
+Prognose und kein Durchschnittswert.
+aWATTar mit Ladesteuerung — wie der Weg davor, aber auf dem simulierten Lastgang. Eine Viertelstunde
+gilt als günstig, wenn ihr Preis unter dem arithmetischen Mittel aller Viertelstundenpreise ihres eigenen
+Kalendertags liegt (Ortszeit, je Tag neu gebildet) — dann lädt der Speicher aus dem Netz. Bis zum
+
+
+
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                                 www.coolin.at · Seite 14 von 16
+    COOLiN ENERGY          Referenzfall Privat
+
+
+
+
+Tagesende bleibt Kapazität für eine später noch günstigere Stunde frei und Energie für eine später
+noch teurere liegen. Daraus entsteht ein einziger, chronologischer Fahrplan mit mitgeführtem Ladezustand
+und Wirkungsgradverlust; der Spitzenschutz hat darin immer Vorrang vor dem Preis. Eine Faustregel
+je Viertelstunde, keine Zusicherung für den einzelnen Tag. Die Tages-Rangfolge sieht dabei nicht Ihren
+gemessenen Verbrauch, sondern eine Erwartung aus Ihren eigenen früheren Messwerten; ausgeführt wird
+der Fahrplan trotzdem auf dem echten Lastgang, und die Schranken des Spitzenschutzes kommen weiterhin
+aus einem Rückblick.
+Ein Monat ohne erkennbaren PV-Beitrag
+Der Befund misst eine Abwesenheit: gemeldet wird ein Monat, in dem Ihr Netzbezug im Mittagsfenster an
+keinem einzigen Tag gegen null geht, obwohl eine PV-Anlage angegeben ist und andere Monate desselben
+Lastgangs diesen Einbruch sehr wohl zeigen — nicht etwa eine lange Strecke nahe null, die für sich
+genommen nichts über die Anlage aussagt.
+
+
+
+   Bekannte Einschränkungen
+   Damit die Zahlen dieses Reports richtig gelesen werden, gehört Folgendes dazugesagt.
+   Gerechnet wird netto; ausgewiesen sind alle Beträge inkl. 20 % USt. Die Abgaben auf den
+   Bezug sind ebenfalls enthalten: Elektrizitätsabgabe, EAG-Förderbeitrag und EAG-Pauschale sowie die
+   Gebrauchsabgabe auf Netz- und Energiepreis samt Grundgebühren stecken in den Monatskosten und
+   damit in den Kopfzahlen. Der Leistungspreis steht als eigene Jahreszahl ohne Gebrauchsabgabe da, so
+   wie er auf der Netzrechnung steht; die Ersparnis durch Spitzenkappung enthält sie, wo sie anfällt.
+   Die Tabelle „Tarifkomponenten" zeigt die erfassten Parameter, nicht alle in der Rechnung verwendeten:
+   einzelne Grössen fliessen ein, ohne eine eigene Zeile zu tragen — die Mindestleistung etwa, die den
+   abgerechneten Leistungswert nach unten begrenzt.
+
+
+
+
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                    www.coolin.at · Seite 15 von 16
+                    COOLiN ENERGY
+                    Peak Shaving & Speicher-Wirtschaftlichkeit
+
+
+
+
+Sprechen wir über Ihre Zahlen.
+Diese Auswertung ist der Ausgangspunkt, nicht das Angebot. Wir gehen sie mit Ihnen
+durch, prüfen die Annahmen gegen Ihre Netzrechnung und rechnen die Auslegung auf
+Ihren Betrieb.
+
+
+   I H R A N S P R E C H PA R T N E R
+
+   Martin Neubauer
+   CEO
+   +43 676 76 30456
+   energy@coolin.at
+
+
+
+
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich · www.coolin.at
+Wirtschaftlichkeitsanalyse Batteriespeicher & Ladeoptimierung · Zeitraum 30.01.2026 – 26.08.2026 · Erstellt am
+24.09.2026
+

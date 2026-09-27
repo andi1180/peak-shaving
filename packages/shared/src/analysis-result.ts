@@ -210,12 +210,25 @@ export type BatteryRoiSummary = {
   taxBenefit: number
   /** `true` GENAU DANN, wenn die Steuerwirkung gerechnet ist (Steuersatz UND IFB oder AfA-Dauer) — dann steht `taxEffect`. */
   taxEffectsIncluded: boolean
+  /**
+   * Betrag je Programm „€ pro kWh" für DIESES Gerät, vor der Begrenzung auf die Investition —
+   * Reihenfolge wie `assumptions.subsidyPrograms`; fehlt ohne Programme.
+   */
+  subsidyProgramAmounts?: number[]
   /** Investition nach Förderung (§3.9) — die Steuerwirkung steckt nicht darin. */
   netInvestment: number
   amortizationYears: number
   netSavingOverHorizon: number
   /** Nach-Steuer-Richtwert (§3.9, Revision 27.09.2026); fehlt ohne Steuerwirkung. */
   taxEffect?: BatteryTaxEffect
+}
+
+/** Ein eingetragenes Förderprogramm „€ pro kWh", wie gerechnet (Beträge netto). */
+export type AnalysisSubsidyProgram = {
+  label: string | null
+  eurPerKwh: number
+  maxKwh: number | null
+  maxPercent: number | null
 }
 
 export type AnalysisTaxAssumptions = {
@@ -397,6 +410,8 @@ export type AnalysisResult = {
     levyLocationAssumed?: 'vienna'
     /** Die Steuerangaben der Nach-Steuer-Richtwerte — gesetzt GENAU DANN, wenn sie gerechnet sind. */
     tax?: AnalysisTaxAssumptions
+    /** Die Förderprogramme „€ pro kWh" — gesetzt GENAU DANN, wenn mit ihnen gerechnet ist. */
+    subsidyPrograms?: AnalysisSubsidyProgram[]
   }
   /**
    * Delta 9 (B21-3b/9a): Konnte der Tarifoptimierungs-Hebel für diese Analyse gerechnet werden?

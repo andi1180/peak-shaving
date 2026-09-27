@@ -1,9 +1,11 @@
 import type {
   AnalysisResult,
+  AnalysisSubsidyProgram,
   AnalysisTaxAssumptions,
   BatteryCandidate,
   BatteryTaxEffect,
   FinancialParams,
+  SubsidyProgram,
 } from 'shared'
 
 // ROI & Förderung (§3.9). Reine Funktion — `totalSavingPerYear` kommt als Parameter herein
@@ -14,6 +16,7 @@ export type RoiFields = Pick<
   AnalysisResult['perBattery'][number],
   | 'totalInvestment'
   | 'subsidyAmount'
+  | 'subsidyProgramAmounts'
   | 'taxBenefit'
   | 'taxEffectsIncluded'
   | 'netInvestment'
@@ -31,17 +34,58 @@ function calculateTotalInvestment(battery: BatteryCandidate): number {
 }
 
 /**
- * `subsidyAmount` (§3.9): „`fixedSubsidyEur` bzw. `subsidyPercent × totalInvestment`".
+ * Programm p für Gerät i (§3.9, Revision Förderung pro kWh):
+ * min(Satz × min(nutzbare kWh, maxKwh), maxPercent × Investition) — fehlende Deckel gelten als ∞.
+ */
+function subsidyProgramAmount(
+  program: SubsidyProgram,
+  usableCapacityKwh: number,
+  totalInvestment: number,
+): number {
+  const kwh = Math.min(usableCapacityKwh, program.maxKwh ?? Infinity)
+  const cap = program.maxPercent != null ? (program.maxPercent / 100) * totalInvestment : Infinity
+  return Math.min(program.eurPerKwh * kwh, cap)
+}
+
+/**
+ * `subsidyAmount` (§3.9): „`fixedSubsidyEur` bzw. `subsidyPercent × totalInvestment`", dazu die
+ * Programme „€ pro kWh" je Gerät.
  * [ANNAHME] Pflichtenheft disambiguiert nicht, ob beide gleichzeitig gesetzt sein können —
  * hier bewusst ADDITIV behandelt (pauschaler Zuschuss + prozentuale Förderung sind
  * unterschiedliche Förderquellen, keine Alternativen). Fehlt ein Feld, zählt es als 0.
  * Begrenzt auf die Investition: gefördert wird höchstens, was angeschafft wird.
  */
-function calculateSubsidyAmount(totalInvestment: number, financialParams?: FinancialParams): number {
+function calculateSubsidy(
+  battery: BatteryCandidate,
+  totalInvestment: number,
+  financialParams?: FinancialParams,
+): Pick<RoiFields, 'subsidyAmount' | 'subsidyProgramAmounts'> {
   const fixed = financialParams?.fixedSubsidyEur ?? 0
   const percentBased =
     financialParams?.subsidyPercent != null ? (financialParams.subsidyPercent / 100) * totalInvestment : 0
-  return Math.min(totalInvestment, fixed + percentBased)
+  const programs = financialParams?.subsidyPrograms
+  const programAmounts = programs?.map((p) =>
+    subsidyProgramAmount(p, battery.usableCapacityKwh, totalInvestment),
+  )
+  const programTotal = programAmounts?.reduce((sum, amount) => sum + amount, 0) ?? 0
+  return {
+    subsidyAmount: Math.min(totalInvestment, fixed + percentBased + programTotal),
+    ...(programAmounts === undefined ? {} : { subsidyProgramAmounts: programAmounts }),
+  }
+}
+
+/** Die Programme „€ pro kWh" für `assumptions.subsidyPrograms` — `null` ohne Programme. */
+export function subsidyProgramAssumptionsOf(
+  financialParams?: FinancialParams,
+): AnalysisSubsidyProgram[] | null {
+  const programs = financialParams?.subsidyPrograms
+  if (!programs?.length) return null
+  return programs.map((p) => ({
+    label: p.label ?? null,
+    eurPerKwh: p.eurPerKwh,
+    maxKwh: p.maxKwh ?? null,
+    maxPercent: p.maxPercent ?? null,
+  }))
 }
 
 /**
@@ -152,7 +196,7 @@ export function calculateRoi(
   financialParams?: FinancialParams,
 ): RoiFields {
   const totalInvestment = calculateTotalInvestment(battery)
-  const subsidyAmount = calculateSubsidyAmount(totalInvestment, financialParams)
+  const { subsidyAmount, subsidyProgramAmounts } = calculateSubsidy(battery, totalInvestment, financialParams)
   // Die Steuerwirkung senkt die Investition nie; sie ist ein eigener Nach-Steuer-Richtwert.
   const netInvestment = Math.max(0, totalInvestment - subsidyAmount)
   const amortizationYears = calculateAmortizationYears(netInvestment, totalSavingPerYear)
@@ -164,6 +208,7 @@ export function calculateRoi(
   return {
     totalInvestment,
     subsidyAmount,
+    ...(subsidyProgramAmounts === undefined ? {} : { subsidyProgramAmounts }),
     taxBenefit: taxResult?.benefitInHorizon ?? 0,
     taxEffectsIncluded: taxResult !== null,
     netInvestment,

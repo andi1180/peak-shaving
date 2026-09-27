@@ -261,7 +261,7 @@ function controlledDeviceOf(analysis: PdfReportAnalysis): { rows: ReportRow[]; t
   return {
     rows: [
       totalInvestmentRow(entry),
-      ...subsidyRows(entry),
+      ...subsidyRows(entry, analysis.assumptions.subsidyPrograms),
       netOverHorizonRow(entry, horizonYears),
     ],
     text: ` Gerechnet mit diesem Speicher: ${verdict} ${storageJudgementText(entry, horizonYears)}`,

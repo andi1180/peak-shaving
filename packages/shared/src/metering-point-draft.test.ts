@@ -62,3 +62,23 @@ describe('readDraftFinancialParams — Steuerangaben nur im Gewerbepfad', () => 
     expect(readDraftFinancialParams({ taxRatePercent: 23 }, 'heim')).toBeUndefined()
   })
 })
+
+describe('readDraftFinancialParams — Programme „€ pro kWh"', () => {
+  it('liest die flachen Programmschlüssel lückenlos; ein Prozentwert hat Vorrang', () => {
+    const draft = {
+      subsidyProgram1Label: 'Wiener Landesförderung',
+      subsidyProgram1EurPerKwh: 125,
+      subsidyProgram1MaxKwh: 10,
+      subsidyProgram1MaxPercent: 30,
+      subsidyProgram3EurPerKwh: 100,
+      subsidyProgram2MaxKwh: 5,
+    }
+    expect(readDraftFinancialParams(draft)).toEqual({
+      subsidyPrograms: [
+        { label: 'Wiener Landesförderung', eurPerKwh: 125, maxKwh: 10, maxPercent: 30 },
+        { eurPerKwh: 100 },
+      ],
+    })
+    expect(readDraftFinancialParams({ ...draft, subsidyPercent: 20 })).toEqual({ subsidyPercent: 20 })
+  })
+})

@@ -1,11 +1,11 @@
-import type { AnalysisTaxAssumptions, BatteryRoiEntry } from 'shared'
+import type { AnalysisSubsidyProgram, AnalysisTaxAssumptions, BatteryRoiEntry } from 'shared'
 
 import { formatEur } from '@/lib/format'
 import {
+  displayedInvestmentOf,
   hasEnteredSubsidy,
-  investmentAfterSubsidy,
   NET_INVESTMENT_AFTER_SUBSIDY_LABEL,
-  SUBSIDY_ROW_LABEL,
+  SUBSIDY_CAP_LABEL,
   TAX_EFFECT_NOTE,
   TAX_EFFECT_TITLE,
   taxEffectLines,
@@ -17,14 +17,26 @@ export function totalInvestmentRow(entry: BatteryRoiEntry): ReportRow {
   return { label: 'Gesamtinvestition', value: formatEur(entry.totalInvestment), tone: 'neutral', total: true }
 }
 
-/** Förderung und Nettoinvestition danach — nur bei eingetragener Förderung, sonst keine Zeile. */
-export function subsidyRows(entry: BatteryRoiEntry): ReportRow[] {
+/**
+ * Förderzeilen (je Programm eine) und Nettoinvestition danach — nur bei eingetragener Förderung,
+ * sonst keine Zeile. `programs` aus `assumptions.subsidyPrograms`.
+ */
+export function subsidyRows(
+  entry: BatteryRoiEntry,
+  programs: readonly AnalysisSubsidyProgram[] | undefined,
+): ReportRow[] {
   if (!hasEnteredSubsidy(entry)) return []
+  const shown = displayedInvestmentOf(entry, programs)
   return [
-    { label: SUBSIDY_ROW_LABEL, value: formatEur(-entry.subsidyAmount), tone: 'neutral' },
+    ...shown.lines.map(
+      (line): ReportRow => ({ label: line.label, value: formatEur(-line.amountEur), tone: 'neutral' }),
+    ),
+    ...(shown.capEur > 0
+      ? [{ label: SUBSIDY_CAP_LABEL, value: formatEur(shown.capEur), tone: 'neutral' as const }]
+      : []),
     {
       label: NET_INVESTMENT_AFTER_SUBSIDY_LABEL,
-      value: formatEur(investmentAfterSubsidy(entry)),
+      value: formatEur(shown.netEur),
       tone: 'neutral',
       total: true,
     },

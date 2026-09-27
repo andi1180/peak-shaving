@@ -212,6 +212,40 @@ describe('Tarif-Station — Annahmen für die Wirtschaftlichkeit', () => {
     expect(draft.energyPriceCtPerKwh).toBe(EXISTING.energyPriceCtPerKwh)
   })
 
+  it('€ pro kWh: Programmzeilen lückenlos und netto gespeichert, Prozentwert entfernt, Satz Pflicht', async () => {
+    draft = { ...EXISTING, subsidyPercent: 30, subsidyProgram3EurPerKwh: 99 }
+    const state = await saveMeteringPointAnalysisAssumptionsAction(
+      {},
+      assumptionsForm({
+        subsidyMode: 'per_kwh',
+        subsidyPriceBasis: 'gross',
+        program0Label: 'Wiener Landesförderung',
+        program0EurPerKwh: '150',
+        program0MaxKwh: '10',
+        program0MaxPercent: '30',
+        program2EurPerKwh: '120',
+      }),
+    )
+    expect(state.success).toBeDefined()
+    expect(draft).toMatchObject({
+      subsidyProgramsPriceBasis: 'gross',
+      subsidyProgram1Label: 'Wiener Landesförderung',
+      subsidyProgram1EurPerKwh: 125,
+      subsidyProgram1MaxKwh: 10,
+      subsidyProgram1MaxPercent: 30,
+      subsidyProgram2EurPerKwh: 100,
+    })
+    expect(draft).not.toHaveProperty('subsidyPercent')
+    expect(draft).not.toHaveProperty('subsidyProgram3EurPerKwh')
+
+    const invalid = await saveMeteringPointAnalysisAssumptionsAction(
+      {},
+      assumptionsForm({ subsidyMode: 'per_kwh', subsidyPriceBasis: 'net', program0MaxKwh: '10' }),
+    )
+    expect(invalid.fieldErrors?.program0EurPerKwh).toBeDefined()
+    expect(draft.subsidyProgram1EurPerKwh).toBe(125)
+  })
+
   it('leere Felder entfernen Horizont und Förderung — der Lauf rechnet wie ohne Angabe', async () => {
     draft = { ...EXISTING, horizonYears: 20, subsidyPercent: 30 }
     const state = await saveMeteringPointAnalysisAssumptionsAction(

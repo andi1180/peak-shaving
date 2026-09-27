@@ -16,7 +16,12 @@
  * vollständig aus.
  */
 import type { BatteryCatalogCategory } from './battery-catalog-loader'
-import type { FinancialParams } from './financial'
+import {
+  SUBSIDY_PROGRAM_LABEL_MAX,
+  SUBSIDY_PROGRAMS_MAX,
+  type FinancialParams,
+  type SubsidyProgram,
+} from './financial'
 import { tariffParamsSchema, type PriceBasis } from './tariff'
 
 /**
@@ -85,17 +90,38 @@ export const DRAFT_ANALYSIS_HORIZON_YEARS = 10
  * Die Annahmen der Wirtschaftlichkeit aus der Tarif-Station — Feldnamen wie in `SimulationParams`
  * und `FinancialParams`. Fehlt ein Wert, rechnet der Lauf wie ohne Angabe (Horizont 10, keine
  * Förderung, keine Steuerwirkung). `fixedSubsidyEur` steht NETTO im Entwurf, die eingegebene Basis
- * daneben (H3). Die drei Steuerfelder gelten nur im Gewerbepfad.
+ * daneben (H3); ebenso die Sätze der Programme „€ pro kWh" (`subsidyProgramDraftKeys`). Die drei
+ * Steuerfelder gelten nur im Gewerbepfad.
  */
 export const ANALYSIS_ASSUMPTION_DRAFT_KEYS = {
   horizonYears: 'horizonYears',
   subsidyPercent: 'subsidyPercent',
   fixedSubsidyEur: 'fixedSubsidyEur',
   fixedSubsidyPriceBasis: 'fixedSubsidyPriceBasis',
+  subsidyProgramsPriceBasis: 'subsidyProgramsPriceBasis',
   investitionsfreibetragPercent: 'investitionsfreibetragPercent',
   taxRatePercent: 'taxRatePercent',
   depreciationYears: 'depreciationYears',
 } as const
+
+/** Die Schlüssel des Förderprogramms `index` (0 bis `SUBSIDY_PROGRAMS_MAX − 1`) — flach, weil Entwurfswerte Skalare sind. */
+export function subsidyProgramDraftKeys(index: number) {
+  const prefix = `subsidyProgram${index + 1}`
+  return {
+    label: `${prefix}Label`,
+    eurPerKwh: `${prefix}EurPerKwh`,
+    maxKwh: `${prefix}MaxKwh`,
+    maxPercent: `${prefix}MaxPercent`,
+  } as const
+}
+
+/** Alle Programm-Schlüssel samt Basis — zum Entfernen beim Moduswechsel. */
+export const SUBSIDY_PROGRAM_DRAFT_KEYS: readonly string[] = [
+  ANALYSIS_ASSUMPTION_DRAFT_KEYS.subsidyProgramsPriceBasis,
+  ...Array.from({ length: SUBSIDY_PROGRAMS_MAX }, (_, i) =>
+    Object.values(subsidyProgramDraftKeys(i)),
+  ).flat(),
+]
 
 export const ANALYSIS_HORIZON_YEARS_MIN = 1
 export const ANALYSIS_HORIZON_YEARS_MAX = 30
@@ -118,6 +144,32 @@ function draftPercent(draft: Record<string, unknown>, key: string): number | und
   return typeof value === 'number' && value > 0 && value <= 100 ? value : undefined
 }
 
+function draftPositive(draft: Record<string, unknown>, key: string): number | undefined {
+  const value = draft[key]
+  return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : undefined
+}
+
+/** Die eingetragenen Programme „€ pro kWh" (Sätze netto), in Eingabereihenfolge; leer ohne Satz. */
+export function readDraftSubsidyPrograms(draft: Record<string, unknown>): SubsidyProgram[] {
+  const programs: SubsidyProgram[] = []
+  for (let i = 0; i < SUBSIDY_PROGRAMS_MAX; i++) {
+    const keys = subsidyProgramDraftKeys(i)
+    const eurPerKwh = draftPositive(draft, keys.eurPerKwh)
+    if (eurPerKwh === undefined) continue
+    const rawLabel = draft[keys.label]
+    const label = typeof rawLabel === 'string' ? rawLabel.trim() : ''
+    const maxKwh = draftPositive(draft, keys.maxKwh)
+    const maxPercent = draftPercent(draft, keys.maxPercent)
+    programs.push({
+      ...(label !== '' && label.length <= SUBSIDY_PROGRAM_LABEL_MAX ? { label } : {}),
+      eurPerKwh,
+      ...(maxKwh === undefined ? {} : { maxKwh }),
+      ...(maxPercent === undefined ? {} : { maxPercent }),
+    })
+  }
+  return programs
+}
+
 /** Die eingetragenen Steuerangaben (nur Gewerbe), einzeln — auch ohne Steuersatz, fürs Formular. */
 export function readDraftTaxFields(
   draft: Record<string, unknown>,
@@ -138,7 +190,7 @@ export function readDraftTaxFields(
 }
 
 /**
- * Die eingetragene Förderung (Prozent ODER Fixbetrag netto) und — nur bei `category: 'gewerbe'` —
+ * Die eingetragene Förderung (Prozent ODER Fixbetrag netto ODER Programme „€ pro kWh") und — nur bei `category: 'gewerbe'` —
  * die Steuerangaben; `undefined` ohne jede Angabe. Im Privatpfad bleiben Steuerwerte im Entwurf
  * unbeachtet.
  */
@@ -153,6 +205,9 @@ export function readDraftFinancialParams(
     params.subsidyPercent = percent
   } else if (typeof fixed === 'number' && Number.isFinite(fixed) && fixed > 0) {
     params.fixedSubsidyEur = fixed
+  } else {
+    const programs = readDraftSubsidyPrograms(draft)
+    if (programs.length > 0) params.subsidyPrograms = programs
   }
   if (category === 'gewerbe') {
     const tax = readDraftTaxFields(draft)
@@ -166,6 +221,11 @@ export function readDraftFinancialParams(
 /** Die Basis, in der ein Fixbetrag eingegeben wurde — fürs Zurücklesen (`enteredFromNet`). */
 export function readDraftFixedSubsidyPriceBasis(draft: Record<string, unknown>): PriceBasis {
   return draft[ANALYSIS_ASSUMPTION_DRAFT_KEYS.fixedSubsidyPriceBasis] === 'gross' ? 'gross' : 'net'
+}
+
+/** Die Basis, in der die Programmsätze eingegeben wurden — fürs Zurücklesen (`enteredFromNet`). */
+export function readDraftSubsidyProgramsPriceBasis(draft: Record<string, unknown>): PriceBasis {
+  return draft[ANALYSIS_ASSUMPTION_DRAFT_KEYS.subsidyProgramsPriceBasis] === 'gross' ? 'gross' : 'net'
 }
 
 /**

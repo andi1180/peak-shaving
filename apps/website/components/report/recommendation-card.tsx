@@ -3,6 +3,7 @@ import {
   buildRealSavingBreakdown,
   displayedPriceLabel,
   type AddonBatteryScenario,
+  type AnalysisSubsidyProgram,
   type AnalysisTaxAssumptions,
   type BatteryCandidate,
   type BatteryCatalogMeta,
@@ -27,15 +28,15 @@ import {
   CONTROLLED_WAY_LABEL,
   ENERGY_PRICE_ONLY_NOTE,
   hasEnergyPriceOnlyBasis,
+  displayedInvestmentOf,
   hasEnteredSubsidy,
   INSTALLATION_ROW_LABEL,
   installationExclusionSuffix,
   installationPriceText,
-  investmentAfterSubsidy,
   isAnnualized,
   NET_INVESTMENT_AFTER_SUBSIDY_LABEL,
-  SUBSIDY_NOTE,
-  SUBSIDY_ROW_LABEL,
+  SUBSIDY_CAP_LABEL,
+  subsidyNoteOf,
   TAX_EFFECT_NOTE,
   TAX_EFFECT_TITLE,
   taxEffectLines,
@@ -163,6 +164,8 @@ type RecommendationCardProps = (
   dispatchNote?: string
   /** K4: benannte Einschränkung bei gemischten Kandidaten (`installationPartialText`). */
   installationNote?: string | null
+  /** Die Förderprogramme „€ pro kWh" (`assumptions.subsidyPrograms`) für die Förderzeilen. */
+  subsidyPrograms?: readonly AnalysisSubsidyProgram[]
 }
 
 export function RecommendationCard(props: RecommendationCardProps) {
@@ -176,6 +179,8 @@ export function RecommendationCard(props: RecommendationCardProps) {
   /* K3b: nur am Katalog-Gerät — der Bestandsspeicher hat seine eigene Annahme-Kennzeichnung. */
   const catalogMeta = props.variant === 'existing' || props.variant === 'addon' ? undefined : props.catalogMeta
   const tax = props.variant === 'existing' || props.variant === 'addon' ? undefined : props.tax
+  const subsidyShown =
+    roi && hasEnteredSubsidy(roi) ? displayedInvestmentOf(roi, props.subsidyPrograms) : null
   const rteAssumed = catalogMeta?.rteSource === 'annahme'
 
   /*
@@ -522,14 +527,19 @@ export function RecommendationCard(props: RecommendationCardProps) {
               <span className="text-ink">Gesamtinvestition</span>
               <Num className="text-ink">{formatEur(roi.totalInvestment)}</Num>
             </div>
-            {hasEnteredSubsidy(roi) && (
+            {subsidyShown && (
               <>
-                <CostRow label={SUBSIDY_ROW_LABEL} value={-roi.subsidyAmount} />
+                {subsidyShown.lines.map((line) => (
+                  <CostRow key={line.label} label={line.label} value={-line.amountEur} />
+                ))}
+                {subsidyShown.capEur > 0 && (
+                  <CostRow label={SUBSIDY_CAP_LABEL} value={subsidyShown.capEur} />
+                )}
                 <div className="flex items-center justify-between border-t border-border py-2 text-sm font-semibold">
                   <span className="text-ink">{NET_INVESTMENT_AFTER_SUBSIDY_LABEL}</span>
-                  <Num className="text-ink">{formatEur(investmentAfterSubsidy(roi))}</Num>
+                  <Num className="text-ink">{formatEur(subsidyShown.netEur)}</Num>
                 </div>
-                <p className="mt-1 text-xs text-text-muted">{SUBSIDY_NOTE}</p>
+                <p className="mt-1 text-xs text-text-muted">{subsidyNoteOf(props.subsidyPrograms)}</p>
               </>
             )}
             {roi.taxEffect && tax && (

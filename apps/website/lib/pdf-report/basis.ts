@@ -4,6 +4,7 @@ import {
   demandChargeKwPerYear,
   NETZBETREIBER_LABELS,
   TARIFF_SETS,
+  type AnalysisSubsidyProgram,
   type BatteryCatalogMeta,
   type BatteryRoiEntry,
   type BillingModel,
@@ -23,12 +24,13 @@ import {
 import { formatDateOnly, formatEur, formatEur2, formatPercent } from '@/lib/format'
 import {
   dynamicTariffHintKind,
+  displayedInvestmentOf,
   hasEnteredSubsidy,
   installationExclusionSuffix,
   installationPriceText,
   NET_INVESTMENT_AFTER_SUBSIDY_LABEL,
   rteSourceNote,
-  SUBSIDY_ROW_LABEL,
+  SUBSIDY_CAP_LABEL,
   taxAssumptionLines,
 } from '@/lib/report-copy'
 import { hasNegativeAddonVerdict } from './comparison'
@@ -161,6 +163,7 @@ export function buildAssumptions(
           recommended,
           a.roundTripEfficiency,
           recommended ? catalogMeta?.[recommended.battery.id] : undefined,
+          a.subsidyPrograms,
         )),
     ...(a.tax ? taxAssumptionLines(a.tax).map((line) => neutralRow(line.label, line.value)) : []),
   ]
@@ -205,8 +208,10 @@ function batteryRows(
   recommended: BatteryRoiEntry | undefined,
   roundTripEfficiency: number | null,
   meta: BatteryCatalogMeta | undefined,
+  subsidyPrograms: readonly AnalysisSubsidyProgram[] | undefined,
 ): ReportRow[] {
   if (!recommended) return []
+  const shown = displayedInvestmentOf(recommended, subsidyPrograms)
   const name = recommended.battery.name
   const note = rteSourceNote(meta?.rteSource)
   return [
@@ -219,14 +224,13 @@ function batteryRows(
           ),
         ]),
     neutralRow(`Batteriepreis (${name})`, `${formatEur2(recommended.battery.pricePerKwh)} / kWh`),
-    neutralRow('Gesamtinvestition', formatEur(recommended.totalInvestment)),
-    ...(hasEnteredSubsidy(recommended)
-      ? [neutralRow(SUBSIDY_ROW_LABEL, formatEur(-recommended.subsidyAmount))]
-      : []),
+    neutralRow('Gesamtinvestition', formatEur(shown.investmentEur)),
+    ...shown.lines.map((line) => neutralRow(line.label, formatEur(-line.amountEur))),
+    ...(shown.capEur > 0 ? [neutralRow(SUBSIDY_CAP_LABEL, formatEur(shown.capEur))] : []),
     neutralRow(
       NET_INVESTMENT_AFTER_SUBSIDY_LABEL,
       hasEnteredSubsidy(recommended)
-        ? formatEur(recommended.netInvestment)
+        ? formatEur(shown.netEur)
         : 'keine Angabe (nicht einbezogen)',
     ),
   ]

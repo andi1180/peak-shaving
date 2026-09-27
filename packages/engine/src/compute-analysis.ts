@@ -19,7 +19,7 @@ import type { DataQuality } from './parser'
 import { analyzeCurrentPeaks, topPeaksKw } from './peaks'
 import { installationCoverageOf, recommendBattery } from './recommendation'
 import { eagDemandChargePerYear } from './tariff'
-import { calculateRoi, taxAssumptionsOf } from './roi'
+import { calculateRoi, subsidyProgramAssumptionsOf, taxAssumptionsOf } from './roi'
 import { computeBatterySavings } from './savings'
 import { AnalysisRefusedError, hasFeedIn } from './refusal'
 import {
@@ -418,6 +418,7 @@ export function computeAnalysis(
   // hängt an nichts, was dazwischen berechnet wird.
   const installationCoverage = installationCoverageOf(catalog)
   const taxAssumptions = taxAssumptionsOf(payload.financial)
+  const subsidyPrograms = subsidyProgramAssumptionsOf(payload.financial)
   const { perBattery, recommendation, recommendedGridAfterKw } = recommendBattery(
     loadProfile,
     payload.tariff,
@@ -529,6 +530,7 @@ export function computeAnalysis(
         ? { levyLocationAssumed: leviesOf(payload)!.locationAssumed }
         : {}),
       ...(taxAssumptions ? { tax: taxAssumptions } : {}),
+      ...(subsidyPrograms ? { subsidyPrograms } : {}),
     },
     tariffOptimization,
     existingBatteryAnalysis: existing?.analysis,
