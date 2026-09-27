@@ -19,6 +19,8 @@ gewollten Report-Änderung, mit benannter Ursache — nie zum Grünmachen.
 |---|---|---|
 | `privat-bestand-pv-wien` | `packages/extractors/test/golden/privat-bestand-pv-wien/` (nur gelesen) | anonymisierter Kundenfall Privat, s. README dort |
 | `gewerbe-ohne-rechnung-wien` | `fixtures/gewerbe-ohne-rechnung-wien/` | anonymisierter Kundenfall Gewerbe, s. unten |
+| `gewerbe-ohne-rechnung-wien.foerderung-50-horizont-15` | wie oben + Entwurf `subsidyPercent: 50`, `horizonYears: 15` | Tarif-Station-Annahmen |
+| `privat-bestand-pv-wien.foerderung-fix-ueber-investition` | wie oben + Fixbetrag 100.000 € inkl. USt | Begrenzung auf die Investition |
 
 Übergabe-Metadaten wie im Admin-Weg; Kundenname ersetzt durch „Referenzfall Privat/Gewerbe“,
 keine Rechnungszeiträume (die anonymisierten Entwürfe tragen keine `_invoiceExtractions`).

@@ -28,12 +28,13 @@ function calculateTotalInvestment(battery: BatteryCandidate): number {
  * [ANNAHME] Pflichtenheft disambiguiert nicht, ob beide gleichzeitig gesetzt sein können —
  * hier bewusst ADDITIV behandelt (pauschaler Zuschuss + prozentuale Förderung sind
  * unterschiedliche Förderquellen, keine Alternativen). Fehlt ein Feld, zählt es als 0.
+ * Begrenzt auf die Investition: gefördert wird höchstens, was angeschafft wird.
  */
 function calculateSubsidyAmount(totalInvestment: number, financialParams?: FinancialParams): number {
   const fixed = financialParams?.fixedSubsidyEur ?? 0
   const percentBased =
     financialParams?.subsidyPercent != null ? (financialParams.subsidyPercent / 100) * totalInvestment : 0
-  return fixed + percentBased
+  return Math.min(totalInvestment, fixed + percentBased)
 }
 
 /**
@@ -73,8 +74,8 @@ function calculateTaxEffect(
  * `amortizationYears` = `netInvestment ÷ totalSavingPerYear` (§3.9).
  * [ANNAHME, Pflichtenheft schweigt dazu] Zwei Grenzfälle, die sonst NaN/±Infinity aus einer
  * Division durch/mit Null oder negativen Werten erzeugen würden:
- * - `netInvestment ≤ 0` (Förderung/Steuervorteil deckt die Investition bereits): sofort
- *   amortisiert → `0`, unabhängig von `totalSavingPerYear`.
+ * - `netInvestment = 0` (Förderung/Steuervorteil deckt die Investition, `calculateRoi` klemmt
+ *   bei 0): sofort amortisiert → `0`, unabhängig von `totalSavingPerYear`.
  * - `totalSavingPerYear ≤ 0` (keine oder negative Ersparnis) bei verbleibender Investition:
  *   amortisiert sich nie → `Infinity`, kein Crash/NaN im Report.
  */
@@ -97,7 +98,7 @@ export function calculateRoi(
   const totalInvestment = calculateTotalInvestment(battery)
   const subsidyAmount = calculateSubsidyAmount(totalInvestment, financialParams)
   const { taxBenefit, taxEffectsIncluded } = calculateTaxEffect(totalInvestment, horizonYears, financialParams)
-  const netInvestment = totalInvestment - subsidyAmount - taxBenefit
+  const netInvestment = Math.max(0, totalInvestment - subsidyAmount - taxBenefit)
   const amortizationYears = calculateAmortizationYears(netInvestment, totalSavingPerYear)
   const netSavingOverHorizon = totalSavingPerYear * horizonYears - netInvestment
 

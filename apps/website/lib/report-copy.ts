@@ -9,6 +9,7 @@ import {
   type BatteryNotice,
   type BatteryResultEntry,
   type BatteryRoiEntry,
+  type BatteryRoiSummary,
   type MonthlyTariffComparison,
   type RecommendationRationale,
 } from 'shared'
@@ -224,10 +225,40 @@ export function storageJudgementText(
   return `Im Betrachtungszeitraum von ${horizonYears} Jahren rechnet er sich damit${storagePaysOff(entry) ? '' : ' nicht'}.`
 }
 
+/**
+ * Eine Förderung ist eingetragen (Tarif-Station bzw. Annahmen-Panel) — Amortisation und „Netto über
+ * N Jahre" rechnen dann schon mit der Investition nach Förderung (`roi.ts`).
+ */
+export function hasEnteredSubsidy(entry: Pick<BatteryRoiSummary, 'subsidyAmount'>): boolean {
+  return entry.subsidyAmount > 0
+}
+
+/** Investition nach der eingetragenen Förderung — ohne Steuervorteil, der eine eigene Zeile hat. */
+export function investmentAfterSubsidy(
+  entry: Pick<BatteryRoiSummary, 'totalInvestment' | 'subsidyAmount'>,
+): number {
+  return entry.totalInvestment - entry.subsidyAmount
+}
+
+export const SUBSIDY_ROW_LABEL = 'Förderung (von Ihnen eingetragen)'
+export const NET_INVESTMENT_AFTER_SUBSIDY_LABEL = 'Nettoinvestition nach Förderung'
+export const SUBSIDY_NOTE =
+  'Nettoinvestition nach einer von Ihnen eingetragenen Förderung — keine geprüfte Zusage.'
+
+/** „Investition € X" bzw. „Investition € X, nach Förderung € Y". */
+export function investmentText(
+  entry: Pick<BatteryRoiSummary, 'totalInvestment' | 'subsidyAmount'>,
+): string {
+  return (
+    `Investition ${formatEur(entry.totalInvestment)}` +
+    (hasEnteredSubsidy(entry) ? `, nach Förderung ${formatEur(investmentAfterSubsidy(entry))}` : '')
+  )
+}
+
 /** Gerät, Investition und Urteil in einer Zeile — für Kopfzahlen und Diagramm-Legenden. */
 export function storageInvestmentNote(entry: BatteryRoiEntry, horizonYears: number): string {
   return (
-    `Speicher: ${entry.battery.name}, Investition ${formatEur(entry.totalInvestment)}. ` +
+    `Speicher: ${entry.battery.name}, ${investmentText(entry)}. ` +
     storageJudgementText(entry, horizonYears)
   )
 }
@@ -240,11 +271,15 @@ export function catalogStorageNote(
   return entry ? storageInvestmentNote(entry, analysis.assumptions.horizonYears) : null
 }
 
-/** Der Satz zur Empfehlung, aus den Werten der Engine; `annualized` = Energie-Anteil hochgerechnet. */
+/**
+ * Der Satz zur Empfehlung, aus den Werten der Engine; `annualized` = Energie-Anteil hochgerechnet,
+ * `subsidized` = Amortisation und Netto enthalten eine eingetragene Förderung.
+ */
 export function recommendationRationaleText(
   batteryName: string,
   r: RecommendationRationale,
   annualized = false,
+  subsidized = false,
 ): string {
   const amortization = Number.isFinite(r.amortizationYears)
     ? `nach ${new Intl.NumberFormat('de-AT', { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(r.amortizationYears)} Jahren`
@@ -252,7 +287,8 @@ export function recommendationRationaleText(
   return (
     `${batteryName} spart voraussichtlich ${formatEur(r.totalSavingPerYear)} ` +
     `${annualized ? `pro Jahr (${ANNUALIZED_LABEL})` : 'pro Jahr'} und ` +
-    `amortisiert sich ${amortization} — Netto-Ersparnis über ${r.horizonYears} Jahre: ` +
+    `amortisiert sich ${subsidized ? 'mit der von Ihnen eingetragenen Förderung ' : ''}${amortization} — ` +
+    `Netto-Ersparnis über ${r.horizonYears} Jahre: ` +
     `${formatEur(r.netSavingOverHorizon)}.`
   )
 }

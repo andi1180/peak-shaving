@@ -2,7 +2,14 @@ import { displayedPriceBasis, VAT_INCLUSIVE_LABEL, type DisplayPriceBasis } from
 import type { BatteryResultEntry, BatteryRoiSummary } from 'shared'
 
 import { formatEur, formatKw, formatKwh1, formatYears } from '@/lib/format'
-import { ANNUALIZED_LABEL, dynamicTariffHintKind, isAnnualized } from '@/lib/report-copy'
+import {
+  ANNUALIZED_LABEL,
+  dynamicTariffHintKind,
+  hasEnteredSubsidy,
+  investmentAfterSubsidy,
+  isAnnualized,
+  SUBSIDY_NOTE,
+} from '@/lib/report-copy'
 import type { ReportBuildContext } from './context'
 import type { ReportFigure, ReportRow, ReportStatement, ReportTable } from './statement'
 import { accent, block, column, ref, t, REF_LABEL, REF_PLACE } from './report-text'
@@ -251,11 +258,16 @@ export function buildCandidateTable(
         },
       ]
     : []
+  const subsidy = candidates.some(hasEnteredSubsidy)
+  const afterSubsidy = subsidy
+    ? [{ key: 'after_subsidy', label: 'Nach Förderung', width: 1.6, align: 'right' as const }]
+    : []
   return {
     columns: [
       { label: 'Gerät', width: 3.2 },
       { label: 'Grösse', width: 2 },
       { label: 'Investition', width: 1.6, align: 'right' },
+      ...afterSubsidy,
       { key: 'saving_per_year', label: 'Ersparnis/Jahr', width: 2.1, align: 'right' },
       { label: 'Amortisation', width: 1.85, align: 'right' },
       {
@@ -272,6 +284,7 @@ export function buildCandidateTable(
         c.battery.name,
         `${formatKwh1(c.battery.usableCapacityKwh)} / ${formatKw(c.battery.maxPowerKw)}`,
         formatEur(c.totalInvestment),
+        ...(subsidy ? [formatEur(investmentAfterSubsidy(c))] : []),
         formatEur(c.totalSavingPerYear),
         /* `formatYears(Infinity)` liefert „∞ Jahre" — eine Antwort, keine Lücke (s. `roi.ts`). */
         formatYears(c.amortizationYears),
@@ -422,6 +435,10 @@ export function buildVerdict(
   considered: ComparisonCandidate[],
   horizonYears: number,
 ): ReportStatement {
+  return withSubsidyNote(verdictOf(considered, horizonYears), considered, false)
+}
+
+function verdictOf(considered: ComparisonCandidate[], horizonYears: number): ReportStatement {
   const shortfall = shortfallOf(considered)
   /* Ein Gerät braucht die Einzahl — „Keines der 1 geprüften Geräte" wäre ein Satzfehler im
      Kundendokument, und der Fall entsteht real (ein einziges Zusatzszenario unter der Schwelle). */
@@ -474,6 +491,14 @@ export function buildTableStatement(
   considered: ComparisonCandidate[],
   /* `noPayoffReasonOf` — steht vor der Einleitung, nur im Fall „Derzeit nicht". */
   noPayoffReason: string | null = null,
+): ReportStatement {
+  return withSubsidyNote(tableStatementOf(variant, considered, noPayoffReason), considered, true)
+}
+
+function tableStatementOf(
+  variant: ComparisonVariant,
+  considered: ComparisonCandidate[],
+  noPayoffReason: string | null,
 ): ReportStatement {
   const isAddon = variant === 'addon'
   const none = !isAddon && noneEconomical(considered)
@@ -635,6 +660,17 @@ export function comparisonSelection(analysis: PdfReportAnalysis): ComparisonSele
  * ⚠ `hasComparisonChapter` gehört dazu: ohne das Kapitel wird der Klarsatz gar nicht gezeigt, und
  * „Nein" ist dann nirgends im Dokument gesagt.
  */
+/** Bei eingetragener Förderung: der Satz dazu am Ende des Kapiteltexts — sonst unverändert. */
+function withSubsidyNote(
+  statement: ReportStatement,
+  considered: ComparisonCandidate[],
+  hasTable: boolean,
+): ReportStatement {
+  if (!considered.some(hasEnteredSubsidy)) return statement
+  const note = `${hasTable ? '„Nach Förderung“: ' : ''}${SUBSIDY_NOTE} Amortisation und Netto rechnen mit diesem Betrag.`
+  return { ...statement, body: statement.body === '' ? note : t`${statement.body} ${note}` }
+}
+
 export function hasNegativeAddonVerdict(analysis: PdfReportAnalysis): boolean {
   const { variant, shown } = comparisonSelection(analysis)
   return variant === 'addon' && shown.length === 0 && hasComparisonChapter(analysis)

@@ -8,6 +8,13 @@ import {
   TARIFF_COMPARISON_PRICE_BASIS_KEY,
   TARIFF_COMPARISON_PROVIDER_NAME_KEY,
 } from './tariff-draft'
+import {
+  ANALYSIS_ASSUMPTION_DRAFT_KEYS,
+  ANALYSIS_HORIZON_YEARS_MAX,
+  ANALYSIS_HORIZON_YEARS_MIN,
+  netFromEntered,
+} from 'shared'
+import { isSubsidyMode, parseAmountInput } from './analysis-assumptions-draft'
 import type { AdminState } from './schema'
 import {
   GENERIC,
@@ -15,6 +22,7 @@ import {
   UUID,
   clearMeteringPointDraftFields,
   readProjectId,
+  replaceMeteringPointDraftFields,
   writeMeteringPointDraftFields,
 } from './data-entry-actions-shared'
 
@@ -146,4 +154,97 @@ export async function deleteMeteringPointTariffComparisonAction(
   if (failure) return failure
 
   return { success: 'Vergleichstarif gelöscht.' }
+}
+
+/**
+ * Die Annahmen der Wirtschaftlichkeit — Betrachtungshorizont und Förderung, EIN Aufruf.
+ *
+ * Leer heisst „keine Angabe": der Schlüssel wird entfernt, und der Lauf rechnet wie ohne
+ * (10 Jahre, ohne Förderung). Prozent und Fixbetrag schliessen einander aus — gespeichert wird
+ * genau einer, der andere wird im selben Schreibvorgang entfernt. Ein Fixbetrag steht netto im
+ * Entwurf, die eingegebene Basis daneben (H3).
+ */
+export async function saveMeteringPointAnalysisAssumptionsAction(
+  _prev: AdminState,
+  formData: FormData,
+): Promise<AdminState> {
+  const projectId = readProjectId(formData)
+  if (projectId === null) return { formError: UNKNOWN_PROJECT }
+
+  const meteringPointId = String(formData.get('meteringPointId') ?? '')
+  if (!UUID.test(meteringPointId)) return { formError: GENERIC }
+
+  const horizonRaw = String(formData.get('horizonYears') ?? '').trim()
+  const subsidyMode = String(formData.get('subsidyMode') ?? '')
+  const subsidyRaw = String(formData.get('subsidyValue') ?? '').trim()
+  const priceBasis = String(formData.get('subsidyPriceBasis') ?? '')
+
+  const fieldErrors: Record<string, string> = {}
+  const horizon = Number(horizonRaw)
+  if (
+    horizonRaw !== '' &&
+    !(
+      Number.isInteger(horizon) &&
+      horizon >= ANALYSIS_HORIZON_YEARS_MIN &&
+      horizon <= ANALYSIS_HORIZON_YEARS_MAX
+    )
+  ) {
+    fieldErrors.horizonYears = `Bitte eine ganze Zahl von ${ANALYSIS_HORIZON_YEARS_MIN} bis ${ANALYSIS_HORIZON_YEARS_MAX} Jahren angeben.`
+  }
+
+  const subsidy = parseAmountInput(subsidyRaw)
+  if (subsidyRaw !== '') {
+    if (!isSubsidyMode(subsidyMode)) {
+      fieldErrors.subsidyMode = 'Bitte wählen, ob die Förderung ein Anteil oder ein Fixbetrag ist.'
+    } else if (subsidyMode === 'percent' && !(subsidy > 0 && subsidy <= 100)) {
+      fieldErrors.subsidyValue = 'Bitte einen Anteil über 0 und höchstens 100 % angeben.'
+    } else if (subsidyMode === 'fixed' && !(Number.isFinite(subsidy) && subsidy > 0)) {
+      fieldErrors.subsidyValue = 'Bitte einen Betrag über 0 € angeben.'
+    }
+  }
+  if (Object.keys(fieldErrors).length > 0) {
+    return {
+      fieldErrors,
+      values: { horizonYears: horizonRaw, subsidyMode, subsidyValue: subsidyRaw },
+    }
+  }
+  if (
+    subsidyRaw !== '' &&
+    subsidyMode === 'fixed' &&
+    priceBasis !== 'net' &&
+    priceBasis !== 'gross'
+  ) {
+    return { formError: GENERIC }
+  }
+
+  const keys = ANALYSIS_ASSUMPTION_DRAFT_KEYS
+  const set: { field: string; value: number | string }[] = []
+  const clear: string[] = []
+  if (horizonRaw === '') clear.push(keys.horizonYears)
+  else set.push({ field: keys.horizonYears, value: horizon })
+
+  if (subsidyRaw === '') {
+    clear.push(keys.subsidyPercent, keys.fixedSubsidyEur, keys.fixedSubsidyPriceBasis)
+  } else if (subsidyMode === 'percent') {
+    set.push({ field: keys.subsidyPercent, value: subsidy })
+    clear.push(keys.fixedSubsidyEur, keys.fixedSubsidyPriceBasis)
+  } else {
+    const basis = priceBasis === 'gross' ? 'gross' : 'net'
+    set.push(
+      { field: keys.fixedSubsidyEur, value: netFromEntered(subsidy, basis) },
+      { field: keys.fixedSubsidyPriceBasis, value: basis },
+    )
+    clear.push(keys.subsidyPercent)
+  }
+
+  const failure = await replaceMeteringPointDraftFields(
+    projectId,
+    meteringPointId,
+    set,
+    clear,
+    'Annahmen Wirtschaftlichkeit',
+  )
+  if (failure) return failure
+
+  return { success: 'Annahmen für die Wirtschaftlichkeit gespeichert.' }
 }

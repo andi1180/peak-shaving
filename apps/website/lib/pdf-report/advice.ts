@@ -6,6 +6,7 @@ import {
   catalogStorageEntry,
   catalogStorageNote,
   CONTROLLED_WAY_LABEL,
+  hasEnteredSubsidy,
   isAnnualized,
   storagePaysOff,
 } from '@/lib/report-copy'
@@ -185,7 +186,7 @@ function storagePoint(input: PdfReportInput): ReportPoint | null {
        Kandidatentabelle des Kapitels, auf das der Halbsatz daneben zeigt. */
     text: t`Ja — ${best.battery.name} bringt über ${String(horizonYears)} Jahre ${formatEur(
       best.netSavingOverHorizon,
-    )} ${displayedPriceLabel(input.analysis)}${isAnnualized(best) ? `, aus der ${ANNUALIZED_LABEL}en Ersparnis` : ''}${ref(block('addon_table'), `; die Geräte im Vergleich stehen ${REF_PLACE}`, '')}.`,
+    )} ${displayedPriceLabel(input.analysis)}${hasEnteredSubsidy(best) ? ' nach der von Ihnen eingetragenen Förderung' : ''}${isAnnualized(best) ? `, aus der ${ANNUALIZED_LABEL}en Ersparnis` : ''}${ref(block('addon_table'), `; die Geräte im Vergleich stehen ${REF_PLACE}`, '')}.`,
   }
 }
 

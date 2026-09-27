@@ -23,9 +23,11 @@ import {
 import { formatDateOnly, formatEur, formatEur2, formatPercent } from '@/lib/format'
 import {
   dynamicTariffHintKind,
+  hasEnteredSubsidy,
   installationExclusionSuffix,
   installationPriceText,
   rteSourceNote,
+  SUBSIDY_ROW_LABEL,
 } from '@/lib/report-copy'
 import { hasNegativeAddonVerdict } from './comparison'
 import { REPORT_SECTIONS, reportDisclaimer, SECTION_ID, type ReportSection } from './content'
@@ -215,9 +217,12 @@ function batteryRows(
         ]),
     neutralRow(`Batteriepreis (${name})`, `${formatEur2(recommended.battery.pricePerKwh)} / kWh`),
     neutralRow('Gesamtinvestition', formatEur(recommended.totalInvestment)),
+    ...(hasEnteredSubsidy(recommended)
+      ? [neutralRow(SUBSIDY_ROW_LABEL, formatEur(-recommended.subsidyAmount))]
+      : []),
     neutralRow(
       'Nettoinvestition (nach Förderung/Steuervorteil)',
-      recommended.taxEffectsIncluded
+      recommended.taxEffectsIncluded || hasEnteredSubsidy(recommended)
         ? formatEur(recommended.netInvestment)
         : 'keine Angabe (nicht einbezogen)',
     ),

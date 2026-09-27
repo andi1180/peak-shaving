@@ -26,6 +26,8 @@ import {
   PV_GENERATED_PROFILE_SOURCE,
   PV_UPLOAD_DRAFT_KEYS,
   pvIsInLoadProfile,
+  readDraftFinancialParams,
+  readDraftHorizonYears,
   readPvStage,
   tariffWayCosts,
   type AnalysisResult,
@@ -194,7 +196,7 @@ export type EstimatedPvSeriesMetadata = {
 }
 
 export type RunAnalysisFromDraftOptions = DraftTariffMappingOptions & {
-  /** Betrachtungszeitraum in Jahren. Vorgabe: `DRAFT_ANALYSIS_HORIZON_YEARS` (`shared`). */
+  /** Betrachtungszeitraum in Jahren. Vorgabe: der Entwurf, sonst `DRAFT_ANALYSIS_HORIZON_YEARS`. */
   horizonYears?: number
 }
 
@@ -325,11 +327,11 @@ export async function runAnalysisFromMeteringPointDraft(
   }
 
   /*
-   * ⚠ DIE NICHT GESETZTEN FELDER SIND DIE AUSSAGE DIESES WEGS. `financial` und `estimatedPv` bleiben
-   * `undefined` und damit bei dem Verhalten, das `computeAnalysis` für „nicht angefordert" vorsieht
-   * (keine Förderrechnung, keine geschätzte Erzeugung). Ein Platzhalter an einer dieser Stellen wäre
-   * eine Behauptung über etwas, das nie erhoben wurde. `pv: null` heisst dasselbe für die Brutto-PV:
-   * keine Datei, keine Reihe.
+   * ⚠ DIE NICHT GESETZTEN FELDER SIND DIE AUSSAGE DIESES WEGS. `estimatedPv` bleibt `undefined`
+   * und damit bei dem Verhalten, das `computeAnalysis` für „nicht angefordert" vorsieht (keine
+   * geschätzte Erzeugung); `financial` ebenso, solange die Tarif-Station keine Förderung trägt.
+   * Ein Platzhalter an einer dieser Stellen wäre eine Behauptung über etwas, das nie erhoben wurde.
+   * `pv: null` heisst dasselbe für die Brutto-PV: keine Datei, keine Reihe.
    *
    * ⚠ `tariffPricing` STEHT SEIT DEM DREI-WEGE-VERGLEICH NICHT MEHR IN DIESER LISTE — es entsteht
    * genau dann, wenn der Aufrufer den `fetchTariffPricing`-Port mitgibt, und fehlt sonst weiterhin.
@@ -446,6 +448,7 @@ export async function runAnalysisFromMeteringPointDraft(
    */
   const loadProfile = estimatedPv?.profile ?? parsed.profile
 
+  const financial = readDraftFinancialParams(point.draft)
   const payload: CalculatorPayload = {
     tariff: mapDraftToTariffParams(point.draft, options),
     load: {
@@ -457,6 +460,7 @@ export async function runAnalysisFromMeteringPointDraft(
     },
     pv: estimatedPv?.pv ?? (await readPvProfileFromDraft(point.draft, ports)),
     existingBattery: existingBattery.input,
+    ...(financial ? { financial } : {}),
     ...(await readTariffPricing(ports.fetchTariffPricing, point.draft, loadProfile)),
   }
 
@@ -466,7 +470,8 @@ export async function runAnalysisFromMeteringPointDraft(
     throw refusalToError(new AnalysisRefusedError({ reason: 'feed_in_tariff_missing' }))
   }
 
-  const horizonYears = options.horizonYears ?? DRAFT_ANALYSIS_HORIZON_YEARS
+  const horizonYears =
+    options.horizonYears ?? readDraftHorizonYears(point.draft) ?? DRAFT_ANALYSIS_HORIZON_YEARS
   const result = computeOrRefuse(payload, horizonYears, ports.batteryCatalog)
 
   /*

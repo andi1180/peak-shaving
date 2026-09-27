@@ -9,6 +9,7 @@ import { Font, renderToBuffer } from '@react-pdf/renderer'
 import { mapDraftToExistingBatteryInput, mapDraftToTariffParams } from 'engine'
 import type { MeteringPointAnalysisPorts } from 'extractors'
 import {
+  readDraftFinancialParams,
   readPvStage,
   type BatteryCandidate,
   type BatteryCatalogMeta,
@@ -73,7 +74,21 @@ const GEWERBE: SnapshotCase = {
   catalogMetaFile: 'battery-catalog-meta.json',
 }
 
-const CASES: SnapshotCase[] = [PRIVAT, GEWERBE]
+// Varianten mit den Annahmen der Tarif-Station: Förderung und Horizont reisen über den Entwurf.
+const CASES: SnapshotCase[] = [
+  PRIVAT,
+  GEWERBE,
+  {
+    ...GEWERBE,
+    name: 'gewerbe-ohne-rechnung-wien.foerderung-50-horizont-15',
+    draftPatch: { subsidyPercent: 50, horizonYears: 15 },
+  },
+  {
+    ...PRIVAT,
+    name: 'privat-bestand-pv-wien.foerderung-fix-ueber-investition',
+    draftPatch: { fixedSubsidyEur: 100_000, fixedSubsidyPriceBasis: 'gross' },
+  },
+]
 
 const FONT_DIR = path.join(APP, 'public/report-fonts')
 Font.register({
@@ -261,6 +276,7 @@ export async function renderSnapshots(
       batteryCatalogMeta={catalogMeta}
       tariffSource={null}
       originalTariff={mapDraftToTariffParams(draft)}
+      originalFinancial={readDraftFinancialParams(draft)}
       recomputing={false}
       recomputeError={null}
       isLive={false}

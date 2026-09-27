@@ -22,6 +22,8 @@ import {
   catalogStorageEntry,
   catalogStorageNote,
   dynamicTariffHintKind,
+  hasEnteredSubsidy,
+  investmentAfterSubsidy,
   isAnnualized,
   perYearText,
   recommendationRationaleText,
@@ -351,7 +353,12 @@ export function recommendationVerdictOf(analysis: PdfReportAnalysis): string | n
   if (dynamicTariffHintKind(analysis)) return null
   const entry = recommendedEntryOf(analysis)
   return entry
-    ? recommendationRationaleText(entry.battery.name, recommendation.rationale, isAnnualized(entry))
+    ? recommendationRationaleText(
+        entry.battery.name,
+        recommendation.rationale,
+        isAnnualized(entry),
+        hasEnteredSubsidy(entry),
+      )
     : null
 }
 
@@ -427,7 +434,11 @@ export function buildSummaryKpis(analysis: PdfReportAnalysis, ways: SummaryWays)
   const unprofitable = storage && controlled && !storagePaysOff(storage) ? storage : undefined
   const note = unprofitable
     ? `Mit Speicher und Ladesteuerung zusätzlich ${formatEur(unprofitable.totalSavingPerYear)} ${perYearText(unprofitable)}, ` +
-      `bei ${formatEur(unprofitable.totalInvestment)} Investition (${unprofitable.battery.name}). ` +
+      `bei ${formatEur(unprofitable.totalInvestment)} Investition` +
+      (hasEnteredSubsidy(unprofitable)
+        ? `, ${formatEur(investmentAfterSubsidy(unprofitable))} nach Förderung`
+        : '') +
+      ` (${unprofitable.battery.name}). ` +
       storageJudgementText(unprofitable, analysis.assumptions.horizonYears)
     : undefined
 
