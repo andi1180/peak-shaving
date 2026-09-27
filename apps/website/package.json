@@ -8,6 +8,7 @@
     "start": "next start",
     "test": "vitest run",
     "test:watch": "vitest",
+    "report:snapshots": "vitest run --config test/report-snapshots/vitest.config.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint ."
   },
