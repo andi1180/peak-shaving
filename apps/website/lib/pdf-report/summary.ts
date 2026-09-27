@@ -28,7 +28,7 @@ import {
   storageJudgementText,
   storagePaysOff,
 } from '@/lib/report-copy'
-import { CANDIDATE_TABLE_ID } from './comparison'
+import { CANDIDATE_TABLE_ID, catalogVerdictIsNo } from './comparison'
 import type { ReportBuildContext } from './context'
 import { hasPvValueChapter } from './pv-value'
 import { block, ref, t, REF_PLACE, type ReportText } from './report-text'
@@ -606,11 +606,18 @@ function unknownTariffOverview(analysis: PdfReportAnalysis, ways: UnknownTariffW
         )}.`
       : ''
 
-  return t`Ihren heutigen Stromtarif kennen wir nicht, weil uns Ihre Stromrechnung nicht vorliegt. Die Zahlen oben sind deshalb keine Ersparnis, sondern Ihre Stromkosten mit einem Börsenpreis-Tarif (aWATTar)${controlled}${baseline} Den Vergleich mit Ihrem heutigen Tarif rechnen wir nach, sobald Sie uns Ihre Stromrechnung nachreichen.${
-    verdict
+  /* Dieselbe Bedingung wie Gerätekapitel und Vorschlag: bei „Derzeit nicht" keine Kaufaussage. */
+  const storage: ReportText = catalogVerdictIsNo(analysis)
+    ? t` ${ref(
+        block('catalog_alternatives'),
+        `Ein Speicher ist derzeit nicht wirtschaftlich — die Antwort samt Begründung steht ${REF_PLACE}.`,
+        'Ein Speicher ist derzeit nicht wirtschaftlich.',
+      )}`
+    : verdict
       ? t` ${verdict}${ref(block('recommendation'), ` Die Einzelheiten zum Gerät stehen ${REF_PLACE}.`, '')}`
       : ''
-  }${peakPart}`
+
+  return t`Ihren heutigen Stromtarif kennen wir nicht, weil uns Ihre Stromrechnung nicht vorliegt. Die Zahlen oben sind deshalb keine Ersparnis, sondern Ihre Stromkosten mit einem Börsenpreis-Tarif (aWATTar)${controlled}${baseline} Den Vergleich mit Ihrem heutigen Tarif rechnen wir nach, sobald Sie uns Ihre Stromrechnung nachreichen.${storage}${peakPart}`
 }
 
 /**
