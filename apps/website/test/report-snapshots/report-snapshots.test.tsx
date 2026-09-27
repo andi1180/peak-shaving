@@ -139,6 +139,9 @@ const NO_CHARTS: ReportChartRasters = {
   },
 }
 
+/** Gibt die Event-Loop frei — sonst läuft vitests Worker-RPC bei langen Render-Strecken in den Timeout. */
+const yieldToEventLoop = () => new Promise<void>((resolve) => setImmediate(resolve))
+
 function readJson<T>(c: SnapshotCase, name: string): T {
   return JSON.parse(readFileSync(path.join(c.dir, name), 'utf8')) as T
 }
@@ -165,6 +168,7 @@ async function runCase(c: SnapshotCase) {
     batteryCatalog: catalog,
     readMeteringPoint: async () => ({ draft, sourceDocumentId: 'lastgang' }),
     readDocument: async (documentId) => {
+      await yieldToEventLoop()
       const filename = c.documents[documentId]
       if (filename === undefined) return null
       const bytes = readFileSync(path.join(c.dir, filename))
@@ -174,6 +178,7 @@ async function runCase(c: SnapshotCase) {
       }
     },
     fetchTariffPricing: async (request) => {
+      await yieldToEventLoop()
       const pricing = pricingByWindow.get(windowKey(request))
       if (pricing === undefined)
         throw new Error(`Kein eingefrorener Preisstand für ${windowKey(request)}`)
@@ -215,6 +220,7 @@ async function renderPdfText(input: PdfReportInput, file: string): Promise<strin
         sink,
       }) as never,
     )
+    await yieldToEventLoop()
     return { pdf, sink }
   }
   // Zwei Durchläufe wie `renderReportPdf`: erst messen, dann mit Seitenzahlen in der Agenda.
@@ -228,6 +234,7 @@ export async function renderSnapshots(
   c: SnapshotCase,
 ): Promise<{ pdfText: string; screenHtml: string }> {
   const { run, draft, catalog, lastPricing } = await runCase(c)
+  await yieldToEventLoop()
   const catalogMeta: Record<string, BatteryCatalogMeta> = c.catalogMetaFile
     ? readJson(c, c.catalogMetaFile)
     : {}
