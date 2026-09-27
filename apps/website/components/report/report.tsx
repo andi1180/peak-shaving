@@ -226,6 +226,10 @@ export function Report({
     isStandardProfile: loadProfile.source === 'standard_profile',
     withUpperBound: false,
   })
+  /* Nach-Steuer-Richtwert an jeder Katalog-Karte — nur, wo die Engine ihn gerechnet hat. */
+  const taxProp = result.assumptions.tax
+    ? { assumptions: result.assumptions.tax, horizonYears: result.assumptions.horizonYears }
+    : undefined
 
   // Teiljahres-Verzerrung der KERN-Kennzahl (§3.5): ein `monthly_*`-Modell mittelt/summiert über die
   // 12 Monate — bei < 12 belegten Monaten ist der abgerechnete Leistungswert oben nicht aussagekräftig
@@ -631,6 +635,7 @@ export function Report({
                   key={entry.battery.id}
                   entry={entry}
                   catalogMeta={batteryCatalogMeta[entry.battery.id]}
+                  tax={taxProp}
                   dispatchNote={dispatchNote}
                 />
               ))}
@@ -886,6 +891,7 @@ export function Report({
                 dispatchNote={dispatchNote}
                 /* K3b: Preisstand und Wirkungsgrad-Herkunft GENAU dieses Geräts. */
                 catalogMeta={batteryCatalogMeta[recommended.battery.id]}
+                tax={taxProp}
                 installationNote={installationPartialText(result)}
               />
             ))

@@ -1,3 +1,3 @@
 // ROI & Förderung (§3.9).
-export { calculateRoi } from './roi'
+export { calculateRoi, taxAssumptionsOf } from './roi'
 export type { RoiFields } from './roi'

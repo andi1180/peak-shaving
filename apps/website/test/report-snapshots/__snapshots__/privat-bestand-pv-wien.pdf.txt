@@ -464,8 +464,8 @@ Annahmen & Rechenweise — Stand dieser Berechnung
 
  Nettoinvestition
                kein Gerät empfohlen — kein Zusatzspeicher rechnet sich über den Betrachtungszeitraum
- (nach
- Förderung/Steuervorteil)
+ nach
+ Förderung
 
 Das sind die Werte, mit denen dieser Report gerechnet wurde — zum Zeitpunkt seiner Erstellung. Die
 Entladetiefe ist dabei fest und geht unverändert aus Ihren Angaben ein; die übrigen Grössen lassen sich

@@ -38,17 +38,17 @@ Zwei Wege zu weniger Stromkosten                                                
 
 Empfehlung und Wirtschaftlichkeit                                                              7
 
-Kostenverlauf und ein Tag im Detail                                                            8
+Kostenverlauf und ein Tag im Detail                                                            9
 
-Ihr Stromtarif im Monatsvergleich                                                              9
+Ihr Stromtarif im Monatsvergleich                                                             10
 
-Das Ladeverhalten Ihres Speichers                                                             10
+Das Ladeverhalten Ihres Speichers                                                             11
 
-Speichergrösse und Gerätewahl                                                                 11
+Speichergrösse und Gerätewahl                                                                 12
 
-Unser Vorschlag                                                                               12
+Unser Vorschlag                                                                               13
 
-Methodik & Vorbehalte                                                                         13
+Methodik & Vorbehalte                                                                         14
 
    Grundlage ist Ihr echter Lastgang
    Ein Fahrplan, keine addierten Einzelrechnungen
@@ -56,7 +56,7 @@ Methodik & Vorbehalte                                                           
    Wie der Fahrplan entsteht
    Konstante Batterieeigenschaften über den Betrachtungszeitraum
 
-Annahmen und Datengrundlage                                                                   14
+Annahmen und Datengrundlage                                                                   15
 
    Annahmen & Rechenweise — Stand dieser Berechnung
    Datenqualität
@@ -72,7 +72,7 @@ Unterpunkte sind eingerückt und beginnen im Kapitel darüber.
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich      www.coolin.at · Seite 2 von 17
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich      www.coolin.at · Seite 2 von 18
     COOLiN ENERGY          Referenzfall Gewerbe
 
 
@@ -86,19 +86,21 @@ Die Zahlen, um die es geht — und was sie für Sie bedeuten.
 € 2.698                                                         € 2.331
 Stromkosten mit aWATTar ohne Steuerung                          Mit Speicher und Ladesteuerung
 über 365 gemessene Tage, netto                                  über 365 gemessene Tage, netto
-                                                                Speicher: Dyness Stack 100 30,72 kWh mit
-                                                                Solinteg MHT-15K-40, Investition € 7.691. Im
-                                                                Betrachtungszeitraum von 10 Jahren rechnet er sich
-                                                                damit nicht.
+                                                                Speicher: Dyness Stack 100 30,72 kWh mit Solinteg
+                                                                MHT-15K-40, Investition € 7.691, nach Förderung
+                                                                € 3.846. Im Betrachtungszeitraum von 15 Jahren
+                                                                rechnet er sich damit.
 
 
 
 Sie haben bislang weder einen Batteriespeicher noch eine PV-Anlage. Ihren heutigen Stromtarif kennen wir
-nicht, weil uns Ihre Stromrechnung nicht vorliegt. Die Zahlen oben sind deshalb keine Ersparnis, sondern Ihre
-Stromkosten mit einem Börsenpreis-Tarif (aWATTar) — einmal so, wie Sie heute Strom beziehen, und einmal
-mit einem Speicher, der gezielt in den günstigen Stunden lädt. Den Vergleich mit Ihrem heutigen Tarif rechnen
-wir nach, sobald Sie uns Ihre Stromrechnung nachreichen. Ein Speicher ist derzeit nicht wirtschaftlich — die
-Antwort samt Begründung steht im Kapitel „Speichergrösse und Gerätewahl".
+nicht, weil uns Ihre Stromrechnung nicht vorliegt. Die Zahlen oben sind deshalb keine Ersparnis, sondern
+Ihre Stromkosten mit einem Börsenpreis-Tarif (aWATTar) — einmal so, wie Sie heute Strom beziehen, und
+einmal mit einem Speicher, der gezielt in den günstigen Stunden lädt. Den Vergleich mit Ihrem heutigen Tarif
+rechnen wir nach, sobald Sie uns Ihre Stromrechnung nachreichen. Dyness Stack 100 30,72 kWh mit Solinteg
+MHT-15K-40 spart voraussichtlich € 367 pro Jahr und amortisiert sich mit der von Ihnen eingetragenen
+Förderung nach 10,5 Jahren — Netto-Ersparnis über 15 Jahre: € 1.653. Die Einzelheiten zum Gerät stehen
+im Kapitel „Empfehlung und Wirtschaftlichkeit".
 
 
 Wie diese Zahlen entstanden sind und wo ihre Grenzen liegen, steht im Kapitel „Methodik & Vorbehalte".
@@ -106,7 +108,7 @@ Wie diese Zahlen entstanden sind und wo ihre Grenzen liegen, steht im Kapitel �
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                               www.coolin.at · Seite 3 von 17
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                              www.coolin.at · Seite 3 von 18
     COOLiN ENERGY          Referenzfall Gewerbe
 
 
@@ -131,12 +133,12 @@ Ihr Verbrauch heute
 
  Zeitraum                                                                                    365 gemessene Tage
 
- Höchste gemessene Verbrauchsspitze                                                                            5,5 kW
+ Höchste gemessene Verbrauchsspitze                                                                           5,5 kW
 
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                               www.coolin.at · Seite 4 von 17
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                              www.coolin.at · Seite 4 von 18
     COOLiN ENERGY          Referenzfall Gewerbe
 
 
@@ -167,7 +169,7 @@ steht für einen gleichmässigen Verlauf, bei dem die Spitze nicht weit über de
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                         www.coolin.at · Seite 5 von 17
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                         www.coolin.at · Seite 5 von 18
     COOLiN ENERGY          Referenzfall Gewerbe
 
 
@@ -190,23 +192,28 @@ und Abgaben gekostet. Ob das weniger ist als heute, zeigt erst der Vergleich mit
 aWATTar mit Ladesteuerung
  Gesamtinvestition                                                                                       € 7.691
 
- Netto über 10 Jahre                                                                                  -€ 4.026
+ Förderung (von Ihnen eingetragen)                                                                    -€ 3.846
+
+ Nettoinvestition nach Förderung                                                                       € 3.846
+
+ Netto über 15 Jahre                                                                                    € 1.653
 
 Zusätzlich zum Börsenpreis wird mit der empfohlenen Batterie gezielt geladen: in den günstigen
 Viertelstunden lädt der Speicher aus dem Netz, während er Kapazität für die teureren Stunden desselben
 Tages zurückhält — der Schutz Ihrer Lastspitzen hat dabei weiterhin Vorrang. Über denselben Zeitraum hätte
-das € 2.331 gekostet — € 367 weniger als ohne Steuerung; das ist der Wert der Ladesteuerung. Gerechnet mit
-diesem Speicher: Dyness Stack 100 30,72 kWh mit Solinteg MHT-15K-40 spart voraussichtlich € 367 pro Jahr
-und amortisiert sich nach 21,0 Jahren — Netto-Ersparnis über 10 Jahre: -€ 4.026. Im Betrachtungszeitraum
-von 10 Jahren rechnet er sich damit nicht. Diese Zahl ist eine Vorausberechnung, keine Zusage: der Speicher
-plant seinen Tag am Vorabend mit den dann bekannten Börsenpreisen und einer Verbrauchserwartung
-aus Ihren eigenen Messwerten — nicht mit dem Wissen, was der Tag tatsächlich bringen wird. Weicht Ihr
-Verbrauch von dieser Erwartung ab, fällt das Ergebnis entsprechend anders aus.
+das € 2.331 gekostet — € 367 weniger als ohne Steuerung; das ist der Wert der Ladesteuerung. Gerechnet
+mit diesem Speicher: Dyness Stack 100 30,72 kWh mit Solinteg MHT-15K-40 spart voraussichtlich € 367 pro
+Jahr und amortisiert sich mit der von Ihnen eingetragenen Förderung nach 10,5 Jahren — Netto-Ersparnis
+über 15 Jahre: € 1.653. Im Betrachtungszeitraum von 15 Jahren rechnet er sich damit. Diese Zahl ist eine
+Vorausberechnung, keine Zusage: der Speicher plant seinen Tag am Vorabend mit den dann bekannten
+Börsenpreisen und einer Verbrauchserwartung aus Ihren eigenen Messwerten — nicht mit dem Wissen,
+was der Tag tatsächlich bringen wird. Weicht Ihr Verbrauch von dieser Erwartung ab, fällt das Ergebnis
+entsprechend anders aus.
 
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                        www.coolin.at · Seite 6 von 17
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                        www.coolin.at · Seite 6 von 18
       COOLiN ENERGY        Referenzfall Gewerbe
 
 
@@ -215,20 +222,36 @@ COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich               
 Empfehlung und Wirtschaftlichkeit
 Welches Gerät — und was es kostet.
 
-Bestes Gerät im Katalog: Dyness Stack 100 30,72 kWh mit Solinteg MHT-15K-40
-21 Jahre bis sich die Investition von € 7.691 bezahlt gemacht hat
+Unsere Empfehlung: Dyness Stack 100 30,72 kWh mit Solinteg MHT-15K-40
+10,5 Jahre bis sich die Nettoinvestition nach Förderung von € 3.846 bezahlt gemacht hat
     Speicher (15 kW / 29,2 kWh)                                                                        € 5.791
 
     Installationspauschale (Richtwert)                                                                 € 1.900
 
     Gesamtinvestition                                                                                   € 7.691
 
+    Förderung (von Ihnen eingetragen)                                                                -€ 3.846
+
+    Nettoinvestition nach Förderung                                                                   € 3.846
+
     Ersparnis pro Jahr                                                                                   € 367
 
-    Netto über 10 Jahre                                                                              -€ 4.026
+    Netto über 15 Jahre                                                                                € 1.653
+
+Steuerliche Wirkung (Richtwert)
+    Investitionsfreibetrag, einmalig                                                                     € 177
+
+    Abschreibung über 10 Jahre                                                                    € 88 / Jahr
+
+    Amortisation nach Steuern                                                                       9,9 Jahre
+
+    Netto nach Steuern über 15 Jahre                                                                  € 1.449
+
+Richtwert auf Basis Ihrer Angaben — keine Steuerberatung. Die Einsparungen erhöhen den steuerpflichtigen
+Gewinn und sind berücksichtigt.
 
 1       Die wirtschaftlichste Option
-        Aus dem Katalog schneidet dieses Gerät über 10 Jahre am besten ab — gereiht wird nach der
+        Aus dem Katalog schneidet dieses Gerät über 15 Jahre am besten ab — gereiht wird nach der
         Netto-Ersparnis über den Betrachtungszeitraum, nicht nach der Jahresersparnis: ein grösserer
         Speicher spart fast immer mehr und kostet auch mehr.
 
@@ -237,9 +260,9 @@ Bestes Gerät im Katalog: Dyness Stack 100 30,72 kWh mit Solinteg MHT-15K-40
         24.09.2026. Der Wirkungsgrad (88 %) ist ein Erfahrungswert: das Datenblatt dieses Geräts nennt
         keinen Systemwirkungsgrad über Laden und Entladen.
 
-3       Ohne Steuervorteil gerechnet
-        Förderung und Steuervorteil sind nicht angegeben und deshalb in keiner dieser Zahlen enthalten — mit
-        einer Förderung fiele die Investition niedriger aus.
+3       Mit Förderung gerechnet
+        Nettoinvestition nach einer von Ihnen eingetragenen Förderung — keine geprüfte Zusage. Amortisation
+        und Netto rechnen mit diesem Betrag.
 
 
      Hinweis zu diesem Gerät
@@ -247,6 +270,14 @@ Bestes Gerät im Katalog: Dyness Stack 100 30,72 kWh mit Solinteg MHT-15K-40
      Spitzenkappung wird deshalb nicht gerechnet und nicht kreditiert. Das ist kein fehlender Wert, sondern
      eine Eigenschaft Ihrer Abrechnung; die volle Batteriekapazität steht dafür dem Eigenverbrauch und der
      Lastverschiebung zur Verfügung.
+
+
+
+
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                       www.coolin.at · Seite 7 von 18
+    COOLiN ENERGY          Referenzfall Gewerbe
+
+
 
 
 Wert der Ladesteuerung unter aWATTar
@@ -262,7 +293,7 @@ für die Zukunft ist die Zahl nicht.
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                       www.coolin.at · Seite 7 von 17
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                       www.coolin.at · Seite 8 von 18
     COOLiN ENERGY          Referenzfall Gewerbe
 
 
@@ -278,7 +309,7 @@ Wie sich die Zahlen über die Zeit auswirken — und wie ein einzelner Tag damit
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                            www.coolin.at · Seite 8 von 17
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                            www.coolin.at · Seite 9 von 18
     COOLiN ENERGY          Referenzfall Gewerbe
 
 
@@ -306,7 +337,7 @@ Summen absolut.
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                          www.coolin.at · Seite 9 von 17
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                         www.coolin.at · Seite 10 von 18
     COOLiN ENERGY          Referenzfall Gewerbe
 
 
@@ -322,9 +353,9 @@ Wann Ihr Speicher arbeitet — und was das über seine Steuerung aussagt.
 
 
 Wann lädt und entlädt Dyness Stack 100 30,72 kWh mit Solinteg MHT-15K-40?
- Stärkste Zelle                                                                                       416,9 kWh
+ Stärkste Zelle                                                                                        416,9 kWh
 
- Am meisten geladen um                                                                                23:00 Uhr
+ Am meisten geladen um                                                                                 23:00 Uhr
 
 Gezählt ist die Menge am Netz, also das, was bezogen bzw. eingespart wurde — nicht die im
 Speicher ankommende Energie; die liegt auf der Ladeseite um den Wirkungsgrad darunter. Wandert der
@@ -355,7 +386,7 @@ Abstand zum Durchschnitt ist, was dieser Plan erreicht hat.
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                         www.coolin.at · Seite 10 von 17
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                          www.coolin.at · Seite 11 von 18
     COOLiN ENERGY          Referenzfall Gewerbe
 
 
@@ -370,38 +401,42 @@ Was jede weitere Kilowattstunde Speicher noch bringt — und wie die Geräte des
 
 
 
-Lohnt sich ein Speicher?
+Die übrigen Geräte des Katalogs — im Vergleich
+Gereiht ist nach der Netto-Ersparnis über den Betrachtungszeitraum — derselben Grösse wie die Kurve
+darüber und wie die Empfehlung im Kapitel „Empfehlung und Wirtschaftlichkeit". Das empfohlene Gerät steht
+deshalb hier nicht noch einmal: es ist dort vollständig aufgeschlüsselt. Diese Tabelle zeigt die nächsten
+Alternativen — und um welchen Betrag die Empfehlung besser ist; alle übrigen Geräte stehen als Punkte in
+der Kurve. Die Hinweise zu einem Gerät (Betonsockel, separater Wechselrichter, zu geringe Leistung für alle
+Spitzen) sind in der Investition bereits enthalten, werden hier aber nicht je Gerät wiederholt — sie stehen beim
+empfohlenen Gerät. „Nach Förderung“: Nettoinvestition nach einer von Ihnen eingetragenen Förderung —
+keine geprüfte Zusage. Amortisation und Netto rechnen mit diesem Betrag. Amortisation nach Steuern: Kostal
+& Dyness Retrofit S: 11,1 Jahre; Dyness Stack 100 40,96 kWh mit Solinteg MHT-20K-40: 11,5 Jahre; Kostal &
+Dyness Retrofit M: 14 Jahre. Richtwert auf Basis Ihrer Angaben — keine Steuerberatung. Die Einsparungen
+erhöhen den steuerpflichtigen Gewinn und sind berücksichtigt.
 
-Derzeit nicht
-Ohne Leistungspreis und ohne PV-Anlage kommt die gesamte Ersparnis aus der Preisdifferenz am Spotmarkt;
-bei Ihrem Verbrauch reicht das nicht aus, um die Investition zu decken. Gereiht ist nach der Netto-Ersparnis
-über den Betrachtungszeitraum — derselben Grösse wie die Kurve darüber und wie das beste Gerät im
-Kapitel „Empfehlung und Wirtschaftlichkeit". Das beste Gerät steht deshalb hier nicht noch einmal: es ist
-dort vollständig aufgeschlüsselt. Diese Tabelle zeigt die nächsten Alternativen — und um welchen Betrag
-das beste Gerät besser ist; alle übrigen Geräte stehen als Punkte in der Kurve. Die Hinweise zu einem Gerät
-(Betonsockel, separater Wechselrichter, zu geringe Leistung für alle Spitzen) sind in der Investition bereits
-enthalten, werden hier aber nicht je Gerät wiederholt — sie stehen beim besten Gerät.
+34 Geräte geprüft, davon 4 im Betrachtungszeitraum wirtschaftlich.
 
-34 Geräte geprüft, davon 0 im Betrachtungszeitraum wirtschaftlich.
+ Gerät                   Grösse         Investition        Nach Ersparnis/Jahr Amortisation        Netto     Abstand zur
+                                                      Förderung                                   über 15    Empfehlung
+                                                                                                   Jahre
 
- Gerät                      Grösse            Investition   Ersparnis/Jahr   Amortisation   Netto über     Abstand zum
-                                                                                              10 Jahre     besten Gerät
+ Kostal & Dyness         29,2 kWh /        € 8.550      € 4.275         € 363    11,8 Jahre        € 1.174          € 479
+ Retrofit S              12,3 kW                                                                             weniger über
+                                                                                                                 15 Jahre
 
- Kostal & Dyness Retrofit 29,2 kWh / 12,3        € 8.550            € 363      23,5 Jahre     -€ 4.917    € 892 weniger
- S                        kW                                                                               über 10 Jahre
-
- Dyness Stack 100       38,9 kWh / 20            € 9.099            € 371      24,5 Jahre     -€ 5.387 € 1.362 weniger
- 40,96 kWh mit Solinteg kW                                                                               über 10 Jahre
+ Dyness Stack            38,9 kWh /        € 9.099      € 4.550         € 371    12,3 Jahre        € 1.018          € 635
+ 100 40,96 kWh           20 kW                                                                               weniger über
+ mit Solinteg                                                                                                    15 Jahre
  MHT-20K-40
 
- Kostal & Dyness Retrofit 48,6 kWh /             € 11.000           € 371      29,7 Jahre     -€ 7.294          € 3.269
- M                        20,5 kW                                                                          weniger über
-                                                                                                               10 Jahre
+ Kostal & Dyness         48,6 kWh /        € 11.000     € 5.500         € 371    14,8 Jahre          € 58         € 1.594
+ Retrofit M              20,5 kW                                                                             weniger über
+                                                                                                                 15 Jahre
 
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                                www.coolin.at · Seite 11 von 17
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                                 www.coolin.at · Seite 12 von 18
     COOLiN ENERGY          Referenzfall Gewerbe
 
 
@@ -412,8 +447,9 @@ Was wir Ihnen raten — und worauf sich die Zahlen stützen, die dahinterstehen.
 
 Was wir vorschlagen
 1     Speicher
-      Derzeit nicht wirtschaftlich — die Antwort samt Begründung steht im Kapitel „Speichergrösse und
-      Gerätewahl".
+      Dyness Stack 100 30,72 kWh mit Solinteg MHT-15K-40 spart voraussichtlich € 367 pro Jahr und
+      amortisiert sich mit der von Ihnen eingetragenen Förderung nach 10,5 Jahren — Netto-Ersparnis über
+      15 Jahre: € 1.653. Die Einzelheiten stehen im Kapitel „Empfehlung und Wirtschaftlichkeit".
 
 2     Für den Vergleich mit Ihrem heutigen Tarif
       Reichen Sie uns Ihre Stromrechnung nach. Ohne sie kennen wir Ihren heutigen Arbeitspreis und Ihre
@@ -427,7 +463,7 @@ die PV-Rekonstruktion sind ausführlich im Kapitel „Annahmen und Datengrundlag
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                    www.coolin.at · Seite 12 von 17
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                   www.coolin.at · Seite 13 von 18
     COOLiN ENERGY          Referenzfall Gewerbe
 
 
@@ -471,7 +507,7 @@ der späteren Jahre ist dadurch eher optimistisch.
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                        www.coolin.at · Seite 13 von 17
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                        www.coolin.at · Seite 14 von 18
     COOLiN ENERGY          Referenzfall Gewerbe
 
 
@@ -481,15 +517,23 @@ Annahmen und Datengrundlage
 Womit gerechnet wurde, woher die Tarifwerte stammen — und was an diesem Datensatz zu wissen ist.
 
 Annahmen & Rechenweise — Stand dieser Berechnung
- Betrachtungshorizont                                                                                        10 Jahre
+ Betrachtungshorizont                                                                                     15 Jahre
 
- Wirkungsgrad (Dyness Stack 100 30,72 kWh mit Solinteg MHT-15K-40)                            88 % (angenommen)
+ Wirkungsgrad (Dyness Stack 100 30,72 kWh mit Solinteg MHT-15K-40)                         88 % (angenommen)
 
- Batteriepreis (Dyness Stack 100 30,72 kWh mit Solinteg MHT-15K-40)                                  € 198,43 / kWh
+ Batteriepreis (Dyness Stack 100 30,72 kWh mit Solinteg MHT-15K-40)                               € 198,43 / kWh
 
- Gesamtinvestition                                                                                              € 7.691
+ Gesamtinvestition                                                                                           € 7.691
 
- Nettoinvestition nach Förderung                                                keine Angabe (nicht einbezogen)
+ Förderung (von Ihnen eingetragen)                                                                        -€ 3.846
+
+ Nettoinvestition nach Förderung                                                                           € 3.846
+
+ Steuersatz                                                                                                   23 %
+
+ Investitionsfreibetrag                                                                                       20 %
+
+ Abschreibungsdauer                                                                                       10 Jahre
 
 Das sind die Werte, mit denen dieser Report gerechnet wurde — zum Zeitpunkt seiner Erstellung. Die
 Entladetiefe ist dabei fest und geht unverändert aus Ihren Angaben ein; die übrigen Grössen lassen sich
@@ -511,21 +555,31 @@ hinterlegtem Tarif Wiener Netze.
 
 
 Tarifkomponenten
- Position                            Wert                            Status
+ Position                            Wert                         Status
 
- Leistungspreis                      € 0,00 / kW·a                   laut hinterlegtem Tarif Wiener Netze
+ Leistungspreis                      € 0,00 / kW·a                laut hinterlegtem Tarif Wiener Netze
 
- Arbeitspreis                        unbekannt                       aus Ihren Angaben (Energieseite)
+ Arbeitspreis                        unbekannt                    aus Ihren Angaben (Energieseite)
 
- Einspeisevergütung                  nicht angegeben                 aus Ihren Angaben (Energieseite)
+ Einspeisevergütung                  nicht angegeben              aus Ihren Angaben (Energieseite)
 
- Grundgebühr Lieferant               keine Angabe                    nicht erfasst — im Tarifvergleich mit 0 gerechnet
+ Grundgebühr Lieferant               keine Angabe                 nicht erfasst — im Tarifvergleich mit 0 gerechnet
 
 
 Datenquellen
- Quelle                         Was daraus verwendet wurde                 Zeitraum / Stand
+ Quelle                         Was daraus verwendet wurde              Zeitraum / Stand
 
  Lastgang
+
+
+
+
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                           www.coolin.at · Seite 15 von 18
+    COOLiN ENERGY           Referenzfall Gewerbe
+
+
+
+
  Viertelstundenwerte des        Grundlage aller Zahlen dieses Reports.     01.01.2025 – 31.12.2025 · 365 abgedeckte
  Netzbezugs                     Herkunft: hochgeladener Lastgang, nur      Tage (gerundet aus Messwerte ÷ 96, wie im
                                 Bezug. Monats- und Tagesgrenzen in         Datenqualitäts-Hinweis oben)
@@ -535,16 +589,6 @@ Datenquellen
                                 Lastgangs.                                 verfügbar)
 
  Tarif
-
-
-
-
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                              www.coolin.at · Seite 14 von 17
-    COOLiN ENERGY           Referenzfall Gewerbe
-
-
-
-
  Netzbetreiber-Preisblatt       Leistungspreis, Abrechnungsmodell und       Preisblatt-Zeile, gültig ab 01.01.2025.
                                 Mindestleistung; bei berechenbarem          Name, Version und Fundstelle des Blatts:
                                 Vergleich zusätzlich die Netz-Arbeitspreise nicht erfasst.
@@ -598,22 +642,21 @@ aus einem Rückblick.
 
 
    Bekannte Einschränkungen
+
+
+
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                              www.coolin.at · Seite 16 von 18
+    COOLiN ENERGY          Referenzfall Gewerbe
+
+
+
+
    Damit die Zahlen dieses Reports richtig gelesen werden, gehört Folgendes dazugesagt.
    Gerechnet wird durchgängig netto, also ohne Umsatzsteuer. Die Abgaben auf den Bezug sind dagegen
    enthalten: Elektrizitätsabgabe, EAG-Förderbeitrag und EAG-Pauschale sowie die Gebrauchsabgabe
    auf Netz- und Energiepreis samt Grundgebühren stecken in den Monatskosten und damit in den
    Kopfzahlen. Der Leistungspreis steht als eigene Jahreszahl ohne Gebrauchsabgabe da, so wie er auf
    der Netzrechnung steht; die Ersparnis durch Spitzenkappung enthält sie, wo sie anfällt.
-
-
-
-
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                              www.coolin.at · Seite 15 von 17
-    COOLiN ENERGY          Referenzfall Gewerbe
-
-
-
-
    Gebrauchsabgabe Wien angenommen — Standort nicht angegeben. Sie fällt nur für Anschlüsse im
    Wiener Gemeindegebiet an; liegt Ihr Anschluss ausserhalb Wiens, sind die Kosten um diesen Posten
    zu hoch angesetzt.
@@ -624,7 +667,7 @@ COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich               
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                    www.coolin.at · Seite 16 von 17
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                    www.coolin.at · Seite 17 von 18
                     COOLiN ENERGY
                     Peak Shaving & Speicher-Wirtschaftlichkeit
 

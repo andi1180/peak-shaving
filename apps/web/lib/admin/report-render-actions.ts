@@ -188,7 +188,7 @@ export async function createReportRenderRequestAction(
         gridTariffRows = pricing.gridTariffRows
         return pricing
       },
-    })
+    }, { category })
   } catch (error) {
     if (error instanceof MeteringPointAnalysisError || error instanceof Error) {
       console.error('[admin/report] Analyse-Lauf abgebrochen:', error)

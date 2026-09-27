@@ -26,8 +26,10 @@ import {
   hasEnteredSubsidy,
   installationExclusionSuffix,
   installationPriceText,
+  NET_INVESTMENT_AFTER_SUBSIDY_LABEL,
   rteSourceNote,
   SUBSIDY_ROW_LABEL,
+  taxAssumptionLines,
 } from '@/lib/report-copy'
 import { hasNegativeAddonVerdict } from './comparison'
 import { REPORT_SECTIONS, reportDisclaimer, SECTION_ID, type ReportSection } from './content'
@@ -151,7 +153,7 @@ export function buildAssumptions(
     ...(negativeAddon
       ? [
           neutralRow(
-            'Nettoinvestition (nach Förderung/Steuervorteil)',
+            NET_INVESTMENT_AFTER_SUBSIDY_LABEL,
             'kein Gerät empfohlen — kein Zusatzspeicher rechnet sich über den Betrachtungszeitraum',
           ),
         ]
@@ -160,6 +162,7 @@ export function buildAssumptions(
           a.roundTripEfficiency,
           recommended ? catalogMeta?.[recommended.battery.id] : undefined,
         )),
+    ...(a.tax ? taxAssumptionLines(a.tax).map((line) => neutralRow(line.label, line.value)) : []),
   ]
 
   return {
@@ -194,9 +197,9 @@ export function buildAssumptions(
  * ist der Wirkungsgrad, mit dem GENAU dieses Gerät gerechnet wurde, und ohne den Namen daneben
  * läse man ihn als Eigenschaft aller Kandidaten.
  *
- * ⚠ Die Nettoinvestition steht nur, wo Steuer- und Fördereffekte einbezogen wurden. Sonst steht
- * ausdrücklich „keine Angabe (nicht einbezogen)" und nicht der Bruttowert: eine Nettoinvestition,
- * die der Bruttoinvestition entspricht, behauptete eine Rechnung, die gar nicht stattgefunden hat.
+ * ⚠ Die Nettoinvestition steht nur bei eingetragener Förderung (die Steuerwirkung senkt sie nie).
+ * Sonst steht ausdrücklich „keine Angabe (nicht einbezogen)" und nicht der Bruttowert: eine
+ * Nettoinvestition, die der Bruttoinvestition entspricht, behauptete eine Förderung, die es nicht gibt.
  */
 function batteryRows(
   recommended: BatteryRoiEntry | undefined,
@@ -221,8 +224,8 @@ function batteryRows(
       ? [neutralRow(SUBSIDY_ROW_LABEL, formatEur(-recommended.subsidyAmount))]
       : []),
     neutralRow(
-      'Nettoinvestition (nach Förderung/Steuervorteil)',
-      recommended.taxEffectsIncluded || hasEnteredSubsidy(recommended)
+      NET_INVESTMENT_AFTER_SUBSIDY_LABEL,
+      hasEnteredSubsidy(recommended)
         ? formatEur(recommended.netInvestment)
         : 'keine Angabe (nicht einbezogen)',
     ),

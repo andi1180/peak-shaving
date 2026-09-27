@@ -1,4 +1,10 @@
-import type { AnalysisResult, BatteryCandidate, FinancialParams } from 'shared'
+import type {
+  AnalysisResult,
+  AnalysisTaxAssumptions,
+  BatteryCandidate,
+  BatteryTaxEffect,
+  FinancialParams,
+} from 'shared'
 
 // ROI & Förderung (§3.9). Reine Funktion — `totalSavingPerYear` kommt als Parameter herein
 // (Ergebnis des kombinierten Dispatch, §3.7) und wird hier NICHT berechnet.
@@ -13,6 +19,7 @@ export type RoiFields = Pick<
   | 'netInvestment'
   | 'amortizationYears'
   | 'netSavingOverHorizon'
+  | 'taxEffect'
 >
 
 /** `totalInvestment` = Kapazität × Preis + ggf. Fundament + ggf. separater Wechselrichter + ggf. Installationspauschale (§3.9). */
@@ -38,43 +45,92 @@ function calculateSubsidyAmount(totalInvestment: number, financialParams?: Finan
 }
 
 /**
- * `taxBenefit` (§3.9, vereinfacht, KEINE Steuerberatung):
- * `(investitionsfreibetragPercent × totalInvestment + jährliche AfA über den Horizont) × taxRatePercent`.
- * [ANNAHME] „über den Betrachtungszeitraum" bezieht sich auf die AfA (jährlich, über
- * `min(depreciationYears, horizonYears)` Jahre aufsummiert) — der IFB ist ein steuerlicher
- * Einmaleffekt im Investitionsjahr und wird NICHT mit dem Horizont multipliziert.
- *
- * `taxEffectsIncluded` (§3.9 „Ohne Angabe"-Klärung, §3.10): fehlt `taxRatePercent`, kann kein
- * €-Betrag berechnet werden — Ergebnis ist dann „keine Angabe" (`false`, `taxBenefit=0`), nicht
- * „geprüft und Null". Ist `taxRatePercent` gesetzt, aber IFB/AfA-Basis fehlt, ist `taxBenefit=0`
- * ein echtes, geprüftes Ergebnis (`true`).
+ * Die Steuerangaben, mit denen gerechnet wird — nur bei Steuersatz UND (IFB oder Abschreibungsdauer),
+ * sonst `null` (§3.9, Revision 27.09.2026).
  */
-function calculateTaxEffect(
-  totalInvestment: number,
-  horizonYears: number,
-  financialParams?: FinancialParams,
-): { taxBenefit: number; taxEffectsIncluded: boolean } {
+export function taxAssumptionsOf(financialParams?: FinancialParams): AnalysisTaxAssumptions | null {
   const taxRatePercent = financialParams?.taxRatePercent
-  if (taxRatePercent === undefined) {
-    return { taxBenefit: 0, taxEffectsIncluded: false }
-  }
-
-  const ifbAmount = ((financialParams?.investitionsfreibetragPercent ?? 0) / 100) * totalInvestment
-
+  const ifb = financialParams?.investitionsfreibetragPercent
   const depreciationYears = financialParams?.depreciationYears
-  const annualAfa = depreciationYears ? totalInvestment / depreciationYears : 0
-  const afaYearsInHorizon = depreciationYears ? Math.min(depreciationYears, horizonYears) : 0
-  const afaOverHorizon = annualAfa * afaYearsInHorizon
+  if (taxRatePercent === undefined || (ifb === undefined && depreciationYears === undefined)) {
+    return null
+  }
+  return {
+    taxRatePercent,
+    investitionsfreibetragPercent: ifb ?? null,
+    depreciationYears: depreciationYears ?? null,
+  }
+}
 
-  const taxBenefit = (ifbAmount + afaOverHorizon) * (taxRatePercent / 100)
-  return { taxBenefit, taxEffectsIncluded: true }
+/**
+ * Cashflow nach Steuern im Jahr `year` (ab 1): Einsparung × (1 − t) + AfA-Wirkung in den Jahren 1…n
+ * + IFB-Wirkung im Jahr 1. `basis` ist die Investition nach Förderung. KEINE Steuerberatung.
+ */
+export function afterTaxCashflow(
+  year: number,
+  basis: number,
+  savingPerYear: number,
+  tax: AnalysisTaxAssumptions,
+): number {
+  const rate = tax.taxRatePercent / 100
+  const n = tax.depreciationYears
+  const depreciation = n !== null && year <= n ? (basis / n) * rate : 0
+  const ifb = year === 1 ? ((tax.investitionsfreibetragPercent ?? 0) / 100) * basis * rate : 0
+  return savingPerYear * (1 - rate) + depreciation + ifb
+}
+
+/**
+ * Das Jahr, in dem die kumulierten Nach-Steuer-Cashflows die Basis erreichen (innerhalb des Jahres
+ * linear). Nach den AfA-Jahren ist der Cashflow konstant — ist er dann nicht positiv, `Infinity`.
+ */
+function amortizationYearsAfterTax(
+  basis: number,
+  savingPerYear: number,
+  tax: AnalysisTaxAssumptions,
+): number {
+  if (basis <= 0) return 0
+  const variableYears = Math.max(1, Math.floor(tax.depreciationYears ?? 0))
+  let cumulative = 0
+  for (let year = 1; year <= variableYears; year++) {
+    const cashflow = afterTaxCashflow(year, basis, savingPerYear, tax)
+    if (cashflow > 0 && cumulative + cashflow >= basis) {
+      return year - 1 + (basis - cumulative) / cashflow
+    }
+    cumulative += cashflow
+  }
+  const steady = afterTaxCashflow(variableYears + 1, basis, savingPerYear, tax)
+  return steady > 0 ? variableYears + (basis - cumulative) / steady : Infinity
+}
+
+function calculateTaxEffect(
+  basis: number,
+  totalSavingPerYear: number,
+  horizonYears: number,
+  tax: AnalysisTaxAssumptions,
+): { effect: BatteryTaxEffect; benefitInHorizon: number } {
+  const rate = tax.taxRatePercent / 100
+  const n = tax.depreciationYears
+  const annualDepreciationEffect = n !== null ? (basis / n) * rate : 0
+  const depreciationYearsInHorizon = n !== null ? Math.min(Math.floor(n), horizonYears) : 0
+  const ifbEffect = ((tax.investitionsfreibetragPercent ?? 0) / 100) * basis * rate
+  const benefitInHorizon = ifbEffect + annualDepreciationEffect * depreciationYearsInHorizon
+  return {
+    effect: {
+      ifbEffect,
+      annualDepreciationEffect,
+      amortizationYearsAfterTax: amortizationYearsAfterTax(basis, totalSavingPerYear, tax),
+      netSavingOverHorizonAfterTax:
+        totalSavingPerYear * (1 - rate) * horizonYears + benefitInHorizon - basis,
+    },
+    benefitInHorizon,
+  }
 }
 
 /**
  * `amortizationYears` = `netInvestment ÷ totalSavingPerYear` (§3.9).
  * [ANNAHME, Pflichtenheft schweigt dazu] Zwei Grenzfälle, die sonst NaN/±Infinity aus einer
  * Division durch/mit Null oder negativen Werten erzeugen würden:
- * - `netInvestment = 0` (Förderung/Steuervorteil deckt die Investition, `calculateRoi` klemmt
+ * - `netInvestment = 0` (Förderung deckt die Investition, `calculateRoi` klemmt
  *   bei 0): sofort amortisiert → `0`, unabhängig von `totalSavingPerYear`.
  * - `totalSavingPerYear ≤ 0` (keine oder negative Ersparnis) bei verbleibender Investition:
  *   amortisiert sich nie → `Infinity`, kein Crash/NaN im Report.
@@ -97,18 +153,22 @@ export function calculateRoi(
 ): RoiFields {
   const totalInvestment = calculateTotalInvestment(battery)
   const subsidyAmount = calculateSubsidyAmount(totalInvestment, financialParams)
-  const { taxBenefit, taxEffectsIncluded } = calculateTaxEffect(totalInvestment, horizonYears, financialParams)
-  const netInvestment = Math.max(0, totalInvestment - subsidyAmount - taxBenefit)
+  // Die Steuerwirkung senkt die Investition nie; sie ist ein eigener Nach-Steuer-Richtwert.
+  const netInvestment = Math.max(0, totalInvestment - subsidyAmount)
   const amortizationYears = calculateAmortizationYears(netInvestment, totalSavingPerYear)
   const netSavingOverHorizon = totalSavingPerYear * horizonYears - netInvestment
+  const tax = taxAssumptionsOf(financialParams)
+  const taxResult =
+    tax === null ? null : calculateTaxEffect(netInvestment, totalSavingPerYear, horizonYears, tax)
 
   return {
     totalInvestment,
     subsidyAmount,
-    taxBenefit,
-    taxEffectsIncluded,
+    taxBenefit: taxResult?.benefitInHorizon ?? 0,
+    taxEffectsIncluded: taxResult !== null,
     netInvestment,
     amortizationYears,
     netSavingOverHorizon,
+    ...(taxResult === null ? {} : { taxEffect: taxResult.effect }),
   }
 }

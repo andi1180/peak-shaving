@@ -233,4 +233,27 @@ describe('Tarif-Station — Annahmen für die Wirtschaftlichkeit', () => {
     expect(draft.subsidyPercent).toBe(30)
     expect(rpc).not.toHaveBeenCalledWith('update_metering_point_draft', expect.anything())
   })
+
+  it('Steuerangaben nur mit Marker (Gewerbe-Formular); ohne Marker bleiben sie unberührt', async () => {
+    draft = { ...EXISTING }
+    await saveMeteringPointAnalysisAssumptionsAction(
+      {},
+      assumptionsForm({
+        taxFields: '1',
+        investitionsfreibetragPercent: '20',
+        taxRatePercent: '23',
+        depreciationYears: '10',
+      }),
+    )
+    expect(draft).toMatchObject({ investitionsfreibetragPercent: 20, taxRatePercent: 23, depreciationYears: 10 })
+
+    await saveMeteringPointAnalysisAssumptionsAction({}, assumptionsForm({ horizonYears: '12' }))
+    expect(draft).toMatchObject({ horizonYears: 12, taxRatePercent: 23, depreciationYears: 10 })
+
+    const state = await saveMeteringPointAnalysisAssumptionsAction(
+      {},
+      assumptionsForm({ taxFields: '1', depreciationYears: '7,5' }),
+    )
+    expect(state.fieldErrors?.depreciationYears).toBeDefined()
+  })
 })

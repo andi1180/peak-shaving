@@ -52,3 +52,25 @@ jobs:
       # ist faktisch in `apps/web` entstanden (Auth, Konto, Entitlements, Gutscheineinlösung).
       - name: Build apps (website + web)
         run: pnpm --filter website build && pnpm --filter web build
+
+  # Report-Text der Referenzfälle (PDF über pdftotext + Bildschirm-Markup); eigener Job, weil er poppler braucht.
+  report-snapshots:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install poppler-utils (pdftotext)
+        run: sudo apt-get update && sudo apt-get install -y poppler-utils
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Report-Snapshots
+        run: pnpm --filter website report:snapshots

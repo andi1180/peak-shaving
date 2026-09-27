@@ -12,6 +12,8 @@ import {
   ANALYSIS_ASSUMPTION_DRAFT_KEYS,
   ANALYSIS_HORIZON_YEARS_MAX,
   ANALYSIS_HORIZON_YEARS_MIN,
+  DEPRECIATION_YEARS_MAX,
+  DEPRECIATION_YEARS_MIN,
   netFromEntered,
 } from 'shared'
 import { isSubsidyMode, parseAmountInput } from './analysis-assumptions-draft'
@@ -157,7 +159,8 @@ export async function deleteMeteringPointTariffComparisonAction(
 }
 
 /**
- * Die Annahmen der Wirtschaftlichkeit — Betrachtungshorizont und Förderung, EIN Aufruf.
+ * Die Annahmen der Wirtschaftlichkeit — Betrachtungshorizont, Förderung und (nur Gewerbe, am
+ * Marker `taxFields` erkannt) die Steuerangaben, EIN Aufruf.
  *
  * Leer heisst „keine Angabe": der Schlüssel wird entfernt, und der Lauf rechnet wie ohne
  * (10 Jahre, ohne Förderung). Prozent und Fixbetrag schliessen einander aus — gespeichert wird
@@ -178,6 +181,10 @@ export async function saveMeteringPointAnalysisAssumptionsAction(
   const subsidyMode = String(formData.get('subsidyMode') ?? '')
   const subsidyRaw = String(formData.get('subsidyValue') ?? '').trim()
   const priceBasis = String(formData.get('subsidyPriceBasis') ?? '')
+  const withTax = formData.get('taxFields') === '1'
+  const ifbRaw = String(formData.get('investitionsfreibetragPercent') ?? '').trim()
+  const taxRateRaw = String(formData.get('taxRatePercent') ?? '').trim()
+  const depreciationRaw = String(formData.get('depreciationYears') ?? '').trim()
 
   const fieldErrors: Record<string, string> = {}
   const horizon = Number(horizonRaw)
@@ -202,10 +209,35 @@ export async function saveMeteringPointAnalysisAssumptionsAction(
       fieldErrors.subsidyValue = 'Bitte einen Betrag über 0 € angeben.'
     }
   }
+  const ifb = parseAmountInput(ifbRaw)
+  const taxRate = parseAmountInput(taxRateRaw)
+  const depreciation = Number(depreciationRaw)
+  if (withTax) {
+    const percentError = 'Bitte einen Wert über 0 und höchstens 100 % angeben.'
+    if (ifbRaw !== '' && !(ifb > 0 && ifb <= 100)) fieldErrors.investitionsfreibetragPercent = percentError
+    if (taxRateRaw !== '' && !(taxRate > 0 && taxRate <= 100)) fieldErrors.taxRatePercent = percentError
+    if (
+      depreciationRaw !== '' &&
+      !(
+        Number.isInteger(depreciation) &&
+        depreciation >= DEPRECIATION_YEARS_MIN &&
+        depreciation <= DEPRECIATION_YEARS_MAX
+      )
+    ) {
+      fieldErrors.depreciationYears = `Bitte eine ganze Zahl von ${DEPRECIATION_YEARS_MIN} bis ${DEPRECIATION_YEARS_MAX} Jahren angeben.`
+    }
+  }
   if (Object.keys(fieldErrors).length > 0) {
     return {
       fieldErrors,
-      values: { horizonYears: horizonRaw, subsidyMode, subsidyValue: subsidyRaw },
+      values: {
+        horizonYears: horizonRaw,
+        subsidyMode,
+        subsidyValue: subsidyRaw,
+        investitionsfreibetragPercent: ifbRaw,
+        taxRatePercent: taxRateRaw,
+        depreciationYears: depreciationRaw,
+      },
     }
   }
   if (
@@ -235,6 +267,17 @@ export async function saveMeteringPointAnalysisAssumptionsAction(
       { field: keys.fixedSubsidyPriceBasis, value: basis },
     )
     clear.push(keys.subsidyPercent)
+  }
+
+  if (withTax) {
+    for (const [field, raw, value] of [
+      [keys.investitionsfreibetragPercent, ifbRaw, ifb],
+      [keys.taxRatePercent, taxRateRaw, taxRate],
+      [keys.depreciationYears, depreciationRaw, depreciation],
+    ] as const) {
+      if (raw === '') clear.push(field)
+      else set.push({ field, value })
+    }
   }
 
   const failure = await replaceMeteringPointDraftFields(

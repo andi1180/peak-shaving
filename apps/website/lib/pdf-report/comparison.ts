@@ -9,6 +9,7 @@ import {
   investmentAfterSubsidy,
   isAnnualized,
   SUBSIDY_NOTE,
+  TAX_EFFECT_NOTE,
 } from '@/lib/report-copy'
 import type { ReportBuildContext } from './context'
 import type { ReportFigure, ReportRow, ReportStatement, ReportTable } from './statement'
@@ -491,8 +492,13 @@ export function buildTableStatement(
   considered: ComparisonCandidate[],
   /* `noPayoffReasonOf` — steht vor der Einleitung, nur im Fall „Derzeit nicht". */
   noPayoffReason: string | null = null,
+  /* Die Geräte der Tabelle — für den Satz zur Amortisation nach Steuern. */
+  shown: ComparisonCandidate[] = [],
 ): ReportStatement {
-  return withSubsidyNote(tableStatementOf(variant, considered, noPayoffReason), considered, true)
+  return withTaxNote(
+    withSubsidyNote(tableStatementOf(variant, considered, noPayoffReason), considered, true),
+    shown,
+  )
 }
 
 function tableStatementOf(
@@ -671,6 +677,20 @@ function withSubsidyNote(
   return { ...statement, body: statement.body === '' ? note : t`${statement.body} ${note}` }
 }
 
+/**
+ * Die Amortisation nach Steuern der Tabellengeräte als Satz: eine neunte Spalte passt nicht in die
+ * Seitenbreite (am gerenderten PDF gemessen, 27.09.2026).
+ */
+function withTaxNote(statement: ReportStatement, shown: ComparisonCandidate[]): ReportStatement {
+  const taxed = shown.filter((c) => c.taxEffect !== undefined)
+  if (taxed.length === 0) return statement
+  const values = taxed
+    .map((c) => `${c.battery.name}: ${formatYears(c.taxEffect!.amortizationYearsAfterTax)}`)
+    .join('; ')
+  const note = `Amortisation nach Steuern: ${values}. ${TAX_EFFECT_NOTE}`
+  return { ...statement, body: statement.body === '' ? note : t`${statement.body} ${note}` }
+}
+
 export function hasNegativeAddonVerdict(analysis: PdfReportAnalysis): boolean {
   const { variant, shown } = comparisonSelection(analysis)
   return variant === 'addon' && shown.length === 0 && hasComparisonChapter(analysis)
@@ -691,7 +711,7 @@ export function buildComparisonChapter(
     figure: plan ? buildFigure(plan, displayedPriceBasis(analysis)) : null,
     figureMissing: plan ? null : FIGURE_MISSING,
     statement: hasTable
-      ? buildTableStatement(variant, considered, noPayoffReasonOf(analysis, hasPv))
+      ? buildTableStatement(variant, considered, noPayoffReasonOf(analysis, hasPv), shown)
       : buildVerdict(considered, horizonYears),
     table: hasTable ? buildCandidateTable(shown, horizonYears, reference) : null,
     countLine: hasTable ? countLineOf(considered) : null,

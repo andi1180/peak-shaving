@@ -4,17 +4,19 @@ import {
   sumCovered,
   VAT_INCLUSIVE_LABEL,
   type AnalysisResult,
+  type AnalysisTaxAssumptions,
   type BatteryCandidate,
   type BatteryCatalogMeta,
   type BatteryNotice,
   type BatteryResultEntry,
   type BatteryRoiEntry,
   type BatteryRoiSummary,
+  type BatteryTaxEffect,
   type MonthlyTariffComparison,
   type RecommendationRationale,
 } from 'shared'
 
-import { formatDateOnly, formatEur, formatKw } from './format'
+import { formatDateOnly, formatEur, formatKw, formatPercent, formatYears } from './format'
 
 /**
  * Report-Texte, die an MEHR ALS EINER Stelle stehen müssen (Delta 16a).
@@ -244,6 +246,54 @@ export const SUBSIDY_ROW_LABEL = 'Förderung (von Ihnen eingetragen)'
 export const NET_INVESTMENT_AFTER_SUBSIDY_LABEL = 'Nettoinvestition nach Förderung'
 export const SUBSIDY_NOTE =
   'Nettoinvestition nach einer von Ihnen eingetragenen Förderung — keine geprüfte Zusage.'
+
+export const TAX_EFFECT_TITLE = 'Steuerliche Wirkung (Richtwert)'
+export const TAX_EFFECT_NOTE =
+  'Richtwert auf Basis Ihrer Angaben — keine Steuerberatung. Die Einsparungen erhöhen den ' +
+  'steuerpflichtigen Gewinn und sind berücksichtigt.'
+
+export type TaxEffectLine = { label: string; value: string; total?: boolean; negative?: boolean }
+
+/** Die Zeilen des Steuerblocks — getrennt von Förderung und Investition, PDF und Bildschirm gleich. */
+export function taxEffectLines(
+  effect: BatteryTaxEffect,
+  tax: AnalysisTaxAssumptions,
+  horizonYears: number,
+): TaxEffectLine[] {
+  return [
+    ...(tax.investitionsfreibetragPercent === null
+      ? []
+      : [{ label: 'Investitionsfreibetrag, einmalig', value: formatEur(effect.ifbEffect) }]),
+    ...(tax.depreciationYears === null
+      ? []
+      : [
+          {
+            label: `Abschreibung über ${tax.depreciationYears} Jahre`,
+            value: `${formatEur(effect.annualDepreciationEffect)} / Jahr`,
+          },
+        ]),
+    { label: 'Amortisation nach Steuern', value: formatYears(effect.amortizationYearsAfterTax) },
+    {
+      label: `Netto nach Steuern über ${horizonYears} Jahre`,
+      value: formatEur(effect.netSavingOverHorizonAfterTax),
+      total: true,
+      negative: effect.netSavingOverHorizonAfterTax < 0,
+    },
+  ]
+}
+
+/** Die Steuerangaben als Annahmen-Zeilen — nur, wo sie gerechnet sind. */
+export function taxAssumptionLines(tax: AnalysisTaxAssumptions): { label: string; value: string }[] {
+  return [
+    { label: 'Steuersatz', value: formatPercent(tax.taxRatePercent) },
+    ...(tax.investitionsfreibetragPercent === null
+      ? []
+      : [{ label: 'Investitionsfreibetrag', value: formatPercent(tax.investitionsfreibetragPercent) }]),
+    ...(tax.depreciationYears === null
+      ? []
+      : [{ label: 'Abschreibungsdauer', value: `${tax.depreciationYears} Jahre` }]),
+  ]
+}
 
 /** „Investition € X" bzw. „Investition € X, nach Förderung € Y". */
 export function investmentText(

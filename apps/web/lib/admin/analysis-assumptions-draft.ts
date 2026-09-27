@@ -3,6 +3,7 @@ import {
   readDraftFinancialParams,
   readDraftFixedSubsidyPriceBasis,
   readDraftHorizonYears,
+  readDraftTaxFields,
 } from 'shared'
 
 /**
@@ -22,25 +23,43 @@ export type AnalysisAssumptionsForm = {
   subsidyMode: SubsidyMode | null
   /** Prozent bzw. Fixbetrag in der Basis, in der er eingegeben wurde. */
   subsidyValue: number | null
+  /** Steuerangaben (nur Gewerbe), einzeln gelesen — auch ohne Steuersatz. */
+  investitionsfreibetragPercent: number | null
+  taxRatePercent: number | null
+  depreciationYears: number | null
+}
+
+/** IFB oder Abschreibungsdauer ist eingetragen, der Steuersatz fehlt — dann rechnet der Report keine Steuerwirkung. */
+export function taxRateMissing(form: AnalysisAssumptionsForm): boolean {
+  return (
+    form.taxRatePercent === null &&
+    (form.investitionsfreibetragPercent !== null || form.depreciationYears !== null)
+  )
 }
 
 export function readAnalysisAssumptionsForm(
   draft: Record<string, unknown>,
 ): AnalysisAssumptionsForm {
   const financial = readDraftFinancialParams(draft)
-  const horizonYears = readDraftHorizonYears(draft)
+  const tax = readDraftTaxFields(draft)
+  const base = {
+    horizonYears: readDraftHorizonYears(draft),
+    investitionsfreibetragPercent: tax.investitionsfreibetragPercent ?? null,
+    taxRatePercent: tax.taxRatePercent ?? null,
+    depreciationYears: tax.depreciationYears ?? null,
+  }
   if (financial?.subsidyPercent !== undefined) {
-    return { horizonYears, subsidyMode: 'percent', subsidyValue: financial.subsidyPercent }
+    return { ...base, subsidyMode: 'percent', subsidyValue: financial.subsidyPercent }
   }
   if (financial?.fixedSubsidyEur !== undefined) {
     const basis = readDraftFixedSubsidyPriceBasis(draft)
     return {
-      horizonYears,
+      ...base,
       subsidyMode: 'fixed',
       subsidyValue: enteredFromNet(financial.fixedSubsidyEur, basis),
     }
   }
-  return { horizonYears, subsidyMode: null, subsidyValue: null }
+  return { ...base, subsidyMode: null, subsidyValue: null }
 }
 
 /**

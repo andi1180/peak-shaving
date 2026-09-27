@@ -12,6 +12,7 @@ import {
   readDraftFinancialParams,
   readPvStage,
   type BatteryCandidate,
+  type BatteryCatalogCategory,
   type BatteryCatalogMeta,
   type DisplayPriceBasis,
   type TariffPricingInputs,
@@ -40,6 +41,10 @@ type TariffPricingRequest = Parameters<
 
 type SnapshotCase = {
   name: string
+  /** Snapshot-Datei, falls sie mit einem anderen Fall geteilt wird (Vorgabe: `name`). */
+  snapshot?: string
+  /** Projektsegment des Laufs — Steuerangaben gelten nur bei `gewerbe`. */
+  category: BatteryCatalogCategory
   dir: string
   /** Die Uhr des Laufs — sie bestimmt das Jahresfenster und das Druckdatum. */
   runAt: string
@@ -60,6 +65,7 @@ const PRIVAT: SnapshotCase = {
   runAt: '2026-09-24T13:04:38.994Z',
   documents: { lastgang: 'lastgang.csv', 'pv-erzeugung': 'pv-erzeugung.json' },
   customerLabel: 'Referenzfall Privat',
+  category: 'heim',
   priceDisplay: 'gross',
   catalogMetaFile: null,
 }
@@ -70,6 +76,7 @@ const GEWERBE: SnapshotCase = {
   runAt: '2026-09-27T08:40:00.000Z',
   documents: { lastgang: 'lastgang.csv' },
   customerLabel: 'Referenzfall Gewerbe',
+  category: 'gewerbe',
   priceDisplay: 'net',
   catalogMetaFile: 'battery-catalog-meta.json',
 }
@@ -87,6 +94,24 @@ const CASES: SnapshotCase[] = [
     ...PRIVAT,
     name: 'privat-bestand-pv-wien.foerderung-fix-ueber-investition',
     draftPatch: { fixedSubsidyEur: 100_000, fixedSubsidyPriceBasis: 'gross' },
+  },
+  {
+    ...GEWERBE,
+    name: 'gewerbe-ohne-rechnung-wien.foerderung-50-horizont-15-steuer',
+    draftPatch: {
+      subsidyPercent: 50,
+      horizonYears: 15,
+      taxRatePercent: 23,
+      investitionsfreibetragPercent: 20,
+      depreciationYears: 10,
+    },
+  },
+  // Privatpfad: Steuerwerte im Entwurf bleiben unbeachtet — derselbe Snapshot wie ohne.
+  {
+    ...PRIVAT,
+    name: 'privat-bestand-pv-wien.steuerwerte-ignoriert',
+    snapshot: PRIVAT.name,
+    draftPatch: { taxRatePercent: 23, investitionsfreibetragPercent: 20, depreciationYears: 10 },
   },
 ]
 
@@ -139,6 +164,9 @@ const NO_CHARTS: ReportChartRasters = {
   },
 }
 
+/** Gibt die Event-Loop frei — sonst läuft vitests Worker-RPC bei langen Render-Strecken in den Timeout. */
+const yieldToEventLoop = () => new Promise<void>((resolve) => setImmediate(resolve))
+
 function readJson<T>(c: SnapshotCase, name: string): T {
   return JSON.parse(readFileSync(path.join(c.dir, name), 'utf8')) as T
 }
@@ -165,6 +193,7 @@ async function runCase(c: SnapshotCase) {
     batteryCatalog: catalog,
     readMeteringPoint: async () => ({ draft, sourceDocumentId: 'lastgang' }),
     readDocument: async (documentId) => {
+      await yieldToEventLoop()
       const filename = c.documents[documentId]
       if (filename === undefined) return null
       const bytes = readFileSync(path.join(c.dir, filename))
@@ -174,13 +203,14 @@ async function runCase(c: SnapshotCase) {
       }
     },
     fetchTariffPricing: async (request) => {
+      await yieldToEventLoop()
       const pricing = pricingByWindow.get(windowKey(request))
       if (pricing === undefined)
         throw new Error(`Kein eingefrorener Preisstand für ${windowKey(request)}`)
       lastPricing = pricing
       return pricing
     },
-  })
+  }, { category: c.category })
   return { run, draft, catalog, lastPricing: lastPricing as TariffPricingInputs | null }
 }
 
@@ -215,6 +245,7 @@ async function renderPdfText(input: PdfReportInput, file: string): Promise<strin
         sink,
       }) as never,
     )
+    await yieldToEventLoop()
     return { pdf, sink }
   }
   // Zwei Durchläufe wie `renderReportPdf`: erst messen, dann mit Seitenzahlen in der Agenda.
@@ -228,6 +259,7 @@ export async function renderSnapshots(
   c: SnapshotCase,
 ): Promise<{ pdfText: string; screenHtml: string }> {
   const { run, draft, catalog, lastPricing } = await runCase(c)
+  await yieldToEventLoop()
   const catalogMeta: Record<string, BatteryCatalogMeta> = c.catalogMetaFile
     ? readJson(c, c.catalogMetaFile)
     : {}
@@ -276,7 +308,7 @@ export async function renderSnapshots(
       batteryCatalogMeta={catalogMeta}
       tariffSource={null}
       originalTariff={mapDraftToTariffParams(draft)}
-      originalFinancial={readDraftFinancialParams(draft)}
+      originalFinancial={readDraftFinancialParams(draft, c.category)}
       recomputing={false}
       recomputeError={null}
       isLive={false}
@@ -321,8 +353,8 @@ describe('Report-Snapshots der Referenzfälle', () => {
     it(`${c.name}: PDF-Text und Bildschirm-Markup unverändert`, async () => {
       vi.useFakeTimers({ toFake: ['Date'], now: new Date(c.runAt) })
       const { pdfText, screenHtml } = await renderSnapshots(c)
-      checkSnapshot(`${c.name}.pdf.txt`, pdfText)
-      checkSnapshot(`${c.name}.screen.html`, screenHtml)
+      checkSnapshot(`${c.snapshot ?? c.name}.pdf.txt`, pdfText)
+      checkSnapshot(`${c.snapshot ?? c.name}.screen.html`, screenHtml)
     })
   }
 })

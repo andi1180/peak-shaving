@@ -73,10 +73,11 @@ describe('computeAnalysis', () => {
       billingModel: 'annual_max',
       energyPriceCtPerKwh: 25,
       einspeiseverguetungCtPerKwh: 8,
+      tax: { taxRatePercent: 25, investitionsfreibetragPercent: null, depreciationYears: 10 },
     })
     expect(result.recommendation.batteryId).toBe('gate-dynamic-60-20')
     expect(result.perBattery[0]!.totalSavingPerYear).toBeCloseTo(3823.1515262050193, 9)
-    expect(result.perBattery[0]!.netSavingOverHorizon).toBeCloseTo(24481.51526205019, 8)
+    expect(result.perBattery[0]!.netSavingOverHorizon).toBeCloseTo(19231.51526205019, 8)
     expect(result.existingBatteryAnalysis).toBeUndefined()
     // Parser-Warnung bleibt erhalten, PV-Konsistenz kommt hinzu — nicht ersetzt.
     expect(result.dataQuality.warnings[0]).toBe('Teiljahres-Datensatz')
@@ -97,7 +98,7 @@ describe('computeAnalysis', () => {
     expect(existing.addonScenarios).toHaveLength(GATE_CATALOG.length)
     // Ausgewiesen wird die DIFFERENZ zum Bestand, nicht die Bruttozahl der Kombination.
     expect(existing.addonScenarios[0]!.totalSavingPerYear).toBeCloseTo(-137.1968503258504, 9)
-    expect(existing.addonScenarios[0]!.netSavingOverHorizon).toBeCloseTo(-15121.968503258504, 8)
+    expect(existing.addonScenarios[0]!.netSavingOverHorizon).toBeCloseTo(-20371.968503258504, 8)
   })
 })
 

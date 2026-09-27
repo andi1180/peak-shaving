@@ -19,7 +19,7 @@ import type { DataQuality } from './parser'
 import { analyzeCurrentPeaks, topPeaksKw } from './peaks'
 import { installationCoverageOf, recommendBattery } from './recommendation'
 import { eagDemandChargePerYear } from './tariff'
-import { calculateRoi } from './roi'
+import { calculateRoi, taxAssumptionsOf } from './roi'
 import { computeBatterySavings } from './savings'
 import { AnalysisRefusedError, hasFeedIn } from './refusal'
 import {
@@ -409,14 +409,15 @@ export function computeAnalysis(
   const existing = buildExistingBatteryAnalysis(payload, horizonYears, catalog, planning)
 
   // --- perBattery/recommendation: ECHTER Engine-Aufruf (§3.6–§3.8) ---
-  // `financial` ist bereits vollständig optional gebaut (§3.9) — fehlt es (Formular sammelt es
-  // noch nicht immer), reicht `undefined` einfach durch: `taxEffectsIncluded=false`, `taxBenefit=0`.
+  // `financial` ist bereits vollständig optional gebaut (§3.9) — fehlt es, reicht `undefined`
+  // einfach durch: `taxEffectsIncluded=false`, `taxBenefit=0`, kein `taxEffect`.
   // `pvProfile` (optional) reichert nur den Trace um die echte Brutto-PV an (Dispatch/Ersparnis unverändert).
   //
   // ⚠ Steht seit D7 VOR dem Monatsvergleich und nicht mehr dahinter: dessen dritte Reihe kann jetzt
   // aus dem Dispatch der empfohlenen Batterie entstehen. Der Aufruf selbst ist unverändert — er
   // hängt an nichts, was dazwischen berechnet wird.
   const installationCoverage = installationCoverageOf(catalog)
+  const taxAssumptions = taxAssumptionsOf(payload.financial)
   const { perBattery, recommendation, recommendedGridAfterKw } = recommendBattery(
     loadProfile,
     payload.tariff,
@@ -527,6 +528,7 @@ export function computeAnalysis(
       ...(leviesOf(payload)?.locationAssumed
         ? { levyLocationAssumed: leviesOf(payload)!.locationAssumed }
         : {}),
+      ...(taxAssumptions ? { tax: taxAssumptions } : {}),
     },
     tariffOptimization,
     existingBatteryAnalysis: existing?.analysis,

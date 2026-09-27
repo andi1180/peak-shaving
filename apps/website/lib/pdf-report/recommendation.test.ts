@@ -308,7 +308,7 @@ describe('recommendation — Listenform', () => {
       'Ob sich ein ZUSÄTZLICHES Gerät neben Ihrer Anlage lohnt, steht auf der Zusammenfassung; ' +
         'die dortigen Beträge sind Differenzen und nicht mit den Zahlen hier vergleichbar.',
       'Förderung und Steuervorteil sind nicht angegeben und deshalb in keiner dieser Zahlen ' +
-        'enthalten — mit ihnen fiele die Investition niedriger aus.',
+        'enthalten — mit einer Förderung fiele die Investition niedriger aus.',
     ])
   })
 
