@@ -24,7 +24,8 @@ vi.mock('server-only', () => ({}))
 vi.mock('@/lib/supabase/server', () => ({ createClient: () => createClient() }))
 vi.mock('next/cache', () => ({ revalidatePath: (p: string) => revalidatePath(p) }))
 
-const { saveMeteringPointTariffComparisonAction } = await import('./data-entry-actions-tarif')
+const { saveMeteringPointAnalysisAssumptionsAction, saveMeteringPointTariffComparisonAction } =
+  await import('./data-entry-actions-tarif')
 
 const PROJECT_ID = '11111111-2222-4333-8444-555555555555'
 const POINT_ID = '66666666-7777-4888-8999-aaaaaaaaaaaa'
@@ -175,5 +176,61 @@ describe('Tarif-Station — Vergleichstarif', () => {
     expect(state.success).toBeUndefined()
     for (const key of COMPARISON_KEYS) expect(draft).not.toHaveProperty(key)
     expect(revalidatePath).not.toHaveBeenCalled()
+  })
+})
+
+describe('Tarif-Station — Annahmen für die Wirtschaftlichkeit', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    draft = { ...EXISTING, subsidyPercent: 30 }
+    withDraftWrappers()
+  })
+
+  function assumptionsForm(values: Record<string, string>): FormData {
+    const fd = new FormData()
+    fd.set('projectId', PROJECT_ID)
+    fd.set('meteringPointId', POINT_ID)
+    for (const [key, value] of Object.entries(values)) fd.set(key, value)
+    return fd
+  }
+
+  it('ein Fixbetrag inkl. USt wird netto gespeichert und ersetzt den Prozentwert', async () => {
+    const state = await saveMeteringPointAnalysisAssumptionsAction(
+      {},
+      assumptionsForm({
+        horizonYears: '15',
+        subsidyMode: 'fixed',
+        subsidyValue: '6.000',
+        subsidyPriceBasis: 'gross',
+      }),
+    )
+    expect(state.success).toBeDefined()
+    expect(draft.horizonYears).toBe(15)
+    expect(draft.fixedSubsidyEur).toBe(5000)
+    expect(draft.fixedSubsidyPriceBasis).toBe('gross')
+    expect(draft).not.toHaveProperty('subsidyPercent')
+    expect(draft.energyPriceCtPerKwh).toBe(EXISTING.energyPriceCtPerKwh)
+  })
+
+  it('leere Felder entfernen Horizont und Förderung — der Lauf rechnet wie ohne Angabe', async () => {
+    draft = { ...EXISTING, horizonYears: 20, subsidyPercent: 30 }
+    const state = await saveMeteringPointAnalysisAssumptionsAction(
+      {},
+      assumptionsForm({ subsidyMode: 'percent' }),
+    )
+    expect(state.success).toBeDefined()
+    expect(draft).not.toHaveProperty('horizonYears')
+    expect(draft).not.toHaveProperty('subsidyPercent')
+  })
+
+  it('weist einen Horizont ausserhalb 1–30 und einen Anteil über 100 % ab, ohne zu schreiben', async () => {
+    const state = await saveMeteringPointAnalysisAssumptionsAction(
+      {},
+      assumptionsForm({ horizonYears: '31', subsidyMode: 'percent', subsidyValue: '120' }),
+    )
+    expect(state.fieldErrors?.horizonYears).toBeDefined()
+    expect(state.fieldErrors?.subsidyValue).toBeDefined()
+    expect(draft.subsidyPercent).toBe(30)
+    expect(rpc).not.toHaveBeenCalledWith('update_metering_point_draft', expect.anything())
   })
 })

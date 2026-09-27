@@ -15,7 +15,8 @@
  * Sperre unten fände ihren Schlüssel nicht mehr, und die Analyse liefe OHNE sie durch und sähe
  * vollständig aus.
  */
-import { tariffParamsSchema } from './tariff'
+import type { FinancialParams } from './financial'
+import { tariffParamsSchema, type PriceBasis } from './tariff'
 
 /**
  * Der Netzbetreiber im Entwurf.
@@ -78,6 +79,52 @@ export function parseNetzebeneDraftValue(raw: unknown): number | null {
  * Entscheidungen eine, und ein verstellter Rechner-Default verschöbe still jede Wizard-Analyse.
  */
 export const DRAFT_ANALYSIS_HORIZON_YEARS = 10
+
+/**
+ * Die Annahmen der Wirtschaftlichkeit aus der Tarif-Station — Feldnamen wie in `SimulationParams`
+ * und `FinancialParams`. Fehlt ein Wert, rechnet der Lauf wie ohne Angabe (Horizont 10, keine
+ * Förderung). `fixedSubsidyEur` steht NETTO im Entwurf, die eingegebene Basis daneben (H3).
+ */
+export const ANALYSIS_ASSUMPTION_DRAFT_KEYS = {
+  horizonYears: 'horizonYears',
+  subsidyPercent: 'subsidyPercent',
+  fixedSubsidyEur: 'fixedSubsidyEur',
+  fixedSubsidyPriceBasis: 'fixedSubsidyPriceBasis',
+} as const
+
+export const ANALYSIS_HORIZON_YEARS_MIN = 1
+export const ANALYSIS_HORIZON_YEARS_MAX = 30
+
+/** Der eingetragene Horizont, oder `null` (dann gilt `DRAFT_ANALYSIS_HORIZON_YEARS`). */
+export function readDraftHorizonYears(draft: Record<string, unknown>): number | null {
+  const value = draft[ANALYSIS_ASSUMPTION_DRAFT_KEYS.horizonYears]
+  return typeof value === 'number' &&
+    Number.isInteger(value) &&
+    value >= ANALYSIS_HORIZON_YEARS_MIN &&
+    value <= ANALYSIS_HORIZON_YEARS_MAX
+    ? value
+    : null
+}
+
+/** Die eingetragene Förderung (Prozent ODER Fixbetrag netto), oder `undefined` ohne Angabe. */
+export function readDraftFinancialParams(
+  draft: Record<string, unknown>,
+): FinancialParams | undefined {
+  const percent = draft[ANALYSIS_ASSUMPTION_DRAFT_KEYS.subsidyPercent]
+  if (typeof percent === 'number' && percent > 0 && percent <= 100) {
+    return { subsidyPercent: percent }
+  }
+  const fixed = draft[ANALYSIS_ASSUMPTION_DRAFT_KEYS.fixedSubsidyEur]
+  if (typeof fixed === 'number' && Number.isFinite(fixed) && fixed > 0) {
+    return { fixedSubsidyEur: fixed }
+  }
+  return undefined
+}
+
+/** Die Basis, in der ein Fixbetrag eingegeben wurde — fürs Zurücklesen (`enteredFromNet`). */
+export function readDraftFixedSubsidyPriceBasis(draft: Record<string, unknown>): PriceBasis {
+  return draft[ANALYSIS_ASSUMPTION_DRAFT_KEYS.fixedSubsidyPriceBasis] === 'gross' ? 'gross' : 'net'
+}
 
 /**
  * Die Entwurfs-Schlüssel der BESTEHENDEN Batterie, die der Analyse-Lauf liest

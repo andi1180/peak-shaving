@@ -1,0 +1,240 @@
+{
+ "fa7a5775-adb5-4381-be03-94c6bdefd137": {
+  "memodoId": 14429,
+  "priceAsOf": "2026-09-22",
+  "rteSource": "annahme",
+  "listPriceNet": 5791,
+  "installationPriceAsOf": "2026-09-24"
+ },
+ "ec7df0ca-7a51-4b5f-a37b-149812661b3a": {
+  "memodoId": 16402,
+  "priceAsOf": "2026-09-22",
+  "rteSource": "annahme",
+  "listPriceNet": 6650,
+  "installationPriceAsOf": "2026-09-24"
+ },
+ "7dbdd912-ca89-4206-a4ca-467753262eef": {
+  "memodoId": 12984,
+  "priceAsOf": "2026-09-22",
+  "rteSource": "annahme",
+  "listPriceNet": 10138,
+  "installationPriceAsOf": "2026-09-24"
+ },
+ "f5d5344a-1d35-4bf0-ab51-faad2e7f888f": {
+  "memodoId": 15838,
+  "priceAsOf": "2026-09-22",
+  "rteSource": "annahme",
+  "listPriceNet": 7199,
+  "installationPriceAsOf": "2026-09-24"
+ },
+ "e4b4a822-f450-40c2-945c-64735942ecf0": {
+  "memodoId": 12985,
+  "priceAsOf": "2026-09-22",
+  "rteSource": "annahme",
+  "listPriceNet": 12676,
+  "installationPriceAsOf": "2026-09-24"
+ },
+ "e67c3d7a-db18-4eb7-9b27-841c7683fcfc": {
+  "memodoId": 16403,
+  "priceAsOf": "2026-09-22",
+  "rteSource": "annahme",
+  "listPriceNet": 9100,
+  "installationPriceAsOf": "2026-09-24"
+ },
+ "e7e408ff-d402-4283-be5d-e4d459e19568": {
+  "memodoId": 15923,
+  "priceAsOf": "2026-09-22",
+  "rteSource": "annahme",
+  "listPriceNet": 14756,
+  "installationPriceAsOf": "2026-09-24"
+ },
+ "cda4a436-266b-4078-a8a2-eef3f1189ba4": {
+  "memodoId": 16405,
+  "priceAsOf": "2026-09-22",
+  "rteSource": "annahme",
+  "listPriceNet": 11200,
+  "installationPriceAsOf": "2026-09-24"
+ },
+ "cebd26ac-fdf1-4b6d-9167-15caee469cf0": {
+  "memodoId": 15673,
+  "priceAsOf": "2026-09-22",
+  "rteSource": "annahme",
+  "listPriceNet": 14984,
+  "installationPriceAsOf": "2026-09-24"
+ },
+ "95b10667-f621-471a-87cf-3302ed005e09": {
+  "memodoId": 15879,
+  "priceAsOf": "2026-09-22",
+  "rteSource": "annahme",
+  "listPriceNet": 14062,
+  "installationPriceAsOf": "2026-09-24"
+ },
+ "16adee1e-70fb-42fb-bd1a-a6571842049b": {
+  "memodoId": 12921,
+  "priceAsOf": "2026-09-22",
+  "rteSource": "annahme",
+  "listPriceNet": 15014,
+  "installationPriceAsOf": "2026-09-24"
+ },
+ "8e1b1dbe-69b0-4700-881d-2703fee17dec": {
+  "memodoId": 16406,
+  "priceAsOf": "2026-09-22",
+  "rteSource": "annahme",
+  "listPriceNet": 13350,
+  "installationPriceAsOf": "2026-09-24"
+ },
+ "6845c64d-b181-4384-9852-0aeaaa1e2b5b": {
+  "memodoId": 16404,
+  "priceAsOf": "2026-09-22",
+  "rteSource": "annahme",
+  "listPriceNet": 10950,
+  "installationPriceAsOf": "2026-09-24"
+ },
+ "a0addfba-4e01-44bd-ad4e-14d8eca2ea07": {
+  "memodoId": 15924,
+  "priceAsOf": "2026-09-22",
+  "rteSource": "annahme",
+  "listPriceNet": 19189,
+  "installationPriceAsOf": "2026-09-24"
+ },
+ "ad294919-ae60-4756-ae00-d07b18274c6a": {
+  "memodoId": 15880,
+  "priceAsOf": "2026-09-22",
+  "rteSource": "annahme",
+  "listPriceNet": 17200,
+  "installationPriceAsOf": "2026-09-24"
+ },
+ "b353f11b-9ef1-40c5-ac98-262d5e25227b": {
+  "memodoId": 15822,
+  "priceAsOf": "2026-09-22",
+  "rteSource": "annahme",
+  "listPriceNet": 23000,
+  "installationPriceAsOf": "2026-09-24"
+ },
+ "d432cd84-bd93-43c1-aba2-9a7c1e543555": {
+  "memodoId": 15821,
+  "priceAsOf": "2026-09-22",
+  "rteSource": "annahme",
+  "listPriceNet": 22100,
+  "installationPriceAsOf": "2026-09-24"
+ },
+ "47764cda-952c-4a75-b294-73a94682d311": {
+  "memodoId": 12650,
+  "priceAsOf": "2026-09-22",
+  "rteSource": "annahme",
+  "listPriceNet": 30925,
+  "installationPriceAsOf": "2026-09-24"
+ },
+ "730213f9-3a83-4d62-8e2d-dc2c848052e9": {
+  "memodoId": 14646,
+  "priceAsOf": "2026-09-22",
+  "rteSource": "datenblatt",
+  "listPriceNet": 15200,
+  "installationPriceAsOf": "2026-09-24"
+ },
+ "2bf435f3-a750-4cf0-b59c-ec827f2e5ddc": {
+  "memodoId": 15687,
+  "priceAsOf": "2026-09-22",
+  "rteSource": "annahme",
+  "listPriceNet": 33925,
+  "installationPriceAsOf": "2026-09-24"
+ },
+ "57b0a3a9-fb92-4f15-8171-d8bd264e10e5": {
+  "memodoId": 15824,
+  "priceAsOf": "2026-09-22",
+  "rteSource": "annahme",
+  "listPriceNet": 31700,
+  "installationPriceAsOf": "2026-09-24"
+ },
+ "23942e0d-a9a3-460d-9d54-15334d5135c4": {
+  "memodoId": 15823,
+  "priceAsOf": "2026-09-22",
+  "rteSource": "annahme",
+  "listPriceNet": 30900,
+  "installationPriceAsOf": "2026-09-24"
+ },
+ "28e86af0-1d40-4dd4-b703-ea3eb4857a3f": {
+  "memodoId": 14807,
+  "priceAsOf": "2026-09-22",
+  "rteSource": "annahme",
+  "listPriceNet": 24127,
+  "installationPriceAsOf": "2026-09-24"
+ },
+ "f54c8b18-3253-4877-a96d-52b278ffa2ba": {
+  "memodoId": 15920,
+  "priceAsOf": "2026-09-22",
+  "rteSource": "annahme",
+  "listPriceNet": 44000,
+  "installationPriceAsOf": "2026-09-25"
+ },
+ "d470484f-d91d-4591-9395-0cbf50695933": {
+  "memodoId": 15921,
+  "priceAsOf": "2026-09-22",
+  "rteSource": "annahme",
+  "listPriceNet": 47000,
+  "installationPriceAsOf": "2026-09-25"
+ },
+ "14363075-5d0f-4756-92da-88444e23428e": {
+  "memodoId": 15826,
+  "priceAsOf": "2026-09-22",
+  "rteSource": "annahme",
+  "listPriceNet": 42250,
+  "installationPriceAsOf": "2026-09-25"
+ },
+ "5832c38c-a6b7-441c-aa66-6b5e4832301e": {
+  "memodoId": 15825,
+  "priceAsOf": "2026-09-22",
+  "rteSource": "annahme",
+  "listPriceNet": 35600,
+  "installationPriceAsOf": "2026-09-25"
+ },
+ "9750f9e0-c31c-4f8c-972d-bf3f2c50be23": {
+  "memodoId": 12956,
+  "priceAsOf": "2026-09-22",
+  "rteSource": "datenblatt",
+  "listPriceNet": 36000,
+  "installationPriceAsOf": "2026-09-25"
+ },
+ "23704509-866d-4f5f-b25c-9876a123e1bd": {
+  "memodoId": 12957,
+  "priceAsOf": "2026-09-22",
+  "rteSource": "annahme",
+  "listPriceNet": 37000,
+  "installationPriceAsOf": "2026-09-25"
+ },
+ "6b907a64-3489-4dd6-b29b-6dd0febd8c89": {
+  "memodoId": 15670,
+  "priceAsOf": "2026-09-22",
+  "rteSource": "annahme",
+  "listPriceNet": 48379,
+  "installationPriceAsOf": "2026-09-25"
+ },
+ "7cf59356-90e0-4cba-b0b8-267df421db7c": {
+  "memodoId": 14238,
+  "priceAsOf": "2026-09-22",
+  "rteSource": "annahme",
+  "listPriceNet": 39700,
+  "installationPriceAsOf": "2026-09-25"
+ },
+ "253a2523-7625-43c2-b923-c35e2d84e7f1": {
+  "memodoId": 15106,
+  "priceAsOf": "2026-09-22",
+  "rteSource": "annahme",
+  "listPriceNet": 38800,
+  "installationPriceAsOf": "2026-09-25"
+ },
+ "fee6d1eb-1554-4245-9da1-8b77c6b70626": {
+  "memodoId": 13784,
+  "priceAsOf": "2026-09-22",
+  "rteSource": "datenblatt",
+  "listPriceNet": 41850,
+  "installationPriceAsOf": "2026-09-25"
+ },
+ "b693d47e-d53b-470f-8e3e-174cc1b8947b": {
+  "memodoId": 14591,
+  "priceAsOf": "2026-09-22",
+  "rteSource": "annahme",
+  "listPriceNet": 78000,
+  "installationPriceAsOf": "2026-09-25"
+ }
+}

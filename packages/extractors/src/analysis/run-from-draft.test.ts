@@ -599,3 +599,43 @@ describe('K3c — der Katalog kommt vom Aufrufer', () => {
     expect(result.current.billedKw).toBeGreaterThan(0)
   })
 })
+
+describe('Annahmen der Tarif-Station — Horizont und Förderung aus dem Entwurf', () => {
+  const withDraft = (extra: Record<string, unknown>) =>
+    ports({
+      readMeteringPoint: async () => ({ draft: { ...DRAFT, ...extra }, sourceDocumentId: 'doc-1' }),
+    })
+
+  it('50 % Förderung und 15 Jahre fliessen in Nettoinvestition, Amortisation und Netto', async () => {
+    const base = (await runAnalysisFromMeteringPointDraft('mp-1', ports())).result
+    const withAssumptions = (
+      await runAnalysisFromMeteringPointDraft(
+        'mp-1',
+        withDraft({ horizonYears: 15, subsidyPercent: 50 }),
+      )
+    ).result
+
+    expect(base.assumptions.horizonYears).toBe(10)
+    expect(withAssumptions.assumptions.horizonYears).toBe(15)
+    const before = base.perBattery[0]!
+    const after = withAssumptions.perBattery.find((e) => e.battery.id === before.battery.id)!
+    expect(before.subsidyAmount).toBe(0)
+    expect(after.subsidyAmount).toBeCloseTo(before.totalInvestment / 2, 6)
+    expect(after.amortizationYears).toBeCloseTo(before.amortizationYears / 2, 6)
+    expect(after.netSavingOverHorizon).toBeCloseTo(
+      after.totalSavingPerYear * 15 - after.netInvestment,
+      6,
+    )
+  })
+
+  it('ein Fixbetrag über der Investition wird auf die Investition begrenzt', async () => {
+    const { result } = await runAnalysisFromMeteringPointDraft(
+      'mp-1',
+      withDraft({ fixedSubsidyEur: 1e9 }),
+    )
+    for (const entry of result.perBattery) {
+      expect(entry.subsidyAmount).toBe(entry.totalInvestment)
+      expect(entry.netInvestment).toBe(0)
+    }
+  })
+})

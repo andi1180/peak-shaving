@@ -18,17 +18,20 @@ import {
   dynamicTariffHintText,
   ENERGY_PRICE_ONLY_NOTE,
   hasEnergyPriceOnlyBasis,
+  hasEnteredSubsidy,
   INSTALLATION_ROW_LABEL,
   installationExclusionSuffix,
   installationPartialText,
   installationPriceText,
+  investmentAfterSubsidy,
   isAnnualized,
   loadControlValueOf,
   perYearText,
+  SUBSIDY_NOTE,
   type DynamicTariffHintKind,
 } from '@/lib/report-copy'
 import { billedKwPerYear } from './basis'
-import { netOverHorizonRow, totalInvestmentRow } from './investment-rows'
+import { netOverHorizonRow, subsidyRows, totalInvestmentRow } from './investment-rows'
 import { hasNegativeAddonVerdict, noCatalogDevicePaysOff } from './comparison'
 import type { ReportBuildContext } from './context'
 import { block, ref, t, REF_SECTION } from './report-text'
@@ -188,6 +191,7 @@ export function buildRecommendation(
   if (inverter > 0) rows.push(neutralRow('Separater Wechselrichter', formatEur(inverter)))
   if (installation > 0) rows.push(neutralRow(INSTALLATION_ROW_LABEL, formatEur(installation)))
   rows.push(totalInvestmentRow(entry))
+  rows.push(...subsidyRows(entry))
   rows.push({
     label: `Ersparnis ${perYearText(entry)}`,
     value: formatEur(entry.totalSavingPerYear),
@@ -296,14 +300,24 @@ export function buildRecommendation(
     ? [{ title: 'Energie-Anteil nur zum Arbeitspreis', text: ENERGY_PRICE_ONLY_NOTE }]
     : []
 
+  const subsidy = hasEnteredSubsidy(entry)
+  const subsidyPoint: ReportPoint[] = subsidy
+    ? [
+        {
+          title: 'Mit Förderung gerechnet',
+          text: `${SUBSIDY_NOTE} Amortisation und Netto rechnen mit diesem Betrag.`,
+        },
+      ]
+    : []
   const taxes: ReportPoint[] = entry.taxEffectsIncluded
     ? []
     : [
         {
           title: 'Ohne Steuervorteil gerechnet',
-          text:
-            'Förderung und Steuervorteil sind nicht angegeben und deshalb in keiner dieser Zahlen ' +
-            'enthalten — mit ihnen fiele die Investition niedriger aus.',
+          text: subsidy
+            ? 'Ein Steuervorteil ist nicht angegeben und deshalb in keiner dieser Zahlen enthalten.'
+            : 'Förderung und Steuervorteil sind nicht angegeben und deshalb in keiner dieser Zahlen ' +
+              'enthalten — mit ihnen fiele die Investition niedriger aus.',
         },
       ]
 
@@ -316,7 +330,9 @@ export function buildRecommendation(
         : `Unsere Empfehlung: ${b.name}`,
     amount: {
       value: formatYears(entry.amortizationYears),
-      caption: `bis sich die Investition von ${formatEur(entry.totalInvestment)} bezahlt gemacht hat`,
+      caption: subsidy
+        ? `bis sich die Nettoinvestition nach Förderung von ${formatEur(investmentAfterSubsidy(entry))} bezahlt gemacht hat`
+        : `bis sich die Investition von ${formatEur(entry.totalInvestment)} bezahlt gemacht hat`,
       tone: amortizesWithinHorizon ? 'positive' : 'warning',
     },
     rows,
@@ -326,7 +342,15 @@ export function buildRecommendation(
      * die Leerzeichen, mit denen die Sätze im Absatz aneinanderhingen.
      */
     body: '',
-    points: [...framing, ...annualized, ...energyBasis, ...provenance, ...installationLimit, ...taxes],
+    points: [
+      ...framing,
+      ...annualized,
+      ...energyBasis,
+      ...provenance,
+      ...installationLimit,
+      ...subsidyPoint,
+      ...taxes,
+    ],
     /*
      * Die §3.8-Warnungen des Kandidaten, unverändert. Sie stehen NEBEN der Investition und nicht
      * hinter ihr: „Betonsockel nötig (+€1800)" ist eine Kostenaussage, und sie ist in

@@ -3,7 +3,7 @@ import type { MonthlyTariffComparison } from 'shared'
 
 import { formatEur } from '@/lib/format'
 import { CONTROLLED_WAY_LABEL, monthlyBatteryRef, storageJudgementText } from '@/lib/report-copy'
-import { netOverHorizonRow, totalInvestmentRow } from './investment-rows'
+import { netOverHorizonRow, subsidyRows, totalInvestmentRow } from './investment-rows'
 import type { ReportFigure, ReportRow, ReportStatement } from './statement'
 import {
   primaryEntryOf,
@@ -259,7 +259,11 @@ function controlledDeviceOf(analysis: PdfReportAnalysis): { rows: ReportRow[]; t
   if (!entry || !verdict) return null
   const horizonYears = analysis.assumptions.horizonYears
   return {
-    rows: [totalInvestmentRow(entry), netOverHorizonRow(entry, horizonYears)],
+    rows: [
+      totalInvestmentRow(entry),
+      ...subsidyRows(entry),
+      netOverHorizonRow(entry, horizonYears),
+    ],
     text: ` Gerechnet mit diesem Speicher: ${verdict} ${storageJudgementText(entry, horizonYears)}`,
   }
 }

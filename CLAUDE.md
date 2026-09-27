@@ -241,6 +241,23 @@ Details und der vollständige Stand: siehe `./Pflichtenheft_Kalkulator_MVP.md`, 
 
 > Lebendiger Handover-Anker. Neueste offene Punkte, die den Bau der Engine/Simulation berühren. Erledigtes wandert raus.
 
+### Betrachtungshorizont und Förderung in der Tarif-Station (27.09.2026)
+
+Wizard-Tarif-Station, Abschnitt „Annahmen für die Wirtschaftlichkeit": Horizont (1–30 Jahre, leer = 10) und
+Förderung (% der Investition ODER Fixbetrag, leer = keine). Entwurfsschlüssel `horizonYears`/`subsidyPercent`/
+`fixedSubsidyEur` (+ `fixedSubsidyPriceBasis`, netto gespeichert) in `packages/shared/src/metering-point-draft.ts`,
+gelesen in `run-from-draft.ts`. Engine: Förderung auf die Investition begrenzt, `netInvestment` nie < 0. Fachliche
+Tiefe: `Pflichtenheft_Kalkulator_MVP.md` §3.9 (Revision 27.09.2026).
+
+**⚠ Beim nächsten Umbau mitzudenken: (a)** „Förderung eingetragen" heisst im Report `subsidyAmount > 0`
+(`hasEnteredSubsidy`, `apps/website/lib/report-copy.ts`) — dieselbe Bedingung für Empfehlungs-, Wege-, Geräte-,
+Annahmen-Kapitel, Zusammenfassung und Bildschirm-Karte. **(b)** Ohne Eintrag ist der Report bitgleich; geprüft
+wird das mit den **Report-Snapshots** (`pnpm --filter website report:snapshots`, `apps/website/test/report-snapshots/`,
+nicht in CI — braucht `pdftotext`): PDF-Text und Bildschirm-Markup der Referenzfälle Privat (Golden-Eingaben
+Urbanz) und Gewerbe (anonymisiertes STCE, Eingaben dort eingefroren) plus zwei Förder-Varianten. Nach jeder
+Report-Änderung laufen lassen; neu schreiben nur bei gewollter Änderung. **(c)** Steuerfelder (IFB, Steuersatz,
+AfA) fehlen im Wizard bewusst — eigener Folge-PR.
+
 ### Installationspauschale je Gerät — K4 (26.09.2026)
 
 Alle 149 Katalog-Geräte tragen einen Installations-Baustein (Heim nach Kategorie, Gewerbe nach nutzbarer

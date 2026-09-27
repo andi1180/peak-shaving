@@ -19,6 +19,7 @@ import {
 } from '@/lib/admin/tariff-draft'
 import type { MeteringPointSummary } from '@/lib/admin/metering-points'
 import type { ProjectSegment } from '@/lib/admin/projects'
+import { DataEntryAssumptions } from './data-entry-assumptions'
 import { AdminError, AdminField, AdminPanel, AdminSelect, AdminSuccess } from './ui'
 
 /**
@@ -438,6 +439,8 @@ export function DataEntryTarif({
         gehört dort abgefangen, wo über die Vollständigkeit entschieden wird (KI-Check,
         Abbruchprüfung), nicht an einem Link. Der Vergleichstarif ist ohnehin ausdrücklich optional.
       */}
+      <DataEntryAssumptions projectId={projectId} meteringPoint={meteringPoint} segment={segment} />
+
       {nextHref !== null && (
         <div>
           <Button asChild variant="primary" size="md">

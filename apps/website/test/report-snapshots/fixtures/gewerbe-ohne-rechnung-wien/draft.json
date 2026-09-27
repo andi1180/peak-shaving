@@ -1,0 +1,9 @@
+{
+ "hasPv": false,
+ "netzebene": "NE 7",
+ "netzbetreiber": "wiener_netze",
+ "invoiceSkipped": true,
+ "meteringVariant": "ohne_leistungsmessung",
+ "leistungspreisEurPerKwYear": 0,
+ "wantsBatteryRecommendation": true
+}

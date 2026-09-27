@@ -34,6 +34,7 @@ import {
   dynamicTariffHintKind,
   dynamicTariffHintText,
   installationPartialText,
+  hasEnteredSubsidy,
   isAnnualized,
   recommendationRationaleText,
 } from '@/lib/report-copy'
@@ -564,6 +565,7 @@ export function Report({
                     recommended.battery.name,
                     result.recommendation.rationale,
                     isAnnualized(recommended),
+                    hasEnteredSubsidy(recommended),
                   )
                 : 'Dieser Report zeigt Ihren Lastgang, Ihre Stromkosten heute und den Vergleich mit den Börsenpreisen. Einen Speichervorschlag enthält er nicht — der Grund steht oben.')}
       </p>

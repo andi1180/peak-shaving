@@ -149,11 +149,24 @@ describe('calculateRoi — amortizationYears (Grenzfälle, kein NaN/±Infinity a
     expect(roi.amortizationYears).toBe(Infinity)
   })
 
-  it('[ANNAHME] netInvestment ≤ 0 (Förderung deckt Investition) → 0, unabhängig von totalSavingPerYear', () => {
+  it('Förderung über der Investition: auf die Investition begrenzt, netInvestment 0, sofort amortisiert', () => {
     const b = battery({ usableCapacityKwh: 10, pricePerKwh: 100 }) // totalInvestment = 1.000
-    const roi = calculateRoi(b, 0, 10, { fixedSubsidyEur: 5000 }) // subsidyAmount 5.000 > totalInvestment
-    expect(roi.netInvestment).toBeLessThan(0)
+    const roi = calculateRoi(b, 0, 10, { fixedSubsidyEur: 5000 }) // eingetragen 5.000 > totalInvestment
+    expect(roi.subsidyAmount).toBe(1000)
+    expect(roi.netInvestment).toBe(0)
     expect(roi.amortizationYears).toBe(0)
+    expect(roi.netSavingOverHorizon).toBe(0)
+  })
+
+  it('Steuervorteil über der Restinvestition: netInvestment bleibt 0, nie negativ', () => {
+    const b = battery({ usableCapacityKwh: 10, pricePerKwh: 100 }) // totalInvestment = 1.000
+    const roi = calculateRoi(b, 100, 10, {
+      subsidyPercent: 90,
+      investitionsfreibetragPercent: 100,
+      taxRatePercent: 50,
+    })
+    expect(roi.netInvestment).toBe(0)
+    expect(roi.netSavingOverHorizon).toBe(1000)
   })
 })
 

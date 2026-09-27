@@ -211,22 +211,50 @@ export async function clearMeteringPointDraftFields(
   return updateMeteringPointDraft(
     projectId,
     meteringPointId,
+    (draft) => withoutDraftFields(draft, fields),
+    context,
+  )
+}
+
+/** Setzen und Entfernen in EINEM Schreibvorgang — für Angaben, die einander ausschliessen. */
+export async function replaceMeteringPointDraftFields(
+  projectId: string,
+  meteringPointId: string,
+  values: { field: string; value: DraftValue }[],
+  clear: readonly string[],
+  context: string,
+): Promise<AdminState | null> {
+  const now = new Date()
+  return updateMeteringPointDraft(
+    projectId,
+    meteringPointId,
     (draft) => {
-      const next: Record<string, unknown> = { ...draft }
-      /*
-       * Gelesen und normalisiert wie in `setDraftField` — die Vermerke der ÜBRIGEN Felder wandern
-       * dadurch in derselben Form zurück, in der jeder Schreibweg sie hinterlässt. Sie bleiben
-       * nachweislich stehen; entfernt wird ausschliesslich, was `fields` nennt.
-       */
-      const provenance = readDraftProvenance(draft)
-      for (const field of fields) {
-        delete next[field]
-        delete provenance[field]
+      let next = withoutDraftFields(draft, clear)
+      for (const { field, value } of values) {
+        next = setDraftField(next, field, value, 'measured', undefined, now)
       }
-      if (Object.keys(provenance).length > 0) next[DRAFT_PROVENANCE_KEY] = provenance
-      else delete next[DRAFT_PROVENANCE_KEY]
       return next
     },
     context,
   )
+}
+
+function withoutDraftFields(
+  draft: Record<string, unknown>,
+  fields: readonly string[],
+): Record<string, unknown> {
+  const next: Record<string, unknown> = { ...draft }
+  /*
+   * Gelesen und normalisiert wie in `setDraftField` — die Vermerke der ÜBRIGEN Felder wandern
+   * dadurch in derselben Form zurück, in der jeder Schreibweg sie hinterlässt. Sie bleiben
+   * nachweislich stehen; entfernt wird ausschliesslich, was `fields` nennt.
+   */
+  const provenance = readDraftProvenance(draft)
+  for (const field of fields) {
+    delete next[field]
+    delete provenance[field]
+  }
+  if (Object.keys(provenance).length > 0) next[DRAFT_PROVENANCE_KEY] = provenance
+  else delete next[DRAFT_PROVENANCE_KEY]
+  return next
 }
