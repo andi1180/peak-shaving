@@ -88,7 +88,7 @@ Stromkosten mit aWATTar ohne Steuerung                          Mit Speicher und
 über 365 gemessene Tage, netto                                  über 365 gemessene Tage, netto
                                                                 Speicher: Dyness Stack 100 30,72 kWh mit Solinteg
                                                                 MHT-15K-40, Investition € 7.691, nach Förderung
-                                                                € 3.846. Im Betrachtungszeitraum von 15 Jahren
+                                                                € 3.845. Im Betrachtungszeitraum von 15 Jahren
                                                                 rechnet er sich damit.
 
 
@@ -194,7 +194,7 @@ aWATTar mit Ladesteuerung
 
  Förderung (von Ihnen eingetragen)                                                                    -€ 3.846
 
- Nettoinvestition nach Förderung                                                                       € 3.846
+ Nettoinvestition nach Förderung                                                                       € 3.845
 
  Netto über 15 Jahre                                                                                    € 1.653
 
@@ -223,7 +223,7 @@ Empfehlung und Wirtschaftlichkeit
 Welches Gerät — und was es kostet.
 
 Unsere Empfehlung: Dyness Stack 100 30,72 kWh mit Solinteg MHT-15K-40
-10,5 Jahre bis sich die Nettoinvestition nach Förderung von € 3.846 bezahlt gemacht hat
+10,5 Jahre bis sich die Nettoinvestition nach Förderung von € 3.845 bezahlt gemacht hat
     Speicher (15 kW / 29,2 kWh)                                                                        € 5.791
 
     Installationspauschale (Richtwert)                                                                 € 1.900
@@ -232,7 +232,7 @@ Unsere Empfehlung: Dyness Stack 100 30,72 kWh mit Solinteg MHT-15K-40
 
     Förderung (von Ihnen eingetragen)                                                                -€ 3.846
 
-    Nettoinvestition nach Förderung                                                                   € 3.846
+    Nettoinvestition nach Förderung                                                                   € 3.845
 
     Ersparnis pro Jahr                                                                                   € 367
 
@@ -424,7 +424,7 @@ erhöhen den steuerpflichtigen Gewinn und sind berücksichtigt.
  Retrofit S              12,3 kW                                                                             weniger über
                                                                                                                  15 Jahre
 
- Dyness Stack            38,9 kWh /        € 9.099      € 4.550         € 371    12,3 Jahre        € 1.018          € 635
+ Dyness Stack            38,9 kWh /        € 9.099      € 4.549         € 371    12,3 Jahre        € 1.018          € 635
  100 40,96 kWh           20 kW                                                                               weniger über
  mit Solinteg                                                                                                    15 Jahre
  MHT-20K-40
@@ -527,7 +527,7 @@ Annahmen & Rechenweise — Stand dieser Berechnung
 
  Förderung (von Ihnen eingetragen)                                                                        -€ 3.846
 
- Nettoinvestition nach Förderung                                                                           € 3.846
+ Nettoinvestition nach Förderung                                                                           € 3.845
 
  Steuersatz                                                                                                   23 %
 
