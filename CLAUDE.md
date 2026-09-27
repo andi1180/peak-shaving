@@ -253,7 +253,7 @@ Tiefe: `Pflichtenheft_Kalkulator_MVP.md` §3.9 (Revision 27.09.2026).
 (`hasEnteredSubsidy`, `apps/website/lib/report-copy.ts`) — dieselbe Bedingung für Empfehlungs-, Wege-, Geräte-,
 Annahmen-Kapitel, Zusammenfassung und Bildschirm-Karte. **(b)** Ohne Eintrag ist der Report bitgleich; geprüft
 wird das mit den **Report-Snapshots** (`pnpm --filter website report:snapshots`, `apps/website/test/report-snapshots/`,
-nicht in CI — braucht `pdftotext`): PDF-Text und Bildschirm-Markup der Referenzfälle Privat (Golden-Eingaben
+seit 27.09.2026 eigener Pflicht-Job `report-snapshots` in CI, installiert poppler): PDF-Text und Bildschirm-Markup der Referenzfälle Privat (Golden-Eingaben
 Urbanz) und Gewerbe (anonymisiertes STCE, Eingaben dort eingefroren) plus zwei Förder-Varianten. Nach jeder
 Report-Änderung laufen lassen; neu schreiben nur bei gewollter Änderung. **(c)** Steuerfelder (IFB, Steuersatz,
 AfA) fehlen im Wizard bewusst — eigener Folge-PR.

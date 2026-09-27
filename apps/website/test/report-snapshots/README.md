@@ -10,7 +10,8 @@ pnpm --filter website report:snapshots                          # vergleichen
 REPORT_SNAPSHOT_UPDATE=1 pnpm --filter website report:snapshots # neu schreiben
 ```
 
-Nicht in `pnpm test`/CI: `pdftotext` (poppler) fehlt dort. Neu geschrieben wird nur im PR einer
+Nicht in `pnpm test` (braucht `pdftotext`/poppler); in CI läuft er als eigener Pflicht-Job
+`report-snapshots` (`.github/workflows/test.yml`). Neu geschrieben wird nur im PR einer
 gewollten Report-Änderung, mit benannter Ursache — nie zum Grünmachen.
 
 ## Fälle
