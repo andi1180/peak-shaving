@@ -11,6 +11,7 @@ import { buildRecommendationChapter } from './recommendation'
 import { buildReportRegistry } from './registry'
 import { resolveReportText } from './report-text'
 import { statementPoints } from './statement'
+import { buildOverview } from './summary'
 import { TARIFF_SOURCE_UNTRACKED } from './types'
 import type { PdfReportAnalysis, PdfReportInput } from './types'
 
@@ -202,6 +203,31 @@ describe('Gerätekapitel — Top-Alternativen, Urteil, Datenquellen', () => {
 
     expect(points[0]!.title).toBe('Speicher')
     expect(String(points[0]!.text)).not.toContain('Derzeit nicht')
+  })
+
+  it('Zusammenfassung, Tarif unbekannt: Verweis statt Kaufaussage, wenn kein Gerät wirtschaftlich', () => {
+    const overviewOf = (economical: number) => {
+      const input = inputWith(economical)
+      input.analysis.assumptions.energyPriceCtPerKwh = null
+      input.analysis.tariffOptimization = {
+        computable: true,
+        monthlyComparison: { ...COMPARISON, currentTariffEur: null },
+      }
+      const context = buildReportContext(input)
+      const layout = buildReportLayout(input, context, buildReportRegistry(input, context))
+      return resolveReportText(buildOverview(input.analysis, input), layout, 'summary')
+    }
+
+    const none = overviewOf(0)
+    expect(none).not.toContain('spart voraussichtlich')
+    expect(none).toContain(
+      'Ein Speicher ist derzeit nicht wirtschaftlich — die Antwort samt Begründung steht im ' +
+        'Kapitel „Speichergrösse und Gerätewahl".',
+    )
+
+    const economical = overviewOf(5)
+    expect(economical).toContain('Dyness Stack 100 spart voraussichtlich')
+    expect(economical).not.toContain('derzeit nicht wirtschaftlich')
   })
 
   it('Gerätehinweise stehen im Hinweiskasten, nicht als lose Zeile', () => {
