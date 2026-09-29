@@ -685,3 +685,39 @@ describe('minBillableKw — keine Untergrenze, wenn darunter abgerechnet wird (2
     expect(parseInvoiceExtraction(withMinimum(30, [30, 35])).rates.minBillableKw).toBe(30)
   })
 })
+
+describe('leistungspreisEurPerKwYear — tagesanteilig aus der Leistungszeile (29.09.2026)', () => {
+  // Synthetisch: 0,22718 €/kW je Tag ⇒ 82,92 €/kW·a; das Modell hätte ×12 gerechnet.
+  function monthly(from: string, to: string, lines: { kw: number; netAmountEur: number }[]) {
+    return {
+      ...completeRaw(),
+      billedKwLines: lines,
+      billingPeriodFrom: from,
+      billingPeriodTo: to,
+      billingPeriodAssumed: false,
+      rates: { ...completeRaw().rates, leistungspreisEurPerKwYear: 99 },
+    }
+  }
+  const february = monthly('2026-02-01', '2026-02-28', [{ kw: 44, netAmountEur: 279.89 }])
+  const may = monthly('2026-05-01', '2026-05-31', [{ kw: 44, netAmountEur: 309.87 }])
+
+  it('28 und 31 Tage ergeben beide ≈ 82,92 €/kW·a', () => {
+    for (const raw of [february, may]) {
+      const rate = parseInvoiceExtraction(raw).rates.leistungspreisEurPerKwYear
+      expect(Math.abs((rate ?? 0) - 82.92)).toBeLessThanOrEqual(0.01)
+    }
+  })
+
+  it('Jahresrechnung mit einer Zeile: Betrag ÷ kW', () => {
+    const annual = monthly('2025-01-01', '2025-12-31', [{ kw: 40, netAmountEur: 3316.8 }])
+    expect(parseInvoiceExtraction(annual).rates.leistungspreisEurPerKwYear).toBe(82.92)
+  })
+
+  it('mehrere Leistungszeilen ⇒ Wert des Modells', () => {
+    const twoLines = monthly('2026-02-01', '2026-02-28', [
+      { kw: 44, netAmountEur: 279.89 },
+      { kw: 43, netAmountEur: 273.53 },
+    ])
+    expect(parseInvoiceExtraction(twoLines).rates.leistungspreisEurPerKwYear).toBe(99)
+  })
+})

@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
-import { emptyInvoiceExtraction, type InvoiceExtraction } from './invoice-scan'
+import {
+  emptyInvoiceExtraction,
+  parseInvoiceExtraction,
+  type InvoiceExtraction,
+} from './invoice-scan'
 import {
   INVOICE_MERGE_FIELD_KEYS,
   INVOICE_MERGE_FIELD_LABELS,
@@ -196,5 +200,38 @@ describe('mergeInvoiceExtractions — Mindestleistung gegen abgerechnete kW (29.
     const { merged, conflicts } = mergeInvoiceExtractions([billed(30), billed(31), billed(29)])
     expect(merged.rates.minBillableKw).toBeNull()
     expect(conflicts).not.toContain('minBillableKw')
+  })
+})
+
+describe('mergeInvoiceExtractions — Leistungspreis aus Monatsrechnungen (29.09.2026)', () => {
+  // Synthetisch: dieselbe Rate (0,22718 €/kW je Tag), 28 und 31 Tage; das Modell rechnete ×12.
+  function monthly(from: string, to: string, netAmountEur: number, modelRate: number) {
+    return parseInvoiceExtraction({
+      billingModel: 'monthly_max_sum',
+      billedKwLines: [{ kw: 44, netAmountEur }],
+      billingPeriodFrom: from,
+      billingPeriodTo: to,
+      billingPeriodAssumed: false,
+      rates: { leistungspreisEurPerKwYear: modelRate },
+    })
+  }
+
+  it('Februar und Mai ergeben keinen Konflikt', () => {
+    const { merged, conflicts } = mergeInvoiceExtractions([
+      monthly('2026-02-01', '2026-02-28', 279.89, 76.33),
+      monthly('2026-05-01', '2026-05-31', 309.87, 84.51),
+    ])
+    expect(conflicts).not.toContain('leistungspreisEurPerKwYear')
+    expect(Math.abs((merged.rates.leistungspreisEurPerKwYear ?? 0) - 82.92)).toBeLessThanOrEqual(
+      0.01,
+    )
+  })
+
+  it('eine echte Abweichung bleibt ein Konflikt', () => {
+    const { conflicts } = mergeInvoiceExtractions([
+      invoice({ rates: { leistungspreisEurPerKwYear: 82.92 } }),
+      invoice({ rates: { leistungspreisEurPerKwYear: 85 } }),
+    ])
+    expect(conflicts).toContain('leistungspreisEurPerKwYear')
   })
 })
