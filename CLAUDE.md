@@ -241,6 +241,17 @@ Details und der vollständige Stand: siehe `./Pflichtenheft_Kalkulator_MVP.md`, 
 
 > Lebendiger Handover-Anker. Neueste offene Punkte, die den Bau der Engine/Simulation berühren. Erledigtes wandert raus.
 
+### EAG-Förderbeitrag Leistung in der Spitzenkappungs-Ersparnis (29.09.2026)
+
+Ursache (erster Kunde mit Leistungspreis, Müldür): die Kappung kreditierte nur Leistungspreis × Gebrauchsabgabe,
+nicht den EAG-Förderbeitrag Leistung am selben `billedKw` (Wiener Netze NE 7 mit Leistungsmessung 2026: 5,619 €/kW·a).
+Wirkung: `BatterySavings.eagDemandSavingPerYear` (alt − neu über `eagDemandChargePerYear`, ohne Gebrauchsabgabe,
+0 bei Blockern und bei `undefined`), enthalten in `totalSavingPerYear` und damit in ROI/Reihung. `ENGINE_VERSION` 1.7.1-mvp;
+Golden-Fälle unverändert (Leistungspreis 0 → Blocker bzw. EAG-Einheit `eur_per_year`).
+
+**⚠ Offen:** `BatteryResultEntry` hat kein EAG-Feld — im Contract gilt `total = leistungspreis + energy` bei EAG > 0
+nicht mehr, und Report/CSV weisen den EAG-Anteil nicht getrennt aus (Weg 5 zeigt nur den Leistungspreis).
+
 ### Förderung „€ pro kWh" je Gerät mit Programmdeckeln (27.09.2026)
 
 Tarif-Station, dritter Förder-Modus neben % und Fixbetrag: 1–3 Programmzeilen (Bezeichnung, €/kWh, max. kWh,

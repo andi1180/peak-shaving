@@ -15,20 +15,27 @@ import { simulateBattery, type BatterySimulationResult } from '../simulation/sim
 import { intervalTariffRates } from '../simulation/tou'
 import { feedInTariffCtPerKwh } from '../refusal'
 import { coveredMonthCount } from '../peaks/metrics'
+import { eagDemandChargePerYear } from '../tariff/eag-demand-charge'
 import { getTariffStrategy } from '../tariff/strategy'
 import { usageLevyFactor } from '../tariff/usage-levy'
 import { annualizationFactor, coveredDaysOf } from './annualization'
 
 /**
  * Kombinierter Dispatch → Ersparnis (§3.7). EIN Simulationslauf (§3.6), zwei exakte Anteile:
- * Leistungspreis (ratenbasiert) und Energie (volle Kostendifferenz der Netzreihen ohne und mit
- * Speicher). `totalSavingPerYear === leistungspreis + energy` gilt per Konstruktion.
+ * Leistungspreis (ratenbasiert, daneben der EAG-Förderbeitrag Leistung) und Energie (volle
+ * Kostendifferenz der Netzreihen ohne und mit Speicher).
+ * `totalSavingPerYear === leistungspreis + eagDemand + energy` gilt per Konstruktion.
  */
 export type BatterySavings = {
   /** ABGERECHNETER kW-Wert, wie er im Report ausgewiesen wird (bei `static` = alter Wert, s. controlType). */
   newBilledKw: number
   /** Leistungspreis-Ersparnis = (alter − neuer billedKw) × Leistungspreis. `static` → 0 (nicht kreditiert). */
   leistungspreisSavingPerYear: number
+  /**
+   * EAG-Förderbeitrag Leistung: Jahresbetrag am alten − am neuen billedKw. Hängt am selben kW-Wert
+   * wie der Leistungspreis, ist aber eine gesetzliche Abgabe und wird deshalb getrennt geführt.
+   */
+  eagDemandSavingPerYear: number
   /** Energie-Ersparnis pro Jahr: `energySavingOverCoveredPeriod × annualizationFactor`. */
   energySavingPerYear: number
   /**
@@ -42,7 +49,7 @@ export type BatterySavings = {
   annualizationFactor: number
   /** Abgedeckte Tage des Lastgangs — die Bezugsgrösse des Faktors, damit der Report sie benennen kann. */
   coveredDays: number
-  /** Leistungspreis- plus Energie-Anteil aus DEMSELBEN Fahrplan. */
+  /** Leistungspreis-, EAG- und Energie-Anteil aus DEMSELBEN Fahrplan. */
   totalSavingPerYear: number
   /** Contract-Warnungen (z.B. static-Steuerung: Spitzenkappung nicht kreditiert). */
   warnings: string[]
@@ -105,6 +112,7 @@ export function computeBatterySavings(
   const warnings: string[] = []
   let newBilledKw: number
   let leistungspreisSavingPerYear: number
+  let eagDemandSavingPerYear = 0
   const blockers = peakShavingBlockers(loadProfile, battery, tariffParams)
   if (blockers.length > 0) {
     newBilledKw = oldBilledKw
@@ -175,13 +183,24 @@ export function computeBatterySavings(
         tariffParams.billingModel,
         coveredMonthCount(loadProfile),
       ) * usageLevyFactor(loadProfile, levies ?? pricing?.levies)
+    // Ohne Gebrauchsabgabe: deren Bemessungsgrundlage sind nur die Netzgebühren, nicht der EAG-Beitrag.
+    const levySource = { levies: levies ?? pricing?.levies ?? null }
+    const eagOld = eagDemandChargePerYear(loadProfile, levySource, oldBilledKw, tariffParams.billingModel)
+    // Gilt der Satz am alten Wert, heisst `undefined` am neuen nur noch „kein Leistungswert" → 0 €.
+    eagDemandSavingPerYear =
+      eagOld === undefined
+        ? 0
+        : eagOld -
+          (eagDemandChargePerYear(loadProfile, levySource, newBilledKw, tariffParams.billingModel) ?? 0)
   }
 
-  const totalSavingPerYear = leistungspreisSavingPerYear + energySavingPerYear
+  const totalSavingPerYear =
+    leistungspreisSavingPerYear + eagDemandSavingPerYear + energySavingPerYear
 
   return {
     newBilledKw,
     leistungspreisSavingPerYear,
+    eagDemandSavingPerYear,
     energySavingPerYear,
     energySavingOverCoveredPeriod,
     energySavingBasis,
