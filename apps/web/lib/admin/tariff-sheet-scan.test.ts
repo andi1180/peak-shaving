@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { API_UNION_PARAMETER_LIMIT, countUnionParameters } from 'shared'
 
 import { GRUNDPREIS_UNITS, METERING_VARIANTS, NETZEBENEN, PRICE_BASES } from './grid-tariffs'
 import {
@@ -544,5 +545,16 @@ describe('tariffSheetExtractionIsEmpty', () => {
   it('ist leer, wenn weder eine Tarifzeile noch eine blattweite Angabe ankam', () => {
     const result = parseTariffSheetExtraction({ candidates: [{ netzebene: 99 }] })
     expect(tariffSheetExtractionIsEmpty(result)).toBe(true)
+  })
+})
+
+describe('TARIFF_SHEET_SCAN_JSON_SCHEMA — Union-Grenze der API', () => {
+  it(`bleibt bei höchstens ${API_UNION_PARAMETER_LIMIT} Union-Parametern`, () => {
+    const count = countUnionParameters(TARIFF_SHEET_SCAN_JSON_SCHEMA)
+    expect(
+      count,
+      `${count} Union-Parameter — die API weist das mit HTTP 400 ab („Schemas contains too many ` +
+        `parameters with union types … limit: ${API_UNION_PARAMETER_LIMIT}")`,
+    ).toBeLessThanOrEqual(API_UNION_PARAMETER_LIMIT)
   })
 })
