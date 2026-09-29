@@ -56,6 +56,24 @@ export async function putProjectDocumentBytes(
   return { ok: true }
 }
 
+/**
+ * Eine signierte Upload-URL für genau diesen Pfad — der Browser lädt damit direkt in den Bucket,
+ * ohne dass die Datei durch eine Vercel-Function läuft (dort ist der Anfragerumpf hart auf 4,5 MB
+ * begrenzt). Die URL ist an den Pfad gebunden, gilt nur kurz (Supabase-Vorgabe: 2 Stunden) und
+ * erlaubt kein Überschreiben; der Bucket bleibt ohne Policy für jede Client-Rolle.
+ */
+export async function createProjectDocumentUploadUrl(
+  storagePath: string,
+): Promise<{ ok: true; signedUrl: string } | { ok: false; message: string }> {
+  const client = createServiceRoleClient()
+  const { data, error } = await client.storage
+    .from(PROJECT_DOCUMENTS_BUCKET)
+    .createSignedUploadUrl(storagePath, { upsert: false })
+
+  if (error || !data) return { ok: false, message: error?.message ?? 'Keine Upload-URL erhalten' }
+  return { ok: true, signedUrl: data.signedUrl }
+}
+
 /** Holt die Bytes eines Dokuments von einem bereits GEPRÜFTEN Pfad. */
 export async function getProjectDocumentBytes(
   storagePath: string,

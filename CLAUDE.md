@@ -241,6 +241,22 @@ Details und der vollständige Stand: siehe `./Pflichtenheft_Kalkulator_MVP.md`, 
 
 > Lebendiger Handover-Anker. Neueste offene Punkte, die den Bau der Engine/Simulation berühren. Erledigtes wandert raus.
 
+### Lastgang-Upload direkt zu Storage — Vercels 4,5-MB-Grenze (29.09.2026)
+
+Ursache (Müldür, Wiener-Netze-Jahresexport 5,28 MB): Vercel begrenzt den Rumpf jeder Function-Anfrage hart auf
+4,5 MB (413 `FUNCTION_PAYLOAD_TOO_LARGE`, vor der Function, daher ohne Runtime-Log); `bodySizeLimit`/
+`middlewareClientMaxBodySize` wirken dort nicht. Wirkung: der Lastgang geht per signierter Upload-URL vom
+Browser direkt in `project-documents`; die zwei Actions (`requestLoadProfileUploadAction`,
+`completeLoadProfileUploadAction`) tragen nur JSON. Wiederverwendbar: `lib/project-documents/direct-upload.ts`
+(Server) + `direct-upload-client.ts` (Browser, ohne Supabase-Client).
+
+**⚠ Beim nächsten Umbau mitzudenken: (a)** Den Pfad bildet immer der Server aus Projekt + Kennung; ein
+bereits eingetragenes Dokument wird beim Abschluss weder gelesen noch entfernt. **(b)** Die signierte URL gilt
+2 Stunden (Supabase-Vorgabe, nicht einstellbar), ist pfadgebunden und einmalig. **(c) Noch offen — schicken
+die Datei weiter als FormData und enden live bei 4,5 MB:** `uploadMeteringPointInvoicesAction` (Rechnung),
+`uploadMeteringPointPvProfileAction` + `scanPvDesignAction` (PV), `scanBatterySpecAction` (Batterie),
+`uploadProjectDocumentAction` (`lib/project-documents/actions.ts`), `createAnalysisAction` (`analyses-actions.ts`).
+
 ### EAG-Förderbeitrag Leistung in der Spitzenkappungs-Ersparnis (29.09.2026)
 
 Ursache (erster Kunde mit Leistungspreis, Müldür): die Kappung kreditierte nur Leistungspreis × Gebrauchsabgabe,
