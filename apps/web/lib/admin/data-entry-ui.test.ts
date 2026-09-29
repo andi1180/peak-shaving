@@ -307,9 +307,13 @@ describe('B24 — die Server Action des Lastgang-Schritts', () => {
      * einem Zählpunkt hing, ist der Rückweg damit gerade nicht der vorgesehene, und die Reihenfolge
      * bleibt die einzige Stelle, an der so eine Zeile erst gar nicht entsteht.
      */
-    expect(source.indexOf('readLoadProfile')).toBeGreaterThan(-1)
-    expect(source.indexOf('uploadProjectDocument')).toBeGreaterThan(-1)
-    expect(source.indexOf('readLoadProfile')).toBeLessThan(source.indexOf('uploadProjectDocument'))
+    // Seit dem direkten Upload (29.09.2026) heisst der Eintrag `registerDirectUpload`; verglichen
+    // werden die AUFRUFE, nicht die Importe (die stünden in jeder Reihenfolge oben).
+    const read = source.indexOf('readLoadProfile(claim.bytes')
+    const register = source.indexOf('registerDirectUpload(projectId')
+    expect(read).toBeGreaterThan(-1)
+    expect(register).toBeGreaterThan(-1)
+    expect(read).toBeLessThan(register)
   })
 
   it('⚠ schickt die Lücken IMMER mit, auch die leere Liste', () => {

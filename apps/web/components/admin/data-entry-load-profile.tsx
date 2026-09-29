@@ -54,10 +54,12 @@ import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { FieldHint, Label } from '@/components/ui/input'
 import {
+  completeLoadProfileUploadAction,
   removeMeteringPointLoadProfileAction,
+  requestLoadProfileUploadAction,
   saveMeteringPointStandardProfileAction,
-  uploadMeteringPointLoadProfileAction,
 } from '@/lib/admin/data-entry-actions'
+import { uploadFileDirect, type DirectUploadStep } from '@/lib/project-documents/direct-upload-client'
 import { ADMIN_INITIAL_STATE, type AdminState } from '@/lib/admin/schema'
 import type { MeteringPointSummary } from '@/lib/admin/metering-points'
 import { formatDateTime, formatKwh } from '@/lib/admin/format'
@@ -100,6 +102,56 @@ const REMOVE_STANDARD_CONFIRM =
   'erhalten — Sie können das Profil daraus neu erzeugen oder stattdessen einen gemessenen ' +
   'Lastgang hochladen.'
 
+/**
+ * Meldungen, wenn der Upload selbst scheitert (nicht die Datei). Jede sagt, dass nichts
+ * gespeichert wurde — ausser beim Abschluss, wo die Datei bereits im Speicher liegt.
+ */
+const UPLOAD_FAILED: Record<DirectUploadStep, string> = {
+  request:
+    'Der Upload konnte nicht vorbereitet werden. Bitte laden Sie die Seite neu und versuchen Sie ' +
+    'es erneut. Es wurde nichts gespeichert.',
+  transfer:
+    'Die Datei konnte nicht hochgeladen werden. Bitte prüfen Sie die Verbindung und versuchen Sie ' +
+    'es erneut. Es wurde nichts gespeichert.',
+  complete:
+    'Die Datei wurde hochgeladen, konnte aber nicht eingelesen werden. Bitte laden Sie die Seite ' +
+    'neu — steht danach kein Lastgang am Zählpunkt, versuchen Sie es erneut.',
+}
+
+/**
+ * Der Lastgang geht direkt vom Browser in den Speicher; an die Anwendung gehen nur Kennungen.
+ * Grund: Vercel begrenzt den Rumpf jeder Function-Anfrage auf 4,5 MB, ein Jahres-Lastgang liegt
+ * regelmässig darüber (s. `lib/project-documents/direct-upload.ts`).
+ */
+async function uploadLoadProfile(_prev: AdminState, formData: FormData): Promise<AdminState> {
+  const projectId = String(formData.get('projectId') ?? '')
+  const meteringPointId = String(formData.get('meteringPointId') ?? '')
+  const file = formData.get('file')
+  if (!(file instanceof File) || file.size === 0) {
+    return { fieldErrors: { file: 'Bitte eine Datei auswählen.' } }
+  }
+
+  return uploadFileDirect<AdminState>(file, {
+    request: () =>
+      requestLoadProfileUploadAction({
+        projectId,
+        meteringPointId,
+        fileName: file.name,
+        fileSize: file.size,
+        contentType: file.type,
+      }),
+    complete: (documentId) =>
+      completeLoadProfileUploadAction({
+        projectId,
+        meteringPointId,
+        documentId,
+        fileName: file.name,
+        contentType: file.type,
+      }),
+    failed: (step) => ({ formError: UPLOAD_FAILED[step] }),
+  })
+}
+
 /** Die drei Zustände der Frage. `null` = noch nicht beantwortet. */
 type Answer = 'ja' | 'nein' | null
 
@@ -131,10 +183,7 @@ export function DataEntryLoadProfile({
   segment: ProjectSegment | null
 }) {
   const [answer, setAnswer] = React.useState<Answer>(null)
-  const [state, formAction, isPending] = useActionState(
-    uploadMeteringPointLoadProfileAction,
-    ADMIN_INITIAL_STATE,
-  )
+  const [state, formAction, isPending] = useActionState(uploadLoadProfile, ADMIN_INITIAL_STATE)
   /*
    * ⚠ ZWEITER Zustand, absichtlich HIER und nicht im Entfernen-Formular — s. Kopf: das Formular
    * verschwindet mit seinem eigenen Erfolg, und mit ihm die Meldung, die im Fehlerfall die
