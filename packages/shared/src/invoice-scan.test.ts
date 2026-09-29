@@ -667,3 +667,21 @@ describe('billingModel — Monatsrechnung gegen Jahreshöchstwert (29.09.2026)',
     expect(parsed.billingModelBasis).toBe('stated')
   })
 })
+
+describe('minBillableKw — keine Untergrenze, wenn darunter abgerechnet wird (29.09.2026)', () => {
+  function withMinimum(minBillableKw: number, billedKw: number[]) {
+    return {
+      ...completeRaw(),
+      rates: { ...completeRaw().rates, minBillableKw },
+      billedKwLines: billedKw.map((kw) => ({ kw })),
+    }
+  }
+
+  it('abgerechnete kW unter dem gelesenen Wert ⇒ minBillableKw null', () => {
+    expect(parseInvoiceExtraction(withMinimum(30, [28])).rates.minBillableKw).toBeNull()
+  })
+
+  it('alle abgerechneten kW auf oder über der Mindestleistung ⇒ bleibt', () => {
+    expect(parseInvoiceExtraction(withMinimum(30, [30, 35])).rates.minBillableKw).toBe(30)
+  })
+})

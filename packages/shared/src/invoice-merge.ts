@@ -52,6 +52,7 @@ import type { PriceBasis } from './tariff'
 import {
   INVOICE_SCAN_RATE_KEYS,
   emptyInvoiceExtraction,
+  minBillableKwContradicted,
   type InvoiceExtraction,
 } from './invoice-scan'
 
@@ -222,6 +223,16 @@ export function mergeInvoiceExtractions(input: readonly InvoiceExtraction[]): In
       .filter((extraction) => extraction.billingModel !== null)
       .map((extraction) => extraction.billingModelBasis)
     merged.billingModelBasis = bases.includes('inferred') ? 'inferred' : (bases[0] ?? null)
+  }
+
+  // Rechnet auch nur EINE Rechnung unter dem Sockel ab, ist er keiner (s. `minBillableKwContradicted`).
+  if (
+    minBillableKwContradicted(
+      merged.rates.minBillableKw,
+      extractions.map((extraction) => extraction.billedKw),
+    )
+  ) {
+    merged.rates.minBillableKw = null
   }
 
   if (merged.rates.energyPriceCtPerKwh !== null) {
