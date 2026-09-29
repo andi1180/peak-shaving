@@ -22,7 +22,8 @@ function steps(overrides: Partial<Parameters<typeof uploadFileDirect<State>>[1]>
 
 describe('uploadFileDirect', () => {
   it('die Datei geht nur an die Storage-URL; der Abschluss bekommt nur die Kennung', async () => {
-    const s = steps()
+    const complete = vi.fn(async (_documentId: string): Promise<State> => ({ ok: true }))
+    const s = steps({ complete })
     const fetch = vi.fn(async () => new Response(null, { status: 200 }))
     const f = file()
 
@@ -35,8 +36,8 @@ describe('uploadFileDirect', () => {
     expect(init.body).toBe(f)
 
     // Positivkontrolle: was an die Anwendung geht, trägt keinen Dateiinhalt.
-    expect(s.complete).toHaveBeenCalledWith('doc-1')
-    expect(JSON.stringify(s.complete.mock.calls)).not.toContain('Zeitstempel')
+    expect(complete).toHaveBeenCalledWith('doc-1')
+    expect(JSON.stringify(complete.mock.calls)).not.toContain('Zeitstempel')
     expect(s.request).toHaveBeenCalledWith()
   })
 
