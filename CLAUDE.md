@@ -241,6 +241,19 @@ Details und der vollständige Stand: siehe `./Pflichtenheft_Kalkulator_MVP.md`, 
 
 > Lebendiger Handover-Anker. Neueste offene Punkte, die den Bau der Engine/Simulation berühren. Erledigtes wandert raus.
 
+### Parser: Platzhalter „-" in Wert-Zellen zählt als leer (29.09.2026)
+
+Ursache (Müldür, Wiener-Netze-Export, 35.135 Zeilen): die ersten 20.068 Wert-Zellen tragen „-"; die
+Wert-Spalten-Erkennung zählte sie als nicht-numerisch → beide Stichproben < 0,6 → `no_value_column`.
+Wirkung: `isPlaceholderCell` (`engine/src/parser/detect.ts`, getrimmt exakt „-", „–", „—") wird in
+`numericFraction` wie eine leere Zelle übersprungen; beim Einlesen war das schon so (`parseNumber` → NaN,
+gezählt als „ohne Messwert"). Schwelle, Stichproben und Kopf-/Rückfall-Logik unverändert.
+
+**⚠ Vor und nach jeder Parser-Änderung:** `scripts/parser-regression-real-files.ts` (nur lokal,
+service_role, Ausgabe nur unter /tmp) liest jede tabellarische Datei aus `project-documents` und schreibt
+je Dokument-ID eine Signatur; Vorher/Nachher per `diff`. Der Vorher-Lauf gehört vor die Änderung (oder
+aus einem Worktree auf `origin/main`).
+
 ### Lastgang-Upload direkt zu Storage — Vercels 4,5-MB-Grenze (29.09.2026)
 
 Ursache (Müldür, Wiener-Netze-Jahresexport 5,28 MB): Vercel begrenzt den Rumpf jeder Function-Anfrage hart auf
