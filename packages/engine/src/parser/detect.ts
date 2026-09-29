@@ -111,11 +111,23 @@ function detectHeaderRow(matrix: RawCell[][], decimal: DecimalSeparator): number
   return hasLabel ? 0 : null
 }
 
+/**
+ * Platzhalter für „kein Wert" (Wiener-Netze-Export: „-" vor Beginn der Fernauslesung) — zählt wie
+ * eine leere Zelle, sonst drückt ein langer Anfangs-Leerlauf die Wert-Spalte unter die Schwelle.
+ * Das Einlesen braucht die Regel nicht: `parseNumber` liefert dort NaN, die Zeile wird wie eine
+ * leere übersprungen und gezählt.
+ */
+function isPlaceholderCell(cell: RawCell): boolean {
+  if (typeof cell !== 'string') return false
+  const s = cell.trim()
+  return s === '-' || s === '–' || s === '—'
+}
+
 function numericFraction(samples: RawCell[], decimal: DecimalSeparator): number {
   let total = 0
   let numeric = 0
   for (const c of samples) {
-    if (c == null || c === '') continue
+    if (c == null || c === '' || isPlaceholderCell(c)) continue
     total++
     if (typeof c === 'number' || looksNumeric(toStr(c), decimal)) numeric++
   }
