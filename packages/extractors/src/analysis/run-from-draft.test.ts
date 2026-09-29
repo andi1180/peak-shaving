@@ -1,6 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ASSUMED_EXISTING_ROUND_TRIP_EFFICIENCY, LEVIES_NONE } from 'shared'
-import { DEMO_BATTERY_CATALOG } from 'shared/fixtures'
+import {
+  DEMO_BATTERY_CATALOG,
+  WIENER_NETZE_FIRST_VALUE_KWH,
+  wienerNetzeLastgangCsv,
+} from 'shared/fixtures'
 
 import { buildGeneratedPvSeriesFile } from '../pv-reference/generated-series'
 
@@ -387,6 +391,14 @@ describe('runAnalysisFromMeteringPointDraft', () => {
         ports({ readMeteringPoint: async () => ({ draft: DRAFT, sourceDocumentId: null }) }),
       ),
     ).rejects.toMatchObject({ reason: 'no_uploaded_load_profile' })
+  })
+
+  it('rechnet einen Wiener-Netze-Export mit Einheit in eigener Spalte statt load_profile_needs_mapping', async () => {
+    const { loadProfile } = await runAnalysisFromMeteringPointDraft(
+      'mp-1',
+      ports({ readDocument: async () => file(wienerNetzeLastgangCsv(), 'wiener-netze.csv') }),
+    )
+    expect(loadProfile.readings[0]!.gridPowerKw).toBeCloseTo(WIENER_NETZE_FIRST_VALUE_KWH * 4, 9)
   })
 })
 

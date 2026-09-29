@@ -5,3 +5,4 @@
  * greift, rechnet gegen erfundene Geräte (K3c).
  */
 export * from './demo-battery-catalog'
+export * from './wiener-netze-lastgang'
