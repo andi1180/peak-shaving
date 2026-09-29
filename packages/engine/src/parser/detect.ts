@@ -167,6 +167,26 @@ function detectUnitFromHeaders(headers: string[], valueCols: number[]): Unit | '
   return 'unknown'
 }
 
+/**
+ * Einheit aus einer eigenen Spalte „Einheit"/„Unit" (Wiener-Netze-Export) — nur wenn es genau eine
+ * solche Spalte gibt und jede belegte Zelle denselben Wert „kWh" oder „kW" trägt; sonst nie raten.
+ */
+function detectUnitFromUnitColumn(headers: string[], dataRows: RawCell[][]): Unit | 'unknown' {
+  const cols = headers.flatMap((h, i) => (h.trim() === 'einheit' || h.trim() === 'unit' ? [i] : []))
+  if (cols.length !== 1) return 'unknown'
+  const col = cols[0]!
+  let seen: string | null = null
+  for (const r of dataRows) {
+    const c = r[col]
+    if (c == null || isPlaceholderCell(c)) continue
+    const s = String(c).trim().toLowerCase()
+    if (s === '') continue
+    if (seen === null) seen = s
+    else if (s !== seen) return 'unknown'
+  }
+  return seen === 'kwh' ? 'kWh' : seen === 'kw' ? 'kW' : 'unknown'
+}
+
 /** Einheit aus einem EINZELNEN Header (Mehrspalten-Mapping: je Spalte). */
 function unitFromHeader(header: string): Unit | 'unknown' {
   const t = header.toLowerCase()
@@ -369,7 +389,9 @@ export function detectStructure(
   }
   const decimal = detectDecimalSeparator(valueStrings, decimalGuess)
 
-  const unit = detectUnitFromHeaders(headers, valueCandidates)
+  // Die Einheiten-Spalte greift nur, wo der Kopf der Wert-Spalte nichts hergibt — sie überstimmt nie.
+  let unit = detectUnitFromHeaders(headers, valueCandidates)
+  if (unit === 'unknown') unit = detectUnitFromUnitColumn(headers, dataRows)
 
   // source-Ableitung (§3.1/§3.2).
   let source: LoadSource

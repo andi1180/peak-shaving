@@ -241,6 +241,16 @@ Details und der vollständige Stand: siehe `./Pflichtenheft_Kalkulator_MVP.md`, 
 
 > Lebendiger Handover-Anker. Neueste offene Punkte, die den Bau der Engine/Simulation berühren. Erledigtes wandert raus.
 
+### Parser: Einheit aus der Spalte „Einheit" (29.09.2026)
+
+Ursache (Müldür, Wiener-Netze-Export): die Einheit steht je Zeile in einer eigenen Spalte „Einheit", nicht
+im Kopf der Wert-Spalte → `unit: 'unknown'` → `needs_mapping` → „Zählpunkt rechnen" bricht mit
+`load_profile_needs_mapping` ab (die Lastgang-Station fragt nie nach der Einheit). Wirkung:
+`detectUnitFromUnitColumn` (`engine/src/parser/detect.ts`) läuft NUR, wenn der Kopf nichts hergibt: genau
+eine Spalte „Einheit"/„Unit", alle belegten Nicht-Platzhalter-Zellen einheitlich „kwh" oder „kw" — sonst
+bleibt es bei `unknown` und der Rückfrage. Die synthetische Wiener-Netze-Datei liegt seither in
+`shared/fixtures` (`wienerNetzeLastgangCsv`), damit Engine- und Wizard-Pfad-Test dieselbe nutzen.
+
 ### Parser: Platzhalter „-" in Wert-Zellen zählt als leer (29.09.2026)
 
 Ursache (Müldür, Wiener-Netze-Export, 35.135 Zeilen): die ersten 20.068 Wert-Zellen tragen „-"; die
