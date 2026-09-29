@@ -17,6 +17,7 @@ import { uploadProjectDocument } from '@/lib/project-documents/documents'
 import { dropInapplicableBillingModel, setDraftField } from '@/lib/project-chat/draft'
 import { createClient } from '@/lib/supabase/server'
 import { lookupGridTariffDefaults } from './grid-tariff-lookup'
+import { mapWithConcurrency } from './map-with-concurrency'
 import {
   INVOICE_SKIPPED_KEY,
   MANUAL_PRICE_BASIS_FIELD,
@@ -48,6 +49,9 @@ import {
   statusOf,
   writeMeteringPointDraftFields,
 } from './data-entry-actions-shared'
+
+/** Höchstens so viele Rechnungs-Scans gleichzeitig je Upload-Vorgang. */
+const INVOICE_SCAN_CONCURRENCY = 4
 
 // ── Rechnungen ───────────────────────────────────────────────────────────────────────────────────
 
@@ -188,7 +192,11 @@ export async function uploadMeteringPointInvoicesAction(
     }
   }
 
-  const results = await Promise.all(files.map((file) => readOneInvoice(projectId, file)))
+  // Höchstens vier Scans gleichzeitig (Ratelimit, Speicher); der eine Wiederholversuch je Rechnung
+  // läuft in `extractInvoiceData` und damit im selben Platz. Vorher: alle zwölf auf einmal.
+  const results = await mapWithConcurrency(files, INVOICE_SCAN_CONCURRENCY, (file) =>
+    readOneInvoice(projectId, file),
+  )
 
   /*
    * Das Projekt ist weg — dann kann keine der Dateien angekommen sein, und ein Teilerfolg wäre
@@ -325,8 +333,8 @@ export async function uploadMeteringPointInvoicesAction(
 /**
  * Eine einzelne Datei: prüfen, ablegen, auslesen.
  *
- * Wirft nie — jeder Ausgang ist ein benanntes Ergebnis. Ein Wurf aus einer der zwölf nebenläufigen
- * Ketten liesse `Promise.all` scheitern und nähme die anderen elf mit, obwohl sie längst gelesen
+ * Wirft nie — jeder Ausgang ist ein benanntes Ergebnis. Ein Wurf aus einer der nebenläufigen
+ * Ketten liesse `mapWithConcurrency` scheitern und nähme die anderen elf mit, obwohl sie längst gelesen
  * (und bezahlt) sind.
  */
 async function readOneInvoice(projectId: string, file: File): Promise<InvoiceFileResult> {

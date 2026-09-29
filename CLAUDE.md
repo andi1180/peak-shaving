@@ -241,6 +241,21 @@ Details und der vollständige Stand: siehe `./Pflichtenheft_Kalkulator_MVP.md`, 
 
 > Lebendiger Handover-Anker. Neueste offene Punkte, die den Bau der Engine/Simulation berühren. Erledigtes wandert raus.
 
+### Rechnungs-Scan: leere/abgeschnittene Antwort, ein Wiederholversuch (29.09.2026)
+
+Ursache (Müldür, 3 von 5 Rechnungen): `SyntaxError: Unexpected end of JSON input`. `claude-sonnet-5` denkt
+ohne `thinking`-Parameter adaptiv, die Denk-Tokens zählen gegen `max_tokens` (war 4096), und `stop_reason`
+wurde nie gelesen. Wirkung (`extractors/src/invoice-scan/extract.ts`): `max_tokens` 16000; GENAU EIN
+Wiederholversuch je Rechnung bei leerem/nicht parsebarem Text oder `max_tokens` (dann 20000) und bei
+429/5xx/Verbindungsfehler (nach 2 s); 400/4xx nie; `refusal` → `unreadable`. Der SDK wiederholt nicht
+mehr selbst (`maxRetries: 0`). Log je Fehlschlag: `stopReason`, `outputTokens`, `textLength`, Modell,
+Dateigrösse, Status — nie Inhalt (auch nicht die `SyntaxError`-Meldung, V8 zitiert darin den Text).
+Wizard-Upload: höchstens 4 Scans gleichzeitig (`mapWithConcurrency`), Dateneingabe-Seite `maxDuration` 300.
+
+**⚠ Offen:** der öffentliche Rechner (`apps/website/app/rechner/page.tsx`) steht weiter auf
+`maxDuration` 60 — ein Scan samt Wiederholung kann dort knapp werden. **⚠ `max_tokens` über ~21.333**
+verweigert der SDK ohne Streaming (10-Minuten-Regel) — wer höher will, muss auf `.stream()` umstellen.
+
 ### Rechnungs-Scan unter der Union-Grenze der API (29.09.2026)
 
 Ursache: die API weist ein `output_config`-Schema mit mehr als 16 Union-Parametern (`type`-Array oder
