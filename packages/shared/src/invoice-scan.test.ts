@@ -721,3 +721,23 @@ describe('leistungspreisEurPerKwYear — tagesanteilig aus der Leistungszeile (2
     expect(parseInvoiceExtraction(twoLines).rates.leistungspreisEurPerKwYear).toBe(99)
   })
 })
+
+describe('meteringVariant — abgerechnete kW belegen die Leistungsmessung (29.09.2026)', () => {
+  it('kW-Zeile + Modellwert ohne_leistungsmessung ⇒ mit_leistungsmessung', () => {
+    const parsed = parseInvoiceExtraction({
+      ...completeRaw(),
+      meteringVariant: 'ohne_leistungsmessung',
+      billedKwLines: [{ kw: 30, netAmountEur: 200 }],
+    })
+    expect(parsed.meteringVariant).toBe('mit_leistungsmessung')
+  })
+
+  it('ohne kW-Zeile bleibt ohne_leistungsmessung', () => {
+    const parsed = parseInvoiceExtraction({
+      ...completeRaw(),
+      meteringVariant: 'ohne_leistungsmessung',
+      billedKwLines: [],
+    })
+    expect(parsed.meteringVariant).toBe('ohne_leistungsmessung')
+  })
+})

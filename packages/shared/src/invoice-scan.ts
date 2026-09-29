@@ -729,6 +729,20 @@ export function minBillableKwContradicted(
 }
 
 /**
+ * Eine abgerechnete Leistung in kW setzt eine Leistungsmessung voraus — ein Profilkürzel daneben
+ * (etwa „G2") belegt kein Standardprofil. `unterbrechbar` bleibt stehen: das ist eine eigene
+ * Tarifform, keine Aussage über die Messung.
+ */
+function meteringVariantFrom(
+  raw: unknown,
+  billedKw: ReadonlySet<number>,
+): InvoiceScanMeteringVariant | null {
+  const variant = oneOf(raw, INVOICE_SCAN_METERING_VARIANTS)
+  if (variant === 'unterbrechbar' || ![...billedKw].some((kw) => kw > 0)) return variant
+  return 'mit_leistungsmessung'
+}
+
+/**
  * Das vorgeschlagene Abrechnungsmodell samt Herkunftsvermerk.
  *
  * ⚠ DIE RICHTUNG IST UNSYMMETRISCH, GENAU WIE BEI `billingPeriodAssumed`: fehlt der Vermerk bei
@@ -803,7 +817,7 @@ export function parseInvoiceExtraction(raw: unknown): InvoiceExtraction {
   return {
     netzbetreiber: oneOf(root.netzbetreiber, INVOICE_SCAN_OPERATORS),
     netzebene: oneOf(root.netzebene, INVOICE_SCAN_NETZEBENEN),
-    meteringVariant: oneOf(root.meteringVariant, INVOICE_SCAN_METERING_VARIANTS),
+    meteringVariant: meteringVariantFrom(root.meteringVariant, billedKw),
     ...billingModelFrom(root, periodDays),
     billedKw: billedKwFrom(billedKw),
     rates,

@@ -235,3 +235,37 @@ describe('mergeInvoiceExtractions — Leistungspreis aus Monatsrechnungen (29.09
     expect(conflicts).toContain('leistungspreisEurPerKwYear')
   })
 })
+
+describe('mergeInvoiceExtractions — Leistungsmessung mit kW-Beleg (29.09.2026)', () => {
+  const variant = (
+    meteringVariant: InvoiceExtraction['meteringVariant'],
+    billedKw: number | null = null,
+  ): InvoiceExtraction => ({ ...invoice({ meteringVariant }), billedKw })
+
+  it('gemessen + unbekannt ⇒ gemessen ohne Konflikt', () => {
+    const { merged, conflicts } = mergeInvoiceExtractions([
+      variant('mit_leistungsmessung', 30),
+      variant(null),
+    ])
+    expect(merged.meteringVariant).toBe('mit_leistungsmessung')
+    expect(conflicts).not.toContain('meteringVariant')
+  })
+
+  it('eine Rechnung mit kW schlägt ohne_leistungsmessung einer anderen', () => {
+    const { merged, conflicts } = mergeInvoiceExtractions([
+      variant('mit_leistungsmessung', 30),
+      variant('ohne_leistungsmessung'),
+    ])
+    expect(merged.meteringVariant).toBe('mit_leistungsmessung')
+    expect(conflicts).not.toContain('meteringVariant')
+  })
+
+  it('zwei verschiedene Varianten ohne kW-Beleg bleiben ein Konflikt', () => {
+    const { merged, conflicts } = mergeInvoiceExtractions([
+      variant('mit_leistungsmessung'),
+      variant('ohne_leistungsmessung'),
+    ])
+    expect(merged.meteringVariant).toBeNull()
+    expect(conflicts).toContain('meteringVariant')
+  })
+})

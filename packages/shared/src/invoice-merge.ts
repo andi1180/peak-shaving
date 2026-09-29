@@ -172,6 +172,25 @@ function withinRounding(values: readonly number[]): boolean {
  * Aufrufer.
  */
 /**
+ * Weist auch nur EINE Rechnung des Zählpunkts eine abgerechnete Leistung in kW aus, ist er
+ * leistungsgemessen: ein `ohne_leistungsmessung` einer anderen Rechnung ist dann kein Widerspruch,
+ * sondern eine Fehllesung. `unterbrechbar` bleibt ein echter Konflikt-Partner.
+ */
+function measuredWhenAnyBilledKw(
+  extractions: readonly InvoiceExtraction[],
+): readonly InvoiceExtraction[] {
+  const measured = extractions.some(
+    (extraction) => typeof extraction.billedKw === 'number' && extraction.billedKw > 0,
+  )
+  if (!measured) return extractions
+  return extractions.map((extraction): InvoiceExtraction =>
+    extraction.meteringVariant === 'ohne_leistungsmessung'
+      ? { ...extraction, meteringVariant: 'mit_leistungsmessung' }
+      : extraction,
+  )
+}
+
+/**
  * Weichen die abgerechneten kW zwischen den Rechnungen ab, kann kein einzelner Jahreshöchstwert
  * dahinterstehen: `annual_max` wird dann `monthly_max_sum` — ausser eine Rechnung benennt die
  * Jahresregel selbst (`stated`, etwa ein rollierender Zwölf-Monats-Höchstwert).
@@ -191,7 +210,7 @@ function withoutAnnualMaxOnDifferingKw(
 }
 
 export function mergeInvoiceExtractions(input: readonly InvoiceExtraction[]): InvoiceMergeResult {
-  const extractions = withoutAnnualMaxOnDifferingKw(input)
+  const extractions = measuredWhenAnyBilledKw(withoutAnnualMaxOnDifferingKw(input))
   const merged = emptyInvoiceExtraction()
   const conflicts: InvoiceMergeFieldKey[] = []
 
