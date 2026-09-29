@@ -72,6 +72,8 @@ describe('JSON-Schema', () => {
       'netzebene',
       'meteringVariant',
       'billingModel',
+      'billingModelBasis',
+      'billedKwLines',
       'rates',
       'energyPricePeriods',
       'annualConsumptionKwh',
@@ -169,6 +171,7 @@ describe('parseInvoiceExtraction — der Gutfall', () => {
       meteringVariant: 'mit_leistungsmessung',
       billingModel: 'annual_max',
       billingModelBasis: 'stated',
+      billedKw: null,
       rates: {
         leistungspreisEurPerKwYear: 38.52,
         minBillableKw: 0,
@@ -304,6 +307,7 @@ describe('parseInvoiceExtraction — fail closed, Feld für Feld', () => {
     })
     expect(Object.keys(parsed).sort()).toEqual([
       'annualConsumptionKwh',
+      'billedKw',
       'billingModel',
       'billingModelBasis',
       'billingPeriodAssumed',
@@ -630,5 +634,36 @@ describe('Variabler Tarif — verbrauchsgewichteter Schnitt statt letzter Monats
     })
     expect(eineZeile.rates.energyPriceCtPerKwh).toBe(25)
     expect(eineZeile.energyPriceBasis).toBe('stated')
+  })
+})
+
+describe('billingModel — Monatsrechnung gegen Jahreshöchstwert (29.09.2026)', () => {
+  function withPeriod(from: string, to: string, basis: 'stated' | 'inferred') {
+    return {
+      ...completeRaw(),
+      billingModelBasis: basis,
+      billedKwLines: [{ kw: 44 }],
+      billingPeriodFrom: from,
+      billingPeriodTo: to,
+      billingPeriodAssumed: false,
+    }
+  }
+
+  it('eine Leistungszeile auf einer Monatsrechnung ohne Wortlaut ⇒ monthly_max_sum', () => {
+    const parsed = parseInvoiceExtraction(withPeriod('2026-02-01', '2026-02-28', 'inferred'))
+    expect(parsed.billingModel).toBe('monthly_max_sum')
+    expect(parsed.billingModelBasis).toBe('inferred')
+    expect(parsed.billedKw).toBe(44)
+  })
+
+  it('Jahresrechnung ⇒ annual_max bleibt', () => {
+    const parsed = parseInvoiceExtraction(withPeriod('2025-01-01', '2025-12-31', 'inferred'))
+    expect(parsed.billingModel).toBe('annual_max')
+  })
+
+  it('Monatsrechnung mit ausdrücklichem „Jahreshöchstwert" (stated) ⇒ annual_max bleibt', () => {
+    const parsed = parseInvoiceExtraction(withPeriod('2026-03-01', '2026-03-31', 'stated'))
+    expect(parsed.billingModel).toBe('annual_max')
+    expect(parsed.billingModelBasis).toBe('stated')
   })
 })

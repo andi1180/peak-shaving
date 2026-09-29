@@ -163,3 +163,26 @@ describe('mergeInvoiceExtractions', () => {
     expect(mergeInvoiceExtractions([b, a]).conflicts).toEqual(['netzebene', 'energyPriceCtPerKwh'])
   })
 })
+
+describe('mergeInvoiceExtractions — abweichende abgerechnete kW (29.09.2026)', () => {
+  // Ohne Zeitraum greift die Monatsregel des Parsers nicht; entscheidend ist hier allein der Abgleich.
+  function annualMax(billedKw: number): InvoiceExtraction {
+    return {
+      ...emptyInvoiceExtraction(),
+      billingModel: 'annual_max',
+      billingModelBasis: 'inferred',
+      billedKw,
+    }
+  }
+
+  it('schliesst annual_max aus, wenn die kW zwischen den Rechnungen abweichen', () => {
+    const { merged, conflicts } = mergeInvoiceExtractions([43, 44, 42].map(annualMax))
+    expect(merged.billingModel).toBe('monthly_max_sum')
+    expect(conflicts).not.toContain('billingModel')
+  })
+
+  it('lässt annual_max bei gleichen kW stehen', () => {
+    const { merged } = mergeInvoiceExtractions([44, 44].map(annualMax))
+    expect(merged.billingModel).toBe('annual_max')
+  })
+})

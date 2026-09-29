@@ -268,6 +268,7 @@ pinnt alle neun Schemas auf ≤ 16 (`json-schema-unions.test.ts`, Tarifblatt in 
 **⚠ Wer ein Scan-Schema um ein nullbares Feld erweitert, prüft die Zählung** — ein Stub der Messages-API
 validiert das Schema nicht. Stand: Rechnung 14, Tarifblatt 13, Bericht 8, Batterie-Suche 7,
 PV-Planung 7, Datenblatt 6, Batterie-Text 5, PV-Text 3, Upload-Klassifikation 0.
+**billingModel (29.09.2026):** `annual_max` auf einer Rechnung ≤ 62 Tage wird `monthly_max_sum` (ausser `billingModelBasis: 'stated'`), ebenso im Merge bei abweichenden `billedKw` — `billingModelBasis`/`billedKwLines` sind dafür zurück im Schema, ohne Union (weiter 14).
 
 ### Parser: Einheit aus der Spalte „Einheit" (29.09.2026)
 

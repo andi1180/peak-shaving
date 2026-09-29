@@ -157,9 +157,27 @@ function setFieldValue(
  * leere Liste ergibt ein Ergebnis, in dem nichts erkannt wurde — kein Wurf, kein Sonderfall beim
  * Aufrufer.
  */
-export function mergeInvoiceExtractions(
+/**
+ * Weichen die abgerechneten kW zwischen den Rechnungen ab, kann kein einzelner Jahreshöchstwert
+ * dahinterstehen: `annual_max` wird dann `monthly_max_sum` — ausser eine Rechnung benennt die
+ * Jahresregel selbst (`stated`, etwa ein rollierender Zwölf-Monats-Höchstwert).
+ */
+function withoutAnnualMaxOnDifferingKw(
   extractions: readonly InvoiceExtraction[],
-): InvoiceMergeResult {
+): readonly InvoiceExtraction[] {
+  const billedKw = new Set(
+    extractions.map((extraction) => extraction.billedKw).filter((kw) => typeof kw === 'number'),
+  )
+  if (billedKw.size < 2) return extractions
+  return extractions.map((extraction): InvoiceExtraction =>
+    extraction.billingModel === 'annual_max' && extraction.billingModelBasis !== 'stated'
+      ? { ...extraction, billingModel: 'monthly_max_sum' }
+      : extraction,
+  )
+}
+
+export function mergeInvoiceExtractions(input: readonly InvoiceExtraction[]): InvoiceMergeResult {
+  const extractions = withoutAnnualMaxOnDifferingKw(input)
   const merged = emptyInvoiceExtraction()
   const conflicts: InvoiceMergeFieldKey[] = []
 
