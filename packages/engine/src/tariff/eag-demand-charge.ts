@@ -62,7 +62,8 @@ function overlaps(period: LevyPeriodInput, from: string, to: string): boolean {
  */
 export function eagDemandChargePerYear(
   loadProfile: LoadProfile,
-  pricing: TariffPricingInputs | undefined,
+  // Nur die Abgabensätze werden gelesen — so reicht auch ein Abgabenplan ohne Preisdaten.
+  pricing: Pick<TariffPricingInputs, 'levies'> | undefined,
   billedKw: number,
   billingModel: BillingModel | null,
 ): number | undefined {

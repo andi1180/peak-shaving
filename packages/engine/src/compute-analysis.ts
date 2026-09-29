@@ -244,9 +244,11 @@ function buildExistingBatteryAnalysis(
 
   const sim = simulateBattery(loadProfile, existing, payload.tariff, pvProfile, pricing, planning)
   const savings = computeBatterySavings(loadProfile, existing, payload.tariff, sim, pricing, levies)
+  // Der EAG-Anteil steckt in `totalSavingPerYear`; ein eigenes Feld kennt der Contract nicht.
+  const { eagDemandSavingPerYear: _eag, ...savingsEntry } = savings
   const entry: BatteryResultEntry = {
     battery: existing,
-    ...savings,
+    ...savingsEntry,
     dispatchTrace: buildDispatchTrace(loadProfile, payload.tariff, sim, topPeaks),
   }
 
@@ -258,7 +260,10 @@ function buildExistingBatteryAnalysis(
     const leistungspreisSavingPerYear =
       cSav.leistungspreisSavingPerYear - savings.leistungspreisSavingPerYear
     const energySavingPerYear = cSav.energySavingPerYear - savings.energySavingPerYear
-    const totalSavingPerYear = leistungspreisSavingPerYear + energySavingPerYear
+    const totalSavingPerYear =
+      leistungspreisSavingPerYear +
+      (cSav.eagDemandSavingPerYear - savings.eagDemandSavingPerYear) +
+      energySavingPerYear
 
     return {
       // Das ZUSATZgerät: es wird gekauft, seine Karte zeigt seinen Preis und seine Amortisation.
