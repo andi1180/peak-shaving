@@ -1,5 +1,6 @@
 import 'server-only'
 
+import Anthropic from '@anthropic-ai/sdk'
 import {
   INVOICE_SCAN_JSON_SCHEMA,
   type InvoiceExtraction,
@@ -431,11 +432,74 @@ export async function extractInvoiceData(pdfBase64: string): Promise<InvoiceScan
     return { ok: false, reason: 'not_configured' }
   }
 
-  let raw: unknown
+  const fileBytes = Math.floor((pdfBase64.length * 3) / 4)
+  const first = await attemptExtraction(client, pdfBase64, MAX_TOKENS)
+  if (first.kind === 'ok') return outcomeFrom(first.raw)
+  if (first.kind === 'refusal' || first.kind === 'fatal') {
+    logFailure(first, 1, fileBytes)
+    return { ok: false, reason: first.kind === 'refusal' ? 'unreadable' : 'api_error' }
+  }
+
+  /*
+   * GENAU EIN Wiederholversuch: bei leerer/abgeschnittener Antwort sofort (bei `max_tokens` mit mehr
+   * Platz), bei einem vorübergehenden API-Fehler (429, 5xx, Verbindung) nach kurzer Pause.
+   */
+  logFailure(first, 1, fileBytes)
+  if (first.kind === 'transient') await wait(RETRY_DELAY_MS)
+  const second = await attemptExtraction(
+    client,
+    pdfBase64,
+    first.kind === 'incomplete' && first.diag.stopReason === 'max_tokens'
+      ? MAX_TOKENS_RETRY
+      : MAX_TOKENS,
+  )
+  if (second.kind === 'ok') return outcomeFrom(second.raw)
+  logFailure(second, 2, fileBytes)
+  return { ok: false, reason: second.kind === 'refusal' ? 'unreadable' : 'api_error' }
+}
+
+/*
+ * ⚠ `claude-sonnet-5` denkt ohne `thinking`-Parameter adaptiv, und die Denk-Tokens zählen gegen
+ * `max_tokens`. Mit 4096 blieb für das JSON bei einer dichten Rechnung nichts übrig (29.09.2026:
+ * drei von fünf Rechnungen „Unexpected end of JSON input"). Die Antwort selbst ist klein (≤ ~2.000
+ * Tokens auch mit 40 Energiepreis-Zeilen); 16000 lässt dem Denken Platz. Die Wiederholung nach
+ * `max_tokens` nimmt 20000 — nicht mehr, denn der SDK verweigert nicht-gestreamte Aufrufe ab ~21.333
+ * (10-Minuten-Regel in `calculateNonstreamingTimeout`).
+ */
+const MAX_TOKENS = 16000
+const MAX_TOKENS_RETRY = 20000
+const RETRY_DELAY_MS = 2000
+
+type AttemptDiag = {
+  stopReason: string | null
+  outputTokens: number | null
+  textLength: number | null
+  status: number | null
+  error: string | null
+}
+
+type Attempt =
+  | { kind: 'ok'; raw: unknown }
+  /** Leer, nicht parsebar oder bei `max_tokens` abgeschnitten — einmal wiederholbar. */
+  | { kind: 'incomplete'; diag: AttemptDiag }
+  | { kind: 'refusal'; diag: AttemptDiag }
+  /** 429, 5xx, 529 oder Verbindungsfehler — einmal wiederholbar. */
+  | { kind: 'transient'; diag: AttemptDiag }
+  /** 400 und andere 4xx — nie wiederholen. */
+  | { kind: 'fatal'; diag: AttemptDiag }
+
+const NO_RESPONSE = { stopReason: null, outputTokens: null, textLength: null } as const
+
+async function attemptExtraction(
+  client: ReturnType<typeof createInvoiceScanClient>,
+  pdfBase64: string,
+  maxTokens: number,
+): Promise<Attempt> {
+  let response
   try {
-    const response = await client.messages.create({
+    response = await client.messages.create({
       model: INVOICE_SCAN_MODEL,
-      max_tokens: 4096,
+      max_tokens: maxTokens,
       system: SYSTEM_PROMPT,
       /*
        * Das Schema wird von der API erzwungen (`json_schema` mit `additionalProperties: false` und
@@ -461,28 +525,75 @@ export async function extractInvoiceData(pdfBase64: string): Promise<InvoiceScan
         },
       ],
     })
-
-    const text = response.content
-      .filter((block): block is Extract<typeof block, { type: 'text' }> => block.type === 'text')
-      .map((block) => block.text)
-      .join('')
-
-    raw = JSON.parse(text)
   } catch (cause) {
-    /*
-     * ⚠ HIER STEHT WEDER DIE RECHNUNG NOCH DIE ANTWORT IM LOG. Ein Fehlerlog ist kein zulässiger
-     * zweiter Speicherort für ein Kundendokument (dieselbe Regel wie beim Personenbezug in
-     * `report-gate/actions.ts`). Protokolliert wird die Ursache des Fehlschlags — sie enthält bei
-     * einem SDK-Fehler Statuscode und Meldung, nicht die gesendete Nutzlast.
-     *
-     * Ein unbrauchbarer JSON-Text landet ebenfalls hier: `JSON.parse` wirft. Das ist richtig — die
-     * API hat dann etwas geliefert, das ihr eigenes Schema verletzt, und das ist ein Fehler des
-     * Aufrufs, kein Befund über die Rechnung.
-     */
-    console.error('[invoice-scan] Extraktion fehlgeschlagen:', cause)
-    return { ok: false, reason: 'api_error' }
+    const status = cause instanceof Anthropic.APIError ? (cause.status ?? null) : null
+    // Nur Klassenname, Status und SDK-Meldung (Statuscode + API-Fehlertext) — nie die Nutzlast.
+    const diag = {
+      ...NO_RESPONSE,
+      status,
+      error:
+        cause instanceof Anthropic.APIError
+          ? `${cause.name}: ${cause.message}`
+          : cause instanceof Error
+            ? cause.name
+            : 'unknown',
+    }
+    const transient =
+      cause instanceof Anthropic.APIConnectionError ||
+      (status !== null && (status === 429 || status >= 500))
+    return { kind: transient ? 'transient' : 'fatal', diag }
   }
 
+  const text = response.content
+    .filter((block): block is Extract<typeof block, { type: 'text' }> => block.type === 'text')
+    .map((block) => block.text)
+    .join('')
+  const diag = {
+    stopReason: response.stop_reason,
+    outputTokens: response.usage?.output_tokens ?? null,
+    textLength: text.length,
+    status: null,
+    error: null,
+  }
+
+  if (response.stop_reason === 'refusal') return { kind: 'refusal', diag }
+  if (response.stop_reason === 'max_tokens' || text.trim() === '') {
+    return { kind: 'incomplete', diag }
+  }
+  try {
+    return { kind: 'ok', raw: JSON.parse(text) }
+  } catch {
+    /*
+     * ⚠ Die `SyntaxError`-Meldung wird NICHT protokolliert: V8 zitiert darin einen Ausschnitt des
+     * Antworttexts, und der ist Rechnungsinhalt.
+     */
+    return { kind: 'incomplete', diag: { ...diag, error: 'SyntaxError' } }
+  }
+}
+
+/**
+ * ⚠ HIER STEHT WEDER DIE RECHNUNG NOCH DIE ANTWORT IM LOG — nur Zahlen und Klassen. Ein Fehlerlog
+ * ist kein zulässiger zweiter Speicherort für ein Kundendokument.
+ */
+function logFailure(
+  attempt: Exclude<Attempt, { kind: 'ok' }>,
+  attemptNo: number,
+  fileBytes: number,
+) {
+  console.error('[invoice-scan] Extraktion fehlgeschlagen:', {
+    attempt: attemptNo,
+    kind: attempt.kind,
+    model: INVOICE_SCAN_MODEL,
+    fileBytes,
+    ...attempt.diag,
+  })
+}
+
+function wait(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+function outcomeFrom(raw: unknown): InvoiceScanOutcome {
   const extraction = parseInvoiceExtraction(raw)
 
   /*

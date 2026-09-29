@@ -79,7 +79,8 @@ function requireEnv(name: string): string {
  * ein über Requests geteilter Client-Zustand ist in einer Server-Umgebung unnötig).
  */
 export function createInvoiceScanClient(): Anthropic {
-  return new Anthropic({ apiKey: requireEnv('ANTHROPIC_API_KEY') })
+  // Keine SDK-Wiederholungen: `extractInvoiceData` wiederholt selbst GENAU EINMAL (sonst 429 bis zu dreimal).
+  return new Anthropic({ apiKey: requireEnv('ANTHROPIC_API_KEY'), maxRetries: 0 })
 }
 
 /** Ist der KI-Zugang eingerichtet? Für die Anzeige, ohne einen Client zu bauen. */

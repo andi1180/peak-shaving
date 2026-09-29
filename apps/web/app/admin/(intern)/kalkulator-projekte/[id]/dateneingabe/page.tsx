@@ -104,17 +104,18 @@ export const dynamic = 'force-dynamic'
 /**
  * ⚠ WEGEN DER RECHNUNGS-STATION, und sie ist die einzige, die ihn braucht.
  *
- * Ihr Upload löst bis zu zwölf Modellaufrufe aus. Sie laufen nebenläufig (s. dort), die Wanduhr-Zeit
- * ist also die eines einzelnen Scans — die liegt aber je nach Seitenzahl deutlich über den
- * Vorgabewerten der Plattform, und ein abgeschnittener Aufruf sähe für den Admin wie ein Ausfall
- * aus, während die Dateien längst abgelegt und bezahlt sind.
+ * Ihr Upload löst bis zu zwölf Modellaufrufe aus, seit 29.09.2026 höchstens vier gleichzeitig und
+ * je Rechnung mit bis zu einem Wiederholversuch (s. `extractInvoiceData`) — die Wanduhr-Zeit sind
+ * also bis zu drei Wellen, jede so lang wie ein Scan samt Wiederholung. Ein abgeschnittener Aufruf
+ * sähe für den Admin wie ein Ausfall aus, während die Dateien längst abgelegt und bezahlt sind.
  *
  * ⚠ ER MUSS IN DIESER DATEI STEHEN. Next liest `maxDuration` aus den Exporten einer SEITEN-/
  * Route-Datei; in einem `'use server'`-Modul wird der Export kommentarlos ignoriert, und der Build
  * bleibt grün (an `apps/website/app/rechner/page.tsx` gemessen und dort ausführlich vermerkt).
- * 60 Sekunden, weil das die Obergrenze ist, die jeder Vercel-Tarif zulässt.
+ * 300 Sekunden (29.09.2026, vorher 60): mit Fluid Compute auf jedem Vercel-Tarif zulässig — ein
+ * nicht zulässiger Wert scheitert beim Build, nicht erst im Betrieb.
  */
-export const maxDuration = 60
+export const maxDuration = 300
 
 /** Neutral wie im Layout: der Tab-Titel darf nicht verraten, dass es hier etwas zu holen gibt. */
 export const metadata: Metadata = {
