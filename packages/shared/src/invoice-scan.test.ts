@@ -8,6 +8,7 @@ import {
   INVOICE_SCAN_NETZEBENEN,
   INVOICE_SCAN_OPERATORS,
   INVOICE_SCAN_RATE_KEYS,
+  INVOICE_SCAN_SCHEMA_RATE_KEYS,
   emptyInvoiceExtraction,
   invoiceExtractionIsEmpty,
   parseInvoiceExtraction,
@@ -68,11 +69,9 @@ describe('JSON-Schema', () => {
   it('verlangt jedes Feld und verbietet zusätzliche — „weggelassen" ist kein zweiter Weg zu null', () => {
     expect(INVOICE_SCAN_JSON_SCHEMA.additionalProperties).toBe(false)
     expect(INVOICE_SCAN_JSON_SCHEMA.required).toEqual([
-      'netzbetreiber',
       'netzebene',
       'meteringVariant',
       'billingModel',
-      'billingModelBasis',
       'rates',
       'energyPricePeriods',
       'annualConsumptionKwh',
@@ -87,7 +86,7 @@ describe('JSON-Schema', () => {
 
     const props = INVOICE_SCAN_JSON_SCHEMA.properties as Record<string, Record<string, unknown>>
     expect(props.rates.additionalProperties).toBe(false)
-    expect(props.rates.required).toEqual([...INVOICE_SCAN_RATE_KEYS])
+    expect(props.rates.required).toEqual([...INVOICE_SCAN_SCHEMA_RATE_KEYS])
   })
 
   it('lässt für jedes Feld ausdrücklich null zu — „nicht erkennbar" muss ausdrückbar sein', () => {
@@ -96,18 +95,12 @@ describe('JSON-Schema', () => {
     // Die Zahlenfelder: Typ-Union ohne `enum` — von der API akzeptiert (31.08.2026 gemessen).
     expect(props.annualConsumptionKwh.type).toContain('null')
     const rateProps = (props.rates.properties ?? {}) as Record<string, { type: unknown }>
-    for (const key of INVOICE_SCAN_RATE_KEYS) {
+    for (const key of INVOICE_SCAN_SCHEMA_RATE_KEYS) {
       expect(rateProps[key].type).toEqual(['number', 'null'])
     }
 
     // Die Aufzählungsfelder: `anyOf` mit einem ausdrücklichen null-Zweig, s. Test darunter.
-    for (const enumKey of [
-      'netzbetreiber',
-      'netzebene',
-      'meteringVariant',
-      'billingModel',
-      'billingModelBasis',
-    ]) {
+    for (const enumKey of ['netzebene', 'meteringVariant', 'billingModel']) {
       const branches = props[enumKey].anyOf as { type: string; enum?: unknown[] }[]
       expect(branches.map((branch) => branch.type)).toContain('null')
     }
@@ -147,7 +140,6 @@ describe('JSON-Schema', () => {
   it('bietet für jeden Aufzählungswert genau einen Zweig — die Werte selbst bleiben erzwungen', () => {
     const props = INVOICE_SCAN_JSON_SCHEMA.properties as Record<string, Record<string, unknown>>
     const expected: Record<string, { type: string; values: readonly (string | number)[] }> = {
-      netzbetreiber: { type: 'string', values: INVOICE_SCAN_OPERATORS },
       netzebene: { type: 'integer', values: INVOICE_SCAN_NETZEBENEN },
       meteringVariant: { type: 'string', values: INVOICE_SCAN_METERING_VARIANTS },
     }
@@ -165,7 +157,7 @@ describe('JSON-Schema', () => {
   it('führt die Zahlenfelder in derselben Reihenfolge wie der Typ', () => {
     const props = INVOICE_SCAN_JSON_SCHEMA.properties as Record<string, Record<string, unknown>>
     const rateProps = (props.rates.properties ?? {}) as Record<string, unknown>
-    expect(Object.keys(rateProps)).toEqual([...INVOICE_SCAN_RATE_KEYS])
+    expect(Object.keys(rateProps)).toEqual([...INVOICE_SCAN_SCHEMA_RATE_KEYS])
   })
 })
 
@@ -207,6 +199,32 @@ describe('parseInvoiceExtraction — der Gutfall', () => {
     })
     expect(parsed.rates.minBillableKw).toBe(0)
     expect(parsed.rates.minBillableKw).not.toBeNull()
+  })
+})
+
+describe('parseInvoiceExtraction — gestrichene Schemafelder (Union-Grenze, 29.09.2026)', () => {
+  it('liest eine gespeicherte Extraktion aus dem Bestand unverändert', () => {
+    const stored = {
+      ...parseInvoiceExtraction(completeRaw()),
+      billingPeriodFrom: '2025-01-01',
+      billingPeriodTo: '2025-12-31',
+      billingPeriodAssumed: false,
+    }
+    expect(stored.netzbetreiber).toBe('wiener_netze')
+    expect(stored.billingModelBasis).toBe('stated')
+    expect(stored.rates.arbeitspreisNetzCtPerKwh).toBe(1.23)
+    expect(parseInvoiceExtraction(stored)).toEqual(stored)
+  })
+
+  it('eine Antwort nach neuem Schema: gestrichene Felder sind nicht erkannt, kein Fehler', () => {
+    const { netzbetreiber: _n, billingModelBasis: _b, ...rest } = completeRaw()
+    const { arbeitspreisNetzCtPerKwh: _a, ...rates } = rest.rates
+    const parsed = parseInvoiceExtraction({ ...rest, rates })
+    expect(parsed.netzbetreiber).toBeNull()
+    expect(parsed.rates.arbeitspreisNetzCtPerKwh).toBeNull()
+    // Fehlender Vermerk bei vorhandenem Modell: die strengere Lesart (s. `billingModelFrom`).
+    expect(parsed.billingModelBasis).toBe('inferred')
+    expect(parsed.rates.leistungspreisEurPerKwYear).toBe(38.52)
   })
 })
 
@@ -403,7 +421,7 @@ describe('invoiceExtractionIsEmpty', () => {
  * ────────────────────────────────────────────────────────────────────────────────────────────── */
 
 describe('Abrechnungszeitraum — Schema', () => {
-  it('verlangt alle drei Felder und lässt für jedes null zu', () => {
+  it('verlangt alle drei Felder; die Datumsfelder lassen null zu, der Vermerk ist ein boolean', () => {
     const required = INVOICE_SCAN_JSON_SCHEMA.required as string[]
     expect(required).toContain('billingPeriodFrom')
     expect(required).toContain('billingPeriodTo')
@@ -412,7 +430,8 @@ describe('Abrechnungszeitraum — Schema', () => {
     const props = INVOICE_SCAN_JSON_SCHEMA.properties as Record<string, Record<string, unknown>>
     expect(props.billingPeriodFrom.type).toEqual(['string', 'null'])
     expect(props.billingPeriodTo.type).toEqual(['string', 'null'])
-    expect(props.billingPeriodAssumed.type).toEqual(['boolean', 'null'])
+    // Kein null mehr (Union-Grenze der API): ohne Datum wertet `billingPeriod` den Vermerk nicht aus.
+    expect(props.billingPeriodAssumed.type).toBe('boolean')
   })
 
   it('nennt die Schreibweise im Beschreibungstext, statt sie über format zu erzwingen', () => {

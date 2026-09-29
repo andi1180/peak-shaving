@@ -232,6 +232,17 @@ export const INVOICE_SCAN_RATE_KEYS = [
   'supplierBaseFeeEurPerMonth',
 ] as const satisfies readonly (keyof InvoiceScanRates)[]
 
+/**
+ * Die Zahlenfelder, nach denen der Scan FRAGT — ohne `arbeitspreisNetzCtPerKwh`: der kommt seit
+ * B21-3b aus `public.grid_tariffs` und hatte als abgelesener Wert kein Ziel. Aus dem Schema
+ * gestrichen, um unter der Union-Grenze der API zu bleiben (`json-schema-unions.ts`, 29.09.2026);
+ * `parseInvoiceExtraction` liest weiter alle `INVOICE_SCAN_RATE_KEYS`, damit gespeicherte
+ * Extraktionen unverändert lesbar bleiben.
+ */
+export const INVOICE_SCAN_SCHEMA_RATE_KEYS = INVOICE_SCAN_RATE_KEYS.filter(
+  (key) => key !== 'arbeitspreisNetzCtPerKwh',
+)
+
 /** Ein Ergebnis, in dem NICHTS erkannt wurde. Der Ausgangszustand jeder Auswertung. */
 export function emptyInvoiceExtraction(): InvoiceExtraction {
   return {
@@ -272,7 +283,7 @@ function nullableNumber(description: string) {
 }
 
 /*
- * Zeitraum und Herkunftsvermerk stehen bewusst als blosse Typ-Union OHNE `enum` da — genau die
+ * Der Zeitraum steht bewusst als blosse Typ-Union OHNE `enum` da — genau die
  * Schreibweise, die am 31.08.2026 gegen die echte API als zulässig gemessen wurde (s. der Block
  * unter `nullableEnum`). Ein `format: 'date'` ist ausdrücklich NICHT ergänzt: es wäre eine
  * Schema-Konstruktion, die in diesem Repo nie gegen die echte API gemessen wurde, und dieselbe
@@ -282,10 +293,6 @@ function nullableNumber(description: string) {
  */
 function nullableString(description: string) {
   return { type: ['string', 'null'], description } as const
-}
-
-function nullableBoolean(description: string) {
-  return { type: ['boolean', 'null'], description } as const
 }
 
 /**
@@ -322,15 +329,20 @@ function nullableEnum<T extends string | number>(
   } as const
 }
 
+/*
+ * ⚠ HÖCHSTENS 16 UNION-PARAMETER (`type`-Array oder `anyOf`) — sonst HTTP 400 und JEDER Scan endet
+ * in `api_error` (29.09.2026, 18 Parameter). Am 29.09.2026 gestrichen bzw. eingeengt, 18 → 14:
+ * `netzbetreiber` (der Wizard hat die Netzanschluss-Station, der Kunde kennt ihn), `billingModelBasis`
+ * (ohne Konsumenten; fehlt er, gilt `inferred`), `rates.arbeitspreisNetzCtPerKwh` (ohne Ziel) und
+ * `billingPeriodAssumed` als schlichtes `boolean` (zählt nur neben einem Datum, s. `billingPeriod`).
+ */
 export const INVOICE_SCAN_JSON_SCHEMA: { [key: string]: unknown } = {
   type: 'object',
   additionalProperties: false,
   required: [
-    'netzbetreiber',
     'netzebene',
     'meteringVariant',
     'billingModel',
-    'billingModelBasis',
     'rates',
     'energyPricePeriods',
     'annualConsumptionKwh',
@@ -340,12 +352,6 @@ export const INVOICE_SCAN_JSON_SCHEMA: { [key: string]: unknown } = {
     'supplierPriceBasis',
   ],
   properties: {
-    netzbetreiber: nullableEnum(
-      'string',
-      INVOICE_SCAN_OPERATORS,
-      'Der Netzbetreiber, der die Rechnung ausgestellt hat. null, wenn er nicht auf dem ' +
-        'Dokument steht oder keiner der aufgezählten ist.',
-    ),
     netzebene: nullableEnum(
       'integer',
       INVOICE_SCAN_NETZEBENEN,
@@ -377,16 +383,10 @@ export const INVOICE_SCAN_JSON_SCHEMA: { [key: string]: unknown } = {
         'null, wenn die Rechnung gar keinen Leistungsposten abrechnet oder kein Muster passt — ' +
         'das ist ein richtiges Ergebnis.',
     ),
-    billingModelBasis: nullableEnum(
-      'string',
-      INVOICE_SCAN_BILLING_MODEL_BASES,
-      '"stated", wenn die Rechnung die Regel selbst benennt; "inferred", wenn du sie aus der Form ' +
-        'der Leistungsabrechnung erschlossen hast. null, wenn billingModel null ist.',
-    ),
     rates: {
       type: 'object',
       additionalProperties: false,
-      required: [...INVOICE_SCAN_RATE_KEYS],
+      required: [...INVOICE_SCAN_SCHEMA_RATE_KEYS],
       properties: {
         leistungspreisEurPerKwYear: nullableNumber(
           'Leistungspreis / Grundpreis der Netznutzung in Euro je kW und JAHR. Steht die ' +
@@ -395,9 +395,6 @@ export const INVOICE_SCAN_JSON_SCHEMA: { [key: string]: unknown } = {
         ),
         minBillableKw: nullableNumber(
           'Mindestleistung / vereinbarte Leistung in kW, falls die Rechnung eine nennt.',
-        ),
-        arbeitspreisNetzCtPerKwh: nullableNumber(
-          'Arbeitspreis der Netznutzung in Cent je kWh.',
         ),
         energyPriceCtPerKwh: nullableNumber(
           'Arbeitspreis der Energielieferung (Bezug) in Cent je kWh. Bei getrenntem Hoch-/ ' +
@@ -474,12 +471,13 @@ export const INVOICE_SCAN_JSON_SCHEMA: { [key: string]: unknown } = {
         'letzte Tag GEHÖRT dazu (eine Jahresrechnung für 2024 endet am "2024-12-31", nicht am ' +
         '"2025-01-01"). null unter denselben Bedingungen wie billingPeriodFrom.',
     ),
-    billingPeriodAssumed: nullableBoolean(
-      'Woher der Zeitraum stammt: false, wenn er auf der Rechnung ausgeschrieben steht; true, ' +
-        'wenn du ihn nach der Jahresrechnungs-Regel des Systemtexts erschlossen hast. null, ' +
-        'wenn beide Datumsfelder null sind. Dieses Feld ist Pflicht, sobald ein Datum dasteht — ' +
-        'ein Zeitraum ohne Herkunft wird als erschlossen behandelt.',
-    ),
+    billingPeriodAssumed: {
+      type: 'boolean',
+      description:
+        'Woher der Zeitraum stammt: false, wenn er auf der Rechnung ausgeschrieben steht; true, ' +
+        'wenn du ihn nach der Jahresrechnungs-Regel des Systemtexts erschlossen hast. Sind beide ' +
+        'Datumsfelder null, ist der Wert ohne Bedeutung — dann false.',
+    },
     supplierPriceBasis: {
       type: 'string',
       enum: ['net', 'gross', 'unclear'],

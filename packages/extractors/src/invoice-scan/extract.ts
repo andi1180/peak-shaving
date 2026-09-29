@@ -233,7 +233,7 @@ const SYSTEM_PROMPT = [
   'Jahr davor. Setze billingPeriodAssumed dann auf true. Das ist ein Näherungswert und darf nur',
   'so gekennzeichnet herauskommen.',
   '',
-  'SONST sind beide Datumsfelder null und billingPeriodAssumed ebenfalls null. Insbesondere:',
+  'SONST sind beide Datumsfelder null und billingPeriodAssumed false. Insbesondere:',
   '- Ein einzelnes Datum erzeugt KEINEN Zeitraum. Weder Ausstellungs- noch Fälligkeits- noch',
   '  Ablese- oder Zahlungsdatum darf für sich zu einem Zeitraum ausgebaut werden.',
   '- Eine Monats-, Teil- oder Abschlagsrechnung wird NICHT auf zwölf Monate gestreckt. Die',
@@ -246,12 +246,6 @@ const SYSTEM_PROMPT = [
   'etwa als „-9,90 ct/kWh", weil sie dem Kunden gutgeschrieben wird). Trage trotzdem den Betrag',
   'OHNE Vorzeichen ein, also 9,90. Alle Felder dieses Schemas sind Beträge, keine Buchungen — ein',
   'negativer Wert ist kein gültiges Ergebnis und geht verloren.',
-  '',
-  'Abgrenzung Bezug/Einspeisung: arbeitspreisNetzCtPerKwh ist ausschliesslich der Arbeitspreis der',
-  'Netznutzung für BEZOGENE Energie (Positionen wie „Netznutzung", „Netznutzungsentgelt").',
-  'Positionen, die sich auf Einspeisung oder Erzeugung beziehen — etwa „(Rest-)Einspeisung',
-  'Erzeuger" —, gehören NICHT in dieses Feld, auch dann nicht, wenn sie mit 0,00 ct/kWh ausgewiesen',
-  'sind. Weist eine Rechnung gar keine Netznutzung für Bezug aus, ist das Feld null.',
   '',
   'supplierBaseFeeEurPerMonth — die Grundgebühr des STROMLIEFERANTEN, und nur sie:',
   'Auf einer österreichischen Stromrechnung stehen ZWEI verbrauchsunabhängige Pauschalen',
@@ -296,7 +290,7 @@ const SYSTEM_PROMPT = [
   'Regeln sind möglich, und du wählst nur dann eine, wenn die Rechnung dafür etwas hergibt.',
   '',
   'ZUERST die Vorbedingung: Rechnet das Dokument überhaupt einen LEISTUNGSposten ab (ein Entgelt',
-  'je kW)? Tut es das nicht, ist billingModel null und billingModelBasis ebenfalls null. Du wendest',
+  'je kW)? Tut es das nicht, ist billingModel null. Du wendest',
   'die Muster unten dann gar nicht erst an.',
   '',
   '"annual_max" — ein einziger Höchstwert des Jahres bestimmt alles. Hinweise:',
@@ -313,12 +307,6 @@ const SYSTEM_PROMPT = [
   '  „Mittelwert der Monatshöchstleistungen", „durchschnittliche Höchstleistung",',
   '  „Mittel der zwölf Monatswerte" — oder eine Rechnung, die zwölf Monatswerte NENNT, daraus',
   '  aber sichtbar EINEN gemittelten kW-Wert bildet und nur diesen verrechnet.',
-  '',
-  'billingModelBasis sagt, worauf du dich stützt:',
-  '- "stated", wenn die Rechnung die Regel mit Worten benennt (eines der oben zitierten Wörter).',
-  '- "inferred", wenn du sie aus der FORM der Leistungsabrechnung geschlossen hast (Anzahl und',
-  '  Aufbau der Zeilen). Das ist der häufigere Fall und vollkommen in Ordnung — aber er muss so',
-  '  gekennzeichnet sein.',
   '',
   'Die Abgrenzungen, die hier am ehesten schiefgehen:',
   '- Eine monatsweise Aufschlüsselung des VERBRAUCHS (kWh je Monat) sagt über die',
@@ -411,7 +399,7 @@ const USER_PROMPT =
   'rechnen. Zwei Angaben darfst du erschliessen statt abzulesen, und nur diese zwei: den ' +
   'Abrechnungszeitraum einer erkennbaren Jahresrechnung und das Abrechnungsmodell der Leistung ' +
   '(billingModel) aus der Form der Leistungszeilen. Für beide gelten die Regeln des Systemtexts, ' +
-  'und beide sind als erschlossen zu kennzeichnen (billingPeriodAssumed bzw. billingModelBasis).'
+  'und der erschlossene Zeitraum ist als solcher zu kennzeichnen (billingPeriodAssumed).'
 
 /**
  * Extrahiert die Tarif- und Verbrauchsangaben aus einer Rechnung.

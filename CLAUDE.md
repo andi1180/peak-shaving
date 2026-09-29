@@ -241,6 +241,19 @@ Details und der vollständige Stand: siehe `./Pflichtenheft_Kalkulator_MVP.md`, 
 
 > Lebendiger Handover-Anker. Neueste offene Punkte, die den Bau der Engine/Simulation berühren. Erledigtes wandert raus.
 
+### Rechnungs-Scan unter der Union-Grenze der API (29.09.2026)
+
+Ursache: die API weist ein `output_config`-Schema mit mehr als 16 Union-Parametern (`type`-Array oder
+`anyOf`) mit HTTP 400 ab; das Rechnungs-Schema hatte 18 → jeder Scan `api_error` (Wizard, Rechner,
+Chat). Wirkung: 18 → 14 — gestrichen `netzbetreiber`, `billingModelBasis`, `rates.arbeitspreisNetzCtPerKwh`,
+`billingPeriodAssumed` als schlichtes `boolean`. `parseInvoiceExtraction` ist unverändert und liest
+gespeicherte Extraktionen weiter vollständig. `countUnionParameters` (`shared/src/json-schema-unions.ts`)
+pinnt alle neun Schemas auf ≤ 16 (`json-schema-unions.test.ts`, Tarifblatt in `tariff-sheet-scan.test.ts`).
+
+**⚠ Wer ein Scan-Schema um ein nullbares Feld erweitert, prüft die Zählung** — ein Stub der Messages-API
+validiert das Schema nicht. Stand: Rechnung 14, Tarifblatt 13, Bericht 8, Batterie-Suche 7,
+PV-Planung 7, Datenblatt 6, Batterie-Text 5, PV-Text 3, Upload-Klassifikation 0.
+
 ### Parser: Einheit aus der Spalte „Einheit" (29.09.2026)
 
 Ursache (Müldür, Wiener-Netze-Export): die Einheit steht je Zeile in einer eigenen Spalte „Einheit", nicht
