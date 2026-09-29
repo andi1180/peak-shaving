@@ -428,7 +428,10 @@ export const INVOICE_SCAN_JSON_SCHEMA: { [key: string]: unknown } = {
             'der Bezugszeitraum eindeutig dasteht.',
         ),
         minBillableKw: nullableNumber(
-          'Mindestleistung / vereinbarte Leistung in kW, falls die Rechnung eine nennt.',
+          'Mindestleistung in kW — NUR bei ausdrücklichem Mindest-Wortlaut („Mindestleistung", ' +
+            '„Mindestverrechnungsleistung", „mindestens … kW verrechnet"). Eine vereinbarte ' +
+            'Leistung, das Ausmass der Netznutzung, eine Netzzutritts- oder Anschlussleistung ist ' +
+            'KEINE Untergrenze: dann null.',
         ),
         energyPriceCtPerKwh: nullableNumber(
           'Arbeitspreis der Energielieferung (Bezug) in Cent je kWh. Bei getrenntem Hoch-/ ' +
@@ -663,15 +666,40 @@ function billingPeriodDays(from: string | null, to: string | null): number | nul
 }
 
 /** Der abgerechnete kW-Wert, wenn alle Leistungszeilen ihn teilen — sonst `null`. */
-function billedKwFrom(rawLines: unknown): number | null {
-  if (!Array.isArray(rawLines)) return null
-  const values = new Set<number>()
-  for (const line of rawLines) {
-    const kw = finiteNonNegative(record(line).kw)
-    if (kw !== null) values.add(kw)
-  }
+function billedKwFrom(values: ReadonlySet<number>): number | null {
   const [only] = values
   return values.size === 1 ? (only ?? null) : null
+}
+
+/**
+ * Die abgerechneten kW-Werte der Rechnung — aus den Zeilen der Modellantwort oder, bei einer
+ * gespeicherten Extraktion, aus dem schon verdichteten `billedKw`.
+ */
+function billedKwValues(root: Record<string, unknown>): Set<number> {
+  const values = new Set<number>()
+  const stored = finiteNonNegative(root.billedKw)
+  if (stored !== null) values.add(stored)
+  else if (Array.isArray(root.billedKwLines)) {
+    for (const line of root.billedKwLines) {
+      const kw = finiteNonNegative(record(line).kw)
+      if (kw !== null) values.add(kw)
+    }
+  }
+  return values
+}
+
+/**
+ * Ein Sockel, unter dem die Rechnung selbst abrechnet, ist keiner: liegt eine abgerechnete kW
+ * darunter, wird `minBillableKw` verworfen (typisch: eine „vereinbarte Leistung", gelesen als
+ * Mindestleistung). Dieselbe Regel gilt im Merge über mehrere Rechnungen.
+ */
+export function minBillableKwContradicted(
+  minBillableKw: number | null,
+  billedKw: Iterable<number | null>,
+): boolean {
+  if (minBillableKw === null) return false
+  for (const kw of billedKw) if (typeof kw === 'number' && kw < minBillableKw) return true
+  return false
 }
 
 /**
@@ -740,14 +768,15 @@ export function parseInvoiceExtraction(raw: unknown): InvoiceExtraction {
   )
   rates.energyPriceCtPerKwh = energyPrice.value
   const period = billingPeriod(root)
+  const billedKw = billedKwValues(root)
+  if (minBillableKwContradicted(rates.minBillableKw, billedKw)) rates.minBillableKw = null
 
   return {
     netzbetreiber: oneOf(root.netzbetreiber, INVOICE_SCAN_OPERATORS),
     netzebene: oneOf(root.netzebene, INVOICE_SCAN_NETZEBENEN),
     meteringVariant: oneOf(root.meteringVariant, INVOICE_SCAN_METERING_VARIANTS),
     ...billingModelFrom(root, billingPeriodDays(period.billingPeriodFrom, period.billingPeriodTo)),
-    // Gespeicherte Extraktionen tragen den Wert schon verdichtet (`billedKw`), Modellantworten die Zeilen.
-    billedKw: finiteNonNegative(root.billedKw) ?? billedKwFrom(root.billedKwLines),
+    billedKw: billedKwFrom(billedKw),
     rates,
     annualConsumptionKwh,
     ...period,

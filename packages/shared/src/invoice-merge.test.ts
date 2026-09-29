@@ -186,3 +186,15 @@ describe('mergeInvoiceExtractions — abweichende abgerechnete kW (29.09.2026)',
     expect(merged.billingModel).toBe('annual_max')
   })
 })
+
+describe('mergeInvoiceExtractions — Mindestleistung gegen abgerechnete kW (29.09.2026)', () => {
+  it('verwirft minBillableKw, wenn eine Rechnung darunter abrechnet', () => {
+    const billed = (billedKw: number): InvoiceExtraction => ({
+      ...invoice({ rates: { minBillableKw: 30 } }),
+      billedKw,
+    })
+    const { merged, conflicts } = mergeInvoiceExtractions([billed(30), billed(31), billed(29)])
+    expect(merged.rates.minBillableKw).toBeNull()
+    expect(conflicts).not.toContain('minBillableKw')
+  })
+})
