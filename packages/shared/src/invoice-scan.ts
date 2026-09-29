@@ -405,15 +405,21 @@ export const INVOICE_SCAN_JSON_SCHEMA: { [key: string]: unknown } = {
       type: 'array',
       description:
         'Die Leistungszeilen des Netzentgelts (Leistungspreis je kW), EINZELN und in der ' +
-        'Reihenfolge des Dokuments, je Zeile der abgerechnete kW-Wert, unverändert übernommen. ' +
-        'NICHT die vereinbarte oder Mindestleistung. Leere Liste, wenn die Rechnung keinen ' +
-        'Leistungsposten abrechnet.',
+        'Reihenfolge des Dokuments, je Zeile der abgerechnete kW-Wert und der Nettobetrag, ' +
+        'unverändert übernommen. NICHT die vereinbarte oder Mindestleistung. Leere Liste, wenn ' +
+        'die Rechnung keinen Leistungsposten abrechnet.',
       items: {
         type: 'object',
         additionalProperties: false,
-        required: ['kw'],
+        required: ['kw', 'netAmountEur'],
         properties: {
           kw: { type: 'number', description: 'Der abgerechnete kW-Wert DIESER Zeile.' },
+          netAmountEur: {
+            type: 'number',
+            description:
+              'Der Betrag DIESER Zeile in Euro ohne Umsatzsteuer, so wie er danebensteht. ' +
+              '0, wenn kein Betrag erkennbar ist.',
+          },
         },
       },
     },
@@ -423,9 +429,10 @@ export const INVOICE_SCAN_JSON_SCHEMA: { [key: string]: unknown } = {
       required: [...INVOICE_SCAN_SCHEMA_RATE_KEYS],
       properties: {
         leistungspreisEurPerKwYear: nullableNumber(
-          'Leistungspreis / Grundpreis der Netznutzung in Euro je kW und JAHR. Steht die ' +
-            'Rechnung auf einen Monatsbetrag, auf das Jahr umrechnen (×12) und nur dann, wenn ' +
-            'der Bezugszeitraum eindeutig dasteht.',
+          'Leistungspreis / Grundpreis der Netznutzung in Euro je kW und JAHR, so wie der Satz ' +
+            'auf der Rechnung steht. Steht er nur je Tag oder je Monat da, tagesanteilig auf ' +
+            'das Jahr umrechnen (Satz je Tag × 365), und nur dann, wenn der Bezugszeitraum ' +
+            'eindeutig dasteht.',
         ),
         minBillableKw: nullableNumber(
           'Mindestleistung in kW — NUR bei ausdrücklichem Mindest-Wortlaut („Mindestleistung", ' +
@@ -672,6 +679,25 @@ function billedKwFrom(values: ReadonlySet<number>): number | null {
 }
 
 /**
+ * Leistungspreis €/kW·a aus der EINZIGEN Leistungszeile, tagesanteilig: Betrag ÷ kW ÷ Tage × 365.
+ * Ein ganzes Jahr (365/366 Tage) ist der Jahressatz selbst, auch im Schaltjahr. `null`, wenn eine
+ * Angabe fehlt oder es mehrere Zeilen sind — dann gilt der Wert des Modells.
+ */
+function demandRateFromLine(
+  root: Record<string, unknown>,
+  periodDays: number | null,
+): number | null {
+  if (periodDays === null || periodDays <= 0) return null
+  if (!Array.isArray(root.billedKwLines) || root.billedKwLines.length !== 1) return null
+  const line = record(root.billedKwLines[0])
+  const kw = finiteNonNegative(line.kw)
+  const amount = finiteNonNegative(line.netAmountEur)
+  if (kw === null || kw === 0 || amount === null || amount === 0) return null
+  const years = periodDays === 365 || periodDays === 366 ? 1 : periodDays / 365
+  return Math.round((amount / kw / years) * 10_000) / 10_000
+}
+
+/**
  * Die abgerechneten kW-Werte der Rechnung — aus den Zeilen der Modellantwort oder, bei einer
  * gespeicherten Extraktion, aus dem schon verdichteten `billedKw`.
  */
@@ -768,6 +794,9 @@ export function parseInvoiceExtraction(raw: unknown): InvoiceExtraction {
   )
   rates.energyPriceCtPerKwh = energyPrice.value
   const period = billingPeriod(root)
+  const periodDays = billingPeriodDays(period.billingPeriodFrom, period.billingPeriodTo)
+  rates.leistungspreisEurPerKwYear =
+    demandRateFromLine(root, periodDays) ?? rates.leistungspreisEurPerKwYear
   const billedKw = billedKwValues(root)
   if (minBillableKwContradicted(rates.minBillableKw, billedKw)) rates.minBillableKw = null
 
@@ -775,7 +804,7 @@ export function parseInvoiceExtraction(raw: unknown): InvoiceExtraction {
     netzbetreiber: oneOf(root.netzbetreiber, INVOICE_SCAN_OPERATORS),
     netzebene: oneOf(root.netzebene, INVOICE_SCAN_NETZEBENEN),
     meteringVariant: oneOf(root.meteringVariant, INVOICE_SCAN_METERING_VARIANTS),
-    ...billingModelFrom(root, billingPeriodDays(period.billingPeriodFrom, period.billingPeriodTo)),
+    ...billingModelFrom(root, periodDays),
     billedKw: billedKwFrom(billedKw),
     rates,
     annualConsumptionKwh,

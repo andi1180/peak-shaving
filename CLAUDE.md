@@ -270,6 +270,7 @@ validiert das Schema nicht. Stand: Rechnung 14, Tarifblatt 13, Bericht 8, Batter
 PV-Planung 7, Datenblatt 6, Batterie-Text 5, PV-Text 3, Upload-Klassifikation 0.
 **billingModel (29.09.2026):** `annual_max` auf einer Rechnung ≤ 62 Tage wird `monthly_max_sum` (ausser `billingModelBasis: 'stated'`), ebenso im Merge bei abweichenden `billedKw` — `billingModelBasis`/`billedKwLines` sind dafür zurück im Schema, ohne Union (weiter 14).
 **minBillableKw (29.09.2026):** nur bei ausdrücklichem Mindest-Wortlaut; liegt eine abgerechnete kW darunter, wird der Wert verworfen — je Rechnung und im Merge (`minBillableKwContradicted`).
+**Leistungspreis (29.09.2026):** bei genau einer Leistungszeile rechnet der Parser tagesanteilig (Nettobetrag ÷ kW ÷ Tage × 365; 365/366 Tage = Betrag ÷ kW) statt des Modellwerts (`billedKwLines[].netAmountEur`, Zahl ohne Union); im Merge gilt ≤ 1 % Abweichung als Rundung (Mittelwert).
 
 ### Parser: Einheit aus der Spalte „Einheit" (29.09.2026)
 

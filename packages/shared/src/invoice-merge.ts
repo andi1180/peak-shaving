@@ -151,6 +151,19 @@ function setFieldValue(
   }
 }
 
+/** Grösste Abweichung zweier Leistungspreise, die noch als Rundung gilt (relativ, 1 %). */
+const DEMAND_RATE_ROUNDING_TOLERANCE = 0.01
+
+/**
+ * Ein tagesanteilig zurückgerechneter Leistungspreis trägt die Rundung des Rechnungsbetrags mit;
+ * je Monat weicht er deshalb um Bruchteile eines Cents ab, ohne dass sich der Satz geändert hat.
+ */
+function withinRounding(values: readonly number[]): boolean {
+  const low = Math.min(...values)
+  const high = Math.max(...values)
+  return high - low <= DEMAND_RATE_ROUNDING_TOLERANCE * low
+}
+
 /**
  * Führt mehrere gelesene Rechnungen zu einem Satz Vorbelegungen zusammen.
  *
@@ -194,9 +207,13 @@ export function mergeInvoiceExtractions(input: readonly InvoiceExtraction[]): In
      * Strenger Vergleich, ausdrücklich ohne Toleranz: 25,4 und 25,41 sind zwei verschiedene
      * Tarifsätze und keine Messungenauigkeit. Eine Toleranz wäre eine erfundene Grenze, ab der ein
      * Widerspruch als Einigkeit durchginge — und sie fiele niemandem auf.
+     * Einzige Ausnahme ist der Leistungspreis: er wird aus Monatsbeträgen zurückgerechnet und trägt
+     * deren Rundung (s. `withinRounding`); übernommen wird dann der Mittelwert.
      */
     if (stated.every((value) => value === first)) setFieldValue(merged, key, first)
-    else conflicts.push(key)
+    else if (key === 'leistungspreisEurPerKwYear' && withinRounding(stated as number[])) {
+      setFieldValue(merged, key, (stated as number[]).reduce((a, b) => a + b, 0) / stated.length)
+    } else conflicts.push(key)
   }
 
   /*
