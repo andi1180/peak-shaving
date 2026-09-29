@@ -164,6 +164,11 @@ export interface InvoiceExtraction {
   billingModel: InvoiceScanBillingModel | null
   /** `null`, solange es kein `billingModel` gibt. */
   billingModelBasis: InvoiceScanBillingModelBasis | null
+  /**
+   * Der abgerechnete kW-Wert, wenn alle Leistungszeilen dieser Rechnung denselben tragen, sonst
+   * `null`. Dient nur dem Abgleich über mehrere Rechnungen (`mergeInvoiceExtractions`).
+   */
+  billedKw: number | null
   rates: InvoiceScanRates
   /** Jahresverbrauch in kWh (Delta 9b: der Eingang in den Standardprofil-Generator, 9b-1). */
   annualConsumptionKwh: number | null
@@ -251,6 +256,7 @@ export function emptyInvoiceExtraction(): InvoiceExtraction {
     meteringVariant: null,
     billingModel: null,
     billingModelBasis: null,
+    billedKw: null,
     rates: {
       leistungspreisEurPerKwYear: null,
       minBillableKw: null,
@@ -335,6 +341,8 @@ function nullableEnum<T extends string | number>(
  * `netzbetreiber` (der Wizard hat die Netzanschluss-Station, der Kunde kennt ihn), `billingModelBasis`
  * (ohne Konsumenten; fehlt er, gilt `inferred`), `rates.arbeitspreisNetzCtPerKwh` (ohne Ziel) und
  * `billingPeriodAssumed` als schlichtes `boolean` (zählt nur neben einem Datum, s. `billingPeriod`).
+ * `billingModelBasis` (schlichtes Enum) und `billedKwLines` (Liste ohne Union) sind am 29.09.2026
+ * zurückgekommen, weil `billingModelFrom` und der Merge sie brauchen — beide zählen nicht mit.
  */
 export const INVOICE_SCAN_JSON_SCHEMA: { [key: string]: unknown } = {
   type: 'object',
@@ -343,6 +351,8 @@ export const INVOICE_SCAN_JSON_SCHEMA: { [key: string]: unknown } = {
     'netzebene',
     'meteringVariant',
     'billingModel',
+    'billingModelBasis',
+    'billedKwLines',
     'rates',
     'energyPricePeriods',
     'annualConsumptionKwh',
@@ -383,6 +393,30 @@ export const INVOICE_SCAN_JSON_SCHEMA: { [key: string]: unknown } = {
         'null, wenn die Rechnung gar keinen Leistungsposten abrechnet oder kein Muster passt — ' +
         'das ist ein richtiges Ergebnis.',
     ),
+    billingModelBasis: {
+      type: 'string',
+      enum: [...INVOICE_SCAN_BILLING_MODEL_BASES],
+      description:
+        '"stated" nur, wenn die Rechnung die Regel der Leistungsabrechnung WÖRTLICH benennt ' +
+        '(etwa „Jahreshöchstleistung", „Jahreshöchstwert", „Jahresspitze", ' +
+        '„Monatshöchstleistung"). Sonst "inferred" — auch dann, wenn billingModel null ist.',
+    },
+    billedKwLines: {
+      type: 'array',
+      description:
+        'Die Leistungszeilen des Netzentgelts (Leistungspreis je kW), EINZELN und in der ' +
+        'Reihenfolge des Dokuments, je Zeile der abgerechnete kW-Wert, unverändert übernommen. ' +
+        'NICHT die vereinbarte oder Mindestleistung. Leere Liste, wenn die Rechnung keinen ' +
+        'Leistungsposten abrechnet.',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['kw'],
+        properties: {
+          kw: { type: 'number', description: 'Der abgerechnete kW-Wert DIESER Zeile.' },
+        },
+      },
+    },
     rates: {
       type: 'object',
       additionalProperties: false,
@@ -619,6 +653,27 @@ function energyPriceFrom(
   }
 }
 
+/** Längster Abrechnungszeitraum in Tagen, der noch als Monatsrechnung gilt (zwei Monate). */
+const MONTHLY_INVOICE_MAX_DAYS = 62
+
+/** Tage des Abrechnungszeitraums, beide Ränder eingeschlossen — `null` ohne vollständiges Paar. */
+function billingPeriodDays(from: string | null, to: string | null): number | null {
+  if (from === null || to === null) return null
+  return (Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000 + 1
+}
+
+/** Der abgerechnete kW-Wert, wenn alle Leistungszeilen ihn teilen — sonst `null`. */
+function billedKwFrom(rawLines: unknown): number | null {
+  if (!Array.isArray(rawLines)) return null
+  const values = new Set<number>()
+  for (const line of rawLines) {
+    const kw = finiteNonNegative(record(line).kw)
+    if (kw !== null) values.add(kw)
+  }
+  const [only] = values
+  return values.size === 1 ? (only ?? null) : null
+}
+
 /**
  * Das vorgeschlagene Abrechnungsmodell samt Herkunftsvermerk.
  *
@@ -629,16 +684,28 @@ function energyPriceFrom(
  * Ohne Modell gibt es auch keinen Vermerk: ein `basis` ohne Wert beschriebe eine Herkunft von
  * nichts.
  */
-function billingModelFrom(root: Record<string, unknown>): {
+function billingModelFrom(
+  root: Record<string, unknown>,
+  periodDays: number | null,
+): {
   billingModel: InvoiceScanBillingModel | null
   billingModelBasis: InvoiceScanBillingModelBasis | null
 } {
   const billingModel = oneOf(root.billingModel, INVOICE_SCAN_BILLING_MODELS)
   if (billingModel === null) return { billingModel: null, billingModelBasis: null }
-  return {
-    billingModel,
-    billingModelBasis: root.billingModelBasis === 'stated' ? 'stated' : 'inferred',
+  const billingModelBasis = root.billingModelBasis === 'stated' ? 'stated' : 'inferred'
+
+  // Eine einzelne Leistungszeile auf einer Monatsrechnung ist deren Monatsspitze, kein
+  // Jahreshöchstwert — es sei denn, die Rechnung benennt die Jahresregel selbst (`stated`).
+  if (
+    billingModel === 'annual_max' &&
+    billingModelBasis !== 'stated' &&
+    periodDays !== null &&
+    periodDays <= MONTHLY_INVOICE_MAX_DAYS
+  ) {
+    return { billingModel: 'monthly_max_sum', billingModelBasis }
   }
+  return { billingModel, billingModelBasis }
 }
 
 function record(value: unknown): Record<string, unknown> {
@@ -672,15 +739,18 @@ export function parseInvoiceExtraction(raw: unknown): InvoiceExtraction {
     annualConsumptionKwh,
   )
   rates.energyPriceCtPerKwh = energyPrice.value
+  const period = billingPeriod(root)
 
   return {
     netzbetreiber: oneOf(root.netzbetreiber, INVOICE_SCAN_OPERATORS),
     netzebene: oneOf(root.netzebene, INVOICE_SCAN_NETZEBENEN),
     meteringVariant: oneOf(root.meteringVariant, INVOICE_SCAN_METERING_VARIANTS),
-    ...billingModelFrom(root),
+    ...billingModelFrom(root, billingPeriodDays(period.billingPeriodFrom, period.billingPeriodTo)),
+    // Gespeicherte Extraktionen tragen den Wert schon verdichtet (`billedKw`), Modellantworten die Zeilen.
+    billedKw: finiteNonNegative(root.billedKw) ?? billedKwFrom(root.billedKwLines),
     rates,
     annualConsumptionKwh,
-    ...billingPeriod(root),
+    ...period,
     energyPriceBasis: energyPrice.basis,
     supplierPriceBasis:
       root.supplierPriceBasis === 'net' || root.supplierPriceBasis === 'gross'
