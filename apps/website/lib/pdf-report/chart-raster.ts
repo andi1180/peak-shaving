@@ -79,6 +79,27 @@ const DEFAULT_BACKGROUND = '#ffffff'
 export type RasterizeOptions = {
   scale?: number
   background?: string
+  /**
+   * Nur SVG: den Ausschnitt um alles erweitern, was über die Zeichenfläche hinausragt (Labels im
+   * Rand). Am Bildschirm bleibt so etwas sichtbar, im Rasterbild schnitte der `viewBox` es ab.
+   */
+  includeOverflow?: boolean
+}
+
+/** Luft um überstehenden Inhalt, in CSS-Pixeln — die Unterlängen der Schrift liegen ausserhalb der Box. */
+const OVERFLOW_PADDING_PX = 2
+
+type SvgFrame = { x: number; y: number; width: number; height: number }
+
+/** Die Zeichenfläche `0 0 w h`, erweitert um den tatsächlich gezeichneten Inhalt. */
+function overflowFrame(svg: SVGSVGElement, width: number, height: number): SvgFrame {
+  const box = svg.getBBox()
+  const pad = OVERFLOW_PADDING_PX
+  const left = box.x < 0 ? Math.floor(box.x) - pad : 0
+  const top = box.y < 0 ? Math.floor(box.y) - pad : 0
+  const right = box.x + box.width > width ? Math.ceil(box.x + box.width) + pad : width
+  const bottom = box.y + box.height > height ? Math.ceil(box.y + box.height) + pad : height
+  return { x: left, y: top, width: right - left, height: bottom - top }
 }
 
 /* ────────────────────────────────────────────────────────────────────────────────────────────────
@@ -291,14 +312,25 @@ function escapeForXml(value: string): string {
   return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 }
 
-function serializeSvgChart(svg: SVGSVGElement, width: number, height: number, fontCss: string): string {
+function serializeSvgChart(
+  svg: SVGSVGElement,
+  width: number,
+  height: number,
+  fontCss: string,
+  frame?: SvgFrame,
+): string {
   const clone = svg.cloneNode(true) as SVGSVGElement
   inlineComputedPaint(svg, clone)
 
   clone.setAttribute('xmlns', SVG_NS)
   clone.setAttribute('width', String(width))
   clone.setAttribute('height', String(height))
-  if (!clone.getAttribute('viewBox')) clone.setAttribute('viewBox', `0 0 ${width} ${height}`)
+  if (frame) {
+    clone.setAttribute('viewBox', `${frame.x} ${frame.y} ${frame.width} ${frame.height}`)
+    clone.style.overflow = 'visible'
+  } else if (!clone.getAttribute('viewBox')) {
+    clone.setAttribute('viewBox', `0 0 ${width} ${height}`)
+  }
 
   const style = document.createElementNS(SVG_NS, 'style')
   style.textContent = fontCss
@@ -393,6 +425,11 @@ export async function rasterizeChart(
   }
 
   const fontCss = await reportFontFaceCss()
+  if (el instanceof SVGSVGElement && options.includeOverflow) {
+    const frame = overflowFrame(el, width, height)
+    const source = serializeSvgChart(el, frame.width, frame.height, fontCss, frame)
+    return svgSourceToPng(source, frame.width, frame.height, scale, background)
+  }
   const source =
     el instanceof SVGSVGElement
       ? serializeSvgChart(el, width, height, fontCss)

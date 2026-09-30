@@ -471,7 +471,12 @@ export async function buildReportCharts(input: PdfReportInput): Promise<ReportCh
                 horizonYears={costPlan.horizonYears}
               />
             ),
-            { width: DETAIL_CHART_WIDTH_PX, select: selectRechartsSurface },
+            {
+              width: DETAIL_CHART_WIDTH_PX,
+              select: selectRechartsSurface,
+              // „Break-even" (über der Fläche) und „Jahr" (unter der Achse) ragen über den Rand.
+              includeOverflow: costPlan.kind === 'cumulative',
+            },
           ),
         )
 
