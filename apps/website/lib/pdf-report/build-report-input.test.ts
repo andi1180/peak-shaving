@@ -291,3 +291,58 @@ describe('readRenderRequest — eine Meldung für jeden Fehlschlag', () => {
     expect(REPORT_UNAVAILABLE).not.toContain('unbekannt')
   })
 })
+
+/** Müldür-Zuschnitt: Lastgang 27.03.–31.08.2026, fünf Monatsrechnungen (Juni fehlt), Stichtag im selben Jahr. */
+describe('Preisgrundlage bei Preisen aus Rechnungen', () => {
+  const MULDUR_LOAD: LoadProfile = {
+    ...LOAD_PROFILE,
+    readings: [
+      { ts: '2026-03-27T00:00:00.000Z', gridPowerKw: 9 },
+      { ts: '2026-06-15T10:00:00.000Z', gridPowerKw: 11 },
+      { ts: '2026-08-31T21:45:00.000Z', gridPowerKw: 10 },
+    ],
+  }
+  const MULDUR_PERIODS = [
+    { from: '2026-07-01', to: '2026-07-31', assumed: false },
+    { from: '2026-03-01', to: '2026-03-31', assumed: false },
+    { from: '2026-02-01', to: '2026-02-28', assumed: false },
+    { from: '2026-04-01', to: '2026-04-30', assumed: false },
+    { from: '2026-05-01', to: '2026-05-31', assumed: false },
+  ]
+  const MULDUR_NOW = new Date('2026-09-30T10:00:00Z')
+
+  const vintageFor = (meta: Record<string, unknown>) => {
+    const readout = readRenderRequest({
+      data: [{ ...ROW, load_profile: MULDUR_LOAD, report_input_meta: { ...ROW.report_input_meta, ...meta } }],
+      error: null,
+    })
+    if (readout.status !== 'ok') throw new Error('Übergabe sollte lesbar sein')
+    return buildReportInputFromRenderRequest(readout.request, MULDUR_NOW).tariffVintage
+  }
+
+  it('nennt die Rechnungen, ihre Bereiche und die Monate ohne Rechnung', () => {
+    const text = vintageFor({ priceFromInvoice: true, invoicePeriods: MULDUR_PERIODS })
+
+    expect(text).toBe(
+      'Arbeitspreis und Grundgebühr stammen aus Ihren 5 Kundenrechnungen (01.02.–31.05.2026 und ' +
+        '01.07.–31.07.2026) und sind für den gesamten ausgewerteten Zeitraum unverändert ' +
+        'angenommen. Für Juni und August liegt keine Rechnung vor; dort sind dieselben Preise ' +
+        'angenommen.',
+    )
+    expect(text).not.toContain('Vorjahresrechnung')
+  })
+
+  it('bleibt beim bisherigen Satz ohne Kennzeichen, ohne Überlappung oder ohne Zeiträume', () => {
+    const legacy = vintageFor({})
+    expect(legacy).toContain('2025er-Vorjahresrechnung')
+
+    expect(vintageFor({ priceFromInvoice: false, invoicePeriods: MULDUR_PERIODS })).toBe(legacy)
+    expect(
+      vintageFor({
+        priceFromInvoice: true,
+        invoicePeriods: [{ from: '2025-01-01', to: '2025-12-31', assumed: false }],
+      }),
+    ).toBe(legacy)
+    expect(vintageFor({ priceFromInvoice: true, invoicePeriods: [] })).toBe(legacy)
+  })
+})

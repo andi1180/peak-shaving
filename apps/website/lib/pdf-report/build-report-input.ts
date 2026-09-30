@@ -18,7 +18,7 @@ import {
   formatAnalysisPeriod,
   formatPrintedAt,
   reportSubtitle,
-  tariffVintageNote,
+  tariffVintageNoteForInvoices,
 } from './derive'
 import { TARIFF_SOURCE_UNTRACKED } from './types'
 import type {
@@ -120,6 +120,8 @@ export type ReportRenderMeta = {
   priceDisplay: DisplayPriceBasis | undefined
   /** Die Mindestleistung fehlte und wurde mit 0 gerechnet (Annahme). Fehlt bei allen übrigen Übergaben. */
   minBillableKwAssumed: boolean
+  /** Der Arbeitspreis des Entwurfs trägt den Rechnungs-Vermerk. Fehlt bei älteren Übergaben. */
+  priceFromInvoice: boolean
 }
 
 /** Eine gelesene, nicht abgelaufene Übergabe. */
@@ -224,6 +226,7 @@ function readMeta(value: unknown): ReportRenderMeta {
     priceDisplay:
       meta.priceDisplay === 'gross' || meta.priceDisplay === 'net' ? meta.priceDisplay : undefined,
     minBillableKwAssumed: meta.minBillableKwAssumed === true,
+    priceFromInvoice: meta.priceFromInvoice === true,
   }
 }
 
@@ -366,10 +369,12 @@ export function buildReportInputFromRenderRequest(
     netzbetreiber: meta.netzbetreiber ?? undefined,
     netzebene: meta.netzebene ?? undefined,
     ...(meta.minBillableKwAssumed ? { minBillableKwAssumed: true } : {}),
-    tariffVintage: tariffVintageNote(
+    tariffVintage: tariffVintageNoteForInvoices(
       loadProfile,
       /* Ohne Angabe nennt der Satz die Grundgebühr nicht — die konservative Fassung. */
       { supplierBaseFeeEurPerMonth: meta.supplierBaseFeeEurPerMonth ?? undefined },
+      meta.tariffProvenance.invoicePeriods,
+      meta.priceFromInvoice,
       now,
     ),
     /*
