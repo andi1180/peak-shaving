@@ -269,7 +269,7 @@ describe('Teiljahres-Hinweis', () => {
     expect(notice.body).toContain('hochgerechnet')
     expect(notice.body).toContain('deckt 6 von 12 Monaten ab')
     expect(notice.body).toContain('nach Tagen (157 von 365)')
-    expect(notice.body).toContain('nach Monaten (6 von 12)')
+    expect(notice.body).toContain('der Leistungs-Anteil nach Monaten (6 von 12)')
     expect(notice.body).not.toContain('nicht aussagekräftig')
     expect(notice.body).not.toContain('Jahreshöchstwert')
   })

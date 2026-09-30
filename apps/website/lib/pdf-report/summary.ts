@@ -837,7 +837,7 @@ export function buildPartialYearNotice(analysis: PdfReportAnalysis): ReportNotic
     body:
       `Ihr Lastgang deckt ${coveredMonths} von 12 Monaten ab. Die Jahreszahlen sind daraus ` +
       `hochgerechnet: der Energie-Anteil nach Tagen (${coveredDays} von 365), der ` +
-      `Leistungspreis-Anteil nach Monaten (${coveredMonths} von 12). Andere Jahreszeiten können ` +
+      `Leistungs-Anteil nach Monaten (${coveredMonths} von 12). Andere Jahreszeiten können ` +
       'andere Börsenpreise und andere Lastspitzen bringen — die Hochrechnung schreibt Ihre ' +
       'gemessenen Monate fort, sie ist keine Prognose.',
     list: null,

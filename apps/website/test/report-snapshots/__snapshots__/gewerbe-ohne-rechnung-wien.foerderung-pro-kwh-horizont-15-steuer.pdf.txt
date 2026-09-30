@@ -481,11 +481,12 @@ Netzrechnung. Wo uns ein Wert fehlt, weisen wir das aus, statt ihn zu schätzen 
 später niemandem als Fehler auf, sondern als Ergebnis.
 
 Ein Fahrplan, keine addierten Einzelrechnungen
-Spitzenkappung, Eigenverbrauch und tarifbewusstes Laden konkurrieren um dieselbe Batteriekapazität. Sie
-werden deshalb in einer einzigen Simulation gemeinsam gefahren und erst danach in Leistungspreis- und
-Energie-Anteil aufgeteilt — nie getrennt gerechnet und addiert. Der Energie-Anteil ist die volle Kostendifferenz
-Ihres Netzbezugs ohne und mit Speicher, Ladeverluste eingeschlossen; beide Anteile ergeben zusammen
-genau die ausgewiesene Gesamtersparnis.
+Spitzenkappung, Eigenverbrauch und tarifbewusstes Laden konkurrieren um dieselbe Batteriekapazität.
+Sie werden deshalb in einer einzigen Simulation gemeinsam gefahren und erst danach in Leistungs-
+und Energie-Anteil aufgeteilt — nie getrennt gerechnet und addiert. Der Energie-Anteil ist die volle
+Kostendifferenz Ihres Netzbezugs ohne und mit Speicher, Ladeverluste eingeschlossen; beide Anteile
+ergeben zusammen genau die ausgewiesene Gesamtersparnis. Der Leistungs-Anteil umfasst den
+Leistungspreis, die Gebrauchsabgabe darauf und den EAG-Förderbeitrag Leistung.
 
 Physikalische Simulation, kein Hochrechnen von Spitzen
 Die Batterie wird über den gesamten Zeitraum chronologisch mit Ladestand, Leistungsgrenze und
@@ -510,7 +511,7 @@ der späteren Jahre ist dadurch eher optimistisch.
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                        www.coolin.at · Seite 14 von 18
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                      www.coolin.at · Seite 14 von 18
     COOLiN ENERGY          Referenzfall Gewerbe
 
 

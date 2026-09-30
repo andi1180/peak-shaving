@@ -110,8 +110,23 @@ describe('methodologyItemsFor — der Datenschutz-Punkt nur im echten Client-Lau
 
     expect(items.map((i) => i.title)).not.toContain('Bestmarke, nicht Alltagsbetrieb')
     expect(plan.body).toContain('am Vorabend')
-    expect(plan.body).toContain('Der Leistungspreis-Anteil der Ersparnis ist deshalb eine Obergrenze')
+    expect(plan.body).toContain('Der Leistungs-Anteil der Ersparnis ist deshalb eine Obergrenze')
     /* Obergrenze = aWATTar ohne Steuerung − Rückblick-Reihe = 110 − 90 über die 31 gemessenen Tage. */
     expect(plan.body).toContain(`über die 31 gemessenen Tage höchstens ${formatEur(20)}`)
+  })
+})
+
+/** Seit #407 trägt der Leistungs-Anteil Leistungspreis, Gebrauchsabgabe und EAG-Förderbeitrag Leistung. */
+describe('Methodik — Leistungs-Anteil statt Leistungspreis-Anteil', () => {
+  it('nennt den Leistungs-Anteil und seine drei Bestandteile', () => {
+    const body = methodologyItemsFor(inputWith('client')).find((i) => i.id === 'methodik-ein-fahrplan')!
+      .body
+
+    expect(body).toContain('erst danach in Leistungs- und Energie-Anteil aufgeteilt')
+    expect(body).toContain(
+      'Der Leistungs-Anteil umfasst den Leistungspreis, die Gebrauchsabgabe darauf und den ' +
+        'EAG-Förderbeitrag Leistung.',
+    )
+    expect(body).not.toContain('Leistungspreis- und Energie-Anteil')
   })
 })
