@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { Fragment, type ReactNode } from 'react'
 import { Document, Image, Page, StyleSheet, Text, View } from '@react-pdf/renderer'
 import { reportSectionEnabled, type ReportOptionalSection } from 'shared'
 
@@ -60,6 +60,7 @@ import { buildInsightChapter } from './insight'
 import { buildPrerequisitesChapter } from './prerequisites'
 import { buildRecommendationChapter } from './recommendation'
 import type { ReportBaukastenId, ReportBaukastenRegistry } from './registry'
+import { peakShavingChartCaption, peakShavingChartData } from './peak-shaving-chart'
 import { buildWaysChapter } from './ways'
 import { buildAnnualScenarioChapter } from './annual-scenario'
 import { buildPvValueChapter } from './pv-value'
@@ -1742,6 +1743,7 @@ function WaysChapter({
   layout: ReportLayout
 }) {
   const chapter = buildWaysChapter(input.analysis)
+  const peakData = peakShavingChartData(input.analysis, input.loadProfile, chapter)
 
   return (
     <View style={styles.body}>
@@ -1755,7 +1757,16 @@ function WaysChapter({
         missing={figureMissingText('Das Balkendiagramm')}
       />
       {chapter?.statements.map((statement) => (
-        <Statement key={statement.id} statement={statement} layout={layout} />
+        <Fragment key={statement.id}>
+          <Statement statement={statement} layout={layout} />
+          {statement.id === 'ways_peak_shaving' && peakData && (
+            <ChartFigure
+              raster={charts.peakShaving}
+              caption={peakShavingChartCaption(peakData)}
+              missing={figureMissingText('Das Kappungs-Diagramm')}
+            />
+          )}
+        </Fragment>
       ))}
     </View>
   )
