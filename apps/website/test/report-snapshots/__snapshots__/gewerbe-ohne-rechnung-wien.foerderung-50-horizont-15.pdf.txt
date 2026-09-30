@@ -520,8 +520,6 @@ selbst stehen weiter unten in der Tabelle „Tarifkomponenten", mit ihrer Herkun
    Abgedeckt: 365 Tage · interpolierte Lücken: 0
    · Die Zeitstempel bezeichnen das Ende des Messintervalls (Spalte „Ende Ablesezeitraum“) und wurden
    auf den Intervallbeginn umgerechnet.
-   · source ist „import_only" ohne PV-Profil: Die Eigenverbrauchs- und Lastverschiebungs-Ersparnis ist
-   nicht beurteilbar und kann unterschätzt sein (keine Einspeise-/PV-Daten).
 
 
 Tarifsätze

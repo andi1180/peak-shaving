@@ -473,7 +473,7 @@ der späteren Jahre ist dadurch eher optimistisch.
 
 
 COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                      www.coolin.at · Seite 13 von 17
-    COOLiN ENERGY          Referenzfall Gewerbe
+    COOLiN ENERGY           Referenzfall Gewerbe
 
 
 
@@ -502,8 +502,6 @@ selbst stehen weiter unten in der Tabelle „Tarifkomponenten", mit ihrer Herkun
    Abgedeckt: 365 Tage · interpolierte Lücken: 0
    · Die Zeitstempel bezeichnen das Ende des Messintervalls (Spalte „Ende Ablesezeitraum“) und wurden
    auf den Intervallbeginn umgerechnet.
-   · source ist „import_only" ohne PV-Profil: Die Eigenverbrauchs- und Lastverschiebungs-Ersparnis ist
-   nicht beurteilbar und kann unterschätzt sein (keine Einspeise-/PV-Daten).
 
 
 Tarifsätze
@@ -536,31 +534,29 @@ Datenquellen
                                 Lastgangs.                                 verfügbar)
 
  Tarif
-
-
-
-
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                              www.coolin.at · Seite 14 von 17
-    COOLiN ENERGY           Referenzfall Gewerbe
-
-
-
-
  Netzbetreiber-Preisblatt       Leistungspreis, Abrechnungsmodell und       Preisblatt-Zeile, gültig ab 01.01.2025.
                                 Mindestleistung; bei berechenbarem          Name, Version und Fundstelle des Blatts:
                                 Vergleich zusätzlich die Netz-Arbeitspreise nicht erfasst.
                                 je Zeitfenster.
 
- Lieferanten-Tarif              Arbeitspreis, Grundgebühr und              Kundenrechnung: nicht erfasst.
-                                Einspeisevergütung der Energieseite.       Vergleichstarif aWATTar, gültig
-                                                                           ab 01.01.2025 — Fundstelle:
-                                                                           aWATTar HOURLY, Grundgebühr
-                                                                           laut Endkunden-Preisangabe (5,75 €
-                                                                           brutto/Monat = 4,79 € netto), im Repo
-                                                                           festgehalten am 02.09.2026. Ändert sich
-                                                                           der Satz, kommt ein ZWEITER Eintrag
-                                                                           mit späterem validFrom hinzu — der
-                                                                           bestehende wird nicht editiert.
+
+
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                              www.coolin.at · Seite 14 von 17
+    COOLiN ENERGY          Referenzfall Gewerbe
+
+
+
+
+ Lieferanten-Tarif              Arbeitspreis, Grundgebühr und          Kundenrechnung: nicht erfasst.
+                                Einspeisevergütung der Energieseite.   Vergleichstarif aWATTar, gültig
+                                                                       ab 01.01.2025 — Fundstelle:
+                                                                       aWATTar HOURLY, Grundgebühr
+                                                                       laut Endkunden-Preisangabe (5,75 €
+                                                                       brutto/Monat = 4,79 € netto), im Repo
+                                                                       festgehalten am 02.09.2026. Ändert sich
+                                                                       der Satz, kommt ein ZWEITER Eintrag
+                                                                       mit späterem validFrom hinzu — der
+                                                                       bestehende wird nicht editiert.
 
  Batterie
  Dyness Stack 100 30,72 kWh Nutzbare Kapazität, Lade-/Entladeleistung, Katalogstand vom 22.09.2026
@@ -605,19 +601,19 @@ aus einem Rückblick.
    auf Netz- und Energiepreis samt Grundgebühren stecken in den Monatskosten und damit in den
    Kopfzahlen. Der Leistungspreis steht als eigene Jahreszahl ohne Gebrauchsabgabe da, so wie er auf
    der Netzrechnung steht; die Ersparnis durch Spitzenkappung enthält sie, wo sie anfällt.
+   Gebrauchsabgabe Wien angenommen — Standort nicht angegeben. Sie fällt nur für Anschlüsse im
+   Wiener Gemeindegebiet an; liegt Ihr Anschluss ausserhalb Wiens, sind die Kosten um diesen Posten
+   zu hoch angesetzt.
 
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                              www.coolin.at · Seite 15 von 17
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                         www.coolin.at · Seite 15 von 17
     COOLiN ENERGY          Referenzfall Gewerbe
 
 
 
 
-   Gebrauchsabgabe Wien angenommen — Standort nicht angegeben. Sie fällt nur für Anschlüsse im
-   Wiener Gemeindegebiet an; liegt Ihr Anschluss ausserhalb Wiens, sind die Kosten um diesen Posten
-   zu hoch angesetzt.
    Die Tabelle „Tarifkomponenten" zeigt die erfassten Parameter, nicht alle in der Rechnung verwendeten:
    einzelne Grössen fliessen ein, ohne eine eigene Zeile zu tragen — die Mindestleistung etwa, die den
    abgerechneten Leistungswert nach unten begrenzt.

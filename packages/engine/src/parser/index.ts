@@ -1,5 +1,5 @@
 // Parser + Lastgang-Aufbereitung (§3.2/§3.3). Rein & isomorph, kein I/O.
-export { parseLoadProfile, parsePvProfile } from './parse'
+export { IMPORT_ONLY_WITHOUT_PV_WARNING, parseLoadProfile, parsePvProfile } from './parse'
 // B24, Teil 1: der Metadaten-Leser (Zeitraum, Intervall, Lücken) — bewusst NEBEN `parseLoadProfile`
 // und nicht darin, s. den Kopf von `metadata.ts`.
 export {

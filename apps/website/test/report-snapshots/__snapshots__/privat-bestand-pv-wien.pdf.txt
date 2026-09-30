@@ -473,8 +473,9 @@ selbst stehen weiter unten in der Tabelle „Tarifkomponenten", mit ihrer Herkun
    Abgedeckt: 209 Tage · interpolierte Lücken: 0
    · 14980 Zeile(n) ohne Messwert (27.08.2025 bis 29.01.2026) — die Zählerauslesung beginnt erst ab
    30.01.2026.
-   · source ist „import_only" ohne PV-Profil: Die Eigenverbrauchs- und Lastverschiebungs-Ersparnis ist
-   nicht beurteilbar und kann unterschätzt sein (keine Einspeise-/PV-Daten).
+   · Ihr Lastgang enthält nur den Bezug aus dem Netz, nicht, was Ihre PV-Anlage ins Netz einspeist. Wie
+   viel PV-Überschuss ein Speicher zusätzlich aufnehmen könnte, lässt sich damit nicht beurteilen; die
+   Ersparnis kann deshalb unterschätzt sein.
    · Für diesen Zählpunkt liegt eine geschätzte PV-Erzeugungsreihe (PVGIS) vor, sie wurde aber NICHT vom
    Lastgang abgezogen (pv_already_in_grid_profile). Gerechnet ist der echte, gemessene Netzbezug. Die
    Anlage ist als BESTEHEND erfasst: ihre Eigenversorgung steckt im Lastgang bereits, ein Abzug zählte
@@ -513,7 +514,6 @@ Tarifkomponenten
 
 
 Datenquellen
-
 
 
 
