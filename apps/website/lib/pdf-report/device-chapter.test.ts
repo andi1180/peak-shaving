@@ -150,7 +150,7 @@ describe('Gerätekapitel — Top-Alternativen, Urteil, Datenquellen', () => {
     expect(comparison.statement.title).toBe('Lohnt sich ein Speicher?')
     expect(comparison.statement.amount).toEqual({ value: 'Derzeit nicht', caption: '', tone: 'negative' })
     expect(comparison.table!.columns.at(-1)!.label).toBe('Abstand zum besten Gerät')
-    expect(buildRecommendationChapter(input.analysis).recommendation!.title).toBe(
+    expect(buildRecommendationChapter(input.analysis, input.loadProfile).recommendation!.title).toBe(
       'Bestes Gerät im Katalog: Dyness Stack 100',
     )
     expect(proposalTitles(input)).not.toContain('Wollen Sie das Maximum')
@@ -233,7 +233,7 @@ describe('Gerätekapitel — Top-Alternativen, Urteil, Datenquellen', () => {
   it('Gerätehinweise stehen im Hinweiskasten, nicht als lose Zeile', () => {
     const input = inputWith(0)
     input.analysis.perBattery[0]!.warnings = ['Tarif ohne Leistungspreis: nichts zu kappen.']
-    const statement = buildRecommendationChapter(input.analysis).recommendation!
+    const statement = buildRecommendationChapter(input.analysis, input.loadProfile).recommendation!
 
     expect(statement.notice).toMatchObject({
       tone: 'warning',
@@ -276,7 +276,7 @@ describe('Gerätekapitel — Top-Alternativen, Urteil, Datenquellen', () => {
     expect(buildComparisonChapter(input.analysis).statement.title).toBe(
       'Die übrigen Geräte des Katalogs — im Vergleich',
     )
-    expect(buildRecommendationChapter(input.analysis).recommendation!.title).toBe(
+    expect(buildRecommendationChapter(input.analysis, input.loadProfile).recommendation!.title).toBe(
       'Unsere Empfehlung: Dyness Stack 100',
     )
     expect(proposalTitles(input)).toContain('Wollen Sie das Maximum')

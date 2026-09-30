@@ -300,7 +300,7 @@ export async function runSummaryAnalysis(
       estimatedPv: estimate?.summary ?? null,
       tariffSource,
       tariff: payload.tariff,
-      chapter: buildRecommendationChapter(result),
+      chapter: buildRecommendationChapter(result, payload.load.profile),
       detail: buildDetailChapter(result),
       detailCostKind: plan.cost?.kind ?? null,
       detailFlowPlanned: plan.flow !== null,
