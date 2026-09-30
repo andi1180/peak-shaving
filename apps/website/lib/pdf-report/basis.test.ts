@@ -939,3 +939,57 @@ describe('Datenquellen — Lieferanten-Tarif über alle Rechnungen', () => {
     expect(vintageOf(table, 'tariff_supplier')).toMatch(/^Kundenrechnung: .*Vergleichstarif/)
   })
 })
+
+/** Tarifkomponenten mit Rechnungswerten (Wizard-Pfad): genauere Anzeige und eigener Status. */
+describe('Tarifkomponenten — Werte aus Rechnungen', () => {
+  const tableFor = (
+    energyPriceCtPerKwh: number,
+    flags: { priceFromInvoice?: boolean; baseFeeFromInvoice?: boolean },
+  ) => {
+    const analysis = analysisWithSupplierFee(3.99)
+    analysis.assumptions = { ...analysis.assumptions, energyPriceCtPerKwh }
+    return buildBasisChapter({
+      title: 'Wirtschaftlichkeitsanalyse Batteriespeicher',
+      subtitle: 'Auf Basis Ihres Viertelstunden-Lastgangs',
+      period: '01.01.2025 – 31.12.2025',
+      printedAt: '17.09.2026',
+      analysis,
+      loadProfile: LOAD_PROFILE,
+      tariffSource: TARIFF_SOURCE_UNTRACKED,
+      tariffVintage: null,
+      ...flags,
+    }).tariffComponents
+  }
+  const cells = (table: ReturnType<typeof tableFor>, key: string) =>
+    table.rows.find((row) => row.key === key)?.cells.slice(1)
+
+  it('zeigt den Rechnungs-Arbeitspreis mit seinen Nachkommastellen', () => {
+    expect(cells(tableFor(16.2, { priceFromInvoice: true }), 'tariff_energy_price')).toEqual([
+      '€ 0,162 / kWh',
+      'aus Ihren Rechnungen (Energieseite)',
+    ])
+  })
+
+  it('rundet ohne Kennzeichen wie bisher auf Cent', () => {
+    expect(cells(tableFor(15.697, {}), 'tariff_energy_price')?.[0]).toBe('€ 0,16 / kWh')
+    expect(cells(tableFor(24.5, { priceFromInvoice: false }), 'tariff_energy_price')?.[0]).toBe(
+      '€ 0,25 / kWh',
+    )
+  })
+
+  it('nennt die Rechnung als Herkunft nur mit dem jeweiligen Kennzeichen', () => {
+    const invoice = 'aus Ihren Rechnungen (Energieseite)'
+    const manual = 'aus Ihren Angaben (Energieseite)'
+    const both = tableFor(16.2, { priceFromInvoice: true, baseFeeFromInvoice: true })
+    expect(cells(both, 'tariff_supplier_fee')?.[1]).toBe(invoice)
+
+    for (const flags of [{ priceFromInvoice: false, baseFeeFromInvoice: false }, {}]) {
+      const table = tableFor(16.2, flags)
+      expect(cells(table, 'tariff_energy_price')?.[1]).toBe(manual)
+      expect(cells(table, 'tariff_supplier_fee')?.[1]).toBe(manual)
+    }
+    // Die Kennzeichen wirken je Zeile, nicht gemeinsam.
+    const priceOnly = tableFor(16.2, { priceFromInvoice: true })
+    expect(cells(priceOnly, 'tariff_supplier_fee')?.[1]).toBe(manual)
+  })
+})

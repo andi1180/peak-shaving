@@ -61,6 +61,11 @@ export function formatEur(value: number): string {
   return de({ style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(value)
 }
 
+/** Euro-Satz mit so vielen Nachkommastellen, wie er trägt — mindestens 2, höchstens 4. */
+export function formatEurRate(value: number): string {
+  return de({ style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 4 }).format(value)
+}
+
 /** Euro mit zwei Nachkommastellen (Detailwerte). */
 export function formatEur2(value: number): string {
   return de({ style: 'currency', currency: 'EUR', minimumFractionDigits: 2 }).format(value)
