@@ -272,6 +272,7 @@ PV-Planung 7, Datenblatt 6, Batterie-Text 5, PV-Text 3, Upload-Klassifikation 0.
 **minBillableKw (29.09.2026):** nur bei ausdrücklichem Mindest-Wortlaut; liegt eine abgerechnete kW darunter, wird der Wert verworfen — je Rechnung und im Merge (`minBillableKwContradicted`).
 **Leistungspreis (29.09.2026):** bei genau einer Leistungszeile rechnet der Parser tagesanteilig (Nettobetrag ÷ kW ÷ Tage × 365; 365/366 Tage = Betrag ÷ kW) statt des Modellwerts (`billedKwLines[].netAmountEur`, Zahl ohne Union); im Merge gilt ≤ 1 % Abweichung als Rundung (Mittelwert).
 **meteringVariant (29.09.2026):** eine abgerechnete kW > 0 macht die Rechnung `mit_leistungsmessung` (ausser `unterbrechbar`); im Merge schlägt eine Rechnung mit kW ein `ohne_leistungsmessung` der übrigen — ohne kW-Beleg bleibt ein Widerspruch ein Konflikt.
+**Erneutes Lesen (30.09.2026):** der Upload ersetzt Felder mit `_provenance[feld].origin: 'invoice'` durch den Merge über alle gelesenen Rechnungen und entfernt, wozu keine mehr etwas sagt; Handeingaben und widersprüchliche Felder bleiben, Altwerte ohne Vermerk gelten vor `INVOICE_ORIGIN_LEGACY_BEFORE` als übernommen, wenn schon Rechnungen am Zählpunkt lagen (`apps/web/lib/admin/invoice-draft-fields.ts`).
 
 ### Parser: Einheit aus der Spalte „Einheit" (29.09.2026)
 
