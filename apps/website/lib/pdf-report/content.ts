@@ -79,10 +79,11 @@ export const METHODOLOGY_ITEMS: readonly MethodologyItem[] = [
     body:
       'Spitzenkappung, Eigenverbrauch und tarifbewusstes Laden konkurrieren um dieselbe ' +
       'Batteriekapazität. Sie werden deshalb in einer einzigen Simulation gemeinsam gefahren und ' +
-      'erst danach in Leistungspreis- und Energie-Anteil aufgeteilt — nie getrennt gerechnet und ' +
+      'erst danach in Leistungs- und Energie-Anteil aufgeteilt — nie getrennt gerechnet und ' +
       'addiert. Der Energie-Anteil ist die volle Kostendifferenz Ihres Netzbezugs ohne und mit ' +
       'Speicher, Ladeverluste eingeschlossen; beide Anteile ergeben zusammen genau die ' +
-      'ausgewiesene Gesamtersparnis.',
+      'ausgewiesene Gesamtersparnis. Der Leistungs-Anteil umfasst den Leistungspreis, die ' +
+      'Gebrauchsabgabe darauf und den EAG-Förderbeitrag Leistung.',
   },
   {
     id: 'methodik-simulation',

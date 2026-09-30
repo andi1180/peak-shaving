@@ -109,7 +109,7 @@ export function dispatchMethodText({ analysis, isStandardProfile, withUpperBound
   const peak =
     analysis.current.leistungspreisCostPerYear > 0
       ? ' Anders die Spitzenkappung: Kappschwelle und Reserve für die Spitzen sind aus dem ganzen ' +
-        'Zeitraum bestimmt, also mit dem Wissen, wann die Spitzen kommen. Der Leistungspreis-Anteil ' +
+        'Zeitraum bestimmt, also mit dem Wissen, wann die Spitzen kommen. Der Leistungs-Anteil ' +
         'der Ersparnis ist deshalb eine Obergrenze.'
       : ''
   const hindsight = comparison?.spotWithBatteryHindsightEur
