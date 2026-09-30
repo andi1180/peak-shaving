@@ -118,6 +118,8 @@ export type ReportRenderMeta = {
   batteryCatalogMeta: Record<string, BatteryCatalogMeta> | undefined
   /** H3 — fehlt bei älteren Übergaben; dann netto, wie jeder Report davor. */
   priceDisplay: DisplayPriceBasis | undefined
+  /** Die Mindestleistung fehlte und wurde mit 0 gerechnet (Annahme). Fehlt bei allen übrigen Übergaben. */
+  minBillableKwAssumed: boolean
 }
 
 /** Eine gelesene, nicht abgelaufene Übergabe. */
@@ -221,6 +223,7 @@ function readMeta(value: unknown): ReportRenderMeta {
     batteryCatalogMeta: readBatteryCatalogMeta(meta.batteryCatalogMeta),
     priceDisplay:
       meta.priceDisplay === 'gross' || meta.priceDisplay === 'net' ? meta.priceDisplay : undefined,
+    minBillableKwAssumed: meta.minBillableKwAssumed === true,
   }
 }
 
@@ -362,6 +365,7 @@ export function buildReportInputFromRenderRequest(
     /* Ohne bekannten Netzbetreiber gar keine Angabe — der Satz steht dann wortgleich wie zuvor. */
     netzbetreiber: meta.netzbetreiber ?? undefined,
     netzebene: meta.netzebene ?? undefined,
+    ...(meta.minBillableKwAssumed ? { minBillableKwAssumed: true } : {}),
     tariffVintage: tariffVintageNote(
       loadProfile,
       /* Ohne Angabe nennt der Satz die Grundgebühr nicht — die konservative Fassung. */

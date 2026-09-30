@@ -1,5 +1,6 @@
 import {
   DEFAULT_DRAFT_BILLING_MODEL,
+  draftMinBillableKwDefaults,
   tariffParamsSchema,
   type BillingModel,
   type TariffParams,
@@ -39,8 +40,9 @@ const COMPARISON_DRAFT_KEYS = {
  * das Ergebnis, nicht der Fehlerfall — geprüft wird gegen `tariffParamsSchema` selbst, damit hier
  * keine zweite, abweichende Auslegung desselben Contracts entsteht.
  *
- * ⚠ EINE einzige Ausnahme steht unten im Rumpf: „ohne Leistungsmessung" LEITET einen Leistungspreis
- * von 0 ab. Das ist kein Ersatzwert, sondern die Rechenfolge der Variante selbst — Begründung dort.
+ * ⚠ Zwei Ausnahmen stehen unten im Rumpf: „ohne Leistungsmessung" LEITET einen Leistungspreis von 0
+ * ab (Rechenfolge der Variante), und eine fehlende Mindestleistung MIT Leistungsmessung wird 0 —
+ * als ausgewiesene Annahme, weil 0 den abgerechneten Wert nie anhebt (`draftMinBillableKwDefaults`).
  *
  * ── ⚠ WAS NICHT MITKOMMT, UND WARUM ES KEIN PLATZHALTER WIRD ──────────────────────────────────
  * `timeOfUseWindows`, `dynamicPriceProfile` und `benutzungsdauerModel` sind im Contract OPTIONAL
@@ -162,6 +164,14 @@ export function mapDraftToTariffParams(
   }
   // Ohne Leistungspreis gibt es keinen Sockel, auf den eine Mindestleistung wirken könnte.
   if (candidate.leistungspreisEurPerKwYear === 0 && !('minBillableKw' in candidate)) {
+    candidate.minBillableKw = 0
+  }
+  // Mit Leistungsmessung, aber ohne genannte Mindestleistung: ohne Untergrenze rechnen (Annahme,
+  // im Report ausgewiesen) — s. `draftMinBillableKwDefaults`.
+  if (
+    !('minBillableKw' in candidate) &&
+    draftMinBillableKwDefaults(draft, options.billingModelOverride)
+  ) {
     candidate.minBillableKw = 0
   }
 
