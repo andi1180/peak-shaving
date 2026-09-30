@@ -10,7 +10,7 @@ import { SECTION_ID } from './content'
 import { detailChartPlan } from './detail'
 import { insightChartPlan } from './insight'
 import { reportLayoutOf, type ReportPlacement } from './layout'
-import { buildRecommendationChapter } from './recommendation'
+import { buildRecommendationChapter, type RecommendationLoadProfile } from './recommendation'
 import { resolveReportText } from './report-text'
 import { statementPoints } from './statement'
 import type { PdfReportAnalysis } from './types'
@@ -22,6 +22,20 @@ import { buildWaysChapter } from './ways'
  * der Betrag der Ladesteuerung aus dem Dokument verschwunden. Er steht seither als KOPFZAHL an
  * dieser Aussage, weil sie sonst die Herkunft einer Zahl erklärte, die nirgends vorkommt.
  */
+
+
+/** Ein Messwert je Kalendermonat (Mitte des Monats, 2026) — die Monatsindizes 0–11 in `months`. */
+function profileForMonths(months: number[]): RecommendationLoadProfile {
+  return {
+    readings: months.map((m) => ({
+      ts: new Date(Date.UTC(2026, m, 15, 10)).toISOString(),
+      gridPowerKw: 1,
+    })),
+    timezoneMeta: 'Europe/Vienna',
+  }
+}
+
+const FULL_YEAR = profileForMonths([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
 
 const COMPARISON: MonthlyTariffComparison = {
   currentTariffEur: [120, ...Array<null>(11).fill(null)],
@@ -113,7 +127,7 @@ describe('Hinweis „nur mit dynamischem Tarif" ersetzt die Speicher-Strecke', (
       perBattery: [home, { ...home, battery: { ...home.battery, id: 'kat-2' } }],
       tariffOptimization: { computable: false, side: 'grid_tariff', kind: 'unavailable', ranges: [], message: '' } as never,
     }
-    expect(buildRecommendationChapter(analysis).recommendation?.body).toBe(DYNAMIC_TARIFF_HINT_NOT_COMPUTABLE)
+    expect(buildRecommendationChapter(analysis, FULL_YEAR).recommendation?.body).toBe(DYNAMIC_TARIFF_HINT_NOT_COMPUTABLE)
     expect(detailChartPlan(analysis)).toEqual({ cost: null, flow: null })
     expect(insightChartPlan(analysis)).toEqual({ hourFlow: null, chargePrice: null })
     expect(comparisonChartPlan(analysis)).toBeNull()
@@ -130,7 +144,7 @@ describe('load_control — derselbe Wert wie die Differenz der Wege', () => {
 
   it.each([true, false])('bei 365 Tagen genau die Wege-Differenz (Bestandsanlage: %s)', (withExisting) => {
     const analysis = analysisFor(withExisting)
-    const statement = buildRecommendationChapter(analysis).loadControl!
+    const statement = buildRecommendationChapter(analysis, FULL_YEAR).loadControl!
 
     expect(statement.amount?.value).toBe(wayDifference(analysis))
     expect(statement.rows).toEqual([])
@@ -139,7 +153,7 @@ describe('load_control — derselbe Wert wie die Differenz der Wege', () => {
   it('bei kürzerem Lastgang: Jahreswert gekennzeichnet, Wege-Differenz über die gemessenen Tage', () => {
     const partial = { ...ENTRY, coveredDays: 209, annualizationFactor: 365 / 209, energySavingPerYear: 26.2, energySavingOverCoveredPeriod: 15 }
     const analysis: PdfReportAnalysis = { ...analysisFor(false), perBattery: [partial] }
-    const chapter = buildRecommendationChapter(analysis)
+    const chapter = buildRecommendationChapter(analysis, FULL_YEAR)
 
     expect(chapter.loadControl!.amount?.value).toBe(formatEur(26.2))
     expect(chapter.loadControl!.amount?.caption).toContain('auf ein Jahr hochgerechnet')
@@ -154,7 +168,7 @@ describe('load_control — derselbe Wert wie die Differenz der Wege', () => {
   it('nennt keine Aufteilung, die es nicht mehr gibt, und keinen Rückblick in Versalien', () => {
     const analysis = analysisFor(true)
     const body = resolveReportText(
-      buildRecommendationChapter(analysis).loadControl?.body ?? '',
+      buildRecommendationChapter(analysis, FULL_YEAR).loadControl?.body ?? '',
       reportLayoutOf([]),
       'load_control',
     )
@@ -167,10 +181,10 @@ describe('load_control — derselbe Wert wie die Differenz der Wege', () => {
 
   it('die Kopfzahl-Beschriftung nennt netto oder inkl. USt, nie „exkl. MwSt."', () => {
     const analysis = analysisFor(true)
-    const netto = buildRecommendationChapter(analysis).loadControl!
+    const netto = buildRecommendationChapter(analysis, FULL_YEAR).loadControl!
     expect(netto.amount?.caption).toBe('über die 365 gemessenen Tage, netto')
 
-    const brutto = buildRecommendationChapter(analysisForDisplay(analysis, 'gross')).loadControl!
+    const brutto = buildRecommendationChapter(analysisForDisplay(analysis, 'gross'), FULL_YEAR).loadControl!
     expect(brutto.amount?.caption).toBe('über die 365 gemessenen Tage, inkl. 20 % USt')
   })
 })
@@ -181,7 +195,7 @@ describe('Energie-Anteil ohne vollständige Preisdaten', () => {
       ...analysisFor(false),
       perBattery: [{ ...ENTRY, energySavingBasis: 'energy_price_only' }],
     }
-    const points = buildRecommendationChapter(analysis).recommendation!.points ?? []
+    const points = buildRecommendationChapter(analysis, FULL_YEAR).recommendation!.points ?? []
 
     expect(points.map((p) => p.text)).toContain(ENERGY_PRICE_ONLY_NOTE)
   })
@@ -202,8 +216,10 @@ describe('recommendation — Kapp-Zeilen', () => {
   it('erscheinen bei leistungspreisSavingPerYear > 0 mit Schwelle und Leistungswert vorher/nachher', () => {
     const analysis = analysisFor(false)
     analysis.perBattery = [{ ...ENTRY, dispatchTrace: TRACE }]
+    // Ausserhalb von monthly_max_sum bleibt der abgerechnete Wert unverändert stehen.
+    analysis.assumptions = { ...analysis.assumptions, billingModel: 'monthly_max_average' }
 
-    const rows = buildRecommendationChapter(analysis).recommendation!.rows
+    const rows = buildRecommendationChapter(analysis, FULL_YEAR).recommendation!.rows
 
     expect(rows).toContainEqual({
       label: 'Kapp-Schwelle',
@@ -232,7 +248,7 @@ describe('recommendation — Kapp-Zeilen', () => {
     analysis.perBattery = [{ ...ENTRY, dispatchTrace: TRACE }]
     analysis.current = { ...analysis.current, eagGrundpreisCostPerYear: (5.252 * 48) / 12 }
 
-    const rows = buildRecommendationChapter(analysis).recommendation!.rows
+    const rows = buildRecommendationChapter(analysis, FULL_YEAR).recommendation!.rows
 
     expect(rows).toContainEqual({
       label: 'EAG-Förderbeitrag (Grundpreis) heute',
@@ -250,9 +266,9 @@ describe('recommendation — Kapp-Zeilen', () => {
     const analysis = analysisFor(false)
     analysis.perBattery = [{ ...ENTRY, dispatchTrace: TRACE }]
 
-    const labels = buildRecommendationChapter(analysis).recommendation!.rows.map((r) => r.label)
+    const labels = buildRecommendationChapter(analysis, FULL_YEAR).recommendation!.rows.map((r) => r.label)
 
-    expect(labels).toContain('Abgerechneter Leistungswert heute')
+    expect(labels).toContain('Ø Monatsspitze heute')
     expect(labels).not.toContain('EAG-Förderbeitrag (Grundpreis) heute')
   })
 
@@ -260,11 +276,11 @@ describe('recommendation — Kapp-Zeilen', () => {
     const analysis = analysisFor(false)
     analysis.perBattery = [{ ...ENTRY, leistungspreisSavingPerYear: 0, dispatchTrace: TRACE }]
 
-    const labels = buildRecommendationChapter(analysis).recommendation!.rows.map((r) => r.label)
+    const labels = buildRecommendationChapter(analysis, FULL_YEAR).recommendation!.rows.map((r) => r.label)
 
     expect(labels).not.toContain('Kapp-Schwelle')
-    expect(labels).not.toContain('Abgerechneter Leistungswert heute')
-    expect(labels).not.toContain('Mit dem Speicher')
+    expect(labels).not.toContain('Ø Monatsspitze heute')
+    expect(labels).not.toContain('Ø Monatsspitze mit dem Speicher')
   })
 })
 
@@ -296,7 +312,7 @@ function recommendationPoints(placements: ReportPlacement[]): string[] {
 }
 
 function resolvedPoints(placements: ReportPlacement[]) {
-  const statement = buildRecommendationChapter(analysisFor(true)).recommendation!
+  const statement = buildRecommendationChapter(analysisFor(true), FULL_YEAR).recommendation!
   return statementPoints(statement, reportLayoutOf(placements))
 }
 
@@ -347,13 +363,13 @@ describe('Installationspauschale (K4)', () => {
   }
   const withInstallation = { ...ENTRY, battery: { ...BATTERY, installationCost: 1900 }, totalInvestment: 22900 }
   const pointTexts = (analysis: PdfReportAnalysis) =>
-    buildRecommendationChapter(analysis, undefined, META).recommendation!.points!.map(
+    buildRecommendationChapter(analysis, FULL_YEAR, undefined, META).recommendation!.points!.map(
       (p) => `${p.title}: ${String(p.text)}`,
     )
 
   it('alle mit Installation: eigene Zeile mit Preisstand, kein „exkl. Installation"', () => {
     const analysis = { ...analysisFor(false), perBattery: [withInstallation] }
-    const rows = buildRecommendationChapter(analysis, undefined, META).recommendation!.rows
+    const rows = buildRecommendationChapter(analysis, FULL_YEAR, undefined, META).recommendation!.rows
 
     expect(rows).toContainEqual({ label: 'Installationspauschale (Richtwert)', value: formatEur(1900), tone: 'neutral' })
     const texts = pointTexts(analysis).join(' ')
@@ -372,5 +388,45 @@ describe('Installationspauschale (K4)', () => {
     expect(pointTexts(analysis)).toContainEqual(
       expect.stringMatching(/^Installation nicht bei allen Geräten eingerechnet: .*Ohne Montage/),
     )
+  })
+})
+
+/**
+ * Müldür-Zuschnitt (Lauf 634cd36e, 30.09.2026): Daten nur März–August, die übrigen sechs
+ * `capKwByPeriod`-Slots stehen auf 0 („nicht abgedeckt"). Die Spanne darf sie nicht mitnehmen, und
+ * bei `monthly_max_sum` ist die Monatssumme als Ø Monatsspitze zu zeigen.
+ */
+describe('recommendation — Kapp-Zeilen bei Teiljahr', () => {
+  const MULDUR_CAPS = [0, 0, 31.124, 29.768, 31.58, 32.744, 29.268, 27.48, 0, 0, 0, 0]
+  const halfYear = () => {
+    const analysis = analysisFor(false)
+    analysis.perBattery = [
+      {
+        ...ENTRY,
+        newBilledKw: 181.964,
+        dispatchTrace: { ...TRACE, capKwByPeriod: MULDUR_CAPS },
+      },
+    ]
+    analysis.current = { ...analysis.current, billedKw: 255.764 }
+    analysis.dataQuality = { ...analysis.dataQuality, coveredMonths: 6 }
+    return analysis
+  }
+
+  it('bildet die Spanne nur über belegte Monate und zeigt Ø Monatsspitzen (Summe ÷ 6)', () => {
+    const rows = buildRecommendationChapter(halfYear(), profileForMonths([2, 3, 4, 5, 6, 7])).recommendation!
+      .rows
+
+    expect(rows).toContainEqual({
+      label: 'Kapp-Schwelle',
+      value: 'zwischen 27,5 kW und 32,7 kW (je Abrechnungsperiode)',
+      tone: 'neutral',
+    })
+    expect(rows).toContainEqual({ label: 'Ø Monatsspitze heute', value: '42,6 kW', tone: 'neutral' })
+    expect(rows).toContainEqual({
+      label: 'Ø Monatsspitze mit dem Speicher',
+      value: '30,3 kW',
+      tone: 'neutral',
+    })
+    expect(rows.map((r) => r.label)).not.toContain('Abgerechneter Leistungswert heute')
   })
 })

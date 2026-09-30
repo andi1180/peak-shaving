@@ -5,7 +5,7 @@ import { buildAssumptions, TARIFF_COMPONENTS_TABLE_ID } from './basis'
 import { buildComparisonChapter, CANDIDATE_TABLE_ID } from './comparison'
 import { REPORT_SECTIONS, SECTION_ID } from './content'
 import { reportLayoutOf, type ReportPlacement } from './layout'
-import { buildRecommendationChapter } from './recommendation'
+import { buildRecommendationChapter, type RecommendationLoadProfile } from './recommendation'
 import {
   block,
   REF_LABEL,
@@ -36,6 +36,20 @@ import type { PdfReportAnalysis } from './types'
 /* ────────────────────────────────────────────────────────────────────────────────────────────────
  * Fixture
  * ──────────────────────────────────────────────────────────────────────────────────────────── */
+
+
+/** Ein Messwert je Kalendermonat (Mitte des Monats, 2026) — die Monatsindizes 0–11 in `months`. */
+function profileForMonths(months: number[]): RecommendationLoadProfile {
+  return {
+    readings: months.map((m) => ({
+      ts: new Date(Date.UTC(2026, m, 15, 10)).toISOString(),
+      gridPowerKw: 1,
+    })),
+    timezoneMeta: 'Europe/Vienna',
+  }
+}
+
+const FULL_YEAR = profileForMonths([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
 
 const BATTERY = {
   id: 'kat-1',
@@ -326,7 +340,7 @@ describe('catalog_alternatives — Verweis auf das Empfehlungs-Kapitel', () => {
   const analysis = analysisFor(false)
 
   function placements(): ReportPlacement[] {
-    const recommendation = buildRecommendationChapter(analysis).recommendation
+    const recommendation = buildRecommendationChapter(analysis, FULL_YEAR).recommendation
     const comparison = buildComparisonChapter(analysis)
     return [
       placementOf(recommendation!, SECTION_ID.recommendation),
@@ -482,7 +496,7 @@ describe('Stufe-C-Sperren: `addon` und `table_candidates`', () => {
    */
   it('`addon` abgewählt: der Satz im Empfehlungs-Kapitel verschwindet mit', () => {
     const analysis = analysisFor(true)
-    const chapter = buildRecommendationChapter(analysis)
+    const chapter = buildRecommendationChapter(analysis, FULL_YEAR)
     const summary = buildReportSummary({ analysis, loadProfile: { source: 'net_signed' } })
 
     const mit = statementText(
@@ -549,7 +563,7 @@ describe('Stufe-C-Sperren: `addon` und `table_candidates`', () => {
     const chapter = buildComparisonChapter(analysisFor(false))
     const eintrag = placementOf(chapter.statement, SECTION_ID.comparison)
     const empfehlung = placementOf(
-      buildRecommendationChapter(analysisFor(false)).recommendation!,
+      buildRecommendationChapter(analysisFor(false), FULL_YEAR).recommendation!,
       SECTION_ID.recommendation,
     )
 
@@ -590,7 +604,7 @@ describe('Verweisname eines Kapitels (`REF_SECTION`)', () => {
   })
 
   const analysis = analysisFor(true)
-  const chapter = buildRecommendationChapter(analysis)
+  const chapter = buildRecommendationChapter(analysis, FULL_YEAR)
 
   /**
    * ⚠ NACH DEM ZUSAMMENFASSUNGS-UMBAU BLEIBT GENAU EIN SATZ ÜBRIG, der Kapitel 1 beim Namen nennt.

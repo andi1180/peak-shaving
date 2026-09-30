@@ -1863,7 +1863,12 @@ function RecommendationChapter({
   context: ReportBuildContext
   layout: ReportLayout
 }) {
-  const chapter = buildRecommendationChapter(input.analysis, context, input.batteryCatalogMeta)
+  const chapter = buildRecommendationChapter(
+    input.analysis,
+    input.loadProfile,
+    context,
+    input.batteryCatalogMeta,
+  )
 
   return (
     <View style={styles.body}>

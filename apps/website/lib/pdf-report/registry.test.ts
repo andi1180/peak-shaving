@@ -319,7 +319,7 @@ function expectedFor(id: ReportBaukastenId, input: PdfReportInput): unknown {
 
   const summary = buildReportSummary(input, context)
   const recommendation = context.hasRecommendation
-    ? buildRecommendationChapter(analysis, context)
+    ? buildRecommendationChapter(analysis, input.loadProfile, context)
     : null
   const detail = buildDetailChapter(analysis, { flowDay: null }, context)
   const monthly = context.hasMonthly ? buildMonthlyChapter(analysis) : null

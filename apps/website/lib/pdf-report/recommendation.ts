@@ -1,5 +1,11 @@
-import { displayedPriceLabel } from 'shared'
-import type { BatteryCatalogMeta, BatteryResultEntry, BatteryRoiEntry } from 'shared'
+import { displayedPriceLabel, effectiveBillingModel } from 'shared'
+import type {
+  BatteryCatalogMeta,
+  BatteryResultEntry,
+  BatteryRoiEntry,
+  BillingModel,
+  LoadProfile,
+} from 'shared'
 
 import {
   formatDateOnly,
@@ -10,6 +16,7 @@ import {
   formatPercent,
   formatYears,
 } from '@/lib/format'
+import { localMonthIndex } from '@/lib/local-time'
 import {
   ANNUALIZED_LABEL,
   batteryNoteTexts,
@@ -93,9 +100,28 @@ function neutralRow(label: string, value: string): ReportRow {
   return { label, value, tone: 'neutral' }
 }
 
-/** Die endlichen Kapp-Schwellen des Fahrplans — `Infinity` heisst „diese Periode wird nicht gekappt". */
-function finiteCaps(entry: BatteryResultEntry): number[] {
-  return (entry.dispatchTrace?.capKwByPeriod ?? []).filter((kw) => Number.isFinite(kw))
+/** Der Teil des Lastgangs, aus dem sich die belegten Monate ablesen lassen. */
+export type RecommendationLoadProfile = Pick<LoadProfile, 'readings' | 'timezoneMeta'>
+
+/**
+ * Die endlichen Kapp-Schwellen der BELEGTEN Perioden — `Infinity` heisst „diese Periode wird nicht
+ * gekappt", ein Monat ohne Messwert trägt in `capKwByPeriod` eine 0 (`simulate.ts`). „Belegt" wie im
+ * Lastgang-Chart (`buildCapSegments`): lokaler Monat mit mindestens einem Messwert.
+ */
+function coveredFiniteCaps(
+  entry: BatteryResultEntry,
+  billingModel: BillingModel,
+  loadProfile: RecommendationLoadProfile,
+): number[] {
+  const caps = entry.dispatchTrace?.capKwByPeriod ?? []
+  const perMonth = billingModel !== 'annual_max' && caps.length > 1
+  const covered = new Set<number>()
+  if (perMonth) {
+    for (const r of loadProfile.readings) {
+      covered.add(localMonthIndex(Date.parse(r.ts), loadProfile.timezoneMeta))
+    }
+  }
+  return caps.filter((kw, slot) => Number.isFinite(kw) && (!perMonth || covered.has(slot)))
 }
 
 /**
@@ -103,9 +129,14 @@ function finiteCaps(entry: BatteryResultEntry): number[] {
  * Bedingung wie vor a8f1934 (`buildChartLegend`); Format wie das alte `peak_shaving`-Zeilenpaar aus
  * `summary.ts` (vor #290): „Abgerechneter Leistungswert heute" / „Mit dem Speicher".
  */
-function capRows(analysis: PdfReportAnalysis, entry: BatteryResultEntry): ReportRow[] {
+function capRows(
+  analysis: PdfReportAnalysis,
+  entry: BatteryResultEntry,
+  loadProfile: RecommendationLoadProfile,
+): ReportRow[] {
   if (!(entry.leistungspreisSavingPerYear > 0)) return []
-  const caps = finiteCaps(entry)
+  const billingModel = effectiveBillingModel(analysis.assumptions.billingModel)
+  const caps = coveredFiniteCaps(entry, billingModel, loadProfile)
   if (caps.length === 0) return []
 
   const lo = Math.min(...caps)
@@ -115,10 +146,21 @@ function capRows(analysis: PdfReportAnalysis, entry: BatteryResultEntry): Report
       ? formatKw(lo)
       : `zwischen ${formatKw(lo)} und ${formatKw(hi)} (je Abrechnungsperiode)`
 
+  // Die Summe der Monatsspitzen ist keine Leistung — gezeigt wird ihr Mittel über die belegten Monate.
+  const coveredMonths = analysis.dataQuality.coveredMonths
+  const asMonthlyMean = billingModel === 'monthly_max_sum' && coveredMonths > 0
+  const kw = (value: number) => formatKw(asMonthlyMean ? value / coveredMonths : value)
+
   return [
     neutralRow('Kapp-Schwelle', threshold),
-    neutralRow('Abgerechneter Leistungswert heute', formatKw(analysis.current.billedKw)),
-    neutralRow('Mit dem Speicher', formatKw(entry.newBilledKw)),
+    neutralRow(
+      asMonthlyMean ? 'Ø Monatsspitze heute' : 'Abgerechneter Leistungswert heute',
+      kw(analysis.current.billedKw),
+    ),
+    neutralRow(
+      asMonthlyMean ? 'Ø Monatsspitze mit dem Speicher' : 'Mit dem Speicher',
+      kw(entry.newBilledKw),
+    ),
     ...eagDemandChargeRow(analysis),
   ]
 }
@@ -169,6 +211,7 @@ function eagDemandChargeRow(analysis: PdfReportAnalysis): ReportRow[] {
 export function buildRecommendation(
   analysis: PdfReportAnalysis,
   entry: BatteryRoiEntry,
+  loadProfile: RecommendationLoadProfile,
   /**
    * K3b: die Beiwerte GENAU dieses Geräts (Preisstand, Herkunft des Wirkungsgrads). `undefined`
    * heisst „keine Katalogzeile dahinter" — dann steht der Punkt nicht da, statt eine Herkunft zu
@@ -203,7 +246,7 @@ export function buildRecommendation(
     tone: 'positive',
   })
   rows.push(netOverHorizonRow(entry, horizonYears))
-  rows.push(...capRows(analysis, entry))
+  rows.push(...capRows(analysis, entry, loadProfile))
 
   /*
    * ⚠ Die Amortisation ist die Kopfzahl und nicht die Ersparnis: Letztere steht als Zeile in der
@@ -484,6 +527,7 @@ export function hasRecommendationChapter(analysis: PdfReportAnalysis): boolean {
 
 export function buildRecommendationChapter(
   analysis: PdfReportAnalysis,
+  loadProfile: RecommendationLoadProfile,
   /* Report-Baukasten B1 — s. `buildReportSummary`. Ohne ihn wird wie bisher selbst abgeleitet. */
   context?: ReportBuildContext,
   /** K3b: die Beiwerte des Katalogstands; `undefined` beim Wizard-Weg (K3c) und im Prüfstand. */
@@ -500,7 +544,7 @@ export function buildRecommendationChapter(
       ? null
       : hint
         ? dynamicTariffHintStatement(hint)
-        : buildRecommendation(analysis, recommended, catalogMeta?.[recommended.battery.id]),
+        : buildRecommendation(analysis, recommended, loadProfile, catalogMeta?.[recommended.battery.id]),
     loadControl: buildLoadControl(analysis, primary),
   }
 }
