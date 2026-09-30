@@ -7,7 +7,7 @@ import type {
   PvValueScenario,
 } from 'shared'
 
-import { buildAdviceChapter, hasAdviceChapter } from './advice'
+import { buildAdviceChapter, energyPriceSentence, hasAdviceChapter } from './advice'
 import { buildReportContext } from './context'
 import { buildReportLayout } from './layout'
 import { buildReportRegistry } from './registry'
@@ -349,5 +349,32 @@ describe('Kapitel „Unser Vorschlag" — Abschnitt „Woher diese Zahlen stamme
 
     expect(buildAdviceChapter(input)).toEqual({ proposal: null, provenance: null })
     expect(hasAdviceChapter(input)).toBe(false)
+  })
+})
+
+describe('energyPriceSentence — alle Rechnungen', () => {
+  it('nennt bei fünf Monatsrechnungen die Anzahl und die zusammengefassten Bereiche', () => {
+    const input = inputFor(
+      analysisWith({
+        comparison: comparisonWith({ current: 1000, comparison: 1100, spot: 900, battery: 800 }),
+      }),
+      {
+        tariffProvenance: {
+          gridTariffValidFrom: [],
+          invoicePeriods: [
+            { from: '2026-07-01', to: '2026-07-31', assumed: false },
+            { from: '2026-03-01', to: '2026-03-31', assumed: false },
+            { from: '2026-02-01', to: '2026-02-28', assumed: false },
+            { from: '2026-04-01', to: '2026-04-30', assumed: false },
+            { from: '2026-05-01', to: '2026-05-31', assumed: false },
+          ],
+        },
+      },
+    )
+
+    expect(energyPriceSentence(input)).toBe(
+      'Ihr heutiger Energiepreis stammt aus Ihren Kundenrechnungen (5 Rechnungen, ' +
+        '01.02.–31.05.2026 und 01.07.–31.07.2026).',
+    )
   })
 })

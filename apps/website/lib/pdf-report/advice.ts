@@ -11,6 +11,7 @@ import {
   storagePaysOff,
 } from '@/lib/report-copy'
 import { formatIsoDate } from './basis'
+import { distinctInvoicePeriods, formatInvoiceRanges, mergeInvoiceRanges } from './invoice-periods'
 import { catalogVerdictIsNo, comparisonSelection, hasComparisonChapter } from './comparison'
 import { BASIS_SECTION, PV_VALUE_SECTION } from './content'
 import { hasPvValueChapter } from './pv-value'
@@ -308,11 +309,20 @@ export function buildProposal(input: PdfReportInput): ReportStatement | null {
  * ──────────────────────────────────────────────────────────────────────────────────────────── */
 
 /** Woher der Arbeitspreis der Energieseite kommt — `null`, wenn es dazu keine belegte Angabe gibt. */
-function energyPriceSentence(input: PdfReportInput): string | null {
-  const period = (input.tariffProvenance?.invoicePeriods ?? []).find(
-    (entry) => entry.from !== null || entry.to !== null,
-  )
+export function energyPriceSentence(input: PdfReportInput): string | null {
+  const periods = distinctInvoicePeriods(input.tariffProvenance?.invoicePeriods ?? [])
+  if (periods.length > 1) {
+    const ranges = formatInvoiceRanges(mergeInvoiceRanges(periods))
+    const origin = periods.some((entry) => entry.assumed)
+      ? ', teils aus einer Jahresrechnung abgeleitet'
+      : ''
+    return (
+      `Ihr heutiger Energiepreis stammt aus Ihren Kundenrechnungen (${periods.length} Rechnungen, ` +
+      `${ranges}${origin}).`
+    )
+  }
 
+  const period = periods[0]
   if (period) {
     const from = period.from ? (formatIsoDate(period.from) ?? period.from) : null
     const to = period.to ? (formatIsoDate(period.to) ?? period.to) : null

@@ -906,3 +906,36 @@ describe('buildBasisChapter — Bekannte Einschränkungen (D9)', () => {
     expect(basisFor(FULL_ANALYSIS).limitations.hints.join(' ')).not.toContain('angenommen')
   })
 })
+
+/** Müldür-Muster: fünf Monatsrechnungen in Dokument-Reihenfolge, Juni fehlt. */
+const MULDUR_PERIODS = [
+  { from: '2026-07-01', to: '2026-07-31', assumed: false },
+  { from: '2026-03-01', to: '2026-03-31', assumed: false },
+  { from: '2026-02-01', to: '2026-02-28', assumed: false },
+  { from: '2026-04-01', to: '2026-04-30', assumed: false },
+  { from: '2026-05-01', to: '2026-05-31', assumed: false },
+]
+
+describe('Datenquellen — Lieferanten-Tarif über alle Rechnungen', () => {
+  it('fasst mehrere Rechnungen chronologisch zu Bereichen zusammen, die Lücke bleibt sichtbar', () => {
+    const table = dataSourcesFor({ gridTariffValidFrom: [], invoicePeriods: MULDUR_PERIODS })
+
+    expect(vintageOf(table, 'tariff_supplier')).toBe(
+      '5 Kundenrechnungen, Abrechnungszeiträume 01.02.–31.05.2026 und 01.07.–31.07.2026',
+    )
+  })
+
+  it('bleibt bei genau einer Rechnung wortgleich', () => {
+    const table = dataSourcesFor({ gridTariffValidFrom: [], invoicePeriods: [MULDUR_PERIODS[0]!] })
+
+    expect(vintageOf(table, 'tariff_supplier')).toBe(
+      'Kundenrechnung, Abrechnungszeitraum 01.07.2026 – 31.07.2026 (auf der Rechnung ausgeschrieben)',
+    )
+  })
+
+  it('nennt ohne Rechnung weiterhin den Vergleichstarif', () => {
+    const table = dataSourcesFor({ gridTariffValidFrom: [], invoicePeriods: [] })
+
+    expect(vintageOf(table, 'tariff_supplier')).toMatch(/^Kundenrechnung: .*Vergleichstarif/)
+  })
+})
