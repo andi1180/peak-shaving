@@ -7,6 +7,8 @@ import type {
   PvValueScenario,
 } from 'shared'
 
+import { formatEur } from '@/lib/format'
+
 import { buildAdviceChapter, energyPriceSentence, hasAdviceChapter } from './advice'
 import { buildReportContext } from './context'
 import { buildReportLayout } from './layout'
@@ -313,6 +315,42 @@ describe('Kapitel „Unser Vorschlag" — Abschnitt „Was wir vorschlagen"', ()
     expect(maximum).not.toContain('bis zu')
     expect(maximum).toContain('Investition € 21.000')
     expect(maximum).toContain('Im Betrachtungszeitraum von 10 Jahren rechnet er sich damit')
+  })
+
+  /* Mit Kappung nennt Punkt 2 die Beträge des Speicher-Blocks der Zusammenfassung (Seite 3). */
+  it('nennt mit Kappungsbetrag Kappung, Summe und Amortisation wie die Zusammenfassung', () => {
+    const analysis = analysisWith({
+      comparison: comparisonWith({ current: 1000, comparison: 1100, spot: 900, battery: 800 }),
+    })
+    analysis.perBattery = analysis.perBattery.map((entry) => ({
+      ...entry,
+      leistungspreisSavingPerYear: 1091.4,
+      eagDemandSavingPerYear: 69.1,
+      totalSavingPerYear: 2494.8,
+      amortizationYears: 3.427,
+    }))
+    analysis.current = { ...analysis.current, billedKw: 255.8, leistungspreisCostPerYear: 3534.7 }
+
+    expect(textsOf(inputFor(analysis))['Wollen Sie das Maximum']).toBe(
+      `aWATTar mit Ladesteuerung — ${formatEur(200)} weniger über dieselben 209 Tage. Dazu kommt die Kappung ` +
+        `Ihrer Lastspitzen mit dem Speicher (Katalog 1, Investition ${formatEur(21000)}): ${formatEur(1160.5)} pro Jahr, ` +
+        'unabhängig vom Stromvertrag und als Obergrenze gerechnet. Zusammen mit der Ladesteuerung ' +
+        `ergibt das ${formatEur(2494.8)} pro Jahr und eine Amortisation von 3,4 Jahren — eine ` +
+        'Vorausberechnung, keine Zusage. Sprechen Sie uns an, wenn Sie dabei Unterstützung möchten.',
+    )
+  })
+
+  it('lässt Punkt 2 ohne Kappungsbetrag unverändert', () => {
+    const input = inputFor(
+      analysisWith({
+        comparison: comparisonWith({ current: 1000, comparison: 1100, spot: 900, battery: 800 }),
+      }),
+    )
+    expect(textsOf(input)['Wollen Sie das Maximum']).toBe(
+      `aWATTar mit Ladesteuerung — ${formatEur(200)} weniger über dieselben 209 Tage. Speicher: Katalog 1, ` +
+        `Investition ${formatEur(21000)}. Im Betrachtungszeitraum von 10 Jahren rechnet er sich damit. ` +
+        'Sprechen Sie uns an, wenn Sie dabei Unterstützung möchten.',
+    )
   })
 })
 

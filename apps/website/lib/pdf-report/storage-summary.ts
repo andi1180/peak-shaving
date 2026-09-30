@@ -1,3 +1,5 @@
+import type { BatteryRoiEntry, MonthlyTariffComparison } from 'shared'
+
 import { formatEur, formatYears } from '@/lib/format'
 import { dynamicTariffHintKind, loadControlValueOf } from '@/lib/report-copy'
 import { totalInvestmentRow } from './investment-rows'
@@ -13,7 +15,10 @@ export const STORAGE_SUMMARY_ID = 'storage_result'
  * steht (dieselbe Bedingung wie Seite 7) und Seite 8 dieses Gerät aufschlüsselt; jede Zahl ist die
  * der Seiten 7–9, hier nur neu zusammengestellt.
  */
-export function buildStorageSummary(analysis: PdfReportAnalysis): ReportStatement | null {
+/** Das Gerät des Blocks samt Monatsvergleich — `null`, wo der Block entfällt. Auch „Unser Vorschlag" liest hier. */
+export function storageSummarySource(
+  analysis: PdfReportAnalysis,
+): { entry: BatteryRoiEntry; comparison: MonthlyTariffComparison } | null {
   const ways = buildWaysChapter(analysis)
   if (!ways?.statements.some((statement) => statement.id === 'ways_peak_shaving')) return null
   // Im Bestandsfall gibt es keinen empfohlenen Speicher, mit Tarif-Hinweis kein Gerät auf Seite 8.
@@ -23,7 +28,13 @@ export function buildStorageSummary(analysis: PdfReportAnalysis): ReportStatemen
     analysis.tariffOptimization?.computable === true
       ? analysis.tariffOptimization.monthlyComparison
       : undefined
-  if (!entry || !comparison) return null
+  return entry && comparison ? { entry, comparison } : null
+}
+
+export function buildStorageSummary(analysis: PdfReportAnalysis): ReportStatement | null {
+  const source = storageSummarySource(analysis)
+  if (!source) return null
+  const { entry, comparison } = source
 
   const control = loadControlValueOf(entry, comparison)
   const annualized = control.annualizedEur !== null
