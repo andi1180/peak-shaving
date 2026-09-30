@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { analysisForDisplay } from 'shared'
 import type { BatteryNotice, DispatchTrace, MonthlyTariffComparison } from 'shared'
 
-import { formatEur } from '@/lib/format'
+import { formatEur, formatYears } from '@/lib/format'
 import { DYNAMIC_TARIFF_HINT_NOT_COMPUTABLE, ENERGY_PRICE_ONLY_NOTE } from '@/lib/report-copy'
 
 import { comparisonChartPlan, hasComparisonChapter } from './comparison'
@@ -13,6 +13,8 @@ import { reportLayoutOf, type ReportPlacement } from './layout'
 import { buildRecommendationChapter, type RecommendationLoadProfile } from './recommendation'
 import { resolveReportText } from './report-text'
 import { statementPoints } from './statement'
+import { buildStorageSummary } from './storage-summary'
+import { summaryWaysOf } from './summary'
 import type { PdfReportAnalysis } from './types'
 import { buildWaysChapter } from './ways'
 
@@ -481,5 +483,61 @@ describe('Kappung — einheitlich inkl. EAG-Förderbeitrag Leistung', () => {
       value: '€ 240 pro Jahr (€ 5,62 / kW·a)',
       tone: 'neutral',
     })
+  })
+})
+
+/**
+ * Zusammenfassung (PR 8): der Block zum empfohlenen Speicher zeigt dieselben Zahlen wie die Seiten
+ * 7–9 und entsteht nur mit Weg 5.
+ */
+describe('Zusammenfassung — was der empfohlene Speicher zusätzlich bringt', () => {
+  const partialYear = (leistungspreis: number) => {
+    const analysis = analysisFor(false)
+    analysis.perBattery = [
+      {
+        ...ENTRY,
+        newBilledKw: 181.964131,
+        leistungspreisSavingPerYear: leistungspreis,
+        eagDemandSavingPerYear: leistungspreis > 0 ? 69.113649 : undefined,
+        energySavingPerYear: 1334.382818,
+        energySavingOverCoveredPeriod: 573.967404,
+        annualizationFactor: 365 / 157,
+        coveredDays: 157,
+        totalSavingPerYear: 2494.804317,
+        amortizationYears: 3.427122,
+        dispatchTrace: TRACE,
+      },
+    ]
+    analysis.current = { ...analysis.current, billedKw: 255.764, leistungspreisCostPerYear: 3534.657627 }
+    return analysis
+  }
+
+  it('mit Weg 5: Zeilen gleich den Seiten 7–9, Sätze mit den echten Beträgen und Tagen', () => {
+    const analysis = partialYear(1091.307921)
+    const block = buildStorageSummary(analysis)!
+    const value = (label: string) => block.rows.find((r) => r.label === label)?.value
+
+    const peakWay = buildWaysChapter(analysis)!.statements.find((s) => s.id === 'ways_peak_shaving')!
+    const chapter = buildRecommendationChapter(analysis, FULL_YEAR)
+    const page8 = chapter.recommendation!
+
+    expect(block.rows[0]).toMatchObject({ label: BATTERY.name, hint: 'Gesamtinvestition' })
+    expect(block.rows[0]!.value).toBe(page8.rows.find((r) => r.label === 'Gesamtinvestition')!.value)
+    expect(value('Ladesteuerung (aWATTar)')).toBe(chapter.loadControl!.amount!.value)
+    expect(block.rows[1]!.hint).toContain('hochgerechnet aus 157 gemessenen Tagen')
+    expect(value('Kappung der Lastspitzen')).toBe(peakWay.rows.at(-1)!.value)
+    expect(value('Zusammen pro Jahr')).toBe(page8.rows.find((r) => r.label.startsWith('Ersparnis'))!.value)
+    expect(value('Amortisation')).toBe(formatYears(3.427122))
+
+    const tariff = summaryWaysOf(analysis)!
+    const switchEur = tariff.ways.find((w) => w.id === 'tariff_switch')!.eur
+    expect(block.body).toContain(
+      `Der Tarifwechsel (${formatEur(switchEur)} über die ${tariff.coveredDays} gemessenen Tage)`,
+    )
+    expect(block.body).toContain('der Ladesteuerungs-Anteil ist auf ein Jahr hochgerechnet.')
+  })
+
+  it('ohne Weg 5 entsteht kein Block', () => {
+    expect(buildStorageSummary(partialYear(0))).toBeNull()
   })
 })
