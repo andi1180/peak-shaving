@@ -8,7 +8,6 @@ import {
   type BatteryCandidate,
   type BatteryResultEntry,
   type BatteryRoiEntry,
-  type BillingModel,
   type ControlVariant as SharedControlVariant,
   type EstimatedPvSummary,
   type LoadProfile,
@@ -817,32 +816,14 @@ export function buildAddon(analysis: PdfReportAnalysis): SummaryStatement | null
  */
 
 /**
- * Die Anzeigenamen der Abrechnungsmodelle.
- *
- * ⚠ BEWUSSTE DOPPELUNG ZU `print-assumptions-snapshot.tsx`. Sie zu teilen hiesse, aus dem
- * PDF-Verzeichnis in eine Bildschirm-Komponente zu importieren — und die zieht React und das
- * Zahlenformat-Bauteil in den Lazy-Chunk des PDF-Wegs.
- */
-const BILLING_MODEL_LABEL: Record<BillingModel, string> = {
-  monthly_max_average: 'Mittel der 12 Monatshöchstwerte',
-  annual_max: 'Jahreshöchstwert',
-  monthly_max_sum: 'Summe der 12 Monatshöchstwerte',
-}
-
-/**
  * Teiljahres-Datensatz unter einem monatsbasierten Abrechnungsmodell (§3.5).
  *
- * ⚠ BENANNTE PRÄZISIERUNG GEGENÜBER DEM BILDSCHIRM: dort steht das Modell fest als „Mittelwert der
- * Monatsspitzen" im Satz, obwohl die Bedingung auch `monthly_max_sum` trifft — dann benennt der
- * Satz das falsche Modell. Hier steht der Name, den das Ergebnis tatsächlich trägt.
- *
- * ⚠ SEIT DEM UMBAU AUF DIE ZUSAMMENFASSUNG OHNE ORTSANGABE: der abgerechnete Leistungswert steht
- * nicht mehr als Kopfzahl auf dieser Seite, „oben" zeigte ins Leere. Der Hinweis benennt ihn
- * stattdessen als Grösse — er ist deswegen nicht weniger wahr.
+ * Der Hinweis erklärt die Hochrechnung und empfiehlt kein anderes Abrechnungsmodell — das legt der
+ * Netzbetreiber fest, nicht der Kunde.
  */
 export function buildPartialYearNotice(analysis: PdfReportAnalysis): ReportNotice | null {
   const { billingModel } = analysis.assumptions
-  const { coveredMonths } = analysis.dataQuality
+  const { coveredMonths, coveredDays } = analysis.dataQuality
   if (billingModel === null || !billingModel.startsWith('monthly') || coveredMonths >= 12) {
     return null
   }
@@ -854,10 +835,11 @@ export function buildPartialYearNotice(analysis: PdfReportAnalysis): ReportNotic
     tone: 'warning',
     title: `Nur ${coveredMonths} von 12 Monaten mit Daten`,
     body:
-      `Der abgerechnete Leistungswert unter dem Modell „${BILLING_MODEL_LABEL[billingModel]}" ist ` +
-      `damit nicht aussagekräftig — die ${12 - coveredMonths} Monate ohne Daten kann das Modell ` +
-      'nicht mitteln. „Jahreshöchstwert" als Abrechnungsmodell liefert für diesen Datensatz eine ' +
-      'belastbarere Zahl.',
+      `Ihr Lastgang deckt ${coveredMonths} von 12 Monaten ab. Die Jahreszahlen sind daraus ` +
+      `hochgerechnet: der Energie-Anteil nach Tagen (${coveredDays} von 365), der ` +
+      `Leistungspreis-Anteil nach Monaten (${coveredMonths} von 12). Andere Jahreszeiten können ` +
+      'andere Börsenpreise und andere Lastspitzen bringen — die Hochrechnung schreibt Ihre ' +
+      'gemessenen Monate fort, sie ist keine Prognose.',
     list: null,
     hints: [],
   }

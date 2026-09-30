@@ -252,3 +252,25 @@ describe('die Hinweise zur Datengrundlage', () => {
     }
   })
 })
+
+/** Müldür-Zuschnitt: 6 belegte Monate, 157 gemessene Tage, `monthly_max_sum` mit Leistungspreis. */
+describe('Teiljahres-Hinweis', () => {
+  it('nennt die Hochrechnung mit n Monaten und d Tagen statt eines Modellwechsels', () => {
+    const summary = summaryFor({
+      analysis: analysisFor({
+        current: { ...analysisFor().current, leistungspreisCostPerYear: 3534.66 },
+        assumptions: { ...analysisFor().assumptions, billingModel: 'monthly_max_sum' },
+        dataQuality: { ...analysisFor().dataQuality, coveredMonths: 6, coveredDays: 157 },
+      }),
+    })
+    const notice = summary.notices.find((n) => n.id === 'partial_year')!
+
+    expect(notice.title).toBe('Nur 6 von 12 Monaten mit Daten')
+    expect(notice.body).toContain('hochgerechnet')
+    expect(notice.body).toContain('deckt 6 von 12 Monaten ab')
+    expect(notice.body).toContain('nach Tagen (157 von 365)')
+    expect(notice.body).toContain('nach Monaten (6 von 12)')
+    expect(notice.body).not.toContain('nicht aussagekräftig')
+    expect(notice.body).not.toContain('Jahreshöchstwert')
+  })
+})
