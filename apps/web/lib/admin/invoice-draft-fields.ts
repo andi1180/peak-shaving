@@ -36,6 +36,11 @@ function isInvoiceDerived(
   )
 }
 
+/** Trägt der Arbeitspreis des Entwurfs den Rechnungs-Vermerk? Nur `origin: 'invoice'` zählt. */
+export function energyPriceFromInvoice(draft: Record<string, unknown>): boolean {
+  return readDraftProvenance(draft).energyPriceCtPerKwh?.origin === 'invoice'
+}
+
 /** Ein Wert aus der Rechnungs-Zusammenführung — `measured`, ohne Notiz, mit Rechnungs-Vermerk. */
 export function setInvoiceDraftField(
   draft: Record<string, unknown>,

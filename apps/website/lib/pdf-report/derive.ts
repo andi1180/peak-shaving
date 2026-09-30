@@ -1,6 +1,8 @@
 import type { AnalysisResult, LoadProfile, TariffParams } from 'shared'
 
 import { localYear } from '@/lib/local-time'
+import { distinctInvoicePeriods, formatInvoiceRanges, mergeInvoiceRanges } from './invoice-periods'
+import type { PdfReportInvoicePeriod } from './types'
 
 /**
  * B23a — Titel, Untertitel und Zeitraum des Reports, aus dem Contract abgeleitet.
@@ -156,5 +158,85 @@ export function tariffVintageNote(
     `${posten} auf einer ${periodEndYear - 1}er-Vorjahresrechnung — für ${periodEndYear} gibt es ` +
     `noch keine Jahresabrechnung. Für eine aktuelle Zahl wird Ihre ${periodEndYear}er-` +
     'Jahresrechnung benötigt.'
+  )
+}
+
+const MONTH_NAMES = [
+  'Januar', 'Februar', 'März', 'April', 'Mai', 'Juni',
+  'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember',
+]
+
+const localDayFormatters = new Map<string, Intl.DateTimeFormat>()
+
+/** Lokaler Kalendertag als `YYYY-MM-DD`. */
+function localIsoDay(utcMs: number, timeZone: string): string {
+  let formatter = localDayFormatters.get(timeZone)
+  if (!formatter) {
+    formatter = new Intl.DateTimeFormat('en-CA', {
+      timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    })
+    localDayFormatters.set(timeZone, formatter)
+  }
+  return formatter.format(utcMs)
+}
+
+function joinGerman(parts: string[]): string {
+  return parts.length <= 1 ? parts.join('') : `${parts.slice(0, -1).join(', ')} und ${parts.at(-1)}`
+}
+
+/**
+ * Der Preisstand-Satz des Wizard-Wegs: stammt der Arbeitspreis aus gelesenen Rechnungen
+ * (`priceFromInvoice`) und überlappt mindestens eine davon den Lastgang, nennt der Satz diese
+ * Rechnungen statt einer Vorjahresrechnung. In allen anderen Fällen bitgleich `tariffVintageNote`.
+ */
+export function tariffVintageNoteForInvoices(
+  loadProfile: Pick<LoadProfile, 'readings' | 'timezoneMeta'>,
+  tariff: Pick<TariffParams, 'supplierBaseFeeEurPerMonth'>,
+  invoicePeriods: PdfReportInvoicePeriod[],
+  priceFromInvoice: boolean,
+  now: Date,
+): string | null {
+  const legacy = tariffVintageNote(loadProfile, tariff, now)
+  if (legacy === null || !priceFromInvoice) return legacy
+
+  const tz = loadProfile.timezoneMeta
+  const days = loadProfile.readings.map((r) => localIsoDay(Date.parse(r.ts), tz))
+  const loadFrom = days[0]!
+  const loadTo = days[days.length - 1]!
+  const ranges = mergeInvoiceRanges(invoicePeriods)
+  if (!ranges.some((range) => range.from <= loadTo && range.to >= loadFrom)) return legacy
+
+  const count = distinctInvoicePeriods(invoicePeriods).length
+  const hasBaseFee =
+    tariff.supplierBaseFeeEurPerMonth != null && tariff.supplierBaseFeeEurPerMonth > 0
+  const [posten, verb, rest] = hasBaseFee
+    ? ['Arbeitspreis und Grundgebühr', 'stammen', 'sind']
+    : ['Der Arbeitspreis', 'stammt', 'ist']
+  const source =
+    count === 1
+      ? `Ihrer Kundenrechnung (${formatInvoiceRanges(ranges)})`
+      : `Ihren ${count} Kundenrechnungen (${formatInvoiceRanges(ranges)})`
+
+  // Lastgang-Monate (Ortszeit), die kein Rechnungszeitraum berührt.
+  const months = [...new Set(days.map((day) => day.slice(0, 7)))]
+  const uncovered = months.filter((month) => {
+    const first = `${month}-01`
+    const last = `${month}-31`
+    return !ranges.some((range) => range.from <= last && range.to >= first)
+  })
+  const multiYear = new Set(months.map((month) => month.slice(0, 4))).size > 1
+  const monthLabel = (month: string) =>
+    MONTH_NAMES[Number(month.slice(5, 7)) - 1]! + (multiYear ? ` ${month.slice(0, 4)}` : '')
+
+  return (
+    `${posten} ${verb} aus ${source} und ${rest} für den gesamten ausgewerteten Zeitraum ` +
+    'unverändert angenommen.' +
+    (uncovered.length > 0
+      ? ` Für ${joinGerman(uncovered.map(monthLabel))} liegt keine Rechnung vor; dort sind ` +
+        'dieselben Preise angenommen.'
+      : '')
   )
 }
