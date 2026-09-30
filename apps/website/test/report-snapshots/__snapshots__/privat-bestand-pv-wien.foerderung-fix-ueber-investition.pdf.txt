@@ -561,17 +561,17 @@ Annahmen und Datengrundlage
 Womit gerechnet wurde, woher die Tarifwerte stammen — und was an diesem Datensatz zu wissen ist.
 
 Annahmen & Rechenweise — Stand dieser Berechnung
- Betrachtungshorizont                                                                                      10 Jahre
+ Betrachtungshorizont                                                                                     10 Jahre
 
- Wirkungsgrad (SMA Home Storage 16.4)                                                                          88 %
+ Wirkungsgrad (SMA Home Storage 16.4)                                                                         88 %
 
- Batteriepreis (SMA Home Storage 16.4)                                                             € 413,05 / kWh
+ Batteriepreis (SMA Home Storage 16.4)                                                            € 413,05 / kWh
 
- Gesamtinvestition                                                                                           € 8.513
+ Gesamtinvestition                                                                                          € 8.513
 
- Förderung (von Ihnen eingetragen)                                                                          -€ 8.513
+ Förderung (von Ihnen eingetragen)                                                                         -€ 8.513
 
- Nettoinvestition nach Förderung                                                                                  €0
+ Nettoinvestition nach Förderung                                                                                 €0
 
 Das sind die Werte, mit denen dieser Report gerechnet wurde — zum Zeitpunkt seiner Erstellung. Die
 Entladetiefe ist dabei fest und geht unverändert aus Ihren Angaben ein; die übrigen Grössen lassen sich
@@ -583,8 +583,9 @@ selbst stehen weiter unten in der Tabelle „Tarifkomponenten", mit ihrer Herkun
    Abgedeckt: 209 Tage · interpolierte Lücken: 0
    · 14980 Zeile(n) ohne Messwert (27.08.2025 bis 29.01.2026) — die Zählerauslesung beginnt erst ab
    30.01.2026.
-   · source ist „import_only" ohne PV-Profil: Die Eigenverbrauchs- und Lastverschiebungs-Ersparnis ist
-   nicht beurteilbar und kann unterschätzt sein (keine Einspeise-/PV-Daten).
+   · Ihr Lastgang enthält nur den Bezug aus dem Netz, nicht, was Ihre PV-Anlage ins Netz einspeist. Wie
+   viel PV-Überschuss ein Speicher zusätzlich aufnehmen könnte, lässt sich damit nicht beurteilen; die
+   Ersparnis kann deshalb unterschätzt sein.
    · Für diesen Zählpunkt liegt eine geschätzte PV-Erzeugungsreihe (PVGIS) vor, sie wurde aber NICHT vom
    Lastgang abgezogen (pv_already_in_grid_profile). Gerechnet ist der echte, gemessene Netzbezug. Die
    Anlage ist als BESTEHEND erfasst: ihre Eigenversorgung steckt im Lastgang bereits, ein Abzug zählte
@@ -613,16 +614,16 @@ Details zum Preisstand dieser Tarifsätze stehen im Kapitel „Voraussetzungen".
 Tarifkomponenten
  Position                            Wert                           Status
 
- Leistungspreis                      € 0,00 / kW·a                  laut hinterlegtem Tarif Wiener Netze
 
 
 
-
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                            www.coolin.at · Seite 15 von 18
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                           www.coolin.at · Seite 15 von 18
     COOLiN ENERGY           Referenzfall Privat
 
 
 
+
+ Leistungspreis                      € 0,00 / kW·a                      laut hinterlegtem Tarif Wiener Netze
 
  Arbeitspreis                        € 0,16 / kWh                       aus Ihren Angaben (Energieseite)
 
@@ -684,7 +685,6 @@ Netzseite, Abgaben und Lastgang bleiben bit-genau dieselben.
 aWATTar ohne Steuerung — statt Ihres festen Arbeitspreises der Börsenpreis der jeweiligen Stunde, statt
 Ihrer Grundgebühr die von aWATTar. Die Netzseite hängt am Anschluss und nicht am Lieferanten und
 bleibt unverändert. Gerechnet auf dem rohen Lastgang: nichts wird verschoben, nichts gespeichert. Die
-
 
 
 

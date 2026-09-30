@@ -191,6 +191,10 @@ function buildPreview(draft: DetectionDraft): TablePreview {
  * `rejectIfBeforeAnchor`), unmittelbar nach dem Parsen und vor jeder Übernahme in den Flow. Die
  * Konstante steht in `packages/shared/src/analysis-window.ts` (`SPOT_PRICE_ANCHOR_ISO`).
  */
+/** §3.1-Pflichtwarnung; der Report erkennt sie an diesem Wortlaut und formuliert sie für den Kunden. */
+export const IMPORT_ONLY_WITHOUT_PV_WARNING =
+  'source ist „import_only" ohne PV-Profil: Die Eigenverbrauchs- und Lastverschiebungs-Ersparnis ist nicht beurteilbar und kann unterschätzt sein (keine Einspeise-/PV-Daten).'
+
 export function parseLoadProfile(
   input: { content: string | ArrayBuffer | Uint8Array; fileName?: string; format?: 'csv' | 'xlsx' },
   options: ParseOptions = {},
@@ -366,11 +370,7 @@ export function parseLoadProfile(
   }
 
   // Pflichtwarnung (§3.1): import_only ohne PV-Profil.
-  if (source === 'import_only' && !options.hasPvProfile) {
-    warnings.push(
-      'source ist „import_only" ohne PV-Profil: Die Eigenverbrauchs- und Lastverschiebungs-Ersparnis ist nicht beurteilbar und kann unterschätzt sein (keine Einspeise-/PV-Daten).',
-    )
-  }
+  if (source === 'import_only' && !options.hasPvProfile) warnings.push(IMPORT_ONLY_WITHOUT_PV_WARNING)
   // Plausibilität: unerwartete Negativwerte bei import_only.
   if (source === 'import_only' && prepared.slots.some((s) => s.value < 0)) {
     warnings.push(

@@ -1,4 +1,4 @@
-import type { PvOutageMonth } from 'engine'
+import { IMPORT_ONLY_WITHOUT_PV_WARNING, type PvOutageMonth } from 'engine'
 import {
   AWATTAR_BASE_FEE,
   demandChargeKwPerYear,
@@ -241,6 +241,20 @@ function batteryRows(
  * ──────────────────────────────────────────────────────────────────────────────────────────── */
 
 /**
+ * Die Parser-Warnung „import_only ohne PV-Profil" in Kundensprache. Ohne PV-Anlage entfällt sie —
+ * es gibt dann keine Einspeisung, die fehlen könnte.
+ */
+function importOnlyCustomerText(hasPv: boolean | undefined): string {
+  return hasPv === true
+    ? 'Ihr Lastgang enthält nur den Bezug aus dem Netz, nicht, was Ihre PV-Anlage ins Netz ' +
+        'einspeist. Wie viel PV-Überschuss ein Speicher zusätzlich aufnehmen könnte, lässt sich ' +
+        'damit nicht beurteilen; die Ersparnis kann deshalb unterschätzt sein.'
+    : 'Ihr Lastgang enthält nur den Bezug aus dem Netz. Falls Sie eine PV-Anlage haben, fehlt, was ' +
+        'sie ins Netz einspeist — wie viel PV-Überschuss ein Speicher zusätzlich aufnehmen könnte, ' +
+        'lässt sich dann nicht beurteilen, und die Ersparnis kann unterschätzt sein.'
+}
+
+/**
  * Was der Parser über diesen Datensatz gemeldet hat.
  *
  * ── ⚠ NUR MIT WARNUNGEN — UND DIE ZEILE „Abgedeckt/Lücken" HÄNGT MIT DARAN ────────────────────
@@ -254,16 +268,19 @@ function batteryRows(
  * eigenen Schwelle). Dann steht die Zahl in keinem Kasten — und das ist richtig: die grosse Lücke
  * hat ihren eigenen Hinweis bei der Kern-Kennzahl, wo sie die Zahl qualifiziert.
  */
-export function buildDataQuality(analysis: PdfReportAnalysis): ReportNotice | null {
+export function buildDataQuality(analysis: PdfReportAnalysis, hasPv?: boolean): ReportNotice | null {
   const dq = analysis.dataQuality
-  if (dq.warnings.length === 0) return null
+  const warnings = dq.warnings.flatMap((warning) =>
+    warning !== IMPORT_ONLY_WITHOUT_PV_WARNING ? [warning] : hasPv === false ? [] : [importOnlyCustomerText(hasPv)],
+  )
+  if (warnings.length === 0) return null
 
   return {
     id: 'data_quality',
     tone: 'neutral',
     title: 'Datenqualität',
     body: `Abgedeckt: ${dq.coveredDays} Tage · interpolierte Lücken: ${dq.gapsInterpolated}`,
-    list: { label: null, items: dq.warnings },
+    list: { label: null, items: warnings },
     hints: [],
   }
 }
@@ -523,7 +540,7 @@ export function buildPvOutage(
  */
 export function dataQualityNoticeOf(input: PdfReportInput): ReportNotice | null {
   if (!reportSectionEnabled(input.optionalSections, 'data_quality')) return null
-  return buildDataQuality(input.analysis)
+  return buildDataQuality(input.analysis, input.hasPv)
 }
 
 /** Der PV-Befund, wie ihn das Dokument zeigt — Auswahl inbegriffen. S. `dataQualityNoticeOf`. */

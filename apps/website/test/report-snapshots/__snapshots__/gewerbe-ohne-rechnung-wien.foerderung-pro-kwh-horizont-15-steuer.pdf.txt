@@ -521,23 +521,23 @@ Annahmen und Datengrundlage
 Womit gerechnet wurde, woher die Tarifwerte stammen — und was an diesem Datensatz zu wissen ist.
 
 Annahmen & Rechenweise — Stand dieser Berechnung
- Betrachtungshorizont                                                                                     15 Jahre
+ Betrachtungshorizont                                                                                       15 Jahre
 
- Wirkungsgrad (Dyness Stack 100 30,72 kWh mit Solinteg MHT-15K-40)                         88 % (angenommen)
+ Wirkungsgrad (Dyness Stack 100 30,72 kWh mit Solinteg MHT-15K-40)                           88 % (angenommen)
 
- Batteriepreis (Dyness Stack 100 30,72 kWh mit Solinteg MHT-15K-40)                               € 198,43 / kWh
+ Batteriepreis (Dyness Stack 100 30,72 kWh mit Solinteg MHT-15K-40)                                 € 198,43 / kWh
 
- Gesamtinvestition                                                                                           € 7.691
+ Gesamtinvestition                                                                                             € 7.691
 
- Wiener Landesförderung (150 €/kWh, max. 10 kWh, max. 30 %)                                               -€ 1.500
+ Wiener Landesförderung (150 €/kWh, max. 10 kWh, max. 30 %)                                                 -€ 1.500
 
- Nettoinvestition nach Förderung                                                                             € 6.191
+ Nettoinvestition nach Förderung                                                                               € 6.191
 
- Steuersatz                                                                                                   23 %
+ Steuersatz                                                                                                     23 %
 
- Investitionsfreibetrag                                                                                       20 %
+ Investitionsfreibetrag                                                                                         20 %
 
- Abschreibungsdauer                                                                                       10 Jahre
+ Abschreibungsdauer                                                                                         10 Jahre
 
 Das sind die Werte, mit denen dieser Report gerechnet wurde — zum Zeitpunkt seiner Erstellung. Die
 Entladetiefe ist dabei fest und geht unverändert aus Ihren Angaben ein; die übrigen Grössen lassen sich
@@ -549,8 +549,6 @@ selbst stehen weiter unten in der Tabelle „Tarifkomponenten", mit ihrer Herkun
    Abgedeckt: 365 Tage · interpolierte Lücken: 0
    · Die Zeitstempel bezeichnen das Ende des Messintervalls (Spalte „Ende Ablesezeitraum“) und wurden
    auf den Intervallbeginn umgerechnet.
-   · source ist „import_only" ohne PV-Profil: Die Eigenverbrauchs- und Lastverschiebungs-Ersparnis ist
-   nicht beurteilbar und kann unterschätzt sein (keine Einspeise-/PV-Daten).
 
 
 Tarifsätze
@@ -559,35 +557,34 @@ hinterlegtem Tarif Wiener Netze.
 
 
 Tarifkomponenten
- Position                            Wert                         Status
+ Position                            Wert                           Status
 
- Leistungspreis                      € 0,00 / kW·a                laut hinterlegtem Tarif Wiener Netze
+ Leistungspreis                      € 0,00 / kW·a                  laut hinterlegtem Tarif Wiener Netze
 
- Arbeitspreis                        unbekannt                    aus Ihren Angaben (Energieseite)
+ Arbeitspreis                        unbekannt                      aus Ihren Angaben (Energieseite)
 
- Einspeisevergütung                  nicht angegeben              aus Ihren Angaben (Energieseite)
+ Einspeisevergütung                  nicht angegeben                aus Ihren Angaben (Energieseite)
 
- Grundgebühr Lieferant               keine Angabe                 nicht erfasst — im Tarifvergleich mit 0 gerechnet
+ Grundgebühr Lieferant               keine Angabe                   nicht erfasst — im Tarifvergleich mit 0 gerechnet
 
 
 Datenquellen
- Quelle                         Was daraus verwendet wurde              Zeitraum / Stand
+ Quelle                         Was daraus verwendet wurde                Zeitraum / Stand
 
  Lastgang
+ Viertelstundenwerte des        Grundlage aller Zahlen dieses Reports.    01.01.2025 – 31.12.2025 · 365 abgedeckte
+ Netzbezugs                     Herkunft: hochgeladener Lastgang, nur     Tage (gerundet aus Messwerte ÷ 96, wie im
+                                Bezug. Monats- und Tagesgrenzen in        Datenqualitäts-Hinweis oben)
+                                Ortszeit Europe/Vienna.
 
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                           www.coolin.at · Seite 15 von 18
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                             www.coolin.at · Seite 15 von 18
     COOLiN ENERGY           Referenzfall Gewerbe
 
 
 
-
- Viertelstundenwerte des        Grundlage aller Zahlen dieses Reports.     01.01.2025 – 31.12.2025 · 365 abgedeckte
- Netzbezugs                     Herkunft: hochgeladener Lastgang, nur      Tage (gerundet aus Messwerte ÷ 96, wie im
-                                Bezug. Monats- und Tagesgrenzen in         Datenqualitäts-Hinweis oben)
-                                Ortszeit Europe/Vienna.
 
  Quelldatei                     Dateiname und Upload-Zeitpunkt des         nicht erfasst (in diesem Dokument nicht
                                 Lastgangs.                                 verfügbar)
@@ -646,6 +643,9 @@ aus einem Rückblick.
 
 
    Bekannte Einschränkungen
+   Damit die Zahlen dieses Reports richtig gelesen werden, gehört Folgendes dazugesagt.
+   Gerechnet wird durchgängig netto, also ohne Umsatzsteuer. Die Abgaben auf den Bezug sind dagegen
+   enthalten: Elektrizitätsabgabe, EAG-Förderbeitrag und EAG-Pauschale sowie die Gebrauchsabgabe
 
 
 
@@ -655,9 +655,6 @@ COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich               
 
 
 
-   Damit die Zahlen dieses Reports richtig gelesen werden, gehört Folgendes dazugesagt.
-   Gerechnet wird durchgängig netto, also ohne Umsatzsteuer. Die Abgaben auf den Bezug sind dagegen
-   enthalten: Elektrizitätsabgabe, EAG-Förderbeitrag und EAG-Pauschale sowie die Gebrauchsabgabe
    auf Netz- und Energiepreis samt Grundgebühren stecken in den Monatskosten und damit in den
    Kopfzahlen. Der Leistungspreis steht als eigene Jahreszahl ohne Gebrauchsabgabe da, so wie er auf
    der Netzrechnung steht; die Ersparnis durch Spitzenkappung enthält sie, wo sie anfällt.

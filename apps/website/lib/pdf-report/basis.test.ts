@@ -8,7 +8,8 @@ import type {
   TariffSourceRef,
 } from 'shared'
 
-import { buildBasisChapter, DATA_SOURCES_TABLE_ID } from './basis'
+import { IMPORT_ONLY_WITHOUT_PV_WARNING } from 'engine'
+import { buildBasisChapter, buildDataQuality, DATA_SOURCES_TABLE_ID } from './basis'
 import { reportInputForDisplay } from './price-display'
 import { SECTION_ID } from './content'
 import { reportLayoutOf } from './layout'
@@ -991,5 +992,24 @@ describe('Tarifkomponenten — Werte aus Rechnungen', () => {
     // Die Kennzeichen wirken je Zeile, nicht gemeinsam.
     const priceOnly = tableFor(16.2, { priceFromInvoice: true })
     expect(cells(priceOnly, 'tariff_supplier_fee')?.[1]).toBe(manual)
+  })
+})
+
+describe('Datenqualität — Warnung „import_only ohne PV-Profil"', () => {
+  const withWarning = (): PdfReportAnalysis => ({
+    ...ANALYSIS,
+    dataQuality: { ...ANALYSIS.dataQuality, warnings: [IMPORT_ONLY_WITHOUT_PV_WARNING] },
+  })
+
+  it('entfällt ohne PV, erscheint mit PV und bei unbekannter PV-Lage in Kundensprache', () => {
+    expect(buildDataQuality(withWarning(), false)).toBeNull()
+
+    const withPv = buildDataQuality(withWarning(), true)!.list!.items
+    expect(withPv).toHaveLength(1)
+    expect(withPv[0]).toContain('was Ihre PV-Anlage ins Netz einspeist')
+
+    const unknown = buildDataQuality(withWarning(), undefined)!.list!.items
+    expect(unknown[0]).toContain('Falls Sie eine PV-Anlage haben')
+    for (const text of [...withPv, ...unknown]) expect(text).not.toContain('import_only')
   })
 })
