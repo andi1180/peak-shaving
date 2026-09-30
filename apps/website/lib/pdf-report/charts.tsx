@@ -13,6 +13,7 @@ import { EnergyFlowChart } from '@/components/report/energy-flow-chart'
 import { LoadChart } from '@/components/report/load-chart'
 import { MarginalBenefitChart } from '@/components/report/marginal-benefit-chart'
 import { MonthlyTariffChart } from '@/components/report/monthly-tariff-chart'
+import { PeakShavingChart } from '@/components/report/peak-shaving-chart'
 import { PvSelfConsumptionChart } from '@/components/report/pv-self-consumption-chart'
 import { TariffWaysChart } from '@/components/report/tariff-ways-chart'
 import { captureChart, selectHeatmapGrid, selectRechartsSurface } from './chart-capture'
@@ -20,6 +21,7 @@ import type { ChartRaster } from './chart-raster'
 import { comparisonChartPlan } from './comparison'
 import { detailChartPlan, hasMonthlyChapter } from './detail'
 import { insightChartPlan } from './insight'
+import { peakShavingChartData } from './peak-shaving-chart'
 import type { PdfReportInput } from './types'
 import { buildPvValueChapter } from './pv-value'
 import { buildWaysChapter } from './ways'
@@ -96,6 +98,10 @@ export type ReportChartRasters = {
    */
   ways: ChartRaster | null
   waysError: string | null
+
+  /** Weg 5 — Lastgang mit Kappschwelle je Monat und den Viertelstunden darüber. `null` ohne Weg 5. */
+  peakShaving: ChartRaster | null
+  peakShavingError: string | null
 
   /**
    * Der geschätzte PV-Eigenverbrauch je Monat. `null`, wenn es das Kapitel „Ihre PV-Anlage" in
@@ -180,6 +186,7 @@ export type ReportChartRasters = {
 export type ReportChartFigureMs = {
   load: number | null
   ways: number | null
+  peakShaving: number | null
   pvSelfConsumption: number | null
   cost: number | null
   monthly: number | null
@@ -409,6 +416,21 @@ export async function buildReportCharts(input: PdfReportInput): Promise<ReportCh
           ),
         )
 
+  const peakData = peakShavingChartData(analysis, input.loadProfile, waysChapter)
+  const peakShaving: Attempt =
+    peakData === null
+      ? NOT_RASTERIZED
+      : await attempt(() =>
+          captureChart(
+            <PeakShavingChart
+              loadProfile={input.loadProfile}
+              capSegments={peakData.capSegments}
+              points={peakData.points}
+            />,
+            { width: LOAD_CHART_WIDTH_PX, select: selectRechartsSurface },
+          ),
+        )
+
   /*
    * Die Monatsbalken des PV-Kapitels. `pvValueChapter === null` heisst: es gibt das Kapitel in
    * diesem Dokument nicht — dieselbe Entscheidung, die auch `context.hasPvValue` liest.
@@ -591,6 +613,8 @@ export async function buildReportCharts(input: PdfReportInput): Promise<ReportCh
     loadVertices: load.raster ? measured.loadVertices : null,
     ways: ways.raster,
     waysError: ways.error,
+    peakShaving: peakShaving.raster,
+    peakShavingError: peakShaving.error,
     pvSelfConsumption: pvSelfConsumption.raster,
     pvSelfConsumptionError: pvSelfConsumption.error,
     cost: cost.raster,
@@ -612,6 +636,7 @@ export async function buildReportCharts(input: PdfReportInput): Promise<ReportCh
     figureMs: {
       load: load.ms,
       ways: ways.ms,
+      peakShaving: peakShaving.ms,
       pvSelfConsumption: pvSelfConsumption.ms,
       cost: cost.ms,
       monthly: monthly.ms,

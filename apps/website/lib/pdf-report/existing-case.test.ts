@@ -268,6 +268,8 @@ const CHARTS: ReportChartRasters = {
   loadVertices: null,
   ways: null,
   waysError: null,
+  peakShaving: null,
+  peakShavingError: null,
   cost: null,
   costError: null,
   costKind: null,
@@ -289,6 +291,7 @@ const CHARTS: ReportChartRasters = {
   figureMs: {
     load: null,
     ways: null,
+    peakShaving: null,
     pvSelfConsumption: null,
     cost: null,
     monthly: null,
