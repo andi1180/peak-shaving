@@ -354,6 +354,11 @@ export type PdfReportInput = {
    */
   netzebene?: number
   /**
+   * Die Mindestleistung fehlte im Entwurf und wurde mit 0 gerechnet (Annahme, Wizard-Pfad). Nur
+   * `true` erzeugt eine Tabellenzeile; fehlt es, bleibt der Report wie zuvor.
+   */
+  minBillableKwAssumed?: boolean
+  /**
    * D9 — die rohen Herkunftsangaben der Tarifseite (s. `PdfReportTariffProvenance`).
    *
    * ⚠ OPTIONAL und nicht `null`-fähig: „dieser Weg führt die Angaben nicht" (der Chart-Prüfstand,

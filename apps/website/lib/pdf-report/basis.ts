@@ -1022,7 +1022,8 @@ export function buildDataSources(input: PdfReportInput): ReportTable {
  * Unwahrheiten — deshalb steht dort gar nichts.
  *
  * „keine Angabe" bleibt damit genau den Feldern vorbehalten, die HIER ankommen und OPTIONAL leer
- * sind — heute die Lieferanten-Grundgebühr. Nie eine 0, auch wo intern mit 0 gerechnet wird:
+ * sind — heute die Lieferanten-Grundgebühr, und die Mindestleistung allein dann, wenn sie fehlte
+ * und mit 0 gerechnet wurde (`minBillableKwAssumed`). Nie eine 0, auch wo intern mit 0 gerechnet wird:
  * dieselbe Regel wie bei `taxEffectsIncluded`/`subsidyAmount` (§3.9, s. `batteryRows`).
  */
 
@@ -1143,6 +1144,18 @@ function supplierFeeRow(analysis: PdfReportAnalysis): ReportTableRow[] {
   ]
 }
 
+/** Die Mindestleistung erscheint nur, wenn sie fehlte und mit 0 gerechnet wurde — als Annahme benannt. */
+function minBillableKwAssumedRow(input: PdfReportInput): ReportTableRow[] {
+  if (input.minBillableKwAssumed !== true) return []
+  return [
+    dataRow('tariff_min_billable_kw', [
+      'Mindestleistung',
+      NOT_SPECIFIED,
+      'ohne Untergrenze gerechnet (Annahme)',
+    ]),
+  ]
+}
+
 /** Die Netzebene — ein Metadatum, und nur die Tarifauswahl trägt es bis hierher. */
 function netzebeneRow(source: PdfReportTariffSource): ReportTableRow[] {
   if (typeof source !== 'object' || source === null) return []
@@ -1177,6 +1190,7 @@ export function buildTariffComponents(input: PdfReportInput): ReportTable {
     rows: [
       ...leistungspreisRow(input.analysis, source, netzbetreiber),
       ...billingModelRow(input.analysis, source, netzbetreiber),
+      ...minBillableKwAssumedRow(input),
       dataRow('tariff_energy_price', [
         'Arbeitspreis',
         a.energyPriceCtPerKwh === null ? 'unbekannt' : `${formatEur2(a.energyPriceCtPerKwh / 100)} / kWh`,

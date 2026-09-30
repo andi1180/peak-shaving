@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
+import { draftMinBillableKwDefaults } from 'shared'
+
 import { DEFAULT_DRAFT_BILLING_MODEL, mapDraftToTariffParams } from './draft-mapping'
 
 /**
@@ -82,5 +84,33 @@ describe('mapDraftToTariffParams', () => {
     expect(() => mapDraftToTariffParams(ohneLeistungspreis)).toThrow(
       /leistungspreisEurPerKwYear/,
     )
+  })
+
+  describe('Mindestleistung fehlt', () => {
+    const { minBillableKw: _drop, ...ohneMindestleistung } = DRAFT
+
+    it('mit Leistungsmessung und monthly_max_sum: 0 und als Annahme vermerkt statt Abbruch', () => {
+      const draft = { ...ohneMindestleistung, billingModel: 'monthly_max_sum' }
+      expect(mapDraftToTariffParams(draft).minBillableKw).toBe(0)
+      expect(draftMinBillableKwDefaults(draft)).toBe(true)
+    })
+
+    it('ein vorhandener Wert bleibt unverändert', () => {
+      const draft = { ...DRAFT, billingModel: 'monthly_max_sum', minBillableKw: 30 }
+      expect(mapDraftToTariffParams(draft).minBillableKw).toBe(30)
+      expect(draftMinBillableKwDefaults(draft)).toBe(false)
+    })
+
+    it('ohne Leistungsmessung und leere Tariffelder: Abbruch wie bisher', () => {
+      const draft = {
+        netzebene: 'NE 7',
+        billingModel: 'monthly_max_sum',
+        meteringVariant: 'ohne_leistungsmessung',
+        leistungspreisEurPerKwYear: 0,
+        invoiceSkipped: false,
+      }
+      expect(draftMinBillableKwDefaults(draft)).toBe(false)
+      expect(() => mapDraftToTariffParams(draft)).toThrow(/energyPriceCtPerKwh/)
+    })
   })
 })

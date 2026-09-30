@@ -22,7 +22,31 @@ import {
   type FinancialParams,
   type SubsidyProgram,
 } from './financial'
-import { tariffParamsSchema, type PriceBasis } from './tariff'
+import {
+  BILLING_MODELS,
+  DEFAULT_DRAFT_BILLING_MODEL,
+  tariffParamsSchema,
+  type BillingModel,
+  type PriceBasis,
+} from './tariff'
+
+/**
+ * Fehlt die Mindestleistung bei einem Anschluss mit Leistungsmessung und kW-Abrechnung, wird ohne
+ * Untergrenze (0) gerechnet statt abgebrochen — eine 0 kann den abgerechneten kW-Wert nie anheben,
+ * erfindet also weder Kosten noch Ersparnis. Eine Definition für die Abbildung (`engine`) UND den
+ * Report-Vermerk (`apps/web`), damit „gerechnet mit 0" und „ausgewiesen als Annahme" nie auseinanderlaufen.
+ */
+export function draftMinBillableKwDefaults(
+  draft: Record<string, unknown>,
+  billingModelOverride?: BillingModel,
+): boolean {
+  if (draft.minBillableKw !== undefined && draft.minBillableKw !== null) return false
+  if (draft.meteringVariant !== 'mit_leistungsmessung') return false
+  // Ohne Leistungspreis gibt es keinen Sockel — das ist keine Annahme, sondern die Rechenfolge.
+  if (draft.leistungspreisEurPerKwYear === 0) return false
+  const model = billingModelOverride ?? draft.billingModel ?? DEFAULT_DRAFT_BILLING_MODEL
+  return (BILLING_MODELS as readonly unknown[]).includes(model)
+}
 
 /**
  * Der Netzbetreiber im Entwurf.

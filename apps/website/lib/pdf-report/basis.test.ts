@@ -571,6 +571,29 @@ function componentRow(
 }
 
 describe('buildBasisChapter — Tarifkomponenten-Tabelle (D9)', () => {
+  it('weist eine fehlende, mit 0 gerechnete Mindestleistung als Annahme aus — nur dann', () => {
+    const withFlag = buildBasisChapter({
+      title: 'Wirtschaftlichkeitsanalyse Batteriespeicher',
+      subtitle: 'Auf Basis Ihres Viertelstunden-Lastgangs',
+      period: '01.01.2025 – 31.12.2025',
+      printedAt: '17.09.2026',
+      analysis: FULL_ANALYSIS,
+      loadProfile: LOAD_PROFILE,
+      tariffSource: REAL_REF,
+      tariffVintage: null,
+      minBillableKwAssumed: true,
+    }).tariffComponents
+
+    expect(componentRow(withFlag, 'tariff_min_billable_kw')).toEqual([
+      'Mindestleistung',
+      'keine Angabe',
+      'ohne Untergrenze gerechnet (Annahme)',
+    ])
+    expect(componentRow(componentsFor(FULL_ANALYSIS, REAL_REF), 'tariff_min_billable_kw')).toBe(
+      undefined,
+    )
+  })
+
   it('führt jedes erreichbare Feld als eigene Zeile, mit Wert und Herkunft', () => {
     const table = componentsFor(FULL_ANALYSIS, REAL_REF)
 
