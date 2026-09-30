@@ -358,6 +358,10 @@ export type PdfReportInput = {
    * `true` erzeugt eine Tabellenzeile; fehlt es, bleibt der Report wie zuvor.
    */
   minBillableKwAssumed?: boolean
+  /** Der Arbeitspreis stammt laut Entwurf aus den gelesenen Rechnungen (Wizard-Pfad). */
+  priceFromInvoice?: boolean
+  /** Die Grundgebühr des Lieferanten stammt laut Entwurf aus den gelesenen Rechnungen. */
+  baseFeeFromInvoice?: boolean
   /**
    * D9 — die rohen Herkunftsangaben der Tarifseite (s. `PdfReportTariffProvenance`).
    *

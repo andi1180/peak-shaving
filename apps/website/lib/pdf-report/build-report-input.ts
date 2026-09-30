@@ -122,6 +122,8 @@ export type ReportRenderMeta = {
   minBillableKwAssumed: boolean
   /** Der Arbeitspreis des Entwurfs trägt den Rechnungs-Vermerk. Fehlt bei älteren Übergaben. */
   priceFromInvoice: boolean
+  /** Die Grundgebühr trägt den Rechnungs-Vermerk. Fehlt bei älteren Übergaben. */
+  baseFeeFromInvoice: boolean
 }
 
 /** Eine gelesene, nicht abgelaufene Übergabe. */
@@ -227,6 +229,7 @@ function readMeta(value: unknown): ReportRenderMeta {
       meta.priceDisplay === 'gross' || meta.priceDisplay === 'net' ? meta.priceDisplay : undefined,
     minBillableKwAssumed: meta.minBillableKwAssumed === true,
     priceFromInvoice: meta.priceFromInvoice === true,
+    baseFeeFromInvoice: meta.baseFeeFromInvoice === true,
   }
 }
 
@@ -369,6 +372,8 @@ export function buildReportInputFromRenderRequest(
     netzbetreiber: meta.netzbetreiber ?? undefined,
     netzebene: meta.netzebene ?? undefined,
     ...(meta.minBillableKwAssumed ? { minBillableKwAssumed: true } : {}),
+    ...(meta.priceFromInvoice ? { priceFromInvoice: true } : {}),
+    ...(meta.baseFeeFromInvoice ? { baseFeeFromInvoice: true } : {}),
     tariffVintage: tariffVintageNoteForInvoices(
       loadProfile,
       /* Ohne Angabe nennt der Satz die Grundgebühr nicht — die konservative Fassung. */

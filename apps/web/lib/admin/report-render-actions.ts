@@ -18,7 +18,7 @@ import { createClient } from '@/lib/supabase/server'
 import { readProjectDocument } from '@/lib/project-documents/documents'
 import { readTariffPricingForAnalysis } from './analysis-tariff-inputs'
 import { batteryCategoryForSegment, fetchBatteryCatalogForAnalysis } from './battery-catalog-source'
-import { energyPriceFromInvoice } from './invoice-draft-fields'
+import { draftValueFromInvoice } from './invoice-draft-fields'
 import { readStoredInvoiceExtractions } from './invoice-extractions'
 import { readMeteringPointList } from './metering-points'
 import { readPvArraysDraft } from './pv-array-draft'
@@ -228,7 +228,10 @@ export async function createReportRenderRequestAction(
     netzebene: parseNetzebeneDraftValue(point.draft.netzebene),
     // Mindestleistung fehlte und wurde mit 0 gerechnet — dieselbe Bedingung wie im Lauf; nur `true` wird vermerkt.
     ...(draftMinBillableKwDefaults(point.draft) ? { minBillableKwAssumed: true } : {}),
-    ...(energyPriceFromInvoice(point.draft) ? { priceFromInvoice: true } : {}),
+    ...(draftValueFromInvoice(point.draft, 'energyPriceCtPerKwh') ? { priceFromInvoice: true } : {}),
+    ...(draftValueFromInvoice(point.draft, 'supplierBaseFeeEurPerMonth')
+      ? { baseFeeFromInvoice: true }
+      : {}),
     /*
      * `null` heisst „keine Angabe" und ist NICHT dasselbe wie 0 — im Contract ist das Feld optional
      * (Delta 19), und `tariffVintageNote` behandelt beide ohnehin gleich. Ein aus einem von Hand

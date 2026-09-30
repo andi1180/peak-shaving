@@ -21,7 +21,7 @@ import {
   VAT_INCLUSIVE_LABEL,
 } from 'shared'
 
-import { formatDateOnly, formatEur, formatEur2, formatPercent } from '@/lib/format'
+import { formatDateOnly, formatEur, formatEur2, formatEurRate, formatPercent } from '@/lib/format'
 import {
   dynamicTariffHintKind,
   displayedInvestmentOf,
@@ -1066,6 +1066,8 @@ function gridFieldStatus(
 
 /** Die Status-Spalte der ENERGIESEITE — die Zeile „Lieferanten-Tarif" der Datenquellen daneben. */
 const SUPPLIER_STATUS = 'aus Ihren Angaben (Energieseite)'
+/** Dieselbe Zeile, wenn der Wert laut Entwurf aus den gelesenen Rechnungen stammt. */
+const SUPPLIER_INVOICE_STATUS = 'aus Ihren Rechnungen (Energieseite)'
 
 /**
  * Der Leistungspreis-Satz.
@@ -1134,7 +1136,7 @@ function billingModelRow(
  * ⚠ Ohne Monatsvergleich (Hebel aus, oder nicht berechenbar) entfällt die Zeile — dann hat die
  * Angabe diesen Render-Lauf gar nicht erreicht, s. Kopf.
  */
-function supplierFeeRow(analysis: PdfReportAnalysis): ReportTableRow[] {
+function supplierFeeRow(analysis: PdfReportAnalysis, fromInvoice: boolean): ReportTableRow[] {
   const comparison =
     analysis.tariffOptimization?.computable === true
       ? analysis.tariffOptimization.monthlyComparison
@@ -1146,7 +1148,11 @@ function supplierFeeRow(analysis: PdfReportAnalysis): ReportTableRow[] {
     dataRow(
       'tariff_supplier_fee',
       fee > 0
-        ? ['Grundgebühr Lieferant', `${formatEur2(fee)} / Monat`, SUPPLIER_STATUS]
+        ? [
+            'Grundgebühr Lieferant',
+            `${formatEur2(fee)} / Monat`,
+            fromInvoice ? SUPPLIER_INVOICE_STATUS : SUPPLIER_STATUS,
+          ]
         : [
             'Grundgebühr Lieferant',
             NOT_SPECIFIED,
@@ -1205,8 +1211,11 @@ export function buildTariffComponents(input: PdfReportInput): ReportTable {
       ...minBillableKwAssumedRow(input),
       dataRow('tariff_energy_price', [
         'Arbeitspreis',
-        a.energyPriceCtPerKwh === null ? 'unbekannt' : `${formatEur2(a.energyPriceCtPerKwh / 100)} / kWh`,
-        SUPPLIER_STATUS,
+        a.energyPriceCtPerKwh === null
+          ? 'unbekannt'
+          : /* Ein Rechnungswert steht mit seinen Nachkommastellen da; Handangaben wie bisher auf Cent. */
+            `${(input.priceFromInvoice ? formatEurRate : formatEur2)(a.energyPriceCtPerKwh / 100)} / kWh`,
+        input.priceFromInvoice ? SUPPLIER_INVOICE_STATUS : SUPPLIER_STATUS,
       ]),
       dataRow('tariff_einspeiseverguetung', [
         'Einspeisevergütung',
@@ -1215,7 +1224,7 @@ export function buildTariffComponents(input: PdfReportInput): ReportTable {
           : `${formatEur2(a.einspeiseverguetungCtPerKwh / 100)} / kWh`,
         SUPPLIER_STATUS,
       ]),
-      ...supplierFeeRow(input.analysis),
+      ...supplierFeeRow(input.analysis, input.baseFeeFromInvoice === true),
       ...netzebeneRow(source),
     ],
   }
