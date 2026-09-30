@@ -38,6 +38,9 @@ import type { PriceBasis } from './tariff'
 export const INVOICE_SCAN_OPERATORS = ['wiener_netze', 'netz_noe', 'salzburg_netz'] as const
 export type InvoiceScanOperator = (typeof INVOICE_SCAN_OPERATORS)[number]
 
+/** Antwort des Scans, wenn kein Netzbetreiber ausdrücklich auf der Rechnung steht (wird zu `null`). */
+export const INVOICE_SCAN_OPERATOR_UNKNOWN = 'unbekannt'
+
 /** Netzebenen, die der Scan benennen darf. Spiegel von `NETZEBENEN`. */
 export const INVOICE_SCAN_NETZEBENEN = [3, 4, 5, 6, 7] as const
 export type InvoiceScanNetzebene = (typeof INVOICE_SCAN_NETZEBENEN)[number]
@@ -343,11 +346,14 @@ function nullableEnum<T extends string | number>(
  * `billingPeriodAssumed` als schlichtes `boolean` (zählt nur neben einem Datum, s. `billingPeriod`).
  * `billingModelBasis` (schlichtes Enum) und `billedKwLines` (Liste ohne Union) sind am 29.09.2026
  * zurückgekommen, weil `billingModelFrom` und der Merge sie brauchen — beide zählen nicht mit.
+ * `netzbetreiber` ist am 30.09.2026 als schlichtes Enum mit „unbekannt" zurückgekommen (ohne ihn
+ * fehlen Netzentgelte, aWATTar-Vergleich und EAG-Förderbeitrag) — zählt ebenfalls nicht mit.
  */
 export const INVOICE_SCAN_JSON_SCHEMA: { [key: string]: unknown } = {
   type: 'object',
   additionalProperties: false,
   required: [
+    'netzbetreiber',
     'netzebene',
     'meteringVariant',
     'billingModel',
@@ -362,6 +368,15 @@ export const INVOICE_SCAN_JSON_SCHEMA: { [key: string]: unknown } = {
     'supplierPriceBasis',
   ],
   properties: {
+    // Schlichtes Enum mit „unbekannt" statt null — zählt nicht gegen die Union-Grenze; der Parser
+    // liest „unbekannt" als null (`oneOf`).
+    netzbetreiber: {
+      type: 'string',
+      enum: [...INVOICE_SCAN_OPERATORS, INVOICE_SCAN_OPERATOR_UNKNOWN],
+      description:
+        'Der Verteilnetzbetreiber (Betreiber der Netznutzung), nicht der Stromlieferant. ' +
+        '"unbekannt", wenn er nicht ausdrücklich auf der Rechnung steht.',
+    },
     netzebene: nullableEnum(
       'integer',
       INVOICE_SCAN_NETZEBENEN,

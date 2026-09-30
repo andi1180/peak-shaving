@@ -269,3 +269,20 @@ describe('mergeInvoiceExtractions — Leistungsmessung mit kW-Beleg (29.09.2026)
     expect(conflicts).toContain('meteringVariant')
   })
 })
+
+describe('mergeInvoiceExtractions — Netzbetreiber mit „unbekannt" (30.09.2026)', () => {
+  const read = (netzbetreiber: string) =>
+    parseInvoiceExtraction({ ...emptyInvoiceExtraction(), netzbetreiber })
+
+  it('wiener_netze und „unbekannt" ergeben wiener_netze ohne Konflikt', () => {
+    const { merged, conflicts } = mergeInvoiceExtractions([read('wiener_netze'), read('unbekannt')])
+    expect(merged.netzbetreiber).toBe('wiener_netze')
+    expect(conflicts).not.toContain('netzbetreiber')
+  })
+
+  it('zwei verschiedene bekannte Betreiber sind ein Konflikt', () => {
+    const { merged, conflicts } = mergeInvoiceExtractions([read('wiener_netze'), read('netz_noe')])
+    expect(merged.netzbetreiber).toBeNull()
+    expect(conflicts).toContain('netzbetreiber')
+  })
+})

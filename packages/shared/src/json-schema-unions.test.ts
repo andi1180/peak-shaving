@@ -55,4 +55,14 @@ describe('countUnionParameters', () => {
   it('der Rechnungs-Scan hält zwei Reserve unter der Grenze', () => {
     expect(countUnionParameters(INVOICE_SCAN_JSON_SCHEMA)).toBeLessThanOrEqual(14)
   })
+
+  it('netzbetreiber ist ein schlichtes Pflicht-Enum und zählt nicht als Union', () => {
+    const props = INVOICE_SCAN_JSON_SCHEMA.properties as Record<string, Record<string, unknown>>
+    expect(props.netzbetreiber).toMatchObject({
+      type: 'string',
+      enum: ['wiener_netze', 'netz_noe', 'salzburg_netz', 'unbekannt'],
+    })
+    expect(INVOICE_SCAN_JSON_SCHEMA.required).toContain('netzbetreiber')
+    expect(countUnionParameters(INVOICE_SCAN_JSON_SCHEMA)).toBe(14)
+  })
 })
