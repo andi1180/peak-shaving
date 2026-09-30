@@ -162,7 +162,38 @@ export function waysCountOf(analysis: PdfReportAnalysis): number {
  * derselben Frage.
  */
 export function peakShavingSavingOf(analysis: PdfReportAnalysis): number {
-  return primaryEntryOf(analysis)?.leistungspreisSavingPerYear ?? 0
+  const entry = primaryEntryOf(analysis)
+  if (!entry || !(entry.leistungspreisSavingPerYear > 0)) return 0
+  return entry.leistungspreisSavingPerYear + (entry.eagDemandSavingPerYear ?? 0)
+}
+
+/**
+ * Die Aufschlüsselung von Weg 5: Leistungspreis netto, Gebrauchsabgabe darauf, EAG-Förderbeitrag
+ * Leistung, Summe. Gerundet wird je Zeile, die Gebrauchsabgabe ist der Rest bis zur gerundeten
+ * Summe — so ergeben die gezeigten Zahlen genau die gezeigte Summe.
+ */
+function peakShavingRows(analysis: PdfReportAnalysis): ReportRow[] {
+  const entry = primaryEntryOf(analysis)
+  const { billedKw, leistungspreisCostPerYear } = analysis.current
+  if (!entry || !(billedKw > 0)) return []
+
+  // Der Leistungspreis ist linear im kW-Wert: die Netto-Senkung ist der Anteil der Ist-Kosten.
+  const net = Math.round((leistungspreisCostPerYear * (billedKw - entry.newBilledKw)) / billedKw)
+  const eag = Math.round(entry.eagDemandSavingPerYear ?? 0)
+  const total = Math.round(peakShavingSavingOf(analysis))
+  const levy = total - net - eag
+
+  const row = (label: string, eur: number): ReportRow => ({
+    label,
+    value: formatEur(eur),
+    tone: 'neutral',
+  })
+  return [
+    row('Leistungspreis (netto)', net),
+    ...(levy !== 0 ? [row('Gebrauchsabgabe darauf', levy)] : []),
+    ...(eag !== 0 ? [row('EAG-Förderbeitrag Leistung', eag)] : []),
+    { ...row(`${PEAK_SHAVING_WAY_LABEL} pro Jahr`, total), total: true },
+  ]
 }
 
 const wayById = (ways: SummaryWays, id: SummaryWay['id']): SummaryWay | undefined =>
@@ -245,7 +276,9 @@ const PEAK_SHAVING_METHOD =
   'der simulierte Fahrplan diesen Wert senkt, mal dem Satz Ihres Netzbetreibers — samt der ' +
   'Gebrauchsabgabe darauf, wo sie anfällt, denn mit dem Leistungspreis sinkt auch sie. Der abgerechnete ' +
   'Wert folgt dem Abrechnungsmodell Ihres Netzbetreibers und wird von der Mindestleistung nach ' +
-  'unten begrenzt. Als Jahresgrösse gehört er zu keinem der Beträge darüber dazu.'
+  'unten begrenzt. Als Jahresgrösse gehört er zu keinem der Beträge darüber dazu. Die Ersparnis ' +
+  'enthält den Leistungspreis, die Gebrauchsabgabe darauf und den EAG-Förderbeitrag Leistung, ' +
+  'der am selben abgerechneten Wert hängt.'
 
 /**
  * Gerät, Investition und Speicher-Urteil zu Weg 4: ein Kostenbalken „mit Speicher" steht nie ohne
@@ -418,7 +451,7 @@ export function buildWaysChapter(analysis: PdfReportAnalysis): WaysChapter | nul
       id: 'ways_peak_shaving',
       title: PEAK_SHAVING_WAY_LABEL,
       amount: null,
-      rows: [],
+      rows: peakShavingRows(analysis),
       /*
        * ⚠ `whose` ist eine DATIV-Fügung („Ihrem Speicher" / „der empfohlenen Batterie",
        * `monthlyBatteryRef`) und trägt deshalb nur nach „mit" — als Satzsubjekt ergäbe sie
@@ -592,7 +625,7 @@ function buildUnknownTariffWaysChapter(
         id: 'ways_peak_shaving',
         title: PEAK_SHAVING_WAY_LABEL,
         amount: null,
-        rows: [],
+        rows: peakShavingRows(analysis),
         body: peakShavingBody(whose, peakSavingPerYear, days, false),
       },
       PEAK_SHAVING_METHOD,

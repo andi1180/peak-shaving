@@ -193,7 +193,7 @@ function eagDemandChargeRow(analysis: PdfReportAnalysis): ReportRow[] {
   const rate = amount / billedKwPerYear(analysis)
   return [
     neutralRow(
-      'EAG-Förderbeitrag (Grundpreis) heute',
+      'EAG-Förderbeitrag Leistung heute',
       `${formatEur(amount)} pro Jahr (${formatEur2(rate)} / kW·a)`,
     ),
   ]

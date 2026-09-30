@@ -323,8 +323,10 @@ Wirkung: `BatterySavings.eagDemandSavingPerYear` (alt − neu über `eagDemandCh
 0 bei Blockern und bei `undefined`), enthalten in `totalSavingPerYear` und damit in ROI/Reihung. `ENGINE_VERSION` 1.7.1-mvp;
 Golden-Fälle unverändert (Leistungspreis 0 → Blocker bzw. EAG-Einheit `eur_per_year`).
 
-**⚠ Offen:** `BatteryResultEntry` hat kein EAG-Feld — im Contract gilt `total = leistungspreis + energy` bei EAG > 0
-nicht mehr, und Report/CSV weisen den EAG-Anteil nicht getrennt aus (Weg 5 zeigt nur den Leistungspreis).
+**Seit 30.09.2026:** `BatteryResultEntry.eagDemandSavingPerYear` (optional, nur ≠ 0 gesetzt; `ENGINE_VERSION` 1.7.2-mvp,
+Bündel-Fassung 16); Weg 5 im PDF zeigt Leistungspreis + Gebrauchsabgabe + EAG mit Aufschlüsselung (`peakShavingSavingOf`).
+**⚠ Offen:** CSV und Bildschirm-Report weisen den EAG-Anteil nicht getrennt aus; `annualScenario.ways.peakShavingSavingEur`
+(Kapitel ausgeblendet) trägt weiter nur den Leistungspreis.
 
 ### Förderung „€ pro kWh" je Gerät mit Programmdeckeln (27.09.2026)
 

@@ -14,7 +14,7 @@ import type {
 
 import { topPeaksKw } from '../peaks/metrics'
 import { calculateRoi } from '../roi/roi'
-import { computeBatterySavings } from '../savings/attribute'
+import { computeBatterySavings, eagDemandSavingField } from '../savings/attribute'
 import { drawSeries, intervalIndicesByPeriod, maxPositiveDraw, periodIndexByInterval } from '../simulation/helpers'
 import type { DispatchPlanning } from '../simulation/planning'
 import { simulateBattery } from '../simulation/simulate'
@@ -133,6 +133,7 @@ function buildPerBatteryEntry(
     battery,
     newBilledKw: savings.newBilledKw,
     leistungspreisSavingPerYear: savings.leistungspreisSavingPerYear,
+    ...eagDemandSavingField(savings.eagDemandSavingPerYear),
     energySavingPerYear: savings.energySavingPerYear,
     energySavingOverCoveredPeriod: savings.energySavingOverCoveredPeriod,
     energySavingBasis: savings.energySavingBasis,

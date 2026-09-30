@@ -55,6 +55,11 @@ export type BatterySavings = {
   warnings: string[]
 }
 
+/** Das Contract-Feld `eagDemandSavingPerYear` — nur gesetzt, wenn ungleich 0 (Ergebnisse ohne EAG-Anteil bleiben bitgleich). */
+export function eagDemandSavingField(value: number): { eagDemandSavingPerYear?: number } {
+  return value !== 0 ? { eagDemandSavingPerYear: value } : {}
+}
+
 export function computeBatterySavings(
   loadProfile: LoadProfile,
   battery: BatteryCandidate,

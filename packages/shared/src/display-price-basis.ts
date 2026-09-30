@@ -102,6 +102,7 @@ const FIELD_KIND: Record<AnalysisNumericKey, 'money' | 'price' | 'other'> = {
   depreciationYears: 'other',
   dischargedKwh: 'other',
   eagFlatFeeEur: 'money',
+  eagDemandSavingPerYear: 'money',
   eagGrundpreisCostPerYear: 'money',
   einspeiseverguetungCtPerKwh: 'other',
   energyPriceCtPerKwh: 'price',

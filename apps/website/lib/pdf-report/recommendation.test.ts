@@ -251,7 +251,7 @@ describe('recommendation — Kapp-Zeilen', () => {
     const rows = buildRecommendationChapter(analysis, FULL_YEAR).recommendation!.rows
 
     expect(rows).toContainEqual({
-      label: 'EAG-Förderbeitrag (Grundpreis) heute',
+      label: 'EAG-Förderbeitrag Leistung heute',
       value: '€\u00a021 pro Jahr (€\u00a05,25 / kW·a)',
       tone: 'neutral',
     })
@@ -269,7 +269,7 @@ describe('recommendation — Kapp-Zeilen', () => {
     const labels = buildRecommendationChapter(analysis, FULL_YEAR).recommendation!.rows.map((r) => r.label)
 
     expect(labels).toContain('Ø Monatsspitze heute')
-    expect(labels).not.toContain('EAG-Förderbeitrag (Grundpreis) heute')
+    expect(labels).not.toContain('EAG-Förderbeitrag Leistung heute')
   })
 
   it('fehlen ohne Leistungspreis-Ersparnis (leistungspreisSavingPerYear = 0)', () => {
@@ -428,5 +428,58 @@ describe('recommendation — Kapp-Zeilen bei Teiljahr', () => {
       tone: 'neutral',
     })
     expect(rows.map((r) => r.label)).not.toContain('Abgerechneter Leistungswert heute')
+  })
+})
+
+/**
+ * Müldür-Zuschnitt (Lauf 634cd36e, 30.09.2026): die Kappung trägt Leistungspreis, Gebrauchsabgabe
+ * darauf (7 %) und den EAG-Förderbeitrag Leistung — Weg 5 nennt alle drei, Seite 8 bleibt gleich.
+ */
+describe('Kappung — einheitlich inkl. EAG-Förderbeitrag Leistung', () => {
+  const muldur = () => {
+    const analysis = analysisFor(false)
+    analysis.perBattery = [
+      {
+        ...ENTRY,
+        newBilledKw: 181.964131,
+        leistungspreisSavingPerYear: 1091.307921,
+        eagDemandSavingPerYear: 69.113649,
+        energySavingPerYear: 1334.382818,
+        totalSavingPerYear: 2494.804317,
+        dispatchTrace: TRACE,
+      },
+    ]
+    analysis.current = {
+      ...analysis.current,
+      billedKw: 255.764,
+      leistungspreisCostPerYear: 3534.657627,
+      eagGrundpreisCostPerYear: 239.522986,
+    }
+    analysis.dataQuality = { ...analysis.dataQuality, coveredMonths: 6 }
+    return analysis
+  }
+
+  it('Weg 5 nennt die Summe und schlüsselt sie auf; Seite 8 bleibt bei der Gesamtersparnis', () => {
+    const analysis = muldur()
+    const way = buildWaysChapter(analysis)!.statements.find((s) => s.id === 'ways_peak_shaving')!
+
+    expect(way.body).toContain(`Das bringt ${formatEur(1160)}`)
+    expect(way.rows.map((r) => [r.label, r.value])).toEqual([
+      ['Leistungspreis (netto)', formatEur(1020)],
+      ['Gebrauchsabgabe darauf', formatEur(71)],
+      ['EAG-Förderbeitrag Leistung', formatEur(69)],
+      ['Kappung Ihrer Lastspitzen pro Jahr', formatEur(1160)],
+    ])
+    const euros = (value: string) => Number(value.replace(/\D/g, ''))
+    const [net, levy, eag, sum] = way.rows.map((r) => euros(r.value))
+    expect(net! + levy! + eag!).toBe(sum)
+
+    const rows = buildRecommendationChapter(analysis, FULL_YEAR).recommendation!.rows
+    expect(rows.find((r) => r.label.startsWith('Ersparnis'))?.value).toBe(formatEur(2495))
+    expect(rows).toContainEqual({
+      label: 'EAG-Förderbeitrag Leistung heute',
+      value: '€ 240 pro Jahr (€ 5,62 / kW·a)',
+      tone: 'neutral',
+    })
   })
 })
