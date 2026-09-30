@@ -1,6 +1,6 @@
 // Kombinierter Dispatch → Ersparnis (§3.7): Leistungspreis-Anteil und Energie-Anteil (volle
 // Kostendifferenz der Netzreihen), inkl. controlType-Default.
-export { computeBatterySavings } from './attribute'
+export { computeBatterySavings, eagDemandSavingField } from './attribute'
 export type { BatterySavings } from './attribute'
 // D6 Teil 1: die Jahres-Hochrechnung. `annualizationFactor` gab es bereits, war aber über den
 // Paket-Index nicht erreichbar (Bestandsaufnahme §5.2) — hier ohne Verhaltensänderung nachgezogen.

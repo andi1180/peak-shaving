@@ -20,7 +20,7 @@ import { analyzeCurrentPeaks, topPeaksKw } from './peaks'
 import { installationCoverageOf, recommendBattery } from './recommendation'
 import { eagDemandChargePerYear } from './tariff'
 import { calculateRoi, subsidyProgramAssumptionsOf, taxAssumptionsOf } from './roi'
-import { computeBatterySavings } from './savings'
+import { computeBatterySavings, eagDemandSavingField } from './savings'
 import { AnalysisRefusedError, hasFeedIn } from './refusal'
 import {
   alignPvGrossToLoad,
@@ -244,11 +244,11 @@ function buildExistingBatteryAnalysis(
 
   const sim = simulateBattery(loadProfile, existing, payload.tariff, pvProfile, pricing, planning)
   const savings = computeBatterySavings(loadProfile, existing, payload.tariff, sim, pricing, levies)
-  // Der EAG-Anteil steckt in `totalSavingPerYear`; ein eigenes Feld kennt der Contract nicht.
-  const { eagDemandSavingPerYear: _eag, ...savingsEntry } = savings
+  const { eagDemandSavingPerYear, ...savingsEntry } = savings
   const entry: BatteryResultEntry = {
     battery: existing,
     ...savingsEntry,
+    ...eagDemandSavingField(eagDemandSavingPerYear),
     dispatchTrace: buildDispatchTrace(loadProfile, payload.tariff, sim, topPeaks),
   }
 

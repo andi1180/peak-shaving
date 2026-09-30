@@ -184,6 +184,11 @@ export type BatteryResultEntry = {
   newBilledKw: number
   leistungspreisSavingPerYear: number
   /**
+   * Senkung des EAG-Förderbeitrags Leistung pro Jahr (ohne Gebrauchsabgabe) am selben `billedKw`.
+   * Steckt in `totalSavingPerYear`; fehlt, wenn 0 — ältere Ergebnisse tragen das Feld nicht.
+   */
+  eagDemandSavingPerYear?: number
+  /**
    * Energie-Ersparnis PRO JAHR: Energiekosten der Netzreihe ohne Speicher − mit Speicher, über
    * `annualizationFactor` hochgerechnet (§3.7). Zusammen mit `leistungspreisSavingPerYear` ergibt
    * sie `totalSavingPerYear` exakt. Kann negativ sein (Ladeverluste, Kapp-Energie).
