@@ -36,6 +36,7 @@ import {
 import { hasNegativeAddonVerdict } from './comparison'
 import { REPORT_SECTIONS, reportDisclaimer, SECTION_ID, type ReportSection } from './content'
 import type { ReportBuildContext } from './context'
+import { distinctInvoicePeriods, formatInvoiceRanges, mergeInvoiceRanges } from './invoice-periods'
 import { hasPvValueChapter } from './pv-value'
 import { block, ref, t, REF_PLACE, type ReportText } from './report-text'
 import type {
@@ -865,10 +866,14 @@ function gridTariffVintage(
  * der Kunde habe diesen Tarif — deshalb der Zusatz „Vergleichstarif".
  */
 function supplierVintage(provenance: PdfReportTariffProvenance | undefined): string {
-  const period = (provenance?.invoicePeriods ?? []).find(
-    (entry) => entry.from !== null || entry.to !== null,
-  )
-  if (period) return formatInvoicePeriod(period)
+  const periods = distinctInvoicePeriods(provenance?.invoicePeriods ?? [])
+  if (periods.length === 1) return formatInvoicePeriod(periods[0]!)
+  if (periods.length > 1) {
+    return (
+      `${periods.length} Kundenrechnungen, Abrechnungszeiträume ` +
+      `${formatInvoiceRanges(mergeInvoiceRanges(periods))}${assumedPeriodsSuffix(periods)}`
+    )
+  }
 
   return (
     `Kundenrechnung: ${NOT_RECORDED}. Vergleichstarif ${AWATTAR_BASE_FEE.supplier}, ` +
@@ -884,6 +889,13 @@ function formatInvoicePeriod(period: PdfReportInvoicePeriod): string {
     ? ' (aus einer Jahresrechnung abgeleitet, nicht ausgeschrieben)'
     : ' (auf der Rechnung ausgeschrieben)'
   return `Kundenrechnung, Abrechnungszeitraum ${from} – ${to}${origin}`
+}
+
+/** Ein abgeleiteter Zeitraum ist eine Annahme — bei mehreren Rechnungen wird das benannt, sobald es eine betrifft. */
+function assumedPeriodsSuffix(periods: PdfReportInvoicePeriod[]): string {
+  return periods.some((period) => period.assumed)
+    ? ' (teils aus einer Jahresrechnung abgeleitet, nicht ausgeschrieben)'
+    : ''
 }
 
 /** Hersteller und Bezeichnung — ohne den Hersteller zu wiederholen, wenn die Katalog-Bezeichnung ihn schon trägt. */
