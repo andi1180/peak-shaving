@@ -594,6 +594,13 @@ aus einem Rückblick.
 
 
 
+
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                         www.coolin.at · Seite 15 von 17
+    COOLiN ENERGY          Referenzfall Gewerbe
+
+
+
+
    Bekannte Einschränkungen
    Damit die Zahlen dieses Reports richtig gelesen werden, gehört Folgendes dazugesagt.
    Gerechnet wird durchgängig netto, also ohne Umsatzsteuer. Die Abgaben auf den Bezug sind dagegen
@@ -604,16 +611,6 @@ aus einem Rückblick.
    Gebrauchsabgabe Wien angenommen — Standort nicht angegeben. Sie fällt nur für Anschlüsse im
    Wiener Gemeindegebiet an; liegt Ihr Anschluss ausserhalb Wiens, sind die Kosten um diesen Posten
    zu hoch angesetzt.
-
-
-
-
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                         www.coolin.at · Seite 15 von 17
-    COOLiN ENERGY          Referenzfall Gewerbe
-
-
-
-
    Die Tabelle „Tarifkomponenten" zeigt die erfassten Parameter, nicht alle in der Rechnung verwendeten:
    einzelne Grössen fliessen ein, ohne eine eigene Zeile zu tragen — die Mindestleistung etwa, die den
    abgerechneten Leistungswert nach unten begrenzt.
