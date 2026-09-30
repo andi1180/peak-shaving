@@ -1,6 +1,6 @@
 import { NETZBETREIBER_LABELS, displayedPriceLabel } from 'shared'
 
-import { formatEur } from '@/lib/format'
+import { formatEur, formatYears } from '@/lib/format'
 import {
   ANNUALIZED_LABEL,
   catalogStorageEntry,
@@ -17,6 +17,7 @@ import { BASIS_SECTION, PV_VALUE_SECTION } from './content'
 import { hasPvValueChapter } from './pv-value'
 import { block, ref, t, REF_PLACE } from './report-text'
 import type { ReportPoint, ReportStatement } from './statement'
+import { storageSummarySource } from './storage-summary'
 import {
   recommendationVerdictOf,
   summaryWaysOf,
@@ -25,6 +26,7 @@ import {
   type SummaryWays,
 } from './summary'
 import type { PdfReportInput } from './types'
+import { peakShavingSavingOf } from './ways'
 
 /**
  * Das Kapitel „Unser Vorschlag", zwischen „Methodik & Vorbehalte" und „Annahmen und
@@ -137,6 +139,23 @@ function maximumPoint(way: SummaryWay, days: string, input: PdfReportInput): Rep
   /* Rechnet sich das Katalog-Gerät nicht, ist der Punkt eine Feststellung und kein Rat. */
   const entry = catalogStorageEntry(input.analysis)
   const neutral = entry !== undefined && !storagePaysOff(entry)
+  /* Mit Kappung nennt der Punkt die Beträge des Speicher-Blocks der Zusammenfassung, gleich gerundet. */
+  const summary = neutral ? null : storageSummarySource(input.analysis)
+  if (summary) {
+    const { entry: recommended } = summary
+    return {
+      title: 'Wollen Sie das Maximum',
+      text:
+        `${CONTROLLED_WAY_LABEL} — ${formatEur(way.eur)} weniger über dieselben ${days} Tage. ` +
+        `Dazu kommt die Kappung Ihrer Lastspitzen mit dem Speicher (${recommended.battery.name}, ` +
+        `Investition ${formatEur(recommended.totalInvestment)}): ` +
+        `${formatEur(peakShavingSavingOf(input.analysis))} pro Jahr, unabhängig vom Stromvertrag ` +
+        'und als Obergrenze gerechnet. Zusammen mit der Ladesteuerung ergibt das ' +
+        `${formatEur(recommended.totalSavingPerYear)} pro Jahr und eine Amortisation von ` +
+        `${formatYears(recommended.amortizationYears)}n — eine Vorausberechnung, keine Zusage. ` +
+        'Sprechen Sie uns an, wenn Sie dabei Unterstützung möchten.',
+    }
+  }
   return {
     title: neutral ? 'Mit Speicher und Ladesteuerung' : 'Wollen Sie das Maximum',
     text:
