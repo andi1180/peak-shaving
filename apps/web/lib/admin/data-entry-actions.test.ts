@@ -757,6 +757,98 @@ describe('removeMeteringPointInvoiceAction', () => {
   })
 })
 
+// Erneutes Lesen ersetzt die aus Rechnungen übernommenen Felder — Handeingaben bleiben.
+describe('uploadMeteringPointInvoicesAction — erneutes Lesen', () => {
+  beforeEach(() => {
+    draft = {}
+    withInvoiceWrappers()
+    uploadProjectDocument.mockImplementation(async (_projectId: string, file: { name: string }) => ({
+      ok: true,
+      documentId: `doc-${file.name}`,
+      storagePath: `${PROJECT_ID}/doc-${file.name}`,
+    }))
+  })
+
+  function provenanceOf(field: string): Record<string, unknown> | undefined {
+    return (draft._provenance as Record<string, Record<string, unknown>> | undefined)?.[field]
+  }
+
+  it('entfernt ein früher übernommenes minBillableKw, wenn der neue Merge keinen Wert liefert', async () => {
+    extractInvoiceData.mockResolvedValue(extraction({ minBillableKw: 44 }))
+    await uploadMeteringPointInvoicesAction({}, invoiceForm([pdf('a.pdf')]))
+    expect(draft.minBillableKw).toBe(44)
+
+    // Entfernen lässt den Wert stehen (unverändert) …
+    const fd = new FormData()
+    fd.set('projectId', PROJECT_ID)
+    fd.set('meteringPointId', POINT_ID)
+    fd.set('documentId', 'doc-a.pdf')
+    await removeMeteringPointInvoiceAction({}, fd)
+    expect(draft.minBillableKw).toBe(44)
+
+    // … das erneute Lesen ohne Wert entfernt ihn samt Vermerk.
+    extractInvoiceData.mockResolvedValue(extraction({ leistungspreisEurPerKwYear: 38.52 }))
+    await uploadMeteringPointInvoicesAction({}, invoiceForm([pdf('b.pdf')]))
+    expect(draft).not.toHaveProperty('minBillableKw')
+    expect(provenanceOf('minBillableKw')).toBeUndefined()
+    expect(draft.leistungspreisEurPerKwYear).toBe(38.52)
+  })
+
+  it('entfernt oder überschreibt ein von Hand eingetragenes minBillableKw nie', async () => {
+    extractInvoiceData.mockResolvedValue(extraction())
+    await uploadMeteringPointInvoicesAction({}, invoiceForm([pdf('a.pdf')]))
+    draft = {
+      ...draft,
+      minBillableKw: 50,
+      _provenance: {
+        ...(draft._provenance as object),
+        minBillableKw: { source: 'measured', at: new Date().toISOString() },
+      },
+    }
+
+    await uploadMeteringPointInvoicesAction({}, invoiceForm([pdf('b.pdf')]))
+    expect(draft.minBillableKw).toBe(50)
+
+    extractInvoiceData.mockResolvedValue(extraction({ minBillableKw: 44 }))
+    await uploadMeteringPointInvoicesAction({}, invoiceForm([pdf('c.pdf')]))
+    expect(draft.minBillableKw).toBe(50)
+    expect(provenanceOf('minBillableKw')).not.toHaveProperty('origin')
+  })
+
+  it('lässt Handwerte eines Entwurfs ohne Rechnungsübernahme unverändert', async () => {
+    const handProvenance = { source: 'measured', at: '2026-09-19T10:00:00.000Z' }
+    draft = {
+      energyPriceCtPerKwh: 13.081,
+      minBillableKw: 7,
+      _provenance: { energyPriceCtPerKwh: handProvenance, minBillableKw: handProvenance },
+    }
+
+    extractInvoiceData.mockResolvedValue(extraction({ energyPriceCtPerKwh: 9.5 }))
+    await uploadMeteringPointInvoicesAction({}, invoiceForm([pdf('a.pdf')]))
+
+    expect(draft.energyPriceCtPerKwh).toBe(13.081)
+    expect(draft.minBillableKw).toBe(7)
+    expect(provenanceOf('energyPriceCtPerKwh')).toEqual(handProvenance)
+    expect(provenanceOf('minBillableKw')).toEqual(handProvenance)
+  })
+
+  it('räumt einen Altwert ohne Vermerk ab, wenn am Zählpunkt schon Rechnungen gelesen waren', async () => {
+    extractInvoiceData.mockResolvedValue(extraction())
+    await uploadMeteringPointInvoicesAction({}, invoiceForm([pdf('a.pdf')]))
+    draft = {
+      ...draft,
+      minBillableKw: 44,
+      _provenance: {
+        ...(draft._provenance as object),
+        minBillableKw: { source: 'measured', at: '2026-09-29T12:09:46.214Z' },
+      },
+    }
+
+    await uploadMeteringPointInvoicesAction({}, invoiceForm([pdf('b.pdf')]))
+    expect(draft).not.toHaveProperty('minBillableKw')
+  })
+})
+
 /**
  * ══════════════════════════════════════════════════════════════════════════════════════════════
  * B24, Teil 1 — „bewusst ohne Rechnungsdaten": das DRITTE Signal

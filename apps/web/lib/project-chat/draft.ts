@@ -41,6 +41,8 @@ export interface DraftProvenanceEntry {
   note?: string
   /** Wann der Vermerk entstand — ISO-8601. Er belegt die Reihenfolge späterer Korrekturen. */
   at: string
+  /** Wert stammt aus der Zusammenführung gelesener Rechnungen; jeder andere Schreibweg ersetzt den Vermerk ohne. */
+  origin?: 'invoice'
 }
 
 export type DraftProvenance = Record<string, DraftProvenanceEntry>
@@ -64,6 +66,7 @@ export function readDraftProvenance(draft: Record<string, unknown>): DraftProven
         ? { note: entry.note.trim() }
         : {}),
       at: typeof entry.at === 'string' ? entry.at : '',
+      ...(entry.origin === 'invoice' ? { origin: 'invoice' as const } : {}),
     }
   }
   return result
@@ -84,6 +87,7 @@ export function setDraftField(
   source: DraftValueSource,
   note: string | undefined,
   now: Date,
+  origin?: 'invoice',
 ): Record<string, unknown> {
   const provenance = readDraftProvenance(draft)
   const trimmedNote = note?.trim()
@@ -95,6 +99,7 @@ export function setDraftField(
       source,
       ...(trimmedNote ? { note: trimmedNote } : {}),
       at: now.toISOString(),
+      ...(origin ? { origin } : {}),
     },
   }
   return next

@@ -17,6 +17,7 @@ import { uploadProjectDocument } from '@/lib/project-documents/documents'
 import { dropInapplicableBillingModel, setDraftField } from '@/lib/project-chat/draft'
 import { createClient } from '@/lib/supabase/server'
 import { lookupGridTariffDefaults } from './grid-tariff-lookup'
+import { replaceInvoiceDraftFields, setInvoiceDraftField } from './invoice-draft-fields'
 import { mapWithConcurrency } from './map-with-concurrency'
 import {
   INVOICE_SKIPPED_KEY,
@@ -263,15 +264,12 @@ export async function uploadMeteringPointInvoicesAction(
    */
   let nextDraft = withInvoicePriceBasis(withStoredInvoiceExtractions(point.draft, all), fold)
   const now = new Date()
-  for (const { field, value } of fold.values) {
-    /*
-     * `measured`: jeder dieser Werte steht auf einer Rechnung, und zwar übereinstimmend auf allen,
-     * die etwas dazu sagen. Widersprüchliche Felder kommen hier gar nicht an (`mergeInvoiceExtractions`
-     * setzt sie auf `null`) — s. `invoiceDraftValues`. Eine Notiz gibt es nicht: sie ist für
-     * SCHÄTZUNGEN da („geschätzt aus 3 Personen"), und eine Ablesung braucht keine Begründung.
-     */
-    nextDraft = setDraftField(nextDraft, field, value, 'measured', undefined, now)
-  }
+  /*
+   * `measured`: jeder dieser Werte steht übereinstimmend auf allen Rechnungen, die etwas dazu sagen.
+   * Ein früher übernommener Wert, zu dem keine gelesene Rechnung mehr etwas sagt, wird entfernt;
+   * Handeingaben und widersprüchliche Felder bleiben (s. `replaceInvoiceDraftFields`).
+   */
+  nextDraft = replaceInvoiceDraftFields(nextDraft, fold.values, conflicts, now, stored.length > 0)
 
   /*
    * ⚠ EIN ECHTER UPLOAD WIDERLEGT EIN FRÜHERES „ohne Rechnungsdaten fortgefahren" — deshalb wird
@@ -511,7 +509,7 @@ export async function removeMeteringPointInvoiceAction(
   let nextDraft = withInvoicePriceBasis(withStoredInvoiceExtractions(point.draft, remaining), fold)
   const now = new Date()
   for (const { field, value } of fold.values) {
-    nextDraft = setDraftField(nextDraft, field, value, 'measured', undefined, now)
+    nextDraft = setInvoiceDraftField(nextDraft, field, value, now)
   }
 
   const draftRes = await supabase.rpc('update_metering_point_draft', {
