@@ -3,10 +3,12 @@ import { describe, expect, it } from 'vitest'
 import {
   INVOICE_MERGE_FIELD_KEYS,
   INVOICE_MERGE_FIELD_LABELS,
+  INVOICE_SCAN_JSON_SCHEMA,
   NETZBETREIBER_DRAFT_KEY,
   NETZBETREIBER_LABELS,
   emptyInvoiceExtraction,
   mergeInvoiceExtractions,
+  parseInvoiceExtraction,
   tariffParamsSchema,
   type InvoiceExtraction,
 } from 'shared'
@@ -406,5 +408,23 @@ describe('H3 — Preisbasis der Lieferantenpreise', () => {
     expect(legacy.numbers.energyPriceCtPerKwh).toBe('13,081')
 
     expect(readManualTariffDraft({}, 'gross').priceBasis).toBe('gross')
+  })
+})
+
+describe('Netzbetreiber aus dem Rechnungs-Scan (30.09.2026)', () => {
+  it('Extraktion mit wiener_netze setzt den Entwurfswert', () => {
+    // Das Modell kann nur liefern, was das Schema anbietet.
+    const props = INVOICE_SCAN_JSON_SCHEMA.properties as Record<string, { enum?: unknown[] }>
+    expect(props.netzbetreiber?.enum).toContain('wiener_netze')
+
+    const raw = { ...emptyInvoiceExtraction(), netzbetreiber: 'wiener_netze' }
+    const fold = foldStoredInvoices([stored({ extraction: parseInvoiceExtraction(raw) })])
+    expect(fold.values).toContainEqual({ field: NETZBETREIBER_DRAFT_KEY, value: 'wiener_netze' })
+  })
+
+  it('„unbekannt" ergibt keinen Entwurfswert', () => {
+    const raw = { ...emptyInvoiceExtraction(), netzbetreiber: 'unbekannt' }
+    const fold = foldStoredInvoices([stored({ extraction: parseInvoiceExtraction(raw) })])
+    expect(fold.values.map((v) => v.field)).not.toContain(NETZBETREIBER_DRAFT_KEY)
   })
 })

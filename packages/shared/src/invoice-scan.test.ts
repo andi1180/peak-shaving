@@ -69,6 +69,8 @@ describe('JSON-Schema', () => {
   it('verlangt jedes Feld und verbietet zusätzliche — „weggelassen" ist kein zweiter Weg zu null', () => {
     expect(INVOICE_SCAN_JSON_SCHEMA.additionalProperties).toBe(false)
     expect(INVOICE_SCAN_JSON_SCHEMA.required).toEqual([
+      // 30.09.2026 zurück — „nicht erkennbar" ist dort "unbekannt" statt null (keine Union).
+      'netzbetreiber',
       'netzebene',
       'meteringVariant',
       'billingModel',
