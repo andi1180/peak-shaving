@@ -282,3 +282,53 @@ describe('Monatsvergleich als eigenes Kapitel (D7)', () => {
     expect(hasMonthlyChapter({ ...analysis, tariffOptimization: undefined })).toBe(false)
   })
 })
+
+/** Der Tages-Energiefluss nennt PV nur, wenn der gezeichnete Eintrag PV-Erzeugung trägt. */
+describe('Tages-Energiefluss — Bildunterschrift mit und ohne PV', () => {
+  const withDay = (pvKw: number) => {
+    const analysis = analysisFor(false)
+    analysis.perBattery = [
+      {
+        ...ENTRY,
+        dispatchTrace: {
+          capKwByPeriod: [40],
+          caughtPeaks: [],
+          representativeDays: [
+            {
+              date: '2025-06-24',
+              label: 'worst_caught_peak',
+              intervals: [
+                { ts: '2025-06-24T10:00:00.000Z', gridPowerKw: 30, pvGenerationKw: pvKw, batteryPowerKw: -5, socKwh: 10 },
+              ],
+            },
+          ],
+        },
+      },
+    ]
+    return buildDetailChapter(analysis, { flowDay: '24. Juni' }).flow!
+  }
+
+  it('ohne PV: kein PV-Teil in Bildunterschrift und Folgesatz', () => {
+    const flow = withDay(0)
+
+    expect(flow.caption).not.toContain('PV')
+    expect(flow.note).not.toContain('PV')
+    expect(flow.note).toContain('Netzbezug + Entladeleistung − Ladeleistung des Speichers')
+  })
+
+  it('mit PV: Wortlaut wie bisher', () => {
+    const flow = withDay(4)
+
+    expect(flow.caption).toBe(
+      'Ein einzelner Tag im Viertelstundentakt. 24. Juni. Die dunkle Fläche ist Ihr Verbrauch, die ' +
+        'petrolfarbene Fläche die PV-Erzeugung; die graue Linie ist der Netzbezug, die kräftige ' +
+        'petrolfarbene Linie die Leistung des Speichers (über der Nulllinie lädt er, darunter ' +
+        'entlädt er).',
+    )
+    expect(flow.note).toBe(
+      'Der Verbrauch ist nicht gemessen, sondern abgeleitet: Netzbezug − Batterieleistung + ' +
+        'PV-Erzeugung. Der Tag stammt aus derselben Simulation wie alle Zahlen dieses Reports — er ' +
+        'wird nicht eigens nachgerechnet.',
+    )
+  })
+})

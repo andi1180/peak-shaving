@@ -389,8 +389,20 @@ function buildCumulative(plan: Extract<DetailCostPlan, { kind: 'cumulative' }>):
  * NICHT abgeleitet — welcher Tag gilt, entscheidet die Komponente (s. Modulkopf). Fehlt die
  * Angabe, fehlt der Halbsatz; ein erfundenes Datum unter einem Bild wäre schlimmer als keines.
  */
-function buildFlow(dayCaption: string | null): DetailFigure {
+function buildFlow(dayCaption: string | null, withPv: boolean): DetailFigure {
   const day = dayCaption ? `${dayCaption}. ` : ''
+  if (!withPv) {
+    return {
+      caption:
+        `Ein einzelner Tag im Viertelstundentakt. ${day}Die dunkle Fläche ist Ihr Verbrauch; die ` +
+        'graue Linie ist der Netzbezug, die kräftige petrolfarbene Linie die Leistung des Speichers ' +
+        '(über der Nulllinie lädt er, darunter entlädt er).',
+      note:
+        'Der Verbrauch ist nicht gemessen, sondern abgeleitet: Netzbezug + Entladeleistung − ' +
+        'Ladeleistung des Speichers. Der Tag stammt aus derselben Simulation wie alle Zahlen dieses ' +
+        'Reports — er wird nicht eigens nachgerechnet.',
+    }
+  }
   return {
     caption:
       `Ein einzelner Tag im Viertelstundentakt. ${day}Die dunkle Fläche ist Ihr Verbrauch, die ` +
@@ -402,6 +414,18 @@ function buildFlow(dayCaption: string | null): DetailFigure {
       'PV-Erzeugung. Der Tag stammt aus derselben Simulation wie alle Zahlen dieses Reports — er ' +
       'wird nicht eigens nachgerechnet.',
   }
+}
+
+/**
+ * Trägt der gezeichnete Eintrag PV-Erzeugung? Die Komponente zeichnet die PV-Fläche immer; ohne
+ * Erzeugung liegt sie auf der Nulllinie, und die Bildunterschrift nennt sie dann nicht.
+ */
+function flowHasPv(plan: DetailFlowPlan): boolean {
+  const entry =
+    plan.entries.find((e) => e.battery.id === plan.selectedBatteryId) ?? plan.entries[0]
+  return (entry?.dispatchTrace?.representativeDays ?? []).some((day) =>
+    day.intervals.some((interval) => interval.pvGenerationKw > 0),
+  )
 }
 
 /**
@@ -440,7 +464,7 @@ export function buildDetailChapter(
         ? 'Für diesen Report ist kein Kostenvergleich abgebildet: es liegt kein durchgerechnetes ' +
           'Gerät vor, gegen das sich vergleichen liesse.'
         : null,
-    flow: plan.flow ? buildFlow(measured.flowDay) : null,
+    flow: plan.flow ? buildFlow(measured.flowDay, flowHasPv(plan.flow)) : null,
   }
 }
 
