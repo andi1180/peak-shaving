@@ -61,6 +61,7 @@ import { buildPrerequisitesChapter } from './prerequisites'
 import { buildRecommendationChapter } from './recommendation'
 import type { ReportBaukastenId, ReportBaukastenRegistry } from './registry'
 import { peakShavingChartCaption, peakShavingChartData } from './peak-shaving-chart'
+import { buildStorageSummary } from './storage-summary'
 import { buildWaysChapter } from './ways'
 import { buildAnnualScenarioChapter } from './annual-scenario'
 import { buildPvValueChapter } from './pv-value'
@@ -1467,6 +1468,7 @@ function ResultsChapter({
   layout: ReportLayout
 }) {
   const summary = buildReportSummary(input, context)
+  const storage = buildStorageSummary(input.analysis)
   const overview = resolveReportSegments(summary.overview, layout, 'overview')
   const pvPointer = summary.pvPointer
     ? resolveReportSegments(summary.pvPointer, layout, 'pv_pointer')
@@ -1526,6 +1528,9 @@ function ResultsChapter({
       {pvPointer.length > 0 && (
         <Text style={styles.summaryProse}>{pvPointer.map((segment) => segment.text)}</Text>
       )}
+
+      {/* Nur mit Weg 5 — s. `buildStorageSummary`. */}
+      {storage && <Statement statement={storage} layout={layout} />}
 
       {/*
         Report-Baukasten C (B3-2b) — `addon` ist abwählbar, und die Auswahl greift HIER und nicht in
