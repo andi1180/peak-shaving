@@ -642,12 +642,6 @@ aus einem Rückblick.
 
 
 
-   Bekannte Einschränkungen
-   Damit die Zahlen dieses Reports richtig gelesen werden, gehört Folgendes dazugesagt.
-   Gerechnet wird durchgängig netto, also ohne Umsatzsteuer. Die Abgaben auf den Bezug sind dagegen
-   enthalten: Elektrizitätsabgabe, EAG-Förderbeitrag und EAG-Pauschale sowie die Gebrauchsabgabe
-
-
 
 COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                              www.coolin.at · Seite 16 von 18
     COOLiN ENERGY          Referenzfall Gewerbe
@@ -655,6 +649,10 @@ COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich               
 
 
 
+   Bekannte Einschränkungen
+   Damit die Zahlen dieses Reports richtig gelesen werden, gehört Folgendes dazugesagt.
+   Gerechnet wird durchgängig netto, also ohne Umsatzsteuer. Die Abgaben auf den Bezug sind dagegen
+   enthalten: Elektrizitätsabgabe, EAG-Förderbeitrag und EAG-Pauschale sowie die Gebrauchsabgabe
    auf Netz- und Energiepreis samt Grundgebühren stecken in den Monatskosten und damit in den
    Kopfzahlen. Der Leistungspreis steht als eigene Jahreszahl ohne Gebrauchsabgabe da, so wie er auf
    der Netzrechnung steht; die Ersparnis durch Spitzenkappung enthält sie, wo sie anfällt.

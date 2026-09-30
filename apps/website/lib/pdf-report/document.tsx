@@ -1157,9 +1157,11 @@ function StatementRow({ row, zebra }: { row: ReportRow; zebra: boolean }) {
  * Beschriftung ohne Inhalt. Dasselbe Muster wie beim `hint` einer Zeile und beim leeren
  * Adressfeld des Deckblatts.
  */
-function Notice({ notice }: { notice: ReportNotice }) {
+/** `keepTogether`: der Kasten wird nie geteilt — nur für Kästen, deren Ableitung ihn deutlich unter einer Seite hält. */
+function Notice({ notice, keepTogether = false }: { notice: ReportNotice; keepTogether?: boolean }) {
   return (
     <View
+      wrap={!keepTogether}
       style={[
         styles.notice,
         { backgroundColor: NOTICE_SURFACE[notice.tone], borderLeftColor: NOTICE_EDGE[notice.tone] },
@@ -2439,7 +2441,8 @@ function BasisChapter({
           dieses Kapitels: die drei darüber melden Eigenschaften DIESES Datensatzes und schweigen
           ohne Befund, dieser gilt für jeden Report. Er steht hinter der Methodik, weil er die
           Grenzen genau der Rechnung benennt, die eine Zeile davor erklärt wurde. */}
-      <Notice notice={chapter.limitations} />
+      {/* Ungeteilt: `buildLimitations` trägt höchstens vier feste Sätze, weit unter einer Seite. */}
+      <Notice notice={chapter.limitations} keepTogether />
 
       {/*
         ⚠ `chapter.disclaimer` ist `null` ausser bei `origin === 'demo'` (Prüfstand) —
