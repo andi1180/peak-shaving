@@ -1,168 +1,90 @@
-import type { LoadProfile, LoadReading, PvProfile, PvReading } from 'shared'
+import type { LoadProfile, PvProfile, PvReading } from 'shared'
 
+import { utcMsToLocalFields, zonedWallToUtcMs } from '../parser/datetime'
 import { DAYS_PER_YEAR, coveredDaysOf } from './annualization'
-import {
-  addDays,
-  findReferenceWeek,
-  localDateKeyOf,
-  localMidnightMs,
-  parseDateKey,
-  slotsInLocalDay,
-  type ReferenceWeek,
-  type ReferenceWeekDay,
-} from './reference-week'
 
 /**
- * D6 Teil 3 — DER SYNTHETISCHE JAHRES-LASTGANG: gemessene Tage unverändert, fehlende Tage mit der
- * ECHTEN Tagesform der Referenzwoche belegt.
+ * D6 Teil 3 — DER SYNTHETISCHE JAHRES-LASTGANG: gemessene Tage unverändert, fehlende Tage mit den
+ * ECHTEN Viertelstundenwerten eines gemessenen Tages desselben Wochentags belegt.
  *
  * ══════════════════════════════════════════════════════════════════════════════════════════════
  * ⚠ GESCHÄTZT IST DER LASTGANG, NICHT DAS ERGEBNIS
  * ══════════════════════════════════════════════════════════════════════════════════════════════
- * Das ist der ganze Zweck dieses Moduls. Hier entsteht eine EINGABE — ein vollständiges
- * 365-Tage-Profil —, auf dem anschliessend dieselbe Rechenkette läuft wie auf dem echten
- * (`computeAnalysis`): derselbe SoC-Durchlauf, derselbe Dispatch, dieselbe Spitzenkappung. Der
- * naheliegende und falsche Weg wäre gewesen, die fertigen Ersparnis-Zahlen mit `365 / coveredDays`
- * zu strecken; eine Batterie ist aber keine lineare Funktion ihrer Betriebstage. Prinzip 3
- * („physikalisch korrekte Simulation, kein Peak-Zählen") gilt für den hochgerechneten Lauf
- * genauso wie für den gemessenen.
+ * Hier entsteht eine EINGABE — ein vollständiges 365-Tage-Profil —, auf dem anschliessend dieselbe
+ * Rechenkette läuft wie auf dem echten (`computeAnalysis`). Die fertigen Ersparnis-Zahlen mit
+ * `365 / coveredDays` zu strecken wäre falsch: eine Batterie ist keine lineare Funktion ihrer
+ * Betriebstage (Prinzip 3).
  *
  * ══════════════════════════════════════════════════════════════════════════════════════════════
- * ⚠ DIE FEHLENDEN TAGE TRAGEN ECHTE MESSWERTE — NICHT SKALIERTE
+ * DIE FÜLLREGEL: DER GEMESSENE WOCHENBLOCK, RÜCKWÄRTS WIEDERHOLT (01.10.2026)
  * ══════════════════════════════════════════════════════════════════════════════════════════════
- * Ein fehlender Tag bekommt die Viertelstundenwerte des Referenzwochentags mit DEMSELBEN
- * Wochentag, Wert für Wert. Es wird nichts gestreckt und nichts geglättet — und daraus folgt
- * zweierlei:
+ * Block = die längste zusammenhängende Folge vollständiger Mo–So-Wochen (bei Gleichstand die
+ * jüngste). Ein fehlender Tag d bekommt die Werte des Tages d + 7·W·k (W = Blockwochen) mit dem
+ * kleinsten |k| ≥ 1, der im Block liegt — vor dem Block also k ≥ 1, nach ihm k ≤ −1. Damit trägt
+ * jeder Quelltag denselben Wochentag, und Spitzen wie Feiertage des Blocks werden mitkopiert
+ * (kein Mittelwert, der die Spitzen glättete). Unter `MIN_BLOCK_WEEKS` gibt es keinen Jahreslauf.
  *
- *  • Die Tagesmengen sind auf die Referenzwoche GEEICHT, weil sie ihre Tagesmengen SIND: sieben
- *    gefüllte Tage tragen exakt `rateKwhPerDay × 7`. Ein Skalieren auf die Wochenrate hätte
- *    dieselbe Wochensumme ergeben und dabei die Unterschiede zwischen Werktag und Wochenende
- *    eingeebnet — also ausgerechnet das weggerechnet, was die Referenzwoche wertvoll macht.
- *  • Die PV-Wirkung reist mit. Ist die Anlage BESTEHEND, steckt ihre Eigenversorgung in diesen
- *    Messwerten bereits als gesenkter Bezug (und ihre Einspeisung als negativer Wert). Es braucht
- *    dafür keine zweite PVGIS-Schätzung — und es darf auch keine geben: der Abzug zählte dieselbe
- *    Energie ein zweites Mal (dieselbe Überlegung wie `pv_already_in_grid_profile`).
- *
- * ⚠ Was die gefüllten Tage dagegen NICHT tragen, ist der Jahresgang: ein Winterwert steht
- * gegebenenfalls im Juli. Genau das ist die Schätzung, und der Report weist sie als solche aus.
+ * Die PV-Wirkung reist mit: bei BESTEHENDER Anlage steckt ihre Eigenversorgung im gemessenen Bezug;
+ * eine mitgelieferte Brutto-PV-Reihe wird nach DEMSELBEN Plan verlängert.
  *
  * ══════════════════════════════════════════════════════════════════════════════════════════════
  * ⚠ WO DAS FENSTER LIEGT, ENTSCHEIDET DIESES MODUL NICHT ALLEIN
  * ══════════════════════════════════════════════════════════════════════════════════════════════
- * 365 Kalendertage, die alle gemessenen Tage enthalten — aber WELCHE 365, hängt von etwas ab, das
- * der Rechenkern nicht wissen darf: bis wann Marktpreise geführt werden. Ein naiv nach vorne
- * gelegtes Fenster schöbe die Lücke in die ZUKUNFT, für die es weder Börsenpreise noch
- * Netzentgelt-Zeilen noch Abgabensätze gibt; ein naiv nach hinten gelegtes rutschte unter den
- * Anker, ab dem der Preisbestand überhaupt beginnt. Beide Grenzen kommen deshalb als `bounds`
- * herein — dieselbe Arbeitsteilung wie überall sonst: der Rechenkern rechnet mit dem Profil, das
- * er bekommt; WELCHES er bekommen darf, entscheiden die Ränder.
- *
- * Innerhalb der Grenzen wird das SPÄTESTMÖGLICHE Fenster gewählt. Das heisst: solange es geht,
- * beginnt das Jahr mit dem ersten gemessenen Tag (die Lücke liegt dann hinter den Messwerten, im
- * jüngsten verfügbaren Preiszeitraum); erst wenn das in die Zukunft liefe, wird so weit
- * zurückgerückt wie nötig — und keinen Tag weiter.
- *
- * Der Wizard-Pfad (`extractors`, `annual-scenario.ts`) setzt `latestDate` auf den letzten Messtag:
- * dort endet das Fenster also immer mit der jüngsten Messung, und gefüllt wird davor.
- *
- * ⚠ `annual-projection.ts` (D6 Teil 2b) legt sein Fenster IMMER vorwärts ab dem ersten Messtag.
- * Das ist dort ohne Folge, weil es die Preise für die Lücke selbst nachlädt bzw. nähert; hier
- * werden sie aus dem gepflegten Bestand gelesen.
+ * 365 Kalendertage, die alle gemessenen Tage enthalten; welche, hängt an Grenzen, die der
+ * Rechenkern nicht kennen darf (Preisanker, Messende) — sie kommen als `bounds` herein. Innerhalb
+ * der Grenzen wird das SPÄTESTMÖGLICHE Fenster gewählt. Der Wizard-Pfad (`extractors`,
+ * `annual-scenario.ts`) setzt `latestDate` auf den letzten Messtag: dort endet das Fenster also immer
+ * mit der jüngsten Messung, und gefüllt wird davor.
  */
 
-/**
- * Die Grenzen, in denen das Jahresfenster liegen darf — beide lokale Kalendertage, `YYYY-MM-DD`,
- * beide INKLUSIV.
- *
- * ⚠ Sie beschreiben den Zeitraum, für den der Aufrufer Preise und Tarifsätze BESCHAFFEN KANN,
- * nicht den Zeitraum des Lastgangs. Der Rechenkern kennt weder den Preisanker noch die Uhr.
- */
+/** Weniger volle Wochen tragen keine belastbare Jahreshochrechnung. */
+export const MIN_BLOCK_WEEKS = 4
+
+/** Die Grenzen, in denen das Jahresfenster liegen darf — lokale Kalendertage, beide INKLUSIV. */
 export type SyntheticYearBounds = {
   earliestDate: string
   latestDate: string
 }
 
-/** Das Ergebnis — der vollständige Lastgang samt dem, was über seine Entstehung zu sagen ist. */
+/** Der gemessene Wochenblock, aus dem gefüllt wurde. */
+export type SyntheticYearBlock = {
+  /** Erster Tag (Montag, lokal, `YYYY-MM-DD`, inklusiv). */
+  fromDate: string
+  /** Letzter Tag (Sonntag, lokal, inklusiv). */
+  toDate: string
+  weeks: number
+}
+
 export type SyntheticYearProfile = {
   /** 365 Kalendertage, lückenlos. `source`/`pvSource` unverändert vom echten Profil. */
   profile: LoadProfile
-  /**
-   * Die Brutto-PV-Reihe, nach DEMSELBEN Plan verlängert — gesetzt genau dann, wenn eine übergeben
-   * wurde.
-   *
-   * ⚠ SIE MUSS MITWACHSEN. `simulateBattery` liest sie neben dem Lastgang; bliebe sie auf dem
-   * gemessenen Zeitraum stehen, hätten die gefüllten Tage einen Netzbezug MIT PV-Wirkung (er
-   * steckt in den echten Messwerten), aber keine Brutto-Erzeugung daneben. Die
-   * Eigenverbrauchs-Ersparnis fiele dort auf null, und das Jahresergebnis wäre gegenüber dem
-   * gemessenen systematisch zu schlecht — ohne dass irgendetwas es sagte.
-   */
+  /** Die Brutto-PV-Reihe, nach DEMSELBEN Plan verlängert — gesetzt genau dann, wenn eine übergeben wurde. */
   pvProfile?: PvProfile
-  /** Erster Kalendertag des Fensters (lokal, `YYYY-MM-DD`, inklusiv). */
   windowFromDate: string
-  /** Letzter Kalendertag des Fensters (lokal, inklusiv). */
   windowToDate: string
   /** Kalendertage des Fensters mit echten Messwerten. */
   measuredDays: number
-  /** Kalendertage des Fensters, die aus der Referenzwoche gefüllt wurden. */
+  /** Kalendertage des Fensters, die aus dem Block gefüllt wurden. */
   projectedDays: number
-  reference: ReferenceWeek
+  block: SyntheticYearBlock
 }
 
-/**
- * Warum kein synthetisches Jahr entstanden ist. Ein eigener Wert je Grund, damit der Report sagen
- * kann, was fehlt, statt das Kapitel kommentarlos wegzulassen.
- */
 export type SyntheticYearBlocker =
   /** Der Lastgang deckt bereits ein volles Jahr ab — es gibt nichts hochzurechnen. */
   | 'full_period'
-  /** Synthetisches Standardprofil: es trägt sein Jahr bereits als Eingabe (s. `annualizationFactor`). */
+  /** Synthetisches Standardprofil: es trägt sein Jahr bereits als Eingabe. */
   | 'synthetic_profile'
-  /** Leerer Lastgang. */
   | 'no_data'
-  /** Keine sieben aufeinanderfolgenden vollständigen Kalendertage — s. `findReferenceWeek`. */
-  | 'no_reference_week'
-  /**
-   * Die belegten Tage liegen weiter als 365 Kalendertage auseinander (Lastgang mit grossen Löchern).
-   * Ein Jahresfenster müsste dann echte Messwerte wegschneiden, um zu passen — und das Ergebnis
-   * wäre weder der gemessene noch ein hochgerechneter Zeitraum.
-   */
+  /** Weniger als `MIN_BLOCK_WEEKS` zusammenhängende volle Mo–So-Wochen. */
+  | 'insufficient_data'
+  /** Die belegten Tage liegen weiter als 365 Kalendertage auseinander. */
   | 'span_exceeds_year'
-  /**
-   * Innerhalb der übergebenen Grenzen liegt kein Jahresfenster, das alle Messwerte enthält —
-   * typisch für einen Lastgang, der zu nah am Preisanker beginnt. Es wird dann NICHTS
-   * zurechtgeschnitten: ein Fenster, das gemessene Tage weglässt, wäre eine andere Auswertung.
-   */
+  /** Kein Jahresfenster innerhalb der Grenzen enthält alle Messwerte — es wird nichts weggeschnitten. */
   | 'no_window'
 
 export type SyntheticYearResult =
-  | { ok: true; value: SyntheticYearProfile }
-  | { ok: false; blocker: SyntheticYearBlocker }
+  { ok: true; value: SyntheticYearProfile } | { ok: false; blocker: SyntheticYearBlocker }
 
-/**
- * Den synthetischen Jahres-Lastgang bauen.
- *
- * ── DER ABLAUF ────────────────────────────────────────────────────────────────────────────────
- *  1. Referenzwoche bestimmen (`findReferenceWeek`).
- *  2. Fenster: 365 Kalendertage, endend auf dem letzten belegten Ortstag.
- *  3. Jeder Tag des Fensters, den der Lastgang nicht belegt, bekommt die Messwerte des
- *     Referenzwochentags mit demselben WOCHENTAG — an den echten Kalenderdaten in der echten
- *     Zeitzone, damit Preisblattstände, Saisonfenster und Abgabenstichtage greifen können.
- *  4. Echte und gefüllte Werte zu EINER chronologischen Reihe.
- *
- * ── ⚠ WARUM NACH WOCHENTAG UND NICHT AB LÜCKENBEGINN DURCHGEZÄHLT ─────────────────────────────
- * „Zyklisch wiederholt" lässt beides zu, aber nur eine der beiden Phasen ist richtig: ein Betrieb
- * mit Wochenendruhe hat an einem Sonntag einen anderen Tagesverlauf als an einem Dienstag. Ab
- * Lückenbeginn durchgezählt landete der Sonntagsverlauf je nach Startdatum auf einem beliebigen
- * Wochentag — und der Lastgang trüge dann sieben Ruhetage, die alle falsch liegen. Das Fenster hat
- * genau sieben Tage und damit jeden Wochentag genau einmal; die Zuordnung ist deshalb eindeutig.
- *
- * ── ⚠ ZEITUMSTELLUNG ──────────────────────────────────────────────────────────────────────────
- * Zieltag und Referenztag können verschieden lang sein (92/96/100 Viertelstunden). Gefüllt wird
- * die TATSÄCHLICHE Länge des Zieltags; reichen die Werte des Referenztags nicht, wird von vorne
- * gelesen (`% refLen`). Der Zieltag bleibt damit lückenlos, und die Tagesmenge weicht an den zwei
- * Umstellungstagen des Jahres um eine Stunde ab — eine Stunde, deren Alternative eine Lücke oder
- * eine Überlappung in der Reihe wäre.
- */
 export function buildSyntheticYearProfile(
   loadProfile: LoadProfile,
   bounds: SyntheticYearBounds,
@@ -177,25 +99,12 @@ export function buildSyntheticYearProfile(
   if (coveredDays >= DAYS_PER_YEAR) return { ok: false, blocker: 'full_period' }
 
   const tz = loadProfile.timezoneMeta
-  const covered = new Set<string>()
-  let lastDate = ''
-  let firstDate = ''
-  for (const reading of loadProfile.readings) {
-    const ms = Date.parse(reading.ts)
-    if (!Number.isFinite(ms)) continue
-    const date = localDateKeyOf(ms, tz)
-    covered.add(date)
-    if (firstDate === '' || date < firstDate) firstDate = date
-    if (date > lastDate) lastDate = date
-  }
-  if (covered.size === 0) return { ok: false, blocker: 'no_data' }
+  const days = readingsByLocalDay(loadProfile.readings, tz)
+  if (days.size === 0) return { ok: false, blocker: 'no_data' }
+  const dates = [...days.keys()].sort()
+  const firstDate = dates[0]!
+  const lastDate = dates[dates.length - 1]!
 
-  /*
-   * Das späteste Fenster, das noch alle Messwerte enthält und in den Grenzen bleibt:
-   *   • es darf nicht nach dem ersten Messtag beginnen (sonst fehlten Messwerte am Anfang),
-   *   • es darf nicht nach `latestDate` enden,
-   *   • es darf nicht vor `earliestDate` beginnen und muss den letzten Messtag noch enthalten.
-   */
   const latestStart = minDate(firstDate, addDays(bounds.latestDate, -(DAYS_PER_YEAR - 1)))
   const earliestStart = maxDate(bounds.earliestDate, addDays(lastDate, -(DAYS_PER_YEAR - 1)))
   if (firstDate < addDays(lastDate, -(DAYS_PER_YEAR - 1))) {
@@ -206,114 +115,208 @@ export function buildSyntheticYearProfile(
   const windowFromDate = latestStart
   const windowToDate = addDays(windowFromDate, DAYS_PER_YEAR - 1)
 
-  const reference = findReferenceWeek(loadProfile)
-  if (reference === null) return { ok: false, blocker: 'no_reference_week' }
+  const full = new Set(
+    dates.filter(
+      (date) => days.get(date)!.length === slotsInLocalDay(date, tz, loadProfile.intervalMinutes),
+    ),
+  )
+  const block = findWeekBlock(full)
+  if (block === null || block.weeks < MIN_BLOCK_WEEKS) {
+    return { ok: false, blocker: 'insufficient_data' }
+  }
 
-  /*
-   * ⚠ DER PLAN ENTSTEHT EINMAL UND WIRD ZWEIMAL ANGEWANDT — auf den Lastgang und auf die
-   * Brutto-PV-Reihe. Zwei getrennte Zuordnungen könnten je Tag verschiedene Referenztage wählen;
-   * Netzbezug und Erzeugung stammten dann aus verschiedenen Tagen, und der Eigenverbrauch, den
-   * die Simulation daraus bildet, hätte nie stattgefunden.
-   */
-  const byWeekday = new Map(reference.days.map((day) => [day.weekday, day]))
-  const plan: {
-    date: string
-    source: ReferenceWeekDay
-    startMs: number
-    slots: number
-  }[] = []
-
+  // Der Plan entsteht einmal und gilt für Lastgang UND PV-Reihe — sonst stammten Bezug und
+  // Erzeugung eines gefüllten Tages aus verschiedenen Tagen.
+  const period = block.weeks * 7
+  const plan: PlanDay[] = []
   for (let i = 0; i < DAYS_PER_YEAR; i++) {
     const date = addDays(windowFromDate, i)
-    if (covered.has(date)) continue
-
-    /*
-     * Der Wochentag des ZIELtags, 0 = Montag — dieselbe Zählung wie `utcMsToLocalFields` und
-     * damit wie `reference.days`.
-     */
-    const [y, m, d] = parseDateKey(date)
-    const weekday = (new Date(Date.UTC(y, m - 1, d)).getUTCDay() + 6) % 7
-    const source = byWeekday.get(weekday)
-    /* Kann nicht eintreten (sieben Tage = jeder Wochentag einmal), aber ein `!` wäre eine Behauptung. */
-    if (!source) continue
-
-    plan.push({
-      date,
-      source,
-      startMs: localMidnightMs(date, tz),
-      slots: slotsInLocalDay(date, tz, loadProfile.intervalMinutes),
-    })
+    if (days.has(date)) continue
+    const offset = mod(dayDiff(block.fromDate, date), period)
+    plan.push({ date, sourceDate: addDays(block.fromDate, offset) })
   }
 
   const intervalMs = loadProfile.intervalMinutes * 60 * 1000
-  const filled: LoadReading[] = []
-  for (const day of plan) {
-    for (let slot = 0; slot < day.slots; slot++) {
-      filled.push({
-        ts: new Date(day.startMs + slot * intervalMs).toISOString(),
-        gridPowerKw: day.source.readings[slot % day.source.readings.length]!.gridPowerKw,
-      })
-    }
-  }
-
-  const readings = [...loadProfile.readings, ...filled].sort(
-    (a, b) => Date.parse(a.ts) - Date.parse(b.ts),
+  const filled = fillByWallTime(
+    plan,
+    days,
+    tz,
+    intervalMs,
+    loadProfile.intervalMinutes,
+    (ts, source) => ({
+      ts,
+      gridPowerKw: source.gridPowerKw,
+    }),
   )
 
   return {
     ok: true,
     value: {
-      profile: { ...loadProfile, readings },
-      ...(pvProfile ? { pvProfile: extendPv(pvProfile, plan, tz, intervalMs) } : {}),
+      profile: { ...loadProfile, readings: byTime([...loadProfile.readings, ...filled]) },
+      ...(pvProfile
+        ? { pvProfile: extendPv(pvProfile, plan, tz, intervalMs, loadProfile.intervalMinutes) }
+        : {}),
       windowFromDate,
       windowToDate,
       measuredDays: DAYS_PER_YEAR - plan.length,
       projectedDays: plan.length,
-      reference,
+      block,
     },
   }
 }
 
-/**
- * Die Brutto-PV-Reihe nach demselben Plan verlängern.
- *
- * ⚠ Trägt der Referenztag KEINE Erzeugungswerte, bekommt der Zieltag auch keine — statt einer
- * erfundenen Erzeugung bleibt die Reihe dort schlicht leer, genau wie im gemessenen Zeitraum.
- * `alignPvGrossToLoad` behandelt das als nicht getroffenen Slot, und die Simulation rechnet dort
- * ohne Brutto-PV weiter.
- */
-function extendPv(
-  pvProfile: PvProfile,
-  plan: readonly { source: ReferenceWeekDay; startMs: number; slots: number }[],
-  timeZone: string,
-  intervalMs: number,
-): PvProfile {
-  const byDate = new Map<string, PvReading[]>()
-  for (const reading of pvProfile.readings) {
-    const ms = Date.parse(reading.ts)
-    if (!Number.isFinite(ms)) continue
-    const date = localDateKeyOf(ms, timeZone)
-    const bucket = byDate.get(date)
-    if (bucket) bucket.push(reading)
-    else byDate.set(date, [reading])
-  }
-  for (const bucket of byDate.values()) bucket.sort((a, b) => Date.parse(a.ts) - Date.parse(b.ts))
+type PlanDay = { date: string; sourceDate: string }
 
-  const filled: PvReading[] = []
-  for (const day of plan) {
-    const source = byDate.get(day.source.date)
-    if (!source || source.length === 0) continue
-    for (let slot = 0; slot < day.slots; slot++) {
-      filled.push({
-        ts: new Date(day.startMs + slot * intervalMs).toISOString(),
-        pvGenerationKw: source[slot % source.length]!.pvGenerationKw,
-      })
+/**
+ * Die längste Folge aufeinanderfolgender vollständiger Mo–So-Wochen; bei Gleichstand die jüngste.
+ * `null`, wenn es keine einzige volle Woche gibt.
+ */
+function findWeekBlock(full: ReadonlySet<string>): SyntheticYearBlock | null {
+  let best: SyntheticYearBlock | null = null
+  for (const date of full) {
+    if (weekdayOf(date) !== 0) continue
+    // Nur am Anfang einer Folge zählen — eine volle Vorwoche hiesse, dieser Montag liegt mittendrin.
+    if (isFullWeek(full, addDays(date, -7))) continue
+    let weeks = 0
+    while (isFullWeek(full, addDays(date, 7 * weeks))) weeks++
+    if (weeks === 0) continue
+    if (best === null || weeks > best.weeks || (weeks === best.weeks && date > best.fromDate)) {
+      best = { fromDate: date, toDate: addDays(date, 7 * weeks - 1), weeks }
     }
   }
+  return best
+}
 
-  return {
-    readings: [...pvProfile.readings, ...filled].sort((a, b) => Date.parse(a.ts) - Date.parse(b.ts)),
+function isFullWeek(full: ReadonlySet<string>, monday: string): boolean {
+  for (let i = 0; i < 7; i++) if (!full.has(addDays(monday, i))) return false
+  return true
+}
+
+/**
+ * Einen Zieltag Slot für Slot aus seinem Quelltag füllen — zugeordnet nach LOKALER Uhrzeit, nicht
+ * nach Position: am Umstellungstag im März fehlt 02:00–02:59, im Oktober kommt sie zweimal vor.
+ * Fehlt dem Quelltag eine Uhrzeit (Zieltag normal, Quelltag Umstellung März), gilt die Stunde davor.
+ */
+function fillByWallTime<S extends { ts: string }, T>(
+  plan: readonly PlanDay[],
+  sourceDays: ReadonlyMap<string, S[]>,
+  tz: string,
+  intervalMs: number,
+  intervalMinutes: number,
+  make: (ts: string, source: S) => T,
+): T[] {
+  const out: T[] = []
+  for (const day of plan) {
+    const source = sourceDays.get(day.sourceDate)
+    if (!source || source.length === 0) continue
+    const byWallTime = new Map<number, S>()
+    for (const reading of source) {
+      const minute = wallMinuteOf(Date.parse(reading.ts), tz)
+      if (!byWallTime.has(minute)) byWallTime.set(minute, reading)
+    }
+    const startMs = localMidnightMs(day.date, tz)
+    const slots = slotsInLocalDay(day.date, tz, intervalMinutes)
+    for (let slot = 0; slot < slots; slot++) {
+      const ms = startMs + slot * intervalMs
+      const minute = wallMinuteOf(ms, tz)
+      const match = byWallTime.get(minute) ?? byWallTime.get(minute - 60)
+      if (match) out.push(make(new Date(ms).toISOString(), match))
+    }
   }
+  return out
+}
+
+/** Die Brutto-PV-Reihe nach demselben Plan verlängern; ein Quelltag ohne Erzeugungswerte bleibt leer. */
+function extendPv(
+  pvProfile: PvProfile,
+  plan: readonly PlanDay[],
+  tz: string,
+  intervalMs: number,
+  intervalMinutes: number,
+): PvProfile {
+  const filled = fillByWallTime<PvReading, PvReading>(
+    plan,
+    readingsByLocalDay(pvProfile.readings, tz),
+    tz,
+    intervalMs,
+    intervalMinutes,
+    (ts, source) => ({ ts, pvGenerationKw: source.pvGenerationKw }),
+  )
+  return { readings: byTime([...pvProfile.readings, ...filled]) }
+}
+
+function readingsByLocalDay<R extends { ts: string }>(
+  readings: readonly R[],
+  tz: string,
+): Map<string, R[]> {
+  const days = new Map<string, R[]>()
+  for (const reading of readings) {
+    const ms = Date.parse(reading.ts)
+    if (!Number.isFinite(ms)) continue
+    const date = localDateKeyOf(ms, tz)
+    const bucket = days.get(date)
+    if (bucket) bucket.push(reading)
+    else days.set(date, [reading])
+  }
+  for (const bucket of days.values()) bucket.sort((a, b) => Date.parse(a.ts) - Date.parse(b.ts))
+  return days
+}
+
+function byTime<R extends { ts: string }>(readings: R[]): R[] {
+  return readings.sort((a, b) => Date.parse(a.ts) - Date.parse(b.ts))
+}
+
+function wallMinuteOf(ms: number, tz: string): number {
+  const { hour, minute } = utcMsToLocalFields(ms, tz)
+  return hour * 60 + minute
+}
+
+function pad(value: number): string {
+  return String(value).padStart(2, '0')
+}
+
+function localDateKeyOf(ms: number, tz: string): string {
+  const { year, month, day } = utcMsToLocalFields(ms, tz)
+  return `${year}-${pad(month)}-${pad(day)}`
+}
+
+function parseDateKey(key: string): [number, number, number] {
+  return [Number(key.slice(0, 4)), Number(key.slice(5, 7)), Number(key.slice(8, 10))]
+}
+
+/** Kalendertage weiterzählen — reine Kalenderarithmetik, ohne Zeitzone. */
+function addDays(key: string, days: number): string {
+  const [year, month, day] = parseDateKey(key)
+  const at = new Date(Date.UTC(year, month - 1, day + days))
+  return `${at.getUTCFullYear()}-${pad(at.getUTCMonth() + 1)}-${pad(at.getUTCDate())}`
+}
+
+function dayDiff(from: string, to: string): number {
+  const [fy, fm, fd] = parseDateKey(from)
+  const [ty, tm, td] = parseDateKey(to)
+  return Math.round((Date.UTC(ty, tm - 1, td) - Date.UTC(fy, fm - 1, fd)) / 86_400_000)
+}
+
+/** 0 = Montag (dieselbe Zählung wie `utcMsToLocalFields`). */
+function weekdayOf(key: string): number {
+  const [year, month, day] = parseDateKey(key)
+  return (new Date(Date.UTC(year, month - 1, day)).getUTCDay() + 6) % 7
+}
+
+function mod(value: number, divisor: number): number {
+  return ((value % divisor) + divisor) % divisor
+}
+
+function localMidnightMs(date: string, tz: string): number {
+  const [year, month, day] = parseDateKey(date)
+  return zonedWallToUtcMs(year, month, day, 0, 0, 0, tz)
+}
+
+/** Intervalle eines lokalen Kalendertags — 96 im Regelfall, 92 bzw. 100 an den Umstellungstagen. */
+function slotsInLocalDay(date: string, tz: string, intervalMinutes: number): number {
+  const start = localMidnightMs(date, tz)
+  const end = localMidnightMs(addDays(date, 1), tz)
+  return Math.round((end - start) / (intervalMinutes * 60 * 1000))
 }
 
 const minDate = (a: string, b: string): string => (a < b ? a : b)

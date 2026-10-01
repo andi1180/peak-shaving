@@ -1783,7 +1783,7 @@ function WaysChapter({
  * D6 Teil 3 — das Kapitel „Was wäre, wenn wir ein ganzes Jahr hätten?".
  *
  * ── ⚠ KEIN BILD, UND DAS IST EINE ENTSCHEIDUNG ────────────────────────────────────────────────
- * Die gefüllten Tage sind die zyklisch wiederholte Referenzwoche. Als Heatmap oder Jahreskurve
+ * Die gefüllten Tage sind der zyklisch wiederholte Wochenblock. Als Heatmap oder Jahreskurve
  * gezeichnet sähen sie aus wie ein gemessener Jahresgang — ein Muster, das der Lastgang gar nicht
  * hergibt, und ein Leser könnte an der Zeichnung nicht erkennen, dass er siebenmal dieselbe Woche
  * sieht. Text und Tabelle können sagen, was sie sind; ein Bild könnte es nicht.

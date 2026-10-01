@@ -470,15 +470,15 @@ export type AnalysisResult = {
    * D6 Teil 3 (22.09.2026): das Kapitel „Was wäre, wenn wir ein ganzes Jahr hätten?" — die FÜNF
    * Wege, gerechnet auf einem synthetischen 365-Tage-Lastgang.
    *
-   * `undefined` heisst: nicht angefordert ODER nicht bildbar (volles Jahr, Standardprofil, keine
-   * Referenzwoche, Preislücke im Jahresfenster). Kein Fehlerfall, und wie bei den drei Feldern
+   * `undefined` heisst: nicht angefordert ODER nicht bildbar (volles Jahr, Standardprofil, unter
+   * 4 vollen Wochen, Preislücke im Jahresfenster). Kein Fehlerfall, und wie bei den drei Feldern
    * darüber KEIN `bundleVersion`-Sprung (B14-2).
    *
    * ── ⚠ WORIN ES SICH VON `annualProjection` UNTERSCHEIDET ────────────────────────────────────
    * `annualProjection` rechnet ZWEI KOSTENZEILEN über eine flach verteilte Lücke und lässt den
    * Dispatch ausdrücklich aus („eine zweite Simulation über Daten, die es nicht gibt"). Dieses
    * Feld geht den anderen Weg: es baut erst einen vollständigen, aus ECHTEN Messwerten der
-   * Referenzwoche gefüllten Lastgang und lässt darauf die GANZE Rechenkette laufen — Batterie,
+   * gemessenen Wochenblocks gefüllten Lastgang und lässt darauf die GANZE Rechenkette laufen — Batterie,
    * Ladesteuerung und Spitzenkappung eingeschlossen. Geschätzt ist damit die EINGABE, nicht das
    * Ergebnis. Die beiden Felder sind nicht gegeneinander austauschbar und sollen auch nicht
    * nebeneinander im selben Kapitel stehen.

@@ -148,10 +148,9 @@ function currentTariffCostEur(
  * ⚠ EIN AUFRUF UND NICHT ZWEI — UND DAS IST DIE TRAGENDE ENTSCHEIDUNG DIESER FUNKTION
  * ══════════════════════════════════════════════════════════════════════════════════════════════
  * Naheliegend wäre, den Baustein je Szenario einmal laufen zu lassen (einmal auf dem echten,
- * einmal auf dem rekonstruierten Lastgang). Er wählt seine Referenzwoche aber nach dem HÖCHSTEN
- * Verbrauch — und der rekonstruierte Lastgang ist im Sommer stärker angehoben als im Winter. Zwei
- * Läufe könnten also verschiedene Wochen und damit verschiedene Füllpläne wählen; die ausgewiesene
- * Differenz enthielte dann einen Anteil, der aus der Auswahl stammt und nicht aus der PV-Anlage.
+ * einmal auf dem rekonstruierten Lastgang). Zwei Läufe könnten aber verschiedene Füllpläne bilden
+ * (der Block hängt an den vollständigen Tagen der jeweiligen Reihe); die ausgewiesene Differenz
+ * enthielte dann einen Anteil, der aus der Füllung stammt und nicht aus der PV-Anlage.
  *
  * Der Baustein verlängert eine mitgegebene Erzeugungsreihe nach DEMSELBEN Plan wie den Lastgang
  * (`extendPv`, und die Begründung dort ist wortgleich diese). Gebraucht wird deshalb genau ein

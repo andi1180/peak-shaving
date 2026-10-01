@@ -80,7 +80,7 @@ export type PvValueAnnual = PvValueCosts & {
   windowFromDate: string
   /** Letzter Kalendertag des Jahresfensters (lokal, inklusiv). */
   windowToDate: string
-  /** Kalendertage des Fensters, die aus der Referenzwoche gefüllt wurden. */
+  /** Kalendertage des Fensters, die aus dem gemessenen Wochenblock gefüllt wurden. */
   projectedDays: number
 }
 
@@ -91,7 +91,7 @@ export type PvValueScenario = {
   measured: PvValueCosts
   /**
    * Auf 365 Tage hochgerechnet. `null` heisst „nicht bildbar" — kein Jahresfenster im
-   * Preisbestand, keine Referenzwoche, oder der Lastgang deckt bereits ein volles Jahr ab. Es wird
+   * Preisbestand, unter 4 vollen Wochen, oder der Lastgang deckt bereits ein volles Jahr ab. Es wird
    * dann NICHTS genähert; das Kapitel zeigt allein den gemessenen Zeitraum.
    */
   annual: PvValueAnnual | null

@@ -522,7 +522,7 @@ describe('runAnalysisFromMeteringPointDraft — tariffPricing', () => {
    * wäre ohne die Anlage gewesen?" nicht selbst beantworten kann.
    *
    * ⚠ `annual` bleibt hier `null`, und das ist richtig: der Demo-Lastgang ist EIN Tag, es gibt
-   * also keine Referenzwoche und damit kein Jahres-Szenario. Genähert wird nichts.
+   * also keine volle Woche und damit kein Jahres-Szenario. Genähert wird nichts.
    */
   it('setzt `pvValue` bei bestehender Anlage — und bei einer GEPLANTEN nicht', async () => {
     const fetchTariffPricing = async (request: {
