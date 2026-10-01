@@ -88,10 +88,10 @@ function payloadOf(fromIso: string, toIso: string): CalculatorPayload {
   }
 }
 
-function gridRow(): GridTariffRowInput {
+function gridRow(validFrom = '2024-01-01', validUntil: string | null = null): GridTariffRowInput {
   return {
-    validFrom: '2024-01-01',
-    validUntil: null,
+    validFrom,
+    validUntil,
     netzverlustCtPerKwh: 0.7,
     priceBasis: 'net',
     windows: [
@@ -130,7 +130,18 @@ function hourly(fromIso: string, toIso: string): SpotPriceSeriesInput {
   return { prices, complete: true, missingRanges: [] }
 }
 
-/** Ein Preis-Port, der den angefragten Zeitraum lückenlos bedient. */
+/** Ein Preis-Port, der den angefragten Zeitraum mit Marktpreisen lückenlos bedient. */
+const pricingWith =
+  (row: GridTariffRowInput) => (request: { window: { startIso: string; endIso: string } }) =>
+    Promise.resolve<TariffPricingInputs>({
+      gridTariffRows: [row],
+      spotPrices: hourly(
+        request.window.startIso,
+        new Date(Date.parse(request.window.endIso) + HOUR_MS).toISOString(),
+      ),
+      levies: LEVIES_NONE,
+    })
+
 const fullPricing = (request: { window: { startIso: string; endIso: string } }) =>
   Promise.resolve<TariffPricingInputs>({
     gridTariffRows: [gridRow()],
@@ -177,14 +188,27 @@ describe('buildAnnualScenario', () => {
       payload: payloadOf('2026-03-27T23:00:00Z', '2026-08-31T22:00:00Z'),
       horizonYears: 10,
       catalog: CATALOG,
-      fetchTariffPricing: fullPricing,
+      /* Netzentgelt-Zeile erst ab 01.01.2026: rechenbar nur mit dem Satzstand des Stichtags. */
+      fetchTariffPricing: pricingWith(gridRow('2026-01-01')),
     })
     if (!out.ok) throw new Error(`unerwartet abgelehnt: ${out.blocker}`)
 
     expect(out.value.windowFromDate).toBe('2025-09-01')
     expect(out.value.windowToDate).toBe('2026-08-31')
+    expect(out.value.ratesAsOf).toBe('2026-08-31')
     expect(out.value.measuredDays).toBe(157)
     expect(out.value.projectedDays).toBe(208)
+  })
+
+  it('ohne Netzentgelt-Zeile am Stichtag: nicht berechenbar, kein Rückfall auf eine andere Zeile', async () => {
+    const out = await buildAnnualScenario({
+      payload: payloadOf('2026-03-27T23:00:00Z', '2026-08-31T22:00:00Z'),
+      horizonYears: 10,
+      catalog: CATALOG,
+      fetchTariffPricing: pricingWith(gridRow('2025-01-01', '2026-06-30')),
+    })
+
+    expect(out).toEqual({ ok: false, blocker: 'not_computable' })
   })
 
   it('verweigert, statt zu nähern, wenn die Preise das Jahresfenster nicht decken', async () => {

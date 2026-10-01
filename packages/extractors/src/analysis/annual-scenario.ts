@@ -8,6 +8,7 @@ import type { CalculatorPayload } from 'engine'
 import {
   SPOT_PRICE_ANCHOR_DATE,
   analysisWindow,
+  pinRatesToDate,
   primaryBatteryEntry,
   tariffWayCosts,
   type AnalysisWindow,
@@ -104,10 +105,13 @@ export async function buildAnnualScenario(
   const window = analysisWindow(year.profile)
   if (window === null) return { ok: false, blocker: 'no_data' }
 
-  const tariffPricing = await options.fetchTariffPricing({
-    window,
-    intervalMinutes: year.profile.intervalMinutes,
-  })
+  // Netzentgelte und Abgaben im Stand des letzten Messtags über das ganze Fenster.
+  const ratesAsOf = year.windowToDate
+  const tariffPricing = pinRatesToDate(
+    await options.fetchTariffPricing({ window, intervalMinutes: year.profile.intervalMinutes }),
+    ratesAsOf,
+    { fromDate: year.windowFromDate, toDate: year.windowToDate },
+  )
 
   const result = computeYearOrRefusal(
     {
@@ -149,6 +153,7 @@ export async function buildAnnualScenario(
     value: {
       windowFromDate: year.windowFromDate,
       windowToDate: year.windowToDate,
+      ratesAsOf,
       measuredDays: year.measuredDays,
       projectedDays: year.projectedDays,
       reference: {
