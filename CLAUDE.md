@@ -685,6 +685,10 @@ echten Datum; ohne Zeile am Stichtag `not_computable`. Contract: `AnnualScenario
 (`synthetic-year.ts`): Block = längste lückenlose Folge voller Mo–So-Wochen (Gleichstand: jüngste), fehlender
 Tag d ← d + 7·W·k im Block, nach lokaler Uhrzeit; unter 4 Wochen `insufficient_data`. Contract: `AnnualScenario.fill`
 statt `reference`; `reference-week.ts` ist gelöscht. Die Punkte (a) und (f) oben beschreiben die alte Regel.
+**Seit 01.10.2026 (PR 4) rechnet der Jahreslauf nur das Gerät des Hauptreports** (`primaryBatteryEntry` des gemessenen
+Ergebnisses, Bestandsspeicher über den Payload) und Weg 5 inkl. EAG-Förderbeitrag Leistung über `peakShavingSavingPerYearOf`
+(`shared/battery-entry.ts`, dieselbe Funktion wie der Hauptreport). Ohne Gerät kein Jahreslauf (`no_device`). Contract:
+`AnnualScenario.device`, `ways.peakShavingEagEur`.
 
 **(d) Es wird NICHTS genähert.** Deckt der Preisbestand das Jahresfenster nicht, entfällt das Kapitel
 (`not_computable`). Das Nachladen/Nähern gibt es weiterhin nur im parallelen Weg

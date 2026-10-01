@@ -504,7 +504,7 @@ export async function runAnalysisFromMeteringPointDraft(
       : await buildAnnualScenario({
           payload,
           horizonYears,
-          catalog: ports.batteryCatalog,
+          measured: result,
           fetchTariffPricing: ({ window, intervalMinutes }) =>
             fetchPricingOnce({ ...subject, window, intervalMinutes }),
         })
