@@ -3,7 +3,8 @@
 Regressionstest nach CLAUDE.md **Regel 12**, Gegenstück zur Bäckerei (`packages/engine/test/golden/`)
 für den **Wizard-Pfad**: `runAnalysisFromMeteringPointDraft` (`src/analysis/run-from-draft.ts`) läuft
 mit eingefrorenen Ports, das Ergebnis muss **exakt** `expected.json` gleichen. Kein Netz-, kein
-DB-Abruf; die Uhr steht im Test auf **24.09.2026 13:04:38 UTC** (sie bestimmt das Jahresfenster).
+DB-Abruf; die Uhr steht im Test auf **24.09.2026 13:04:38 UTC** (das Jahresfenster hängt seit
+01.10.2026 nicht mehr daran, es endet am letzten Messtag 26.08.2026).
 
 Eingefroren ist der VOLLE Lauf: `AnalysisResult` samt Tarifvergleich je Monat, Abgaben,
 Bestandsspeicher-Analyse (inkl. Erweiterungsszenarien), Katalog-Urteil über 27 Heimgeräte,
@@ -40,6 +41,11 @@ die Skalierung kam erst danach.
 | `lastgang.csv`, `pv-erzeugung.json`, `draft.json` | die drei Port-Antworten des Zählpunkts, anonymisiert wie oben |
 | `battery-catalog.json` | die 27 freigegebenen Heimgeräte als `BatteryCandidate[]`, per `anon` gelesen (Regel 13) |
 | `tariff-pricing.json` | die Antworten des echten Preis-Ports (`readTariffPricingForAnalysis`) je angefragtem Fenster: Messzeitraum und Jahresfenster, Netzentgelte + aWATTar-Stundenpreise per `anon`, Abgabenplan mit `{ category: 'heim', postalCode: '1010' }` |
+
+Der Jahresfenster-Eintrag (27.08.2025–26.08.2026) ist am 01.10.2026 neu eingefroren, weil das Fenster
+seither am letzten Messtag endet: Netzentgelt-Zeilen und Abgabenplan aus dem vorigen Eintrag (dieselben
+Kalenderjahre 2025/2026), Stundenpreise per `anon` — auf den 8.088 überlappenden Stunden bitgleich
+mit dem vorigen Stand, neu sind 672 Stunden (27.08.–23.09.2025).
 
 Fragt die Rechnung ein Fenster an, das nicht eingefroren ist, bricht der Test ab.
 

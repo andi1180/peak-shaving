@@ -64,9 +64,9 @@ export type AnnualScenarioWays = {
 }
 
 export type AnnualScenario = {
-  /** Erster Kalendertag des Fensters (lokal, `YYYY-MM-DD`, inklusiv). */
+  /** Erster Kalendertag des Fensters (lokal, `YYYY-MM-DD`, inklusiv) — `windowToDate` − 364 Tage. */
   windowFromDate: string
-  /** Letzter Kalendertag des Fensters (lokal, inklusiv) — der letzte GEMESSENE Tag. */
+  /** Letzter Kalendertag des Fensters (lokal, inklusiv) — der letzte GEMESSENE Tag, nie ein späterer. */
   windowToDate: string
   /** Kalendertage des Fensters mit echten Messwerten. */
   measuredDays: number
