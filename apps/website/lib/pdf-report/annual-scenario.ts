@@ -1,62 +1,54 @@
-import { displayedPriceLabel } from 'shared'
+import { EXISTING_BATTERY_ID, displayedPriceLabel } from 'shared'
 import type { AnnualScenario } from 'shared'
 
 import { formatEur } from '@/lib/format'
-import type { ReportRow, ReportStatement } from './statement'
+import { CONTROLLED_WAY_LABEL } from '@/lib/report-copy'
+import { hasAdviceChapter } from './advice'
+import { ADVICE_SECTION } from './content'
+import type { ReportNotice, ReportRow, ReportStatement } from './statement'
 import { summaryWaysOf } from './summary'
-import type { PdfReportAnalysis } from './types'
-import { PEAK_SHAVING_WAY_LABEL, buildWaysChapter, peakShavingSavingOf } from './ways'
+import type { PdfReportInput } from './types'
 
 /**
- * D6 Teil 3 — das Kapitel „Was wäre, wenn wir ein ganzes Jahr hätten?", direkt hinter den Wegen.
+ * D6 Teil 3 — das Kapitel „Hochrechnung auf ein ganzes Jahr", direkt hinter den Wegen.
  *
- * ══════════════════════════════════════════════════════════════════════════════════════════════
- * ⚠ ES KONKURRIERT NICHT MIT DER ERSPARNIS-SPANNE DER ZUSAMMENFASSUNG (D8)
- * ══════════════════════════════════════════════════════════════════════════════════════════════
- * Die Kopfzahlen vorne beziehen sich auf den GEMESSENEN Zeitraum; die Zahlen hier auf 365 Tage.
- * Dieses Kapitel ist deshalb eine eigene, benannte Sektion mit eigener Zahl — `summary.ts` liest
- * `annualScenario` nirgends, und dieses Modul rührt die Spanne nicht an. Zwei Bezugszeiträume
- * unter einer Zahl wären genau die Vermischung, vor der der Report sonst überall warnt.
+ * ⚠ ES KONKURRIERT NICHT MIT DER ERSPARNIS-SPANNE DER ZUSAMMENFASSUNG (D8): die Kopfzahlen vorne
+ * beziehen sich auf den GEMESSENEN Zeitraum, die Zahlen hier auf 365 Tage; `summary.ts` liest
+ * `annualScenario` nirgends. Hier dürfen die drei Ersparnisanteile addiert werden, weil alle drei
+ * Jahresgrössen auf demselben hochgerechneten Lastgang sind.
  *
- * ══════════════════════════════════════════════════════════════════════════════════════════════
- * ⚠ DIE TABELLE FÜHRT DIE VIER TARIFWEGE — WEG 5 STEHT IM KASTEN, UND ZWAR AUS EINEM GRUND
- * ══════════════════════════════════════════════════════════════════════════════════════════════
- * Die Wege 1–4 sind KOSTEN über das Jahr, Weg 5 (Spitzenkappung) ist eine ERSPARNIS. In derselben
- * Spalte untereinander stünden zwei Grössen mit verschiedenem Vorzeichen-Sinn unter einer
- * Überschrift. Dieselbe Trennung und dieselbe Begründung wie im Kapitel davor, wo Weg 5 aus
- * genau diesem Grund kein Balken ist (`ways.ts`).
- *
- * ⚠ IN DIESEM KAPITEL DARF WEG 5 ADDIERT WERDEN, und das ist der einzige Ort im Report, an dem
- * das gilt: dort sind es Jahresgrösse gegen Messzeitraum, hier sind ALLE Wege Jahresgrössen.
- *
- * ── ⚠ DIE ZEILEN WERDEN NICHT HARTKODIERT, SONDERN VOM KAPITEL DAVOR ÜBERNOMMEN ───────────────
- * Welche Wege dieser Kunde hat, steht in `buildWaysChapter`. Dieses Modul liest dessen Balken und
- * sucht zu jedem den Jahresbetrag — eine zweite Bedingung dafür, ob es den Vergleichstarif gibt,
- * ergäbe ein Kapitel, das einen Weg mehr oder weniger führt als das davor.
- *
- * ── ⚠ DIESE DATEI DARF `@react-pdf/renderer` NICHT ANFASSEN — dieselbe Regel wie überall sonst in
- * diesem Verzeichnis. Gerendert wird in `document.tsx`.
+ * ⚠ DIESE DATEI DARF `@react-pdf/renderer` NICHT ANFASSEN — gerendert wird in `document.tsx`.
  */
 
 export type AnnualScenarioChapter = {
   /** Die Absätze in Dokumentreihenfolge. */
   statements: ReportStatement[]
-  /** Die Jahres-Gesamtersparnis — die Zahl des Kastens. `null`, wenn kein Weg etwas spart. */
-  totalSavingEur: number | null
+  /** Die Jahres-Gesamtersparnis = Summe der gerundeten Zeilen. */
+  totalSavingEur: number
 }
 
 /**
- * Gibt es dieses Kapitel in diesem Dokument?
- *
- * Drei Bedingungen, und alle drei sind nötig: die Hochrechnung muss gerechnet worden sein
- * (`annualScenario`), das Kapitel davor muss stehen (sonst gäbe es keine Wege, die hier
- * wiederkehren könnten), und es muss überhaupt etwas gefehlt haben. Die dritte ist keine
- * Vorsichtsmassnahme: bei einem Lastgang über ein volles Jahr wäre dieses Kapitel eine Schätzung
- * ohne Gegenstand, die dieselben Zahlen ein zweites Mal zeigt.
+ * PV in der Rechnung: die Füllung trägt Tage einer Jahreszeit in eine andere, und mit PV wandert
+ * dabei die Erzeugung mit (zu wenig Bezug im Winter) — dann gibt es das Kapitel nicht.
  */
-export function hasAnnualScenarioChapter(analysis: PdfReportAnalysis): boolean {
-  const scenario = analysis.annualScenario
-  return scenario != null && scenario.projectedDays > 0 && summaryWaysOf(analysis) !== null
+function involvesPv(input: PdfReportInput): boolean {
+  const source = input.loadProfile.source
+  return (
+    input.hasPv === true ||
+    input.estimatedPv != null ||
+    input.loadProfile.pvSource === 'estimated' ||
+    source === 'net_signed' ||
+    source === 'import_export_split'
+  )
+}
+
+/**
+ * Gibt es dieses Kapitel? Die Hochrechnung muss gerechnet sein, etwas muss gefehlt haben, das
+ * Gerät des Hauptreports muss genannt sein, das Wege-Kapitel muss stehen, und es darf keine PV
+ * im Spiel sein.
+ */
+export function hasAnnualScenarioChapter(input: PdfReportInput): boolean {
+  return buildAnnualScenarioChapter(input) !== null
 }
 
 /** `YYYY-MM-DD` → `TT.MM.JJJJ`. Reine Zeichenkettenarbeit: das Datum ist bereits Ortszeit. */
@@ -64,168 +56,138 @@ function formatDate(date: string): string {
   return `${date.slice(8, 10)}.${date.slice(5, 7)}.${date.slice(0, 4)}`
 }
 
-/** Die Ersparnis eines Tarifwegs gegenüber „Ihr Tarif heute" — negativ, wenn er mehr kostet. */
-function savingOf(todayEur: number, costEur: number): number {
-  return todayEur - costEur
+/** Ganze Euro — die Zeilen der Übersicht werden VOR dem Summieren gerundet, damit die Summe stimmt. */
+const euros = (value: number): number => Math.round(value)
+
+/** Wie der Speicher im Fliesstext heisst: der eigene als „Ihr bestehender Speicher", sonst sein Name. */
+function deviceRef(scenario: AnnualScenario): string {
+  const device = scenario.device!
+  return device.batteryId === EXISTING_BATTERY_ID
+    ? 'Ihrem bestehenden Speicher'
+    : `dem Speicher „${device.name}"`
 }
 
-/**
- * Der Jahresbetrag zu einem Balken des Wege-Kapitels.
- *
- * `null` heisst „für diesen Weg gibt es im Jahreslauf keine Zahl" — dann fällt die ZEILE weg,
- * nicht der Betrag auf 0. Eintreten kann das nur beim Vergleichstarif und nur, wenn der
- * Jahreslauf ihn anders beurteilt hat als der gemessene; eine 0 sähe dort aus wie „kostet nichts".
- */
-function annualCostOf(scenario: AnnualScenario, key: string): number | null {
-  if (key === 'today') return scenario.ways.currentTariffEur
-  if (key === 'comparison') return scenario.ways.comparisonTariffEur
-  if (key === 'uncontrolled') return scenario.ways.spotWithoutControlEur
-  if (key === 'controlled') return scenario.ways.controlledEur
-  return null
-}
-
-export function buildAnnualScenarioChapter(
-  analysis: PdfReportAnalysis,
-): AnnualScenarioChapter | null {
+export function buildAnnualScenarioChapter(input: PdfReportInput): AnnualScenarioChapter | null {
+  const analysis = input.analysis
   const scenario = analysis.annualScenario
-  const measured = buildWaysChapter(analysis)
-  if (!scenario || !measured || scenario.projectedDays === 0) return null
-  // Ohne „Ihr Tarif heute" (Liefertarif unbekannt) fehlt die Bezugsgrösse dieses Kapitels.
-  const todayEur = scenario.ways.currentTariffEur
-  if (todayEur === null) return null
+  if (!scenario || scenario.projectedDays <= 0 || !scenario.device) return null
+  if (summaryWaysOf(analysis) === null || involvesPv(input)) return null
+  const { currentTariffEur, spotWithoutControlEur, controlledEur } = scenario.ways
+  // Ohne „Ihr Tarif heute" (Liefertarif unbekannt) oder ohne gesteuerte Reihe fehlt die Grundlage.
+  if (currentTariffEur === null || controlledEur === null) return null
 
-  const fill = scenario.fill
-  const statements: ReportStatement[] = [
+  const days = scenario.measuredDays + scenario.projectedDays
+  const measuredPercent = Math.round((scenario.measuredDays / days) * 100)
+  const priceLabel = displayedPriceLabel(analysis)
+  const window = `${formatDate(scenario.windowFromDate)} bis ${formatDate(scenario.windowToDate)}`
+  const ratesNote = scenario.ratesAsOf
+    ? `Netzentgelte und Abgaben im Stand vom ${formatDate(scenario.ratesAsOf)}`
+    : 'Netzentgelte und Abgaben zum jeweiligen Datum'
+
+  const basis: ReportStatement = {
+    id: 'annual_scenario_basis',
+    title: 'Worauf diese Hochrechnung beruht',
+    amount: null,
+    rows: [],
+    body:
+      `Für ${scenario.measuredDays} von ${days} Tagen (${measuredPercent} %) liegen Messdaten vor. ` +
+      `Die übrigen ${scenario.projectedDays} Tage haben wir ergänzt, indem wir Ihr gemessenes ` +
+      'Verbrauchsmuster Woche für Woche rückwärts fortgeschrieben haben: jeder Tag bekommt den ' +
+      'Verlauf desselben Wochentags, Feiertage sind nicht gesondert berücksichtigt. Gerechnet ist ' +
+      `der Zeitraum ${window} mit den echten aWATTar-Börsenpreisen dieser Tage; ${ratesNote}. ` +
+      'Alle Zahlen auf den Seiten davor beruhen auf dem gemessenen Zeitraum — die Jahreszahlen ' +
+      'stehen nur in diesem Kapitel.',
+  }
+
+  const costs: ReportStatement = {
+    id: 'annual_scenario_costs',
+    title: 'Ihre Stromkosten über ein Jahr',
+    amount: null,
+    rows: [
+      { label: 'Ihr Tarif heute', value: formatEur(currentTariffEur), tone: 'neutral' },
+      { label: 'aWATTar ohne Steuerung', value: formatEur(spotWithoutControlEur), tone: 'neutral' },
+      { label: CONTROLLED_WAY_LABEL, value: formatEur(controlledEur), tone: 'neutral' },
+    ],
+    body: `Hochgerechnete Jahreskosten (${priceLabel}), gerechnet mit ${deviceRef(scenario)}.`,
+  }
+
+  const switchEur = euros(currentTariffEur - spotWithoutControlEur)
+  const controlEur = euros(spotWithoutControlEur - controlledEur)
+  const peakEur = euros(Math.max(0, scenario.ways.peakShavingSavingEur))
+  const totalSavingEur = switchEur + controlEur + peakEur
+  const toneOf = (eur: number): ReportRow['tone'] => (eur >= 0 ? 'positive' : 'warning')
+
+  const rows: ReportRow[] = [
+    { label: 'Tarifwechsel zu aWATTar', value: formatEur(switchEur), tone: toneOf(switchEur) },
     {
-      id: 'annual_scenario_method',
-      title: 'Wie diese Hochrechnung entstanden ist',
-      amount: null,
-      rows: [],
-      body:
-        /*
-         * ⚠ Die GEMESSENE Tageszahl steht hier bewusst NICHT. Sie hat in diesem Dokument bereits
-         * eine Quelle (`dataQuality.coveredDays`, das Kapitel davor), und `scenario.measuredDays`
-         * zählt etwas leicht anderes: belegte KALENDERTAGE des Fensters gegen Intervalle ÷ 96.
-         * Die beiden können sich um einen Tag unterscheiden — nebeneinander im selben Report sähe
-         * das aus wie ein Rechenfehler.
-         */
-        `Für ein volles Jahr fehlen ${scenario.projectedDays} Kalendertage. Für diese Tage haben ` +
-        'wir nicht geschätzt, was ' +
-        'Sie gespart hätten — wir haben geschätzt, was Sie verbraucht hätten, und darauf dieselbe ' +
-        'Rechnung laufen lassen wie auf Ihren echten Messwerten: derselbe Speicher, dieselbe ' +
-        'Ladesteuerung, dieselben Netzentgelte und Abgaben. ' +
-        // [PR 5] Methodentext neu schreiben — der Rest dieses Absatzes beschreibt noch die Referenzwoche.
-        `Als Vorlage dienen Ihre ${fill.blockWeeks} vollen gemessenen Wochen (${formatDate(fill.blockFromDate)} ` +
-        `bis ${formatDate(fill.blockToDate)}). Jeder fehlende Tag bekommt den echten ` +
-        'Viertelstundenverlauf desselben Wochentags daraus. ' +
-        /*
-         * ⚠ „stärkste" und nicht „kälteste": eine Auswahl nach Jahreszeit setzte voraus, dass der
-         * Kunde heizlastgetrieben ist. Der Satz sagt deshalb, WARUM diese Woche gewählt wurde.
-         */
-        'Die stärkste Woche und nicht eine durchschnittliche: eine zu niedrig angesetzte ' +
-        'Jahresmenge führte zu einem Speicher, der genau dann nicht trägt, wenn Sie ihn brauchen. ' +
-        'Die Zahlen unten sind damit eher die obere als die untere Kante — und sie sind eine ' +
-        'Schätzung, keine Messung.',
+      label: 'Ladesteuerung des Speichers',
+      value: formatEur(controlEur),
+      tone: toneOf(controlEur),
     },
+    ...(peakEur > 0
+      ? [
+          {
+            label: 'Spitzenkappung durch den Speicher (Obergrenze)',
+            value: formatEur(peakEur),
+            tone: 'positive' as const,
+          },
+        ]
+      : []),
+    { label: 'Summe', value: formatEur(totalSavingEur), tone: toneOf(totalSavingEur), total: true },
   ]
 
-  const wayRows: ReportRow[] = []
-  for (const bar of measured.bars) {
-    const costEur = annualCostOf(scenario, bar.key)
-    if (costEur === null) continue
-    const saving = savingOf(todayEur, costEur)
-    wayRows.push({
-      label: bar.label,
-      hint:
-        bar.key === 'today'
-          ? 'die Bezugsgrösse'
-          : saving > 0
-            ? `${formatEur(saving)} weniger als heute`
-            : `${formatEur(Math.abs(saving))} mehr als heute`,
-      value: formatEur(costEur),
-      tone: bar.key === 'today' ? 'neutral' : saving > 0 ? 'positive' : 'warning',
-    })
+  const assumption: ReportNotice = {
+    id: 'annual_scenario_assumption',
+    tone: 'neutral',
+    title: 'Annahme',
+    body: 'Diese Hochrechnung ist eine Annahme auf Grundlage Ihrer gemessenen Tage — keine Prognose und keine Zusage.',
+    list: {
+      label: null,
+      items: [
+        ...(peakEur > 0
+          ? [
+              'Die Spitzenkappung ist eine Obergrenze: sie setzt voraus, dass der Speicher jede ' +
+                'Lastspitze rechtzeitig voll geladen erreicht.',
+            ]
+          : []),
+        'Angenommen ist ein über das Jahr gleichbleibendes Verbrauchsmuster. Heizung, Lüftung, ' +
+          'Kühlung oder Saisonbetrieb können die ergänzten Monate deutlich verändern.',
+        `Die ${scenario.projectedDays} ergänzten Tage wurden nie gemessen.`,
+      ],
+    },
+    hints: [],
   }
 
-  statements.push({
-    id: 'annual_scenario_ways',
-    title: 'Die Wege über ein volles Jahr',
+  const overview: ReportStatement = {
+    id: 'annual_scenario_savings',
+    title: 'Woher die Ersparnis kommt',
+    amount: {
+      value: formatEur(totalSavingEur),
+      caption: `pro Jahr, geschätzt, ${priceLabel}`,
+      tone: totalSavingEur >= 0 ? 'positive' : 'warning',
+    },
+    rows,
+    body:
+      'Gegenüber Ihrem heutigen Tarif, je Jahr. Die Zeilen bauen aufeinander auf und dürfen hier ' +
+      'zusammengezählt werden: alle drei beziehen sich auf dieselben 365 Tage.',
+    notice: assumption,
+  }
+
+  const hasAdvice = hasAdviceChapter(input)
+  const elsewhere = hasAdvice ? `im Kapitel „${ADVICE_SECTION.title}"` : 'auf den Seiten davor'
+  const deviation: ReportStatement = {
+    id: 'annual_scenario_deviation',
+    title: hasAdvice
+      ? `Warum weicht die Speicher-Ersparnis hier von „${ADVICE_SECTION.title}" ab?`
+      : 'Warum weicht die Speicher-Ersparnis hier ab?',
     amount: null,
-    rows: wayRows,
+    rows: [],
     body:
-      `Hochgerechnete Jahreskosten für den Zeitraum ${formatDate(scenario.windowFromDate)} bis ` +
-      `${formatDate(scenario.windowToDate)}, je Weg — ${displayedPriceLabel(analysis)}. Gerechnet ` +
-      'wurde jeder Weg auf demselben hochgerechneten Lastgang, sodass die Beträge untereinander ' +
-      'vergleichbar bleiben. Gegen die Beträge im Kapitel davor sind sie es nicht: die beziehen ' +
-      `sich auf die ${measured.coveredDays} tatsächlich gemessenen Tage.`,
-  })
-
-  /*
-   * Der beste TARIFweg — die Wege 2–4, verglichen an ihrer Jahresersparnis. Weg 1 ist die
-   * Bezugsgrösse und kann sich nicht selbst schlagen; er steht deshalb nicht zur Wahl.
-   */
-  let bestWay: { label: string; savingEur: number } | null = null
-  for (const bar of measured.bars) {
-    if (bar.key === 'today') continue
-    const costEur = annualCostOf(scenario, bar.key)
-    if (costEur === null) continue
-    const savingEur = savingOf(todayEur, costEur)
-    if (savingEur > 0 && (bestWay === null || savingEur > bestWay.savingEur)) {
-      bestWay = { label: bar.label, savingEur }
-    }
+      `Die Ersparnis des Speichers ${elsewhere} ist aus dem gemessenen Zeitraum gleichmässig auf ` +
+      'ein Jahr hochgerechnet. Dieses Kapitel rechnet die ergänzten Monate dagegen mit den echten ' +
+      'Börsenpreisen dieser Monate. Im Winter ist die Spanne zwischen günstigen und teuren Stunden ' +
+      'meist kleiner — die Ladesteuerung bringt dort weniger als im Messzeitraum.',
   }
 
-  const peakSavingEur = peakShavingSavingOf(analysis) > 0 ? scenario.ways.peakShavingSavingEur : 0
-  const totalSavingEur =
-    bestWay === null && peakSavingEur <= 0 ? null : (bestWay?.savingEur ?? 0) + Math.max(0, peakSavingEur)
-
-  const totalRows: ReportRow[] = []
-  if (bestWay) {
-    totalRows.push({
-      label: `Bester Tarifweg: ${bestWay.label}`,
-      value: formatEur(bestWay.savingEur),
-      tone: 'positive',
-    })
-  }
-  if (peakSavingEur > 0) {
-    totalRows.push({
-      label: PEAK_SHAVING_WAY_LABEL,
-      hint: 'wirkt unabhängig davon, für welchen Stromvertrag Sie sich entscheiden',
-      value: formatEur(peakSavingEur),
-      tone: 'positive',
-    })
-  }
-  if (totalRows.length > 1 && totalSavingEur !== null) {
-    totalRows.push({ label: 'Zusammen', value: formatEur(totalSavingEur), tone: 'positive', total: true })
-  }
-
-  statements.push({
-    id: 'annual_scenario_total',
-    title: 'Gesamtersparnis im Jahresvergleich',
-    amount:
-      totalSavingEur === null
-        ? null
-        : {
-            value: formatEur(totalSavingEur),
-            caption: `geschätzt über 365 Tage, ${displayedPriceLabel(analysis)}`,
-            tone: 'positive',
-          },
-    rows: totalRows,
-    body:
-      totalSavingEur === null
-        ? 'Über ein volles Jahr gerechnet senkt keiner der geprüften Wege Ihre Kosten. Das ist ein ' +
-          'Ergebnis und kein fehlender Wert — die Grundlage dafür steht in der Tabelle darüber.'
-        : 'Hier dürfen die Beträge zusammengezählt werden, und das ist die einzige Stelle in diesem ' +
-          'Dokument, an der das gilt: alle Zahlen dieses Kapitels beziehen sich auf dieselben 365 ' +
-          'Tage. ' +
-          (peakSavingEur > 0
-            ? 'Die Kappung Ihrer Lastspitzen betrifft den Leistungspreis Ihres Netzbetreibers und ' +
-              'kommt deshalb zu dem gewählten Stromvertrag hinzu. '
-            : '') +
-          'Der Betrag beruht auf dem hochgerechneten Lastgang und ist damit eine Schätzung; er ' +
-          'gehört nicht mit der Ersparnis-Spanne der Zusammenfassung zusammen, die nur die ' +
-          'gemessenen Tage abdeckt.',
-  })
-
-  return { statements, totalSavingEur }
+  return { statements: [basis, costs, overview, deviation], totalSavingEur }
 }

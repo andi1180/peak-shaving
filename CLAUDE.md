@@ -374,7 +374,8 @@ wird das mit den **Report-Snapshots** (`pnpm --filter website report:snapshots`,
 seit 27.09.2026 eigener Pflicht-Job `report-snapshots` in CI, installiert poppler): PDF-Text und Bildschirm-Markup der Referenzfälle Privat (Golden-Eingaben
 Urbanz) und Gewerbe (anonymisiertes STCE, Eingaben dort eingefroren) plus zwei Förder-Varianten; seit 01.10.2026 dazu
 `gewerbe-leistungspreis-teiljahr-wien` (anonymisierte Render-Anfrage: NE 7 mit Leistungsmessung, `monthly_max_sum`,
-Teiljahr, Rechnungszeiträume, Kappung, keine PV — nur PDF-Text, eingefrorenes Ergebnis, prüft also nicht die Engine). Nach jeder
+Teiljahr, Rechnungszeiträume, Kappung, keine PV — nur PDF-Text, eingefrorenes Ergebnis, prüft also nicht die Engine), seit
+01.10.2026 dazu die Variante `gewerbe-leistungspreis-teiljahr-jahr-wien` mit Jahres-Hochrechnung. Nach jeder
 Report-Änderung laufen lassen; neu schreiben nur bei gewollter Änderung. **(c)** ~~Steuerfelder (IFB, Steuersatz,
 AfA) fehlen im Wizard bewusst — eigener Folge-PR.~~ Gebaut, s. Abschnitt darüber.
 
@@ -689,6 +690,10 @@ statt `reference`; `reference-week.ts` ist gelöscht. Die Punkte (a) und (f) obe
 Ergebnisses, Bestandsspeicher über den Payload) und Weg 5 inkl. EAG-Förderbeitrag Leistung über `peakShavingSavingPerYearOf`
 (`shared/battery-entry.ts`, dieselbe Funktion wie der Hauptreport). Ohne Gerät kein Jahreslauf (`no_device`). Contract:
 `AnnualScenario.device`, `ways.peakShavingEagEur`.
+**Seit 01.10.2026 (PR 5) ist das Kapitel wieder an** („Hochrechnung auf ein ganzes Jahr", `SHOW_ANNUAL_SCENARIO_CHAPTER = true`):
+Übersicht Tarifwechsel / Ladesteuerung / Spitzenkappung (Obergrenze) / Summe aus gerundeten Zeilen, als „Annahme" gekennzeichnet;
+es entfällt bei PV (`hasPv`, `estimatedPv`, `pvSource`, Einspeisung im Lastgang) und ohne Gerät. Referenzfall:
+Report-Snapshot `gewerbe-leistungspreis-teiljahr-jahr-wien` (Render-Anfrage + `annual-scenario.json`).
 
 **(d) Es wird NICHTS genähert.** Deckt der Preisbestand das Jahresfenster nicht, entfällt das Kapitel
 (`not_computable`). Das Nachladen/Nähern gibt es weiterhin nur im parallelen Weg

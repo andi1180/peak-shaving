@@ -7,13 +7,10 @@
  */
 
 /**
- * [VORLÄUFIG, 24.09.2026 — Auftrag Andreas] Kapitel „Was wäre, wenn wir ein ganzes Jahr hätten?"
- * (D6 Teil 3) bleibt aus, inklusive Inhaltsverzeichnis und aller Verweise darauf: die
- * Hochrechnung füllt jeden fehlenden Tag mit der verbrauchsstärksten Woche und überhöht das
- * Ergebnis dadurch strukturell. Zurück, sobald die Engine das behebt (Regel 12 — Engine wird
- * dafür hier NICHT angefasst).
+ * Kapitel „Hochrechnung auf ein ganzes Jahr" (D6 Teil 3). Seit 01.10.2026 wieder an: die Füllung
+ * kommt aus dem gemessenen Wochenblock statt aus der stärksten Woche, PV-Fälle sind ausgenommen.
  */
-export const SHOW_ANNUAL_SCENARIO_CHAPTER = false
+export const SHOW_ANNUAL_SCENARIO_CHAPTER = true
 
 /**
  * [VORLÄUFIG, 24.09.2026 — Auftrag Andreas] Die €-Blöcke des PV-Kapitels („Ihre PV-Anlage") sind

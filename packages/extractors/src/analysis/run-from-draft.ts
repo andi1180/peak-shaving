@@ -478,7 +478,7 @@ export async function runAnalysisFromMeteringPointDraft(
   const result = computeOrRefuse(payload, horizonYears, ports.batteryCatalog)
 
   /*
-   * D6 Teil 3 — „Was wäre, wenn wir ein ganzes Jahr hätten?". Ein ZWEITER Lauf derselben Rechnung
+   * D6 Teil 3 — „Hochrechnung auf ein ganzes Jahr". Ein ZWEITER Lauf derselben Rechnung
    * über einen aus dem gemessenen Wochenblock gefüllten 365-Tage-Lastgang.
    *
    * ⚠ NUR MIT DEM PREIS-PORT, und ohne ihn ohne jede Ersatzlösung: die Jahreszahlen sind

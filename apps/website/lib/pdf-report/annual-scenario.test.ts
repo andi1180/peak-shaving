@@ -1,21 +1,23 @@
 import { describe, expect, it } from 'vitest'
-import type { AnnualScenario, BatteryResultEntry, MonthlyTariffComparison } from 'shared'
+import type {
+  AnnualScenario,
+  BatteryResultEntry,
+  LoadProfile,
+  MonthlyTariffComparison,
+} from 'shared'
 
 import { buildAnnualScenarioChapter, hasAnnualScenarioChapter } from './annual-scenario'
 import { buildSummaryKpis, summaryWaysOf } from './summary'
-import type { PdfReportAnalysis } from './types'
-import { buildWaysChapter } from './ways'
+import { TARIFF_SOURCE_UNTRACKED, type PdfReportAnalysis, type PdfReportInput } from './types'
 
 /**
- * D6 Teil 3 — das Kapitel „Was wäre, wenn wir ein ganzes Jahr hätten?".
+ * D6 Teil 3 — das Kapitel „Hochrechnung auf ein ganzes Jahr".
  *
- * Geprüft wird das, was am ehesten still auseinanderlaufen kann: dass die Tabelle GENAU die Wege
- * führt, die das Kapitel davor führt (nicht vier fest verdrahtete), dass das Kapitel bei einem
- * vollen Jahr entfällt, und dass keine seiner Zahlen in die Ersparnis-Spanne der Zusammenfassung
- * gerät (D8 Ein-Spanne-Regel).
+ * Geprüft wird: die Zahlen kommen aus dem Contract und addieren exakt, das Kapitel entfällt bei
+ * PV, ohne Gerät und bei vollem Jahr, und keine Zahl gerät in die Ersparnis-Spanne (D8).
  */
 
-const MONTHS = <T,>(first: T): (T | null)[] => [first, ...Array<null>(11).fill(null)]
+const MONTHS = <T>(first: T): (T | null)[] => [first, ...Array<null>(11).fill(null)]
 
 function comparisonWith(args: {
   current: number
@@ -78,25 +80,27 @@ function entryWith(leistungspreisSavingPerYear: number): BatteryResultEntry {
 }
 
 /** Die Jahreszahlen des ZWEITEN Laufs — bewusst andere Grössenordnung als der gemessene Zeitraum. */
-function scenarioWith(args: {
-  comparisonTariffEur?: number | null
-  peakShavingSavingEur?: number
-  projectedDays?: number
-}): AnnualScenario {
+/** Die Zahlen des eingefrorenen Referenzfalls `gewerbe-leistungspreis-teiljahr-jahr-wien`. */
+function scenarioWith(args: { projectedDays?: number; withDevice?: boolean } = {}): AnnualScenario {
   return {
-    windowFromDate: '2024-11-04',
-    windowToDate: '2025-11-03',
-    measuredDays: 209,
-    projectedDays: args.projectedDays ?? 156,
-    fill: { blockFromDate: '2025-01-13', blockToDate: '2025-07-27', blockWeeks: 28 },
+    windowFromDate: '2025-09-01',
+    windowToDate: '2026-08-31',
+    ratesAsOf: '2026-08-31',
+    ...(args.withDevice === false
+      ? {}
+      : { device: { batteryId: 'kat-1', name: 'Test-Speicher 30' } }),
+    measuredDays: 157,
+    projectedDays: args.projectedDays ?? 208,
+    fill: { blockFromDate: '2026-03-30', blockToDate: '2026-08-30', blockWeeks: 22 },
     ways: {
-      currentTariffEur: 2000,
-      comparisonTariffEur: args.comparisonTariffEur ?? null,
-      comparisonSupplier: args.comparisonTariffEur == null ? null : 'ENSTROGA',
-      spotWithoutControlEur: 1900,
-      controlledEur: 1500,
-      controlVariant: 'simple',
-      peakShavingSavingEur: args.peakShavingSavingEur ?? 0,
+      currentTariffEur: 34793.76,
+      comparisonTariffEur: null,
+      comparisonSupplier: null,
+      spotWithoutControlEur: 26768.61,
+      controlledEur: 25804.09,
+      controlVariant: 'predictive',
+      peakShavingSavingEur: 1160.42,
+      peakShavingEagEur: 69.11,
     },
   }
 }
@@ -116,7 +120,16 @@ function analysisWith(args: {
       leistungspreisCostPerYear: 3980.16,
     },
     perBattery: [entry as never],
-    recommendation: { batteryId: 'kat-1', rationale: { code: 'best_net_saving', totalSavingPerYear: 0, amortizationYears: 0, netSavingOverHorizon: 0, horizonYears: 10 } },
+    recommendation: {
+      batteryId: 'kat-1',
+      rationale: {
+        code: 'best_net_saving',
+        totalSavingPerYear: 0,
+        amortizationYears: 0,
+        netSavingOverHorizon: 0,
+        horizonYears: 10,
+      },
+    },
     assumptions: {
       roundTripEfficiency: 0.9,
       horizonYears: 10,
@@ -142,91 +155,84 @@ function analysisWith(args: {
 const plain = (value: string): string => value.replace(/\u00a0/g, ' ')
 
 const MEASURED = comparisonWith({ current: 120, spot: 110, battery: 95 })
-const MEASURED_WITH_COMPARISON = comparisonWith({
-  current: 120,
-  spot: 110,
-  battery: 95,
-  comparison: 112,
-})
 
-describe('Jahres-Kapitel (D6 Teil 3)', () => {
-  it('führt genau die Wege, die das Kapitel davor führt — auch den Vergleichstarif', () => {
-    const analysis = analysisWith({
-      comparison: MEASURED_WITH_COMPARISON,
-      peakSaving: 1200,
-      annualScenario: scenarioWith({ comparisonTariffEur: 1960, peakShavingSavingEur: 1450 }),
-    })
+const LOAD_PROFILE: LoadProfile = {
+  readings: [],
+  intervalMinutes: 15,
+  timezoneMeta: 'Europe/Vienna',
+  source: 'import_only',
+}
 
-    expect(hasAnnualScenarioChapter(analysis)).toBe(true)
-    const chapter = buildAnnualScenarioChapter(analysis)
-    const table = chapter?.statements.find((s) => s.id === 'annual_scenario_ways')
+function inputFor(
+  analysis: PdfReportAnalysis,
+  overrides?: Partial<PdfReportInput>,
+): PdfReportInput {
+  return {
+    title: 'Prüffall',
+    subtitle: 'Hochrechnung',
+    period: '28.03.2026 – 31.08.2026',
+    printedAt: '01.10.2026',
+    analysis,
+    loadProfile: LOAD_PROFILE,
+    tariffSource: TARIFF_SOURCE_UNTRACKED,
+    tariffVintage: null,
+    ...overrides,
+  }
+}
 
-    /* Eine Zeile je BALKEN des Wege-Kapitels — nicht vier fest verdrahtete. */
-    const bars = buildWaysChapter(analysis)?.bars ?? []
-    expect(table?.rows.map((r) => r.label)).toEqual(bars.map((b) => b.label))
-    expect(table?.rows.map((r) => plain(r.value))).toEqual([
-      '€ 2.000',
-      '€ 1.960',
-      '€ 1.900',
-      '€ 1.500',
+const euroOf = (value: string): number => Number(plain(value).replace(/[^\d-]/g, ''))
+
+describe('Kapitel „Hochrechnung auf ein ganzes Jahr"', () => {
+  it('zeigt die Jahreszahlen des Contracts; die gerundeten Zeilen ergeben exakt die Summe', () => {
+    const input = inputFor(analysisWith({ comparison: MEASURED, annualScenario: scenarioWith() }))
+    expect(hasAnnualScenarioChapter(input)).toBe(true)
+    const chapter = buildAnnualScenarioChapter(input)!
+    const byId = (id: string) => chapter.statements.find((s) => s.id === id)!
+
+    const rows = byId('annual_scenario_savings').rows
+    expect(rows.map((r) => [r.label, euroOf(r.value)])).toEqual([
+      ['Tarifwechsel zu aWATTar', 8025],
+      ['Ladesteuerung des Speichers', 965],
+      ['Spitzenkappung durch den Speicher (Obergrenze)', 1160],
+      ['Summe', 10150],
     ])
+    const parts = rows.filter((r) => !r.total).reduce((sum, r) => sum + euroOf(r.value), 0)
+    expect(parts).toBe(euroOf(rows.find((r) => r.total)!.value))
+    expect(chapter.totalSavingEur).toBe(10150)
+    expect(byId('annual_scenario_savings').notice?.title).toBe('Annahme')
 
-    /*
-     * Der Kasten: bester Tarifweg (2.000 − 1.500) PLUS Spitzenkappung. Addiert werden darf hier,
-     * weil beide Zahlen dieselben 365 Tage meinen — im Kapitel davor gilt das ausdrücklich nicht.
-     */
-    expect(chapter?.totalSavingEur).toBe(500 + 1450)
-    const box = chapter?.statements.find((s) => s.id === 'annual_scenario_total')
-    expect(plain(box?.amount?.value ?? '')).toBe('€ 1.950')
-    expect(box?.rows.map((r) => plain(r.value))).toEqual(['€ 500', '€ 1.450', '€ 1.950'])
-  })
-
-  it('ohne Vergleichstarif und ohne Leistungspreis bleiben drei Zeilen und ein Tarifweg im Kasten', () => {
-    const analysis = analysisWith({
-      comparison: MEASURED,
-      annualScenario: scenarioWith({}),
-    })
-
-    const chapter = buildAnnualScenarioChapter(analysis)
-    expect(chapter?.statements.find((s) => s.id === 'annual_scenario_ways')?.rows).toHaveLength(3)
-    expect(chapter?.totalSavingEur).toBe(500)
-    expect(
-      chapter?.statements.find((s) => s.id === 'annual_scenario_total')?.rows.map((r) => r.label),
-    ).toEqual(['Bester Tarifweg: aWATTar mit Ladesteuerung'])
-  })
-
-  it('bei einem vollen Jahr gibt es das Kapitel nicht', () => {
-    const analysis = analysisWith({
-      comparison: MEASURED,
-      coveredDays: 365,
-      annualScenario: scenarioWith({ projectedDays: 0 }),
-    })
-
-    expect(hasAnnualScenarioChapter(analysis)).toBe(false)
-    expect(buildAnnualScenarioChapter(analysis)).toBeNull()
+    const basis = plain(String(byId('annual_scenario_basis').body))
+    expect(basis).toContain('Für 157 von 365 Tagen (43 %) liegen Messdaten vor')
+    expect(basis).toContain('01.09.2025 bis 31.08.2026')
+    expect(basis).toContain('Stand vom 31.08.2026')
+    expect(String(byId('annual_scenario_costs').body)).toContain('„Test-Speicher 30"')
   })
 
   it('keine seiner Zahlen erreicht die Ersparnis-Spanne der Zusammenfassung (D8)', () => {
-    const withScenario = analysisWith({
-      comparison: MEASURED,
-      annualScenario: scenarioWith({ peakShavingSavingEur: 1450 }),
-    })
+    const withScenario = analysisWith({ comparison: MEASURED, annualScenario: scenarioWith() })
     const withoutScenario = analysisWith({ comparison: MEASURED })
-
     const kpisOf = (a: PdfReportAnalysis) => buildSummaryKpis(a, summaryWaysOf(a)!)
     expect(kpisOf(withScenario)).toEqual(kpisOf(withoutScenario))
-    /* Die Kopfzahlen sprechen vom MESSzeitraum; keine Jahreszahl taucht in ihnen auf. */
-    expect(JSON.stringify(kpisOf(withScenario))).not.toContain('2.000')
+    expect(JSON.stringify(kpisOf(withScenario))).not.toContain('10.150')
   })
 
-  it('nennt netto statt hartkodiert „exkl. MwSt."', () => {
-    const analysis = analysisWith({ comparison: MEASURED, annualScenario: scenarioWith({}) })
-    const body = String(
-      buildAnnualScenarioChapter(analysis)?.statements.find((s) => s.id === 'annual_scenario_ways')
-        ?.body,
-    )
-
-    expect(body).toContain('netto')
-    expect(body).not.toContain('exkl. MwSt')
+  it('entfällt bei PV, ohne Gerät und ohne fehlende Tage', () => {
+    const analysis = analysisWith({ comparison: MEASURED, annualScenario: scenarioWith() })
+    expect(hasAnnualScenarioChapter(inputFor(analysis, { hasPv: true }))).toBe(false)
+    expect(
+      hasAnnualScenarioChapter(
+        inputFor(analysis, { loadProfile: { ...LOAD_PROFILE, source: 'net_signed' } }),
+      ),
+    ).toBe(false)
+    const noDevice = analysisWith({
+      comparison: MEASURED,
+      annualScenario: scenarioWith({ withDevice: false }),
+    })
+    expect(hasAnnualScenarioChapter(inputFor(noDevice))).toBe(false)
+    const fullYear = analysisWith({
+      comparison: MEASURED,
+      annualScenario: scenarioWith({ projectedDays: 0 }),
+    })
+    expect(hasAnnualScenarioChapter(inputFor(fullYear))).toBe(false)
   })
 })

@@ -1,0 +1,26 @@
+{
+  "windowFromDate": "2025-09-01",
+  "windowToDate": "2026-08-31",
+  "ratesAsOf": "2026-08-31",
+  "device": {
+    "batteryId": "ec7df0ca-7a51-4b5f-a37b-149812661b3a",
+    "name": "Kostal & Dyness Retrofit S"
+  },
+  "measuredDays": 157,
+  "projectedDays": 208,
+  "fill": {
+    "blockFromDate": "2026-03-30",
+    "blockToDate": "2026-08-30",
+    "blockWeeks": 22
+  },
+  "ways": {
+    "currentTariffEur": 34793.76022889698,
+    "comparisonTariffEur": null,
+    "comparisonSupplier": null,
+    "spotWithoutControlEur": 26768.607895072804,
+    "controlledEur": 25804.094279477984,
+    "controlVariant": "predictive",
+    "peakShavingSavingEur": 1160.4215418678505,
+    "peakShavingEagEur": 69.11357999378964
+  }
+}

@@ -467,7 +467,7 @@ export type AnalysisResult = {
    */
   annualProjection?: AnnualTariffProjection
   /**
-   * D6 Teil 3 (22.09.2026): das Kapitel „Was wäre, wenn wir ein ganzes Jahr hätten?" — die FÜNF
+   * D6 Teil 3 (22.09.2026): das Kapitel „Hochrechnung auf ein ganzes Jahr" — die FÜNF
    * Wege, gerechnet auf einem synthetischen 365-Tage-Lastgang.
    *
    * `undefined` heisst: nicht angefordert ODER nicht bildbar (volles Jahr, Standardprofil, unter

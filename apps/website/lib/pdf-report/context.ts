@@ -72,7 +72,7 @@ export type ReportBuildContext = {
   hasWays: boolean
   /** Wie viele Wege es führt (D7-Revision) — Agenda und Überschrift zählen daraus. */
   waysCount: number
-  /** D6 Teil 3 — Kapitel „Was wäre, wenn wir ein ganzes Jahr hätten?", direkt hinter den Wegen. */
+  /** D6 Teil 3 — Kapitel „Hochrechnung auf ein ganzes Jahr", direkt hinter den Wegen. */
   hasAnnualScenario: boolean
   /** Kapitel „Ihre PV-Anlage" — der rekonstruierte „ohne PV"-Vergleich, hinter der Hochrechnung. */
   hasPvValue: boolean
@@ -121,7 +121,7 @@ export function buildReportContext(input: PdfReportInput): ReportBuildContext {
     hasWays: hasWaysChapter(analysis),
     waysCount: waysCountOf(analysis),
     /* ⚠ Zusätzlich hinter `SHOW_ANNUAL_SCENARIO_CHAPTER` — s. dort für den Grund. */
-    hasAnnualScenario: SHOW_ANNUAL_SCENARIO_CHAPTER && hasAnnualScenarioChapter(analysis),
+    hasAnnualScenario: SHOW_ANNUAL_SCENARIO_CHAPTER && hasAnnualScenarioChapter(input),
     hasPvValue: hasPvValueChapter(analysis),
     /* ⚠ Aus dem BEREITS gebauten Plan gelesen — dieselbe Zusage wie bei `hasInsight` darunter. */
     hasDetail: detailPlan.cost !== null || detailPlan.flow !== null,
