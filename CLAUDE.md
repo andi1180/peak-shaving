@@ -678,6 +678,9 @@ Tagen zusammen.
 Fenster, kommt `no_window` zurück — es wird **nichts zurechtgeschnitten**.
 **Seit 01.10.2026 endet das Fenster am LETZTEN MESSTAG statt gestern** (obere Grenze in
 `extractors/src/analysis/annual-scenario.ts`, keine Uhr mehr): gefüllt wird nur davor.
+**Seit 01.10.2026 (PR 2) rechnet der Jahreslauf mit dem Satzstand am letzten Messtag** (`pinRatesToDate`,
+`shared/src/rates-as-of.ts`): Netzentgelt-Zeile und Abgaben dieses Tages über das ganze Fenster, Spotpreise zum
+echten Datum; ohne Zeile am Stichtag `not_computable`. Contract: `AnnualScenario.ratesAsOf`.
 
 **(d) Es wird NICHTS genähert.** Deckt der Preisbestand das Jahresfenster nicht, entfällt das Kapitel
 (`not_computable`). Das Nachladen/Nähern gibt es weiterhin nur im parallelen Weg

@@ -90,6 +90,7 @@ export * from './levies'
 // `apps/web`, der `engine` nicht kennt. Eine Definition, zwei Konsumenten.
 export * from './tariff-window-rules'
 export * from './grid-tariff-row'
+export * from './rates-as-of'
 // Der Kollisions-Wächter darüber: welches bestehende Fenster würde ein NEUES in welchem
 // Teilzeitraum verdrängen, mit welcher Preisänderung? Reine Berechnung, kein Anzeigetext.
 export * from './tariff-window-collision'

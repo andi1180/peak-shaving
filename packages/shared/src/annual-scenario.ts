@@ -68,6 +68,12 @@ export type AnnualScenario = {
   windowFromDate: string
   /** Letzter Kalendertag des Fensters (lokal, inklusiv) — der letzte GEMESSENE Tag, nie ein späterer. */
   windowToDate: string
+  /**
+   * Stichtag des Satzstands (`YYYY-MM-DD`, = `windowToDate`): Netzentgelte und Abgaben gelten in
+   * diesem Stand über das ganze Fenster (`pinRatesToDate`), Marktpreise zum echten Datum. Fehlt bei
+   * Ergebnissen vor dem 01.10.2026 — dort galten die Sätze zum jeweiligen Datum.
+   */
+  ratesAsOf?: string
   /** Kalendertage des Fensters mit echten Messwerten. */
   measuredDays: number
   /** Kalendertage des Fensters, die aus der Referenzwoche gefüllt wurden. */

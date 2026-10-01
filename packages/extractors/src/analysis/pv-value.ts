@@ -9,6 +9,7 @@ import {
 } from 'engine'
 import {
   analysisWindow,
+  pinRatesToDate,
   sumCovered,
   type AnalysisWindow,
   type LoadProfile,
@@ -181,10 +182,12 @@ async function annualCosts(
   const window = analysisWindow(year.profile)
   if (window === null) return null
 
-  const pricing = await options.fetchTariffPricing({
-    window,
-    intervalMinutes: year.profile.intervalMinutes,
-  })
+  // Derselbe Satzstand wie im Jahres-Szenario: Stichtag ist das Fensterende.
+  const pricing = pinRatesToDate(
+    await options.fetchTariffPricing({ window, intervalMinutes: year.profile.intervalMinutes }),
+    year.windowToDate,
+    { fromDate: year.windowFromDate, toDate: year.windowToDate },
+  )
 
   const withPvEur = currentTariffCostEur(year.profile, payload, pricing)
   const withoutPvEur = currentTariffCostEur(
