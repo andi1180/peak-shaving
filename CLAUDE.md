@@ -372,7 +372,9 @@ Tiefe: `Pflichtenheft_Kalkulator_MVP.md` §3.9 (Revision 27.09.2026).
 Annahmen-Kapitel, Zusammenfassung und Bildschirm-Karte. **(b)** Ohne Eintrag ist der Report bitgleich; geprüft
 wird das mit den **Report-Snapshots** (`pnpm --filter website report:snapshots`, `apps/website/test/report-snapshots/`,
 seit 27.09.2026 eigener Pflicht-Job `report-snapshots` in CI, installiert poppler): PDF-Text und Bildschirm-Markup der Referenzfälle Privat (Golden-Eingaben
-Urbanz) und Gewerbe (anonymisiertes STCE, Eingaben dort eingefroren) plus zwei Förder-Varianten. Nach jeder
+Urbanz) und Gewerbe (anonymisiertes STCE, Eingaben dort eingefroren) plus zwei Förder-Varianten; seit 01.10.2026 dazu
+`gewerbe-leistungspreis-teiljahr-wien` (anonymisierte Render-Anfrage: NE 7 mit Leistungsmessung, `monthly_max_sum`,
+Teiljahr, Rechnungszeiträume, Kappung, keine PV — nur PDF-Text, eingefrorenes Ergebnis, prüft also nicht die Engine). Nach jeder
 Report-Änderung laufen lassen; neu schreiben nur bei gewollter Änderung. **(c)** ~~Steuerfelder (IFB, Steuersatz,
 AfA) fehlen im Wizard bewusst — eigener Folge-PR.~~ Gebaut, s. Abschnitt darüber.
 

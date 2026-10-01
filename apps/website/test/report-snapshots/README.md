@@ -24,6 +24,7 @@ gewollten Report-Änderung, mit benannter Ursache — nie zum Grünmachen.
 | `privat-bestand-pv-wien.foerderung-fix-ueber-investition` | wie oben + Fixbetrag 100.000 € inkl. USt | Begrenzung auf die Investition |
 | `gewerbe-ohne-rechnung-wien.foerderung-50-horizont-15-steuer` | Gewerbe + 50 %, 15 Jahre, Steuersatz 23 %, IFB 20 %, AfA 10 Jahre | Steuerwirkung neben der Förderung |
 | (Privat, Datei `privat-bestand-pv-wien`) | Privat + Steuerwerte im Entwurf | Steuerwerte im Privatpfad unbeachtet |
+| `gewerbe-leistungspreis-teiljahr-wien` | `fixtures/gewerbe-leistungspreis-teiljahr-wien/render-request.json` | anonymisierte Render-Anfrage Gewerbe, s. unten |
 
 Übergabe-Metadaten wie im Admin-Weg; Kundenname ersetzt durch „Referenzfall Privat/Gewerbe“,
 keine Rechnungszeiträume (die anonymisierten Entwürfe tragen keine `_invoiceExtractions`).
@@ -40,3 +41,15 @@ Echter Wizard-Entwurf (Cloud, 27.09.2026): Gewerbe, Wiener Netze NE 7 ohne Leist
   (Regel 13), Stand 27.09.2026.
 - `tariff-pricing.json` — Antwort des echten Preis-Ports (`readTariffPricingForAnalysis`, per
   `anon`) für das Messfenster, Abgabenplan `{ category: 'gewerbe', postalCode: null }`.
+
+## `fixtures/gewerbe-leistungspreis-teiljahr-wien`
+
+Render-Anfrage eines Kundenreports (`platform.report_render_requests`, 30.09.2026): Gewerbe, Wiener Netze
+NE 7 mit Leistungsmessung, `monthly_max_sum`, Lastgang 28.03.–31.08.2026 (157 Tage), fünf Rechnungszeiträume,
+Kappung der Lastspitzen, keine PV, 34 Katalog-Geräte.
+
+- `render-request.json` — `analysis_result`, `load_profile`, `report_input_meta` unverändert, ausser:
+  `customerLabel` → „Muster Gastro GmbH“, `projectId`/`meteringPointId` entfernt (vom Leser nicht benutzt).
+- Läuft wie `/report/[requestId]`: `readRenderRequest` → `buildReportInputFromRenderRequest` → PDF. Keine
+  Neuberechnung (Engine-Änderungen zeigen sich hier nicht) und kein Bildschirm-Markup (die Seite rendert nur
+  das PDF). Ohne Diagramm-Raster 18 Seiten; das Kunden-PDF mit Diagrammen hat 20.
