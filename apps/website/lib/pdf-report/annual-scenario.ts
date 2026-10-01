@@ -1,7 +1,7 @@
 import { displayedPriceLabel } from 'shared'
 import type { AnnualScenario } from 'shared'
 
-import { formatEur, formatKwh1 } from '@/lib/format'
+import { formatEur } from '@/lib/format'
 import type { ReportRow, ReportStatement } from './statement'
 import { summaryWaysOf } from './summary'
 import type { PdfReportAnalysis } from './types'
@@ -94,7 +94,7 @@ export function buildAnnualScenarioChapter(
   const todayEur = scenario.ways.currentTariffEur
   if (todayEur === null) return null
 
-  const reference = scenario.reference
+  const fill = scenario.fill
   const statements: ReportStatement[] = [
     {
       id: 'annual_scenario_method',
@@ -114,10 +114,10 @@ export function buildAnnualScenarioChapter(
         'Sie gespart hätten — wir haben geschätzt, was Sie verbraucht hätten, und darauf dieselbe ' +
         'Rechnung laufen lassen wie auf Ihren echten Messwerten: derselbe Speicher, dieselbe ' +
         'Ladesteuerung, dieselben Netzentgelte und Abgaben. ' +
-        `Als Vorlage dient Ihre verbrauchsstärkste gemessene Woche (${formatDate(reference.fromDate)} ` +
-        `bis ${formatDate(reference.toDate)}, ${formatKwh1(reference.rateKwhPerDay)} pro Tag im ` +
-        'Schnitt). Jeder fehlende Tag bekommt den echten Viertelstundenverlauf desselben ' +
-        'Wochentags aus dieser Woche. ' +
+        // [PR 5] Methodentext neu schreiben — der Rest dieses Absatzes beschreibt noch die Referenzwoche.
+        `Als Vorlage dienen Ihre ${fill.blockWeeks} vollen gemessenen Wochen (${formatDate(fill.blockFromDate)} ` +
+        `bis ${formatDate(fill.blockToDate)}). Jeder fehlende Tag bekommt den echten ` +
+        'Viertelstundenverlauf desselben Wochentags daraus. ' +
         /*
          * ⚠ „stärkste" und nicht „kälteste": eine Auswahl nach Jahreszeit setzte voraus, dass der
          * Kunde heizlastgetrieben ist. Der Satz sagt deshalb, WARUM diese Woche gewählt wurde.

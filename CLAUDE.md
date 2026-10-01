@@ -681,6 +681,10 @@ Fenster, kommt `no_window` zurück — es wird **nichts zurechtgeschnitten**.
 **Seit 01.10.2026 (PR 2) rechnet der Jahreslauf mit dem Satzstand am letzten Messtag** (`pinRatesToDate`,
 `shared/src/rates-as-of.ts`): Netzentgelt-Zeile und Abgaben dieses Tages über das ganze Fenster, Spotpreise zum
 echten Datum; ohne Zeile am Stichtag `not_computable`. Contract: `AnnualScenario.ratesAsOf`.
+**Seit 01.10.2026 (PR 3) füllt der Jahreslauf aus dem gemessenen Wochenblock statt aus der stärksten Woche**
+(`synthetic-year.ts`): Block = längste lückenlose Folge voller Mo–So-Wochen (Gleichstand: jüngste), fehlender
+Tag d ← d + 7·W·k im Block, nach lokaler Uhrzeit; unter 4 Wochen `insufficient_data`. Contract: `AnnualScenario.fill`
+statt `reference`; `reference-week.ts` ist gelöscht. Die Punkte (a) und (f) oben beschreiben die alte Regel.
 
 **(d) Es wird NICHTS genähert.** Deckt der Preisbestand das Jahresfenster nicht, entfällt das Kapitel
 (`not_computable`). Das Nachladen/Nähern gibt es weiterhin nur im parallelen Weg

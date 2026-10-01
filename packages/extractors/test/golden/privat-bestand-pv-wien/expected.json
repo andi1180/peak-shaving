@@ -14642,18 +14642,17 @@
    "ratesAsOf": "2026-08-26",
    "measuredDays": 209,
    "projectedDays": 156,
-   "reference": {
-    "fromDate": "2026-01-30",
-    "toDate": "2026-02-05",
-    "consumptionKwh": 485.61525000000006,
-    "rateKwhPerDay": 69.37360714285715
+   "fill": {
+    "blockFromDate": "2026-02-02",
+    "blockToDate": "2026-08-23",
+    "blockWeeks": 29
    },
    "ways": {
-    "currentTariffEur": 3536.2095150073833,
-    "comparisonTariffEur": 3748.4460587609924,
+    "currentTariffEur": 1515.0765953151802,
+    "comparisonTariffEur": 1592.9211416015032,
     "comparisonSupplier": "gogreenenergy",
-    "spotWithoutControlEur": 3350.137640083078,
-    "controlledEur": 2972.3060648015285,
+    "spotWithoutControlEur": 1407.1453494881016,
+    "controlledEur": 1130.969327057222,
     "controlVariant": "predictive",
     "peakShavingSavingEur": 0
    }
@@ -14666,9 +14665,9 @@
     "valueEur": 339.70311252566216
    },
    "annual": {
-    "withPvEur": 3536.2095150073833,
-    "withoutPvEur": 4385.568064991279,
-    "valueEur": 849.358549983896,
+    "withPvEur": 1515.0765953151802,
+    "withoutPvEur": 1981.5754575905876,
+    "valueEur": 466.4988622754074,
     "windowFromDate": "2025-08-27",
     "windowToDate": "2026-08-26",
     "projectedDays": 156

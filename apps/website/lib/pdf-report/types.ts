@@ -116,7 +116,7 @@ import type {
  *
  * ── D6 TEIL 3: DER TYP WÄCHST UM GENAU EIN FELD — `annualScenario`, AUSGEZÄHLT ───────────────
  * Das Kapitel „Was wäre, wenn wir ein ganzes Jahr hätten?" (`annual-scenario.ts`) liest zusammen:
- *   • `annualScenario` → die Jahresbeträge je Weg, die Referenzwoche und das Jahresfenster;
+ *   • `annualScenario` → die Jahresbeträge je Weg, der Füllblock und das Jahresfenster;
  *   • `tariffOptimization` → über `buildWaysChapter`, WELCHE Wege dieser Kunde hat (die Zeilen der
  *     Tabelle werden davon übernommen und nicht zweitausgewertet);
  *   • `perBattery`/`recommendation`/`existingBatteryAnalysis` → über `peakShavingSavingOf`, ob

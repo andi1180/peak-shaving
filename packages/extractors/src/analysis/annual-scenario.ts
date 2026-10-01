@@ -74,7 +74,7 @@ export type AnnualScenarioOptions = {
  * Das Jahres-Szenario bauen — oder benennen, warum nicht.
  *
  * ── DER ABLAUF ────────────────────────────────────────────────────────────────────────────────
- *  1. Synthetischer Jahres-Lastgang aus der Referenzwoche (`buildSyntheticYearProfile`).
+ *  1. Synthetischer Jahres-Lastgang aus dem gemessenen Wochenblock (`buildSyntheticYearProfile`).
  *  2. Preisseiten für dessen Fenster über den Port.
  *  3. `computeAnalysis` auf dem neuen Payload — die GANZE Kette, Dispatch eingeschlossen.
  *  4. Aus dem Ergebnis die fünf Wege ablesen: vier Tarifwege über `tariffWayCosts` (dieselbe
@@ -156,11 +156,10 @@ export async function buildAnnualScenario(
       ratesAsOf,
       measuredDays: year.measuredDays,
       projectedDays: year.projectedDays,
-      reference: {
-        fromDate: year.reference.fromDate,
-        toDate: year.reference.toDate,
-        consumptionKwh: year.reference.consumptionKwh,
-        rateKwhPerDay: year.reference.rateKwhPerDay,
+      fill: {
+        blockFromDate: year.block.fromDate,
+        blockToDate: year.block.toDate,
+        blockWeeks: year.block.weeks,
       },
       ways: {
         ...ways,

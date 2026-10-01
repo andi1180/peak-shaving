@@ -26,16 +26,14 @@ import type { ControlVariant } from './tariff-ways'
  * ist der einzige Ort im Report, an dem sie es ist.
  */
 
-/** Woher die Rate für die fehlenden Tage stammt — die „höchste gemessene Wochenrate". */
-export type AnnualScenarioReference = {
-  /** Erster Tag der Referenzwoche (lokal, `YYYY-MM-DD`, inklusiv). */
-  fromDate: string
-  /** Letzter Tag der Referenzwoche (lokal, inklusiv). */
-  toDate: string
-  /** Bezugsenergie der sieben Tage in kWh. */
-  consumptionKwh: number
-  /** `consumptionKwh / 7` — die Rate, mit der die fehlenden Tage belegt wurden. */
-  rateKwhPerDay: number
+/** Woraus die fehlenden Tage gefüllt wurden — der gemessene Block voller Mo–So-Wochen (`synthetic-year.ts`). */
+export type AnnualScenarioFill = {
+  /** Erster Tag des Blocks (Montag, lokal, `YYYY-MM-DD`, inklusiv). */
+  blockFromDate: string
+  /** Letzter Tag des Blocks (Sonntag, lokal, inklusiv). */
+  blockToDate: string
+  /** Volle Wochen im Block; ein fehlender Tag d bekommt die Werte von d + 7·`blockWeeks`·k. */
+  blockWeeks: number
 }
 
 /**
@@ -76,8 +74,8 @@ export type AnnualScenario = {
   ratesAsOf?: string
   /** Kalendertage des Fensters mit echten Messwerten. */
   measuredDays: number
-  /** Kalendertage des Fensters, die aus der Referenzwoche gefüllt wurden. */
+  /** Kalendertage des Fensters, die aus dem Block gefüllt wurden. */
   projectedDays: number
-  reference: AnnualScenarioReference
+  fill: AnnualScenarioFill
   ways: AnnualScenarioWays
 }

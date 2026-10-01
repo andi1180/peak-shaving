@@ -88,12 +88,7 @@ function scenarioWith(args: {
     windowToDate: '2025-11-03',
     measuredDays: 209,
     projectedDays: args.projectedDays ?? 156,
-    reference: {
-      fromDate: '2025-01-13',
-      toDate: '2025-01-19',
-      consumptionKwh: 364,
-      rateKwhPerDay: 52,
-    },
+    fill: { blockFromDate: '2025-01-13', blockToDate: '2025-07-27', blockWeeks: 28 },
     ways: {
       currentTariffEur: 2000,
       comparisonTariffEur: args.comparisonTariffEur ?? null,

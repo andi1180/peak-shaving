@@ -77,12 +77,7 @@ const SCENARIO: NonNullable<AnalysisResult['annualScenario']> = {
   windowToDate: '2026-09-21',
   measuredDays: 209,
   projectedDays: 156,
-  reference: {
-    fromDate: '2026-01-30',
-    toDate: '2026-02-05',
-    consumptionKwh: 522.164,
-    rateKwhPerDay: 74.59485714285714,
-  },
+  fill: { blockFromDate: '2026-02-02', blockToDate: '2026-08-23', blockWeeks: 29 },
   ways: {
     currentTariffEur: 3733.37,
     comparisonTariffEur: 3947.61,

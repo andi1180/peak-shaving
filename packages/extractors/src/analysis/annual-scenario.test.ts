@@ -15,7 +15,7 @@ import { buildAnnualScenario } from './annual-scenario'
 /**
  * D6 Teil 3 — das Jahres-Szenario.
  *
- * Der Lastgang ist bewusst KONSTANT (10 kW): die Referenzwoche trägt dann 240 kWh/Tag, jeder
+ * Der Lastgang ist bewusst KONSTANT (10 kW): jeder Blocktag trägt dann 240 kWh, jeder
  * gefüllte Tag sieht aus wie ein gemessener, und die Jahreskosten sind von Hand nachrechenbar,
  * ohne eine Zahl aus einem früheren Lauf zu pinnen.
  */
@@ -167,8 +167,12 @@ describe('buildAnnualScenario', () => {
     expect(out.value.windowToDate).toBe('2026-09-25')
     expect(out.value.measuredDays).toBe(209)
     expect(out.value.projectedDays).toBe(365 - 209)
-    /* Konstanter Lastgang: jede Woche trägt dieselbe Menge, die erste gewinnt den Gleichstand. */
-    expect(out.value.reference.rateKwhPerDay).toBeCloseTo(CONSTANT_KW * 24, 6)
+    /* Block: Mo 02.03. bis So 20.09.2026 — die vollen Mo–So-Wochen der Messung. */
+    expect(out.value.fill).toEqual({
+      blockFromDate: '2026-03-02',
+      blockToDate: '2026-09-20',
+      blockWeeks: 29,
+    })
 
     /*
      * Die Jahreskosten sind grösser als die des gemessenen Zeitraums und stehen im Verhältnis der
@@ -196,6 +200,11 @@ describe('buildAnnualScenario', () => {
     expect(out.value.windowFromDate).toBe('2025-09-01')
     expect(out.value.windowToDate).toBe('2026-08-31')
     expect(out.value.ratesAsOf).toBe('2026-08-31')
+    expect(out.value.fill).toEqual({
+      blockFromDate: '2026-03-30',
+      blockToDate: '2026-08-30',
+      blockWeeks: 22,
+    })
     expect(out.value.measuredDays).toBe(157)
     expect(out.value.projectedDays).toBe(208)
   })

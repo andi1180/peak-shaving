@@ -207,19 +207,8 @@ describe('buildPvValueScenario', () => {
     expect(withYear?.annual?.windowFromDate).toBe('2025-01-01')
     expect(withYear?.annual?.projectedDays).toBe(365 - DAYS)
 
-    /*
-     * ⚠ DIE JAHRESZAHL IST HIER GLEICH DER GEMESSENEN, UND DAS IST DER EIGENTLICHE BEFUND DIESES
-     * FIXTURES: die verbrauchsstärkste Woche liegt im MÄRZ (480 kWh/Tag gegen 372 in Jän/Feb, weil
-     * dort die Sonnenstunden den Bezug decken) — und der März ist der Ausfallmonat. Die gefüllten
-     * Tage übernehmen deshalb eine Woche OHNE angesetzte Erzeugung, und die „ohne PV"-Seite
-     * unterscheidet sich dort von der „mit PV"-Seite um nichts.
-     *
-     * Gemessen ist damit genau die Zusage, auf der dieses Modul steht: Lastgang und
-     * Erzeugungsreihe werden nach DEMSELBEN Plan verlängert. Zwei getrennte Läufe könnten
-     * verschiedene Referenzwochen wählen, und dann stünde hier eine Differenz, die aus der Auswahl
-     * stammt und nicht aus der Anlage.
-     */
-    expect(withYear!.annual!.valueEur).toBeCloseTo(withYear!.measured.valueEur, 6)
+    /* Die gefüllten Tage tragen Erzeugung aus dem Block (Jän–Mär) — das Jahr ist mehr wert als der Messzeitraum. */
+    expect(withYear!.annual!.valueEur).toBeGreaterThan(withYear!.measured.valueEur)
 
     /* Ohne Jahresfenster entfällt die Hochrechnung — es wird NICHTS genähert. */
     const withoutYear = await buildPvValueScenario({ ...options, annualWindow: null })

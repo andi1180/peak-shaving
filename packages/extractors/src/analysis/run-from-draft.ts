@@ -479,7 +479,7 @@ export async function runAnalysisFromMeteringPointDraft(
 
   /*
    * D6 Teil 3 — „Was wäre, wenn wir ein ganzes Jahr hätten?". Ein ZWEITER Lauf derselben Rechnung
-   * über einen aus der verbrauchsstärksten gemessenen Woche gefüllten 365-Tage-Lastgang.
+   * über einen aus dem gemessenen Wochenblock gefüllten 365-Tage-Lastgang.
    *
    * ⚠ NUR MIT DEM PREIS-PORT, und ohne ihn ohne jede Ersatzlösung: die Jahreszahlen sind
    * Tarifzahlen, und ohne Preisseiten gäbe es keine. Ein Lauf ohne sie ergäbe ein Kapitel, das
