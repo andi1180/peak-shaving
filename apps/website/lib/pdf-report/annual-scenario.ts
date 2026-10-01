@@ -8,6 +8,7 @@ import { ADVICE_SECTION } from './content'
 import type { ReportNotice, ReportRow, ReportStatement } from './statement'
 import { summaryWaysOf } from './summary'
 import type { PdfReportInput } from './types'
+import { buildSavingsDonut, type SavingsDonut } from './savings-donut'
 
 /**
  * D6 Teil 3 — das Kapitel „Hochrechnung auf ein ganzes Jahr", direkt hinter den Wegen.
@@ -23,6 +24,10 @@ import type { PdfReportInput } from './types'
 export type AnnualScenarioChapter = {
   /** Die Absätze in Dokumentreihenfolge. */
   statements: ReportStatement[]
+  /** Das Ringdiagramm unter „Woher die Ersparnis kommt" — `null`, wenn ein Anteil ≤ 0 € ist. */
+  donut: SavingsDonut | null
+  /** Der Annahme-Kasten; steht unter dem Ringdiagramm und deshalb nicht am Statement. */
+  assumption: ReportNotice
   /** Die Jahres-Gesamtersparnis = Summe der gerundeten Zeilen. */
   totalSavingEur: number
 }
@@ -47,6 +52,9 @@ function involvesPv(input: PdfReportInput): boolean {
  * Gerät des Hauptreports muss genannt sein, das Wege-Kapitel muss stehen, und es darf keine PV
  * im Spiel sein.
  */
+/** Hinter diesem Statement stehen Ringdiagramm und Annahme-Kasten (`document.tsx`). */
+export const ANNUAL_SAVINGS_STATEMENT_ID = 'annual_scenario_savings'
+
 export function hasAnnualScenarioChapter(input: PdfReportInput): boolean {
   return buildAnnualScenarioChapter(input) !== null
 }
@@ -159,7 +167,7 @@ export function buildAnnualScenarioChapter(input: PdfReportInput): AnnualScenari
   }
 
   const overview: ReportStatement = {
-    id: 'annual_scenario_savings',
+    id: ANNUAL_SAVINGS_STATEMENT_ID,
     title: 'Woher die Ersparnis kommt',
     amount: {
       value: formatEur(totalSavingEur),
@@ -170,7 +178,6 @@ export function buildAnnualScenarioChapter(input: PdfReportInput): AnnualScenari
     body:
       'Gegenüber Ihrem heutigen Tarif, je Jahr. Die Zeilen bauen aufeinander auf und dürfen hier ' +
       'zusammengezählt werden: alle drei beziehen sich auf dieselben 365 Tage.',
-    notice: assumption,
   }
 
   const hasAdvice = hasAdviceChapter(input)
@@ -189,5 +196,10 @@ export function buildAnnualScenarioChapter(input: PdfReportInput): AnnualScenari
       'meist kleiner — die Ladesteuerung bringt dort weniger als im Messzeitraum.',
   }
 
-  return { statements: [basis, costs, overview, deviation], totalSavingEur }
+  return {
+    statements: [basis, costs, overview, deviation],
+    donut: buildSavingsDonut({ switchEur, controlEur, peakEur }),
+    assumption,
+    totalSavingEur,
+  }
 }

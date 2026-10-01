@@ -63,7 +63,12 @@ import type { ReportBaukastenId, ReportBaukastenRegistry } from './registry'
 import { peakShavingChartCaption, peakShavingChartData } from './peak-shaving-chart'
 import { buildStorageSummary } from './storage-summary'
 import { buildWaysChapter } from './ways'
-import { buildAnnualScenarioChapter } from './annual-scenario'
+import { ANNUAL_SAVINGS_STATEMENT_ID, buildAnnualScenarioChapter } from './annual-scenario'
+import {
+  SAVINGS_DONUT_COLORS,
+  savingsDonutLegendText,
+  type SavingsDonut,
+} from './savings-donut'
 import { buildPvValueChapter } from './pv-value'
 import { SHOW_PV_VALUE_AMOUNTS } from './report-flags'
 import {
@@ -1782,11 +1787,11 @@ function WaysChapter({
 /**
  * D6 Teil 3 — das Kapitel „Hochrechnung auf ein ganzes Jahr".
  *
- * ── ⚠ KEIN BILD, UND DAS IST EINE ENTSCHEIDUNG ────────────────────────────────────────────────
+ * ── ⚠ KEIN ZEITVERLAUF, NUR DIE ZUSAMMENSETZUNG ───────────────────────────────────────────────
  * Die gefüllten Tage sind der zyklisch wiederholte Wochenblock. Als Heatmap oder Jahreskurve
  * gezeichnet sähen sie aus wie ein gemessener Jahresgang — ein Muster, das der Lastgang gar nicht
  * hergibt, und ein Leser könnte an der Zeichnung nicht erkennen, dass er siebenmal dieselbe Woche
- * sieht. Text und Tabelle können sagen, was sie sind; ein Bild könnte es nicht.
+ * sieht. Das einzige Bild ist deshalb das Ringdiagramm der Ersparnis-Anteile (`savings-donut.ts`).
  *
  * ⚠ OB ES DIE SEITE GIBT, entscheidet `hasAnnualScenarioChapter` (`context.hasAnnualScenario`) —
  * dieselbe Mechanik wie beim Wege-Kapitel davor: der Aufrufer liest die Antwort einmal und gibt
@@ -1794,9 +1799,11 @@ function WaysChapter({
  */
 function AnnualScenarioChapter({
   input,
+  charts,
   layout,
 }: {
   input: PdfReportInput
+  charts: ReportChartRasters
   layout: ReportLayout
 }) {
   const chapter = buildAnnualScenarioChapter(input)
@@ -1807,8 +1814,49 @@ function AnnualScenarioChapter({
       <Text style={styles.lead}>{ANNUAL_SCENARIO_INTRO}</Text>
 
       {chapter?.statements.map((statement) => (
-        <Statement key={statement.id} statement={statement} layout={layout} />
+        <Fragment key={statement.id}>
+          <Statement statement={statement} layout={layout} />
+          {statement.id === ANNUAL_SAVINGS_STATEMENT_ID && (
+            <>
+              {chapter.donut && (
+                <SavingsDonutFigure donut={chapter.donut} raster={charts.savingsDonut} />
+              )}
+              <Notice notice={chapter.assumption} keepTogether />
+            </>
+          )}
+        </Fragment>
       ))}
+    </View>
+  )
+}
+
+/**
+ * Titel, Bild, Legende und Bildunterschrift als EIN Block (`wrap={false}`). Legende und
+ * Bildunterschrift tragen die Zahlen als Text und stehen deshalb auch ohne Bild.
+ */
+function SavingsDonutFigure({ donut, raster }: { donut: SavingsDonut; raster: ChartRaster | null }) {
+  const box = raster ? fitRasterToWidth(raster, PDF_CONTENT_WIDTH_PT) : null
+  return (
+    <View style={styles.figure} wrap={false}>
+      <Text style={styles.statementTitle}>{donut.title}</Text>
+      {raster && box ? (
+        <Image src={raster.dataUrl} style={{ width: box.width, height: box.height }} />
+      ) : (
+        <Text style={styles.figureMissing}>{figureMissingText('Das Ersparnis-Diagramm')}</Text>
+      )}
+      <View style={styles.legend}>
+        {donut.segments.map((segment) => (
+          <View key={segment.key} style={styles.legendItem}>
+            {raster && (
+              <View
+                style={[styles.legendSwatch, { backgroundColor: SAVINGS_DONUT_COLORS[segment.key] }]}
+              />
+            )}
+            <Text style={styles.legendLabel}>{savingsDonutLegendText(segment)}</Text>
+          </View>
+        ))}
+      </View>
+      <Text style={styles.figureCaption}>{donut.caption}</Text>
     </View>
   )
 }
@@ -2624,7 +2672,7 @@ export function ReportDocument({
         <Page size="A4" style={styles.page}>
           <PageFurniture sink={sink} docLabel={docLabel} />
           <SectionAnchor id={ANNUAL_SCENARIO_SECTION.id} sink={sink} />
-          <AnnualScenarioChapter input={input} layout={layout} />
+          <AnnualScenarioChapter input={input} charts={charts} layout={layout} />
         </Page>
       )}
 

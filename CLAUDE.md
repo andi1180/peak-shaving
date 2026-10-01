@@ -694,6 +694,7 @@ Ergebnisses, Bestandsspeicher über den Payload) und Weg 5 inkl. EAG-Förderbeit
 Übersicht Tarifwechsel / Ladesteuerung / Spitzenkappung (Obergrenze) / Summe aus gerundeten Zeilen, als „Annahme" gekennzeichnet;
 es entfällt bei PV (`hasPv`, `estimatedPv`, `pvSource`, Einspeisung im Lastgang) und ohne Gerät. Referenzfall:
 Report-Snapshot `gewerbe-leistungspreis-teiljahr-jahr-wien` (Render-Anfrage + `annual-scenario.json`).
+**Seit 01.10.2026 (PR 6) zeigt das Kapitel unter „Woher die Ersparnis kommt“ das Ringdiagramm „So setzt sich Ihre Ersparnis zusammen“** (`pdf-report/savings-donut.ts`, `components/report/savings-donut-chart.tsx`): nur die gerundeten Tabellenzeilen, ganze Prozent per Largest-Remainder, kein Ring bei einem Anteil ≤ 0 €; Legende und Bildunterschrift sind PDF-Text, der Annahme-Kasten steht seither darunter statt am Statement.
 
 **(d) Es wird NICHTS genähert.** Deckt der Preisbestand das Jahresfenster nicht, entfällt das Kapitel
 (`not_computable`). Das Nachladen/Nähern gibt es weiterhin nur im parallelen Weg

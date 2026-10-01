@@ -62,4 +62,5 @@ Variante des Falls darüber: dieselbe Render-Anfrage, darüber gelegt `analysis_
 und Lastgang aus der Cloud, Preise und Katalog per `anon`, nichts gespeichert). Nur Zahlen und der
 Gerätename, keine Kundenidentität. Fenster 01.09.2025–31.08.2026, 157 gemessene + 208 gefüllte Tage, Satzstand
 31.08.2026. Der Hauptlauf dieses Laufs war bitgleich mit der Render-Anfrage (2.494,80 €/Jahr). Ohne
-Diagramm-Raster 19 Seiten, das Kapitel steht auf Seite 7.
+Diagramm-Raster 20 Seiten, das Kapitel steht auf Seite 7–8 (seit PR 6 mit Ringdiagramm: Titel, Legende und
+Bildunterschrift stehen als Text im Snapshot, das Bild selbst als Fehlmeldung).

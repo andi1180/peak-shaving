@@ -15,6 +15,11 @@ import { MarginalBenefitChart } from '@/components/report/marginal-benefit-chart
 import { MonthlyTariffChart } from '@/components/report/monthly-tariff-chart'
 import { PeakShavingChart } from '@/components/report/peak-shaving-chart'
 import { PvSelfConsumptionChart } from '@/components/report/pv-self-consumption-chart'
+import {
+  SAVINGS_DONUT_SELECTOR,
+  SAVINGS_DONUT_WIDTH_PX,
+  SavingsDonutChart,
+} from '@/components/report/savings-donut-chart'
 import { TariffWaysChart } from '@/components/report/tariff-ways-chart'
 import { captureChart, selectHeatmapGrid, selectRechartsSurface } from './chart-capture'
 import type { ChartRaster } from './chart-raster'
@@ -24,6 +29,7 @@ import { insightChartPlan } from './insight'
 import { peakShavingChartData } from './peak-shaving-chart'
 import type { PdfReportInput } from './types'
 import { buildPvValueChapter } from './pv-value'
+import { buildAnnualScenarioChapter } from './annual-scenario'
 import { buildWaysChapter } from './ways'
 
 /**
@@ -110,6 +116,10 @@ export type ReportChartRasters = {
   pvSelfConsumption: ChartRaster | null
   pvSelfConsumptionError: string | null
 
+  /** Das Ringdiagramm des Jahreskapitels (`savings-donut.ts`). */
+  savingsDonut: ChartRaster | null
+  savingsDonutError: string | null
+
   /** Kostenvergleich — welcher, sagt `costKind`. `null`, wenn keiner entstanden ist. */
   cost: ChartRaster | null
   costError: string | null
@@ -188,6 +198,7 @@ export type ReportChartFigureMs = {
   ways: number | null
   peakShaving: number | null
   pvSelfConsumption: number | null
+  savingsDonut: number | null
   cost: number | null
   monthly: number | null
   flow: number | null
@@ -446,6 +457,18 @@ export async function buildReportCharts(input: PdfReportInput): Promise<ReportCh
           }),
         )
 
+  /* Das Ringdiagramm des Jahreskapitels — `donut === null` heisst: Kapitel oder Ring entfällt. */
+  const donut = buildAnnualScenarioChapter(input)?.donut ?? null
+  const savingsDonut: Attempt =
+    donut === null
+      ? NOT_RASTERIZED
+      : await attempt(() =>
+          captureChart(<SavingsDonutChart donut={donut} />, {
+            width: SAVINGS_DONUT_WIDTH_PX,
+            select: (container) => container.querySelector(SAVINGS_DONUT_SELECTOR),
+          }),
+        )
+
   /*
    * Der Kostenvergleich in der Fassung, die `detail.ts` bestimmt hat.
    *
@@ -622,6 +645,8 @@ export async function buildReportCharts(input: PdfReportInput): Promise<ReportCh
     peakShavingError: peakShaving.error,
     pvSelfConsumption: pvSelfConsumption.raster,
     pvSelfConsumptionError: pvSelfConsumption.error,
+    savingsDonut: savingsDonut.raster,
+    savingsDonutError: savingsDonut.error,
     cost: cost.raster,
     costError: cost.error,
     costKind: plan.cost?.kind ?? null,
@@ -643,6 +668,7 @@ export async function buildReportCharts(input: PdfReportInput): Promise<ReportCh
       ways: ways.ms,
       peakShaving: peakShaving.ms,
       pvSelfConsumption: pvSelfConsumption.ms,
+      savingsDonut: savingsDonut.ms,
       cost: cost.ms,
       monthly: monthly.ms,
       flow: flow.ms,
