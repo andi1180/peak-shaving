@@ -199,7 +199,12 @@ describe('Kapitel „Hochrechnung auf ein ganzes Jahr"', () => {
     const parts = rows.filter((r) => !r.total).reduce((sum, r) => sum + euroOf(r.value), 0)
     expect(parts).toBe(euroOf(rows.find((r) => r.total)!.value))
     expect(chapter.totalSavingEur).toBe(10150)
-    expect(byId('annual_scenario_savings').notice?.title).toBe('Annahme')
+    expect(chapter.assumption.title).toBe('Annahme')
+    expect(chapter.donut?.segments.map((s) => [s.eur, s.percent])).toEqual([
+      [8025, 79],
+      [965, 10],
+      [1160, 11],
+    ])
 
     const basis = plain(String(byId('annual_scenario_basis').body))
     expect(basis).toContain('Für 157 von 365 Tagen (43 %) liegen Messdaten vor')

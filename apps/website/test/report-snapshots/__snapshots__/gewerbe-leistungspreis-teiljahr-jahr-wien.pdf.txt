@@ -38,19 +38,19 @@ Vier Wege zu weniger Stromkosten                                                
 
 Hochrechnung auf ein ganzes Jahr                                                               7
 
-Empfehlung und Wirtschaftlichkeit                                                              8
+Empfehlung und Wirtschaftlichkeit                                                              9
 
-Kostenverlauf und ein Tag im Detail                                                           10
+Kostenverlauf und ein Tag im Detail                                                           11
 
-Ihr Stromtarif im Monatsvergleich                                                             11
+Ihr Stromtarif im Monatsvergleich                                                             12
 
-Das Ladeverhalten Ihres Speichers                                                             12
+Das Ladeverhalten Ihres Speichers                                                             13
 
-Speichergrösse und Gerätewahl                                                                 13
+Speichergrösse und Gerätewahl                                                                 14
 
-Unser Vorschlag                                                                               14
+Unser Vorschlag                                                                               15
 
-Methodik & Vorbehalte                                                                         15
+Methodik & Vorbehalte                                                                         16
 
    Grundlage ist Ihr echter Lastgang
    Ein Fahrplan, keine addierten Einzelrechnungen
@@ -58,7 +58,7 @@ Methodik & Vorbehalte                                                           
    Wie der Fahrplan entsteht
    Konstante Batterieeigenschaften über den Betrachtungszeitraum
 
-Annahmen und Datengrundlage                                                                   16
+Annahmen und Datengrundlage                                                                   17
 
    Annahmen & Rechenweise — Stand dieser Berechnung
    Datenqualität
@@ -74,7 +74,7 @@ Unterpunkte sind eingerückt und beginnen im Kapitel darüber.
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich      www.coolin.at · Seite 2 von 19
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich      www.coolin.at · Seite 2 von 20
     COOLiN ENERGY          Muster Gastro GmbH
 
 
@@ -110,10 +110,10 @@ Was der empfohlene Speicher zusätzlich bringt
  Kostal & Dyness Retrofit S                                                                                  € 8.550
  Gesamtinvestition
 
- Ladesteuerung (aWATTar)                                                                                      € 1.334
+ Ladesteuerung (aWATTar)                                                                                     € 1.334
  hochgerechnet aus 157 gemessenen Tagen; gemessen € 574
 
- Kappung der Lastspitzen                                                                                       € 1.160
+ Kappung der Lastspitzen                                                                                      € 1.160
 
  Zusammen pro Jahr                                                                                           € 2.495
  Beträge gerundet
@@ -131,7 +131,7 @@ Wie diese Zahlen entstanden sind und wo ihre Grenzen liegen, steht im Kapitel �
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                              www.coolin.at · Seite 3 von 19
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                             www.coolin.at · Seite 3 von 20
     COOLiN ENERGY          Muster Gastro GmbH
 
 
@@ -151,7 +151,7 @@ Voraussetzungen für diese Auswertung
 
 
 Ihr Verbrauch heute
- Kosten                                                                                   € 14.864 (netto)
+ Kosten                                                                                    € 14.864 (netto)
 
  Zeitraum                                                                            157 gemessene Tage
 
@@ -169,7 +169,7 @@ Ihr Verbrauch heute
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                     www.coolin.at · Seite 4 von 19
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                     www.coolin.at · Seite 4 von 20
     COOLiN ENERGY          Muster Gastro GmbH
 
 
@@ -200,7 +200,7 @@ steht für einen gleichmässigen Verlauf, bei dem die Spitze nicht weit über de
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                         www.coolin.at · Seite 5 von 19
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                         www.coolin.at · Seite 5 von 20
     COOLiN ENERGY          Muster Gastro GmbH
 
 
@@ -226,7 +226,7 @@ zu Ihrem festen Arbeitspreis — ohne jede Umstellung an Speicher oder Verbrauch
 Tage hätte das € 4.183 weniger gekostet.
 
 aWATTar mit Ladesteuerung
- Gesamtinvestition                                                                                      € 8.550
+ Gesamtinvestition                                                                                       € 8.550
 
  Netto über 10 Jahre                                                                                   € 16.398
 
@@ -265,7 +265,7 @@ entscheiden, hinzu.
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                         www.coolin.at · Seite 6 von 19
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                         www.coolin.at · Seite 6 von 20
     COOLiN ENERGY          Muster Gastro GmbH
 
 
@@ -284,26 +284,37 @@ im Stand vom 31.08.2026. Alle Zahlen auf den Seiten davor beruhen auf dem gemess
 Jahreszahlen stehen nur in diesem Kapitel.
 
 Ihre Stromkosten über ein Jahr
- Ihr Tarif heute                                                                                     € 34.794
+ Ihr Tarif heute                                                                                          € 34.794
 
- aWATTar ohne Steuerung                                                                              € 26.769
+ aWATTar ohne Steuerung                                                                                   € 26.769
 
- aWATTar mit Ladesteuerung                                                                           € 25.804
+ aWATTar mit Ladesteuerung                                                                                € 25.804
 
 Hochgerechnete Jahreskosten (netto), gerechnet mit dem Speicher „Kostal & Dyness Retrofit S".
 
 Woher die Ersparnis kommt
 € 10.150 pro Jahr, geschätzt, netto
- Tarifwechsel zu aWATTar                                                                              € 8.025
+ Tarifwechsel zu aWATTar                                                                                    € 8.025
 
- Ladesteuerung des Speichers                                                                             € 965
+ Ladesteuerung des Speichers                                                                                  € 965
 
- Spitzenkappung durch den Speicher (Obergrenze)                                                         € 1.160
+ Spitzenkappung durch den Speicher (Obergrenze)                                                               € 1.160
 
- Summe                                                                                                € 10.150
+ Summe                                                                                                     € 10.150
 
 Gegenüber Ihrem heutigen Tarif, je Jahr. Die Zeilen bauen aufeinander auf und dürfen hier zusammengezählt
 werden: alle drei beziehen sich auf dieselben 365 Tage.
+
+So setzt sich Ihre Ersparnis zusammen
+
+
+  Das Ersparnis-Diagramm konnte auf diesem Gerät nicht erzeugt werden. Die Zahlen in diesem Dokument sind davon
+  nicht betroffen — sie stammen aus der Berechnung, nicht aus der Abbildung.
+
+
+Tarifwechsel: € 8.025 (79 %)     Ladesteuerung: € 965 (10 %)    Spitzenkappung (Obergrenze): € 1.160 (11 %)
+Davon durch den Speicher: € 2.125 (21 %). Spitzenkappung ist eine Obergrenze.
+
 
 
    Annahme
@@ -316,6 +327,14 @@ werden: alle drei beziehen sich auf dieselben 365 Tage.
    · Die 208 ergänzten Tage wurden nie gemessen.
 
 
+
+
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                            www.coolin.at · Seite 7 von 20
+    COOLiN ENERGY          Muster Gastro GmbH
+
+
+
+
 Warum weicht die Speicher-Ersparnis hier von „Unser Vorschlag" ab?
 Die Ersparnis des Speichers im Kapitel „Unser Vorschlag" ist aus dem gemessenen Zeitraum gleichmässig auf
 ein Jahr hochgerechnet. Dieses Kapitel rechnet die ergänzten Monate dagegen mit den echten Börsenpreisen
@@ -325,7 +344,7 @@ Ladesteuerung bringt dort weniger als im Messzeitraum.
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                       www.coolin.at · Seite 7 von 19
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                   www.coolin.at · Seite 8 von 20
       COOLiN ENERGY        Muster Gastro GmbH
 
 
@@ -338,19 +357,19 @@ Unsere Empfehlung: Kostal & Dyness Retrofit S
 3,4 Jahre bis sich die Investition von € 8.550 bezahlt gemacht hat
     Speicher (12,3 kW / 29,2 kWh)                                                                        € 6.650
 
-    Installationspauschale (Richtwert)                                                                    € 1.900
+    Installationspauschale (Richtwert)                                                                   € 1.900
 
     Gesamtinvestition                                                                                    € 8.550
 
-    Ersparnis pro Jahr (auf ein Jahr hochgerechnet)                                                      € 2.495
+    Ersparnis pro Jahr (auf ein Jahr hochgerechnet)                                                     € 2.495
 
-    Netto über 10 Jahre                                                                                 € 16.398
+    Netto über 10 Jahre                                                                                € 16.398
 
     Kapp-Schwelle                                       zwischen 27,5 kW und 32,7 kW (je Abrechnungsperiode)
 
-    Ø Monatsspitze heute                                                                                 42,6 kW
+    Ø Monatsspitze heute                                                                                42,6 kW
 
-    Ø Monatsspitze mit dem Speicher                                                                      30,3 kW
+    Ø Monatsspitze mit dem Speicher                                                                     30,3 kW
 
     EAG-Förderbeitrag Leistung heute                                            € 240 pro Jahr (€ 5,62 / kW·a)
 
@@ -381,7 +400,7 @@ Unsere Empfehlung: Kostal & Dyness Retrofit S
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                          www.coolin.at · Seite 8 von 19
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                         www.coolin.at · Seite 9 von 20
     COOLiN ENERGY          Muster Gastro GmbH
 
 
@@ -403,7 +422,7 @@ Jahr hochgerechnet.
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                       www.coolin.at · Seite 9 von 19
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                      www.coolin.at · Seite 10 von 20
     COOLiN ENERGY          Muster Gastro GmbH
 
 
@@ -425,7 +444,7 @@ Wie sich die Zahlen über die Zeit auswirken — und wie ein einzelner Tag damit
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                            www.coolin.at · Seite 10 von 19
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                            www.coolin.at · Seite 11 von 20
     COOLiN ENERGY          Muster Gastro GmbH
 
 
@@ -441,11 +460,11 @@ Was Sie heute zahlen — und was es mit einem Börsenpreis-Tarif gewesen wäre.
 
 
 Das zahlen Sie jetzt — und das zahlten Sie mit aWATTar
- Ihr Tarif heute                                                                                        € 14.864
+ Ihr Tarif heute                                                                                       € 14.864
 
- aWATTar ohne Steuerung                                                                                  € 10.681
+ aWATTar ohne Steuerung                                                                                 € 10.681
 
- aWATTar mit Ladesteuerung                                                                               € 10.107
+ aWATTar mit Ladesteuerung                                                                              € 10.107
 
 Summen über die 6 gemessenen Monate — ausdrücklich nicht auf ein Jahr hochgerechnet: die fehlenden
 Monate liegen nicht gleichverteilt über das Jahr. Enthalten sind Arbeitspreis, Netz-Arbeitspreis, die
@@ -457,7 +476,7 @@ Aufteilungsregel, die es nicht gibt. Hier stehen die drei Summen absolut.
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                         www.coolin.at · Seite 11 von 19
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                        www.coolin.at · Seite 12 von 20
     COOLiN ENERGY          Muster Gastro GmbH
 
 
@@ -508,7 +527,7 @@ Abstand zum Durchschnitt ist, was dieser Plan erreicht hat.
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                         www.coolin.at · Seite 12 von 19
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                         www.coolin.at · Seite 13 von 20
     COOLiN ENERGY          Muster Gastro GmbH
 
 
@@ -539,7 +558,7 @@ beim empfohlenen Gerät.
  Gerät                      Grösse            Investition   Ersparnis/Jahr   Amortisation   Netto über      Abstand zur
                                                                                               10 Jahre      Empfehlung
 
- Dyness Stack 100           29,2 kWh / 15         € 7.691         € 2.285       3,4 Jahre      € 15.155         € 1.243
+ Dyness Stack 100           29,2 kWh / 15         € 7.691         € 2.285       3,4 Jahre     € 15.155          € 1.243
  30,72 kWh mit Solinteg     kW                                                                             weniger über
  MHT-15K-40                                                                                                    10 Jahre
 
@@ -547,14 +566,14 @@ beim empfohlenen Gerät.
  40,96 kWh mit Solinteg kW                                                                                 weniger über
  MHT-20K-40                                                                                                    10 Jahre
 
- GoodWe Lynx D 30           30 kWh / 18 kW      € 12.038           € 1.945      6,2 Jahre       € 7.415         € 8.983
+ GoodWe Lynx D 30           30 kWh / 18 kW      € 12.038           € 1.945      6,2 Jahre      € 7.415          € 8.983
  kWh mit GoodWe ET -                                                                                       weniger über
  GW29.9K-ET                                                                                                    10 Jahre
 
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                                www.coolin.at · Seite 13 von 19
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                               www.coolin.at · Seite 14 von 20
     COOLiN ENERGY          Muster Gastro GmbH
 
 
@@ -582,7 +601,7 @@ die PV-Rekonstruktion sind ausführlich im Kapitel „Annahmen und Datengrundlag
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                      www.coolin.at · Seite 14 von 19
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                     www.coolin.at · Seite 15 von 20
     COOLiN ENERGY          Muster Gastro GmbH
 
 
@@ -629,7 +648,7 @@ der späteren Jahre ist dadurch eher optimistisch.
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                      www.coolin.at · Seite 15 von 19
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                     www.coolin.at · Seite 16 von 20
     COOLiN ENERGY          Muster Gastro GmbH
 
 
@@ -639,11 +658,11 @@ Annahmen und Datengrundlage
 Womit gerechnet wurde, woher die Tarifwerte stammen — und was an diesem Datensatz zu wissen ist.
 
 Annahmen & Rechenweise — Stand dieser Berechnung
- Betrachtungshorizont                                                                                       10 Jahre
+ Betrachtungshorizont                                                                                        10 Jahre
 
  Wirkungsgrad (Kostal & Dyness Retrofit S)                                                    88 % (angenommen)
 
- Batteriepreis (Kostal & Dyness Retrofit S)                                                         € 227,86 / kWh
+ Batteriepreis (Kostal & Dyness Retrofit S)                                                          € 227,86 / kWh
 
  Gesamtinvestition                                                                                           € 8.550
 
@@ -699,7 +718,7 @@ Datenquellen
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                             www.coolin.at · Seite 16 von 19
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                             www.coolin.at · Seite 17 von 20
     COOLiN ENERGY           Muster Gastro GmbH
 
 
@@ -763,7 +782,7 @@ und den EAG-Förderbeitrag Leistung, der am selben abgerechneten Wert hängt.
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                              www.coolin.at · Seite 17 von 19
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                             www.coolin.at · Seite 18 von 20
     COOLiN ENERGY          Muster Gastro GmbH
 
 
@@ -786,7 +805,7 @@ COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich               
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                    www.coolin.at · Seite 18 von 19
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                   www.coolin.at · Seite 19 von 20
                     COOLiN ENERGY
                     Peak Shaving & Speicher-Wirtschaftlichkeit
 
