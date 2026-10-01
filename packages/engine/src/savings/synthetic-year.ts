@@ -62,6 +62,9 @@ import {
  * jüngsten verfügbaren Preiszeitraum); erst wenn das in die Zukunft liefe, wird so weit
  * zurückgerückt wie nötig — und keinen Tag weiter.
  *
+ * Der Wizard-Pfad (`extractors`, `annual-scenario.ts`) setzt `latestDate` auf den letzten Messtag:
+ * dort endet das Fenster also immer mit der jüngsten Messung, und gefüllt wird davor.
+ *
  * ⚠ `annual-projection.ts` (D6 Teil 2b) legt sein Fenster IMMER vorwärts ab dem ersten Messtag.
  * Das ist dort ohne Folge, weil es die Preise für die Lücke selbst nachlädt bzw. nähert; hier
  * werden sie aus dem gepflegten Bestand gelesen.

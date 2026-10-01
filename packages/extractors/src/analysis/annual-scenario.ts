@@ -67,14 +67,6 @@ export type AnnualScenarioOptions = {
   horizonYears: number
   catalog: BatteryCandidate[]
   fetchTariffPricing: AnnualScenarioPricingReader
-  /**
-   * Der Tag, an dem gerechnet wird — die obere Kante des Jahresfensters ist der Tag DAVOR.
-   *
-   * ⚠ Ein Pflichtparameter ohne Vorgabewert, dieselbe Haltung wie bei `formatPrintedAt` und
-   * `startsBeforeSpotPriceAnchor`: eine stillschweigend gelesene Uhr machte aus einer reinen
-   * Funktion eine, deren Ergebnis vom Zeitpunkt des Testlaufs abhängt.
-   */
-  today: Date
 }
 
 /**
@@ -98,17 +90,12 @@ export async function buildAnnualScenario(
   const { payload, horizonYears, catalog } = options
 
   /*
-   * ⚠ DIE GRENZEN DES FENSTERS KOMMEN VON HIER UND NICHT AUS DEM RECHENKERN. Unten der Anker, ab
-   * dem `public.spot_prices` überhaupt geführt wird (Delta 15 Regel B); oben der GESTRIGE Tag —
-   * der heutige ist noch nicht zu Ende und hätte keine vollständige Preiskurve.
+   * Das Fenster endet am LETZTEN MESSTAG (das Jahr bis zur jüngsten Messung, keine Tage danach);
+   * unten begrenzt es der Anker, ab dem `public.spot_prices` geführt wird (Delta 15 Regel B).
    */
-  const bounds = {
-    earliestDate: SPOT_PRICE_ANCHOR_DATE,
-    latestDate: localDateKey(
-      new Date(options.today.getTime() - DAY_MS),
-      payload.load.profile.timezoneMeta,
-    ),
-  }
+  const lastMeasuredDate = lastLocalDateOf(payload.load.profile)
+  if (lastMeasuredDate === null) return { ok: false, blocker: 'no_data' }
+  const bounds = { earliestDate: SPOT_PRICE_ANCHOR_DATE, latestDate: lastMeasuredDate }
 
   const synthetic = buildSyntheticYearProfile(payload.load.profile, bounds, payload.pv?.profile)
   if (!synthetic.ok) return { ok: false, blocker: synthetic.blocker }
@@ -183,16 +170,21 @@ export async function buildAnnualScenario(
   }
 }
 
-const DAY_MS = 24 * 60 * 60 * 1000
-
-/** Lokaler Kalendertag als `YYYY-MM-DD` — `en-CA` liefert genau dieses Format (s. `analysis-window.ts`). */
-function localDateKey(at: Date, timeZone: string): string {
+/** Der lokale Kalendertag des letzten Intervalls (`YYYY-MM-DD`) — `null` ohne lesbaren Zeitstempel. */
+function lastLocalDateOf(profile: CalculatorPayload['load']['profile']): string | null {
+  let lastMs = Number.NEGATIVE_INFINITY
+  for (const reading of profile.readings) {
+    const ms = Date.parse(reading.ts)
+    if (ms > lastMs) lastMs = ms
+  }
+  if (!Number.isFinite(lastMs)) return null
+  // `en-CA` liefert genau `YYYY-MM-DD` (s. `analysis-window.ts`).
   return new Intl.DateTimeFormat('en-CA', {
-    timeZone,
+    timeZone: profile.timezoneMeta,
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
-  }).format(at)
+  }).format(new Date(lastMs))
 }
 
 /**

@@ -676,6 +676,8 @@ Tagen zusammen.
 `[Preisanker 01.01.2025, gestern]`, gewählt wird das spätestmögliche. Die Grenzen kommen als
 `SyntheticYearBounds` herein; die Uhr liest `run-from-draft.ts`, nicht der Rechenkern. Passt kein
 Fenster, kommt `no_window` zurück — es wird **nichts zurechtgeschnitten**.
+**Seit 01.10.2026 endet das Fenster am LETZTEN MESSTAG statt gestern** (obere Grenze in
+`extractors/src/analysis/annual-scenario.ts`, keine Uhr mehr): gefüllt wird nur davor.
 
 **(d) Es wird NICHTS genähert.** Deckt der Preisbestand das Jahresfenster nicht, entfällt das Kapitel
 (`not_computable`). Das Nachladen/Nähern gibt es weiterhin nur im parallelen Weg

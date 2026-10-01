@@ -23,7 +23,6 @@ import { buildAnnualScenario } from './annual-scenario'
 const STEP_MS = 15 * 60 * 1000
 const HOUR_MS = 60 * 60 * 1000
 const CONSTANT_KW = 10
-const TODAY = new Date('2026-09-22T08:00:00Z')
 
 const tariff: TariffParams = {
   leistungspreisEurPerKwYear: 0,
@@ -51,11 +50,11 @@ const CATALOG: BatteryCandidate[] = [
   },
 ]
 
-/** `days` Tage ab dem 01.03.2025 00:00 Ortszeit Wien, konstante Leistung. */
-function profile(days: number): LoadProfile {
-  const t0 = Date.parse('2025-02-28T23:00:00Z')
+/** Konstante Leistung von `fromIso` bis `toIso` (exklusiv) — beide lokale Mitternächte in UTC. */
+function profile(fromIso: string, toIso: string): LoadProfile {
+  const t0 = Date.parse(fromIso)
   return {
-    readings: Array.from({ length: days * 96 }, (_, i) => ({
+    readings: Array.from({ length: (Date.parse(toIso) - t0) / STEP_MS }, (_, i) => ({
       ts: new Date(t0 + i * STEP_MS).toISOString(),
       gridPowerKw: CONSTANT_KW,
     })),
@@ -65,13 +64,17 @@ function profile(days: number): LoadProfile {
   }
 }
 
-function payloadOf(days: number): CalculatorPayload {
+/** 01.03.–25.09.2026 Ortszeit Wien: 209 Messtage. */
+const MARCH_TO_SEPTEMBER = ['2026-02-28T23:00:00Z', '2026-09-25T22:00:00Z'] as const
+
+function payloadOf(fromIso: string, toIso: string): CalculatorPayload {
+  const loadProfile = profile(fromIso, toIso)
   return {
     load: {
       fileName: 'test.csv',
-      profile: profile(days),
+      profile: loadProfile,
       dataQuality: {
-        coveredDays: days,
+        coveredDays: loadProfile.readings.length / 96,
         coveredMonths: 7,
         gapsInterpolated: 0,
         largestGapSlots: 0,
@@ -141,17 +144,18 @@ const fullPricing = (request: { window: { startIso: string; endIso: string } }) 
 describe('buildAnnualScenario', () => {
   it('rechnet die ganze Kette auf 365 Tagen — nicht die Ersparnis-Zahlen gestreckt', async () => {
     const out = await buildAnnualScenario({
-      payload: payloadOf(209),
+      payload: payloadOf(...MARCH_TO_SEPTEMBER),
       horizonYears: 10,
       catalog: CATALOG,
       fetchTariffPricing: fullPricing,
-      today: TODAY,
     })
     if (!out.ok) throw new Error(`unerwartet abgelehnt: ${out.blocker}`)
 
-    expect(out.value.measuredDays + out.value.projectedDays).toBe(365)
-    expect(out.value.windowFromDate).toBe('2025-03-01')
-    expect(out.value.windowToDate).toBe('2026-02-28')
+    /* Das Fenster endet am letzten Messtag, gefüllt wird davor — unabhängig von der Uhr. */
+    expect(out.value.windowFromDate).toBe('2025-09-26')
+    expect(out.value.windowToDate).toBe('2026-09-25')
+    expect(out.value.measuredDays).toBe(209)
+    expect(out.value.projectedDays).toBe(365 - 209)
     /* Konstanter Lastgang: jede Woche trägt dieselbe Menge, die erste gewinnt den Gleichstand. */
     expect(out.value.reference.rateKwhPerDay).toBeCloseTo(CONSTANT_KW * 24, 6)
 
@@ -168,22 +172,36 @@ describe('buildAnnualScenario', () => {
     expect(ways.peakShavingSavingEur).toBe(0)
   })
 
+  it('Messung 28.03.–31.08.: Fenster 01.09.–31.08., 208 gefüllte Tage, kein Tag nach der Messung', async () => {
+    const out = await buildAnnualScenario({
+      payload: payloadOf('2026-03-27T23:00:00Z', '2026-08-31T22:00:00Z'),
+      horizonYears: 10,
+      catalog: CATALOG,
+      fetchTariffPricing: fullPricing,
+    })
+    if (!out.ok) throw new Error(`unerwartet abgelehnt: ${out.blocker}`)
+
+    expect(out.value.windowFromDate).toBe('2025-09-01')
+    expect(out.value.windowToDate).toBe('2026-08-31')
+    expect(out.value.measuredDays).toBe(157)
+    expect(out.value.projectedDays).toBe(208)
+  })
+
   it('verweigert, statt zu nähern, wenn die Preise das Jahresfenster nicht decken', async () => {
     const out = await buildAnnualScenario({
-      payload: payloadOf(209),
+      payload: payloadOf(...MARCH_TO_SEPTEMBER),
       horizonYears: 10,
       catalog: CATALOG,
       /* Nur die gemessenen Tage haben Preise — der Rest des Jahres bleibt eine Lücke. */
       fetchTariffPricing: async () => ({
         gridTariffRows: [gridRow()],
         spotPrices: {
-          ...hourly('2025-02-28T23:00:00Z', '2025-09-25T22:00:00Z'),
+          ...hourly(...MARCH_TO_SEPTEMBER),
           complete: false,
           missingRanges: [{ fromIso: '2025-09-25T22:00:00Z', toIso: '2026-02-28T23:00:00Z' }],
         },
         levies: LEVIES_NONE,
       }),
-      today: TODAY,
     })
 
     expect(out).toEqual({ ok: false, blocker: 'not_computable' })

@@ -20,7 +20,7 @@ vi.mock('server-only', () => ({}))
 const DIR = new URL('./privat-bestand-pv-wien/', import.meta.url)
 const EXPECTED = new URL('expected.json', DIR)
 const MAX_DIFF_LINES = 40
-// Die obere Kante des Jahresfensters hängt an der Uhr (`today` in `run-from-draft.ts`).
+// Das Jahresfenster endet am letzten Messtag, nicht an der Uhr; sie bleibt fest, damit ein künftiger Uhr-Leser auffällt.
 const RUN_AT = new Date('2026-09-24T13:04:38.994Z')
 
 const DOCUMENTS: Record<string, string> = {

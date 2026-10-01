@@ -507,12 +507,6 @@ export async function runAnalysisFromMeteringPointDraft(
           catalog: ports.batteryCatalog,
           fetchTariffPricing: ({ window, intervalMinutes }) =>
             fetchPricingOnce({ ...subject, window, intervalMinutes }),
-          /*
-           * ⚠ Die Uhr wird HIER gelesen und nicht im Baustein: die obere Kante des Jahresfensters
-           * hängt daran, und ein Lauf, der sie selbst liest, wäre von seinem Zeitpunkt abhängig,
-           * ohne dass die Signatur es sagte.
-           */
-          today: new Date(),
         })
 
   /*
