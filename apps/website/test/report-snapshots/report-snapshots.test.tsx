@@ -158,7 +158,13 @@ const CASES: SnapshotCase[] = [
  * Fälle aus einer eingefrorenen Render-Anfrage (`platform.report_render_requests`) — derselbe Weg wie
  * `/report/[requestId]`, ohne Neuberechnung und ohne Bildschirm-Report (die Seite rendert nur das PDF).
  */
-type RenderRequestCase = { name: string; file: string; runAt: string }
+type RenderRequestCase = {
+  name: string
+  file: string
+  runAt: string
+  /** Wird als `analysis_result.annualScenario` über die Render-Anfrage gelegt (sonst unverändert). */
+  annualScenarioFile?: string
+}
 
 const RENDER_REQUEST_CASES: RenderRequestCase[] = [
   {
@@ -166,6 +172,18 @@ const RENDER_REQUEST_CASES: RenderRequestCase[] = [
     file: path.join(
       import.meta.dirname,
       'fixtures/gewerbe-leistungspreis-teiljahr-wien/render-request.json',
+    ),
+    runAt: '2026-09-30T18:37:04.946Z',
+  },
+  {
+    name: 'gewerbe-leistungspreis-teiljahr-jahr-wien',
+    file: path.join(
+      import.meta.dirname,
+      'fixtures/gewerbe-leistungspreis-teiljahr-wien/render-request.json',
+    ),
+    annualScenarioFile: path.join(
+      import.meta.dirname,
+      'fixtures/gewerbe-leistungspreis-teiljahr-jahr-wien/annual-scenario.json',
     ),
     runAt: '2026-09-30T18:37:04.946Z',
   },
@@ -454,7 +472,11 @@ describe('Report-Snapshots der Referenzfälle', () => {
   for (const c of RENDER_REQUEST_CASES) {
     it(`${c.name}: PDF-Text aus der Render-Anfrage unverändert`, async () => {
       vi.useFakeTimers({ toFake: ['Date'], now: new Date(c.runAt) })
-      const readout = readRenderRequest({ data: JSON.parse(readFileSync(c.file, 'utf8')), error: null })
+      const row = JSON.parse(readFileSync(c.file, 'utf8'))
+      if (c.annualScenarioFile) {
+        row.analysis_result.annualScenario = JSON.parse(readFileSync(c.annualScenarioFile, 'utf8'))
+      }
+      const readout = readRenderRequest({ data: row, error: null })
       if (readout.status !== 'ok') throw new Error('Render-Anfrage nicht lesbar')
       const input = buildReportInputFromRenderRequest(readout.request, new Date(c.runAt))
       const tmp = mkdtempSync(path.join(tmpdir(), 'report-snapshot-'))

@@ -25,6 +25,7 @@ gewollten Report-Änderung, mit benannter Ursache — nie zum Grünmachen.
 | `gewerbe-ohne-rechnung-wien.foerderung-50-horizont-15-steuer` | Gewerbe + 50 %, 15 Jahre, Steuersatz 23 %, IFB 20 %, AfA 10 Jahre | Steuerwirkung neben der Förderung |
 | (Privat, Datei `privat-bestand-pv-wien`) | Privat + Steuerwerte im Entwurf | Steuerwerte im Privatpfad unbeachtet |
 | `gewerbe-leistungspreis-teiljahr-wien` | `fixtures/gewerbe-leistungspreis-teiljahr-wien/render-request.json` | anonymisierte Render-Anfrage Gewerbe, s. unten |
+| `gewerbe-leistungspreis-teiljahr-jahr-wien` | dieselbe Render-Anfrage + `fixtures/gewerbe-leistungspreis-teiljahr-jahr-wien/annual-scenario.json` | Kapitel „Hochrechnung auf ein ganzes Jahr“, s. unten |
 
 Übergabe-Metadaten wie im Admin-Weg; Kundenname ersetzt durch „Referenzfall Privat/Gewerbe“,
 keine Rechnungszeiträume (die anonymisierten Entwürfe tragen keine `_invoiceExtractions`).
@@ -53,3 +54,12 @@ Kappung der Lastspitzen, keine PV, 34 Katalog-Geräte.
 - Läuft wie `/report/[requestId]`: `readRenderRequest` → `buildReportInputFromRenderRequest` → PDF. Keine
   Neuberechnung (Engine-Änderungen zeigen sich hier nicht) und kein Bildschirm-Markup (die Seite rendert nur
   das PDF). Ohne Diagramm-Raster 18 Seiten; das Kunden-PDF mit Diagrammen hat 20.
+
+## `fixtures/gewerbe-leistungspreis-teiljahr-jahr-wien`
+
+Variante des Falls darüber: dieselbe Render-Anfrage, darüber gelegt `analysis_result.annualScenario`
+(`annual-scenario.json`) aus einem lesenden `run-from-draft`-Lauf desselben Zählpunkts am 01.10.2026 (Entwurf
+und Lastgang aus der Cloud, Preise und Katalog per `anon`, nichts gespeichert). Nur Zahlen und der
+Gerätename, keine Kundenidentität. Fenster 01.09.2025–31.08.2026, 157 gemessene + 208 gefüllte Tage, Satzstand
+31.08.2026. Der Hauptlauf dieses Laufs war bitgleich mit der Render-Anfrage (2.494,80 €/Jahr). Ohne
+Diagramm-Raster 19 Seiten, das Kapitel steht auf Seite 7.

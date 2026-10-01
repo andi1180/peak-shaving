@@ -252,18 +252,17 @@ export const WAYS_SECTION: ReportSection = {
 /**
  * D6 Teil 3 — das Kapitel direkt hinter den Wegen: dieselben Wege, gerechnet auf einem vollen Jahr.
  *
- * ⚠ Bedingtes Kapitel: es steht nur, wenn der Lastgang WENIGER als ein Jahr abdeckt UND die
- * Hochrechnung gebildet werden konnte (`hasAnnualScenarioChapter`, `annual-scenario.ts`). Bei
- * einem Lastgang über ein volles Jahr wäre es eine Schätzung ohne Gegenstand.
+ * ⚠ Bedingtes Kapitel: es steht nur, wenn der Lastgang WENIGER als ein Jahr abdeckt, die
+ * Hochrechnung gebildet werden konnte und keine PV im Spiel ist (`hasAnnualScenarioChapter`,
+ * `annual-scenario.ts`).
  *
- * ⚠ Der Titel ist eine FRAGE, und das ist Absicht: er sagt dem Leser im Inhaltsverzeichnis, dass
- * hier gerechnet und nicht gemessen wurde. „Jahres-Hochrechnung" klänge nach einer weiteren
- * Auswertung derselben Daten.
+ * Der Titel sagt „Hochrechnung", damit der Leser schon im Inhaltsverzeichnis sieht, dass hier
+ * gerechnet und nicht gemessen wurde; im Kapitel ist sie zusätzlich als Annahme gekennzeichnet.
  */
 export const ANNUAL_SCENARIO_SECTION: ReportSection = {
   id: SECTION_ID.annualScenario,
   level: 1,
-  title: 'Was wäre, wenn wir ein ganzes Jahr hätten?',
+  title: 'Hochrechnung auf ein ganzes Jahr',
 }
 
 /**
@@ -291,7 +290,7 @@ export const PV_VALUE_INTRO =
 
 /** Steht unter der Kapitelüberschrift. Sagt, worum es geht, nicht was auf der Seite steht. */
 export const ANNUAL_SCENARIO_INTRO =
-  'Dieselben Wege, hochgerechnet auf zwölf Monate — eine Schätzung auf Grundlage Ihrer eigenen ' +
+  'Was die Wege über zwölf Monate bringen könnten — eine Annahme auf Grundlage Ihrer eigenen ' +
   'Messwerte, keine zweite Messung.'
 
 /** Steht unter der Kapitelüberschrift. Sagt, worum es geht, nicht was auf der Seite steht. */
@@ -625,7 +624,7 @@ export type ReportChapterPresence = {
    */
   waysCount: number
   /**
-   * `true` = das Kapitel „Was wäre, wenn wir ein ganzes Jahr hätten?" steht — s.
+   * `true` = das Kapitel „Hochrechnung auf ein ganzes Jahr" steht — s.
    * `hasAnnualScenarioChapter` (`annual-scenario.ts`). `false` bei einem Lastgang über ein volles
    * Jahr und immer dann, wenn die Hochrechnung nicht gebildet werden konnte.
    */

@@ -1780,7 +1780,7 @@ function WaysChapter({
 }
 
 /**
- * D6 Teil 3 — das Kapitel „Was wäre, wenn wir ein ganzes Jahr hätten?".
+ * D6 Teil 3 — das Kapitel „Hochrechnung auf ein ganzes Jahr".
  *
  * ── ⚠ KEIN BILD, UND DAS IST EINE ENTSCHEIDUNG ────────────────────────────────────────────────
  * Die gefüllten Tage sind der zyklisch wiederholte Wochenblock. Als Heatmap oder Jahreskurve
@@ -1799,7 +1799,7 @@ function AnnualScenarioChapter({
   input: PdfReportInput
   layout: ReportLayout
 }) {
-  const chapter = buildAnnualScenarioChapter(input.analysis)
+  const chapter = buildAnnualScenarioChapter(input)
 
   return (
     <View style={styles.body}>
