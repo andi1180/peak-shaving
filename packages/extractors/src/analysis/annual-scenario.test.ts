@@ -1,6 +1,8 @@
 import type { CalculatorPayload } from 'engine'
-import { LEVIES_NONE } from 'shared'
+import { LEVIES_NONE, buildLevySchedule } from 'shared'
 import type {
+  AnalysisResult,
+  BatteryRoiEntry,
   GridTariffRowInput,
   LoadProfile,
   SpotPriceSeriesInput,
@@ -50,13 +52,28 @@ const CATALOG: BatteryCandidate[] = [
   },
 ]
 
-/** Konstante Leistung von `fromIso` bis `toIso` (exklusiv) — beide lokale Mitternächte in UTC. */
-function profile(fromIso: string, toIso: string): LoadProfile {
+/** Das Hauptergebnis, wie der Jahreslauf es liest: `recommended` ist sein Gerät, `others` stehen daneben. */
+function measuredWith(
+  recommended: BatteryCandidate,
+  others: BatteryCandidate[] = [],
+): Pick<AnalysisResult, 'perBattery' | 'recommendation' | 'existingBatteryAnalysis'> {
+  return {
+    perBattery: [recommended, ...others].map((battery) => ({ battery }) as BatteryRoiEntry),
+    recommendation: { batteryId: recommended.id } as AnalysisResult['recommendation'],
+  }
+}
+
+/** Leistung von `fromIso` bis `toIso` (exklusiv) — beide lokale Mitternächte in UTC; `kwAt` je Slot. */
+function profile(
+  fromIso: string,
+  toIso: string,
+  kwAt: (ms: number) => number = () => CONSTANT_KW,
+): LoadProfile {
   const t0 = Date.parse(fromIso)
   return {
     readings: Array.from({ length: (Date.parse(toIso) - t0) / STEP_MS }, (_, i) => ({
       ts: new Date(t0 + i * STEP_MS).toISOString(),
-      gridPowerKw: CONSTANT_KW,
+      gridPowerKw: kwAt(t0 + i * STEP_MS),
     })),
     intervalMinutes: 15,
     timezoneMeta: 'Europe/Vienna',
@@ -67,8 +84,13 @@ function profile(fromIso: string, toIso: string): LoadProfile {
 /** 01.03.–25.09.2026 Ortszeit Wien: 209 Messtage. */
 const MARCH_TO_SEPTEMBER = ['2026-02-28T23:00:00Z', '2026-09-25T22:00:00Z'] as const
 
-function payloadOf(fromIso: string, toIso: string): CalculatorPayload {
-  const loadProfile = profile(fromIso, toIso)
+function payloadOf(
+  fromIso: string,
+  toIso: string,
+  kwAt?: (ms: number) => number,
+  tariffParams: TariffParams = tariff,
+): CalculatorPayload {
+  const loadProfile = profile(fromIso, toIso, kwAt)
   return {
     load: {
       fileName: 'test.csv',
@@ -81,7 +103,7 @@ function payloadOf(fromIso: string, toIso: string): CalculatorPayload {
         warnings: [],
       },
     },
-    tariff,
+    tariff: tariffParams,
     // Der gemessene Lauf trägt keine Schätzreihe: die Erzeugung steckt im Bezug (`import_only`).
     pv: null,
     financial: { fixedSubsidyEur: 0, taxRatePercent: 0, depreciationYears: 10 },
@@ -132,14 +154,15 @@ function hourly(fromIso: string, toIso: string): SpotPriceSeriesInput {
 
 /** Ein Preis-Port, der den angefragten Zeitraum mit Marktpreisen lückenlos bedient. */
 const pricingWith =
-  (row: GridTariffRowInput) => (request: { window: { startIso: string; endIso: string } }) =>
+  (row: GridTariffRowInput, levies: TariffPricingInputs['levies'] = LEVIES_NONE) =>
+  (request: { window: { startIso: string; endIso: string } }) =>
     Promise.resolve<TariffPricingInputs>({
       gridTariffRows: [row],
       spotPrices: hourly(
         request.window.startIso,
         new Date(Date.parse(request.window.endIso) + HOUR_MS).toISOString(),
       ),
-      levies: LEVIES_NONE,
+      levies,
     })
 
 const fullPricing = (request: { window: { startIso: string; endIso: string } }) =>
@@ -157,7 +180,7 @@ describe('buildAnnualScenario', () => {
     const out = await buildAnnualScenario({
       payload: payloadOf(...MARCH_TO_SEPTEMBER),
       horizonYears: 10,
-      catalog: CATALOG,
+      measured: measuredWith(CATALOG[0]!),
       fetchTariffPricing: fullPricing,
     })
     if (!out.ok) throw new Error(`unerwartet abgelehnt: ${out.blocker}`)
@@ -191,7 +214,7 @@ describe('buildAnnualScenario', () => {
     const out = await buildAnnualScenario({
       payload: payloadOf('2026-03-27T23:00:00Z', '2026-08-31T22:00:00Z'),
       horizonYears: 10,
-      catalog: CATALOG,
+      measured: measuredWith(CATALOG[0]!),
       /* Netzentgelt-Zeile erst ab 01.01.2026: rechenbar nur mit dem Satzstand des Stichtags. */
       fetchTariffPricing: pricingWith(gridRow('2026-01-01')),
     })
@@ -213,7 +236,7 @@ describe('buildAnnualScenario', () => {
     const out = await buildAnnualScenario({
       payload: payloadOf('2026-03-27T23:00:00Z', '2026-08-31T22:00:00Z'),
       horizonYears: 10,
-      catalog: CATALOG,
+      measured: measuredWith(CATALOG[0]!),
       fetchTariffPricing: pricingWith(gridRow('2025-01-01', '2026-06-30')),
     })
 
@@ -224,7 +247,7 @@ describe('buildAnnualScenario', () => {
     const out = await buildAnnualScenario({
       payload: payloadOf(...MARCH_TO_SEPTEMBER),
       horizonYears: 10,
-      catalog: CATALOG,
+      measured: measuredWith(CATALOG[0]!),
       /* Nur die gemessenen Tage haben Preise — der Rest des Jahres bleibt eine Lücke. */
       fetchTariffPricing: async () => ({
         gridTariffRows: [gridRow()],
@@ -238,5 +261,75 @@ describe('buildAnnualScenario', () => {
     })
 
     expect(out).toEqual({ ok: false, blocker: 'not_computable' })
+  })
+
+  /** Müldür-Konstellation mit täglicher Spitze (16–17 Uhr UTC 30 kW statt 10 kW) und Leistungspreis. */
+  const MUELDUER = ['2026-03-27T23:00:00Z', '2026-08-31T22:00:00Z'] as const
+  const peakyKw = (ms: number) => (new Date(ms).getUTCHours() === 16 ? 30 : CONSTANT_KW)
+  const demandTariff: TariffParams = {
+    ...tariff,
+    leistungspreisEurPerKwYear: 82.92,
+    billingModel: 'monthly_max_sum',
+  }
+
+  it('rechnet nur das Gerät des Hauptreports — ein besseres im Ergebnis daneben ändert nichts', async () => {
+    /* Klar besser: gleiche Grösse, höherer Wirkungsgrad, ein Fünftel des Preises. */
+    const BETTER: BatteryCandidate = {
+      ...CATALOG[0]!,
+      id: 'kat-30-plus',
+      name: 'Test 30 plus',
+      roundTripEfficiency: 0.98,
+      pricePerKwh: 10,
+    }
+    const run = (measured: ReturnType<typeof measuredWith>) =>
+      buildAnnualScenario({
+        payload: payloadOf(...MUELDUER, peakyKw, demandTariff),
+        horizonYears: 10,
+        measured,
+        fetchTariffPricing: pricingWith(gridRow('2026-01-01')),
+      })
+
+    const alone = await run(measuredWith(CATALOG[0]!))
+    const besideBetter = await run(measuredWith(CATALOG[0]!, [BETTER]))
+    if (!alone.ok || !besideBetter.ok) throw new Error('unerwartet abgelehnt')
+
+    expect(besideBetter.value.device).toEqual({ batteryId: 'kat-30', name: 'Test 30' })
+    expect(besideBetter.value.ways).toEqual(alone.value.ways)
+  })
+
+  it('Weg 5 enthält den EAG-Förderbeitrag Leistung', async () => {
+    const levies = buildLevySchedule(
+      'wiener_netze',
+      7,
+      '2025-09-01',
+      '2026-08-31',
+      'mit_leistungsmessung',
+      {
+        category: 'gewerbe',
+        postalCode: '1100',
+      },
+    )
+    const withoutEag = {
+      ...levies,
+      periods: levies.periods.map((p) => ({ ...p, eagFoerderbeitragGrundpreisAmount: 0 })),
+    }
+    const run = (l: typeof levies) =>
+      buildAnnualScenario({
+        payload: payloadOf(...MUELDUER, peakyKw, demandTariff),
+        horizonYears: 10,
+        measured: measuredWith(CATALOG[0]!),
+        fetchTariffPricing: pricingWith(gridRow('2026-01-01'), l),
+      })
+
+    const a = await run(levies)
+    const b = await run(withoutEag)
+    if (!a.ok || !b.ok) throw new Error('unerwartet abgelehnt')
+
+    expect(a.value.ways.peakShavingEagEur).toBeGreaterThan(0)
+    expect(b.value.ways.peakShavingEagEur).toBe(0)
+    expect(a.value.ways.peakShavingSavingEur - b.value.ways.peakShavingSavingEur).toBeCloseTo(
+      a.value.ways.peakShavingEagEur!,
+      6,
+    )
   })
 })

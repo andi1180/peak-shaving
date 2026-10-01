@@ -14640,6 +14640,10 @@
    "windowFromDate": "2025-08-27",
    "windowToDate": "2026-08-26",
    "ratesAsOf": "2026-08-26",
+   "device": {
+    "batteryId": "existing:kundenanlage",
+    "name": "Ihr Speicher"
+   },
    "measuredDays": 209,
    "projectedDays": 156,
    "fill": {
@@ -14654,7 +14658,8 @@
     "spotWithoutControlEur": 1407.1453494881016,
     "controlledEur": 1130.969327057222,
     "controlVariant": "predictive",
-    "peakShavingSavingEur": 0
+    "peakShavingSavingEur": 0,
+    "peakShavingEagEur": 0
    }
   },
   "pvValue": {

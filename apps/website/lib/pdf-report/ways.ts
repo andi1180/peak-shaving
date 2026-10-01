@@ -1,4 +1,4 @@
-import { displayedPriceLabel } from 'shared'
+import { displayedPriceLabel, peakShavingSavingPerYearOf } from 'shared'
 import type { MonthlyTariffComparison } from 'shared'
 
 import { formatEur } from '@/lib/format'
@@ -162,9 +162,7 @@ export function waysCountOf(analysis: PdfReportAnalysis): number {
  * derselben Frage.
  */
 export function peakShavingSavingOf(analysis: PdfReportAnalysis): number {
-  const entry = primaryEntryOf(analysis)
-  if (!entry || !(entry.leistungspreisSavingPerYear > 0)) return 0
-  return entry.leistungspreisSavingPerYear + (entry.eagDemandSavingPerYear ?? 0)
+  return peakShavingSavingPerYearOf(primaryEntryOf(analysis))
 }
 
 /**

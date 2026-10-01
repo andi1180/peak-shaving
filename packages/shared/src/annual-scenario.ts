@@ -54,11 +54,14 @@ export type AnnualScenarioWays = {
   controlledEur: number | null
   controlVariant: ControlVariant | null
   /**
-   * Weg 5 — was die Spitzenkappung im synthetischen Jahr bringt, in Euro pro Jahr. `0` heisst
-   * „dieser Weg trifft nicht zu" (kein Leistungspreis, oder ein Blocker aus `peakShavingBlockers`)
-   * — dieselbe Lesart wie `peakShavingSavingOf` im gemessenen Kapitel.
+   * Weg 5 — was die Spitzenkappung im synthetischen Jahr bringt, in Euro pro Jahr: Leistungspreis
+   * inkl. Gebrauchsabgabe plus EAG-Förderbeitrag Leistung (`peakShavingSavingPerYearOf`, dieselbe
+   * Funktion wie im Hauptreport). `0` heisst „dieser Weg trifft nicht zu". Vor dem 01.10.2026 ohne
+   * EAG-Anteil.
    */
   peakShavingSavingEur: number
+  /** Der EAG-Anteil in `peakShavingSavingEur`. Fehlt bei Ergebnissen vor dem 01.10.2026. */
+  peakShavingEagEur?: number
 }
 
 export type AnnualScenario = {
@@ -72,6 +75,11 @@ export type AnnualScenario = {
    * Ergebnissen vor dem 01.10.2026 — dort galten die Sätze zum jeweiligen Datum.
    */
   ratesAsOf?: string
+  /**
+   * Das Gerät des Hauptreports (`primaryBatteryEntry`), mit dem der Jahreslauf allein gerechnet
+   * hat — kein Katalog-Neulauf. Fehlt bei Ergebnissen vor dem 01.10.2026.
+   */
+  device?: { batteryId: string; name: string }
   /** Kalendertage des Fensters mit echten Messwerten. */
   measuredDays: number
   /** Kalendertage des Fensters, die aus dem Block gefüllt wurden. */

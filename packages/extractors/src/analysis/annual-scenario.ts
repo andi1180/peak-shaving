@@ -8,12 +8,13 @@ import type { CalculatorPayload } from 'engine'
 import {
   SPOT_PRICE_ANCHOR_DATE,
   analysisWindow,
+  peakShavingSavingPerYearOf,
   pinRatesToDate,
   primaryBatteryEntry,
   tariffWayCosts,
+  type AnalysisResult,
   type AnalysisWindow,
   type AnnualScenario,
-  type BatteryCandidate,
   type TariffPricingInputs,
 } from 'shared'
 
@@ -51,6 +52,8 @@ export type AnnualScenarioBlocker =
   | SyntheticYearBlocker
   /** Der Jahreslauf selbst ist nicht berechenbar — Netzentgelte, Preise oder Abgaben decken ihn nicht ab. */
   | 'not_computable'
+  /** Der Hauptreport nennt kein Gerät — ohne es gibt es keinen Weg 4 und keine Kappung. */
+  | 'no_device'
 
 export type AnnualScenarioResult =
   | { ok: true; value: AnnualScenario }
@@ -66,7 +69,8 @@ export type AnnualScenarioOptions = {
   /** Der Payload des GEMESSENEN Laufs — er wird gelesen, nie verändert. */
   payload: CalculatorPayload
   horizonYears: number
-  catalog: BatteryCandidate[]
+  /** Das Ergebnis des gemessenen Laufs — sein primäres Gerät ist das einzige, das gerechnet wird. */
+  measured: Pick<AnalysisResult, 'perBattery' | 'recommendation' | 'existingBatteryAnalysis'>
   fetchTariffPricing: AnnualScenarioPricingReader
 }
 
@@ -88,7 +92,14 @@ export type AnnualScenarioOptions = {
 export async function buildAnnualScenario(
   options: AnnualScenarioOptions,
 ): Promise<AnnualScenarioResult> {
-  const { payload, horizonYears, catalog } = options
+  const { payload, horizonYears, measured } = options
+
+  // Das Gerät des Hauptreports und nur dieses: ein Katalog-Neulauf auf dem verlängerten Lastgang
+  // könnte ein anderes Gerät empfehlen, und das Jahreskapitel spräche dann von einem fremden Speicher.
+  const device = primaryBatteryEntry(measured)
+  if (!device) return { ok: false, blocker: 'no_device' }
+  // Ein Bestandsspeicher reist im Payload mit (`existingBattery`); der Katalog bleibt dann leer.
+  const catalog = measured.existingBatteryAnalysis ? [] : [device.battery]
 
   /*
    * Das Fenster endet am LETZTEN MESSTAG (das Jahr bis zur jüngsten Messung, keine Tage danach);
@@ -147,6 +158,8 @@ export async function buildAnnualScenario(
       : undefined
   if (!comparison) return { ok: false, blocker: 'not_computable' }
   const ways = tariffWayCosts(comparison)
+  const entry = primaryBatteryEntry(result)
+  const peakShavingSavingEur = peakShavingSavingPerYearOf(entry)
 
   return {
     ok: true,
@@ -154,6 +167,7 @@ export async function buildAnnualScenario(
       windowFromDate: year.windowFromDate,
       windowToDate: year.windowToDate,
       ratesAsOf,
+      device: { batteryId: device.battery.id, name: device.battery.name },
       measuredDays: year.measuredDays,
       projectedDays: year.projectedDays,
       fill: {
@@ -163,12 +177,9 @@ export async function buildAnnualScenario(
       },
       ways: {
         ...ways,
-        /*
-         * Weg 5 aus DEMSELBEN Eintrag, den der gemessene Report als „Ihren Speicher" bezeichnet
-         * (`primaryBatteryEntry`, `shared`) — sonst zeigte das Jahreskapitel die Kappung eines
-         * anderen Geräts als das Kapitel darüber. `0` heisst „dieser Weg trifft nicht zu".
-         */
-        peakShavingSavingEur: primaryBatteryEntry(result)?.leistungspreisSavingPerYear ?? 0,
+        // Weg 5 wie im Hauptreport: Leistungspreis inkl. Gebrauchsabgabe plus EAG-Förderbeitrag Leistung.
+        peakShavingSavingEur,
+        peakShavingEagEur: peakShavingSavingEur > 0 ? (entry?.eagDemandSavingPerYear ?? 0) : 0,
       },
     },
   }

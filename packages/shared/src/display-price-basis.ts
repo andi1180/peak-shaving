@@ -141,6 +141,7 @@ const FIELD_KIND: Record<AnalysisNumericKey, 'money' | 'price' | 'other'> = {
   networkBaseFeeEur: 'money',
   newBilledKw: 'other',
   originalKw: 'other',
+  peakShavingEagEur: 'money',
   peakShavingSavingEur: 'money',
   pricePerKwh: 'money',
   projectedDays: 'other',
