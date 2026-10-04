@@ -12,7 +12,7 @@ import {
 import { annualScenarioSavingsOf } from './annual-scenario'
 import { dailyPeaksOf, type DailyPeak } from './daily-peaks'
 import { detailChartPlan } from './detail'
-import { headlineStorageOf } from './headline-storage'
+import { amortizationYearsOf, headlineStorageOf } from './headline-storage'
 import { peakShavingChartData, type PeakShavingCapSegment } from './peak-shaving-chart'
 import { SHOW_ANNUAL_SCENARIO_CHAPTER } from './report-flags'
 import { recommendedEntryOf, summaryWaysOf } from './summary'
@@ -55,6 +55,12 @@ export type ExecutiveSummaryStorage = {
   loadShiftEur: number
   peakEur: number
   amortizationYears: number
+  /**
+   * Rückzahlzeit allein aus dem günstigen Laden (ohne Spitzenersparnis) — nur gesetzt, wenn die
+   * Spitzenersparnis enthalten ist und das Laden etwas bringt; dieselbe Rechnung wie `amortizationYears`.
+   */
+  paybackWithoutPeaksYears: number | null
+  paybackWithoutPeaksBeyondHorizon: boolean
   /** Die Spitzenersparnis ist enthalten und eine Obergrenze. */
   upperBound: boolean
   netSavingOverHorizonEur: number
@@ -157,6 +163,11 @@ function storageOf(
       ? buildYearSeries(plan.entry, plan.currentLeistungspreisCostPerYear, plan.horizonYears)
       : []
   const b = entry.battery
+  const horizonYears = input.analysis.assumptions.horizonYears
+  const paybackWithoutPeaksYears =
+    headline.spitzenEur > 0 && headline.ladesteuerungEur > 0
+      ? amortizationYearsOf(entry.netInvestment, headline.ladesteuerungEur)
+      : null
   return {
     name: b.name,
     usableKwh: b.usableCapacityKwh,
@@ -171,9 +182,12 @@ function storageOf(
     loadShiftEur: headline.ladesteuerungEur,
     peakEur: headline.spitzenEur,
     amortizationYears: headline.amortizationYears,
+    paybackWithoutPeaksYears,
+    paybackWithoutPeaksBeyondHorizon:
+      paybackWithoutPeaksYears !== null && paybackWithoutPeaksYears > horizonYears,
     upperBound: headline.spitzenEur > 0,
     netSavingOverHorizonEur: headline.netSavingOverHorizonEur,
-    horizonYears: input.analysis.assumptions.horizonYears,
+    horizonYears,
     breakEven: series.map((point) => ({
       year: point.year,
       withoutStorageEur: point.without,

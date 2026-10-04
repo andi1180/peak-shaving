@@ -475,7 +475,8 @@ Variante, gemessen über die Seitenanker (`executive-summary-page.test.ts`, mit 
 Positivkontrolle).
 
 **Diagramm-Plätze** (`EXEC_SLOTS`, `executive-summary-layout.ts`, Breite × Höhe in pt): Lastgang
-481,6 × 100 · Wege 232,8 × 90 (ohne Speicherblock 481,6 × 90) · Break-even 232,8 × 90. Feste Höhen,
+481,6 × 80 · Wege 232,8 × 90 (ohne Speicherblock 481,6 × 90) · Break-even 232,8 × 90. Der Lastgang ist
+seit der Rückzahlzeit-Spanne von 100 auf 80 pt reduziert; der Worst-Case hat damit rund 1 pt Reserve. Feste Höhen,
 damit der Umbruch nicht vom Raster abhängt; bis PR 5 leere Rahmen.
 
 **Schalter** `SHOW_EXECUTIVE_SUMMARY` (`report-flags.ts`): an. Aus ist der Report byte-identisch zum
@@ -490,6 +491,18 @@ empfohlenem neuem Speicher, gleich der Speicher-Hauptzahl (günstig laden + verm
 Gesamt = Summe der Stufen. Mit neuem Speicher ist Stufe 1 der Wechsel zu aWATTar, weil der Speicher
 darauf aufbaut; sonst der günstigere von aWATTar und selbst gefundenem Tarif. Spitzenersparnis ist
 eine Obergrenze → „bis zu", Rückzahlzeit „frühestens".
+
+**Texte (Stand 04.10.2026):** „Spitzengebühr" wird in der Fussnote unter den Wege-Balken eingeführt
+(„die gesonderte Gebühr für Ihre höchste Leistungsspitze im Monat") und sonst nur noch so genannt; der
+Absatz zum empfohlenen Weg nennt die Spitzengebühr nicht mehr. Rückzahlzeit mit Spitzenersparnis:
+„frühestens nach ca. N Jahren; allein durch günstiges Laden nach ca. M Jahren" bzw. „… rechnet sich der
+Speicher innerhalb von H Jahren nicht". Börsenpreis-Punkt im Kasten beziffert den Tarifwechsel-Anteil
+(„Der größte Teil" ab 50 % der Gesamtersparnis, sonst „Ein Teil").
+
+**Modellfeld** `storage.paybackWithoutPeaksYears` (+ `paybackWithoutPeaksBeyondHorizon`):
+Nettoinvestition ÷ Ersparnis allein aus günstigem Laden, mit derselben Funktion wie die Rückzahlzeit
+der Hauptzahl (`amortizationYearsOf`); nur gesetzt, wenn die Spitzenersparnis enthalten ist und das
+Laden etwas bringt.
 
 **Offen:** Diagramme auf den Plätzen (PR 5); Bestandsspeicher (wohin dessen Spitzenersparnis gehört);
 Privat; Liefertarif unbekannt; Teiljahr ohne Jahresszenario (keine Jahreskosten je Weg vorhanden).

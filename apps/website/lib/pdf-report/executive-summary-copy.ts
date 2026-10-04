@@ -36,7 +36,6 @@ const MONTHS = [
 
 const SPOT_NAME = 'aWATTar'
 const STORAGE_LOADS_CHEAP = 'der Speicher lädt, wenn Strom günstig ist'
-const PEAK_FEE = 'die Gebühr für Ihre höchste Leistungsspitze im Monat'
 
 /** „nach ca. 4 Jahren" — eine Nachkommastelle wie `formatYears`, im Dativ. */
 function afterYears(value: number): string {
@@ -101,18 +100,20 @@ function stageLines(s: ExecutiveSummary): string[] {
 
 function waysParagraph(s: ExecutiveSummary): string {
   const recommended = s.ways.find((way) => way.isRecommended)!
-  const withoutPeakFee = s.hasLeistungspreis ? ` (ohne ${PEAK_FEE})` : ''
-  const peakPart =
-    s.storage && s.storage.upperBound
-      ? ` Dazu kommen bis zu ${formatEur(s.storage.peakEur)} pro Jahr weniger für ${PEAK_FEE}, weil der Speicher teure Stromspitzen vermeidet.`
-      : ''
   return (
-    `Heute zahlen Sie rund ${formatEur(s.todayCostPerYearEur)} pro Jahr für Strom${withoutPeakFee}. ` +
+    `Heute zahlen Sie rund ${formatEur(s.todayCostPerYearEur)} pro Jahr für Strom. ` +
     (recommended.isToday
       ? 'Keiner der anderen Wege ist günstiger.'
-      : `Mit dem Weg „${wayLabel(recommended)}" wären es rund ${formatEur(recommended.costPerYearEur)}.`) +
-    peakPart
+      : `Mit dem Weg „${wayLabel(recommended)}" wären es rund ${formatEur(recommended.costPerYearEur)}.`)
   )
+}
+
+/** Der zweite Teil der Rückzahlzeit, wenn sie die Spitzenersparnis als Obergrenze enthält. */
+function paybackWithoutPeaks(st: NonNullable<ExecutiveSummary['storage']>): string {
+  if (st.paybackWithoutPeaksYears === null) return ''
+  return st.paybackWithoutPeaksBeyondHorizon
+    ? `; allein durch günstiges Laden rechnet sich der Speicher innerhalb von ${st.horizonYears} Jahren nicht`
+    : `; allein durch günstiges Laden ${afterYears(st.paybackWithoutPeaksYears)}`
 }
 
 function storageLines(s: ExecutiveSummary): string[] | null {
@@ -124,7 +125,8 @@ function storageLines(s: ExecutiveSummary): string[] | null {
     ...(st.includes.extraInverter ? ['Wechselrichter'] : []),
   ]
   const payback = Number.isFinite(st.amortizationYears)
-    ? `Rückzahlzeit: ${st.upperBound ? 'frühestens ' : ''}${afterYears(st.amortizationYears)}`
+    ? `Rückzahlzeit: ${st.upperBound ? 'frühestens ' : ''}${afterYears(st.amortizationYears)}` +
+      paybackWithoutPeaks(st)
     : `Rückzahlzeit: innerhalb von ${st.horizonYears} Jahren nicht erreicht`
   return [
     `${st.name}, ${new Intl.NumberFormat('de-AT', { maximumFractionDigits: 1 }).format(st.usableKwh)} kWh nutzbar`,
@@ -137,6 +139,20 @@ function storageLines(s: ExecutiveSummary): string[] | null {
     payback,
     `Nach ${st.horizonYears} Jahren bleiben unterm Strich ${st.upperBound ? 'bis zu ' : ''}rund ${formatEur(st.netSavingOverHorizonEur)} (nach Abzug der Investition).`,
   ]
+}
+
+/** Börsenpreis-Risiko, beziffert mit dem Tarifwechsel-Anteil (Stufe 1), sofern er etwas spart. */
+function spotPriceLine(s: ExecutiveSummary): string {
+  const switchEur = s.stages[0]!.savingPerYearEur
+  const total = s.header.savingPerYearEur
+  if (switchEur <= 0 || total <= 0) {
+    return 'Beim Börsentarif ändert sich der Preis stündlich; künftige Preise können höher oder niedriger sein als im gerechneten Zeitraum.'
+  }
+  return (
+    `${switchEur >= total / 2 ? 'Der größte Teil' : 'Ein Teil'} der Ersparnis (rund ${formatEur(switchEur)}) ` +
+    `kommt vom Wechsel zu ${SPOT_NAME} und hängt damit am Börsenpreis; dieser ändert sich stündlich, ` +
+    'künftige Preise können höher oder niedriger sein als im gerechneten Zeitraum.'
+  )
 }
 
 function confidenceLines(s: ExecutiveSummary): string[] {
@@ -155,11 +171,7 @@ function confidenceLines(s: ExecutiveSummary): string[] {
           'Der Betrag für vermiedene Stromspitzen ist ein Höchstwert: er setzt voraus, dass der Speicher jede Spitze rechtzeitig erkennt und genug geladen hat.',
         ]
       : []),
-    ...(c.spotTariffRecommended
-      ? [
-          'Beim Börsentarif ändert sich der Preis stündlich; künftige Preise können höher oder niedriger sein als im gerechneten Zeitraum.',
-        ]
-      : []),
+    ...(c.spotTariffRecommended ? [spotPriceLine(s)] : []),
     'Alle Beträge netto und gerundet. Eine Vorausberechnung, keine Zusage.',
   ]
 }
@@ -175,7 +187,7 @@ export function executiveSummaryCopy(s: ExecutiveSummary): ExecutiveSummaryCopy 
     wayLabels: s.ways.map(wayLabel),
     waysParagraph: waysParagraph(s),
     waysFootnote: s.storage?.upperBound
-      ? `Stromkosten ohne die Gebühr für Ihre höchste Leistungsspitze im Monat. Deren Einsparung (bis zu ${formatEur(s.storage.peakEur)}) kommt hinzu.`
+      ? `Stromkosten ohne die Spitzengebühr (die gesonderte Gebühr für Ihre höchste Leistungsspitze im Monat). Deren Einsparung (bis zu ${formatEur(s.storage.peakEur)}) kommt hinzu.`
       : null,
     storage: storageLines(s),
     storageVerdict: s.storageVerdict

@@ -1,6 +1,8 @@
 import { EXISTING_BATTERY_ID } from 'shared'
 import { describe, expect, it } from 'vitest'
 
+import { formatEur } from '@/lib/format'
+
 import { EXECUTIVE_SUMMARY_CASES as CASES, muster, variant } from '@/test/executive-summary-cases'
 import { dailyPeaksOf } from './daily-peaks'
 import { buildExecutiveSummary, type ExecutiveSummary } from './executive-summary'
@@ -109,6 +111,56 @@ describe('executiveSummaryCopy', () => {
       if (s.storage?.upperBound) expect(text, name).toContain('frühestens')
       if (s.header.basis === 'projected') expect(text, name).toContain('hochgerechnet')
     }
+  })
+})
+
+describe('Rückzahlzeit ohne Spitzenersparnis und Börsenpreis-Satz', () => {
+  const copyOf = (s: ExecutiveSummary) => executiveSummaryCopy(s)
+
+  it('Müldür-Jahr: Spanne aus Obergrenze und günstigem Laden allein', () => {
+    const s = summaries['jahr (Müldür)']!
+    expect(s.storage!.paybackWithoutPeaksYears!.toFixed(1)).toBe('8.9')
+    expect(s.storage!.paybackWithoutPeaksBeyondHorizon).toBe(false)
+    expect(copyOf(s).storage).toContain(
+      'Rückzahlzeit: frühestens nach ca. 4 Jahren; allein durch günstiges Laden nach ca. 8,9 Jahren',
+    )
+  })
+
+  it('ohne Spitzenersparnis: kein zweiter Wert, Zeile wie bisher', () => {
+    const s = summaries['ohne Spitzenersparnis']!
+    expect(s.storage!.paybackWithoutPeaksYears).toBeNull()
+    expect(copyOf(s).storage).toContain('Rückzahlzeit: nach ca. 8,9 Jahren')
+  })
+
+  it('jenseits des Horizonts: rechnet sich allein durch Laden nicht', () => {
+    const s = summaries['Worst Case']!
+    expect(s.storage!.paybackWithoutPeaksBeyondHorizon).toBe(true)
+    expect(copyOf(s).storage!.join('\n')).toContain(
+      'allein durch günstiges Laden rechnet sich der Speicher innerhalb von 10 Jahren nicht',
+    )
+  })
+
+  it('ohne Speicherblock gibt es den Wert nicht', () => {
+    expect(summaries['nur-tarif (Katalog leer)']!.storage).toBeNull()
+    expect(summaries['speicher-lohnt-nicht']!.storage).toBeNull()
+  })
+
+  it('Börsenpreis-Satz: „Der größte Teil" ab 50 % Tarifwechsel, sonst „Ein Teil"', () => {
+    expect(copyOf(summaries['jahr (Müldür)']!).confidence.join('\n')).toContain(
+      `Der größte Teil der Ersparnis (rund ${formatEur(8025)}) kommt vom Wechsel zu aWATTar`,
+    )
+    // Tarifwechsel 1.000 €, Speicher 2.125 €: der Wechsel ist der kleinere Teil.
+    const small = buildExecutiveSummary(
+      variant(({ analysis }) => {
+        const ways = analysis.annualScenario!.ways
+        ways.spotWithoutControlEur = ways.currentTariffEur! - 1_000
+        ways.controlledEur = ways.spotWithoutControlEur - 965
+      }),
+    )!
+    expect(small.stages.map((st) => st.savingPerYearEur)).toEqual([1000, 2125])
+    expect(copyOf(small).confidence.join('\n')).toContain(
+      `Ein Teil der Ersparnis (rund ${formatEur(1000)}) kommt vom Wechsel zu aWATTar`,
+    )
   })
 })
 

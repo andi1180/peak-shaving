@@ -43,18 +43,16 @@ Ihre Stromkosten pro Jahr                                       Unser Speichervo
                                                                 Investition rund € 8.550 netto, inklusive Installation
                                                                 Ersparnis bis zu rund € 2.125 pro Jahr, davon rund
                                                                 € 965, weil der Speicher lädt, wenn Strom günstig ist
-                                                                Rückzahlzeit: frühestens nach ca. 4 Jahren
-                                                                Nach 10 Jahren bleiben unterm Strich bis zu rund
-Stromkosten ohne die Gebühr für Ihre höchste                    € 12.700 (nach Abzug der Investition).
-Leistungsspitze im Monat. Deren Einsparung (bis zu
-€ 1.160) kommt hinzu.
-Heute zahlen Sie rund € 34.794 pro Jahr für Strom
-(ohne die Gebühr für Ihre höchste Leistungsspitze
-im Monat). Mit dem Weg „aWATTar mit Speicher, der
-günstig lädt" wären es rund € 25.804. Dazu kommen
-bis zu € 1.160 pro Jahr weniger für die Gebühr für Ihre
-höchste Leistungsspitze im Monat, weil der Speicher
-teure Stromspitzen vermeidet.
+                                                                Rückzahlzeit: frühestens nach ca. 4 Jahren; allein
+                                                                durch günstiges Laden nach ca. 8,9 Jahren
+Stromkosten ohne die Spitzengebühr (die gesonderte              Nach 10 Jahren bleiben unterm Strich bis zu rund
+Gebühr für Ihre höchste Leistungsspitze im Monat). Deren        € 12.700 (nach Abzug der Investition).
+Einsparung (bis zu € 1.160) kommt hinzu.
+Heute zahlen Sie rund € 34.794 pro Jahr für Strom.
+Mit dem Weg „aWATTar mit Speicher, der günstig
+lädt" wären es rund € 25.804.
+
+
 
 
    Wie sicher ist das?
@@ -63,8 +61,9 @@ teure Stromspitzen vermeidet.
    geringer ausfallen.
    · Der Betrag für vermiedene Stromspitzen ist ein Höchstwert: er setzt voraus, dass der Speicher jede
    Spitze rechtzeitig erkennt und genug geladen hat.
-   · Beim Börsentarif ändert sich der Preis stündlich; künftige Preise können höher oder niedriger sein als
-   im gerechneten Zeitraum.
+   · Der größte Teil der Ersparnis (rund € 8.025) kommt vom Wechsel zu aWATTar und hängt damit am
+   Börsenpreis; dieser ändert sich stündlich, künftige Preise können höher oder niedriger sein als im
+   gerechneten Zeitraum.
    · Alle Beträge netto und gerundet. Eine Vorausberechnung, keine Zusage.
 
 

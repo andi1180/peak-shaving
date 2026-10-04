@@ -94,6 +94,8 @@ export const EXECUTIVE_SUMMARY_CASES: Record<string, PdfReportInput> = {
         inverterIncluded: false,
         extraInverterCost: 1_500,
       }
+      // Hohe Investition: allein durch günstiges Laden jenseits des Horizonts — die längste Zeile.
+      e.totalInvestment = 17_000
       e.subsidyAmount = 2_000
       e.netInvestment = e.totalInvestment - 2_000
     })
