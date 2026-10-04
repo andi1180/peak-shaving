@@ -496,13 +496,17 @@ describe('Report-Snapshots der Referenzfälle', () => {
   /* Die Vorderseite als gerenderter Text (Seite 2): kein Fachbegriff, in jeder Variante. */
   const FORBIDDEN =
     /Kappung|Amortisation|Ladesteuerung|Leistungspreis|Dispatch|Hindsight|Lastspitzenkappung/i
+  /* Der Kasten „Wie sicher ist das?" ist seit PR 5b von der Vorderseite entfernt. */
+  const REMOVED_BOX = /Wie sicher/
   it('Vorderseite: kein Fachbegriff im gerenderten Seitentext', async () => {
     expect(FORBIDDEN.test('· Ladesteuerung des Speichers')).toBe(true)
+    expect(REMOVED_BOX.test('Wie sicher ist das?')).toBe(true)
     const tmp = mkdtempSync(path.join(tmpdir(), 'report-snapshot-'))
     for (const [name, input] of Object.entries(EXECUTIVE_SUMMARY_CASES)) {
       const page = (await renderPdfText(input, path.join(tmp, 'vorderseite.pdf'))).split('\f')[1]!
       expect(page, name).toContain('Auf einen Blick')
       expect(page.match(FORBIDDEN), name).toBeNull()
+      expect(page.match(REMOVED_BOX), name).toBeNull()
       // Ein Höchstwert heisst „bis zu €“, nicht „bis zu rund €“ (auch über Zeilenumbrüche hinweg).
       expect(page.replace(/\s+/g, ' '), name).not.toContain('bis zu rund')
     }
