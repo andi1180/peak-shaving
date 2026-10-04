@@ -70,6 +70,9 @@ import {
   type SavingsDonut,
 } from './savings-donut'
 import { buildPvValueChapter } from './pv-value'
+import type { ExecutiveSummary } from './executive-summary'
+import { executiveSummaryCopy } from './executive-summary-copy'
+import { EXEC_SLOTS, EXECUTIVE_SUMMARY_SECTION_ID } from './executive-summary-layout'
 import { SHOW_PV_VALUE_AMOUNTS } from './report-flags'
 import {
   resolveReportSegments,
@@ -752,6 +755,34 @@ const styles = StyleSheet.create({
   },
 
   anchor: { height: 0 },
+
+  /* Vorderseite „Auf einen Blick" — Abstände knapp, die Seite muss in jeder Variante auf ein Blatt. */
+  execMeta: { fontSize: PDF_TYPE.small, lineHeight: PDF_TYPE.lineHeight, color: PDF_COLORS.textMuted },
+  execHeadline: {
+    marginTop: 6,
+    fontSize: 15,
+    lineHeight: PDF_TYPE.lineHeight,
+    fontWeight: 700,
+    color: PDF_COLORS.ink,
+  },
+  execStage: { ...LEADING, marginTop: 4, color: PDF_COLORS.text },
+  execLabel: {
+    marginTop: 12,
+    marginBottom: 4,
+    fontSize: PDF_TYPE.small,
+    lineHeight: PDF_TYPE.lineHeight,
+    fontWeight: 600,
+    color: PDF_COLORS.accent,
+  },
+  execColumns: { flexDirection: 'row', justifyContent: 'space-between' },
+  execText: { ...LEADING, marginTop: 4, color: PDF_COLORS.text },
+  execFootnote: {
+    marginTop: 4,
+    fontSize: PDF_TYPE.small,
+    lineHeight: PDF_TYPE.lineHeight,
+    color: PDF_COLORS.textMuted,
+  },
+  execSlot: { borderWidth: 0.75, borderColor: PDF_COLORS.border, borderRadius: 3 },
 })
 
 /**
@@ -763,6 +794,73 @@ const styles = StyleSheet.create({
  * Element die Seite, auf der SEINE `<Page>` begann (`page-numbers.ts`, Aufbau C) — genau die
  * Grösse, die die Agenda braucht.
  */
+/** Ein fester Diagramm-Platz der Vorderseite — in diesem Stand ein leerer Rahmen. */
+function ExecSlot({ slot }: { slot: { width: number; height: number } }) {
+  return <View style={[styles.execSlot, { width: slot.width, height: slot.height }]} />
+}
+
+/**
+ * Vorderseite „Auf einen Blick" (`executive-summary.ts`): genau eine Seite, ohne Agenda-Eintrag.
+ * Die Diagramm-Plätze haben feste Masse (`EXEC_SLOTS`), damit der Umbruch nicht vom Raster abhängt.
+ */
+function ExecutiveSummaryPage({ summary }: { summary: ExecutiveSummary }) {
+  const copy = executiveSummaryCopy(summary)
+  const { customerName, period, printedAt } = summary.header
+  const meta = [customerName, period && `Zeitraum ${period}`, `Erstellt am ${printedAt}`]
+    .filter(Boolean)
+    .join(' · ')
+  const storage = copy.storage
+  const confidence: ReportNotice = {
+    id: 'executive_summary_confidence',
+    tone: 'neutral',
+    title: copy.confidenceTitle,
+    body: copy.confidence[0]!,
+    list: { label: null, items: copy.confidence.slice(1) },
+    hints: [],
+  }
+
+  return (
+    <View style={styles.body}>
+      <Text style={styles.execMeta}>{meta}</Text>
+      <Text style={[styles.h2, { marginTop: 6 }]}>Auf einen Blick</Text>
+      <Text style={styles.execHeadline}>{copy.headline}</Text>
+      {copy.stages.map((line) => (
+        <Text key={line} style={styles.execStage}>
+          {line}
+        </Text>
+      ))}
+
+      <Text style={styles.execLabel}>Ihr Lastgang</Text>
+      <ExecSlot slot={EXEC_SLOTS.load} />
+
+      <View style={styles.execColumns}>
+        <View style={{ width: storage ? EXEC_SLOTS.ways.width : EXEC_SLOTS.waysFullWidth.width }}>
+          <Text style={styles.execLabel}>Ihre Stromkosten pro Jahr</Text>
+          <ExecSlot slot={storage ? EXEC_SLOTS.ways : EXEC_SLOTS.waysFullWidth} />
+          {copy.waysFootnote && <Text style={styles.execFootnote}>{copy.waysFootnote}</Text>}
+          <Text style={styles.execText}>{copy.waysParagraph}</Text>
+          {copy.storageVerdict && <Text style={styles.execText}>{copy.storageVerdict}</Text>}
+        </View>
+        {storage && (
+          <View style={{ width: EXEC_SLOTS.breakEven.width }}>
+            <Text style={styles.execLabel}>Unser Speichervorschlag</Text>
+            {storage.map((line) => (
+              <Text key={line} style={styles.execText}>
+                {line}
+              </Text>
+            ))}
+            <View style={{ marginTop: 6 }}>
+              <ExecSlot slot={EXEC_SLOTS.breakEven} />
+            </View>
+          </View>
+        )}
+      </View>
+
+      <Notice notice={confidence} keepTogether />
+    </View>
+  )
+}
+
 function SectionAnchor({ id, sink }: { id: string; sink: PageNumberSink }) {
   return (
     <Text
@@ -2557,6 +2655,7 @@ export function ReportDocument({
    * Funktion läuft zwei- bis dreimal (`render.tsx`) — sie LIEST die Antwort nur noch.
    */
   const {
+    executiveSummary,
     hasWays,
     hasAnnualScenario,
     hasPvValue,
@@ -2608,6 +2707,14 @@ export function ReportDocument({
       <Page size="A4" style={styles.navyPage}>
         <Cover input={input} />
       </Page>
+
+      {executiveSummary && (
+        <Page size="A4" style={styles.page}>
+          <PageFurniture sink={sink} docLabel={docLabel} />
+          <SectionAnchor id={EXECUTIVE_SUMMARY_SECTION_ID} sink={sink} />
+          <ExecutiveSummaryPage summary={executiveSummary} />
+        </Page>
+      )}
 
       <Page size="A4" style={styles.page}>
         <PageFurniture sink={sink} docLabel={docLabel} />

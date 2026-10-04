@@ -11,6 +11,8 @@ export type ExecutiveSummaryCopy = {
   stages: string[]
   wayLabels: string[]
   waysParagraph: string
+  /** Nur mit Spitzenersparnis: was die Balken nicht enthalten. */
+  waysFootnote: string | null
   storage: string[] | null
   storageVerdict: string | null
   confidenceTitle: string
@@ -36,12 +38,14 @@ const SPOT_NAME = 'aWATTar'
 const STORAGE_LOADS_CHEAP = 'der Speicher lädt, wenn Strom günstig ist'
 const PEAK_FEE = 'die Gebühr für Ihre höchste Leistungsspitze im Monat'
 
-function years(value: number): string {
-  return new Intl.NumberFormat('de-AT', {
-    minimumFractionDigits: 1,
-    maximumFractionDigits: 1,
-  }).format(value)
+/** „nach ca. 4 Jahren" — eine Nachkommastelle wie `formatYears`, im Dativ. */
+function afterYears(value: number): string {
+  const n = new Intl.NumberFormat('de-AT', { maximumFractionDigits: 1 }).format(value)
+  return `nach ca. ${n} ${n === '1' ? 'Jahr' : 'Jahren'}`
 }
+
+/** Jänner, Februar, November, Dezember. */
+const WINTER_MONTHS = [0, 1, 10, 11]
 
 /** „März bis August", bei Lücken „Jänner, März bis Mai". */
 function monthList(months: number[]): string {
@@ -91,9 +95,7 @@ function stageLines(s: ExecutiveSummary): string[] {
     }
     const recommended = s.ways.find((way) => way.isRecommended)!
     const target = recommended.id === 'comparison' ? wayLabel(recommended) : SPOT_NAME
-    return s.variant === 'bestandsspeicher'
-      ? `Ohne neue Anschaffung: rund ${eur} pro Jahr, wenn Sie zu ${SPOT_NAME} wechseln und ${STORAGE_LOADS_CHEAP.replace('der Speicher', 'Ihr vorhandener Speicher')}.`
-      : `Ohne neue Anschaffung: rund ${eur} pro Jahr durch den Wechsel zu ${target}.`
+    return `Ohne neue Anschaffung: rund ${eur} pro Jahr durch den Wechsel zu ${target}.`
   })
 }
 
@@ -122,7 +124,7 @@ function storageLines(s: ExecutiveSummary): string[] | null {
     ...(st.includes.extraInverter ? ['Wechselrichter'] : []),
   ]
   const payback = Number.isFinite(st.amortizationYears)
-    ? `Rückzahlzeit: ${st.upperBound ? 'frühestens ' : ''}ca. ${years(st.amortizationYears)} Jahre`
+    ? `Rückzahlzeit: ${st.upperBound ? 'frühestens ' : ''}${afterYears(st.amortizationYears)}`
     : `Rückzahlzeit: innerhalb von ${st.horizonYears} Jahren nicht erreicht`
   return [
     `${st.name}, ${new Intl.NumberFormat('de-AT', { maximumFractionDigits: 1 }).format(st.usableKwh)} kWh nutzbar`,
@@ -133,7 +135,7 @@ function storageLines(s: ExecutiveSummary): string[] | null {
       ? `Ersparnis bis zu rund ${formatEur(st.savingPerYearEur)} pro Jahr, davon rund ${formatEur(st.loadShiftEur)}, weil ${STORAGE_LOADS_CHEAP}`
       : `Ersparnis rund ${formatEur(st.savingPerYearEur)} pro Jahr, weil ${STORAGE_LOADS_CHEAP}`,
     payback,
-    `Nach ${st.horizonYears} Jahren bleiben ${st.upperBound ? 'bis zu ' : ''}rund ${formatEur(st.netSavingOverHorizonEur)} übrig`,
+    `Nach ${st.horizonYears} Jahren bleiben unterm Strich ${st.upperBound ? 'bis zu ' : ''}rund ${formatEur(st.netSavingOverHorizonEur)} (nach Abzug der Investition).`,
   ]
 }
 
@@ -143,6 +145,11 @@ function confidenceLines(s: ExecutiveSummary): string[] {
     c.isProjected
       ? `Hochgerechnet aus ${c.measuredDays} gemessenen Tagen (${monthList(c.measuredMonths)}); die übrigen ${c.projectedDays} Tage sind geschätzt.`
       : `Gerechnet mit ${c.measuredDays} gemessenen Tagen (${monthList(c.measuredMonths)}).`,
+    ...(c.measuredMonths.some((m) => WINTER_MONTHS.includes(m))
+      ? []
+      : [
+          `Gemessen wurde nur in den wärmeren Monaten (${monthList(c.measuredMonths)}); im Winter kann die Ersparnis geringer ausfallen.`,
+        ]),
     ...(c.hasUpperBound
       ? [
           'Der Betrag für vermiedene Stromspitzen ist ein Höchstwert: er setzt voraus, dass der Speicher jede Spitze rechtzeitig erkennt und genug geladen hat.',
@@ -159,15 +166,17 @@ function confidenceLines(s: ExecutiveSummary): string[] {
 
 export function executiveSummaryCopy(s: ExecutiveSummary): ExecutiveSummaryCopy {
   const total = s.header.savingPerYearEur
-  const upTo = s.confidence.hasUpperBound ? 'bis zu ' : ''
   return {
     headline:
       total > 0
-        ? `Sie können ${upTo}rund ${formatEur(total)} pro Jahr sparen (${basisText(s)}).`
+        ? `Sie können ${s.confidence.hasUpperBound ? 'bis zu' : 'rund'} ${formatEur(total)} pro Jahr sparen (${basisText(s)}).`
         : `Mit den heutigen Daten ergibt sich für Sie keine Ersparnis (${basisText(s)}).`,
     stages: stageLines(s),
     wayLabels: s.ways.map(wayLabel),
     waysParagraph: waysParagraph(s),
+    waysFootnote: s.storage?.upperBound
+      ? `Stromkosten ohne die Gebühr für Ihre höchste Leistungsspitze im Monat. Deren Einsparung (bis zu ${formatEur(s.storage.peakEur)}) kommt hinzu.`
+      : null,
     storage: storageLines(s),
     storageVerdict: s.storageVerdict
       ? `Ein neuer Speicher (${s.storageVerdict.name}) würde rund ${formatEur(s.storageVerdict.savingPerYearEur)} pro Jahr sparen. ${s.storageVerdict.judgement}`

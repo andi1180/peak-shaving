@@ -29,6 +29,7 @@ import {
 import type { ReportChartRasters } from '@/lib/pdf-report/charts'
 import { buildReportContext } from '@/lib/pdf-report/context'
 import { buildExecutiveSummary } from '@/lib/pdf-report/executive-summary'
+import { EXECUTIVE_SUMMARY_CASES } from '@/test/executive-summary-cases'
 import { ReportDocument } from '@/lib/pdf-report/document'
 import { buildReportLayout } from '@/lib/pdf-report/layout'
 import { createPageNumberSink } from '@/lib/pdf-report/page-numbers'
@@ -491,4 +492,17 @@ describe('Report-Snapshots der Referenzfälle', () => {
       checkSnapshot(`${c.name}.pdf.txt`, await renderPdfText(input, path.join(tmp, `${c.name}.pdf`)))
     })
   }
+
+  /* Die Vorderseite als gerenderter Text (Seite 2): kein Fachbegriff, in jeder Variante. */
+  const FORBIDDEN =
+    /Kappung|Amortisation|Ladesteuerung|Leistungspreis|Dispatch|Hindsight|Lastspitzenkappung/i
+  it('Vorderseite: kein Fachbegriff im gerenderten Seitentext', async () => {
+    expect(FORBIDDEN.test('· Ladesteuerung des Speichers')).toBe(true)
+    const tmp = mkdtempSync(path.join(tmpdir(), 'report-snapshot-'))
+    for (const [name, input] of Object.entries(EXECUTIVE_SUMMARY_CASES)) {
+      const page = (await renderPdfText(input, path.join(tmp, 'vorderseite.pdf'))).split('\f')[1]!
+      expect(page, name).toContain('Auf einen Blick')
+      expect(page.match(FORBIDDEN), name).toBeNull()
+    }
+  })
 })

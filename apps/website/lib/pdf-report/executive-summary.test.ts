@@ -1,92 +1,15 @@
-import { readFileSync } from 'node:fs'
-import path from 'node:path'
 import { EXISTING_BATTERY_ID } from 'shared'
 import { describe, expect, it } from 'vitest'
 
-import { buildReportInputFromRenderRequest, readRenderRequest } from './build-report-input'
+import { EXECUTIVE_SUMMARY_CASES as CASES, muster, variant } from '@/test/executive-summary-cases'
 import { dailyPeaksOf } from './daily-peaks'
 import { buildExecutiveSummary, type ExecutiveSummary } from './executive-summary'
 import { executiveSummaryCopy } from './executive-summary-copy'
 import { headlineStorageOf } from './headline-storage'
 import { recommendedEntryOf } from './summary'
-import type { PdfReportInput } from './types'
-
-/* Die anonymisierte Render-Anfrage der Report-Snapshots (Gewerbe, Leistungspreis, 157 Tage, ohne PV). */
-const FIXTURES = path.join(import.meta.dirname, '../../test/report-snapshots/fixtures')
-
-function muster(withAnnualScenario: boolean): PdfReportInput {
-  const row = JSON.parse(
-    readFileSync(
-      path.join(FIXTURES, 'gewerbe-leistungspreis-teiljahr-wien/render-request.json'),
-      'utf8',
-    ),
-  )
-  if (withAnnualScenario) {
-    row.analysis_result.annualScenario = JSON.parse(
-      readFileSync(
-        path.join(FIXTURES, 'gewerbe-leistungspreis-teiljahr-jahr-wien/annual-scenario.json'),
-        'utf8',
-      ),
-    )
-  }
-  const readout = readRenderRequest({ data: row, error: null })
-  if (readout.status !== 'ok') throw new Error('Render-Anfrage nicht lesbar')
-  return buildReportInputFromRenderRequest(readout.request, new Date('2026-09-30T18:37:04.946Z'))
-}
-
-/** Eine Variante aus dem Jahr-Fall: tiefe Kopie, dann `edit` auf das Ergebnis. */
-function variant(edit: (analysis: PdfReportInput['analysis']) => void): PdfReportInput {
-  const input = structuredClone(muster(true))
-  edit(input.analysis)
-  return input
-}
-
-/** Ändert das empfohlene Gerät in `perBattery`. */
-function editRecommended(
-  analysis: PdfReportInput['analysis'],
-  edit: (entry: PdfReportInput['analysis']['perBattery'][number]) => void,
-) {
-  edit(analysis.perBattery.find((e) => e.battery.id === analysis.recommendation!.batteryId)!)
-}
 
 const FORBIDDEN =
   /Kappung|Amortisation|Ladesteuerung|Leistungspreis|Dispatch|Hindsight|Lastspitzenkappung/i
-
-const CASES: Record<string, PdfReportInput> = {
-  'jahr (Müldür)': muster(true),
-  'nur-tarif (Katalog leer)': variant((a) => {
-    a.recommendation = null
-    a.perBattery = []
-  }),
-  'speicher-lohnt-nicht': variant((a) =>
-    editRecommended(a, (e) => {
-      e.totalInvestment = 50_000
-      e.netInvestment = 50_000
-    }),
-  ),
-  'mit Förderung': variant((a) =>
-    editRecommended(a, (e) => {
-      e.subsidyAmount = 2_000
-      e.netInvestment = e.totalInvestment - 2_000
-    }),
-  ),
-  'ohne Spitzenersparnis': variant((a) => {
-    a.annualScenario!.ways.peakShavingSavingEur = 0
-  }),
-  bestandsspeicher: variant((a) => {
-    const primary = a.perBattery[0]!
-    a.existingBatteryAnalysis = {
-      entry: { ...primary, battery: { ...primary.battery, id: EXISTING_BATTERY_ID } },
-    } as never
-    a.annualScenario!.device = { batteryId: EXISTING_BATTERY_ID, name: 'Bestand' }
-  }),
-  // Konstruiert: die Zeitraumsummen des Teiljahrs als ganzes Jahr ausgegeben — prüft nur den Weg.
-  'volles Jahr (konstruiert)': (() => {
-    const input = structuredClone(muster(false))
-    input.analysis.dataQuality.coveredDays = 365
-    return input
-  })(),
-}
 
 const summaries = Object.fromEntries(
   Object.entries(CASES).map(([name, input]) => [name, buildExecutiveSummary(input)!]),
@@ -146,16 +69,24 @@ describe('buildExecutiveSummary', () => {
     const noPeak = summaries['ohne Spitzenersparnis']!
     expect(noPeak.storage).toMatchObject({ peakEur: 0, upperBound: false, savingPerYearEur: 965 })
     expect(noPeak.load.capSegments).toBeNull()
-    const existing = summaries['bestandsspeicher']!
-    expect(existing).toMatchObject({ variant: 'bestandsspeicher', storage: null })
-    expect(existing.stages).toHaveLength(1)
     expect(summaries['volles Jahr (konstruiert)']!.header.basis).toBe('annual')
+  })
+
+  it('gibt es nicht mit Bestandsspeicher: wohin dessen Spitzenersparnis gehört, ist offen', () => {
+    const existing = variant(({ analysis }) => {
+      const primary = analysis.perBattery[0]!
+      analysis.existingBatteryAnalysis = {
+        entry: { ...primary, battery: { ...primary.battery, id: EXISTING_BATTERY_ID } },
+      } as never
+      analysis.annualScenario!.device = { batteryId: EXISTING_BATTERY_ID, name: 'Bestand' }
+    })
+    expect(buildExecutiveSummary(existing)).toBeNull()
   })
 
   it('gibt es nicht ohne Jahresbasis, ohne bekannten Tarif und für Privat', () => {
     expect(buildExecutiveSummary(muster(false))).toBeNull()
     expect(buildExecutiveSummary({ ...muster(true), priceDisplay: 'gross' })).toBeNull()
-    const unknown = variant((a) => {
+    const unknown = variant(({ analysis: a }) => {
       if (a.tariffOptimization?.computable === true)
         a.tariffOptimization.monthlyComparison!.currentTariffEur = null
     })
