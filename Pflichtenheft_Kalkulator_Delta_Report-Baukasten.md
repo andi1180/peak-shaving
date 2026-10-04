@@ -457,25 +457,42 @@ Zusammenfassung (Ein-Spanne-Regel oben) sind davon nicht berührt.
 - Der Bildschirm-Report (`components/report`) kennt kein Jahresszenario (es entsteht nur im
   Wizard-Lauf, dessen Report nur als PDF existiert) und bleibt linear.
 
-### Vorderseite „Auf einen Blick" — Modell (04.10.2026, noch nicht gerendert)
+### Vorderseite „Auf einen Blick" (04.10.2026)
 
-`buildExecutiveSummary` (`apps/website/lib/pdf-report/executive-summary.ts`) beschreibt die künftige
-Vorderseite als Daten, `executiveSummaryCopy` (`executive-summary-copy.ts`) liefert ihre Kundentexte.
-Es wird nichts neu gerechnet: Jahreskosten je Weg aus dem Jahresszenario (`annualScenarioSavingsOf`)
-oder aus einem ganzen gemessenen Jahr (≥ 365 Tage, wie `annualizationFactor`), Speicherzahlen aus
+**Modell:** `buildExecutiveSummary` (`apps/website/lib/pdf-report/executive-summary.ts`) beschreibt die
+Seite als Daten, `executiveSummaryCopy` (`executive-summary-copy.ts`) liefert ihre Kundentexte. Es wird
+nichts neu gerechnet: Jahreskosten je Weg aus dem Jahresszenario (`annualScenarioSavingsOf`) oder aus
+einem ganzen gemessenen Jahr (≥ 365 Tage, wie `annualizationFactor`), Speicherzahlen aus
 `headlineStorageOf`, Break-even aus derselben Reihe wie der Kostenverlauf (`buildYearSeries`).
-Schalter `SHOW_EXECUTIVE_SUMMARY` (`report-flags.ts`) steht auf `false`; nichts ist eingehängt.
 
-**Es gibt sie nur** für Betriebe (Anzeige netto), mit bekanntem Liefertarif und mit Jahresbasis —
-ein Teiljahr ohne Jahresszenario hat keine Jahreskosten je Weg und bekommt `null`. Kein Prozentwert:
-„Ihr Tarif heute" enthält den Leistungspreis nicht, die Gesamtersparnis die Spitzenersparnis schon.
+**Aufbau:** eigene `<Page>` direkt hinter dem Deckblatt, vor der Agenda; normale Kopf- und Fusszeile,
+Seitenanker `executive_summary`, **kein** Agenda-Eintrag (alle folgenden Seitenzahlen +1). Von oben:
+Kunde · Zeitraum · Datum, „Auf einen Blick", Ergebnissatz, Stufenzeilen; Platz „Ihr Lastgang"; zwei
+Spalten „Ihre Stromkosten pro Jahr" (Platz Wege, Fussnote, Absatz) und „Unser Speichervorschlag"
+(Gerät, Investition, Ersparnis, Rückzahlzeit, Netto, Platz Break-even) — ohne Speicherblock steht die
+linke Spalte über die volle Breite; Kasten „Wie sicher ist das?" (`Notice`). Genau eine Seite in jeder
+Variante, gemessen über die Seitenanker (`executive-summary-page.test.ts`, mit Worst-Case und
+Positivkontrolle).
 
-**Stufenregel:** Stufe 1 = Ersparnis ohne neue Anschaffung (Tarifwechsel; mit Bestandsspeicher
-einschliesslich dessen Laden zu günstigen Zeiten). Stufe 2 = nur bei empfohlenem neuem Speicher, gleich
-der Speicher-Hauptzahl (günstig laden + vermiedene Stromspitzen). Gesamt = Summe der Stufen. Mit
-neuem Speicher ist Stufe 1 der Wechsel zu aWATTar, weil der Speicher darauf aufbaut; sonst der
-günstigere von aWATTar und selbst gefundenem Tarif. Spitzenersparnis ist eine Obergrenze →
-„bis zu", Rückzahlzeit „frühestens".
+**Diagramm-Plätze** (`EXEC_SLOTS`, `executive-summary-layout.ts`, Breite × Höhe in pt): Lastgang
+481,6 × 100 · Wege 232,8 × 90 (ohne Speicherblock 481,6 × 90) · Break-even 232,8 × 90. Feste Höhen,
+damit der Umbruch nicht vom Raster abhängt; bis PR 5 leere Rahmen.
+
+**Schalter** `SHOW_EXECUTIVE_SUMMARY` (`report-flags.ts`): an. Aus ist der Report byte-identisch zum
+Stand ohne Vorderseite.
+
+**Es gibt sie nur** für Betriebe (Anzeige netto), mit bekanntem Liefertarif, mit Jahresbasis und ohne
+Bestandsspeicher — sonst `null` und der Report bleibt unverändert. Kein Prozentwert: „Ihr Tarif heute"
+enthält den Leistungspreis nicht.
+
+**Stufenregel:** Stufe 1 = Ersparnis ohne neue Anschaffung (Tarifwechsel). Stufe 2 = nur bei
+empfohlenem neuem Speicher, gleich der Speicher-Hauptzahl (günstig laden + vermiedene Stromspitzen).
+Gesamt = Summe der Stufen. Mit neuem Speicher ist Stufe 1 der Wechsel zu aWATTar, weil der Speicher
+darauf aufbaut; sonst der günstigere von aWATTar und selbst gefundenem Tarif. Spitzenersparnis ist
+eine Obergrenze → „bis zu", Rückzahlzeit „frühestens".
+
+**Offen:** Diagramme auf den Plätzen (PR 5); Bestandsspeicher (wohin dessen Spitzenersparnis gehört);
+Privat; Liefertarif unbekannt; Teiljahr ohne Jahresszenario (keine Jahreskosten je Weg vorhanden).
 
 ---
 

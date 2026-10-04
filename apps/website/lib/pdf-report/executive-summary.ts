@@ -26,8 +26,7 @@ import { buildWaysChapter } from './ways'
  */
 export type ExecutiveSummaryBasis = 'projected' | 'annual'
 
-export type ExecutiveSummaryVariant =
-  'tarif-und-speicher' | 'nur-tarif' | 'speicher-lohnt-nicht' | 'bestandsspeicher'
+export type ExecutiveSummaryVariant = 'tarif-und-speicher' | 'nur-tarif' | 'speicher-lohnt-nicht'
 
 export type ExecutiveSummaryWayId = 'today' | 'comparison' | 'spot' | 'spot-storage'
 
@@ -190,25 +189,22 @@ export function buildExecutiveSummary(input: PdfReportInput): ExecutiveSummary |
   const yearly = yearlyWaysOf(input)
   if (!yearly) return null
 
+  // Mit Bestandsspeicher ist offen, wohin dessen Spitzenersparnis gehört — vorerst keine Vorderseite.
+  if (analysis.existingBatteryAnalysis != null) return null
   const entry = recommendedEntryOf(analysis)
-  const existing = analysis.existingBatteryAnalysis != null
   const catalogStorage =
-    !existing && analysis.recommendation && entry && !dynamicTariffHintKind(analysis)
-      ? entry
-      : undefined
+    analysis.recommendation && entry && !dynamicTariffHintKind(analysis) ? entry : undefined
   const headline = catalogStorage ? headlineStorageOf(analysis, catalogStorage, input) : null
   // Rechnet das Jahresszenario mit einem anderen Gerät, stünden Jahres- und lineare Zahlen nebeneinander.
   if (yearly.basis === 'projected' && headline && headline.basis !== 'annual') return null
   const paysOff =
     headline !== null && storagePaysOff({ netSavingOverHorizon: headline.netSavingOverHorizonEur })
 
-  const variant: ExecutiveSummaryVariant = existing
-    ? 'bestandsspeicher'
-    : !headline
-      ? 'nur-tarif'
-      : paysOff
-        ? 'tarif-und-speicher'
-        : 'speicher-lohnt-nicht'
+  const variant: ExecutiveSummaryVariant = !headline
+    ? 'nur-tarif'
+    : paysOff
+      ? 'tarif-und-speicher'
+      : 'speicher-lohnt-nicht'
 
   // Stufe 1: ohne neue Anschaffung. Mit neuem Speicher gilt aWATTar, weil er darauf aufbaut.
   const withStorage = variant === 'tarif-und-speicher' && yearly.spotStorageEur !== null
@@ -217,18 +213,13 @@ export function buildExecutiveSummary(input: PdfReportInput): ExecutiveSummary |
       ? ('comparison' as const)
       : ('spot' as const)
   const tariffCost = bestTariff === 'comparison' ? yearly.comparison!.eur : yearly.spotEur
-  const stage1Cost =
-    variant === 'bestandsspeicher' && yearly.spotStorageEur !== null
-      ? yearly.spotStorageEur
-      : tariffCost
   const stages: ExecutiveSummaryStage[] = [
-    { id: 'ohne-anschaffung', savingPerYearEur: euros(yearly.todayEur - stage1Cost) },
+    { id: 'ohne-anschaffung', savingPerYearEur: euros(yearly.todayEur - tariffCost) },
   ]
   const storage = withStorage && headline ? storageOf(input, catalogStorage!, headline) : null
   if (storage) stages.push({ id: 'mit-speicher', savingPerYearEur: storage.savingPerYearEur })
 
-  const recommendedWay: ExecutiveSummaryWayId =
-    withStorage || variant === 'bestandsspeicher' ? 'spot-storage' : bestTariff
+  const recommendedWay: ExecutiveSummaryWayId = withStorage ? 'spot-storage' : bestTariff
   const way = (
     id: ExecutiveSummaryWayId,
     costPerYearEur: number,

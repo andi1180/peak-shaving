@@ -11,19 +11,25 @@ const CASES = readdirSync(SNAPSHOTS)
 const FAKE = 'Vorderseite (Testeinschub)\n\nnur zur Prüfung\n'
 const OPTIONS = { at: 1, pages: 1 }
 
+/** Index der Agenda-Seite (die mit der Zeile „Inhalt"), unabhängig davon, was davor steht. */
+function agendaIndexOf(text: string): number {
+  return text.split('\f').findIndex((page) => page.split('\n').includes('Inhalt'))
+}
+
 /**
  * Unabhängig vom Prüfer gebaut: Fake-Seite hinter dem Deckblatt, jede „Seite n von N" und jede
- * Agenda-Zahl (Seite 2) um 1 erhöht — bei einem Einschub an Index 1 verschiebt sich jede davon.
+ * Agenda-Zahl um 1 erhöht — bei einem Einschub an Index 1 verschiebt sich jede davon.
  */
 function insertFakePage(text: string, shift = true): string {
   const pages = text.split('\f')
+  const agenda = agendaIndexOf(text)
   const bumped = shift
     ? pages.map((page, i) => {
         const footers = page.replace(
           /Seite (\d+) von (\d+)/g,
           (_, n, of) => `Seite ${+n + 1} von ${+of + 1}`,
         )
-        return i === 1
+        return i === agenda
           ? footers.replace(/^(\S.*\S {2,})(\d+)$/gm, (_, head, k) => `${head}${+k + 1}`)
           : footers
       })
@@ -50,6 +56,8 @@ function editLine(
 describe.each(CASES)('verifyInsert: %s', (name) => {
   const old = readFileSync(path.join(SNAPSHOTS, name), 'utf8')
   const inserted = insertFakePage(old)
+  /* Seitenindizes im NEUEN Text: Agenda, Zusammenfassung dahinter, eine Inhaltsseite danach. */
+  const agenda = agendaIndexOf(old) + 1
   const fails = (next: string) => expect(verifyInsert(old, next, OPTIONS).ok).toBe(false)
 
   it('erkennt den korrekt verschobenen Einschub und gibt die eingefügte Seite aus', () => {
@@ -61,13 +69,17 @@ describe.each(CASES)('verifyInsert: %s', (name) => {
 
   it('(i) ein geänderter Buchstabe im Fliesstext', () => {
     fails(
-      editLine(inserted, 4, /^(?!.*· Seite).*[a-zäöü]{6}/, (line) => line.replace(/[a-zäöü]/, 'X')),
+      editLine(inserted, agenda + 2, /^(?!.*· Seite).*[a-zäöü]{6}/, (line) =>
+        line.replace(/[a-zäöü]/, 'X'),
+      ),
     )
   })
 
   it('(ii) eine Agenda-Zahl um 1 falsch', () => {
     fails(
-      editLine(inserted, 2, /^\S.*\S {2,}\d+$/, (line) => line.replace(/\d+$/, (k) => `${+k + 1}`)),
+      editLine(inserted, agenda, /^\S.*\S {2,}\d+$/, (line) =>
+        line.replace(/\d+$/, (k) => `${+k + 1}`),
+      ),
     )
   })
 
@@ -89,23 +101,23 @@ describe.each(CASES)('verifyInsert: %s', (name) => {
     fails(insertFakePage(old, false))
   })
 
-  /* Tabellenzeilen der Zusammenfassung (alt Index 2, neu Index 3): mit Ziffer, mit Spaltenabstand. */
+  /* Tabellenzeilen der Zusammenfassung (hinter der Agenda): mit Ziffer, mit Spaltenabstand. */
   const TABLE_LINE = /^(?!.*· Seite)(?=.*\d).*\S {2,}\S/
   const shiftColumn = (line: string) => line.replace(/(\S)( {2,})(\S)/, '$1$2 $3')
 
   it('Leerraum einer Tabellenzeile um 1 verschoben: Standard OK mit Info, --strict FAIL', () => {
-    const shifted = editLine(inserted, 3, TABLE_LINE, shiftColumn)
+    const shifted = editLine(inserted, agenda + 1, TABLE_LINE, shiftColumn)
     const result = verifyInsert(old, shifted, OPTIONS)
     expect(result.problems).toEqual([])
     expect(result.spacingOnly).toHaveLength(1)
-    expect(result.spacingOnly[0]).toMatch(/^neu Seite 4, Zeile \d+$/)
+    expect(result.spacingOnly[0]).toMatch(new RegExp(`^neu Seite ${agenda + 2}, Zeile \\d+$`))
     expect(verifyInsert(old, shifted, { ...OPTIONS, strict: true }).ok).toBe(false)
   })
 
   it('zwei verschmolzene Wörter', () => {
     const word = /[A-Za-zÄÖÜäöüß] [A-Za-zÄÖÜäöüß]/
     fails(
-      editLine(inserted, 3, new RegExp(`^(?!.*· Seite).*${word.source}`), (line) =>
+      editLine(inserted, agenda + 1, new RegExp(`^(?!.*· Seite).*${word.source}`), (line) =>
         line.replace(/([A-Za-zÄÖÜäöüß]) ([A-Za-zÄÖÜäöüß])/, '$1$2'),
       ),
     )
@@ -113,14 +125,14 @@ describe.each(CASES)('verifyInsert: %s', (name) => {
 
   it('eine geänderte Ziffer neben verschobenem Leerraum', () => {
     fails(
-      editLine(inserted, 3, TABLE_LINE, (line) =>
+      editLine(inserted, agenda + 1, TABLE_LINE, (line) =>
         shiftColumn(line.replace(/\d/, (d) => `${(+d + 1) % 10}`)),
       ),
     )
   })
 
   it('eine in zwei Zeilen aufgeteilte Zeile', () => {
-    fails(editLine(inserted, 3, TABLE_LINE, (line) => line.replace(/ {2,}/, '\n')))
+    fails(editLine(inserted, agenda + 1, TABLE_LINE, (line) => line.replace(/ {2,}/, '\n')))
   })
 })
 
@@ -142,7 +154,9 @@ describe('verifyInsert: fail-closed', () => {
   })
 
   it('meldet eine Agenda-Zahl-Zeile, die das Eintragsmuster nicht trifft', () => {
-    const odd = editLine(old, 1, /^\S.*\S {2,}\d+$/, (line) => line.replace(/ {2,}(\d+)$/, ' $1'))
+    const odd = editLine(old, agendaIndexOf(old), /^\S.*\S {2,}\d+$/, (line) =>
+      line.replace(/ {2,}(\d+)$/, ' $1'),
+    )
     const result = verifyInsert(odd, insertFakePage(odd), OPTIONS)
     expect(result.ok).toBe(false)
     expect(result.problems.join('\n')).toContain('Agenda-Zeile nicht eindeutig erkannt')

@@ -12,7 +12,8 @@ import type { PdfReportInput } from './types'
 import { hasWaysChapter, waysCountOf } from './ways'
 import { hasAnnualScenarioChapter } from './annual-scenario'
 import { hasPvValueChapter } from './pv-value'
-import { SHOW_ANNUAL_SCENARIO_CHAPTER } from './report-flags'
+import { SHOW_ANNUAL_SCENARIO_CHAPTER, SHOW_EXECUTIVE_SUMMARY } from './report-flags'
+import { buildExecutiveSummary, type ExecutiveSummary } from './executive-summary'
 
 /**
  * Report-Baukasten B1 — die Zwischenwerte, die für EIN Dokument genau einmal entstehen.
@@ -44,6 +45,8 @@ import { SHOW_ANNUAL_SCENARIO_CHAPTER } from './report-flags'
  * ein Bild statt einer Messung an ihm. Sie reist deshalb weiterhin über `buildReportCharts`.
  */
 export type ReportBuildContext = {
+  /** Die Vorderseite „Auf einen Blick“; `null`, wenn es sie nicht gibt oder der Schalter aus ist. */
+  executiveSummary: ExecutiveSummary | null
   /** Der primäre Block: im Bestandsfall die Anlage des Kunden, sonst die Empfehlung. */
   primaryEntry: BatteryResultEntry | undefined
   /** Das empfohlene KATALOG-Gerät — im Bestandsfall ein anderes als `primaryEntry`. */
@@ -111,6 +114,7 @@ export function buildReportContext(input: PdfReportInput): ReportBuildContext {
   const detailPlan = detailChartPlan(analysis, input)
 
   return {
+    executiveSummary: SHOW_EXECUTIVE_SUMMARY ? buildExecutiveSummary(input) : null,
     primaryEntry: primaryEntryOf(analysis),
     recommendedEntry: recommendedEntryOf(analysis),
     detailPlan,

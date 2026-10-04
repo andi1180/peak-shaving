@@ -21,7 +21,7 @@ export const SHOW_ANNUAL_SCENARIO_CHAPTER = true
 export const SHOW_PV_VALUE_AMOUNTS = false
 
 /**
- * Vorderseite „Auf einen Blick" (Executive Summary): Modell und Kundentexte sind gebaut
- * (`executive-summary.ts`), die Seite ist noch nicht ins Dokument eingehängt.
+ * Vorderseite „Auf einen Blick" (Executive Summary) zwischen Deckblatt und Agenda, nur wo
+ * `buildExecutiveSummary` sie liefert. Diagramm-Plätze vorerst leer (`EXEC_SLOTS`).
  */
-export const SHOW_EXECUTIVE_SUMMARY = false
+export const SHOW_EXECUTIVE_SUMMARY = true

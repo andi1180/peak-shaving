@@ -125,6 +125,8 @@ function analysisOf(comparison: MonthlyTariffComparison, known: boolean): PdfRep
 const LOAD_PROFILE: LoadProfile = {
   intervals: [],
   timezone: 'Europe/Vienna',
+  readings: [],
+  timezoneMeta: 'Europe/Vienna',
   source: 'import_only',
 } as unknown as LoadProfile
 
