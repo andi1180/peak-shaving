@@ -79,3 +79,20 @@ export function localYear(utcMs: number, timeZone: string): number {
   }
   return Number(fmt.format(utcMs))
 }
+
+const dateKeyCache = new Map<string, Intl.DateTimeFormat>()
+
+/** Lokaler Kalendertag als `YYYY-MM-DD` (en-CA liefert genau diese Form). */
+export function localDateKey(utcMs: number, timeZone: string): string {
+  let fmt = dateKeyCache.get(timeZone)
+  if (!fmt) {
+    fmt = new Intl.DateTimeFormat('en-CA', {
+      timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    })
+    dateKeyCache.set(timeZone, fmt)
+  }
+  return fmt.format(utcMs)
+}

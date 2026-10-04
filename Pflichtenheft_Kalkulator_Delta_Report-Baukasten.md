@@ -457,6 +457,26 @@ Zusammenfassung (Ein-Spanne-Regel oben) sind davon nicht berührt.
 - Der Bildschirm-Report (`components/report`) kennt kein Jahresszenario (es entsteht nur im
   Wizard-Lauf, dessen Report nur als PDF existiert) und bleibt linear.
 
+### Vorderseite „Auf einen Blick" — Modell (04.10.2026, noch nicht gerendert)
+
+`buildExecutiveSummary` (`apps/website/lib/pdf-report/executive-summary.ts`) beschreibt die künftige
+Vorderseite als Daten, `executiveSummaryCopy` (`executive-summary-copy.ts`) liefert ihre Kundentexte.
+Es wird nichts neu gerechnet: Jahreskosten je Weg aus dem Jahresszenario (`annualScenarioSavingsOf`)
+oder aus einem ganzen gemessenen Jahr (≥ 365 Tage, wie `annualizationFactor`), Speicherzahlen aus
+`headlineStorageOf`, Break-even aus derselben Reihe wie der Kostenverlauf (`buildYearSeries`).
+Schalter `SHOW_EXECUTIVE_SUMMARY` (`report-flags.ts`) steht auf `false`; nichts ist eingehängt.
+
+**Es gibt sie nur** für Betriebe (Anzeige netto), mit bekanntem Liefertarif und mit Jahresbasis —
+ein Teiljahr ohne Jahresszenario hat keine Jahreskosten je Weg und bekommt `null`. Kein Prozentwert:
+„Ihr Tarif heute" enthält den Leistungspreis nicht, die Gesamtersparnis die Spitzenersparnis schon.
+
+**Stufenregel:** Stufe 1 = Ersparnis ohne neue Anschaffung (Tarifwechsel; mit Bestandsspeicher
+einschliesslich dessen Laden zu günstigen Zeiten). Stufe 2 = nur bei empfohlenem neuem Speicher, gleich
+der Speicher-Hauptzahl (günstig laden + vermiedene Stromspitzen). Gesamt = Summe der Stufen. Mit
+neuem Speicher ist Stufe 1 der Wechsel zu aWATTar, weil der Speicher darauf aufbaut; sonst der
+günstigere von aWATTar und selbst gefundenem Tarif. Spitzenersparnis ist eine Obergrenze →
+„bis zu", Rückzahlzeit „frühestens".
+
 ---
 
 ## D9 — Baustein 7: „Annahmen und Datengrundlage" ausbauen

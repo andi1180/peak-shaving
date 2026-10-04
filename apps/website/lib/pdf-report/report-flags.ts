@@ -19,3 +19,9 @@ export const SHOW_ANNUAL_SCENARIO_CHAPTER = true
  * sie keinen Betrag behaupten. Zurück, sobald die Engine-Rekonstruktion geprüft ist.
  */
 export const SHOW_PV_VALUE_AMOUNTS = false
+
+/**
+ * Vorderseite „Auf einen Blick" (Executive Summary): Modell und Kundentexte sind gebaut
+ * (`executive-summary.ts`), die Seite ist noch nicht ins Dokument eingehängt.
+ */
+export const SHOW_EXECUTIVE_SUMMARY = false
