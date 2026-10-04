@@ -1,5 +1,5 @@
 /**
- * pnpm --filter website report:snapshots:verify-insert --base <git-ref> [--at 1] [--pages 1]
+ * pnpm --filter website report:snapshots:verify-insert --base <git-ref> [--at 1] [--pages 1] [--strict]
  *
  * Vergleicht jeden PDF-Text-Snapshot des Arbeitsstands mit seinem Stand in <git-ref> nach
  * `verify-insert.mjs`. Exit-Code 1, sobald ein Fall nicht passt oder eine Datei auf einer Seite fehlt.
@@ -20,10 +20,13 @@ const { values } = parseArgs({
     base: { type: 'string' },
     at: { type: 'string', default: '1' },
     pages: { type: 'string', default: '1' },
+    strict: { type: 'boolean', default: false },
   },
 })
 if (!values.base) {
-  console.error('Aufruf: report:snapshots:verify-insert --base <git-ref> [--at 1] [--pages 1]')
+  console.error(
+    'Aufruf: report:snapshots:verify-insert --base <git-ref> [--at 1] [--pages 1] [--strict]',
+  )
   process.exit(2)
 }
 const at = Number(values.at)
@@ -48,14 +51,17 @@ for (const name of [...new Set([...baseFiles, ...workFiles])].sort()) {
   const result = verifyInsert(
     git('show', `${values.base}:./${name}`),
     readFileSync(path.join(SNAPSHOTS, name), 'utf8'),
-    {
-      at,
-      pages,
-    },
+    { at, pages, strict: values.strict },
   )
   if (!result.ok) failed += 1
   console.log(`${result.ok ? 'OK  ' : 'FAIL'} ${name}`)
   for (const problem of result.problems) console.log(`  ${problem.replace(/\n/g, '\n  ')}`)
+  if (result.spacingOnly.length > 0) {
+    console.log(
+      `  Info: ${result.spacingOnly.length} Zeile(n) nur im Leerraum verschoben (normalisiert gleich): ` +
+        result.spacingOnly.slice(0, 10).join('; '),
+    )
+  }
   result.inserted.forEach((page, k) => {
     console.log(`  eingefügte Seite ${at + k + 1} (zur Information, nicht geprüft):`)
     console.log(page.replace(/\s+$/, '').replace(/^/gm, '    | '))

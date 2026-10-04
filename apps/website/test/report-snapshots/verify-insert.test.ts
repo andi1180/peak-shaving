@@ -88,6 +88,40 @@ describe.each(CASES)('verifyInsert: %s', (name) => {
   it('(v) Einschub ohne verschobene Seitenzahlen', () => {
     fails(insertFakePage(old, false))
   })
+
+  /* Tabellenzeilen der Zusammenfassung (alt Index 2, neu Index 3): mit Ziffer, mit Spaltenabstand. */
+  const TABLE_LINE = /^(?!.*· Seite)(?=.*\d).*\S {2,}\S/
+  const shiftColumn = (line: string) => line.replace(/(\S)( {2,})(\S)/, '$1$2 $3')
+
+  it('Leerraum einer Tabellenzeile um 1 verschoben: Standard OK mit Info, --strict FAIL', () => {
+    const shifted = editLine(inserted, 3, TABLE_LINE, shiftColumn)
+    const result = verifyInsert(old, shifted, OPTIONS)
+    expect(result.problems).toEqual([])
+    expect(result.spacingOnly).toHaveLength(1)
+    expect(result.spacingOnly[0]).toMatch(/^neu Seite 4, Zeile \d+$/)
+    expect(verifyInsert(old, shifted, { ...OPTIONS, strict: true }).ok).toBe(false)
+  })
+
+  it('zwei verschmolzene Wörter', () => {
+    const word = /[A-Za-zÄÖÜäöüß] [A-Za-zÄÖÜäöüß]/
+    fails(
+      editLine(inserted, 3, new RegExp(`^(?!.*· Seite).*${word.source}`), (line) =>
+        line.replace(/([A-Za-zÄÖÜäöüß]) ([A-Za-zÄÖÜäöüß])/, '$1$2'),
+      ),
+    )
+  })
+
+  it('eine geänderte Ziffer neben verschobenem Leerraum', () => {
+    fails(
+      editLine(inserted, 3, TABLE_LINE, (line) =>
+        shiftColumn(line.replace(/\d/, (d) => `${(+d + 1) % 10}`)),
+      ),
+    )
+  })
+
+  it('eine in zwei Zeilen aufgeteilte Zeile', () => {
+    fails(editLine(inserted, 3, TABLE_LINE, (line) => line.replace(/ {2,}/, '\n')))
+  })
 })
 
 describe('verifyInsert: fail-closed', () => {
