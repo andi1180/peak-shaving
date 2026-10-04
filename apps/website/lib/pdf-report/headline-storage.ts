@@ -77,7 +77,7 @@ function annualFor(
 }
 
 /** Dieselbe Rechnung wie `calculateAmortizationYears` in `engine/src/roi/roi.ts` (dort nicht exportiert). */
-function amortizationYearsOf(netInvestment: number, savingPerYear: number): number {
+export function amortizationYearsOf(netInvestment: number, savingPerYear: number): number {
   if (netInvestment <= 0) return 0
   if (savingPerYear <= 0) return Infinity
   return netInvestment / savingPerYear

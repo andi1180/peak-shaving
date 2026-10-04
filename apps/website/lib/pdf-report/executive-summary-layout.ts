@@ -10,7 +10,7 @@ const COLUMN_WIDTH_PT = (PDF_CONTENT_WIDTH_PT - EXEC_COLUMN_GAP_PT) / 2
  * ohne Diagramm-Raster gleich umbricht — die Ein-Seiten-Prüfung gilt so auch für das Kunden-PDF.
  */
 export const EXEC_SLOTS = {
-  load: { width: PDF_CONTENT_WIDTH_PT, height: 100 },
+  load: { width: PDF_CONTENT_WIDTH_PT, height: 80 },
   ways: { width: COLUMN_WIDTH_PT, height: 90 },
   /** Ohne Speicherblock steht die Wege-Spalte über die volle Breite. */
   waysFullWidth: { width: PDF_CONTENT_WIDTH_PT, height: 90 },
