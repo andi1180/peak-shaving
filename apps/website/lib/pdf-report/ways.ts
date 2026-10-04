@@ -15,6 +15,8 @@ import {
   type SummaryWays,
   type UnknownTariffWays,
 } from './summary'
+import type { AnnualScenarioPvInput } from './annual-scenario'
+import { headlineStorageOf } from './headline-storage'
 import type { PdfReportAnalysis } from './types'
 
 /**
@@ -283,23 +285,31 @@ const PEAK_SHAVING_METHOD =
  * die Investition daneben. Zeilen und Urteil wortgleich wie im Gerätekapitel. `null` beim
  * Bestandsspeicher — der ist bezahlt.
  */
-function controlledDeviceOf(analysis: PdfReportAnalysis): { rows: ReportRow[]; text: string } | null {
+function controlledDeviceOf(
+  analysis: PdfReportAnalysis,
+  pv?: AnnualScenarioPvInput,
+): { rows: ReportRow[]; text: string } | null {
   if (analysis.existingBatteryAnalysis) return null
   const entry = recommendedEntryOf(analysis)
-  const verdict = recommendationVerdictOf(analysis)
+  const verdict = recommendationVerdictOf(analysis, pv)
   if (!entry || !verdict) return null
   const horizonYears = analysis.assumptions.horizonYears
+  const headline = headlineStorageOf(analysis, entry, pv)
   return {
     rows: [
       totalInvestmentRow(entry),
       ...subsidyRows(entry, analysis.assumptions.subsidyPrograms),
-      netOverHorizonRow(entry, horizonYears),
+      netOverHorizonRow({ netSavingOverHorizon: headline.netSavingOverHorizonEur }, horizonYears),
     ],
     text: ` Gerechnet mit diesem Speicher: ${verdict} ${storageJudgementText(entry, horizonYears)}`,
   }
 }
 
-export function buildWaysChapter(analysis: PdfReportAnalysis): WaysChapter | null {
+/** `pv` braucht, wer den Text rendert — ohne gilt für die Speicher-Zahlen `linear` (`headline-storage.ts`). */
+export function buildWaysChapter(
+  analysis: PdfReportAnalysis,
+  pv?: AnnualScenarioPvInput,
+): WaysChapter | null {
   const comparison = monthlyComparisonOf(analysis)
   if (!comparison) return null
   const ways = summaryWaysOf(analysis)
@@ -423,7 +433,7 @@ export function buildWaysChapter(analysis: PdfReportAnalysis): WaysChapter | nul
   )
 
   if (controlWay) {
-    const device = controlledDeviceOf(analysis)
+    const device = controlledDeviceOf(analysis, pv)
     addWay({
       id: 'ways_load_control',
       title: CONTROLLED_WAY_LABEL,

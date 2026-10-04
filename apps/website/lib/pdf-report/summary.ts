@@ -34,6 +34,8 @@ import type { ReportBuildContext } from './context'
 import { hasPvValueChapter } from './pv-value'
 import { block, ref, t, REF_PLACE, type ReportText } from './report-text'
 import type { ReportNotice, ReportRow, ReportStatement, ReportTone } from './statement'
+import type { AnnualScenarioPvInput } from './annual-scenario'
+import { headlineStorageOf } from './headline-storage'
 import type { PdfReportAnalysis } from './types'
 
 /**
@@ -346,19 +348,27 @@ export function unknownTariffWaysOf(analysis: PdfReportAnalysis): UnknownTariffW
  * Das Urteil über das empfohlene Gerät, wortgleich mit der Bildschirm-Empfehlung
  * (`recommendationRationaleText`) — `null`, wo das Gerätekapitel keine Kaufaussage trägt.
  */
-export function recommendationVerdictOf(analysis: PdfReportAnalysis): string | null {
+export function recommendationVerdictOf(
+  analysis: PdfReportAnalysis,
+  pv?: AnnualScenarioPvInput,
+): string | null {
   const recommendation = analysis.recommendation
   if (!recommendation || analysis.existingBatteryAnalysis) return null
   if (dynamicTariffHintKind(analysis)) return null
   const entry = recommendedEntryOf(analysis)
-  return entry
-    ? recommendationRationaleText(
-        entry.battery.name,
-        recommendation.rationale,
-        isAnnualized(entry),
-        hasEnteredSubsidy(entry),
-      )
-    : null
+  if (!entry) return null
+  const headline = headlineStorageOf(analysis, entry, pv)
+  return recommendationRationaleText(
+    entry.battery.name,
+    {
+      ...recommendation.rationale,
+      totalSavingPerYear: headline.savingPerYearEur,
+      amortizationYears: headline.amortizationYears,
+      netSavingOverHorizon: headline.netSavingOverHorizonEur,
+    },
+    isAnnualized(entry),
+    hasEnteredSubsidy(entry),
+  )
 }
 
 /** Die Kopfzahlen bei unbekanntem Liefertarif: absolute Kosten, keine Ersparnis. */
