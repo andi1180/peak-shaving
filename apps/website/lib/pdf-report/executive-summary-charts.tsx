@@ -9,14 +9,14 @@ import { CHART_COLORS, PDF_COLORS } from './theme'
  * Die zwei Diagramme der Vorderseite als native react-pdf-Zeichnung: Geometrie als Svg/View in den
  * festen Massen aus `EXEC_SLOTS`, Beschriftung als gewöhnlicher Text (Report-Schrift, € und Umlaute).
  */
-const FONT_PT = 8
-const LINE_PT = 10
+export const FONT_PT = 8
+export const LINE_PT = 10
 /** Zeichenbreiten in em für Inter, mit fontkit gemessen und aufgerundet — nur für die Platzierung. */
 const DIGIT_EM = 0.6
 const CHAR_EM = 0.5
 const BOLD_FACTOR = 1.05
 
-const textWidth = (text: string, bold = false): number =>
+export const textWidth = (text: string, bold = false): number =>
   [...text].reduce((sum, ch) => sum + (/[0-9]/.test(ch) ? DIGIT_EM : CHAR_EM), 0) *
   FONT_PT *
   (bold ? BOLD_FACTOR : 1)
@@ -72,7 +72,7 @@ export function waysBarsOf(ways: ExecutiveSummaryWay[], labels: string[], slot: 
   }))
 }
 
-const label = (bold: boolean) => ({
+export const label = (bold: boolean) => ({
   fontSize: FONT_PT,
   lineHeight: LINE_PT / FONT_PT,
   fontWeight: bold ? 700 : 400,

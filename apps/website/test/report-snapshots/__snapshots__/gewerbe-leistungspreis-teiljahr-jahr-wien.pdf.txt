@@ -18,7 +18,7 @@ Auf Basis Ihres Viertelstunden-Lastgangs
 
 Ausgewerteter Zeitraum             28.03.2026 – 31.08.2026
 Erstellt am                        30.09.2026
-      COOLiN ENERGY        Muster Gastro GmbH
+      COOLiN ENERGY         Muster Gastro GmbH
 
 
 
@@ -36,39 +36,47 @@ geschätzt, hochgerechnet aus 157 gemessenen Tagen
 Wechsel zu aWATTar, ohne Anschaffung                                mit einem Speicher dazu
 
 Ihr Lastgang
+  Höchste Leistung pro Tag          Spitzen, die der Speicher abfängt     Begrenzung mit Speicher (Höchstwert)
+50 kW
 
 
 
+     25
+
+
+
+      0
+          Mär         Apr                     Mai                   Jun                 Jul                      Aug
 
 Die Balken zeigen Ihre höchste Leistung pro Tag. Sie bestimmen die Spitzengebühr (für die höchste
 Spitze im Monat); ein Speicher kann Spitzen über der Linie abfangen (Höchstwert).
 
 Ihre Stromkosten pro Jahr
 Ihr Tarif heute
-                                                                                                                  € 34.794
+                                                                                                                   € 34.794
 
 aWATTar (Börsenpreis)
-                                                                                       € 26.769
+                                                                                        € 26.769
 
 aWATTar mit Speicher, der günstig lädt
-                                                                                    € 25.804
+                                                                                     € 25.804
 
 
 Mit aWATTar und einem Speicher, der günstig lädt, sinken Ihre Kosten von rund € 34.794 auf rund
 € 25.804 — ohne Spitzengebühr; deren Einsparung (bis zu € 1.160) kommt hinzu.
 
 Ihr Speicher
-    Mit Stromspitzen (Höchstwert)    Nur günstiges Laden
+    Mit Stromspitzen (Höchstwert)       Nur günstiges Laden
 
 
 
 
-Investition € 8.550                   ca. 4 Jahre                                              ca. 8,9 Jahre
+Investition € 8.550                     ca. 4 Jahre                                             ca. 8,9 Jahre
 
 
 
 
-0                                                               5                                                   10 Jahre
+0                                                               5                                                      10 Jahre
 
 Kostal & Dyness Retrofit S, 29,2 kWh nutzbar, Investition rund € 8.550 netto. Rückzahlzeit:
 frühestens nach ca. 4 Jahren; allein durch günstiges Laden nach ca. 8,9 Jahren. Nach 10 Jahren
@@ -78,7 +86,7 @@ Schätzung, keine Zusage. Annahmen und Risiken, u. a. beim Börsenpreis, im weit
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                                  www.coolin.at · Seite 2 von 20
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                                   www.coolin.at · Seite 2 von 20
     COOLiN ENERGY          Muster Gastro GmbH
 
 

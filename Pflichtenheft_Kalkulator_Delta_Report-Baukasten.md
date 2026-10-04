@@ -472,8 +472,11 @@ Seitenzahlen +1). Vier Blöcke, jeder über die volle Breite (481,6 pt):
    „rund € X", 40 pt fett, Akzent) + „pro Jahr", darunter die Basis (9 pt, „geschätzt, hochgerechnet aus N
    gemessenen Tagen" bzw. „gerechnet mit Ihren Messwerten von N Tagen"); zwei Teilzahlen (20 pt) — links
    Stufe 1 „Wechsel zu aWATTar|<Lieferant>, ohne Anschaffung", rechts Stufe 2 „mit einem Speicher dazu"
-   (nur mit Speicherempfehlung, sonst Stufe 1 über die volle Breite).
-2. **Ihr Lastgang:** Platz (leer bis PR 5c) + ein Satz.
+   (nur mit Speicherempfehlung). **Ohne Speicherblock** (seit PR 5c) entfallen die Teilzahlen, weil die
+   grosse Zahl dort gleich Stufe 1 ist; stattdessen steht unter ihr „durch den Wechsel zu aWATTar|<Lieferant>,
+   ohne Anschaffung" (10 pt) über der Basis-Zeile.
+2. **Ihr Lastgang:** Lastgang-Diagramm + ein Satz; ohne Tagesspitzen entfällt der ganze Block (Überschrift,
+   Diagramm, Satz). Einen leeren Diagramm-Rahmen gibt es seit PR 5c nirgends mehr.
 3. **Ihre Stromkosten pro Jahr:** Wege-Balken + ein Satz.
 4. **Ihr Speicher:** nur mit Speicherempfehlung Break-even-Band + Speicher-Sätze; bei „speicher-lohnt-nicht"
    nur das bestehende Urteil ohne Diagramm; bei „nur-tarif" entfällt der Block.
@@ -488,6 +491,19 @@ Reserve passte). **Reserve** im Worst-Case 12 pt (gemessen als grösste zusätzl
 alle Fälle noch auf eine Seite passen). Feste Höhen, damit der Umbruch nicht vom Raster abhängt.
 Schrift: Fliesstext 10,5 pt (`EXEC_TEXT_PT`), Abschnittsüberschriften 12 pt fett in der Akzentfarbe,
 Diagramm-Beschriftungen 8 pt.
+
+**Lastgang-Diagramm (PR 5c, 04.10.2026)** — `executive-summary-load-chart.tsx`, Daten nur aus `summary.load`:
+- Ein Balken je Messtag (Tagesspitze in kW, grau Slate 400) über die Kalendertage vom ersten bis zum
+  letzten Messtag; Tage ohne Messung bleiben leer. Ab 2 pt je Tag dünne Balken mit Abstand, darunter
+  lückenlos (leicht überlappend, gegen Haarlinien).
+- Mit Speicher-Begrenzung (`capSegments` gesetzt): Treppenlinie je Zeitraum, gestrichelt in der
+  Akzentfarbe mit weissem Saum (sie liegt genau auf der Grenze Grau/Akzent und wäre sonst unsichtbar);
+  der Teil jedes Balkens über der Linie in der Akzentfarbe (`splitAtCap`). Ein Tag gehört zu dem
+  Zeitraum, der seine Tagesmitte enthält.
+- Achsen: y mit 0, Mitte und runder Obergrenze („… kW"), x mit Monatskürzeln an der Mitte der sichtbaren
+  Tage des Monats (nur, wo sie frei stehen). Legende in einer Zeile über dem Plot („Höchste Leistung pro
+  Tag", mit Begrenzung zusätzlich „Spitzen, die der Speicher abfängt" und „Begrenzung mit Speicher
+  (Höchstwert)"), sonst zweizeilig.
 
 **Diagramme Wege und Break-even (PR 5a, 04.10.2026)** — `executive-summary-charts.tsx`:
 - **Technik:** native react-pdf-Zeichnung in den festen Massen aus `EXEC_SLOTS` (Vektor, kein Raster):
@@ -544,7 +560,7 @@ Nettoinvestition ÷ Ersparnis allein aus günstigem Laden, mit derselben Funktio
 der Hauptzahl (`amortizationYearsOf`); nur gesetzt, wenn die Spitzenersparnis enthalten ist und das
 Laden etwas bringt.
 
-**Offen:** Lastgang-Diagramm (PR 5c); Bestandsspeicher (wohin dessen Spitzenersparnis gehört);
+**Offen:** Bestandsspeicher (wohin dessen Spitzenersparnis gehört);
 Privat; Liefertarif unbekannt; Teiljahr ohne Jahresszenario (keine Jahreskosten je Weg vorhanden).
 
 ---

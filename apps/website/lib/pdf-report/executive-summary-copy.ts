@@ -13,7 +13,10 @@ export type CopyRun = { text: string; bold: boolean }
 export type ExecutiveSummaryCopy = {
   /** Die grosse Zahl („bis zu € 10.150") mit „pro Jahr"; ohne Ersparnis nur der Satz. */
   hero: { amount: string | null; text: string }
+  /** Ohne Speicherblock: woher die Ersparnis kommt (statt der Teilzahlen, die der Hero-Zahl glichen). */
+  heroDetail: string | null
   basis: string
+  /** Teilzahlen nur mit Speicherblock. */
   stages: { amount: string | null; label: string }[]
   wayLabels: string[]
   loadSentence: string
@@ -65,7 +68,13 @@ function basisText(s: ExecutiveSummary): string {
     : `gerechnet mit Ihren Messwerten von ${s.header.measuredDays} Tagen`
 }
 
+function tariffTarget(s: ExecutiveSummary): string {
+  const recommended = s.ways.find((way) => way.isRecommended)!
+  return recommended.id === 'comparison' ? comparisonTarget(recommended) : SPOT_NAME
+}
+
 function stageLines(s: ExecutiveSummary): ExecutiveSummaryCopy['stages'] {
+  if (!s.storage) return []
   return s.stages.map((stage) => {
     const eur = formatEur(stage.savingPerYearEur)
     if (stage.id === 'mit-speicher') {
@@ -77,9 +86,7 @@ function stageLines(s: ExecutiveSummary): ExecutiveSummaryCopy['stages'] {
     if (stage.savingPerYearEur <= 0) {
       return { amount: null, label: 'Ein Tarifwechsel allein bringt Ihnen derzeit keinen Vorteil.' }
     }
-    const recommended = s.ways.find((way) => way.isRecommended)!
-    const target = recommended.id === 'comparison' ? comparisonTarget(recommended) : SPOT_NAME
-    return { amount: eur, label: `Wechsel zu ${target}, ohne Anschaffung` }
+    return { amount: eur, label: `Wechsel zu ${tariffTarget(s)}, ohne Anschaffung` }
   })
 }
 
@@ -141,6 +148,8 @@ export function executiveSummaryCopy(s: ExecutiveSummary): ExecutiveSummaryCopy 
           }
         : { amount: null, text: 'Mit den heutigen Daten ergibt sich für Sie keine Ersparnis.' },
     basis: basisText(s),
+    heroDetail:
+      !s.storage && total > 0 ? `durch den Wechsel zu ${tariffTarget(s)}, ohne Anschaffung` : null,
     stages: stageLines(s),
     wayLabels: s.ways.map(wayLabel),
     loadSentence: loadSentence(s),
