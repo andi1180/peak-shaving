@@ -9,12 +9,25 @@ import { CHART_COLORS, PDF_COLORS } from './theme'
  * Die zwei Diagramme der Vorderseite als native react-pdf-Zeichnung: Geometrie als Svg/View in den
  * festen Massen aus `EXEC_SLOTS`, Beschriftung als gewöhnlicher Text (Report-Schrift, € und Umlaute).
  */
-const FONT_PT = 6.5
-const LINE_PT = 8
-/** Zeichenbreite in em für Inter, aufgerundet (gemessen ≈ 0,45) — nur für die Platzierung. */
+const FONT_PT = 8
+const LINE_PT = 10
+/** Zeichenbreiten in em für Inter, mit fontkit gemessen und aufgerundet — nur für die Platzierung. */
+const DIGIT_EM = 0.6
 const CHAR_EM = 0.5
+const BOLD_FACTOR = 1.05
 
-const textWidth = (text: string): number => text.length * FONT_PT * CHAR_EM
+const textWidth = (text: string, bold = false): number =>
+  [...text].reduce((sum, ch) => sum + (/[0-9]/.test(ch) ? DIGIT_EM : CHAR_EM), 0) *
+  FONT_PT *
+  (bold ? BOLD_FACTOR : 1)
+
+/** Kürzt auf die Breite, mit „…" am Ende. */
+export function fitLabel(text: string, width: number, bold = false): string {
+  if (textWidth(text, bold) <= width) return text
+  let cut = text
+  while (cut.length > 1 && textWidth(`${cut}…`, bold) > width) cut = cut.slice(0, -1)
+  return `${cut.trimEnd()}…`
+}
 
 type Size = { width: number; height: number }
 
@@ -41,9 +54,9 @@ export function waysBarsOf(ways: ExecutiveSummaryWay[], labels: string[], slot: 
   if (barHeight < BAR_MIN_PT) throw new Error(`Wege-Balken: ${ways.length} Zeilen passen nicht`)
   const max = Math.max(...ways.map((way) => way.costPerYearEur))
   const valueTexts = ways.map((way) => formatEur(way.costPerYearEur))
-  const scale = slot.width - Math.max(...valueTexts.map(textWidth)) - 4
+  const scale = slot.width - Math.max(...valueTexts.map((t) => textWidth(t, true))) - 4
   return ways.map((way, i) => ({
-    label: labels[i]!,
+    label: fitLabel(labels[i]!, slot.width, way.isRecommended),
     valueEur: way.costPerYearEur,
     valueText: valueTexts[i]!,
     color: way.isToday
@@ -195,7 +208,7 @@ export function breakEvenLayoutOf(band: BreakEvenBand, slot: Size): BreakEvenLay
     return { ...rect, text, bold }
   }
 
-  const investmentText = `Investition ${formatEur(band.investmentEur)}`
+  const investmentText = `${band.subsidized ? 'Investition nach Förderung' : 'Investition'} ${formatEur(band.investmentEur)}`
   const iw = textWidth(investmentText)
   const investmentLabel = place(investmentText, [
     { x: plot.left + 1, y: investmentY - LINE_PT - 1 },

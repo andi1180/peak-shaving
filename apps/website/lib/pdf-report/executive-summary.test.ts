@@ -4,9 +4,15 @@ import { describe, expect, it } from 'vitest'
 import { formatEur } from '@/lib/format'
 
 import { EXECUTIVE_SUMMARY_CASES as CASES, muster, variant } from '@/test/executive-summary-cases'
+import { lineCount } from '@/test/pdf-text-lines'
 import { dailyPeaksOf } from './daily-peaks'
 import { buildExecutiveSummary, type ExecutiveSummary } from './executive-summary'
-import { executiveSummaryCopy } from './executive-summary-copy'
+import {
+  EXECUTIVE_SUMMARY_FOOTER,
+  executiveSummaryCopy,
+  type ExecutiveSummaryCopy,
+} from './executive-summary-copy'
+import { EXEC_SLOTS, EXEC_TEXT_PT } from './executive-summary-layout'
 import { headlineStorageOf } from './headline-storage'
 import { recommendedEntryOf } from './summary'
 
@@ -16,6 +22,14 @@ const FORBIDDEN =
 const summaries = Object.fromEntries(
   Object.entries(CASES).map(([name, input]) => [name, buildExecutiveSummary(input)!]),
 ) as Record<string, ExecutiveSummary>
+
+/** Tarif ohne Spitzengebühr (und damit ohne Spitzenersparnis). */
+const noFee = buildExecutiveSummary(
+  variant(({ analysis }) => {
+    analysis.current.leistungspreisCostPerYear = 0
+    analysis.annualScenario!.ways.peakShavingSavingEur = 0
+  }),
+)!
 
 describe('buildExecutiveSummary', () => {
   it('Müldür-Jahr: Stufen, Rückzahlzeit und Netto aus den bestehenden Zahlen', () => {
@@ -98,96 +112,123 @@ describe('buildExecutiveSummary', () => {
 
 describe('executiveSummaryCopy', () => {
   const copies = Object.entries(summaries).map(
-    ([name, s]) => [name, s, JSON.stringify(executiveSummaryCopy(s))] as const,
+    ([name, s]) => [name, s, executiveSummaryCopy(s)] as const,
   )
+  const textOf = (copy: ExecutiveSummaryCopy) => JSON.stringify(copy)
+  const storageText = (copy: ExecutiveSummaryCopy) => copy.storage!.map((r) => r.text).join('')
 
   it('kein Fachbegriff in den Kundentexten (Positivkontrolle: der Test schlägt an)', () => {
     expect(FORBIDDEN.test('Der Speicher übernimmt die Ladesteuerung.')).toBe(true)
-    for (const [name, , text] of copies) expect(text.match(FORBIDDEN), name).toBeNull()
+    for (const [name, , copy] of copies) expect(textOf(copy).match(FORBIDDEN), name).toBeNull()
   })
 
-  it('kennzeichnet Obergrenze und Hochrechnung', () => {
-    for (const [name, s, text] of copies) {
-      if (s.storage?.upperBound) expect(text, name).toContain('frühestens')
-      if (s.header.basis === 'projected') expect(text, name).toContain('hochgerechnet')
+  it('Hero: „bis zu" mit Spitzenersparnis, sonst „rund"; Basis je Hochrechnung', () => {
+    const müldür = executiveSummaryCopy(summaries['jahr (Müldür)']!)
+    expect(müldür.hero).toEqual({ amount: `bis zu ${formatEur(10150)}`, text: 'pro Jahr' })
+    expect(müldür.basis).toBe('geschätzt, hochgerechnet aus 157 gemessenen Tagen')
+    expect(executiveSummaryCopy(summaries['ohne Spitzenersparnis']!).hero.amount).toBe(
+      `rund ${formatEur(8990)}`,
+    )
+    expect(executiveSummaryCopy(summaries['volles Jahr (konstruiert)']!).basis).toMatch(
+      /^gerechnet mit Ihren Messwerten von \d+ Tagen$/,
+    )
+  })
+
+  it('Teilzahlen: Tarifwechsel links, Speicher rechts — ohne Speicher nur links', () => {
+    expect(executiveSummaryCopy(summaries['jahr (Müldür)']!).stages).toEqual([
+      { amount: formatEur(8025), label: 'Wechsel zu aWATTar, ohne Anschaffung' },
+      { amount: `bis zu ${formatEur(2125)}`, label: 'mit einem Speicher dazu' },
+    ])
+    expect(executiveSummaryCopy(summaries['ohne Spitzenersparnis']!).stages[1]!.amount).toBe(
+      formatEur(965),
+    )
+    for (const name of ['nur-tarif (Katalog leer)', 'speicher-lohnt-nicht']) {
+      expect(executiveSummaryCopy(summaries[name]!).stages, name).toHaveLength(1)
     }
   })
-})
 
-describe('Fussnote unter den Wege-Balken', () => {
-  const NOTE =
-    'Stromkosten ohne die Spitzengebühr (die gesonderte Gebühr für Ihre höchste Leistungsspitze im Monat).'
+  it('Lastgang-Satz je Spitzengebühr und Spitzenersparnis', () => {
+    const base = 'Die Balken zeigen Ihre höchste Leistung pro Tag.'
+    const fee = `${base} Sie bestimmen die Spitzengebühr (für die höchste Spitze im Monat)`
+    expect(executiveSummaryCopy(summaries['jahr (Müldür)']!).loadSentence).toBe(
+      `${fee}; ein Speicher kann Spitzen über der Linie abfangen (Höchstwert).`,
+    )
+    expect(executiveSummaryCopy(summaries['ohne Spitzenersparnis']!).loadSentence).toBe(`${fee}.`)
+    expect(executiveSummaryCopy(noFee).loadSentence).toBe(base)
+  })
 
-  it('mit Spitzengebühr und Spitzenersparnis: Einsparung kommt hinzu', () => {
-    expect(executiveSummaryCopy(summaries['jahr (Müldür)']!).waysFootnote).toBe(
-      `${NOTE} Deren Einsparung (bis zu ${formatEur(1160)}) kommt hinzu.`,
+  it('Wege-Satz: empfohlener Weg, Spitzengebühr, deren Einsparung', () => {
+    expect(executiveSummaryCopy(summaries['jahr (Müldür)']!).waysSentence).toBe(
+      `Mit aWATTar und einem Speicher, der günstig lädt, sinken Ihre Kosten von rund ${formatEur(34794)} ` +
+        `auf rund ${formatEur(25804)} — ohne Spitzengebühr; deren Einsparung (bis zu ${formatEur(1160)}) kommt hinzu.`,
+    )
+    expect(executiveSummaryCopy(summaries['nur-tarif (Katalog leer)']!).waysSentence).toBe(
+      `Mit dem Wechsel zu aWATTar sinken Ihre Kosten von rund ${formatEur(34794)} ` +
+        `auf rund ${formatEur(26769)} — ohne Spitzengebühr.`,
+    )
+    expect(executiveSummaryCopy(noFee).waysSentence).not.toContain('Spitzengebühr')
+  })
+
+  it('Speicher-Sätze: Rückzahlzeit-Varianten, Förderung im ersten Satz, Zahlen fett', () => {
+    const müldür = executiveSummaryCopy(summaries['jahr (Müldür)']!)
+    expect(storageText(müldür)).toBe(
+      `Kostal & Dyness Retrofit S, 29,2 kWh nutzbar, Investition rund ${formatEur(8550)} netto. ` +
+        'Rückzahlzeit: frühestens nach ca. 4 Jahren; allein durch günstiges Laden nach ca. 8,9 Jahren. ' +
+        `Nach 10 Jahren bleiben unterm Strich bis zu ${formatEur(12700)}.`,
+    )
+    expect(müldür.storage!.filter((r) => r.bold).map((r) => r.text)).toEqual([
+      formatEur(8550),
+      'ca. 4 Jahren',
+      'ca. 8,9 Jahren',
+      formatEur(12700),
+    ])
+    expect(storageText(executiveSummaryCopy(summaries['ohne Spitzenersparnis']!))).toContain(
+      'Rückzahlzeit: nach ca. 8,9 Jahren. Nach 10 Jahren bleiben unterm Strich rund',
+    )
+    expect(storageText(executiveSummaryCopy(summaries['mit Förderung']!))).toContain(
+      `netto, nach Förderung rund ${formatEur(6550)}. Rückzahlzeit: frühestens nach ca. 3,1 Jahren`,
+    )
+    expect(storageText(executiveSummaryCopy(summaries['Worst Case']!))).toContain(
+      'allein durch günstiges Laden rechnet sich der Speicher innerhalb von 10 Jahren nicht.',
     )
   })
 
-  it('mit Spitzengebühr, ohne Spitzenersparnis: nur der Hinweis', () => {
-    expect(executiveSummaryCopy(summaries['ohne Spitzenersparnis']!).waysFootnote).toBe(NOTE)
-    expect(executiveSummaryCopy(summaries['nur-tarif (Katalog leer)']!).waysFootnote).toBe(NOTE)
+  it('ohne Speicherempfehlung: keine Speicher-Sätze; lohnt nicht: nur das Urteil', () => {
+    expect(executiveSummaryCopy(summaries['nur-tarif (Katalog leer)']!)).toMatchObject({
+      storage: null,
+      storageVerdict: null,
+    })
+    const notWorth = executiveSummaryCopy(summaries['speicher-lohnt-nicht']!)
+    expect(notWorth.storage).toBeNull()
+    expect(notWorth.storageVerdict).toMatch(/^Ein neuer Speicher \(/)
   })
 
-  it('ohne Spitzengebühr: keine Fussnote', () => {
-    const noFee = buildExecutiveSummary(
-      variant(({ analysis }) => {
-        analysis.current.leistungspreisCostPerYear = 0
-        analysis.annualScenario!.ways.peakShavingSavingEur = 0
-      }),
-    )!
-    expect(noFee.hasLeistungspreis).toBe(false)
-    expect(executiveSummaryCopy(noFee).waysFootnote).toBeNull()
+  it('Lastgang- und Wege-Satz höchstens zwei Zeilen bei 10,5 pt (Positivkontrolle)', () => {
+    expect(
+      lineCount(
+        `${copies[0]![2].loadSentence} Sie wird zusätzlich erklärt.`,
+        EXEC_TEXT_PT,
+        EXEC_SLOTS.load.width,
+      ),
+    ).toBe(3)
+    for (const [name, , copy] of [
+      ...copies,
+      ['ohne Spitzengebühr', noFee, executiveSummaryCopy(noFee)] as const,
+    ]) {
+      for (const sentence of [copy.loadSentence, copy.waysSentence]) {
+        expect(
+          lineCount(sentence, EXEC_TEXT_PT, EXEC_SLOTS.load.width),
+          `${name}: ${sentence}`,
+        ).toBeLessThanOrEqual(2)
+      }
+    }
   })
-})
 
-describe('Rückzahlzeit ohne Spitzenersparnis und Börsenpreis-Satz', () => {
-  const copyOf = (s: ExecutiveSummary) => executiveSummaryCopy(s)
-
-  it('Müldür-Jahr: Spanne aus Obergrenze und günstigem Laden allein', () => {
-    const s = summaries['jahr (Müldür)']!
-    expect(s.storage!.paybackWithoutPeaksYears!.toFixed(1)).toBe('8.9')
-    expect(s.storage!.paybackWithoutPeaksBeyondHorizon).toBe(false)
-    expect(copyOf(s).storage).toContain(
-      'Rückzahlzeit: frühestens nach ca. 4 Jahren; allein durch günstiges Laden nach ca. 8,9 Jahren',
+  it('Fusszeile ohne Seitenverweis', () => {
+    expect(EXECUTIVE_SUMMARY_FOOTER).toBe(
+      'Schätzung, keine Zusage. Annahmen und Risiken, u. a. beim Börsenpreis, im weiteren Bericht.',
     )
-  })
-
-  it('ohne Spitzenersparnis: kein zweiter Wert, Zeile wie bisher', () => {
-    const s = summaries['ohne Spitzenersparnis']!
-    expect(s.storage!.paybackWithoutPeaksYears).toBeNull()
-    expect(copyOf(s).storage).toContain('Rückzahlzeit: nach ca. 8,9 Jahren')
-  })
-
-  it('jenseits des Horizonts: rechnet sich allein durch Laden nicht', () => {
-    const s = summaries['Worst Case']!
-    expect(s.storage!.paybackWithoutPeaksBeyondHorizon).toBe(true)
-    expect(copyOf(s).storage!.join('\n')).toContain(
-      'allein durch günstiges Laden rechnet sich der Speicher innerhalb von 10 Jahren nicht',
-    )
-  })
-
-  it('ohne Speicherblock gibt es den Wert nicht', () => {
-    expect(summaries['nur-tarif (Katalog leer)']!.storage).toBeNull()
-    expect(summaries['speicher-lohnt-nicht']!.storage).toBeNull()
-  })
-
-  it('Börsenpreis-Satz: „Der größte Teil" ab 50 % Tarifwechsel, sonst „Ein Teil"', () => {
-    expect(copyOf(summaries['jahr (Müldür)']!).confidence.join('\n')).toContain(
-      `Der größte Teil der Ersparnis (rund ${formatEur(8025)}) kommt vom Wechsel zu aWATTar`,
-    )
-    // Tarifwechsel 1.000 €, Speicher 2.125 €: der Wechsel ist der kleinere Teil.
-    const small = buildExecutiveSummary(
-      variant(({ analysis }) => {
-        const ways = analysis.annualScenario!.ways
-        ways.spotWithoutControlEur = ways.currentTariffEur! - 1_000
-        ways.controlledEur = ways.spotWithoutControlEur - 965
-      }),
-    )!
-    expect(small.stages.map((st) => st.savingPerYearEur)).toEqual([1000, 2125])
-    expect(copyOf(small).confidence.join('\n')).toContain(
-      `Ein Teil der Ersparnis (rund ${formatEur(1000)}) kommt vom Wechsel zu aWATTar`,
-    )
+    expect(EXECUTIVE_SUMMARY_FOOTER).not.toMatch(/Seite|\d/)
   })
 })
 

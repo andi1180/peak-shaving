@@ -72,9 +72,13 @@ import {
 import { buildPvValueChapter } from './pv-value'
 import { breakEvenBandOf } from './break-even-band'
 import type { ExecutiveSummary } from './executive-summary'
-import { executiveSummaryCopy } from './executive-summary-copy'
+import { EXECUTIVE_SUMMARY_FOOTER, executiveSummaryCopy } from './executive-summary-copy'
 import { ExecBreakEvenChart, ExecWaysChart } from './executive-summary-charts'
-import { EXEC_SLOTS, EXECUTIVE_SUMMARY_SECTION_ID } from './executive-summary-layout'
+import {
+  EXEC_SLOTS,
+  EXEC_TEXT_PT,
+  EXECUTIVE_SUMMARY_SECTION_ID,
+} from './executive-summary-layout'
 import { SHOW_PV_VALUE_AMOUNTS } from './report-flags'
 import {
   resolveReportSegments,
@@ -760,27 +764,37 @@ const styles = StyleSheet.create({
 
   /* Vorderseite „Auf einen Blick" — Abstände knapp, die Seite muss in jeder Variante auf ein Blatt. */
   execMeta: { fontSize: PDF_TYPE.small, lineHeight: PDF_TYPE.lineHeight, color: PDF_COLORS.textMuted },
-  execHeadline: {
-    marginTop: 6,
-    fontSize: 15,
-    lineHeight: PDF_TYPE.lineHeight,
+  execHero: {
+    marginTop: 4,
+    fontSize: 40,
+    lineHeight: 1.1,
     fontWeight: 700,
-    color: PDF_COLORS.ink,
-  },
-  execStage: { ...LEADING, marginTop: 4, color: PDF_COLORS.text },
-  execLabel: {
-    marginTop: 12,
-    marginBottom: 4,
-    fontSize: PDF_TYPE.small,
-    lineHeight: PDF_TYPE.lineHeight,
-    fontWeight: 600,
     color: PDF_COLORS.accent,
   },
-  execColumns: { flexDirection: 'row', justifyContent: 'space-between' },
-  execText: { ...LEADING, marginTop: 4, color: PDF_COLORS.text },
-  execFootnote: {
-    marginTop: 4,
-    fontSize: PDF_TYPE.small,
+  execHeroUnit: { fontSize: 16, fontWeight: 600, color: PDF_COLORS.text },
+  execBasis: { fontSize: 9, lineHeight: PDF_TYPE.lineHeight, color: PDF_COLORS.textMuted },
+  execStages: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 },
+  execStageAmount: { fontSize: 20, lineHeight: 1.15, fontWeight: 700, color: PDF_COLORS.ink },
+  execStageLabel: { fontSize: EXEC_TEXT_PT, lineHeight: PDF_TYPE.lineHeight, color: PDF_COLORS.text },
+  execSection: {
+    marginTop: 12,
+    marginBottom: 5,
+    fontSize: 12,
+    lineHeight: PDF_TYPE.lineHeight,
+    fontWeight: 700,
+    color: PDF_COLORS.accent,
+  },
+  execText: {
+    marginTop: 5,
+    fontSize: EXEC_TEXT_PT,
+    lineHeight: PDF_TYPE.lineHeight,
+    color: PDF_COLORS.text,
+  },
+  /** Fester Platz für höchstens zwei Zeilen — ein Test hält die Sätze darunter. */
+  execTwoLines: { height: 6 + 2 * EXEC_TEXT_PT * PDF_TYPE.lineHeight },
+  execFooter: {
+    marginTop: 10,
+    fontSize: 8,
     lineHeight: PDF_TYPE.lineHeight,
     color: PDF_COLORS.textMuted,
   },
@@ -811,59 +825,60 @@ function ExecutiveSummaryPage({ summary }: { summary: ExecutiveSummary }) {
   const meta = [customerName, period && `Zeitraum ${period}`, `Erstellt am ${printedAt}`]
     .filter(Boolean)
     .join(' · ')
-  const storage = copy.storage
   const band = breakEvenBandOf(summary.storage)
-  const confidence: ReportNotice = {
-    id: 'executive_summary_confidence',
-    tone: 'neutral',
-    title: copy.confidenceTitle,
-    body: copy.confidence[0]!,
-    list: { label: null, items: copy.confidence.slice(1) },
-    hints: [],
-  }
 
   return (
     <View style={styles.body}>
       <Text style={styles.execMeta}>{meta}</Text>
-      <Text style={[styles.h2, { marginTop: 6 }]}>Auf einen Blick</Text>
-      <Text style={styles.execHeadline}>{copy.headline}</Text>
-      {copy.stages.map((line) => (
-        <Text key={line} style={styles.execStage}>
-          {line}
+      <Text style={[styles.h2, { marginTop: 4 }]}>Auf einen Blick</Text>
+      {copy.hero.amount ? (
+        <Text style={styles.execHero}>
+          {copy.hero.amount}
+          <Text style={styles.execHeroUnit}> {copy.hero.text}</Text>
         </Text>
-      ))}
-
-      <Text style={styles.execLabel}>Ihr Lastgang</Text>
-      <ExecSlot slot={EXEC_SLOTS.load} />
-
-      <View style={styles.execColumns}>
-        <View style={{ width: storage ? EXEC_SLOTS.ways.width : EXEC_SLOTS.waysFullWidth.width }}>
-          <Text style={styles.execLabel}>Ihre Stromkosten pro Jahr</Text>
-          <ExecWaysChart
-            ways={summary.ways}
-            labels={copy.wayLabels}
-            slot={storage ? EXEC_SLOTS.ways : EXEC_SLOTS.waysFullWidth}
-          />
-          {copy.waysFootnote && <Text style={styles.execFootnote}>{copy.waysFootnote}</Text>}
-          <Text style={styles.execText}>{copy.waysParagraph}</Text>
-          {copy.storageVerdict && <Text style={styles.execText}>{copy.storageVerdict}</Text>}
-        </View>
-        {storage && (
-          <View style={{ width: EXEC_SLOTS.breakEven.width }}>
-            <Text style={styles.execLabel}>Unser Speichervorschlag</Text>
-            {storage.map((line) => (
-              <Text key={line} style={styles.execText}>
-                {line}
-              </Text>
-            ))}
-            <View style={{ marginTop: 6 }}>
-              {band && <ExecBreakEvenChart band={band} slot={EXEC_SLOTS.breakEven} />}
-            </View>
+      ) : (
+        <Text style={[styles.execStageAmount, { marginTop: 6 }]}>{copy.hero.text}</Text>
+      )}
+      <Text style={styles.execBasis}>{copy.basis}</Text>
+      <View style={styles.execStages}>
+        {copy.stages.map((stage) => (
+          <View key={stage.label} style={{ width: copy.stages.length > 1 ? '48%' : '100%' }}>
+            {stage.amount && <Text style={styles.execStageAmount}>{stage.amount}</Text>}
+            <Text style={styles.execStageLabel}>{stage.label}</Text>
           </View>
-        )}
+        ))}
       </View>
 
-      <Notice notice={confidence} keepTogether />
+      <Text style={styles.execSection}>Ihr Lastgang</Text>
+      <ExecSlot slot={EXEC_SLOTS.load} />
+      <View style={styles.execTwoLines}>
+        <Text style={styles.execText}>{copy.loadSentence}</Text>
+      </View>
+
+      <Text style={styles.execSection}>Ihre Stromkosten pro Jahr</Text>
+      <ExecWaysChart ways={summary.ways} labels={copy.wayLabels} slot={EXEC_SLOTS.ways} />
+      <View style={styles.execTwoLines}>
+        <Text style={styles.execText}>{copy.waysSentence}</Text>
+      </View>
+
+      {(band || copy.storageVerdict) && <Text style={styles.execSection}>Ihr Speicher</Text>}
+      {band && <ExecBreakEvenChart band={band} slot={EXEC_SLOTS.breakEven} />}
+      {copy.storage && (
+        <Text style={styles.execText}>
+          {copy.storage.map((run, i) =>
+            run.bold ? (
+              <Text key={i} style={{ fontWeight: 700 }}>
+                {run.text}
+              </Text>
+            ) : (
+              run.text
+            ),
+          )}
+        </Text>
+      )}
+      {copy.storageVerdict && <Text style={styles.execText}>{copy.storageVerdict}</Text>}
+
+      <Text style={styles.execFooter}>{EXECUTIVE_SUMMARY_FOOTER}</Text>
     </View>
   )
 }

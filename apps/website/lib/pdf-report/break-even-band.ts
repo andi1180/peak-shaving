@@ -14,6 +14,8 @@ export type BreakEvenLine = {
 export type BreakEvenBand = {
   horizonYears: number
   investmentEur: number
+  /** Förderung eingetragen: die Investitionslinie liegt nach Förderung. */
+  subsidized: boolean
   /** Ersparnis samt Stromspitzen (Höchstwert, wenn `upperBound`), sonst die ganze Ersparnis. */
   upper: BreakEvenLine
   upperBound: boolean
@@ -40,6 +42,7 @@ export function breakEvenBandOf(storage: ExecutiveSummaryStorage | null): BreakE
   return {
     horizonYears,
     investmentEur,
+    subsidized: storage.hasSubsidy,
     upper,
     upperBound: storage.upperBound,
     lower,
