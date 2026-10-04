@@ -434,6 +434,21 @@ sagt weiterhin `limitations` im Schlusskapitel für den ganzen Report.
 **Offen geblieben:** der Zeilenabstand im teal Kasten weicht vom Zielbild ab (er ist der geteilte
 `statement`-Abstand).
 
+### D8 Nachtrag (04.10.2026) — eine Quelle für die Speicher-Hauptzahl (bindend)
+
+Ersparnis pro Jahr, Amortisation und Netto über den Horizont des gezeigten Speichers kommen
+ausschliesslich aus `headlineStorageOf` (`apps/website/lib/pdf-report/headline-storage.ts`). Steht
+das Kapitel „Hochrechnung auf ein ganzes Jahr" im Report (Bedingung `annualScenarioSavingsOf`, dieselbe
+wie das Kapitel) und rechnet es mit demselben Gerät, gilt die **Jahreszahl** (Speicher-Anteil =
+„Davon durch den Speicher", Amortisation = Nettoinvestition ÷ diese Zahl, Netto wie `roi.ts`), sonst die
+**lineare** Hochrechnung der Engine. Verbraucher: Speicher-Kasten der Zusammenfassung, Weg 4,
+„Empfehlung und Wirtschaftlichkeit", „Unser Vorschlag". Die Zeitraum-Kopfzahlen der Zusammenfassung
+(Ein-Spanne-Regel oben) sind davon nicht berührt.
+
+**Noch linear (offen):** die Ladesteuerungs-Kopfzahl (`buildLoadControl`), der Kostenverlauf samt
+Schnittpunkt-Satz (`detail.ts`), „Abstand zur Empfehlung" in der Gerätetabelle, `storageJudgementText`
+und der Hinweis „Warum weicht die Speicher-Ersparnis hier ab?" im Jahreskapitel.
+
 ---
 
 ## D9 — Baustein 7: „Annahmen und Datengrundlage" ausbauen

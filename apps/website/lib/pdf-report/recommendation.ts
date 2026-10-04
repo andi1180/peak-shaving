@@ -49,6 +49,8 @@ import type { ReportBuildContext } from './context'
 import { block, ref, t, REF_SECTION } from './report-text'
 import type { ReportNotice, ReportPoint, ReportRow, ReportStatement } from './statement'
 import { primaryEntryOf, recommendedEntryOf } from './summary'
+import type { AnnualScenarioPvInput } from './annual-scenario'
+import { headlineStorageOf } from './headline-storage'
 import type { PdfReportAnalysis } from './types'
 
 /**
@@ -218,9 +220,11 @@ export function buildRecommendation(
    * behaupten, die niemand nachgeschlagen hat.
    */
   catalogMeta?: BatteryCatalogMeta,
+  pv?: AnnualScenarioPvInput,
 ): ReportStatement {
   const b = entry.battery
   const horizonYears = analysis.assumptions.horizonYears
+  const headline = headlineStorageOf(analysis, entry, pv)
   const isExisting = analysis.existingBatteryAnalysis != null
 
   const baseCost = b.usableCapacityKwh * b.pricePerKwh
@@ -242,10 +246,10 @@ export function buildRecommendation(
   rows.push(...subsidyRows(entry, analysis.assumptions.subsidyPrograms))
   rows.push({
     label: `Ersparnis ${perYearText(entry)}`,
-    value: formatEur(entry.totalSavingPerYear),
+    value: formatEur(headline.savingPerYearEur),
     tone: 'positive',
   })
-  rows.push(netOverHorizonRow(entry, horizonYears))
+  rows.push(netOverHorizonRow({ netSavingOverHorizon: headline.netSavingOverHorizonEur }, horizonYears))
   rows.push(...capRows(analysis, entry, loadProfile))
 
   /*
@@ -253,7 +257,7 @@ export function buildRecommendation(
    * Aufschlüsselung darunter, die Amortisation nirgends sonst. `formatYears(Infinity)` liefert „∞ Jahre" —
    * der Fall entsteht bei einer Ersparnis von 0 (`roi.ts`) und ist eine Antwort, keine Lücke.
    */
-  const amortizesWithinHorizon = entry.amortizationYears <= horizonYears
+  const amortizesWithinHorizon = headline.amortizationYears <= horizonYears
 
   /*
    * ── ⚠ STUFE D: DER ZWEITE PUNKT HÄNGT AN `addon` UND FÄLLT MIT IHM ──────────────────────────
@@ -378,7 +382,7 @@ export function buildRecommendation(
         ? `Bestes Gerät im Katalog: ${b.name}`
         : `Unsere Empfehlung: ${b.name}`,
     amount: {
-      value: formatYears(entry.amortizationYears),
+      value: formatYears(headline.amortizationYears),
       caption: subsidy
         ? `bis sich die Nettoinvestition nach Förderung von ${formatEur(investmentAfterSubsidy(entry))} bezahlt gemacht hat`
         : `bis sich die Investition von ${formatEur(entry.totalInvestment)} bezahlt gemacht hat`,
@@ -532,6 +536,7 @@ export function buildRecommendationChapter(
   context?: ReportBuildContext,
   /** K3b: die Beiwerte des Katalogstands; `undefined` beim Wizard-Weg (K3c) und im Prüfstand. */
   catalogMeta?: Record<string, BatteryCatalogMeta>,
+  pv?: AnnualScenarioPvInput,
 ): RecommendationChapter {
   /* ⚠ `context ? … : …` statt `??` — beide Einträge sind selbst gültig `undefined`. */
   const recommended = context ? context.recommendedEntry : recommendedEntryOf(analysis)
@@ -544,7 +549,7 @@ export function buildRecommendationChapter(
       ? null
       : hint
         ? dynamicTariffHintStatement(hint)
-        : buildRecommendation(analysis, recommended, loadProfile, catalogMeta?.[recommended.battery.id]),
+        : buildRecommendation(analysis, recommended, loadProfile, catalogMeta?.[recommended.battery.id], pv),
     loadControl: buildLoadControl(analysis, primary),
   }
 }

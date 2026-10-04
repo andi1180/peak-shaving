@@ -1475,7 +1475,7 @@ function ResultsChapter({
   layout: ReportLayout
 }) {
   const summary = buildReportSummary(input, context)
-  const storage = buildStorageSummary(input.analysis)
+  const storage = buildStorageSummary(input.analysis, input)
   const overview = resolveReportSegments(summary.overview, layout, 'overview')
   const pvPointer = summary.pvPointer
     ? resolveReportSegments(summary.pvPointer, layout, 'pv_pointer')
@@ -1754,7 +1754,7 @@ function WaysChapter({
   context: ReportBuildContext
   layout: ReportLayout
 }) {
-  const chapter = buildWaysChapter(input.analysis)
+  const chapter = buildWaysChapter(input.analysis, input)
   const peakData = peakShavingChartData(input.analysis, input.loadProfile, chapter)
 
   return (
@@ -1934,6 +1934,7 @@ function RecommendationChapter({
     input.loadProfile,
     context,
     input.batteryCatalogMeta,
+    input,
   )
 
   return (

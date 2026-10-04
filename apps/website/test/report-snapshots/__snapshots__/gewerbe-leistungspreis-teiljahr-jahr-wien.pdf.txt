@@ -110,15 +110,15 @@ Was der empfohlene Speicher zusätzlich bringt
  Kostal & Dyness Retrofit S                                                                                  € 8.550
  Gesamtinvestition
 
- Ladesteuerung (aWATTar)                                                                                     € 1.334
+ Ladesteuerung (aWATTar)                                                                                       € 965
  hochgerechnet aus 157 gemessenen Tagen; gemessen € 574
 
  Kappung der Lastspitzen                                                                                      € 1.160
 
- Zusammen pro Jahr                                                                                           € 2.495
+ Zusammen pro Jahr                                                                                           € 2.125
  Beträge gerundet
 
- Amortisation                                                                                               3,4 Jahre
+ Amortisation                                                                                                4 Jahre
 
 Der Tarifwechsel (€ 4.183 über die 157 gemessenen Tage) wirkt auch ohne Speicher und ist in diesen
 Zahlen nicht enthalten. Vorausberechnung, keine Zusage: Der Kappungs-Anteil ist eine Obergrenze, weil er
@@ -228,15 +228,15 @@ Tage hätte das € 4.183 weniger gekostet.
 aWATTar mit Ladesteuerung
  Gesamtinvestition                                                                                       € 8.550
 
- Netto über 10 Jahre                                                                                   € 16.398
+ Netto über 10 Jahre                                                                                   € 12.700
 
 Zusätzlich zum Tarifwechsel wird mit der empfohlenen Batterie gezielt geladen: in den günstigen
 Viertelstunden lädt der Speicher aus dem Netz, während er Kapazität für die teureren Stunden desselben
 Tages zurückhält — der Schutz Ihrer Lastspitzen hat dabei weiterhin Vorrang. Über denselben Zeitraum hätte
 das, Tarifwechsel und Ladesteuerung zusammen, € 4.757 gespart. Der Wert der Ladesteuerung allein, der
 Abstand zu „aWATTar ohne Steuerung", beträgt € 574. Gerechnet mit diesem Speicher: Kostal & Dyness
-Retrofit S spart voraussichtlich € 2.495 pro Jahr (auf ein Jahr hochgerechnet) und amortisiert sich nach 3,4
-Jahren — Netto-Ersparnis über 10 Jahre: € 16.398. Im Betrachtungszeitraum von 10 Jahren rechnet er sich
+Retrofit S spart voraussichtlich € 2.125 pro Jahr (auf ein Jahr hochgerechnet) und amortisiert sich nach 4,0
+Jahren — Netto-Ersparnis über 10 Jahre: € 12.700. Im Betrachtungszeitraum von 10 Jahren rechnet er sich
 damit. Diese Zahl ist eine Vorausberechnung, keine Zusage: der Speicher plant seinen Tag am Vorabend mit
 den dann bekannten Börsenpreisen und einer Verbrauchserwartung aus Ihren eigenen Messwerten — nicht
 mit dem Wissen, was der Tag tatsächlich bringen wird. Weicht Ihr Verbrauch von dieser Erwartung ab, fällt
@@ -354,16 +354,16 @@ Empfehlung und Wirtschaftlichkeit
 Welches Gerät — und was es kostet.
 
 Unsere Empfehlung: Kostal & Dyness Retrofit S
-3,4 Jahre bis sich die Investition von € 8.550 bezahlt gemacht hat
+4 Jahre bis sich die Investition von € 8.550 bezahlt gemacht hat
     Speicher (12,3 kW / 29,2 kWh)                                                                        € 6.650
 
     Installationspauschale (Richtwert)                                                                   € 1.900
 
     Gesamtinvestition                                                                                    € 8.550
 
-    Ersparnis pro Jahr (auf ein Jahr hochgerechnet)                                                     € 2.495
+    Ersparnis pro Jahr (auf ein Jahr hochgerechnet)                                                      € 2.125
 
-    Netto über 10 Jahre                                                                                € 16.398
+    Netto über 10 Jahre                                                                                € 12.700
 
     Kapp-Schwelle                                       zwischen 27,5 kW und 32,7 kW (je Abrechnungsperiode)
 
@@ -591,7 +591,7 @@ Was wir vorschlagen
       aWATTar mit Ladesteuerung — € 4.757 weniger über dieselben 157 Tage. Dazu kommt die Kappung
       Ihrer Lastspitzen mit dem Speicher (Kostal & Dyness Retrofit S, Investition € 8.550): € 1.160 pro Jahr,
       unabhängig vom Stromvertrag und als Obergrenze gerechnet. Zusammen mit der Ladesteuerung ergibt
-      das € 2.495 pro Jahr und eine Amortisation von 3,4 Jahren — eine Vorausberechnung, keine Zusage.
+      das € 2.125 pro Jahr und eine Amortisation von 4 Jahren — eine Vorausberechnung, keine Zusage.
       Sprechen Sie uns an, wenn Sie dabei Unterstützung möchten.
 
 Woher diese Zahlen stammen

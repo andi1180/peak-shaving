@@ -36,7 +36,7 @@ export type AnnualScenarioChapter = {
  * PV in der Rechnung: die Füllung trägt Tage einer Jahreszeit in eine andere, und mit PV wandert
  * dabei die Erzeugung mit (zu wenig Bezug im Winter) — dann gibt es das Kapitel nicht.
  */
-function involvesPv(input: PdfReportInput): boolean {
+function involvesPv(input: AnnualScenarioPvInput): boolean {
   const source = input.loadProfile.source
   return (
     input.hasPv === true ||
@@ -75,14 +75,51 @@ function deviceRef(scenario: AnnualScenario): string {
     : `dem Speicher „${device.name}"`
 }
 
-export function buildAnnualScenarioChapter(input: PdfReportInput): AnnualScenarioChapter | null {
-  const analysis = input.analysis
+/** Was die Bedingung des Kapitels ausser dem Ergebnis liest: die PV-Angaben. */
+export type AnnualScenarioPvInput = Pick<PdfReportInput, 'hasPv' | 'estimatedPv' | 'loadProfile'>
+
+export type AnnualScenarioSavings = {
+  scenario: AnnualScenario
+  currentTariffEur: number
+  spotWithoutControlEur: number
+  controlledEur: number
+  /** Die gerundeten Zeilen des Kapitels; `controlEur + peakEur` ist „Davon durch den Speicher". */
+  switchEur: number
+  controlEur: number
+  peakEur: number
+}
+
+/**
+ * Die Bedingung des Kapitels und seine gerundeten Ersparnisanteile — geteilt mit der
+ * Speicher-Hauptzahl (`headline-storage.ts`), die das Kapitel selbst nicht bauen darf: es liest
+ * `hasAdviceChapter`, und das Vorschlags-Kapitel liest die Hauptzahl.
+ */
+export function annualScenarioSavingsOf(
+  analysis: PdfReportInput['analysis'],
+  pv: AnnualScenarioPvInput,
+): AnnualScenarioSavings | null {
   const scenario = analysis.annualScenario
   if (!scenario || scenario.projectedDays <= 0 || !scenario.device) return null
-  if (summaryWaysOf(analysis) === null || involvesPv(input)) return null
+  if (summaryWaysOf(analysis) === null || involvesPv(pv)) return null
   const { currentTariffEur, spotWithoutControlEur, controlledEur } = scenario.ways
   // Ohne „Ihr Tarif heute" (Liefertarif unbekannt) oder ohne gesteuerte Reihe fehlt die Grundlage.
   if (currentTariffEur === null || controlledEur === null) return null
+  return {
+    scenario,
+    currentTariffEur,
+    spotWithoutControlEur,
+    controlledEur,
+    switchEur: euros(currentTariffEur - spotWithoutControlEur),
+    controlEur: euros(spotWithoutControlEur - controlledEur),
+    peakEur: euros(Math.max(0, scenario.ways.peakShavingSavingEur)),
+  }
+}
+
+export function buildAnnualScenarioChapter(input: PdfReportInput): AnnualScenarioChapter | null {
+  const analysis = input.analysis
+  const savings = annualScenarioSavingsOf(analysis, input)
+  if (!savings) return null
+  const { scenario, currentTariffEur, spotWithoutControlEur, controlledEur } = savings
 
   const days = scenario.measuredDays + scenario.projectedDays
   const measuredPercent = Math.round((scenario.measuredDays / days) * 100)
@@ -119,9 +156,7 @@ export function buildAnnualScenarioChapter(input: PdfReportInput): AnnualScenari
     body: `Hochgerechnete Jahreskosten (${priceLabel}), gerechnet mit ${deviceRef(scenario)}.`,
   }
 
-  const switchEur = euros(currentTariffEur - spotWithoutControlEur)
-  const controlEur = euros(spotWithoutControlEur - controlledEur)
-  const peakEur = euros(Math.max(0, scenario.ways.peakShavingSavingEur))
+  const { switchEur, controlEur, peakEur } = savings
   const totalSavingEur = switchEur + controlEur + peakEur
   const toneOf = (eur: number): ReportRow['tone'] => (eur >= 0 ? 'positive' : 'warning')
 

@@ -5,8 +5,10 @@ import { dynamicTariffHintKind, loadControlValueOf } from '@/lib/report-copy'
 import { totalInvestmentRow } from './investment-rows'
 import type { ReportRow, ReportStatement } from './statement'
 import { recommendedEntryOf, summaryWaysOf } from './summary'
+import type { AnnualScenarioPvInput } from './annual-scenario'
+import { headlineStorageOf } from './headline-storage'
 import type { PdfReportAnalysis } from './types'
-import { buildWaysChapter, peakShavingSavingOf } from './ways'
+import { buildWaysChapter } from './ways'
 
 export const STORAGE_SUMMARY_ID = 'storage_result'
 
@@ -31,12 +33,16 @@ export function storageSummarySource(
   return entry && comparison ? { entry, comparison } : null
 }
 
-export function buildStorageSummary(analysis: PdfReportAnalysis): ReportStatement | null {
+export function buildStorageSummary(
+  analysis: PdfReportAnalysis,
+  pv?: AnnualScenarioPvInput,
+): ReportStatement | null {
   const source = storageSummarySource(analysis)
   if (!source) return null
   const { entry, comparison } = source
 
   const control = loadControlValueOf(entry, comparison)
+  const headline = headlineStorageOf(analysis, entry, pv)
   const annualized = control.annualizedEur !== null
   const row = (label: string, value: string, extra: Partial<ReportRow> = {}): ReportRow => ({
     label,
@@ -55,19 +61,19 @@ export function buildStorageSummary(analysis: PdfReportAnalysis): ReportStatemen
     amount: null,
     rows: [
       row(entry.battery.name, totalInvestmentRow(entry).value, { hint: 'Gesamtinvestition' }),
-      row('Ladesteuerung (aWATTar)', formatEur(control.annualizedEur ?? control.overCoveredDaysEur), {
+      row('Ladesteuerung (aWATTar)', formatEur(headline.ladesteuerungEur), {
         ...(annualized
           ? {
               hint: `hochgerechnet aus ${days} gemessenen Tagen; gemessen ${formatEur(control.overCoveredDaysEur)}`,
             }
           : {}),
       }),
-      row('Kappung der Lastspitzen', formatEur(peakShavingSavingOf(analysis))),
-      row('Zusammen pro Jahr', formatEur(entry.totalSavingPerYear), {
+      row('Kappung der Lastspitzen', formatEur(headline.spitzenEur)),
+      row('Zusammen pro Jahr', formatEur(headline.savingPerYearEur), {
         hint: 'Beträge gerundet',
         total: true,
       }),
-      row('Amortisation', formatYears(entry.amortizationYears)),
+      row('Amortisation', formatYears(headline.amortizationYears)),
     ],
     body:
       (tariffSwitch && tariffSwitch.eur > 0

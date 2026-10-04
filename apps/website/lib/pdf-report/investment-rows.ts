@@ -44,7 +44,10 @@ export function subsidyRows(
 }
 
 /** Zeile „Netto über N Jahre" — geteilt mit Weg 4 im Wege-Kapitel (`ways.ts`). */
-export function netOverHorizonRow(entry: BatteryRoiEntry, horizonYears: number): ReportRow {
+export function netOverHorizonRow(
+  entry: Pick<BatteryRoiEntry, 'netSavingOverHorizon'>,
+  horizonYears: number,
+): ReportRow {
   return {
     label: `Netto über ${horizonYears} Jahre`,
     value: formatEur(entry.netSavingOverHorizon),

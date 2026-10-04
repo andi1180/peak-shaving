@@ -26,7 +26,7 @@ import {
   type SummaryWays,
 } from './summary'
 import type { PdfReportInput } from './types'
-import { peakShavingSavingOf } from './ways'
+import { headlineStorageOf } from './headline-storage'
 
 /**
  * Das Kapitel „Unser Vorschlag", zwischen „Methodik & Vorbehalte" und „Annahmen und
@@ -143,16 +143,17 @@ function maximumPoint(way: SummaryWay, days: string, input: PdfReportInput): Rep
   const summary = neutral ? null : storageSummarySource(input.analysis)
   if (summary) {
     const { entry: recommended } = summary
+    const headline = headlineStorageOf(input.analysis, recommended, input)
     return {
       title: 'Wollen Sie das Maximum',
       text:
         `${CONTROLLED_WAY_LABEL} — ${formatEur(way.eur)} weniger über dieselben ${days} Tage. ` +
         `Dazu kommt die Kappung Ihrer Lastspitzen mit dem Speicher (${recommended.battery.name}, ` +
         `Investition ${formatEur(recommended.totalInvestment)}): ` +
-        `${formatEur(peakShavingSavingOf(input.analysis))} pro Jahr, unabhängig vom Stromvertrag ` +
+        `${formatEur(headline.spitzenEur)} pro Jahr, unabhängig vom Stromvertrag ` +
         'und als Obergrenze gerechnet. Zusammen mit der Ladesteuerung ergibt das ' +
-        `${formatEur(recommended.totalSavingPerYear)} pro Jahr und eine Amortisation von ` +
-        `${formatYears(recommended.amortizationYears)}n — eine Vorausberechnung, keine Zusage. ` +
+        `${formatEur(headline.savingPerYearEur)} pro Jahr und eine Amortisation von ` +
+        `${formatYears(headline.amortizationYears)}n — eine Vorausberechnung, keine Zusage. ` +
         'Sprechen Sie uns an, wenn Sie dabei Unterstützung möchten.',
     }
   }
@@ -259,7 +260,7 @@ function accuracyPoint(input: PdfReportInput): ReportPoint | null {
  */
 function unknownTariffPoints(input: PdfReportInput): ReportPoint[] {
   const points: ReportPoint[] = []
-  const verdict = recommendationVerdictOf(input.analysis)
+  const verdict = recommendationVerdictOf(input.analysis, input)
   const no = catalogNoPoint(input)
   if (no) {
     points.push(no)
