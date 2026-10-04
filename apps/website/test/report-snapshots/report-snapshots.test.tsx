@@ -28,6 +28,7 @@ import {
 } from '@/lib/pdf-report/build-report-input'
 import type { ReportChartRasters } from '@/lib/pdf-report/charts'
 import { buildReportContext } from '@/lib/pdf-report/context'
+import { buildExecutiveSummary } from '@/lib/pdf-report/executive-summary'
 import { ReportDocument } from '@/lib/pdf-report/document'
 import { buildReportLayout } from '@/lib/pdf-report/layout'
 import { createPageNumberSink } from '@/lib/pdf-report/page-numbers'
@@ -337,7 +338,7 @@ async function renderPdfText(input: PdfReportInput, file: string): Promise<strin
 
 export async function renderSnapshots(
   c: SnapshotCase,
-): Promise<{ pdfText: string; screenHtml: string; result: AnalysisResult }> {
+): Promise<{ pdfText: string; screenHtml: string; result: AnalysisResult; input: PdfReportInput }> {
   const { run, draft, catalog, lastPricing } = await runCase(c)
   await yieldToEventLoop()
   const catalogMeta: Record<string, BatteryCatalogMeta> = c.catalogMetaFile
@@ -399,7 +400,7 @@ export async function renderSnapshots(
     />,
   ).replace(/></g, '>\n<')
 
-  return { pdfText, screenHtml, result: run.result }
+  return { pdfText, screenHtml, result: run.result, input }
 }
 
 function firstDifferences(expected: string, actual: string, max = 30): string {
@@ -460,8 +461,10 @@ describe('Report-Snapshots der Referenzfälle', () => {
   for (const c of CASES) {
     it(`${c.name}: PDF-Text und Bildschirm-Markup unverändert`, async () => {
       vi.useFakeTimers({ toFake: ['Date'], now: new Date(c.runAt) })
-      const { pdfText, screenHtml, result } = await renderSnapshots(c)
+      const { pdfText, screenHtml, result, input } = await renderSnapshots(c)
       checkSnapshot(`${c.snapshot ?? c.name}.pdf.txt`, pdfText)
+      // Vorderseite „Auf einen Blick": Privat folgt später, Gewerbe hier mit unbekanntem Liefertarif.
+      expect(buildExecutiveSummary(input)).toBeNull()
       // Mit Förderung trägt das PDF mindestens einen Förderblock — ausser kein Zusatzspeicher rechnet sich.
       const blocks = checkSubsidyArithmetic(pdfText)
       if (/subsidy/i.test(Object.keys(c.draftPatch ?? {}).join(' '))) {
@@ -482,6 +485,8 @@ describe('Report-Snapshots der Referenzfälle', () => {
       const readout = readRenderRequest({ data: row, error: null })
       if (readout.status !== 'ok') throw new Error('Render-Anfrage nicht lesbar')
       const input = buildReportInputFromRenderRequest(readout.request, new Date(c.runAt))
+      // Vorderseite nur mit Jahresbasis: das Teiljahr ohne Jahresszenario hat keine.
+      expect(buildExecutiveSummary(input) !== null).toBe(c.annualScenarioFile !== undefined)
       const tmp = mkdtempSync(path.join(tmpdir(), 'report-snapshot-'))
       checkSnapshot(`${c.name}.pdf.txt`, await renderPdfText(input, path.join(tmp, `${c.name}.pdf`)))
     })

@@ -24,7 +24,7 @@ import { CHART_COLORS } from '@/lib/pdf-report/theme'
 
 type Entry = AnalysisResult['perBattery'][number]
 
-type YearPoint = {
+export type YearPoint = {
   year: number
   without: number
   with: number
@@ -40,7 +40,11 @@ type YearPoint = {
  * Break-even (`without(y) = with(y)`) liegt exakt bei `y = netInvestment / totalSavingPerYear =
  * amortizationYears` — dieselbe bereits im Contract geführte Zahl, hier nur visualisiert.
  */
-function buildYearSeries(entry: Entry, currentCostPerYear: number, horizonYears: number): YearPoint[] {
+export function buildYearSeries(
+  entry: Entry,
+  currentCostPerYear: number,
+  horizonYears: number,
+): YearPoint[] {
   const points: YearPoint[] = []
   for (let year = 0; year <= horizonYears; year++) {
     const without = currentCostPerYear * year
