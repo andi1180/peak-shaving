@@ -134,7 +134,7 @@ describe('executiveSummaryCopy', () => {
     )
   })
 
-  it('Teilzahlen: Tarifwechsel links, Speicher rechts — ohne Speicher nur links', () => {
+  it('Teilzahlen: Tarifwechsel links, Speicher rechts — ohne Speicher stattdessen eine Zeile unter der Zahl', () => {
     expect(executiveSummaryCopy(summaries['jahr (Müldür)']!).stages).toEqual([
       { amount: formatEur(8025), label: 'Wechsel zu aWATTar, ohne Anschaffung' },
       { amount: `bis zu ${formatEur(2125)}`, label: 'mit einem Speicher dazu' },
@@ -143,8 +143,12 @@ describe('executiveSummaryCopy', () => {
       formatEur(965),
     )
     for (const name of ['nur-tarif (Katalog leer)', 'speicher-lohnt-nicht']) {
-      expect(executiveSummaryCopy(summaries[name]!).stages, name).toHaveLength(1)
+      const copy = executiveSummaryCopy(summaries[name]!)
+      expect(copy.stages, name).toEqual([])
+      expect(copy.heroDetail, name).toBe('durch den Wechsel zu aWATTar, ohne Anschaffung')
+      expect(textOf(copy).split('ohne Anschaffung').length - 1, name).toBe(1)
     }
+    expect(executiveSummaryCopy(summaries['jahr (Müldür)']!).heroDetail).toBeNull()
   })
 
   it('Lastgang-Satz je Spitzengebühr und Spitzenersparnis', () => {

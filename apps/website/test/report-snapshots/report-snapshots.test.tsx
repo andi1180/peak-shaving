@@ -507,6 +507,8 @@ describe('Report-Snapshots der Referenzfälle', () => {
       expect(page, name).toContain('Auf einen Blick')
       expect(page.match(FORBIDDEN), name).toBeNull()
       expect(page.match(REMOVED_BOX), name).toBeNull()
+      // Der Tarifwechsel steht genau einmal: als Teilzahl oder, ohne Speicherblock, unter der Zahl.
+      expect(page.split('ohne Anschaffung').length - 1, name).toBe(1)
       // Ein Höchstwert heisst „bis zu €“, nicht „bis zu rund €“ (auch über Zeilenumbrüche hinweg).
       expect(page.replace(/\s+/g, ' '), name).not.toContain('bis zu rund')
     }

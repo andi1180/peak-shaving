@@ -74,6 +74,7 @@ import { breakEvenBandOf } from './break-even-band'
 import type { ExecutiveSummary } from './executive-summary'
 import { EXECUTIVE_SUMMARY_FOOTER, executiveSummaryCopy } from './executive-summary-copy'
 import { ExecBreakEvenChart, ExecWaysChart } from './executive-summary-charts'
+import { ExecLoadChart } from './executive-summary-load-chart'
 import {
   EXEC_SLOTS,
   EXEC_TEXT_PT,
@@ -772,6 +773,11 @@ const styles = StyleSheet.create({
     color: PDF_COLORS.accent,
   },
   execHeroUnit: { fontSize: 16, fontWeight: 600, color: PDF_COLORS.text },
+  execHeroDetail: {
+    fontSize: 10,
+    lineHeight: PDF_TYPE.lineHeight,
+    color: PDF_COLORS.text,
+  },
   execBasis: { fontSize: 9, lineHeight: PDF_TYPE.lineHeight, color: PDF_COLORS.textMuted },
   execStages: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 },
   execStageAmount: { fontSize: 20, lineHeight: 1.15, fontWeight: 700, color: PDF_COLORS.ink },
@@ -798,22 +804,7 @@ const styles = StyleSheet.create({
     lineHeight: PDF_TYPE.lineHeight,
     color: PDF_COLORS.textMuted,
   },
-  execSlot: { borderWidth: 0.75, borderColor: PDF_COLORS.border, borderRadius: 3 },
 })
-
-/**
- * Der Sentinel, mit dem der erste Durchlauf misst, auf welcher Seite ein Kapitel beginnt.
- *
- * Er rendert NICHTS (`render` gibt `null` zurück, Höhe 0) und ist ausdrücklich NICHT `fixed` — ein
- * fixiertes Element wiederholt sich auf jeder Seite und meldete dann zuletzt die letzte statt der
- * ersten. Position innerhalb der Seite ist gleichgültig: gemessen meldet jedes nicht-fixierte
- * Element die Seite, auf der SEINE `<Page>` begann (`page-numbers.ts`, Aufbau C) — genau die
- * Grösse, die die Agenda braucht.
- */
-/** Ein fester Diagramm-Platz der Vorderseite — der Lastgang ist in diesem Stand ein leerer Rahmen. */
-function ExecSlot({ slot }: { slot: { width: number; height: number } }) {
-  return <View style={[styles.execSlot, { width: slot.width, height: slot.height }]} />
-}
 
 /**
  * Vorderseite „Auf einen Blick" (`executive-summary.ts`): genau eine Seite, ohne Agenda-Eintrag.
@@ -839,21 +830,28 @@ function ExecutiveSummaryPage({ summary }: { summary: ExecutiveSummary }) {
       ) : (
         <Text style={[styles.execStageAmount, { marginTop: 6 }]}>{copy.hero.text}</Text>
       )}
+      {copy.heroDetail && <Text style={styles.execHeroDetail}>{copy.heroDetail}</Text>}
       <Text style={styles.execBasis}>{copy.basis}</Text>
-      <View style={styles.execStages}>
-        {copy.stages.map((stage) => (
-          <View key={stage.label} style={{ width: copy.stages.length > 1 ? '48%' : '100%' }}>
-            {stage.amount && <Text style={styles.execStageAmount}>{stage.amount}</Text>}
-            <Text style={styles.execStageLabel}>{stage.label}</Text>
-          </View>
-        ))}
-      </View>
+      {copy.stages.length > 0 && (
+        <View style={styles.execStages}>
+          {copy.stages.map((stage) => (
+            <View key={stage.label} style={{ width: '48%' }}>
+              {stage.amount && <Text style={styles.execStageAmount}>{stage.amount}</Text>}
+              <Text style={styles.execStageLabel}>{stage.label}</Text>
+            </View>
+          ))}
+        </View>
+      )}
 
-      <Text style={styles.execSection}>Ihr Lastgang</Text>
-      <ExecSlot slot={EXEC_SLOTS.load} />
-      <View style={styles.execTwoLines}>
-        <Text style={styles.execText}>{copy.loadSentence}</Text>
-      </View>
+      {summary.load.dailyPeaks.length > 0 && (
+        <>
+          <Text style={styles.execSection}>Ihr Lastgang</Text>
+          <ExecLoadChart load={summary.load} slot={EXEC_SLOTS.load} />
+          <View style={styles.execTwoLines}>
+            <Text style={styles.execText}>{copy.loadSentence}</Text>
+          </View>
+        </>
+      )}
 
       <Text style={styles.execSection}>Ihre Stromkosten pro Jahr</Text>
       <ExecWaysChart ways={summary.ways} labels={copy.wayLabels} slot={EXEC_SLOTS.ways} />
@@ -883,6 +881,15 @@ function ExecutiveSummaryPage({ summary }: { summary: ExecutiveSummary }) {
   )
 }
 
+/**
+ * Der Sentinel, mit dem der erste Durchlauf misst, auf welcher Seite ein Kapitel beginnt.
+ *
+ * Er rendert NICHTS (`render` gibt `null` zurück, Höhe 0) und ist ausdrücklich NICHT `fixed` — ein
+ * fixiertes Element wiederholt sich auf jeder Seite und meldete dann zuletzt die letzte statt der
+ * ersten. Position innerhalb der Seite ist gleichgültig: gemessen meldet jedes nicht-fixierte
+ * Element die Seite, auf der SEINE `<Page>` begann (`page-numbers.ts`, Aufbau C) — genau die
+ * Grösse, die die Agenda braucht.
+ */
 function SectionAnchor({ id, sink }: { id: string; sink: PageNumberSink }) {
   return (
     <Text
