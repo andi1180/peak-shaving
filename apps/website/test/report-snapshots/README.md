@@ -71,16 +71,23 @@ Wird eine Seite eingefügt (etwa eine Vorderseite hinter dem Deckblatt), ändern
 zwangsläufig. Ob sie sich NUR um den Einschub geändert haben, prüft nach dem UPDATE-Lauf:
 
 ```
-pnpm --filter website report:snapshots:verify-insert --base origin/main --at 1 --pages 1
+pnpm --filter website report:snapshots:verify-insert --base origin/main --at 1 --pages 1 [--strict]
 ```
 
 `--at` ist der 0-basierte Index der ersten eingefügten Seite (1 = hinter dem Deckblatt), `--pages`
-ihre Anzahl. Je Snapshot wird der Stand aus `--base` verschoben (Fusszeile „Seite n von N", Agenda-
-Seitenzahlen) und mit dem Arbeitsstand ohne die eingefügten Seiten verglichen; die eingefügten Seiten
-werden nur ausgegeben. Leerraum wird nur in Fusszeilen- und Agenda-Zeilen zusammengefasst, alles andere
-muss byte-gleich sein. Eine Seitenzahl in einem unbekannten Muster ist ein Fehler. `.screen.html` ist
-von PDF-Seiten nicht betroffen und wird nicht geprüft.
+ihre Anzahl. Je Snapshot wird der Stand aus `--base` verschoben und mit dem Arbeitsstand ohne die
+eingefügten Seiten verglichen; die eingefügten Seiten werden nur ausgegeben. Eine Seitenzahl in einem
+unbekannten Muster ist ein Fehler. `.screen.html` ist von PDF-Seiten nicht betroffen und wird nicht geprüft.
 
-⚠ `pdftotext -layout` richtet Spalten je Seite aus: ändert sich nur die Länge der Fusszeile, können
-sich Tabellenzeilen derselben Seite um ein Leerzeichen verschieben (in #428 an 7 Zeilen gesehen). Der
-Prüfer meldet das als FAIL; es ist von Hand zu bewerten, nicht wegzunormalisieren.
+- **Fusszeile und Agenda** (beide Modi): die Zahlen müssen exakt um `--pages` verschoben sein
+  („Seite n von N", Agenda-Einträge ab Seite `at+1`); nur der Leerraum dieser Zeilen wird zusammengefasst.
+- **Alle übrigen Zeilen, Standard:** verglichen wird die Zeile mit getrimmtem Rand und jedem
+  Space/Tab-Run als ein Leerzeichen; jedes andere Zeichen byte-genau. Grund: `pdftotext -layout`
+  richtet Spalten je Seite aus, und schon eine längere Fusszeile („von 19" → „von 20") verschiebt
+  Tabellenzeilen derselben Seite um ein Leerzeichen (in #428 an 7 Zeilen gesehen).
+- **Alle übrigen Zeilen, `--strict`:** byte-genau.
+- Zeilenzahl und Reihenfolge je Seite sind in beiden Modi strikt.
+
+Die Zeile `Info: N Zeile(n) nur im Leerraum verschoben` zählt, was roh abweicht und nur normalisiert
+gleich ist (mit den ersten 10 Fundstellen). Sie ist kein Fehler; eine hohe Zahl auf Seiten, deren
+Fusszeile sich nicht in der Länge geändert hat, ist trotzdem einen Blick wert.
