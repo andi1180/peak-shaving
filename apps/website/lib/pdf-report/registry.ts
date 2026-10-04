@@ -320,10 +320,12 @@ export function buildReportRegistry(
       const recommended = context.recommendedEntry
       if (!context.hasRecommendation || !recommended) return null
       const hint = dynamicTariffHintKind(analysis)
-      return hint ? dynamicTariffHintStatement(hint) : buildRecommendation(analysis, recommended, input.loadProfile)
+      return hint
+        ? dynamicTariffHintStatement(hint)
+        : buildRecommendation(analysis, recommended, input.loadProfile, undefined, input)
     }),
     statement('load_control', () =>
-      context.hasRecommendation ? buildLoadControl(analysis, context.primaryEntry) : null,
+      context.hasRecommendation ? buildLoadControl(analysis, context.primaryEntry, input) : null,
     ),
 
     /*

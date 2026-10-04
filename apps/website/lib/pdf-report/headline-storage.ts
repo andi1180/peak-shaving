@@ -1,4 +1,4 @@
-import type { BatteryRoiEntry } from 'shared'
+import type { BatteryResultEntry, BatteryRoiEntry } from 'shared'
 
 import { loadControlValueOf } from '@/lib/report-copy'
 import { annualScenarioSavingsOf, type AnnualScenarioPvInput } from './annual-scenario'
@@ -28,8 +28,8 @@ export function headlineStorageOf(
   entry: BatteryRoiEntry,
   pv?: AnnualScenarioPvInput,
 ): HeadlineStorage {
-  const annual = pv && SHOW_ANNUAL_SCENARIO_CHAPTER ? annualScenarioSavingsOf(analysis, pv) : null
-  if (annual && annual.scenario.device?.batteryId === entry.battery.id) {
+  const annual = annualFor(analysis, entry, pv)
+  if (annual) {
     const saving = annual.controlEur + annual.peakEur
     return {
       basis: 'annual',
@@ -41,19 +41,39 @@ export function headlineStorageOf(
     }
   }
 
-  const comparison =
-    analysis.tariffOptimization?.computable === true
-      ? analysis.tariffOptimization.monthlyComparison
-      : undefined
-  const control = loadControlValueOf(entry, comparison)
   return {
     basis: 'linear',
     savingPerYearEur: entry.totalSavingPerYear,
     amortizationYears: entry.amortizationYears,
     netSavingOverHorizonEur: entry.netSavingOverHorizon,
-    ladesteuerungEur: control.annualizedEur ?? control.overCoveredDaysEur,
+    ladesteuerungEur: headlineLoadControlEur(analysis, entry, pv),
     spitzenEur: peakShavingSavingOf(analysis),
   }
+}
+
+/** Der Ladesteuerungs-Anteil allein — auch für einen Bestandsspeicher, der keine ROI-Felder trägt. */
+export function headlineLoadControlEur(
+  analysis: PdfReportAnalysis,
+  entry: BatteryResultEntry,
+  pv?: AnnualScenarioPvInput,
+): number {
+  const annual = annualFor(analysis, entry, pv)
+  if (annual) return annual.controlEur
+  const comparison =
+    analysis.tariffOptimization?.computable === true
+      ? analysis.tariffOptimization.monthlyComparison
+      : undefined
+  const control = loadControlValueOf(entry, comparison)
+  return control.annualizedEur ?? control.overCoveredDaysEur
+}
+
+function annualFor(
+  analysis: PdfReportAnalysis,
+  entry: Pick<BatteryResultEntry, 'battery'>,
+  pv: AnnualScenarioPvInput | undefined,
+) {
+  const annual = pv && SHOW_ANNUAL_SCENARIO_CHAPTER ? annualScenarioSavingsOf(analysis, pv) : null
+  return annual && annual.scenario.device?.batteryId === entry.battery.id ? annual : null
 }
 
 /** Dieselbe Rechnung wie `calculateAmortizationYears` in `engine/src/roi/roi.ts` (dort nicht exportiert). */

@@ -50,7 +50,7 @@ import { block, ref, t, REF_SECTION } from './report-text'
 import type { ReportNotice, ReportPoint, ReportRow, ReportStatement } from './statement'
 import { primaryEntryOf, recommendedEntryOf } from './summary'
 import type { AnnualScenarioPvInput } from './annual-scenario'
-import { headlineStorageOf } from './headline-storage'
+import { headlineLoadControlEur, headlineStorageOf } from './headline-storage'
 import type { PdfReportAnalysis } from './types'
 
 /**
@@ -457,6 +457,7 @@ export function dynamicTariffHintStatement(kind: DynamicTariffHintKind): ReportS
 export function buildLoadControl(
   analysis: PdfReportAnalysis,
   primary: BatteryResultEntry | undefined,
+  pv?: AnnualScenarioPvInput,
 ): ReportStatement | null {
   if (analysis.tariffOptimization?.computable !== true) return null
   if (!primary) return null
@@ -467,7 +468,7 @@ export function buildLoadControl(
    */
   const value = loadControlValueOf(primary, analysis.tariffOptimization.monthlyComparison)
   const days = `über die ${value.coveredDays} gemessenen Tage`
-  const headline = value.annualizedEur ?? value.overCoveredDaysEur
+  const headline = headlineLoadControlEur(analysis, primary, pv)
 
   return {
     id: 'load_control',
@@ -550,6 +551,6 @@ export function buildRecommendationChapter(
       : hint
         ? dynamicTariffHintStatement(hint)
         : buildRecommendation(analysis, recommended, loadProfile, catalogMeta?.[recommended.battery.id], pv),
-    loadControl: buildLoadControl(analysis, primary),
+    loadControl: buildLoadControl(analysis, primary, pv),
   }
 }

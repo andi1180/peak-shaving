@@ -6,7 +6,8 @@ import { CONTROLLED_WAY_LABEL } from '@/lib/report-copy'
 import { hasAdviceChapter } from './advice'
 import { ADVICE_SECTION } from './content'
 import type { ReportNotice, ReportRow, ReportStatement } from './statement'
-import { summaryWaysOf } from './summary'
+import { headlineStorageOf } from './headline-storage'
+import { recommendedEntryOf, summaryWaysOf } from './summary'
 import type { PdfReportInput } from './types'
 import { buildSavingsDonut, type SavingsDonut } from './savings-donut'
 
@@ -129,6 +130,11 @@ export function buildAnnualScenarioChapter(input: PdfReportInput): AnnualScenari
     ? `Netzentgelte und Abgaben im Stand vom ${formatDate(scenario.ratesAsOf)}`
     : 'Netzentgelte und Abgaben zum jeweiligen Datum'
 
+  /* Zeigen die Seiten davor für dieses Gerät schon die Jahreszahl, gibt es keine Abweichung zu erklären. */
+  const recommended = recommendedEntryOf(analysis)
+  const noDeviation =
+    recommended !== undefined && headlineStorageOf(analysis, recommended, input).basis === 'annual'
+
   const basis: ReportStatement = {
     id: 'annual_scenario_basis',
     title: 'Worauf diese Hochrechnung beruht',
@@ -139,9 +145,11 @@ export function buildAnnualScenarioChapter(input: PdfReportInput): AnnualScenari
       `Die übrigen ${scenario.projectedDays} Tage haben wir ergänzt, indem wir Ihr gemessenes ` +
       'Verbrauchsmuster Woche für Woche rückwärts fortgeschrieben haben: jeder Tag bekommt den ' +
       'Verlauf desselben Wochentags, Feiertage sind nicht gesondert berücksichtigt. Gerechnet ist ' +
-      `der Zeitraum ${window} mit den echten aWATTar-Börsenpreisen dieser Tage; ${ratesNote}. ` +
-      'Alle Zahlen auf den Seiten davor beruhen auf dem gemessenen Zeitraum — die Jahreszahlen ' +
-      'stehen nur in diesem Kapitel.',
+      `der Zeitraum ${window} mit den echten aWATTar-Börsenpreisen dieser Tage; ${ratesNote}.` +
+      (noDeviation
+        ? ''
+        : ' Alle Zahlen auf den Seiten davor beruhen auf dem gemessenen Zeitraum — die Jahreszahlen ' +
+          'stehen nur in diesem Kapitel.'),
   }
 
   const costs: ReportStatement = {
@@ -232,7 +240,7 @@ export function buildAnnualScenarioChapter(input: PdfReportInput): AnnualScenari
   }
 
   return {
-    statements: [basis, costs, overview, deviation],
+    statements: noDeviation ? [basis, costs, overview] : [basis, costs, overview, deviation],
     donut: buildSavingsDonut({ switchEur, controlEur, peakEur }),
     assumption,
     totalSavingEur,

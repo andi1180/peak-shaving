@@ -2,11 +2,17 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 
+import { formatEur, formatYears } from '@/lib/format'
+
 import { buildAnnualScenarioChapter } from './annual-scenario'
 import { buildReportInputFromRenderRequest, readRenderRequest } from './build-report-input'
+import { buildReportContext } from './context'
+import { buildDetailChapter } from './detail'
 import { headlineStorageOf } from './headline-storage'
-import { recommendedEntryOf } from './summary'
+import { buildLoadControl } from './recommendation'
+import { buildSummaryKpis, primaryEntryOf, recommendedEntryOf, summaryWaysOf } from './summary'
 import type { PdfReportInput } from './types'
+import { buildWaysChapter } from './ways'
 
 /* Die anonymisierte Render-Anfrage der Report-Snapshots (Gewerbe, Leistungspreis, 157 Tage, ohne PV). */
 const FIXTURES = path.join(import.meta.dirname, '../../test/report-snapshots/fixtures')
@@ -71,5 +77,40 @@ describe('headlineStorageOf', () => {
       savingPerYearEur: entry.totalSavingPerYear,
       amortizationYears: entry.amortizationYears,
     })
+  })
+
+  /* Die Verbraucher ausserhalb der Hauptzahl-Blöcke: a) Ladesteuerung, b) Kostenverlauf, c) Weg 4, d) Hinweisnotiz. */
+  const consumers = (input: PdfReportInput) => ({
+    loadControl: buildLoadControl(input.analysis, primaryEntryOf(input.analysis), input)!.amount!
+      .value,
+    detail: JSON.stringify(
+      buildDetailChapter(input.analysis, { flowDay: null }, buildReportContext(input)).cost,
+    ),
+    ways: JSON.stringify(buildWaysChapter(input.analysis, input)!.statements),
+    kpiNotes: buildSummaryKpis(input.analysis, summaryWaysOf(input.analysis)!).map((k) => k.note),
+  })
+
+  it('a–d zeigen im Jahr-Fall die Jahreszahl', () => {
+    const c = consumers(muster(true))
+    expect(c.loadControl).toBe(formatEur(965))
+    expect(c.detail).toContain(`Der Schnittpunkt liegt bei ${formatYears(8550 / 2125)}`)
+    expect(c.ways).toContain(`spart voraussichtlich ${formatEur(2125)} pro Jahr`)
+    expect(c.ways).toContain('rechnet er sich damit.')
+    // d) Jahres- wie lineare Netto-Ersparnis sind positiv: keine „rechnet sich nicht"-Notiz.
+    expect(c.kpiNotes).toEqual([undefined, undefined])
+  })
+
+  it('a–d bleiben ohne Jahreskapitel bei der linearen Zahl, mit wie ohne PV-Angaben', () => {
+    const input = muster(false)
+    const c = consumers(input)
+    expect(c).toEqual(consumers({ ...input, hasPv: undefined }))
+    expect(buildLoadControl(input.analysis, primaryEntryOf(input.analysis))!.amount!.value).toBe(
+      c.loadControl,
+    )
+    expect(c.loadControl).toBe(formatEur(1334))
+    expect(c.detail).toContain(
+      `Der Schnittpunkt liegt bei ${formatYears(8550 / 2494.804316978467)}`,
+    )
+    expect(c.ways).toContain(`spart voraussichtlich ${formatEur(2495)} pro Jahr`)
   })
 })

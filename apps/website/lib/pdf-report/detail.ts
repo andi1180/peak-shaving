@@ -3,7 +3,9 @@ import { sumCovered, tariffWayCosts } from 'shared'
 
 import { formatEur, formatEur2, formatYears } from '@/lib/format'
 import { catalogStorageNote, CONTROLLED_WAY_LABEL, dynamicTariffHintKind } from '@/lib/report-copy'
+import type { AnnualScenarioPvInput } from './annual-scenario'
 import type { ReportBuildContext } from './context'
+import { headlineStorageOf } from './headline-storage'
 import { t } from './report-text'
 import type { ReportFigure, ReportRow, ReportStatement } from './statement'
 import { hasLeistungspreis, recommendedEntryOf } from './summary'
@@ -105,7 +107,10 @@ function hasRepresentativeDay(entry: BatteryResultEntry | undefined): boolean {
   return (entry?.dispatchTrace?.representativeDays.length ?? 0) > 0
 }
 
-export function detailChartPlan(analysis: PdfReportAnalysis): DetailChartPlan {
+export function detailChartPlan(
+  analysis: PdfReportAnalysis,
+  pv?: AnnualScenarioPvInput,
+): DetailChartPlan {
   // Hinweis „nur mit dynamischem Tarif": kein Gerät, also weder Kostenverlauf noch Energiefluss.
   if (dynamicTariffHintKind(analysis)) return { cost: null, flow: null }
   const existing = analysis.existingBatteryAnalysis
@@ -121,7 +126,7 @@ export function detailChartPlan(analysis: PdfReportAnalysis): DetailChartPlan {
   } else if (recommended) {
     cost = {
       kind: 'cumulative',
-      entry: recommended,
+      entry: withHeadlineStorage(analysis, recommended, pv),
       currentLeistungspreisCostPerYear: analysis.current.leistungspreisCostPerYear,
       horizonYears: analysis.assumptions.horizonYears,
     }
@@ -155,6 +160,25 @@ export function detailChartPlan(analysis: PdfReportAnalysis): DetailChartPlan {
  * gibt es ein zweites Kapitel mit Bildern, und `document.tsx` rendert beide durch denselben
  * Baustein. Der Name bleibt hier als Alias stehen, damit die Ableitung ihre eigene Sprache behält.
  */
+/**
+ * Kurve, Break-even-Linie und Schnittpunkt-Satz zeigen die Speicher-Hauptzahl (`headline-storage.ts`):
+ * im Jahr-Fall derselbe Eintrag mit deren Ersparnis, Amortisation und Netto, sonst unverändert.
+ */
+function withHeadlineStorage(
+  analysis: PdfReportAnalysis,
+  entry: BatteryRoiEntry,
+  pv: AnnualScenarioPvInput | undefined,
+): BatteryRoiEntry {
+  const headline = headlineStorageOf(analysis, entry, pv)
+  if (headline.basis === 'linear') return entry
+  return {
+    ...entry,
+    totalSavingPerYear: headline.savingPerYearEur,
+    amortizationYears: headline.amortizationYears,
+    netSavingOverHorizon: headline.netSavingOverHorizonEur,
+  }
+}
+
 export type DetailFigure = ReportFigure
 
 export type DetailChapter = {

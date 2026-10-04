@@ -343,7 +343,7 @@ async function attempt(run: () => Promise<ChartRaster>): Promise<Attempt> {
 export async function buildReportCharts(input: PdfReportInput): Promise<ReportChartRasters> {
   const started = performance.now()
   const analysis = input.analysis
-  const plan = detailChartPlan(analysis)
+  const plan = detailChartPlan(analysis, input)
   const insight = insightChartPlan(analysis)
   const waysChapter = buildWaysChapter(analysis)
 
