@@ -84,7 +84,7 @@ function stageLines(s: ExecutiveSummary): string[] {
     if (stage.id === 'mit-speicher') {
       const st = s.storage!
       return st.upperBound
-        ? `Mit einem neuen Speicher zusätzlich bis zu rund ${eur} pro Jahr: ` +
+        ? `Mit einem neuen Speicher zusätzlich bis zu ${eur} pro Jahr: ` +
             `rund ${formatEur(st.loadShiftEur)}, weil ${STORAGE_LOADS_CHEAP}, ` +
             `und bis zu ${formatEur(st.peakEur)}, weil er teure Stromspitzen vermeidet.`
         : `Mit einem neuen Speicher zusätzlich rund ${eur} pro Jahr, weil ${STORAGE_LOADS_CHEAP}.`
@@ -116,6 +116,16 @@ function paybackWithoutPeaks(st: NonNullable<ExecutiveSummary['storage']>): stri
     : `; allein durch günstiges Laden ${afterYears(st.paybackWithoutPeaksYears)}`
 }
 
+/** Die Balken sind ohne Spitzengebühr gerechnet — das steht da, sobald der Tarif eine hat. */
+function waysFootnote(s: ExecutiveSummary): string | null {
+  if (!s.hasLeistungspreis) return null
+  const base =
+    'Stromkosten ohne die Spitzengebühr (die gesonderte Gebühr für Ihre höchste Leistungsspitze im Monat).'
+  return s.storage?.upperBound
+    ? `${base} Deren Einsparung (bis zu ${formatEur(s.storage.peakEur)}) kommt hinzu.`
+    : base
+}
+
 function storageLines(s: ExecutiveSummary): string[] | null {
   const st = s.storage
   if (!st) return null
@@ -134,10 +144,10 @@ function storageLines(s: ExecutiveSummary): string[] | null {
       (included.length > 0 ? `, inklusive ${included.join(', ')}` : ''),
     ...(st.hasSubsidy ? [`Nach Förderung rund ${formatEur(st.investment.netEur)}`] : []),
     st.upperBound
-      ? `Ersparnis bis zu rund ${formatEur(st.savingPerYearEur)} pro Jahr, davon rund ${formatEur(st.loadShiftEur)}, weil ${STORAGE_LOADS_CHEAP}`
+      ? `Ersparnis bis zu ${formatEur(st.savingPerYearEur)} pro Jahr, davon rund ${formatEur(st.loadShiftEur)}, weil ${STORAGE_LOADS_CHEAP}`
       : `Ersparnis rund ${formatEur(st.savingPerYearEur)} pro Jahr, weil ${STORAGE_LOADS_CHEAP}`,
     payback,
-    `Nach ${st.horizonYears} Jahren bleiben unterm Strich ${st.upperBound ? 'bis zu ' : ''}rund ${formatEur(st.netSavingOverHorizonEur)} (nach Abzug der Investition).`,
+    `Nach ${st.horizonYears} Jahren bleiben unterm Strich ${st.upperBound ? 'bis zu' : 'rund'} ${formatEur(st.netSavingOverHorizonEur)} (nach Abzug der Investition).`,
   ]
 }
 
@@ -151,7 +161,7 @@ function spotPriceLine(s: ExecutiveSummary): string {
   return (
     `${switchEur >= total / 2 ? 'Der größte Teil' : 'Ein Teil'} der Ersparnis (rund ${formatEur(switchEur)}) ` +
     `kommt vom Wechsel zu ${SPOT_NAME} und hängt damit am Börsenpreis; dieser ändert sich stündlich, ` +
-    'künftige Preise können höher oder niedriger sein als im gerechneten Zeitraum.'
+    'künftige Preise können höher oder niedriger sein.'
   )
 }
 
@@ -186,9 +196,7 @@ export function executiveSummaryCopy(s: ExecutiveSummary): ExecutiveSummaryCopy 
     stages: stageLines(s),
     wayLabels: s.ways.map(wayLabel),
     waysParagraph: waysParagraph(s),
-    waysFootnote: s.storage?.upperBound
-      ? `Stromkosten ohne die Spitzengebühr (die gesonderte Gebühr für Ihre höchste Leistungsspitze im Monat). Deren Einsparung (bis zu ${formatEur(s.storage.peakEur)}) kommt hinzu.`
-      : null,
+    waysFootnote: waysFootnote(s),
     storage: storageLines(s),
     storageVerdict: s.storageVerdict
       ? `Ein neuer Speicher (${s.storageVerdict.name}) würde rund ${formatEur(s.storageVerdict.savingPerYearEur)} pro Jahr sparen. ${s.storageVerdict.judgement}`

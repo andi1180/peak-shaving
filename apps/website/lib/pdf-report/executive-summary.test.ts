@@ -114,6 +114,33 @@ describe('executiveSummaryCopy', () => {
   })
 })
 
+describe('Fussnote unter den Wege-Balken', () => {
+  const NOTE =
+    'Stromkosten ohne die Spitzengebühr (die gesonderte Gebühr für Ihre höchste Leistungsspitze im Monat).'
+
+  it('mit Spitzengebühr und Spitzenersparnis: Einsparung kommt hinzu', () => {
+    expect(executiveSummaryCopy(summaries['jahr (Müldür)']!).waysFootnote).toBe(
+      `${NOTE} Deren Einsparung (bis zu ${formatEur(1160)}) kommt hinzu.`,
+    )
+  })
+
+  it('mit Spitzengebühr, ohne Spitzenersparnis: nur der Hinweis', () => {
+    expect(executiveSummaryCopy(summaries['ohne Spitzenersparnis']!).waysFootnote).toBe(NOTE)
+    expect(executiveSummaryCopy(summaries['nur-tarif (Katalog leer)']!).waysFootnote).toBe(NOTE)
+  })
+
+  it('ohne Spitzengebühr: keine Fussnote', () => {
+    const noFee = buildExecutiveSummary(
+      variant(({ analysis }) => {
+        analysis.current.leistungspreisCostPerYear = 0
+        analysis.annualScenario!.ways.peakShavingSavingEur = 0
+      }),
+    )!
+    expect(noFee.hasLeistungspreis).toBe(false)
+    expect(executiveSummaryCopy(noFee).waysFootnote).toBeNull()
+  })
+})
+
 describe('Rückzahlzeit ohne Spitzenersparnis und Börsenpreis-Satz', () => {
   const copyOf = (s: ExecutiveSummary) => executiveSummaryCopy(s)
 

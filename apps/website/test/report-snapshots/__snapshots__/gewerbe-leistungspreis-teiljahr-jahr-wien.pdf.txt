@@ -29,8 +29,8 @@ Auf einen Blick
 Sie können bis zu € 10.150 pro Jahr sparen (geschätzt,
 hochgerechnet aus 157 gemessenen Tagen).
 Ohne neue Anschaffung: rund € 8.025 pro Jahr durch den Wechsel zu aWATTar.
-Mit einem neuen Speicher zusätzlich bis zu rund € 2.125 pro Jahr: rund € 965, weil der Speicher lädt, wenn
-Strom günstig ist, und bis zu € 1.160, weil er teure Stromspitzen vermeidet.
+Mit einem neuen Speicher zusätzlich bis zu € 2.125 pro Jahr: rund € 965, weil der Speicher lädt, wenn Strom
+günstig ist, und bis zu € 1.160, weil er teure Stromspitzen vermeidet.
 
 Ihr Lastgang
 
@@ -41,12 +41,12 @@ Ihre Stromkosten pro Jahr                                       Unser Speichervo
 
                                                                 Kostal & Dyness Retrofit S, 29,2 kWh nutzbar
                                                                 Investition rund € 8.550 netto, inklusive Installation
-                                                                Ersparnis bis zu rund € 2.125 pro Jahr, davon rund
-                                                                € 965, weil der Speicher lädt, wenn Strom günstig ist
+                                                                Ersparnis bis zu € 2.125 pro Jahr, davon rund € 965,
+                                                                weil der Speicher lädt, wenn Strom günstig ist
                                                                 Rückzahlzeit: frühestens nach ca. 4 Jahren; allein
                                                                 durch günstiges Laden nach ca. 8,9 Jahren
-Stromkosten ohne die Spitzengebühr (die gesonderte              Nach 10 Jahren bleiben unterm Strich bis zu rund
-Gebühr für Ihre höchste Leistungsspitze im Monat). Deren        € 12.700 (nach Abzug der Investition).
+Stromkosten ohne die Spitzengebühr (die gesonderte              Nach 10 Jahren bleiben unterm Strich bis zu € 12.700
+Gebühr für Ihre höchste Leistungsspitze im Monat). Deren        (nach Abzug der Investition).
 Einsparung (bis zu € 1.160) kommt hinzu.
 Heute zahlen Sie rund € 34.794 pro Jahr für Strom.
 Mit dem Weg „aWATTar mit Speicher, der günstig
@@ -62,8 +62,7 @@ lädt" wären es rund € 25.804.
    · Der Betrag für vermiedene Stromspitzen ist ein Höchstwert: er setzt voraus, dass der Speicher jede
    Spitze rechtzeitig erkennt und genug geladen hat.
    · Der größte Teil der Ersparnis (rund € 8.025) kommt vom Wechsel zu aWATTar und hängt damit am
-   Börsenpreis; dieser ändert sich stündlich, künftige Preise können höher oder niedriger sein als im
-   gerechneten Zeitraum.
+   Börsenpreis; dieser ändert sich stündlich, künftige Preise können höher oder niedriger sein.
    · Alle Beträge netto und gerundet. Eine Vorausberechnung, keine Zusage.
 
 
