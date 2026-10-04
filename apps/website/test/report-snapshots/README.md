@@ -64,3 +64,23 @@ Gerätename, keine Kundenidentität. Fenster 01.09.2025–31.08.2026, 157 gemess
 31.08.2026. Der Hauptlauf dieses Laufs war bitgleich mit der Render-Anfrage (2.494,80 €/Jahr). Ohne
 Diagramm-Raster 19 Seiten, das Kapitel steht auf Seite 7 (seit PR 6 mit Ringdiagramm: Titel, Legende und
 Bildunterschrift stehen als Text im Snapshot, das Bild selbst als Fehlmeldung).
+
+## Seiteneinschub prüfen
+
+Wird eine Seite eingefügt (etwa eine Vorderseite hinter dem Deckblatt), ändern sich alle `.pdf.txt`
+zwangsläufig. Ob sie sich NUR um den Einschub geändert haben, prüft nach dem UPDATE-Lauf:
+
+```
+pnpm --filter website report:snapshots:verify-insert --base origin/main --at 1 --pages 1
+```
+
+`--at` ist der 0-basierte Index der ersten eingefügten Seite (1 = hinter dem Deckblatt), `--pages`
+ihre Anzahl. Je Snapshot wird der Stand aus `--base` verschoben (Fusszeile „Seite n von N", Agenda-
+Seitenzahlen) und mit dem Arbeitsstand ohne die eingefügten Seiten verglichen; die eingefügten Seiten
+werden nur ausgegeben. Leerraum wird nur in Fusszeilen- und Agenda-Zeilen zusammengefasst, alles andere
+muss byte-gleich sein. Eine Seitenzahl in einem unbekannten Muster ist ein Fehler. `.screen.html` ist
+von PDF-Seiten nicht betroffen und wird nicht geprüft.
+
+⚠ `pdftotext -layout` richtet Spalten je Seite aus: ändert sich nur die Länge der Fusszeile, können
+sich Tabellenzeilen derselben Seite um ein Leerzeichen verschieben (in #428 an 7 Zeilen gesehen). Der
+Prüfer meldet das als FAIL; es ist von Hand zu bewerten, nicht wegzunormalisieren.

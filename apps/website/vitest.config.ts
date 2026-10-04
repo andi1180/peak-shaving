@@ -46,6 +46,8 @@ export default defineConfig({
       'lib/pdf-report/*.test.ts',
       'lib/battery-catalog/*.test.ts',
       'lib/tariff-data/*.test.ts',
+      // Der Seiteneinschub-Prüfer der Report-Snapshots: reiner Text, ohne poppler.
+      'test/report-snapshots/verify-insert.test.ts',
     ],
   },
 })
