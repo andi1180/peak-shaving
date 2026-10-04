@@ -108,7 +108,7 @@ export type ReportBuildContext = {
 export function buildReportContext(input: PdfReportInput): ReportBuildContext {
   const analysis = input.analysis
   const insightPlan = insightChartPlan(analysis)
-  const detailPlan = detailChartPlan(analysis)
+  const detailPlan = detailChartPlan(analysis, input)
 
   return {
     primaryEntry: primaryEntryOf(analysis),

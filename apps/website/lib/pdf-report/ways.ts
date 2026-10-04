@@ -301,7 +301,10 @@ function controlledDeviceOf(
       ...subsidyRows(entry, analysis.assumptions.subsidyPrograms),
       netOverHorizonRow({ netSavingOverHorizon: headline.netSavingOverHorizonEur }, horizonYears),
     ],
-    text: ` Gerechnet mit diesem Speicher: ${verdict} ${storageJudgementText(entry, horizonYears)}`,
+    text: ` Gerechnet mit diesem Speicher: ${verdict} ${storageJudgementText(
+      { netSavingOverHorizon: headline.netSavingOverHorizonEur },
+      horizonYears,
+    )}`,
   }
 }
 

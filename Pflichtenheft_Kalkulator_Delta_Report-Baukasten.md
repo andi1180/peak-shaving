@@ -441,13 +441,21 @@ ausschliesslich aus `headlineStorageOf` (`apps/website/lib/pdf-report/headline-s
 das Kapitel „Hochrechnung auf ein ganzes Jahr" im Report (Bedingung `annualScenarioSavingsOf`, dieselbe
 wie das Kapitel) und rechnet es mit demselben Gerät, gilt die **Jahreszahl** (Speicher-Anteil =
 „Davon durch den Speicher", Amortisation = Nettoinvestition ÷ diese Zahl, Netto wie `roi.ts`), sonst die
-**lineare** Hochrechnung der Engine. Verbraucher: Speicher-Kasten der Zusammenfassung, Weg 4,
-„Empfehlung und Wirtschaftlichkeit", „Unser Vorschlag". Die Zeitraum-Kopfzahlen der Zusammenfassung
-(Ein-Spanne-Regel oben) sind davon nicht berührt.
+**lineare** Hochrechnung der Engine. Verbraucher: Speicher-Kasten der Zusammenfassung, Weg 4 samt
+`storageJudgementText`, „Empfehlung und Wirtschaftlichkeit", Ladesteuerungs-Kopfzahl
+(`headlineLoadControlEur`), Kostenverlauf samt Schnittpunkt-Satz (`detailChartPlan`), „Unser
+Vorschlag". Im Jahr-Fall entfallen im Jahreskapitel der Absatz „Warum weicht die Speicher-Ersparnis
+hier ab?" und der Satz „die Jahreszahlen stehen nur in diesem Kapitel". Die Zeitraum-Kopfzahlen der
+Zusammenfassung (Ein-Spanne-Regel oben) sind davon nicht berührt.
 
-**Noch linear (offen):** die Ladesteuerungs-Kopfzahl (`buildLoadControl`), der Kostenverlauf samt
-Schnittpunkt-Satz (`detail.ts`), „Abstand zur Empfehlung" in der Gerätetabelle, `storageJudgementText`
-und der Hinweis „Warum weicht die Speicher-Ersparnis hier ab?" im Jahreskapitel.
+**Noch linear (offen):**
+- Gerätetabelle im Jahr-Fall: Alternativen haben keine Jahreszahl; Folge-PR (Engine) nötig. Bis
+  dahin bleibt „Abstand zur Empfehlung" linear gegen linear — gegen die Jahreszahl der Empfehlung
+  ergäbe er bei besseren linearen Alternativen einen negativen „weniger"-Wert.
+- Die „rechnet sich nicht"-Notiz an den Kopfzahlen (`buildSummaryKpis`) urteilt über die lineare
+  Netto-Ersparnis; sie fehlt bzw. steht falsch, sobald die Jahreszahl das Vorzeichen anders setzt.
+- Der Bildschirm-Report (`components/report`) kennt kein Jahresszenario (es entsteht nur im
+  Wizard-Lauf, dessen Report nur als PDF existiert) und bleibt linear.
 
 ---
 
