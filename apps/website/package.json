@@ -9,6 +9,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "report:snapshots": "vitest run --config test/report-snapshots/vitest.config.ts",
+    "report:snapshots:verify-insert": "node test/report-snapshots/verify-insert-cli.mjs",
     "typecheck": "tsc --noEmit",
     "lint": "eslint ."
   },
