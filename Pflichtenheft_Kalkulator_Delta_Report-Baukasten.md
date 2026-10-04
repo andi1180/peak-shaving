@@ -479,7 +479,27 @@ Positivkontrolle).
 seit der Rückzahlzeit-Spanne von 100 auf 80 pt reduziert. **Reserve** im Worst-Case 13 pt (gemessen als
 grösste Lastgang-Höhe, bei der alle Fälle noch auf eine Seite passen, minus 80), seit der Börsen-Satz im
 Kasten gekürzt ist (vorher 1 pt). Feste Höhen,
-damit der Umbruch nicht vom Raster abhängt; bis PR 5 leere Rahmen.
+damit der Umbruch nicht vom Raster abhängt; der Lastgang-Platz ist bis PR 5b ein leerer Rahmen.
+
+**Diagramme Wege und Break-even (PR 5a, 04.10.2026)** — `executive-summary-charts.tsx`:
+- **Technik:** native react-pdf-Zeichnung in den festen Massen aus `EXEC_SLOTS` (Vektor, kein Raster):
+  Balken als `View`, Linien/Fläche/Marker als `Svg`, alle Beschriftungen als gewöhnlicher `Text` darüber
+  (Report-Schrift Inter, € und Umlaute wie im Fliesstext; Svg-Text bewusst nicht). Die Beschriftungen
+  stehen deshalb im PDF-Text und im Snapshot. Reserve im Worst-Case unverändert 13 pt.
+- **Wege-Balken:** Daten `summary.ways`, Labels `copy.wayLabels`, nichts neu gerechnet. Waagrecht, Achse
+  ab 0, je Weg Label über dem Balken und Betrag am Balkenende (6,5 pt); „Ihr Tarif heute" grau
+  (`textMuted`), empfohlener Weg Akzent mit fettem Label und Betrag, übrige `seriesSoft`. Zeilenhöhe =
+  Platzhöhe ÷ Balkenzahl (höchstens 4, Balken 11 pt).
+- **Break-even-Band:** `breakEvenBandOf(storage)` (`break-even-band.ts`), ausdrücklich NICHT
+  `storage.breakEven` (dessen Grundlinie enthält den Leistungspreis). Geraden kumulierte Ersparnis
+  `savingPerYearEur × t` („Mit Stromspitzen (Höchstwert)", ohne Spitzenersparnis „Ihre Ersparnis") und,
+  nur mit `paybackWithoutPeaksYears`, `loadShiftEur × t` („Nur günstiges Laden"), Fläche dazwischen;
+  gestrichelt die Investition nach Förderung (`investment.netEur`, Label „Investition € …"). Schnittpunkte
+  = Investition ÷ Ersparnis je Jahr, beschriftet „ca. … Jahre" wie die Rückzahlzeit im Text (Test:
+  gleiche Zahl nach gleicher Rundung, mit Positivkontrolle); jenseits des Horizonts kein Marker. x 0 bis
+  Horizont (0, Mitte, „… Jahre"), y 0 bis max(Investition, Ersparnis am Horizont) × 1,05, ohne y-Zahlen.
+  Beschriftungen werden an der ersten kollisionsfreien von vier Positionen gesetzt (Linien, Marker,
+  andere Labels; Zeichenbreite 0,5 em geschätzt).
 
 **Schalter** `SHOW_EXECUTIVE_SUMMARY` (`report-flags.ts`): an. Aus ist der Report byte-identisch zum
 Stand ohne Vorderseite.

@@ -70,8 +70,10 @@ import {
   type SavingsDonut,
 } from './savings-donut'
 import { buildPvValueChapter } from './pv-value'
+import { breakEvenBandOf } from './break-even-band'
 import type { ExecutiveSummary } from './executive-summary'
 import { executiveSummaryCopy } from './executive-summary-copy'
+import { ExecBreakEvenChart, ExecWaysChart } from './executive-summary-charts'
 import { EXEC_SLOTS, EXECUTIVE_SUMMARY_SECTION_ID } from './executive-summary-layout'
 import { SHOW_PV_VALUE_AMOUNTS } from './report-flags'
 import {
@@ -794,7 +796,7 @@ const styles = StyleSheet.create({
  * Element die Seite, auf der SEINE `<Page>` begann (`page-numbers.ts`, Aufbau C) — genau die
  * Grösse, die die Agenda braucht.
  */
-/** Ein fester Diagramm-Platz der Vorderseite — in diesem Stand ein leerer Rahmen. */
+/** Ein fester Diagramm-Platz der Vorderseite — der Lastgang ist in diesem Stand ein leerer Rahmen. */
 function ExecSlot({ slot }: { slot: { width: number; height: number } }) {
   return <View style={[styles.execSlot, { width: slot.width, height: slot.height }]} />
 }
@@ -810,6 +812,7 @@ function ExecutiveSummaryPage({ summary }: { summary: ExecutiveSummary }) {
     .filter(Boolean)
     .join(' · ')
   const storage = copy.storage
+  const band = breakEvenBandOf(summary.storage)
   const confidence: ReportNotice = {
     id: 'executive_summary_confidence',
     tone: 'neutral',
@@ -836,7 +839,11 @@ function ExecutiveSummaryPage({ summary }: { summary: ExecutiveSummary }) {
       <View style={styles.execColumns}>
         <View style={{ width: storage ? EXEC_SLOTS.ways.width : EXEC_SLOTS.waysFullWidth.width }}>
           <Text style={styles.execLabel}>Ihre Stromkosten pro Jahr</Text>
-          <ExecSlot slot={storage ? EXEC_SLOTS.ways : EXEC_SLOTS.waysFullWidth} />
+          <ExecWaysChart
+            ways={summary.ways}
+            labels={copy.wayLabels}
+            slot={storage ? EXEC_SLOTS.ways : EXEC_SLOTS.waysFullWidth}
+          />
           {copy.waysFootnote && <Text style={styles.execFootnote}>{copy.waysFootnote}</Text>}
           <Text style={styles.execText}>{copy.waysParagraph}</Text>
           {copy.storageVerdict && <Text style={styles.execText}>{copy.storageVerdict}</Text>}
@@ -850,7 +857,7 @@ function ExecutiveSummaryPage({ summary }: { summary: ExecutiveSummary }) {
               </Text>
             ))}
             <View style={{ marginTop: 6 }}>
-              <ExecSlot slot={EXEC_SLOTS.breakEven} />
+              {band && <ExecBreakEvenChart band={band} slot={EXEC_SLOTS.breakEven} />}
             </View>
           </View>
         )}

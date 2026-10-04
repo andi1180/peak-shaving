@@ -18,7 +18,7 @@ Auf Basis Ihres Viertelstunden-Lastgangs
 
 Ausgewerteter Zeitraum             28.03.2026 – 31.08.2026
 Erstellt am                        30.09.2026
-    COOLiN ENERGY          Muster Gastro GmbH
+      COOLiN ENERGY             Muster Gastro GmbH
 
 
 
@@ -37,38 +37,46 @@ Ihr Lastgang
 
 
 
-Ihre Stromkosten pro Jahr                                       Unser Speichervorschlag
-
-                                                                Kostal & Dyness Retrofit S, 29,2 kWh nutzbar
-                                                                Investition rund € 8.550 netto, inklusive Installation
-                                                                Ersparnis bis zu € 2.125 pro Jahr, davon rund € 965,
-                                                                weil der Speicher lädt, wenn Strom günstig ist
-                                                                Rückzahlzeit: frühestens nach ca. 4 Jahren; allein
-                                                                durch günstiges Laden nach ca. 8,9 Jahren
-Stromkosten ohne die Spitzengebühr (die gesonderte              Nach 10 Jahren bleiben unterm Strich bis zu € 12.700
-Gebühr für Ihre höchste Leistungsspitze im Monat). Deren        (nach Abzug der Investition).
-Einsparung (bis zu € 1.160) kommt hinzu.
+Ihre Stromkosten pro Jahr                                        Unser Speichervorschlag
+Ihr Tarif heute
+                                                      € 34.794   Kostal & Dyness Retrofit S, 29,2 kWh nutzbar
+                                                                 Investition rund € 8.550 netto, inklusive Installation
+aWATTar (Börsenpreis)
+                                           € 26.769              Ersparnis bis zu € 2.125 pro Jahr, davon rund € 965,
+                                                                 weil der Speicher lädt, wenn Strom günstig ist
+aWATTar mit Speicher, der günstig lädt
+                                          € 25.804               Rückzahlzeit: frühestens nach ca. 4 Jahren; allein
+                                                                 durch günstiges Laden nach ca. 8,9 Jahren
+Stromkosten ohne die Spitzengebühr (die gesonderte               Nach 10 Jahren bleiben unterm Strich bis zu € 12.700
+Gebühr für Ihre höchste Leistungsspitze im Monat). Deren         (nach Abzug der Investition).
+Einsparung (bis zu € 1.160) kommt hinzu.                             Mit Stromspitzen (Höchstwert)       Nur günstiges Laden
 Heute zahlen Sie rund € 34.794 pro Jahr für Strom.
 Mit dem Weg „aWATTar mit Speicher, der günstig
 lädt" wären es rund € 25.804.
+                                                                 Investition € 8.550                                ca. 8,9 Jahre
+                                                                                               ca. 4 Jahre
+
+
+
+                                                                 0                                   5                              10 Jahre
 
 
 
 
-   Wie sicher ist das?
-   Hochgerechnet aus 157 gemessenen Tagen (März bis August); die übrigen 208 Tage sind geschätzt.
-   · Gemessen wurde nur in den wärmeren Monaten (März bis August); im Winter kann die Ersparnis
-   geringer ausfallen.
-   · Der Betrag für vermiedene Stromspitzen ist ein Höchstwert: er setzt voraus, dass der Speicher jede
-   Spitze rechtzeitig erkennt und genug geladen hat.
-   · Der größte Teil der Ersparnis (rund € 8.025) kommt vom Wechsel zu aWATTar und hängt damit am
-   Börsenpreis; dieser ändert sich stündlich, künftige Preise können höher oder niedriger sein.
-   · Alle Beträge netto und gerundet. Eine Vorausberechnung, keine Zusage.
+    Wie sicher ist das?
+    Hochgerechnet aus 157 gemessenen Tagen (März bis August); die übrigen 208 Tage sind geschätzt.
+    · Gemessen wurde nur in den wärmeren Monaten (März bis August); im Winter kann die Ersparnis
+    geringer ausfallen.
+    · Der Betrag für vermiedene Stromspitzen ist ein Höchstwert: er setzt voraus, dass der Speicher jede
+    Spitze rechtzeitig erkennt und genug geladen hat.
+    · Der größte Teil der Ersparnis (rund € 8.025) kommt vom Wechsel zu aWATTar und hängt damit am
+    Börsenpreis; dieser ändert sich stündlich, künftige Preise können höher oder niedriger sein.
+    · Alle Beträge netto und gerundet. Eine Vorausberechnung, keine Zusage.
 
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                               www.coolin.at · Seite 2 von 20
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                                            www.coolin.at · Seite 2 von 20
     COOLiN ENERGY          Muster Gastro GmbH
 
 
