@@ -15,7 +15,7 @@ import { detailChartPlan } from './detail'
 import { amortizationYearsOf, headlineStorageOf } from './headline-storage'
 import { peakShavingChartData, type PeakShavingCapSegment } from './peak-shaving-chart'
 import { SHOW_ANNUAL_SCENARIO_CHAPTER } from './report-flags'
-import { recommendedEntryOf, summaryWaysOf } from './summary'
+import { hasLeistungspreis, recommendedEntryOf, summaryWaysOf } from './summary'
 import type { PdfReportInput } from './types'
 import { buildWaysChapter } from './ways'
 
@@ -278,7 +278,7 @@ export function buildExecutiveSummary(input: PdfReportInput): ExecutiveSummary |
     stages,
     ways,
     todayCostPerYearEur: yearly.todayEur,
-    hasLeistungspreis: analysis.current.leistungspreisCostPerYear > 0,
+    hasLeistungspreis: hasLeistungspreis(analysis.current),
     storage,
     storageVerdict:
       variant === 'speicher-lohnt-nicht' && headline

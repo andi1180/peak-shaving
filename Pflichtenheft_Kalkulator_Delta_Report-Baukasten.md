@@ -476,7 +476,9 @@ Positivkontrolle).
 
 **Diagramm-Plätze** (`EXEC_SLOTS`, `executive-summary-layout.ts`, Breite × Höhe in pt): Lastgang
 481,6 × 80 · Wege 232,8 × 90 (ohne Speicherblock 481,6 × 90) · Break-even 232,8 × 90. Der Lastgang ist
-seit der Rückzahlzeit-Spanne von 100 auf 80 pt reduziert; der Worst-Case hat damit rund 1 pt Reserve. Feste Höhen,
+seit der Rückzahlzeit-Spanne von 100 auf 80 pt reduziert. **Reserve** im Worst-Case 13 pt (gemessen als
+grösste Lastgang-Höhe, bei der alle Fälle noch auf eine Seite passen, minus 80), seit der Börsen-Satz im
+Kasten gekürzt ist (vorher 1 pt). Feste Höhen,
 damit der Umbruch nicht vom Raster abhängt; bis PR 5 leere Rahmen.
 
 **Schalter** `SHOW_EXECUTIVE_SUMMARY` (`report-flags.ts`): an. Aus ist der Report byte-identisch zum
@@ -494,10 +496,14 @@ eine Obergrenze → „bis zu", Rückzahlzeit „frühestens".
 
 **Texte (Stand 04.10.2026):** „Spitzengebühr" wird in der Fussnote unter den Wege-Balken eingeführt
 („die gesonderte Gebühr für Ihre höchste Leistungsspitze im Monat") und sonst nur noch so genannt; der
-Absatz zum empfohlenen Weg nennt die Spitzengebühr nicht mehr. Rückzahlzeit mit Spitzenersparnis:
+Absatz zum empfohlenen Weg nennt die Spitzengebühr nicht mehr. **Fussnoten-Regel:** sie steht, sobald
+der Tarif eine Spitzengebühr hat (`hasLeistungspreis`) — die Balken sind dann ohne sie gerechnet; mit
+Spitzenersparnis folgt „Deren Einsparung (bis zu € X) kommt hinzu.", ohne Spitzengebühr keine Fussnote.
+**Formulierungsregel:** ein Höchstwert heisst „bis zu €", ein geschätzter Wert „rund €", nie beides. Rückzahlzeit mit Spitzenersparnis:
 „frühestens nach ca. N Jahren; allein durch günstiges Laden nach ca. M Jahren" bzw. „… rechnet sich der
 Speicher innerhalb von H Jahren nicht". Börsenpreis-Punkt im Kasten beziffert den Tarifwechsel-Anteil
-(„Der größte Teil" ab 50 % der Gesamtersparnis, sonst „Ein Teil").
+(„Der größte Teil" ab 50 % der Gesamtersparnis, sonst „Ein Teil") und endet mit „… künftige Preise
+können höher oder niedriger sein.".
 
 **Modellfeld** `storage.paybackWithoutPeaksYears` (+ `paybackWithoutPeaksBeyondHorizon`):
 Nettoinvestition ÷ Ersparnis allein aus günstigem Laden, mit derselben Funktion wie die Rückzahlzeit
