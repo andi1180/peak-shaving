@@ -18,7 +18,7 @@ Auf Basis Ihres Viertelstunden-Lastgangs
 
 Ausgewerteter Zeitraum             01.01.2025 – 31.12.2025
 Erstellt am                        27.09.2026
-      COOLiN ENERGY         Referenzfall Gewerbe
+      COOLiN ENERGY          Referenzfall Gewerbe
 
 
 
@@ -26,12 +26,16 @@ Erstellt am                        27.09.2026
 Referenzfall Gewerbe · Zeitraum 01.01.2025 – 31.12.2025 · Erstellt am 27.09.2026
 
 Auf einen Blick
+     Ersparnis pro Jahr                                            Rückzahlzeit des Speichers
+     rund
 
+     € 367
+     durch einen Speicher gegenüber aWATTar ohne Speicher
+                                                                   ca. 10,5 Jahre
+                                                                   bei € 3.845 Investition nach Förderung
 
-rund € 367                                              pro Jahr
-Ersparnis durch einen Speicher gegenüber aWATTar ohne Speicher
-Ihren aktuellen Tarif kennen wir nicht; ein Tarifwechsel ist deshalb nicht bewertet.
-gerechnet mit Ihren Messwerten von 365 Tagen
+gerechnet mit Ihren Messwerten von 365 Tagen · Ihren aktuellen Tarif kennen wir nicht; ein Tarifwechsel ist deshalb
+nicht bewertet.
 
 Ihr Lastgang
      Höchste Leistung pro Tag
@@ -44,7 +48,7 @@ Ihr Lastgang
 
 
        0
-             Jän      Feb       Mär      Apr     Mai       Jun      Jul       Aug       Sep     Okt         Nov      Dez
+            Jän       Feb       Mär      Apr       Mai      Jun     Jul       Aug      Sep      Okt         Nov     Dez
 
 Die Balken zeigen Ihre höchste Leistung pro Tag.
 
@@ -68,12 +72,12 @@ Ihr Speicher
     Ihre Ersparnis
 
 
-Investition nach Förderung € 3.845                                    ca. 10,5 Jahre
+Investition nach Förderung € 3.845                                   ca. 10,5 Jahre
 
 
 
 
-0                                                           7,5                                                    15 Jahre
+0                                                            7,5                                                   15 Jahre
 
 Dyness Stack 100 30,72 kWh mit Solinteg MHT-15K-40, 29,2 kWh nutzbar, Investition rund € 7.691
 netto, nach Förderung rund € 3.845. Rückzahlzeit: nach ca. 10,5 Jahren. Nach 15 Jahren bleiben

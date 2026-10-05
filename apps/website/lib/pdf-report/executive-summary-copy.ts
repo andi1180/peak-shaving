@@ -1,4 +1,5 @@
 import { formatEur } from '@/lib/format'
+import { aboutYears } from './break-even-band'
 import type { ExecutiveSummary, ExecutiveSummaryWay } from './executive-summary'
 
 /**
@@ -11,19 +12,17 @@ import type { ExecutiveSummary, ExecutiveSummaryWay } from './executive-summary'
 export type CopyRun = { text: string; bold: boolean }
 
 export type ExecutiveSummaryCopy = {
-  /** Die grosse Zahl („bis zu € 10.150") mit „pro Jahr"; ohne Ersparnis nur der Satz. */
-  hero: { amount: string | null; text: string }
-  /**
-   * Zeilen unter der grossen Zahl, wo es keine Teilzahlen gibt: ohne Speicherblock woher die Ersparnis
-   * kommt (die Teilzahl glich der grossen Zahl); bei unbekanntem Tarif, wogegen gerechnet ist.
-   */
-  heroDetail: string[]
-  basis: string
-  /** Teilzahlen nur mit Speicherblock. */
-  stages: { amount: string | null; label: string }[]
+  /** Linke Box: Ersparnis pro Jahr; ohne Ersparnis steht statt der Zahl der Satz. */
+  savingBox: { label: string; qualifier: string | null; amount: string | null; sub: string }
+  /** Rechte Box, nur mit Speicherblock. */
+  paybackBox: { label: string; prefix: string | null; value: string; sub: string } | null
+  /** Zeile unter den Boxen: Rechenbasis, bei unbekanntem Tarif mit dem Hinweis darauf. */
+  basisLine: string
   wayLabels: string[]
   loadSentence: string
   waysSentence: string
+  /** Zeile unter „Ihr Speicher" — entfällt, wo die Speicher-Ersparnis schon die grosse Zahl ist. */
+  storageSaving: string | null
   /** Sätze unter dem Break-even-Band, nur mit Speicherempfehlung. */
   storage: CopyRun[] | null
   storageVerdict: string | null
@@ -76,33 +75,46 @@ function tariffTarget(s: ExecutiveSummary): string {
   return recommended.id === 'comparison' ? comparisonTarget(recommended) : SPOT_NAME
 }
 
-function stageLines(s: ExecutiveSummary): ExecutiveSummaryCopy['stages'] {
-  if (!s.storage || s.variant === 'tarif-unbekannt') return []
-  return s.stages.map((stage) => {
-    const eur = formatEur(stage.savingPerYearEur)
-    if (stage.id === 'mit-speicher') {
-      return {
-        amount: s.storage!.upperBound ? `bis zu ${eur}` : eur,
-        label: 'mit einem Speicher dazu',
-      }
+const UNKNOWN_TARIFF_NOTE =
+  'Ihren aktuellen Tarif kennen wir nicht; ein Tarifwechsel ist deshalb nicht bewertet.'
+
+function savingBox(s: ExecutiveSummary): ExecutiveSummaryCopy['savingBox'] {
+  const label = 'Ersparnis pro Jahr'
+  const total = s.header.savingPerYearEur
+  if (total <= 0) {
+    return {
+      label,
+      qualifier: null,
+      amount: null,
+      sub: 'Mit den heutigen Daten ergibt sich für Sie keine Ersparnis.',
     }
-    if (stage.savingPerYearEur <= 0) {
-      return { amount: null, label: 'Ein Tarifwechsel allein bringt Ihnen derzeit keinen Vorteil.' }
-    }
-    return { amount: eur, label: `Wechsel zu ${tariffTarget(s)}, ohne Anschaffung` }
-  })
+  }
+  const sub =
+    s.variant === 'tarif-unbekannt'
+      ? `durch einen Speicher gegenüber ${SPOT_NAME} ohne Speicher`
+      : s.storage
+        ? 'Tarifwechsel plus Speicher'
+        : `durch den Wechsel zu ${tariffTarget(s)}, ohne Anschaffung`
+  return {
+    label,
+    qualifier: s.confidence.hasUpperBound ? 'bis zu' : 'rund',
+    amount: formatEur(total),
+    sub,
+  }
 }
 
-function heroDetail(s: ExecutiveSummary): string[] {
-  if (s.variant === 'tarif-unbekannt') {
-    return [
-      `Ersparnis durch einen Speicher gegenüber ${SPOT_NAME} ohne Speicher`,
-      'Ihren aktuellen Tarif kennen wir nicht; ein Tarifwechsel ist deshalb nicht bewertet.',
-    ]
+function paybackBox(s: ExecutiveSummary): ExecutiveSummaryCopy['paybackBox'] {
+  const st = s.storage
+  if (!st) return null
+  const investment = formatEur(st.investment.netEur)
+  return {
+    label: 'Rückzahlzeit des Speichers',
+    prefix: st.upperBound ? 'frühestens' : null,
+    value: aboutYears(st.amortizationYears),
+    sub: st.hasSubsidy
+      ? `bei ${investment} Investition nach Förderung`
+      : `bei ${investment} Investition`,
   }
-  return !s.storage && s.header.savingPerYearEur > 0
-    ? [`durch den Wechsel zu ${tariffTarget(s)}, ohne Anschaffung`]
-    : []
 }
 
 function loadSentence(s: ExecutiveSummary): string {
@@ -160,21 +172,19 @@ function storageRuns(s: ExecutiveSummary): CopyRun[] | null {
 }
 
 export function executiveSummaryCopy(s: ExecutiveSummary): ExecutiveSummaryCopy {
-  const total = s.header.savingPerYearEur
+  const st = s.storage
   return {
-    hero:
-      total > 0
-        ? {
-            amount: `${s.confidence.hasUpperBound ? 'bis zu' : 'rund'} ${formatEur(total)}`,
-            text: 'pro Jahr',
-          }
-        : { amount: null, text: 'Mit den heutigen Daten ergibt sich für Sie keine Ersparnis.' },
-    basis: basisText(s),
-    heroDetail: heroDetail(s),
-    stages: stageLines(s),
+    savingBox: savingBox(s),
+    paybackBox: paybackBox(s),
+    basisLine:
+      s.variant === 'tarif-unbekannt' ? `${basisText(s)} · ${UNKNOWN_TARIFF_NOTE}` : basisText(s),
     wayLabels: s.ways.map(wayLabel),
     loadSentence: loadSentence(s),
     waysSentence: waysSentence(s),
+    storageSaving:
+      st && s.variant !== 'tarif-unbekannt'
+        ? `Ersparnis durch den Speicher: ${st.upperBound ? 'bis zu' : 'rund'} ${formatEur(st.savingPerYearEur)} pro Jahr.`
+        : null,
     storage: storageRuns(s),
     storageVerdict: s.storageVerdict
       ? `Ein neuer Speicher (${s.storageVerdict.name}) würde rund ${formatEur(s.storageVerdict.savingPerYearEur)} pro Jahr sparen. ${s.storageVerdict.judgement}`

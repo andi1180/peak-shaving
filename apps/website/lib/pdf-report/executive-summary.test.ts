@@ -10,7 +10,7 @@ import {
   unknownTariffYear,
   variant,
 } from '@/test/executive-summary-cases'
-import { lineCount } from '@/test/pdf-text-lines'
+import { lineCount, textWidthPt } from '@/test/pdf-text-lines'
 import { dailyPeaksOf } from './daily-peaks'
 import { buildExecutiveSummary, type ExecutiveSummary } from './executive-summary'
 import {
@@ -18,7 +18,8 @@ import {
   executiveSummaryCopy,
   type ExecutiveSummaryCopy,
 } from './executive-summary-copy'
-import { EXEC_SLOTS, EXEC_TEXT_PT } from './executive-summary-layout'
+import { fitFontSize } from './executive-summary-charts'
+import { EXEC_HERO, EXEC_SLOTS, EXEC_TEXT_PT } from './executive-summary-layout'
 import { headlineStorageOf } from './headline-storage'
 import { recommendedEntryOf, unknownTariffWaysOf } from './summary'
 
@@ -128,33 +129,93 @@ describe('executiveSummaryCopy', () => {
     for (const [name, , copy] of copies) expect(textOf(copy).match(FORBIDDEN), name).toBeNull()
   })
 
-  it('Hero: „bis zu" mit Spitzenersparnis, sonst „rund"; Basis je Hochrechnung', () => {
-    const müldür = executiveSummaryCopy(summaries['jahr (Müldür)']!)
-    expect(müldür.hero).toEqual({ amount: `bis zu ${formatEur(10150)}`, text: 'pro Jahr' })
-    expect(müldür.basis).toBe('geschätzt, hochgerechnet aus 157 gemessenen Tagen')
-    expect(executiveSummaryCopy(summaries['ohne Spitzenersparnis']!).hero.amount).toBe(
-      `rund ${formatEur(8990)}`,
+  it('linke Box: Ersparnis mit „bis zu"/„rund", Unterzeile je Variante; Basis unter den Boxen', () => {
+    const box = (name: string) => executiveSummaryCopy(summaries[name]!).savingBox
+    expect(box('jahr (Müldür)')).toEqual({
+      label: 'Ersparnis pro Jahr',
+      qualifier: 'bis zu',
+      amount: formatEur(10150),
+      sub: 'Tarifwechsel plus Speicher',
+    })
+    expect(box('ohne Spitzenersparnis')).toMatchObject({
+      qualifier: 'rund',
+      amount: formatEur(8990),
+    })
+    for (const name of ['nur-tarif (Katalog leer)', 'speicher-lohnt-nicht']) {
+      expect(box(name).sub, name).toBe('durch den Wechsel zu aWATTar, ohne Anschaffung')
+    }
+    expect(box('tarif-unbekannt (konstruiert)').sub).toBe(
+      'durch einen Speicher gegenüber aWATTar ohne Speicher',
     )
-    expect(executiveSummaryCopy(summaries['volles Jahr (konstruiert)']!).basis).toMatch(
+    expect(executiveSummaryCopy(summaries['jahr (Müldür)']!).basisLine).toBe(
+      'geschätzt, hochgerechnet aus 157 gemessenen Tagen',
+    )
+    expect(executiveSummaryCopy(summaries['volles Jahr (konstruiert)']!).basisLine).toMatch(
       /^gerechnet mit Ihren Messwerten von \d+ Tagen$/,
     )
   })
 
-  it('Teilzahlen: Tarifwechsel links, Speicher rechts — ohne Speicher stattdessen eine Zeile unter der Zahl', () => {
-    expect(executiveSummaryCopy(summaries['jahr (Müldür)']!).stages).toEqual([
-      { amount: formatEur(8025), label: 'Wechsel zu aWATTar, ohne Anschaffung' },
-      { amount: `bis zu ${formatEur(2125)}`, label: 'mit einem Speicher dazu' },
-    ])
-    expect(executiveSummaryCopy(summaries['ohne Spitzenersparnis']!).stages[1]!.amount).toBe(
-      formatEur(965),
-    )
-    for (const name of ['nur-tarif (Katalog leer)', 'speicher-lohnt-nicht']) {
-      const copy = executiveSummaryCopy(summaries[name]!)
-      expect(copy.stages, name).toEqual([])
-      expect(copy.heroDetail, name).toEqual(['durch den Wechsel zu aWATTar, ohne Anschaffung'])
-      expect(textOf(copy).split('ohne Anschaffung').length - 1, name).toBe(1)
+  it('rechte Box nur mit Speicherblock: Rückzahlzeit wie im Text, „frühestens" nur mit Höchstwert', () => {
+    const box = (name: string) => executiveSummaryCopy(summaries[name]!).paybackBox
+    expect(box('jahr (Müldür)')).toEqual({
+      label: 'Rückzahlzeit des Speichers',
+      prefix: 'frühestens',
+      value: 'ca. 4 Jahre',
+      sub: `bei ${formatEur(8550)} Investition`,
+    })
+    expect(box('ohne Spitzenersparnis')).toMatchObject({ prefix: null, value: 'ca. 8,9 Jahre' })
+    expect(box('mit Förderung')!.sub).toBe(`bei ${formatEur(6550)} Investition nach Förderung`)
+    expect(box('Worst Case')).toMatchObject({
+      value: 'ca. 7,1 Jahre',
+      sub: `bei ${formatEur(15000)} Investition nach Förderung`,
+    })
+    expect(box('nur-tarif (Katalog leer)')).toBeNull()
+    expect(box('speicher-lohnt-nicht')).toBeNull()
+  })
+
+  it('jede Boxzeile bleibt einzeilig, sonst liesse react-pdf in der festen Box Text weg', () => {
+    for (const [name, summary, copy] of copies) {
+      const inner = copy.paybackBox
+        ? EXEC_HERO.innerWidth
+        : EXEC_SLOTS.load.width - 2 * EXEC_HERO.padding - EXEC_HERO.edge
+      const lines = [
+        [copy.savingBox.amount, EXEC_HERO.valueMaxPt, true],
+        [copy.savingBox.sub, EXEC_HERO.subMaxPt, false],
+        [copy.paybackBox?.value ?? null, EXEC_HERO.valueMaxPt, true],
+        [copy.paybackBox?.sub ?? null, EXEC_HERO.subMaxPt, false],
+      ] as const
+      for (const [text, max, bold] of lines) {
+        if (!text || !summary.header.savingPerYearEur) continue
+        const size = fitFontSize(text, inner, max, bold)
+        expect(textWidthPt(text, size, bold), `${name}: ${text}`).toBeLessThanOrEqual(inner)
+      }
     }
-    expect(executiveSummaryCopy(summaries['jahr (Müldür)']!).heroDetail).toEqual([])
+  })
+
+  it('Zeile „Ersparnis durch den Speicher" nur mit Speicherblock und nicht bei unbekanntem Tarif', () => {
+    const line = (name: string) => executiveSummaryCopy(summaries[name]!).storageSaving
+    expect(line('jahr (Müldür)')).toBe(
+      `Ersparnis durch den Speicher: bis zu ${formatEur(2125)} pro Jahr.`,
+    )
+    expect(line('ohne Spitzenersparnis')).toBe(
+      `Ersparnis durch den Speicher: rund ${formatEur(965)} pro Jahr.`,
+    )
+    for (const name of [
+      'nur-tarif (Katalog leer)',
+      'speicher-lohnt-nicht',
+      'tarif-unbekannt (konstruiert)',
+    ]) {
+      expect(line(name), name).toBeNull()
+    }
+  })
+
+  it('Teilzahlen sind entfallen (Positivkontrolle: das Muster trifft ohne Speicherblock)', () => {
+    const müldür = textOf(executiveSummaryCopy(summaries['jahr (Müldür)']!))
+    expect(müldür).not.toContain('Wechsel zu aWATTar, ohne Anschaffung')
+    expect(müldür).not.toContain('mit einem Speicher dazu')
+    expect(textOf(executiveSummaryCopy(summaries['nur-tarif (Katalog leer)']!))).toContain(
+      'Wechsel zu aWATTar, ohne Anschaffung',
+    )
   })
 
   it('Lastgang-Satz je Spitzengebühr und Spitzenersparnis', () => {
@@ -258,27 +319,27 @@ describe('Variante „tarif-unbekannt"', () => {
       ['spot-storage', unknown.controlledEur, true],
     ])
     expect(s.todayCostPerYearEur).toBeNull()
-    expect(executiveSummaryCopy(s).stages).toEqual([])
   })
 
   it('Texte: Bezug aWATTar, Tarif unbekannt genau einmal, kein Heute-Tarif, kein Tarifwechsel-Wert', () => {
     const copy = executiveSummaryCopy(s)
-    expect(copy.hero.amount).toBe(`bis zu ${formatEur(s.header.savingPerYearEur)}`)
-    expect(copy.heroDetail).toEqual([
-      'Ersparnis durch einen Speicher gegenüber aWATTar ohne Speicher',
-      'Ihren aktuellen Tarif kennen wir nicht; ein Tarifwechsel ist deshalb nicht bewertet.',
-    ])
-    expect(copy.basis).toBe('gerechnet mit Ihren Messwerten von 365 Tagen')
+    expect(copy.savingBox).toMatchObject({
+      qualifier: 'bis zu',
+      amount: formatEur(s.header.savingPerYearEur),
+    })
+    expect(copy.basisLine).toBe(
+      'gerechnet mit Ihren Messwerten von 365 Tagen · Ihren aktuellen Tarif kennen wir nicht; ein Tarifwechsel ist deshalb nicht bewertet.',
+    )
     expect(copy.waysSentence).toBe(
       `Mit einem Speicher, der günstig lädt, sinken Ihre Kosten bei aWATTar von rund ${formatEur(s.ways[0]!.costPerYearEur)} ` +
         `auf rund ${formatEur(s.ways[1]!.costPerYearEur)} — ohne Spitzengebühr; deren Einsparung (bis zu ${formatEur(1160)}) kommt hinzu.`,
     )
     const text = copyText(s)
     expect(text.split('Ihren aktuellen Tarif kennen wir nicht').length - 1).toBe(1)
-    // Positivkontrolle: dieselben Muster treffen im Müldür-Text.
+    // Positivkontrolle: dieselben Muster treffen in einer Variante mit bekanntem Tarif.
     for (const absent of ['Ihr Tarif heute', 'Wechsel zu aWATTar, ohne Anschaffung']) {
       expect(text, absent).not.toContain(absent)
-      expect(copyText(summaries['jahr (Müldür)']!), absent).toContain(absent)
+      expect(copyText(summaries['nur-tarif (Katalog leer)']!), absent).toContain(absent)
     }
   })
 

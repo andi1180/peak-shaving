@@ -468,17 +468,24 @@ einem ganzen gemessenen Jahr (≥ 365 Tage, wie `annualizationFactor`), Speicher
 **Aufbau (seit PR 5b, 04.10.2026):** eigene `<Page>` direkt hinter dem Deckblatt, vor der Agenda;
 normale Kopf- und Fusszeile, Seitenanker `executive_summary`, **kein** Agenda-Eintrag (alle folgenden
 Seitenzahlen +1). Vier Blöcke, jeder über die volle Breite (481,6 pt):
-1. **Ersparnis:** Kunde · Zeitraum · Datum (klein), „Auf einen Blick", grosse Zahl („bis zu € X" bzw.
-   „rund € X", 40 pt fett, Akzent) + „pro Jahr", darunter die Basis (9 pt, „geschätzt, hochgerechnet aus N
-   gemessenen Tagen" bzw. „gerechnet mit Ihren Messwerten von N Tagen"); zwei Teilzahlen (20 pt) — links
-   Stufe 1 „Wechsel zu aWATTar|<Lieferant>, ohne Anschaffung", rechts Stufe 2 „mit einem Speicher dazu"
-   (nur mit Speicherempfehlung). **Ohne Speicherblock** (seit PR 5c) entfallen die Teilzahlen, weil die
-   grosse Zahl dort gleich Stufe 1 ist; stattdessen steht unter ihr „durch den Wechsel zu aWATTar|<Lieferant>,
-   ohne Anschaffung" (10 pt) über der Basis-Zeile.
+1. **Ersparnis (seit PR 7a: zwei Boxen):** Kunde · Zeitraum · Datum (klein), „Auf einen Blick", darunter
+   zwei Boxen nebeneinander (je 234,8 pt, Abstand 12 pt, feste Höhe 85 pt, Hintergrund `surfaceAlt`,
+   Akzentbalken links wie die Notice). Links „Ersparnis pro Jahr": Zeile 11 pt „bis zu"/„rund", Zahl
+   „€ X" 32 pt fett Akzent, Unterzeile „Tarifwechsel plus Speicher" | „durch den Wechsel zu
+   aWATTar|<Lieferant>, ohne Anschaffung" (ohne Speicherblock) | „durch einen Speicher gegenüber aWATTar
+   ohne Speicher" (`tarif-unbekannt`). Rechts (nur mit Speicherblock) „Rückzahlzeit des Speichers":
+   „frühestens" (nur mit Höchstwert), „ca. N Jahre", „bei € X Investition [nach Förderung]" (Betrag wie
+   im Diagramm-Label). Ohne Speicherblock steht die linke Box über die volle Breite. Darunter die Basis
+   (9 pt), bei `tarif-unbekannt` mit „ · Ihren aktuellen Tarif kennen wir nicht; …". **Zahl und Unterzeile
+   werden auf die Boxbreite verkleinert, wo sie sonst nicht passen** (`fitFontSize`, höchstens 32 bzw.
+   9 pt): ⚠ Passt der Inhalt nicht in die feste Boxhöhe, lässt react-pdf Text **ohne Warnung weg** — so
+   fehlte im ersten Entwurf die Zahl, weil die Unterzeile umbrach; ein Test misst jede Boxzeile mit den
+   echten Schriftmetriken (fontkit). Die Teilzahlen (Stufe 1/2) sind entfallen; die Modellfelder bleiben.
 2. **Ihr Lastgang:** Lastgang-Diagramm + ein Satz; ohne Tagesspitzen entfällt der ganze Block (Überschrift,
    Diagramm, Satz). Einen leeren Diagramm-Rahmen gibt es seit PR 5c nirgends mehr.
 3. **Ihre Stromkosten pro Jahr:** Wege-Balken + ein Satz.
-4. **Ihr Speicher:** nur mit Speicherempfehlung Break-even-Band + Speicher-Sätze; bei „speicher-lohnt-nicht"
+4. **Ihr Speicher:** nur mit Speicherempfehlung „Ersparnis durch den Speicher: bis zu|rund € X pro Jahr."
+   (nicht bei `tarif-unbekannt`, dort ist es die grosse Zahl), Break-even-Band + Speicher-Sätze; bei „speicher-lohnt-nicht"
    nur das bestehende Urteil ohne Diagramm; bei „nur-tarif" entfällt der Block.
 Darunter die Fusszeile (8 pt, eine Konstante `EXECUTIVE_SUMMARY_FOOTER`, ohne Seitenverweis). Entfallen
 sind der Kasten „Wie sicher ist das?", der Absatz zum empfohlenen Weg, die Fussnote zur Spitzengebühr und
@@ -487,7 +494,7 @@ Seitenanker (`executive-summary-page.test.ts`, mit Worst-Case und Positivkontrol
 
 **Diagramm-Plätze** (`EXEC_SLOTS`, `executive-summary-layout.ts`, Breite × Höhe in pt): Lastgang
 481,6 × 105 · Wege 481,6 × 95 · Break-even 481,6 × 105 (Zielwerte 110/100/120; zurückgenommen, bis die
-Reserve passte). **Reserve** im Worst-Case 12 pt (gemessen als grösste zusätzliche Lastgang-Höhe, bei der
+Reserve passte). **Reserve** im Worst-Case 10 pt seit PR 7a, vorher 12 pt (gemessen als grösste zusätzliche Diagrammhöhe, bei der
 alle Fälle noch auf eine Seite passen). Feste Höhen, damit der Umbruch nicht vom Raster abhängt.
 Schrift: Fliesstext 10,5 pt (`EXEC_TEXT_PT`), Abschnittsüberschriften 12 pt fett in der Akzentfarbe,
 Diagramm-Beschriftungen 8 pt.
@@ -497,13 +504,15 @@ Diagramm-Beschriftungen 8 pt.
   letzten Messtag; Tage ohne Messung bleiben leer. Ab 2 pt je Tag dünne Balken mit Abstand, darunter
   lückenlos (leicht überlappend, gegen Haarlinien).
 - Mit Speicher-Begrenzung (`capSegments` gesetzt): Treppenlinie je Zeitraum, gestrichelt in der
-  Akzentfarbe mit weissem Saum (sie liegt genau auf der Grenze Grau/Akzent und wäre sonst unsichtbar);
-  der Teil jedes Balkens über der Linie in der Akzentfarbe (`splitAtCap`). Ein Tag gehört zu dem
-  Zeitraum, der seine Tagesmitte enthält.
+  Akzentfarbe mit weissem Saum (sie liegt genau auf der Balkengrenze und wäre sonst unsichtbar); seit
+  PR 7a der Teil jedes Balkens über der Linie hellrot (#fca5a5) und an seiner Spitze ein roter Punkt
+  (#dc2626, Radius 1,2 pt, weisser Rand) — genau die Tage mit `splitAtCap(…).above > 0`. Im Müldür-Fall
+  liegen 156 von 157 Tagen darüber; mit 1,6 pt wirkte es überladen. Ein Tag gehört zu dem Zeitraum, der
+  seine Tagesmitte enthält.
 - Achsen: y mit 0, Mitte und runder Obergrenze („… kW"), x mit Monatskürzeln an der Mitte der sichtbaren
   Tage des Monats (nur, wo sie frei stehen). Legende in einer Zeile über dem Plot („Höchste Leistung pro
-  Tag", mit Begrenzung zusätzlich „Spitzen, die der Speicher abfängt" und „Begrenzung mit Speicher
-  (Höchstwert)"), sonst zweizeilig.
+  Tag", mit Begrenzung zusätzlich „Spitzen, die der Speicher abfängt" mit rotem Punkt als Marker und
+  „Begrenzung mit Speicher (Höchstwert)"), sonst zweizeilig.
 
 **Diagramme Wege und Break-even (PR 5a, 04.10.2026)** — `executive-summary-charts.tsx`:
 - **Technik:** native react-pdf-Zeichnung in den festen Massen aus `EXEC_SLOTS` (Vektor, kein Raster):

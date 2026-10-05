@@ -73,9 +73,10 @@ import { buildPvValueChapter } from './pv-value'
 import { breakEvenBandOf } from './break-even-band'
 import type { ExecutiveSummary } from './executive-summary'
 import { EXECUTIVE_SUMMARY_FOOTER, executiveSummaryCopy } from './executive-summary-copy'
-import { ExecBreakEvenChart, ExecWaysChart } from './executive-summary-charts'
+import { ExecBreakEvenChart, ExecWaysChart, fitFontSize } from './executive-summary-charts'
 import { ExecLoadChart } from './executive-summary-load-chart'
 import {
+  EXEC_HERO,
   EXEC_SLOTS,
   EXEC_TEXT_PT,
   EXECUTIVE_SUMMARY_SECTION_ID,
@@ -765,26 +766,34 @@ const styles = StyleSheet.create({
 
   /* Vorderseite „Auf einen Blick" — Abstände knapp, die Seite muss in jeder Variante auf ein Blatt. */
   execMeta: { fontSize: PDF_TYPE.small, lineHeight: PDF_TYPE.lineHeight, color: PDF_COLORS.textMuted },
-  execHero: {
+  execBoxes: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 },
+  execBox: {
+    height: EXEC_HERO.height,
+    paddingVertical: EXEC_HERO.paddingVertical,
+    paddingHorizontal: EXEC_HERO.padding,
+    borderLeftWidth: EXEC_HERO.edge,
+    borderLeftColor: PDF_COLORS.accent,
+    backgroundColor: PDF_COLORS.surfaceAlt,
+  },
+  execBoxLabel: { fontSize: 9.5, lineHeight: 1.1, color: PDF_COLORS.textMuted },
+  /*
+   * Feste Zeilen: über der Zahl („bis zu", „frühestens") auch leer, damit die Zahlen beider Boxen auf
+   * einer Höhe stehen. ⚠ Passt der Inhalt nicht in die feste Boxhöhe, lässt react-pdf Text stumm weg.
+   */
+  execBoxPrefixRow: { height: 13, justifyContent: 'flex-end' },
+  execBoxPrefix: { fontSize: 11, lineHeight: 1.15, color: PDF_COLORS.text },
+  execBoxValueRow: { height: 37 },
+  execBoxValue: { lineHeight: 1.15, fontWeight: 700, color: PDF_COLORS.accent },
+  execBoxSub: { lineHeight: 1.15, color: PDF_COLORS.text },
+  execBasis: {
     marginTop: 4,
-    fontSize: 40,
-    lineHeight: 1.1,
-    fontWeight: 700,
-    color: PDF_COLORS.accent,
-  },
-  execHeroUnit: { fontSize: 16, fontWeight: 600, color: PDF_COLORS.text },
-  execHeroDetail: {
-    fontSize: 10,
+    fontSize: 9,
     lineHeight: PDF_TYPE.lineHeight,
-    color: PDF_COLORS.text,
+    color: PDF_COLORS.textMuted,
   },
-  execBasis: { fontSize: 9, lineHeight: PDF_TYPE.lineHeight, color: PDF_COLORS.textMuted },
-  execStages: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 },
-  execStageAmount: { fontSize: 20, lineHeight: 1.15, fontWeight: 700, color: PDF_COLORS.ink },
-  execStageLabel: { fontSize: EXEC_TEXT_PT, lineHeight: PDF_TYPE.lineHeight, color: PDF_COLORS.text },
   execSection: {
-    marginTop: 12,
-    marginBottom: 5,
+    marginTop: 9,
+    marginBottom: 4,
     fontSize: 12,
     lineHeight: PDF_TYPE.lineHeight,
     fontWeight: 700,
@@ -799,7 +808,7 @@ const styles = StyleSheet.create({
   /** Fester Platz für höchstens zwei Zeilen — ein Test hält die Sätze darunter. */
   execTwoLines: { height: 6 + 2 * EXEC_TEXT_PT * PDF_TYPE.lineHeight },
   execFooter: {
-    marginTop: 10,
+    marginTop: 6,
     fontSize: 8,
     lineHeight: PDF_TYPE.lineHeight,
     color: PDF_COLORS.textMuted,
@@ -810,6 +819,50 @@ const styles = StyleSheet.create({
  * Vorderseite „Auf einen Blick" (`executive-summary.ts`): genau eine Seite, ohne Agenda-Eintrag.
  * Die Diagramm-Plätze haben feste Masse (`EXEC_SLOTS`), damit der Umbruch nicht vom Raster abhängt.
  */
+/** Eine Box oben auf der Vorderseite: Label, Zusatz, grosse Zahl (an die Breite angepasst), Unterzeile. */
+function HeroBox({
+  width,
+  label,
+  prefix,
+  value,
+  sub,
+}: {
+  width: number
+  label: string
+  prefix: string | null
+  value: string | null
+  sub: string
+}) {
+  const inner = width - 2 * EXEC_HERO.padding - EXEC_HERO.edge
+  return (
+    <View style={[styles.execBox, { width }]}>
+      <Text style={styles.execBoxLabel}>{label}</Text>
+      {value ? (
+        <>
+          <View style={styles.execBoxPrefixRow}>
+            {prefix && <Text style={styles.execBoxPrefix}>{prefix}</Text>}
+          </View>
+          <View style={styles.execBoxValueRow}>
+            <Text
+              style={[
+                styles.execBoxValue,
+                { fontSize: fitFontSize(value, inner, EXEC_HERO.valueMaxPt, true) },
+              ]}
+            >
+              {value}
+            </Text>
+          </View>
+          <Text style={[styles.execBoxSub, { fontSize: fitFontSize(sub, inner, EXEC_HERO.subMaxPt) }]}>
+            {sub}
+          </Text>
+        </>
+      ) : (
+        <Text style={[styles.execText, { marginTop: 13 }]}>{sub}</Text>
+      )}
+    </View>
+  )
+}
+
 function ExecutiveSummaryPage({ summary }: { summary: ExecutiveSummary }) {
   const copy = executiveSummaryCopy(summary)
   const { customerName, period, printedAt } = summary.header
@@ -822,30 +875,25 @@ function ExecutiveSummaryPage({ summary }: { summary: ExecutiveSummary }) {
     <View style={styles.body}>
       <Text style={styles.execMeta}>{meta}</Text>
       <Text style={[styles.h2, { marginTop: 4 }]}>Auf einen Blick</Text>
-      {copy.hero.amount ? (
-        <Text style={styles.execHero}>
-          {copy.hero.amount}
-          <Text style={styles.execHeroUnit}> {copy.hero.text}</Text>
-        </Text>
-      ) : (
-        <Text style={[styles.execStageAmount, { marginTop: 6 }]}>{copy.hero.text}</Text>
-      )}
-      {copy.heroDetail.map((line) => (
-        <Text key={line} style={styles.execHeroDetail}>
-          {line}
-        </Text>
-      ))}
-      <Text style={styles.execBasis}>{copy.basis}</Text>
-      {copy.stages.length > 0 && (
-        <View style={styles.execStages}>
-          {copy.stages.map((stage) => (
-            <View key={stage.label} style={{ width: '48%' }}>
-              {stage.amount && <Text style={styles.execStageAmount}>{stage.amount}</Text>}
-              <Text style={styles.execStageLabel}>{stage.label}</Text>
-            </View>
-          ))}
-        </View>
-      )}
+      <View style={styles.execBoxes}>
+        <HeroBox
+          width={copy.paybackBox ? EXEC_HERO.boxWidth : EXEC_SLOTS.load.width}
+          label={copy.savingBox.label}
+          prefix={copy.savingBox.qualifier}
+          value={copy.savingBox.amount}
+          sub={copy.savingBox.sub}
+        />
+        {copy.paybackBox && (
+          <HeroBox
+            width={EXEC_HERO.boxWidth}
+            label={copy.paybackBox.label}
+            prefix={copy.paybackBox.prefix}
+            value={copy.paybackBox.value}
+            sub={copy.paybackBox.sub}
+          />
+        )}
+      </View>
+      <Text style={styles.execBasis}>{copy.basisLine}</Text>
 
       {summary.load.dailyPeaks.length > 0 && (
         <>
@@ -864,6 +912,9 @@ function ExecutiveSummaryPage({ summary }: { summary: ExecutiveSummary }) {
       </View>
 
       {(band || copy.storageVerdict) && <Text style={styles.execSection}>Ihr Speicher</Text>}
+      {copy.storageSaving && (
+        <Text style={[styles.execText, { marginTop: 0, marginBottom: 2 }]}>{copy.storageSaving}</Text>
+      )}
       {band && <ExecBreakEvenChart band={band} slot={EXEC_SLOTS.breakEven} />}
       {copy.storage && (
         <Text style={styles.execText}>

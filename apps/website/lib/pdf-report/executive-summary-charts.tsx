@@ -13,13 +13,20 @@ export const FONT_PT = 8
 export const LINE_PT = 10
 /** Zeichenbreiten in em für Inter, mit fontkit gemessen und aufgerundet — nur für die Platzierung. */
 const DIGIT_EM = 0.6
-const CHAR_EM = 0.5
+const CHAR_EM = 0.55
 const BOLD_FACTOR = 1.05
 
-export const textWidth = (text: string, bold = false): number =>
+export const textWidthAt = (text: string, size: number, bold = false): number =>
   [...text].reduce((sum, ch) => sum + (/[0-9]/.test(ch) ? DIGIT_EM : CHAR_EM), 0) *
-  FONT_PT *
+  size *
   (bold ? BOLD_FACTOR : 1)
+
+export const textWidth = (text: string, bold = false): number => textWidthAt(text, FONT_PT, bold)
+
+/** Die grösste Schrift bis `max`, mit der der Text einzeilig in die Breite passt. */
+export function fitFontSize(text: string, width: number, max: number, bold = false): number {
+  return Math.min(max, Math.floor((width / textWidthAt(text, 1, bold)) * 10) / 10)
+}
 
 /** Kürzt auf die Breite, mit „…" am Ende. */
 export function fitLabel(text: string, width: number, bold = false): string {
