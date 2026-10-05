@@ -36,15 +36,15 @@ export const EXEC_DIVIDER_GAP_PT = 7.75
 export const EXEC_HERO = {
   gap: BOX_GAP_PT,
   boxWidth: HALF_BOX_PT,
-  /** Innen 64 pt: Label 10,45 + „bis zu"-Zeile 13 + Zahl 30 + Unterzeile 10,35. */
+  /** Innen 66 pt: Label 10,45 + „bis zu"-Zeile 13 + Zahl 32 + Unterzeile 10,35. */
   height: 76,
   padding: BOX_PADDING_PT,
-  paddingVertical: 6,
+  paddingVertical: 5,
   edge: BOX_EDGE_PT,
   valueMaxPt: 26,
   /** Feste Zeilen über und mit der Zahl, damit die Zahlen beider Boxen auf einer Höhe stehen. */
   prefixRowPt: 13,
-  valueRowPt: 30,
+  valueRowPt: 32,
   /** Unterzeile höchstens 9 pt, kleiner nur wenn sie sonst umbräche (die Box hat eine feste Höhe). */
   subMaxPt: 9,
   /** Innenbreite einer halben Box. */

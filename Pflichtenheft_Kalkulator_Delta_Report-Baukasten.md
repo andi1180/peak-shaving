@@ -471,8 +471,10 @@ Seitenzahlen +1). Vier Blöcke, jeder über die volle Breite (481,6 pt):
 1. **Ersparnis (seit PR 7a: zwei Boxen):** Kunde · Zeitraum · Datum (klein), „Auf einen Blick", darunter
    zwei Boxen nebeneinander (je 234,8 pt, Abstand 12 pt, feste Höhe 76 pt seit PR 7c, vorher 85, Hintergrund `surfaceAlt`,
    Akzentbalken links wie die Notice). Links „Ersparnis pro Jahr": Zeile 11 pt „bis zu"/„rund", Zahl
-   „€ X" 26 pt fett Akzent (seit PR 7c, vorher 32; feste Zeilen „bis zu" 13 pt und Zahl 30 pt, damit die
-   Zahlen beider Boxen auf einer Höhe stehen), Unterzeile „Tarifwechsel plus Speicher" | „durch den Wechsel zu
+   „€ X" 26 pt fett Akzent (seit PR 7c, vorher 32; feste Zeilen „bis zu" 13 pt und Zahl 32 pt, damit die
+   Zahlen beider Boxen auf einer Höhe stehen; ⚠ die Zahlenzeile nicht unter die Glyphenhöhe ≈ 1,21 × Grad
+   kürzen — bei 30 pt ragte die Zahl in die Unterzeile, und poppler 24.02 (CI) setzte die rechte Box
+   im Snapshot-Text unter die linke, poppler 26.09 nicht), Unterzeile „Tarifwechsel plus Speicher" | „durch den Wechsel zu
    aWATTar|<Lieferant>, ohne Anschaffung" (ohne Speicherblock) | „durch einen Speicher gegenüber aWATTar
    ohne Speicher" (`tarif-unbekannt`). Rechts (nur mit Speicherblock) „Rückzahlzeit des Speichers":
    „frühestens" (nur mit Höchstwert), „ca. N Jahre", „bei € X Investition [nach Förderung]" (Betrag wie
