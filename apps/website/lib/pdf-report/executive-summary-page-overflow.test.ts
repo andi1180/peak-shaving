@@ -23,5 +23,5 @@ describe('Vorderseite: Positivkontrolle der Seitenmessung', () => {
     expect(await executiveSummaryPages(EXECUTIVE_SUMMARY_CASES['Worst Case']!)).toBeGreaterThan(
       1,
     )
-  })
+  }, 30_000) // rendert das ganze Dokument mit Überlauf; unter Volllast über 5 s
 })
