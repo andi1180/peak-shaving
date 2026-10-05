@@ -19,7 +19,8 @@ import {
   type ExecutiveSummaryCopy,
 } from './executive-summary-copy'
 import { fitFontSize } from './executive-summary-charts'
-import { EXEC_HERO, EXEC_SLOTS, EXEC_TEXT_PT } from './executive-summary-layout'
+import { execDonutOf } from './executive-summary-donut'
+import { EXEC_HERO, EXEC_SLOTS, EXEC_STORAGE, EXEC_TEXT_PT } from './executive-summary-layout'
 import { headlineStorageOf } from './headline-storage'
 import { recommendedEntryOf, unknownTariffWaysOf } from './summary'
 
@@ -240,28 +241,52 @@ describe('executiveSummaryCopy', () => {
     expect(executiveSummaryCopy(noFee).waysSentence).not.toContain('Spitzengebühr')
   })
 
-  it('Speicher-Sätze: Rückzahlzeit-Varianten, Förderung im ersten Satz, Zahlen fett', () => {
+  it('Speicher-Sätze: Gerät und Investition, Betrag nach dem Horizont; Rückzahlzeit nur „rechnet sich nicht"', () => {
     const müldür = executiveSummaryCopy(summaries['jahr (Müldür)']!)
     expect(storageText(müldür)).toBe(
       `Kostal & Dyness Retrofit S, 29,2 kWh nutzbar, Investition rund ${formatEur(8550)} netto. ` +
-        'Rückzahlzeit: frühestens nach ca. 4 Jahren; allein durch günstiges Laden nach ca. 8,9 Jahren. ' +
         `Nach 10 Jahren bleiben unterm Strich bis zu ${formatEur(12700)}.`,
     )
     expect(müldür.storage!.filter((r) => r.bold).map((r) => r.text)).toEqual([
       formatEur(8550),
-      'ca. 4 Jahren',
-      'ca. 8,9 Jahren',
       formatEur(12700),
     ])
     expect(storageText(executiveSummaryCopy(summaries['ohne Spitzenersparnis']!))).toContain(
-      'Rückzahlzeit: nach ca. 8,9 Jahren. Nach 10 Jahren bleiben unterm Strich rund',
+      'netto. Nach 10 Jahren bleiben unterm Strich rund',
     )
     expect(storageText(executiveSummaryCopy(summaries['mit Förderung']!))).toContain(
-      `netto, nach Förderung rund ${formatEur(6550)}. Rückzahlzeit: frühestens nach ca. 3,1 Jahren`,
+      `netto, nach Förderung rund ${formatEur(6550)}. Nach 10 Jahren`,
     )
-    expect(storageText(executiveSummaryCopy(summaries['Worst Case']!))).toContain(
-      'allein durch günstiges Laden rechnet sich der Speicher innerhalb von 10 Jahren nicht.',
+    // Satz 3 nur jenseits des Horizonts.
+    expect(storageText(executiveSummaryCopy(summaries['Worst Case']!))).toMatch(
+      / Allein durch günstiges Laden rechnet sich der Speicher innerhalb von 10 Jahren nicht\.$/,
     )
+    for (const [name, s, copy] of copies) {
+      if (!copy.storage) continue
+      expect(storageText(copy), name).not.toContain('Rückzahlzeit')
+      if (!s.storage!.paybackWithoutPeaksBeyondHorizon) {
+        expect(storageText(copy), name).not.toContain('Allein durch')
+      }
+    }
+  })
+
+  it('Sätze und Boxzeilen des Speicherblocks: jede höchstens zwei Zeilen', () => {
+    for (const [name, s, copy] of copies) {
+      if (!copy.storage) continue
+      // Jeder Satz unter den Boxen einzeln, volle Breite.
+      for (const sentence of storageText(copy).split(/(?<=\.) (?=[A-ZÄÖÜ])/)) {
+        expect(
+          lineCount(sentence, EXEC_TEXT_PT, EXEC_SLOTS.load.width),
+          `${name}: ${sentence}`,
+        ).toBeLessThanOrEqual(2)
+      }
+      if (copy.storageSaving) {
+        const width = execDonutOf(s) ? EXEC_SLOTS.breakEvenHalf.width : EXEC_SLOTS.breakEven.width
+        expect(lineCount(copy.storageSaving, EXEC_STORAGE.linePt, width), name).toBeLessThanOrEqual(
+          2,
+        )
+      }
+    }
   })
 
   it('ohne Speicherempfehlung: keine Speicher-Sätze; lohnt nicht: nur das Urteil', () => {
