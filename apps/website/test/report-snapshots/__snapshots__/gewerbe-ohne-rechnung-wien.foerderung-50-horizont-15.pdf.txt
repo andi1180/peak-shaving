@@ -18,6 +18,72 @@ Auf Basis Ihres Viertelstunden-Lastgangs
 
 Ausgewerteter Zeitraum             01.01.2025 – 31.12.2025
 Erstellt am                        27.09.2026
+      COOLiN ENERGY         Referenzfall Gewerbe
+
+
+
+
+Referenzfall Gewerbe · Zeitraum 01.01.2025 – 31.12.2025 · Erstellt am 27.09.2026
+
+Auf einen Blick
+
+
+rund € 367                                              pro Jahr
+Ersparnis durch einen Speicher gegenüber aWATTar ohne Speicher
+Ihren aktuellen Tarif kennen wir nicht; ein Tarifwechsel ist deshalb nicht bewertet.
+gerechnet mit Ihren Messwerten von 365 Tagen
+
+Ihr Lastgang
+     Höchste Leistung pro Tag
+    6 kW
+
+
+
+       3
+
+
+
+       0
+             Jän      Feb       Mär      Apr     Mai       Jun      Jul       Aug       Sep     Okt         Nov      Dez
+
+Die Balken zeigen Ihre höchste Leistung pro Tag.
+
+
+Ihre Stromkosten pro Jahr
+aWATTar (Börsenpreis)
+                                                                                                                  € 2.698
+
+
+
+aWATTar mit Speicher, der günstig lädt
+                                                                                                  € 2.331
+
+
+
+
+Mit einem Speicher, der günstig lädt, sinken Ihre Kosten bei aWATTar von rund € 2.698 auf rund
+€ 2.331.
+
+Ihr Speicher
+    Ihre Ersparnis
+
+
+Investition nach Förderung € 3.845                                    ca. 10,5 Jahre
+
+
+
+
+0                                                           7,5                                                    15 Jahre
+
+Dyness Stack 100 30,72 kWh mit Solinteg MHT-15K-40, 29,2 kWh nutzbar, Investition rund € 7.691
+netto, nach Förderung rund € 3.845. Rückzahlzeit: nach ca. 10,5 Jahren. Nach 15 Jahren bleiben
+unterm Strich rund € 1.653.
+Schätzung, keine Zusage. Annahmen und Risiken, u. a. beim Börsenpreis, im weiteren Bericht.
+
+
+
+
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                                 www.coolin.at · Seite 2 von 18
     COOLiN ENERGY          Referenzfall Gewerbe
 
 
@@ -28,27 +94,27 @@ Was in diesem Dokument steht — und auf welcher Seite es beginnt.
 
 
 
-Zusammenfassung                                                                                3
+Zusammenfassung                                                                                4
 
-Voraussetzungen                                                                                4
+Voraussetzungen                                                                                5
 
-Ihr Lastgang                                                                                   5
+Ihr Lastgang                                                                                   6
 
-Zwei Wege zu weniger Stromkosten                                                               6
+Zwei Wege zu weniger Stromkosten                                                               7
 
-Empfehlung und Wirtschaftlichkeit                                                              7
+Empfehlung und Wirtschaftlichkeit                                                              8
 
-Kostenverlauf und ein Tag im Detail                                                            8
+Kostenverlauf und ein Tag im Detail                                                            9
 
-Ihr Stromtarif im Monatsvergleich                                                              9
+Ihr Stromtarif im Monatsvergleich                                                             10
 
-Das Ladeverhalten Ihres Speichers                                                             10
+Das Ladeverhalten Ihres Speichers                                                             11
 
-Speichergrösse und Gerätewahl                                                                 11
+Speichergrösse und Gerätewahl                                                                 12
 
-Unser Vorschlag                                                                               12
+Unser Vorschlag                                                                               13
 
-Methodik & Vorbehalte                                                                         13
+Methodik & Vorbehalte                                                                         14
 
    Grundlage ist Ihr echter Lastgang
    Ein Fahrplan, keine addierten Einzelrechnungen
@@ -56,7 +122,7 @@ Methodik & Vorbehalte                                                           
    Wie der Fahrplan entsteht
    Konstante Batterieeigenschaften über den Betrachtungszeitraum
 
-Annahmen und Datengrundlage                                                                   14
+Annahmen und Datengrundlage                                                                   15
 
    Annahmen & Rechenweise — Stand dieser Berechnung
    Datenqualität
@@ -72,7 +138,7 @@ Unterpunkte sind eingerückt und beginnen im Kapitel darüber.
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich      www.coolin.at · Seite 2 von 17
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich      www.coolin.at · Seite 3 von 18
     COOLiN ENERGY          Referenzfall Gewerbe
 
 
@@ -108,7 +174,7 @@ Wie diese Zahlen entstanden sind und wo ihre Grenzen liegen, steht im Kapitel �
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                              www.coolin.at · Seite 3 von 17
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                              www.coolin.at · Seite 4 von 18
     COOLiN ENERGY          Referenzfall Gewerbe
 
 
@@ -138,7 +204,7 @@ Ihr Verbrauch heute
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                               www.coolin.at · Seite 4 von 17
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                               www.coolin.at · Seite 5 von 18
     COOLiN ENERGY          Referenzfall Gewerbe
 
 
@@ -169,7 +235,7 @@ steht für einen gleichmässigen Verlauf, bei dem die Spitze nicht weit über de
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                         www.coolin.at · Seite 5 von 17
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                         www.coolin.at · Seite 6 von 18
     COOLiN ENERGY          Referenzfall Gewerbe
 
 
@@ -190,13 +256,13 @@ Umstellung an Speicher oder Verbrauch. Über die 365 gemessenen Tage hätte das 
 und Abgaben gekostet. Ob das weniger ist als heute, zeigt erst der Vergleich mit Ihrer Stromrechnung.
 
 aWATTar mit Ladesteuerung
- Gesamtinvestition                                                                                       € 7.691
+ Gesamtinvestition                                                                                        € 7.691
 
- Förderung (von Ihnen eingetragen)                                                                    -€ 3.846
+ Förderung (von Ihnen eingetragen)                                                                     -€ 3.846
 
- Nettoinvestition nach Förderung                                                                       € 3.845
+ Nettoinvestition nach Förderung                                                                        € 3.845
 
- Netto über 15 Jahre                                                                                    € 1.653
+ Netto über 15 Jahre                                                                                     € 1.653
 
 Zusätzlich zum Börsenpreis wird mit der empfohlenen Batterie gezielt geladen: in den günstigen
 Viertelstunden lädt der Speicher aus dem Netz, während er Kapazität für die teureren Stunden desselben
@@ -213,7 +279,7 @@ entsprechend anders aus.
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                        www.coolin.at · Seite 6 von 17
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                         www.coolin.at · Seite 7 von 18
       COOLiN ENERGY        Referenzfall Gewerbe
 
 
@@ -276,7 +342,7 @@ für die Zukunft ist die Zahl nicht.
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                        www.coolin.at · Seite 7 von 17
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                        www.coolin.at · Seite 8 von 18
     COOLiN ENERGY          Referenzfall Gewerbe
 
 
@@ -292,7 +358,7 @@ Wie sich die Zahlen über die Zeit auswirken — und wie ein einzelner Tag damit
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                            www.coolin.at · Seite 8 von 17
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                            www.coolin.at · Seite 9 von 18
     COOLiN ENERGY          Referenzfall Gewerbe
 
 
@@ -320,7 +386,7 @@ Summen absolut.
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                          www.coolin.at · Seite 9 von 17
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                         www.coolin.at · Seite 10 von 18
     COOLiN ENERGY          Referenzfall Gewerbe
 
 
@@ -336,9 +402,9 @@ Wann Ihr Speicher arbeitet — und was das über seine Steuerung aussagt.
 
 
 Wann lädt und entlädt Dyness Stack 100 30,72 kWh mit Solinteg MHT-15K-40?
- Stärkste Zelle                                                                                       416,9 kWh
+ Stärkste Zelle                                                                                        416,9 kWh
 
- Am meisten geladen um                                                                                23:00 Uhr
+ Am meisten geladen um                                                                                 23:00 Uhr
 
 Gezählt ist die Menge am Netz, also das, was bezogen bzw. eingespart wurde — nicht die im
 Speicher ankommende Energie; die liegt auf der Ladeseite um den Wirkungsgrad darunter. Wandert der
@@ -369,7 +435,7 @@ Abstand zum Durchschnitt ist, was dieser Plan erreicht hat.
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                         www.coolin.at · Seite 10 von 17
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                          www.coolin.at · Seite 11 von 18
     COOLiN ENERGY          Referenzfall Gewerbe
 
 
@@ -396,15 +462,15 @@ beim empfohlenen Gerät. „Nach Förderung“: Nettoinvestition nach einer von 
 
 34 Geräte geprüft, davon 4 im Betrachtungszeitraum wirtschaftlich.
 
- Gerät                   Grösse         Investition        Nach Ersparnis/Jahr Amortisation       Netto      Abstand zur
-                                                      Förderung                                  über 15     Empfehlung
-                                                                                                  Jahre
+ Gerät                   Grösse         Investition        Nach Ersparnis/Jahr Amortisation        Netto     Abstand zur
+                                                      Förderung                                   über 15    Empfehlung
+                                                                                                   Jahre
 
  Kostal & Dyness         29,2 kWh /        € 8.550      € 4.275         € 363    11,8 Jahre        € 1.174          € 479
  Retrofit S              12,3 kW                                                                             weniger über
                                                                                                                  15 Jahre
 
- Dyness Stack            38,9 kWh /        € 9.099      € 4.549         € 371    12,3 Jahre       € 1.018           € 635
+ Dyness Stack            38,9 kWh /        € 9.099      € 4.549         € 371    12,3 Jahre        € 1.018          € 635
  100 40,96 kWh           20 kW                                                                               weniger über
  mit Solinteg                                                                                                    15 Jahre
  MHT-20K-40
@@ -416,7 +482,7 @@ beim empfohlenen Gerät. „Nach Förderung“: Nettoinvestition nach einer von 
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                                 www.coolin.at · Seite 11 von 17
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                                 www.coolin.at · Seite 12 von 18
     COOLiN ENERGY          Referenzfall Gewerbe
 
 
@@ -443,7 +509,7 @@ die PV-Rekonstruktion sind ausführlich im Kapitel „Annahmen und Datengrundlag
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                    www.coolin.at · Seite 12 von 17
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                   www.coolin.at · Seite 13 von 18
     COOLiN ENERGY          Referenzfall Gewerbe
 
 
@@ -488,7 +554,7 @@ der späteren Jahre ist dadurch eher optimistisch.
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                      www.coolin.at · Seite 13 von 17
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                      www.coolin.at · Seite 14 von 18
     COOLiN ENERGY          Referenzfall Gewerbe
 
 
@@ -556,7 +622,7 @@ Datenquellen
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                              www.coolin.at · Seite 14 von 17
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                              www.coolin.at · Seite 15 von 18
     COOLiN ENERGY           Referenzfall Gewerbe
 
 
@@ -615,7 +681,7 @@ aus einem Rückblick.
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                              www.coolin.at · Seite 15 von 17
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                              www.coolin.at · Seite 16 von 18
     COOLiN ENERGY          Referenzfall Gewerbe
 
 
@@ -638,7 +704,7 @@ COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich               
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                    www.coolin.at · Seite 16 von 17
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                    www.coolin.at · Seite 17 von 18
                     COOLiN ENERGY
                     Peak Shaving & Speicher-Wirtschaftlichkeit
 

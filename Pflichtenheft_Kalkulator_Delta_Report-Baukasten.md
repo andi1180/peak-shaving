@@ -530,9 +530,24 @@ Diagramm-Beschriftungen 8 pt.
 **Schalter** `SHOW_EXECUTIVE_SUMMARY` (`report-flags.ts`): an. Aus ist der Report byte-identisch zum
 Stand ohne Vorderseite.
 
-**Es gibt sie nur** für Betriebe (Anzeige netto), mit bekanntem Liefertarif, mit Jahresbasis und ohne
-Bestandsspeicher — sonst `null` und der Report bleibt unverändert. Kein Prozentwert: „Ihr Tarif heute"
-enthält den Leistungspreis nicht.
+**Es gibt sie nur** für Betriebe (Anzeige netto), mit Jahresbasis und ohne Bestandsspeicher — und
+entweder mit bekanntem Liefertarif oder in der Variante `tarif-unbekannt` — sonst `null` und der Report
+bleibt unverändert. Kein Prozentwert: „Ihr Tarif heute" enthält den Leistungspreis nicht.
+
+**Variante `tarif-unbekannt` (PR 6, 05.10.2026):** Liefertarif unbekannt (`unknownTariffWaysOf`, also
+keine Reihe „Ihr Tarif heute") UND mindestens 365 Messtage (Basis `annual`; die Wege sind die Summen über
+die gemessenen Tage) UND ein Speicher, der sich rechnet (`storagePaysOff`, Speicherreihe vorhanden).
+- Grosse Zahl = Speicher-Ersparnis gegenüber aWATTar ohne Speicher (`headlineStorageOf`: günstiges Laden
+  + Stromspitzen; „bis zu" mit Stromspitzen, sonst „rund"). Darunter „Ersparnis durch einen Speicher
+  gegenüber aWATTar ohne Speicher", „Ihren aktuellen Tarif kennen wir nicht; ein Tarifwechsel ist
+  deshalb nicht bewertet." und die Basis-Zeile; keine Teilzahlen (Modell: nur Stufe `mit-speicher`).
+- Wege: genau zwei Balken, aWATTar (Börsenpreis) und aWATTar mit Speicher (empfohlen);
+  `todayCostPerYearEur` ist `null`. Satz: „Mit einem Speicher, der günstig lädt, sinken Ihre Kosten bei
+  aWATTar von rund € A auf rund € B" + Spitzengebühr-Zusätze wie sonst.
+- Lastgang, Speicherblock und Fusszeile unverändert.
+- Referenzfälle: `gewerbe-ohne-rechnung-wien.foerderung-50-horizont-15` (+ `-steuer`) — die einzigen
+  Wizard-Snapshots mit Vorderseite (`SnapshotCase.executiveSummary`). Ohne Förderung bzw. mit Förderung pro
+  kWh rechnet sich der Speicher dort nicht („Derzeit nicht") → keine Vorderseite.
 
 **Stufenregel:** Stufe 1 = Ersparnis ohne neue Anschaffung (Tarifwechsel). Stufe 2 = nur bei
 empfohlenem neuem Speicher, gleich der Speicher-Hauptzahl (günstig laden + vermiedene Stromspitzen).
@@ -561,7 +576,9 @@ der Hauptzahl (`amortizationYearsOf`); nur gesetzt, wenn die Spitzenersparnis en
 Laden etwas bringt.
 
 **Offen:** Bestandsspeicher (wohin dessen Spitzenersparnis gehört);
-Privat; Liefertarif unbekannt; Teiljahr ohne Jahresszenario (keine Jahreskosten je Weg vorhanden).
+Privat; Liefertarif unbekannt im Teiljahr (keine Jahresbasis) und Liefertarif unbekannt ohne Speicher,
+der sich rechnet (keine Ersparnis, die als grosse Zahl taugt); Teiljahr ohne Jahresszenario (keine
+Jahreskosten je Weg vorhanden).
 
 ---
 

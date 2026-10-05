@@ -830,7 +830,11 @@ function ExecutiveSummaryPage({ summary }: { summary: ExecutiveSummary }) {
       ) : (
         <Text style={[styles.execStageAmount, { marginTop: 6 }]}>{copy.hero.text}</Text>
       )}
-      {copy.heroDetail && <Text style={styles.execHeroDetail}>{copy.heroDetail}</Text>}
+      {copy.heroDetail.map((line) => (
+        <Text key={line} style={styles.execHeroDetail}>
+          {line}
+        </Text>
+      ))}
       <Text style={styles.execBasis}>{copy.basis}</Text>
       {copy.stages.length > 0 && (
         <View style={styles.execStages}>
