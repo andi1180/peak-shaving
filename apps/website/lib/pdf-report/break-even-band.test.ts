@@ -120,3 +120,23 @@ describe('fitFontSize', () => {
     expect(fitFontSize('ca. 10,5 Jahre', inner, 32, true)).toBeLessThan(32)
   })
 })
+
+describe('Break-even-Band in halber Breite', () => {
+  it.each(Object.keys(CASES))('%s: keine Beschriftung überdeckt eine andere', (name) => {
+    const st = summary(name).storage
+    if (!st) return
+    const layout = breakEvenLayoutOf(breakEvenBandOf(st)!, EXEC_SLOTS.breakEvenHalf)
+    const rects = [layout.investmentLabel, ...layout.markers.map((m) => m.label)]
+    for (const [i, a] of rects.entries()) {
+      expect(a.x + a.width, a.text).toBeLessThanOrEqual(EXEC_SLOTS.breakEvenHalf.width)
+      for (const b of rects.slice(i + 1)) {
+        const overlap =
+          a.x < b.x + b.width &&
+          b.x < a.x + a.width &&
+          a.y + 1 < b.y + b.height - 1 &&
+          b.y + 1 < a.y + a.height - 1
+        expect(overlap, `${a.text} / ${b.text}`).toBe(false)
+      }
+    }
+  })
+})

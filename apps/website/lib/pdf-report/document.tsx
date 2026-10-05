@@ -74,10 +74,12 @@ import { breakEvenBandOf } from './break-even-band'
 import type { ExecutiveSummary } from './executive-summary'
 import { EXECUTIVE_SUMMARY_FOOTER, executiveSummaryCopy } from './executive-summary-copy'
 import { ExecBreakEvenChart, ExecWaysChart, fitFontSize } from './executive-summary-charts'
+import { ExecSavingsDonut, execDonutOf } from './executive-summary-donut'
 import { ExecLoadChart } from './executive-summary-load-chart'
 import {
   EXEC_HERO,
   EXEC_SLOTS,
+  EXEC_STORAGE,
   EXEC_TEXT_PT,
   EXECUTIVE_SUMMARY_SECTION_ID,
 } from './executive-summary-layout'
@@ -785,6 +787,25 @@ const styles = StyleSheet.create({
   execBoxValueRow: { height: 37 },
   execBoxValue: { lineHeight: 1.15, fontWeight: 700, color: PDF_COLORS.accent },
   execBoxSub: { lineHeight: 1.15, color: PDF_COLORS.text },
+  /** Box im Speicherblock: Stil der Boxen oben, Innenabstand rundum gleich. */
+  execPanel: {
+    padding: EXEC_HERO.padding,
+    borderLeftWidth: EXEC_HERO.edge,
+    borderLeftColor: PDF_COLORS.accent,
+    backgroundColor: PDF_COLORS.surfaceAlt,
+  },
+  execPanelTitle: {
+    fontSize: EXEC_STORAGE.titlePt,
+    lineHeight: PDF_TYPE.lineHeight,
+    fontWeight: 700,
+    color: PDF_COLORS.accent,
+  },
+  execPanelLine: {
+    marginTop: 3,
+    fontSize: EXEC_STORAGE.linePt,
+    lineHeight: PDF_TYPE.lineHeight,
+    color: PDF_COLORS.text,
+  },
   execBasis: {
     marginTop: 4,
     fontSize: 9,
@@ -870,6 +891,7 @@ function ExecutiveSummaryPage({ summary }: { summary: ExecutiveSummary }) {
     .filter(Boolean)
     .join(' · ')
   const band = breakEvenBandOf(summary.storage)
+  const donut = execDonutOf(summary)
 
   return (
     <View style={styles.body}>
@@ -911,11 +933,36 @@ function ExecutiveSummaryPage({ summary }: { summary: ExecutiveSummary }) {
         <Text style={styles.execText}>{copy.waysSentence}</Text>
       </View>
 
-      {(band || copy.storageVerdict) && <Text style={styles.execSection}>Ihr Speicher</Text>}
-      {copy.storageSaving && (
-        <Text style={[styles.execText, { marginTop: 0, marginBottom: 2 }]}>{copy.storageSaving}</Text>
+      {copy.storageVerdict && <Text style={styles.execSection}>Ihr Speicher</Text>}
+      {band && (
+        <View style={styles.execBoxes}>
+          <View
+            style={[
+              styles.execPanel,
+              donut
+                ? { width: EXEC_HERO.boxWidth, height: EXEC_STORAGE.height }
+                : { width: EXEC_SLOTS.load.width },
+            ]}
+          >
+            <Text style={styles.execPanelTitle}>Ihr Speicher</Text>
+            {copy.storageSaving && <Text style={styles.execPanelLine}>{copy.storageSaving}</Text>}
+            <View style={{ marginTop: 3 }}>
+              <ExecBreakEvenChart
+                band={band}
+                slot={donut ? EXEC_SLOTS.breakEvenHalf : EXEC_SLOTS.breakEven}
+              />
+            </View>
+          </View>
+          {donut && (
+            <View style={[styles.execPanel, { width: EXEC_HERO.boxWidth, height: EXEC_STORAGE.height }]}>
+              <Text style={styles.execPanelTitle}>Woher die Ersparnis kommt</Text>
+              <View style={{ marginTop: 3 }}>
+                <ExecSavingsDonut donut={donut} slot={EXEC_SLOTS.donut} />
+              </View>
+            </View>
+          )}
+        </View>
       )}
-      {band && <ExecBreakEvenChart band={band} slot={EXEC_SLOTS.breakEven} />}
       {copy.storage && (
         <Text style={styles.execText}>
           {copy.storage.map((run, i) =>

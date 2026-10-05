@@ -200,7 +200,7 @@ const BASE_COLOR = '#94a3b8'
 /** Die Begrenzungslinie bleibt in der Akzentfarbe; was darüber liegt, ist rot markiert. */
 const CAP_COLOR = CHART_COLORS.series
 const ABOVE_COLOR = '#fca5a5'
-const DOT_COLOR = '#dc2626'
+export const DOT_COLOR = '#dc2626'
 const DOT_RADIUS_PT = 1.2
 
 const muted = { ...label(false), color: PDF_COLORS.textMuted }

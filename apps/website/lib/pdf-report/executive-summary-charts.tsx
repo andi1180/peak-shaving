@@ -139,7 +139,8 @@ export function ExecWaysChart({
 
 type Point = { x: number; y: number }
 type Rect = { x: number; y: number; width: number; height: number }
-type Placed = Rect & { text: string; bold?: boolean }
+/** `crossesLine`: keine Position war frei, die Beschriftung liegt auf einer Linie und wird hinterlegt. */
+type Placed = Rect & { text: string; bold?: boolean; crossesLine?: boolean }
 
 export type BreakEvenLayout = {
   plot: { left: number; right: number; top: number; bottom: number }
@@ -148,7 +149,7 @@ export type BreakEvenLayout = {
   investmentY: number
   markers: (Point & { label: Placed })[]
   investmentLabel: Placed
-  legend: { text: string; color: string; x: number }[]
+  legend: { text: string; color: string; x: number; row: number }[]
   ticks: Placed[]
 }
 
@@ -170,10 +171,27 @@ function crossesSegment(rect: Rect, from: Point, to: Point): boolean {
 }
 
 export function breakEvenLayoutOf(band: BreakEvenBand, slot: Size): BreakEvenLayout {
+  // Legende in einer Zeile, sonst je Eintrag eine (halbe Breite neben dem Ring).
+  const legendItems = [
+    {
+      text: band.upperBound ? 'Mit Stromspitzen (Höchstwert)' : 'Ihre Ersparnis',
+      color: UPPER_COLOR,
+    },
+    ...(band.lower ? [{ text: 'Nur günstiges Laden', color: LOWER_COLOR }] : []),
+  ]
+  const itemWidth = (text: string) => LEGEND_SWATCH_PT + 2 + textWidth(text) + 8
+  const oneRow = legendItems.reduce((sum, item) => sum + itemWidth(item.text), 0) <= slot.width
+  let cursor = 0
+  const legend = legendItems.map((item, i) => {
+    const entry = oneRow ? { ...item, x: cursor, row: 0 } : { ...item, x: 0, row: i }
+    cursor += itemWidth(item.text)
+    return entry
+  })
+  const legendRows = oneRow ? 1 : legendItems.length
   const plot = {
     left: 1,
     right: slot.width - 1,
-    top: LINE_PT + 4,
+    top: legendRows * LINE_PT + 4,
     bottom: slot.height - LINE_PT - 3,
   }
   const x = (years: number) => plot.left + (years / band.horizonYears) * (plot.right - plot.left)
@@ -210,9 +228,15 @@ export function breakEvenLayoutOf(band: BreakEvenBand, slot: Size): BreakEvenLay
   const place = (text: string, candidates: Point[], bold = false): Placed => {
     const width = textWidth(text)
     const rects = candidates.map((c) => ({ x: c.x, y: c.y, width, height: LINE_PT }))
-    const rect = rects.find(fits) ?? rects[0]!
+    // Ist keine Position ganz frei, lieber eine Linie kreuzen als eine andere Beschriftung überdecken.
+    const textFree = (box: Rect) =>
+      box.x >= 0 &&
+      box.x + box.width <= slot.width &&
+      !placed.some((other) => overlaps({ ...box, y: box.y + 1, height: box.height - 2 }, other))
+    const free = rects.find(fits)
+    const rect = free ?? rects.find(textFree) ?? rects[0]!
     placed.push(rect)
-    return { ...rect, text, bold }
+    return { ...rect, text, bold, crossesLine: !free }
   }
 
   const investmentText = `${band.subsidized ? 'Investition nach Förderung' : 'Investition'} ${formatEur(band.investmentEur)}`
@@ -234,20 +258,6 @@ export function breakEvenLayoutOf(band: BreakEvenBand, slot: Size): BreakEvenLay
       { x: point.x - 3 - w, y: point.y + 1 },
     ])
     return { x: point.x, y: point.y, label }
-  })
-
-  const legendItems = [
-    {
-      text: band.upperBound ? 'Mit Stromspitzen (Höchstwert)' : 'Ihre Ersparnis',
-      color: UPPER_COLOR,
-    },
-    ...(band.lower ? [{ text: 'Nur günstiges Laden', color: LOWER_COLOR }] : []),
-  ]
-  let cursor = 0
-  const legend = legendItems.map((item) => {
-    const entry = { ...item, x: cursor }
-    cursor += LEGEND_SWATCH_PT + 2 + textWidth(item.text) + 8
-    return entry
   })
 
   const mid = band.horizonYears / 2
@@ -283,6 +293,7 @@ const at = (rect: Placed, align: 'left' | 'right' = 'left') => ({
   width: rect.width,
   textAlign: align,
   color: PDF_COLORS.textMuted,
+  ...(rect.crossesLine ? { backgroundColor: PDF_COLORS.surfaceAlt, borderRadius: 2 } : {}),
 })
 
 export function ExecBreakEvenChart({ band, slot }: { band: BreakEvenBand; slot: Size }) {
@@ -358,9 +369,9 @@ export function ExecBreakEvenChart({ band, slot }: { band: BreakEvenBand; slot: 
           <Line
             key={item.text}
             x1={item.x}
-            y1={LINE_PT / 2}
+            y1={item.row * LINE_PT + LINE_PT / 2}
             x2={item.x + LEGEND_SWATCH_PT}
-            y2={LINE_PT / 2}
+            y2={item.row * LINE_PT + LINE_PT / 2}
             stroke={item.color}
             strokeWidth={item.color === UPPER_COLOR ? 1.5 : 1.25}
           />
@@ -373,7 +384,7 @@ export function ExecBreakEvenChart({ band, slot }: { band: BreakEvenBand; slot: 
             label(false),
             {
               position: 'absolute',
-              top: 0,
+              top: item.row * LINE_PT,
               left: item.x + LEGEND_SWATCH_PT + 2,
               color: PDF_COLORS.textMuted,
             },

@@ -484,18 +484,28 @@ Seitenzahlen +1). Vier Blöcke, jeder über die volle Breite (481,6 pt):
 2. **Ihr Lastgang:** Lastgang-Diagramm + ein Satz; ohne Tagesspitzen entfällt der ganze Block (Überschrift,
    Diagramm, Satz). Einen leeren Diagramm-Rahmen gibt es seit PR 5c nirgends mehr.
 3. **Ihre Stromkosten pro Jahr:** Wege-Balken + ein Satz.
-4. **Ihr Speicher:** nur mit Speicherempfehlung „Ersparnis durch den Speicher: bis zu|rund € X pro Jahr."
-   (nicht bei `tarif-unbekannt`, dort ist es die grosse Zahl), Break-even-Band + Speicher-Sätze; bei „speicher-lohnt-nicht"
-   nur das bestehende Urteil ohne Diagramm; bei „nur-tarif" entfällt der Block.
+4. **Ihr Speicher (seit PR 7b: Boxen):** nur mit Speicherempfehlung. **Mit Ring** zwei Boxen (je 234,8 pt,
+   Abstand 12, feste Höhe 151 pt, Stil der Boxen oben): links Titel „Ihr Speicher" (12 pt fett Akzent),
+   „Ersparnis durch den Speicher: bis zu|rund € X pro Jahr." (10 pt, bis zu zwei Zeilen) und das
+   Break-even-Band; rechts „Woher die Ersparnis kommt" mit Ring und Legende. **Ohne Ring** eine Box über
+   die volle Breite (Titel, Ersparnis-Zeile ausser bei `tarif-unbekannt`, Band). Ring, wenn Speicherblock
+   und Tarifwechsel-Anteil > 0 und `buildSavingsDonut` eine Aufteilung liefert (verlangt günstiges Laden
+   > 0) — also nicht bei `tarif-unbekannt`. Unter den Boxen höchstens drei Sätze (10,5 pt, je ≤ 2 Zeilen):
+   „<Gerät>, <kWh> kWh nutzbar, Investition rund € X netto[, nach Förderung rund € Y]." „Nach N Jahren
+   bleiben unterm Strich bis zu|rund € Z." und nur bei `paybackWithoutPeaksBeyondHorizon` „Allein durch
+   günstiges Laden rechnet sich der Speicher innerhalb von N Jahren nicht." — die Rückzahlzeit tragen Box
+   oben und Band. Bei „speicher-lohnt-nicht" Überschrift + Urteilssatz ohne Boxen; bei „nur-tarif"
+   entfällt der Block.
 Darunter die Fusszeile (8 pt, eine Konstante `EXECUTIVE_SUMMARY_FOOTER`, ohne Seitenverweis). Entfallen
 sind der Kasten „Wie sicher ist das?", der Absatz zum empfohlenen Weg, die Fussnote zur Spitzengebühr und
 die Zeile „Ersparnis bis zu … davon rund …". Genau eine Seite in jeder Variante, gemessen über die
 Seitenanker (`executive-summary-page.test.ts`, mit Worst-Case und Positivkontrolle).
 
-**Diagramm-Plätze** (`EXEC_SLOTS`, `executive-summary-layout.ts`, Breite × Höhe in pt): Lastgang
-481,6 × 105 · Wege 481,6 × 95 · Break-even 481,6 × 105 (Zielwerte 110/100/120; zurückgenommen, bis die
-Reserve passte). **Reserve** im Worst-Case 10 pt seit PR 7a, vorher 12 pt (gemessen als grösste zusätzliche Diagrammhöhe, bei der
-alle Fälle noch auf eine Seite passen). Feste Höhen, damit der Umbruch nicht vom Raster abhängt.
+**Diagramm-Plätze** (`EXEC_SLOTS`, `executive-summary-layout.ts`, Breite × Höhe in pt, seit PR 7b):
+Lastgang 481,6 × 95 · Wege 481,6 × 95 · Break-even volle Box 459 × 90 · Break-even halbe Box 212,2 × 85 ·
+Ring 212,2 × 85 (Breiten = Innenbreite der Box). Gekürzt in der Reihenfolge des Auftrags: Band/Ring
+90 → 85, Lastgang 105 → 95. **Reserve** im Worst-Case je Layout: mit Ring 11 pt, ohne Ring 23 pt (vorher
+10 pt; gemessen als grösste zusätzliche Diagrammhöhe, bei der alle Fälle noch auf eine Seite passen). Feste Höhen, damit der Umbruch nicht vom Raster abhängt.
 Schrift: Fliesstext 10,5 pt (`EXEC_TEXT_PT`), Abschnittsüberschriften 12 pt fett in der Akzentfarbe,
 Diagramm-Beschriftungen 8 pt.
 
@@ -513,6 +523,16 @@ Diagramm-Beschriftungen 8 pt.
   Tage des Monats (nur, wo sie frei stehen). Legende in einer Zeile über dem Plot („Höchste Leistung pro
   Tag", mit Begrenzung zusätzlich „Spitzen, die der Speicher abfängt" mit rotem Punkt als Marker und
   „Begrenzung mit Speicher (Höchstwert)"), sonst zweizeilig.
+
+**Ring „Woher die Ersparnis kommt" (PR 7b, 05.10.2026)** — `executive-summary-donut.tsx`: Beträge aus
+`buildSavingsDonut` (Tarifwechsel = Stufe 1, günstig laden = `loadShiftEur`, Spitzen = `peakEur`; ein
+Segment mit 0 entfällt), Labels „Wechsel zu aWATTar", „Speicher lädt günstig", „Weniger Spitzen
+(Höchstwert)" (die Labels von `buildSavingsDonut` tragen gesperrte Begriffe und werden nicht benutzt).
+Ring 88 pt, Strich 15 pt, ab 12 Uhr im Uhrzeigersinn, Winkel proportional; Mitte „bis zu"/„rund" und die
+Summe (= grosse Zahl oben). Farben: aWATTar-Balken (`seriesSoft`), empfohlener Balken (`series`),
+Lastgang-Punkte (#dc2626). Legende rechts: Punkt, Label (bis zu zwei Zeilen), Betrag fett.
+**Band in halber Breite:** Legende zweizeilig; findet eine Beschriftung keine freie Position, wird sie
+ohne Überdeckung einer anderen Beschriftung gesetzt und hinterlegt (sie liegt dann auf einer Linie).
 
 **Diagramme Wege und Break-even (PR 5a, 04.10.2026)** — `executive-summary-charts.tsx`:
 - **Technik:** native react-pdf-Zeichnung in den festen Massen aus `EXEC_SLOTS` (Vektor, kein Raster):

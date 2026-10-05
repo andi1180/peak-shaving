@@ -35,12 +35,6 @@ export const EXECUTIVE_SUMMARY_FOOTER =
 const SPOT_NAME = 'aWATTar'
 const PEAK_FEE = 'die Spitzengebühr (für die höchste Spitze im Monat)'
 
-/** „ca. 4 Jahren" — eine Nachkommastelle wie `formatYears`, im Dativ. */
-function yearsDative(value: number): string {
-  const n = new Intl.NumberFormat('de-AT', { maximumFractionDigits: 1 }).format(value)
-  return `ca. ${n} ${n === '1' ? 'Jahr' : 'Jahren'}`
-}
-
 /** „Text **fett** Text" → Textstücke. */
 function runs(template: string): CopyRun[] {
   return template
@@ -148,6 +142,10 @@ function waysSentence(s: ExecutiveSummary): string {
   )
 }
 
+/**
+ * Sätze unter dem Speicherblock: Gerät mit Investition und der Betrag nach dem Horizont. Die
+ * Rückzahlzeit tragen Box und Band; nur „rechnet sich allein durch Laden nicht" hat dort keinen Marker.
+ */
 function storageRuns(s: ExecutiveSummary): CopyRun[] | null {
   const st = s.storage
   if (!st) return null
@@ -155,19 +153,13 @@ function storageRuns(s: ExecutiveSummary): CopyRun[] | null {
   const subsidy = st.hasSubsidy
     ? `, nach Förderung rund **${formatEur(st.investment.netEur)}**`
     : ''
-  const withoutPeaks =
-    st.paybackWithoutPeaksYears === null
-      ? ''
-      : st.paybackWithoutPeaksBeyondHorizon
-        ? `; allein durch günstiges Laden rechnet sich der Speicher innerhalb von ${st.horizonYears} Jahren nicht`
-        : `; allein durch günstiges Laden nach **${yearsDative(st.paybackWithoutPeaksYears)}**`
-  const payback = Number.isFinite(st.amortizationYears)
-    ? `Rückzahlzeit: ${st.upperBound ? 'frühestens ' : ''}nach **${yearsDative(st.amortizationYears)}**${withoutPeaks}.`
-    : `Rückzahlzeit: innerhalb von ${st.horizonYears} Jahren nicht erreicht.`
+  const beyond = st.paybackWithoutPeaksBeyondHorizon
+    ? ` Allein durch günstiges Laden rechnet sich der Speicher innerhalb von ${st.horizonYears} Jahren nicht.`
+    : ''
   return runs(
     `${st.name}, ${kwh} kWh nutzbar, Investition rund **${formatEur(st.investment.investmentEur)}** netto${subsidy}. ` +
-      `${payback} Nach ${st.horizonYears} Jahren bleiben unterm Strich ${st.upperBound ? 'bis zu' : 'rund'} ` +
-      `**${formatEur(st.netSavingOverHorizonEur)}**.`,
+      `Nach ${st.horizonYears} Jahren bleiben unterm Strich ${st.upperBound ? 'bis zu' : 'rund'} ` +
+      `**${formatEur(st.netSavingOverHorizonEur)}**.${beyond}`,
   )
 }
 
