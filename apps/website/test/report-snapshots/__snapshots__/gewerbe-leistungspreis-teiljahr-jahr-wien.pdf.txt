@@ -30,7 +30,7 @@ Auf einen Blick
    bis zu                                                          frühestens
 
    € 10.150                                                        ca. 4 Jahre
-   Tarifwechsel plus Speicher                                      bei € 8.550 Investition
+   davon € 8.025 ohne Investition (Tarifwechsel)                   € 8.550 Investition, spart bis zu € 2.125/Jahr
 
 geschätzt, hochgerechnet aus 157 gemessenen Tagen (März bis August)
 
@@ -44,20 +44,20 @@ Ihr Lastgang
 
 
        0
-           Mär       Apr                    Mai                   Jun                  Jul                       Aug
+           Mär       Apr                    Mai                   Jun                   Jul                       Aug
 
 Die Balken zeigen Ihre höchste Leistung pro Tag. Der höchste Balken im Monat bestimmt die
 Spitzengebühr; ein Speicher kann Spitzen über der Linie abfangen (Höchstwert).
 
 Ihre Stromkosten pro Jahr
 Ihr Tarif heute
-                                                                                                                   € 34.794
+                                                                                                                    € 34.794
 
 aWATTar (Börsenpreis)
-                                                                                       € 26.769
+                                                                                        € 26.769
 
 aWATTar mit Speicher, der günstig lädt
-                                                                                    € 25.804
+                                                                                     € 25.804
 
 
 Mit aWATTar und einem Speicher, der günstig lädt, sinken Ihre Kosten von rund € 34.794 auf rund
@@ -65,14 +65,14 @@ Mit aWATTar und einem Speicher, der günstig lädt, sinken Ihre Kosten von rund 
 
 
    Ihr Speicher                                                    Woher die Ersparnis kommt
-   Ersparnis durch den Speicher: bis zu € 2.125                                                Wechsel zu aWATTar
-   pro Jahr.                                                                                   € 8.025
-       Mit Stromspitzen (Höchstwert)                                       bis zu              Speicher lädt günstig
-       Nur günstiges Laden                                                                     € 965
-                                                                        € 10.150
-                                                                                               Weniger Spitzen
-                                                                                               (Höchstwert)
-    Investition € 8.550              ca. 8,9 Jahre                                             € 1.160
+   Ersparnis durch den Speicher: bis zu € 2.125                                                 Wechsel zu aWATTar
+   pro Jahr.                                                                                    € 8.025
+       Mit Stromspitzen (Höchstwert)                                       bis zu               Speicher lädt günstig
+       Nur günstiges Laden                                                                      € 965
+                                                                         € 10.150
+                                                                                                Weniger Spitzen
+                                                                                                (Höchstwert)
+    Investition € 8.550              ca. 8,9 Jahre                                              € 1.160
                            ca. 4 Jahre
 
    0                           5                     10 Jahre
@@ -85,7 +85,7 @@ Schätzung, keine Zusage. Annahmen und Risiken, u. a. beim Börsenpreis, im weit
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                                  www.coolin.at · Seite 2 von 20
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                                   www.coolin.at · Seite 2 von 20
     COOLiN ENERGY          Muster Gastro GmbH
 
 

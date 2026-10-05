@@ -11,6 +11,7 @@ import {
   variant,
 } from '@/test/executive-summary-cases'
 import { lineCount, textWidthPt } from '@/test/pdf-text-lines'
+import { aboutYears } from './break-even-band'
 import { dailyPeaksOf } from './daily-peaks'
 import { buildExecutiveSummary, type ExecutiveSummary } from './executive-summary'
 import {
@@ -136,7 +137,7 @@ describe('executiveSummaryCopy', () => {
       label: 'Ersparnis pro Jahr',
       qualifier: 'bis zu',
       amount: formatEur(10150),
-      sub: 'Tarifwechsel plus Speicher',
+      sub: `davon ${formatEur(8025)} ohne Investition (Tarifwechsel)`,
     })
     expect(box('ohne Spitzenersparnis')).toMatchObject({
       qualifier: 'rund',
@@ -176,16 +177,54 @@ describe('executiveSummaryCopy', () => {
       label: 'Rückzahlzeit des Speichers',
       prefix: 'frühestens',
       value: 'ca. 4 Jahre',
-      sub: `bei ${formatEur(8550)} Investition`,
+      sub: `${formatEur(8550)} Investition, spart bis zu ${formatEur(2125)}/Jahr`,
     })
-    expect(box('ohne Spitzenersparnis')).toMatchObject({ prefix: null, value: 'ca. 8,9 Jahre' })
-    expect(box('mit Förderung')!.sub).toBe(`bei ${formatEur(6550)} Investition nach Förderung`)
+    expect(box('ohne Spitzenersparnis')).toMatchObject({
+      prefix: null,
+      value: 'ca. 8,9 Jahre',
+      sub: `${formatEur(8550)} Investition, spart rund ${formatEur(965)}/Jahr`,
+    })
+    expect(box('mit Förderung')!.sub).toBe(
+      `${formatEur(6550)} Investition, spart bis zu ${formatEur(2125)}/Jahr`,
+    )
     expect(box('Worst Case')).toMatchObject({
       value: 'ca. 7,1 Jahre',
-      sub: `bei ${formatEur(15000)} Investition nach Förderung`,
+      sub: `${formatEur(15000)} Investition, spart bis zu ${formatEur(2125)}/Jahr`,
     })
+    expect(box('tarif-unbekannt (konstruiert)')!.sub).toMatch(/^bei €\s[\d.]+ Investition$/)
     expect(box('nur-tarif (Katalog leer)')).toBeNull()
     expect(box('speicher-lohnt-nicht')).toBeNull()
+  })
+
+  it('Hero-Bezug: links der Tarifwechsel ohne Investition, rechts Investition und Speicher-Ersparnis', () => {
+    const copy = executiveSummaryCopy(summaries['jahr (Müldür)']!)
+    expect(copy.savingBox.sub).toContain(formatEur(8025))
+    expect(copy.savingBox.sub).toContain('ohne Investition')
+    expect(copy.paybackBox!.sub).toContain(formatEur(2125))
+    expect(copy.paybackBox!.sub).toContain('Investition')
+  })
+
+  it('rechte Box: Betrag ÷ Speicher-Ersparnis ergibt die gezeigte Rückzahlzeit, mit und ohne Förderung', () => {
+    const euro = (text: string) => Number(text.replace(/[€.\s]/g, ''))
+    for (const name of ['jahr (Müldür)', 'ohne Spitzenersparnis', 'mit Förderung', 'Worst Case']) {
+      const box = executiveSummaryCopy(summaries[name]!).paybackBox!
+      const [investment, saving] = box.sub.match(/€\s[\d.]+/g)!.map(euro)
+      expect(aboutYears(investment! / saving!), name).toBe(box.value)
+    }
+  })
+
+  it('neue Unterzeilen passen ungekürzt bei 9 pt, auch mit sechsstelligen Beträgen', () => {
+    const lines = copies.flatMap(([, , c]) =>
+      c.savingBox.sub.startsWith('davon') ? [c.savingBox.sub, c.paybackBox!.sub] : [],
+    )
+    expect(lines.length).toBeGreaterThan(0)
+    lines.push(
+      `davon ${formatEur(123_456)} ohne Investition (Tarifwechsel)`,
+      `${formatEur(123_456)} Investition, spart bis zu ${formatEur(123_456)}/Jahr`,
+    )
+    for (const line of lines) {
+      expect(textWidthPt(line, EXEC_HERO.subMaxPt), line).toBeLessThanOrEqual(EXEC_HERO.innerWidth)
+    }
   })
 
   it('jede Boxzeile bleibt einzeilig, sonst liesse react-pdf in der festen Box Text weg', () => {

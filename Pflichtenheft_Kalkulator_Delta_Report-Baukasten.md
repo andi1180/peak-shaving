@@ -474,11 +474,20 @@ Seitenzahlen +1). Vier Blöcke, jeder über die volle Breite (481,6 pt):
    „€ X" 26 pt fett Akzent (seit PR 7c, vorher 32; feste Zeilen „bis zu" 13 pt und Zahl 32 pt, damit die
    Zahlen beider Boxen auf einer Höhe stehen; ⚠ die Zahlenzeile nicht unter die Glyphenhöhe ≈ 1,21 × Grad
    kürzen — bei 30 pt ragte die Zahl in die Unterzeile, und poppler 24.02 (CI) setzte die rechte Box
-   im Snapshot-Text unter die linke, poppler 26.09 nicht), Unterzeile „Tarifwechsel plus Speicher" | „durch den Wechsel zu
+   im Snapshot-Text unter die linke, poppler 26.09 nicht), Unterzeile „davon € T ohne Investition (Tarifwechsel)" (mit Speicherblock, seit
+   05.10.2026; vorher „Tarifwechsel plus Speicher") | „durch den Wechsel zu
    aWATTar|<Lieferant>, ohne Anschaffung" (ohne Speicherblock) | „durch einen Speicher gegenüber aWATTar
    ohne Speicher" (`tarif-unbekannt`). Rechts (nur mit Speicherblock) „Rückzahlzeit des Speichers":
-   „frühestens" (nur mit Höchstwert), „ca. N Jahre", „bei € X Investition [nach Förderung]" (Betrag wie
-   im Diagramm-Label). Ohne Speicherblock steht die linke Box über die volle Breite. Darunter die Basis
+   „frühestens" (nur mit Höchstwert), „ca. N Jahre", darunter neben einer Hero-Zahl mit Tarifwechsel-Anteil
+   „€ X Investition, spart bis zu|rund € Y/Jahr" (seit 05.10.2026), sonst (`tarif-unbekannt`) „bei € X
+   Investition [nach Förderung]". X ist immer die Investition, auf der die Rückzahlzeit beruht (nach
+   Förderung, keine Bruttosumme; die Förderung nennen Speicher-Satz und Band), Y die Speicher-Ersparnis
+   aus `headlineStorageOf` wie im Kasten „Ihr Speicher"; X ÷ Y ergibt die gezeigte Rückzahlzeit (Test).
+   **Regel: Eine Hero-Zahl mit Tarifwechsel-Anteil steht nie neben einer Rückzahlzeit, ohne dass beide
+   Boxen ihren Bezug nennen** — sonst teilt der Leser die Investition durch die Gesamtersparnis (Anlass:
+   „€ 8.550 ÷ € 10.150 = 16 Monate" statt 4 Jahre). Die Unterzeilen bleiben bei 9 pt einzeilig und
+   ungekürzt, auch mit sechsstelligen Beträgen; „nach Förderung" und „Speicher" sind dafür entfallen
+   (9,5 pt ist mit der 76-pt-Box nicht erreichbar: Innenhöhe 66,4 statt 66 pt). Ohne Speicherblock steht die linke Box über die volle Breite. Darunter die Basis
    (9 pt), bei Hochrechnung seit PR 7c mit Monatsbereich: „geschätzt, hochgerechnet aus N gemessenen
    Tagen (März bis August)" — erster und letzter Monat aus dem ersten und letzten Tag der Tagesspitzen
    (`summary.load.dailyPeaks`, dieselbe Quelle wie die Monatskürzel des Lastgang-Diagramms), ausgeschrieben
