@@ -96,6 +96,16 @@ function tariffTarget(s: ExecutiveSummary): string {
 const UNKNOWN_TARIFF_NOTE =
   'Ihren aktuellen Tarif kennen wir nicht; ein Tarifwechsel ist deshalb nicht bewertet.'
 
+/**
+ * Tarifwechsel-Anteil der Hero-Zahl, wenn daneben eine Rückzahlzeit steht: dann nennen beide Boxen
+ * ihren Bezug, sonst teilt man die Investition durch die Gesamtersparnis.
+ */
+function switchShareBesidePayback(s: ExecutiveSummary): number | null {
+  if (!s.storage || s.variant === 'tarif-unbekannt') return null
+  const stage = s.stages.find((st) => st.id === 'ohne-anschaffung')
+  return stage && stage.savingPerYearEur > 0 ? stage.savingPerYearEur : null
+}
+
 function savingBox(s: ExecutiveSummary): ExecutiveSummaryCopy['savingBox'] {
   const label = 'Ersparnis pro Jahr'
   const total = s.header.savingPerYearEur
@@ -107,8 +117,11 @@ function savingBox(s: ExecutiveSummary): ExecutiveSummaryCopy['savingBox'] {
       sub: 'Mit den heutigen Daten ergibt sich für Sie keine Ersparnis.',
     }
   }
+  const switchShare = switchShareBesidePayback(s)
   const sub =
-    s.variant === 'tarif-unbekannt'
+    switchShare !== null
+      ? `davon ${formatEur(switchShare)} ohne Investition (Tarifwechsel)`
+      : s.variant === 'tarif-unbekannt'
       ? `durch einen Speicher gegenüber ${SPOT_NAME} ohne Speicher`
       : s.storage
         ? 'Tarifwechsel plus Speicher'
@@ -125,13 +138,19 @@ function paybackBox(s: ExecutiveSummary): ExecutiveSummaryCopy['paybackBox'] {
   const st = s.storage
   if (!st) return null
   const investment = formatEur(st.investment.netEur)
+  // Mit Tarifwechsel-Anteil links: Betrag hier ist die Investition, auf der die Rückzahlzeit beruht
+  // (nach Förderung), daneben die Speicher-Ersparnis; „nach Förderung" passt bei 9 pt nicht mehr.
+  const sub =
+    switchShareBesidePayback(s) !== null
+      ? `${investment} Investition, spart ${st.upperBound ? 'bis zu' : 'rund'} ${formatEur(st.savingPerYearEur)}/Jahr`
+      : st.hasSubsidy
+        ? `bei ${investment} Investition nach Förderung`
+        : `bei ${investment} Investition`
   return {
     label: 'Rückzahlzeit des Speichers',
     prefix: st.upperBound ? 'frühestens' : null,
     value: aboutYears(st.amortizationYears),
-    sub: st.hasSubsidy
-      ? `bei ${investment} Investition nach Förderung`
-      : `bei ${investment} Investition`,
+    sub,
   }
 }
 
