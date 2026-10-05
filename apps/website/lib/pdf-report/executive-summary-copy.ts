@@ -33,7 +33,6 @@ export const EXECUTIVE_SUMMARY_FOOTER =
   'Schätzung, keine Zusage. Annahmen und Risiken, u. a. beim Börsenpreis, im weiteren Bericht.'
 
 const SPOT_NAME = 'aWATTar'
-const PEAK_FEE = 'die Spitzengebühr (für die höchste Spitze im Monat)'
 
 /** „Text **fett** Text" → Textstücke. */
 function runs(template: string): CopyRun[] {
@@ -58,9 +57,34 @@ function wayLabel(way: ExecutiveSummaryWay): string {
 
 const comparisonTarget = (way: ExecutiveSummaryWay) => way.supplier ?? 'Ihrem gefundenen Tarif'
 
+const MONTH_NAMES = [
+  'Jänner',
+  'Februar',
+  'März',
+  'April',
+  'Mai',
+  'Juni',
+  'Juli',
+  'August',
+  'September',
+  'Oktober',
+  'November',
+  'Dezember',
+]
+
+/** „(März bis August)" aus dem ersten und letzten Tag des Lastgang-Diagramms; ohne Tage leer. */
+function measuredMonthsText(s: ExecutiveSummary): string {
+  const peaks = s.load.dailyPeaks
+  if (peaks.length === 0) return ''
+  const month = (day: string) => MONTH_NAMES[new Date(Date.parse(day)).getUTCMonth()]!
+  const first = month(peaks[0]!.day)
+  const last = month(peaks.at(-1)!.day)
+  return first === last ? ` (${first})` : ` (${first} bis ${last})`
+}
+
 function basisText(s: ExecutiveSummary): string {
   return s.header.basis === 'projected'
-    ? `geschätzt, hochgerechnet aus ${s.header.measuredDays} gemessenen Tagen`
+    ? `geschätzt, hochgerechnet aus ${s.header.measuredDays} gemessenen Tagen${measuredMonthsText(s)}`
     : `gerechnet mit Ihren Messwerten von ${s.header.measuredDays} Tagen`
 }
 
@@ -114,9 +138,10 @@ function paybackBox(s: ExecutiveSummary): ExecutiveSummaryCopy['paybackBox'] {
 function loadSentence(s: ExecutiveSummary): string {
   const base = 'Die Balken zeigen Ihre höchste Leistung pro Tag.'
   if (!s.hasLeistungspreis) return base
+  const fee = `${base} Der höchste Balken im Monat bestimmt die Spitzengebühr`
   return s.storage?.upperBound
-    ? `${base} Sie bestimmen ${PEAK_FEE}; ein Speicher kann Spitzen über der Linie abfangen (Höchstwert).`
-    : `${base} Sie bestimmen ${PEAK_FEE}.`
+    ? `${fee}; ein Speicher kann Spitzen über der Linie abfangen (Höchstwert).`
+    : `${fee}.`
 }
 
 function waysSentence(s: ExecutiveSummary): string {

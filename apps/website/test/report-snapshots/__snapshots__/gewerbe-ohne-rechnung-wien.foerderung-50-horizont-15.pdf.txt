@@ -29,29 +29,25 @@ Auf einen Blick
    Ersparnis pro Jahr                                                 Rückzahlzeit des Speichers
    rund
 
-   € 367
-   durch einen Speicher gegenüber aWATTar ohne Speicher
-                                                                      ca. 10,5 Jahre
-                                                                      bei € 3.845 Investition nach Förderung
+   € 367                                                              ca. 10,5 Jahre
+   durch einen Speicher gegenüber aWATTar ohne Speicher               bei € 3.845 Investition nach Förderung
 
 gerechnet mit Ihren Messwerten von 365 Tagen · Ihren aktuellen Tarif kennen wir nicht; ein Tarifwechsel ist deshalb
 nicht bewertet.
+
 
 Ihr Lastgang
   Höchste Leistung pro Tag
  6 kW
 
 
-
        3
-
 
 
        0
             Jän         Feb     Mär      Apr     Mai       Jun         Jul       Aug     Sep     Okt         Nov       Dez
 
 Die Balken zeigen Ihre höchste Leistung pro Tag.
-
 
 Ihre Stromkosten pro Jahr
 aWATTar (Börsenpreis)

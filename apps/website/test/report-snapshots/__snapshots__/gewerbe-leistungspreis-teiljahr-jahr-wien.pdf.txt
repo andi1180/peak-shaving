@@ -29,28 +29,25 @@ Auf einen Blick
    Ersparnis pro Jahr                                              Rückzahlzeit des Speichers
    bis zu                                                          frühestens
 
-   € 10.150
-   Tarifwechsel plus Speicher
-                                                                   ca. 4 Jahre
-                                                                   bei € 8.550 Investition
+   € 10.150                                                        ca. 4 Jahre
+   Tarifwechsel plus Speicher                                      bei € 8.550 Investition
 
-geschätzt, hochgerechnet aus 157 gemessenen Tagen
+geschätzt, hochgerechnet aus 157 gemessenen Tagen (März bis August)
+
 
 Ihr Lastgang
   Höchste Leistung pro Tag          Spitzen, die der Speicher abfängt         Begrenzung mit Speicher (Höchstwert)
 50 kW
 
 
-
     25
-
 
 
        0
            Mär       Apr                    Mai                   Jun                  Jul                       Aug
 
-Die Balken zeigen Ihre höchste Leistung pro Tag. Sie bestimmen die Spitzengebühr (für die höchste
-Spitze im Monat); ein Speicher kann Spitzen über der Linie abfangen (Höchstwert).
+Die Balken zeigen Ihre höchste Leistung pro Tag. Der höchste Balken im Monat bestimmt die
+Spitzengebühr; ein Speicher kann Spitzen über der Linie abfangen (Höchstwert).
 
 Ihre Stromkosten pro Jahr
 Ihr Tarif heute

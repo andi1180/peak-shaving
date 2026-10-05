@@ -469,15 +469,23 @@ einem ganzen gemessenen Jahr (≥ 365 Tage, wie `annualizationFactor`), Speicher
 normale Kopf- und Fusszeile, Seitenanker `executive_summary`, **kein** Agenda-Eintrag (alle folgenden
 Seitenzahlen +1). Vier Blöcke, jeder über die volle Breite (481,6 pt):
 1. **Ersparnis (seit PR 7a: zwei Boxen):** Kunde · Zeitraum · Datum (klein), „Auf einen Blick", darunter
-   zwei Boxen nebeneinander (je 234,8 pt, Abstand 12 pt, feste Höhe 85 pt, Hintergrund `surfaceAlt`,
+   zwei Boxen nebeneinander (je 234,8 pt, Abstand 12 pt, feste Höhe 76 pt seit PR 7c, vorher 85, Hintergrund `surfaceAlt`,
    Akzentbalken links wie die Notice). Links „Ersparnis pro Jahr": Zeile 11 pt „bis zu"/„rund", Zahl
-   „€ X" 32 pt fett Akzent, Unterzeile „Tarifwechsel plus Speicher" | „durch den Wechsel zu
+   „€ X" 26 pt fett Akzent (seit PR 7c, vorher 32; feste Zeilen „bis zu" 13 pt und Zahl 32 pt, damit die
+   Zahlen beider Boxen auf einer Höhe stehen; ⚠ die Zahlenzeile nicht unter die Glyphenhöhe ≈ 1,21 × Grad
+   kürzen — bei 30 pt ragte die Zahl in die Unterzeile, und poppler 24.02 (CI) setzte die rechte Box
+   im Snapshot-Text unter die linke, poppler 26.09 nicht), Unterzeile „Tarifwechsel plus Speicher" | „durch den Wechsel zu
    aWATTar|<Lieferant>, ohne Anschaffung" (ohne Speicherblock) | „durch einen Speicher gegenüber aWATTar
    ohne Speicher" (`tarif-unbekannt`). Rechts (nur mit Speicherblock) „Rückzahlzeit des Speichers":
    „frühestens" (nur mit Höchstwert), „ca. N Jahre", „bei € X Investition [nach Förderung]" (Betrag wie
    im Diagramm-Label). Ohne Speicherblock steht die linke Box über die volle Breite. Darunter die Basis
-   (9 pt), bei `tarif-unbekannt` mit „ · Ihren aktuellen Tarif kennen wir nicht; …". **Zahl und Unterzeile
-   werden auf die Boxbreite verkleinert, wo sie sonst nicht passen** (`fitFontSize`, höchstens 32 bzw.
+   (9 pt), bei Hochrechnung seit PR 7c mit Monatsbereich: „geschätzt, hochgerechnet aus N gemessenen
+   Tagen (März bis August)" — erster und letzter Monat aus dem ersten und letzten Tag der Tagesspitzen
+   (`summary.load.dailyPeaks`, dieselbe Quelle wie die Monatskürzel des Lastgang-Diagramms), ausgeschrieben
+   (Jänner … Dezember), über den Jahreswechsel gleich („November bis Februar"), ohne Tagesspitzen keine
+   Klammer; „gerechnet mit Ihren Messwerten von N Tagen" unverändert ohne Klammer. Bei `tarif-unbekannt`
+   mit „ · Ihren aktuellen Tarif kennen wir nicht; …". **Zahl und Unterzeile
+   werden auf die Boxbreite verkleinert, wo sie sonst nicht passen** (`fitFontSize`, höchstens 26 bzw.
    9 pt): ⚠ Passt der Inhalt nicht in die feste Boxhöhe, lässt react-pdf Text **ohne Warnung weg** — so
    fehlte im ersten Entwurf die Zahl, weil die Unterzeile umbrach; ein Test misst jede Boxzeile mit den
    echten Schriftmetriken (fontkit). Die Teilzahlen (Stufe 1/2) sind entfallen; die Modellfelder bleiben.
@@ -496,16 +504,24 @@ Seitenzahlen +1). Vier Blöcke, jeder über die volle Breite (481,6 pt):
    günstiges Laden rechnet sich der Speicher innerhalb von N Jahren nicht." — die Rückzahlzeit tragen Box
    oben und Band. Bei „speicher-lohnt-nicht" Überschrift + Urteilssatz ohne Boxen; bei „nur-tarif"
    entfällt der Block.
+**Trennung der Bereiche (PR 7c, 05.10.2026):** zwischen den Bereichen Hero (mit Basiszeile) | Lastgang
+(mit Satz) | Stromkosten (mit Satz) | Speicher je eine Fuge von 16 pt mit einer Linie über die volle Breite
+in der Mitte (0,5 pt, `PDF_COLORS.border`, je 7,75 pt darüber und darunter, `EXEC_DIVIDER_GAP_PT`),
+gemessen von der Textunterkante bis zur nächsten Überschrift bzw. Box. Vorher 9 / 10 / 7 pt (Speicher mit
+Boxen) bzw. 10 pt (Urteil) ohne Linie, also +6 bis +9 pt; das Ziel +10 pt passte nicht ins Höhenbudget.
+Die Sätze unter Lastgang und Stromkosten stehen seither in natürlicher Höhe statt in einem festen
+Zwei-Zeilen-Platz, damit die Linie auch unter einem einzeiligen Satz mittig sitzt. Fehlt ein Bereich
+(ohne Tagesspitzen; „nur-tarif" ohne Speicher), entfällt seine Fuge mit.
 Darunter die Fusszeile (8 pt, eine Konstante `EXECUTIVE_SUMMARY_FOOTER`, ohne Seitenverweis). Entfallen
 sind der Kasten „Wie sicher ist das?", der Absatz zum empfohlenen Weg, die Fussnote zur Spitzengebühr und
 die Zeile „Ersparnis bis zu … davon rund …". Genau eine Seite in jeder Variante, gemessen über die
 Seitenanker (`executive-summary-page.test.ts`, mit Worst-Case und Positivkontrolle).
 
-**Diagramm-Plätze** (`EXEC_SLOTS`, `executive-summary-layout.ts`, Breite × Höhe in pt, seit PR 7b):
-Lastgang 481,6 × 95 · Wege 481,6 × 95 · Break-even volle Box 459 × 90 · Break-even halbe Box 212,2 × 85 ·
+**Diagramm-Plätze** (`EXEC_SLOTS`, `executive-summary-layout.ts`, Breite × Höhe in pt, seit PR 7c):
+Lastgang 481,6 × 90 · Wege 481,6 × 90 (PR 7c, vorher je 95, für die Fugen) · Break-even volle Box 459 × 90 · Break-even halbe Box 212,2 × 85 ·
 Ring 212,2 × 85 (Breiten = Innenbreite der Box). Gekürzt in der Reihenfolge des Auftrags: Band/Ring
-90 → 85, Lastgang 105 → 95. **Reserve** im Worst-Case je Layout: mit Ring 11 pt, ohne Ring 23 pt (vorher
-10 pt; gemessen als grösste zusätzliche Diagrammhöhe, bei der alle Fälle noch auf eine Seite passen). Feste Höhen, damit der Umbruch nicht vom Raster abhängt.
+90 → 85, Lastgang 105 → 95. **Reserve** im Worst-Case je Layout seit PR 7c: mit Ring 8,6 pt, ohne Ring
+20,3 pt (PR 7b: 11,7 bzw. 23,4; gemessen als grösste zusätzliche Diagrammhöhe, bei der alle Fälle noch auf eine Seite passen). Feste Höhen, damit der Umbruch nicht vom Raster abhängt.
 Schrift: Fliesstext 10,5 pt (`EXEC_TEXT_PT`), Abschnittsüberschriften 12 pt fett in der Akzentfarbe,
 Diagramm-Beschriftungen 8 pt.
 
@@ -584,9 +600,10 @@ Gesamt = Summe der Stufen. Mit neuem Speicher ist Stufe 1 der Wechsel zu aWATTar
 darauf aufbaut; sonst der günstigere von aWATTar und selbst gefundenem Tarif. Spitzenersparnis ist
 eine Obergrenze → „bis zu", Rückzahlzeit „frühestens".
 
-**Texte (Stand PR 5b, 04.10.2026):** **Lastgang-Satz** — ohne Spitzengebühr „Die Balken zeigen Ihre
-höchste Leistung pro Tag."; mit Spitzengebühr zusätzlich „Sie bestimmen die Spitzengebühr (für die
-höchste Spitze im Monat)" — hier wird der Begriff eingeführt; mit Spitzenersparnis weiter „; ein Speicher
+**Texte (Stand PR 5b, 04.10.2026; Lastgang-Satz PR 7c):** **Lastgang-Satz** — ohne Spitzengebühr „Die
+Balken zeigen Ihre höchste Leistung pro Tag."; mit Spitzengebühr zusätzlich „Der höchste Balken im Monat
+bestimmt die Spitzengebühr" (seit PR 7c; vorher „Sie bestimmen die Spitzengebühr (für die höchste Spitze
+im Monat)", was alle Balken meinte) — hier wird der Begriff eingeführt; mit Spitzenersparnis weiter „; ein Speicher
 kann Spitzen über der Linie abfangen (Höchstwert)". **Wege-Satz** — „Mit aWATTar und einem Speicher, der
 günstig lädt," bzw. „Mit dem Wechsel zu aWATTar|<Lieferant>" + „sinken Ihre Kosten von rund € A auf rund
 € B", mit Spitzengebühr „ — ohne Spitzengebühr", mit Spitzenersparnis „; deren Einsparung (bis zu € P)

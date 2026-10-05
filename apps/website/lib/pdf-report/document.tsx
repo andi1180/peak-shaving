@@ -77,6 +77,7 @@ import { ExecBreakEvenChart, ExecWaysChart, fitFontSize } from './executive-summ
 import { ExecSavingsDonut, execDonutOf } from './executive-summary-donut'
 import { ExecLoadChart } from './executive-summary-load-chart'
 import {
+  EXEC_DIVIDER_GAP_PT,
   EXEC_HERO,
   EXEC_SLOTS,
   EXEC_STORAGE,
@@ -782,9 +783,9 @@ const styles = StyleSheet.create({
    * Feste Zeilen: über der Zahl („bis zu", „frühestens") auch leer, damit die Zahlen beider Boxen auf
    * einer Höhe stehen. ⚠ Passt der Inhalt nicht in die feste Boxhöhe, lässt react-pdf Text stumm weg.
    */
-  execBoxPrefixRow: { height: 13, justifyContent: 'flex-end' },
+  execBoxPrefixRow: { height: EXEC_HERO.prefixRowPt, justifyContent: 'flex-end' },
   execBoxPrefix: { fontSize: 11, lineHeight: 1.15, color: PDF_COLORS.text },
-  execBoxValueRow: { height: 37 },
+  execBoxValueRow: { height: EXEC_HERO.valueRowPt },
   execBoxValue: { lineHeight: 1.15, fontWeight: 700, color: PDF_COLORS.accent },
   execBoxSub: { lineHeight: 1.15, color: PDF_COLORS.text },
   /** Box im Speicherblock: Stil der Boxen oben, Innenabstand rundum gleich. */
@@ -826,8 +827,12 @@ const styles = StyleSheet.create({
     lineHeight: PDF_TYPE.lineHeight,
     color: PDF_COLORS.text,
   },
-  /** Fester Platz für höchstens zwei Zeilen — ein Test hält die Sätze darunter. */
-  execTwoLines: { height: 6 + 2 * EXEC_TEXT_PT * PDF_TYPE.lineHeight },
+  /** Trennlinie mittig in der Fuge zwischen zwei Bereichen; die Überschrift danach ohne eigenen Abstand. */
+  execDivider: {
+    marginVertical: EXEC_DIVIDER_GAP_PT,
+    borderTopWidth: 0.5,
+    borderTopColor: PDF_COLORS.border,
+  },
   execFooter: {
     marginTop: 6,
     fontSize: 8,
@@ -919,23 +924,24 @@ function ExecutiveSummaryPage({ summary }: { summary: ExecutiveSummary }) {
 
       {summary.load.dailyPeaks.length > 0 && (
         <>
-          <Text style={styles.execSection}>Ihr Lastgang</Text>
+          <View style={styles.execDivider} />
+          <Text style={[styles.execSection, { marginTop: 0 }]}>Ihr Lastgang</Text>
           <ExecLoadChart load={summary.load} slot={EXEC_SLOTS.load} />
-          <View style={styles.execTwoLines}>
-            <Text style={styles.execText}>{copy.loadSentence}</Text>
-          </View>
+          <Text style={styles.execText}>{copy.loadSentence}</Text>
         </>
       )}
 
-      <Text style={styles.execSection}>Ihre Stromkosten pro Jahr</Text>
+      <View style={styles.execDivider} />
+      <Text style={[styles.execSection, { marginTop: 0 }]}>Ihre Stromkosten pro Jahr</Text>
       <ExecWaysChart ways={summary.ways} labels={copy.wayLabels} slot={EXEC_SLOTS.ways} />
-      <View style={styles.execTwoLines}>
-        <Text style={styles.execText}>{copy.waysSentence}</Text>
-      </View>
+      <Text style={styles.execText}>{copy.waysSentence}</Text>
 
-      {copy.storageVerdict && <Text style={styles.execSection}>Ihr Speicher</Text>}
+      {(copy.storageVerdict || band) && <View style={styles.execDivider} />}
+      {copy.storageVerdict && (
+        <Text style={[styles.execSection, { marginTop: 0 }]}>Ihr Speicher</Text>
+      )}
       {band && (
-        <View style={styles.execBoxes}>
+        <View style={[styles.execBoxes, copy.storageVerdict ? {} : { marginTop: 0 }]}>
           <View
             style={[
               styles.execPanel,

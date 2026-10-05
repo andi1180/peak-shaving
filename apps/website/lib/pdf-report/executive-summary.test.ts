@@ -148,12 +148,26 @@ describe('executiveSummaryCopy', () => {
     expect(box('tarif-unbekannt (konstruiert)').sub).toBe(
       'durch einen Speicher gegenüber aWATTar ohne Speicher',
     )
-    expect(executiveSummaryCopy(summaries['jahr (Müldür)']!).basisLine).toBe(
-      'geschätzt, hochgerechnet aus 157 gemessenen Tagen',
-    )
     expect(executiveSummaryCopy(summaries['volles Jahr (konstruiert)']!).basisLine).toMatch(
       /^gerechnet mit Ihren Messwerten von \d+ Tagen$/,
     )
+  })
+
+  it('Basiszeile bei Hochrechnung: Monate aus dem ersten und letzten Messtag, auch über den Jahreswechsel', () => {
+    expect(executiveSummaryCopy(summaries['jahr (Müldür)']!).basisLine).toBe(
+      'geschätzt, hochgerechnet aus 157 gemessenen Tagen (März bis August)',
+    )
+    const winter = structuredClone(summaries['jahr (Müldür)']!)
+    winter.load.dailyPeaks = [
+      { day: '2025-11-03', peakKw: 30 },
+      { day: '2026-02-27', peakKw: 30 },
+    ]
+    expect(executiveSummaryCopy(winter).basisLine).toBe(
+      'geschätzt, hochgerechnet aus 157 gemessenen Tagen (November bis Februar)',
+    )
+    for (const [name, , copy] of copies) {
+      expect(lineCount(copy.basisLine, 9, EXEC_SLOTS.load.width), name).toBeLessThanOrEqual(2)
+    }
   })
 
   it('rechte Box nur mit Speicherblock: Rückzahlzeit wie im Text, „frühestens" nur mit Höchstwert', () => {
@@ -193,6 +207,19 @@ describe('executiveSummaryCopy', () => {
     }
   })
 
+  it('Hero-Box: Zahl passt in ihre Zeile, alle Zeilen in die feste Höhe, auch bei langen Werten', () => {
+    const rows =
+      9.5 * 1.1 + EXEC_HERO.prefixRowPt + EXEC_HERO.valueRowPt + EXEC_HERO.subMaxPt * 1.15
+    expect(rows).toBeLessThanOrEqual(EXEC_HERO.height - 2 * EXEC_HERO.paddingVertical)
+    const values = copies.flatMap(([, , c]) => [c.savingBox.amount, c.paybackBox?.value])
+    for (const value of [...values, `bis zu ${formatEur(123_456)}`]) {
+      if (!value) continue
+      const size = fitFontSize(value, EXEC_HERO.innerWidth, EXEC_HERO.valueMaxPt, true)
+      expect(size * 1.15, value).toBeLessThanOrEqual(EXEC_HERO.valueRowPt)
+      expect(textWidthPt(value, size, true), value).toBeLessThanOrEqual(EXEC_HERO.innerWidth)
+    }
+  })
+
   it('Zeile „Ersparnis durch den Speicher" nur mit Speicherblock und nicht bei unbekanntem Tarif', () => {
     const line = (name: string) => executiveSummaryCopy(summaries[name]!).storageSaving
     expect(line('jahr (Müldür)')).toBe(
@@ -221,7 +248,7 @@ describe('executiveSummaryCopy', () => {
 
   it('Lastgang-Satz je Spitzengebühr und Spitzenersparnis', () => {
     const base = 'Die Balken zeigen Ihre höchste Leistung pro Tag.'
-    const fee = `${base} Sie bestimmen die Spitzengebühr (für die höchste Spitze im Monat)`
+    const fee = `${base} Der höchste Balken im Monat bestimmt die Spitzengebühr`
     expect(executiveSummaryCopy(summaries['jahr (Müldür)']!).loadSentence).toBe(
       `${fee}; ein Speicher kann Spitzen über der Linie abfangen (Höchstwert).`,
     )
