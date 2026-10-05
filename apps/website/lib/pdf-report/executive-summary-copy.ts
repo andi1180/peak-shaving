@@ -13,8 +13,11 @@ export type CopyRun = { text: string; bold: boolean }
 export type ExecutiveSummaryCopy = {
   /** Die grosse Zahl („bis zu € 10.150") mit „pro Jahr"; ohne Ersparnis nur der Satz. */
   hero: { amount: string | null; text: string }
-  /** Ohne Speicherblock: woher die Ersparnis kommt (statt der Teilzahlen, die der Hero-Zahl glichen). */
-  heroDetail: string | null
+  /**
+   * Zeilen unter der grossen Zahl, wo es keine Teilzahlen gibt: ohne Speicherblock woher die Ersparnis
+   * kommt (die Teilzahl glich der grossen Zahl); bei unbekanntem Tarif, wogegen gerechnet ist.
+   */
+  heroDetail: string[]
   basis: string
   /** Teilzahlen nur mit Speicherblock. */
   stages: { amount: string | null; label: string }[]
@@ -74,7 +77,7 @@ function tariffTarget(s: ExecutiveSummary): string {
 }
 
 function stageLines(s: ExecutiveSummary): ExecutiveSummaryCopy['stages'] {
-  if (!s.storage) return []
+  if (!s.storage || s.variant === 'tarif-unbekannt') return []
   return s.stages.map((stage) => {
     const eur = formatEur(stage.savingPerYearEur)
     if (stage.id === 'mit-speicher') {
@@ -88,6 +91,18 @@ function stageLines(s: ExecutiveSummary): ExecutiveSummaryCopy['stages'] {
     }
     return { amount: eur, label: `Wechsel zu ${tariffTarget(s)}, ohne Anschaffung` }
   })
+}
+
+function heroDetail(s: ExecutiveSummary): string[] {
+  if (s.variant === 'tarif-unbekannt') {
+    return [
+      `Ersparnis durch einen Speicher gegenüber ${SPOT_NAME} ohne Speicher`,
+      'Ihren aktuellen Tarif kennen wir nicht; ein Tarifwechsel ist deshalb nicht bewertet.',
+    ]
+  }
+  return !s.storage && s.header.savingPerYearEur > 0
+    ? [`durch den Wechsel zu ${tariffTarget(s)}, ohne Anschaffung`]
+    : []
 }
 
 function loadSentence(s: ExecutiveSummary): string {
@@ -108,6 +123,13 @@ function waysSentence(s: ExecutiveSummary): string {
   const peak = s.storage?.upperBound
     ? `; deren Einsparung (bis zu ${formatEur(s.storage.peakEur)}) kommt hinzu`
     : ''
+  if (s.todayCostPerYearEur === null) {
+    const spot = s.ways.find((way) => way.id === 'spot')!
+    return (
+      `Mit einem Speicher, der günstig lädt, sinken Ihre Kosten bei ${SPOT_NAME} von rund ` +
+      `${formatEur(spot.costPerYearEur)} auf rund ${formatEur(recommended.costPerYearEur)}${fee}${peak}.`
+    )
+  }
   return (
     `${subject} sinken Ihre Kosten von rund ${formatEur(s.todayCostPerYearEur)} ` +
     `auf rund ${formatEur(recommended.costPerYearEur)}${fee}${peak}.`
@@ -148,8 +170,7 @@ export function executiveSummaryCopy(s: ExecutiveSummary): ExecutiveSummaryCopy 
           }
         : { amount: null, text: 'Mit den heutigen Daten ergibt sich für Sie keine Ersparnis.' },
     basis: basisText(s),
-    heroDetail:
-      !s.storage && total > 0 ? `durch den Wechsel zu ${tariffTarget(s)}, ohne Anschaffung` : null,
+    heroDetail: heroDetail(s),
     stages: stageLines(s),
     wayLabels: s.ways.map(wayLabel),
     loadSentence: loadSentence(s),

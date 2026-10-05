@@ -15,7 +15,12 @@ import { detailChartPlan } from './detail'
 import { amortizationYearsOf, headlineStorageOf } from './headline-storage'
 import { peakShavingChartData, type PeakShavingCapSegment } from './peak-shaving-chart'
 import { SHOW_ANNUAL_SCENARIO_CHAPTER } from './report-flags'
-import { hasLeistungspreis, recommendedEntryOf, summaryWaysOf } from './summary'
+import {
+  hasLeistungspreis,
+  recommendedEntryOf,
+  summaryWaysOf,
+  unknownTariffWaysOf,
+} from './summary'
 import type { PdfReportInput } from './types'
 import { buildWaysChapter } from './ways'
 
@@ -26,7 +31,13 @@ import { buildWaysChapter } from './ways'
  */
 export type ExecutiveSummaryBasis = 'projected' | 'annual'
 
-export type ExecutiveSummaryVariant = 'tarif-und-speicher' | 'nur-tarif' | 'speicher-lohnt-nicht'
+/**
+ * `tarif-unbekannt`: Liefertarif unbekannt, ein ganzes gemessenes Jahr, Speicher rechnet sich — die
+ * Ersparnis ist allein die des Speichers gegenüber aWATTar ohne Speicher; ein Tarifwechsel ist nicht
+ * bewertbar. Teiljahr oder ohne Speicherempfehlung gibt es bei unbekanntem Tarif keine Vorderseite.
+ */
+export type ExecutiveSummaryVariant =
+  'tarif-und-speicher' | 'nur-tarif' | 'speicher-lohnt-nicht' | 'tarif-unbekannt'
 
 export type ExecutiveSummaryWayId = 'today' | 'comparison' | 'spot' | 'spot-storage'
 
@@ -83,7 +94,8 @@ export type ExecutiveSummary = {
   }
   stages: ExecutiveSummaryStage[]
   ways: ExecutiveSummaryWay[]
-  todayCostPerYearEur: number
+  /** `null` bei unbekanntem Liefertarif. */
+  todayCostPerYearEur: number | null
   hasLeistungspreis: boolean
   storage: ExecutiveSummaryStorage | null
   /** Bewertung des Katalog-Speichers, wenn er sich nicht rechnet. */
@@ -105,7 +117,8 @@ type YearlyWays = {
   basis: ExecutiveSummaryBasis
   measuredDays: number
   projectedDays: number
-  todayEur: number
+  /** `null` bei unbekanntem Liefertarif. */
+  todayEur: number | null
   comparison: { eur: number; supplier: string | null } | null
   spotEur: number
   spotStorageEur: number | null
@@ -117,7 +130,20 @@ const DAYS_PER_YEAR = 365
 function yearlyWaysOf(input: PdfReportInput): YearlyWays | null {
   const analysis = input.analysis
   const measured = summaryWaysOf(analysis)
-  if (!measured) return null
+  if (!measured) {
+    // Liefertarif unbekannt: nur mit einem ganzen gemessenen Jahr, sonst fehlt die Jahresbasis.
+    const unknown = unknownTariffWaysOf(analysis)
+    if (!unknown || unknown.coveredDays < DAYS_PER_YEAR) return null
+    return {
+      basis: 'annual',
+      measuredDays: unknown.coveredDays,
+      projectedDays: 0,
+      todayEur: null,
+      comparison: null,
+      spotEur: unknown.uncontrolledEur,
+      spotStorageEur: unknown.controlledEur,
+    }
+  }
   const annual = SHOW_ANNUAL_SCENARIO_CHAPTER ? annualScenarioSavingsOf(analysis, input) : null
   if (annual) {
     const ways = annual.scenario.ways
@@ -214,22 +240,29 @@ export function buildExecutiveSummary(input: PdfReportInput): ExecutiveSummary |
   const paysOff =
     headline !== null && storagePaysOff({ netSavingOverHorizon: headline.netSavingOverHorizonEur })
 
-  const variant: ExecutiveSummaryVariant = !headline
-    ? 'nur-tarif'
-    : paysOff
-      ? 'tarif-und-speicher'
-      : 'speicher-lohnt-nicht'
+  const tariffKnown = yearly.todayEur !== null
+  if (!tariffKnown && !(paysOff && yearly.spotStorageEur !== null)) return null
+  const variant: ExecutiveSummaryVariant = !tariffKnown
+    ? 'tarif-unbekannt'
+    : !headline
+      ? 'nur-tarif'
+      : paysOff
+        ? 'tarif-und-speicher'
+        : 'speicher-lohnt-nicht'
 
   // Stufe 1: ohne neue Anschaffung. Mit neuem Speicher gilt aWATTar, weil er darauf aufbaut.
-  const withStorage = variant === 'tarif-und-speicher' && yearly.spotStorageEur !== null
+  const withStorage =
+    (variant === 'tarif-und-speicher' || variant === 'tarif-unbekannt') &&
+    yearly.spotStorageEur !== null
   const bestTariff =
     yearly.comparison && yearly.comparison.eur < yearly.spotEur && !withStorage
       ? ('comparison' as const)
       : ('spot' as const)
   const tariffCost = bestTariff === 'comparison' ? yearly.comparison!.eur : yearly.spotEur
-  const stages: ExecutiveSummaryStage[] = [
-    { id: 'ohne-anschaffung', savingPerYearEur: euros(yearly.todayEur - tariffCost) },
-  ]
+  const stages: ExecutiveSummaryStage[] =
+    yearly.todayEur === null
+      ? []
+      : [{ id: 'ohne-anschaffung', savingPerYearEur: euros(yearly.todayEur - tariffCost) }]
   const storage = withStorage && headline ? storageOf(input, catalogStorage!, headline) : null
   if (storage) stages.push({ id: 'mit-speicher', savingPerYearEur: storage.savingPerYearEur })
 
@@ -246,7 +279,7 @@ export function buildExecutiveSummary(input: PdfReportInput): ExecutiveSummary |
     isRecommended: id === recommendedWay,
   })
   const ways = [
-    way('today', yearly.todayEur),
+    ...(yearly.todayEur !== null ? [way('today', yearly.todayEur)] : []),
     ...(yearly.comparison
       ? [way('comparison', yearly.comparison.eur, yearly.comparison.supplier)]
       : []),

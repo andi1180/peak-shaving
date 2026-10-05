@@ -48,6 +48,19 @@ export function editRecommended(input: PdfReportInput, edit: (entry: Entry) => v
   edit(a.perBattery.find((e) => e.battery.id === a.recommendation!.batteryId)!)
 }
 
+/** Liefertarif unbekannt über ein ganzes Jahr: die Zeitraumsummen des Teiljahrs als Jahr ausgegeben. */
+export function unknownTariffYear(
+  edit: (input: PdfReportInput) => void = () => {},
+): PdfReportInput {
+  const input = structuredClone(muster(false))
+  input.analysis.dataQuality.coveredDays = 365
+  const optimization = input.analysis.tariffOptimization
+  if (optimization?.computable !== true) throw new Error('Fixture ohne Tarifvergleich')
+  optimization.monthlyComparison!.currentTariffEur = null
+  edit(input)
+  return input
+}
+
 /** Alle Fälle, für die es eine Vorderseite gibt. */
 export const EXECUTIVE_SUMMARY_CASES: Record<string, PdfReportInput> = {
   'jahr (Müldür)': muster(true),
@@ -98,6 +111,31 @@ export const EXECUTIVE_SUMMARY_CASES: Record<string, PdfReportInput> = {
       e.totalInvestment = 17_000
       e.subsidyAmount = 2_000
       e.netInvestment = e.totalInvestment - 2_000
+    })
+  }),
+  'tarif-unbekannt (konstruiert)': unknownTariffYear(),
+  // Längste Texte der Variante: Namen und Förderung.
+  'tarif-unbekannt Worst Case': unknownTariffYear((input) => {
+    input.customer = {
+      company:
+        'Muster Gastro- und Hotelbetriebs-Gesellschaft mit beschränkter Haftung & Co KG, Niederlassung Wien-Donaustadt',
+    }
+    editRecommended(input, (e) => {
+      e.battery = {
+        ...e.battery,
+        name: 'Kostal & Dyness Retrofit S Hochvolt-Gewerbespeicher mit integriertem Hybrid-Wechselrichter',
+        requiresFoundation: true,
+        foundationCost: 1_000,
+        inverterIncluded: false,
+        extraInverterCost: 1_500,
+      }
+      // Ohne Jahresszenario liest die Seite die Rückzahlzeit aus dem Gerät — mitziehen.
+      e.totalInvestment = 17_000
+      e.subsidyAmount = 2_000
+      e.netInvestment = e.totalInvestment - 2_000
+      e.amortizationYears = e.netInvestment / e.totalSavingPerYear
+      e.netSavingOverHorizon =
+        e.totalSavingPerYear * input.analysis.assumptions.horizonYears - e.netInvestment
     })
   }),
 }

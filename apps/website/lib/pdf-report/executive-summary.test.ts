@@ -3,7 +3,13 @@ import { describe, expect, it } from 'vitest'
 
 import { formatEur } from '@/lib/format'
 
-import { EXECUTIVE_SUMMARY_CASES as CASES, muster, variant } from '@/test/executive-summary-cases'
+import {
+  EXECUTIVE_SUMMARY_CASES as CASES,
+  editRecommended,
+  muster,
+  unknownTariffYear,
+  variant,
+} from '@/test/executive-summary-cases'
 import { lineCount } from '@/test/pdf-text-lines'
 import { dailyPeaksOf } from './daily-peaks'
 import { buildExecutiveSummary, type ExecutiveSummary } from './executive-summary'
@@ -14,7 +20,7 @@ import {
 } from './executive-summary-copy'
 import { EXEC_SLOTS, EXEC_TEXT_PT } from './executive-summary-layout'
 import { headlineStorageOf } from './headline-storage'
-import { recommendedEntryOf } from './summary'
+import { recommendedEntryOf, unknownTariffWaysOf } from './summary'
 
 const FORBIDDEN =
   /Kappung|Amortisation|Ladesteuerung|Leistungspreis|Dispatch|Hindsight|Lastspitzenkappung/i
@@ -64,7 +70,7 @@ describe('buildExecutiveSummary', () => {
     if (s.storage) {
       const headline = headlineStorageOf(input.analysis, recommendedEntryOf(input.analysis)!, input)
       expect(s.storage.savingPerYearEur).toBe(headline.savingPerYearEur)
-      expect(s.stages[1]!.savingPerYearEur).toBe(headline.savingPerYearEur)
+      expect(s.stages.at(-1)!.savingPerYearEur).toBe(headline.savingPerYearEur)
     }
   })
 
@@ -145,10 +151,10 @@ describe('executiveSummaryCopy', () => {
     for (const name of ['nur-tarif (Katalog leer)', 'speicher-lohnt-nicht']) {
       const copy = executiveSummaryCopy(summaries[name]!)
       expect(copy.stages, name).toEqual([])
-      expect(copy.heroDetail, name).toBe('durch den Wechsel zu aWATTar, ohne Anschaffung')
+      expect(copy.heroDetail, name).toEqual(['durch den Wechsel zu aWATTar, ohne Anschaffung'])
       expect(textOf(copy).split('ohne Anschaffung').length - 1, name).toBe(1)
     }
-    expect(executiveSummaryCopy(summaries['jahr (Müldür)']!).heroDetail).toBeNull()
+    expect(executiveSummaryCopy(summaries['jahr (Müldür)']!).heroDetail).toEqual([])
   })
 
   it('Lastgang-Satz je Spitzengebühr und Spitzenersparnis', () => {
@@ -233,6 +239,70 @@ describe('executiveSummaryCopy', () => {
       'Schätzung, keine Zusage. Annahmen und Risiken, u. a. beim Börsenpreis, im weiteren Bericht.',
     )
     expect(EXECUTIVE_SUMMARY_FOOTER).not.toMatch(/Seite|\d/)
+  })
+})
+
+describe('Variante „tarif-unbekannt"', () => {
+  const name = 'tarif-unbekannt (konstruiert)'
+  const s = summaries[name]!
+  const copyText = (summary: ExecutiveSummary) => JSON.stringify(executiveSummaryCopy(summary))
+
+  it('Hauptzahl = günstiges Laden + Stromspitzen, zwei Balken aus dem Modell, keine Teilzahlen', () => {
+    const input = CASES[name]!
+    const headline = headlineStorageOf(input.analysis, recommendedEntryOf(input.analysis)!, input)
+    expect(s.variant).toBe('tarif-unbekannt')
+    expect(s.header.savingPerYearEur).toBe(headline.ladesteuerungEur + headline.spitzenEur)
+    const unknown = unknownTariffWaysOf(input.analysis)!
+    expect(s.ways.map((w) => [w.id, w.costPerYearEur, w.isRecommended])).toEqual([
+      ['spot', unknown.uncontrolledEur, false],
+      ['spot-storage', unknown.controlledEur, true],
+    ])
+    expect(s.todayCostPerYearEur).toBeNull()
+    expect(executiveSummaryCopy(s).stages).toEqual([])
+  })
+
+  it('Texte: Bezug aWATTar, Tarif unbekannt genau einmal, kein Heute-Tarif, kein Tarifwechsel-Wert', () => {
+    const copy = executiveSummaryCopy(s)
+    expect(copy.hero.amount).toBe(`bis zu ${formatEur(s.header.savingPerYearEur)}`)
+    expect(copy.heroDetail).toEqual([
+      'Ersparnis durch einen Speicher gegenüber aWATTar ohne Speicher',
+      'Ihren aktuellen Tarif kennen wir nicht; ein Tarifwechsel ist deshalb nicht bewertet.',
+    ])
+    expect(copy.basis).toBe('gerechnet mit Ihren Messwerten von 365 Tagen')
+    expect(copy.waysSentence).toBe(
+      `Mit einem Speicher, der günstig lädt, sinken Ihre Kosten bei aWATTar von rund ${formatEur(s.ways[0]!.costPerYearEur)} ` +
+        `auf rund ${formatEur(s.ways[1]!.costPerYearEur)} — ohne Spitzengebühr; deren Einsparung (bis zu ${formatEur(1160)}) kommt hinzu.`,
+    )
+    const text = copyText(s)
+    expect(text.split('Ihren aktuellen Tarif kennen wir nicht').length - 1).toBe(1)
+    // Positivkontrolle: dieselben Muster treffen im Müldür-Text.
+    for (const absent of ['Ihr Tarif heute', 'Wechsel zu aWATTar, ohne Anschaffung']) {
+      expect(text, absent).not.toContain(absent)
+      expect(copyText(summaries['jahr (Müldür)']!), absent).toContain(absent)
+    }
+  })
+
+  it('keine Vorderseite bei Teiljahr oder ohne Speicher, der sich rechnet', () => {
+    const partYear = (withAnnualScenario: boolean) => {
+      const input = structuredClone(muster(withAnnualScenario))
+      const optimization = input.analysis.tariffOptimization
+      if (optimization?.computable !== true) throw new Error('Fixture ohne Tarifvergleich')
+      optimization.monthlyComparison!.currentTariffEur = null
+      return input
+    }
+    expect(buildExecutiveSummary(partYear(false))).toBeNull()
+    expect(buildExecutiveSummary(partYear(true))).toBeNull()
+    const noCatalog = unknownTariffYear(({ analysis }) => {
+      analysis.recommendation = null
+      analysis.perBattery = []
+    })
+    expect(buildExecutiveSummary(noCatalog)).toBeNull()
+    const notWorth = unknownTariffYear((input) =>
+      editRecommended(input, (e) => {
+        e.netSavingOverHorizon = -1
+      }),
+    )
+    expect(buildExecutiveSummary(notWorth)).toBeNull()
   })
 })
 

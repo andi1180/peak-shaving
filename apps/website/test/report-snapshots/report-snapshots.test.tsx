@@ -28,7 +28,10 @@ import {
 } from '@/lib/pdf-report/build-report-input'
 import type { ReportChartRasters } from '@/lib/pdf-report/charts'
 import { buildReportContext } from '@/lib/pdf-report/context'
-import { buildExecutiveSummary } from '@/lib/pdf-report/executive-summary'
+import {
+  buildExecutiveSummary,
+  type ExecutiveSummaryVariant,
+} from '@/lib/pdf-report/executive-summary'
 import { EXECUTIVE_SUMMARY_CASES } from '@/test/executive-summary-cases'
 import { ReportDocument } from '@/lib/pdf-report/document'
 import { buildReportLayout } from '@/lib/pdf-report/layout'
@@ -60,6 +63,8 @@ type SnapshotCase = {
   draftPatch?: Record<string, unknown>
   /** Zusätzliche Prüfung am Ergebnis des Laufs (netto, wie gerechnet). */
   checkResult?: (result: AnalysisResult) => void
+  /** Variante der Vorderseite „Auf einen Blick"; fehlt = keine Vorderseite. */
+  executiveSummary?: ExecutiveSummaryVariant
 }
 
 const APP = path.resolve(import.meta.dirname, '../..')
@@ -95,6 +100,7 @@ const CASES: SnapshotCase[] = [
     ...GEWERBE,
     name: 'gewerbe-ohne-rechnung-wien.foerderung-50-horizont-15',
     draftPatch: { subsidyPercent: 50, horizonYears: 15 },
+    executiveSummary: 'tarif-unbekannt',
   },
   {
     ...PRIVAT,
@@ -104,6 +110,7 @@ const CASES: SnapshotCase[] = [
   {
     ...GEWERBE,
     name: 'gewerbe-ohne-rechnung-wien.foerderung-50-horizont-15-steuer',
+    executiveSummary: 'tarif-unbekannt',
     draftPatch: {
       subsidyPercent: 50,
       horizonYears: 15,
@@ -464,8 +471,9 @@ describe('Report-Snapshots der Referenzfälle', () => {
       vi.useFakeTimers({ toFake: ['Date'], now: new Date(c.runAt) })
       const { pdfText, screenHtml, result, input } = await renderSnapshots(c)
       checkSnapshot(`${c.snapshot ?? c.name}.pdf.txt`, pdfText)
-      // Vorderseite „Auf einen Blick": Privat folgt später, Gewerbe hier mit unbekanntem Liefertarif.
-      expect(buildExecutiveSummary(input)).toBeNull()
+      // Vorderseite „Auf einen Blick": Privat folgt später; Gewerbe mit unbekanntem Liefertarif nur,
+      // wenn sich der Speicher rechnet (`tarif-unbekannt`).
+      expect(buildExecutiveSummary(input)?.variant ?? null).toBe(c.executiveSummary ?? null)
       // Mit Förderung trägt das PDF mindestens einen Förderblock — ausser kein Zusatzspeicher rechnet sich.
       const blocks = checkSubsidyArithmetic(pdfText)
       if (/subsidy/i.test(Object.keys(c.draftPatch ?? {}).join(' '))) {
@@ -507,8 +515,18 @@ describe('Report-Snapshots der Referenzfälle', () => {
       expect(page, name).toContain('Auf einen Blick')
       expect(page.match(FORBIDDEN), name).toBeNull()
       expect(page.match(REMOVED_BOX), name).toBeNull()
-      // Der Tarifwechsel steht genau einmal: als Teilzahl oder, ohne Speicherblock, unter der Zahl.
-      expect(page.split('ohne Anschaffung').length - 1, name).toBe(1)
+      const flat = page.replace(/\s+/g, ' ')
+      const count = (needle: string) => flat.split(needle).length - 1
+      if (buildExecutiveSummary(input)!.variant === 'tarif-unbekannt') {
+        // Ohne bekannten Tarif: weder Heute-Tarif noch Tarifwechsel, dafür einmal der Hinweis.
+        expect(count('Ihren aktuellen Tarif kennen wir nicht'), name).toBe(1)
+        expect(count('Ihr Tarif heute'), name).toBe(0)
+        expect(count('Wechsel zu aWATTar, ohne Anschaffung'), name).toBe(0)
+      } else {
+        // Der Tarifwechsel steht genau einmal: als Teilzahl oder, ohne Speicherblock, unter der Zahl.
+        expect(count('ohne Anschaffung'), name).toBe(1)
+        expect(count('Ihr Tarif heute'), name).toBe(1)
+      }
       // Ein Höchstwert heisst „bis zu €“, nicht „bis zu rund €“ (auch über Zeilenumbrüche hinweg).
       expect(page.replace(/\s+/g, ' '), name).not.toContain('bis zu rund')
     }
