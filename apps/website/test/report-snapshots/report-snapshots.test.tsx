@@ -523,9 +523,13 @@ describe('Report-Snapshots der Referenzfälle', () => {
         expect(count('Ihr Tarif heute'), name).toBe(0)
         expect(count('Wechsel zu aWATTar, ohne Anschaffung'), name).toBe(0)
       } else {
-        // Der Tarifwechsel steht genau einmal: als Teilzahl oder, ohne Speicherblock, unter der Zahl.
-        expect(count('ohne Anschaffung'), name).toBe(1)
         expect(count('Ihr Tarif heute'), name).toBe(1)
+        // Die Teilzahlen sind entfallen; ohne Speicherblock steht der Tarifwechsel in der Box
+        // (zugleich die Positivkontrolle des Musters).
+        expect(count('mit einem Speicher dazu'), name).toBe(0)
+        expect(count('Wechsel zu aWATTar, ohne Anschaffung'), name).toBe(
+          buildExecutiveSummary(input)!.storage ? 0 : 1,
+        )
       }
       // Ein Höchstwert heisst „bis zu €“, nicht „bis zu rund €“ (auch über Zeilenumbrüche hinweg).
       expect(page.replace(/\s+/g, ' '), name).not.toContain('bis zu rund')

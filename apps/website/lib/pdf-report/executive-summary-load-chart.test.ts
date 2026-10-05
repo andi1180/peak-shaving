@@ -57,6 +57,21 @@ describe('loadChartOf', () => {
     expect(drawn(shifted)).not.toMatchObject(expected)
   })
 
+  it('rote Punkte: genau die Tage über der Linie, an der Tagesspitze (Positivkontrolle)', () => {
+    const load = loadOf('jahr (Müldür)')
+    const chart = loadChartOf(load, EXEC_SLOTS.load)!
+    const expected = load.dailyPeaks
+      .filter((p) => splitAtCap(p.peakKw, modelCap(load, p.day)).above > 0)
+      .map((p) => [p.day, chart.y(p.peakKw)])
+    const drawn = (dots: typeof chart.dots) => dots.map((d) => [d.day, d.y])
+    expect(expected.length).toBeGreaterThan(0)
+    expect(drawn(chart.dots)).toEqual(expected)
+    // Ein fehlender oder um 1 kW versetzter Punkt fällt auf.
+    expect(drawn(chart.dots.slice(1))).not.toEqual(expected)
+    const shifted = chart.dots.map((d, i) => (i === 0 ? { ...d, y: chart.y(d.peakKw + 1) } : d))
+    expect(drawn(shifted)).not.toEqual(expected)
+  })
+
   it('Linie gilt für die Tage ihres Monats', () => {
     const march = Date.parse('2026-02-28T23:00:00Z')
     const april = Date.parse('2026-03-31T22:00:00Z')
@@ -83,6 +98,7 @@ describe('loadChartOf', () => {
   it('ohne Begrenzung: keine Linie, kein Akzentteil, nur die Basislegende', () => {
     const chart = loadChartOf(loadOf('nur-tarif (Katalog leer)'), EXEC_SLOTS.load)!
     expect(chart.capLines).toEqual([])
+    expect(chart.dots).toEqual([])
     expect(chart.bars.every((b) => b.above === 0)).toBe(true)
     expect(chart.legend.map((l) => l.text)).toEqual(['Höchste Leistung pro Tag'])
   })

@@ -5,8 +5,14 @@ import { EXECUTIVE_SUMMARY_CASES as CASES } from '@/test/executive-summary-cases
 import { aboutYears, breakEvenBandOf, type BreakEvenBand } from './break-even-band'
 import { buildExecutiveSummary, type ExecutiveSummaryStorage } from './executive-summary'
 import { executiveSummaryCopy } from './executive-summary-copy'
-import { breakEvenLayoutOf, fitLabel, waysBarsOf } from './executive-summary-charts'
-import { EXEC_SLOTS } from './executive-summary-layout'
+import {
+  breakEvenLayoutOf,
+  fitFontSize,
+  fitLabel,
+  textWidthAt,
+  waysBarsOf,
+} from './executive-summary-charts'
+import { EXEC_HERO, EXEC_SLOTS } from './executive-summary-layout'
 
 const summary = (name: string) => buildExecutiveSummary(CASES[name]!)!
 
@@ -100,5 +106,17 @@ describe('fitLabel', () => {
     const cut = fitLabel(long, 150)
     expect(cut).toMatch(/^Wien Energie .*…$/)
     expect(cut.length).toBeLessThan(long.length)
+  })
+})
+
+describe('fitFontSize', () => {
+  it('lange Werte passen in die Box, kurze bleiben bei 32 pt', () => {
+    const inner = EXEC_HERO.boxWidth - 2 * EXEC_HERO.padding - EXEC_HERO.edge
+    expect(fitFontSize(formatEur(10150), inner, 32, true)).toBe(32)
+    for (const value of [formatEur(123456), 'ca. 10,5 Jahre']) {
+      const size = fitFontSize(value, inner, 32, true)
+      expect(textWidthAt(value, size, true), value).toBeLessThanOrEqual(inner)
+    }
+    expect(fitFontSize('ca. 10,5 Jahre', inner, 32, true)).toBeLessThan(32)
   })
 })

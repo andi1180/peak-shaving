@@ -17,9 +17,11 @@ const fontkit = requireFromFont('fontkit') as {
 
 const FONT_DIR = path.resolve(import.meta.dirname, '../public/report-fonts')
 const regular = fontkit.openSync(`${FONT_DIR}/Inter-Regular.woff`)
+const bold = fontkit.openSync(`${FONT_DIR}/Inter-Bold.woff`)
 
-export function textWidthPt(text: string, fontSize: number): number {
-  return (regular.layout(text).advanceWidth / regular.unitsPerEm) * fontSize
+export function textWidthPt(text: string, fontSize: number, isBold = false): number {
+  const font = isBold ? bold : regular
+  return (font.layout(text).advanceWidth / font.unitsPerEm) * fontSize
 }
 
 export function lineCount(text: string, fontSize: number, width: number): number {

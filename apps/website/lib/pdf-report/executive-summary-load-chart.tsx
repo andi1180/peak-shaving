@@ -1,4 +1,4 @@
-import { Line, Polyline, Rect, Svg, Text, View } from '@react-pdf/renderer'
+import { Circle, Line, Polyline, Rect, Svg, Text, View } from '@react-pdf/renderer'
 
 import type { DailyPeak } from './daily-peaks'
 import { label, LINE_PT, textWidth } from './executive-summary-charts'
@@ -63,6 +63,8 @@ export type LoadChartLayout = {
   legend: { text: string; kind: 'base' | 'above' | 'cap'; x: number; row: number }[]
   /** Je Kalendertag die gezeichnete Begrenzung (für die Prüfung gegen das Modell). */
   capByDay: Map<string, number>
+  /** Ein Punkt an der Spitze jedes Tages über der Begrenzung (`splitAtCap(…).above > 0`). */
+  dots: { day: string; x: number; y: number; peakKw: number }[]
 }
 
 const SWATCH_PT = 8
@@ -181,12 +183,25 @@ export function loadChartOf(load: LoadInput, slot: Size): LoadChartLayout | null
     i = end + 1
   }
 
-  return { plot, yMaxKw, y, bars, capLines, ticks, months, legend, capByDay }
+  const dots = bars
+    .filter((bar) => bar.above > 0)
+    .map((bar) => ({
+      day: bar.day,
+      x: bar.x + bar.width / 2,
+      y: y(bar.peakKw),
+      peakKw: bar.peakKw,
+    }))
+
+  return { plot, yMaxKw, y, bars, capLines, ticks, months, legend, capByDay, dots }
 }
 
 /** Slate 400 — grau, aber heller als `textMuted`, damit der Akzentteil darüber trägt. */
 const BASE_COLOR = '#94a3b8'
-const ABOVE_COLOR = CHART_COLORS.series
+/** Die Begrenzungslinie bleibt in der Akzentfarbe; was darüber liegt, ist rot markiert. */
+const CAP_COLOR = CHART_COLORS.series
+const ABOVE_COLOR = '#fca5a5'
+const DOT_COLOR = '#dc2626'
+const DOT_RADIUS_PT = 1.2
 
 const muted = { ...label(false), color: PDF_COLORS.textMuted }
 
@@ -242,7 +257,7 @@ export function ExecLoadChart({ load, slot }: { load: LoadInput; slot: Size }) {
           stroke={PDF_COLORS.textMuted}
           strokeWidth={0.5}
         />
-        {/* Weisser Saum unter der Linie: sie liegt genau auf der Grenze Grau/Akzent. */}
+        {/* Weisser Saum unter der Linie: sie liegt genau auf der Grenze Grau/Rot. */}
         {l.capLines.map((points, i) => (
           <Polyline
             key={`halo-${i}`}
@@ -256,10 +271,21 @@ export function ExecLoadChart({ load, slot }: { load: LoadInput; slot: Size }) {
           <Polyline
             key={i}
             points={points.map((p) => `${p.x},${p.y}`).join(' ')}
-            stroke={ABOVE_COLOR}
+            stroke={CAP_COLOR}
             strokeWidth={1.2}
             strokeDasharray="4 2"
             fill="none"
+          />
+        ))}
+        {l.dots.map((dot) => (
+          <Circle
+            key={`dot-${dot.day}`}
+            cx={dot.x}
+            cy={dot.y}
+            r={DOT_RADIUS_PT}
+            fill={DOT_COLOR}
+            stroke="#ffffff"
+            strokeWidth={0.4}
           />
         ))}
         {l.legend.map((item) => {
@@ -271,9 +297,17 @@ export function ExecLoadChart({ load, slot }: { load: LoadInput; slot: Size }) {
               y1={cy}
               x2={item.x + SWATCH_PT}
               y2={cy}
-              stroke={ABOVE_COLOR}
+              stroke={CAP_COLOR}
               strokeWidth={1.2}
               strokeDasharray="4 2"
+            />
+          ) : item.kind === 'above' ? (
+            <Circle
+              key={item.text}
+              cx={item.x + SWATCH_PT / 2}
+              cy={cy}
+              r={DOT_RADIUS_PT + 0.4}
+              fill={DOT_COLOR}
             />
           ) : (
             <Rect
@@ -282,7 +316,7 @@ export function ExecLoadChart({ load, slot }: { load: LoadInput; slot: Size }) {
               y={cy - 3}
               width={SWATCH_PT}
               height={6}
-              fill={item.kind === 'base' ? BASE_COLOR : ABOVE_COLOR}
+              fill={BASE_COLOR}
             />
           )
         })}
