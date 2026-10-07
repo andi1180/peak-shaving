@@ -864,3 +864,7 @@ Kopf-/Fusszeilen.
 | 6 | Anschrift auf dem Deckblatt — gewünscht? | D9 | `[OFFEN]` |
 | 7 | Rollup-Scope: MVP nur Ein-Zählpunkt-Report | D13 | `[ANNAHME]`, zu bestätigen |
 | 8 | Cutover-Zeitpunkt: nach D4–D8 | D14 | `[ANNAHME]`, zu bestätigen |
+
+### Nachtrag Wirtschaftlichkeit (07.10.2026) — Steuerblock mit der Ersparnis der Überschrift
+
+Im Kapitel „Empfehlung und Wirtschaftlichkeit" rechnet der Block „Steuerliche Wirkung" mit derselben Jahres-Ersparnis wie die Zeilen darüber (`headlineStorageOf`); steht das Jahreskapitel im Report, läuft dafür `calculateRoi` der Engine mit dieser Ersparnis (`taxEffectOf`, `headline-storage.ts`), sonst bleibt `entry.taxEffect` unverändert. Vorher stand dort die lineare Ersparnis und damit eine Amortisation nach Steuern, die besser war als die Zahl der Überschrift.

@@ -1,4 +1,9 @@
-import type { AnalysisSubsidyProgram, AnalysisTaxAssumptions, BatteryRoiEntry } from 'shared'
+import type {
+  AnalysisSubsidyProgram,
+  AnalysisTaxAssumptions,
+  BatteryRoiEntry,
+  BatteryTaxEffect,
+} from 'shared'
 
 import { formatEur } from '@/lib/format'
 import {
@@ -60,14 +65,14 @@ export function netOverHorizonRow(
 
 /** Der Steuerblock als eigener Zeilenblock — nur, wo die Steuerwirkung gerechnet ist. */
 export function taxEffectBlock(
-  entry: BatteryRoiEntry,
+  taxEffect: BatteryTaxEffect | undefined,
   tax: AnalysisTaxAssumptions | undefined,
   horizonYears: number,
 ): ReportSubBlock | null {
-  if (entry.taxEffect === undefined || tax === undefined) return null
+  if (taxEffect === undefined || tax === undefined) return null
   return {
     title: TAX_EFFECT_TITLE,
-    rows: taxEffectLines(entry.taxEffect, tax, horizonYears).map((line) => ({
+    rows: taxEffectLines(taxEffect, tax, horizonYears).map((line) => ({
       label: line.label,
       value: line.value,
       tone: line.total ? (line.negative ? 'warning' : 'positive') : 'neutral',
