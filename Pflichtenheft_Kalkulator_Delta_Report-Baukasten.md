@@ -872,3 +872,7 @@ Im Kapitel „Empfehlung und Wirtschaftlichkeit" rechnet der Block „Steuerlich
 ### Nachtrag Wirtschaftlichkeit (07.10.2026) — Beschriftung Steuerersparnis, Hinweiszeile unter der Gerätetabelle
 
 Die Zeile „Abschreibung über N Jahre" heisst „Steuerersparnis durch Abschreibung, über N Jahre". Steht die Empfehlung auf Jahresbasis (`headlineStorageOf(...).basis === 'annual'`), erklärt eine Zeile unter der Gerätetabelle, dass die Tabelle einheitlich linear rechnet und der Abstand verglichen wird, nicht die absolute Zahl. Keine Zahl geändert.
+
+### Nachtrag Gesamtmaßnahme (07.10.2026) — gleiche Schriftgrösse
+
+„Speicher allein“ und „Gesamtmaßnahme“ erscheinen auf der Vorderseite (eine gemeinsame, in die Box passende Grösse) und im Kapitel „Empfehlung und Wirtschaftlichkeit“ (15 pt fett, untereinander) gleich gross; reines Layout, keine Zahl und kein Text geändert.

@@ -280,6 +280,7 @@ Satz kostete ~23 pt); **(2)** Kapitel „Empfehlung und Wirtschaftlichkeit" — 
 der erklärende Satz (`ReportStatement.amountExtra`), der Fachbegriffe nennen darf (FORBIDDEN gilt nur für die
 Vorderseite); **(3)** Zeile in „Was der empfohlene Speicher zusätzlich bringt" (`storage-summary.ts`).
 Alle drei lesen die Vorderseite (`context.executiveSummary`) — ohne sie keine Gesamtmaßnahme.
+**Gleiche Schriftgrösse (07.10.2026):** „Speicher allein“ und „Gesamtmaßnahme“ stehen in der Hero-Box in EINER gemeinsamen Grösse (`execHeroValuePt`, grösste, mit der beide Spalten samt Abstand in die Innenbreite passen; Müldür 14,5 pt statt vorher 15,1 und 14) und im Kapitel beide in 15 pt fett (`statementAmountExtra`, vorher 11) — nebeneinander eine Grösse statt zwei liest sich als gleichwertige Aussagen.
 
 ### Rechnungs-Scan: leere/abgeschnittene Antwort, ein Wiederholversuch (29.09.2026)
 
