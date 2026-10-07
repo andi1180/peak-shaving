@@ -6,15 +6,13 @@ import { ifbEffectOf } from './ifb-effect'
 import { taxEffectLines, taxEffectNoteOf, TAX_EFFECT_NOTE } from './report-copy'
 
 /* Müldür-Live-Eingaben (vom Nutzer genannt): Investition 11.550 €, Ersparnis 2.125 €/Jahr, Horizont 10, AfA 10, IFB 22 %. */
-const entry = {
-  battery: {
-    usableCapacityKwh: 1,
-    pricePerKwh: 11550,
-    inverterIncluded: true,
-    requiresFoundation: false,
-  },
-  subsidyAmount: 0,
+const battery = {
+  usableCapacityKwh: 1,
+  pricePerKwh: 11550,
+  inverterIncluded: true,
+  requiresFoundation: false,
 } as never
+const entry = { battery, subsidyAmount: 0 } as never
 const tax = (taxRatePercent: number, ifb: number | null) => ({
   taxRatePercent,
   investitionsfreibetragPercent: ifb,
@@ -23,7 +21,7 @@ const tax = (taxRatePercent: number, ifb: number | null) => ({
 const lines = (t: ReturnType<typeof tax>, saving: number) => {
   const ifb = ifbEffectOf(entry, t, 10, saving)
   const effect =
-    calculateRoi(entry.battery, saving, 10, {
+    calculateRoi(battery, saving, 10, {
       fixedSubsidyEur: 0,
       taxRatePercent: t.taxRatePercent,
       investitionsfreibetragPercent: t.investitionsfreibetragPercent ?? undefined,
@@ -45,7 +43,7 @@ describe('ifbEffectOf', () => {
     const { ifb, rows, note } = lines(tax(40, 22), 2125)
     expect(ifb!.deltaYears).toBeCloseTo(0.6, 1)
     const roi = (p: number) =>
-      calculateRoi(entry.battery, 2125, 10, {
+      calculateRoi(battery, 2125, 10, {
         fixedSubsidyEur: 0,
         taxRatePercent: 40,
         investitionsfreibetragPercent: p,
