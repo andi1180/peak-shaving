@@ -17,6 +17,7 @@ import {
   type RecommendationRationale,
 } from 'shared'
 
+import type { IfbEffect } from './ifb-effect'
 import { formatDateOnly, formatEur, formatKw, formatKwh1, formatPercent, formatYears } from './format'
 
 /**
@@ -299,18 +300,40 @@ export const TAX_EFFECT_NOTE =
   'Richtwert auf Basis Ihrer Angaben — keine Steuerberatung. Die Einsparungen erhöhen den ' +
   'steuerpflichtigen Gewinn und sind berücksichtigt.'
 
+/** Jahresangabe der IFB-Wirkung mit Einzahl bei genau 1,0 — bewusst nicht in `formatYears`, das überall „Jahre" sagt. */
+function ifbYearsPhrase(years: number): string {
+  return Math.round(years * 10) / 10 === 1 ? '1 Jahr' : formatYears(years)
+}
+
+/** Der Hinweistext unter dem Steuerblock — ist die Nach-Steuer-Amortisation länger als die vor Steuern, erklärt er das. */
+export function taxEffectNoteOf(ifb: IfbEffect | null | undefined): string {
+  if (!ifb?.taxedLonger) return TAX_EFFECT_NOTE
+  const head = 'Richtwert, keine Steuerberatung. Die Ersparnis ist steuerpflichtig und berücksichtigt, deshalb dauert die Amortisation nach Steuern länger'
+  return ifb.deltaYears === null
+    ? `${head}.`
+    : `${head}; der Investitionsfreibetrag verkürzt sie um ${ifbYearsPhrase(ifb.deltaYears)}.`
+}
+
 export type TaxEffectLine = { label: string; value: string; total?: boolean; negative?: boolean }
 
-/** Die Zeilen des Steuerblocks — getrennt von Förderung und Investition, PDF und Bildschirm gleich. */
+/** Die Zeilen des Steuerblocks — getrennt von Förderung und Investition, PDF und Bildschirm gleich; die IFB-Verkürzung steht im Wert der IFB-Zeile. */
 export function taxEffectLines(
   effect: BatteryTaxEffect,
   tax: AnalysisTaxAssumptions,
   horizonYears: number,
+  ifb?: IfbEffect | null,
 ): TaxEffectLine[] {
   return [
     ...(tax.investitionsfreibetragPercent === null
       ? []
-      : [{ label: 'Investitionsfreibetrag, einmalig', value: formatEur(effect.ifbEffect) }]),
+      : [
+          {
+            label: 'Investitionsfreibetrag, einmalig',
+            value:
+              formatEur(effect.ifbEffect) +
+              (ifb?.deltaYears == null ? '' : ` · Amortisation ${ifbYearsPhrase(ifb.deltaYears)} kürzer`),
+          },
+        ]),
     ...(tax.depreciationYears === null
       ? []
       : [

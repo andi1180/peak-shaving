@@ -52,7 +52,7 @@ import { block, ref, t, REF_SECTION } from './report-text'
 import type { ReportNotice, ReportPoint, ReportRow, ReportStatement } from './statement'
 import { primaryEntryOf, recommendedEntryOf } from './summary'
 import type { AnnualScenarioPvInput } from './annual-scenario'
-import { headlineLoadControlEur, headlineStorageOf, taxEffectOf } from './headline-storage'
+import { headlineLoadControlEur, headlineStorageOf, ifbEffectForHeadline, taxEffectOf } from './headline-storage'
 import type { PdfReportAnalysis } from './types'
 
 /**
@@ -360,6 +360,7 @@ export function buildRecommendation(
     taxEffectOf(analysis, entry, headline),
     analysis.assumptions.tax,
     horizonYears,
+    ifbEffectForHeadline(analysis, entry, headline),
   )
   const subsidy = hasEnteredSubsidy(entry)
   const subsidyPoint: ReportPoint[] = subsidy

@@ -1,6 +1,7 @@
 import { calculateRoi } from 'engine'
 import type { BatteryResultEntry, BatteryRoiEntry, BatteryTaxEffect } from 'shared'
 
+import { ifbEffectOf, type IfbEffect } from '@/lib/ifb-effect'
 import { loadControlValueOf } from '@/lib/report-copy'
 import { annualScenarioSavingsOf, type AnnualScenarioPvInput } from './annual-scenario'
 import { SHOW_ANNUAL_SCENARIO_CHAPTER } from './report-flags'
@@ -105,4 +106,18 @@ export function taxEffectOf(
     depreciationYears: tax.depreciationYears ?? undefined,
   })
   return roi.taxEffect ?? entry.taxEffect
+}
+
+/** Die IFB-Wirkung zum Steuerblock — dieselbe Ersparnis-Basis wie `taxEffectOf`. */
+export function ifbEffectForHeadline(
+  analysis: PdfReportAnalysis,
+  entry: BatteryRoiEntry,
+  headline: HeadlineStorage,
+): IfbEffect | null {
+  return ifbEffectOf(
+    entry,
+    analysis.assumptions.tax,
+    analysis.assumptions.horizonYears,
+    headline.basis === 'annual' ? headline.savingPerYearEur : entry.totalSavingPerYear,
+  )
 }

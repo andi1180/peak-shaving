@@ -241,6 +241,17 @@ Details und der vollständige Stand: siehe `./Pflichtenheft_Kalkulator_MVP.md`, 
 
 > Lebendiger Handover-Anker. Neueste offene Punkte, die den Bau der Engine/Simulation berühren. Erledigtes wandert raus.
 
+### IFB-Verkürzung der Amortisation im Wert der IFB-Zeile (07.10.2026)
+
+Steuerblock (PDF und Bildschirm, `taxEffectLines`, `report-copy.ts`): der Wert der Zeile „Investitionsfreibetrag, einmalig"
+lautet bei IFB > 0 und Verkürzung ≥ 0,05 Jahre „€ {IFB} · Amortisation {x,y} Jahre kürzer" (gerundet 1,0 → „1 Jahr"); sonst
+unverändert „€ {IFB}". Die Verkürzung kommt aus `ifbEffectOf` (`apps/website/lib/ifb-effect.ts`, zwei `calculateRoi`-Läufe mit/ohne
+IFB-%). Eine eigene Zeile gibt es bewusst nicht: die Kapitelseite ist voll (24,7 pt Reserve, eine Zeile kippte sie auf die
+nächste Seite), und der Netto-Gewinn des IFB ist exakt der IFB-Betrag, den die Zeile ohnehin nennt. Der Hinweistext unter
+dem Block (`taxEffectNoteOf`) erklärt, wenn die Amortisation nach Steuern länger ist als vor Steuern: Fall A mit Halbsatz
+„der Investitionsfreibetrag verkürzt sie um {x,y} Jahre", Fall B (Verkürzung < 0,05) ohne, Fall C (sonst) der bisherige Text.
+Engine und Vorderseite unverändert.
+
 ### Steuer-Beschriftung, Hilfetexte, Hinweiszeile unter der Gerätetabelle (07.10.2026)
 
 Nur Text, keine Zahl. **(1)** Label „Abschreibung über N Jahre" → „Steuerersparnis durch Abschreibung, über N Jahre"

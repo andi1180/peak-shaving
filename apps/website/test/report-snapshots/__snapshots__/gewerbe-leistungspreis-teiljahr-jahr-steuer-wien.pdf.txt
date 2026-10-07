@@ -434,7 +434,7 @@ amortisiert. Der Tarifwechsel selbst erfordert keine Investition; der Speicher a
     EAG-Förderbeitrag Leistung heute                                                    € 240 pro Jahr (€ 5,62 / kW·a)
 
 Steuerliche Wirkung (Richtwert)
-    Investitionsfreibetrag, einmalig                                                                                 € 752
+    Investitionsfreibetrag, einmalig                                           € 752 · Amortisation 0,5 Jahre kürzer
 
     Steuerersparnis durch Abschreibung, über 10 Jahre                                                        € 342 / Jahr
 
@@ -442,8 +442,8 @@ Steuerliche Wirkung (Richtwert)
 
     Netto nach Steuern über 10 Jahre                                                                               € 8.372
 
-Richtwert auf Basis Ihrer Angaben — keine Steuerberatung. Die Einsparungen erhöhen den steuerpflichtigen
-Gewinn und sind berücksichtigt.
+Richtwert, keine Steuerberatung. Die Ersparnis ist steuerpflichtig und berücksichtigt, deshalb dauert die
+Amortisation nach Steuern länger; der Investitionsfreibetrag verkürzt sie um 0,5 Jahre.
 
 1       Die wirtschaftlichste Option
         Aus dem Katalog schneidet dieses Gerät über 10 Jahre am besten ab — gereiht wird nach der
