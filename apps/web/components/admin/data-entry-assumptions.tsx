@@ -259,6 +259,7 @@ export function DataEntryAssumptions({
               label="Investitionsfreibetrag (%)"
               inputMode="numeric"
               placeholder="leer = keine Angabe"
+              hint="Öko-IFB: 22 % bei Anschaffung bis 31.12.2026, danach 15 % (Stand WKO 01.2026)."
               defaultValue={
                 state.values?.investitionsfreibetragPercent ??
                 storedNumber(stored.investitionsfreibetragPercent)
@@ -274,7 +275,7 @@ export function DataEntryAssumptions({
               hint={
                 taxRateMissing(stored)
                   ? 'Steuersatz nötig für die steuerliche Wirkung.'
-                  : 'Grenzsteuersatz bzw. KöSt.'
+                  : 'GmbH: 23 % Körperschaftsteuer. Sonst der persönliche Grenzsteuersatz der Eigentümer.'
               }
               defaultValue={state.values?.taxRatePercent ?? storedNumber(stored.taxRatePercent)}
               error={state.fieldErrors?.taxRatePercent}

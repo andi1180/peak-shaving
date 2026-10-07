@@ -247,7 +247,9 @@ Nur Text, keine Zahl. **(1)** Label „Abschreibung über N Jahre" → „Steuer
 (`taxEffectLines`, `report-copy.ts`, PDF und Bildschirm aus derselben Quelle) — der Wert ist die jährliche Steuerersparnis,
 nicht die Abschreibung. **(2)** Hilfetexte unter „Steuersatz" (GmbH 23 % KöSt, sonst persönlicher Grenzsteuersatz) und
 „Investitionsfreibetrag" (Öko-IFB 22 % bis 31.12.2026, danach 15 %, Stand WKO 01.2026) in `step-tariff.tsx` und
-`assumptions-panel.tsx` über das neue Prop `help` von `NumberField`. **⚠ Die Vorgabewerte stehen unverändert; 2027 sinkt
+`assumptions-panel.tsx` über das neue Prop `help` von `NumberField`; im Admin-Wizard (`apps/web` `data-entry-assumptions.tsx`)
+nachgezogen mit denselben Texten über das neutrale `hint` von `AdminField` (dort `muted`, nur ein Fehler ist rot).
+**⚠ Die Vorgabewerte stehen unverändert; 2027 sinkt
 der Öko-IFB — im Fahrplan zu vermerken.** **(3)** Unter „Speicher im Vergleich" steht EINE Zeile (`tableFootnote`), wenn
 `headlineStorageOf(…, Empfehlung, pv).basis === 'annual'`: die Tabelle rechnet linear, die Empfehlung im Kasten auf
 Jahresbasis, verglichen wird der Abstand.

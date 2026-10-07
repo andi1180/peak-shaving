@@ -405,3 +405,5 @@ Nahezu das gesamte Abo-Portfolio hängt an B12 (Datenanbindung Vortageswerte) �
 4. `DEPLOYMENT.md` — Env- und Dashboard-Stand
 
 Die Monitor-Dokumente (`Pflichtenheft_Monitor_MVP.md`, `packages/tariff-monitor/CLAUDE.md`) sind RUHEND und nur historisch zu lesen.
+
+Jahreswechsel 2027: Öko-IFB fällt von 22 % auf 15 % (WKO, Stand 01.2026, befristete Erhöhung für Anschaffungen bis 31.12.2026). Hilfetext und ggf. Standardwert im Wizard (apps/web data-entry-assumptions) und im Rechner (apps/website step-tariff) prüfen.
