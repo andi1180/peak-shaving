@@ -5,22 +5,30 @@ import { buildExecutiveSummary } from './executive-summary'
 import { aboutDuration, totalAmortizationExtra, totalAmortizationOf } from './total-amortization'
 
 describe('Amortisation der Gesamtmaßnahme', () => {
-  it('Müldür: 8.550 € ÷ 10.150 €/Jahr = 0,84 Jahre, „ca. 10 Monate"', () => {
+  it('Müldür-Fixture: 8.550 € ÷ 10.150 €/Jahr = 0,84 Jahre, „ca. 0,8 Jahre"', () => {
     const s = buildExecutiveSummary(CASES['jahr (Müldür)']!)!
     const total = totalAmortizationOf(s)!
     expect(total.years).toBeCloseTo(8550 / 10150, 6)
-    expect(aboutDuration(total.years)).toBe('ca. 10 Monate')
+    expect(aboutDuration(total.years)).toBe('ca. 0,8 Jahre')
     const extra = totalAmortizationExtra(s, s.storage!.amortizationYears)!
-    expect(extra.line).toBe('Gesamtmaßnahme: frühestens ca. 10 Monate')
-    expect(extra.note).toContain('frühestens nach ca. 10 Monaten amortisiert')
+    expect(extra.line).toBe('Gesamtmaßnahme: frühestens ca. 0,8 Jahre')
+    expect(extra.note).toContain('frühestens nach ca. 0,8 Jahren amortisiert')
     expect(extra.note).toContain('frühestens in 4 Jahren')
   })
 
-  it('Format: mindestens 1 Monat, ab 24 Monaten in Jahren, Dativ', () => {
-    expect(aboutDuration(0.01)).toBe('ca. 1 Monat')
-    expect(aboutDuration(1.9)).toBe('ca. 23 Monate')
-    expect(aboutDuration(2.5)).toBe('ca. 2,5 Jahre')
-    expect(aboutDuration(2.5, true)).toBe('ca. 2,5 Jahren')
+  it('Müldür live: 11.550 € ÷ 10.150 €/Jahr = 1,138 → „ca. 1,1 Jahre", Dativ „ca. 1,1 Jahren"', () => {
+    expect(aboutDuration(11550 / 10150)).toBe('ca. 1,1 Jahre')
+    expect(aboutDuration(11550 / 10150, true)).toBe('ca. 1,1 Jahren')
+  })
+
+  it('Randfälle: 1,0 → „ca. 1 Jahr", ganze Zahl → „ca. 2 Jahre", sehr klein → „ca. 0,1 Jahre", jeweils mit Dativ', () => {
+    expect(aboutDuration(1)).toBe('ca. 1 Jahr')
+    expect(aboutDuration(0.96)).toBe('ca. 1 Jahr')
+    expect(aboutDuration(1, true)).toBe('ca. 1 Jahr')
+    expect(aboutDuration(2)).toBe('ca. 2 Jahre')
+    expect(aboutDuration(2, true)).toBe('ca. 2 Jahren')
+    expect(aboutDuration(0.01)).toBe('ca. 0,1 Jahre')
+    expect(aboutDuration(0.01, true)).toBe('ca. 0,1 Jahren')
   })
 
   it('entfällt ohne Tarifwechsel-Anteil, ohne Speicher und bei unbekanntem Tarif', () => {

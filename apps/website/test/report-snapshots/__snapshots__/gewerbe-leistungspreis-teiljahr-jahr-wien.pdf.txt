@@ -29,7 +29,7 @@ Auf einen Blick
    Ersparnis pro Jahr                                              Speicher allein            Gesamtmaßnahme
    bis zu                                                          frühestens                 frühestens
 
-   € 10.150                                                        ca. 4 Jahre                ca. 10 Monate
+   € 10.150                                                        ca. 4 Jahre                ca. 0,8 Jahre
                                                                                               alle Maßnahmen zusammen
 
    davon € 8.025 ohne Investition (Tarifwechsel)                   € 8.550 Investition, spart bis zu € 2.125/Jahr
@@ -190,7 +190,7 @@ Was der empfohlene Speicher zusätzlich bringt
 
  Amortisation                                                                                                4 Jahre
 
- Amortisation Gesamtmaßnahme (Tarifwechsel, Ladesteuerung, Spitzenkappung)                           ca. 10 Monate
+ Amortisation Gesamtmaßnahme (Tarifwechsel, Ladesteuerung, Spitzenkappung)                            ca. 0,8 Jahre
 
 Der Tarifwechsel (€ 4.183 über die 157 gemessenen Tage) wirkt auch ohne Speicher und ist in diesen
 Zahlen nicht enthalten. Vorausberechnung, keine Zusage: Der Kappungs-Anteil ist eine Obergrenze, weil er
@@ -411,8 +411,8 @@ Welches Gerät — und was es kostet.
 
 Unsere Empfehlung: Kostal & Dyness Retrofit S
 4 Jahre bis sich die Investition von € 8.550 bezahlt gemacht hat
-Gesamtmaßnahme: frühestens ca. 10 Monate
-Mit Tarifwechsel, Ladesteuerung und Spitzenkappung zusammen ist die Investition frühestens nach ca. 10 Monaten
+Gesamtmaßnahme: frühestens ca. 0,8 Jahre
+Mit Tarifwechsel, Ladesteuerung und Spitzenkappung zusammen ist die Investition frühestens nach ca. 0,8 Jahren
 amortisiert. Der Tarifwechsel selbst erfordert keine Investition; der Speicher allein amortisiert sich frühestens in 4 Jahren.
 
     Speicher (12,3 kW / 29,2 kWh)                                                                                  € 6.650

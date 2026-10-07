@@ -182,7 +182,7 @@ describe('executiveSummaryCopy', () => {
     expect(executiveSummaryCopy(summaries['jahr (Müldür)']!).totalBox).toEqual({
       label: 'Gesamtmaßnahme',
       prefix: 'frühestens',
-      value: 'ca. 10 Monate',
+      value: 'ca. 0,8 Jahre',
       sub: 'alle Maßnahmen zusammen',
     })
     expect(box('ohne Spitzenersparnis')).toMatchObject({

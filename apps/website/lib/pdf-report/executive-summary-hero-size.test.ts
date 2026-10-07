@@ -4,7 +4,7 @@ import { textWidthAt } from './executive-summary-charts'
 import { EXEC_HERO, execHeroSideWidth, execHeroValuePt } from './executive-summary-layout'
 
 describe('Hero-Box: gemeinsame Zahlengrösse', () => {
-  const side = { label: 'Gesamtmaßnahme', prefix: 'frühestens', value: 'ca. 10 Monate' }
+  const side = { label: 'Gesamtmaßnahme', prefix: 'frühestens', value: 'ca. 0,8 Jahre' }
 
   it('beide Spalten passen mit der gemeinsamen Grösse, die nächste Stufe nicht mehr', () => {
     const inner = EXEC_HERO.innerWidth
