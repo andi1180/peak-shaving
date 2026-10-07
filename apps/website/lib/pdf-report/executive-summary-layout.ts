@@ -1,4 +1,4 @@
-import { textWidthAt } from './executive-summary-charts'
+import { fitFontSize, textWidthAt } from './executive-summary-charts'
 import { PDF_CONTENT_WIDTH_PT } from './theme'
 
 const BOX_GAP_PT = 12
@@ -50,24 +50,36 @@ export const EXEC_HERO = {
   subMaxPt: 9,
   /** Innenbreite einer halben Box. */
   innerWidth: innerOf(HALF_BOX_PT),
-  /** Zahl der Gesamtmaßnahme neben der grossen Zahl, und der Abstand zwischen beiden Spalten. */
-  sideValuePt: 14,
+  /** Abstand zwischen den Spalten „Speicher allein" und „Gesamtmaßnahme". */
   sideGap: 8,
 } as const
 
-/** Breite der Spalte „Gesamtmaßnahme" in der rechten Box: die breiteste ihrer drei Zeilen. */
-export function execHeroSideWidth(side: {
-  label: string
-  prefix: string | null
-  value: string
-}): number {
+type HeroSide = { label: string; prefix: string | null; value: string }
+
+/** Breite der Spalte „Gesamtmaßnahme" in der rechten Box: die breiteste ihrer drei Zeilen bei Zahlengrösse `valuePt`. */
+export function execHeroSideWidth(side: HeroSide, valuePt: number): number {
   return Math.ceil(
     Math.max(
       textWidthAt(side.label, 9.5),
       textWidthAt(side.prefix ?? '', 11),
-      textWidthAt(side.value, EXEC_HERO.sideValuePt, true),
+      textWidthAt(side.value, valuePt, true),
     ),
   )
+}
+
+/**
+ * Schriftgrösse der Zahl in der rechten Box: ohne Gesamtmaßnahme die grösste, die in die Box passt
+ * (höchstens `valueMaxPt`); mit ihr EINE gemeinsame für beide Zahlen, die grösste, mit der beide Spalten
+ * samt Abstand in die Innenbreite passen.
+ */
+export function execHeroValuePt(value: string, side: HeroSide | null, inner: number): number {
+  if (!side) return fitFontSize(value, inner, EXEC_HERO.valueMaxPt, true)
+  for (let tenth = EXEC_HERO.valueMaxPt * 10; tenth > 10; tenth--) {
+    const pt = tenth / 10
+    const used = textWidthAt(value, pt, true) + EXEC_HERO.sideGap + execHeroSideWidth(side, pt)
+    if (used <= inner) return pt
+  }
+  return 1
 }
 
 /**

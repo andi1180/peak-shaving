@@ -74,7 +74,7 @@ import { breakEvenBandOf } from './break-even-band'
 import type { ExecutiveSummary } from './executive-summary'
 import { EXECUTIVE_SUMMARY_FOOTER, executiveSummaryCopy } from './executive-summary-copy'
 import { ExecBreakEvenChart, ExecWaysChart, fitFontSize } from './executive-summary-charts'
-import { execHeroSideWidth } from './executive-summary-layout'
+import { execHeroSideWidth, execHeroValuePt } from './executive-summary-layout'
 import { ExecSavingsDonut, execDonutOf } from './executive-summary-donut'
 import { ExecLoadChart } from './executive-summary-load-chart'
 import {
@@ -550,7 +550,7 @@ const styles = StyleSheet.create({
   },
   statementAmountRow: { marginTop: 3, flexDirection: 'row', alignItems: 'flex-end', gap: 6 },
   statementAmount: { ...LEADING, fontSize: 15, fontWeight: 700 },
-  statementAmountExtra: { ...LEADING, marginTop: 4, fontSize: 11, fontWeight: 700 },
+  statementAmountExtra: { ...LEADING, marginTop: 4, fontSize: 15, fontWeight: 700 },
   statementAmountCaption: { ...LEADING, fontSize: PDF_TYPE.small, color: PDF_COLORS.textMuted },
   statementBody: { ...LEADING, marginTop: 6, color: PDF_COLORS.text },
 
@@ -867,7 +867,8 @@ function HeroBox({
   side?: { label: string; prefix: string | null; value: string; sub: string } | null
 }) {
   const inner = width - 2 * EXEC_HERO.padding - EXEC_HERO.edge
-  const sideWidth = side ? execHeroSideWidth(side) : 0
+  const valuePt = value ? execHeroValuePt(value, side ?? null, inner) : 0
+  const sideWidth = side ? execHeroSideWidth(side, valuePt) : 0
   const mainWidth = side ? inner - sideWidth - EXEC_HERO.sideGap : inner
   return (
     <View style={[styles.execBox, { width }]}>
@@ -880,14 +881,7 @@ function HeroBox({
                 {prefix && <Text style={styles.execBoxPrefix}>{prefix}</Text>}
               </View>
               <View style={styles.execBoxValueRow}>
-                <Text
-                  style={[
-                    styles.execBoxValue,
-                    { fontSize: fitFontSize(value, mainWidth, EXEC_HERO.valueMaxPt, true) },
-                  ]}
-                >
-                  {value}
-                </Text>
+                <Text style={[styles.execBoxValue, { fontSize: valuePt }]}>{value}</Text>
               </View>
             </View>
             {side && (
@@ -897,7 +891,7 @@ function HeroBox({
                   {side.prefix && <Text style={styles.execBoxPrefix}>{side.prefix}</Text>}
                 </View>
                 <View style={styles.execBoxValueRow}>
-                  <Text style={[styles.execBoxValue, { fontSize: EXEC_HERO.sideValuePt }]}>
+                  <Text style={[styles.execBoxValue, { fontSize: valuePt }]}>
                     {side.value}
                   </Text>
                   <Text style={styles.execBoxSideSub}>{side.sub}</Text>
