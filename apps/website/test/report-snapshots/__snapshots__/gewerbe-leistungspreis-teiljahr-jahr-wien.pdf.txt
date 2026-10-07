@@ -630,6 +630,9 @@ beim empfohlenen Gerät.
  kWh mit GoodWe ET -                                                                                       weniger über
  GW29.9K-ET                                                                                                    10 Jahre
 
+Die Geräte in dieser Tabelle sind einheitlich linear hochgerechnet und deshalb höher als die Jahresrechnung der
+Empfehlung weiter oben. Verglichen wird der Abstand, nicht die absolute Zahl.
+
 
 
 

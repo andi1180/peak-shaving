@@ -1378,6 +1378,7 @@ export function StepTariff({
                 <NumberField
                   id="investitionsfreibetragPercent"
                   label="Investitionsfreibetrag"
+                  help="Öko-IFB: 22 % bei Anschaffung bis 31.12.2026, danach 15 % (Stand WKO 01.2026)."
                   unit="%"
                   value={f.investitionsfreibetragPercent}
                   onChange={set('investitionsfreibetragPercent')}
@@ -1387,6 +1388,7 @@ export function StepTariff({
                 <NumberField
                   id="taxRatePercent"
                   label="Steuersatz (Grenzsteuer/KöSt)"
+                  help="GmbH: 23 % Körperschaftsteuer. Sonst der persönliche Grenzsteuersatz der Eigentümer."
                   unit="%"
                   value={f.taxRatePercent}
                   onChange={set('taxRatePercent')}

@@ -241,6 +241,17 @@ Details und der vollständige Stand: siehe `./Pflichtenheft_Kalkulator_MVP.md`, 
 
 > Lebendiger Handover-Anker. Neueste offene Punkte, die den Bau der Engine/Simulation berühren. Erledigtes wandert raus.
 
+### Steuer-Beschriftung, Hilfetexte, Hinweiszeile unter der Gerätetabelle (07.10.2026)
+
+Nur Text, keine Zahl. **(1)** Label „Abschreibung über N Jahre" → „Steuerersparnis durch Abschreibung, über N Jahre"
+(`taxEffectLines`, `report-copy.ts`, PDF und Bildschirm aus derselben Quelle) — der Wert ist die jährliche Steuerersparnis,
+nicht die Abschreibung. **(2)** Hilfetexte unter „Steuersatz" (GmbH 23 % KöSt, sonst persönlicher Grenzsteuersatz) und
+„Investitionsfreibetrag" (Öko-IFB 22 % bis 31.12.2026, danach 15 %, Stand WKO 01.2026) in `step-tariff.tsx` und
+`assumptions-panel.tsx` über das neue Prop `help` von `NumberField`. **⚠ Die Vorgabewerte stehen unverändert; 2027 sinkt
+der Öko-IFB — im Fahrplan zu vermerken.** **(3)** Unter „Speicher im Vergleich" steht EINE Zeile (`tableFootnote`), wenn
+`headlineStorageOf(…, Empfehlung, pv).basis === 'annual'`: die Tabelle rechnet linear, die Empfehlung im Kasten auf
+Jahresbasis, verglichen wird der Abstand.
+
 ### Steuerblock rechnet mit der Ersparnis der Überschrift (07.10.2026)
 
 Im PDF-Kapitel „Empfehlung und Wirtschaftlichkeit" nahm der Block „Steuerliche Wirkung" `entry.taxEffect` (aus der
