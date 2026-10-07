@@ -868,3 +868,7 @@ Kopf-/Fusszeilen.
 ### Nachtrag Wirtschaftlichkeit (07.10.2026) — Steuerblock mit der Ersparnis der Überschrift
 
 Im Kapitel „Empfehlung und Wirtschaftlichkeit" rechnet der Block „Steuerliche Wirkung" mit derselben Jahres-Ersparnis wie die Zeilen darüber (`headlineStorageOf`); steht das Jahreskapitel im Report, läuft dafür `calculateRoi` der Engine mit dieser Ersparnis (`taxEffectOf`, `headline-storage.ts`), sonst bleibt `entry.taxEffect` unverändert. Vorher stand dort die lineare Ersparnis und damit eine Amortisation nach Steuern, die besser war als die Zahl der Überschrift.
+
+### Nachtrag Wirtschaftlichkeit (07.10.2026) — Beschriftung Steuerersparnis, Hinweiszeile unter der Gerätetabelle
+
+Die Zeile „Abschreibung über N Jahre" heisst „Steuerersparnis durch Abschreibung, über N Jahre". Steht die Empfehlung auf Jahresbasis (`headlineStorageOf(...).basis === 'annual'`), erklärt eine Zeile unter der Gerätetabelle, dass die Tabelle einheitlich linear rechnet und der Abstand verglichen wird, nicht die absolute Zahl. Keine Zahl geändert.

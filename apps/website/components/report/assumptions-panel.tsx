@@ -402,6 +402,7 @@ export function AssumptionsPanel({
         <NumberField
           id="assumption-taxRatePercent"
           label="Steuersatz (Grenzsteuer/KöSt)"
+          help="GmbH: 23 % Körperschaftsteuer. Sonst der persönliche Grenzsteuersatz der Eigentümer."
           unit="%"
           value={taxRatePercent}
           onChange={(v) => {

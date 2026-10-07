@@ -436,7 +436,7 @@ amortisiert. Der Tarifwechsel selbst erfordert keine Investition; der Speicher a
 Steuerliche Wirkung (Richtwert)
     Investitionsfreibetrag, einmalig                                                                                 € 752
 
-    Abschreibung über 10 Jahre                                                                               € 342 / Jahr
+    Steuerersparnis durch Abschreibung, über 10 Jahre                                                        € 342 / Jahr
 
     Amortisation nach Steuern                                                                                    4,8 Jahre
 
@@ -640,6 +640,9 @@ erhöhen den steuerpflichtigen Gewinn und sind berücksichtigt.
  GoodWe Lynx D 30           30 kWh / 18 kW      € 12.038           € 1.945      6,2 Jahre      € 7.415          € 8.983
  kWh mit GoodWe ET -                                                                                       weniger über
  GW29.9K-ET                                                                                                    10 Jahre
+
+Die Geräte in dieser Tabelle sind einheitlich linear hochgerechnet und deshalb höher als die Jahresrechnung der
+Empfehlung weiter oben. Verglichen wird der Abstand, nicht die absolute Zahl.
 
 
 

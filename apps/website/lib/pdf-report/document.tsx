@@ -696,6 +696,7 @@ const styles = StyleSheet.create({
   figureStatement: { ...LEADING, marginTop: 4, color: PDF_COLORS.text },
   /* Die Zählzeile über der Kandidatentabelle („N Geräte geprüft, davon M …"). */
   countLine: { ...LEADING, marginTop: 12, fontWeight: 600, color: PDF_COLORS.ink },
+  tableFootnote: { ...LEADING, marginTop: 6, fontSize: PDF_TYPE.small, color: PDF_COLORS.textMuted },
   figureMissing: {
     ...LEADING,
     marginTop: 14,
@@ -2544,7 +2545,7 @@ function ComparisonChapter({
   registry: ReportBaukastenRegistry
   layout: ReportLayout
 }) {
-  const chapter = buildComparisonChapter(input.analysis, context, input.hasPv)
+  const chapter = buildComparisonChapter(input.analysis, context, input.hasPv, input)
   /* Report-Baukasten C: abgewählt fällt mit der Tabelle auch die Navy-Kopfzeile und das Zebra weg
      — beides lebt in `StatementTable` und nicht daneben. Die Klarsätze darüber bleiben und nennen
      sie dann nicht mehr (`comparison.ts`, `tableRef`). */
@@ -2576,6 +2577,7 @@ function ComparisonChapter({
       <View wrap={false}>
         {chapter.countLine && <Text style={styles.countLine}>{chapter.countLine}</Text>}
         {table && <StatementTable table={table} from={CANDIDATE_TABLE_ID} layout={layout} />}
+        {table && chapter.tableFootnote && <Text style={styles.tableFootnote}>{chapter.tableFootnote}</Text>}
       </View>
     </View>
   )

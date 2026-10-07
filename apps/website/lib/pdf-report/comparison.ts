@@ -1,5 +1,5 @@
 import { displayedPriceBasis, VAT_INCLUSIVE_LABEL, type DisplayPriceBasis } from 'shared'
-import type { BatteryResultEntry, BatteryRoiSummary } from 'shared'
+import type { BatteryResultEntry, BatteryRoiEntry, BatteryRoiSummary } from 'shared'
 
 import { formatEur, formatKw, formatKwh1, formatYears } from '@/lib/format'
 import {
@@ -12,10 +12,12 @@ import {
   SUBSIDY_PROGRAMS_NOTE,
   TAX_EFFECT_NOTE,
 } from '@/lib/report-copy'
+import type { AnnualScenarioPvInput } from './annual-scenario'
 import type { ReportBuildContext } from './context'
+import { headlineStorageOf } from './headline-storage'
 import type { ReportFigure, ReportRow, ReportStatement, ReportTable } from './statement'
 import { accent, block, column, ref, t, REF_LABEL, REF_PLACE } from './report-text'
-import { hasLeistungspreis } from './summary'
+import { hasLeistungspreis, recommendedEntryOf } from './summary'
 import type { PdfReportAnalysis } from './types'
 
 /**
@@ -324,6 +326,8 @@ export type ComparisonChapter = {
   statement: ReportStatement
   /** Die Vergleichstabelle. `null` GENAU DANN, wenn `statement` der Klarsatz ist. */
   table: ReportTable | null
+  /** Die Zeile unter der Tabelle, wenn die Empfehlung auf Jahresbasis steht, die Tabelle aber linear rechnet. */
+  tableFootnote: string | null
   /** „N Geräte geprüft, davon M …" über der Tabelle — `null` beim Klarsatz (er nennt die Zahl selbst). */
   countLine: string | null
 }
@@ -698,11 +702,28 @@ export function hasNegativeAddonVerdict(analysis: PdfReportAnalysis): boolean {
   return variant === 'addon' && shown.length === 0 && hasComparisonChapter(analysis)
 }
 
+/** Die Tabelle rechnet linear, die Empfehlung im Kasten steht (mit Jahreskapitel) auf Jahresbasis. */
+const TABLE_BASIS_FOOTNOTE =
+  'Die Geräte in dieser Tabelle sind einheitlich linear hochgerechnet und deshalb höher als die ' +
+  'Jahresrechnung der Empfehlung weiter oben. Verglichen wird der Abstand, nicht die absolute Zahl.'
+
+function tableFootnoteOf(
+  analysis: PdfReportAnalysis,
+  recommended: BatteryRoiEntry | undefined,
+  hasReference: boolean,
+  pv: AnnualScenarioPvInput | undefined,
+): string | null {
+  if (!hasReference || !recommended || !pv) return null
+  return headlineStorageOf(analysis, recommended, pv).basis === 'annual' ? TABLE_BASIS_FOOTNOTE : null
+}
+
 export function buildComparisonChapter(
   analysis: PdfReportAnalysis,
   /* Report-Baukasten B1 — s. `buildReportSummary`. Ohne ihn wird wie bisher selbst abgeleitet. */
   context?: ReportBuildContext,
   hasPv?: boolean,
+  /* Nur mit ihm ist das Jahreskapitel prüfbar — ohne bleibt die Tabelle ohne Fussnote. */
+  pv?: AnnualScenarioPvInput,
 ): ComparisonChapter {
   /* ⚠ `context ? … : …` statt `??` — `comparisonPlan` ist selbst gültig `null`. */
   const plan = context ? context.comparisonPlan : comparisonChartPlan(analysis)
@@ -716,6 +737,14 @@ export function buildComparisonChapter(
       ? buildTableStatement(variant, considered, noPayoffReasonOf(analysis, hasPv), shown)
       : buildVerdict(considered, horizonYears),
     table: hasTable ? buildCandidateTable(shown, horizonYears, reference) : null,
+    tableFootnote: hasTable
+      ? tableFootnoteOf(
+          analysis,
+          context ? context.recommendedEntry : recommendedEntryOf(analysis),
+          reference !== null,
+          pv,
+        )
+      : null,
     countLine: hasTable ? countLineOf(considered) : null,
   }
 }

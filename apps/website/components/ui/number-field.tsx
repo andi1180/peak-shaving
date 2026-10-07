@@ -11,6 +11,7 @@ export function NumberField({
   onChange,
   error,
   hint,
+  help,
   step = 'any',
 }: {
   id: string
@@ -20,6 +21,8 @@ export function NumberField({
   onChange: (v: string) => void
   error?: string
   hint?: string | null
+  /** Dauerhafter Erklärtext (neutral), im Unterschied zum Plausibilitäts-`hint` (Warnfarbe). */
+  help?: string
   step?: string
 }) {
   return (
@@ -41,6 +44,7 @@ export function NumberField({
         </span>
       </div>
       {error && <span className="text-xs text-negative">{error}</span>}
+      {help && <span className="text-xs text-text-muted">{help}</span>}
       {!error && hint && <span className="text-xs text-warning">{hint}</span>}
     </div>
   )

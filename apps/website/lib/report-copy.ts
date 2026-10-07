@@ -315,7 +315,7 @@ export function taxEffectLines(
       ? []
       : [
           {
-            label: `Abschreibung über ${tax.depreciationYears} Jahre`,
+            label: `Steuerersparnis durch Abschreibung, über ${tax.depreciationYears} Jahre`,
             value: `${formatEur(effect.annualDepreciationEffect)} / Jahr`,
           },
         ]),
