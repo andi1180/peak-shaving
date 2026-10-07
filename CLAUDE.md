@@ -292,6 +292,7 @@ der erklärende Satz (`ReportStatement.amountExtra`), der Fachbegriffe nennen da
 Vorderseite); **(3)** Zeile in „Was der empfohlene Speicher zusätzlich bringt" (`storage-summary.ts`).
 Alle drei lesen die Vorderseite (`context.executiveSummary`) — ohne sie keine Gesamtmaßnahme.
 **Gleiche Schriftgrösse (07.10.2026):** „Speicher allein“ und „Gesamtmaßnahme“ stehen in der Hero-Box in EINER gemeinsamen Grösse (`execHeroValuePt`, grösste, mit der beide Spalten samt Abstand in die Innenbreite passen; Müldür 14,5 pt statt vorher 15,1 und 14) und im Kapitel beide in 15 pt fett (`statementAmountExtra`, vorher 11) — nebeneinander eine Grösse statt zwei liest sich als gleichwertige Aussagen.
+**Immer in Jahren (07.10.2026, PR F):** die Gesamtmaßnahme steht überall als „ca. 1,1 Jahre" (eine Nachkommastelle; gerundet 1,0 → „ca. 1 Jahr", Untergrenze „ca. 0,1 Jahre"), nicht mehr in Monaten — vergleichbar mit „Speicher allein" daneben. Ersetzt die Monatsregel oben (`aboutDuration`, eine Rundung für alle drei Orte, Dativ abgeleitet); Bedingungen und Berechnung unverändert.
 
 ### Rechnungs-Scan: leere/abgeschnittene Antwort, ein Wiederholversuch (29.09.2026)
 

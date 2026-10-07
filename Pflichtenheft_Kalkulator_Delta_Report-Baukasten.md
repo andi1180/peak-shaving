@@ -880,3 +880,7 @@ Die Zeile „Abschreibung über N Jahre" heisst „Steuerersparnis durch Abschre
 ### Nachtrag IFB-Wirkung (07.10.2026)
 
 Im Steuerblock nennt der Wert der Zeile „Investitionsfreibetrag, einmalig" zusätzlich, um wie viele Jahre der IFB die Amortisation nach Steuern verkürzt („€ 1.016 · Amortisation 0,6 Jahre kürzer"); ist die Nach-Steuer-Amortisation länger als die vor Steuern, erklärt der Hinweistext darunter den Grund samt Verkürzung. Reine Darstellung auf Basis eines zweiten `calculateRoi`-Laufs ohne IFB, keine Engine-Änderung.
+
+### Nachtrag Gesamtmaßnahme (07.10.2026) — immer in Jahren
+
+Die Amortisation der Gesamtmaßnahme steht an allen drei Orten (Vorderseite, Kapitel „Empfehlung und Wirtschaftlichkeit", Zeile in „Was der empfohlene Speicher zusätzlich bringt") immer in Jahren mit einer Nachkommastelle („ca. 1,1 Jahre"; „ca. 1 Jahr"; „ca. 2 Jahre"; Untergrenze „ca. 0,1 Jahre"), damit sie mit „Speicher allein" vergleichbar ist. Die frühere Regel „unter 24 Monaten in Monaten" (D-Nachtrag „Gesamt-Amortisation", 07.10.2026) ist damit überholt; Berechnung und Anzeigebedingungen sind unverändert.

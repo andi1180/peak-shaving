@@ -3,9 +3,6 @@ import type { ExecutiveSummary } from './executive-summary'
 import { formatYears } from '@/lib/format'
 import { amortizationYearsOf } from './headline-storage'
 
-/** Unter dieser Dauer (in Monaten) steht die Gesamt-Amortisation in Monaten, sonst in Jahren. */
-const MONTHS_UNTIL_YEARS = 24
-
 /**
  * Amortisation der Gesamtmaßnahme: Investition des Speichers ÷ gesamte Ersparnis pro Jahr (Tarifwechsel
  * + Ladesteuerung + Spitzenkappung, die grosse Zahl der Vorderseite). Es gibt sie nur, wo der
@@ -23,16 +20,12 @@ export function totalAmortizationOf(
   return { years: amortizationYearsOf(st.netInvestmentEur, total), upperBound: st.upperBound }
 }
 
-/** „ca. 10 Monate" bzw. „ca. 2,5 Jahre"; `dative` für „nach ca. 10 Monaten". */
+/**
+ * Gesamt-Amortisation immer in Jahren („ca. 1,1 Jahre", „ca. 1 Jahr", „ca. 2 Jahre"), vergleichbar mit
+ * „Speicher allein"; Untergrenze „ca. 0,1 Jahre". `dative` für „nach ca. 1,1 Jahren".
+ */
 export function aboutDuration(years: number, dative = false): string {
-  const months = years * 12
-  const text =
-    months < MONTHS_UNTIL_YEARS
-      ? (() => {
-          const n = Math.max(1, Math.round(months))
-          return `ca. ${n} ${n === 1 ? 'Monat' : 'Monate'}`
-        })()
-      : aboutYears(years)
+  const text = aboutYears(Math.max(years, 0.1))
   return dative && text.endsWith('e') ? `${text}n` : text
 }
 
