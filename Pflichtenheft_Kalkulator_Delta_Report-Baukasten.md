@@ -876,3 +876,7 @@ Die Zeile „Abschreibung über N Jahre" heisst „Steuerersparnis durch Abschre
 ### Nachtrag Gesamtmaßnahme (07.10.2026) — gleiche Schriftgrösse
 
 „Speicher allein“ und „Gesamtmaßnahme“ erscheinen auf der Vorderseite (eine gemeinsame, in die Box passende Grösse) und im Kapitel „Empfehlung und Wirtschaftlichkeit“ (15 pt fett, untereinander) gleich gross; reines Layout, keine Zahl und kein Text geändert.
+
+### Nachtrag IFB-Wirkung (07.10.2026)
+
+Im Steuerblock nennt der Wert der Zeile „Investitionsfreibetrag, einmalig" zusätzlich, um wie viele Jahre der IFB die Amortisation nach Steuern verkürzt („€ 1.016 · Amortisation 0,6 Jahre kürzer"); ist die Nach-Steuer-Amortisation länger als die vor Steuern, erklärt der Hinweistext darunter den Grund samt Verkürzung. Reine Darstellung auf Basis eines zweiten `calculateRoi`-Laufs ohne IFB, keine Engine-Änderung.

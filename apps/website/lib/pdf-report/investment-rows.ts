@@ -6,12 +6,13 @@ import type {
 } from 'shared'
 
 import { formatEur } from '@/lib/format'
+import type { IfbEffect } from '@/lib/ifb-effect'
 import {
   displayedInvestmentOf,
   hasEnteredSubsidy,
   NET_INVESTMENT_AFTER_SUBSIDY_LABEL,
   SUBSIDY_CAP_LABEL,
-  TAX_EFFECT_NOTE,
+  taxEffectNoteOf,
   TAX_EFFECT_TITLE,
   taxEffectLines,
 } from '@/lib/report-copy'
@@ -68,16 +69,17 @@ export function taxEffectBlock(
   taxEffect: BatteryTaxEffect | undefined,
   tax: AnalysisTaxAssumptions | undefined,
   horizonYears: number,
+  ifb?: IfbEffect | null,
 ): ReportSubBlock | null {
   if (taxEffect === undefined || tax === undefined) return null
   return {
     title: TAX_EFFECT_TITLE,
-    rows: taxEffectLines(taxEffect, tax, horizonYears).map((line) => ({
+    rows: taxEffectLines(taxEffect, tax, horizonYears, ifb).map((line) => ({
       label: line.label,
       value: line.value,
       tone: line.total ? (line.negative ? 'warning' : 'positive') : 'neutral',
       total: line.total,
     })),
-    note: TAX_EFFECT_NOTE,
+    note: taxEffectNoteOf(ifb),
   }
 }

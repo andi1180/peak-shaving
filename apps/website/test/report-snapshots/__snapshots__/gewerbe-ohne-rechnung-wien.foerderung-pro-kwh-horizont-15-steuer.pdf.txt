@@ -237,7 +237,7 @@ Bestes Gerät im Katalog: Dyness Stack 100 30,72 kWh mit Solinteg MHT-15K-40
     Netto über 15 Jahre                                                                                -€ 693
 
 Steuerliche Wirkung (Richtwert)
-    Investitionsfreibetrag, einmalig                                                                     € 285
+    Investitionsfreibetrag, einmalig                                     € 285 · Amortisation 1 Jahr kürzer
 
     Steuerersparnis durch Abschreibung, über 10 Jahre                                            € 142 / Jahr
 

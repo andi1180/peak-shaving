@@ -12,6 +12,7 @@ import {
   type MonthlyTariffComparison,
 } from 'shared'
 
+import { ifbEffectOf } from '@/lib/ifb-effect'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import {
@@ -37,7 +38,7 @@ import {
   NET_INVESTMENT_AFTER_SUBSIDY_LABEL,
   SUBSIDY_CAP_LABEL,
   subsidyNoteOf,
-  TAX_EFFECT_NOTE,
+  taxEffectNoteOf,
   TAX_EFFECT_TITLE,
   taxEffectLines,
   vatNote,
@@ -181,6 +182,8 @@ export function RecommendationCard(props: RecommendationCardProps) {
   const tax = props.variant === 'existing' || props.variant === 'addon' ? undefined : props.tax
   const subsidyShown =
     roi && hasEnteredSubsidy(roi) ? displayedInvestmentOf(roi, props.subsidyPrograms) : null
+  const ifb =
+    roi && tax ? ifbEffectOf(roi, tax.assumptions, tax.horizonYears, roi.totalSavingPerYear) : null
   const rteAssumed = catalogMeta?.rteSource === 'annahme'
 
   /*
@@ -545,7 +548,7 @@ export function RecommendationCard(props: RecommendationCardProps) {
             {roi.taxEffect && tax && (
               <div className="mt-3" data-testid="steuerwirkung">
                 <p className="mb-1 text-sm font-medium text-ink">{TAX_EFFECT_TITLE}</p>
-                {taxEffectLines(roi.taxEffect, tax.assumptions, tax.horizonYears).map((line) => (
+                {taxEffectLines(roi.taxEffect, tax.assumptions, tax.horizonYears, ifb).map((line) => (
                   <div
                     key={line.label}
                     className={
@@ -558,7 +561,7 @@ export function RecommendationCard(props: RecommendationCardProps) {
                     <Num className={line.total ? 'text-ink' : 'text-text'}>{line.value}</Num>
                   </div>
                 ))}
-                <p className="mt-1 text-xs text-text-muted">{TAX_EFFECT_NOTE}</p>
+                <p className="mt-1 text-xs text-text-muted">{taxEffectNoteOf(ifb)}</p>
               </div>
             )}
             {catalogMeta && (
