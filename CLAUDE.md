@@ -241,6 +241,18 @@ Details und der vollständige Stand: siehe `./Pflichtenheft_Kalkulator_MVP.md`, 
 
 > Lebendiger Handover-Anker. Neueste offene Punkte, die den Bau der Engine/Simulation berühren. Erledigtes wandert raus.
 
+### Steuerblock rechnet mit der Ersparnis der Überschrift (07.10.2026)
+
+Im PDF-Kapitel „Empfehlung und Wirtschaftlichkeit" nahm der Block „Steuerliche Wirkung" `entry.taxEffect` (aus der
+linearen `totalSavingPerYear`), während Ersparnis, Amortisation und Netto darüber die Jahres-Ersparnis des
+Jahreskapitels trugen — zwei Ersparnisse in einem Kapitel (Müldür: 5,4 Jahre / € 9.055 statt 6,06 / 6.836).
+Jetzt `taxEffectOf(analysis, entry, headline)` (`apps/website/lib/pdf-report/headline-storage.ts`): bei `basis: 'annual'`
+läuft `calculateRoi` mit der Ersparnis der Überschrift (Förderung als Festbetrag, Steuerannahmen aus
+`assumptions.tax`), sonst bleibt der Engine-Wert bitgleich. Engine unverändert.
+
+**⚠ Noch linear:** Geräteliste/Vergleich (`comparison.ts`, auch „Amortisation nach Steuern" je Gerät), CSV
+(`csv-export.ts`), Bildschirm-Karte (`recommendation-card.tsx`) und `perBattery`-Zahlen in `summary.ts`/`report-copy.ts`.
+
 ### Amortisation der Gesamtmaßnahme (07.10.2026)
 
 Neue Kennzahl `totalAmortizationOf` (`apps/website/lib/pdf-report/total-amortization.ts`, einzige Quelle):

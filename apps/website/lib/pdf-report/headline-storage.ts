@@ -1,4 +1,5 @@
-import type { BatteryResultEntry, BatteryRoiEntry } from 'shared'
+import { calculateRoi } from 'engine'
+import type { BatteryResultEntry, BatteryRoiEntry, BatteryTaxEffect } from 'shared'
 
 import { loadControlValueOf } from '@/lib/report-copy'
 import { annualScenarioSavingsOf, type AnnualScenarioPvInput } from './annual-scenario'
@@ -81,4 +82,27 @@ export function amortizationYearsOf(netInvestment: number, savingPerYear: number
   if (netInvestment <= 0) return 0
   if (savingPerYear <= 0) return Infinity
   return netInvestment / savingPerYear
+}
+
+/**
+ * Die Steuerwirkung des Steuerblocks, gerechnet mit der Ersparnis der Überschrift. Bei `linear` ist das die
+ * Zahl der Engine unverändert; bei `annual` läuft dieselbe Engine-Funktion (`calculateRoi`) mit der
+ * Jahres-Ersparnis — die bereits abgezogene Förderung reist als Festbetrag, die Investition bleibt gleich.
+ */
+export function taxEffectOf(
+  analysis: PdfReportAnalysis,
+  entry: BatteryRoiEntry,
+  headline: HeadlineStorage,
+): BatteryTaxEffect | undefined {
+  const tax = analysis.assumptions.tax
+  if (headline.basis === 'linear' || tax === undefined || entry.taxEffect === undefined) {
+    return entry.taxEffect
+  }
+  const roi = calculateRoi(entry.battery, headline.savingPerYearEur, analysis.assumptions.horizonYears, {
+    fixedSubsidyEur: entry.subsidyAmount,
+    taxRatePercent: tax.taxRatePercent,
+    investitionsfreibetragPercent: tax.investitionsfreibetragPercent ?? undefined,
+    depreciationYears: tax.depreciationYears ?? undefined,
+  })
+  return roi.taxEffect ?? entry.taxEffect
 }

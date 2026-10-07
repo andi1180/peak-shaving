@@ -8,7 +8,7 @@ import { buildAnnualScenarioChapter } from './annual-scenario'
 import { buildReportInputFromRenderRequest, readRenderRequest } from './build-report-input'
 import { buildReportContext } from './context'
 import { buildDetailChapter } from './detail'
-import { headlineStorageOf } from './headline-storage'
+import { headlineStorageOf, taxEffectOf } from './headline-storage'
 import { buildLoadControl } from './recommendation'
 import { buildSummaryKpis, primaryEntryOf, recommendedEntryOf, summaryWaysOf } from './summary'
 import type { PdfReportInput } from './types'
@@ -112,5 +112,43 @@ describe('headlineStorageOf', () => {
       `Der Schnittpunkt liegt bei ${formatYears(8550 / 2494.804316978467)}`,
     )
     expect(c.ways).toContain(`spart voraussichtlich ${formatEur(2495)} pro Jahr`)
+  })
+})
+
+describe('taxEffectOf', () => {
+  /* Müldür-Live-Eingaben (vom Nutzer genannt): Investition 11.550 €, Ersparnis 2.125 €/Jahr, Horizont 10, AfA 10, IFB 22 %. */
+  const analysisFor = (taxRatePercent: number) =>
+    ({
+      assumptions: {
+        horizonYears: 10,
+        tax: { taxRatePercent, investitionsfreibetragPercent: 22, depreciationYears: 10 },
+      },
+    }) as never
+  const entry = {
+    battery: { usableCapacityKwh: 1, pricePerKwh: 11550, inverterIncluded: true, requiresFoundation: false },
+    subsidyAmount: 0,
+    netInvestment: 11550,
+    taxEffect: { ifbEffect: 1, annualDepreciationEffect: 1, amortizationYearsAfterTax: 1, netSavingOverHorizonAfterTax: 1 },
+  } as never
+  const annual = (saving: number) => ({ basis: 'annual', savingPerYearEur: saving }) as never
+
+  it('rechnet mit der Jahres-Ersparnis der Überschrift (40 % und 23 %)', () => {
+    const at40 = taxEffectOf(analysisFor(40), entry, annual(2125))!
+    expect(at40.ifbEffect).toBeCloseTo(1016.4, 6)
+    expect(at40.annualDepreciationEffect).toBeCloseTo(462, 6)
+    expect(at40.amortizationYearsAfterTax).toBeCloseTo(6.06, 2)
+    expect(at40.netSavingOverHorizonAfterTax).toBeCloseTo(6836, 0)
+
+    const at23 = taxEffectOf(analysisFor(23), entry, annual(2125))!
+    expect(at23.ifbEffect).toBeCloseTo(584.43, 2)
+    expect(at23.annualDepreciationEffect).toBeCloseTo(265.65, 2)
+    expect(at23.amortizationYearsAfterTax).toBeCloseTo(5.77, 2)
+    expect(at23.netSavingOverHorizonAfterTax).toBeCloseTo(8053, 0)
+  })
+
+  it('gibt bei linearer Basis die Engine-Zahl unverändert zurück', () => {
+    expect(taxEffectOf(analysisFor(40), entry, { basis: 'linear', savingPerYearEur: 9 } as never)).toBe(
+      (entry as never as { taxEffect: unknown }).taxEffect,
+    )
   })
 })

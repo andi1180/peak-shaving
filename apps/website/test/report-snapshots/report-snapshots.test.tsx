@@ -6,7 +6,7 @@ import { env } from 'node:process'
 import { createElement as h } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { Font, renderToBuffer } from '@react-pdf/renderer'
-import { mapDraftToExistingBatteryInput, mapDraftToTariffParams } from 'engine'
+import { calculateRoi, mapDraftToExistingBatteryInput, mapDraftToTariffParams } from 'engine'
 import type { MeteringPointAnalysisPorts } from 'extractors'
 import {
   analysisForDisplay,
@@ -173,6 +173,11 @@ type RenderRequestCase = {
   runAt: string
   /** Wird als `analysis_result.annualScenario` über die Render-Anfrage gelegt (sonst unverändert). */
   annualScenarioFile?: string
+  /**
+   * Steuerannahmen über der Render-Anfrage: `assumptions.tax` plus je Gerät die lineare Steuerwirkung,
+   * gerechnet mit `calculateRoi` wie die Engine (Ersparnis `totalSavingPerYear`, Förderung als Festbetrag).
+   */
+  tax?: { taxRatePercent: number; investitionsfreibetragPercent: number; depreciationYears: number }
 }
 
 const RENDER_REQUEST_CASES: RenderRequestCase[] = [
@@ -194,6 +199,19 @@ const RENDER_REQUEST_CASES: RenderRequestCase[] = [
       import.meta.dirname,
       'fixtures/gewerbe-leistungspreis-teiljahr-jahr-wien/annual-scenario.json',
     ),
+    runAt: '2026-09-30T18:37:04.946Z',
+  },
+  {
+    name: 'gewerbe-leistungspreis-teiljahr-jahr-steuer-wien',
+    file: path.join(
+      import.meta.dirname,
+      'fixtures/gewerbe-leistungspreis-teiljahr-wien/render-request.json',
+    ),
+    annualScenarioFile: path.join(
+      import.meta.dirname,
+      'fixtures/gewerbe-leistungspreis-teiljahr-jahr-wien/annual-scenario.json',
+    ),
+    tax: { taxRatePercent: 40, investitionsfreibetragPercent: 22, depreciationYears: 10 },
     runAt: '2026-09-30T18:37:04.946Z',
   },
 ]
@@ -490,6 +508,23 @@ describe('Report-Snapshots der Referenzfälle', () => {
       const row = JSON.parse(readFileSync(c.file, 'utf8'))
       if (c.annualScenarioFile) {
         row.analysis_result.annualScenario = JSON.parse(readFileSync(c.annualScenarioFile, 'utf8'))
+      }
+      if (c.tax) {
+        const result = row.analysis_result
+        result.assumptions.tax = {
+          taxRatePercent: c.tax.taxRatePercent,
+          investitionsfreibetragPercent: c.tax.investitionsfreibetragPercent,
+          depreciationYears: c.tax.depreciationYears,
+        }
+        for (const entry of result.perBattery) {
+          Object.assign(
+            entry,
+            calculateRoi(entry.battery, entry.totalSavingPerYear, result.assumptions.horizonYears, {
+              fixedSubsidyEur: entry.subsidyAmount,
+              ...c.tax,
+            }),
+          )
+        }
       }
       const readout = readRenderRequest({ data: row, error: null })
       if (readout.status !== 'ok') throw new Error('Render-Anfrage nicht lesbar')
