@@ -61,6 +61,8 @@ export type ExecutiveSummaryStorage = {
   usableKwh: number
   investment: ReturnType<typeof displayedInvestmentOf>
   hasSubsidy: boolean
+  /** Investition nach Förderung, ungerundet — Grundlage jeder Rückzahlzeit dieser Seite. */
+  netInvestmentEur: number
   includes: { installation: boolean; foundation: boolean; extraInverter: boolean }
   savingPerYearEur: number
   loadShiftEur: number
@@ -199,6 +201,7 @@ function storageOf(
     usableKwh: b.usableCapacityKwh,
     investment: displayedInvestmentOf(entry, input.analysis.assumptions.subsidyPrograms),
     hasSubsidy: hasEnteredSubsidy(entry),
+    netInvestmentEur: entry.netInvestment,
     includes: {
       installation: (b.installationCost ?? 0) > 0,
       foundation: b.requiresFoundation === true && (b.foundationCost ?? 0) > 0,

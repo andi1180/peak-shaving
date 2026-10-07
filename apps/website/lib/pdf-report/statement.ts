@@ -96,6 +96,8 @@ export type ReportStatement = {
    * „"" auflösen kann.
    */
   amount: { value: string; caption: string; tone: ReportAmountTone } | null
+  /** Zweite, kleinere Zeile unter der Kopfzahl samt erläuterndem Satz (Gesamtmaßnahme). */
+  amountExtra?: { line: string; note: string } | null
   rows: ReportRow[]
   /** Stufe D — darf einen Querverweis tragen; aufgelöst wird in `document.tsx`. */
   body: ReportText

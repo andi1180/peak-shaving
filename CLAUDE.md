@@ -241,6 +241,21 @@ Details und der vollständige Stand: siehe `./Pflichtenheft_Kalkulator_MVP.md`, 
 
 > Lebendiger Handover-Anker. Neueste offene Punkte, die den Bau der Engine/Simulation berühren. Erledigtes wandert raus.
 
+### Amortisation der Gesamtmaßnahme (07.10.2026)
+
+Neue Kennzahl `totalAmortizationOf` (`apps/website/lib/pdf-report/total-amortization.ts`, einzige Quelle):
+Investition des Speichers (`netInvestmentEur`, nach Förderung, ungerundet) ÷ Gesamtersparnis pro Jahr
+(`header.savingPerYearEur`, die grosse Zahl der Vorderseite: Tarifwechsel + Ladesteuerung + Spitzenkappung).
+Nur bei Variante `tarif-und-speicher` mit Tarifwechsel-Ersparnis > 0, Investition > 0, Gesamtersparnis > 0 —
+sonst ist sie die Speicher-Rückzahlzeit und alles entfällt. Format: unter 24 Monaten „ca. N Monate" (min. 1),
+sonst „ca. X Jahre"; „frühestens" wie bei der Rückzahlzeit (Spitzenersparnis ist eine Obergrenze).
+Orte: **(1)** Vorderseite — rechte Hero-Box „Speicher allein" + Kachel „Gesamtmaßnahme" mit Sublabel „alle
+Maßnahmen zusammen" (6,5 pt, in der Box, keine Zusatzhöhe), **kein Satz** (Seite 2 ist voll: Reserve 8,7 pt, der
+Satz kostete ~23 pt); **(2)** Kapitel „Empfehlung und Wirtschaftlichkeit" — Zeile unter der Rückzahlzeit-Zahl plus
+der erklärende Satz (`ReportStatement.amountExtra`), der Fachbegriffe nennen darf (FORBIDDEN gilt nur für die
+Vorderseite); **(3)** Zeile in „Was der empfohlene Speicher zusätzlich bringt" (`storage-summary.ts`).
+Alle drei lesen die Vorderseite (`context.executiveSummary`) — ohne sie keine Gesamtmaßnahme.
+
 ### Rechnungs-Scan: leere/abgeschnittene Antwort, ein Wiederholversuch (29.09.2026)
 
 Ursache (Müldür, 3 von 5 Rechnungen): `SyntaxError: Unexpected end of JSON input`. `claude-sonnet-5` denkt

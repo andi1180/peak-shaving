@@ -1,6 +1,7 @@
 import { formatEur } from '@/lib/format'
 import { aboutYears } from './break-even-band'
 import type { ExecutiveSummary, ExecutiveSummaryWay } from './executive-summary'
+import { aboutDuration, totalAmortizationOf } from './total-amortization'
 
 /**
  * Die Kundentexte der Vorderseite „Auf einen Blick". Kundensprache: keine Fachbegriffe wie
@@ -16,6 +17,8 @@ export type ExecutiveSummaryCopy = {
   savingBox: { label: string; qualifier: string | null; amount: string | null; sub: string }
   /** Rechte Box, nur mit Speicherblock. */
   paybackBox: { label: string; prefix: string | null; value: string; sub: string } | null
+  /** Neben der Rückzahlzeit des Speichers: Amortisation der Gesamtmaßnahme, nur mit Tarifwechsel-Anteil. */
+  totalBox: { label: string; prefix: string | null; value: string; sub: string } | null
   /** Zeile unter den Boxen: Rechenbasis, bei unbekanntem Tarif mit dem Hinweis darauf. */
   basisLine: string
   wayLabels: string[]
@@ -147,10 +150,21 @@ function paybackBox(s: ExecutiveSummary): ExecutiveSummaryCopy['paybackBox'] {
         ? `bei ${investment} Investition nach Förderung`
         : `bei ${investment} Investition`
   return {
-    label: 'Rückzahlzeit des Speichers',
+    label: totalAmortizationOf(s) ? 'Speicher allein' : 'Rückzahlzeit des Speichers',
     prefix: st.upperBound ? 'frühestens' : null,
     value: aboutYears(st.amortizationYears),
     sub,
+  }
+}
+
+function totalBox(s: ExecutiveSummary): ExecutiveSummaryCopy['totalBox'] {
+  const total = totalAmortizationOf(s)
+  if (!total) return null
+  return {
+    label: 'Gesamtmaßnahme',
+    prefix: total.upperBound ? 'frühestens' : null,
+    value: aboutDuration(total.years),
+    sub: 'alle Maßnahmen zusammen',
   }
 }
 
@@ -212,6 +226,7 @@ export function executiveSummaryCopy(s: ExecutiveSummary): ExecutiveSummaryCopy 
   return {
     savingBox: savingBox(s),
     paybackBox: paybackBox(s),
+    totalBox: totalBox(s),
     basisLine:
       s.variant === 'tarif-unbekannt' ? `${basisText(s)} · ${UNKNOWN_TARIFF_NOTE}` : basisText(s),
     wayLabels: s.ways.map(wayLabel),

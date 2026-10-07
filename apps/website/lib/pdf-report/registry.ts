@@ -322,7 +322,14 @@ export function buildReportRegistry(
       const hint = dynamicTariffHintKind(analysis)
       return hint
         ? dynamicTariffHintStatement(hint)
-        : buildRecommendation(analysis, recommended, input.loadProfile, undefined, input)
+        : buildRecommendation(
+            analysis,
+            recommended,
+            input.loadProfile,
+            undefined,
+            input,
+            context.executiveSummary,
+          )
     }),
     statement('load_control', () =>
       context.hasRecommendation ? buildLoadControl(analysis, context.primaryEntry, input) : null,

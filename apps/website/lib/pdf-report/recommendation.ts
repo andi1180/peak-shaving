@@ -46,6 +46,8 @@ import {
 } from './investment-rows'
 import { hasNegativeAddonVerdict, noCatalogDevicePaysOff } from './comparison'
 import type { ReportBuildContext } from './context'
+import type { ExecutiveSummary } from './executive-summary'
+import { totalAmortizationExtra } from './total-amortization'
 import { block, ref, t, REF_SECTION } from './report-text'
 import type { ReportNotice, ReportPoint, ReportRow, ReportStatement } from './statement'
 import { primaryEntryOf, recommendedEntryOf } from './summary'
@@ -221,6 +223,8 @@ export function buildRecommendation(
    */
   catalogMeta?: BatteryCatalogMeta,
   pv?: AnnualScenarioPvInput,
+  /** Die Vorderseite, falls es sie gibt — die Gesamtmaßnahme liest sie von dort. */
+  executiveSummary?: ExecutiveSummary | null,
 ): ReportStatement {
   const b = entry.battery
   const horizonYears = analysis.assumptions.horizonYears
@@ -388,6 +392,7 @@ export function buildRecommendation(
         : `bis sich die Investition von ${formatEur(entry.totalInvestment)} bezahlt gemacht hat`,
       tone: amortizesWithinHorizon ? 'positive' : 'warning',
     },
+    amountExtra: totalAmortizationExtra(executiveSummary, headline.amortizationYears),
     rows,
     /*
      * B3-3 (20a) — die Aussage steht als nummerierte Liste und nicht als Absatz; das Zielbild
@@ -550,7 +555,14 @@ export function buildRecommendationChapter(
       ? null
       : hint
         ? dynamicTariffHintStatement(hint)
-        : buildRecommendation(analysis, recommended, loadProfile, catalogMeta?.[recommended.battery.id], pv),
+        : buildRecommendation(
+            analysis,
+            recommended,
+            loadProfile,
+            catalogMeta?.[recommended.battery.id],
+            pv,
+            context?.executiveSummary,
+          ),
     loadControl: buildLoadControl(analysis, primary, pv),
   }
 }

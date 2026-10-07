@@ -513,6 +513,19 @@ Seitenzahlen +1). Vier Blöcke, jeder über die volle Breite (481,6 pt):
    günstiges Laden rechnet sich der Speicher innerhalb von N Jahren nicht." — die Rückzahlzeit tragen Box
    oben und Band. Bei „speicher-lohnt-nicht" Überschrift + Urteilssatz ohne Boxen; bei „nur-tarif"
    entfällt der Block.
+**Gesamt-Amortisation (07.10.2026):** rechte Hero-Box zweispaltig: links „Speicher allein" (Zahl wie bisher,
+26 pt, an die Restbreite angepasst), rechts „Gesamtmaßnahme" (14 pt, „ca. N Monate" unter 24 Monaten, sonst
+„ca. X Jahre") mit Sublabel „alle Maßnahmen zusammen" (6,5 pt, bis zu zwei Zeilen, in derselben Zeilenhöhe wie
+die grosse Zahl); die Unterzeile bleibt über die volle Breite. Formel: Investition nach Förderung ÷ Gesamtersparnis
+pro Jahr (`header.savingPerYearEur`), Bedingungen: Variante `tarif-und-speicher`, Tarifwechsel-Anteil > 0 — sonst
+entfällt die Kachel und das Label bleibt „Rückzahlzeit des Speichers". **Ein Satz unter dem Hero wurde verworfen**
+(+~23 pt gegen 8,7 pt Reserve; selbst mit Hero-Zahlen 18 pt blieb −3,6 pt); er steht im Kapitel. Reserve
+unverändert 8,7 pt. Kapitel „Empfehlung und Wirtschaftlichkeit": unter der Rückzahlzeit-Zahl „Gesamtmaßnahme:
+[frühestens] ca. N Monate" (11 pt) und der Satz „Mit Tarifwechsel, Ladesteuerung und Spitzenkappung zusammen ist die
+Investition [frühestens] nach {X} amortisiert. Der Tarifwechsel selbst erfordert keine Investition; der Speicher allein
+amortisiert sich [frühestens] in {Y}." (Dativ). Zusätzlich eine Zeile „Amortisation Gesamtmaßnahme (Tarifwechsel,
+Ladesteuerung, Spitzenkappung)" unter „Amortisation" in „Was der empfohlene Speicher zusätzlich bringt".
+
 **Trennung der Bereiche (PR 7c, 05.10.2026):** zwischen den Bereichen Hero (mit Basiszeile) | Lastgang
 (mit Satz) | Stromkosten (mit Satz) | Speicher je eine Fuge von 16 pt mit einer Linie über die volle Breite
 in der Mitte (0,5 pt, `PDF_COLORS.border`, je 7,75 pt darüber und darunter, `EXEC_DIVIDER_GAP_PT`),
