@@ -74,6 +74,7 @@ import { breakEvenBandOf } from './break-even-band'
 import type { ExecutiveSummary } from './executive-summary'
 import { EXECUTIVE_SUMMARY_FOOTER, executiveSummaryCopy } from './executive-summary-copy'
 import { ExecBreakEvenChart, ExecWaysChart, fitFontSize } from './executive-summary-charts'
+import { execHeroSideWidth } from './executive-summary-layout'
 import { ExecSavingsDonut, execDonutOf } from './executive-summary-donut'
 import { ExecLoadChart } from './executive-summary-load-chart'
 import {
@@ -549,6 +550,7 @@ const styles = StyleSheet.create({
   },
   statementAmountRow: { marginTop: 3, flexDirection: 'row', alignItems: 'flex-end', gap: 6 },
   statementAmount: { ...LEADING, fontSize: 15, fontWeight: 700 },
+  statementAmountExtra: { ...LEADING, marginTop: 4, fontSize: 11, fontWeight: 700 },
   statementAmountCaption: { ...LEADING, fontSize: PDF_TYPE.small, color: PDF_COLORS.textMuted },
   statementBody: { ...LEADING, marginTop: 6, color: PDF_COLORS.text },
 
@@ -788,6 +790,7 @@ const styles = StyleSheet.create({
   execBoxValueRow: { height: EXEC_HERO.valueRowPt },
   execBoxValue: { lineHeight: 1.15, fontWeight: 700, color: PDF_COLORS.accent },
   execBoxSub: { lineHeight: 1.15, color: PDF_COLORS.text },
+  execBoxSideSub: { marginTop: 1, fontSize: 6.5, lineHeight: 1.1, color: PDF_COLORS.textMuted },
   /** Box im Speicherblock: Stil der Boxen oben, Innenabstand rundum gleich. */
   execPanel: {
     padding: EXEC_HERO.padding,
@@ -852,38 +855,64 @@ function HeroBox({
   prefix,
   value,
   sub,
+  side,
 }: {
   width: number
   label: string
   prefix: string | null
   value: string | null
   sub: string
+  /** Kleinere Zahl rechts neben der grossen (Gesamtmaßnahme); die Unterzeile bleibt über die ganze Breite. */
+  side?: { label: string; prefix: string | null; value: string; sub: string } | null
 }) {
   const inner = width - 2 * EXEC_HERO.padding - EXEC_HERO.edge
+  const sideWidth = side ? execHeroSideWidth(side) : 0
+  const mainWidth = side ? inner - sideWidth - EXEC_HERO.sideGap : inner
   return (
     <View style={[styles.execBox, { width }]}>
-      <Text style={styles.execBoxLabel}>{label}</Text>
       {value ? (
         <>
-          <View style={styles.execBoxPrefixRow}>
-            {prefix && <Text style={styles.execBoxPrefix}>{prefix}</Text>}
-          </View>
-          <View style={styles.execBoxValueRow}>
-            <Text
-              style={[
-                styles.execBoxValue,
-                { fontSize: fitFontSize(value, inner, EXEC_HERO.valueMaxPt, true) },
-              ]}
-            >
-              {value}
-            </Text>
+          <View style={{ flexDirection: 'row' }}>
+            <View style={{ width: mainWidth }}>
+              <Text style={styles.execBoxLabel}>{label}</Text>
+              <View style={styles.execBoxPrefixRow}>
+                {prefix && <Text style={styles.execBoxPrefix}>{prefix}</Text>}
+              </View>
+              <View style={styles.execBoxValueRow}>
+                <Text
+                  style={[
+                    styles.execBoxValue,
+                    { fontSize: fitFontSize(value, mainWidth, EXEC_HERO.valueMaxPt, true) },
+                  ]}
+                >
+                  {value}
+                </Text>
+              </View>
+            </View>
+            {side && (
+              <View style={{ width: sideWidth, marginLeft: EXEC_HERO.sideGap }}>
+                <Text style={styles.execBoxLabel}>{side.label}</Text>
+                <View style={styles.execBoxPrefixRow}>
+                  {side.prefix && <Text style={styles.execBoxPrefix}>{side.prefix}</Text>}
+                </View>
+                <View style={styles.execBoxValueRow}>
+                  <Text style={[styles.execBoxValue, { fontSize: EXEC_HERO.sideValuePt }]}>
+                    {side.value}
+                  </Text>
+                  <Text style={styles.execBoxSideSub}>{side.sub}</Text>
+                </View>
+              </View>
+            )}
           </View>
           <Text style={[styles.execBoxSub, { fontSize: fitFontSize(sub, inner, EXEC_HERO.subMaxPt) }]}>
             {sub}
           </Text>
         </>
       ) : (
-        <Text style={[styles.execText, { marginTop: 13 }]}>{sub}</Text>
+        <>
+          <Text style={styles.execBoxLabel}>{label}</Text>
+          <Text style={[styles.execText, { marginTop: 13 }]}>{sub}</Text>
+        </>
       )}
     </View>
   )
@@ -917,6 +946,7 @@ function ExecutiveSummaryPage({ summary }: { summary: ExecutiveSummary }) {
             prefix={copy.paybackBox.prefix}
             value={copy.paybackBox.value}
             sub={copy.paybackBox.sub}
+            side={copy.totalBox}
           />
         )}
       </View>
@@ -1502,6 +1532,14 @@ function Statement({ statement, layout }: { statement: ReportStatement; layout: 
           </View>
         )
       )}
+      {!verdict && statement.amount && statement.amountExtra && (
+        <>
+          <Text style={[styles.statementAmountExtra, { color: AMOUNT_COLOR[statement.amount.tone] }]}>
+            {statement.amountExtra.line}
+          </Text>
+          <Text style={styles.statementAmountCaption}>{statement.amountExtra.note}</Text>
+        </>
+      )}
       {statement.rows.length > 0 && (
         <View style={styles.rowList}>
           {statement.rows.map((row, index) => (
@@ -1710,7 +1748,7 @@ function ResultsChapter({
   layout: ReportLayout
 }) {
   const summary = buildReportSummary(input, context)
-  const storage = buildStorageSummary(input.analysis, input)
+  const storage = buildStorageSummary(input.analysis, input, context.executiveSummary)
   const overview = resolveReportSegments(summary.overview, layout, 'overview')
   const pvPointer = summary.pvPointer
     ? resolveReportSegments(summary.pvPointer, layout, 'pv_pointer')

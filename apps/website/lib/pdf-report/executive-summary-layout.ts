@@ -1,3 +1,4 @@
+import { textWidthAt } from './executive-summary-charts'
 import { PDF_CONTENT_WIDTH_PT } from './theme'
 
 const BOX_GAP_PT = 12
@@ -49,7 +50,25 @@ export const EXEC_HERO = {
   subMaxPt: 9,
   /** Innenbreite einer halben Box. */
   innerWidth: innerOf(HALF_BOX_PT),
+  /** Zahl der Gesamtmaßnahme neben der grossen Zahl, und der Abstand zwischen beiden Spalten. */
+  sideValuePt: 14,
+  sideGap: 8,
 } as const
+
+/** Breite der Spalte „Gesamtmaßnahme" in der rechten Box: die breiteste ihrer drei Zeilen. */
+export function execHeroSideWidth(side: {
+  label: string
+  prefix: string | null
+  value: string
+}): number {
+  return Math.ceil(
+    Math.max(
+      textWidthAt(side.label, 9.5),
+      textWidthAt(side.prefix ?? '', 11),
+      textWidthAt(side.value, EXEC_HERO.sideValuePt, true),
+    ),
+  )
+}
 
 /**
  * Block „Ihr Speicher": mit Ring zwei Boxen gleicher fester Höhe (Titel, Ersparnis-Zeile, Band),

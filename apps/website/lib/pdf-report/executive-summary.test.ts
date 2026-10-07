@@ -174,10 +174,16 @@ describe('executiveSummaryCopy', () => {
   it('rechte Box nur mit Speicherblock: Rückzahlzeit wie im Text, „frühestens" nur mit Höchstwert', () => {
     const box = (name: string) => executiveSummaryCopy(summaries[name]!).paybackBox
     expect(box('jahr (Müldür)')).toEqual({
-      label: 'Rückzahlzeit des Speichers',
+      label: 'Speicher allein',
       prefix: 'frühestens',
       value: 'ca. 4 Jahre',
       sub: `${formatEur(8550)} Investition, spart bis zu ${formatEur(2125)}/Jahr`,
+    })
+    expect(executiveSummaryCopy(summaries['jahr (Müldür)']!).totalBox).toEqual({
+      label: 'Gesamtmaßnahme',
+      prefix: 'frühestens',
+      value: 'ca. 10 Monate',
+      sub: 'alle Maßnahmen zusammen',
     })
     expect(box('ohne Spitzenersparnis')).toMatchObject({
       prefix: null,
@@ -194,6 +200,9 @@ describe('executiveSummaryCopy', () => {
     expect(box('tarif-unbekannt (konstruiert)')!.sub).toMatch(/^bei €\s[\d.]+ Investition$/)
     expect(box('nur-tarif (Katalog leer)')).toBeNull()
     expect(box('speicher-lohnt-nicht')).toBeNull()
+    // Ohne Tarifwechsel-Anteil (tarif-unbekannt) keine Gesamtmaßnahme und das alte Label.
+    expect(executiveSummaryCopy(summaries['tarif-unbekannt (konstruiert)']!).totalBox).toBeNull()
+    expect(box('tarif-unbekannt (konstruiert)')!.label).toBe('Rückzahlzeit des Speichers')
   })
 
   it('Hero-Bezug: links der Tarifwechsel ohne Investition, rechts Investition und Speicher-Ersparnis', () => {

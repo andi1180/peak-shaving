@@ -6,7 +6,9 @@ import { totalInvestmentRow } from './investment-rows'
 import type { ReportRow, ReportStatement } from './statement'
 import { recommendedEntryOf, summaryWaysOf } from './summary'
 import type { AnnualScenarioPvInput } from './annual-scenario'
+import type { ExecutiveSummary } from './executive-summary'
 import { headlineStorageOf } from './headline-storage'
+import { aboutDuration, totalAmortizationOf } from './total-amortization'
 import type { PdfReportAnalysis } from './types'
 import { buildWaysChapter } from './ways'
 
@@ -36,6 +38,8 @@ export function storageSummarySource(
 export function buildStorageSummary(
   analysis: PdfReportAnalysis,
   pv?: AnnualScenarioPvInput,
+  /** Die Vorderseite, falls es sie gibt — die Amortisation der Gesamtmaßnahme liest sie von dort. */
+  executiveSummary?: ExecutiveSummary | null,
 ): ReportStatement | null {
   const source = storageSummarySource(analysis)
   if (!source) return null
@@ -54,6 +58,7 @@ export function buildStorageSummary(
   const summaryWays = summaryWaysOf(analysis)
   const tariffSwitch = summaryWays?.ways.find((way) => way.id === 'tariff_switch')
   const days = control.coveredDays
+  const totalAmortization = executiveSummary ? totalAmortizationOf(executiveSummary) : null
 
   return {
     id: STORAGE_SUMMARY_ID,
@@ -74,6 +79,14 @@ export function buildStorageSummary(
         total: true,
       }),
       row('Amortisation', formatYears(headline.amortizationYears)),
+      ...(totalAmortization
+        ? [
+            row(
+              'Amortisation Gesamtmaßnahme (Tarifwechsel, Ladesteuerung, Spitzenkappung)',
+              aboutDuration(totalAmortization.years),
+            ),
+          ]
+        : []),
     ],
     body:
       (tariffSwitch && tariffSwitch.eur > 0

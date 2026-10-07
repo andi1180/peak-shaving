@@ -26,10 +26,12 @@ Erstellt am                        30.09.2026
 Muster Gastro GmbH · Zeitraum 28.03.2026 – 31.08.2026 · Erstellt am 30.09.2026
 
 Auf einen Blick
-   Ersparnis pro Jahr                                              Rückzahlzeit des Speichers
-   bis zu                                                          frühestens
+   Ersparnis pro Jahr                                              Speicher allein              Gesamtmaßnahme
+   bis zu                                                          frühestens                   frühestens
 
-   € 10.150                                                        ca. 4 Jahre
+   € 10.150                                                        ca. 4 Jahre                  ca. 10 Monate
+                                                                                                alle Maßnahmen zusammen
+
    davon € 8.025 ohne Investition (Tarifwechsel)                   € 8.550 Investition, spart bis zu € 2.125/Jahr
 
 geschätzt, hochgerechnet aus 157 gemessenen Tagen (März bis August)
@@ -85,7 +87,7 @@ Schätzung, keine Zusage. Annahmen und Risiken, u. a. beim Börsenpreis, im weit
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                                   www.coolin.at · Seite 2 von 20
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                                    www.coolin.at · Seite 2 von 20
     COOLiN ENERGY          Muster Gastro GmbH
 
 
@@ -187,6 +189,8 @@ Was der empfohlene Speicher zusätzlich bringt
  Beträge gerundet
 
  Amortisation                                                                                                4 Jahre
+
+ Amortisation Gesamtmaßnahme (Tarifwechsel, Ladesteuerung, Spitzenkappung)                           ca. 10 Monate
 
 Der Tarifwechsel (€ 4.183 über die 157 gemessenen Tage) wirkt auch ohne Speicher und ist in diesen
 Zahlen nicht enthalten. Vorausberechnung, keine Zusage: Der Kappungs-Anteil ist eine Obergrenze, weil er
@@ -407,23 +411,27 @@ Welches Gerät — und was es kostet.
 
 Unsere Empfehlung: Kostal & Dyness Retrofit S
 4 Jahre bis sich die Investition von € 8.550 bezahlt gemacht hat
-    Speicher (12,3 kW / 29,2 kWh)                                                                        € 6.650
+Gesamtmaßnahme: frühestens ca. 10 Monate
+Mit Tarifwechsel, Ladesteuerung und Spitzenkappung zusammen ist die Investition frühestens nach ca. 10 Monaten
+amortisiert. Der Tarifwechsel selbst erfordert keine Investition; der Speicher allein amortisiert sich frühestens in 4 Jahren.
 
-    Installationspauschale (Richtwert)                                                                   € 1.900
+    Speicher (12,3 kW / 29,2 kWh)                                                                                  € 6.650
 
-    Gesamtinvestition                                                                                    € 8.550
+    Installationspauschale (Richtwert)                                                                             € 1.900
 
-    Ersparnis pro Jahr (auf ein Jahr hochgerechnet)                                                      € 2.125
+    Gesamtinvestition                                                                                              € 8.550
 
-    Netto über 10 Jahre                                                                                € 12.700
+    Ersparnis pro Jahr (auf ein Jahr hochgerechnet)                                                                 € 2.125
+
+    Netto über 10 Jahre                                                                                           € 12.700
 
     Kapp-Schwelle                                       zwischen 27,5 kW und 32,7 kW (je Abrechnungsperiode)
 
-    Ø Monatsspitze heute                                                                                42,6 kW
+    Ø Monatsspitze heute                                                                                          42,6 kW
 
-    Ø Monatsspitze mit dem Speicher                                                                     30,3 kW
+    Ø Monatsspitze mit dem Speicher                                                                               30,3 kW
 
-    EAG-Förderbeitrag Leistung heute                                            € 240 pro Jahr (€ 5,62 / kW·a)
+    EAG-Förderbeitrag Leistung heute                                                    € 240 pro Jahr (€ 5,62 / kW·a)
 
 1       Die wirtschaftlichste Option
         Aus dem Katalog schneidet dieses Gerät über 10 Jahre am besten ab — gereiht wird nach der
@@ -452,7 +460,7 @@ Unsere Empfehlung: Kostal & Dyness Retrofit S
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                         www.coolin.at · Seite 9 von 20
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                                   www.coolin.at · Seite 9 von 20
     COOLiN ENERGY          Muster Gastro GmbH
 
 
