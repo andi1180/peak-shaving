@@ -72,6 +72,7 @@ Neben den Arbeitsregeln/Pflichtenheften gibt es operative Dokumente (sie beschre
 | `DESIGN.md` (Root) | Design-Tokens Kalkulator | ja |
 | `apps/web/DESIGN.md` | Design-Tokens/Prinzipien Website + Monitor-UI | nein |
 | `DEPLOYMENT.md` (Root) | **Betriebshandbuch** (s. u.) | **ja — neu seit 24.07.2026** |
+| `Sensitivitaet_Ladesteuerung_2026-10.md` (Root) | Sensitivitätsrechnungen Ladesteuerung (Oktober 2026) | nein |
 
 **`DEPLOYMENT.md` gehört ab sofort in den Arbeitsordner** — bisher war sie dort ausdrücklich ausgenommen. Begründung: Sie ist längst nicht mehr nur die Notiz „welche Env-Variable wohin" von der Cloud-Anbindung, sondern das **Betriebshandbuch** der Plattform. Sie führt inzwischen die Zeitpläne und Fehlerbilder der beiden Cron-Jobs (§1g), die Aktivierung des Zustell-Webhooks (§1h), die **Deployment Protection als Ursache stumm verworfener Cron-Aufrufe** (§1i), die dauerhafte Zusage „keine Öffnungs-/Klick-Verfolgung" samt Prüf- und Abschaltbefehl (§2-Resend-a), die Anleitung zum Nachtragen von Tarifsätzen (§3a), die **gedruckten Pfade als dauerhafte Zusagen** (§5) und den Zweckbindungsvermerk zu archivierten Lastgängen (§6). Wer im Betrieb etwas beurteilen oder nachvollziehen soll, braucht sie zur Hand.
 
