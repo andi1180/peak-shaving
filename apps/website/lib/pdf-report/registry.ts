@@ -403,12 +403,18 @@ export function buildReportRegistry(
             comparison.considered,
             noPayoffReasonOf(analysis, input.hasPv),
             comparison.shown,
+            comparison.markPowerLimited,
           )
         : null,
     ),
     table(CANDIDATE_TABLE_ID, () =>
       hasTable
-        ? buildCandidateTable(comparison.shown, comparison.horizonYears, comparison.reference)
+        ? buildCandidateTable(
+            comparison.shown,
+            comparison.horizonYears,
+            comparison.reference,
+            comparison.markPowerLimited,
+          )
         : null,
     ),
 

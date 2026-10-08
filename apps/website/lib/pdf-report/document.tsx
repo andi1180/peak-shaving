@@ -659,6 +659,7 @@ const styles = StyleSheet.create({
     color: PDF_COLORS.onNavy,
   },
   tableCell: { ...LEADING, fontSize: PDF_TYPE.small, color: PDF_COLORS.text },
+  tableCellNote: { fontSize: PDF_TYPE.footer, lineHeight: PDF_TYPE.lineHeight, color: PDF_COLORS.textMuted },
   /* D9 — Gruppenüberschrift in der Datenquellen-Tabelle: abgesetzt, ohne Zeilentrenner darunter. */
   tableGroupRow: { paddingTop: 6, paddingBottom: 2, paddingLeft: 6, paddingRight: 6 },
   tableGroupLabel: {
@@ -1704,6 +1705,9 @@ function StatementTable({
                     ]}
                   >
                     {resolveReportText(cell, layout, from)}
+                    {index === 0 && row.note ? (
+                      <Text style={styles.tableCellNote}>{`\n${row.note}`}</Text>
+                    ) : null}
                   </Text>
                 )
               })}

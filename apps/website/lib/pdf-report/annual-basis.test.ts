@@ -5,7 +5,14 @@ import { describe, expect, it } from 'vitest'
 import { formatEur } from '@/lib/format'
 
 import { buildReportInputFromRenderRequest, readRenderRequest } from './build-report-input'
-import { buildComparisonChapter, comparisonChartPlan, comparisonSelection } from './comparison'
+import {
+  buildCandidateTable,
+  buildComparisonChapter,
+  comparisonChartPlan,
+  comparisonSelection,
+  POWER_LIMITED_MARK,
+  POWER_LIMITED_NOTE,
+} from './comparison'
 import { buildReportContext } from './context'
 import { headlineStorageOf } from './headline-storage'
 import { recommendedEntryOf } from './summary'
@@ -78,5 +85,42 @@ describe('E2 — eine Jahresbasis für Empfehlung und „Speichergrösse und Ger
       i.analysis.perBattery.find((p) => p.battery.name === DYNESS_30)!.netSavingOverHorizon,
     )
     expect(chapter.tableFootnote).toContain('einheitlich linear hochgerechnet')
+  })
+})
+
+describe('PR G — Markierung „Leistung begrenzt" je Gerät in der Vergleichstabelle', () => {
+  const OLD_HINT = 'zu geringe Leistung für alle Spitzen'
+
+  it('Jahresfall: alle drei Tabellengeräte tragen die Markierung, der Absatz erklärt sie', () => {
+    const i = input('jahresreihung')
+    const chapter = buildComparisonChapter(i.analysis, buildReportContext(i), i.hasPv, i)
+    const body = JSON.stringify(chapter.statement.body)
+
+    expect(chapter.table!.rows.map((r) => [r.cells[0], r.note])).toEqual([
+      [RETROFIT_S, POWER_LIMITED_MARK],
+      ['Dyness Stack 100 40,96 kWh mit Solinteg MHT-20K-40', POWER_LIMITED_MARK],
+      ['GoodWe Lynx D 30 kWh mit GoodWe ET - GW29.9K-ET', POWER_LIMITED_MARK],
+    ])
+    expect(body).toContain(JSON.stringify(POWER_LIMITED_NOTE).slice(1, -1))
+    expect(body).not.toContain(OLD_HINT)
+  })
+
+  it('ein Gerät ohne Flag (Retrofit L) trägt keine Markierung', () => {
+    const i = input('jahresreihung')
+    const retrofitL = i.analysis.perBattery.find(
+      (p) => p.battery.name === 'Kostal & Dyness Retrofit L',
+    )!
+    expect(retrofitL.notices.some((n) => n.code === 'power_limited')).toBe(false)
+
+    const table = buildCandidateTable([retrofitL], 10, null, true)
+    expect(table.rows[0]).not.toHaveProperty('note')
+  })
+
+  it('Ergebnis vor Fassung 17: keine Markierung, der bisherige Satz bleibt', () => {
+    const i = input('vor-fassung-17')
+    const chapter = buildComparisonChapter(i.analysis, buildReportContext(i), i.hasPv, i)
+
+    expect(chapter.table!.rows.every((r) => r.note === undefined)).toBe(true)
+    expect(JSON.stringify(chapter.statement.body)).toContain(OLD_HINT)
   })
 })
