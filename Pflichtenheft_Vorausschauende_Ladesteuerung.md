@@ -16,6 +16,8 @@
 > Dort steht, wie gemessen wurde; hier steht, was daraus folgt. Bei Widerspruch gilt die
 > Bestandsaufnahme für die **Messung**, dieses Dokument für die **Entscheidung**.
 >
+> **Siehe auch:** `Sensitivitaet_Ladesteuerung_2026-10.md` (Repo-Root) — Sensitivitätsrechnungen Ladesteuerung (Oktober 2026).
+>
 > **⚠ Dieses Dokument trägt noch KEINE Fahrplan-Nummer.** Die höchste vergebene ist B24; ob dies
 > B25 wird oder als Delta an §3.6.2 hängt, entscheidet `Fahrplan_2026.md` `[ANDREAS]`.
 >
