@@ -308,10 +308,20 @@ function buildExistingBatteryAnalysis(
   return { analysis: { entry, addonScenarios }, gridAfterKw: sim.dispatch.gridAfterKw }
 }
 
+export type ComputeAnalysisOptions = {
+  /**
+   * Reihung der Katalog-Geräte (IDs, beste zuerst), die die eigene Reihung ersetzt — gesetzt vom
+   * Wizard-Lauf, wenn das Jahreskapitel steht (Rang 1 des Jahreslaufs wird die Empfehlung). Alles,
+   * was am empfohlenen Gerät hängt (Monatsreihe „mit Speicher", Obergrenze, Wirkungsgrad), folgt ihr.
+   */
+  ranking?: readonly string[]
+}
+
 export function computeAnalysis(
   payload: CalculatorPayload,
   horizonYears: number,
   catalog: BatteryCandidate[],
+  options: ComputeAnalysisOptions = {},
 ): AnalysisResult {
   const loadProfile = payload.load.profile
   const pvProfile = payload.pv?.profile
@@ -434,6 +444,7 @@ export function computeAnalysis(
     payload.tariffPricing,
     leviesOf(payload),
     planning,
+    options.ranking,
   )
 
   /*

@@ -12,9 +12,9 @@ import {
   SUBSIDY_PROGRAMS_NOTE,
   TAX_EFFECT_NOTE,
 } from '@/lib/report-copy'
-import type { AnnualScenarioPvInput } from './annual-scenario'
 import type { ReportBuildContext } from './context'
-import { headlineStorageOf } from './headline-storage'
+import type { AnnualScenarioPvInput } from './annual-scenario'
+import { annualCatalogEntriesOf, headlineStorageOf } from './headline-storage'
 import type { ReportFigure, ReportRow, ReportStatement, ReportTable } from './statement'
 import { accent, block, column, ref, t, REF_LABEL, REF_PLACE } from './report-text'
 import { hasLeistungspreis, recommendedEntryOf } from './summary'
@@ -99,7 +99,12 @@ function candidatesOf(analysis: PdfReportAnalysis): {
   const existing = analysis.existingBatteryAnalysis
   return existing
     ? { variant: 'addon', candidates: existing.addonScenarios }
-    : { variant: 'catalog', candidates: analysis.perBattery }
+    : { variant: 'catalog', candidates: catalogCandidatesOf(analysis) }
+}
+
+/** Die Katalog-Geräte auf der Basis der Empfehlung: Jahresbasis, wenn das Jahreskapitel steht, sonst linear. */
+function catalogCandidatesOf(analysis: PdfReportAnalysis): ComparisonCandidate[] {
+  return annualCatalogEntriesOf(analysis) ?? analysis.perBattery
 }
 
 /**
@@ -160,7 +165,7 @@ export const MAX_TABLE_ROWS = 3
 
 /** Die nächsten Katalog-Alternativen nach der empfohlenen, in der Reihung des Contracts. */
 function alternativesOf(analysis: PdfReportAnalysis): ComparisonCandidate[] {
-  return analysis.perBattery
+  return catalogCandidatesOf(analysis)
     .filter((p) => p.battery.id !== analysis.recommendation?.batteryId)
     .slice(0, MAX_TABLE_ROWS)
 }
@@ -175,7 +180,7 @@ function paysOff(c: Pick<ComparisonCandidate, 'netSavingOverHorizon'>): boolean 
  * Gerätewahl antwortet „Derzeit nicht". `false` im Bestandsfall und ohne Kandidaten.
  */
 export function noCatalogDevicePaysOff(analysis: PdfReportAnalysis): boolean {
-  return !analysis.existingBatteryAnalysis && noneEconomical(analysis.perBattery)
+  return !analysis.existingBatteryAnalysis && noneEconomical(catalogCandidatesOf(analysis))
 }
 
 function noneEconomical(candidates: ComparisonCandidate[]): boolean {
@@ -326,7 +331,10 @@ export type ComparisonChapter = {
   statement: ReportStatement
   /** Die Vergleichstabelle. `null` GENAU DANN, wenn `statement` der Klarsatz ist. */
   table: ReportTable | null
-  /** Die Zeile unter der Tabelle, wenn die Empfehlung auf Jahresbasis steht, die Tabelle aber linear rechnet. */
+  /**
+   * Die Zeile unter der Tabelle für ein Ergebnis vor Fassung 17: Empfehlung auf Jahresbasis, Tabelle
+   * linear. Mit Jahresreihung (`annualScenario.devices`) stehen beide auf derselben Basis — keine Zeile.
+   */
   tableFootnote: string | null
   /** „N Geräte geprüft, davon M …" über der Tabelle — `null` beim Klarsatz (er nennt die Zahl selbst). */
   countLine: string | null
@@ -702,7 +710,7 @@ export function hasNegativeAddonVerdict(analysis: PdfReportAnalysis): boolean {
   return variant === 'addon' && shown.length === 0 && hasComparisonChapter(analysis)
 }
 
-/** Die Tabelle rechnet linear, die Empfehlung im Kasten steht (mit Jahreskapitel) auf Jahresbasis. */
+/** Ergebnis vor Fassung 17: die Tabelle rechnet linear, die Empfehlung im Kasten auf Jahresbasis. */
 const TABLE_BASIS_FOOTNOTE =
   'Die Geräte in dieser Tabelle sind einheitlich linear hochgerechnet und deshalb höher als die ' +
   'Jahresrechnung der Empfehlung weiter oben. Verglichen wird der Abstand, nicht die absolute Zahl.'
@@ -713,7 +721,7 @@ function tableFootnoteOf(
   hasReference: boolean,
   pv: AnnualScenarioPvInput | undefined,
 ): string | null {
-  if (!hasReference || !recommended || !pv) return null
+  if (!hasReference || !recommended || !pv || annualCatalogEntriesOf(analysis) !== null) return null
   return headlineStorageOf(analysis, recommended, pv).basis === 'annual' ? TABLE_BASIS_FOOTNOTE : null
 }
 

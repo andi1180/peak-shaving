@@ -191,6 +191,8 @@ export function recommendBattery(
   pricing?: TariffPricingInputs,
   levies?: LevySchedule,
   planning?: DispatchPlanning,
+  /** Vorgegebene Reihung (Geräte-IDs, beste zuerst), z. B. aus dem Jahreslauf; fehlende IDs folgen nach der Regel unten. */
+  ranking?: readonly string[],
 ): RecommendationResult {
   // Top-Peaks (§3.4) sind profil-, nicht batterieabhängig — einmal für den ganzen Katalog rechnen und
   // je Kandidat in `buildDispatchTrace` injizieren (dieselbe Menge, die `AnalysisResult.peaks.top` zeigt).
@@ -200,11 +202,15 @@ export function recommendBattery(
   )
 
   // Unveränderte Regel, nur auf dem Paar statt auf dem Eintrag — s. `PerBatteryOutcome`.
-  outcomes.sort((a, b) =>
-    b.entry.netSavingOverHorizon !== a.entry.netSavingOverHorizon
+  const position = ranking ? new Map(ranking.map((id, i) => [id, i])) : undefined
+  outcomes.sort((a, b) => {
+    const pa = position?.get(a.entry.battery.id) ?? Infinity
+    const pb = position?.get(b.entry.battery.id) ?? Infinity
+    if (pa !== pb) return pa - pb
+    return b.entry.netSavingOverHorizon !== a.entry.netSavingOverHorizon
       ? b.entry.netSavingOverHorizon - a.entry.netSavingOverHorizon
-      : a.entry.amortizationYears - b.entry.amortizationYears,
-  )
+      : a.entry.amortizationYears - b.entry.amortizationYears
+  })
 
   /*
    * ── K3b-2: EIN LEERER KATALOG IST EIN GÜLTIGER ZUSTAND, KEIN ABSTURZ ─────────────────────────

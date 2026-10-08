@@ -69,6 +69,14 @@ describe('§3.8 recommendBattery — Demo-Bäckerei × Dummy-Katalog', () => {
     })
   })
 
+  it('eine vorgegebene Reihung (Jahreslauf, E2) bestimmt Reihenfolge und Empfehlung, die Einträge bleiben gleich', () => {
+    const ranking = [...perBattery].reverse().map((p) => p.battery.id)
+    const ranked = recommendBattery(lp, tariff, DUMMY_BATTERY_CATALOG, 10, undefined, undefined, undefined, undefined, undefined, ranking)
+    expect(ranked.perBattery.map((p) => p.battery.id)).toEqual(ranking)
+    expect(ranked.recommendation?.batteryId).toBe(ranking[0])
+    expect([...ranked.perBattery].reverse()).toEqual(perBattery)
+  })
+
   it('der leistungsschwache Kandidat (1,5 kW) trägt die "Leistung reicht nicht"-Warnung und landet nicht auf Platz 1', () => {
     const weak = perBattery.find((p) => p.battery.id === 'dummy-res-m10-lowpower')
     expect(weak).toBeDefined()

@@ -17,6 +17,8 @@ import {
 } from 'engine'
 import {
   analysisWindow,
+  annualBasisApplies,
+  annualScenarioCarriesChapter,
   DRAFT_ANALYSIS_HORIZON_YEARS,
   findUnsupportedAnalysisDraftKeys,
   hasMeteringVariant,
@@ -32,9 +34,11 @@ import {
   tariffWayCosts,
   type AnalysisResult,
   type AnalysisWindow,
+  type AnnualScenario,
   type BatteryCandidate,
   type BatteryCatalogCategory,
   type LoadProfile,
+  type MonthlyTariffComparison,
   type TariffPricingInputs,
 } from 'shared'
 
@@ -475,8 +479,6 @@ export async function runAnalysisFromMeteringPointDraft(
 
   const horizonYears =
     options.horizonYears ?? readDraftHorizonYears(point.draft) ?? DRAFT_ANALYSIS_HORIZON_YEARS
-  const result = computeOrRefuse(payload, horizonYears, ports.batteryCatalog)
-
   /*
    * D6 Teil 3 — „Hochrechnung auf ein ganzes Jahr". Ein ZWEITER Lauf derselben Rechnung
    * über einen aus dem gemessenen Wochenblock gefüllten 365-Tage-Lastgang.
@@ -504,10 +506,31 @@ export async function runAnalysisFromMeteringPointDraft(
       : await buildAnnualScenario({
           payload,
           horizonYears,
-          measured: result,
+          catalog: ports.batteryCatalog,
           fetchTariffPricing: ({ window, intervalMinutes }) =>
             fetchPricingOnce({ ...subject, window, intervalMinutes }),
         })
+
+  /*
+   * E2 — EINE Rechenbasis: steht das Jahreskapitel (`annualBasisApplies`, dieselbe Bedingung wie im
+   * Report), reiht der Jahreslauf, und sein Rang 1 ist die Empfehlung. Der gemessene Lauf rechnet
+   * dieselben Geräte und folgt nur dieser Reihung — alles, was am empfohlenen Gerät hängt, gehört
+   * damit zum selben Gerät. Ohne Jahreskapitel bleibt alles linear wie bisher.
+   */
+  const pvInput = {
+    hasPv: point.draft[PV_UPLOAD_DRAFT_KEYS.present] === true,
+    loadProfile: payload.load.profile,
+  }
+  const annualValue = annualScenario?.ok === true ? annualScenario.value : undefined
+  const ranking =
+    annualValue?.devices && annualScenarioCarriesChapter(annualValue, pvInput)
+      ? annualValue.devices.map((d) => d.batteryId)
+      : undefined
+  let result = computeOrRefuse(payload, horizonYears, ports.batteryCatalog, { ranking })
+  const annualBasis = annualBasisApplies(annualValue, comparisonOf(result), pvInput)
+  // Nur wenn der gemessene Lauf keinen Monatsvergleich trägt (kein Kapitel) — dann linear nachrechnen.
+  if (ranking && !annualBasis) result = computeOrRefuse(payload, horizonYears, ports.batteryCatalog)
+  const annualScenarioOut = annualValue && !annualBasis ? withoutDevices(annualValue) : annualValue
 
   /*
    * ⚠ Auf DEM Lastgang, mit dem gerechnet wurde — also nach der PV-Kopplung, nicht auf `parsed`.
@@ -521,10 +544,7 @@ export async function runAnalysisFromMeteringPointDraft(
    * stünden im Report zwei Zahlen namens „Ihr Tarif heute", die sich um Rundungen unterscheiden
    * können. Ohne berechenbaren Monatsvergleich gibt es sie nicht, und dann auch kein Kapitel.
    */
-  const measuredComparison =
-    result.tariffOptimization?.computable === true
-      ? result.tariffOptimization.monthlyComparison
-      : undefined
+  const measuredComparison = comparisonOf(result)
   const measuredWithPvEur = measuredComparison
     ? tariffWayCosts(measuredComparison).currentTariffEur
     : null
@@ -582,7 +602,7 @@ export async function runAnalysisFromMeteringPointDraft(
   return {
     result: {
       ...result,
-      ...(annualScenario?.ok === true ? { annualScenario: annualScenario.value } : {}),
+      ...(annualScenarioOut ? { annualScenario: annualScenarioOut } : {}),
       ...(pvValue ? { pvValue } : {}),
     },
     loadProfile: payload.load.profile,
@@ -852,6 +872,19 @@ async function readPvProfileFromDraft(
   }
 
   return { fileName: document.fileName, profile: parsed.profile, dataQuality: parsed.dataQuality }
+}
+
+/** Der Monatsvergleich des gemessenen Laufs — nur, wenn er rechenbar ist. */
+function comparisonOf(result: AnalysisResult): MonthlyTariffComparison | undefined {
+  return result.tariffOptimization?.computable === true
+    ? result.tariffOptimization.monthlyComparison
+    : undefined
+}
+
+/** Ohne Jahreskapitel trägt das Szenario keine Jahresreihung — sie gälte für nichts im Report. */
+function withoutDevices(scenario: AnnualScenario): AnnualScenario {
+  const { devices: _devices, ...rest } = scenario
+  return rest
 }
 
 /** Eine Verweigerung der Engine wird zum benannten Abbruch dieses Laufs, mit ihrer Meldung. */

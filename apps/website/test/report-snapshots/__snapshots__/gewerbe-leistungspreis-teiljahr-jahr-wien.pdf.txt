@@ -18,7 +18,7 @@ Auf Basis Ihres Viertelstunden-Lastgangs
 
 Ausgewerteter Zeitraum             28.03.2026 – 31.08.2026
 Erstellt am                        30.09.2026
-     COOLiN ENERGY          Muster Gastro GmbH
+     COOLiN ENERGY            Muster Gastro GmbH
 
 
 
@@ -26,19 +26,19 @@ Erstellt am                        30.09.2026
 Muster Gastro GmbH · Zeitraum 28.03.2026 – 31.08.2026 · Erstellt am 30.09.2026
 
 Auf einen Blick
-   Ersparnis pro Jahr                                              Speicher allein            Gesamtmaßnahme
-   bis zu                                                          frühestens                 frühestens
+   Ersparnis pro Jahr                                                Speicher allein               Gesamtmaßnahme
+   bis zu                                                            frühestens                    frühestens
 
-   € 10.150                                                        ca. 4 Jahre                ca. 0,8 Jahre
-                                                                                              alle Maßnahmen zusammen
+   € 10.124                                                          ca. 3,7 Jahre                 ca. 0,8 Jahre
+                                                                                                   alle Maßnahmen zusammen
 
-   davon € 8.025 ohne Investition (Tarifwechsel)                   € 8.550 Investition, spart bis zu € 2.125/Jahr
+   davon € 8.025 ohne Investition (Tarifwechsel)                     € 7.691 Investition, spart bis zu € 2.099/Jahr
 
 geschätzt, hochgerechnet aus 157 gemessenen Tagen (März bis August)
 
 
 Ihr Lastgang
-  Höchste Leistung pro Tag          Spitzen, die der Speicher abfängt         Begrenzung mit Speicher (Höchstwert)
+  Höchste Leistung pro Tag            Spitzen, die der Speicher abfängt         Begrenzung mit Speicher (Höchstwert)
 50 kW
 
 
@@ -46,48 +46,49 @@ Ihr Lastgang
 
 
        0
-           Mär       Apr                    Mai                   Jun                   Jul                       Aug
+           Mär       Apr                     Mai                    Jun                    Jul                        Aug
 
 Die Balken zeigen Ihre höchste Leistung pro Tag. Der höchste Balken im Monat bestimmt die
 Spitzengebühr; ein Speicher kann Spitzen über der Linie abfangen (Höchstwert).
 
 Ihre Stromkosten pro Jahr
 Ihr Tarif heute
-                                                                                                                    € 34.794
+                                                                                                                        € 34.794
 
 aWATTar (Börsenpreis)
-                                                                                        € 26.769
+                                                                                          € 26.769
 
 aWATTar mit Speicher, der günstig lädt
-                                                                                     € 25.804
+                                                                                        € 26.084
 
 
 Mit aWATTar und einem Speicher, der günstig lädt, sinken Ihre Kosten von rund € 34.794 auf rund
-€ 25.804 — ohne Spitzengebühr; deren Einsparung (bis zu € 1.160) kommt hinzu.
+€ 26.084 — ohne Spitzengebühr; deren Einsparung (bis zu € 1.415) kommt hinzu.
 
 
-   Ihr Speicher                                                    Woher die Ersparnis kommt
-   Ersparnis durch den Speicher: bis zu € 2.125                                                 Wechsel zu aWATTar
-   pro Jahr.                                                                                    € 8.025
-       Mit Stromspitzen (Höchstwert)                                       bis zu               Speicher lädt günstig
-       Nur günstiges Laden                                                                      € 965
-                                                                         € 10.150
-                                                                                                Weniger Spitzen
-                                                                                                (Höchstwert)
-    Investition € 8.550              ca. 8,9 Jahre                                              € 1.160
-                           ca. 4 Jahre
+   Ihr Speicher                                                      Woher die Ersparnis kommt
+   Ersparnis durch den Speicher: bis zu € 2.099                                                  Wechsel zu aWATTar
+   pro Jahr.                                                                                     € 8.025
+       Mit Stromspitzen (Höchstwert)                                         bis zu              Speicher lädt günstig
+       Nur günstiges Laden                                                                       € 684
+                                                                           € 10.124
+                                                                                                 Weniger Spitzen
+                                                                                                 (Höchstwert)
+    Investition € 7.691                                                                          € 1.415
+                           ca. 3,7 Jahre
 
-   0                           5                     10 Jahre
+   0                             5                  10 Jahre
 
 
-Kostal & Dyness Retrofit S, 29,2 kWh nutzbar, Investition rund € 8.550 netto. Nach 10 Jahren
-bleiben unterm Strich bis zu € 12.700.
+Dyness Stack 100 30,72 kWh mit Solinteg MHT-15K-40, 29,2 kWh nutzbar, Investition rund € 7.691
+netto. Nach 10 Jahren bleiben unterm Strich bis zu € 13.299. Allein durch günstiges Laden rechnet
+sich der Speicher innerhalb von 10 Jahren nicht.
 Schätzung, keine Zusage. Annahmen und Risiken, u. a. beim Börsenpreis, im weiteren Bericht.
 
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                                   www.coolin.at · Seite 2 von 20
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                                      www.coolin.at · Seite 2 von 20
     COOLiN ENERGY          Muster Gastro GmbH
 
 
@@ -155,7 +156,7 @@ Die Zahlen, um die es geht — und was sie für Sie bedeuten.
 
 
 
-€ 14.864                                                        € 4.183 – € 4.757
+€ 14.864                                                        € 4.183 – € 4.557
 Ihre Stromkosten heute                                          Mögliche Ersparnis
 über 157 gemessene Tage, netto, ohne Leistungspreis             je nach gewähltem Weg, im selben Zeitraum
 
@@ -177,18 +178,18 @@ Leistungspreis Ihres Netzbetreibers und nicht am Stromvertrag, und was Ihr Speic
 Kapitel „Empfehlung und Wirtschaftlichkeit".
 
 Was der empfohlene Speicher zusätzlich bringt
- Kostal & Dyness Retrofit S                                                                                  € 8.550
+ Dyness Stack 100 30,72 kWh mit Solinteg MHT-15K-40                                                           € 7.691
  Gesamtinvestition
 
- Ladesteuerung (aWATTar)                                                                                       € 965
- hochgerechnet aus 157 gemessenen Tagen; gemessen € 574
+ Ladesteuerung (aWATTar)                                                                                       € 684
+ hochgerechnet aus 157 gemessenen Tagen; gemessen € 375
 
- Kappung der Lastspitzen                                                                                      € 1.160
+ Kappung der Lastspitzen                                                                                      € 1.415
 
- Zusammen pro Jahr                                                                                           € 2.125
+ Zusammen pro Jahr                                                                                           € 2.099
  Beträge gerundet
 
- Amortisation                                                                                                4 Jahre
+ Amortisation                                                                                               3,7 Jahre
 
  Amortisation Gesamtmaßnahme (Tarifwechsel, Ladesteuerung, Spitzenkappung)                            ca. 0,8 Jahre
 
@@ -298,33 +299,33 @@ zu Ihrem festen Arbeitspreis — ohne jede Umstellung an Speicher oder Verbrauch
 Tage hätte das € 4.183 weniger gekostet.
 
 aWATTar mit Ladesteuerung
- Gesamtinvestition                                                                                      € 8.550
+ Gesamtinvestition                                                                                        € 7.691
 
- Netto über 10 Jahre                                                                                   € 12.700
+ Netto über 10 Jahre                                                                                   € 13.299
 
 Zusätzlich zum Tarifwechsel wird mit der empfohlenen Batterie gezielt geladen: in den günstigen
 Viertelstunden lädt der Speicher aus dem Netz, während er Kapazität für die teureren Stunden desselben
 Tages zurückhält — der Schutz Ihrer Lastspitzen hat dabei weiterhin Vorrang. Über denselben Zeitraum hätte
-das, Tarifwechsel und Ladesteuerung zusammen, € 4.757 gespart. Der Wert der Ladesteuerung allein, der
-Abstand zu „aWATTar ohne Steuerung", beträgt € 574. Gerechnet mit diesem Speicher: Kostal & Dyness
-Retrofit S spart voraussichtlich € 2.125 pro Jahr (auf ein Jahr hochgerechnet) und amortisiert sich nach 4,0
-Jahren — Netto-Ersparnis über 10 Jahre: € 12.700. Im Betrachtungszeitraum von 10 Jahren rechnet er sich
-damit. Diese Zahl ist eine Vorausberechnung, keine Zusage: der Speicher plant seinen Tag am Vorabend mit
-den dann bekannten Börsenpreisen und einer Verbrauchserwartung aus Ihren eigenen Messwerten — nicht
-mit dem Wissen, was der Tag tatsächlich bringen wird. Weicht Ihr Verbrauch von dieser Erwartung ab, fällt
-das Ergebnis entsprechend anders aus.
+das, Tarifwechsel und Ladesteuerung zusammen, € 4.557 gespart. Der Wert der Ladesteuerung allein, der
+Abstand zu „aWATTar ohne Steuerung", beträgt € 375. Gerechnet mit diesem Speicher: Dyness Stack 100
+30,72 kWh mit Solinteg MHT-15K-40 spart voraussichtlich € 2.099 pro Jahr (auf ein Jahr hochgerechnet)
+und amortisiert sich nach 3,7 Jahren — Netto-Ersparnis über 10 Jahre: € 13.299. Im Betrachtungszeitraum
+von 10 Jahren rechnet er sich damit. Diese Zahl ist eine Vorausberechnung, keine Zusage: der Speicher plant
+seinen Tag am Vorabend mit den dann bekannten Börsenpreisen und einer Verbrauchserwartung aus Ihren
+eigenen Messwerten — nicht mit dem Wissen, was der Tag tatsächlich bringen wird. Weicht Ihr Verbrauch
+von dieser Erwartung ab, fällt das Ergebnis entsprechend anders aus.
 
 Kappung Ihrer Lastspitzen
- Leistungspreis (netto)                                                                                  € 1.020
+ Leistungspreis (netto)                                                                                  € 1.243
 
- Gebrauchsabgabe darauf                                                                                      € 71
+ Gebrauchsabgabe darauf                                                                                     € 87
 
- EAG-Förderbeitrag Leistung                                                                                 € 69
+ EAG-Förderbeitrag Leistung                                                                                 € 84
 
- Kappung Ihrer Lastspitzen pro Jahr                                                                       € 1.160
+ Kappung Ihrer Lastspitzen pro Jahr                                                                      € 1.414
 
 Ein Weg, der unabhängig von Ihrem Stromvertrag wirkt: Sie senken mit der empfohlenen Batterie den
-abgerechneten Leistungswert, mit dem Ihr Netzbetreiber den Leistungspreis verrechnet. Das bringt € 1.160
+abgerechneten Leistungswert, mit dem Ihr Netzbetreiber den Leistungspreis verrechnet. Das bringt € 1.414
 pro Jahr. Diese Zahl ist eine JAHRESgrösse und bezieht sich damit auf einen anderen Zeitraum als die
 157 Tage der Balken darüber — sie wird deshalb nicht zu ihnen addiert und steht auch nicht in der
 Ersparnis-Spanne der Zusammenfassung. Sie kommt zu dem Weg, für den Sie sich beim Stromvertrag
@@ -355,23 +356,24 @@ Verlauf desselben Wochentags, Feiertage sind nicht gesondert berücksichtigt. Ge
 im Stand vom 31.08.2026.
 
 Ihre Stromkosten über ein Jahr
- Ihr Tarif heute                                                                                          € 34.794
+ Ihr Tarif heute                                                                                           € 34.794
 
- aWATTar ohne Steuerung                                                                                   € 26.769
+ aWATTar ohne Steuerung                                                                                    € 26.769
 
- aWATTar mit Ladesteuerung                                                                                € 25.804
+ aWATTar mit Ladesteuerung                                                                                 € 26.084
 
-Hochgerechnete Jahreskosten (netto), gerechnet mit dem Speicher „Kostal & Dyness Retrofit S".
+Hochgerechnete Jahreskosten (netto), gerechnet mit dem Speicher „Dyness Stack 100 30,72 kWh mit
+Solinteg MHT-15K-40".
 
 Woher die Ersparnis kommt
-€ 10.150 pro Jahr, geschätzt, netto
- Tarifwechsel zu aWATTar                                                                                    € 8.025
+€ 10.124 pro Jahr, geschätzt, netto
+ Tarifwechsel zu aWATTar                                                                                      € 8.025
 
- Ladesteuerung des Speichers                                                                                  € 965
+ Ladesteuerung des Speichers                                                                                   € 684
 
- Spitzenkappung durch den Speicher (Obergrenze)                                                               € 1.160
+ Spitzenkappung durch den Speicher (Obergrenze)                                                               € 1.415
 
- Summe                                                                                                     € 10.150
+ Summe                                                                                                        € 10.124
 
 Gegenüber Ihrem heutigen Tarif, je Jahr. Die Zeilen bauen aufeinander auf und dürfen hier zusammengezählt
 werden: alle drei beziehen sich auf dieselben 365 Tage.
@@ -383,8 +385,8 @@ So setzt sich Ihre Ersparnis zusammen
   nicht betroffen — sie stammen aus der Berechnung, nicht aus der Abbildung.
 
 
-Tarifwechsel: € 8.025 (79 %)     Ladesteuerung: € 965 (10 %)    Spitzenkappung (Obergrenze): € 1.160 (11 %)
-Davon durch den Speicher: € 2.125 (21 %). Spitzenkappung ist eine Obergrenze.
+Tarifwechsel: € 8.025 (79 %)     Ladesteuerung: € 684 (7 %)     Spitzenkappung (Obergrenze): € 1.415 (14 %)
+Davon durch den Speicher: € 2.099 (21 %). Spitzenkappung ist eine Obergrenze.
 
 
 
@@ -400,8 +402,8 @@ Davon durch den Speicher: € 2.125 (21 %). Spitzenkappung ist eine Obergrenze.
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                            www.coolin.at · Seite 8 von 20
-      COOLiN ENERGY        Muster Gastro GmbH
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                             www.coolin.at · Seite 8 von 20
+      COOLiN ENERGY         Muster Gastro GmbH
 
 
 
@@ -409,29 +411,29 @@ COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich               
 Empfehlung und Wirtschaftlichkeit
 Welches Gerät — und was es kostet.
 
-Unsere Empfehlung: Kostal & Dyness Retrofit S
-4 Jahre bis sich die Investition von € 8.550 bezahlt gemacht hat
+Unsere Empfehlung: Dyness Stack 100 30,72 kWh mit Solinteg MHT-15K-40
+3,7 Jahre bis sich die Investition von € 7.691 bezahlt gemacht hat
 Gesamtmaßnahme: frühestens ca. 0,8 Jahre
 Mit Tarifwechsel, Ladesteuerung und Spitzenkappung zusammen ist die Investition frühestens nach ca. 0,8 Jahren
-amortisiert. Der Tarifwechsel selbst erfordert keine Investition; der Speicher allein amortisiert sich frühestens in 4 Jahren.
+amortisiert. Der Tarifwechsel selbst erfordert keine Investition; der Speicher allein amortisiert sich frühestens in 3,7 Jahren.
 
-    Speicher (12,3 kW / 29,2 kWh)                                                                                  € 6.650
+    Speicher (15 kW / 29,2 kWh)                                                                                      € 5.791
 
-    Installationspauschale (Richtwert)                                                                             € 1.900
+    Installationspauschale (Richtwert)                                                                               € 1.900
 
-    Gesamtinvestition                                                                                              € 8.550
+    Gesamtinvestition                                                                                                 € 7.691
 
-    Ersparnis pro Jahr (auf ein Jahr hochgerechnet)                                                                 € 2.125
+    Ersparnis pro Jahr (auf ein Jahr hochgerechnet)                                                                 € 2.099
 
-    Netto über 10 Jahre                                                                                           € 12.700
+    Netto über 10 Jahre                                                                                            € 13.299
 
-    Kapp-Schwelle                                       zwischen 27,5 kW und 32,7 kW (je Abrechnungsperiode)
+    Kapp-Schwelle                                         zwischen 24,9 kW und 30 kW (je Abrechnungsperiode)
 
-    Ø Monatsspitze heute                                                                                          42,6 kW
+    Ø Monatsspitze heute                                                                                            42,6 kW
 
-    Ø Monatsspitze mit dem Speicher                                                                               30,3 kW
+    Ø Monatsspitze mit dem Speicher                                                                                  27,6 kW
 
-    EAG-Förderbeitrag Leistung heute                                                    € 240 pro Jahr (€ 5,62 / kW·a)
+    EAG-Förderbeitrag Leistung heute                                                     € 240 pro Jahr (€ 5,62 / kW·a)
 
 1       Die wirtschaftlichste Option
         Aus dem Katalog schneidet dieses Gerät über 10 Jahre am besten ab — gereiht wird nach der
@@ -439,7 +441,7 @@ amortisiert. Der Tarifwechsel selbst erfordert keine Investition; der Speicher a
         Speicher spart fast immer mehr und kostet auch mehr.
 
 2       Auf ein Jahr hochgerechnet
-        Ihr Lastgang deckt 157 von 365 Tagen ab. Der Energie-Anteil der Ersparnis (€ 574 über diese Tage)
+        Ihr Lastgang deckt 157 von 365 Tagen ab. Der Energie-Anteil der Ersparnis (€ 375 über diese Tage)
         ist daraus auf ein Jahr hochgerechnet, und mit ihm Amortisation und Netto-Ersparnis — unter der
         Annahme, dass sich die übrigen Tage im Mittel wie die gemessenen verhalten.
 
@@ -454,21 +456,21 @@ amortisiert. Der Tarifwechsel selbst erfordert keine Investition; der Speicher a
 
 
      Hinweis zu diesem Gerät
-     Leistung des Kandidaten reicht nicht für alle Spitzen (12,3 kW maximale Lade-/Entladeleistung) — die
+     Leistung des Kandidaten reicht nicht für alle Spitzen (15 kW maximale Lade-/Entladeleistung) — die
      Kappung ist leistungs-, nicht energiebegrenzt.
 
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                                   www.coolin.at · Seite 9 von 20
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                                     www.coolin.at · Seite 9 von 20
     COOLiN ENERGY          Muster Gastro GmbH
 
 
 
 
 Wert der Ladesteuerung unter aWATTar
-€ 965 pro Jahr, auf ein Jahr hochgerechnet, netto
- Gemessen, über die 157 gemessenen Tage                                                                  € 574
+€ 684 pro Jahr, auf ein Jahr hochgerechnet, netto
+ Gemessen, über die 157 gemessenen Tage                                                                  € 375
 
 Für jede Viertelstunde Ihres Lastgangs sind der Börsenpreis jener Stunde, das Netzentgelt und die Abgaben
 angesetzt, statt eines festen Arbeitspreises. Der Speicher lädt nach einem Tagesplan in günstigen Stunden
@@ -524,7 +526,7 @@ Das zahlen Sie jetzt — und das zahlten Sie mit aWATTar
 
  aWATTar ohne Steuerung                                                                                 € 10.681
 
- aWATTar mit Ladesteuerung                                                                              € 10.107
+ aWATTar mit Ladesteuerung                                                                             € 10.306
 
 Summen über die 6 gemessenen Monate — ausdrücklich nicht auf ein Jahr hochgerechnet: die fehlenden
 Monate liegen nicht gleichverteilt über das Jahr. Enthalten sind Arbeitspreis, Netz-Arbeitspreis, die
@@ -551,10 +553,10 @@ Wann Ihr Speicher arbeitet — und was das über seine Steuerung aussagt.
 
 
 
-Wann lädt und entlädt Kostal & Dyness Retrofit S?
- Stärkste Zelle                                                                                       378,2 kWh
+Wann lädt und entlädt Dyness Stack 100 30,72 kWh mit Solinteg MHT-15K-40?
+ Stärkste Zelle                                                                                       428,5 kWh
 
- Am meisten geladen um                                                                                 13:00 Uhr
+ Am meisten geladen um                                                                                 10:00 Uhr
 
  Zellen ohne Messwert                                            144 von 288 (6 von 12 Monaten gemessen)
 
@@ -572,9 +574,9 @@ Unterschiede, die aus der Last stammen und nicht aus der Steuerung.
 
 
 Zu welchem Preis wird geladen?
- Geladen zu                                                              12,57 ct/kWh · 6 312,3 kWh bezogen
+ Geladen zu                                                             13,84 ct/kWh · 5 789,9 kWh bezogen
 
- Entladen zu                                                         24,55 ct/kWh · 5 569,4 kWh abgegeben
+ Entladen zu                                                          23,01 ct/kWh · 5 109,7 kWh abgegeben
 
  Unter dem Monatsdurchschnitt                                                in 6 von 6 gemessenen Monaten
 
@@ -613,25 +615,21 @@ in der Kurve. Die Hinweise zu einem Gerät (Betonsockel, separater Wechselrichte
 alle Spitzen) sind in der Investition bereits enthalten, werden hier aber nicht je Gerät wiederholt — sie stehen
 beim empfohlenen Gerät.
 
-34 Geräte geprüft, davon 7 im Betrachtungszeitraum wirtschaftlich.
+34 Geräte geprüft, davon 10 im Betrachtungszeitraum wirtschaftlich.
 
  Gerät                      Grösse            Investition   Ersparnis/Jahr   Amortisation   Netto über      Abstand zur
                                                                                               10 Jahre      Empfehlung
 
- Dyness Stack 100           29,2 kWh / 15         € 7.691         € 2.285       3,4 Jahre     € 15.155          € 1.243
- 30,72 kWh mit Solinteg     kW                                                                             weniger über
- MHT-15K-40                                                                                                    10 Jahre
+ Kostal & Dyness Retrofit 29,2 kWh / 12,3        € 8.550           € 2.125        4 Jahre     € 12.700   € 599 weniger
+ S                        kW                                                                              über 10 Jahre
 
- Dyness Stack 100       38,9 kWh / 20            € 9.099           € 1.675      5,4 Jahre      € 7.655          € 8.743
- 40,96 kWh mit Solinteg kW                                                                                 weniger über
- MHT-20K-40                                                                                                    10 Jahre
+ Dyness Stack 100       38,9 kWh / 20            € 9.099           € 1.825        5 Jahre       € 9.151 € 4.148 weniger
+ 40,96 kWh mit Solinteg kW                                                                                über 10 Jahre
+ MHT-20K-40
 
- GoodWe Lynx D 30           30 kWh / 18 kW      € 12.038           € 1.945      6,2 Jahre      € 7.415          € 8.983
+ GoodWe Lynx D 30           30 kWh / 18 kW      € 12.038           € 1.929      6,2 Jahre      € 7.252          € 6.047
  kWh mit GoodWe ET -                                                                                       weniger über
  GW29.9K-ET                                                                                                    10 Jahre
-
-Die Geräte in dieser Tabelle sind einheitlich linear hochgerechnet und deshalb höher als die Jahresrechnung der
-Empfehlung weiter oben. Verglichen wird der Abstand, nicht die absolute Zahl.
 
 
 
@@ -651,11 +649,11 @@ Was wir vorschlagen
       Tage, ohne Umstellung an Speicher oder Verbrauch.
 
 2     Wollen Sie das Maximum
-      aWATTar mit Ladesteuerung — € 4.757 weniger über dieselben 157 Tage. Dazu kommt die Kappung
-      Ihrer Lastspitzen mit dem Speicher (Kostal & Dyness Retrofit S, Investition € 8.550): € 1.160 pro Jahr,
-      unabhängig vom Stromvertrag und als Obergrenze gerechnet. Zusammen mit der Ladesteuerung ergibt
-      das € 2.125 pro Jahr und eine Amortisation von 4 Jahren — eine Vorausberechnung, keine Zusage.
-      Sprechen Sie uns an, wenn Sie dabei Unterstützung möchten.
+      aWATTar mit Ladesteuerung — € 4.557 weniger über dieselben 157 Tage. Dazu kommt die Kappung
+      Ihrer Lastspitzen mit dem Speicher (Dyness Stack 100 30,72 kWh mit Solinteg MHT-15K-40, Investition
+      € 7.691): € 1.415 pro Jahr, unabhängig vom Stromvertrag und als Obergrenze gerechnet. Zusammen
+      mit der Ladesteuerung ergibt das € 2.099 pro Jahr und eine Amortisation von 3,7 Jahren — eine
+      Vorausberechnung, keine Zusage. Sprechen Sie uns an, wenn Sie dabei Unterstützung möchten.
 
 Woher diese Zahlen stammen
 Abrechnungszeitraum, Preisblatt-Stand, Abgabensätze, aWATTar-Stundenpreise und — sofern zutreffend —
@@ -664,7 +662,7 @@ die PV-Rekonstruktion sind ausführlich im Kapitel „Annahmen und Datengrundlag
 
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                     www.coolin.at · Seite 15 von 20
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                   www.coolin.at · Seite 15 von 20
     COOLiN ENERGY          Muster Gastro GmbH
 
 
@@ -699,7 +697,7 @@ Tages. Ausgeführt wird dieser Plan auf Ihrem echten Lastgang; Ersparnis, Amorti
 der Geräte stammen aus genau diesem Fahrplan. Anders die Spitzenkappung: Kappschwelle und Reserve
 für die Spitzen sind aus dem ganzen Zeitraum bestimmt, also mit dem Wissen, wann die Spitzen kommen.
 Der Leistungs-Anteil der Ersparnis ist deshalb eine Obergrenze. Mit vollem Rückblick auf Ihren tatsächlichen
-Verbrauch wäre die Ladesteuerung über die 157 gemessenen Tage höchstens € 583 wert gewesen — die
+Verbrauch wäre die Ladesteuerung über die 157 gemessenen Tage höchstens € 382 wert gewesen — die
 Obergrenze dieser Rechnung, nicht ihr Ergebnis.
 
 Konstante Batterieeigenschaften über den Betrachtungszeitraum
@@ -723,11 +721,11 @@ Womit gerechnet wurde, woher die Tarifwerte stammen — und was an diesem Datens
 Annahmen & Rechenweise — Stand dieser Berechnung
  Betrachtungshorizont                                                                                        10 Jahre
 
- Wirkungsgrad (Kostal & Dyness Retrofit S)                                                    88 % (angenommen)
+ Wirkungsgrad (Dyness Stack 100 30,72 kWh mit Solinteg MHT-15K-40)                            88 % (angenommen)
 
- Batteriepreis (Kostal & Dyness Retrofit S)                                                          € 227,86 / kWh
+ Batteriepreis (Dyness Stack 100 30,72 kWh mit Solinteg MHT-15K-40)                                 € 198,43 / kWh
 
- Gesamtinvestition                                                                                           € 8.550
+ Gesamtinvestition                                                                                             € 7.691
 
  Nettoinvestition nach Förderung                                                keine Angabe (nicht einbezogen)
 
@@ -798,11 +796,11 @@ COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich               
                                                                            und 01.07.–31.07.2026
 
  Batterie
- Dyness Kostal & Dyness         Nutzbare Kapazität, Lade-/Entladeleistung, Katalogstand vom 22.09.2026
- Retrofit S                     Wirkungsgrad und Preis je kWh.             — Hardware-Listenpreis netto.
-                                                                           Installationspauschale (Richtwert),
-                                                                           Preisstand 24.09.2026. Wirkungsgrad:
-                                                                           Erfahrungswert, kein Datenblattwert.
+ Dyness Stack 100 30,72 kWh Nutzbare Kapazität, Lade-/Entladeleistung, Katalogstand vom 22.09.2026
+ mit Solinteg MHT-15K-40    Wirkungsgrad und Preis je kWh.             — Hardware-Listenpreis netto.
+                                                                       Installationspauschale (Richtwert),
+                                                                       Preisstand 24.09.2026. Wirkungsgrad:
+                                                                       Erfahrungswert, kein Datenblattwert.
 
 
 Berechnungsmethodik je Kennzahl

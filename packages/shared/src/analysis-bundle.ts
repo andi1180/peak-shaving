@@ -210,7 +210,13 @@ import type { TariffOverridableField } from './tariff-catalog'
  * Neu ist `perBattery[].eagDemandSavingPerYear` (optional, nur ungleich 0 gesetzt). Ohne EAG-Anteil
  * ist ein Ergebnis bitgleich zu Fassung 15.
  */
-export const ANALYSIS_BUNDLE_VERSION = 16
+/**
+ * ── FASSUNG 17 (07.10.2026, E2 — eine Jahresbasis für Empfehlung und Seite 17) ────────────────
+ * Neu ist `annualScenario.devices` (Jahreswerte je Katalog-Gerät). Steht das Jahreskapitel, ist
+ * `perBattery` nach dem Jahreslauf gereiht und die Empfehlung dessen Rang 1. Ohne Jahreskapitel
+ * ist ein Ergebnis bitgleich zu Fassung 16.
+ */
+export const ANALYSIS_BUNDLE_VERSION = 17
 
 /**
  * Fassungen, die der Upload annimmt.
@@ -219,7 +225,7 @@ export const ANALYSIS_BUNDLE_VERSION = 16
  * worden sein, und ein Bündel unbrauchbar zu machen, das ein Mensch in der Hand hält, wäre der
  * schlechtere Handel. Bei einer älteren Fassung bleiben die jeweils neueren Felder schlicht leer.
  */
-export const SUPPORTED_ANALYSIS_BUNDLE_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
+export const SUPPORTED_ANALYSIS_BUNDLE_VERSIONS: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]
 
 /**
  * Fassung der Rechen-Engine, VON HAND gepflegt.
@@ -230,7 +236,7 @@ export const SUPPORTED_ANALYSIS_BUNDLE_VERSIONS: readonly number[] = [1, 2, 3, 4
  *
  * Bei einer Änderung am Rechenkern, die Ergebnisse verschiebt, MITZIEHEN.
  */
-export const ENGINE_VERSION = '1.7.2-mvp'
+export const ENGINE_VERSION = '1.8.0-mvp'
 
 /**
  * Was anstelle des Commits geschrieben wird, wenn die Bauumgebung keinen kennt (lokaler

@@ -1,8 +1,6 @@
 import type { CalculatorPayload } from 'engine'
 import { LEVIES_NONE, buildLevySchedule } from 'shared'
 import type {
-  AnalysisResult,
-  BatteryRoiEntry,
   GridTariffRowInput,
   LoadProfile,
   SpotPriceSeriesInput,
@@ -51,17 +49,6 @@ const CATALOG: BatteryCandidate[] = [
     controlType: 'dynamic',
   },
 ]
-
-/** Das Hauptergebnis, wie der Jahreslauf es liest: `recommended` ist sein Gerät, `others` stehen daneben. */
-function measuredWith(
-  recommended: BatteryCandidate,
-  others: BatteryCandidate[] = [],
-): Pick<AnalysisResult, 'perBattery' | 'recommendation' | 'existingBatteryAnalysis'> {
-  return {
-    perBattery: [recommended, ...others].map((battery) => ({ battery }) as BatteryRoiEntry),
-    recommendation: { batteryId: recommended.id } as AnalysisResult['recommendation'],
-  }
-}
 
 /** Leistung von `fromIso` bis `toIso` (exklusiv) — beide lokale Mitternächte in UTC; `kwAt` je Slot. */
 function profile(
@@ -180,7 +167,7 @@ describe('buildAnnualScenario', () => {
     const out = await buildAnnualScenario({
       payload: payloadOf(...MARCH_TO_SEPTEMBER),
       horizonYears: 10,
-      measured: measuredWith(CATALOG[0]!),
+      catalog: [CATALOG[0]!],
       fetchTariffPricing: fullPricing,
     })
     if (!out.ok) throw new Error(`unerwartet abgelehnt: ${out.blocker}`)
@@ -214,7 +201,7 @@ describe('buildAnnualScenario', () => {
     const out = await buildAnnualScenario({
       payload: payloadOf('2026-03-27T23:00:00Z', '2026-08-31T22:00:00Z'),
       horizonYears: 10,
-      measured: measuredWith(CATALOG[0]!),
+      catalog: [CATALOG[0]!],
       /* Netzentgelt-Zeile erst ab 01.01.2026: rechenbar nur mit dem Satzstand des Stichtags. */
       fetchTariffPricing: pricingWith(gridRow('2026-01-01')),
     })
@@ -236,7 +223,7 @@ describe('buildAnnualScenario', () => {
     const out = await buildAnnualScenario({
       payload: payloadOf('2026-03-27T23:00:00Z', '2026-08-31T22:00:00Z'),
       horizonYears: 10,
-      measured: measuredWith(CATALOG[0]!),
+      catalog: [CATALOG[0]!],
       fetchTariffPricing: pricingWith(gridRow('2025-01-01', '2026-06-30')),
     })
 
@@ -247,7 +234,7 @@ describe('buildAnnualScenario', () => {
     const out = await buildAnnualScenario({
       payload: payloadOf(...MARCH_TO_SEPTEMBER),
       horizonYears: 10,
-      measured: measuredWith(CATALOG[0]!),
+      catalog: [CATALOG[0]!],
       /* Nur die gemessenen Tage haben Preise — der Rest des Jahres bleibt eine Lücke. */
       fetchTariffPricing: async () => ({
         gridTariffRows: [gridRow()],
@@ -272,7 +259,7 @@ describe('buildAnnualScenario', () => {
     billingModel: 'monthly_max_sum',
   }
 
-  it('rechnet nur das Gerät des Hauptreports — ein besseres im Ergebnis daneben ändert nichts', async () => {
+  it('reiht den ganzen Katalog: das Gerät ist Rang 1, `devices` trägt jedes Gerät in Reihung', async () => {
     /* Klar besser: gleiche Grösse, höherer Wirkungsgrad, ein Fünftel des Preises. */
     const BETTER: BatteryCandidate = {
       ...CATALOG[0]!,
@@ -281,20 +268,17 @@ describe('buildAnnualScenario', () => {
       roundTripEfficiency: 0.98,
       pricePerKwh: 10,
     }
-    const run = (measured: ReturnType<typeof measuredWith>) =>
-      buildAnnualScenario({
-        payload: payloadOf(...MUELDUER, peakyKw, demandTariff),
-        horizonYears: 10,
-        measured,
-        fetchTariffPricing: pricingWith(gridRow('2026-01-01')),
-      })
+    const out = await buildAnnualScenario({
+      payload: payloadOf(...MUELDUER, peakyKw, demandTariff),
+      horizonYears: 10,
+      catalog: [CATALOG[0]!, BETTER],
+      fetchTariffPricing: pricingWith(gridRow('2026-01-01')),
+    })
+    if (!out.ok) throw new Error('unerwartet abgelehnt')
 
-    const alone = await run(measuredWith(CATALOG[0]!))
-    const besideBetter = await run(measuredWith(CATALOG[0]!, [BETTER]))
-    if (!alone.ok || !besideBetter.ok) throw new Error('unerwartet abgelehnt')
-
-    expect(besideBetter.value.device).toEqual({ batteryId: 'kat-30', name: 'Test 30' })
-    expect(besideBetter.value.ways).toEqual(alone.value.ways)
+    expect(out.value.device).toEqual({ batteryId: 'kat-30-plus', name: 'Test 30 plus' })
+    expect(out.value.devices?.map((d) => d.batteryId)).toEqual(['kat-30-plus', 'kat-30'])
+    expect(out.value.devices?.[0]?.peakShavingSavingEur).toBe(out.value.ways.peakShavingSavingEur)
   })
 
   it('Weg 5 enthält den EAG-Förderbeitrag Leistung', async () => {
@@ -317,7 +301,7 @@ describe('buildAnnualScenario', () => {
       buildAnnualScenario({
         payload: payloadOf(...MUELDUER, peakyKw, demandTariff),
         horizonYears: 10,
-        measured: measuredWith(CATALOG[0]!),
+        catalog: [CATALOG[0]!],
         fetchTariffPricing: pricingWith(gridRow('2026-01-01'), l),
       })
 

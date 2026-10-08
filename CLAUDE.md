@@ -241,6 +241,28 @@ Details und der vollständige Stand: siehe `./Pflichtenheft_Kalkulator_MVP.md`, 
 
 > Lebendiger Handover-Anker. Neueste offene Punkte, die den Bau der Engine/Simulation berühren. Erledigtes wandert raus.
 
+### Eine Rechenbasis im Jahresfall — E2 (08.10.2026)
+
+**Basisregel (bindend):** Steht das Jahreskapitel (`annualBasisApplies`, `shared/annual-scenario.ts` — EINE Bedingung
+für Report und Wizard-Lauf, `SHOW_ANNUAL_SCENARIO_CHAPTER` liegt deshalb jetzt in `shared`), stehen Reihung, Empfehlung
+und jede Zahl je Gerät auf „Speichergrösse und Gerätewahl" (Kurve, Tabelle, Abstand, Zählzeile, Nach-Steuer-Satz) auf
+der Jahres-Ersparnis. **Empfehlung = Rang 1 des Jahreslaufs.** Ohne Jahreskapitel bleibt alles linear und bitgleich.
+`buildAnnualScenario` rechnet dafür den ganzen Katalog auf dem gefüllten Jahr (Bestandsfall unverändert nur der
+Bestandsspeicher) und VOR dem Messzeitraum-Lauf; der übernimmt nur die Reihung (`computeAnalysis(…, { ranking })`), so
+dass Weg 4, Rückblick-Obergrenze und alle Messzeitraum-Zahlen zum empfohlenen Gerät gehören. Je Gerät:
+`annualScenario.devices` (Energie- und Leistungs-Anteil), im Report `annualCatalogEntriesOf`/`annualRoiOf`
+(`headline-storage.ts`), gerundet wie die Hauptzahl. Bündel-Fassung 17, `ENGINE_VERSION` 1.8.0-mvp. Fachliche Tiefe:
+`Pflichtenheft_Kalkulator_Delta_Report-Baukasten.md`, „Speichergrösse und Gerätewahl (08.10.2026, E2)".
+
+**⚠ Beim nächsten Umbau mitzudenken: (a)** Die Schwellensuche ist UNVERÄNDERT (niedrigste haltbare Schwelle) —
+offener Engine-Befund: ein stärkeres Gerät gleicher Kapazität kappt tiefer und verliert mehr Energie-Anteil, als es an
+Leistungs-Anteil gewinnt (Bestandsaufnahme Seite 17). **(b)** Gespeicherte Render-Anfragen vor Fassung 17 werden beim
+Öffnen neu gerendert, nicht neu gerechnet: dort steht die Empfehlung linear gereiht, die Tabelle linear und die
+Hinweiszeile „einheitlich linear hochgerechnet" bleibt. **(c)** Der Wizard-Lauf dauert länger (Jahreslauf über den
+ganzen Katalog; im Harness 6,0 → 17,0 s am 34-Geräte-Fall, Render-Seite ohne eigenes `maxDuration`, Projekt-Vorgabe
+300 s). **(d)** Liegt die Bedingung vor dem Lauf vor, fehlt aber der Monatsvergleich des Messzeitraums, rechnet der
+Messzeitraum-Lauf ein zweites Mal linear (ohne Kapitel keine Jahresreihung).
+
 ### IFB-Verkürzung der Amortisation im Wert der IFB-Zeile (07.10.2026)
 
 Steuerblock (PDF und Bildschirm, `taxEffectLines`, `report-copy.ts`): der Wert der Zeile „Investitionsfreibetrag, einmalig"
@@ -261,9 +283,8 @@ nicht die Abschreibung. **(2)** Hilfetexte unter „Steuersatz" (GmbH 23 % KöSt
 `assumptions-panel.tsx` über das neue Prop `help` von `NumberField`; im Admin-Wizard (`apps/web` `data-entry-assumptions.tsx`)
 nachgezogen mit denselben Texten über das neutrale `hint` von `AdminField` (dort `muted`, nur ein Fehler ist rot).
 **⚠ Die Vorgabewerte stehen unverändert; 2027 sinkt
-der Öko-IFB — im Fahrplan zu vermerken.** **(3)** Unter „Speicher im Vergleich" steht EINE Zeile (`tableFootnote`), wenn
-`headlineStorageOf(…, Empfehlung, pv).basis === 'annual'`: die Tabelle rechnet linear, die Empfehlung im Kasten auf
-Jahresbasis, verglichen wird der Abstand.
+der Öko-IFB — im Fahrplan zu vermerken.** **(3)** Unter „Speicher im Vergleich" steht EINE Zeile (`tableFootnote`), nur noch bei
+einem Ergebnis vor Fassung 17 (Jahreskapitel ohne `annualScenario.devices`) — s. E2 oben.
 
 ### Steuerblock rechnet mit der Ersparnis der Überschrift (07.10.2026)
 
@@ -274,8 +295,8 @@ Jetzt `taxEffectOf(analysis, entry, headline)` (`apps/website/lib/pdf-report/hea
 läuft `calculateRoi` mit der Ersparnis der Überschrift (Förderung als Festbetrag, Steuerannahmen aus
 `assumptions.tax`), sonst bleibt der Engine-Wert bitgleich. Engine unverändert.
 
-**⚠ Noch linear:** Geräteliste/Vergleich (`comparison.ts`, auch „Amortisation nach Steuern" je Gerät), CSV
-(`csv-export.ts`), Bildschirm-Karte (`recommendation-card.tsx`) und `perBattery`-Zahlen in `summary.ts`/`report-copy.ts`.
+**⚠ Noch linear:** CSV (`csv-export.ts`), Bildschirm-Karte (`recommendation-card.tsx`) und `perBattery`-Zahlen in
+`summary.ts`/`report-copy.ts`. Der Gerätevergleich (`comparison.ts`) steht seit E2 auf Jahresbasis (s. oben).
 
 ### Amortisation der Gesamtmaßnahme (07.10.2026)
 
@@ -283,8 +304,9 @@ Neue Kennzahl `totalAmortizationOf` (`apps/website/lib/pdf-report/total-amortiza
 Investition des Speichers (`netInvestmentEur`, nach Förderung, ungerundet) ÷ Gesamtersparnis pro Jahr
 (`header.savingPerYearEur`, die grosse Zahl der Vorderseite: Tarifwechsel + Ladesteuerung + Spitzenkappung).
 Nur bei Variante `tarif-und-speicher` mit Tarifwechsel-Ersparnis > 0, Investition > 0, Gesamtersparnis > 0 —
-sonst ist sie die Speicher-Rückzahlzeit und alles entfällt. Format: unter 24 Monaten „ca. N Monate" (min. 1),
-sonst „ca. X Jahre"; „frühestens" wie bei der Rückzahlzeit (Spitzenersparnis ist eine Obergrenze).
+sonst ist sie die Speicher-Rückzahlzeit und alles entfällt. Format: „ca. X,Y Jahre" (eine Nachkommastelle; gerundet
+1,0 → „ca. 1 Jahr", Untergrenze „ca. 0,1 Jahre", `aboutDuration`, eine Rundung für alle drei Orte), vergleichbar mit
+„Speicher allein"; „frühestens" wie bei der Rückzahlzeit (Spitzenersparnis ist eine Obergrenze).
 Orte: **(1)** Vorderseite — rechte Hero-Box „Speicher allein" + Kachel „Gesamtmaßnahme" mit Sublabel „alle
 Maßnahmen zusammen" (6,5 pt, in der Box, keine Zusatzhöhe), **kein Satz** (Seite 2 ist voll: Reserve 8,7 pt, der
 Satz kostete ~23 pt); **(2)** Kapitel „Empfehlung und Wirtschaftlichkeit" — Zeile unter der Rückzahlzeit-Zahl plus
@@ -292,7 +314,6 @@ der erklärende Satz (`ReportStatement.amountExtra`), der Fachbegriffe nennen da
 Vorderseite); **(3)** Zeile in „Was der empfohlene Speicher zusätzlich bringt" (`storage-summary.ts`).
 Alle drei lesen die Vorderseite (`context.executiveSummary`) — ohne sie keine Gesamtmaßnahme.
 **Gleiche Schriftgrösse (07.10.2026):** „Speicher allein“ und „Gesamtmaßnahme“ stehen in der Hero-Box in EINER gemeinsamen Grösse (`execHeroValuePt`, grösste, mit der beide Spalten samt Abstand in die Innenbreite passen; Müldür 14,5 pt statt vorher 15,1 und 14) und im Kapitel beide in 15 pt fett (`statementAmountExtra`, vorher 11) — nebeneinander eine Grösse statt zwei liest sich als gleichwertige Aussagen.
-**Immer in Jahren (07.10.2026, PR F):** die Gesamtmaßnahme steht überall als „ca. 1,1 Jahre" (eine Nachkommastelle; gerundet 1,0 → „ca. 1 Jahr", Untergrenze „ca. 0,1 Jahre"), nicht mehr in Monaten — vergleichbar mit „Speicher allein" daneben. Ersetzt die Monatsregel oben (`aboutDuration`, eine Rundung für alle drei Orte, Dativ abgeleitet); Bedingungen und Berechnung unverändert.
 
 ### Rechnungs-Scan: leere/abgeschnittene Antwort, ein Wiederholversuch (29.09.2026)
 
@@ -746,7 +767,7 @@ Ergebnisses, Bestandsspeicher über den Payload) und Weg 5 inkl. EAG-Förderbeit
 **Seit 01.10.2026 (PR 5) ist das Kapitel wieder an** („Hochrechnung auf ein ganzes Jahr", `SHOW_ANNUAL_SCENARIO_CHAPTER = true`):
 Übersicht Tarifwechsel / Ladesteuerung / Spitzenkappung (Obergrenze) / Summe aus gerundeten Zeilen, als „Annahme" gekennzeichnet;
 es entfällt bei PV (`hasPv`, `estimatedPv`, `pvSource`, Einspeisung im Lastgang) und ohne Gerät. Referenzfall:
-Report-Snapshot `gewerbe-leistungspreis-teiljahr-jahr-wien` (Render-Anfrage + `annual-scenario.json`).
+Report-Snapshot `gewerbe-leistungspreis-teiljahr-jahr-wien` (Render-Anfrage + `analysis-result.json`, seit E2 mit Jahresreihung).
 **Seit 01.10.2026 (PR 6) zeigt das Kapitel unter „Woher die Ersparnis kommt“ das Ringdiagramm „So setzt sich Ihre Ersparnis zusammen“** (`pdf-report/savings-donut.ts`, `components/report/savings-donut-chart.tsx`): nur die gerundeten Tabellenzeilen, ganze Prozent per Largest-Remainder, kein Ring bei einem Anteil ≤ 0 €; Legende und Bildunterschrift sind PDF-Text, der Annahme-Kasten steht seither darunter statt am Statement.
 
 **(d) Es wird NICHTS genähert.** Deckt der Preisbestand das Jahresfenster nicht, entfällt das Kapitel

@@ -7,10 +7,10 @@
  */
 
 /**
- * Kapitel „Hochrechnung auf ein ganzes Jahr" (D6 Teil 3). Seit 01.10.2026 wieder an: die Füllung
- * kommt aus dem gemessenen Wochenblock statt aus der stärksten Woche, PV-Fälle sind ausgenommen.
+ * Kapitel „Hochrechnung auf ein ganzes Jahr" (D6 Teil 3). Seit E2 in `shared`: der Wizard-Lauf
+ * entscheidet daran die Reihung (Jahres- oder lineare Basis) — hier nur weitergereicht.
  */
-export const SHOW_ANNUAL_SCENARIO_CHAPTER = true
+export { SHOW_ANNUAL_SCENARIO_CHAPTER } from 'shared'
 
 /**
  * [VORLÄUFIG, 24.09.2026 — Auftrag Andreas] Die €-Blöcke des PV-Kapitels („Ihre PV-Anlage") sind
