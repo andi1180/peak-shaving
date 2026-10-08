@@ -514,14 +514,14 @@ Seitenzahlen +1). Vier Blöcke, jeder über die volle Breite (481,6 pt):
    oben und Band. Bei „speicher-lohnt-nicht" Überschrift + Urteilssatz ohne Boxen; bei „nur-tarif"
    entfällt der Block.
 **Gesamt-Amortisation (07.10.2026):** rechte Hero-Box zweispaltig: links „Speicher allein" (Zahl wie bisher,
-26 pt, an die Restbreite angepasst), rechts „Gesamtmaßnahme" (14 pt, „ca. N Monate" unter 24 Monaten, sonst
-„ca. X Jahre") mit Sublabel „alle Maßnahmen zusammen" (6,5 pt, bis zu zwei Zeilen, in derselben Zeilenhöhe wie
+26 pt, an die Restbreite angepasst), rechts „Gesamtmaßnahme" (14 pt, „ca. X,Y Jahre", eine Nachkommastelle)
+mit Sublabel „alle Maßnahmen zusammen" (6,5 pt, bis zu zwei Zeilen, in derselben Zeilenhöhe wie
 die grosse Zahl); die Unterzeile bleibt über die volle Breite. Formel: Investition nach Förderung ÷ Gesamtersparnis
 pro Jahr (`header.savingPerYearEur`), Bedingungen: Variante `tarif-und-speicher`, Tarifwechsel-Anteil > 0 — sonst
 entfällt die Kachel und das Label bleibt „Rückzahlzeit des Speichers". **Ein Satz unter dem Hero wurde verworfen**
 (+~23 pt gegen 8,7 pt Reserve; selbst mit Hero-Zahlen 18 pt blieb −3,6 pt); er steht im Kapitel. Reserve
 unverändert 8,7 pt. Kapitel „Empfehlung und Wirtschaftlichkeit": unter der Rückzahlzeit-Zahl „Gesamtmaßnahme:
-[frühestens] ca. N Monate" (11 pt) und der Satz „Mit Tarifwechsel, Ladesteuerung und Spitzenkappung zusammen ist die
+[frühestens] ca. X,Y Jahre" (11 pt) und der Satz „Mit Tarifwechsel, Ladesteuerung und Spitzenkappung zusammen ist die
 Investition [frühestens] nach {X} amortisiert. Der Tarifwechsel selbst erfordert keine Investition; der Speicher allein
 amortisiert sich [frühestens] in {Y}." (Dativ). Zusätzlich eine Zeile „Amortisation Gesamtmaßnahme (Tarifwechsel,
 Ladesteuerung, Spitzenkappung)" unter „Amortisation" in „Was der empfohlene Speicher zusätzlich bringt".
@@ -871,7 +871,7 @@ Im Kapitel „Empfehlung und Wirtschaftlichkeit" rechnet der Block „Steuerlich
 
 ### Nachtrag Wirtschaftlichkeit (07.10.2026) — Beschriftung Steuerersparnis, Hinweiszeile unter der Gerätetabelle
 
-Die Zeile „Abschreibung über N Jahre" heisst „Steuerersparnis durch Abschreibung, über N Jahre". Steht die Empfehlung auf Jahresbasis (`headlineStorageOf(...).basis === 'annual'`), erklärt eine Zeile unter der Gerätetabelle, dass die Tabelle einheitlich linear rechnet und der Abstand verglichen wird, nicht die absolute Zahl. Keine Zahl geändert.
+Die Zeile „Abschreibung über N Jahre" heisst „Steuerersparnis durch Abschreibung, über N Jahre". Keine Zahl geändert. Die Hinweiszeile unter der Gerätetabelle gilt seit E2 nur noch für Ergebnisse vor Fassung 17 — s. „Speichergrösse und Gerätewahl" unten.
 
 ### Nachtrag Gesamtmaßnahme (07.10.2026) — gleiche Schriftgrösse
 
@@ -883,4 +883,14 @@ Im Steuerblock nennt der Wert der Zeile „Investitionsfreibetrag, einmalig" zus
 
 ### Nachtrag Gesamtmaßnahme (07.10.2026) — immer in Jahren
 
-Die Amortisation der Gesamtmaßnahme steht an allen drei Orten (Vorderseite, Kapitel „Empfehlung und Wirtschaftlichkeit", Zeile in „Was der empfohlene Speicher zusätzlich bringt") immer in Jahren mit einer Nachkommastelle („ca. 1,1 Jahre"; „ca. 1 Jahr"; „ca. 2 Jahre"; Untergrenze „ca. 0,1 Jahre"), damit sie mit „Speicher allein" vergleichbar ist. Die frühere Regel „unter 24 Monaten in Monaten" (D-Nachtrag „Gesamt-Amortisation", 07.10.2026) ist damit überholt; Berechnung und Anzeigebedingungen sind unverändert.
+Die Amortisation der Gesamtmaßnahme steht an allen drei Orten (Vorderseite, Kapitel „Empfehlung und Wirtschaftlichkeit", Zeile in „Was der empfohlene Speicher zusätzlich bringt") immer in Jahren mit einer Nachkommastelle („ca. 1,1 Jahre"; „ca. 1 Jahr"; „ca. 2 Jahre"; Untergrenze „ca. 0,1 Jahre"), damit sie mit „Speicher allein" vergleichbar ist; Berechnung und Anzeigebedingungen wie im Nachtrag „Gesamt-Amortisation".
+
+### „Speichergrösse und Gerätewahl" (08.10.2026, E2) — eine Jahresbasis für Empfehlung und Gerätevergleich
+
+**Regel (bindend):** Steht das Jahreskapitel (`annualBasisApplies`, `shared/annual-scenario.ts` — dieselbe Bedingung im Report und im Wizard-Lauf), stehen Reihung, Empfehlung und jede Zahl je Gerät auf dieser Seite auf der Jahres-Ersparnis des Jahreslaufs: Kurve (Punkte und Raute „Bestes Gerät"), Tabelle samt „Abstand zur Empfehlung", Zählzeile „davon N wirtschaftlich" und der Satz „Amortisation nach Steuern". Ohne Jahreskapitel bleibt alles linear wie zuvor.
+
+**Rechnung:** Der Jahreslauf (`buildAnnualScenario`) rechnet den ganzen freigegebenen Katalog auf dem gefüllten Jahr; sein Rang 1 (Regel `netSavingOverHorizon`, unverändert) ist die Empfehlung. Der Messzeitraum-Lauf rechnet dieselben Geräte und übernimmt nur diese Reihung (`computeAnalysis(…, { ranking })`) — Weg 4, Rückblick-Obergrenze, Tag im Detail und alle Messzeitraum-Zahlen gehören damit zum empfohlenen Gerät, ohne zweiten Lauf. Je Gerät: Jahres-Ersparnis = gerundeter Energie- plus gerundeter Leistungs-Anteil (`annualScenario.devices`, wie `controlEur + peakEur` der Hauptzahl); Investition und Förderung aus dem Messzeitraum-Eintrag, Amortisation, Netto und Steuerwirkung über `calculateRoi` (`annualRoiOf`, `headline-storage.ts`). Die Tabelle folgt der Reihung des Jahreslaufs (ungerundete Netto-Werte); bei Geräten, die weniger als ~10 € auseinanderliegen, kann die gerundete Anzeige davon abweichen.
+
+**Hinweiszeile „einheitlich linear hochgerechnet" (#445):** entfällt mit Jahresreihung. Sie steht nur noch bei einem Ergebnis vor Fassung 17 (Jahreskapitel ohne `devices`) — eine gespeicherte Render-Anfrage wird beim Öffnen neu gerendert, nicht neu gerechnet.
+
+**Nicht geändert:** die Schwellensuche (niedrigste haltbare Kappschwelle je Periode). Offener Engine-Befund aus der Bestandsaufnahme: ein leistungsstärkeres Gerät gleicher Kapazität kappt dadurch tiefer und verliert mehr Energie-Anteil, als es an Leistungs-Anteil gewinnt.

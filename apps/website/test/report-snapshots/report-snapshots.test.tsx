@@ -171,8 +171,8 @@ type RenderRequestCase = {
   name: string
   file: string
   runAt: string
-  /** Wird als `analysis_result.annualScenario` über die Render-Anfrage gelegt (sonst unverändert). */
-  annualScenarioFile?: string
+  /** Ersetzt `analysis_result` der Render-Anfrage (Lastgang und Übergabe-Metadaten bleiben). */
+  analysisResultFile?: string
   /**
    * Steuerannahmen über der Render-Anfrage: `assumptions.tax` plus je Gerät die lineare Steuerwirkung,
    * gerechnet mit `calculateRoi` wie die Engine (Ersparnis `totalSavingPerYear`, Förderung als Festbetrag).
@@ -195,9 +195,9 @@ const RENDER_REQUEST_CASES: RenderRequestCase[] = [
       import.meta.dirname,
       'fixtures/gewerbe-leistungspreis-teiljahr-wien/render-request.json',
     ),
-    annualScenarioFile: path.join(
+    analysisResultFile: path.join(
       import.meta.dirname,
-      'fixtures/gewerbe-leistungspreis-teiljahr-jahr-wien/annual-scenario.json',
+      'fixtures/gewerbe-leistungspreis-teiljahr-jahr-wien/analysis-result.json',
     ),
     runAt: '2026-09-30T18:37:04.946Z',
   },
@@ -207,9 +207,9 @@ const RENDER_REQUEST_CASES: RenderRequestCase[] = [
       import.meta.dirname,
       'fixtures/gewerbe-leistungspreis-teiljahr-wien/render-request.json',
     ),
-    annualScenarioFile: path.join(
+    analysisResultFile: path.join(
       import.meta.dirname,
-      'fixtures/gewerbe-leistungspreis-teiljahr-jahr-wien/annual-scenario.json',
+      'fixtures/gewerbe-leistungspreis-teiljahr-jahr-wien/analysis-result.json',
     ),
     tax: { taxRatePercent: 40, investitionsfreibetragPercent: 22, depreciationYears: 10 },
     runAt: '2026-09-30T18:37:04.946Z',
@@ -506,8 +506,8 @@ describe('Report-Snapshots der Referenzfälle', () => {
     it(`${c.name}: PDF-Text aus der Render-Anfrage unverändert`, async () => {
       vi.useFakeTimers({ toFake: ['Date'], now: new Date(c.runAt) })
       const row = JSON.parse(readFileSync(c.file, 'utf8'))
-      if (c.annualScenarioFile) {
-        row.analysis_result.annualScenario = JSON.parse(readFileSync(c.annualScenarioFile, 'utf8'))
+      if (c.analysisResultFile) {
+        row.analysis_result = JSON.parse(readFileSync(c.analysisResultFile, 'utf8'))
       }
       if (c.tax) {
         const result = row.analysis_result
@@ -530,7 +530,7 @@ describe('Report-Snapshots der Referenzfälle', () => {
       if (readout.status !== 'ok') throw new Error('Render-Anfrage nicht lesbar')
       const input = buildReportInputFromRenderRequest(readout.request, new Date(c.runAt))
       // Vorderseite nur mit Jahresbasis: das Teiljahr ohne Jahresszenario hat keine.
-      expect(buildExecutiveSummary(input) !== null).toBe(c.annualScenarioFile !== undefined)
+      expect(buildExecutiveSummary(input) !== null).toBe(c.analysisResultFile !== undefined)
       const tmp = mkdtempSync(path.join(tmpdir(), 'report-snapshot-'))
       checkSnapshot(`${c.name}.pdf.txt`, await renderPdfText(input, path.join(tmp, `${c.name}.pdf`)))
     })

@@ -1,3 +1,5 @@
+import type { LoadProfile } from './load-profile'
+import type { MonthlyTariffComparison } from './tariff-pricing'
 import type { ControlVariant } from './tariff-ways'
 
 /**
@@ -64,6 +66,15 @@ export type AnnualScenarioWays = {
   peakShavingEagEur?: number
 }
 
+/** Die zwei Anteile der Jahres-Ersparnis eines Geräts, wie die Hauptzahl sie zusammensetzt. */
+export type AnnualScenarioDevice = {
+  batteryId: string
+  /** Energie-Anteil im synthetischen Jahr (`energySavingPerYear` des Jahreslaufs). */
+  energySavingPerYear: number
+  /** Leistungs-Anteil inkl. EAG (`peakShavingSavingPerYearOf`) — wie `ways.peakShavingSavingEur`. */
+  peakShavingSavingEur: number
+}
+
 export type AnnualScenario = {
   /** Erster Kalendertag des Fensters (lokal, `YYYY-MM-DD`, inklusiv) — `windowToDate` − 364 Tage. */
   windowFromDate: string
@@ -76,14 +87,71 @@ export type AnnualScenario = {
    */
   ratesAsOf?: string
   /**
-   * Das Gerät des Hauptreports (`primaryBatteryEntry`), mit dem der Jahreslauf allein gerechnet
-   * hat — kein Katalog-Neulauf. Fehlt bei Ergebnissen vor dem 01.10.2026.
+   * Das Gerät, dessen Weg 4/5 `ways` trägt: Rang 1 des Jahreslaufs über den ganzen Katalog (seit
+   * Fassung 17), im Bestandsfall der Bestandsspeicher. Fehlt bei Ergebnissen vor dem 01.10.2026.
    */
   device?: { batteryId: string; name: string }
+  /**
+   * Jahreswerte JEDES Katalog-Geräts in der Reihung des Jahreslaufs, beste zuerst. Gesetzt genau
+   * dann, wenn das Jahreskapitel steht (`annualBasisApplies`) — dann sind Reihung, Empfehlung
+   * (= `device`) und „Speichergrösse und Gerätewahl" auf Jahresbasis. Fehlt sonst und vor Fassung 17.
+   */
+  devices?: AnnualScenarioDevice[]
   /** Kalendertage des Fensters mit echten Messwerten. */
   measuredDays: number
   /** Kalendertage des Fensters, die aus dem Block gefüllt wurden. */
   projectedDays: number
   fill: AnnualScenarioFill
   ways: AnnualScenarioWays
+}
+
+/**
+ * Kapitel „Hochrechnung auf ein ganzes Jahr" (D6 Teil 3) an/aus. Seit E2 (07.10.2026) auch ein
+ * RECHENschalter: aus heisst Reihung und Empfehlung linear (`annualBasisApplies`).
+ */
+export const SHOW_ANNUAL_SCENARIO_CHAPTER = true
+
+export type AnnualBasisPvInput = {
+  hasPv?: boolean | null
+  estimatedPv?: unknown
+  loadProfile: Pick<LoadProfile, 'source' | 'pvSource'>
+}
+
+/**
+ * PV in der Rechnung: die Füllung trägt Tage einer Jahreszeit in eine andere, und mit PV wandert
+ * dabei die Erzeugung mit (zu wenig Bezug im Winter) — dann gibt es das Kapitel nicht.
+ */
+export function annualScenarioInvolvesPv(input: AnnualBasisPvInput): boolean {
+  const source = input.loadProfile.source
+  return (
+    input.hasPv === true ||
+    input.estimatedPv != null ||
+    input.loadProfile.pvSource === 'estimated' ||
+    source === 'net_signed' ||
+    source === 'import_export_split'
+  )
+}
+
+/**
+ * Steht das Jahreskapitel? EINE Bedingung für den Report (Kapitel, Hauptzahl, Seite 17) und den
+ * Wizard-Lauf (Reihung auf Jahresbasis) — zwei Fassungen liessen Empfehlung und Kapitel auseinanderlaufen.
+ * `measuredComparison` ist der Monatsvergleich des gemessenen Laufs (nur bei `computable === true`).
+ */
+export function annualBasisApplies(
+  scenario: AnnualScenario | undefined,
+  measuredComparison: MonthlyTariffComparison | undefined,
+  pv: AnnualBasisPvInput,
+): boolean {
+  return measuredComparison?.currentTariffEur != null && annualScenarioCarriesChapter(scenario, pv)
+}
+
+/** Der Teil von `annualBasisApplies`, der ohne den gemessenen Lauf entscheidbar ist (der Lauf braucht ihn vorher). */
+export function annualScenarioCarriesChapter(
+  scenario: AnnualScenario | undefined,
+  pv: AnnualBasisPvInput,
+): boolean {
+  if (!SHOW_ANNUAL_SCENARIO_CHAPTER) return false
+  if (!scenario || scenario.projectedDays <= 0 || !scenario.device) return false
+  if (annualScenarioInvolvesPv(pv)) return false
+  return scenario.ways.currentTariffEur !== null && scenario.ways.controlledEur !== null
 }

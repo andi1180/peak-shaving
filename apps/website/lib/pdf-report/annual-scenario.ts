@@ -1,5 +1,5 @@
-import { EXISTING_BATTERY_ID, displayedPriceLabel } from 'shared'
-import type { AnnualScenario } from 'shared'
+import { EXISTING_BATTERY_ID, annualBasisApplies, displayedPriceLabel } from 'shared'
+import type { AnnualScenario, AnnualScenarioWays } from 'shared'
 
 import { formatEur } from '@/lib/format'
 import { CONTROLLED_WAY_LABEL } from '@/lib/report-copy'
@@ -7,7 +7,7 @@ import { hasAdviceChapter } from './advice'
 import { ADVICE_SECTION } from './content'
 import type { ReportNotice, ReportRow, ReportStatement } from './statement'
 import { headlineStorageOf } from './headline-storage'
-import { recommendedEntryOf, summaryWaysOf } from './summary'
+import { recommendedEntryOf } from './summary'
 import type { PdfReportInput } from './types'
 import { buildSavingsDonut, type SavingsDonut } from './savings-donut'
 
@@ -33,27 +33,6 @@ export type AnnualScenarioChapter = {
   totalSavingEur: number
 }
 
-/**
- * PV in der Rechnung: die Füllung trägt Tage einer Jahreszeit in eine andere, und mit PV wandert
- * dabei die Erzeugung mit (zu wenig Bezug im Winter) — dann gibt es das Kapitel nicht.
- */
-function involvesPv(input: AnnualScenarioPvInput): boolean {
-  const source = input.loadProfile.source
-  return (
-    input.hasPv === true ||
-    input.estimatedPv != null ||
-    input.loadProfile.pvSource === 'estimated' ||
-    source === 'net_signed' ||
-    source === 'import_export_split'
-  )
-}
-
-/**
- * Gibt es dieses Kapitel? Die Hochrechnung muss gerechnet sein, etwas muss gefehlt haben, das
- * Gerät des Hauptreports muss genannt sein, das Wege-Kapitel muss stehen, und es darf keine PV
- * im Spiel sein.
- */
-/** Hinter diesem Statement stehen Ringdiagramm und Annahme-Kasten (`document.tsx`). */
 export const ANNUAL_SAVINGS_STATEMENT_ID = 'annual_scenario_savings'
 
 export function hasAnnualScenarioChapter(input: PdfReportInput): boolean {
@@ -100,10 +79,13 @@ export function annualScenarioSavingsOf(
   pv: AnnualScenarioPvInput,
 ): AnnualScenarioSavings | null {
   const scenario = analysis.annualScenario
-  if (!scenario || scenario.projectedDays <= 0 || !scenario.device) return null
-  if (summaryWaysOf(analysis) === null || involvesPv(pv)) return null
+  const comparison =
+    analysis.tariffOptimization?.computable === true
+      ? analysis.tariffOptimization.monthlyComparison
+      : undefined
+  // Dieselbe Bedingung, an der der Wizard-Lauf die Jahresreihung festmacht (`shared`).
+  if (!scenario || !annualBasisApplies(scenario, comparison, pv)) return null
   const { currentTariffEur, spotWithoutControlEur, controlledEur } = scenario.ways
-  // Ohne „Ihr Tarif heute" (Liefertarif unbekannt) oder ohne gesteuerte Reihe fehlt die Grundlage.
   if (currentTariffEur === null || controlledEur === null) return null
   return {
     scenario,
@@ -112,8 +94,28 @@ export function annualScenarioSavingsOf(
     controlledEur,
     switchEur: euros(currentTariffEur - spotWithoutControlEur),
     controlEur: euros(spotWithoutControlEur - controlledEur),
-    peakEur: euros(Math.max(0, scenario.ways.peakShavingSavingEur)),
+    peakEur: peakEurOf(scenario.ways.peakShavingSavingEur),
   }
+}
+
+const peakEurOf = (peakShavingSavingEur: number): number => euros(Math.max(0, peakShavingSavingEur))
+
+/** Die Speicher-Jahresersparnis des Kapitels: Ladesteuerung plus Spitzenkappung, je gerundet. */
+function waysSavingEur(ways: AnnualScenarioWays): number | null {
+  if (ways.controlledEur === null) return null
+  return (
+    euros(ways.spotWithoutControlEur - ways.controlledEur) + peakEurOf(ways.peakShavingSavingEur)
+  )
+}
+
+/**
+ * Jahres-Ersparnis eines Katalog-Geräts, gebildet wie die Hauptzahl (gerundeter Energie- plus
+ * gerundeter Leistungs-Anteil). Für das Gerät des Kapitels aus `ways` — dieselbe Zahl wie dort.
+ */
+export function annualDeviceSavingEur(scenario: AnnualScenario, batteryId: string): number | null {
+  if (batteryId === scenario.device?.batteryId) return waysSavingEur(scenario.ways)
+  const device = scenario.devices?.find((d) => d.batteryId === batteryId)
+  return device ? euros(device.energySavingPerYear) + peakEurOf(device.peakShavingSavingEur) : null
 }
 
 export function buildAnnualScenarioChapter(input: PdfReportInput): AnnualScenarioChapter | null {

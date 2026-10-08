@@ -12,9 +12,9 @@ import {
   pinRatesToDate,
   primaryBatteryEntry,
   tariffWayCosts,
-  type AnalysisResult,
   type AnalysisWindow,
   type AnnualScenario,
+  type BatteryCandidate,
   type TariffPricingInputs,
 } from 'shared'
 
@@ -52,7 +52,7 @@ export type AnnualScenarioBlocker =
   | SyntheticYearBlocker
   /** Der Jahreslauf selbst ist nicht berechenbar — Netzentgelte, Preise oder Abgaben decken ihn nicht ab. */
   | 'not_computable'
-  /** Der Hauptreport nennt kein Gerät — ohne es gibt es keinen Weg 4 und keine Kappung. */
+  /** Kein Katalog-Gerät und kein Bestandsspeicher — ohne Gerät gibt es keinen Weg 4 und keine Kappung. */
   | 'no_device'
 
 export type AnnualScenarioResult =
@@ -69,8 +69,8 @@ export type AnnualScenarioOptions = {
   /** Der Payload des GEMESSENEN Laufs — er wird gelesen, nie verändert. */
   payload: CalculatorPayload
   horizonYears: number
-  /** Das Ergebnis des gemessenen Laufs — sein primäres Gerät ist das einzige, das gerechnet wird. */
-  measured: Pick<AnalysisResult, 'perBattery' | 'recommendation' | 'existingBatteryAnalysis'>
+  /** Der freigegebene Katalog des gemessenen Laufs — im Bestandsfall unbenutzt. */
+  catalog: BatteryCandidate[]
   fetchTariffPricing: AnnualScenarioPricingReader
 }
 
@@ -82,7 +82,7 @@ export type AnnualScenarioOptions = {
  *  2. Preisseiten für dessen Fenster über den Port.
  *  3. `computeAnalysis` auf dem neuen Payload — die GANZE Kette, Dispatch eingeschlossen.
  *  4. Aus dem Ergebnis die fünf Wege ablesen: vier Tarifwege über `tariffWayCosts` (dieselbe
- *     Auswahl wie im gemessenen Kapitel) und die Spitzenkappung aus dem primären Speicher.
+ *     Auswahl wie im gemessenen Kapitel) und die Spitzenkappung aus dem primären Speicher (Rang 1 bzw. Bestand).
  *
  * ⚠ DIE `dataQuality` DES SYNTHETISCHEN LAUFS WIRD NEU GEBILDET und nicht vom echten übernommen:
  * sie beschreibt einen Lastgang, den es so nicht gibt. Gelesen wird sie von diesem Weg nirgends —
@@ -92,14 +92,13 @@ export type AnnualScenarioOptions = {
 export async function buildAnnualScenario(
   options: AnnualScenarioOptions,
 ): Promise<AnnualScenarioResult> {
-  const { payload, horizonYears, measured } = options
+  const { payload, horizonYears } = options
 
-  // Das Gerät des Hauptreports und nur dieses: ein Katalog-Neulauf auf dem verlängerten Lastgang
-  // könnte ein anderes Gerät empfehlen, und das Jahreskapitel spräche dann von einem fremden Speicher.
-  const device = primaryBatteryEntry(measured)
-  if (!device) return { ok: false, blocker: 'no_device' }
-  // Ein Bestandsspeicher reist im Payload mit (`existingBattery`); der Katalog bleibt dann leer.
-  const catalog = measured.existingBatteryAnalysis ? [] : [device.battery]
+  // Der ganze Katalog, gereiht wie jeder Lauf (E2): steht das Jahreskapitel, ist sein Rang 1 die
+  // Empfehlung. Ein Bestandsspeicher reist im Payload mit (`existingBattery`); der Katalog bleibt dann leer.
+  const isExisting = payload.existingBattery?.battery != null
+  const catalog = isExisting ? [] : options.catalog
+  if (!isExisting && catalog.length === 0) return { ok: false, blocker: 'no_device' }
 
   /*
    * Das Fenster endet am LETZTEN MESSTAG (das Jahr bis zur jüngsten Messung, keine Tage danach);
@@ -159,6 +158,7 @@ export async function buildAnnualScenario(
   if (!comparison) return { ok: false, blocker: 'not_computable' }
   const ways = tariffWayCosts(comparison)
   const entry = primaryBatteryEntry(result)
+  if (!entry) return { ok: false, blocker: 'no_device' }
   const peakShavingSavingEur = peakShavingSavingPerYearOf(entry)
 
   return {
@@ -167,7 +167,16 @@ export async function buildAnnualScenario(
       windowFromDate: year.windowFromDate,
       windowToDate: year.windowToDate,
       ratesAsOf,
-      device: { batteryId: device.battery.id, name: device.battery.name },
+      device: { batteryId: entry.battery.id, name: entry.battery.name },
+      ...(isExisting
+        ? {}
+        : {
+            devices: result.perBattery.map((e) => ({
+              batteryId: e.battery.id,
+              energySavingPerYear: e.energySavingPerYear,
+              peakShavingSavingEur: peakShavingSavingPerYearOf(e),
+            })),
+          }),
       measuredDays: year.measuredDays,
       projectedDays: year.projectedDays,
       fill: {
@@ -179,7 +188,7 @@ export async function buildAnnualScenario(
         ...ways,
         // Weg 5 wie im Hauptreport: Leistungspreis inkl. Gebrauchsabgabe plus EAG-Förderbeitrag Leistung.
         peakShavingSavingEur,
-        peakShavingEagEur: peakShavingSavingEur > 0 ? (entry?.eagDemandSavingPerYear ?? 0) : 0,
+        peakShavingEagEur: peakShavingSavingEur > 0 ? (entry.eagDemandSavingPerYear ?? 0) : 0,
       },
     },
   }

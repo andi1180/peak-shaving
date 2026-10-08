@@ -3,7 +3,11 @@ import type { BatteryResultEntry, BatteryRoiEntry, BatteryTaxEffect } from 'shar
 
 import { ifbEffectOf, type IfbEffect } from '@/lib/ifb-effect'
 import { loadControlValueOf } from '@/lib/report-copy'
-import { annualScenarioSavingsOf, type AnnualScenarioPvInput } from './annual-scenario'
+import {
+  annualDeviceSavingEur,
+  annualScenarioSavingsOf,
+  type AnnualScenarioPvInput,
+} from './annual-scenario'
 import { SHOW_ANNUAL_SCENARIO_CHAPTER } from './report-flags'
 import type { PdfReportAnalysis } from './types'
 import { peakShavingSavingOf } from './ways'
@@ -95,17 +99,45 @@ export function taxEffectOf(
   entry: BatteryRoiEntry,
   headline: HeadlineStorage,
 ): BatteryTaxEffect | undefined {
-  const tax = analysis.assumptions.tax
-  if (headline.basis === 'linear' || tax === undefined || entry.taxEffect === undefined) {
+  if (headline.basis === 'linear' || analysis.assumptions.tax === undefined || entry.taxEffect === undefined) {
     return entry.taxEffect
   }
-  const roi = calculateRoi(entry.battery, headline.savingPerYearEur, analysis.assumptions.horizonYears, {
+  return annualRoiOf(analysis, entry, headline.savingPerYearEur).taxEffect ?? entry.taxEffect
+}
+
+/**
+ * ROI eines Geräts mit einer Jahres-Ersparnis statt der linearen: dieselbe Engine-Funktion, die
+ * bereits abgezogene Förderung reist als Festbetrag, die Steuerannahmen aus `assumptions.tax`.
+ */
+export function annualRoiOf(analysis: PdfReportAnalysis, entry: BatteryRoiEntry, savingPerYear: number) {
+  const tax = analysis.assumptions.tax
+  return calculateRoi(entry.battery, savingPerYear, analysis.assumptions.horizonYears, {
     fixedSubsidyEur: entry.subsidyAmount,
-    taxRatePercent: tax.taxRatePercent,
-    investitionsfreibetragPercent: tax.investitionsfreibetragPercent ?? undefined,
-    depreciationYears: tax.depreciationYears ?? undefined,
+    ...(tax === undefined
+      ? {}
+      : {
+          taxRatePercent: tax.taxRatePercent,
+          investitionsfreibetragPercent: tax.investitionsfreibetragPercent ?? undefined,
+          depreciationYears: tax.depreciationYears ?? undefined,
+        }),
   })
-  return roi.taxEffect ?? entry.taxEffect
+}
+
+/**
+ * Die Katalog-Geräte auf Jahresbasis, in der Reihung des Jahreslaufs — `null` ohne Jahresreihung
+ * (`annualScenario.devices` steht nur, wenn das Jahreskapitel steht). Für „Speichergrösse und
+ * Gerätewahl": Kurve, Tabelle, Abstand und Nach-Steuer-Satz auf derselben Basis wie die Empfehlung.
+ */
+export function annualCatalogEntriesOf(analysis: PdfReportAnalysis): BatteryRoiEntry[] | null {
+  const scenario = analysis.annualScenario
+  if (!scenario?.devices || analysis.existingBatteryAnalysis) return null
+  if (scenario.device?.batteryId !== analysis.recommendation?.batteryId) return null
+  return scenario.devices.flatMap((device) => {
+    const entry = analysis.perBattery.find((p) => p.battery.id === device.batteryId)
+    const saving = annualDeviceSavingEur(scenario, device.batteryId)
+    if (!entry || saving === null) return []
+    return [{ ...entry, ...annualRoiOf(analysis, entry, saving), totalSavingPerYear: saving }]
+  })
 }
 
 /** Die IFB-Wirkung zum Steuerblock — dieselbe Ersparnis-Basis wie `taxEffectOf`. */
