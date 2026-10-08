@@ -245,6 +245,8 @@ export type ReportTableRow = {
    * gefüllt stünden sie unter einer Überschrift, die sie nicht beschreibt.
    */
   heading?: boolean
+  /** Eine kurze Zusatzzeile in kleinerer Schrift unter der ersten Zelle (z. B. „Leistung begrenzt"). */
+  note?: string
 }
 
 export type ReportTable = {

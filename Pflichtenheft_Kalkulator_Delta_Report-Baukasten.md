@@ -893,4 +893,6 @@ Die Amortisation der Gesamtmaßnahme steht an allen drei Orten (Vorderseite, Kap
 
 **Hinweiszeile „einheitlich linear hochgerechnet" (#445):** entfällt mit Jahresreihung. Sie steht nur noch bei einem Ergebnis vor Fassung 17 (Jahreskapitel ohne `devices`) — eine gespeicherte Render-Anfrage wird beim Öffnen neu gerendert, nicht neu gerechnet.
 
+**Markierung je Gerät (PR G, 08.10.2026):** Im Jahresfall trägt jede Tabellenzeile eines Geräts, dessen Leistung die Kappung begrenzt (Engine-Hinweis `power_limited`), unter dem Namen „Leistung begrenzt"; der Absatz über der Tabelle erklärt: das Gerät hält die für es berechnete Schwelle, könnte mit mehr Leistung aber tiefer kappen. Kein Filter — die Empfehlung bleibt Rang 1 nach Netto.
+
 **Nicht geändert:** die Schwellensuche (niedrigste haltbare Kappschwelle je Periode). Offener Engine-Befund aus der Bestandsaufnahme: ein leistungsstärkeres Gerät gleicher Kapazität kappt dadurch tiefer und verliert mehr Energie-Anteil, als es an Leistungs-Anteil gewinnt.

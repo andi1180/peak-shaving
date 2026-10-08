@@ -618,13 +618,13 @@ Die übrigen Geräte des Katalogs — im Vergleich
 Gereiht ist nach der Netto-Ersparnis über den Betrachtungszeitraum — derselben Grösse wie die Kurve
 darüber und wie die Empfehlung im Kapitel „Empfehlung und Wirtschaftlichkeit". Das empfohlene Gerät steht
 deshalb hier nicht noch einmal: es ist dort vollständig aufgeschlüsselt. Diese Tabelle zeigt die nächsten
-Alternativen — und um welchen Betrag die Empfehlung besser ist; alle übrigen Geräte stehen als Punkte in
-der Kurve. Die Hinweise zu einem Gerät (Betonsockel, separater Wechselrichter, zu geringe Leistung für alle
-Spitzen) sind in der Investition bereits enthalten, werden hier aber nicht je Gerät wiederholt — sie stehen beim
-empfohlenen Gerät. Amortisation nach Steuern: Kostal & Dyness Retrofit S: 4,8 Jahre; Dyness Stack 100 40,96
-kWh mit Solinteg MHT-20K-40: 5,7 Jahre; GoodWe Lynx D 30 kWh mit GoodWe ET - GW29.9K-ET: 6,7 Jahre.
-Richtwert auf Basis Ihrer Angaben — keine Steuerberatung. Die Einsparungen erhöhen den steuerpflichtigen
-Gewinn und sind berücksichtigt.
+Alternativen — und um welchen Betrag die Empfehlung besser ist; alle übrigen Geräte stehen als Punkte
+in der Kurve. Die Hinweise zu einem Gerät (Betonsockel, separater Wechselrichter) sind in der Investition
+enthalten; sie stehen beim empfohlenen Gerät. Eine Markierung „Leistung begrenzt" heisst: Das Gerät hält die
+Schwelle, die für es berechnet ist, könnte mit mehr Leistung aber tiefer kappen. Amortisation nach Steuern:
+Kostal & Dyness Retrofit S: 4,8 Jahre; Dyness Stack 100 40,96 kWh mit Solinteg MHT-20K-40: 5,7 Jahre;
+GoodWe Lynx D 30 kWh mit GoodWe ET - GW29.9K-ET: 6,7 Jahre. Richtwert auf Basis Ihrer Angaben —
+keine Steuerberatung. Die Einsparungen erhöhen den steuerpflichtigen Gewinn und sind berücksichtigt.
 
 34 Geräte geprüft, davon 10 im Betrachtungszeitraum wirtschaftlich.
 
@@ -633,14 +633,17 @@ Gewinn und sind berücksichtigt.
 
  Kostal & Dyness Retrofit 29,2 kWh / 12,3        € 8.550           € 2.125        4 Jahre     € 12.700   € 599 weniger
  S                        kW                                                                              über 10 Jahre
+ Leistung begrenzt
 
  Dyness Stack 100       38,9 kWh / 20            € 9.099           € 1.825        5 Jahre       € 9.151 € 4.148 weniger
  40,96 kWh mit Solinteg kW                                                                                über 10 Jahre
  MHT-20K-40
+ Leistung begrenzt
 
  GoodWe Lynx D 30           30 kWh / 18 kW      € 12.038           € 1.929      6,2 Jahre      € 7.252          € 6.047
  kWh mit GoodWe ET -                                                                                       weniger über
  GW29.9K-ET                                                                                                    10 Jahre
+ Leistung begrenzt
 
 
 

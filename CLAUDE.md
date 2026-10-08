@@ -241,6 +241,14 @@ Details und der vollständige Stand: siehe `./Pflichtenheft_Kalkulator_MVP.md`, 
 
 > Lebendiger Handover-Anker. Neueste offene Punkte, die den Bau der Engine/Simulation berühren. Erledigtes wandert raus.
 
+### Markierung „Leistung begrenzt" je Gerät auf Seite 17 — PR G (08.10.2026)
+
+In der Vergleichstabelle trägt jede Zeile eines Geräts mit Engine-Hinweis `power_limited` (`isPowerLimited`, `rank.ts`)
+unter dem Gerätenamen „Leistung begrenzt" (7,6 pt, `ReportTableRow.note`); der Absatz darüber erklärt sie. Nur im
+Jahresfall (`ComparisonSelection.markPowerLimited`) — linearer Altfall, Bestandsfall, Bildschirm (Karten tragen den
+Hinweis schon je Gerät) und CSV unverändert. **Kein Filter:** Z1 ist bei allen 34 Geräten 100 %, Z2 bräuchte einen
+Engine-Lauf je Gerät (neue `ENGINE_VERSION`). „Leistung begrenzt die Kappung" bricht in der 96-pt-Spalte um (112,5 pt).
+
 ### Eine Rechenbasis im Jahresfall — E2 (08.10.2026)
 
 **Basisregel (bindend):** Steht das Jahreskapitel (`annualBasisApplies`, `shared/annual-scenario.ts` — EINE Bedingung

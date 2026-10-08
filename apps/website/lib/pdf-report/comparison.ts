@@ -251,11 +251,23 @@ export const CANDIDATE_TABLE_ID = 'table_candidates'
  * Wort je Spalte („ST510kWh-125kW-4h", „Ersparnis/Jahr", „Amortisation") muss hineinpassen — es gibt
  * keine Silbentrennung (`fonts.ts`), ein zu langes Wort liefe in die Nachbarspalte.
  */
+/** Die Markierung je Gerät; Datenquelle ist der Engine-Hinweis `power_limited` (`isPowerLimited`, `rank.ts`). */
+export const POWER_LIMITED_MARK = 'Leistung begrenzt'
+
+/** Was die Markierung heisst — im Absatz über der Tabelle (Jahresfall). */
+export const POWER_LIMITED_NOTE =
+  `Eine Markierung „${POWER_LIMITED_MARK}" heisst: Das Gerät hält die Schwelle, die für es berechnet ist, könnte mit mehr Leistung aber tiefer kappen.`
+
+function isPowerLimitedCandidate(c: ComparisonCandidate): boolean {
+  return 'notices' in c && (c as BatteryRoiEntry).notices.some((n) => n.code === 'power_limited')
+}
+
 export function buildCandidateTable(
   candidates: ComparisonCandidate[],
   horizonYears: number,
   /* Katalog-Fall: das empfohlene Gerät, gegen das die Abstandsspalte rechnet. */
   reference: ComparisonCandidate | null = null,
+  markPowerLimited = false,
 ): ReportTable {
   const distance = reference
     ? [
@@ -289,6 +301,7 @@ export function buildCandidateTable(
     ],
     rows: candidates.map((c) => ({
       key: c.battery.id,
+      ...(markPowerLimited && isPowerLimitedCandidate(c) ? { note: POWER_LIMITED_MARK } : {}),
       cells: [
         c.battery.name,
         `${formatKwh1(c.battery.usableCapacityKwh)} / ${formatKw(c.battery.maxPowerKw)}`,
@@ -507,9 +520,11 @@ export function buildTableStatement(
   noPayoffReason: string | null = null,
   /* Die Geräte der Tabelle — für den Satz zur Amortisation nach Steuern. */
   shown: ComparisonCandidate[] = [],
+  /* `ComparisonSelection.markPowerLimited` — dann erklärt der Absatz die Markierung. */
+  markPowerLimited = false,
 ): ReportStatement {
   return withTaxNote(
-    withSubsidyNote(tableStatementOf(variant, considered, noPayoffReason), considered, true),
+    withSubsidyNote(tableStatementOf(variant, considered, noPayoffReason, markPowerLimited), considered, true),
     shown,
   )
 }
@@ -518,6 +533,7 @@ function tableStatementOf(
   variant: ComparisonVariant,
   considered: ComparisonCandidate[],
   noPayoffReason: string | null,
+  markPowerLimited: boolean,
 ): ReportStatement {
   const isAddon = variant === 'addon'
   const none = !isAddon && noneEconomical(considered)
@@ -588,10 +604,17 @@ function tableStatementOf(
         )} ${recommendationRef('dort', none ? 'beim besten Gerät' : 'beim empfohlenen Gerät')} vollständig aufgeschlüsselt. ${tableRef(
           `Diese Tabelle zeigt die nächsten Alternativen — und um welchen Betrag ${best} besser ist; alle übrigen Geräte stehen als Punkte in der Kurve. `,
           '',
-        )}Die Hinweise zu einem Gerät (Betonsockel, separater Wechselrichter, zu geringe Leistung für alle Spitzen) sind in der Investition bereits enthalten${tableRef(
-          ', werden hier aber nicht je Gerät wiederholt',
-          '',
-        )}${recommendationRef(none ? ' — sie stehen beim besten Gerät' : ' — sie stehen beim empfohlenen Gerät', '')}.`,
+        )}${
+          markPowerLimited
+            ? t`Die Hinweise zu einem Gerät (Betonsockel, separater Wechselrichter) sind in der Investition enthalten${recommendationRef(none ? '; sie stehen beim besten Gerät' : '; sie stehen beim empfohlenen Gerät', '')}.${tableRef(
+                ` ${POWER_LIMITED_NOTE}`,
+                '',
+              )}`
+            : t`Die Hinweise zu einem Gerät (Betonsockel, separater Wechselrichter, zu geringe Leistung für alle Spitzen) sind in der Investition bereits enthalten${tableRef(
+                ', werden hier aber nicht je Gerät wiederholt',
+                '',
+              )}${recommendationRef(none ? ' — sie stehen beim besten Gerät' : ' — sie stehen beim empfohlenen Gerät', '')}.`
+        }`,
   }
 }
 
@@ -635,6 +658,8 @@ export type ComparisonSelection = {
   /** Katalog-Fall: das empfohlene Gerät, gegen das die Abstandsspalte rechnet. `null` im Bestandsfall. */
   reference: ComparisonCandidate | null
   horizonYears: number
+  /** Jahresfall (E2): Zeilen von Geräten, deren Leistung die Kappung begrenzt, tragen eine Markierung. */
+  markPowerLimited: boolean
 }
 
 export function comparisonSelection(analysis: PdfReportAnalysis): ComparisonSelection {
@@ -661,6 +686,7 @@ export function comparisonSelection(analysis: PdfReportAnalysis): ComparisonSele
     shown,
     reference,
     horizonYears: analysis.assumptions.horizonYears,
+    markPowerLimited: variant === 'catalog' && annualCatalogEntriesOf(analysis) !== null,
   }
 }
 
@@ -735,16 +761,17 @@ export function buildComparisonChapter(
 ): ComparisonChapter {
   /* ⚠ `context ? … : …` statt `??` — `comparisonPlan` ist selbst gültig `null`. */
   const plan = context ? context.comparisonPlan : comparisonChartPlan(analysis)
-  const { variant, considered, shown, reference, horizonYears } = comparisonSelection(analysis)
+  const { variant, considered, shown, reference, horizonYears, markPowerLimited } =
+    comparisonSelection(analysis)
   const hasTable = shown.length > 0
 
   return {
     figure: plan ? buildFigure(plan, displayedPriceBasis(analysis)) : null,
     figureMissing: plan ? null : FIGURE_MISSING,
     statement: hasTable
-      ? buildTableStatement(variant, considered, noPayoffReasonOf(analysis, hasPv), shown)
+      ? buildTableStatement(variant, considered, noPayoffReasonOf(analysis, hasPv), shown, markPowerLimited)
       : buildVerdict(considered, horizonYears),
-    table: hasTable ? buildCandidateTable(shown, horizonYears, reference) : null,
+    table: hasTable ? buildCandidateTable(shown, horizonYears, reference, markPowerLimited) : null,
     tableFootnote: hasTable
       ? tableFootnoteOf(
           analysis,
