@@ -1,3 +1,4 @@
+import { wrongIntervalMessage } from 'shared'
 import { countCoveredMonths, toIsoUtc, type DateFormat } from './datetime'
 import { detectStructure, isInverterExport, timestampMarksFromHeader } from './detect'
 import { byteSize, resolveLimits } from './limits'
@@ -46,9 +47,10 @@ import type {
  * ══════════════════════════════════════════════════════════════════════════════════════════════
  * Zwei Gründe, und beide sind hart:
  *
- *   (1) `parseLoadProfile` LEHNT 60-MIN-DATEN AB (`parse.ts`: `wrong_interval`, wenn das erkannte
- *       Intervall nicht 15 ist). Ein Zählpunkt darf aber laut Auftrag 15 ODER 60 Minuten tragen —
- *       Stundenwerte sind ein realer Netzbetreiber-Export. Diese Funktion nimmt beide an.
+ *   (1) `parseLoadProfile` LEHNT JEDES INTERVALL AUSSER 15 MINUTEN AB (`parse.ts`:
+ *       `wrong_interval`). Diese Funktion lehnt seit 10.10.2026 dasselbe ab (s.
+ *       `SUPPORTED_INTERVAL_MINUTES`) — ein hier angenommener Stundenlastgang scheiterte sonst erst
+ *       beim Rechnen.
  *   (2) `parseLoadProfile` baut ein lückenloses 15-min-Gitter und INTERPOLIERT kleine Lücken weg.
  *       Genau das ist für die Rechnung richtig und für die Metadaten falsch: was hier gebraucht
  *       wird, ist die Aussage „von wann bis wann liegen tatsächlich Messwerte vor und wo fehlen
@@ -104,7 +106,7 @@ export type LoadProfileGap = {
  * Feldnamen sind unverändert die des Auftrags.
  */
 export type LoadProfileMetadata = {
-  /** 15 oder 60. Aus den Zeitstempeln erkannt, nicht angenommen. */
+  /** Aus den Zeitstempeln erkannt, nicht angenommen — s. `SUPPORTED_INTERVAL_MINUTES`. */
   intervalMinutes: number
   /** Beginn des ERSTEN Intervalls mit Messwert, ISO/UTC. */
   coveredFrom: string
@@ -155,8 +157,11 @@ export type LoadProfileScan =
  */
 export const GAP_TOLERANCE_INTERVALS = 2
 
-/** Die Intervalle, die ein Zählpunkt tragen darf — Spiegel des CHECK auf `metering_points`. */
-export const SUPPORTED_INTERVAL_MINUTES = [15, 60] as const
+/**
+ * Die Intervalle, die ein Upload tragen darf. Nur 15, weil `parseLoadProfile` nur 15 rechnet; der
+ * CHECK auf `metering_points` (15, 60) bleibt bewusst weiter.
+ */
+export const SUPPORTED_INTERVAL_MINUTES = [15] as const
 
 const DEFAULT_TZ = 'Europe/Vienna'
 
@@ -333,11 +338,7 @@ export function readLoadProfileMetadata(
 
   const intervalMinutes = detectIntervalMinutes(stamps)
   if (!(SUPPORTED_INTERVAL_MINUTES as readonly number[]).includes(intervalMinutes))
-    return err(
-      'wrong_interval',
-      `Nur ${SUPPORTED_INTERVAL_MINUTES.join('- oder ')}-min-Intervall unterstuetzt ` +
-        `(erkannt: ${intervalMinutes} min).`,
-    )
+    return err('wrong_interval', wrongIntervalMessage(intervalMinutes, 'load_profile'))
 
   const stepMs = intervalMinutes * 60_000
   const gaps: LoadProfileGap[] = []
@@ -466,11 +467,7 @@ function pvErr(code: ParseError['code'], message: string): PvProfileScan {
 function pvMetadataFromStamps(stamps: number[], timezone: string): PvProfileScan {
   const intervalMinutes = detectIntervalMinutes(stamps)
   if (!(SUPPORTED_INTERVAL_MINUTES as readonly number[]).includes(intervalMinutes))
-    return pvErr(
-      'wrong_interval',
-      `Nur ${SUPPORTED_INTERVAL_MINUTES.join('- oder ')}-min-Intervall unterstuetzt ` +
-        `(erkannt: ${intervalMinutes} min).`,
-    )
+    return pvErr('wrong_interval', wrongIntervalMessage(intervalMinutes, 'pv_profile'))
 
   const stepMs = intervalMinutes * 60_000
   const gaps: PvProfileGap[] = []

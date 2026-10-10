@@ -578,7 +578,7 @@ function PvProfileUploadForm({
 
       <div>
         <p className="max-w-prose text-body text-ink">
-          Liegt die Erzeugung dieser Anlage als Datei vor (Viertelstunden- oder Stundenwerte)?
+          Liegt die Erzeugung dieser Anlage als Datei vor (Viertelstundenwerte)?
         </p>
         <p className="mt-2 max-w-prose text-small text-text-muted">
           Wechselrichter-Portale stellen sie als CSV- oder XLSX-Datei bereit. Ohne Datei geht es

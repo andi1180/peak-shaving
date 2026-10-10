@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { MAX_PROJECT_DOCUMENT_BYTES } from 'shared'
+import { HOURLY_LOAD_PROFILE_MESSAGE, lastgangCsv } from '@/lib/test-support/lastgang-csv'
 
 /**
  * Lastgang-Upload direkt zu Storage: die zwei Actions samt dem ECHTEN `direct-upload.ts`.
@@ -179,6 +180,40 @@ describe('completeLoadProfileUploadAction', () => {
     const called = rpc.mock.calls.map((c) => c[0])
     expect(called).not.toContain('append_project_document')
     expect(called).not.toContain('set_metering_point_load_profile')
+  })
+
+  describe('mit dem echten Leser', () => {
+    beforeEach(async () => {
+      const actual = await vi.importActual<typeof import('extractors')>('extractors')
+      readLoadProfile.mockImplementation(actual.readLoadProfile)
+    })
+
+    it('60-Minuten-Datei: verständliche Meldung, nichts gespeichert', async () => {
+      getProjectDocumentBytes.mockResolvedValue({
+        ok: true,
+        bytes: new TextEncoder().encode(lastgangCsv(60)).buffer,
+      })
+      const res = await complete()
+      expect(res.fieldErrors?.file).toContain(HOURLY_LOAD_PROFILE_MESSAGE)
+      expect(res.success).toBeUndefined()
+      expect(removeProjectDocumentBytes).toHaveBeenCalledWith(STORAGE_PATH)
+      const called = rpc.mock.calls.map((c) => c[0])
+      expect(called).not.toContain('append_project_document')
+      expect(called).not.toContain('set_metering_point_load_profile')
+    })
+
+    it('15-Minuten-Datei läuft unverändert durch', async () => {
+      getProjectDocumentBytes.mockResolvedValue({
+        ok: true,
+        bytes: new TextEncoder().encode(lastgangCsv(15)).buffer,
+      })
+      const res = await complete()
+      expect(res).toEqual({ success: 'Lastgang eingelesen und gespeichert.' })
+      expect(rpc).toHaveBeenCalledWith(
+        'set_metering_point_load_profile',
+        expect.objectContaining({ p_interval_minutes: 15 }),
+      )
+    })
   })
 
   it('bereits eingetragenes Dokument wird weder gelesen noch entfernt', async () => {

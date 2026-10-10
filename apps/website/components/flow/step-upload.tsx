@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { AlertTriangle, ArrowRight, ShieldCheck, XCircle } from 'lucide-react'
 import { parseLoadProfile } from 'engine'
 import type { ColumnMapping, Detection, Unit, ValueColumnInfo } from 'engine'
+import { parseErrorMessage } from 'shared'
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
@@ -174,7 +175,7 @@ export function StepUpload({
     setNotice({
       kind: 'error',
       title: 'Datei konnte nicht gelesen werden',
-      message: outcome.error.message,
+      message: parseErrorMessage(outcome.error),
     })
   }
 
@@ -206,7 +207,7 @@ export function StepUpload({
       )
       return
     }
-    setMappingError(outcome.error.message)
+    setMappingError(parseErrorMessage(outcome.error))
   }
 
   function handleCancelMapping() {

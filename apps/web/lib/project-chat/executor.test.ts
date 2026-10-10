@@ -1,10 +1,14 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { emptyInvoiceExtraction } from 'shared'
+
+import { HOURLY_LOAD_PROFILE_MESSAGE, lastgangCsv } from '@/lib/test-support/lastgang-csv'
 
 import { readDraftProvenance } from './draft'
 import { executeChatTool } from './executor'
 import { createMemoryPorts, fakeLoadProfileFile, fakeMeteringPoint, fakePdf } from './fixtures'
 import type { ChatExtractors } from './ports'
+
+vi.mock('server-only', () => ({}))
 
 /**
  * B24 — DER WERKZEUG-AUSFÜHRER.
@@ -1168,6 +1172,35 @@ describe('extract_load_profile', () => {
     expect(payload(result.content).metering_points).toEqual([])
     expect(await ports.listMeteringPoints(PROJECT)).toEqual([])
     expect(ports.calls.readDocument).toBeUndefined()
+  })
+
+  it('60-Minuten-Datei: verständliche Meldung, nichts gespeichert (echter Leser)', async () => {
+    const { readLoadProfile } = await vi.importActual<typeof import('extractors')>('extractors')
+    const ports = createMemoryPorts({
+      projectId: PROJECT,
+      meteringPoints: [meteringPoint(MP_A)],
+      documentBytes: {
+        doc: {
+          bytes: new TextEncoder().encode(lastgangCsv(60)).buffer,
+          filename: 'lastgang.csv',
+          contentType: 'text/csv',
+        },
+      },
+      extractors: { readLoadProfile },
+    })
+
+    const result = await executeChatTool(
+      ports,
+      PROJECT,
+      'extract_load_profile',
+      { document_id: 'doc', metering_point_id: MP_A },
+      NOW,
+    )
+
+    expect(result.isError).toBe(true)
+    expect(payload(result.content).error).toContain(HOURLY_LOAD_PROFILE_MESSAGE)
+    expect(ports.calls.setMeteringPointLoadProfile).toBeUndefined()
+    expect((await ports.listMeteringPoints(PROJECT))[0]!.source_document_id).toBeNull()
   })
 
   it('⚠ speichert NICHTS, wenn die Datei mehrere Messreihen enthält — und fragt zurück', async () => {

@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs'
 
+import { parseErrorMessage } from 'shared'
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -7,6 +8,7 @@ import {
   readLoadProfileMetadata,
   readPvProfileMetadata,
 } from './metadata'
+import { parseLoadProfile } from './parse'
 
 /**
  * B24, Teil 1 — der Metadaten-Leser gegen synthetische UND echte Dateien.
@@ -252,28 +254,21 @@ describe('Doppelte Zeitstempel — Deduplizierung und der Herbst-Artefakt', () =
 })
 
 // ═════════════════════════════════════════════════════════════════════════════════════════════════
-describe('Intervall — 15 und 60 Minuten, sonst nichts', () => {
-  it('erkennt Stundenwerte als 60 min — `parseLoadProfile` lehnt genau die ab', () => {
-    const out = scan(buildCsv({ year: 2025, month: 6, firstDay: 1, days: 5, intervalMinutes: 60 }))
-    if (!out.ok || out.needsMapping) throw new Error('ok-Ergebnis erwartet')
+describe('Intervall — nur 15 Minuten', () => {
+  const HOURLY_MESSAGE =
+    'Die Datei enthält Werte im 60-Minuten-Raster. Wir benötigen den Viertelstunden-Lastgang ' +
+    '(15 Minuten); bitte beim Netzbetreiber anfordern.'
 
-    expect(out.intervalMinutes).toBe(60)
-    expect(out.rowCount).toBe(5 * 24)
-    // `coveredTo` schlägt die Dauer des LETZTEN Intervalls auf — hier eine Stunde, nicht 15 Minuten.
-    expect(out.coveredFrom).toBe('2025-05-31T22:00:00.000Z')
-    expect(out.coveredTo).toBe('2025-06-05T22:00:00.000Z')
-  })
-
-  it('⚠ bei 60 min ist auch die Lücken-Schwelle eine Stunde je Intervall', () => {
+  it('lehnt Stundenwerte ab — mit derselben Meldung wie der Rechenpfad (`parseLoadProfile`)', () => {
     const hourly = buildCsv({ year: 2025, month: 6, firstDay: 1, days: 5, intervalMinutes: 60 })
-    const lines = hourly.split('\n')
-    // Zwei Stunden am Stück entfernen (Datenzeilen 30 und 31).
-    const out = scan(lines.filter((_, i) => i !== 30 && i !== 31).join('\n'))
-    if (!out.ok || out.needsMapping) throw new Error('ok-Ergebnis erwartet')
+    const out = scan(hourly)
+    if (out.ok) throw new Error('Fehler erwartet')
+    expect(out.error).toEqual({ code: 'wrong_interval', message: HOURLY_MESSAGE })
 
-    expect(out.gaps).toHaveLength(1)
-    const gap = out.gaps[0]!
-    expect(new Date(gap.to).getTime() - new Date(gap.from).getTime()).toBe(2 * 60 * 60 * 1000)
+    // Der Rechenpfad nennt das Intervall nur im eigenen Text; `parseErrorMessage` macht daraus denselben Satz.
+    const parsed = parseLoadProfile({ content: hourly, format: 'csv' })
+    if (parsed.ok || parsed.kind !== 'error') throw new Error('Fehler erwartet')
+    expect(parseErrorMessage(parsed.error)).toBe(HOURLY_MESSAGE)
   })
 
   it('ein anderes Intervall (5 min) wird ABGEWIESEN statt auf 15 gerundet', () => {
@@ -555,16 +550,16 @@ describe('PV-Reihe — Lücken und die Toleranzschwelle', () => {
 
 // ═════════════════════════════════════════════════════════════════════════════════════════════════
 describe('PV-Reihe — Intervall', () => {
-  it('erkennt Stundenwerte als 60 min und schlägt sie auf `coveredTo` auf', () => {
-    const out = okPv(
+  it('lehnt Stundenwerte ab', () => {
+    const error = errPv(
       scanPv(buildPvCsv({ year: 2025, month: 6, firstDay: 1, days: 5, intervalMinutes: 60 })),
     )
-
-    expect(out.intervalMinutes).toBe(60)
-    expect(out.rowCount).toBe(5 * 24)
-    expect(out.coveredFrom).toBe('2025-05-31T22:00:00.000Z') // 01.06. 00:00 Ortszeit
-    // ⚠ Eine STUNDE aufgeschlagen, nicht 15 Minuten: 05.06. 23:00 Ortszeit + 60 min = 06.06. 00:00.
-    expect(out.coveredTo).toBe('2025-06-05T22:00:00.000Z')
+    expect(error.code).toBe('wrong_interval')
+    expect(error.message).toBe(
+      'Die Datei enthält Werte im 60-Minuten-Raster. Wir benötigen die PV-Erzeugung in ' +
+        'Viertelstundenwerten (15 Minuten); bitte als 15-Minuten-Export aus dem ' +
+        'Wechselrichter-Portal herunterladen.',
+    )
   })
 
   it('⚠ ein anderes Intervall (5 min) wird ABGEWIESEN statt auf 15 gerundet', () => {
@@ -578,7 +573,7 @@ describe('PV-Reihe — Intervall', () => {
     )
     expect(error.code).toBe('wrong_interval')
     // Die Meldung nennt das erkannte Intervall — sonst weiss der Admin nicht, was an der Datei ist.
-    expect(error.message).toContain('5 min')
+    expect(error.message).toContain('5-Minuten-Raster')
   })
 })
 

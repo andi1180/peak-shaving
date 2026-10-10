@@ -23,6 +23,7 @@ import {
   findUnsupportedAnalysisDraftKeys,
   hasMeteringVariant,
   NETZBETREIBER_DRAFT_KEY,
+  parseErrorMessage,
   parseNetzebeneDraftValue,
   PV_GENERATED_DRAFT_KEYS,
   PV_GENERATED_PROFILE_SOURCE,
@@ -37,6 +38,7 @@ import {
   type AnnualScenario,
   type BatteryCandidate,
   type BatteryCatalogCategory,
+  type IntervalFileKind,
   type LoadProfile,
   type MonthlyTariffComparison,
   type TariffPricingInputs,
@@ -329,7 +331,7 @@ export async function runAnalysisFromMeteringPointDraft(
     }
     throw new MeteringPointAnalysisError(
       'load_profile_unreadable',
-      `Die Lastgang-Datei konnte nicht gelesen werden (${parsed.error.code}): ${parsed.error.message}`,
+      unreadableMessage('Die Lastgang-Datei', parsed.error, 'load_profile'),
     )
   }
 
@@ -867,11 +869,22 @@ async function readPvProfileFromDraft(
     }
     throw new MeteringPointAnalysisError(
       'pv_profile_unreadable',
-      `Die PV-Erzeugungsdatei konnte nicht gelesen werden (${parsed.error.code}): ${parsed.error.message}`,
+      unreadableMessage('Die PV-Erzeugungsdatei', parsed.error, 'pv_profile'),
     )
   }
 
   return { fileName: document.fileName, profile: parsed.profile, dataQuality: parsed.dataQuality }
+}
+
+// Ein falsches Messraster bekommt den Satz für den Anwender, nicht den Fehlercode (Altbestände mit 60 min).
+function unreadableMessage(
+  label: string,
+  error: { code: string; message: string },
+  kind: IntervalFileKind,
+): string {
+  return error.code === 'wrong_interval'
+    ? `${label} lässt sich nicht verwenden: ${parseErrorMessage(error, kind)}`
+    : `${label} konnte nicht gelesen werden (${error.code}): ${error.message}`
 }
 
 /** Der Monatsvergleich des gemessenen Laufs — nur, wenn er rechenbar ist. */

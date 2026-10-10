@@ -9,6 +9,7 @@ import {
   UPLOAD_DOCUMENT_TYPE_LABELS,
   isUploadDocumentType,
   mergeInvoicesForPrefill,
+  parseErrorMessage,
   type InvoiceExtraction,
   type UploadDocumentType,
 } from 'shared'
@@ -180,7 +181,7 @@ async function classifyLocally(file: File): Promise<Omit<RowVerdict, 'key' | 'la
   return {
     suggested: 'unbekannt',
     origin: 'lokal',
-    note: outcome.error.message,
+    note: parseErrorMessage(outcome.error),
     parsed: null,
     parseIssue: null,
   }
