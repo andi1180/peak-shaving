@@ -1474,7 +1474,20 @@ function Notice({ notice, keepTogether = false }: { notice: ReportNotice; keepTo
  * Ortsangabe ist eine Aussage über ZWEI Bausteine. Deshalb reicht es nicht, den Text zu ersetzen —
  * der Resolver muss wissen, wer spricht.
  */
-function Statement({ statement, layout }: { statement: ReportStatement; layout: ReportLayout }) {
+function Statement({
+  statement,
+  layout,
+  breakBetweenParts = false,
+}: {
+  statement: ReportStatement
+  layout: ReportLayout
+  /**
+   * Die Aussage darf an zwei Stellen umbrechen: nach Kopfzahl und Zeilen und vor dem Hinweiskasten
+   * — jeder der drei Teile bleibt für sich `wrap={false}`. Für Aussagen, die als Ganzes fast eine
+   * Seite füllen (Kaufaussage), sonst schiebt ein Überhang von wenigen pt alles auf die Folgeseite.
+   */
+  breakBetweenParts?: boolean
+}) {
   /*
    * B3-2a — das VERDIKT ist die einzige Aussage, deren Kopfzahl ein Wort ist: die Antwort auf
    * eine Frage als Überschrift, im Kostenton (`ReportAmountTone`, `statement.ts`). Es steht am
@@ -1507,8 +1520,8 @@ function Statement({ statement, layout }: { statement: ReportStatement; layout: 
       ),
     )
 
-  return (
-    <View style={aside ? [styles.statement, styles.statementAside] : styles.statement} wrap={false}>
+  const headPart = (
+    <>
       <Text
         style={verdict ? styles.verdictTitle : aside ? styles.noticeTitle : styles.statementTitle}
       >
@@ -1543,6 +1556,10 @@ function Statement({ statement, layout }: { statement: ReportStatement; layout: 
           ))}
         </View>
       )}
+    </>
+  )
+  const detailPart = (
+    <>
       {statement.subBlock && (
         <View style={styles.pointList}>
           <Text style={styles.pointTitle}>{statement.subBlock.title}</Text>
@@ -1587,12 +1604,31 @@ function Statement({ statement, layout }: { statement: ReportStatement; layout: 
           ))}
         </View>
       )}
-      {/*
-        Die §3.8-Warnungen als Hinweiskasten. Sie stehen NEBEN der Investition und nicht in ihr:
-        „Betonsockel nötig (+€1800)" ist bereits in der Gesamtsumme enthalten — wer den Satz
-        überliest, hält die Summe für zu hoch. Fehlt der Kasten, gibt es keine Warnung.
-      */}
-      {statement.notice && <Notice notice={statement.notice} />}
+    </>
+  )
+  /*
+    Die §3.8-Warnungen als Hinweiskasten. Sie stehen NEBEN der Investition und nicht in ihr:
+    „Betonsockel nötig (+€1800)" ist bereits in der Gesamtsumme enthalten — wer den Satz
+    überliest, hält die Summe für zu hoch. Fehlt der Kasten, gibt es keine Warnung.
+  */
+  const noticePart = statement.notice && <Notice notice={statement.notice} />
+  const style = aside ? [styles.statement, styles.statementAside] : styles.statement
+
+  if (breakBetweenParts) {
+    const hasDetail = Boolean(statement.subBlock) || body.length > 0 || points.length > 0
+    return (
+      <View style={style}>
+        <View wrap={false}>{headPart}</View>
+        {hasDetail && <View wrap={false}>{detailPart}</View>}
+        {noticePart && <View wrap={false}>{noticePart}</View>}
+      </View>
+    )
+  }
+  return (
+    <View style={style} wrap={false}>
+      {headPart}
+      {detailPart}
+      {noticePart}
     </View>
   )
 }
@@ -2214,7 +2250,9 @@ function RecommendationChapter({
       <Text style={styles.h2}>{RECOMMENDATION_SECTION.title}</Text>
       <Text style={styles.lead}>{RECOMMENDATION_INTRO}</Text>
 
-      {chapter.recommendation && <Statement statement={chapter.recommendation} layout={layout} />}
+      {chapter.recommendation && (
+        <Statement statement={chapter.recommendation} layout={layout} breakBetweenParts />
+      )}
       {chapter.loadControl && <Statement statement={chapter.loadControl} layout={layout} />}
     </View>
   )
