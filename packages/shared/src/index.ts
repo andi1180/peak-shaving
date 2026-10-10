@@ -2,6 +2,7 @@
 // Feldnamen sind VERBATIM aus dem Pflichtenheft (inkl. Einheiten-Suffixe) und die
 // gemeinsame Übereinkunft; Umbenennen bricht Engine/UI-Verträge und jedes Handover.
 export * from './load-profile'
+export * from './upload-interval'
 export * from './tariff'
 export * from './demand-charge'
 export * from './battery'

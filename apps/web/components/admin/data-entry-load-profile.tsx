@@ -285,7 +285,7 @@ export function DataEntryLoadProfile({
       {removeState.formError && <AdminError>{removeState.formError}</AdminError>}
       <div>
         <p className="max-w-prose text-body text-ink">
-          Haben Sie Lastgangsdaten (Viertelstunden- oder Stundenwerte) für Zählpunkt{' '}
+          Haben Sie Lastgangsdaten (Viertelstundenwerte) für Zählpunkt{' '}
           {meteringPointNumber}?
         </p>
         <p className="mt-2 max-w-prose text-small text-text-muted">

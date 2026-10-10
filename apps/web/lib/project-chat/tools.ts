@@ -449,7 +449,7 @@ const ALL_TOOLS: Record<ChatToolName, Anthropic.Tool> = {
     name: 'extract_load_profile',
     description: [
       'Liest einen hochgeladenen Lastgang (CSV oder XLSX) und hält fest, WAS er abdeckt: das',
-      'Messintervall (15 oder 60 Minuten), den Zeitraum und die Lücken darin.',
+      'Messintervall (nur 15 Minuten werden angenommen), den Zeitraum und die Lücken darin.',
       '',
       'Das Ergebnis wird direkt am angegebenen Zählpunkt gespeichert — anders als die anderen',
       'Lese-Werkzeuge musst du hier nichts mit set_draft_field übernehmen. Der Grund: ein Betrieb',

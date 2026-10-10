@@ -28,6 +28,7 @@ import {
   type PriceBasis,
   type TariffParams,
   type TariffPricingInputs,
+  parseErrorMessage,
 } from 'shared'
 
 import {
@@ -755,7 +756,7 @@ export function StepTariff({
     setPvIssue(
       outcome.kind === 'needs_mapping'
         ? outcome.issues.map((i) => i.message).join(' ')
-        : outcome.error.message,
+        : parseErrorMessage(outcome.error, 'pv_profile'),
     )
   }
 

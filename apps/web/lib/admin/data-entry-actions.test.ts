@@ -2191,21 +2191,23 @@ describe('uploadMeteringPointPvProfileAction — die Erzeugungsreihe', () => {
 
   it('⚠ reicht die Meldung DES LESERS durch, statt sie durch einen eigenen Satz zu ersetzen', async () => {
     /*
-     * Ein Wechselrichter-Export im 5-Minuten-Raster — der häufigste reale Ablehnungsgrund. Die
+     * Ein Wechselrichter-Export im Stundenraster. Die
      * Meldung des Lesers nennt das ERKANNTE Intervall, und das ist die einzige Auskunft, die dem
      * Admin sagt, WAS an seiner Datei nicht stimmt. Ein eigener Satz („Datei konnte nicht gelesen
      * werden") nähme sie ihm, ohne dass irgendetwas fehlschlüge.
      *
-     * Gemessen wird deshalb an einer Zahl, die NUR der Leser kennt: die „5 min" stehen nirgends in
-     * dieser Action und in keinem Text, den sie selbst formulieren könnte.
+     * Gemessen wird deshalb an einer Zahl, die NUR der Leser kennt: die „60-Minuten" stehen nirgends
+     * in dieser Action und in keinem Text, den sie selbst formulieren könnte.
      */
     const state = await uploadMeteringPointPvProfileAction(
       {},
-      pvForm(pvFile(pvCsvText({ days: 1, intervalMinutes: 5 }))),
+      pvForm(pvFile(pvCsvText({ days: 1, intervalMinutes: 60 }))),
     )
 
-    expect(state.fieldErrors?.file).toContain('5 min')
-    expect(state.fieldErrors?.file).toContain('Intervall')
+    expect(state.fieldErrors?.file).toContain(
+      'Die Datei enthält Werte im 60-Minuten-Raster. Wir benötigen die PV-Erzeugung in ' +
+        'Viertelstundenwerten (15 Minuten)',
+    )
     // Der eigene Zusatz kommt HINTEN dran und ersetzt nichts.
     expect(state.fieldErrors?.file).toContain('Es wurde nichts hochgeladen und nichts gespeichert.')
 
