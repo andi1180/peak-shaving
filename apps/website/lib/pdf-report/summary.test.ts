@@ -3,7 +3,7 @@ import type { BatteryRoiEntry, MonthlyTariffComparison } from 'shared'
 
 import { reportLayoutOf } from './layout'
 import { resolveReportText } from './report-text'
-import { buildReportSummary, type SummaryInput } from './summary'
+import { buildPvPointer, buildReportSummary, type SummaryInput } from './summary'
 import type { PdfReportAnalysis } from './types'
 
 /**
@@ -225,6 +225,24 @@ describe('der PV-Satz', () => {
     expect(summaryFor({ hasPv: true }).pvPointer).not.toBeNull()
     expect(summaryFor({ hasPv: false }).pvPointer).toBeNull()
     expect(summaryFor().pvPointer).toBeNull()
+  })
+
+  const pointerText = (stage: 'planned' | 'existing') =>
+    resolveReportText(buildPvPointer(true, stage)!, reportLayoutOf([]), 'pv_pointer')
+
+  it('sagt bei geplanter Anlage nicht mehr, sie wirke auf alle Tarife gleich', () => {
+    const planned = pointerText('planned')
+    expect(planned).not.toContain('gleichermassen')
+    expect(planned).not.toContain('ändert sie nichts')
+    expect(planned).toContain(
+      'sie senkt Ihre Kosten in allen Wegen, aber nicht gleich stark: Eine selbst erzeugte Kilowattstunde spart im Fixtarif den vollen Arbeitspreis, bei einem Börsenpreis-Tarif nur den Börsenpreis der jeweiligen Stunde. Der Abstand zwischen den Tarifen verändert sich dadurch.',
+    )
+  })
+
+  it('lässt den Satz zur bestehenden Anlage unverändert', () => {
+    expect(pointerText('existing')).toBe(
+      'Ihre PV-Anlage ist in diesen Zahlen bereits berücksichtigt: sie senkt Ihren Netzbezug und damit die Kosten aller Wege gleichermassen — an der Tarifwahl ändert sie nichts.',
+    )
   })
 })
 

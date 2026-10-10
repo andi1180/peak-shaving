@@ -721,7 +721,7 @@ export function buildPvPointer(
    * Lesart ALLER Kostenreihen setzt.
    */
   if (pvStage === 'planned') {
-    return t`Ihre geplante PV-Anlage ist in diesen Zahlen bereits berücksichtigt: ihre Erzeugung ist aus Standort und Anlagendaten geschätzt und vom gemessenen Netzbezug abgezogen — sie senkt die Kosten aller Wege gleichermassen, an der Tarifwahl ändert sie nichts.`
+    return t`Ihre geplante PV-Anlage ist in diesen Zahlen bereits berücksichtigt: ihre Erzeugung ist aus Standort und Anlagendaten geschätzt und vom gemessenen Netzbezug abgezogen — sie senkt Ihre Kosten in allen Wegen, aber nicht gleich stark: Eine selbst erzeugte Kilowattstunde spart im Fixtarif den vollen Arbeitspreis, bei einem Börsenpreis-Tarif nur den Börsenpreis der jeweiligen Stunde. Der Abstand zwischen den Tarifen verändert sich dadurch.`
   }
 
   /*

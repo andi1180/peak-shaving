@@ -81,4 +81,21 @@ describe('Lastgang-Kennzahlen', () => {
     expect(buildLoadMetrics(tagesprofil(), analysisFor(1, 0))?.rows).toHaveLength(2)
     expect(buildLoadMetrics(tagesprofil(), analysisFor(0, 40))).toBeNull()
   })
+
+  it('nennt die Summe Netzbezug, wenn eine geschätzte PV abgezogen ist', () => {
+    const labelsOf = (profile: LoadProfile) => {
+      const block = buildLoadMetrics(profile, analysisFor(1, 40))!
+      return [block.title, ...block.rows.slice(0, 2).map((r) => r.label)]
+    }
+    expect(labelsOf({ ...tagesprofil(), pvSource: 'estimated' })).toEqual([
+      'Ihr Netzbezug in Zahlen',
+      'Netzbezug nach geplanter PV über den Zeitraum',
+      'Ø Netzbezug pro Tag',
+    ])
+    expect(labelsOf(tagesprofil())).toEqual([
+      'Ihr Verbrauch in Zahlen',
+      'Gesamtverbrauch über den Zeitraum',
+      'Ø Tagesverbrauch',
+    ])
+  })
 })
