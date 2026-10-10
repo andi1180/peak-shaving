@@ -2443,6 +2443,8 @@
       "storage_error": "Ihre Nachricht konnte nicht gespeichert werden. Bitte versuchen Sie es noch einmal.",
       "empty_message": "Bitte schreiben Sie etwas, bevor Sie senden.",
       "tool_limit": "Der Assistent hat für diesen Schritt sehr viel nachgesehen und ist noch nicht fertig. Schreiben Sie ihm kurz, woran er weitermachen soll.",
+      "empty_reply": "Die Antwort wurde nicht fertig. Bitte kurz „weiter“ schreiben.",
+      "open_items": "Es gibt noch Offenes — schreiben Sie einfach weiter.",
       "invalid_attachments": "Ihre Unterlagen konnten nicht übergeben werden. Bitte laden Sie die Seite neu.",
       "network": "Verbindung unterbrochen. Bitte versuchen Sie es noch einmal."
     }

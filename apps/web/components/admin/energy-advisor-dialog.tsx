@@ -20,6 +20,7 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Label, Textarea } from '@/components/ui/input'
 import { energyAdvisorTriggerLabel } from '@/lib/admin/energy-advisor'
+import type { SendProjectChatMessageResult } from '@/lib/project-chat/chat'
 import { sendEnergyAdvisorMessage } from '@/lib/project-chat/energy-advisor-chat'
 import type { TranscriptEntry } from '@/lib/project-chat/transcript'
 
@@ -53,9 +54,42 @@ function statusMessage(status: string, extra?: { used: number; max: number }): s
       return 'Die Nachricht konnte nicht gespeichert werden. Bitte versuchen Sie es noch einmal.'
     case 'tool_limit':
       return 'Der Assistent hat sehr viel nachgesehen und ist noch nicht fertig. Schreiben Sie ihm kurz, woran er weitermachen soll.'
+    case 'empty_reply':
+      return 'Die Antwort wurde nicht fertig. Bitte kurz „weiter“ schreiben.'
+    case 'open_items':
+      return 'Es gibt noch Offenes — schreiben Sie einfach weiter.'
     default:
       return 'Verbindung unterbrochen. Bitte versuchen Sie es noch einmal.'
   }
+}
+
+/**
+ * Die Ausgänge mit Modellantwort. Liefert true, wenn der Aufrufer fertig ist; bei leerer Endantwort
+ * erscheinen die Zwischentexte früherer Durchläufe, damit Gefundenes nicht unsichtbar bleibt.
+ */
+function applyTurnResult(
+  result: SendProjectChatMessageResult,
+  setEntries: React.Dispatch<React.SetStateAction<TranscriptEntry[]>>,
+  setStatusText: (text: string | null) => void,
+): boolean {
+  if (result.status === 'ok') {
+    if (result.reply.trim() !== '') {
+      setEntries((prev) => [...prev, { role: 'assistant', text: result.reply }])
+      if (result.limitReached) setStatusText(statusMessage('open_items'))
+    } else {
+      setStatusText(statusMessage('empty_reply'))
+    }
+    return true
+  }
+  if (result.status === 'empty_reply' || result.status === 'tool_limit') {
+    const partial = result.partialReply
+    if (partial.trim() !== '') {
+      setEntries((prev) => [...prev, { role: 'assistant', text: partial }])
+    }
+    setStatusText(statusMessage(result.status))
+    return true
+  }
+  return false
 }
 
 export function EnergyAdvisorDialog({
@@ -96,14 +130,7 @@ export function EnergyAdvisorDialog({
       try {
         const result = await sendEnergyAdvisorMessage(projectId, text)
 
-        if (result.status === 'ok') {
-          if (result.reply.trim() !== '') {
-            setEntries((prev) => [...prev, { role: 'assistant', text: result.reply }])
-          } else {
-            setStatusText(statusMessage('tool_limit'))
-          }
-          return
-        }
+        if (applyTurnResult(result, setEntries, setStatusText)) return
 
         setStatusText(
           statusMessage(result.status, result.status === 'limit_reached' ? result : undefined),
@@ -133,14 +160,7 @@ export function EnergyAdvisorDialog({
     try {
       const result = await sendEnergyAdvisorMessage(projectId, text)
 
-      if (result.status === 'ok') {
-        if (result.reply.trim() !== '') {
-          setEntries((prev) => [...prev, { role: 'assistant', text: result.reply }])
-        } else {
-          setStatusText(statusMessage('tool_limit'))
-        }
-        return
-      }
+      if (applyTurnResult(result, setEntries, setStatusText)) return
 
       setStatusText(
         statusMessage(result.status, result.status === 'limit_reached' ? result : undefined),

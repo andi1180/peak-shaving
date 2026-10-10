@@ -1,3 +1,4 @@
+import type Anthropic from '@anthropic-ai/sdk'
 import { describe, expect, it, vi } from 'vitest'
 import { emptyInvoiceExtraction } from 'shared'
 
@@ -7,7 +8,7 @@ import { emptyInvoiceExtraction } from 'shared'
 // `ai-client.ts`, aus dem die Schleife ihre Obergrenze zieht.
 vi.mock('server-only', () => ({}))
 
-import { runProjectChatTurn } from './agent'
+import { TOOL_LIMIT_FINAL_INSTRUCTION, runProjectChatTurn, type ModelCallInput } from './agent'
 import { MAX_TOOL_CALLS_PER_TURN } from './ai-client'
 import { readDraftProvenance } from './draft'
 import {
@@ -202,42 +203,149 @@ describe('Mehrfach-Turn-Dialog: Rechnung, Widerspruch, Annahme', () => {
   })
 })
 
-describe('Deadlock-Schutz', () => {
-  it('⚠ bricht bei einer endlosen Werkzeug-Schleife SAUBER ab', async () => {
-    const ports = createMemoryPorts({ projectId: PROJECT })
+describe('Werkzeuglimit und leere Antwort', () => {
+  type Reply = {
+    ok: true
+    content: Anthropic.ContentBlock[]
+    stopReason?: string
+    outputTokens?: number
+  }
+  type Seen = { toolNames: string[]; toolChoice: unknown; lastUserBlocks: unknown[] }
 
-    // Ein Modell, das immer dasselbe Werkzeug ruft und nie zu einer Antwort kommt.
-    let calls = 0
-    const endless = async () => {
-      calls += 1
-      return {
-        ok: true as const,
-        content: [toolUse(`tu_${calls}`, 'check_draft_completeness', {})],
-      }
+  /** Ruft bis zum Limit immer ein Werkzeug; der Aufruf danach antwortet nach `final`. */
+  function limitModel(final: () => Reply | { ok: false; reason: 'api_error' }, perRoundText = '') {
+    const seen: Seen[] = []
+    const call = async (input: ModelCallInput) => {
+      const last = input.messages[input.messages.length - 1]
+      seen.push({
+        toolNames: input.tools.map((tool) => tool.name),
+        toolChoice: input.toolChoice,
+        lastUserBlocks: Array.isArray(last?.content) ? [...last.content] : [],
+      })
+      if (seen.length > MAX_TOOL_CALLS_PER_TURN) return final()
+      const content = [toolUse(`tu_${seen.length}`, 'check_draft_completeness', {})]
+      if (perRoundText !== '') content.unshift(assistantSays(`${perRoundText} ${seen.length}`))
+      return { ok: true as const, content, stopReason: 'tool_use', outputTokens: 40 }
     }
+    return { call, seen }
+  }
+
+  it('⚠ bei genau 8 Aufrufen folgt ein Schlussaufruf mit tool_choice none — und die Antwort kommt an', async () => {
+    const ports = createMemoryPorts({ projectId: PROJECT })
+    const model = limitModel(() => ({
+      ok: true,
+      content: [assistantSays('Erledigt: X. Offen: Y.')],
+    }))
 
     const result = await runProjectChatTurn(PROJECT, 'Los geht es.', {
       ports,
-      callModel: endless,
+      callModel: model.call,
     })
 
-    expect(result).toEqual({ status: 'tool_limit', toolCalls: MAX_TOOL_CALLS_PER_TURN })
-    expect(calls).toBe(MAX_TOOL_CALLS_PER_TURN)
-
-    // ⚠ Der Verlauf ist trotz Abbruch GÜLTIG: zu jedem Aufruf gibt es ein Ergebnis. Sonst wäre das
-    // Projekt dauerhaft unbenutzbar — es gibt kein update und kein delete auf dieser Ablage.
-    const callRows = ports.messages.filter((row) => row.role === 'tool_call').length
-    const resultRows = ports.messages.filter((row) => row.role === 'tool_result').length
-    expect(callRows).toBe(MAX_TOOL_CALLS_PER_TURN)
-    expect(resultRows).toBe(MAX_TOOL_CALLS_PER_TURN)
-
-    // Und der nächste Turn läuft normal weiter.
-    const next = scriptedModel([[assistantSays('Entschuldigung, ich fange neu an.')]])
-    const after = await runProjectChatTurn(PROJECT, 'Bitte von vorn.', {
-      ports,
-      callModel: next.call,
+    expect(result).toEqual({
+      status: 'ok',
+      reply: 'Erledigt: X. Offen: Y.',
+      toolCalls: MAX_TOOL_CALLS_PER_TURN,
+      limitReached: true,
     })
+    expect(model.seen).toHaveLength(MAX_TOOL_CALLS_PER_TURN + 1)
+    const final = model.seen[MAX_TOOL_CALLS_PER_TURN]!
+    expect(final.toolChoice).toEqual({ type: 'none' })
+    expect(final.toolNames).toEqual(model.seen[0]!.toolNames)
+    expect(model.seen.slice(0, -1).every((s) => s.toolChoice === undefined)).toBe(true)
+
+    // Die Anweisung steht im selben User-Block wie die tool_results — nach ihnen.
+    const blocks = final.lastUserBlocks as { type: string; text?: string }[]
+    expect(blocks.at(-1)).toEqual({ type: 'text', text: TOOL_LIMIT_FINAL_INSTRUCTION })
+    expect(blocks.slice(0, -1).every((block) => block.type === 'tool_result')).toBe(true)
+
+    // …aber NICHT im gespeicherten Verlauf; die Antwort dagegen schon, als normale Zeile.
+    expect(JSON.stringify(ports.messages)).not.toContain(TOOL_LIMIT_FINAL_INSTRUCTION)
+    expect(ports.messages.at(-1)?.role).toBe('assistant')
+    expect(ports.messages.filter((row) => row.role === 'tool_call')).toHaveLength(
+      MAX_TOOL_CALLS_PER_TURN,
+    )
+    expect(ports.messages.filter((row) => row.role === 'tool_result')).toHaveLength(
+      MAX_TOOL_CALLS_PER_TURN,
+    )
+
+    const next = scriptedModel([[assistantSays('Weiter geht es.')]])
+    const after = await runProjectChatTurn(PROJECT, 'Und weiter?', { ports, callModel: next.call })
     expect(after.status).toBe('ok')
+  })
+
+  it('ein leerer Schlussaufruf ergibt empty_reply — mit den Zwischentexten früherer Durchläufe', async () => {
+    const ports = createMemoryPorts({ projectId: PROJECT })
+    const model = limitModel(() => ({ ok: true, content: [], stopReason: 'max_tokens' }), 'Prüfe')
+
+    const result = await runProjectChatTurn(PROJECT, 'Los.', { ports, callModel: model.call })
+
+    expect(result.status).toBe('empty_reply')
+    const partial = (result as { partialReply: string }).partialReply
+    expect(partial.startsWith('Prüfe 1\n\nPrüfe 2')).toBe(true)
+    expect(partial).toContain(`Prüfe ${MAX_TOOL_CALLS_PER_TURN}`)
+  })
+
+  it('scheitert auch der Schlussaufruf, bleibt es bei tool_limit — Verlauf gültig', async () => {
+    const ports = createMemoryPorts({ projectId: PROJECT })
+    const model = limitModel(() => ({ ok: false, reason: 'api_error' }))
+
+    const result = await runProjectChatTurn(PROJECT, 'Los.', { ports, callModel: model.call })
+
+    expect(result).toEqual({
+      status: 'tool_limit',
+      partialReply: '',
+      toolCalls: MAX_TOOL_CALLS_PER_TURN,
+    })
+    expect(ports.messages.at(-1)?.role).toBe('tool_result')
+  })
+
+  it('eine leere Antwort ohne Limit ergibt empty_reply und zeigt den Zwischentext', async () => {
+    const ports = createMemoryPorts({ projectId: PROJECT })
+    const model = scriptedModel([
+      [assistantSays('Ich sehe nach.'), toolUse('tu_1', 'check_draft_completeness', {})],
+      [],
+    ])
+
+    const result = await runProjectChatTurn(PROJECT, 'Los.', { ports, callModel: model.call })
+
+    expect(result).toEqual({ status: 'empty_reply', partialReply: 'Ich sehe nach.', toolCalls: 1 })
+  })
+
+  it('protokolliert je Durchlauf stop_reason, output_tokens und Werkzeugzahl — ohne Inhalte', async () => {
+    const info = vi.spyOn(console, 'info').mockImplementation(() => {})
+    try {
+      const ports = createMemoryPorts({ projectId: PROJECT })
+      const model = limitModel(
+        () => ({
+          ok: true,
+          content: [assistantSays('GEHEIMER-ANTWORTTEXT')],
+          stopReason: 'end_turn',
+          outputTokens: 77,
+        }),
+        'GEHEIMER-ZWISCHENTEXT',
+      )
+      await runProjectChatTurn(PROJECT, 'GEHEIME-NUTZERNACHRICHT', { ports, callModel: model.call })
+
+      const rounds = info.mock.calls.filter((args) => args[0] === '[project-chat] Durchlauf')
+      expect(rounds).toHaveLength(MAX_TOOL_CALLS_PER_TURN + 1)
+      expect(rounds[0]![1]).toEqual({
+        kind: 'kunde',
+        round: 1,
+        stopReason: 'tool_use',
+        outputTokens: 40,
+        toolUses: 1,
+      })
+      expect(rounds.at(-1)![1]).toMatchObject({
+        round: MAX_TOOL_CALLS_PER_TURN + 1,
+        stopReason: 'end_turn',
+        outputTokens: 77,
+        toolUses: 0,
+      })
+      expect(JSON.stringify(info.mock.calls)).not.toMatch(/GEHEIM/)
+    } finally {
+      info.mockRestore()
+    }
   })
 })
 

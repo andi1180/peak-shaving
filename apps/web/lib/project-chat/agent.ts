@@ -45,20 +45,36 @@ export interface ModelCallInput {
   system: Anthropic.TextBlockParam[]
   tools: Anthropic.Tool[]
   messages: Anthropic.MessageParam[]
+  /** Nur der Schlussaufruf am Werkzeuglimit setzt `{type:'none'}`; sonst gilt die API-Vorgabe. */
+  toolChoice?: Anthropic.ToolChoice
 }
 
 export type ModelCallResult =
-  | { ok: true; content: Anthropic.ContentBlock[] }
+  | {
+      ok: true
+      content: Anthropic.ContentBlock[]
+      /** Metadaten fürs Protokoll; Attrappen in Tests dürfen sie weglassen. */
+      stopReason?: string | null
+      outputTokens?: number | null
+    }
   | { ok: false; reason: 'not_configured' | 'api_error' }
 
 /** Der Modellaufruf als Port — damit die Schleife ohne Schlüssel und ohne Netz prüfbar bleibt. */
 export type ChatModelCall = (input: ModelCallInput) => Promise<ModelCallResult>
 
 export type ProjectChatTurnResult =
-  /** Das Modell hat geantwortet. `reply` ist der sichtbare Text (kann leer sein). */
-  | { status: 'ok'; reply: string; toolCalls: number }
-  /** Die Obergrenze war erreicht. Der Verlauf ist gültig, der Turn hat nur kein Schlusswort. */
-  | { status: 'tool_limit'; toolCalls: number }
+  /**
+   * Das Modell hat geantwortet; `reply` ist nie leer. `limitReached` heisst: die Antwort stammt aus
+   * dem Schlussaufruf am Werkzeuglimit, es kann also noch Offenes geben.
+   */
+  | { status: 'ok'; reply: string; toolCalls: number; limitReached?: boolean }
+  /**
+   * Das Modell hat ohne sichtbaren Text geendet (etwa `stop_reason: max_tokens` nach reinem Denken).
+   * `partialReply` sind die Zwischentexte früherer Durchläufe dieses Turns (kann leer sein).
+   */
+  | { status: 'empty_reply'; partialReply: string; toolCalls: number }
+  /** Limit erreicht UND der Schlussaufruf ist gescheitert. Der Verlauf ist trotzdem gültig. */
+  | { status: 'tool_limit'; partialReply: string; toolCalls: number }
   /** Das Projekt gibt es nicht ODER es gehört jemand anderem — bewusst nicht unterscheidbar. */
   | { status: 'not_found' }
   /** Kein KI-Zugang eingerichtet. Kein Aufruf, keine Kosten. */
@@ -350,14 +366,19 @@ export async function runProjectChatTurn(
   history.push(userRow)
 
   let toolCalls = 0
+  let round = 0
+  /** Sichtbare Texte früherer Durchläufe — die Anzeige, falls die Endantwort leer bleibt. */
+  const intermediateTexts: string[] = []
 
   for (;;) {
+    round += 1
     const result = await callModel({ system, tools, messages: toApiMessages(history) })
     if (!result.ok) {
       return result.reason === 'not_configured'
         ? { status: 'not_configured' }
         : { status: 'model_error' }
     }
+    logRound(kind, round, result, countToolUses(result.content))
 
     const rows = splitAssistantTurn(result.content)
     const textRows = rows.filter((row) => row.role === 'assistant')
@@ -379,12 +400,16 @@ export async function runProjectChatTurn(
     /*
      * Keine Werkzeuge — der Turn ist zu Ende. Das gilt auch bei `stop_reason: 'max_tokens'`: die
      * Antwort ist dann abgeschnitten, aber sie ist vollständig gespeichert und der Verlauf gültig.
-     * Ein eigener Fehlerzustand dafür hülfe niemandem; der Kunde sieht einen abgebrochenen Satz und
-     * schreibt zurück.
+     * Ein abgeschnittener Satz ist eine Antwort; nur ein Turn ganz OHNE sichtbaren Text wird zu
+     * `empty_reply` (sonst stünde der Kunde vor gar nichts).
      */
+    const roundText = assistantText(result.content)
     if (toolUses.length === 0) {
-      return { status: 'ok', reply: assistantText(result.content), toolCalls }
+      return roundText.trim() === ''
+        ? { status: 'empty_reply', partialReply: joinTexts(intermediateTexts), toolCalls }
+        : { status: 'ok', reply: roundText, toolCalls }
     }
+    if (roundText.trim() !== '') intermediateTexts.push(roundText)
 
     // Schritt 2 — ausführen, NACHEINANDER (s. Kopf).
     const resultBlocks: Anthropic.ToolResultBlockParam[] = []
@@ -433,12 +458,99 @@ export async function runProjectChatTurn(
     /*
      * ── DER SAUBERE ABBRUCH ─────────────────────────────────────────────────────────────────────
      * Er kommt NACH dem Speichern der Ergebnisse, nie davor: der Verlauf ist damit auch im
-     * Abbruchfall gültig, und der nächste Turn läuft normal weiter. Es wird bewusst KEINE
-     * Abschluss-Nachricht erfunden — dem Modell Worte in den Mund zu legen wäre schlimmer als ein
-     * Turn ohne Schlusswort, und der Aufrufer erfährt den Zustand am Rückgabewert.
+     * Abbruchfall gültig, und der nächste Turn läuft normal weiter. Es wird KEINE
+     * Abschluss-Nachricht erfunden: das Schlusswort schreibt das Modell selbst, in einem letzten
+     * Aufruf ohne Werkzeuge (`finishAtToolLimit`).
      */
     if (toolCalls >= MAX_TOOL_CALLS_PER_TURN) {
-      return { status: 'tool_limit', toolCalls }
+      return finishAtToolLimit({
+        ports,
+        callModel,
+        projectId,
+        kind,
+        system,
+        tools,
+        history,
+        round,
+        toolCalls,
+        intermediateTexts,
+      })
     }
   }
+}
+
+/**
+ * Nur im Request, nie im Verlauf: die Anweisung steht im selben User-Block wie die tool_results.
+ * Gespeichert wäre sie ein Satz, den der Kunde nie geschrieben hat, und spielte bei jedem späteren
+ * Turn wieder mit.
+ */
+export const TOOL_LIMIT_FINAL_INSTRUCTION =
+  'Werkzeuglimit erreicht: fasse zusammen, was erledigt ist, und nenne offene Punkte.'
+
+/**
+ * Der Schlussaufruf am Werkzeuglimit: dieselbe Werkzeugliste (Cache-Präfix bleibt gleich), aber
+ * `tool_choice: none`, damit das Modell antworten MUSS statt weiter nachzusehen.
+ */
+async function finishAtToolLimit(args: {
+  ports: ProjectChatPorts
+  callModel: ChatModelCall
+  projectId: string
+  kind: ChatKind
+  system: Anthropic.TextBlockParam[]
+  tools: Anthropic.Tool[]
+  history: StoredChatMessage[]
+  round: number
+  toolCalls: number
+  intermediateTexts: string[]
+}): Promise<ProjectChatTurnResult> {
+  const { ports, callModel, projectId, kind, system, tools, history, toolCalls } = args
+  const partialReply = joinTexts(args.intermediateTexts)
+
+  const messages = toApiMessages(history)
+  const last = messages[messages.length - 1]
+  if (last?.role === 'user' && Array.isArray(last.content)) {
+    last.content.push({ type: 'text', text: TOOL_LIMIT_FINAL_INSTRUCTION })
+  }
+
+  const result = await callModel({ system, tools, messages, toolChoice: { type: 'none' } })
+  if (!result.ok) return { status: 'tool_limit', partialReply, toolCalls }
+  logRound(kind, args.round + 1, result, countToolUses(result.content))
+
+  // Ein `tool_use` trotz `none` wird verworfen: gespeichert stünde ein Aufruf ohne Ergebnis im Verlauf.
+  const textRows = splitAssistantTurn(result.content).filter((row) => row.role === 'assistant')
+  for (const row of textRows) {
+    const appended = await ports.appendMessage(projectId, row.role, row.content, kind)
+    if (appended.status !== 'ok') {
+      return { status: 'storage_error', step: `assistant:${appended.status}` }
+    }
+  }
+
+  const reply = assistantText(result.content)
+  return reply.trim() === ''
+    ? { status: 'empty_reply', partialReply, toolCalls }
+    : { status: 'ok', reply, toolCalls, limitReached: true }
+}
+
+function countToolUses(content: readonly Anthropic.ContentBlock[]): number {
+  return content.filter((block) => block.type === 'tool_use').length
+}
+
+function joinTexts(texts: readonly string[]): string {
+  return texts.map((text) => text.trim()).join('\n\n')
+}
+
+/** Nur Metadaten — kein Gesprächsinhalt im Log (dieselbe Regel wie `invoice-scan/extract.ts`). */
+function logRound(
+  kind: ChatKind,
+  round: number,
+  result: { stopReason?: string | null; outputTokens?: number | null },
+  toolUses: number,
+): void {
+  console.info('[project-chat] Durchlauf', {
+    kind,
+    round,
+    stopReason: result.stopReason ?? null,
+    outputTokens: result.outputTokens ?? null,
+    toolUses,
+  })
 }
