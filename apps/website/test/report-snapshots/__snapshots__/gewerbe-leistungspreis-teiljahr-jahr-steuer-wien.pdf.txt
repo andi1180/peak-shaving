@@ -735,7 +735,7 @@ Womit gerechnet wurde, woher die Tarifwerte stammen — und was an diesem Datens
 Annahmen & Rechenweise — Stand dieser Berechnung
  Betrachtungshorizont                                                                                       10 Jahre
 
- Wirkungsgrad (Dyness Stack 100 30,72 kWh mit Solinteg MHT-15K-40)                           88 % (angenommen)
+ Wirkungsgrad (Dyness Stack 100 30,72 kWh mit Solinteg MHT-15K-40)                          88 % (angenommen)
 
  Batteriepreis (Dyness Stack 100 30,72 kWh mit Solinteg MHT-15K-40)                                € 198,43 / kWh
 
@@ -785,12 +785,6 @@ Tarifkomponenten
  Grundgebühr Lieferant               € 3,99 / Monat                 aus Ihren Rechnungen (Energieseite)
 
 
-Datenquellen
- Quelle                         Was daraus verwendet wurde                Zeitraum / Stand
-
- Lastgang
-
-
 
 
 COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                            www.coolin.at · Seite 17 von 20
@@ -799,6 +793,10 @@ COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich               
 
 
 
+Datenquellen
+ Quelle                         Was daraus verwendet wurde                 Zeitraum / Stand
+
+ Lastgang
  Viertelstundenwerte des        Grundlage aller Zahlen dieses Reports.     28.03.2026 – 31.08.2026 · 157 abgedeckte
  Netzbezugs                     Herkunft: hochgeladener Lastgang, nur      Tage (gerundet aus Messwerte ÷ 96, wie im
                                 Bezug. Monats- und Tagesgrenzen in         Datenqualitäts-Hinweis oben)
@@ -853,7 +851,6 @@ je Viertelstunde, keine Zusicherung für den einzelnen Tag. Die Tages-Rangfolge 
 gemessenen Verbrauch, sondern eine Erwartung aus Ihren eigenen früheren Messwerten; ausgeführt wird
 der Fahrplan trotzdem auf dem echten Lastgang, und die Schranken des Spitzenschutzes kommen weiterhin
 aus einem Rückblick.
-
 
 
 

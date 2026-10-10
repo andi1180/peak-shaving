@@ -611,10 +611,6 @@ hinterlegtem Tarif Wiener Netze.
 Details zum Preisstand dieser Tarifsätze stehen im Kapitel „Voraussetzungen".
 
 
-Tarifkomponenten
- Position                            Wert                           Status
-
-
 
 
 COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                           www.coolin.at · Seite 15 von 18
@@ -622,6 +618,9 @@ COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich               
 
 
 
+
+Tarifkomponenten
+ Position                            Wert                               Status
 
  Leistungspreis                      € 0,00 / kW·a                      laut hinterlegtem Tarif Wiener Netze
 
@@ -680,11 +679,7 @@ Jahresgrösse und würde hier ein zweites Mal zählen. Darunter steht je Weg nur
 
 Ihr Tarif heute — die Bezugsgrösse. Gerechnet mit Ihrem festen Arbeitspreis und der Grundgebühr Ihres
 Lieferanten, auf dem gemessenen Lastgang.
-Ihr Vergleichstarif (gogreenenergy) — getauscht sind allein Arbeitspreis und Grundgebühr des Lieferanten;
-Netzseite, Abgaben und Lastgang bleiben bit-genau dieselben.
-aWATTar ohne Steuerung — statt Ihres festen Arbeitspreises der Börsenpreis der jeweiligen Stunde, statt
-Ihrer Grundgebühr die von aWATTar. Die Netzseite hängt am Anschluss und nicht am Lieferanten und
-bleibt unverändert. Gerechnet auf dem rohen Lastgang: nichts wird verschoben, nichts gespeichert. Die
+
 
 
 
@@ -694,6 +689,11 @@ COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich               
 
 
 
+Ihr Vergleichstarif (gogreenenergy) — getauscht sind allein Arbeitspreis und Grundgebühr des Lieferanten;
+Netzseite, Abgaben und Lastgang bleiben bit-genau dieselben.
+aWATTar ohne Steuerung — statt Ihres festen Arbeitspreises der Börsenpreis der jeweiligen Stunde, statt
+Ihrer Grundgebühr die von aWATTar. Die Netzseite hängt am Anschluss und nicht am Lieferanten und
+bleibt unverändert. Gerechnet auf dem rohen Lastgang: nichts wird verschoben, nichts gespeichert. Die
 verwendeten aWATTar-Preise sind die echten, historischen Stundenpreise genau dieses Zeitraums — keine
 Prognose und kein Durchschnittswert.
 aWATTar mit Ladesteuerung — wie der Weg davor, aber auf dem simulierten Lastgang. Eine Viertelstunde
