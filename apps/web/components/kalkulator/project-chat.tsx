@@ -56,7 +56,7 @@ export interface ChatDocument {
  * Text steht wieder im Eingabefeld, samt der hochgeladenen Unterlagen, die noch niemand gesehen
  * hat.
  *
- * Umgekehrt bei `ok`, `tool_limit`, `model_error`, `not_configured`, `storage_error`: dort steht
+ * Umgekehrt bei `ok`, `empty_reply`, `tool_limit`, `model_error`, `not_configured`, `storage_error`: dort steht
  * die Nutzer-Zeile bereits im Verlauf. Sie hier wegzunehmen hiesse, dass ein Neuladen sie
  * zurückbringt — und ein erneutes Senden desselben Textes erzeugte eine zweite.
  */
@@ -166,14 +166,21 @@ export function ProjectChat({
       const result = await sendProjectChatMessage(projectId, text, sentAttachments)
 
       if (result.status === 'ok') {
-        // `reply` kann leer sein (das Modell hat nur Werkzeuge gerufen). Dann bleibt keine leere
-        // Blase stehen, sondern derselbe Hinweis wie bei `tool_limit` — es gibt kein Schlusswort.
         if (result.reply.trim() !== '') {
           setEntries((prev) => [...prev, { role: 'assistant', text: result.reply }])
+          if (result.limitReached) setStatusMessage(tStatus('open_items'))
         } else {
-          setStatusMessage(tStatus('tool_limit'))
+          setStatusMessage(tStatus('empty_reply'))
         }
         return
+      }
+
+      // Ohne Endantwort zeigen wir, was das Modell in früheren Durchläufen schon geschrieben hat.
+      if (
+        (result.status === 'empty_reply' || result.status === 'tool_limit') &&
+        result.partialReply.trim() !== ''
+      ) {
+        setEntries((prev) => [...prev, { role: 'assistant', text: result.partialReply }])
       }
 
       setStatusMessage(

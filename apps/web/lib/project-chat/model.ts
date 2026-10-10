@@ -51,9 +51,15 @@ export async function callProjectChatModel(input: ModelCallInput): Promise<Model
       max_tokens: PROJECT_CHAT_MAX_TOKENS,
       system: input.system,
       tools: input.tools,
+      ...(input.toolChoice ? { tool_choice: input.toolChoice } : {}),
       messages: input.messages,
     })
-    return { ok: true, content: response.content }
+    return {
+      ok: true,
+      content: response.content,
+      stopReason: response.stop_reason,
+      outputTokens: response.usage?.output_tokens ?? null,
+    }
   } catch (cause) {
     /*
      * ⚠ HIER STEHT KEIN GESPRÄCHSINHALT IM LOG. Ein Fehlerlog ist kein zulässiger zweiter

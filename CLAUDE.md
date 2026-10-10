@@ -241,6 +241,17 @@ Details und der vollständige Stand: siehe `./Pflichtenheft_Kalkulator_MVP.md`, 
 
 > Lebendiger Handover-Anker. Neueste offene Punkte, die den Bau der Engine/Simulation berühren. Erledigtes wandert raus.
 
+### Assistent: Verhalten am Werkzeuglimit und bei leerer Antwort (10.10.2026)
+
+Gilt für Energieberater und Kunden-Chat (gemeinsame Schleife `apps/web/lib/project-chat/agent.ts`).
+Bei `MAX_TOOL_CALLS_PER_TURN` (8, unverändert) folgt ein Schlussaufruf mit `tool_choice: none` und unveränderter
+Werkzeugliste; die Anweisung `TOOL_LIMIT_FINAL_INSTRUCTION` steht nur im Request (hinter den tool_results) und nie im
+Verlauf, die Antwort wird normal gespeichert → `ok` mit `limitReached: true` und Hinweis „Es gibt noch Offenes".
+Endet ein Turn ohne sichtbaren Text, kommt `empty_reply` (statt `ok` mit leerem `reply`); `tool_limit` nur noch, wenn auch
+der Schlussaufruf scheitert. Beide tragen `partialReply` (Zwischentexte früherer Durchläufe), die Dialoge zeigen sie.
+Je Durchlauf wird `[project-chat] Durchlauf` mit `kind`, `round`, `stopReason`, `outputTokens`, `toolUses` geloggt — nur
+Metadaten. **⚠** Ein `tool_use` im Schlussaufruf wird verworfen, nicht gespeichert (sonst Aufruf ohne Ergebnis im Verlauf).
+
 ### Markierung „Leistung begrenzt" je Gerät auf Seite 17 — PR G (08.10.2026)
 
 In der Vergleichstabelle trägt jede Zeile eines Geräts mit Engine-Hinweis `power_limited` (`isPowerLimited`, `rank.ts`)

@@ -59,11 +59,11 @@ export const PROJECT_CHAT_MAX_TOKENS = 8192
  * auf. Ohne Obergrenze liefe das, bis die Anfrage abbricht — und jeder Durchlauf ist abrechenbar.
  * Acht ist die Zahl, unter der ein ehrlicher Turn bequem bleibt (Dokument einordnen, auslesen,
  * drei, vier Felder setzen, eine Rückfrage stellen) und über der nichts mehr entsteht, was ein
- * Mensch als Fortschritt erkennen würde.
+ * Mensch als Fortschritt erkennen würde. Ist sie erreicht, folgt ein letzter Aufruf ohne
+ * Werkzeuge, der zusammenfasst (`agent.ts`, `finishAtToolLimit`).
  *
- * ⚠ ES IST KEINE KOSTENBREMSE. Sie begrenzt EINEN Turn, nicht die Zahl der Turns und nicht die
- * Ausgaben eines Kontos — die gehört zu Delta §6.3 und ist ausdrücklich noch nicht gebaut. Solange
- * sie fehlt, hat dieser Pfad bewusst KEINEN HTTP-Rand (s. Kopf von `chat.ts`).
+ * Sie begrenzt EINEN Turn; die Zahl der Turns je Konto begrenzt die Kostenbremse
+ * (`checkRateLimit` in `agent.ts`, Delta §6.3).
  */
 export const MAX_TOOL_CALLS_PER_TURN = 8
 
