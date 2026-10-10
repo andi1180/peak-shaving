@@ -1656,6 +1656,7 @@ function StatementTable({
   from,
   layout,
   allowPageBreak = false,
+  title,
 }: {
   table: ReportTable
   /**
@@ -1680,77 +1681,120 @@ function StatementTable({
    * Dokuments, nicht nur auf denen der Tabelle.
    */
   allowPageBreak?: boolean
+  /**
+   * Überschrift über der Tabelle — steht in der ersten Einheit, damit sie nie allein am Seitenende
+   * bleibt; die Tabelle bringt dann ihren Aussage-Container (`styles.statement`) selbst mit.
+   */
+  title?: string
 }) {
-  return (
-    <View style={styles.table} wrap={allowPageBreak}>
-      {/*
-        ⚠ `wrap={false}` — seit die Kopfzeile eine gefüllte Fläche trägt (D15 Block 1, Punkt 4),
-        darf sie nicht mehr über einen Seitenumbruch laufen. Gemessen in D15 Block 2: die schmalere
-        Textspalte (Punkt 9) schob den Umbruch mitten in den Kopf, und auf der Folgeseite stand ein
-        3,5 pt hoher navyfarbener Streifen ohne Text — der Rest seines Innenabstands. Vorher fiel
-        das nicht auf, weil eine Kopfzeile ohne Fläche beim Brechen nichts hinterlässt.
-      */}
-      <View style={styles.tableHeader} wrap={false}>
-        {table.columns.map((column) => (
-          <Text
-            key={column.label}
-            style={[
-              styles.tableHeaderCell,
-              { flexGrow: column.width, flexBasis: 0 },
-              column.align === 'right' ? { textAlign: 'right' } : {},
-            ]}
-          >
-            {column.label}
-          </Text>
-        ))}
+  /*
+    ⚠ `wrap={false}` — seit die Kopfzeile eine gefüllte Fläche trägt (D15 Block 1, Punkt 4),
+    darf sie nicht mehr über einen Seitenumbruch laufen. Gemessen in D15 Block 2: die schmalere
+    Textspalte (Punkt 9) schob den Umbruch mitten in den Kopf, und auf der Folgeseite stand ein
+    3,5 pt hoher navyfarbener Streifen ohne Text — der Rest seines Innenabstands. Vorher fiel
+    das nicht auf, weil eine Kopfzeile ohne Fläche beim Brechen nichts hinterlässt.
+  */
+  const header = (
+    <View key="header" style={styles.tableHeader} wrap={false}>
+      {table.columns.map((column) => (
+        <Text
+          key={column.label}
+          style={[
+            styles.tableHeaderCell,
+            { flexGrow: column.width, flexBasis: 0 },
+            column.align === 'right' ? { textAlign: 'right' } : {},
+          ]}
+        >
+          {column.label}
+        </Text>
+      ))}
+    </View>
+  )
+
+  /*
+    ⚠ Der Zebra-Zähler läuft über die DATENzeilen und nicht über den Index der Schleife:
+    eine Gruppenzeile (D9, `heading`) trägt keine Fläche und darf deshalb auch keinen Streifen
+    verbrauchen — sonst kippte das Muster hinter jeder Gruppe, und die Tabelle sähe aus, als
+    fehlte dort eine Zeile.
+  */
+  let dataRow = -1
+  const renderRow = (row: ReportTable['rows'][number]) =>
+    /* D9 — eine Gruppenüberschrift ist EINE Zelle über die volle Breite: die leeren Zellen
+     daneben mitzurendern ergäbe Spaltenlinien unter einer Überschrift, die sie nicht führt. */
+    row.heading ? (
+      <View key={row.key} style={styles.tableGroupRow}>
+        <Text style={styles.tableGroupLabel}>
+          {resolveReportText(row.cells[0] ?? '', layout, from)}
+        </Text>
       </View>
-      {/*
-        ⚠ Der Zebra-Zähler läuft über die DATENzeilen und nicht über den Index der Schleife:
-        eine Gruppenzeile (D9, `heading`) trägt keine Fläche und darf deshalb auch keinen Streifen
-        verbrauchen — sonst kippte das Muster hinter jeder Gruppe, und die Tabelle sähe aus, als
-        fehlte dort eine Zeile.
-      */}
-      {(() => {
-        let dataRow = -1
-        return table.rows.map((row) =>
-          /* D9 — eine Gruppenüberschrift ist EINE Zelle über die volle Breite: die leeren Zellen
-           daneben mitzurendern ergäbe Spaltenlinien unter einer Überschrift, die sie nicht führt. */
-          row.heading ? (
-            <View key={row.key} style={styles.tableGroupRow}>
-              <Text style={styles.tableGroupLabel}>
-                {resolveReportText(row.cells[0] ?? '', layout, from)}
-              </Text>
-            </View>
-          ) : (
-            <View
-              key={row.key}
-              /* Dieselbe Überlegung wie am Kopf: eine gebrochene Zeile hinterlässt ihren Zebra-Ton
-               als Streifen auf der Folgeseite. Eine Tabellenzeile gehört ohnehin auf ein Blatt. */
-              wrap={false}
-              style={[styles.tableRow, (dataRow += 1) % 2 === 1 ? styles.tableRowZebra : {}]}
+    ) : (
+      <View
+        key={row.key}
+        /* Dieselbe Überlegung wie am Kopf: eine gebrochene Zeile hinterlässt ihren Zebra-Ton
+         als Streifen auf der Folgeseite. Eine Tabellenzeile gehört ohnehin auf ein Blatt. */
+        wrap={false}
+        style={[styles.tableRow, (dataRow += 1) % 2 === 1 ? styles.tableRowZebra : {}]}
+      >
+        {row.cells.map((cell, index) => {
+          const column = table.columns[index]
+          return (
+            <Text
+              key={column?.label ?? String(index)}
+              style={[
+                styles.tableCell,
+                { flexGrow: column?.width ?? 1, flexBasis: 0 },
+                column?.align === 'right' ? { textAlign: 'right' } : {},
+              ]}
             >
-              {row.cells.map((cell, index) => {
-                const column = table.columns[index]
-                return (
-                  <Text
-                    key={column?.label ?? String(index)}
-                    style={[
-                      styles.tableCell,
-                      { flexGrow: column?.width ?? 1, flexBasis: 0 },
-                      column?.align === 'right' ? { textAlign: 'right' } : {},
-                    ]}
-                  >
-                    {resolveReportText(cell, layout, from)}
-                    {index === 0 && row.note ? (
-                      <Text style={styles.tableCellNote}>{`\n${row.note}`}</Text>
-                    ) : null}
-                  </Text>
-                )
-              })}
-            </View>
-          ),
-        )
-      })()}
+              {resolveReportText(cell, layout, from)}
+              {index === 0 && row.note ? (
+                <Text style={styles.tableCellNote}>{`\n${row.note}`}</Text>
+              ) : null}
+            </Text>
+          )
+        })}
+      </View>
+    )
+
+  /*
+    Kopf und Gruppenzeilen haben keine Bedeutung ohne die Zeile darunter: sie bilden mit der
+    nächsten Datenzeile eine unbrechbare Einheit, sonst stehen sie allein am Seitenende.
+  */
+  const units: ReactNode[][] = []
+  /* Der Abstand der Tabelle zur Überschrift wandert mit in die Einheit (`marginBottom` statt `marginTop`). */
+  let pending: ReactNode[] = title
+    ? [
+        <Text key="title" style={[styles.statementTitle, { marginBottom: styles.table.marginTop }]}>
+          {title}
+        </Text>,
+        header,
+      ]
+    : [header]
+  for (const row of table.rows) {
+    pending.push(renderRow(row))
+    if (!row.heading) {
+      units.push(pending)
+      pending = []
+    }
+  }
+  if (pending.length > 0) units.push(pending)
+
+  /*
+    Mit Überschrift stehen die Einheiten direkt im Aussage-Container: liegt eine unbrechbare erste
+    Einheit eine Ebene tiefer, lässt react-pdf den ganzen Container auf der Seite und staucht ihn,
+    statt ihn umzubrechen (`splitNodes`, „current page is empty").
+  */
+  return (
+    <View style={title ? styles.statement : styles.table} wrap={allowPageBreak}>
+      {units.map((unit, index) =>
+        unit.length === 1 ? (
+          unit[0]
+        ) : (
+          <View key={`unit-${index}`} wrap={false}>
+            {unit}
+          </View>
+        ),
+      )}
     </View>
   )
 }
@@ -2743,28 +2787,24 @@ function BasisChapter({
       {/* D9 — die Tarifgrössen im Einzelnen. Sie steht direkt unter den beiden Herkunftssätzen,
           weil ihre Status-Spalte genau deren Aussage Feld für Feld wiederholt: erst der Satz über
           den Stand, dann die Zeilen, für die er gilt. */}
-      <View style={styles.statement}>
-        <Text style={styles.statementTitle}>{BASIS_HEADING.tariffComponents}</Text>
-        <StatementTable
-          table={chapter.tariffComponents}
-          from={TARIFF_COMPONENTS_TABLE_ID}
-          layout={layout}
-          allowPageBreak
-        />
-      </View>
+      <StatementTable
+        table={chapter.tariffComponents}
+        from={TARIFF_COMPONENTS_TABLE_ID}
+        layout={layout}
+        allowPageBreak
+        title={BASIS_HEADING.tariffComponents}
+      />
 
       {/* D9 — woher die Angaben stammen, Zeile für Zeile. Sie steht NACH den beiden
           Herkunftssätzen und vor dem Vorbehalt: die Sätze sagen, welcher Tarifstand gerechnet
           wurde, die Tabelle belegt ihn und alles daneben. */}
-      <View style={styles.statement}>
-        <Text style={styles.statementTitle}>{BASIS_HEADING.dataSources}</Text>
-        <StatementTable
-          table={chapter.dataSources}
-          from={DATA_SOURCES_TABLE_ID}
-          layout={layout}
-          allowPageBreak
-        />
-      </View>
+      <StatementTable
+        table={chapter.dataSources}
+        from={DATA_SOURCES_TABLE_ID}
+        layout={layout}
+        allowPageBreak
+        title={BASIS_HEADING.dataSources}
+      />
 
       {/* D9 — wie die einzelnen Zahlen zustande kamen. Die Überschrift hängt an der Liste und nicht
           daneben: ohne einen einzigen erreichbaren Absatz stünde sie über einer Leerstelle. Welche

@@ -618,8 +618,6 @@ Datenquellen
  Quelldatei                     Dateiname und Upload-Zeitpunkt des         nicht erfasst (in diesem Dokument nicht
                                 Lastgangs.                                 verfügbar)
 
- Tarif
-
 
 
 
@@ -629,6 +627,7 @@ COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich               
 
 
 
+ Tarif
  Netzbetreiber-Preisblatt       Leistungspreis, Abrechnungsmodell und       Preisblatt-Zeile, gültig ab 01.01.2025.
                                 Mindestleistung; bei berechenbarem          Name, Version und Fundstelle des Blatts:
                                 Vergleich zusätzlich die Netz-Arbeitspreise nicht erfasst.
