@@ -79,10 +79,20 @@ export function buildLoadMetrics(
 
   const totalKwh = totalGridImportKwh(loadProfile)
   const factor = loadFactorPercent(totalKwh, coveredDays, analysis.current.annualPeakKw)
+  // Bei abgezogener PV-Schätzung ist die Summe Netzbezug, nicht Verbrauch — Bedingung wie in `prerequisites.ts`.
+  const estimatedPv = loadProfile.pvSource === 'estimated'
 
   const rows = [
-    neutralRow('Gesamtverbrauch über den Zeitraum', formatKwh(totalKwh)),
-    neutralRow('Ø Tagesverbrauch', `${formatKwh(totalKwh / coveredDays)} / Tag`),
+    neutralRow(
+      estimatedPv
+        ? 'Netzbezug nach geplanter PV über den Zeitraum'
+        : 'Gesamtverbrauch über den Zeitraum',
+      formatKwh(totalKwh),
+    ),
+    neutralRow(
+      estimatedPv ? 'Ø Netzbezug pro Tag' : 'Ø Tagesverbrauch',
+      `${formatKwh(totalKwh / coveredDays)} / Tag`,
+    ),
     ...(factor === null
       ? []
       : [
@@ -95,7 +105,7 @@ export function buildLoadMetrics(
 
   return {
     id: 'load_metrics',
-    title: 'Ihr Verbrauch in Zahlen',
+    title: estimatedPv ? 'Ihr Netzbezug in Zahlen' : 'Ihr Verbrauch in Zahlen',
     amount: null,
     rows,
     /* ⚠ Ohne Lastfaktor auch ohne seine Erklärung — sonst erklärte der Absatz eine Zeile, die
