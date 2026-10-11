@@ -1,6 +1,6 @@
 import type { BatteryCandidate, LoadProfile, PvProfile, TariffParams, TariffPricingInputs } from 'shared'
 
-import { hasFeedIn } from '../refusal'
+import { feedInTariffCtPerKwh, hasFeedIn } from '../refusal'
 import { getTariffStrategy } from '../tariff/strategy'
 import { dailyPriceOrder, type DailyPriceOrder } from './daily-price-order'
 import { runCombinedDispatch, type DispatchResult } from './dispatch'
@@ -12,6 +12,7 @@ import {
   type DispatchPlanning,
 } from './planning'
 import { alignPvGrossToLoad } from './pv'
+import { runSurplusOptimizedDispatch } from './surplus-optimization'
 import { intervalTariffRates } from './tou'
 
 /**
@@ -61,8 +62,8 @@ export type BatterySimulationResult = {
   priceCurveComputable: boolean
   /**
    * Enthält der simulierte Lastgang mindestens ein Intervall mit Netto-Bezug < 0 (PV-Überschuss)?
-   * Gate für die Überschuss-Korrektur des Fahrplans (PR 2): nur Läufe mit `true` dürfen sich dort
-   * ändern, alle anderen bleiben bitgleich. Heute liest es kein Konsument.
+   * Gate des Überschuss-Pfads: nur mit `true` (und echter Preiskurve, gesperrter Spitzenkappung)
+   * plant `runSurplusOptimizedDispatch`, alle anderen Läufe nehmen den bisherigen Dispatch.
    */
   hasFeedIn: boolean
 }
@@ -122,7 +123,7 @@ export function simulateBattery(
    * Sperre, die beide auf `cap = ∞` / `socFloor ≡ 0` setzt. Seit dem 21.09.2026 in
    * `peak-constraints.ts`, weil der vorausschauende Lauf (Weg a) DIESELBEN Schranken übernimmt.
    */
-  const { capKwByPeriod, capForInterval, socFloorKwh } = peakConstraints(
+  const { capKwByPeriod, capForInterval, socFloorKwh, peakShavingDisabled } = peakConstraints(
     loadProfile,
     battery,
     tariffParams,
@@ -159,9 +160,15 @@ export function simulateBattery(
       physics,
       deltaH,
     })
+  // Bei Einspeisung, echter Preiskurve und ohne Spitzenkappung plant `runSurplusOptimizedDispatch`
+  // statt der Rangfolge, die den Überschuss nicht kennt. Mit Spitzenkappung bleibt der bisherige
+  // Pfad: bei tiefer Kappung verfehlt der Plan auf der Prognose die Ladefenster unter der Schwelle.
+  const feedIn = hasFeedIn(loadProfile)
+  const surplusOptimized =
+    feedIn && peakShavingDisabled && rates.tariffOptimization?.computable === true
   // Geplant wird mit der Erwartung vom Vorabend (`planning.ts`), ausgeführt unten auf `draws`.
   let priceOrder: DailyPriceOrder | undefined
-  if (rates.tariffOptimization?.computable === true) {
+  if (!surplusOptimized && rates.tariffOptimization?.computable === true) {
     const plan = planning ?? dispatchPlanningFor(loadProfile)
     priceOrder =
       plan.basis === 'forecast'
@@ -174,16 +181,30 @@ export function simulateBattery(
   }
 
   const socStart = startSoc(physics)
-  const dispatch = runCombinedDispatch(
-    draws,
-    capForInterval,
-    socFloorKwh,
-    physics,
-    socStart,
-    deltaH,
-    isCheapWindow,
-    priceOrder,
-  )
+  const surplusPlan = surplusOptimized ? (planning ?? dispatchPlanningFor(loadProfile)) : null
+  const dispatch = surplusPlan
+    ? runSurplusOptimizedDispatch({
+        loadProfile,
+        draws,
+        planKw: surplusPlan.basis === 'forecast' ? surplusPlan.forecast.forecastKw : draws,
+        drawCtPerKwh: rates.rateCtPerKwh,
+        feedInCtPerKwh: feedInTariffCtPerKwh(loadProfile, tariffParams),
+        capForInterval,
+        socFloorKwh,
+        physics,
+        startSocKwh: socStart,
+        deltaH,
+      })
+    : runCombinedDispatch(
+        draws,
+        capForInterval,
+        socFloorKwh,
+        physics,
+        socStart,
+        deltaH,
+        isCheapWindow,
+        priceOrder,
+      )
 
   // 4. Neuer abgerechneter kW-Wert via die bereits gebaute TariffStrategy (§3.5) auf dem gekappten Profil.
   const cappedProfile: LoadProfile = {
@@ -207,6 +228,6 @@ export function simulateBattery(
     grossPvKw,
     rateCtPerKwh: rates.rateCtPerKwh,
     priceCurveComputable: rates.tariffOptimization?.computable === true,
-    hasFeedIn: hasFeedIn(loadProfile),
+    hasFeedIn: feedIn,
   }
 }
