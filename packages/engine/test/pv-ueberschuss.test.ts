@@ -12,14 +12,21 @@ import {
 import {
   applyEstimatedPv,
   computeAnalysis,
+  dailyPriceOrder,
   dispatchPlanningFor,
+  intervalTariffRates,
   mapDraftToTariffParams,
   parseLoadProfile,
   parsePvProfile,
+  runCombinedDispatch,
   simulateBattery,
+  startSoc,
+  toPhysics,
 } from '../src'
 import { utcMsToLocalFields } from '../src/parser/datetime'
 import { hasFeedIn } from '../src/refusal'
+import { peakConstraints } from '../src/simulation/peak-constraints'
+import { withoutPlanOnDaysMissingPattern } from '../src/simulation/planning'
 
 const fixture = (relative: string) => new URL(`../../../${relative}`, import.meta.url)
 
@@ -49,16 +56,16 @@ describe('Überschuss-Gate über die bestehenden Golden-Fälle', () => {
 })
 
 /**
- * IST-VERHALTEN, BEKANNTER MANGEL: der Fahrplan unter aWATTar ignoriert den PV-Überschuss — er lädt
- * vor dem Überschuss aus dem Netz, und der Überschuss geht dann bei vollem Speicher ins Netz. Dieser
- * Test hält den heutigen Stand fest und wird in PR 2 bewusst geändert; eine Abweichung VOR PR 2 ist
- * eine ungewollte Änderung am Dispatch.
+ * Soll-Verhalten seit der Überschuss-Optimierung (`surplus-optimization.ts`): bei Einspeisung, echter
+ * Preiskurve und gesperrter Spitzenkappung plant der Fahrplan den PV-Überschuss mit ein, statt vor
+ * ihm aus dem Netz zu laden. Bis dahin lud er hier 2.645 kWh aus dem Netz (alles an Überschusstagen),
+ * lagerte 2.240 kWh PV ein und speiste 14.181 kWh ein; aWATTar mit Ladesteuerung −276,89 €.
  *
  * Gewerbe-Lastgang 2025 ohne PV (anonymisiert) mit derselben Preis-Fixture, abzüglich der synthetischen
  * 30-kWp-Erzeugungsreihe der Demo-Bäckerei, skaliert auf 14,1 kWp; Speicher 20 kWh / 10 kW / η 0,88,
  * Einspeisevergütung 11,0352 ct/kWh. Kein Netzzugriff.
  */
-describe('Ist-Verhalten, bekannter Mangel (Fahrplan ignoriert PV-Überschuss), wird in PR 2 bewusst geändert', () => {
+describe('Fahrplan bei PV-Überschuss plant den Überschuss ein', () => {
   const consumption = loadProfileOf(`${GEWERBE_DIR}/lastgang.csv`)
   const pvParsed = parsePvProfile({
     content: readFileSync(fixture('dev-fixtures/demo-baeckerei-pv-erzeugung-2025.csv')),
@@ -105,7 +112,7 @@ describe('Ist-Verhalten, bekannter Mangel (Fahrplan ignoriert PV-Überschuss), w
     controlType: 'dynamic',
   }
 
-  it('Gate = true, Kosten und Energieflüsse wie heute', () => {
+  it('Gate = true, Kosten und Energieflüsse', () => {
     expect(hasFeedIn(loadProfile)).toBe(true)
 
     const sim = simulateBattery(
@@ -132,11 +139,13 @@ describe('Ist-Verhalten, bekannter Mangel (Fahrplan ignoriert PV-Überschuss), w
     let pvCharge = 0
     let feedIn = 0
     sim.dispatch.batteryPowerKw.forEach((b, i) => {
-      if (b > 0 && draws[i]! >= 0) {
-        gridCharge += b * dH
-        if (surplusDays.has(dayOf(loadProfile.readings[i]!.ts))) gridChargeOnSurplusDays += b * dH
-      }
-      if (b > 0 && draws[i]! < 0) pvCharge += b * dH
+      // Ladeleistung über dem Überschuss des Intervalls kommt aus dem Netz.
+      const fromPv = b > 0 ? Math.min(b, Math.max(0, -draws[i]!)) : 0
+      const fromGrid = b > 0 ? b - fromPv : 0
+      pvCharge += fromPv * dH
+      gridCharge += fromGrid * dH
+      if (surplusDays.has(dayOf(loadProfile.readings[i]!.ts)))
+        gridChargeOnSurplusDays += fromGrid * dH
       const g = sim.dispatch.gridAfterKw[i]!
       if (g < 0) feedIn += -g * dH
     })
@@ -171,11 +180,56 @@ describe('Ist-Verhalten, bekannter Mangel (Fahrplan ignoriert PV-Überschuss), w
       anteilNetzladungAnUeberschusstagen: r6(gridChargeOnSurplusDays / gridCharge),
     }).toEqual({
       awattarOhneSteuerungEur: -28.284337,
-      awattarMitLadesteuerungEur: -276.885109,
-      netzladungKwh: 2645.055376,
-      pvLadungKwh: 2239.623314,
-      einspeisungKwh: 14181.400636,
+      awattarMitLadesteuerungEur: -589.881183,
+      netzladungKwh: 912.864336,
+      pvLadungKwh: 5174.052183,
+      einspeisungKwh: 11246.971767,
+      // Die synthetische Erzeugungsreihe hat an jedem Tag Überschuss.
       anteilNetzladungAnUeberschusstagen: 1,
     })
+  })
+
+  it('mit aktiver Spitzenkappung bleibt der bisherige Fahrplan', () => {
+    // Gemessene statt geschätzter Einspeisung und ein Leistungspreis: die Kappung ist nicht gesperrt.
+    const measured: LoadProfile = { ...loadProfile, pvSource: undefined }
+    const peakTariff = {
+      ...tariff,
+      leistungspreisEurPerKwYear: 50,
+      billingModel: 'monthly_max_sum',
+    } as TariffParams
+    const planning = dispatchPlanningFor(measured)
+    const sim = simulateBattery(measured, battery, peakTariff, undefined, pricing, planning)
+
+    const physics = toPhysics(battery)
+    const deltaH = measured.intervalMinutes / 60
+    const draws = measured.readings.map((r) => r.gridPowerKw)
+    const pc = peakConstraints(measured, battery, peakTariff)
+    expect(pc.peakShavingDisabled).toBe(false)
+    const rates = intervalTariffRates(measured, peakTariff, pricing)
+    if (planning.basis !== 'forecast') throw new Error('Prognose erwartet')
+    const order = withoutPlanOnDaysMissingPattern(
+      dailyPriceOrder({
+        loadProfile: measured,
+        rateCtPerKwh: rates.rateCtPerKwh,
+        preferChargeInterval: rates.isCheapWindow,
+        capForInterval: pc.capForInterval,
+        draws: planning.forecast.forecastKw,
+        physics,
+        deltaH,
+      }),
+      planning.forecast.hasPattern,
+      physics.usableCapacityKwh,
+    )
+    const previous = runCombinedDispatch(
+      draws,
+      pc.capForInterval,
+      pc.socFloorKwh,
+      physics,
+      startSoc(physics),
+      deltaH,
+      rates.isCheapWindow,
+      order,
+    )
+    expect(sim.dispatch).toEqual(previous)
   })
 })
