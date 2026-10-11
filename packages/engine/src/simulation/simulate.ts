@@ -1,5 +1,6 @@
 import type { BatteryCandidate, LoadProfile, PvProfile, TariffParams, TariffPricingInputs } from 'shared'
 
+import { hasFeedIn } from '../refusal'
 import { getTariffStrategy } from '../tariff/strategy'
 import { dailyPriceOrder, type DailyPriceOrder } from './daily-price-order'
 import { runCombinedDispatch, type DispatchResult } from './dispatch'
@@ -58,6 +59,12 @@ export type BatterySimulationResult = {
    * Werte an, und ein Mittel darüber misst Fensterlängen, keine Preisbewegung.
    */
   priceCurveComputable: boolean
+  /**
+   * Enthält der simulierte Lastgang mindestens ein Intervall mit Netto-Bezug < 0 (PV-Überschuss)?
+   * Gate für die Überschuss-Korrektur des Fahrplans (PR 2): nur Läufe mit `true` dürfen sich dort
+   * ändern, alle anderen bleiben bitgleich. Heute liest es kein Konsument.
+   */
+  hasFeedIn: boolean
 }
 
 /**
@@ -200,5 +207,6 @@ export function simulateBattery(
     grossPvKw,
     rateCtPerKwh: rates.rateCtPerKwh,
     priceCurveComputable: rates.tariffOptimization?.computable === true,
+    hasFeedIn: hasFeedIn(loadProfile),
   }
 }
