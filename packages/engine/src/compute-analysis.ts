@@ -20,7 +20,12 @@ import { analyzeCurrentPeaks, topPeaksKw } from './peaks'
 import { installationCoverageOf, recommendBattery } from './recommendation'
 import { eagDemandChargePerYear } from './tariff'
 import { calculateRoi, subsidyProgramAssumptionsOf, taxAssumptionsOf } from './roi'
-import { computeBatterySavings, eagDemandSavingField } from './savings'
+import {
+  computeBatterySavings,
+  eagDemandSavingField,
+  ownTariffContext,
+  ownTariffStorageOf,
+} from './savings'
 import { AnalysisRefusedError, hasFeedIn } from './refusal'
 import {
   alignPvGrossToLoad,
@@ -447,6 +452,19 @@ export function computeAnalysis(
     options.ranking,
   )
 
+  // Zusätzlich je Gerät: der Speicherwert im eigenen Tarif — nach der Reihung, die er nicht berührt.
+  const ownTariff = ownTariffContext(loadProfile, payload.tariff, payload.tariffPricing)
+  const perBatteryWithOwnTariff = perBattery.map((entry) => ({
+    ...entry,
+    ...ownTariffStorageOf(
+      ownTariff,
+      loadProfile,
+      entry.battery,
+      payload.tariff,
+      planning,
+    ),
+  }))
+
   /*
    * --- Monatsvergleich „Ist vs. aWATTar ohne Steuerung vs. aWATTar mit einem Speicher" ---
    *
@@ -525,7 +543,7 @@ export function computeAnalysis(
         ? current
         : { ...current, eagGrundpreisCostPerYear },
     peaks,
-    perBattery,
+    perBattery: perBatteryWithOwnTariff,
     recommendation,
     // K3b-2: gesetzt GENAU DANN, wenn es keine Empfehlung gibt — sonst fehlt das Feld ganz.
     ...(recommendation ? {} : { noRecommendationReason: 'no_candidates' as const }),

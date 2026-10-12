@@ -1318,7 +1318,9 @@
       2428.4871156896975
      ]
     }
-   }
+   },
+   "ownTariffStorage": null,
+   "ownTariffStorageReason": "peak_shaving_active"
   },
   {
    "battery": {
@@ -2524,7 +2526,9 @@
       1881.2008949283884
      ]
     }
-   }
+   },
+   "ownTariffStorage": null,
+   "ownTariffStorageReason": "peak_shaving_active"
   },
   {
    "battery": {
@@ -3730,7 +3734,9 @@
       2187.273256594645
      ]
     }
-   }
+   },
+   "ownTariffStorage": null,
+   "ownTariffStorageReason": "peak_shaving_active"
   },
   {
    "battery": {
@@ -4936,7 +4942,9 @@
       2428.4871156896975
      ]
     }
-   }
+   },
+   "ownTariffStorage": null,
+   "ownTariffStorageReason": "peak_shaving_active"
   },
   {
    "battery": {
@@ -6142,7 +6150,9 @@
       1469.4913599908457
      ]
     }
-   }
+   },
+   "ownTariffStorage": null,
+   "ownTariffStorageReason": "peak_shaving_active"
   },
   {
    "battery": {
@@ -7348,7 +7358,9 @@
       2187.273256594645
      ]
     }
-   }
+   },
+   "ownTariffStorage": null,
+   "ownTariffStorageReason": "peak_shaving_active"
   },
   {
    "battery": {
@@ -8554,7 +8566,9 @@
       1834.5207443994168
      ]
     }
-   }
+   },
+   "ownTariffStorage": null,
+   "ownTariffStorageReason": "peak_shaving_active"
   },
   {
    "battery": {
@@ -9760,7 +9774,9 @@
       1389.3468343963689
      ]
     }
-   }
+   },
+   "ownTariffStorage": null,
+   "ownTariffStorageReason": "peak_shaving_active"
   },
   {
    "battery": {
@@ -10966,7 +10982,9 @@
       1771.6480913480652
      ]
     }
-   }
+   },
+   "ownTariffStorage": null,
+   "ownTariffStorageReason": "peak_shaving_active"
   },
   {
    "battery": {
@@ -12172,7 +12190,9 @@
       1541.39604598633
      ]
     }
-   }
+   },
+   "ownTariffStorage": null,
+   "ownTariffStorageReason": "peak_shaving_active"
   },
   {
    "battery": {
@@ -13383,7 +13403,9 @@
       2010.8493865773526
      ]
     }
-   }
+   },
+   "ownTariffStorage": null,
+   "ownTariffStorageReason": "peak_shaving_active"
   },
   {
    "battery": {
@@ -14594,7 +14616,9 @@
       2070.3469054032385
      ]
     }
-   }
+   },
+   "ownTariffStorage": null,
+   "ownTariffStorageReason": "peak_shaving_active"
   },
   {
    "battery": {
@@ -15800,7 +15824,9 @@
       2749.7213493398003
      ]
     }
-   }
+   },
+   "ownTariffStorage": null,
+   "ownTariffStorageReason": "peak_shaving_active"
   },
   {
    "battery": {
@@ -17001,7 +17027,9 @@
       2120.6078056943784
      ]
     }
-   }
+   },
+   "ownTariffStorage": null,
+   "ownTariffStorageReason": "peak_shaving_active"
   },
   {
    "battery": {
@@ -18208,7 +18236,9 @@
       2228.941666388607
      ]
     }
-   }
+   },
+   "ownTariffStorage": null,
+   "ownTariffStorageReason": "peak_shaving_active"
   },
   {
    "battery": {
@@ -19419,7 +19449,9 @@
       3051.4978071280857
      ]
     }
-   }
+   },
+   "ownTariffStorage": null,
+   "ownTariffStorageReason": "peak_shaving_active"
   },
   {
    "battery": {
@@ -20620,7 +20652,9 @@
       2236.9514454329483
      ]
     }
-   }
+   },
+   "ownTariffStorage": null,
+   "ownTariffStorageReason": "peak_shaving_active"
   },
   {
    "battery": {
@@ -21827,7 +21861,9 @@
       2278.4520111787915
      ]
     }
-   }
+   },
+   "ownTariffStorage": null,
+   "ownTariffStorageReason": "peak_shaving_active"
   },
   {
    "battery": {
@@ -23034,7 +23070,9 @@
       2247.2458706236785
      ]
     }
-   }
+   },
+   "ownTariffStorage": null,
+   "ownTariffStorageReason": "peak_shaving_active"
   },
   {
    "battery": {
@@ -24241,7 +24279,9 @@
       2274.3368848531077
      ]
     }
-   }
+   },
+   "ownTariffStorage": null,
+   "ownTariffStorageReason": "peak_shaving_active"
   },
   {
    "battery": {
@@ -25448,7 +25488,9 @@
       2266.7012107025134
      ]
     }
-   }
+   },
+   "ownTariffStorage": null,
+   "ownTariffStorageReason": "peak_shaving_active"
   },
   {
    "battery": {
@@ -26649,7 +26691,9 @@
       2367.8073988586425
      ]
     }
-   }
+   },
+   "ownTariffStorage": null,
+   "ownTariffStorageReason": "peak_shaving_active"
   },
   {
    "battery": {
@@ -27856,7 +27900,9 @@
       2414.2928559285488
      ]
     }
-   }
+   },
+   "ownTariffStorage": null,
+   "ownTariffStorageReason": "peak_shaving_active"
   },
   {
    "battery": {
@@ -29063,7 +29109,9 @@
       2423.397010791014
      ]
     }
-   }
+   },
+   "ownTariffStorage": null,
+   "ownTariffStorageReason": "peak_shaving_active"
   },
   {
    "battery": {
@@ -30270,7 +30318,9 @@
       2483.4234431457494
      ]
     }
-   }
+   },
+   "ownTariffStorage": null,
+   "ownTariffStorageReason": "peak_shaving_active"
   },
   {
    "battery": {
@@ -31477,7 +31527,9 @@
       2537.30697466812
      ]
     }
-   }
+   },
+   "ownTariffStorage": null,
+   "ownTariffStorageReason": "peak_shaving_active"
   },
   {
    "battery": {
@@ -32684,7 +32736,9 @@
       2483.6479829254126
      ]
     }
-   }
+   },
+   "ownTariffStorage": null,
+   "ownTariffStorageReason": "peak_shaving_active"
   },
   {
    "battery": {
@@ -33891,7 +33945,9 @@
       2367.8073988586425
      ]
     }
-   }
+   },
+   "ownTariffStorage": null,
+   "ownTariffStorageReason": "peak_shaving_active"
   },
   {
    "battery": {
@@ -35098,7 +35154,9 @@
       2353.859437506107
      ]
     }
-   }
+   },
+   "ownTariffStorage": null,
+   "ownTariffStorageReason": "peak_shaving_active"
   },
   {
    "battery": {
@@ -36305,7 +36363,9 @@
       2353.859437506107
      ]
     }
-   }
+   },
+   "ownTariffStorage": null,
+   "ownTariffStorageReason": "peak_shaving_active"
   },
   {
    "battery": {
@@ -37512,7 +37572,9 @@
       2478.414367065432
      ]
     }
-   }
+   },
+   "ownTariffStorage": null,
+   "ownTariffStorageReason": "peak_shaving_active"
   }
  ],
  "recommendation": {

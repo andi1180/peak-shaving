@@ -104,6 +104,12 @@ const socAfter = (soc: number, kw: number, deltaH: number, eta: number) =>
 export type IntervalState = { drawKw: number; priceCt: number; capKw: number; minEndSocKwh: number }
 
 /**
+ * Wer bei exakt gleichen Kosten gewinnt. Ohne Angabe: Halten vor Entladen (bisheriges Verhalten,
+ * aWATTar-Pfad). `discharge`: Entladen vor Halten — für den Lauf im eigenen Tarif, s. `decideInterval`.
+ */
+export type TieBreak = 'discharge'
+
+/**
  * Batterieleistung für EIN Intervall: Intervallkosten plus Restkosten des Plans (Zeile `row`)
  * minimal, unter Leistungs-, SoC-, Kapp- und Reservegrenzen; über der Kapp-Schwelle wird wie in
  * `runCombinedDispatch` zuerst gekappt. Entladen wird nie über den Bezug hinaus.
@@ -116,6 +122,7 @@ export function decideInterval(
   feedInCt: number,
   physics: BatteryPhysics,
   deltaH: number,
+  tieBreak?: TieBreak,
 ): number {
   const { usableCapacityKwh: C, maxPowerKw: P, roundTripEfficiency: eta } = physics
   const { drawKw: draw, priceCt, capKw: cap, minEndSocKwh: floorNext } = interval
@@ -143,6 +150,13 @@ export function decideInterval(
   }
   // Bei gleichen Kosten gewinnt der zuerst geprüfte Kandidat: echter Überschuss wird eingelagert.
   if (draw < 0) consider(Math.min(maxChargeKw, -draw))
+  /*
+   * Bei konstantem Preis ist der Randwert (`terminalValueCt`) exakt der Entladepreis: Halten und
+   * Entladen kosten im Plan gleich viel, der Gleichstand ist strukturell. Halten zuerst liesse den
+   * Speicher voll stehen und die PV des Folgetags ins Netz gehen; Entladen zuerst (Eigenverbrauch)
+   * ist dort optimal (gegen eine Eigenverbrauchs-Referenz gemessen).
+   */
+  if (tieBreak === 'discharge') consider(minKw)
   consider(Math.max(0, minKw))
   consider(minKw)
   consider(maxChargeKw)
@@ -273,11 +287,12 @@ export function executePlan(
   deltaH: number,
   out: DispatchResult,
   offset: number,
+  tieBreak?: TieBreak,
 ): number {
   let soc = startSocKwh
   for (let t = from; t < to; t++) {
     const interval = intervals(t)
-    const kw = decideInterval(plan, t, soc, interval, feedInCt, physics, deltaH)
+    const kw = decideInterval(plan, t, soc, interval, feedInCt, physics, deltaH, tieBreak)
     soc = clamp(
       socAfter(soc, kw, deltaH, physics.roundTripEfficiency),
       0,
@@ -315,6 +330,8 @@ export type SurplusDispatchInput = {
   startSocKwh: number
   deltaH: number
   states?: number
+  /** Nur der Lauf im eigenen Tarif setzt `discharge`; ohne Angabe bitgleich zum bisherigen Verhalten. */
+  tieBreak?: TieBreak
 }
 
 /** Planungszeitpunkte und Horizontenden: Lastgang-Beginn, dann jeder Tag ab 14:00 lokal. */
@@ -427,6 +444,7 @@ export function runSurplusOptimizedDispatch(input: SurplusDispatchInput): Dispat
       deltaH,
       out,
       start,
+      input.tieBreak,
     )
   }
   return out

@@ -261,10 +261,52 @@ export type BatteryNotice =
   | { code: 'separate_inverter'; extraInverterCost: number }
   | { code: 'power_limited'; maxPowerKw: number }
 
+/**
+ * Speicherwert im EIGENEN Tarif des Kunden, ohne Wechsel zu aWATTar. Eine zusätzliche Zahl neben
+ * `totalSavingPerYear` (das immer die aWATTar-Zahl ist): sie steckt in keiner Summe, keiner
+ * Amortisation und keiner Reihung.
+ *
+ * Bewertet mit derselben Kostenfunktion wie „Ihr Tarif heute" im Monatsvergleich (Arbeitspreis
+ * plus Netz und Abgaben je Intervall, Einspeisung zur Einspeisevergütung), einmal auf dem rohen
+ * Netzbezug und einmal auf dem Netzbezug nach einem Fahrplan, der mit genau dieser Preisreihe
+ * geplant ist. Grundgebühren kürzen sich heraus, der Leistungspreis ist nicht enthalten.
+ */
+export type OwnTariffStorage = {
+  /** Kosten „Ihr Tarif heute" ohne − mit Speicher, über `annualizationFactor` hochgerechnet. */
+  savingPerYear: number
+  /** Dieselbe Differenz über den abgedeckten Zeitraum (nicht hochgerechnet). */
+  savingOverCoveredPeriod: number
+  /** Immer der volle Intervallpreis; ohne rechenbare Preisdaten entsteht das Feld nicht. */
+  basis: 'full_price'
+  /** Weniger Einspeisung als ohne Speicher (kWh, abgedeckter Zeitraum): eingelagerte PV. */
+  selfConsumptionGainKwh: number
+  /** Ladung, die nicht aus PV-Überschuss desselben Intervalls stammt (kWh, abgedeckter Zeitraum). */
+  gridChargeKwh: number
+  /** Einspeisung mit Speicher (kWh, abgedeckter Zeitraum). */
+  feedInKwh: number
+  /**
+   * `surplus_dp` = Kostenminimum über den Horizont (`runSurplusOptimizedDispatch`); `none` = ohne
+   * Einspeisung und ohne lohnende Arbitrage (η × höchster ≤ niedrigster Preis) — der Speicher kann
+   * nichts sparen, die Ersparnis ist exakt 0 und wird nicht simuliert.
+   */
+  planner: 'surplus_dp' | 'none'
+}
+
+/**
+ * Warum `ownTariffStorage` `null` ist: kein bekannter Arbeitspreis, keine rechenbaren Preisdaten,
+ * ein HT/NT-Tarif (den „Ihr Tarif heute" nicht abbildet) oder aktive Spitzenkappung für das Gerät.
+ */
+export type OwnTariffStorageUnavailableReason =
+  'supplier_tariff_unknown' | 'no_price_data' | 'time_of_use_tariff' | 'peak_shaving_active'
+
 /** Ein Katalog-Kandidat, wie ihn `recommendBattery` (§3.8) liefert: Ergebnis PLUS Investition. */
 export type BatteryRoiEntry = BatteryResultEntry &
   BatteryRoiSummary & {
     notices: BatteryNotice[]
+    /** Fehlt in Ergebnissen vor dieser Fassung; `null` mit `ownTariffStorageReason`, wenn nicht rechenbar. */
+    ownTariffStorage?: OwnTariffStorage | null
+    /** Gesetzt GENAU DANN, wenn `ownTariffStorage` `null` ist. */
+    ownTariffStorageReason?: OwnTariffStorageUnavailableReason
   }
 
 /** Warum die Empfehlung gewählt ist — Werte netto, den Satz bildet der Report (s. `BatteryNotice`). */

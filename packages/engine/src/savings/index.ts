@@ -2,6 +2,15 @@
 // Kostendifferenz der Netzreihen), inkl. controlType-Default.
 export { computeBatterySavings, eagDemandSavingField } from './attribute'
 export type { BatterySavings } from './attribute'
+// Speicherwert im eigenen Tarif („Ihr Tarif + Speicher"), zusätzlich zur aWATTar-Zahl.
+export {
+  arbitrageImpossible,
+  ownTariffContext,
+  ownTariffDispatch,
+  ownTariffEnergyCostEur,
+  ownTariffStorageOf,
+} from './own-tariff-storage'
+export type { OwnTariffContext, OwnTariffStorageField } from './own-tariff-storage'
 // D6 Teil 1: die Jahres-Hochrechnung. `annualizationFactor` gab es bereits, war aber über den
 // Paket-Index nicht erreichbar (Bestandsaufnahme §5.2) — hier ohne Verhaltensänderung nachgezogen.
 // `estimateAnnualConsumption` ist die zweite, GENAUERE Rechnung daneben, nicht ihr Ersatz.

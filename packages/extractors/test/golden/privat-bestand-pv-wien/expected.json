@@ -582,6 +582,15 @@
        null
       ]
      }
+    },
+    "ownTariffStorage": {
+     "savingPerYear": 0,
+     "savingOverCoveredPeriod": 0,
+     "basis": "full_price",
+     "selfConsumptionGainKwh": 0,
+     "gridChargeKwh": 0,
+     "feedInKwh": 0,
+     "planner": "none"
     }
    },
    {
@@ -1051,6 +1060,15 @@
        null
       ]
      }
+    },
+    "ownTariffStorage": {
+     "savingPerYear": 0,
+     "savingOverCoveredPeriod": 0,
+     "basis": "full_price",
+     "selfConsumptionGainKwh": 0,
+     "gridChargeKwh": 0,
+     "feedInKwh": 0,
+     "planner": "none"
     }
    },
    {
@@ -1520,6 +1538,15 @@
        null
       ]
      }
+    },
+    "ownTariffStorage": {
+     "savingPerYear": 0,
+     "savingOverCoveredPeriod": 0,
+     "basis": "full_price",
+     "selfConsumptionGainKwh": 0,
+     "gridChargeKwh": 0,
+     "feedInKwh": 0,
+     "planner": "none"
     }
    },
    {
@@ -1989,6 +2016,15 @@
        null
       ]
      }
+    },
+    "ownTariffStorage": {
+     "savingPerYear": 0,
+     "savingOverCoveredPeriod": 0,
+     "basis": "full_price",
+     "selfConsumptionGainKwh": 0,
+     "gridChargeKwh": 0,
+     "feedInKwh": 0,
+     "planner": "none"
     }
    },
    {
@@ -2458,6 +2494,15 @@
        null
       ]
      }
+    },
+    "ownTariffStorage": {
+     "savingPerYear": 0,
+     "savingOverCoveredPeriod": 0,
+     "basis": "full_price",
+     "selfConsumptionGainKwh": 0,
+     "gridChargeKwh": 0,
+     "feedInKwh": 0,
+     "planner": "none"
     }
    },
    {
@@ -2927,6 +2972,15 @@
        null
       ]
      }
+    },
+    "ownTariffStorage": {
+     "savingPerYear": 0,
+     "savingOverCoveredPeriod": 0,
+     "basis": "full_price",
+     "selfConsumptionGainKwh": 0,
+     "gridChargeKwh": 0,
+     "feedInKwh": 0,
+     "planner": "none"
     }
    },
    {
@@ -3396,6 +3450,15 @@
        null
       ]
      }
+    },
+    "ownTariffStorage": {
+     "savingPerYear": 0,
+     "savingOverCoveredPeriod": 0,
+     "basis": "full_price",
+     "selfConsumptionGainKwh": 0,
+     "gridChargeKwh": 0,
+     "feedInKwh": 0,
+     "planner": "none"
     }
    },
    {
@@ -3865,6 +3928,15 @@
        null
       ]
      }
+    },
+    "ownTariffStorage": {
+     "savingPerYear": 0,
+     "savingOverCoveredPeriod": 0,
+     "basis": "full_price",
+     "selfConsumptionGainKwh": 0,
+     "gridChargeKwh": 0,
+     "feedInKwh": 0,
+     "planner": "none"
     }
    },
    {
@@ -4334,6 +4406,15 @@
        null
       ]
      }
+    },
+    "ownTariffStorage": {
+     "savingPerYear": 0,
+     "savingOverCoveredPeriod": 0,
+     "basis": "full_price",
+     "selfConsumptionGainKwh": 0,
+     "gridChargeKwh": 0,
+     "feedInKwh": 0,
+     "planner": "none"
     }
    },
    {
@@ -4803,6 +4884,15 @@
        null
       ]
      }
+    },
+    "ownTariffStorage": {
+     "savingPerYear": 0,
+     "savingOverCoveredPeriod": 0,
+     "basis": "full_price",
+     "selfConsumptionGainKwh": 0,
+     "gridChargeKwh": 0,
+     "feedInKwh": 0,
+     "planner": "none"
     }
    },
    {
@@ -5272,6 +5362,15 @@
        null
       ]
      }
+    },
+    "ownTariffStorage": {
+     "savingPerYear": 0,
+     "savingOverCoveredPeriod": 0,
+     "basis": "full_price",
+     "selfConsumptionGainKwh": 0,
+     "gridChargeKwh": 0,
+     "feedInKwh": 0,
+     "planner": "none"
     }
    },
    {
@@ -5741,6 +5840,15 @@
        null
       ]
      }
+    },
+    "ownTariffStorage": {
+     "savingPerYear": 0,
+     "savingOverCoveredPeriod": 0,
+     "basis": "full_price",
+     "selfConsumptionGainKwh": 0,
+     "gridChargeKwh": 0,
+     "feedInKwh": 0,
+     "planner": "none"
     }
    },
    {
@@ -6210,6 +6318,15 @@
        null
       ]
      }
+    },
+    "ownTariffStorage": {
+     "savingPerYear": 0,
+     "savingOverCoveredPeriod": 0,
+     "basis": "full_price",
+     "selfConsumptionGainKwh": 0,
+     "gridChargeKwh": 0,
+     "feedInKwh": 0,
+     "planner": "none"
     }
    },
    {
@@ -6679,6 +6796,15 @@
        null
       ]
      }
+    },
+    "ownTariffStorage": {
+     "savingPerYear": 0,
+     "savingOverCoveredPeriod": 0,
+     "basis": "full_price",
+     "selfConsumptionGainKwh": 0,
+     "gridChargeKwh": 0,
+     "feedInKwh": 0,
+     "planner": "none"
     }
    },
    {
@@ -7148,6 +7274,15 @@
        null
       ]
      }
+    },
+    "ownTariffStorage": {
+     "savingPerYear": 0,
+     "savingOverCoveredPeriod": 0,
+     "basis": "full_price",
+     "selfConsumptionGainKwh": 0,
+     "gridChargeKwh": 0,
+     "feedInKwh": 0,
+     "planner": "none"
     }
    },
    {
@@ -7617,6 +7752,15 @@
        null
       ]
      }
+    },
+    "ownTariffStorage": {
+     "savingPerYear": 0,
+     "savingOverCoveredPeriod": 0,
+     "basis": "full_price",
+     "selfConsumptionGainKwh": 0,
+     "gridChargeKwh": 0,
+     "feedInKwh": 0,
+     "planner": "none"
     }
    },
    {
@@ -8086,6 +8230,15 @@
        null
       ]
      }
+    },
+    "ownTariffStorage": {
+     "savingPerYear": 0,
+     "savingOverCoveredPeriod": 0,
+     "basis": "full_price",
+     "selfConsumptionGainKwh": 0,
+     "gridChargeKwh": 0,
+     "feedInKwh": 0,
+     "planner": "none"
     }
    },
    {
@@ -8555,6 +8708,15 @@
        null
       ]
      }
+    },
+    "ownTariffStorage": {
+     "savingPerYear": 0,
+     "savingOverCoveredPeriod": 0,
+     "basis": "full_price",
+     "selfConsumptionGainKwh": 0,
+     "gridChargeKwh": 0,
+     "feedInKwh": 0,
+     "planner": "none"
     }
    },
    {
@@ -9024,6 +9186,15 @@
        null
       ]
      }
+    },
+    "ownTariffStorage": {
+     "savingPerYear": 0,
+     "savingOverCoveredPeriod": 0,
+     "basis": "full_price",
+     "selfConsumptionGainKwh": 0,
+     "gridChargeKwh": 0,
+     "feedInKwh": 0,
+     "planner": "none"
     }
    },
    {
@@ -9493,6 +9664,15 @@
        null
       ]
      }
+    },
+    "ownTariffStorage": {
+     "savingPerYear": 0,
+     "savingOverCoveredPeriod": 0,
+     "basis": "full_price",
+     "selfConsumptionGainKwh": 0,
+     "gridChargeKwh": 0,
+     "feedInKwh": 0,
+     "planner": "none"
     }
    },
    {
@@ -9962,6 +10142,15 @@
        null
       ]
      }
+    },
+    "ownTariffStorage": {
+     "savingPerYear": 0,
+     "savingOverCoveredPeriod": 0,
+     "basis": "full_price",
+     "selfConsumptionGainKwh": 0,
+     "gridChargeKwh": 0,
+     "feedInKwh": 0,
+     "planner": "none"
     }
    },
    {
@@ -10431,6 +10620,15 @@
        null
       ]
      }
+    },
+    "ownTariffStorage": {
+     "savingPerYear": 0,
+     "savingOverCoveredPeriod": 0,
+     "basis": "full_price",
+     "selfConsumptionGainKwh": 0,
+     "gridChargeKwh": 0,
+     "feedInKwh": 0,
+     "planner": "none"
     }
    },
    {
@@ -10900,6 +11098,15 @@
        null
       ]
      }
+    },
+    "ownTariffStorage": {
+     "savingPerYear": 0,
+     "savingOverCoveredPeriod": 0,
+     "basis": "full_price",
+     "selfConsumptionGainKwh": 0,
+     "gridChargeKwh": 0,
+     "feedInKwh": 0,
+     "planner": "none"
     }
    },
    {
@@ -11364,6 +11571,15 @@
        null
       ]
      }
+    },
+    "ownTariffStorage": {
+     "savingPerYear": 0,
+     "savingOverCoveredPeriod": 0,
+     "basis": "full_price",
+     "selfConsumptionGainKwh": 0,
+     "gridChargeKwh": 0,
+     "feedInKwh": 0,
+     "planner": "none"
     }
    },
    {
@@ -11833,6 +12049,15 @@
        null
       ]
      }
+    },
+    "ownTariffStorage": {
+     "savingPerYear": 0,
+     "savingOverCoveredPeriod": 0,
+     "basis": "full_price",
+     "selfConsumptionGainKwh": 0,
+     "gridChargeKwh": 0,
+     "feedInKwh": 0,
+     "planner": "none"
     }
    },
    {
@@ -12297,6 +12522,15 @@
        null
       ]
      }
+    },
+    "ownTariffStorage": {
+     "savingPerYear": 0,
+     "savingOverCoveredPeriod": 0,
+     "basis": "full_price",
+     "selfConsumptionGainKwh": 0,
+     "gridChargeKwh": 0,
+     "feedInKwh": 0,
+     "planner": "none"
     }
    },
    {
@@ -12761,6 +12995,15 @@
        null
       ]
      }
+    },
+    "ownTariffStorage": {
+     "savingPerYear": 0,
+     "savingOverCoveredPeriod": 0,
+     "basis": "full_price",
+     "selfConsumptionGainKwh": 0,
+     "gridChargeKwh": 0,
+     "feedInKwh": 0,
+     "planner": "none"
     }
    }
   ],

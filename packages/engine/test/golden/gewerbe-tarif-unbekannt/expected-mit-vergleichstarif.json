@@ -575,7 +575,9 @@
       1711.024083333336
      ]
     }
-   }
+   },
+   "ownTariffStorage": null,
+   "ownTariffStorageReason": "supplier_tariff_unknown"
   },
   {
    "battery": {
@@ -1038,7 +1040,9 @@
       1318.851000000002
      ]
     }
-   }
+   },
+   "ownTariffStorage": null,
+   "ownTariffStorageReason": "supplier_tariff_unknown"
   },
   {
    "battery": {
@@ -1501,7 +1505,9 @@
       2028.2414166666676
      ]
     }
-   }
+   },
+   "ownTariffStorage": null,
+   "ownTariffStorageReason": "supplier_tariff_unknown"
   },
   {
    "battery": {
@@ -1964,7 +1970,9 @@
       2450.617416666663
      ]
     }
-   }
+   },
+   "ownTariffStorage": null,
+   "ownTariffStorageReason": "supplier_tariff_unknown"
   },
   {
    "battery": {
@@ -2427,7 +2435,9 @@
       1257.7037500000063
      ]
     }
-   }
+   },
+   "ownTariffStorage": null,
+   "ownTariffStorageReason": "supplier_tariff_unknown"
   },
   {
    "battery": {
@@ -2890,7 +2900,9 @@
       2028.2414166666676
      ]
     }
-   }
+   },
+   "ownTariffStorage": null,
+   "ownTariffStorageReason": "supplier_tariff_unknown"
   },
   {
    "battery": {
@@ -3353,7 +3365,9 @@
       2450.617416666663
      ]
     }
-   }
+   },
+   "ownTariffStorage": null,
+   "ownTariffStorageReason": "supplier_tariff_unknown"
   },
   {
    "battery": {
@@ -3816,7 +3830,9 @@
       1375.8404166666683
      ]
     }
-   }
+   },
+   "ownTariffStorage": null,
+   "ownTariffStorageReason": "supplier_tariff_unknown"
   },
   {
    "battery": {
@@ -4279,7 +4295,9 @@
       1772.5875833333348
      ]
     }
-   }
+   },
+   "ownTariffStorage": null,
+   "ownTariffStorageReason": "supplier_tariff_unknown"
   },
   {
    "battery": {
@@ -4748,7 +4766,9 @@
       2906.495266666664
      ]
     }
-   }
+   },
+   "ownTariffStorage": null,
+   "ownTariffStorageReason": "supplier_tariff_unknown"
   },
   {
    "battery": {
@@ -5211,7 +5231,9 @@
       2055.418666666668
      ]
     }
-   }
+   },
+   "ownTariffStorage": null,
+   "ownTariffStorageReason": "supplier_tariff_unknown"
   },
   {
    "battery": {
@@ -5680,7 +5702,9 @@
       2329.5344999999975
      ]
     }
-   }
+   },
+   "ownTariffStorage": null,
+   "ownTariffStorageReason": "supplier_tariff_unknown"
   },
   {
    "battery": {
@@ -6149,7 +6173,9 @@
       2387.1769999999988
      ]
     }
-   }
+   },
+   "ownTariffStorage": null,
+   "ownTariffStorageReason": "supplier_tariff_unknown"
   },
   {
    "battery": {
@@ -6612,7 +6638,9 @@
       2599.57983333333
      ]
     }
-   }
+   },
+   "ownTariffStorage": null,
+   "ownTariffStorageReason": "supplier_tariff_unknown"
   },
   {
    "battery": {
@@ -7075,7 +7103,9 @@
       2933.870333333329
      ]
     }
-   }
+   },
+   "ownTariffStorage": null,
+   "ownTariffStorageReason": "supplier_tariff_unknown"
   },
   {
    "battery": {
@@ -7538,7 +7568,9 @@
       2923.787166666663
      ]
     }
-   }
+   },
+   "ownTariffStorage": null,
+   "ownTariffStorageReason": "supplier_tariff_unknown"
   },
   {
    "battery": {
@@ -8007,7 +8039,9 @@
       3047.915499999997
      ]
     }
-   }
+   },
+   "ownTariffStorage": null,
+   "ownTariffStorageReason": "supplier_tariff_unknown"
   },
   {
    "battery": {
@@ -8470,7 +8504,9 @@
       3837.547499999996
      ]
     }
-   }
+   },
+   "ownTariffStorage": null,
+   "ownTariffStorageReason": "supplier_tariff_unknown"
   },
   {
    "battery": {
@@ -8939,7 +8975,9 @@
       3837.547499999996
      ]
     }
-   }
+   },
+   "ownTariffStorage": null,
+   "ownTariffStorageReason": "supplier_tariff_unknown"
   },
   {
    "battery": {
@@ -9408,7 +9446,9 @@
       3195.9704999999963
      ]
     }
-   }
+   },
+   "ownTariffStorage": null,
+   "ownTariffStorageReason": "supplier_tariff_unknown"
   },
   {
    "battery": {
@@ -9877,7 +9917,9 @@
       3188.130333333329
      ]
     }
-   }
+   },
+   "ownTariffStorage": null,
+   "ownTariffStorageReason": "supplier_tariff_unknown"
   },
   {
    "battery": {
@@ -10346,7 +10388,9 @@
       2976.607166666664
      ]
     }
-   }
+   },
+   "ownTariffStorage": null,
+   "ownTariffStorageReason": "supplier_tariff_unknown"
   },
   {
    "battery": {
@@ -10815,7 +10859,9 @@
       3837.547499999996
      ]
     }
-   }
+   },
+   "ownTariffStorage": null,
+   "ownTariffStorageReason": "supplier_tariff_unknown"
   },
   {
    "battery": {
@@ -11284,7 +11330,9 @@
       3128.106499999997
      ]
     }
-   }
+   },
+   "ownTariffStorage": null,
+   "ownTariffStorageReason": "supplier_tariff_unknown"
   },
   {
    "battery": {
@@ -11753,7 +11801,9 @@
       3837.547499999996
      ]
     }
-   }
+   },
+   "ownTariffStorage": null,
+   "ownTariffStorageReason": "supplier_tariff_unknown"
   },
   {
    "battery": {
@@ -12222,7 +12272,9 @@
       3837.547499999996
      ]
     }
-   }
+   },
+   "ownTariffStorage": null,
+   "ownTariffStorageReason": "supplier_tariff_unknown"
   },
   {
    "battery": {
@@ -12691,7 +12743,9 @@
       3837.547499999996
      ]
     }
-   }
+   },
+   "ownTariffStorage": null,
+   "ownTariffStorageReason": "supplier_tariff_unknown"
   },
   {
    "battery": {
@@ -13160,7 +13214,9 @@
       3837.547499999996
      ]
     }
-   }
+   },
+   "ownTariffStorage": null,
+   "ownTariffStorageReason": "supplier_tariff_unknown"
   },
   {
    "battery": {
@@ -13629,7 +13685,9 @@
       3837.547499999996
      ]
     }
-   }
+   },
+   "ownTariffStorage": null,
+   "ownTariffStorageReason": "supplier_tariff_unknown"
   },
   {
    "battery": {
@@ -14098,7 +14156,9 @@
       3837.547499999996
      ]
     }
-   }
+   },
+   "ownTariffStorage": null,
+   "ownTariffStorageReason": "supplier_tariff_unknown"
   },
   {
    "battery": {
@@ -14567,7 +14627,9 @@
       3837.547499999996
      ]
     }
-   }
+   },
+   "ownTariffStorage": null,
+   "ownTariffStorageReason": "supplier_tariff_unknown"
   }
  ],
  "recommendation": {
