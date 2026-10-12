@@ -334,6 +334,33 @@ describe('Bestandsbatterie — die Herkunft des Overrides (Fassung 3)', () => {
   })
 })
 
+describe('Speicherwert im eigenen Tarif — optionales Feld je Gerät', () => {
+  it('ein gespeichertes Ergebnis ohne das Feld bleibt lesbar, mit dem Feld ebenso', async () => {
+    const old = makeResult()
+    expect('ownTariffStorage' in old.perBattery[0]!).toBe(false)
+    const withField = makeResult({
+      perBattery: old.perBattery.map((e) => ({
+        ...e,
+        ownTariffStorage: null,
+        ownTariffStorageReason: 'peak_shaving_active' as const,
+      })),
+    })
+    for (const result of [old, withField]) {
+      const bundle = await buildAnalysisBundle({
+        engineVersion: ENGINE_VERSION,
+        engineCommitSha: REAL_COMMIT,
+        computedAt: '2026-10-12T10:00:00.000Z',
+        inputs: INPUTS,
+        result,
+        sourceFileName: 'lastgang-2023.csv',
+        sourceFile: SOURCE,
+      })
+      expect(parseAnalysisBundle(JSON.parse(serializeAnalysisBundle(bundle))).ok).toBe(true)
+      expect(deriveBaselineExtracts(result)).toEqual(deriveBaselineExtracts(old))
+    }
+  })
+})
+
 describe('B14-2 — die fünf typisierten Auszüge', () => {
   it('leitet sie aus dem Ergebnis ab, nicht aus einer Eingabe', () => {
     const extracts = deriveBaselineExtracts(makeResult())

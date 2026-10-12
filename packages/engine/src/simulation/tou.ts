@@ -72,6 +72,11 @@ function effectiveWindows(tariffParams: TariffParams): TimeOfUseWindow[] {
   return []
 }
 
+/** Trägt der Tarif HT/NT-Fenster (eigene oder das Standard-Nachtfenster zum Nachtpreis)? */
+export function hasTimeOfUseWindows(tariffParams: TariffParams): boolean {
+  return effectiveWindows(tariffParams).length > 0
+}
+
 /**
  * Der Marktpreis, dessen Intervall [tsStart, tsEnd) den Zeitpunkt enthält — `null`, wenn keiner.
  *
