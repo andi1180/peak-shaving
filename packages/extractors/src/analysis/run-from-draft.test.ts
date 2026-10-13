@@ -249,6 +249,30 @@ describe('runAnalysisFromMeteringPointDraft', () => {
     ).toBe(true)
   })
 
+  it('setzt gridProfileContainsPv nur bei Bestands-PV ohne Einspeisung und ohne Schätzreihe', async () => {
+    const existing = { ...DRAFT, hasPv: true, pvStage: 'existing' }
+    const withDraft = (draft: Record<string, unknown>, csv = loadProfileCsv()) =>
+      ports({
+        readMeteringPoint: async () => ({ draft, sourceDocumentId: 'doc-1' }),
+        readDocument: async () => file(csv, 'lastgang-2025.csv'),
+      })
+
+    const ohne = await runAnalysisFromMeteringPointDraft('mp-1', ports())
+    expect(ohne.gridProfileContainsPv).toBe(false)
+    expect((await runAnalysisFromMeteringPointDraft('mp-1', withDraft(existing))).gridProfileContainsPv).toBe(true)
+    expect(
+      (await runAnalysisFromMeteringPointDraft('mp-1', withDraft(existing, signedLoadProfileCsv())))
+        .gridProfileContainsPv,
+    ).toBe(false)
+
+    const seriesJson = generatedSeriesJson(ohne.loadProfile.readings.map((r) => r.ts))
+    const mitReihe = await runAnalysisFromMeteringPointDraft(
+      'mp-1',
+      generatedPorts(seriesJson, { ...GENERATED_DRAFT, hasPv: true, pvStage: 'existing' }),
+    )
+    expect(mitReihe.gridProfileContainsPv).toBe(false)
+  })
+
   it('⚠ zieht sie bei einer GEPLANTEN Anlage ab — dieselbe Antwort, gegensätzliche Rechnung', async () => {
     /*
      * ══════════════════════════════════════════════════════════════════════════════════════════

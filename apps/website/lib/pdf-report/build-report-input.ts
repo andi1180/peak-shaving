@@ -124,6 +124,8 @@ export type ReportRenderMeta = {
   priceFromInvoice: boolean
   /** Die Grundgebühr trägt den Rechnungs-Vermerk. Fehlt bei älteren Übergaben. */
   baseFeeFromInvoice: boolean
+  /** Bestands-PV steckt im Lastgang, ohne Einspeise- und Erzeugungsdaten. Fehlt bei älteren Übergaben. */
+  gridProfileContainsPv: boolean
 }
 
 /** Eine gelesene, nicht abgelaufene Übergabe. */
@@ -230,6 +232,7 @@ function readMeta(value: unknown): ReportRenderMeta {
     minBillableKwAssumed: meta.minBillableKwAssumed === true,
     priceFromInvoice: meta.priceFromInvoice === true,
     baseFeeFromInvoice: meta.baseFeeFromInvoice === true,
+    gridProfileContainsPv: meta.gridProfileContainsPv === true,
   }
 }
 
@@ -374,6 +377,7 @@ export function buildReportInputFromRenderRequest(
     ...(meta.minBillableKwAssumed ? { minBillableKwAssumed: true } : {}),
     ...(meta.priceFromInvoice ? { priceFromInvoice: true } : {}),
     ...(meta.baseFeeFromInvoice ? { baseFeeFromInvoice: true } : {}),
+    ...(meta.gridProfileContainsPv ? { gridProfileContainsPv: true } : {}),
     tariffVintage: tariffVintageNoteForInvoices(
       loadProfile,
       /* Ohne Angabe nennt der Satz die Grundgebühr nicht — die konservative Fassung. */

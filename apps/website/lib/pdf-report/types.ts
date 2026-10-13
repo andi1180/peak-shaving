@@ -363,6 +363,11 @@ export type PdfReportInput = {
   /** Die Grundgebühr des Lieferanten stammt laut Entwurf aus den gelesenen Rechnungen. */
   baseFeeFromInvoice?: boolean
   /**
+   * Bestands-PV steckt im Lastgang, ohne gemessene Einspeisung und ohne Schätzreihe
+   * (`gridProfileContainsPv`, shared). Noch ohne Wirkung; fehlt es, bleibt der Report wie zuvor.
+   */
+  gridProfileContainsPv?: boolean
+  /**
    * D9 — die rohen Herkunftsangaben der Tarifseite (s. `PdfReportTariffProvenance`).
    *
    * ⚠ OPTIONAL und nicht `null`-fähig: „dieser Weg führt die Angaben nicht" (der Chart-Prüfstand,
