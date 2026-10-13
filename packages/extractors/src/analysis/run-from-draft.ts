@@ -428,11 +428,6 @@ export async function runAnalysisFromMeteringPointDraft(
    */
   const estimatedPv = pvCoupling.offered ? generatedSeries : null
 
-  const profileContainsPv = gridProfileContainsPv(point.draft, {
-    measuredFeedIn: pvCoupling.offered === false && pvCoupling.reason === 'measured_feed_in',
-    hasEstimatedPvSeries: generatedSeries !== null,
-  })
-
   /*
    * ⚠ EINE ABGELEHNTE SCHÄTZREIHE VERPUFFT NICHT STILL. Der Admin hat sie im Wizard erzeugt und
    * sieht sie dort stehen; ohne diesen Satz käme ein Report heraus, der sie nicht kennt und
@@ -485,6 +480,15 @@ export async function runAnalysisFromMeteringPointDraft(
   }
 
   // „PV erfasst" kennt nur der Entwurf; eine bestehende Anlage ohne Reihe erreicht die Engine nicht.
+  // Nach dem Payload: erst dort steht fest, ob eine hochgeladene Erzeugungsreihe gelesen wurde.
+  const profileContainsPv = gridProfileContainsPv(point.draft, {
+    uploadedLoadProfile: parsed.profile.source !== 'standard_profile',
+    pvAlreadyInGridProfile: pvCoupling.offered === false && pvCoupling.reason === 'pv_already_in_grid_profile',
+    measuredFeedIn: pvCoupling.offered === false && pvCoupling.reason === 'measured_feed_in',
+    hasEstimatedPvSeries: generatedSeries !== null,
+    hasUploadedPvSeries: estimatedPv === null && payload.pv !== null,
+  })
+
   const pvRecorded = readPvStage(point.draft) !== null
   if (pvRecorded && payload.tariff.einspeiseverguetungCtPerKwh === undefined) {
     throw refusalToError(new AnalysisRefusedError({ reason: 'feed_in_tariff_missing' }))

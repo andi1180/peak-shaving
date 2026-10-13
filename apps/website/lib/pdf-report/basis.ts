@@ -1236,9 +1236,11 @@ export function buildTariffComponents(input: PdfReportInput): ReportTable {
       ]),
       dataRow('tariff_einspeiseverguetung', [
         'Einspeisevergütung',
-        a.einspeiseverguetungCtPerKwh === null
-          ? 'nicht angegeben'
-          : `${formatEur2(a.einspeiseverguetungCtPerKwh / 100)} / kWh`,
+        input.gridProfileContainsPv === true
+          ? 'nicht verwendet (keine Einspeisedaten)'
+          : a.einspeiseverguetungCtPerKwh === null
+            ? 'nicht angegeben'
+            : `${formatEur2(a.einspeiseverguetungCtPerKwh / 100)} / kWh`,
         SUPPLIER_STATUS,
       ]),
       ...supplierFeeRow(input.analysis, input.baseFeeFromInvoice === true),
@@ -1310,6 +1312,8 @@ export type BasisMethodItem = {
  * eine Jahresgrösse und zählte in den Viertelstundenkosten ein zweites Mal. Dieselbe Abgrenzung
  * trägt die Kopfzahl der Zusammenfassung („ohne Leistungspreis", `summary.ts`).
  */
+const FEED_IN_SENTENCE = 'Eingespeiste Viertelstunden werden mit Ihrer Einspeisevergütung gegengerechnet.'
+
 const SHARED_METHOD_BODY =
   'Alle Wege entstehen aus derselben Rechnung, Viertelstunde für Viertelstunde: Ihr Netzbezug mal ' +
   'dem Preis genau dieser Viertelstunde — Arbeitspreis plus das Netzentgelt des Zeitfensters, in ' +
@@ -1317,9 +1321,16 @@ const SHARED_METHOD_BODY =
   'EAG-Förderbeitrag und -Pauschale, Gebrauchsabgabe auf Netz- und Energiepreis). Dazu die ' +
   'verbrauchsunabhängigen Gebühren — Grundgebühr des Lieferanten, Netz-Grundpreis und Messpreis —, ' +
   'tagesanteilig nach den tatsächlich belegten Kalendertagen und nie als voller Monatsbetrag. ' +
-  'Eingespeiste Viertelstunden werden mit Ihrer Einspeisevergütung gegengerechnet. Der ' +
-  'Leistungspreis steht in keiner dieser Zahlen: er ist eine Jahresgrösse und würde hier ein ' +
+  FEED_IN_SENTENCE +
+  ' Der Leistungspreis steht in keiner dieser Zahlen: er ist eine Jahresgrösse und würde hier ein ' +
   'zweites Mal zählen. Darunter steht je Weg nur noch, was an ihm anders ist.'
+
+/** Bestands-PV nur im Netzbezug: der Einspeisungs-Satz des gemeinsamen Absatzes, ausgetauscht. */
+const SHARED_METHOD_BODY_GRID_ONLY = SHARED_METHOD_BODY.replace(
+  FEED_IN_SENTENCE,
+  'Die Einspeisung Ihrer bestehenden Anlage liegt nicht vor und ist in den Berechnungen nicht ' +
+    'enthalten. Eine Einspeisevergütung geht deshalb in keine Zahl ein.',
+)
 
 /**
  * Der gemeinsame Absatz, oder `null`, wenn es die Wege nicht gibt.
@@ -1331,13 +1342,16 @@ const SHARED_METHOD_BODY =
  *
  * ⚠ Exportiert für die Registry (`method_shared`) — eine Bedingung, ein Ort.
  */
-export function sharedMethodItem(analysis: PdfReportAnalysis): BasisMethodItem | null {
+export function sharedMethodItem(
+  analysis: PdfReportAnalysis,
+  gridProfileContainsPv = false,
+): BasisMethodItem | null {
   if (!hasWaysChapter(analysis)) return null
   return {
     id: 'method_shared',
     kind: 'text',
     title: 'Was für alle Wege gleich gerechnet ist',
-    body: SHARED_METHOD_BODY,
+    body: gridProfileContainsPv ? SHARED_METHOD_BODY_GRID_ONLY : SHARED_METHOD_BODY,
   }
 }
 
@@ -1367,10 +1381,11 @@ function buildMethodPerMetric(
   analysis: PdfReportAnalysis,
   pvOutage: ReportNotice | null,
   pvOutageMonths: PvOutageMonth[] | undefined,
+  gridProfileContainsPv = false,
 ): BasisMethodItem[] {
   const items: BasisMethodItem[] = []
 
-  const shared = sharedMethodItem(analysis)
+  const shared = sharedMethodItem(analysis, gridProfileContainsPv)
   if (shared) {
     items.push(shared)
     /*
@@ -1550,7 +1565,12 @@ export function buildBasisChapter(
     tariffVintage: input.tariffVintage,
     tariffComponents: buildTariffComponents(input),
     dataSources: buildDataSources(input),
-    methodPerMetric: buildMethodPerMetric(input.analysis, pvOutage, input.pvOutageMonths),
+    methodPerMetric: buildMethodPerMetric(
+      input.analysis,
+      pvOutage,
+      input.pvOutageMonths,
+      input.gridProfileContainsPv === true,
+    ),
     limitations: buildLimitations(input.analysis),
     disclaimer: reportDisclaimer(input.origin),
   }

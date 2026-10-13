@@ -7,27 +7,42 @@ import {
 } from './metering-point-draft'
 
 describe('gridProfileContainsPv — Wahrheitstabelle', () => {
-  const none = { measuredFeedIn: false, hasEstimatedPvSeries: false }
-  it.each([
-    ['keine PV', {}, none, false],
-    ['nur geplant', { hasPv: true, pvStage: 'planned' }, none, false],
-    ['Bestand ohne Schätzreihe', { hasPv: true, pvStage: 'existing' }, none, true],
-    [
-      'Bestand mit Schätzreihe',
-      { hasPv: true, pvStage: 'existing' },
-      { measuredFeedIn: false, hasEstimatedPvSeries: true },
-      false,
-    ],
-    [
-      'gemessene Einspeisung',
-      { hasPv: true, pvStage: 'existing' },
-      { measuredFeedIn: true, hasEstimatedPvSeries: false },
-      false,
-    ],
-    ['Altentwurf hasPv ohne Stufe, ohne Schätzreihe', { hasPv: true }, none, true],
-    ['hasPv: false mit Stufe', { hasPv: false, pvStage: 'existing' }, none, false],
-  ] as const)('%s', (_label, draft, observed, expected) => {
-    expect(gridProfileContainsPv(draft, observed)).toBe(expected)
+  const existing = { hasPv: true, pvStage: 'existing' }
+  const bestand = {
+    uploadedLoadProfile: true,
+    pvAlreadyInGridProfile: true,
+    measuredFeedIn: false,
+    hasEstimatedPvSeries: false,
+    hasUploadedPvSeries: false,
+  }
+  /** Was `pvGeneratorEligibility` ohne Bestands-PV bzw. bei Standardprofil liefert: kein Grund. */
+  const offered = { ...bestand, pvAlreadyInGridProfile: false }
+
+  it('Bestand ohne Reihe → true', () => {
+    expect(gridProfileContainsPv(existing, bestand)).toBe(true)
+  })
+  it('Bestand mit geschätzter Reihe → false', () => {
+    expect(gridProfileContainsPv(existing, { ...bestand, hasEstimatedPvSeries: true })).toBe(false)
+  })
+  it('Bestand mit hochgeladener gemessener Reihe → false', () => {
+    expect(gridProfileContainsPv(existing, { ...bestand, hasUploadedPvSeries: true })).toBe(false)
+  })
+  it('gemessene Einspeisung → false', () => {
+    expect(
+      gridProfileContainsPv(existing, { ...bestand, pvAlreadyInGridProfile: false, measuredFeedIn: true }),
+    ).toBe(false)
+  })
+  it('Standardprofil mit Bestand → false', () => {
+    expect(gridProfileContainsPv(existing, { ...offered, uploadedLoadProfile: false })).toBe(false)
+  })
+  it('ohne PV → false', () => {
+    expect(gridProfileContainsPv({}, offered)).toBe(false)
+  })
+  it('geplante PV → false', () => {
+    expect(gridProfileContainsPv({ hasPv: true, pvStage: 'planned' }, offered)).toBe(false)
+  })
+  it('Altentwurf hasPv ohne Stufe gilt als Bestand (DEFAULT_PV_STAGE) → true', () => {
+    expect(gridProfileContainsPv({ hasPv: true }, bestand)).toBe(true)
   })
 })
 

@@ -271,6 +271,17 @@ describe('runAnalysisFromMeteringPointDraft', () => {
       generatedPorts(seriesJson, { ...GENERATED_DRAFT, hasPv: true, pvStage: 'existing' }),
     )
     expect(mitReihe.gridProfileContainsPv).toBe(false)
+
+    const mitUpload = await runAnalysisFromMeteringPointDraft(
+      'mp-1',
+      ports({
+        readMeteringPoint: async () => ({
+          draft: { ...existing, pvProfileSource: 'upload', pvSourceDocumentId: 'pv-1' },
+          sourceDocumentId: 'doc-1',
+        }),
+      }),
+    )
+    expect(mitUpload.gridProfileContainsPv).toBe(false)
   })
 
   it('⚠ zieht sie bei einer GEPLANTEN Anlage ab — dieselbe Antwort, gegensätzliche Rechnung', async () => {
@@ -468,6 +479,33 @@ describe('runAnalysisFromMeteringPointDraft — tariffPricing', () => {
     }
     return { prices, complete: true, missingRanges: [] }
   }
+
+  it('Bestands-PV, nur Bezug: die Einspeisevergütung bewegt keine Zahl des Ergebnisses', async () => {
+    const run = (feedIn: number) =>
+      runAnalysisFromMeteringPointDraft(
+        'mp-1',
+        ports({
+          readMeteringPoint: async () => ({
+            draft: { ...DRAFT, hasPv: true, pvStage: 'existing', einspeiseverguetungCtPerKwh: feedIn },
+            sourceDocumentId: 'doc-1',
+          }),
+          fetchTariffPricing: async (request) => ({
+            gridTariffRows: GRID_ROWS,
+            spotPrices: spotSeries(request.window, request.intervalMinutes),
+            levies: LEVIES_NONE,
+          }),
+        }),
+      )
+    const [a, b] = await Promise.all([run(11.0352), run(5.0)])
+    expect(a.gridProfileContainsPv).toBe(true)
+    expect(a.result.tariffOptimization?.computable).toBe(true)
+    // Einzig die Annahme selbst unterscheidet sich; K0–K2 und jede Speicher-Ersparnis sind bitgleich.
+    const strip = (r: typeof a.result) => ({
+      ...r,
+      assumptions: { ...r.assumptions, einspeiseverguetungCtPerKwh: null },
+    })
+    expect(strip(a.result)).toEqual(strip(b.result))
+  })
 
   it('füllt payload.tariffPricing und macht die Tarifoptimierung berechenbar', async () => {
     const fetchTariffPricing = vi.fn(async (request: { window: { startIso: string; endIso: string }; intervalMinutes: number }) => ({

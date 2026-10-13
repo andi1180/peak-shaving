@@ -73,6 +73,7 @@ export function loadFactorPercent(
 export function buildLoadMetrics(
   loadProfile: LoadProfile,
   analysis: Pick<PdfReportAnalysis, 'current' | 'dataQuality'>,
+  gridProfileContainsPv = false,
 ): LoadMetrics | null {
   const coveredDays = analysis.dataQuality.coveredDays
   if (coveredDays <= 0) return null
@@ -81,16 +82,21 @@ export function buildLoadMetrics(
   const factor = loadFactorPercent(totalKwh, coveredDays, analysis.current.annualPeakKw)
   // Bei abgezogener PV-Schätzung ist die Summe Netzbezug, nicht Verbrauch — Bedingung wie in `prerequisites.ts`.
   const estimatedPv = loadProfile.pvSource === 'estimated'
+  // Bestands-PV nur im Netzbezug: dieselben Netzbezug-Zeilen, ohne „nach geplanter PV".
+  const gridOnly = !estimatedPv && gridProfileContainsPv
+  const gridWording = estimatedPv || gridOnly
 
   const rows = [
     neutralRow(
       estimatedPv
         ? 'Netzbezug nach geplanter PV über den Zeitraum'
-        : 'Gesamtverbrauch über den Zeitraum',
+        : gridOnly
+          ? 'Netzbezug über den Zeitraum'
+          : 'Gesamtverbrauch über den Zeitraum',
       formatKwh(totalKwh),
     ),
     neutralRow(
-      estimatedPv ? 'Ø Netzbezug pro Tag' : 'Ø Tagesverbrauch',
+      gridWording ? 'Ø Netzbezug pro Tag' : 'Ø Tagesverbrauch',
       `${formatKwh(totalKwh / coveredDays)} / Tag`,
     ),
     ...(factor === null
@@ -98,14 +104,16 @@ export function buildLoadMetrics(
       : [
           {
             ...neutralRow('Lastfaktor', formatPercent(factor)),
-            hint: `Ø Leistung im Verhältnis zur Spitze von ${formatKw(analysis.current.annualPeakKw)}`,
+            hint: gridOnly
+              ? `Ø Bezugsleistung im Verhältnis zur Bezugsspitze von ${formatKw(analysis.current.annualPeakKw)}`
+              : `Ø Leistung im Verhältnis zur Spitze von ${formatKw(analysis.current.annualPeakKw)}`,
           },
         ]),
   ]
 
   return {
     id: 'load_metrics',
-    title: estimatedPv ? 'Ihr Netzbezug in Zahlen' : 'Ihr Verbrauch in Zahlen',
+    title: gridWording ? 'Ihr Netzbezug in Zahlen' : 'Ihr Verbrauch in Zahlen',
     amount: null,
     rows,
     /* ⚠ Ohne Lastfaktor auch ohne seine Erklärung — sonst erklärte der Absatz eine Zeile, die
