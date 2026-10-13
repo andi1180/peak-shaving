@@ -173,12 +173,9 @@ Voraussetzungen
 Womit gerechnet wird — Ihre Anlage, Ihr Netzanschluss, und der Rahmen, in dem sich Ihre Ersparnis bewegt.
 
 Voraussetzungen für diese Auswertung
- Ihre
-    bestehend, Leistung und Einspeisung nicht erfasst; im Lastgang nur über den geringeren Netzbezug
- PV-Anlage
-    enthalten
+ Ihre PV-Anlage                                                 bestehend; Leistung und Einspeisung nicht erfasst
 
- Ihr Netzanschluss                                               Netzebene 7, ohne Leistungsmessung
+ Ihr Netzanschluss                                                          Netzebene 7, ohne Leistungsmessung
 
 
 
@@ -189,16 +186,16 @@ Voraussetzungen für diese Auswertung
 
 
 Ihr Netzbezug heute
- Kosten                                                                                   € 2.976 (netto)
+ Kosten                                                                                             € 2.976 (netto)
 
- Zeitraum                                                                         365 gemessene Tage
+ Zeitraum                                                                                   365 gemessene Tage
 
- Höchste gemessene Bezugsspitze                                                                    5,5 kW
-
-
+ Höchste gemessene Bezugsspitze                                                                              5,5 kW
 
 
-COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                   www.coolin.at · Seite 5 von 18
+
+
+COOLiN ENERGY · Karl-Popper-Straße 22 · 1100 Wien, Österreich                             www.coolin.at · Seite 5 von 18
     COOLiN ENERGY          Referenzfall Gewerbe
 
 

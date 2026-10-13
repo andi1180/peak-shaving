@@ -76,12 +76,12 @@ function pvRow(
 
   // Bestands-PV nur im Netzbezug: die kWp-Angabe ersetzt „Leistung … nicht erfasst", sonst wäre sie falsch.
   if (gridProfileContainsPv) {
-    const known = 'im Lastgang nur über den geringeren Netzbezug enthalten'
+    // Kurz gehalten, damit Beschriftung und Wert je einzeilig bleiben; die Erklärung steht in Zusammenfassung und Datenqualität.
     return neutralRow(
       'Ihre PV-Anlage',
       pvPeakPowerKwp === undefined
-        ? `bestehend, Leistung und Einspeisung nicht erfasst; ${known}`
-        : `${formatKwp(pvPeakPowerKwp)}, bestehend, Einspeisung nicht erfasst; ${known}`,
+        ? 'bestehend; Leistung und Einspeisung nicht erfasst'
+        : `${formatKwp(pvPeakPowerKwp)}, bestehend; Einspeisung nicht erfasst`,
     )
   }
 
