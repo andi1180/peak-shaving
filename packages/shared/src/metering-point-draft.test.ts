@@ -1,6 +1,35 @@
 import { describe, expect, it } from 'vitest'
 
-import { parseNetzebeneDraftValue, readDraftFinancialParams } from './metering-point-draft'
+import {
+  gridProfileContainsPv,
+  parseNetzebeneDraftValue,
+  readDraftFinancialParams,
+} from './metering-point-draft'
+
+describe('gridProfileContainsPv — Wahrheitstabelle', () => {
+  const none = { measuredFeedIn: false, hasEstimatedPvSeries: false }
+  it.each([
+    ['keine PV', {}, none, false],
+    ['nur geplant', { hasPv: true, pvStage: 'planned' }, none, false],
+    ['Bestand ohne Schätzreihe', { hasPv: true, pvStage: 'existing' }, none, true],
+    [
+      'Bestand mit Schätzreihe',
+      { hasPv: true, pvStage: 'existing' },
+      { measuredFeedIn: false, hasEstimatedPvSeries: true },
+      false,
+    ],
+    [
+      'gemessene Einspeisung',
+      { hasPv: true, pvStage: 'existing' },
+      { measuredFeedIn: true, hasEstimatedPvSeries: false },
+      false,
+    ],
+    ['Altentwurf hasPv ohne Stufe, ohne Schätzreihe', { hasPv: true }, none, true],
+    ['hasPv: false mit Stufe', { hasPv: false, pvStage: 'existing' }, none, false],
+  ] as const)('%s', (_label, draft, observed, expected) => {
+    expect(gridProfileContainsPv(draft, observed)).toBe(expected)
+  })
+})
 
 /*
  * Die Rückumformung „NE 5" → 5 ist die Brücke zwischen dem Entwurf (Text, Contract-Feld) und der

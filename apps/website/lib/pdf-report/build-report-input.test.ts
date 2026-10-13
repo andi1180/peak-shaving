@@ -263,6 +263,23 @@ describe('buildReportInputFromRenderRequest', () => {
 
     expect(buildReportInputFromRenderRequest(readout.request, NOW).batteryCatalogMeta).toEqual({ a: good })
   })
+
+  it('reicht gridProfileContainsPv nur bei strikt true durch, sonst fehlt der Schlüssel', () => {
+    const inputFor = (extra: Record<string, unknown>) => {
+      const readout = readRenderRequest({
+        data: [{ ...ROW, report_input_meta: { ...ROW.report_input_meta, ...extra } }],
+        error: null,
+      })
+      if (readout.status !== 'ok') throw new Error('Übergabe sollte lesbar sein')
+      return buildReportInputFromRenderRequest(readout.request, NOW)
+    }
+
+    expect(inputFor({ gridProfileContainsPv: true }).gridProfileContainsPv).toBe(true)
+    // Altübergabe ohne Feld und fremd getypter Wert: Eingang identisch zum bisherigen.
+    const without = inputFor({})
+    expect('gridProfileContainsPv' in without).toBe(false)
+    expect(inputFor({ gridProfileContainsPv: 'true' })).toEqual(without)
+  })
 })
 
 describe('readRenderRequest — eine Meldung für jeden Fehlschlag', () => {

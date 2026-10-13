@@ -276,6 +276,8 @@ export async function createReportRenderRequestAction(
      */
     pvPeakPowerKwp: readPvPeakPowerKwp(point.draft),
     pvOutageMonths: run.pvOutageMonths,
+    // Bestands-PV nur als gesenkter Bezug im Lastgang — nur `true` wird vermerkt (fehlt = bisheriges Verhalten).
+    ...(run.gridProfileContainsPv ? { gridProfileContainsPv: true } : {}),
     /*
      * D9 — DIE ZWEI ROHEN HERKUNFTSANGABEN DER TARIFSEITE.
      *

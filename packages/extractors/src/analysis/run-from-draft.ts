@@ -21,6 +21,7 @@ import {
   annualScenarioCarriesChapter,
   DRAFT_ANALYSIS_HORIZON_YEARS,
   findUnsupportedAnalysisDraftKeys,
+  gridProfileContainsPv,
   hasMeteringVariant,
   NETZBETREIBER_DRAFT_KEY,
   parseErrorMessage,
@@ -194,6 +195,11 @@ export type MeteringPointAnalysisRun = {
    * Grösse — dieselbe Lage wie bei `estimatedPvMetadata` darüber.
    */
   pvOutageMonths: PvOutageMonth[]
+  /**
+   * Bestands-PV steckt im Lastgang, ohne gemessene Einspeisung und ohne Schätzreihe
+   * (`gridProfileContainsPv`, shared). Eine Angabe für den Report, keine Rechengrösse.
+   */
+  gridProfileContainsPv: boolean
 }
 
 /** Was die abgelegte Schätzreihe über sich selbst aussagt (s. `GeneratedPvSeriesDocument`). */
@@ -422,6 +428,11 @@ export async function runAnalysisFromMeteringPointDraft(
    */
   const estimatedPv = pvCoupling.offered ? generatedSeries : null
 
+  const profileContainsPv = gridProfileContainsPv(point.draft, {
+    measuredFeedIn: pvCoupling.offered === false && pvCoupling.reason === 'measured_feed_in',
+    hasEstimatedPvSeries: generatedSeries !== null,
+  })
+
   /*
    * ⚠ EINE ABGELEHNTE SCHÄTZREIHE VERPUFFT NICHT STILL. Der Admin hat sie im Wizard erzeugt und
    * sieht sie dort stehen; ohne diesen Satz käme ein Report heraus, der sie nicht kennt und
@@ -609,6 +620,7 @@ export async function runAnalysisFromMeteringPointDraft(
     },
     loadProfile: payload.load.profile,
     pvOutageMonths,
+    gridProfileContainsPv: profileContainsPv,
     ...(estimatedPv === null ? {} : { estimatedPvMetadata: estimatedPv.metadata }),
   }
 }
