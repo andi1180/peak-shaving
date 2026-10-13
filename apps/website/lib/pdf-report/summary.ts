@@ -124,6 +124,8 @@ export type SummaryInput = {
   pvStage?: PvStage
   /** Die erfasste Nennleistung der PV-Anlage. `undefined` = nicht erfasst; dann ohne Klammerwert. */
   pvPeakPowerKwp?: number
+  /** Bestands-PV nur im Netzbezug — s. `PdfReportInput.gridProfileContainsPv`. */
+  gridProfileContainsPv?: boolean
 }
 
 /**
@@ -420,14 +422,19 @@ function positiveWays(ways: SummaryWays): SummaryWay[] {
  * ⚠ „netto" steht in DERSELBEN Bezugszeile und nicht mehr als Fussnote am Seitenende: eine
  * Preisangabe ohne Umsatzsteuer gehört an die Zahl, auf die sie sich bezieht.
  */
-export function buildSummaryKpis(analysis: PdfReportAnalysis, ways: SummaryWays): SummaryKpi[] {
+export function buildSummaryKpis(
+  analysis: PdfReportAnalysis,
+  ways: SummaryWays,
+  gridProfileContainsPv = false,
+): SummaryKpi[] {
   const days = `über ${ways.coveredDays} gemessene Tage, ${displayedPriceLabel(analysis)}`
   const kpis: SummaryKpi[] = [
     {
       id: 'cost_today',
       value: formatEur(ways.costTodayEur),
       caption: [
-        'Ihre Stromkosten heute',
+        // Passt in eine Zeile (145,7 pt bei 8,5 pt Inter, Zelle 228,8 pt).
+        gridProfileContainsPv ? 'Ihre Stromkosten heute (Netzbezug)' : 'Ihre Stromkosten heute',
         hasLeistungspreis(analysis.current) ? `${days}, ohne Leistungspreis` : days,
       ],
       tone: 'ink',
@@ -710,6 +717,7 @@ export function buildPvPointer(
    * zeigt — ob es ihn gibt, hängt weiterhin am Befund selbst (s. unten).
    */
   pvChapterPresent = false,
+  gridProfileContainsPv = false,
 ): ReportText | null {
   if (hasPv !== true) return null
 
@@ -736,12 +744,18 @@ export function buildPvPointer(
    * kündigte dann einen an, den niemand findet.
    */
   const finding = pvChapterPresent ? block('pv_value_finding') : block('pv_outage')
-
-  return t`Ihre PV-Anlage ist in diesen Zahlen bereits berücksichtigt: sie senkt Ihren Netzbezug und damit die Kosten aller Wege gleichermassen — an der Tarifwahl ändert sie nichts.${ref(
+  const findingRef = ref(
     finding,
     ` Zu ihrer Erzeugung gibt es ausserdem einen Befund, der unabhängig von der Tarifwahl gilt — er steht ${REF_PLACE}.`,
     '',
-  )}`
+  )
+
+  // Nur gesenkter Bezug gemessen: keine Aussage, wie die Anlage auf den Tarifwechsel wirkt.
+  if (gridProfileContainsPv) {
+    return t`Ihre bestehende PV-Anlage ist nur über den geringeren Netzbezug in den Zahlen enthalten; was sie einspeist und selbst verbraucht, ist nicht bekannt. Die Berechnung gilt für den Netzbezug.${findingRef}`
+  }
+
+  return t`Ihre PV-Anlage ist in diesen Zahlen bereits berücksichtigt: sie senkt Ihren Netzbezug und damit die Kosten aller Wege gleichermassen — an der Tarifwahl ändert sie nichts.${findingRef}`
 }
 
 /* ────────────────────────────────────────────────────────────────────────────────────────────────
@@ -1029,7 +1043,7 @@ export function buildReportSummary(
 
   return {
     kpis: ways
-      ? buildSummaryKpis(analysis, ways)
+      ? buildSummaryKpis(analysis, ways, input.gridProfileContainsPv === true)
       : unknownWays
         ? buildUnknownTariffKpis(analysis, unknownWays)
         : [],
@@ -1040,6 +1054,7 @@ export function buildReportSummary(
       input.hasPv,
       input.pvStage,
       context ? context.hasPvValue : hasPvValueChapter(analysis),
+      input.gridProfileContainsPv === true,
     ),
     /*
      * Ohne einen einzigen durchgerechneten Kandidaten gibt es auch die Zusatzspeicher-Frage nicht.

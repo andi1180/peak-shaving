@@ -339,18 +339,33 @@ export function pvIsInLoadProfile(draft: Record<string, unknown>): boolean {
   return readPvStage(draft) === 'existing'
 }
 
+/** Was der Rechenlauf über Lastgang und PV-Reihen beobachtet hat (`shared` kennt `engine` nicht). */
+export type GridProfilePvObservation = {
+  /** Lastgang aus einer Datei, kein Standardprofil. */
+  uploadedLoadProfile: boolean
+  /** `pvGeneratorEligibility(...).reason === 'pv_already_in_grid_profile'`. */
+  pvAlreadyInGridProfile: boolean
+  measuredFeedIn: boolean
+  hasEstimatedPvSeries: boolean
+  hasUploadedPvSeries: boolean
+}
+
 /**
- * Bestands-PV wirkt im Lastgang, und es gibt weder gemessene Einspeisung noch eine geschätzte
- * Erzeugungsreihe — der Report kennt die Anlage dann nur als gesenkten Netzbezug.
- *
- * Die zwei Beobachtungen kommen vom Rechenlauf herein (`shared` kennt `engine` nicht); die
- * Entwurfsseite ist `pvIsInLoadProfile` und wird hier nicht zweitformuliert.
+ * Bestands-PV steckt nur als gesenkter Netzbezug im hochgeladenen Lastgang — ohne Einspeisung
+ * und ohne jede Erzeugungsreihe. Die Entwurfsseite ist `pvIsInLoadProfile`.
  */
 export function gridProfileContainsPv(
   draft: Record<string, unknown>,
-  observed: { measuredFeedIn: boolean; hasEstimatedPvSeries: boolean },
+  observed: GridProfilePvObservation,
 ): boolean {
-  return pvIsInLoadProfile(draft) && !observed.measuredFeedIn && !observed.hasEstimatedPvSeries
+  return (
+    pvIsInLoadProfile(draft) &&
+    observed.uploadedLoadProfile &&
+    observed.pvAlreadyInGridProfile &&
+    !observed.measuredFeedIn &&
+    !observed.hasEstimatedPvSeries &&
+    !observed.hasUploadedPvSeries
+  )
 }
 
 /** Der Wert von `pvProfileSource`, der eine GESCHÄTZTE (PVGIS-)Reihe bezeichnet. */

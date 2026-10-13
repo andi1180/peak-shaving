@@ -2060,7 +2060,11 @@ function LoadChapter({
   /* ⚠ Seit dem Kennzahlenblock hängt auf dieser Seite doch etwas an der Datenlage — und es steht
      deshalb in einer Ableitung und nicht in diesem JSX (`load.ts`). Der Block entfällt ganz, wenn
      es keine gemessenen Tage gibt. */
-  const metrics = buildLoadMetrics(input.loadProfile, input.analysis)
+  const metrics = buildLoadMetrics(
+    input.loadProfile,
+    input.analysis,
+    input.gridProfileContainsPv === true,
+  )
 
   return (
     <View style={styles.body}>

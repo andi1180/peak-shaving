@@ -65,6 +65,8 @@ type SnapshotCase = {
   checkResult?: (result: AnalysisResult) => void
   /** Variante der Vorderseite „Auf einen Blick"; fehlt = keine Vorderseite. */
   executiveSummary?: ExecutiveSummaryVariant
+  /** Erwarteter Schalter `gridProfileContainsPv` aus dem Lauf (Vorgabe: false). */
+  gridProfileContainsPv?: boolean
 }
 
 const APP = path.resolve(import.meta.dirname, '../..')
@@ -152,6 +154,22 @@ const CASES: SnapshotCase[] = [
       )
       expect(capped.length).toBeGreaterThan(0)
       for (const e of capped) expect(e.subsidyAmount).toBeCloseTo(0.3 * e.totalInvestment, 6)
+    },
+  },
+  // Bestands-PV, Lastgang nur Bezug, keine Erzeugungsreihe: Netzbezug-Texte hinter `gridProfileContainsPv`.
+  {
+    ...GEWERBE,
+    name: 'gewerbe-bestand-pv-nur-bezug-wien',
+    gridProfileContainsPv: true,
+    executiveSummary: 'speicher-lohnt-nicht',
+    draftPatch: {
+      hasPv: true,
+      pvStage: 'existing',
+      invoiceSkipped: false,
+      supplierPriceBasis: 'net',
+      energyPriceCtPerKwh: 13.339,
+      supplierBaseFeeEurPerMonth: 7.58,
+      einspeiseverguetungCtPerKwh: 11.0352,
     },
   },
   // Privatpfad: Steuerwerte im Entwurf bleiben unbeachtet — derselbe Snapshot wie ohne.
@@ -395,6 +413,7 @@ export async function renderSnapshots(
         invoicePeriods: [],
         batteryCatalogMeta: catalogMeta,
         priceDisplay: c.priceDisplay,
+        ...(run.gridProfileContainsPv ? { gridProfileContainsPv: true } : {}),
       },
     }),
   ) as unknown
@@ -426,6 +445,7 @@ export async function renderSnapshots(
     />,
   ).replace(/></g, '>\n<')
 
+  expect(run.gridProfileContainsPv).toBe(c.gridProfileContainsPv ?? false)
   return { pdfText, screenHtml, result: run.result, input }
 }
 

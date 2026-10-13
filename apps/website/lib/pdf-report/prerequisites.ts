@@ -62,6 +62,7 @@ function pvRow(
   hasPv: boolean | undefined,
   pvStage: PvStage | undefined,
   pvPeakPowerKwp: number | undefined,
+  gridProfileContainsPv = false,
 ): ReportRow | null {
   if (hasPv !== true) return null
 
@@ -72,6 +73,17 @@ function pvRow(
    * weil jeder vor dieser Änderung erfasste Zählpunkt genau das meinte (`DEFAULT_PV_STAGE`).
    */
   const stage = pvStage === 'planned' ? 'geplant' : 'bestehend'
+
+  // Bestands-PV nur im Netzbezug: die kWp-Angabe ersetzt „Leistung … nicht erfasst", sonst wäre sie falsch.
+  if (gridProfileContainsPv) {
+    const known = 'im Lastgang nur über den geringeren Netzbezug enthalten'
+    return neutralRow(
+      'Ihre PV-Anlage',
+      pvPeakPowerKwp === undefined
+        ? `bestehend, Leistung und Einspeisung nicht erfasst; ${known}`
+        : `${formatKwp(pvPeakPowerKwp)}, bestehend, Einspeisung nicht erfasst; ${known}`,
+    )
+  }
 
   return neutralRow(
     'Ihre PV-Anlage',
@@ -104,7 +116,7 @@ export function buildOverviewStatement(input: PdfReportInput): ReportStatement {
   const analysis = input.analysis
   const rows = [
     batteryRow(analysis),
-    pvRow(input.hasPv, input.pvStage, input.pvPeakPowerKwp),
+    pvRow(input.hasPv, input.pvStage, input.pvPeakPowerKwp, input.gridProfileContainsPv === true),
     gridConnectionRow(analysis, input.tariffSource, input.netzebene),
   ].filter((r): r is ReportRow => r !== null)
 
@@ -170,6 +182,7 @@ export function buildFramingNotice(analysis: PdfReportAnalysis, hasBattery: bool
 export function buildConsumptionTodayStatement(
   analysis: PdfReportAnalysis,
   pvSource: PvSource | undefined,
+  gridProfileContainsPv = false,
 ): ReportStatement {
   const ways = summaryWaysOf(analysis)
 
@@ -195,11 +208,14 @@ export function buildConsumptionTodayStatement(
   const peakLabel =
     pvSource === 'estimated'
       ? 'Höchste Verbrauchsspitze (nach Abzug der geschätzten PV-Erzeugung)'
-      : 'Höchste gemessene Verbrauchsspitze'
+      : gridProfileContainsPv
+        ? 'Höchste gemessene Bezugsspitze'
+        : 'Höchste gemessene Verbrauchsspitze'
 
   return {
     id: 'prerequisites_consumption',
-    title: 'Ihr Verbrauch heute',
+    // Bestands-PV nur im Netzbezug: der Lastgang zeigt den Bezug, nicht den Verbrauch.
+    title: gridProfileContainsPv ? 'Ihr Netzbezug heute' : 'Ihr Verbrauch heute',
     amount: null,
     rows: [
       neutralRow(
@@ -264,7 +280,11 @@ export function buildPrerequisitesChapter(input: PdfReportInput): PrerequisitesC
   return {
     overview: buildOverviewStatement(input),
     framing: buildFramingNotice(analysis, hasBattery),
-    consumption: buildConsumptionTodayStatement(analysis, input.loadProfile.pvSource),
+    consumption: buildConsumptionTodayStatement(
+      analysis,
+      input.loadProfile.pvSource,
+      input.gridProfileContainsPv === true,
+    ),
     priceBasis: buildPriceBasisNotice(input.tariffVintage),
   }
 }
