@@ -157,6 +157,10 @@ führt).
 **`[OFFEN]`:** die genaue Schwelle (wie lang, wie nahe null) — braucht `[MARTIN]`, Fachwissen zu
 typischen PV-Ausfallmustern gegen normales Nachtverhalten.
 
+### D5 Nachtrag (13.10.2026) — Kontinuitätsregel gegen Winter-Treffer
+
+`detectPvOutageMonths` (`engine/src/pv-anomaly/outage-months.ts`) meldet eine Folge aufeinanderfolgender Treffer-Monate nur noch, wenn der Monat direkt davor ODER direkt danach „stark" ist: beurteilt (≥ 20 Tage im Fenster) und an mindestens `PV_STRONG_MONTH_MIN_DAYS` = 10 Tagen mit einem Tagesminimum unter 0,1 kW. Ein fehlender oder unbeurteilter Nachbar ist nie stark; der Jahreswechsel ist eine Nachbarschaft. Schwelle, Fenster und Mindesttage sind unverändert. Anlass: ein Winter-Monat (Dezember) ohne Einbruch, dessen Nachbarmonate nur an je 3 Tagen unter die Schwelle kamen, wurde als „ohne erkennbaren PV-Beitrag" gemeldet. Die 10 Tage sind aus wenigen Beobachtungen gewählt (Nov/Jan je 3, Okt 12, Mai 28; jeder Wert von 4 bis 27 trennt sie gleich) und an mehr Lastgängen zu prüfen. Preis: ein Ausfall, der erst im letzten oder ersten Datenmonat beginnt, wird nicht gemeldet.
+
 ### D5 Teil 2 umgesetzt (22.09.2026) — Kapitel „Ihre PV-Anlage"
 
 Der Befund aus D5 bekommt ein eigenes Kapitel, und es beantwortet die Frage, die der Lastgang

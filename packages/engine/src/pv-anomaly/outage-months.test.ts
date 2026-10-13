@@ -4,6 +4,7 @@ import type { LoadProfile, LoadReading } from 'shared'
 import {
   PV_NEAR_ZERO_KW,
   PV_OUTAGE_MIN_DAYS_PER_MONTH,
+  PV_STRONG_MONTH_MIN_DAYS,
   detectPvOutageMonths,
 } from './outage-months'
 
@@ -58,6 +59,8 @@ function profileOf(readings: LoadReading[]): LoadProfile {
 const working = () => -12
 /** Mittags nur gedämpft, nie nahe null — das Ausfallmuster. */
 const outage = () => 21
+/** Nur an den ersten `days` Tagen ein Einbruch — sonst das Ausfallmuster. */
+const workingOn = (days: number) => (day: number) => (day <= days ? -12 : 21)
 
 describe('detectPvOutageMonths', () => {
   it('meldet nichts, wenn jeder Monat seinen Mittagseinbruch zeigt', () => {
@@ -112,19 +115,98 @@ describe('detectPvOutageMonths', () => {
     expect(detectPvOutageMonths(profileOf(readings))).toEqual([])
   })
 
-  it('erkennt einen schwachen Wintermonat als Treffer — bekannte Einschränkung', () => {
+  it('meldet einen Wintermonat ohne starken Nachbarn nicht — er ist kein belastbares Signal', () => {
     /*
-     * ⚠ POSITIV-KONTROLLE MIT UMGEKEHRTEM VORZEICHEN: Dezember hat hier eine ARBEITENDE, aber
-     * schwache Anlage (mittags 8 kW statt 30 — deutlich sichtbar, nur nicht nahe null) und wird
-     * trotzdem gemeldet. Das ist kein Fehler dieses Tests, sondern die im Modulkopf benannte offene
-     * Einschränkung: die Schwelle ist absolut und kennt keine Jahreszeit. Der Test pinnt das
-     * Verhalten, damit ein späterer saisonaler Ausbau als ABSICHTLICHE Änderung sichtbar wird.
+     * Dezember hat hier eine ARBEITENDE, aber schwache Anlage (mittags 8 kW statt 30 — sichtbar,
+     * nur nicht nahe null). Eine absolute Schwelle kann das nicht unterscheiden; ohne starken
+     * Nachbarmonat (hier: gar keiner) ist ein Winter-Monat ohne Einbruch kein belastbares Signal.
      */
-    const readings = [...month(2025, 7, working), ...month(2025, 12, () => 8)]
+    const alone = [...month(2025, 7, working), ...month(2025, 12, () => 8)]
+    expect(detectPvOutageMonths(profileOf(alone))).toEqual([])
 
-    const found = detectPvOutageMonths(profileOf(readings))
-
+    // Mit einem starken November davor bleibt die Schwelle absolut: der Dezember wird gemeldet.
+    const withStrongNeighbour = [...alone, ...month(2025, 11, working)]
+    const found = detectPvOutageMonths(profileOf(withStrongNeighbour))
     expect(found.map((m) => m.month)).toEqual([12])
     expect(found[0]?.minDayWindowKw).toBe(8)
+  })
+
+  describe('Kontinuitätsregel: eine Folge zählt nur mit starkem Nachbarmonat', () => {
+    const weak = workingOn(3)
+
+    it('meldet eine Folge mit starkem Nachbarn davor', () => {
+      const readings = [
+        month(2025, 5, working),
+        month(2025, 6, outage),
+        month(2025, 7, weak),
+      ].flat()
+      expect(detectPvOutageMonths(profileOf(readings)).map((m) => m.month)).toEqual([6])
+    })
+
+    it('meldet eine Folge mit starkem Nachbarn danach', () => {
+      const readings = [
+        month(2025, 5, weak),
+        month(2025, 6, outage),
+        month(2025, 7, working),
+      ].flat()
+      expect(detectPvOutageMonths(profileOf(readings)).map((m) => m.month)).toEqual([6])
+    })
+
+    it('verwirft eine Folge ohne starken Nachbarn — auch eine mehrmonatige als Ganzes', () => {
+      const single = [month(2025, 5, weak), month(2025, 6, outage), month(2025, 7, weak)].flat()
+      expect(detectPvOutageMonths(profileOf(single))).toEqual([])
+
+      const run = [
+        month(2025, 4, weak),
+        month(2025, 5, outage),
+        month(2025, 6, outage),
+        month(2025, 7, weak),
+      ].flat()
+      expect(detectPvOutageMonths(profileOf(run))).toEqual([])
+    })
+
+    it('trennt „stark" an der Grenze: 9 Tage zu wenig, 10 genug', () => {
+      expect(PV_STRONG_MONTH_MIN_DAYS).toBe(10)
+      const at = (days: number) =>
+        detectPvOutageMonths(
+          profileOf([month(2025, 5, workingOn(days)), month(2025, 6, outage)].flat()),
+        )
+
+      expect(at(PV_STRONG_MONTH_MIN_DAYS - 1)).toEqual([])
+      expect(at(PV_STRONG_MONTH_MIN_DAYS).map((m) => m.month)).toEqual([6])
+    })
+
+    it('zählt einen unbeurteilten Nachbarn (unter 20 Tagen) nicht als stark', () => {
+      /* Mai: 19 Tage, alle mit Einbruch — „stark" nach Tagen, aber unter der Mindest-Tageszahl.
+         August liefert die Referenz, ist aber kein Nachbar von Juni. */
+      const may = month(2025, 5, working).filter(
+        (r) => Number(r.ts.slice(8, 10)) <= PV_OUTAGE_MIN_DAYS_PER_MONTH - 1,
+      )
+      const readings = [...may, ...month(2025, 6, outage), ...month(2025, 8, working)]
+
+      expect(detectPvOutageMonths(profileOf(readings))).toEqual([])
+    })
+
+    it('kennt am Datenrand nur den vorhandenen Nachbarn, und eine Lücke ist keine Nachbarschaft', () => {
+      // Anfang der Daten: nur der Nachbar danach zählt.
+      const start = [month(2025, 6, outage), month(2025, 7, working)].flat()
+      expect(detectPvOutageMonths(profileOf(start)).map((m) => m.month)).toEqual([6])
+
+      // Ende der Daten, Nachbar davor schwach: verworfen.
+      const end = [month(2025, 5, workingOn(3)), month(2025, 6, outage)].flat()
+      expect(detectPvOutageMonths(profileOf(end))).toEqual([])
+
+      // Juni fehlt: der starke Mai grenzt nicht an den Juli.
+      const gap = [month(2025, 5, working), month(2025, 7, outage)].flat()
+      expect(detectPvOutageMonths(profileOf(gap))).toEqual([])
+    })
+
+    it('behandelt den Jahreswechsel als Nachbarschaft (Dez 2025 / Jan 2026)', () => {
+      const after = [month(2025, 12, outage), month(2026, 1, working)].flat()
+      expect(detectPvOutageMonths(profileOf(after))).toMatchObject([{ year: 2025, month: 12 }])
+
+      const before = [month(2025, 12, working), month(2026, 1, outage)].flat()
+      expect(detectPvOutageMonths(profileOf(before))).toMatchObject([{ year: 2026, month: 1 }])
+    })
   })
 })

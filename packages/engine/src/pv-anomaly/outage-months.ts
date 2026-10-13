@@ -80,6 +80,18 @@ export const PV_NEAR_ZERO_KW = 0.1
  */
 export const PV_OUTAGE_MIN_DAYS_PER_MONTH = 20
 
+/**
+ * Ab wie vielen Tagen mit einem Tagesminimum unter `PV_NEAR_ZERO_KW` ein beurteilter Monat als
+ * „stark" gilt — als Nachbar belegt er, dass die Anlage unmittelbar davor oder danach sichtbar lief.
+ *
+ * `[ANNAHME, wenige Beobachtungen]` — 10 Tage. Kalibrierbasis: in einem Gewerbe-Lastgang mit PV
+ * zeigten November und Januar je 3 Tage (Winter-Randereignisse), der Oktober 12; in einem
+ * Privat-Lastgang der Mai 28 Tage; im Test-Muster Feb–Apr tragen Jan und Mai alle Tage. Jeder Wert
+ * von 4 bis 27 trennt diese Fälle gleich, 10 ist gewählt. Es sind drei echte Lastgänge — der Wert
+ * ist an mehr Fällen zu prüfen, bevor man ihm mehr Gewicht gibt.
+ */
+export const PV_STRONG_MONTH_MIN_DAYS = 10
+
 /** Ein Monat ohne erkennbaren Mittagseinbruch — chronologisch, mit dem Beleg dafür. */
 export type PvOutageMonth = {
   /** Kalenderjahr in Ortszeit des Lastgangs. */
@@ -99,8 +111,29 @@ export type PvOutageMonth = {
 type MonthTally = {
   year: number
   month: number
-  days: Set<number>
-  minKw: number
+  /** Tag → kleinster Messwert dieses Tages im Tagfenster. */
+  dayMinKw: Map<number, number>
+}
+
+/** Fortlaufender Monatsindex — der Jahreswechsel ist damit eine gewöhnliche Nachbarschaft. */
+function monthIndex(tally: Pick<MonthTally, 'year' | 'month'>): number {
+  return tally.year * 12 + (tally.month - 1)
+}
+
+function minKwOf(tally: MonthTally): number {
+  return Math.min(...tally.dayMinKw.values())
+}
+
+function isJudged(tally: MonthTally): boolean {
+  return tally.dayMinKw.size >= PV_OUTAGE_MIN_DAYS_PER_MONTH
+}
+
+/** Beurteilt UND an genug Tagen mit sichtbarem Einbruch. Ein fehlender Monat ist nie stark. */
+function isStrong(tally: MonthTally | undefined): boolean {
+  if (!tally || !isJudged(tally)) return false
+  let daysBelow = 0
+  for (const kw of tally.dayMinKw.values()) if (kw < PV_NEAR_ZERO_KW) daysBelow += 1
+  return daysBelow >= PV_STRONG_MONTH_MIN_DAYS
 }
 
 function monthKey(year: number, month: number): string {
@@ -123,13 +156,20 @@ function monthKey(year: number, month: number): string {
  * die gewollte Richtung — er fällt einem Menschen, der die Jahresabrechnung sieht, ohnehin auf; eine
  * falsch beschuldigte Anlage fällt niemandem auf.
  *
- * ⚠ OFFENE EINSCHRÄNKUNG (Stand 17.09.2026): die Schwelle kennt KEINE Jahreszeit. Ein Betrieb, dessen
- * Anlage im Juli bis auf −20 kW einspeist, im Dezember aber auch bei bester Funktion nur von 40 auf
- * 30 kW drückt, bekommt den Dezember als Treffer gemeldet. Eine saisonal abgestufte Erwartung
- * bräuchte ein Ertragsmodell (Standort, Neigung, Nennleistung) und damit Eingaben, die diese reine
- * Funktion nicht hat — das ist der Anschluss an den PV-Zeitreihengenerator (B22) und ausdrücklich
- * nicht hier entschieden. Der Report formuliert deshalb als Beobachtung über den Zeitraum und nicht
- * als Aussage über die Anlage.
+ * ── ⚠ DIE KONTINUITÄTSREGEL: EINE FOLGE ZÄHLT NUR MIT EINEM STARKEN NACHBARN ────────────────────
+ * Die Schwelle kennt KEINE Jahreszeit. Ein Betrieb, dessen Anlage im Juli bis auf −20 kW einspeist,
+ * im Dezember aber auch bei bester Funktion nur von 40 auf 30 kW drückt, bekam den Dezember als
+ * Treffer gemeldet; im Winter qualifizieren sich zudem nur wenige Tage je Monat, ein Monat mit null
+ * ist dort kein starkes Signal. Statt eines Ertragsmodells (Standort, Neigung, Nennleistung — Eingaben,
+ * die diese reine Funktion nicht hat, B22) verlangt die Funktion deshalb eine Stufe im Verlauf:
+ * die Treffer-Monate werden zu Folgen aufeinanderfolgender Kalendermonate gruppiert, und eine Folge
+ * wird nur gemeldet, wenn der Monat direkt davor ODER direkt danach „stark" ist
+ * (`PV_STRONG_MONTH_MIN_DAYS`). Fehlt der Nachbar oder ist er unbeurteilt, ist er nicht stark.
+ *
+ * ⚠ DER PREIS DAFÜR IST BENANNT: ein Ausfall, der erst im letzten (oder erst im ersten) Datenmonat
+ * beginnt, hat keinen starken Nachbarn und wird nicht gemeldet — dieselbe gewollte Richtung wie bei
+ * der Referenzbedingung. Die Schwelle selbst bleibt absolut; ein schwacher Sommermonat NEBEN einem
+ * starken wird weiterhin gemeldet.
  */
 export function detectPvOutageMonths(loadProfile: LoadProfile): PvOutageMonth[] {
   const tallies = new Map<string, MonthTally>()
@@ -143,30 +183,47 @@ export function detectPvOutageMonths(loadProfile: LoadProfile): PvOutageMonth[] 
     if (hour < PV_DAY_WINDOW_FROM_HOUR || hour >= PV_DAY_WINDOW_TO_HOUR) continue
 
     const key = monthKey(year, month)
-    const tally = tallies.get(key)
+    let tally = tallies.get(key)
     if (!tally) {
-      tallies.set(key, { year, month, days: new Set([day]), minKw: reading.gridPowerKw })
-      continue
+      tally = { year, month, dayMinKw: new Map() }
+      tallies.set(key, tally)
     }
-    tally.days.add(day)
-    if (reading.gridPowerKw < tally.minKw) tally.minKw = reading.gridPowerKw
+    const known = tally.dayMinKw.get(day)
+    if (known === undefined || reading.gridPowerKw < known) {
+      tally.dayMinKw.set(day, reading.gridPowerKw)
+    }
   }
 
-  const judged = [...tallies.values()].filter(
-    (tally) => tally.days.size >= PV_OUTAGE_MIN_DAYS_PER_MONTH,
-  )
+  const byIndex = new Map([...tallies.values()].map((tally) => [monthIndex(tally), tally]))
+  const judged = [...tallies.values()].filter(isJudged)
 
   /* Die Referenzbedingung — s. Kopf. Ein einziger belegter Einbruch genügt. */
-  const hasReference = judged.some((tally) => tally.minKw < PV_NEAR_ZERO_KW)
+  const hasReference = judged.some((tally) => minKwOf(tally) < PV_NEAR_ZERO_KW)
   if (!hasReference) return []
 
-  return judged
-    .filter((tally) => tally.minKw >= PV_NEAR_ZERO_KW)
-    .sort((a, b) => a.year - b.year || a.month - b.month)
+  const candidates = judged
+    .filter((tally) => minKwOf(tally) >= PV_NEAR_ZERO_KW)
+    .sort((a, b) => monthIndex(a) - monthIndex(b))
+
+  /* Maximale Folgen aufeinanderfolgender Kalendermonate; die Kontinuitätsregel — s. Kopf. */
+  const runs: MonthTally[][] = []
+  for (const tally of candidates) {
+    const run = runs[runs.length - 1]
+    if (run && monthIndex(run[run.length - 1]!) + 1 === monthIndex(tally)) run.push(tally)
+    else runs.push([tally])
+  }
+
+  return runs
+    .filter((run) => {
+      const before = byIndex.get(monthIndex(run[0]!) - 1)
+      const after = byIndex.get(monthIndex(run[run.length - 1]!) + 1)
+      return isStrong(before) || isStrong(after)
+    })
+    .flat()
     .map((tally) => ({
       year: tally.year,
       month: tally.month,
-      daysWithDayWindowData: tally.days.size,
-      minDayWindowKw: tally.minKw,
+      daysWithDayWindowData: tally.dayMinKw.size,
+      minDayWindowKw: minKwOf(tally),
     }))
 }
