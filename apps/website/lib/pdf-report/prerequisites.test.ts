@@ -241,6 +241,22 @@ describe('buildPrerequisitesChapter — ohne Bestandsanlage und ohne PV', () => 
   })
 })
 
+describe('buildPrerequisitesChapter — Bestands-PV nur im Netzbezug (gridProfileContainsPv)', () => {
+  const pvValue = (over: Partial<PdfReportInput>) =>
+    buildPrerequisitesChapter(inputFor({ gridProfileContainsPv: true, ...over })).overview.rows.find(
+      (r) => r.label === 'Ihre PV-Anlage',
+    )?.value
+
+  it('hält den Wert kurz — mit und ohne erfasste Leistung', () => {
+    expect(pvValue({ pvPeakPowerKwp: undefined })).toBe(
+      'bestehend; Leistung und Einspeisung nicht erfasst',
+    )
+    expect(pvValue({ pvPeakPowerKwp: 9.8 })).toBe(
+      `${formatKwp(9.8)}, bestehend; Einspeisung nicht erfasst`,
+    )
+  })
+})
+
 describe('buildPrerequisitesChapter — mit Leistungspreis (ungetestet, Fixture)', () => {
   it('nennt die Spitzenkappung als zusätzlichen Hebel', () => {
     const chapter = buildPrerequisitesChapter(
