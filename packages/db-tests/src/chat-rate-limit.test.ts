@@ -322,7 +322,8 @@ describe('B24 — Kostenbremse: Pflege der Kette', () => {
     const admin = await newAdmin()
     await runAs({ role: 'authenticated', userId: admin.id }, async (c) => {
       const { rows } = await c.query<{ out: { status: string; open_valid_from: string } }>(
-        `select public.admin_set_chat_rate_limit(9, current_date - 30) as out`,
+        // Fester Stichtag vor dem Seed (2026-09-10): `current_date - 30` überholte ihn am 10.10.2026.
+        `select public.admin_set_chat_rate_limit(9, date '2026-01-01') as out`,
       )
       expect(rows[0]!.out.status).toBe('invalid_valid_from')
       expect(rows[0]!.out.open_valid_from).toBeTruthy()

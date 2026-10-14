@@ -117,6 +117,26 @@ describe('buildLevySchedule — was belegt ist, wird geschnitten; was fehlt, ble
     expect(plan('5020').periods).toEqual([])
   })
 
+  it('Land: AT mit Wiener PLZ bleibt unverändert, DE leitet keine österreichische PLZ-Regel ab', () => {
+    const plan = (postalCode: string | null, country?: 'AT' | 'DE') =>
+      buildLevySchedule('wiener_netze', 7, '2026-06-01', '2026-06-01', 'ohne_leistungsmessung', {
+        category: 'gewerbe',
+        postalCode,
+        ...(country ? { country } : {}),
+      })
+
+    // Positivkontrolle: ausdrückliches AT == bisheriges Verhalten (ohne Land).
+    expect(plan('1100', 'AT')).toEqual(plan('1100'))
+    expect(findLevyPeriod(plan('1100', 'AT').periods, '2026-06-01')?.gebrauchsabgabeRate).toBe(0.07)
+    expect(plan(null, 'AT').locationAssumed).toBe('vienna')
+
+    // Negativfall: DE mit 5-stelliger PLZ — weder Wien noch NÖ, und ohne PLZ wird auch nicht „Wien angenommen".
+    for (const dePlan of [plan('10115', 'DE'), plan(null, 'DE')]) {
+      expect(dePlan.periods).toEqual([])
+      expect(dePlan.locationAssumed).toBeUndefined()
+    }
+  })
+
   it('Netz NÖ: Gebrauchsabgabe 0 — belegt für 2025 und 2026, der Vergleich wird rechenbar', () => {
     const periods = buildLevySchedule('netz_noe', 7, '2025-01-01', '2026-12-31', 'ohne_leistungsmessung', HEIM).periods
     expect(findLevyPeriod(periods, '2025-06-01')).toMatchObject({ gebrauchsabgabeRate: 0, elektrizitaetsabgabeCtPerKwh: 1.5 })

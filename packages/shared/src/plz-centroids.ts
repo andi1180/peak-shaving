@@ -77,6 +77,8 @@
  * aufgebauten Nachschlagewerk.
  */
 
+import { normalizeAtPostalCode } from './country'
+
 /** Ein PLZ-Eintrag: Anzeigename für die Bestätigung in der Oberfläche, Koordinate für PVGIS. */
 export type PostalCodeCentroid = {
   /** Vierstellig, ohne Länderpräfix. */
@@ -2641,8 +2643,7 @@ function getIndex(): Map<string, PostalCodeCentroid> {
  * heisst „das ist keine österreichische PLZ", nicht „irgendwas daraus machen".
  */
 export function normalizePostalCode(raw: string): string | null {
-  const cleaned = raw.trim().toUpperCase().replace(/^A[T]?[\s-]*/, '').replace(/\s+/g, '')
-  return /^\d{4}$/.test(cleaned) ? cleaned : null
+  return normalizeAtPostalCode(raw)
 }
 
 /**

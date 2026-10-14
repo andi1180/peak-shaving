@@ -35,6 +35,8 @@
  * an `AdminProjectHead`.
  */
 
+import { DEFAULT_COUNTRY, isCountry, type Country } from 'shared/country'
+
 /** Basispfad des Abschnitts — ohne Locale-Präfix, wie der ganze Admin-Bereich. */
 export const PROJECTS_HREF = '/admin/kalkulator-projekte'
 
@@ -126,6 +128,8 @@ export type AdminProjectHead = AdminProjectRow & {
    * Adresse — weder Strasse noch Hausnummer, und es wird nichts geokodiert.
    */
   postal_code: string | null
+  /** Land des Projekts (`'AT'`/`'DE'`); steuert das PLZ-Format und welche AT-Regeln greifen. */
+  country: Country
 }
 
 export type AdminProjectList = {
@@ -171,7 +175,10 @@ export function readAdminProject(data: unknown): AdminProjectHead | 'not_found' 
   if (obj.status === 'not_found') return 'not_found'
   if (obj.status !== 'ok') return null
   const project = asObject(obj.project)
-  return project ? (project as AdminProjectHead) : null
+  if (!project) return null
+  // Fehlt `country` (Datenbank ohne Migration 20261014090000), gilt Österreich — der Stand davor.
+  const country = isCountry(project.country) ? project.country : DEFAULT_COUNTRY
+  return { ...(project as AdminProjectHead), country }
 }
 
 /**

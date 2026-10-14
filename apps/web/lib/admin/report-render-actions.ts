@@ -186,6 +186,7 @@ export async function createReportRenderRequestAction(
         const pricing = await readTariffPricingForAnalysis(supabase, request, {
           category,
           postalCode: project.postal_code,
+          country: project.country,
         })
         gridTariffRows = pricing.gridTariffRows
         return pricing

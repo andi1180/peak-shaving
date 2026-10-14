@@ -144,6 +144,9 @@ Ebenfalls Teil der Baseline, aus dem ursprünglichen Konzeptdokument übernommen
 ### 3.5 Umgang mit nicht abgebildeter Struktur
 Da der Zugang jetzt offen ist (§6), kann sich jederzeit jemand mit einer Struktur anmelden, die das System nicht abbildet (z. B. ein sehr komplexer Betrieb mit vielen Standorten, für den selbst die Zählpunkt-Rollup-Schicht nicht reicht). **Anforderung, kein neuer Baustein:** der Chat muss das erkennen und sauber zu "das braucht Martin" überleiten (offene Rückfrage am Projekt, §2.2/§3.3) statt abzustürzen oder eine unpassende Analyse zu erzwingen. Ohne diese Anforderung wäre ein solcher Fall vorher (kuratierter Zugang über Martin) nie unvorbereitet reingekommen — jetzt schon.
 
+### 3.6 Land am Projekt (Nachtrag 14.10.2026)
+Jedes Projekt trägt ein **Land** (`platform.projects.country`, `AT` oder `DE`, Vorgabe und Bestand `AT`) — Schritt 1 der Vorbereitung deutscher Projekte. Land und Postleitzahl werden im Wizard (PV-Station, Block „Standort") **gemeinsam** gespeichert, weil der CHECK `projects_postal_code_country_check` das PLZ-Format ans Land koppelt (AT vier, DE fünf Ziffern; `shared/country`). Die österreichische PLZ-Logik (Gebrauchsabgabe in `levies.ts`, PLZ-Koordinatentabelle für die PVGIS-Schätzung) greift **nur bei `AT`**; bei `DE` wird daraus nichts abgeleitet. **Es ändert sich keine Rechnung**: Preiszone, Spotpreise, USt, Abgaben und Netzentgelte für DE sind eigene Schritte, und die Preiszone wird nicht gespeichert, sondern später aus dem Land abgeleitet.
+
 ---
 
 ## 4 — Teil 2: Admin-Frage-Guidelines
