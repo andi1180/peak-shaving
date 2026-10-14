@@ -180,6 +180,7 @@ describe('readSpotPricesForAnalysis', () => {
       supabase,
       { startIso: '2026-01-01T00:00:00.000Z', endIso: '2026-02-15T19:45:00.000Z' },
       15,
+      'awattar_at',
     )
 
     // Reihenfolge UND Vollständigkeit in einer Zusage: eine blosse Länge liesse offen, ob die
@@ -206,6 +207,7 @@ describe('readSpotPricesForAnalysis', () => {
       // Das Fenster endet mit dem BEGINN der letzten Viertelstunde; 15 Minuten kommen hinzu.
       { startIso: '2026-01-01T00:00:00.000Z', endIso: '2026-01-01T07:45:00.000Z' },
       15,
+      'awattar_at',
     )
 
     expect(series.complete).toBe(false)
@@ -257,7 +259,7 @@ describe('readSpotPricesForAnalysis — angebrochene Randstunden', () => {
     ['Ende :45 — die angebrochene letzte Stunde ist dabei', '2026-01-01T00:00:00.000Z', '2026-01-01T02:30:00.000Z'],
     ['Beginn zur vollen Stunde — die Stunde davor bleibt draussen', '2026-01-01T00:00:00.000Z', '2026-01-01T02:45:00.000Z'],
   ])('%s', async (_, startIso, endIso) => {
-    const series = await readSpotPricesForAnalysis(spotTable(), { startIso, endIso }, 15)
+    const series = await readSpotPricesForAnalysis(spotTable(), { startIso, endIso }, 15, 'awattar_at')
 
     expect(series.prices.map((price) => price.tsStart)).toEqual([
       '2026-01-01T00:00:00.000Z',
@@ -273,6 +275,7 @@ describe('readSpotPricesForAnalysis — angebrochene Randstunden', () => {
       spotTable('2026-01-01T01:00:00.000Z'),
       { startIso: '2026-01-01T00:15:00.000Z', endIso: '2026-01-01T02:30:00.000Z' },
       15,
+      'awattar_at',
     )
 
     expect(series.complete).toBe(false)
@@ -324,5 +327,29 @@ describe('readTariffPricingForAnalysis', () => {
     expect(pricing.gridTariffRows).toBeNull()
     expect(pricing.spotPrices).not.toBeNull()
     expect(calls).not.toContainEqual({ method: 'from', args: ['grid_tariffs'] })
+  })
+})
+
+describe('readSpotPricesForAnalysis — Anbieter nach Projektland', () => {
+  const window = { startIso: '2026-01-01T00:00:00.000Z', endIso: '2026-01-01T01:45:00.000Z' }
+  const providerFilter = (calls: Call[]) =>
+    calls.find((call) => call.method === 'eq' && call.args[0] === 'provider')?.args[1]
+
+  it('fragt über readTariffPricingForAnalysis für ein AT-Projekt awattar_at, für DE awattar_de', async () => {
+    const at = stubClient([{ data: [], error: null }])
+    await readTariffPricingForAnalysis(
+      at.supabase,
+      { operatorId: null, netzebene: null, meteringVariant: null, window, intervalMinutes: 15 },
+      { category: 'gewerbe', postalCode: null, country: 'AT' },
+    )
+    expect(providerFilter(at.calls)).toBe('awattar_at')
+
+    const de = stubClient([{ data: [], error: null }])
+    await readTariffPricingForAnalysis(
+      de.supabase,
+      { operatorId: null, netzebene: null, meteringVariant: null, window, intervalMinutes: 15 },
+      { category: 'gewerbe', postalCode: null, country: 'DE' },
+    )
+    expect(providerFilter(de.calls)).toBe('awattar_de')
   })
 })

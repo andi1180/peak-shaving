@@ -19,11 +19,23 @@
  * `eslint.config.mjs` bleibt unverändert; `app/api/cron/**` steht dort seit B4-1 ohnehin.
  */
 
-/** Der öffentliche Marktdaten-Endpunkt der österreichischen aWATTar-Instanz (Delta 7). */
-export const AWATTAR_MARKETDATA_URL = 'https://api.awattar.at/v1/marketdata'
+import type { SpotPriceProvider } from 'shared/country'
 
-/** Der Quellenschlüssel, unter dem diese Preise in `public.spot_prices` stehen. */
-export const AWATTAR_PROVIDER = 'awattar_at'
+/**
+ * Anbieter → Marktdaten-Endpunkt, die EINE Stelle dieser Zuordnung (Delta 7; DE seit Länderschritt 2).
+ * Beide Instanzen liefern dasselbe Format; `awattar_de` die Zone DE-LU. `Record` macht einen dritten
+ * Anbieter im Typ zur Pflicht, die Laufzeitprüfung in `marketdataUrlFor` fängt alles, was der Typ nicht sieht.
+ */
+export const AWATTAR_MARKETDATA_URLS: Record<SpotPriceProvider, string> = {
+  awattar_at: 'https://api.awattar.at/v1/marketdata',
+  awattar_de: 'https://api.awattar.de/v1/marketdata',
+}
+
+/** Alle Anbieter, die der tägliche Sync abruft — Reihenfolge = Abrufreihenfolge. */
+export const SPOT_PRICE_SYNC_PROVIDERS = Object.keys(AWATTAR_MARKETDATA_URLS) as SpotPriceProvider[]
+
+/** Vorgabe des Backfill-Skripts und Rückfall ohne Angabe: das bisherige Verhalten. */
+export const AWATTAR_PROVIDER: SpotPriceProvider = 'awattar_at'
 
 /**
  * Die Einheit, in der aWATTar liefert — real gegen den Endpunkt verifiziert, nicht aus der Doku
@@ -53,6 +65,31 @@ const UPSERT_CHUNK_SIZE = 500
 
 /** Die Konfliktbedingung aus B21-1 (`unique (provider, ts_start)`) — an EINER Stelle benannt. */
 export const SPOT_PRICES_ON_CONFLICT = 'provider,ts_start'
+
+/** Fehler dieses Moduls — vom Aufrufer an der Klasse erkennbar, ohne die Meldung zu lesen. */
+export class SpotPriceSyncError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'SpotPriceSyncError'
+  }
+}
+
+/** Endpunkt eines Anbieters; ein unbekannter Anbieter ist ein Fehler, kein Rückfall auf AT. */
+export function marketdataUrlFor(provider: string): string {
+  if (!Object.hasOwn(AWATTAR_MARKETDATA_URLS, provider)) {
+    throw new SpotPriceSyncError(`Unbekannter Spotpreis-Anbieter: ${JSON.stringify(provider)}.`)
+  }
+  return AWATTAR_MARKETDATA_URLS[provider as SpotPriceProvider]
+}
+
+/** `--provider <name>` aus der Argumentliste; ohne Angabe der bisherige Anbieter, unbekannt → Fehler. */
+export function providerFromArgs(argv: string[]): SpotPriceProvider {
+  const index = argv.indexOf('--provider')
+  if (index === -1) return AWATTAR_PROVIDER
+  const value = argv[index + 1] ?? ''
+  marketdataUrlFor(value)
+  return value as SpotPriceProvider
+}
 
 /** Ein Eintrag der aWATTar-Antwort, nachdem er geprüft wurde. */
 export type AwattarEntry = {
@@ -92,14 +129,6 @@ export type SyncResult = {
   firstTsStart: string | null
   /** Spätester geschriebener Zeitpunkt, ISO-8601, oder null bei leerem Lauf. */
   lastTsStart: string | null
-}
-
-/** Fehler dieses Moduls — vom Aufrufer an der Klasse erkennbar, ohne die Meldung zu lesen. */
-export class SpotPriceSyncError extends Error {
-  constructor(message: string) {
-    super(message)
-    this.name = 'SpotPriceSyncError'
-  }
 }
 
 function isFiniteNumber(value: unknown): value is number {
@@ -158,9 +187,12 @@ export function parseAwattarResponse(payload: unknown): AwattarEntry[] {
  * (Delta 6). Der Wert steht trotzdem an JEDER Zeile und nicht nur im Spaltenvorgabewert — eine
  * zweite, brutto liefernde Quelle soll ihn ausdrücklich setzen müssen.
  */
-export function toSpotPriceRows(entries: AwattarEntry[]): SpotPriceRow[] {
+export function toSpotPriceRows(
+  entries: AwattarEntry[],
+  provider: SpotPriceProvider = AWATTAR_PROVIDER,
+): SpotPriceRow[] {
   return entries.map((entry) => ({
-    provider: AWATTAR_PROVIDER,
+    provider,
     ts_start: new Date(entry.start_timestamp).toISOString(),
     ts_end: new Date(entry.end_timestamp).toISOString(),
     ct_per_kwh: entry.marketprice * CT_PER_KWH_PER_EUR_PER_MWH,
@@ -179,11 +211,12 @@ export async function fetchAwattarWindow(
   startMs: number,
   endMs: number,
   fetchImpl: typeof fetch = fetch,
+  provider: SpotPriceProvider = AWATTAR_PROVIDER,
 ): Promise<AwattarEntry[]> {
   if (!Number.isInteger(startMs) || !Number.isInteger(endMs) || endMs <= startMs) {
     throw new SpotPriceSyncError('Ungültiges Zeitfenster: erwartet ganzzahlige Millisekunden, Ende nach Anfang.')
   }
-  const url = `${AWATTAR_MARKETDATA_URL}?start=${startMs}&end=${endMs}`
+  const url = `${marketdataUrlFor(provider)}?start=${startMs}&end=${endMs}`
   const response = await fetchImpl(url, { headers: { accept: 'application/json' } })
   if (!response.ok) {
     throw new SpotPriceSyncError(`aWATTar antwortete mit HTTP ${response.status}.`)
@@ -202,10 +235,12 @@ export async function syncSpotPrices(options: {
   startMs: number
   endMs: number
   fetchImpl?: typeof fetch
+  /** Ohne Angabe `awattar_at` — das Verhalten vor dem zweiten Anbieter. */
+  provider?: SpotPriceProvider
 }): Promise<SyncResult> {
-  const { write, startMs, endMs, fetchImpl } = options
-  const entries = await fetchAwattarWindow(startMs, endMs, fetchImpl)
-  const rows = toSpotPriceRows(entries)
+  const { write, startMs, endMs, fetchImpl, provider = AWATTAR_PROVIDER } = options
+  const entries = await fetchAwattarWindow(startMs, endMs, fetchImpl, provider)
+  const rows = toSpotPriceRows(entries, provider)
 
   let written = 0
   for (let i = 0; i < rows.length; i += UPSERT_CHUNK_SIZE) {

@@ -30,14 +30,13 @@ import {
   readAdminProject,
   type ProjectSegment,
 } from '@/lib/admin/projects'
-import { AWATTAR_PROVIDER } from '@/lib/spot-prices/sync'
 import { createClient } from '@/lib/supabase/server'
 import {
   MAX_BATTERY_SPEC_FILE_BYTES,
   MAX_INVOICE_FILE_BYTES,
   MAX_PV_DESIGN_FILE_BYTES,
 } from 'extractors'
-import { MAX_PROJECT_DOCUMENT_BYTES, displayPriceBasisFor } from 'shared'
+import { MAX_PROJECT_DOCUMENT_BYTES, displayPriceBasisFor, spotPriceProviderFor } from 'shared'
 import { batteryCategoryForSegment } from '@/lib/admin/battery-catalog-source'
 
 /*
@@ -348,7 +347,7 @@ export default async function AdminProjectDataEntryPage({
           const spotRes = await supabase
             .from('spot_prices')
             .select('ct_per_kwh')
-            .eq('provider', AWATTAR_PROVIDER)
+            .eq('provider', spotPriceProviderFor(project.country))
             .gte('ts_start', new Date(Date.now() - 30 * 86_400_000).toISOString())
 
           if (spotRes.error) console.error('[admin/dateneingabe] spot_prices:', spotRes.error)

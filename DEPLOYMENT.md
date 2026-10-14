@@ -378,6 +378,15 @@ Endpunkt ihn sieht.
   Production-Deployment, nicht an der Datei (§1g).
 - **Vorgesehener Job 3:** `/api/cron/spot-price-sync`, täglich **13:20 UTC**. Holt die
   aWATTar-Marktpreise und legt sie per Upsert ab. **Versendet keine E-Mail** und erreicht niemanden.
+- **Zwei Anbieter (Länderschritt 2, 14.10.2026).** Der Lauf holt nacheinander `awattar_at`
+  (api.awattar.at) und `awattar_de` (api.awattar.de, Zone DE-LU) — **zwei Abrufe pro Lauf**, weiterhin
+  weit unter dem Fair-Use von 100/Tag und weiterhin ohne Wiederholungsschleife. Beide sind
+  unabhängig: fällt einer aus, wird der andere trotzdem geschrieben; der Rumpf nennt den Ausgang je
+  Anbieter (`providers.awattar_at`/`providers.awattar_de`), `outcome` ist `success`, `partial` oder
+  `error`, und jeder Fehlschlag macht den HTTP-Status zu **500**, damit der Lauf in Vercel rot
+  erscheint. Die Zuordnung Anbieter → Endpunkt steht an einer Stelle: `AWATTAR_MARKETDATA_URLS` in
+  `apps/web/lib/spot-prices/sync.ts`; welcher Anbieter zu welchem Land gehört,
+  `spotPriceProviderFor` in `packages/shared/src/country.ts`.
 - **⚠️ Warum 13:20 UTC — und warum trotz Sommerzeit nur EIN Eintrag.** Die Preise des Folgetags
   stehen nach der Day-Ahead-Auktion ab ungefähr **14 Uhr Ortszeit** fest. Diese Marke wandert übers
   Jahr, ein Vercel-Cron läuft dagegen in UTC und kennt keine Sommerzeit:
@@ -399,7 +408,7 @@ Endpunkt ihn sieht.
   Lauf sich am nächsten Tag von selbst repariert, statt eine Lücke zu hinterlassen, die niemand
   bemerkt. Möglich nur, weil `unique (provider, ts_start)` (B21-1) das wiederholte Schreiben
   desselben Zeitraums gefahrlos macht.
-- **⚠️ Betriebsgrenze: aWATTar-Fair-Use, 100 Abfragen pro Tag.** Der Job braucht **eine**. Der
+- **⚠️ Betriebsgrenze: aWATTar-Fair-Use, 100 Abfragen pro Tag.** Der Job braucht **zwei** (je Anbieter eine). Der
   Backfill braucht **eine** (ein einzelner Aufruf über den vollen Ankerzeitraum liefert 14.503
   lückenlose Stundenwerte, gemessen am 28.08.2026; die Quelle kennt weder Pagination noch eine
   Obergrenze). Der Abstand zur
@@ -411,10 +420,12 @@ Endpunkt ihn sieht.
   Zustand ist der Tabelleninhalt selbst. **Die Kontrolle im Betrieb ist deshalb eine Abfrage:**
 
   ```sql
-  select max(ts_start) from public.spot_prices where provider = 'awattar_at';
+  select provider, max(ts_start) from public.spot_prices group by provider;
   ```
 
-  Liegt der Wert nicht mindestens beim morgigen Tagesende, ist der Sync stehengeblieben. Ein
+  Je Anbieter (`awattar_at`, `awattar_de`) muss der Wert mindestens beim morgigen Tagesende liegen,
+  sonst ist der Sync für diesen Anbieter stehengeblieben — der Lauf kann für einen Anbieter
+  fehlschlagen und für den anderen durchlaufen. Ein
   Protokoll daneben führte einen zweiten Wahrheitsort ein, der mit dem ersten auseinanderlaufen kann.
 - **Grant:** Migration `20260827160000_grant_service_role_spot_prices_write.sql` gibt `service_role`
   auf `public.spot_prices` **`insert, update, select`**. Das `select` ist nicht überflüssig:
@@ -437,6 +448,16 @@ Handler heraushält).
 cd apps/web
 SUPABASE_URL=… SUPABASE_SERVICE_ROLE_KEY=… pnpm backfill:spot-prices                      # ab 1.1.2025 Ortszeit
 SUPABASE_URL=… SUPABASE_SERVICE_ROLE_KEY=… pnpm backfill:spot-prices --start 2024-01-01   # abweichender Anfang
+SUPABASE_URL=… SUPABASE_SERVICE_ROLE_KEY=… pnpm backfill:spot-prices --provider awattar_de # Deutschland (DE-LU)
+```
+
+`--provider` nimmt `awattar_at` (Vorgabe — der Aufruf ohne Parameter verhält sich wie vor dem zweiten
+Anbieter) oder `awattar_de`; jeder andere Wert bricht mit Exit 1 ab, bevor irgendetwas geholt wird.
+Der Anker ist für beide Anbieter derselbe. **Kontrolle je Anbieter:**
+
+```sql
+select provider, count(*), min(ts_start), max(ts_start), count(*) - count(distinct ts_start) as duplikate
+  from public.spot_prices group by provider;
 ```
 
 **⚠️ Warum ein fester Anker und kein rollierendes Fenster (Nachtrag 28.08.2026).** Die erste Fassung

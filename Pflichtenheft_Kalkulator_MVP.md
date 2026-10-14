@@ -312,6 +312,8 @@ Für eine gegebene Batterie ist die interessante Frage: **Wie tief kann die Kapp
 
 **Bekanntes Randartefakt.** Der SoC-Übertrag über die Tagesgrenze bleibt physikalisch (Prinzip 3); nur die **Bewertung** endet am Tag. Eine sehr teure Stunde kurz nach Mitternacht wird von der Untergrenze des Vortags also nicht mehr geschützt — dieselbe Art bekannter Vereinfachung wie der Perioden-Übertrag der Kapp-Suche bei `monthly_*` (§3.6.1). **Die LP-Lücke bleibt offen:** dies ist weiterhin eine Greedy-Heuristik und kein Optimierer (Delta 14 Punkt 1).
 
+**Nachtrag Spotpreise nach Land `[Länderschritt 2, 14.10.2026]`.** Die Preiskurve kommt je Projektland aus der passenden aWATTar-Instanz: AT → `awattar_at` (api.awattar.at), DE → `awattar_de` (api.awattar.de, Zone DE-LU); gleiches Format, gleiche Umrechnung (Eur/MWh ÷ 10 = ct/kWh). Der tägliche Sync holt beide Anbieter unabhängig voneinander, der Admin-Leser filtert nach `spotPriceProviderFor(project.country)`. Engine und Rechenregeln dieses Abschnitts bleiben unverändert; der öffentliche Rechner (`apps/website`) liest weiter nur `awattar_at`.
+
 ### 3.7 Kombinierter Dispatch → eine Zahl
 
 Aus dem einen Simulationslauf (§3.6) ergeben sich alle Effekte gleichzeitig:

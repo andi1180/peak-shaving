@@ -62,3 +62,11 @@ export function normalizePostalCodeFor(country: Country, raw: string): string | 
   const trimmed = raw.trim()
   return isValidPostalCode(country, trimmed) ? trimmed : null
 }
+
+/** Quellenschlüssel in `public.spot_prices.provider` — je Preiszone eine aWATTar-Instanz. */
+export type SpotPriceProvider = 'awattar_at' | 'awattar_de'
+
+/** Die Day-Ahead-Quelle eines Landes: AT → aWATTar Österreich, DE → aWATTar Deutschland (DE-LU). */
+export function spotPriceProviderFor(country: Country): SpotPriceProvider {
+  return country === 'AT' ? 'awattar_at' : 'awattar_de'
+}

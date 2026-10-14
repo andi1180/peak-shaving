@@ -9,6 +9,8 @@
  * registrierter Job liefe dort täglich in einen 42501. Die Reihenfolge zum Nachholen steht in
  * `DEPLOYMENT.md` §1k; der Endpunkt selbst ist vollständig und braucht dafür keine Änderung.
  *
+ * Seit dem Länderschritt holt der Lauf beide aWATTar-Instanzen (AT und DE), je einen Abruf.
+ *
  * Er versendet — wie der Fristenlauf und anders als die Erinnerung — KEINE E-Mail und erreicht
  * niemanden. Er holt öffentliche Börsenpreise und legt sie ab.
  *
@@ -58,7 +60,13 @@ import { NextResponse } from 'next/server'
 import { createHash, timingSafeEqual } from 'node:crypto'
 import { cronSecretOrNull } from '@/lib/env.server'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
-import { SPOT_PRICES_ON_CONFLICT, syncSpotPrices, type SpotPriceRow } from '@/lib/spot-prices/sync'
+import {
+  SPOT_PRICES_ON_CONFLICT,
+  SPOT_PRICE_SYNC_PROVIDERS,
+  syncSpotPrices,
+  type SpotPriceRow,
+  type SyncResult,
+} from '@/lib/spot-prices/sync'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -112,32 +120,43 @@ export async function GET(request: Request): Promise<Response> {
 
   const supabase = createServiceRoleClient()
 
-  try {
-    const result = await syncSpotPrices({
-      startMs,
-      endMs,
-      write: (rows: SpotPriceRow[]) =>
-        supabase.from('spot_prices').upsert(rows, { onConflict: SPOT_PRICES_ON_CONFLICT }),
-    })
-
-    return NextResponse.json(
-      {
-        job: 'spot_price_sync',
-        outcome: 'success',
-        windowStart: new Date(startMs).toISOString(),
-        windowEnd: new Date(endMs).toISOString(),
-        ...result,
-      },
-      { status: 200 },
-    )
-  } catch (cause) {
-    const detail = cause instanceof Error ? cause.message : 'Unbekannter Fehler.'
-    console.error('[cron/spot-price-sync] Lauf abgebrochen:', cause)
-    // 500, damit der Lauf in der Vercel-Übersicht als fehlgeschlagen erscheint und nicht als einer
-    // von vielen grünen — anders als eine Verweigerung bei B4-1/B4-2 ist das hier immer ein Fehler.
-    return NextResponse.json(
-      { job: 'spot_price_sync', outcome: 'error', detail },
-      { status: 500 },
-    )
+  /*
+   * Beide Anbieter nacheinander und UNABHÄNGIG: fällt aWATTar AT aus, wird DE trotzdem geschrieben
+   * (und umgekehrt). Je Anbieter genau ein Abruf, keine Wiederholung — Fair-Use 100/Tag.
+   */
+  const providers: Record<string, ({ outcome: 'success' } & SyncResult) | { outcome: 'error'; detail: string }> = {}
+  for (const provider of SPOT_PRICE_SYNC_PROVIDERS) {
+    try {
+      const result = await syncSpotPrices({
+        provider,
+        startMs,
+        endMs,
+        write: (rows: SpotPriceRow[]) =>
+          supabase.from('spot_prices').upsert(rows, { onConflict: SPOT_PRICES_ON_CONFLICT }),
+      })
+      providers[provider] = { outcome: 'success', ...result }
+    } catch (cause) {
+      console.error(`[cron/spot-price-sync] ${provider} abgebrochen:`, cause)
+      providers[provider] = {
+        outcome: 'error',
+        detail: cause instanceof Error ? cause.message : 'Unbekannter Fehler.',
+      }
+    }
   }
+
+  const failed = Object.values(providers).filter((entry) => entry.outcome === 'error').length
+  const outcome = failed === 0 ? 'success' : failed === SPOT_PRICE_SYNC_PROVIDERS.length ? 'error' : 'partial'
+
+  // Jeder Fehlschlag eines Anbieters ist 500, damit der Lauf in Vercel als fehlgeschlagen erscheint —
+  // der andere Anbieter ist trotzdem geschrieben (Rumpf nennt den Ausgang je Anbieter).
+  return NextResponse.json(
+    {
+      job: 'spot_price_sync',
+      outcome,
+      windowStart: new Date(startMs).toISOString(),
+      windowEnd: new Date(endMs).toISOString(),
+      providers,
+    },
+    { status: failed === 0 ? 200 : 500 },
+  )
 }
