@@ -17,6 +17,7 @@
  * Rein und ohne Seiteneffekte: kein I/O, kein globaler Zustand, keine Uhr.
  */
 
+import { type Country } from './country'
 import { findGridTariffRow } from './grid-tariff-row'
 
 // ═══════════════════════════════════════════════════════════════════════════════════════════════
@@ -149,6 +150,12 @@ export type LevyContext = {
    * Gebrauchsabgabe anfällt — sie gilt nur im Gemeindegebiet Wien (WGAG § 1 Abs. 1).
    */
   postalCode: string | null
+  /**
+   * Land des Projekts. Fehlt es, gilt Österreich — das war bis zur Einführung des Landes der
+   * einzige Fall. Die PLZ-abhängige Gebrauchsabgabe ist eine österreichische Regel und wird für
+   * `'DE'` nicht abgeleitet (`usageLevyFor`).
+   */
+  country?: Country
 }
 
 /**
@@ -396,7 +403,11 @@ function isViennaPostalCode(postalCode: string): boolean {
 function usageLevyFor(
   operatorId: string,
   postalCode: string | null,
+  country: Country,
 ): { entries: readonly UsageLevyEntry[]; locationAssumed: boolean } {
+  // Wiener/NÖ-Gebrauchsabgabe sind österreichische Regeln: ausserhalb von AT weder aus der PLZ
+  // noch aus dem Netzbetreiber ableiten, und auch nicht „Wien annehmen".
+  if (country !== 'AT') return { entries: [], locationAssumed: false }
   const plz = postalCode != null && /^\d{4}$/.test(postalCode.trim()) ? postalCode.trim() : null
   if (operatorId === 'wiener_netze') {
     if (plz === null) return { entries: GEBRAUCHSABGABE_WIEN, locationAssumed: true }
@@ -468,7 +479,7 @@ export function buildLevySchedule(
   const foerderbeitraege = EAG_FOERDERBEITRAG[eagKey(netzebene, meteringVariant)] ?? []
   const pauschalen = EAG_PAUSCHALE_BY_NETZEBENE[netzebene] ?? []
 
-  const usage = usageLevyFor(operatorId, context.postalCode)
+  const usage = usageLevyFor(operatorId, context.postalCode, context.country ?? 'AT')
 
   const sources = [...ELEKTRIZITAETSABGABE, ...foerderbeitraege, ...pauschalen, ...usage.entries]
 

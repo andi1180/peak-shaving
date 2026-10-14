@@ -879,13 +879,15 @@ describe('B24 — die PV-Station', () => {
      * `useState`-Aufrufe NAMENTLICH auf — ein `useState` für `hasPv` (der Fehler, gegen den dieser
      * Wächter gebaut ist) liesse die Liste wachsen und macht den Test weiterhin rot.
      *
-     * Erlaubt ist genau einer: die rein lokale Weiche „ich will die gespeicherte PLZ ändern". Sie
-     * beantwortet keine Frage über das Projekt und wird nirgends gespeichert.
+     * Erlaubt sind genau diese, alle im Standort-Formular: die rein lokale Weiche „ich will die
+     * gespeicherte PLZ ändern" sowie die Formulareingaben Land (`selectedCountry`, steuert das
+     * PLZ-Format während des Tippens) und die clientseitige PLZ-Meldung (`clientError`). Keiner
+     * beantwortet eine Frage über das Projekt, keiner wird gespeichert, bevor die Action läuft.
      */
     const localStates = [...source.matchAll(/const \[(\w+), set\w+\] = React\.useState/g)].map(
       (match) => match[1],
     )
-    expect(localStates).toEqual(['isEditingPostal'])
+    expect(localStates).toEqual(['isEditingPostal', 'selectedCountry', 'clientError'])
   })
 
   it('⚠ beide Antworten werden GESPEICHERT — die Frage ist keine Weiche', () => {

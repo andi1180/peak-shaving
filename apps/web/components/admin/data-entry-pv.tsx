@@ -56,6 +56,14 @@ import { useActionState } from 'react'
 import Link from 'next/link'
 import { Loader2 } from 'lucide-react'
 
+import {
+  COUNTRIES,
+  COUNTRY_LABELS,
+  isCountry,
+  normalizePostalCodeFor,
+  type Country,
+} from 'shared/country'
+
 import { Button } from '@/components/ui/button'
 import { FieldHint, Label } from '@/components/ui/input'
 import {
@@ -75,9 +83,14 @@ import {
   readPvProfileDraft,
   type PvProfileDraftSummary,
 } from '@/lib/admin/pv-profile-draft'
+import {
+  postalCodeFormatError,
+  postalCodeHint,
+  postalCodeMaxLength,
+} from '@/lib/admin/project-country'
 import { ADMIN_INITIAL_STATE, type AdminState } from '@/lib/admin/schema'
 import { COMPANY } from '@/lib/nav'
-import { AdminError, AdminField, AdminSuccess } from './ui'
+import { AdminError, AdminField, AdminSelect, AdminSuccess } from './ui'
 import { DataEntryPvArray } from './data-entry-pv-array'
 
 const FIELD_ID = 'dateneingabe-pv-erzeugung-datei'
@@ -121,6 +134,7 @@ export function DataEntryPv({
   designMaxBytes,
   customerLabel,
   postalCode,
+  country,
   nextHref,
 }: {
   projectId: string
@@ -155,6 +169,8 @@ export function DataEntryPv({
    * `meteringPointNumber` geknüpft.
    */
   postalCode: string | null
+  /** Das Land des Projekts — bestimmt das PLZ-Format; bestehende Projekte stehen auf Österreich. */
+  country: Country
   /** Die nächste Station, oder `null` am Ende der Liste. */
   nextHref: string | null
 }) {
@@ -464,6 +480,7 @@ export function DataEntryPv({
               <ProjectPostalCode
                 projectId={projectId}
                 postalCode={postalCode}
+                country={country}
                 action={postalAction}
                 state={postalState}
                 isPending={isSavingPostal}
@@ -763,6 +780,7 @@ function PvProfileSummary({
 function ProjectPostalCode({
   projectId,
   postalCode,
+  country,
   action,
   state,
   isPending,
@@ -771,6 +789,7 @@ function ProjectPostalCode({
 }: {
   projectId: string
   postalCode: string | null
+  country: Country
   action: (formData: FormData) => void
   state: AdminState
   isPending: boolean
@@ -778,6 +797,22 @@ function ProjectPostalCode({
   onEdit: () => void
 }) {
   const showForm = postalCode === null || isEditing
+  const [selectedCountry, setSelectedCountry] = React.useState<Country>(country)
+  const [clientError, setClientError] = React.useState<string | undefined>()
+  React.useEffect(() => setSelectedCountry(country), [country])
+
+  // Dieselbe Regel wie Server Action und Datenbank-CHECK; die Action bleibt die wirksame Grenze.
+  function validateBeforeSubmit(event: React.FormEvent<HTMLFormElement>) {
+    const plz = String(new FormData(event.currentTarget).get('postalCode') ?? '').trim()
+    if (plz === '' || normalizePostalCodeFor(selectedCountry, plz) === null) {
+      event.preventDefault()
+      setClientError(
+        plz === '' ? 'Bitte eine Postleitzahl eintragen.' : postalCodeFormatError(selectedCountry),
+      )
+      return
+    }
+    setClientError(undefined)
+  }
 
   return (
     <div className="flex flex-col gap-3 border-t border-line pt-6">
@@ -787,8 +822,30 @@ function ProjectPostalCode({
       {state.formError && <AdminError>{state.formError}</AdminError>}
 
       {showForm ? (
-        <form action={action} className="flex flex-col gap-3">
+        <form action={action} onSubmit={validateBeforeSubmit} className="flex flex-col gap-3">
           <input type="hidden" name="projectId" value={projectId} />
+
+          <div className="max-w-xs">
+            <AdminSelect
+              id="dateneingabe-projekt-land"
+              name="country"
+              label="Land"
+              value={selectedCountry}
+              onValueChange={(value) => {
+                if (isCountry(value)) {
+                  setSelectedCountry(value)
+                  setClientError(undefined)
+                }
+              }}
+              error={state.fieldErrors?.country}
+            >
+              {COUNTRIES.map((code) => (
+                <option key={code} value={code}>
+                  {COUNTRY_LABELS[code]}
+                </option>
+              ))}
+            </AdminSelect>
+          </div>
 
           <div className="max-w-xs">
             <AdminField
@@ -796,10 +853,10 @@ function ProjectPostalCode({
               name="postalCode"
               label="Postleitzahl"
               inputMode="numeric"
-              maxLength={4}
+              maxLength={postalCodeMaxLength(selectedCountry)}
               defaultValue={postalCode ?? ''}
-              error={state.fieldErrors?.postalCode}
-              hint="Vier Ziffern, österreichisch — z. B. 1100. Sie gilt für das ganze Projekt."
+              error={clientError ?? state.fieldErrors?.postalCode}
+              hint={postalCodeHint(selectedCountry)}
             />
           </div>
 
@@ -816,7 +873,8 @@ function ProjectPostalCode({
       ) : (
         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
           <p className="text-body text-ink">
-            Postleitzahl: <span className="font-medium tabular-nums">{postalCode}</span>
+            Land: <span className="font-medium">{COUNTRY_LABELS[country]}</span> · Postleitzahl:{' '}
+            <span className="font-medium tabular-nums">{postalCode}</span>
           </p>
           <button
             type="button"

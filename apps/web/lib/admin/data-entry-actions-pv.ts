@@ -19,6 +19,8 @@ import {
   type PvDesignArrayPrefill,
   type PvStage,
 } from 'shared'
+import { COUNTRY_LABELS, isCountry, normalizePostalCodeFor } from 'shared/country'
+import { postalCodeFormatError } from './project-country'
 import { readProjectDocument, uploadProjectDocument } from '@/lib/project-documents/documents'
 import { setDraftField } from '@/lib/project-chat/draft'
 import { createClient } from '@/lib/supabase/server'
@@ -1170,9 +1172,11 @@ export async function deleteMeteringPointPvArrayAction(
  * Auftrag). Projektweit, deshalb ein Wrapper auf `platform.projects` — Vorbild:
  * `setProjectSegmentAction`.
  *
+ * Land und PLZ werden zusammen gespeichert (der CHECK koppelt das PLZ-Format ans Land).
+ *
  * ⚠ DIE SEMANTISCHE PRÜFUNG LIEGT HIER, NICHT IM WRAPPER: `lookupPostalCodeCentroid` ist eine
  * TypeScript-Funktion über einer generierten Tabelle, in SQL nicht verfügbar. Der Wrapper prüft nur
- * das Format (vier Ziffern); ob die PLZ eine ECHTE österreichische ist, entscheidet diese Action —
+ * das Format (AT vier, DE fünf Ziffern); ob die PLZ eine ECHTE österreichische ist, entscheidet diese Action —
  * „wir raten keine Koordinate", dieselbe Haltung wie auf der Website.
  */
 export async function saveProjectPostalCodeAction(
@@ -1182,22 +1186,39 @@ export async function saveProjectPostalCodeAction(
   const projectId = readProjectId(formData)
   if (projectId === null) return { formError: UNKNOWN_PROJECT }
 
+  const countryRaw = String(formData.get('country') ?? '').trim()
+  if (!isCountry(countryRaw)) {
+    return { fieldErrors: { country: 'Bitte ein Land wählen.' } }
+  }
+  const country = countryRaw
+
   const raw = String(formData.get('postalCode') ?? '').trim()
   if (raw === '') {
     return { fieldErrors: { postalCode: 'Bitte eine Postleitzahl eintragen.' } }
   }
 
-  const centroid = lookupPostalCodeCentroid(raw)
-  if (!centroid) {
-    return {
-      fieldErrors: { postalCode: 'Diese Postleitzahl kennen wir nicht — bitte prüfen.' },
+  const normalized = normalizePostalCodeFor(country, raw)
+  if (normalized === null) {
+    return { fieldErrors: { postalCode: postalCodeFormatError(country) } }
+  }
+
+  // Die PLZ-Koordinatentabelle (GeoNames) gibt es nur für Österreich — nur dort wird gegen sie geprüft.
+  let placeName: string | null = null
+  if (country === 'AT') {
+    const centroid = lookupPostalCodeCentroid(normalized)
+    if (!centroid) {
+      return {
+        fieldErrors: { postalCode: 'Diese Postleitzahl kennen wir nicht — bitte prüfen.' },
+      }
     }
+    placeName = centroid.name
   }
 
   const supabase = await createClient()
   const { data, error } = await supabase.rpc('update_project_postal_code', {
     p_id: projectId,
-    p_postal_code: centroid.postalCode,
+    p_postal_code: normalized,
+    p_country: country,
   })
 
   if (error) {
@@ -1214,7 +1235,9 @@ export async function saveProjectPostalCodeAction(
   }
 
   revalidatePath(projectDataEntryHref(projectId))
-  return { success: `Standort gespeichert: ${centroid.name} (${centroid.postalCode}).` }
+  return {
+    success: `Standort gespeichert: ${placeName ? `${placeName} (${normalized})` : `${COUNTRY_LABELS[country]}, ${normalized}`}.`,
+  }
 }
 
 // ── PV-Erzeugung schätzen (PVGIS) ────────────────────────────────────────────────────────────────
@@ -1353,6 +1376,15 @@ export async function generatePvProfileAction(
       formError:
         'Für diesen Zählpunkt liegt noch kein Lastgang vor. Die geschätzte Erzeugung deckt genau ' +
         'dessen Zeitraum ab — bitte zuerst den Lastgang-Schritt abschliessen.',
+    }
+  }
+
+  // PVGIS-Koordinate kommt aus der österreichischen PLZ-Tabelle; für andere Länder gibt es sie nicht.
+  if (project.country !== 'AT') {
+    return {
+      formError:
+        'Die automatische PV-Schätzung ist für Projekte ausserhalb Österreichs noch nicht ' +
+        'verfügbar. Bitte ein Erzeugungsprofil hochladen.',
     }
   }
 
