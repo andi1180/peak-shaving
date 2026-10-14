@@ -5,7 +5,9 @@ import Link from 'next/link'
 import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
+  deleteMeteringPointDynamicTariffAction,
   deleteMeteringPointTariffComparisonAction,
+  saveMeteringPointDynamicTariffAction,
   saveMeteringPointTariffComparisonAction,
 } from '@/lib/admin/data-entry-actions'
 import { ADMIN_INITIAL_STATE } from '@/lib/admin/schema'
@@ -17,6 +19,7 @@ import {
   TARIFF_COMPARISON_PROVIDER_NAME_KEY,
   type TariffComparisonPriceBasis,
 } from '@/lib/admin/tariff-draft'
+import { DYNAMIC_TARIFF_DRAFT_KEYS, readDraftDynamicTariff, type Country } from 'shared'
 import type { MeteringPointSummary } from '@/lib/admin/metering-points'
 import type { ProjectSegment } from '@/lib/admin/projects'
 import { DataEntryAssumptions } from './data-entry-assumptions'
@@ -150,6 +153,7 @@ export function DataEntryTarif({
   segment,
   hasKnownTariff,
   awattarAverageCtPerKwh,
+  country,
 }: {
   projectId: string
   meteringPoint: MeteringPointSummary
@@ -189,6 +193,8 @@ export function DataEntryTarif({
   hasKnownTariff: boolean
   /** Der aWATTar-Durchschnitt der letzten 30 Tage in ct/kWh, oder `null` ohne Preisdaten. */
   awattarAverageCtPerKwh: number | null
+  /** Projektland — der Block „Dynamischer Tarif" erscheint nur bei `'DE'`. */
+  country: Country
 }) {
   const [comparisonState, comparisonAction, isSavingComparison] = useActionState(
     saveMeteringPointTariffComparisonAction,
@@ -439,6 +445,10 @@ export function DataEntryTarif({
         gehört dort abgefangen, wo über die Vollständigkeit entschieden wird (KI-Check,
         Abbruchprüfung), nicht an einem Link. Der Vergleichstarif ist ohnehin ausdrücklich optional.
       */}
+      {country === 'DE' && (
+        <DynamicTariffBlock projectId={projectId} meteringPoint={meteringPoint} />
+      )}
+
       <DataEntryAssumptions projectId={projectId} meteringPoint={meteringPoint} segment={segment} />
 
       {nextHref !== null && (
@@ -449,5 +459,127 @@ export function DataEntryTarif({
         </div>
       )}
     </div>
+  )
+}
+
+/**
+ * Konditionen des dynamischen Tarifs (Spotvertrag) — nur Deutschland. Gespeichert werden beide
+ * Zahlen netto oder keine; angezeigt wird, was der Entwurf trägt (`readDraftDynamicTariff` — dieselbe
+ * Lesung wie in der Berechnung, kein zweites Format).
+ */
+function DynamicTariffBlock({
+  projectId,
+  meteringPoint,
+}: {
+  projectId: string
+  meteringPoint: MeteringPointSummary
+}) {
+  const [saveState, saveAction, isSaving] = useActionState(
+    saveMeteringPointDynamicTariffAction,
+    ADMIN_INITIAL_STATE,
+  )
+  const [deleteState, deleteAction, isDeleting] = useActionState(
+    deleteMeteringPointDynamicTariffAction,
+    ADMIN_INITIAL_STATE,
+  )
+  const formId = useId()
+
+  const keys = DYNAMIC_TARIFF_DRAFT_KEYS
+  const hasEntry =
+    meteringPoint.draft[keys.markupCtPerKwh] !== undefined ||
+    meteringPoint.draft[keys.baseFeeEurPerMonth] !== undefined ||
+    meteringPoint.draft[keys.supplier] !== undefined
+  const saved = readDraftDynamicTariff(meteringPoint.draft)
+
+  return (
+    <AdminPanel>
+      <h3 className="text-h4 text-ink">Dynamischer Tarif (Spotvertrag)</h3>
+      <p className="mt-1 text-caption text-text-muted">
+        Werte netto. Ohne Angabe wird der Vergleich mit dem dynamischen Tarif nicht gerechnet.
+      </p>
+
+      {hasEntry && (
+        <>
+          <p className="mt-4 text-small text-text">
+            Aktuell vermerkt:{' '}
+            {saved ? (
+              <>
+                <span className="font-medium text-ink">{saved.supplier}</span> ·{' '}
+                <span className="tabular-nums">
+                  {AMOUNT.format(saved.markupCtPerKwh)} ct/kWh Aufschlag
+                </span>{' '}
+                ·{' '}
+                <span className="tabular-nums">
+                  {AMOUNT.format(saved.baseFeeEurPerMonth)} EUR/Monat
+                </span>
+              </>
+            ) : (
+              'unvollständig — bitte löschen und neu eintragen.'
+            )}
+          </p>
+          <form
+            action={deleteAction}
+            onSubmit={(e) => {
+              if (!window.confirm('Konditionen des dynamischen Tarifs löschen?')) e.preventDefault()
+            }}
+            className="mt-3"
+          >
+            <input type="hidden" name="projectId" value={projectId} />
+            <input type="hidden" name="meteringPointId" value={meteringPoint.id} />
+            <Button type="submit" variant="ghost" size="sm" disabled={isDeleting}>
+              {isDeleting && (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2} aria-hidden="true" />
+              )}
+              Löschen
+            </Button>
+          </form>
+          {deleteState.formError && <AdminError>{deleteState.formError}</AdminError>}
+        </>
+      )}
+
+      {saveState.formError && <AdminError>{saveState.formError}</AdminError>}
+      {saveState.success && <AdminSuccess>{saveState.success}</AdminSuccess>}
+
+      {!hasEntry && (
+        <form action={saveAction} className="mt-4 flex flex-col gap-4">
+          <input type="hidden" name="projectId" value={projectId} />
+          <input type="hidden" name="meteringPointId" value={meteringPoint.id} />
+          <AdminField
+            id={`${formId}-supplierName`}
+            name="supplierName"
+            label="Bezeichnung (optional)"
+            placeholder="Spot-Tarif"
+            error={saveState.fieldErrors?.supplierName}
+            defaultValue={saveState.values?.supplierName}
+          />
+          <div className="grid gap-4 sm:grid-cols-2">
+            <AdminField
+              id={`${formId}-markupCtPerKwh`}
+              name="markupCtPerKwh"
+              label="Aufschlag auf den Börsenpreis (ct/kWh)"
+              inputMode="numeric"
+              error={saveState.fieldErrors?.markupCtPerKwh}
+              defaultValue={saveState.values?.markupCtPerKwh}
+            />
+            <AdminField
+              id={`${formId}-baseFeeEurPerMonth`}
+              name="baseFeeEurPerMonth"
+              label="Grundgebühr (EUR/Monat)"
+              inputMode="numeric"
+              error={saveState.fieldErrors?.baseFeeEurPerMonth}
+              defaultValue={saveState.values?.baseFeeEurPerMonth}
+            />
+          </div>
+          <div>
+            <Button type="submit" variant="secondary" size="sm" disabled={isSaving}>
+              {isSaving && (
+                <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2} aria-hidden="true" />
+              )}
+              Speichern
+            </Button>
+          </div>
+        </form>
+      )}
+    </AdminPanel>
   )
 }
