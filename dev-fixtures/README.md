@@ -256,6 +256,7 @@ node dev-fixtures/generate-demo-pv-profile.mjs --year 2023      # das eingefrore
 node dev-fixtures/generate-eda-netzbetreiber-fixtures.mjs  # Format A (Split-Timestamp + Mehrspalten)
 node dev-fixtures/generate-wechselrichter-ess-fixtures.mjs # Format B (ESS-XLSX, wird abgelehnt)
 node dev-fixtures/generate-teiljahr-lastgang.mjs           # Teiljahres-Lastgang (7 Tage, §3.5-Regression)
+node dev-fixtures/generate-de-lastgang-sep-fixtures.mjs  # deutsches Format mit sep=,-Vorzeile (Herbst-/Frühjahrs-Zeitumstellung)
 node dev-fixtures/shift-demo-baeckerei-lastgang.mjs        # 2023er-Bäcker wochentagserhaltend nach 2025 verschoben
 ```
 
