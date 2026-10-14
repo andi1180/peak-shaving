@@ -29,6 +29,16 @@ function detectFormat(input: RawFileInput): FileFormat {
   return typeof input.content === 'string' ? 'csv' : 'xlsx'
 }
 
+/** Excel-Konvention `sep=<Zeichen>` als erste nicht-leere Zeile (deutsche Messstellenbetreiber-Exporte). */
+const SEP_LINE = /^(?:[ \t]*\r?\n)*sep=([^\r\n])\r?(?:\n|$)/i
+
+/** Entfernt eine führende `sep=`-Zeile und liefert das darin angegebene Trennzeichen. */
+export function stripSepLine(text: string): { text: string; delimiter?: string } {
+  const m = SEP_LINE.exec(text)
+  if (!m) return { text }
+  return { text: text.slice(m[0].length), delimiter: m[1] }
+}
+
 /** Wählt den Trenner, der auf möglichst vielen der ersten Zeilen konsistent vorkommt. */
 export function detectDelimiter(text: string): string {
   const lines = text
@@ -54,12 +64,14 @@ export function extractTable(input: RawFileInput, delimiterOverride?: string): E
   const format = detectFormat(input)
 
   if (format === 'csv') {
-    const text = stripBom(
-      typeof input.content === 'string'
-        ? input.content
-        : new TextDecoder().decode(toUint8(input.content)),
+    const { text, delimiter: sepDelimiter } = stripSepLine(
+      stripBom(
+        typeof input.content === 'string'
+          ? input.content
+          : new TextDecoder().decode(toUint8(input.content)),
+      ),
     )
-    const delimiter = delimiterOverride ?? detectDelimiter(text)
+    const delimiter = delimiterOverride ?? sepDelimiter ?? detectDelimiter(text)
     const res = Papa.parse<string[]>(text, { delimiter, skipEmptyLines: 'greedy' })
     return { format, matrix: res.data as RawCell[][], delimiter }
   }
