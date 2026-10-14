@@ -102,13 +102,44 @@ describe('GET /api/cron/spot-price-sync — Zugangsgrenze', () => {
     await expect(res.json()).resolves.toMatchObject({
       job: 'spot_price_sync',
       outcome: 'success',
-      fetched: 1,
-      written: 1,
+      providers: {
+        awattar_at: { outcome: 'success', fetched: 1, written: 1 },
+        awattar_de: { outcome: 'success', fetched: 1, written: 1 },
+      },
     })
+    // Beide Anbieter, je ein Abruf an den eigenen Endpunkt und ein Upsert unter dem eigenen Schlüssel.
+    expect(fetchSpy.mock.calls.map(([url]) => String(url).split('?')[0])).toEqual([
+      'https://api.awattar.at/v1/marketdata',
+      'https://api.awattar.de/v1/marketdata',
+    ])
+    expect(upsert.mock.calls.map(([rows]) => rows[0].provider)).toEqual(['awattar_at', 'awattar_de'])
     expect(upsert).toHaveBeenCalledWith(
-      [expect.objectContaining({ provider: 'awattar_at', ct_per_kwh: 17.797, price_basis: 'net' })],
+      [expect.objectContaining({ provider: 'awattar_de', ct_per_kwh: 17.797, price_basis: 'net' })],
       { onConflict: 'provider,ts_start' },
     )
+  })
+
+  it('fällt ein Anbieter aus, wird der andere trotzdem geschrieben — Ausgang je Anbieter, 500', async () => {
+    const { client, upsert } = stubClient()
+    mocks.createServiceRoleClient.mockReturnValue(client)
+    fetchSpy.mockImplementation(async (url) =>
+      String(url).includes('awattar.at')
+        ? ({ ok: false, status: 503, json: async () => null } as Response)
+        : ({ ok: true, status: 200, json: async () => ({ data: [ENTRY] }) } as Response),
+    )
+
+    const res = await GET(request({ authorization: `Bearer ${CRON_SECRET}` }))
+
+    expect(res.status).toBe(500)
+    await expect(res.json()).resolves.toMatchObject({
+      outcome: 'partial',
+      providers: {
+        awattar_at: { outcome: 'error' },
+        awattar_de: { outcome: 'success', written: 1 },
+      },
+    })
+    expect(upsert).toHaveBeenCalledTimes(1)
+    expect(upsert.mock.calls[0]![0][0].provider).toBe('awattar_de')
   })
 
   it('das abgefragte Fenster beginnt um Mitternacht UTC und umfasst drei Tage', async () => {
@@ -137,5 +168,6 @@ describe('GET /api/cron/spot-price-sync — Zugangsgrenze', () => {
 
     expect(res.status).toBe(500)
     await expect(res.json()).resolves.toMatchObject({ outcome: 'error' })
+    expect(fetchSpy).toHaveBeenCalledTimes(2) // keine Wiederholung: ein Abruf je Anbieter
   })
 })

@@ -23,7 +23,13 @@
  */
 import 'server-only'
 
-import { buildLevySchedule, type LevyContext } from 'shared'
+import {
+  DEFAULT_COUNTRY,
+  buildLevySchedule,
+  spotPriceProviderFor,
+  type LevyContext,
+  type SpotPriceProvider,
+} from 'shared'
 import type {
   GridTariffRowInput,
   SpotPricePointInput,
@@ -42,9 +48,6 @@ type AdminClient = Awaited<ReturnType<typeof createClient>>
  * Viertelstunde bezogen — dasselbe, was `analysisWindow(loadProfile)` in `shared` liefert.
  */
 export type AnalysisPeriod = { startIso: string; endIso: string }
-
-/** Heute die einzige Quelle. Spiegel von `SPOT_PRICE_PROVIDER` in `apps/website`. */
-const SPOT_PRICE_PROVIDER = 'awattar_at'
 
 /** PostgREST liefert ohne `range()` höchstens 1.000 Zeilen — s. den Warnblock in `readSpotPricesForAnalysis`. */
 const PAGE_SIZE = 1000
@@ -187,6 +190,7 @@ export async function readSpotPricesForAnalysis(
   supabase: AdminClient,
   window: AnalysisPeriod,
   intervalMinutes: number,
+  provider: SpotPriceProvider,
 ): Promise<SpotPriceSeriesInput> {
   const periodStart = window.startIso
   const periodEnd = iso(Date.parse(window.endIso) + intervalMinutes * 60 * 1000)
@@ -196,13 +200,8 @@ export async function readSpotPricesForAnalysis(
     const { data, error } = await supabase
       .from('spot_prices')
       .select('ts_start, ts_end, ct_per_kwh, price_basis')
-      /*
-       * Heute die einzige Quelle. Der Filter ist trotzdem gesetzt: käme eine zweite dazu (die
-       * `provider`-Spalte existiert seit B21-1 genau dafür), lieferte eine ungefilterte Abfrage
-       * jede Stunde doppelt — die Preiskurve wäre still verfälscht und die Lückenprüfung
-       * gleichzeitig zufrieden.
-       */
-      .eq('provider', SPOT_PRICE_PROVIDER)
+      /* Der Anbieter folgt dem Projektland; ohne Filter lieferte jede Stunde zwei Preise (AT und DE). */
+      .eq('provider', provider)
       /* Jede Stunde, die sich mit [periodStart, periodEnd) überschneidet — auch die angebrochene
          erste (Lastgang ab 00:15) und letzte. `ts_start >= periodStart` schnitt die erste ab. */
       .gt('ts_end', periodStart)
@@ -316,7 +315,13 @@ export async function readTariffPricingForAnalysis(
     operatorId !== null && netzebene !== null
       ? readGridTariffRowsForAnalysis(supabase, { operatorId, netzebene, meteringVariant, window })
       : Promise.resolve(null),
-    readSpotPricesForAnalysis(supabase, window, intervalMinutes),
+    // Das Projektland steht im Abgaben-Kontext (der Port selbst trägt es nicht); ohne Angabe gilt AT.
+    readSpotPricesForAnalysis(
+      supabase,
+      window,
+      intervalMinutes,
+      spotPriceProviderFor(levyContext.country ?? DEFAULT_COUNTRY),
+    ),
   ])
 
   if (grid.status === 'rejected') {

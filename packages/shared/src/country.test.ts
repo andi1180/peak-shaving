@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { isValidPostalCode, normalizePostalCodeFor } from './country'
+import { isValidPostalCode, normalizePostalCodeFor, spotPriceProviderFor } from './country'
 
 describe('PLZ-Regel je Land', () => {
   it('AT: vier Ziffern gelten, fünf werden abgelehnt', () => {
@@ -16,5 +16,12 @@ describe('PLZ-Regel je Land', () => {
     expect(normalizePostalCodeFor('DE', ' 10115 ')).toBe('10115')
     expect(normalizePostalCodeFor('DE', '1010')).toBeNull()
     expect(normalizePostalCodeFor('DE', 'D-10115')).toBeNull() // nicht normalisiert, wie in der DB
+  })
+})
+
+describe('spotPriceProviderFor', () => {
+  it('AT → awattar_at, DE → awattar_de', () => {
+    expect(spotPriceProviderFor('AT')).toBe('awattar_at')
+    expect(spotPriceProviderFor('DE')).toBe('awattar_de')
   })
 })

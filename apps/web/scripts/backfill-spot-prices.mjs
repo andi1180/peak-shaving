@@ -1,7 +1,7 @@
 /**
  * Einmaliger Backfill der aWATTar-Marktpreise (B21-2a).
  *
- *   SUPABASE_URL=… SUPABASE_SERVICE_ROLE_KEY=… node apps/web/scripts/backfill-spot-prices.mjs [--start 2025-01-01]
+ *   SUPABASE_URL=… SUPABASE_SERVICE_ROLE_KEY=… node apps/web/scripts/backfill-spot-prices.mjs [--start 2025-01-01] [--provider awattar_de]
  *
  * Die Schlüssel kommen aus der Shell, nicht aus einer Datei im Repo (DEPLOYMENT.md §4, Prinzip S1).
  * Ohne Argumente wird ab dem festen Anker (s. u.) bis jetzt geholt.
@@ -36,7 +36,7 @@
  * Hier liegt es neben dem Code, den es benutzt, und beide Importe lösen ohne Zutun auf.
  */
 import { createClient } from '@supabase/supabase-js'
-import { SPOT_PRICES_ON_CONFLICT, syncSpotPrices } from '../lib/spot-prices/sync.ts'
+import { SPOT_PRICES_ON_CONFLICT, providerFromArgs, syncSpotPrices } from '../lib/spot-prices/sync.ts'
 
 const url = process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL
 const key = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -73,6 +73,15 @@ if (Number.isNaN(start.getTime())) {
   process.exit(1)
 }
 
+// Vorgabe awattar_at: der Aufruf ohne --provider verhält sich wie vor dem zweiten Anbieter.
+let provider
+try {
+  provider = providerFromArgs(process.argv)
+} catch (cause) {
+  console.error(cause instanceof Error ? cause.message : cause, '(erlaubt: awattar_at, awattar_de)')
+  process.exit(1)
+}
+
 const end = new Date()
 if (start.getTime() >= end.getTime()) {
   console.error('--start muss in der Vergangenheit liegen.')
@@ -81,10 +90,11 @@ if (start.getTime() >= end.getTime()) {
 
 const supabase = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } })
 
-console.log(`Backfill ${start.toISOString()} … ${end.toISOString()}`)
+console.log(`Backfill ${provider} ${start.toISOString()} … ${end.toISOString()}`)
 
 try {
   const result = await syncSpotPrices({
+    provider,
     startMs: start.getTime(),
     endMs: end.getTime(),
     write: (rows) => supabase.from('spot_prices').upsert(rows, { onConflict: SPOT_PRICES_ON_CONFLICT }),

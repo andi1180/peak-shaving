@@ -14,6 +14,9 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
   AWATTAR_PROVIDER,
+  SPOT_PRICE_SYNC_PROVIDERS,
+  marketdataUrlFor,
+  providerFromArgs,
   SpotPriceSyncError,
   fetchAwattarWindow,
   parseAwattarResponse,
@@ -177,5 +180,57 @@ describe('syncSpotPrices', () => {
       }),
     ).rejects.toThrow(/unerwartete Einheit/)
     expect(write).not.toHaveBeenCalled()
+  })
+})
+
+describe('Anbieter → Endpunkt', () => {
+  it('awattar_at → api.awattar.at, awattar_de → api.awattar.de', () => {
+    expect(marketdataUrlFor('awattar_at')).toBe('https://api.awattar.at/v1/marketdata')
+    expect(marketdataUrlFor('awattar_de')).toBe('https://api.awattar.de/v1/marketdata')
+    expect(SPOT_PRICE_SYNC_PROVIDERS).toEqual(['awattar_at', 'awattar_de'])
+  })
+
+  it('ein unbekannter Anbieter ist ein Fehler, kein Rückfall auf AT', () => {
+    expect(() => marketdataUrlFor('awattar_fr')).toThrow(SpotPriceSyncError)
+    expect(() => marketdataUrlFor('toString')).toThrow(SpotPriceSyncError)
+  })
+
+  it('der Abruf geht an den Endpunkt des Anbieters; ohne Angabe wie bisher an AT', async () => {
+    const spy = okFetch({ data: [] })
+    await fetchAwattarWindow(1000, 2000, spy)
+    await fetchAwattarWindow(1000, 2000, spy, 'awattar_de')
+    const urls = (spy as unknown as { mock: { calls: [string][] } }).mock.calls.map(([url]) => url)
+    expect(urls).toEqual([
+      'https://api.awattar.at/v1/marketdata?start=1000&end=2000',
+      'https://api.awattar.de/v1/marketdata?start=1000&end=2000',
+    ])
+  })
+
+  it('die geschriebenen Zeilen tragen den Anbieter und dieselbe Umrechnung', async () => {
+    const write = vi.fn().mockResolvedValue({ error: null })
+    await syncSpotPrices({
+      write,
+      startMs: 1000,
+      endMs: 2000,
+      fetchImpl: okFetch({ data: [REAL_ENTRY] }),
+      provider: 'awattar_de',
+    })
+    expect(write.mock.calls[0]![0]).toEqual([
+      expect.objectContaining({ provider: 'awattar_de', price_basis: 'net' }),
+    ])
+    expect(write.mock.calls[0]![0][0].ct_per_kwh).toBeCloseTo(17.797, 10)
+  })
+})
+
+describe('Backfill: --provider', () => {
+  it('ohne Parameter awattar_at (bisheriges Verhalten)', () => {
+    expect(providerFromArgs(['node', 'backfill.mjs'])).toBe('awattar_at')
+    expect(providerFromArgs(['node', 'backfill.mjs', '--start', '2025-01-01'])).toBe('awattar_at')
+  })
+
+  it('mit --provider awattar_de der DE-Anbieter, unbekannt oder leer → Fehler', () => {
+    expect(providerFromArgs(['node', 'b.mjs', '--provider', 'awattar_de'])).toBe('awattar_de')
+    expect(() => providerFromArgs(['node', 'b.mjs', '--provider', 'foo'])).toThrow(SpotPriceSyncError)
+    expect(() => providerFromArgs(['node', 'b.mjs', '--provider'])).toThrow(SpotPriceSyncError)
   })
 })
